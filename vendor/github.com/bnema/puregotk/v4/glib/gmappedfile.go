@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject/types"
 )
@@ -20,6 +19,7 @@ type MappedFile struct {
 var xMappedFileGLibType func() types.GType
 
 func MappedFileGLibType() types.GType {
+	core.LazyRegister(&xMappedFileGLibType, "GLIB", "g_mapped_file_get_type", false)
 	return xMappedFileGLibType()
 }
 
@@ -54,6 +54,7 @@ var xNewMappedFile func(string, bool, **Error) uintptr
 // size 0 (e.g. device files such as /dev/null), @error will be set
 // to the #GFileError value %G_FILE_ERROR_INVAL.
 func NewMappedFile(FilenameVar string, WritableVar bool) (*MappedFile, error) {
+	core.LazyRegister(&xNewMappedFile, "GLIB", "g_mapped_file_new", false)
 	var cerr *Error
 
 	cret := xNewMappedFile(FilenameVar, WritableVar, &cerr)
@@ -80,6 +81,7 @@ var xNewMappedFileFromFd func(int, bool, **Error) uintptr
 // will not be modified, or if all modifications of the file are done
 // atomically (e.g. using g_file_set_contents()).
 func NewMappedFileFromFd(FdVar int, WritableVar bool) (*MappedFile, error) {
+	core.LazyRegister(&xNewMappedFileFromFd, "GLIB", "g_mapped_file_new_from_fd", false)
 	var cerr *Error
 
 	cret := xNewMappedFileFromFd(FdVar, WritableVar, &cerr)
@@ -97,6 +99,8 @@ var xMappedFileFree func(uintptr)
 // This call existed before #GMappedFile had refcounting and is currently
 // exactly the same as g_mapped_file_unref().
 func (x *MappedFile) Free() {
+	core.LazyRegister(&xMappedFileFree, "GLIB", "g_mapped_file_free", false)
+
 	xMappedFileFree(x.GoPointer())
 }
 
@@ -106,6 +110,8 @@ var xMappedFileGetBytes func(uintptr) uintptr
 // The mapped contents of the file must not be modified after creating this
 // bytes object, because a #GBytes should be immutable.
 func (x *MappedFile) GetBytes() *Bytes {
+	core.LazyRegister(&xMappedFileGetBytes, "GLIB", "g_mapped_file_get_bytes", false)
+
 	cret := xMappedFileGetBytes(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -122,6 +128,8 @@ var xMappedFileGetContents func(uintptr) string
 //
 // If the file is empty then %NULL is returned.
 func (x *MappedFile) GetContents() string {
+	core.LazyRegister(&xMappedFileGetContents, "GLIB", "g_mapped_file_get_contents", false)
+
 	cret := xMappedFileGetContents(x.GoPointer())
 	return cret
 }
@@ -130,6 +138,8 @@ var xMappedFileGetLength func(uintptr) uint
 
 // Returns the length of the contents of a #GMappedFile.
 func (x *MappedFile) GetLength() uint {
+	core.LazyRegister(&xMappedFileGetLength, "GLIB", "g_mapped_file_get_length", false)
+
 	cret := xMappedFileGetLength(x.GoPointer())
 	return cret
 }
@@ -139,6 +149,8 @@ var xMappedFileRef func(uintptr) uintptr
 // Increments the reference count of @file by one.  It is safe to call
 // this function from any thread.
 func (x *MappedFile) Ref() *MappedFile {
+	core.LazyRegister(&xMappedFileRef, "GLIB", "g_mapped_file_ref", false)
+
 	cret := xMappedFileRef(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -155,30 +167,12 @@ var xMappedFileUnref func(uintptr)
 //
 // Since 2.22
 func (x *MappedFile) Unref() {
+	core.LazyRegister(&xMappedFileUnref, "GLIB", "g_mapped_file_unref", false)
+
 	xMappedFileUnref(x.GoPointer())
 }
 
 func init() {
 	core.SetPackageName("GLIB", "glib-2.0")
 	core.SetSharedLibraries("GLIB", []string{"libgobject-2.0.so.0", "libglib-2.0.so.0", "libgobject-2.0.0.dylib", "libglib-2.0.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GLIB") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xMappedFileGLibType, libs, "g_mapped_file_get_type")
-
-	core.PuregoSafeRegister(&xNewMappedFile, libs, "g_mapped_file_new")
-	core.PuregoSafeRegister(&xNewMappedFileFromFd, libs, "g_mapped_file_new_from_fd")
-
-	core.PuregoSafeRegister(&xMappedFileFree, libs, "g_mapped_file_free")
-	core.PuregoSafeRegister(&xMappedFileGetBytes, libs, "g_mapped_file_get_bytes")
-	core.PuregoSafeRegister(&xMappedFileGetContents, libs, "g_mapped_file_get_contents")
-	core.PuregoSafeRegister(&xMappedFileGetLength, libs, "g_mapped_file_get_length")
-	core.PuregoSafeRegister(&xMappedFileRef, libs, "g_mapped_file_ref")
-	core.PuregoSafeRegister(&xMappedFileUnref, libs, "g_mapped_file_unref")
 }

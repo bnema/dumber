@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -61,6 +60,7 @@ type PreferencesDialog struct {
 var xPreferencesDialogGLibType func() types.GType
 
 func PreferencesDialogGLibType() types.GType {
+	core.LazyRegister(&xPreferencesDialogGLibType, "ADW", "adw_preferences_dialog_get_type", false)
 	return xPreferencesDialogGLibType()
 }
 
@@ -74,6 +74,7 @@ var xNewPreferencesDialog func() uintptr
 
 // Creates a new `AdwPreferencesDialog`.
 func NewPreferencesDialog() *PreferencesDialog {
+	core.LazyRegister(&xNewPreferencesDialog, "ADW", "adw_preferences_dialog_new", false)
 	var cls *PreferencesDialog
 
 	cret := xNewPreferencesDialog()
@@ -91,6 +92,8 @@ var xPreferencesDialogAdd func(uintptr, uintptr)
 
 // Adds a preferences page to @self.
 func (x *PreferencesDialog) Add(PageVar *PreferencesPage) {
+	core.LazyRegister(&xPreferencesDialogAdd, "ADW", "adw_preferences_dialog_add", false)
+
 	xPreferencesDialogAdd(x.GoPointer(), PageVar.GoPointer())
 }
 
@@ -100,6 +103,8 @@ var xPreferencesDialogAddToast func(uintptr, uintptr)
 //
 // See [method@ToastOverlay.add_toast].
 func (x *PreferencesDialog) AddToast(ToastVar *Toast) {
+	core.LazyRegister(&xPreferencesDialogAddToast, "ADW", "adw_preferences_dialog_add_toast", false)
+
 	xPreferencesDialogAddToast(x.GoPointer(), ToastVar.GoPointer())
 }
 
@@ -107,6 +112,8 @@ var xPreferencesDialogGetSearchEnabled func(uintptr) bool
 
 // Gets whether search is enabled for @self.
 func (x *PreferencesDialog) GetSearchEnabled() bool {
+	core.LazyRegister(&xPreferencesDialogGetSearchEnabled, "ADW", "adw_preferences_dialog_get_search_enabled", false)
+
 	cret := xPreferencesDialogGetSearchEnabled(x.GoPointer())
 	return cret
 }
@@ -115,6 +122,7 @@ var xPreferencesDialogGetVisiblePage func(uintptr) uintptr
 
 // Gets the currently visible page of @self.
 func (x *PreferencesDialog) GetVisiblePage() *PreferencesPage {
+	core.LazyRegister(&xPreferencesDialogGetVisiblePage, "ADW", "adw_preferences_dialog_get_visible_page", false)
 	var cls *PreferencesPage
 
 	cret := xPreferencesDialogGetVisiblePage(x.GoPointer())
@@ -132,6 +140,8 @@ var xPreferencesDialogGetVisiblePageName func(uintptr) string
 
 // Gets the name of currently visible page of @self.
 func (x *PreferencesDialog) GetVisiblePageName() string {
+	core.LazyRegister(&xPreferencesDialogGetVisiblePageName, "ADW", "adw_preferences_dialog_get_visible_page_name", false)
+
 	cret := xPreferencesDialogGetVisiblePageName(x.GoPointer())
 	return cret
 }
@@ -140,6 +150,8 @@ var xPreferencesDialogPopSubpage func(uintptr) bool
 
 // Pop the visible page from the subpage stack of @self.
 func (x *PreferencesDialog) PopSubpage() bool {
+	core.LazyRegister(&xPreferencesDialogPopSubpage, "ADW", "adw_preferences_dialog_pop_subpage", false)
+
 	cret := xPreferencesDialogPopSubpage(x.GoPointer())
 	return cret
 }
@@ -150,6 +162,8 @@ var xPreferencesDialogPushSubpage func(uintptr, uintptr)
 //
 // The page will be automatically removed when popped.
 func (x *PreferencesDialog) PushSubpage(PageVar *NavigationPage) {
+	core.LazyRegister(&xPreferencesDialogPushSubpage, "ADW", "adw_preferences_dialog_push_subpage", false)
+
 	xPreferencesDialogPushSubpage(x.GoPointer(), PageVar.GoPointer())
 }
 
@@ -157,6 +171,8 @@ var xPreferencesDialogRemove func(uintptr, uintptr)
 
 // Removes a page from @self.
 func (x *PreferencesDialog) Remove(PageVar *PreferencesPage) {
+	core.LazyRegister(&xPreferencesDialogRemove, "ADW", "adw_preferences_dialog_remove", false)
+
 	xPreferencesDialogRemove(x.GoPointer(), PageVar.GoPointer())
 }
 
@@ -164,6 +180,8 @@ var xPreferencesDialogSetSearchEnabled func(uintptr, bool)
 
 // Sets whether search is enabled for @self.
 func (x *PreferencesDialog) SetSearchEnabled(SearchEnabledVar bool) {
+	core.LazyRegister(&xPreferencesDialogSetSearchEnabled, "ADW", "adw_preferences_dialog_set_search_enabled", false)
+
 	xPreferencesDialogSetSearchEnabled(x.GoPointer(), SearchEnabledVar)
 }
 
@@ -171,6 +189,8 @@ var xPreferencesDialogSetVisiblePage func(uintptr, uintptr)
 
 // Makes @page the visible page of @self.
 func (x *PreferencesDialog) SetVisiblePage(PageVar *PreferencesPage) {
+	core.LazyRegister(&xPreferencesDialogSetVisiblePage, "ADW", "adw_preferences_dialog_set_visible_page", false)
+
 	xPreferencesDialogSetVisiblePage(x.GoPointer(), PageVar.GoPointer())
 }
 
@@ -180,6 +200,8 @@ var xPreferencesDialogSetVisiblePageName func(uintptr, string)
 //
 // See [property@PreferencesDialog:visible-page].
 func (x *PreferencesDialog) SetVisiblePageName(NameVar string) {
+	core.LazyRegister(&xPreferencesDialogSetVisiblePageName, "ADW", "adw_preferences_dialog_set_visible_page_name", false)
+
 	xPreferencesDialogSetVisiblePageName(x.GoPointer(), NameVar)
 }
 
@@ -495,28 +517,4 @@ func (x *PreferencesDialog) GetBuildableId() string {
 func init() {
 	core.SetPackageName("ADW", "libadwaita-1")
 	core.SetSharedLibraries("ADW", []string{"libadwaita-1.so.0", "libadwaita-1.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("ADW") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xPreferencesDialogGLibType, libs, "adw_preferences_dialog_get_type")
-
-	core.PuregoSafeRegister(&xNewPreferencesDialog, libs, "adw_preferences_dialog_new")
-
-	core.PuregoSafeRegister(&xPreferencesDialogAdd, libs, "adw_preferences_dialog_add")
-	core.PuregoSafeRegister(&xPreferencesDialogAddToast, libs, "adw_preferences_dialog_add_toast")
-	core.PuregoSafeRegister(&xPreferencesDialogGetSearchEnabled, libs, "adw_preferences_dialog_get_search_enabled")
-	core.PuregoSafeRegister(&xPreferencesDialogGetVisiblePage, libs, "adw_preferences_dialog_get_visible_page")
-	core.PuregoSafeRegister(&xPreferencesDialogGetVisiblePageName, libs, "adw_preferences_dialog_get_visible_page_name")
-	core.PuregoSafeRegister(&xPreferencesDialogPopSubpage, libs, "adw_preferences_dialog_pop_subpage")
-	core.PuregoSafeRegister(&xPreferencesDialogPushSubpage, libs, "adw_preferences_dialog_push_subpage")
-	core.PuregoSafeRegister(&xPreferencesDialogRemove, libs, "adw_preferences_dialog_remove")
-	core.PuregoSafeRegister(&xPreferencesDialogSetSearchEnabled, libs, "adw_preferences_dialog_set_search_enabled")
-	core.PuregoSafeRegister(&xPreferencesDialogSetVisiblePage, libs, "adw_preferences_dialog_set_visible_page")
-	core.PuregoSafeRegister(&xPreferencesDialogSetVisiblePageName, libs, "adw_preferences_dialog_set_visible_page_name")
 }

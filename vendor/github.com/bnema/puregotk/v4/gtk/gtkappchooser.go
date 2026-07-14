@@ -2,7 +2,6 @@
 package gtk
 
 import (
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gio"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -39,6 +38,7 @@ type AppChooser interface {
 var xAppChooserGLibType func() types.GType
 
 func AppChooserGLibType() types.GType {
+	core.LazyRegister(&xAppChooserGLibType, "GTK", "gtk_app_chooser_get_type", false)
 	return xAppChooserGLibType()
 }
 
@@ -108,27 +108,28 @@ func (x *AppChooserBase) GetPropertyContentType() string {
 	return v.GetString()
 }
 
+var XGtkAppChooserGetAppInfo func(uintptr) uintptr = func(instance uintptr) uintptr {
+	core.LazyRegister(&xXGtkAppChooserGetAppInfo, "GTK", "gtk_app_chooser_get_app_info", false)
+	return xXGtkAppChooserGetAppInfo(instance)
+}
+
 var (
-	XGtkAppChooserGetAppInfo     func(uintptr) uintptr
-	XGtkAppChooserGetContentType func(uintptr) string
-	XGtkAppChooserRefresh        func(uintptr)
+	xXGtkAppChooserGetAppInfo    func(uintptr) uintptr
+	XGtkAppChooserGetContentType func(uintptr) string = func(instance uintptr) string {
+		core.LazyRegister(&xXGtkAppChooserGetContentType, "GTK", "gtk_app_chooser_get_content_type", false)
+		return xXGtkAppChooserGetContentType(instance)
+	}
 )
+var (
+	xXGtkAppChooserGetContentType func(uintptr) string
+	XGtkAppChooserRefresh         func(uintptr) = func(instance uintptr) {
+		core.LazyRegister(&xXGtkAppChooserRefresh, "GTK", "gtk_app_chooser_refresh", false)
+		xXGtkAppChooserRefresh(instance)
+	}
+)
+var xXGtkAppChooserRefresh func(uintptr)
 
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GTK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xAppChooserGLibType, libs, "gtk_app_chooser_get_type")
-
-	core.PuregoSafeRegister(&XGtkAppChooserGetAppInfo, libs, "gtk_app_chooser_get_app_info")
-	core.PuregoSafeRegister(&XGtkAppChooserGetContentType, libs, "gtk_app_chooser_get_content_type")
-	core.PuregoSafeRegister(&XGtkAppChooserRefresh, libs, "gtk_app_chooser_refresh")
 }

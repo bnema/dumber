@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gdk"
 	"github.com/bnema/puregotk/v4/glib"
@@ -41,6 +40,7 @@ type ATContext struct {
 var xATContextGLibType func() types.GType
 
 func ATContextGLibType() types.GType {
+	core.LazyRegister(&xATContextGLibType, "GTK", "gtk_at_context_get_type", false)
 	return xATContextGLibType()
 }
 
@@ -58,6 +58,7 @@ var xATContextCreate func(AccessibleRole, uintptr, uintptr) uintptr
 // The `GtkATContext` implementation being instantiated will depend on the
 // platform.
 func ATContextCreate(AccessibleRoleVar AccessibleRole, AccessibleVar Accessible, DisplayVar *gdk.Display) *ATContext {
+	core.LazyRegister(&xATContextCreate, "GTK", "gtk_at_context_create", false)
 	var cls *ATContext
 
 	cret := xATContextCreate(AccessibleRoleVar, AccessibleVar.GoPointer(), DisplayVar.GoPointer())
@@ -74,6 +75,7 @@ var xATContextGetAccessible func(uintptr) uintptr
 
 // Retrieves the `GtkAccessible` using this context.
 func (x *ATContext) GetAccessible() *AccessibleBase {
+	core.LazyRegister(&xATContextGetAccessible, "GTK", "gtk_at_context_get_accessible", false)
 	var cls *AccessibleBase
 
 	cret := xATContextGetAccessible(x.GoPointer())
@@ -91,6 +93,8 @@ var xATContextGetAccessibleRole func(uintptr) AccessibleRole
 
 // Retrieves the accessible role of this context.
 func (x *ATContext) GetAccessibleRole() AccessibleRole {
+	core.LazyRegister(&xATContextGetAccessibleRole, "GTK", "gtk_at_context_get_accessible_role", false)
+
 	cret := xATContextGetAccessibleRole(x.GoPointer())
 	return cret
 }
@@ -133,19 +137,4 @@ func (x *ATContext) ConnectStateChange(cb *func(ATContext)) uint {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GTK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xATContextGLibType, libs, "gtk_at_context_get_type")
-
-	core.PuregoSafeRegister(&xATContextCreate, libs, "gtk_at_context_create")
-
-	core.PuregoSafeRegister(&xATContextGetAccessible, libs, "gtk_at_context_get_accessible")
-	core.PuregoSafeRegister(&xATContextGetAccessibleRole, libs, "gtk_at_context_get_accessible_role")
 }

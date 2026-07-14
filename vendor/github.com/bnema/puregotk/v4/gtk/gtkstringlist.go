@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gio"
 	"github.com/bnema/puregotk/v4/glib"
@@ -85,6 +84,7 @@ type StringList struct {
 var xStringListGLibType func() types.GType
 
 func StringListGLibType() types.GType {
+	core.LazyRegister(&xStringListGLibType, "GTK", "gtk_string_list_get_type", false)
 	return xStringListGLibType()
 }
 
@@ -98,6 +98,7 @@ var xNewStringList func([]string) uintptr
 
 // Creates a new `GtkStringList` with the given @strings.
 func NewStringList(StringsVar []string) *StringList {
+	core.LazyRegister(&xNewStringList, "GTK", "gtk_string_list_new", false)
 	var cls *StringList
 
 	cret := xNewStringList(StringsVar)
@@ -117,6 +118,8 @@ var xStringListAppend func(uintptr, string)
 // The @string will be copied. See
 // [method@Gtk.StringList.take] for a way to avoid that.
 func (x *StringList) Append(StringVar string) {
+	core.LazyRegister(&xStringListAppend, "GTK", "gtk_string_list_append", false)
+
 	xStringListAppend(x.GoPointer(), StringVar)
 }
 
@@ -126,6 +129,8 @@ var xStringListFind func(uintptr, string) uint
 //
 // If @self does not contain @string item, `G_MAXUINT` is returned.
 func (x *StringList) Find(StringVar string) uint {
+	core.LazyRegister(&xStringListFind, "GTK", "gtk_string_list_find", false)
+
 	cret := xStringListFind(x.GoPointer(), StringVar)
 	return cret
 }
@@ -139,6 +144,8 @@ var xStringListGetString func(uintptr, uint) string
 // This function returns the const char *. To get the
 // object wrapping it, use g_list_model_get_item().
 func (x *StringList) GetString(PositionVar uint) string {
+	core.LazyRegister(&xStringListGetString, "GTK", "gtk_string_list_get_string", false)
+
 	cret := xStringListGetString(x.GoPointer(), PositionVar)
 	return cret
 }
@@ -150,6 +157,8 @@ var xStringListRemove func(uintptr, uint)
 // @position must be smaller than the current
 // length of the list.
 func (x *StringList) Remove(PositionVar uint) {
+	core.LazyRegister(&xStringListRemove, "GTK", "gtk_string_list_remove", false)
+
 	xStringListRemove(x.GoPointer(), PositionVar)
 }
 
@@ -168,6 +177,8 @@ var xStringListSplice func(uintptr, uint, uint, []string)
 // @position + @n_removals must be less than or equal to the length
 // of the list at the time this function is called).
 func (x *StringList) Splice(PositionVar uint, NRemovalsVar uint, AdditionsVar []string) {
+	core.LazyRegister(&xStringListSplice, "GTK", "gtk_string_list_splice", false)
+
 	xStringListSplice(x.GoPointer(), PositionVar, NRemovalsVar, AdditionsVar)
 }
 
@@ -183,6 +194,8 @@ var xStringListTake func(uintptr, string)
 // gtk_string_list_take (self, g_strdup_print ("%d dollars", lots));
 // ```
 func (x *StringList) Take(StringVar string) {
+	core.LazyRegister(&xStringListTake, "GTK", "gtk_string_list_take", false)
+
 	xStringListTake(x.GoPointer(), StringVar)
 }
 
@@ -321,6 +334,7 @@ type StringObject struct {
 var xStringObjectGLibType func() types.GType
 
 func StringObjectGLibType() types.GType {
+	core.LazyRegister(&xStringObjectGLibType, "GTK", "gtk_string_object_get_type", false)
 	return xStringObjectGLibType()
 }
 
@@ -334,6 +348,7 @@ var xNewStringObject func(string) uintptr
 
 // Wraps a string in an object for use with `GListModel`.
 func NewStringObject(StringVar string) *StringObject {
+	core.LazyRegister(&xNewStringObject, "GTK", "gtk_string_object_new", false)
 	var cls *StringObject
 
 	cret := xNewStringObject(StringVar)
@@ -350,6 +365,8 @@ var xStringObjectGetString func(uintptr) string
 
 // Returns the string contained in a `GtkStringObject`.
 func (x *StringObject) GetString() string {
+	core.LazyRegister(&xStringObjectGetString, "GTK", "gtk_string_object_get_string", false)
+
 	cret := xStringObjectGetString(x.GoPointer())
 	return cret
 }
@@ -376,29 +393,4 @@ func (x *StringObject) GetPropertyString() string {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GTK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xStringListGLibType, libs, "gtk_string_list_get_type")
-
-	core.PuregoSafeRegister(&xNewStringList, libs, "gtk_string_list_new")
-
-	core.PuregoSafeRegister(&xStringListAppend, libs, "gtk_string_list_append")
-	core.PuregoSafeRegister(&xStringListFind, libs, "gtk_string_list_find")
-	core.PuregoSafeRegister(&xStringListGetString, libs, "gtk_string_list_get_string")
-	core.PuregoSafeRegister(&xStringListRemove, libs, "gtk_string_list_remove")
-	core.PuregoSafeRegister(&xStringListSplice, libs, "gtk_string_list_splice")
-	core.PuregoSafeRegister(&xStringListTake, libs, "gtk_string_list_take")
-
-	core.PuregoSafeRegister(&xStringObjectGLibType, libs, "gtk_string_object_get_type")
-
-	core.PuregoSafeRegister(&xNewStringObject, libs, "gtk_string_object_new")
-
-	core.PuregoSafeRegister(&xStringObjectGetString, libs, "gtk_string_object_get_string")
 }

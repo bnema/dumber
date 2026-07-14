@@ -4,7 +4,6 @@ package soup
 import (
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -35,6 +34,7 @@ type SameSitePolicy int
 var xSameSitePolicyGLibType func() types.GType
 
 func SameSitePolicyGLibType() types.GType {
+	core.LazyRegister(&xSameSitePolicyGLibType, "SOUP", "soup_same_site_policy_get_type", false)
 	return xSameSitePolicyGLibType()
 }
 
@@ -64,6 +64,8 @@ var xCookieParse func(string, *glib.Uri) uintptr
 // As of version 3.4.0 the default value of a cookie's same-site-policy
 // is %SOUP_SAME_SITE_POLICY_LAX.
 func CookieParse(HeaderVar string, OriginVar *glib.Uri) *Cookie {
+	core.LazyRegister(&xCookieParse, "SOUP", "soup_cookie_parse", false)
+
 	cret := xCookieParse(HeaderVar, OriginVar)
 	if cret == 0 {
 		return nil
@@ -75,6 +77,8 @@ var xCookiesFree func(*glib.SList)
 
 // Frees @cookies.
 func CookiesFree(CookiesVar *glib.SList) {
+	core.LazyRegister(&xCookiesFree, "SOUP", "soup_cookies_free", false)
+
 	xCookiesFree(CookiesVar)
 }
 
@@ -88,6 +92,8 @@ var xCookiesFromRequest func(uintptr) uintptr
 // can't generally pass a cookie returned from this method directly to
 // [func@cookies_to_response].)
 func CookiesFromRequest(MsgVar *Message) *glib.SList {
+	core.LazyRegister(&xCookiesFromRequest, "SOUP", "soup_cookies_from_request", false)
+
 	cret := xCookiesFromRequest(MsgVar.GoPointer())
 	if cret == 0 {
 		return nil
@@ -103,6 +109,8 @@ var xCookiesFromResponse func(uintptr) uintptr
 // Cookies that do not specify "path" or "domain" attributes will have their
 // values defaulted from @msg.
 func CookiesFromResponse(MsgVar *Message) *glib.SList {
+	core.LazyRegister(&xCookiesFromResponse, "SOUP", "soup_cookies_from_response", false)
+
 	cret := xCookiesFromResponse(MsgVar.GoPointer())
 	if cret == 0 {
 		return nil
@@ -115,6 +123,8 @@ var xCookiesToCookieHeader func(*glib.SList) string
 // Serializes a [struct@GLib.SList] of [struct@Cookie] into a string suitable for
 // setting as the value of the "Cookie" header.
 func CookiesToCookieHeader(CookiesVar *glib.SList) string {
+	core.LazyRegister(&xCookiesToCookieHeader, "SOUP", "soup_cookies_to_cookie_header", false)
+
 	cret := xCookiesToCookieHeader(CookiesVar)
 	return cret
 }
@@ -128,6 +138,8 @@ var xCookiesToRequest func(*glib.SList, uintptr)
 // to the cookies already present. Be careful that you do not append the same
 // cookies twice, eg, when requeuing a message.
 func CookiesToRequest(CookiesVar *glib.SList, MsgVar *Message) {
+	core.LazyRegister(&xCookiesToRequest, "SOUP", "soup_cookies_to_request", false)
+
 	xCookiesToRequest(CookiesVar, MsgVar.GoPointer())
 }
 
@@ -139,28 +151,12 @@ var xCookiesToResponse func(*glib.SList, uintptr)
 // This is in addition to any other "Set-Cookie" headers
 // @msg may already have.
 func CookiesToResponse(CookiesVar *glib.SList, MsgVar *Message) {
+	core.LazyRegister(&xCookiesToResponse, "SOUP", "soup_cookies_to_response", false)
+
 	xCookiesToResponse(CookiesVar, MsgVar.GoPointer())
 }
 
 func init() {
 	core.SetPackageName("SOUP", "libsoup-3.0")
 	core.SetSharedLibraries("SOUP", []string{"libsoup-3.0.so.0", "libsoup-3.0.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("SOUP") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xSameSitePolicyGLibType, libs, "soup_same_site_policy_get_type")
-
-	core.PuregoSafeRegister(&xCookieParse, libs, "soup_cookie_parse")
-	core.PuregoSafeRegister(&xCookiesFree, libs, "soup_cookies_free")
-	core.PuregoSafeRegister(&xCookiesFromRequest, libs, "soup_cookies_from_request")
-	core.PuregoSafeRegister(&xCookiesFromResponse, libs, "soup_cookies_from_response")
-	core.PuregoSafeRegister(&xCookiesToCookieHeader, libs, "soup_cookies_to_cookie_header")
-	core.PuregoSafeRegister(&xCookiesToRequest, libs, "soup_cookies_to_request")
-	core.PuregoSafeRegister(&xCookiesToResponse, libs, "soup_cookies_to_response")
 }

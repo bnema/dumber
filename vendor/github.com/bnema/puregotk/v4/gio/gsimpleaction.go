@@ -4,7 +4,6 @@ package gio
 import (
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -21,6 +20,7 @@ type SimpleAction struct {
 var xSimpleActionGLibType func() types.GType
 
 func SimpleActionGLibType() types.GType {
+	core.LazyRegister(&xSimpleActionGLibType, "GIO", "g_simple_action_get_type", false)
 	return xSimpleActionGLibType()
 }
 
@@ -37,6 +37,7 @@ var xNewSimpleAction func(string, *glib.VariantType) uintptr
 // The created action is stateless. See g_simple_action_new_stateful() to create
 // an action that has state.
 func NewSimpleAction(NameVar string, ParameterTypeVar *glib.VariantType) *SimpleAction {
+	core.LazyRegister(&xNewSimpleAction, "GIO", "g_simple_action_new", false)
 	var cls *SimpleAction
 
 	cret := xNewSimpleAction(NameVar, ParameterTypeVar)
@@ -58,6 +59,7 @@ var xNewSimpleActionStateful func(string, *glib.VariantType, *glib.Variant) uint
 //
 // If the @state #GVariant is floating, it is consumed.
 func NewSimpleActionStateful(NameVar string, ParameterTypeVar *glib.VariantType, StateVar *glib.Variant) *SimpleAction {
+	core.LazyRegister(&xNewSimpleActionStateful, "GIO", "g_simple_action_new_stateful", false)
 	var cls *SimpleAction
 
 	cret := xNewSimpleActionStateful(NameVar, ParameterTypeVar, StateVar)
@@ -80,6 +82,8 @@ var xSimpleActionSetEnabled func(uintptr, bool)
 // This should only be called by the implementor of the action.  Users
 // of the action should not attempt to modify its enabled flag.
 func (x *SimpleAction) SetEnabled(EnabledVar bool) {
+	core.LazyRegister(&xSimpleActionSetEnabled, "GIO", "g_simple_action_set_enabled", false)
+
 	xSimpleActionSetEnabled(x.GoPointer(), EnabledVar)
 }
 
@@ -96,6 +100,8 @@ var xSimpleActionSetState func(uintptr, *glib.Variant)
 //
 // If the @value GVariant is floating, it is consumed.
 func (x *SimpleAction) SetState(ValueVar *glib.Variant) {
+	core.LazyRegister(&xSimpleActionSetState, "GIO", "g_simple_action_set_state", false)
+
 	xSimpleActionSetState(x.GoPointer(), ValueVar)
 }
 
@@ -106,6 +112,8 @@ var xSimpleActionSetStateHint func(uintptr, *glib.Variant)
 // See g_action_get_state_hint() for more information about
 // action state hints.
 func (x *SimpleAction) SetStateHint(StateHintVar *glib.Variant) {
+	core.LazyRegister(&xSimpleActionSetStateHint, "GIO", "g_simple_action_set_state_hint", false)
+
 	xSimpleActionSetStateHint(x.GoPointer(), StateHintVar)
 }
 
@@ -422,21 +430,4 @@ func (x *SimpleAction) GetStateType() *glib.VariantType {
 func init() {
 	core.SetPackageName("GIO", "gio-2.0")
 	core.SetSharedLibraries("GIO", []string{"libgio-2.0.so.0", "libgio-2.0.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GIO") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xSimpleActionGLibType, libs, "g_simple_action_get_type")
-
-	core.PuregoSafeRegister(&xNewSimpleAction, libs, "g_simple_action_new")
-	core.PuregoSafeRegister(&xNewSimpleActionStateful, libs, "g_simple_action_new_stateful")
-
-	core.PuregoSafeRegister(&xSimpleActionSetEnabled, libs, "g_simple_action_set_enabled")
-	core.PuregoSafeRegister(&xSimpleActionSetState, libs, "g_simple_action_set_state")
-	core.PuregoSafeRegister(&xSimpleActionSetStateHint, libs, "g_simple_action_set_state_hint")
 }

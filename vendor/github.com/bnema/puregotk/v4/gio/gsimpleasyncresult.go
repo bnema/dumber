@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -34,6 +33,8 @@ var xSimpleAsyncReportErrorInIdle func(uintptr, uintptr, uintptr, glib.Quark, in
 // directly setting the contents of the #GAsyncResult with the given error
 // information.
 func SimpleAsyncReportErrorInIdle(ObjectVar *gobject.Object, CallbackVar *AsyncReadyCallback, UserDataVar uintptr, DomainVar glib.Quark, CodeVar int, FormatVar string, varArgs ...interface{}) {
+	core.LazyRegister(&xSimpleAsyncReportErrorInIdle, "GIO", "g_simple_async_report_error_in_idle", false)
+
 	xSimpleAsyncReportErrorInIdle(ObjectVar.GoPointer(), glib.NewCallbackNullable(CallbackVar), UserDataVar, DomainVar, CodeVar, FormatVar, varArgs...)
 }
 
@@ -43,6 +44,8 @@ var xSimpleAsyncReportGerrorInIdle func(uintptr, uintptr, uintptr, *glib.Error)
 // g_simple_async_report_error_in_idle(), but takes a #GError rather
 // than building a new one.
 func SimpleAsyncReportGerrorInIdle(ObjectVar *gobject.Object, CallbackVar *AsyncReadyCallback, UserDataVar uintptr, ErrorVar *glib.Error) {
+	core.LazyRegister(&xSimpleAsyncReportGerrorInIdle, "GIO", "g_simple_async_report_gerror_in_idle", false)
+
 	xSimpleAsyncReportGerrorInIdle(ObjectVar.GoPointer(), glib.NewCallbackNullable(CallbackVar), UserDataVar, ErrorVar)
 }
 
@@ -52,6 +55,8 @@ var xSimpleAsyncReportTakeGerrorInIdle func(uintptr, uintptr, uintptr, *glib.Err
 // g_simple_async_report_gerror_in_idle(), but takes over the caller's
 // ownership of @error, so the caller does not have to free it any more.
 func SimpleAsyncReportTakeGerrorInIdle(ObjectVar *gobject.Object, CallbackVar *AsyncReadyCallback, UserDataVar uintptr, ErrorVar *glib.Error) {
+	core.LazyRegister(&xSimpleAsyncReportTakeGerrorInIdle, "GIO", "g_simple_async_report_take_gerror_in_idle", false)
+
 	xSimpleAsyncReportTakeGerrorInIdle(ObjectVar.GoPointer(), glib.NewCallbackNullable(CallbackVar), UserDataVar, ErrorVar)
 }
 
@@ -235,6 +240,7 @@ type SimpleAsyncResult struct {
 var xSimpleAsyncResultGLibType func() types.GType
 
 func SimpleAsyncResultGLibType() types.GType {
+	core.LazyRegister(&xSimpleAsyncResultGLibType, "GIO", "g_simple_async_result_get_type", false)
 	return xSimpleAsyncResultGLibType()
 }
 
@@ -257,6 +263,7 @@ var xNewSimpleAsyncResult func(uintptr, uintptr, uintptr, uintptr) uintptr
 // g_simple_async_result_set_check_cancellable() immediately after
 // this function returns.
 func NewSimpleAsyncResult(SourceObjectVar *gobject.Object, CallbackVar *AsyncReadyCallback, UserDataVar uintptr, SourceTagVar uintptr) *SimpleAsyncResult {
+	core.LazyRegister(&xNewSimpleAsyncResult, "GIO", "g_simple_async_result_new", false)
 	var cls *SimpleAsyncResult
 
 	cret := xNewSimpleAsyncResult(SourceObjectVar.GoPointer(), glib.NewCallbackNullable(CallbackVar), UserDataVar, SourceTagVar)
@@ -273,6 +280,7 @@ var xNewSimpleAsyncResultError func(uintptr, uintptr, uintptr, glib.Quark, int, 
 
 // Creates a new #GSimpleAsyncResult with a set error.
 func NewSimpleAsyncResultError(SourceObjectVar *gobject.Object, CallbackVar *AsyncReadyCallback, UserDataVar uintptr, DomainVar glib.Quark, CodeVar int, FormatVar string, varArgs ...interface{}) *SimpleAsyncResult {
+	core.LazyRegister(&xNewSimpleAsyncResultError, "GIO", "g_simple_async_result_new_error", false)
 	var cls *SimpleAsyncResult
 
 	cret := xNewSimpleAsyncResultError(SourceObjectVar.GoPointer(), glib.NewCallbackNullable(CallbackVar), UserDataVar, DomainVar, CodeVar, FormatVar, varArgs...)
@@ -289,6 +297,7 @@ var xNewSimpleAsyncResultFromError func(uintptr, uintptr, uintptr, *glib.Error) 
 
 // Creates a #GSimpleAsyncResult from an error condition.
 func NewSimpleAsyncResultFromError(SourceObjectVar *gobject.Object, CallbackVar *AsyncReadyCallback, UserDataVar uintptr, ErrorVar *glib.Error) *SimpleAsyncResult {
+	core.LazyRegister(&xNewSimpleAsyncResultFromError, "GIO", "g_simple_async_result_new_from_error", false)
 	var cls *SimpleAsyncResult
 
 	cret := xNewSimpleAsyncResultFromError(SourceObjectVar.GoPointer(), glib.NewCallbackNullable(CallbackVar), UserDataVar, ErrorVar)
@@ -306,6 +315,7 @@ var xNewSimpleAsyncResultTakeError func(uintptr, uintptr, uintptr, *glib.Error) 
 // Creates a #GSimpleAsyncResult from an error condition, and takes over the
 // caller's ownership of @error, so the caller does not need to free it anymore.
 func NewSimpleAsyncResultTakeError(SourceObjectVar *gobject.Object, CallbackVar *AsyncReadyCallback, UserDataVar uintptr, ErrorVar *glib.Error) *SimpleAsyncResult {
+	core.LazyRegister(&xNewSimpleAsyncResultTakeError, "GIO", "g_simple_async_result_new_take_error", false)
 	var cls *SimpleAsyncResult
 
 	cret := xNewSimpleAsyncResultTakeError(SourceObjectVar.GoPointer(), glib.NewCallbackNullable(CallbackVar), UserDataVar, ErrorVar)
@@ -328,6 +338,8 @@ var xSimpleAsyncResultComplete func(uintptr)
 // Calling this function takes a reference to @simple for as long as
 // is needed to complete the call.
 func (x *SimpleAsyncResult) Complete() {
+	core.LazyRegister(&xSimpleAsyncResultComplete, "GIO", "g_simple_async_result_complete", false)
+
 	xSimpleAsyncResultComplete(x.GoPointer())
 }
 
@@ -341,6 +353,8 @@ var xSimpleAsyncResultCompleteInIdle func(uintptr)
 // Calling this function takes a reference to @simple for as long as
 // is needed to complete the call.
 func (x *SimpleAsyncResult) CompleteInIdle() {
+	core.LazyRegister(&xSimpleAsyncResultCompleteInIdle, "GIO", "g_simple_async_result_complete_in_idle", false)
+
 	xSimpleAsyncResultCompleteInIdle(x.GoPointer())
 }
 
@@ -348,6 +362,8 @@ var xSimpleAsyncResultGetOpResGboolean func(uintptr) bool
 
 // Gets the operation result boolean from within the asynchronous result.
 func (x *SimpleAsyncResult) GetOpResGboolean() bool {
+	core.LazyRegister(&xSimpleAsyncResultGetOpResGboolean, "GIO", "g_simple_async_result_get_op_res_gboolean", false)
+
 	cret := xSimpleAsyncResultGetOpResGboolean(x.GoPointer())
 	return cret
 }
@@ -356,6 +372,8 @@ var xSimpleAsyncResultGetOpResGpointer func(uintptr) uintptr
 
 // Gets a pointer result as returned by the asynchronous function.
 func (x *SimpleAsyncResult) GetOpResGpointer() uintptr {
+	core.LazyRegister(&xSimpleAsyncResultGetOpResGpointer, "GIO", "g_simple_async_result_get_op_res_gpointer", false)
+
 	cret := xSimpleAsyncResultGetOpResGpointer(x.GoPointer())
 	return cret
 }
@@ -364,6 +382,8 @@ var xSimpleAsyncResultGetOpResGssize func(uintptr) int
 
 // Gets a gssize from the asynchronous result.
 func (x *SimpleAsyncResult) GetOpResGssize() int {
+	core.LazyRegister(&xSimpleAsyncResultGetOpResGssize, "GIO", "g_simple_async_result_get_op_res_gssize", false)
+
 	cret := xSimpleAsyncResultGetOpResGssize(x.GoPointer())
 	return cret
 }
@@ -372,6 +392,8 @@ var xSimpleAsyncResultGetSourceTag func(uintptr) uintptr
 
 // Gets the source tag for the #GSimpleAsyncResult.
 func (x *SimpleAsyncResult) GetSourceTag() uintptr {
+	core.LazyRegister(&xSimpleAsyncResultGetSourceTag, "GIO", "g_simple_async_result_get_source_tag", false)
+
 	cret := xSimpleAsyncResultGetSourceTag(x.GoPointer())
 	return cret
 }
@@ -385,6 +407,7 @@ var xSimpleAsyncResultPropagateError func(uintptr, **glib.Error) bool
 // g_simple_async_result_set_check_cancellable() is cancelled then this
 // function will return %TRUE with @dest set appropriately.
 func (x *SimpleAsyncResult) PropagateError() (bool, error) {
+	core.LazyRegister(&xSimpleAsyncResultPropagateError, "GIO", "g_simple_async_result_propagate_error", false)
 	var cerr *glib.Error
 
 	cret := xSimpleAsyncResultPropagateError(x.GoPointer(), &cerr)
@@ -403,6 +426,8 @@ var xSimpleAsyncResultRunInThread func(uintptr, uintptr, int, uintptr)
 // Calling this function takes a reference to @simple for as long as
 // is needed to run the job and report its completion.
 func (x *SimpleAsyncResult) RunInThread(FuncVar *SimpleAsyncThreadFunc, IoPriorityVar int, CancellableVar *Cancellable) {
+	core.LazyRegister(&xSimpleAsyncResultRunInThread, "GIO", "g_simple_async_result_run_in_thread", false)
+
 	xSimpleAsyncResultRunInThread(x.GoPointer(), glib.NewCallback(FuncVar), IoPriorityVar, CancellableVar.GoPointer())
 }
 
@@ -424,6 +449,8 @@ var xSimpleAsyncResultSetCheckCancellable func(uintptr, uintptr)
 // The checking described above is done regardless of any call to the
 // unrelated g_simple_async_result_set_handle_cancellation() function.
 func (x *SimpleAsyncResult) SetCheckCancellable(CheckCancellableVar *Cancellable) {
+	core.LazyRegister(&xSimpleAsyncResultSetCheckCancellable, "GIO", "g_simple_async_result_set_check_cancellable", false)
+
 	xSimpleAsyncResultSetCheckCancellable(x.GoPointer(), CheckCancellableVar.GoPointer())
 }
 
@@ -431,6 +458,8 @@ var xSimpleAsyncResultSetError func(uintptr, glib.Quark, int, string, ...interfa
 
 // Sets an error within the asynchronous result without a #GError.
 func (x *SimpleAsyncResult) SetError(DomainVar glib.Quark, CodeVar int, FormatVar string, varArgs ...interface{}) {
+	core.LazyRegister(&xSimpleAsyncResultSetError, "GIO", "g_simple_async_result_set_error", false)
+
 	xSimpleAsyncResultSetError(x.GoPointer(), DomainVar, CodeVar, FormatVar, varArgs...)
 }
 
@@ -439,6 +468,8 @@ var xSimpleAsyncResultSetErrorVa func(uintptr, glib.Quark, int, string, []interf
 // Sets an error within the asynchronous result without a #GError.
 // Unless writing a binding, see g_simple_async_result_set_error().
 func (x *SimpleAsyncResult) SetErrorVa(DomainVar glib.Quark, CodeVar int, FormatVar string, ArgsVar []interface{}) {
+	core.LazyRegister(&xSimpleAsyncResultSetErrorVa, "GIO", "g_simple_async_result_set_error_va", false)
+
 	xSimpleAsyncResultSetErrorVa(x.GoPointer(), DomainVar, CodeVar, FormatVar, ArgsVar)
 }
 
@@ -446,6 +477,8 @@ var xSimpleAsyncResultSetFromError func(uintptr, *glib.Error)
 
 // Sets the result from a #GError.
 func (x *SimpleAsyncResult) SetFromError(ErrorVar *glib.Error) {
+	core.LazyRegister(&xSimpleAsyncResultSetFromError, "GIO", "g_simple_async_result_set_from_error", false)
+
 	xSimpleAsyncResultSetFromError(x.GoPointer(), ErrorVar)
 }
 
@@ -457,6 +490,8 @@ var xSimpleAsyncResultSetHandleCancellation func(uintptr, bool)
 // g_simple_async_result_set_check_cancellable().  It only refers to the
 // #GCancellable passed to g_simple_async_result_run_in_thread().
 func (x *SimpleAsyncResult) SetHandleCancellation(HandleCancellationVar bool) {
+	core.LazyRegister(&xSimpleAsyncResultSetHandleCancellation, "GIO", "g_simple_async_result_set_handle_cancellation", false)
+
 	xSimpleAsyncResultSetHandleCancellation(x.GoPointer(), HandleCancellationVar)
 }
 
@@ -464,6 +499,8 @@ var xSimpleAsyncResultSetOpResGboolean func(uintptr, bool)
 
 // Sets the operation result to a boolean within the asynchronous result.
 func (x *SimpleAsyncResult) SetOpResGboolean(OpResVar bool) {
+	core.LazyRegister(&xSimpleAsyncResultSetOpResGboolean, "GIO", "g_simple_async_result_set_op_res_gboolean", false)
+
 	xSimpleAsyncResultSetOpResGboolean(x.GoPointer(), OpResVar)
 }
 
@@ -471,6 +508,8 @@ var xSimpleAsyncResultSetOpResGpointer func(uintptr, uintptr, uintptr)
 
 // Sets the operation result within the asynchronous result to a pointer.
 func (x *SimpleAsyncResult) SetOpResGpointer(OpResVar uintptr, DestroyOpResVar *glib.DestroyNotify) {
+	core.LazyRegister(&xSimpleAsyncResultSetOpResGpointer, "GIO", "g_simple_async_result_set_op_res_gpointer", false)
+
 	xSimpleAsyncResultSetOpResGpointer(x.GoPointer(), OpResVar, glib.NewCallbackNullable(DestroyOpResVar))
 }
 
@@ -479,6 +518,8 @@ var xSimpleAsyncResultSetOpResGssize func(uintptr, int)
 // Sets the operation result within the asynchronous result to
 // the given @op_res.
 func (x *SimpleAsyncResult) SetOpResGssize(OpResVar int) {
+	core.LazyRegister(&xSimpleAsyncResultSetOpResGssize, "GIO", "g_simple_async_result_set_op_res_gssize", false)
+
 	xSimpleAsyncResultSetOpResGssize(x.GoPointer(), OpResVar)
 }
 
@@ -487,6 +528,8 @@ var xSimpleAsyncResultTakeError func(uintptr, *glib.Error)
 // Sets the result from @error, and takes over the caller's ownership
 // of @error, so the caller does not need to free it any more.
 func (x *SimpleAsyncResult) TakeError(ErrorVar *glib.Error) {
+	core.LazyRegister(&xSimpleAsyncResultTakeError, "GIO", "g_simple_async_result_take_error", false)
+
 	xSimpleAsyncResultTakeError(x.GoPointer(), ErrorVar)
 }
 
@@ -563,6 +606,8 @@ var xSimpleAsyncResultIsValid func(uintptr, uintptr, uintptr) bool
 // @source_tag or @result's source tag is %NULL, then the source tag
 // check is skipped.)
 func SimpleAsyncResultIsValid(ResultVar AsyncResult, SourceVar *gobject.Object, SourceTagVar uintptr) bool {
+	core.LazyRegister(&xSimpleAsyncResultIsValid, "GIO", "g_simple_async_result_is_valid", false)
+
 	cret := xSimpleAsyncResultIsValid(ResultVar.GoPointer(), SourceVar.GoPointer(), SourceTagVar)
 	return cret
 }
@@ -570,43 +615,4 @@ func SimpleAsyncResultIsValid(ResultVar AsyncResult, SourceVar *gobject.Object, 
 func init() {
 	core.SetPackageName("GIO", "gio-2.0")
 	core.SetSharedLibraries("GIO", []string{"libgio-2.0.so.0", "libgio-2.0.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GIO") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xSimpleAsyncReportErrorInIdle, libs, "g_simple_async_report_error_in_idle")
-	core.PuregoSafeRegister(&xSimpleAsyncReportGerrorInIdle, libs, "g_simple_async_report_gerror_in_idle")
-	core.PuregoSafeRegister(&xSimpleAsyncReportTakeGerrorInIdle, libs, "g_simple_async_report_take_gerror_in_idle")
-
-	core.PuregoSafeRegister(&xSimpleAsyncResultGLibType, libs, "g_simple_async_result_get_type")
-
-	core.PuregoSafeRegister(&xNewSimpleAsyncResult, libs, "g_simple_async_result_new")
-	core.PuregoSafeRegister(&xNewSimpleAsyncResultError, libs, "g_simple_async_result_new_error")
-	core.PuregoSafeRegister(&xNewSimpleAsyncResultFromError, libs, "g_simple_async_result_new_from_error")
-	core.PuregoSafeRegister(&xNewSimpleAsyncResultTakeError, libs, "g_simple_async_result_new_take_error")
-
-	core.PuregoSafeRegister(&xSimpleAsyncResultComplete, libs, "g_simple_async_result_complete")
-	core.PuregoSafeRegister(&xSimpleAsyncResultCompleteInIdle, libs, "g_simple_async_result_complete_in_idle")
-	core.PuregoSafeRegister(&xSimpleAsyncResultGetOpResGboolean, libs, "g_simple_async_result_get_op_res_gboolean")
-	core.PuregoSafeRegister(&xSimpleAsyncResultGetOpResGpointer, libs, "g_simple_async_result_get_op_res_gpointer")
-	core.PuregoSafeRegister(&xSimpleAsyncResultGetOpResGssize, libs, "g_simple_async_result_get_op_res_gssize")
-	core.PuregoSafeRegister(&xSimpleAsyncResultGetSourceTag, libs, "g_simple_async_result_get_source_tag")
-	core.PuregoSafeRegister(&xSimpleAsyncResultPropagateError, libs, "g_simple_async_result_propagate_error")
-	core.PuregoSafeRegister(&xSimpleAsyncResultRunInThread, libs, "g_simple_async_result_run_in_thread")
-	core.PuregoSafeRegister(&xSimpleAsyncResultSetCheckCancellable, libs, "g_simple_async_result_set_check_cancellable")
-	core.PuregoSafeRegister(&xSimpleAsyncResultSetError, libs, "g_simple_async_result_set_error")
-	core.PuregoSafeRegister(&xSimpleAsyncResultSetErrorVa, libs, "g_simple_async_result_set_error_va")
-	core.PuregoSafeRegister(&xSimpleAsyncResultSetFromError, libs, "g_simple_async_result_set_from_error")
-	core.PuregoSafeRegister(&xSimpleAsyncResultSetHandleCancellation, libs, "g_simple_async_result_set_handle_cancellation")
-	core.PuregoSafeRegister(&xSimpleAsyncResultSetOpResGboolean, libs, "g_simple_async_result_set_op_res_gboolean")
-	core.PuregoSafeRegister(&xSimpleAsyncResultSetOpResGpointer, libs, "g_simple_async_result_set_op_res_gpointer")
-	core.PuregoSafeRegister(&xSimpleAsyncResultSetOpResGssize, libs, "g_simple_async_result_set_op_res_gssize")
-	core.PuregoSafeRegister(&xSimpleAsyncResultTakeError, libs, "g_simple_async_result_take_error")
-
-	core.PuregoSafeRegister(&xSimpleAsyncResultIsValid, libs, "g_simple_async_result_is_valid")
 }

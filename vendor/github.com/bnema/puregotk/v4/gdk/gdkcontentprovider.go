@@ -211,7 +211,7 @@ func (x *ContentProviderClass) OverrideWriteMimeTypeFinish(cb func(*ContentProvi
 	if cb == nil {
 		x.xWriteMimeTypeFinish = 0
 	} else {
-		x.xWriteMimeTypeFinish = purego.NewCallback(func(ProviderVarp uintptr, ResultVarp uintptr) bool {
+		x.xWriteMimeTypeFinish = purego.NewCallback(func(ProviderVarp uintptr, ResultVarp uintptr, cerrp **glib.Error) bool {
 			return cb(ContentProviderNewFromInternalPtr(ProviderVarp), &gio.AsyncResultBase{Ptr: ResultVarp})
 		})
 	}
@@ -222,10 +222,11 @@ func (x *ContentProviderClass) GetWriteMimeTypeFinish() func(*ContentProvider, g
 	if x.xWriteMimeTypeFinish == 0 {
 		return nil
 	}
-	var rawCallback func(ProviderVarp uintptr, ResultVarp uintptr) bool
+	var rawCallback func(ProviderVarp uintptr, ResultVarp uintptr, cerrp **glib.Error) bool
 	purego.RegisterFunc(&rawCallback, x.xWriteMimeTypeFinish)
 	return func(ProviderVar *ContentProvider, ResultVar gio.AsyncResult) bool {
-		return rawCallback(ProviderVar.GoPointer(), ResultVar.GoPointer())
+		var cerr *glib.Error
+		return rawCallback(ProviderVar.GoPointer(), ResultVar.GoPointer(), &cerr)
 	}
 }
 
@@ -234,7 +235,7 @@ func (x *ContentProviderClass) OverrideGetValue(cb func(*ContentProvider, *gobje
 	if cb == nil {
 		x.xGetValue = 0
 	} else {
-		x.xGetValue = purego.NewCallback(func(ProviderVarp uintptr, ValueVarp *gobject.Value) bool {
+		x.xGetValue = purego.NewCallback(func(ProviderVarp uintptr, ValueVarp *gobject.Value, cerrp **glib.Error) bool {
 			return cb(ContentProviderNewFromInternalPtr(ProviderVarp), ValueVarp)
 		})
 	}
@@ -245,10 +246,11 @@ func (x *ContentProviderClass) GetGetValue() func(*ContentProvider, *gobject.Val
 	if x.xGetValue == 0 {
 		return nil
 	}
-	var rawCallback func(ProviderVarp uintptr, ValueVarp *gobject.Value) bool
+	var rawCallback func(ProviderVarp uintptr, ValueVarp *gobject.Value, cerrp **glib.Error) bool
 	purego.RegisterFunc(&rawCallback, x.xGetValue)
 	return func(ProviderVar *ContentProvider, ValueVar *gobject.Value) bool {
-		return rawCallback(ProviderVar.GoPointer(), ValueVar)
+		var cerr *glib.Error
+		return rawCallback(ProviderVar.GoPointer(), ValueVar, &cerr)
 	}
 }
 
@@ -268,6 +270,7 @@ type ContentProvider struct {
 var xContentProviderGLibType func() types.GType
 
 func ContentProviderGLibType() types.GType {
+	core.LazyRegister(&xContentProviderGLibType, "GDK", "gdk_content_provider_get_type", false)
 	return xContentProviderGLibType()
 }
 
@@ -282,6 +285,7 @@ var xNewContentProviderForBytes func(string, *glib.Bytes) uintptr
 // Create a content provider that provides the given @bytes as data for
 // the given @mime_type.
 func NewContentProviderForBytes(MimeTypeVar string, BytesVar *glib.Bytes) *ContentProvider {
+	core.LazyRegister(&xNewContentProviderForBytes, "GDK", "gdk_content_provider_new_for_bytes", false)
 	var cls *ContentProvider
 
 	cret := xNewContentProviderForBytes(MimeTypeVar, BytesVar)
@@ -298,6 +302,7 @@ var xNewContentProviderForValue func(*gobject.Value) uintptr
 
 // Create a content provider that provides the given @value.
 func NewContentProviderForValue(ValueVar *gobject.Value) *ContentProvider {
+	core.LazyRegister(&xNewContentProviderForValue, "GDK", "gdk_content_provider_new_for_value", false)
 	var cls *ContentProvider
 
 	cret := xNewContentProviderForValue(ValueVar)
@@ -318,6 +323,7 @@ var xNewContentProviderTyped func(types.GType, ...interface{}) uintptr
 // The value is provided using G_VALUE_COLLECT(), so the same rules
 // apply as when calling g_object_new() or g_object_set().
 func NewContentProviderTyped(TypeVar types.GType, varArgs ...interface{}) *ContentProvider {
+	core.LazyRegister(&xNewContentProviderTyped, "GDK", "gdk_content_provider_new_typed", false)
 	var cls *ContentProvider
 
 	cret := xNewContentProviderTyped(TypeVar, varArgs...)
@@ -350,6 +356,7 @@ var xNewContentProviderUnion func(uintptr, uint) uintptr
 //
 // ```
 func NewContentProviderUnion(ProvidersVar uintptr, NProvidersVar uint) *ContentProvider {
+	core.LazyRegister(&xNewContentProviderUnion, "GDK", "gdk_content_provider_new_union", false)
 	var cls *ContentProvider
 
 	cret := xNewContentProviderUnion(ProvidersVar, NProvidersVar)
@@ -366,6 +373,8 @@ var xContentProviderContentChanged func(uintptr)
 
 // Emits the ::content-changed signal.
 func (x *ContentProvider) ContentChanged() {
+	core.LazyRegister(&xContentProviderContentChanged, "GDK", "gdk_content_provider_content_changed", false)
+
 	xContentProviderContentChanged(x.GoPointer())
 }
 
@@ -379,6 +388,7 @@ var xContentProviderGetValue func(uintptr, *gobject.Value, **glib.Error) bool
 // given `GType` is not supported, this operation can fail and
 // `G_IO_ERROR_NOT_SUPPORTED` will be reported.
 func (x *ContentProvider) GetValue(ValueVar *gobject.Value) (bool, error) {
+	core.LazyRegister(&xContentProviderGetValue, "GDK", "gdk_content_provider_get_value", false)
 	var cerr *glib.Error
 
 	cret := xContentProviderGetValue(x.GoPointer(), ValueVar, &cerr)
@@ -392,6 +402,8 @@ var xContentProviderRefFormats func(uintptr) uintptr
 
 // Gets the formats that the provider can provide its current contents in.
 func (x *ContentProvider) RefFormats() *ContentFormats {
+	core.LazyRegister(&xContentProviderRefFormats, "GDK", "gdk_content_provider_ref_formats", false)
+
 	cret := xContentProviderRefFormats(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -408,6 +420,8 @@ var xContentProviderRefStorableFormats func(uintptr) uintptr
 //
 // This can be assumed to be a subset of [method@Gdk.ContentProvider.ref_formats].
 func (x *ContentProvider) RefStorableFormats() *ContentFormats {
+	core.LazyRegister(&xContentProviderRefStorableFormats, "GDK", "gdk_content_provider_ref_storable_formats", false)
+
 	cret := xContentProviderRefStorableFormats(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -426,6 +440,8 @@ var xContentProviderWriteMimeTypeAsync func(uintptr, string, uintptr, int, uintp
 //
 // The given @stream will not be closed.
 func (x *ContentProvider) WriteMimeTypeAsync(MimeTypeVar string, StreamVar *gio.OutputStream, IoPriorityVar int, CancellableVar *gio.Cancellable, CallbackVar *gio.AsyncReadyCallback, UserDataVar uintptr) {
+	core.LazyRegister(&xContentProviderWriteMimeTypeAsync, "GDK", "gdk_content_provider_write_mime_type_async", false)
+
 	xContentProviderWriteMimeTypeAsync(x.GoPointer(), MimeTypeVar, StreamVar.GoPointer(), IoPriorityVar, CancellableVar.GoPointer(), glib.NewCallbackNullable(CallbackVar), UserDataVar)
 }
 
@@ -435,6 +451,7 @@ var xContentProviderWriteMimeTypeFinish func(uintptr, uintptr, **glib.Error) boo
 //
 // See [method@Gdk.ContentProvider.write_mime_type_async].
 func (x *ContentProvider) WriteMimeTypeFinish(ResultVar gio.AsyncResult) (bool, error) {
+	core.LazyRegister(&xContentProviderWriteMimeTypeFinish, "GDK", "gdk_content_provider_write_mime_type_finish", false)
 	var cerr *glib.Error
 
 	cret := xContentProviderWriteMimeTypeFinish(x.GoPointer(), ResultVar.GoPointer(), &cerr)
@@ -497,26 +514,4 @@ func (x *ContentProvider) ConnectContentChanged(cb *func(ContentProvider)) uint 
 func init() {
 	core.SetPackageName("GDK", "gtk4")
 	core.SetSharedLibraries("GDK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GDK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xContentProviderGLibType, libs, "gdk_content_provider_get_type")
-
-	core.PuregoSafeRegister(&xNewContentProviderForBytes, libs, "gdk_content_provider_new_for_bytes")
-	core.PuregoSafeRegister(&xNewContentProviderForValue, libs, "gdk_content_provider_new_for_value")
-	core.PuregoSafeRegister(&xNewContentProviderTyped, libs, "gdk_content_provider_new_typed")
-	core.PuregoSafeRegister(&xNewContentProviderUnion, libs, "gdk_content_provider_new_union")
-
-	core.PuregoSafeRegister(&xContentProviderContentChanged, libs, "gdk_content_provider_content_changed")
-	core.PuregoSafeRegister(&xContentProviderGetValue, libs, "gdk_content_provider_get_value")
-	core.PuregoSafeRegister(&xContentProviderRefFormats, libs, "gdk_content_provider_ref_formats")
-	core.PuregoSafeRegister(&xContentProviderRefStorableFormats, libs, "gdk_content_provider_ref_storable_formats")
-	core.PuregoSafeRegister(&xContentProviderWriteMimeTypeAsync, libs, "gdk_content_provider_write_mime_type_async")
-	core.PuregoSafeRegister(&xContentProviderWriteMimeTypeFinish, libs, "gdk_content_provider_write_mime_type_finish")
 }

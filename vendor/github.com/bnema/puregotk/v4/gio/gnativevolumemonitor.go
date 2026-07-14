@@ -6,6 +6,7 @@ import (
 	"unsafe"
 
 	"github.com/bnema/purego"
+	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject/types"
 )
 
@@ -73,6 +74,7 @@ type NativeVolumeMonitor struct {
 var xNativeVolumeMonitorGLibType func() types.GType
 
 func NativeVolumeMonitorGLibType() types.GType {
+	core.LazyRegister(&xNativeVolumeMonitorGLibType, "GIO", "g_native_volume_monitor_get_type", false)
 	return xNativeVolumeMonitorGLibType()
 }
 
@@ -91,4 +93,9 @@ func (c *NativeVolumeMonitor) GoPointer() uintptr {
 
 func (c *NativeVolumeMonitor) SetGoPointer(ptr uintptr) {
 	c.Ptr = ptr
+}
+
+func init() {
+	core.SetPackageName("GIO", "gio-2.0")
+	core.SetSharedLibraries("GIO", []string{"libgio-2.0.so.0", "libgio-2.0.0.dylib"})
 }

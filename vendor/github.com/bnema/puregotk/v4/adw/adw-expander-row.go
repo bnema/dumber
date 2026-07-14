@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -79,6 +78,7 @@ type ExpanderRow struct {
 var xExpanderRowGLibType func() types.GType
 
 func ExpanderRowGLibType() types.GType {
+	core.LazyRegister(&xExpanderRowGLibType, "ADW", "adw_expander_row_get_type", false)
 	return xExpanderRowGLibType()
 }
 
@@ -92,6 +92,7 @@ var xNewExpanderRow func() uintptr
 
 // Creates a new `AdwExpanderRow`.
 func NewExpanderRow() *ExpanderRow {
+	core.LazyRegister(&xNewExpanderRow, "ADW", "adw_expander_row_new", false)
 	var cls *ExpanderRow
 
 	cret := xNewExpanderRow()
@@ -109,6 +110,8 @@ var xExpanderRowAddAction func(uintptr, uintptr)
 
 // Adds an action widget to @self.
 func (x *ExpanderRow) AddAction(WidgetVar *gtk.Widget) {
+	core.LazyRegister(&xExpanderRowAddAction, "ADW", "adw_expander_row_add_action", false)
+
 	xExpanderRowAddAction(x.GoPointer(), WidgetVar.GoPointer())
 }
 
@@ -116,6 +119,8 @@ var xExpanderRowAddPrefix func(uintptr, uintptr)
 
 // Adds a prefix widget to @self.
 func (x *ExpanderRow) AddPrefix(WidgetVar *gtk.Widget) {
+	core.LazyRegister(&xExpanderRowAddPrefix, "ADW", "adw_expander_row_add_prefix", false)
+
 	xExpanderRowAddPrefix(x.GoPointer(), WidgetVar.GoPointer())
 }
 
@@ -125,6 +130,8 @@ var xExpanderRowAddRow func(uintptr, uintptr)
 //
 // The widget will appear in the expanding list below @self.
 func (x *ExpanderRow) AddRow(ChildVar *gtk.Widget) {
+	core.LazyRegister(&xExpanderRowAddRow, "ADW", "adw_expander_row_add_row", false)
+
 	xExpanderRowAddRow(x.GoPointer(), ChildVar.GoPointer())
 }
 
@@ -132,6 +139,8 @@ var xExpanderRowAddSuffix func(uintptr, uintptr)
 
 // Adds an suffix widget to @self.
 func (x *ExpanderRow) AddSuffix(WidgetVar *gtk.Widget) {
+	core.LazyRegister(&xExpanderRowAddSuffix, "ADW", "adw_expander_row_add_suffix", false)
+
 	xExpanderRowAddSuffix(x.GoPointer(), WidgetVar.GoPointer())
 }
 
@@ -139,6 +148,8 @@ var xExpanderRowGetEnableExpansion func(uintptr) bool
 
 // Gets whether the expansion of @self is enabled.
 func (x *ExpanderRow) GetEnableExpansion() bool {
+	core.LazyRegister(&xExpanderRowGetEnableExpansion, "ADW", "adw_expander_row_get_enable_expansion", false)
+
 	cret := xExpanderRowGetEnableExpansion(x.GoPointer())
 	return cret
 }
@@ -147,6 +158,8 @@ var xExpanderRowGetExpanded func(uintptr) bool
 
 // Gets whether @self is expanded.
 func (x *ExpanderRow) GetExpanded() bool {
+	core.LazyRegister(&xExpanderRowGetExpanded, "ADW", "adw_expander_row_get_expanded", false)
+
 	cret := xExpanderRowGetExpanded(x.GoPointer())
 	return cret
 }
@@ -155,6 +168,8 @@ var xExpanderRowGetIconName func(uintptr) string
 
 // Gets the icon name for @self.
 func (x *ExpanderRow) GetIconName() string {
+	core.LazyRegister(&xExpanderRowGetIconName, "ADW", "adw_expander_row_get_icon_name", false)
+
 	cret := xExpanderRowGetIconName(x.GoPointer())
 	return cret
 }
@@ -163,6 +178,8 @@ var xExpanderRowGetShowEnableSwitch func(uintptr) bool
 
 // Gets whether the switch enabling the expansion of @self is visible.
 func (x *ExpanderRow) GetShowEnableSwitch() bool {
+	core.LazyRegister(&xExpanderRowGetShowEnableSwitch, "ADW", "adw_expander_row_get_show_enable_switch", false)
+
 	cret := xExpanderRowGetShowEnableSwitch(x.GoPointer())
 	return cret
 }
@@ -171,6 +188,8 @@ var xExpanderRowGetSubtitle func(uintptr) string
 
 // Gets the subtitle for @self.
 func (x *ExpanderRow) GetSubtitle() string {
+	core.LazyRegister(&xExpanderRowGetSubtitle, "ADW", "adw_expander_row_get_subtitle", false)
+
 	cret := xExpanderRowGetSubtitle(x.GoPointer())
 	return cret
 }
@@ -180,6 +199,8 @@ var xExpanderRowGetSubtitleLines func(uintptr) int
 // Gets the number of lines at the end of which the subtitle label will be
 // ellipsized.
 func (x *ExpanderRow) GetSubtitleLines() int {
+	core.LazyRegister(&xExpanderRowGetSubtitleLines, "ADW", "adw_expander_row_get_subtitle_lines", false)
+
 	cret := xExpanderRowGetSubtitleLines(x.GoPointer())
 	return cret
 }
@@ -189,6 +210,8 @@ var xExpanderRowGetTitleLines func(uintptr) int
 // Gets the number of lines at the end of which the title label will be
 // ellipsized.
 func (x *ExpanderRow) GetTitleLines() int {
+	core.LazyRegister(&xExpanderRowGetTitleLines, "ADW", "adw_expander_row_get_title_lines", false)
+
 	cret := xExpanderRowGetTitleLines(x.GoPointer())
 	return cret
 }
@@ -197,6 +220,8 @@ var xExpanderRowRemove func(uintptr, uintptr)
 
 // Removes a child from @self.
 func (x *ExpanderRow) Remove(ChildVar *gtk.Widget) {
+	core.LazyRegister(&xExpanderRowRemove, "ADW", "adw_expander_row_remove", false)
+
 	xExpanderRowRemove(x.GoPointer(), ChildVar.GoPointer())
 }
 
@@ -204,6 +229,8 @@ var xExpanderRowSetEnableExpansion func(uintptr, bool)
 
 // Sets whether the expansion of @self is enabled.
 func (x *ExpanderRow) SetEnableExpansion(EnableExpansionVar bool) {
+	core.LazyRegister(&xExpanderRowSetEnableExpansion, "ADW", "adw_expander_row_set_enable_expansion", false)
+
 	xExpanderRowSetEnableExpansion(x.GoPointer(), EnableExpansionVar)
 }
 
@@ -211,6 +238,8 @@ var xExpanderRowSetExpanded func(uintptr, bool)
 
 // Sets whether @self is expanded.
 func (x *ExpanderRow) SetExpanded(ExpandedVar bool) {
+	core.LazyRegister(&xExpanderRowSetExpanded, "ADW", "adw_expander_row_set_expanded", false)
+
 	xExpanderRowSetExpanded(x.GoPointer(), ExpandedVar)
 }
 
@@ -218,6 +247,8 @@ var xExpanderRowSetIconName func(uintptr, uintptr)
 
 // Sets the icon name for @self.
 func (x *ExpanderRow) SetIconName(IconNameVar *string) {
+	core.LazyRegister(&xExpanderRowSetIconName, "ADW", "adw_expander_row_set_icon_name", false)
+
 	IconNameVarPtr := core.GStrdupNullable(IconNameVar)
 	defer core.GFreeNullable(IconNameVarPtr)
 
@@ -228,6 +259,8 @@ var xExpanderRowSetShowEnableSwitch func(uintptr, bool)
 
 // Sets whether the switch enabling the expansion of @self is visible.
 func (x *ExpanderRow) SetShowEnableSwitch(ShowEnableSwitchVar bool) {
+	core.LazyRegister(&xExpanderRowSetShowEnableSwitch, "ADW", "adw_expander_row_set_show_enable_switch", false)
+
 	xExpanderRowSetShowEnableSwitch(x.GoPointer(), ShowEnableSwitchVar)
 }
 
@@ -238,6 +271,8 @@ var xExpanderRowSetSubtitle func(uintptr, string)
 // The subtitle is interpreted as Pango markup unless
 // [property@PreferencesRow:use-markup] is set to `FALSE`.
 func (x *ExpanderRow) SetSubtitle(SubtitleVar string) {
+	core.LazyRegister(&xExpanderRowSetSubtitle, "ADW", "adw_expander_row_set_subtitle", false)
+
 	xExpanderRowSetSubtitle(x.GoPointer(), SubtitleVar)
 }
 
@@ -248,6 +283,8 @@ var xExpanderRowSetSubtitleLines func(uintptr, int)
 //
 // If the value is 0, the number of lines won't be limited.
 func (x *ExpanderRow) SetSubtitleLines(SubtitleLinesVar int) {
+	core.LazyRegister(&xExpanderRowSetSubtitleLines, "ADW", "adw_expander_row_set_subtitle_lines", false)
+
 	xExpanderRowSetSubtitleLines(x.GoPointer(), SubtitleLinesVar)
 }
 
@@ -258,6 +295,8 @@ var xExpanderRowSetTitleLines func(uintptr, int)
 //
 // If the value is 0, the number of lines won't be limited.
 func (x *ExpanderRow) SetTitleLines(TitleLinesVar int) {
+	core.LazyRegister(&xExpanderRowSetTitleLines, "ADW", "adw_expander_row_set_title_lines", false)
+
 	xExpanderRowSetTitleLines(x.GoPointer(), TitleLinesVar)
 }
 
@@ -749,36 +788,4 @@ func (x *ExpanderRow) GetBuildableId() string {
 func init() {
 	core.SetPackageName("ADW", "libadwaita-1")
 	core.SetSharedLibraries("ADW", []string{"libadwaita-1.so.0", "libadwaita-1.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("ADW") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xExpanderRowGLibType, libs, "adw_expander_row_get_type")
-
-	core.PuregoSafeRegister(&xNewExpanderRow, libs, "adw_expander_row_new")
-
-	core.PuregoSafeRegister(&xExpanderRowAddAction, libs, "adw_expander_row_add_action")
-	core.PuregoSafeRegister(&xExpanderRowAddPrefix, libs, "adw_expander_row_add_prefix")
-	core.PuregoSafeRegister(&xExpanderRowAddRow, libs, "adw_expander_row_add_row")
-	core.PuregoSafeRegister(&xExpanderRowAddSuffix, libs, "adw_expander_row_add_suffix")
-	core.PuregoSafeRegister(&xExpanderRowGetEnableExpansion, libs, "adw_expander_row_get_enable_expansion")
-	core.PuregoSafeRegister(&xExpanderRowGetExpanded, libs, "adw_expander_row_get_expanded")
-	core.PuregoSafeRegister(&xExpanderRowGetIconName, libs, "adw_expander_row_get_icon_name")
-	core.PuregoSafeRegister(&xExpanderRowGetShowEnableSwitch, libs, "adw_expander_row_get_show_enable_switch")
-	core.PuregoSafeRegister(&xExpanderRowGetSubtitle, libs, "adw_expander_row_get_subtitle")
-	core.PuregoSafeRegister(&xExpanderRowGetSubtitleLines, libs, "adw_expander_row_get_subtitle_lines")
-	core.PuregoSafeRegister(&xExpanderRowGetTitleLines, libs, "adw_expander_row_get_title_lines")
-	core.PuregoSafeRegister(&xExpanderRowRemove, libs, "adw_expander_row_remove")
-	core.PuregoSafeRegister(&xExpanderRowSetEnableExpansion, libs, "adw_expander_row_set_enable_expansion")
-	core.PuregoSafeRegister(&xExpanderRowSetExpanded, libs, "adw_expander_row_set_expanded")
-	core.PuregoSafeRegister(&xExpanderRowSetIconName, libs, "adw_expander_row_set_icon_name")
-	core.PuregoSafeRegister(&xExpanderRowSetShowEnableSwitch, libs, "adw_expander_row_set_show_enable_switch")
-	core.PuregoSafeRegister(&xExpanderRowSetSubtitle, libs, "adw_expander_row_set_subtitle")
-	core.PuregoSafeRegister(&xExpanderRowSetSubtitleLines, libs, "adw_expander_row_set_subtitle_lines")
-	core.PuregoSafeRegister(&xExpanderRowSetTitleLines, libs, "adw_expander_row_set_title_lines")
 }

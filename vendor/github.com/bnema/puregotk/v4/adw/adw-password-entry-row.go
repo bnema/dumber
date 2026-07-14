@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -59,6 +58,7 @@ type PasswordEntryRow struct {
 var xPasswordEntryRowGLibType func() types.GType
 
 func PasswordEntryRowGLibType() types.GType {
+	core.LazyRegister(&xPasswordEntryRowGLibType, "ADW", "adw_password_entry_row_get_type", false)
 	return xPasswordEntryRowGLibType()
 }
 
@@ -72,6 +72,7 @@ var xNewPasswordEntryRow func() uintptr
 
 // Creates a new `AdwPasswordEntryRow`.
 func NewPasswordEntryRow() *PasswordEntryRow {
+	core.LazyRegister(&xNewPasswordEntryRow, "ADW", "adw_password_entry_row_new", false)
 	var cls *PasswordEntryRow
 
 	cret := xNewPasswordEntryRow()
@@ -686,16 +687,4 @@ func (x *PasswordEntryRow) SetWidthChars(NCharsVar int) {
 func init() {
 	core.SetPackageName("ADW", "libadwaita-1")
 	core.SetSharedLibraries("ADW", []string{"libadwaita-1.so.0", "libadwaita-1.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("ADW") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xPasswordEntryRowGLibType, libs, "adw_password_entry_row_get_type")
-
-	core.PuregoSafeRegister(&xNewPasswordEntryRow, libs, "adw_password_entry_row_new")
 }

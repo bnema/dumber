@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject/types"
 )
@@ -39,6 +38,7 @@ type PasswordEntryBuffer struct {
 var xPasswordEntryBufferGLibType func() types.GType
 
 func PasswordEntryBufferGLibType() types.GType {
+	core.LazyRegister(&xPasswordEntryBufferGLibType, "GTK", "gtk_password_entry_buffer_get_type", false)
 	return xPasswordEntryBufferGLibType()
 }
 
@@ -52,6 +52,7 @@ var xNewPasswordEntryBuffer func() uintptr
 
 // Creates a new `GtkEntryBuffer` using secure memory allocations.
 func NewPasswordEntryBuffer() *PasswordEntryBuffer {
+	core.LazyRegister(&xNewPasswordEntryBuffer, "GTK", "gtk_password_entry_buffer_new", false)
 	var cls *PasswordEntryBuffer
 
 	cret := xNewPasswordEntryBuffer()
@@ -78,16 +79,4 @@ func (c *PasswordEntryBuffer) SetGoPointer(ptr uintptr) {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GTK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xPasswordEntryBufferGLibType, libs, "gtk_password_entry_buffer_get_type")
-
-	core.PuregoSafeRegister(&xNewPasswordEntryBuffer, libs, "gtk_password_entry_buffer_new")
 }

@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -60,6 +59,7 @@ type WebInspector struct {
 var xWebInspectorGLibType func() types.GType
 
 func WebInspectorGLibType() types.GType {
+	core.LazyRegister(&xWebInspectorGLibType, "WEBKIT", "webkit_web_inspector_get_type", false)
 	return xWebInspectorGLibType()
 }
 
@@ -76,6 +76,8 @@ var xWebInspectorAttach func(uintptr)
 // The signal #WebKitWebInspector::attach
 // will be emitted. If the inspector is already attached it does nothing.
 func (x *WebInspector) Attach() {
+	core.LazyRegister(&xWebInspectorAttach, "WEBKIT", "webkit_web_inspector_attach", false)
+
 	xWebInspectorAttach(x.GoPointer())
 }
 
@@ -83,6 +85,8 @@ var xWebInspectorClose func(uintptr)
 
 // Request @inspector to be closed.
 func (x *WebInspector) Close() {
+	core.LazyRegister(&xWebInspectorClose, "WEBKIT", "webkit_web_inspector_close", false)
+
 	xWebInspectorClose(x.GoPointer())
 }
 
@@ -93,6 +97,8 @@ var xWebInspectorDetach func(uintptr)
 // The signal #WebKitWebInspector::detach
 // will be emitted. If the inspector is already detached it does nothing.
 func (x *WebInspector) Detach() {
+	core.LazyRegister(&xWebInspectorDetach, "WEBKIT", "webkit_web_inspector_detach", false)
+
 	xWebInspectorDetach(x.GoPointer())
 }
 
@@ -104,6 +110,8 @@ var xWebInspectorGetAttachedHeight func(uintptr) uint
 // it's attached. If the inspector view is not attached this
 // returns 0.
 func (x *WebInspector) GetAttachedHeight() uint {
+	core.LazyRegister(&xWebInspectorGetAttachedHeight, "WEBKIT", "webkit_web_inspector_get_attached_height", false)
+
 	cret := xWebInspectorGetAttachedHeight(x.GoPointer())
 	return cret
 }
@@ -113,6 +121,8 @@ var xWebInspectorGetCanAttach func(uintptr) bool
 // Whether the @inspector can be attached to the same window that contains
 // the inspected view.
 func (x *WebInspector) GetCanAttach() bool {
+	core.LazyRegister(&xWebInspectorGetCanAttach, "WEBKIT", "webkit_web_inspector_get_can_attach", false)
+
 	cret := xWebInspectorGetCanAttach(x.GoPointer())
 	return cret
 }
@@ -126,6 +136,8 @@ var xWebInspectorGetInspectedUri func(uintptr) string
 // has been closed or when inspected view was loaded from a HTML string
 // instead of a URI.
 func (x *WebInspector) GetInspectedUri() string {
+	core.LazyRegister(&xWebInspectorGetInspectedUri, "WEBKIT", "webkit_web_inspector_get_inspected_uri", false)
+
 	cret := xWebInspectorGetInspectedUri(x.GoPointer())
 	return cret
 }
@@ -137,6 +149,7 @@ var xWebInspectorGetWebView func(uintptr) uintptr
 // This might be %NULL if the inspector hasn't been loaded yet,
 // or it has been closed.
 func (x *WebInspector) GetWebView() *WebViewBase {
+	core.LazyRegister(&xWebInspectorGetWebView, "WEBKIT", "webkit_web_inspector_get_web_view", false)
 	var cls *WebViewBase
 
 	cret := xWebInspectorGetWebView(x.GoPointer())
@@ -155,6 +168,8 @@ var xWebInspectorIsAttached func(uintptr) bool
 // Whether the @inspector view is currently attached to the same window that contains
 // the inspected view.
 func (x *WebInspector) IsAttached() bool {
+	core.LazyRegister(&xWebInspectorIsAttached, "WEBKIT", "webkit_web_inspector_is_attached", false)
+
 	cret := xWebInspectorIsAttached(x.GoPointer())
 	return cret
 }
@@ -163,6 +178,8 @@ var xWebInspectorShow func(uintptr)
 
 // Request @inspector to be shown.
 func (x *WebInspector) Show() {
+	core.LazyRegister(&xWebInspectorShow, "WEBKIT", "webkit_web_inspector_show", false)
+
 	xWebInspectorShow(x.GoPointer())
 }
 
@@ -364,29 +381,8 @@ func (x *WebInspector) ConnectOpenWindow(cb *func(WebInspector) bool) uint {
 func init() {
 	core.SetPackageName("WEBKIT", "webkitgtk-6.0")
 	core.SetSharedLibraries("WEBKIT", []string{"libwebkitgtk-6.0.so.4", "libjavascriptcoregtk-6.0.so.1", "libwebkitgtk-6.0.4.dylib", "libjavascriptcoregtk-6.0.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("WEBKIT") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
 
-	core.PuregoSafeRegister(&xWebInspectorGLibType, libs, "webkit_web_inspector_get_type")
-
-	core.PuregoSafeRegister(&xWebInspectorAttach, libs, "webkit_web_inspector_attach")
-	core.PuregoSafeRegister(&xWebInspectorClose, libs, "webkit_web_inspector_close")
-	core.PuregoSafeRegister(&xWebInspectorDetach, libs, "webkit_web_inspector_detach")
-	core.PuregoSafeRegister(&xWebInspectorGetAttachedHeight, libs, "webkit_web_inspector_get_attached_height")
-	core.PuregoSafeRegister(&xWebInspectorGetCanAttach, libs, "webkit_web_inspector_get_can_attach")
-	core.PuregoSafeRegister(&xWebInspectorGetInspectedUri, libs, "webkit_web_inspector_get_inspected_uri")
-	core.PuregoSafeRegister(&xWebInspectorGetWebView, libs, "webkit_web_inspector_get_web_view")
-	core.PuregoSafeRegister(&xWebInspectorIsAttached, libs, "webkit_web_inspector_is_attached")
-	core.PuregoSafeRegister(&xWebInspectorShow, libs, "webkit_web_inspector_show")
-
-	// Manually register types since they aren't being automatically registered when
-	// the library is loaded
-	// See https://bugs.webkit.org/show_bug.cgi?id=175937
+	// Manually register types since they aren't automatically registered when
+	// WebKit is loaded. See https://bugs.webkit.org/show_bug.cgi?id=175937.
 	WebInspectorGLibType()
 }

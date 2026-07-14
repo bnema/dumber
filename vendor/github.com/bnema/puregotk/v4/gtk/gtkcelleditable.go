@@ -135,6 +135,7 @@ type CellEditable interface {
 var xCellEditableGLibType func() types.GType
 
 func CellEditableGLibType() types.GType {
+	core.LazyRegister(&xCellEditableGLibType, "GTK", "gtk_cell_editable_get_type", false)
 	return xCellEditableGLibType()
 }
 
@@ -198,27 +199,28 @@ func (x *CellEditableBase) GetPropertyEditingCanceled() bool {
 	return v.GetBoolean()
 }
 
+var XGtkCellEditableEditingDone func(uintptr) = func(instance uintptr) {
+	core.LazyRegister(&xXGtkCellEditableEditingDone, "GTK", "gtk_cell_editable_editing_done", false)
+	xXGtkCellEditableEditingDone(instance)
+}
+
 var (
-	XGtkCellEditableEditingDone  func(uintptr)
-	XGtkCellEditableRemoveWidget func(uintptr)
-	XGtkCellEditableStartEditing func(uintptr, uintptr)
+	xXGtkCellEditableEditingDone func(uintptr)
+	XGtkCellEditableRemoveWidget func(uintptr) = func(instance uintptr) {
+		core.LazyRegister(&xXGtkCellEditableRemoveWidget, "GTK", "gtk_cell_editable_remove_widget", false)
+		xXGtkCellEditableRemoveWidget(instance)
+	}
 )
+var (
+	xXGtkCellEditableRemoveWidget func(uintptr)
+	XGtkCellEditableStartEditing  func(uintptr, uintptr) = func(instance uintptr, EventVarp uintptr) {
+		core.LazyRegister(&xXGtkCellEditableStartEditing, "GTK", "gtk_cell_editable_start_editing", false)
+		xXGtkCellEditableStartEditing(instance, EventVarp)
+	}
+)
+var xXGtkCellEditableStartEditing func(uintptr, uintptr)
 
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GTK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xCellEditableGLibType, libs, "gtk_cell_editable_get_type")
-
-	core.PuregoSafeRegister(&XGtkCellEditableEditingDone, libs, "gtk_cell_editable_editing_done")
-	core.PuregoSafeRegister(&XGtkCellEditableRemoveWidget, libs, "gtk_cell_editable_remove_widget")
-	core.PuregoSafeRegister(&XGtkCellEditableStartEditing, libs, "gtk_cell_editable_start_editing")
 }

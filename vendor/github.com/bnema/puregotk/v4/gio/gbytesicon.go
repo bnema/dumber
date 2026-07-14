@@ -4,7 +4,6 @@ package gio
 import (
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -20,6 +19,7 @@ type BytesIcon struct {
 var xBytesIconGLibType func() types.GType
 
 func BytesIconGLibType() types.GType {
+	core.LazyRegister(&xBytesIconGLibType, "GIO", "g_bytes_icon_get_type", false)
 	return xBytesIconGLibType()
 }
 
@@ -36,6 +36,7 @@ var xNewBytesIcon func(*glib.Bytes) uintptr
 // This cannot fail, but loading and interpreting the bytes may fail later on
 // (for example, if g_loadable_icon_load() is called) if the image is invalid.
 func NewBytesIcon(BytesVar *glib.Bytes) *BytesIcon {
+	core.LazyRegister(&xNewBytesIcon, "GIO", "g_bytes_icon_new", false)
 	var cls *BytesIcon
 
 	cret := xNewBytesIcon(BytesVar)
@@ -52,6 +53,8 @@ var xBytesIconGetBytes func(uintptr) uintptr
 
 // Gets the #GBytes associated with the given @icon.
 func (x *BytesIcon) GetBytes() *glib.Bytes {
+	core.LazyRegister(&xBytesIconGetBytes, "GIO", "g_bytes_icon_get_bytes", false)
+
 	cret := xBytesIconGetBytes(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -180,18 +183,4 @@ func (x *BytesIcon) LoadFinish(ResVar AsyncResult, TypeVar *string) (*InputStrea
 func init() {
 	core.SetPackageName("GIO", "gio-2.0")
 	core.SetSharedLibraries("GIO", []string{"libgio-2.0.so.0", "libgio-2.0.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GIO") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xBytesIconGLibType, libs, "g_bytes_icon_get_type")
-
-	core.PuregoSafeRegister(&xNewBytesIcon, libs, "g_bytes_icon_new")
-
-	core.PuregoSafeRegister(&xBytesIconGetBytes, libs, "g_bytes_icon_get_bytes")
 }

@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -36,6 +35,7 @@ type FindOptions int
 var xFindOptionsGLibType func() types.GType
 
 func FindOptionsGLibType() types.GType {
+	core.LazyRegister(&xFindOptionsGLibType, "WEBKIT", "webkit_find_options_get_type", false)
 	return xFindOptionsGLibType()
 }
 
@@ -77,6 +77,7 @@ type FindController struct {
 var xFindControllerGLibType func() types.GType
 
 func FindControllerGLibType() types.GType {
+	core.LazyRegister(&xFindControllerGLibType, "WEBKIT", "webkit_find_controller_get_type", false)
 	return xFindControllerGLibType()
 }
 
@@ -95,6 +96,8 @@ var xFindControllerCountMatches func(uintptr, string, uint32, uint)
 // matches will be provided by the
 // #WebKitFindController::counted-matches signal.
 func (x *FindController) CountMatches(SearchTextVar string, FindOptionsVar uint32, MaxMatchCountVar uint) {
+	core.LazyRegister(&xFindControllerCountMatches, "WEBKIT", "webkit_find_controller_count_matches", false)
+
 	xFindControllerCountMatches(x.GoPointer(), SearchTextVar, FindOptionsVar, MaxMatchCountVar)
 }
 
@@ -107,6 +110,8 @@ var xFindControllerGetMaxMatchCount func(uintptr) uint
 // webkit_find_controller_search() or
 // webkit_find_controller_count_matches().
 func (x *FindController) GetMaxMatchCount() uint {
+	core.LazyRegister(&xFindControllerGetMaxMatchCount, "WEBKIT", "webkit_find_controller_get_max_match_count", false)
+
 	cret := xFindControllerGetMaxMatchCount(x.GoPointer())
 	return cret
 }
@@ -118,6 +123,8 @@ var xFindControllerGetOptions func(uintptr) uint32
 // Gets a bitmask containing the #WebKitFindOptions associated with
 // the current search.
 func (x *FindController) GetOptions() uint32 {
+	core.LazyRegister(&xFindControllerGetOptions, "WEBKIT", "webkit_find_controller_get_options", false)
+
 	cret := xFindControllerGetOptions(x.GoPointer())
 	return cret
 }
@@ -131,6 +138,8 @@ var xFindControllerGetSearchText func(uintptr) string
 // webkit_find_controller_search() or
 // webkit_find_controller_count_matches().
 func (x *FindController) GetSearchText() string {
+	core.LazyRegister(&xFindControllerGetSearchText, "WEBKIT", "webkit_find_controller_get_search_text", false)
+
 	cret := xFindControllerGetSearchText(x.GoPointer())
 	return cret
 }
@@ -143,6 +152,7 @@ var xFindControllerGetWebView func(uintptr) uintptr
 // not dereference the returned instance as it belongs to the
 // #WebKitFindController.
 func (x *FindController) GetWebView() *WebView {
+	core.LazyRegister(&xFindControllerGetWebView, "WEBKIT", "webkit_find_controller_get_web_view", false)
 	var cls *WebView
 
 	cret := xFindControllerGetWebView(x.GoPointer())
@@ -180,6 +190,8 @@ var xFindControllerSearch func(uintptr, string, uint32, uint)
 // Callers should call webkit_find_controller_search_finish() to
 // finish the current search operation.
 func (x *FindController) Search(SearchTextVar string, FindOptionsVar uint32, MaxMatchCountVar uint) {
+	core.LazyRegister(&xFindControllerSearch, "WEBKIT", "webkit_find_controller_search", false)
+
 	xFindControllerSearch(x.GoPointer(), SearchTextVar, FindOptionsVar, MaxMatchCountVar)
 }
 
@@ -194,6 +206,8 @@ var xFindControllerSearchFinish func(uintptr)
 // This method will be typically called when the search UI is
 // closed/hidden by the client application.
 func (x *FindController) SearchFinish() {
+	core.LazyRegister(&xFindControllerSearchFinish, "WEBKIT", "webkit_find_controller_search_finish", false)
+
 	xFindControllerSearchFinish(x.GoPointer())
 }
 
@@ -204,6 +218,8 @@ var xFindControllerSearchNext func(uintptr)
 // Calling this method before webkit_find_controller_search() or
 // webkit_find_controller_count_matches() is a programming error.
 func (x *FindController) SearchNext() {
+	core.LazyRegister(&xFindControllerSearchNext, "WEBKIT", "webkit_find_controller_search_next", false)
+
 	xFindControllerSearchNext(x.GoPointer())
 }
 
@@ -214,6 +230,8 @@ var xFindControllerSearchPrevious func(uintptr)
 // Calling this method before webkit_find_controller_search() or
 // webkit_find_controller_count_matches() is a programming error.
 func (x *FindController) SearchPrevious() {
+	core.LazyRegister(&xFindControllerSearchPrevious, "WEBKIT", "webkit_find_controller_search_previous", false)
+
 	xFindControllerSearchPrevious(x.GoPointer())
 }
 
@@ -326,31 +344,8 @@ func (x *FindController) ConnectFoundText(cb *func(FindController, uint)) uint {
 func init() {
 	core.SetPackageName("WEBKIT", "webkitgtk-6.0")
 	core.SetSharedLibraries("WEBKIT", []string{"libwebkitgtk-6.0.so.4", "libjavascriptcoregtk-6.0.so.1", "libwebkitgtk-6.0.4.dylib", "libjavascriptcoregtk-6.0.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("WEBKIT") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
 
-	core.PuregoSafeRegister(&xFindOptionsGLibType, libs, "webkit_find_options_get_type")
-
-	core.PuregoSafeRegister(&xFindControllerGLibType, libs, "webkit_find_controller_get_type")
-
-	core.PuregoSafeRegister(&xFindControllerCountMatches, libs, "webkit_find_controller_count_matches")
-	core.PuregoSafeRegister(&xFindControllerGetMaxMatchCount, libs, "webkit_find_controller_get_max_match_count")
-	core.PuregoSafeRegister(&xFindControllerGetOptions, libs, "webkit_find_controller_get_options")
-	core.PuregoSafeRegister(&xFindControllerGetSearchText, libs, "webkit_find_controller_get_search_text")
-	core.PuregoSafeRegister(&xFindControllerGetWebView, libs, "webkit_find_controller_get_web_view")
-	core.PuregoSafeRegister(&xFindControllerSearch, libs, "webkit_find_controller_search")
-	core.PuregoSafeRegister(&xFindControllerSearchFinish, libs, "webkit_find_controller_search_finish")
-	core.PuregoSafeRegister(&xFindControllerSearchNext, libs, "webkit_find_controller_search_next")
-	core.PuregoSafeRegister(&xFindControllerSearchPrevious, libs, "webkit_find_controller_search_previous")
-
-	// Manually register types since they aren't being automatically registered when
-	// the library is loaded
-	// See https://bugs.webkit.org/show_bug.cgi?id=175937
+	// Manually register types since they aren't automatically registered when
+	// WebKit is loaded. See https://bugs.webkit.org/show_bug.cgi?id=175937.
 	FindControllerGLibType()
 }

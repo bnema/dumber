@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gio"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -41,6 +40,7 @@ type FlattenListModel struct {
 var xFlattenListModelGLibType func() types.GType
 
 func FlattenListModelGLibType() types.GType {
+	core.LazyRegister(&xFlattenListModelGLibType, "GTK", "gtk_flatten_list_model_get_type", false)
 	return xFlattenListModelGLibType()
 }
 
@@ -54,6 +54,7 @@ var xNewFlattenListModel func(uintptr) uintptr
 
 // Creates a new `GtkFlattenListModel` that flattens @list.
 func NewFlattenListModel(ModelVar gio.ListModel) *FlattenListModel {
+	core.LazyRegister(&xNewFlattenListModel, "GTK", "gtk_flatten_list_model_new", false)
 	var cls *FlattenListModel
 
 	cret := xNewFlattenListModel(ModelVar.GoPointer())
@@ -70,6 +71,7 @@ var xFlattenListModelGetModel func(uintptr) uintptr
 
 // Gets the model set via gtk_flatten_list_model_set_model().
 func (x *FlattenListModel) GetModel() *gio.ListModelBase {
+	core.LazyRegister(&xFlattenListModelGetModel, "GTK", "gtk_flatten_list_model_get_model", false)
 	var cls *gio.ListModelBase
 
 	cret := xFlattenListModelGetModel(x.GoPointer())
@@ -87,6 +89,7 @@ var xFlattenListModelGetModelForItem func(uintptr, uint) uintptr
 
 // Returns the model containing the item at the given position.
 func (x *FlattenListModel) GetModelForItem(PositionVar uint) *gio.ListModelBase {
+	core.LazyRegister(&xFlattenListModelGetModelForItem, "GTK", "gtk_flatten_list_model_get_model_for_item", false)
 	var cls *gio.ListModelBase
 
 	cret := xFlattenListModelGetModelForItem(x.GoPointer(), PositionVar)
@@ -104,6 +107,8 @@ var xFlattenListModelSetModel func(uintptr, uintptr)
 
 // Sets a new model to be flattened.
 func (x *FlattenListModel) SetModel(ModelVar gio.ListModel) {
+	core.LazyRegister(&xFlattenListModelSetModel, "GTK", "gtk_flatten_list_model_set_model", false)
+
 	xFlattenListModelSetModel(x.GoPointer(), ModelVar.GoPointer())
 }
 
@@ -243,20 +248,4 @@ func (x *FlattenListModel) SectionsChanged(PositionVar uint, NItemsVar uint) {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GTK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xFlattenListModelGLibType, libs, "gtk_flatten_list_model_get_type")
-
-	core.PuregoSafeRegister(&xNewFlattenListModel, libs, "gtk_flatten_list_model_new")
-
-	core.PuregoSafeRegister(&xFlattenListModelGetModel, libs, "gtk_flatten_list_model_get_model")
-	core.PuregoSafeRegister(&xFlattenListModelGetModelForItem, libs, "gtk_flatten_list_model_get_model_for_item")
-	core.PuregoSafeRegister(&xFlattenListModelSetModel, libs, "gtk_flatten_list_model_set_model")
 }

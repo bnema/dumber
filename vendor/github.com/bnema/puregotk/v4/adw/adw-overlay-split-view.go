@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gdk"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -179,6 +178,7 @@ type OverlaySplitView struct {
 var xOverlaySplitViewGLibType func() types.GType
 
 func OverlaySplitViewGLibType() types.GType {
+	core.LazyRegister(&xOverlaySplitViewGLibType, "ADW", "adw_overlay_split_view_get_type", false)
 	return xOverlaySplitViewGLibType()
 }
 
@@ -192,6 +192,7 @@ var xNewOverlaySplitView func() uintptr
 
 // Creates a new `AdwOverlaySplitView`.
 func NewOverlaySplitView() *OverlaySplitView {
+	core.LazyRegister(&xNewOverlaySplitView, "ADW", "adw_overlay_split_view_new", false)
 	var cls *OverlaySplitView
 
 	cret := xNewOverlaySplitView()
@@ -209,6 +210,8 @@ var xOverlaySplitViewGetCollapsed func(uintptr) bool
 
 // Gets whether @self is collapsed.
 func (x *OverlaySplitView) GetCollapsed() bool {
+	core.LazyRegister(&xOverlaySplitViewGetCollapsed, "ADW", "adw_overlay_split_view_get_collapsed", false)
+
 	cret := xOverlaySplitViewGetCollapsed(x.GoPointer())
 	return cret
 }
@@ -217,6 +220,7 @@ var xOverlaySplitViewGetContent func(uintptr) uintptr
 
 // Gets the content widget for @self.
 func (x *OverlaySplitView) GetContent() *gtk.Widget {
+	core.LazyRegister(&xOverlaySplitViewGetContent, "ADW", "adw_overlay_split_view_get_content", false)
 	var cls *gtk.Widget
 
 	cret := xOverlaySplitViewGetContent(x.GoPointer())
@@ -234,6 +238,8 @@ var xOverlaySplitViewGetEnableHideGesture func(uintptr) bool
 
 // Gets whether @self can be closed with a swipe gesture.
 func (x *OverlaySplitView) GetEnableHideGesture() bool {
+	core.LazyRegister(&xOverlaySplitViewGetEnableHideGesture, "ADW", "adw_overlay_split_view_get_enable_hide_gesture", false)
+
 	cret := xOverlaySplitViewGetEnableHideGesture(x.GoPointer())
 	return cret
 }
@@ -242,6 +248,8 @@ var xOverlaySplitViewGetEnableShowGesture func(uintptr) bool
 
 // Gets whether @self can be opened with an edge swipe gesture.
 func (x *OverlaySplitView) GetEnableShowGesture() bool {
+	core.LazyRegister(&xOverlaySplitViewGetEnableShowGesture, "ADW", "adw_overlay_split_view_get_enable_show_gesture", false)
+
 	cret := xOverlaySplitViewGetEnableShowGesture(x.GoPointer())
 	return cret
 }
@@ -250,6 +258,8 @@ var xOverlaySplitViewGetMaxSidebarWidth func(uintptr) float64
 
 // Gets the maximum sidebar width for @self.
 func (x *OverlaySplitView) GetMaxSidebarWidth() float64 {
+	core.LazyRegister(&xOverlaySplitViewGetMaxSidebarWidth, "ADW", "adw_overlay_split_view_get_max_sidebar_width", false)
+
 	cret := xOverlaySplitViewGetMaxSidebarWidth(x.GoPointer())
 	return cret
 }
@@ -258,6 +268,8 @@ var xOverlaySplitViewGetMinSidebarWidth func(uintptr) float64
 
 // Gets the minimum sidebar width for @self.
 func (x *OverlaySplitView) GetMinSidebarWidth() float64 {
+	core.LazyRegister(&xOverlaySplitViewGetMinSidebarWidth, "ADW", "adw_overlay_split_view_get_min_sidebar_width", false)
+
 	cret := xOverlaySplitViewGetMinSidebarWidth(x.GoPointer())
 	return cret
 }
@@ -266,6 +278,8 @@ var xOverlaySplitViewGetPinSidebar func(uintptr) bool
 
 // Gets whether the sidebar widget is pinned for @self.
 func (x *OverlaySplitView) GetPinSidebar() bool {
+	core.LazyRegister(&xOverlaySplitViewGetPinSidebar, "ADW", "adw_overlay_split_view_get_pin_sidebar", false)
+
 	cret := xOverlaySplitViewGetPinSidebar(x.GoPointer())
 	return cret
 }
@@ -274,6 +288,8 @@ var xOverlaySplitViewGetShowSidebar func(uintptr) bool
 
 // Gets whether the sidebar widget is shown for @self.
 func (x *OverlaySplitView) GetShowSidebar() bool {
+	core.LazyRegister(&xOverlaySplitViewGetShowSidebar, "ADW", "adw_overlay_split_view_get_show_sidebar", false)
+
 	cret := xOverlaySplitViewGetShowSidebar(x.GoPointer())
 	return cret
 }
@@ -282,6 +298,7 @@ var xOverlaySplitViewGetSidebar func(uintptr) uintptr
 
 // Gets the sidebar widget for @self.
 func (x *OverlaySplitView) GetSidebar() *gtk.Widget {
+	core.LazyRegister(&xOverlaySplitViewGetSidebar, "ADW", "adw_overlay_split_view_get_sidebar", false)
 	var cls *gtk.Widget
 
 	cret := xOverlaySplitViewGetSidebar(x.GoPointer())
@@ -299,6 +316,8 @@ var xOverlaySplitViewGetSidebarPosition func(uintptr) gtk.PackType
 
 // Gets the sidebar position for @self.
 func (x *OverlaySplitView) GetSidebarPosition() gtk.PackType {
+	core.LazyRegister(&xOverlaySplitViewGetSidebarPosition, "ADW", "adw_overlay_split_view_get_sidebar_position", false)
+
 	cret := xOverlaySplitViewGetSidebarPosition(x.GoPointer())
 	return cret
 }
@@ -307,6 +326,8 @@ var xOverlaySplitViewGetSidebarWidthFraction func(uintptr) float64
 
 // Gets the preferred sidebar width fraction for @self.
 func (x *OverlaySplitView) GetSidebarWidthFraction() float64 {
+	core.LazyRegister(&xOverlaySplitViewGetSidebarWidthFraction, "ADW", "adw_overlay_split_view_get_sidebar_width_fraction", false)
+
 	cret := xOverlaySplitViewGetSidebarWidthFraction(x.GoPointer())
 	return cret
 }
@@ -315,6 +336,8 @@ var xOverlaySplitViewGetSidebarWidthUnit func(uintptr) LengthUnit
 
 // Gets the length unit for minimum and maximum sidebar widths.
 func (x *OverlaySplitView) GetSidebarWidthUnit() LengthUnit {
+	core.LazyRegister(&xOverlaySplitViewGetSidebarWidthUnit, "ADW", "adw_overlay_split_view_get_sidebar_width_unit", false)
+
 	cret := xOverlaySplitViewGetSidebarWidthUnit(x.GoPointer())
 	return cret
 }
@@ -326,6 +349,8 @@ var xOverlaySplitViewSetCollapsed func(uintptr, bool)
 // When collapsed, the sidebar widget is presented as an overlay above the
 // content widget, otherwise they are displayed side by side.
 func (x *OverlaySplitView) SetCollapsed(CollapsedVar bool) {
+	core.LazyRegister(&xOverlaySplitViewSetCollapsed, "ADW", "adw_overlay_split_view_set_collapsed", false)
+
 	xOverlaySplitViewSetCollapsed(x.GoPointer(), CollapsedVar)
 }
 
@@ -333,6 +358,8 @@ var xOverlaySplitViewSetContent func(uintptr, uintptr)
 
 // Sets the content widget for @self.
 func (x *OverlaySplitView) SetContent(ContentVar *gtk.Widget) {
+	core.LazyRegister(&xOverlaySplitViewSetContent, "ADW", "adw_overlay_split_view_set_content", false)
+
 	xOverlaySplitViewSetContent(x.GoPointer(), ContentVar.GoPointer())
 }
 
@@ -342,6 +369,8 @@ var xOverlaySplitViewSetEnableHideGesture func(uintptr, bool)
 //
 // Only touchscreen swipes are supported.
 func (x *OverlaySplitView) SetEnableHideGesture(EnableHideGestureVar bool) {
+	core.LazyRegister(&xOverlaySplitViewSetEnableHideGesture, "ADW", "adw_overlay_split_view_set_enable_hide_gesture", false)
+
 	xOverlaySplitViewSetEnableHideGesture(x.GoPointer(), EnableHideGestureVar)
 }
 
@@ -351,6 +380,8 @@ var xOverlaySplitViewSetEnableShowGesture func(uintptr, bool)
 //
 // Only touchscreen swipes are supported.
 func (x *OverlaySplitView) SetEnableShowGesture(EnableShowGestureVar bool) {
+	core.LazyRegister(&xOverlaySplitViewSetEnableShowGesture, "ADW", "adw_overlay_split_view_set_enable_show_gesture", false)
+
 	xOverlaySplitViewSetEnableShowGesture(x.GoPointer(), EnableShowGestureVar)
 }
 
@@ -363,6 +394,8 @@ var xOverlaySplitViewSetMaxSidebarWidth func(uintptr, float64)
 // The sidebar widget can still be allocated with larger width if its own
 // minimum width exceeds it.
 func (x *OverlaySplitView) SetMaxSidebarWidth(WidthVar float64) {
+	core.LazyRegister(&xOverlaySplitViewSetMaxSidebarWidth, "ADW", "adw_overlay_split_view_set_max_sidebar_width", false)
+
 	xOverlaySplitViewSetMaxSidebarWidth(x.GoPointer(), WidthVar)
 }
 
@@ -375,6 +408,8 @@ var xOverlaySplitViewSetMinSidebarWidth func(uintptr, float64)
 // The sidebar widget can still be allocated with larger width if its own
 // minimum width exceeds it.
 func (x *OverlaySplitView) SetMinSidebarWidth(WidthVar float64) {
+	core.LazyRegister(&xOverlaySplitViewSetMinSidebarWidth, "ADW", "adw_overlay_split_view_set_min_sidebar_width", false)
+
 	xOverlaySplitViewSetMinSidebarWidth(x.GoPointer(), WidthVar)
 }
 
@@ -386,6 +421,8 @@ var xOverlaySplitViewSetPinSidebar func(uintptr, bool)
 // uncollapsing it shows the sidebar. If set to `TRUE`, sidebar visibility never
 // changes on its own.
 func (x *OverlaySplitView) SetPinSidebar(PinSidebarVar bool) {
+	core.LazyRegister(&xOverlaySplitViewSetPinSidebar, "ADW", "adw_overlay_split_view_set_pin_sidebar", false)
+
 	xOverlaySplitViewSetPinSidebar(x.GoPointer(), PinSidebarVar)
 }
 
@@ -393,6 +430,8 @@ var xOverlaySplitViewSetShowSidebar func(uintptr, bool)
 
 // Sets whether the sidebar widget is shown for @self.
 func (x *OverlaySplitView) SetShowSidebar(ShowSidebarVar bool) {
+	core.LazyRegister(&xOverlaySplitViewSetShowSidebar, "ADW", "adw_overlay_split_view_set_show_sidebar", false)
+
 	xOverlaySplitViewSetShowSidebar(x.GoPointer(), ShowSidebarVar)
 }
 
@@ -400,6 +439,8 @@ var xOverlaySplitViewSetSidebar func(uintptr, uintptr)
 
 // Sets the sidebar widget for @self.
 func (x *OverlaySplitView) SetSidebar(SidebarVar *gtk.Widget) {
+	core.LazyRegister(&xOverlaySplitViewSetSidebar, "ADW", "adw_overlay_split_view_set_sidebar", false)
+
 	xOverlaySplitViewSetSidebar(x.GoPointer(), SidebarVar.GoPointer())
 }
 
@@ -410,6 +451,8 @@ var xOverlaySplitViewSetSidebarPosition func(uintptr, gtk.PackType)
 // If it's set to [enum@Gtk.PackType.start], the sidebar is displayed before the
 // content; if [enum@Gtk.PackType.end], it's displayed after the content.
 func (x *OverlaySplitView) SetSidebarPosition(PositionVar gtk.PackType) {
+	core.LazyRegister(&xOverlaySplitViewSetSidebarPosition, "ADW", "adw_overlay_split_view_set_sidebar_position", false)
+
 	xOverlaySplitViewSetSidebarPosition(x.GoPointer(), PositionVar)
 }
 
@@ -424,6 +467,8 @@ var xOverlaySplitViewSetSidebarWidthFraction func(uintptr, float64)
 // The sidebar widget can be allocated with larger width if its own minimum
 // width exceeds the preferred width.
 func (x *OverlaySplitView) SetSidebarWidthFraction(FractionVar float64) {
+	core.LazyRegister(&xOverlaySplitViewSetSidebarWidthFraction, "ADW", "adw_overlay_split_view_set_sidebar_width_fraction", false)
+
 	xOverlaySplitViewSetSidebarWidthFraction(x.GoPointer(), FractionVar)
 }
 
@@ -434,6 +479,8 @@ var xOverlaySplitViewSetSidebarWidthUnit func(uintptr, LengthUnit)
 // See [property@OverlaySplitView:min-sidebar-width] and
 // [property@OverlaySplitView:max-sidebar-width].
 func (x *OverlaySplitView) SetSidebarWidthUnit(UnitVar LengthUnit) {
+	core.LazyRegister(&xOverlaySplitViewSetSidebarWidthUnit, "ADW", "adw_overlay_split_view_set_sidebar_width_unit", false)
+
 	xOverlaySplitViewSetSidebarWidthUnit(x.GoPointer(), UnitVar)
 }
 
@@ -949,41 +996,4 @@ func (x *OverlaySplitView) GetBuildableId() string {
 func init() {
 	core.SetPackageName("ADW", "libadwaita-1")
 	core.SetSharedLibraries("ADW", []string{"libadwaita-1.so.0", "libadwaita-1.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("ADW") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xOverlaySplitViewGLibType, libs, "adw_overlay_split_view_get_type")
-
-	core.PuregoSafeRegister(&xNewOverlaySplitView, libs, "adw_overlay_split_view_new")
-
-	core.PuregoSafeRegister(&xOverlaySplitViewGetCollapsed, libs, "adw_overlay_split_view_get_collapsed")
-	core.PuregoSafeRegister(&xOverlaySplitViewGetContent, libs, "adw_overlay_split_view_get_content")
-	core.PuregoSafeRegister(&xOverlaySplitViewGetEnableHideGesture, libs, "adw_overlay_split_view_get_enable_hide_gesture")
-	core.PuregoSafeRegister(&xOverlaySplitViewGetEnableShowGesture, libs, "adw_overlay_split_view_get_enable_show_gesture")
-	core.PuregoSafeRegister(&xOverlaySplitViewGetMaxSidebarWidth, libs, "adw_overlay_split_view_get_max_sidebar_width")
-	core.PuregoSafeRegister(&xOverlaySplitViewGetMinSidebarWidth, libs, "adw_overlay_split_view_get_min_sidebar_width")
-	core.PuregoSafeRegister(&xOverlaySplitViewGetPinSidebar, libs, "adw_overlay_split_view_get_pin_sidebar")
-	core.PuregoSafeRegister(&xOverlaySplitViewGetShowSidebar, libs, "adw_overlay_split_view_get_show_sidebar")
-	core.PuregoSafeRegister(&xOverlaySplitViewGetSidebar, libs, "adw_overlay_split_view_get_sidebar")
-	core.PuregoSafeRegister(&xOverlaySplitViewGetSidebarPosition, libs, "adw_overlay_split_view_get_sidebar_position")
-	core.PuregoSafeRegister(&xOverlaySplitViewGetSidebarWidthFraction, libs, "adw_overlay_split_view_get_sidebar_width_fraction")
-	core.PuregoSafeRegister(&xOverlaySplitViewGetSidebarWidthUnit, libs, "adw_overlay_split_view_get_sidebar_width_unit")
-	core.PuregoSafeRegister(&xOverlaySplitViewSetCollapsed, libs, "adw_overlay_split_view_set_collapsed")
-	core.PuregoSafeRegister(&xOverlaySplitViewSetContent, libs, "adw_overlay_split_view_set_content")
-	core.PuregoSafeRegister(&xOverlaySplitViewSetEnableHideGesture, libs, "adw_overlay_split_view_set_enable_hide_gesture")
-	core.PuregoSafeRegister(&xOverlaySplitViewSetEnableShowGesture, libs, "adw_overlay_split_view_set_enable_show_gesture")
-	core.PuregoSafeRegister(&xOverlaySplitViewSetMaxSidebarWidth, libs, "adw_overlay_split_view_set_max_sidebar_width")
-	core.PuregoSafeRegister(&xOverlaySplitViewSetMinSidebarWidth, libs, "adw_overlay_split_view_set_min_sidebar_width")
-	core.PuregoSafeRegister(&xOverlaySplitViewSetPinSidebar, libs, "adw_overlay_split_view_set_pin_sidebar")
-	core.PuregoSafeRegister(&xOverlaySplitViewSetShowSidebar, libs, "adw_overlay_split_view_set_show_sidebar")
-	core.PuregoSafeRegister(&xOverlaySplitViewSetSidebar, libs, "adw_overlay_split_view_set_sidebar")
-	core.PuregoSafeRegister(&xOverlaySplitViewSetSidebarPosition, libs, "adw_overlay_split_view_set_sidebar_position")
-	core.PuregoSafeRegister(&xOverlaySplitViewSetSidebarWidthFraction, libs, "adw_overlay_split_view_set_sidebar_width_fraction")
-	core.PuregoSafeRegister(&xOverlaySplitViewSetSidebarWidthUnit, libs, "adw_overlay_split_view_set_sidebar_width_unit")
 }

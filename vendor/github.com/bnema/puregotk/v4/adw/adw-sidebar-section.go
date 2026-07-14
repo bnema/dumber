@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gio"
 	"github.com/bnema/puregotk/v4/glib"
@@ -114,6 +113,7 @@ type SidebarSection struct {
 var xSidebarSectionGLibType func() types.GType
 
 func SidebarSectionGLibType() types.GType {
+	core.LazyRegister(&xSidebarSectionGLibType, "ADW", "adw_sidebar_section_get_type", false)
 	return xSidebarSectionGLibType()
 }
 
@@ -127,6 +127,7 @@ var xNewSidebarSection func() uintptr
 
 // Creates a new `AdwSidebarSection`.
 func NewSidebarSection() *SidebarSection {
+	core.LazyRegister(&xNewSidebarSection, "ADW", "adw_sidebar_section_new", false)
 	var cls *SidebarSection
 
 	cret := xNewSidebarSection()
@@ -145,6 +146,8 @@ var xSidebarSectionAppend func(uintptr, uintptr)
 //
 // Cannot be used while a model is bound via [method@SidebarSection.bind_model].
 func (x *SidebarSection) Append(ItemVar *SidebarItem) {
+	core.LazyRegister(&xSidebarSectionAppend, "ADW", "adw_sidebar_section_append", false)
+
 	xSidebarSectionAppend(x.GoPointer(), ItemVar.GoPointer())
 }
 
@@ -167,6 +170,8 @@ var xSidebarSectionBindModel func(uintptr, uintptr, uintptr, uintptr, uintptr)
 // Accessing items and modifying them is allowed, but the changes will be erased
 // whenever that part of the model changes, so it's not recommended.
 func (x *SidebarSection) BindModel(ModelVar gio.ListModel, CreateItemFuncVar *SidebarSectionCreateItemFunc, UserDataVar uintptr, UserDataFreeFuncVar *glib.DestroyNotify) {
+	core.LazyRegister(&xSidebarSectionBindModel, "ADW", "adw_sidebar_section_bind_model", false)
+
 	xSidebarSectionBindModel(x.GoPointer(), ModelVar.GoPointer(), glib.NewCallbackNullable(CreateItemFuncVar), UserDataVar, glib.NewCallback(UserDataFreeFuncVar))
 }
 
@@ -179,6 +184,7 @@ var xSidebarSectionGetItem func(uintptr, uint) uintptr
 //
 // Can return `NULL` if @index is larger or equal to the number of items.
 func (x *SidebarSection) GetItem(IndexVar uint) *SidebarItem {
+	core.LazyRegister(&xSidebarSectionGetItem, "ADW", "adw_sidebar_section_get_item", false)
 	var cls *SidebarItem
 
 	cret := xSidebarSectionGetItem(x.GoPointer(), IndexVar)
@@ -198,6 +204,7 @@ var xSidebarSectionGetItems func(uintptr) uintptr
 //
 // This can be used to keep an up-to-date view.
 func (x *SidebarSection) GetItems() *gio.ListModelBase {
+	core.LazyRegister(&xSidebarSectionGetItems, "ADW", "adw_sidebar_section_get_items", false)
 	var cls *gio.ListModelBase
 
 	cret := xSidebarSectionGetItems(x.GoPointer())
@@ -214,6 +221,7 @@ var xSidebarSectionGetMenuModel func(uintptr) uintptr
 
 // Gets the context menu model for @self's items.
 func (x *SidebarSection) GetMenuModel() *gio.MenuModel {
+	core.LazyRegister(&xSidebarSectionGetMenuModel, "ADW", "adw_sidebar_section_get_menu_model", false)
 	var cls *gio.MenuModel
 
 	cret := xSidebarSectionGetMenuModel(x.GoPointer())
@@ -231,6 +239,7 @@ var xSidebarSectionGetSidebar func(uintptr) uintptr
 
 // Gets the sidebar @self is in.
 func (x *SidebarSection) GetSidebar() *Sidebar {
+	core.LazyRegister(&xSidebarSectionGetSidebar, "ADW", "adw_sidebar_section_get_sidebar", false)
 	var cls *Sidebar
 
 	cret := xSidebarSectionGetSidebar(x.GoPointer())
@@ -248,6 +257,8 @@ var xSidebarSectionGetTitle func(uintptr) string
 
 // Gets the title of @self.
 func (x *SidebarSection) GetTitle() string {
+	core.LazyRegister(&xSidebarSectionGetTitle, "ADW", "adw_sidebar_section_get_title", false)
+
 	cret := xSidebarSectionGetTitle(x.GoPointer())
 	return cret
 }
@@ -261,6 +272,8 @@ var xSidebarSectionInsert func(uintptr, uintptr, int)
 //
 // Cannot be used while a model is bound via [method@SidebarSection.bind_model].
 func (x *SidebarSection) Insert(ItemVar *SidebarItem, PositionVar int) {
+	core.LazyRegister(&xSidebarSectionInsert, "ADW", "adw_sidebar_section_insert", false)
+
 	xSidebarSectionInsert(x.GoPointer(), ItemVar.GoPointer(), PositionVar)
 }
 
@@ -270,6 +283,8 @@ var xSidebarSectionPrepend func(uintptr, uintptr)
 //
 // Cannot be used while a model is bound via [method@SidebarSection.bind_model].
 func (x *SidebarSection) Prepend(ItemVar *SidebarItem) {
+	core.LazyRegister(&xSidebarSectionPrepend, "ADW", "adw_sidebar_section_prepend", false)
+
 	xSidebarSectionPrepend(x.GoPointer(), ItemVar.GoPointer())
 }
 
@@ -279,6 +294,8 @@ var xSidebarSectionRemove func(uintptr, uintptr)
 //
 // Cannot be used while a model is bound via [method@SidebarSection.bind_model].
 func (x *SidebarSection) Remove(ItemVar *SidebarItem) {
+	core.LazyRegister(&xSidebarSectionRemove, "ADW", "adw_sidebar_section_remove", false)
+
 	xSidebarSectionRemove(x.GoPointer(), ItemVar.GoPointer())
 }
 
@@ -288,6 +305,8 @@ var xSidebarSectionRemoveAll func(uintptr)
 //
 // Cannot be used while a model is bound via [method@SidebarSection.bind_model].
 func (x *SidebarSection) RemoveAll() {
+	core.LazyRegister(&xSidebarSectionRemoveAll, "ADW", "adw_sidebar_section_remove_all", false)
+
 	xSidebarSectionRemoveAll(x.GoPointer())
 }
 
@@ -301,6 +320,8 @@ var xSidebarSectionSetMenuModel func(uintptr, uintptr)
 //
 // If not set, [property@Sidebar:menu-model] will be used instead.
 func (x *SidebarSection) SetMenuModel(MenuModelVar *gio.MenuModel) {
+	core.LazyRegister(&xSidebarSectionSetMenuModel, "ADW", "adw_sidebar_section_set_menu_model", false)
+
 	xSidebarSectionSetMenuModel(x.GoPointer(), MenuModelVar.GoPointer())
 }
 
@@ -310,6 +331,8 @@ var xSidebarSectionSetTitle func(uintptr, uintptr)
 //
 // If set, it will be displayed instead of the separator before the section.
 func (x *SidebarSection) SetTitle(TitleVar *string) {
+	core.LazyRegister(&xSidebarSectionSetTitle, "ADW", "adw_sidebar_section_set_title", false)
+
 	TitleVarPtr := core.GStrdupNullable(TitleVar)
 	defer core.GFreeNullable(TitleVarPtr)
 
@@ -360,30 +383,4 @@ func (x *SidebarSection) GetBuildableId() string {
 func init() {
 	core.SetPackageName("ADW", "libadwaita-1")
 	core.SetSharedLibraries("ADW", []string{"libadwaita-1.so.0", "libadwaita-1.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("ADW") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xSidebarSectionGLibType, libs, "adw_sidebar_section_get_type")
-
-	core.PuregoSafeRegister(&xNewSidebarSection, libs, "adw_sidebar_section_new")
-
-	core.PuregoSafeRegister(&xSidebarSectionAppend, libs, "adw_sidebar_section_append")
-	core.PuregoSafeRegister(&xSidebarSectionBindModel, libs, "adw_sidebar_section_bind_model")
-	core.PuregoSafeRegister(&xSidebarSectionGetItem, libs, "adw_sidebar_section_get_item")
-	core.PuregoSafeRegister(&xSidebarSectionGetItems, libs, "adw_sidebar_section_get_items")
-	core.PuregoSafeRegister(&xSidebarSectionGetMenuModel, libs, "adw_sidebar_section_get_menu_model")
-	core.PuregoSafeRegister(&xSidebarSectionGetSidebar, libs, "adw_sidebar_section_get_sidebar")
-	core.PuregoSafeRegister(&xSidebarSectionGetTitle, libs, "adw_sidebar_section_get_title")
-	core.PuregoSafeRegister(&xSidebarSectionInsert, libs, "adw_sidebar_section_insert")
-	core.PuregoSafeRegister(&xSidebarSectionPrepend, libs, "adw_sidebar_section_prepend")
-	core.PuregoSafeRegister(&xSidebarSectionRemove, libs, "adw_sidebar_section_remove")
-	core.PuregoSafeRegister(&xSidebarSectionRemoveAll, libs, "adw_sidebar_section_remove_all")
-	core.PuregoSafeRegister(&xSidebarSectionSetMenuModel, libs, "adw_sidebar_section_set_menu_model")
-	core.PuregoSafeRegister(&xSidebarSectionSetTitle, libs, "adw_sidebar_section_set_title")
 }

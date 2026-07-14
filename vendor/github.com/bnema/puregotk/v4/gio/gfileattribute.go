@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject/types"
 )
@@ -46,6 +45,7 @@ type FileAttributeInfoList struct {
 var xFileAttributeInfoListGLibType func() types.GType
 
 func FileAttributeInfoListGLibType() types.GType {
+	core.LazyRegister(&xFileAttributeInfoListGLibType, "GIO", "g_file_attribute_info_list_get_type", false)
 	return xFileAttributeInfoListGLibType()
 }
 
@@ -65,6 +65,8 @@ var xNewFileAttributeInfoList func() uintptr
 
 // Creates a new file attribute info list.
 func NewFileAttributeInfoList() *FileAttributeInfoList {
+	core.LazyRegister(&xNewFileAttributeInfoList, "GIO", "g_file_attribute_info_list_new", false)
+
 	cret := xNewFileAttributeInfoList()
 	if cret == 0 {
 		return nil
@@ -77,6 +79,8 @@ var xFileAttributeInfoListAdd func(uintptr, string, FileAttributeType, FileAttri
 // Adds a new attribute with @name to the @list, setting
 // its @type and @flags.
 func (x *FileAttributeInfoList) Add(NameVar string, TypeVar FileAttributeType, FlagsVar FileAttributeInfoFlags) {
+	core.LazyRegister(&xFileAttributeInfoListAdd, "GIO", "g_file_attribute_info_list_add", false)
+
 	xFileAttributeInfoListAdd(x.GoPointer(), NameVar, TypeVar, FlagsVar)
 }
 
@@ -84,6 +88,8 @@ var xFileAttributeInfoListDup func(uintptr) uintptr
 
 // Makes a duplicate of a file attribute info list.
 func (x *FileAttributeInfoList) Dup() *FileAttributeInfoList {
+	core.LazyRegister(&xFileAttributeInfoListDup, "GIO", "g_file_attribute_info_list_dup", false)
+
 	cret := xFileAttributeInfoListDup(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -95,6 +101,8 @@ var xFileAttributeInfoListLookup func(uintptr, string) uintptr
 
 // Gets the file attribute with the name @name from @list.
 func (x *FileAttributeInfoList) Lookup(NameVar string) *FileAttributeInfo {
+	core.LazyRegister(&xFileAttributeInfoListLookup, "GIO", "g_file_attribute_info_list_lookup", false)
+
 	cret := xFileAttributeInfoListLookup(x.GoPointer(), NameVar)
 	if cret == 0 {
 		return nil
@@ -106,6 +114,8 @@ var xFileAttributeInfoListRef func(uintptr) uintptr
 
 // References a file attribute info list.
 func (x *FileAttributeInfoList) Ref() *FileAttributeInfoList {
+	core.LazyRegister(&xFileAttributeInfoListRef, "GIO", "g_file_attribute_info_list_ref", false)
+
 	cret := xFileAttributeInfoListRef(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -118,28 +128,12 @@ var xFileAttributeInfoListUnref func(uintptr)
 // Removes a reference from the given @list. If the reference count
 // falls to zero, the @list is deleted.
 func (x *FileAttributeInfoList) Unref() {
+	core.LazyRegister(&xFileAttributeInfoListUnref, "GIO", "g_file_attribute_info_list_unref", false)
+
 	xFileAttributeInfoListUnref(x.GoPointer())
 }
 
 func init() {
 	core.SetPackageName("GIO", "gio-2.0")
 	core.SetSharedLibraries("GIO", []string{"libgio-2.0.so.0", "libgio-2.0.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GIO") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xFileAttributeInfoListGLibType, libs, "g_file_attribute_info_list_get_type")
-
-	core.PuregoSafeRegister(&xNewFileAttributeInfoList, libs, "g_file_attribute_info_list_new")
-
-	core.PuregoSafeRegister(&xFileAttributeInfoListAdd, libs, "g_file_attribute_info_list_add")
-	core.PuregoSafeRegister(&xFileAttributeInfoListDup, libs, "g_file_attribute_info_list_dup")
-	core.PuregoSafeRegister(&xFileAttributeInfoListLookup, libs, "g_file_attribute_info_list_lookup")
-	core.PuregoSafeRegister(&xFileAttributeInfoListRef, libs, "g_file_attribute_info_list_ref")
-	core.PuregoSafeRegister(&xFileAttributeInfoListUnref, libs, "g_file_attribute_info_list_unref")
 }

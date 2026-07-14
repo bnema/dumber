@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 )
 
@@ -36,6 +35,8 @@ var xSequenceAppend func(uintptr, uintptr) uintptr
 
 // Adds a new item to the end of @seq.
 func (x *Sequence) Append(DataVar uintptr) *SequenceIter {
+	core.LazyRegister(&xSequenceAppend, "GLIB", "g_sequence_append", false)
+
 	cret := xSequenceAppend(x.GoPointer(), DataVar)
 	if cret == 0 {
 		return nil
@@ -48,6 +49,8 @@ var xSequenceForeach func(uintptr, uintptr, uintptr)
 // Calls @func for each item in the sequence passing @user_data
 // to the function. @func must not modify the sequence itself.
 func (x *Sequence) Foreach(FuncVar *Func, UserDataVar uintptr) {
+	core.LazyRegister(&xSequenceForeach, "GLIB", "g_sequence_foreach", false)
+
 	xSequenceForeach(x.GoPointer(), NewCallback(FuncVar), UserDataVar)
 }
 
@@ -57,6 +60,8 @@ var xSequenceFree func(uintptr)
 // function associated with it, that function is called on all items
 // in @seq.
 func (x *Sequence) Free() {
+	core.LazyRegister(&xSequenceFree, "GLIB", "g_sequence_free", false)
+
 	xSequenceFree(x.GoPointer())
 }
 
@@ -64,6 +69,8 @@ var xSequenceGetBeginIter func(uintptr) uintptr
 
 // Returns the begin iterator for @seq.
 func (x *Sequence) GetBeginIter() *SequenceIter {
+	core.LazyRegister(&xSequenceGetBeginIter, "GLIB", "g_sequence_get_begin_iter", false)
+
 	cret := xSequenceGetBeginIter(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -75,6 +82,8 @@ var xSequenceGetEndIter func(uintptr) uintptr
 
 // Returns the end iterator for @seg
 func (x *Sequence) GetEndIter() *SequenceIter {
+	core.LazyRegister(&xSequenceGetEndIter, "GLIB", "g_sequence_get_end_iter", false)
+
 	cret := xSequenceGetEndIter(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -87,6 +96,8 @@ var xSequenceGetIterAtPos func(uintptr, int) uintptr
 // Returns the iterator at position @pos. If @pos is negative or larger
 // than the number of items in @seq, the end iterator is returned.
 func (x *Sequence) GetIterAtPos(PosVar int) *SequenceIter {
+	core.LazyRegister(&xSequenceGetIterAtPos, "GLIB", "g_sequence_get_iter_at_pos", false)
+
 	cret := xSequenceGetIterAtPos(x.GoPointer(), PosVar)
 	if cret == 0 {
 		return nil
@@ -100,6 +111,8 @@ var xSequenceGetLength func(uintptr) int
 // O(h) where `h' is the height of the tree. It is thus more efficient
 // to use g_sequence_is_empty() when comparing the length to zero.
 func (x *Sequence) GetLength() int {
+	core.LazyRegister(&xSequenceGetLength, "GLIB", "g_sequence_get_length", false)
+
 	cret := xSequenceGetLength(x.GoPointer())
 	return cret
 }
@@ -119,6 +132,8 @@ var xSequenceInsertSorted func(uintptr, uintptr, uintptr, uintptr) uintptr
 // it is more efficient to do unsorted insertions and then call
 // g_sequence_sort() or g_sequence_sort_iter().
 func (x *Sequence) InsertSorted(DataVar uintptr, CmpFuncVar *CompareDataFunc, CmpDataVar uintptr) *SequenceIter {
+	core.LazyRegister(&xSequenceInsertSorted, "GLIB", "g_sequence_insert_sorted", false)
+
 	cret := xSequenceInsertSorted(x.GoPointer(), DataVar, NewCallback(CmpFuncVar), CmpDataVar)
 	if cret == 0 {
 		return nil
@@ -141,6 +156,8 @@ var xSequenceInsertSortedIter func(uintptr, uintptr, uintptr, uintptr) uintptr
 // it is more efficient to do unsorted insertions and then call
 // g_sequence_sort() or g_sequence_sort_iter().
 func (x *Sequence) InsertSortedIter(DataVar uintptr, IterCmpVar *SequenceIterCompareFunc, CmpDataVar uintptr) *SequenceIter {
+	core.LazyRegister(&xSequenceInsertSortedIter, "GLIB", "g_sequence_insert_sorted_iter", false)
+
 	cret := xSequenceInsertSortedIter(x.GoPointer(), DataVar, NewCallback(IterCmpVar), CmpDataVar)
 	if cret == 0 {
 		return nil
@@ -156,6 +173,8 @@ var xSequenceIsEmpty func(uintptr) bool
 // g_sequence_get_length() being equal to zero. However this function is
 // implemented in O(1) running time.
 func (x *Sequence) IsEmpty() bool {
+	core.LazyRegister(&xSequenceIsEmpty, "GLIB", "g_sequence_is_empty", false)
+
 	cret := xSequenceIsEmpty(x.GoPointer())
 	return cret
 }
@@ -176,6 +195,8 @@ var xSequenceLookup func(uintptr, uintptr, uintptr, uintptr) uintptr
 // This function will fail if the data contained in the sequence is
 // unsorted.
 func (x *Sequence) Lookup(DataVar uintptr, CmpFuncVar *CompareDataFunc, CmpDataVar uintptr) *SequenceIter {
+	core.LazyRegister(&xSequenceLookup, "GLIB", "g_sequence_lookup", false)
+
 	cret := xSequenceLookup(x.GoPointer(), DataVar, NewCallback(CmpFuncVar), CmpDataVar)
 	if cret == 0 {
 		return nil
@@ -196,6 +217,8 @@ var xSequenceLookupIter func(uintptr, uintptr, uintptr, uintptr) uintptr
 // This function will fail if the data contained in the sequence is
 // unsorted.
 func (x *Sequence) LookupIter(DataVar uintptr, IterCmpVar *SequenceIterCompareFunc, CmpDataVar uintptr) *SequenceIter {
+	core.LazyRegister(&xSequenceLookupIter, "GLIB", "g_sequence_lookup_iter", false)
+
 	cret := xSequenceLookupIter(x.GoPointer(), DataVar, NewCallback(IterCmpVar), CmpDataVar)
 	if cret == 0 {
 		return nil
@@ -207,6 +230,8 @@ var xSequencePrepend func(uintptr, uintptr) uintptr
 
 // Adds a new item to the front of @seq
 func (x *Sequence) Prepend(DataVar uintptr) *SequenceIter {
+	core.LazyRegister(&xSequencePrepend, "GLIB", "g_sequence_prepend", false)
+
 	cret := xSequencePrepend(x.GoPointer(), DataVar)
 	if cret == 0 {
 		return nil
@@ -230,6 +255,8 @@ var xSequenceSearch func(uintptr, uintptr, uintptr, uintptr) uintptr
 // This function will fail if the data contained in the sequence is
 // unsorted.
 func (x *Sequence) Search(DataVar uintptr, CmpFuncVar *CompareDataFunc, CmpDataVar uintptr) *SequenceIter {
+	core.LazyRegister(&xSequenceSearch, "GLIB", "g_sequence_search", false)
+
 	cret := xSequenceSearch(x.GoPointer(), DataVar, NewCallback(CmpFuncVar), CmpDataVar)
 	if cret == 0 {
 		return nil
@@ -253,6 +280,8 @@ var xSequenceSearchIter func(uintptr, uintptr, uintptr, uintptr) uintptr
 // This function will fail if the data contained in the sequence is
 // unsorted.
 func (x *Sequence) SearchIter(DataVar uintptr, IterCmpVar *SequenceIterCompareFunc, CmpDataVar uintptr) *SequenceIter {
+	core.LazyRegister(&xSequenceSearchIter, "GLIB", "g_sequence_search_iter", false)
+
 	cret := xSequenceSearchIter(x.GoPointer(), DataVar, NewCallback(IterCmpVar), CmpDataVar)
 	if cret == 0 {
 		return nil
@@ -269,6 +298,8 @@ var xSequenceSort func(uintptr, uintptr, uintptr)
 // first comes before the second, and a positive value
 // if the second comes before the first.
 func (x *Sequence) Sort(CmpFuncVar *CompareDataFunc, CmpDataVar uintptr) {
+	core.LazyRegister(&xSequenceSort, "GLIB", "g_sequence_sort", false)
+
 	xSequenceSort(x.GoPointer(), NewCallback(CmpFuncVar), CmpDataVar)
 }
 
@@ -282,6 +313,8 @@ var xSequenceSortIter func(uintptr, uintptr, uintptr)
 // iterator comes before the second, and a positive value if the second
 // iterator comes before the first.
 func (x *Sequence) SortIter(CmpFuncVar *SequenceIterCompareFunc, CmpDataVar uintptr) {
+	core.LazyRegister(&xSequenceSortIter, "GLIB", "g_sequence_sort_iter", false)
+
 	xSequenceSortIter(x.GoPointer(), NewCallback(CmpFuncVar), CmpDataVar)
 }
 
@@ -310,6 +343,8 @@ var xSequenceIterCompare func(uintptr, *SequenceIter) int
 //
 // The @a and @b iterators must point into the same sequence.
 func (x *SequenceIter) Compare(BVar *SequenceIter) int {
+	core.LazyRegister(&xSequenceIterCompare, "GLIB", "g_sequence_iter_compare", false)
+
 	cret := xSequenceIterCompare(x.GoPointer(), BVar)
 	return cret
 }
@@ -318,6 +353,8 @@ var xSequenceIterGetPosition func(uintptr) int
 
 // Returns the position of @iter
 func (x *SequenceIter) GetPosition() int {
+	core.LazyRegister(&xSequenceIterGetPosition, "GLIB", "g_sequence_iter_get_position", false)
+
 	cret := xSequenceIterGetPosition(x.GoPointer())
 	return cret
 }
@@ -326,6 +363,8 @@ var xSequenceIterGetSequence func(uintptr) uintptr
 
 // Returns the #GSequence that @iter points into.
 func (x *SequenceIter) GetSequence() *Sequence {
+	core.LazyRegister(&xSequenceIterGetSequence, "GLIB", "g_sequence_iter_get_sequence", false)
+
 	cret := xSequenceIterGetSequence(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -337,6 +376,8 @@ var xSequenceIterIsBegin func(uintptr) bool
 
 // Returns whether @iter is the begin iterator
 func (x *SequenceIter) IsBegin() bool {
+	core.LazyRegister(&xSequenceIterIsBegin, "GLIB", "g_sequence_iter_is_begin", false)
+
 	cret := xSequenceIterIsBegin(x.GoPointer())
 	return cret
 }
@@ -345,6 +386,8 @@ var xSequenceIterIsEnd func(uintptr) bool
 
 // Returns whether @iter is the end iterator
 func (x *SequenceIter) IsEnd() bool {
+	core.LazyRegister(&xSequenceIterIsEnd, "GLIB", "g_sequence_iter_is_end", false)
+
 	cret := xSequenceIterIsEnd(x.GoPointer())
 	return cret
 }
@@ -356,6 +399,8 @@ var xSequenceIterMove func(uintptr, int) uintptr
 // the begin iterator is returned. If @iter is closer than @delta positions
 // to the end of the sequence, the end iterator is returned.
 func (x *SequenceIter) Move(DeltaVar int) *SequenceIter {
+	core.LazyRegister(&xSequenceIterMove, "GLIB", "g_sequence_iter_move", false)
+
 	cret := xSequenceIterMove(x.GoPointer(), DeltaVar)
 	if cret == 0 {
 		return nil
@@ -368,6 +413,8 @@ var xSequenceIterNext func(uintptr) uintptr
 // Returns an iterator pointing to the next position after @iter.
 // If @iter is the end iterator, the end iterator is returned.
 func (x *SequenceIter) Next() *SequenceIter {
+	core.LazyRegister(&xSequenceIterNext, "GLIB", "g_sequence_iter_next", false)
+
 	cret := xSequenceIterNext(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -380,6 +427,8 @@ var xSequenceIterPrev func(uintptr) uintptr
 // Returns an iterator pointing to the previous position before @iter.
 // If @iter is the begin iterator, the begin iterator is returned.
 func (x *SequenceIter) Prev() *SequenceIter {
+	core.LazyRegister(&xSequenceIterPrev, "GLIB", "g_sequence_iter_prev", false)
+
 	cret := xSequenceIterPrev(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -393,6 +442,8 @@ var xSequenceForeachRange func(*SequenceIter, *SequenceIter, uintptr, uintptr)
 // @user_data to the function. @func must not modify the sequence
 // itself.
 func SequenceForeachRange(BeginVar *SequenceIter, EndVar *SequenceIter, FuncVar *Func, UserDataVar uintptr) {
+	core.LazyRegister(&xSequenceForeachRange, "GLIB", "g_sequence_foreach_range", false)
+
 	xSequenceForeachRange(BeginVar, EndVar, NewCallback(FuncVar), UserDataVar)
 }
 
@@ -400,6 +451,8 @@ var xSequenceGet func(*SequenceIter) uintptr
 
 // Returns the data that @iter points to.
 func SequenceGet(IterVar *SequenceIter) uintptr {
+	core.LazyRegister(&xSequenceGet, "GLIB", "g_sequence_get", false)
+
 	cret := xSequenceGet(IterVar)
 	return cret
 }
@@ -408,6 +461,8 @@ var xSequenceInsertBefore func(*SequenceIter, uintptr) uintptr
 
 // Inserts a new item just before the item pointed to by @iter.
 func SequenceInsertBefore(IterVar *SequenceIter, DataVar uintptr) *SequenceIter {
+	core.LazyRegister(&xSequenceInsertBefore, "GLIB", "g_sequence_insert_before", false)
+
 	cret := xSequenceInsertBefore(IterVar, DataVar)
 	if cret == 0 {
 		return nil
@@ -422,6 +477,8 @@ var xSequenceMove func(*SequenceIter, *SequenceIter)
 // after @src. It is allowed for @src and @dest to point into different
 // sequences.
 func SequenceMove(SrcVar *SequenceIter, DestVar *SequenceIter) {
+	core.LazyRegister(&xSequenceMove, "GLIB", "g_sequence_move", false)
+
 	xSequenceMove(SrcVar, DestVar)
 }
 
@@ -436,6 +493,8 @@ var xSequenceMoveRange func(*SequenceIter, *SequenceIter, *SequenceIter)
 // removed from the sequence. If @dest points to a place within
 // the (@begin, @end) range, the range does not move.
 func SequenceMoveRange(DestVar *SequenceIter, BeginVar *SequenceIter, EndVar *SequenceIter) {
+	core.LazyRegister(&xSequenceMoveRange, "GLIB", "g_sequence_move_range", false)
+
 	xSequenceMoveRange(DestVar, BeginVar, EndVar)
 }
 
@@ -448,6 +507,8 @@ var xSequenceRangeGetMidpoint func(*SequenceIter, *SequenceIter) uintptr
 // The @begin and @end iterators must both point to the same sequence
 // and @begin must come before or be equal to @end in the sequence.
 func SequenceRangeGetMidpoint(BeginVar *SequenceIter, EndVar *SequenceIter) *SequenceIter {
+	core.LazyRegister(&xSequenceRangeGetMidpoint, "GLIB", "g_sequence_range_get_midpoint", false)
+
 	cret := xSequenceRangeGetMidpoint(BeginVar, EndVar)
 	if cret == 0 {
 		return nil
@@ -463,6 +524,8 @@ var xSequenceRemove func(*SequenceIter)
 // If the sequence has a data destroy function associated with it, this
 // function is called on the data for the removed item.
 func SequenceRemove(IterVar *SequenceIter) {
+	core.LazyRegister(&xSequenceRemove, "GLIB", "g_sequence_remove", false)
+
 	xSequenceRemove(IterVar)
 }
 
@@ -473,6 +536,8 @@ var xSequenceRemoveRange func(*SequenceIter, *SequenceIter)
 // If the sequence has a data destroy function associated with it, this
 // function is called on the data for the removed items.
 func SequenceRemoveRange(BeginVar *SequenceIter, EndVar *SequenceIter) {
+	core.LazyRegister(&xSequenceRemoveRange, "GLIB", "g_sequence_remove_range", false)
+
 	xSequenceRemoveRange(BeginVar, EndVar)
 }
 
@@ -482,6 +547,8 @@ var xSequenceSet func(*SequenceIter, uintptr)
 // the sequence has a data destroy function associated with it, that
 // function is called on the existing data that @iter pointed to.
 func SequenceSet(IterVar *SequenceIter, DataVar uintptr) {
+	core.LazyRegister(&xSequenceSet, "GLIB", "g_sequence_set", false)
+
 	xSequenceSet(IterVar, DataVar)
 }
 
@@ -498,6 +565,8 @@ var xSequenceSortChanged func(*SequenceIter, uintptr, uintptr)
 // the first item comes before the second, and a positive value if
 // the second item comes before the first.
 func SequenceSortChanged(IterVar *SequenceIter, CmpFuncVar *CompareDataFunc, CmpDataVar uintptr) {
+	core.LazyRegister(&xSequenceSortChanged, "GLIB", "g_sequence_sort_changed", false)
+
 	xSequenceSortChanged(IterVar, NewCallback(CmpFuncVar), CmpDataVar)
 }
 
@@ -513,6 +582,8 @@ var xSequenceSortChangedIter func(*SequenceIter, uintptr, uintptr)
 // iterator comes before the second, and a positive value if the second
 // iterator comes before the first.
 func SequenceSortChangedIter(IterVar *SequenceIter, IterCmpVar *SequenceIterCompareFunc, CmpDataVar uintptr) {
+	core.LazyRegister(&xSequenceSortChangedIter, "GLIB", "g_sequence_sort_changed_iter", false)
+
 	xSequenceSortChangedIter(IterVar, NewCallback(IterCmpVar), CmpDataVar)
 }
 
@@ -521,58 +592,12 @@ var xSequenceSwap func(*SequenceIter, *SequenceIter)
 // Swaps the items pointed to by @a and @b. It is allowed for @a and @b
 // to point into difference sequences.
 func SequenceSwap(AVar *SequenceIter, BVar *SequenceIter) {
+	core.LazyRegister(&xSequenceSwap, "GLIB", "g_sequence_swap", false)
+
 	xSequenceSwap(AVar, BVar)
 }
 
 func init() {
 	core.SetPackageName("GLIB", "glib-2.0")
 	core.SetSharedLibraries("GLIB", []string{"libgobject-2.0.so.0", "libglib-2.0.so.0", "libgobject-2.0.0.dylib", "libglib-2.0.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GLIB") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xSequenceForeachRange, libs, "g_sequence_foreach_range")
-	core.PuregoSafeRegister(&xSequenceGet, libs, "g_sequence_get")
-	core.PuregoSafeRegister(&xSequenceInsertBefore, libs, "g_sequence_insert_before")
-	core.PuregoSafeRegister(&xSequenceMove, libs, "g_sequence_move")
-	core.PuregoSafeRegister(&xSequenceMoveRange, libs, "g_sequence_move_range")
-	core.PuregoSafeRegister(&xSequenceRangeGetMidpoint, libs, "g_sequence_range_get_midpoint")
-	core.PuregoSafeRegister(&xSequenceRemove, libs, "g_sequence_remove")
-	core.PuregoSafeRegister(&xSequenceRemoveRange, libs, "g_sequence_remove_range")
-	core.PuregoSafeRegister(&xSequenceSet, libs, "g_sequence_set")
-	core.PuregoSafeRegister(&xSequenceSortChanged, libs, "g_sequence_sort_changed")
-	core.PuregoSafeRegister(&xSequenceSortChangedIter, libs, "g_sequence_sort_changed_iter")
-	core.PuregoSafeRegister(&xSequenceSwap, libs, "g_sequence_swap")
-
-	core.PuregoSafeRegister(&xSequenceAppend, libs, "g_sequence_append")
-	core.PuregoSafeRegister(&xSequenceForeach, libs, "g_sequence_foreach")
-	core.PuregoSafeRegister(&xSequenceFree, libs, "g_sequence_free")
-	core.PuregoSafeRegister(&xSequenceGetBeginIter, libs, "g_sequence_get_begin_iter")
-	core.PuregoSafeRegister(&xSequenceGetEndIter, libs, "g_sequence_get_end_iter")
-	core.PuregoSafeRegister(&xSequenceGetIterAtPos, libs, "g_sequence_get_iter_at_pos")
-	core.PuregoSafeRegister(&xSequenceGetLength, libs, "g_sequence_get_length")
-	core.PuregoSafeRegister(&xSequenceInsertSorted, libs, "g_sequence_insert_sorted")
-	core.PuregoSafeRegister(&xSequenceInsertSortedIter, libs, "g_sequence_insert_sorted_iter")
-	core.PuregoSafeRegister(&xSequenceIsEmpty, libs, "g_sequence_is_empty")
-	core.PuregoSafeRegister(&xSequenceLookup, libs, "g_sequence_lookup")
-	core.PuregoSafeRegister(&xSequenceLookupIter, libs, "g_sequence_lookup_iter")
-	core.PuregoSafeRegister(&xSequencePrepend, libs, "g_sequence_prepend")
-	core.PuregoSafeRegister(&xSequenceSearch, libs, "g_sequence_search")
-	core.PuregoSafeRegister(&xSequenceSearchIter, libs, "g_sequence_search_iter")
-	core.PuregoSafeRegister(&xSequenceSort, libs, "g_sequence_sort")
-	core.PuregoSafeRegister(&xSequenceSortIter, libs, "g_sequence_sort_iter")
-
-	core.PuregoSafeRegister(&xSequenceIterCompare, libs, "g_sequence_iter_compare")
-	core.PuregoSafeRegister(&xSequenceIterGetPosition, libs, "g_sequence_iter_get_position")
-	core.PuregoSafeRegister(&xSequenceIterGetSequence, libs, "g_sequence_iter_get_sequence")
-	core.PuregoSafeRegister(&xSequenceIterIsBegin, libs, "g_sequence_iter_is_begin")
-	core.PuregoSafeRegister(&xSequenceIterIsEnd, libs, "g_sequence_iter_is_end")
-	core.PuregoSafeRegister(&xSequenceIterMove, libs, "g_sequence_iter_move")
-	core.PuregoSafeRegister(&xSequenceIterNext, libs, "g_sequence_iter_next")
-	core.PuregoSafeRegister(&xSequenceIterPrev, libs, "g_sequence_iter_prev")
 }

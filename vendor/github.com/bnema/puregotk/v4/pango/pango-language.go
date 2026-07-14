@@ -4,7 +4,6 @@ package pango
 import (
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 )
 
@@ -23,6 +22,8 @@ var xLanguageFromString func(uintptr) uintptr
 // Use [func@Pango.Language.get_default] if you want to get the
 // `PangoLanguage` for the current locale of the process.
 func LanguageFromString(LanguageVar *string) *Language {
+	core.LazyRegister(&xLanguageFromString, "PANGO", "pango_language_from_string", false)
+
 	LanguageVarPtr := core.GStrdupNullable(LanguageVar)
 	defer core.GFreeNullable(LanguageVarPtr)
 
@@ -67,6 +68,8 @@ var xLanguageGetDefault func() uintptr
 // use per-thread locales with uselocale(). In that case, you should
 // just call pango_language_from_string() yourself.
 func LanguageGetDefault() *Language {
+	core.LazyRegister(&xLanguageGetDefault, "PANGO", "pango_language_get_default", false)
+
 	cret := xLanguageGetDefault()
 	if cret == 0 {
 		return nil
@@ -88,6 +91,8 @@ var xLanguageGetPreferred func() uintptr
 // you should first try the default language, followed by the
 // languages returned by this function.
 func LanguageGetPreferred() uintptr {
+	core.LazyRegister(&xLanguageGetPreferred, "PANGO", "pango_language_get_preferred", false)
+
 	cret := xLanguageGetPreferred()
 	return cret
 }
@@ -95,16 +100,4 @@ func LanguageGetPreferred() uintptr {
 func init() {
 	core.SetPackageName("PANGO", "pango")
 	core.SetSharedLibraries("PANGO", []string{"libpango-1.0.so.0", "libpango-1.0.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("PANGO") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xLanguageFromString, libs, "pango_language_from_string")
-	core.PuregoSafeRegister(&xLanguageGetDefault, libs, "pango_language_get_default")
-	core.PuregoSafeRegister(&xLanguageGetPreferred, libs, "pango_language_get_preferred")
 }

@@ -4,7 +4,6 @@ package gtk
 import (
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gdk"
 	"github.com/bnema/puregotk/v4/glib"
@@ -38,6 +37,7 @@ type CellView struct {
 var xCellViewGLibType func() types.GType
 
 func CellViewGLibType() types.GType {
+	core.LazyRegister(&xCellViewGLibType, "GTK", "gtk_cell_view_get_type", false)
 	return xCellViewGLibType()
 }
 
@@ -51,6 +51,7 @@ var xNewCellView func() uintptr
 
 // Creates a new `GtkCellView` widget.
 func NewCellView() *CellView {
+	core.LazyRegister(&xNewCellView, "GTK", "gtk_cell_view_new", false)
 	var cls *CellView
 
 	cret := xNewCellView()
@@ -74,6 +75,7 @@ var xNewCellViewWithContext func(uintptr, uintptr) uintptr
 // in this way alignments with cellviews for other rows are
 // possible.
 func NewCellViewWithContext(AreaVar *CellArea, ContextVar *CellAreaContext) *CellView {
+	core.LazyRegister(&xNewCellViewWithContext, "GTK", "gtk_cell_view_new_with_context", false)
 	var cls *CellView
 
 	cret := xNewCellViewWithContext(AreaVar.GoPointer(), ContextVar.GoPointer())
@@ -93,6 +95,7 @@ var xNewCellViewWithMarkup func(string) uintptr
 // to it, and makes it show @markup. The text can be marked up with
 // the [Pango text markup language](https://docs.gtk.org/Pango/pango_markup.html).
 func NewCellViewWithMarkup(MarkupVar string) *CellView {
+	core.LazyRegister(&xNewCellViewWithMarkup, "GTK", "gtk_cell_view_new_with_markup", false)
 	var cls *CellView
 
 	cret := xNewCellViewWithMarkup(MarkupVar)
@@ -111,6 +114,7 @@ var xNewCellViewWithText func(string) uintptr
 // Creates a new `GtkCellView` widget, adds a `GtkCellRendererText`
 // to it, and makes it show @text.
 func NewCellViewWithText(TextVar string) *CellView {
+	core.LazyRegister(&xNewCellViewWithText, "GTK", "gtk_cell_view_new_with_text", false)
 	var cls *CellView
 
 	cret := xNewCellViewWithText(TextVar)
@@ -129,6 +133,7 @@ var xNewCellViewWithTexture func(uintptr) uintptr
 // Creates a new `GtkCellView` widget, adds a `GtkCellRendererPixbuf`
 // to it, and makes it show @texture.
 func NewCellViewWithTexture(TextureVar *gdk.Texture) *CellView {
+	core.LazyRegister(&xNewCellViewWithTexture, "GTK", "gtk_cell_view_new_with_texture", false)
 	var cls *CellView
 
 	cret := xNewCellViewWithTexture(TextureVar.GoPointer())
@@ -148,6 +153,8 @@ var xCellViewGetDisplayedRow func(uintptr) uintptr
 // displayed row. If no row is currently displayed,
 // %NULL is returned.
 func (x *CellView) GetDisplayedRow() *TreePath {
+	core.LazyRegister(&xCellViewGetDisplayedRow, "GTK", "gtk_cell_view_get_displayed_row", false)
+
 	cret := xCellViewGetDisplayedRow(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -160,6 +167,8 @@ var xCellViewGetDrawSensitive func(uintptr) bool
 // Gets whether @cell_view is configured to draw all of its
 // cells in a sensitive state.
 func (x *CellView) GetDrawSensitive() bool {
+	core.LazyRegister(&xCellViewGetDrawSensitive, "GTK", "gtk_cell_view_get_draw_sensitive", false)
+
 	cret := xCellViewGetDrawSensitive(x.GoPointer())
 	return cret
 }
@@ -169,6 +178,8 @@ var xCellViewGetFitModel func(uintptr) bool
 // Gets whether @cell_view is configured to request space
 // to fit the entire `GtkTreeModel`.
 func (x *CellView) GetFitModel() bool {
+	core.LazyRegister(&xCellViewGetFitModel, "GTK", "gtk_cell_view_get_fit_model", false)
+
 	cret := xCellViewGetFitModel(x.GoPointer())
 	return cret
 }
@@ -178,6 +189,7 @@ var xCellViewGetModel func(uintptr) uintptr
 // Returns the model for @cell_view. If no model is used %NULL is
 // returned.
 func (x *CellView) GetModel() *TreeModelBase {
+	core.LazyRegister(&xCellViewGetModel, "GTK", "gtk_cell_view_get_model", false)
 	var cls *TreeModelBase
 
 	cret := xCellViewGetModel(x.GoPointer())
@@ -200,6 +212,8 @@ var xCellViewSetDisplayedRow func(uintptr, *TreePath)
 // a needed intermediate state if say, the model for
 // the `GtkCellView` becomes temporarily empty.
 func (x *CellView) SetDisplayedRow(PathVar *TreePath) {
+	core.LazyRegister(&xCellViewSetDisplayedRow, "GTK", "gtk_cell_view_set_displayed_row", false)
+
 	xCellViewSetDisplayedRow(x.GoPointer(), PathVar)
 }
 
@@ -210,6 +224,8 @@ var xCellViewSetDrawSensitive func(uintptr, bool)
 // to ensure that rows with insensitive cells that contain
 // children appear sensitive in the parent menu item.
 func (x *CellView) SetDrawSensitive(DrawSensitiveVar bool) {
+	core.LazyRegister(&xCellViewSetDrawSensitive, "GTK", "gtk_cell_view_set_draw_sensitive", false)
+
 	xCellViewSetDrawSensitive(x.GoPointer(), DrawSensitiveVar)
 }
 
@@ -221,6 +237,8 @@ var xCellViewSetFitModel func(uintptr, bool)
 // the combo box’s button always gets enough space and does not resize
 // when selection changes.
 func (x *CellView) SetFitModel(FitModelVar bool) {
+	core.LazyRegister(&xCellViewSetFitModel, "GTK", "gtk_cell_view_set_fit_model", false)
+
 	xCellViewSetFitModel(x.GoPointer(), FitModelVar)
 }
 
@@ -230,6 +248,8 @@ var xCellViewSetModel func(uintptr, uintptr)
 // set, it will remove it before setting the new model.  If @model is
 // %NULL, then it will unset the old model.
 func (x *CellView) SetModel(ModelVar TreeModel) {
+	core.LazyRegister(&xCellViewSetModel, "GTK", "gtk_cell_view_set_model", false)
+
 	xCellViewSetModel(x.GoPointer(), ModelVar.GoPointer())
 }
 
@@ -668,29 +688,4 @@ func (x *CellView) SetOrientation(OrientationVar Orientation) {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GTK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xCellViewGLibType, libs, "gtk_cell_view_get_type")
-
-	core.PuregoSafeRegister(&xNewCellView, libs, "gtk_cell_view_new")
-	core.PuregoSafeRegister(&xNewCellViewWithContext, libs, "gtk_cell_view_new_with_context")
-	core.PuregoSafeRegister(&xNewCellViewWithMarkup, libs, "gtk_cell_view_new_with_markup")
-	core.PuregoSafeRegister(&xNewCellViewWithText, libs, "gtk_cell_view_new_with_text")
-	core.PuregoSafeRegister(&xNewCellViewWithTexture, libs, "gtk_cell_view_new_with_texture")
-
-	core.PuregoSafeRegister(&xCellViewGetDisplayedRow, libs, "gtk_cell_view_get_displayed_row")
-	core.PuregoSafeRegister(&xCellViewGetDrawSensitive, libs, "gtk_cell_view_get_draw_sensitive")
-	core.PuregoSafeRegister(&xCellViewGetFitModel, libs, "gtk_cell_view_get_fit_model")
-	core.PuregoSafeRegister(&xCellViewGetModel, libs, "gtk_cell_view_get_model")
-	core.PuregoSafeRegister(&xCellViewSetDisplayedRow, libs, "gtk_cell_view_set_displayed_row")
-	core.PuregoSafeRegister(&xCellViewSetDrawSensitive, libs, "gtk_cell_view_set_draw_sensitive")
-	core.PuregoSafeRegister(&xCellViewSetFitModel, libs, "gtk_cell_view_set_fit_model")
-	core.PuregoSafeRegister(&xCellViewSetModel, libs, "gtk_cell_view_set_model")
 }

@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gdk"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -52,6 +51,7 @@ type Root interface {
 var xRootGLibType func() types.GType
 
 func RootGLibType() types.GType {
+	core.LazyRegister(&xRootGLibType, "GTK", "gtk_root_get_type", false)
 	return xRootGLibType()
 }
 
@@ -117,27 +117,28 @@ func (x *RootBase) SetFocus(FocusVar *Widget) {
 	XGtkRootSetFocus(x.GoPointer(), FocusVar.GoPointer())
 }
 
+var XGtkRootGetDisplay func(uintptr) uintptr = func(instance uintptr) uintptr {
+	core.LazyRegister(&xXGtkRootGetDisplay, "GTK", "gtk_root_get_display", false)
+	return xXGtkRootGetDisplay(instance)
+}
+
 var (
-	XGtkRootGetDisplay func(uintptr) uintptr
-	XGtkRootGetFocus   func(uintptr) uintptr
-	XGtkRootSetFocus   func(uintptr, uintptr)
+	xXGtkRootGetDisplay func(uintptr) uintptr
+	XGtkRootGetFocus    func(uintptr) uintptr = func(instance uintptr) uintptr {
+		core.LazyRegister(&xXGtkRootGetFocus, "GTK", "gtk_root_get_focus", false)
+		return xXGtkRootGetFocus(instance)
+	}
 )
+var (
+	xXGtkRootGetFocus func(uintptr) uintptr
+	XGtkRootSetFocus  func(uintptr, uintptr) = func(instance uintptr, FocusVarp uintptr) {
+		core.LazyRegister(&xXGtkRootSetFocus, "GTK", "gtk_root_set_focus", false)
+		xXGtkRootSetFocus(instance, FocusVarp)
+	}
+)
+var xXGtkRootSetFocus func(uintptr, uintptr)
 
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GTK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xRootGLibType, libs, "gtk_root_get_type")
-
-	core.PuregoSafeRegister(&XGtkRootGetDisplay, libs, "gtk_root_get_display")
-	core.PuregoSafeRegister(&XGtkRootGetFocus, libs, "gtk_root_get_focus")
-	core.PuregoSafeRegister(&XGtkRootSetFocus, libs, "gtk_root_set_focus")
 }

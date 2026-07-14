@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 )
 
@@ -44,6 +43,8 @@ var xDistributeNaturalAllocation func(int, uint, []RequestedSize) int
 // `GtkRequestedSize` struct. If all sizes reach their natural size then
 // the remaining space is returned.
 func DistributeNaturalAllocation(ExtraSpaceVar int, NRequestedSizesVar uint, SizesVar []RequestedSize) int {
+	core.LazyRegister(&xDistributeNaturalAllocation, "GTK", "gtk_distribute_natural_allocation", false)
+
 	cret := xDistributeNaturalAllocation(ExtraSpaceVar, NRequestedSizesVar, SizesVar)
 	return cret
 }
@@ -51,14 +52,4 @@ func DistributeNaturalAllocation(ExtraSpaceVar int, NRequestedSizesVar uint, Siz
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GTK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xDistributeNaturalAllocation, libs, "gtk_distribute_natural_allocation")
 }

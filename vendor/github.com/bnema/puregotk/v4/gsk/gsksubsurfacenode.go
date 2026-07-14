@@ -2,7 +2,6 @@
 package gsk
 
 import (
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -16,6 +15,7 @@ type SubsurfaceNode struct {
 var xSubsurfaceNodeGLibType func() types.GType
 
 func SubsurfaceNodeGLibType() types.GType {
+	core.LazyRegister(&xSubsurfaceNodeGLibType, "GSK", "gsk_subsurface_node_get_type", false)
 	return xSubsurfaceNodeGLibType()
 }
 
@@ -34,6 +34,7 @@ var xNewSubsurfaceNode func(uintptr, uintptr) uintptr
 // currently be created outside of GTK. See
 // [GtkGraphicsOffload](../gtk4/class.GraphicsOffload.html).
 func NewSubsurfaceNode(ChildVar *RenderNode, SubsurfaceVar uintptr) *SubsurfaceNode {
+	core.LazyRegister(&xNewSubsurfaceNode, "GSK", "gsk_subsurface_node_new", false)
 	var cls *SubsurfaceNode
 
 	cret := xNewSubsurfaceNode(ChildVar.GoPointer(), SubsurfaceVar)
@@ -50,6 +51,7 @@ var xSubsurfaceNodeGetChild func(uintptr) uintptr
 
 // Gets the child node that is getting drawn by the given @node.
 func (x *SubsurfaceNode) GetChild() *RenderNode {
+	core.LazyRegister(&xSubsurfaceNodeGetChild, "GSK", "gsk_subsurface_node_get_child", false)
 	var cls *RenderNode
 
 	cret := xSubsurfaceNodeGetChild(x.GoPointer())
@@ -78,6 +80,8 @@ var xSubsurfaceNodeGetSubsurface func(uintptr) uintptr
 
 // Gets the subsurface that was set on this node
 func SubsurfaceNodeGetSubsurface(NodeVar *DebugNode) uintptr {
+	core.LazyRegister(&xSubsurfaceNodeGetSubsurface, "GSK", "gsk_subsurface_node_get_subsurface", false)
+
 	cret := xSubsurfaceNodeGetSubsurface(NodeVar.GoPointer())
 	return cret
 }
@@ -85,20 +89,4 @@ func SubsurfaceNodeGetSubsurface(NodeVar *DebugNode) uintptr {
 func init() {
 	core.SetPackageName("GSK", "gtk4")
 	core.SetSharedLibraries("GSK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GSK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xSubsurfaceNodeGLibType, libs, "gsk_subsurface_node_get_type")
-
-	core.PuregoSafeRegister(&xNewSubsurfaceNode, libs, "gsk_subsurface_node_new")
-
-	core.PuregoSafeRegister(&xSubsurfaceNodeGetChild, libs, "gsk_subsurface_node_get_child")
-
-	core.PuregoSafeRegister(&xSubsurfaceNodeGetSubsurface, libs, "gsk_subsurface_node_get_subsurface")
 }

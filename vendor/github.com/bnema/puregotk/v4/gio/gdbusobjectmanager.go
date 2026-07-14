@@ -293,6 +293,7 @@ type DBusObjectManager interface {
 var xDBusObjectManagerGLibType func() types.GType
 
 func DBusObjectManagerGLibType() types.GType {
+	core.LazyRegister(&xDBusObjectManagerGLibType, "GIO", "g_dbus_object_manager_get_type", false)
 	return xDBusObjectManagerGLibType()
 }
 
@@ -355,29 +356,35 @@ func (x *DBusObjectManagerBase) GetObjects() *glib.List {
 	return (*glib.List)(unsafe.Pointer(cret))
 }
 
+var XGDbusObjectManagerGetInterface func(uintptr, string, string) uintptr = func(instance uintptr, ObjectPathVarp string, InterfaceNameVarp string) uintptr {
+	core.LazyRegister(&xXGDbusObjectManagerGetInterface, "GIO", "g_dbus_object_manager_get_interface", false)
+	return xXGDbusObjectManagerGetInterface(instance, ObjectPathVarp, InterfaceNameVarp)
+}
+
 var (
-	XGDbusObjectManagerGetInterface  func(uintptr, string, string) uintptr
-	XGDbusObjectManagerGetObject     func(uintptr, string) uintptr
-	XGDbusObjectManagerGetObjectPath func(uintptr) string
-	XGDbusObjectManagerGetObjects    func(uintptr) uintptr
+	xXGDbusObjectManagerGetInterface func(uintptr, string, string) uintptr
+	XGDbusObjectManagerGetObject     func(uintptr, string) uintptr = func(instance uintptr, ObjectPathVarp string) uintptr {
+		core.LazyRegister(&xXGDbusObjectManagerGetObject, "GIO", "g_dbus_object_manager_get_object", false)
+		return xXGDbusObjectManagerGetObject(instance, ObjectPathVarp)
+	}
 )
+var (
+	xXGDbusObjectManagerGetObject    func(uintptr, string) uintptr
+	XGDbusObjectManagerGetObjectPath func(uintptr) string = func(instance uintptr) string {
+		core.LazyRegister(&xXGDbusObjectManagerGetObjectPath, "GIO", "g_dbus_object_manager_get_object_path", false)
+		return xXGDbusObjectManagerGetObjectPath(instance)
+	}
+)
+var (
+	xXGDbusObjectManagerGetObjectPath func(uintptr) string
+	XGDbusObjectManagerGetObjects     func(uintptr) uintptr = func(instance uintptr) uintptr {
+		core.LazyRegister(&xXGDbusObjectManagerGetObjects, "GIO", "g_dbus_object_manager_get_objects", false)
+		return xXGDbusObjectManagerGetObjects(instance)
+	}
+)
+var xXGDbusObjectManagerGetObjects func(uintptr) uintptr
 
 func init() {
 	core.SetPackageName("GIO", "gio-2.0")
 	core.SetSharedLibraries("GIO", []string{"libgio-2.0.so.0", "libgio-2.0.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GIO") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xDBusObjectManagerGLibType, libs, "g_dbus_object_manager_get_type")
-
-	core.PuregoSafeRegister(&XGDbusObjectManagerGetInterface, libs, "g_dbus_object_manager_get_interface")
-	core.PuregoSafeRegister(&XGDbusObjectManagerGetObject, libs, "g_dbus_object_manager_get_object")
-	core.PuregoSafeRegister(&XGDbusObjectManagerGetObjectPath, libs, "g_dbus_object_manager_get_object_path")
-	core.PuregoSafeRegister(&XGDbusObjectManagerGetObjects, libs, "g_dbus_object_manager_get_objects")
 }

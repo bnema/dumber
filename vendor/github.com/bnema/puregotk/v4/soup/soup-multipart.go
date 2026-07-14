@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -30,6 +29,7 @@ type Multipart struct {
 var xMultipartGLibType func() types.GType
 
 func MultipartGLibType() types.GType {
+	core.LazyRegister(&xMultipartGLibType, "SOUP", "soup_multipart_get_type", false)
 	return xMultipartGLibType()
 }
 
@@ -54,6 +54,8 @@ var xNewMultipart func(string) uintptr
 //
 // See also: [ctor@Message.new_from_multipart].
 func NewMultipart(MimeTypeVar string) *Multipart {
+	core.LazyRegister(&xNewMultipart, "SOUP", "soup_multipart_new", false)
+
 	cret := xNewMultipart(MimeTypeVar)
 	if cret == 0 {
 		return nil
@@ -65,6 +67,8 @@ var xNewMultipartFromMessage func(*MessageHeaders, *glib.Bytes) uintptr
 
 // Parses @headers and @body to form a new [struct@Multipart]
 func NewMultipartFromMessage(HeadersVar *MessageHeaders, BodyVar *glib.Bytes) *Multipart {
+	core.LazyRegister(&xNewMultipartFromMessage, "SOUP", "soup_multipart_new_from_message", false)
+
 	cret := xNewMultipartFromMessage(HeadersVar, BodyVar)
 	if cret == 0 {
 		return nil
@@ -78,6 +82,8 @@ var xMultipartAppendFormFile func(uintptr, string, uintptr, uintptr, *glib.Bytes
 //
 // Uses "Content-Disposition: form-data", as per the HTML forms specification.
 func (x *Multipart) AppendFormFile(ControlNameVar string, FilenameVar *string, ContentTypeVar *string, BodyVar *glib.Bytes) {
+	core.LazyRegister(&xMultipartAppendFormFile, "SOUP", "soup_multipart_append_form_file", false)
+
 	FilenameVarPtr := core.GStrdupNullable(FilenameVar)
 	defer core.GFreeNullable(FilenameVarPtr)
 
@@ -93,6 +99,8 @@ var xMultipartAppendFormString func(uintptr, string, string)
 //
 // Uses "Content-Disposition: form-data", as per the HTML forms specification.
 func (x *Multipart) AppendFormString(ControlNameVar string, DataVar string) {
+	core.LazyRegister(&xMultipartAppendFormString, "SOUP", "soup_multipart_append_form_string", false)
+
 	xMultipartAppendFormString(x.GoPointer(), ControlNameVar, DataVar)
 }
 
@@ -104,6 +112,8 @@ var xMultipartAppendPart func(uintptr, *MessageHeaders, *glib.Bytes)
 // you should free your copies if you are not using them for anything
 // else.)
 func (x *Multipart) AppendPart(HeadersVar *MessageHeaders, BodyVar *glib.Bytes) {
+	core.LazyRegister(&xMultipartAppendPart, "SOUP", "soup_multipart_append_part", false)
+
 	xMultipartAppendPart(x.GoPointer(), HeadersVar, BodyVar)
 }
 
@@ -111,6 +121,8 @@ var xMultipartFree func(uintptr)
 
 // Frees @multipart.
 func (x *Multipart) Free() {
+	core.LazyRegister(&xMultipartFree, "SOUP", "soup_multipart_free", false)
+
 	xMultipartFree(x.GoPointer())
 }
 
@@ -118,6 +130,8 @@ var xMultipartGetLength func(uintptr) int
 
 // Gets the number of body parts in @multipart.
 func (x *Multipart) GetLength() int {
+	core.LazyRegister(&xMultipartGetLength, "SOUP", "soup_multipart_get_length", false)
+
 	cret := xMultipartGetLength(x.GoPointer())
 	return cret
 }
@@ -126,6 +140,8 @@ var xMultipartGetPart func(uintptr, int, **MessageHeaders, **glib.Bytes) bool
 
 // Gets the indicated body part from @multipart.
 func (x *Multipart) GetPart(PartVar int, HeadersVar **MessageHeaders, BodyVar **glib.Bytes) bool {
+	core.LazyRegister(&xMultipartGetPart, "SOUP", "soup_multipart_get_part", false)
+
 	cret := xMultipartGetPart(x.GoPointer(), PartVar, HeadersVar, BodyVar)
 	return cret
 }
@@ -134,31 +150,12 @@ var xMultipartToMessage func(uintptr, *MessageHeaders, **glib.Bytes)
 
 // Serializes @multipart to @dest_headers and @dest_body.
 func (x *Multipart) ToMessage(DestHeadersVar *MessageHeaders, DestBodyVar **glib.Bytes) {
+	core.LazyRegister(&xMultipartToMessage, "SOUP", "soup_multipart_to_message", false)
+
 	xMultipartToMessage(x.GoPointer(), DestHeadersVar, DestBodyVar)
 }
 
 func init() {
 	core.SetPackageName("SOUP", "libsoup-3.0")
 	core.SetSharedLibraries("SOUP", []string{"libsoup-3.0.so.0", "libsoup-3.0.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("SOUP") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xMultipartGLibType, libs, "soup_multipart_get_type")
-
-	core.PuregoSafeRegister(&xNewMultipart, libs, "soup_multipart_new")
-	core.PuregoSafeRegister(&xNewMultipartFromMessage, libs, "soup_multipart_new_from_message")
-
-	core.PuregoSafeRegister(&xMultipartAppendFormFile, libs, "soup_multipart_append_form_file")
-	core.PuregoSafeRegister(&xMultipartAppendFormString, libs, "soup_multipart_append_form_string")
-	core.PuregoSafeRegister(&xMultipartAppendPart, libs, "soup_multipart_append_part")
-	core.PuregoSafeRegister(&xMultipartFree, libs, "soup_multipart_free")
-	core.PuregoSafeRegister(&xMultipartGetLength, libs, "soup_multipart_get_length")
-	core.PuregoSafeRegister(&xMultipartGetPart, libs, "soup_multipart_get_part")
-	core.PuregoSafeRegister(&xMultipartToMessage, libs, "soup_multipart_to_message")
 }

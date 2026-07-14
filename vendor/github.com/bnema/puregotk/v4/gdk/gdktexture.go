@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gdkpixbuf"
 	"github.com/bnema/puregotk/v4/gio"
@@ -36,6 +35,7 @@ type TextureError int
 var xTextureErrorGLibType func() types.GType
 
 func TextureErrorGLibType() types.GType {
+	core.LazyRegister(&xTextureErrorGLibType, "GDK", "gdk_texture_error_get_type", false)
 	return xTextureErrorGLibType()
 }
 
@@ -56,6 +56,8 @@ var xTextureErrorQuark func() glib.Quark
 
 // Registers an error quark for [class@Gdk.Texture] errors.
 func TextureErrorQuark() glib.Quark {
+	core.LazyRegister(&xTextureErrorQuark, "GDK", "gdk_texture_error_quark", false)
+
 	cret := xTextureErrorQuark()
 	return cret
 }
@@ -93,6 +95,7 @@ type Texture struct {
 var xTextureGLibType func() types.GType
 
 func TextureGLibType() types.GType {
+	core.LazyRegister(&xTextureGLibType, "GDK", "gdk_texture_get_type", false)
 	return xTextureGLibType()
 }
 
@@ -110,6 +113,7 @@ var xNewTextureForPixbuf func(uintptr) uintptr
 // and [method@Gio.Task.run_in_thread] to avoid blocking the main
 // thread while loading a big image.
 func NewTextureForPixbuf(PixbufVar *gdkpixbuf.Pixbuf) *Texture {
+	core.LazyRegister(&xNewTextureForPixbuf, "GDK", "gdk_texture_new_for_pixbuf", false)
 	var cls *Texture
 
 	cret := xNewTextureForPixbuf(PixbufVar.GoPointer())
@@ -141,6 +145,7 @@ var xNewTextureFromBytes func(*glib.Bytes, **glib.Error) uintptr
 //	Use a proper image loading framework such as libglycin, which can
 //	load many image formats into a `GdkTexture`.
 func NewTextureFromBytes(BytesVar *glib.Bytes) (*Texture, error) {
+	core.LazyRegister(&xNewTextureFromBytes, "GDK", "gdk_texture_new_from_bytes", false)
 	var cls *Texture
 	var cerr *glib.Error
 
@@ -176,6 +181,7 @@ var xNewTextureFromFile func(uintptr, **glib.Error) uintptr
 //	Use a proper image loading framework such as libglycin, which can
 //	load many image formats into a `GdkTexture`.
 func NewTextureFromFile(FileVar gio.File) (*Texture, error) {
+	core.LazyRegister(&xNewTextureFromFile, "GDK", "gdk_texture_new_from_file", false)
 	var cls *Texture
 	var cerr *glib.Error
 
@@ -211,6 +217,7 @@ var xNewTextureFromFilename func(string, **glib.Error) uintptr
 //	Use a proper image loading framework such as libglycin, which can
 //	load many image formats into a `GdkTexture`.
 func NewTextureFromFilename(PathVar string) (*Texture, error) {
+	core.LazyRegister(&xNewTextureFromFilename, "GDK", "gdk_texture_new_from_filename", false)
 	var cls *Texture
 	var cerr *glib.Error
 
@@ -243,6 +250,7 @@ var xNewTextureFromResource func(string) uintptr
 // and [method@Gio.Task.run_in_thread] to avoid blocking the main thread
 // while loading a big image.
 func NewTextureFromResource(ResourcePathVar string) *Texture {
+	core.LazyRegister(&xNewTextureFromResource, "GDK", "gdk_texture_new_from_resource", false)
 	var cls *Texture
 
 	cret := xNewTextureFromResource(ResourcePathVar)
@@ -284,6 +292,8 @@ var xTextureDownload func(uintptr, []byte, uint)
 // For more flexible download capabilities, see
 // [struct@Gdk.TextureDownloader].
 func (x *Texture) Download(DataVar []byte, StrideVar uint) {
+	core.LazyRegister(&xTextureDownload, "GDK", "gdk_texture_download", false)
+
 	xTextureDownload(x.GoPointer(), DataVar, StrideVar)
 }
 
@@ -291,6 +301,8 @@ var xTextureGetColorState func(uintptr) uintptr
 
 // Returns the color state associated with the texture.
 func (x *Texture) GetColorState() *ColorState {
+	core.LazyRegister(&xTextureGetColorState, "GDK", "gdk_texture_get_color_state", false)
+
 	cret := xTextureGetColorState(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -310,6 +322,8 @@ var xTextureGetFormat func(uintptr) MemoryFormat
 // of the texture and is useful to determine the best format for
 // downloading the texture.
 func (x *Texture) GetFormat() MemoryFormat {
+	core.LazyRegister(&xTextureGetFormat, "GDK", "gdk_texture_get_format", false)
+
 	cret := xTextureGetFormat(x.GoPointer())
 	return cret
 }
@@ -318,6 +332,8 @@ var xTextureGetHeight func(uintptr) int
 
 // Returns the height of the @texture, in pixels.
 func (x *Texture) GetHeight() int {
+	core.LazyRegister(&xTextureGetHeight, "GDK", "gdk_texture_get_height", false)
+
 	cret := xTextureGetHeight(x.GoPointer())
 	return cret
 }
@@ -326,6 +342,8 @@ var xTextureGetWidth func(uintptr) int
 
 // Returns the width of @texture, in pixels.
 func (x *Texture) GetWidth() int {
+	core.LazyRegister(&xTextureGetWidth, "GDK", "gdk_texture_get_width", false)
+
 	cret := xTextureGetWidth(x.GoPointer())
 	return cret
 }
@@ -340,6 +358,8 @@ var xTextureSaveToPng func(uintptr, string) bool
 // want to use [method@Gdk.Texture.save_to_png_bytes] or look into
 // the libglycin library.
 func (x *Texture) SaveToPng(FilenameVar string) bool {
+	core.LazyRegister(&xTextureSaveToPng, "GDK", "gdk_texture_save_to_png", false)
+
 	cret := xTextureSaveToPng(x.GoPointer(), FilenameVar)
 	return cret
 }
@@ -361,6 +381,8 @@ var xTextureSaveToPngBytes func(uintptr) uintptr
 // might also want to consider [method@Gdk.Texture.save_to_tiff_bytes]
 // instead.
 func (x *Texture) SaveToPngBytes() *glib.Bytes {
+	core.LazyRegister(&xTextureSaveToPngBytes, "GDK", "gdk_texture_save_to_png_bytes", false)
+
 	cret := xTextureSaveToPngBytes(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -374,6 +396,8 @@ var xTextureSaveToTiff func(uintptr, string) bool
 //
 // GTK will attempt to store data without loss.
 func (x *Texture) SaveToTiff(FilenameVar string) bool {
+	core.LazyRegister(&xTextureSaveToTiff, "GDK", "gdk_texture_save_to_tiff", false)
+
 	cret := xTextureSaveToTiff(x.GoPointer(), FilenameVar)
 	return cret
 }
@@ -393,6 +417,8 @@ var xTextureSaveToTiffBytes func(uintptr) uintptr
 // smaller size and a more portable format, you might want to
 // use [method@Gdk.Texture.save_to_png_bytes].
 func (x *Texture) SaveToTiffBytes() *glib.Bytes {
+	core.LazyRegister(&xTextureSaveToTiffBytes, "GDK", "gdk_texture_save_to_tiff_bytes", false)
+
 	cret := xTextureSaveToTiffBytes(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -687,34 +713,4 @@ func (x *Texture) LoadFinish(ResVar gio.AsyncResult, TypeVar *string) (*gio.Inpu
 func init() {
 	core.SetPackageName("GDK", "gtk4")
 	core.SetSharedLibraries("GDK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GDK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xTextureErrorGLibType, libs, "gdk_texture_error_get_type")
-
-	core.PuregoSafeRegister(&xTextureErrorQuark, libs, "gdk_texture_error_quark")
-
-	core.PuregoSafeRegister(&xTextureGLibType, libs, "gdk_texture_get_type")
-
-	core.PuregoSafeRegister(&xNewTextureForPixbuf, libs, "gdk_texture_new_for_pixbuf")
-	core.PuregoSafeRegister(&xNewTextureFromBytes, libs, "gdk_texture_new_from_bytes")
-	core.PuregoSafeRegister(&xNewTextureFromFile, libs, "gdk_texture_new_from_file")
-	core.PuregoSafeRegister(&xNewTextureFromFilename, libs, "gdk_texture_new_from_filename")
-	core.PuregoSafeRegister(&xNewTextureFromResource, libs, "gdk_texture_new_from_resource")
-
-	core.PuregoSafeRegister(&xTextureDownload, libs, "gdk_texture_download")
-	core.PuregoSafeRegister(&xTextureGetColorState, libs, "gdk_texture_get_color_state")
-	core.PuregoSafeRegister(&xTextureGetFormat, libs, "gdk_texture_get_format")
-	core.PuregoSafeRegister(&xTextureGetHeight, libs, "gdk_texture_get_height")
-	core.PuregoSafeRegister(&xTextureGetWidth, libs, "gdk_texture_get_width")
-	core.PuregoSafeRegister(&xTextureSaveToPng, libs, "gdk_texture_save_to_png")
-	core.PuregoSafeRegister(&xTextureSaveToPngBytes, libs, "gdk_texture_save_to_png_bytes")
-	core.PuregoSafeRegister(&xTextureSaveToTiff, libs, "gdk_texture_save_to_tiff")
-	core.PuregoSafeRegister(&xTextureSaveToTiffBytes, libs, "gdk_texture_save_to_tiff_bytes")
 }

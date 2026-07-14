@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject/types"
 )
@@ -38,6 +37,7 @@ type Matrix struct {
 var xMatrixGLibType func() types.GType
 
 func MatrixGLibType() types.GType {
+	core.LazyRegister(&xMatrixGLibType, "PANGO", "pango_matrix_get_type", false)
 	return xMatrixGLibType()
 }
 
@@ -59,6 +59,8 @@ var xMatrixConcat func(uintptr, *Matrix)
 // transformation given by first applying transformation
 // given by @new_matrix then applying the original transformation.
 func (x *Matrix) Concat(NewMatrixVar *Matrix) {
+	core.LazyRegister(&xMatrixConcat, "PANGO", "pango_matrix_concat", false)
+
 	xMatrixConcat(x.GoPointer(), NewMatrixVar)
 }
 
@@ -66,6 +68,8 @@ var xMatrixCopy func(uintptr) uintptr
 
 // Copies a `PangoMatrix`.
 func (x *Matrix) Copy() *Matrix {
+	core.LazyRegister(&xMatrixCopy, "PANGO", "pango_matrix_copy", false)
+
 	cret := xMatrixCopy(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -77,6 +81,8 @@ var xMatrixFree func(uintptr)
 
 // Free a `PangoMatrix`.
 func (x *Matrix) Free() {
+	core.LazyRegister(&xMatrixFree, "PANGO", "pango_matrix_free", false)
+
 	xMatrixFree(x.GoPointer())
 }
 
@@ -88,6 +94,8 @@ var xMatrixGetFontScaleFactor func(uintptr) float64
 // vector that the X coordinate is mapped to.  If the scale in the X
 // coordinate is needed as well, use [method@Pango.Matrix.get_font_scale_factors].
 func (x *Matrix) GetFontScaleFactor() float64 {
+	core.LazyRegister(&xMatrixGetFontScaleFactor, "PANGO", "pango_matrix_get_font_scale_factor", false)
+
 	cret := xMatrixGetFontScaleFactor(x.GoPointer())
 	return cret
 }
@@ -102,6 +110,8 @@ var xMatrixGetFontScaleFactors func(uintptr, *float64, *float64)
 //
 // Note that output numbers will always be non-negative.
 func (x *Matrix) GetFontScaleFactors(XscaleVar *float64, YscaleVar *float64) {
+	core.LazyRegister(&xMatrixGetFontScaleFactors, "PANGO", "pango_matrix_get_font_scale_factors", false)
+
 	xMatrixGetFontScaleFactors(x.GoPointer(), XscaleVar, YscaleVar)
 }
 
@@ -116,6 +126,8 @@ var xMatrixGetSlantRatio func(uintptr) float64
 //
 // this is simply λ.
 func (x *Matrix) GetSlantRatio() float64 {
+	core.LazyRegister(&xMatrixGetSlantRatio, "PANGO", "pango_matrix_get_slant_ratio", false)
+
 	cret := xMatrixGetSlantRatio(x.GoPointer())
 	return cret
 }
@@ -126,6 +138,8 @@ var xMatrixRotate func(uintptr, float64)
 // transformation given by first rotating by @degrees degrees
 // counter-clockwise then applying the original transformation.
 func (x *Matrix) Rotate(DegreesVar float64) {
+	core.LazyRegister(&xMatrixRotate, "PANGO", "pango_matrix_rotate", false)
+
 	xMatrixRotate(x.GoPointer(), DegreesVar)
 }
 
@@ -136,6 +150,8 @@ var xMatrixScale func(uintptr, float64, float64)
 // and @sy in the Y direction then applying the original
 // transformation.
 func (x *Matrix) Scale(ScaleXVar float64, ScaleYVar float64) {
+	core.LazyRegister(&xMatrixScale, "PANGO", "pango_matrix_scale", false)
+
 	xMatrixScale(x.GoPointer(), ScaleXVar, ScaleYVar)
 }
 
@@ -157,6 +173,8 @@ var xMatrixTransformDistance func(uintptr, *float64, *float64)
 // to (@x2,@y2) then (@x1+@dx1,@y1+@dy1) will transform to
 // (@x1+@dx2,@y1+@dy2) for all values of @x1 and @x2.
 func (x *Matrix) TransformDistance(DxVar *float64, DyVar *float64) {
+	core.LazyRegister(&xMatrixTransformDistance, "PANGO", "pango_matrix_transform_distance", false)
+
 	xMatrixTransformDistance(x.GoPointer(), DxVar, DyVar)
 }
 
@@ -173,6 +191,8 @@ var xMatrixTransformPixelRectangle func(uintptr, *Rectangle)
 // on original rectangle in Pango units and convert to pixels afterward
 // using [func@extents_to_pixels]'s first argument.
 func (x *Matrix) TransformPixelRectangle(RectVar *Rectangle) {
+	core.LazyRegister(&xMatrixTransformPixelRectangle, "PANGO", "pango_matrix_transform_pixel_rectangle", false)
+
 	xMatrixTransformPixelRectangle(x.GoPointer(), RectVar)
 }
 
@@ -180,6 +200,8 @@ var xMatrixTransformPoint func(uintptr, *float64, *float64)
 
 // Transforms the point (@x, @y) by @matrix.
 func (x *Matrix) TransformPoint(XVar *float64, YVar *float64) {
+	core.LazyRegister(&xMatrixTransformPoint, "PANGO", "pango_matrix_transform_point", false)
+
 	xMatrixTransformPoint(x.GoPointer(), XVar, YVar)
 }
 
@@ -204,6 +226,8 @@ var xMatrixTransformRectangle func(uintptr, *Rectangle)
 // coordinates may overflow in Pango units (large matrix translation for
 // example).
 func (x *Matrix) TransformRectangle(RectVar *Rectangle) {
+	core.LazyRegister(&xMatrixTransformRectangle, "PANGO", "pango_matrix_transform_rectangle", false)
+
 	xMatrixTransformRectangle(x.GoPointer(), RectVar)
 }
 
@@ -213,34 +237,12 @@ var xMatrixTranslate func(uintptr, float64, float64)
 // transformation given by first translating by (@tx, @ty)
 // then applying the original transformation.
 func (x *Matrix) Translate(TxVar float64, TyVar float64) {
+	core.LazyRegister(&xMatrixTranslate, "PANGO", "pango_matrix_translate", false)
+
 	xMatrixTranslate(x.GoPointer(), TxVar, TyVar)
 }
 
 func init() {
 	core.SetPackageName("PANGO", "pango")
 	core.SetSharedLibraries("PANGO", []string{"libpango-1.0.so.0", "libpango-1.0.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("PANGO") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xMatrixGLibType, libs, "pango_matrix_get_type")
-
-	core.PuregoSafeRegister(&xMatrixConcat, libs, "pango_matrix_concat")
-	core.PuregoSafeRegister(&xMatrixCopy, libs, "pango_matrix_copy")
-	core.PuregoSafeRegister(&xMatrixFree, libs, "pango_matrix_free")
-	core.PuregoSafeRegister(&xMatrixGetFontScaleFactor, libs, "pango_matrix_get_font_scale_factor")
-	core.PuregoSafeRegister(&xMatrixGetFontScaleFactors, libs, "pango_matrix_get_font_scale_factors")
-	core.PuregoSafeRegister(&xMatrixGetSlantRatio, libs, "pango_matrix_get_slant_ratio")
-	core.PuregoSafeRegister(&xMatrixRotate, libs, "pango_matrix_rotate")
-	core.PuregoSafeRegister(&xMatrixScale, libs, "pango_matrix_scale")
-	core.PuregoSafeRegister(&xMatrixTransformDistance, libs, "pango_matrix_transform_distance")
-	core.PuregoSafeRegister(&xMatrixTransformPixelRectangle, libs, "pango_matrix_transform_pixel_rectangle")
-	core.PuregoSafeRegister(&xMatrixTransformPoint, libs, "pango_matrix_transform_point")
-	core.PuregoSafeRegister(&xMatrixTransformRectangle, libs, "pango_matrix_transform_rectangle")
-	core.PuregoSafeRegister(&xMatrixTranslate, libs, "pango_matrix_translate")
 }

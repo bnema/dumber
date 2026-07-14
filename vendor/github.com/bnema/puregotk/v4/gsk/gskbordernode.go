@@ -4,7 +4,6 @@ package gsk
 import (
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gdk"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -18,6 +17,7 @@ type BorderNode struct {
 var xBorderNodeGLibType func() types.GType
 
 func BorderNodeGLibType() types.GType {
+	core.LazyRegister(&xBorderNodeGLibType, "GSK", "gsk_border_node_get_type", false)
 	return xBorderNodeGLibType()
 }
 
@@ -34,6 +34,7 @@ var xNewBorderNode func(*RoundedRect, [4]float32, [4]gdk.RGBA) uintptr
 //
 // The 4 sides of the border can have different widths and colors.
 func NewBorderNode(OutlineVar *RoundedRect, BorderWidthVar [4]float32, BorderColorVar [4]gdk.RGBA) *BorderNode {
+	core.LazyRegister(&xNewBorderNode, "GSK", "gsk_border_node_new", false)
 	var cls *BorderNode
 
 	cret := xNewBorderNode(OutlineVar, BorderWidthVar, BorderColorVar)
@@ -50,6 +51,8 @@ var xBorderNodeGetColors func(uintptr) uintptr
 
 // Retrieves the colors of the border.
 func (x *BorderNode) GetColors() uintptr {
+	core.LazyRegister(&xBorderNodeGetColors, "GSK", "gsk_border_node_get_colors", false)
+
 	cret := xBorderNodeGetColors(x.GoPointer())
 	return cret
 }
@@ -58,6 +61,8 @@ var xBorderNodeGetOutline func(uintptr) uintptr
 
 // Retrieves the outline of the border.
 func (x *BorderNode) GetOutline() *RoundedRect {
+	core.LazyRegister(&xBorderNodeGetOutline, "GSK", "gsk_border_node_get_outline", false)
+
 	cret := xBorderNodeGetOutline(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -69,6 +74,8 @@ var xBorderNodeGetWidths func(uintptr) uintptr
 
 // Retrieves the stroke widths of the border.
 func (x *BorderNode) GetWidths() uintptr {
+	core.LazyRegister(&xBorderNodeGetWidths, "GSK", "gsk_border_node_get_widths", false)
+
 	cret := xBorderNodeGetWidths(x.GoPointer())
 	return cret
 }
@@ -87,20 +94,4 @@ func (c *BorderNode) SetGoPointer(ptr uintptr) {
 func init() {
 	core.SetPackageName("GSK", "gtk4")
 	core.SetSharedLibraries("GSK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GSK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xBorderNodeGLibType, libs, "gsk_border_node_get_type")
-
-	core.PuregoSafeRegister(&xNewBorderNode, libs, "gsk_border_node_new")
-
-	core.PuregoSafeRegister(&xBorderNodeGetColors, libs, "gsk_border_node_get_colors")
-	core.PuregoSafeRegister(&xBorderNodeGetOutline, libs, "gsk_border_node_get_outline")
-	core.PuregoSafeRegister(&xBorderNodeGetWidths, libs, "gsk_border_node_get_widths")
 }

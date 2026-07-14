@@ -158,6 +158,7 @@ type DrawingArea struct {
 var xDrawingAreaGLibType func() types.GType
 
 func DrawingAreaGLibType() types.GType {
+	core.LazyRegister(&xDrawingAreaGLibType, "GTK", "gtk_drawing_area_get_type", false)
 	return xDrawingAreaGLibType()
 }
 
@@ -171,6 +172,7 @@ var xNewDrawingArea func() uintptr
 
 // Creates a new drawing area.
 func NewDrawingArea() *DrawingArea {
+	core.LazyRegister(&xNewDrawingArea, "GTK", "gtk_drawing_area_new", false)
 	var cls *DrawingArea
 
 	cret := xNewDrawingArea()
@@ -188,6 +190,8 @@ var xDrawingAreaGetContentHeight func(uintptr) int
 
 // Retrieves the content height of the `GtkDrawingArea`.
 func (x *DrawingArea) GetContentHeight() int {
+	core.LazyRegister(&xDrawingAreaGetContentHeight, "GTK", "gtk_drawing_area_get_content_height", false)
+
 	cret := xDrawingAreaGetContentHeight(x.GoPointer())
 	return cret
 }
@@ -196,6 +200,8 @@ var xDrawingAreaGetContentWidth func(uintptr) int
 
 // Retrieves the content width of the `GtkDrawingArea`.
 func (x *DrawingArea) GetContentWidth() int {
+	core.LazyRegister(&xDrawingAreaGetContentWidth, "GTK", "gtk_drawing_area_get_content_width", false)
+
 	cret := xDrawingAreaGetContentWidth(x.GoPointer())
 	return cret
 }
@@ -211,6 +217,8 @@ var xDrawingAreaSetContentHeight func(uintptr, int)
 //
 // If the height is set to 0 (the default), the drawing area may disappear.
 func (x *DrawingArea) SetContentHeight(HeightVar int) {
+	core.LazyRegister(&xDrawingAreaSetContentHeight, "GTK", "gtk_drawing_area_set_content_height", false)
+
 	xDrawingAreaSetContentHeight(x.GoPointer(), HeightVar)
 }
 
@@ -225,6 +233,8 @@ var xDrawingAreaSetContentWidth func(uintptr, int)
 //
 // If the width is set to 0 (the default), the drawing area may disappear.
 func (x *DrawingArea) SetContentWidth(WidthVar int) {
+	core.LazyRegister(&xDrawingAreaSetContentWidth, "GTK", "gtk_drawing_area_set_content_width", false)
+
 	xDrawingAreaSetContentWidth(x.GoPointer(), WidthVar)
 }
 
@@ -245,6 +255,8 @@ var xDrawingAreaSetDrawFunc func(uintptr, uintptr, uintptr, uintptr)
 // If what you are drawing does change, call [method@Gtk.Widget.queue_draw]
 // on the drawing area. This will cause a redraw and will call @draw_func again.
 func (x *DrawingArea) SetDrawFunc(DrawFuncVar *DrawingAreaDrawFunc, UserDataVar uintptr, DestroyVar *glib.DestroyNotify) {
+	core.LazyRegister(&xDrawingAreaSetDrawFunc, "GTK", "gtk_drawing_area_set_draw_func", false)
+
 	xDrawingAreaSetDrawFunc(x.GoPointer(), glib.NewCallbackNullable(DrawFuncVar), UserDataVar, glib.NewCallbackNullable(DestroyVar))
 }
 
@@ -583,22 +595,4 @@ func (x *DrawingArea) GetBuildableId() string {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GTK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xDrawingAreaGLibType, libs, "gtk_drawing_area_get_type")
-
-	core.PuregoSafeRegister(&xNewDrawingArea, libs, "gtk_drawing_area_new")
-
-	core.PuregoSafeRegister(&xDrawingAreaGetContentHeight, libs, "gtk_drawing_area_get_content_height")
-	core.PuregoSafeRegister(&xDrawingAreaGetContentWidth, libs, "gtk_drawing_area_get_content_width")
-	core.PuregoSafeRegister(&xDrawingAreaSetContentHeight, libs, "gtk_drawing_area_set_content_height")
-	core.PuregoSafeRegister(&xDrawingAreaSetContentWidth, libs, "gtk_drawing_area_set_content_width")
-	core.PuregoSafeRegister(&xDrawingAreaSetDrawFunc, libs, "gtk_drawing_area_set_draw_func")
 }

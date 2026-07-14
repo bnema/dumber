@@ -222,6 +222,8 @@ var xParamSpecPoolFree func(uintptr)
 
 // Frees the resources allocated by a #GParamSpecPool.
 func (x *ParamSpecPool) Free() {
+	core.LazyRegister(&xParamSpecPoolFree, "GOBJECT", "g_param_spec_pool_free", false)
+
 	xParamSpecPoolFree(x.GoPointer())
 }
 
@@ -229,6 +231,8 @@ var xParamSpecPoolInsert func(uintptr, uintptr, types.GType)
 
 // Inserts a #GParamSpec in the pool.
 func (x *ParamSpecPool) Insert(PspecVar *ParamSpec, OwnerTypeVar types.GType) {
+	core.LazyRegister(&xParamSpecPoolInsert, "GOBJECT", "g_param_spec_pool_insert", false)
+
 	xParamSpecPoolInsert(x.GoPointer(), PspecVar.GoPointer(), OwnerTypeVar)
 }
 
@@ -237,6 +241,8 @@ var xParamSpecPoolList func(uintptr, types.GType, *uint) uintptr
 // Gets an array of all #GParamSpecs owned by @owner_type in
 // the pool.
 func (x *ParamSpecPool) List(OwnerTypeVar types.GType, NPspecsPVar *uint) uintptr {
+	core.LazyRegister(&xParamSpecPoolList, "GOBJECT", "g_param_spec_pool_list", false)
+
 	cret := xParamSpecPoolList(x.GoPointer(), OwnerTypeVar, NPspecsPVar)
 	return cret
 }
@@ -246,6 +252,8 @@ var xParamSpecPoolListOwned func(uintptr, types.GType) uintptr
 // Gets an #GList of all #GParamSpecs owned by @owner_type in
 // the pool.
 func (x *ParamSpecPool) ListOwned(OwnerTypeVar types.GType) *glib.List {
+	core.LazyRegister(&xParamSpecPoolListOwned, "GOBJECT", "g_param_spec_pool_list_owned", false)
+
 	cret := xParamSpecPoolListOwned(x.GoPointer(), OwnerTypeVar)
 	if cret == 0 {
 		return nil
@@ -257,6 +265,7 @@ var xParamSpecPoolLookup func(uintptr, string, types.GType, bool) uintptr
 
 // Looks up a #GParamSpec in the pool.
 func (x *ParamSpecPool) Lookup(ParamNameVar string, OwnerTypeVar types.GType, WalkAncestorsVar bool) *ParamSpec {
+	core.LazyRegister(&xParamSpecPoolLookup, "GOBJECT", "g_param_spec_pool_lookup", false)
 	var cls *ParamSpec
 
 	cret := xParamSpecPoolLookup(x.GoPointer(), ParamNameVar, OwnerTypeVar, WalkAncestorsVar)
@@ -274,6 +283,8 @@ var xParamSpecPoolRemove func(uintptr, uintptr)
 
 // Removes a #GParamSpec from the pool.
 func (x *ParamSpecPool) Remove(PspecVar *ParamSpec) {
+	core.LazyRegister(&xParamSpecPoolRemove, "GOBJECT", "g_param_spec_pool_remove", false)
+
 	xParamSpecPoolRemove(x.GoPointer(), PspecVar.GoPointer())
 }
 
@@ -559,6 +570,8 @@ var xParamTypeRegisterStatic func(string, *ParamSpecTypeInfo) types.GType
 // structure pointed to by @info to manage the #GParamSpec type and its
 // instances.
 func ParamTypeRegisterStatic(NameVar string, PspecInfoVar *ParamSpecTypeInfo) types.GType {
+	core.LazyRegister(&xParamTypeRegisterStatic, "GOBJECT", "g_param_type_register_static", false)
+
 	cret := xParamTypeRegisterStatic(NameVar, PspecInfoVar)
 	return cret
 }
@@ -573,6 +586,8 @@ var xParamValueConvert func(uintptr, *Value, *Value, bool) bool
 // See also g_value_type_transformable(), g_value_transform() and
 // g_param_value_validate().
 func ParamValueConvert(PspecVar *ParamSpec, SrcValueVar *Value, DestValueVar *Value, StrictValidationVar bool) bool {
+	core.LazyRegister(&xParamValueConvert, "GOBJECT", "g_param_value_convert", false)
+
 	cret := xParamValueConvert(PspecVar.GoPointer(), SrcValueVar, DestValueVar, StrictValidationVar)
 	return cret
 }
@@ -581,6 +596,8 @@ var xParamValueDefaults func(uintptr, *Value) bool
 
 // Checks whether @value contains the default value as specified in @pspec.
 func ParamValueDefaults(PspecVar *ParamSpec, ValueVar *Value) bool {
+	core.LazyRegister(&xParamValueDefaults, "GOBJECT", "g_param_value_defaults", false)
+
 	cret := xParamValueDefaults(PspecVar.GoPointer(), ValueVar)
 	return cret
 }
@@ -590,6 +607,8 @@ var xParamValueIsValid func(uintptr, *Value) bool
 // Return whether the contents of @value comply with the specifications
 // set out by @pspec.
 func ParamValueIsValid(PspecVar *ParamSpec, ValueVar *Value) bool {
+	core.LazyRegister(&xParamValueIsValid, "GOBJECT", "g_param_value_is_valid", false)
+
 	cret := xParamValueIsValid(PspecVar.GoPointer(), ValueVar)
 	return cret
 }
@@ -598,6 +617,8 @@ var xParamValueSetDefault func(uintptr, *Value)
 
 // Sets @value to its default value as specified in @pspec.
 func ParamValueSetDefault(PspecVar *ParamSpec, ValueVar *Value) {
+	core.LazyRegister(&xParamValueSetDefault, "GOBJECT", "g_param_value_set_default", false)
+
 	xParamValueSetDefault(PspecVar.GoPointer(), ValueVar)
 }
 
@@ -610,6 +631,8 @@ var xParamValueValidate func(uintptr, *Value) bool
 // it is modified accordingly, so the resulting value will fit into the
 // range -42 .. +42.
 func ParamValueValidate(PspecVar *ParamSpec, ValueVar *Value) bool {
+	core.LazyRegister(&xParamValueValidate, "GOBJECT", "g_param_value_validate", false)
+
 	cret := xParamValueValidate(PspecVar.GoPointer(), ValueVar)
 	return cret
 }
@@ -620,6 +643,8 @@ var xParamValuesCmp func(uintptr, *Value, *Value) int
 // if @value1 is found to be less than, equal to or greater than @value2,
 // respectively.
 func ParamValuesCmp(PspecVar *ParamSpec, Value1Var *Value, Value2Var *Value) int {
+	core.LazyRegister(&xParamValuesCmp, "GOBJECT", "g_param_values_cmp", false)
+
 	cret := xParamValuesCmp(PspecVar.GoPointer(), Value1Var, Value2Var)
 	return cret
 }
@@ -643,6 +668,7 @@ type ParamSpec struct {
 var xParamSpecGLibType func() types.GType
 
 func ParamSpecGLibType() types.GType {
+	core.LazyRegister(&xParamSpecGLibType, "GOBJECT", "intern", false)
 	return xParamSpecGLibType()
 }
 
@@ -656,6 +682,8 @@ var xParamSpecGetBlurb func(uintptr) string
 
 // Get the short description of a #GParamSpec.
 func (x *ParamSpec) GetBlurb() string {
+	core.LazyRegister(&xParamSpecGetBlurb, "GOBJECT", "g_param_spec_get_blurb", false)
+
 	cret := xParamSpecGetBlurb(x.GoPointer())
 	return cret
 }
@@ -666,6 +694,8 @@ var xParamSpecGetDefaultValue func(uintptr) uintptr
 //
 // The #GValue will remain valid for the life of @pspec.
 func (x *ParamSpec) GetDefaultValue() *Value {
+	core.LazyRegister(&xParamSpecGetDefaultValue, "GOBJECT", "g_param_spec_get_default_value", false)
+
 	cret := xParamSpecGetDefaultValue(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -680,6 +710,8 @@ var xParamSpecGetName func(uintptr) string
 // The name is always an "interned" string (as per g_intern_string()).
 // This allows for pointer-value comparisons.
 func (x *ParamSpec) GetName() string {
+	core.LazyRegister(&xParamSpecGetName, "GOBJECT", "g_param_spec_get_name", false)
+
 	cret := xParamSpecGetName(x.GoPointer())
 	return cret
 }
@@ -688,6 +720,8 @@ var xParamSpecGetNameQuark func(uintptr) glib.Quark
 
 // Gets the GQuark for the name.
 func (x *ParamSpec) GetNameQuark() glib.Quark {
+	core.LazyRegister(&xParamSpecGetNameQuark, "GOBJECT", "g_param_spec_get_name_quark", false)
+
 	cret := xParamSpecGetNameQuark(x.GoPointer())
 	return cret
 }
@@ -696,6 +730,8 @@ var xParamSpecGetNick func(uintptr) string
 
 // Get the nickname of a #GParamSpec.
 func (x *ParamSpec) GetNick() string {
+	core.LazyRegister(&xParamSpecGetNick, "GOBJECT", "g_param_spec_get_nick", false)
+
 	cret := xParamSpecGetNick(x.GoPointer())
 	return cret
 }
@@ -704,6 +740,8 @@ var xParamSpecGetQdata func(uintptr, glib.Quark) uintptr
 
 // Gets back user data pointers stored via g_param_spec_set_qdata().
 func (x *ParamSpec) GetQdata(QuarkVar glib.Quark) uintptr {
+	core.LazyRegister(&xParamSpecGetQdata, "GOBJECT", "g_param_spec_get_qdata", false)
+
 	cret := xParamSpecGetQdata(x.GoPointer(), QuarkVar)
 	return cret
 }
@@ -718,6 +756,7 @@ var xParamSpecGetRedirectTarget func(uintptr) uintptr
 // of type #GParamSpecOverride. See g_object_class_override_property()
 // for an example of the use of this capability.
 func (x *ParamSpec) GetRedirectTarget() *ParamSpec {
+	core.LazyRegister(&xParamSpecGetRedirectTarget, "GOBJECT", "g_param_spec_get_redirect_target", false)
 	var cls *ParamSpec
 
 	cret := xParamSpecGetRedirectTarget(x.GoPointer())
@@ -735,6 +774,7 @@ var xParamSpecRef func(uintptr) uintptr
 
 // Increments the reference count of @pspec.
 func (x *ParamSpec) Ref() *ParamSpec {
+	core.LazyRegister(&xParamSpecRef, "GOBJECT", "g_param_spec_ref", false)
 	var cls *ParamSpec
 
 	cret := xParamSpecRef(x.GoPointer())
@@ -751,6 +791,7 @@ var xParamSpecRefSink func(uintptr) uintptr
 
 // Convenience function to ref and sink a #GParamSpec.
 func (x *ParamSpec) RefSink() *ParamSpec {
+	core.LazyRegister(&xParamSpecRefSink, "GOBJECT", "g_param_spec_ref_sink", false)
 	var cls *ParamSpec
 
 	cret := xParamSpecRefSink(x.GoPointer())
@@ -772,6 +813,8 @@ var xParamSpecSetQdata func(uintptr, glib.Quark, uintptr)
 // previously set user data pointer, overrides (frees) the old pointer
 // set, using %NULL as pointer essentially removes the data stored.
 func (x *ParamSpec) SetQdata(QuarkVar glib.Quark, DataVar uintptr) {
+	core.LazyRegister(&xParamSpecSetQdata, "GOBJECT", "g_param_spec_set_qdata", false)
+
 	xParamSpecSetQdata(x.GoPointer(), QuarkVar, DataVar)
 }
 
@@ -783,6 +826,8 @@ var xParamSpecSetQdataFull func(uintptr, glib.Quark, uintptr, uintptr)
 // finalized, or the data is being overwritten by a call to
 // g_param_spec_set_qdata() with the same @quark.
 func (x *ParamSpec) SetQdataFull(QuarkVar glib.Quark, DataVar uintptr, DestroyVar *glib.DestroyNotify) {
+	core.LazyRegister(&xParamSpecSetQdataFull, "GOBJECT", "g_param_spec_set_qdata_full", false)
+
 	xParamSpecSetQdataFull(x.GoPointer(), QuarkVar, DataVar, glib.NewCallbackNullable(DestroyVar))
 }
 
@@ -796,6 +841,8 @@ var xParamSpecSink func(uintptr)
 // reference count (thus ending up with a @pspec that has a reference
 // count of 1 still, but is not flagged "floating" anymore).
 func (x *ParamSpec) Sink() {
+	core.LazyRegister(&xParamSpecSink, "GOBJECT", "g_param_spec_sink", false)
+
 	xParamSpecSink(x.GoPointer())
 }
 
@@ -806,6 +853,8 @@ var xParamSpecStealQdata func(uintptr, glib.Quark) uintptr
 // function (if any was set).  Usually, calling this function is only
 // required to update user data pointers with a destroy notifier.
 func (x *ParamSpec) StealQdata(QuarkVar glib.Quark) uintptr {
+	core.LazyRegister(&xParamSpecStealQdata, "GOBJECT", "g_param_spec_steal_qdata", false)
+
 	cret := xParamSpecStealQdata(x.GoPointer(), QuarkVar)
 	return cret
 }
@@ -814,6 +863,8 @@ var xParamSpecUnref func(uintptr)
 
 // Decrements the reference count of a @pspec.
 func (x *ParamSpec) Unref() {
+	core.LazyRegister(&xParamSpecUnref, "GOBJECT", "g_param_spec_unref", false)
+
 	xParamSpecUnref(x.GoPointer())
 }
 
@@ -843,6 +894,7 @@ var xParamSpecInternal func(types.GType, string, uintptr, uintptr, ParamFlags) u
 // are essential. When in doubt, follow the conventions used in the
 // surrounding code and supporting libraries.
 func ParamSpecInternal(ParamTypeVar types.GType, NameVar string, NickVar *string, BlurbVar *string, FlagsVar ParamFlags) *ParamSpec {
+	core.LazyRegister(&xParamSpecInternal, "GOBJECT", "g_param_spec_internal", false)
 	var cls *ParamSpec
 
 	NickVarPtr := core.GStrdupNullable(NickVar)
@@ -871,6 +923,8 @@ var xParamSpecIsValidName func(string) bool
 // See [canonical parameter names][class@GObject.ParamSpec#parameter-names]
 // for details of the rules for valid names.
 func ParamSpecIsValidName(NameVar string) bool {
+	core.LazyRegister(&xParamSpecIsValidName, "GOBJECT", "g_param_spec_is_valid_name", false)
+
 	cret := xParamSpecIsValidName(NameVar)
 	return cret
 }
@@ -878,47 +932,4 @@ func ParamSpecIsValidName(NameVar string) bool {
 func init() {
 	core.SetPackageName("GOBJECT", "gobject-2.0")
 	core.SetSharedLibraries("GOBJECT", []string{"libgobject-2.0.so.0", "libgobject-2.0.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GOBJECT") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xParamTypeRegisterStatic, libs, "g_param_type_register_static")
-	core.PuregoSafeRegister(&xParamValueConvert, libs, "g_param_value_convert")
-	core.PuregoSafeRegister(&xParamValueDefaults, libs, "g_param_value_defaults")
-	core.PuregoSafeRegister(&xParamValueIsValid, libs, "g_param_value_is_valid")
-	core.PuregoSafeRegister(&xParamValueSetDefault, libs, "g_param_value_set_default")
-	core.PuregoSafeRegister(&xParamValueValidate, libs, "g_param_value_validate")
-	core.PuregoSafeRegister(&xParamValuesCmp, libs, "g_param_values_cmp")
-
-	core.PuregoSafeRegister(&xParamSpecPoolFree, libs, "g_param_spec_pool_free")
-	core.PuregoSafeRegister(&xParamSpecPoolInsert, libs, "g_param_spec_pool_insert")
-	core.PuregoSafeRegister(&xParamSpecPoolList, libs, "g_param_spec_pool_list")
-	core.PuregoSafeRegister(&xParamSpecPoolListOwned, libs, "g_param_spec_pool_list_owned")
-	core.PuregoSafeRegister(&xParamSpecPoolLookup, libs, "g_param_spec_pool_lookup")
-	core.PuregoSafeRegister(&xParamSpecPoolRemove, libs, "g_param_spec_pool_remove")
-
-	core.PuregoSafeRegister(&xParamSpecGLibType, libs, "intern")
-
-	core.PuregoSafeRegister(&xParamSpecGetBlurb, libs, "g_param_spec_get_blurb")
-	core.PuregoSafeRegister(&xParamSpecGetDefaultValue, libs, "g_param_spec_get_default_value")
-	core.PuregoSafeRegister(&xParamSpecGetName, libs, "g_param_spec_get_name")
-	core.PuregoSafeRegister(&xParamSpecGetNameQuark, libs, "g_param_spec_get_name_quark")
-	core.PuregoSafeRegister(&xParamSpecGetNick, libs, "g_param_spec_get_nick")
-	core.PuregoSafeRegister(&xParamSpecGetQdata, libs, "g_param_spec_get_qdata")
-	core.PuregoSafeRegister(&xParamSpecGetRedirectTarget, libs, "g_param_spec_get_redirect_target")
-	core.PuregoSafeRegister(&xParamSpecRef, libs, "g_param_spec_ref")
-	core.PuregoSafeRegister(&xParamSpecRefSink, libs, "g_param_spec_ref_sink")
-	core.PuregoSafeRegister(&xParamSpecSetQdata, libs, "g_param_spec_set_qdata")
-	core.PuregoSafeRegister(&xParamSpecSetQdataFull, libs, "g_param_spec_set_qdata_full")
-	core.PuregoSafeRegister(&xParamSpecSink, libs, "g_param_spec_sink")
-	core.PuregoSafeRegister(&xParamSpecStealQdata, libs, "g_param_spec_steal_qdata")
-	core.PuregoSafeRegister(&xParamSpecUnref, libs, "g_param_spec_unref")
-
-	core.PuregoSafeRegister(&xParamSpecInternal, libs, "g_param_spec_internal")
-	core.PuregoSafeRegister(&xParamSpecIsValidName, libs, "g_param_spec_is_valid_name")
 }

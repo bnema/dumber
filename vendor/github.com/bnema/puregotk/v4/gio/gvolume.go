@@ -366,7 +366,7 @@ func (x *VolumeIface) OverrideMountFinish(cb func(Volume, AsyncResult) bool) {
 	if cb == nil {
 		x.xMountFinish = 0
 	} else {
-		x.xMountFinish = purego.NewCallback(func(VolumeVarp uintptr, ResultVarp uintptr) bool {
+		x.xMountFinish = purego.NewCallback(func(VolumeVarp uintptr, ResultVarp uintptr, cerrp **glib.Error) bool {
 			return cb(&VolumeBase{Ptr: VolumeVarp}, &AsyncResultBase{Ptr: ResultVarp})
 		})
 	}
@@ -378,10 +378,11 @@ func (x *VolumeIface) GetMountFinish() func(Volume, AsyncResult) bool {
 	if x.xMountFinish == 0 {
 		return nil
 	}
-	var rawCallback func(VolumeVarp uintptr, ResultVarp uintptr) bool
+	var rawCallback func(VolumeVarp uintptr, ResultVarp uintptr, cerrp **glib.Error) bool
 	purego.RegisterFunc(&rawCallback, x.xMountFinish)
 	return func(VolumeVar Volume, ResultVar AsyncResult) bool {
-		return rawCallback(VolumeVar.GoPointer(), ResultVar.GoPointer())
+		var cerr *glib.Error
+		return rawCallback(VolumeVar.GoPointer(), ResultVar.GoPointer(), &cerr)
 	}
 }
 
@@ -416,7 +417,7 @@ func (x *VolumeIface) OverrideEjectFinish(cb func(Volume, AsyncResult) bool) {
 	if cb == nil {
 		x.xEjectFinish = 0
 	} else {
-		x.xEjectFinish = purego.NewCallback(func(VolumeVarp uintptr, ResultVarp uintptr) bool {
+		x.xEjectFinish = purego.NewCallback(func(VolumeVarp uintptr, ResultVarp uintptr, cerrp **glib.Error) bool {
 			return cb(&VolumeBase{Ptr: VolumeVarp}, &AsyncResultBase{Ptr: ResultVarp})
 		})
 	}
@@ -428,10 +429,11 @@ func (x *VolumeIface) GetEjectFinish() func(Volume, AsyncResult) bool {
 	if x.xEjectFinish == 0 {
 		return nil
 	}
-	var rawCallback func(VolumeVarp uintptr, ResultVarp uintptr) bool
+	var rawCallback func(VolumeVarp uintptr, ResultVarp uintptr, cerrp **glib.Error) bool
 	purego.RegisterFunc(&rawCallback, x.xEjectFinish)
 	return func(VolumeVar Volume, ResultVar AsyncResult) bool {
-		return rawCallback(VolumeVar.GoPointer(), ResultVar.GoPointer())
+		var cerr *glib.Error
+		return rawCallback(VolumeVar.GoPointer(), ResultVar.GoPointer(), &cerr)
 	}
 }
 
@@ -588,7 +590,7 @@ func (x *VolumeIface) OverrideEjectWithOperationFinish(cb func(Volume, AsyncResu
 	if cb == nil {
 		x.xEjectWithOperationFinish = 0
 	} else {
-		x.xEjectWithOperationFinish = purego.NewCallback(func(VolumeVarp uintptr, ResultVarp uintptr) bool {
+		x.xEjectWithOperationFinish = purego.NewCallback(func(VolumeVarp uintptr, ResultVarp uintptr, cerrp **glib.Error) bool {
 			return cb(&VolumeBase{Ptr: VolumeVarp}, &AsyncResultBase{Ptr: ResultVarp})
 		})
 	}
@@ -600,10 +602,11 @@ func (x *VolumeIface) GetEjectWithOperationFinish() func(Volume, AsyncResult) bo
 	if x.xEjectWithOperationFinish == 0 {
 		return nil
 	}
-	var rawCallback func(VolumeVarp uintptr, ResultVarp uintptr) bool
+	var rawCallback func(VolumeVarp uintptr, ResultVarp uintptr, cerrp **glib.Error) bool
 	purego.RegisterFunc(&rawCallback, x.xEjectWithOperationFinish)
 	return func(VolumeVar Volume, ResultVar AsyncResult) bool {
-		return rawCallback(VolumeVar.GoPointer(), ResultVar.GoPointer())
+		var cerr *glib.Error
+		return rawCallback(VolumeVar.GoPointer(), ResultVar.GoPointer(), &cerr)
 	}
 }
 
@@ -741,6 +744,7 @@ type Volume interface {
 var xVolumeGLibType func() types.GType
 
 func VolumeGLibType() types.GType {
+	core.LazyRegister(&xVolumeGLibType, "GIO", "g_volume_get_type", false)
 	return xVolumeGLibType()
 }
 
@@ -974,27 +978,138 @@ func (x *VolumeBase) ShouldAutomount() bool {
 	return cret
 }
 
+var XGVolumeCanEject func(uintptr) bool = func(instance uintptr) bool {
+	core.LazyRegister(&xXGVolumeCanEject, "GIO", "g_volume_can_eject", false)
+	return xXGVolumeCanEject(instance)
+}
+
 var (
-	XGVolumeCanEject                 func(uintptr) bool
-	XGVolumeCanMount                 func(uintptr) bool
-	XGVolumeEject                    func(uintptr, MountUnmountFlags, uintptr, uintptr, uintptr)
-	XGVolumeEjectFinish              func(uintptr, uintptr, **glib.Error) bool
-	XGVolumeEjectWithOperation       func(uintptr, MountUnmountFlags, uintptr, uintptr, uintptr, uintptr)
-	XGVolumeEjectWithOperationFinish func(uintptr, uintptr, **glib.Error) bool
-	XGVolumeEnumerateIdentifiers     func(uintptr) []string
-	XGVolumeGetActivationRoot        func(uintptr) uintptr
-	XGVolumeGetDrive                 func(uintptr) uintptr
-	XGVolumeGetIcon                  func(uintptr) uintptr
-	XGVolumeGetIdentifier            func(uintptr, string) string
-	XGVolumeGetMount                 func(uintptr) uintptr
-	XGVolumeGetName                  func(uintptr) string
-	XGVolumeGetSortKey               func(uintptr) string
-	XGVolumeGetSymbolicIcon          func(uintptr) uintptr
-	XGVolumeGetUuid                  func(uintptr) string
-	XGVolumeMount                    func(uintptr, MountMountFlags, uintptr, uintptr, uintptr, uintptr)
-	XGVolumeMountFinish              func(uintptr, uintptr, **glib.Error) bool
-	XGVolumeShouldAutomount          func(uintptr) bool
+	xXGVolumeCanEject func(uintptr) bool
+	XGVolumeCanMount  func(uintptr) bool = func(instance uintptr) bool {
+		core.LazyRegister(&xXGVolumeCanMount, "GIO", "g_volume_can_mount", false)
+		return xXGVolumeCanMount(instance)
+	}
 )
+var (
+	xXGVolumeCanMount func(uintptr) bool
+	XGVolumeEject     func(uintptr, MountUnmountFlags, uintptr, uintptr, uintptr) = func(instance uintptr, FlagsVarp MountUnmountFlags, CancellableVarp uintptr, CallbackVarp uintptr, UserDataVarp uintptr) {
+		core.LazyRegister(&xXGVolumeEject, "GIO", "g_volume_eject", false)
+		xXGVolumeEject(instance, FlagsVarp, CancellableVarp, CallbackVarp, UserDataVarp)
+	}
+)
+var (
+	xXGVolumeEject      func(uintptr, MountUnmountFlags, uintptr, uintptr, uintptr)
+	XGVolumeEjectFinish func(uintptr, uintptr, **glib.Error) bool = func(instance uintptr, ResultVarp uintptr, cerrp **glib.Error) bool {
+		core.LazyRegister(&xXGVolumeEjectFinish, "GIO", "g_volume_eject_finish", false)
+		return xXGVolumeEjectFinish(instance, ResultVarp, cerrp)
+	}
+)
+var (
+	xXGVolumeEjectFinish       func(uintptr, uintptr, **glib.Error) bool
+	XGVolumeEjectWithOperation func(uintptr, MountUnmountFlags, uintptr, uintptr, uintptr, uintptr) = func(instance uintptr, FlagsVarp MountUnmountFlags, MountOperationVarp uintptr, CancellableVarp uintptr, CallbackVarp uintptr, UserDataVarp uintptr) {
+		core.LazyRegister(&xXGVolumeEjectWithOperation, "GIO", "g_volume_eject_with_operation", false)
+		xXGVolumeEjectWithOperation(instance, FlagsVarp, MountOperationVarp, CancellableVarp, CallbackVarp, UserDataVarp)
+	}
+)
+var (
+	xXGVolumeEjectWithOperation      func(uintptr, MountUnmountFlags, uintptr, uintptr, uintptr, uintptr)
+	XGVolumeEjectWithOperationFinish func(uintptr, uintptr, **glib.Error) bool = func(instance uintptr, ResultVarp uintptr, cerrp **glib.Error) bool {
+		core.LazyRegister(&xXGVolumeEjectWithOperationFinish, "GIO", "g_volume_eject_with_operation_finish", false)
+		return xXGVolumeEjectWithOperationFinish(instance, ResultVarp, cerrp)
+	}
+)
+var (
+	xXGVolumeEjectWithOperationFinish func(uintptr, uintptr, **glib.Error) bool
+	XGVolumeEnumerateIdentifiers      func(uintptr) []string = func(instance uintptr) []string {
+		core.LazyRegister(&xXGVolumeEnumerateIdentifiers, "GIO", "g_volume_enumerate_identifiers", false)
+		return xXGVolumeEnumerateIdentifiers(instance)
+	}
+)
+var (
+	xXGVolumeEnumerateIdentifiers func(uintptr) []string
+	XGVolumeGetActivationRoot     func(uintptr) uintptr = func(instance uintptr) uintptr {
+		core.LazyRegister(&xXGVolumeGetActivationRoot, "GIO", "g_volume_get_activation_root", false)
+		return xXGVolumeGetActivationRoot(instance)
+	}
+)
+var (
+	xXGVolumeGetActivationRoot func(uintptr) uintptr
+	XGVolumeGetDrive           func(uintptr) uintptr = func(instance uintptr) uintptr {
+		core.LazyRegister(&xXGVolumeGetDrive, "GIO", "g_volume_get_drive", false)
+		return xXGVolumeGetDrive(instance)
+	}
+)
+var (
+	xXGVolumeGetDrive func(uintptr) uintptr
+	XGVolumeGetIcon   func(uintptr) uintptr = func(instance uintptr) uintptr {
+		core.LazyRegister(&xXGVolumeGetIcon, "GIO", "g_volume_get_icon", false)
+		return xXGVolumeGetIcon(instance)
+	}
+)
+var (
+	xXGVolumeGetIcon      func(uintptr) uintptr
+	XGVolumeGetIdentifier func(uintptr, string) string = func(instance uintptr, KindVarp string) string {
+		core.LazyRegister(&xXGVolumeGetIdentifier, "GIO", "g_volume_get_identifier", false)
+		return xXGVolumeGetIdentifier(instance, KindVarp)
+	}
+)
+var (
+	xXGVolumeGetIdentifier func(uintptr, string) string
+	XGVolumeGetMount       func(uintptr) uintptr = func(instance uintptr) uintptr {
+		core.LazyRegister(&xXGVolumeGetMount, "GIO", "g_volume_get_mount", false)
+		return xXGVolumeGetMount(instance)
+	}
+)
+var (
+	xXGVolumeGetMount func(uintptr) uintptr
+	XGVolumeGetName   func(uintptr) string = func(instance uintptr) string {
+		core.LazyRegister(&xXGVolumeGetName, "GIO", "g_volume_get_name", false)
+		return xXGVolumeGetName(instance)
+	}
+)
+var (
+	xXGVolumeGetName   func(uintptr) string
+	XGVolumeGetSortKey func(uintptr) string = func(instance uintptr) string {
+		core.LazyRegister(&xXGVolumeGetSortKey, "GIO", "g_volume_get_sort_key", false)
+		return xXGVolumeGetSortKey(instance)
+	}
+)
+var (
+	xXGVolumeGetSortKey     func(uintptr) string
+	XGVolumeGetSymbolicIcon func(uintptr) uintptr = func(instance uintptr) uintptr {
+		core.LazyRegister(&xXGVolumeGetSymbolicIcon, "GIO", "g_volume_get_symbolic_icon", false)
+		return xXGVolumeGetSymbolicIcon(instance)
+	}
+)
+var (
+	xXGVolumeGetSymbolicIcon func(uintptr) uintptr
+	XGVolumeGetUuid          func(uintptr) string = func(instance uintptr) string {
+		core.LazyRegister(&xXGVolumeGetUuid, "GIO", "g_volume_get_uuid", false)
+		return xXGVolumeGetUuid(instance)
+	}
+)
+var (
+	xXGVolumeGetUuid func(uintptr) string
+	XGVolumeMount    func(uintptr, MountMountFlags, uintptr, uintptr, uintptr, uintptr) = func(instance uintptr, FlagsVarp MountMountFlags, MountOperationVarp uintptr, CancellableVarp uintptr, CallbackVarp uintptr, UserDataVarp uintptr) {
+		core.LazyRegister(&xXGVolumeMount, "GIO", "g_volume_mount", false)
+		xXGVolumeMount(instance, FlagsVarp, MountOperationVarp, CancellableVarp, CallbackVarp, UserDataVarp)
+	}
+)
+var (
+	xXGVolumeMount      func(uintptr, MountMountFlags, uintptr, uintptr, uintptr, uintptr)
+	XGVolumeMountFinish func(uintptr, uintptr, **glib.Error) bool = func(instance uintptr, ResultVarp uintptr, cerrp **glib.Error) bool {
+		core.LazyRegister(&xXGVolumeMountFinish, "GIO", "g_volume_mount_finish", false)
+		return xXGVolumeMountFinish(instance, ResultVarp, cerrp)
+	}
+)
+var (
+	xXGVolumeMountFinish    func(uintptr, uintptr, **glib.Error) bool
+	XGVolumeShouldAutomount func(uintptr) bool = func(instance uintptr) bool {
+		core.LazyRegister(&xXGVolumeShouldAutomount, "GIO", "g_volume_should_automount", false)
+		return xXGVolumeShouldAutomount(instance)
+	}
+)
+var xXGVolumeShouldAutomount func(uintptr) bool
 
 const (
 	// The string used to obtain the volume class with g_volume_get_identifier().
@@ -1022,34 +1137,4 @@ const (
 func init() {
 	core.SetPackageName("GIO", "gio-2.0")
 	core.SetSharedLibraries("GIO", []string{"libgio-2.0.so.0", "libgio-2.0.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GIO") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xVolumeGLibType, libs, "g_volume_get_type")
-
-	core.PuregoSafeRegister(&XGVolumeCanEject, libs, "g_volume_can_eject")
-	core.PuregoSafeRegister(&XGVolumeCanMount, libs, "g_volume_can_mount")
-	core.PuregoSafeRegister(&XGVolumeEject, libs, "g_volume_eject")
-	core.PuregoSafeRegister(&XGVolumeEjectFinish, libs, "g_volume_eject_finish")
-	core.PuregoSafeRegister(&XGVolumeEjectWithOperation, libs, "g_volume_eject_with_operation")
-	core.PuregoSafeRegister(&XGVolumeEjectWithOperationFinish, libs, "g_volume_eject_with_operation_finish")
-	core.PuregoSafeRegister(&XGVolumeEnumerateIdentifiers, libs, "g_volume_enumerate_identifiers")
-	core.PuregoSafeRegister(&XGVolumeGetActivationRoot, libs, "g_volume_get_activation_root")
-	core.PuregoSafeRegister(&XGVolumeGetDrive, libs, "g_volume_get_drive")
-	core.PuregoSafeRegister(&XGVolumeGetIcon, libs, "g_volume_get_icon")
-	core.PuregoSafeRegister(&XGVolumeGetIdentifier, libs, "g_volume_get_identifier")
-	core.PuregoSafeRegister(&XGVolumeGetMount, libs, "g_volume_get_mount")
-	core.PuregoSafeRegister(&XGVolumeGetName, libs, "g_volume_get_name")
-	core.PuregoSafeRegister(&XGVolumeGetSortKey, libs, "g_volume_get_sort_key")
-	core.PuregoSafeRegister(&XGVolumeGetSymbolicIcon, libs, "g_volume_get_symbolic_icon")
-	core.PuregoSafeRegister(&XGVolumeGetUuid, libs, "g_volume_get_uuid")
-	core.PuregoSafeRegister(&XGVolumeMount, libs, "g_volume_mount")
-	core.PuregoSafeRegister(&XGVolumeMountFinish, libs, "g_volume_mount_finish")
-	core.PuregoSafeRegister(&XGVolumeShouldAutomount, libs, "g_volume_should_automount")
 }

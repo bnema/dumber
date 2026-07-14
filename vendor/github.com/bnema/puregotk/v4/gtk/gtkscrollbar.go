@@ -2,7 +2,6 @@
 package gtk
 
 import (
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -64,6 +63,7 @@ type Scrollbar struct {
 var xScrollbarGLibType func() types.GType
 
 func ScrollbarGLibType() types.GType {
+	core.LazyRegister(&xScrollbarGLibType, "GTK", "gtk_scrollbar_get_type", false)
 	return xScrollbarGLibType()
 }
 
@@ -77,6 +77,7 @@ var xNewScrollbar func(Orientation, uintptr) uintptr
 
 // Creates a new scrollbar with the given orientation.
 func NewScrollbar(OrientationVar Orientation, AdjustmentVar *Adjustment) *Scrollbar {
+	core.LazyRegister(&xNewScrollbar, "GTK", "gtk_scrollbar_new", false)
 	var cls *Scrollbar
 
 	cret := xNewScrollbar(OrientationVar, AdjustmentVar.GoPointer())
@@ -94,6 +95,7 @@ var xScrollbarGetAdjustment func(uintptr) uintptr
 
 // Returns the scrollbar's adjustment.
 func (x *Scrollbar) GetAdjustment() *Adjustment {
+	core.LazyRegister(&xScrollbarGetAdjustment, "GTK", "gtk_scrollbar_get_adjustment", false)
 	var cls *Adjustment
 
 	cret := xScrollbarGetAdjustment(x.GoPointer())
@@ -111,6 +113,8 @@ var xScrollbarSetAdjustment func(uintptr, uintptr)
 
 // Makes the scrollbar use the given adjustment.
 func (x *Scrollbar) SetAdjustment(AdjustmentVar *Adjustment) {
+	core.LazyRegister(&xScrollbarSetAdjustment, "GTK", "gtk_scrollbar_set_adjustment", false)
+
 	xScrollbarSetAdjustment(x.GoPointer(), AdjustmentVar.GoPointer())
 }
 
@@ -399,19 +403,4 @@ func (x *Scrollbar) SetOrientation(OrientationVar Orientation) {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GTK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xScrollbarGLibType, libs, "gtk_scrollbar_get_type")
-
-	core.PuregoSafeRegister(&xNewScrollbar, libs, "gtk_scrollbar_new")
-
-	core.PuregoSafeRegister(&xScrollbarGetAdjustment, libs, "gtk_scrollbar_get_adjustment")
-	core.PuregoSafeRegister(&xScrollbarSetAdjustment, libs, "gtk_scrollbar_set_adjustment")
 }

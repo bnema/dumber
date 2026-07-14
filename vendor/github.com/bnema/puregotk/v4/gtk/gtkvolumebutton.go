@@ -2,7 +2,6 @@
 package gtk
 
 import (
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -24,6 +23,7 @@ type VolumeButton struct {
 var xVolumeButtonGLibType func() types.GType
 
 func VolumeButtonGLibType() types.GType {
+	core.LazyRegister(&xVolumeButtonGLibType, "GTK", "gtk_volume_button_get_type", false)
 	return xVolumeButtonGLibType()
 }
 
@@ -41,6 +41,7 @@ var xNewVolumeButton func() uintptr
 // Volume values can be obtained and modified using the functions from
 // [class@Gtk.ScaleButton].
 func NewVolumeButton() *VolumeButton {
+	core.LazyRegister(&xNewVolumeButton, "GTK", "gtk_volume_button_new", false)
 	var cls *VolumeButton
 
 	cret := xNewVolumeButton()
@@ -362,16 +363,4 @@ func (x *VolumeButton) SetOrientation(OrientationVar Orientation) {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GTK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xVolumeButtonGLibType, libs, "gtk_volume_button_get_type")
-
-	core.PuregoSafeRegister(&xNewVolumeButton, libs, "gtk_volume_button_new")
 }

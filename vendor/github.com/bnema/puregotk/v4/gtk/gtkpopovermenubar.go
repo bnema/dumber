@@ -2,7 +2,6 @@
 package gtk
 
 import (
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gio"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -51,6 +50,7 @@ type PopoverMenuBar struct {
 var xPopoverMenuBarGLibType func() types.GType
 
 func PopoverMenuBarGLibType() types.GType {
+	core.LazyRegister(&xPopoverMenuBarGLibType, "GTK", "gtk_popover_menu_bar_get_type", false)
 	return xPopoverMenuBarGLibType()
 }
 
@@ -64,6 +64,7 @@ var xNewPopoverMenuBarFromModel func(uintptr) uintptr
 
 // Creates a `GtkPopoverMenuBar` from a `GMenuModel`.
 func NewPopoverMenuBarFromModel(ModelVar *gio.MenuModel) *PopoverMenuBar {
+	core.LazyRegister(&xNewPopoverMenuBarFromModel, "GTK", "gtk_popover_menu_bar_new_from_model", false)
 	var cls *PopoverMenuBar
 
 	cret := xNewPopoverMenuBarFromModel(ModelVar.GoPointer())
@@ -84,6 +85,8 @@ var xPopoverMenuBarAddChild func(uintptr, uintptr, string) bool
 // For this to work, the menu model of @bar must have an
 // item with a `custom` attribute that matches @id.
 func (x *PopoverMenuBar) AddChild(ChildVar *Widget, IdVar string) bool {
+	core.LazyRegister(&xPopoverMenuBarAddChild, "GTK", "gtk_popover_menu_bar_add_child", false)
+
 	cret := xPopoverMenuBarAddChild(x.GoPointer(), ChildVar.GoPointer(), IdVar)
 	return cret
 }
@@ -92,6 +95,7 @@ var xPopoverMenuBarGetMenuModel func(uintptr) uintptr
 
 // Returns the model from which the contents of @bar are taken.
 func (x *PopoverMenuBar) GetMenuModel() *gio.MenuModel {
+	core.LazyRegister(&xPopoverMenuBarGetMenuModel, "GTK", "gtk_popover_menu_bar_get_menu_model", false)
 	var cls *gio.MenuModel
 
 	cret := xPopoverMenuBarGetMenuModel(x.GoPointer())
@@ -110,6 +114,8 @@ var xPopoverMenuBarRemoveChild func(uintptr, uintptr) bool
 // Removes a widget that has previously been added with
 // gtk_popover_menu_bar_add_child().
 func (x *PopoverMenuBar) RemoveChild(ChildVar *Widget) bool {
+	core.LazyRegister(&xPopoverMenuBarRemoveChild, "GTK", "gtk_popover_menu_bar_remove_child", false)
+
 	cret := xPopoverMenuBarRemoveChild(x.GoPointer(), ChildVar.GoPointer())
 	return cret
 }
@@ -119,6 +125,8 @@ var xPopoverMenuBarSetMenuModel func(uintptr, uintptr)
 // Sets a menu model from which @bar should take
 // its contents.
 func (x *PopoverMenuBar) SetMenuModel(ModelVar *gio.MenuModel) {
+	core.LazyRegister(&xPopoverMenuBarSetMenuModel, "GTK", "gtk_popover_menu_bar_set_menu_model", false)
+
 	xPopoverMenuBarSetMenuModel(x.GoPointer(), ModelVar.GoPointer())
 }
 
@@ -396,21 +404,4 @@ func (x *PopoverMenuBar) GetBuildableId() string {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GTK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xPopoverMenuBarGLibType, libs, "gtk_popover_menu_bar_get_type")
-
-	core.PuregoSafeRegister(&xNewPopoverMenuBarFromModel, libs, "gtk_popover_menu_bar_new_from_model")
-
-	core.PuregoSafeRegister(&xPopoverMenuBarAddChild, libs, "gtk_popover_menu_bar_add_child")
-	core.PuregoSafeRegister(&xPopoverMenuBarGetMenuModel, libs, "gtk_popover_menu_bar_get_menu_model")
-	core.PuregoSafeRegister(&xPopoverMenuBarRemoveChild, libs, "gtk_popover_menu_bar_remove_child")
-	core.PuregoSafeRegister(&xPopoverMenuBarSetMenuModel, libs, "gtk_popover_menu_bar_set_menu_model")
 }

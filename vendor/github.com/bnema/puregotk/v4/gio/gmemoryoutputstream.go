@@ -189,6 +189,7 @@ type MemoryOutputStream struct {
 var xMemoryOutputStreamGLibType func() types.GType
 
 func MemoryOutputStreamGLibType() types.GType {
+	core.LazyRegister(&xMemoryOutputStreamGLibType, "GIO", "g_memory_output_stream_get_type", false)
 	return xMemoryOutputStreamGLibType()
 }
 
@@ -242,6 +243,7 @@ var xNewMemoryOutputStream func(uintptr, uint, uintptr, uintptr) uintptr
 // stream3 = g_memory_output_stream_new (data, 200, NULL, free);
 // ]|
 func NewMemoryOutputStream(DataVar uintptr, SizeVar uint, ReallocFunctionVar *ReallocFunc, DestroyFunctionVar *glib.DestroyNotify) *MemoryOutputStream {
+	core.LazyRegister(&xNewMemoryOutputStream, "GIO", "g_memory_output_stream_new", false)
 	var cls *MemoryOutputStream
 
 	cret := xNewMemoryOutputStream(DataVar, SizeVar, glib.NewCallbackNullable(ReallocFunctionVar), glib.NewCallbackNullable(DestroyFunctionVar))
@@ -259,6 +261,7 @@ var xNewMemoryOutputStreamResizable func() uintptr
 // Creates a new #GMemoryOutputStream, using g_realloc() and g_free()
 // for memory allocation.
 func NewMemoryOutputStreamResizable() *MemoryOutputStream {
+	core.LazyRegister(&xNewMemoryOutputStreamResizable, "GIO", "g_memory_output_stream_new_resizable", false)
 	var cls *MemoryOutputStream
 
 	cret := xNewMemoryOutputStreamResizable()
@@ -278,6 +281,8 @@ var xMemoryOutputStreamGetData func(uintptr) uintptr
 // Note that the returned pointer may become invalid on the next
 // write or truncate operation on the stream.
 func (x *MemoryOutputStream) GetData() uintptr {
+	core.LazyRegister(&xMemoryOutputStreamGetData, "GIO", "g_memory_output_stream_get_data", false)
+
 	cret := xMemoryOutputStreamGetData(x.GoPointer())
 	return cret
 }
@@ -287,6 +292,8 @@ var xMemoryOutputStreamGetDataSize func(uintptr) uint
 // Returns the number of bytes from the start up to including the last
 // byte written in the stream that has not been truncated away.
 func (x *MemoryOutputStream) GetDataSize() uint {
+	core.LazyRegister(&xMemoryOutputStreamGetDataSize, "GIO", "g_memory_output_stream_get_data_size", false)
+
 	cret := xMemoryOutputStreamGetDataSize(x.GoPointer())
 	return cret
 }
@@ -309,6 +316,8 @@ var xMemoryOutputStreamGetSize func(uintptr) uint
 // In any case, if you want the number of bytes currently written to the
 // stream, use g_memory_output_stream_get_data_size().
 func (x *MemoryOutputStream) GetSize() uint {
+	core.LazyRegister(&xMemoryOutputStreamGetSize, "GIO", "g_memory_output_stream_get_size", false)
+
 	cret := xMemoryOutputStreamGetSize(x.GoPointer())
 	return cret
 }
@@ -318,6 +327,8 @@ var xMemoryOutputStreamStealAsBytes func(uintptr) uintptr
 // Returns data from the @ostream as a #GBytes. @ostream must be
 // closed before calling this function.
 func (x *MemoryOutputStream) StealAsBytes() *glib.Bytes {
+	core.LazyRegister(&xMemoryOutputStreamStealAsBytes, "GIO", "g_memory_output_stream_steal_as_bytes", false)
+
 	cret := xMemoryOutputStreamStealAsBytes(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -334,6 +345,8 @@ var xMemoryOutputStreamStealData func(uintptr) uintptr
 //
 // @ostream must be closed before calling this function.
 func (x *MemoryOutputStream) StealData() uintptr {
+	core.LazyRegister(&xMemoryOutputStreamStealData, "GIO", "g_memory_output_stream_steal_data", false)
+
 	cret := xMemoryOutputStreamStealData(x.GoPointer())
 	return cret
 }
@@ -594,23 +607,4 @@ func (x *MemoryOutputStream) Truncate(OffsetVar int64, CancellableVar *Cancellab
 func init() {
 	core.SetPackageName("GIO", "gio-2.0")
 	core.SetSharedLibraries("GIO", []string{"libgio-2.0.so.0", "libgio-2.0.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GIO") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xMemoryOutputStreamGLibType, libs, "g_memory_output_stream_get_type")
-
-	core.PuregoSafeRegister(&xNewMemoryOutputStream, libs, "g_memory_output_stream_new")
-	core.PuregoSafeRegister(&xNewMemoryOutputStreamResizable, libs, "g_memory_output_stream_new_resizable")
-
-	core.PuregoSafeRegister(&xMemoryOutputStreamGetData, libs, "g_memory_output_stream_get_data")
-	core.PuregoSafeRegister(&xMemoryOutputStreamGetDataSize, libs, "g_memory_output_stream_get_data_size")
-	core.PuregoSafeRegister(&xMemoryOutputStreamGetSize, libs, "g_memory_output_stream_get_size")
-	core.PuregoSafeRegister(&xMemoryOutputStreamStealAsBytes, libs, "g_memory_output_stream_steal_as_bytes")
-	core.PuregoSafeRegister(&xMemoryOutputStreamStealData, libs, "g_memory_output_stream_steal_data")
 }

@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -28,6 +27,7 @@ type ColorState struct {
 var xColorStateGLibType func() types.GType
 
 func ColorStateGLibType() types.GType {
+	core.LazyRegister(&xColorStateGLibType, "GDK", "gdk_color_state_get_type", false)
 	return xColorStateGLibType()
 }
 
@@ -51,6 +51,7 @@ var xColorStateCreateCicpParams func(uintptr) uintptr
 // represented with Cicp parameters. If that is the case,
 // this function returns `NULL`.
 func (x *ColorState) CreateCicpParams() *CicpParams {
+	core.LazyRegister(&xColorStateCreateCicpParams, "GDK", "gdk_color_state_create_cicp_params", false)
 	var cls *CicpParams
 
 	cret := xColorStateCreateCicpParams(x.GoPointer())
@@ -71,6 +72,8 @@ var xColorStateEqual func(uintptr, *ColorState) bool
 // describing the same color state may compare not equal. However, different
 // color states will never compare equal.
 func (x *ColorState) Equal(OtherVar *ColorState) bool {
+	core.LazyRegister(&xColorStateEqual, "GDK", "gdk_color_state_equal", false)
+
 	cret := xColorStateEqual(x.GoPointer(), OtherVar)
 	return cret
 }
@@ -82,6 +85,8 @@ var xColorStateEquivalent func(uintptr, *ColorState) bool
 // Two objects that represent the same color state should be equivalent,
 // even though they may not be equal in the sense of [method@Gdk.ColorState.equal].
 func (x *ColorState) Equivalent(OtherVar *ColorState) bool {
+	core.LazyRegister(&xColorStateEquivalent, "GDK", "gdk_color_state_equivalent", false)
+
 	cret := xColorStateEquivalent(x.GoPointer(), OtherVar)
 	return cret
 }
@@ -90,6 +95,8 @@ var xColorStateRef func(uintptr) uintptr
 
 // Increase the reference count of @self.
 func (x *ColorState) Ref() *ColorState {
+	core.LazyRegister(&xColorStateRef, "GDK", "gdk_color_state_ref", false)
+
 	cret := xColorStateRef(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -104,6 +111,8 @@ var xColorStateUnref func(uintptr)
 // Unless @self is static, it will be freed
 // when the reference count reaches zero.
 func (x *ColorState) Unref() {
+	core.LazyRegister(&xColorStateUnref, "GDK", "gdk_color_state_unref", false)
+
 	xColorStateUnref(x.GoPointer())
 }
 
@@ -145,6 +154,7 @@ type ContentFormats struct {
 var xContentFormatsGLibType func() types.GType
 
 func ContentFormatsGLibType() types.GType {
+	core.LazyRegister(&xContentFormatsGLibType, "GDK", "gdk_content_formats_get_type", false)
 	return xContentFormatsGLibType()
 }
 
@@ -168,6 +178,8 @@ var xNewContentFormats func([]string, uint) uintptr
 // behavior of the return value is undefined. If you cannot guarantee
 // this, use [struct@Gdk.ContentFormatsBuilder] instead.
 func NewContentFormats(MimeTypesVar []string, NMimeTypesVar uint) *ContentFormats {
+	core.LazyRegister(&xNewContentFormats, "GDK", "gdk_content_formats_new", false)
+
 	cret := xNewContentFormats(MimeTypesVar, NMimeTypesVar)
 	if cret == 0 {
 		return nil
@@ -179,6 +191,8 @@ var xNewContentFormatsForGtype func(types.GType) uintptr
 
 // Creates a new `GdkContentFormats` for a given `GType`.
 func NewContentFormatsForGtype(TypeVar types.GType) *ContentFormats {
+	core.LazyRegister(&xNewContentFormatsForGtype, "GDK", "gdk_content_formats_new_for_gtype", false)
+
 	cret := xNewContentFormatsForGtype(TypeVar)
 	if cret == 0 {
 		return nil
@@ -190,6 +204,8 @@ var xContentFormatsContainGtype func(uintptr, types.GType) bool
 
 // Checks if a given `GType` is part of the given @formats.
 func (x *ContentFormats) ContainGtype(TypeVar types.GType) bool {
+	core.LazyRegister(&xContentFormatsContainGtype, "GDK", "gdk_content_formats_contain_gtype", false)
+
 	cret := xContentFormatsContainGtype(x.GoPointer(), TypeVar)
 	return cret
 }
@@ -198,6 +214,8 @@ var xContentFormatsContainMimeType func(uintptr, string) bool
 
 // Checks if a given mime type is part of the given @formats.
 func (x *ContentFormats) ContainMimeType(MimeTypeVar string) bool {
+	core.LazyRegister(&xContentFormatsContainMimeType, "GDK", "gdk_content_formats_contain_mime_type", false)
+
 	cret := xContentFormatsContainMimeType(x.GoPointer(), MimeTypeVar)
 	return cret
 }
@@ -209,6 +227,8 @@ var xContentFormatsGetGtypes func(uintptr, *uint) uintptr
 // Note that @formats may not contain any `GType`s, in particular when
 // they are empty. In that case %NULL will be returned.
 func (x *ContentFormats) GetGtypes(NGtypesVar *uint) uintptr {
+	core.LazyRegister(&xContentFormatsGetGtypes, "GDK", "gdk_content_formats_get_gtypes", false)
+
 	cret := xContentFormatsGetGtypes(x.GoPointer(), NGtypesVar)
 	return cret
 }
@@ -220,6 +240,8 @@ var xContentFormatsGetMimeTypes func(uintptr, *uint) []string
 // Note that @formats may not contain any mime types, in particular
 // when they are empty. In that case %NULL will be returned.
 func (x *ContentFormats) GetMimeTypes(NMimeTypesVar *uint) []string {
+	core.LazyRegister(&xContentFormatsGetMimeTypes, "GDK", "gdk_content_formats_get_mime_types", false)
+
 	cret := xContentFormatsGetMimeTypes(x.GoPointer(), NMimeTypesVar)
 	return cret
 }
@@ -228,6 +250,8 @@ var xContentFormatsIsEmpty func(uintptr) bool
 
 // Returns whether the content formats contain any formats.
 func (x *ContentFormats) IsEmpty() bool {
+	core.LazyRegister(&xContentFormatsIsEmpty, "GDK", "gdk_content_formats_is_empty", false)
+
 	cret := xContentFormatsIsEmpty(x.GoPointer())
 	return cret
 }
@@ -236,6 +260,8 @@ var xContentFormatsMatch func(uintptr, *ContentFormats) bool
 
 // Checks if @first and @second have any matching formats.
 func (x *ContentFormats) Match(SecondVar *ContentFormats) bool {
+	core.LazyRegister(&xContentFormatsMatch, "GDK", "gdk_content_formats_match", false)
+
 	cret := xContentFormatsMatch(x.GoPointer(), SecondVar)
 	return cret
 }
@@ -247,6 +273,8 @@ var xContentFormatsMatchGtype func(uintptr, *ContentFormats) types.GType
 //
 // If no matching `GType` is found, %G_TYPE_INVALID is returned.
 func (x *ContentFormats) MatchGtype(SecondVar *ContentFormats) types.GType {
+	core.LazyRegister(&xContentFormatsMatchGtype, "GDK", "gdk_content_formats_match_gtype", false)
+
 	cret := xContentFormatsMatchGtype(x.GoPointer(), SecondVar)
 	return cret
 }
@@ -258,6 +286,8 @@ var xContentFormatsMatchMimeType func(uintptr, *ContentFormats) string
 //
 // If no matching mime type is found, %NULL is returned.
 func (x *ContentFormats) MatchMimeType(SecondVar *ContentFormats) string {
+	core.LazyRegister(&xContentFormatsMatchMimeType, "GDK", "gdk_content_formats_match_mime_type", false)
+
 	cret := xContentFormatsMatchMimeType(x.GoPointer(), SecondVar)
 	return cret
 }
@@ -269,6 +299,8 @@ var xContentFormatsPrint func(uintptr, *glib.String)
 // The result of this function can later be parsed with
 // [func@Gdk.ContentFormats.parse].
 func (x *ContentFormats) Print(StringVar *glib.String) {
+	core.LazyRegister(&xContentFormatsPrint, "GDK", "gdk_content_formats_print", false)
+
 	xContentFormatsPrint(x.GoPointer(), StringVar)
 }
 
@@ -276,6 +308,8 @@ var xContentFormatsRef func(uintptr) uintptr
 
 // Increases the reference count of a `GdkContentFormats` by one.
 func (x *ContentFormats) Ref() *ContentFormats {
+	core.LazyRegister(&xContentFormatsRef, "GDK", "gdk_content_formats_ref", false)
+
 	cret := xContentFormatsRef(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -292,6 +326,8 @@ var xContentFormatsToString func(uintptr) string
 // This is a small wrapper around [method@Gdk.ContentFormats.print]
 // to help when debugging.
 func (x *ContentFormats) ToString() string {
+	core.LazyRegister(&xContentFormatsToString, "GDK", "gdk_content_formats_to_string", false)
+
 	cret := xContentFormatsToString(x.GoPointer())
 	return cret
 }
@@ -301,6 +337,8 @@ var xContentFormatsUnion func(uintptr, *ContentFormats) uintptr
 // Append all missing types from @second to @first, in the order
 // they had in @second.
 func (x *ContentFormats) Union(SecondVar *ContentFormats) *ContentFormats {
+	core.LazyRegister(&xContentFormatsUnion, "GDK", "gdk_content_formats_union", false)
+
 	cret := xContentFormatsUnion(x.GoPointer(), SecondVar)
 	if cret == 0 {
 		return nil
@@ -313,6 +351,8 @@ var xContentFormatsUnionDeserializeGtypes func(uintptr) uintptr
 // Add GTypes for mime types in @formats for which deserializers are
 // registered.
 func (x *ContentFormats) UnionDeserializeGtypes() *ContentFormats {
+	core.LazyRegister(&xContentFormatsUnionDeserializeGtypes, "GDK", "gdk_content_formats_union_deserialize_gtypes", false)
+
 	cret := xContentFormatsUnionDeserializeGtypes(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -325,6 +365,8 @@ var xContentFormatsUnionDeserializeMimeTypes func(uintptr) uintptr
 // Add mime types for GTypes in @formats for which deserializers are
 // registered.
 func (x *ContentFormats) UnionDeserializeMimeTypes() *ContentFormats {
+	core.LazyRegister(&xContentFormatsUnionDeserializeMimeTypes, "GDK", "gdk_content_formats_union_deserialize_mime_types", false)
+
 	cret := xContentFormatsUnionDeserializeMimeTypes(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -337,6 +379,8 @@ var xContentFormatsUnionSerializeGtypes func(uintptr) uintptr
 // Add GTypes for the mime types in @formats for which serializers are
 // registered.
 func (x *ContentFormats) UnionSerializeGtypes() *ContentFormats {
+	core.LazyRegister(&xContentFormatsUnionSerializeGtypes, "GDK", "gdk_content_formats_union_serialize_gtypes", false)
+
 	cret := xContentFormatsUnionSerializeGtypes(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -349,6 +393,8 @@ var xContentFormatsUnionSerializeMimeTypes func(uintptr) uintptr
 // Add mime types for GTypes in @formats for which serializers are
 // registered.
 func (x *ContentFormats) UnionSerializeMimeTypes() *ContentFormats {
+	core.LazyRegister(&xContentFormatsUnionSerializeMimeTypes, "GDK", "gdk_content_formats_union_serialize_mime_types", false)
+
 	cret := xContentFormatsUnionSerializeMimeTypes(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -362,6 +408,8 @@ var xContentFormatsUnref func(uintptr)
 //
 // If the resulting reference count is zero, frees the formats.
 func (x *ContentFormats) Unref() {
+	core.LazyRegister(&xContentFormatsUnref, "GDK", "gdk_content_formats_unref", false)
+
 	xContentFormatsUnref(x.GoPointer())
 }
 
@@ -391,6 +439,7 @@ type DmabufFormats struct {
 var xDmabufFormatsGLibType func() types.GType
 
 func DmabufFormatsGLibType() types.GType {
+	core.LazyRegister(&xDmabufFormatsGLibType, "GDK", "gdk_dmabuf_formats_get_type", false)
 	return xDmabufFormatsGLibType()
 }
 
@@ -410,6 +459,8 @@ var xDmabufFormatsContains func(uintptr, uint32, uint64) bool
 
 // Returns whether a given format is contained in @formats.
 func (x *DmabufFormats) Contains(FourccVar uint32, ModifierVar uint64) bool {
+	core.LazyRegister(&xDmabufFormatsContains, "GDK", "gdk_dmabuf_formats_contains", false)
+
 	cret := xDmabufFormatsContains(x.GoPointer(), FourccVar, ModifierVar)
 	return cret
 }
@@ -419,6 +470,8 @@ var xDmabufFormatsEqual func(uintptr, *DmabufFormats) bool
 // Returns whether @formats1 and @formats2 contain the
 // same dmabuf formats, in the same order.
 func (x *DmabufFormats) Equal(Formats2Var *DmabufFormats) bool {
+	core.LazyRegister(&xDmabufFormatsEqual, "GDK", "gdk_dmabuf_formats_equal", false)
+
 	cret := xDmabufFormatsEqual(x.GoPointer(), Formats2Var)
 	return cret
 }
@@ -428,6 +481,8 @@ var xDmabufFormatsGetFormat func(uintptr, uint, *uint32, *uint64)
 // Gets the fourcc code and modifier for a format
 // that is contained in @formats.
 func (x *DmabufFormats) GetFormat(IdxVar uint, FourccVar *uint32, ModifierVar *uint64) {
+	core.LazyRegister(&xDmabufFormatsGetFormat, "GDK", "gdk_dmabuf_formats_get_format", false)
+
 	xDmabufFormatsGetFormat(x.GoPointer(), IdxVar, FourccVar, ModifierVar)
 }
 
@@ -440,6 +495,8 @@ var xDmabufFormatsGetNFormats func(uintptr) uint
 // platforms, [method@Gdk.DmabufFormats.get_n_formats] will
 // always return zero.
 func (x *DmabufFormats) GetNFormats() uint {
+	core.LazyRegister(&xDmabufFormatsGetNFormats, "GDK", "gdk_dmabuf_formats_get_n_formats", false)
+
 	cret := xDmabufFormatsGetNFormats(x.GoPointer())
 	return cret
 }
@@ -448,6 +505,8 @@ var xDmabufFormatsRef func(uintptr) uintptr
 
 // Increases the reference count of @formats.
 func (x *DmabufFormats) Ref() *DmabufFormats {
+	core.LazyRegister(&xDmabufFormatsRef, "GDK", "gdk_dmabuf_formats_ref", false)
+
 	cret := xDmabufFormatsRef(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -462,6 +521,8 @@ var xDmabufFormatsUnref func(uintptr)
 // When the reference count reaches zero,
 // the object is freed.
 func (x *DmabufFormats) Unref() {
+	core.LazyRegister(&xDmabufFormatsUnref, "GDK", "gdk_dmabuf_formats_unref", false)
+
 	xDmabufFormatsUnref(x.GoPointer())
 }
 
@@ -518,6 +579,7 @@ type Rectangle struct {
 var xRectangleGLibType func() types.GType
 
 func RectangleGLibType() types.GType {
+	core.LazyRegister(&xRectangleGLibType, "GDK", "gdk_rectangle_get_type", false)
 	return xRectangleGLibType()
 }
 
@@ -537,6 +599,8 @@ var xRectangleContainsPoint func(uintptr, int, int) bool
 
 // Returns %TRUE if @rect contains the point described by @x and @y.
 func (x *Rectangle) ContainsPoint(XVar int, YVar int) bool {
+	core.LazyRegister(&xRectangleContainsPoint, "GDK", "gdk_rectangle_contains_point", false)
+
 	cret := xRectangleContainsPoint(x.GoPointer(), XVar, YVar)
 	return cret
 }
@@ -545,6 +609,8 @@ var xRectangleEqual func(uintptr, *Rectangle) bool
 
 // Checks if the two given rectangles are equal.
 func (x *Rectangle) Equal(Rect2Var *Rectangle) bool {
+	core.LazyRegister(&xRectangleEqual, "GDK", "gdk_rectangle_equal", false)
+
 	cret := xRectangleEqual(x.GoPointer(), Rect2Var)
 	return cret
 }
@@ -559,6 +625,8 @@ var xRectangleIntersect func(uintptr, *Rectangle, *Rectangle) bool
 // in whether the rectangles intersect, but not in the intersecting area
 // itself, pass %NULL for @dest.
 func (x *Rectangle) Intersect(Src2Var *Rectangle, DestVar *Rectangle) bool {
+	core.LazyRegister(&xRectangleIntersect, "GDK", "gdk_rectangle_intersect", false)
+
 	cret := xRectangleIntersect(x.GoPointer(), Src2Var, DestVar)
 	return cret
 }
@@ -574,6 +642,8 @@ var xRectangleUnion func(uintptr, *Rectangle, *Rectangle)
 // Note that this function does not ignore 'empty' rectangles (ie. with
 // zero width or height).
 func (x *Rectangle) Union(Src2Var *Rectangle, DestVar *Rectangle) {
+	core.LazyRegister(&xRectangleUnion, "GDK", "gdk_rectangle_union", false)
+
 	xRectangleUnion(x.GoPointer(), Src2Var, DestVar)
 }
 
@@ -593,6 +663,7 @@ type TextureDownloader struct {
 var xTextureDownloaderGLibType func() types.GType
 
 func TextureDownloaderGLibType() types.GType {
+	core.LazyRegister(&xTextureDownloaderGLibType, "GDK", "gdk_texture_downloader_get_type", false)
 	return xTextureDownloaderGLibType()
 }
 
@@ -615,6 +686,8 @@ var xNewTextureDownloader func(uintptr) uintptr
 // By default, the downloader will convert the data to
 // the default memory format, and to the sRGB color state.
 func NewTextureDownloader(TextureVar *Texture) *TextureDownloader {
+	core.LazyRegister(&xNewTextureDownloader, "GDK", "gdk_texture_downloader_new", false)
+
 	cret := xNewTextureDownloader(TextureVar.GoPointer())
 	if cret == 0 {
 		return nil
@@ -628,6 +701,8 @@ var xTextureDownloaderCopy func(uintptr) uintptr
 //
 // This function is meant for language bindings.
 func (x *TextureDownloader) Copy() *TextureDownloader {
+	core.LazyRegister(&xTextureDownloaderCopy, "GDK", "gdk_texture_downloader_copy", false)
+
 	cret := xTextureDownloaderCopy(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -648,6 +723,8 @@ var xTextureDownloaderDownloadBytes func(uintptr, *uint) uintptr
 // This function cannot be used with a multiplanar format. Use
 // [method@Gdk.TextureDownloader.download_bytes_with_planes] for that purpose.
 func (x *TextureDownloader) DownloadBytes(OutStrideVar *uint) *glib.Bytes {
+	core.LazyRegister(&xTextureDownloaderDownloadBytes, "GDK", "gdk_texture_downloader_download_bytes", false)
+
 	cret := xTextureDownloaderDownloadBytes(x.GoPointer(), OutStrideVar)
 	if cret == 0 {
 		return nil
@@ -663,6 +740,8 @@ var xTextureDownloaderDownloadBytesWithPlanes func(uintptr, *[4]uint, *[4]uint) 
 // If the format does have less than 4 planes, the remaining offsets and strides will be
 // set to `0`.
 func (x *TextureDownloader) DownloadBytesWithPlanes(OutOffsetsVar *[4]uint, OutStridesVar *[4]uint) *glib.Bytes {
+	core.LazyRegister(&xTextureDownloaderDownloadBytesWithPlanes, "GDK", "gdk_texture_downloader_download_bytes_with_planes", false)
+
 	cret := xTextureDownloaderDownloadBytesWithPlanes(x.GoPointer(), OutOffsetsVar, OutStridesVar)
 	if cret == 0 {
 		return nil
@@ -676,6 +755,8 @@ var xTextureDownloaderDownloadInto func(uintptr, []byte, uint)
 //
 // This function cannot be used with a multiplanar format.
 func (x *TextureDownloader) DownloadInto(DataVar []byte, StrideVar uint) {
+	core.LazyRegister(&xTextureDownloaderDownloadInto, "GDK", "gdk_texture_downloader_download_into", false)
+
 	xTextureDownloaderDownloadInto(x.GoPointer(), DataVar, StrideVar)
 }
 
@@ -683,6 +764,8 @@ var xTextureDownloaderFree func(uintptr)
 
 // Frees the given downloader and all its associated resources.
 func (x *TextureDownloader) Free() {
+	core.LazyRegister(&xTextureDownloaderFree, "GDK", "gdk_texture_downloader_free", false)
+
 	xTextureDownloaderFree(x.GoPointer())
 }
 
@@ -690,6 +773,8 @@ var xTextureDownloaderGetColorState func(uintptr) uintptr
 
 // Gets the color state that the data will be downloaded in.
 func (x *TextureDownloader) GetColorState() *ColorState {
+	core.LazyRegister(&xTextureDownloaderGetColorState, "GDK", "gdk_texture_downloader_get_color_state", false)
+
 	cret := xTextureDownloaderGetColorState(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -701,6 +786,8 @@ var xTextureDownloaderGetFormat func(uintptr) MemoryFormat
 
 // Gets the format that the data will be downloaded in.
 func (x *TextureDownloader) GetFormat() MemoryFormat {
+	core.LazyRegister(&xTextureDownloaderGetFormat, "GDK", "gdk_texture_downloader_get_format", false)
+
 	cret := xTextureDownloaderGetFormat(x.GoPointer())
 	return cret
 }
@@ -709,6 +796,7 @@ var xTextureDownloaderGetTexture func(uintptr) uintptr
 
 // Gets the texture that the downloader will download.
 func (x *TextureDownloader) GetTexture() *Texture {
+	core.LazyRegister(&xTextureDownloaderGetTexture, "GDK", "gdk_texture_downloader_get_texture", false)
 	var cls *Texture
 
 	cret := xTextureDownloaderGetTexture(x.GoPointer())
@@ -729,6 +817,8 @@ var xTextureDownloaderSetColorState func(uintptr, *ColorState)
 // By default, the sRGB colorstate returned by [func@ColorState.get_srgb]
 // is used.
 func (x *TextureDownloader) SetColorState(ColorStateVar *ColorState) {
+	core.LazyRegister(&xTextureDownloaderSetColorState, "GDK", "gdk_texture_downloader_set_color_state", false)
+
 	xTextureDownloaderSetColorState(x.GoPointer(), ColorStateVar)
 }
 
@@ -738,6 +828,8 @@ var xTextureDownloaderSetFormat func(uintptr, MemoryFormat)
 //
 // By default, GDK_MEMORY_DEFAULT is set.
 func (x *TextureDownloader) SetFormat(FormatVar MemoryFormat) {
+	core.LazyRegister(&xTextureDownloaderSetFormat, "GDK", "gdk_texture_downloader_set_format", false)
+
 	xTextureDownloaderSetFormat(x.GoPointer(), FormatVar)
 }
 
@@ -745,6 +837,8 @@ var xTextureDownloaderSetTexture func(uintptr, uintptr)
 
 // Changes the texture the downloader will download.
 func (x *TextureDownloader) SetTexture(TextureVar *Texture) {
+	core.LazyRegister(&xTextureDownloaderSetTexture, "GDK", "gdk_texture_downloader_set_texture", false)
+
 	xTextureDownloaderSetTexture(x.GoPointer(), TextureVar.GoPointer())
 }
 
@@ -756,75 +850,4 @@ const (
 func init() {
 	core.SetPackageName("GDK", "gtk4")
 	core.SetSharedLibraries("GDK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GDK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xColorStateGLibType, libs, "gdk_color_state_get_type")
-
-	core.PuregoSafeRegister(&xColorStateCreateCicpParams, libs, "gdk_color_state_create_cicp_params")
-	core.PuregoSafeRegister(&xColorStateEqual, libs, "gdk_color_state_equal")
-	core.PuregoSafeRegister(&xColorStateEquivalent, libs, "gdk_color_state_equivalent")
-	core.PuregoSafeRegister(&xColorStateRef, libs, "gdk_color_state_ref")
-	core.PuregoSafeRegister(&xColorStateUnref, libs, "gdk_color_state_unref")
-
-	core.PuregoSafeRegister(&xContentFormatsGLibType, libs, "gdk_content_formats_get_type")
-
-	core.PuregoSafeRegister(&xNewContentFormats, libs, "gdk_content_formats_new")
-	core.PuregoSafeRegister(&xNewContentFormatsForGtype, libs, "gdk_content_formats_new_for_gtype")
-
-	core.PuregoSafeRegister(&xContentFormatsContainGtype, libs, "gdk_content_formats_contain_gtype")
-	core.PuregoSafeRegister(&xContentFormatsContainMimeType, libs, "gdk_content_formats_contain_mime_type")
-	core.PuregoSafeRegister(&xContentFormatsGetGtypes, libs, "gdk_content_formats_get_gtypes")
-	core.PuregoSafeRegister(&xContentFormatsGetMimeTypes, libs, "gdk_content_formats_get_mime_types")
-	core.PuregoSafeRegister(&xContentFormatsIsEmpty, libs, "gdk_content_formats_is_empty")
-	core.PuregoSafeRegister(&xContentFormatsMatch, libs, "gdk_content_formats_match")
-	core.PuregoSafeRegister(&xContentFormatsMatchGtype, libs, "gdk_content_formats_match_gtype")
-	core.PuregoSafeRegister(&xContentFormatsMatchMimeType, libs, "gdk_content_formats_match_mime_type")
-	core.PuregoSafeRegister(&xContentFormatsPrint, libs, "gdk_content_formats_print")
-	core.PuregoSafeRegister(&xContentFormatsRef, libs, "gdk_content_formats_ref")
-	core.PuregoSafeRegister(&xContentFormatsToString, libs, "gdk_content_formats_to_string")
-	core.PuregoSafeRegister(&xContentFormatsUnion, libs, "gdk_content_formats_union")
-	core.PuregoSafeRegister(&xContentFormatsUnionDeserializeGtypes, libs, "gdk_content_formats_union_deserialize_gtypes")
-	core.PuregoSafeRegister(&xContentFormatsUnionDeserializeMimeTypes, libs, "gdk_content_formats_union_deserialize_mime_types")
-	core.PuregoSafeRegister(&xContentFormatsUnionSerializeGtypes, libs, "gdk_content_formats_union_serialize_gtypes")
-	core.PuregoSafeRegister(&xContentFormatsUnionSerializeMimeTypes, libs, "gdk_content_formats_union_serialize_mime_types")
-	core.PuregoSafeRegister(&xContentFormatsUnref, libs, "gdk_content_formats_unref")
-
-	core.PuregoSafeRegister(&xDmabufFormatsGLibType, libs, "gdk_dmabuf_formats_get_type")
-
-	core.PuregoSafeRegister(&xDmabufFormatsContains, libs, "gdk_dmabuf_formats_contains")
-	core.PuregoSafeRegister(&xDmabufFormatsEqual, libs, "gdk_dmabuf_formats_equal")
-	core.PuregoSafeRegister(&xDmabufFormatsGetFormat, libs, "gdk_dmabuf_formats_get_format")
-	core.PuregoSafeRegister(&xDmabufFormatsGetNFormats, libs, "gdk_dmabuf_formats_get_n_formats")
-	core.PuregoSafeRegister(&xDmabufFormatsRef, libs, "gdk_dmabuf_formats_ref")
-	core.PuregoSafeRegister(&xDmabufFormatsUnref, libs, "gdk_dmabuf_formats_unref")
-
-	core.PuregoSafeRegister(&xRectangleGLibType, libs, "gdk_rectangle_get_type")
-
-	core.PuregoSafeRegister(&xRectangleContainsPoint, libs, "gdk_rectangle_contains_point")
-	core.PuregoSafeRegister(&xRectangleEqual, libs, "gdk_rectangle_equal")
-	core.PuregoSafeRegister(&xRectangleIntersect, libs, "gdk_rectangle_intersect")
-	core.PuregoSafeRegister(&xRectangleUnion, libs, "gdk_rectangle_union")
-
-	core.PuregoSafeRegister(&xTextureDownloaderGLibType, libs, "gdk_texture_downloader_get_type")
-
-	core.PuregoSafeRegister(&xNewTextureDownloader, libs, "gdk_texture_downloader_new")
-
-	core.PuregoSafeRegister(&xTextureDownloaderCopy, libs, "gdk_texture_downloader_copy")
-	core.PuregoSafeRegister(&xTextureDownloaderDownloadBytes, libs, "gdk_texture_downloader_download_bytes")
-	core.PuregoSafeRegister(&xTextureDownloaderDownloadBytesWithPlanes, libs, "gdk_texture_downloader_download_bytes_with_planes")
-	core.PuregoSafeRegister(&xTextureDownloaderDownloadInto, libs, "gdk_texture_downloader_download_into")
-	core.PuregoSafeRegister(&xTextureDownloaderFree, libs, "gdk_texture_downloader_free")
-	core.PuregoSafeRegister(&xTextureDownloaderGetColorState, libs, "gdk_texture_downloader_get_color_state")
-	core.PuregoSafeRegister(&xTextureDownloaderGetFormat, libs, "gdk_texture_downloader_get_format")
-	core.PuregoSafeRegister(&xTextureDownloaderGetTexture, libs, "gdk_texture_downloader_get_texture")
-	core.PuregoSafeRegister(&xTextureDownloaderSetColorState, libs, "gdk_texture_downloader_set_color_state")
-	core.PuregoSafeRegister(&xTextureDownloaderSetFormat, libs, "gdk_texture_downloader_set_format")
-	core.PuregoSafeRegister(&xTextureDownloaderSetTexture, libs, "gdk_texture_downloader_set_texture")
 }

@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 )
@@ -47,6 +46,8 @@ var xStaticResourceFini func(uintptr)
 // [`glib-compile-resources`](glib-compile-resources.html)
 // and is not typically used by other code.
 func (x *StaticResource) Fini() {
+	core.LazyRegister(&xStaticResourceFini, "GIO", "g_static_resource_fini", false)
+
 	xStaticResourceFini(x.GoPointer())
 }
 
@@ -59,6 +60,8 @@ var xStaticResourceGetResource func(uintptr) uintptr
 // [`glib-compile-resources`](glib-compile-resources.html)
 // and is not typically used by other code.
 func (x *StaticResource) GetResource() *Resource {
+	core.LazyRegister(&xStaticResourceGetResource, "GIO", "g_static_resource_get_resource", false)
+
 	cret := xStaticResourceGetResource(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -75,6 +78,8 @@ var xStaticResourceInit func(uintptr)
 // [`glib-compile-resources`](glib-compile-resources.html)
 // and is not typically used by other code.
 func (x *StaticResource) Init() {
+	core.LazyRegister(&xStaticResourceInit, "GIO", "g_static_resource_init", false)
+
 	xStaticResourceInit(x.GoPointer())
 }
 
@@ -82,6 +87,8 @@ var xResourceErrorQuark func() glib.Quark
 
 // Gets the [struct@Gio.Resource] Error Quark.
 func ResourceErrorQuark() glib.Quark {
+	core.LazyRegister(&xResourceErrorQuark, "GIO", "g_resource_error_quark", false)
+
 	cret := xResourceErrorQuark()
 	return cret
 }
@@ -99,6 +106,7 @@ var xResourceLoad func(string, **glib.Error) uintptr
 // there is an error in reading it, an error from [ctor@GLib.MappedFile.new]
 // will be returned.
 func ResourceLoad(FilenameVar string) (*Resource, error) {
+	core.LazyRegister(&xResourceLoad, "GIO", "g_resource_load", false)
 	var cerr *glib.Error
 
 	cret := xResourceLoad(FilenameVar, &cerr)
@@ -121,6 +129,7 @@ var xResourcesEnumerateChildren func(string, ResourceLookupFlags, **glib.Error) 
 //
 // @lookup_flags controls the behaviour of the lookup.
 func ResourcesEnumerateChildren(PathVar string, LookupFlagsVar ResourceLookupFlags) ([]string, error) {
+	core.LazyRegister(&xResourcesEnumerateChildren, "GIO", "g_resources_enumerate_children", false)
 	var cerr *glib.Error
 
 	cret := xResourcesEnumerateChildren(PathVar, LookupFlagsVar, &cerr)
@@ -137,6 +146,7 @@ var xResourcesGetInfo func(string, ResourceLookupFlags, *uint, *uint32, **glib.E
 //
 // @lookup_flags controls the behaviour of the lookup.
 func ResourcesGetInfo(PathVar string, LookupFlagsVar ResourceLookupFlags, SizeVar *uint, FlagsVar *uint32) (bool, error) {
+	core.LazyRegister(&xResourcesGetInfo, "GIO", "g_resources_get_info", false)
 	var cerr *glib.Error
 
 	cret := xResourcesGetInfo(PathVar, LookupFlagsVar, SizeVar, FlagsVar, &cerr)
@@ -151,6 +161,8 @@ var xResourcesHasChildren func(string) bool
 // Returns whether the specified @path in the set of
 // globally registered resources has children.
 func ResourcesHasChildren(PathVar string) bool {
+	core.LazyRegister(&xResourcesHasChildren, "GIO", "g_resources_has_children", false)
+
 	cret := xResourcesHasChildren(PathVar)
 	return cret
 }
@@ -172,6 +184,7 @@ var xResourcesLookupData func(string, ResourceLookupFlags, **glib.Error) uintptr
 //
 // @lookup_flags controls the behaviour of the lookup.
 func ResourcesLookupData(PathVar string, LookupFlagsVar ResourceLookupFlags) (*glib.Bytes, error) {
+	core.LazyRegister(&xResourcesLookupData, "GIO", "g_resources_lookup_data", false)
 	var cerr *glib.Error
 
 	cret := xResourcesLookupData(PathVar, LookupFlagsVar, &cerr)
@@ -192,6 +205,7 @@ var xResourcesOpenStream func(string, ResourceLookupFlags, **glib.Error) uintptr
 //
 // @lookup_flags controls the behaviour of the lookup.
 func ResourcesOpenStream(PathVar string, LookupFlagsVar ResourceLookupFlags) (*InputStream, error) {
+	core.LazyRegister(&xResourcesOpenStream, "GIO", "g_resources_open_stream", false)
 	var cls *InputStream
 	var cerr *glib.Error
 
@@ -216,6 +230,8 @@ var xResourcesRegister func(*Resource)
 // with the global resource lookup functions like
 // [func@Gio.resources_lookup_data].
 func ResourcesRegister(ResourceVar *Resource) {
+	core.LazyRegister(&xResourcesRegister, "GIO", "g_resources_register", false)
+
 	xResourcesRegister(ResourceVar)
 }
 
@@ -223,32 +239,12 @@ var xResourcesUnregister func(*Resource)
 
 // Unregisters the resource from the process-global set of resources.
 func ResourcesUnregister(ResourceVar *Resource) {
+	core.LazyRegister(&xResourcesUnregister, "GIO", "g_resources_unregister", false)
+
 	xResourcesUnregister(ResourceVar)
 }
 
 func init() {
 	core.SetPackageName("GIO", "gio-2.0")
 	core.SetSharedLibraries("GIO", []string{"libgio-2.0.so.0", "libgio-2.0.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GIO") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xResourceErrorQuark, libs, "g_resource_error_quark")
-	core.PuregoSafeRegister(&xResourceLoad, libs, "g_resource_load")
-	core.PuregoSafeRegister(&xResourcesEnumerateChildren, libs, "g_resources_enumerate_children")
-	core.PuregoSafeRegister(&xResourcesGetInfo, libs, "g_resources_get_info")
-	core.PuregoSafeRegister(&xResourcesHasChildren, libs, "g_resources_has_children")
-	core.PuregoSafeRegister(&xResourcesLookupData, libs, "g_resources_lookup_data")
-	core.PuregoSafeRegister(&xResourcesOpenStream, libs, "g_resources_open_stream")
-	core.PuregoSafeRegister(&xResourcesRegister, libs, "g_resources_register")
-	core.PuregoSafeRegister(&xResourcesUnregister, libs, "g_resources_unregister")
-
-	core.PuregoSafeRegister(&xStaticResourceFini, libs, "g_static_resource_fini")
-	core.PuregoSafeRegister(&xStaticResourceGetResource, libs, "g_static_resource_get_resource")
-	core.PuregoSafeRegister(&xStaticResourceInit, libs, "g_static_resource_init")
 }

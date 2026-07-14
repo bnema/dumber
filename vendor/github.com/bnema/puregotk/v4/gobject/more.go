@@ -5,7 +5,6 @@ import (
 	"reflect"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -29,12 +28,25 @@ func ConvertPtr(a interface{}) *uintptr {
 	return &g
 }
 
+// lazyRegisterObjectRefSink keeps this manually-written helper on the same
+// lazy-resolution path as generated wrappers.
+var lazyRegisterObjectRefSink = func() {
+	core.LazyRegister(&xObjectRefSink, "GOBJECT", "g_object_ref_sink", false)
+}
+
 func IncreaseRef(a uintptr) {
+	lazyRegisterObjectRefSink()
 	xObjectRefSink(a)
 }
 
+// lazyRegisterSignalConnectData is a focused seam for the manually-written
+// raw signal helpers. Generated bindings register this target before every call.
+var lazyRegisterSignalConnectData = func() {
+	core.LazyRegister(&xSignalConnectData, "GOBJECT", "g_signal_connect_data", false)
+}
+
 func SignalConnect(a uintptr, b string, c uintptr) uint {
-	return xSignalConnectData(a, b, c, 0, 0, 0)
+	return SignalConnectDataRaw(a, b, c, 0, 0, 0)
 }
 
 // SignalConnectDataRaw connects a raw C callback pointer with user data and an
@@ -42,6 +54,7 @@ func SignalConnect(a uintptr, b string, c uintptr) uint {
 // shared process-lifetime trampolines to avoid one purego callback allocation per
 // signal connection.
 func SignalConnectDataRaw(instance uintptr, detailedSignal string, handler uintptr, data uintptr, destroyData uintptr, flags ConnectFlags) uint {
+	lazyRegisterSignalConnectData()
 	return xSignalConnectData(instance, detailedSignal, handler, data, destroyData, flags)
 }
 
@@ -97,31 +110,24 @@ func (x *Object) ConnectNotifyWithDetail(detail string, cb *func(Object, *ParamS
 
 var xTypeCheckInstanceIsAPtr func(uintptr, types.GType) bool
 
+// lazyRegisterTypeCheckInstanceIsAPtr keeps the uintptr-specific helper lazy
+// without changing its nil-pointer behavior.
+var lazyRegisterTypeCheckInstanceIsAPtr = func() {
+	core.LazyRegister(&xTypeCheckInstanceIsAPtr, "GOBJECT", "g_type_check_instance_is_a", false)
+}
+
 // TypeCheckInstanceIsAPtr is like TypeCheckInstanceIsA but accepts a GoPointer().
 func TypeCheckInstanceIsAPtr(ptr uintptr, ifaceType types.GType) bool {
 	if ptr == 0 {
 		return false
 	}
+	lazyRegisterTypeCheckInstanceIsAPtr()
 	return xTypeCheckInstanceIsAPtr(ptr, ifaceType)
 }
 
 // IsA reports whether o is an instance of t, one of its subtypes, or an implementation of t.
 func (o *Object) IsA(t types.GType) bool {
 	return TypeCheckInstanceIsAPtr(o.GoPointer(), t)
-}
-
-func init() {
-	core.SetPackageName("GOBJECT", "gobject-2.0")
-	core.SetSharedLibraries("GOBJECT", []string{"libgobject-2.0.so.0", "libgobject-2.0.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GOBJECT") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-	core.PuregoSafeRegister(&xTypeCheckInstanceIsAPtr, libs, "g_type_check_instance_is_a")
 }
 
 // types

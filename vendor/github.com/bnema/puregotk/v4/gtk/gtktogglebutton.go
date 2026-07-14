@@ -146,6 +146,7 @@ type ToggleButton struct {
 var xToggleButtonGLibType func() types.GType
 
 func ToggleButtonGLibType() types.GType {
+	core.LazyRegister(&xToggleButtonGLibType, "GTK", "gtk_toggle_button_get_type", false)
 	return xToggleButtonGLibType()
 }
 
@@ -161,6 +162,7 @@ var xNewToggleButton func() uintptr
 //
 // A widget should be packed into the button, as in [ctor@Gtk.Button.new].
 func NewToggleButton() *ToggleButton {
+	core.LazyRegister(&xNewToggleButton, "GTK", "gtk_toggle_button_new", false)
 	var cls *ToggleButton
 
 	cret := xNewToggleButton()
@@ -178,6 +180,7 @@ var xNewToggleButtonWithLabel func(string) uintptr
 
 // Creates a new toggle button with a text label.
 func NewToggleButtonWithLabel(LabelVar string) *ToggleButton {
+	core.LazyRegister(&xNewToggleButtonWithLabel, "GTK", "gtk_toggle_button_new_with_label", false)
 	var cls *ToggleButton
 
 	cret := xNewToggleButtonWithLabel(LabelVar)
@@ -198,6 +201,7 @@ var xNewToggleButtonWithMnemonic func(string) uintptr
 // The label will be created using [ctor@Gtk.Label.new_with_mnemonic],
 // so underscores in @label indicate the mnemonic for the button.
 func NewToggleButtonWithMnemonic(LabelVar string) *ToggleButton {
+	core.LazyRegister(&xNewToggleButtonWithMnemonic, "GTK", "gtk_toggle_button_new_with_mnemonic", false)
 	var cls *ToggleButton
 
 	cret := xNewToggleButtonWithMnemonic(LabelVar)
@@ -218,6 +222,8 @@ var xToggleButtonGetActive func(uintptr) bool
 // Returns %TRUE if the toggle button is pressed in and %FALSE
 // if it is raised.
 func (x *ToggleButton) GetActive() bool {
+	core.LazyRegister(&xToggleButtonGetActive, "GTK", "gtk_toggle_button_get_active", false)
+
 	cret := xToggleButtonGetActive(x.GoPointer())
 	return cret
 }
@@ -232,6 +238,8 @@ var xToggleButtonSetActive func(uintptr, bool)
 // If the status of the button changes, this action causes the
 // [signal@Gtk.ToggleButton::toggled] signal to be emitted.
 func (x *ToggleButton) SetActive(IsActiveVar bool) {
+	core.LazyRegister(&xToggleButtonSetActive, "GTK", "gtk_toggle_button_set_active", false)
+
 	xToggleButtonSetActive(x.GoPointer(), IsActiveVar)
 }
 
@@ -249,6 +257,8 @@ var xToggleButtonSetGroup func(uintptr, uintptr)
 // for all buttons in the group, and giving each button its own target
 // value.
 func (x *ToggleButton) SetGroup(GroupVar *ToggleButton) {
+	core.LazyRegister(&xToggleButtonSetGroup, "GTK", "gtk_toggle_button_set_group", false)
+
 	xToggleButtonSetGroup(x.GoPointer(), GroupVar.GoPointer())
 }
 
@@ -256,6 +266,8 @@ var xToggleButtonToggled func(uintptr)
 
 // Emits the ::toggled signal on the `GtkToggleButton`.
 func (x *ToggleButton) Toggled() {
+	core.LazyRegister(&xToggleButtonToggled, "GTK", "gtk_toggle_button_toggled", false)
+
 	xToggleButtonToggled(x.GoPointer())
 }
 
@@ -652,23 +664,4 @@ func (x *ToggleButton) GetBuildableId() string {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GTK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xToggleButtonGLibType, libs, "gtk_toggle_button_get_type")
-
-	core.PuregoSafeRegister(&xNewToggleButton, libs, "gtk_toggle_button_new")
-	core.PuregoSafeRegister(&xNewToggleButtonWithLabel, libs, "gtk_toggle_button_new_with_label")
-	core.PuregoSafeRegister(&xNewToggleButtonWithMnemonic, libs, "gtk_toggle_button_new_with_mnemonic")
-
-	core.PuregoSafeRegister(&xToggleButtonGetActive, libs, "gtk_toggle_button_get_active")
-	core.PuregoSafeRegister(&xToggleButtonSetActive, libs, "gtk_toggle_button_set_active")
-	core.PuregoSafeRegister(&xToggleButtonSetGroup, libs, "gtk_toggle_button_set_group")
-	core.PuregoSafeRegister(&xToggleButtonToggled, libs, "gtk_toggle_button_toggled")
 }

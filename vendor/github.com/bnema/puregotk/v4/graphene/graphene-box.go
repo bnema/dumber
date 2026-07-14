@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject/types"
 )
@@ -23,6 +22,7 @@ type Box struct {
 var xBoxGLibType func() types.GType
 
 func BoxGLibType() types.GType {
+	core.LazyRegister(&xBoxGLibType, "GRAPHENE", "graphene_box_get_type", false)
 	return xBoxGLibType()
 }
 
@@ -44,6 +44,8 @@ var xBoxAlloc func() uintptr
 //
 // The contents of the returned structure are undefined.
 func BoxAlloc() *Box {
+	core.LazyRegister(&xBoxAlloc, "GRAPHENE", "graphene_box_alloc", false)
+
 	cret := xBoxAlloc()
 	if cret == 0 {
 		return nil
@@ -56,6 +58,8 @@ var xBoxContainsBox func(uintptr, *Box) bool
 // Checks whether the #graphene_box_t @a contains the given
 // #graphene_box_t @b.
 func (x *Box) ContainsBox(BVar *Box) bool {
+	core.LazyRegister(&xBoxContainsBox, "GRAPHENE", "graphene_box_contains_box", false)
+
 	cret := xBoxContainsBox(x.GoPointer(), BVar)
 	return cret
 }
@@ -64,6 +68,8 @@ var xBoxContainsPoint func(uintptr, *Point3D) bool
 
 // Checks whether @box contains the given @point.
 func (x *Box) ContainsPoint(PointVar *Point3D) bool {
+	core.LazyRegister(&xBoxContainsPoint, "GRAPHENE", "graphene_box_contains_point", false)
+
 	cret := xBoxContainsPoint(x.GoPointer(), PointVar)
 	return cret
 }
@@ -72,6 +78,8 @@ var xBoxEqual func(uintptr, *Box) bool
 
 // Checks whether the two given boxes are equal.
 func (x *Box) Equal(BVar *Box) bool {
+	core.LazyRegister(&xBoxEqual, "GRAPHENE", "graphene_box_equal", false)
+
 	cret := xBoxEqual(x.GoPointer(), BVar)
 	return cret
 }
@@ -80,6 +88,8 @@ var xBoxExpand func(uintptr, *Point3D, *Box)
 
 // Expands the dimensions of @box to include the coordinates at @point.
 func (x *Box) Expand(PointVar *Point3D, ResVar *Box) {
+	core.LazyRegister(&xBoxExpand, "GRAPHENE", "graphene_box_expand", false)
+
 	xBoxExpand(x.GoPointer(), PointVar, ResVar)
 }
 
@@ -90,6 +100,8 @@ var xBoxExpandScalar func(uintptr, float32, *Box)
 // If @scalar is positive, the #graphene_box_t will grow; if @scalar is
 // negative, the #graphene_box_t will shrink.
 func (x *Box) ExpandScalar(ScalarVar float32, ResVar *Box) {
+	core.LazyRegister(&xBoxExpandScalar, "GRAPHENE", "graphene_box_expand_scalar", false)
+
 	xBoxExpandScalar(x.GoPointer(), ScalarVar, ResVar)
 }
 
@@ -98,6 +110,8 @@ var xBoxExpandVec3 func(uintptr, *Vec3, *Box)
 // Expands the dimensions of @box to include the coordinates of the
 // given vector.
 func (x *Box) ExpandVec3(VecVar *Vec3, ResVar *Box) {
+	core.LazyRegister(&xBoxExpandVec3, "GRAPHENE", "graphene_box_expand_vec3", false)
+
 	xBoxExpandVec3(x.GoPointer(), VecVar, ResVar)
 }
 
@@ -105,6 +119,8 @@ var xBoxFree func(uintptr)
 
 // Frees the resources allocated by graphene_box_alloc().
 func (x *Box) Free() {
+	core.LazyRegister(&xBoxFree, "GRAPHENE", "graphene_box_free", false)
+
 	xBoxFree(x.GoPointer())
 }
 
@@ -113,6 +129,8 @@ var xBoxGetBoundingSphere func(uintptr, *Sphere)
 // Computes the bounding #graphene_sphere_t capable of containing the given
 // #graphene_box_t.
 func (x *Box) GetBoundingSphere(SphereVar *Sphere) {
+	core.LazyRegister(&xBoxGetBoundingSphere, "GRAPHENE", "graphene_box_get_bounding_sphere", false)
+
 	xBoxGetBoundingSphere(x.GoPointer(), SphereVar)
 }
 
@@ -120,6 +138,8 @@ var xBoxGetCenter func(uintptr, *Point3D)
 
 // Retrieves the coordinates of the center of a #graphene_box_t.
 func (x *Box) GetCenter(CenterVar *Point3D) {
+	core.LazyRegister(&xBoxGetCenter, "GRAPHENE", "graphene_box_get_center", false)
+
 	xBoxGetCenter(x.GoPointer(), CenterVar)
 }
 
@@ -127,6 +147,8 @@ var xBoxGetDepth func(uintptr) float32
 
 // Retrieves the size of the @box on the Z axis.
 func (x *Box) GetDepth() float32 {
+	core.LazyRegister(&xBoxGetDepth, "GRAPHENE", "graphene_box_get_depth", false)
+
 	cret := xBoxGetDepth(x.GoPointer())
 	return cret
 }
@@ -135,6 +157,8 @@ var xBoxGetHeight func(uintptr) float32
 
 // Retrieves the size of the @box on the Y axis.
 func (x *Box) GetHeight() float32 {
+	core.LazyRegister(&xBoxGetHeight, "GRAPHENE", "graphene_box_get_height", false)
+
 	cret := xBoxGetHeight(x.GoPointer())
 	return cret
 }
@@ -144,6 +168,8 @@ var xBoxGetMax func(uintptr, *Point3D)
 // Retrieves the coordinates of the maximum point of the given
 // #graphene_box_t.
 func (x *Box) GetMax(MaxVar *Point3D) {
+	core.LazyRegister(&xBoxGetMax, "GRAPHENE", "graphene_box_get_max", false)
+
 	xBoxGetMax(x.GoPointer(), MaxVar)
 }
 
@@ -152,6 +178,8 @@ var xBoxGetMin func(uintptr, *Point3D)
 // Retrieves the coordinates of the minimum point of the given
 // #graphene_box_t.
 func (x *Box) GetMin(MinVar *Point3D) {
+	core.LazyRegister(&xBoxGetMin, "GRAPHENE", "graphene_box_get_min", false)
+
 	xBoxGetMin(x.GoPointer(), MinVar)
 }
 
@@ -160,6 +188,8 @@ var xBoxGetSize func(uintptr, *Vec3)
 // Retrieves the size of the box on all three axes, and stores
 // it into the given @size vector.
 func (x *Box) GetSize(SizeVar *Vec3) {
+	core.LazyRegister(&xBoxGetSize, "GRAPHENE", "graphene_box_get_size", false)
+
 	xBoxGetSize(x.GoPointer(), SizeVar)
 }
 
@@ -167,6 +197,8 @@ var xBoxGetVertices func(uintptr, *[8]Vec3)
 
 // Computes the vertices of the given #graphene_box_t.
 func (x *Box) GetVertices(VerticesVar *[8]Vec3) {
+	core.LazyRegister(&xBoxGetVertices, "GRAPHENE", "graphene_box_get_vertices", false)
+
 	xBoxGetVertices(x.GoPointer(), VerticesVar)
 }
 
@@ -174,6 +206,8 @@ var xBoxGetWidth func(uintptr) float32
 
 // Retrieves the size of the @box on the X axis.
 func (x *Box) GetWidth() float32 {
+	core.LazyRegister(&xBoxGetWidth, "GRAPHENE", "graphene_box_get_width", false)
+
 	cret := xBoxGetWidth(x.GoPointer())
 	return cret
 }
@@ -182,6 +216,8 @@ var xBoxInit func(uintptr, *Point3D, *Point3D) uintptr
 
 // Initializes the given #graphene_box_t with two vertices.
 func (x *Box) Init(MinVar *Point3D, MaxVar *Point3D) *Box {
+	core.LazyRegister(&xBoxInit, "GRAPHENE", "graphene_box_init", false)
+
 	cret := xBoxInit(x.GoPointer(), MinVar, MaxVar)
 	if cret == 0 {
 		return nil
@@ -194,6 +230,8 @@ var xBoxInitFromBox func(uintptr, *Box) uintptr
 // Initializes the given #graphene_box_t with the vertices of
 // another #graphene_box_t.
 func (x *Box) InitFromBox(SrcVar *Box) *Box {
+	core.LazyRegister(&xBoxInitFromBox, "GRAPHENE", "graphene_box_init_from_box", false)
+
 	cret := xBoxInitFromBox(x.GoPointer(), SrcVar)
 	if cret == 0 {
 		return nil
@@ -209,6 +247,8 @@ var xBoxInitFromPoints func(uintptr, uint, []Point3D) uintptr
 // If @n_points is 0, the returned box is initialized with
 // graphene_box_empty().
 func (x *Box) InitFromPoints(NPointsVar uint, PointsVar []Point3D) *Box {
+	core.LazyRegister(&xBoxInitFromPoints, "GRAPHENE", "graphene_box_init_from_points", false)
+
 	cret := xBoxInitFromPoints(x.GoPointer(), NPointsVar, PointsVar)
 	if cret == 0 {
 		return nil
@@ -221,6 +261,8 @@ var xBoxInitFromVec3 func(uintptr, *Vec3, *Vec3) uintptr
 // Initializes the given #graphene_box_t with two vertices
 // stored inside #graphene_vec3_t.
 func (x *Box) InitFromVec3(MinVar *Vec3, MaxVar *Vec3) *Box {
+	core.LazyRegister(&xBoxInitFromVec3, "GRAPHENE", "graphene_box_init_from_vec3", false)
+
 	cret := xBoxInitFromVec3(x.GoPointer(), MinVar, MaxVar)
 	if cret == 0 {
 		return nil
@@ -236,6 +278,8 @@ var xBoxInitFromVectors func(uintptr, uint, []Vec3) uintptr
 // If @n_vectors is 0, the returned box is initialized with
 // graphene_box_empty().
 func (x *Box) InitFromVectors(NVectorsVar uint, VectorsVar []Vec3) *Box {
+	core.LazyRegister(&xBoxInitFromVectors, "GRAPHENE", "graphene_box_init_from_vectors", false)
+
 	cret := xBoxInitFromVectors(x.GoPointer(), NVectorsVar, VectorsVar)
 	if cret == 0 {
 		return nil
@@ -250,6 +294,8 @@ var xBoxIntersection func(uintptr, *Box, *Box) bool
 // If the two boxes do not intersect, @res will contain a degenerate box
 // initialized with graphene_box_empty().
 func (x *Box) Intersection(BVar *Box, ResVar *Box) bool {
+	core.LazyRegister(&xBoxIntersection, "GRAPHENE", "graphene_box_intersection", false)
+
 	cret := xBoxIntersection(x.GoPointer(), BVar, ResVar)
 	return cret
 }
@@ -258,6 +304,8 @@ var xBoxUnion func(uintptr, *Box, *Box)
 
 // Unions the two given #graphene_box_t.
 func (x *Box) Union(BVar *Box, ResVar *Box) {
+	core.LazyRegister(&xBoxUnion, "GRAPHENE", "graphene_box_union", false)
+
 	xBoxUnion(x.GoPointer(), BVar, ResVar)
 }
 
@@ -267,6 +315,8 @@ var xBoxEmpty func() uintptr
 //
 // The returned value is owned by Graphene and should not be modified or freed.
 func BoxEmpty() *Box {
+	core.LazyRegister(&xBoxEmpty, "GRAPHENE", "graphene_box_empty", false)
+
 	cret := xBoxEmpty()
 	if cret == 0 {
 		return nil
@@ -280,6 +330,8 @@ var xBoxInfinite func() uintptr
 //
 // The returned value is owned by Graphene and should not be modified or freed.
 func BoxInfinite() *Box {
+	core.LazyRegister(&xBoxInfinite, "GRAPHENE", "graphene_box_infinite", false)
+
 	cret := xBoxInfinite()
 	if cret == 0 {
 		return nil
@@ -294,6 +346,8 @@ var xBoxMinusOne func() uintptr
 //
 // The returned value is owned by Graphene and should not be modified or freed.
 func BoxMinusOne() *Box {
+	core.LazyRegister(&xBoxMinusOne, "GRAPHENE", "graphene_box_minus_one", false)
+
 	cret := xBoxMinusOne()
 	if cret == 0 {
 		return nil
@@ -308,6 +362,8 @@ var xBoxOne func() uintptr
 //
 // The returned value is owned by Graphene and should not be modified or freed.
 func BoxOne() *Box {
+	core.LazyRegister(&xBoxOne, "GRAPHENE", "graphene_box_one", false)
+
 	cret := xBoxOne()
 	if cret == 0 {
 		return nil
@@ -322,6 +378,8 @@ var xBoxOneMinusOne func() uintptr
 //
 // The returned value is owned by Graphene and should not be modified or freed.
 func BoxOneMinusOne() *Box {
+	core.LazyRegister(&xBoxOneMinusOne, "GRAPHENE", "graphene_box_one_minus_one", false)
+
 	cret := xBoxOneMinusOne()
 	if cret == 0 {
 		return nil
@@ -335,6 +393,8 @@ var xBoxZero func() uintptr
 //
 // The returned value is owned by Graphene and should not be modified or freed.
 func BoxZero() *Box {
+	core.LazyRegister(&xBoxZero, "GRAPHENE", "graphene_box_zero", false)
+
 	cret := xBoxZero()
 	if cret == 0 {
 		return nil
@@ -345,47 +405,4 @@ func BoxZero() *Box {
 func init() {
 	core.SetPackageName("GRAPHENE", "graphene-gobject-1.0")
 	core.SetSharedLibraries("GRAPHENE", []string{"libgraphene-1.0.so.0", "libgraphene-1.0.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GRAPHENE") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xBoxEmpty, libs, "graphene_box_empty")
-	core.PuregoSafeRegister(&xBoxInfinite, libs, "graphene_box_infinite")
-	core.PuregoSafeRegister(&xBoxMinusOne, libs, "graphene_box_minus_one")
-	core.PuregoSafeRegister(&xBoxOne, libs, "graphene_box_one")
-	core.PuregoSafeRegister(&xBoxOneMinusOne, libs, "graphene_box_one_minus_one")
-	core.PuregoSafeRegister(&xBoxZero, libs, "graphene_box_zero")
-
-	core.PuregoSafeRegister(&xBoxGLibType, libs, "graphene_box_get_type")
-
-	core.PuregoSafeRegister(&xBoxAlloc, libs, "graphene_box_alloc")
-
-	core.PuregoSafeRegister(&xBoxContainsBox, libs, "graphene_box_contains_box")
-	core.PuregoSafeRegister(&xBoxContainsPoint, libs, "graphene_box_contains_point")
-	core.PuregoSafeRegister(&xBoxEqual, libs, "graphene_box_equal")
-	core.PuregoSafeRegister(&xBoxExpand, libs, "graphene_box_expand")
-	core.PuregoSafeRegister(&xBoxExpandScalar, libs, "graphene_box_expand_scalar")
-	core.PuregoSafeRegister(&xBoxExpandVec3, libs, "graphene_box_expand_vec3")
-	core.PuregoSafeRegister(&xBoxFree, libs, "graphene_box_free")
-	core.PuregoSafeRegister(&xBoxGetBoundingSphere, libs, "graphene_box_get_bounding_sphere")
-	core.PuregoSafeRegister(&xBoxGetCenter, libs, "graphene_box_get_center")
-	core.PuregoSafeRegister(&xBoxGetDepth, libs, "graphene_box_get_depth")
-	core.PuregoSafeRegister(&xBoxGetHeight, libs, "graphene_box_get_height")
-	core.PuregoSafeRegister(&xBoxGetMax, libs, "graphene_box_get_max")
-	core.PuregoSafeRegister(&xBoxGetMin, libs, "graphene_box_get_min")
-	core.PuregoSafeRegister(&xBoxGetSize, libs, "graphene_box_get_size")
-	core.PuregoSafeRegister(&xBoxGetVertices, libs, "graphene_box_get_vertices")
-	core.PuregoSafeRegister(&xBoxGetWidth, libs, "graphene_box_get_width")
-	core.PuregoSafeRegister(&xBoxInit, libs, "graphene_box_init")
-	core.PuregoSafeRegister(&xBoxInitFromBox, libs, "graphene_box_init_from_box")
-	core.PuregoSafeRegister(&xBoxInitFromPoints, libs, "graphene_box_init_from_points")
-	core.PuregoSafeRegister(&xBoxInitFromVec3, libs, "graphene_box_init_from_vec3")
-	core.PuregoSafeRegister(&xBoxInitFromVectors, libs, "graphene_box_init_from_vectors")
-	core.PuregoSafeRegister(&xBoxIntersection, libs, "graphene_box_intersection")
-	core.PuregoSafeRegister(&xBoxUnion, libs, "graphene_box_union")
 }

@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -19,6 +18,7 @@ type WebViewSessionState struct {
 var xWebViewSessionStateGLibType func() types.GType
 
 func WebViewSessionStateGLibType() types.GType {
+	core.LazyRegister(&xWebViewSessionStateGLibType, "WEBKIT", "webkit_web_view_session_state_get_type", false)
 	return xWebViewSessionStateGLibType()
 }
 
@@ -38,6 +38,8 @@ var xNewWebViewSessionState func(*glib.Bytes) uintptr
 
 // Creates a new #WebKitWebViewSessionState from serialized data.
 func NewWebViewSessionState(DataVar *glib.Bytes) *WebViewSessionState {
+	core.LazyRegister(&xNewWebViewSessionState, "WEBKIT", "webkit_web_view_session_state_new", false)
+
 	cret := xNewWebViewSessionState(DataVar)
 	if cret == 0 {
 		return nil
@@ -52,6 +54,8 @@ var xWebViewSessionStateRef func(uintptr) uintptr
 // This
 // function is MT-safe and may be called from any thread.
 func (x *WebViewSessionState) Ref() *WebViewSessionState {
+	core.LazyRegister(&xWebViewSessionStateRef, "WEBKIT", "webkit_web_view_session_state_ref", false)
+
 	cret := xWebViewSessionStateRef(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -63,6 +67,8 @@ var xWebViewSessionStateSerialize func(uintptr) uintptr
 
 // Serializes a #WebKitWebViewSessionState.
 func (x *WebViewSessionState) Serialize() *glib.Bytes {
+	core.LazyRegister(&xWebViewSessionStateSerialize, "WEBKIT", "webkit_web_view_session_state_serialize", false)
+
 	cret := xWebViewSessionStateSerialize(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -78,26 +84,15 @@ var xWebViewSessionStateUnref func(uintptr)
 // reference count drops to 0, all memory allocated by the #WebKitWebViewSessionState is
 // released. This function is MT-safe and may be called from any thread.
 func (x *WebViewSessionState) Unref() {
+	core.LazyRegister(&xWebViewSessionStateUnref, "WEBKIT", "webkit_web_view_session_state_unref", false)
+
 	xWebViewSessionStateUnref(x.GoPointer())
 }
 
 func init() {
 	core.SetPackageName("WEBKIT", "webkitgtk-6.0")
 	core.SetSharedLibraries("WEBKIT", []string{"libwebkitgtk-6.0.so.4", "libjavascriptcoregtk-6.0.so.1", "libwebkitgtk-6.0.4.dylib", "libjavascriptcoregtk-6.0.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("WEBKIT") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
 
-	core.PuregoSafeRegister(&xWebViewSessionStateGLibType, libs, "webkit_web_view_session_state_get_type")
-
-	core.PuregoSafeRegister(&xNewWebViewSessionState, libs, "webkit_web_view_session_state_new")
-
-	core.PuregoSafeRegister(&xWebViewSessionStateRef, libs, "webkit_web_view_session_state_ref")
-	core.PuregoSafeRegister(&xWebViewSessionStateSerialize, libs, "webkit_web_view_session_state_serialize")
-	core.PuregoSafeRegister(&xWebViewSessionStateUnref, libs, "webkit_web_view_session_state_unref")
+	// Manually register types since they aren't automatically registered when
+	// WebKit is loaded. See https://bugs.webkit.org/show_bug.cgi?id=175937.
 }

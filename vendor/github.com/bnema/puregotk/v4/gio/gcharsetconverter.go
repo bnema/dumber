@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -39,6 +38,7 @@ type CharsetConverter struct {
 var xCharsetConverterGLibType func() types.GType
 
 func CharsetConverterGLibType() types.GType {
+	core.LazyRegister(&xCharsetConverterGLibType, "GIO", "g_charset_converter_get_type", false)
 	return xCharsetConverterGLibType()
 }
 
@@ -52,6 +52,7 @@ var xNewCharsetConverter func(string, string, **glib.Error) uintptr
 
 // Creates a new #GCharsetConverter.
 func NewCharsetConverter(ToCharsetVar string, FromCharsetVar string) (*CharsetConverter, error) {
+	core.LazyRegister(&xNewCharsetConverter, "GIO", "g_charset_converter_new", false)
 	var cls *CharsetConverter
 	var cerr *glib.Error
 
@@ -72,6 +73,8 @@ var xCharsetConverterGetNumFallbacks func(uintptr) uint
 
 // Gets the number of fallbacks that @converter has applied so far.
 func (x *CharsetConverter) GetNumFallbacks() uint {
+	core.LazyRegister(&xCharsetConverterGetNumFallbacks, "GIO", "g_charset_converter_get_num_fallbacks", false)
+
 	cret := xCharsetConverterGetNumFallbacks(x.GoPointer())
 	return cret
 }
@@ -80,6 +83,8 @@ var xCharsetConverterGetUseFallback func(uintptr) bool
 
 // Gets the #GCharsetConverter:use-fallback property.
 func (x *CharsetConverter) GetUseFallback() bool {
+	core.LazyRegister(&xCharsetConverterGetUseFallback, "GIO", "g_charset_converter_get_use_fallback", false)
+
 	cret := xCharsetConverterGetUseFallback(x.GoPointer())
 	return cret
 }
@@ -88,6 +93,8 @@ var xCharsetConverterSetUseFallback func(uintptr, bool)
 
 // Sets the #GCharsetConverter:use-fallback property.
 func (x *CharsetConverter) SetUseFallback(UseFallbackVar bool) {
+	core.LazyRegister(&xCharsetConverterSetUseFallback, "GIO", "g_charset_converter_set_use_fallback", false)
+
 	xCharsetConverterSetUseFallback(x.GoPointer(), UseFallbackVar)
 }
 
@@ -317,20 +324,4 @@ func (x *CharsetConverter) Init(CancellableVar *Cancellable) (bool, error) {
 func init() {
 	core.SetPackageName("GIO", "gio-2.0")
 	core.SetSharedLibraries("GIO", []string{"libgio-2.0.so.0", "libgio-2.0.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GIO") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xCharsetConverterGLibType, libs, "g_charset_converter_get_type")
-
-	core.PuregoSafeRegister(&xNewCharsetConverter, libs, "g_charset_converter_new")
-
-	core.PuregoSafeRegister(&xCharsetConverterGetNumFallbacks, libs, "g_charset_converter_get_num_fallbacks")
-	core.PuregoSafeRegister(&xCharsetConverterGetUseFallback, libs, "g_charset_converter_get_use_fallback")
-	core.PuregoSafeRegister(&xCharsetConverterSetUseFallback, libs, "g_charset_converter_set_use_fallback")
 }

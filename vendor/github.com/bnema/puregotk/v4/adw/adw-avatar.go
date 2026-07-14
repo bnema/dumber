@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gdk"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -67,6 +66,7 @@ type Avatar struct {
 var xAvatarGLibType func() types.GType
 
 func AvatarGLibType() types.GType {
+	core.LazyRegister(&xAvatarGLibType, "ADW", "adw_avatar_get_type", false)
 	return xAvatarGLibType()
 }
 
@@ -80,6 +80,7 @@ var xNewAvatar func(int, uintptr, bool) uintptr
 
 // Creates a new `AdwAvatar`.
 func NewAvatar(SizeVar int, TextVar *string, ShowInitialsVar bool) *Avatar {
+	core.LazyRegister(&xNewAvatar, "ADW", "adw_avatar_new", false)
 	var cls *Avatar
 
 	TextVarPtr := core.GStrdupNullable(TextVar)
@@ -102,6 +103,7 @@ var xAvatarDrawToTexture func(uintptr, int) uintptr
 //
 // This can be used to export the fallback avatar.
 func (x *Avatar) DrawToTexture(ScaleFactorVar int) *gdk.Texture {
+	core.LazyRegister(&xAvatarDrawToTexture, "ADW", "adw_avatar_draw_to_texture", false)
 	var cls *gdk.Texture
 
 	cret := xAvatarDrawToTexture(x.GoPointer(), ScaleFactorVar)
@@ -118,6 +120,7 @@ var xAvatarGetCustomImage func(uintptr) uintptr
 
 // Gets the custom image paintable.
 func (x *Avatar) GetCustomImage() *gdk.PaintableBase {
+	core.LazyRegister(&xAvatarGetCustomImage, "ADW", "adw_avatar_get_custom_image", false)
 	var cls *gdk.PaintableBase
 
 	cret := xAvatarGetCustomImage(x.GoPointer())
@@ -135,6 +138,8 @@ var xAvatarGetIconName func(uintptr) string
 
 // Gets the name of an icon to use as a fallback.
 func (x *Avatar) GetIconName() string {
+	core.LazyRegister(&xAvatarGetIconName, "ADW", "adw_avatar_get_icon_name", false)
+
 	cret := xAvatarGetIconName(x.GoPointer())
 	return cret
 }
@@ -143,6 +148,8 @@ var xAvatarGetShowInitials func(uintptr) bool
 
 // Gets whether initials are used instead of an icon on the fallback avatar.
 func (x *Avatar) GetShowInitials() bool {
+	core.LazyRegister(&xAvatarGetShowInitials, "ADW", "adw_avatar_get_show_initials", false)
+
 	cret := xAvatarGetShowInitials(x.GoPointer())
 	return cret
 }
@@ -151,6 +158,8 @@ var xAvatarGetSize func(uintptr) int
 
 // Gets the size of the avatar.
 func (x *Avatar) GetSize() int {
+	core.LazyRegister(&xAvatarGetSize, "ADW", "adw_avatar_get_size", false)
+
 	cret := xAvatarGetSize(x.GoPointer())
 	return cret
 }
@@ -159,6 +168,8 @@ var xAvatarGetText func(uintptr) string
 
 // Gets the text used to generate the fallback initials and color.
 func (x *Avatar) GetText() string {
+	core.LazyRegister(&xAvatarGetText, "ADW", "adw_avatar_get_text", false)
+
 	cret := xAvatarGetText(x.GoPointer())
 	return cret
 }
@@ -169,6 +180,8 @@ var xAvatarSetCustomImage func(uintptr, uintptr)
 //
 // Custom image is displayed instead of initials or icon.
 func (x *Avatar) SetCustomImage(CustomImageVar gdk.Paintable) {
+	core.LazyRegister(&xAvatarSetCustomImage, "ADW", "adw_avatar_set_custom_image", false)
+
 	xAvatarSetCustomImage(x.GoPointer(), CustomImageVar.GoPointer())
 }
 
@@ -178,6 +191,8 @@ var xAvatarSetIconName func(uintptr, uintptr)
 //
 // If no name is set, `adw-avatar-default-symbolic` will be used.
 func (x *Avatar) SetIconName(IconNameVar *string) {
+	core.LazyRegister(&xAvatarSetIconName, "ADW", "adw_avatar_set_icon_name", false)
+
 	IconNameVarPtr := core.GStrdupNullable(IconNameVar)
 	defer core.GFreeNullable(IconNameVarPtr)
 
@@ -190,6 +205,8 @@ var xAvatarSetShowInitials func(uintptr, bool)
 //
 // See [property@Avatar:icon-name] for how to change the fallback icon.
 func (x *Avatar) SetShowInitials(ShowInitialsVar bool) {
+	core.LazyRegister(&xAvatarSetShowInitials, "ADW", "adw_avatar_set_show_initials", false)
+
 	xAvatarSetShowInitials(x.GoPointer(), ShowInitialsVar)
 }
 
@@ -197,6 +214,8 @@ var xAvatarSetSize func(uintptr, int)
 
 // Sets the size of the avatar.
 func (x *Avatar) SetSize(SizeVar int) {
+	core.LazyRegister(&xAvatarSetSize, "ADW", "adw_avatar_set_size", false)
+
 	xAvatarSetSize(x.GoPointer(), SizeVar)
 }
 
@@ -207,6 +226,8 @@ var xAvatarSetText func(uintptr, uintptr)
 // It's only used to generate the color if [property@Avatar:show-initials] is
 // `FALSE`.
 func (x *Avatar) SetText(TextVar *string) {
+	core.LazyRegister(&xAvatarSetText, "ADW", "adw_avatar_set_text", false)
+
 	TextVarPtr := core.GStrdupNullable(TextVar)
 	defer core.GFreeNullable(TextVarPtr)
 
@@ -569,28 +590,4 @@ func (x *Avatar) GetBuildableId() string {
 func init() {
 	core.SetPackageName("ADW", "libadwaita-1")
 	core.SetSharedLibraries("ADW", []string{"libadwaita-1.so.0", "libadwaita-1.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("ADW") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xAvatarGLibType, libs, "adw_avatar_get_type")
-
-	core.PuregoSafeRegister(&xNewAvatar, libs, "adw_avatar_new")
-
-	core.PuregoSafeRegister(&xAvatarDrawToTexture, libs, "adw_avatar_draw_to_texture")
-	core.PuregoSafeRegister(&xAvatarGetCustomImage, libs, "adw_avatar_get_custom_image")
-	core.PuregoSafeRegister(&xAvatarGetIconName, libs, "adw_avatar_get_icon_name")
-	core.PuregoSafeRegister(&xAvatarGetShowInitials, libs, "adw_avatar_get_show_initials")
-	core.PuregoSafeRegister(&xAvatarGetSize, libs, "adw_avatar_get_size")
-	core.PuregoSafeRegister(&xAvatarGetText, libs, "adw_avatar_get_text")
-	core.PuregoSafeRegister(&xAvatarSetCustomImage, libs, "adw_avatar_set_custom_image")
-	core.PuregoSafeRegister(&xAvatarSetIconName, libs, "adw_avatar_set_icon_name")
-	core.PuregoSafeRegister(&xAvatarSetShowInitials, libs, "adw_avatar_set_show_initials")
-	core.PuregoSafeRegister(&xAvatarSetSize, libs, "adw_avatar_set_size")
-	core.PuregoSafeRegister(&xAvatarSetText, libs, "adw_avatar_set_text")
 }

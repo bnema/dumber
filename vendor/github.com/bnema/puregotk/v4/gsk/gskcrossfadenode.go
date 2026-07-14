@@ -2,7 +2,6 @@
 package gsk
 
 import (
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -16,6 +15,7 @@ type CrossFadeNode struct {
 var xCrossFadeNodeGLibType func() types.GType
 
 func CrossFadeNodeGLibType() types.GType {
+	core.LazyRegister(&xCrossFadeNodeGLibType, "GSK", "gsk_cross_fade_node_get_type", false)
 	return xCrossFadeNodeGLibType()
 }
 
@@ -29,6 +29,7 @@ var xNewCrossFadeNode func(uintptr, uintptr, float32) uintptr
 
 // Creates a `GskRenderNode` that will do a cross-fade between @start and @end.
 func NewCrossFadeNode(StartVar *RenderNode, EndVar *RenderNode, ProgressVar float32) *CrossFadeNode {
+	core.LazyRegister(&xNewCrossFadeNode, "GSK", "gsk_cross_fade_node_new", false)
 	var cls *CrossFadeNode
 
 	cret := xNewCrossFadeNode(StartVar.GoPointer(), EndVar.GoPointer(), ProgressVar)
@@ -45,6 +46,7 @@ var xCrossFadeNodeGetEndChild func(uintptr) uintptr
 
 // Retrieves the child `GskRenderNode` at the end of the cross-fade.
 func (x *CrossFadeNode) GetEndChild() *RenderNode {
+	core.LazyRegister(&xCrossFadeNodeGetEndChild, "GSK", "gsk_cross_fade_node_get_end_child", false)
 	var cls *RenderNode
 
 	cret := xCrossFadeNodeGetEndChild(x.GoPointer())
@@ -62,6 +64,8 @@ var xCrossFadeNodeGetProgress func(uintptr) float32
 
 // Retrieves the progress value of the cross fade.
 func (x *CrossFadeNode) GetProgress() float32 {
+	core.LazyRegister(&xCrossFadeNodeGetProgress, "GSK", "gsk_cross_fade_node_get_progress", false)
+
 	cret := xCrossFadeNodeGetProgress(x.GoPointer())
 	return cret
 }
@@ -70,6 +74,7 @@ var xCrossFadeNodeGetStartChild func(uintptr) uintptr
 
 // Retrieves the child `GskRenderNode` at the beginning of the cross-fade.
 func (x *CrossFadeNode) GetStartChild() *RenderNode {
+	core.LazyRegister(&xCrossFadeNodeGetStartChild, "GSK", "gsk_cross_fade_node_get_start_child", false)
 	var cls *RenderNode
 
 	cret := xCrossFadeNodeGetStartChild(x.GoPointer())
@@ -97,20 +102,4 @@ func (c *CrossFadeNode) SetGoPointer(ptr uintptr) {
 func init() {
 	core.SetPackageName("GSK", "gtk4")
 	core.SetSharedLibraries("GSK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GSK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xCrossFadeNodeGLibType, libs, "gsk_cross_fade_node_get_type")
-
-	core.PuregoSafeRegister(&xNewCrossFadeNode, libs, "gsk_cross_fade_node_new")
-
-	core.PuregoSafeRegister(&xCrossFadeNodeGetEndChild, libs, "gsk_cross_fade_node_get_end_child")
-	core.PuregoSafeRegister(&xCrossFadeNodeGetProgress, libs, "gsk_cross_fade_node_get_progress")
-	core.PuregoSafeRegister(&xCrossFadeNodeGetStartChild, libs, "gsk_cross_fade_node_get_start_child")
 }

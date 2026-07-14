@@ -733,6 +733,7 @@ type VolumeMonitor struct {
 var xVolumeMonitorGLibType func() types.GType
 
 func VolumeMonitorGLibType() types.GType {
+	core.LazyRegister(&xVolumeMonitorGLibType, "GIO", "g_volume_monitor_get_type", false)
 	return xVolumeMonitorGLibType()
 }
 
@@ -749,6 +750,8 @@ var xVolumeMonitorGetConnectedDrives func(uintptr) uintptr
 // The returned list should be freed with g_list_free(), after
 // its elements have been unreffed with g_object_unref().
 func (x *VolumeMonitor) GetConnectedDrives() *glib.List {
+	core.LazyRegister(&xVolumeMonitorGetConnectedDrives, "GIO", "g_volume_monitor_get_connected_drives", false)
+
 	cret := xVolumeMonitorGetConnectedDrives(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -760,6 +763,7 @@ var xVolumeMonitorGetMountForUuid func(uintptr, string) uintptr
 
 // Finds a #GMount object by its UUID (see g_mount_get_uuid())
 func (x *VolumeMonitor) GetMountForUuid(UuidVar string) *MountBase {
+	core.LazyRegister(&xVolumeMonitorGetMountForUuid, "GIO", "g_volume_monitor_get_mount_for_uuid", false)
 	var cls *MountBase
 
 	cret := xVolumeMonitorGetMountForUuid(x.GoPointer(), UuidVar)
@@ -779,6 +783,8 @@ var xVolumeMonitorGetMounts func(uintptr) uintptr
 // The returned list should be freed with g_list_free(), after
 // its elements have been unreffed with g_object_unref().
 func (x *VolumeMonitor) GetMounts() *glib.List {
+	core.LazyRegister(&xVolumeMonitorGetMounts, "GIO", "g_volume_monitor_get_mounts", false)
+
 	cret := xVolumeMonitorGetMounts(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -790,6 +796,7 @@ var xVolumeMonitorGetVolumeForUuid func(uintptr, string) uintptr
 
 // Finds a #GVolume object by its UUID (see g_volume_get_uuid())
 func (x *VolumeMonitor) GetVolumeForUuid(UuidVar string) *VolumeBase {
+	core.LazyRegister(&xVolumeMonitorGetVolumeForUuid, "GIO", "g_volume_monitor_get_volume_for_uuid", false)
 	var cls *VolumeBase
 
 	cret := xVolumeMonitorGetVolumeForUuid(x.GoPointer(), UuidVar)
@@ -809,6 +816,8 @@ var xVolumeMonitorGetVolumes func(uintptr) uintptr
 // The returned list should be freed with g_list_free(), after
 // its elements have been unreffed with g_object_unref().
 func (x *VolumeMonitor) GetVolumes() *glib.List {
+	core.LazyRegister(&xVolumeMonitorGetVolumes, "GIO", "g_volume_monitor_get_volumes", false)
+
 	cret := xVolumeMonitorGetVolumes(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -1137,6 +1146,7 @@ var xVolumeMonitorAdoptOrphanMount func(uintptr) uintptr
 // is to return #GVolume objects representing entries in the users
 // "favorite servers" list or similar.
 func VolumeMonitorAdoptOrphanMount(MountVar Mount) *VolumeBase {
+	core.LazyRegister(&xVolumeMonitorAdoptOrphanMount, "GIO", "g_volume_monitor_adopt_orphan_mount", false)
 	var cls *VolumeBase
 
 	cret := xVolumeMonitorAdoptOrphanMount(MountVar.GoPointer())
@@ -1153,6 +1163,7 @@ var xVolumeMonitorGet func() uintptr
 
 // Gets the volume monitor used by gio.
 func VolumeMonitorGet() *VolumeMonitor {
+	core.LazyRegister(&xVolumeMonitorGet, "GIO", "g_volume_monitor_get", false)
 	var cls *VolumeMonitor
 
 	cret := xVolumeMonitorGet()
@@ -1168,23 +1179,4 @@ func VolumeMonitorGet() *VolumeMonitor {
 func init() {
 	core.SetPackageName("GIO", "gio-2.0")
 	core.SetSharedLibraries("GIO", []string{"libgio-2.0.so.0", "libgio-2.0.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GIO") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xVolumeMonitorGLibType, libs, "g_volume_monitor_get_type")
-
-	core.PuregoSafeRegister(&xVolumeMonitorGetConnectedDrives, libs, "g_volume_monitor_get_connected_drives")
-	core.PuregoSafeRegister(&xVolumeMonitorGetMountForUuid, libs, "g_volume_monitor_get_mount_for_uuid")
-	core.PuregoSafeRegister(&xVolumeMonitorGetMounts, libs, "g_volume_monitor_get_mounts")
-	core.PuregoSafeRegister(&xVolumeMonitorGetVolumeForUuid, libs, "g_volume_monitor_get_volume_for_uuid")
-	core.PuregoSafeRegister(&xVolumeMonitorGetVolumes, libs, "g_volume_monitor_get_volumes")
-
-	core.PuregoSafeRegister(&xVolumeMonitorAdoptOrphanMount, libs, "g_volume_monitor_adopt_orphan_mount")
-	core.PuregoSafeRegister(&xVolumeMonitorGet, libs, "g_volume_monitor_get")
 }

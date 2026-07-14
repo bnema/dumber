@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -74,6 +73,7 @@ type CenterBox struct {
 var xCenterBoxGLibType func() types.GType
 
 func CenterBoxGLibType() types.GType {
+	core.LazyRegister(&xCenterBoxGLibType, "GTK", "gtk_center_box_get_type", false)
 	return xCenterBoxGLibType()
 }
 
@@ -87,6 +87,7 @@ var xNewCenterBox func() uintptr
 
 // Creates a new `GtkCenterBox`.
 func NewCenterBox() *CenterBox {
+	core.LazyRegister(&xNewCenterBox, "GTK", "gtk_center_box_new", false)
 	var cls *CenterBox
 
 	cret := xNewCenterBox()
@@ -106,6 +107,8 @@ var xCenterBoxGetBaselinePosition func(uintptr) BaselinePosition
 //
 // See [method@Gtk.CenterBox.set_baseline_position].
 func (x *CenterBox) GetBaselinePosition() BaselinePosition {
+	core.LazyRegister(&xCenterBoxGetBaselinePosition, "GTK", "gtk_center_box_get_baseline_position", false)
+
 	cret := xCenterBoxGetBaselinePosition(x.GoPointer())
 	return cret
 }
@@ -114,6 +117,7 @@ var xCenterBoxGetCenterWidget func(uintptr) uintptr
 
 // Gets the center widget.
 func (x *CenterBox) GetCenterWidget() *Widget {
+	core.LazyRegister(&xCenterBoxGetCenterWidget, "GTK", "gtk_center_box_get_center_widget", false)
 	var cls *Widget
 
 	cret := xCenterBoxGetCenterWidget(x.GoPointer())
@@ -131,6 +135,7 @@ var xCenterBoxGetEndWidget func(uintptr) uintptr
 
 // Gets the end widget.
 func (x *CenterBox) GetEndWidget() *Widget {
+	core.LazyRegister(&xCenterBoxGetEndWidget, "GTK", "gtk_center_box_get_end_widget", false)
 	var cls *Widget
 
 	cret := xCenterBoxGetEndWidget(x.GoPointer())
@@ -148,6 +153,8 @@ var xCenterBoxGetShrinkCenterLast func(uintptr) bool
 
 // Gets whether the center widget shrinks after other children.
 func (x *CenterBox) GetShrinkCenterLast() bool {
+	core.LazyRegister(&xCenterBoxGetShrinkCenterLast, "GTK", "gtk_center_box_get_shrink_center_last", false)
+
 	cret := xCenterBoxGetShrinkCenterLast(x.GoPointer())
 	return cret
 }
@@ -156,6 +163,7 @@ var xCenterBoxGetStartWidget func(uintptr) uintptr
 
 // Gets the start widget.
 func (x *CenterBox) GetStartWidget() *Widget {
+	core.LazyRegister(&xCenterBoxGetStartWidget, "GTK", "gtk_center_box_get_start_widget", false)
 	var cls *Widget
 
 	cret := xCenterBoxGetStartWidget(x.GoPointer())
@@ -179,6 +187,8 @@ var xCenterBoxSetBaselinePosition func(uintptr, BaselinePosition)
 // @position is used to allocate the baseline with respect to the
 // extra space available.
 func (x *CenterBox) SetBaselinePosition(PositionVar BaselinePosition) {
+	core.LazyRegister(&xCenterBoxSetBaselinePosition, "GTK", "gtk_center_box_set_baseline_position", false)
+
 	xCenterBoxSetBaselinePosition(x.GoPointer(), PositionVar)
 }
 
@@ -188,6 +198,8 @@ var xCenterBoxSetCenterWidget func(uintptr, uintptr)
 //
 // To remove the existing center widget, pass `NULL`.
 func (x *CenterBox) SetCenterWidget(ChildVar *Widget) {
+	core.LazyRegister(&xCenterBoxSetCenterWidget, "GTK", "gtk_center_box_set_center_widget", false)
+
 	xCenterBoxSetCenterWidget(x.GoPointer(), ChildVar.GoPointer())
 }
 
@@ -197,6 +209,8 @@ var xCenterBoxSetEndWidget func(uintptr, uintptr)
 //
 // To remove the existing end widget, pass `NULL`.
 func (x *CenterBox) SetEndWidget(ChildVar *Widget) {
+	core.LazyRegister(&xCenterBoxSetEndWidget, "GTK", "gtk_center_box_set_end_widget", false)
+
 	xCenterBoxSetEndWidget(x.GoPointer(), ChildVar.GoPointer())
 }
 
@@ -211,6 +225,8 @@ var xCenterBoxSetShrinkCenterLast func(uintptr, bool)
 // If @shrink_center_last is false, start and end widgets keep natural
 // width and the center widget starts shrinking instead.
 func (x *CenterBox) SetShrinkCenterLast(ShrinkCenterLastVar bool) {
+	core.LazyRegister(&xCenterBoxSetShrinkCenterLast, "GTK", "gtk_center_box_set_shrink_center_last", false)
+
 	xCenterBoxSetShrinkCenterLast(x.GoPointer(), ShrinkCenterLastVar)
 }
 
@@ -220,6 +236,8 @@ var xCenterBoxSetStartWidget func(uintptr, uintptr)
 //
 // To remove the existing start widget, pass `NULL`.
 func (x *CenterBox) SetStartWidget(ChildVar *Widget) {
+	core.LazyRegister(&xCenterBoxSetStartWidget, "GTK", "gtk_center_box_set_start_widget", false)
+
 	xCenterBoxSetStartWidget(x.GoPointer(), ChildVar.GoPointer())
 }
 
@@ -539,27 +557,4 @@ func (x *CenterBox) SetOrientation(OrientationVar Orientation) {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GTK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xCenterBoxGLibType, libs, "gtk_center_box_get_type")
-
-	core.PuregoSafeRegister(&xNewCenterBox, libs, "gtk_center_box_new")
-
-	core.PuregoSafeRegister(&xCenterBoxGetBaselinePosition, libs, "gtk_center_box_get_baseline_position")
-	core.PuregoSafeRegister(&xCenterBoxGetCenterWidget, libs, "gtk_center_box_get_center_widget")
-	core.PuregoSafeRegister(&xCenterBoxGetEndWidget, libs, "gtk_center_box_get_end_widget")
-	core.PuregoSafeRegister(&xCenterBoxGetShrinkCenterLast, libs, "gtk_center_box_get_shrink_center_last")
-	core.PuregoSafeRegister(&xCenterBoxGetStartWidget, libs, "gtk_center_box_get_start_widget")
-	core.PuregoSafeRegister(&xCenterBoxSetBaselinePosition, libs, "gtk_center_box_set_baseline_position")
-	core.PuregoSafeRegister(&xCenterBoxSetCenterWidget, libs, "gtk_center_box_set_center_widget")
-	core.PuregoSafeRegister(&xCenterBoxSetEndWidget, libs, "gtk_center_box_set_end_widget")
-	core.PuregoSafeRegister(&xCenterBoxSetShrinkCenterLast, libs, "gtk_center_box_set_shrink_center_last")
-	core.PuregoSafeRegister(&xCenterBoxSetStartWidget, libs, "gtk_center_box_set_start_widget")
 }

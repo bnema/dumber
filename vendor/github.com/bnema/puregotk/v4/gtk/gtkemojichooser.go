@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gdk"
 	"github.com/bnema/puregotk/v4/glib"
@@ -84,6 +83,7 @@ type EmojiChooser struct {
 var xEmojiChooserGLibType func() types.GType
 
 func EmojiChooserGLibType() types.GType {
+	core.LazyRegister(&xEmojiChooserGLibType, "GTK", "gtk_emoji_chooser_get_type", false)
 	return xEmojiChooserGLibType()
 }
 
@@ -97,6 +97,7 @@ var xNewEmojiChooser func() uintptr
 
 // Creates a new `GtkEmojiChooser`.
 func NewEmojiChooser() *EmojiChooser {
+	core.LazyRegister(&xNewEmojiChooser, "GTK", "gtk_emoji_chooser_new", false)
 	var cls *EmojiChooser
 
 	cret := xNewEmojiChooser()
@@ -459,16 +460,4 @@ func (x *EmojiChooser) Unrealize() {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GTK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xEmojiChooserGLibType, libs, "gtk_emoji_chooser_get_type")
-
-	core.PuregoSafeRegister(&xNewEmojiChooser, libs, "gtk_emoji_chooser_new")
 }

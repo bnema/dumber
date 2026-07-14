@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -53,6 +52,7 @@ type ShortcutsItem struct {
 var xShortcutsItemGLibType func() types.GType
 
 func ShortcutsItemGLibType() types.GType {
+	core.LazyRegister(&xShortcutsItemGLibType, "ADW", "adw_shortcuts_item_get_type", false)
 	return xShortcutsItemGLibType()
 }
 
@@ -66,6 +66,7 @@ var xNewShortcutsItem func(string, string) uintptr
 
 // Creates a new `AdwShortcutsItem` with @title and @accelerator.
 func NewShortcutsItem(TitleVar string, AcceleratorVar string) *ShortcutsItem {
+	core.LazyRegister(&xNewShortcutsItem, "ADW", "adw_shortcuts_item_new", false)
 	var cls *ShortcutsItem
 
 	cret := xNewShortcutsItem(TitleVar, AcceleratorVar)
@@ -82,6 +83,7 @@ var xNewShortcutsItemFromAction func(string, string) uintptr
 
 // Creates a new `AdwShortcutsItem` with @title and @action_name.
 func NewShortcutsItemFromAction(TitleVar string, ActionNameVar string) *ShortcutsItem {
+	core.LazyRegister(&xNewShortcutsItemFromAction, "ADW", "adw_shortcuts_item_new_from_action", false)
 	var cls *ShortcutsItem
 
 	cret := xNewShortcutsItemFromAction(TitleVar, ActionNameVar)
@@ -98,6 +100,8 @@ var xShortcutsItemGetAccelerator func(uintptr) string
 
 // Gets the accelerator of @self.
 func (x *ShortcutsItem) GetAccelerator() string {
+	core.LazyRegister(&xShortcutsItemGetAccelerator, "ADW", "adw_shortcuts_item_get_accelerator", false)
+
 	cret := xShortcutsItemGetAccelerator(x.GoPointer())
 	return cret
 }
@@ -106,6 +110,8 @@ var xShortcutsItemGetActionName func(uintptr) string
 
 // Gets the action name to get the accelerator from.
 func (x *ShortcutsItem) GetActionName() string {
+	core.LazyRegister(&xShortcutsItemGetActionName, "ADW", "adw_shortcuts_item_get_action_name", false)
+
 	cret := xShortcutsItemGetActionName(x.GoPointer())
 	return cret
 }
@@ -114,6 +120,8 @@ var xShortcutsItemGetDirection func(uintptr) gtk.TextDirection
 
 // Gets the direction of @self.
 func (x *ShortcutsItem) GetDirection() gtk.TextDirection {
+	core.LazyRegister(&xShortcutsItemGetDirection, "ADW", "adw_shortcuts_item_get_direction", false)
+
 	cret := xShortcutsItemGetDirection(x.GoPointer())
 	return cret
 }
@@ -122,6 +130,8 @@ var xShortcutsItemGetSubtitle func(uintptr) string
 
 // Gets the subtitle of @self.
 func (x *ShortcutsItem) GetSubtitle() string {
+	core.LazyRegister(&xShortcutsItemGetSubtitle, "ADW", "adw_shortcuts_item_get_subtitle", false)
+
 	cret := xShortcutsItemGetSubtitle(x.GoPointer())
 	return cret
 }
@@ -130,6 +140,8 @@ var xShortcutsItemGetTitle func(uintptr) string
 
 // Gets the title of @self.
 func (x *ShortcutsItem) GetTitle() string {
+	core.LazyRegister(&xShortcutsItemGetTitle, "ADW", "adw_shortcuts_item_get_title", false)
+
 	cret := xShortcutsItemGetTitle(x.GoPointer())
 	return cret
 }
@@ -140,6 +152,8 @@ var xShortcutsItemSetAccelerator func(uintptr, string)
 //
 // @accelerator must be in the format [class@ShortcutLabel] accepts.
 func (x *ShortcutsItem) SetAccelerator(AcceleratorVar string) {
+	core.LazyRegister(&xShortcutsItemSetAccelerator, "ADW", "adw_shortcuts_item_set_accelerator", false)
+
 	xShortcutsItemSetAccelerator(x.GoPointer(), AcceleratorVar)
 }
 
@@ -147,6 +161,8 @@ var xShortcutsItemSetActionName func(uintptr, string)
 
 // Sets the action name to get the accelerator from.
 func (x *ShortcutsItem) SetActionName(ActionNameVar string) {
+	core.LazyRegister(&xShortcutsItemSetActionName, "ADW", "adw_shortcuts_item_set_action_name", false)
+
 	xShortcutsItemSetActionName(x.GoPointer(), ActionNameVar)
 }
 
@@ -157,6 +173,8 @@ var xShortcutsItemSetDirection func(uintptr, gtk.TextDirection)
 // If set to [enum@Gtk.TextDirection.ltr] or [enum@Gtk.TextDirection.rtl], the
 // shortcut will only be displayed for this direction.
 func (x *ShortcutsItem) SetDirection(DirectionVar gtk.TextDirection) {
+	core.LazyRegister(&xShortcutsItemSetDirection, "ADW", "adw_shortcuts_item_set_direction", false)
+
 	xShortcutsItemSetDirection(x.GoPointer(), DirectionVar)
 }
 
@@ -164,6 +182,8 @@ var xShortcutsItemSetSubtitle func(uintptr, string)
 
 // Sets the subtitle of @self.
 func (x *ShortcutsItem) SetSubtitle(SubtitleVar string) {
+	core.LazyRegister(&xShortcutsItemSetSubtitle, "ADW", "adw_shortcuts_item_set_subtitle", false)
+
 	xShortcutsItemSetSubtitle(x.GoPointer(), SubtitleVar)
 }
 
@@ -171,6 +191,8 @@ var xShortcutsItemSetTitle func(uintptr, string)
 
 // Sets the title of @self.
 func (x *ShortcutsItem) SetTitle(TitleVar string) {
+	core.LazyRegister(&xShortcutsItemSetTitle, "ADW", "adw_shortcuts_item_set_title", false)
+
 	xShortcutsItemSetTitle(x.GoPointer(), TitleVar)
 }
 
@@ -260,28 +282,4 @@ func (x *ShortcutsItem) GetPropertyTitle() string {
 func init() {
 	core.SetPackageName("ADW", "libadwaita-1")
 	core.SetSharedLibraries("ADW", []string{"libadwaita-1.so.0", "libadwaita-1.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("ADW") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xShortcutsItemGLibType, libs, "adw_shortcuts_item_get_type")
-
-	core.PuregoSafeRegister(&xNewShortcutsItem, libs, "adw_shortcuts_item_new")
-	core.PuregoSafeRegister(&xNewShortcutsItemFromAction, libs, "adw_shortcuts_item_new_from_action")
-
-	core.PuregoSafeRegister(&xShortcutsItemGetAccelerator, libs, "adw_shortcuts_item_get_accelerator")
-	core.PuregoSafeRegister(&xShortcutsItemGetActionName, libs, "adw_shortcuts_item_get_action_name")
-	core.PuregoSafeRegister(&xShortcutsItemGetDirection, libs, "adw_shortcuts_item_get_direction")
-	core.PuregoSafeRegister(&xShortcutsItemGetSubtitle, libs, "adw_shortcuts_item_get_subtitle")
-	core.PuregoSafeRegister(&xShortcutsItemGetTitle, libs, "adw_shortcuts_item_get_title")
-	core.PuregoSafeRegister(&xShortcutsItemSetAccelerator, libs, "adw_shortcuts_item_set_accelerator")
-	core.PuregoSafeRegister(&xShortcutsItemSetActionName, libs, "adw_shortcuts_item_set_action_name")
-	core.PuregoSafeRegister(&xShortcutsItemSetDirection, libs, "adw_shortcuts_item_set_direction")
-	core.PuregoSafeRegister(&xShortcutsItemSetSubtitle, libs, "adw_shortcuts_item_set_subtitle")
-	core.PuregoSafeRegister(&xShortcutsItemSetTitle, libs, "adw_shortcuts_item_set_title")
 }

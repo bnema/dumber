@@ -2,7 +2,6 @@
 package soup
 
 import (
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -14,6 +13,7 @@ type TLDError int
 var xTLDErrorGLibType func() types.GType
 
 func TLDErrorGLibType() types.GType {
+	core.LazyRegister(&xTLDErrorGLibType, "SOUP", "soup_tld_error_get_type", false)
 	return xTLDErrorGLibType()
 }
 
@@ -47,6 +47,8 @@ var xTldDomainIsPublicSuffix func(string) bool
 // UTF-8 if it was an IDN. From 2.46 on, the name can be in either
 // UTF-8 or ASCII format.
 func TldDomainIsPublicSuffix(DomainVar string) bool {
+	core.LazyRegister(&xTldDomainIsPublicSuffix, "SOUP", "soup_tld_domain_is_public_suffix", false)
+
 	cret := xTldDomainIsPublicSuffix(DomainVar)
 	return cret
 }
@@ -55,6 +57,8 @@ var xTldErrorQuark func() glib.Quark
 
 // Registers error quark for soup_tld_get_base_domain() if needed.
 func TldErrorQuark() glib.Quark {
+	core.LazyRegister(&xTldErrorQuark, "SOUP", "soup_tld_error_quark", false)
+
 	cret := xTldErrorQuark()
 	return cret
 }
@@ -76,6 +80,7 @@ var xTldGetBaseDomain func(string, **glib.Error) string
 // UTF-8 or ASCII format (and the return value will be in the same
 // format).
 func TldGetBaseDomain(HostnameVar string) (string, error) {
+	core.LazyRegister(&xTldGetBaseDomain, "SOUP", "soup_tld_get_base_domain", false)
 	var cerr *glib.Error
 
 	cret := xTldGetBaseDomain(HostnameVar, &cerr)
@@ -88,18 +93,4 @@ func TldGetBaseDomain(HostnameVar string) (string, error) {
 func init() {
 	core.SetPackageName("SOUP", "libsoup-3.0")
 	core.SetSharedLibraries("SOUP", []string{"libsoup-3.0.so.0", "libsoup-3.0.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("SOUP") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xTLDErrorGLibType, libs, "soup_tld_error_get_type")
-
-	core.PuregoSafeRegister(&xTldDomainIsPublicSuffix, libs, "soup_tld_domain_is_public_suffix")
-	core.PuregoSafeRegister(&xTldErrorQuark, libs, "soup_tld_error_quark")
-	core.PuregoSafeRegister(&xTldGetBaseDomain, libs, "soup_tld_get_base_domain")
 }

@@ -4,7 +4,6 @@ package gio
 import (
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -26,6 +25,7 @@ type Menu struct {
 var xMenuGLibType func() types.GType
 
 func MenuGLibType() types.GType {
+	core.LazyRegister(&xMenuGLibType, "GIO", "g_menu_get_type", false)
 	return xMenuGLibType()
 }
 
@@ -41,6 +41,7 @@ var xNewMenu func() uintptr
 //
 // The new menu has no items.
 func NewMenu() *Menu {
+	core.LazyRegister(&xNewMenu, "GIO", "g_menu_new", false)
 	var cls *Menu
 
 	cret := xNewMenu()
@@ -59,6 +60,8 @@ var xMenuAppend func(uintptr, uintptr, uintptr)
 // @menu.  Combine g_menu_item_new() and g_menu_insert_item() for a more
 // flexible alternative.
 func (x *Menu) Append(LabelVar *string, DetailedActionVar *string) {
+	core.LazyRegister(&xMenuAppend, "GIO", "g_menu_append", false)
+
 	LabelVarPtr := core.GStrdupNullable(LabelVar)
 	defer core.GFreeNullable(LabelVarPtr)
 
@@ -74,6 +77,8 @@ var xMenuAppendItem func(uintptr, uintptr)
 //
 // See g_menu_insert_item() for more information.
 func (x *Menu) AppendItem(ItemVar *MenuItem) {
+	core.LazyRegister(&xMenuAppendItem, "GIO", "g_menu_append_item", false)
+
 	xMenuAppendItem(x.GoPointer(), ItemVar.GoPointer())
 }
 
@@ -83,6 +88,8 @@ var xMenuAppendSection func(uintptr, uintptr, uintptr)
 // @menu.  Combine g_menu_item_new_section() and g_menu_insert_item() for a
 // more flexible alternative.
 func (x *Menu) AppendSection(LabelVar *string, SectionVar *MenuModel) {
+	core.LazyRegister(&xMenuAppendSection, "GIO", "g_menu_append_section", false)
+
 	LabelVarPtr := core.GStrdupNullable(LabelVar)
 	defer core.GFreeNullable(LabelVarPtr)
 
@@ -95,6 +102,8 @@ var xMenuAppendSubmenu func(uintptr, uintptr, uintptr)
 // @menu.  Combine g_menu_item_new_submenu() and g_menu_insert_item() for a
 // more flexible alternative.
 func (x *Menu) AppendSubmenu(LabelVar *string, SubmenuVar *MenuModel) {
+	core.LazyRegister(&xMenuAppendSubmenu, "GIO", "g_menu_append_submenu", false)
+
 	LabelVarPtr := core.GStrdupNullable(LabelVar)
 	defer core.GFreeNullable(LabelVarPtr)
 
@@ -112,6 +121,8 @@ var xMenuFreeze func(uintptr)
 // This function causes g_menu_model_is_mutable() to begin returning
 // %FALSE, which has some positive performance implications.
 func (x *Menu) Freeze() {
+	core.LazyRegister(&xMenuFreeze, "GIO", "g_menu_freeze", false)
+
 	xMenuFreeze(x.GoPointer())
 }
 
@@ -121,6 +132,8 @@ var xMenuInsert func(uintptr, int, uintptr, uintptr)
 // Combine g_menu_item_new() and g_menu_insert_item() for a more flexible
 // alternative.
 func (x *Menu) Insert(PositionVar int, LabelVar *string, DetailedActionVar *string) {
+	core.LazyRegister(&xMenuInsert, "GIO", "g_menu_insert", false)
+
 	LabelVarPtr := core.GStrdupNullable(LabelVar)
 	defer core.GFreeNullable(LabelVarPtr)
 
@@ -150,6 +163,8 @@ var xMenuInsertItem func(uintptr, int, uintptr)
 // g_menu_insert_submenu() as well as "prepend" and "append" variants of
 // each of these functions.
 func (x *Menu) InsertItem(PositionVar int, ItemVar *MenuItem) {
+	core.LazyRegister(&xMenuInsertItem, "GIO", "g_menu_insert_item", false)
+
 	xMenuInsertItem(x.GoPointer(), PositionVar, ItemVar.GoPointer())
 }
 
@@ -159,6 +174,8 @@ var xMenuInsertSection func(uintptr, int, uintptr, uintptr)
 // Combine g_menu_item_new_section() and g_menu_insert_item() for a more
 // flexible alternative.
 func (x *Menu) InsertSection(PositionVar int, LabelVar *string, SectionVar *MenuModel) {
+	core.LazyRegister(&xMenuInsertSection, "GIO", "g_menu_insert_section", false)
+
 	LabelVarPtr := core.GStrdupNullable(LabelVar)
 	defer core.GFreeNullable(LabelVarPtr)
 
@@ -171,6 +188,8 @@ var xMenuInsertSubmenu func(uintptr, int, uintptr, uintptr)
 // Combine g_menu_item_new_submenu() and g_menu_insert_item() for a more
 // flexible alternative.
 func (x *Menu) InsertSubmenu(PositionVar int, LabelVar *string, SubmenuVar *MenuModel) {
+	core.LazyRegister(&xMenuInsertSubmenu, "GIO", "g_menu_insert_submenu", false)
+
 	LabelVarPtr := core.GStrdupNullable(LabelVar)
 	defer core.GFreeNullable(LabelVarPtr)
 
@@ -183,6 +202,8 @@ var xMenuPrepend func(uintptr, uintptr, uintptr)
 // of @menu.  Combine g_menu_item_new() and g_menu_insert_item() for a more
 // flexible alternative.
 func (x *Menu) Prepend(LabelVar *string, DetailedActionVar *string) {
+	core.LazyRegister(&xMenuPrepend, "GIO", "g_menu_prepend", false)
+
 	LabelVarPtr := core.GStrdupNullable(LabelVar)
 	defer core.GFreeNullable(LabelVarPtr)
 
@@ -198,6 +219,8 @@ var xMenuPrependItem func(uintptr, uintptr)
 //
 // See g_menu_insert_item() for more information.
 func (x *Menu) PrependItem(ItemVar *MenuItem) {
+	core.LazyRegister(&xMenuPrependItem, "GIO", "g_menu_prepend_item", false)
+
 	xMenuPrependItem(x.GoPointer(), ItemVar.GoPointer())
 }
 
@@ -207,6 +230,8 @@ var xMenuPrependSection func(uintptr, uintptr, uintptr)
 // of @menu.  Combine g_menu_item_new_section() and g_menu_insert_item() for
 // a more flexible alternative.
 func (x *Menu) PrependSection(LabelVar *string, SectionVar *MenuModel) {
+	core.LazyRegister(&xMenuPrependSection, "GIO", "g_menu_prepend_section", false)
+
 	LabelVarPtr := core.GStrdupNullable(LabelVar)
 	defer core.GFreeNullable(LabelVarPtr)
 
@@ -219,6 +244,8 @@ var xMenuPrependSubmenu func(uintptr, uintptr, uintptr)
 // of @menu.  Combine g_menu_item_new_submenu() and g_menu_insert_item() for
 // a more flexible alternative.
 func (x *Menu) PrependSubmenu(LabelVar *string, SubmenuVar *MenuModel) {
+	core.LazyRegister(&xMenuPrependSubmenu, "GIO", "g_menu_prepend_submenu", false)
+
 	LabelVarPtr := core.GStrdupNullable(LabelVar)
 	defer core.GFreeNullable(LabelVarPtr)
 
@@ -238,6 +265,8 @@ var xMenuRemove func(uintptr, int)
 // to the menu simply by copying their links and attributes (ie:
 // identity of the item itself is not preserved).
 func (x *Menu) Remove(PositionVar int) {
+	core.LazyRegister(&xMenuRemove, "GIO", "g_menu_remove", false)
+
 	xMenuRemove(x.GoPointer(), PositionVar)
 }
 
@@ -245,6 +274,8 @@ var xMenuRemoveAll func(uintptr)
 
 // Removes all items in the menu.
 func (x *Menu) RemoveAll() {
+	core.LazyRegister(&xMenuRemoveAll, "GIO", "g_menu_remove_all", false)
+
 	xMenuRemoveAll(x.GoPointer())
 }
 
@@ -268,6 +299,7 @@ type MenuItem struct {
 var xMenuItemGLibType func() types.GType
 
 func MenuItemGLibType() types.GType {
+	core.LazyRegister(&xMenuItemGLibType, "GIO", "g_menu_item_get_type", false)
 	return xMenuItemGLibType()
 }
 
@@ -288,6 +320,7 @@ var xNewMenuItem func(uintptr, uintptr) uintptr
 // possibly the "target" attribute of the new item.  See
 // g_menu_item_set_detailed_action() for more information.
 func NewMenuItem(LabelVar *string, DetailedActionVar *string) *MenuItem {
+	core.LazyRegister(&xNewMenuItem, "GIO", "g_menu_item_new", false)
 	var cls *MenuItem
 
 	LabelVarPtr := core.GStrdupNullable(LabelVar)
@@ -314,6 +347,7 @@ var xNewMenuItemFromModel func(uintptr, int) uintptr
 // @item_index must be valid (ie: be sure to call
 // g_menu_model_get_n_items() first).
 func NewMenuItemFromModel(ModelVar *MenuModel, ItemIndexVar int) *MenuItem {
+	core.LazyRegister(&xNewMenuItemFromModel, "GIO", "g_menu_item_new_from_model", false)
 	var cls *MenuItem
 
 	cret := xNewMenuItemFromModel(ModelVar.GoPointer(), ItemIndexVar)
@@ -393,6 +427,7 @@ var xNewMenuItemSection func(uintptr, uintptr) uintptr
 // &lt;/menu&gt;
 // ]|
 func NewMenuItemSection(LabelVar *string, SectionVar *MenuModel) *MenuItem {
+	core.LazyRegister(&xNewMenuItemSection, "GIO", "g_menu_item_new_section", false)
 	var cls *MenuItem
 
 	LabelVarPtr := core.GStrdupNullable(LabelVar)
@@ -415,6 +450,7 @@ var xNewMenuItemSubmenu func(uintptr, uintptr) uintptr
 // This is a convenience API around g_menu_item_new() and
 // g_menu_item_set_submenu().
 func NewMenuItemSubmenu(LabelVar *string, SubmenuVar *MenuModel) *MenuItem {
+	core.LazyRegister(&xNewMenuItemSubmenu, "GIO", "g_menu_item_new_submenu", false)
 	var cls *MenuItem
 
 	LabelVarPtr := core.GStrdupNullable(LabelVar)
@@ -442,6 +478,8 @@ var xMenuItemGetAttribute func(uintptr, string, string, ...interface{}) bool
 // type, then the positional parameters are ignored and %FALSE is
 // returned.
 func (x *MenuItem) GetAttribute(AttributeVar string, FormatStringVar string, varArgs ...interface{}) bool {
+	core.LazyRegister(&xMenuItemGetAttribute, "GIO", "g_menu_item_get_attribute", false)
+
 	cret := xMenuItemGetAttribute(x.GoPointer(), AttributeVar, FormatStringVar, varArgs...)
 	return cret
 }
@@ -454,6 +492,8 @@ var xMenuItemGetAttributeValue func(uintptr, string, *glib.VariantType) uintptr
 // type, %NULL is returned.  %NULL is also returned if the attribute
 // simply does not exist.
 func (x *MenuItem) GetAttributeValue(AttributeVar string, ExpectedTypeVar *glib.VariantType) *glib.Variant {
+	core.LazyRegister(&xMenuItemGetAttributeValue, "GIO", "g_menu_item_get_attribute_value", false)
+
 	cret := xMenuItemGetAttributeValue(x.GoPointer(), AttributeVar, ExpectedTypeVar)
 	if cret == 0 {
 		return nil
@@ -465,6 +505,7 @@ var xMenuItemGetLink func(uintptr, string) uintptr
 
 // Queries the named @link on @menu_item.
 func (x *MenuItem) GetLink(LinkVar string) *MenuModel {
+	core.LazyRegister(&xMenuItemGetLink, "GIO", "g_menu_item_get_link", false)
 	var cls *MenuModel
 
 	cret := xMenuItemGetLink(x.GoPointer(), LinkVar)
@@ -499,6 +540,8 @@ var xMenuItemSetActionAndTarget func(uintptr, uintptr, uintptr, ...interface{})
 // See also g_menu_item_set_action_and_target_value() for a
 // description of the semantics of the action and target attributes.
 func (x *MenuItem) SetActionAndTarget(ActionVar *string, FormatStringVar *string, varArgs ...interface{}) {
+	core.LazyRegister(&xMenuItemSetActionAndTarget, "GIO", "g_menu_item_set_action_and_target", false)
+
 	ActionVarPtr := core.GStrdupNullable(ActionVar)
 	defer core.GFreeNullable(ActionVarPtr)
 
@@ -547,6 +590,8 @@ var xMenuItemSetActionAndTargetValue func(uintptr, uintptr, *glib.Variant)
 // g_menu_item_set_detailed_action() for two equivalent calls that are
 // probably more convenient for most uses.
 func (x *MenuItem) SetActionAndTargetValue(ActionVar *string, TargetValueVar *glib.Variant) {
+	core.LazyRegister(&xMenuItemSetActionAndTargetValue, "GIO", "g_menu_item_set_action_and_target_value", false)
+
 	ActionVarPtr := core.GStrdupNullable(ActionVar)
 	defer core.GFreeNullable(ActionVarPtr)
 
@@ -573,6 +618,8 @@ var xMenuItemSetAttribute func(uintptr, string, uintptr, ...interface{})
 // See also g_menu_item_set_attribute_value() for an equivalent call
 // that directly accepts a #GVariant.
 func (x *MenuItem) SetAttribute(AttributeVar string, FormatStringVar *string, varArgs ...interface{}) {
+	core.LazyRegister(&xMenuItemSetAttribute, "GIO", "g_menu_item_set_attribute", false)
+
 	FormatStringVarPtr := core.GStrdupNullable(FormatStringVar)
 	defer core.GFreeNullable(FormatStringVarPtr)
 
@@ -601,6 +648,8 @@ var xMenuItemSetAttributeValue func(uintptr, string, *glib.Variant)
 // See also g_menu_item_set_attribute() for a more convenient way to do
 // the same.
 func (x *MenuItem) SetAttributeValue(AttributeVar string, ValueVar *glib.Variant) {
+	core.LazyRegister(&xMenuItemSetAttributeValue, "GIO", "g_menu_item_set_attribute_value", false)
+
 	xMenuItemSetAttributeValue(x.GoPointer(), AttributeVar, ValueVar)
 }
 
@@ -618,6 +667,8 @@ var xMenuItemSetDetailedAction func(uintptr, string)
 // See also g_menu_item_set_action_and_target_value() for a description of
 // the semantics of the action and target attributes.
 func (x *MenuItem) SetDetailedAction(DetailedActionVar string) {
+	core.LazyRegister(&xMenuItemSetDetailedAction, "GIO", "g_menu_item_set_detailed_action", false)
+
 	xMenuItemSetDetailedAction(x.GoPointer(), DetailedActionVar)
 }
 
@@ -636,6 +687,8 @@ var xMenuItemSetIcon func(uintptr, uintptr)
 //
 // If @icon is %NULL then the icon is unset.
 func (x *MenuItem) SetIcon(IconVar Icon) {
+	core.LazyRegister(&xMenuItemSetIcon, "GIO", "g_menu_item_set_icon", false)
+
 	xMenuItemSetIcon(x.GoPointer(), IconVar.GoPointer())
 }
 
@@ -646,6 +699,8 @@ var xMenuItemSetLabel func(uintptr, uintptr)
 // If @label is non-%NULL it is used as the label for the menu item.  If
 // it is %NULL then the label attribute is unset.
 func (x *MenuItem) SetLabel(LabelVar *string) {
+	core.LazyRegister(&xMenuItemSetLabel, "GIO", "g_menu_item_set_label", false)
+
 	LabelVarPtr := core.GStrdupNullable(LabelVar)
 	defer core.GFreeNullable(LabelVarPtr)
 
@@ -665,6 +720,8 @@ var xMenuItemSetLink func(uintptr, string, uintptr)
 // and '-'. Furthermore, the names must begin with a lowercase character,
 // must not end with a '-', and must not contain consecutive dashes.
 func (x *MenuItem) SetLink(LinkVar string, ModelVar *MenuModel) {
+	core.LazyRegister(&xMenuItemSetLink, "GIO", "g_menu_item_set_link", false)
+
 	xMenuItemSetLink(x.GoPointer(), LinkVar, ModelVar.GoPointer())
 }
 
@@ -678,6 +735,8 @@ var xMenuItemSetSection func(uintptr, uintptr)
 // for more information about what it means for a menu item to be a
 // section.
 func (x *MenuItem) SetSection(SectionVar *MenuModel) {
+	core.LazyRegister(&xMenuItemSetSection, "GIO", "g_menu_item_set_section", false)
+
 	xMenuItemSetSection(x.GoPointer(), SectionVar.GoPointer())
 }
 
@@ -691,6 +750,8 @@ var xMenuItemSetSubmenu func(uintptr, uintptr)
 // The effect of having one menu appear as a submenu of another is
 // exactly as it sounds.
 func (x *MenuItem) SetSubmenu(SubmenuVar *MenuModel) {
+	core.LazyRegister(&xMenuItemSetSubmenu, "GIO", "g_menu_item_set_submenu", false)
+
 	xMenuItemSetSubmenu(x.GoPointer(), SubmenuVar.GoPointer())
 }
 
@@ -708,53 +769,4 @@ func (c *MenuItem) SetGoPointer(ptr uintptr) {
 func init() {
 	core.SetPackageName("GIO", "gio-2.0")
 	core.SetSharedLibraries("GIO", []string{"libgio-2.0.so.0", "libgio-2.0.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GIO") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xMenuGLibType, libs, "g_menu_get_type")
-
-	core.PuregoSafeRegister(&xNewMenu, libs, "g_menu_new")
-
-	core.PuregoSafeRegister(&xMenuAppend, libs, "g_menu_append")
-	core.PuregoSafeRegister(&xMenuAppendItem, libs, "g_menu_append_item")
-	core.PuregoSafeRegister(&xMenuAppendSection, libs, "g_menu_append_section")
-	core.PuregoSafeRegister(&xMenuAppendSubmenu, libs, "g_menu_append_submenu")
-	core.PuregoSafeRegister(&xMenuFreeze, libs, "g_menu_freeze")
-	core.PuregoSafeRegister(&xMenuInsert, libs, "g_menu_insert")
-	core.PuregoSafeRegister(&xMenuInsertItem, libs, "g_menu_insert_item")
-	core.PuregoSafeRegister(&xMenuInsertSection, libs, "g_menu_insert_section")
-	core.PuregoSafeRegister(&xMenuInsertSubmenu, libs, "g_menu_insert_submenu")
-	core.PuregoSafeRegister(&xMenuPrepend, libs, "g_menu_prepend")
-	core.PuregoSafeRegister(&xMenuPrependItem, libs, "g_menu_prepend_item")
-	core.PuregoSafeRegister(&xMenuPrependSection, libs, "g_menu_prepend_section")
-	core.PuregoSafeRegister(&xMenuPrependSubmenu, libs, "g_menu_prepend_submenu")
-	core.PuregoSafeRegister(&xMenuRemove, libs, "g_menu_remove")
-	core.PuregoSafeRegister(&xMenuRemoveAll, libs, "g_menu_remove_all")
-
-	core.PuregoSafeRegister(&xMenuItemGLibType, libs, "g_menu_item_get_type")
-
-	core.PuregoSafeRegister(&xNewMenuItem, libs, "g_menu_item_new")
-	core.PuregoSafeRegister(&xNewMenuItemFromModel, libs, "g_menu_item_new_from_model")
-	core.PuregoSafeRegister(&xNewMenuItemSection, libs, "g_menu_item_new_section")
-	core.PuregoSafeRegister(&xNewMenuItemSubmenu, libs, "g_menu_item_new_submenu")
-
-	core.PuregoSafeRegister(&xMenuItemGetAttribute, libs, "g_menu_item_get_attribute")
-	core.PuregoSafeRegister(&xMenuItemGetAttributeValue, libs, "g_menu_item_get_attribute_value")
-	core.PuregoSafeRegister(&xMenuItemGetLink, libs, "g_menu_item_get_link")
-	core.PuregoSafeRegister(&xMenuItemSetActionAndTarget, libs, "g_menu_item_set_action_and_target")
-	core.PuregoSafeRegister(&xMenuItemSetActionAndTargetValue, libs, "g_menu_item_set_action_and_target_value")
-	core.PuregoSafeRegister(&xMenuItemSetAttribute, libs, "g_menu_item_set_attribute")
-	core.PuregoSafeRegister(&xMenuItemSetAttributeValue, libs, "g_menu_item_set_attribute_value")
-	core.PuregoSafeRegister(&xMenuItemSetDetailedAction, libs, "g_menu_item_set_detailed_action")
-	core.PuregoSafeRegister(&xMenuItemSetIcon, libs, "g_menu_item_set_icon")
-	core.PuregoSafeRegister(&xMenuItemSetLabel, libs, "g_menu_item_set_label")
-	core.PuregoSafeRegister(&xMenuItemSetLink, libs, "g_menu_item_set_link")
-	core.PuregoSafeRegister(&xMenuItemSetSection, libs, "g_menu_item_set_section")
-	core.PuregoSafeRegister(&xMenuItemSetSubmenu, libs, "g_menu_item_set_submenu")
 }

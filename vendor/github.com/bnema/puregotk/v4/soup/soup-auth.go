@@ -234,6 +234,7 @@ type Auth struct {
 var xAuthGLibType func() types.GType
 
 func AuthGLibType() types.GType {
+	core.LazyRegister(&xAuthGLibType, "SOUP", "soup_auth_get_type", false)
 	return xAuthGLibType()
 }
 
@@ -251,6 +252,7 @@ var xNewAuth func(types.GType, uintptr, string) uintptr
 // This is called by [class@Session]; you will normally not create auths
 // yourself.
 func NewAuth(TypeVar types.GType, MsgVar *Message, AuthHeaderVar string) *Auth {
+	core.LazyRegister(&xNewAuth, "SOUP", "soup_auth_new", false)
 	var cls *Auth
 
 	cret := xNewAuth(TypeVar, MsgVar.GoPointer(), AuthHeaderVar)
@@ -270,6 +272,8 @@ var xAuthAuthenticate func(uintptr, string, string)
 // Normally this will cause the auth's message to be requeued with the new
 // authentication info.
 func (x *Auth) Authenticate(UsernameVar string, PasswordVar string) {
+	core.LazyRegister(&xAuthAuthenticate, "SOUP", "soup_auth_authenticate", false)
+
 	xAuthAuthenticate(x.GoPointer(), UsernameVar, PasswordVar)
 }
 
@@ -278,6 +282,8 @@ var xAuthCanAuthenticate func(uintptr) bool
 // Tests if @auth is able to authenticate by providing credentials to the
 // [method@Auth.authenticate].
 func (x *Auth) CanAuthenticate() bool {
+	core.LazyRegister(&xAuthCanAuthenticate, "SOUP", "soup_auth_can_authenticate", false)
+
 	cret := xAuthCanAuthenticate(x.GoPointer())
 	return cret
 }
@@ -290,6 +296,8 @@ var xAuthCancel func(uintptr)
 // when no credentials are provided ([method@Auth.authenticate] is not called).
 // The [class@Auth] will be cancelled on dispose if it hasn't been authenticated.
 func (x *Auth) Cancel() {
+	core.LazyRegister(&xAuthCancel, "SOUP", "soup_auth_cancel", false)
+
 	xAuthCancel(x.GoPointer())
 }
 
@@ -297,6 +305,8 @@ var xAuthFreeProtectionSpace func(uintptr, *glib.SList)
 
 // Frees @space.
 func (x *Auth) FreeProtectionSpace(SpaceVar *glib.SList) {
+	core.LazyRegister(&xAuthFreeProtectionSpace, "SOUP", "soup_auth_free_protection_space", false)
+
 	xAuthFreeProtectionSpace(x.GoPointer(), SpaceVar)
 }
 
@@ -304,6 +314,8 @@ var xAuthGetAuthority func(uintptr) string
 
 // Returns the authority (host:port) that @auth is associated with.
 func (x *Auth) GetAuthority() string {
+	core.LazyRegister(&xAuthGetAuthority, "SOUP", "soup_auth_get_authority", false)
+
 	cret := xAuthGetAuthority(x.GoPointer())
 	return cret
 }
@@ -315,6 +327,8 @@ var xAuthGetAuthorization func(uintptr, uintptr) string
 // (The session will only call this if [method@Auth.is_authenticated] returned
 // %TRUE.)
 func (x *Auth) GetAuthorization(MsgVar *Message) string {
+	core.LazyRegister(&xAuthGetAuthorization, "SOUP", "soup_auth_get_authorization", false)
+
 	cret := xAuthGetAuthorization(x.GoPointer(), MsgVar.GoPointer())
 	return cret
 }
@@ -328,6 +342,8 @@ var xAuthGetInfo func(uintptr) string
 // domain (eg, the URLs associated with them take the same usernames and
 // passwords).
 func (x *Auth) GetInfo() string {
+	core.LazyRegister(&xAuthGetInfo, "SOUP", "soup_auth_get_info", false)
+
 	cret := xAuthGetInfo(x.GoPointer())
 	return cret
 }
@@ -340,6 +356,8 @@ var xAuthGetProtectionSpace func(uintptr, *glib.Uri) uintptr
 // of @auth's protection space, unless otherwise discovered not to
 // be.)
 func (x *Auth) GetProtectionSpace(SourceUriVar *glib.Uri) *glib.SList {
+	core.LazyRegister(&xAuthGetProtectionSpace, "SOUP", "soup_auth_get_protection_space", false)
+
 	cret := xAuthGetProtectionSpace(x.GoPointer(), SourceUriVar)
 	if cret == 0 {
 		return nil
@@ -355,6 +373,8 @@ var xAuthGetRealm func(uintptr) string
 // given server, and may be some string that is meaningful to the user.
 // (Although it is probably not localized.)
 func (x *Auth) GetRealm() string {
+	core.LazyRegister(&xAuthGetRealm, "SOUP", "soup_auth_get_realm", false)
+
 	cret := xAuthGetRealm(x.GoPointer())
 	return cret
 }
@@ -364,6 +384,8 @@ var xAuthGetSchemeName func(uintptr) string
 // soup_auth_get_scheme_name: (attributes org.gtk.Method.get_property=scheme-name)
 // Returns @auth's scheme name. (Eg, "Basic", "Digest", or "NTLM")
 func (x *Auth) GetSchemeName() string {
+	core.LazyRegister(&xAuthGetSchemeName, "SOUP", "soup_auth_get_scheme_name", false)
+
 	cret := xAuthGetSchemeName(x.GoPointer())
 	return cret
 }
@@ -372,6 +394,8 @@ var xAuthIsAuthenticated func(uintptr) bool
 
 // Tests if @auth has been given a username and password.
 func (x *Auth) IsAuthenticated() bool {
+	core.LazyRegister(&xAuthIsAuthenticated, "SOUP", "soup_auth_is_authenticated", false)
+
 	cret := xAuthIsAuthenticated(x.GoPointer())
 	return cret
 }
@@ -380,6 +404,8 @@ var xAuthIsCancelled func(uintptr) bool
 
 // Tests if @auth has been cancelled
 func (x *Auth) IsCancelled() bool {
+	core.LazyRegister(&xAuthIsCancelled, "SOUP", "soup_auth_is_cancelled", false)
+
 	cret := xAuthIsCancelled(x.GoPointer())
 	return cret
 }
@@ -389,6 +415,8 @@ var xAuthIsForProxy func(uintptr) bool
 // Tests whether or not @auth is associated with a proxy server rather
 // than an "origin" server.
 func (x *Auth) IsForProxy() bool {
+	core.LazyRegister(&xAuthIsForProxy, "SOUP", "soup_auth_is_for_proxy", false)
+
 	cret := xAuthIsForProxy(x.GoPointer())
 	return cret
 }
@@ -401,6 +429,8 @@ var xAuthIsReady func(uintptr, uintptr) bool
 // some auth types (eg, NTLM), the auth may be sendable (eg, as an
 // authentication request) even before it is authenticated.
 func (x *Auth) IsReady(MsgVar *Message) bool {
+	core.LazyRegister(&xAuthIsReady, "SOUP", "soup_auth_is_ready", false)
+
 	cret := xAuthIsReady(x.GoPointer(), MsgVar.GoPointer())
 	return cret
 }
@@ -412,6 +442,8 @@ var xAuthUpdate func(uintptr, uintptr, string) bool
 //
 // As with [ctor@Auth.new], this is normally only used by [class@Session].
 func (x *Auth) Update(MsgVar *Message, AuthHeaderVar string) bool {
+	core.LazyRegister(&xAuthUpdate, "SOUP", "soup_auth_update", false)
+
 	cret := xAuthUpdate(x.GoPointer(), MsgVar.GoPointer(), AuthHeaderVar)
 	return cret
 }
@@ -505,32 +537,4 @@ func (x *Auth) GetPropertySchemeName() string {
 func init() {
 	core.SetPackageName("SOUP", "libsoup-3.0")
 	core.SetSharedLibraries("SOUP", []string{"libsoup-3.0.so.0", "libsoup-3.0.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("SOUP") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xAuthGLibType, libs, "soup_auth_get_type")
-
-	core.PuregoSafeRegister(&xNewAuth, libs, "soup_auth_new")
-
-	core.PuregoSafeRegister(&xAuthAuthenticate, libs, "soup_auth_authenticate")
-	core.PuregoSafeRegister(&xAuthCanAuthenticate, libs, "soup_auth_can_authenticate")
-	core.PuregoSafeRegister(&xAuthCancel, libs, "soup_auth_cancel")
-	core.PuregoSafeRegister(&xAuthFreeProtectionSpace, libs, "soup_auth_free_protection_space")
-	core.PuregoSafeRegister(&xAuthGetAuthority, libs, "soup_auth_get_authority")
-	core.PuregoSafeRegister(&xAuthGetAuthorization, libs, "soup_auth_get_authorization")
-	core.PuregoSafeRegister(&xAuthGetInfo, libs, "soup_auth_get_info")
-	core.PuregoSafeRegister(&xAuthGetProtectionSpace, libs, "soup_auth_get_protection_space")
-	core.PuregoSafeRegister(&xAuthGetRealm, libs, "soup_auth_get_realm")
-	core.PuregoSafeRegister(&xAuthGetSchemeName, libs, "soup_auth_get_scheme_name")
-	core.PuregoSafeRegister(&xAuthIsAuthenticated, libs, "soup_auth_is_authenticated")
-	core.PuregoSafeRegister(&xAuthIsCancelled, libs, "soup_auth_is_cancelled")
-	core.PuregoSafeRegister(&xAuthIsForProxy, libs, "soup_auth_is_for_proxy")
-	core.PuregoSafeRegister(&xAuthIsReady, libs, "soup_auth_is_ready")
-	core.PuregoSafeRegister(&xAuthUpdate, libs, "soup_auth_update")
 }

@@ -153,6 +153,7 @@ type WindowGroup struct {
 var xWindowGroupGLibType func() types.GType
 
 func WindowGroupGLibType() types.GType {
+	core.LazyRegister(&xWindowGroupGLibType, "GTK", "gtk_window_group_get_type", false)
 	return xWindowGroupGLibType()
 }
 
@@ -169,6 +170,7 @@ var xNewWindowGroup func() uintptr
 // Modality of windows only affects windows
 // within the same `GtkWindowGroup`.
 func NewWindowGroup() *WindowGroup {
+	core.LazyRegister(&xNewWindowGroup, "GTK", "gtk_window_group_new", false)
 	var cls *WindowGroup
 
 	cret := xNewWindowGroup()
@@ -185,6 +187,8 @@ var xWindowGroupAddWindow func(uintptr, uintptr)
 
 // Adds a window to a `GtkWindowGroup`.
 func (x *WindowGroup) AddWindow(WindowVar *Window) {
+	core.LazyRegister(&xWindowGroupAddWindow, "GTK", "gtk_window_group_add_window", false)
+
 	xWindowGroupAddWindow(x.GoPointer(), WindowVar.GoPointer())
 }
 
@@ -192,6 +196,8 @@ var xWindowGroupListWindows func(uintptr) uintptr
 
 // Returns a list of the `GtkWindows` that belong to @window_group.
 func (x *WindowGroup) ListWindows() *glib.List {
+	core.LazyRegister(&xWindowGroupListWindows, "GTK", "gtk_window_group_list_windows", false)
+
 	cret := xWindowGroupListWindows(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -203,6 +209,8 @@ var xWindowGroupRemoveWindow func(uintptr, uintptr)
 
 // Removes a window from a `GtkWindowGroup`.
 func (x *WindowGroup) RemoveWindow(WindowVar *Window) {
+	core.LazyRegister(&xWindowGroupRemoveWindow, "GTK", "gtk_window_group_remove_window", false)
+
 	xWindowGroupRemoveWindow(x.GoPointer(), WindowVar.GoPointer())
 }
 
@@ -220,20 +228,4 @@ func (c *WindowGroup) SetGoPointer(ptr uintptr) {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GTK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xWindowGroupGLibType, libs, "gtk_window_group_get_type")
-
-	core.PuregoSafeRegister(&xNewWindowGroup, libs, "gtk_window_group_new")
-
-	core.PuregoSafeRegister(&xWindowGroupAddWindow, libs, "gtk_window_group_add_window")
-	core.PuregoSafeRegister(&xWindowGroupListWindows, libs, "gtk_window_group_list_windows")
-	core.PuregoSafeRegister(&xWindowGroupRemoveWindow, libs, "gtk_window_group_remove_window")
 }

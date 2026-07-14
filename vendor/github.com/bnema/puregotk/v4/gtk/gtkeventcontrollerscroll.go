@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gdk"
 	"github.com/bnema/puregotk/v4/glib"
@@ -35,6 +34,7 @@ type EventControllerScrollFlags int
 var xEventControllerScrollFlagsGLibType func() types.GType
 
 func EventControllerScrollFlagsGLibType() types.GType {
+	core.LazyRegister(&xEventControllerScrollFlagsGLibType, "GTK", "gtk_event_controller_scroll_flags_get_type", false)
 	return xEventControllerScrollFlagsGLibType()
 }
 
@@ -97,6 +97,7 @@ type EventControllerScroll struct {
 var xEventControllerScrollGLibType func() types.GType
 
 func EventControllerScrollGLibType() types.GType {
+	core.LazyRegister(&xEventControllerScrollGLibType, "GTK", "gtk_event_controller_scroll_get_type", false)
 	return xEventControllerScrollGLibType()
 }
 
@@ -110,6 +111,7 @@ var xNewEventControllerScroll func(EventControllerScrollFlags) uintptr
 
 // Creates a new event controller that will handle scroll events.
 func NewEventControllerScroll(FlagsVar EventControllerScrollFlags) *EventControllerScroll {
+	core.LazyRegister(&xNewEventControllerScroll, "GTK", "gtk_event_controller_scroll_new", false)
 	var cls *EventControllerScroll
 
 	cret := xNewEventControllerScroll(FlagsVar)
@@ -126,6 +128,8 @@ var xEventControllerScrollGetFlags func(uintptr) EventControllerScrollFlags
 
 // Gets the flags conditioning the scroll controller behavior.
 func (x *EventControllerScroll) GetFlags() EventControllerScrollFlags {
+	core.LazyRegister(&xEventControllerScrollGetFlags, "GTK", "gtk_event_controller_scroll_get_flags", false)
+
 	cret := xEventControllerScrollGetFlags(x.GoPointer())
 	return cret
 }
@@ -138,6 +142,8 @@ var xEventControllerScrollGetUnit func(uintptr) gdk.ScrollUnit
 // Always returns %GDK_SCROLL_UNIT_WHEEL if the
 // %GTK_EVENT_CONTROLLER_SCROLL_DISCRETE flag is set.
 func (x *EventControllerScroll) GetUnit() gdk.ScrollUnit {
+	core.LazyRegister(&xEventControllerScrollGetUnit, "GTK", "gtk_event_controller_scroll_get_unit", false)
+
 	cret := xEventControllerScrollGetUnit(x.GoPointer())
 	return cret
 }
@@ -146,6 +152,8 @@ var xEventControllerScrollSetFlags func(uintptr, EventControllerScrollFlags)
 
 // Sets the flags conditioning scroll controller behavior.
 func (x *EventControllerScroll) SetFlags(FlagsVar EventControllerScrollFlags) {
+	core.LazyRegister(&xEventControllerScrollSetFlags, "GTK", "gtk_event_controller_scroll_set_flags", false)
+
 	xEventControllerScrollSetFlags(x.GoPointer(), FlagsVar)
 }
 
@@ -270,22 +278,4 @@ func (x *EventControllerScroll) ConnectScrollEnd(cb *func(EventControllerScroll)
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GTK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xEventControllerScrollFlagsGLibType, libs, "gtk_event_controller_scroll_flags_get_type")
-
-	core.PuregoSafeRegister(&xEventControllerScrollGLibType, libs, "gtk_event_controller_scroll_get_type")
-
-	core.PuregoSafeRegister(&xNewEventControllerScroll, libs, "gtk_event_controller_scroll_new")
-
-	core.PuregoSafeRegister(&xEventControllerScrollGetFlags, libs, "gtk_event_controller_scroll_get_flags")
-	core.PuregoSafeRegister(&xEventControllerScrollGetUnit, libs, "gtk_event_controller_scroll_get_unit")
-	core.PuregoSafeRegister(&xEventControllerScrollSetFlags, libs, "gtk_event_controller_scroll_set_flags")
 }

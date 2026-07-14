@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gio"
 	"github.com/bnema/puregotk/v4/glib"
@@ -47,6 +46,7 @@ type PrintSetup struct {
 var xPrintSetupGLibType func() types.GType
 
 func PrintSetupGLibType() types.GType {
+	core.LazyRegister(&xPrintSetupGLibType, "GTK", "gtk_print_setup_get_type", false)
 	return xPrintSetupGLibType()
 }
 
@@ -69,6 +69,7 @@ var xPrintSetupGetPageSetup func(uintptr) uintptr
 // It may be different from the `GtkPrintDialog`'s page setup
 // if the user changed it during the setup process.
 func (x *PrintSetup) GetPageSetup() *PageSetup {
+	core.LazyRegister(&xPrintSetupGetPageSetup, "GTK", "gtk_print_setup_get_page_setup", false)
 	var cls *PageSetup
 
 	cret := xPrintSetupGetPageSetup(x.GoPointer())
@@ -89,6 +90,7 @@ var xPrintSetupGetPrintSettings func(uintptr) uintptr
 // They may be different from the `GtkPrintDialog`'s settings
 // if the user changed them during the setup process.
 func (x *PrintSetup) GetPrintSettings() *PrintSettings {
+	core.LazyRegister(&xPrintSetupGetPrintSettings, "GTK", "gtk_print_setup_get_print_settings", false)
 	var cls *PrintSettings
 
 	cret := xPrintSetupGetPrintSettings(x.GoPointer())
@@ -106,6 +108,8 @@ var xPrintSetupRef func(uintptr) uintptr
 
 // Increase the reference count of @setup.
 func (x *PrintSetup) Ref() *PrintSetup {
+	core.LazyRegister(&xPrintSetupRef, "GTK", "gtk_print_setup_ref", false)
+
 	cret := xPrintSetupRef(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -120,6 +124,8 @@ var xPrintSetupUnref func(uintptr)
 // If the reference count reaches zero,
 // the object is freed.
 func (x *PrintSetup) Unref() {
+	core.LazyRegister(&xPrintSetupUnref, "GTK", "gtk_print_setup_unref", false)
+
 	xPrintSetupUnref(x.GoPointer())
 }
 
@@ -142,6 +148,7 @@ type PrintDialog struct {
 var xPrintDialogGLibType func() types.GType
 
 func PrintDialogGLibType() types.GType {
+	core.LazyRegister(&xPrintDialogGLibType, "GTK", "gtk_print_dialog_get_type", false)
 	return xPrintDialogGLibType()
 }
 
@@ -155,6 +162,7 @@ var xNewPrintDialog func() uintptr
 
 // Creates a new `GtkPrintDialog` object.
 func NewPrintDialog() *PrintDialog {
+	core.LazyRegister(&xNewPrintDialog, "GTK", "gtk_print_dialog_new", false)
 	var cls *PrintDialog
 
 	cret := xNewPrintDialog()
@@ -172,6 +180,8 @@ var xPrintDialogGetAcceptLabel func(uintptr) string
 // Returns the label that will be shown on the
 // accept button of the print dialog.
 func (x *PrintDialog) GetAcceptLabel() string {
+	core.LazyRegister(&xPrintDialogGetAcceptLabel, "GTK", "gtk_print_dialog_get_accept_label", false)
+
 	cret := xPrintDialogGetAcceptLabel(x.GoPointer())
 	return cret
 }
@@ -182,6 +192,8 @@ var xPrintDialogGetModal func(uintptr) bool
 // interaction with the parent window while
 // it is presented.
 func (x *PrintDialog) GetModal() bool {
+	core.LazyRegister(&xPrintDialogGetModal, "GTK", "gtk_print_dialog_get_modal", false)
+
 	cret := xPrintDialogGetModal(x.GoPointer())
 	return cret
 }
@@ -190,6 +202,7 @@ var xPrintDialogGetPageSetup func(uintptr) uintptr
 
 // Returns the page setup.
 func (x *PrintDialog) GetPageSetup() *PageSetup {
+	core.LazyRegister(&xPrintDialogGetPageSetup, "GTK", "gtk_print_dialog_get_page_setup", false)
 	var cls *PageSetup
 
 	cret := xPrintDialogGetPageSetup(x.GoPointer())
@@ -207,6 +220,7 @@ var xPrintDialogGetPrintSettings func(uintptr) uintptr
 
 // Returns the print settings for the print dialog.
 func (x *PrintDialog) GetPrintSettings() *PrintSettings {
+	core.LazyRegister(&xPrintDialogGetPrintSettings, "GTK", "gtk_print_dialog_get_print_settings", false)
 	var cls *PrintSettings
 
 	cret := xPrintDialogGetPrintSettings(x.GoPointer())
@@ -225,6 +239,8 @@ var xPrintDialogGetTitle func(uintptr) string
 // Returns the title that will be shown on the
 // print dialog.
 func (x *PrintDialog) GetTitle() string {
+	core.LazyRegister(&xPrintDialogGetTitle, "GTK", "gtk_print_dialog_get_title", false)
+
 	cret := xPrintDialogGetTitle(x.GoPointer())
 	return cret
 }
@@ -238,6 +254,8 @@ var xPrintDialogPrint func(uintptr, uintptr, *PrintSetup, uintptr, uintptr, uint
 //
 // The @callback will be called when the printing is done.
 func (x *PrintDialog) Print(ParentVar *Window, SetupVar *PrintSetup, CancellableVar *gio.Cancellable, CallbackVar *gio.AsyncReadyCallback, UserDataVar uintptr) {
+	core.LazyRegister(&xPrintDialogPrint, "GTK", "gtk_print_dialog_print", false)
+
 	xPrintDialogPrint(x.GoPointer(), ParentVar.GoPointer(), SetupVar, CancellableVar.GoPointer(), glib.NewCallbackNullable(CallbackVar), UserDataVar)
 }
 
@@ -248,6 +266,8 @@ var xPrintDialogPrintFile func(uintptr, uintptr, *PrintSetup, uintptr, uintptr, 
 // If you pass `NULL` as @setup, then this method will present a print dialog.
 // Otherwise, it will attempt to print directly, without user interaction.
 func (x *PrintDialog) PrintFile(ParentVar *Window, SetupVar *PrintSetup, FileVar gio.File, CancellableVar *gio.Cancellable, CallbackVar *gio.AsyncReadyCallback, UserDataVar uintptr) {
+	core.LazyRegister(&xPrintDialogPrintFile, "GTK", "gtk_print_dialog_print_file", false)
+
 	xPrintDialogPrintFile(x.GoPointer(), ParentVar.GoPointer(), SetupVar, FileVar.GoPointer(), CancellableVar.GoPointer(), glib.NewCallbackNullable(CallbackVar), UserDataVar)
 }
 
@@ -259,6 +279,7 @@ var xPrintDialogPrintFileFinish func(uintptr, uintptr, **glib.Error) bool
 // Note that this function returns a [error@Gtk.DialogError.DISMISSED]
 // error if the user cancels the dialog.
 func (x *PrintDialog) PrintFileFinish(ResultVar gio.AsyncResult) (bool, error) {
+	core.LazyRegister(&xPrintDialogPrintFileFinish, "GTK", "gtk_print_dialog_print_file_finish", false)
 	var cerr *glib.Error
 
 	cret := xPrintDialogPrintFileFinish(x.GoPointer(), ResultVar.GoPointer(), &cerr)
@@ -286,6 +307,7 @@ var xPrintDialogPrintFinish func(uintptr, uintptr, **glib.Error) uintptr
 // Note that this function returns a [error@Gtk.DialogError.DISMISSED]
 // error if the user cancels the dialog.
 func (x *PrintDialog) PrintFinish(ResultVar gio.AsyncResult) (*gio.OutputStream, error) {
+	core.LazyRegister(&xPrintDialogPrintFinish, "GTK", "gtk_print_dialog_print_finish", false)
 	var cls *gio.OutputStream
 	var cerr *glib.Error
 
@@ -308,6 +330,8 @@ var xPrintDialogSetAcceptLabel func(uintptr, string)
 // accept button of the print dialog shown for
 // [method@Gtk.PrintDialog.setup].
 func (x *PrintDialog) SetAcceptLabel(AcceptLabelVar string) {
+	core.LazyRegister(&xPrintDialogSetAcceptLabel, "GTK", "gtk_print_dialog_set_accept_label", false)
+
 	xPrintDialogSetAcceptLabel(x.GoPointer(), AcceptLabelVar)
 }
 
@@ -317,6 +341,8 @@ var xPrintDialogSetModal func(uintptr, bool)
 // interaction with the parent window while
 // it is presented.
 func (x *PrintDialog) SetModal(ModalVar bool) {
+	core.LazyRegister(&xPrintDialogSetModal, "GTK", "gtk_print_dialog_set_modal", false)
+
 	xPrintDialogSetModal(x.GoPointer(), ModalVar)
 }
 
@@ -324,6 +350,8 @@ var xPrintDialogSetPageSetup func(uintptr, uintptr)
 
 // Set the page setup for the print dialog.
 func (x *PrintDialog) SetPageSetup(PageSetupVar *PageSetup) {
+	core.LazyRegister(&xPrintDialogSetPageSetup, "GTK", "gtk_print_dialog_set_page_setup", false)
+
 	xPrintDialogSetPageSetup(x.GoPointer(), PageSetupVar.GoPointer())
 }
 
@@ -331,6 +359,8 @@ var xPrintDialogSetPrintSettings func(uintptr, uintptr)
 
 // Sets the print settings for the print dialog.
 func (x *PrintDialog) SetPrintSettings(PrintSettingsVar *PrintSettings) {
+	core.LazyRegister(&xPrintDialogSetPrintSettings, "GTK", "gtk_print_dialog_set_print_settings", false)
+
 	xPrintDialogSetPrintSettings(x.GoPointer(), PrintSettingsVar.GoPointer())
 }
 
@@ -338,6 +368,8 @@ var xPrintDialogSetTitle func(uintptr, string)
 
 // Sets the title that will be shown on the print dialog.
 func (x *PrintDialog) SetTitle(TitleVar string) {
+	core.LazyRegister(&xPrintDialogSetTitle, "GTK", "gtk_print_dialog_set_title", false)
+
 	xPrintDialogSetTitle(x.GoPointer(), TitleVar)
 }
 
@@ -355,6 +387,8 @@ var xPrintDialogSetup func(uintptr, uintptr, uintptr, uintptr, uintptr)
 // on a page), then call [method@Gtk.PrintDialog.print] on @self
 // to do the printing without further user interaction.
 func (x *PrintDialog) Setup(ParentVar *Window, CancellableVar *gio.Cancellable, CallbackVar *gio.AsyncReadyCallback, UserDataVar uintptr) {
+	core.LazyRegister(&xPrintDialogSetup, "GTK", "gtk_print_dialog_setup", false)
+
 	xPrintDialogSetup(x.GoPointer(), ParentVar.GoPointer(), CancellableVar.GoPointer(), glib.NewCallbackNullable(CallbackVar), UserDataVar)
 }
 
@@ -369,6 +403,7 @@ var xPrintDialogSetupFinish func(uintptr, uintptr, **glib.Error) uintptr
 // Note that this function returns a [error@Gtk.DialogError.DISMISSED]
 // error if the user cancels the dialog.
 func (x *PrintDialog) SetupFinish(ResultVar gio.AsyncResult) (*PrintSetup, error) {
+	core.LazyRegister(&xPrintDialogSetupFinish, "GTK", "gtk_print_dialog_setup_finish", false)
 	var cerr *glib.Error
 
 	cret := xPrintDialogSetupFinish(x.GoPointer(), ResultVar.GoPointer(), &cerr)
@@ -450,40 +485,4 @@ func (x *PrintDialog) GetPropertyTitle() string {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GTK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xPrintSetupGLibType, libs, "gtk_print_setup_get_type")
-
-	core.PuregoSafeRegister(&xPrintSetupGetPageSetup, libs, "gtk_print_setup_get_page_setup")
-	core.PuregoSafeRegister(&xPrintSetupGetPrintSettings, libs, "gtk_print_setup_get_print_settings")
-	core.PuregoSafeRegister(&xPrintSetupRef, libs, "gtk_print_setup_ref")
-	core.PuregoSafeRegister(&xPrintSetupUnref, libs, "gtk_print_setup_unref")
-
-	core.PuregoSafeRegister(&xPrintDialogGLibType, libs, "gtk_print_dialog_get_type")
-
-	core.PuregoSafeRegister(&xNewPrintDialog, libs, "gtk_print_dialog_new")
-
-	core.PuregoSafeRegister(&xPrintDialogGetAcceptLabel, libs, "gtk_print_dialog_get_accept_label")
-	core.PuregoSafeRegister(&xPrintDialogGetModal, libs, "gtk_print_dialog_get_modal")
-	core.PuregoSafeRegister(&xPrintDialogGetPageSetup, libs, "gtk_print_dialog_get_page_setup")
-	core.PuregoSafeRegister(&xPrintDialogGetPrintSettings, libs, "gtk_print_dialog_get_print_settings")
-	core.PuregoSafeRegister(&xPrintDialogGetTitle, libs, "gtk_print_dialog_get_title")
-	core.PuregoSafeRegister(&xPrintDialogPrint, libs, "gtk_print_dialog_print")
-	core.PuregoSafeRegister(&xPrintDialogPrintFile, libs, "gtk_print_dialog_print_file")
-	core.PuregoSafeRegister(&xPrintDialogPrintFileFinish, libs, "gtk_print_dialog_print_file_finish")
-	core.PuregoSafeRegister(&xPrintDialogPrintFinish, libs, "gtk_print_dialog_print_finish")
-	core.PuregoSafeRegister(&xPrintDialogSetAcceptLabel, libs, "gtk_print_dialog_set_accept_label")
-	core.PuregoSafeRegister(&xPrintDialogSetModal, libs, "gtk_print_dialog_set_modal")
-	core.PuregoSafeRegister(&xPrintDialogSetPageSetup, libs, "gtk_print_dialog_set_page_setup")
-	core.PuregoSafeRegister(&xPrintDialogSetPrintSettings, libs, "gtk_print_dialog_set_print_settings")
-	core.PuregoSafeRegister(&xPrintDialogSetTitle, libs, "gtk_print_dialog_set_title")
-	core.PuregoSafeRegister(&xPrintDialogSetup, libs, "gtk_print_dialog_setup")
-	core.PuregoSafeRegister(&xPrintDialogSetupFinish, libs, "gtk_print_dialog_setup_finish")
 }

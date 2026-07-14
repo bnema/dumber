@@ -429,6 +429,8 @@ var xBuildableParseContextGetElement func(uintptr) string
 // give the element_name as passed to those functions. For the parent
 // elements, see gtk_buildable_parse_context_get_element_stack().
 func (x *BuildableParseContext) GetElement() string {
+	core.LazyRegister(&xBuildableParseContextGetElement, "GTK", "gtk_buildable_parse_context_get_element", false)
+
 	cret := xBuildableParseContextGetElement(x.GoPointer())
 	return cret
 }
@@ -447,6 +449,8 @@ var xBuildableParseContextGetElementStack func(uintptr) []string
 // would merely return the name of the element that is being
 // processed.
 func (x *BuildableParseContext) GetElementStack() []string {
+	core.LazyRegister(&xBuildableParseContextGetElementStack, "GTK", "gtk_buildable_parse_context_get_element_stack", false)
+
 	cret := xBuildableParseContextGetElementStack(x.GoPointer())
 	return cret
 }
@@ -458,6 +462,8 @@ var xBuildableParseContextGetPosition func(uintptr, *int, *int)
 // semantics for what constitutes the "current" line number other than
 // "the best number we could come up with for error messages."
 func (x *BuildableParseContext) GetPosition(LineNumberVar *int, CharNumberVar *int) {
+	core.LazyRegister(&xBuildableParseContextGetPosition, "GTK", "gtk_buildable_parse_context_get_position", false)
+
 	xBuildableParseContextGetPosition(x.GoPointer(), LineNumberVar, CharNumberVar)
 }
 
@@ -477,6 +483,8 @@ var xBuildableParseContextPop func(uintptr) uintptr
 // be used by the subparsers themselves to implement a higher-level
 // interface.
 func (x *BuildableParseContext) Pop() uintptr {
+	core.LazyRegister(&xBuildableParseContextPop, "GTK", "gtk_buildable_parse_context_pop", false)
+
 	cret := xBuildableParseContextPop(x.GoPointer())
 	return cret
 }
@@ -513,6 +521,8 @@ var xBuildableParseContextPush func(uintptr, *BuildableParser, uintptr)
 // For an example of how to use this, see g_markup_parse_context_push() which
 // has the same kind of API.
 func (x *BuildableParseContext) Push(ParserVar *BuildableParser, UserDataVar uintptr) {
+	core.LazyRegister(&xBuildableParseContextPush, "GTK", "gtk_buildable_parse_context_push", false)
+
 	xBuildableParseContextPush(x.GoPointer(), ParserVar, UserDataVar)
 }
 
@@ -549,7 +559,7 @@ func (x *BuildableParser) OverrideStartElement(cb func(*BuildableParseContext, s
 	if cb == nil {
 		x.xStartElement = 0
 	} else {
-		x.xStartElement = purego.NewCallback(func(ContextVarp *BuildableParseContext, ElementNameVarp string, AttributeNamesVarp string, AttributeValuesVarp string, UserDataVarp uintptr) {
+		x.xStartElement = purego.NewCallback(func(ContextVarp *BuildableParseContext, ElementNameVarp string, AttributeNamesVarp string, AttributeValuesVarp string, UserDataVarp uintptr, cerrp **glib.Error) {
 			cb(ContextVarp, ElementNameVarp, AttributeNamesVarp, AttributeValuesVarp, UserDataVarp)
 		})
 	}
@@ -561,10 +571,11 @@ func (x *BuildableParser) GetStartElement() func(*BuildableParseContext, string,
 	if x.xStartElement == 0 {
 		return nil
 	}
-	var rawCallback func(ContextVarp *BuildableParseContext, ElementNameVarp string, AttributeNamesVarp string, AttributeValuesVarp string, UserDataVarp uintptr)
+	var rawCallback func(ContextVarp *BuildableParseContext, ElementNameVarp string, AttributeNamesVarp string, AttributeValuesVarp string, UserDataVarp uintptr, cerrp **glib.Error)
 	purego.RegisterFunc(&rawCallback, x.xStartElement)
 	return func(ContextVar *BuildableParseContext, ElementNameVar string, AttributeNamesVar string, AttributeValuesVar string, UserDataVar uintptr) {
-		rawCallback(ContextVar, ElementNameVar, AttributeNamesVar, AttributeValuesVar, UserDataVar)
+		var cerr *glib.Error
+		rawCallback(ContextVar, ElementNameVar, AttributeNamesVar, AttributeValuesVar, UserDataVar, &cerr)
 	}
 }
 
@@ -574,7 +585,7 @@ func (x *BuildableParser) OverrideEndElement(cb func(*BuildableParseContext, str
 	if cb == nil {
 		x.xEndElement = 0
 	} else {
-		x.xEndElement = purego.NewCallback(func(ContextVarp *BuildableParseContext, ElementNameVarp string, UserDataVarp uintptr) {
+		x.xEndElement = purego.NewCallback(func(ContextVarp *BuildableParseContext, ElementNameVarp string, UserDataVarp uintptr, cerrp **glib.Error) {
 			cb(ContextVarp, ElementNameVarp, UserDataVarp)
 		})
 	}
@@ -586,10 +597,11 @@ func (x *BuildableParser) GetEndElement() func(*BuildableParseContext, string, u
 	if x.xEndElement == 0 {
 		return nil
 	}
-	var rawCallback func(ContextVarp *BuildableParseContext, ElementNameVarp string, UserDataVarp uintptr)
+	var rawCallback func(ContextVarp *BuildableParseContext, ElementNameVarp string, UserDataVarp uintptr, cerrp **glib.Error)
 	purego.RegisterFunc(&rawCallback, x.xEndElement)
 	return func(ContextVar *BuildableParseContext, ElementNameVar string, UserDataVar uintptr) {
-		rawCallback(ContextVar, ElementNameVar, UserDataVar)
+		var cerr *glib.Error
+		rawCallback(ContextVar, ElementNameVar, UserDataVar, &cerr)
 	}
 }
 
@@ -599,7 +611,7 @@ func (x *BuildableParser) OverrideText(cb func(*BuildableParseContext, string, u
 	if cb == nil {
 		x.xText = 0
 	} else {
-		x.xText = purego.NewCallback(func(ContextVarp *BuildableParseContext, TextVarp string, TextLenVarp uint, UserDataVarp uintptr) {
+		x.xText = purego.NewCallback(func(ContextVarp *BuildableParseContext, TextVarp string, TextLenVarp uint, UserDataVarp uintptr, cerrp **glib.Error) {
 			cb(ContextVarp, TextVarp, TextLenVarp, UserDataVarp)
 		})
 	}
@@ -611,10 +623,11 @@ func (x *BuildableParser) GetText() func(*BuildableParseContext, string, uint, u
 	if x.xText == 0 {
 		return nil
 	}
-	var rawCallback func(ContextVarp *BuildableParseContext, TextVarp string, TextLenVarp uint, UserDataVarp uintptr)
+	var rawCallback func(ContextVarp *BuildableParseContext, TextVarp string, TextLenVarp uint, UserDataVarp uintptr, cerrp **glib.Error)
 	purego.RegisterFunc(&rawCallback, x.xText)
 	return func(ContextVar *BuildableParseContext, TextVar string, TextLenVar uint, UserDataVar uintptr) {
-		rawCallback(ContextVar, TextVar, TextLenVar, UserDataVar)
+		var cerr *glib.Error
+		rawCallback(ContextVar, TextVar, TextLenVar, UserDataVar, &cerr)
 	}
 }
 
@@ -664,6 +677,7 @@ type Buildable interface {
 var xBuildableGLibType func() types.GType
 
 func BuildableGLibType() types.GType {
+	core.LazyRegister(&xBuildableGLibType, "GTK", "gtk_buildable_get_type", false)
 	return xBuildableGLibType()
 }
 
@@ -691,27 +705,13 @@ func (x *BuildableBase) GetBuildableId() string {
 	return cret
 }
 
-var XGtkBuildableGetBuildableId func(uintptr) string
+var XGtkBuildableGetBuildableId func(uintptr) string = func(instance uintptr) string {
+	core.LazyRegister(&xXGtkBuildableGetBuildableId, "GTK", "gtk_buildable_get_buildable_id", false)
+	return xXGtkBuildableGetBuildableId(instance)
+}
+var xXGtkBuildableGetBuildableId func(uintptr) string
 
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GTK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xBuildableParseContextGetElement, libs, "gtk_buildable_parse_context_get_element")
-	core.PuregoSafeRegister(&xBuildableParseContextGetElementStack, libs, "gtk_buildable_parse_context_get_element_stack")
-	core.PuregoSafeRegister(&xBuildableParseContextGetPosition, libs, "gtk_buildable_parse_context_get_position")
-	core.PuregoSafeRegister(&xBuildableParseContextPop, libs, "gtk_buildable_parse_context_pop")
-	core.PuregoSafeRegister(&xBuildableParseContextPush, libs, "gtk_buildable_parse_context_push")
-
-	core.PuregoSafeRegister(&xBuildableGLibType, libs, "gtk_buildable_get_type")
-
-	core.PuregoSafeRegister(&XGtkBuildableGetBuildableId, libs, "gtk_buildable_get_buildable_id")
 }

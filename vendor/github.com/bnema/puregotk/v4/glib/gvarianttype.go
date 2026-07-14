@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject/types"
 )
@@ -201,6 +200,7 @@ type VariantType struct {
 var xVariantTypeGLibType func() types.GType
 
 func VariantTypeGLibType() types.GType {
+	core.LazyRegister(&xVariantTypeGLibType, "GLIB", "g_variant_type_get_gtype", false)
 	return xVariantTypeGLibType()
 }
 
@@ -226,6 +226,8 @@ var xNewVariantType func(string) uintptr
 // It is a programmer error to call this function with an invalid type
 // string.  Use [func@GLib.VariantType.string_is_valid] if you are unsure.
 func NewVariantType(TypeStringVar string) *VariantType {
+	core.LazyRegister(&xNewVariantType, "GLIB", "g_variant_type_new", false)
+
 	cret := xNewVariantType(TypeStringVar)
 	if cret == 0 {
 		return nil
@@ -240,6 +242,8 @@ var xNewVariantTypeArray func(*VariantType) uintptr
 //
 // It is appropriate to call [method@GLib.VariantType.first] on the return value.
 func NewVariantTypeArray(ElementVar *VariantType) *VariantType {
+	core.LazyRegister(&xNewVariantTypeArray, "GLIB", "g_variant_type_new_array", false)
+
 	cret := xNewVariantTypeArray(ElementVar)
 	if cret == 0 {
 		return nil
@@ -254,6 +258,8 @@ var xNewVariantTypeDictEntry func(*VariantType, *VariantType) uintptr
 //
 // It is appropriate to call [method@GLib.VariantType.free] on the return value.
 func NewVariantTypeDictEntry(KeyVar *VariantType, ValueVar *VariantType) *VariantType {
+	core.LazyRegister(&xNewVariantTypeDictEntry, "GLIB", "g_variant_type_new_dict_entry", false)
+
 	cret := xNewVariantTypeDictEntry(KeyVar, ValueVar)
 	if cret == 0 {
 		return nil
@@ -268,6 +274,8 @@ var xNewVariantTypeMaybe func(*VariantType) uintptr
 //
 // It is appropriate to call [method@GLib.VariantType.free] on the return value.
 func NewVariantTypeMaybe(ElementVar *VariantType) *VariantType {
+	core.LazyRegister(&xNewVariantTypeMaybe, "GLIB", "g_variant_type_new_maybe", false)
+
 	cret := xNewVariantTypeMaybe(ElementVar)
 	if cret == 0 {
 		return nil
@@ -284,6 +292,8 @@ var xNewVariantTypeTuple func(uintptr, int) uintptr
 //
 // It is appropriate to call [method@GLib.VariantType.free] on the return value.
 func NewVariantTypeTuple(ItemsVar uintptr, LengthVar int) *VariantType {
+	core.LazyRegister(&xNewVariantTypeTuple, "GLIB", "g_variant_type_new_tuple", false)
+
 	cret := xNewVariantTypeTuple(ItemsVar, LengthVar)
 	if cret == 0 {
 		return nil
@@ -298,6 +308,8 @@ var xVariantTypeCopy func(uintptr) uintptr
 // It is appropriate to call [method@GLib.VariantType.free] on the return value.
 // @type may not be `NULL`.
 func (x *VariantType) Copy() *VariantType {
+	core.LazyRegister(&xVariantTypeCopy, "GLIB", "g_variant_type_copy", false)
+
 	cret := xVariantTypeCopy(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -312,6 +324,8 @@ var xVariantTypeDupString func(uintptr) string
 // The returned string is nul-terminated.  It is appropriate to call
 // [func@GLib.free] on the return value.
 func (x *VariantType) DupString() string {
+	core.LazyRegister(&xVariantTypeDupString, "GLIB", "g_variant_type_dup_string", false)
+
 	cret := xVariantTypeDupString(x.GoPointer())
 	return cret
 }
@@ -322,6 +336,8 @@ var xVariantTypeElement func(uintptr) uintptr
 //
 // This function may only be used with array or ‘maybe’ types.
 func (x *VariantType) Element() *VariantType {
+	core.LazyRegister(&xVariantTypeElement, "GLIB", "g_variant_type_element", false)
+
 	cret := xVariantTypeElement(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -342,6 +358,8 @@ var xVariantTypeEqual func(uintptr, uintptr) bool
 // allow use with [type@GLib.HashTable] without function pointer casting.  For
 // both arguments, a valid [type@GLib.VariantType] must be provided.
 func (x *VariantType) Equal(Type2Var uintptr) bool {
+	core.LazyRegister(&xVariantTypeEqual, "GLIB", "g_variant_type_equal", false)
+
 	cret := xVariantTypeEqual(x.GoPointer(), Type2Var)
 	return cret
 }
@@ -363,6 +381,8 @@ var xVariantTypeFirst func(uintptr) uintptr
 // This call, together with [method@GLib.VariantType.next] provides an iterator
 // interface over tuple and dictionary entry types.
 func (x *VariantType) First() *VariantType {
+	core.LazyRegister(&xVariantTypeFirst, "GLIB", "g_variant_type_first", false)
+
 	cret := xVariantTypeFirst(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -380,6 +400,8 @@ var xVariantTypeFree func(uintptr)
 //
 // Since 2.24
 func (x *VariantType) Free() {
+	core.LazyRegister(&xVariantTypeFree, "GLIB", "g_variant_type_free", false)
+
 	xVariantTypeFree(x.GoPointer())
 }
 
@@ -390,6 +412,8 @@ var xVariantTypeGetStringLength func(uintptr) uint
 // This function must be used to determine the valid extent of
 // the memory region returned by [method@GLib.VariantType.peek_string].
 func (x *VariantType) GetStringLength() uint {
+	core.LazyRegister(&xVariantTypeGetStringLength, "GLIB", "g_variant_type_get_string_length", false)
+
 	cret := xVariantTypeGetStringLength(x.GoPointer())
 	return cret
 }
@@ -402,6 +426,8 @@ var xVariantTypeHash func(uintptr) uint
 // [type@GLib.HashTable] without function pointer casting.  A valid
 // [type@GLib.VariantType] must be provided.
 func (x *VariantType) Hash() uint {
+	core.LazyRegister(&xVariantTypeHash, "GLIB", "g_variant_type_hash", false)
+
 	cret := xVariantTypeHash(x.GoPointer())
 	return cret
 }
@@ -416,6 +442,8 @@ var xVariantTypeIsArray func(uintptr) bool
 // definite subtype is an array type — `G_VARIANT_TYPE_ARRAY`, for
 // example.
 func (x *VariantType) IsArray() bool {
+	core.LazyRegister(&xVariantTypeIsArray, "GLIB", "g_variant_type_is_array", false)
+
 	cret := xVariantTypeIsArray(x.GoPointer())
 	return cret
 }
@@ -432,6 +460,8 @@ var xVariantTypeIsBasic func(uintptr) bool
 // This function returns `FALSE` for all indefinite types except
 // `G_VARIANT_TYPE_BASIC`.
 func (x *VariantType) IsBasic() bool {
+	core.LazyRegister(&xVariantTypeIsBasic, "GLIB", "g_variant_type_is_basic", false)
+
 	cret := xVariantTypeIsBasic(x.GoPointer())
 	return cret
 }
@@ -447,6 +477,8 @@ var xVariantTypeIsContainer func(uintptr) bool
 // definite subtype is a container — `G_VARIANT_TYPE_ARRAY`, for
 // example.
 func (x *VariantType) IsContainer() bool {
+	core.LazyRegister(&xVariantTypeIsContainer, "GLIB", "g_variant_type_is_container", false)
+
 	cret := xVariantTypeIsContainer(x.GoPointer())
 	return cret
 }
@@ -464,6 +496,8 @@ var xVariantTypeIsDefinite func(uintptr) bool
 // indefinite type like `G_VARIANT_TYPE_ARRAY`, however, will result in
 // `FALSE` being returned.
 func (x *VariantType) IsDefinite() bool {
+	core.LazyRegister(&xVariantTypeIsDefinite, "GLIB", "g_variant_type_is_definite", false)
+
 	cret := xVariantTypeIsDefinite(x.GoPointer())
 	return cret
 }
@@ -478,6 +512,8 @@ var xVariantTypeIsDictEntry func(uintptr) bool
 // definite subtype is a dictionary entry type —
 // `G_VARIANT_TYPE_DICT_ENTRY`, for example.
 func (x *VariantType) IsDictEntry() bool {
+	core.LazyRegister(&xVariantTypeIsDictEntry, "GLIB", "g_variant_type_is_dict_entry", false)
+
 	cret := xVariantTypeIsDictEntry(x.GoPointer())
 	return cret
 }
@@ -492,6 +528,8 @@ var xVariantTypeIsMaybe func(uintptr) bool
 // definite subtype is a ‘maybe’ type — `G_VARIANT_TYPE_MAYBE`, for
 // example.
 func (x *VariantType) IsMaybe() bool {
+	core.LazyRegister(&xVariantTypeIsMaybe, "GLIB", "g_variant_type_is_maybe", false)
+
 	cret := xVariantTypeIsMaybe(x.GoPointer())
 	return cret
 }
@@ -504,6 +542,8 @@ var xVariantTypeIsSubtypeOf func(uintptr, *VariantType) bool
 // types are considered to be subtypes of themselves.  Aside from that,
 // only indefinite types can have subtypes.
 func (x *VariantType) IsSubtypeOf(SupertypeVar *VariantType) bool {
+	core.LazyRegister(&xVariantTypeIsSubtypeOf, "GLIB", "g_variant_type_is_subtype_of", false)
+
 	cret := xVariantTypeIsSubtypeOf(x.GoPointer(), SupertypeVar)
 	return cret
 }
@@ -519,6 +559,8 @@ var xVariantTypeIsTuple func(uintptr) bool
 // definite subtype is a tuple type — `G_VARIANT_TYPE_TUPLE`, for
 // example.
 func (x *VariantType) IsTuple() bool {
+	core.LazyRegister(&xVariantTypeIsTuple, "GLIB", "g_variant_type_is_tuple", false)
+
 	cret := xVariantTypeIsTuple(x.GoPointer())
 	return cret
 }
@@ -527,6 +569,8 @@ var xVariantTypeIsVariant func(uintptr) bool
 
 // Determines if the given @type is the variant type.
 func (x *VariantType) IsVariant() bool {
+	core.LazyRegister(&xVariantTypeIsVariant, "GLIB", "g_variant_type_is_variant", false)
+
 	cret := xVariantTypeIsVariant(x.GoPointer())
 	return cret
 }
@@ -539,6 +583,8 @@ var xVariantTypeKey func(uintptr) uintptr
 // than the additional restriction, this call is equivalent to
 // [method@GLib.VariantType.first].
 func (x *VariantType) Key() *VariantType {
+	core.LazyRegister(&xVariantTypeKey, "GLIB", "g_variant_type_key", false)
+
 	cret := xVariantTypeKey(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -558,6 +604,8 @@ var xVariantTypeNItems func(uintptr) uint
 // In the case of a dictionary entry type, this function will always
 // return `2`.
 func (x *VariantType) NItems() uint {
+	core.LazyRegister(&xVariantTypeNItems, "GLIB", "g_variant_type_n_items", false)
+
 	cret := xVariantTypeNItems(x.GoPointer())
 	return cret
 }
@@ -576,6 +624,8 @@ var xVariantTypeNext func(uintptr) uintptr
 //
 // For tuples, `NULL` is returned when @type is the last item in the tuple.
 func (x *VariantType) Next() *VariantType {
+	core.LazyRegister(&xVariantTypeNext, "GLIB", "g_variant_type_next", false)
+
 	cret := xVariantTypeNext(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -592,6 +642,8 @@ var xVariantTypePeekString func(uintptr) string
 //
 // To get a nul-terminated string, see [method@GLib.VariantType.dup_string].
 func (x *VariantType) PeekString() string {
+	core.LazyRegister(&xVariantTypePeekString, "GLIB", "g_variant_type_peek_string", false)
+
 	cret := xVariantTypePeekString(x.GoPointer())
 	return cret
 }
@@ -602,6 +654,8 @@ var xVariantTypeValue func(uintptr) uintptr
 //
 // This function may only be used with a dictionary entry type.
 func (x *VariantType) Value() *VariantType {
+	core.LazyRegister(&xVariantTypeValue, "GLIB", "g_variant_type_value", false)
+
 	cret := xVariantTypeValue(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -612,6 +666,8 @@ func (x *VariantType) Value() *VariantType {
 var xVariantTypeChecked func(string) uintptr
 
 func VariantTypeChecked(TypeStringVar string) *VariantType {
+	core.LazyRegister(&xVariantTypeChecked, "GLIB", "g_variant_type_checked_", false)
+
 	cret := xVariantTypeChecked(TypeStringVar)
 	if cret == 0 {
 		return nil
@@ -622,6 +678,8 @@ func VariantTypeChecked(TypeStringVar string) *VariantType {
 var xVariantTypeStringGetDepth func(string) uint
 
 func VariantTypeStringGetDepth(TypeStringVar string) uint {
+	core.LazyRegister(&xVariantTypeStringGetDepth, "GLIB", "g_variant_type_string_get_depth_", false)
+
 	cret := xVariantTypeStringGetDepth(TypeStringVar)
 	return cret
 }
@@ -634,6 +692,8 @@ var xVariantTypeStringIsValid func(string) bool
 // This call is equivalent to calling [func@GLib.VariantType.string_scan] and
 // confirming that the following character is a nul terminator.
 func VariantTypeStringIsValid(TypeStringVar string) bool {
+	core.LazyRegister(&xVariantTypeStringIsValid, "GLIB", "g_variant_type_string_is_valid", false)
+
 	cret := xVariantTypeStringIsValid(TypeStringVar)
 	return cret
 }
@@ -655,6 +715,8 @@ var xVariantTypeStringScan func(string, uintptr, *string) bool
 // For the simple case of checking if a string is a valid type string,
 // see [func@GLib.VariantType.string_is_valid].
 func VariantTypeStringScan(StringVar string, LimitVar *string, EndptrVar *string) bool {
+	core.LazyRegister(&xVariantTypeStringScan, "GLIB", "g_variant_type_string_scan", false)
+
 	LimitVarPtr := core.GStrdupNullable(LimitVar)
 	defer core.GFreeNullable(LimitVarPtr)
 
@@ -665,48 +727,4 @@ func VariantTypeStringScan(StringVar string, LimitVar *string, EndptrVar *string
 func init() {
 	core.SetPackageName("GLIB", "glib-2.0")
 	core.SetSharedLibraries("GLIB", []string{"libgobject-2.0.so.0", "libglib-2.0.so.0", "libgobject-2.0.0.dylib", "libglib-2.0.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GLIB") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xVariantTypeChecked, libs, "g_variant_type_checked_")
-	core.PuregoSafeRegister(&xVariantTypeStringGetDepth, libs, "g_variant_type_string_get_depth_")
-	core.PuregoSafeRegister(&xVariantTypeStringIsValid, libs, "g_variant_type_string_is_valid")
-	core.PuregoSafeRegister(&xVariantTypeStringScan, libs, "g_variant_type_string_scan")
-
-	core.PuregoSafeRegister(&xVariantTypeGLibType, libs, "g_variant_type_get_gtype")
-
-	core.PuregoSafeRegister(&xNewVariantType, libs, "g_variant_type_new")
-	core.PuregoSafeRegister(&xNewVariantTypeArray, libs, "g_variant_type_new_array")
-	core.PuregoSafeRegister(&xNewVariantTypeDictEntry, libs, "g_variant_type_new_dict_entry")
-	core.PuregoSafeRegister(&xNewVariantTypeMaybe, libs, "g_variant_type_new_maybe")
-	core.PuregoSafeRegister(&xNewVariantTypeTuple, libs, "g_variant_type_new_tuple")
-
-	core.PuregoSafeRegister(&xVariantTypeCopy, libs, "g_variant_type_copy")
-	core.PuregoSafeRegister(&xVariantTypeDupString, libs, "g_variant_type_dup_string")
-	core.PuregoSafeRegister(&xVariantTypeElement, libs, "g_variant_type_element")
-	core.PuregoSafeRegister(&xVariantTypeEqual, libs, "g_variant_type_equal")
-	core.PuregoSafeRegister(&xVariantTypeFirst, libs, "g_variant_type_first")
-	core.PuregoSafeRegister(&xVariantTypeFree, libs, "g_variant_type_free")
-	core.PuregoSafeRegister(&xVariantTypeGetStringLength, libs, "g_variant_type_get_string_length")
-	core.PuregoSafeRegister(&xVariantTypeHash, libs, "g_variant_type_hash")
-	core.PuregoSafeRegister(&xVariantTypeIsArray, libs, "g_variant_type_is_array")
-	core.PuregoSafeRegister(&xVariantTypeIsBasic, libs, "g_variant_type_is_basic")
-	core.PuregoSafeRegister(&xVariantTypeIsContainer, libs, "g_variant_type_is_container")
-	core.PuregoSafeRegister(&xVariantTypeIsDefinite, libs, "g_variant_type_is_definite")
-	core.PuregoSafeRegister(&xVariantTypeIsDictEntry, libs, "g_variant_type_is_dict_entry")
-	core.PuregoSafeRegister(&xVariantTypeIsMaybe, libs, "g_variant_type_is_maybe")
-	core.PuregoSafeRegister(&xVariantTypeIsSubtypeOf, libs, "g_variant_type_is_subtype_of")
-	core.PuregoSafeRegister(&xVariantTypeIsTuple, libs, "g_variant_type_is_tuple")
-	core.PuregoSafeRegister(&xVariantTypeIsVariant, libs, "g_variant_type_is_variant")
-	core.PuregoSafeRegister(&xVariantTypeKey, libs, "g_variant_type_key")
-	core.PuregoSafeRegister(&xVariantTypeNItems, libs, "g_variant_type_n_items")
-	core.PuregoSafeRegister(&xVariantTypeNext, libs, "g_variant_type_next")
-	core.PuregoSafeRegister(&xVariantTypePeekString, libs, "g_variant_type_peek_string")
-	core.PuregoSafeRegister(&xVariantTypeValue, libs, "g_variant_type_value")
 }

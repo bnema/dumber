@@ -245,6 +245,7 @@ type DBusInterfaceSkeleton struct {
 var xDBusInterfaceSkeletonGLibType func() types.GType
 
 func DBusInterfaceSkeletonGLibType() types.GType {
+	core.LazyRegister(&xDBusInterfaceSkeletonGLibType, "GIO", "g_dbus_interface_skeleton_get_type", false)
 	return xDBusInterfaceSkeletonGLibType()
 }
 
@@ -264,6 +265,7 @@ var xDBusInterfaceSkeletonExport func(uintptr, uintptr, string, **glib.Error) bo
 //
 // Use g_dbus_interface_skeleton_unexport() to unexport the object.
 func (x *DBusInterfaceSkeleton) Export(ConnectionVar *DBusConnection, ObjectPathVar string) (bool, error) {
+	core.LazyRegister(&xDBusInterfaceSkeletonExport, "GIO", "g_dbus_interface_skeleton_export", false)
 	var cerr *glib.Error
 
 	cret := xDBusInterfaceSkeletonExport(x.GoPointer(), ConnectionVar.GoPointer(), ObjectPathVar, &cerr)
@@ -284,6 +286,8 @@ var xDBusInterfaceSkeletonFlush func(uintptr)
 // signal later (e.g. in an idle handler). This technique is useful
 // for collapsing multiple property changes into one.
 func (x *DBusInterfaceSkeleton) Flush() {
+	core.LazyRegister(&xDBusInterfaceSkeletonFlush, "GIO", "g_dbus_interface_skeleton_flush", false)
+
 	xDBusInterfaceSkeletonFlush(x.GoPointer())
 }
 
@@ -291,6 +295,7 @@ var xDBusInterfaceSkeletonGetConnection func(uintptr) uintptr
 
 // Gets the first connection that @interface_ is exported on, if any.
 func (x *DBusInterfaceSkeleton) GetConnection() *DBusConnection {
+	core.LazyRegister(&xDBusInterfaceSkeletonGetConnection, "GIO", "g_dbus_interface_skeleton_get_connection", false)
 	var cls *DBusConnection
 
 	cret := xDBusInterfaceSkeletonGetConnection(x.GoPointer())
@@ -308,6 +313,8 @@ var xDBusInterfaceSkeletonGetConnections func(uintptr) uintptr
 
 // Gets a list of the connections that @interface_ is exported on.
 func (x *DBusInterfaceSkeleton) GetConnections() *glib.List {
+	core.LazyRegister(&xDBusInterfaceSkeletonGetConnections, "GIO", "g_dbus_interface_skeleton_get_connections", false)
+
 	cret := xDBusInterfaceSkeletonGetConnections(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -320,6 +327,8 @@ var xDBusInterfaceSkeletonGetFlags func(uintptr) DBusInterfaceSkeletonFlags
 // Gets the #GDBusInterfaceSkeletonFlags that describes what the behavior
 // of @interface_
 func (x *DBusInterfaceSkeleton) GetFlags() DBusInterfaceSkeletonFlags {
+	core.LazyRegister(&xDBusInterfaceSkeletonGetFlags, "GIO", "g_dbus_interface_skeleton_get_flags", false)
+
 	cret := xDBusInterfaceSkeletonGetFlags(x.GoPointer())
 	return cret
 }
@@ -329,6 +338,8 @@ var xDBusInterfaceSkeletonGetInfo func(uintptr) uintptr
 // Gets D-Bus introspection information for the D-Bus interface
 // implemented by @interface_.
 func (x *DBusInterfaceSkeleton) GetInfo() *DBusInterfaceInfo {
+	core.LazyRegister(&xDBusInterfaceSkeletonGetInfo, "GIO", "g_dbus_interface_skeleton_get_info", false)
+
 	cret := xDBusInterfaceSkeletonGetInfo(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -340,6 +351,8 @@ var xDBusInterfaceSkeletonGetObjectPath func(uintptr) string
 
 // Gets the object path that @interface_ is exported on, if any.
 func (x *DBusInterfaceSkeleton) GetObjectPath() string {
+	core.LazyRegister(&xDBusInterfaceSkeletonGetObjectPath, "GIO", "g_dbus_interface_skeleton_get_object_path", false)
+
 	cret := xDBusInterfaceSkeletonGetObjectPath(x.GoPointer())
 	return cret
 }
@@ -348,6 +361,8 @@ var xDBusInterfaceSkeletonGetProperties func(uintptr) uintptr
 
 // Gets all D-Bus properties for @interface_.
 func (x *DBusInterfaceSkeleton) GetProperties() *glib.Variant {
+	core.LazyRegister(&xDBusInterfaceSkeletonGetProperties, "GIO", "g_dbus_interface_skeleton_get_properties", false)
+
 	cret := xDBusInterfaceSkeletonGetProperties(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -361,6 +376,8 @@ var xDBusInterfaceSkeletonGetVtable func(uintptr) uintptr
 // @interface_. The returned function pointers should expect @interface_
 // itself to be passed as @user_data.
 func (x *DBusInterfaceSkeleton) GetVtable() *DBusInterfaceVTable {
+	core.LazyRegister(&xDBusInterfaceSkeletonGetVtable, "GIO", "g_dbus_interface_skeleton_get_vtable", false)
+
 	cret := xDBusInterfaceSkeletonGetVtable(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -372,6 +389,8 @@ var xDBusInterfaceSkeletonHasConnection func(uintptr, uintptr) bool
 
 // Checks if @interface_ is exported on @connection.
 func (x *DBusInterfaceSkeleton) HasConnection(ConnectionVar *DBusConnection) bool {
+	core.LazyRegister(&xDBusInterfaceSkeletonHasConnection, "GIO", "g_dbus_interface_skeleton_has_connection", false)
+
 	cret := xDBusInterfaceSkeletonHasConnection(x.GoPointer(), ConnectionVar.GoPointer())
 	return cret
 }
@@ -380,6 +399,8 @@ var xDBusInterfaceSkeletonSetFlags func(uintptr, DBusInterfaceSkeletonFlags)
 
 // Sets flags describing what the behavior of @skeleton should be.
 func (x *DBusInterfaceSkeleton) SetFlags(FlagsVar DBusInterfaceSkeletonFlags) {
+	core.LazyRegister(&xDBusInterfaceSkeletonSetFlags, "GIO", "g_dbus_interface_skeleton_set_flags", false)
+
 	xDBusInterfaceSkeletonSetFlags(x.GoPointer(), FlagsVar)
 }
 
@@ -390,6 +411,8 @@ var xDBusInterfaceSkeletonUnexport func(uintptr)
 // To unexport @interface_ from only a single connection, use
 // g_dbus_interface_skeleton_unexport_from_connection()
 func (x *DBusInterfaceSkeleton) Unexport() {
+	core.LazyRegister(&xDBusInterfaceSkeletonUnexport, "GIO", "g_dbus_interface_skeleton_unexport", false)
+
 	xDBusInterfaceSkeletonUnexport(x.GoPointer())
 }
 
@@ -400,6 +423,8 @@ var xDBusInterfaceSkeletonUnexportFromConnection func(uintptr, uintptr)
 // To stop exporting on all connections the interface is exported on,
 // use g_dbus_interface_skeleton_unexport().
 func (x *DBusInterfaceSkeleton) UnexportFromConnection(ConnectionVar *DBusConnection) {
+	core.LazyRegister(&xDBusInterfaceSkeletonUnexportFromConnection, "GIO", "g_dbus_interface_skeleton_unexport_from_connection", false)
+
 	xDBusInterfaceSkeletonUnexportFromConnection(x.GoPointer(), ConnectionVar.GoPointer())
 }
 
@@ -514,28 +539,4 @@ func (x *DBusInterfaceSkeleton) SetObject(ObjectVar DBusObject) {
 func init() {
 	core.SetPackageName("GIO", "gio-2.0")
 	core.SetSharedLibraries("GIO", []string{"libgio-2.0.so.0", "libgio-2.0.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GIO") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xDBusInterfaceSkeletonGLibType, libs, "g_dbus_interface_skeleton_get_type")
-
-	core.PuregoSafeRegister(&xDBusInterfaceSkeletonExport, libs, "g_dbus_interface_skeleton_export")
-	core.PuregoSafeRegister(&xDBusInterfaceSkeletonFlush, libs, "g_dbus_interface_skeleton_flush")
-	core.PuregoSafeRegister(&xDBusInterfaceSkeletonGetConnection, libs, "g_dbus_interface_skeleton_get_connection")
-	core.PuregoSafeRegister(&xDBusInterfaceSkeletonGetConnections, libs, "g_dbus_interface_skeleton_get_connections")
-	core.PuregoSafeRegister(&xDBusInterfaceSkeletonGetFlags, libs, "g_dbus_interface_skeleton_get_flags")
-	core.PuregoSafeRegister(&xDBusInterfaceSkeletonGetInfo, libs, "g_dbus_interface_skeleton_get_info")
-	core.PuregoSafeRegister(&xDBusInterfaceSkeletonGetObjectPath, libs, "g_dbus_interface_skeleton_get_object_path")
-	core.PuregoSafeRegister(&xDBusInterfaceSkeletonGetProperties, libs, "g_dbus_interface_skeleton_get_properties")
-	core.PuregoSafeRegister(&xDBusInterfaceSkeletonGetVtable, libs, "g_dbus_interface_skeleton_get_vtable")
-	core.PuregoSafeRegister(&xDBusInterfaceSkeletonHasConnection, libs, "g_dbus_interface_skeleton_has_connection")
-	core.PuregoSafeRegister(&xDBusInterfaceSkeletonSetFlags, libs, "g_dbus_interface_skeleton_set_flags")
-	core.PuregoSafeRegister(&xDBusInterfaceSkeletonUnexport, libs, "g_dbus_interface_skeleton_unexport")
-	core.PuregoSafeRegister(&xDBusInterfaceSkeletonUnexportFromConnection, libs, "g_dbus_interface_skeleton_unexport_from_connection")
 }

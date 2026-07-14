@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gdk"
 	"github.com/bnema/puregotk/v4/gdkpixbuf"
@@ -90,6 +89,7 @@ type Picture struct {
 var xPictureGLibType func() types.GType
 
 func PictureGLibType() types.GType {
+	core.LazyRegister(&xPictureGLibType, "GTK", "gtk_picture_get_type", false)
 	return xPictureGLibType()
 }
 
@@ -103,6 +103,7 @@ var xNewPicture func() uintptr
 
 // Creates a new empty `GtkPicture` widget.
 func NewPicture() *Picture {
+	core.LazyRegister(&xNewPicture, "GTK", "gtk_picture_new", false)
 	var cls *Picture
 
 	cret := xNewPicture()
@@ -127,6 +128,7 @@ var xNewPictureForFile func(uintptr) uintptr
 // image loading framework such as libglycin to load the file
 // yourself, then create the `GtkPicture` from the texture.
 func NewPictureForFile(FileVar gio.File) *Picture {
+	core.LazyRegister(&xNewPictureForFile, "GTK", "gtk_picture_new_for_file", false)
 	var cls *Picture
 
 	cret := xNewPictureForFile(FileVar.GoPointer())
@@ -147,6 +149,7 @@ var xNewPictureForFilename func(uintptr) uintptr
 // This is a utility function that calls [ctor@Gtk.Picture.new_for_file].
 // See that function for details.
 func NewPictureForFilename(FilenameVar *string) *Picture {
+	core.LazyRegister(&xNewPictureForFilename, "GTK", "gtk_picture_new_for_filename", false)
 	var cls *Picture
 
 	FilenameVarPtr := core.GStrdupNullable(FilenameVar)
@@ -170,6 +173,7 @@ var xNewPictureForPaintable func(uintptr) uintptr
 // The `GtkPicture` will track changes to the @paintable and update
 // its size and contents in response to it.
 func NewPictureForPaintable(PaintableVar gdk.Paintable) *Picture {
+	core.LazyRegister(&xNewPictureForPaintable, "GTK", "gtk_picture_new_for_paintable", false)
 	var cls *Picture
 
 	cret := xNewPictureForPaintable(PaintableVar.GoPointer())
@@ -192,6 +196,7 @@ var xNewPictureForPixbuf func(uintptr) uintptr
 //
 // The pixbuf must not be modified after passing it to this function.
 func NewPictureForPixbuf(PixbufVar *gdkpixbuf.Pixbuf) *Picture {
+	core.LazyRegister(&xNewPictureForPixbuf, "GTK", "gtk_picture_new_for_pixbuf", false)
 	var cls *Picture
 
 	cret := xNewPictureForPixbuf(PixbufVar.GoPointer())
@@ -212,6 +217,7 @@ var xNewPictureForResource func(uintptr) uintptr
 // This is a utility function that calls [ctor@Gtk.Picture.new_for_file].
 // See that function for details.
 func NewPictureForResource(ResourcePathVar *string) *Picture {
+	core.LazyRegister(&xNewPictureForResource, "GTK", "gtk_picture_new_for_resource", false)
 	var cls *Picture
 
 	ResourcePathVarPtr := core.GStrdupNullable(ResourcePathVar)
@@ -234,6 +240,8 @@ var xPictureGetAlternativeText func(uintptr) string
 //
 // The returned string will be %NULL if the picture cannot be described textually.
 func (x *Picture) GetAlternativeText() string {
+	core.LazyRegister(&xPictureGetAlternativeText, "GTK", "gtk_picture_get_alternative_text", false)
+
 	cret := xPictureGetAlternativeText(x.GoPointer())
 	return cret
 }
@@ -242,6 +250,8 @@ var xPictureGetCanShrink func(uintptr) bool
 
 // Returns whether the `GtkPicture` respects its contents size.
 func (x *Picture) GetCanShrink() bool {
+	core.LazyRegister(&xPictureGetCanShrink, "GTK", "gtk_picture_get_can_shrink", false)
+
 	cret := xPictureGetCanShrink(x.GoPointer())
 	return cret
 }
@@ -252,6 +262,8 @@ var xPictureGetContentFit func(uintptr) ContentFit
 //
 // See [enum@Gtk.ContentFit] for details.
 func (x *Picture) GetContentFit() ContentFit {
+	core.LazyRegister(&xPictureGetContentFit, "GTK", "gtk_picture_get_content_fit", false)
+
 	cret := xPictureGetContentFit(x.GoPointer())
 	return cret
 }
@@ -263,6 +275,7 @@ var xPictureGetFile func(uintptr) uintptr
 // If @self is not displaying a file, for example when
 // [method@Gtk.Picture.set_paintable] was used, then %NULL is returned.
 func (x *Picture) GetFile() *gio.FileBase {
+	core.LazyRegister(&xPictureGetFile, "GTK", "gtk_picture_get_file", false)
 	var cls *gio.FileBase
 
 	cret := xPictureGetFile(x.GoPointer())
@@ -280,6 +293,8 @@ var xPictureGetIsolateContents func(uintptr) bool
 
 // Returns whether the contents are isolated.
 func (x *Picture) GetIsolateContents() bool {
+	core.LazyRegister(&xPictureGetIsolateContents, "GTK", "gtk_picture_get_isolate_contents", false)
+
 	cret := xPictureGetIsolateContents(x.GoPointer())
 	return cret
 }
@@ -288,6 +303,8 @@ var xPictureGetKeepAspectRatio func(uintptr) bool
 
 // Returns whether the `GtkPicture` preserves its contents aspect ratio.
 func (x *Picture) GetKeepAspectRatio() bool {
+	core.LazyRegister(&xPictureGetKeepAspectRatio, "GTK", "gtk_picture_get_keep_aspect_ratio", false)
+
 	cret := xPictureGetKeepAspectRatio(x.GoPointer())
 	return cret
 }
@@ -296,6 +313,7 @@ var xPictureGetPaintable func(uintptr) uintptr
 
 // Gets the `GdkPaintable` being displayed by the `GtkPicture`.
 func (x *Picture) GetPaintable() *gdk.PaintableBase {
+	core.LazyRegister(&xPictureGetPaintable, "GTK", "gtk_picture_get_paintable", false)
 	var cls *gdk.PaintableBase
 
 	cret := xPictureGetPaintable(x.GoPointer())
@@ -319,6 +337,8 @@ var xPictureSetAlternativeText func(uintptr, uintptr)
 //
 // If the picture cannot be described textually, set this property to %NULL.
 func (x *Picture) SetAlternativeText(AlternativeTextVar *string) {
+	core.LazyRegister(&xPictureSetAlternativeText, "GTK", "gtk_picture_set_alternative_text", false)
+
 	AlternativeTextVarPtr := core.GStrdupNullable(AlternativeTextVar)
 	defer core.GFreeNullable(AlternativeTextVarPtr)
 
@@ -338,6 +358,8 @@ var xPictureSetCanShrink func(uintptr, bool)
 // because the grow behavior can be controlled via
 // [method@Gtk.Widget.set_halign] and [method@Gtk.Widget.set_valign].
 func (x *Picture) SetCanShrink(CanShrinkVar bool) {
+	core.LazyRegister(&xPictureSetCanShrink, "GTK", "gtk_picture_set_can_shrink", false)
+
 	xPictureSetCanShrink(x.GoPointer(), CanShrinkVar)
 }
 
@@ -347,6 +369,8 @@ var xPictureSetContentFit func(uintptr, ContentFit)
 //
 // See [enum@Gtk.ContentFit] for details.
 func (x *Picture) SetContentFit(ContentFitVar ContentFit) {
+	core.LazyRegister(&xPictureSetContentFit, "GTK", "gtk_picture_set_content_fit", false)
+
 	xPictureSetContentFit(x.GoPointer(), ContentFitVar)
 }
 
@@ -363,6 +387,8 @@ var xPictureSetFile func(uintptr, uintptr)
 //	load many image formats into a `GdkTexture`, and then use
 //	[method@Gtk.Image.set_from_paintable].
 func (x *Picture) SetFile(FileVar gio.File) {
+	core.LazyRegister(&xPictureSetFile, "GTK", "gtk_picture_set_file", false)
+
 	xPictureSetFile(x.GoPointer(), FileVar.GoPointer())
 }
 
@@ -379,6 +405,8 @@ var xPictureSetFilename func(uintptr, uintptr)
 //	load many image formats into a `GdkTexture`, and then use
 //	[method@Gtk.Image.set_from_paintable].
 func (x *Picture) SetFilename(FilenameVar *string) {
+	core.LazyRegister(&xPictureSetFilename, "GTK", "gtk_picture_set_filename", false)
+
 	FilenameVarPtr := core.GStrdupNullable(FilenameVar)
 	defer core.GFreeNullable(FilenameVarPtr)
 
@@ -398,6 +426,8 @@ var xPictureSetIsolateContents func(uintptr, bool)
 //
 // By default contents are isolated.
 func (x *Picture) SetIsolateContents(IsolateContentsVar bool) {
+	core.LazyRegister(&xPictureSetIsolateContents, "GTK", "gtk_picture_set_isolate_contents", false)
+
 	xPictureSetIsolateContents(x.GoPointer(), IsolateContentsVar)
 }
 
@@ -412,6 +442,8 @@ var xPictureSetKeepAspectRatio func(uintptr, bool)
 // If set to %FALSE or if the contents provide no aspect ratio,
 // the contents will be stretched over the picture's whole area.
 func (x *Picture) SetKeepAspectRatio(KeepAspectRatioVar bool) {
+	core.LazyRegister(&xPictureSetKeepAspectRatio, "GTK", "gtk_picture_set_keep_aspect_ratio", false)
+
 	xPictureSetKeepAspectRatio(x.GoPointer(), KeepAspectRatioVar)
 }
 
@@ -423,6 +455,8 @@ var xPictureSetPaintable func(uintptr, uintptr)
 //
 // See [ctor@Gtk.Picture.new_for_paintable] for details.
 func (x *Picture) SetPaintable(PaintableVar gdk.Paintable) {
+	core.LazyRegister(&xPictureSetPaintable, "GTK", "gtk_picture_set_paintable", false)
+
 	xPictureSetPaintable(x.GoPointer(), PaintableVar.GoPointer())
 }
 
@@ -434,6 +468,8 @@ var xPictureSetPixbuf func(uintptr, uintptr)
 //
 // This is a utility function that calls [method@Gtk.Picture.set_paintable].
 func (x *Picture) SetPixbuf(PixbufVar *gdkpixbuf.Pixbuf) {
+	core.LazyRegister(&xPictureSetPixbuf, "GTK", "gtk_picture_set_pixbuf", false)
+
 	xPictureSetPixbuf(x.GoPointer(), PixbufVar.GoPointer())
 }
 
@@ -444,6 +480,8 @@ var xPictureSetResource func(uintptr, uintptr)
 //
 // This is a utility function that calls [method@Gtk.Picture.set_file].
 func (x *Picture) SetResource(ResourcePathVar *string) {
+	core.LazyRegister(&xPictureSetResource, "GTK", "gtk_picture_set_resource", false)
+
 	ResourcePathVarPtr := core.GStrdupNullable(ResourcePathVar)
 	defer core.GFreeNullable(ResourcePathVarPtr)
 
@@ -794,39 +832,4 @@ func (x *Picture) GetBuildableId() string {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GTK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xPictureGLibType, libs, "gtk_picture_get_type")
-
-	core.PuregoSafeRegister(&xNewPicture, libs, "gtk_picture_new")
-	core.PuregoSafeRegister(&xNewPictureForFile, libs, "gtk_picture_new_for_file")
-	core.PuregoSafeRegister(&xNewPictureForFilename, libs, "gtk_picture_new_for_filename")
-	core.PuregoSafeRegister(&xNewPictureForPaintable, libs, "gtk_picture_new_for_paintable")
-	core.PuregoSafeRegister(&xNewPictureForPixbuf, libs, "gtk_picture_new_for_pixbuf")
-	core.PuregoSafeRegister(&xNewPictureForResource, libs, "gtk_picture_new_for_resource")
-
-	core.PuregoSafeRegister(&xPictureGetAlternativeText, libs, "gtk_picture_get_alternative_text")
-	core.PuregoSafeRegister(&xPictureGetCanShrink, libs, "gtk_picture_get_can_shrink")
-	core.PuregoSafeRegister(&xPictureGetContentFit, libs, "gtk_picture_get_content_fit")
-	core.PuregoSafeRegister(&xPictureGetFile, libs, "gtk_picture_get_file")
-	core.PuregoSafeRegister(&xPictureGetIsolateContents, libs, "gtk_picture_get_isolate_contents")
-	core.PuregoSafeRegister(&xPictureGetKeepAspectRatio, libs, "gtk_picture_get_keep_aspect_ratio")
-	core.PuregoSafeRegister(&xPictureGetPaintable, libs, "gtk_picture_get_paintable")
-	core.PuregoSafeRegister(&xPictureSetAlternativeText, libs, "gtk_picture_set_alternative_text")
-	core.PuregoSafeRegister(&xPictureSetCanShrink, libs, "gtk_picture_set_can_shrink")
-	core.PuregoSafeRegister(&xPictureSetContentFit, libs, "gtk_picture_set_content_fit")
-	core.PuregoSafeRegister(&xPictureSetFile, libs, "gtk_picture_set_file")
-	core.PuregoSafeRegister(&xPictureSetFilename, libs, "gtk_picture_set_filename")
-	core.PuregoSafeRegister(&xPictureSetIsolateContents, libs, "gtk_picture_set_isolate_contents")
-	core.PuregoSafeRegister(&xPictureSetKeepAspectRatio, libs, "gtk_picture_set_keep_aspect_ratio")
-	core.PuregoSafeRegister(&xPictureSetPaintable, libs, "gtk_picture_set_paintable")
-	core.PuregoSafeRegister(&xPictureSetPixbuf, libs, "gtk_picture_set_pixbuf")
-	core.PuregoSafeRegister(&xPictureSetResource, libs, "gtk_picture_set_resource")
 }

@@ -2,7 +2,6 @@
 package soup
 
 import (
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject/types"
 )
@@ -24,6 +23,7 @@ type AuthNegotiate struct {
 var xAuthNegotiateGLibType func() types.GType
 
 func AuthNegotiateGLibType() types.GType {
+	core.LazyRegister(&xAuthNegotiateGLibType, "SOUP", "soup_auth_negotiate_get_type", false)
 	return xAuthNegotiateGLibType()
 }
 
@@ -52,6 +52,8 @@ var xAuthNegotiateSupported func() bool
 // still be added to a [class@Session], but libsoup will never attempt to
 // actually use this auth type.
 func AuthNegotiateSupported() bool {
+	core.LazyRegister(&xAuthNegotiateSupported, "SOUP", "soup_auth_negotiate_supported", false)
+
 	cret := xAuthNegotiateSupported()
 	return cret
 }
@@ -59,16 +61,4 @@ func AuthNegotiateSupported() bool {
 func init() {
 	core.SetPackageName("SOUP", "libsoup-3.0")
 	core.SetSharedLibraries("SOUP", []string{"libsoup-3.0.so.0", "libsoup-3.0.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("SOUP") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xAuthNegotiateGLibType, libs, "soup_auth_negotiate_get_type")
-
-	core.PuregoSafeRegister(&xAuthNegotiateSupported, libs, "soup_auth_negotiate_supported")
 }

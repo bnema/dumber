@@ -2,7 +2,6 @@
 package gtk
 
 import (
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gio"
 	"github.com/bnema/puregotk/v4/glib"
@@ -47,6 +46,7 @@ type FileChooserWidget struct {
 var xFileChooserWidgetGLibType func() types.GType
 
 func FileChooserWidgetGLibType() types.GType {
+	core.LazyRegister(&xFileChooserWidgetGLibType, "GTK", "gtk_file_chooser_widget_get_type", false)
 	return xFileChooserWidgetGLibType()
 }
 
@@ -64,6 +64,7 @@ var xNewFileChooserWidget func(FileChooserAction) uintptr
 // windows, and it is the same widget that is used by
 // `GtkFileChooserDialog`.
 func NewFileChooserWidget(ActionVar FileChooserAction) *FileChooserWidget {
+	core.LazyRegister(&xNewFileChooserWidget, "GTK", "gtk_file_chooser_widget_new", false)
 	var cls *FileChooserWidget
 
 	cret := xNewFileChooserWidget(ActionVar)
@@ -1080,16 +1081,4 @@ func (x *FileChooserWidget) SetSelectMultiple(SelectMultipleVar bool) {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GTK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xFileChooserWidgetGLibType, libs, "gtk_file_chooser_widget_get_type")
-
-	core.PuregoSafeRegister(&xNewFileChooserWidget, libs, "gtk_file_chooser_widget_new")
 }

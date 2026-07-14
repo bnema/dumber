@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject/types"
 )
@@ -50,6 +49,7 @@ type Feature struct {
 var xFeatureGLibType func() types.GType
 
 func FeatureGLibType() types.GType {
+	core.LazyRegister(&xFeatureGLibType, "WEBKIT", "webkit_feature_get_type", false)
 	return xFeatureGLibType()
 }
 
@@ -72,6 +72,8 @@ var xFeatureGetCategory func(uintptr) string
 // Applications which include user interface to toggle features may want
 // to use the category to group related features together.
 func (x *Feature) GetCategory() string {
+	core.LazyRegister(&xFeatureGetCategory, "WEBKIT", "webkit_feature_get_category", false)
+
 	cret := xFeatureGetCategory(x.GoPointer())
 	return cret
 }
@@ -85,6 +87,8 @@ var xFeatureGetDefaultValue func(uintptr) bool
 // whether a feature is actually enabled must be checked with
 // [method@Settings.get_feature_enabled].
 func (x *Feature) GetDefaultValue() bool {
+	core.LazyRegister(&xFeatureGetDefaultValue, "WEBKIT", "webkit_feature_get_default_value", false)
+
 	cret := xFeatureGetDefaultValue(x.GoPointer())
 	return cret
 }
@@ -102,6 +106,8 @@ var xFeatureGetDetails func(uintptr) string
 // Note that some *features may not* have a detailed description, and @NULL
 // is returned in this case.
 func (x *Feature) GetDetails() string {
+	core.LazyRegister(&xFeatureGetDetails, "WEBKIT", "webkit_feature_get_details", false)
+
 	cret := xFeatureGetDetails(x.GoPointer())
 	return cret
 }
@@ -110,6 +116,8 @@ var xFeatureGetIdentifier func(uintptr) string
 
 // Gets a string that uniquely identifies the @feature.
 func (x *Feature) GetIdentifier() string {
+	core.LazyRegister(&xFeatureGetIdentifier, "WEBKIT", "webkit_feature_get_identifier", false)
+
 	cret := xFeatureGetIdentifier(x.GoPointer())
 	return cret
 }
@@ -124,6 +132,8 @@ var xFeatureGetName func(uintptr) string
 // Note that some *features may not* have a short name, and @NULL
 // is returned in this case.
 func (x *Feature) GetName() string {
+	core.LazyRegister(&xFeatureGetName, "WEBKIT", "webkit_feature_get_name", false)
+
 	cret := xFeatureGetName(x.GoPointer())
 	return cret
 }
@@ -132,6 +142,8 @@ var xFeatureGetStatus func(uintptr) FeatureStatus
 
 // Gets the status of the feature.
 func (x *Feature) GetStatus() FeatureStatus {
+	core.LazyRegister(&xFeatureGetStatus, "WEBKIT", "webkit_feature_get_status", false)
+
 	cret := xFeatureGetStatus(x.GoPointer())
 	return cret
 }
@@ -142,6 +154,8 @@ var xFeatureRef func(uintptr) uintptr
 //
 // This function is MT-safe and may be called from any thread.
 func (x *Feature) Ref() *Feature {
+	core.LazyRegister(&xFeatureRef, "WEBKIT", "webkit_feature_ref", false)
+
 	cret := xFeatureRef(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -157,6 +171,8 @@ var xFeatureUnref func(uintptr)
 // @feature are freed. This function is MT-safe and may be called from
 // any thread.
 func (x *Feature) Unref() {
+	core.LazyRegister(&xFeatureUnref, "WEBKIT", "webkit_feature_unref", false)
+
 	xFeatureUnref(x.GoPointer())
 }
 
@@ -186,6 +202,7 @@ type FeatureList struct {
 var xFeatureListGLibType func() types.GType
 
 func FeatureListGLibType() types.GType {
+	core.LazyRegister(&xFeatureListGLibType, "WEBKIT", "webkit_feature_list_get_type", false)
 	return xFeatureListGLibType()
 }
 
@@ -205,6 +222,8 @@ var xFeatureListGet func(uintptr, uint) uintptr
 
 // Gets a feature given its index.
 func (x *FeatureList) Get(IndexVar uint) *Feature {
+	core.LazyRegister(&xFeatureListGet, "WEBKIT", "webkit_feature_list_get", false)
+
 	cret := xFeatureListGet(x.GoPointer(), IndexVar)
 	if cret == 0 {
 		return nil
@@ -216,6 +235,8 @@ var xFeatureListGetLength func(uintptr) uint
 
 // Gets the number of elements in the feature list.
 func (x *FeatureList) GetLength() uint {
+	core.LazyRegister(&xFeatureListGetLength, "WEBKIT", "webkit_feature_list_get_length", false)
+
 	cret := xFeatureListGetLength(x.GoPointer())
 	return cret
 }
@@ -226,6 +247,8 @@ var xFeatureListRef func(uintptr) uintptr
 //
 // This function is MT-safe and may be called from any thread.
 func (x *FeatureList) Ref() *FeatureList {
+	core.LazyRegister(&xFeatureListRef, "WEBKIT", "webkit_feature_list_ref", false)
+
 	cret := xFeatureListRef(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -241,6 +264,8 @@ var xFeatureListUnref func(uintptr)
 // @feature_list are freed. This function is MT-safe and may be called
 // from any thread.
 func (x *FeatureList) Unref() {
+	core.LazyRegister(&xFeatureListUnref, "WEBKIT", "webkit_feature_list_unref", false)
+
 	xFeatureListUnref(x.GoPointer())
 }
 
@@ -253,6 +278,7 @@ type FeatureStatus int
 var xFeatureStatusGLibType func() types.GType
 
 func FeatureStatusGLibType() types.GType {
+	core.LazyRegister(&xFeatureStatusGLibType, "WEBKIT", "webkit_feature_status_get_type", false)
 	return xFeatureStatusGLibType()
 }
 
@@ -294,32 +320,7 @@ const (
 func init() {
 	core.SetPackageName("WEBKIT", "webkitgtk-6.0")
 	core.SetSharedLibraries("WEBKIT", []string{"libwebkitgtk-6.0.so.4", "libjavascriptcoregtk-6.0.so.1", "libwebkitgtk-6.0.4.dylib", "libjavascriptcoregtk-6.0.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("WEBKIT") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
 
-	core.PuregoSafeRegister(&xFeatureStatusGLibType, libs, "webkit_feature_status_get_type")
-
-	core.PuregoSafeRegister(&xFeatureGLibType, libs, "webkit_feature_get_type")
-
-	core.PuregoSafeRegister(&xFeatureGetCategory, libs, "webkit_feature_get_category")
-	core.PuregoSafeRegister(&xFeatureGetDefaultValue, libs, "webkit_feature_get_default_value")
-	core.PuregoSafeRegister(&xFeatureGetDetails, libs, "webkit_feature_get_details")
-	core.PuregoSafeRegister(&xFeatureGetIdentifier, libs, "webkit_feature_get_identifier")
-	core.PuregoSafeRegister(&xFeatureGetName, libs, "webkit_feature_get_name")
-	core.PuregoSafeRegister(&xFeatureGetStatus, libs, "webkit_feature_get_status")
-	core.PuregoSafeRegister(&xFeatureRef, libs, "webkit_feature_ref")
-	core.PuregoSafeRegister(&xFeatureUnref, libs, "webkit_feature_unref")
-
-	core.PuregoSafeRegister(&xFeatureListGLibType, libs, "webkit_feature_list_get_type")
-
-	core.PuregoSafeRegister(&xFeatureListGet, libs, "webkit_feature_list_get")
-	core.PuregoSafeRegister(&xFeatureListGetLength, libs, "webkit_feature_list_get_length")
-	core.PuregoSafeRegister(&xFeatureListRef, libs, "webkit_feature_list_ref")
-	core.PuregoSafeRegister(&xFeatureListUnref, libs, "webkit_feature_list_unref")
+	// Manually register types since they aren't automatically registered when
+	// WebKit is loaded. See https://bugs.webkit.org/show_bug.cgi?id=175937.
 }

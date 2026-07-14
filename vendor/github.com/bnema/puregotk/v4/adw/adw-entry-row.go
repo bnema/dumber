@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -75,6 +74,7 @@ type EntryRow struct {
 var xEntryRowGLibType func() types.GType
 
 func EntryRowGLibType() types.GType {
+	core.LazyRegister(&xEntryRowGLibType, "ADW", "adw_entry_row_get_type", false)
 	return xEntryRowGLibType()
 }
 
@@ -88,6 +88,7 @@ var xNewEntryRow func() uintptr
 
 // Creates a new `AdwEntryRow`.
 func NewEntryRow() *EntryRow {
+	core.LazyRegister(&xNewEntryRow, "ADW", "adw_entry_row_new", false)
 	var cls *EntryRow
 
 	cret := xNewEntryRow()
@@ -105,6 +106,8 @@ var xEntryRowAddPrefix func(uintptr, uintptr)
 
 // Adds a prefix widget to @self.
 func (x *EntryRow) AddPrefix(WidgetVar *gtk.Widget) {
+	core.LazyRegister(&xEntryRowAddPrefix, "ADW", "adw_entry_row_add_prefix", false)
+
 	xEntryRowAddPrefix(x.GoPointer(), WidgetVar.GoPointer())
 }
 
@@ -112,6 +115,8 @@ var xEntryRowAddSuffix func(uintptr, uintptr)
 
 // Adds a suffix widget to @self.
 func (x *EntryRow) AddSuffix(WidgetVar *gtk.Widget) {
+	core.LazyRegister(&xEntryRowAddSuffix, "ADW", "adw_entry_row_add_suffix", false)
+
 	xEntryRowAddSuffix(x.GoPointer(), WidgetVar.GoPointer())
 }
 
@@ -119,6 +124,8 @@ var xEntryRowGetActivatesDefault func(uintptr) bool
 
 // Gets whether activating the embedded entry can activate the default widget.
 func (x *EntryRow) GetActivatesDefault() bool {
+	core.LazyRegister(&xEntryRowGetActivatesDefault, "ADW", "adw_entry_row_get_activates_default", false)
+
 	cret := xEntryRowGetActivatesDefault(x.GoPointer())
 	return cret
 }
@@ -127,6 +134,8 @@ var xEntryRowGetAttributes func(uintptr) uintptr
 
 // Gets Pango attributes applied to the text of the embedded entry.
 func (x *EntryRow) GetAttributes() *pango.AttrList {
+	core.LazyRegister(&xEntryRowGetAttributes, "ADW", "adw_entry_row_get_attributes", false)
+
 	cret := xEntryRowGetAttributes(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -138,6 +147,8 @@ var xEntryRowGetEnableEmojiCompletion func(uintptr) bool
 
 // Gets whether to suggest emoji replacements on @self.
 func (x *EntryRow) GetEnableEmojiCompletion() bool {
+	core.LazyRegister(&xEntryRowGetEnableEmojiCompletion, "ADW", "adw_entry_row_get_enable_emoji_completion", false)
+
 	cret := xEntryRowGetEnableEmojiCompletion(x.GoPointer())
 	return cret
 }
@@ -146,6 +157,8 @@ var xEntryRowGetInputHints func(uintptr) gtk.InputHints
 
 // Gets the additional input hints of @self.
 func (x *EntryRow) GetInputHints() gtk.InputHints {
+	core.LazyRegister(&xEntryRowGetInputHints, "ADW", "adw_entry_row_get_input_hints", false)
+
 	cret := xEntryRowGetInputHints(x.GoPointer())
 	return cret
 }
@@ -154,6 +167,8 @@ var xEntryRowGetInputPurpose func(uintptr) gtk.InputPurpose
 
 // Gets the input purpose of @self.
 func (x *EntryRow) GetInputPurpose() gtk.InputPurpose {
+	core.LazyRegister(&xEntryRowGetInputPurpose, "ADW", "adw_entry_row_get_input_purpose", false)
+
 	cret := xEntryRowGetInputPurpose(x.GoPointer())
 	return cret
 }
@@ -162,6 +177,8 @@ var xEntryRowGetMaxLength func(uintptr) int
 
 // Retrieves the maximum length of the entry.
 func (x *EntryRow) GetMaxLength() int {
+	core.LazyRegister(&xEntryRowGetMaxLength, "ADW", "adw_entry_row_get_max_length", false)
+
 	cret := xEntryRowGetMaxLength(x.GoPointer())
 	return cret
 }
@@ -170,6 +187,8 @@ var xEntryRowGetShowApplyButton func(uintptr) bool
 
 // Gets whether @self can show the apply button.
 func (x *EntryRow) GetShowApplyButton() bool {
+	core.LazyRegister(&xEntryRowGetShowApplyButton, "ADW", "adw_entry_row_get_show_apply_button", false)
+
 	cret := xEntryRowGetShowApplyButton(x.GoPointer())
 	return cret
 }
@@ -178,6 +197,8 @@ var xEntryRowGetTextLength func(uintptr) uint
 
 // Retrieves the current length of the text in @self.
 func (x *EntryRow) GetTextLength() uint {
+	core.LazyRegister(&xEntryRowGetTextLength, "ADW", "adw_entry_row_get_text_length", false)
+
 	cret := xEntryRowGetTextLength(x.GoPointer())
 	return cret
 }
@@ -188,6 +209,8 @@ var xEntryRowGrabFocusWithoutSelecting func(uintptr) bool
 //
 // See [method@Gtk.Text.grab_focus_without_selecting] for more information.
 func (x *EntryRow) GrabFocusWithoutSelecting() bool {
+	core.LazyRegister(&xEntryRowGrabFocusWithoutSelecting, "ADW", "adw_entry_row_grab_focus_without_selecting", false)
+
 	cret := xEntryRowGrabFocusWithoutSelecting(x.GoPointer())
 	return cret
 }
@@ -196,6 +219,8 @@ var xEntryRowRemove func(uintptr, uintptr)
 
 // Removes a child from @self.
 func (x *EntryRow) Remove(WidgetVar *gtk.Widget) {
+	core.LazyRegister(&xEntryRowRemove, "ADW", "adw_entry_row_remove", false)
+
 	xEntryRowRemove(x.GoPointer(), WidgetVar.GoPointer())
 }
 
@@ -203,6 +228,8 @@ var xEntryRowSetActivatesDefault func(uintptr, bool)
 
 // Sets whether activating the embedded entry can activate the default widget.
 func (x *EntryRow) SetActivatesDefault(ActivatesVar bool) {
+	core.LazyRegister(&xEntryRowSetActivatesDefault, "ADW", "adw_entry_row_set_activates_default", false)
+
 	xEntryRowSetActivatesDefault(x.GoPointer(), ActivatesVar)
 }
 
@@ -213,6 +240,8 @@ var xEntryRowSetAttributes func(uintptr, *pango.AttrList)
 // The [struct@Pango.Attribute]'s `start_index` and `end_index` must refer to
 // the [class@Gtk.EntryBuffer] text, i.e. without the preedit string.
 func (x *EntryRow) SetAttributes(AttributesVar *pango.AttrList) {
+	core.LazyRegister(&xEntryRowSetAttributes, "ADW", "adw_entry_row_set_attributes", false)
+
 	xEntryRowSetAttributes(x.GoPointer(), AttributesVar)
 }
 
@@ -222,6 +251,8 @@ var xEntryRowSetEnableEmojiCompletion func(uintptr, bool)
 //
 // Emoji replacement is done with :-delimited names, like `:heart:`.
 func (x *EntryRow) SetEnableEmojiCompletion(EnableEmojiCompletionVar bool) {
+	core.LazyRegister(&xEntryRowSetEnableEmojiCompletion, "ADW", "adw_entry_row_set_enable_emoji_completion", false)
+
 	xEntryRowSetEnableEmojiCompletion(x.GoPointer(), EnableEmojiCompletionVar)
 }
 
@@ -233,6 +264,8 @@ var xEntryRowSetInputHints func(uintptr, gtk.InputHints)
 //
 // See also: [property@AdwEntryRow:input-purpose]
 func (x *EntryRow) SetInputHints(HintsVar gtk.InputHints) {
+	core.LazyRegister(&xEntryRowSetInputHints, "ADW", "adw_entry_row_set_input_hints", false)
+
 	xEntryRowSetInputHints(x.GoPointer(), HintsVar)
 }
 
@@ -242,6 +275,8 @@ var xEntryRowSetInputPurpose func(uintptr, gtk.InputPurpose)
 //
 // The input purpose can be used by input methods to adjust their behavior.
 func (x *EntryRow) SetInputPurpose(PurposeVar gtk.InputPurpose) {
+	core.LazyRegister(&xEntryRowSetInputPurpose, "ADW", "adw_entry_row_set_input_purpose", false)
+
 	xEntryRowSetInputPurpose(x.GoPointer(), PurposeVar)
 }
 
@@ -249,6 +284,8 @@ var xEntryRowSetMaxLength func(uintptr, int)
 
 // Sets the maximum length of the entry.
 func (x *EntryRow) SetMaxLength(MaxLengthVar int) {
+	core.LazyRegister(&xEntryRowSetMaxLength, "ADW", "adw_entry_row_set_max_length", false)
+
 	xEntryRowSetMaxLength(x.GoPointer(), MaxLengthVar)
 }
 
@@ -264,6 +301,8 @@ var xEntryRowSetShowApplyButton func(uintptr, bool)
 // operation, e.g. network activity, to avoid triggering it after typing every
 // character.
 func (x *EntryRow) SetShowApplyButton(ShowApplyButtonVar bool) {
+	core.LazyRegister(&xEntryRowSetShowApplyButton, "ADW", "adw_entry_row_set_show_apply_button", false)
+
 	xEntryRowSetShowApplyButton(x.GoPointer(), ShowApplyButtonVar)
 }
 
@@ -1035,36 +1074,4 @@ func (x *EntryRow) SetWidthChars(NCharsVar int) {
 func init() {
 	core.SetPackageName("ADW", "libadwaita-1")
 	core.SetSharedLibraries("ADW", []string{"libadwaita-1.so.0", "libadwaita-1.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("ADW") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xEntryRowGLibType, libs, "adw_entry_row_get_type")
-
-	core.PuregoSafeRegister(&xNewEntryRow, libs, "adw_entry_row_new")
-
-	core.PuregoSafeRegister(&xEntryRowAddPrefix, libs, "adw_entry_row_add_prefix")
-	core.PuregoSafeRegister(&xEntryRowAddSuffix, libs, "adw_entry_row_add_suffix")
-	core.PuregoSafeRegister(&xEntryRowGetActivatesDefault, libs, "adw_entry_row_get_activates_default")
-	core.PuregoSafeRegister(&xEntryRowGetAttributes, libs, "adw_entry_row_get_attributes")
-	core.PuregoSafeRegister(&xEntryRowGetEnableEmojiCompletion, libs, "adw_entry_row_get_enable_emoji_completion")
-	core.PuregoSafeRegister(&xEntryRowGetInputHints, libs, "adw_entry_row_get_input_hints")
-	core.PuregoSafeRegister(&xEntryRowGetInputPurpose, libs, "adw_entry_row_get_input_purpose")
-	core.PuregoSafeRegister(&xEntryRowGetMaxLength, libs, "adw_entry_row_get_max_length")
-	core.PuregoSafeRegister(&xEntryRowGetShowApplyButton, libs, "adw_entry_row_get_show_apply_button")
-	core.PuregoSafeRegister(&xEntryRowGetTextLength, libs, "adw_entry_row_get_text_length")
-	core.PuregoSafeRegister(&xEntryRowGrabFocusWithoutSelecting, libs, "adw_entry_row_grab_focus_without_selecting")
-	core.PuregoSafeRegister(&xEntryRowRemove, libs, "adw_entry_row_remove")
-	core.PuregoSafeRegister(&xEntryRowSetActivatesDefault, libs, "adw_entry_row_set_activates_default")
-	core.PuregoSafeRegister(&xEntryRowSetAttributes, libs, "adw_entry_row_set_attributes")
-	core.PuregoSafeRegister(&xEntryRowSetEnableEmojiCompletion, libs, "adw_entry_row_set_enable_emoji_completion")
-	core.PuregoSafeRegister(&xEntryRowSetInputHints, libs, "adw_entry_row_set_input_hints")
-	core.PuregoSafeRegister(&xEntryRowSetInputPurpose, libs, "adw_entry_row_set_input_purpose")
-	core.PuregoSafeRegister(&xEntryRowSetMaxLength, libs, "adw_entry_row_set_max_length")
-	core.PuregoSafeRegister(&xEntryRowSetShowApplyButton, libs, "adw_entry_row_set_show_apply_button")
 }

@@ -2,7 +2,6 @@
 package pango
 
 import (
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject/types"
 )
@@ -25,6 +24,7 @@ type Gravity int
 var xGravityGLibType func() types.GType
 
 func GravityGLibType() types.GType {
+	core.LazyRegister(&xGravityGLibType, "PANGO", "pango_gravity_get_type", false)
 	return xGravityGLibType()
 }
 
@@ -53,6 +53,7 @@ type GravityHint int
 var xGravityHintGLibType func() types.GType
 
 func GravityHintGLibType() types.GType {
+	core.LazyRegister(&xGravityHintGLibType, "PANGO", "pango_gravity_hint_get_type", false)
 	return xGravityHintGLibType()
 }
 
@@ -76,6 +77,8 @@ var xGravityGetForMatrix func(*Matrix) Gravity
 // Finds the gravity that best matches the rotation component
 // in a `PangoMatrix`.
 func GravityGetForMatrix(MatrixVar *Matrix) Gravity {
+	core.LazyRegister(&xGravityGetForMatrix, "PANGO", "pango_gravity_get_for_matrix", false)
+
 	cret := xGravityGetForMatrix(MatrixVar)
 	return cret
 }
@@ -90,6 +93,8 @@ var xGravityGetForScript func(Script, Gravity, GravityHint) Gravity
 // preferred gravity of @script.  To get the preferred gravity of a script,
 // pass %PANGO_GRAVITY_AUTO and %PANGO_GRAVITY_HINT_STRONG in.
 func GravityGetForScript(ScriptVar Script, BaseGravityVar Gravity, HintVar GravityHint) Gravity {
+	core.LazyRegister(&xGravityGetForScript, "PANGO", "pango_gravity_get_for_script", false)
+
 	cret := xGravityGetForScript(ScriptVar, BaseGravityVar, HintVar)
 	return cret
 }
@@ -112,6 +117,8 @@ var xGravityGetForScriptAndWidth func(Script, bool, Gravity, GravityHint) Gravit
 // If @base_gravity is %PANGO_GRAVITY_AUTO, it is first replaced with the
 // preferred gravity of @script.
 func GravityGetForScriptAndWidth(ScriptVar Script, WideVar bool, BaseGravityVar Gravity, HintVar GravityHint) Gravity {
+	core.LazyRegister(&xGravityGetForScriptAndWidth, "PANGO", "pango_gravity_get_for_script_and_width", false)
+
 	cret := xGravityGetForScriptAndWidth(ScriptVar, WideVar, BaseGravityVar, HintVar)
 	return cret
 }
@@ -124,6 +131,8 @@ var xGravityToRotation func(Gravity) float64
 // So, to call [method@Pango.Matrix,rotate] with the output of this function
 // you should multiply it by (180. / G_PI).
 func GravityToRotation(GravityVar Gravity) float64 {
+	core.LazyRegister(&xGravityToRotation, "PANGO", "pango_gravity_to_rotation", false)
+
 	cret := xGravityToRotation(GravityVar)
 	return cret
 }
@@ -131,21 +140,4 @@ func GravityToRotation(GravityVar Gravity) float64 {
 func init() {
 	core.SetPackageName("PANGO", "pango")
 	core.SetSharedLibraries("PANGO", []string{"libpango-1.0.so.0", "libpango-1.0.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("PANGO") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xGravityGLibType, libs, "pango_gravity_get_type")
-
-	core.PuregoSafeRegister(&xGravityHintGLibType, libs, "pango_gravity_hint_get_type")
-
-	core.PuregoSafeRegister(&xGravityGetForMatrix, libs, "pango_gravity_get_for_matrix")
-	core.PuregoSafeRegister(&xGravityGetForScript, libs, "pango_gravity_get_for_script")
-	core.PuregoSafeRegister(&xGravityGetForScriptAndWidth, libs, "pango_gravity_get_for_script_and_width")
-	core.PuregoSafeRegister(&xGravityToRotation, libs, "pango_gravity_to_rotation")
 }

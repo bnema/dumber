@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject/types"
 )
@@ -178,6 +177,7 @@ type Uri struct {
 var xUriGLibType func() types.GType
 
 func UriGLibType() types.GType {
+	core.LazyRegister(&xUriGLibType, "GLIB", "g_uri_get_type", false)
 	return xUriGLibType()
 }
 
@@ -203,6 +203,8 @@ var xUriGetAuthParams func(uintptr) string
 // Depending on the URI scheme, g_uri_parse_params() may be useful for
 // further parsing this information.
 func (x *Uri) GetAuthParams() string {
+	core.LazyRegister(&xUriGetAuthParams, "GLIB", "g_uri_get_auth_params", false)
+
 	cret := xUriGetAuthParams(x.GoPointer())
 	return cret
 }
@@ -211,6 +213,8 @@ var xUriGetFlags func(uintptr) UriFlags
 
 // Gets @uri's flags set upon construction.
 func (x *Uri) GetFlags() UriFlags {
+	core.LazyRegister(&xUriGetFlags, "GLIB", "g_uri_get_flags", false)
+
 	cret := xUriGetFlags(x.GoPointer())
 	return cret
 }
@@ -220,6 +224,8 @@ var xUriGetFragment func(uintptr) string
 // Gets @uri's fragment, which may contain `%`-encoding, depending on
 // the flags with which @uri was created.
 func (x *Uri) GetFragment() string {
+	core.LazyRegister(&xUriGetFragment, "GLIB", "g_uri_get_fragment", false)
+
 	cret := xUriGetFragment(x.GoPointer())
 	return cret
 }
@@ -236,6 +242,8 @@ var xUriGetHost func(uintptr) string
 // be a scope ID attached to the address. Eg, `fe80::1234%“em1` (or
 // `fe80::1234%“25em1` if the string is still encoded).
 func (x *Uri) GetHost() string {
+	core.LazyRegister(&xUriGetHost, "GLIB", "g_uri_get_host", false)
+
 	cret := xUriGetHost(x.GoPointer())
 	return cret
 }
@@ -246,6 +254,8 @@ var xUriGetPassword func(uintptr) string
 // the flags with which @uri was created. (If @uri was not created
 // with %G_URI_FLAGS_HAS_PASSWORD then this will be %NULL.)
 func (x *Uri) GetPassword() string {
+	core.LazyRegister(&xUriGetPassword, "GLIB", "g_uri_get_password", false)
+
 	cret := xUriGetPassword(x.GoPointer())
 	return cret
 }
@@ -255,6 +265,8 @@ var xUriGetPath func(uintptr) string
 // Gets @uri's path, which may contain `%`-encoding, depending on the
 // flags with which @uri was created.
 func (x *Uri) GetPath() string {
+	core.LazyRegister(&xUriGetPath, "GLIB", "g_uri_get_path", false)
+
 	cret := xUriGetPath(x.GoPointer())
 	return cret
 }
@@ -263,6 +275,8 @@ var xUriGetPort func(uintptr) int
 
 // Gets @uri's port.
 func (x *Uri) GetPort() int {
+	core.LazyRegister(&xUriGetPort, "GLIB", "g_uri_get_port", false)
+
 	cret := xUriGetPort(x.GoPointer())
 	return cret
 }
@@ -275,6 +289,8 @@ var xUriGetQuery func(uintptr) string
 // For queries consisting of a series of `name=value` parameters,
 // #GUriParamsIter or g_uri_parse_params() may be useful.
 func (x *Uri) GetQuery() string {
+	core.LazyRegister(&xUriGetQuery, "GLIB", "g_uri_get_query", false)
+
 	cret := xUriGetQuery(x.GoPointer())
 	return cret
 }
@@ -284,6 +300,8 @@ var xUriGetScheme func(uintptr) string
 // Gets @uri's scheme. Note that this will always be all-lowercase,
 // regardless of the string or strings that @uri was created from.
 func (x *Uri) GetScheme() string {
+	core.LazyRegister(&xUriGetScheme, "GLIB", "g_uri_get_scheme", false)
+
 	cret := xUriGetScheme(x.GoPointer())
 	return cret
 }
@@ -295,6 +313,8 @@ var xUriGetUser func(uintptr) string
 // If @uri was not created with %G_URI_FLAGS_HAS_PASSWORD or
 // %G_URI_FLAGS_HAS_AUTH_PARAMS, this is the same as g_uri_get_userinfo().
 func (x *Uri) GetUser() string {
+	core.LazyRegister(&xUriGetUser, "GLIB", "g_uri_get_user", false)
+
 	cret := xUriGetUser(x.GoPointer())
 	return cret
 }
@@ -304,6 +324,8 @@ var xUriGetUserinfo func(uintptr) string
 // Gets @uri's userinfo, which may contain `%`-encoding, depending on
 // the flags with which @uri was created.
 func (x *Uri) GetUserinfo() string {
+	core.LazyRegister(&xUriGetUserinfo, "GLIB", "g_uri_get_userinfo", false)
+
 	cret := xUriGetUserinfo(x.GoPointer())
 	return cret
 }
@@ -315,6 +337,7 @@ var xUriParseRelative func(uintptr, string, UriFlags, **Error) uintptr
 // If the result is not a valid absolute URI, it will be discarded, and an error
 // returned.
 func (x *Uri) ParseRelative(UriRefVar string, FlagsVar UriFlags) (*Uri, error) {
+	core.LazyRegister(&xUriParseRelative, "GLIB", "g_uri_parse_relative", false)
 	var cerr *Error
 
 	cret := xUriParseRelative(x.GoPointer(), UriRefVar, FlagsVar, &cerr)
@@ -331,6 +354,8 @@ var xUriRef func(uintptr) uintptr
 
 // Increments the reference count of @uri by one.
 func (x *Uri) Ref() *Uri {
+	core.LazyRegister(&xUriRef, "GLIB", "g_uri_ref", false)
+
 	cret := xUriRef(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -353,6 +378,8 @@ var xUriToString func(uintptr) string
 // or private data in its query string, and the returned string is going to be
 // logged, then consider using g_uri_to_string_partial() to redact parts.
 func (x *Uri) ToString() string {
+	core.LazyRegister(&xUriToString, "GLIB", "g_uri_to_string", false)
+
 	cret := xUriToString(x.GoPointer())
 	return cret
 }
@@ -362,6 +389,8 @@ var xUriToStringPartial func(uintptr, UriHideFlags) string
 // Returns a string representing @uri, subject to the options in
 // @flags. See g_uri_to_string() and #GUriHideFlags for more details.
 func (x *Uri) ToStringPartial(FlagsVar UriHideFlags) string {
+	core.LazyRegister(&xUriToStringPartial, "GLIB", "g_uri_to_string_partial", false)
+
 	cret := xUriToStringPartial(x.GoPointer(), FlagsVar)
 	return cret
 }
@@ -373,6 +402,8 @@ var xUriUnref func(uintptr)
 // When the reference count reaches zero, the resources allocated by
 // @uri are freed
 func (x *Uri) Unref() {
+	core.LazyRegister(&xUriUnref, "GLIB", "g_uri_unref", false)
+
 	xUriUnref(x.GoPointer())
 }
 
@@ -449,6 +480,8 @@ var xUriParamsIterInit func(uintptr, string, int, string, UriParamsFlags)
 //
 // ]|
 func (x *UriParamsIter) Init(ParamsVar string, LengthVar int, SeparatorsVar string, FlagsVar UriParamsFlags) {
+	core.LazyRegister(&xUriParamsIterInit, "GLIB", "g_uri_params_iter_init", false)
+
 	xUriParamsIterInit(x.GoPointer(), ParamsVar, LengthVar, SeparatorsVar, FlagsVar)
 }
 
@@ -464,6 +497,7 @@ var xUriParamsIterNext func(uintptr, *string, *string, **Error) bool
 // Note that the same @attribute may be returned multiple times, since URIs
 // allow repeated attributes.
 func (x *UriParamsIter) Next(AttributeVar *string, ValueVar *string) (bool, error) {
+	core.LazyRegister(&xUriParamsIterNext, "GLIB", "g_uri_params_iter_next", false)
 	var cerr *Error
 
 	cret := xUriParamsIterNext(x.GoPointer(), AttributeVar, ValueVar, &cerr)
@@ -607,6 +641,8 @@ var xUriBuild func(UriFlags, string, uintptr, uintptr, int, string, uintptr, uin
 // See also g_uri_build_with_user(), which allows specifying the
 // components of the "userinfo" separately.
 func UriBuild(FlagsVar UriFlags, SchemeVar string, UserinfoVar *string, HostVar *string, PortVar int, PathVar string, QueryVar *string, FragmentVar *string) *Uri {
+	core.LazyRegister(&xUriBuild, "GLIB", "g_uri_build", false)
+
 	UserinfoVarPtr := core.GStrdupNullable(UserinfoVar)
 	defer core.GFreeNullable(UserinfoVarPtr)
 
@@ -637,6 +673,8 @@ var xUriBuildWithUser func(UriFlags, string, uintptr, uintptr, uintptr, uintptr,
 // of the ‘userinfo’ field separately. Note that @user must be non-%NULL
 // if either @password or @auth_params is non-%NULL.
 func UriBuildWithUser(FlagsVar UriFlags, SchemeVar string, UserVar *string, PasswordVar *string, AuthParamsVar *string, HostVar *string, PortVar int, PathVar string, QueryVar *string, FragmentVar *string) *Uri {
+	core.LazyRegister(&xUriBuildWithUser, "GLIB", "g_uri_build_with_user", false)
+
 	UserVarPtr := core.GStrdupNullable(UserVar)
 	defer core.GFreeNullable(UserVarPtr)
 
@@ -676,6 +714,8 @@ var xUriEscapeBytes func([]byte, uint, uintptr) string
 // Though technically incorrect, this will also allow escaping nul
 // bytes as `%“00`.
 func UriEscapeBytes(UnescapedVar []byte, LengthVar uint, ReservedCharsAllowedVar *string) string {
+	core.LazyRegister(&xUriEscapeBytes, "GLIB", "g_uri_escape_bytes", false)
+
 	ReservedCharsAllowedVarPtr := core.GStrdupNullable(ReservedCharsAllowedVar)
 	defer core.GFreeNullable(ReservedCharsAllowedVarPtr)
 
@@ -694,6 +734,8 @@ var xUriEscapeString func(string, uintptr, bool) string
 // in the URI specification, since those are allowed unescaped in some
 // portions of a URI.
 func UriEscapeString(UnescapedVar string, ReservedCharsAllowedVar *string, AllowUtf8Var bool) string {
+	core.LazyRegister(&xUriEscapeString, "GLIB", "g_uri_escape_string", false)
+
 	ReservedCharsAllowedVarPtr := core.GStrdupNullable(ReservedCharsAllowedVar)
 	defer core.GFreeNullable(ReservedCharsAllowedVarPtr)
 
@@ -712,6 +754,7 @@ var xUriIsValid func(string, UriFlags, **Error) bool
 // See g_uri_split(), and the definition of #GUriFlags, for more
 // information on the effect of @flags.
 func UriIsValid(UriStringVar string, FlagsVar UriFlags) (bool, error) {
+	core.LazyRegister(&xUriIsValid, "GLIB", "g_uri_is_valid", false)
 	var cerr *Error
 
 	cret := xUriIsValid(UriStringVar, FlagsVar, &cerr)
@@ -738,6 +781,8 @@ var xUriJoin func(UriFlags, uintptr, uintptr, uintptr, int, string, uintptr, uin
 // %G_URI_FLAGS_HAS_PASSWORD and %G_URI_FLAGS_HAS_AUTH_PARAMS are ignored if set
 // in @flags.
 func UriJoin(FlagsVar UriFlags, SchemeVar *string, UserinfoVar *string, HostVar *string, PortVar int, PathVar string, QueryVar *string, FragmentVar *string) string {
+	core.LazyRegister(&xUriJoin, "GLIB", "g_uri_join", false)
+
 	SchemeVarPtr := core.GStrdupNullable(SchemeVar)
 	defer core.GFreeNullable(SchemeVarPtr)
 
@@ -769,6 +814,8 @@ var xUriJoinWithUser func(UriFlags, uintptr, uintptr, uintptr, uintptr, uintptr,
 // %G_URI_FLAGS_HAS_PASSWORD and %G_URI_FLAGS_HAS_AUTH_PARAMS are ignored if set
 // in @flags.
 func UriJoinWithUser(FlagsVar UriFlags, SchemeVar *string, UserVar *string, PasswordVar *string, AuthParamsVar *string, HostVar *string, PortVar int, PathVar string, QueryVar *string, FragmentVar *string) string {
+	core.LazyRegister(&xUriJoinWithUser, "GLIB", "g_uri_join_with_user", false)
+
 	SchemeVarPtr := core.GStrdupNullable(SchemeVar)
 	defer core.GFreeNullable(SchemeVarPtr)
 
@@ -800,6 +847,7 @@ var xUriParse func(string, UriFlags, **Error) uintptr
 // valid [absolute URI](#relative-and-absolute-uris), it will be discarded, and an
 // error returned.
 func UriParse(UriStringVar string, FlagsVar UriFlags) (*Uri, error) {
+	core.LazyRegister(&xUriParse, "GLIB", "g_uri_parse", false)
 	var cerr *Error
 
 	cret := xUriParse(UriStringVar, FlagsVar, &cerr)
@@ -839,6 +887,7 @@ var xUriParseParams func(string, int, string, UriParamsFlags, **Error) uintptr
 // If @params cannot be parsed (for example, it contains two @separators
 // characters in a row), then @error is set and %NULL is returned.
 func UriParseParams(ParamsVar string, LengthVar int, SeparatorsVar string, FlagsVar UriParamsFlags) (*HashTable, error) {
+	core.LazyRegister(&xUriParseParams, "GLIB", "g_uri_parse_params", false)
 	var cerr *Error
 
 	cret := xUriParseParams(ParamsVar, LengthVar, SeparatorsVar, FlagsVar, &cerr)
@@ -861,6 +910,8 @@ var xUriParseScheme func(string) string
 // ]|
 // Common schemes include `file`, `https`, `svn+ssh`, etc.
 func UriParseScheme(UriVar string) string {
+	core.LazyRegister(&xUriParseScheme, "GLIB", "g_uri_parse_scheme", false)
+
 	cret := xUriParseScheme(UriVar)
 	return cret
 }
@@ -878,6 +929,8 @@ var xUriPeekScheme func(string) string
 // Unlike g_uri_parse_scheme(), the returned scheme is normalized to
 // all-lowercase and does not need to be freed.
 func UriPeekScheme(UriVar string) string {
+	core.LazyRegister(&xUriPeekScheme, "GLIB", "g_uri_peek_scheme", false)
+
 	cret := xUriPeekScheme(UriVar)
 	return cret
 }
@@ -892,6 +945,7 @@ var xUriResolveRelative func(uintptr, string, UriFlags, **Error) string
 // (If @base_uri_string is %NULL, this just returns @uri_ref, or
 // %NULL if @uri_ref is invalid or not absolute.)
 func UriResolveRelative(BaseUriStringVar *string, UriRefVar string, FlagsVar UriFlags) (string, error) {
+	core.LazyRegister(&xUriResolveRelative, "GLIB", "g_uri_resolve_relative", false)
 	var cerr *Error
 
 	BaseUriStringVarPtr := core.GStrdupNullable(BaseUriStringVar)
@@ -923,6 +977,7 @@ var xUriSplit func(string, UriFlags, *string, *string, *string, *int, *string, *
 // since it always returns only the full userinfo; use
 // g_uri_split_with_user() if you want it split up.
 func UriSplit(UriRefVar string, FlagsVar UriFlags, SchemeVar *string, UserinfoVar *string, HostVar *string, PortVar *int, PathVar *string, QueryVar *string, FragmentVar *string) (bool, error) {
+	core.LazyRegister(&xUriSplit, "GLIB", "g_uri_split", false)
 	var cerr *Error
 
 	cret := xUriSplit(UriRefVar, FlagsVar, SchemeVar, UserinfoVar, HostVar, PortVar, PathVar, QueryVar, FragmentVar, &cerr)
@@ -941,6 +996,7 @@ var xUriSplitNetwork func(string, UriFlags, *string, *string, *int, **Error) boo
 // However, it will return an error if @uri_string is a relative URI,
 // or does not contain a hostname component.
 func UriSplitNetwork(UriStringVar string, FlagsVar UriFlags, SchemeVar *string, HostVar *string, PortVar *int) (bool, error) {
+	core.LazyRegister(&xUriSplitNetwork, "GLIB", "g_uri_split_network", false)
 	var cerr *Error
 
 	cret := xUriSplitNetwork(UriStringVar, FlagsVar, SchemeVar, HostVar, PortVar, &cerr)
@@ -964,6 +1020,7 @@ var xUriSplitWithUser func(string, UriFlags, *string, *string, *string, *string,
 // @auth_params will only be parsed out if @flags contains
 // %G_URI_FLAGS_HAS_AUTH_PARAMS.
 func UriSplitWithUser(UriRefVar string, FlagsVar UriFlags, SchemeVar *string, UserVar *string, PasswordVar *string, AuthParamsVar *string, HostVar *string, PortVar *int, PathVar *string, QueryVar *string, FragmentVar *string) (bool, error) {
+	core.LazyRegister(&xUriSplitWithUser, "GLIB", "g_uri_split_with_user", false)
 	var cerr *Error
 
 	cret := xUriSplitWithUser(UriRefVar, FlagsVar, SchemeVar, UserVar, PasswordVar, AuthParamsVar, HostVar, PortVar, PathVar, QueryVar, FragmentVar, &cerr)
@@ -986,6 +1043,7 @@ var xUriUnescapeBytes func(string, int, uintptr, **Error) uintptr
 // being expanded in an escaped path element, which might confuse pathname
 // handling.
 func UriUnescapeBytes(EscapedStringVar string, LengthVar int, IllegalCharactersVar *string) (*Bytes, error) {
+	core.LazyRegister(&xUriUnescapeBytes, "GLIB", "g_uri_unescape_bytes", false)
 	var cerr *Error
 
 	IllegalCharactersVarPtr := core.GStrdupNullable(IllegalCharactersVar)
@@ -1014,6 +1072,8 @@ var xUriUnescapeSegment func(uintptr, uintptr, uintptr) string
 // Note: `NUL` byte is not accepted in the output, in contrast to
 // g_uri_unescape_bytes().
 func UriUnescapeSegment(EscapedStringVar *string, EscapedStringEndVar *string, IllegalCharactersVar *string) string {
+	core.LazyRegister(&xUriUnescapeSegment, "GLIB", "g_uri_unescape_segment", false)
+
 	EscapedStringVarPtr := core.GStrdupNullable(EscapedStringVar)
 	defer core.GFreeNullable(EscapedStringVarPtr)
 
@@ -1037,6 +1097,8 @@ var xUriUnescapeString func(string, uintptr) string
 // want to avoid for instance having a slash being expanded in an
 // escaped path element, which might confuse pathname handling.
 func UriUnescapeString(EscapedStringVar string, IllegalCharactersVar *string) string {
+	core.LazyRegister(&xUriUnescapeString, "GLIB", "g_uri_unescape_string", false)
+
 	IllegalCharactersVarPtr := core.GStrdupNullable(IllegalCharactersVar)
 	defer core.GFreeNullable(IllegalCharactersVarPtr)
 
@@ -1047,53 +1109,4 @@ func UriUnescapeString(EscapedStringVar string, IllegalCharactersVar *string) st
 func init() {
 	core.SetPackageName("GLIB", "glib-2.0")
 	core.SetSharedLibraries("GLIB", []string{"libgobject-2.0.so.0", "libglib-2.0.so.0", "libgobject-2.0.0.dylib", "libglib-2.0.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GLIB") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xUriBuild, libs, "g_uri_build")
-	core.PuregoSafeRegister(&xUriBuildWithUser, libs, "g_uri_build_with_user")
-	core.PuregoSafeRegister(&xUriEscapeBytes, libs, "g_uri_escape_bytes")
-	core.PuregoSafeRegister(&xUriEscapeString, libs, "g_uri_escape_string")
-	core.PuregoSafeRegister(&xUriIsValid, libs, "g_uri_is_valid")
-	core.PuregoSafeRegister(&xUriJoin, libs, "g_uri_join")
-	core.PuregoSafeRegister(&xUriJoinWithUser, libs, "g_uri_join_with_user")
-	core.PuregoSafeRegister(&xUriParse, libs, "g_uri_parse")
-	core.PuregoSafeRegister(&xUriParseParams, libs, "g_uri_parse_params")
-	core.PuregoSafeRegister(&xUriParseScheme, libs, "g_uri_parse_scheme")
-	core.PuregoSafeRegister(&xUriPeekScheme, libs, "g_uri_peek_scheme")
-	core.PuregoSafeRegister(&xUriResolveRelative, libs, "g_uri_resolve_relative")
-	core.PuregoSafeRegister(&xUriSplit, libs, "g_uri_split")
-	core.PuregoSafeRegister(&xUriSplitNetwork, libs, "g_uri_split_network")
-	core.PuregoSafeRegister(&xUriSplitWithUser, libs, "g_uri_split_with_user")
-	core.PuregoSafeRegister(&xUriUnescapeBytes, libs, "g_uri_unescape_bytes")
-	core.PuregoSafeRegister(&xUriUnescapeSegment, libs, "g_uri_unescape_segment")
-	core.PuregoSafeRegister(&xUriUnescapeString, libs, "g_uri_unescape_string")
-
-	core.PuregoSafeRegister(&xUriGLibType, libs, "g_uri_get_type")
-
-	core.PuregoSafeRegister(&xUriGetAuthParams, libs, "g_uri_get_auth_params")
-	core.PuregoSafeRegister(&xUriGetFlags, libs, "g_uri_get_flags")
-	core.PuregoSafeRegister(&xUriGetFragment, libs, "g_uri_get_fragment")
-	core.PuregoSafeRegister(&xUriGetHost, libs, "g_uri_get_host")
-	core.PuregoSafeRegister(&xUriGetPassword, libs, "g_uri_get_password")
-	core.PuregoSafeRegister(&xUriGetPath, libs, "g_uri_get_path")
-	core.PuregoSafeRegister(&xUriGetPort, libs, "g_uri_get_port")
-	core.PuregoSafeRegister(&xUriGetQuery, libs, "g_uri_get_query")
-	core.PuregoSafeRegister(&xUriGetScheme, libs, "g_uri_get_scheme")
-	core.PuregoSafeRegister(&xUriGetUser, libs, "g_uri_get_user")
-	core.PuregoSafeRegister(&xUriGetUserinfo, libs, "g_uri_get_userinfo")
-	core.PuregoSafeRegister(&xUriParseRelative, libs, "g_uri_parse_relative")
-	core.PuregoSafeRegister(&xUriRef, libs, "g_uri_ref")
-	core.PuregoSafeRegister(&xUriToString, libs, "g_uri_to_string")
-	core.PuregoSafeRegister(&xUriToStringPartial, libs, "g_uri_to_string_partial")
-	core.PuregoSafeRegister(&xUriUnref, libs, "g_uri_unref")
-
-	core.PuregoSafeRegister(&xUriParamsIterInit, libs, "g_uri_params_iter_init")
-	core.PuregoSafeRegister(&xUriParamsIterNext, libs, "g_uri_params_iter_next")
 }

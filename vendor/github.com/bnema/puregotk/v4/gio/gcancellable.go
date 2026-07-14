@@ -208,6 +208,7 @@ type Cancellable struct {
 var xCancellableGLibType func() types.GType
 
 func CancellableGLibType() types.GType {
+	core.LazyRegister(&xCancellableGLibType, "GIO", "g_cancellable_get_type", false)
 	return xCancellableGLibType()
 }
 
@@ -228,6 +229,7 @@ var xNewCancellable func() uintptr
 // One #GCancellable can be used in multiple consecutive
 // operations or in multiple concurrent operations.
 func NewCancellable() *Cancellable {
+	core.LazyRegister(&xNewCancellable, "GIO", "g_cancellable_new", false)
 	var cls *Cancellable
 
 	cret := xNewCancellable()
@@ -262,6 +264,8 @@ var xCancellableCancel func(uintptr)
 // It is safe (although useless, since it will be a no-op) to call
 // this function from a [signal@Gio.Cancellable::cancelled] signal handler.
 func (x *Cancellable) Cancel() {
+	core.LazyRegister(&xCancellableCancel, "GIO", "g_cancellable_cancel", false)
+
 	xCancellableCancel(x.GoPointer())
 }
 
@@ -303,6 +307,8 @@ var xCancellableConnect func(uintptr, uintptr, uintptr, uintptr) uint
 //   - [method@Gio.Cancellable.make_pollfd]
 //   - [method@Gio.Cancellable.release_fd]
 func (x *Cancellable) Connect(CallbackVar *gobject.Callback, DataVar uintptr, DataDestroyFuncVar *glib.DestroyNotify) uint {
+	core.LazyRegister(&xCancellableConnect, "GIO", "g_cancellable_connect", false)
+
 	cret := xCancellableConnect(x.GoPointer(), glib.NewCallback(CallbackVar), DataVar, glib.NewCallbackNullable(DataDestroyFuncVar))
 	return cret
 }
@@ -324,6 +330,8 @@ var xCancellableDisconnect func(uintptr, uint)
 // If @cancellable is %NULL or @handler_id is `0` this function does
 // nothing.
 func (x *Cancellable) Disconnect(HandlerIdVar uint) {
+	core.LazyRegister(&xCancellableDisconnect, "GIO", "g_cancellable_disconnect", false)
+
 	xCancellableDisconnect(x.GoPointer(), HandlerIdVar)
 }
 
@@ -343,6 +351,8 @@ var xCancellableGetFd func(uintptr) int
 //
 // See also g_cancellable_make_pollfd().
 func (x *Cancellable) GetFd() int {
+	core.LazyRegister(&xCancellableGetFd, "GIO", "g_cancellable_get_fd", false)
+
 	cret := xCancellableGetFd(x.GoPointer())
 	return cret
 }
@@ -351,6 +361,8 @@ var xCancellableIsCancelled func(uintptr) bool
 
 // Checks if a cancellable job has been cancelled.
 func (x *Cancellable) IsCancelled() bool {
+	core.LazyRegister(&xCancellableIsCancelled, "GIO", "g_cancellable_is_cancelled", false)
+
 	cret := xCancellableIsCancelled(x.GoPointer())
 	return cret
 }
@@ -381,6 +393,8 @@ var xCancellableMakePollfd func(uintptr, *glib.PollFD) bool
 // Calling this function from a signal handler will therefore result in a
 // deadlock.
 func (x *Cancellable) MakePollfd(PollfdVar *glib.PollFD) bool {
+	core.LazyRegister(&xCancellableMakePollfd, "GIO", "g_cancellable_make_pollfd", false)
+
 	cret := xCancellableMakePollfd(x.GoPointer(), PollfdVar)
 	return cret
 }
@@ -390,6 +404,8 @@ var xCancellablePopCurrent func(uintptr)
 // Pops @cancellable off the cancellable stack (verifying that @cancellable
 // is on the top of the stack).
 func (x *Cancellable) PopCurrent() {
+	core.LazyRegister(&xCancellablePopCurrent, "GIO", "g_cancellable_pop_current", false)
+
 	xCancellablePopCurrent(x.GoPointer())
 }
 
@@ -404,6 +420,8 @@ var xCancellablePushCurrent func(uintptr)
 // This is typically called automatically by e.g. #GFile operations,
 // so you rarely have to call this yourself.
 func (x *Cancellable) PushCurrent() {
+	core.LazyRegister(&xCancellablePushCurrent, "GIO", "g_cancellable_push_current", false)
+
 	xCancellablePushCurrent(x.GoPointer())
 }
 
@@ -424,6 +442,8 @@ var xCancellableReleaseFd func(uintptr)
 // Calling this function from a signal handler will therefore result in a
 // deadlock.
 func (x *Cancellable) ReleaseFd() {
+	core.LazyRegister(&xCancellableReleaseFd, "GIO", "g_cancellable_release_fd", false)
+
 	xCancellableReleaseFd(x.GoPointer())
 }
 
@@ -446,6 +466,8 @@ var xCancellableReset func(uintptr)
 // Calling this function from a signal handler will therefore result in a
 // deadlock.
 func (x *Cancellable) Reset() {
+	core.LazyRegister(&xCancellableReset, "GIO", "g_cancellable_reset", false)
+
 	xCancellableReset(x.GoPointer())
 }
 
@@ -454,6 +476,7 @@ var xCancellableSetErrorIfCancelled func(uintptr, **glib.Error) bool
 // If the @cancellable is cancelled, sets the error to notify
 // that the operation was cancelled.
 func (x *Cancellable) SetErrorIfCancelled() (bool, error) {
+	core.LazyRegister(&xCancellableSetErrorIfCancelled, "GIO", "g_cancellable_set_error_if_cancelled", false)
 	var cerr *glib.Error
 
 	cret := xCancellableSetErrorIfCancelled(x.GoPointer(), &cerr)
@@ -475,6 +498,8 @@ var xCancellableSourceNew func(uintptr) uintptr
 //
 // The new #GSource will hold a reference to the #GCancellable.
 func (x *Cancellable) SourceNew() *glib.Source {
+	core.LazyRegister(&xCancellableSourceNew, "GIO", "g_cancellable_source_new", false)
+
 	cret := xCancellableSourceNew(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -572,6 +597,7 @@ var xCancellableGetCurrent func() uintptr
 
 // Gets the top cancellable from the stack.
 func CancellableGetCurrent() *Cancellable {
+	core.LazyRegister(&xCancellableGetCurrent, "GIO", "g_cancellable_get_current", false)
 	var cls *Cancellable
 
 	cret := xCancellableGetCurrent()
@@ -588,31 +614,4 @@ func CancellableGetCurrent() *Cancellable {
 func init() {
 	core.SetPackageName("GIO", "gio-2.0")
 	core.SetSharedLibraries("GIO", []string{"libgio-2.0.so.0", "libgio-2.0.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GIO") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xCancellableGLibType, libs, "g_cancellable_get_type")
-
-	core.PuregoSafeRegister(&xNewCancellable, libs, "g_cancellable_new")
-
-	core.PuregoSafeRegister(&xCancellableCancel, libs, "g_cancellable_cancel")
-	core.PuregoSafeRegister(&xCancellableConnect, libs, "g_cancellable_connect")
-	core.PuregoSafeRegister(&xCancellableDisconnect, libs, "g_cancellable_disconnect")
-	core.PuregoSafeRegister(&xCancellableGetFd, libs, "g_cancellable_get_fd")
-	core.PuregoSafeRegister(&xCancellableIsCancelled, libs, "g_cancellable_is_cancelled")
-	core.PuregoSafeRegister(&xCancellableMakePollfd, libs, "g_cancellable_make_pollfd")
-	core.PuregoSafeRegister(&xCancellablePopCurrent, libs, "g_cancellable_pop_current")
-	core.PuregoSafeRegister(&xCancellablePushCurrent, libs, "g_cancellable_push_current")
-	core.PuregoSafeRegister(&xCancellableReleaseFd, libs, "g_cancellable_release_fd")
-	core.PuregoSafeRegister(&xCancellableReset, libs, "g_cancellable_reset")
-	core.PuregoSafeRegister(&xCancellableSetErrorIfCancelled, libs, "g_cancellable_set_error_if_cancelled")
-	core.PuregoSafeRegister(&xCancellableSourceNew, libs, "g_cancellable_source_new")
-
-	core.PuregoSafeRegister(&xCancellableGetCurrent, libs, "g_cancellable_get_current")
 }

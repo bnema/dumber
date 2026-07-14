@@ -4,7 +4,6 @@ package gio
 import (
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -14,6 +13,8 @@ var xDbusEscapeObjectPath func(string) string
 
 // This is a language binding friendly version of g_dbus_escape_object_path_bytestring().
 func DbusEscapeObjectPath(SVar string) string {
+	core.LazyRegister(&xDbusEscapeObjectPath, "GIO", "g_dbus_escape_object_path", false)
+
 	cret := xDbusEscapeObjectPath(SVar)
 	return cret
 }
@@ -37,6 +38,8 @@ var xDbusEscapeObjectPathBytestring func([]byte) string
 //
 // This can be reversed with g_dbus_unescape_object_path().
 func DbusEscapeObjectPathBytestring(BytesVar []byte) string {
+	core.LazyRegister(&xDbusEscapeObjectPathBytestring, "GIO", "g_dbus_escape_object_path_bytestring", false)
+
 	cret := xDbusEscapeObjectPathBytestring(BytesVar)
 	return cret
 }
@@ -55,6 +58,8 @@ var xDbusGenerateGuid func() string
 // Note that D-Bus GUIDs do not follow
 // [RFC 4122](https://datatracker.ietf.org/doc/html/rfc4122).
 func DbusGenerateGuid() string {
+	core.LazyRegister(&xDbusGenerateGuid, "GIO", "g_dbus_generate_guid", false)
+
 	cret := xDbusGenerateGuid()
 	return cret
 }
@@ -90,6 +95,8 @@ var xDbusGvalueToGvariant func(*gobject.Value, *glib.VariantType) uintptr
 // See the g_dbus_gvariant_to_gvalue() function for how to convert a
 // #GVariant to a #GValue.
 func DbusGvalueToGvariant(GvalueVar *gobject.Value, TypeVar *glib.VariantType) *glib.Variant {
+	core.LazyRegister(&xDbusGvalueToGvariant, "GIO", "g_dbus_gvalue_to_gvariant", false)
+
 	cret := xDbusGvalueToGvariant(GvalueVar, TypeVar)
 	if cret == 0 {
 		return nil
@@ -111,6 +118,8 @@ var xDbusGvariantToGvalue func(*glib.Variant, *gobject.Value)
 // The conversion never fails - a valid #GValue is always returned in
 // @out_gvalue.
 func DbusGvariantToGvalue(ValueVar *glib.Variant, OutGvalueVar *gobject.Value) {
+	core.LazyRegister(&xDbusGvariantToGvalue, "GIO", "g_dbus_gvariant_to_gvalue", false)
+
 	xDbusGvariantToGvalue(ValueVar, OutGvalueVar)
 }
 
@@ -122,6 +131,8 @@ var xDbusIsErrorName func(string) bool
 // because D-Bus error names are defined to have exactly the
 // same syntax as interface names.
 func DbusIsErrorName(StringVar string) bool {
+	core.LazyRegister(&xDbusIsErrorName, "GIO", "g_dbus_is_error_name", false)
+
 	cret := xDbusIsErrorName(StringVar)
 	return cret
 }
@@ -133,6 +144,8 @@ var xDbusIsGuid func(string) bool
 // See the documentation for g_dbus_generate_guid() for more information about
 // the format of a GUID.
 func DbusIsGuid(StringVar string) bool {
+	core.LazyRegister(&xDbusIsGuid, "GIO", "g_dbus_is_guid", false)
+
 	cret := xDbusIsGuid(StringVar)
 	return cret
 }
@@ -141,6 +154,8 @@ var xDbusIsInterfaceName func(string) bool
 
 // Checks if @string is a valid D-Bus interface name.
 func DbusIsInterfaceName(StringVar string) bool {
+	core.LazyRegister(&xDbusIsInterfaceName, "GIO", "g_dbus_is_interface_name", false)
+
 	cret := xDbusIsInterfaceName(StringVar)
 	return cret
 }
@@ -149,6 +164,8 @@ var xDbusIsMemberName func(string) bool
 
 // Checks if @string is a valid D-Bus member (e.g. signal or method) name.
 func DbusIsMemberName(StringVar string) bool {
+	core.LazyRegister(&xDbusIsMemberName, "GIO", "g_dbus_is_member_name", false)
+
 	cret := xDbusIsMemberName(StringVar)
 	return cret
 }
@@ -157,6 +174,8 @@ var xDbusIsName func(string) bool
 
 // Checks if @string is a valid D-Bus bus name (either unique or well-known).
 func DbusIsName(StringVar string) bool {
+	core.LazyRegister(&xDbusIsName, "GIO", "g_dbus_is_name", false)
+
 	cret := xDbusIsName(StringVar)
 	return cret
 }
@@ -165,6 +184,8 @@ var xDbusIsUniqueName func(string) bool
 
 // Checks if @string is a valid D-Bus unique bus name.
 func DbusIsUniqueName(StringVar string) bool {
+	core.LazyRegister(&xDbusIsUniqueName, "GIO", "g_dbus_is_unique_name", false)
+
 	cret := xDbusIsUniqueName(StringVar)
 	return cret
 }
@@ -180,6 +201,8 @@ var xDbusUnescapeObjectPath func(string) uintptr
 // encoded is not allowed (e.g `_63` is not valid, the string
 // should contain `c` instead).
 func DbusUnescapeObjectPath(SVar string) uintptr {
+	core.LazyRegister(&xDbusUnescapeObjectPath, "GIO", "g_dbus_unescape_object_path", false)
+
 	cret := xDbusUnescapeObjectPath(SVar)
 	return cret
 }
@@ -187,25 +210,4 @@ func DbusUnescapeObjectPath(SVar string) uintptr {
 func init() {
 	core.SetPackageName("GIO", "gio-2.0")
 	core.SetSharedLibraries("GIO", []string{"libgio-2.0.so.0", "libgio-2.0.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GIO") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xDbusEscapeObjectPath, libs, "g_dbus_escape_object_path")
-	core.PuregoSafeRegister(&xDbusEscapeObjectPathBytestring, libs, "g_dbus_escape_object_path_bytestring")
-	core.PuregoSafeRegister(&xDbusGenerateGuid, libs, "g_dbus_generate_guid")
-	core.PuregoSafeRegister(&xDbusGvalueToGvariant, libs, "g_dbus_gvalue_to_gvariant")
-	core.PuregoSafeRegister(&xDbusGvariantToGvalue, libs, "g_dbus_gvariant_to_gvalue")
-	core.PuregoSafeRegister(&xDbusIsErrorName, libs, "g_dbus_is_error_name")
-	core.PuregoSafeRegister(&xDbusIsGuid, libs, "g_dbus_is_guid")
-	core.PuregoSafeRegister(&xDbusIsInterfaceName, libs, "g_dbus_is_interface_name")
-	core.PuregoSafeRegister(&xDbusIsMemberName, libs, "g_dbus_is_member_name")
-	core.PuregoSafeRegister(&xDbusIsName, libs, "g_dbus_is_name")
-	core.PuregoSafeRegister(&xDbusIsUniqueName, libs, "g_dbus_is_unique_name")
-	core.PuregoSafeRegister(&xDbusUnescapeObjectPath, libs, "g_dbus_unescape_object_path")
 }

@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -85,6 +84,7 @@ type FixedLayout struct {
 var xFixedLayoutGLibType func() types.GType
 
 func FixedLayoutGLibType() types.GType {
+	core.LazyRegister(&xFixedLayoutGLibType, "GTK", "gtk_fixed_layout_get_type", false)
 	return xFixedLayoutGLibType()
 }
 
@@ -98,6 +98,7 @@ var xNewFixedLayout func() uintptr
 
 // Creates a new `GtkFixedLayout`.
 func NewFixedLayout() *FixedLayout {
+	core.LazyRegister(&xNewFixedLayout, "GTK", "gtk_fixed_layout_new", false)
 	var cls *FixedLayout
 
 	cret := xNewFixedLayout()
@@ -129,6 +130,7 @@ type FixedLayoutChild struct {
 var xFixedLayoutChildGLibType func() types.GType
 
 func FixedLayoutChildGLibType() types.GType {
+	core.LazyRegister(&xFixedLayoutChildGLibType, "GTK", "gtk_fixed_layout_child_get_type", false)
 	return xFixedLayoutChildGLibType()
 }
 
@@ -142,6 +144,8 @@ var xFixedLayoutChildGetTransform func(uintptr) uintptr
 
 // Retrieves the transformation of the child.
 func (x *FixedLayoutChild) GetTransform() *gsk.Transform {
+	core.LazyRegister(&xFixedLayoutChildGetTransform, "GTK", "gtk_fixed_layout_child_get_transform", false)
+
 	cret := xFixedLayoutChildGetTransform(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -153,6 +157,8 @@ var xFixedLayoutChildSetTransform func(uintptr, *gsk.Transform)
 
 // Sets the transformation of the child of a `GtkFixedLayout`.
 func (x *FixedLayoutChild) SetTransform(TransformVar *gsk.Transform) {
+	core.LazyRegister(&xFixedLayoutChildSetTransform, "GTK", "gtk_fixed_layout_child_set_transform", false)
+
 	xFixedLayoutChildSetTransform(x.GoPointer(), TransformVar)
 }
 
@@ -187,21 +193,4 @@ func (x *FixedLayoutChild) GetPropertyTransform() uintptr {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GTK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xFixedLayoutGLibType, libs, "gtk_fixed_layout_get_type")
-
-	core.PuregoSafeRegister(&xNewFixedLayout, libs, "gtk_fixed_layout_new")
-
-	core.PuregoSafeRegister(&xFixedLayoutChildGLibType, libs, "gtk_fixed_layout_child_get_type")
-
-	core.PuregoSafeRegister(&xFixedLayoutChildGetTransform, libs, "gtk_fixed_layout_child_get_transform")
-	core.PuregoSafeRegister(&xFixedLayoutChildSetTransform, libs, "gtk_fixed_layout_child_set_transform")
 }

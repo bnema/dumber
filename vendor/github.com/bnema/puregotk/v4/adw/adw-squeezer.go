@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -54,6 +53,7 @@ type SqueezerTransitionType int
 var xSqueezerTransitionTypeGLibType func() types.GType
 
 func SqueezerTransitionTypeGLibType() types.GType {
+	core.LazyRegister(&xSqueezerTransitionTypeGLibType, "ADW", "adw_squeezer_transition_type_get_type", false)
 	return xSqueezerTransitionTypeGLibType()
 }
 
@@ -98,6 +98,7 @@ type Squeezer struct {
 var xSqueezerGLibType func() types.GType
 
 func SqueezerGLibType() types.GType {
+	core.LazyRegister(&xSqueezerGLibType, "ADW", "adw_squeezer_get_type", false)
 	return xSqueezerGLibType()
 }
 
@@ -111,6 +112,7 @@ var xNewSqueezer func() uintptr
 
 // Creates a new `AdwSqueezer`.
 func NewSqueezer() *Squeezer {
+	core.LazyRegister(&xNewSqueezer, "ADW", "adw_squeezer_new", false)
 	var cls *Squeezer
 
 	cret := xNewSqueezer()
@@ -128,6 +130,7 @@ var xSqueezerAdd func(uintptr, uintptr) uintptr
 
 // Adds a child to @self.
 func (x *Squeezer) Add(ChildVar *gtk.Widget) *SqueezerPage {
+	core.LazyRegister(&xSqueezerAdd, "ADW", "adw_squeezer_add", false)
 	var cls *SqueezerPage
 
 	cret := xSqueezerAdd(x.GoPointer(), ChildVar.GoPointer())
@@ -145,6 +148,8 @@ var xSqueezerGetAllowNone func(uintptr) bool
 
 // Gets whether to allow squeezing beyond the last child's minimum size.
 func (x *Squeezer) GetAllowNone() bool {
+	core.LazyRegister(&xSqueezerGetAllowNone, "ADW", "adw_squeezer_get_allow_none", false)
+
 	cret := xSqueezerGetAllowNone(x.GoPointer())
 	return cret
 }
@@ -153,6 +158,8 @@ var xSqueezerGetHomogeneous func(uintptr) bool
 
 // Gets whether all children have the same size for the opposite orientation.
 func (x *Squeezer) GetHomogeneous() bool {
+	core.LazyRegister(&xSqueezerGetHomogeneous, "ADW", "adw_squeezer_get_homogeneous", false)
+
 	cret := xSqueezerGetHomogeneous(x.GoPointer())
 	return cret
 }
@@ -161,6 +168,8 @@ var xSqueezerGetInterpolateSize func(uintptr) bool
 
 // Gets whether @self interpolates its size when changing the visible child.
 func (x *Squeezer) GetInterpolateSize() bool {
+	core.LazyRegister(&xSqueezerGetInterpolateSize, "ADW", "adw_squeezer_get_interpolate_size", false)
+
 	cret := xSqueezerGetInterpolateSize(x.GoPointer())
 	return cret
 }
@@ -169,6 +178,7 @@ var xSqueezerGetPage func(uintptr, uintptr) uintptr
 
 // Returns the [class@SqueezerPage] object for @child.
 func (x *Squeezer) GetPage(ChildVar *gtk.Widget) *SqueezerPage {
+	core.LazyRegister(&xSqueezerGetPage, "ADW", "adw_squeezer_get_page", false)
 	var cls *SqueezerPage
 
 	cret := xSqueezerGetPage(x.GoPointer(), ChildVar.GoPointer())
@@ -189,6 +199,7 @@ var xSqueezerGetPages func(uintptr) uintptr
 // This can be used to keep an up-to-date view. The model also implements
 // [iface@Gtk.SelectionModel] and can be used to track the visible page.
 func (x *Squeezer) GetPages() *gtk.SelectionModelBase {
+	core.LazyRegister(&xSqueezerGetPages, "ADW", "adw_squeezer_get_pages", false)
 	var cls *gtk.SelectionModelBase
 
 	cret := xSqueezerGetPages(x.GoPointer())
@@ -205,6 +216,8 @@ var xSqueezerGetSwitchThresholdPolicy func(uintptr) FoldThresholdPolicy
 
 // Gets the switch threshold policy for @self.
 func (x *Squeezer) GetSwitchThresholdPolicy() FoldThresholdPolicy {
+	core.LazyRegister(&xSqueezerGetSwitchThresholdPolicy, "ADW", "adw_squeezer_get_switch_threshold_policy", false)
+
 	cret := xSqueezerGetSwitchThresholdPolicy(x.GoPointer())
 	return cret
 }
@@ -213,6 +226,8 @@ var xSqueezerGetTransitionDuration func(uintptr) uint
 
 // Gets the transition animation duration for @self.
 func (x *Squeezer) GetTransitionDuration() uint {
+	core.LazyRegister(&xSqueezerGetTransitionDuration, "ADW", "adw_squeezer_get_transition_duration", false)
+
 	cret := xSqueezerGetTransitionDuration(x.GoPointer())
 	return cret
 }
@@ -225,6 +240,8 @@ var xSqueezerGetTransitionRunning func(uintptr) bool
 // then immediately to `FALSE`, so it's possible to rely on its notifications
 // to know that a transition has happened.
 func (x *Squeezer) GetTransitionRunning() bool {
+	core.LazyRegister(&xSqueezerGetTransitionRunning, "ADW", "adw_squeezer_get_transition_running", false)
+
 	cret := xSqueezerGetTransitionRunning(x.GoPointer())
 	return cret
 }
@@ -233,6 +250,8 @@ var xSqueezerGetTransitionType func(uintptr) SqueezerTransitionType
 
 // Gets the type of animation used for transitions between children in @self.
 func (x *Squeezer) GetTransitionType() SqueezerTransitionType {
+	core.LazyRegister(&xSqueezerGetTransitionType, "ADW", "adw_squeezer_get_transition_type", false)
+
 	cret := xSqueezerGetTransitionType(x.GoPointer())
 	return cret
 }
@@ -241,6 +260,7 @@ var xSqueezerGetVisibleChild func(uintptr) uintptr
 
 // Gets the currently visible child of @self.
 func (x *Squeezer) GetVisibleChild() *gtk.Widget {
+	core.LazyRegister(&xSqueezerGetVisibleChild, "ADW", "adw_squeezer_get_visible_child", false)
 	var cls *gtk.Widget
 
 	cret := xSqueezerGetVisibleChild(x.GoPointer())
@@ -258,6 +278,8 @@ var xSqueezerGetXalign func(uintptr) float32
 
 // Gets the horizontal alignment, from 0 (start) to 1 (end).
 func (x *Squeezer) GetXalign() float32 {
+	core.LazyRegister(&xSqueezerGetXalign, "ADW", "adw_squeezer_get_xalign", false)
+
 	cret := xSqueezerGetXalign(x.GoPointer())
 	return cret
 }
@@ -266,6 +288,8 @@ var xSqueezerGetYalign func(uintptr) float32
 
 // Gets the vertical alignment, from 0 (top) to 1 (bottom).
 func (x *Squeezer) GetYalign() float32 {
+	core.LazyRegister(&xSqueezerGetYalign, "ADW", "adw_squeezer_get_yalign", false)
+
 	cret := xSqueezerGetYalign(x.GoPointer())
 	return cret
 }
@@ -274,6 +298,8 @@ var xSqueezerRemove func(uintptr, uintptr)
 
 // Removes a child widget from @self.
 func (x *Squeezer) Remove(ChildVar *gtk.Widget) {
+	core.LazyRegister(&xSqueezerRemove, "ADW", "adw_squeezer_remove", false)
+
 	xSqueezerRemove(x.GoPointer(), ChildVar.GoPointer())
 }
 
@@ -285,6 +311,8 @@ var xSqueezerSetAllowNone func(uintptr, bool)
 // shown. This is functionally equivalent to appending a widget with 0×0 minimum
 // size.
 func (x *Squeezer) SetAllowNone(AllowNoneVar bool) {
+	core.LazyRegister(&xSqueezerSetAllowNone, "ADW", "adw_squeezer_set_allow_none", false)
+
 	xSqueezerSetAllowNone(x.GoPointer(), AllowNoneVar)
 }
 
@@ -296,6 +324,8 @@ var xSqueezerSetHomogeneous func(uintptr, bool)
 // the same height for all its children. If it isn't, the squeezer may change
 // size when a different child becomes visible.
 func (x *Squeezer) SetHomogeneous(HomogeneousVar bool) {
+	core.LazyRegister(&xSqueezerSetHomogeneous, "ADW", "adw_squeezer_set_homogeneous", false)
+
 	xSqueezerSetHomogeneous(x.GoPointer(), HomogeneousVar)
 }
 
@@ -308,6 +338,8 @@ var xSqueezerSetInterpolateSize func(uintptr, bool)
 // set transition duration and the orientation, e.g. if the squeezer is
 // horizontal, it will interpolate the its height.
 func (x *Squeezer) SetInterpolateSize(InterpolateSizeVar bool) {
+	core.LazyRegister(&xSqueezerSetInterpolateSize, "ADW", "adw_squeezer_set_interpolate_size", false)
+
 	xSqueezerSetInterpolateSize(x.GoPointer(), InterpolateSizeVar)
 }
 
@@ -324,6 +356,8 @@ var xSqueezerSetSwitchThresholdPolicy func(uintptr, FoldThresholdPolicy)
 // This can be useful if you have a long ellipsizing label and want to let it
 // ellipsize instead of immediately switching.
 func (x *Squeezer) SetSwitchThresholdPolicy(PolicyVar FoldThresholdPolicy) {
+	core.LazyRegister(&xSqueezerSetSwitchThresholdPolicy, "ADW", "adw_squeezer_set_switch_threshold_policy", false)
+
 	xSqueezerSetSwitchThresholdPolicy(x.GoPointer(), PolicyVar)
 }
 
@@ -331,6 +365,8 @@ var xSqueezerSetTransitionDuration func(uintptr, uint)
 
 // Sets the transition animation duration for @self.
 func (x *Squeezer) SetTransitionDuration(DurationVar uint) {
+	core.LazyRegister(&xSqueezerSetTransitionDuration, "ADW", "adw_squeezer_set_transition_duration", false)
+
 	xSqueezerSetTransitionDuration(x.GoPointer(), DurationVar)
 }
 
@@ -338,6 +374,8 @@ var xSqueezerSetTransitionType func(uintptr, SqueezerTransitionType)
 
 // Sets the type of animation used for transitions between children in @self.
 func (x *Squeezer) SetTransitionType(TransitionVar SqueezerTransitionType) {
+	core.LazyRegister(&xSqueezerSetTransitionType, "ADW", "adw_squeezer_set_transition_type", false)
+
 	xSqueezerSetTransitionType(x.GoPointer(), TransitionVar)
 }
 
@@ -351,6 +389,8 @@ var xSqueezerSetXalign func(uintptr, float32)
 // For example, 0.5 means the child will be centered, 0 means it will keep the
 // start side aligned and overflow the end side, and 1 means the opposite.
 func (x *Squeezer) SetXalign(XalignVar float32) {
+	core.LazyRegister(&xSqueezerSetXalign, "ADW", "adw_squeezer_set_xalign", false)
+
 	xSqueezerSetXalign(x.GoPointer(), XalignVar)
 }
 
@@ -364,6 +404,8 @@ var xSqueezerSetYalign func(uintptr, float32)
 // For example, 0.5 means the child will be centered, 0 means it will keep the
 // top side aligned and overflow the bottom side, and 1 means the opposite.
 func (x *Squeezer) SetYalign(YalignVar float32) {
+	core.LazyRegister(&xSqueezerSetYalign, "ADW", "adw_squeezer_set_yalign", false)
+
 	xSqueezerSetYalign(x.GoPointer(), YalignVar)
 }
 
@@ -821,6 +863,7 @@ type SqueezerPage struct {
 var xSqueezerPageGLibType func() types.GType
 
 func SqueezerPageGLibType() types.GType {
+	core.LazyRegister(&xSqueezerPageGLibType, "ADW", "adw_squeezer_page_get_type", false)
 	return xSqueezerPageGLibType()
 }
 
@@ -834,6 +877,7 @@ var xSqueezerPageGetChild func(uintptr) uintptr
 
 // Returns the squeezer child to which @self belongs.
 func (x *SqueezerPage) GetChild() *gtk.Widget {
+	core.LazyRegister(&xSqueezerPageGetChild, "ADW", "adw_squeezer_page_get_child", false)
 	var cls *gtk.Widget
 
 	cret := xSqueezerPageGetChild(x.GoPointer())
@@ -851,6 +895,8 @@ var xSqueezerPageGetEnabled func(uintptr) bool
 
 // Gets whether @self is enabled.
 func (x *SqueezerPage) GetEnabled() bool {
+	core.LazyRegister(&xSqueezerPageGetEnabled, "ADW", "adw_squeezer_page_get_enabled", false)
+
 	cret := xSqueezerPageGetEnabled(x.GoPointer())
 	return cret
 }
@@ -868,6 +914,8 @@ var xSqueezerPageSetEnabled func(uintptr, bool)
 // This can be used e.g. to ensure a certain child is hidden below a certain
 // window width, or any other constraint you find suitable.
 func (x *SqueezerPage) SetEnabled(EnabledVar bool) {
+	core.LazyRegister(&xSqueezerPageSetEnabled, "ADW", "adw_squeezer_page_set_enabled", false)
+
 	xSqueezerPageSetEnabled(x.GoPointer(), EnabledVar)
 }
 
@@ -920,47 +968,4 @@ func (x *SqueezerPage) GetPropertyEnabled() bool {
 func init() {
 	core.SetPackageName("ADW", "libadwaita-1")
 	core.SetSharedLibraries("ADW", []string{"libadwaita-1.so.0", "libadwaita-1.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("ADW") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xSqueezerTransitionTypeGLibType, libs, "adw_squeezer_transition_type_get_type")
-
-	core.PuregoSafeRegister(&xSqueezerGLibType, libs, "adw_squeezer_get_type")
-
-	core.PuregoSafeRegister(&xNewSqueezer, libs, "adw_squeezer_new")
-
-	core.PuregoSafeRegister(&xSqueezerAdd, libs, "adw_squeezer_add")
-	core.PuregoSafeRegister(&xSqueezerGetAllowNone, libs, "adw_squeezer_get_allow_none")
-	core.PuregoSafeRegister(&xSqueezerGetHomogeneous, libs, "adw_squeezer_get_homogeneous")
-	core.PuregoSafeRegister(&xSqueezerGetInterpolateSize, libs, "adw_squeezer_get_interpolate_size")
-	core.PuregoSafeRegister(&xSqueezerGetPage, libs, "adw_squeezer_get_page")
-	core.PuregoSafeRegister(&xSqueezerGetPages, libs, "adw_squeezer_get_pages")
-	core.PuregoSafeRegister(&xSqueezerGetSwitchThresholdPolicy, libs, "adw_squeezer_get_switch_threshold_policy")
-	core.PuregoSafeRegister(&xSqueezerGetTransitionDuration, libs, "adw_squeezer_get_transition_duration")
-	core.PuregoSafeRegister(&xSqueezerGetTransitionRunning, libs, "adw_squeezer_get_transition_running")
-	core.PuregoSafeRegister(&xSqueezerGetTransitionType, libs, "adw_squeezer_get_transition_type")
-	core.PuregoSafeRegister(&xSqueezerGetVisibleChild, libs, "adw_squeezer_get_visible_child")
-	core.PuregoSafeRegister(&xSqueezerGetXalign, libs, "adw_squeezer_get_xalign")
-	core.PuregoSafeRegister(&xSqueezerGetYalign, libs, "adw_squeezer_get_yalign")
-	core.PuregoSafeRegister(&xSqueezerRemove, libs, "adw_squeezer_remove")
-	core.PuregoSafeRegister(&xSqueezerSetAllowNone, libs, "adw_squeezer_set_allow_none")
-	core.PuregoSafeRegister(&xSqueezerSetHomogeneous, libs, "adw_squeezer_set_homogeneous")
-	core.PuregoSafeRegister(&xSqueezerSetInterpolateSize, libs, "adw_squeezer_set_interpolate_size")
-	core.PuregoSafeRegister(&xSqueezerSetSwitchThresholdPolicy, libs, "adw_squeezer_set_switch_threshold_policy")
-	core.PuregoSafeRegister(&xSqueezerSetTransitionDuration, libs, "adw_squeezer_set_transition_duration")
-	core.PuregoSafeRegister(&xSqueezerSetTransitionType, libs, "adw_squeezer_set_transition_type")
-	core.PuregoSafeRegister(&xSqueezerSetXalign, libs, "adw_squeezer_set_xalign")
-	core.PuregoSafeRegister(&xSqueezerSetYalign, libs, "adw_squeezer_set_yalign")
-
-	core.PuregoSafeRegister(&xSqueezerPageGLibType, libs, "adw_squeezer_page_get_type")
-
-	core.PuregoSafeRegister(&xSqueezerPageGetChild, libs, "adw_squeezer_page_get_child")
-	core.PuregoSafeRegister(&xSqueezerPageGetEnabled, libs, "adw_squeezer_page_get_enabled")
-	core.PuregoSafeRegister(&xSqueezerPageSetEnabled, libs, "adw_squeezer_page_set_enabled")
 }

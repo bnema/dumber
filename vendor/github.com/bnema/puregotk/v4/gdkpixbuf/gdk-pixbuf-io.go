@@ -130,6 +130,7 @@ type PixbufFormat struct {
 var xPixbufFormatGLibType func() types.GType
 
 func PixbufFormatGLibType() types.GType {
+	core.LazyRegister(&xPixbufFormatGLibType, "GDKPIXBUF", "gdk_pixbuf_format_get_type", false)
 	return xPixbufFormatGLibType()
 }
 
@@ -149,6 +150,8 @@ var xPixbufFormatCopy func(uintptr) uintptr
 
 // Creates a copy of `format`.
 func (x *PixbufFormat) Copy() *PixbufFormat {
+	core.LazyRegister(&xPixbufFormatCopy, "GDKPIXBUF", "gdk_pixbuf_format_copy", false)
+
 	cret := xPixbufFormatCopy(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -161,6 +164,8 @@ var xPixbufFormatFree func(uintptr)
 // Frees the resources allocated when copying a `GdkPixbufFormat`
 // using gdk_pixbuf_format_copy()
 func (x *PixbufFormat) Free() {
+	core.LazyRegister(&xPixbufFormatFree, "GDKPIXBUF", "gdk_pixbuf_format_free", false)
+
 	xPixbufFormatFree(x.GoPointer())
 }
 
@@ -168,6 +173,8 @@ var xPixbufFormatGetDescription func(uintptr) string
 
 // Returns a description of the format.
 func (x *PixbufFormat) GetDescription() string {
+	core.LazyRegister(&xPixbufFormatGetDescription, "GDKPIXBUF", "gdk_pixbuf_format_get_description", false)
+
 	cret := xPixbufFormatGetDescription(x.GoPointer())
 	return cret
 }
@@ -177,6 +184,8 @@ var xPixbufFormatGetExtensions func(uintptr) []string
 // Returns the filename extensions typically used for files in the
 // given format.
 func (x *PixbufFormat) GetExtensions() []string {
+	core.LazyRegister(&xPixbufFormatGetExtensions, "GDKPIXBUF", "gdk_pixbuf_format_get_extensions", false)
+
 	cret := xPixbufFormatGetExtensions(x.GoPointer())
 	return cret
 }
@@ -188,6 +197,8 @@ var xPixbufFormatGetLicense func(uintptr) string
 // The returned string should be a shorthand for a well known license, e.g.
 // "LGPL", "GPL", "QPL", "GPL/QPL", or "other" to indicate some other license.
 func (x *PixbufFormat) GetLicense() string {
+	core.LazyRegister(&xPixbufFormatGetLicense, "GDKPIXBUF", "gdk_pixbuf_format_get_license", false)
+
 	cret := xPixbufFormatGetLicense(x.GoPointer())
 	return cret
 }
@@ -196,6 +207,8 @@ var xPixbufFormatGetMimeTypes func(uintptr) []string
 
 // Returns the mime types supported by the format.
 func (x *PixbufFormat) GetMimeTypes() []string {
+	core.LazyRegister(&xPixbufFormatGetMimeTypes, "GDKPIXBUF", "gdk_pixbuf_format_get_mime_types", false)
+
 	cret := xPixbufFormatGetMimeTypes(x.GoPointer())
 	return cret
 }
@@ -204,6 +217,8 @@ var xPixbufFormatGetName func(uintptr) string
 
 // Returns the name of the format.
 func (x *PixbufFormat) GetName() string {
+	core.LazyRegister(&xPixbufFormatGetName, "GDKPIXBUF", "gdk_pixbuf_format_get_name", false)
+
 	cret := xPixbufFormatGetName(x.GoPointer())
 	return cret
 }
@@ -214,6 +229,8 @@ var xPixbufFormatIsDisabled func(uintptr) bool
 //
 // See gdk_pixbuf_format_set_disabled().
 func (x *PixbufFormat) IsDisabled() bool {
+	core.LazyRegister(&xPixbufFormatIsDisabled, "GDKPIXBUF", "gdk_pixbuf_format_is_disabled", false)
+
 	cret := xPixbufFormatIsDisabled(x.GoPointer())
 	return cret
 }
@@ -225,6 +242,8 @@ var xPixbufFormatIsSaveOptionSupported func(uintptr, string) bool
 //
 // See gdk_pixbuf_save() for more information about option keys.
 func (x *PixbufFormat) IsSaveOptionSupported(OptionKeyVar string) bool {
+	core.LazyRegister(&xPixbufFormatIsSaveOptionSupported, "GDKPIXBUF", "gdk_pixbuf_format_is_save_option_supported", false)
+
 	cret := xPixbufFormatIsSaveOptionSupported(x.GoPointer(), OptionKeyVar)
 	return cret
 }
@@ -237,6 +256,8 @@ var xPixbufFormatIsScalable func(uintptr) bool
 // the desired size, rather than loading it at the default size and
 // scaling the resulting pixbuf to the desired size.
 func (x *PixbufFormat) IsScalable() bool {
+	core.LazyRegister(&xPixbufFormatIsScalable, "GDKPIXBUF", "gdk_pixbuf_format_is_scalable", false)
+
 	cret := xPixbufFormatIsScalable(x.GoPointer())
 	return cret
 }
@@ -245,6 +266,8 @@ var xPixbufFormatIsWritable func(uintptr) bool
 
 // Returns whether pixbufs can be saved in the given format.
 func (x *PixbufFormat) IsWritable() bool {
+	core.LazyRegister(&xPixbufFormatIsWritable, "GDKPIXBUF", "gdk_pixbuf_format_is_writable", false)
+
 	cret := xPixbufFormatIsWritable(x.GoPointer())
 	return cret
 }
@@ -259,6 +282,8 @@ var xPixbufFormatSetDisabled func(uintptr, bool)
 // Applications can use this to avoid using image loaders with an
 // inappropriate license, see gdk_pixbuf_format_get_license().
 func (x *PixbufFormat) SetDisabled(DisabledVar bool) {
+	core.LazyRegister(&xPixbufFormatSetDisabled, "GDKPIXBUF", "gdk_pixbuf_format_set_disabled", false)
+
 	xPixbufFormatSetDisabled(x.GoPointer(), DisabledVar)
 }
 
@@ -521,27 +546,4 @@ const (
 func init() {
 	core.SetPackageName("GDKPIXBUF", "gdk-pixbuf-2.0")
 	core.SetSharedLibraries("GDKPIXBUF", []string{"libgdk_pixbuf-2.0.so.0", "libgdk_pixbuf-2.0.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GDKPIXBUF") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xPixbufFormatGLibType, libs, "gdk_pixbuf_format_get_type")
-
-	core.PuregoSafeRegister(&xPixbufFormatCopy, libs, "gdk_pixbuf_format_copy")
-	core.PuregoSafeRegister(&xPixbufFormatFree, libs, "gdk_pixbuf_format_free")
-	core.PuregoSafeRegister(&xPixbufFormatGetDescription, libs, "gdk_pixbuf_format_get_description")
-	core.PuregoSafeRegister(&xPixbufFormatGetExtensions, libs, "gdk_pixbuf_format_get_extensions")
-	core.PuregoSafeRegister(&xPixbufFormatGetLicense, libs, "gdk_pixbuf_format_get_license")
-	core.PuregoSafeRegister(&xPixbufFormatGetMimeTypes, libs, "gdk_pixbuf_format_get_mime_types")
-	core.PuregoSafeRegister(&xPixbufFormatGetName, libs, "gdk_pixbuf_format_get_name")
-	core.PuregoSafeRegister(&xPixbufFormatIsDisabled, libs, "gdk_pixbuf_format_is_disabled")
-	core.PuregoSafeRegister(&xPixbufFormatIsSaveOptionSupported, libs, "gdk_pixbuf_format_is_save_option_supported")
-	core.PuregoSafeRegister(&xPixbufFormatIsScalable, libs, "gdk_pixbuf_format_is_scalable")
-	core.PuregoSafeRegister(&xPixbufFormatIsWritable, libs, "gdk_pixbuf_format_is_writable")
-	core.PuregoSafeRegister(&xPixbufFormatSetDisabled, libs, "gdk_pixbuf_format_set_disabled")
 }

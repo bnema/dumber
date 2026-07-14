@@ -6,6 +6,7 @@ import (
 	"unsafe"
 
 	"github.com/bnema/purego"
+	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject/types"
 )
 
@@ -109,6 +110,7 @@ type ShortcutManager interface {
 var xShortcutManagerGLibType func() types.GType
 
 func ShortcutManagerGLibType() types.GType {
+	core.LazyRegister(&xShortcutManagerGLibType, "GTK", "gtk_shortcut_manager_get_type", false)
 	return xShortcutManagerGLibType()
 }
 
@@ -125,4 +127,9 @@ func (x *ShortcutManagerBase) GoPointer() uintptr {
 
 func (x *ShortcutManagerBase) SetGoPointer(ptr uintptr) {
 	x.Ptr = ptr
+}
+
+func init() {
+	core.SetPackageName("GTK", "gtk4")
+	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
 }

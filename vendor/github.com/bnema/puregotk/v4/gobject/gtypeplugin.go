@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject/types"
 )
@@ -111,6 +110,7 @@ type TypePlugin interface {
 var xTypePluginGLibType func() types.GType
 
 func TypePluginGLibType() types.GType {
+	core.LazyRegister(&xTypePluginGLibType, "GOBJECT", "g_type_plugin_get_type", false)
 	return xTypePluginGLibType()
 }
 
@@ -157,29 +157,35 @@ func (x *TypePluginBase) Use() {
 	XGTypePluginUse(x.GoPointer())
 }
 
+var XGTypePluginCompleteInterfaceInfo func(uintptr, types.GType, types.GType, *InterfaceInfo) = func(instance uintptr, InstanceTypeVarp types.GType, InterfaceTypeVarp types.GType, InfoVarp *InterfaceInfo) {
+	core.LazyRegister(&xXGTypePluginCompleteInterfaceInfo, "GOBJECT", "g_type_plugin_complete_interface_info", false)
+	xXGTypePluginCompleteInterfaceInfo(instance, InstanceTypeVarp, InterfaceTypeVarp, InfoVarp)
+}
+
 var (
-	XGTypePluginCompleteInterfaceInfo func(uintptr, types.GType, types.GType, *InterfaceInfo)
-	XGTypePluginCompleteTypeInfo      func(uintptr, types.GType, *TypeInfo, *TypeValueTable)
-	XGTypePluginUnuse                 func(uintptr)
-	XGTypePluginUse                   func(uintptr)
+	xXGTypePluginCompleteInterfaceInfo func(uintptr, types.GType, types.GType, *InterfaceInfo)
+	XGTypePluginCompleteTypeInfo       func(uintptr, types.GType, *TypeInfo, *TypeValueTable) = func(instance uintptr, GTypeVarp types.GType, InfoVarp *TypeInfo, ValueTableVarp *TypeValueTable) {
+		core.LazyRegister(&xXGTypePluginCompleteTypeInfo, "GOBJECT", "g_type_plugin_complete_type_info", false)
+		xXGTypePluginCompleteTypeInfo(instance, GTypeVarp, InfoVarp, ValueTableVarp)
+	}
 )
+var (
+	xXGTypePluginCompleteTypeInfo func(uintptr, types.GType, *TypeInfo, *TypeValueTable)
+	XGTypePluginUnuse             func(uintptr) = func(instance uintptr) {
+		core.LazyRegister(&xXGTypePluginUnuse, "GOBJECT", "g_type_plugin_unuse", false)
+		xXGTypePluginUnuse(instance)
+	}
+)
+var (
+	xXGTypePluginUnuse func(uintptr)
+	XGTypePluginUse    func(uintptr) = func(instance uintptr) {
+		core.LazyRegister(&xXGTypePluginUse, "GOBJECT", "g_type_plugin_use", false)
+		xXGTypePluginUse(instance)
+	}
+)
+var xXGTypePluginUse func(uintptr)
 
 func init() {
 	core.SetPackageName("GOBJECT", "gobject-2.0")
 	core.SetSharedLibraries("GOBJECT", []string{"libgobject-2.0.so.0", "libgobject-2.0.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GOBJECT") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xTypePluginGLibType, libs, "g_type_plugin_get_type")
-
-	core.PuregoSafeRegister(&XGTypePluginCompleteInterfaceInfo, libs, "g_type_plugin_complete_interface_info")
-	core.PuregoSafeRegister(&XGTypePluginCompleteTypeInfo, libs, "g_type_plugin_complete_type_info")
-	core.PuregoSafeRegister(&XGTypePluginUnuse, libs, "g_type_plugin_unuse")
-	core.PuregoSafeRegister(&XGTypePluginUse, libs, "g_type_plugin_use")
 }

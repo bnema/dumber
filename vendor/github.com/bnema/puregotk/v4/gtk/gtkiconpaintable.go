@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gdk"
 	"github.com/bnema/puregotk/v4/gio"
@@ -42,6 +41,7 @@ type IconPaintable struct {
 var xIconPaintableGLibType func() types.GType
 
 func IconPaintableGLibType() types.GType {
+	core.LazyRegister(&xIconPaintableGLibType, "GTK", "gtk_icon_paintable_get_type", false)
 	return xIconPaintableGLibType()
 }
 
@@ -57,6 +57,7 @@ var xNewIconPaintableForFile func(uintptr, int, int) uintptr
 //
 // The icon can then be rendered by using it as a `GdkPaintable`.
 func NewIconPaintableForFile(FileVar gio.File, SizeVar int, ScaleVar int) *IconPaintable {
+	core.LazyRegister(&xNewIconPaintableForFile, "GTK", "gtk_icon_paintable_new_for_file", false)
 	var cls *IconPaintable
 
 	cret := xNewIconPaintableForFile(FileVar.GoPointer(), SizeVar, ScaleVar)
@@ -75,6 +76,7 @@ var xIconPaintableGetFile func(uintptr) uintptr
 //
 // Returns %NULL if the icon was not loaded from a file.
 func (x *IconPaintable) GetFile() *gio.FileBase {
+	core.LazyRegister(&xIconPaintableGetFile, "GTK", "gtk_icon_paintable_get_file", false)
 	var cls *gio.FileBase
 
 	cret := xIconPaintableGetFile(x.GoPointer())
@@ -99,6 +101,8 @@ var xIconPaintableGetIconName func(uintptr) string
 // If the icon was created without an icon theme, this function
 // returns %NULL.
 func (x *IconPaintable) GetIconName() string {
+	core.LazyRegister(&xIconPaintableGetIconName, "GTK", "gtk_icon_paintable_get_icon_name", false)
+
 	cret := xIconPaintableGetIconName(x.GoPointer())
 	return cret
 }
@@ -110,6 +114,8 @@ var xIconPaintableIsSymbolic func(uintptr) bool
 // This currently uses only the file name and not the file contents
 // for determining this. This behaviour may change in the future.
 func (x *IconPaintable) IsSymbolic() bool {
+	core.LazyRegister(&xIconPaintableIsSymbolic, "GTK", "gtk_icon_paintable_is_symbolic", false)
+
 	cret := xIconPaintableIsSymbolic(x.GoPointer())
 	return cret
 }
@@ -340,20 +346,4 @@ func (x *IconPaintable) SnapshotWithWeight(SnapshotVar *gdk.Snapshot, WidthVar f
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GTK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xIconPaintableGLibType, libs, "gtk_icon_paintable_get_type")
-
-	core.PuregoSafeRegister(&xNewIconPaintableForFile, libs, "gtk_icon_paintable_new_for_file")
-
-	core.PuregoSafeRegister(&xIconPaintableGetFile, libs, "gtk_icon_paintable_get_file")
-	core.PuregoSafeRegister(&xIconPaintableGetIconName, libs, "gtk_icon_paintable_get_icon_name")
-	core.PuregoSafeRegister(&xIconPaintableIsSymbolic, libs, "gtk_icon_paintable_is_symbolic")
 }

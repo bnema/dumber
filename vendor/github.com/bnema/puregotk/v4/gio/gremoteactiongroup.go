@@ -115,6 +115,7 @@ type RemoteActionGroup interface {
 var xRemoteActionGroupGLibType func() types.GType
 
 func RemoteActionGroupGLibType() types.GType {
+	core.LazyRegister(&xRemoteActionGroupGLibType, "GIO", "g_remote_action_group_get_type", false)
 	return xRemoteActionGroupGLibType()
 }
 
@@ -159,25 +160,21 @@ func (x *RemoteActionGroupBase) ChangeActionStateFull(ActionNameVar string, Valu
 	XGRemoteActionGroupChangeActionStateFull(x.GoPointer(), ActionNameVar, ValueVar, PlatformDataVar)
 }
 
+var XGRemoteActionGroupActivateActionFull func(uintptr, string, *glib.Variant, *glib.Variant) = func(instance uintptr, ActionNameVarp string, ParameterVarp *glib.Variant, PlatformDataVarp *glib.Variant) {
+	core.LazyRegister(&xXGRemoteActionGroupActivateActionFull, "GIO", "g_remote_action_group_activate_action_full", false)
+	xXGRemoteActionGroupActivateActionFull(instance, ActionNameVarp, ParameterVarp, PlatformDataVarp)
+}
+
 var (
-	XGRemoteActionGroupActivateActionFull    func(uintptr, string, *glib.Variant, *glib.Variant)
-	XGRemoteActionGroupChangeActionStateFull func(uintptr, string, *glib.Variant, *glib.Variant)
+	xXGRemoteActionGroupActivateActionFull   func(uintptr, string, *glib.Variant, *glib.Variant)
+	XGRemoteActionGroupChangeActionStateFull func(uintptr, string, *glib.Variant, *glib.Variant) = func(instance uintptr, ActionNameVarp string, ValueVarp *glib.Variant, PlatformDataVarp *glib.Variant) {
+		core.LazyRegister(&xXGRemoteActionGroupChangeActionStateFull, "GIO", "g_remote_action_group_change_action_state_full", false)
+		xXGRemoteActionGroupChangeActionStateFull(instance, ActionNameVarp, ValueVarp, PlatformDataVarp)
+	}
 )
+var xXGRemoteActionGroupChangeActionStateFull func(uintptr, string, *glib.Variant, *glib.Variant)
 
 func init() {
 	core.SetPackageName("GIO", "gio-2.0")
 	core.SetSharedLibraries("GIO", []string{"libgio-2.0.so.0", "libgio-2.0.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GIO") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xRemoteActionGroupGLibType, libs, "g_remote_action_group_get_type")
-
-	core.PuregoSafeRegister(&XGRemoteActionGroupActivateActionFull, libs, "g_remote_action_group_activate_action_full")
-	core.PuregoSafeRegister(&XGRemoteActionGroupChangeActionStateFull, libs, "g_remote_action_group_change_action_state_full")
 }

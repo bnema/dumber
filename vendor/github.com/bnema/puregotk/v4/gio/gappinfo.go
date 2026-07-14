@@ -286,7 +286,7 @@ func (x *AppInfoIface) OverrideLaunch(cb func(AppInfo, *glib.List, *AppLaunchCon
 	if cb == nil {
 		x.xLaunch = 0
 	} else {
-		x.xLaunch = purego.NewCallback(func(AppinfoVarp uintptr, FilesVarp *glib.List, ContextVarp uintptr) bool {
+		x.xLaunch = purego.NewCallback(func(AppinfoVarp uintptr, FilesVarp *glib.List, ContextVarp uintptr, cerrp **glib.Error) bool {
 			return cb(&AppInfoBase{Ptr: AppinfoVarp}, FilesVarp, AppLaunchContextNewFromInternalPtr(ContextVarp))
 		})
 	}
@@ -298,10 +298,11 @@ func (x *AppInfoIface) GetLaunch() func(AppInfo, *glib.List, *AppLaunchContext) 
 	if x.xLaunch == 0 {
 		return nil
 	}
-	var rawCallback func(AppinfoVarp uintptr, FilesVarp *glib.List, ContextVarp uintptr) bool
+	var rawCallback func(AppinfoVarp uintptr, FilesVarp *glib.List, ContextVarp uintptr, cerrp **glib.Error) bool
 	purego.RegisterFunc(&rawCallback, x.xLaunch)
 	return func(AppinfoVar AppInfo, FilesVar *glib.List, ContextVar *AppLaunchContext) bool {
-		return rawCallback(AppinfoVar.GoPointer(), FilesVar, ContextVar.GoPointer())
+		var cerr *glib.Error
+		return rawCallback(AppinfoVar.GoPointer(), FilesVar, ContextVar.GoPointer(), &cerr)
 	}
 }
 
@@ -369,7 +370,7 @@ func (x *AppInfoIface) OverrideLaunchUris(cb func(AppInfo, *glib.List, *AppLaunc
 	if cb == nil {
 		x.xLaunchUris = 0
 	} else {
-		x.xLaunchUris = purego.NewCallback(func(AppinfoVarp uintptr, UrisVarp *glib.List, ContextVarp uintptr) bool {
+		x.xLaunchUris = purego.NewCallback(func(AppinfoVarp uintptr, UrisVarp *glib.List, ContextVarp uintptr, cerrp **glib.Error) bool {
 			return cb(&AppInfoBase{Ptr: AppinfoVarp}, UrisVarp, AppLaunchContextNewFromInternalPtr(ContextVarp))
 		})
 	}
@@ -381,10 +382,11 @@ func (x *AppInfoIface) GetLaunchUris() func(AppInfo, *glib.List, *AppLaunchConte
 	if x.xLaunchUris == 0 {
 		return nil
 	}
-	var rawCallback func(AppinfoVarp uintptr, UrisVarp *glib.List, ContextVarp uintptr) bool
+	var rawCallback func(AppinfoVarp uintptr, UrisVarp *glib.List, ContextVarp uintptr, cerrp **glib.Error) bool
 	purego.RegisterFunc(&rawCallback, x.xLaunchUris)
 	return func(AppinfoVar AppInfo, UrisVar *glib.List, ContextVar *AppLaunchContext) bool {
-		return rawCallback(AppinfoVar.GoPointer(), UrisVar, ContextVar.GoPointer())
+		var cerr *glib.Error
+		return rawCallback(AppinfoVar.GoPointer(), UrisVar, ContextVar.GoPointer(), &cerr)
 	}
 }
 
@@ -427,7 +429,7 @@ func (x *AppInfoIface) OverrideSetAsDefaultForType(cb func(AppInfo, string) bool
 	if cb == nil {
 		x.xSetAsDefaultForType = 0
 	} else {
-		x.xSetAsDefaultForType = purego.NewCallback(func(AppinfoVarp uintptr, ContentTypeVarp string) bool {
+		x.xSetAsDefaultForType = purego.NewCallback(func(AppinfoVarp uintptr, ContentTypeVarp string, cerrp **glib.Error) bool {
 			return cb(&AppInfoBase{Ptr: AppinfoVarp}, ContentTypeVarp)
 		})
 	}
@@ -441,10 +443,11 @@ func (x *AppInfoIface) GetSetAsDefaultForType() func(AppInfo, string) bool {
 	if x.xSetAsDefaultForType == 0 {
 		return nil
 	}
-	var rawCallback func(AppinfoVarp uintptr, ContentTypeVarp string) bool
+	var rawCallback func(AppinfoVarp uintptr, ContentTypeVarp string, cerrp **glib.Error) bool
 	purego.RegisterFunc(&rawCallback, x.xSetAsDefaultForType)
 	return func(AppinfoVar AppInfo, ContentTypeVar string) bool {
-		return rawCallback(AppinfoVar.GoPointer(), ContentTypeVar)
+		var cerr *glib.Error
+		return rawCallback(AppinfoVar.GoPointer(), ContentTypeVar, &cerr)
 	}
 }
 
@@ -456,7 +459,7 @@ func (x *AppInfoIface) OverrideSetAsDefaultForExtension(cb func(AppInfo, string)
 	if cb == nil {
 		x.xSetAsDefaultForExtension = 0
 	} else {
-		x.xSetAsDefaultForExtension = purego.NewCallback(func(AppinfoVarp uintptr, ExtensionVarp string) bool {
+		x.xSetAsDefaultForExtension = purego.NewCallback(func(AppinfoVarp uintptr, ExtensionVarp string, cerrp **glib.Error) bool {
 			return cb(&AppInfoBase{Ptr: AppinfoVarp}, ExtensionVarp)
 		})
 	}
@@ -470,10 +473,11 @@ func (x *AppInfoIface) GetSetAsDefaultForExtension() func(AppInfo, string) bool 
 	if x.xSetAsDefaultForExtension == 0 {
 		return nil
 	}
-	var rawCallback func(AppinfoVarp uintptr, ExtensionVarp string) bool
+	var rawCallback func(AppinfoVarp uintptr, ExtensionVarp string, cerrp **glib.Error) bool
 	purego.RegisterFunc(&rawCallback, x.xSetAsDefaultForExtension)
 	return func(AppinfoVar AppInfo, ExtensionVar string) bool {
-		return rawCallback(AppinfoVar.GoPointer(), ExtensionVar)
+		var cerr *glib.Error
+		return rawCallback(AppinfoVar.GoPointer(), ExtensionVar, &cerr)
 	}
 }
 
@@ -485,7 +489,7 @@ func (x *AppInfoIface) OverrideAddSupportsType(cb func(AppInfo, string) bool) {
 	if cb == nil {
 		x.xAddSupportsType = 0
 	} else {
-		x.xAddSupportsType = purego.NewCallback(func(AppinfoVarp uintptr, ContentTypeVarp string) bool {
+		x.xAddSupportsType = purego.NewCallback(func(AppinfoVarp uintptr, ContentTypeVarp string, cerrp **glib.Error) bool {
 			return cb(&AppInfoBase{Ptr: AppinfoVarp}, ContentTypeVarp)
 		})
 	}
@@ -499,10 +503,11 @@ func (x *AppInfoIface) GetAddSupportsType() func(AppInfo, string) bool {
 	if x.xAddSupportsType == 0 {
 		return nil
 	}
-	var rawCallback func(AppinfoVarp uintptr, ContentTypeVarp string) bool
+	var rawCallback func(AppinfoVarp uintptr, ContentTypeVarp string, cerrp **glib.Error) bool
 	purego.RegisterFunc(&rawCallback, x.xAddSupportsType)
 	return func(AppinfoVar AppInfo, ContentTypeVar string) bool {
-		return rawCallback(AppinfoVar.GoPointer(), ContentTypeVar)
+		var cerr *glib.Error
+		return rawCallback(AppinfoVar.GoPointer(), ContentTypeVar, &cerr)
 	}
 }
 
@@ -543,7 +548,7 @@ func (x *AppInfoIface) OverrideRemoveSupportsType(cb func(AppInfo, string) bool)
 	if cb == nil {
 		x.xRemoveSupportsType = 0
 	} else {
-		x.xRemoveSupportsType = purego.NewCallback(func(AppinfoVarp uintptr, ContentTypeVarp string) bool {
+		x.xRemoveSupportsType = purego.NewCallback(func(AppinfoVarp uintptr, ContentTypeVarp string, cerrp **glib.Error) bool {
 			return cb(&AppInfoBase{Ptr: AppinfoVarp}, ContentTypeVarp)
 		})
 	}
@@ -557,10 +562,11 @@ func (x *AppInfoIface) GetRemoveSupportsType() func(AppInfo, string) bool {
 	if x.xRemoveSupportsType == 0 {
 		return nil
 	}
-	var rawCallback func(AppinfoVarp uintptr, ContentTypeVarp string) bool
+	var rawCallback func(AppinfoVarp uintptr, ContentTypeVarp string, cerrp **glib.Error) bool
 	purego.RegisterFunc(&rawCallback, x.xRemoveSupportsType)
 	return func(AppinfoVar AppInfo, ContentTypeVar string) bool {
-		return rawCallback(AppinfoVar.GoPointer(), ContentTypeVar)
+		var cerr *glib.Error
+		return rawCallback(AppinfoVar.GoPointer(), ContentTypeVar, &cerr)
 	}
 }
 
@@ -680,7 +686,7 @@ func (x *AppInfoIface) OverrideSetAsLastUsedForType(cb func(AppInfo, string) boo
 	if cb == nil {
 		x.xSetAsLastUsedForType = 0
 	} else {
-		x.xSetAsLastUsedForType = purego.NewCallback(func(AppinfoVarp uintptr, ContentTypeVarp string) bool {
+		x.xSetAsLastUsedForType = purego.NewCallback(func(AppinfoVarp uintptr, ContentTypeVarp string, cerrp **glib.Error) bool {
 			return cb(&AppInfoBase{Ptr: AppinfoVarp}, ContentTypeVarp)
 		})
 	}
@@ -694,10 +700,11 @@ func (x *AppInfoIface) GetSetAsLastUsedForType() func(AppInfo, string) bool {
 	if x.xSetAsLastUsedForType == 0 {
 		return nil
 	}
-	var rawCallback func(AppinfoVarp uintptr, ContentTypeVarp string) bool
+	var rawCallback func(AppinfoVarp uintptr, ContentTypeVarp string, cerrp **glib.Error) bool
 	purego.RegisterFunc(&rawCallback, x.xSetAsLastUsedForType)
 	return func(AppinfoVar AppInfo, ContentTypeVar string) bool {
-		return rawCallback(AppinfoVar.GoPointer(), ContentTypeVar)
+		var cerr *glib.Error
+		return rawCallback(AppinfoVar.GoPointer(), ContentTypeVar, &cerr)
 	}
 }
 
@@ -767,7 +774,7 @@ func (x *AppInfoIface) OverrideLaunchUrisFinish(cb func(AppInfo, AsyncResult) bo
 	if cb == nil {
 		x.xLaunchUrisFinish = 0
 	} else {
-		x.xLaunchUrisFinish = purego.NewCallback(func(AppinfoVarp uintptr, ResultVarp uintptr) bool {
+		x.xLaunchUrisFinish = purego.NewCallback(func(AppinfoVarp uintptr, ResultVarp uintptr, cerrp **glib.Error) bool {
 			return cb(&AppInfoBase{Ptr: AppinfoVarp}, &AsyncResultBase{Ptr: ResultVarp})
 		})
 	}
@@ -781,10 +788,11 @@ func (x *AppInfoIface) GetLaunchUrisFinish() func(AppInfo, AsyncResult) bool {
 	if x.xLaunchUrisFinish == 0 {
 		return nil
 	}
-	var rawCallback func(AppinfoVarp uintptr, ResultVarp uintptr) bool
+	var rawCallback func(AppinfoVarp uintptr, ResultVarp uintptr, cerrp **glib.Error) bool
 	purego.RegisterFunc(&rawCallback, x.xLaunchUrisFinish)
 	return func(AppinfoVar AppInfo, ResultVar AsyncResult) bool {
-		return rawCallback(AppinfoVar.GoPointer(), ResultVar.GoPointer())
+		var cerr *glib.Error
+		return rawCallback(AppinfoVar.GoPointer(), ResultVar.GoPointer(), &cerr)
 	}
 }
 
@@ -1112,6 +1120,7 @@ type AppInfo interface {
 var xAppInfoGLibType func() types.GType
 
 func AppInfoGLibType() types.GType {
+	core.LazyRegister(&xAppInfoGLibType, "GIO", "g_app_info_get_type", false)
 	return xAppInfoGLibType()
 }
 
@@ -1409,33 +1418,180 @@ func (x *AppInfoBase) SupportsUris() bool {
 	return cret
 }
 
+var XGAppInfoAddSupportsType func(uintptr, string, **glib.Error) bool = func(instance uintptr, ContentTypeVarp string, cerrp **glib.Error) bool {
+	core.LazyRegister(&xXGAppInfoAddSupportsType, "GIO", "g_app_info_add_supports_type", false)
+	return xXGAppInfoAddSupportsType(instance, ContentTypeVarp, cerrp)
+}
+
 var (
-	XGAppInfoAddSupportsType          func(uintptr, string, **glib.Error) bool
-	XGAppInfoCanDelete                func(uintptr) bool
-	XGAppInfoCanRemoveSupportsType    func(uintptr) bool
-	XGAppInfoDelete                   func(uintptr) bool
-	XGAppInfoDup                      func(uintptr) uintptr
-	XGAppInfoEqual                    func(uintptr, uintptr) bool
-	XGAppInfoGetCommandline           func(uintptr) string
-	XGAppInfoGetDescription           func(uintptr) string
-	XGAppInfoGetDisplayName           func(uintptr) string
-	XGAppInfoGetExecutable            func(uintptr) string
-	XGAppInfoGetIcon                  func(uintptr) uintptr
-	XGAppInfoGetId                    func(uintptr) string
-	XGAppInfoGetName                  func(uintptr) string
-	XGAppInfoGetSupportedTypes        func(uintptr) []string
-	XGAppInfoLaunch                   func(uintptr, *glib.List, uintptr, **glib.Error) bool
-	XGAppInfoLaunchUris               func(uintptr, *glib.List, uintptr, **glib.Error) bool
-	XGAppInfoLaunchUrisAsync          func(uintptr, *glib.List, uintptr, uintptr, uintptr, uintptr)
-	XGAppInfoLaunchUrisFinish         func(uintptr, uintptr, **glib.Error) bool
-	XGAppInfoRemoveSupportsType       func(uintptr, string, **glib.Error) bool
-	XGAppInfoSetAsDefaultForExtension func(uintptr, string, **glib.Error) bool
-	XGAppInfoSetAsDefaultForType      func(uintptr, string, **glib.Error) bool
-	XGAppInfoSetAsLastUsedForType     func(uintptr, string, **glib.Error) bool
-	XGAppInfoShouldShow               func(uintptr) bool
-	XGAppInfoSupportsFiles            func(uintptr) bool
-	XGAppInfoSupportsUris             func(uintptr) bool
+	xXGAppInfoAddSupportsType func(uintptr, string, **glib.Error) bool
+	XGAppInfoCanDelete        func(uintptr) bool = func(instance uintptr) bool {
+		core.LazyRegister(&xXGAppInfoCanDelete, "GIO", "g_app_info_can_delete", false)
+		return xXGAppInfoCanDelete(instance)
+	}
 )
+var (
+	xXGAppInfoCanDelete            func(uintptr) bool
+	XGAppInfoCanRemoveSupportsType func(uintptr) bool = func(instance uintptr) bool {
+		core.LazyRegister(&xXGAppInfoCanRemoveSupportsType, "GIO", "g_app_info_can_remove_supports_type", false)
+		return xXGAppInfoCanRemoveSupportsType(instance)
+	}
+)
+var (
+	xXGAppInfoCanRemoveSupportsType func(uintptr) bool
+	XGAppInfoDelete                 func(uintptr) bool = func(instance uintptr) bool {
+		core.LazyRegister(&xXGAppInfoDelete, "GIO", "g_app_info_delete", false)
+		return xXGAppInfoDelete(instance)
+	}
+)
+var (
+	xXGAppInfoDelete func(uintptr) bool
+	XGAppInfoDup     func(uintptr) uintptr = func(instance uintptr) uintptr {
+		core.LazyRegister(&xXGAppInfoDup, "GIO", "g_app_info_dup", false)
+		return xXGAppInfoDup(instance)
+	}
+)
+var (
+	xXGAppInfoDup  func(uintptr) uintptr
+	XGAppInfoEqual func(uintptr, uintptr) bool = func(instance uintptr, Appinfo2Varp uintptr) bool {
+		core.LazyRegister(&xXGAppInfoEqual, "GIO", "g_app_info_equal", false)
+		return xXGAppInfoEqual(instance, Appinfo2Varp)
+	}
+)
+var (
+	xXGAppInfoEqual         func(uintptr, uintptr) bool
+	XGAppInfoGetCommandline func(uintptr) string = func(instance uintptr) string {
+		core.LazyRegister(&xXGAppInfoGetCommandline, "GIO", "g_app_info_get_commandline", false)
+		return xXGAppInfoGetCommandline(instance)
+	}
+)
+var (
+	xXGAppInfoGetCommandline func(uintptr) string
+	XGAppInfoGetDescription  func(uintptr) string = func(instance uintptr) string {
+		core.LazyRegister(&xXGAppInfoGetDescription, "GIO", "g_app_info_get_description", false)
+		return xXGAppInfoGetDescription(instance)
+	}
+)
+var (
+	xXGAppInfoGetDescription func(uintptr) string
+	XGAppInfoGetDisplayName  func(uintptr) string = func(instance uintptr) string {
+		core.LazyRegister(&xXGAppInfoGetDisplayName, "GIO", "g_app_info_get_display_name", false)
+		return xXGAppInfoGetDisplayName(instance)
+	}
+)
+var (
+	xXGAppInfoGetDisplayName func(uintptr) string
+	XGAppInfoGetExecutable   func(uintptr) string = func(instance uintptr) string {
+		core.LazyRegister(&xXGAppInfoGetExecutable, "GIO", "g_app_info_get_executable", false)
+		return xXGAppInfoGetExecutable(instance)
+	}
+)
+var (
+	xXGAppInfoGetExecutable func(uintptr) string
+	XGAppInfoGetIcon        func(uintptr) uintptr = func(instance uintptr) uintptr {
+		core.LazyRegister(&xXGAppInfoGetIcon, "GIO", "g_app_info_get_icon", false)
+		return xXGAppInfoGetIcon(instance)
+	}
+)
+var (
+	xXGAppInfoGetIcon func(uintptr) uintptr
+	XGAppInfoGetId    func(uintptr) string = func(instance uintptr) string {
+		core.LazyRegister(&xXGAppInfoGetId, "GIO", "g_app_info_get_id", false)
+		return xXGAppInfoGetId(instance)
+	}
+)
+var (
+	xXGAppInfoGetId  func(uintptr) string
+	XGAppInfoGetName func(uintptr) string = func(instance uintptr) string {
+		core.LazyRegister(&xXGAppInfoGetName, "GIO", "g_app_info_get_name", false)
+		return xXGAppInfoGetName(instance)
+	}
+)
+var (
+	xXGAppInfoGetName          func(uintptr) string
+	XGAppInfoGetSupportedTypes func(uintptr) []string = func(instance uintptr) []string {
+		core.LazyRegister(&xXGAppInfoGetSupportedTypes, "GIO", "g_app_info_get_supported_types", false)
+		return xXGAppInfoGetSupportedTypes(instance)
+	}
+)
+var (
+	xXGAppInfoGetSupportedTypes func(uintptr) []string
+	XGAppInfoLaunch             func(uintptr, *glib.List, uintptr, **glib.Error) bool = func(instance uintptr, FilesVarp *glib.List, ContextVarp uintptr, cerrp **glib.Error) bool {
+		core.LazyRegister(&xXGAppInfoLaunch, "GIO", "g_app_info_launch", false)
+		return xXGAppInfoLaunch(instance, FilesVarp, ContextVarp, cerrp)
+	}
+)
+var (
+	xXGAppInfoLaunch    func(uintptr, *glib.List, uintptr, **glib.Error) bool
+	XGAppInfoLaunchUris func(uintptr, *glib.List, uintptr, **glib.Error) bool = func(instance uintptr, UrisVarp *glib.List, ContextVarp uintptr, cerrp **glib.Error) bool {
+		core.LazyRegister(&xXGAppInfoLaunchUris, "GIO", "g_app_info_launch_uris", false)
+		return xXGAppInfoLaunchUris(instance, UrisVarp, ContextVarp, cerrp)
+	}
+)
+var (
+	xXGAppInfoLaunchUris     func(uintptr, *glib.List, uintptr, **glib.Error) bool
+	XGAppInfoLaunchUrisAsync func(uintptr, *glib.List, uintptr, uintptr, uintptr, uintptr) = func(instance uintptr, UrisVarp *glib.List, ContextVarp uintptr, CancellableVarp uintptr, CallbackVarp uintptr, UserDataVarp uintptr) {
+		core.LazyRegister(&xXGAppInfoLaunchUrisAsync, "GIO", "g_app_info_launch_uris_async", false)
+		xXGAppInfoLaunchUrisAsync(instance, UrisVarp, ContextVarp, CancellableVarp, CallbackVarp, UserDataVarp)
+	}
+)
+var (
+	xXGAppInfoLaunchUrisAsync func(uintptr, *glib.List, uintptr, uintptr, uintptr, uintptr)
+	XGAppInfoLaunchUrisFinish func(uintptr, uintptr, **glib.Error) bool = func(instance uintptr, ResultVarp uintptr, cerrp **glib.Error) bool {
+		core.LazyRegister(&xXGAppInfoLaunchUrisFinish, "GIO", "g_app_info_launch_uris_finish", false)
+		return xXGAppInfoLaunchUrisFinish(instance, ResultVarp, cerrp)
+	}
+)
+var (
+	xXGAppInfoLaunchUrisFinish  func(uintptr, uintptr, **glib.Error) bool
+	XGAppInfoRemoveSupportsType func(uintptr, string, **glib.Error) bool = func(instance uintptr, ContentTypeVarp string, cerrp **glib.Error) bool {
+		core.LazyRegister(&xXGAppInfoRemoveSupportsType, "GIO", "g_app_info_remove_supports_type", false)
+		return xXGAppInfoRemoveSupportsType(instance, ContentTypeVarp, cerrp)
+	}
+)
+var (
+	xXGAppInfoRemoveSupportsType      func(uintptr, string, **glib.Error) bool
+	XGAppInfoSetAsDefaultForExtension func(uintptr, string, **glib.Error) bool = func(instance uintptr, ExtensionVarp string, cerrp **glib.Error) bool {
+		core.LazyRegister(&xXGAppInfoSetAsDefaultForExtension, "GIO", "g_app_info_set_as_default_for_extension", false)
+		return xXGAppInfoSetAsDefaultForExtension(instance, ExtensionVarp, cerrp)
+	}
+)
+var (
+	xXGAppInfoSetAsDefaultForExtension func(uintptr, string, **glib.Error) bool
+	XGAppInfoSetAsDefaultForType       func(uintptr, string, **glib.Error) bool = func(instance uintptr, ContentTypeVarp string, cerrp **glib.Error) bool {
+		core.LazyRegister(&xXGAppInfoSetAsDefaultForType, "GIO", "g_app_info_set_as_default_for_type", false)
+		return xXGAppInfoSetAsDefaultForType(instance, ContentTypeVarp, cerrp)
+	}
+)
+var (
+	xXGAppInfoSetAsDefaultForType func(uintptr, string, **glib.Error) bool
+	XGAppInfoSetAsLastUsedForType func(uintptr, string, **glib.Error) bool = func(instance uintptr, ContentTypeVarp string, cerrp **glib.Error) bool {
+		core.LazyRegister(&xXGAppInfoSetAsLastUsedForType, "GIO", "g_app_info_set_as_last_used_for_type", false)
+		return xXGAppInfoSetAsLastUsedForType(instance, ContentTypeVarp, cerrp)
+	}
+)
+var (
+	xXGAppInfoSetAsLastUsedForType func(uintptr, string, **glib.Error) bool
+	XGAppInfoShouldShow            func(uintptr) bool = func(instance uintptr) bool {
+		core.LazyRegister(&xXGAppInfoShouldShow, "GIO", "g_app_info_should_show", false)
+		return xXGAppInfoShouldShow(instance)
+	}
+)
+var (
+	xXGAppInfoShouldShow   func(uintptr) bool
+	XGAppInfoSupportsFiles func(uintptr) bool = func(instance uintptr) bool {
+		core.LazyRegister(&xXGAppInfoSupportsFiles, "GIO", "g_app_info_supports_files", false)
+		return xXGAppInfoSupportsFiles(instance)
+	}
+)
+var (
+	xXGAppInfoSupportsFiles func(uintptr) bool
+	XGAppInfoSupportsUris   func(uintptr) bool = func(instance uintptr) bool {
+		core.LazyRegister(&xXGAppInfoSupportsUris, "GIO", "g_app_info_supports_uris", false)
+		return xXGAppInfoSupportsUris(instance)
+	}
+)
+var xXGAppInfoSupportsUris func(uintptr) bool
 
 var xAppInfoCreateFromCommandline func(string, uintptr, AppInfoCreateFlags, **glib.Error) uintptr
 
@@ -1449,6 +1605,7 @@ var xAppInfoCreateFromCommandline func(string, uintptr, AppInfoCreateFlags, **gl
 // [the specification](https://specifications.freedesktop.org/desktop-entry-spec/latest/ar01s07.html)
 // for exact quoting rules.
 func AppInfoCreateFromCommandline(CommandlineVar string, ApplicationNameVar *string, FlagsVar AppInfoCreateFlags) (*AppInfoBase, error) {
+	core.LazyRegister(&xAppInfoCreateFromCommandline, "GIO", "g_app_info_create_from_commandline", false)
 	var cls *AppInfoBase
 	var cerr *glib.Error
 
@@ -1484,6 +1641,8 @@ var xAppInfoGetAll func() uintptr
 // [`Hidden` key](https://specifications.freedesktop.org/desktop-entry-spec/latest/ar01s06.html#key-hidden)
 // set.
 func AppInfoGetAll() *glib.List {
+	core.LazyRegister(&xAppInfoGetAll, "GIO", "g_app_info_get_all", false)
+
 	cret := xAppInfoGetAll()
 	if cret == 0 {
 		return nil
@@ -1498,6 +1657,8 @@ var xAppInfoGetAllForType func(string) uintptr
 // [func@Gio.AppInfo.get_recommended_for_type] and
 // [func@Gio.AppInfo.get_fallback_for_type].
 func AppInfoGetAllForType(ContentTypeVar string) *glib.List {
+	core.LazyRegister(&xAppInfoGetAllForType, "GIO", "g_app_info_get_all_for_type", false)
+
 	cret := xAppInfoGetAllForType(ContentTypeVar)
 	if cret == 0 {
 		return nil
@@ -1509,6 +1670,7 @@ var xAppInfoGetDefaultForType func(string, bool) uintptr
 
 // Gets the default [iface@Gio.AppInfo] for a given content type.
 func AppInfoGetDefaultForType(ContentTypeVar string, MustSupportUrisVar bool) *AppInfoBase {
+	core.LazyRegister(&xAppInfoGetDefaultForType, "GIO", "g_app_info_get_default_for_type", false)
 	var cls *AppInfoBase
 
 	cret := xAppInfoGetDefaultForType(ContentTypeVar, MustSupportUrisVar)
@@ -1526,6 +1688,8 @@ var xAppInfoGetDefaultForTypeAsync func(string, bool, uintptr, uintptr, uintptr)
 // Asynchronously gets the default [iface@Gio.AppInfo] for a given content
 // type.
 func AppInfoGetDefaultForTypeAsync(ContentTypeVar string, MustSupportUrisVar bool, CancellableVar *Cancellable, CallbackVar *AsyncReadyCallback, UserDataVar uintptr) {
+	core.LazyRegister(&xAppInfoGetDefaultForTypeAsync, "GIO", "g_app_info_get_default_for_type_async", false)
+
 	xAppInfoGetDefaultForTypeAsync(ContentTypeVar, MustSupportUrisVar, CancellableVar.GoPointer(), glib.NewCallbackNullable(CallbackVar), UserDataVar)
 }
 
@@ -1537,6 +1701,7 @@ var xAppInfoGetDefaultForTypeFinish func(uintptr, **glib.Error) uintptr
 // If no #[iface@Gio.AppInfo] is found, then @error will be set to
 // [error@Gio.IOErrorEnum.NOT_FOUND].
 func AppInfoGetDefaultForTypeFinish(ResultVar AsyncResult) (*AppInfoBase, error) {
+	core.LazyRegister(&xAppInfoGetDefaultForTypeFinish, "GIO", "g_app_info_get_default_for_type_finish", false)
 	var cls *AppInfoBase
 	var cerr *glib.Error
 
@@ -1560,6 +1725,7 @@ var xAppInfoGetDefaultForUriScheme func(string) uintptr
 // A URI scheme is the initial part of the URI, up to but not including the `:`.
 // For example, `http`, `ftp` or `sip`.
 func AppInfoGetDefaultForUriScheme(UriSchemeVar string) *AppInfoBase {
+	core.LazyRegister(&xAppInfoGetDefaultForUriScheme, "GIO", "g_app_info_get_default_for_uri_scheme", false)
 	var cls *AppInfoBase
 
 	cret := xAppInfoGetDefaultForUriScheme(UriSchemeVar)
@@ -1579,6 +1745,8 @@ var xAppInfoGetDefaultForUriSchemeAsync func(string, uintptr, uintptr, uintptr)
 // of the URI, up to but not including the `:`, e.g. `http`,
 // `ftp` or `sip`.
 func AppInfoGetDefaultForUriSchemeAsync(UriSchemeVar string, CancellableVar *Cancellable, CallbackVar *AsyncReadyCallback, UserDataVar uintptr) {
+	core.LazyRegister(&xAppInfoGetDefaultForUriSchemeAsync, "GIO", "g_app_info_get_default_for_uri_scheme_async", false)
+
 	xAppInfoGetDefaultForUriSchemeAsync(UriSchemeVar, CancellableVar.GoPointer(), glib.NewCallbackNullable(CallbackVar), UserDataVar)
 }
 
@@ -1590,6 +1758,7 @@ var xAppInfoGetDefaultForUriSchemeFinish func(uintptr, **glib.Error) uintptr
 // If no [iface@Gio.AppInfo] is found, then @error will be set to
 // [error@Gio.IOErrorEnum.NOT_FOUND].
 func AppInfoGetDefaultForUriSchemeFinish(ResultVar AsyncResult) (*AppInfoBase, error) {
+	core.LazyRegister(&xAppInfoGetDefaultForUriSchemeFinish, "GIO", "g_app_info_get_default_for_uri_scheme_finish", false)
 	var cls *AppInfoBase
 	var cerr *glib.Error
 
@@ -1612,6 +1781,8 @@ var xAppInfoGetFallbackForType func(string) uintptr
 // those applications which claim to support the given content type by MIME
 // type subclassing and not directly.
 func AppInfoGetFallbackForType(ContentTypeVar string) *glib.List {
+	core.LazyRegister(&xAppInfoGetFallbackForType, "GIO", "g_app_info_get_fallback_for_type", false)
+
 	cret := xAppInfoGetFallbackForType(ContentTypeVar)
 	if cret == 0 {
 		return nil
@@ -1629,6 +1800,8 @@ var xAppInfoGetRecommendedForType func(string) uintptr
 // the last one for which [method@Gio.AppInfo.set_as_last_used_for_type] has
 // been called.
 func AppInfoGetRecommendedForType(ContentTypeVar string) *glib.List {
+	core.LazyRegister(&xAppInfoGetRecommendedForType, "GIO", "g_app_info_get_recommended_for_type", false)
+
 	cret := xAppInfoGetRecommendedForType(ContentTypeVar)
 	if cret == 0 {
 		return nil
@@ -1646,6 +1819,7 @@ var xAppInfoLaunchDefaultForUri func(string, uintptr, **glib.Error) bool
 // terminates too soon after this function. To prevent this, use
 // [func@Gio.AppInfo.launch_default_for_uri_async] instead.
 func AppInfoLaunchDefaultForUri(UriVar string, ContextVar *AppLaunchContext) (bool, error) {
+	core.LazyRegister(&xAppInfoLaunchDefaultForUri, "GIO", "g_app_info_launch_default_for_uri", false)
 	var cerr *glib.Error
 
 	cret := xAppInfoLaunchDefaultForUri(UriVar, ContextVar.GoPointer(), &cerr)
@@ -1667,6 +1841,8 @@ var xAppInfoLaunchDefaultForUriAsync func(string, uintptr, uintptr, uintptr, uin
 // applications are really started before termination and if you are interested
 // in receiving error information from their activation.
 func AppInfoLaunchDefaultForUriAsync(UriVar string, ContextVar *AppLaunchContext, CancellableVar *Cancellable, CallbackVar *AsyncReadyCallback, UserDataVar uintptr) {
+	core.LazyRegister(&xAppInfoLaunchDefaultForUriAsync, "GIO", "g_app_info_launch_default_for_uri_async", false)
+
 	xAppInfoLaunchDefaultForUriAsync(UriVar, ContextVar.GoPointer(), CancellableVar.GoPointer(), glib.NewCallbackNullable(CallbackVar), UserDataVar)
 }
 
@@ -1674,6 +1850,7 @@ var xAppInfoLaunchDefaultForUriFinish func(uintptr, **glib.Error) bool
 
 // Finishes an asynchronous launch-default-for-uri operation.
 func AppInfoLaunchDefaultForUriFinish(ResultVar AsyncResult) (bool, error) {
+	core.LazyRegister(&xAppInfoLaunchDefaultForUriFinish, "GIO", "g_app_info_launch_default_for_uri_finish", false)
 	var cerr *glib.Error
 
 	cret := xAppInfoLaunchDefaultForUriFinish(ResultVar.GoPointer(), &cerr)
@@ -1691,6 +1868,8 @@ var xAppInfoResetTypeAssociations func(string)
 // [method@Gio.AppInfo.add_supports_type] or
 // [method@Gio.AppInfo.remove_supports_type].
 func AppInfoResetTypeAssociations(ContentTypeVar string) {
+	core.LazyRegister(&xAppInfoResetTypeAssociations, "GIO", "g_app_info_reset_type_associations", false)
+
 	xAppInfoResetTypeAssociations(ContentTypeVar)
 }
 
@@ -1740,6 +1919,7 @@ type AppInfoMonitor struct {
 var xAppInfoMonitorGLibType func() types.GType
 
 func AppInfoMonitorGLibType() types.GType {
+	core.LazyRegister(&xAppInfoMonitorGLibType, "GIO", "g_app_info_monitor_get_type", false)
 	return xAppInfoMonitorGLibType()
 }
 
@@ -1800,6 +1980,7 @@ var xAppInfoMonitorGet func() uintptr
 // You must only call g_object_unref() on the return value from under
 // the same main context as you created it.
 func AppInfoMonitorGet() *AppInfoMonitor {
+	core.LazyRegister(&xAppInfoMonitorGet, "GIO", "g_app_info_monitor_get", false)
 	var cls *AppInfoMonitor
 
 	cret := xAppInfoMonitorGet()
@@ -1822,6 +2003,7 @@ type AppLaunchContext struct {
 var xAppLaunchContextGLibType func() types.GType
 
 func AppLaunchContextGLibType() types.GType {
+	core.LazyRegister(&xAppLaunchContextGLibType, "GIO", "g_app_launch_context_get_type", false)
 	return xAppLaunchContextGLibType()
 }
 
@@ -1837,6 +2019,7 @@ var xNewAppLaunchContext func() uintptr
 // instead you instantiate a subclass of this, such as
 // [`GdkAppLaunchContext`](https://docs.gtk.org/gdk4/class.AppLaunchContext.html).
 func NewAppLaunchContext() *AppLaunchContext {
+	core.LazyRegister(&xNewAppLaunchContext, "GIO", "g_app_launch_context_new", false)
 	var cls *AppLaunchContext
 
 	cret := xNewAppLaunchContext()
@@ -1855,6 +2038,8 @@ var xAppLaunchContextGetDisplay func(uintptr, uintptr, *glib.List) string
 // applications are started on the same display as the launching
 // application, by setting the `DISPLAY` environment variable.
 func (x *AppLaunchContext) GetDisplay(InfoVar AppInfo, FilesVar *glib.List) string {
+	core.LazyRegister(&xAppLaunchContextGetDisplay, "GIO", "g_app_launch_context_get_display", false)
+
 	cret := xAppLaunchContextGetDisplay(x.GoPointer(), InfoVar.GoPointer(), FilesVar)
 	return cret
 }
@@ -1866,6 +2051,8 @@ var xAppLaunchContextGetEnvironment func(uintptr) []string
 // This is a `NULL`-terminated array of strings, where each string has
 // the form `KEY=VALUE`.
 func (x *AppLaunchContext) GetEnvironment() []string {
+	core.LazyRegister(&xAppLaunchContextGetEnvironment, "GIO", "g_app_launch_context_get_environment", false)
+
 	cret := xAppLaunchContextGetEnvironment(x.GoPointer())
 	return cret
 }
@@ -1888,6 +2075,8 @@ var xAppLaunchContextGetStartupNotifyId func(uintptr, uintptr, *glib.List) strin
 // Since GLib 2.82 @info and @files can be `NULL`. If that’s not supported by the backend,
 // the returned token will be `NULL`.
 func (x *AppLaunchContext) GetStartupNotifyId(InfoVar AppInfo, FilesVar *glib.List) string {
+	core.LazyRegister(&xAppLaunchContextGetStartupNotifyId, "GIO", "g_app_launch_context_get_startup_notify_id", false)
+
 	cret := xAppLaunchContextGetStartupNotifyId(x.GoPointer(), InfoVar.GoPointer(), FilesVar)
 	return cret
 }
@@ -1898,6 +2087,8 @@ var xAppLaunchContextLaunchFailed func(uintptr, string)
 // the application startup notification started in
 // [method@Gio.AppLaunchContext.get_startup_notify_id].
 func (x *AppLaunchContext) LaunchFailed(StartupNotifyIdVar string) {
+	core.LazyRegister(&xAppLaunchContextLaunchFailed, "GIO", "g_app_launch_context_launch_failed", false)
+
 	xAppLaunchContextLaunchFailed(x.GoPointer(), StartupNotifyIdVar)
 }
 
@@ -1906,6 +2097,8 @@ var xAppLaunchContextSetenv func(uintptr, string, string)
 // Arranges for @variable to be set to @value in the child’s environment when
 // @context is used to launch an application.
 func (x *AppLaunchContext) Setenv(VariableVar string, ValueVar string) {
+	core.LazyRegister(&xAppLaunchContextSetenv, "GIO", "g_app_launch_context_setenv", false)
+
 	xAppLaunchContextSetenv(x.GoPointer(), VariableVar, ValueVar)
 }
 
@@ -1914,6 +2107,8 @@ var xAppLaunchContextUnsetenv func(uintptr, string)
 // Arranges for @variable to be unset in the child’s environment when @context
 // is used to launch an application.
 func (x *AppLaunchContext) Unsetenv(VariableVar string) {
+	core.LazyRegister(&xAppLaunchContextUnsetenv, "GIO", "g_app_launch_context_unsetenv", false)
+
 	xAppLaunchContextUnsetenv(x.GoPointer(), VariableVar)
 }
 
@@ -2044,71 +2239,4 @@ func (x *AppLaunchContext) ConnectLaunched(cb *func(AppLaunchContext, uintptr, u
 func init() {
 	core.SetPackageName("GIO", "gio-2.0")
 	core.SetSharedLibraries("GIO", []string{"libgio-2.0.so.0", "libgio-2.0.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GIO") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xAppInfoCreateFromCommandline, libs, "g_app_info_create_from_commandline")
-	core.PuregoSafeRegister(&xAppInfoGetAll, libs, "g_app_info_get_all")
-	core.PuregoSafeRegister(&xAppInfoGetAllForType, libs, "g_app_info_get_all_for_type")
-	core.PuregoSafeRegister(&xAppInfoGetDefaultForType, libs, "g_app_info_get_default_for_type")
-	core.PuregoSafeRegister(&xAppInfoGetDefaultForTypeAsync, libs, "g_app_info_get_default_for_type_async")
-	core.PuregoSafeRegister(&xAppInfoGetDefaultForTypeFinish, libs, "g_app_info_get_default_for_type_finish")
-	core.PuregoSafeRegister(&xAppInfoGetDefaultForUriScheme, libs, "g_app_info_get_default_for_uri_scheme")
-	core.PuregoSafeRegister(&xAppInfoGetDefaultForUriSchemeAsync, libs, "g_app_info_get_default_for_uri_scheme_async")
-	core.PuregoSafeRegister(&xAppInfoGetDefaultForUriSchemeFinish, libs, "g_app_info_get_default_for_uri_scheme_finish")
-	core.PuregoSafeRegister(&xAppInfoGetFallbackForType, libs, "g_app_info_get_fallback_for_type")
-	core.PuregoSafeRegister(&xAppInfoGetRecommendedForType, libs, "g_app_info_get_recommended_for_type")
-	core.PuregoSafeRegister(&xAppInfoLaunchDefaultForUri, libs, "g_app_info_launch_default_for_uri")
-	core.PuregoSafeRegister(&xAppInfoLaunchDefaultForUriAsync, libs, "g_app_info_launch_default_for_uri_async")
-	core.PuregoSafeRegister(&xAppInfoLaunchDefaultForUriFinish, libs, "g_app_info_launch_default_for_uri_finish")
-	core.PuregoSafeRegister(&xAppInfoResetTypeAssociations, libs, "g_app_info_reset_type_associations")
-
-	core.PuregoSafeRegister(&xAppInfoMonitorGLibType, libs, "g_app_info_monitor_get_type")
-
-	core.PuregoSafeRegister(&xAppInfoMonitorGet, libs, "g_app_info_monitor_get")
-
-	core.PuregoSafeRegister(&xAppLaunchContextGLibType, libs, "g_app_launch_context_get_type")
-
-	core.PuregoSafeRegister(&xNewAppLaunchContext, libs, "g_app_launch_context_new")
-
-	core.PuregoSafeRegister(&xAppLaunchContextGetDisplay, libs, "g_app_launch_context_get_display")
-	core.PuregoSafeRegister(&xAppLaunchContextGetEnvironment, libs, "g_app_launch_context_get_environment")
-	core.PuregoSafeRegister(&xAppLaunchContextGetStartupNotifyId, libs, "g_app_launch_context_get_startup_notify_id")
-	core.PuregoSafeRegister(&xAppLaunchContextLaunchFailed, libs, "g_app_launch_context_launch_failed")
-	core.PuregoSafeRegister(&xAppLaunchContextSetenv, libs, "g_app_launch_context_setenv")
-	core.PuregoSafeRegister(&xAppLaunchContextUnsetenv, libs, "g_app_launch_context_unsetenv")
-
-	core.PuregoSafeRegister(&xAppInfoGLibType, libs, "g_app_info_get_type")
-
-	core.PuregoSafeRegister(&XGAppInfoAddSupportsType, libs, "g_app_info_add_supports_type")
-	core.PuregoSafeRegister(&XGAppInfoCanDelete, libs, "g_app_info_can_delete")
-	core.PuregoSafeRegister(&XGAppInfoCanRemoveSupportsType, libs, "g_app_info_can_remove_supports_type")
-	core.PuregoSafeRegister(&XGAppInfoDelete, libs, "g_app_info_delete")
-	core.PuregoSafeRegister(&XGAppInfoDup, libs, "g_app_info_dup")
-	core.PuregoSafeRegister(&XGAppInfoEqual, libs, "g_app_info_equal")
-	core.PuregoSafeRegister(&XGAppInfoGetCommandline, libs, "g_app_info_get_commandline")
-	core.PuregoSafeRegister(&XGAppInfoGetDescription, libs, "g_app_info_get_description")
-	core.PuregoSafeRegister(&XGAppInfoGetDisplayName, libs, "g_app_info_get_display_name")
-	core.PuregoSafeRegister(&XGAppInfoGetExecutable, libs, "g_app_info_get_executable")
-	core.PuregoSafeRegister(&XGAppInfoGetIcon, libs, "g_app_info_get_icon")
-	core.PuregoSafeRegister(&XGAppInfoGetId, libs, "g_app_info_get_id")
-	core.PuregoSafeRegister(&XGAppInfoGetName, libs, "g_app_info_get_name")
-	core.PuregoSafeRegister(&XGAppInfoGetSupportedTypes, libs, "g_app_info_get_supported_types")
-	core.PuregoSafeRegister(&XGAppInfoLaunch, libs, "g_app_info_launch")
-	core.PuregoSafeRegister(&XGAppInfoLaunchUris, libs, "g_app_info_launch_uris")
-	core.PuregoSafeRegister(&XGAppInfoLaunchUrisAsync, libs, "g_app_info_launch_uris_async")
-	core.PuregoSafeRegister(&XGAppInfoLaunchUrisFinish, libs, "g_app_info_launch_uris_finish")
-	core.PuregoSafeRegister(&XGAppInfoRemoveSupportsType, libs, "g_app_info_remove_supports_type")
-	core.PuregoSafeRegister(&XGAppInfoSetAsDefaultForExtension, libs, "g_app_info_set_as_default_for_extension")
-	core.PuregoSafeRegister(&XGAppInfoSetAsDefaultForType, libs, "g_app_info_set_as_default_for_type")
-	core.PuregoSafeRegister(&XGAppInfoSetAsLastUsedForType, libs, "g_app_info_set_as_last_used_for_type")
-	core.PuregoSafeRegister(&XGAppInfoShouldShow, libs, "g_app_info_should_show")
-	core.PuregoSafeRegister(&XGAppInfoSupportsFiles, libs, "g_app_info_supports_files")
-	core.PuregoSafeRegister(&XGAppInfoSupportsUris, libs, "g_app_info_supports_uris")
 }

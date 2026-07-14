@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gio"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -138,6 +137,7 @@ type ViewStack struct {
 var xViewStackGLibType func() types.GType
 
 func ViewStackGLibType() types.GType {
+	core.LazyRegister(&xViewStackGLibType, "ADW", "adw_view_stack_get_type", false)
 	return xViewStackGLibType()
 }
 
@@ -151,6 +151,7 @@ var xNewViewStack func() uintptr
 
 // Creates a new `AdwViewStack`.
 func NewViewStack() *ViewStack {
+	core.LazyRegister(&xNewViewStack, "ADW", "adw_view_stack_new", false)
 	var cls *ViewStack
 
 	cret := xNewViewStack()
@@ -168,6 +169,7 @@ var xViewStackAdd func(uintptr, uintptr) uintptr
 
 // Adds a child to @self.
 func (x *ViewStack) Add(ChildVar *gtk.Widget) *ViewStackPage {
+	core.LazyRegister(&xViewStackAdd, "ADW", "adw_view_stack_add", false)
 	var cls *ViewStackPage
 
 	cret := xViewStackAdd(x.GoPointer(), ChildVar.GoPointer())
@@ -187,6 +189,7 @@ var xViewStackAddNamed func(uintptr, uintptr, uintptr) uintptr
 //
 // The child is identified by the @name.
 func (x *ViewStack) AddNamed(ChildVar *gtk.Widget, NameVar *string) *ViewStackPage {
+	core.LazyRegister(&xViewStackAddNamed, "ADW", "adw_view_stack_add_named", false)
 	var cls *ViewStackPage
 
 	NameVarPtr := core.GStrdupNullable(NameVar)
@@ -210,6 +213,7 @@ var xViewStackAddTitled func(uintptr, uintptr, uintptr, string) uintptr
 // The child is identified by the @name. The @title will be used by
 // [class@ViewSwitcher] to represent @child, so it should be short.
 func (x *ViewStack) AddTitled(ChildVar *gtk.Widget, NameVar *string, TitleVar string) *ViewStackPage {
+	core.LazyRegister(&xViewStackAddTitled, "ADW", "adw_view_stack_add_titled", false)
 	var cls *ViewStackPage
 
 	NameVarPtr := core.GStrdupNullable(NameVar)
@@ -233,6 +237,7 @@ var xViewStackAddTitledWithIcon func(uintptr, uintptr, uintptr, string, string) 
 // The child is identified by the @name. The @title and @icon_name will be used
 // by [class@ViewSwitcher] to represent @child.
 func (x *ViewStack) AddTitledWithIcon(ChildVar *gtk.Widget, NameVar *string, TitleVar string, IconNameVar string) *ViewStackPage {
+	core.LazyRegister(&xViewStackAddTitledWithIcon, "ADW", "adw_view_stack_add_titled_with_icon", false)
 	var cls *ViewStackPage
 
 	NameVarPtr := core.GStrdupNullable(NameVar)
@@ -253,6 +258,7 @@ var xViewStackGetChildByName func(uintptr, string) uintptr
 
 // Finds the child with @name in @self.
 func (x *ViewStack) GetChildByName(NameVar string) *gtk.Widget {
+	core.LazyRegister(&xViewStackGetChildByName, "ADW", "adw_view_stack_get_child_by_name", false)
 	var cls *gtk.Widget
 
 	cret := xViewStackGetChildByName(x.GoPointer(), NameVar)
@@ -274,6 +280,8 @@ var xViewStackGetEnableTransitions func(uintptr) bool
 // [property@ViewStack:transition-running] to know when the transition is
 // running.
 func (x *ViewStack) GetEnableTransitions() bool {
+	core.LazyRegister(&xViewStackGetEnableTransitions, "ADW", "adw_view_stack_get_enable_transitions", false)
+
 	cret := xViewStackGetEnableTransitions(x.GoPointer())
 	return cret
 }
@@ -282,6 +290,8 @@ var xViewStackGetHhomogeneous func(uintptr) bool
 
 // Gets whether @self is horizontally homogeneous.
 func (x *ViewStack) GetHhomogeneous() bool {
+	core.LazyRegister(&xViewStackGetHhomogeneous, "ADW", "adw_view_stack_get_hhomogeneous", false)
+
 	cret := xViewStackGetHhomogeneous(x.GoPointer())
 	return cret
 }
@@ -290,6 +300,7 @@ var xViewStackGetPage func(uintptr, uintptr) uintptr
 
 // Gets the [class@ViewStackPage] object for @child.
 func (x *ViewStack) GetPage(ChildVar *gtk.Widget) *ViewStackPage {
+	core.LazyRegister(&xViewStackGetPage, "ADW", "adw_view_stack_get_page", false)
 	var cls *ViewStackPage
 
 	cret := xViewStackGetPage(x.GoPointer(), ChildVar.GoPointer())
@@ -315,6 +326,7 @@ var xViewStackGetPages func(uintptr) uintptr
 // The model also implements [iface@Gtk.SelectionModel] and can be used to track
 // and change the visible page.
 func (x *ViewStack) GetPages() *gtk.SelectionModelBase {
+	core.LazyRegister(&xViewStackGetPages, "ADW", "adw_view_stack_get_pages", false)
 	var cls *gtk.SelectionModelBase
 
 	cret := xViewStackGetPages(x.GoPointer())
@@ -331,6 +343,8 @@ var xViewStackGetTransitionDuration func(uintptr) uint
 
 // Gets the transition animation duration for @self.
 func (x *ViewStack) GetTransitionDuration() uint {
+	core.LazyRegister(&xViewStackGetTransitionDuration, "ADW", "adw_view_stack_get_transition_duration", false)
+
 	cret := xViewStackGetTransitionDuration(x.GoPointer())
 	return cret
 }
@@ -343,6 +357,8 @@ var xViewStackGetTransitionRunning func(uintptr) bool
 // then immediately to `FALSE`, so it's possible to rely on its notifications
 // to know that a transition has happened.
 func (x *ViewStack) GetTransitionRunning() bool {
+	core.LazyRegister(&xViewStackGetTransitionRunning, "ADW", "adw_view_stack_get_transition_running", false)
+
 	cret := xViewStackGetTransitionRunning(x.GoPointer())
 	return cret
 }
@@ -351,6 +367,8 @@ var xViewStackGetVhomogeneous func(uintptr) bool
 
 // Gets whether @self is vertically homogeneous.
 func (x *ViewStack) GetVhomogeneous() bool {
+	core.LazyRegister(&xViewStackGetVhomogeneous, "ADW", "adw_view_stack_get_vhomogeneous", false)
+
 	cret := xViewStackGetVhomogeneous(x.GoPointer())
 	return cret
 }
@@ -359,6 +377,7 @@ var xViewStackGetVisibleChild func(uintptr) uintptr
 
 // Gets the currently visible child of @self.
 func (x *ViewStack) GetVisibleChild() *gtk.Widget {
+	core.LazyRegister(&xViewStackGetVisibleChild, "ADW", "adw_view_stack_get_visible_child", false)
 	var cls *gtk.Widget
 
 	cret := xViewStackGetVisibleChild(x.GoPointer())
@@ -376,6 +395,8 @@ var xViewStackGetVisibleChildName func(uintptr) string
 
 // Returns the name of the currently visible child of @self.
 func (x *ViewStack) GetVisibleChildName() string {
+	core.LazyRegister(&xViewStackGetVisibleChildName, "ADW", "adw_view_stack_get_visible_child_name", false)
+
 	cret := xViewStackGetVisibleChildName(x.GoPointer())
 	return cret
 }
@@ -384,6 +405,8 @@ var xViewStackRemove func(uintptr, uintptr)
 
 // Removes a child widget from @self.
 func (x *ViewStack) Remove(ChildVar *gtk.Widget) {
+	core.LazyRegister(&xViewStackRemove, "ADW", "adw_view_stack_remove", false)
+
 	xViewStackRemove(x.GoPointer(), ChildVar.GoPointer())
 }
 
@@ -391,6 +414,8 @@ var xViewStackSetEnableTransitions func(uintptr, bool)
 
 // Sets whether @self uses a crossfade transition between pages.
 func (x *ViewStack) SetEnableTransitions(EnableTransitionsVar bool) {
+	core.LazyRegister(&xViewStackSetEnableTransitions, "ADW", "adw_view_stack_set_enable_transitions", false)
+
 	xViewStackSetEnableTransitions(x.GoPointer(), EnableTransitionsVar)
 }
 
@@ -404,6 +429,8 @@ var xViewStackSetHhomogeneous func(uintptr, bool)
 // If it's `FALSE`, the stack may change width when a different child becomes
 // visible.
 func (x *ViewStack) SetHhomogeneous(HhomogeneousVar bool) {
+	core.LazyRegister(&xViewStackSetHhomogeneous, "ADW", "adw_view_stack_set_hhomogeneous", false)
+
 	xViewStackSetHhomogeneous(x.GoPointer(), HhomogeneousVar)
 }
 
@@ -413,6 +440,8 @@ var xViewStackSetTransitionDuration func(uintptr, uint)
 //
 // Only used when [property@ViewStack:enable-transitions] is set to `TRUE`.
 func (x *ViewStack) SetTransitionDuration(DurationVar uint) {
+	core.LazyRegister(&xViewStackSetTransitionDuration, "ADW", "adw_view_stack_set_transition_duration", false)
+
 	xViewStackSetTransitionDuration(x.GoPointer(), DurationVar)
 }
 
@@ -426,6 +455,8 @@ var xViewStackSetVhomogeneous func(uintptr, bool)
 // If it's `FALSE`, the stack may change height when a different child becomes
 // visible.
 func (x *ViewStack) SetVhomogeneous(VhomogeneousVar bool) {
+	core.LazyRegister(&xViewStackSetVhomogeneous, "ADW", "adw_view_stack_set_vhomogeneous", false)
+
 	xViewStackSetVhomogeneous(x.GoPointer(), VhomogeneousVar)
 }
 
@@ -433,6 +464,8 @@ var xViewStackSetVisibleChild func(uintptr, uintptr)
 
 // Makes @child the visible child of @self.
 func (x *ViewStack) SetVisibleChild(ChildVar *gtk.Widget) {
+	core.LazyRegister(&xViewStackSetVisibleChild, "ADW", "adw_view_stack_set_visible_child", false)
+
 	xViewStackSetVisibleChild(x.GoPointer(), ChildVar.GoPointer())
 }
 
@@ -442,6 +475,8 @@ var xViewStackSetVisibleChildName func(uintptr, string)
 //
 // See [property@ViewStack:visible-child].
 func (x *ViewStack) SetVisibleChildName(NameVar string) {
+	core.LazyRegister(&xViewStackSetVisibleChildName, "ADW", "adw_view_stack_set_visible_child_name", false)
+
 	xViewStackSetVisibleChildName(x.GoPointer(), NameVar)
 }
 
@@ -861,6 +896,7 @@ type ViewStackPage struct {
 var xViewStackPageGLibType func() types.GType
 
 func ViewStackPageGLibType() types.GType {
+	core.LazyRegister(&xViewStackPageGLibType, "ADW", "adw_view_stack_page_get_type", false)
 	return xViewStackPageGLibType()
 }
 
@@ -874,6 +910,8 @@ var xViewStackPageGetBadgeNumber func(uintptr) uint
 
 // Gets the badge number for this page.
 func (x *ViewStackPage) GetBadgeNumber() uint {
+	core.LazyRegister(&xViewStackPageGetBadgeNumber, "ADW", "adw_view_stack_page_get_badge_number", false)
+
 	cret := xViewStackPageGetBadgeNumber(x.GoPointer())
 	return cret
 }
@@ -882,6 +920,7 @@ var xViewStackPageGetChild func(uintptr) uintptr
 
 // Gets the stack child to which @self belongs.
 func (x *ViewStackPage) GetChild() *gtk.Widget {
+	core.LazyRegister(&xViewStackPageGetChild, "ADW", "adw_view_stack_page_get_child", false)
 	var cls *gtk.Widget
 
 	cret := xViewStackPageGetChild(x.GoPointer())
@@ -899,6 +938,8 @@ var xViewStackPageGetIconName func(uintptr) string
 
 // Gets the icon name of the page.
 func (x *ViewStackPage) GetIconName() string {
+	core.LazyRegister(&xViewStackPageGetIconName, "ADW", "adw_view_stack_page_get_icon_name", false)
+
 	cret := xViewStackPageGetIconName(x.GoPointer())
 	return cret
 }
@@ -907,6 +948,8 @@ var xViewStackPageGetName func(uintptr) string
 
 // Gets the name of the page.
 func (x *ViewStackPage) GetName() string {
+	core.LazyRegister(&xViewStackPageGetName, "ADW", "adw_view_stack_page_get_name", false)
+
 	cret := xViewStackPageGetName(x.GoPointer())
 	return cret
 }
@@ -915,6 +958,8 @@ var xViewStackPageGetNeedsAttention func(uintptr) bool
 
 // Gets whether the page requires the user attention.
 func (x *ViewStackPage) GetNeedsAttention() bool {
+	core.LazyRegister(&xViewStackPageGetNeedsAttention, "ADW", "adw_view_stack_page_get_needs_attention", false)
+
 	cret := xViewStackPageGetNeedsAttention(x.GoPointer())
 	return cret
 }
@@ -923,6 +968,8 @@ var xViewStackPageGetSectionTitle func(uintptr) string
 
 // Gets the section title for @self.
 func (x *ViewStackPage) GetSectionTitle() string {
+	core.LazyRegister(&xViewStackPageGetSectionTitle, "ADW", "adw_view_stack_page_get_section_title", false)
+
 	cret := xViewStackPageGetSectionTitle(x.GoPointer())
 	return cret
 }
@@ -931,6 +978,8 @@ var xViewStackPageGetStartsSection func(uintptr) bool
 
 // Gets whether @self starts a section.
 func (x *ViewStackPage) GetStartsSection() bool {
+	core.LazyRegister(&xViewStackPageGetStartsSection, "ADW", "adw_view_stack_page_get_starts_section", false)
+
 	cret := xViewStackPageGetStartsSection(x.GoPointer())
 	return cret
 }
@@ -939,6 +988,8 @@ var xViewStackPageGetTitle func(uintptr) string
 
 // Gets the page title.
 func (x *ViewStackPage) GetTitle() string {
+	core.LazyRegister(&xViewStackPageGetTitle, "ADW", "adw_view_stack_page_get_title", false)
+
 	cret := xViewStackPageGetTitle(x.GoPointer())
 	return cret
 }
@@ -947,6 +998,8 @@ var xViewStackPageGetUseUnderline func(uintptr) bool
 
 // Gets whether underlines in the page title indicate mnemonics.
 func (x *ViewStackPage) GetUseUnderline() bool {
+	core.LazyRegister(&xViewStackPageGetUseUnderline, "ADW", "adw_view_stack_page_get_use_underline", false)
+
 	cret := xViewStackPageGetUseUnderline(x.GoPointer())
 	return cret
 }
@@ -958,6 +1011,8 @@ var xViewStackPageGetVisible func(uintptr) bool
 // This is independent from the [property@Gtk.Widget:visible]
 // property of its widget.
 func (x *ViewStackPage) GetVisible() bool {
+	core.LazyRegister(&xViewStackPageGetVisible, "ADW", "adw_view_stack_page_get_visible", false)
+
 	cret := xViewStackPageGetVisible(x.GoPointer())
 	return cret
 }
@@ -971,6 +1026,8 @@ var xViewStackPageSetBadgeNumber func(uintptr, uint)
 //
 // It can be used together with [property@ViewStack{age}:needs-attention].
 func (x *ViewStackPage) SetBadgeNumber(BadgeNumberVar uint) {
+	core.LazyRegister(&xViewStackPageSetBadgeNumber, "ADW", "adw_view_stack_page_set_badge_number", false)
+
 	xViewStackPageSetBadgeNumber(x.GoPointer(), BadgeNumberVar)
 }
 
@@ -978,6 +1035,8 @@ var xViewStackPageSetIconName func(uintptr, uintptr)
 
 // Sets the icon name of the page.
 func (x *ViewStackPage) SetIconName(IconNameVar *string) {
+	core.LazyRegister(&xViewStackPageSetIconName, "ADW", "adw_view_stack_page_set_icon_name", false)
+
 	IconNameVarPtr := core.GStrdupNullable(IconNameVar)
 	defer core.GFreeNullable(IconNameVarPtr)
 
@@ -988,6 +1047,8 @@ var xViewStackPageSetName func(uintptr, uintptr)
 
 // Sets the name of the page.
 func (x *ViewStackPage) SetName(NameVar *string) {
+	core.LazyRegister(&xViewStackPageSetName, "ADW", "adw_view_stack_page_set_name", false)
+
 	NameVarPtr := core.GStrdupNullable(NameVar)
 	defer core.GFreeNullable(NameVarPtr)
 
@@ -1000,6 +1061,8 @@ var xViewStackPageSetNeedsAttention func(uintptr, bool)
 //
 // [class@ViewSwitcher] will display it as a dot next to the page icon.
 func (x *ViewStackPage) SetNeedsAttention(NeedsAttentionVar bool) {
+	core.LazyRegister(&xViewStackPageSetNeedsAttention, "ADW", "adw_view_stack_page_set_needs_attention", false)
+
 	xViewStackPageSetNeedsAttention(x.GoPointer(), NeedsAttentionVar)
 }
 
@@ -1009,6 +1072,8 @@ var xViewStackPageSetSectionTitle func(uintptr, uintptr)
 //
 // Does nothing unless [property@ViewStackPage:starts-section] is set.
 func (x *ViewStackPage) SetSectionTitle(SectionTitleVar *string) {
+	core.LazyRegister(&xViewStackPageSetSectionTitle, "ADW", "adw_view_stack_page_set_section_title", false)
+
 	SectionTitleVarPtr := core.GStrdupNullable(SectionTitleVar)
 	defer core.GFreeNullable(SectionTitleVarPtr)
 
@@ -1025,6 +1090,8 @@ var xViewStackPageSetStartsSection func(uintptr, bool)
 // If [property@ViewStackPage:section-title] is set, it should be used as a
 // title for the section.
 func (x *ViewStackPage) SetStartsSection(StartsSectionVar bool) {
+	core.LazyRegister(&xViewStackPageSetStartsSection, "ADW", "adw_view_stack_page_set_starts_section", false)
+
 	xViewStackPageSetStartsSection(x.GoPointer(), StartsSectionVar)
 }
 
@@ -1032,6 +1099,8 @@ var xViewStackPageSetTitle func(uintptr, uintptr)
 
 // Sets the page title.
 func (x *ViewStackPage) SetTitle(TitleVar *string) {
+	core.LazyRegister(&xViewStackPageSetTitle, "ADW", "adw_view_stack_page_set_title", false)
+
 	TitleVarPtr := core.GStrdupNullable(TitleVar)
 	defer core.GFreeNullable(TitleVarPtr)
 
@@ -1042,6 +1111,8 @@ var xViewStackPageSetUseUnderline func(uintptr, bool)
 
 // Sets whether underlines in the page title indicate mnemonics.
 func (x *ViewStackPage) SetUseUnderline(UseUnderlineVar bool) {
+	core.LazyRegister(&xViewStackPageSetUseUnderline, "ADW", "adw_view_stack_page_set_use_underline", false)
+
 	xViewStackPageSetUseUnderline(x.GoPointer(), UseUnderlineVar)
 }
 
@@ -1052,6 +1123,8 @@ var xViewStackPageSetVisible func(uintptr, bool)
 // This is independent from the [property@Gtk.Widget:visible] property of
 // [property@ViewStackPage:child].
 func (x *ViewStackPage) SetVisible(VisibleVar bool) {
+	core.LazyRegister(&xViewStackPageSetVisible, "ADW", "adw_view_stack_page_set_visible", false)
+
 	xViewStackPageSetVisible(x.GoPointer(), VisibleVar)
 }
 
@@ -1516,6 +1589,7 @@ type ViewStackPages struct {
 var xViewStackPagesGLibType func() types.GType
 
 func ViewStackPagesGLibType() types.GType {
+	core.LazyRegister(&xViewStackPagesGLibType, "ADW", "adw_view_stack_pages_get_type", false)
 	return xViewStackPagesGLibType()
 }
 
@@ -1533,6 +1607,7 @@ var xViewStackPagesGetSelectedPage func(uintptr) uintptr
 //
 // Returns `NULL` if there's no selected page.
 func (x *ViewStackPages) GetSelectedPage() *ViewStackPage {
+	core.LazyRegister(&xViewStackPagesGetSelectedPage, "ADW", "adw_view_stack_pages_get_selected_page", false)
 	var cls *ViewStackPage
 
 	cret := xViewStackPagesGetSelectedPage(x.GoPointer())
@@ -1552,6 +1627,8 @@ var xViewStackPagesSetSelectedPage func(uintptr, uintptr)
 //
 // See [property@ViewStack:visible-child].
 func (x *ViewStackPages) SetSelectedPage(PageVar *ViewStackPage) {
+	core.LazyRegister(&xViewStackPagesSetSelectedPage, "ADW", "adw_view_stack_pages_set_selected_page", false)
+
 	xViewStackPagesSetSelectedPage(x.GoPointer(), PageVar.GoPointer())
 }
 
@@ -1810,65 +1887,4 @@ func (x *ViewStackPages) UnselectRange(PositionVar uint, NItemsVar uint) bool {
 func init() {
 	core.SetPackageName("ADW", "libadwaita-1")
 	core.SetSharedLibraries("ADW", []string{"libadwaita-1.so.0", "libadwaita-1.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("ADW") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xViewStackGLibType, libs, "adw_view_stack_get_type")
-
-	core.PuregoSafeRegister(&xNewViewStack, libs, "adw_view_stack_new")
-
-	core.PuregoSafeRegister(&xViewStackAdd, libs, "adw_view_stack_add")
-	core.PuregoSafeRegister(&xViewStackAddNamed, libs, "adw_view_stack_add_named")
-	core.PuregoSafeRegister(&xViewStackAddTitled, libs, "adw_view_stack_add_titled")
-	core.PuregoSafeRegister(&xViewStackAddTitledWithIcon, libs, "adw_view_stack_add_titled_with_icon")
-	core.PuregoSafeRegister(&xViewStackGetChildByName, libs, "adw_view_stack_get_child_by_name")
-	core.PuregoSafeRegister(&xViewStackGetEnableTransitions, libs, "adw_view_stack_get_enable_transitions")
-	core.PuregoSafeRegister(&xViewStackGetHhomogeneous, libs, "adw_view_stack_get_hhomogeneous")
-	core.PuregoSafeRegister(&xViewStackGetPage, libs, "adw_view_stack_get_page")
-	core.PuregoSafeRegister(&xViewStackGetPages, libs, "adw_view_stack_get_pages")
-	core.PuregoSafeRegister(&xViewStackGetTransitionDuration, libs, "adw_view_stack_get_transition_duration")
-	core.PuregoSafeRegister(&xViewStackGetTransitionRunning, libs, "adw_view_stack_get_transition_running")
-	core.PuregoSafeRegister(&xViewStackGetVhomogeneous, libs, "adw_view_stack_get_vhomogeneous")
-	core.PuregoSafeRegister(&xViewStackGetVisibleChild, libs, "adw_view_stack_get_visible_child")
-	core.PuregoSafeRegister(&xViewStackGetVisibleChildName, libs, "adw_view_stack_get_visible_child_name")
-	core.PuregoSafeRegister(&xViewStackRemove, libs, "adw_view_stack_remove")
-	core.PuregoSafeRegister(&xViewStackSetEnableTransitions, libs, "adw_view_stack_set_enable_transitions")
-	core.PuregoSafeRegister(&xViewStackSetHhomogeneous, libs, "adw_view_stack_set_hhomogeneous")
-	core.PuregoSafeRegister(&xViewStackSetTransitionDuration, libs, "adw_view_stack_set_transition_duration")
-	core.PuregoSafeRegister(&xViewStackSetVhomogeneous, libs, "adw_view_stack_set_vhomogeneous")
-	core.PuregoSafeRegister(&xViewStackSetVisibleChild, libs, "adw_view_stack_set_visible_child")
-	core.PuregoSafeRegister(&xViewStackSetVisibleChildName, libs, "adw_view_stack_set_visible_child_name")
-
-	core.PuregoSafeRegister(&xViewStackPageGLibType, libs, "adw_view_stack_page_get_type")
-
-	core.PuregoSafeRegister(&xViewStackPageGetBadgeNumber, libs, "adw_view_stack_page_get_badge_number")
-	core.PuregoSafeRegister(&xViewStackPageGetChild, libs, "adw_view_stack_page_get_child")
-	core.PuregoSafeRegister(&xViewStackPageGetIconName, libs, "adw_view_stack_page_get_icon_name")
-	core.PuregoSafeRegister(&xViewStackPageGetName, libs, "adw_view_stack_page_get_name")
-	core.PuregoSafeRegister(&xViewStackPageGetNeedsAttention, libs, "adw_view_stack_page_get_needs_attention")
-	core.PuregoSafeRegister(&xViewStackPageGetSectionTitle, libs, "adw_view_stack_page_get_section_title")
-	core.PuregoSafeRegister(&xViewStackPageGetStartsSection, libs, "adw_view_stack_page_get_starts_section")
-	core.PuregoSafeRegister(&xViewStackPageGetTitle, libs, "adw_view_stack_page_get_title")
-	core.PuregoSafeRegister(&xViewStackPageGetUseUnderline, libs, "adw_view_stack_page_get_use_underline")
-	core.PuregoSafeRegister(&xViewStackPageGetVisible, libs, "adw_view_stack_page_get_visible")
-	core.PuregoSafeRegister(&xViewStackPageSetBadgeNumber, libs, "adw_view_stack_page_set_badge_number")
-	core.PuregoSafeRegister(&xViewStackPageSetIconName, libs, "adw_view_stack_page_set_icon_name")
-	core.PuregoSafeRegister(&xViewStackPageSetName, libs, "adw_view_stack_page_set_name")
-	core.PuregoSafeRegister(&xViewStackPageSetNeedsAttention, libs, "adw_view_stack_page_set_needs_attention")
-	core.PuregoSafeRegister(&xViewStackPageSetSectionTitle, libs, "adw_view_stack_page_set_section_title")
-	core.PuregoSafeRegister(&xViewStackPageSetStartsSection, libs, "adw_view_stack_page_set_starts_section")
-	core.PuregoSafeRegister(&xViewStackPageSetTitle, libs, "adw_view_stack_page_set_title")
-	core.PuregoSafeRegister(&xViewStackPageSetUseUnderline, libs, "adw_view_stack_page_set_use_underline")
-	core.PuregoSafeRegister(&xViewStackPageSetVisible, libs, "adw_view_stack_page_set_visible")
-
-	core.PuregoSafeRegister(&xViewStackPagesGLibType, libs, "adw_view_stack_pages_get_type")
-
-	core.PuregoSafeRegister(&xViewStackPagesGetSelectedPage, libs, "adw_view_stack_pages_get_selected_page")
-	core.PuregoSafeRegister(&xViewStackPagesSetSelectedPage, libs, "adw_view_stack_pages_set_selected_page")
 }

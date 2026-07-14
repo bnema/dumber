@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject/types"
 )
@@ -49,6 +48,7 @@ type IPTosMessage struct {
 var xIPTosMessageGLibType func() types.GType
 
 func IPTosMessageGLibType() types.GType {
+	core.LazyRegister(&xIPTosMessageGLibType, "GIO", "g_ip_tos_message_get_type", false)
 	return xIPTosMessageGLibType()
 }
 
@@ -62,6 +62,7 @@ var xNewIPTosMessage func(byte, EcnCodePoint) uintptr
 
 // Creates a new type-of-service message with given DSCP and ECN values.
 func NewIPTosMessage(DscpVar byte, EcnVar EcnCodePoint) *IPTosMessage {
+	core.LazyRegister(&xNewIPTosMessage, "GIO", "g_ip_tos_message_new", false)
 	var cls *IPTosMessage
 
 	cret := xNewIPTosMessage(DscpVar, EcnVar)
@@ -78,6 +79,8 @@ var xIPTosMessageGetDscp func(uintptr) byte
 
 // Gets the differentiated services code point stored in @message.
 func (x *IPTosMessage) GetDscp() byte {
+	core.LazyRegister(&xIPTosMessageGetDscp, "GIO", "g_ip_tos_message_get_dscp", false)
+
 	cret := xIPTosMessageGetDscp(x.GoPointer())
 	return cret
 }
@@ -86,6 +89,8 @@ var xIPTosMessageGetEcn func(uintptr) EcnCodePoint
 
 // Gets the Explicit Congestion Notification code point stored in @message.
 func (x *IPTosMessage) GetEcn() EcnCodePoint {
+	core.LazyRegister(&xIPTosMessageGetEcn, "GIO", "g_ip_tos_message_get_ecn", false)
+
 	cret := xIPTosMessageGetEcn(x.GoPointer())
 	return cret
 }
@@ -104,19 +109,4 @@ func (c *IPTosMessage) SetGoPointer(ptr uintptr) {
 func init() {
 	core.SetPackageName("GIO", "gio-2.0")
 	core.SetSharedLibraries("GIO", []string{"libgio-2.0.so.0", "libgio-2.0.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GIO") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xIPTosMessageGLibType, libs, "g_ip_tos_message_get_type")
-
-	core.PuregoSafeRegister(&xNewIPTosMessage, libs, "g_ip_tos_message_new")
-
-	core.PuregoSafeRegister(&xIPTosMessageGetDscp, libs, "g_ip_tos_message_get_dscp")
-	core.PuregoSafeRegister(&xIPTosMessageGetEcn, libs, "g_ip_tos_message_get_ecn")
 }

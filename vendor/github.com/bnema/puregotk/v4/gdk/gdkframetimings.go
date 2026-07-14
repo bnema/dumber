@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject/types"
 )
@@ -24,6 +23,7 @@ type FrameTimings struct {
 var xFrameTimingsGLibType func() types.GType
 
 func FrameTimingsGLibType() types.GType {
+	core.LazyRegister(&xFrameTimingsGLibType, "GDK", "gdk_frame_timings_get_type", false)
 	return xFrameTimingsGLibType()
 }
 
@@ -55,6 +55,8 @@ var xFrameTimingsGetComplete func(uintptr) bool
 // certain that no further values will become available and be
 // stored in the `GdkFrameTimings`.
 func (x *FrameTimings) GetComplete() bool {
+	core.LazyRegister(&xFrameTimingsGetComplete, "GDK", "gdk_frame_timings_get_complete", false)
+
 	cret := xFrameTimingsGetComplete(x.GoPointer())
 	return cret
 }
@@ -64,6 +66,8 @@ var xFrameTimingsGetFrameCounter func(uintptr) int64
 // Gets the frame counter value of the `GdkFrameClock` when
 // this frame was drawn.
 func (x *FrameTimings) GetFrameCounter() int64 {
+	core.LazyRegister(&xFrameTimingsGetFrameCounter, "GDK", "gdk_frame_timings_get_frame_counter", false)
+
 	cret := xFrameTimingsGetFrameCounter(x.GoPointer())
 	return cret
 }
@@ -75,6 +79,8 @@ var xFrameTimingsGetFrameTime func(uintptr) int64
 // This is the time value that is typically used to time
 // animations for the frame. See [method@Gdk.FrameClock.get_frame_time].
 func (x *FrameTimings) GetFrameTime() int64 {
+	core.LazyRegister(&xFrameTimingsGetFrameTime, "GDK", "gdk_frame_timings_get_frame_time", false)
+
 	cret := xFrameTimingsGetFrameTime(x.GoPointer())
 	return cret
 }
@@ -94,6 +100,8 @@ var xFrameTimingsGetPredictedPresentationTime func(uintptr) int64
 // over latency. For example, a movie player may want this information
 // for Audio/Video synchronization.
 func (x *FrameTimings) GetPredictedPresentationTime() int64 {
+	core.LazyRegister(&xFrameTimingsGetPredictedPresentationTime, "GDK", "gdk_frame_timings_get_predicted_presentation_time", false)
+
 	cret := xFrameTimingsGetPredictedPresentationTime(x.GoPointer())
 	return cret
 }
@@ -104,6 +112,8 @@ var xFrameTimingsGetPresentationTime func(uintptr) int64
 //
 // This is the time at which the frame became visible to the user.
 func (x *FrameTimings) GetPresentationTime() int64 {
+	core.LazyRegister(&xFrameTimingsGetPresentationTime, "GDK", "gdk_frame_timings_get_presentation_time", false)
+
 	cret := xFrameTimingsGetPresentationTime(x.GoPointer())
 	return cret
 }
@@ -116,6 +126,8 @@ var xFrameTimingsGetRefreshInterval func(uintptr) int64
 // Frame presentation usually happens during the “vertical
 // blanking interval”.
 func (x *FrameTimings) GetRefreshInterval() int64 {
+	core.LazyRegister(&xFrameTimingsGetRefreshInterval, "GDK", "gdk_frame_timings_get_refresh_interval", false)
+
 	cret := xFrameTimingsGetRefreshInterval(x.GoPointer())
 	return cret
 }
@@ -124,6 +136,8 @@ var xFrameTimingsRef func(uintptr) uintptr
 
 // Increases the reference count of @timings.
 func (x *FrameTimings) Ref() *FrameTimings {
+	core.LazyRegister(&xFrameTimingsRef, "GDK", "gdk_frame_timings_ref", false)
+
 	cret := xFrameTimingsRef(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -137,29 +151,12 @@ var xFrameTimingsUnref func(uintptr)
 //
 // If @timings is no longer referenced, it will be freed.
 func (x *FrameTimings) Unref() {
+	core.LazyRegister(&xFrameTimingsUnref, "GDK", "gdk_frame_timings_unref", false)
+
 	xFrameTimingsUnref(x.GoPointer())
 }
 
 func init() {
 	core.SetPackageName("GDK", "gtk4")
 	core.SetSharedLibraries("GDK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GDK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xFrameTimingsGLibType, libs, "gdk_frame_timings_get_type")
-
-	core.PuregoSafeRegister(&xFrameTimingsGetComplete, libs, "gdk_frame_timings_get_complete")
-	core.PuregoSafeRegister(&xFrameTimingsGetFrameCounter, libs, "gdk_frame_timings_get_frame_counter")
-	core.PuregoSafeRegister(&xFrameTimingsGetFrameTime, libs, "gdk_frame_timings_get_frame_time")
-	core.PuregoSafeRegister(&xFrameTimingsGetPredictedPresentationTime, libs, "gdk_frame_timings_get_predicted_presentation_time")
-	core.PuregoSafeRegister(&xFrameTimingsGetPresentationTime, libs, "gdk_frame_timings_get_presentation_time")
-	core.PuregoSafeRegister(&xFrameTimingsGetRefreshInterval, libs, "gdk_frame_timings_get_refresh_interval")
-	core.PuregoSafeRegister(&xFrameTimingsRef, libs, "gdk_frame_timings_ref")
-	core.PuregoSafeRegister(&xFrameTimingsUnref, libs, "gdk_frame_timings_unref")
 }

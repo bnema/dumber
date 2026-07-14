@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject/types"
 )
@@ -45,6 +44,8 @@ var xOptionContextAddGroup func(uintptr, *OptionGroup)
 // will recognize the options in the group. Note that this will take
 // ownership of the @group and thus the @group should not be freed.
 func (x *OptionContext) AddGroup(GroupVar *OptionGroup) {
+	core.LazyRegister(&xOptionContextAddGroup, "GLIB", "g_option_context_add_group", false)
+
 	xOptionContextAddGroup(x.GoPointer(), GroupVar)
 }
 
@@ -53,6 +54,8 @@ var xOptionContextAddMainEntries func(uintptr, []OptionEntry, uintptr)
 // A convenience function which creates a main group if it doesn't
 // exist, adds the @entries to it and sets the translation domain.
 func (x *OptionContext) AddMainEntries(EntriesVar []OptionEntry, TranslationDomainVar *string) {
+	core.LazyRegister(&xOptionContextAddMainEntries, "GLIB", "g_option_context_add_main_entries", false)
+
 	TranslationDomainVarPtr := core.GStrdupNullable(TranslationDomainVar)
 	defer core.GFreeNullable(TranslationDomainVarPtr)
 
@@ -67,6 +70,8 @@ var xOptionContextFree func(uintptr)
 // Please note that parsed arguments need to be freed separately (see
 // #GOptionEntry).
 func (x *OptionContext) Free() {
+	core.LazyRegister(&xOptionContextFree, "GLIB", "g_option_context_free", false)
+
 	xOptionContextFree(x.GoPointer())
 }
 
@@ -74,6 +79,8 @@ var xOptionContextGetDescription func(uintptr) string
 
 // Returns the description. See g_option_context_set_description().
 func (x *OptionContext) GetDescription() string {
+	core.LazyRegister(&xOptionContextGetDescription, "GLIB", "g_option_context_get_description", false)
+
 	cret := xOptionContextGetDescription(x.GoPointer())
 	return cret
 }
@@ -88,6 +95,8 @@ var xOptionContextGetHelp func(uintptr, bool, *OptionGroup) string
 // To obtain the help text for an option group, call
 // `g_option_context_get_help (context, FALSE, group)`.
 func (x *OptionContext) GetHelp(MainHelpVar bool, GroupVar *OptionGroup) string {
+	core.LazyRegister(&xOptionContextGetHelp, "GLIB", "g_option_context_get_help", false)
+
 	cret := xOptionContextGetHelp(x.GoPointer(), MainHelpVar, GroupVar)
 	return cret
 }
@@ -97,6 +106,8 @@ var xOptionContextGetHelpEnabled func(uintptr) bool
 // Returns whether automatic `--help` generation
 // is turned on for @context. See g_option_context_set_help_enabled().
 func (x *OptionContext) GetHelpEnabled() bool {
+	core.LazyRegister(&xOptionContextGetHelpEnabled, "GLIB", "g_option_context_get_help_enabled", false)
+
 	cret := xOptionContextGetHelpEnabled(x.GoPointer())
 	return cret
 }
@@ -106,6 +117,8 @@ var xOptionContextGetIgnoreUnknownOptions func(uintptr) bool
 // Returns whether unknown options are ignored or not. See
 // g_option_context_set_ignore_unknown_options().
 func (x *OptionContext) GetIgnoreUnknownOptions() bool {
+	core.LazyRegister(&xOptionContextGetIgnoreUnknownOptions, "GLIB", "g_option_context_get_ignore_unknown_options", false)
+
 	cret := xOptionContextGetIgnoreUnknownOptions(x.GoPointer())
 	return cret
 }
@@ -114,6 +127,8 @@ var xOptionContextGetMainGroup func(uintptr) uintptr
 
 // Returns a pointer to the main group of @context.
 func (x *OptionContext) GetMainGroup() *OptionGroup {
+	core.LazyRegister(&xOptionContextGetMainGroup, "GLIB", "g_option_context_get_main_group", false)
+
 	cret := xOptionContextGetMainGroup(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -127,6 +142,8 @@ var xOptionContextGetStrictPosix func(uintptr) bool
 //
 // See g_option_context_set_strict_posix() for more information.
 func (x *OptionContext) GetStrictPosix() bool {
+	core.LazyRegister(&xOptionContextGetStrictPosix, "GLIB", "g_option_context_get_strict_posix", false)
+
 	cret := xOptionContextGetStrictPosix(x.GoPointer())
 	return cret
 }
@@ -135,6 +152,8 @@ var xOptionContextGetSummary func(uintptr) string
 
 // Returns the summary. See g_option_context_set_summary().
 func (x *OptionContext) GetSummary() string {
+	core.LazyRegister(&xOptionContextGetSummary, "GLIB", "g_option_context_get_summary", false)
+
 	cret := xOptionContextGetSummary(x.GoPointer())
 	return cret
 }
@@ -163,6 +182,7 @@ var xOptionContextParse func(uintptr, *int, *[]string, **Error) bool
 // [current locale](running.html#locale) for automatic
 // character set conversion of string and filename arguments.
 func (x *OptionContext) Parse(ArgcVar *int, ArgvVar *[]string) (bool, error) {
+	core.LazyRegister(&xOptionContextParse, "GLIB", "g_option_context_parse", false)
 	var cerr *Error
 
 	cret := xOptionContextParse(x.GoPointer(), ArgcVar, ArgvVar, &cerr)
@@ -191,6 +211,7 @@ var xOptionContextParseStrv func(uintptr, *[]string, **Error) bool
 // This function is useful if you are trying to use #GOptionContext with
 // #GApplication.
 func (x *OptionContext) ParseStrv(ArgumentsVar *[]string) (bool, error) {
+	core.LazyRegister(&xOptionContextParseStrv, "GLIB", "g_option_context_parse_strv", false)
 	var cerr *Error
 
 	cret := xOptionContextParseStrv(x.GoPointer(), ArgumentsVar, &cerr)
@@ -208,6 +229,8 @@ var xOptionContextSetDescription func(uintptr, uintptr)
 // Note that the summary is translated (see
 // g_option_context_set_translate_func()).
 func (x *OptionContext) SetDescription(DescriptionVar *string) {
+	core.LazyRegister(&xOptionContextSetDescription, "GLIB", "g_option_context_set_description", false)
+
 	DescriptionVarPtr := core.GStrdupNullable(DescriptionVar)
 	defer core.GFreeNullable(DescriptionVarPtr)
 
@@ -221,6 +244,8 @@ var xOptionContextSetHelpEnabled func(uintptr, bool)
 // `-?`, `--help-all` and `--help-groupname` and creates suitable
 // output to stdout.
 func (x *OptionContext) SetHelpEnabled(HelpEnabledVar bool) {
+	core.LazyRegister(&xOptionContextSetHelpEnabled, "GLIB", "g_option_context_set_help_enabled", false)
+
 	xOptionContextSetHelpEnabled(x.GoPointer(), HelpEnabledVar)
 }
 
@@ -234,6 +259,8 @@ var xOptionContextSetIgnoreUnknownOptions func(uintptr, bool)
 // which don't start with a dash). But note that GOption cannot reliably
 // determine whether a non-option belongs to a preceding unknown option.
 func (x *OptionContext) SetIgnoreUnknownOptions(IgnoreUnknownVar bool) {
+	core.LazyRegister(&xOptionContextSetIgnoreUnknownOptions, "GLIB", "g_option_context_set_ignore_unknown_options", false)
+
 	xOptionContextSetIgnoreUnknownOptions(x.GoPointer(), IgnoreUnknownVar)
 }
 
@@ -244,6 +271,8 @@ var xOptionContextSetMainGroup func(uintptr, *OptionGroup)
 // the only difference is that the options in the main group are
 // treated differently when generating `--help` output.
 func (x *OptionContext) SetMainGroup(GroupVar *OptionGroup) {
+	core.LazyRegister(&xOptionContextSetMainGroup, "GLIB", "g_option_context_set_main_group", false)
+
 	xOptionContextSetMainGroup(x.GoPointer(), GroupVar)
 }
 
@@ -274,6 +303,8 @@ var xOptionContextSetStrictPosix func(uintptr, bool)
 // examining the verb name, which should be present in argv[1] after
 // parsing).
 func (x *OptionContext) SetStrictPosix(StrictPosixVar bool) {
+	core.LazyRegister(&xOptionContextSetStrictPosix, "GLIB", "g_option_context_set_strict_posix", false)
+
 	xOptionContextSetStrictPosix(x.GoPointer(), StrictPosixVar)
 }
 
@@ -286,6 +317,8 @@ var xOptionContextSetSummary func(uintptr, uintptr)
 // g_option_context_set_translate_func() and
 // g_option_context_set_translation_domain()).
 func (x *OptionContext) SetSummary(SummaryVar *string) {
+	core.LazyRegister(&xOptionContextSetSummary, "GLIB", "g_option_context_set_summary", false)
+
 	SummaryVarPtr := core.GStrdupNullable(SummaryVar)
 	defer core.GFreeNullable(SummaryVarPtr)
 
@@ -306,6 +339,8 @@ var xOptionContextSetTranslateFunc func(uintptr, uintptr, uintptr, uintptr)
 // If you are using gettext(), you only need to set the translation
 // domain, see g_option_context_set_translation_domain().
 func (x *OptionContext) SetTranslateFunc(FuncVar *TranslateFunc, DataVar uintptr, DestroyNotifyVar *DestroyNotify) {
+	core.LazyRegister(&xOptionContextSetTranslateFunc, "GLIB", "g_option_context_set_translate_func", false)
+
 	xOptionContextSetTranslateFunc(x.GoPointer(), NewCallbackNullable(FuncVar), DataVar, NewCallbackNullable(DestroyNotifyVar))
 }
 
@@ -314,6 +349,8 @@ var xOptionContextSetTranslationDomain func(uintptr, string)
 // A convenience function to use gettext() for translating
 // user-visible strings.
 func (x *OptionContext) SetTranslationDomain(DomainVar string) {
+	core.LazyRegister(&xOptionContextSetTranslationDomain, "GLIB", "g_option_context_set_translation_domain", false)
+
 	xOptionContextSetTranslationDomain(x.GoPointer(), DomainVar)
 }
 
@@ -384,6 +421,7 @@ type OptionGroup struct {
 var xOptionGroupGLibType func() types.GType
 
 func OptionGroupGLibType() types.GType {
+	core.LazyRegister(&xOptionGroupGLibType, "GLIB", "g_option_group_get_type", false)
 	return xOptionGroupGLibType()
 }
 
@@ -408,6 +446,8 @@ var xNewOptionGroup func(string, string, string, uintptr, uintptr) uintptr
 // that it matches the style of built-in GLib group titles such as
 // ‘Application Options:’.
 func NewOptionGroup(NameVar string, DescriptionVar string, HelpDescriptionVar string, UserDataVar uintptr, DestroyVar *DestroyNotify) *OptionGroup {
+	core.LazyRegister(&xNewOptionGroup, "GLIB", "g_option_group_new", false)
+
 	cret := xNewOptionGroup(NameVar, DescriptionVar, HelpDescriptionVar, UserDataVar, NewCallbackNullable(DestroyVar))
 	if cret == 0 {
 		return nil
@@ -419,6 +459,8 @@ var xOptionGroupAddEntries func(uintptr, []OptionEntry)
 
 // Adds the options specified in @entries to @group.
 func (x *OptionGroup) AddEntries(EntriesVar []OptionEntry) {
+	core.LazyRegister(&xOptionGroupAddEntries, "GLIB", "g_option_group_add_entries", false)
+
 	xOptionGroupAddEntries(x.GoPointer(), EntriesVar)
 }
 
@@ -427,6 +469,8 @@ var xOptionGroupFree func(uintptr)
 // Frees a #GOptionGroup. Note that you must not free groups
 // which have been added to a #GOptionContext.
 func (x *OptionGroup) Free() {
+	core.LazyRegister(&xOptionGroupFree, "GLIB", "g_option_group_free", false)
+
 	xOptionGroupFree(x.GoPointer())
 }
 
@@ -434,6 +478,8 @@ var xOptionGroupRef func(uintptr) uintptr
 
 // Increments the reference count of @group by one.
 func (x *OptionGroup) Ref() *OptionGroup {
+	core.LazyRegister(&xOptionGroupRef, "GLIB", "g_option_group_ref", false)
+
 	cret := xOptionGroupRef(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -449,6 +495,8 @@ var xOptionGroupSetErrorHook func(uintptr, uintptr)
 // Note that the user data to be passed to @error_func can be
 // specified when constructing the group with g_option_group_new().
 func (x *OptionGroup) SetErrorHook(ErrorFuncVar *OptionErrorFunc) {
+	core.LazyRegister(&xOptionGroupSetErrorHook, "GLIB", "g_option_group_set_error_hook", false)
+
 	xOptionGroupSetErrorHook(x.GoPointer(), NewCallback(ErrorFuncVar))
 }
 
@@ -462,6 +510,8 @@ var xOptionGroupSetParseHooks func(uintptr, uintptr, uintptr)
 // @post_parse_func can be specified when constructing the group
 // with g_option_group_new().
 func (x *OptionGroup) SetParseHooks(PreParseFuncVar *OptionParseFunc, PostParseFuncVar *OptionParseFunc) {
+	core.LazyRegister(&xOptionGroupSetParseHooks, "GLIB", "g_option_group_set_parse_hooks", false)
+
 	xOptionGroupSetParseHooks(x.GoPointer(), NewCallbackNullable(PreParseFuncVar), NewCallbackNullable(PostParseFuncVar))
 }
 
@@ -474,6 +524,8 @@ var xOptionGroupSetTranslateFunc func(uintptr, uintptr, uintptr, uintptr)
 // If you are using gettext(), you only need to set the translation
 // domain, see g_option_group_set_translation_domain().
 func (x *OptionGroup) SetTranslateFunc(FuncVar *TranslateFunc, DataVar uintptr, DestroyNotifyVar *DestroyNotify) {
+	core.LazyRegister(&xOptionGroupSetTranslateFunc, "GLIB", "g_option_group_set_translate_func", false)
+
 	xOptionGroupSetTranslateFunc(x.GoPointer(), NewCallbackNullable(FuncVar), DataVar, NewCallbackNullable(DestroyNotifyVar))
 }
 
@@ -482,6 +534,8 @@ var xOptionGroupSetTranslationDomain func(uintptr, string)
 // A convenience function to use gettext() for translating
 // user-visible strings.
 func (x *OptionGroup) SetTranslationDomain(DomainVar string) {
+	core.LazyRegister(&xOptionGroupSetTranslationDomain, "GLIB", "g_option_group_set_translation_domain", false)
+
 	xOptionGroupSetTranslationDomain(x.GoPointer(), DomainVar)
 }
 
@@ -491,6 +545,8 @@ var xOptionGroupUnref func(uintptr)
 // If the reference count drops to 0, the @group will be freed.
 // and all memory allocated by the @group is released.
 func (x *OptionGroup) Unref() {
+	core.LazyRegister(&xOptionGroupUnref, "GLIB", "g_option_group_unref", false)
+
 	xOptionGroupUnref(x.GoPointer())
 }
 
@@ -607,46 +663,4 @@ const (
 func init() {
 	core.SetPackageName("GLIB", "glib-2.0")
 	core.SetSharedLibraries("GLIB", []string{"libgobject-2.0.so.0", "libglib-2.0.so.0", "libgobject-2.0.0.dylib", "libglib-2.0.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GLIB") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xOptionContextAddGroup, libs, "g_option_context_add_group")
-	core.PuregoSafeRegister(&xOptionContextAddMainEntries, libs, "g_option_context_add_main_entries")
-	core.PuregoSafeRegister(&xOptionContextFree, libs, "g_option_context_free")
-	core.PuregoSafeRegister(&xOptionContextGetDescription, libs, "g_option_context_get_description")
-	core.PuregoSafeRegister(&xOptionContextGetHelp, libs, "g_option_context_get_help")
-	core.PuregoSafeRegister(&xOptionContextGetHelpEnabled, libs, "g_option_context_get_help_enabled")
-	core.PuregoSafeRegister(&xOptionContextGetIgnoreUnknownOptions, libs, "g_option_context_get_ignore_unknown_options")
-	core.PuregoSafeRegister(&xOptionContextGetMainGroup, libs, "g_option_context_get_main_group")
-	core.PuregoSafeRegister(&xOptionContextGetStrictPosix, libs, "g_option_context_get_strict_posix")
-	core.PuregoSafeRegister(&xOptionContextGetSummary, libs, "g_option_context_get_summary")
-	core.PuregoSafeRegister(&xOptionContextParse, libs, "g_option_context_parse")
-	core.PuregoSafeRegister(&xOptionContextParseStrv, libs, "g_option_context_parse_strv")
-	core.PuregoSafeRegister(&xOptionContextSetDescription, libs, "g_option_context_set_description")
-	core.PuregoSafeRegister(&xOptionContextSetHelpEnabled, libs, "g_option_context_set_help_enabled")
-	core.PuregoSafeRegister(&xOptionContextSetIgnoreUnknownOptions, libs, "g_option_context_set_ignore_unknown_options")
-	core.PuregoSafeRegister(&xOptionContextSetMainGroup, libs, "g_option_context_set_main_group")
-	core.PuregoSafeRegister(&xOptionContextSetStrictPosix, libs, "g_option_context_set_strict_posix")
-	core.PuregoSafeRegister(&xOptionContextSetSummary, libs, "g_option_context_set_summary")
-	core.PuregoSafeRegister(&xOptionContextSetTranslateFunc, libs, "g_option_context_set_translate_func")
-	core.PuregoSafeRegister(&xOptionContextSetTranslationDomain, libs, "g_option_context_set_translation_domain")
-
-	core.PuregoSafeRegister(&xOptionGroupGLibType, libs, "g_option_group_get_type")
-
-	core.PuregoSafeRegister(&xNewOptionGroup, libs, "g_option_group_new")
-
-	core.PuregoSafeRegister(&xOptionGroupAddEntries, libs, "g_option_group_add_entries")
-	core.PuregoSafeRegister(&xOptionGroupFree, libs, "g_option_group_free")
-	core.PuregoSafeRegister(&xOptionGroupRef, libs, "g_option_group_ref")
-	core.PuregoSafeRegister(&xOptionGroupSetErrorHook, libs, "g_option_group_set_error_hook")
-	core.PuregoSafeRegister(&xOptionGroupSetParseHooks, libs, "g_option_group_set_parse_hooks")
-	core.PuregoSafeRegister(&xOptionGroupSetTranslateFunc, libs, "g_option_group_set_translate_func")
-	core.PuregoSafeRegister(&xOptionGroupSetTranslationDomain, libs, "g_option_group_set_translation_domain")
-	core.PuregoSafeRegister(&xOptionGroupUnref, libs, "g_option_group_unref")
 }

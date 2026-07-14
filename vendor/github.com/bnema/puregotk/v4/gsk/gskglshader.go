@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -39,6 +38,7 @@ type ShaderArgsBuilder struct {
 var xShaderArgsBuilderGLibType func() types.GType
 
 func ShaderArgsBuilderGLibType() types.GType {
+	core.LazyRegister(&xShaderArgsBuilderGLibType, "GSK", "gsk_shader_args_builder_get_type", false)
 	return xShaderArgsBuilderGLibType()
 }
 
@@ -59,6 +59,8 @@ var xNewShaderArgsBuilder func(uintptr, *glib.Bytes) uintptr
 // Allocates a builder that can be used to construct a new uniform data
 // chunk.
 func NewShaderArgsBuilder(ShaderVar *GLShader, InitialValuesVar *glib.Bytes) *ShaderArgsBuilder {
+	core.LazyRegister(&xNewShaderArgsBuilder, "GSK", "gsk_shader_args_builder_new", false)
+
 	cret := xNewShaderArgsBuilder(ShaderVar.GoPointer(), InitialValuesVar)
 	if cret == 0 {
 		return nil
@@ -74,6 +76,8 @@ var xShaderArgsBuilderFreeToArgs func(uintptr) uintptr
 // Any uniforms of the shader that have not been explicitly set
 // on the @builder are zero-initialized.
 func (x *ShaderArgsBuilder) FreeToArgs() *glib.Bytes {
+	core.LazyRegister(&xShaderArgsBuilderFreeToArgs, "GSK", "gsk_shader_args_builder_free_to_args", false)
+
 	cret := xShaderArgsBuilderFreeToArgs(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -85,6 +89,8 @@ var xShaderArgsBuilderRef func(uintptr) uintptr
 
 // Increases the reference count of a `GskShaderArgsBuilder` by one.
 func (x *ShaderArgsBuilder) Ref() *ShaderArgsBuilder {
+	core.LazyRegister(&xShaderArgsBuilderRef, "GSK", "gsk_shader_args_builder_ref", false)
+
 	cret := xShaderArgsBuilderRef(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -98,6 +104,8 @@ var xShaderArgsBuilderSetBool func(uintptr, int, bool)
 //
 // The uniform must be of bool type.
 func (x *ShaderArgsBuilder) SetBool(IdxVar int, ValueVar bool) {
+	core.LazyRegister(&xShaderArgsBuilderSetBool, "GSK", "gsk_shader_args_builder_set_bool", false)
+
 	xShaderArgsBuilderSetBool(x.GoPointer(), IdxVar, ValueVar)
 }
 
@@ -107,6 +115,8 @@ var xShaderArgsBuilderSetFloat func(uintptr, int, float32)
 //
 // The uniform must be of float type.
 func (x *ShaderArgsBuilder) SetFloat(IdxVar int, ValueVar float32) {
+	core.LazyRegister(&xShaderArgsBuilderSetFloat, "GSK", "gsk_shader_args_builder_set_float", false)
+
 	xShaderArgsBuilderSetFloat(x.GoPointer(), IdxVar, ValueVar)
 }
 
@@ -116,6 +126,8 @@ var xShaderArgsBuilderSetInt func(uintptr, int, int32)
 //
 // The uniform must be of int type.
 func (x *ShaderArgsBuilder) SetInt(IdxVar int, ValueVar int32) {
+	core.LazyRegister(&xShaderArgsBuilderSetInt, "GSK", "gsk_shader_args_builder_set_int", false)
+
 	xShaderArgsBuilderSetInt(x.GoPointer(), IdxVar, ValueVar)
 }
 
@@ -125,6 +137,8 @@ var xShaderArgsBuilderSetUint func(uintptr, int, uint32)
 //
 // The uniform must be of uint type.
 func (x *ShaderArgsBuilder) SetUint(IdxVar int, ValueVar uint32) {
+	core.LazyRegister(&xShaderArgsBuilderSetUint, "GSK", "gsk_shader_args_builder_set_uint", false)
+
 	xShaderArgsBuilderSetUint(x.GoPointer(), IdxVar, ValueVar)
 }
 
@@ -134,6 +148,8 @@ var xShaderArgsBuilderSetVec2 func(uintptr, int, *graphene.Vec2)
 //
 // The uniform must be of vec2 type.
 func (x *ShaderArgsBuilder) SetVec2(IdxVar int, ValueVar *graphene.Vec2) {
+	core.LazyRegister(&xShaderArgsBuilderSetVec2, "GSK", "gsk_shader_args_builder_set_vec2", false)
+
 	xShaderArgsBuilderSetVec2(x.GoPointer(), IdxVar, ValueVar)
 }
 
@@ -143,6 +159,8 @@ var xShaderArgsBuilderSetVec3 func(uintptr, int, *graphene.Vec3)
 //
 // The uniform must be of vec3 type.
 func (x *ShaderArgsBuilder) SetVec3(IdxVar int, ValueVar *graphene.Vec3) {
+	core.LazyRegister(&xShaderArgsBuilderSetVec3, "GSK", "gsk_shader_args_builder_set_vec3", false)
+
 	xShaderArgsBuilderSetVec3(x.GoPointer(), IdxVar, ValueVar)
 }
 
@@ -152,6 +170,8 @@ var xShaderArgsBuilderSetVec4 func(uintptr, int, *graphene.Vec4)
 //
 // The uniform must be of vec4 type.
 func (x *ShaderArgsBuilder) SetVec4(IdxVar int, ValueVar *graphene.Vec4) {
+	core.LazyRegister(&xShaderArgsBuilderSetVec4, "GSK", "gsk_shader_args_builder_set_vec4", false)
+
 	xShaderArgsBuilderSetVec4(x.GoPointer(), IdxVar, ValueVar)
 }
 
@@ -169,6 +189,8 @@ var xShaderArgsBuilderToArgs func(uintptr) uintptr
 // This function is intended primarily for bindings. C code should use
 // [method@Gsk.ShaderArgsBuilder.free_to_args].
 func (x *ShaderArgsBuilder) ToArgs() *glib.Bytes {
+	core.LazyRegister(&xShaderArgsBuilderToArgs, "GSK", "gsk_shader_args_builder_to_args", false)
+
 	cret := xShaderArgsBuilderToArgs(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -182,6 +204,8 @@ var xShaderArgsBuilderUnref func(uintptr)
 //
 // If the resulting reference count is zero, frees the builder.
 func (x *ShaderArgsBuilder) Unref() {
+	core.LazyRegister(&xShaderArgsBuilderUnref, "GSK", "gsk_shader_args_builder_unref", false)
+
 	xShaderArgsBuilderUnref(x.GoPointer())
 }
 
@@ -308,6 +332,7 @@ type GLShader struct {
 var xGLShaderGLibType func() types.GType
 
 func GLShaderGLibType() types.GType {
+	core.LazyRegister(&xGLShaderGLibType, "GSK", "gsk_gl_shader_get_type", false)
 	return xGLShaderGLibType()
 }
 
@@ -321,6 +346,7 @@ var xNewGLShaderFromBytes func(*glib.Bytes) uintptr
 
 // Creates a `GskGLShader` that will render pixels using the specified code.
 func NewGLShaderFromBytes(SourcecodeVar *glib.Bytes) *GLShader {
+	core.LazyRegister(&xNewGLShaderFromBytes, "GSK", "gsk_gl_shader_new_from_bytes", false)
 	var cls *GLShader
 
 	cret := xNewGLShaderFromBytes(SourcecodeVar)
@@ -337,6 +363,7 @@ var xNewGLShaderFromResource func(string) uintptr
 
 // Creates a `GskGLShader` that will render pixels using the specified code.
 func NewGLShaderFromResource(ResourcePathVar string) *GLShader {
+	core.LazyRegister(&xNewGLShaderFromResource, "GSK", "gsk_gl_shader_new_from_resource", false)
 	var cls *GLShader
 
 	cret := xNewGLShaderFromResource(ResourcePathVar)
@@ -364,6 +391,7 @@ var xGLShaderCompile func(uintptr, uintptr, **glib.Error) bool
 // want to call this from the realize signal of a widget, or during
 // widget snapshot.
 func (x *GLShader) Compile(RendererVar *Renderer) (bool, error) {
+	core.LazyRegister(&xGLShaderCompile, "GSK", "gsk_gl_shader_compile", false)
 	var cerr *glib.Error
 
 	cret := xGLShaderCompile(x.GoPointer(), RendererVar.GoPointer(), &cerr)
@@ -378,6 +406,8 @@ var xGLShaderFindUniformByName func(uintptr, string) int
 // Looks for a uniform by the name @name, and returns the index
 // of the uniform, or -1 if it was not found.
 func (x *GLShader) FindUniformByName(NameVar string) int {
+	core.LazyRegister(&xGLShaderFindUniformByName, "GSK", "gsk_gl_shader_find_uniform_by_name", false)
+
 	cret := xGLShaderFindUniformByName(x.GoPointer(), NameVar)
 	return cret
 }
@@ -394,6 +424,8 @@ var xGLShaderFormatArgs func(uintptr, ...interface{}) uintptr
 // Any uniforms of the shader that are not included in the argument list
 // are zero-initialized.
 func (x *GLShader) FormatArgs(varArgs ...interface{}) *glib.Bytes {
+	core.LazyRegister(&xGLShaderFormatArgs, "GSK", "gsk_gl_shader_format_args", false)
+
 	cret := xGLShaderFormatArgs(x.GoPointer(), varArgs...)
 	if cret == 0 {
 		return nil
@@ -415,6 +447,8 @@ var xGLShaderFormatArgsVa func(uintptr, []interface{}) uintptr
 // Any uniforms of the shader that are not included in the argument list
 // are zero-initialized.
 func (x *GLShader) FormatArgsVa(UniformsVar []interface{}) *glib.Bytes {
+	core.LazyRegister(&xGLShaderFormatArgsVa, "GSK", "gsk_gl_shader_format_args_va", false)
+
 	cret := xGLShaderFormatArgsVa(x.GoPointer(), UniformsVar)
 	if cret == 0 {
 		return nil
@@ -428,6 +462,8 @@ var xGLShaderGetArgBool func(uintptr, *glib.Bytes, int) bool
 //
 // The uniform must be of bool type.
 func (x *GLShader) GetArgBool(ArgsVar *glib.Bytes, IdxVar int) bool {
+	core.LazyRegister(&xGLShaderGetArgBool, "GSK", "gsk_gl_shader_get_arg_bool", false)
+
 	cret := xGLShaderGetArgBool(x.GoPointer(), ArgsVar, IdxVar)
 	return cret
 }
@@ -438,6 +474,8 @@ var xGLShaderGetArgFloat func(uintptr, *glib.Bytes, int) float32
 //
 // The uniform must be of float type.
 func (x *GLShader) GetArgFloat(ArgsVar *glib.Bytes, IdxVar int) float32 {
+	core.LazyRegister(&xGLShaderGetArgFloat, "GSK", "gsk_gl_shader_get_arg_float", false)
+
 	cret := xGLShaderGetArgFloat(x.GoPointer(), ArgsVar, IdxVar)
 	return cret
 }
@@ -448,6 +486,8 @@ var xGLShaderGetArgInt func(uintptr, *glib.Bytes, int) int32
 //
 // The uniform must be of int type.
 func (x *GLShader) GetArgInt(ArgsVar *glib.Bytes, IdxVar int) int32 {
+	core.LazyRegister(&xGLShaderGetArgInt, "GSK", "gsk_gl_shader_get_arg_int", false)
+
 	cret := xGLShaderGetArgInt(x.GoPointer(), ArgsVar, IdxVar)
 	return cret
 }
@@ -458,6 +498,8 @@ var xGLShaderGetArgUint func(uintptr, *glib.Bytes, int) uint32
 //
 // The uniform must be of uint type.
 func (x *GLShader) GetArgUint(ArgsVar *glib.Bytes, IdxVar int) uint32 {
+	core.LazyRegister(&xGLShaderGetArgUint, "GSK", "gsk_gl_shader_get_arg_uint", false)
+
 	cret := xGLShaderGetArgUint(x.GoPointer(), ArgsVar, IdxVar)
 	return cret
 }
@@ -468,6 +510,8 @@ var xGLShaderGetArgVec2 func(uintptr, *glib.Bytes, int, *graphene.Vec2)
 //
 // The uniform must be of vec2 type.
 func (x *GLShader) GetArgVec2(ArgsVar *glib.Bytes, IdxVar int, OutValueVar *graphene.Vec2) {
+	core.LazyRegister(&xGLShaderGetArgVec2, "GSK", "gsk_gl_shader_get_arg_vec2", false)
+
 	xGLShaderGetArgVec2(x.GoPointer(), ArgsVar, IdxVar, OutValueVar)
 }
 
@@ -477,6 +521,8 @@ var xGLShaderGetArgVec3 func(uintptr, *glib.Bytes, int, *graphene.Vec3)
 //
 // The uniform must be of vec3 type.
 func (x *GLShader) GetArgVec3(ArgsVar *glib.Bytes, IdxVar int, OutValueVar *graphene.Vec3) {
+	core.LazyRegister(&xGLShaderGetArgVec3, "GSK", "gsk_gl_shader_get_arg_vec3", false)
+
 	xGLShaderGetArgVec3(x.GoPointer(), ArgsVar, IdxVar, OutValueVar)
 }
 
@@ -486,6 +532,8 @@ var xGLShaderGetArgVec4 func(uintptr, *glib.Bytes, int, *graphene.Vec4)
 //
 // The uniform must be of vec4 type.
 func (x *GLShader) GetArgVec4(ArgsVar *glib.Bytes, IdxVar int, OutValueVar *graphene.Vec4) {
+	core.LazyRegister(&xGLShaderGetArgVec4, "GSK", "gsk_gl_shader_get_arg_vec4", false)
+
 	xGLShaderGetArgVec4(x.GoPointer(), ArgsVar, IdxVar, OutValueVar)
 }
 
@@ -493,6 +541,8 @@ var xGLShaderGetArgsSize func(uintptr) uint
 
 // Get the size of the data block used to specify arguments for this shader.
 func (x *GLShader) GetArgsSize() uint {
+	core.LazyRegister(&xGLShaderGetArgsSize, "GSK", "gsk_gl_shader_get_args_size", false)
+
 	cret := xGLShaderGetArgsSize(x.GoPointer())
 	return cret
 }
@@ -505,6 +555,8 @@ var xGLShaderGetNTextures func(uintptr) int
 // in your usecase. It is determined by looking at the highest
 // u_textureN value that the shader defines.
 func (x *GLShader) GetNTextures() int {
+	core.LazyRegister(&xGLShaderGetNTextures, "GSK", "gsk_gl_shader_get_n_textures", false)
+
 	cret := xGLShaderGetNTextures(x.GoPointer())
 	return cret
 }
@@ -513,6 +565,8 @@ var xGLShaderGetNUniforms func(uintptr) int
 
 // Get the number of declared uniforms for this shader.
 func (x *GLShader) GetNUniforms() int {
+	core.LazyRegister(&xGLShaderGetNUniforms, "GSK", "gsk_gl_shader_get_n_uniforms", false)
+
 	cret := xGLShaderGetNUniforms(x.GoPointer())
 	return cret
 }
@@ -522,6 +576,8 @@ var xGLShaderGetResource func(uintptr) string
 // Gets the resource path for the GLSL sourcecode being used
 // to render this shader.
 func (x *GLShader) GetResource() string {
+	core.LazyRegister(&xGLShaderGetResource, "GSK", "gsk_gl_shader_get_resource", false)
+
 	cret := xGLShaderGetResource(x.GoPointer())
 	return cret
 }
@@ -530,6 +586,8 @@ var xGLShaderGetSource func(uintptr) uintptr
 
 // Gets the GLSL sourcecode being used to render this shader.
 func (x *GLShader) GetSource() *glib.Bytes {
+	core.LazyRegister(&xGLShaderGetSource, "GSK", "gsk_gl_shader_get_source", false)
+
 	cret := xGLShaderGetSource(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -541,6 +599,8 @@ var xGLShaderGetUniformName func(uintptr, int) string
 
 // Get the name of the declared uniform for this shader at index @idx.
 func (x *GLShader) GetUniformName(IdxVar int) string {
+	core.LazyRegister(&xGLShaderGetUniformName, "GSK", "gsk_gl_shader_get_uniform_name", false)
+
 	cret := xGLShaderGetUniformName(x.GoPointer(), IdxVar)
 	return cret
 }
@@ -549,6 +609,8 @@ var xGLShaderGetUniformOffset func(uintptr, int) int
 
 // Get the offset into the data block where data for this uniforms is stored.
 func (x *GLShader) GetUniformOffset(IdxVar int) int {
+	core.LazyRegister(&xGLShaderGetUniformOffset, "GSK", "gsk_gl_shader_get_uniform_offset", false)
+
 	cret := xGLShaderGetUniformOffset(x.GoPointer(), IdxVar)
 	return cret
 }
@@ -557,6 +619,8 @@ var xGLShaderGetUniformType func(uintptr, int) GLUniformType
 
 // Get the type of the declared uniform for this shader at index @idx.
 func (x *GLShader) GetUniformType(IdxVar int) GLUniformType {
+	core.LazyRegister(&xGLShaderGetUniformType, "GSK", "gsk_gl_shader_get_uniform_type", false)
+
 	cret := xGLShaderGetUniformType(x.GoPointer(), IdxVar)
 	return cret
 }
@@ -615,53 +679,4 @@ func (x *GLShader) GetPropertySource() uintptr {
 func init() {
 	core.SetPackageName("GSK", "gtk4")
 	core.SetSharedLibraries("GSK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GSK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xShaderArgsBuilderGLibType, libs, "gsk_shader_args_builder_get_type")
-
-	core.PuregoSafeRegister(&xNewShaderArgsBuilder, libs, "gsk_shader_args_builder_new")
-
-	core.PuregoSafeRegister(&xShaderArgsBuilderFreeToArgs, libs, "gsk_shader_args_builder_free_to_args")
-	core.PuregoSafeRegister(&xShaderArgsBuilderRef, libs, "gsk_shader_args_builder_ref")
-	core.PuregoSafeRegister(&xShaderArgsBuilderSetBool, libs, "gsk_shader_args_builder_set_bool")
-	core.PuregoSafeRegister(&xShaderArgsBuilderSetFloat, libs, "gsk_shader_args_builder_set_float")
-	core.PuregoSafeRegister(&xShaderArgsBuilderSetInt, libs, "gsk_shader_args_builder_set_int")
-	core.PuregoSafeRegister(&xShaderArgsBuilderSetUint, libs, "gsk_shader_args_builder_set_uint")
-	core.PuregoSafeRegister(&xShaderArgsBuilderSetVec2, libs, "gsk_shader_args_builder_set_vec2")
-	core.PuregoSafeRegister(&xShaderArgsBuilderSetVec3, libs, "gsk_shader_args_builder_set_vec3")
-	core.PuregoSafeRegister(&xShaderArgsBuilderSetVec4, libs, "gsk_shader_args_builder_set_vec4")
-	core.PuregoSafeRegister(&xShaderArgsBuilderToArgs, libs, "gsk_shader_args_builder_to_args")
-	core.PuregoSafeRegister(&xShaderArgsBuilderUnref, libs, "gsk_shader_args_builder_unref")
-
-	core.PuregoSafeRegister(&xGLShaderGLibType, libs, "gsk_gl_shader_get_type")
-
-	core.PuregoSafeRegister(&xNewGLShaderFromBytes, libs, "gsk_gl_shader_new_from_bytes")
-	core.PuregoSafeRegister(&xNewGLShaderFromResource, libs, "gsk_gl_shader_new_from_resource")
-
-	core.PuregoSafeRegister(&xGLShaderCompile, libs, "gsk_gl_shader_compile")
-	core.PuregoSafeRegister(&xGLShaderFindUniformByName, libs, "gsk_gl_shader_find_uniform_by_name")
-	core.PuregoSafeRegister(&xGLShaderFormatArgs, libs, "gsk_gl_shader_format_args")
-	core.PuregoSafeRegister(&xGLShaderFormatArgsVa, libs, "gsk_gl_shader_format_args_va")
-	core.PuregoSafeRegister(&xGLShaderGetArgBool, libs, "gsk_gl_shader_get_arg_bool")
-	core.PuregoSafeRegister(&xGLShaderGetArgFloat, libs, "gsk_gl_shader_get_arg_float")
-	core.PuregoSafeRegister(&xGLShaderGetArgInt, libs, "gsk_gl_shader_get_arg_int")
-	core.PuregoSafeRegister(&xGLShaderGetArgUint, libs, "gsk_gl_shader_get_arg_uint")
-	core.PuregoSafeRegister(&xGLShaderGetArgVec2, libs, "gsk_gl_shader_get_arg_vec2")
-	core.PuregoSafeRegister(&xGLShaderGetArgVec3, libs, "gsk_gl_shader_get_arg_vec3")
-	core.PuregoSafeRegister(&xGLShaderGetArgVec4, libs, "gsk_gl_shader_get_arg_vec4")
-	core.PuregoSafeRegister(&xGLShaderGetArgsSize, libs, "gsk_gl_shader_get_args_size")
-	core.PuregoSafeRegister(&xGLShaderGetNTextures, libs, "gsk_gl_shader_get_n_textures")
-	core.PuregoSafeRegister(&xGLShaderGetNUniforms, libs, "gsk_gl_shader_get_n_uniforms")
-	core.PuregoSafeRegister(&xGLShaderGetResource, libs, "gsk_gl_shader_get_resource")
-	core.PuregoSafeRegister(&xGLShaderGetSource, libs, "gsk_gl_shader_get_source")
-	core.PuregoSafeRegister(&xGLShaderGetUniformName, libs, "gsk_gl_shader_get_uniform_name")
-	core.PuregoSafeRegister(&xGLShaderGetUniformOffset, libs, "gsk_gl_shader_get_uniform_offset")
-	core.PuregoSafeRegister(&xGLShaderGetUniformType, libs, "gsk_gl_shader_get_uniform_type")
 }

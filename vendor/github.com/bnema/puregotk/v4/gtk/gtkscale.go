@@ -166,6 +166,7 @@ type Scale struct {
 var xScaleGLibType func() types.GType
 
 func ScaleGLibType() types.GType {
+	core.LazyRegister(&xScaleGLibType, "GTK", "gtk_scale_get_type", false)
 	return xScaleGLibType()
 }
 
@@ -179,6 +180,7 @@ var xNewScale func(Orientation, uintptr) uintptr
 
 // Creates a new `GtkScale`.
 func NewScale(OrientationVar Orientation, AdjustmentVar *Adjustment) *Scale {
+	core.LazyRegister(&xNewScale, "GTK", "gtk_scale_new", false)
 	var cls *Scale
 
 	cret := xNewScale(OrientationVar, AdjustmentVar.GoPointer())
@@ -206,6 +208,7 @@ var xNewScaleWithRange func(Orientation, float64, float64, float64) uintptr
 // @step is a power of ten. If the resulting precision is not suitable
 // for your needs, use [method@Gtk.Scale.set_digits] to correct it.
 func NewScaleWithRange(OrientationVar Orientation, MinVar float64, MaxVar float64, StepVar float64) *Scale {
+	core.LazyRegister(&xNewScaleWithRange, "GTK", "gtk_scale_new_with_range", false)
 	var cls *Scale
 
 	cret := xNewScaleWithRange(OrientationVar, MinVar, MaxVar, StepVar)
@@ -231,6 +234,8 @@ var xScaleAddMark func(uintptr, float64, PositionType, uintptr)
 //
 // To remove marks from a scale, use [method@Gtk.Scale.clear_marks].
 func (x *Scale) AddMark(ValueVar float64, PositionVar PositionType, MarkupVar *string) {
+	core.LazyRegister(&xScaleAddMark, "GTK", "gtk_scale_add_mark", false)
+
 	MarkupVarPtr := core.GStrdupNullable(MarkupVar)
 	defer core.GFreeNullable(MarkupVarPtr)
 
@@ -241,6 +246,8 @@ var xScaleClearMarks func(uintptr)
 
 // Removes any marks that have been added.
 func (x *Scale) ClearMarks() {
+	core.LazyRegister(&xScaleClearMarks, "GTK", "gtk_scale_clear_marks", false)
+
 	xScaleClearMarks(x.GoPointer())
 }
 
@@ -248,6 +255,8 @@ var xScaleGetDigits func(uintptr) int
 
 // Gets the number of decimal places that are displayed in the value.
 func (x *Scale) GetDigits() int {
+	core.LazyRegister(&xScaleGetDigits, "GTK", "gtk_scale_get_digits", false)
+
 	cret := xScaleGetDigits(x.GoPointer())
 	return cret
 }
@@ -257,6 +266,8 @@ var xScaleGetDrawValue func(uintptr) bool
 // Returns whether the current value is displayed as a string
 // next to the slider.
 func (x *Scale) GetDrawValue() bool {
+	core.LazyRegister(&xScaleGetDrawValue, "GTK", "gtk_scale_get_draw_value", false)
+
 	cret := xScaleGetDrawValue(x.GoPointer())
 	return cret
 }
@@ -265,6 +276,8 @@ var xScaleGetHasOrigin func(uintptr) bool
 
 // Returns whether the scale has an origin.
 func (x *Scale) GetHasOrigin() bool {
+	core.LazyRegister(&xScaleGetHasOrigin, "GTK", "gtk_scale_get_has_origin", false)
+
 	cret := xScaleGetHasOrigin(x.GoPointer())
 	return cret
 }
@@ -276,6 +289,7 @@ var xScaleGetLayout func(uintptr) uintptr
 // The returned object is owned by the scale so does not need
 // to be freed by the caller.
 func (x *Scale) GetLayout() *pango.Layout {
+	core.LazyRegister(&xScaleGetLayout, "GTK", "gtk_scale_get_layout", false)
 	var cls *pango.Layout
 
 	cret := xScaleGetLayout(x.GoPointer())
@@ -300,6 +314,8 @@ var xScaleGetLayoutOffsets func(uintptr, *int, *int)
 // If the [property@Gtk.Scale:draw-value] property is %FALSE, the return
 // values are undefined.
 func (x *Scale) GetLayoutOffsets(XVar *int, YVar *int) {
+	core.LazyRegister(&xScaleGetLayoutOffsets, "GTK", "gtk_scale_get_layout_offsets", false)
+
 	xScaleGetLayoutOffsets(x.GoPointer(), XVar, YVar)
 }
 
@@ -307,6 +323,8 @@ var xScaleGetValuePos func(uintptr) PositionType
 
 // Gets the position in which the current value is displayed.
 func (x *Scale) GetValuePos() PositionType {
+	core.LazyRegister(&xScaleGetValuePos, "GTK", "gtk_scale_get_value_pos", false)
+
 	cret := xScaleGetValuePos(x.GoPointer())
 	return cret
 }
@@ -326,6 +344,8 @@ var xScaleSetDigits func(uintptr, int)
 // you can use [method@Gtk.Scale.set_format_value_func] to format the displayed
 // value yourself.
 func (x *Scale) SetDigits(DigitsVar int) {
+	core.LazyRegister(&xScaleSetDigits, "GTK", "gtk_scale_set_digits", false)
+
 	xScaleSetDigits(x.GoPointer(), DigitsVar)
 }
 
@@ -334,6 +354,8 @@ var xScaleSetDrawValue func(uintptr, bool)
 // Specifies whether the current value is displayed as a string next
 // to the slider.
 func (x *Scale) SetDrawValue(DrawValueVar bool) {
+	core.LazyRegister(&xScaleSetDrawValue, "GTK", "gtk_scale_set_draw_value", false)
+
 	xScaleSetDrawValue(x.GoPointer(), DrawValueVar)
 }
 
@@ -348,6 +370,8 @@ var xScaleSetFormatValueFunc func(uintptr, uintptr, uintptr, uintptr)
 // its own, rounded according to the value of the
 // [property@Gtk.Scale:digits] property.
 func (x *Scale) SetFormatValueFunc(FuncVar *ScaleFormatValueFunc, UserDataVar uintptr, DestroyNotifyVar *glib.DestroyNotify) {
+	core.LazyRegister(&xScaleSetFormatValueFunc, "GTK", "gtk_scale_set_format_value_func", false)
+
 	xScaleSetFormatValueFunc(x.GoPointer(), glib.NewCallbackNullable(FuncVar), UserDataVar, glib.NewCallbackNullable(DestroyNotifyVar))
 }
 
@@ -359,6 +383,8 @@ var xScaleSetHasOrigin func(uintptr, bool)
 // the scale will highlight the part of the trough between the origin
 // (bottom or left side) and the current value.
 func (x *Scale) SetHasOrigin(HasOriginVar bool) {
+	core.LazyRegister(&xScaleSetHasOrigin, "GTK", "gtk_scale_set_has_origin", false)
+
 	xScaleSetHasOrigin(x.GoPointer(), HasOriginVar)
 }
 
@@ -366,6 +392,8 @@ var xScaleSetValuePos func(uintptr, PositionType)
 
 // Sets the position in which the current value is displayed.
 func (x *Scale) SetValuePos(PosVar PositionType) {
+	core.LazyRegister(&xScaleSetValuePos, "GTK", "gtk_scale_set_value_pos", false)
+
 	xScaleSetValuePos(x.GoPointer(), PosVar)
 }
 
@@ -705,31 +733,4 @@ func (x *Scale) SetOrientation(OrientationVar Orientation) {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GTK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xScaleGLibType, libs, "gtk_scale_get_type")
-
-	core.PuregoSafeRegister(&xNewScale, libs, "gtk_scale_new")
-	core.PuregoSafeRegister(&xNewScaleWithRange, libs, "gtk_scale_new_with_range")
-
-	core.PuregoSafeRegister(&xScaleAddMark, libs, "gtk_scale_add_mark")
-	core.PuregoSafeRegister(&xScaleClearMarks, libs, "gtk_scale_clear_marks")
-	core.PuregoSafeRegister(&xScaleGetDigits, libs, "gtk_scale_get_digits")
-	core.PuregoSafeRegister(&xScaleGetDrawValue, libs, "gtk_scale_get_draw_value")
-	core.PuregoSafeRegister(&xScaleGetHasOrigin, libs, "gtk_scale_get_has_origin")
-	core.PuregoSafeRegister(&xScaleGetLayout, libs, "gtk_scale_get_layout")
-	core.PuregoSafeRegister(&xScaleGetLayoutOffsets, libs, "gtk_scale_get_layout_offsets")
-	core.PuregoSafeRegister(&xScaleGetValuePos, libs, "gtk_scale_get_value_pos")
-	core.PuregoSafeRegister(&xScaleSetDigits, libs, "gtk_scale_set_digits")
-	core.PuregoSafeRegister(&xScaleSetDrawValue, libs, "gtk_scale_set_draw_value")
-	core.PuregoSafeRegister(&xScaleSetFormatValueFunc, libs, "gtk_scale_set_format_value_func")
-	core.PuregoSafeRegister(&xScaleSetHasOrigin, libs, "gtk_scale_set_has_origin")
-	core.PuregoSafeRegister(&xScaleSetValuePos, libs, "gtk_scale_set_value_pos")
 }

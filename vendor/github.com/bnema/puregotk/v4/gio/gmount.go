@@ -405,7 +405,7 @@ func (x *MountIface) OverrideUnmountFinish(cb func(Mount, AsyncResult) bool) {
 	if cb == nil {
 		x.xUnmountFinish = 0
 	} else {
-		x.xUnmountFinish = purego.NewCallback(func(MountVarp uintptr, ResultVarp uintptr) bool {
+		x.xUnmountFinish = purego.NewCallback(func(MountVarp uintptr, ResultVarp uintptr, cerrp **glib.Error) bool {
 			return cb(&MountBase{Ptr: MountVarp}, &AsyncResultBase{Ptr: ResultVarp})
 		})
 	}
@@ -417,10 +417,11 @@ func (x *MountIface) GetUnmountFinish() func(Mount, AsyncResult) bool {
 	if x.xUnmountFinish == 0 {
 		return nil
 	}
-	var rawCallback func(MountVarp uintptr, ResultVarp uintptr) bool
+	var rawCallback func(MountVarp uintptr, ResultVarp uintptr, cerrp **glib.Error) bool
 	purego.RegisterFunc(&rawCallback, x.xUnmountFinish)
 	return func(MountVar Mount, ResultVar AsyncResult) bool {
-		return rawCallback(MountVar.GoPointer(), ResultVar.GoPointer())
+		var cerr *glib.Error
+		return rawCallback(MountVar.GoPointer(), ResultVar.GoPointer(), &cerr)
 	}
 }
 
@@ -455,7 +456,7 @@ func (x *MountIface) OverrideEjectFinish(cb func(Mount, AsyncResult) bool) {
 	if cb == nil {
 		x.xEjectFinish = 0
 	} else {
-		x.xEjectFinish = purego.NewCallback(func(MountVarp uintptr, ResultVarp uintptr) bool {
+		x.xEjectFinish = purego.NewCallback(func(MountVarp uintptr, ResultVarp uintptr, cerrp **glib.Error) bool {
 			return cb(&MountBase{Ptr: MountVarp}, &AsyncResultBase{Ptr: ResultVarp})
 		})
 	}
@@ -467,10 +468,11 @@ func (x *MountIface) GetEjectFinish() func(Mount, AsyncResult) bool {
 	if x.xEjectFinish == 0 {
 		return nil
 	}
-	var rawCallback func(MountVarp uintptr, ResultVarp uintptr) bool
+	var rawCallback func(MountVarp uintptr, ResultVarp uintptr, cerrp **glib.Error) bool
 	purego.RegisterFunc(&rawCallback, x.xEjectFinish)
 	return func(MountVar Mount, ResultVar AsyncResult) bool {
-		return rawCallback(MountVar.GoPointer(), ResultVar.GoPointer())
+		var cerr *glib.Error
+		return rawCallback(MountVar.GoPointer(), ResultVar.GoPointer(), &cerr)
 	}
 }
 
@@ -505,7 +507,7 @@ func (x *MountIface) OverrideRemountFinish(cb func(Mount, AsyncResult) bool) {
 	if cb == nil {
 		x.xRemountFinish = 0
 	} else {
-		x.xRemountFinish = purego.NewCallback(func(MountVarp uintptr, ResultVarp uintptr) bool {
+		x.xRemountFinish = purego.NewCallback(func(MountVarp uintptr, ResultVarp uintptr, cerrp **glib.Error) bool {
 			return cb(&MountBase{Ptr: MountVarp}, &AsyncResultBase{Ptr: ResultVarp})
 		})
 	}
@@ -517,10 +519,11 @@ func (x *MountIface) GetRemountFinish() func(Mount, AsyncResult) bool {
 	if x.xRemountFinish == 0 {
 		return nil
 	}
-	var rawCallback func(MountVarp uintptr, ResultVarp uintptr) bool
+	var rawCallback func(MountVarp uintptr, ResultVarp uintptr, cerrp **glib.Error) bool
 	purego.RegisterFunc(&rawCallback, x.xRemountFinish)
 	return func(MountVar Mount, ResultVar AsyncResult) bool {
-		return rawCallback(MountVar.GoPointer(), ResultVar.GoPointer())
+		var cerr *glib.Error
+		return rawCallback(MountVar.GoPointer(), ResultVar.GoPointer(), &cerr)
 	}
 }
 
@@ -561,7 +564,7 @@ func (x *MountIface) OverrideGuessContentTypeFinish(cb func(Mount, AsyncResult) 
 	if cb == nil {
 		x.xGuessContentTypeFinish = 0
 	} else {
-		x.xGuessContentTypeFinish = purego.NewCallback(func(MountVarp uintptr, ResultVarp uintptr) []string {
+		x.xGuessContentTypeFinish = purego.NewCallback(func(MountVarp uintptr, ResultVarp uintptr, cerrp **glib.Error) []string {
 			return cb(&MountBase{Ptr: MountVarp}, &AsyncResultBase{Ptr: ResultVarp})
 		})
 	}
@@ -573,10 +576,11 @@ func (x *MountIface) GetGuessContentTypeFinish() func(Mount, AsyncResult) []stri
 	if x.xGuessContentTypeFinish == 0 {
 		return nil
 	}
-	var rawCallback func(MountVarp uintptr, ResultVarp uintptr) []string
+	var rawCallback func(MountVarp uintptr, ResultVarp uintptr, cerrp **glib.Error) []string
 	purego.RegisterFunc(&rawCallback, x.xGuessContentTypeFinish)
 	return func(MountVar Mount, ResultVar AsyncResult) []string {
-		return rawCallback(MountVar.GoPointer(), ResultVar.GoPointer())
+		var cerr *glib.Error
+		return rawCallback(MountVar.GoPointer(), ResultVar.GoPointer(), &cerr)
 	}
 }
 
@@ -586,7 +590,7 @@ func (x *MountIface) OverrideGuessContentTypeSync(cb func(Mount, bool, *Cancella
 	if cb == nil {
 		x.xGuessContentTypeSync = 0
 	} else {
-		x.xGuessContentTypeSync = purego.NewCallback(func(MountVarp uintptr, ForceRescanVarp bool, CancellableVarp uintptr) []string {
+		x.xGuessContentTypeSync = purego.NewCallback(func(MountVarp uintptr, ForceRescanVarp bool, CancellableVarp uintptr, cerrp **glib.Error) []string {
 			return cb(&MountBase{Ptr: MountVarp}, ForceRescanVarp, CancellableNewFromInternalPtr(CancellableVarp))
 		})
 	}
@@ -598,10 +602,11 @@ func (x *MountIface) GetGuessContentTypeSync() func(Mount, bool, *Cancellable) [
 	if x.xGuessContentTypeSync == 0 {
 		return nil
 	}
-	var rawCallback func(MountVarp uintptr, ForceRescanVarp bool, CancellableVarp uintptr) []string
+	var rawCallback func(MountVarp uintptr, ForceRescanVarp bool, CancellableVarp uintptr, cerrp **glib.Error) []string
 	purego.RegisterFunc(&rawCallback, x.xGuessContentTypeSync)
 	return func(MountVar Mount, ForceRescanVar bool, CancellableVar *Cancellable) []string {
-		return rawCallback(MountVar.GoPointer(), ForceRescanVar, CancellableVar.GoPointer())
+		var cerr *glib.Error
+		return rawCallback(MountVar.GoPointer(), ForceRescanVar, CancellableVar.GoPointer(), &cerr)
 	}
 }
 
@@ -661,7 +666,7 @@ func (x *MountIface) OverrideUnmountWithOperationFinish(cb func(Mount, AsyncResu
 	if cb == nil {
 		x.xUnmountWithOperationFinish = 0
 	} else {
-		x.xUnmountWithOperationFinish = purego.NewCallback(func(MountVarp uintptr, ResultVarp uintptr) bool {
+		x.xUnmountWithOperationFinish = purego.NewCallback(func(MountVarp uintptr, ResultVarp uintptr, cerrp **glib.Error) bool {
 			return cb(&MountBase{Ptr: MountVarp}, &AsyncResultBase{Ptr: ResultVarp})
 		})
 	}
@@ -673,10 +678,11 @@ func (x *MountIface) GetUnmountWithOperationFinish() func(Mount, AsyncResult) bo
 	if x.xUnmountWithOperationFinish == 0 {
 		return nil
 	}
-	var rawCallback func(MountVarp uintptr, ResultVarp uintptr) bool
+	var rawCallback func(MountVarp uintptr, ResultVarp uintptr, cerrp **glib.Error) bool
 	purego.RegisterFunc(&rawCallback, x.xUnmountWithOperationFinish)
 	return func(MountVar Mount, ResultVar AsyncResult) bool {
-		return rawCallback(MountVar.GoPointer(), ResultVar.GoPointer())
+		var cerr *glib.Error
+		return rawCallback(MountVar.GoPointer(), ResultVar.GoPointer(), &cerr)
 	}
 }
 
@@ -711,7 +717,7 @@ func (x *MountIface) OverrideEjectWithOperationFinish(cb func(Mount, AsyncResult
 	if cb == nil {
 		x.xEjectWithOperationFinish = 0
 	} else {
-		x.xEjectWithOperationFinish = purego.NewCallback(func(MountVarp uintptr, ResultVarp uintptr) bool {
+		x.xEjectWithOperationFinish = purego.NewCallback(func(MountVarp uintptr, ResultVarp uintptr, cerrp **glib.Error) bool {
 			return cb(&MountBase{Ptr: MountVarp}, &AsyncResultBase{Ptr: ResultVarp})
 		})
 	}
@@ -723,10 +729,11 @@ func (x *MountIface) GetEjectWithOperationFinish() func(Mount, AsyncResult) bool
 	if x.xEjectWithOperationFinish == 0 {
 		return nil
 	}
-	var rawCallback func(MountVarp uintptr, ResultVarp uintptr) bool
+	var rawCallback func(MountVarp uintptr, ResultVarp uintptr, cerrp **glib.Error) bool
 	purego.RegisterFunc(&rawCallback, x.xEjectWithOperationFinish)
 	return func(MountVar Mount, ResultVar AsyncResult) bool {
-		return rawCallback(MountVar.GoPointer(), ResultVar.GoPointer())
+		var cerr *glib.Error
+		return rawCallback(MountVar.GoPointer(), ResultVar.GoPointer(), &cerr)
 	}
 }
 
@@ -885,6 +892,7 @@ type Mount interface {
 var xMountGLibType func() types.GType
 
 func MountGLibType() types.GType {
+	core.LazyRegister(&xMountGLibType, "GIO", "g_mount_get_type", false)
 	return xMountGLibType()
 }
 
@@ -1219,75 +1227,196 @@ func (x *MountBase) Unshadow() {
 	XGMountUnshadow(x.GoPointer())
 }
 
+var XGMountCanEject func(uintptr) bool = func(instance uintptr) bool {
+	core.LazyRegister(&xXGMountCanEject, "GIO", "g_mount_can_eject", false)
+	return xXGMountCanEject(instance)
+}
+
 var (
-	XGMountCanEject                   func(uintptr) bool
-	XGMountCanUnmount                 func(uintptr) bool
-	XGMountEject                      func(uintptr, MountUnmountFlags, uintptr, uintptr, uintptr)
-	XGMountEjectFinish                func(uintptr, uintptr, **glib.Error) bool
-	XGMountEjectWithOperation         func(uintptr, MountUnmountFlags, uintptr, uintptr, uintptr, uintptr)
-	XGMountEjectWithOperationFinish   func(uintptr, uintptr, **glib.Error) bool
-	XGMountGetDefaultLocation         func(uintptr) uintptr
-	XGMountGetDrive                   func(uintptr) uintptr
-	XGMountGetIcon                    func(uintptr) uintptr
-	XGMountGetName                    func(uintptr) string
-	XGMountGetRoot                    func(uintptr) uintptr
-	XGMountGetSortKey                 func(uintptr) string
-	XGMountGetSymbolicIcon            func(uintptr) uintptr
-	XGMountGetUuid                    func(uintptr) string
-	XGMountGetVolume                  func(uintptr) uintptr
-	XGMountGuessContentType           func(uintptr, bool, uintptr, uintptr, uintptr)
-	XGMountGuessContentTypeFinish     func(uintptr, uintptr, **glib.Error) []string
-	XGMountGuessContentTypeSync       func(uintptr, bool, uintptr, **glib.Error) []string
-	XGMountIsShadowed                 func(uintptr) bool
-	XGMountRemount                    func(uintptr, MountMountFlags, uintptr, uintptr, uintptr, uintptr)
-	XGMountRemountFinish              func(uintptr, uintptr, **glib.Error) bool
-	XGMountShadow                     func(uintptr)
-	XGMountUnmount                    func(uintptr, MountUnmountFlags, uintptr, uintptr, uintptr)
-	XGMountUnmountFinish              func(uintptr, uintptr, **glib.Error) bool
-	XGMountUnmountWithOperation       func(uintptr, MountUnmountFlags, uintptr, uintptr, uintptr, uintptr)
-	XGMountUnmountWithOperationFinish func(uintptr, uintptr, **glib.Error) bool
-	XGMountUnshadow                   func(uintptr)
+	xXGMountCanEject  func(uintptr) bool
+	XGMountCanUnmount func(uintptr) bool = func(instance uintptr) bool {
+		core.LazyRegister(&xXGMountCanUnmount, "GIO", "g_mount_can_unmount", false)
+		return xXGMountCanUnmount(instance)
+	}
 )
+var (
+	xXGMountCanUnmount func(uintptr) bool
+	XGMountEject       func(uintptr, MountUnmountFlags, uintptr, uintptr, uintptr) = func(instance uintptr, FlagsVarp MountUnmountFlags, CancellableVarp uintptr, CallbackVarp uintptr, UserDataVarp uintptr) {
+		core.LazyRegister(&xXGMountEject, "GIO", "g_mount_eject", false)
+		xXGMountEject(instance, FlagsVarp, CancellableVarp, CallbackVarp, UserDataVarp)
+	}
+)
+var (
+	xXGMountEject      func(uintptr, MountUnmountFlags, uintptr, uintptr, uintptr)
+	XGMountEjectFinish func(uintptr, uintptr, **glib.Error) bool = func(instance uintptr, ResultVarp uintptr, cerrp **glib.Error) bool {
+		core.LazyRegister(&xXGMountEjectFinish, "GIO", "g_mount_eject_finish", false)
+		return xXGMountEjectFinish(instance, ResultVarp, cerrp)
+	}
+)
+var (
+	xXGMountEjectFinish       func(uintptr, uintptr, **glib.Error) bool
+	XGMountEjectWithOperation func(uintptr, MountUnmountFlags, uintptr, uintptr, uintptr, uintptr) = func(instance uintptr, FlagsVarp MountUnmountFlags, MountOperationVarp uintptr, CancellableVarp uintptr, CallbackVarp uintptr, UserDataVarp uintptr) {
+		core.LazyRegister(&xXGMountEjectWithOperation, "GIO", "g_mount_eject_with_operation", false)
+		xXGMountEjectWithOperation(instance, FlagsVarp, MountOperationVarp, CancellableVarp, CallbackVarp, UserDataVarp)
+	}
+)
+var (
+	xXGMountEjectWithOperation      func(uintptr, MountUnmountFlags, uintptr, uintptr, uintptr, uintptr)
+	XGMountEjectWithOperationFinish func(uintptr, uintptr, **glib.Error) bool = func(instance uintptr, ResultVarp uintptr, cerrp **glib.Error) bool {
+		core.LazyRegister(&xXGMountEjectWithOperationFinish, "GIO", "g_mount_eject_with_operation_finish", false)
+		return xXGMountEjectWithOperationFinish(instance, ResultVarp, cerrp)
+	}
+)
+var (
+	xXGMountEjectWithOperationFinish func(uintptr, uintptr, **glib.Error) bool
+	XGMountGetDefaultLocation        func(uintptr) uintptr = func(instance uintptr) uintptr {
+		core.LazyRegister(&xXGMountGetDefaultLocation, "GIO", "g_mount_get_default_location", false)
+		return xXGMountGetDefaultLocation(instance)
+	}
+)
+var (
+	xXGMountGetDefaultLocation func(uintptr) uintptr
+	XGMountGetDrive            func(uintptr) uintptr = func(instance uintptr) uintptr {
+		core.LazyRegister(&xXGMountGetDrive, "GIO", "g_mount_get_drive", false)
+		return xXGMountGetDrive(instance)
+	}
+)
+var (
+	xXGMountGetDrive func(uintptr) uintptr
+	XGMountGetIcon   func(uintptr) uintptr = func(instance uintptr) uintptr {
+		core.LazyRegister(&xXGMountGetIcon, "GIO", "g_mount_get_icon", false)
+		return xXGMountGetIcon(instance)
+	}
+)
+var (
+	xXGMountGetIcon func(uintptr) uintptr
+	XGMountGetName  func(uintptr) string = func(instance uintptr) string {
+		core.LazyRegister(&xXGMountGetName, "GIO", "g_mount_get_name", false)
+		return xXGMountGetName(instance)
+	}
+)
+var (
+	xXGMountGetName func(uintptr) string
+	XGMountGetRoot  func(uintptr) uintptr = func(instance uintptr) uintptr {
+		core.LazyRegister(&xXGMountGetRoot, "GIO", "g_mount_get_root", false)
+		return xXGMountGetRoot(instance)
+	}
+)
+var (
+	xXGMountGetRoot   func(uintptr) uintptr
+	XGMountGetSortKey func(uintptr) string = func(instance uintptr) string {
+		core.LazyRegister(&xXGMountGetSortKey, "GIO", "g_mount_get_sort_key", false)
+		return xXGMountGetSortKey(instance)
+	}
+)
+var (
+	xXGMountGetSortKey     func(uintptr) string
+	XGMountGetSymbolicIcon func(uintptr) uintptr = func(instance uintptr) uintptr {
+		core.LazyRegister(&xXGMountGetSymbolicIcon, "GIO", "g_mount_get_symbolic_icon", false)
+		return xXGMountGetSymbolicIcon(instance)
+	}
+)
+var (
+	xXGMountGetSymbolicIcon func(uintptr) uintptr
+	XGMountGetUuid          func(uintptr) string = func(instance uintptr) string {
+		core.LazyRegister(&xXGMountGetUuid, "GIO", "g_mount_get_uuid", false)
+		return xXGMountGetUuid(instance)
+	}
+)
+var (
+	xXGMountGetUuid  func(uintptr) string
+	XGMountGetVolume func(uintptr) uintptr = func(instance uintptr) uintptr {
+		core.LazyRegister(&xXGMountGetVolume, "GIO", "g_mount_get_volume", false)
+		return xXGMountGetVolume(instance)
+	}
+)
+var (
+	xXGMountGetVolume       func(uintptr) uintptr
+	XGMountGuessContentType func(uintptr, bool, uintptr, uintptr, uintptr) = func(instance uintptr, ForceRescanVarp bool, CancellableVarp uintptr, CallbackVarp uintptr, UserDataVarp uintptr) {
+		core.LazyRegister(&xXGMountGuessContentType, "GIO", "g_mount_guess_content_type", false)
+		xXGMountGuessContentType(instance, ForceRescanVarp, CancellableVarp, CallbackVarp, UserDataVarp)
+	}
+)
+var (
+	xXGMountGuessContentType      func(uintptr, bool, uintptr, uintptr, uintptr)
+	XGMountGuessContentTypeFinish func(uintptr, uintptr, **glib.Error) []string = func(instance uintptr, ResultVarp uintptr, cerrp **glib.Error) []string {
+		core.LazyRegister(&xXGMountGuessContentTypeFinish, "GIO", "g_mount_guess_content_type_finish", false)
+		return xXGMountGuessContentTypeFinish(instance, ResultVarp, cerrp)
+	}
+)
+var (
+	xXGMountGuessContentTypeFinish func(uintptr, uintptr, **glib.Error) []string
+	XGMountGuessContentTypeSync    func(uintptr, bool, uintptr, **glib.Error) []string = func(instance uintptr, ForceRescanVarp bool, CancellableVarp uintptr, cerrp **glib.Error) []string {
+		core.LazyRegister(&xXGMountGuessContentTypeSync, "GIO", "g_mount_guess_content_type_sync", false)
+		return xXGMountGuessContentTypeSync(instance, ForceRescanVarp, CancellableVarp, cerrp)
+	}
+)
+var (
+	xXGMountGuessContentTypeSync func(uintptr, bool, uintptr, **glib.Error) []string
+	XGMountIsShadowed            func(uintptr) bool = func(instance uintptr) bool {
+		core.LazyRegister(&xXGMountIsShadowed, "GIO", "g_mount_is_shadowed", false)
+		return xXGMountIsShadowed(instance)
+	}
+)
+var (
+	xXGMountIsShadowed func(uintptr) bool
+	XGMountRemount     func(uintptr, MountMountFlags, uintptr, uintptr, uintptr, uintptr) = func(instance uintptr, FlagsVarp MountMountFlags, MountOperationVarp uintptr, CancellableVarp uintptr, CallbackVarp uintptr, UserDataVarp uintptr) {
+		core.LazyRegister(&xXGMountRemount, "GIO", "g_mount_remount", false)
+		xXGMountRemount(instance, FlagsVarp, MountOperationVarp, CancellableVarp, CallbackVarp, UserDataVarp)
+	}
+)
+var (
+	xXGMountRemount      func(uintptr, MountMountFlags, uintptr, uintptr, uintptr, uintptr)
+	XGMountRemountFinish func(uintptr, uintptr, **glib.Error) bool = func(instance uintptr, ResultVarp uintptr, cerrp **glib.Error) bool {
+		core.LazyRegister(&xXGMountRemountFinish, "GIO", "g_mount_remount_finish", false)
+		return xXGMountRemountFinish(instance, ResultVarp, cerrp)
+	}
+)
+var (
+	xXGMountRemountFinish func(uintptr, uintptr, **glib.Error) bool
+	XGMountShadow         func(uintptr) = func(instance uintptr) {
+		core.LazyRegister(&xXGMountShadow, "GIO", "g_mount_shadow", false)
+		xXGMountShadow(instance)
+	}
+)
+var (
+	xXGMountShadow func(uintptr)
+	XGMountUnmount func(uintptr, MountUnmountFlags, uintptr, uintptr, uintptr) = func(instance uintptr, FlagsVarp MountUnmountFlags, CancellableVarp uintptr, CallbackVarp uintptr, UserDataVarp uintptr) {
+		core.LazyRegister(&xXGMountUnmount, "GIO", "g_mount_unmount", false)
+		xXGMountUnmount(instance, FlagsVarp, CancellableVarp, CallbackVarp, UserDataVarp)
+	}
+)
+var (
+	xXGMountUnmount      func(uintptr, MountUnmountFlags, uintptr, uintptr, uintptr)
+	XGMountUnmountFinish func(uintptr, uintptr, **glib.Error) bool = func(instance uintptr, ResultVarp uintptr, cerrp **glib.Error) bool {
+		core.LazyRegister(&xXGMountUnmountFinish, "GIO", "g_mount_unmount_finish", false)
+		return xXGMountUnmountFinish(instance, ResultVarp, cerrp)
+	}
+)
+var (
+	xXGMountUnmountFinish       func(uintptr, uintptr, **glib.Error) bool
+	XGMountUnmountWithOperation func(uintptr, MountUnmountFlags, uintptr, uintptr, uintptr, uintptr) = func(instance uintptr, FlagsVarp MountUnmountFlags, MountOperationVarp uintptr, CancellableVarp uintptr, CallbackVarp uintptr, UserDataVarp uintptr) {
+		core.LazyRegister(&xXGMountUnmountWithOperation, "GIO", "g_mount_unmount_with_operation", false)
+		xXGMountUnmountWithOperation(instance, FlagsVarp, MountOperationVarp, CancellableVarp, CallbackVarp, UserDataVarp)
+	}
+)
+var (
+	xXGMountUnmountWithOperation      func(uintptr, MountUnmountFlags, uintptr, uintptr, uintptr, uintptr)
+	XGMountUnmountWithOperationFinish func(uintptr, uintptr, **glib.Error) bool = func(instance uintptr, ResultVarp uintptr, cerrp **glib.Error) bool {
+		core.LazyRegister(&xXGMountUnmountWithOperationFinish, "GIO", "g_mount_unmount_with_operation_finish", false)
+		return xXGMountUnmountWithOperationFinish(instance, ResultVarp, cerrp)
+	}
+)
+var (
+	xXGMountUnmountWithOperationFinish func(uintptr, uintptr, **glib.Error) bool
+	XGMountUnshadow                    func(uintptr) = func(instance uintptr) {
+		core.LazyRegister(&xXGMountUnshadow, "GIO", "g_mount_unshadow", false)
+		xXGMountUnshadow(instance)
+	}
+)
+var xXGMountUnshadow func(uintptr)
 
 func init() {
 	core.SetPackageName("GIO", "gio-2.0")
 	core.SetSharedLibraries("GIO", []string{"libgio-2.0.so.0", "libgio-2.0.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GIO") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xMountGLibType, libs, "g_mount_get_type")
-
-	core.PuregoSafeRegister(&XGMountCanEject, libs, "g_mount_can_eject")
-	core.PuregoSafeRegister(&XGMountCanUnmount, libs, "g_mount_can_unmount")
-	core.PuregoSafeRegister(&XGMountEject, libs, "g_mount_eject")
-	core.PuregoSafeRegister(&XGMountEjectFinish, libs, "g_mount_eject_finish")
-	core.PuregoSafeRegister(&XGMountEjectWithOperation, libs, "g_mount_eject_with_operation")
-	core.PuregoSafeRegister(&XGMountEjectWithOperationFinish, libs, "g_mount_eject_with_operation_finish")
-	core.PuregoSafeRegister(&XGMountGetDefaultLocation, libs, "g_mount_get_default_location")
-	core.PuregoSafeRegister(&XGMountGetDrive, libs, "g_mount_get_drive")
-	core.PuregoSafeRegister(&XGMountGetIcon, libs, "g_mount_get_icon")
-	core.PuregoSafeRegister(&XGMountGetName, libs, "g_mount_get_name")
-	core.PuregoSafeRegister(&XGMountGetRoot, libs, "g_mount_get_root")
-	core.PuregoSafeRegister(&XGMountGetSortKey, libs, "g_mount_get_sort_key")
-	core.PuregoSafeRegister(&XGMountGetSymbolicIcon, libs, "g_mount_get_symbolic_icon")
-	core.PuregoSafeRegister(&XGMountGetUuid, libs, "g_mount_get_uuid")
-	core.PuregoSafeRegister(&XGMountGetVolume, libs, "g_mount_get_volume")
-	core.PuregoSafeRegister(&XGMountGuessContentType, libs, "g_mount_guess_content_type")
-	core.PuregoSafeRegister(&XGMountGuessContentTypeFinish, libs, "g_mount_guess_content_type_finish")
-	core.PuregoSafeRegister(&XGMountGuessContentTypeSync, libs, "g_mount_guess_content_type_sync")
-	core.PuregoSafeRegister(&XGMountIsShadowed, libs, "g_mount_is_shadowed")
-	core.PuregoSafeRegister(&XGMountRemount, libs, "g_mount_remount")
-	core.PuregoSafeRegister(&XGMountRemountFinish, libs, "g_mount_remount_finish")
-	core.PuregoSafeRegister(&XGMountShadow, libs, "g_mount_shadow")
-	core.PuregoSafeRegister(&XGMountUnmount, libs, "g_mount_unmount")
-	core.PuregoSafeRegister(&XGMountUnmountFinish, libs, "g_mount_unmount_finish")
-	core.PuregoSafeRegister(&XGMountUnmountWithOperation, libs, "g_mount_unmount_with_operation")
-	core.PuregoSafeRegister(&XGMountUnmountWithOperationFinish, libs, "g_mount_unmount_with_operation_finish")
-	core.PuregoSafeRegister(&XGMountUnshadow, libs, "g_mount_unshadow")
 }

@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gdk"
 	"github.com/bnema/puregotk/v4/glib"
@@ -51,6 +50,7 @@ type ContextMenu struct {
 var xContextMenuGLibType func() types.GType
 
 func ContextMenuGLibType() types.GType {
+	core.LazyRegister(&xContextMenuGLibType, "WEBKIT", "webkit_context_menu_get_type", false)
 	return xContextMenuGLibType()
 }
 
@@ -72,6 +72,7 @@ var xNewContextMenu func() uintptr
 // See also webkit_context_menu_new_with_items() to create a #WebKitContextMenu with
 // a list of initial items.
 func NewContextMenu() *ContextMenu {
+	core.LazyRegister(&xNewContextMenu, "WEBKIT", "webkit_context_menu_new", false)
 	var cls *ContextMenu
 
 	cret := xNewContextMenu()
@@ -92,6 +93,7 @@ var xNewContextMenuWithItems func(*glib.List) uintptr
 // #WebKitContextMenu with the given initial items.
 // See also webkit_context_menu_new()
 func NewContextMenuWithItems(ItemsVar *glib.List) *ContextMenu {
+	core.LazyRegister(&xNewContextMenuWithItems, "WEBKIT", "webkit_context_menu_new_with_items", false)
 	var cls *ContextMenu
 
 	cret := xNewContextMenuWithItems(ItemsVar)
@@ -108,6 +110,8 @@ var xContextMenuAppend func(uintptr, uintptr)
 
 // Adds @item at the end of the @menu.
 func (x *ContextMenu) Append(ItemVar *ContextMenuItem) {
+	core.LazyRegister(&xContextMenuAppend, "WEBKIT", "webkit_context_menu_append", false)
+
 	xContextMenuAppend(x.GoPointer(), ItemVar.GoPointer())
 }
 
@@ -115,6 +119,7 @@ var xContextMenuFirst func(uintptr) uintptr
 
 // Gets the first item in the @menu.
 func (x *ContextMenu) First() *ContextMenuItem {
+	core.LazyRegister(&xContextMenuFirst, "WEBKIT", "webkit_context_menu_first", false)
 	var cls *ContextMenuItem
 
 	cret := xContextMenuFirst(x.GoPointer())
@@ -147,6 +152,7 @@ var xContextMenuGetEvent func(uintptr) uintptr
 // &lt;/para&gt;&lt;/listitem&gt;
 // &lt;/itemizedlist&gt;
 func (x *ContextMenu) GetEvent() *gdk.Event {
+	core.LazyRegister(&xContextMenuGetEvent, "WEBKIT", "webkit_context_menu_get_event", false)
 	var cls *gdk.Event
 
 	cret := xContextMenuGetEvent(x.GoPointer())
@@ -164,6 +170,7 @@ var xContextMenuGetItemAtPosition func(uintptr, uint) uintptr
 
 // Gets the item at the given position in the @menu.
 func (x *ContextMenu) GetItemAtPosition(PositionVar uint) *ContextMenuItem {
+	core.LazyRegister(&xContextMenuGetItemAtPosition, "WEBKIT", "webkit_context_menu_get_item_at_position", false)
 	var cls *ContextMenuItem
 
 	cret := xContextMenuGetItemAtPosition(x.GoPointer(), PositionVar)
@@ -181,6 +188,8 @@ var xContextMenuGetItems func(uintptr) uintptr
 
 // Returns the item list of @menu.
 func (x *ContextMenu) GetItems() *glib.List {
+	core.LazyRegister(&xContextMenuGetItems, "WEBKIT", "webkit_context_menu_get_items", false)
+
 	cret := xContextMenuGetItems(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -192,6 +201,8 @@ var xContextMenuGetNItems func(uintptr) uint
 
 // Gets the length of the @menu.
 func (x *ContextMenu) GetNItems() uint {
+	core.LazyRegister(&xContextMenuGetNItems, "WEBKIT", "webkit_context_menu_get_n_items", false)
+
 	cret := xContextMenuGetNItems(x.GoPointer())
 	return cret
 }
@@ -203,6 +214,8 @@ var xContextMenuGetPosition func(uintptr, *int, *int) bool
 // This function only returns valid coordinates when called for a #WebKitContextMenu
 // passed to #WebKitWebView::context-menu signal.
 func (x *ContextMenu) GetPosition(XVar *int, YVar *int) bool {
+	core.LazyRegister(&xContextMenuGetPosition, "WEBKIT", "webkit_context_menu_get_position", false)
+
 	cret := xContextMenuGetPosition(x.GoPointer(), XVar, YVar)
 	return cret
 }
@@ -214,6 +227,8 @@ var xContextMenuGetUserData func(uintptr) uintptr
 // This function can be used from the UI Process to get user data previously set
 // from the Web Process with webkit_context_menu_set_user_data().
 func (x *ContextMenu) GetUserData() *glib.Variant {
+	core.LazyRegister(&xContextMenuGetUserData, "WEBKIT", "webkit_context_menu_get_user_data", false)
+
 	cret := xContextMenuGetUserData(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -229,6 +244,8 @@ var xContextMenuInsert func(uintptr, uintptr, int)
 // in the #WebKitContextMenu, the item is added on to the end of
 // the @menu. The first position is 0.
 func (x *ContextMenu) Insert(ItemVar *ContextMenuItem, PositionVar int) {
+	core.LazyRegister(&xContextMenuInsert, "WEBKIT", "webkit_context_menu_insert", false)
+
 	xContextMenuInsert(x.GoPointer(), ItemVar.GoPointer(), PositionVar)
 }
 
@@ -236,6 +253,7 @@ var xContextMenuLast func(uintptr) uintptr
 
 // Gets the last item in the @menu.
 func (x *ContextMenu) Last() *ContextMenuItem {
+	core.LazyRegister(&xContextMenuLast, "WEBKIT", "webkit_context_menu_last", false)
 	var cls *ContextMenuItem
 
 	cret := xContextMenuLast(x.GoPointer())
@@ -258,6 +276,8 @@ var xContextMenuMoveItem func(uintptr, uintptr, int)
 // the @menu.
 // The first position is 0.
 func (x *ContextMenu) MoveItem(ItemVar *ContextMenuItem, PositionVar int) {
+	core.LazyRegister(&xContextMenuMoveItem, "WEBKIT", "webkit_context_menu_move_item", false)
+
 	xContextMenuMoveItem(x.GoPointer(), ItemVar.GoPointer(), PositionVar)
 }
 
@@ -265,6 +285,8 @@ var xContextMenuPrepend func(uintptr, uintptr)
 
 // Adds @item at the beginning of the @menu.
 func (x *ContextMenu) Prepend(ItemVar *ContextMenuItem) {
+	core.LazyRegister(&xContextMenuPrepend, "WEBKIT", "webkit_context_menu_prepend", false)
+
 	xContextMenuPrepend(x.GoPointer(), ItemVar.GoPointer())
 }
 
@@ -274,6 +296,8 @@ var xContextMenuRemove func(uintptr, uintptr)
 //
 // See also webkit_context_menu_remove_all() to remove all items.
 func (x *ContextMenu) Remove(ItemVar *ContextMenuItem) {
+	core.LazyRegister(&xContextMenuRemove, "WEBKIT", "webkit_context_menu_remove", false)
+
 	xContextMenuRemove(x.GoPointer(), ItemVar.GoPointer())
 }
 
@@ -281,6 +305,8 @@ var xContextMenuRemoveAll func(uintptr)
 
 // Removes all items of the @menu.
 func (x *ContextMenu) RemoveAll() {
+	core.LazyRegister(&xContextMenuRemoveAll, "WEBKIT", "webkit_context_menu_remove_all", false)
+
 	xContextMenuRemoveAll(x.GoPointer())
 }
 
@@ -292,6 +318,8 @@ var xContextMenuSetUserData func(uintptr, *glib.Variant)
 // that can be retrieved from the UI Process using webkit_context_menu_get_user_data().
 // If the @user_data #GVariant is floating, it is consumed.
 func (x *ContextMenu) SetUserData(UserDataVar *glib.Variant) {
+	core.LazyRegister(&xContextMenuSetUserData, "WEBKIT", "webkit_context_menu_set_user_data", false)
+
 	xContextMenuSetUserData(x.GoPointer(), UserDataVar)
 }
 
@@ -309,38 +337,8 @@ func (c *ContextMenu) SetGoPointer(ptr uintptr) {
 func init() {
 	core.SetPackageName("WEBKIT", "webkitgtk-6.0")
 	core.SetSharedLibraries("WEBKIT", []string{"libwebkitgtk-6.0.so.4", "libjavascriptcoregtk-6.0.so.1", "libwebkitgtk-6.0.4.dylib", "libjavascriptcoregtk-6.0.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("WEBKIT") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
 
-	core.PuregoSafeRegister(&xContextMenuGLibType, libs, "webkit_context_menu_get_type")
-
-	core.PuregoSafeRegister(&xNewContextMenu, libs, "webkit_context_menu_new")
-	core.PuregoSafeRegister(&xNewContextMenuWithItems, libs, "webkit_context_menu_new_with_items")
-
-	core.PuregoSafeRegister(&xContextMenuAppend, libs, "webkit_context_menu_append")
-	core.PuregoSafeRegister(&xContextMenuFirst, libs, "webkit_context_menu_first")
-	core.PuregoSafeRegister(&xContextMenuGetEvent, libs, "webkit_context_menu_get_event")
-	core.PuregoSafeRegister(&xContextMenuGetItemAtPosition, libs, "webkit_context_menu_get_item_at_position")
-	core.PuregoSafeRegister(&xContextMenuGetItems, libs, "webkit_context_menu_get_items")
-	core.PuregoSafeRegister(&xContextMenuGetNItems, libs, "webkit_context_menu_get_n_items")
-	core.PuregoSafeRegister(&xContextMenuGetPosition, libs, "webkit_context_menu_get_position")
-	core.PuregoSafeRegister(&xContextMenuGetUserData, libs, "webkit_context_menu_get_user_data")
-	core.PuregoSafeRegister(&xContextMenuInsert, libs, "webkit_context_menu_insert")
-	core.PuregoSafeRegister(&xContextMenuLast, libs, "webkit_context_menu_last")
-	core.PuregoSafeRegister(&xContextMenuMoveItem, libs, "webkit_context_menu_move_item")
-	core.PuregoSafeRegister(&xContextMenuPrepend, libs, "webkit_context_menu_prepend")
-	core.PuregoSafeRegister(&xContextMenuRemove, libs, "webkit_context_menu_remove")
-	core.PuregoSafeRegister(&xContextMenuRemoveAll, libs, "webkit_context_menu_remove_all")
-	core.PuregoSafeRegister(&xContextMenuSetUserData, libs, "webkit_context_menu_set_user_data")
-
-	// Manually register types since they aren't being automatically registered when
-	// the library is loaded
-	// See https://bugs.webkit.org/show_bug.cgi?id=175937
+	// Manually register types since they aren't automatically registered when
+	// WebKit is loaded. See https://bugs.webkit.org/show_bug.cgi?id=175937.
 	ContextMenuGLibType()
 }

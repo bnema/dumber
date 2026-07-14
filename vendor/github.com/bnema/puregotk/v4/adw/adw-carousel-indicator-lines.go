@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -56,6 +55,7 @@ type CarouselIndicatorLines struct {
 var xCarouselIndicatorLinesGLibType func() types.GType
 
 func CarouselIndicatorLinesGLibType() types.GType {
+	core.LazyRegister(&xCarouselIndicatorLinesGLibType, "ADW", "adw_carousel_indicator_lines_get_type", false)
 	return xCarouselIndicatorLinesGLibType()
 }
 
@@ -69,6 +69,7 @@ var xNewCarouselIndicatorLines func() uintptr
 
 // Creates a new `AdwCarouselIndicatorLines`.
 func NewCarouselIndicatorLines() *CarouselIndicatorLines {
+	core.LazyRegister(&xNewCarouselIndicatorLines, "ADW", "adw_carousel_indicator_lines_new", false)
 	var cls *CarouselIndicatorLines
 
 	cret := xNewCarouselIndicatorLines()
@@ -86,6 +87,7 @@ var xCarouselIndicatorLinesGetCarousel func(uintptr) uintptr
 
 // Gets the displayed carousel.
 func (x *CarouselIndicatorLines) GetCarousel() *Carousel {
+	core.LazyRegister(&xCarouselIndicatorLinesGetCarousel, "ADW", "adw_carousel_indicator_lines_get_carousel", false)
 	var cls *Carousel
 
 	cret := xCarouselIndicatorLinesGetCarousel(x.GoPointer())
@@ -103,6 +105,8 @@ var xCarouselIndicatorLinesSetCarousel func(uintptr, uintptr)
 
 // Sets the displayed carousel.
 func (x *CarouselIndicatorLines) SetCarousel(CarouselVar *Carousel) {
+	core.LazyRegister(&xCarouselIndicatorLinesSetCarousel, "ADW", "adw_carousel_indicator_lines_set_carousel", false)
+
 	xCarouselIndicatorLinesSetCarousel(x.GoPointer(), CarouselVar.GoPointer())
 }
 
@@ -391,19 +395,4 @@ func (x *CarouselIndicatorLines) SetOrientation(OrientationVar gtk.Orientation) 
 func init() {
 	core.SetPackageName("ADW", "libadwaita-1")
 	core.SetSharedLibraries("ADW", []string{"libadwaita-1.so.0", "libadwaita-1.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("ADW") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xCarouselIndicatorLinesGLibType, libs, "adw_carousel_indicator_lines_get_type")
-
-	core.PuregoSafeRegister(&xNewCarouselIndicatorLines, libs, "adw_carousel_indicator_lines_new")
-
-	core.PuregoSafeRegister(&xCarouselIndicatorLinesGetCarousel, libs, "adw_carousel_indicator_lines_get_carousel")
-	core.PuregoSafeRegister(&xCarouselIndicatorLinesSetCarousel, libs, "adw_carousel_indicator_lines_set_carousel")
 }

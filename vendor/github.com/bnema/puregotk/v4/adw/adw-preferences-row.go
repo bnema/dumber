@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -49,6 +48,7 @@ type PreferencesRow struct {
 var xPreferencesRowGLibType func() types.GType
 
 func PreferencesRowGLibType() types.GType {
+	core.LazyRegister(&xPreferencesRowGLibType, "ADW", "adw_preferences_row_get_type", false)
 	return xPreferencesRowGLibType()
 }
 
@@ -62,6 +62,7 @@ var xNewPreferencesRow func() uintptr
 
 // Creates a new `AdwPreferencesRow`.
 func NewPreferencesRow() *PreferencesRow {
+	core.LazyRegister(&xNewPreferencesRow, "ADW", "adw_preferences_row_new", false)
 	var cls *PreferencesRow
 
 	cret := xNewPreferencesRow()
@@ -79,6 +80,8 @@ var xPreferencesRowGetTitle func(uintptr) string
 
 // Gets the title of the preference represented by @self.
 func (x *PreferencesRow) GetTitle() string {
+	core.LazyRegister(&xPreferencesRowGetTitle, "ADW", "adw_preferences_row_get_title", false)
+
 	cret := xPreferencesRowGetTitle(x.GoPointer())
 	return cret
 }
@@ -87,6 +90,8 @@ var xPreferencesRowGetTitleSelectable func(uintptr) bool
 
 // Gets whether the user can copy the title from the label
 func (x *PreferencesRow) GetTitleSelectable() bool {
+	core.LazyRegister(&xPreferencesRowGetTitleSelectable, "ADW", "adw_preferences_row_get_title_selectable", false)
+
 	cret := xPreferencesRowGetTitleSelectable(x.GoPointer())
 	return cret
 }
@@ -95,6 +100,8 @@ var xPreferencesRowGetUseMarkup func(uintptr) bool
 
 // Gets whether to use Pango markup for the title label.
 func (x *PreferencesRow) GetUseMarkup() bool {
+	core.LazyRegister(&xPreferencesRowGetUseMarkup, "ADW", "adw_preferences_row_get_use_markup", false)
+
 	cret := xPreferencesRowGetUseMarkup(x.GoPointer())
 	return cret
 }
@@ -103,6 +110,8 @@ var xPreferencesRowGetUseUnderline func(uintptr) bool
 
 // Gets whether an embedded underline in the title indicates a mnemonic.
 func (x *PreferencesRow) GetUseUnderline() bool {
+	core.LazyRegister(&xPreferencesRowGetUseUnderline, "ADW", "adw_preferences_row_get_use_underline", false)
+
 	cret := xPreferencesRowGetUseUnderline(x.GoPointer())
 	return cret
 }
@@ -114,6 +123,8 @@ var xPreferencesRowSetTitle func(uintptr, string)
 // The title is interpreted as Pango markup unless
 // [property@PreferencesRow:use-markup] is set to `FALSE`.
 func (x *PreferencesRow) SetTitle(TitleVar string) {
+	core.LazyRegister(&xPreferencesRowSetTitle, "ADW", "adw_preferences_row_set_title", false)
+
 	xPreferencesRowSetTitle(x.GoPointer(), TitleVar)
 }
 
@@ -123,6 +134,8 @@ var xPreferencesRowSetTitleSelectable func(uintptr, bool)
 //
 // See also [property@Gtk.Label:selectable].
 func (x *PreferencesRow) SetTitleSelectable(TitleSelectableVar bool) {
+	core.LazyRegister(&xPreferencesRowSetTitleSelectable, "ADW", "adw_preferences_row_set_title_selectable", false)
+
 	xPreferencesRowSetTitleSelectable(x.GoPointer(), TitleSelectableVar)
 }
 
@@ -134,6 +147,8 @@ var xPreferencesRowSetUseMarkup func(uintptr, bool)
 //
 // See also [func@Pango.parse_markup].
 func (x *PreferencesRow) SetUseMarkup(UseMarkupVar bool) {
+	core.LazyRegister(&xPreferencesRowSetUseMarkup, "ADW", "adw_preferences_row_set_use_markup", false)
+
 	xPreferencesRowSetUseMarkup(x.GoPointer(), UseMarkupVar)
 }
 
@@ -141,6 +156,8 @@ var xPreferencesRowSetUseUnderline func(uintptr, bool)
 
 // Sets whether an embedded underline in the title indicates a mnemonic.
 func (x *PreferencesRow) SetUseUnderline(UseUnderlineVar bool) {
+	core.LazyRegister(&xPreferencesRowSetUseUnderline, "ADW", "adw_preferences_row_set_use_underline", false)
+
 	xPreferencesRowSetUseUnderline(x.GoPointer(), UseUnderlineVar)
 }
 
@@ -583,25 +600,4 @@ func (x *PreferencesRow) GetBuildableId() string {
 func init() {
 	core.SetPackageName("ADW", "libadwaita-1")
 	core.SetSharedLibraries("ADW", []string{"libadwaita-1.so.0", "libadwaita-1.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("ADW") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xPreferencesRowGLibType, libs, "adw_preferences_row_get_type")
-
-	core.PuregoSafeRegister(&xNewPreferencesRow, libs, "adw_preferences_row_new")
-
-	core.PuregoSafeRegister(&xPreferencesRowGetTitle, libs, "adw_preferences_row_get_title")
-	core.PuregoSafeRegister(&xPreferencesRowGetTitleSelectable, libs, "adw_preferences_row_get_title_selectable")
-	core.PuregoSafeRegister(&xPreferencesRowGetUseMarkup, libs, "adw_preferences_row_get_use_markup")
-	core.PuregoSafeRegister(&xPreferencesRowGetUseUnderline, libs, "adw_preferences_row_get_use_underline")
-	core.PuregoSafeRegister(&xPreferencesRowSetTitle, libs, "adw_preferences_row_set_title")
-	core.PuregoSafeRegister(&xPreferencesRowSetTitleSelectable, libs, "adw_preferences_row_set_title_selectable")
-	core.PuregoSafeRegister(&xPreferencesRowSetUseMarkup, libs, "adw_preferences_row_set_use_markup")
-	core.PuregoSafeRegister(&xPreferencesRowSetUseUnderline, libs, "adw_preferences_row_set_use_underline")
 }
