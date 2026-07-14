@@ -278,6 +278,8 @@ func (f *WebViewFactory) postPendingBrowserCreate(ctx context.Context, wv *WebVi
 		// renderer without an initial paint. We replay pending navigation from
 		// OnAfterCreated once the host is fully wired.
 		initialURL := "about:blank"
+		// This is the request boundary, not the later OnAfterCreated callback.
+		logging.Trace().Mark("browser_create_requested")
 		result := cefBrowserHostCreateBrowser(
 			pc.windowInfo,
 			pc.client,

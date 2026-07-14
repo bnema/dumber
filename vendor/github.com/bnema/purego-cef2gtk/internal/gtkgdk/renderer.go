@@ -128,11 +128,15 @@ type Renderer struct {
 	picture *gtk.Picture
 	offload *gtk.GraphicsOffload
 
-	display *gdk.Display
-	formats dmabufFormatSet
-	builder dmabufTextureBuilder
-	current *ownedTexture
-	retired []*ownedTexture
+	display             *gdk.Display
+	formats             dmabufFormatSet
+	builder             dmabufTextureBuilder
+	current             *ownedTexture
+	retired             []*ownedTexture
+	pictureSetPaintable func(*gdk.Texture)
+	firstTextureSwapMu  sync.Mutex
+	firstTextureSwap    func()
+	firstTextureSwapped bool
 
 	pendingMu          sync.Mutex
 	pendingFrame       *ownedFrame
@@ -283,6 +287,35 @@ func (r *Renderer) Widget() *gtk.Widget {
 		return nil
 	}
 	return r.widget
+}
+
+// SetFirstDMABUFTextureSwapHook registers the one-shot callback invoked after
+// GtkPicture.SetPaintable succeeds for the first imported DMABUF texture.
+func (r *Renderer) SetFirstDMABUFTextureSwapHook(fn func()) bool {
+	if r == nil {
+		return false
+	}
+	r.firstTextureSwapMu.Lock()
+	r.firstTextureSwap = fn
+	r.firstTextureSwapMu.Unlock()
+	return true
+}
+
+func (r *Renderer) recordFirstDMABUFTextureSwap() {
+	if r == nil {
+		return
+	}
+	r.firstTextureSwapMu.Lock()
+	if r.firstTextureSwapped {
+		r.firstTextureSwapMu.Unlock()
+		return
+	}
+	r.firstTextureSwapped = true
+	fn := r.firstTextureSwap
+	r.firstTextureSwapMu.Unlock()
+	if fn != nil {
+		fn()
+	}
 }
 
 // Picture returns the GtkPicture used as the paintable presenter.
@@ -490,9 +523,14 @@ func (r *Renderer) importAndSwapOwnedFrame(frame *ownedFrame) error {
 		return ErrMissingPicture
 	}
 	old := r.current
-	r.picture.SetPaintable(built.texture)
+	if r.pictureSetPaintable != nil {
+		r.pictureSetPaintable(built.texture)
+	} else {
+		r.picture.SetPaintable(built.texture)
+	}
 	r.current = built
 	r.recordPaintableSwap()
+	r.recordFirstDMABUFTextureSwap()
 	r.retireOwnedTexture(old)
 	return nil
 }

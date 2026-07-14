@@ -56,6 +56,7 @@ func NewEngine(
 		return nil, err
 	}
 	cef2gtk.ConfigureRenderStackEnvironment(renderStackPlan)
+	logging.Trace().SetBackend(renderStackPlan.Backend.String())
 
 	settings, err := prepareCEFSettings(opts, paths, cfg, logger)
 	if err != nil {
@@ -146,6 +147,24 @@ func resolvedStateRoot(defaultStateRoot string, opts port.EngineOptions) string 
 	return defaultStateRoot
 }
 
+// configureCEFSubprocessRuntime chooses the CEF runtime used by both the
+// browser and CEF helper processes. CEF re-execs this binary for helpers before
+// Dumber can load configuration, so the selected configured runtime must be in
+// its inherited environment before InitWithApp launches any child. A caller's
+// explicit CEF_DIR remains the override for both process types.
+func configureCEFSubprocessRuntime(configured string) string {
+	if explicit := os.Getenv("CEF_DIR"); explicit != "" {
+		return explicit
+	}
+	if configured == "" {
+		return ""
+	}
+	if err := os.Setenv("CEF_DIR", configured); err != nil {
+		return configured
+	}
+	return configured
+}
+
 // prepareCEFSettings builds purecef.Settings from the engine config.
 func prepareCEFSettings(
 	opts port.EngineOptions,
@@ -169,9 +188,7 @@ func prepareCEFSettings(
 	settings.MultiThreadedMessageLoop = true
 	settings.ExternalMessagePump = false
 	settings.RootCachePath = resolvedStateRoot(paths.StateRoot, opts)
-	if cfg.CEFDir != "" {
-		settings.CEFDir = cfg.CEFDir
-	}
+	settings.CEFDir = configureCEFSubprocessRuntime(cfg.CEFDir)
 	if runtimeLogFile, err := prepareCEFLogFile(paths.LogFile, cfg.LogFile); err != nil {
 		logger.Warn().Err(err).Msg("cef: failed to prepare runtime log file")
 	} else {
@@ -199,9 +216,13 @@ func initializeCEF(eng *Engine, settings purecef.Settings, logger *zerolog.Logge
 		Str("env_cef_dir", os.Getenv("CEF_DIR")).
 		Msg("cef: runtime selection")
 	logger.Debug().Msg("cef: calling InitWithApp")
+	// InitWithApp encapsulates loading libcef, so only the begin boundary is
+	// observable here; do not invent a separate library-load completion event.
+	logging.Trace().Mark("cef_library_load_begin")
 	if err := purecef.InitWithApp(settings, app); err != nil {
 		return fmt.Errorf("cef.InitWithApp: %w", err)
 	}
+	logging.Trace().Mark("cef_initialized")
 	if libcefPath := loadedLibCEFPath(); libcefPath != "" {
 		logger.Info().Str("libcef_path", libcefPath).Msg("cef: runtime library loaded")
 	} else {
