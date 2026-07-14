@@ -46,5 +46,8 @@ labels. Set `DUMBER_MACHINE_GPU_PROFILE` to one of `generic-gpu`,
 `integrated-gpu`, `discrete-gpu`, `hybrid-gpu`, `virtual-gpu`, or `unknown-gpu`;
 do not use a device model or other identifier. Publish only the seven reviewed
 JSON files to an external Gist. Raw logs and temporary XDG homes are removed and
-must not be published. A missing or incomplete timeline, non-DMABUF backend, or
-invalid run fails collection.
+must not be published. `metadata.json` derives the selected
+`github.com/bnema/purego-cef2gtk` pseudo-version and its full immutable Git
+origin hash from Go module metadata; branch selectors or missing origin metadata
+fail collection. A missing or incomplete timeline, non-DMABUF backend, or invalid
+run also fails collection.

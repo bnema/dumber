@@ -31,8 +31,78 @@ else
 fi
 readonly output
 readonly upstream_module="github.com/bnema/purego-cef2gtk"
-readonly upstream_tag="v0.8.4"
-readonly upstream_revision="f217ece342dea3ef2a3f98671fcd16a39ad0037d"
+
+# Resolve the version selected by this checkout, then obtain its immutable VCS
+# origin from Go's cached module metadata. Do not infer a revision from a tag,
+# a branch, or a truncated pseudo-version suffix.
+resolve_upstream_provenance() {
+  local selected_metadata selected_version downloaded_metadata
+
+  selected_metadata="$(go list -m -json "$upstream_module" 2>/dev/null)" || {
+    echo "first-presentation: immutable module provenance is unavailable" >&2
+    exit 2
+  }
+  selected_version="$(python3 - "$upstream_module" "$selected_metadata" <<'PY'
+import json, sys
+try:
+    metadata = json.loads(sys.argv[2])
+    if metadata.get("Path") != sys.argv[1] or not isinstance(metadata.get("Version"), str):
+        raise ValueError
+    print(metadata["Version"])
+except (AttributeError, TypeError, ValueError, json.JSONDecodeError):
+    raise SystemExit("first-presentation: immutable module provenance is unavailable")
+PY
+)" || exit $?
+  downloaded_metadata="$(go mod download -json "$upstream_module@$selected_version" 2>/dev/null)" || {
+    echo "first-presentation: immutable module provenance is unavailable" >&2
+    exit 2
+  }
+
+  python3 - "$upstream_module" "$selected_metadata" "$downloaded_metadata" <<'PY'
+import json, re, sys
+
+module, selected_raw, downloaded_raw = sys.argv[1:]
+
+def fail():
+    # Do not expose Go cache locations or other machine-local values.
+    raise SystemExit("first-presentation: immutable module provenance is unavailable")
+
+try:
+    selected = json.loads(selected_raw)
+    downloaded = json.loads(downloaded_raw)
+    version = selected["Version"]
+    if selected.get("Path") != module or downloaded.get("Path") != module:
+        fail()
+    if downloaded.get("Version") != version:
+        fail()
+    # A selected pseudo-version is an exact immutable selector, never a branch.
+    match = re.fullmatch(r"(v\d+\.\d+\.\d+)-0\.\d{14}-([0-9a-f]{12})", version)
+    if not match:
+        fail()
+    info_path = downloaded.get("Info")
+    if not isinstance(info_path, str) or not info_path:
+        fail()
+    with open(info_path, encoding="utf-8") as info_file:
+        info = json.load(info_file)
+    origin = info.get("Origin") or downloaded.get("Origin")
+    if info.get("Version") != version or not isinstance(origin, dict):
+        fail()
+    revision = origin.get("Hash")
+    if origin.get("VCS") != "git" or origin.get("URL") != "https://github.com/bnema/purego-cef2gtk":
+        fail()
+    if not isinstance(revision, str) or not re.fullmatch(r"[0-9a-f]{40}", revision):
+        fail()
+    if not revision.startswith(match.group(2)):
+        fail()
+    # A named ref can move. Only the immutable hash itself is acceptable.
+    if origin.get("Ref") not in (None, "", revision):
+        fail()
+except (AttributeError, KeyError, OSError, TypeError, ValueError, json.JSONDecodeError):
+    fail()
+
+print("\t".join((version, match.group(1), revision)))
+PY
+}
 
 # The artifact destination is caller-controlled. Never empty or recursively
 # clear it: collection only writes to a newly-created directory whose parent is
@@ -66,10 +136,9 @@ prepare_output
 [[ -x "$binary" ]] || { echo "first-presentation: executable not found: $binary" >&2; exit 2; }
 [[ -d "$runtime" ]] || { echo "first-presentation: CEF runtime not found: $runtime" >&2; exit 2; }
 [[ -n "${WAYLAND_DISPLAY:-}${DISPLAY:-}" ]] || { echo "first-presentation: a current Wayland/X11 display is required" >&2; exit 2; }
-[[ "$(go list -m -f '{{.Version}}' "$upstream_module")" == "$upstream_tag" ]] || {
-  echo "first-presentation: expected $upstream_module@$upstream_tag" >&2
-  exit 2
-}
+upstream_provenance="$(resolve_upstream_provenance)" || exit $?
+IFS=$'\t' read -r upstream_version upstream_tag upstream_revision <<<"$upstream_provenance"
+readonly upstream_version upstream_tag upstream_revision
 
 # Raw logs and temporary XDG homes may contain machine-local paths. Keep them
 # outside the committed artifact directory and always remove them.
@@ -80,9 +149,9 @@ cleanup_work_root() {
   rm -rf -- "$work_root"
 }
 trap cleanup_work_root EXIT
-python3 - "$output/metadata.json" "$binary" "$timeout_seconds" "$upstream_module" "$upstream_tag" "$upstream_revision" <<'PY'
+python3 - "$output/metadata.json" "$binary" "$timeout_seconds" "$upstream_module" "$upstream_version" "$upstream_tag" "$upstream_revision" <<'PY'
 import hashlib, json, os, platform, subprocess, sys
-path, binary, timeout, upstream_module, upstream_tag, upstream_revision = sys.argv[1:]
+path, binary, timeout, upstream_module, upstream_version, upstream_tag, upstream_revision = sys.argv[1:]
 with open(binary, "rb") as candidate:
   binary_sha256 = hashlib.file_digest(candidate, "sha256").hexdigest()
 
@@ -102,7 +171,7 @@ json.dump({
   "binary": {"label": "dumber", "sha256": binary_sha256},
   "timeout_seconds": int(timeout),
   "measured_source_revision": subprocess.check_output(["git", "-c", f"safe.directory={os.getcwd()}", "rev-parse", "HEAD"], text=True).strip(),
-  "upstream": {"module": upstream_module, "tag": upstream_tag, "revision": upstream_revision},
+  "upstream": {"module": upstream_module, "version": upstream_version, "tag": upstream_tag, "revision": upstream_revision},
   "comparison": {"os": os_label, "architecture": architecture, "display_protocol": display_protocol, "machine_gpu_profile": gpu_profile},
   "render_configuration": {"backend": "gdk-dmabuf", "buffer_sharing": "dmabuf", "renderer": "vulkan"}
 }, open(path, "w"), indent=2, sort_keys=True)
