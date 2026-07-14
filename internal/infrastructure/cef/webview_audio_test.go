@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -83,10 +84,10 @@ func TestWebView_AudioStreamLifecycleFieldsExist(t *testing.T) {
 	}
 
 	// Verify the fields exist and can be set
-	wv.activeAudioStream = &mockAudioStream{}
+	setAudioStream(wv, &mockAudioStream{})
 
 	assert.NotNil(t, wv.audioOutputFactory)
-	assert.NotNil(t, wv.activeAudioStream)
+	assert.NotNil(t, activeAudioStream(wv))
 }
 
 // mockAudioStream is a test double for port.AudioOutputStream
@@ -110,6 +111,18 @@ func (m *mockAudioStream) Close() error {
 // Verify mock implements the interface
 var _ port.AudioOutputStream = (*mockAudioStream)(nil)
 
+func setAudioStream(wv *WebView, stream port.AudioOutputStream) {
+	wv.audioStream.Store(&audioStreamHandle{stream: stream, generation: wv.audioStreamGeneration.Load()})
+}
+
+func activeAudioStream(wv *WebView) port.AudioOutputStream {
+	handle := wv.audioStream.Load()
+	if handle == nil {
+		return nil
+	}
+	return handle.stream
+}
+
 // racyMockAudioStream blocks inside Write until doneCh is closed, allowing
 // tests to verify that the caller holds a lock across the Write call.
 type racyMockAudioStream struct {
@@ -130,6 +143,26 @@ func (m *racyMockAudioStream) Close() error {
 }
 
 var _ port.AudioOutputStream = (*racyMockAudioStream)(nil)
+
+type countedAudioStream struct{ closes atomic.Int32 }
+
+func (*countedAudioStream) Write([][]float32) error { return nil }
+func (s *countedAudioStream) Close() error {
+	s.closes.Add(1)
+	return nil
+}
+
+type controlledAudioFactory struct {
+	entered chan struct{}
+	release chan struct{}
+	stream  port.AudioOutputStream
+}
+
+func (f *controlledAudioFactory) NewStream(context.Context, port.AudioStreamFormat) (port.AudioOutputStream, error) {
+	close(f.entered)
+	<-f.release
+	return f.stream, nil
+}
 
 // ============================================================================
 // Task 6: Audio Stream Lifecycle Handling Tests
@@ -159,8 +192,8 @@ func TestHandlerSet_OnAudioStreamStarted_CreatesStream(t *testing.T) {
 	handlers.OnAudioStreamStarted(nil, params, 2)
 
 	// Assert
-	require.NotNil(t, wv.activeAudioStream)
-	assert.Equal(t, mockStream, wv.activeAudioStream)
+	require.NotNil(t, activeAudioStream(wv))
+	assert.Equal(t, mockStream, activeAudioStream(wv))
 	assert.True(t, wv.audioPlaying.Load())
 
 	// Verify factory was called with correct format
@@ -205,8 +238,8 @@ func TestHandlerSet_OnAudioStreamStarted_ClosesExistingStream(t *testing.T) {
 	wv := &WebView{
 		ctx:                ctx,
 		audioOutputFactory: mockFactory,
-		activeAudioStream:  oldStream,
 	}
+	setAudioStream(wv, oldStream)
 
 	handlers := &handlerSet{wv: wv}
 
@@ -221,7 +254,7 @@ func TestHandlerSet_OnAudioStreamStarted_ClosesExistingStream(t *testing.T) {
 
 	// Assert
 	assert.True(t, oldStream.closeCalled)
-	assert.Equal(t, newStream, wv.activeAudioStream)
+	assert.Equal(t, newStream, activeAudioStream(wv))
 }
 
 // TestHandlerSet_OnAudioStreamStarted_FactoryError_HandlesGracefully verifies
@@ -251,7 +284,7 @@ func TestHandlerSet_OnAudioStreamStarted_FactoryError_HandlesGracefully(t *testi
 	// audioPlaying must be false when NewStream fails — if it stays true,
 	// the UI/state layer incorrectly believes audio is active.
 	assert.False(t, wv.audioPlaying.Load(), "audioPlaying must be false after NewStream failure")
-	assert.Nil(t, wv.activeAudioStream, "activeAudioStream must be nil after NewStream failure")
+	assert.Nil(t, activeAudioStream(wv), "activeAudioStream must be nil after NewStream failure")
 }
 
 // ============================================================================
@@ -265,9 +298,9 @@ func TestHandlerSet_OnAudioStreamPacket_ForwardsCallbackData(t *testing.T) {
 	mockStream := &mockAudioStream{}
 
 	wv := &WebView{
-		ctx:               ctx,
-		activeAudioStream: mockStream,
+		ctx: ctx,
 	}
+	setAudioStream(wv, mockStream)
 
 	handlers := &handlerSet{wv: wv}
 
@@ -296,8 +329,7 @@ func TestHandlerSet_OnAudioStreamPacket_ForwardsCallbackData(t *testing.T) {
 // that packets are silently discarded when no stream is active.
 func TestHandlerSet_OnAudioStreamPacket_NoActiveStream_DoesNothing(t *testing.T) {
 	wv := &WebView{
-		ctx:               context.Background(),
-		activeAudioStream: nil,
+		ctx: context.Background(),
 	}
 
 	handlers := &handlerSet{wv: wv}
@@ -316,10 +348,8 @@ func TestHandlerSet_OnAudioStreamPacket_NoActiveStream_DoesNothing(t *testing.T)
 // TestHandlerSet_OnAudioStreamPacket_NilData_DoesNotPanic verifies
 // that nil data is handled gracefully.
 func TestHandlerSet_OnAudioStreamPacket_NilData_DoesNotPanic(t *testing.T) {
-	mockStream := &mockAudioStream{}
 	wv := &WebView{
-		ctx:               context.Background(),
-		activeAudioStream: mockStream,
+		ctx: context.Background(),
 	}
 
 	handlers := &handlerSet{wv: wv}
@@ -332,7 +362,9 @@ func TestHandlerSet_OnAudioStreamPacket_NilData_DoesNotPanic(t *testing.T) {
 
 func BenchmarkHandlerSet_OnAudioStreamPacketStereo(b *testing.B) {
 	stream := &mockAudioStream{}
-	handlers := &handlerSet{wv: &WebView{ctx: context.Background(), activeAudioStream: stream}}
+	wv := &WebView{ctx: context.Background()}
+	setAudioStream(wv, stream)
+	handlers := &handlerSet{wv: wv}
 	data := [][]float32{make([]float32, 512), make([]float32, 512)}
 	b.ReportAllocs()
 	b.SetBytes(2 * 512 * 4)
@@ -350,9 +382,9 @@ func BenchmarkHandlerSet_OnAudioStreamPacketStereo(b *testing.B) {
 func TestHandlerSet_OnAudioStreamStopped_ClosesStream(t *testing.T) {
 	mockStream := &mockAudioStream{}
 	wv := &WebView{
-		ctx:               context.Background(),
-		activeAudioStream: mockStream,
+		ctx: context.Background(),
 	}
+	setAudioStream(wv, mockStream)
 	wv.audioPlaying.Store(true)
 
 	handlers := &handlerSet{wv: wv}
@@ -362,7 +394,7 @@ func TestHandlerSet_OnAudioStreamStopped_ClosesStream(t *testing.T) {
 
 	// Assert
 	assert.True(t, mockStream.closeCalled)
-	assert.Nil(t, wv.activeAudioStream)
+	assert.Nil(t, activeAudioStream(wv))
 	assert.False(t, wv.audioPlaying.Load())
 }
 
@@ -370,8 +402,7 @@ func TestHandlerSet_OnAudioStreamStopped_ClosesStream(t *testing.T) {
 // that stopping when no stream exists doesn't panic.
 func TestHandlerSet_OnAudioStreamStopped_NoActiveStream_DoesNotPanic(t *testing.T) {
 	wv := &WebView{
-		ctx:               context.Background(),
-		activeAudioStream: nil,
+		ctx: context.Background(),
 	}
 	wv.audioPlaying.Store(true)
 
@@ -390,9 +421,9 @@ func TestHandlerSet_OnAudioStreamStopped_NoActiveStream_DoesNotPanic(t *testing.
 func TestHandlerSet_OnAudioStreamError_ClosesStream(t *testing.T) {
 	mockStream := &mockAudioStream{}
 	wv := &WebView{
-		ctx:               context.Background(),
-		activeAudioStream: mockStream,
+		ctx: context.Background(),
 	}
+	setAudioStream(wv, mockStream)
 	wv.audioPlaying.Store(true)
 
 	handlers := &handlerSet{wv: wv}
@@ -402,7 +433,7 @@ func TestHandlerSet_OnAudioStreamError_ClosesStream(t *testing.T) {
 
 	// Assert
 	assert.True(t, mockStream.closeCalled)
-	assert.Nil(t, wv.activeAudioStream)
+	assert.Nil(t, activeAudioStream(wv))
 	assert.False(t, wv.audioPlaying.Load())
 }
 
@@ -410,8 +441,7 @@ func TestHandlerSet_OnAudioStreamError_ClosesStream(t *testing.T) {
 // that error handling when no stream exists doesn't panic.
 func TestHandlerSet_OnAudioStreamError_NoActiveStream_DoesNotPanic(t *testing.T) {
 	wv := &WebView{
-		ctx:               context.Background(),
-		activeAudioStream: nil,
+		ctx: context.Background(),
 	}
 	wv.audioPlaying.Store(true)
 
@@ -464,9 +494,9 @@ func TestHandlerSet_OnAudioStreamError_ShutdownSocketCloseLogsDebug(t *testing.T
 func TestWebView_Destroy_ClosesAudioStream(t *testing.T) {
 	mockStream := &mockAudioStream{}
 	wv := &WebView{
-		ctx:               context.Background(),
-		activeAudioStream: mockStream,
+		ctx: context.Background(),
 	}
+	setAudioStream(wv, mockStream)
 	wv.audioPlaying.Store(true)
 
 	// Act — Destroy must close the audio stream as part of teardown.
@@ -474,7 +504,7 @@ func TestWebView_Destroy_ClosesAudioStream(t *testing.T) {
 
 	// Assert
 	assert.True(t, mockStream.closeCalled, "Destroy must close the active audio stream")
-	assert.Nil(t, wv.activeAudioStream)
+	assert.Nil(t, activeAudioStream(wv))
 }
 
 // TestWebView_Destroy_NoAudioStream_DoesNotPanic verifies that Destroy
@@ -566,6 +596,61 @@ func TestOnAudioStreamStarted_CorrectParameterMapping(t *testing.T) {
 	assert.Equal(t, 1024, mockFactory.lastFormat.FramesPerBuffer, "frames_per_buffer should be 1024 (from params.FramesPerBuffer)")
 }
 
+func TestHandlerSet_OnAudioStreamStarted_StopRejectsInFlightCreation(t *testing.T) {
+	stream := &countedAudioStream{}
+	factory := &controlledAudioFactory{entered: make(chan struct{}), release: make(chan struct{}), stream: stream}
+	wv := &WebView{ctx: context.Background(), audioOutputFactory: factory}
+	handlers := &handlerSet{wv: wv}
+	params := &purecef.AudioParameters{SampleRate: 48000, FramesPerBuffer: 512}
+	done := make(chan struct{})
+	go func() { handlers.OnAudioStreamStarted(nil, params, 2); close(done) }()
+	<-factory.entered
+	handlers.OnAudioStreamStopped(nil)
+	close(factory.release)
+	<-done
+
+	assert.Nil(t, activeAudioStream(wv))
+	assert.False(t, wv.audioPlaying.Load())
+	assert.Equal(t, int32(1), stream.closes.Load())
+}
+
+func TestHandlerSet_OnAudioStreamStarted_DestroyRejectsInFlightCreation(t *testing.T) {
+	stream := &countedAudioStream{}
+	factory := &controlledAudioFactory{entered: make(chan struct{}), release: make(chan struct{}), stream: stream}
+	wv := &WebView{ctx: context.Background(), audioOutputFactory: factory}
+	handlers := &handlerSet{wv: wv}
+	params := &purecef.AudioParameters{SampleRate: 48000, FramesPerBuffer: 512}
+	done := make(chan struct{})
+	go func() { handlers.OnAudioStreamStarted(nil, params, 2); close(done) }()
+	<-factory.entered
+	wv.Destroy()
+	close(factory.release)
+	<-done
+
+	assert.Nil(t, activeAudioStream(wv))
+	assert.True(t, wv.destroyed.Load())
+	assert.Equal(t, int32(1), stream.closes.Load())
+}
+
+func TestHandlerSet_OnAudioStreamStarted_ReplacesAndClosesEachStreamOnce(t *testing.T) {
+	old, first, second := &countedAudioStream{}, &countedAudioStream{}, &countedAudioStream{}
+	factory := &mockAudioFactory{stream: first}
+	wv := &WebView{ctx: context.Background(), audioOutputFactory: factory}
+	setAudioStream(wv, old)
+	handlers := &handlerSet{wv: wv}
+	params := &purecef.AudioParameters{SampleRate: 48000, FramesPerBuffer: 512}
+
+	handlers.OnAudioStreamStarted(nil, params, 2)
+	factory.stream = second
+	handlers.OnAudioStreamStarted(nil, params, 2)
+	wv.closeAudioStream()
+
+	assert.Equal(t, int32(1), old.closes.Load())
+	assert.Equal(t, int32(1), first.closes.Load())
+	assert.Equal(t, int32(1), second.closes.Load())
+	assert.Nil(t, activeAudioStream(wv))
+}
+
 // ============================================================================
 // Race-window tests (write/close interleave)
 // ============================================================================
@@ -583,9 +668,9 @@ func TestOnAudioStreamPacket_CloseDoesNotWaitForWrite(t *testing.T) {
 	}
 
 	wv := &WebView{
-		ctx:               ctx,
-		activeAudioStream: stream,
+		ctx: ctx,
 	}
+	setAudioStream(wv, stream)
 	handlers := &handlerSet{wv: wv}
 
 	data := [][]float32{{0.1, 0.2}, {0.3, 0.4}}
@@ -613,7 +698,7 @@ func TestOnAudioStreamPacket_CloseDoesNotWaitForWrite(t *testing.T) {
 	close(stream.doneCh)
 
 	assert.True(t, stream.closeCalled)
-	assert.Nil(t, wv.activeAudioStream)
+	assert.Nil(t, activeAudioStream(wv))
 }
 
 // TestOnAudioStreamPacket_StreamClosedBetweenPackets verifies that when a
@@ -624,9 +709,9 @@ func TestOnAudioStreamPacket_StreamClosedBetweenPackets(t *testing.T) {
 	stream := &mockAudioStream{}
 
 	wv := &WebView{
-		ctx:               ctx,
-		activeAudioStream: stream,
+		ctx: ctx,
 	}
+	setAudioStream(wv, stream)
 	handlers := &handlerSet{wv: wv}
 	data := [][]float32{{0.1, 0.2}, {0.3, 0.4}}
 
