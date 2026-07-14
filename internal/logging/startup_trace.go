@@ -151,9 +151,13 @@ func (st *StartupTrace) mark(name string) bool {
 
 	now := st.now()
 	milestone := Milestone{Name: name, Elapsed: now.Sub(st.t0)}
+	// Published fields are integer milliseconds. Compute delta on that same
+	// scale so delta_ms always exactly reconstructs t_ms in collected evidence.
+	previousMilliseconds := int64(0)
 	if len(st.milestones) > 0 {
-		milestone.Delta = milestone.Elapsed - st.milestones[len(st.milestones)-1].Elapsed
+		previousMilliseconds = st.milestones[len(st.milestones)-1].Elapsed.Milliseconds()
 	}
+	milestone.Delta = time.Duration(milestone.Elapsed.Milliseconds()-previousMilliseconds) * time.Millisecond
 	st.milestones = append(st.milestones, milestone)
 	if st.logger == nil {
 		st.buffered = append(st.buffered, milestone)

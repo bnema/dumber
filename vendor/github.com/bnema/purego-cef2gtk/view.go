@@ -690,6 +690,28 @@ type dmabufTextureSwapHookSetter interface {
 	SetFirstDMABUFTextureSwapHook(func()) bool
 }
 
+// setHooks replaces render callbacks without holding either lifecycle lock while
+// a user callback runs. Presentation transitions snapshot the same state under
+// firstPresentationMu before invoking a callback.
+func (v *View) setHooks(hooks Hooks) {
+	if v == nil {
+		return
+	}
+	v.firstPresentationMu.Lock()
+	v.hooks = hooks
+	v.firstPresentationMu.Unlock()
+}
+
+func (v *View) snapshotHooks() Hooks {
+	if v == nil {
+		return Hooks{}
+	}
+	v.firstPresentationMu.Lock()
+	hooks := v.hooks
+	v.firstPresentationMu.Unlock()
+	return hooks
+}
+
 func (v *View) configureFirstPresentationHooks() {
 	if v == nil {
 		return
@@ -853,8 +875,9 @@ func (v *View) renderOnGTKThread() bool {
 	if err := v.renderer.RenderQueuedOnGTKThread(); err != nil {
 		v.diag.RecordRenderFailure(err)
 		v.recordProfileRenderFailure()
-		if v.hooks.OnError != nil {
-			v.hooks.OnError(err)
+		hooks := v.snapshotHooks()
+		if hooks.OnError != nil {
+			hooks.OnError(err)
 		}
 		v.emitProfileIfDue(time.Now())
 		return false

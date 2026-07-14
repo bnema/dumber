@@ -36,6 +36,21 @@ func TestStartupTraceAcceptsOnlyOrderedOneShotMilestones(t *testing.T) {
 	require.False(t, trace.Mark("first_gtk_presentation"))
 }
 
+func TestStartupTraceQuantizesDeltaToPublishedMilliseconds(t *testing.T) {
+	now := time.Unix(100, 0)
+	trace := newStartupTrace(func() time.Time { return now })
+
+	now = now.Add(1500 * time.Microsecond)
+	require.True(t, trace.Mark("process_entry"))
+	now = now.Add(900 * time.Microsecond)
+	require.True(t, trace.Mark("config_complete"))
+
+	require.Equal(t, int64(1), trace.milestones[0].Elapsed.Milliseconds())
+	require.Equal(t, int64(1), trace.milestones[0].Delta.Milliseconds())
+	require.Equal(t, int64(2), trace.milestones[1].Elapsed.Milliseconds())
+	require.Equal(t, int64(1), trace.milestones[1].Delta.Milliseconds())
+}
+
 func TestStartupTraceFinishCannotFabricateFirstGTKPresentation(t *testing.T) {
 	now := time.Unix(100, 0)
 	trace := newStartupTrace(func() time.Time { return now })
