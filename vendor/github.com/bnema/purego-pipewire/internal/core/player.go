@@ -32,6 +32,10 @@ type player struct {
 	paused    atomic.Bool
 	mu        sync.Mutex
 
+	// pwView reuses Go slice headers for PipeWire callback buffers. Its native
+	// references are cleared when each callback completes.
+	pwView pwBufferView
+
 	// Stream cleanup fields — nil when no stream is active.
 	streamOps portout.StreamOps
 	streamPtr unsafe.Pointer
@@ -44,6 +48,7 @@ func newPlayer(config PlayerConfig, callbacks PlayerCallbacks) *player {
 	p := &player{
 		config:    config,
 		callbacks: callbacks,
+		pwView:    newReusablePWBufferView(config.Channels, config.FramesPerBuffer),
 	}
 	p.state.Store(int32(PlayerStateIdle))
 	return p

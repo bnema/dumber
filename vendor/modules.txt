@@ -56,7 +56,7 @@ github.com/bnema/purego/internal/cgo
 github.com/bnema/purego/internal/fakecgo
 github.com/bnema/purego/internal/strings
 github.com/bnema/purego/internal/xreflect
-# github.com/bnema/purego-cef v0.13.3
+# github.com/bnema/purego-cef v0.13.4-0.20260714140305-f0b7414af67e
 ## explicit; go 1.26
 github.com/bnema/purego-cef/cef
 github.com/bnema/purego-cef/cef/mocks
@@ -76,14 +76,14 @@ github.com/bnema/purego-cef2gtk/internal/gl
 github.com/bnema/purego-cef2gtk/internal/gtkgdk
 github.com/bnema/purego-cef2gtk/internal/gtkgl
 github.com/bnema/purego-cef2gtk/internal/profile
-# github.com/bnema/purego-pipewire v0.1.4
+# github.com/bnema/purego-pipewire v0.1.5-0.20260714124450-6504b9cdf02a
 ## explicit; go 1.26.1
 github.com/bnema/purego-pipewire/internal/capi
 github.com/bnema/purego-pipewire/internal/core
 github.com/bnema/purego-pipewire/internal/loader
 github.com/bnema/purego-pipewire/internal/ports/out
 github.com/bnema/purego-pipewire/pipewire
-# github.com/bnema/purego-sqlite v0.1.3
+# github.com/bnema/purego-sqlite v0.1.4-0.20260714131321-3614fe683b9c
 ## explicit; go 1.26.1
 github.com/bnema/purego-sqlite/driver
 github.com/bnema/purego-sqlite/internal/capi

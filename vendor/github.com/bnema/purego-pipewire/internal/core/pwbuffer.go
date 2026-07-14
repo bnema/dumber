@@ -66,47 +66,18 @@ var (
 	ErrFrameOverflow    = errors.New("requested frames exceed buffer capacity")
 )
 
-// newPWBufferView interprets bufPtr as a *pwBuffer and returns a view that
-// exposes planar float32 samples for each channel. The caller must ensure
-// bufPtr is a valid pw_buffer pointer returned by pw_stream_dequeue_buffer.
-// The view holds a pointer directly into the original pwBuffer so that Commit
-// writes back into the shared memory structure, not a Go copy.
-func newPWBufferView(bufPtr unsafe.Pointer, channels, frames int) (*pwBufferView, error) {
-	if bufPtr == nil {
-		return nil, ErrNilBufferPointer
+// newReusablePWBufferView allocates the Go slice headers once per player.
+// refresh replaces their native backing pointers for each dequeued buffer.
+func newReusablePWBufferView(channels, frames int) pwBufferView {
+	// Preserve constructor behavior for invalid channel counts: refresh will
+	// reject them against the native metadata instead of panicking in make.
+	var samples [][]float32
+	if channels > 0 {
+		samples = make([][]float32, channels)
 	}
-
-	pw := (*pwBuffer)(bufPtr)
-	if pw.Buffer == nil {
-		return nil, ErrNilBufferPointer
-	}
-
-	if pw.Buffer.NDatas != uint32(channels) {
-		return nil, ErrChannelMismatch
-	}
-
-	// Datas is a pointer to a C array of spaData structs.
-	dataSlice := unsafe.Slice((*spaData)(pw.Buffer.Datas), int(pw.Buffer.NDatas))
-
-	samples := make([][]float32, channels)
-	for i := 0; i < channels; i++ {
-		data := dataSlice[i]
-		if data.Data == nil {
-			return nil, ErrUnmappedData
-		}
-		// Reject if the buffer cannot hold the requested number of frames.
-		maxFrames := int(data.Maxsize) / 4
-		if frames > maxFrames {
-			return nil, fmt.Errorf("%w: requested %d frames but buffer holds %d", ErrFrameOverflow, frames, maxFrames)
-		}
-		samples[i] = unsafe.Slice((*float32)(data.Data), frames)
-	}
-
-	return &pwBufferView{
-		buf:      pw,
+	return pwBufferView{
 		channels: channels,
 		frames:   frames,
-		data:     dataSlice,
 		pcm: PCMBuffer{
 			Frames:   frames,
 			Channels: channels,
@@ -114,7 +85,70 @@ func newPWBufferView(bufPtr unsafe.Pointer, channels, frames int) (*pwBufferView
 			Samples:  samples,
 		},
 		samples: samples,
-	}, nil
+	}
+}
+
+// newPWBufferView interprets bufPtr as a *pwBuffer and returns a view that
+// exposes planar float32 samples for each channel. It is retained for callers
+// that need a standalone view; the realtime player instead reuses one view.
+func newPWBufferView(bufPtr unsafe.Pointer, channels, frames int) (*pwBufferView, error) {
+	view := newReusablePWBufferView(channels, frames)
+	if err := view.refresh(bufPtr); err != nil {
+		return nil, err
+	}
+	return &view, nil
+}
+
+// refresh updates a reusable view from a dequeued native buffer. It clears all
+// native references before validation, so invalid metadata can never leave a
+// later callback writing through stale pointers.
+func (v *pwBufferView) refresh(bufPtr unsafe.Pointer) error {
+	v.clear()
+	if bufPtr == nil {
+		return ErrNilBufferPointer
+	}
+
+	pw := (*pwBuffer)(bufPtr)
+	if pw.Buffer == nil {
+		return ErrNilBufferPointer
+	}
+	if pw.Buffer.NDatas != uint32(v.channels) {
+		return ErrChannelMismatch
+	}
+	if v.channels > 0 && pw.Buffer.Datas == nil {
+		return ErrUnmappedData
+	}
+
+	// Datas is a pointer to a C array of spaData structs. unsafe.Slice creates
+	// only a slice header; it does not copy or allocate the native metadata.
+	dataSlice := unsafe.Slice((*spaData)(pw.Buffer.Datas), int(pw.Buffer.NDatas))
+	for i := 0; i < v.channels; i++ {
+		data := &dataSlice[i]
+		if data.Data == nil {
+			v.clear()
+			return ErrUnmappedData
+		}
+		maxFrames := int(data.Maxsize) / 4
+		if v.frames > maxFrames {
+			v.clear()
+			return fmt.Errorf("%w: requested %d frames but buffer holds %d", ErrFrameOverflow, v.frames, maxFrames)
+		}
+		// The length and capacity intentionally match the configured callback
+		// frame count, preserving the previous view contract even if PipeWire
+		// supplied a larger mapped buffer.
+		v.samples[i] = unsafe.Slice((*float32)(data.Data), v.frames)
+	}
+	v.buf = pw
+	v.data = dataSlice
+	return nil
+}
+
+func (v *pwBufferView) clear() {
+	v.buf = nil
+	v.data = nil
+	for i := range v.samples {
+		v.samples[i] = nil
+	}
 }
 
 // PCM returns a PCMBuffer pointing at the buffer's planar float32 data.

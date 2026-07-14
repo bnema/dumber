@@ -102,6 +102,14 @@ func (db *database) Query(sql string, args ...any) (portin.Rows, error) {
 	}, nil
 }
 
+// Interrupt interrupts the currently executing SQLite operation. SQLite
+// permits this call from a different goroutine than the interrupted operation.
+func (db *database) Interrupt() {
+	if db.ptr != nil {
+		db.capi.Sqlite3Interrupt(db.ptr)
+	}
+}
+
 // Close closes the database connection.
 func (db *database) Close() error {
 	if db.ptr == nil {
