@@ -182,6 +182,8 @@ func (p *gtkPaned) AddTickCallback(callback func() bool) uint {
 	return p.inner.AddTickCallback(&cb, 0, nil)
 }
 
+func (p *gtkPaned) RemoveTickCallback(id uint) { p.inner.RemoveTickCallback(id) }
+
 func (p *gtkPaned) GetAllocatedWidth() int               { return p.inner.GetAllocatedWidth() }
 func (p *gtkPaned) GetAllocatedHeight() int              { return p.inner.GetAllocatedHeight() }
 func (p *gtkPaned) AddController(c *gtk.EventController) { p.inner.AddController(c) }

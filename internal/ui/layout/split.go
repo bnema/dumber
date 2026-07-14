@@ -23,6 +23,8 @@ type SplitView struct {
 	onRatioChanged      func(ratio float64)
 	pendingNotifyRatio  float64
 	notifyDebounceTimer *time.Timer
+	tickCallbackID      uint
+	cleanedUp           bool
 
 	hasAppliedRatio     bool
 	suppressNotifyUntil time.Time
@@ -188,7 +190,7 @@ func NewSplitView(
 	// Add tick callback to retry applying ratio every frame until successful.
 	// This handles cases where allocation isn't ready even after Map signal.
 	frames := 0
-	paned.AddTickCallback(func() bool {
+	sv.tickCallbackID = paned.AddTickCallback(func() bool {
 		frames++
 		if sv.ApplyRatio() {
 			sv.logger.Debug().
@@ -213,6 +215,25 @@ func NewSplitView(
 // The ratio is clamped to the range [0.0, 1.0].
 // Note: This sets the position based on ratio; actual pixel position
 // depends on the allocated size of the paned widget.
+// Cleanup releases callbacks owned by this split. It is idempotent because
+// tree rebuild and GTK teardown can both reach the same view.
+func (sv *SplitView) Cleanup() {
+	sv.mu.Lock()
+	defer sv.mu.Unlock()
+	if sv.cleanedUp {
+		return
+	}
+	sv.cleanedUp = true
+	if sv.notifyDebounceTimer != nil {
+		sv.notifyDebounceTimer.Stop()
+		sv.notifyDebounceTimer = nil
+	}
+	if sv.tickCallbackID != 0 {
+		sv.paned.RemoveTickCallback(sv.tickCallbackID)
+		sv.tickCallbackID = 0
+	}
+}
+
 func (sv *SplitView) SetRatio(ratio float64) {
 	sv.mu.Lock()
 	defer sv.mu.Unlock()
