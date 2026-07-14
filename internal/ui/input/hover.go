@@ -8,6 +8,7 @@ import (
 	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/puregotk/v4/glib"
+	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gtk"
 )
 
@@ -25,22 +26,28 @@ type MotionCallback func()
 // HoverHandler handles mouse hover events for focus-follows-mouse behavior.
 // It uses a debounce timer to avoid rapid focus switches.
 type HoverHandler struct {
-	motionCtrl *gtk.EventControllerMotion
-	paneID     entity.PaneID
-	onEnter    HoverCallback
-	onMotion   MotionCallback
+	attachedWidget *gtk.Widget
+	motionCtrl     *gtk.EventControllerMotion
+	enterSignalID  uint
+	leaveSignalID  uint
+	motionSignalID uint
+	paneID         entity.PaneID
+	onEnter        HoverCallback
+	onMotion       MotionCallback
 
 	// Callback retention: must stay reachable by Go GC.
 	enterCb  func(gtk.EventControllerMotion, float64, float64)
 	leaveCb  func(gtk.EventControllerMotion)
 	motionCb func(gtk.EventControllerMotion, float64, float64)
 
-	timerMu      sync.Mutex
-	sourceID     uint
-	generation   uint64
-	detached     bool
-	schedule     func(uint, func(uintptr) bool) uint
-	removeSource func(uint) bool
+	timerMu          sync.Mutex
+	sourceID         uint
+	generation       uint64
+	detached         bool
+	schedule         func(uint, func(uintptr) bool) uint
+	removeSource     func(uint) bool
+	disconnectSignal func(*gtk.EventControllerMotion, uint)
+	removeController func(*gtk.Widget, *gtk.EventController)
 
 	ctx context.Context
 }
@@ -51,10 +58,12 @@ func NewHoverHandler(ctx context.Context, paneID entity.PaneID) *HoverHandler {
 	log.Debug().Str("pane_id", string(paneID)).Msg("creating hover handler")
 
 	return &HoverHandler{
-		ctx:          ctx,
-		paneID:       paneID,
-		schedule:     scheduleHoverSource,
-		removeSource: glib.SourceRemove,
+		ctx:              ctx,
+		paneID:           paneID,
+		schedule:         scheduleHoverSource,
+		removeSource:     glib.SourceRemove,
+		disconnectSignal: disconnectHoverSignal,
+		removeController: removeHoverController,
 	}
 }
 
@@ -79,6 +88,15 @@ func (h *HoverHandler) AttachTo(widget *gtk.Widget) {
 		return
 	}
 
+	// Reattachment must not leave a controller owned by the previous widget.
+	if h.motionCtrl != nil || h.attachedWidget != nil {
+		h.Detach()
+	}
+	h.timerMu.Lock()
+	h.detached = false
+	h.attachedWidget = widget
+	h.timerMu.Unlock()
+
 	h.motionCtrl = gtk.NewEventControllerMotion()
 	if h.motionCtrl == nil {
 		log.Error().Msg("failed to create motion controller")
@@ -89,13 +107,13 @@ func (h *HoverHandler) AttachTo(widget *gtk.Widget) {
 	h.enterCb = func(_ gtk.EventControllerMotion, _ float64, _ float64) {
 		h.handleEnter()
 	}
-	h.motionCtrl.ConnectEnter(&h.enterCb)
+	h.enterSignalID = h.motionCtrl.ConnectEnter(&h.enterCb)
 
 	// Connect leave handler to cancel pending focus
 	h.leaveCb = func(_ gtk.EventControllerMotion) {
 		h.handleLeave()
 	}
-	h.motionCtrl.ConnectLeave(&h.leaveCb)
+	h.leaveSignalID = h.motionCtrl.ConnectLeave(&h.leaveCb)
 
 	// Connect motion handler to detect intentional mouse movement.
 	// Unlike enter/leave, motion only fires when the cursor physically moves
@@ -105,7 +123,7 @@ func (h *HoverHandler) AttachTo(widget *gtk.Widget) {
 			h.onMotion()
 		}
 	}
-	h.motionCtrl.ConnectMotion(&h.motionCb)
+	h.motionSignalID = h.motionCtrl.ConnectMotion(&h.motionCb)
 
 	// Add controller to widget
 	widget.AddController(&h.motionCtrl.EventController)
@@ -183,10 +201,47 @@ func (h *HoverHandler) Detach() {
 	h.cancelSourceLocked()
 	h.onEnter = nil
 	h.onMotion = nil
-	h.timerMu.Unlock()
-
+	widget := h.attachedWidget
+	controller := h.motionCtrl
+	enterID := h.enterSignalID
+	leaveID := h.leaveSignalID
+	motionID := h.motionSignalID
+	h.attachedWidget = nil
 	h.motionCtrl = nil
+	h.enterSignalID = 0
+	h.leaveSignalID = 0
+	h.motionSignalID = 0
 	h.enterCb = nil
 	h.leaveCb = nil
 	h.motionCb = nil
+	disconnectSignal := h.disconnectSignal
+	removeController := h.removeController
+	h.timerMu.Unlock()
+
+	if controller == nil {
+		return
+	}
+	if disconnectSignal != nil {
+		for _, id := range []uint{enterID, leaveID, motionID} {
+			if id != 0 {
+				disconnectSignal(controller, id)
+			}
+		}
+	}
+	if widget != nil && removeController != nil {
+		removeController(widget, &controller.EventController)
+	}
+}
+
+func disconnectHoverSignal(controller *gtk.EventControllerMotion, id uint) {
+	if controller == nil || id == 0 || controller.GoPointer() == 0 {
+		return
+	}
+	gobject.SignalHandlerDisconnect(gobject.ObjectNewFromInternalPtr(controller.GoPointer()), id)
+}
+
+func removeHoverController(widget *gtk.Widget, controller *gtk.EventController) {
+	if widget != nil && controller != nil {
+		widget.RemoveController(controller)
+	}
 }
