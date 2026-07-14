@@ -57,7 +57,10 @@ func gtkApplicationFlags() gio.ApplicationFlags {
 	return gio.GApplicationNonUniqueValue
 }
 
-var adwaitaInitOnce sync.Once
+var (
+	adwaitaInitOnce   sync.Once
+	unrefTickCallback = glib.UnrefCallback
+)
 
 // EnsureAdwaitaInitialized initializes libadwaita and GTK exactly once.
 func EnsureAdwaitaInitialized() {
@@ -4635,9 +4638,15 @@ func (session *floatingWorkspaceSession) releaseResizeTickCallback() {
 	if session == nil {
 		return
 	}
+	callback := session.resizeTickCallback
 	session.resizeTickID = 0
 	session.resizeTickCallback = nil
 	session.resizeWatcherActive = false
+	if callback != nil {
+		// AddTickCallback creates a purego function-pointer slot. Clearing the Go
+		// pointer alone cannot return that finite runtime slot to the ledger.
+		_ = unrefTickCallback(callback)
+	}
 }
 
 func (a *App) hideFloatingSession(ctx context.Context, session *floatingWorkspaceSession) {
