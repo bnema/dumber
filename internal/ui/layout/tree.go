@@ -33,6 +33,9 @@ type TreeRenderer struct {
 	logger           zerolog.Logger
 	nodeToWidget     map[string]Widget
 	splitOrientation map[string]Orientation
+	// splitViews owns the SplitView callback registrations created while
+	// rendering. Widgets alone cannot release their tick callbacks.
+	splitViews map[string]*SplitView
 	// paneToStack maps pane IDs to their containing StackedView.
 	// Every leaf pane is wrapped in a StackedView for easy stacking later.
 	paneToStack map[string]*StackedView
@@ -52,6 +55,7 @@ func NewTreeRenderer(ctx context.Context, factory WidgetFactory, paneViewFactory
 		logger:           log.With().Str("component", "tree-renderer").Logger(),
 		nodeToWidget:     make(map[string]Widget),
 		splitOrientation: make(map[string]Orientation),
+		splitViews:       make(map[string]*SplitView),
 		paneToStack:      make(map[string]*StackedView),
 	}
 }
@@ -73,10 +77,7 @@ func (tr *TreeRenderer) Build(ctx context.Context, root *entity.PaneNode) (Widge
 	tr.mu.Lock()
 	defer tr.mu.Unlock()
 
-	// Clear previous mappings
-	tr.nodeToWidget = make(map[string]Widget)
-	tr.splitOrientation = make(map[string]Orientation)
-	tr.paneToStack = make(map[string]*StackedView)
+	tr.clearInternal()
 
 	return tr.renderNode(ctx, root)
 }
@@ -189,6 +190,7 @@ func (tr *TreeRenderer) renderSplit(ctx context.Context, node *entity.PaneNode) 
 		}
 	})
 	tr.splitOrientation[node.ID] = orientation
+	tr.splitViews[node.ID] = splitView
 
 	return splitView.Widget(), nil
 }
@@ -264,13 +266,26 @@ func (tr *TreeRenderer) NodeCount() int {
 	return len(tr.nodeToWidget)
 }
 
-// Clear removes all node-to-widget mappings.
+// Clear releases all renderer-owned split callbacks and removes mappings.
 func (tr *TreeRenderer) Clear() {
 	tr.mu.Lock()
 	defer tr.mu.Unlock()
 
+	tr.clearInternal()
+}
+
+// clearInternal releases renderer-owned views and resets the lookup maps.
+// The caller must hold tr.mu.
+func (tr *TreeRenderer) clearInternal() {
+	for _, splitView := range tr.splitViews {
+		if splitView != nil {
+			splitView.Cleanup()
+		}
+	}
 	tr.nodeToWidget = make(map[string]Widget)
 	tr.splitOrientation = make(map[string]Orientation)
+	tr.splitViews = make(map[string]*SplitView)
+	tr.paneToStack = make(map[string]*StackedView)
 }
 
 // RegisterWidget adds or updates a node-to-widget mapping.
@@ -297,8 +312,12 @@ func (tr *TreeRenderer) UnregisterWidget(nodeID string) {
 	tr.mu.Lock()
 	defer tr.mu.Unlock()
 
+	if splitView := tr.splitViews[nodeID]; splitView != nil {
+		splitView.Cleanup()
+	}
 	delete(tr.nodeToWidget, nodeID)
 	delete(tr.splitOrientation, nodeID)
+	delete(tr.splitViews, nodeID)
 }
 
 // UpdateSplitRatio updates the ratio of a split view by node ID.

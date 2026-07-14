@@ -192,6 +192,14 @@ func (wv *WorkspaceView) SetWorkspace(ctx context.Context, ws *entity.Workspace)
 	wv.mu.Lock()
 	defer wv.mu.Unlock()
 
+	// Release previous views before dropping their ownership. This also detaches
+	// hover controllers and callback closures before their widgets are rebuilt.
+	for _, pv := range wv.paneViews {
+		if pv != nil {
+			pv.Cleanup()
+		}
+	}
+
 	// Clear previous state
 	wv.workspace = ws
 	wv.paneViews = make(map[entity.PaneID]*PaneView)
