@@ -16,23 +16,28 @@ readonly output="${DUMBER_FIRST_PRESENTATION_OUTPUT:-$PWD/phase1/first-presentat
 
 rm -rf "$output"
 mkdir -p "$output"
-python3 - "$output/metadata.json" "$runtime" "$binary" "$timeout_seconds" <<'PY'
-import json, os, subprocess, sys
-path, runtime, binary, timeout = sys.argv[1:]
+# Raw logs and temporary XDG homes may contain machine-local paths. Keep them
+# outside the committed artifact directory and always remove them.
+work_root="$(mktemp -d "${TMPDIR:-/tmp}/dumber-first-presentation.XXXXXX")"
+trap 'rm -rf "$work_root"' EXIT
+python3 - "$output/metadata.json" "$binary" "$timeout_seconds" <<'PY'
+import hashlib, json, os, subprocess, sys
+path, binary, timeout = sys.argv[1:]
+with open(binary, "rb") as candidate:
+  binary_sha256 = hashlib.file_digest(candidate, "sha256").hexdigest()
 json.dump({
   "runs": 5,
-  "runtime": runtime,
-  "binary": binary,
+  "runtime": {"label": "cef", "version": os.environ.get("DUMBER_CEF_RUNTIME_VERSION", "147")},
+  "binary": {"label": "dumber", "sha256": binary_sha256},
   "timeout_seconds": int(timeout),
   "git_revision": subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip(),
-  "environment": {key: os.environ.get(key, "") for key in ("WAYLAND_DISPLAY", "DISPLAY", "XDG_CURRENT_DESKTOP")},
   "fixed_environment": {"DUMBER_RENDER_STACK": "vulkan-dmabuf", "PUREGO_CEF2GTK_BACKEND": "gdk-dmabuf", "GSK_RENDERER": "vulkan"}
 }, open(path, "w"), indent=2, sort_keys=True)
 PY
 
 for number in $(seq 1 "$runs"); do
   run="$(printf 'run-%02d' "$number")"
-  root="$output/$run"
+  root="$work_root/$run"
   mkdir -p "$root"/{config,data,state,cache}
   mkdir -p "$root/config/dumber"
   cat >"$root/config/dumber/config.toml" <<EOF
@@ -57,11 +62,8 @@ EOF
     timeout --signal=TERM --kill-after=5s "${timeout_seconds}s" "$binary" browse about:blank >"$root/process.log" 2>&1
   exit_code=$?
   set -e
-  # timeout is expected for a GUI kept alive after the first presentation.
-  if [[ "$exit_code" != 0 && "$exit_code" != 124 ]]; then
-    echo "$run: launch exited unexpectedly ($exit_code); see $root/process.log" >&2
-    exit 1
-  fi
+  # A completed, valid first-presentation summary is the observation success
+  # signal. The GUI may later be stopped by timeout or terminate independently.
   python3 - "$root/process.log" "$output/$run.json" "$run" <<'PY'
 import json, sys
 log, destination, run = sys.argv[1:]
@@ -70,8 +72,10 @@ records, summary = [], None
 for line in open(log, errors="replace"):
     try: event = json.loads(line)
     except json.JSONDecodeError: continue
-    if event.get("message") == "startup_trace: milestone": records.append(event)
-    if event.get("message") == "startup_trace: first presentation": summary = event
+    if event.get("message") == "startup_trace: milestone":
+        records.append({key: event.get(key) for key in ("milestone", "t_ms", "delta_ms")})
+    if event.get("message") == "startup_trace: first presentation":
+        summary = {key: event.get(key) for key in ("backend", "incomplete_reason", "total_ms")}
 names = [event.get("milestone") for event in records]
 times = [event.get("t_ms") for event in records]
 valid = names == order and all(isinstance(t, int) for t in times) and times == sorted(times)

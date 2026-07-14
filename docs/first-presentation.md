@@ -32,5 +32,7 @@ The script requires the current display and the CEF 147 runtime at
 `~/.local/share/cef-147-runtime` (override with `DUMBER_CEF_DIR`). It performs
 exactly five bounded launches with fresh XDG homes and CEF root cache, fixes the
 DMABUF/Vulkan environment, and writes `metadata.json`, `run-01.json` through
-`run-05.json`, and `baseline.json` below `phase1/first-presentation`. A missing
-or incomplete timeline, non-DMABUF backend, or invalid run fails collection.
+`run-05.json`, and `baseline.json` below `phase1/first-presentation`. Published
+artifacts contain only logical labels, version/hash identifiers, and timing
+fields; raw logs and temporary XDG homes are removed. A missing or incomplete
+timeline, non-DMABUF backend, or invalid run fails collection.
