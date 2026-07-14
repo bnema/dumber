@@ -60,7 +60,6 @@ EOF
     DUMBER_CEF_ROOT_CACHE_PATH="$root/cef-root-cache" DUMBER_RENDER_STACK="vulkan-dmabuf" \
     PUREGO_CEF2GTK_BACKEND="gdk-dmabuf" PUREGO_CEF2GTK_ANGLE_BACKEND="vulkan" GSK_RENDERER="vulkan" \
     timeout --signal=TERM --kill-after=5s "${timeout_seconds}s" "$binary" browse about:blank >"$root/process.log" 2>&1
-  exit_code=$?
   set -e
   # A completed, valid first-presentation summary is the observation success
   # signal. The GUI may later be stopped by timeout or terminate independently.
@@ -78,8 +77,12 @@ for line in open(log, errors="replace"):
         summary = {key: event.get(key) for key in ("backend", "incomplete_reason", "total_ms")}
 names = [event.get("milestone") for event in records]
 times = [event.get("t_ms") for event in records]
-valid = names == order and all(isinstance(t, int) for t in times) and times == sorted(times)
+deltas = [event.get("delta_ms") for event in records]
+valid = names == order and all(type(t) is int for t in times) and times == sorted(times)
+valid = valid and all(type(delta) is int for delta in deltas)
+valid = valid and all(delta == current - previous for previous, current, delta in zip([0] + times, times, deltas))
 valid = valid and summary is not None and summary.get("backend") == "gdk-dmabuf" and not summary.get("incomplete_reason")
+valid = valid and type(summary.get("total_ms")) is int and summary["total_ms"] == times[-1]
 result = {"run": run, "valid": valid, "milestones": records, "summary": summary}
 json.dump(result, open(destination, "w"), indent=2)
 if not valid:
