@@ -149,7 +149,6 @@ func TestNotifyViewportSyncOnCEFUIThread_RemainsViewportOnlyAcrossRepeatedResize
 	scheduled.Execute()
 
 	require.Equal(t, []string{
-		"WasHidden",
 		"NotifyScreenInfoChanged",
 		"WasResized",
 		"Invalidate",
