@@ -250,14 +250,23 @@ type WebView struct {
 	inputDiagDeltaXSum int64
 	inputDiagDeltaYSum int64
 
-	// Audio output factory and active stream.
-	audioOutputFactory port.AudioOutputFactory
-	audioStreamMu      sync.Mutex
-	activeAudioStream  port.AudioOutputStream
+	// Audio output lifecycle. Packet callbacks load audioStream directly: its
+	// immutable handle is atomically published and never requires a mutex.
+	audioOutputFactory    port.AudioOutputFactory
+	audioStreamMu         sync.Mutex
+	audioStreamGeneration atomic.Uint64
+	audioStream           atomic.Pointer[audioStreamHandle]
 
 	// Audio instrumentation counters (diagnostic only).
 	audioPacketCount atomic.Uint64 // total OnAudioStreamPacket calls
 	audioWriteCount  atomic.Uint64 // successful Write calls to stream
+}
+
+// audioStreamHandle is immutable after publication so packet callbacks can
+// safely snapshot it without coordinating with lifecycle operations.
+type audioStreamHandle struct {
+	stream     port.AudioOutputStream
+	generation uint64
 }
 
 // pendingBrowserCreate holds the parameters needed to create a CEF browser,
@@ -2331,20 +2340,51 @@ func (wv *WebView) takePendingCreate() *pendingBrowserCreate {
 	return pc
 }
 
-// closeAudioStream closes and clears the active audio output stream.
-// This is safe to call even if no stream is active.
-func (wv *WebView) closeAudioStream() {
+// beginAudioStreamStart invalidates any prior stream before creating a new
+// one. A stream created for the returned generation may only be published if
+// that generation is still current.
+func (wv *WebView) beginAudioStreamStart() (uint64, *audioStreamHandle, bool) {
 	wv.audioStreamMu.Lock()
 	defer wv.audioStreamMu.Unlock()
+	if wv.destroyed.Load() {
+		return 0, nil, false
+	}
+	generation := wv.audioStreamGeneration.Add(1)
+	previous := wv.audioStream.Swap(nil)
+	wv.audioPlaying.Store(false)
+	return generation, previous, true
+}
 
-	if wv.activeAudioStream != nil {
-		if err := wv.activeAudioStream.Close(); err != nil {
-			if wv.ctx != nil {
-				logging.FromContext(wv.ctx).Debug().
-					Err(err).
-					Msg("cef: error closing audio stream")
-			}
+// publishAudioStream publishes stream only if no Stop, Destroy, or newer Start
+// invalidated its creation generation. A rejected stream is owned by the
+// caller and must be closed by it.
+func (wv *WebView) publishAudioStream(generation uint64, stream port.AudioOutputStream) (*audioStreamHandle, bool) {
+	wv.audioStreamMu.Lock()
+	defer wv.audioStreamMu.Unlock()
+	if wv.destroyed.Load() || wv.audioStreamGeneration.Load() != generation {
+		return nil, false
+	}
+	previous := wv.audioStream.Swap(&audioStreamHandle{stream: stream, generation: generation})
+	wv.audioPlaying.Store(true)
+	return previous, true
+}
+
+// closeAudioStream invalidates creation in progress, atomically detaches the
+// published handle, then closes it outside the lifecycle mutex. The port
+// contract permits Close concurrently with a packet Write.
+func (wv *WebView) closeAudioStream() {
+	wv.audioStreamMu.Lock()
+	wv.audioStreamGeneration.Add(1)
+	stream := wv.audioStream.Swap(nil)
+	wv.audioPlaying.Store(false)
+	wv.audioStreamMu.Unlock()
+	wv.closeDetachedAudioStream(stream)
+}
+
+func (wv *WebView) closeDetachedAudioStream(handle *audioStreamHandle) {
+	if handle != nil && handle.stream != nil {
+		if err := handle.stream.Close(); err != nil && wv.ctx != nil {
+			logging.FromContext(wv.ctx).Debug().Err(err).Msg("cef: error closing audio stream")
 		}
-		wv.activeAudioStream = nil
 	}
 }
