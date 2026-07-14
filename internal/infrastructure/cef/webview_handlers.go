@@ -1134,48 +1134,44 @@ func (h *handlerSet) OnAudioStreamStarted(_ purecef.Browser, params *purecef.Aud
 			Msg("cef: OnAudioStreamStarted")
 	}
 
-	// Reset packet counters for the new stream
+	// Starting a stream invalidates both a previous publication and any older
+	// creation already in flight. Close detached streams outside the mutex.
+	generation, previous, accepted := h.wv.beginAudioStreamStart()
+	if !accepted {
+		return
+	}
+	h.wv.closeDetachedAudioStream(previous)
 	h.wv.audioPacketCount.Store(0)
 	h.wv.audioWriteCount.Store(0)
 
-	// Close any existing stream first
-	h.wv.closeAudioStream()
-
-	// Create new stream
 	ctx := h.wv.ctx
 	if ctx == nil {
 		ctx = context.Background()
 	}
-
 	stream, err := h.wv.audioOutputFactory.NewStream(ctx, format)
 	if err != nil {
-		// Log error but don't panic - audio is non-critical.
-		// Do NOT set audioPlaying — the stream was never created.
 		if h.wv.ctx != nil {
-			logging.FromContext(h.wv.ctx).Warn().
-				Err(err).
-				Int("sample_rate", format.SampleRate).
-				Int("channels", format.ChannelCount).
+			logging.FromContext(h.wv.ctx).Warn().Err(err).
+				Int("sample_rate", format.SampleRate).Int("channels", format.ChannelCount).
 				Msg("cef: failed to create audio output stream")
 		}
 		return
 	}
 
-	// Set playing state only after stream creation succeeds
-	h.wv.setAudioPlaying(true)
-
+	replaced, published := h.wv.publishAudioStream(generation, stream)
+	if !published {
+		// Stop, Destroy, or a newer Start won the race. This callback owns the
+		// unpublishable stream and closes it exactly once.
+		h.wv.closeDetachedAudioStream(&audioStreamHandle{stream: stream, generation: generation})
+		return
+	}
+	h.wv.closeDetachedAudioStream(replaced)
 	if h.wv.ctx != nil {
 		logging.FromContext(h.wv.ctx).Info().
-			Int("sample_rate", format.SampleRate).
-			Int("channels", format.ChannelCount).
+			Int("sample_rate", format.SampleRate).Int("channels", format.ChannelCount).
 			Int("frames_per_buffer", format.FramesPerBuffer).
 			Msg("cef: audio output stream created successfully")
 	}
-
-	// Store the new stream
-	h.wv.audioStreamMu.Lock()
-	h.wv.activeAudioStream = stream
-	h.wv.audioStreamMu.Unlock()
 }
 
 // buildAudioStreamFormat converts CEF AudioParameters to port.AudioStreamFormat.
@@ -1189,43 +1185,21 @@ func (h *handlerSet) buildAudioStreamFormat(params *purecef.AudioParameters, cha
 	}
 }
 
-// OnAudioStreamPacket hands CEF's callback-owned packet to the active output.
-// AudioOutputStream takes its one owned copy synchronously. The stream lock is
-// only held for the snapshot, so neither copying nor the callback is serialized
-// behind lifecycle work; Write and Close are a port-level concurrent contract.
-func (h *handlerSet) OnAudioStreamPacket(_ purecef.Browser, data [][]float32, frames int32, pts int64) {
+// OnAudioStreamPacket is a real-time callback: it atomically snapshots an
+// immutable handle and performs only allocation-free atomic diagnostics. It
+// never takes a lifecycle mutex or emits synchronous logs.
+func (h *handlerSet) OnAudioStreamPacket(_ purecef.Browser, data [][]float32, frames int32, _ int64) {
 	if len(data) == 0 || frames <= 0 {
 		return
 	}
-
-	h.wv.audioStreamMu.Lock()
-	stream := h.wv.activeAudioStream
-	h.wv.audioStreamMu.Unlock()
-	if stream == nil {
+	handle := h.wv.audioStream.Load()
+	if handle == nil || handle.stream == nil {
 		return
 	}
-
-	pktNum := h.wv.audioPacketCount.Add(1)
-	if pktNum == 1 && h.wv.ctx != nil {
-		logging.FromContext(h.wv.ctx).Info().
-			Int("channels", len(data)).
-			Int32("frames", frames).
-			Int64("pts", pts).
-			Msg("cef: first audio packet received")
+	h.wv.audioPacketCount.Add(1)
+	if handle.stream.Write(data) == nil {
+		h.wv.audioWriteCount.Add(1)
 	}
-
-	err := stream.Write(data)
-
-	if err != nil {
-		if h.wv.ctx != nil {
-			logging.FromContext(h.wv.ctx).Debug().
-				Err(err).
-				Uint64("packets_received", pktNum).
-				Msg("cef: audio stream write failed")
-		}
-		return
-	}
-	h.wv.audioWriteCount.Add(1)
 }
 
 // OnAudioStreamStopped handles stream stop.

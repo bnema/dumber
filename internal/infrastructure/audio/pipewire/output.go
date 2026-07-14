@@ -198,10 +198,9 @@ func copyPacket(packet *audioPacket, samples [][]float32) {
 }
 
 func (a *playerStreamAdapter) recordDrop() {
-	n := a.dropCount.Add(1)
-	if (n == 1 || n&(n-1) == 0) && a.ctx != nil {
-		logging.FromContext(a.ctx).Warn().Uint64("total_drops", n).Msg("pipewire: dropped audio packet (buffer full)")
-	}
+	// Write runs on CEF's real-time callback thread. Diagnostics must stay
+	// allocation-free and must not synchronously emit logs from that path.
+	a.dropCount.Add(1)
 }
 
 // fill is the PlayerCallbacks.Fill function. It performs the only post-handoff
