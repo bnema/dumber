@@ -111,9 +111,13 @@ type WebView struct {
 	viewportSyncReason      string
 	viewportMapFunc         func(gtk.Widget)
 	viewportShowFunc        func(gtk.Widget)
+	viewportHideFunc        func(gtk.Widget)
+	viewportUnmapFunc       func(gtk.Widget)
 	viewportRealizeFunc     func(gtk.Widget)
 	viewportMapSignalID     uint
 	viewportShowSignalID    uint
+	viewportHideSignalID    uint
+	viewportUnmapSignalID   uint
 	viewportRealizeSignalID uint
 	viewportResizePulseSeq  atomic.Uint64
 	// effectiveVisibility records the last CEF WasHidden state dispatched. It

@@ -819,10 +819,9 @@ func (h *handlerSet) attachAfterCreatedBrowser(
 		})
 	}
 
-	// CEF OSR starts hidden; record the initial effective state before viewport
-	// synchronization so the following visible sync is deduplicated.
+	// CEF OSR starts hidden. SyncViewport reads GTK's mapped, ancestor-aware
+	// effective state on the main context and reports that truthful initial state.
 	if h.wv != nil {
-		h.wv.applyEffectiveVisibility(host, true)
 		if h.wv.ctx != nil {
 			logging.FromContext(h.wv.ctx).Info().
 				Int32("windowless_frame_rate_configured", host.GetWindowlessFrameRate()).
