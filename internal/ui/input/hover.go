@@ -7,6 +7,7 @@ import (
 
 	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/logging"
+	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gtk"
 )
 
@@ -34,9 +35,12 @@ type HoverHandler struct {
 	leaveCb  func(gtk.EventControllerMotion)
 	motionCb func(gtk.EventControllerMotion, float64, float64)
 
-	timer    *time.Timer
-	timerMu  sync.Mutex
-	canceled bool
+	timerMu       sync.Mutex
+	sourceID      uint
+	generation    uint64
+	detached      bool
+	schedule      func(uint, func(uintptr) bool) uint
+	removeSource  func(uint) bool
 
 	ctx context.Context
 }
@@ -47,8 +51,10 @@ func NewHoverHandler(ctx context.Context, paneID entity.PaneID) *HoverHandler {
 	log.Debug().Str("pane_id", string(paneID)).Msg("creating hover handler")
 
 	return &HoverHandler{
-		ctx:    ctx,
-		paneID: paneID,
+		ctx:          ctx,
+		paneID:       paneID,
+		schedule:     scheduleHoverSource,
+		removeSource: glib.SourceRemove,
 	}
 }
 
@@ -107,32 +113,49 @@ func (h *HoverHandler) AttachTo(widget *gtk.Widget) {
 	log.Debug().Str("pane_id", string(h.paneID)).Msg("hover handler attached to widget")
 }
 
+// scheduleHoverSource schedules a one-shot callback on GTK's owning GLib main
+// context. GTK state must never be touched by a Go timer goroutine.
+func scheduleHoverSource(delay uint, fn func(uintptr) bool) uint {
+	cb := glib.SourceFunc(fn)
+	return glib.TimeoutAdd(delay, &cb, 0)
+}
+
 // handleEnter processes the mouse enter event with debouncing.
 func (h *HoverHandler) handleEnter() {
 	h.timerMu.Lock()
-	defer h.timerMu.Unlock()
-
-	// Cancel any existing timer
-	if h.timer != nil {
-		h.timer.Stop()
+	if h.detached {
+		h.timerMu.Unlock()
+		return
 	}
-
-	h.canceled = false
-
-	// Start new debounce timer
-	h.timer = time.AfterFunc(HoverFocusDelay, func() {
+	h.cancelSourceLocked()
+	h.generation++
+	generation := h.generation
+	schedule := h.schedule
+	h.sourceID = schedule(uint(HoverFocusDelay.Milliseconds()), func(_ uintptr) bool {
 		h.timerMu.Lock()
-		canceled := h.canceled
+		if h.detached || h.generation != generation {
+			h.timerMu.Unlock()
+			return false
+		}
+		h.sourceID = 0
+		callback := h.onEnter
+		paneID := h.paneID
 		h.timerMu.Unlock()
 
-		if canceled {
-			return
+		if callback != nil {
+			callback(paneID)
 		}
-
-		if h.onEnter != nil {
-			h.onEnter(h.paneID)
-		}
+		return false
 	})
+	h.timerMu.Unlock()
+}
+
+func (h *HoverHandler) cancelSourceLocked() {
+	if h.sourceID == 0 {
+		return
+	}
+	h.removeSource(h.sourceID)
+	h.sourceID = 0
 }
 
 // handleLeave cancels any pending focus switch.
@@ -146,20 +169,20 @@ func (h *HoverHandler) Cancel() {
 	h.timerMu.Lock()
 	defer h.timerMu.Unlock()
 
-	h.canceled = true
-	if h.timer != nil {
-		h.timer.Stop()
-		h.timer = nil
-	}
+	h.generation++
+	h.cancelSourceLocked()
 }
 
-// Detach removes the hover handler.
+// Detach removes the hover handler and invalidates callbacks already queued on
+// the GLib main context. The generation check is required because removing a
+// source can race with dispatch.
 func (h *HoverHandler) Detach() {
 	h.timerMu.Lock()
-	if h.timer != nil {
-		h.timer.Stop()
-		h.timer = nil
-	}
+	h.detached = true
+	h.generation++
+	h.cancelSourceLocked()
+	h.onEnter = nil
+	h.onMotion = nil
 	h.timerMu.Unlock()
 
 	h.motionCtrl = nil
