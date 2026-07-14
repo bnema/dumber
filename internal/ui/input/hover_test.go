@@ -2,9 +2,11 @@ package input
 
 import (
 	"context"
+	"reflect"
 	"testing"
 
 	"github.com/bnema/dumber/internal/domain/entity"
+	"github.com/bnema/puregotk/v4/gtk"
 )
 
 func TestHoverHandlerSchedulesCallbackOnGLibAndRejectsStaleGeneration(t *testing.T) {
@@ -34,6 +36,39 @@ func TestHoverHandlerSchedulesCallbackOnGLibAndRejectsStaleGeneration(t *testing
 	}
 	if calls != 1 {
 		t.Fatalf("current hover callback ran %d times, want 1", calls)
+	}
+}
+
+func TestHoverHandlerDetachRemovesNativeControllerAndSignalsExactlyOnce(t *testing.T) {
+	widget := &gtk.Widget{}
+	controller := &gtk.EventControllerMotion{}
+	h := NewHoverHandler(context.Background(), entity.PaneID("pane-1"))
+	h.attachedWidget = widget
+	h.motionCtrl = controller
+	h.enterSignalID = 1
+	h.leaveSignalID = 2
+	h.motionSignalID = 3
+	var disconnected []uint
+	var removed int
+	h.disconnectSignal = func(_ *gtk.EventControllerMotion, id uint) { disconnected = append(disconnected, id) }
+	h.removeController = func(gotWidget *gtk.Widget, gotController *gtk.EventController) {
+		if gotWidget != widget || gotController != &controller.EventController {
+			t.Fatal("detach removed the wrong native controller")
+		}
+		removed++
+	}
+
+	h.Detach()
+	h.Detach()
+
+	if got, want := disconnected, []uint{1, 2, 3}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("disconnected signals = %v, want %v", got, want)
+	}
+	if removed != 1 {
+		t.Fatalf("native controllers removed = %d, want 1", removed)
+	}
+	if h.attachedWidget != nil || h.motionCtrl != nil || h.enterCb != nil || h.leaveCb != nil || h.motionCb != nil {
+		t.Fatal("detach must clear native and callback ownership")
 	}
 }
 
