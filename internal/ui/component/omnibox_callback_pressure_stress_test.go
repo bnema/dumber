@@ -87,7 +87,7 @@ func runGTKCallbackLifecycleStressOnMain(t *testing.T, mainContext *glib.MainCon
 		enterID := controller.ConnectEnter(&enter)
 		leaveID := controller.ConnectLeave(&leave)
 		assertMainContextOwner()
-		pane.Widget.AddController(&controller.EventController)
+		pane.AddController(&controller.EventController)
 
 		// Invoke the real connected handler functions in GTK enter/leave order
 		// while the alternate pane is closed and the workspace rebuilt.
@@ -97,10 +97,10 @@ func runGTKCallbackLifecycleStressOnMain(t *testing.T, mainContext *glib.MainCon
 		tick := gtk.TickCallback(func(uintptr, uintptr, uintptr) bool { return false })
 		tickCallback := glib.NewCallback(&tick)
 		assertMainContextOwner()
-		tickID := pane.Widget.AddTickCallback(&tick, 0, nil)
+		tickID := pane.AddTickCallback(&tick, 0, nil)
 		require.NotZero(t, tickID)
 		assertMainContextOwner()
-		pane.Widget.RemoveTickCallback(tickID)
+		pane.RemoveTickCallback(tickID)
 		require.NoError(t, purego.UnrefCallback(tickCallback), "raw tick slot must be released after GTK removal")
 
 		assertMainContextOwner()
