@@ -43,7 +43,7 @@ func (x *SocketAddressEnumeratorClass) OverrideNext(cb func(*SocketAddressEnumer
 	if cb == nil {
 		x.xNext = 0
 	} else {
-		x.xNext = purego.NewCallback(func(EnumeratorVarp uintptr, CancellableVarp uintptr) uintptr {
+		x.xNext = purego.NewCallback(func(EnumeratorVarp uintptr, CancellableVarp uintptr, cerrp **glib.Error) uintptr {
 			ret := cb(SocketAddressEnumeratorNewFromInternalPtr(EnumeratorVarp), CancellableNewFromInternalPtr(CancellableVarp))
 			if ret == nil {
 				return 0
@@ -59,10 +59,11 @@ func (x *SocketAddressEnumeratorClass) GetNext() func(*SocketAddressEnumerator, 
 	if x.xNext == 0 {
 		return nil
 	}
-	var rawCallback func(EnumeratorVarp uintptr, CancellableVarp uintptr) uintptr
+	var rawCallback func(EnumeratorVarp uintptr, CancellableVarp uintptr, cerrp **glib.Error) uintptr
 	purego.RegisterFunc(&rawCallback, x.xNext)
 	return func(EnumeratorVar *SocketAddressEnumerator, CancellableVar *Cancellable) *SocketAddress {
-		rawRet := rawCallback(EnumeratorVar.GoPointer(), CancellableVar.GoPointer())
+		var cerr *glib.Error
+		rawRet := rawCallback(EnumeratorVar.GoPointer(), CancellableVar.GoPointer(), &cerr)
 		if rawRet == 0 {
 			return nil
 		}
@@ -103,7 +104,7 @@ func (x *SocketAddressEnumeratorClass) OverrideNextFinish(cb func(*SocketAddress
 	if cb == nil {
 		x.xNextFinish = 0
 	} else {
-		x.xNextFinish = purego.NewCallback(func(EnumeratorVarp uintptr, ResultVarp uintptr) uintptr {
+		x.xNextFinish = purego.NewCallback(func(EnumeratorVarp uintptr, ResultVarp uintptr, cerrp **glib.Error) uintptr {
 			ret := cb(SocketAddressEnumeratorNewFromInternalPtr(EnumeratorVarp), &AsyncResultBase{Ptr: ResultVarp})
 			if ret == nil {
 				return 0
@@ -119,10 +120,11 @@ func (x *SocketAddressEnumeratorClass) GetNextFinish() func(*SocketAddressEnumer
 	if x.xNextFinish == 0 {
 		return nil
 	}
-	var rawCallback func(EnumeratorVarp uintptr, ResultVarp uintptr) uintptr
+	var rawCallback func(EnumeratorVarp uintptr, ResultVarp uintptr, cerrp **glib.Error) uintptr
 	purego.RegisterFunc(&rawCallback, x.xNextFinish)
 	return func(EnumeratorVar *SocketAddressEnumerator, ResultVar AsyncResult) *SocketAddress {
-		rawRet := rawCallback(EnumeratorVar.GoPointer(), ResultVar.GoPointer())
+		var cerr *glib.Error
+		rawRet := rawCallback(EnumeratorVar.GoPointer(), ResultVar.GoPointer(), &cerr)
 		if rawRet == 0 {
 			return nil
 		}
@@ -154,6 +156,7 @@ type SocketAddressEnumerator struct {
 var xSocketAddressEnumeratorGLibType func() types.GType
 
 func SocketAddressEnumeratorGLibType() types.GType {
+	core.LazyRegister(&xSocketAddressEnumeratorGLibType, "GIO", "g_socket_address_enumerator_get_type", false)
 	return xSocketAddressEnumeratorGLibType()
 }
 
@@ -179,6 +182,7 @@ var xSocketAddressEnumeratorNext func(uintptr, uintptr, **glib.Error) uintptr
 // internal errors (other than @cancellable being triggered) will be
 // ignored.
 func (x *SocketAddressEnumerator) Next(CancellableVar *Cancellable) (*SocketAddress, error) {
+	core.LazyRegister(&xSocketAddressEnumeratorNext, "GIO", "g_socket_address_enumerator_next", false)
 	var cls *SocketAddress
 	var cerr *glib.Error
 
@@ -203,6 +207,8 @@ var xSocketAddressEnumeratorNextAsync func(uintptr, uintptr, uintptr, uintptr)
 //
 // It is an error to call this multiple times before the previous callback has finished.
 func (x *SocketAddressEnumerator) NextAsync(CancellableVar *Cancellable, CallbackVar *AsyncReadyCallback, UserDataVar uintptr) {
+	core.LazyRegister(&xSocketAddressEnumeratorNextAsync, "GIO", "g_socket_address_enumerator_next_async", false)
+
 	xSocketAddressEnumeratorNextAsync(x.GoPointer(), CancellableVar.GoPointer(), glib.NewCallbackNullable(CallbackVar), UserDataVar)
 }
 
@@ -213,6 +219,7 @@ var xSocketAddressEnumeratorNextFinish func(uintptr, uintptr, **glib.Error) uint
 // g_socket_address_enumerator_next() for more information about
 // error handling.
 func (x *SocketAddressEnumerator) NextFinish(ResultVar AsyncResult) (*SocketAddress, error) {
+	core.LazyRegister(&xSocketAddressEnumeratorNextFinish, "GIO", "g_socket_address_enumerator_next_finish", false)
 	var cls *SocketAddress
 	var cerr *glib.Error
 
@@ -243,18 +250,4 @@ func (c *SocketAddressEnumerator) SetGoPointer(ptr uintptr) {
 func init() {
 	core.SetPackageName("GIO", "gio-2.0")
 	core.SetSharedLibraries("GIO", []string{"libgio-2.0.so.0", "libgio-2.0.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GIO") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xSocketAddressEnumeratorGLibType, libs, "g_socket_address_enumerator_get_type")
-
-	core.PuregoSafeRegister(&xSocketAddressEnumeratorNext, libs, "g_socket_address_enumerator_next")
-	core.PuregoSafeRegister(&xSocketAddressEnumeratorNextAsync, libs, "g_socket_address_enumerator_next_async")
-	core.PuregoSafeRegister(&xSocketAddressEnumeratorNextFinish, libs, "g_socket_address_enumerator_next_finish")
 }

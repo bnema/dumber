@@ -4,7 +4,6 @@ package gtk
 import (
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -43,6 +42,7 @@ type FontButton struct {
 var xFontButtonGLibType func() types.GType
 
 func FontButtonGLibType() types.GType {
+	core.LazyRegister(&xFontButtonGLibType, "GTK", "gtk_font_button_get_type", false)
 	return xFontButtonGLibType()
 }
 
@@ -56,6 +56,7 @@ var xNewFontButton func() uintptr
 
 // Creates a new font picker widget.
 func NewFontButton() *FontButton {
+	core.LazyRegister(&xNewFontButton, "GTK", "gtk_font_button_new", false)
 	var cls *FontButton
 
 	cret := xNewFontButton()
@@ -73,6 +74,7 @@ var xNewFontButtonWithFont func(string) uintptr
 
 // Creates a new font picker widget showing the given font.
 func NewFontButtonWithFont(FontnameVar string) *FontButton {
+	core.LazyRegister(&xNewFontButtonWithFont, "GTK", "gtk_font_button_new_with_font", false)
 	var cls *FontButton
 
 	cret := xNewFontButtonWithFont(FontnameVar)
@@ -90,6 +92,8 @@ var xFontButtonGetModal func(uintptr) bool
 
 // Gets whether the dialog is modal.
 func (x *FontButton) GetModal() bool {
+	core.LazyRegister(&xFontButtonGetModal, "GTK", "gtk_font_button_get_modal", false)
+
 	cret := xFontButtonGetModal(x.GoPointer())
 	return cret
 }
@@ -98,6 +102,8 @@ var xFontButtonGetTitle func(uintptr) string
 
 // Retrieves the title of the font chooser dialog.
 func (x *FontButton) GetTitle() string {
+	core.LazyRegister(&xFontButtonGetTitle, "GTK", "gtk_font_button_get_title", false)
+
 	cret := xFontButtonGetTitle(x.GoPointer())
 	return cret
 }
@@ -106,6 +112,8 @@ var xFontButtonGetUseFont func(uintptr) bool
 
 // Returns whether the selected font is used in the label.
 func (x *FontButton) GetUseFont() bool {
+	core.LazyRegister(&xFontButtonGetUseFont, "GTK", "gtk_font_button_get_use_font", false)
+
 	cret := xFontButtonGetUseFont(x.GoPointer())
 	return cret
 }
@@ -114,6 +122,8 @@ var xFontButtonGetUseSize func(uintptr) bool
 
 // Returns whether the selected size is used in the label.
 func (x *FontButton) GetUseSize() bool {
+	core.LazyRegister(&xFontButtonGetUseSize, "GTK", "gtk_font_button_get_use_size", false)
+
 	cret := xFontButtonGetUseSize(x.GoPointer())
 	return cret
 }
@@ -122,6 +132,8 @@ var xFontButtonSetModal func(uintptr, bool)
 
 // Sets whether the dialog should be modal.
 func (x *FontButton) SetModal(ModalVar bool) {
+	core.LazyRegister(&xFontButtonSetModal, "GTK", "gtk_font_button_set_modal", false)
+
 	xFontButtonSetModal(x.GoPointer(), ModalVar)
 }
 
@@ -129,6 +141,8 @@ var xFontButtonSetTitle func(uintptr, string)
 
 // Sets the title for the font chooser dialog.
 func (x *FontButton) SetTitle(TitleVar string) {
+	core.LazyRegister(&xFontButtonSetTitle, "GTK", "gtk_font_button_set_title", false)
+
 	xFontButtonSetTitle(x.GoPointer(), TitleVar)
 }
 
@@ -137,6 +151,8 @@ var xFontButtonSetUseFont func(uintptr, bool)
 // If @use_font is %TRUE, the font name will be written
 // using the selected font.
 func (x *FontButton) SetUseFont(UseFontVar bool) {
+	core.LazyRegister(&xFontButtonSetUseFont, "GTK", "gtk_font_button_set_use_font", false)
+
 	xFontButtonSetUseFont(x.GoPointer(), UseFontVar)
 }
 
@@ -145,6 +161,8 @@ var xFontButtonSetUseSize func(uintptr, bool)
 // If @use_size is %TRUE, the font name will be written using
 // the selected size.
 func (x *FontButton) SetUseSize(UseSizeVar bool) {
+	core.LazyRegister(&xFontButtonSetUseSize, "GTK", "gtk_font_button_set_use_size", false)
+
 	xFontButtonSetUseSize(x.GoPointer(), UseSizeVar)
 }
 
@@ -738,26 +756,4 @@ func (x *FontButton) SetShowPreviewEntry(ShowPreviewEntryVar bool) {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GTK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xFontButtonGLibType, libs, "gtk_font_button_get_type")
-
-	core.PuregoSafeRegister(&xNewFontButton, libs, "gtk_font_button_new")
-	core.PuregoSafeRegister(&xNewFontButtonWithFont, libs, "gtk_font_button_new_with_font")
-
-	core.PuregoSafeRegister(&xFontButtonGetModal, libs, "gtk_font_button_get_modal")
-	core.PuregoSafeRegister(&xFontButtonGetTitle, libs, "gtk_font_button_get_title")
-	core.PuregoSafeRegister(&xFontButtonGetUseFont, libs, "gtk_font_button_get_use_font")
-	core.PuregoSafeRegister(&xFontButtonGetUseSize, libs, "gtk_font_button_get_use_size")
-	core.PuregoSafeRegister(&xFontButtonSetModal, libs, "gtk_font_button_set_modal")
-	core.PuregoSafeRegister(&xFontButtonSetTitle, libs, "gtk_font_button_set_title")
-	core.PuregoSafeRegister(&xFontButtonSetUseFont, libs, "gtk_font_button_set_use_font")
-	core.PuregoSafeRegister(&xFontButtonSetUseSize, libs, "gtk_font_button_set_use_size")
 }

@@ -4,7 +4,6 @@ package javascriptcore
 import (
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 )
@@ -59,6 +58,8 @@ var xOptionsForeach func(uintptr, uintptr)
 // Iterates all available options calling @function for each one. Iteration can
 // stop early if @function returns %FALSE.
 func OptionsForeach(FunctionVar *OptionsFunc, UserDataVar uintptr) {
+	core.LazyRegister(&xOptionsForeach, "JAVASCRIPTCORE", "jsc_options_foreach", false)
+
 	xOptionsForeach(glib.NewCallback(FunctionVar), UserDataVar)
 }
 
@@ -66,6 +67,8 @@ var xOptionsGetBoolean func(string, *bool) bool
 
 // Get @option as a #gboolean value.
 func OptionsGetBoolean(OptionVar string, ValueVar *bool) bool {
+	core.LazyRegister(&xOptionsGetBoolean, "JAVASCRIPTCORE", "jsc_options_get_boolean", false)
+
 	cret := xOptionsGetBoolean(OptionVar, ValueVar)
 	return cret
 }
@@ -74,6 +77,8 @@ var xOptionsGetDouble func(string, *float64) bool
 
 // Get @option as a #gdouble value.
 func OptionsGetDouble(OptionVar string, ValueVar *float64) bool {
+	core.LazyRegister(&xOptionsGetDouble, "JAVASCRIPTCORE", "jsc_options_get_double", false)
+
 	cret := xOptionsGetDouble(OptionVar, ValueVar)
 	return cret
 }
@@ -82,6 +87,8 @@ var xOptionsGetInt func(string, *int) bool
 
 // Get @option as a #gint value.
 func OptionsGetInt(OptionVar string, ValueVar *int) bool {
+	core.LazyRegister(&xOptionsGetInt, "JAVASCRIPTCORE", "jsc_options_get_int", false)
+
 	cret := xOptionsGetInt(OptionVar, ValueVar)
 	return cret
 }
@@ -96,6 +103,8 @@ var xOptionsGetOptionGroup func() uintptr
 // pass the returned group to g_option_context_add_group(), and the rest will
 // be taken care for automatically.
 func OptionsGetOptionGroup() *glib.OptionGroup {
+	core.LazyRegister(&xOptionsGetOptionGroup, "JAVASCRIPTCORE", "jsc_options_get_option_group", false)
+
 	cret := xOptionsGetOptionGroup()
 	if cret == 0 {
 		return nil
@@ -110,6 +119,8 @@ var xOptionsGetRangeString func(string, *string) bool
 // Values between low and high (both included) will be considered in
 // the range, unless &lt;emphasis&gt;!&lt;/emphasis&gt; is used to invert the range.
 func OptionsGetRangeString(OptionVar string, ValueVar *string) bool {
+	core.LazyRegister(&xOptionsGetRangeString, "JAVASCRIPTCORE", "jsc_options_get_range_string", false)
+
 	cret := xOptionsGetRangeString(OptionVar, ValueVar)
 	return cret
 }
@@ -118,6 +129,8 @@ var xOptionsGetSize func(string, *uint) bool
 
 // Get @option as a #gsize value.
 func OptionsGetSize(OptionVar string, ValueVar *uint) bool {
+	core.LazyRegister(&xOptionsGetSize, "JAVASCRIPTCORE", "jsc_options_get_size", false)
+
 	cret := xOptionsGetSize(OptionVar, ValueVar)
 	return cret
 }
@@ -126,6 +139,8 @@ var xOptionsGetString func(string, *string) bool
 
 // Get @option as a string.
 func OptionsGetString(OptionVar string, ValueVar *string) bool {
+	core.LazyRegister(&xOptionsGetString, "JAVASCRIPTCORE", "jsc_options_get_string", false)
+
 	cret := xOptionsGetString(OptionVar, ValueVar)
 	return cret
 }
@@ -134,6 +149,8 @@ var xOptionsGetUint func(string, *uint) bool
 
 // Get @option as a #guint value.
 func OptionsGetUint(OptionVar string, ValueVar *uint) bool {
+	core.LazyRegister(&xOptionsGetUint, "JAVASCRIPTCORE", "jsc_options_get_uint", false)
+
 	cret := xOptionsGetUint(OptionVar, ValueVar)
 	return cret
 }
@@ -142,6 +159,8 @@ var xOptionsSetBoolean func(string, bool) bool
 
 // Set @option as a #gboolean value.
 func OptionsSetBoolean(OptionVar string, ValueVar bool) bool {
+	core.LazyRegister(&xOptionsSetBoolean, "JAVASCRIPTCORE", "jsc_options_set_boolean", false)
+
 	cret := xOptionsSetBoolean(OptionVar, ValueVar)
 	return cret
 }
@@ -150,6 +169,8 @@ var xOptionsSetDouble func(string, float64) bool
 
 // Set @option as a #gdouble value.
 func OptionsSetDouble(OptionVar string, ValueVar float64) bool {
+	core.LazyRegister(&xOptionsSetDouble, "JAVASCRIPTCORE", "jsc_options_set_double", false)
+
 	cret := xOptionsSetDouble(OptionVar, ValueVar)
 	return cret
 }
@@ -158,6 +179,8 @@ var xOptionsSetInt func(string, int) bool
 
 // Set @option as a #gint value.
 func OptionsSetInt(OptionVar string, ValueVar int) bool {
+	core.LazyRegister(&xOptionsSetInt, "JAVASCRIPTCORE", "jsc_options_set_int", false)
+
 	cret := xOptionsSetInt(OptionVar, ValueVar)
 	return cret
 }
@@ -169,6 +192,8 @@ var xOptionsSetRangeString func(string, string) bool
 // Values between low and high (both included) will be considered in
 // the range, unless &lt;emphasis&gt;!&lt;/emphasis&gt; is used to invert the range.
 func OptionsSetRangeString(OptionVar string, ValueVar string) bool {
+	core.LazyRegister(&xOptionsSetRangeString, "JAVASCRIPTCORE", "jsc_options_set_range_string", false)
+
 	cret := xOptionsSetRangeString(OptionVar, ValueVar)
 	return cret
 }
@@ -177,6 +202,8 @@ var xOptionsSetSize func(string, uint) bool
 
 // Set @option as a #gsize value.
 func OptionsSetSize(OptionVar string, ValueVar uint) bool {
+	core.LazyRegister(&xOptionsSetSize, "JAVASCRIPTCORE", "jsc_options_set_size", false)
+
 	cret := xOptionsSetSize(OptionVar, ValueVar)
 	return cret
 }
@@ -185,6 +212,8 @@ var xOptionsSetString func(string, string) bool
 
 // Set @option as a string.
 func OptionsSetString(OptionVar string, ValueVar string) bool {
+	core.LazyRegister(&xOptionsSetString, "JAVASCRIPTCORE", "jsc_options_set_string", false)
+
 	cret := xOptionsSetString(OptionVar, ValueVar)
 	return cret
 }
@@ -193,6 +222,8 @@ var xOptionsSetUint func(string, uint) bool
 
 // Set @option as a #guint value.
 func OptionsSetUint(OptionVar string, ValueVar uint) bool {
+	core.LazyRegister(&xOptionsSetUint, "JAVASCRIPTCORE", "jsc_options_set_uint", false)
+
 	cret := xOptionsSetUint(OptionVar, ValueVar)
 	return cret
 }
@@ -200,29 +231,4 @@ func OptionsSetUint(OptionVar string, ValueVar uint) bool {
 func init() {
 	core.SetPackageName("JAVASCRIPTCORE", "javascriptcoregtk-6.0")
 	core.SetSharedLibraries("JAVASCRIPTCORE", []string{"libjavascriptcoregtk-6.0.so.1", "libjavascriptcoregtk-6.0.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("JAVASCRIPTCORE") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xOptionsForeach, libs, "jsc_options_foreach")
-	core.PuregoSafeRegister(&xOptionsGetBoolean, libs, "jsc_options_get_boolean")
-	core.PuregoSafeRegister(&xOptionsGetDouble, libs, "jsc_options_get_double")
-	core.PuregoSafeRegister(&xOptionsGetInt, libs, "jsc_options_get_int")
-	core.PuregoSafeRegister(&xOptionsGetOptionGroup, libs, "jsc_options_get_option_group")
-	core.PuregoSafeRegister(&xOptionsGetRangeString, libs, "jsc_options_get_range_string")
-	core.PuregoSafeRegister(&xOptionsGetSize, libs, "jsc_options_get_size")
-	core.PuregoSafeRegister(&xOptionsGetString, libs, "jsc_options_get_string")
-	core.PuregoSafeRegister(&xOptionsGetUint, libs, "jsc_options_get_uint")
-	core.PuregoSafeRegister(&xOptionsSetBoolean, libs, "jsc_options_set_boolean")
-	core.PuregoSafeRegister(&xOptionsSetDouble, libs, "jsc_options_set_double")
-	core.PuregoSafeRegister(&xOptionsSetInt, libs, "jsc_options_set_int")
-	core.PuregoSafeRegister(&xOptionsSetRangeString, libs, "jsc_options_set_range_string")
-	core.PuregoSafeRegister(&xOptionsSetSize, libs, "jsc_options_set_size")
-	core.PuregoSafeRegister(&xOptionsSetString, libs, "jsc_options_set_string")
-	core.PuregoSafeRegister(&xOptionsSetUint, libs, "jsc_options_set_uint")
 }

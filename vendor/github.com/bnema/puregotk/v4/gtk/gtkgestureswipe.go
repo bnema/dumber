@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -47,6 +46,7 @@ type GestureSwipe struct {
 var xGestureSwipeGLibType func() types.GType
 
 func GestureSwipeGLibType() types.GType {
+	core.LazyRegister(&xGestureSwipeGLibType, "GTK", "gtk_gesture_swipe_get_type", false)
 	return xGestureSwipeGLibType()
 }
 
@@ -60,6 +60,7 @@ var xNewGestureSwipe func() uintptr
 
 // Returns a newly created `GtkGesture` that recognizes swipes.
 func NewGestureSwipe() *GestureSwipe {
+	core.LazyRegister(&xNewGestureSwipe, "GTK", "gtk_gesture_swipe_new", false)
 	var cls *GestureSwipe
 
 	cret := xNewGestureSwipe()
@@ -80,6 +81,8 @@ var xGestureSwipeGetVelocity func(uintptr, *float64, *float64) bool
 // in @velocity_x and @velocity_y with the recorded velocity, as per the
 // last events processed.
 func (x *GestureSwipe) GetVelocity(VelocityXVar *float64, VelocityYVar *float64) bool {
+	core.LazyRegister(&xGestureSwipeGetVelocity, "GTK", "gtk_gesture_swipe_get_velocity", false)
+
 	cret := xGestureSwipeGetVelocity(x.GoPointer(), VelocityXVar, VelocityYVar)
 	return cret
 }
@@ -123,18 +126,4 @@ func (x *GestureSwipe) ConnectSwipe(cb *func(GestureSwipe, float64, float64)) ui
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GTK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xGestureSwipeGLibType, libs, "gtk_gesture_swipe_get_type")
-
-	core.PuregoSafeRegister(&xNewGestureSwipe, libs, "gtk_gesture_swipe_new")
-
-	core.PuregoSafeRegister(&xGestureSwipeGetVelocity, libs, "gtk_gesture_swipe_get_velocity")
 }

@@ -304,6 +304,7 @@ type TlsBackend interface {
 var xTlsBackendGLibType func() types.GType
 
 func TlsBackendGLibType() types.GType {
+	core.LazyRegister(&xTlsBackendGLibType, "GIO", "g_tls_backend_get_type", false)
 	return xTlsBackendGLibType()
 }
 
@@ -398,18 +399,75 @@ func (x *TlsBackendBase) SupportsTls() bool {
 	return cret
 }
 
+var XGTlsBackendGetCertificateType func(uintptr) types.GType = func(instance uintptr) types.GType {
+	core.LazyRegister(&xXGTlsBackendGetCertificateType, "GIO", "g_tls_backend_get_certificate_type", false)
+	return xXGTlsBackendGetCertificateType(instance)
+}
+
 var (
-	XGTlsBackendGetCertificateType          func(uintptr) types.GType
-	XGTlsBackendGetClientConnectionType     func(uintptr) types.GType
-	XGTlsBackendGetDefaultDatabase          func(uintptr) uintptr
-	XGTlsBackendGetDtlsClientConnectionType func(uintptr) types.GType
-	XGTlsBackendGetDtlsServerConnectionType func(uintptr) types.GType
-	XGTlsBackendGetFileDatabaseType         func(uintptr) types.GType
-	XGTlsBackendGetServerConnectionType     func(uintptr) types.GType
-	XGTlsBackendSetDefaultDatabase          func(uintptr, uintptr)
-	XGTlsBackendSupportsDtls                func(uintptr) bool
-	XGTlsBackendSupportsTls                 func(uintptr) bool
+	xXGTlsBackendGetCertificateType     func(uintptr) types.GType
+	XGTlsBackendGetClientConnectionType func(uintptr) types.GType = func(instance uintptr) types.GType {
+		core.LazyRegister(&xXGTlsBackendGetClientConnectionType, "GIO", "g_tls_backend_get_client_connection_type", false)
+		return xXGTlsBackendGetClientConnectionType(instance)
+	}
 )
+var (
+	xXGTlsBackendGetClientConnectionType func(uintptr) types.GType
+	XGTlsBackendGetDefaultDatabase       func(uintptr) uintptr = func(instance uintptr) uintptr {
+		core.LazyRegister(&xXGTlsBackendGetDefaultDatabase, "GIO", "g_tls_backend_get_default_database", false)
+		return xXGTlsBackendGetDefaultDatabase(instance)
+	}
+)
+var (
+	xXGTlsBackendGetDefaultDatabase         func(uintptr) uintptr
+	XGTlsBackendGetDtlsClientConnectionType func(uintptr) types.GType = func(instance uintptr) types.GType {
+		core.LazyRegister(&xXGTlsBackendGetDtlsClientConnectionType, "GIO", "g_tls_backend_get_dtls_client_connection_type", false)
+		return xXGTlsBackendGetDtlsClientConnectionType(instance)
+	}
+)
+var (
+	xXGTlsBackendGetDtlsClientConnectionType func(uintptr) types.GType
+	XGTlsBackendGetDtlsServerConnectionType  func(uintptr) types.GType = func(instance uintptr) types.GType {
+		core.LazyRegister(&xXGTlsBackendGetDtlsServerConnectionType, "GIO", "g_tls_backend_get_dtls_server_connection_type", false)
+		return xXGTlsBackendGetDtlsServerConnectionType(instance)
+	}
+)
+var (
+	xXGTlsBackendGetDtlsServerConnectionType func(uintptr) types.GType
+	XGTlsBackendGetFileDatabaseType          func(uintptr) types.GType = func(instance uintptr) types.GType {
+		core.LazyRegister(&xXGTlsBackendGetFileDatabaseType, "GIO", "g_tls_backend_get_file_database_type", false)
+		return xXGTlsBackendGetFileDatabaseType(instance)
+	}
+)
+var (
+	xXGTlsBackendGetFileDatabaseType    func(uintptr) types.GType
+	XGTlsBackendGetServerConnectionType func(uintptr) types.GType = func(instance uintptr) types.GType {
+		core.LazyRegister(&xXGTlsBackendGetServerConnectionType, "GIO", "g_tls_backend_get_server_connection_type", false)
+		return xXGTlsBackendGetServerConnectionType(instance)
+	}
+)
+var (
+	xXGTlsBackendGetServerConnectionType func(uintptr) types.GType
+	XGTlsBackendSetDefaultDatabase       func(uintptr, uintptr) = func(instance uintptr, DatabaseVarp uintptr) {
+		core.LazyRegister(&xXGTlsBackendSetDefaultDatabase, "GIO", "g_tls_backend_set_default_database", false)
+		xXGTlsBackendSetDefaultDatabase(instance, DatabaseVarp)
+	}
+)
+var (
+	xXGTlsBackendSetDefaultDatabase func(uintptr, uintptr)
+	XGTlsBackendSupportsDtls        func(uintptr) bool = func(instance uintptr) bool {
+		core.LazyRegister(&xXGTlsBackendSupportsDtls, "GIO", "g_tls_backend_supports_dtls", false)
+		return xXGTlsBackendSupportsDtls(instance)
+	}
+)
+var (
+	xXGTlsBackendSupportsDtls func(uintptr) bool
+	XGTlsBackendSupportsTls   func(uintptr) bool = func(instance uintptr) bool {
+		core.LazyRegister(&xXGTlsBackendSupportsTls, "GIO", "g_tls_backend_supports_tls", false)
+		return xXGTlsBackendSupportsTls(instance)
+	}
+)
+var xXGTlsBackendSupportsTls func(uintptr) bool
 
 const (
 	// Extension point for TLS functionality via #GTlsBackend.
@@ -421,6 +479,7 @@ var xTlsBackendGetDefault func() uintptr
 
 // Gets the default #GTlsBackend for the system.
 func TlsBackendGetDefault() *TlsBackendBase {
+	core.LazyRegister(&xTlsBackendGetDefault, "GIO", "g_tls_backend_get_default", false)
 	var cls *TlsBackendBase
 
 	cret := xTlsBackendGetDefault()
@@ -437,27 +496,4 @@ func TlsBackendGetDefault() *TlsBackendBase {
 func init() {
 	core.SetPackageName("GIO", "gio-2.0")
 	core.SetSharedLibraries("GIO", []string{"libgio-2.0.so.0", "libgio-2.0.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GIO") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xTlsBackendGetDefault, libs, "g_tls_backend_get_default")
-
-	core.PuregoSafeRegister(&xTlsBackendGLibType, libs, "g_tls_backend_get_type")
-
-	core.PuregoSafeRegister(&XGTlsBackendGetCertificateType, libs, "g_tls_backend_get_certificate_type")
-	core.PuregoSafeRegister(&XGTlsBackendGetClientConnectionType, libs, "g_tls_backend_get_client_connection_type")
-	core.PuregoSafeRegister(&XGTlsBackendGetDefaultDatabase, libs, "g_tls_backend_get_default_database")
-	core.PuregoSafeRegister(&XGTlsBackendGetDtlsClientConnectionType, libs, "g_tls_backend_get_dtls_client_connection_type")
-	core.PuregoSafeRegister(&XGTlsBackendGetDtlsServerConnectionType, libs, "g_tls_backend_get_dtls_server_connection_type")
-	core.PuregoSafeRegister(&XGTlsBackendGetFileDatabaseType, libs, "g_tls_backend_get_file_database_type")
-	core.PuregoSafeRegister(&XGTlsBackendGetServerConnectionType, libs, "g_tls_backend_get_server_connection_type")
-	core.PuregoSafeRegister(&XGTlsBackendSetDefaultDatabase, libs, "g_tls_backend_set_default_database")
-	core.PuregoSafeRegister(&XGTlsBackendSupportsDtls, libs, "g_tls_backend_supports_dtls")
-	core.PuregoSafeRegister(&XGTlsBackendSupportsTls, libs, "g_tls_backend_supports_tls")
 }

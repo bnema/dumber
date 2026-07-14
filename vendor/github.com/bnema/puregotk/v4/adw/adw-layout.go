@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -38,6 +37,7 @@ type Layout struct {
 var xLayoutGLibType func() types.GType
 
 func LayoutGLibType() types.GType {
+	core.LazyRegister(&xLayoutGLibType, "ADW", "adw_layout_get_type", false)
 	return xLayoutGLibType()
 }
 
@@ -51,6 +51,7 @@ var xNewLayout func(uintptr) uintptr
 
 // Creates a new `AdwLayout` that contains @content.
 func NewLayout(ContentVar *gtk.Widget) *Layout {
+	core.LazyRegister(&xNewLayout, "ADW", "adw_layout_new", false)
 	var cls *Layout
 
 	cret := xNewLayout(ContentVar.GoPointer())
@@ -67,6 +68,7 @@ var xLayoutGetContent func(uintptr) uintptr
 
 // Gets the content widget.
 func (x *Layout) GetContent() *gtk.Widget {
+	core.LazyRegister(&xLayoutGetContent, "ADW", "adw_layout_get_content", false)
 	var cls *gtk.Widget
 
 	cret := xLayoutGetContent(x.GoPointer())
@@ -84,6 +86,8 @@ var xLayoutGetName func(uintptr) string
 
 // Gets the name of the layout.
 func (x *Layout) GetName() string {
+	core.LazyRegister(&xLayoutGetName, "ADW", "adw_layout_get_name", false)
+
 	cret := xLayoutGetName(x.GoPointer())
 	return cret
 }
@@ -92,6 +96,8 @@ var xLayoutSetName func(uintptr, uintptr)
 
 // Sets the name of the layout.
 func (x *Layout) SetName(NameVar *string) {
+	core.LazyRegister(&xLayoutSetName, "ADW", "adw_layout_set_name", false)
+
 	NameVarPtr := core.GStrdupNullable(NameVar)
 	defer core.GFreeNullable(NameVarPtr)
 
@@ -138,20 +144,4 @@ func (x *Layout) GetBuildableId() string {
 func init() {
 	core.SetPackageName("ADW", "libadwaita-1")
 	core.SetSharedLibraries("ADW", []string{"libadwaita-1.so.0", "libadwaita-1.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("ADW") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xLayoutGLibType, libs, "adw_layout_get_type")
-
-	core.PuregoSafeRegister(&xNewLayout, libs, "adw_layout_new")
-
-	core.PuregoSafeRegister(&xLayoutGetContent, libs, "adw_layout_get_content")
-	core.PuregoSafeRegister(&xLayoutGetName, libs, "adw_layout_get_name")
-	core.PuregoSafeRegister(&xLayoutSetName, libs, "adw_layout_set_name")
 }

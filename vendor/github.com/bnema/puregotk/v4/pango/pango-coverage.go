@@ -2,7 +2,6 @@
 package pango
 
 import (
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -18,6 +17,7 @@ type CoverageLevel int
 var xCoverageLevelGLibType func() types.GType
 
 func CoverageLevelGLibType() types.GType {
+	core.LazyRegister(&xCoverageLevelGLibType, "PANGO", "pango_coverage_level_get_type", false)
 	return xCoverageLevelGLibType()
 }
 
@@ -56,6 +56,7 @@ type Coverage struct {
 var xCoverageGLibType func() types.GType
 
 func CoverageGLibType() types.GType {
+	core.LazyRegister(&xCoverageGLibType, "PANGO", "pango_coverage_get_type", false)
 	return xCoverageGLibType()
 }
 
@@ -69,6 +70,7 @@ var xNewCoverage func() uintptr
 
 // Create a new `PangoCoverage`
 func NewCoverage() *Coverage {
+	core.LazyRegister(&xNewCoverage, "PANGO", "pango_coverage_new", false)
 	var cls *Coverage
 
 	cret := xNewCoverage()
@@ -85,6 +87,7 @@ var xCoverageCopy func(uintptr) uintptr
 
 // Copy an existing `PangoCoverage`.
 func (x *Coverage) Copy() *Coverage {
+	core.LazyRegister(&xCoverageCopy, "PANGO", "pango_coverage_copy", false)
 	var cls *Coverage
 
 	cret := xCoverageCopy(x.GoPointer())
@@ -101,6 +104,8 @@ var xCoverageGet func(uintptr, int) CoverageLevel
 
 // Determine whether a particular index is covered by @coverage.
 func (x *Coverage) Get(IndexVar int) CoverageLevel {
+	core.LazyRegister(&xCoverageGet, "PANGO", "pango_coverage_get", false)
+
 	cret := xCoverageGet(x.GoPointer(), IndexVar)
 	return cret
 }
@@ -111,6 +116,8 @@ var xCoverageMax func(uintptr, uintptr)
 // value of the current coverage for the index and the coverage for
 // the corresponding index in @other.
 func (x *Coverage) Max(OtherVar *Coverage) {
+	core.LazyRegister(&xCoverageMax, "PANGO", "pango_coverage_max", false)
+
 	xCoverageMax(x.GoPointer(), OtherVar.GoPointer())
 }
 
@@ -118,6 +125,7 @@ var xCoverageRef func(uintptr) uintptr
 
 // Increase the reference count on the `PangoCoverage` by one.
 func (x *Coverage) Ref() *Coverage {
+	core.LazyRegister(&xCoverageRef, "PANGO", "pango_coverage_ref", false)
 	var cls *Coverage
 
 	cret := xCoverageRef(x.GoPointer())
@@ -134,6 +142,8 @@ var xCoverageSet func(uintptr, int, CoverageLevel)
 
 // Modify a particular index within @coverage
 func (x *Coverage) Set(IndexVar int, LevelVar CoverageLevel) {
+	core.LazyRegister(&xCoverageSet, "PANGO", "pango_coverage_set", false)
+
 	xCoverageSet(x.GoPointer(), IndexVar, LevelVar)
 }
 
@@ -141,6 +151,8 @@ var xCoverageToBytes func(uintptr, *[]byte, *int)
 
 // Convert a `PangoCoverage` structure into a flat binary format.
 func (x *Coverage) ToBytes(BytesVar *[]byte, NBytesVar *int) {
+	core.LazyRegister(&xCoverageToBytes, "PANGO", "pango_coverage_to_bytes", false)
+
 	xCoverageToBytes(x.GoPointer(), BytesVar, NBytesVar)
 }
 
@@ -150,6 +162,8 @@ var xCoverageUnref func(uintptr)
 //
 // If the result is zero, free the coverage and all associated memory.
 func (x *Coverage) Unref() {
+	core.LazyRegister(&xCoverageUnref, "PANGO", "pango_coverage_unref", false)
+
 	xCoverageUnref(x.GoPointer())
 }
 
@@ -169,6 +183,7 @@ var xCoverageFromBytes func([]byte, int) uintptr
 // Convert data generated from [method@Pango.Coverage.to_bytes]
 // back to a `PangoCoverage`.
 func CoverageFromBytes(BytesVar []byte, NBytesVar int) *Coverage {
+	core.LazyRegister(&xCoverageFromBytes, "PANGO", "pango_coverage_from_bytes", false)
 	var cls *Coverage
 
 	cret := xCoverageFromBytes(BytesVar, NBytesVar)
@@ -184,28 +199,4 @@ func CoverageFromBytes(BytesVar []byte, NBytesVar int) *Coverage {
 func init() {
 	core.SetPackageName("PANGO", "pango")
 	core.SetSharedLibraries("PANGO", []string{"libpango-1.0.so.0", "libpango-1.0.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("PANGO") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xCoverageLevelGLibType, libs, "pango_coverage_level_get_type")
-
-	core.PuregoSafeRegister(&xCoverageGLibType, libs, "pango_coverage_get_type")
-
-	core.PuregoSafeRegister(&xNewCoverage, libs, "pango_coverage_new")
-
-	core.PuregoSafeRegister(&xCoverageCopy, libs, "pango_coverage_copy")
-	core.PuregoSafeRegister(&xCoverageGet, libs, "pango_coverage_get")
-	core.PuregoSafeRegister(&xCoverageMax, libs, "pango_coverage_max")
-	core.PuregoSafeRegister(&xCoverageRef, libs, "pango_coverage_ref")
-	core.PuregoSafeRegister(&xCoverageSet, libs, "pango_coverage_set")
-	core.PuregoSafeRegister(&xCoverageToBytes, libs, "pango_coverage_to_bytes")
-	core.PuregoSafeRegister(&xCoverageUnref, libs, "pango_coverage_unref")
-
-	core.PuregoSafeRegister(&xCoverageFromBytes, libs, "pango_coverage_from_bytes")
 }

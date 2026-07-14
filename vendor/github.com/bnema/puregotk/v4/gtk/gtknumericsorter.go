@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -40,6 +39,7 @@ type NumericSorter struct {
 var xNumericSorterGLibType func() types.GType
 
 func NumericSorterGLibType() types.GType {
+	core.LazyRegister(&xNumericSorterGLibType, "GTK", "gtk_numeric_sorter_get_type", false)
 	return xNumericSorterGLibType()
 }
 
@@ -56,6 +56,7 @@ var xNewNumericSorter func(uintptr) uintptr
 // Smaller numbers will be sorted first. You can call
 // [method@Gtk.NumericSorter.set_sort_order] to change this.
 func NewNumericSorter(ExpressionVar *Expression) *NumericSorter {
+	core.LazyRegister(&xNewNumericSorter, "GTK", "gtk_numeric_sorter_new", false)
 	var cls *NumericSorter
 
 	cret := xNewNumericSorter(ExpressionVar.GoPointer())
@@ -72,6 +73,7 @@ var xNumericSorterGetExpression func(uintptr) uintptr
 
 // Gets the expression that is evaluated to obtain numbers from items.
 func (x *NumericSorter) GetExpression() *Expression {
+	core.LazyRegister(&xNumericSorterGetExpression, "GTK", "gtk_numeric_sorter_get_expression", false)
 	var cls *Expression
 
 	cret := xNumericSorterGetExpression(x.GoPointer())
@@ -89,6 +91,8 @@ var xNumericSorterGetSortOrder func(uintptr) SortType
 
 // Gets whether this sorter will sort smaller numbers first.
 func (x *NumericSorter) GetSortOrder() SortType {
+	core.LazyRegister(&xNumericSorterGetSortOrder, "GTK", "gtk_numeric_sorter_get_sort_order", false)
+
 	cret := xNumericSorterGetSortOrder(x.GoPointer())
 	return cret
 }
@@ -103,6 +107,8 @@ var xNumericSorterSetExpression func(uintptr, uintptr)
 // The expression must have a return type that can be compared
 // numerically, such as %G_TYPE_INT or %G_TYPE_DOUBLE.
 func (x *NumericSorter) SetExpression(ExpressionVar *Expression) {
+	core.LazyRegister(&xNumericSorterSetExpression, "GTK", "gtk_numeric_sorter_set_expression", false)
+
 	xNumericSorterSetExpression(x.GoPointer(), ExpressionVar.GoPointer())
 }
 
@@ -110,6 +116,8 @@ var xNumericSorterSetSortOrder func(uintptr, SortType)
 
 // Sets whether to sort smaller numbers before larger ones.
 func (x *NumericSorter) SetSortOrder(SortOrderVar SortType) {
+	core.LazyRegister(&xNumericSorterSetSortOrder, "GTK", "gtk_numeric_sorter_set_sort_order", false)
+
 	xNumericSorterSetSortOrder(x.GoPointer(), SortOrderVar)
 }
 
@@ -127,21 +135,4 @@ func (c *NumericSorter) SetGoPointer(ptr uintptr) {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GTK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xNumericSorterGLibType, libs, "gtk_numeric_sorter_get_type")
-
-	core.PuregoSafeRegister(&xNewNumericSorter, libs, "gtk_numeric_sorter_new")
-
-	core.PuregoSafeRegister(&xNumericSorterGetExpression, libs, "gtk_numeric_sorter_get_expression")
-	core.PuregoSafeRegister(&xNumericSorterGetSortOrder, libs, "gtk_numeric_sorter_get_sort_order")
-	core.PuregoSafeRegister(&xNumericSorterSetExpression, libs, "gtk_numeric_sorter_set_expression")
-	core.PuregoSafeRegister(&xNumericSorterSetSortOrder, libs, "gtk_numeric_sorter_set_sort_order")
 }

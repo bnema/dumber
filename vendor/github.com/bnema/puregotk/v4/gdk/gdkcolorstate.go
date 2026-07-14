@@ -4,7 +4,6 @@ package gdk
 import (
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 )
 
@@ -14,6 +13,8 @@ var xColorStateGetOklab func() uintptr
 //
 // This is a perceptually uniform color state.
 func ColorStateGetOklab() *ColorState {
+	core.LazyRegister(&xColorStateGetOklab, "GDK", "gdk_color_state_get_oklab", false)
+
 	cret := xColorStateGetOklab()
 	if cret == 0 {
 		return nil
@@ -28,6 +29,8 @@ var xColorStateGetOklch func() uintptr
 // This is the polar variant of oklab, in which the hue is encoded as
 // a polar coordinate.
 func ColorStateGetOklch() *ColorState {
+	core.LazyRegister(&xColorStateGetOklch, "GDK", "gdk_color_state_get_oklch", false)
+
 	cret := xColorStateGetOklch()
 	if cret == 0 {
 		return nil
@@ -47,6 +50,8 @@ var xColorStateGetRec2100Linear func() uintptr
 // See e.g. [the CSS HDR Module](https://drafts.csswg.org/css-color-hdr/#valdef-color-rec2100-linear)
 // for details about this colorstate.
 func ColorStateGetRec2100Linear() *ColorState {
+	core.LazyRegister(&xColorStateGetRec2100Linear, "GDK", "gdk_color_state_get_rec2100_linear", false)
+
 	cret := xColorStateGetRec2100Linear()
 	if cret == 0 {
 		return nil
@@ -66,6 +71,8 @@ var xColorStateGetRec2100Pq func() uintptr
 // See e.g. [the CSS HDR Module](https://drafts.csswg.org/css-color-hdr/#valdef-color-rec2100-pq)
 // for details about this colorstate.
 func ColorStateGetRec2100Pq() *ColorState {
+	core.LazyRegister(&xColorStateGetRec2100Pq, "GDK", "gdk_color_state_get_rec2100_pq", false)
+
 	cret := xColorStateGetRec2100Pq()
 	if cret == 0 {
 		return nil
@@ -85,6 +92,8 @@ var xColorStateGetSrgb func() uintptr
 // See e.g. [the CSS Color Module](https://www.w3.org/TR/css-color-4/#predefined-sRGB)
 // for details about this colorstate.
 func ColorStateGetSrgb() *ColorState {
+	core.LazyRegister(&xColorStateGetSrgb, "GDK", "gdk_color_state_get_srgb", false)
+
 	cret := xColorStateGetSrgb()
 	if cret == 0 {
 		return nil
@@ -103,6 +112,8 @@ var xColorStateGetSrgbLinear func() uintptr
 // See e.g. [the CSS Color Module](https://www.w3.org/TR/css-color-4/#predefined-sRGB-linear)
 // for details about this colorstate.
 func ColorStateGetSrgbLinear() *ColorState {
+	core.LazyRegister(&xColorStateGetSrgbLinear, "GDK", "gdk_color_state_get_srgb_linear", false)
+
 	cret := xColorStateGetSrgbLinear()
 	if cret == 0 {
 		return nil
@@ -113,19 +124,4 @@ func ColorStateGetSrgbLinear() *ColorState {
 func init() {
 	core.SetPackageName("GDK", "gtk4")
 	core.SetSharedLibraries("GDK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GDK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xColorStateGetOklab, libs, "gdk_color_state_get_oklab")
-	core.PuregoSafeRegister(&xColorStateGetOklch, libs, "gdk_color_state_get_oklch")
-	core.PuregoSafeRegister(&xColorStateGetRec2100Linear, libs, "gdk_color_state_get_rec2100_linear")
-	core.PuregoSafeRegister(&xColorStateGetRec2100Pq, libs, "gdk_color_state_get_rec2100_pq")
-	core.PuregoSafeRegister(&xColorStateGetSrgb, libs, "gdk_color_state_get_srgb")
-	core.PuregoSafeRegister(&xColorStateGetSrgbLinear, libs, "gdk_color_state_get_srgb_linear")
 }

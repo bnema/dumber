@@ -61,7 +61,7 @@ func (x *FileEnumeratorClass) OverrideNextFile(cb func(*FileEnumerator, *Cancell
 	if cb == nil {
 		x.xNextFile = 0
 	} else {
-		x.xNextFile = purego.NewCallback(func(EnumeratorVarp uintptr, CancellableVarp uintptr) uintptr {
+		x.xNextFile = purego.NewCallback(func(EnumeratorVarp uintptr, CancellableVarp uintptr, cerrp **glib.Error) uintptr {
 			ret := cb(FileEnumeratorNewFromInternalPtr(EnumeratorVarp), CancellableNewFromInternalPtr(CancellableVarp))
 			if ret == nil {
 				return 0
@@ -76,10 +76,11 @@ func (x *FileEnumeratorClass) GetNextFile() func(*FileEnumerator, *Cancellable) 
 	if x.xNextFile == 0 {
 		return nil
 	}
-	var rawCallback func(EnumeratorVarp uintptr, CancellableVarp uintptr) uintptr
+	var rawCallback func(EnumeratorVarp uintptr, CancellableVarp uintptr, cerrp **glib.Error) uintptr
 	purego.RegisterFunc(&rawCallback, x.xNextFile)
 	return func(EnumeratorVar *FileEnumerator, CancellableVar *Cancellable) *FileInfo {
-		rawRet := rawCallback(EnumeratorVar.GoPointer(), CancellableVar.GoPointer())
+		var cerr *glib.Error
+		rawRet := rawCallback(EnumeratorVar.GoPointer(), CancellableVar.GoPointer(), &cerr)
 		if rawRet == 0 {
 			return nil
 		}
@@ -94,7 +95,7 @@ func (x *FileEnumeratorClass) OverrideCloseFn(cb func(*FileEnumerator, *Cancella
 	if cb == nil {
 		x.xCloseFn = 0
 	} else {
-		x.xCloseFn = purego.NewCallback(func(EnumeratorVarp uintptr, CancellableVarp uintptr) bool {
+		x.xCloseFn = purego.NewCallback(func(EnumeratorVarp uintptr, CancellableVarp uintptr, cerrp **glib.Error) bool {
 			return cb(FileEnumeratorNewFromInternalPtr(EnumeratorVarp), CancellableNewFromInternalPtr(CancellableVarp))
 		})
 	}
@@ -105,10 +106,11 @@ func (x *FileEnumeratorClass) GetCloseFn() func(*FileEnumerator, *Cancellable) b
 	if x.xCloseFn == 0 {
 		return nil
 	}
-	var rawCallback func(EnumeratorVarp uintptr, CancellableVarp uintptr) bool
+	var rawCallback func(EnumeratorVarp uintptr, CancellableVarp uintptr, cerrp **glib.Error) bool
 	purego.RegisterFunc(&rawCallback, x.xCloseFn)
 	return func(EnumeratorVar *FileEnumerator, CancellableVar *Cancellable) bool {
-		return rawCallback(EnumeratorVar.GoPointer(), CancellableVar.GoPointer())
+		var cerr *glib.Error
+		return rawCallback(EnumeratorVar.GoPointer(), CancellableVar.GoPointer(), &cerr)
 	}
 }
 
@@ -140,7 +142,7 @@ func (x *FileEnumeratorClass) OverrideNextFilesFinish(cb func(*FileEnumerator, A
 	if cb == nil {
 		x.xNextFilesFinish = 0
 	} else {
-		x.xNextFilesFinish = purego.NewCallback(func(EnumeratorVarp uintptr, ResultVarp uintptr) uintptr {
+		x.xNextFilesFinish = purego.NewCallback(func(EnumeratorVarp uintptr, ResultVarp uintptr, cerrp **glib.Error) uintptr {
 			ret := cb(FileEnumeratorNewFromInternalPtr(EnumeratorVarp), &AsyncResultBase{Ptr: ResultVarp})
 			if ret == nil {
 				return 0
@@ -155,10 +157,11 @@ func (x *FileEnumeratorClass) GetNextFilesFinish() func(*FileEnumerator, AsyncRe
 	if x.xNextFilesFinish == 0 {
 		return nil
 	}
-	var rawCallback func(EnumeratorVarp uintptr, ResultVarp uintptr) uintptr
+	var rawCallback func(EnumeratorVarp uintptr, ResultVarp uintptr, cerrp **glib.Error) uintptr
 	purego.RegisterFunc(&rawCallback, x.xNextFilesFinish)
 	return func(EnumeratorVar *FileEnumerator, ResultVar AsyncResult) *glib.List {
-		rawRet := rawCallback(EnumeratorVar.GoPointer(), ResultVar.GoPointer())
+		var cerr *glib.Error
+		rawRet := rawCallback(EnumeratorVar.GoPointer(), ResultVar.GoPointer(), &cerr)
 		if rawRet == 0 {
 			return nil
 		}
@@ -194,7 +197,7 @@ func (x *FileEnumeratorClass) OverrideCloseFinish(cb func(*FileEnumerator, Async
 	if cb == nil {
 		x.xCloseFinish = 0
 	} else {
-		x.xCloseFinish = purego.NewCallback(func(EnumeratorVarp uintptr, ResultVarp uintptr) bool {
+		x.xCloseFinish = purego.NewCallback(func(EnumeratorVarp uintptr, ResultVarp uintptr, cerrp **glib.Error) bool {
 			return cb(FileEnumeratorNewFromInternalPtr(EnumeratorVarp), &AsyncResultBase{Ptr: ResultVarp})
 		})
 	}
@@ -205,10 +208,11 @@ func (x *FileEnumeratorClass) GetCloseFinish() func(*FileEnumerator, AsyncResult
 	if x.xCloseFinish == 0 {
 		return nil
 	}
-	var rawCallback func(EnumeratorVarp uintptr, ResultVarp uintptr) bool
+	var rawCallback func(EnumeratorVarp uintptr, ResultVarp uintptr, cerrp **glib.Error) bool
 	purego.RegisterFunc(&rawCallback, x.xCloseFinish)
 	return func(EnumeratorVar *FileEnumerator, ResultVar AsyncResult) bool {
-		return rawCallback(EnumeratorVar.GoPointer(), ResultVar.GoPointer())
+		var cerr *glib.Error
+		return rawCallback(EnumeratorVar.GoPointer(), ResultVar.GoPointer(), &cerr)
 	}
 }
 
@@ -422,6 +426,7 @@ type FileEnumerator struct {
 var xFileEnumeratorGLibType func() types.GType
 
 func FileEnumeratorGLibType() types.GType {
+	core.LazyRegister(&xFileEnumeratorGLibType, "GIO", "g_file_enumerator_get_type", false)
 	return xFileEnumeratorGLibType()
 }
 
@@ -440,6 +445,7 @@ var xFileEnumeratorClose func(uintptr, uintptr, **glib.Error) bool
 // is dropped, but you might want to call this function to make
 // sure resources are released as early as possible.
 func (x *FileEnumerator) Close(CancellableVar *Cancellable) (bool, error) {
+	core.LazyRegister(&xFileEnumeratorClose, "GIO", "g_file_enumerator_close", false)
 	var cerr *glib.Error
 
 	cret := xFileEnumeratorClose(x.GoPointer(), CancellableVar.GoPointer(), &cerr)
@@ -458,6 +464,8 @@ var xFileEnumeratorCloseAsync func(uintptr, int, uintptr, uintptr, uintptr)
 // was cancelled, the error %G_IO_ERROR_CANCELLED will be returned in
 // g_file_enumerator_close_finish().
 func (x *FileEnumerator) CloseAsync(IoPriorityVar int, CancellableVar *Cancellable, CallbackVar *AsyncReadyCallback, UserDataVar uintptr) {
+	core.LazyRegister(&xFileEnumeratorCloseAsync, "GIO", "g_file_enumerator_close_async", false)
+
 	xFileEnumeratorCloseAsync(x.GoPointer(), IoPriorityVar, CancellableVar.GoPointer(), glib.NewCallbackNullable(CallbackVar), UserDataVar)
 }
 
@@ -474,6 +482,7 @@ var xFileEnumeratorCloseFinish func(uintptr, uintptr, **glib.Error) bool
 // was cancelled, the error %G_IO_ERROR_CANCELLED will be set, and %FALSE will be
 // returned.
 func (x *FileEnumerator) CloseFinish(ResultVar AsyncResult) (bool, error) {
+	core.LazyRegister(&xFileEnumeratorCloseFinish, "GIO", "g_file_enumerator_close_finish", false)
 	var cerr *glib.Error
 
 	cret := xFileEnumeratorCloseFinish(x.GoPointer(), ResultVar.GoPointer(), &cerr)
@@ -501,6 +510,7 @@ var xFileEnumeratorGetChild func(uintptr, uintptr) uintptr
 //
 // ]|
 func (x *FileEnumerator) GetChild(InfoVar *FileInfo) *FileBase {
+	core.LazyRegister(&xFileEnumeratorGetChild, "GIO", "g_file_enumerator_get_child", false)
 	var cls *FileBase
 
 	cret := xFileEnumeratorGetChild(x.GoPointer(), InfoVar.GoPointer())
@@ -517,6 +527,7 @@ var xFileEnumeratorGetContainer func(uintptr) uintptr
 
 // Get the #GFile container which is being enumerated.
 func (x *FileEnumerator) GetContainer() *FileBase {
+	core.LazyRegister(&xFileEnumeratorGetContainer, "GIO", "g_file_enumerator_get_container", false)
 	var cls *FileBase
 
 	cret := xFileEnumeratorGetContainer(x.GoPointer())
@@ -534,6 +545,8 @@ var xFileEnumeratorHasPending func(uintptr) bool
 
 // Checks if the file enumerator has pending operations.
 func (x *FileEnumerator) HasPending() bool {
+	core.LazyRegister(&xFileEnumeratorHasPending, "GIO", "g_file_enumerator_has_pending", false)
+
 	cret := xFileEnumeratorHasPending(x.GoPointer())
 	return cret
 }
@@ -542,6 +555,8 @@ var xFileEnumeratorIsClosed func(uintptr) bool
 
 // Checks if the file enumerator has been closed.
 func (x *FileEnumerator) IsClosed() bool {
+	core.LazyRegister(&xFileEnumeratorIsClosed, "GIO", "g_file_enumerator_is_closed", false)
+
 	cret := xFileEnumeratorIsClosed(x.GoPointer())
 	return cret
 }
@@ -590,6 +605,7 @@ var xFileEnumeratorIterate func(uintptr, **FileInfo, **File, uintptr, **glib.Err
 //
 // ]|
 func (x *FileEnumerator) Iterate(OutInfoVar **FileInfo, OutChildVar **File, CancellableVar *Cancellable) (bool, error) {
+	core.LazyRegister(&xFileEnumeratorIterate, "GIO", "g_file_enumerator_iterate", false)
 	var cerr *glib.Error
 
 	cret := xFileEnumeratorIterate(x.GoPointer(), OutInfoVar, OutChildVar, CancellableVar.GoPointer(), &cerr)
@@ -613,6 +629,7 @@ var xFileEnumeratorNextFile func(uintptr, uintptr, **glib.Error) uintptr
 // enumerator is at the end, %NULL will be returned and @error will
 // be unset.
 func (x *FileEnumerator) NextFile(CancellableVar *Cancellable) (*FileInfo, error) {
+	core.LazyRegister(&xFileEnumeratorNextFile, "GIO", "g_file_enumerator_next_file", false)
 	var cls *FileInfo
 	var cerr *glib.Error
 
@@ -703,6 +720,8 @@ var xFileEnumeratorNextFilesAsync func(uintptr, int, int, uintptr, uintptr, uint
 // be executed before an outstanding request with lower priority. Default
 // priority is %G_PRIORITY_DEFAULT.
 func (x *FileEnumerator) NextFilesAsync(NumFilesVar int, IoPriorityVar int, CancellableVar *Cancellable, CallbackVar *AsyncReadyCallback, UserDataVar uintptr) {
+	core.LazyRegister(&xFileEnumeratorNextFilesAsync, "GIO", "g_file_enumerator_next_files_async", false)
+
 	xFileEnumeratorNextFilesAsync(x.GoPointer(), NumFilesVar, IoPriorityVar, CancellableVar.GoPointer(), glib.NewCallbackNullable(CallbackVar), UserDataVar)
 }
 
@@ -710,6 +729,7 @@ var xFileEnumeratorNextFilesFinish func(uintptr, uintptr, **glib.Error) uintptr
 
 // Finishes the asynchronous operation started with g_file_enumerator_next_files_async().
 func (x *FileEnumerator) NextFilesFinish(ResultVar AsyncResult) (*glib.List, error) {
+	core.LazyRegister(&xFileEnumeratorNextFilesFinish, "GIO", "g_file_enumerator_next_files_finish", false)
 	var cerr *glib.Error
 
 	cret := xFileEnumeratorNextFilesFinish(x.GoPointer(), ResultVar.GoPointer(), &cerr)
@@ -726,6 +746,8 @@ var xFileEnumeratorSetPending func(uintptr, bool)
 
 // Sets the file enumerator as having pending operations.
 func (x *FileEnumerator) SetPending(PendingVar bool) {
+	core.LazyRegister(&xFileEnumeratorSetPending, "GIO", "g_file_enumerator_set_pending", false)
+
 	xFileEnumeratorSetPending(x.GoPointer(), PendingVar)
 }
 
@@ -743,27 +765,4 @@ func (c *FileEnumerator) SetGoPointer(ptr uintptr) {
 func init() {
 	core.SetPackageName("GIO", "gio-2.0")
 	core.SetSharedLibraries("GIO", []string{"libgio-2.0.so.0", "libgio-2.0.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GIO") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xFileEnumeratorGLibType, libs, "g_file_enumerator_get_type")
-
-	core.PuregoSafeRegister(&xFileEnumeratorClose, libs, "g_file_enumerator_close")
-	core.PuregoSafeRegister(&xFileEnumeratorCloseAsync, libs, "g_file_enumerator_close_async")
-	core.PuregoSafeRegister(&xFileEnumeratorCloseFinish, libs, "g_file_enumerator_close_finish")
-	core.PuregoSafeRegister(&xFileEnumeratorGetChild, libs, "g_file_enumerator_get_child")
-	core.PuregoSafeRegister(&xFileEnumeratorGetContainer, libs, "g_file_enumerator_get_container")
-	core.PuregoSafeRegister(&xFileEnumeratorHasPending, libs, "g_file_enumerator_has_pending")
-	core.PuregoSafeRegister(&xFileEnumeratorIsClosed, libs, "g_file_enumerator_is_closed")
-	core.PuregoSafeRegister(&xFileEnumeratorIterate, libs, "g_file_enumerator_iterate")
-	core.PuregoSafeRegister(&xFileEnumeratorNextFile, libs, "g_file_enumerator_next_file")
-	core.PuregoSafeRegister(&xFileEnumeratorNextFilesAsync, libs, "g_file_enumerator_next_files_async")
-	core.PuregoSafeRegister(&xFileEnumeratorNextFilesFinish, libs, "g_file_enumerator_next_files_finish")
-	core.PuregoSafeRegister(&xFileEnumeratorSetPending, libs, "g_file_enumerator_set_pending")
 }

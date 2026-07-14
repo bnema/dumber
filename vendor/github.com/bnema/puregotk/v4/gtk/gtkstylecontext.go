@@ -163,6 +163,7 @@ type StyleContextPrintFlags int
 var xStyleContextPrintFlagsGLibType func() types.GType
 
 func StyleContextPrintFlagsGLibType() types.GType {
+	core.LazyRegister(&xStyleContextPrintFlagsGLibType, "GTK", "gtk_style_context_print_flags_get_type", false)
 	return xStyleContextPrintFlagsGLibType()
 }
 
@@ -225,6 +226,7 @@ type StyleContext struct {
 var xStyleContextGLibType func() types.GType
 
 func StyleContextGLibType() types.GType {
+	core.LazyRegister(&xStyleContextGLibType, "GTK", "gtk_style_context_get_type", false)
 	return xStyleContextGLibType()
 }
 
@@ -252,6 +254,8 @@ var xStyleContextAddClass func(uintptr, string)
 // .search { ... }
 // ```
 func (x *StyleContext) AddClass(ClassNameVar string) {
+	core.LazyRegister(&xStyleContextAddClass, "GTK", "gtk_style_context_add_class", false)
+
 	xStyleContextAddClass(x.GoPointer(), ClassNameVar)
 }
 
@@ -268,6 +272,8 @@ var xStyleContextAddProvider func(uintptr, uintptr, uint)
 // added through this function takes precedence over another added
 // through [func@Gtk.StyleContext.add_provider_for_display].
 func (x *StyleContext) AddProvider(ProviderVar StyleProvider, PriorityVar uint) {
+	core.LazyRegister(&xStyleContextAddProvider, "GTK", "gtk_style_context_add_provider", false)
+
 	xStyleContextAddProvider(x.GoPointer(), ProviderVar.GoPointer(), PriorityVar)
 }
 
@@ -275,6 +281,8 @@ var xStyleContextGetBorder func(uintptr, *Border)
 
 // Gets the border for a given state as a `GtkBorder`.
 func (x *StyleContext) GetBorder(BorderVar *Border) {
+	core.LazyRegister(&xStyleContextGetBorder, "GTK", "gtk_style_context_get_border", false)
+
 	xStyleContextGetBorder(x.GoPointer(), BorderVar)
 }
 
@@ -282,6 +290,8 @@ var xStyleContextGetColor func(uintptr, *gdk.RGBA)
 
 // Gets the foreground color for a given state.
 func (x *StyleContext) GetColor(ColorVar *gdk.RGBA) {
+	core.LazyRegister(&xStyleContextGetColor, "GTK", "gtk_style_context_get_color", false)
+
 	xStyleContextGetColor(x.GoPointer(), ColorVar)
 }
 
@@ -289,6 +299,7 @@ var xStyleContextGetDisplay func(uintptr) uintptr
 
 // Returns the `GdkDisplay` to which @context is attached.
 func (x *StyleContext) GetDisplay() *gdk.Display {
+	core.LazyRegister(&xStyleContextGetDisplay, "GTK", "gtk_style_context_get_display", false)
 	var cls *gdk.Display
 
 	cret := xStyleContextGetDisplay(x.GoPointer())
@@ -306,6 +317,8 @@ var xStyleContextGetMargin func(uintptr, *Border)
 
 // Gets the margin for a given state as a `GtkBorder`.
 func (x *StyleContext) GetMargin(MarginVar *Border) {
+	core.LazyRegister(&xStyleContextGetMargin, "GTK", "gtk_style_context_get_margin", false)
+
 	xStyleContextGetMargin(x.GoPointer(), MarginVar)
 }
 
@@ -313,6 +326,8 @@ var xStyleContextGetPadding func(uintptr, *Border)
 
 // Gets the padding for a given state as a `GtkBorder`.
 func (x *StyleContext) GetPadding(PaddingVar *Border) {
+	core.LazyRegister(&xStyleContextGetPadding, "GTK", "gtk_style_context_get_padding", false)
+
 	xStyleContextGetPadding(x.GoPointer(), PaddingVar)
 }
 
@@ -320,6 +335,8 @@ var xStyleContextGetScale func(uintptr) int
 
 // Returns the scale used for assets.
 func (x *StyleContext) GetScale() int {
+	core.LazyRegister(&xStyleContextGetScale, "GTK", "gtk_style_context_get_scale", false)
+
 	cret := xStyleContextGetScale(x.GoPointer())
 	return cret
 }
@@ -334,6 +351,8 @@ var xStyleContextGetState func(uintptr) StateFlags
 // If you need to retrieve the current state of a `GtkWidget`, use
 // [method@Gtk.Widget.get_state_flags].
 func (x *StyleContext) GetState() StateFlags {
+	core.LazyRegister(&xStyleContextGetState, "GTK", "gtk_style_context_get_state", false)
+
 	cret := xStyleContextGetState(x.GoPointer())
 	return cret
 }
@@ -343,6 +362,8 @@ var xStyleContextHasClass func(uintptr, string) bool
 // Returns %TRUE if @context currently has defined the
 // given class name.
 func (x *StyleContext) HasClass(ClassNameVar string) bool {
+	core.LazyRegister(&xStyleContextHasClass, "GTK", "gtk_style_context_has_class", false)
+
 	cret := xStyleContextHasClass(x.GoPointer(), ClassNameVar)
 	return cret
 }
@@ -351,6 +372,8 @@ var xStyleContextLookupColor func(uintptr, string, *gdk.RGBA) bool
 
 // Looks up and resolves a color name in the @context color map.
 func (x *StyleContext) LookupColor(ColorNameVar string, ColorVar *gdk.RGBA) bool {
+	core.LazyRegister(&xStyleContextLookupColor, "GTK", "gtk_style_context_lookup_color", false)
+
 	cret := xStyleContextLookupColor(x.GoPointer(), ColorNameVar, ColorVar)
 	return cret
 }
@@ -359,6 +382,8 @@ var xStyleContextRemoveClass func(uintptr, string)
 
 // Removes @class_name from @context.
 func (x *StyleContext) RemoveClass(ClassNameVar string) {
+	core.LazyRegister(&xStyleContextRemoveClass, "GTK", "gtk_style_context_remove_class", false)
+
 	xStyleContextRemoveClass(x.GoPointer(), ClassNameVar)
 }
 
@@ -366,6 +391,8 @@ var xStyleContextRemoveProvider func(uintptr, uintptr)
 
 // Removes @provider from the style providers list in @context.
 func (x *StyleContext) RemoveProvider(ProviderVar StyleProvider) {
+	core.LazyRegister(&xStyleContextRemoveProvider, "GTK", "gtk_style_context_remove_provider", false)
+
 	xStyleContextRemoveProvider(x.GoPointer(), ProviderVar.GoPointer())
 }
 
@@ -375,6 +402,8 @@ var xStyleContextRestore func(uintptr)
 //
 // See [method@Gtk.StyleContext.save].
 func (x *StyleContext) Restore() {
+	core.LazyRegister(&xStyleContextRestore, "GTK", "gtk_style_context_restore", false)
+
 	xStyleContextRestore(x.GoPointer())
 }
 
@@ -391,6 +420,8 @@ var xStyleContextSave func(uintptr)
 // The matching call to [method@Gtk.StyleContext.restore]
 // must be done before GTK returns to the main loop.
 func (x *StyleContext) Save() {
+	core.LazyRegister(&xStyleContextSave, "GTK", "gtk_style_context_save", false)
+
 	xStyleContextSave(x.GoPointer())
 }
 
@@ -405,6 +436,8 @@ var xStyleContextSetDisplay func(uintptr, uintptr)
 // [method@Gtk.Widget.get_style_context], you do not need to
 // call this yourself.
 func (x *StyleContext) SetDisplay(DisplayVar *gdk.Display) {
+	core.LazyRegister(&xStyleContextSetDisplay, "GTK", "gtk_style_context_set_display", false)
+
 	xStyleContextSetDisplay(x.GoPointer(), DisplayVar.GoPointer())
 }
 
@@ -412,6 +445,8 @@ var xStyleContextSetScale func(uintptr, int)
 
 // Sets the scale to use when getting image assets for the style.
 func (x *StyleContext) SetScale(ScaleVar int) {
+	core.LazyRegister(&xStyleContextSetScale, "GTK", "gtk_style_context_set_scale", false)
+
 	xStyleContextSetScale(x.GoPointer(), ScaleVar)
 }
 
@@ -419,6 +454,8 @@ var xStyleContextSetState func(uintptr, StateFlags)
 
 // Sets the state to be used for style matching.
 func (x *StyleContext) SetState(FlagsVar StateFlags) {
+	core.LazyRegister(&xStyleContextSetState, "GTK", "gtk_style_context_set_state", false)
+
 	xStyleContextSetState(x.GoPointer(), FlagsVar)
 }
 
@@ -435,6 +472,8 @@ var xStyleContextToString func(uintptr, StyleContextPrintFlags) string
 // CSS implementation in GTK. There are no guarantees about
 // the format of the returned string, it may change.
 func (x *StyleContext) ToString(FlagsVar StyleContextPrintFlags) string {
+	core.LazyRegister(&xStyleContextToString, "GTK", "gtk_style_context_to_string", false)
+
 	cret := xStyleContextToString(x.GoPointer(), FlagsVar)
 	return cret
 }
@@ -462,6 +501,8 @@ var xStyleContextAddProviderForDisplay func(uintptr, uintptr, uint)
 // added through [method@Gtk.StyleContext.add_provider] takes
 // precedence over another added through this function.
 func StyleContextAddProviderForDisplay(DisplayVar *gdk.Display, ProviderVar StyleProvider, PriorityVar uint) {
+	core.LazyRegister(&xStyleContextAddProviderForDisplay, "GTK", "gtk_style_context_add_provider_for_display", false)
+
 	xStyleContextAddProviderForDisplay(DisplayVar.GoPointer(), ProviderVar.GoPointer(), PriorityVar)
 }
 
@@ -469,45 +510,12 @@ var xStyleContextRemoveProviderForDisplay func(uintptr, uintptr)
 
 // Removes @provider from the global style providers list in @display.
 func StyleContextRemoveProviderForDisplay(DisplayVar *gdk.Display, ProviderVar StyleProvider) {
+	core.LazyRegister(&xStyleContextRemoveProviderForDisplay, "GTK", "gtk_style_context_remove_provider_for_display", false)
+
 	xStyleContextRemoveProviderForDisplay(DisplayVar.GoPointer(), ProviderVar.GoPointer())
 }
 
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GTK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xStyleContextPrintFlagsGLibType, libs, "gtk_style_context_print_flags_get_type")
-
-	core.PuregoSafeRegister(&xStyleContextGLibType, libs, "gtk_style_context_get_type")
-
-	core.PuregoSafeRegister(&xStyleContextAddClass, libs, "gtk_style_context_add_class")
-	core.PuregoSafeRegister(&xStyleContextAddProvider, libs, "gtk_style_context_add_provider")
-	core.PuregoSafeRegister(&xStyleContextGetBorder, libs, "gtk_style_context_get_border")
-	core.PuregoSafeRegister(&xStyleContextGetColor, libs, "gtk_style_context_get_color")
-	core.PuregoSafeRegister(&xStyleContextGetDisplay, libs, "gtk_style_context_get_display")
-	core.PuregoSafeRegister(&xStyleContextGetMargin, libs, "gtk_style_context_get_margin")
-	core.PuregoSafeRegister(&xStyleContextGetPadding, libs, "gtk_style_context_get_padding")
-	core.PuregoSafeRegister(&xStyleContextGetScale, libs, "gtk_style_context_get_scale")
-	core.PuregoSafeRegister(&xStyleContextGetState, libs, "gtk_style_context_get_state")
-	core.PuregoSafeRegister(&xStyleContextHasClass, libs, "gtk_style_context_has_class")
-	core.PuregoSafeRegister(&xStyleContextLookupColor, libs, "gtk_style_context_lookup_color")
-	core.PuregoSafeRegister(&xStyleContextRemoveClass, libs, "gtk_style_context_remove_class")
-	core.PuregoSafeRegister(&xStyleContextRemoveProvider, libs, "gtk_style_context_remove_provider")
-	core.PuregoSafeRegister(&xStyleContextRestore, libs, "gtk_style_context_restore")
-	core.PuregoSafeRegister(&xStyleContextSave, libs, "gtk_style_context_save")
-	core.PuregoSafeRegister(&xStyleContextSetDisplay, libs, "gtk_style_context_set_display")
-	core.PuregoSafeRegister(&xStyleContextSetScale, libs, "gtk_style_context_set_scale")
-	core.PuregoSafeRegister(&xStyleContextSetState, libs, "gtk_style_context_set_state")
-	core.PuregoSafeRegister(&xStyleContextToString, libs, "gtk_style_context_to_string")
-
-	core.PuregoSafeRegister(&xStyleContextAddProviderForDisplay, libs, "gtk_style_context_add_provider_for_display")
-	core.PuregoSafeRegister(&xStyleContextRemoveProviderForDisplay, libs, "gtk_style_context_remove_provider_for_display")
 }

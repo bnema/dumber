@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 )
 
@@ -72,6 +71,8 @@ var xHookCompareIds func(uintptr, *Hook) int
 // Compares the ids of two #GHook elements, returning a negative value
 // if the second id is greater than the first.
 func (x *Hook) CompareIds(SiblingVar *Hook) int {
+	core.LazyRegister(&xHookCompareIds, "GLIB", "g_hook_compare_ids", false)
+
 	cret := xHookCompareIds(x.GoPointer(), SiblingVar)
 	return cret
 }
@@ -111,6 +112,8 @@ var xHookListClear func(uintptr)
 
 // Removes all the #GHook elements from a #GHookList.
 func (x *HookList) Clear() {
+	core.LazyRegister(&xHookListClear, "GLIB", "g_hook_list_clear", false)
+
 	xHookListClear(x.GoPointer())
 }
 
@@ -119,6 +122,8 @@ var xHookListInit func(uintptr, uint)
 // Initializes a #GHookList.
 // This must be called before the #GHookList is used.
 func (x *HookList) Init(HookSizeVar uint) {
+	core.LazyRegister(&xHookListInit, "GLIB", "g_hook_list_init", false)
+
 	xHookListInit(x.GoPointer(), HookSizeVar)
 }
 
@@ -126,6 +131,8 @@ var xHookListInvoke func(uintptr, bool)
 
 // Calls all of the #GHook functions in a #GHookList.
 func (x *HookList) Invoke(MayRecurseVar bool) {
+	core.LazyRegister(&xHookListInvoke, "GLIB", "g_hook_list_invoke", false)
+
 	xHookListInvoke(x.GoPointer(), MayRecurseVar)
 }
 
@@ -134,6 +141,8 @@ var xHookListInvokeCheck func(uintptr, bool)
 // Calls all of the #GHook functions in a #GHookList.
 // Any function which returns %FALSE is removed from the #GHookList.
 func (x *HookList) InvokeCheck(MayRecurseVar bool) {
+	core.LazyRegister(&xHookListInvokeCheck, "GLIB", "g_hook_list_invoke_check", false)
+
 	xHookListInvokeCheck(x.GoPointer(), MayRecurseVar)
 }
 
@@ -141,6 +150,8 @@ var xHookListMarshal func(uintptr, bool, uintptr, uintptr)
 
 // Calls a function on each valid #GHook.
 func (x *HookList) Marshal(MayRecurseVar bool, MarshallerVar *HookMarshaller, MarshalDataVar uintptr) {
+	core.LazyRegister(&xHookListMarshal, "GLIB", "g_hook_list_marshal", false)
+
 	xHookListMarshal(x.GoPointer(), MayRecurseVar, NewCallback(MarshallerVar), MarshalDataVar)
 }
 
@@ -149,6 +160,8 @@ var xHookListMarshalCheck func(uintptr, bool, uintptr, uintptr)
 // Calls a function on each valid #GHook and destroys it if the
 // function returns %FALSE.
 func (x *HookList) MarshalCheck(MayRecurseVar bool, MarshallerVar *HookCheckMarshaller, MarshalDataVar uintptr) {
+	core.LazyRegister(&xHookListMarshalCheck, "GLIB", "g_hook_list_marshal_check", false)
+
 	xHookListMarshalCheck(x.GoPointer(), MayRecurseVar, NewCallback(MarshallerVar), MarshalDataVar)
 }
 
@@ -177,6 +190,8 @@ var xHookDestroy func(*HookList, uint) bool
 
 // Destroys a #GHook, given its ID.
 func HookDestroy(HookListVar *HookList, HookIdVar uint) bool {
+	core.LazyRegister(&xHookDestroy, "GLIB", "g_hook_destroy", false)
+
 	cret := xHookDestroy(HookListVar, HookIdVar)
 	return cret
 }
@@ -186,6 +201,8 @@ var xHookDestroyLink func(*HookList, *Hook)
 // Removes one #GHook from a #GHookList, marking it
 // inactive and calling g_hook_unref() on it.
 func HookDestroyLink(HookListVar *HookList, HookVar *Hook) {
+	core.LazyRegister(&xHookDestroyLink, "GLIB", "g_hook_destroy_link", false)
+
 	xHookDestroyLink(HookListVar, HookVar)
 }
 
@@ -194,6 +211,8 @@ var xHookFree func(*HookList, *Hook)
 // Calls the #GHookList @finalize_hook function if it exists,
 // and frees the memory allocated for the #GHook.
 func HookFree(HookListVar *HookList, HookVar *Hook) {
+	core.LazyRegister(&xHookFree, "GLIB", "g_hook_free", false)
+
 	xHookFree(HookListVar, HookVar)
 }
 
@@ -201,6 +220,8 @@ var xHookInsertBefore func(*HookList, *Hook, *Hook)
 
 // Inserts a #GHook into a #GHookList, before a given #GHook.
 func HookInsertBefore(HookListVar *HookList, SiblingVar *Hook, HookVar *Hook) {
+	core.LazyRegister(&xHookInsertBefore, "GLIB", "g_hook_insert_before", false)
+
 	xHookInsertBefore(HookListVar, SiblingVar, HookVar)
 }
 
@@ -208,6 +229,8 @@ var xHookInsertSorted func(*HookList, *Hook, uintptr)
 
 // Inserts a #GHook into a #GHookList, sorted by the given function.
 func HookInsertSorted(HookListVar *HookList, HookVar *Hook, FuncVar *HookCompareFunc) {
+	core.LazyRegister(&xHookInsertSorted, "GLIB", "g_hook_insert_sorted", false)
+
 	xHookInsertSorted(HookListVar, HookVar, NewCallback(FuncVar))
 }
 
@@ -215,6 +238,8 @@ var xHookPrepend func(*HookList, *Hook)
 
 // Prepends a #GHook on the start of a #GHookList.
 func HookPrepend(HookListVar *HookList, HookVar *Hook) {
+	core.LazyRegister(&xHookPrepend, "GLIB", "g_hook_prepend", false)
+
 	xHookPrepend(HookListVar, HookVar)
 }
 
@@ -224,35 +249,12 @@ var xHookUnref func(*HookList, *Hook)
 // If the reference count falls to 0, the #GHook is removed
 // from the #GHookList and g_hook_free() is called to free it.
 func HookUnref(HookListVar *HookList, HookVar *Hook) {
+	core.LazyRegister(&xHookUnref, "GLIB", "g_hook_unref", false)
+
 	xHookUnref(HookListVar, HookVar)
 }
 
 func init() {
 	core.SetPackageName("GLIB", "glib-2.0")
 	core.SetSharedLibraries("GLIB", []string{"libgobject-2.0.so.0", "libglib-2.0.so.0", "libgobject-2.0.0.dylib", "libglib-2.0.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GLIB") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xHookDestroy, libs, "g_hook_destroy")
-	core.PuregoSafeRegister(&xHookDestroyLink, libs, "g_hook_destroy_link")
-	core.PuregoSafeRegister(&xHookFree, libs, "g_hook_free")
-	core.PuregoSafeRegister(&xHookInsertBefore, libs, "g_hook_insert_before")
-	core.PuregoSafeRegister(&xHookInsertSorted, libs, "g_hook_insert_sorted")
-	core.PuregoSafeRegister(&xHookPrepend, libs, "g_hook_prepend")
-	core.PuregoSafeRegister(&xHookUnref, libs, "g_hook_unref")
-
-	core.PuregoSafeRegister(&xHookCompareIds, libs, "g_hook_compare_ids")
-
-	core.PuregoSafeRegister(&xHookListClear, libs, "g_hook_list_clear")
-	core.PuregoSafeRegister(&xHookListInit, libs, "g_hook_list_init")
-	core.PuregoSafeRegister(&xHookListInvoke, libs, "g_hook_list_invoke")
-	core.PuregoSafeRegister(&xHookListInvokeCheck, libs, "g_hook_list_invoke_check")
-	core.PuregoSafeRegister(&xHookListMarshal, libs, "g_hook_list_marshal")
-	core.PuregoSafeRegister(&xHookListMarshalCheck, libs, "g_hook_list_marshal_check")
 }

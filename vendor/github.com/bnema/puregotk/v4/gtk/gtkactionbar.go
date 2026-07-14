@@ -2,7 +2,6 @@
 package gtk
 
 import (
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -60,6 +59,7 @@ type ActionBar struct {
 var xActionBarGLibType func() types.GType
 
 func ActionBarGLibType() types.GType {
+	core.LazyRegister(&xActionBarGLibType, "GTK", "gtk_action_bar_get_type", false)
 	return xActionBarGLibType()
 }
 
@@ -73,6 +73,7 @@ var xNewActionBar func() uintptr
 
 // Creates a new action bar widget.
 func NewActionBar() *ActionBar {
+	core.LazyRegister(&xNewActionBar, "GTK", "gtk_action_bar_new", false)
 	var cls *ActionBar
 
 	cret := xNewActionBar()
@@ -90,6 +91,7 @@ var xActionBarGetCenterWidget func(uintptr) uintptr
 
 // Retrieves the center bar widget of the bar.
 func (x *ActionBar) GetCenterWidget() *Widget {
+	core.LazyRegister(&xActionBarGetCenterWidget, "GTK", "gtk_action_bar_get_center_widget", false)
 	var cls *Widget
 
 	cret := xActionBarGetCenterWidget(x.GoPointer())
@@ -107,6 +109,8 @@ var xActionBarGetRevealed func(uintptr) bool
 
 // Gets whether the contents of the action bar are revealed.
 func (x *ActionBar) GetRevealed() bool {
+	core.LazyRegister(&xActionBarGetRevealed, "GTK", "gtk_action_bar_get_revealed", false)
+
 	cret := xActionBarGetRevealed(x.GoPointer())
 	return cret
 }
@@ -116,6 +120,8 @@ var xActionBarPackEnd func(uintptr, uintptr)
 // Adds a child to the action bar, packed with reference to the
 // end of the action bar.
 func (x *ActionBar) PackEnd(ChildVar *Widget) {
+	core.LazyRegister(&xActionBarPackEnd, "GTK", "gtk_action_bar_pack_end", false)
+
 	xActionBarPackEnd(x.GoPointer(), ChildVar.GoPointer())
 }
 
@@ -124,6 +130,8 @@ var xActionBarPackStart func(uintptr, uintptr)
 // Adds a child to the action, packed with reference to the
 // start of the action bar.
 func (x *ActionBar) PackStart(ChildVar *Widget) {
+	core.LazyRegister(&xActionBarPackStart, "GTK", "gtk_action_bar_pack_start", false)
+
 	xActionBarPackStart(x.GoPointer(), ChildVar.GoPointer())
 }
 
@@ -131,6 +139,8 @@ var xActionBarRemove func(uintptr, uintptr)
 
 // Removes a child from the action bar.
 func (x *ActionBar) Remove(ChildVar *Widget) {
+	core.LazyRegister(&xActionBarRemove, "GTK", "gtk_action_bar_remove", false)
+
 	xActionBarRemove(x.GoPointer(), ChildVar.GoPointer())
 }
 
@@ -138,6 +148,8 @@ var xActionBarSetCenterWidget func(uintptr, uintptr)
 
 // Sets the center widget for the action bar.
 func (x *ActionBar) SetCenterWidget(CenterWidgetVar *Widget) {
+	core.LazyRegister(&xActionBarSetCenterWidget, "GTK", "gtk_action_bar_set_center_widget", false)
+
 	xActionBarSetCenterWidget(x.GoPointer(), CenterWidgetVar.GoPointer())
 }
 
@@ -149,6 +161,8 @@ var xActionBarSetRevealed func(uintptr, bool)
 // [property@Gtk.Widget:visible] sense, so revealing has
 // no effect if the action bar is hidden.
 func (x *ActionBar) SetRevealed(RevealedVar bool) {
+	core.LazyRegister(&xActionBarSetRevealed, "GTK", "gtk_action_bar_set_revealed", false)
+
 	xActionBarSetRevealed(x.GoPointer(), RevealedVar)
 }
 
@@ -443,24 +457,4 @@ func (x *ActionBar) GetBuildableId() string {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GTK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xActionBarGLibType, libs, "gtk_action_bar_get_type")
-
-	core.PuregoSafeRegister(&xNewActionBar, libs, "gtk_action_bar_new")
-
-	core.PuregoSafeRegister(&xActionBarGetCenterWidget, libs, "gtk_action_bar_get_center_widget")
-	core.PuregoSafeRegister(&xActionBarGetRevealed, libs, "gtk_action_bar_get_revealed")
-	core.PuregoSafeRegister(&xActionBarPackEnd, libs, "gtk_action_bar_pack_end")
-	core.PuregoSafeRegister(&xActionBarPackStart, libs, "gtk_action_bar_pack_start")
-	core.PuregoSafeRegister(&xActionBarRemove, libs, "gtk_action_bar_remove")
-	core.PuregoSafeRegister(&xActionBarSetCenterWidget, libs, "gtk_action_bar_set_center_widget")
-	core.PuregoSafeRegister(&xActionBarSetRevealed, libs, "gtk_action_bar_set_revealed")
 }

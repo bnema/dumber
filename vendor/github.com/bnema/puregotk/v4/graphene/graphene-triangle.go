@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject/types"
 )
@@ -24,6 +23,7 @@ type Triangle struct {
 var xTriangleGLibType func() types.GType
 
 func TriangleGLibType() types.GType {
+	core.LazyRegister(&xTriangleGLibType, "GRAPHENE", "graphene_triangle_get_type", false)
 	return xTriangleGLibType()
 }
 
@@ -45,6 +45,8 @@ var xTriangleAlloc func() uintptr
 //
 // The contents of the returned structure are undefined.
 func TriangleAlloc() *Triangle {
+	core.LazyRegister(&xTriangleAlloc, "GRAPHENE", "graphene_triangle_alloc", false)
+
 	cret := xTriangleAlloc()
 	if cret == 0 {
 		return nil
@@ -56,6 +58,8 @@ var xTriangleContainsPoint func(uintptr, *Point3D) bool
 
 // Checks whether the given triangle @t contains the point @p.
 func (x *Triangle) ContainsPoint(PVar *Point3D) bool {
+	core.LazyRegister(&xTriangleContainsPoint, "GRAPHENE", "graphene_triangle_contains_point", false)
+
 	cret := xTriangleContainsPoint(x.GoPointer(), PVar)
 	return cret
 }
@@ -64,6 +68,8 @@ var xTriangleEqual func(uintptr, *Triangle) bool
 
 // Checks whether the two given #graphene_triangle_t are equal.
 func (x *Triangle) Equal(BVar *Triangle) bool {
+	core.LazyRegister(&xTriangleEqual, "GRAPHENE", "graphene_triangle_equal", false)
+
 	cret := xTriangleEqual(x.GoPointer(), BVar)
 	return cret
 }
@@ -72,6 +78,8 @@ var xTriangleFree func(uintptr)
 
 // Frees the resources allocated by graphene_triangle_alloc().
 func (x *Triangle) Free() {
+	core.LazyRegister(&xTriangleFree, "GRAPHENE", "graphene_triangle_free", false)
+
 	xTriangleFree(x.GoPointer())
 }
 
@@ -79,6 +87,8 @@ var xTriangleGetArea func(uintptr) float32
 
 // Computes the area of the given #graphene_triangle_t.
 func (x *Triangle) GetArea() float32 {
+	core.LazyRegister(&xTriangleGetArea, "GRAPHENE", "graphene_triangle_get_area", false)
+
 	cret := xTriangleGetArea(x.GoPointer())
 	return cret
 }
@@ -102,6 +112,8 @@ var xTriangleGetBarycoords func(uintptr, *Point3D, *Vec2) bool
 //   - `res.x = u`
 //   - `res.y = v`
 func (x *Triangle) GetBarycoords(PVar *Point3D, ResVar *Vec2) bool {
+	core.LazyRegister(&xTriangleGetBarycoords, "GRAPHENE", "graphene_triangle_get_barycoords", false)
+
 	cret := xTriangleGetBarycoords(x.GoPointer(), PVar, ResVar)
 	return cret
 }
@@ -110,6 +122,8 @@ var xTriangleGetBoundingBox func(uintptr, *Box)
 
 // Computes the bounding box of the given #graphene_triangle_t.
 func (x *Triangle) GetBoundingBox(ResVar *Box) {
+	core.LazyRegister(&xTriangleGetBoundingBox, "GRAPHENE", "graphene_triangle_get_bounding_box", false)
+
 	xTriangleGetBoundingBox(x.GoPointer(), ResVar)
 }
 
@@ -120,6 +134,8 @@ var xTriangleGetMidpoint func(uintptr, *Point3D)
 // The midpoint G is the [centroid](https://en.wikipedia.org/wiki/Centroid#Triangle_centroid)
 // of the triangle, i.e. the intersection of its medians.
 func (x *Triangle) GetMidpoint(ResVar *Point3D) {
+	core.LazyRegister(&xTriangleGetMidpoint, "GRAPHENE", "graphene_triangle_get_midpoint", false)
+
 	xTriangleGetMidpoint(x.GoPointer(), ResVar)
 }
 
@@ -127,6 +143,8 @@ var xTriangleGetNormal func(uintptr, *Vec3)
 
 // Computes the normal vector of the given #graphene_triangle_t.
 func (x *Triangle) GetNormal(ResVar *Vec3) {
+	core.LazyRegister(&xTriangleGetNormal, "GRAPHENE", "graphene_triangle_get_normal", false)
+
 	xTriangleGetNormal(x.GoPointer(), ResVar)
 }
 
@@ -134,6 +152,8 @@ var xTriangleGetPlane func(uintptr, *Plane)
 
 // Computes the plane based on the vertices of the given #graphene_triangle_t.
 func (x *Triangle) GetPlane(ResVar *Plane) {
+	core.LazyRegister(&xTriangleGetPlane, "GRAPHENE", "graphene_triangle_get_plane", false)
+
 	xTriangleGetPlane(x.GoPointer(), ResVar)
 }
 
@@ -142,6 +162,8 @@ var xTriangleGetPoints func(uintptr, *Point3D, *Point3D, *Point3D)
 // Retrieves the three vertices of the given #graphene_triangle_t and returns
 // their coordinates as #graphene_point3d_t.
 func (x *Triangle) GetPoints(AVar *Point3D, BVar *Point3D, CVar *Point3D) {
+	core.LazyRegister(&xTriangleGetPoints, "GRAPHENE", "graphene_triangle_get_points", false)
+
 	xTriangleGetPoints(x.GoPointer(), AVar, BVar, CVar)
 }
 
@@ -160,6 +182,8 @@ var xTriangleGetUv func(uintptr, *Point3D, *Vec2, *Vec2, *Vec2, *Vec2) bool
 //
 // See also: graphene_triangle_get_barycoords()
 func (x *Triangle) GetUv(PVar *Point3D, UvAVar *Vec2, UvBVar *Vec2, UvCVar *Vec2, ResVar *Vec2) bool {
+	core.LazyRegister(&xTriangleGetUv, "GRAPHENE", "graphene_triangle_get_uv", false)
+
 	cret := xTriangleGetUv(x.GoPointer(), PVar, UvAVar, UvBVar, UvCVar, ResVar)
 	return cret
 }
@@ -168,6 +192,8 @@ var xTriangleGetVertices func(uintptr, *Vec3, *Vec3, *Vec3)
 
 // Retrieves the three vertices of the given #graphene_triangle_t.
 func (x *Triangle) GetVertices(AVar *Vec3, BVar *Vec3, CVar *Vec3) {
+	core.LazyRegister(&xTriangleGetVertices, "GRAPHENE", "graphene_triangle_get_vertices", false)
+
 	xTriangleGetVertices(x.GoPointer(), AVar, BVar, CVar)
 }
 
@@ -177,6 +203,8 @@ var xTriangleInitFromFloat func(uintptr, [3]float32, [3]float32, [3]float32) uin
 // of floating point values, each representing the coordinates of
 // a point in 3D space.
 func (x *Triangle) InitFromFloat(AVar [3]float32, BVar [3]float32, CVar [3]float32) *Triangle {
+	core.LazyRegister(&xTriangleInitFromFloat, "GRAPHENE", "graphene_triangle_init_from_float", false)
+
 	cret := xTriangleInitFromFloat(x.GoPointer(), AVar, BVar, CVar)
 	if cret == 0 {
 		return nil
@@ -188,6 +216,8 @@ var xTriangleInitFromPoint3d func(uintptr, *Point3D, *Point3D, *Point3D) uintptr
 
 // Initializes a #graphene_triangle_t using the three given 3D points.
 func (x *Triangle) InitFromPoint3d(AVar *Point3D, BVar *Point3D, CVar *Point3D) *Triangle {
+	core.LazyRegister(&xTriangleInitFromPoint3d, "GRAPHENE", "graphene_triangle_init_from_point3d", false)
+
 	cret := xTriangleInitFromPoint3d(x.GoPointer(), AVar, BVar, CVar)
 	if cret == 0 {
 		return nil
@@ -199,6 +229,8 @@ var xTriangleInitFromVec3 func(uintptr, *Vec3, *Vec3, *Vec3) uintptr
 
 // Initializes a #graphene_triangle_t using the three given vectors.
 func (x *Triangle) InitFromVec3(AVar *Vec3, BVar *Vec3, CVar *Vec3) *Triangle {
+	core.LazyRegister(&xTriangleInitFromVec3, "GRAPHENE", "graphene_triangle_init_from_vec3", false)
+
 	cret := xTriangleInitFromVec3(x.GoPointer(), AVar, BVar, CVar)
 	if cret == 0 {
 		return nil
@@ -209,32 +241,4 @@ func (x *Triangle) InitFromVec3(AVar *Vec3, BVar *Vec3, CVar *Vec3) *Triangle {
 func init() {
 	core.SetPackageName("GRAPHENE", "graphene-gobject-1.0")
 	core.SetSharedLibraries("GRAPHENE", []string{"libgraphene-1.0.so.0", "libgraphene-1.0.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GRAPHENE") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xTriangleGLibType, libs, "graphene_triangle_get_type")
-
-	core.PuregoSafeRegister(&xTriangleAlloc, libs, "graphene_triangle_alloc")
-
-	core.PuregoSafeRegister(&xTriangleContainsPoint, libs, "graphene_triangle_contains_point")
-	core.PuregoSafeRegister(&xTriangleEqual, libs, "graphene_triangle_equal")
-	core.PuregoSafeRegister(&xTriangleFree, libs, "graphene_triangle_free")
-	core.PuregoSafeRegister(&xTriangleGetArea, libs, "graphene_triangle_get_area")
-	core.PuregoSafeRegister(&xTriangleGetBarycoords, libs, "graphene_triangle_get_barycoords")
-	core.PuregoSafeRegister(&xTriangleGetBoundingBox, libs, "graphene_triangle_get_bounding_box")
-	core.PuregoSafeRegister(&xTriangleGetMidpoint, libs, "graphene_triangle_get_midpoint")
-	core.PuregoSafeRegister(&xTriangleGetNormal, libs, "graphene_triangle_get_normal")
-	core.PuregoSafeRegister(&xTriangleGetPlane, libs, "graphene_triangle_get_plane")
-	core.PuregoSafeRegister(&xTriangleGetPoints, libs, "graphene_triangle_get_points")
-	core.PuregoSafeRegister(&xTriangleGetUv, libs, "graphene_triangle_get_uv")
-	core.PuregoSafeRegister(&xTriangleGetVertices, libs, "graphene_triangle_get_vertices")
-	core.PuregoSafeRegister(&xTriangleInitFromFloat, libs, "graphene_triangle_init_from_float")
-	core.PuregoSafeRegister(&xTriangleInitFromPoint3d, libs, "graphene_triangle_init_from_point3d")
-	core.PuregoSafeRegister(&xTriangleInitFromVec3, libs, "graphene_triangle_init_from_vec3")
 }

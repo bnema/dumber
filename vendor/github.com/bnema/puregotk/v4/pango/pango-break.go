@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 )
 
@@ -66,6 +65,8 @@ var xAttrBreak func(string, int, *AttrList, int, *[]LogAttr, int)
 // The line breaks are assumed to have been produced
 // by [func@Pango.default_break] and [func@Pango.tailor_break].
 func AttrBreak(TextVar string, LengthVar int, AttrListVar *AttrList, OffsetVar int, AttrsVar *[]LogAttr, AttrsLenVar int) {
+	core.LazyRegister(&xAttrBreak, "PANGO", "pango_attr_break", false)
+
 	xAttrBreak(TextVar, LengthVar, AttrListVar, OffsetVar, AttrsVar, AttrsLenVar)
 }
 
@@ -76,6 +77,8 @@ var xBreak func(string, int, *Analysis, *[]LogAttr, int)
 //
 // For most purposes you may want to use [func@Pango.get_log_attrs].
 func Break(TextVar string, LengthVar int, AnalysisVar *Analysis, AttrsVar *[]LogAttr, AttrsLenVar int) {
+	core.LazyRegister(&xBreak, "PANGO", "pango_break", false)
+
 	xBreak(TextVar, LengthVar, AnalysisVar, AttrsVar, AttrsLenVar)
 }
 
@@ -91,6 +94,8 @@ var xDefaultBreak func(string, int, *Analysis, *[]LogAttr, int)
 //
 // See [func@Pango.attr_break] for attribute-based customization.
 func DefaultBreak(TextVar string, LengthVar int, AnalysisVar *Analysis, AttrsVar *[]LogAttr, AttrsLenVar int) {
+	core.LazyRegister(&xDefaultBreak, "PANGO", "pango_default_break", false)
+
 	xDefaultBreak(TextVar, LengthVar, AnalysisVar, AttrsVar, AttrsLenVar)
 }
 
@@ -106,6 +111,8 @@ var xGetLogAttrs func(string, int, int, *Language, *[]LogAttr, int)
 // (for example you need to see spaces on either side of
 // a word to know the word is a word).
 func GetLogAttrs(TextVar string, LengthVar int, LevelVar int, LanguageVar *Language, AttrsVar *[]LogAttr, AttrsLenVar int) {
+	core.LazyRegister(&xGetLogAttrs, "PANGO", "pango_get_log_attrs", false)
+
 	xGetLogAttrs(TextVar, LengthVar, LevelVar, LanguageVar, AttrsVar, AttrsLenVar)
 }
 
@@ -121,24 +128,12 @@ var xTailorBreak func(string, int, *Analysis, int, *[]LogAttr, int)
 // Note that it is better to pass -1 for @offset and use [func@Pango.attr_break]
 // to apply attributes to the whole paragraph.
 func TailorBreak(TextVar string, LengthVar int, AnalysisVar *Analysis, OffsetVar int, AttrsVar *[]LogAttr, AttrsLenVar int) {
+	core.LazyRegister(&xTailorBreak, "PANGO", "pango_tailor_break", false)
+
 	xTailorBreak(TextVar, LengthVar, AnalysisVar, OffsetVar, AttrsVar, AttrsLenVar)
 }
 
 func init() {
 	core.SetPackageName("PANGO", "pango")
 	core.SetSharedLibraries("PANGO", []string{"libpango-1.0.so.0", "libpango-1.0.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("PANGO") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xAttrBreak, libs, "pango_attr_break")
-	core.PuregoSafeRegister(&xBreak, libs, "pango_break")
-	core.PuregoSafeRegister(&xDefaultBreak, libs, "pango_default_break")
-	core.PuregoSafeRegister(&xGetLogAttrs, libs, "pango_get_log_attrs")
-	core.PuregoSafeRegister(&xTailorBreak, libs, "pango_tailor_break")
 }

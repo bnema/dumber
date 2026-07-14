@@ -147,6 +147,7 @@ type FlowBox struct {
 var xFlowBoxGLibType func() types.GType
 
 func FlowBoxGLibType() types.GType {
+	core.LazyRegister(&xFlowBoxGLibType, "GTK", "gtk_flow_box_get_type", false)
 	return xFlowBoxGLibType()
 }
 
@@ -160,6 +161,7 @@ var xNewFlowBox func() uintptr
 
 // Creates a `GtkFlowBox`.
 func NewFlowBox() *FlowBox {
+	core.LazyRegister(&xNewFlowBox, "GTK", "gtk_flow_box_new", false)
 	var cls *FlowBox
 
 	cret := xNewFlowBox()
@@ -182,6 +184,8 @@ var xFlowBoxAppend func(uintptr, uintptr)
 //
 // See also: [method@Gtk.FlowBox.insert].
 func (x *FlowBox) Append(ChildVar *Widget) {
+	core.LazyRegister(&xFlowBoxAppend, "GTK", "gtk_flow_box_append", false)
+
 	xFlowBoxAppend(x.GoPointer(), ChildVar.GoPointer())
 }
 
@@ -203,6 +207,8 @@ var xFlowBoxBindModel func(uintptr, uintptr, uintptr, uintptr, uintptr)
 // functionality in `GtkFlowBox`. When using a model, filtering and sorting
 // should be implemented by the model.
 func (x *FlowBox) BindModel(ModelVar gio.ListModel, CreateWidgetFuncVar *FlowBoxCreateWidgetFunc, UserDataVar uintptr, UserDataFreeFuncVar *glib.DestroyNotify) {
+	core.LazyRegister(&xFlowBoxBindModel, "GTK", "gtk_flow_box_bind_model", false)
+
 	xFlowBoxBindModel(x.GoPointer(), ModelVar.GoPointer(), glib.NewCallback(CreateWidgetFuncVar), UserDataVar, glib.NewCallback(UserDataFreeFuncVar))
 }
 
@@ -210,6 +216,8 @@ var xFlowBoxGetActivateOnSingleClick func(uintptr) bool
 
 // Returns whether children activate on single clicks.
 func (x *FlowBox) GetActivateOnSingleClick() bool {
+	core.LazyRegister(&xFlowBoxGetActivateOnSingleClick, "GTK", "gtk_flow_box_get_activate_on_single_click", false)
+
 	cret := xFlowBoxGetActivateOnSingleClick(x.GoPointer())
 	return cret
 }
@@ -218,6 +226,7 @@ var xFlowBoxGetChildAtIndex func(uintptr, int) uintptr
 
 // Gets the nth child in the @box.
 func (x *FlowBox) GetChildAtIndex(IdxVar int) *FlowBoxChild {
+	core.LazyRegister(&xFlowBoxGetChildAtIndex, "GTK", "gtk_flow_box_get_child_at_index", false)
 	var cls *FlowBoxChild
 
 	cret := xFlowBoxGetChildAtIndex(x.GoPointer(), IdxVar)
@@ -237,6 +246,7 @@ var xFlowBoxGetChildAtPos func(uintptr, int, int) uintptr
 //
 // Both @x and @y are assumed to be relative to the origin of @box.
 func (x *FlowBox) GetChildAtPos(XVar int, YVar int) *FlowBoxChild {
+	core.LazyRegister(&xFlowBoxGetChildAtPos, "GTK", "gtk_flow_box_get_child_at_pos", false)
 	var cls *FlowBoxChild
 
 	cret := xFlowBoxGetChildAtPos(x.GoPointer(), XVar, YVar)
@@ -254,6 +264,8 @@ var xFlowBoxGetColumnSpacing func(uintptr) uint
 
 // Gets the horizontal spacing.
 func (x *FlowBox) GetColumnSpacing() uint {
+	core.LazyRegister(&xFlowBoxGetColumnSpacing, "GTK", "gtk_flow_box_get_column_spacing", false)
+
 	cret := xFlowBoxGetColumnSpacing(x.GoPointer())
 	return cret
 }
@@ -262,6 +274,8 @@ var xFlowBoxGetHomogeneous func(uintptr) bool
 
 // Returns whether the box is homogeneous.
 func (x *FlowBox) GetHomogeneous() bool {
+	core.LazyRegister(&xFlowBoxGetHomogeneous, "GTK", "gtk_flow_box_get_homogeneous", false)
+
 	cret := xFlowBoxGetHomogeneous(x.GoPointer())
 	return cret
 }
@@ -270,6 +284,8 @@ var xFlowBoxGetMaxChildrenPerLine func(uintptr) uint
 
 // Gets the maximum number of children per line.
 func (x *FlowBox) GetMaxChildrenPerLine() uint {
+	core.LazyRegister(&xFlowBoxGetMaxChildrenPerLine, "GTK", "gtk_flow_box_get_max_children_per_line", false)
+
 	cret := xFlowBoxGetMaxChildrenPerLine(x.GoPointer())
 	return cret
 }
@@ -278,6 +294,8 @@ var xFlowBoxGetMinChildrenPerLine func(uintptr) uint
 
 // Gets the minimum number of children per line.
 func (x *FlowBox) GetMinChildrenPerLine() uint {
+	core.LazyRegister(&xFlowBoxGetMinChildrenPerLine, "GTK", "gtk_flow_box_get_min_children_per_line", false)
+
 	cret := xFlowBoxGetMinChildrenPerLine(x.GoPointer())
 	return cret
 }
@@ -286,6 +304,8 @@ var xFlowBoxGetRowSpacing func(uintptr) uint
 
 // Gets the vertical spacing.
 func (x *FlowBox) GetRowSpacing() uint {
+	core.LazyRegister(&xFlowBoxGetRowSpacing, "GTK", "gtk_flow_box_get_row_spacing", false)
+
 	cret := xFlowBoxGetRowSpacing(x.GoPointer())
 	return cret
 }
@@ -294,6 +314,8 @@ var xFlowBoxGetSelectedChildren func(uintptr) uintptr
 
 // Creates a list of all selected children.
 func (x *FlowBox) GetSelectedChildren() *glib.List {
+	core.LazyRegister(&xFlowBoxGetSelectedChildren, "GTK", "gtk_flow_box_get_selected_children", false)
+
 	cret := xFlowBoxGetSelectedChildren(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -305,6 +327,8 @@ var xFlowBoxGetSelectionMode func(uintptr) SelectionMode
 
 // Gets the selection mode of @box.
 func (x *FlowBox) GetSelectionMode() SelectionMode {
+	core.LazyRegister(&xFlowBoxGetSelectionMode, "GTK", "gtk_flow_box_get_selection_mode", false)
+
 	cret := xFlowBoxGetSelectionMode(x.GoPointer())
 	return cret
 }
@@ -319,6 +343,8 @@ var xFlowBoxInsert func(uintptr, uintptr, int)
 // If @position is -1, or larger than the total number of children
 // in the @box, then the @widget will be appended to the end.
 func (x *FlowBox) Insert(WidgetVar *Widget, PositionVar int) {
+	core.LazyRegister(&xFlowBoxInsert, "GTK", "gtk_flow_box_insert", false)
+
 	xFlowBoxInsert(x.GoPointer(), WidgetVar.GoPointer(), PositionVar)
 }
 
@@ -332,6 +358,8 @@ var xFlowBoxInvalidateFilter func(uintptr)
 // filter function just looked for a specific search
 // term, and the entry with the string has changed.
 func (x *FlowBox) InvalidateFilter() {
+	core.LazyRegister(&xFlowBoxInvalidateFilter, "GTK", "gtk_flow_box_invalidate_filter", false)
+
 	xFlowBoxInvalidateFilter(x.GoPointer())
 }
 
@@ -342,6 +370,8 @@ var xFlowBoxInvalidateSort func(uintptr)
 // Call this when the result of the sort function on
 // @box is changed due to an external factor.
 func (x *FlowBox) InvalidateSort() {
+	core.LazyRegister(&xFlowBoxInvalidateSort, "GTK", "gtk_flow_box_invalidate_sort", false)
+
 	xFlowBoxInvalidateSort(x.GoPointer())
 }
 
@@ -354,6 +384,8 @@ var xFlowBoxPrepend func(uintptr, uintptr)
 //
 // See also: [method@Gtk.FlowBox.insert].
 func (x *FlowBox) Prepend(ChildVar *Widget) {
+	core.LazyRegister(&xFlowBoxPrepend, "GTK", "gtk_flow_box_prepend", false)
+
 	xFlowBoxPrepend(x.GoPointer(), ChildVar.GoPointer())
 }
 
@@ -361,6 +393,8 @@ var xFlowBoxRemove func(uintptr, uintptr)
 
 // Removes a child from @box.
 func (x *FlowBox) Remove(WidgetVar *Widget) {
+	core.LazyRegister(&xFlowBoxRemove, "GTK", "gtk_flow_box_remove", false)
+
 	xFlowBoxRemove(x.GoPointer(), WidgetVar.GoPointer())
 }
 
@@ -370,6 +404,8 @@ var xFlowBoxRemoveAll func(uintptr)
 //
 // This function does nothing if @box is backed by a model.
 func (x *FlowBox) RemoveAll() {
+	core.LazyRegister(&xFlowBoxRemoveAll, "GTK", "gtk_flow_box_remove_all", false)
+
 	xFlowBoxRemoveAll(x.GoPointer())
 }
 
@@ -378,6 +414,8 @@ var xFlowBoxSelectAll func(uintptr)
 // Select all children of @box, if the selection
 // mode allows it.
 func (x *FlowBox) SelectAll() {
+	core.LazyRegister(&xFlowBoxSelectAll, "GTK", "gtk_flow_box_select_all", false)
+
 	xFlowBoxSelectAll(x.GoPointer())
 }
 
@@ -386,6 +424,8 @@ var xFlowBoxSelectChild func(uintptr, uintptr)
 // Selects a single child of @box, if the selection
 // mode allows it.
 func (x *FlowBox) SelectChild(ChildVar *FlowBoxChild) {
+	core.LazyRegister(&xFlowBoxSelectChild, "GTK", "gtk_flow_box_select_child", false)
+
 	xFlowBoxSelectChild(x.GoPointer(), ChildVar.GoPointer())
 }
 
@@ -396,6 +436,8 @@ var xFlowBoxSelectedForeach func(uintptr, uintptr, uintptr)
 // Note that the selection cannot be modified from within
 // this function.
 func (x *FlowBox) SelectedForeach(FuncVar *FlowBoxForeachFunc, DataVar uintptr) {
+	core.LazyRegister(&xFlowBoxSelectedForeach, "GTK", "gtk_flow_box_selected_foreach", false)
+
 	xFlowBoxSelectedForeach(x.GoPointer(), glib.NewCallback(FuncVar), DataVar)
 }
 
@@ -404,6 +446,8 @@ var xFlowBoxSetActivateOnSingleClick func(uintptr, bool)
 // If @single is %TRUE, children will be activated when you click
 // on them, otherwise you need to double-click.
 func (x *FlowBox) SetActivateOnSingleClick(SingleVar bool) {
+	core.LazyRegister(&xFlowBoxSetActivateOnSingleClick, "GTK", "gtk_flow_box_set_activate_on_single_click", false)
+
 	xFlowBoxSetActivateOnSingleClick(x.GoPointer(), SingleVar)
 }
 
@@ -411,6 +455,8 @@ var xFlowBoxSetColumnSpacing func(uintptr, uint)
 
 // Sets the horizontal space to add between children.
 func (x *FlowBox) SetColumnSpacing(SpacingVar uint) {
+	core.LazyRegister(&xFlowBoxSetColumnSpacing, "GTK", "gtk_flow_box_set_column_spacing", false)
+
 	xFlowBoxSetColumnSpacing(x.GoPointer(), SpacingVar)
 }
 
@@ -430,6 +476,8 @@ var xFlowBoxSetFilterFunc func(uintptr, uintptr, uintptr, uintptr)
 // Note that using a filter function is incompatible with using a model
 // (see [method@Gtk.FlowBox.bind_model]).
 func (x *FlowBox) SetFilterFunc(FilterFuncVar *FlowBoxFilterFunc, UserDataVar uintptr, DestroyVar *glib.DestroyNotify) {
+	core.LazyRegister(&xFlowBoxSetFilterFunc, "GTK", "gtk_flow_box_set_filter_func", false)
+
 	xFlowBoxSetFilterFunc(x.GoPointer(), glib.NewCallbackNullable(FilterFuncVar), UserDataVar, glib.NewCallbackNullable(DestroyVar))
 }
 
@@ -447,6 +495,8 @@ var xFlowBoxSetHadjustment func(uintptr, uintptr)
 // coordinate system as the allocation for immediate children
 // of the box.
 func (x *FlowBox) SetHadjustment(AdjustmentVar *Adjustment) {
+	core.LazyRegister(&xFlowBoxSetHadjustment, "GTK", "gtk_flow_box_set_hadjustment", false)
+
 	xFlowBoxSetHadjustment(x.GoPointer(), AdjustmentVar.GoPointer())
 }
 
@@ -455,6 +505,8 @@ var xFlowBoxSetHomogeneous func(uintptr, bool)
 // Sets whether or not all children of @box are given
 // equal space in the box.
 func (x *FlowBox) SetHomogeneous(HomogeneousVar bool) {
+	core.LazyRegister(&xFlowBoxSetHomogeneous, "GTK", "gtk_flow_box_set_homogeneous", false)
+
 	xFlowBoxSetHomogeneous(x.GoPointer(), HomogeneousVar)
 }
 
@@ -467,6 +519,8 @@ var xFlowBoxSetMaxChildrenPerLine func(uintptr, uint)
 // limits the overall natural size request to be no more
 // than @n_children children long in the given orientation.
 func (x *FlowBox) SetMaxChildrenPerLine(NChildrenVar uint) {
+	core.LazyRegister(&xFlowBoxSetMaxChildrenPerLine, "GTK", "gtk_flow_box_set_max_children_per_line", false)
+
 	xFlowBoxSetMaxChildrenPerLine(x.GoPointer(), NChildrenVar)
 }
 
@@ -475,6 +529,8 @@ var xFlowBoxSetMinChildrenPerLine func(uintptr, uint)
 // Sets the minimum number of children to line up
 // in @box’s orientation before flowing.
 func (x *FlowBox) SetMinChildrenPerLine(NChildrenVar uint) {
+	core.LazyRegister(&xFlowBoxSetMinChildrenPerLine, "GTK", "gtk_flow_box_set_min_children_per_line", false)
+
 	xFlowBoxSetMinChildrenPerLine(x.GoPointer(), NChildrenVar)
 }
 
@@ -482,6 +538,8 @@ var xFlowBoxSetRowSpacing func(uintptr, uint)
 
 // Sets the vertical space to add between children.
 func (x *FlowBox) SetRowSpacing(SpacingVar uint) {
+	core.LazyRegister(&xFlowBoxSetRowSpacing, "GTK", "gtk_flow_box_set_row_spacing", false)
+
 	xFlowBoxSetRowSpacing(x.GoPointer(), SpacingVar)
 }
 
@@ -489,6 +547,8 @@ var xFlowBoxSetSelectionMode func(uintptr, SelectionMode)
 
 // Sets how selection works in @box.
 func (x *FlowBox) SetSelectionMode(ModeVar SelectionMode) {
+	core.LazyRegister(&xFlowBoxSetSelectionMode, "GTK", "gtk_flow_box_set_selection_mode", false)
+
 	xFlowBoxSetSelectionMode(x.GoPointer(), ModeVar)
 }
 
@@ -506,6 +566,8 @@ var xFlowBoxSetSortFunc func(uintptr, uintptr, uintptr, uintptr)
 // Note that using a sort function is incompatible with using a model
 // (see [method@Gtk.FlowBox.bind_model]).
 func (x *FlowBox) SetSortFunc(SortFuncVar *FlowBoxSortFunc, UserDataVar uintptr, DestroyVar *glib.DestroyNotify) {
+	core.LazyRegister(&xFlowBoxSetSortFunc, "GTK", "gtk_flow_box_set_sort_func", false)
+
 	xFlowBoxSetSortFunc(x.GoPointer(), glib.NewCallbackNullable(SortFuncVar), UserDataVar, glib.NewCallbackNullable(DestroyVar))
 }
 
@@ -523,6 +585,8 @@ var xFlowBoxSetVadjustment func(uintptr, uintptr)
 // coordinate system as the allocation for immediate children
 // of the box.
 func (x *FlowBox) SetVadjustment(AdjustmentVar *Adjustment) {
+	core.LazyRegister(&xFlowBoxSetVadjustment, "GTK", "gtk_flow_box_set_vadjustment", false)
+
 	xFlowBoxSetVadjustment(x.GoPointer(), AdjustmentVar.GoPointer())
 }
 
@@ -531,6 +595,8 @@ var xFlowBoxUnselectAll func(uintptr)
 // Unselect all children of @box, if the selection
 // mode allows it.
 func (x *FlowBox) UnselectAll() {
+	core.LazyRegister(&xFlowBoxUnselectAll, "GTK", "gtk_flow_box_unselect_all", false)
+
 	xFlowBoxUnselectAll(x.GoPointer())
 }
 
@@ -539,6 +605,8 @@ var xFlowBoxUnselectChild func(uintptr, uintptr)
 // Unselects a single child of @box, if the selection
 // mode allows it.
 func (x *FlowBox) UnselectChild(ChildVar *FlowBoxChild) {
+	core.LazyRegister(&xFlowBoxUnselectChild, "GTK", "gtk_flow_box_unselect_child", false)
+
 	xFlowBoxUnselectChild(x.GoPointer(), ChildVar.GoPointer())
 }
 
@@ -1168,6 +1236,7 @@ type FlowBoxChild struct {
 var xFlowBoxChildGLibType func() types.GType
 
 func FlowBoxChildGLibType() types.GType {
+	core.LazyRegister(&xFlowBoxChildGLibType, "GTK", "gtk_flow_box_child_get_type", false)
 	return xFlowBoxChildGLibType()
 }
 
@@ -1183,6 +1252,7 @@ var xNewFlowBoxChild func() uintptr
 //
 // This should only be used as a child of a `GtkFlowBox`.
 func NewFlowBoxChild() *FlowBoxChild {
+	core.LazyRegister(&xNewFlowBoxChild, "GTK", "gtk_flow_box_child_new", false)
 	var cls *FlowBoxChild
 
 	cret := xNewFlowBoxChild()
@@ -1218,6 +1288,8 @@ var xFlowBoxChildChanged func(uintptr)
 // Another alternative is to call [method@Gtk.FlowBox.invalidate_sort]
 // on any model change, but that is more expensive.
 func (x *FlowBoxChild) Changed() {
+	core.LazyRegister(&xFlowBoxChildChanged, "GTK", "gtk_flow_box_child_changed", false)
+
 	xFlowBoxChildChanged(x.GoPointer())
 }
 
@@ -1225,6 +1297,7 @@ var xFlowBoxChildGetChild func(uintptr) uintptr
 
 // Gets the child widget of @self.
 func (x *FlowBoxChild) GetChild() *Widget {
+	core.LazyRegister(&xFlowBoxChildGetChild, "GTK", "gtk_flow_box_child_get_child", false)
 	var cls *Widget
 
 	cret := xFlowBoxChildGetChild(x.GoPointer())
@@ -1242,6 +1315,8 @@ var xFlowBoxChildGetIndex func(uintptr) int
 
 // Gets the current index of the @child in its `GtkFlowBox` container.
 func (x *FlowBoxChild) GetIndex() int {
+	core.LazyRegister(&xFlowBoxChildGetIndex, "GTK", "gtk_flow_box_child_get_index", false)
+
 	cret := xFlowBoxChildGetIndex(x.GoPointer())
 	return cret
 }
@@ -1251,6 +1326,8 @@ var xFlowBoxChildIsSelected func(uintptr) bool
 // Returns whether the @child is currently selected in its
 // `GtkFlowBox` container.
 func (x *FlowBoxChild) IsSelected() bool {
+	core.LazyRegister(&xFlowBoxChildIsSelected, "GTK", "gtk_flow_box_child_is_selected", false)
+
 	cret := xFlowBoxChildIsSelected(x.GoPointer())
 	return cret
 }
@@ -1259,6 +1336,8 @@ var xFlowBoxChildSetChild func(uintptr, uintptr)
 
 // Sets the child widget of @self.
 func (x *FlowBoxChild) SetChild(ChildVar *Widget) {
+	core.LazyRegister(&xFlowBoxChildSetChild, "GTK", "gtk_flow_box_child_set_child", false)
+
 	xFlowBoxChildSetChild(x.GoPointer(), ChildVar.GoPointer())
 }
 
@@ -1567,61 +1646,4 @@ func (x *FlowBoxChild) GetBuildableId() string {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GTK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xFlowBoxGLibType, libs, "gtk_flow_box_get_type")
-
-	core.PuregoSafeRegister(&xNewFlowBox, libs, "gtk_flow_box_new")
-
-	core.PuregoSafeRegister(&xFlowBoxAppend, libs, "gtk_flow_box_append")
-	core.PuregoSafeRegister(&xFlowBoxBindModel, libs, "gtk_flow_box_bind_model")
-	core.PuregoSafeRegister(&xFlowBoxGetActivateOnSingleClick, libs, "gtk_flow_box_get_activate_on_single_click")
-	core.PuregoSafeRegister(&xFlowBoxGetChildAtIndex, libs, "gtk_flow_box_get_child_at_index")
-	core.PuregoSafeRegister(&xFlowBoxGetChildAtPos, libs, "gtk_flow_box_get_child_at_pos")
-	core.PuregoSafeRegister(&xFlowBoxGetColumnSpacing, libs, "gtk_flow_box_get_column_spacing")
-	core.PuregoSafeRegister(&xFlowBoxGetHomogeneous, libs, "gtk_flow_box_get_homogeneous")
-	core.PuregoSafeRegister(&xFlowBoxGetMaxChildrenPerLine, libs, "gtk_flow_box_get_max_children_per_line")
-	core.PuregoSafeRegister(&xFlowBoxGetMinChildrenPerLine, libs, "gtk_flow_box_get_min_children_per_line")
-	core.PuregoSafeRegister(&xFlowBoxGetRowSpacing, libs, "gtk_flow_box_get_row_spacing")
-	core.PuregoSafeRegister(&xFlowBoxGetSelectedChildren, libs, "gtk_flow_box_get_selected_children")
-	core.PuregoSafeRegister(&xFlowBoxGetSelectionMode, libs, "gtk_flow_box_get_selection_mode")
-	core.PuregoSafeRegister(&xFlowBoxInsert, libs, "gtk_flow_box_insert")
-	core.PuregoSafeRegister(&xFlowBoxInvalidateFilter, libs, "gtk_flow_box_invalidate_filter")
-	core.PuregoSafeRegister(&xFlowBoxInvalidateSort, libs, "gtk_flow_box_invalidate_sort")
-	core.PuregoSafeRegister(&xFlowBoxPrepend, libs, "gtk_flow_box_prepend")
-	core.PuregoSafeRegister(&xFlowBoxRemove, libs, "gtk_flow_box_remove")
-	core.PuregoSafeRegister(&xFlowBoxRemoveAll, libs, "gtk_flow_box_remove_all")
-	core.PuregoSafeRegister(&xFlowBoxSelectAll, libs, "gtk_flow_box_select_all")
-	core.PuregoSafeRegister(&xFlowBoxSelectChild, libs, "gtk_flow_box_select_child")
-	core.PuregoSafeRegister(&xFlowBoxSelectedForeach, libs, "gtk_flow_box_selected_foreach")
-	core.PuregoSafeRegister(&xFlowBoxSetActivateOnSingleClick, libs, "gtk_flow_box_set_activate_on_single_click")
-	core.PuregoSafeRegister(&xFlowBoxSetColumnSpacing, libs, "gtk_flow_box_set_column_spacing")
-	core.PuregoSafeRegister(&xFlowBoxSetFilterFunc, libs, "gtk_flow_box_set_filter_func")
-	core.PuregoSafeRegister(&xFlowBoxSetHadjustment, libs, "gtk_flow_box_set_hadjustment")
-	core.PuregoSafeRegister(&xFlowBoxSetHomogeneous, libs, "gtk_flow_box_set_homogeneous")
-	core.PuregoSafeRegister(&xFlowBoxSetMaxChildrenPerLine, libs, "gtk_flow_box_set_max_children_per_line")
-	core.PuregoSafeRegister(&xFlowBoxSetMinChildrenPerLine, libs, "gtk_flow_box_set_min_children_per_line")
-	core.PuregoSafeRegister(&xFlowBoxSetRowSpacing, libs, "gtk_flow_box_set_row_spacing")
-	core.PuregoSafeRegister(&xFlowBoxSetSelectionMode, libs, "gtk_flow_box_set_selection_mode")
-	core.PuregoSafeRegister(&xFlowBoxSetSortFunc, libs, "gtk_flow_box_set_sort_func")
-	core.PuregoSafeRegister(&xFlowBoxSetVadjustment, libs, "gtk_flow_box_set_vadjustment")
-	core.PuregoSafeRegister(&xFlowBoxUnselectAll, libs, "gtk_flow_box_unselect_all")
-	core.PuregoSafeRegister(&xFlowBoxUnselectChild, libs, "gtk_flow_box_unselect_child")
-
-	core.PuregoSafeRegister(&xFlowBoxChildGLibType, libs, "gtk_flow_box_child_get_type")
-
-	core.PuregoSafeRegister(&xNewFlowBoxChild, libs, "gtk_flow_box_child_new")
-
-	core.PuregoSafeRegister(&xFlowBoxChildChanged, libs, "gtk_flow_box_child_changed")
-	core.PuregoSafeRegister(&xFlowBoxChildGetChild, libs, "gtk_flow_box_child_get_child")
-	core.PuregoSafeRegister(&xFlowBoxChildGetIndex, libs, "gtk_flow_box_child_get_index")
-	core.PuregoSafeRegister(&xFlowBoxChildIsSelected, libs, "gtk_flow_box_child_is_selected")
-	core.PuregoSafeRegister(&xFlowBoxChildSetChild, libs, "gtk_flow_box_child_set_child")
 }

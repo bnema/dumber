@@ -399,7 +399,7 @@ func (x *ApplicationClass) OverrideDbusRegister(cb func(*Application, *DBusConne
 	if cb == nil {
 		x.xDbusRegister = 0
 	} else {
-		x.xDbusRegister = purego.NewCallback(func(ApplicationVarp uintptr, ConnectionVarp uintptr, ObjectPathVarp string) bool {
+		x.xDbusRegister = purego.NewCallback(func(ApplicationVarp uintptr, ConnectionVarp uintptr, ObjectPathVarp string, cerrp **glib.Error) bool {
 			return cb(ApplicationNewFromInternalPtr(ApplicationVarp), DBusConnectionNewFromInternalPtr(ConnectionVarp), ObjectPathVarp)
 		})
 	}
@@ -418,10 +418,11 @@ func (x *ApplicationClass) GetDbusRegister() func(*Application, *DBusConnection,
 	if x.xDbusRegister == 0 {
 		return nil
 	}
-	var rawCallback func(ApplicationVarp uintptr, ConnectionVarp uintptr, ObjectPathVarp string) bool
+	var rawCallback func(ApplicationVarp uintptr, ConnectionVarp uintptr, ObjectPathVarp string, cerrp **glib.Error) bool
 	purego.RegisterFunc(&rawCallback, x.xDbusRegister)
 	return func(ApplicationVar *Application, ConnectionVar *DBusConnection, ObjectPathVar string) bool {
-		return rawCallback(ApplicationVar.GoPointer(), ConnectionVar.GoPointer(), ObjectPathVar)
+		var cerr *glib.Error
+		return rawCallback(ApplicationVar.GoPointer(), ConnectionVar.GoPointer(), ObjectPathVar, &cerr)
 	}
 }
 
@@ -656,6 +657,7 @@ type Application struct {
 var xApplicationGLibType func() types.GType
 
 func ApplicationGLibType() types.GType {
+	core.LazyRegister(&xApplicationGLibType, "GIO", "g_application_get_type", false)
 	return xApplicationGLibType()
 }
 
@@ -675,6 +677,7 @@ var xNewApplication func(uintptr, ApplicationFlags) uintptr
 // If no application ID is given then some features of #GApplication
 // (most notably application uniqueness) will be disabled.
 func NewApplication(ApplicationIdVar *string, FlagsVar ApplicationFlags) *Application {
+	core.LazyRegister(&xNewApplication, "GIO", "g_application_new", false)
 	var cls *Application
 
 	ApplicationIdVarPtr := core.GStrdupNullable(ApplicationIdVar)
@@ -699,6 +702,8 @@ var xApplicationActivate func(uintptr)
 //
 // The application must be registered before calling this function.
 func (x *Application) Activate() {
+	core.LazyRegister(&xApplicationActivate, "GIO", "g_application_activate", false)
+
 	xApplicationActivate(x.GoPointer())
 }
 
@@ -718,6 +723,8 @@ var xApplicationAddMainOption func(uintptr, string, byte, glib.OptionFlags, glib
 //
 // See #GOptionEntry for more documentation of the arguments.
 func (x *Application) AddMainOption(LongNameVar string, ShortNameVar byte, FlagsVar glib.OptionFlags, ArgVar glib.OptionArg, DescriptionVar string, ArgDescriptionVar *string) {
+	core.LazyRegister(&xApplicationAddMainOption, "GIO", "g_application_add_main_option", false)
+
 	ArgDescriptionVarPtr := core.GStrdupNullable(ArgDescriptionVar)
 	defer core.GFreeNullable(ArgDescriptionVarPtr)
 
@@ -783,6 +790,8 @@ var xApplicationAddMainOptionEntries func(uintptr, []glib.OptionEntry)
 // - for %G_OPTION_ARG_STRING_ARRAY, use `^a&amp;s`
 // - for %G_OPTION_ARG_FILENAME_ARRAY, use `^a&amp;ay`
 func (x *Application) AddMainOptionEntries(EntriesVar []glib.OptionEntry) {
+	core.LazyRegister(&xApplicationAddMainOptionEntries, "GIO", "g_application_add_main_option_entries", false)
+
 	xApplicationAddMainOptionEntries(x.GoPointer(), EntriesVar)
 }
 
@@ -814,6 +823,8 @@ var xApplicationAddOptionGroup func(uintptr, *glib.OptionGroup)
 // new functionality whereby unrecognized options are rejected even if
 // %G_APPLICATION_HANDLES_COMMAND_LINE was given.
 func (x *Application) AddOptionGroup(GroupVar *glib.OptionGroup) {
+	core.LazyRegister(&xApplicationAddOptionGroup, "GIO", "g_application_add_option_group", false)
+
 	xApplicationAddOptionGroup(x.GoPointer(), GroupVar)
 }
 
@@ -826,6 +837,8 @@ var xApplicationBindBusyProperty func(uintptr, uintptr, string)
 // not to @object. Instead, the binding is destroyed when @object is
 // finalized.
 func (x *Application) BindBusyProperty(ObjectVar *gobject.Object, PropertyVar string) {
+	core.LazyRegister(&xApplicationBindBusyProperty, "GIO", "g_application_bind_busy_property", false)
+
 	xApplicationBindBusyProperty(x.GoPointer(), ObjectVar.GoPointer(), PropertyVar)
 }
 
@@ -833,6 +846,8 @@ var xApplicationGetApplicationId func(uintptr) string
 
 // Gets the unique identifier for @application.
 func (x *Application) GetApplicationId() string {
+	core.LazyRegister(&xApplicationGetApplicationId, "GIO", "g_application_get_application_id", false)
+
 	cret := xApplicationGetApplicationId(x.GoPointer())
 	return cret
 }
@@ -853,6 +868,7 @@ var xApplicationGetDbusConnection func(uintptr) uintptr
 // This function must not be called before the application has been
 // registered.  See g_application_get_is_registered().
 func (x *Application) GetDbusConnection() *DBusConnection {
+	core.LazyRegister(&xApplicationGetDbusConnection, "GIO", "g_application_get_dbus_connection", false)
 	var cls *DBusConnection
 
 	cret := xApplicationGetDbusConnection(x.GoPointer())
@@ -883,6 +899,8 @@ var xApplicationGetDbusObjectPath func(uintptr) string
 // This function must not be called before the application has been
 // registered.  See g_application_get_is_registered().
 func (x *Application) GetDbusObjectPath() string {
+	core.LazyRegister(&xApplicationGetDbusObjectPath, "GIO", "g_application_get_dbus_object_path", false)
+
 	cret := xApplicationGetDbusObjectPath(x.GoPointer())
 	return cret
 }
@@ -893,6 +911,8 @@ var xApplicationGetFlags func(uintptr) ApplicationFlags
 //
 // See #GApplicationFlags.
 func (x *Application) GetFlags() ApplicationFlags {
+	core.LazyRegister(&xApplicationGetFlags, "GIO", "g_application_get_flags", false)
+
 	cret := xApplicationGetFlags(x.GoPointer())
 	return cret
 }
@@ -904,6 +924,8 @@ var xApplicationGetInactivityTimeout func(uintptr) uint
 // This is the amount of time (in milliseconds) after the last call to
 // g_application_release() before the application stops running.
 func (x *Application) GetInactivityTimeout() uint {
+	core.LazyRegister(&xApplicationGetInactivityTimeout, "GIO", "g_application_get_inactivity_timeout", false)
+
 	cret := xApplicationGetInactivityTimeout(x.GoPointer())
 	return cret
 }
@@ -913,6 +935,8 @@ var xApplicationGetIsBusy func(uintptr) bool
 // Gets the application's current busy state, as set through
 // g_application_mark_busy() or g_application_bind_busy_property().
 func (x *Application) GetIsBusy() bool {
+	core.LazyRegister(&xApplicationGetIsBusy, "GIO", "g_application_get_is_busy", false)
+
 	cret := xApplicationGetIsBusy(x.GoPointer())
 	return cret
 }
@@ -924,6 +948,8 @@ var xApplicationGetIsRegistered func(uintptr) bool
 // An application is registered if g_application_register() has been
 // successfully called.
 func (x *Application) GetIsRegistered() bool {
+	core.LazyRegister(&xApplicationGetIsRegistered, "GIO", "g_application_get_is_registered", false)
+
 	cret := xApplicationGetIsRegistered(x.GoPointer())
 	return cret
 }
@@ -941,6 +967,8 @@ var xApplicationGetIsRemote func(uintptr) bool
 // g_application_register() has been called.  See
 // g_application_get_is_registered().
 func (x *Application) GetIsRemote() bool {
+	core.LazyRegister(&xApplicationGetIsRemote, "GIO", "g_application_get_is_remote", false)
+
 	cret := xApplicationGetIsRemote(x.GoPointer())
 	return cret
 }
@@ -951,6 +979,8 @@ var xApplicationGetResourceBasePath func(uintptr) string
 //
 // See g_application_set_resource_base_path() for more information.
 func (x *Application) GetResourceBasePath() string {
+	core.LazyRegister(&xApplicationGetResourceBasePath, "GIO", "g_application_get_resource_base_path", false)
+
 	cret := xApplicationGetResourceBasePath(x.GoPointer())
 	return cret
 }
@@ -959,6 +989,8 @@ var xApplicationGetVersion func(uintptr) string
 
 // Gets the version of @application.
 func (x *Application) GetVersion() string {
+	core.LazyRegister(&xApplicationGetVersion, "GIO", "g_application_get_version", false)
+
 	cret := xApplicationGetVersion(x.GoPointer())
 	return cret
 }
@@ -973,6 +1005,8 @@ var xApplicationHold func(uintptr)
 //
 // To cancel the hold, call g_application_release().
 func (x *Application) Hold() {
+	core.LazyRegister(&xApplicationHold, "GIO", "g_application_hold", false)
+
 	xApplicationHold(x.GoPointer())
 }
 
@@ -991,6 +1025,8 @@ var xApplicationMarkBusy func(uintptr)
 //
 // The application must be registered before calling this function.
 func (x *Application) MarkBusy() {
+	core.LazyRegister(&xApplicationMarkBusy, "GIO", "g_application_mark_busy", false)
+
 	xApplicationMarkBusy(x.GoPointer())
 }
 
@@ -1011,6 +1047,8 @@ var xApplicationOpen func(uintptr, uintptr, int, string)
 // The application must be registered before calling this function
 // and it must have the %G_APPLICATION_HANDLES_OPEN flag set.
 func (x *Application) Open(FilesVar uintptr, NFilesVar int, HintVar string) {
+	core.LazyRegister(&xApplicationOpen, "GIO", "g_application_open", false)
+
 	xApplicationOpen(x.GoPointer(), FilesVar, NFilesVar, HintVar)
 }
 
@@ -1030,6 +1068,8 @@ var xApplicationQuit func(uintptr)
 // The result of calling g_application_run() again after it returns is
 // unspecified.
 func (x *Application) Quit() {
+	core.LazyRegister(&xApplicationQuit, "GIO", "g_application_quit", false)
+
 	xApplicationQuit(x.GoPointer())
 }
 
@@ -1066,6 +1106,7 @@ var xApplicationRegister func(uintptr, uintptr, **glib.Error) bool
 // instance is or is not the primary instance of the application.  See
 // g_application_get_is_remote() for that.
 func (x *Application) Register(CancellableVar *Cancellable) (bool, error) {
+	core.LazyRegister(&xApplicationRegister, "GIO", "g_application_register", false)
 	var cerr *glib.Error
 
 	cret := xApplicationRegister(x.GoPointer(), CancellableVar.GoPointer(), &cerr)
@@ -1084,6 +1125,8 @@ var xApplicationRelease func(uintptr)
 // Never call this function except to cancel the effect of a previous
 // call to g_application_hold().
 func (x *Application) Release() {
+	core.LazyRegister(&xApplicationRelease, "GIO", "g_application_release", false)
+
 	xApplicationRelease(x.GoPointer())
 }
 
@@ -1165,6 +1208,8 @@ var xApplicationRun func(uintptr, int, []string) int
 // control over when processes invoked via the commandline will exit and
 // what their exit status will be.
 func (x *Application) Run(ArgcVar int, ArgvVar []string) int {
+	core.LazyRegister(&xApplicationRun, "GIO", "g_application_run", false)
+
 	cret := xApplicationRun(x.GoPointer(), ArgcVar, ArgvVar)
 	return cret
 }
@@ -1201,6 +1246,8 @@ var xApplicationSendNotification func(uintptr, uintptr, uintptr)
 // It is an error to call this function if @application has no
 // application ID.
 func (x *Application) SendNotification(IdVar *string, NotificationVar *Notification) {
+	core.LazyRegister(&xApplicationSendNotification, "GIO", "g_application_send_notification", false)
+
 	IdVarPtr := core.GStrdupNullable(IdVar)
 	defer core.GFreeNullable(IdVarPtr)
 
@@ -1212,6 +1259,8 @@ var xApplicationSetActionGroup func(uintptr, uintptr)
 // This used to be how actions were associated with a #GApplication.
 // Now there is #GActionMap for that.
 func (x *Application) SetActionGroup(ActionGroupVar ActionGroup) {
+	core.LazyRegister(&xApplicationSetActionGroup, "GIO", "g_application_set_action_group", false)
+
 	xApplicationSetActionGroup(x.GoPointer(), ActionGroupVar.GoPointer())
 }
 
@@ -1225,6 +1274,8 @@ var xApplicationSetApplicationId func(uintptr, uintptr)
 // If non-%NULL, the application id must be valid.  See
 // g_application_id_is_valid().
 func (x *Application) SetApplicationId(ApplicationIdVar *string) {
+	core.LazyRegister(&xApplicationSetApplicationId, "GIO", "g_application_set_application_id", false)
+
 	ApplicationIdVarPtr := core.GStrdupNullable(ApplicationIdVar)
 	defer core.GFreeNullable(ApplicationIdVarPtr)
 
@@ -1240,6 +1291,8 @@ var xApplicationSetDefault func(uintptr)
 // @application is destroyed then the default application will revert
 // back to %NULL.
 func (x *Application) SetDefault() {
+	core.LazyRegister(&xApplicationSetDefault, "GIO", "g_application_set_default", false)
+
 	xApplicationSetDefault(x.GoPointer())
 }
 
@@ -1252,6 +1305,8 @@ var xApplicationSetFlags func(uintptr, ApplicationFlags)
 //
 // See #GApplicationFlags.
 func (x *Application) SetFlags(FlagsVar ApplicationFlags) {
+	core.LazyRegister(&xApplicationSetFlags, "GIO", "g_application_set_flags", false)
+
 	xApplicationSetFlags(x.GoPointer(), FlagsVar)
 }
 
@@ -1266,6 +1321,8 @@ var xApplicationSetInactivityTimeout func(uintptr, uint)
 // used for next time g_application_release() drops the use count to
 // zero.  Any timeouts currently in progress are not impacted.
 func (x *Application) SetInactivityTimeout(InactivityTimeoutVar uint) {
+	core.LazyRegister(&xApplicationSetInactivityTimeout, "GIO", "g_application_set_inactivity_timeout", false)
+
 	xApplicationSetInactivityTimeout(x.GoPointer(), InactivityTimeoutVar)
 }
 
@@ -1275,6 +1332,8 @@ var xApplicationSetOptionContextDescription func(uintptr, uintptr)
 //
 // See g_option_context_set_description() for more information.
 func (x *Application) SetOptionContextDescription(DescriptionVar *string) {
+	core.LazyRegister(&xApplicationSetOptionContextDescription, "GIO", "g_application_set_option_context_description", false)
+
 	DescriptionVarPtr := core.GStrdupNullable(DescriptionVar)
 	defer core.GFreeNullable(DescriptionVarPtr)
 
@@ -1290,6 +1349,8 @@ var xApplicationSetOptionContextParameterString func(uintptr, uintptr)
 //
 // See g_option_context_new() for more information about @parameter_string.
 func (x *Application) SetOptionContextParameterString(ParameterStringVar *string) {
+	core.LazyRegister(&xApplicationSetOptionContextParameterString, "GIO", "g_application_set_option_context_parameter_string", false)
+
 	ParameterStringVarPtr := core.GStrdupNullable(ParameterStringVar)
 	defer core.GFreeNullable(ParameterStringVarPtr)
 
@@ -1302,6 +1363,8 @@ var xApplicationSetOptionContextSummary func(uintptr, uintptr)
 //
 // See g_option_context_set_summary() for more information.
 func (x *Application) SetOptionContextSummary(SummaryVar *string) {
+	core.LazyRegister(&xApplicationSetOptionContextSummary, "GIO", "g_application_set_option_context_summary", false)
+
 	SummaryVarPtr := core.GStrdupNullable(SummaryVar)
 	defer core.GFreeNullable(SummaryVarPtr)
 
@@ -1344,6 +1407,8 @@ var xApplicationSetResourceBasePath func(uintptr, uintptr)
 // can call this function in the #GApplicationClass.startup virtual function,
 // before chaining up to the parent implementation.
 func (x *Application) SetResourceBasePath(ResourcePathVar *string) {
+	core.LazyRegister(&xApplicationSetResourceBasePath, "GIO", "g_application_set_resource_base_path", false)
+
 	ResourcePathVarPtr := core.GStrdupNullable(ResourcePathVar)
 	defer core.GFreeNullable(ResourcePathVarPtr)
 
@@ -1358,6 +1423,8 @@ var xApplicationSetVersion func(uintptr, string)
 // The application version can only be modified if @application has not yet
 // been registered.
 func (x *Application) SetVersion(VersionVar string) {
+	core.LazyRegister(&xApplicationSetVersion, "GIO", "g_application_set_version", false)
+
 	xApplicationSetVersion(x.GoPointer(), VersionVar)
 }
 
@@ -1367,6 +1434,8 @@ var xApplicationUnbindBusyProperty func(uintptr, uintptr, string)
 // @application that was previously created with
 // g_application_bind_busy_property().
 func (x *Application) UnbindBusyProperty(ObjectVar *gobject.Object, PropertyVar string) {
+	core.LazyRegister(&xApplicationUnbindBusyProperty, "GIO", "g_application_unbind_busy_property", false)
+
 	xApplicationUnbindBusyProperty(x.GoPointer(), ObjectVar.GoPointer(), PropertyVar)
 }
 
@@ -1380,6 +1449,8 @@ var xApplicationUnmarkBusy func(uintptr)
 // This function must only be called to cancel the effect of a previous
 // call to g_application_mark_busy().
 func (x *Application) UnmarkBusy() {
+	core.LazyRegister(&xApplicationUnmarkBusy, "GIO", "g_application_unmark_busy", false)
+
 	xApplicationUnmarkBusy(x.GoPointer())
 }
 
@@ -1399,6 +1470,8 @@ var xApplicationWithdrawNotification func(uintptr, string)
 // of the buttons in a notification or triggers its default action, so
 // there is no need to explicitly withdraw the notification in that case.
 func (x *Application) WithdrawNotification(IdVar string) {
+	core.LazyRegister(&xApplicationWithdrawNotification, "GIO", "g_application_withdraw_notification", false)
+
 	xApplicationWithdrawNotification(x.GoPointer(), IdVar)
 }
 
@@ -2066,6 +2139,7 @@ var xApplicationGetDefault func() uintptr
 //
 // If there is no default application then %NULL is returned.
 func ApplicationGetDefault() *Application {
+	core.LazyRegister(&xApplicationGetDefault, "GIO", "g_application_get_default", false)
 	var cls *Application
 
 	cret := xApplicationGetDefault()
@@ -2127,6 +2201,8 @@ var xApplicationIdIsValid func(string) bool
 // For example, if the owner of 7-zip.org used an application identifier for an
 // archiving application, it might be named `org._7_zip.Archiver`.
 func ApplicationIdIsValid(ApplicationIdVar string) bool {
+	core.LazyRegister(&xApplicationIdIsValid, "GIO", "g_application_id_is_valid", false)
+
 	cret := xApplicationIdIsValid(ApplicationIdVar)
 	return cret
 }
@@ -2134,56 +2210,4 @@ func ApplicationIdIsValid(ApplicationIdVar string) bool {
 func init() {
 	core.SetPackageName("GIO", "gio-2.0")
 	core.SetSharedLibraries("GIO", []string{"libgio-2.0.so.0", "libgio-2.0.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GIO") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xApplicationGLibType, libs, "g_application_get_type")
-
-	core.PuregoSafeRegister(&xNewApplication, libs, "g_application_new")
-
-	core.PuregoSafeRegister(&xApplicationActivate, libs, "g_application_activate")
-	core.PuregoSafeRegister(&xApplicationAddMainOption, libs, "g_application_add_main_option")
-	core.PuregoSafeRegister(&xApplicationAddMainOptionEntries, libs, "g_application_add_main_option_entries")
-	core.PuregoSafeRegister(&xApplicationAddOptionGroup, libs, "g_application_add_option_group")
-	core.PuregoSafeRegister(&xApplicationBindBusyProperty, libs, "g_application_bind_busy_property")
-	core.PuregoSafeRegister(&xApplicationGetApplicationId, libs, "g_application_get_application_id")
-	core.PuregoSafeRegister(&xApplicationGetDbusConnection, libs, "g_application_get_dbus_connection")
-	core.PuregoSafeRegister(&xApplicationGetDbusObjectPath, libs, "g_application_get_dbus_object_path")
-	core.PuregoSafeRegister(&xApplicationGetFlags, libs, "g_application_get_flags")
-	core.PuregoSafeRegister(&xApplicationGetInactivityTimeout, libs, "g_application_get_inactivity_timeout")
-	core.PuregoSafeRegister(&xApplicationGetIsBusy, libs, "g_application_get_is_busy")
-	core.PuregoSafeRegister(&xApplicationGetIsRegistered, libs, "g_application_get_is_registered")
-	core.PuregoSafeRegister(&xApplicationGetIsRemote, libs, "g_application_get_is_remote")
-	core.PuregoSafeRegister(&xApplicationGetResourceBasePath, libs, "g_application_get_resource_base_path")
-	core.PuregoSafeRegister(&xApplicationGetVersion, libs, "g_application_get_version")
-	core.PuregoSafeRegister(&xApplicationHold, libs, "g_application_hold")
-	core.PuregoSafeRegister(&xApplicationMarkBusy, libs, "g_application_mark_busy")
-	core.PuregoSafeRegister(&xApplicationOpen, libs, "g_application_open")
-	core.PuregoSafeRegister(&xApplicationQuit, libs, "g_application_quit")
-	core.PuregoSafeRegister(&xApplicationRegister, libs, "g_application_register")
-	core.PuregoSafeRegister(&xApplicationRelease, libs, "g_application_release")
-	core.PuregoSafeRegister(&xApplicationRun, libs, "g_application_run")
-	core.PuregoSafeRegister(&xApplicationSendNotification, libs, "g_application_send_notification")
-	core.PuregoSafeRegister(&xApplicationSetActionGroup, libs, "g_application_set_action_group")
-	core.PuregoSafeRegister(&xApplicationSetApplicationId, libs, "g_application_set_application_id")
-	core.PuregoSafeRegister(&xApplicationSetDefault, libs, "g_application_set_default")
-	core.PuregoSafeRegister(&xApplicationSetFlags, libs, "g_application_set_flags")
-	core.PuregoSafeRegister(&xApplicationSetInactivityTimeout, libs, "g_application_set_inactivity_timeout")
-	core.PuregoSafeRegister(&xApplicationSetOptionContextDescription, libs, "g_application_set_option_context_description")
-	core.PuregoSafeRegister(&xApplicationSetOptionContextParameterString, libs, "g_application_set_option_context_parameter_string")
-	core.PuregoSafeRegister(&xApplicationSetOptionContextSummary, libs, "g_application_set_option_context_summary")
-	core.PuregoSafeRegister(&xApplicationSetResourceBasePath, libs, "g_application_set_resource_base_path")
-	core.PuregoSafeRegister(&xApplicationSetVersion, libs, "g_application_set_version")
-	core.PuregoSafeRegister(&xApplicationUnbindBusyProperty, libs, "g_application_unbind_busy_property")
-	core.PuregoSafeRegister(&xApplicationUnmarkBusy, libs, "g_application_unmark_busy")
-	core.PuregoSafeRegister(&xApplicationWithdrawNotification, libs, "g_application_withdraw_notification")
-
-	core.PuregoSafeRegister(&xApplicationGetDefault, libs, "g_application_get_default")
-	core.PuregoSafeRegister(&xApplicationIdIsValid, libs, "g_application_id_is_valid")
 }

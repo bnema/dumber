@@ -67,6 +67,7 @@ type ResponseAppearance int
 var xResponseAppearanceGLibType func() types.GType
 
 func ResponseAppearanceGLibType() types.GType {
+	core.LazyRegister(&xResponseAppearanceGLibType, "ADW", "adw_response_appearance_get_type", false)
 	return xResponseAppearanceGLibType()
 }
 
@@ -231,6 +232,7 @@ type AlertDialog struct {
 var xAlertDialogGLibType func() types.GType
 
 func AlertDialogGLibType() types.GType {
+	core.LazyRegister(&xAlertDialogGLibType, "ADW", "adw_alert_dialog_get_type", false)
 	return xAlertDialogGLibType()
 }
 
@@ -259,6 +261,7 @@ var xNewAlertDialog func(uintptr, uintptr) uintptr
 //
 // ```
 func NewAlertDialog(HeadingVar *string, BodyVar *string) *AlertDialog {
+	core.LazyRegister(&xNewAlertDialog, "ADW", "adw_alert_dialog_new", false)
 	var cls *AlertDialog
 
 	HeadingVarPtr := core.GStrdupNullable(HeadingVar)
@@ -297,6 +300,8 @@ var xAlertDialogAddResponse func(uintptr, string, string)
 // [method@AlertDialog.set_response_appearance] can be used to customize the
 // responses further.
 func (x *AlertDialog) AddResponse(IdVar string, LabelVar string) {
+	core.LazyRegister(&xAlertDialogAddResponse, "ADW", "adw_alert_dialog_add_response", false)
+
 	xAlertDialogAddResponse(x.GoPointer(), IdVar, LabelVar)
 }
 
@@ -320,6 +325,8 @@ var xAlertDialogAddResponses func(uintptr, string, ...interface{})
 //
 // ```
 func (x *AlertDialog) AddResponses(FirstIdVar string, varArgs ...interface{}) {
+	core.LazyRegister(&xAlertDialogAddResponses, "ADW", "adw_alert_dialog_add_responses", false)
+
 	xAlertDialogAddResponses(x.GoPointer(), FirstIdVar, varArgs...)
 }
 
@@ -330,6 +337,8 @@ var xAlertDialogChoose func(uintptr, uintptr, uintptr, uintptr, uintptr)
 // If the window is an [class@Window] or [class@ApplicationWindow], the dialog
 // will be shown within it. Otherwise, it will be a separate window.
 func (x *AlertDialog) Choose(ParentVar *gtk.Widget, CancellableVar *gio.Cancellable, CallbackVar *gio.AsyncReadyCallback, UserDataVar uintptr) {
+	core.LazyRegister(&xAlertDialogChoose, "ADW", "adw_alert_dialog_choose", false)
+
 	xAlertDialogChoose(x.GoPointer(), ParentVar.GoPointer(), CancellableVar.GoPointer(), glib.NewCallbackNullable(CallbackVar), UserDataVar)
 }
 
@@ -337,6 +346,8 @@ var xAlertDialogChooseFinish func(uintptr, uintptr) string
 
 // Finishes the [method@AlertDialog.choose] call and returns the response ID.
 func (x *AlertDialog) ChooseFinish(ResultVar gio.AsyncResult) string {
+	core.LazyRegister(&xAlertDialogChooseFinish, "ADW", "adw_alert_dialog_choose_finish", false)
+
 	cret := xAlertDialogChooseFinish(x.GoPointer(), ResultVar.GoPointer())
 	return cret
 }
@@ -347,6 +358,8 @@ var xAlertDialogFormatBody func(uintptr, string, ...interface{})
 //
 // See [property@AlertDialog:body].
 func (x *AlertDialog) FormatBody(FormatVar string, varArgs ...interface{}) {
+	core.LazyRegister(&xAlertDialogFormatBody, "ADW", "adw_alert_dialog_format_body", false)
+
 	xAlertDialogFormatBody(x.GoPointer(), FormatVar, varArgs...)
 }
 
@@ -362,6 +375,8 @@ var xAlertDialogFormatBodyMarkup func(uintptr, string, ...interface{})
 //
 // See [property@AlertDialog:body].
 func (x *AlertDialog) FormatBodyMarkup(FormatVar string, varArgs ...interface{}) {
+	core.LazyRegister(&xAlertDialogFormatBodyMarkup, "ADW", "adw_alert_dialog_format_body_markup", false)
+
 	xAlertDialogFormatBodyMarkup(x.GoPointer(), FormatVar, varArgs...)
 }
 
@@ -371,6 +386,8 @@ var xAlertDialogFormatHeading func(uintptr, string, ...interface{})
 //
 // See [property@AlertDialog:heading].
 func (x *AlertDialog) FormatHeading(FormatVar string, varArgs ...interface{}) {
+	core.LazyRegister(&xAlertDialogFormatHeading, "ADW", "adw_alert_dialog_format_heading", false)
+
 	xAlertDialogFormatHeading(x.GoPointer(), FormatVar, varArgs...)
 }
 
@@ -386,6 +403,8 @@ var xAlertDialogFormatHeadingMarkup func(uintptr, string, ...interface{})
 //
 // See [property@AlertDialog:heading].
 func (x *AlertDialog) FormatHeadingMarkup(FormatVar string, varArgs ...interface{}) {
+	core.LazyRegister(&xAlertDialogFormatHeadingMarkup, "ADW", "adw_alert_dialog_format_heading_markup", false)
+
 	xAlertDialogFormatHeadingMarkup(x.GoPointer(), FormatVar, varArgs...)
 }
 
@@ -393,6 +412,8 @@ var xAlertDialogGetBody func(uintptr) string
 
 // Gets the body text of @self.
 func (x *AlertDialog) GetBody() string {
+	core.LazyRegister(&xAlertDialogGetBody, "ADW", "adw_alert_dialog_get_body", false)
+
 	cret := xAlertDialogGetBody(x.GoPointer())
 	return cret
 }
@@ -401,6 +422,8 @@ var xAlertDialogGetBodyUseMarkup func(uintptr) bool
 
 // Gets whether the body text of @self includes Pango markup.
 func (x *AlertDialog) GetBodyUseMarkup() bool {
+	core.LazyRegister(&xAlertDialogGetBodyUseMarkup, "ADW", "adw_alert_dialog_get_body_use_markup", false)
+
 	cret := xAlertDialogGetBodyUseMarkup(x.GoPointer())
 	return cret
 }
@@ -409,6 +432,8 @@ var xAlertDialogGetCloseResponse func(uintptr) string
 
 // Gets the ID of the close response of @self.
 func (x *AlertDialog) GetCloseResponse() string {
+	core.LazyRegister(&xAlertDialogGetCloseResponse, "ADW", "adw_alert_dialog_get_close_response", false)
+
 	cret := xAlertDialogGetCloseResponse(x.GoPointer())
 	return cret
 }
@@ -417,6 +442,8 @@ var xAlertDialogGetDefaultResponse func(uintptr) string
 
 // Gets the ID of the default response of @self.
 func (x *AlertDialog) GetDefaultResponse() string {
+	core.LazyRegister(&xAlertDialogGetDefaultResponse, "ADW", "adw_alert_dialog_get_default_response", false)
+
 	cret := xAlertDialogGetDefaultResponse(x.GoPointer())
 	return cret
 }
@@ -425,6 +452,7 @@ var xAlertDialogGetExtraChild func(uintptr) uintptr
 
 // Gets the child widget of @self.
 func (x *AlertDialog) GetExtraChild() *gtk.Widget {
+	core.LazyRegister(&xAlertDialogGetExtraChild, "ADW", "adw_alert_dialog_get_extra_child", false)
 	var cls *gtk.Widget
 
 	cret := xAlertDialogGetExtraChild(x.GoPointer())
@@ -442,6 +470,8 @@ var xAlertDialogGetHeading func(uintptr) string
 
 // Gets the heading of @self.
 func (x *AlertDialog) GetHeading() string {
+	core.LazyRegister(&xAlertDialogGetHeading, "ADW", "adw_alert_dialog_get_heading", false)
+
 	cret := xAlertDialogGetHeading(x.GoPointer())
 	return cret
 }
@@ -450,6 +480,8 @@ var xAlertDialogGetHeadingUseMarkup func(uintptr) bool
 
 // Gets whether the heading of @self includes Pango markup.
 func (x *AlertDialog) GetHeadingUseMarkup() bool {
+	core.LazyRegister(&xAlertDialogGetHeadingUseMarkup, "ADW", "adw_alert_dialog_get_heading_use_markup", false)
+
 	cret := xAlertDialogGetHeadingUseMarkup(x.GoPointer())
 	return cret
 }
@@ -458,6 +490,8 @@ var xAlertDialogGetPreferWideLayout func(uintptr) bool
 
 // Gets whether @self prefers horizontal button layout.
 func (x *AlertDialog) GetPreferWideLayout() bool {
+	core.LazyRegister(&xAlertDialogGetPreferWideLayout, "ADW", "adw_alert_dialog_get_prefer_wide_layout", false)
+
 	cret := xAlertDialogGetPreferWideLayout(x.GoPointer())
 	return cret
 }
@@ -468,6 +502,8 @@ var xAlertDialogGetResponseAppearance func(uintptr, string) ResponseAppearance
 //
 // See [method@AlertDialog.set_response_appearance].
 func (x *AlertDialog) GetResponseAppearance(ResponseVar string) ResponseAppearance {
+	core.LazyRegister(&xAlertDialogGetResponseAppearance, "ADW", "adw_alert_dialog_get_response_appearance", false)
+
 	cret := xAlertDialogGetResponseAppearance(x.GoPointer(), ResponseVar)
 	return cret
 }
@@ -478,6 +514,8 @@ var xAlertDialogGetResponseEnabled func(uintptr, string) bool
 //
 // See [method@AlertDialog.set_response_enabled].
 func (x *AlertDialog) GetResponseEnabled(ResponseVar string) bool {
+	core.LazyRegister(&xAlertDialogGetResponseEnabled, "ADW", "adw_alert_dialog_get_response_enabled", false)
+
 	cret := xAlertDialogGetResponseEnabled(x.GoPointer(), ResponseVar)
 	return cret
 }
@@ -488,6 +526,8 @@ var xAlertDialogGetResponseLabel func(uintptr, string) string
 //
 // See [method@AlertDialog.set_response_label].
 func (x *AlertDialog) GetResponseLabel(ResponseVar string) string {
+	core.LazyRegister(&xAlertDialogGetResponseLabel, "ADW", "adw_alert_dialog_get_response_label", false)
+
 	cret := xAlertDialogGetResponseLabel(x.GoPointer(), ResponseVar)
 	return cret
 }
@@ -496,6 +536,8 @@ var xAlertDialogHasResponse func(uintptr, string) bool
 
 // Gets whether @self has a response with the ID @response.
 func (x *AlertDialog) HasResponse(ResponseVar string) bool {
+	core.LazyRegister(&xAlertDialogHasResponse, "ADW", "adw_alert_dialog_has_response", false)
+
 	cret := xAlertDialogHasResponse(x.GoPointer(), ResponseVar)
 	return cret
 }
@@ -504,6 +546,8 @@ var xAlertDialogRemoveResponse func(uintptr, string)
 
 // Removes a response from @self.
 func (x *AlertDialog) RemoveResponse(IdVar string) {
+	core.LazyRegister(&xAlertDialogRemoveResponse, "ADW", "adw_alert_dialog_remove_response", false)
+
 	xAlertDialogRemoveResponse(x.GoPointer(), IdVar)
 }
 
@@ -511,6 +555,8 @@ var xAlertDialogSetBody func(uintptr, string)
 
 // Sets the body text of @self.
 func (x *AlertDialog) SetBody(BodyVar string) {
+	core.LazyRegister(&xAlertDialogSetBody, "ADW", "adw_alert_dialog_set_body", false)
+
 	xAlertDialogSetBody(x.GoPointer(), BodyVar)
 }
 
@@ -520,6 +566,8 @@ var xAlertDialogSetBodyUseMarkup func(uintptr, bool)
 //
 // See [func@Pango.parse_markup].
 func (x *AlertDialog) SetBodyUseMarkup(UseMarkupVar bool) {
+	core.LazyRegister(&xAlertDialogSetBodyUseMarkup, "ADW", "adw_alert_dialog_set_body_use_markup", false)
+
 	xAlertDialogSetBodyUseMarkup(x.GoPointer(), UseMarkupVar)
 }
 
@@ -534,6 +582,8 @@ var xAlertDialogSetCloseResponse func(uintptr, string)
 //
 // The default close response is `close`.
 func (x *AlertDialog) SetCloseResponse(ResponseVar string) {
+	core.LazyRegister(&xAlertDialogSetCloseResponse, "ADW", "adw_alert_dialog_set_close_response", false)
+
 	xAlertDialogSetCloseResponse(x.GoPointer(), ResponseVar)
 }
 
@@ -549,6 +599,8 @@ var xAlertDialogSetDefaultResponse func(uintptr, uintptr)
 //
 // See [property@Dialog:default-widget].
 func (x *AlertDialog) SetDefaultResponse(ResponseVar *string) {
+	core.LazyRegister(&xAlertDialogSetDefaultResponse, "ADW", "adw_alert_dialog_set_default_response", false)
+
 	ResponseVarPtr := core.GStrdupNullable(ResponseVar)
 	defer core.GFreeNullable(ResponseVarPtr)
 
@@ -561,6 +613,8 @@ var xAlertDialogSetExtraChild func(uintptr, uintptr)
 //
 // The child widget is displayed below the heading and body.
 func (x *AlertDialog) SetExtraChild(ChildVar *gtk.Widget) {
+	core.LazyRegister(&xAlertDialogSetExtraChild, "ADW", "adw_alert_dialog_set_extra_child", false)
+
 	xAlertDialogSetExtraChild(x.GoPointer(), ChildVar.GoPointer())
 }
 
@@ -568,6 +622,8 @@ var xAlertDialogSetHeading func(uintptr, uintptr)
 
 // Sets the heading of @self.
 func (x *AlertDialog) SetHeading(HeadingVar *string) {
+	core.LazyRegister(&xAlertDialogSetHeading, "ADW", "adw_alert_dialog_set_heading", false)
+
 	HeadingVarPtr := core.GStrdupNullable(HeadingVar)
 	defer core.GFreeNullable(HeadingVarPtr)
 
@@ -580,6 +636,8 @@ var xAlertDialogSetHeadingUseMarkup func(uintptr, bool)
 //
 // See [func@Pango.parse_markup].
 func (x *AlertDialog) SetHeadingUseMarkup(UseMarkupVar bool) {
+	core.LazyRegister(&xAlertDialogSetHeadingUseMarkup, "ADW", "adw_alert_dialog_set_heading_use_markup", false)
+
 	xAlertDialogSetHeadingUseMarkup(x.GoPointer(), UseMarkupVar)
 }
 
@@ -601,6 +659,8 @@ var xAlertDialogSetPreferWideLayout func(uintptr, bool)
 // Does nothing with just one button, or when the buttons are already
 // horizontal.
 func (x *AlertDialog) SetPreferWideLayout(PreferWideLayoutVar bool) {
+	core.LazyRegister(&xAlertDialogSetPreferWideLayout, "ADW", "adw_alert_dialog_set_prefer_wide_layout", false)
+
 	xAlertDialogSetPreferWideLayout(x.GoPointer(), PreferWideLayoutVar)
 }
 
@@ -627,6 +687,8 @@ var xAlertDialogSetResponseAppearance func(uintptr, string, ResponseAppearance)
 //
 // Negative responses like Cancel or Close should use the default appearance.
 func (x *AlertDialog) SetResponseAppearance(ResponseVar string, AppearanceVar ResponseAppearance) {
+	core.LazyRegister(&xAlertDialogSetResponseAppearance, "ADW", "adw_alert_dialog_set_response_appearance", false)
+
 	xAlertDialogSetResponseAppearance(x.GoPointer(), ResponseVar, AppearanceVar)
 }
 
@@ -643,6 +705,8 @@ var xAlertDialogSetResponseEnabled func(uintptr, string, bool)
 //
 // Responses are enabled by default.
 func (x *AlertDialog) SetResponseEnabled(ResponseVar string, EnabledVar bool) {
+	core.LazyRegister(&xAlertDialogSetResponseEnabled, "ADW", "adw_alert_dialog_set_response_enabled", false)
+
 	xAlertDialogSetResponseEnabled(x.GoPointer(), ResponseVar, EnabledVar)
 }
 
@@ -653,6 +717,8 @@ var xAlertDialogSetResponseLabel func(uintptr, string, string)
 // Labels are displayed on the dialog buttons. An embedded underline in @label
 // indicates a mnemonic.
 func (x *AlertDialog) SetResponseLabel(ResponseVar string, LabelVar string) {
+	core.LazyRegister(&xAlertDialogSetResponseLabel, "ADW", "adw_alert_dialog_set_response_label", false)
+
 	xAlertDialogSetResponseLabel(x.GoPointer(), ResponseVar, LabelVar)
 }
 
@@ -1145,51 +1211,4 @@ func (x *AlertDialog) GetBuildableId() string {
 func init() {
 	core.SetPackageName("ADW", "libadwaita-1")
 	core.SetSharedLibraries("ADW", []string{"libadwaita-1.so.0", "libadwaita-1.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("ADW") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xResponseAppearanceGLibType, libs, "adw_response_appearance_get_type")
-
-	core.PuregoSafeRegister(&xAlertDialogGLibType, libs, "adw_alert_dialog_get_type")
-
-	core.PuregoSafeRegister(&xNewAlertDialog, libs, "adw_alert_dialog_new")
-
-	core.PuregoSafeRegister(&xAlertDialogAddResponse, libs, "adw_alert_dialog_add_response")
-	core.PuregoSafeRegister(&xAlertDialogAddResponses, libs, "adw_alert_dialog_add_responses")
-	core.PuregoSafeRegister(&xAlertDialogChoose, libs, "adw_alert_dialog_choose")
-	core.PuregoSafeRegister(&xAlertDialogChooseFinish, libs, "adw_alert_dialog_choose_finish")
-	core.PuregoSafeRegister(&xAlertDialogFormatBody, libs, "adw_alert_dialog_format_body")
-	core.PuregoSafeRegister(&xAlertDialogFormatBodyMarkup, libs, "adw_alert_dialog_format_body_markup")
-	core.PuregoSafeRegister(&xAlertDialogFormatHeading, libs, "adw_alert_dialog_format_heading")
-	core.PuregoSafeRegister(&xAlertDialogFormatHeadingMarkup, libs, "adw_alert_dialog_format_heading_markup")
-	core.PuregoSafeRegister(&xAlertDialogGetBody, libs, "adw_alert_dialog_get_body")
-	core.PuregoSafeRegister(&xAlertDialogGetBodyUseMarkup, libs, "adw_alert_dialog_get_body_use_markup")
-	core.PuregoSafeRegister(&xAlertDialogGetCloseResponse, libs, "adw_alert_dialog_get_close_response")
-	core.PuregoSafeRegister(&xAlertDialogGetDefaultResponse, libs, "adw_alert_dialog_get_default_response")
-	core.PuregoSafeRegister(&xAlertDialogGetExtraChild, libs, "adw_alert_dialog_get_extra_child")
-	core.PuregoSafeRegister(&xAlertDialogGetHeading, libs, "adw_alert_dialog_get_heading")
-	core.PuregoSafeRegister(&xAlertDialogGetHeadingUseMarkup, libs, "adw_alert_dialog_get_heading_use_markup")
-	core.PuregoSafeRegister(&xAlertDialogGetPreferWideLayout, libs, "adw_alert_dialog_get_prefer_wide_layout")
-	core.PuregoSafeRegister(&xAlertDialogGetResponseAppearance, libs, "adw_alert_dialog_get_response_appearance")
-	core.PuregoSafeRegister(&xAlertDialogGetResponseEnabled, libs, "adw_alert_dialog_get_response_enabled")
-	core.PuregoSafeRegister(&xAlertDialogGetResponseLabel, libs, "adw_alert_dialog_get_response_label")
-	core.PuregoSafeRegister(&xAlertDialogHasResponse, libs, "adw_alert_dialog_has_response")
-	core.PuregoSafeRegister(&xAlertDialogRemoveResponse, libs, "adw_alert_dialog_remove_response")
-	core.PuregoSafeRegister(&xAlertDialogSetBody, libs, "adw_alert_dialog_set_body")
-	core.PuregoSafeRegister(&xAlertDialogSetBodyUseMarkup, libs, "adw_alert_dialog_set_body_use_markup")
-	core.PuregoSafeRegister(&xAlertDialogSetCloseResponse, libs, "adw_alert_dialog_set_close_response")
-	core.PuregoSafeRegister(&xAlertDialogSetDefaultResponse, libs, "adw_alert_dialog_set_default_response")
-	core.PuregoSafeRegister(&xAlertDialogSetExtraChild, libs, "adw_alert_dialog_set_extra_child")
-	core.PuregoSafeRegister(&xAlertDialogSetHeading, libs, "adw_alert_dialog_set_heading")
-	core.PuregoSafeRegister(&xAlertDialogSetHeadingUseMarkup, libs, "adw_alert_dialog_set_heading_use_markup")
-	core.PuregoSafeRegister(&xAlertDialogSetPreferWideLayout, libs, "adw_alert_dialog_set_prefer_wide_layout")
-	core.PuregoSafeRegister(&xAlertDialogSetResponseAppearance, libs, "adw_alert_dialog_set_response_appearance")
-	core.PuregoSafeRegister(&xAlertDialogSetResponseEnabled, libs, "adw_alert_dialog_set_response_enabled")
-	core.PuregoSafeRegister(&xAlertDialogSetResponseLabel, libs, "adw_alert_dialog_set_response_label")
 }

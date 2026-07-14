@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gobject/types"
 )
@@ -79,6 +80,7 @@ type ListItemFactory struct {
 var xListItemFactoryGLibType func() types.GType
 
 func ListItemFactoryGLibType() types.GType {
+	core.LazyRegister(&xListItemFactoryGLibType, "GTK", "gtk_list_item_factory_get_type", false)
 	return xListItemFactoryGLibType()
 }
 
@@ -97,4 +99,9 @@ func (c *ListItemFactory) GoPointer() uintptr {
 
 func (c *ListItemFactory) SetGoPointer(ptr uintptr) {
 	c.Ptr = ptr
+}
+
+func init() {
+	core.SetPackageName("GTK", "gtk4")
+	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
 }

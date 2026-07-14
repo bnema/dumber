@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -37,6 +36,7 @@ type CustomSorter struct {
 var xCustomSorterGLibType func() types.GType
 
 func CustomSorterGLibType() types.GType {
+	core.LazyRegister(&xCustomSorterGLibType, "GTK", "gtk_custom_sorter_get_type", false)
 	return xCustomSorterGLibType()
 }
 
@@ -53,6 +53,7 @@ var xNewCustomSorter func(uintptr, uintptr, uintptr) uintptr
 //
 // If @sort_func is %NULL, all items are considered equal.
 func NewCustomSorter(SortFuncVar *glib.CompareDataFunc, UserDataVar uintptr, UserDestroyVar *glib.DestroyNotify) *CustomSorter {
+	core.LazyRegister(&xNewCustomSorter, "GTK", "gtk_custom_sorter_new", false)
 	var cls *CustomSorter
 
 	cret := xNewCustomSorter(glib.NewCallbackNullable(SortFuncVar), UserDataVar, glib.NewCallbackNullable(UserDestroyVar))
@@ -77,6 +78,8 @@ var xCustomSorterSetSortFunc func(uintptr, uintptr, uintptr, uintptr)
 // If a previous function was set, its @user_destroy will be
 // called now.
 func (x *CustomSorter) SetSortFunc(SortFuncVar *glib.CompareDataFunc, UserDataVar uintptr, UserDestroyVar *glib.DestroyNotify) {
+	core.LazyRegister(&xCustomSorterSetSortFunc, "GTK", "gtk_custom_sorter_set_sort_func", false)
+
 	xCustomSorterSetSortFunc(x.GoPointer(), glib.NewCallbackNullable(SortFuncVar), UserDataVar, glib.NewCallbackNullable(UserDestroyVar))
 }
 
@@ -94,18 +97,4 @@ func (c *CustomSorter) SetGoPointer(ptr uintptr) {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GTK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xCustomSorterGLibType, libs, "gtk_custom_sorter_get_type")
-
-	core.PuregoSafeRegister(&xNewCustomSorter, libs, "gtk_custom_sorter_new")
-
-	core.PuregoSafeRegister(&xCustomSorterSetSortFunc, libs, "gtk_custom_sorter_set_sort_func")
 }

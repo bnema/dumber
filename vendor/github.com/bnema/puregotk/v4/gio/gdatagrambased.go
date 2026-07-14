@@ -50,7 +50,7 @@ func (x *DatagramBasedInterface) OverrideReceiveMessages(cb func(DatagramBased, 
 	if cb == nil {
 		x.xReceiveMessages = 0
 	} else {
-		x.xReceiveMessages = purego.NewCallback(func(DatagramBasedVarp uintptr, MessagesVarp []InputMessage, NumMessagesVarp uint, FlagsVarp int, TimeoutVarp int64, CancellableVarp uintptr) int {
+		x.xReceiveMessages = purego.NewCallback(func(DatagramBasedVarp uintptr, MessagesVarp []InputMessage, NumMessagesVarp uint, FlagsVarp int, TimeoutVarp int64, CancellableVarp uintptr, cerrp **glib.Error) int {
 			return cb(&DatagramBasedBase{Ptr: DatagramBasedVarp}, MessagesVarp, NumMessagesVarp, FlagsVarp, TimeoutVarp, CancellableNewFromInternalPtr(CancellableVarp))
 		})
 	}
@@ -62,10 +62,11 @@ func (x *DatagramBasedInterface) GetReceiveMessages() func(DatagramBased, []Inpu
 	if x.xReceiveMessages == 0 {
 		return nil
 	}
-	var rawCallback func(DatagramBasedVarp uintptr, MessagesVarp []InputMessage, NumMessagesVarp uint, FlagsVarp int, TimeoutVarp int64, CancellableVarp uintptr) int
+	var rawCallback func(DatagramBasedVarp uintptr, MessagesVarp []InputMessage, NumMessagesVarp uint, FlagsVarp int, TimeoutVarp int64, CancellableVarp uintptr, cerrp **glib.Error) int
 	purego.RegisterFunc(&rawCallback, x.xReceiveMessages)
 	return func(DatagramBasedVar DatagramBased, MessagesVar []InputMessage, NumMessagesVar uint, FlagsVar int, TimeoutVar int64, CancellableVar *Cancellable) int {
-		return rawCallback(DatagramBasedVar.GoPointer(), MessagesVar, NumMessagesVar, FlagsVar, TimeoutVar, CancellableVar.GoPointer())
+		var cerr *glib.Error
+		return rawCallback(DatagramBasedVar.GoPointer(), MessagesVar, NumMessagesVar, FlagsVar, TimeoutVar, CancellableVar.GoPointer(), &cerr)
 	}
 }
 
@@ -75,7 +76,7 @@ func (x *DatagramBasedInterface) OverrideSendMessages(cb func(DatagramBased, []O
 	if cb == nil {
 		x.xSendMessages = 0
 	} else {
-		x.xSendMessages = purego.NewCallback(func(DatagramBasedVarp uintptr, MessagesVarp []OutputMessage, NumMessagesVarp uint, FlagsVarp int, TimeoutVarp int64, CancellableVarp uintptr) int {
+		x.xSendMessages = purego.NewCallback(func(DatagramBasedVarp uintptr, MessagesVarp []OutputMessage, NumMessagesVarp uint, FlagsVarp int, TimeoutVarp int64, CancellableVarp uintptr, cerrp **glib.Error) int {
 			return cb(&DatagramBasedBase{Ptr: DatagramBasedVarp}, MessagesVarp, NumMessagesVarp, FlagsVarp, TimeoutVarp, CancellableNewFromInternalPtr(CancellableVarp))
 		})
 	}
@@ -87,10 +88,11 @@ func (x *DatagramBasedInterface) GetSendMessages() func(DatagramBased, []OutputM
 	if x.xSendMessages == 0 {
 		return nil
 	}
-	var rawCallback func(DatagramBasedVarp uintptr, MessagesVarp []OutputMessage, NumMessagesVarp uint, FlagsVarp int, TimeoutVarp int64, CancellableVarp uintptr) int
+	var rawCallback func(DatagramBasedVarp uintptr, MessagesVarp []OutputMessage, NumMessagesVarp uint, FlagsVarp int, TimeoutVarp int64, CancellableVarp uintptr, cerrp **glib.Error) int
 	purego.RegisterFunc(&rawCallback, x.xSendMessages)
 	return func(DatagramBasedVar DatagramBased, MessagesVar []OutputMessage, NumMessagesVar uint, FlagsVar int, TimeoutVar int64, CancellableVar *Cancellable) int {
-		return rawCallback(DatagramBasedVar.GoPointer(), MessagesVar, NumMessagesVar, FlagsVar, TimeoutVar, CancellableVar.GoPointer())
+		var cerr *glib.Error
+		return rawCallback(DatagramBasedVar.GoPointer(), MessagesVar, NumMessagesVar, FlagsVar, TimeoutVar, CancellableVar.GoPointer(), &cerr)
 	}
 }
 
@@ -160,7 +162,7 @@ func (x *DatagramBasedInterface) OverrideConditionWait(cb func(DatagramBased, gl
 	if cb == nil {
 		x.xConditionWait = 0
 	} else {
-		x.xConditionWait = purego.NewCallback(func(DatagramBasedVarp uintptr, ConditionVarp glib.IOCondition, TimeoutVarp int64, CancellableVarp uintptr) bool {
+		x.xConditionWait = purego.NewCallback(func(DatagramBasedVarp uintptr, ConditionVarp glib.IOCondition, TimeoutVarp int64, CancellableVarp uintptr, cerrp **glib.Error) bool {
 			return cb(&DatagramBasedBase{Ptr: DatagramBasedVarp}, ConditionVarp, TimeoutVarp, CancellableNewFromInternalPtr(CancellableVarp))
 		})
 	}
@@ -174,10 +176,11 @@ func (x *DatagramBasedInterface) GetConditionWait() func(DatagramBased, glib.IOC
 	if x.xConditionWait == 0 {
 		return nil
 	}
-	var rawCallback func(DatagramBasedVarp uintptr, ConditionVarp glib.IOCondition, TimeoutVarp int64, CancellableVarp uintptr) bool
+	var rawCallback func(DatagramBasedVarp uintptr, ConditionVarp glib.IOCondition, TimeoutVarp int64, CancellableVarp uintptr, cerrp **glib.Error) bool
 	purego.RegisterFunc(&rawCallback, x.xConditionWait)
 	return func(DatagramBasedVar DatagramBased, ConditionVar glib.IOCondition, TimeoutVar int64, CancellableVar *Cancellable) bool {
-		return rawCallback(DatagramBasedVar.GoPointer(), ConditionVar, TimeoutVar, CancellableVar.GoPointer())
+		var cerr *glib.Error
+		return rawCallback(DatagramBasedVar.GoPointer(), ConditionVar, TimeoutVar, CancellableVar.GoPointer(), &cerr)
 	}
 }
 
@@ -243,6 +246,7 @@ type DatagramBased interface {
 var xDatagramBasedGLibType func() types.GType
 
 func DatagramBasedGLibType() types.GType {
+	core.LazyRegister(&xDatagramBasedGLibType, "GIO", "g_datagram_based_get_type", false)
 	return xDatagramBasedGLibType()
 }
 
@@ -451,31 +455,42 @@ func (x *DatagramBasedBase) SendMessages(MessagesVar []OutputMessage, NumMessage
 	return cret, cerr
 }
 
+var XGDatagramBasedConditionCheck func(uintptr, glib.IOCondition) glib.IOCondition = func(instance uintptr, ConditionVarp glib.IOCondition) glib.IOCondition {
+	core.LazyRegister(&xXGDatagramBasedConditionCheck, "GIO", "g_datagram_based_condition_check", false)
+	return xXGDatagramBasedConditionCheck(instance, ConditionVarp)
+}
+
 var (
-	XGDatagramBasedConditionCheck  func(uintptr, glib.IOCondition) glib.IOCondition
-	XGDatagramBasedConditionWait   func(uintptr, glib.IOCondition, int64, uintptr, **glib.Error) bool
-	XGDatagramBasedCreateSource    func(uintptr, glib.IOCondition, uintptr) uintptr
-	XGDatagramBasedReceiveMessages func(uintptr, []InputMessage, uint, int, int64, uintptr, **glib.Error) int
-	XGDatagramBasedSendMessages    func(uintptr, []OutputMessage, uint, int, int64, uintptr, **glib.Error) int
+	xXGDatagramBasedConditionCheck func(uintptr, glib.IOCondition) glib.IOCondition
+	XGDatagramBasedConditionWait   func(uintptr, glib.IOCondition, int64, uintptr, **glib.Error) bool = func(instance uintptr, ConditionVarp glib.IOCondition, TimeoutVarp int64, CancellableVarp uintptr, cerrp **glib.Error) bool {
+		core.LazyRegister(&xXGDatagramBasedConditionWait, "GIO", "g_datagram_based_condition_wait", false)
+		return xXGDatagramBasedConditionWait(instance, ConditionVarp, TimeoutVarp, CancellableVarp, cerrp)
+	}
 )
+var (
+	xXGDatagramBasedConditionWait func(uintptr, glib.IOCondition, int64, uintptr, **glib.Error) bool
+	XGDatagramBasedCreateSource   func(uintptr, glib.IOCondition, uintptr) uintptr = func(instance uintptr, ConditionVarp glib.IOCondition, CancellableVarp uintptr) uintptr {
+		core.LazyRegister(&xXGDatagramBasedCreateSource, "GIO", "g_datagram_based_create_source", false)
+		return xXGDatagramBasedCreateSource(instance, ConditionVarp, CancellableVarp)
+	}
+)
+var (
+	xXGDatagramBasedCreateSource   func(uintptr, glib.IOCondition, uintptr) uintptr
+	XGDatagramBasedReceiveMessages func(uintptr, []InputMessage, uint, int, int64, uintptr, **glib.Error) int = func(instance uintptr, MessagesVarp []InputMessage, NumMessagesVarp uint, FlagsVarp int, TimeoutVarp int64, CancellableVarp uintptr, cerrp **glib.Error) int {
+		core.LazyRegister(&xXGDatagramBasedReceiveMessages, "GIO", "g_datagram_based_receive_messages", false)
+		return xXGDatagramBasedReceiveMessages(instance, MessagesVarp, NumMessagesVarp, FlagsVarp, TimeoutVarp, CancellableVarp, cerrp)
+	}
+)
+var (
+	xXGDatagramBasedReceiveMessages func(uintptr, []InputMessage, uint, int, int64, uintptr, **glib.Error) int
+	XGDatagramBasedSendMessages     func(uintptr, []OutputMessage, uint, int, int64, uintptr, **glib.Error) int = func(instance uintptr, MessagesVarp []OutputMessage, NumMessagesVarp uint, FlagsVarp int, TimeoutVarp int64, CancellableVarp uintptr, cerrp **glib.Error) int {
+		core.LazyRegister(&xXGDatagramBasedSendMessages, "GIO", "g_datagram_based_send_messages", false)
+		return xXGDatagramBasedSendMessages(instance, MessagesVarp, NumMessagesVarp, FlagsVarp, TimeoutVarp, CancellableVarp, cerrp)
+	}
+)
+var xXGDatagramBasedSendMessages func(uintptr, []OutputMessage, uint, int, int64, uintptr, **glib.Error) int
 
 func init() {
 	core.SetPackageName("GIO", "gio-2.0")
 	core.SetSharedLibraries("GIO", []string{"libgio-2.0.so.0", "libgio-2.0.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GIO") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xDatagramBasedGLibType, libs, "g_datagram_based_get_type")
-
-	core.PuregoSafeRegister(&XGDatagramBasedConditionCheck, libs, "g_datagram_based_condition_check")
-	core.PuregoSafeRegister(&XGDatagramBasedConditionWait, libs, "g_datagram_based_condition_wait")
-	core.PuregoSafeRegister(&XGDatagramBasedCreateSource, libs, "g_datagram_based_create_source")
-	core.PuregoSafeRegister(&XGDatagramBasedReceiveMessages, libs, "g_datagram_based_receive_messages")
-	core.PuregoSafeRegister(&XGDatagramBasedSendMessages, libs, "g_datagram_based_send_messages")
 }

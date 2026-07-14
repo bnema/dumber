@@ -36,6 +36,7 @@ type TreeIter struct {
 var xTreeIterGLibType func() types.GType
 
 func TreeIterGLibType() types.GType {
+	core.LazyRegister(&xTreeIterGLibType, "GTK", "gtk_tree_iter_get_type", false)
 	return xTreeIterGLibType()
 }
 
@@ -60,6 +61,8 @@ var xTreeIterCopy func(uintptr) uintptr
 // (`GtkTreeIter new_iter = iter;`).
 // You must free this iter with gtk_tree_iter_free().
 func (x *TreeIter) Copy() *TreeIter {
+	core.LazyRegister(&xTreeIterCopy, "GTK", "gtk_tree_iter_copy", false)
+
 	cret := xTreeIterCopy(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -73,6 +76,8 @@ var xTreeIterFree func(uintptr)
 //
 // This function is mainly used for language bindings.
 func (x *TreeIter) Free() {
+	core.LazyRegister(&xTreeIterFree, "GTK", "gtk_tree_iter_free", false)
+
 	xTreeIterFree(x.GoPointer())
 }
 
@@ -674,6 +679,7 @@ type TreePath struct {
 var xTreePathGLibType func() types.GType
 
 func TreePathGLibType() types.GType {
+	core.LazyRegister(&xTreePathGLibType, "GTK", "gtk_tree_path_get_type", false)
 	return xTreePathGLibType()
 }
 
@@ -694,6 +700,8 @@ var xNewTreePath func() uintptr
 // Creates a new `GtkTreePath`
 // This refers to a row.
 func NewTreePath() *TreePath {
+	core.LazyRegister(&xNewTreePath, "GTK", "gtk_tree_path_new", false)
+
 	cret := xNewTreePath()
 	if cret == 0 {
 		return nil
@@ -707,6 +715,8 @@ var xNewTreePathFirst func() uintptr
 //
 // The string representation of this path is “0”.
 func NewTreePathFirst() *TreePath {
+	core.LazyRegister(&xNewTreePathFirst, "GTK", "gtk_tree_path_new_first", false)
+
 	cret := xNewTreePathFirst()
 	if cret == 0 {
 		return nil
@@ -718,6 +728,8 @@ var xNewTreePathFromIndices func(int, ...interface{}) uintptr
 
 // Creates a new path with @first_index and @varargs as indices.
 func NewTreePathFromIndices(FirstIndexVar int, varArgs ...interface{}) *TreePath {
+	core.LazyRegister(&xNewTreePathFromIndices, "GTK", "gtk_tree_path_new_from_indices", false)
+
 	cret := xNewTreePathFromIndices(FirstIndexVar, varArgs...)
 	if cret == 0 {
 		return nil
@@ -729,6 +741,8 @@ var xNewTreePathFromIndicesv func([]int, uint) uintptr
 
 // Creates a new path with the given @indices array of @length.
 func NewTreePathFromIndicesv(IndicesVar []int, LengthVar uint) *TreePath {
+	core.LazyRegister(&xNewTreePathFromIndicesv, "GTK", "gtk_tree_path_new_from_indicesv", false)
+
 	cret := xNewTreePathFromIndicesv(IndicesVar, LengthVar)
 	if cret == 0 {
 		return nil
@@ -746,6 +760,8 @@ var xNewTreePathFromString func(string) uintptr
 // child of that 11th child, and the 1st child of that 5th child.
 // If an invalid path string is passed in, %NULL is returned.
 func NewTreePathFromString(PathVar string) *TreePath {
+	core.LazyRegister(&xNewTreePathFromString, "GTK", "gtk_tree_path_new_from_string", false)
+
 	cret := xNewTreePathFromString(PathVar)
 	if cret == 0 {
 		return nil
@@ -759,6 +775,8 @@ var xTreePathAppendIndex func(uintptr, int)
 //
 // As a result, the depth of the path is increased.
 func (x *TreePath) AppendIndex(IndexVar int) {
+	core.LazyRegister(&xTreePathAppendIndex, "GTK", "gtk_tree_path_append_index", false)
+
 	xTreePathAppendIndex(x.GoPointer(), IndexVar)
 }
 
@@ -770,6 +788,8 @@ var xTreePathCompare func(uintptr, *TreePath) int
 // If @b appears before @a, then 1 is returned.
 // If the two nodes are equal, then 0 is returned.
 func (x *TreePath) Compare(BVar *TreePath) int {
+	core.LazyRegister(&xTreePathCompare, "GTK", "gtk_tree_path_compare", false)
+
 	cret := xTreePathCompare(x.GoPointer(), BVar)
 	return cret
 }
@@ -778,6 +798,8 @@ var xTreePathCopy func(uintptr) uintptr
 
 // Creates a new `GtkTreePath` as a copy of @path.
 func (x *TreePath) Copy() *TreePath {
+	core.LazyRegister(&xTreePathCopy, "GTK", "gtk_tree_path_copy", false)
+
 	cret := xTreePathCopy(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -789,6 +811,8 @@ var xTreePathDown func(uintptr)
 
 // Moves @path to point to the first child of the current path.
 func (x *TreePath) Down() {
+	core.LazyRegister(&xTreePathDown, "GTK", "gtk_tree_path_down", false)
+
 	xTreePathDown(x.GoPointer())
 }
 
@@ -796,6 +820,8 @@ var xTreePathFree func(uintptr)
 
 // Frees @path. If @path is %NULL, it simply returns.
 func (x *TreePath) Free() {
+	core.LazyRegister(&xTreePathFree, "GTK", "gtk_tree_path_free", false)
+
 	xTreePathFree(x.GoPointer())
 }
 
@@ -803,6 +829,8 @@ var xTreePathGetDepth func(uintptr) int
 
 // Returns the current depth of @path.
 func (x *TreePath) GetDepth() int {
+	core.LazyRegister(&xTreePathGetDepth, "GTK", "gtk_tree_path_get_depth", false)
+
 	cret := xTreePathGetDepth(x.GoPointer())
 	return cret
 }
@@ -816,6 +844,8 @@ var xTreePathGetIndices func(uintptr) int
 //
 // The length of the array can be obtained with gtk_tree_path_get_depth().
 func (x *TreePath) GetIndices() int {
+	core.LazyRegister(&xTreePathGetIndices, "GTK", "gtk_tree_path_get_indices", false)
+
 	cret := xTreePathGetIndices(x.GoPointer())
 	return cret
 }
@@ -828,6 +858,8 @@ var xTreePathGetIndicesWithDepth func(uintptr, *int) uintptr
 // It also returns the number of elements in the array.
 // The array should not be freed.
 func (x *TreePath) GetIndicesWithDepth(DepthVar *int) uintptr {
+	core.LazyRegister(&xTreePathGetIndicesWithDepth, "GTK", "gtk_tree_path_get_indices_with_depth", false)
+
 	cret := xTreePathGetIndicesWithDepth(x.GoPointer(), DepthVar)
 	return cret
 }
@@ -836,6 +868,8 @@ var xTreePathIsAncestor func(uintptr, *TreePath) bool
 
 // Returns %TRUE if @descendant is a descendant of @path.
 func (x *TreePath) IsAncestor(DescendantVar *TreePath) bool {
+	core.LazyRegister(&xTreePathIsAncestor, "GTK", "gtk_tree_path_is_ancestor", false)
+
 	cret := xTreePathIsAncestor(x.GoPointer(), DescendantVar)
 	return cret
 }
@@ -844,6 +878,8 @@ var xTreePathIsDescendant func(uintptr, *TreePath) bool
 
 // Returns %TRUE if @path is a descendant of @ancestor.
 func (x *TreePath) IsDescendant(AncestorVar *TreePath) bool {
+	core.LazyRegister(&xTreePathIsDescendant, "GTK", "gtk_tree_path_is_descendant", false)
+
 	cret := xTreePathIsDescendant(x.GoPointer(), AncestorVar)
 	return cret
 }
@@ -852,6 +888,8 @@ var xTreePathNext func(uintptr)
 
 // Moves the @path to point to the next node at the current depth.
 func (x *TreePath) Next() {
+	core.LazyRegister(&xTreePathNext, "GTK", "gtk_tree_path_next", false)
+
 	xTreePathNext(x.GoPointer())
 }
 
@@ -861,6 +899,8 @@ var xTreePathPrependIndex func(uintptr, int)
 //
 // As a result, the depth of the path is increased.
 func (x *TreePath) PrependIndex(IndexVar int) {
+	core.LazyRegister(&xTreePathPrependIndex, "GTK", "gtk_tree_path_prepend_index", false)
+
 	xTreePathPrependIndex(x.GoPointer(), IndexVar)
 }
 
@@ -869,6 +909,8 @@ var xTreePathPrev func(uintptr) bool
 // Moves the @path to point to the previous node at the
 // current depth, if it exists.
 func (x *TreePath) Prev() bool {
+	core.LazyRegister(&xTreePathPrev, "GTK", "gtk_tree_path_prev", false)
+
 	cret := xTreePathPrev(x.GoPointer())
 	return cret
 }
@@ -882,6 +924,8 @@ var xTreePathToString func(uintptr) string
 // return value for this string. If the path has
 // depth 0, %NULL is returned.
 func (x *TreePath) ToString() string {
+	core.LazyRegister(&xTreePathToString, "GTK", "gtk_tree_path_to_string", false)
+
 	cret := xTreePathToString(x.GoPointer())
 	return cret
 }
@@ -890,6 +934,8 @@ var xTreePathUp func(uintptr) bool
 
 // Moves the @path to point to its parent node, if it has a parent.
 func (x *TreePath) Up() bool {
+	core.LazyRegister(&xTreePathUp, "GTK", "gtk_tree_path_up", false)
+
 	cret := xTreePathUp(x.GoPointer())
 	return cret
 }
@@ -904,6 +950,7 @@ type TreeRowReference struct {
 var xTreeRowReferenceGLibType func() types.GType
 
 func TreeRowReferenceGLibType() types.GType {
+	core.LazyRegister(&xTreeRowReferenceGLibType, "GTK", "gtk_tree_row_reference_get_type", false)
 	return xTreeRowReferenceGLibType()
 }
 
@@ -928,6 +975,8 @@ var xNewTreeRowReference func(uintptr, *TreePath) uintptr
 // propagated, and the path is updated appropriately. If
 // @path isn’t a valid path in @model, then %NULL is returned.
 func NewTreeRowReference(ModelVar TreeModel, PathVar *TreePath) *TreeRowReference {
+	core.LazyRegister(&xNewTreeRowReference, "GTK", "gtk_tree_row_reference_new", false)
+
 	cret := xNewTreeRowReference(ModelVar.GoPointer(), PathVar)
 	if cret == 0 {
 		return nil
@@ -962,6 +1011,8 @@ var xNewTreeRowReferenceProxy func(uintptr, uintptr, *TreePath) uintptr
 // need to carefully monitor exactly when a row reference updates
 // itself, and is not generally needed by most applications.
 func NewTreeRowReferenceProxy(ProxyVar *gobject.Object, ModelVar TreeModel, PathVar *TreePath) *TreeRowReference {
+	core.LazyRegister(&xNewTreeRowReferenceProxy, "GTK", "gtk_tree_row_reference_new_proxy", false)
+
 	cret := xNewTreeRowReferenceProxy(ProxyVar.GoPointer(), ModelVar.GoPointer(), PathVar)
 	if cret == 0 {
 		return nil
@@ -973,6 +1024,8 @@ var xTreeRowReferenceCopy func(uintptr) uintptr
 
 // Copies a `GtkTreeRowReference`.
 func (x *TreeRowReference) Copy() *TreeRowReference {
+	core.LazyRegister(&xTreeRowReferenceCopy, "GTK", "gtk_tree_row_reference_copy", false)
+
 	cret := xTreeRowReferenceCopy(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -984,6 +1037,8 @@ var xTreeRowReferenceFree func(uintptr)
 
 // Free’s @reference. @reference may be %NULL
 func (x *TreeRowReference) Free() {
+	core.LazyRegister(&xTreeRowReferenceFree, "GTK", "gtk_tree_row_reference_free", false)
+
 	xTreeRowReferenceFree(x.GoPointer())
 }
 
@@ -991,6 +1046,7 @@ var xTreeRowReferenceGetModel func(uintptr) uintptr
 
 // Returns the model that the row reference is monitoring.
 func (x *TreeRowReference) GetModel() *TreeModelBase {
+	core.LazyRegister(&xTreeRowReferenceGetModel, "GTK", "gtk_tree_row_reference_get_model", false)
 	var cls *TreeModelBase
 
 	cret := xTreeRowReferenceGetModel(x.GoPointer())
@@ -1009,6 +1065,8 @@ var xTreeRowReferenceGetPath func(uintptr) uintptr
 // Returns a path that the row reference currently points to,
 // or %NULL if the path pointed to is no longer valid.
 func (x *TreeRowReference) GetPath() *TreePath {
+	core.LazyRegister(&xTreeRowReferenceGetPath, "GTK", "gtk_tree_row_reference_get_path", false)
+
 	cret := xTreeRowReferenceGetPath(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -1021,6 +1079,8 @@ var xTreeRowReferenceValid func(uintptr) bool
 // Returns %TRUE if the @reference is non-%NULL and refers to
 // a current valid path.
 func (x *TreeRowReference) Valid() bool {
+	core.LazyRegister(&xTreeRowReferenceValid, "GTK", "gtk_tree_row_reference_valid", false)
+
 	cret := xTreeRowReferenceValid(x.GoPointer())
 	return cret
 }
@@ -1270,6 +1330,7 @@ type TreeModel interface {
 var xTreeModelGLibType func() types.GType
 
 func TreeModelGLibType() types.GType {
+	core.LazyRegister(&xTreeModelGLibType, "GTK", "gtk_tree_model_get_type", false)
 	return xTreeModelGLibType()
 }
 
@@ -1577,36 +1638,201 @@ func (x *TreeModelBase) UnrefNode(IterVar *TreeIter) {
 	XGtkTreeModelUnrefNode(x.GoPointer(), IterVar)
 }
 
+var XGtkTreeModelFilterNew func(uintptr, *TreePath) uintptr = func(instance uintptr, RootVarp *TreePath) uintptr {
+	core.LazyRegister(&xXGtkTreeModelFilterNew, "GTK", "gtk_tree_model_filter_new", false)
+	return xXGtkTreeModelFilterNew(instance, RootVarp)
+}
+
 var (
-	XGtkTreeModelFilterNew               func(uintptr, *TreePath) uintptr
-	XGtkTreeModelForeach                 func(uintptr, uintptr, uintptr)
-	XGtkTreeModelGet                     func(uintptr, *TreeIter, ...interface{})
-	XGtkTreeModelGetColumnType           func(uintptr, int) types.GType
-	XGtkTreeModelGetFlags                func(uintptr) TreeModelFlags
-	XGtkTreeModelGetIter                 func(uintptr, *TreeIter, *TreePath) bool
-	XGtkTreeModelGetIterFirst            func(uintptr, *TreeIter) bool
-	XGtkTreeModelGetIterFromString       func(uintptr, *TreeIter, string) bool
-	XGtkTreeModelGetNColumns             func(uintptr) int
-	XGtkTreeModelGetPath                 func(uintptr, *TreeIter) uintptr
-	XGtkTreeModelGetStringFromIter       func(uintptr, *TreeIter) string
-	XGtkTreeModelGetValist               func(uintptr, *TreeIter, []interface{})
-	XGtkTreeModelGetValue                func(uintptr, *TreeIter, int, *gobject.Value)
-	XGtkTreeModelIterChildren            func(uintptr, *TreeIter, *TreeIter) bool
-	XGtkTreeModelIterHasChild            func(uintptr, *TreeIter) bool
-	XGtkTreeModelIterNChildren           func(uintptr, *TreeIter) int
-	XGtkTreeModelIterNext                func(uintptr, *TreeIter) bool
-	XGtkTreeModelIterNthChild            func(uintptr, *TreeIter, *TreeIter, int) bool
-	XGtkTreeModelIterParent              func(uintptr, *TreeIter, *TreeIter) bool
-	XGtkTreeModelIterPrevious            func(uintptr, *TreeIter) bool
-	XGtkTreeModelRefNode                 func(uintptr, *TreeIter)
-	XGtkTreeModelRowChanged              func(uintptr, *TreePath, *TreeIter)
-	XGtkTreeModelRowDeleted              func(uintptr, *TreePath)
-	XGtkTreeModelRowHasChildToggled      func(uintptr, *TreePath, *TreeIter)
-	XGtkTreeModelRowInserted             func(uintptr, *TreePath, *TreeIter)
-	XGtkTreeModelRowsReordered           func(uintptr, *TreePath, *TreeIter, int)
-	XGtkTreeModelRowsReorderedWithLength func(uintptr, *TreePath, *TreeIter, []int, int)
-	XGtkTreeModelUnrefNode               func(uintptr, *TreeIter)
+	xXGtkTreeModelFilterNew func(uintptr, *TreePath) uintptr
+	XGtkTreeModelForeach    func(uintptr, uintptr, uintptr) = func(instance uintptr, FuncVarp uintptr, UserDataVarp uintptr) {
+		core.LazyRegister(&xXGtkTreeModelForeach, "GTK", "gtk_tree_model_foreach", false)
+		xXGtkTreeModelForeach(instance, FuncVarp, UserDataVarp)
+	}
 )
+var (
+	xXGtkTreeModelForeach func(uintptr, uintptr, uintptr)
+	XGtkTreeModelGet      func(uintptr, *TreeIter, ...interface{}) = func(instance uintptr, IterVarp *TreeIter, varArgsp ...interface{}) {
+		core.LazyRegister(&xXGtkTreeModelGet, "GTK", "gtk_tree_model_get", false)
+		xXGtkTreeModelGet(instance, IterVarp, varArgsp)
+	}
+)
+var (
+	xXGtkTreeModelGet          func(uintptr, *TreeIter, ...interface{})
+	XGtkTreeModelGetColumnType func(uintptr, int) types.GType = func(instance uintptr, IndexVarp int) types.GType {
+		core.LazyRegister(&xXGtkTreeModelGetColumnType, "GTK", "gtk_tree_model_get_column_type", false)
+		return xXGtkTreeModelGetColumnType(instance, IndexVarp)
+	}
+)
+var (
+	xXGtkTreeModelGetColumnType func(uintptr, int) types.GType
+	XGtkTreeModelGetFlags       func(uintptr) TreeModelFlags = func(instance uintptr) TreeModelFlags {
+		core.LazyRegister(&xXGtkTreeModelGetFlags, "GTK", "gtk_tree_model_get_flags", false)
+		return xXGtkTreeModelGetFlags(instance)
+	}
+)
+var (
+	xXGtkTreeModelGetFlags func(uintptr) TreeModelFlags
+	XGtkTreeModelGetIter   func(uintptr, *TreeIter, *TreePath) bool = func(instance uintptr, IterVarp *TreeIter, PathVarp *TreePath) bool {
+		core.LazyRegister(&xXGtkTreeModelGetIter, "GTK", "gtk_tree_model_get_iter", false)
+		return xXGtkTreeModelGetIter(instance, IterVarp, PathVarp)
+	}
+)
+var (
+	xXGtkTreeModelGetIter     func(uintptr, *TreeIter, *TreePath) bool
+	XGtkTreeModelGetIterFirst func(uintptr, *TreeIter) bool = func(instance uintptr, IterVarp *TreeIter) bool {
+		core.LazyRegister(&xXGtkTreeModelGetIterFirst, "GTK", "gtk_tree_model_get_iter_first", false)
+		return xXGtkTreeModelGetIterFirst(instance, IterVarp)
+	}
+)
+var (
+	xXGtkTreeModelGetIterFirst     func(uintptr, *TreeIter) bool
+	XGtkTreeModelGetIterFromString func(uintptr, *TreeIter, string) bool = func(instance uintptr, IterVarp *TreeIter, PathStringVarp string) bool {
+		core.LazyRegister(&xXGtkTreeModelGetIterFromString, "GTK", "gtk_tree_model_get_iter_from_string", false)
+		return xXGtkTreeModelGetIterFromString(instance, IterVarp, PathStringVarp)
+	}
+)
+var (
+	xXGtkTreeModelGetIterFromString func(uintptr, *TreeIter, string) bool
+	XGtkTreeModelGetNColumns        func(uintptr) int = func(instance uintptr) int {
+		core.LazyRegister(&xXGtkTreeModelGetNColumns, "GTK", "gtk_tree_model_get_n_columns", false)
+		return xXGtkTreeModelGetNColumns(instance)
+	}
+)
+var (
+	xXGtkTreeModelGetNColumns func(uintptr) int
+	XGtkTreeModelGetPath      func(uintptr, *TreeIter) uintptr = func(instance uintptr, IterVarp *TreeIter) uintptr {
+		core.LazyRegister(&xXGtkTreeModelGetPath, "GTK", "gtk_tree_model_get_path", false)
+		return xXGtkTreeModelGetPath(instance, IterVarp)
+	}
+)
+var (
+	xXGtkTreeModelGetPath          func(uintptr, *TreeIter) uintptr
+	XGtkTreeModelGetStringFromIter func(uintptr, *TreeIter) string = func(instance uintptr, IterVarp *TreeIter) string {
+		core.LazyRegister(&xXGtkTreeModelGetStringFromIter, "GTK", "gtk_tree_model_get_string_from_iter", false)
+		return xXGtkTreeModelGetStringFromIter(instance, IterVarp)
+	}
+)
+var (
+	xXGtkTreeModelGetStringFromIter func(uintptr, *TreeIter) string
+	XGtkTreeModelGetValist          func(uintptr, *TreeIter, []interface{}) = func(instance uintptr, IterVarp *TreeIter, VarArgsVarp []interface{}) {
+		core.LazyRegister(&xXGtkTreeModelGetValist, "GTK", "gtk_tree_model_get_valist", false)
+		xXGtkTreeModelGetValist(instance, IterVarp, VarArgsVarp)
+	}
+)
+var (
+	xXGtkTreeModelGetValist func(uintptr, *TreeIter, []interface{})
+	XGtkTreeModelGetValue   func(uintptr, *TreeIter, int, *gobject.Value) = func(instance uintptr, IterVarp *TreeIter, ColumnVarp int, ValueVarp *gobject.Value) {
+		core.LazyRegister(&xXGtkTreeModelGetValue, "GTK", "gtk_tree_model_get_value", false)
+		xXGtkTreeModelGetValue(instance, IterVarp, ColumnVarp, ValueVarp)
+	}
+)
+var (
+	xXGtkTreeModelGetValue    func(uintptr, *TreeIter, int, *gobject.Value)
+	XGtkTreeModelIterChildren func(uintptr, *TreeIter, *TreeIter) bool = func(instance uintptr, IterVarp *TreeIter, ParentVarp *TreeIter) bool {
+		core.LazyRegister(&xXGtkTreeModelIterChildren, "GTK", "gtk_tree_model_iter_children", false)
+		return xXGtkTreeModelIterChildren(instance, IterVarp, ParentVarp)
+	}
+)
+var (
+	xXGtkTreeModelIterChildren func(uintptr, *TreeIter, *TreeIter) bool
+	XGtkTreeModelIterHasChild  func(uintptr, *TreeIter) bool = func(instance uintptr, IterVarp *TreeIter) bool {
+		core.LazyRegister(&xXGtkTreeModelIterHasChild, "GTK", "gtk_tree_model_iter_has_child", false)
+		return xXGtkTreeModelIterHasChild(instance, IterVarp)
+	}
+)
+var (
+	xXGtkTreeModelIterHasChild func(uintptr, *TreeIter) bool
+	XGtkTreeModelIterNChildren func(uintptr, *TreeIter) int = func(instance uintptr, IterVarp *TreeIter) int {
+		core.LazyRegister(&xXGtkTreeModelIterNChildren, "GTK", "gtk_tree_model_iter_n_children", false)
+		return xXGtkTreeModelIterNChildren(instance, IterVarp)
+	}
+)
+var (
+	xXGtkTreeModelIterNChildren func(uintptr, *TreeIter) int
+	XGtkTreeModelIterNext       func(uintptr, *TreeIter) bool = func(instance uintptr, IterVarp *TreeIter) bool {
+		core.LazyRegister(&xXGtkTreeModelIterNext, "GTK", "gtk_tree_model_iter_next", false)
+		return xXGtkTreeModelIterNext(instance, IterVarp)
+	}
+)
+var (
+	xXGtkTreeModelIterNext    func(uintptr, *TreeIter) bool
+	XGtkTreeModelIterNthChild func(uintptr, *TreeIter, *TreeIter, int) bool = func(instance uintptr, IterVarp *TreeIter, ParentVarp *TreeIter, NVarp int) bool {
+		core.LazyRegister(&xXGtkTreeModelIterNthChild, "GTK", "gtk_tree_model_iter_nth_child", false)
+		return xXGtkTreeModelIterNthChild(instance, IterVarp, ParentVarp, NVarp)
+	}
+)
+var (
+	xXGtkTreeModelIterNthChild func(uintptr, *TreeIter, *TreeIter, int) bool
+	XGtkTreeModelIterParent    func(uintptr, *TreeIter, *TreeIter) bool = func(instance uintptr, IterVarp *TreeIter, ChildVarp *TreeIter) bool {
+		core.LazyRegister(&xXGtkTreeModelIterParent, "GTK", "gtk_tree_model_iter_parent", false)
+		return xXGtkTreeModelIterParent(instance, IterVarp, ChildVarp)
+	}
+)
+var (
+	xXGtkTreeModelIterParent  func(uintptr, *TreeIter, *TreeIter) bool
+	XGtkTreeModelIterPrevious func(uintptr, *TreeIter) bool = func(instance uintptr, IterVarp *TreeIter) bool {
+		core.LazyRegister(&xXGtkTreeModelIterPrevious, "GTK", "gtk_tree_model_iter_previous", false)
+		return xXGtkTreeModelIterPrevious(instance, IterVarp)
+	}
+)
+var (
+	xXGtkTreeModelIterPrevious func(uintptr, *TreeIter) bool
+	XGtkTreeModelRefNode       func(uintptr, *TreeIter) = func(instance uintptr, IterVarp *TreeIter) {
+		core.LazyRegister(&xXGtkTreeModelRefNode, "GTK", "gtk_tree_model_ref_node", false)
+		xXGtkTreeModelRefNode(instance, IterVarp)
+	}
+)
+var (
+	xXGtkTreeModelRefNode   func(uintptr, *TreeIter)
+	XGtkTreeModelRowChanged func(uintptr, *TreePath, *TreeIter) = func(instance uintptr, PathVarp *TreePath, IterVarp *TreeIter) {
+		core.LazyRegister(&xXGtkTreeModelRowChanged, "GTK", "gtk_tree_model_row_changed", false)
+		xXGtkTreeModelRowChanged(instance, PathVarp, IterVarp)
+	}
+)
+var (
+	xXGtkTreeModelRowChanged func(uintptr, *TreePath, *TreeIter)
+	XGtkTreeModelRowDeleted  func(uintptr, *TreePath) = func(instance uintptr, PathVarp *TreePath) {
+		core.LazyRegister(&xXGtkTreeModelRowDeleted, "GTK", "gtk_tree_model_row_deleted", false)
+		xXGtkTreeModelRowDeleted(instance, PathVarp)
+	}
+)
+var (
+	xXGtkTreeModelRowDeleted        func(uintptr, *TreePath)
+	XGtkTreeModelRowHasChildToggled func(uintptr, *TreePath, *TreeIter) = func(instance uintptr, PathVarp *TreePath, IterVarp *TreeIter) {
+		core.LazyRegister(&xXGtkTreeModelRowHasChildToggled, "GTK", "gtk_tree_model_row_has_child_toggled", false)
+		xXGtkTreeModelRowHasChildToggled(instance, PathVarp, IterVarp)
+	}
+)
+var (
+	xXGtkTreeModelRowHasChildToggled func(uintptr, *TreePath, *TreeIter)
+	XGtkTreeModelRowInserted         func(uintptr, *TreePath, *TreeIter) = func(instance uintptr, PathVarp *TreePath, IterVarp *TreeIter) {
+		core.LazyRegister(&xXGtkTreeModelRowInserted, "GTK", "gtk_tree_model_row_inserted", false)
+		xXGtkTreeModelRowInserted(instance, PathVarp, IterVarp)
+	}
+)
+var (
+	xXGtkTreeModelRowInserted  func(uintptr, *TreePath, *TreeIter)
+	XGtkTreeModelRowsReordered func(uintptr, *TreePath, *TreeIter, int) = func(instance uintptr, PathVarp *TreePath, IterVarp *TreeIter, NewOrderVarp int) {
+		core.LazyRegister(&xXGtkTreeModelRowsReordered, "GTK", "gtk_tree_model_rows_reordered", false)
+		xXGtkTreeModelRowsReordered(instance, PathVarp, IterVarp, NewOrderVarp)
+	}
+)
+var (
+	xXGtkTreeModelRowsReordered          func(uintptr, *TreePath, *TreeIter, int)
+	XGtkTreeModelRowsReorderedWithLength func(uintptr, *TreePath, *TreeIter, []int, int) = func(instance uintptr, PathVarp *TreePath, IterVarp *TreeIter, NewOrderVarp []int, LengthVarp int) {
+		core.LazyRegister(&xXGtkTreeModelRowsReorderedWithLength, "GTK", "gtk_tree_model_rows_reordered_with_length", false)
+		xXGtkTreeModelRowsReorderedWithLength(instance, PathVarp, IterVarp, NewOrderVarp, LengthVarp)
+	}
+)
+var (
+	xXGtkTreeModelRowsReorderedWithLength func(uintptr, *TreePath, *TreeIter, []int, int)
+	XGtkTreeModelUnrefNode                func(uintptr, *TreeIter) = func(instance uintptr, IterVarp *TreeIter) {
+		core.LazyRegister(&xXGtkTreeModelUnrefNode, "GTK", "gtk_tree_model_unref_node", false)
+		xXGtkTreeModelUnrefNode(instance, IterVarp)
+	}
+)
+var xXGtkTreeModelUnrefNode func(uintptr, *TreeIter)
 
 // These flags indicate various properties of a `GtkTreeModel`.
 //
@@ -1619,6 +1845,7 @@ type TreeModelFlags int
 var xTreeModelFlagsGLibType func() types.GType
 
 func TreeModelFlagsGLibType() types.GType {
+	core.LazyRegister(&xTreeModelFlagsGLibType, "GTK", "gtk_tree_model_flags_get_type", false)
 	return xTreeModelFlagsGLibType()
 }
 
@@ -1638,6 +1865,8 @@ var xTreeRowReferenceDeleted func(uintptr, *TreePath)
 // gtk_tree_row_reference_new_proxy() know that the
 // model emitted the ::row-deleted signal.
 func TreeRowReferenceDeleted(ProxyVar *gobject.Object, PathVar *TreePath) {
+	core.LazyRegister(&xTreeRowReferenceDeleted, "GTK", "gtk_tree_row_reference_deleted", false)
+
 	xTreeRowReferenceDeleted(ProxyVar.GoPointer(), PathVar)
 }
 
@@ -1647,6 +1876,8 @@ var xTreeRowReferenceInserted func(uintptr, *TreePath)
 // gtk_tree_row_reference_new_proxy() know that the
 // model emitted the ::row-inserted signal.
 func TreeRowReferenceInserted(ProxyVar *gobject.Object, PathVar *TreePath) {
+	core.LazyRegister(&xTreeRowReferenceInserted, "GTK", "gtk_tree_row_reference_inserted", false)
+
 	xTreeRowReferenceInserted(ProxyVar.GoPointer(), PathVar)
 }
 
@@ -1656,95 +1887,12 @@ var xTreeRowReferenceReordered func(uintptr, *TreePath, *TreeIter, []int)
 // gtk_tree_row_reference_new_proxy() know that the
 // model emitted the ::rows-reordered signal.
 func TreeRowReferenceReordered(ProxyVar *gobject.Object, PathVar *TreePath, IterVar *TreeIter, NewOrderVar []int) {
+	core.LazyRegister(&xTreeRowReferenceReordered, "GTK", "gtk_tree_row_reference_reordered", false)
+
 	xTreeRowReferenceReordered(ProxyVar.GoPointer(), PathVar, IterVar, NewOrderVar)
 }
 
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GTK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xTreeModelFlagsGLibType, libs, "gtk_tree_model_flags_get_type")
-
-	core.PuregoSafeRegister(&xTreeRowReferenceDeleted, libs, "gtk_tree_row_reference_deleted")
-	core.PuregoSafeRegister(&xTreeRowReferenceInserted, libs, "gtk_tree_row_reference_inserted")
-	core.PuregoSafeRegister(&xTreeRowReferenceReordered, libs, "gtk_tree_row_reference_reordered")
-
-	core.PuregoSafeRegister(&xTreeIterGLibType, libs, "gtk_tree_iter_get_type")
-
-	core.PuregoSafeRegister(&xTreeIterCopy, libs, "gtk_tree_iter_copy")
-	core.PuregoSafeRegister(&xTreeIterFree, libs, "gtk_tree_iter_free")
-
-	core.PuregoSafeRegister(&xTreePathGLibType, libs, "gtk_tree_path_get_type")
-
-	core.PuregoSafeRegister(&xNewTreePath, libs, "gtk_tree_path_new")
-	core.PuregoSafeRegister(&xNewTreePathFirst, libs, "gtk_tree_path_new_first")
-	core.PuregoSafeRegister(&xNewTreePathFromIndices, libs, "gtk_tree_path_new_from_indices")
-	core.PuregoSafeRegister(&xNewTreePathFromIndicesv, libs, "gtk_tree_path_new_from_indicesv")
-	core.PuregoSafeRegister(&xNewTreePathFromString, libs, "gtk_tree_path_new_from_string")
-
-	core.PuregoSafeRegister(&xTreePathAppendIndex, libs, "gtk_tree_path_append_index")
-	core.PuregoSafeRegister(&xTreePathCompare, libs, "gtk_tree_path_compare")
-	core.PuregoSafeRegister(&xTreePathCopy, libs, "gtk_tree_path_copy")
-	core.PuregoSafeRegister(&xTreePathDown, libs, "gtk_tree_path_down")
-	core.PuregoSafeRegister(&xTreePathFree, libs, "gtk_tree_path_free")
-	core.PuregoSafeRegister(&xTreePathGetDepth, libs, "gtk_tree_path_get_depth")
-	core.PuregoSafeRegister(&xTreePathGetIndices, libs, "gtk_tree_path_get_indices")
-	core.PuregoSafeRegister(&xTreePathGetIndicesWithDepth, libs, "gtk_tree_path_get_indices_with_depth")
-	core.PuregoSafeRegister(&xTreePathIsAncestor, libs, "gtk_tree_path_is_ancestor")
-	core.PuregoSafeRegister(&xTreePathIsDescendant, libs, "gtk_tree_path_is_descendant")
-	core.PuregoSafeRegister(&xTreePathNext, libs, "gtk_tree_path_next")
-	core.PuregoSafeRegister(&xTreePathPrependIndex, libs, "gtk_tree_path_prepend_index")
-	core.PuregoSafeRegister(&xTreePathPrev, libs, "gtk_tree_path_prev")
-	core.PuregoSafeRegister(&xTreePathToString, libs, "gtk_tree_path_to_string")
-	core.PuregoSafeRegister(&xTreePathUp, libs, "gtk_tree_path_up")
-
-	core.PuregoSafeRegister(&xTreeRowReferenceGLibType, libs, "gtk_tree_row_reference_get_type")
-
-	core.PuregoSafeRegister(&xNewTreeRowReference, libs, "gtk_tree_row_reference_new")
-	core.PuregoSafeRegister(&xNewTreeRowReferenceProxy, libs, "gtk_tree_row_reference_new_proxy")
-
-	core.PuregoSafeRegister(&xTreeRowReferenceCopy, libs, "gtk_tree_row_reference_copy")
-	core.PuregoSafeRegister(&xTreeRowReferenceFree, libs, "gtk_tree_row_reference_free")
-	core.PuregoSafeRegister(&xTreeRowReferenceGetModel, libs, "gtk_tree_row_reference_get_model")
-	core.PuregoSafeRegister(&xTreeRowReferenceGetPath, libs, "gtk_tree_row_reference_get_path")
-	core.PuregoSafeRegister(&xTreeRowReferenceValid, libs, "gtk_tree_row_reference_valid")
-
-	core.PuregoSafeRegister(&xTreeModelGLibType, libs, "gtk_tree_model_get_type")
-
-	core.PuregoSafeRegister(&XGtkTreeModelFilterNew, libs, "gtk_tree_model_filter_new")
-	core.PuregoSafeRegister(&XGtkTreeModelForeach, libs, "gtk_tree_model_foreach")
-	core.PuregoSafeRegister(&XGtkTreeModelGet, libs, "gtk_tree_model_get")
-	core.PuregoSafeRegister(&XGtkTreeModelGetColumnType, libs, "gtk_tree_model_get_column_type")
-	core.PuregoSafeRegister(&XGtkTreeModelGetFlags, libs, "gtk_tree_model_get_flags")
-	core.PuregoSafeRegister(&XGtkTreeModelGetIter, libs, "gtk_tree_model_get_iter")
-	core.PuregoSafeRegister(&XGtkTreeModelGetIterFirst, libs, "gtk_tree_model_get_iter_first")
-	core.PuregoSafeRegister(&XGtkTreeModelGetIterFromString, libs, "gtk_tree_model_get_iter_from_string")
-	core.PuregoSafeRegister(&XGtkTreeModelGetNColumns, libs, "gtk_tree_model_get_n_columns")
-	core.PuregoSafeRegister(&XGtkTreeModelGetPath, libs, "gtk_tree_model_get_path")
-	core.PuregoSafeRegister(&XGtkTreeModelGetStringFromIter, libs, "gtk_tree_model_get_string_from_iter")
-	core.PuregoSafeRegister(&XGtkTreeModelGetValist, libs, "gtk_tree_model_get_valist")
-	core.PuregoSafeRegister(&XGtkTreeModelGetValue, libs, "gtk_tree_model_get_value")
-	core.PuregoSafeRegister(&XGtkTreeModelIterChildren, libs, "gtk_tree_model_iter_children")
-	core.PuregoSafeRegister(&XGtkTreeModelIterHasChild, libs, "gtk_tree_model_iter_has_child")
-	core.PuregoSafeRegister(&XGtkTreeModelIterNChildren, libs, "gtk_tree_model_iter_n_children")
-	core.PuregoSafeRegister(&XGtkTreeModelIterNext, libs, "gtk_tree_model_iter_next")
-	core.PuregoSafeRegister(&XGtkTreeModelIterNthChild, libs, "gtk_tree_model_iter_nth_child")
-	core.PuregoSafeRegister(&XGtkTreeModelIterParent, libs, "gtk_tree_model_iter_parent")
-	core.PuregoSafeRegister(&XGtkTreeModelIterPrevious, libs, "gtk_tree_model_iter_previous")
-	core.PuregoSafeRegister(&XGtkTreeModelRefNode, libs, "gtk_tree_model_ref_node")
-	core.PuregoSafeRegister(&XGtkTreeModelRowChanged, libs, "gtk_tree_model_row_changed")
-	core.PuregoSafeRegister(&XGtkTreeModelRowDeleted, libs, "gtk_tree_model_row_deleted")
-	core.PuregoSafeRegister(&XGtkTreeModelRowHasChildToggled, libs, "gtk_tree_model_row_has_child_toggled")
-	core.PuregoSafeRegister(&XGtkTreeModelRowInserted, libs, "gtk_tree_model_row_inserted")
-	core.PuregoSafeRegister(&XGtkTreeModelRowsReordered, libs, "gtk_tree_model_rows_reordered")
-	core.PuregoSafeRegister(&XGtkTreeModelRowsReorderedWithLength, libs, "gtk_tree_model_rows_reordered_with_length")
-	core.PuregoSafeRegister(&XGtkTreeModelUnrefNode, libs, "gtk_tree_model_unref_node")
 }

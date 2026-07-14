@@ -40,7 +40,7 @@ func (x *InitableIface) OverrideInit(cb func(Initable, *Cancellable) bool) {
 	if cb == nil {
 		x.xInit = 0
 	} else {
-		x.xInit = purego.NewCallback(func(InitableVarp uintptr, CancellableVarp uintptr) bool {
+		x.xInit = purego.NewCallback(func(InitableVarp uintptr, CancellableVarp uintptr, cerrp **glib.Error) bool {
 			return cb(&InitableBase{Ptr: InitableVarp}, CancellableNewFromInternalPtr(CancellableVarp))
 		})
 	}
@@ -52,10 +52,11 @@ func (x *InitableIface) GetInit() func(Initable, *Cancellable) bool {
 	if x.xInit == 0 {
 		return nil
 	}
-	var rawCallback func(InitableVarp uintptr, CancellableVarp uintptr) bool
+	var rawCallback func(InitableVarp uintptr, CancellableVarp uintptr, cerrp **glib.Error) bool
 	purego.RegisterFunc(&rawCallback, x.xInit)
 	return func(InitableVar Initable, CancellableVar *Cancellable) bool {
-		return rawCallback(InitableVar.GoPointer(), CancellableVar.GoPointer())
+		var cerr *glib.Error
+		return rawCallback(InitableVar.GoPointer(), CancellableVar.GoPointer(), &cerr)
 	}
 }
 
@@ -92,6 +93,7 @@ type Initable interface {
 var xInitableGLibType func() types.GType
 
 func InitableGLibType() types.GType {
+	core.LazyRegister(&xInitableGLibType, "GIO", "g_initable_get_type", false)
 	return xInitableGLibType()
 }
 
@@ -158,7 +160,11 @@ func (x *InitableBase) Init(CancellableVar *Cancellable) (bool, error) {
 	return cret, cerr
 }
 
-var XGInitableInit func(uintptr, uintptr, **glib.Error) bool
+var XGInitableInit func(uintptr, uintptr, **glib.Error) bool = func(instance uintptr, CancellableVarp uintptr, cerrp **glib.Error) bool {
+	core.LazyRegister(&xXGInitableInit, "GIO", "g_initable_init", false)
+	return xXGInitableInit(instance, CancellableVarp, cerrp)
+}
+var xXGInitableInit func(uintptr, uintptr, **glib.Error) bool
 
 var xInitableNewv func(types.GType, uint, []gobject.Parameter, uintptr, **glib.Error) uintptr
 
@@ -166,6 +172,7 @@ var xInitableNewv func(types.GType, uint, []gobject.Parameter, uintptr, **glib.E
 // similar to g_object_newv() but also initializes the object
 // and returns %NULL, setting an error on failure.
 func InitableNewv(ObjectTypeVar types.GType, NParametersVar uint, ParametersVar []gobject.Parameter, CancellableVar *Cancellable) (*gobject.Object, error) {
+	core.LazyRegister(&xInitableNewv, "GIO", "g_initable_newv", false)
 	var cls *gobject.Object
 	var cerr *glib.Error
 
@@ -185,18 +192,4 @@ func InitableNewv(ObjectTypeVar types.GType, NParametersVar uint, ParametersVar 
 func init() {
 	core.SetPackageName("GIO", "gio-2.0")
 	core.SetSharedLibraries("GIO", []string{"libgio-2.0.so.0", "libgio-2.0.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GIO") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xInitableNewv, libs, "g_initable_newv")
-
-	core.PuregoSafeRegister(&xInitableGLibType, libs, "g_initable_get_type")
-
-	core.PuregoSafeRegister(&XGInitableInit, libs, "g_initable_init")
 }

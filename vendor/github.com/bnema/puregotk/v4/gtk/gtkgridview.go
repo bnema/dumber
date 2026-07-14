@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -77,6 +76,7 @@ type GridView struct {
 var xGridViewGLibType func() types.GType
 
 func GridViewGLibType() types.GType {
+	core.LazyRegister(&xGridViewGLibType, "GTK", "gtk_grid_view_get_type", false)
 	return xGridViewGLibType()
 }
 
@@ -100,6 +100,7 @@ var xNewGridView func(uintptr, uintptr) uintptr
 //
 // ```
 func NewGridView(ModelVar SelectionModel, FactoryVar *ListItemFactory) *GridView {
+	core.LazyRegister(&xNewGridView, "GTK", "gtk_grid_view_new", false)
 	var cls *GridView
 
 	cret := xNewGridView(ModelVar.GoPointer(), FactoryVar.GoPointer())
@@ -117,6 +118,8 @@ var xGridViewGetEnableRubberband func(uintptr) bool
 
 // Returns whether rows can be selected by dragging with the mouse.
 func (x *GridView) GetEnableRubberband() bool {
+	core.LazyRegister(&xGridViewGetEnableRubberband, "GTK", "gtk_grid_view_get_enable_rubberband", false)
+
 	cret := xGridViewGetEnableRubberband(x.GoPointer())
 	return cret
 }
@@ -125,6 +128,7 @@ var xGridViewGetFactory func(uintptr) uintptr
 
 // Gets the factory that's currently used to populate list items.
 func (x *GridView) GetFactory() *ListItemFactory {
+	core.LazyRegister(&xGridViewGetFactory, "GTK", "gtk_grid_view_get_factory", false)
 	var cls *ListItemFactory
 
 	cret := xGridViewGetFactory(x.GoPointer())
@@ -142,6 +146,8 @@ var xGridViewGetMaxColumns func(uintptr) uint
 
 // Gets the maximum number of columns that the grid will use.
 func (x *GridView) GetMaxColumns() uint {
+	core.LazyRegister(&xGridViewGetMaxColumns, "GTK", "gtk_grid_view_get_max_columns", false)
+
 	cret := xGridViewGetMaxColumns(x.GoPointer())
 	return cret
 }
@@ -150,6 +156,8 @@ var xGridViewGetMinColumns func(uintptr) uint
 
 // Gets the minimum number of columns that the grid will use.
 func (x *GridView) GetMinColumns() uint {
+	core.LazyRegister(&xGridViewGetMinColumns, "GTK", "gtk_grid_view_get_min_columns", false)
+
 	cret := xGridViewGetMinColumns(x.GoPointer())
 	return cret
 }
@@ -158,6 +166,7 @@ var xGridViewGetModel func(uintptr) uintptr
 
 // Gets the model that's currently used to read the items displayed.
 func (x *GridView) GetModel() *SelectionModelBase {
+	core.LazyRegister(&xGridViewGetModel, "GTK", "gtk_grid_view_get_model", false)
 	var cls *SelectionModelBase
 
 	cret := xGridViewGetModel(x.GoPointer())
@@ -176,6 +185,8 @@ var xGridViewGetSingleClickActivate func(uintptr) bool
 // Returns whether items will be activated on single click and
 // selected on hover.
 func (x *GridView) GetSingleClickActivate() bool {
+	core.LazyRegister(&xGridViewGetSingleClickActivate, "GTK", "gtk_grid_view_get_single_click_activate", false)
+
 	cret := xGridViewGetSingleClickActivate(x.GoPointer())
 	return cret
 }
@@ -184,6 +195,8 @@ var xGridViewGetTabBehavior func(uintptr) ListTabBehavior
 
 // Gets the behavior set for the &lt;kbd&gt;Tab&lt;/kbd&gt; key.
 func (x *GridView) GetTabBehavior() ListTabBehavior {
+	core.LazyRegister(&xGridViewGetTabBehavior, "GTK", "gtk_grid_view_get_tab_behavior", false)
+
 	cret := xGridViewGetTabBehavior(x.GoPointer())
 	return cret
 }
@@ -196,6 +209,8 @@ var xGridViewScrollTo func(uintptr, uint, ListScrollFlags, *ScrollInfo)
 // This function works no matter if the gridview is shown or focused.
 // If it isn't, then the changes will take effect once that happens.
 func (x *GridView) ScrollTo(PosVar uint, FlagsVar ListScrollFlags, ScrollVar *ScrollInfo) {
+	core.LazyRegister(&xGridViewScrollTo, "GTK", "gtk_grid_view_scroll_to", false)
+
 	xGridViewScrollTo(x.GoPointer(), PosVar, FlagsVar, ScrollVar)
 }
 
@@ -203,6 +218,8 @@ var xGridViewSetEnableRubberband func(uintptr, bool)
 
 // Sets whether selections can be changed by dragging with the mouse.
 func (x *GridView) SetEnableRubberband(EnableRubberbandVar bool) {
+	core.LazyRegister(&xGridViewSetEnableRubberband, "GTK", "gtk_grid_view_set_enable_rubberband", false)
+
 	xGridViewSetEnableRubberband(x.GoPointer(), EnableRubberbandVar)
 }
 
@@ -210,6 +227,8 @@ var xGridViewSetFactory func(uintptr, uintptr)
 
 // Sets the `GtkListItemFactory` to use for populating list items.
 func (x *GridView) SetFactory(FactoryVar *ListItemFactory) {
+	core.LazyRegister(&xGridViewSetFactory, "GTK", "gtk_grid_view_set_factory", false)
+
 	xGridViewSetFactory(x.GoPointer(), FactoryVar.GoPointer())
 }
 
@@ -222,6 +241,8 @@ var xGridViewSetMaxColumns func(uintptr, uint)
 // If @max_columns is smaller than the minimum set via
 // [method@Gtk.GridView.set_min_columns], that value is used instead.
 func (x *GridView) SetMaxColumns(MaxColumnsVar uint) {
+	core.LazyRegister(&xGridViewSetMaxColumns, "GTK", "gtk_grid_view_set_max_columns", false)
+
 	xGridViewSetMaxColumns(x.GoPointer(), MaxColumnsVar)
 }
 
@@ -234,6 +255,8 @@ var xGridViewSetMinColumns func(uintptr, uint)
 // If @min_columns is smaller than the minimum set via
 // [method@Gtk.GridView.set_max_columns], that value is ignored.
 func (x *GridView) SetMinColumns(MinColumnsVar uint) {
+	core.LazyRegister(&xGridViewSetMinColumns, "GTK", "gtk_grid_view_set_min_columns", false)
+
 	xGridViewSetMinColumns(x.GoPointer(), MinColumnsVar)
 }
 
@@ -243,6 +266,8 @@ var xGridViewSetModel func(uintptr, uintptr)
 //
 // This must be a [iface@Gtk.SelectionModel].
 func (x *GridView) SetModel(ModelVar SelectionModel) {
+	core.LazyRegister(&xGridViewSetModel, "GTK", "gtk_grid_view_set_model", false)
+
 	xGridViewSetModel(x.GoPointer(), ModelVar.GoPointer())
 }
 
@@ -251,6 +276,8 @@ var xGridViewSetSingleClickActivate func(uintptr, bool)
 // Sets whether items should be activated on single click and
 // selected on hover.
 func (x *GridView) SetSingleClickActivate(SingleClickActivateVar bool) {
+	core.LazyRegister(&xGridViewSetSingleClickActivate, "GTK", "gtk_grid_view_set_single_click_activate", false)
+
 	xGridViewSetSingleClickActivate(x.GoPointer(), SingleClickActivateVar)
 }
 
@@ -258,6 +285,8 @@ var xGridViewSetTabBehavior func(uintptr, ListTabBehavior)
 
 // Sets the behavior of the &lt;kbd&gt;Tab&lt;/kbd&gt; and &lt;kbd&gt;Shift&lt;/kbd&gt;+&lt;kbd&gt;Tab&lt;/kbd&gt; keys.
 func (x *GridView) SetTabBehavior(TabBehaviorVar ListTabBehavior) {
+	core.LazyRegister(&xGridViewSetTabBehavior, "GTK", "gtk_grid_view_set_tab_behavior", false)
+
 	xGridViewSetTabBehavior(x.GoPointer(), TabBehaviorVar)
 }
 
@@ -727,32 +756,4 @@ func (x *GridView) SetVscrollPolicy(PolicyVar ScrollablePolicy) {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GTK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xGridViewGLibType, libs, "gtk_grid_view_get_type")
-
-	core.PuregoSafeRegister(&xNewGridView, libs, "gtk_grid_view_new")
-
-	core.PuregoSafeRegister(&xGridViewGetEnableRubberband, libs, "gtk_grid_view_get_enable_rubberband")
-	core.PuregoSafeRegister(&xGridViewGetFactory, libs, "gtk_grid_view_get_factory")
-	core.PuregoSafeRegister(&xGridViewGetMaxColumns, libs, "gtk_grid_view_get_max_columns")
-	core.PuregoSafeRegister(&xGridViewGetMinColumns, libs, "gtk_grid_view_get_min_columns")
-	core.PuregoSafeRegister(&xGridViewGetModel, libs, "gtk_grid_view_get_model")
-	core.PuregoSafeRegister(&xGridViewGetSingleClickActivate, libs, "gtk_grid_view_get_single_click_activate")
-	core.PuregoSafeRegister(&xGridViewGetTabBehavior, libs, "gtk_grid_view_get_tab_behavior")
-	core.PuregoSafeRegister(&xGridViewScrollTo, libs, "gtk_grid_view_scroll_to")
-	core.PuregoSafeRegister(&xGridViewSetEnableRubberband, libs, "gtk_grid_view_set_enable_rubberband")
-	core.PuregoSafeRegister(&xGridViewSetFactory, libs, "gtk_grid_view_set_factory")
-	core.PuregoSafeRegister(&xGridViewSetMaxColumns, libs, "gtk_grid_view_set_max_columns")
-	core.PuregoSafeRegister(&xGridViewSetMinColumns, libs, "gtk_grid_view_set_min_columns")
-	core.PuregoSafeRegister(&xGridViewSetModel, libs, "gtk_grid_view_set_model")
-	core.PuregoSafeRegister(&xGridViewSetSingleClickActivate, libs, "gtk_grid_view_set_single_click_activate")
-	core.PuregoSafeRegister(&xGridViewSetTabBehavior, libs, "gtk_grid_view_set_tab_behavior")
 }

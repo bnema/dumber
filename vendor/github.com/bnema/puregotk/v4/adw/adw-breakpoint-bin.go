@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -156,6 +155,7 @@ type BreakpointBin struct {
 var xBreakpointBinGLibType func() types.GType
 
 func BreakpointBinGLibType() types.GType {
+	core.LazyRegister(&xBreakpointBinGLibType, "ADW", "adw_breakpoint_bin_get_type", false)
 	return xBreakpointBinGLibType()
 }
 
@@ -169,6 +169,7 @@ var xNewBreakpointBin func() uintptr
 
 // Creates a new `AdwBreakpointBin`.
 func NewBreakpointBin() *BreakpointBin {
+	core.LazyRegister(&xNewBreakpointBin, "ADW", "adw_breakpoint_bin_new", false)
 	var cls *BreakpointBin
 
 	cret := xNewBreakpointBin()
@@ -186,6 +187,8 @@ var xBreakpointBinAddBreakpoint func(uintptr, uintptr)
 
 // Adds @breakpoint to @self.
 func (x *BreakpointBin) AddBreakpoint(BreakpointVar *Breakpoint) {
+	core.LazyRegister(&xBreakpointBinAddBreakpoint, "ADW", "adw_breakpoint_bin_add_breakpoint", false)
+
 	xBreakpointBinAddBreakpoint(x.GoPointer(), BreakpointVar.GoPointer())
 }
 
@@ -193,6 +196,7 @@ var xBreakpointBinGetChild func(uintptr) uintptr
 
 // Gets the child widget of @self.
 func (x *BreakpointBin) GetChild() *gtk.Widget {
+	core.LazyRegister(&xBreakpointBinGetChild, "ADW", "adw_breakpoint_bin_get_child", false)
 	var cls *gtk.Widget
 
 	cret := xBreakpointBinGetChild(x.GoPointer())
@@ -210,6 +214,7 @@ var xBreakpointBinGetCurrentBreakpoint func(uintptr) uintptr
 
 // Gets the current breakpoint.
 func (x *BreakpointBin) GetCurrentBreakpoint() *Breakpoint {
+	core.LazyRegister(&xBreakpointBinGetCurrentBreakpoint, "ADW", "adw_breakpoint_bin_get_current_breakpoint", false)
 	var cls *Breakpoint
 
 	cret := xBreakpointBinGetCurrentBreakpoint(x.GoPointer())
@@ -227,6 +232,8 @@ var xBreakpointBinRemoveBreakpoint func(uintptr, uintptr)
 
 // Removes @breakpoint from @self.
 func (x *BreakpointBin) RemoveBreakpoint(BreakpointVar *Breakpoint) {
+	core.LazyRegister(&xBreakpointBinRemoveBreakpoint, "ADW", "adw_breakpoint_bin_remove_breakpoint", false)
+
 	xBreakpointBinRemoveBreakpoint(x.GoPointer(), BreakpointVar.GoPointer())
 }
 
@@ -234,6 +241,8 @@ var xBreakpointBinSetChild func(uintptr, uintptr)
 
 // Sets the child widget of @self.
 func (x *BreakpointBin) SetChild(ChildVar *gtk.Widget) {
+	core.LazyRegister(&xBreakpointBinSetChild, "ADW", "adw_breakpoint_bin_set_child", false)
+
 	xBreakpointBinSetChild(x.GoPointer(), ChildVar.GoPointer())
 }
 
@@ -511,22 +520,4 @@ func (x *BreakpointBin) GetBuildableId() string {
 func init() {
 	core.SetPackageName("ADW", "libadwaita-1")
 	core.SetSharedLibraries("ADW", []string{"libadwaita-1.so.0", "libadwaita-1.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("ADW") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xBreakpointBinGLibType, libs, "adw_breakpoint_bin_get_type")
-
-	core.PuregoSafeRegister(&xNewBreakpointBin, libs, "adw_breakpoint_bin_new")
-
-	core.PuregoSafeRegister(&xBreakpointBinAddBreakpoint, libs, "adw_breakpoint_bin_add_breakpoint")
-	core.PuregoSafeRegister(&xBreakpointBinGetChild, libs, "adw_breakpoint_bin_get_child")
-	core.PuregoSafeRegister(&xBreakpointBinGetCurrentBreakpoint, libs, "adw_breakpoint_bin_get_current_breakpoint")
-	core.PuregoSafeRegister(&xBreakpointBinRemoveBreakpoint, libs, "adw_breakpoint_bin_remove_breakpoint")
-	core.PuregoSafeRegister(&xBreakpointBinSetChild, libs, "adw_breakpoint_bin_set_child")
 }

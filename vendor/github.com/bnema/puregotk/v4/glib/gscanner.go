@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 )
 
@@ -90,6 +89,8 @@ var xScannerCurLine func(uintptr) uint
 // from 1). This is the line of the last token parsed via
 // g_scanner_get_next_token().
 func (x *Scanner) CurLine() uint {
+	core.LazyRegister(&xScannerCurLine, "GLIB", "g_scanner_cur_line", false)
+
 	cret := xScannerCurLine(x.GoPointer())
 	return cret
 }
@@ -100,6 +101,8 @@ var xScannerCurPosition func(uintptr) uint
 // from 0). This is the position of the last token parsed via
 // g_scanner_get_next_token().
 func (x *Scanner) CurPosition() uint {
+	core.LazyRegister(&xScannerCurPosition, "GLIB", "g_scanner_cur_position", false)
+
 	cret := xScannerCurPosition(x.GoPointer())
 	return cret
 }
@@ -109,6 +112,8 @@ var xScannerCurToken func(uintptr) TokenType
 // Gets the current token type. This is simply the @token
 // field in the #GScanner structure.
 func (x *Scanner) CurToken() TokenType {
+	core.LazyRegister(&xScannerCurToken, "GLIB", "g_scanner_cur_token", false)
+
 	cret := xScannerCurToken(x.GoPointer())
 	return cret
 }
@@ -118,6 +123,8 @@ var xScannerCurValue func(uintptr) TokenValue
 // Gets the current token value. This is simply the @value
 // field in the #GScanner structure.
 func (x *Scanner) CurValue() TokenValue {
+	core.LazyRegister(&xScannerCurValue, "GLIB", "g_scanner_cur_value", false)
+
 	cret := xScannerCurValue(x.GoPointer())
 	return cret
 }
@@ -126,6 +133,8 @@ var xScannerDestroy func(uintptr)
 
 // Frees all memory used by the #GScanner.
 func (x *Scanner) Destroy() {
+	core.LazyRegister(&xScannerDestroy, "GLIB", "g_scanner_destroy", false)
+
 	xScannerDestroy(x.GoPointer())
 }
 
@@ -134,6 +143,8 @@ var xScannerEof func(uintptr) bool
 // Returns %TRUE if the scanner has reached the end of
 // the file or text buffer.
 func (x *Scanner) Eof() bool {
+	core.LazyRegister(&xScannerEof, "GLIB", "g_scanner_eof", false)
+
 	cret := xScannerEof(x.GoPointer())
 	return cret
 }
@@ -142,6 +153,8 @@ var xScannerError func(uintptr, string, ...interface{})
 
 // Outputs an error message, via the #GScanner message handler.
 func (x *Scanner) Error(FormatVar string, varArgs ...interface{}) {
+	core.LazyRegister(&xScannerError, "GLIB", "g_scanner_error", false)
+
 	xScannerError(x.GoPointer(), FormatVar, varArgs...)
 }
 
@@ -152,6 +165,8 @@ var xScannerGetNextToken func(uintptr) TokenType
 // placed in the @token, @value, @line, and @position fields of
 // the #GScanner structure.
 func (x *Scanner) GetNextToken() TokenType {
+	core.LazyRegister(&xScannerGetNextToken, "GLIB", "g_scanner_get_next_token", false)
+
 	cret := xScannerGetNextToken(x.GoPointer())
 	return cret
 }
@@ -160,6 +175,8 @@ var xScannerInputFile func(uintptr, int)
 
 // Prepares to scan a file.
 func (x *Scanner) InputFile(InputFdVar int) {
+	core.LazyRegister(&xScannerInputFile, "GLIB", "g_scanner_input_file", false)
+
 	xScannerInputFile(x.GoPointer(), InputFdVar)
 }
 
@@ -167,6 +184,8 @@ var xScannerInputText func(uintptr, string, uint)
 
 // Prepares to scan a text buffer.
 func (x *Scanner) InputText(TextVar string, TextLenVar uint) {
+	core.LazyRegister(&xScannerInputText, "GLIB", "g_scanner_input_text", false)
+
 	xScannerInputText(x.GoPointer(), TextVar, TextLenVar)
 }
 
@@ -176,6 +195,8 @@ var xScannerLookupSymbol func(uintptr, string) uintptr
 // If the symbol is not bound in the current scope, %NULL is
 // returned.
 func (x *Scanner) LookupSymbol(SymbolVar string) uintptr {
+	core.LazyRegister(&xScannerLookupSymbol, "GLIB", "g_scanner_lookup_symbol", false)
+
 	cret := xScannerLookupSymbol(x.GoPointer(), SymbolVar)
 	return cret
 }
@@ -194,6 +215,8 @@ var xScannerPeekNextToken func(uintptr) TokenType
 // configuration will return whatever was peeked before, regardless of
 // any symbols that may have been added or removed in the new scope.
 func (x *Scanner) PeekNextToken() TokenType {
+	core.LazyRegister(&xScannerPeekNextToken, "GLIB", "g_scanner_peek_next_token", false)
+
 	cret := xScannerPeekNextToken(x.GoPointer())
 	return cret
 }
@@ -202,6 +225,8 @@ var xScannerScopeAddSymbol func(uintptr, uint, string, uintptr)
 
 // Adds a symbol to the given scope.
 func (x *Scanner) ScopeAddSymbol(ScopeIdVar uint, SymbolVar string, ValueVar uintptr) {
+	core.LazyRegister(&xScannerScopeAddSymbol, "GLIB", "g_scanner_scope_add_symbol", false)
+
 	xScannerScopeAddSymbol(x.GoPointer(), ScopeIdVar, SymbolVar, ValueVar)
 }
 
@@ -212,6 +237,8 @@ var xScannerScopeForeachSymbol func(uintptr, uint, uintptr, uintptr)
 // the symbol and value of each pair, and the given @user_data
 // parameter.
 func (x *Scanner) ScopeForeachSymbol(ScopeIdVar uint, FuncVar *HFunc, UserDataVar uintptr) {
+	core.LazyRegister(&xScannerScopeForeachSymbol, "GLIB", "g_scanner_scope_foreach_symbol", false)
+
 	xScannerScopeForeachSymbol(x.GoPointer(), ScopeIdVar, NewCallback(FuncVar), UserDataVar)
 }
 
@@ -220,6 +247,8 @@ var xScannerScopeLookupSymbol func(uintptr, uint, string) uintptr
 // Looks up a symbol in a scope and return its value. If the
 // symbol is not bound in the scope, %NULL is returned.
 func (x *Scanner) ScopeLookupSymbol(ScopeIdVar uint, SymbolVar string) uintptr {
+	core.LazyRegister(&xScannerScopeLookupSymbol, "GLIB", "g_scanner_scope_lookup_symbol", false)
+
 	cret := xScannerScopeLookupSymbol(x.GoPointer(), ScopeIdVar, SymbolVar)
 	return cret
 }
@@ -228,6 +257,8 @@ var xScannerScopeRemoveSymbol func(uintptr, uint, string)
 
 // Removes a symbol from a scope.
 func (x *Scanner) ScopeRemoveSymbol(ScopeIdVar uint, SymbolVar string) {
+	core.LazyRegister(&xScannerScopeRemoveSymbol, "GLIB", "g_scanner_scope_remove_symbol", false)
+
 	xScannerScopeRemoveSymbol(x.GoPointer(), ScopeIdVar, SymbolVar)
 }
 
@@ -235,6 +266,8 @@ var xScannerSetScope func(uintptr, uint) uint
 
 // Sets the current scope.
 func (x *Scanner) SetScope(ScopeIdVar uint) uint {
+	core.LazyRegister(&xScannerSetScope, "GLIB", "g_scanner_set_scope", false)
+
 	cret := xScannerSetScope(x.GoPointer(), ScopeIdVar)
 	return cret
 }
@@ -246,6 +279,8 @@ var xScannerSyncFileOffset func(uintptr)
 // third party uses of the scanners filedescriptor, which hooks
 // onto the current scanning position.
 func (x *Scanner) SyncFileOffset() {
+	core.LazyRegister(&xScannerSyncFileOffset, "GLIB", "g_scanner_sync_file_offset", false)
+
 	xScannerSyncFileOffset(x.GoPointer())
 }
 
@@ -259,6 +294,8 @@ var xScannerUnexpToken func(uintptr, TokenType, string, string, string, string, 
 // evaluates the scanner's current token (not the peeked token)
 // to construct part of the message.
 func (x *Scanner) UnexpToken(ExpectedTokenVar TokenType, IdentifierSpecVar string, SymbolSpecVar string, SymbolNameVar string, MessageVar string, IsErrorVar int) {
+	core.LazyRegister(&xScannerUnexpToken, "GLIB", "g_scanner_unexp_token", false)
+
 	xScannerUnexpToken(x.GoPointer(), ExpectedTokenVar, IdentifierSpecVar, SymbolSpecVar, SymbolNameVar, MessageVar, IsErrorVar)
 }
 
@@ -266,6 +303,8 @@ var xScannerWarn func(uintptr, string, ...interface{})
 
 // Outputs a warning message, via the #GScanner message handler.
 func (x *Scanner) Warn(FormatVar string, varArgs ...interface{}) {
+	core.LazyRegister(&xScannerWarn, "GLIB", "g_scanner_warn", false)
+
 	xScannerWarn(x.GoPointer(), FormatVar, varArgs...)
 }
 
@@ -441,33 +480,4 @@ const (
 func init() {
 	core.SetPackageName("GLIB", "glib-2.0")
 	core.SetSharedLibraries("GLIB", []string{"libgobject-2.0.so.0", "libglib-2.0.so.0", "libgobject-2.0.0.dylib", "libglib-2.0.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GLIB") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xScannerCurLine, libs, "g_scanner_cur_line")
-	core.PuregoSafeRegister(&xScannerCurPosition, libs, "g_scanner_cur_position")
-	core.PuregoSafeRegister(&xScannerCurToken, libs, "g_scanner_cur_token")
-	core.PuregoSafeRegister(&xScannerCurValue, libs, "g_scanner_cur_value")
-	core.PuregoSafeRegister(&xScannerDestroy, libs, "g_scanner_destroy")
-	core.PuregoSafeRegister(&xScannerEof, libs, "g_scanner_eof")
-	core.PuregoSafeRegister(&xScannerError, libs, "g_scanner_error")
-	core.PuregoSafeRegister(&xScannerGetNextToken, libs, "g_scanner_get_next_token")
-	core.PuregoSafeRegister(&xScannerInputFile, libs, "g_scanner_input_file")
-	core.PuregoSafeRegister(&xScannerInputText, libs, "g_scanner_input_text")
-	core.PuregoSafeRegister(&xScannerLookupSymbol, libs, "g_scanner_lookup_symbol")
-	core.PuregoSafeRegister(&xScannerPeekNextToken, libs, "g_scanner_peek_next_token")
-	core.PuregoSafeRegister(&xScannerScopeAddSymbol, libs, "g_scanner_scope_add_symbol")
-	core.PuregoSafeRegister(&xScannerScopeForeachSymbol, libs, "g_scanner_scope_foreach_symbol")
-	core.PuregoSafeRegister(&xScannerScopeLookupSymbol, libs, "g_scanner_scope_lookup_symbol")
-	core.PuregoSafeRegister(&xScannerScopeRemoveSymbol, libs, "g_scanner_scope_remove_symbol")
-	core.PuregoSafeRegister(&xScannerSetScope, libs, "g_scanner_set_scope")
-	core.PuregoSafeRegister(&xScannerSyncFileOffset, libs, "g_scanner_sync_file_offset")
-	core.PuregoSafeRegister(&xScannerUnexpToken, libs, "g_scanner_unexp_token")
-	core.PuregoSafeRegister(&xScannerWarn, libs, "g_scanner_warn")
 }

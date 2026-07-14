@@ -246,6 +246,7 @@ type SocketListener struct {
 var xSocketListenerGLibType func() types.GType
 
 func SocketListenerGLibType() types.GType {
+	core.LazyRegister(&xSocketListenerGLibType, "GIO", "g_socket_listener_get_type", false)
 	return xSocketListenerGLibType()
 }
 
@@ -261,6 +262,7 @@ var xNewSocketListener func() uintptr
 // New listeners can be added with e.g. g_socket_listener_add_address()
 // or g_socket_listener_add_inet_port().
 func NewSocketListener() *SocketListener {
+	core.LazyRegister(&xNewSocketListener, "GIO", "g_socket_listener_new", false)
 	var cls *SocketListener
 
 	cret := xNewSocketListener()
@@ -287,6 +289,7 @@ var xSocketListenerAccept func(uintptr, **gobject.Object, uintptr, **glib.Error)
 // triggering the cancellable object from another thread. If the operation
 // was cancelled, the error %G_IO_ERROR_CANCELLED will be returned.
 func (x *SocketListener) Accept(SourceObjectVar **gobject.Object, CancellableVar *Cancellable) (*SocketConnection, error) {
+	core.LazyRegister(&xSocketListenerAccept, "GIO", "g_socket_listener_accept", false)
 	var cls *SocketConnection
 	var cerr *glib.Error
 
@@ -311,6 +314,8 @@ var xSocketListenerAcceptAsync func(uintptr, uintptr, uintptr, uintptr)
 // called. You can then call g_socket_listener_accept_finish()
 // to get the result of the operation.
 func (x *SocketListener) AcceptAsync(CancellableVar *Cancellable, CallbackVar *AsyncReadyCallback, UserDataVar uintptr) {
+	core.LazyRegister(&xSocketListenerAcceptAsync, "GIO", "g_socket_listener_accept_async", false)
+
 	xSocketListenerAcceptAsync(x.GoPointer(), CancellableVar.GoPointer(), glib.NewCallbackNullable(CallbackVar), UserDataVar)
 }
 
@@ -318,6 +323,7 @@ var xSocketListenerAcceptFinish func(uintptr, uintptr, **gobject.Object, **glib.
 
 // Finishes an async accept operation. See g_socket_listener_accept_async()
 func (x *SocketListener) AcceptFinish(ResultVar AsyncResult, SourceObjectVar **gobject.Object) (*SocketConnection, error) {
+	core.LazyRegister(&xSocketListenerAcceptFinish, "GIO", "g_socket_listener_accept_finish", false)
 	var cls *SocketConnection
 	var cerr *glib.Error
 
@@ -351,6 +357,7 @@ var xSocketListenerAcceptSocket func(uintptr, **gobject.Object, uintptr, **glib.
 // triggering the cancellable object from another thread. If the operation
 // was cancelled, the error %G_IO_ERROR_CANCELLED will be returned.
 func (x *SocketListener) AcceptSocket(SourceObjectVar **gobject.Object, CancellableVar *Cancellable) (*Socket, error) {
+	core.LazyRegister(&xSocketListenerAcceptSocket, "GIO", "g_socket_listener_accept_socket", false)
 	var cls *Socket
 	var cerr *glib.Error
 
@@ -375,6 +382,8 @@ var xSocketListenerAcceptSocketAsync func(uintptr, uintptr, uintptr, uintptr)
 // called. You can then call g_socket_listener_accept_socket_finish()
 // to get the result of the operation.
 func (x *SocketListener) AcceptSocketAsync(CancellableVar *Cancellable, CallbackVar *AsyncReadyCallback, UserDataVar uintptr) {
+	core.LazyRegister(&xSocketListenerAcceptSocketAsync, "GIO", "g_socket_listener_accept_socket_async", false)
+
 	xSocketListenerAcceptSocketAsync(x.GoPointer(), CancellableVar.GoPointer(), glib.NewCallbackNullable(CallbackVar), UserDataVar)
 }
 
@@ -382,6 +391,7 @@ var xSocketListenerAcceptSocketFinish func(uintptr, uintptr, **gobject.Object, *
 
 // Finishes an async accept operation. See g_socket_listener_accept_socket_async()
 func (x *SocketListener) AcceptSocketFinish(ResultVar AsyncResult, SourceObjectVar **gobject.Object) (*Socket, error) {
+	core.LazyRegister(&xSocketListenerAcceptSocketFinish, "GIO", "g_socket_listener_accept_socket_finish", false)
 	var cls *Socket
 	var cerr *glib.Error
 
@@ -424,6 +434,7 @@ var xSocketListenerAddAddress func(uintptr, uintptr, SocketType, SocketProtocol,
 // be done automatically when you drop your final reference to @listener, as
 // references may be held internally.
 func (x *SocketListener) AddAddress(AddressVar *SocketAddress, TypeVar SocketType, ProtocolVar SocketProtocol, SourceObjectVar *gobject.Object, EffectiveAddressVar **SocketAddress) (bool, error) {
+	core.LazyRegister(&xSocketListenerAddAddress, "GIO", "g_socket_listener_add_address", false)
 	var cerr *glib.Error
 
 	cret := xSocketListenerAddAddress(x.GoPointer(), AddressVar.GoPointer(), TypeVar, ProtocolVar, SourceObjectVar.GoPointer(), EffectiveAddressVar, &cerr)
@@ -454,6 +465,7 @@ var xSocketListenerAddAnyInetPort func(uintptr, uintptr, **glib.Error) uint16
 // useful if you're listening on multiple addresses and do
 // different things depending on what address is connected to.
 func (x *SocketListener) AddAnyInetPort(SourceObjectVar *gobject.Object) (uint16, error) {
+	core.LazyRegister(&xSocketListenerAddAnyInetPort, "GIO", "g_socket_listener_add_any_inet_port", false)
 	var cerr *glib.Error
 
 	cret := xSocketListenerAddAnyInetPort(x.GoPointer(), SourceObjectVar.GoPointer(), &cerr)
@@ -486,6 +498,7 @@ var xSocketListenerAddInetPort func(uintptr, uint16, uintptr, **glib.Error) bool
 // be done automatically when you drop your final reference to @listener, as
 // references may be held internally.
 func (x *SocketListener) AddInetPort(PortVar uint16, SourceObjectVar *gobject.Object) (bool, error) {
+	core.LazyRegister(&xSocketListenerAddInetPort, "GIO", "g_socket_listener_add_inet_port", false)
 	var cerr *glib.Error
 
 	cret := xSocketListenerAddInetPort(x.GoPointer(), PortVar, SourceObjectVar.GoPointer(), &cerr)
@@ -514,6 +527,7 @@ var xSocketListenerAddSocket func(uintptr, uintptr, uintptr, **glib.Error) bool
 // the @socket was automatically closed on finalization of the @listener, even
 // if references to it were held elsewhere.
 func (x *SocketListener) AddSocket(SocketVar *Socket, SourceObjectVar *gobject.Object) (bool, error) {
+	core.LazyRegister(&xSocketListenerAddSocket, "GIO", "g_socket_listener_add_socket", false)
 	var cerr *glib.Error
 
 	cret := xSocketListenerAddSocket(x.GoPointer(), SocketVar.GoPointer(), SourceObjectVar.GoPointer(), &cerr)
@@ -527,6 +541,8 @@ var xSocketListenerClose func(uintptr)
 
 // Closes all the sockets in the listener.
 func (x *SocketListener) Close() {
+	core.LazyRegister(&xSocketListenerClose, "GIO", "g_socket_listener_close", false)
+
 	xSocketListenerClose(x.GoPointer())
 }
 
@@ -538,6 +554,8 @@ var xSocketListenerSetBacklog func(uintptr, int)
 //
 // See g_socket_set_listen_backlog() for details
 func (x *SocketListener) SetBacklog(ListenBacklogVar int) {
+	core.LazyRegister(&xSocketListenerSetBacklog, "GIO", "g_socket_listener_set_backlog", false)
+
 	xSocketListenerSetBacklog(x.GoPointer(), ListenBacklogVar)
 }
 
@@ -598,29 +616,4 @@ func (x *SocketListener) ConnectEvent(cb *func(SocketListener, SocketListenerEve
 func init() {
 	core.SetPackageName("GIO", "gio-2.0")
 	core.SetSharedLibraries("GIO", []string{"libgio-2.0.so.0", "libgio-2.0.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GIO") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xSocketListenerGLibType, libs, "g_socket_listener_get_type")
-
-	core.PuregoSafeRegister(&xNewSocketListener, libs, "g_socket_listener_new")
-
-	core.PuregoSafeRegister(&xSocketListenerAccept, libs, "g_socket_listener_accept")
-	core.PuregoSafeRegister(&xSocketListenerAcceptAsync, libs, "g_socket_listener_accept_async")
-	core.PuregoSafeRegister(&xSocketListenerAcceptFinish, libs, "g_socket_listener_accept_finish")
-	core.PuregoSafeRegister(&xSocketListenerAcceptSocket, libs, "g_socket_listener_accept_socket")
-	core.PuregoSafeRegister(&xSocketListenerAcceptSocketAsync, libs, "g_socket_listener_accept_socket_async")
-	core.PuregoSafeRegister(&xSocketListenerAcceptSocketFinish, libs, "g_socket_listener_accept_socket_finish")
-	core.PuregoSafeRegister(&xSocketListenerAddAddress, libs, "g_socket_listener_add_address")
-	core.PuregoSafeRegister(&xSocketListenerAddAnyInetPort, libs, "g_socket_listener_add_any_inet_port")
-	core.PuregoSafeRegister(&xSocketListenerAddInetPort, libs, "g_socket_listener_add_inet_port")
-	core.PuregoSafeRegister(&xSocketListenerAddSocket, libs, "g_socket_listener_add_socket")
-	core.PuregoSafeRegister(&xSocketListenerClose, libs, "g_socket_listener_close")
-	core.PuregoSafeRegister(&xSocketListenerSetBacklog, libs, "g_socket_listener_set_backlog")
 }

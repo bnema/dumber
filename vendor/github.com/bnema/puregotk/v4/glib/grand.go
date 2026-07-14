@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject/types"
 )
@@ -19,6 +18,7 @@ type Rand struct {
 var xRandGLibType func() types.GType
 
 func RandGLibType() types.GType {
+	core.LazyRegister(&xRandGLibType, "GLIB", "g_rand_get_type", false)
 	return xRandGLibType()
 }
 
@@ -42,6 +42,8 @@ var xNewRand func() uintptr
 //
 // On Windows, the seed is taken from rand_s().
 func NewRand() *Rand {
+	core.LazyRegister(&xNewRand, "GLIB", "g_rand_new", false)
+
 	cret := xNewRand()
 	if cret == 0 {
 		return nil
@@ -53,6 +55,8 @@ var xNewRandWithSeed func(uint32) uintptr
 
 // Creates a new random number generator initialized with @seed.
 func NewRandWithSeed(SeedVar uint32) *Rand {
+	core.LazyRegister(&xNewRandWithSeed, "GLIB", "g_rand_new_with_seed", false)
+
 	cret := xNewRandWithSeed(SeedVar)
 	if cret == 0 {
 		return nil
@@ -64,6 +68,8 @@ var xNewRandWithSeedArray func(uint32, uint) uintptr
 
 // Creates a new random number generator initialized with @seed.
 func NewRandWithSeedArray(SeedVar uint32, SeedLengthVar uint) *Rand {
+	core.LazyRegister(&xNewRandWithSeedArray, "GLIB", "g_rand_new_with_seed_array", false)
+
 	cret := xNewRandWithSeedArray(SeedVar, SeedLengthVar)
 	if cret == 0 {
 		return nil
@@ -77,6 +83,8 @@ var xRandCopy func(uintptr) uintptr
 // This way you can take a snapshot of the random number generator for
 // replaying later.
 func (x *Rand) Copy() *Rand {
+	core.LazyRegister(&xRandCopy, "GLIB", "g_rand_copy", false)
+
 	cret := xRandCopy(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -89,6 +97,8 @@ var xRandDouble func(uintptr) float64
 // Returns the next random #gdouble from @rand_ equally distributed over
 // the range [0..1).
 func (x *Rand) Double() float64 {
+	core.LazyRegister(&xRandDouble, "GLIB", "g_rand_double", false)
+
 	cret := xRandDouble(x.GoPointer())
 	return cret
 }
@@ -98,6 +108,8 @@ var xRandDoubleRange func(uintptr, float64, float64) float64
 // Returns the next random #gdouble from @rand_ equally distributed over
 // the range [@begin..@end).
 func (x *Rand) DoubleRange(BeginVar float64, EndVar float64) float64 {
+	core.LazyRegister(&xRandDoubleRange, "GLIB", "g_rand_double_range", false)
+
 	cret := xRandDoubleRange(x.GoPointer(), BeginVar, EndVar)
 	return cret
 }
@@ -106,6 +118,8 @@ var xRandFree func(uintptr)
 
 // Frees the memory allocated for the #GRand.
 func (x *Rand) Free() {
+	core.LazyRegister(&xRandFree, "GLIB", "g_rand_free", false)
+
 	xRandFree(x.GoPointer())
 }
 
@@ -114,6 +128,8 @@ var xRandInt func(uintptr) uint32
 // Returns the next random #guint32 from @rand_ equally distributed over
 // the range [0..2^32-1].
 func (x *Rand) Int() uint32 {
+	core.LazyRegister(&xRandInt, "GLIB", "g_rand_int", false)
+
 	cret := xRandInt(x.GoPointer())
 	return cret
 }
@@ -123,6 +139,8 @@ var xRandIntRange func(uintptr, int32, int32) int32
 // Returns the next random #gint32 from @rand_ equally distributed over
 // the range [@begin..@end-1].
 func (x *Rand) IntRange(BeginVar int32, EndVar int32) int32 {
+	core.LazyRegister(&xRandIntRange, "GLIB", "g_rand_int_range", false)
+
 	cret := xRandIntRange(x.GoPointer(), BeginVar, EndVar)
 	return cret
 }
@@ -131,6 +149,8 @@ var xRandSetSeed func(uintptr, uint32)
 
 // Sets the seed for the random number generator #GRand to @seed.
 func (x *Rand) SetSeed(SeedVar uint32) {
+	core.LazyRegister(&xRandSetSeed, "GLIB", "g_rand_set_seed", false)
+
 	xRandSetSeed(x.GoPointer(), SeedVar)
 }
 
@@ -142,6 +162,8 @@ var xRandSetSeedArray func(uintptr, uint32, uint)
 // seeds, or if you require more then 32 bits of actual entropy for
 // your application.
 func (x *Rand) SetSeedArray(SeedVar uint32, SeedLengthVar uint) {
+	core.LazyRegister(&xRandSetSeedArray, "GLIB", "g_rand_set_seed_array", false)
+
 	xRandSetSeedArray(x.GoPointer(), SeedVar, SeedLengthVar)
 }
 
@@ -149,6 +171,8 @@ var xRandomDouble func() float64
 
 // Returns a random #gdouble equally distributed over the range [0..1).
 func RandomDouble() float64 {
+	core.LazyRegister(&xRandomDouble, "GLIB", "g_random_double", false)
+
 	cret := xRandomDouble()
 	return cret
 }
@@ -158,6 +182,8 @@ var xRandomDoubleRange func(float64, float64) float64
 // Returns a random #gdouble equally distributed over the range
 // [@begin..@end).
 func RandomDoubleRange(BeginVar float64, EndVar float64) float64 {
+	core.LazyRegister(&xRandomDoubleRange, "GLIB", "g_random_double_range", false)
+
 	cret := xRandomDoubleRange(BeginVar, EndVar)
 	return cret
 }
@@ -167,6 +193,8 @@ var xRandomInt func() uint32
 // Return a random #guint32 equally distributed over the range
 // [0..2^32-1].
 func RandomInt() uint32 {
+	core.LazyRegister(&xRandomInt, "GLIB", "g_random_int", false)
+
 	cret := xRandomInt()
 	return cret
 }
@@ -176,6 +204,8 @@ var xRandomIntRange func(int32, int32) int32
 // Returns a random #gint32 equally distributed over the range
 // [@begin..@end-1].
 func RandomIntRange(BeginVar int32, EndVar int32) int32 {
+	core.LazyRegister(&xRandomIntRange, "GLIB", "g_random_int_range", false)
+
 	cret := xRandomIntRange(BeginVar, EndVar)
 	return cret
 }
@@ -185,39 +215,12 @@ var xRandomSetSeed func(uint32)
 // Sets the seed for the global random number generator, which is used
 // by the g_random_* functions, to @seed.
 func RandomSetSeed(SeedVar uint32) {
+	core.LazyRegister(&xRandomSetSeed, "GLIB", "g_random_set_seed", false)
+
 	xRandomSetSeed(SeedVar)
 }
 
 func init() {
 	core.SetPackageName("GLIB", "glib-2.0")
 	core.SetSharedLibraries("GLIB", []string{"libgobject-2.0.so.0", "libglib-2.0.so.0", "libgobject-2.0.0.dylib", "libglib-2.0.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GLIB") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xRandomDouble, libs, "g_random_double")
-	core.PuregoSafeRegister(&xRandomDoubleRange, libs, "g_random_double_range")
-	core.PuregoSafeRegister(&xRandomInt, libs, "g_random_int")
-	core.PuregoSafeRegister(&xRandomIntRange, libs, "g_random_int_range")
-	core.PuregoSafeRegister(&xRandomSetSeed, libs, "g_random_set_seed")
-
-	core.PuregoSafeRegister(&xRandGLibType, libs, "g_rand_get_type")
-
-	core.PuregoSafeRegister(&xNewRand, libs, "g_rand_new")
-	core.PuregoSafeRegister(&xNewRandWithSeed, libs, "g_rand_new_with_seed")
-	core.PuregoSafeRegister(&xNewRandWithSeedArray, libs, "g_rand_new_with_seed_array")
-
-	core.PuregoSafeRegister(&xRandCopy, libs, "g_rand_copy")
-	core.PuregoSafeRegister(&xRandDouble, libs, "g_rand_double")
-	core.PuregoSafeRegister(&xRandDoubleRange, libs, "g_rand_double_range")
-	core.PuregoSafeRegister(&xRandFree, libs, "g_rand_free")
-	core.PuregoSafeRegister(&xRandInt, libs, "g_rand_int")
-	core.PuregoSafeRegister(&xRandIntRange, libs, "g_rand_int_range")
-	core.PuregoSafeRegister(&xRandSetSeed, libs, "g_rand_set_seed")
-	core.PuregoSafeRegister(&xRandSetSeedArray, libs, "g_rand_set_seed_array")
 }

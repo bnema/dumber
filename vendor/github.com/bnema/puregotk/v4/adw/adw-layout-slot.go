@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -43,6 +42,7 @@ type LayoutSlot struct {
 var xLayoutSlotGLibType func() types.GType
 
 func LayoutSlotGLibType() types.GType {
+	core.LazyRegister(&xLayoutSlotGLibType, "ADW", "adw_layout_slot_get_type", false)
 	return xLayoutSlotGLibType()
 }
 
@@ -56,6 +56,7 @@ var xNewLayoutSlot func(string) uintptr
 
 // Creates a new `AdwLayoutSlot` with its ID set to @id.
 func NewLayoutSlot(IdVar string) *LayoutSlot {
+	core.LazyRegister(&xNewLayoutSlot, "ADW", "adw_layout_slot_new", false)
 	var cls *LayoutSlot
 
 	cret := xNewLayoutSlot(IdVar)
@@ -73,6 +74,8 @@ var xLayoutSlotGetSlotId func(uintptr) string
 
 // Gets the slot id of @self.
 func (x *LayoutSlot) GetSlotId() string {
+	core.LazyRegister(&xLayoutSlotGetSlotId, "ADW", "adw_layout_slot_get_slot_id", false)
+
 	cret := xLayoutSlotGetSlotId(x.GoPointer())
 	return cret
 }
@@ -372,18 +375,4 @@ func (x *LayoutSlot) GetBuildableId() string {
 func init() {
 	core.SetPackageName("ADW", "libadwaita-1")
 	core.SetSharedLibraries("ADW", []string{"libadwaita-1.so.0", "libadwaita-1.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("ADW") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xLayoutSlotGLibType, libs, "adw_layout_slot_get_type")
-
-	core.PuregoSafeRegister(&xNewLayoutSlot, libs, "adw_layout_slot_new")
-
-	core.PuregoSafeRegister(&xLayoutSlotGetSlotId, libs, "adw_layout_slot_get_slot_id")
 }

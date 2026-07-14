@@ -6,6 +6,7 @@ import (
 	"unsafe"
 
 	"github.com/bnema/purego"
+	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gobject/types"
 )
@@ -237,6 +238,7 @@ type ProxyAddressEnumerator struct {
 var xProxyAddressEnumeratorGLibType func() types.GType
 
 func ProxyAddressEnumeratorGLibType() types.GType {
+	core.LazyRegister(&xProxyAddressEnumeratorGLibType, "GIO", "g_proxy_address_enumerator_get_type", false)
 	return xProxyAddressEnumeratorGLibType()
 }
 
@@ -291,4 +293,9 @@ func (x *ProxyAddressEnumerator) GetPropertyUri() string {
 	var v gobject.Value
 	x.GetProperty("uri", &v)
 	return v.GetString()
+}
+
+func init() {
+	core.SetPackageName("GIO", "gio-2.0")
+	core.SetSharedLibraries("GIO", []string{"libgio-2.0.so.0", "libgio-2.0.0.dylib"})
 }

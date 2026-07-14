@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -42,6 +41,7 @@ type VirtualMachine struct {
 var xVirtualMachineGLibType func() types.GType
 
 func VirtualMachineGLibType() types.GType {
+	core.LazyRegister(&xVirtualMachineGLibType, "JAVASCRIPTCORE", "jsc_virtual_machine_get_type", false)
 	return xVirtualMachineGLibType()
 }
 
@@ -55,6 +55,7 @@ var xNewVirtualMachine func() uintptr
 
 // Create a new #JSCVirtualMachine.
 func NewVirtualMachine() *VirtualMachine {
+	core.LazyRegister(&xNewVirtualMachine, "JAVASCRIPTCORE", "jsc_virtual_machine_new", false)
 	var cls *VirtualMachine
 
 	cret := xNewVirtualMachine()
@@ -81,16 +82,4 @@ func (c *VirtualMachine) SetGoPointer(ptr uintptr) {
 func init() {
 	core.SetPackageName("JAVASCRIPTCORE", "javascriptcoregtk-6.0")
 	core.SetSharedLibraries("JAVASCRIPTCORE", []string{"libjavascriptcoregtk-6.0.so.1", "libjavascriptcoregtk-6.0.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("JAVASCRIPTCORE") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xVirtualMachineGLibType, libs, "jsc_virtual_machine_get_type")
-
-	core.PuregoSafeRegister(&xNewVirtualMachine, libs, "jsc_virtual_machine_new")
 }

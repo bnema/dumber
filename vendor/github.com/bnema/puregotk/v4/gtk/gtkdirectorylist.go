@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gio"
 	"github.com/bnema/puregotk/v4/glib"
@@ -60,6 +59,7 @@ type DirectoryList struct {
 var xDirectoryListGLibType func() types.GType
 
 func DirectoryListGLibType() types.GType {
+	core.LazyRegister(&xDirectoryListGLibType, "GTK", "gtk_directory_list_get_type", false)
 	return xDirectoryListGLibType()
 }
 
@@ -76,6 +76,7 @@ var xNewDirectoryList func(uintptr, uintptr) uintptr
 // The `GtkDirectoryList` is querying the given @file
 // with the given @attributes.
 func NewDirectoryList(AttributesVar *string, FileVar gio.File) *DirectoryList {
+	core.LazyRegister(&xNewDirectoryList, "GTK", "gtk_directory_list_new", false)
 	var cls *DirectoryList
 
 	AttributesVarPtr := core.GStrdupNullable(AttributesVar)
@@ -95,6 +96,8 @@ var xDirectoryListGetAttributes func(uintptr) string
 
 // Gets the attributes queried on the children.
 func (x *DirectoryList) GetAttributes() string {
+	core.LazyRegister(&xDirectoryListGetAttributes, "GTK", "gtk_directory_list_get_attributes", false)
+
 	cret := xDirectoryListGetAttributes(x.GoPointer())
 	return cret
 }
@@ -110,6 +113,8 @@ var xDirectoryListGetError func(uintptr) uintptr
 // An error being set does not mean that no files were loaded, and all
 // successfully queried files will remain in the list.
 func (x *DirectoryList) GetError() *glib.Error {
+	core.LazyRegister(&xDirectoryListGetError, "GTK", "gtk_directory_list_get_error", false)
+
 	cret := xDirectoryListGetError(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -121,6 +126,7 @@ var xDirectoryListGetFile func(uintptr) uintptr
 
 // Gets the file whose children are currently enumerated.
 func (x *DirectoryList) GetFile() *gio.FileBase {
+	core.LazyRegister(&xDirectoryListGetFile, "GTK", "gtk_directory_list_get_file", false)
 	var cls *gio.FileBase
 
 	cret := xDirectoryListGetFile(x.GoPointer())
@@ -138,6 +144,8 @@ var xDirectoryListGetIoPriority func(uintptr) int
 
 // Gets the IO priority set via gtk_directory_list_set_io_priority().
 func (x *DirectoryList) GetIoPriority() int {
+	core.LazyRegister(&xDirectoryListGetIoPriority, "GTK", "gtk_directory_list_get_io_priority", false)
+
 	cret := xDirectoryListGetIoPriority(x.GoPointer())
 	return cret
 }
@@ -147,6 +155,8 @@ var xDirectoryListGetMonitored func(uintptr) bool
 // Returns whether the directory list is monitoring
 // the directory for changes.
 func (x *DirectoryList) GetMonitored() bool {
+	core.LazyRegister(&xDirectoryListGetMonitored, "GTK", "gtk_directory_list_get_monitored", false)
+
 	cret := xDirectoryListGetMonitored(x.GoPointer())
 	return cret
 }
@@ -160,6 +170,8 @@ var xDirectoryListIsLoading func(uintptr) bool
 // going on. The order in which are added is undefined and may change
 // in between runs.
 func (x *DirectoryList) IsLoading() bool {
+	core.LazyRegister(&xDirectoryListIsLoading, "GTK", "gtk_directory_list_is_loading", false)
+
 	cret := xDirectoryListIsLoading(x.GoPointer())
 	return cret
 }
@@ -171,6 +183,8 @@ var xDirectoryListSetAttributes func(uintptr, uintptr)
 // If @attributes is %NULL, the list of file infos will still be created, it will just
 // not contain any extra attributes.
 func (x *DirectoryList) SetAttributes(AttributesVar *string) {
+	core.LazyRegister(&xDirectoryListSetAttributes, "GTK", "gtk_directory_list_set_attributes", false)
+
 	AttributesVarPtr := core.GStrdupNullable(AttributesVar)
 	defer core.GFreeNullable(AttributesVarPtr)
 
@@ -183,6 +197,8 @@ var xDirectoryListSetFile func(uintptr, uintptr)
 //
 // If @file is %NULL, the result will be an empty list.
 func (x *DirectoryList) SetFile(FileVar gio.File) {
+	core.LazyRegister(&xDirectoryListSetFile, "GTK", "gtk_directory_list_set_file", false)
+
 	xDirectoryListSetFile(x.GoPointer(), FileVar.GoPointer())
 }
 
@@ -198,6 +214,8 @@ var xDirectoryListSetIoPriority func(uintptr, int)
 // parallel, lowering it to something like %G_PRIORITY_DEFAULT_IDLE
 // may increase responsiveness.
 func (x *DirectoryList) SetIoPriority(IoPriorityVar int) {
+	core.LazyRegister(&xDirectoryListSetIoPriority, "GTK", "gtk_directory_list_set_io_priority", false)
+
 	xDirectoryListSetIoPriority(x.GoPointer(), IoPriorityVar)
 }
 
@@ -214,6 +232,8 @@ var xDirectoryListSetMonitored func(uintptr, bool)
 // missing files that appeared between the initial loading
 // and when monitoring was turned on.
 func (x *DirectoryList) SetMonitored(MonitoredVar bool) {
+	core.LazyRegister(&xDirectoryListSetMonitored, "GTK", "gtk_directory_list_set_monitored", false)
+
 	xDirectoryListSetMonitored(x.GoPointer(), MonitoredVar)
 }
 
@@ -392,27 +412,4 @@ func (x *DirectoryList) ItemsChanged(PositionVar uint, RemovedVar uint, AddedVar
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GTK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xDirectoryListGLibType, libs, "gtk_directory_list_get_type")
-
-	core.PuregoSafeRegister(&xNewDirectoryList, libs, "gtk_directory_list_new")
-
-	core.PuregoSafeRegister(&xDirectoryListGetAttributes, libs, "gtk_directory_list_get_attributes")
-	core.PuregoSafeRegister(&xDirectoryListGetError, libs, "gtk_directory_list_get_error")
-	core.PuregoSafeRegister(&xDirectoryListGetFile, libs, "gtk_directory_list_get_file")
-	core.PuregoSafeRegister(&xDirectoryListGetIoPriority, libs, "gtk_directory_list_get_io_priority")
-	core.PuregoSafeRegister(&xDirectoryListGetMonitored, libs, "gtk_directory_list_get_monitored")
-	core.PuregoSafeRegister(&xDirectoryListIsLoading, libs, "gtk_directory_list_is_loading")
-	core.PuregoSafeRegister(&xDirectoryListSetAttributes, libs, "gtk_directory_list_set_attributes")
-	core.PuregoSafeRegister(&xDirectoryListSetFile, libs, "gtk_directory_list_set_file")
-	core.PuregoSafeRegister(&xDirectoryListSetIoPriority, libs, "gtk_directory_list_set_io_priority")
-	core.PuregoSafeRegister(&xDirectoryListSetMonitored, libs, "gtk_directory_list_set_monitored")
 }

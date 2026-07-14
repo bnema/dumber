@@ -4,7 +4,6 @@ package gio
 import (
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -50,6 +49,7 @@ type DBusMethodInvocation struct {
 var xDBusMethodInvocationGLibType func() types.GType
 
 func DBusMethodInvocationGLibType() types.GType {
+	core.LazyRegister(&xDBusMethodInvocationGLibType, "GIO", "g_dbus_method_invocation_get_type", false)
 	return xDBusMethodInvocationGLibType()
 }
 
@@ -63,6 +63,7 @@ var xDBusMethodInvocationGetConnection func(uintptr) uintptr
 
 // Gets the #GDBusConnection the method was invoked on.
 func (x *DBusMethodInvocation) GetConnection() *DBusConnection {
+	core.LazyRegister(&xDBusMethodInvocationGetConnection, "GIO", "g_dbus_method_invocation_get_connection", false)
 	var cls *DBusConnection
 
 	cret := xDBusMethodInvocationGetConnection(x.GoPointer())
@@ -90,6 +91,8 @@ var xDBusMethodInvocationGetInterfaceName func(uintptr) string
 // "org.freedesktop.DBus.Properties" will be returned.  See
 // #GDBusInterfaceVTable for more information.
 func (x *DBusMethodInvocation) GetInterfaceName() string {
+	core.LazyRegister(&xDBusMethodInvocationGetInterfaceName, "GIO", "g_dbus_method_invocation_get_interface_name", false)
+
 	cret := xDBusMethodInvocationGetInterfaceName(x.GoPointer())
 	return cret
 }
@@ -106,6 +109,7 @@ var xDBusMethodInvocationGetMessage func(uintptr) uintptr
 // for an example of how to use this low-level API to send and receive
 // UNIX file descriptors.
 func (x *DBusMethodInvocation) GetMessage() *DBusMessage {
+	core.LazyRegister(&xDBusMethodInvocationGetMessage, "GIO", "g_dbus_method_invocation_get_message", false)
 	var cls *DBusMessage
 
 	cret := xDBusMethodInvocationGetMessage(x.GoPointer())
@@ -128,6 +132,8 @@ var xDBusMethodInvocationGetMethodInfo func(uintptr) uintptr
 // returned.  See g_dbus_method_invocation_get_property_info() and
 // #GDBusInterfaceVTable for more information.
 func (x *DBusMethodInvocation) GetMethodInfo() *DBusMethodInfo {
+	core.LazyRegister(&xDBusMethodInvocationGetMethodInfo, "GIO", "g_dbus_method_invocation_get_method_info", false)
+
 	cret := xDBusMethodInvocationGetMethodInfo(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -139,6 +145,8 @@ var xDBusMethodInvocationGetMethodName func(uintptr) string
 
 // Gets the name of the method that was invoked.
 func (x *DBusMethodInvocation) GetMethodName() string {
+	core.LazyRegister(&xDBusMethodInvocationGetMethodName, "GIO", "g_dbus_method_invocation_get_method_name", false)
+
 	cret := xDBusMethodInvocationGetMethodName(x.GoPointer())
 	return cret
 }
@@ -147,6 +155,8 @@ var xDBusMethodInvocationGetObjectPath func(uintptr) string
 
 // Gets the object path the method was invoked on.
 func (x *DBusMethodInvocation) GetObjectPath() string {
+	core.LazyRegister(&xDBusMethodInvocationGetObjectPath, "GIO", "g_dbus_method_invocation_get_object_path", false)
+
 	cret := xDBusMethodInvocationGetObjectPath(x.GoPointer())
 	return cret
 }
@@ -156,6 +166,8 @@ var xDBusMethodInvocationGetParameters func(uintptr) uintptr
 // Gets the parameters of the method invocation. If there are no input
 // parameters then this will return a GVariant with 0 children rather than NULL.
 func (x *DBusMethodInvocation) GetParameters() *glib.Variant {
+	core.LazyRegister(&xDBusMethodInvocationGetParameters, "GIO", "g_dbus_method_invocation_get_parameters", false)
+
 	cret := xDBusMethodInvocationGetParameters(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -177,6 +189,8 @@ var xDBusMethodInvocationGetPropertyInfo func(uintptr) uintptr
 //
 // If the call was GetAll, %NULL will be returned.
 func (x *DBusMethodInvocation) GetPropertyInfo() *DBusPropertyInfo {
+	core.LazyRegister(&xDBusMethodInvocationGetPropertyInfo, "GIO", "g_dbus_method_invocation_get_property_info", false)
+
 	cret := xDBusMethodInvocationGetPropertyInfo(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -191,6 +205,8 @@ var xDBusMethodInvocationGetSender func(uintptr) string
 // This can return %NULL if not specified by the caller, e.g. on peer-to-peer
 // connections.
 func (x *DBusMethodInvocation) GetSender() string {
+	core.LazyRegister(&xDBusMethodInvocationGetSender, "GIO", "g_dbus_method_invocation_get_sender", false)
+
 	cret := xDBusMethodInvocationGetSender(x.GoPointer())
 	return cret
 }
@@ -199,6 +215,8 @@ var xDBusMethodInvocationGetUserData func(uintptr) uintptr
 
 // Gets the @user_data #gpointer passed to g_dbus_connection_register_object().
 func (x *DBusMethodInvocation) GetUserData() uintptr {
+	core.LazyRegister(&xDBusMethodInvocationGetUserData, "GIO", "g_dbus_method_invocation_get_user_data", false)
+
 	cret := xDBusMethodInvocationGetUserData(x.GoPointer())
 	return cret
 }
@@ -211,6 +229,8 @@ var xDBusMethodInvocationReturnDbusError func(uintptr, string, string)
 // #GDBusInterfaceVTable for more information about the ownership of
 // @invocation.
 func (x *DBusMethodInvocation) ReturnDbusError(ErrorNameVar string, ErrorMessageVar string) {
+	core.LazyRegister(&xDBusMethodInvocationReturnDbusError, "GIO", "g_dbus_method_invocation_return_dbus_error", false)
+
 	xDBusMethodInvocationReturnDbusError(x.GoPointer(), ErrorNameVar, ErrorMessageVar)
 }
 
@@ -237,6 +257,8 @@ var xDBusMethodInvocationReturnError func(uintptr, glib.Quark, int, string, ...i
 // then this call will free @invocation but otherwise do nothing (as per
 // the recommendations of the D-Bus specification).
 func (x *DBusMethodInvocation) ReturnError(DomainVar glib.Quark, CodeVar int, FormatVar string, varArgs ...interface{}) {
+	core.LazyRegister(&xDBusMethodInvocationReturnError, "GIO", "g_dbus_method_invocation_return_error", false)
+
 	xDBusMethodInvocationReturnError(x.GoPointer(), DomainVar, CodeVar, FormatVar, varArgs...)
 }
 
@@ -248,6 +270,8 @@ var xDBusMethodInvocationReturnErrorLiteral func(uintptr, glib.Quark, int, strin
 // #GDBusInterfaceVTable for more information about the ownership of
 // @invocation.
 func (x *DBusMethodInvocation) ReturnErrorLiteral(DomainVar glib.Quark, CodeVar int, MessageVar string) {
+	core.LazyRegister(&xDBusMethodInvocationReturnErrorLiteral, "GIO", "g_dbus_method_invocation_return_error_literal", false)
+
 	xDBusMethodInvocationReturnErrorLiteral(x.GoPointer(), DomainVar, CodeVar, MessageVar)
 }
 
@@ -260,6 +284,8 @@ var xDBusMethodInvocationReturnErrorValist func(uintptr, glib.Quark, int, string
 // #GDBusInterfaceVTable for more information about the ownership of
 // @invocation.
 func (x *DBusMethodInvocation) ReturnErrorValist(DomainVar glib.Quark, CodeVar int, FormatVar string, VarArgsVar []interface{}) {
+	core.LazyRegister(&xDBusMethodInvocationReturnErrorValist, "GIO", "g_dbus_method_invocation_return_error_valist", false)
+
 	xDBusMethodInvocationReturnErrorValist(x.GoPointer(), DomainVar, CodeVar, FormatVar, VarArgsVar)
 }
 
@@ -272,6 +298,8 @@ var xDBusMethodInvocationReturnGerror func(uintptr, *glib.Error)
 // #GDBusInterfaceVTable for more information about the ownership of
 // @invocation.
 func (x *DBusMethodInvocation) ReturnGerror(ErrorVar *glib.Error) {
+	core.LazyRegister(&xDBusMethodInvocationReturnGerror, "GIO", "g_dbus_method_invocation_return_gerror", false)
+
 	xDBusMethodInvocationReturnGerror(x.GoPointer(), ErrorVar)
 }
 
@@ -313,6 +341,8 @@ var xDBusMethodInvocationReturnValue func(uintptr, *glib.Variant)
 // otherwise do nothing (as per the recommendations of the D-Bus
 // specification).
 func (x *DBusMethodInvocation) ReturnValue(ParametersVar *glib.Variant) {
+	core.LazyRegister(&xDBusMethodInvocationReturnValue, "GIO", "g_dbus_method_invocation_return_value", false)
+
 	xDBusMethodInvocationReturnValue(x.GoPointer(), ParametersVar)
 }
 
@@ -326,6 +356,8 @@ var xDBusMethodInvocationReturnValueWithUnixFdList func(uintptr, *glib.Variant, 
 // #GDBusInterfaceVTable for more information about the ownership of
 // @invocation.
 func (x *DBusMethodInvocation) ReturnValueWithUnixFdList(ParametersVar *glib.Variant, FdListVar *UnixFDList) {
+	core.LazyRegister(&xDBusMethodInvocationReturnValueWithUnixFdList, "GIO", "g_dbus_method_invocation_return_value_with_unix_fd_list", false)
+
 	xDBusMethodInvocationReturnValueWithUnixFdList(x.GoPointer(), ParametersVar, FdListVar.GoPointer())
 }
 
@@ -338,6 +370,8 @@ var xDBusMethodInvocationTakeError func(uintptr, *glib.Error)
 // #GDBusInterfaceVTable for more information about the ownership of
 // @invocation.
 func (x *DBusMethodInvocation) TakeError(ErrorVar *glib.Error) {
+	core.LazyRegister(&xDBusMethodInvocationTakeError, "GIO", "g_dbus_method_invocation_take_error", false)
+
 	xDBusMethodInvocationTakeError(x.GoPointer(), ErrorVar)
 }
 
@@ -355,33 +389,4 @@ func (c *DBusMethodInvocation) SetGoPointer(ptr uintptr) {
 func init() {
 	core.SetPackageName("GIO", "gio-2.0")
 	core.SetSharedLibraries("GIO", []string{"libgio-2.0.so.0", "libgio-2.0.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GIO") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xDBusMethodInvocationGLibType, libs, "g_dbus_method_invocation_get_type")
-
-	core.PuregoSafeRegister(&xDBusMethodInvocationGetConnection, libs, "g_dbus_method_invocation_get_connection")
-	core.PuregoSafeRegister(&xDBusMethodInvocationGetInterfaceName, libs, "g_dbus_method_invocation_get_interface_name")
-	core.PuregoSafeRegister(&xDBusMethodInvocationGetMessage, libs, "g_dbus_method_invocation_get_message")
-	core.PuregoSafeRegister(&xDBusMethodInvocationGetMethodInfo, libs, "g_dbus_method_invocation_get_method_info")
-	core.PuregoSafeRegister(&xDBusMethodInvocationGetMethodName, libs, "g_dbus_method_invocation_get_method_name")
-	core.PuregoSafeRegister(&xDBusMethodInvocationGetObjectPath, libs, "g_dbus_method_invocation_get_object_path")
-	core.PuregoSafeRegister(&xDBusMethodInvocationGetParameters, libs, "g_dbus_method_invocation_get_parameters")
-	core.PuregoSafeRegister(&xDBusMethodInvocationGetPropertyInfo, libs, "g_dbus_method_invocation_get_property_info")
-	core.PuregoSafeRegister(&xDBusMethodInvocationGetSender, libs, "g_dbus_method_invocation_get_sender")
-	core.PuregoSafeRegister(&xDBusMethodInvocationGetUserData, libs, "g_dbus_method_invocation_get_user_data")
-	core.PuregoSafeRegister(&xDBusMethodInvocationReturnDbusError, libs, "g_dbus_method_invocation_return_dbus_error")
-	core.PuregoSafeRegister(&xDBusMethodInvocationReturnError, libs, "g_dbus_method_invocation_return_error")
-	core.PuregoSafeRegister(&xDBusMethodInvocationReturnErrorLiteral, libs, "g_dbus_method_invocation_return_error_literal")
-	core.PuregoSafeRegister(&xDBusMethodInvocationReturnErrorValist, libs, "g_dbus_method_invocation_return_error_valist")
-	core.PuregoSafeRegister(&xDBusMethodInvocationReturnGerror, libs, "g_dbus_method_invocation_return_gerror")
-	core.PuregoSafeRegister(&xDBusMethodInvocationReturnValue, libs, "g_dbus_method_invocation_return_value")
-	core.PuregoSafeRegister(&xDBusMethodInvocationReturnValueWithUnixFdList, libs, "g_dbus_method_invocation_return_value_with_unix_fd_list")
-	core.PuregoSafeRegister(&xDBusMethodInvocationTakeError, libs, "g_dbus_method_invocation_take_error")
 }

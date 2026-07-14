@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gio"
 	"github.com/bnema/puregotk/v4/glib"
@@ -52,6 +51,8 @@ var xConstraintVflParserErrorQuark func() glib.Quark
 
 // Registers an error quark for VFL error parsing.
 func ConstraintVflParserErrorQuark() glib.Quark {
+	core.LazyRegister(&xConstraintVflParserErrorQuark, "GTK", "gtk_constraint_vfl_parser_error_quark", false)
+
 	cret := xConstraintVflParserErrorQuark()
 	return cret
 }
@@ -240,6 +241,7 @@ type ConstraintLayout struct {
 var xConstraintLayoutGLibType func() types.GType
 
 func ConstraintLayoutGLibType() types.GType {
+	core.LazyRegister(&xConstraintLayoutGLibType, "GTK", "gtk_constraint_layout_get_type", false)
 	return xConstraintLayoutGLibType()
 }
 
@@ -253,6 +255,7 @@ var xNewConstraintLayout func() uintptr
 
 // Creates a new `GtkConstraintLayout` layout manager.
 func NewConstraintLayout() *ConstraintLayout {
+	core.LazyRegister(&xNewConstraintLayout, "GTK", "gtk_constraint_layout_new", false)
 	var cls *ConstraintLayout
 
 	cret := xNewConstraintLayout()
@@ -281,6 +284,8 @@ var xConstraintLayoutAddConstraint func(uintptr, uintptr)
 // The @layout acquires the ownership of @constraint after calling
 // this function.
 func (x *ConstraintLayout) AddConstraint(ConstraintVar *Constraint) {
+	core.LazyRegister(&xConstraintLayoutAddConstraint, "GTK", "gtk_constraint_layout_add_constraint", false)
+
 	xConstraintLayoutAddConstraint(x.GoPointer(), ConstraintVar.GoPointer())
 }
 
@@ -292,6 +297,8 @@ var xConstraintLayoutAddConstraintsFromDescription func(uintptr, []string, uint,
 // [method@Gtk.ConstraintLayout.add_constraints_from_descriptionv], using
 // variadic arguments to populate the view/target map.
 func (x *ConstraintLayout) AddConstraintsFromDescription(LinesVar []string, NLinesVar uint, HspacingVar int, VspacingVar int, ErrorVar **glib.Error, FirstViewVar string, varArgs ...interface{}) *glib.List {
+	core.LazyRegister(&xConstraintLayoutAddConstraintsFromDescription, "GTK", "gtk_constraint_layout_add_constraints_from_description", false)
+
 	cret := xConstraintLayoutAddConstraintsFromDescription(x.GoPointer(), LinesVar, NLinesVar, HspacingVar, VspacingVar, ErrorVar, FirstViewVar, varArgs...)
 	if cret == 0 {
 		return nil
@@ -383,6 +390,7 @@ var xConstraintLayoutAddConstraintsFromDescriptionv func(uintptr, []string, uint
 //
 // ```
 func (x *ConstraintLayout) AddConstraintsFromDescriptionv(LinesVar []string, NLinesVar uint, HspacingVar int, VspacingVar int, ViewsVar *glib.HashTable) (*glib.List, error) {
+	core.LazyRegister(&xConstraintLayoutAddConstraintsFromDescriptionv, "GTK", "gtk_constraint_layout_add_constraints_from_descriptionv", false)
 	var cerr *glib.Error
 
 	cret := xConstraintLayoutAddConstraintsFromDescriptionv(x.GoPointer(), LinesVar, NLinesVar, HspacingVar, VspacingVar, ViewsVar, &cerr)
@@ -405,6 +413,8 @@ var xConstraintLayoutAddGuide func(uintptr, uintptr)
 // The `layout` acquires the ownership of `guide` after calling
 // this function.
 func (x *ConstraintLayout) AddGuide(GuideVar *ConstraintGuide) {
+	core.LazyRegister(&xConstraintLayoutAddGuide, "GTK", "gtk_constraint_layout_add_guide", false)
+
 	xConstraintLayoutAddGuide(x.GoPointer(), GuideVar.GoPointer())
 }
 
@@ -420,6 +430,7 @@ var xConstraintLayoutObserveConstraints func(uintptr) uintptr
 // Applications should try hard to avoid calling this function
 // because of the slowdowns.
 func (x *ConstraintLayout) ObserveConstraints() *gio.ListModelBase {
+	core.LazyRegister(&xConstraintLayoutObserveConstraints, "GTK", "gtk_constraint_layout_observe_constraints", false)
 	var cls *gio.ListModelBase
 
 	cret := xConstraintLayoutObserveConstraints(x.GoPointer())
@@ -444,6 +455,7 @@ var xConstraintLayoutObserveGuides func(uintptr) uintptr
 // Applications should try hard to avoid calling this function
 // because of the slowdowns.
 func (x *ConstraintLayout) ObserveGuides() *gio.ListModelBase {
+	core.LazyRegister(&xConstraintLayoutObserveGuides, "GTK", "gtk_constraint_layout_observe_guides", false)
 	var cls *gio.ListModelBase
 
 	cret := xConstraintLayoutObserveGuides(x.GoPointer())
@@ -460,6 +472,8 @@ var xConstraintLayoutRemoveAllConstraints func(uintptr)
 
 // Removes all constraints from the layout manager.
 func (x *ConstraintLayout) RemoveAllConstraints() {
+	core.LazyRegister(&xConstraintLayoutRemoveAllConstraints, "GTK", "gtk_constraint_layout_remove_all_constraints", false)
+
 	xConstraintLayoutRemoveAllConstraints(x.GoPointer())
 }
 
@@ -468,6 +482,8 @@ var xConstraintLayoutRemoveConstraint func(uintptr, uintptr)
 // Removes `constraint` from the layout manager,
 // so that it no longer influences the layout.
 func (x *ConstraintLayout) RemoveConstraint(ConstraintVar *Constraint) {
+	core.LazyRegister(&xConstraintLayoutRemoveConstraint, "GTK", "gtk_constraint_layout_remove_constraint", false)
+
 	xConstraintLayoutRemoveConstraint(x.GoPointer(), ConstraintVar.GoPointer())
 }
 
@@ -476,6 +492,8 @@ var xConstraintLayoutRemoveGuide func(uintptr, uintptr)
 // Removes `guide` from the layout manager,
 // so that it no longer influences the layout.
 func (x *ConstraintLayout) RemoveGuide(GuideVar *ConstraintGuide) {
+	core.LazyRegister(&xConstraintLayoutRemoveGuide, "GTK", "gtk_constraint_layout_remove_guide", false)
+
 	xConstraintLayoutRemoveGuide(x.GoPointer(), GuideVar.GoPointer())
 }
 
@@ -507,6 +525,7 @@ type ConstraintLayoutChild struct {
 var xConstraintLayoutChildGLibType func() types.GType
 
 func ConstraintLayoutChildGLibType() types.GType {
+	core.LazyRegister(&xConstraintLayoutChildGLibType, "GTK", "gtk_constraint_layout_child_get_type", false)
 	return xConstraintLayoutChildGLibType()
 }
 
@@ -530,30 +549,4 @@ func (c *ConstraintLayoutChild) SetGoPointer(ptr uintptr) {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GTK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xConstraintVflParserErrorQuark, libs, "gtk_constraint_vfl_parser_error_quark")
-
-	core.PuregoSafeRegister(&xConstraintLayoutGLibType, libs, "gtk_constraint_layout_get_type")
-
-	core.PuregoSafeRegister(&xNewConstraintLayout, libs, "gtk_constraint_layout_new")
-
-	core.PuregoSafeRegister(&xConstraintLayoutAddConstraint, libs, "gtk_constraint_layout_add_constraint")
-	core.PuregoSafeRegister(&xConstraintLayoutAddConstraintsFromDescription, libs, "gtk_constraint_layout_add_constraints_from_description")
-	core.PuregoSafeRegister(&xConstraintLayoutAddConstraintsFromDescriptionv, libs, "gtk_constraint_layout_add_constraints_from_descriptionv")
-	core.PuregoSafeRegister(&xConstraintLayoutAddGuide, libs, "gtk_constraint_layout_add_guide")
-	core.PuregoSafeRegister(&xConstraintLayoutObserveConstraints, libs, "gtk_constraint_layout_observe_constraints")
-	core.PuregoSafeRegister(&xConstraintLayoutObserveGuides, libs, "gtk_constraint_layout_observe_guides")
-	core.PuregoSafeRegister(&xConstraintLayoutRemoveAllConstraints, libs, "gtk_constraint_layout_remove_all_constraints")
-	core.PuregoSafeRegister(&xConstraintLayoutRemoveConstraint, libs, "gtk_constraint_layout_remove_constraint")
-	core.PuregoSafeRegister(&xConstraintLayoutRemoveGuide, libs, "gtk_constraint_layout_remove_guide")
-
-	core.PuregoSafeRegister(&xConstraintLayoutChildGLibType, libs, "gtk_constraint_layout_child_get_type")
 }

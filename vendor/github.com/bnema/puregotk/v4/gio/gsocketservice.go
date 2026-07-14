@@ -257,6 +257,7 @@ type SocketService struct {
 var xSocketServiceGLibType func() types.GType
 
 func SocketServiceGLibType() types.GType {
+	core.LazyRegister(&xSocketServiceGLibType, "GIO", "g_socket_service_get_type", false)
 	return xSocketServiceGLibType()
 }
 
@@ -276,6 +277,7 @@ var xNewSocketService func() uintptr
 // g_socket_service_start(), unless g_socket_service_stop() has been
 // called before.
 func NewSocketService() *SocketService {
+	core.LazyRegister(&xNewSocketService, "GIO", "g_socket_service_new", false)
 	var cls *SocketService
 
 	cret := xNewSocketService()
@@ -295,6 +297,8 @@ var xSocketServiceIsActive func(uintptr) bool
 // a non-active service will let connecting clients queue
 // up until the service is started.
 func (x *SocketService) IsActive() bool {
+	core.LazyRegister(&xSocketServiceIsActive, "GIO", "g_socket_service_is_active", false)
+
 	cret := xSocketServiceIsActive(x.GoPointer())
 	return cret
 }
@@ -309,6 +313,8 @@ var xSocketServiceStart func(uintptr)
 // This call is thread-safe, so it may be called from a thread
 // handling an incoming client request.
 func (x *SocketService) Start() {
+	core.LazyRegister(&xSocketServiceStart, "GIO", "g_socket_service_start", false)
+
 	xSocketServiceStart(x.GoPointer())
 }
 
@@ -330,6 +336,8 @@ var xSocketServiceStop func(uintptr)
 // the socket service will start accepting connections immediately
 // when a new socket is added.
 func (x *SocketService) Stop() {
+	core.LazyRegister(&xSocketServiceStop, "GIO", "g_socket_service_stop", false)
+
 	xSocketServiceStop(x.GoPointer())
 }
 
@@ -395,20 +403,4 @@ func (x *SocketService) ConnectIncoming(cb *func(SocketService, uintptr, uintptr
 func init() {
 	core.SetPackageName("GIO", "gio-2.0")
 	core.SetSharedLibraries("GIO", []string{"libgio-2.0.so.0", "libgio-2.0.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GIO") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xSocketServiceGLibType, libs, "g_socket_service_get_type")
-
-	core.PuregoSafeRegister(&xNewSocketService, libs, "g_socket_service_new")
-
-	core.PuregoSafeRegister(&xSocketServiceIsActive, libs, "g_socket_service_is_active")
-	core.PuregoSafeRegister(&xSocketServiceStart, libs, "g_socket_service_start")
-	core.PuregoSafeRegister(&xSocketServiceStop, libs, "g_socket_service_stop")
 }

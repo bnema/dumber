@@ -2,7 +2,6 @@
 package gtk
 
 import (
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -37,6 +36,7 @@ type StackSidebar struct {
 var xStackSidebarGLibType func() types.GType
 
 func StackSidebarGLibType() types.GType {
+	core.LazyRegister(&xStackSidebarGLibType, "GTK", "gtk_stack_sidebar_get_type", false)
 	return xStackSidebarGLibType()
 }
 
@@ -50,6 +50,7 @@ var xNewStackSidebar func() uintptr
 
 // Creates a new `GtkStackSidebar`.
 func NewStackSidebar() *StackSidebar {
+	core.LazyRegister(&xNewStackSidebar, "GTK", "gtk_stack_sidebar_new", false)
 	var cls *StackSidebar
 
 	cret := xNewStackSidebar()
@@ -67,6 +68,7 @@ var xStackSidebarGetStack func(uintptr) uintptr
 
 // Retrieves the stack.
 func (x *StackSidebar) GetStack() *Stack {
+	core.LazyRegister(&xStackSidebarGetStack, "GTK", "gtk_stack_sidebar_get_stack", false)
 	var cls *Stack
 
 	cret := xStackSidebarGetStack(x.GoPointer())
@@ -87,6 +89,8 @@ var xStackSidebarSetStack func(uintptr, uintptr)
 // The sidebar widget will automatically update according to
 // the order and items within the given `GtkStack`.
 func (x *StackSidebar) SetStack(StackVar *Stack) {
+	core.LazyRegister(&xStackSidebarSetStack, "GTK", "gtk_stack_sidebar_set_stack", false)
+
 	xStackSidebarSetStack(x.GoPointer(), StackVar.GoPointer())
 }
 
@@ -364,19 +368,4 @@ func (x *StackSidebar) GetBuildableId() string {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GTK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xStackSidebarGLibType, libs, "gtk_stack_sidebar_get_type")
-
-	core.PuregoSafeRegister(&xNewStackSidebar, libs, "gtk_stack_sidebar_new")
-
-	core.PuregoSafeRegister(&xStackSidebarGetStack, libs, "gtk_stack_sidebar_get_stack")
-	core.PuregoSafeRegister(&xStackSidebarSetStack, libs, "gtk_stack_sidebar_set_stack")
 }

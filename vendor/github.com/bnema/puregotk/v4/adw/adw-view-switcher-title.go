@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -100,6 +99,7 @@ type ViewSwitcherTitle struct {
 var xViewSwitcherTitleGLibType func() types.GType
 
 func ViewSwitcherTitleGLibType() types.GType {
+	core.LazyRegister(&xViewSwitcherTitleGLibType, "ADW", "adw_view_switcher_title_get_type", false)
 	return xViewSwitcherTitleGLibType()
 }
 
@@ -113,6 +113,7 @@ var xNewViewSwitcherTitle func() uintptr
 
 // Creates a new `AdwViewSwitcherTitle`.
 func NewViewSwitcherTitle() *ViewSwitcherTitle {
+	core.LazyRegister(&xNewViewSwitcherTitle, "ADW", "adw_view_switcher_title_new", false)
 	var cls *ViewSwitcherTitle
 
 	cret := xNewViewSwitcherTitle()
@@ -130,6 +131,7 @@ var xViewSwitcherTitleGetStack func(uintptr) uintptr
 
 // Gets the stack controlled by @self.
 func (x *ViewSwitcherTitle) GetStack() *ViewStack {
+	core.LazyRegister(&xViewSwitcherTitleGetStack, "ADW", "adw_view_switcher_title_get_stack", false)
 	var cls *ViewStack
 
 	cret := xViewSwitcherTitleGetStack(x.GoPointer())
@@ -147,6 +149,8 @@ var xViewSwitcherTitleGetSubtitle func(uintptr) string
 
 // Gets the subtitle of @self.
 func (x *ViewSwitcherTitle) GetSubtitle() string {
+	core.LazyRegister(&xViewSwitcherTitleGetSubtitle, "ADW", "adw_view_switcher_title_get_subtitle", false)
+
 	cret := xViewSwitcherTitleGetSubtitle(x.GoPointer())
 	return cret
 }
@@ -155,6 +159,8 @@ var xViewSwitcherTitleGetTitle func(uintptr) string
 
 // Gets the title of @self.
 func (x *ViewSwitcherTitle) GetTitle() string {
+	core.LazyRegister(&xViewSwitcherTitleGetTitle, "ADW", "adw_view_switcher_title_get_title", false)
+
 	cret := xViewSwitcherTitleGetTitle(x.GoPointer())
 	return cret
 }
@@ -166,6 +172,8 @@ var xViewSwitcherTitleGetTitleVisible func(uintptr) bool
 // If the title is visible, it means the view switcher is hidden an it may be
 // wanted to show an alternative switcher, e.g. a [class@ViewSwitcherBar].
 func (x *ViewSwitcherTitle) GetTitleVisible() bool {
+	core.LazyRegister(&xViewSwitcherTitleGetTitleVisible, "ADW", "adw_view_switcher_title_get_title_visible", false)
+
 	cret := xViewSwitcherTitleGetTitleVisible(x.GoPointer())
 	return cret
 }
@@ -174,6 +182,8 @@ var xViewSwitcherTitleGetViewSwitcherEnabled func(uintptr) bool
 
 // Gets whether @self's view switcher is enabled.
 func (x *ViewSwitcherTitle) GetViewSwitcherEnabled() bool {
+	core.LazyRegister(&xViewSwitcherTitleGetViewSwitcherEnabled, "ADW", "adw_view_switcher_title_get_view_switcher_enabled", false)
+
 	cret := xViewSwitcherTitleGetViewSwitcherEnabled(x.GoPointer())
 	return cret
 }
@@ -182,6 +192,8 @@ var xViewSwitcherTitleSetStack func(uintptr, uintptr)
 
 // Sets the stack controlled by @self.
 func (x *ViewSwitcherTitle) SetStack(StackVar *ViewStack) {
+	core.LazyRegister(&xViewSwitcherTitleSetStack, "ADW", "adw_view_switcher_title_set_stack", false)
+
 	xViewSwitcherTitleSetStack(x.GoPointer(), StackVar.GoPointer())
 }
 
@@ -191,6 +203,8 @@ var xViewSwitcherTitleSetSubtitle func(uintptr, string)
 //
 // The subtitle should give the user additional details.
 func (x *ViewSwitcherTitle) SetSubtitle(SubtitleVar string) {
+	core.LazyRegister(&xViewSwitcherTitleSetSubtitle, "ADW", "adw_view_switcher_title_set_subtitle", false)
+
 	xViewSwitcherTitleSetSubtitle(x.GoPointer(), SubtitleVar)
 }
 
@@ -201,6 +215,8 @@ var xViewSwitcherTitleSetTitle func(uintptr, string)
 // The title typically identifies the current view or content item, and
 // generally does not use the application name.
 func (x *ViewSwitcherTitle) SetTitle(TitleVar string) {
+	core.LazyRegister(&xViewSwitcherTitleSetTitle, "ADW", "adw_view_switcher_title_set_title", false)
+
 	xViewSwitcherTitleSetTitle(x.GoPointer(), TitleVar)
 }
 
@@ -215,6 +231,8 @@ var xViewSwitcherTitleSetViewSwitcherEnabled func(uintptr, bool)
 // This can be used e.g. to ensure the view switcher is hidden below a certain
 // window width, or any other constraint you find suitable.
 func (x *ViewSwitcherTitle) SetViewSwitcherEnabled(EnabledVar bool) {
+	core.LazyRegister(&xViewSwitcherTitleSetViewSwitcherEnabled, "ADW", "adw_view_switcher_title_set_view_switcher_enabled", false)
+
 	xViewSwitcherTitleSetViewSwitcherEnabled(x.GoPointer(), EnabledVar)
 }
 
@@ -578,26 +596,4 @@ func (x *ViewSwitcherTitle) GetBuildableId() string {
 func init() {
 	core.SetPackageName("ADW", "libadwaita-1")
 	core.SetSharedLibraries("ADW", []string{"libadwaita-1.so.0", "libadwaita-1.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("ADW") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xViewSwitcherTitleGLibType, libs, "adw_view_switcher_title_get_type")
-
-	core.PuregoSafeRegister(&xNewViewSwitcherTitle, libs, "adw_view_switcher_title_new")
-
-	core.PuregoSafeRegister(&xViewSwitcherTitleGetStack, libs, "adw_view_switcher_title_get_stack")
-	core.PuregoSafeRegister(&xViewSwitcherTitleGetSubtitle, libs, "adw_view_switcher_title_get_subtitle")
-	core.PuregoSafeRegister(&xViewSwitcherTitleGetTitle, libs, "adw_view_switcher_title_get_title")
-	core.PuregoSafeRegister(&xViewSwitcherTitleGetTitleVisible, libs, "adw_view_switcher_title_get_title_visible")
-	core.PuregoSafeRegister(&xViewSwitcherTitleGetViewSwitcherEnabled, libs, "adw_view_switcher_title_get_view_switcher_enabled")
-	core.PuregoSafeRegister(&xViewSwitcherTitleSetStack, libs, "adw_view_switcher_title_set_stack")
-	core.PuregoSafeRegister(&xViewSwitcherTitleSetSubtitle, libs, "adw_view_switcher_title_set_subtitle")
-	core.PuregoSafeRegister(&xViewSwitcherTitleSetTitle, libs, "adw_view_switcher_title_set_title")
-	core.PuregoSafeRegister(&xViewSwitcherTitleSetViewSwitcherEnabled, libs, "adw_view_switcher_title_set_view_switcher_enabled")
 }

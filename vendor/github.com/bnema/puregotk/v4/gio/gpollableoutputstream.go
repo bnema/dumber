@@ -146,7 +146,7 @@ func (x *PollableOutputStreamInterface) OverrideWriteNonblocking(cb func(Pollabl
 	if cb == nil {
 		x.xWriteNonblocking = 0
 	} else {
-		x.xWriteNonblocking = purego.NewCallback(func(StreamVarp uintptr, BufferVarp []byte, CountVarp uint) int {
+		x.xWriteNonblocking = purego.NewCallback(func(StreamVarp uintptr, BufferVarp []byte, CountVarp uint, cerrp **glib.Error) int {
 			return cb(&PollableOutputStreamBase{Ptr: StreamVarp}, BufferVarp, CountVarp)
 		})
 	}
@@ -160,10 +160,11 @@ func (x *PollableOutputStreamInterface) GetWriteNonblocking() func(PollableOutpu
 	if x.xWriteNonblocking == 0 {
 		return nil
 	}
-	var rawCallback func(StreamVarp uintptr, BufferVarp []byte, CountVarp uint) int
+	var rawCallback func(StreamVarp uintptr, BufferVarp []byte, CountVarp uint, cerrp **glib.Error) int
 	purego.RegisterFunc(&rawCallback, x.xWriteNonblocking)
 	return func(StreamVar PollableOutputStream, BufferVar []byte, CountVar uint) int {
-		return rawCallback(StreamVar.GoPointer(), BufferVar, CountVar)
+		var cerr *glib.Error
+		return rawCallback(StreamVar.GoPointer(), BufferVar, CountVar, &cerr)
 	}
 }
 
@@ -175,7 +176,7 @@ func (x *PollableOutputStreamInterface) OverrideWritevNonblocking(cb func(Pollab
 	if cb == nil {
 		x.xWritevNonblocking = 0
 	} else {
-		x.xWritevNonblocking = purego.NewCallback(func(StreamVarp uintptr, VectorsVarp []OutputVector, NVectorsVarp uint, BytesWrittenVarp *uint) PollableReturn {
+		x.xWritevNonblocking = purego.NewCallback(func(StreamVarp uintptr, VectorsVarp []OutputVector, NVectorsVarp uint, BytesWrittenVarp *uint, cerrp **glib.Error) PollableReturn {
 			return cb(&PollableOutputStreamBase{Ptr: StreamVarp}, VectorsVarp, NVectorsVarp, BytesWrittenVarp)
 		})
 	}
@@ -189,10 +190,11 @@ func (x *PollableOutputStreamInterface) GetWritevNonblocking() func(PollableOutp
 	if x.xWritevNonblocking == 0 {
 		return nil
 	}
-	var rawCallback func(StreamVarp uintptr, VectorsVarp []OutputVector, NVectorsVarp uint, BytesWrittenVarp *uint) PollableReturn
+	var rawCallback func(StreamVarp uintptr, VectorsVarp []OutputVector, NVectorsVarp uint, BytesWrittenVarp *uint, cerrp **glib.Error) PollableReturn
 	purego.RegisterFunc(&rawCallback, x.xWritevNonblocking)
 	return func(StreamVar PollableOutputStream, VectorsVar []OutputVector, NVectorsVar uint, BytesWrittenVar *uint) PollableReturn {
-		return rawCallback(StreamVar.GoPointer(), VectorsVar, NVectorsVar, BytesWrittenVar)
+		var cerr *glib.Error
+		return rawCallback(StreamVar.GoPointer(), VectorsVar, NVectorsVar, BytesWrittenVar, &cerr)
 	}
 }
 
@@ -218,6 +220,7 @@ type PollableOutputStream interface {
 var xPollableOutputStreamGLibType func() types.GType
 
 func PollableOutputStreamGLibType() types.GType {
+	core.LazyRegister(&xPollableOutputStreamGLibType, "GIO", "g_pollable_output_stream_get_type", false)
 	return xPollableOutputStreamGLibType()
 }
 
@@ -340,31 +343,42 @@ func (x *PollableOutputStreamBase) WritevNonblocking(VectorsVar []OutputVector, 
 	return cret, cerr
 }
 
+var XGPollableOutputStreamCanPoll func(uintptr) bool = func(instance uintptr) bool {
+	core.LazyRegister(&xXGPollableOutputStreamCanPoll, "GIO", "g_pollable_output_stream_can_poll", false)
+	return xXGPollableOutputStreamCanPoll(instance)
+}
+
 var (
-	XGPollableOutputStreamCanPoll           func(uintptr) bool
-	XGPollableOutputStreamCreateSource      func(uintptr, uintptr) uintptr
-	XGPollableOutputStreamIsWritable        func(uintptr) bool
-	XGPollableOutputStreamWriteNonblocking  func(uintptr, []byte, uint, uintptr, **glib.Error) int
-	XGPollableOutputStreamWritevNonblocking func(uintptr, []OutputVector, uint, *uint, uintptr, **glib.Error) PollableReturn
+	xXGPollableOutputStreamCanPoll     func(uintptr) bool
+	XGPollableOutputStreamCreateSource func(uintptr, uintptr) uintptr = func(instance uintptr, CancellableVarp uintptr) uintptr {
+		core.LazyRegister(&xXGPollableOutputStreamCreateSource, "GIO", "g_pollable_output_stream_create_source", false)
+		return xXGPollableOutputStreamCreateSource(instance, CancellableVarp)
+	}
 )
+var (
+	xXGPollableOutputStreamCreateSource func(uintptr, uintptr) uintptr
+	XGPollableOutputStreamIsWritable    func(uintptr) bool = func(instance uintptr) bool {
+		core.LazyRegister(&xXGPollableOutputStreamIsWritable, "GIO", "g_pollable_output_stream_is_writable", false)
+		return xXGPollableOutputStreamIsWritable(instance)
+	}
+)
+var (
+	xXGPollableOutputStreamIsWritable      func(uintptr) bool
+	XGPollableOutputStreamWriteNonblocking func(uintptr, []byte, uint, uintptr, **glib.Error) int = func(instance uintptr, BufferVarp []byte, CountVarp uint, CancellableVarp uintptr, cerrp **glib.Error) int {
+		core.LazyRegister(&xXGPollableOutputStreamWriteNonblocking, "GIO", "g_pollable_output_stream_write_nonblocking", false)
+		return xXGPollableOutputStreamWriteNonblocking(instance, BufferVarp, CountVarp, CancellableVarp, cerrp)
+	}
+)
+var (
+	xXGPollableOutputStreamWriteNonblocking func(uintptr, []byte, uint, uintptr, **glib.Error) int
+	XGPollableOutputStreamWritevNonblocking func(uintptr, []OutputVector, uint, *uint, uintptr, **glib.Error) PollableReturn = func(instance uintptr, VectorsVarp []OutputVector, NVectorsVarp uint, BytesWrittenVarp *uint, CancellableVarp uintptr, cerrp **glib.Error) PollableReturn {
+		core.LazyRegister(&xXGPollableOutputStreamWritevNonblocking, "GIO", "g_pollable_output_stream_writev_nonblocking", false)
+		return xXGPollableOutputStreamWritevNonblocking(instance, VectorsVarp, NVectorsVarp, BytesWrittenVarp, CancellableVarp, cerrp)
+	}
+)
+var xXGPollableOutputStreamWritevNonblocking func(uintptr, []OutputVector, uint, *uint, uintptr, **glib.Error) PollableReturn
 
 func init() {
 	core.SetPackageName("GIO", "gio-2.0")
 	core.SetSharedLibraries("GIO", []string{"libgio-2.0.so.0", "libgio-2.0.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GIO") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xPollableOutputStreamGLibType, libs, "g_pollable_output_stream_get_type")
-
-	core.PuregoSafeRegister(&XGPollableOutputStreamCanPoll, libs, "g_pollable_output_stream_can_poll")
-	core.PuregoSafeRegister(&XGPollableOutputStreamCreateSource, libs, "g_pollable_output_stream_create_source")
-	core.PuregoSafeRegister(&XGPollableOutputStreamIsWritable, libs, "g_pollable_output_stream_is_writable")
-	core.PuregoSafeRegister(&XGPollableOutputStreamWriteNonblocking, libs, "g_pollable_output_stream_write_nonblocking")
-	core.PuregoSafeRegister(&XGPollableOutputStreamWritevNonblocking, libs, "g_pollable_output_stream_writev_nonblocking")
 }

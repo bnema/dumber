@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject/types"
 )
@@ -22,6 +21,7 @@ type Sphere struct {
 var xSphereGLibType func() types.GType
 
 func SphereGLibType() types.GType {
+	core.LazyRegister(&xSphereGLibType, "GRAPHENE", "graphene_sphere_get_type", false)
 	return xSphereGLibType()
 }
 
@@ -43,6 +43,8 @@ var xSphereAlloc func() uintptr
 //
 // The contents of the newly allocated structure are undefined.
 func SphereAlloc() *Sphere {
+	core.LazyRegister(&xSphereAlloc, "GRAPHENE", "graphene_sphere_alloc", false)
+
 	cret := xSphereAlloc()
 	if cret == 0 {
 		return nil
@@ -55,6 +57,8 @@ var xSphereContainsPoint func(uintptr, *Point3D) bool
 // Checks whether the given @point is contained in the volume
 // of a #graphene_sphere_t.
 func (x *Sphere) ContainsPoint(PointVar *Point3D) bool {
+	core.LazyRegister(&xSphereContainsPoint, "GRAPHENE", "graphene_sphere_contains_point", false)
+
 	cret := xSphereContainsPoint(x.GoPointer(), PointVar)
 	return cret
 }
@@ -64,6 +68,8 @@ var xSphereDistance func(uintptr, *Point3D) float32
 // Computes the distance of the given @point from the surface of
 // a #graphene_sphere_t.
 func (x *Sphere) Distance(PointVar *Point3D) float32 {
+	core.LazyRegister(&xSphereDistance, "GRAPHENE", "graphene_sphere_distance", false)
+
 	cret := xSphereDistance(x.GoPointer(), PointVar)
 	return cret
 }
@@ -72,6 +78,8 @@ var xSphereEqual func(uintptr, *Sphere) bool
 
 // Checks whether two #graphene_sphere_t are equal.
 func (x *Sphere) Equal(BVar *Sphere) bool {
+	core.LazyRegister(&xSphereEqual, "GRAPHENE", "graphene_sphere_equal", false)
+
 	cret := xSphereEqual(x.GoPointer(), BVar)
 	return cret
 }
@@ -80,6 +88,8 @@ var xSphereFree func(uintptr)
 
 // Frees the resources allocated by graphene_sphere_alloc().
 func (x *Sphere) Free() {
+	core.LazyRegister(&xSphereFree, "GRAPHENE", "graphene_sphere_free", false)
+
 	xSphereFree(x.GoPointer())
 }
 
@@ -88,6 +98,8 @@ var xSphereGetBoundingBox func(uintptr, *Box)
 // Computes the bounding box capable of containing the
 // given #graphene_sphere_t.
 func (x *Sphere) GetBoundingBox(BoxVar *Box) {
+	core.LazyRegister(&xSphereGetBoundingBox, "GRAPHENE", "graphene_sphere_get_bounding_box", false)
+
 	xSphereGetBoundingBox(x.GoPointer(), BoxVar)
 }
 
@@ -95,6 +107,8 @@ var xSphereGetCenter func(uintptr, *Point3D)
 
 // Retrieves the coordinates of the center of a #graphene_sphere_t.
 func (x *Sphere) GetCenter(CenterVar *Point3D) {
+	core.LazyRegister(&xSphereGetCenter, "GRAPHENE", "graphene_sphere_get_center", false)
+
 	xSphereGetCenter(x.GoPointer(), CenterVar)
 }
 
@@ -102,6 +116,8 @@ var xSphereGetRadius func(uintptr) float32
 
 // Retrieves the radius of a #graphene_sphere_t.
 func (x *Sphere) GetRadius() float32 {
+	core.LazyRegister(&xSphereGetRadius, "GRAPHENE", "graphene_sphere_get_radius", false)
+
 	cret := xSphereGetRadius(x.GoPointer())
 	return cret
 }
@@ -110,6 +126,8 @@ var xSphereInit func(uintptr, *Point3D, float32) uintptr
 
 // Initializes the given #graphene_sphere_t with the given @center and @radius.
 func (x *Sphere) Init(CenterVar *Point3D, RadiusVar float32) *Sphere {
+	core.LazyRegister(&xSphereInit, "GRAPHENE", "graphene_sphere_init", false)
+
 	cret := xSphereInit(x.GoPointer(), CenterVar, RadiusVar)
 	if cret == 0 {
 		return nil
@@ -125,6 +143,8 @@ var xSphereInitFromPoints func(uintptr, uint, []Point3D, *Point3D) uintptr
 // The center of the sphere can either be specified, or will be center
 // of the 3D volume that encompasses all @points.
 func (x *Sphere) InitFromPoints(NPointsVar uint, PointsVar []Point3D, CenterVar *Point3D) *Sphere {
+	core.LazyRegister(&xSphereInitFromPoints, "GRAPHENE", "graphene_sphere_init_from_points", false)
+
 	cret := xSphereInitFromPoints(x.GoPointer(), NPointsVar, PointsVar, CenterVar)
 	if cret == 0 {
 		return nil
@@ -140,6 +160,8 @@ var xSphereInitFromVectors func(uintptr, uint, []Vec3, *Point3D) uintptr
 // The center of the sphere can either be specified, or will be center
 // of the 3D volume that encompasses all @vectors.
 func (x *Sphere) InitFromVectors(NVectorsVar uint, VectorsVar []Vec3, CenterVar *Point3D) *Sphere {
+	core.LazyRegister(&xSphereInitFromVectors, "GRAPHENE", "graphene_sphere_init_from_vectors", false)
+
 	cret := xSphereInitFromVectors(x.GoPointer(), NVectorsVar, VectorsVar, CenterVar)
 	if cret == 0 {
 		return nil
@@ -151,6 +173,8 @@ var xSphereIsEmpty func(uintptr) bool
 
 // Checks whether the sphere has a zero radius.
 func (x *Sphere) IsEmpty() bool {
+	core.LazyRegister(&xSphereIsEmpty, "GRAPHENE", "graphene_sphere_is_empty", false)
+
 	cret := xSphereIsEmpty(x.GoPointer())
 	return cret
 }
@@ -160,35 +184,12 @@ var xSphereTranslate func(uintptr, *Point3D, *Sphere)
 // Translates the center of the given #graphene_sphere_t using the @point
 // coordinates as the delta of the translation.
 func (x *Sphere) Translate(PointVar *Point3D, ResVar *Sphere) {
+	core.LazyRegister(&xSphereTranslate, "GRAPHENE", "graphene_sphere_translate", false)
+
 	xSphereTranslate(x.GoPointer(), PointVar, ResVar)
 }
 
 func init() {
 	core.SetPackageName("GRAPHENE", "graphene-gobject-1.0")
 	core.SetSharedLibraries("GRAPHENE", []string{"libgraphene-1.0.so.0", "libgraphene-1.0.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GRAPHENE") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xSphereGLibType, libs, "graphene_sphere_get_type")
-
-	core.PuregoSafeRegister(&xSphereAlloc, libs, "graphene_sphere_alloc")
-
-	core.PuregoSafeRegister(&xSphereContainsPoint, libs, "graphene_sphere_contains_point")
-	core.PuregoSafeRegister(&xSphereDistance, libs, "graphene_sphere_distance")
-	core.PuregoSafeRegister(&xSphereEqual, libs, "graphene_sphere_equal")
-	core.PuregoSafeRegister(&xSphereFree, libs, "graphene_sphere_free")
-	core.PuregoSafeRegister(&xSphereGetBoundingBox, libs, "graphene_sphere_get_bounding_box")
-	core.PuregoSafeRegister(&xSphereGetCenter, libs, "graphene_sphere_get_center")
-	core.PuregoSafeRegister(&xSphereGetRadius, libs, "graphene_sphere_get_radius")
-	core.PuregoSafeRegister(&xSphereInit, libs, "graphene_sphere_init")
-	core.PuregoSafeRegister(&xSphereInitFromPoints, libs, "graphene_sphere_init_from_points")
-	core.PuregoSafeRegister(&xSphereInitFromVectors, libs, "graphene_sphere_init_from_vectors")
-	core.PuregoSafeRegister(&xSphereIsEmpty, libs, "graphene_sphere_is_empty")
-	core.PuregoSafeRegister(&xSphereTranslate, libs, "graphene_sphere_translate")
 }

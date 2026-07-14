@@ -333,6 +333,7 @@ type PixbufAnimation struct {
 var xPixbufAnimationGLibType func() types.GType
 
 func PixbufAnimationGLibType() types.GType {
+	core.LazyRegister(&xPixbufAnimationGLibType, "GDKPIXBUF", "gdk_pixbuf_animation_get_type", false)
 	return xPixbufAnimationGLibType()
 }
 
@@ -353,6 +354,7 @@ var xNewPixbufAnimationFromFile func(string, **glib.Error) uintptr
 //
 // Possible errors are in the `GDK_PIXBUF_ERROR` and `G_FILE_ERROR` domains.
 func NewPixbufAnimationFromFile(FilenameVar string) (*PixbufAnimation, error) {
+	core.LazyRegister(&xNewPixbufAnimationFromFile, "GDKPIXBUF", "gdk_pixbuf_animation_new_from_file", false)
 	var cls *PixbufAnimation
 	var cerr *glib.Error
 
@@ -376,6 +378,7 @@ var xNewPixbufAnimationFromResource func(string, **glib.Error) uintptr
 // The file format is detected automatically. If `NULL` is returned, then
 // @error will be set.
 func NewPixbufAnimationFromResource(ResourcePathVar string) (*PixbufAnimation, error) {
+	core.LazyRegister(&xNewPixbufAnimationFromResource, "GDKPIXBUF", "gdk_pixbuf_animation_new_from_resource", false)
 	var cls *PixbufAnimation
 	var cerr *glib.Error
 
@@ -407,6 +410,7 @@ var xNewPixbufAnimationFromStream func(uintptr, uintptr, **glib.Error) uintptr
 //
 // The stream is not closed.
 func NewPixbufAnimationFromStream(StreamVar *gio.InputStream, CancellableVar *gio.Cancellable) (*PixbufAnimation, error) {
+	core.LazyRegister(&xNewPixbufAnimationFromStream, "GDKPIXBUF", "gdk_pixbuf_animation_new_from_stream", false)
 	var cls *PixbufAnimation
 	var cerr *glib.Error
 
@@ -428,6 +432,7 @@ var xNewPixbufAnimationFromStreamFinish func(uintptr, **glib.Error) uintptr
 // Finishes an asynchronous pixbuf animation creation operation started with
 // [func@GdkPixbuf.PixbufAnimation.new_from_stream_async].
 func NewPixbufAnimationFromStreamFinish(AsyncResultVar gio.AsyncResult) (*PixbufAnimation, error) {
+	core.LazyRegister(&xNewPixbufAnimationFromStreamFinish, "GDKPIXBUF", "gdk_pixbuf_animation_new_from_stream_finish", false)
 	var cls *PixbufAnimation
 	var cerr *glib.Error
 
@@ -448,6 +453,8 @@ var xPixbufAnimationGetHeight func(uintptr) int
 
 // Queries the height of the bounding box of a pixbuf animation.
 func (x *PixbufAnimation) GetHeight() int {
+	core.LazyRegister(&xPixbufAnimationGetHeight, "GDKPIXBUF", "gdk_pixbuf_animation_get_height", false)
+
 	cret := xPixbufAnimationGetHeight(x.GoPointer())
 	return cret
 }
@@ -489,6 +496,7 @@ var xPixbufAnimationGetIter func(uintptr, *glib.TimeVal) uintptr
 //
 // A delay time of -1 is possible, indicating "infinite".
 func (x *PixbufAnimation) GetIter(StartTimeVar *glib.TimeVal) *PixbufAnimationIter {
+	core.LazyRegister(&xPixbufAnimationGetIter, "GDKPIXBUF", "gdk_pixbuf_animation_get_iter", false)
 	var cls *PixbufAnimationIter
 
 	cret := xPixbufAnimationGetIter(x.GoPointer(), StartTimeVar)
@@ -515,6 +523,7 @@ var xPixbufAnimationGetStaticImage func(uintptr) uintptr
 // If an animation hasn't loaded any frames yet, this function will
 // return `NULL`.
 func (x *PixbufAnimation) GetStaticImage() *Pixbuf {
+	core.LazyRegister(&xPixbufAnimationGetStaticImage, "GDKPIXBUF", "gdk_pixbuf_animation_get_static_image", false)
 	var cls *Pixbuf
 
 	cret := xPixbufAnimationGetStaticImage(x.GoPointer())
@@ -532,6 +541,8 @@ var xPixbufAnimationGetWidth func(uintptr) int
 
 // Queries the width of the bounding box of a pixbuf animation.
 func (x *PixbufAnimation) GetWidth() int {
+	core.LazyRegister(&xPixbufAnimationGetWidth, "GDKPIXBUF", "gdk_pixbuf_animation_get_width", false)
+
 	cret := xPixbufAnimationGetWidth(x.GoPointer())
 	return cret
 }
@@ -545,6 +556,8 @@ var xPixbufAnimationIsStaticImage func(uintptr) bool
 // return `TRUE`. Use gdk_pixbuf_animation_get_static_image() to retrieve
 // the image.
 func (x *PixbufAnimation) IsStaticImage() bool {
+	core.LazyRegister(&xPixbufAnimationIsStaticImage, "GDKPIXBUF", "gdk_pixbuf_animation_is_static_image", false)
+
 	cret := xPixbufAnimationIsStaticImage(x.GoPointer())
 	return cret
 }
@@ -553,6 +566,7 @@ var xPixbufAnimationRef func(uintptr) uintptr
 
 // Adds a reference to an animation.
 func (x *PixbufAnimation) Ref() *PixbufAnimation {
+	core.LazyRegister(&xPixbufAnimationRef, "GDKPIXBUF", "gdk_pixbuf_animation_ref", false)
 	var cls *PixbufAnimation
 
 	cret := xPixbufAnimationRef(x.GoPointer())
@@ -569,6 +583,8 @@ var xPixbufAnimationUnref func(uintptr)
 
 // Removes a reference from an animation.
 func (x *PixbufAnimation) Unref() {
+	core.LazyRegister(&xPixbufAnimationUnref, "GDKPIXBUF", "gdk_pixbuf_animation_unref", false)
+
 	xPixbufAnimationUnref(x.GoPointer())
 }
 
@@ -594,6 +610,8 @@ var xPixbufAnimationNewFromStreamAsync func(uintptr, uintptr, uintptr, uintptr)
 // You can then call gdk_pixbuf_animation_new_from_stream_finish() to get the
 // result of the operation.
 func PixbufAnimationNewFromStreamAsync(StreamVar *gio.InputStream, CancellableVar *gio.Cancellable, CallbackVar *gio.AsyncReadyCallback, UserDataVar uintptr) {
+	core.LazyRegister(&xPixbufAnimationNewFromStreamAsync, "GDKPIXBUF", "gdk_pixbuf_animation_new_from_stream_async", false)
+
 	xPixbufAnimationNewFromStreamAsync(StreamVar.GoPointer(), CancellableVar.GoPointer(), glib.NewCallbackNullable(CallbackVar), UserDataVar)
 }
 
@@ -606,6 +624,7 @@ type PixbufAnimationIter struct {
 var xPixbufAnimationIterGLibType func() types.GType
 
 func PixbufAnimationIterGLibType() types.GType {
+	core.LazyRegister(&xPixbufAnimationIterGLibType, "GDKPIXBUF", "gdk_pixbuf_animation_iter_get_type", false)
 	return xPixbufAnimationIterGLibType()
 }
 
@@ -639,6 +658,8 @@ var xPixbufAnimationIterAdvance func(uintptr, *glib.TimeVal) bool
 // if `TRUE`, you need to call gdk_pixbuf_animation_iter_get_pixbuf()
 // and update the display with the new pixbuf.
 func (x *PixbufAnimationIter) Advance(CurrentTimeVar *glib.TimeVal) bool {
+	core.LazyRegister(&xPixbufAnimationIterAdvance, "GDKPIXBUF", "gdk_pixbuf_animation_iter_advance", false)
+
 	cret := xPixbufAnimationIterAdvance(x.GoPointer(), CurrentTimeVar)
 	return cret
 }
@@ -655,6 +676,8 @@ var xPixbufAnimationIterGetDelayTime func(uintptr) int
 // image file to avoid updates that are just too quick. The minimum timeout
 // for GIF images is currently 20 milliseconds.
 func (x *PixbufAnimationIter) GetDelayTime() int {
+	core.LazyRegister(&xPixbufAnimationIterGetDelayTime, "GDKPIXBUF", "gdk_pixbuf_animation_iter_get_delay_time", false)
+
 	cret := xPixbufAnimationIterGetDelayTime(x.GoPointer())
 	return cret
 }
@@ -677,6 +700,7 @@ var xPixbufAnimationIterGetPixbuf func(uintptr) uintptr
 // Copy the pixbuf to keep it (don't just add a reference), as it may get
 // recycled as you advance the iterator.
 func (x *PixbufAnimationIter) GetPixbuf() *Pixbuf {
+	core.LazyRegister(&xPixbufAnimationIterGetPixbuf, "GDKPIXBUF", "gdk_pixbuf_animation_iter_get_pixbuf", false)
 	var cls *Pixbuf
 
 	cret := xPixbufAnimationIterGetPixbuf(x.GoPointer())
@@ -699,6 +723,8 @@ var xPixbufAnimationIterOnCurrentlyLoadingFrame func(uintptr) bool
 // streaming in to the loader. So if you're on the currently loading frame,
 // you will need to redraw the screen for the updated area.
 func (x *PixbufAnimationIter) OnCurrentlyLoadingFrame() bool {
+	core.LazyRegister(&xPixbufAnimationIterOnCurrentlyLoadingFrame, "GDKPIXBUF", "gdk_pixbuf_animation_iter_on_currently_loading_frame", false)
+
 	cret := xPixbufAnimationIterOnCurrentlyLoadingFrame(x.GoPointer())
 	return cret
 }
@@ -717,36 +743,4 @@ func (c *PixbufAnimationIter) SetGoPointer(ptr uintptr) {
 func init() {
 	core.SetPackageName("GDKPIXBUF", "gdk-pixbuf-2.0")
 	core.SetSharedLibraries("GDKPIXBUF", []string{"libgdk_pixbuf-2.0.so.0", "libgdk_pixbuf-2.0.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GDKPIXBUF") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xPixbufAnimationGLibType, libs, "gdk_pixbuf_animation_get_type")
-
-	core.PuregoSafeRegister(&xNewPixbufAnimationFromFile, libs, "gdk_pixbuf_animation_new_from_file")
-	core.PuregoSafeRegister(&xNewPixbufAnimationFromResource, libs, "gdk_pixbuf_animation_new_from_resource")
-	core.PuregoSafeRegister(&xNewPixbufAnimationFromStream, libs, "gdk_pixbuf_animation_new_from_stream")
-	core.PuregoSafeRegister(&xNewPixbufAnimationFromStreamFinish, libs, "gdk_pixbuf_animation_new_from_stream_finish")
-
-	core.PuregoSafeRegister(&xPixbufAnimationGetHeight, libs, "gdk_pixbuf_animation_get_height")
-	core.PuregoSafeRegister(&xPixbufAnimationGetIter, libs, "gdk_pixbuf_animation_get_iter")
-	core.PuregoSafeRegister(&xPixbufAnimationGetStaticImage, libs, "gdk_pixbuf_animation_get_static_image")
-	core.PuregoSafeRegister(&xPixbufAnimationGetWidth, libs, "gdk_pixbuf_animation_get_width")
-	core.PuregoSafeRegister(&xPixbufAnimationIsStaticImage, libs, "gdk_pixbuf_animation_is_static_image")
-	core.PuregoSafeRegister(&xPixbufAnimationRef, libs, "gdk_pixbuf_animation_ref")
-	core.PuregoSafeRegister(&xPixbufAnimationUnref, libs, "gdk_pixbuf_animation_unref")
-
-	core.PuregoSafeRegister(&xPixbufAnimationNewFromStreamAsync, libs, "gdk_pixbuf_animation_new_from_stream_async")
-
-	core.PuregoSafeRegister(&xPixbufAnimationIterGLibType, libs, "gdk_pixbuf_animation_iter_get_type")
-
-	core.PuregoSafeRegister(&xPixbufAnimationIterAdvance, libs, "gdk_pixbuf_animation_iter_advance")
-	core.PuregoSafeRegister(&xPixbufAnimationIterGetDelayTime, libs, "gdk_pixbuf_animation_iter_get_delay_time")
-	core.PuregoSafeRegister(&xPixbufAnimationIterGetPixbuf, libs, "gdk_pixbuf_animation_iter_get_pixbuf")
-	core.PuregoSafeRegister(&xPixbufAnimationIterOnCurrentlyLoadingFrame, libs, "gdk_pixbuf_animation_iter_on_currently_loading_frame")
 }

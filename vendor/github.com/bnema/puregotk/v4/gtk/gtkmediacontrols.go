@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -46,6 +45,7 @@ type MediaControls struct {
 var xMediaControlsGLibType func() types.GType
 
 func MediaControlsGLibType() types.GType {
+	core.LazyRegister(&xMediaControlsGLibType, "GTK", "gtk_media_controls_get_type", false)
 	return xMediaControlsGLibType()
 }
 
@@ -59,6 +59,7 @@ var xNewMediaControls func(uintptr) uintptr
 
 // Creates a new `GtkMediaControls` managing the @stream passed to it.
 func NewMediaControls(StreamVar *MediaStream) *MediaControls {
+	core.LazyRegister(&xNewMediaControls, "GTK", "gtk_media_controls_new", false)
 	var cls *MediaControls
 
 	cret := xNewMediaControls(StreamVar.GoPointer())
@@ -76,6 +77,7 @@ var xMediaControlsGetMediaStream func(uintptr) uintptr
 
 // Gets the media stream managed by @controls or %NULL if none.
 func (x *MediaControls) GetMediaStream() *MediaStream {
+	core.LazyRegister(&xMediaControlsGetMediaStream, "GTK", "gtk_media_controls_get_media_stream", false)
 	var cls *MediaStream
 
 	cret := xMediaControlsGetMediaStream(x.GoPointer())
@@ -93,6 +95,8 @@ var xMediaControlsSetMediaStream func(uintptr, uintptr)
 
 // Sets the stream that is controlled by @controls.
 func (x *MediaControls) SetMediaStream(StreamVar *MediaStream) {
+	core.LazyRegister(&xMediaControlsSetMediaStream, "GTK", "gtk_media_controls_set_media_stream", false)
+
 	xMediaControlsSetMediaStream(x.GoPointer(), StreamVar.GoPointer())
 }
 
@@ -370,19 +374,4 @@ func (x *MediaControls) GetBuildableId() string {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GTK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xMediaControlsGLibType, libs, "gtk_media_controls_get_type")
-
-	core.PuregoSafeRegister(&xNewMediaControls, libs, "gtk_media_controls_new")
-
-	core.PuregoSafeRegister(&xMediaControlsGetMediaStream, libs, "gtk_media_controls_get_media_stream")
-	core.PuregoSafeRegister(&xMediaControlsSetMediaStream, libs, "gtk_media_controls_set_media_stream")
 }

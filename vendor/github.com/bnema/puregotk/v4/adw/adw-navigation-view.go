@@ -186,6 +186,7 @@ type NavigationPage struct {
 var xNavigationPageGLibType func() types.GType
 
 func NavigationPageGLibType() types.GType {
+	core.LazyRegister(&xNavigationPageGLibType, "ADW", "adw_navigation_page_get_type", false)
 	return xNavigationPageGLibType()
 }
 
@@ -199,6 +200,7 @@ var xNewNavigationPage func(uintptr, string) uintptr
 
 // Creates a new `AdwNavigationPage`.
 func NewNavigationPage(ChildVar *gtk.Widget, TitleVar string) *NavigationPage {
+	core.LazyRegister(&xNewNavigationPage, "ADW", "adw_navigation_page_new", false)
 	var cls *NavigationPage
 
 	cret := xNewNavigationPage(ChildVar.GoPointer(), TitleVar)
@@ -216,6 +218,7 @@ var xNewNavigationPageWithTag func(uintptr, string, string) uintptr
 
 // Creates a new `AdwNavigationPage` with provided tag.
 func NewNavigationPageWithTag(ChildVar *gtk.Widget, TitleVar string, TagVar string) *NavigationPage {
+	core.LazyRegister(&xNewNavigationPageWithTag, "ADW", "adw_navigation_page_new_with_tag", false)
 	var cls *NavigationPage
 
 	cret := xNewNavigationPageWithTag(ChildVar.GoPointer(), TitleVar, TagVar)
@@ -233,6 +236,8 @@ var xNavigationPageGetCanPop func(uintptr) bool
 
 // Gets whether @self can be popped from navigation stack.
 func (x *NavigationPage) GetCanPop() bool {
+	core.LazyRegister(&xNavigationPageGetCanPop, "ADW", "adw_navigation_page_get_can_pop", false)
+
 	cret := xNavigationPageGetCanPop(x.GoPointer())
 	return cret
 }
@@ -241,6 +246,7 @@ var xNavigationPageGetChild func(uintptr) uintptr
 
 // Gets the child widget of @self.
 func (x *NavigationPage) GetChild() *gtk.Widget {
+	core.LazyRegister(&xNavigationPageGetChild, "ADW", "adw_navigation_page_get_child", false)
 	var cls *gtk.Widget
 
 	cret := xNavigationPageGetChild(x.GoPointer())
@@ -258,6 +264,8 @@ var xNavigationPageGetTag func(uintptr) string
 
 // Gets the tag of @self.
 func (x *NavigationPage) GetTag() string {
+	core.LazyRegister(&xNavigationPageGetTag, "ADW", "adw_navigation_page_get_tag", false)
+
 	cret := xNavigationPageGetTag(x.GoPointer())
 	return cret
 }
@@ -266,6 +274,8 @@ var xNavigationPageGetTitle func(uintptr) string
 
 // Gets the title of @self.
 func (x *NavigationPage) GetTitle() string {
+	core.LazyRegister(&xNavigationPageGetTitle, "ADW", "adw_navigation_page_get_title", false)
+
 	cret := xNavigationPageGetTitle(x.GoPointer())
 	return cret
 }
@@ -283,6 +293,8 @@ var xNavigationPageSetCanPop func(uintptr, bool)
 // See [property@HeaderBar:show-back-button] for removing only the back button,
 // but not shortcuts.
 func (x *NavigationPage) SetCanPop(CanPopVar bool) {
+	core.LazyRegister(&xNavigationPageSetCanPop, "ADW", "adw_navigation_page_set_can_pop", false)
+
 	xNavigationPageSetCanPop(x.GoPointer(), CanPopVar)
 }
 
@@ -290,6 +302,8 @@ var xNavigationPageSetChild func(uintptr, uintptr)
 
 // Sets the child widget of @self.
 func (x *NavigationPage) SetChild(ChildVar *gtk.Widget) {
+	core.LazyRegister(&xNavigationPageSetChild, "ADW", "adw_navigation_page_set_child", false)
+
 	xNavigationPageSetChild(x.GoPointer(), ChildVar.GoPointer())
 }
 
@@ -306,6 +320,8 @@ var xNavigationPageSetTag func(uintptr, uintptr)
 //
 // The tag also must be set to use the `navigation.push` action.
 func (x *NavigationPage) SetTag(TagVar *string) {
+	core.LazyRegister(&xNavigationPageSetTag, "ADW", "adw_navigation_page_set_tag", false)
+
 	TagVarPtr := core.GStrdupNullable(TagVar)
 	defer core.GFreeNullable(TagVarPtr)
 
@@ -319,6 +335,8 @@ var xNavigationPageSetTitle func(uintptr, string)
 // It's displayed in [class@HeaderBar] instead of the window title, and used as
 // the tooltip on the next page's back button, as well as by screen reader.
 func (x *NavigationPage) SetTitle(TitleVar string) {
+	core.LazyRegister(&xNavigationPageSetTitle, "ADW", "adw_navigation_page_set_title", false)
+
 	xNavigationPageSetTitle(x.GoPointer(), TitleVar)
 }
 
@@ -964,6 +982,7 @@ type NavigationView struct {
 var xNavigationViewGLibType func() types.GType
 
 func NavigationViewGLibType() types.GType {
+	core.LazyRegister(&xNavigationViewGLibType, "ADW", "adw_navigation_view_get_type", false)
 	return xNavigationViewGLibType()
 }
 
@@ -977,6 +996,7 @@ var xNewNavigationView func() uintptr
 
 // Creates a new `AdwNavigationView`.
 func NewNavigationView() *NavigationView {
+	core.LazyRegister(&xNewNavigationView, "ADW", "adw_navigation_view_new", false)
 	var cls *NavigationView
 
 	cret := xNewNavigationView()
@@ -1002,6 +1022,8 @@ var xNavigationViewAdd func(uintptr, uintptr)
 //
 // See [method@NavigationView.remove].
 func (x *NavigationView) Add(PageVar *NavigationPage) {
+	core.LazyRegister(&xNavigationViewAdd, "ADW", "adw_navigation_view_add", false)
+
 	xNavigationViewAdd(x.GoPointer(), PageVar.GoPointer())
 }
 
@@ -1011,6 +1033,7 @@ var xNavigationViewFindPage func(uintptr, string) uintptr
 //
 // See [property@NavigationPage:tag].
 func (x *NavigationView) FindPage(TagVar string) *NavigationPage {
+	core.LazyRegister(&xNavigationViewFindPage, "ADW", "adw_navigation_view_find_page", false)
 	var cls *NavigationPage
 
 	cret := xNavigationViewFindPage(x.GoPointer(), TagVar)
@@ -1028,6 +1051,8 @@ var xNavigationViewGetAnimateTransitions func(uintptr) bool
 
 // Gets whether @self animates page transitions.
 func (x *NavigationView) GetAnimateTransitions() bool {
+	core.LazyRegister(&xNavigationViewGetAnimateTransitions, "ADW", "adw_navigation_view_get_animate_transitions", false)
+
 	cret := xNavigationViewGetAnimateTransitions(x.GoPointer())
 	return cret
 }
@@ -1036,6 +1061,8 @@ var xNavigationViewGetHhomogeneous func(uintptr) bool
 
 // Gets whether @self is horizontally homogeneous.
 func (x *NavigationView) GetHhomogeneous() bool {
+	core.LazyRegister(&xNavigationViewGetHhomogeneous, "ADW", "adw_navigation_view_get_hhomogeneous", false)
+
 	cret := xNavigationViewGetHhomogeneous(x.GoPointer())
 	return cret
 }
@@ -1048,6 +1075,7 @@ var xNavigationViewGetNavigationStack func(uintptr) uintptr
 //
 // This can be used to keep an up-to-date view.
 func (x *NavigationView) GetNavigationStack() *gio.ListModelBase {
+	core.LazyRegister(&xNavigationViewGetNavigationStack, "ADW", "adw_navigation_view_get_navigation_stack", false)
 	var cls *gio.ListModelBase
 
 	cret := xNavigationViewGetNavigationStack(x.GoPointer())
@@ -1064,6 +1092,8 @@ var xNavigationViewGetPopOnEscape func(uintptr) bool
 
 // Gets whether pressing Escape pops the current page on @self.
 func (x *NavigationView) GetPopOnEscape() bool {
+	core.LazyRegister(&xNavigationViewGetPopOnEscape, "ADW", "adw_navigation_view_get_pop_on_escape", false)
+
 	cret := xNavigationViewGetPopOnEscape(x.GoPointer())
 	return cret
 }
@@ -1077,6 +1107,7 @@ var xNavigationViewGetPreviousPage func(uintptr, uintptr) uintptr
 //
 // If @page is the root page or is not in the navigation stack, returns `NULL`.
 func (x *NavigationView) GetPreviousPage(PageVar *NavigationPage) *NavigationPage {
+	core.LazyRegister(&xNavigationViewGetPreviousPage, "ADW", "adw_navigation_view_get_previous_page", false)
 	var cls *NavigationPage
 
 	cret := xNavigationViewGetPreviousPage(x.GoPointer(), PageVar.GoPointer())
@@ -1094,6 +1125,8 @@ var xNavigationViewGetVhomogeneous func(uintptr) bool
 
 // Gets whether @self is vertically homogeneous.
 func (x *NavigationView) GetVhomogeneous() bool {
+	core.LazyRegister(&xNavigationViewGetVhomogeneous, "ADW", "adw_navigation_view_get_vhomogeneous", false)
+
 	cret := xNavigationViewGetVhomogeneous(x.GoPointer())
 	return cret
 }
@@ -1102,6 +1135,7 @@ var xNavigationViewGetVisiblePage func(uintptr) uintptr
 
 // Gets the currently visible page in @self.
 func (x *NavigationView) GetVisiblePage() *NavigationPage {
+	core.LazyRegister(&xNavigationViewGetVisiblePage, "ADW", "adw_navigation_view_get_visible_page", false)
 	var cls *NavigationPage
 
 	cret := xNavigationViewGetVisiblePage(x.GoPointer())
@@ -1119,6 +1153,8 @@ var xNavigationViewGetVisiblePageTag func(uintptr) string
 
 // Gets the tag of the currently visible page in @self.
 func (x *NavigationView) GetVisiblePageTag() string {
+	core.LazyRegister(&xNavigationViewGetVisiblePageTag, "ADW", "adw_navigation_view_get_visible_page_tag", false)
+
 	cret := xNavigationViewGetVisiblePageTag(x.GoPointer())
 	return cret
 }
@@ -1137,6 +1173,8 @@ var xNavigationViewPop func(uintptr) bool
 // See [method@NavigationView.pop_to_page] and
 // [method@NavigationView.pop_to_tag].
 func (x *NavigationView) Pop() bool {
+	core.LazyRegister(&xNavigationViewPop, "ADW", "adw_navigation_view_pop", false)
+
 	cret := xNavigationViewPop(x.GoPointer())
 	return cret
 }
@@ -1155,6 +1193,8 @@ var xNavigationViewPopToPage func(uintptr, uintptr) bool
 //
 // See [method@NavigationView.pop] and [method@NavigationView.pop_to_tag].
 func (x *NavigationView) PopToPage(PageVar *NavigationPage) bool {
+	core.LazyRegister(&xNavigationViewPopToPage, "ADW", "adw_navigation_view_pop_to_page", false)
+
 	cret := xNavigationViewPopToPage(x.GoPointer(), PageVar.GoPointer())
 	return cret
 }
@@ -1172,6 +1212,8 @@ var xNavigationViewPopToTag func(uintptr, string) bool
 //
 // See [method@NavigationView.pop_to_page] and [property@NavigationPage:tag].
 func (x *NavigationView) PopToTag(TagVar string) bool {
+	core.LazyRegister(&xNavigationViewPopToTag, "ADW", "adw_navigation_view_pop_to_tag", false)
+
 	cret := xNavigationViewPopToTag(x.GoPointer(), TagVar)
 	return cret
 }
@@ -1187,6 +1229,8 @@ var xNavigationViewPush func(uintptr, uintptr)
 //
 // See [method@NavigationView.push_by_tag].
 func (x *NavigationView) Push(PageVar *NavigationPage) {
+	core.LazyRegister(&xNavigationViewPush, "ADW", "adw_navigation_view_push", false)
+
 	xNavigationViewPush(x.GoPointer(), PageVar.GoPointer())
 }
 
@@ -1201,6 +1245,8 @@ var xNavigationViewPushByTag func(uintptr, string)
 //
 // See [method@NavigationView.push] and [property@NavigationPage:tag].
 func (x *NavigationView) PushByTag(TagVar string) {
+	core.LazyRegister(&xNavigationViewPushByTag, "ADW", "adw_navigation_view_push_by_tag", false)
+
 	xNavigationViewPushByTag(x.GoPointer(), TagVar)
 }
 
@@ -1213,6 +1259,8 @@ var xNavigationViewRemove func(uintptr, uintptr)
 //
 // See [method@NavigationView.add].
 func (x *NavigationView) Remove(PageVar *NavigationPage) {
+	core.LazyRegister(&xNavigationViewRemove, "ADW", "adw_navigation_view_remove", false)
+
 	xNavigationViewRemove(x.GoPointer(), PageVar.GoPointer())
 }
 
@@ -1234,6 +1282,8 @@ var xNavigationViewReplace func(uintptr, uintptr, int)
 //
 // See [method@NavigationView.replace_with_tags].
 func (x *NavigationView) Replace(PagesVar uintptr, NPagesVar int) {
+	core.LazyRegister(&xNavigationViewReplace, "ADW", "adw_navigation_view_replace", false)
+
 	xNavigationViewReplace(x.GoPointer(), PagesVar, NPagesVar)
 }
 
@@ -1255,6 +1305,8 @@ var xNavigationViewReplaceWithTags func(uintptr, []string, int)
 //
 // See [method@NavigationView.replace] and [property@NavigationPage:tag].
 func (x *NavigationView) ReplaceWithTags(TagsVar []string, NTagsVar int) {
+	core.LazyRegister(&xNavigationViewReplaceWithTags, "ADW", "adw_navigation_view_replace_with_tags", false)
+
 	xNavigationViewReplaceWithTags(x.GoPointer(), TagsVar, NTagsVar)
 }
 
@@ -1264,6 +1316,8 @@ var xNavigationViewSetAnimateTransitions func(uintptr, bool)
 //
 // Gesture-based transitions are always animated.
 func (x *NavigationView) SetAnimateTransitions(AnimateTransitionsVar bool) {
+	core.LazyRegister(&xNavigationViewSetAnimateTransitions, "ADW", "adw_navigation_view_set_animate_transitions", false)
+
 	xNavigationViewSetAnimateTransitions(x.GoPointer(), AnimateTransitionsVar)
 }
 
@@ -1276,6 +1330,8 @@ var xNavigationViewSetHhomogeneous func(uintptr, bool)
 //
 // If it's not, the view may change width when a different page becomes visible.
 func (x *NavigationView) SetHhomogeneous(HhomogeneousVar bool) {
+	core.LazyRegister(&xNavigationViewSetHhomogeneous, "ADW", "adw_navigation_view_set_hhomogeneous", false)
+
 	xNavigationViewSetHhomogeneous(x.GoPointer(), HhomogeneousVar)
 }
 
@@ -1286,6 +1342,8 @@ var xNavigationViewSetPopOnEscape func(uintptr, bool)
 // Applications using `AdwNavigationView` to implement a browser may want to
 // disable it.
 func (x *NavigationView) SetPopOnEscape(PopOnEscapeVar bool) {
+	core.LazyRegister(&xNavigationViewSetPopOnEscape, "ADW", "adw_navigation_view_set_pop_on_escape", false)
+
 	xNavigationViewSetPopOnEscape(x.GoPointer(), PopOnEscapeVar)
 }
 
@@ -1299,6 +1357,8 @@ var xNavigationViewSetVhomogeneous func(uintptr, bool)
 // If it's not, the view may change height when a different page becomes
 // visible.
 func (x *NavigationView) SetVhomogeneous(VhomogeneousVar bool) {
+	core.LazyRegister(&xNavigationViewSetVhomogeneous, "ADW", "adw_navigation_view_set_vhomogeneous", false)
+
 	xNavigationViewSetVhomogeneous(x.GoPointer(), VhomogeneousVar)
 }
 
@@ -1843,53 +1903,4 @@ func (x *NavigationView) GetBuildableId() string {
 func init() {
 	core.SetPackageName("ADW", "libadwaita-1")
 	core.SetSharedLibraries("ADW", []string{"libadwaita-1.so.0", "libadwaita-1.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("ADW") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xNavigationPageGLibType, libs, "adw_navigation_page_get_type")
-
-	core.PuregoSafeRegister(&xNewNavigationPage, libs, "adw_navigation_page_new")
-	core.PuregoSafeRegister(&xNewNavigationPageWithTag, libs, "adw_navigation_page_new_with_tag")
-
-	core.PuregoSafeRegister(&xNavigationPageGetCanPop, libs, "adw_navigation_page_get_can_pop")
-	core.PuregoSafeRegister(&xNavigationPageGetChild, libs, "adw_navigation_page_get_child")
-	core.PuregoSafeRegister(&xNavigationPageGetTag, libs, "adw_navigation_page_get_tag")
-	core.PuregoSafeRegister(&xNavigationPageGetTitle, libs, "adw_navigation_page_get_title")
-	core.PuregoSafeRegister(&xNavigationPageSetCanPop, libs, "adw_navigation_page_set_can_pop")
-	core.PuregoSafeRegister(&xNavigationPageSetChild, libs, "adw_navigation_page_set_child")
-	core.PuregoSafeRegister(&xNavigationPageSetTag, libs, "adw_navigation_page_set_tag")
-	core.PuregoSafeRegister(&xNavigationPageSetTitle, libs, "adw_navigation_page_set_title")
-
-	core.PuregoSafeRegister(&xNavigationViewGLibType, libs, "adw_navigation_view_get_type")
-
-	core.PuregoSafeRegister(&xNewNavigationView, libs, "adw_navigation_view_new")
-
-	core.PuregoSafeRegister(&xNavigationViewAdd, libs, "adw_navigation_view_add")
-	core.PuregoSafeRegister(&xNavigationViewFindPage, libs, "adw_navigation_view_find_page")
-	core.PuregoSafeRegister(&xNavigationViewGetAnimateTransitions, libs, "adw_navigation_view_get_animate_transitions")
-	core.PuregoSafeRegister(&xNavigationViewGetHhomogeneous, libs, "adw_navigation_view_get_hhomogeneous")
-	core.PuregoSafeRegister(&xNavigationViewGetNavigationStack, libs, "adw_navigation_view_get_navigation_stack")
-	core.PuregoSafeRegister(&xNavigationViewGetPopOnEscape, libs, "adw_navigation_view_get_pop_on_escape")
-	core.PuregoSafeRegister(&xNavigationViewGetPreviousPage, libs, "adw_navigation_view_get_previous_page")
-	core.PuregoSafeRegister(&xNavigationViewGetVhomogeneous, libs, "adw_navigation_view_get_vhomogeneous")
-	core.PuregoSafeRegister(&xNavigationViewGetVisiblePage, libs, "adw_navigation_view_get_visible_page")
-	core.PuregoSafeRegister(&xNavigationViewGetVisiblePageTag, libs, "adw_navigation_view_get_visible_page_tag")
-	core.PuregoSafeRegister(&xNavigationViewPop, libs, "adw_navigation_view_pop")
-	core.PuregoSafeRegister(&xNavigationViewPopToPage, libs, "adw_navigation_view_pop_to_page")
-	core.PuregoSafeRegister(&xNavigationViewPopToTag, libs, "adw_navigation_view_pop_to_tag")
-	core.PuregoSafeRegister(&xNavigationViewPush, libs, "adw_navigation_view_push")
-	core.PuregoSafeRegister(&xNavigationViewPushByTag, libs, "adw_navigation_view_push_by_tag")
-	core.PuregoSafeRegister(&xNavigationViewRemove, libs, "adw_navigation_view_remove")
-	core.PuregoSafeRegister(&xNavigationViewReplace, libs, "adw_navigation_view_replace")
-	core.PuregoSafeRegister(&xNavigationViewReplaceWithTags, libs, "adw_navigation_view_replace_with_tags")
-	core.PuregoSafeRegister(&xNavigationViewSetAnimateTransitions, libs, "adw_navigation_view_set_animate_transitions")
-	core.PuregoSafeRegister(&xNavigationViewSetHhomogeneous, libs, "adw_navigation_view_set_hhomogeneous")
-	core.PuregoSafeRegister(&xNavigationViewSetPopOnEscape, libs, "adw_navigation_view_set_pop_on_escape")
-	core.PuregoSafeRegister(&xNavigationViewSetVhomogeneous, libs, "adw_navigation_view_set_vhomogeneous")
 }

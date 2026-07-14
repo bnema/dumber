@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 )
 
@@ -44,6 +43,8 @@ var xAccess func(string, int) int
 //
 // See your C library manual for more details about access().
 func Access(FilenameVar string, ModeVar int) int {
+	core.LazyRegister(&xAccess, "GLIB", "g_access", false)
+
 	cret := xAccess(FilenameVar, ModeVar)
 	return cret
 }
@@ -55,6 +56,8 @@ var xChdir func(string) int
 //
 // See your C library manual for more details about chdir().
 func Chdir(PathVar string) int {
+	core.LazyRegister(&xChdir, "GLIB", "g_chdir", false)
+
 	cret := xChdir(PathVar)
 	return cret
 }
@@ -72,6 +75,8 @@ var xChmod func(string, int) int
 //
 // See your C library manual for more details about chmod().
 func Chmod(FilenameVar string, ModeVar int) int {
+	core.LazyRegister(&xChmod, "GLIB", "g_chmod", false)
+
 	cret := xChmod(FilenameVar, ModeVar)
 	return cret
 }
@@ -96,6 +101,7 @@ var xClose func(int, **Error) bool
 // See [`signal(7)`](man:signal(7)) and
 // [`signal-safety(7)`](man:signal-safety(7)) for more details.
 func Close(FdVar int) (bool, error) {
+	core.LazyRegister(&xClose, "GLIB", "g_close", false)
 	var cerr *Error
 
 	cret := xClose(FdVar, &cerr)
@@ -127,6 +133,8 @@ var xCreat func(string, int) int
 //
 // See your C library manual for more details about creat().
 func Creat(FilenameVar string, ModeVar int) int {
+	core.LazyRegister(&xCreat, "GLIB", "g_creat", false)
+
 	cret := xCreat(FilenameVar, ModeVar)
 	return cret
 }
@@ -157,6 +165,8 @@ var xFopen func(string, string) uintptr
 // It is recommended to set `e` unconditionally, unless you know the returned
 // file should be shared between this process and a new fork.
 func Fopen(FilenameVar string, ModeVar string) uintptr {
+	core.LazyRegister(&xFopen, "GLIB", "g_fopen", false)
+
 	cret := xFopen(FilenameVar, ModeVar)
 	return cret
 }
@@ -171,6 +181,8 @@ var xFreopen func(string, string, uintptr) uintptr
 // Since GLib 2.86, the `e` option is supported in @mode on all platforms. See
 // the documentation for [func@GLib.fopen] for more details.
 func Freopen(FilenameVar string, ModeVar string, StreamVar uintptr) uintptr {
+	core.LazyRegister(&xFreopen, "GLIB", "g_freopen", false)
+
 	cret := xFreopen(FilenameVar, ModeVar, StreamVar)
 	return cret
 }
@@ -186,6 +198,8 @@ var xFsync func(int) int
 //
 // See the C library manual for more details about fsync().
 func Fsync(FdVar int) int {
+	core.LazyRegister(&xFsync, "GLIB", "g_fsync", false)
+
 	cret := xFsync(FdVar)
 	return cret
 }
@@ -200,6 +214,8 @@ var xLstat func(string, *StatBuf) int
 //
 // See your C library manual for more details about lstat().
 func Lstat(FilenameVar string, BufVar *StatBuf) int {
+	core.LazyRegister(&xLstat, "GLIB", "g_lstat", false)
+
 	cret := xLstat(FilenameVar, BufVar)
 	return cret
 }
@@ -212,6 +228,8 @@ var xMkdir func(string, int) int
 //
 // See your C library manual for more details about mkdir().
 func Mkdir(FilenameVar string, ModeVar int) int {
+	core.LazyRegister(&xMkdir, "GLIB", "g_mkdir", false)
+
 	cret := xMkdir(FilenameVar, ModeVar)
 	return cret
 }
@@ -237,6 +255,8 @@ var xOpen func(string, int, int) int
 //
 // See your C library manual for more details about open().
 func Open(FilenameVar string, FlagsVar int, ModeVar int) int {
+	core.LazyRegister(&xOpen, "GLIB", "g_open", false)
+
 	cret := xOpen(FilenameVar, FlagsVar, ModeVar)
 	return cret
 }
@@ -260,6 +280,8 @@ var xRemove func(string) int
 // fail. Any errno value set by remove() will be overwritten by that
 // set by rmdir().
 func Remove(FilenameVar string) int {
+	core.LazyRegister(&xRemove, "GLIB", "g_remove", false)
+
 	cret := xRemove(FilenameVar)
 	return cret
 }
@@ -273,6 +295,8 @@ var xRename func(string, string) int
 // on your system. It is not possible in general on Windows to rename
 // a file that is open to some process.
 func Rename(OldfilenameVar string, NewfilenameVar string) int {
+	core.LazyRegister(&xRename, "GLIB", "g_rename", false)
+
 	cret := xRename(OldfilenameVar, NewfilenameVar)
 	return cret
 }
@@ -285,6 +309,8 @@ var xRmdir func(string) int
 // See your C library manual for more details about how rmdir() works
 // on your system.
 func Rmdir(FilenameVar string) int {
+	core.LazyRegister(&xRmdir, "GLIB", "g_rmdir", false)
+
 	cret := xRmdir(FilenameVar)
 	return cret
 }
@@ -312,6 +338,8 @@ var xStat func(string, *StatBuf) int
 //
 // See your C library manual for more details about stat().
 func Stat(FilenameVar string, BufVar *StatBuf) int {
+	core.LazyRegister(&xStat, "GLIB", "g_stat", false)
+
 	cret := xStat(FilenameVar, BufVar)
 	return cret
 }
@@ -327,6 +355,8 @@ var xUnlink func(string) int
 // that on Windows, it is in general not possible to delete files that
 // are open to some process, or mapped into memory.
 func Unlink(FilenameVar string) int {
+	core.LazyRegister(&xUnlink, "GLIB", "g_unlink", false)
+
 	cret := xUnlink(FilenameVar)
 	return cret
 }
@@ -339,6 +369,8 @@ var xUtime func(string, uintptr) int
 // See your C library manual for more details about how utime() works
 // on your system.
 func Utime(FilenameVar string, UtbVar uintptr) int {
+	core.LazyRegister(&xUtime, "GLIB", "g_utime", false)
+
 	cret := xUtime(FilenameVar, UtbVar)
 	return cret
 }
@@ -346,30 +378,4 @@ func Utime(FilenameVar string, UtbVar uintptr) int {
 func init() {
 	core.SetPackageName("GLIB", "glib-2.0")
 	core.SetSharedLibraries("GLIB", []string{"libgobject-2.0.so.0", "libglib-2.0.so.0", "libgobject-2.0.0.dylib", "libglib-2.0.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GLIB") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xAccess, libs, "g_access")
-	core.PuregoSafeRegister(&xChdir, libs, "g_chdir")
-	core.PuregoSafeRegister(&xChmod, libs, "g_chmod")
-	core.PuregoSafeRegister(&xClose, libs, "g_close")
-	core.PuregoSafeRegister(&xCreat, libs, "g_creat")
-	core.PuregoSafeRegister(&xFopen, libs, "g_fopen")
-	core.PuregoSafeRegister(&xFreopen, libs, "g_freopen")
-	core.PuregoSafeRegister(&xFsync, libs, "g_fsync")
-	core.PuregoSafeRegister(&xLstat, libs, "g_lstat")
-	core.PuregoSafeRegister(&xMkdir, libs, "g_mkdir")
-	core.PuregoSafeRegister(&xOpen, libs, "g_open")
-	core.PuregoSafeRegister(&xRemove, libs, "g_remove")
-	core.PuregoSafeRegister(&xRename, libs, "g_rename")
-	core.PuregoSafeRegister(&xRmdir, libs, "g_rmdir")
-	core.PuregoSafeRegister(&xStat, libs, "g_stat")
-	core.PuregoSafeRegister(&xUnlink, libs, "g_unlink")
-	core.PuregoSafeRegister(&xUtime, libs, "g_utime")
 }

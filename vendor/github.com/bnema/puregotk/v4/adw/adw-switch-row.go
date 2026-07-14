@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -72,6 +71,7 @@ type SwitchRow struct {
 var xSwitchRowGLibType func() types.GType
 
 func SwitchRowGLibType() types.GType {
+	core.LazyRegister(&xSwitchRowGLibType, "ADW", "adw_switch_row_get_type", false)
 	return xSwitchRowGLibType()
 }
 
@@ -85,6 +85,7 @@ var xNewSwitchRow func() uintptr
 
 // Creates a new `AdwSwitchRow`.
 func NewSwitchRow() *SwitchRow {
+	core.LazyRegister(&xNewSwitchRow, "ADW", "adw_switch_row_new", false)
 	var cls *SwitchRow
 
 	cret := xNewSwitchRow()
@@ -102,6 +103,8 @@ var xSwitchRowGetActive func(uintptr) bool
 
 // Gets whether @self is in its "on" or "off" position.
 func (x *SwitchRow) GetActive() bool {
+	core.LazyRegister(&xSwitchRowGetActive, "ADW", "adw_switch_row_get_active", false)
+
 	cret := xSwitchRowGetActive(x.GoPointer())
 	return cret
 }
@@ -110,6 +113,8 @@ var xSwitchRowSetActive func(uintptr, bool)
 
 // Sets whether @self is in its "on" or "off" position
 func (x *SwitchRow) SetActive(IsActiveVar bool) {
+	core.LazyRegister(&xSwitchRowSetActive, "ADW", "adw_switch_row_set_active", false)
+
 	xSwitchRowSetActive(x.GoPointer(), IsActiveVar)
 }
 
@@ -483,19 +488,4 @@ func (x *SwitchRow) GetBuildableId() string {
 func init() {
 	core.SetPackageName("ADW", "libadwaita-1")
 	core.SetSharedLibraries("ADW", []string{"libadwaita-1.so.0", "libadwaita-1.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("ADW") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xSwitchRowGLibType, libs, "adw_switch_row_get_type")
-
-	core.PuregoSafeRegister(&xNewSwitchRow, libs, "adw_switch_row_new")
-
-	core.PuregoSafeRegister(&xSwitchRowGetActive, libs, "adw_switch_row_get_active")
-	core.PuregoSafeRegister(&xSwitchRowSetActive, libs, "adw_switch_row_set_active")
 }

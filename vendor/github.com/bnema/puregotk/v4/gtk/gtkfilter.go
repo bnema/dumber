@@ -293,6 +293,7 @@ type FilterChange int
 var xFilterChangeGLibType func() types.GType
 
 func FilterChangeGLibType() types.GType {
+	core.LazyRegister(&xFilterChangeGLibType, "GTK", "gtk_filter_change_get_type", false)
 	return xFilterChangeGLibType()
 }
 
@@ -336,6 +337,7 @@ type FilterMatch int
 var xFilterMatchGLibType func() types.GType
 
 func FilterMatchGLibType() types.GType {
+	core.LazyRegister(&xFilterMatchGLibType, "GTK", "gtk_filter_match_get_type", false)
 	return xFilterMatchGLibType()
 }
 
@@ -376,6 +378,7 @@ type Filter struct {
 var xFilterGLibType func() types.GType
 
 func FilterGLibType() types.GType {
+	core.LazyRegister(&xFilterGLibType, "GTK", "gtk_filter_get_type", false)
 	return xFilterGLibType()
 }
 
@@ -400,6 +403,8 @@ var xFilterChanged func(uintptr, FilterChange)
 // This function is intended for implementers of `GtkFilter`
 // subclasses and should not be called from other functions.
 func (x *Filter) Changed(ChangeVar FilterChange) {
+	core.LazyRegister(&xFilterChanged, "GTK", "gtk_filter_changed", false)
+
 	xFilterChanged(x.GoPointer(), ChangeVar)
 }
 
@@ -415,6 +420,8 @@ var xFilterGetStrictness func(uintptr) FilterMatch
 // This function is meant purely for optimization purposes. Filters can
 // choose to omit implementing it, but `GtkFilterListModel` uses it.
 func (x *Filter) GetStrictness() FilterMatch {
+	core.LazyRegister(&xFilterGetStrictness, "GTK", "gtk_filter_get_strictness", false)
+
 	cret := xFilterGetStrictness(x.GoPointer())
 	return cret
 }
@@ -423,6 +430,8 @@ var xFilterMatch func(uintptr, uintptr) bool
 
 // Checks if the given @item is matched by the filter or not.
 func (x *Filter) Match(ItemVar *gobject.Object) bool {
+	core.LazyRegister(&xFilterMatch, "GTK", "gtk_filter_match", false)
+
 	cret := xFilterMatch(x.GoPointer(), ItemVar.GoPointer())
 	return cret
 }
@@ -473,22 +482,4 @@ func (x *Filter) ConnectChanged(cb *func(Filter, FilterChange)) uint {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GTK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xFilterChangeGLibType, libs, "gtk_filter_change_get_type")
-
-	core.PuregoSafeRegister(&xFilterMatchGLibType, libs, "gtk_filter_match_get_type")
-
-	core.PuregoSafeRegister(&xFilterGLibType, libs, "gtk_filter_get_type")
-
-	core.PuregoSafeRegister(&xFilterChanged, libs, "gtk_filter_changed")
-	core.PuregoSafeRegister(&xFilterGetStrictness, libs, "gtk_filter_get_strictness")
-	core.PuregoSafeRegister(&xFilterMatch, libs, "gtk_filter_match")
 }

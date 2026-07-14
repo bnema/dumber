@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -54,6 +53,7 @@ type ProxyAddress struct {
 var xProxyAddressGLibType func() types.GType
 
 func ProxyAddressGLibType() types.GType {
+	core.LazyRegister(&xProxyAddressGLibType, "GIO", "g_proxy_address_get_type", false)
 	return xProxyAddressGLibType()
 }
 
@@ -72,6 +72,7 @@ var xNewProxyAddress func(uintptr, uint16, string, string, uint16, uintptr, uint
 // #GProxyAddress:destination-protocol fields; use g_object_new()
 // directly if you want to set those.)
 func NewProxyAddress(InetaddrVar *InetAddress, PortVar uint16, ProtocolVar string, DestHostnameVar string, DestPortVar uint16, UsernameVar *string, PasswordVar *string) *ProxyAddress {
+	core.LazyRegister(&xNewProxyAddress, "GIO", "g_proxy_address_new", false)
 	var cls *ProxyAddress
 
 	UsernameVarPtr := core.GStrdupNullable(UsernameVar)
@@ -96,6 +97,8 @@ var xProxyAddressGetDestinationHostname func(uintptr) string
 // that will be connected to via the proxy, not the name of the proxy
 // itself.
 func (x *ProxyAddress) GetDestinationHostname() string {
+	core.LazyRegister(&xProxyAddressGetDestinationHostname, "GIO", "g_proxy_address_get_destination_hostname", false)
+
 	cret := xProxyAddressGetDestinationHostname(x.GoPointer())
 	return cret
 }
@@ -106,6 +109,8 @@ var xProxyAddressGetDestinationPort func(uintptr) uint16
 // destination host that will be connected to via the proxy, not the
 // port number of the proxy itself.
 func (x *ProxyAddress) GetDestinationPort() uint16 {
+	core.LazyRegister(&xProxyAddressGetDestinationPort, "GIO", "g_proxy_address_get_destination_port", false)
+
 	cret := xProxyAddressGetDestinationPort(x.GoPointer())
 	return cret
 }
@@ -115,6 +120,8 @@ var xProxyAddressGetDestinationProtocol func(uintptr) string
 // Gets the protocol that is being spoken to the destination
 // server; eg, "http" or "ftp".
 func (x *ProxyAddress) GetDestinationProtocol() string {
+	core.LazyRegister(&xProxyAddressGetDestinationProtocol, "GIO", "g_proxy_address_get_destination_protocol", false)
+
 	cret := xProxyAddressGetDestinationProtocol(x.GoPointer())
 	return cret
 }
@@ -123,6 +130,8 @@ var xProxyAddressGetPassword func(uintptr) string
 
 // Gets @proxy's password.
 func (x *ProxyAddress) GetPassword() string {
+	core.LazyRegister(&xProxyAddressGetPassword, "GIO", "g_proxy_address_get_password", false)
+
 	cret := xProxyAddressGetPassword(x.GoPointer())
 	return cret
 }
@@ -131,6 +140,8 @@ var xProxyAddressGetProtocol func(uintptr) string
 
 // Gets @proxy's protocol. eg, "socks" or "http"
 func (x *ProxyAddress) GetProtocol() string {
+	core.LazyRegister(&xProxyAddressGetProtocol, "GIO", "g_proxy_address_get_protocol", false)
+
 	cret := xProxyAddressGetProtocol(x.GoPointer())
 	return cret
 }
@@ -139,6 +150,8 @@ var xProxyAddressGetUri func(uintptr) string
 
 // Gets the proxy URI that @proxy was constructed from.
 func (x *ProxyAddress) GetUri() string {
+	core.LazyRegister(&xProxyAddressGetUri, "GIO", "g_proxy_address_get_uri", false)
+
 	cret := xProxyAddressGetUri(x.GoPointer())
 	return cret
 }
@@ -147,6 +160,8 @@ var xProxyAddressGetUsername func(uintptr) string
 
 // Gets @proxy's username.
 func (x *ProxyAddress) GetUsername() string {
+	core.LazyRegister(&xProxyAddressGetUsername, "GIO", "g_proxy_address_get_username", false)
+
 	cret := xProxyAddressGetUsername(x.GoPointer())
 	return cret
 }
@@ -334,24 +349,4 @@ func (x *ProxyAddress) ToString() string {
 func init() {
 	core.SetPackageName("GIO", "gio-2.0")
 	core.SetSharedLibraries("GIO", []string{"libgio-2.0.so.0", "libgio-2.0.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GIO") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xProxyAddressGLibType, libs, "g_proxy_address_get_type")
-
-	core.PuregoSafeRegister(&xNewProxyAddress, libs, "g_proxy_address_new")
-
-	core.PuregoSafeRegister(&xProxyAddressGetDestinationHostname, libs, "g_proxy_address_get_destination_hostname")
-	core.PuregoSafeRegister(&xProxyAddressGetDestinationPort, libs, "g_proxy_address_get_destination_port")
-	core.PuregoSafeRegister(&xProxyAddressGetDestinationProtocol, libs, "g_proxy_address_get_destination_protocol")
-	core.PuregoSafeRegister(&xProxyAddressGetPassword, libs, "g_proxy_address_get_password")
-	core.PuregoSafeRegister(&xProxyAddressGetProtocol, libs, "g_proxy_address_get_protocol")
-	core.PuregoSafeRegister(&xProxyAddressGetUri, libs, "g_proxy_address_get_uri")
-	core.PuregoSafeRegister(&xProxyAddressGetUsername, libs, "g_proxy_address_get_username")
 }

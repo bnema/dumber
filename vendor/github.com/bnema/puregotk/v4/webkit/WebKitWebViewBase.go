@@ -6,6 +6,7 @@ import (
 	"unsafe"
 
 	"github.com/bnema/purego"
+	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gobject/types"
 	"github.com/bnema/puregotk/v4/gtk"
@@ -152,6 +153,7 @@ type WebViewBase struct {
 var xWebViewBaseGLibType func() types.GType
 
 func WebViewBaseGLibType() types.GType {
+	core.LazyRegister(&xWebViewBaseGLibType, "WEBKIT", "webkit_web_view_base_get_type", false)
 	return xWebViewBaseGLibType()
 }
 
@@ -430,4 +432,13 @@ func (x *WebViewBase) UpdateStateValue(NStatesVar int, StatesVar []gtk.Accessibl
 func (x *WebViewBase) GetBuildableId() string {
 	cret := gtk.XGtkBuildableGetBuildableId(x.GoPointer())
 	return cret
+}
+
+func init() {
+	core.SetPackageName("WEBKIT", "webkitgtk-6.0")
+	core.SetSharedLibraries("WEBKIT", []string{"libwebkitgtk-6.0.so.4", "libjavascriptcoregtk-6.0.so.1", "libwebkitgtk-6.0.4.dylib", "libjavascriptcoregtk-6.0.1.dylib"})
+
+	// Manually register types since they aren't automatically registered when
+	// WebKit is loaded. See https://bugs.webkit.org/show_bug.cgi?id=175937.
+	WebViewBaseGLibType()
 }

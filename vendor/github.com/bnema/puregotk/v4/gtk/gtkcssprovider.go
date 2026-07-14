@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gio"
 	"github.com/bnema/puregotk/v4/glib"
@@ -80,6 +79,7 @@ type CssProvider struct {
 var xCssProviderGLibType func() types.GType
 
 func CssProviderGLibType() types.GType {
+	core.LazyRegister(&xCssProviderGLibType, "GTK", "gtk_css_provider_get_type", false)
 	return xCssProviderGLibType()
 }
 
@@ -93,6 +93,7 @@ var xNewCssProvider func() uintptr
 
 // Returns a newly created `GtkCssProvider`.
 func NewCssProvider() *CssProvider {
+	core.LazyRegister(&xNewCssProvider, "GTK", "gtk_css_provider_new", false)
 	var cls *CssProvider
 
 	cret := xNewCssProvider()
@@ -111,6 +112,8 @@ var xCssProviderLoadFromBytes func(uintptr, *glib.Bytes)
 //
 // This clears any previously loaded information.
 func (x *CssProvider) LoadFromBytes(DataVar *glib.Bytes) {
+	core.LazyRegister(&xCssProviderLoadFromBytes, "GTK", "gtk_css_provider_load_from_bytes", false)
+
 	xCssProviderLoadFromBytes(x.GoPointer(), DataVar)
 }
 
@@ -120,6 +123,8 @@ var xCssProviderLoadFromData func(uintptr, string, int)
 //
 // This clears any previously loaded information.
 func (x *CssProvider) LoadFromData(DataVar string, LengthVar int) {
+	core.LazyRegister(&xCssProviderLoadFromData, "GTK", "gtk_css_provider_load_from_data", false)
+
 	xCssProviderLoadFromData(x.GoPointer(), DataVar, LengthVar)
 }
 
@@ -129,6 +134,8 @@ var xCssProviderLoadFromFile func(uintptr, uintptr)
 //
 // This clears any previously loaded information.
 func (x *CssProvider) LoadFromFile(FileVar gio.File) {
+	core.LazyRegister(&xCssProviderLoadFromFile, "GTK", "gtk_css_provider_load_from_file", false)
+
 	xCssProviderLoadFromFile(x.GoPointer(), FileVar.GoPointer())
 }
 
@@ -138,6 +145,8 @@ var xCssProviderLoadFromPath func(uintptr, string)
 //
 // This clears any previously loaded information.
 func (x *CssProvider) LoadFromPath(PathVar string) {
+	core.LazyRegister(&xCssProviderLoadFromPath, "GTK", "gtk_css_provider_load_from_path", false)
+
 	xCssProviderLoadFromPath(x.GoPointer(), PathVar)
 }
 
@@ -148,6 +157,8 @@ var xCssProviderLoadFromResource func(uintptr, string)
 //
 // This clears any previously loaded information.
 func (x *CssProvider) LoadFromResource(ResourcePathVar string) {
+	core.LazyRegister(&xCssProviderLoadFromResource, "GTK", "gtk_css_provider_load_from_resource", false)
+
 	xCssProviderLoadFromResource(x.GoPointer(), ResourcePathVar)
 }
 
@@ -157,6 +168,8 @@ var xCssProviderLoadFromString func(uintptr, string)
 //
 // This clears any previously loaded information.
 func (x *CssProvider) LoadFromString(StringVar string) {
+	core.LazyRegister(&xCssProviderLoadFromString, "GTK", "gtk_css_provider_load_from_string", false)
+
 	xCssProviderLoadFromString(x.GoPointer(), StringVar)
 }
 
@@ -168,6 +181,8 @@ var xCssProviderLoadNamed func(uintptr, string, uintptr)
 // releases, but it is guaranteed that this function uses the same
 // mechanism to load the theme that GTK uses for loading its own theme.
 func (x *CssProvider) LoadNamed(NameVar string, VariantVar *string) {
+	core.LazyRegister(&xCssProviderLoadNamed, "GTK", "gtk_css_provider_load_named", false)
+
 	VariantVarPtr := core.GStrdupNullable(VariantVar)
 	defer core.GFreeNullable(VariantVarPtr)
 
@@ -184,6 +199,8 @@ var xCssProviderToString func(uintptr) string
 // [ctor@Gtk.CssProvider.new] will basically create a duplicate
 // of this @provider.
 func (x *CssProvider) ToString() string {
+	core.LazyRegister(&xCssProviderToString, "GTK", "gtk_css_provider_to_string", false)
+
 	cret := xCssProviderToString(x.GoPointer())
 	return cret
 }
@@ -243,25 +260,4 @@ func (x *CssProvider) ConnectParsingError(cb *func(CssProvider, uintptr, *glib.E
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GTK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xCssProviderGLibType, libs, "gtk_css_provider_get_type")
-
-	core.PuregoSafeRegister(&xNewCssProvider, libs, "gtk_css_provider_new")
-
-	core.PuregoSafeRegister(&xCssProviderLoadFromBytes, libs, "gtk_css_provider_load_from_bytes")
-	core.PuregoSafeRegister(&xCssProviderLoadFromData, libs, "gtk_css_provider_load_from_data")
-	core.PuregoSafeRegister(&xCssProviderLoadFromFile, libs, "gtk_css_provider_load_from_file")
-	core.PuregoSafeRegister(&xCssProviderLoadFromPath, libs, "gtk_css_provider_load_from_path")
-	core.PuregoSafeRegister(&xCssProviderLoadFromResource, libs, "gtk_css_provider_load_from_resource")
-	core.PuregoSafeRegister(&xCssProviderLoadFromString, libs, "gtk_css_provider_load_from_string")
-	core.PuregoSafeRegister(&xCssProviderLoadNamed, libs, "gtk_css_provider_load_named")
-	core.PuregoSafeRegister(&xCssProviderToString, libs, "gtk_css_provider_to_string")
 }

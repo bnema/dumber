@@ -186,6 +186,7 @@ type SimpleProxyResolver struct {
 var xSimpleProxyResolverGLibType func() types.GType
 
 func SimpleProxyResolverGLibType() types.GType {
+	core.LazyRegister(&xSimpleProxyResolverGLibType, "GIO", "g_simple_proxy_resolver_get_type", false)
 	return xSimpleProxyResolverGLibType()
 }
 
@@ -205,6 +206,8 @@ var xSimpleProxyResolverSetDefaultProxy func(uintptr, uintptr)
 // #GSimpleProxyResolver will treat it as referring to all three of
 // the socks5, socks4a, and socks4 proxy types.
 func (x *SimpleProxyResolver) SetDefaultProxy(DefaultProxyVar *string) {
+	core.LazyRegister(&xSimpleProxyResolverSetDefaultProxy, "GIO", "g_simple_proxy_resolver_set_default_proxy", false)
+
 	DefaultProxyVarPtr := core.GStrdupNullable(DefaultProxyVar)
 	defer core.GFreeNullable(DefaultProxyVarPtr)
 
@@ -218,6 +221,8 @@ var xSimpleProxyResolverSetIgnoreHosts func(uintptr, []string)
 // See #GSimpleProxyResolver:ignore-hosts for more details on how the
 // @ignore_hosts argument is interpreted.
 func (x *SimpleProxyResolver) SetIgnoreHosts(IgnoreHostsVar []string) {
+	core.LazyRegister(&xSimpleProxyResolverSetIgnoreHosts, "GIO", "g_simple_proxy_resolver_set_ignore_hosts", false)
+
 	xSimpleProxyResolverSetIgnoreHosts(x.GoPointer(), IgnoreHostsVar)
 }
 
@@ -232,6 +237,8 @@ var xSimpleProxyResolverSetUriProxy func(uintptr, string, string)
 // as referring to all three of the socks5, socks4a, and socks4 proxy
 // types.
 func (x *SimpleProxyResolver) SetUriProxy(UriSchemeVar string, ProxyVar string) {
+	core.LazyRegister(&xSimpleProxyResolverSetUriProxy, "GIO", "g_simple_proxy_resolver_set_uri_proxy", false)
+
 	xSimpleProxyResolverSetUriProxy(x.GoPointer(), UriSchemeVar, ProxyVar)
 }
 
@@ -417,6 +424,7 @@ var xSimpleProxyResolverNew func(uintptr, []string) uintptr
 // #GSimpleProxyResolver:ignore-hosts for more details on how the
 // arguments are interpreted.
 func SimpleProxyResolverNew(DefaultProxyVar *string, IgnoreHostsVar []string) *ProxyResolverBase {
+	core.LazyRegister(&xSimpleProxyResolverNew, "GIO", "g_simple_proxy_resolver_new", false)
 	var cls *ProxyResolverBase
 
 	DefaultProxyVarPtr := core.GStrdupNullable(DefaultProxyVar)
@@ -435,20 +443,4 @@ func SimpleProxyResolverNew(DefaultProxyVar *string, IgnoreHostsVar []string) *P
 func init() {
 	core.SetPackageName("GIO", "gio-2.0")
 	core.SetSharedLibraries("GIO", []string{"libgio-2.0.so.0", "libgio-2.0.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GIO") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xSimpleProxyResolverGLibType, libs, "g_simple_proxy_resolver_get_type")
-
-	core.PuregoSafeRegister(&xSimpleProxyResolverSetDefaultProxy, libs, "g_simple_proxy_resolver_set_default_proxy")
-	core.PuregoSafeRegister(&xSimpleProxyResolverSetIgnoreHosts, libs, "g_simple_proxy_resolver_set_ignore_hosts")
-	core.PuregoSafeRegister(&xSimpleProxyResolverSetUriProxy, libs, "g_simple_proxy_resolver_set_uri_proxy")
-
-	core.PuregoSafeRegister(&xSimpleProxyResolverNew, libs, "g_simple_proxy_resolver_new")
 }

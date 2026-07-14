@@ -2,7 +2,6 @@
 package gtk
 
 import (
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -72,6 +71,7 @@ type SearchBar struct {
 var xSearchBarGLibType func() types.GType
 
 func SearchBarGLibType() types.GType {
+	core.LazyRegister(&xSearchBarGLibType, "GTK", "gtk_search_bar_get_type", false)
 	return xSearchBarGLibType()
 }
 
@@ -88,6 +88,7 @@ var xNewSearchBar func() uintptr
 // You will need to tell it about which widget is going to be your text
 // entry using [method@Gtk.SearchBar.connect_entry].
 func NewSearchBar() *SearchBar {
+	core.LazyRegister(&xNewSearchBar, "GTK", "gtk_search_bar_new", false)
 	var cls *SearchBar
 
 	cret := xNewSearchBar()
@@ -110,6 +111,8 @@ var xSearchBarConnectEntry func(uintptr, uintptr)
 // function manually is only required if the entry isn’t the direct
 // child of the search bar (as in our main example).
 func (x *SearchBar) ConnectEntry(EntryVar Editable) {
+	core.LazyRegister(&xSearchBarConnectEntry, "GTK", "gtk_search_bar_connect_entry", false)
+
 	xSearchBarConnectEntry(x.GoPointer(), EntryVar.GoPointer())
 }
 
@@ -117,6 +120,7 @@ var xSearchBarGetChild func(uintptr) uintptr
 
 // Gets the child widget of @bar.
 func (x *SearchBar) GetChild() *Widget {
+	core.LazyRegister(&xSearchBarGetChild, "GTK", "gtk_search_bar_get_child", false)
 	var cls *Widget
 
 	cret := xSearchBarGetChild(x.GoPointer())
@@ -134,6 +138,7 @@ var xSearchBarGetKeyCaptureWidget func(uintptr) uintptr
 
 // Gets the widget that @bar is capturing key events from.
 func (x *SearchBar) GetKeyCaptureWidget() *Widget {
+	core.LazyRegister(&xSearchBarGetKeyCaptureWidget, "GTK", "gtk_search_bar_get_key_capture_widget", false)
 	var cls *Widget
 
 	cret := xSearchBarGetKeyCaptureWidget(x.GoPointer())
@@ -151,6 +156,8 @@ var xSearchBarGetSearchMode func(uintptr) bool
 
 // Returns whether the search mode is on or off.
 func (x *SearchBar) GetSearchMode() bool {
+	core.LazyRegister(&xSearchBarGetSearchMode, "GTK", "gtk_search_bar_get_search_mode", false)
+
 	cret := xSearchBarGetSearchMode(x.GoPointer())
 	return cret
 }
@@ -159,6 +166,8 @@ var xSearchBarGetShowCloseButton func(uintptr) bool
 
 // Returns whether the close button is shown.
 func (x *SearchBar) GetShowCloseButton() bool {
+	core.LazyRegister(&xSearchBarGetShowCloseButton, "GTK", "gtk_search_bar_get_show_close_button", false)
+
 	cret := xSearchBarGetShowCloseButton(x.GoPointer())
 	return cret
 }
@@ -167,6 +176,8 @@ var xSearchBarSetChild func(uintptr, uintptr)
 
 // Sets the child widget of @bar.
 func (x *SearchBar) SetChild(ChildVar *Widget) {
+	core.LazyRegister(&xSearchBarSetChild, "GTK", "gtk_search_bar_set_child", false)
+
 	xSearchBarSetChild(x.GoPointer(), ChildVar.GoPointer())
 }
 
@@ -185,6 +196,8 @@ var xSearchBarSetKeyCaptureWidget func(uintptr, uintptr)
 // capture and forward the events yourself with
 // [method@Gtk.EventControllerKey.forward].
 func (x *SearchBar) SetKeyCaptureWidget(WidgetVar *Widget) {
+	core.LazyRegister(&xSearchBarSetKeyCaptureWidget, "GTK", "gtk_search_bar_set_key_capture_widget", false)
+
 	xSearchBarSetKeyCaptureWidget(x.GoPointer(), WidgetVar.GoPointer())
 }
 
@@ -192,6 +205,8 @@ var xSearchBarSetSearchMode func(uintptr, bool)
 
 // Switches the search mode on or off.
 func (x *SearchBar) SetSearchMode(SearchModeVar bool) {
+	core.LazyRegister(&xSearchBarSetSearchMode, "GTK", "gtk_search_bar_set_search_mode", false)
+
 	xSearchBarSetSearchMode(x.GoPointer(), SearchModeVar)
 }
 
@@ -203,6 +218,8 @@ var xSearchBarSetShowCloseButton func(uintptr, bool)
 // show a close button in their search bar, as it duplicates the role
 // of the toggle button.
 func (x *SearchBar) SetShowCloseButton(VisibleVar bool) {
+	core.LazyRegister(&xSearchBarSetShowCloseButton, "GTK", "gtk_search_bar_set_show_close_button", false)
+
 	xSearchBarSetShowCloseButton(x.GoPointer(), VisibleVar)
 }
 
@@ -514,26 +531,4 @@ func (x *SearchBar) GetBuildableId() string {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GTK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xSearchBarGLibType, libs, "gtk_search_bar_get_type")
-
-	core.PuregoSafeRegister(&xNewSearchBar, libs, "gtk_search_bar_new")
-
-	core.PuregoSafeRegister(&xSearchBarConnectEntry, libs, "gtk_search_bar_connect_entry")
-	core.PuregoSafeRegister(&xSearchBarGetChild, libs, "gtk_search_bar_get_child")
-	core.PuregoSafeRegister(&xSearchBarGetKeyCaptureWidget, libs, "gtk_search_bar_get_key_capture_widget")
-	core.PuregoSafeRegister(&xSearchBarGetSearchMode, libs, "gtk_search_bar_get_search_mode")
-	core.PuregoSafeRegister(&xSearchBarGetShowCloseButton, libs, "gtk_search_bar_get_show_close_button")
-	core.PuregoSafeRegister(&xSearchBarSetChild, libs, "gtk_search_bar_set_child")
-	core.PuregoSafeRegister(&xSearchBarSetKeyCaptureWidget, libs, "gtk_search_bar_set_key_capture_widget")
-	core.PuregoSafeRegister(&xSearchBarSetSearchMode, libs, "gtk_search_bar_set_search_mode")
-	core.PuregoSafeRegister(&xSearchBarSetShowCloseButton, libs, "gtk_search_bar_set_show_close_button")
 }

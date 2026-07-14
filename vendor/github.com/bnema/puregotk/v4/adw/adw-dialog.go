@@ -93,6 +93,7 @@ type DialogPresentationMode int
 var xDialogPresentationModeGLibType func() types.GType
 
 func DialogPresentationModeGLibType() types.GType {
+	core.LazyRegister(&xDialogPresentationModeGLibType, "ADW", "adw_dialog_presentation_mode_get_type", false)
 	return xDialogPresentationModeGLibType()
 }
 
@@ -176,6 +177,7 @@ type Dialog struct {
 var xDialogGLibType func() types.GType
 
 func DialogGLibType() types.GType {
+	core.LazyRegister(&xDialogGLibType, "ADW", "adw_dialog_get_type", false)
 	return xDialogGLibType()
 }
 
@@ -189,6 +191,7 @@ var xNewDialog func() uintptr
 
 // Creates a new `AdwDialog`.
 func NewDialog() *Dialog {
+	core.LazyRegister(&xNewDialog, "ADW", "adw_dialog_new", false)
 	var cls *Dialog
 
 	cret := xNewDialog()
@@ -206,6 +209,8 @@ var xDialogAddBreakpoint func(uintptr, uintptr)
 
 // Adds @breakpoint to @self.
 func (x *Dialog) AddBreakpoint(BreakpointVar *Breakpoint) {
+	core.LazyRegister(&xDialogAddBreakpoint, "ADW", "adw_dialog_add_breakpoint", false)
+
 	xDialogAddBreakpoint(x.GoPointer(), BreakpointVar.GoPointer())
 }
 
@@ -218,6 +223,8 @@ var xDialogClose func(uintptr) bool
 //
 // See also: [method@Dialog.force_close].
 func (x *Dialog) Close() bool {
+	core.LazyRegister(&xDialogClose, "ADW", "adw_dialog_close", false)
+
 	cret := xDialogClose(x.GoPointer())
 	return cret
 }
@@ -229,6 +236,8 @@ var xDialogForceClose func(uintptr)
 // Unlike [method@Dialog.close], it succeeds even if [property@Dialog:can-close]
 // is set to `FALSE`.
 func (x *Dialog) ForceClose() {
+	core.LazyRegister(&xDialogForceClose, "ADW", "adw_dialog_force_close", false)
+
 	xDialogForceClose(x.GoPointer())
 }
 
@@ -236,6 +245,8 @@ var xDialogGetCanClose func(uintptr) bool
 
 // Gets whether @self can be closed.
 func (x *Dialog) GetCanClose() bool {
+	core.LazyRegister(&xDialogGetCanClose, "ADW", "adw_dialog_get_can_close", false)
+
 	cret := xDialogGetCanClose(x.GoPointer())
 	return cret
 }
@@ -244,6 +255,7 @@ var xDialogGetChild func(uintptr) uintptr
 
 // Gets the child widget of @self.
 func (x *Dialog) GetChild() *gtk.Widget {
+	core.LazyRegister(&xDialogGetChild, "ADW", "adw_dialog_get_child", false)
 	var cls *gtk.Widget
 
 	cret := xDialogGetChild(x.GoPointer())
@@ -261,6 +273,8 @@ var xDialogGetContentHeight func(uintptr) int
 
 // Gets the height of the dialog's contents.
 func (x *Dialog) GetContentHeight() int {
+	core.LazyRegister(&xDialogGetContentHeight, "ADW", "adw_dialog_get_content_height", false)
+
 	cret := xDialogGetContentHeight(x.GoPointer())
 	return cret
 }
@@ -269,6 +283,8 @@ var xDialogGetContentWidth func(uintptr) int
 
 // Gets the width of the dialog's contents.
 func (x *Dialog) GetContentWidth() int {
+	core.LazyRegister(&xDialogGetContentWidth, "ADW", "adw_dialog_get_content_width", false)
+
 	cret := xDialogGetContentWidth(x.GoPointer())
 	return cret
 }
@@ -277,6 +293,7 @@ var xDialogGetCurrentBreakpoint func(uintptr) uintptr
 
 // Gets the current breakpoint.
 func (x *Dialog) GetCurrentBreakpoint() *Breakpoint {
+	core.LazyRegister(&xDialogGetCurrentBreakpoint, "ADW", "adw_dialog_get_current_breakpoint", false)
 	var cls *Breakpoint
 
 	cret := xDialogGetCurrentBreakpoint(x.GoPointer())
@@ -294,6 +311,7 @@ var xDialogGetDefaultWidget func(uintptr) uintptr
 
 // Gets the default widget for @self.
 func (x *Dialog) GetDefaultWidget() *gtk.Widget {
+	core.LazyRegister(&xDialogGetDefaultWidget, "ADW", "adw_dialog_get_default_widget", false)
 	var cls *gtk.Widget
 
 	cret := xDialogGetDefaultWidget(x.GoPointer())
@@ -311,6 +329,7 @@ var xDialogGetFocus func(uintptr) uintptr
 
 // Gets the focus widget for @self.
 func (x *Dialog) GetFocus() *gtk.Widget {
+	core.LazyRegister(&xDialogGetFocus, "ADW", "adw_dialog_get_focus", false)
 	var cls *gtk.Widget
 
 	cret := xDialogGetFocus(x.GoPointer())
@@ -328,6 +347,8 @@ var xDialogGetFollowsContentSize func(uintptr) bool
 
 // Gets whether to size content of @self automatically.
 func (x *Dialog) GetFollowsContentSize() bool {
+	core.LazyRegister(&xDialogGetFollowsContentSize, "ADW", "adw_dialog_get_follows_content_size", false)
+
 	cret := xDialogGetFollowsContentSize(x.GoPointer())
 	return cret
 }
@@ -336,6 +357,8 @@ var xDialogGetPresentationMode func(uintptr) DialogPresentationMode
 
 // Gets presentation mode for @self.
 func (x *Dialog) GetPresentationMode() DialogPresentationMode {
+	core.LazyRegister(&xDialogGetPresentationMode, "ADW", "adw_dialog_get_presentation_mode", false)
+
 	cret := xDialogGetPresentationMode(x.GoPointer())
 	return cret
 }
@@ -344,6 +367,8 @@ var xDialogGetTitle func(uintptr) string
 
 // Gets the title of @self.
 func (x *Dialog) GetTitle() string {
+	core.LazyRegister(&xDialogGetTitle, "ADW", "adw_dialog_get_title", false)
+
 	cret := xDialogGetTitle(x.GoPointer())
 	return cret
 }
@@ -357,6 +382,8 @@ var xDialogPresent func(uintptr, uintptr)
 // If the window is an [class@Window] or [class@ApplicationWindow], the dialog
 // will be shown within it. Otherwise, it will be a separate window.
 func (x *Dialog) Present(ParentVar *gtk.Widget) {
+	core.LazyRegister(&xDialogPresent, "ADW", "adw_dialog_present", false)
+
 	xDialogPresent(x.GoPointer(), ParentVar.GoPointer())
 }
 
@@ -369,6 +396,8 @@ var xDialogSetCanClose func(uintptr, bool)
 // emitted instead, and bottom sheet close swipe will be disabled.
 // [method@Dialog.force_close] still works.
 func (x *Dialog) SetCanClose(CanCloseVar bool) {
+	core.LazyRegister(&xDialogSetCanClose, "ADW", "adw_dialog_set_can_close", false)
+
 	xDialogSetCanClose(x.GoPointer(), CanCloseVar)
 }
 
@@ -376,6 +405,8 @@ var xDialogSetChild func(uintptr, uintptr)
 
 // Sets the child widget of @self.
 func (x *Dialog) SetChild(ChildVar *gtk.Widget) {
+	core.LazyRegister(&xDialogSetChild, "ADW", "adw_dialog_set_child", false)
+
 	xDialogSetChild(x.GoPointer(), ChildVar.GoPointer())
 }
 
@@ -387,6 +418,8 @@ var xDialogSetContentHeight func(uintptr, int)
 //
 // See also: [property@Gtk.Window:default-height]
 func (x *Dialog) SetContentHeight(ContentHeightVar int) {
+	core.LazyRegister(&xDialogSetContentHeight, "ADW", "adw_dialog_set_content_height", false)
+
 	xDialogSetContentHeight(x.GoPointer(), ContentHeightVar)
 }
 
@@ -398,6 +431,8 @@ var xDialogSetContentWidth func(uintptr, int)
 //
 // See also: [property@Gtk.Window:default-width]
 func (x *Dialog) SetContentWidth(ContentWidthVar int) {
+	core.LazyRegister(&xDialogSetContentWidth, "ADW", "adw_dialog_set_content_width", false)
+
 	xDialogSetContentWidth(x.GoPointer(), ContentWidthVar)
 }
 
@@ -407,6 +442,8 @@ var xDialogSetDefaultWidget func(uintptr, uintptr)
 //
 // It's activated when the user presses Enter.
 func (x *Dialog) SetDefaultWidget(DefaultWidgetVar *gtk.Widget) {
+	core.LazyRegister(&xDialogSetDefaultWidget, "ADW", "adw_dialog_set_default_widget", false)
+
 	xDialogSetDefaultWidget(x.GoPointer(), DefaultWidgetVar.GoPointer())
 }
 
@@ -421,6 +458,8 @@ var xDialogSetFocus func(uintptr, uintptr)
 // to a particular widget in the dialog, it is usually more convenient to use
 // [method@Gtk.Widget.grab_focus] instead of this function.
 func (x *Dialog) SetFocus(FocusVar *gtk.Widget) {
+	core.LazyRegister(&xDialogSetFocus, "ADW", "adw_dialog_set_focus", false)
+
 	xDialogSetFocus(x.GoPointer(), FocusVar.GoPointer())
 }
 
@@ -434,6 +473,8 @@ var xDialogSetFollowsContentSize func(uintptr, bool)
 //
 // See also: [property@Gtk.Window:resizable]
 func (x *Dialog) SetFollowsContentSize(FollowsContentSizeVar bool) {
+	core.LazyRegister(&xDialogSetFollowsContentSize, "ADW", "adw_dialog_set_follows_content_size", false)
+
 	xDialogSetFollowsContentSize(x.GoPointer(), FollowsContentSizeVar)
 }
 
@@ -451,6 +492,8 @@ var xDialogSetPresentationMode func(uintptr, DialogPresentationMode)
 //
 // Presentation mode does nothing for dialogs presented as a window.
 func (x *Dialog) SetPresentationMode(PresentationModeVar DialogPresentationMode) {
+	core.LazyRegister(&xDialogSetPresentationMode, "ADW", "adw_dialog_set_presentation_mode", false)
+
 	xDialogSetPresentationMode(x.GoPointer(), PresentationModeVar)
 }
 
@@ -458,6 +501,8 @@ var xDialogSetTitle func(uintptr, string)
 
 // Sets the title of @self.
 func (x *Dialog) SetTitle(TitleVar string) {
+	core.LazyRegister(&xDialogSetTitle, "ADW", "adw_dialog_set_title", false)
+
 	xDialogSetTitle(x.GoPointer(), TitleVar)
 }
 
@@ -906,42 +951,4 @@ func (x *Dialog) GetBuildableId() string {
 func init() {
 	core.SetPackageName("ADW", "libadwaita-1")
 	core.SetSharedLibraries("ADW", []string{"libadwaita-1.so.0", "libadwaita-1.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("ADW") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xDialogPresentationModeGLibType, libs, "adw_dialog_presentation_mode_get_type")
-
-	core.PuregoSafeRegister(&xDialogGLibType, libs, "adw_dialog_get_type")
-
-	core.PuregoSafeRegister(&xNewDialog, libs, "adw_dialog_new")
-
-	core.PuregoSafeRegister(&xDialogAddBreakpoint, libs, "adw_dialog_add_breakpoint")
-	core.PuregoSafeRegister(&xDialogClose, libs, "adw_dialog_close")
-	core.PuregoSafeRegister(&xDialogForceClose, libs, "adw_dialog_force_close")
-	core.PuregoSafeRegister(&xDialogGetCanClose, libs, "adw_dialog_get_can_close")
-	core.PuregoSafeRegister(&xDialogGetChild, libs, "adw_dialog_get_child")
-	core.PuregoSafeRegister(&xDialogGetContentHeight, libs, "adw_dialog_get_content_height")
-	core.PuregoSafeRegister(&xDialogGetContentWidth, libs, "adw_dialog_get_content_width")
-	core.PuregoSafeRegister(&xDialogGetCurrentBreakpoint, libs, "adw_dialog_get_current_breakpoint")
-	core.PuregoSafeRegister(&xDialogGetDefaultWidget, libs, "adw_dialog_get_default_widget")
-	core.PuregoSafeRegister(&xDialogGetFocus, libs, "adw_dialog_get_focus")
-	core.PuregoSafeRegister(&xDialogGetFollowsContentSize, libs, "adw_dialog_get_follows_content_size")
-	core.PuregoSafeRegister(&xDialogGetPresentationMode, libs, "adw_dialog_get_presentation_mode")
-	core.PuregoSafeRegister(&xDialogGetTitle, libs, "adw_dialog_get_title")
-	core.PuregoSafeRegister(&xDialogPresent, libs, "adw_dialog_present")
-	core.PuregoSafeRegister(&xDialogSetCanClose, libs, "adw_dialog_set_can_close")
-	core.PuregoSafeRegister(&xDialogSetChild, libs, "adw_dialog_set_child")
-	core.PuregoSafeRegister(&xDialogSetContentHeight, libs, "adw_dialog_set_content_height")
-	core.PuregoSafeRegister(&xDialogSetContentWidth, libs, "adw_dialog_set_content_width")
-	core.PuregoSafeRegister(&xDialogSetDefaultWidget, libs, "adw_dialog_set_default_widget")
-	core.PuregoSafeRegister(&xDialogSetFocus, libs, "adw_dialog_set_focus")
-	core.PuregoSafeRegister(&xDialogSetFollowsContentSize, libs, "adw_dialog_set_follows_content_size")
-	core.PuregoSafeRegister(&xDialogSetPresentationMode, libs, "adw_dialog_set_presentation_mode")
-	core.PuregoSafeRegister(&xDialogSetTitle, libs, "adw_dialog_set_title")
 }

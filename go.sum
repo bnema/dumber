@@ -38,6 +38,8 @@ github.com/bnema/purego-sqlite v0.1.4-0.20260714131321-3614fe683b9c h1:VAUhmfqHL
 github.com/bnema/purego-sqlite v0.1.4-0.20260714131321-3614fe683b9c/go.mod h1:a15W2PgD/3b9W9HytbmPXz3pBAbjwf7dhNv997fSbhI=
 github.com/bnema/puregotk v0.7.0 h1:jMaIbmHyWeexuaUrSa2Vo6rz1zGDt01gzaro09h/W6Y=
 github.com/bnema/puregotk v0.7.0/go.mod h1:neNov5avH++/0PJzodv9Rg2zH87GfZX7KfRcpdUA1U8=
+github.com/bnema/puregotk v0.7.1-0.20260714170452-0b6b9b901234 h1:mUA0RyQVpbbuDwJeyGyKPJgpHkR27bpiTsiFENlhRBM=
+github.com/bnema/puregotk v0.7.1-0.20260714170452-0b6b9b901234/go.mod h1:neNov5avH++/0PJzodv9Rg2zH87GfZX7KfRcpdUA1U8=
 github.com/cenkalti/backoff/v4 v4.3.0 h1:MyRJ/UdXutAwSAT+s3wNd7MfTIcy71VQueUuFK343L8=
 github.com/cenkalti/backoff/v4 v4.3.0/go.mod h1:Y3VNntkOUPxTVeUxJ/G5vcM//AlwfmyYozVcomhLiZE=
 github.com/charmbracelet/bubbles v1.0.0 h1:12J8/ak/uCZEMQ6KU7pcfwceyjLlWsDLAxB5fXonfvc=
@@ -195,3 +197,5 @@ modernc.org/memory v1.11.0 h1:o4QC8aMQzmcwCK3t3Ux/ZHmwFPzE6hf2Y5LbkRs+hbI=
 modernc.org/memory v1.11.0/go.mod h1:/JP4VbVC+K5sU2wZi9bHoq2MAkCnrt2r98UGeSK7Mjw=
 modernc.org/sqlite v1.53.0 h1:20WG8N9q4ji/dEqGk4uiI0c6OPjSeLTNYGFCc3+7c1M=
 modernc.org/sqlite v1.53.0/go.mod h1:xoEpOIpGrgT48H5iiyt/YXPCZPEzlfmfFwtk8Lklw8s=
+mvdan.cc/gofumpt v0.9.2 h1:zsEMWL8SVKGHNztrx6uZrXdp7AX8r421Vvp23sz7ik4=
+mvdan.cc/gofumpt v0.9.2/go.mod h1:iB7Hn+ai8lPvofHd9ZFGVg2GOr8sBUw1QUWjNbmIL/s=

@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gobject/types"
 )
@@ -76,6 +77,7 @@ type ListBase struct {
 var xListBaseGLibType func() types.GType
 
 func ListBaseGLibType() types.GType {
+	core.LazyRegister(&xListBaseGLibType, "GTK", "gtk_list_base_get_type", false)
 	return xListBaseGLibType()
 }
 
@@ -444,4 +446,9 @@ func (x *ListBase) SetVadjustment(VadjustmentVar *Adjustment) {
 // below the minimum height or below the natural height.
 func (x *ListBase) SetVscrollPolicy(PolicyVar ScrollablePolicy) {
 	XGtkScrollableSetVscrollPolicy(x.GoPointer(), PolicyVar)
+}
+
+func init() {
+	core.SetPackageName("GTK", "gtk4")
+	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
 }

@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -52,6 +51,7 @@ type WindowHandle struct {
 var xWindowHandleGLibType func() types.GType
 
 func WindowHandleGLibType() types.GType {
+	core.LazyRegister(&xWindowHandleGLibType, "GTK", "gtk_window_handle_get_type", false)
 	return xWindowHandleGLibType()
 }
 
@@ -65,6 +65,7 @@ var xNewWindowHandle func() uintptr
 
 // Creates a new `GtkWindowHandle`.
 func NewWindowHandle() *WindowHandle {
+	core.LazyRegister(&xNewWindowHandle, "GTK", "gtk_window_handle_new", false)
 	var cls *WindowHandle
 
 	cret := xNewWindowHandle()
@@ -82,6 +83,7 @@ var xWindowHandleGetChild func(uintptr) uintptr
 
 // Gets the child widget of @self.
 func (x *WindowHandle) GetChild() *Widget {
+	core.LazyRegister(&xWindowHandleGetChild, "GTK", "gtk_window_handle_get_child", false)
 	var cls *Widget
 
 	cret := xWindowHandleGetChild(x.GoPointer())
@@ -99,6 +101,8 @@ var xWindowHandleSetChild func(uintptr, uintptr)
 
 // Sets the child widget of @self.
 func (x *WindowHandle) SetChild(ChildVar *Widget) {
+	core.LazyRegister(&xWindowHandleSetChild, "GTK", "gtk_window_handle_set_child", false)
+
 	xWindowHandleSetChild(x.GoPointer(), ChildVar.GoPointer())
 }
 
@@ -376,19 +380,4 @@ func (x *WindowHandle) GetBuildableId() string {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GTK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xWindowHandleGLibType, libs, "gtk_window_handle_get_type")
-
-	core.PuregoSafeRegister(&xNewWindowHandle, libs, "gtk_window_handle_new")
-
-	core.PuregoSafeRegister(&xWindowHandleGetChild, libs, "gtk_window_handle_get_child")
-	core.PuregoSafeRegister(&xWindowHandleSetChild, libs, "gtk_window_handle_set_child")
 }

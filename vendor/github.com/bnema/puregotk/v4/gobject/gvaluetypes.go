@@ -2,7 +2,6 @@
 package gobject
 
 import (
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject/types"
 )
@@ -10,6 +9,8 @@ import (
 var xGtypeGetType func() types.GType
 
 func GtypeGetType() types.GType {
+	core.LazyRegister(&xGtypeGetType, "GOBJECT", "g_gtype_get_type", false)
+
 	cret := xGtypeGetType()
 	return cret
 }
@@ -19,6 +20,8 @@ var xPointerTypeRegisterStatic func(string) types.GType
 // Creates a new %G_TYPE_POINTER derived type id for a new
 // pointer type with name @name.
 func PointerTypeRegisterStatic(NameVar string) types.GType {
+	core.LazyRegister(&xPointerTypeRegisterStatic, "GOBJECT", "g_pointer_type_register_static", false)
+
 	cret := xPointerTypeRegisterStatic(NameVar)
 	return cret
 }
@@ -30,6 +33,8 @@ var xStrdupValueContents func(*Value) string
 // contents for debugging output, the way in which the contents are
 // described may change between different GLib versions.
 func StrdupValueContents(ValueVar *Value) string {
+	core.LazyRegister(&xStrdupValueContents, "GOBJECT", "g_strdup_value_contents", false)
+
 	cret := xStrdupValueContents(ValueVar)
 	return cret
 }
@@ -37,16 +42,4 @@ func StrdupValueContents(ValueVar *Value) string {
 func init() {
 	core.SetPackageName("GOBJECT", "gobject-2.0")
 	core.SetSharedLibraries("GOBJECT", []string{"libgobject-2.0.so.0", "libgobject-2.0.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GOBJECT") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xGtypeGetType, libs, "g_gtype_get_type")
-	core.PuregoSafeRegister(&xPointerTypeRegisterStatic, libs, "g_pointer_type_register_static")
-	core.PuregoSafeRegister(&xStrdupValueContents, libs, "g_strdup_value_contents")
 }

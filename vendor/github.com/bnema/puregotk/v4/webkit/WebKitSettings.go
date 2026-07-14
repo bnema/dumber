@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -36,6 +35,7 @@ type HardwareAccelerationPolicy int
 var xHardwareAccelerationPolicyGLibType func() types.GType
 
 func HardwareAccelerationPolicyGLibType() types.GType {
+	core.LazyRegister(&xHardwareAccelerationPolicyGLibType, "WEBKIT", "webkit_hardware_acceleration_policy_get_type", false)
 	return xHardwareAccelerationPolicyGLibType()
 }
 
@@ -66,6 +66,7 @@ type Settings struct {
 var xSettingsGLibType func() types.GType
 
 func SettingsGLibType() types.GType {
+	core.LazyRegister(&xSettingsGLibType, "WEBKIT", "webkit_settings_get_type", false)
 	return xSettingsGLibType()
 }
 
@@ -82,6 +83,7 @@ var xNewSettings func() uintptr
 // It must be manually attached to a #WebKitWebView.
 // See also webkit_settings_new_with_settings().
 func NewSettings() *Settings {
+	core.LazyRegister(&xNewSettings, "WEBKIT", "webkit_settings_new", false)
 	var cls *Settings
 
 	cret := xNewSettings()
@@ -100,6 +102,7 @@ var xNewSettingsWithSettings func(string, ...interface{}) uintptr
 //
 // It must be manually attached to a #WebKitWebView.
 func NewSettingsWithSettings(FirstSettingNameVar string, varArgs ...interface{}) *Settings {
+	core.LazyRegister(&xNewSettingsWithSettings, "WEBKIT", "webkit_settings_new_with_settings", false)
 	var cls *Settings
 
 	cret := xNewSettingsWithSettings(FirstSettingNameVar, varArgs...)
@@ -123,6 +126,7 @@ var xSettingsApplyFromKeyFile func(uintptr, *glib.KeyFile, string, **glib.Error)
 //
 // Supported value types are strings (unquoted), booleans (0, 1, true, false) and unsigned integers.
 func (x *Settings) ApplyFromKeyFile(KeyFileVar *glib.KeyFile, GroupNameVar string) (bool, error) {
+	core.LazyRegister(&xSettingsApplyFromKeyFile, "WEBKIT", "webkit_settings_apply_from_key_file", false)
 	var cerr *glib.Error
 
 	cret := xSettingsApplyFromKeyFile(x.GoPointer(), KeyFileVar, GroupNameVar, &cerr)
@@ -136,6 +140,8 @@ var xSettingsGetAllowFileAccessFromFileUrls func(uintptr) bool
 
 // Get the #WebKitSettings:allow-file-access-from-file-urls property.
 func (x *Settings) GetAllowFileAccessFromFileUrls() bool {
+	core.LazyRegister(&xSettingsGetAllowFileAccessFromFileUrls, "WEBKIT", "webkit_settings_get_allow_file_access_from_file_urls", false)
+
 	cret := xSettingsGetAllowFileAccessFromFileUrls(x.GoPointer())
 	return cret
 }
@@ -144,6 +150,8 @@ var xSettingsGetAllowModalDialogs func(uintptr) bool
 
 // Get the #WebKitSettings:allow-modal-dialogs property.
 func (x *Settings) GetAllowModalDialogs() bool {
+	core.LazyRegister(&xSettingsGetAllowModalDialogs, "WEBKIT", "webkit_settings_get_allow_modal_dialogs", false)
+
 	cret := xSettingsGetAllowModalDialogs(x.GoPointer())
 	return cret
 }
@@ -152,6 +160,8 @@ var xSettingsGetAllowTopNavigationToDataUrls func(uintptr) bool
 
 // Get the #WebKitSettings:allow-top-navigation-to-data-urls property.
 func (x *Settings) GetAllowTopNavigationToDataUrls() bool {
+	core.LazyRegister(&xSettingsGetAllowTopNavigationToDataUrls, "WEBKIT", "webkit_settings_get_allow_top_navigation_to_data_urls", false)
+
 	cret := xSettingsGetAllowTopNavigationToDataUrls(x.GoPointer())
 	return cret
 }
@@ -160,6 +170,8 @@ var xSettingsGetAllowUniversalAccessFromFileUrls func(uintptr) bool
 
 // Get the #WebKitSettings:allow-universal-access-from-file-urls property.
 func (x *Settings) GetAllowUniversalAccessFromFileUrls() bool {
+	core.LazyRegister(&xSettingsGetAllowUniversalAccessFromFileUrls, "WEBKIT", "webkit_settings_get_allow_universal_access_from_file_urls", false)
+
 	cret := xSettingsGetAllowUniversalAccessFromFileUrls(x.GoPointer())
 	return cret
 }
@@ -168,6 +180,8 @@ var xSettingsGetAutoLoadImages func(uintptr) bool
 
 // Get the #WebKitSettings:auto-load-images property.
 func (x *Settings) GetAutoLoadImages() bool {
+	core.LazyRegister(&xSettingsGetAutoLoadImages, "WEBKIT", "webkit_settings_get_auto_load_images", false)
+
 	cret := xSettingsGetAutoLoadImages(x.GoPointer())
 	return cret
 }
@@ -176,6 +190,8 @@ var xSettingsGetCursiveFontFamily func(uintptr) string
 
 // Gets the #WebKitSettings:cursive-font-family property.
 func (x *Settings) GetCursiveFontFamily() string {
+	core.LazyRegister(&xSettingsGetCursiveFontFamily, "WEBKIT", "webkit_settings_get_cursive_font_family", false)
+
 	cret := xSettingsGetCursiveFontFamily(x.GoPointer())
 	return cret
 }
@@ -184,6 +200,8 @@ var xSettingsGetDefaultCharset func(uintptr) string
 
 // Gets the #WebKitSettings:default-charset property.
 func (x *Settings) GetDefaultCharset() string {
+	core.LazyRegister(&xSettingsGetDefaultCharset, "WEBKIT", "webkit_settings_get_default_charset", false)
+
 	cret := xSettingsGetDefaultCharset(x.GoPointer())
 	return cret
 }
@@ -192,6 +210,8 @@ var xSettingsGetDefaultFontFamily func(uintptr) string
 
 // Gets the #WebKitSettings:default-font-family property.
 func (x *Settings) GetDefaultFontFamily() string {
+	core.LazyRegister(&xSettingsGetDefaultFontFamily, "WEBKIT", "webkit_settings_get_default_font_family", false)
+
 	cret := xSettingsGetDefaultFontFamily(x.GoPointer())
 	return cret
 }
@@ -200,6 +220,8 @@ var xSettingsGetDefaultFontSize func(uintptr) uint32
 
 // Gets the #WebKitSettings:default-font-size property.
 func (x *Settings) GetDefaultFontSize() uint32 {
+	core.LazyRegister(&xSettingsGetDefaultFontSize, "WEBKIT", "webkit_settings_get_default_font_size", false)
+
 	cret := xSettingsGetDefaultFontSize(x.GoPointer())
 	return cret
 }
@@ -208,6 +230,8 @@ var xSettingsGetDefaultMonospaceFontSize func(uintptr) uint32
 
 // Gets the #WebKitSettings:default-monospace-font-size property.
 func (x *Settings) GetDefaultMonospaceFontSize() uint32 {
+	core.LazyRegister(&xSettingsGetDefaultMonospaceFontSize, "WEBKIT", "webkit_settings_get_default_monospace_font_size", false)
+
 	cret := xSettingsGetDefaultMonospaceFontSize(x.GoPointer())
 	return cret
 }
@@ -216,6 +240,8 @@ var xSettingsGetDisableWebSecurity func(uintptr) bool
 
 // Get the #WebKitSettings:disable-web-security property.
 func (x *Settings) GetDisableWebSecurity() bool {
+	core.LazyRegister(&xSettingsGetDisableWebSecurity, "WEBKIT", "webkit_settings_get_disable_web_security", false)
+
 	cret := xSettingsGetDisableWebSecurity(x.GoPointer())
 	return cret
 }
@@ -224,6 +250,8 @@ var xSettingsGetDrawCompositingIndicators func(uintptr) bool
 
 // Get the #WebKitSettings:draw-compositing-indicators property.
 func (x *Settings) GetDrawCompositingIndicators() bool {
+	core.LazyRegister(&xSettingsGetDrawCompositingIndicators, "WEBKIT", "webkit_settings_get_draw_compositing_indicators", false)
+
 	cret := xSettingsGetDrawCompositingIndicators(x.GoPointer())
 	return cret
 }
@@ -232,6 +260,8 @@ var xSettingsGetEnable2dCanvasAcceleration func(uintptr) bool
 
 // Get the #WebKitSettings:enable-2d-canvas-acceleration property.
 func (x *Settings) GetEnable2dCanvasAcceleration() bool {
+	core.LazyRegister(&xSettingsGetEnable2dCanvasAcceleration, "WEBKIT", "webkit_settings_get_enable_2d_canvas_acceleration", false)
+
 	cret := xSettingsGetEnable2dCanvasAcceleration(x.GoPointer())
 	return cret
 }
@@ -240,6 +270,8 @@ var xSettingsGetEnableBackForwardNavigationGestures func(uintptr) bool
 
 // Get the #WebKitSettings:enable-back-forward-navigation-gestures property.
 func (x *Settings) GetEnableBackForwardNavigationGestures() bool {
+	core.LazyRegister(&xSettingsGetEnableBackForwardNavigationGestures, "WEBKIT", "webkit_settings_get_enable_back_forward_navigation_gestures", false)
+
 	cret := xSettingsGetEnableBackForwardNavigationGestures(x.GoPointer())
 	return cret
 }
@@ -248,6 +280,8 @@ var xSettingsGetEnableCaretBrowsing func(uintptr) bool
 
 // Get the #WebKitSettings:enable-caret-browsing property.
 func (x *Settings) GetEnableCaretBrowsing() bool {
+	core.LazyRegister(&xSettingsGetEnableCaretBrowsing, "WEBKIT", "webkit_settings_get_enable_caret_browsing", false)
+
 	cret := xSettingsGetEnableCaretBrowsing(x.GoPointer())
 	return cret
 }
@@ -256,6 +290,8 @@ var xSettingsGetEnableDeveloperExtras func(uintptr) bool
 
 // Get the #WebKitSettings:enable-developer-extras property.
 func (x *Settings) GetEnableDeveloperExtras() bool {
+	core.LazyRegister(&xSettingsGetEnableDeveloperExtras, "WEBKIT", "webkit_settings_get_enable_developer_extras", false)
+
 	cret := xSettingsGetEnableDeveloperExtras(x.GoPointer())
 	return cret
 }
@@ -264,6 +300,8 @@ var xSettingsGetEnableDnsPrefetching func(uintptr) bool
 
 // Get the #WebKitSettings:enable-dns-prefetching property.
 func (x *Settings) GetEnableDnsPrefetching() bool {
+	core.LazyRegister(&xSettingsGetEnableDnsPrefetching, "WEBKIT", "webkit_settings_get_enable_dns_prefetching", false)
+
 	cret := xSettingsGetEnableDnsPrefetching(x.GoPointer())
 	return cret
 }
@@ -272,6 +310,8 @@ var xSettingsGetEnableEncryptedMedia func(uintptr) bool
 
 // Get the #WebKitSettings:enable-encrypted-media property.
 func (x *Settings) GetEnableEncryptedMedia() bool {
+	core.LazyRegister(&xSettingsGetEnableEncryptedMedia, "WEBKIT", "webkit_settings_get_enable_encrypted_media", false)
+
 	cret := xSettingsGetEnableEncryptedMedia(x.GoPointer())
 	return cret
 }
@@ -280,6 +320,8 @@ var xSettingsGetEnableFullscreen func(uintptr) bool
 
 // Get the #WebKitSettings:enable-fullscreen property.
 func (x *Settings) GetEnableFullscreen() bool {
+	core.LazyRegister(&xSettingsGetEnableFullscreen, "WEBKIT", "webkit_settings_get_enable_fullscreen", false)
+
 	cret := xSettingsGetEnableFullscreen(x.GoPointer())
 	return cret
 }
@@ -288,6 +330,8 @@ var xSettingsGetEnableHtml5Database func(uintptr) bool
 
 // Get the #WebKitSettings:enable-html5-database property.
 func (x *Settings) GetEnableHtml5Database() bool {
+	core.LazyRegister(&xSettingsGetEnableHtml5Database, "WEBKIT", "webkit_settings_get_enable_html5_database", false)
+
 	cret := xSettingsGetEnableHtml5Database(x.GoPointer())
 	return cret
 }
@@ -296,6 +340,8 @@ var xSettingsGetEnableHtml5LocalStorage func(uintptr) bool
 
 // Get the #WebKitSettings:enable-html5-local-storage property.
 func (x *Settings) GetEnableHtml5LocalStorage() bool {
+	core.LazyRegister(&xSettingsGetEnableHtml5LocalStorage, "WEBKIT", "webkit_settings_get_enable_html5_local_storage", false)
+
 	cret := xSettingsGetEnableHtml5LocalStorage(x.GoPointer())
 	return cret
 }
@@ -304,6 +350,8 @@ var xSettingsGetEnableHyperlinkAuditing func(uintptr) bool
 
 // Get the #WebKitSettings:enable-hyperlink-auditing property.
 func (x *Settings) GetEnableHyperlinkAuditing() bool {
+	core.LazyRegister(&xSettingsGetEnableHyperlinkAuditing, "WEBKIT", "webkit_settings_get_enable_hyperlink_auditing", false)
+
 	cret := xSettingsGetEnableHyperlinkAuditing(x.GoPointer())
 	return cret
 }
@@ -312,6 +360,8 @@ var xSettingsGetEnableJavascript func(uintptr) bool
 
 // Get the #WebKitSettings:enable-javascript property.
 func (x *Settings) GetEnableJavascript() bool {
+	core.LazyRegister(&xSettingsGetEnableJavascript, "WEBKIT", "webkit_settings_get_enable_javascript", false)
+
 	cret := xSettingsGetEnableJavascript(x.GoPointer())
 	return cret
 }
@@ -320,6 +370,8 @@ var xSettingsGetEnableJavascriptMarkup func(uintptr) bool
 
 // Get the #WebKitSettings:enable-javascript-markup property.
 func (x *Settings) GetEnableJavascriptMarkup() bool {
+	core.LazyRegister(&xSettingsGetEnableJavascriptMarkup, "WEBKIT", "webkit_settings_get_enable_javascript_markup", false)
+
 	cret := xSettingsGetEnableJavascriptMarkup(x.GoPointer())
 	return cret
 }
@@ -328,6 +380,8 @@ var xSettingsGetEnableMedia func(uintptr) bool
 
 // Get the #WebKitSettings:enable-media property.
 func (x *Settings) GetEnableMedia() bool {
+	core.LazyRegister(&xSettingsGetEnableMedia, "WEBKIT", "webkit_settings_get_enable_media", false)
+
 	cret := xSettingsGetEnableMedia(x.GoPointer())
 	return cret
 }
@@ -336,6 +390,8 @@ var xSettingsGetEnableMediaCapabilities func(uintptr) bool
 
 // Get the #WebKitSettings:enable-media-capabilities property.
 func (x *Settings) GetEnableMediaCapabilities() bool {
+	core.LazyRegister(&xSettingsGetEnableMediaCapabilities, "WEBKIT", "webkit_settings_get_enable_media_capabilities", false)
+
 	cret := xSettingsGetEnableMediaCapabilities(x.GoPointer())
 	return cret
 }
@@ -344,6 +400,8 @@ var xSettingsGetEnableMediaStream func(uintptr) bool
 
 // Get the #WebKitSettings:enable-media-stream property.
 func (x *Settings) GetEnableMediaStream() bool {
+	core.LazyRegister(&xSettingsGetEnableMediaStream, "WEBKIT", "webkit_settings_get_enable_media_stream", false)
+
 	cret := xSettingsGetEnableMediaStream(x.GoPointer())
 	return cret
 }
@@ -352,6 +410,8 @@ var xSettingsGetEnableMediasource func(uintptr) bool
 
 // Get the #WebKitSettings:enable-mediasource property.
 func (x *Settings) GetEnableMediasource() bool {
+	core.LazyRegister(&xSettingsGetEnableMediasource, "WEBKIT", "webkit_settings_get_enable_mediasource", false)
+
 	cret := xSettingsGetEnableMediasource(x.GoPointer())
 	return cret
 }
@@ -360,6 +420,8 @@ var xSettingsGetEnableMockCaptureDevices func(uintptr) bool
 
 // Get the #WebKitSettings:enable-mock-capture-devices property.
 func (x *Settings) GetEnableMockCaptureDevices() bool {
+	core.LazyRegister(&xSettingsGetEnableMockCaptureDevices, "WEBKIT", "webkit_settings_get_enable_mock_capture_devices", false)
+
 	cret := xSettingsGetEnableMockCaptureDevices(x.GoPointer())
 	return cret
 }
@@ -368,6 +430,8 @@ var xSettingsGetEnableOfflineWebApplicationCache func(uintptr) bool
 
 // Get the #WebKitSettings:enable-offline-web-application-cache property.
 func (x *Settings) GetEnableOfflineWebApplicationCache() bool {
+	core.LazyRegister(&xSettingsGetEnableOfflineWebApplicationCache, "WEBKIT", "webkit_settings_get_enable_offline_web_application_cache", false)
+
 	cret := xSettingsGetEnableOfflineWebApplicationCache(x.GoPointer())
 	return cret
 }
@@ -376,6 +440,8 @@ var xSettingsGetEnablePageCache func(uintptr) bool
 
 // Get the #WebKitSettings:enable-page-cache property.
 func (x *Settings) GetEnablePageCache() bool {
+	core.LazyRegister(&xSettingsGetEnablePageCache, "WEBKIT", "webkit_settings_get_enable_page_cache", false)
+
 	cret := xSettingsGetEnablePageCache(x.GoPointer())
 	return cret
 }
@@ -384,6 +450,8 @@ var xSettingsGetEnableResizableTextAreas func(uintptr) bool
 
 // Get the #WebKitSettings:enable-resizable-text-areas property.
 func (x *Settings) GetEnableResizableTextAreas() bool {
+	core.LazyRegister(&xSettingsGetEnableResizableTextAreas, "WEBKIT", "webkit_settings_get_enable_resizable_text_areas", false)
+
 	cret := xSettingsGetEnableResizableTextAreas(x.GoPointer())
 	return cret
 }
@@ -392,6 +460,8 @@ var xSettingsGetEnableSiteSpecificQuirks func(uintptr) bool
 
 // Get the #WebKitSettings:enable-site-specific-quirks property.
 func (x *Settings) GetEnableSiteSpecificQuirks() bool {
+	core.LazyRegister(&xSettingsGetEnableSiteSpecificQuirks, "WEBKIT", "webkit_settings_get_enable_site_specific_quirks", false)
+
 	cret := xSettingsGetEnableSiteSpecificQuirks(x.GoPointer())
 	return cret
 }
@@ -400,6 +470,8 @@ var xSettingsGetEnableSmoothScrolling func(uintptr) bool
 
 // Get the #WebKitSettings:enable-smooth-scrolling property.
 func (x *Settings) GetEnableSmoothScrolling() bool {
+	core.LazyRegister(&xSettingsGetEnableSmoothScrolling, "WEBKIT", "webkit_settings_get_enable_smooth_scrolling", false)
+
 	cret := xSettingsGetEnableSmoothScrolling(x.GoPointer())
 	return cret
 }
@@ -408,6 +480,8 @@ var xSettingsGetEnableSpatialNavigation func(uintptr) bool
 
 // Get the #WebKitSettings:enable-spatial-navigation property.
 func (x *Settings) GetEnableSpatialNavigation() bool {
+	core.LazyRegister(&xSettingsGetEnableSpatialNavigation, "WEBKIT", "webkit_settings_get_enable_spatial_navigation", false)
+
 	cret := xSettingsGetEnableSpatialNavigation(x.GoPointer())
 	return cret
 }
@@ -416,6 +490,8 @@ var xSettingsGetEnableTabsToLinks func(uintptr) bool
 
 // Get the #WebKitSettings:enable-tabs-to-links property.
 func (x *Settings) GetEnableTabsToLinks() bool {
+	core.LazyRegister(&xSettingsGetEnableTabsToLinks, "WEBKIT", "webkit_settings_get_enable_tabs_to_links", false)
+
 	cret := xSettingsGetEnableTabsToLinks(x.GoPointer())
 	return cret
 }
@@ -424,6 +500,8 @@ var xSettingsGetEnableWebaudio func(uintptr) bool
 
 // Get the #WebKitSettings:enable-webaudio property.
 func (x *Settings) GetEnableWebaudio() bool {
+	core.LazyRegister(&xSettingsGetEnableWebaudio, "WEBKIT", "webkit_settings_get_enable_webaudio", false)
+
 	cret := xSettingsGetEnableWebaudio(x.GoPointer())
 	return cret
 }
@@ -432,6 +510,8 @@ var xSettingsGetEnableWebgl func(uintptr) bool
 
 // Get the #WebKitSettings:enable-webgl property.
 func (x *Settings) GetEnableWebgl() bool {
+	core.LazyRegister(&xSettingsGetEnableWebgl, "WEBKIT", "webkit_settings_get_enable_webgl", false)
+
 	cret := xSettingsGetEnableWebgl(x.GoPointer())
 	return cret
 }
@@ -440,6 +520,8 @@ var xSettingsGetEnableWebrtc func(uintptr) bool
 
 // Get the [property@Settings:enable-webrtc] property.
 func (x *Settings) GetEnableWebrtc() bool {
+	core.LazyRegister(&xSettingsGetEnableWebrtc, "WEBKIT", "webkit_settings_get_enable_webrtc", false)
+
 	cret := xSettingsGetEnableWebrtc(x.GoPointer())
 	return cret
 }
@@ -448,6 +530,8 @@ var xSettingsGetEnableWriteConsoleMessagesToStdout func(uintptr) bool
 
 // Get the #WebKitSettings:enable-write-console-messages-to-stdout property.
 func (x *Settings) GetEnableWriteConsoleMessagesToStdout() bool {
+	core.LazyRegister(&xSettingsGetEnableWriteConsoleMessagesToStdout, "WEBKIT", "webkit_settings_get_enable_write_console_messages_to_stdout", false)
+
 	cret := xSettingsGetEnableWriteConsoleMessagesToStdout(x.GoPointer())
 	return cret
 }
@@ -456,6 +540,8 @@ var xSettingsGetFantasyFontFamily func(uintptr) string
 
 // Gets the #WebKitSettings:fantasy-font-family property.
 func (x *Settings) GetFantasyFontFamily() string {
+	core.LazyRegister(&xSettingsGetFantasyFontFamily, "WEBKIT", "webkit_settings_get_fantasy_font_family", false)
+
 	cret := xSettingsGetFantasyFontFamily(x.GoPointer())
 	return cret
 }
@@ -464,6 +550,8 @@ var xSettingsGetFeatureEnabled func(uintptr, *Feature) bool
 
 // Gets whether a feature is enabled.
 func (x *Settings) GetFeatureEnabled(FeatureVar *Feature) bool {
+	core.LazyRegister(&xSettingsGetFeatureEnabled, "WEBKIT", "webkit_settings_get_feature_enabled", false)
+
 	cret := xSettingsGetFeatureEnabled(x.GoPointer(), FeatureVar)
 	return cret
 }
@@ -472,6 +560,8 @@ var xSettingsGetHardwareAccelerationPolicy func(uintptr) HardwareAccelerationPol
 
 // Get the #WebKitSettings:hardware-acceleration-policy property.
 func (x *Settings) GetHardwareAccelerationPolicy() HardwareAccelerationPolicy {
+	core.LazyRegister(&xSettingsGetHardwareAccelerationPolicy, "WEBKIT", "webkit_settings_get_hardware_acceleration_policy", false)
+
 	cret := xSettingsGetHardwareAccelerationPolicy(x.GoPointer())
 	return cret
 }
@@ -480,6 +570,8 @@ var xSettingsGetJavascriptCanAccessClipboard func(uintptr) bool
 
 // Get the #WebKitSettings:javascript-can-access-clipboard property.
 func (x *Settings) GetJavascriptCanAccessClipboard() bool {
+	core.LazyRegister(&xSettingsGetJavascriptCanAccessClipboard, "WEBKIT", "webkit_settings_get_javascript_can_access_clipboard", false)
+
 	cret := xSettingsGetJavascriptCanAccessClipboard(x.GoPointer())
 	return cret
 }
@@ -488,6 +580,8 @@ var xSettingsGetJavascriptCanOpenWindowsAutomatically func(uintptr) bool
 
 // Get the #WebKitSettings:javascript-can-open-windows-automatically property.
 func (x *Settings) GetJavascriptCanOpenWindowsAutomatically() bool {
+	core.LazyRegister(&xSettingsGetJavascriptCanOpenWindowsAutomatically, "WEBKIT", "webkit_settings_get_javascript_can_open_windows_automatically", false)
+
 	cret := xSettingsGetJavascriptCanOpenWindowsAutomatically(x.GoPointer())
 	return cret
 }
@@ -496,6 +590,8 @@ var xSettingsGetLoadIconsIgnoringImageLoadSetting func(uintptr) bool
 
 // Setting no longer supported. This function returns %FALSE.
 func (x *Settings) GetLoadIconsIgnoringImageLoadSetting() bool {
+	core.LazyRegister(&xSettingsGetLoadIconsIgnoringImageLoadSetting, "WEBKIT", "webkit_settings_get_load_icons_ignoring_image_load_setting", false)
+
 	cret := xSettingsGetLoadIconsIgnoringImageLoadSetting(x.GoPointer())
 	return cret
 }
@@ -504,6 +600,8 @@ var xSettingsGetMathFontFamily func(uintptr) string
 
 // Gets the #WebKitSettings:math-font-family property.
 func (x *Settings) GetMathFontFamily() string {
+	core.LazyRegister(&xSettingsGetMathFontFamily, "WEBKIT", "webkit_settings_get_math_font_family", false)
+
 	cret := xSettingsGetMathFontFamily(x.GoPointer())
 	return cret
 }
@@ -512,6 +610,8 @@ var xSettingsGetMediaContentTypesRequiringHardwareSupport func(uintptr) string
 
 // Gets the #WebKitSettings:media-content-types-requiring-hardware-support property.
 func (x *Settings) GetMediaContentTypesRequiringHardwareSupport() string {
+	core.LazyRegister(&xSettingsGetMediaContentTypesRequiringHardwareSupport, "WEBKIT", "webkit_settings_get_media_content_types_requiring_hardware_support", false)
+
 	cret := xSettingsGetMediaContentTypesRequiringHardwareSupport(x.GoPointer())
 	return cret
 }
@@ -520,6 +620,8 @@ var xSettingsGetMediaPlaybackAllowsInline func(uintptr) bool
 
 // Get the #WebKitSettings:media-playback-allows-inline property.
 func (x *Settings) GetMediaPlaybackAllowsInline() bool {
+	core.LazyRegister(&xSettingsGetMediaPlaybackAllowsInline, "WEBKIT", "webkit_settings_get_media_playback_allows_inline", false)
+
 	cret := xSettingsGetMediaPlaybackAllowsInline(x.GoPointer())
 	return cret
 }
@@ -528,6 +630,8 @@ var xSettingsGetMediaPlaybackRequiresUserGesture func(uintptr) bool
 
 // Get the #WebKitSettings:media-playback-requires-user-gesture property.
 func (x *Settings) GetMediaPlaybackRequiresUserGesture() bool {
+	core.LazyRegister(&xSettingsGetMediaPlaybackRequiresUserGesture, "WEBKIT", "webkit_settings_get_media_playback_requires_user_gesture", false)
+
 	cret := xSettingsGetMediaPlaybackRequiresUserGesture(x.GoPointer())
 	return cret
 }
@@ -536,6 +640,8 @@ var xSettingsGetMinimumFontSize func(uintptr) uint32
 
 // Gets the #WebKitSettings:minimum-font-size property.
 func (x *Settings) GetMinimumFontSize() uint32 {
+	core.LazyRegister(&xSettingsGetMinimumFontSize, "WEBKIT", "webkit_settings_get_minimum_font_size", false)
+
 	cret := xSettingsGetMinimumFontSize(x.GoPointer())
 	return cret
 }
@@ -544,6 +650,8 @@ var xSettingsGetMonospaceFontFamily func(uintptr) string
 
 // Gets the #WebKitSettings:monospace-font-family property.
 func (x *Settings) GetMonospaceFontFamily() string {
+	core.LazyRegister(&xSettingsGetMonospaceFontFamily, "WEBKIT", "webkit_settings_get_monospace_font_family", false)
+
 	cret := xSettingsGetMonospaceFontFamily(x.GoPointer())
 	return cret
 }
@@ -552,6 +660,8 @@ var xSettingsGetPictographFontFamily func(uintptr) string
 
 // Gets the #WebKitSettings:pictograph-font-family property.
 func (x *Settings) GetPictographFontFamily() string {
+	core.LazyRegister(&xSettingsGetPictographFontFamily, "WEBKIT", "webkit_settings_get_pictograph_font_family", false)
+
 	cret := xSettingsGetPictographFontFamily(x.GoPointer())
 	return cret
 }
@@ -560,6 +670,8 @@ var xSettingsGetPrintBackgrounds func(uintptr) bool
 
 // Get the #WebKitSettings:print-backgrounds property.
 func (x *Settings) GetPrintBackgrounds() bool {
+	core.LazyRegister(&xSettingsGetPrintBackgrounds, "WEBKIT", "webkit_settings_get_print_backgrounds", false)
+
 	cret := xSettingsGetPrintBackgrounds(x.GoPointer())
 	return cret
 }
@@ -568,6 +680,8 @@ var xSettingsGetSansSerifFontFamily func(uintptr) string
 
 // Gets the #WebKitSettings:sans-serif-font-family property.
 func (x *Settings) GetSansSerifFontFamily() string {
+	core.LazyRegister(&xSettingsGetSansSerifFontFamily, "WEBKIT", "webkit_settings_get_sans_serif_font_family", false)
+
 	cret := xSettingsGetSansSerifFontFamily(x.GoPointer())
 	return cret
 }
@@ -576,6 +690,8 @@ var xSettingsGetSerifFontFamily func(uintptr) string
 
 // Gets the #WebKitSettings:serif-font-family property.
 func (x *Settings) GetSerifFontFamily() string {
+	core.LazyRegister(&xSettingsGetSerifFontFamily, "WEBKIT", "webkit_settings_get_serif_font_family", false)
+
 	cret := xSettingsGetSerifFontFamily(x.GoPointer())
 	return cret
 }
@@ -584,6 +700,8 @@ var xSettingsGetUserAgent func(uintptr) string
 
 // Get the #WebKitSettings:user-agent property.
 func (x *Settings) GetUserAgent() string {
+	core.LazyRegister(&xSettingsGetUserAgent, "WEBKIT", "webkit_settings_get_user_agent", false)
+
 	cret := xSettingsGetUserAgent(x.GoPointer())
 	return cret
 }
@@ -592,6 +710,8 @@ var xSettingsGetWebrtcUdpPortsRange func(uintptr) string
 
 // Get the [property@Settings:webrtc-udp-ports-range] property.
 func (x *Settings) GetWebrtcUdpPortsRange() string {
+	core.LazyRegister(&xSettingsGetWebrtcUdpPortsRange, "WEBKIT", "webkit_settings_get_webrtc_udp_ports_range", false)
+
 	cret := xSettingsGetWebrtcUdpPortsRange(x.GoPointer())
 	return cret
 }
@@ -600,6 +720,8 @@ var xSettingsGetZoomTextOnly func(uintptr) bool
 
 // Get the #WebKitSettings:zoom-text-only property.
 func (x *Settings) GetZoomTextOnly() bool {
+	core.LazyRegister(&xSettingsGetZoomTextOnly, "WEBKIT", "webkit_settings_get_zoom_text_only", false)
+
 	cret := xSettingsGetZoomTextOnly(x.GoPointer())
 	return cret
 }
@@ -608,6 +730,8 @@ var xSettingsSetAllowFileAccessFromFileUrls func(uintptr, bool)
 
 // Set the #WebKitSettings:allow-file-access-from-file-urls property.
 func (x *Settings) SetAllowFileAccessFromFileUrls(AllowedVar bool) {
+	core.LazyRegister(&xSettingsSetAllowFileAccessFromFileUrls, "WEBKIT", "webkit_settings_set_allow_file_access_from_file_urls", false)
+
 	xSettingsSetAllowFileAccessFromFileUrls(x.GoPointer(), AllowedVar)
 }
 
@@ -615,6 +739,8 @@ var xSettingsSetAllowModalDialogs func(uintptr, bool)
 
 // Set the #WebKitSettings:allow-modal-dialogs property.
 func (x *Settings) SetAllowModalDialogs(AllowedVar bool) {
+	core.LazyRegister(&xSettingsSetAllowModalDialogs, "WEBKIT", "webkit_settings_set_allow_modal_dialogs", false)
+
 	xSettingsSetAllowModalDialogs(x.GoPointer(), AllowedVar)
 }
 
@@ -622,6 +748,8 @@ var xSettingsSetAllowTopNavigationToDataUrls func(uintptr, bool)
 
 // Set the #WebKitSettings:allow-top-navigation-to-data-urls property.
 func (x *Settings) SetAllowTopNavigationToDataUrls(AllowedVar bool) {
+	core.LazyRegister(&xSettingsSetAllowTopNavigationToDataUrls, "WEBKIT", "webkit_settings_set_allow_top_navigation_to_data_urls", false)
+
 	xSettingsSetAllowTopNavigationToDataUrls(x.GoPointer(), AllowedVar)
 }
 
@@ -629,6 +757,8 @@ var xSettingsSetAllowUniversalAccessFromFileUrls func(uintptr, bool)
 
 // Set the #WebKitSettings:allow-universal-access-from-file-urls property.
 func (x *Settings) SetAllowUniversalAccessFromFileUrls(AllowedVar bool) {
+	core.LazyRegister(&xSettingsSetAllowUniversalAccessFromFileUrls, "WEBKIT", "webkit_settings_set_allow_universal_access_from_file_urls", false)
+
 	xSettingsSetAllowUniversalAccessFromFileUrls(x.GoPointer(), AllowedVar)
 }
 
@@ -636,6 +766,8 @@ var xSettingsSetAutoLoadImages func(uintptr, bool)
 
 // Set the #WebKitSettings:auto-load-images property.
 func (x *Settings) SetAutoLoadImages(EnabledVar bool) {
+	core.LazyRegister(&xSettingsSetAutoLoadImages, "WEBKIT", "webkit_settings_set_auto_load_images", false)
+
 	xSettingsSetAutoLoadImages(x.GoPointer(), EnabledVar)
 }
 
@@ -643,6 +775,8 @@ var xSettingsSetCursiveFontFamily func(uintptr, string)
 
 // Set the #WebKitSettings:cursive-font-family property.
 func (x *Settings) SetCursiveFontFamily(CursiveFontFamilyVar string) {
+	core.LazyRegister(&xSettingsSetCursiveFontFamily, "WEBKIT", "webkit_settings_set_cursive_font_family", false)
+
 	xSettingsSetCursiveFontFamily(x.GoPointer(), CursiveFontFamilyVar)
 }
 
@@ -650,6 +784,8 @@ var xSettingsSetDefaultCharset func(uintptr, string)
 
 // Set the #WebKitSettings:default-charset property.
 func (x *Settings) SetDefaultCharset(DefaultCharsetVar string) {
+	core.LazyRegister(&xSettingsSetDefaultCharset, "WEBKIT", "webkit_settings_set_default_charset", false)
+
 	xSettingsSetDefaultCharset(x.GoPointer(), DefaultCharsetVar)
 }
 
@@ -657,6 +793,8 @@ var xSettingsSetDefaultFontFamily func(uintptr, string)
 
 // Set the #WebKitSettings:default-font-family property.
 func (x *Settings) SetDefaultFontFamily(DefaultFontFamilyVar string) {
+	core.LazyRegister(&xSettingsSetDefaultFontFamily, "WEBKIT", "webkit_settings_set_default_font_family", false)
+
 	xSettingsSetDefaultFontFamily(x.GoPointer(), DefaultFontFamilyVar)
 }
 
@@ -664,6 +802,8 @@ var xSettingsSetDefaultFontSize func(uintptr, uint32)
 
 // Set the #WebKitSettings:default-font-size property.
 func (x *Settings) SetDefaultFontSize(FontSizeVar uint32) {
+	core.LazyRegister(&xSettingsSetDefaultFontSize, "WEBKIT", "webkit_settings_set_default_font_size", false)
+
 	xSettingsSetDefaultFontSize(x.GoPointer(), FontSizeVar)
 }
 
@@ -671,6 +811,8 @@ var xSettingsSetDefaultMonospaceFontSize func(uintptr, uint32)
 
 // Set the #WebKitSettings:default-monospace-font-size property.
 func (x *Settings) SetDefaultMonospaceFontSize(FontSizeVar uint32) {
+	core.LazyRegister(&xSettingsSetDefaultMonospaceFontSize, "WEBKIT", "webkit_settings_set_default_monospace_font_size", false)
+
 	xSettingsSetDefaultMonospaceFontSize(x.GoPointer(), FontSizeVar)
 }
 
@@ -678,6 +820,8 @@ var xSettingsSetDisableWebSecurity func(uintptr, bool)
 
 // Set the #WebKitSettings:disable-web-security property.
 func (x *Settings) SetDisableWebSecurity(DisabledVar bool) {
+	core.LazyRegister(&xSettingsSetDisableWebSecurity, "WEBKIT", "webkit_settings_set_disable_web_security", false)
+
 	xSettingsSetDisableWebSecurity(x.GoPointer(), DisabledVar)
 }
 
@@ -685,6 +829,8 @@ var xSettingsSetDrawCompositingIndicators func(uintptr, bool)
 
 // Set the #WebKitSettings:draw-compositing-indicators property.
 func (x *Settings) SetDrawCompositingIndicators(EnabledVar bool) {
+	core.LazyRegister(&xSettingsSetDrawCompositingIndicators, "WEBKIT", "webkit_settings_set_draw_compositing_indicators", false)
+
 	xSettingsSetDrawCompositingIndicators(x.GoPointer(), EnabledVar)
 }
 
@@ -692,6 +838,8 @@ var xSettingsSetEnable2dCanvasAcceleration func(uintptr, bool)
 
 // Set the #WebKitSettings:enable-2d-canvas-acceleration property.
 func (x *Settings) SetEnable2dCanvasAcceleration(EnabledVar bool) {
+	core.LazyRegister(&xSettingsSetEnable2dCanvasAcceleration, "WEBKIT", "webkit_settings_set_enable_2d_canvas_acceleration", false)
+
 	xSettingsSetEnable2dCanvasAcceleration(x.GoPointer(), EnabledVar)
 }
 
@@ -699,6 +847,8 @@ var xSettingsSetEnableBackForwardNavigationGestures func(uintptr, bool)
 
 // Set the #WebKitSettings:enable-back-forward-navigation-gestures property.
 func (x *Settings) SetEnableBackForwardNavigationGestures(EnabledVar bool) {
+	core.LazyRegister(&xSettingsSetEnableBackForwardNavigationGestures, "WEBKIT", "webkit_settings_set_enable_back_forward_navigation_gestures", false)
+
 	xSettingsSetEnableBackForwardNavigationGestures(x.GoPointer(), EnabledVar)
 }
 
@@ -706,6 +856,8 @@ var xSettingsSetEnableCaretBrowsing func(uintptr, bool)
 
 // Set the #WebKitSettings:enable-caret-browsing property.
 func (x *Settings) SetEnableCaretBrowsing(EnabledVar bool) {
+	core.LazyRegister(&xSettingsSetEnableCaretBrowsing, "WEBKIT", "webkit_settings_set_enable_caret_browsing", false)
+
 	xSettingsSetEnableCaretBrowsing(x.GoPointer(), EnabledVar)
 }
 
@@ -713,6 +865,8 @@ var xSettingsSetEnableDeveloperExtras func(uintptr, bool)
 
 // Set the #WebKitSettings:enable-developer-extras property.
 func (x *Settings) SetEnableDeveloperExtras(EnabledVar bool) {
+	core.LazyRegister(&xSettingsSetEnableDeveloperExtras, "WEBKIT", "webkit_settings_set_enable_developer_extras", false)
+
 	xSettingsSetEnableDeveloperExtras(x.GoPointer(), EnabledVar)
 }
 
@@ -720,6 +874,8 @@ var xSettingsSetEnableDnsPrefetching func(uintptr, bool)
 
 // Set the #WebKitSettings:enable-dns-prefetching property.
 func (x *Settings) SetEnableDnsPrefetching(EnabledVar bool) {
+	core.LazyRegister(&xSettingsSetEnableDnsPrefetching, "WEBKIT", "webkit_settings_set_enable_dns_prefetching", false)
+
 	xSettingsSetEnableDnsPrefetching(x.GoPointer(), EnabledVar)
 }
 
@@ -727,6 +883,8 @@ var xSettingsSetEnableEncryptedMedia func(uintptr, bool)
 
 // Set the #WebKitSettings:enable-encrypted-media property.
 func (x *Settings) SetEnableEncryptedMedia(EnabledVar bool) {
+	core.LazyRegister(&xSettingsSetEnableEncryptedMedia, "WEBKIT", "webkit_settings_set_enable_encrypted_media", false)
+
 	xSettingsSetEnableEncryptedMedia(x.GoPointer(), EnabledVar)
 }
 
@@ -734,6 +892,8 @@ var xSettingsSetEnableFullscreen func(uintptr, bool)
 
 // Set the #WebKitSettings:enable-fullscreen property.
 func (x *Settings) SetEnableFullscreen(EnabledVar bool) {
+	core.LazyRegister(&xSettingsSetEnableFullscreen, "WEBKIT", "webkit_settings_set_enable_fullscreen", false)
+
 	xSettingsSetEnableFullscreen(x.GoPointer(), EnabledVar)
 }
 
@@ -741,6 +901,8 @@ var xSettingsSetEnableHtml5Database func(uintptr, bool)
 
 // Set the #WebKitSettings:enable-html5-database property.
 func (x *Settings) SetEnableHtml5Database(EnabledVar bool) {
+	core.LazyRegister(&xSettingsSetEnableHtml5Database, "WEBKIT", "webkit_settings_set_enable_html5_database", false)
+
 	xSettingsSetEnableHtml5Database(x.GoPointer(), EnabledVar)
 }
 
@@ -748,6 +910,8 @@ var xSettingsSetEnableHtml5LocalStorage func(uintptr, bool)
 
 // Set the #WebKitSettings:enable-html5-local-storage property.
 func (x *Settings) SetEnableHtml5LocalStorage(EnabledVar bool) {
+	core.LazyRegister(&xSettingsSetEnableHtml5LocalStorage, "WEBKIT", "webkit_settings_set_enable_html5_local_storage", false)
+
 	xSettingsSetEnableHtml5LocalStorage(x.GoPointer(), EnabledVar)
 }
 
@@ -755,6 +919,8 @@ var xSettingsSetEnableHyperlinkAuditing func(uintptr, bool)
 
 // Set the #WebKitSettings:enable-hyperlink-auditing property.
 func (x *Settings) SetEnableHyperlinkAuditing(EnabledVar bool) {
+	core.LazyRegister(&xSettingsSetEnableHyperlinkAuditing, "WEBKIT", "webkit_settings_set_enable_hyperlink_auditing", false)
+
 	xSettingsSetEnableHyperlinkAuditing(x.GoPointer(), EnabledVar)
 }
 
@@ -762,6 +928,8 @@ var xSettingsSetEnableJavascript func(uintptr, bool)
 
 // Set the #WebKitSettings:enable-javascript property.
 func (x *Settings) SetEnableJavascript(EnabledVar bool) {
+	core.LazyRegister(&xSettingsSetEnableJavascript, "WEBKIT", "webkit_settings_set_enable_javascript", false)
+
 	xSettingsSetEnableJavascript(x.GoPointer(), EnabledVar)
 }
 
@@ -769,6 +937,8 @@ var xSettingsSetEnableJavascriptMarkup func(uintptr, bool)
 
 // Set the #WebKitSettings:enable-javascript-markup property.
 func (x *Settings) SetEnableJavascriptMarkup(EnabledVar bool) {
+	core.LazyRegister(&xSettingsSetEnableJavascriptMarkup, "WEBKIT", "webkit_settings_set_enable_javascript_markup", false)
+
 	xSettingsSetEnableJavascriptMarkup(x.GoPointer(), EnabledVar)
 }
 
@@ -776,6 +946,8 @@ var xSettingsSetEnableMedia func(uintptr, bool)
 
 // Set the #WebKitSettings:enable-media property.
 func (x *Settings) SetEnableMedia(EnabledVar bool) {
+	core.LazyRegister(&xSettingsSetEnableMedia, "WEBKIT", "webkit_settings_set_enable_media", false)
+
 	xSettingsSetEnableMedia(x.GoPointer(), EnabledVar)
 }
 
@@ -783,6 +955,8 @@ var xSettingsSetEnableMediaCapabilities func(uintptr, bool)
 
 // Set the #WebKitSettings:enable-media-capabilities property.
 func (x *Settings) SetEnableMediaCapabilities(EnabledVar bool) {
+	core.LazyRegister(&xSettingsSetEnableMediaCapabilities, "WEBKIT", "webkit_settings_set_enable_media_capabilities", false)
+
 	xSettingsSetEnableMediaCapabilities(x.GoPointer(), EnabledVar)
 }
 
@@ -790,6 +964,8 @@ var xSettingsSetEnableMediaStream func(uintptr, bool)
 
 // Set the #WebKitSettings:enable-media-stream property.
 func (x *Settings) SetEnableMediaStream(EnabledVar bool) {
+	core.LazyRegister(&xSettingsSetEnableMediaStream, "WEBKIT", "webkit_settings_set_enable_media_stream", false)
+
 	xSettingsSetEnableMediaStream(x.GoPointer(), EnabledVar)
 }
 
@@ -797,6 +973,8 @@ var xSettingsSetEnableMediasource func(uintptr, bool)
 
 // Set the #WebKitSettings:enable-mediasource property.
 func (x *Settings) SetEnableMediasource(EnabledVar bool) {
+	core.LazyRegister(&xSettingsSetEnableMediasource, "WEBKIT", "webkit_settings_set_enable_mediasource", false)
+
 	xSettingsSetEnableMediasource(x.GoPointer(), EnabledVar)
 }
 
@@ -804,6 +982,8 @@ var xSettingsSetEnableMockCaptureDevices func(uintptr, bool)
 
 // Set the #WebKitSettings:enable-mock-capture-devices property.
 func (x *Settings) SetEnableMockCaptureDevices(EnabledVar bool) {
+	core.LazyRegister(&xSettingsSetEnableMockCaptureDevices, "WEBKIT", "webkit_settings_set_enable_mock_capture_devices", false)
+
 	xSettingsSetEnableMockCaptureDevices(x.GoPointer(), EnabledVar)
 }
 
@@ -811,6 +991,8 @@ var xSettingsSetEnableOfflineWebApplicationCache func(uintptr, bool)
 
 // Setting no longer supported. This function does nothing.
 func (x *Settings) SetEnableOfflineWebApplicationCache(EnabledVar bool) {
+	core.LazyRegister(&xSettingsSetEnableOfflineWebApplicationCache, "WEBKIT", "webkit_settings_set_enable_offline_web_application_cache", false)
+
 	xSettingsSetEnableOfflineWebApplicationCache(x.GoPointer(), EnabledVar)
 }
 
@@ -818,6 +1000,8 @@ var xSettingsSetEnablePageCache func(uintptr, bool)
 
 // Set the #WebKitSettings:enable-page-cache property.
 func (x *Settings) SetEnablePageCache(EnabledVar bool) {
+	core.LazyRegister(&xSettingsSetEnablePageCache, "WEBKIT", "webkit_settings_set_enable_page_cache", false)
+
 	xSettingsSetEnablePageCache(x.GoPointer(), EnabledVar)
 }
 
@@ -825,6 +1009,8 @@ var xSettingsSetEnableResizableTextAreas func(uintptr, bool)
 
 // Set the #WebKitSettings:enable-resizable-text-areas property.
 func (x *Settings) SetEnableResizableTextAreas(EnabledVar bool) {
+	core.LazyRegister(&xSettingsSetEnableResizableTextAreas, "WEBKIT", "webkit_settings_set_enable_resizable_text_areas", false)
+
 	xSettingsSetEnableResizableTextAreas(x.GoPointer(), EnabledVar)
 }
 
@@ -832,6 +1018,8 @@ var xSettingsSetEnableSiteSpecificQuirks func(uintptr, bool)
 
 // Set the #WebKitSettings:enable-site-specific-quirks property.
 func (x *Settings) SetEnableSiteSpecificQuirks(EnabledVar bool) {
+	core.LazyRegister(&xSettingsSetEnableSiteSpecificQuirks, "WEBKIT", "webkit_settings_set_enable_site_specific_quirks", false)
+
 	xSettingsSetEnableSiteSpecificQuirks(x.GoPointer(), EnabledVar)
 }
 
@@ -839,6 +1027,8 @@ var xSettingsSetEnableSmoothScrolling func(uintptr, bool)
 
 // Set the #WebKitSettings:enable-smooth-scrolling property.
 func (x *Settings) SetEnableSmoothScrolling(EnabledVar bool) {
+	core.LazyRegister(&xSettingsSetEnableSmoothScrolling, "WEBKIT", "webkit_settings_set_enable_smooth_scrolling", false)
+
 	xSettingsSetEnableSmoothScrolling(x.GoPointer(), EnabledVar)
 }
 
@@ -846,6 +1036,8 @@ var xSettingsSetEnableSpatialNavigation func(uintptr, bool)
 
 // Set the #WebKitSettings:enable-spatial-navigation property.
 func (x *Settings) SetEnableSpatialNavigation(EnabledVar bool) {
+	core.LazyRegister(&xSettingsSetEnableSpatialNavigation, "WEBKIT", "webkit_settings_set_enable_spatial_navigation", false)
+
 	xSettingsSetEnableSpatialNavigation(x.GoPointer(), EnabledVar)
 }
 
@@ -853,6 +1045,8 @@ var xSettingsSetEnableTabsToLinks func(uintptr, bool)
 
 // Set the #WebKitSettings:enable-tabs-to-links property.
 func (x *Settings) SetEnableTabsToLinks(EnabledVar bool) {
+	core.LazyRegister(&xSettingsSetEnableTabsToLinks, "WEBKIT", "webkit_settings_set_enable_tabs_to_links", false)
+
 	xSettingsSetEnableTabsToLinks(x.GoPointer(), EnabledVar)
 }
 
@@ -860,6 +1054,8 @@ var xSettingsSetEnableWebaudio func(uintptr, bool)
 
 // Set the #WebKitSettings:enable-webaudio property.
 func (x *Settings) SetEnableWebaudio(EnabledVar bool) {
+	core.LazyRegister(&xSettingsSetEnableWebaudio, "WEBKIT", "webkit_settings_set_enable_webaudio", false)
+
 	xSettingsSetEnableWebaudio(x.GoPointer(), EnabledVar)
 }
 
@@ -867,6 +1063,8 @@ var xSettingsSetEnableWebgl func(uintptr, bool)
 
 // Set the #WebKitSettings:enable-webgl property.
 func (x *Settings) SetEnableWebgl(EnabledVar bool) {
+	core.LazyRegister(&xSettingsSetEnableWebgl, "WEBKIT", "webkit_settings_set_enable_webgl", false)
+
 	xSettingsSetEnableWebgl(x.GoPointer(), EnabledVar)
 }
 
@@ -876,6 +1074,8 @@ var xSettingsSetEnableWebrtc func(uintptr, bool)
 //
 // Setting this property to %TRUE implies the media-stream web-setting will also be enabled.
 func (x *Settings) SetEnableWebrtc(EnabledVar bool) {
+	core.LazyRegister(&xSettingsSetEnableWebrtc, "WEBKIT", "webkit_settings_set_enable_webrtc", false)
+
 	xSettingsSetEnableWebrtc(x.GoPointer(), EnabledVar)
 }
 
@@ -883,6 +1083,8 @@ var xSettingsSetEnableWriteConsoleMessagesToStdout func(uintptr, bool)
 
 // Set the #WebKitSettings:enable-write-console-messages-to-stdout property.
 func (x *Settings) SetEnableWriteConsoleMessagesToStdout(EnabledVar bool) {
+	core.LazyRegister(&xSettingsSetEnableWriteConsoleMessagesToStdout, "WEBKIT", "webkit_settings_set_enable_write_console_messages_to_stdout", false)
+
 	xSettingsSetEnableWriteConsoleMessagesToStdout(x.GoPointer(), EnabledVar)
 }
 
@@ -890,6 +1092,8 @@ var xSettingsSetFantasyFontFamily func(uintptr, string)
 
 // Set the #WebKitSettings:fantasy-font-family property.
 func (x *Settings) SetFantasyFontFamily(FantasyFontFamilyVar string) {
+	core.LazyRegister(&xSettingsSetFantasyFontFamily, "WEBKIT", "webkit_settings_set_fantasy_font_family", false)
+
 	xSettingsSetFantasyFontFamily(x.GoPointer(), FantasyFontFamilyVar)
 }
 
@@ -902,6 +1106,8 @@ var xSettingsSetFeatureEnabled func(uintptr, *Feature, bool)
 // initial status, pass the value returned by
 // [id@webkit_feature_get_default_value] as the @enabled parameter.
 func (x *Settings) SetFeatureEnabled(FeatureVar *Feature, EnabledVar bool) {
+	core.LazyRegister(&xSettingsSetFeatureEnabled, "WEBKIT", "webkit_settings_set_feature_enabled", false)
+
 	xSettingsSetFeatureEnabled(x.GoPointer(), FeatureVar, EnabledVar)
 }
 
@@ -909,6 +1115,8 @@ var xSettingsSetHardwareAccelerationPolicy func(uintptr, HardwareAccelerationPol
 
 // Set the #WebKitSettings:hardware-acceleration-policy property.
 func (x *Settings) SetHardwareAccelerationPolicy(PolicyVar HardwareAccelerationPolicy) {
+	core.LazyRegister(&xSettingsSetHardwareAccelerationPolicy, "WEBKIT", "webkit_settings_set_hardware_acceleration_policy", false)
+
 	xSettingsSetHardwareAccelerationPolicy(x.GoPointer(), PolicyVar)
 }
 
@@ -916,6 +1124,8 @@ var xSettingsSetJavascriptCanAccessClipboard func(uintptr, bool)
 
 // Set the #WebKitSettings:javascript-can-access-clipboard property.
 func (x *Settings) SetJavascriptCanAccessClipboard(EnabledVar bool) {
+	core.LazyRegister(&xSettingsSetJavascriptCanAccessClipboard, "WEBKIT", "webkit_settings_set_javascript_can_access_clipboard", false)
+
 	xSettingsSetJavascriptCanAccessClipboard(x.GoPointer(), EnabledVar)
 }
 
@@ -923,6 +1133,8 @@ var xSettingsSetJavascriptCanOpenWindowsAutomatically func(uintptr, bool)
 
 // Set the #WebKitSettings:javascript-can-open-windows-automatically property.
 func (x *Settings) SetJavascriptCanOpenWindowsAutomatically(EnabledVar bool) {
+	core.LazyRegister(&xSettingsSetJavascriptCanOpenWindowsAutomatically, "WEBKIT", "webkit_settings_set_javascript_can_open_windows_automatically", false)
+
 	xSettingsSetJavascriptCanOpenWindowsAutomatically(x.GoPointer(), EnabledVar)
 }
 
@@ -930,6 +1142,8 @@ var xSettingsSetLoadIconsIgnoringImageLoadSetting func(uintptr, bool)
 
 // Setting no longer supported. This function does nothing.
 func (x *Settings) SetLoadIconsIgnoringImageLoadSetting(EnabledVar bool) {
+	core.LazyRegister(&xSettingsSetLoadIconsIgnoringImageLoadSetting, "WEBKIT", "webkit_settings_set_load_icons_ignoring_image_load_setting", false)
+
 	xSettingsSetLoadIconsIgnoringImageLoadSetting(x.GoPointer(), EnabledVar)
 }
 
@@ -939,6 +1153,8 @@ var xSettingsSetMathFontFamily func(uintptr, uintptr)
 //
 // Since 2.52
 func (x *Settings) SetMathFontFamily(MathFontFamilyVar *string) {
+	core.LazyRegister(&xSettingsSetMathFontFamily, "WEBKIT", "webkit_settings_set_math_font_family", false)
+
 	MathFontFamilyVarPtr := core.GStrdupNullable(MathFontFamilyVar)
 	defer core.GFreeNullable(MathFontFamilyVarPtr)
 
@@ -949,6 +1165,8 @@ var xSettingsSetMediaContentTypesRequiringHardwareSupport func(uintptr, uintptr)
 
 // Set the #WebKitSettings:media-content-types-requiring-hardware-support property.
 func (x *Settings) SetMediaContentTypesRequiringHardwareSupport(ContentTypesVar *string) {
+	core.LazyRegister(&xSettingsSetMediaContentTypesRequiringHardwareSupport, "WEBKIT", "webkit_settings_set_media_content_types_requiring_hardware_support", false)
+
 	ContentTypesVarPtr := core.GStrdupNullable(ContentTypesVar)
 	defer core.GFreeNullable(ContentTypesVarPtr)
 
@@ -959,6 +1177,8 @@ var xSettingsSetMediaPlaybackAllowsInline func(uintptr, bool)
 
 // Set the #WebKitSettings:media-playback-allows-inline property.
 func (x *Settings) SetMediaPlaybackAllowsInline(EnabledVar bool) {
+	core.LazyRegister(&xSettingsSetMediaPlaybackAllowsInline, "WEBKIT", "webkit_settings_set_media_playback_allows_inline", false)
+
 	xSettingsSetMediaPlaybackAllowsInline(x.GoPointer(), EnabledVar)
 }
 
@@ -966,6 +1186,8 @@ var xSettingsSetMediaPlaybackRequiresUserGesture func(uintptr, bool)
 
 // Set the #WebKitSettings:media-playback-requires-user-gesture property.
 func (x *Settings) SetMediaPlaybackRequiresUserGesture(EnabledVar bool) {
+	core.LazyRegister(&xSettingsSetMediaPlaybackRequiresUserGesture, "WEBKIT", "webkit_settings_set_media_playback_requires_user_gesture", false)
+
 	xSettingsSetMediaPlaybackRequiresUserGesture(x.GoPointer(), EnabledVar)
 }
 
@@ -973,6 +1195,8 @@ var xSettingsSetMinimumFontSize func(uintptr, uint32)
 
 // Set the #WebKitSettings:minimum-font-size property.
 func (x *Settings) SetMinimumFontSize(FontSizeVar uint32) {
+	core.LazyRegister(&xSettingsSetMinimumFontSize, "WEBKIT", "webkit_settings_set_minimum_font_size", false)
+
 	xSettingsSetMinimumFontSize(x.GoPointer(), FontSizeVar)
 }
 
@@ -980,6 +1204,8 @@ var xSettingsSetMonospaceFontFamily func(uintptr, string)
 
 // Set the #WebKitSettings:monospace-font-family property.
 func (x *Settings) SetMonospaceFontFamily(MonospaceFontFamilyVar string) {
+	core.LazyRegister(&xSettingsSetMonospaceFontFamily, "WEBKIT", "webkit_settings_set_monospace_font_family", false)
+
 	xSettingsSetMonospaceFontFamily(x.GoPointer(), MonospaceFontFamilyVar)
 }
 
@@ -987,6 +1213,8 @@ var xSettingsSetPictographFontFamily func(uintptr, string)
 
 // Set the #WebKitSettings:pictograph-font-family property.
 func (x *Settings) SetPictographFontFamily(PictographFontFamilyVar string) {
+	core.LazyRegister(&xSettingsSetPictographFontFamily, "WEBKIT", "webkit_settings_set_pictograph_font_family", false)
+
 	xSettingsSetPictographFontFamily(x.GoPointer(), PictographFontFamilyVar)
 }
 
@@ -994,6 +1222,8 @@ var xSettingsSetPrintBackgrounds func(uintptr, bool)
 
 // Set the #WebKitSettings:print-backgrounds property.
 func (x *Settings) SetPrintBackgrounds(PrintBackgroundsVar bool) {
+	core.LazyRegister(&xSettingsSetPrintBackgrounds, "WEBKIT", "webkit_settings_set_print_backgrounds", false)
+
 	xSettingsSetPrintBackgrounds(x.GoPointer(), PrintBackgroundsVar)
 }
 
@@ -1001,6 +1231,8 @@ var xSettingsSetSansSerifFontFamily func(uintptr, string)
 
 // Set the #WebKitSettings:sans-serif-font-family property.
 func (x *Settings) SetSansSerifFontFamily(SansSerifFontFamilyVar string) {
+	core.LazyRegister(&xSettingsSetSansSerifFontFamily, "WEBKIT", "webkit_settings_set_sans_serif_font_family", false)
+
 	xSettingsSetSansSerifFontFamily(x.GoPointer(), SansSerifFontFamilyVar)
 }
 
@@ -1008,6 +1240,8 @@ var xSettingsSetSerifFontFamily func(uintptr, string)
 
 // Set the #WebKitSettings:serif-font-family property.
 func (x *Settings) SetSerifFontFamily(SerifFontFamilyVar string) {
+	core.LazyRegister(&xSettingsSetSerifFontFamily, "WEBKIT", "webkit_settings_set_serif_font_family", false)
+
 	xSettingsSetSerifFontFamily(x.GoPointer(), SerifFontFamilyVar)
 }
 
@@ -1015,6 +1249,8 @@ var xSettingsSetUserAgent func(uintptr, uintptr)
 
 // Set the #WebKitSettings:user-agent property.
 func (x *Settings) SetUserAgent(UserAgentVar *string) {
+	core.LazyRegister(&xSettingsSetUserAgent, "WEBKIT", "webkit_settings_set_user_agent", false)
+
 	UserAgentVarPtr := core.GStrdupNullable(UserAgentVar)
 	defer core.GFreeNullable(UserAgentVarPtr)
 
@@ -1029,6 +1265,8 @@ var xSettingsSetUserAgentWithApplicationDetails func(uintptr, uintptr, uintptr)
 // agent. If no application name or version is given, the default user agent used will be used. If only
 // the version is given, the default engine version is used with the given application name.
 func (x *Settings) SetUserAgentWithApplicationDetails(ApplicationNameVar *string, ApplicationVersionVar *string) {
+	core.LazyRegister(&xSettingsSetUserAgentWithApplicationDetails, "WEBKIT", "webkit_settings_set_user_agent_with_application_details", false)
+
 	ApplicationNameVarPtr := core.GStrdupNullable(ApplicationNameVar)
 	defer core.GFreeNullable(ApplicationNameVarPtr)
 
@@ -1042,6 +1280,8 @@ var xSettingsSetWebrtcUdpPortsRange func(uintptr, string)
 
 // Set the [property@Settings:webrtc-udp-ports-range] property.
 func (x *Settings) SetWebrtcUdpPortsRange(UdpPortRangeVar string) {
+	core.LazyRegister(&xSettingsSetWebrtcUdpPortsRange, "WEBKIT", "webkit_settings_set_webrtc_udp_ports_range", false)
+
 	xSettingsSetWebrtcUdpPortsRange(x.GoPointer(), UdpPortRangeVar)
 }
 
@@ -1049,6 +1289,8 @@ var xSettingsSetZoomTextOnly func(uintptr, bool)
 
 // Set the #WebKitSettings:zoom-text-only property.
 func (x *Settings) SetZoomTextOnly(ZoomTextOnlyVar bool) {
+	core.LazyRegister(&xSettingsSetZoomTextOnly, "WEBKIT", "webkit_settings_set_zoom_text_only", false)
+
 	xSettingsSetZoomTextOnly(x.GoPointer(), ZoomTextOnlyVar)
 }
 
@@ -2292,6 +2534,8 @@ var xSettingsFontSizeToPixels func(uint32) uint32
 // in points to font size values in pixels when setting the font size properties
 // of #WebKitSettings.
 func SettingsFontSizeToPixels(PointsVar uint32) uint32 {
+	core.LazyRegister(&xSettingsFontSizeToPixels, "WEBKIT", "webkit_settings_font_size_to_pixels", false)
+
 	cret := xSettingsFontSizeToPixels(PointsVar)
 	return cret
 }
@@ -2304,6 +2548,8 @@ var xSettingsFontSizeToPoints func(uint32) uint32
 // in pixels to font size values in points when getting the font size properties
 // of #WebKitSettings.
 func SettingsFontSizeToPoints(PixelsVar uint32) uint32 {
+	core.LazyRegister(&xSettingsFontSizeToPoints, "WEBKIT", "webkit_settings_font_size_to_points", false)
+
 	cret := xSettingsFontSizeToPoints(PixelsVar)
 	return cret
 }
@@ -2320,6 +2566,8 @@ var xSettingsGetAllFeatures func() uintptr
 // [func@Settings.get_development_features] and
 // [func@Settings.get_experimental_features] instead.
 func SettingsGetAllFeatures() *FeatureList {
+	core.LazyRegister(&xSettingsGetAllFeatures, "WEBKIT", "webkit_settings_get_all_features", false)
+
 	cret := xSettingsGetAllFeatures()
 	if cret == 0 {
 		return nil
@@ -2337,6 +2585,8 @@ var xSettingsGetDevelopmentFeatures func() uintptr
 // *not* be exposed to end users; see [enum@FeatureStatus] for
 // more details.
 func SettingsGetDevelopmentFeatures() *FeatureList {
+	core.LazyRegister(&xSettingsGetDevelopmentFeatures, "WEBKIT", "webkit_settings_get_development_features", false)
+
 	cret := xSettingsGetDevelopmentFeatures()
 	if cret == 0 {
 		return nil
@@ -2353,6 +2603,8 @@ var xSettingsGetExperimentalFeatures func() uintptr
 // certain applications may want to expose to end users; see
 // [enum@FeatureStatus] for more details.
 func SettingsGetExperimentalFeatures() *FeatureList {
+	core.LazyRegister(&xSettingsGetExperimentalFeatures, "WEBKIT", "webkit_settings_get_experimental_features", false)
+
 	cret := xSettingsGetExperimentalFeatures()
 	if cret == 0 {
 		return nil
@@ -2363,151 +2615,8 @@ func SettingsGetExperimentalFeatures() *FeatureList {
 func init() {
 	core.SetPackageName("WEBKIT", "webkitgtk-6.0")
 	core.SetSharedLibraries("WEBKIT", []string{"libwebkitgtk-6.0.so.4", "libjavascriptcoregtk-6.0.so.1", "libwebkitgtk-6.0.4.dylib", "libjavascriptcoregtk-6.0.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("WEBKIT") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
 
-	core.PuregoSafeRegister(&xHardwareAccelerationPolicyGLibType, libs, "webkit_hardware_acceleration_policy_get_type")
-
-	core.PuregoSafeRegister(&xSettingsGLibType, libs, "webkit_settings_get_type")
-
-	core.PuregoSafeRegister(&xNewSettings, libs, "webkit_settings_new")
-	core.PuregoSafeRegister(&xNewSettingsWithSettings, libs, "webkit_settings_new_with_settings")
-
-	core.PuregoSafeRegister(&xSettingsApplyFromKeyFile, libs, "webkit_settings_apply_from_key_file")
-	core.PuregoSafeRegister(&xSettingsGetAllowFileAccessFromFileUrls, libs, "webkit_settings_get_allow_file_access_from_file_urls")
-	core.PuregoSafeRegister(&xSettingsGetAllowModalDialogs, libs, "webkit_settings_get_allow_modal_dialogs")
-	core.PuregoSafeRegister(&xSettingsGetAllowTopNavigationToDataUrls, libs, "webkit_settings_get_allow_top_navigation_to_data_urls")
-	core.PuregoSafeRegister(&xSettingsGetAllowUniversalAccessFromFileUrls, libs, "webkit_settings_get_allow_universal_access_from_file_urls")
-	core.PuregoSafeRegister(&xSettingsGetAutoLoadImages, libs, "webkit_settings_get_auto_load_images")
-	core.PuregoSafeRegister(&xSettingsGetCursiveFontFamily, libs, "webkit_settings_get_cursive_font_family")
-	core.PuregoSafeRegister(&xSettingsGetDefaultCharset, libs, "webkit_settings_get_default_charset")
-	core.PuregoSafeRegister(&xSettingsGetDefaultFontFamily, libs, "webkit_settings_get_default_font_family")
-	core.PuregoSafeRegister(&xSettingsGetDefaultFontSize, libs, "webkit_settings_get_default_font_size")
-	core.PuregoSafeRegister(&xSettingsGetDefaultMonospaceFontSize, libs, "webkit_settings_get_default_monospace_font_size")
-	core.PuregoSafeRegister(&xSettingsGetDisableWebSecurity, libs, "webkit_settings_get_disable_web_security")
-	core.PuregoSafeRegister(&xSettingsGetDrawCompositingIndicators, libs, "webkit_settings_get_draw_compositing_indicators")
-	core.PuregoSafeRegister(&xSettingsGetEnable2dCanvasAcceleration, libs, "webkit_settings_get_enable_2d_canvas_acceleration")
-	core.PuregoSafeRegister(&xSettingsGetEnableBackForwardNavigationGestures, libs, "webkit_settings_get_enable_back_forward_navigation_gestures")
-	core.PuregoSafeRegister(&xSettingsGetEnableCaretBrowsing, libs, "webkit_settings_get_enable_caret_browsing")
-	core.PuregoSafeRegister(&xSettingsGetEnableDeveloperExtras, libs, "webkit_settings_get_enable_developer_extras")
-	core.PuregoSafeRegister(&xSettingsGetEnableDnsPrefetching, libs, "webkit_settings_get_enable_dns_prefetching")
-	core.PuregoSafeRegister(&xSettingsGetEnableEncryptedMedia, libs, "webkit_settings_get_enable_encrypted_media")
-	core.PuregoSafeRegister(&xSettingsGetEnableFullscreen, libs, "webkit_settings_get_enable_fullscreen")
-	core.PuregoSafeRegister(&xSettingsGetEnableHtml5Database, libs, "webkit_settings_get_enable_html5_database")
-	core.PuregoSafeRegister(&xSettingsGetEnableHtml5LocalStorage, libs, "webkit_settings_get_enable_html5_local_storage")
-	core.PuregoSafeRegister(&xSettingsGetEnableHyperlinkAuditing, libs, "webkit_settings_get_enable_hyperlink_auditing")
-	core.PuregoSafeRegister(&xSettingsGetEnableJavascript, libs, "webkit_settings_get_enable_javascript")
-	core.PuregoSafeRegister(&xSettingsGetEnableJavascriptMarkup, libs, "webkit_settings_get_enable_javascript_markup")
-	core.PuregoSafeRegister(&xSettingsGetEnableMedia, libs, "webkit_settings_get_enable_media")
-	core.PuregoSafeRegister(&xSettingsGetEnableMediaCapabilities, libs, "webkit_settings_get_enable_media_capabilities")
-	core.PuregoSafeRegister(&xSettingsGetEnableMediaStream, libs, "webkit_settings_get_enable_media_stream")
-	core.PuregoSafeRegister(&xSettingsGetEnableMediasource, libs, "webkit_settings_get_enable_mediasource")
-	core.PuregoSafeRegister(&xSettingsGetEnableMockCaptureDevices, libs, "webkit_settings_get_enable_mock_capture_devices")
-	core.PuregoSafeRegister(&xSettingsGetEnableOfflineWebApplicationCache, libs, "webkit_settings_get_enable_offline_web_application_cache")
-	core.PuregoSafeRegister(&xSettingsGetEnablePageCache, libs, "webkit_settings_get_enable_page_cache")
-	core.PuregoSafeRegister(&xSettingsGetEnableResizableTextAreas, libs, "webkit_settings_get_enable_resizable_text_areas")
-	core.PuregoSafeRegister(&xSettingsGetEnableSiteSpecificQuirks, libs, "webkit_settings_get_enable_site_specific_quirks")
-	core.PuregoSafeRegister(&xSettingsGetEnableSmoothScrolling, libs, "webkit_settings_get_enable_smooth_scrolling")
-	core.PuregoSafeRegister(&xSettingsGetEnableSpatialNavigation, libs, "webkit_settings_get_enable_spatial_navigation")
-	core.PuregoSafeRegister(&xSettingsGetEnableTabsToLinks, libs, "webkit_settings_get_enable_tabs_to_links")
-	core.PuregoSafeRegister(&xSettingsGetEnableWebaudio, libs, "webkit_settings_get_enable_webaudio")
-	core.PuregoSafeRegister(&xSettingsGetEnableWebgl, libs, "webkit_settings_get_enable_webgl")
-	core.PuregoSafeRegister(&xSettingsGetEnableWebrtc, libs, "webkit_settings_get_enable_webrtc")
-	core.PuregoSafeRegister(&xSettingsGetEnableWriteConsoleMessagesToStdout, libs, "webkit_settings_get_enable_write_console_messages_to_stdout")
-	core.PuregoSafeRegister(&xSettingsGetFantasyFontFamily, libs, "webkit_settings_get_fantasy_font_family")
-	core.PuregoSafeRegister(&xSettingsGetFeatureEnabled, libs, "webkit_settings_get_feature_enabled")
-	core.PuregoSafeRegister(&xSettingsGetHardwareAccelerationPolicy, libs, "webkit_settings_get_hardware_acceleration_policy")
-	core.PuregoSafeRegister(&xSettingsGetJavascriptCanAccessClipboard, libs, "webkit_settings_get_javascript_can_access_clipboard")
-	core.PuregoSafeRegister(&xSettingsGetJavascriptCanOpenWindowsAutomatically, libs, "webkit_settings_get_javascript_can_open_windows_automatically")
-	core.PuregoSafeRegister(&xSettingsGetLoadIconsIgnoringImageLoadSetting, libs, "webkit_settings_get_load_icons_ignoring_image_load_setting")
-	core.PuregoSafeRegister(&xSettingsGetMathFontFamily, libs, "webkit_settings_get_math_font_family")
-	core.PuregoSafeRegister(&xSettingsGetMediaContentTypesRequiringHardwareSupport, libs, "webkit_settings_get_media_content_types_requiring_hardware_support")
-	core.PuregoSafeRegister(&xSettingsGetMediaPlaybackAllowsInline, libs, "webkit_settings_get_media_playback_allows_inline")
-	core.PuregoSafeRegister(&xSettingsGetMediaPlaybackRequiresUserGesture, libs, "webkit_settings_get_media_playback_requires_user_gesture")
-	core.PuregoSafeRegister(&xSettingsGetMinimumFontSize, libs, "webkit_settings_get_minimum_font_size")
-	core.PuregoSafeRegister(&xSettingsGetMonospaceFontFamily, libs, "webkit_settings_get_monospace_font_family")
-	core.PuregoSafeRegister(&xSettingsGetPictographFontFamily, libs, "webkit_settings_get_pictograph_font_family")
-	core.PuregoSafeRegister(&xSettingsGetPrintBackgrounds, libs, "webkit_settings_get_print_backgrounds")
-	core.PuregoSafeRegister(&xSettingsGetSansSerifFontFamily, libs, "webkit_settings_get_sans_serif_font_family")
-	core.PuregoSafeRegister(&xSettingsGetSerifFontFamily, libs, "webkit_settings_get_serif_font_family")
-	core.PuregoSafeRegister(&xSettingsGetUserAgent, libs, "webkit_settings_get_user_agent")
-	core.PuregoSafeRegister(&xSettingsGetWebrtcUdpPortsRange, libs, "webkit_settings_get_webrtc_udp_ports_range")
-	core.PuregoSafeRegister(&xSettingsGetZoomTextOnly, libs, "webkit_settings_get_zoom_text_only")
-	core.PuregoSafeRegister(&xSettingsSetAllowFileAccessFromFileUrls, libs, "webkit_settings_set_allow_file_access_from_file_urls")
-	core.PuregoSafeRegister(&xSettingsSetAllowModalDialogs, libs, "webkit_settings_set_allow_modal_dialogs")
-	core.PuregoSafeRegister(&xSettingsSetAllowTopNavigationToDataUrls, libs, "webkit_settings_set_allow_top_navigation_to_data_urls")
-	core.PuregoSafeRegister(&xSettingsSetAllowUniversalAccessFromFileUrls, libs, "webkit_settings_set_allow_universal_access_from_file_urls")
-	core.PuregoSafeRegister(&xSettingsSetAutoLoadImages, libs, "webkit_settings_set_auto_load_images")
-	core.PuregoSafeRegister(&xSettingsSetCursiveFontFamily, libs, "webkit_settings_set_cursive_font_family")
-	core.PuregoSafeRegister(&xSettingsSetDefaultCharset, libs, "webkit_settings_set_default_charset")
-	core.PuregoSafeRegister(&xSettingsSetDefaultFontFamily, libs, "webkit_settings_set_default_font_family")
-	core.PuregoSafeRegister(&xSettingsSetDefaultFontSize, libs, "webkit_settings_set_default_font_size")
-	core.PuregoSafeRegister(&xSettingsSetDefaultMonospaceFontSize, libs, "webkit_settings_set_default_monospace_font_size")
-	core.PuregoSafeRegister(&xSettingsSetDisableWebSecurity, libs, "webkit_settings_set_disable_web_security")
-	core.PuregoSafeRegister(&xSettingsSetDrawCompositingIndicators, libs, "webkit_settings_set_draw_compositing_indicators")
-	core.PuregoSafeRegister(&xSettingsSetEnable2dCanvasAcceleration, libs, "webkit_settings_set_enable_2d_canvas_acceleration")
-	core.PuregoSafeRegister(&xSettingsSetEnableBackForwardNavigationGestures, libs, "webkit_settings_set_enable_back_forward_navigation_gestures")
-	core.PuregoSafeRegister(&xSettingsSetEnableCaretBrowsing, libs, "webkit_settings_set_enable_caret_browsing")
-	core.PuregoSafeRegister(&xSettingsSetEnableDeveloperExtras, libs, "webkit_settings_set_enable_developer_extras")
-	core.PuregoSafeRegister(&xSettingsSetEnableDnsPrefetching, libs, "webkit_settings_set_enable_dns_prefetching")
-	core.PuregoSafeRegister(&xSettingsSetEnableEncryptedMedia, libs, "webkit_settings_set_enable_encrypted_media")
-	core.PuregoSafeRegister(&xSettingsSetEnableFullscreen, libs, "webkit_settings_set_enable_fullscreen")
-	core.PuregoSafeRegister(&xSettingsSetEnableHtml5Database, libs, "webkit_settings_set_enable_html5_database")
-	core.PuregoSafeRegister(&xSettingsSetEnableHtml5LocalStorage, libs, "webkit_settings_set_enable_html5_local_storage")
-	core.PuregoSafeRegister(&xSettingsSetEnableHyperlinkAuditing, libs, "webkit_settings_set_enable_hyperlink_auditing")
-	core.PuregoSafeRegister(&xSettingsSetEnableJavascript, libs, "webkit_settings_set_enable_javascript")
-	core.PuregoSafeRegister(&xSettingsSetEnableJavascriptMarkup, libs, "webkit_settings_set_enable_javascript_markup")
-	core.PuregoSafeRegister(&xSettingsSetEnableMedia, libs, "webkit_settings_set_enable_media")
-	core.PuregoSafeRegister(&xSettingsSetEnableMediaCapabilities, libs, "webkit_settings_set_enable_media_capabilities")
-	core.PuregoSafeRegister(&xSettingsSetEnableMediaStream, libs, "webkit_settings_set_enable_media_stream")
-	core.PuregoSafeRegister(&xSettingsSetEnableMediasource, libs, "webkit_settings_set_enable_mediasource")
-	core.PuregoSafeRegister(&xSettingsSetEnableMockCaptureDevices, libs, "webkit_settings_set_enable_mock_capture_devices")
-	core.PuregoSafeRegister(&xSettingsSetEnableOfflineWebApplicationCache, libs, "webkit_settings_set_enable_offline_web_application_cache")
-	core.PuregoSafeRegister(&xSettingsSetEnablePageCache, libs, "webkit_settings_set_enable_page_cache")
-	core.PuregoSafeRegister(&xSettingsSetEnableResizableTextAreas, libs, "webkit_settings_set_enable_resizable_text_areas")
-	core.PuregoSafeRegister(&xSettingsSetEnableSiteSpecificQuirks, libs, "webkit_settings_set_enable_site_specific_quirks")
-	core.PuregoSafeRegister(&xSettingsSetEnableSmoothScrolling, libs, "webkit_settings_set_enable_smooth_scrolling")
-	core.PuregoSafeRegister(&xSettingsSetEnableSpatialNavigation, libs, "webkit_settings_set_enable_spatial_navigation")
-	core.PuregoSafeRegister(&xSettingsSetEnableTabsToLinks, libs, "webkit_settings_set_enable_tabs_to_links")
-	core.PuregoSafeRegister(&xSettingsSetEnableWebaudio, libs, "webkit_settings_set_enable_webaudio")
-	core.PuregoSafeRegister(&xSettingsSetEnableWebgl, libs, "webkit_settings_set_enable_webgl")
-	core.PuregoSafeRegister(&xSettingsSetEnableWebrtc, libs, "webkit_settings_set_enable_webrtc")
-	core.PuregoSafeRegister(&xSettingsSetEnableWriteConsoleMessagesToStdout, libs, "webkit_settings_set_enable_write_console_messages_to_stdout")
-	core.PuregoSafeRegister(&xSettingsSetFantasyFontFamily, libs, "webkit_settings_set_fantasy_font_family")
-	core.PuregoSafeRegister(&xSettingsSetFeatureEnabled, libs, "webkit_settings_set_feature_enabled")
-	core.PuregoSafeRegister(&xSettingsSetHardwareAccelerationPolicy, libs, "webkit_settings_set_hardware_acceleration_policy")
-	core.PuregoSafeRegister(&xSettingsSetJavascriptCanAccessClipboard, libs, "webkit_settings_set_javascript_can_access_clipboard")
-	core.PuregoSafeRegister(&xSettingsSetJavascriptCanOpenWindowsAutomatically, libs, "webkit_settings_set_javascript_can_open_windows_automatically")
-	core.PuregoSafeRegister(&xSettingsSetLoadIconsIgnoringImageLoadSetting, libs, "webkit_settings_set_load_icons_ignoring_image_load_setting")
-	core.PuregoSafeRegister(&xSettingsSetMathFontFamily, libs, "webkit_settings_set_math_font_family")
-	core.PuregoSafeRegister(&xSettingsSetMediaContentTypesRequiringHardwareSupport, libs, "webkit_settings_set_media_content_types_requiring_hardware_support")
-	core.PuregoSafeRegister(&xSettingsSetMediaPlaybackAllowsInline, libs, "webkit_settings_set_media_playback_allows_inline")
-	core.PuregoSafeRegister(&xSettingsSetMediaPlaybackRequiresUserGesture, libs, "webkit_settings_set_media_playback_requires_user_gesture")
-	core.PuregoSafeRegister(&xSettingsSetMinimumFontSize, libs, "webkit_settings_set_minimum_font_size")
-	core.PuregoSafeRegister(&xSettingsSetMonospaceFontFamily, libs, "webkit_settings_set_monospace_font_family")
-	core.PuregoSafeRegister(&xSettingsSetPictographFontFamily, libs, "webkit_settings_set_pictograph_font_family")
-	core.PuregoSafeRegister(&xSettingsSetPrintBackgrounds, libs, "webkit_settings_set_print_backgrounds")
-	core.PuregoSafeRegister(&xSettingsSetSansSerifFontFamily, libs, "webkit_settings_set_sans_serif_font_family")
-	core.PuregoSafeRegister(&xSettingsSetSerifFontFamily, libs, "webkit_settings_set_serif_font_family")
-	core.PuregoSafeRegister(&xSettingsSetUserAgent, libs, "webkit_settings_set_user_agent")
-	core.PuregoSafeRegister(&xSettingsSetUserAgentWithApplicationDetails, libs, "webkit_settings_set_user_agent_with_application_details")
-	core.PuregoSafeRegister(&xSettingsSetWebrtcUdpPortsRange, libs, "webkit_settings_set_webrtc_udp_ports_range")
-	core.PuregoSafeRegister(&xSettingsSetZoomTextOnly, libs, "webkit_settings_set_zoom_text_only")
-
-	core.PuregoSafeRegister(&xSettingsFontSizeToPixels, libs, "webkit_settings_font_size_to_pixels")
-	core.PuregoSafeRegister(&xSettingsFontSizeToPoints, libs, "webkit_settings_font_size_to_points")
-	core.PuregoSafeRegister(&xSettingsGetAllFeatures, libs, "webkit_settings_get_all_features")
-	core.PuregoSafeRegister(&xSettingsGetDevelopmentFeatures, libs, "webkit_settings_get_development_features")
-	core.PuregoSafeRegister(&xSettingsGetExperimentalFeatures, libs, "webkit_settings_get_experimental_features")
-
-	// Manually register types since they aren't being automatically registered when
-	// the library is loaded
-	// See https://bugs.webkit.org/show_bug.cgi?id=175937
+	// Manually register types since they aren't automatically registered when
+	// WebKit is loaded. See https://bugs.webkit.org/show_bug.cgi?id=175937.
 	SettingsGLibType()
 }

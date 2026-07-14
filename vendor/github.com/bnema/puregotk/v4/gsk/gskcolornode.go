@@ -4,7 +4,6 @@ package gsk
 import (
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gdk"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -19,6 +18,7 @@ type ColorNode struct {
 var xColorNodeGLibType func() types.GType
 
 func ColorNodeGLibType() types.GType {
+	core.LazyRegister(&xColorNodeGLibType, "GSK", "gsk_color_node_get_type", false)
 	return xColorNodeGLibType()
 }
 
@@ -33,6 +33,7 @@ var xNewColorNode func(*gdk.RGBA, *graphene.Rect) uintptr
 // Creates a `GskRenderNode` that will render the color specified by @rgba into
 // the area given by @bounds.
 func NewColorNode(RgbaVar *gdk.RGBA, BoundsVar *graphene.Rect) *ColorNode {
+	core.LazyRegister(&xNewColorNode, "GSK", "gsk_color_node_new", false)
 	var cls *ColorNode
 
 	cret := xNewColorNode(RgbaVar, BoundsVar)
@@ -52,6 +53,8 @@ var xColorNodeGetColor func(uintptr) uintptr
 // The value returned by this function will not be correct
 // if the render node was created for a non-sRGB color.
 func (x *ColorNode) GetColor() *gdk.RGBA {
+	core.LazyRegister(&xColorNodeGetColor, "GSK", "gsk_color_node_get_color", false)
+
 	cret := xColorNodeGetColor(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -73,18 +76,4 @@ func (c *ColorNode) SetGoPointer(ptr uintptr) {
 func init() {
 	core.SetPackageName("GSK", "gtk4")
 	core.SetSharedLibraries("GSK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GSK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xColorNodeGLibType, libs, "gsk_color_node_get_type")
-
-	core.PuregoSafeRegister(&xNewColorNode, libs, "gsk_color_node_new")
-
-	core.PuregoSafeRegister(&xColorNodeGetColor, libs, "gsk_color_node_get_color")
 }

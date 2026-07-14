@@ -815,6 +815,7 @@ type IMContext struct {
 var xIMContextGLibType func() types.GType
 
 func IMContextGLibType() types.GType {
+	core.LazyRegister(&xIMContextGLibType, "GTK", "gtk_im_context_get_type", false)
 	return xIMContextGLibType()
 }
 
@@ -832,6 +833,8 @@ var xIMContextActivateOsk func(uintptr, uintptr) bool
 // to the platform, other environmental factors may result in an on-screen
 // keyboard effectively not showing up.
 func (x *IMContext) ActivateOsk(EventVar *gdk.Event) bool {
+	core.LazyRegister(&xIMContextActivateOsk, "GTK", "gtk_im_context_activate_osk", false)
+
 	cret := xIMContextActivateOsk(x.GoPointer(), EventVar.GoPointer())
 	return cret
 }
@@ -856,6 +859,8 @@ var xIMContextDeleteSurrounding func(uintptr, int, int) bool
 // substitutions in the existing text in response to new input.
 // It is not useful for applications.
 func (x *IMContext) DeleteSurrounding(OffsetVar int, NCharsVar int) bool {
+	core.LazyRegister(&xIMContextDeleteSurrounding, "GTK", "gtk_im_context_delete_surrounding", false)
+
 	cret := xIMContextDeleteSurrounding(x.GoPointer(), OffsetVar, NCharsVar)
 	return cret
 }
@@ -866,6 +871,8 @@ var xIMContextFilterKey func(uintptr, bool, uintptr, uintptr, uint32, uint, gdk.
 // to another input method without necessarily having a `GdkEvent`
 // available.
 func (x *IMContext) FilterKey(PressVar bool, SurfaceVar *gdk.Surface, DeviceVar *gdk.Device, TimeVar uint32, KeycodeVar uint, StateVar gdk.ModifierType, GroupVar int) bool {
+	core.LazyRegister(&xIMContextFilterKey, "GTK", "gtk_im_context_filter_key", false)
+
 	cret := xIMContextFilterKey(x.GoPointer(), PressVar, SurfaceVar.GoPointer(), DeviceVar.GoPointer(), TimeVar, KeycodeVar, StateVar, GroupVar)
 	return cret
 }
@@ -878,6 +885,8 @@ var xIMContextFilterKeypress func(uintptr, uintptr) bool
 // If this function returns %TRUE, then no further processing
 // should be done for this key event.
 func (x *IMContext) FilterKeypress(EventVar *gdk.Event) bool {
+	core.LazyRegister(&xIMContextFilterKeypress, "GTK", "gtk_im_context_filter_keypress", false)
+
 	cret := xIMContextFilterKeypress(x.GoPointer(), EventVar.GoPointer())
 	return cret
 }
@@ -890,6 +899,8 @@ var xIMContextFocusIn func(uintptr)
 // The input method may, for example, change the displayed
 // feedback to reflect this change.
 func (x *IMContext) FocusIn() {
+	core.LazyRegister(&xIMContextFocusIn, "GTK", "gtk_im_context_focus_in", false)
+
 	xIMContextFocusIn(x.GoPointer())
 }
 
@@ -901,6 +912,8 @@ var xIMContextFocusOut func(uintptr)
 // The input method may, for example, change the displayed
 // feedback or reset the contexts state to reflect this change.
 func (x *IMContext) FocusOut() {
+	core.LazyRegister(&xIMContextFocusOut, "GTK", "gtk_im_context_focus_out", false)
+
 	xIMContextFocusOut(x.GoPointer())
 }
 
@@ -911,6 +924,8 @@ var xIMContextGetPreeditString func(uintptr, *string, **pango.AttrList, *int)
 //
 // This string should be displayed inserted at the insertion point.
 func (x *IMContext) GetPreeditString(StrVar *string, AttrsVar **pango.AttrList, CursorPosVar *int) {
+	core.LazyRegister(&xIMContextGetPreeditString, "GTK", "gtk_im_context_get_preedit_string", false)
+
 	xIMContextGetPreeditString(x.GoPointer(), StrVar, AttrsVar, CursorPosVar)
 }
 
@@ -932,6 +947,8 @@ var xIMContextGetSurrounding func(uintptr, *string, *int) bool
 // `::retrieve-surrounding` signal, so input methods must be prepared to
 // function without context.
 func (x *IMContext) GetSurrounding(TextVar *string, CursorIndexVar *int) bool {
+	core.LazyRegister(&xIMContextGetSurrounding, "GTK", "gtk_im_context_get_surrounding", false)
+
 	cret := xIMContextGetSurrounding(x.GoPointer(), TextVar, CursorIndexVar)
 	return cret
 }
@@ -954,6 +971,8 @@ var xIMContextGetSurroundingWithSelection func(uintptr, *string, *int, *int) boo
 // `::retrieve-surrounding` signal, so input methods must be prepared to
 // function without context.
 func (x *IMContext) GetSurroundingWithSelection(TextVar *string, CursorIndexVar *int, AnchorIndexVar *int) bool {
+	core.LazyRegister(&xIMContextGetSurroundingWithSelection, "GTK", "gtk_im_context_get_surrounding_with_selection", false)
+
 	cret := xIMContextGetSurroundingWithSelection(x.GoPointer(), TextVar, CursorIndexVar, AnchorIndexVar)
 	return cret
 }
@@ -965,6 +984,8 @@ var xIMContextReset func(uintptr)
 //
 // This will typically cause the input method to clear the preedit state.
 func (x *IMContext) Reset() {
+	core.LazyRegister(&xIMContextReset, "GTK", "gtk_im_context_reset", false)
+
 	xIMContextReset(x.GoPointer())
 }
 
@@ -976,6 +997,8 @@ var xIMContextSetClientWidget func(uintptr, uintptr)
 // used in order to correctly position status windows, and may
 // also be used for purposes internal to the input method.
 func (x *IMContext) SetClientWidget(WidgetVar *Widget) {
+	core.LazyRegister(&xIMContextSetClientWidget, "GTK", "gtk_im_context_set_client_widget", false)
+
 	xIMContextSetClientWidget(x.GoPointer(), WidgetVar.GoPointer())
 }
 
@@ -986,6 +1009,8 @@ var xIMContextSetCursorLocation func(uintptr, *gdk.Rectangle)
 //
 // The location is relative to the client widget.
 func (x *IMContext) SetCursorLocation(AreaVar *gdk.Rectangle) {
+	core.LazyRegister(&xIMContextSetCursorLocation, "GTK", "gtk_im_context_set_cursor_location", false)
+
 	xIMContextSetCursorLocation(x.GoPointer(), AreaVar)
 }
 
@@ -998,6 +1023,8 @@ var xIMContextSetSurrounding func(uintptr, string, int, int)
 // [signal@Gtk.IMContext::retrieve-surrounding] signal, and will
 // likely have no effect if called at other times.
 func (x *IMContext) SetSurrounding(TextVar string, LenVar int, CursorIndexVar int) {
+	core.LazyRegister(&xIMContextSetSurrounding, "GTK", "gtk_im_context_set_surrounding", false)
+
 	xIMContextSetSurrounding(x.GoPointer(), TextVar, LenVar, CursorIndexVar)
 }
 
@@ -1008,6 +1035,8 @@ var xIMContextSetSurroundingWithSelection func(uintptr, string, int, int, int)
 // [signal@Gtk.IMContext::retrieve_surrounding] signal, and will likely
 // have no effect if called at other times.
 func (x *IMContext) SetSurroundingWithSelection(TextVar string, LenVar int, CursorIndexVar int, AnchorIndexVar int) {
+	core.LazyRegister(&xIMContextSetSurroundingWithSelection, "GTK", "gtk_im_context_set_surrounding_with_selection", false)
+
 	xIMContextSetSurroundingWithSelection(x.GoPointer(), TextVar, LenVar, CursorIndexVar, AnchorIndexVar)
 }
 
@@ -1020,6 +1049,8 @@ var xIMContextSetUsePreedit func(uintptr, bool)
 // may use some other method to display feedback, such as displaying
 // it in a child of the root window.
 func (x *IMContext) SetUsePreedit(UsePreeditVar bool) {
+	core.LazyRegister(&xIMContextSetUsePreedit, "GTK", "gtk_im_context_set_use_preedit", false)
+
 	xIMContextSetUsePreedit(x.GoPointer(), UsePreeditVar)
 }
 
@@ -1222,30 +1253,4 @@ func (x *IMContext) ConnectRetrieveSurrounding(cb *func(IMContext) bool) uint {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GTK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xIMContextGLibType, libs, "gtk_im_context_get_type")
-
-	core.PuregoSafeRegister(&xIMContextActivateOsk, libs, "gtk_im_context_activate_osk")
-	core.PuregoSafeRegister(&xIMContextDeleteSurrounding, libs, "gtk_im_context_delete_surrounding")
-	core.PuregoSafeRegister(&xIMContextFilterKey, libs, "gtk_im_context_filter_key")
-	core.PuregoSafeRegister(&xIMContextFilterKeypress, libs, "gtk_im_context_filter_keypress")
-	core.PuregoSafeRegister(&xIMContextFocusIn, libs, "gtk_im_context_focus_in")
-	core.PuregoSafeRegister(&xIMContextFocusOut, libs, "gtk_im_context_focus_out")
-	core.PuregoSafeRegister(&xIMContextGetPreeditString, libs, "gtk_im_context_get_preedit_string")
-	core.PuregoSafeRegister(&xIMContextGetSurrounding, libs, "gtk_im_context_get_surrounding")
-	core.PuregoSafeRegister(&xIMContextGetSurroundingWithSelection, libs, "gtk_im_context_get_surrounding_with_selection")
-	core.PuregoSafeRegister(&xIMContextReset, libs, "gtk_im_context_reset")
-	core.PuregoSafeRegister(&xIMContextSetClientWidget, libs, "gtk_im_context_set_client_widget")
-	core.PuregoSafeRegister(&xIMContextSetCursorLocation, libs, "gtk_im_context_set_cursor_location")
-	core.PuregoSafeRegister(&xIMContextSetSurrounding, libs, "gtk_im_context_set_surrounding")
-	core.PuregoSafeRegister(&xIMContextSetSurroundingWithSelection, libs, "gtk_im_context_set_surrounding_with_selection")
-	core.PuregoSafeRegister(&xIMContextSetUsePreedit, libs, "gtk_im_context_set_use_preedit")
 }

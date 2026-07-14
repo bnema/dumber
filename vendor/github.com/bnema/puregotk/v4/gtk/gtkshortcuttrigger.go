@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gdk"
 	"github.com/bnema/puregotk/v4/glib"
@@ -105,6 +104,7 @@ type AlternativeTrigger struct {
 var xAlternativeTriggerGLibType func() types.GType
 
 func AlternativeTriggerGLibType() types.GType {
+	core.LazyRegister(&xAlternativeTriggerGLibType, "GTK", "gtk_alternative_trigger_get_type", false)
 	return xAlternativeTriggerGLibType()
 }
 
@@ -122,6 +122,7 @@ var xNewAlternativeTrigger func(uintptr, uintptr) uintptr
 // Note that nesting is allowed, so if you want more than two
 // alternative, create a new alternative trigger for each option.
 func NewAlternativeTrigger(FirstVar *ShortcutTrigger, SecondVar *ShortcutTrigger) *AlternativeTrigger {
+	core.LazyRegister(&xNewAlternativeTrigger, "GTK", "gtk_alternative_trigger_new", false)
 	var cls *AlternativeTrigger
 
 	cret := xNewAlternativeTrigger(FirstVar.GoPointer(), SecondVar.GoPointer())
@@ -142,6 +143,7 @@ var xAlternativeTriggerGetFirst func(uintptr) uintptr
 // [method@Gtk.AlternativeTrigger.get_second] will return
 // the other one.
 func (x *AlternativeTrigger) GetFirst() *ShortcutTrigger {
+	core.LazyRegister(&xAlternativeTriggerGetFirst, "GTK", "gtk_alternative_trigger_get_first", false)
 	var cls *ShortcutTrigger
 
 	cret := xAlternativeTriggerGetFirst(x.GoPointer())
@@ -163,6 +165,7 @@ var xAlternativeTriggerGetSecond func(uintptr) uintptr
 // [method@Gtk.AlternativeTrigger.get_first] will return
 // the other one.
 func (x *AlternativeTrigger) GetSecond() *ShortcutTrigger {
+	core.LazyRegister(&xAlternativeTriggerGetSecond, "GTK", "gtk_alternative_trigger_get_second", false)
 	var cls *ShortcutTrigger
 
 	cret := xAlternativeTriggerGetSecond(x.GoPointer())
@@ -195,6 +198,7 @@ type KeyvalTrigger struct {
 var xKeyvalTriggerGLibType func() types.GType
 
 func KeyvalTriggerGLibType() types.GType {
+	core.LazyRegister(&xKeyvalTriggerGLibType, "GTK", "gtk_keyval_trigger_get_type", false)
 	return xKeyvalTriggerGLibType()
 }
 
@@ -209,6 +213,7 @@ var xNewKeyvalTrigger func(uint, gdk.ModifierType) uintptr
 // Creates a `GtkShortcutTrigger` that will trigger whenever
 // the key with the given @keyval and @modifiers is pressed.
 func NewKeyvalTrigger(KeyvalVar uint, ModifiersVar gdk.ModifierType) *KeyvalTrigger {
+	core.LazyRegister(&xNewKeyvalTrigger, "GTK", "gtk_keyval_trigger_new", false)
 	var cls *KeyvalTrigger
 
 	cret := xNewKeyvalTrigger(KeyvalVar, ModifiersVar)
@@ -226,6 +231,8 @@ var xKeyvalTriggerGetKeyval func(uintptr) uint
 // Gets the keyval that must be pressed to succeed
 // triggering @self.
 func (x *KeyvalTrigger) GetKeyval() uint {
+	core.LazyRegister(&xKeyvalTriggerGetKeyval, "GTK", "gtk_keyval_trigger_get_keyval", false)
+
 	cret := xKeyvalTriggerGetKeyval(x.GoPointer())
 	return cret
 }
@@ -235,6 +242,8 @@ var xKeyvalTriggerGetModifiers func(uintptr) gdk.ModifierType
 // Gets the modifiers that must be present to succeed
 // triggering @self.
 func (x *KeyvalTrigger) GetModifiers() gdk.ModifierType {
+	core.LazyRegister(&xKeyvalTriggerGetModifiers, "GTK", "gtk_keyval_trigger_get_modifiers", false)
+
 	cret := xKeyvalTriggerGetModifiers(x.GoPointer())
 	return cret
 }
@@ -278,6 +287,7 @@ type MnemonicTrigger struct {
 var xMnemonicTriggerGLibType func() types.GType
 
 func MnemonicTriggerGLibType() types.GType {
+	core.LazyRegister(&xMnemonicTriggerGLibType, "GTK", "gtk_mnemonic_trigger_get_type", false)
 	return xMnemonicTriggerGLibType()
 }
 
@@ -295,6 +305,7 @@ var xNewMnemonicTrigger func(uint) uintptr
 // Mnemonics are activated by calling code when a key event with the right
 // modifiers is detected.
 func NewMnemonicTrigger(KeyvalVar uint) *MnemonicTrigger {
+	core.LazyRegister(&xNewMnemonicTrigger, "GTK", "gtk_mnemonic_trigger_new", false)
 	var cls *MnemonicTrigger
 
 	cret := xNewMnemonicTrigger(KeyvalVar)
@@ -311,6 +322,8 @@ var xMnemonicTriggerGetKeyval func(uintptr) uint
 
 // Gets the keyval that must be pressed to succeed triggering @self.
 func (x *MnemonicTrigger) GetKeyval() uint {
+	core.LazyRegister(&xMnemonicTriggerGetKeyval, "GTK", "gtk_mnemonic_trigger_get_keyval", false)
+
 	cret := xMnemonicTriggerGetKeyval(x.GoPointer())
 	return cret
 }
@@ -351,6 +364,7 @@ type NeverTrigger struct {
 var xNeverTriggerGLibType func() types.GType
 
 func NeverTriggerGLibType() types.GType {
+	core.LazyRegister(&xNeverTriggerGLibType, "GTK", "gtk_never_trigger_get_type", false)
 	return xNeverTriggerGLibType()
 }
 
@@ -379,6 +393,7 @@ var xNeverTriggerGet func() uintptr
 // Use this trigger instead of %NULL because it implements
 // all virtual functions.
 func NeverTriggerGet() *NeverTrigger {
+	core.LazyRegister(&xNeverTriggerGet, "GTK", "gtk_never_trigger_get", false)
 	var cls *NeverTrigger
 
 	cret := xNeverTriggerGet()
@@ -410,6 +425,7 @@ type ShortcutTrigger struct {
 var xShortcutTriggerGLibType func() types.GType
 
 func ShortcutTriggerGLibType() types.GType {
+	core.LazyRegister(&xShortcutTriggerGLibType, "GTK", "gtk_shortcut_trigger_get_type", false)
 	return xShortcutTriggerGLibType()
 }
 
@@ -438,6 +454,7 @@ var xShortcutTriggerParseString func(string) uintptr
 // triggers in XML files, such as GtkBuilder ui files. Use `&amp;lt;` instead of
 // `&lt;` and `&amp;gt;` instead of `&gt;`.
 func ShortcutTriggerParseString(StringVar string) *ShortcutTrigger {
+	core.LazyRegister(&xShortcutTriggerParseString, "GTK", "gtk_shortcut_trigger_parse_string", false)
 	var cls *ShortcutTrigger
 
 	cret := xShortcutTriggerParseString(StringVar)
@@ -457,6 +474,8 @@ var xShortcutTriggerCompare func(uintptr, uintptr) int
 //
 // They must each be a `GtkShortcutTrigger`.
 func (x *ShortcutTrigger) Compare(Trigger2Var uintptr) int {
+	core.LazyRegister(&xShortcutTriggerCompare, "GTK", "gtk_shortcut_trigger_compare", false)
+
 	cret := xShortcutTriggerCompare(x.GoPointer(), Trigger2Var)
 	return cret
 }
@@ -468,6 +487,8 @@ var xShortcutTriggerEqual func(uintptr, uintptr) bool
 // The types of @one and @two are `gconstpointer` only to allow use of this
 // function with `GHashTable`. They must each be a `GtkShortcutTrigger`.
 func (x *ShortcutTrigger) Equal(Trigger2Var uintptr) bool {
+	core.LazyRegister(&xShortcutTriggerEqual, "GTK", "gtk_shortcut_trigger_equal", false)
+
 	cret := xShortcutTriggerEqual(x.GoPointer(), Trigger2Var)
 	return cret
 }
@@ -484,6 +505,8 @@ var xShortcutTriggerHash func(uintptr) uint
 // The types of @trigger is `gconstpointer` only to allow use of this
 // function with `GHashTable`. They must each be a `GtkShortcutTrigger`.
 func (x *ShortcutTrigger) Hash() uint {
+	core.LazyRegister(&xShortcutTriggerHash, "GTK", "gtk_shortcut_trigger_hash", false)
+
 	cret := xShortcutTriggerHash(x.GoPointer())
 	return cret
 }
@@ -496,6 +519,8 @@ var xShortcutTriggerPrint func(uintptr, *glib.String)
 // The form of the representation may change at any time
 // and is not guaranteed to stay identical.
 func (x *ShortcutTrigger) Print(StringVar *glib.String) {
+	core.LazyRegister(&xShortcutTriggerPrint, "GTK", "gtk_shortcut_trigger_print", false)
+
 	xShortcutTriggerPrint(x.GoPointer(), StringVar)
 }
 
@@ -513,6 +538,8 @@ var xShortcutTriggerPrintLabel func(uintptr, uintptr, *glib.String) bool
 // The form of the representation may change at any time and is
 // not guaranteed to stay identical.
 func (x *ShortcutTrigger) PrintLabel(DisplayVar *gdk.Display, StringVar *glib.String) bool {
+	core.LazyRegister(&xShortcutTriggerPrintLabel, "GTK", "gtk_shortcut_trigger_print_label", false)
+
 	cret := xShortcutTriggerPrintLabel(x.GoPointer(), DisplayVar.GoPointer(), StringVar)
 	return cret
 }
@@ -532,6 +559,8 @@ var xShortcutTriggerToLabel func(uintptr, uintptr) string
 // The form of the representation may change at any time and is
 // not guaranteed to stay identical.
 func (x *ShortcutTrigger) ToLabel(DisplayVar *gdk.Display) string {
+	core.LazyRegister(&xShortcutTriggerToLabel, "GTK", "gtk_shortcut_trigger_to_label", false)
+
 	cret := xShortcutTriggerToLabel(x.GoPointer(), DisplayVar.GoPointer())
 	return cret
 }
@@ -543,6 +572,8 @@ var xShortcutTriggerToString func(uintptr) string
 // This is a small wrapper around [method@Gtk.ShortcutTrigger.print]
 // to help when debugging.
 func (x *ShortcutTrigger) ToString() string {
+	core.LazyRegister(&xShortcutTriggerToString, "GTK", "gtk_shortcut_trigger_to_string", false)
+
 	cret := xShortcutTriggerToString(x.GoPointer())
 	return cret
 }
@@ -551,6 +582,8 @@ var xShortcutTriggerTrigger func(uintptr, uintptr, bool) gdk.KeyMatch
 
 // Checks if the given @event triggers @self.
 func (x *ShortcutTrigger) Trigger(EventVar *gdk.Event, EnableMnemonicsVar bool) gdk.KeyMatch {
+	core.LazyRegister(&xShortcutTriggerTrigger, "GTK", "gtk_shortcut_trigger_trigger", false)
+
 	cret := xShortcutTriggerTrigger(x.GoPointer(), EventVar.GoPointer(), EnableMnemonicsVar)
 	return cret
 }
@@ -569,49 +602,4 @@ func (c *ShortcutTrigger) SetGoPointer(ptr uintptr) {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GTK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xAlternativeTriggerGLibType, libs, "gtk_alternative_trigger_get_type")
-
-	core.PuregoSafeRegister(&xNewAlternativeTrigger, libs, "gtk_alternative_trigger_new")
-
-	core.PuregoSafeRegister(&xAlternativeTriggerGetFirst, libs, "gtk_alternative_trigger_get_first")
-	core.PuregoSafeRegister(&xAlternativeTriggerGetSecond, libs, "gtk_alternative_trigger_get_second")
-
-	core.PuregoSafeRegister(&xKeyvalTriggerGLibType, libs, "gtk_keyval_trigger_get_type")
-
-	core.PuregoSafeRegister(&xNewKeyvalTrigger, libs, "gtk_keyval_trigger_new")
-
-	core.PuregoSafeRegister(&xKeyvalTriggerGetKeyval, libs, "gtk_keyval_trigger_get_keyval")
-	core.PuregoSafeRegister(&xKeyvalTriggerGetModifiers, libs, "gtk_keyval_trigger_get_modifiers")
-
-	core.PuregoSafeRegister(&xMnemonicTriggerGLibType, libs, "gtk_mnemonic_trigger_get_type")
-
-	core.PuregoSafeRegister(&xNewMnemonicTrigger, libs, "gtk_mnemonic_trigger_new")
-
-	core.PuregoSafeRegister(&xMnemonicTriggerGetKeyval, libs, "gtk_mnemonic_trigger_get_keyval")
-
-	core.PuregoSafeRegister(&xNeverTriggerGLibType, libs, "gtk_never_trigger_get_type")
-
-	core.PuregoSafeRegister(&xNeverTriggerGet, libs, "gtk_never_trigger_get")
-
-	core.PuregoSafeRegister(&xShortcutTriggerGLibType, libs, "gtk_shortcut_trigger_get_type")
-
-	core.PuregoSafeRegister(&xShortcutTriggerParseString, libs, "gtk_shortcut_trigger_parse_string")
-
-	core.PuregoSafeRegister(&xShortcutTriggerCompare, libs, "gtk_shortcut_trigger_compare")
-	core.PuregoSafeRegister(&xShortcutTriggerEqual, libs, "gtk_shortcut_trigger_equal")
-	core.PuregoSafeRegister(&xShortcutTriggerHash, libs, "gtk_shortcut_trigger_hash")
-	core.PuregoSafeRegister(&xShortcutTriggerPrint, libs, "gtk_shortcut_trigger_print")
-	core.PuregoSafeRegister(&xShortcutTriggerPrintLabel, libs, "gtk_shortcut_trigger_print_label")
-	core.PuregoSafeRegister(&xShortcutTriggerToLabel, libs, "gtk_shortcut_trigger_to_label")
-	core.PuregoSafeRegister(&xShortcutTriggerToString, libs, "gtk_shortcut_trigger_to_string")
-	core.PuregoSafeRegister(&xShortcutTriggerTrigger, libs, "gtk_shortcut_trigger_trigger")
 }

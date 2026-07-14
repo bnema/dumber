@@ -54,6 +54,7 @@ type RecentInfo struct {
 var xRecentInfoGLibType func() types.GType
 
 func RecentInfoGLibType() types.GType {
+	core.LazyRegister(&xRecentInfoGLibType, "GTK", "gtk_recent_info_get_type", false)
 	return xRecentInfoGLibType()
 }
 
@@ -76,6 +77,7 @@ var xRecentInfoCreateAppInfo func(uintptr, uintptr, **glib.Error) uintptr
 // In case of error, @error will be set either with a
 // %GTK_RECENT_MANAGER_ERROR or a %G_IO_ERROR
 func (x *RecentInfo) CreateAppInfo(AppNameVar *string) (*gio.AppInfoBase, error) {
+	core.LazyRegister(&xRecentInfoCreateAppInfo, "GTK", "gtk_recent_info_create_app_info", false)
 	var cls *gio.AppInfoBase
 	var cerr *glib.Error
 
@@ -101,6 +103,8 @@ var xRecentInfoExists func(uintptr) bool
 // At the moment this check is done only on resources pointing
 // to local files.
 func (x *RecentInfo) Exists() bool {
+	core.LazyRegister(&xRecentInfoExists, "GTK", "gtk_recent_info_exists", false)
+
 	cret := xRecentInfoExists(x.GoPointer())
 	return cret
 }
@@ -110,6 +114,8 @@ var xRecentInfoGetAdded func(uintptr) uintptr
 // Gets the time when the resource
 // was added to the recently used resources list.
 func (x *RecentInfo) GetAdded() *glib.DateTime {
+	core.LazyRegister(&xRecentInfoGetAdded, "GTK", "gtk_recent_info_get_added", false)
+
 	cret := xRecentInfoGetAdded(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -122,6 +128,8 @@ var xRecentInfoGetAge func(uintptr) int
 // Gets the number of days elapsed since the last update
 // of the resource pointed by @info.
 func (x *RecentInfo) GetAge() int {
+	core.LazyRegister(&xRecentInfoGetAge, "GTK", "gtk_recent_info_get_age", false)
+
 	cret := xRecentInfoGetAge(x.GoPointer())
 	return cret
 }
@@ -134,6 +142,8 @@ var xRecentInfoGetApplicationInfo func(uintptr, string, *string, *uint, **glib.D
 // If the command line contains any escape characters defined inside the
 // storage specification, they will be expanded.
 func (x *RecentInfo) GetApplicationInfo(AppNameVar string, AppExecVar *string, CountVar *uint, StampVar **glib.DateTime) bool {
+	core.LazyRegister(&xRecentInfoGetApplicationInfo, "GTK", "gtk_recent_info_get_application_info", false)
+
 	cret := xRecentInfoGetApplicationInfo(x.GoPointer(), AppNameVar, AppExecVar, CountVar, StampVar)
 	return cret
 }
@@ -142,6 +152,8 @@ var xRecentInfoGetApplications func(uintptr, *uint) []string
 
 // Retrieves the list of applications that have registered this resource.
 func (x *RecentInfo) GetApplications(LengthVar *uint) []string {
+	core.LazyRegister(&xRecentInfoGetApplications, "GTK", "gtk_recent_info_get_applications", false)
+
 	cret := xRecentInfoGetApplications(x.GoPointer(), LengthVar)
 	return cret
 }
@@ -150,6 +162,8 @@ var xRecentInfoGetDescription func(uintptr) string
 
 // Gets the (short) description of the resource.
 func (x *RecentInfo) GetDescription() string {
+	core.LazyRegister(&xRecentInfoGetDescription, "GTK", "gtk_recent_info_get_description", false)
+
 	cret := xRecentInfoGetDescription(x.GoPointer())
 	return cret
 }
@@ -161,6 +175,8 @@ var xRecentInfoGetDisplayName func(uintptr) string
 // If none has been defined, the basename
 // of the resource is obtained.
 func (x *RecentInfo) GetDisplayName() string {
+	core.LazyRegister(&xRecentInfoGetDisplayName, "GTK", "gtk_recent_info_get_display_name", false)
+
 	cret := xRecentInfoGetDisplayName(x.GoPointer())
 	return cret
 }
@@ -169,6 +185,7 @@ var xRecentInfoGetGicon func(uintptr) uintptr
 
 // Retrieves the icon associated to the resource MIME type.
 func (x *RecentInfo) GetGicon() *gio.IconBase {
+	core.LazyRegister(&xRecentInfoGetGicon, "GTK", "gtk_recent_info_get_gicon", false)
 	var cls *gio.IconBase
 
 	cret := xRecentInfoGetGicon(x.GoPointer())
@@ -188,6 +205,8 @@ var xRecentInfoGetGroups func(uintptr, *uint) []string
 // The array of returned group names will be %NULL terminated, so
 // length might optionally be %NULL.
 func (x *RecentInfo) GetGroups(LengthVar *uint) []string {
+	core.LazyRegister(&xRecentInfoGetGroups, "GTK", "gtk_recent_info_get_groups", false)
+
 	cret := xRecentInfoGetGroups(x.GoPointer(), LengthVar)
 	return cret
 }
@@ -196,6 +215,8 @@ var xRecentInfoGetMimeType func(uintptr) string
 
 // Gets the MIME type of the resource.
 func (x *RecentInfo) GetMimeType() string {
+	core.LazyRegister(&xRecentInfoGetMimeType, "GTK", "gtk_recent_info_get_mime_type", false)
+
 	cret := xRecentInfoGetMimeType(x.GoPointer())
 	return cret
 }
@@ -205,6 +226,8 @@ var xRecentInfoGetModified func(uintptr) uintptr
 // Gets the time when the meta-data
 // for the resource was last modified.
 func (x *RecentInfo) GetModified() *glib.DateTime {
+	core.LazyRegister(&xRecentInfoGetModified, "GTK", "gtk_recent_info_get_modified", false)
+
 	cret := xRecentInfoGetModified(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -220,6 +243,8 @@ var xRecentInfoGetPrivateHint func(uintptr) bool
 // set to %TRUE should only be displayed by the applications
 // that have registered them.
 func (x *RecentInfo) GetPrivateHint() bool {
+	core.LazyRegister(&xRecentInfoGetPrivateHint, "GTK", "gtk_recent_info_get_private_hint", false)
+
 	cret := xRecentInfoGetPrivateHint(x.GoPointer())
 	return cret
 }
@@ -232,6 +257,8 @@ var xRecentInfoGetShortName func(uintptr) string
 // For example, calling this function on an item that refers
 // to “file:///foo/bar.txt” will yield “bar.txt”.
 func (x *RecentInfo) GetShortName() string {
+	core.LazyRegister(&xRecentInfoGetShortName, "GTK", "gtk_recent_info_get_short_name", false)
+
 	cret := xRecentInfoGetShortName(x.GoPointer())
 	return cret
 }
@@ -240,6 +267,8 @@ var xRecentInfoGetUri func(uintptr) string
 
 // Gets the URI of the resource.
 func (x *RecentInfo) GetUri() string {
+	core.LazyRegister(&xRecentInfoGetUri, "GTK", "gtk_recent_info_get_uri", false)
+
 	cret := xRecentInfoGetUri(x.GoPointer())
 	return cret
 }
@@ -252,6 +281,8 @@ var xRecentInfoGetUriDisplay func(uintptr) string
 // resource is not local, it returns the UTF-8 encoded content
 // of [method@Gtk.RecentInfo.get_uri].
 func (x *RecentInfo) GetUriDisplay() string {
+	core.LazyRegister(&xRecentInfoGetUriDisplay, "GTK", "gtk_recent_info_get_uri_display", false)
+
 	cret := xRecentInfoGetUriDisplay(x.GoPointer())
 	return cret
 }
@@ -261,6 +292,8 @@ var xRecentInfoGetVisited func(uintptr) uintptr
 // Gets the time when the meta-data
 // for the resource was last visited.
 func (x *RecentInfo) GetVisited() *glib.DateTime {
+	core.LazyRegister(&xRecentInfoGetVisited, "GTK", "gtk_recent_info_get_visited", false)
+
 	cret := xRecentInfoGetVisited(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -272,6 +305,8 @@ var xRecentInfoHasApplication func(uintptr, string) bool
 
 // Checks whether an application registered this resource using @app_name.
 func (x *RecentInfo) HasApplication(AppNameVar string) bool {
+	core.LazyRegister(&xRecentInfoHasApplication, "GTK", "gtk_recent_info_has_application", false)
+
 	cret := xRecentInfoHasApplication(x.GoPointer(), AppNameVar)
 	return cret
 }
@@ -281,6 +316,8 @@ var xRecentInfoHasGroup func(uintptr, string) bool
 // Checks whether @group_name appears inside the groups
 // registered for the recently used item @info.
 func (x *RecentInfo) HasGroup(GroupNameVar string) bool {
+	core.LazyRegister(&xRecentInfoHasGroup, "GTK", "gtk_recent_info_has_group", false)
+
 	cret := xRecentInfoHasGroup(x.GoPointer(), GroupNameVar)
 	return cret
 }
@@ -290,6 +327,8 @@ var xRecentInfoIsLocal func(uintptr) bool
 // Checks whether the resource is local or not by looking at the
 // scheme of its URI.
 func (x *RecentInfo) IsLocal() bool {
+	core.LazyRegister(&xRecentInfoIsLocal, "GTK", "gtk_recent_info_is_local", false)
+
 	cret := xRecentInfoIsLocal(x.GoPointer())
 	return cret
 }
@@ -299,6 +338,8 @@ var xRecentInfoLastApplication func(uintptr) string
 // Gets the name of the last application that have registered the
 // recently used resource represented by @info.
 func (x *RecentInfo) LastApplication() string {
+	core.LazyRegister(&xRecentInfoLastApplication, "GTK", "gtk_recent_info_last_application", false)
+
 	cret := xRecentInfoLastApplication(x.GoPointer())
 	return cret
 }
@@ -307,6 +348,8 @@ var xRecentInfoMatch func(uintptr, *RecentInfo) bool
 
 // Checks whether two `GtkRecentInfo` point to the same resource.
 func (x *RecentInfo) Match(InfoBVar *RecentInfo) bool {
+	core.LazyRegister(&xRecentInfoMatch, "GTK", "gtk_recent_info_match", false)
+
 	cret := xRecentInfoMatch(x.GoPointer(), InfoBVar)
 	return cret
 }
@@ -315,6 +358,8 @@ var xRecentInfoRef func(uintptr) uintptr
 
 // Increases the reference count of @recent_info by one.
 func (x *RecentInfo) Ref() *RecentInfo {
+	core.LazyRegister(&xRecentInfoRef, "GTK", "gtk_recent_info_ref", false)
+
 	cret := xRecentInfoRef(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -329,6 +374,8 @@ var xRecentInfoUnref func(uintptr)
 // If the reference count reaches zero, @info is
 // deallocated, and the memory freed.
 func (x *RecentInfo) Unref() {
+	core.LazyRegister(&xRecentInfoUnref, "GTK", "gtk_recent_info_unref", false)
+
 	xRecentInfoUnref(x.GoPointer())
 }
 
@@ -498,6 +545,7 @@ type RecentManagerError int
 var xRecentManagerErrorGLibType func() types.GType
 
 func RecentManagerErrorGLibType() types.GType {
+	core.LazyRegister(&xRecentManagerErrorGLibType, "GTK", "gtk_recent_manager_error_get_type", false)
 	return xRecentManagerErrorGLibType()
 }
 
@@ -528,6 +576,8 @@ var xRecentManagerErrorQuark func() glib.Quark
 
 // Registers an error quark for [class@RecentManager] errors.
 func RecentManagerErrorQuark() glib.Quark {
+	core.LazyRegister(&xRecentManagerErrorQuark, "GTK", "gtk_recent_manager_error_quark", false)
+
 	cret := xRecentManagerErrorQuark()
 	return cret
 }
@@ -599,6 +649,7 @@ type RecentManager struct {
 var xRecentManagerGLibType func() types.GType
 
 func RecentManagerGLibType() types.GType {
+	core.LazyRegister(&xRecentManagerGLibType, "GTK", "gtk_recent_manager_get_type", false)
 	return xRecentManagerGLibType()
 }
 
@@ -621,6 +672,7 @@ var xNewRecentManager func() uintptr
 // only when needed. You should use [func@Gtk.RecentManager.get_default]
 // instead.
 func NewRecentManager() *RecentManager {
+	core.LazyRegister(&xNewRecentManager, "GTK", "gtk_recent_manager_new", false)
 	var cls *RecentManager
 
 	cret := xNewRecentManager()
@@ -655,6 +707,8 @@ var xRecentManagerAddFull func(uintptr, string, *RecentData) bool
 // be considered private - that is, should be displayed only by the
 // applications that have registered it.
 func (x *RecentManager) AddFull(UriVar string, RecentDataVar *RecentData) bool {
+	core.LazyRegister(&xRecentManagerAddFull, "GTK", "gtk_recent_manager_add_full", false)
+
 	cret := xRecentManagerAddFull(x.GoPointer(), UriVar, RecentDataVar)
 	return cret
 }
@@ -671,6 +725,8 @@ var xRecentManagerAddItem func(uintptr, string) bool
 // See [method@Gtk.RecentManager.add_full] if you want to explicitly
 // define the metadata for the resource pointed by @uri.
 func (x *RecentManager) AddItem(UriVar string) bool {
+	core.LazyRegister(&xRecentManagerAddItem, "GTK", "gtk_recent_manager_add_item", false)
+
 	cret := xRecentManagerAddItem(x.GoPointer(), UriVar)
 	return cret
 }
@@ -679,6 +735,8 @@ var xRecentManagerGetItems func(uintptr) uintptr
 
 // Gets the list of recently used resources.
 func (x *RecentManager) GetItems() *glib.List {
+	core.LazyRegister(&xRecentManagerGetItems, "GTK", "gtk_recent_manager_get_items", false)
+
 	cret := xRecentManagerGetItems(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -691,6 +749,8 @@ var xRecentManagerHasItem func(uintptr, string) bool
 // Checks whether there is a recently used resource registered
 // with @uri inside the recent manager.
 func (x *RecentManager) HasItem(UriVar string) bool {
+	core.LazyRegister(&xRecentManagerHasItem, "GTK", "gtk_recent_manager_has_item", false)
+
 	cret := xRecentManagerHasItem(x.GoPointer(), UriVar)
 	return cret
 }
@@ -701,6 +761,7 @@ var xRecentManagerLookupItem func(uintptr, string, **glib.Error) uintptr
 // returns a `GtkRecentInfo` containing information about the resource
 // like its MIME type, or its display name.
 func (x *RecentManager) LookupItem(UriVar string) (*RecentInfo, error) {
+	core.LazyRegister(&xRecentManagerLookupItem, "GTK", "gtk_recent_manager_lookup_item", false)
 	var cerr *glib.Error
 
 	cret := xRecentManagerLookupItem(x.GoPointer(), UriVar, &cerr)
@@ -720,6 +781,7 @@ var xRecentManagerMoveItem func(uintptr, string, uintptr, **glib.Error) bool
 // Please note that this function will not affect the resource pointed
 // by the URIs, but only the URI used in the recently used resources list.
 func (x *RecentManager) MoveItem(UriVar string, NewUriVar *string) (bool, error) {
+	core.LazyRegister(&xRecentManagerMoveItem, "GTK", "gtk_recent_manager_move_item", false)
 	var cerr *glib.Error
 
 	NewUriVarPtr := core.GStrdupNullable(NewUriVar)
@@ -736,6 +798,7 @@ var xRecentManagerPurgeItems func(uintptr, **glib.Error) int
 
 // Purges every item from the recently used resources list.
 func (x *RecentManager) PurgeItems() (int, error) {
+	core.LazyRegister(&xRecentManagerPurgeItems, "GTK", "gtk_recent_manager_purge_items", false)
 	var cerr *glib.Error
 
 	cret := xRecentManagerPurgeItems(x.GoPointer(), &cerr)
@@ -750,6 +813,7 @@ var xRecentManagerRemoveItem func(uintptr, string, **glib.Error) bool
 // Removes a resource pointed by @uri from the recently used resources
 // list handled by a recent manager.
 func (x *RecentManager) RemoveItem(UriVar string) (bool, error) {
+	core.LazyRegister(&xRecentManagerRemoveItem, "GTK", "gtk_recent_manager_remove_item", false)
 	var cerr *glib.Error
 
 	cret := xRecentManagerRemoveItem(x.GoPointer(), UriVar, &cerr)
@@ -829,6 +893,7 @@ var xRecentManagerGetDefault func() uintptr
 // Gets a unique instance of `GtkRecentManager` that you can share
 // in your application without caring about memory management.
 func RecentManagerGetDefault() *RecentManager {
+	core.LazyRegister(&xRecentManagerGetDefault, "GTK", "gtk_recent_manager_get_default", false)
 	var cls *RecentManager
 
 	cret := xRecentManagerGetDefault()
@@ -845,58 +910,4 @@ func RecentManagerGetDefault() *RecentManager {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GTK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xRecentManagerErrorGLibType, libs, "gtk_recent_manager_error_get_type")
-
-	core.PuregoSafeRegister(&xRecentManagerErrorQuark, libs, "gtk_recent_manager_error_quark")
-
-	core.PuregoSafeRegister(&xRecentInfoGLibType, libs, "gtk_recent_info_get_type")
-
-	core.PuregoSafeRegister(&xRecentInfoCreateAppInfo, libs, "gtk_recent_info_create_app_info")
-	core.PuregoSafeRegister(&xRecentInfoExists, libs, "gtk_recent_info_exists")
-	core.PuregoSafeRegister(&xRecentInfoGetAdded, libs, "gtk_recent_info_get_added")
-	core.PuregoSafeRegister(&xRecentInfoGetAge, libs, "gtk_recent_info_get_age")
-	core.PuregoSafeRegister(&xRecentInfoGetApplicationInfo, libs, "gtk_recent_info_get_application_info")
-	core.PuregoSafeRegister(&xRecentInfoGetApplications, libs, "gtk_recent_info_get_applications")
-	core.PuregoSafeRegister(&xRecentInfoGetDescription, libs, "gtk_recent_info_get_description")
-	core.PuregoSafeRegister(&xRecentInfoGetDisplayName, libs, "gtk_recent_info_get_display_name")
-	core.PuregoSafeRegister(&xRecentInfoGetGicon, libs, "gtk_recent_info_get_gicon")
-	core.PuregoSafeRegister(&xRecentInfoGetGroups, libs, "gtk_recent_info_get_groups")
-	core.PuregoSafeRegister(&xRecentInfoGetMimeType, libs, "gtk_recent_info_get_mime_type")
-	core.PuregoSafeRegister(&xRecentInfoGetModified, libs, "gtk_recent_info_get_modified")
-	core.PuregoSafeRegister(&xRecentInfoGetPrivateHint, libs, "gtk_recent_info_get_private_hint")
-	core.PuregoSafeRegister(&xRecentInfoGetShortName, libs, "gtk_recent_info_get_short_name")
-	core.PuregoSafeRegister(&xRecentInfoGetUri, libs, "gtk_recent_info_get_uri")
-	core.PuregoSafeRegister(&xRecentInfoGetUriDisplay, libs, "gtk_recent_info_get_uri_display")
-	core.PuregoSafeRegister(&xRecentInfoGetVisited, libs, "gtk_recent_info_get_visited")
-	core.PuregoSafeRegister(&xRecentInfoHasApplication, libs, "gtk_recent_info_has_application")
-	core.PuregoSafeRegister(&xRecentInfoHasGroup, libs, "gtk_recent_info_has_group")
-	core.PuregoSafeRegister(&xRecentInfoIsLocal, libs, "gtk_recent_info_is_local")
-	core.PuregoSafeRegister(&xRecentInfoLastApplication, libs, "gtk_recent_info_last_application")
-	core.PuregoSafeRegister(&xRecentInfoMatch, libs, "gtk_recent_info_match")
-	core.PuregoSafeRegister(&xRecentInfoRef, libs, "gtk_recent_info_ref")
-	core.PuregoSafeRegister(&xRecentInfoUnref, libs, "gtk_recent_info_unref")
-
-	core.PuregoSafeRegister(&xRecentManagerGLibType, libs, "gtk_recent_manager_get_type")
-
-	core.PuregoSafeRegister(&xNewRecentManager, libs, "gtk_recent_manager_new")
-
-	core.PuregoSafeRegister(&xRecentManagerAddFull, libs, "gtk_recent_manager_add_full")
-	core.PuregoSafeRegister(&xRecentManagerAddItem, libs, "gtk_recent_manager_add_item")
-	core.PuregoSafeRegister(&xRecentManagerGetItems, libs, "gtk_recent_manager_get_items")
-	core.PuregoSafeRegister(&xRecentManagerHasItem, libs, "gtk_recent_manager_has_item")
-	core.PuregoSafeRegister(&xRecentManagerLookupItem, libs, "gtk_recent_manager_lookup_item")
-	core.PuregoSafeRegister(&xRecentManagerMoveItem, libs, "gtk_recent_manager_move_item")
-	core.PuregoSafeRegister(&xRecentManagerPurgeItems, libs, "gtk_recent_manager_purge_items")
-	core.PuregoSafeRegister(&xRecentManagerRemoveItem, libs, "gtk_recent_manager_remove_item")
-
-	core.PuregoSafeRegister(&xRecentManagerGetDefault, libs, "gtk_recent_manager_get_default")
 }

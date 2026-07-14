@@ -2,7 +2,6 @@
 package gobject
 
 import (
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -20,6 +19,8 @@ var xBoxedCopy func(types.GType, uintptr) uintptr
 
 // Provide a copy of a boxed structure @src_boxed which is of type @boxed_type.
 func BoxedCopy(BoxedTypeVar types.GType, SrcBoxedVar uintptr) uintptr {
+	core.LazyRegister(&xBoxedCopy, "GOBJECT", "g_boxed_copy", false)
+
 	cret := xBoxedCopy(BoxedTypeVar, SrcBoxedVar)
 	return cret
 }
@@ -28,6 +29,8 @@ var xBoxedFree func(types.GType, uintptr)
 
 // Free the boxed structure @boxed which is of type @boxed_type.
 func BoxedFree(BoxedTypeVar types.GType, BoxedVar uintptr) {
+	core.LazyRegister(&xBoxedFree, "GOBJECT", "g_boxed_free", false)
+
 	xBoxedFree(BoxedTypeVar, BoxedVar)
 }
 
@@ -43,6 +46,8 @@ var xBoxedTypeRegisterStatic func(string, uintptr, uintptr) types.GType
 // instead of calling g_boxed_type_register_static() directly. The macro
 // will create the appropriate `*_get_type()` function for the boxed type.
 func BoxedTypeRegisterStatic(NameVar string, BoxedCopyVar *BoxedCopyFunc, BoxedFreeVar *BoxedFreeFunc) types.GType {
+	core.LazyRegister(&xBoxedTypeRegisterStatic, "GOBJECT", "g_boxed_type_register_static", false)
+
 	cret := xBoxedTypeRegisterStatic(NameVar, glib.NewCallback(BoxedCopyVar), glib.NewCallback(BoxedFreeVar))
 	return cret
 }
@@ -50,16 +55,4 @@ func BoxedTypeRegisterStatic(NameVar string, BoxedCopyVar *BoxedCopyFunc, BoxedF
 func init() {
 	core.SetPackageName("GOBJECT", "gobject-2.0")
 	core.SetSharedLibraries("GOBJECT", []string{"libgobject-2.0.so.0", "libgobject-2.0.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GOBJECT") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xBoxedCopy, libs, "g_boxed_copy")
-	core.PuregoSafeRegister(&xBoxedFree, libs, "g_boxed_free")
-	core.PuregoSafeRegister(&xBoxedTypeRegisterStatic, libs, "g_boxed_type_register_static")
 }

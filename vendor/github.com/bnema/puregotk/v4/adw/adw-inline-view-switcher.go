@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -43,6 +42,7 @@ type InlineViewSwitcherDisplayMode int
 var xInlineViewSwitcherDisplayModeGLibType func() types.GType
 
 func InlineViewSwitcherDisplayModeGLibType() types.GType {
+	core.LazyRegister(&xInlineViewSwitcherDisplayModeGLibType, "ADW", "adw_inline_view_switcher_display_mode_get_type", false)
 	return xInlineViewSwitcherDisplayModeGLibType()
 }
 
@@ -109,6 +109,7 @@ type InlineViewSwitcher struct {
 var xInlineViewSwitcherGLibType func() types.GType
 
 func InlineViewSwitcherGLibType() types.GType {
+	core.LazyRegister(&xInlineViewSwitcherGLibType, "ADW", "adw_inline_view_switcher_get_type", false)
 	return xInlineViewSwitcherGLibType()
 }
 
@@ -122,6 +123,7 @@ var xNewInlineViewSwitcher func() uintptr
 
 // Creates a new `AdwInlineViewSwitcher`.
 func NewInlineViewSwitcher() *InlineViewSwitcher {
+	core.LazyRegister(&xNewInlineViewSwitcher, "ADW", "adw_inline_view_switcher_new", false)
 	var cls *InlineViewSwitcher
 
 	cret := xNewInlineViewSwitcher()
@@ -140,6 +142,8 @@ var xInlineViewSwitcherGetCanShrink func(uintptr) bool
 // Gets whether the toggles can be smaller than the natural size of their
 // contents.
 func (x *InlineViewSwitcher) GetCanShrink() bool {
+	core.LazyRegister(&xInlineViewSwitcherGetCanShrink, "ADW", "adw_inline_view_switcher_get_can_shrink", false)
+
 	cret := xInlineViewSwitcherGetCanShrink(x.GoPointer())
 	return cret
 }
@@ -148,6 +152,8 @@ var xInlineViewSwitcherGetDisplayMode func(uintptr) InlineViewSwitcherDisplayMod
 
 // Gets the display mode of @self.
 func (x *InlineViewSwitcher) GetDisplayMode() InlineViewSwitcherDisplayMode {
+	core.LazyRegister(&xInlineViewSwitcherGetDisplayMode, "ADW", "adw_inline_view_switcher_get_display_mode", false)
+
 	cret := xInlineViewSwitcherGetDisplayMode(x.GoPointer())
 	return cret
 }
@@ -156,6 +162,8 @@ var xInlineViewSwitcherGetHomogeneous func(uintptr) bool
 
 // Gets whether all toggles within @self take the same size.
 func (x *InlineViewSwitcher) GetHomogeneous() bool {
+	core.LazyRegister(&xInlineViewSwitcherGetHomogeneous, "ADW", "adw_inline_view_switcher_get_homogeneous", false)
+
 	cret := xInlineViewSwitcherGetHomogeneous(x.GoPointer())
 	return cret
 }
@@ -164,6 +172,7 @@ var xInlineViewSwitcherGetStack func(uintptr) uintptr
 
 // Gets the stack @self controls.
 func (x *InlineViewSwitcher) GetStack() *ViewStack {
+	core.LazyRegister(&xInlineViewSwitcherGetStack, "ADW", "adw_inline_view_switcher_get_stack", false)
 	var cls *ViewStack
 
 	cret := xInlineViewSwitcherGetStack(x.GoPointer())
@@ -186,6 +195,8 @@ var xInlineViewSwitcherSetCanShrink func(uintptr, bool)
 //
 // See [property@ToggleGroup:can-shrink].
 func (x *InlineViewSwitcher) SetCanShrink(CanShrinkVar bool) {
+	core.LazyRegister(&xInlineViewSwitcherSetCanShrink, "ADW", "adw_inline_view_switcher_set_can_shrink", false)
+
 	xInlineViewSwitcherSetCanShrink(x.GoPointer(), CanShrinkVar)
 }
 
@@ -202,6 +213,8 @@ var xInlineViewSwitcherSetDisplayMode func(uintptr, InlineViewSwitcherDisplayMod
 //
 // &lt;/picture&gt;
 func (x *InlineViewSwitcher) SetDisplayMode(ModeVar InlineViewSwitcherDisplayMode) {
+	core.LazyRegister(&xInlineViewSwitcherSetDisplayMode, "ADW", "adw_inline_view_switcher_set_display_mode", false)
+
 	xInlineViewSwitcherSetDisplayMode(x.GoPointer(), ModeVar)
 }
 
@@ -209,6 +222,8 @@ var xInlineViewSwitcherSetHomogeneous func(uintptr, bool)
 
 // Sets whether all toggles within @self take the same size.
 func (x *InlineViewSwitcher) SetHomogeneous(HomogeneousVar bool) {
+	core.LazyRegister(&xInlineViewSwitcherSetHomogeneous, "ADW", "adw_inline_view_switcher_set_homogeneous", false)
+
 	xInlineViewSwitcherSetHomogeneous(x.GoPointer(), HomogeneousVar)
 }
 
@@ -216,6 +231,8 @@ var xInlineViewSwitcherSetStack func(uintptr, uintptr)
 
 // Sets the stack to control.
 func (x *InlineViewSwitcher) SetStack(StackVar *ViewStack) {
+	core.LazyRegister(&xInlineViewSwitcherSetStack, "ADW", "adw_inline_view_switcher_set_stack", false)
+
 	xInlineViewSwitcherSetStack(x.GoPointer(), StackVar.GoPointer())
 }
 
@@ -546,27 +563,4 @@ func (x *InlineViewSwitcher) SetOrientation(OrientationVar gtk.Orientation) {
 func init() {
 	core.SetPackageName("ADW", "libadwaita-1")
 	core.SetSharedLibraries("ADW", []string{"libadwaita-1.so.0", "libadwaita-1.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("ADW") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xInlineViewSwitcherDisplayModeGLibType, libs, "adw_inline_view_switcher_display_mode_get_type")
-
-	core.PuregoSafeRegister(&xInlineViewSwitcherGLibType, libs, "adw_inline_view_switcher_get_type")
-
-	core.PuregoSafeRegister(&xNewInlineViewSwitcher, libs, "adw_inline_view_switcher_new")
-
-	core.PuregoSafeRegister(&xInlineViewSwitcherGetCanShrink, libs, "adw_inline_view_switcher_get_can_shrink")
-	core.PuregoSafeRegister(&xInlineViewSwitcherGetDisplayMode, libs, "adw_inline_view_switcher_get_display_mode")
-	core.PuregoSafeRegister(&xInlineViewSwitcherGetHomogeneous, libs, "adw_inline_view_switcher_get_homogeneous")
-	core.PuregoSafeRegister(&xInlineViewSwitcherGetStack, libs, "adw_inline_view_switcher_get_stack")
-	core.PuregoSafeRegister(&xInlineViewSwitcherSetCanShrink, libs, "adw_inline_view_switcher_set_can_shrink")
-	core.PuregoSafeRegister(&xInlineViewSwitcherSetDisplayMode, libs, "adw_inline_view_switcher_set_display_mode")
-	core.PuregoSafeRegister(&xInlineViewSwitcherSetHomogeneous, libs, "adw_inline_view_switcher_set_homogeneous")
-	core.PuregoSafeRegister(&xInlineViewSwitcherSetStack, libs, "adw_inline_view_switcher_set_stack")
 }

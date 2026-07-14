@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -40,6 +39,7 @@ type CacheModel int
 var xCacheModelGLibType func() types.GType
 
 func CacheModelGLibType() types.GType {
+	core.LazyRegister(&xCacheModelGLibType, "WEBKIT", "webkit_cache_model_get_type", false)
 	return xCacheModelGLibType()
 }
 
@@ -91,6 +91,7 @@ type WebContext struct {
 var xWebContextGLibType func() types.GType
 
 func WebContextGLibType() types.GType {
+	core.LazyRegister(&xWebContextGLibType, "WEBKIT", "webkit_web_context_get_type", false)
 	return xWebContextGLibType()
 }
 
@@ -104,6 +105,7 @@ var xNewWebContext func() uintptr
 
 // Create a new #WebKitWebContext.
 func NewWebContext() *WebContext {
+	core.LazyRegister(&xNewWebContext, "WEBKIT", "webkit_web_context_new", false)
 	var cls *WebContext
 
 	cret := xNewWebContext()
@@ -129,6 +131,8 @@ var xWebContextAddPathToSandbox func(uintptr, string, bool)
 //
 // See also webkit_web_context_set_sandbox_enabled()
 func (x *WebContext) AddPathToSandbox(PathVar string, ReadOnlyVar bool) {
+	core.LazyRegister(&xWebContextAddPathToSandbox, "WEBKIT", "webkit_web_context_add_path_to_sandbox", false)
+
 	xWebContextAddPathToSandbox(x.GoPointer(), PathVar, ReadOnlyVar)
 }
 
@@ -140,6 +144,8 @@ var xWebContextGetCacheModel func(uintptr) CacheModel
 // value check the documentation of the function
 // webkit_web_context_set_cache_model().
 func (x *WebContext) GetCacheModel() CacheModel {
+	core.LazyRegister(&xWebContextGetCacheModel, "WEBKIT", "webkit_web_context_get_cache_model", false)
+
 	cret := xWebContextGetCacheModel(x.GoPointer())
 	return cret
 }
@@ -148,6 +154,7 @@ var xWebContextGetGeolocationManager func(uintptr) uintptr
 
 // Get the #WebKitGeolocationManager of @context.
 func (x *WebContext) GetGeolocationManager() *GeolocationManager {
+	core.LazyRegister(&xWebContextGetGeolocationManager, "WEBKIT", "webkit_web_context_get_geolocation_manager", false)
 	var cls *GeolocationManager
 
 	cret := xWebContextGetGeolocationManager(x.GoPointer())
@@ -165,6 +172,7 @@ var xWebContextGetNetworkSessionForAutomation func(uintptr) uintptr
 
 // Get the #WebKitNetworkSession used for automation sessions started in @context.
 func (x *WebContext) GetNetworkSessionForAutomation() *NetworkSession {
+	core.LazyRegister(&xWebContextGetNetworkSessionForAutomation, "WEBKIT", "webkit_web_context_get_network_session_for_automation", false)
 	var cls *NetworkSession
 
 	cret := xWebContextGetNetworkSessionForAutomation(x.GoPointer())
@@ -182,6 +190,7 @@ var xWebContextGetSecurityManager func(uintptr) uintptr
 
 // Get the #WebKitSecurityManager of @context.
 func (x *WebContext) GetSecurityManager() *SecurityManager {
+	core.LazyRegister(&xWebContextGetSecurityManager, "WEBKIT", "webkit_web_context_get_security_manager", false)
 	var cls *SecurityManager
 
 	cret := xWebContextGetSecurityManager(x.GoPointer())
@@ -199,6 +208,8 @@ var xWebContextGetSpellCheckingEnabled func(uintptr) bool
 
 // Get whether spell checking feature is currently enabled.
 func (x *WebContext) GetSpellCheckingEnabled() bool {
+	core.LazyRegister(&xWebContextGetSpellCheckingEnabled, "WEBKIT", "webkit_web_context_get_spell_checking_enabled", false)
+
 	cret := xWebContextGetSpellCheckingEnabled(x.GoPointer())
 	return cret
 }
@@ -213,6 +224,8 @@ var xWebContextGetSpellCheckingLanguages func(uintptr) []string
 // See webkit_web_context_set_spell_checking_languages() for more
 // details on the format of the languages in the list.
 func (x *WebContext) GetSpellCheckingLanguages() []string {
+	core.LazyRegister(&xWebContextGetSpellCheckingLanguages, "WEBKIT", "webkit_web_context_get_spell_checking_languages", false)
+
 	cret := xWebContextGetSpellCheckingLanguages(x.GoPointer())
 	return cret
 }
@@ -221,6 +234,8 @@ var xWebContextGetTimeZoneOverride func(uintptr) string
 
 // Get the #WebKitWebContext:time-zone-override property.
 func (x *WebContext) GetTimeZoneOverride() string {
+	core.LazyRegister(&xWebContextGetTimeZoneOverride, "WEBKIT", "webkit_web_context_get_time_zone_override", false)
+
 	cret := xWebContextGetTimeZoneOverride(x.GoPointer())
 	return cret
 }
@@ -244,6 +259,8 @@ var xWebContextInitializeNotificationPermissions func(uintptr, *glib.List, *glib
 // ensure that new web processes receive the most recent set of
 // permissions.
 func (x *WebContext) InitializeNotificationPermissions(AllowedOriginsVar *glib.List, DisallowedOriginsVar *glib.List) {
+	core.LazyRegister(&xWebContextInitializeNotificationPermissions, "WEBKIT", "webkit_web_context_initialize_notification_permissions", false)
+
 	xWebContextInitializeNotificationPermissions(x.GoPointer(), AllowedOriginsVar, DisallowedOriginsVar)
 }
 
@@ -253,6 +270,8 @@ var xWebContextIsAutomationAllowed func(uintptr) bool
 //
 // See also webkit_web_context_set_automation_allowed().
 func (x *WebContext) IsAutomationAllowed() bool {
+	core.LazyRegister(&xWebContextIsAutomationAllowed, "WEBKIT", "webkit_web_context_is_automation_allowed", false)
+
 	cret := xWebContextIsAutomationAllowed(x.GoPointer())
 	return cret
 }
@@ -300,6 +319,8 @@ var xWebContextRegisterUriScheme func(uintptr, string, uintptr, uintptr, uintptr
 //
 // ```
 func (x *WebContext) RegisterUriScheme(SchemeVar string, CallbackVar *URISchemeRequestCallback, UserDataVar uintptr, UserDataDestroyFuncVar *glib.DestroyNotify) {
+	core.LazyRegister(&xWebContextRegisterUriScheme, "WEBKIT", "webkit_web_context_register_uri_scheme", false)
+
 	xWebContextRegisterUriScheme(x.GoPointer(), SchemeVar, glib.NewCallback(CallbackVar), UserDataVar, glib.NewCallbackNullable(UserDataDestroyFuncVar))
 }
 
@@ -309,6 +330,8 @@ var xWebContextSendMessageToAllExtensions func(uintptr, uintptr)
 //
 // If @message is floating, it's consumed.
 func (x *WebContext) SendMessageToAllExtensions(MessageVar *UserMessage) {
+	core.LazyRegister(&xWebContextSendMessageToAllExtensions, "WEBKIT", "webkit_web_context_send_message_to_all_extensions", false)
+
 	xWebContextSendMessageToAllExtensions(x.GoPointer(), MessageVar.GoPointer())
 }
 
@@ -325,6 +348,8 @@ var xWebContextSetAutomationAllowed func(uintptr, bool)
 // Note that only one #WebKitWebContext can have automation enabled, so this will do nothing
 // if there's another #WebKitWebContext with automation already enabled.
 func (x *WebContext) SetAutomationAllowed(AllowedVar bool) {
+	core.LazyRegister(&xWebContextSetAutomationAllowed, "WEBKIT", "webkit_web_context_set_automation_allowed", false)
+
 	xWebContextSetAutomationAllowed(x.GoPointer(), AllowedVar)
 }
 
@@ -351,6 +376,8 @@ var xWebContextSetCacheModel func(uintptr, CacheModel)
 // specifying %WEBKIT_CACHE_MODEL_DOCUMENT_VIEWER. The default value is
 // %WEBKIT_CACHE_MODEL_WEB_BROWSER.
 func (x *WebContext) SetCacheModel(CacheModelVar CacheModel) {
+	core.LazyRegister(&xWebContextSetCacheModel, "WEBKIT", "webkit_web_context_set_cache_model", false)
+
 	xWebContextSetCacheModel(x.GoPointer(), CacheModelVar)
 }
 
@@ -367,6 +394,8 @@ var xWebContextSetPreferredLanguages func(uintptr, []string)
 //   - The first item in the list sets the default locale for JavaScript
 //     `Intl` functions.
 func (x *WebContext) SetPreferredLanguages(LanguagesVar []string) {
+	core.LazyRegister(&xWebContextSetPreferredLanguages, "WEBKIT", "webkit_web_context_set_preferred_languages", false)
+
 	xWebContextSetPreferredLanguages(x.GoPointer(), LanguagesVar)
 }
 
@@ -374,6 +403,8 @@ var xWebContextSetSpellCheckingEnabled func(uintptr, bool)
 
 // Enable or disable the spell checking feature.
 func (x *WebContext) SetSpellCheckingEnabled(EnabledVar bool) {
+	core.LazyRegister(&xWebContextSetSpellCheckingEnabled, "WEBKIT", "webkit_web_context_set_spell_checking_enabled", false)
+
 	xWebContextSetSpellCheckingEnabled(x.GoPointer(), EnabledVar)
 }
 
@@ -391,6 +422,8 @@ var xWebContextSetSpellCheckingLanguages func(uintptr, []string)
 // least once in order to properly enable the spell checking feature
 // in WebKit.
 func (x *WebContext) SetSpellCheckingLanguages(LanguagesVar []string) {
+	core.LazyRegister(&xWebContextSetSpellCheckingLanguages, "WEBKIT", "webkit_web_context_set_spell_checking_languages", false)
+
 	xWebContextSetSpellCheckingLanguages(x.GoPointer(), LanguagesVar)
 }
 
@@ -406,6 +439,8 @@ var xWebContextSetWebProcessExtensionsDirectory func(uintptr, string)
 // If your web process extension is installed to an unusual location,
 // then you may also need to call webkit_web_context_add_path_to_sandbox().
 func (x *WebContext) SetWebProcessExtensionsDirectory(DirectoryVar string) {
+	core.LazyRegister(&xWebContextSetWebProcessExtensionsDirectory, "WEBKIT", "webkit_web_context_set_web_process_extensions_directory", false)
+
 	xWebContextSetWebProcessExtensionsDirectory(x.GoPointer(), DirectoryVar)
 }
 
@@ -420,6 +455,8 @@ var xWebContextSetWebProcessExtensionsInitializationUserData func(uintptr, *glib
 // #WebKitWebContext::initialize-web-process-extensions to call this method
 // before anything is loaded.
 func (x *WebContext) SetWebProcessExtensionsInitializationUserData(UserDataVar *glib.Variant) {
+	core.LazyRegister(&xWebContextSetWebProcessExtensionsInitializationUserData, "WEBKIT", "webkit_web_context_set_web_process_extensions_initialization_user_data", false)
+
 	xWebContextSetWebProcessExtensionsInitializationUserData(x.GoPointer(), UserDataVar)
 }
 
@@ -589,6 +626,7 @@ var xWebContextGetDefault func() uintptr
 
 // Gets the default web context.
 func WebContextGetDefault() *WebContext {
+	core.LazyRegister(&xWebContextGetDefault, "WEBKIT", "webkit_web_context_get_default", false)
 	var cls *WebContext
 
 	cret := xWebContextGetDefault()
@@ -605,45 +643,8 @@ func WebContextGetDefault() *WebContext {
 func init() {
 	core.SetPackageName("WEBKIT", "webkitgtk-6.0")
 	core.SetSharedLibraries("WEBKIT", []string{"libwebkitgtk-6.0.so.4", "libjavascriptcoregtk-6.0.so.1", "libwebkitgtk-6.0.4.dylib", "libjavascriptcoregtk-6.0.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("WEBKIT") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
 
-	core.PuregoSafeRegister(&xCacheModelGLibType, libs, "webkit_cache_model_get_type")
-
-	core.PuregoSafeRegister(&xWebContextGLibType, libs, "webkit_web_context_get_type")
-
-	core.PuregoSafeRegister(&xNewWebContext, libs, "webkit_web_context_new")
-
-	core.PuregoSafeRegister(&xWebContextAddPathToSandbox, libs, "webkit_web_context_add_path_to_sandbox")
-	core.PuregoSafeRegister(&xWebContextGetCacheModel, libs, "webkit_web_context_get_cache_model")
-	core.PuregoSafeRegister(&xWebContextGetGeolocationManager, libs, "webkit_web_context_get_geolocation_manager")
-	core.PuregoSafeRegister(&xWebContextGetNetworkSessionForAutomation, libs, "webkit_web_context_get_network_session_for_automation")
-	core.PuregoSafeRegister(&xWebContextGetSecurityManager, libs, "webkit_web_context_get_security_manager")
-	core.PuregoSafeRegister(&xWebContextGetSpellCheckingEnabled, libs, "webkit_web_context_get_spell_checking_enabled")
-	core.PuregoSafeRegister(&xWebContextGetSpellCheckingLanguages, libs, "webkit_web_context_get_spell_checking_languages")
-	core.PuregoSafeRegister(&xWebContextGetTimeZoneOverride, libs, "webkit_web_context_get_time_zone_override")
-	core.PuregoSafeRegister(&xWebContextInitializeNotificationPermissions, libs, "webkit_web_context_initialize_notification_permissions")
-	core.PuregoSafeRegister(&xWebContextIsAutomationAllowed, libs, "webkit_web_context_is_automation_allowed")
-	core.PuregoSafeRegister(&xWebContextRegisterUriScheme, libs, "webkit_web_context_register_uri_scheme")
-	core.PuregoSafeRegister(&xWebContextSendMessageToAllExtensions, libs, "webkit_web_context_send_message_to_all_extensions")
-	core.PuregoSafeRegister(&xWebContextSetAutomationAllowed, libs, "webkit_web_context_set_automation_allowed")
-	core.PuregoSafeRegister(&xWebContextSetCacheModel, libs, "webkit_web_context_set_cache_model")
-	core.PuregoSafeRegister(&xWebContextSetPreferredLanguages, libs, "webkit_web_context_set_preferred_languages")
-	core.PuregoSafeRegister(&xWebContextSetSpellCheckingEnabled, libs, "webkit_web_context_set_spell_checking_enabled")
-	core.PuregoSafeRegister(&xWebContextSetSpellCheckingLanguages, libs, "webkit_web_context_set_spell_checking_languages")
-	core.PuregoSafeRegister(&xWebContextSetWebProcessExtensionsDirectory, libs, "webkit_web_context_set_web_process_extensions_directory")
-	core.PuregoSafeRegister(&xWebContextSetWebProcessExtensionsInitializationUserData, libs, "webkit_web_context_set_web_process_extensions_initialization_user_data")
-
-	core.PuregoSafeRegister(&xWebContextGetDefault, libs, "webkit_web_context_get_default")
-
-	// Manually register types since they aren't being automatically registered when
-	// the library is loaded
-	// See https://bugs.webkit.org/show_bug.cgi?id=175937
+	// Manually register types since they aren't automatically registered when
+	// WebKit is loaded. See https://bugs.webkit.org/show_bug.cgi?id=175937.
 	WebContextGLibType()
 }

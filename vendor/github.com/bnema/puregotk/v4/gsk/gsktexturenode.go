@@ -2,7 +2,6 @@
 package gsk
 
 import (
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gdk"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -18,6 +17,7 @@ type TextureNode struct {
 var xTextureNodeGLibType func() types.GType
 
 func TextureNodeGLibType() types.GType {
+	core.LazyRegister(&xTextureNodeGLibType, "GSK", "gsk_texture_node_get_type", false)
 	return xTextureNodeGLibType()
 }
 
@@ -36,6 +36,7 @@ var xNewTextureNode func(uintptr, *graphene.Rect) uintptr
 // scaled and transformed. See [class@Gsk.TextureScaleNode]
 // for a way to influence filtering.
 func NewTextureNode(TextureVar *gdk.Texture, BoundsVar *graphene.Rect) *TextureNode {
+	core.LazyRegister(&xNewTextureNode, "GSK", "gsk_texture_node_new", false)
 	var cls *TextureNode
 
 	cret := xNewTextureNode(TextureVar.GoPointer(), BoundsVar)
@@ -52,6 +53,7 @@ var xTextureNodeGetTexture func(uintptr) uintptr
 
 // Retrieves the `GdkTexture` used when creating this `GskRenderNode`.
 func (x *TextureNode) GetTexture() *gdk.Texture {
+	core.LazyRegister(&xTextureNodeGetTexture, "GSK", "gsk_texture_node_get_texture", false)
 	var cls *gdk.Texture
 
 	cret := xTextureNodeGetTexture(x.GoPointer())
@@ -79,18 +81,4 @@ func (c *TextureNode) SetGoPointer(ptr uintptr) {
 func init() {
 	core.SetPackageName("GSK", "gtk4")
 	core.SetSharedLibraries("GSK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GSK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xTextureNodeGLibType, libs, "gsk_texture_node_get_type")
-
-	core.PuregoSafeRegister(&xNewTextureNode, libs, "gsk_texture_node_new")
-
-	core.PuregoSafeRegister(&xTextureNodeGetTexture, libs, "gsk_texture_node_get_texture")
 }

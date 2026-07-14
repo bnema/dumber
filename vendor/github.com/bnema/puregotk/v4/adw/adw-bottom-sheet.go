@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gdk"
 	"github.com/bnema/puregotk/v4/glib"
@@ -113,6 +112,7 @@ type BottomSheet struct {
 var xBottomSheetGLibType func() types.GType
 
 func BottomSheetGLibType() types.GType {
+	core.LazyRegister(&xBottomSheetGLibType, "ADW", "adw_bottom_sheet_get_type", false)
 	return xBottomSheetGLibType()
 }
 
@@ -126,6 +126,7 @@ var xNewBottomSheet func() uintptr
 
 // Creates a new `AdwBottomSheet`.
 func NewBottomSheet() *BottomSheet {
+	core.LazyRegister(&xNewBottomSheet, "ADW", "adw_bottom_sheet_new", false)
 	var cls *BottomSheet
 
 	cret := xNewBottomSheet()
@@ -143,6 +144,8 @@ var xBottomSheetGetAlign func(uintptr) float32
 
 // Gets horizontal alignment of the bottom sheet.
 func (x *BottomSheet) GetAlign() float32 {
+	core.LazyRegister(&xBottomSheetGetAlign, "ADW", "adw_bottom_sheet_get_align", false)
+
 	cret := xBottomSheetGetAlign(x.GoPointer())
 	return cret
 }
@@ -151,6 +154,7 @@ var xBottomSheetGetBottomBar func(uintptr) uintptr
 
 // Gets the bottom bar widget for @self.
 func (x *BottomSheet) GetBottomBar() *gtk.Widget {
+	core.LazyRegister(&xBottomSheetGetBottomBar, "ADW", "adw_bottom_sheet_get_bottom_bar", false)
 	var cls *gtk.Widget
 
 	cret := xBottomSheetGetBottomBar(x.GoPointer())
@@ -171,6 +175,8 @@ var xBottomSheetGetBottomBarHeight func(uintptr) int
 // It can be used to shift the content upwards permanently to accommodate for
 // the bottom bar.
 func (x *BottomSheet) GetBottomBarHeight() int {
+	core.LazyRegister(&xBottomSheetGetBottomBarHeight, "ADW", "adw_bottom_sheet_get_bottom_bar_height", false)
+
 	cret := xBottomSheetGetBottomBarHeight(x.GoPointer())
 	return cret
 }
@@ -179,6 +185,8 @@ var xBottomSheetGetCanClose func(uintptr) bool
 
 // Gets whether the bottom sheet can be closed by user.
 func (x *BottomSheet) GetCanClose() bool {
+	core.LazyRegister(&xBottomSheetGetCanClose, "ADW", "adw_bottom_sheet_get_can_close", false)
+
 	cret := xBottomSheetGetCanClose(x.GoPointer())
 	return cret
 }
@@ -187,6 +195,8 @@ var xBottomSheetGetCanOpen func(uintptr) bool
 
 // Gets whether the bottom sheet can be opened by user.
 func (x *BottomSheet) GetCanOpen() bool {
+	core.LazyRegister(&xBottomSheetGetCanOpen, "ADW", "adw_bottom_sheet_get_can_open", false)
+
 	cret := xBottomSheetGetCanOpen(x.GoPointer())
 	return cret
 }
@@ -195,6 +205,7 @@ var xBottomSheetGetContent func(uintptr) uintptr
 
 // Gets the content widget for @self.
 func (x *BottomSheet) GetContent() *gtk.Widget {
+	core.LazyRegister(&xBottomSheetGetContent, "ADW", "adw_bottom_sheet_get_content", false)
 	var cls *gtk.Widget
 
 	cret := xBottomSheetGetContent(x.GoPointer())
@@ -212,6 +223,8 @@ var xBottomSheetGetFullWidth func(uintptr) bool
 
 // Gets whether the bottom sheet takes the full width.
 func (x *BottomSheet) GetFullWidth() bool {
+	core.LazyRegister(&xBottomSheetGetFullWidth, "ADW", "adw_bottom_sheet_get_full_width", false)
+
 	cret := xBottomSheetGetFullWidth(x.GoPointer())
 	return cret
 }
@@ -220,6 +233,8 @@ var xBottomSheetGetModal func(uintptr) bool
 
 // Gets whether the bottom sheet is modal.
 func (x *BottomSheet) GetModal() bool {
+	core.LazyRegister(&xBottomSheetGetModal, "ADW", "adw_bottom_sheet_get_modal", false)
+
 	cret := xBottomSheetGetModal(x.GoPointer())
 	return cret
 }
@@ -228,6 +243,8 @@ var xBottomSheetGetOpen func(uintptr) bool
 
 // Gets whether the bottom sheet is open.
 func (x *BottomSheet) GetOpen() bool {
+	core.LazyRegister(&xBottomSheetGetOpen, "ADW", "adw_bottom_sheet_get_open", false)
+
 	cret := xBottomSheetGetOpen(x.GoPointer())
 	return cret
 }
@@ -236,6 +253,8 @@ var xBottomSheetGetRevealBottomBar func(uintptr) bool
 
 // Gets whether the bottom bar is revealed.
 func (x *BottomSheet) GetRevealBottomBar() bool {
+	core.LazyRegister(&xBottomSheetGetRevealBottomBar, "ADW", "adw_bottom_sheet_get_reveal_bottom_bar", false)
+
 	cret := xBottomSheetGetRevealBottomBar(x.GoPointer())
 	return cret
 }
@@ -244,6 +263,7 @@ var xBottomSheetGetSheet func(uintptr) uintptr
 
 // Gets the bottom sheet widget for @self.
 func (x *BottomSheet) GetSheet() *gtk.Widget {
+	core.LazyRegister(&xBottomSheetGetSheet, "ADW", "adw_bottom_sheet_get_sheet", false)
 	var cls *gtk.Widget
 
 	cret := xBottomSheetGetSheet(x.GoPointer())
@@ -263,6 +283,8 @@ var xBottomSheetGetSheetHeight func(uintptr) int
 //
 // It can be used to shift the content upwards when the bottom sheet is open.
 func (x *BottomSheet) GetSheetHeight() int {
+	core.LazyRegister(&xBottomSheetGetSheetHeight, "ADW", "adw_bottom_sheet_get_sheet_height", false)
+
 	cret := xBottomSheetGetSheetHeight(x.GoPointer())
 	return cret
 }
@@ -271,6 +293,8 @@ var xBottomSheetGetShowDragHandle func(uintptr) bool
 
 // Gets whether to show a drag handle in the bottom sheet.
 func (x *BottomSheet) GetShowDragHandle() bool {
+	core.LazyRegister(&xBottomSheetGetShowDragHandle, "ADW", "adw_bottom_sheet_get_show_drag_handle", false)
+
 	cret := xBottomSheetGetShowDragHandle(x.GoPointer())
 	return cret
 }
@@ -284,6 +308,8 @@ var xBottomSheetSetAlign func(uintptr, float32)
 //
 // Only used when [property@BottomSheet:full-width] is set to `FALSE`.
 func (x *BottomSheet) SetAlign(AlignVar float32) {
+	core.LazyRegister(&xBottomSheetSetAlign, "ADW", "adw_bottom_sheet_set_align", false)
+
 	xBottomSheetSetAlign(x.GoPointer(), AlignVar)
 }
 
@@ -297,6 +323,8 @@ var xBottomSheetSetBottomBar func(uintptr, uintptr)
 // Bottom bar can be temporarily hidden using the
 // [property@BottomSheet:reveal-bottom-bar] property.
 func (x *BottomSheet) SetBottomBar(BottomBarVar *gtk.Widget) {
+	core.LazyRegister(&xBottomSheetSetBottomBar, "ADW", "adw_bottom_sheet_set_bottom_bar", false)
+
 	xBottomSheetSetBottomBar(x.GoPointer(), BottomBarVar.GoPointer())
 }
 
@@ -309,6 +337,8 @@ var xBottomSheetSetCanClose func(uintptr, bool)
 //
 // Bottom sheet can still be closed using [property@BottomSheet:open].
 func (x *BottomSheet) SetCanClose(CanCloseVar bool) {
+	core.LazyRegister(&xBottomSheetSetCanClose, "ADW", "adw_bottom_sheet_set_can_close", false)
+
 	xBottomSheetSetCanClose(x.GoPointer(), CanCloseVar)
 }
 
@@ -322,6 +352,8 @@ var xBottomSheetSetCanOpen func(uintptr, bool)
 //
 // Bottom sheet can still be opened using [property@BottomSheet:open].
 func (x *BottomSheet) SetCanOpen(CanOpenVar bool) {
+	core.LazyRegister(&xBottomSheetSetCanOpen, "ADW", "adw_bottom_sheet_set_can_open", false)
+
 	xBottomSheetSetCanOpen(x.GoPointer(), CanOpenVar)
 }
 
@@ -331,6 +363,8 @@ var xBottomSheetSetContent func(uintptr, uintptr)
 //
 // It's always shown, and the bottom sheet is overlaid over it.
 func (x *BottomSheet) SetContent(ContentVar *gtk.Widget) {
+	core.LazyRegister(&xBottomSheetSetContent, "ADW", "adw_bottom_sheet_set_content", false)
+
 	xBottomSheetSetContent(x.GoPointer(), ContentVar.GoPointer())
 }
 
@@ -340,6 +374,8 @@ var xBottomSheetSetFullWidth func(uintptr, bool)
 //
 // When full width, [property@BottomSheet:align] is ignored.
 func (x *BottomSheet) SetFullWidth(FullWidthVar bool) {
+	core.LazyRegister(&xBottomSheetSetFullWidth, "ADW", "adw_bottom_sheet_set_full_width", false)
+
 	xBottomSheetSetFullWidth(x.GoPointer(), FullWidthVar)
 }
 
@@ -353,6 +389,8 @@ var xBottomSheetSetModal func(uintptr, bool)
 //
 // Otherwise, the content is accessible even when the bottom sheet is open.
 func (x *BottomSheet) SetModal(ModalVar bool) {
+	core.LazyRegister(&xBottomSheetSetModal, "ADW", "adw_bottom_sheet_set_modal", false)
+
 	xBottomSheetSetModal(x.GoPointer(), ModalVar)
 }
 
@@ -360,6 +398,8 @@ var xBottomSheetSetOpen func(uintptr, bool)
 
 // Sets whether the bottom sheet is open.
 func (x *BottomSheet) SetOpen(OpenVar bool) {
+	core.LazyRegister(&xBottomSheetSetOpen, "ADW", "adw_bottom_sheet_set_open", false)
+
 	xBottomSheetSetOpen(x.GoPointer(), OpenVar)
 }
 
@@ -372,6 +412,8 @@ var xBottomSheetSetRevealBottomBar func(uintptr, bool)
 // See [property@BottomSheet:bottom-bar] and
 // [property@BottomSheet:bottom-bar-height].
 func (x *BottomSheet) SetRevealBottomBar(RevealVar bool) {
+	core.LazyRegister(&xBottomSheetSetRevealBottomBar, "ADW", "adw_bottom_sheet_set_reveal_bottom_bar", false)
+
 	xBottomSheetSetRevealBottomBar(x.GoPointer(), RevealVar)
 }
 
@@ -381,6 +423,8 @@ var xBottomSheetSetSheet func(uintptr, uintptr)
 //
 // Only shown when [property@BottomSheet:open] is `TRUE`.
 func (x *BottomSheet) SetSheet(SheetVar *gtk.Widget) {
+	core.LazyRegister(&xBottomSheetSetSheet, "ADW", "adw_bottom_sheet_set_sheet", false)
+
 	xBottomSheetSetSheet(x.GoPointer(), SheetVar.GoPointer())
 }
 
@@ -396,6 +440,8 @@ var xBottomSheetSetShowDragHandle func(uintptr, bool)
 // Showing drag handle also allows to swipe the bottom sheet down (and to swipe
 // the bottom bar up) with a pointer, instead of just touchscreen.
 func (x *BottomSheet) SetShowDragHandle(ShowDragHandleVar bool) {
+	core.LazyRegister(&xBottomSheetSetShowDragHandle, "ADW", "adw_bottom_sheet_set_show_drag_handle", false)
+
 	xBottomSheetSetShowDragHandle(x.GoPointer(), ShowDragHandleVar)
 }
 
@@ -970,41 +1016,4 @@ func (x *BottomSheet) GetBuildableId() string {
 func init() {
 	core.SetPackageName("ADW", "libadwaita-1")
 	core.SetSharedLibraries("ADW", []string{"libadwaita-1.so.0", "libadwaita-1.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("ADW") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xBottomSheetGLibType, libs, "adw_bottom_sheet_get_type")
-
-	core.PuregoSafeRegister(&xNewBottomSheet, libs, "adw_bottom_sheet_new")
-
-	core.PuregoSafeRegister(&xBottomSheetGetAlign, libs, "adw_bottom_sheet_get_align")
-	core.PuregoSafeRegister(&xBottomSheetGetBottomBar, libs, "adw_bottom_sheet_get_bottom_bar")
-	core.PuregoSafeRegister(&xBottomSheetGetBottomBarHeight, libs, "adw_bottom_sheet_get_bottom_bar_height")
-	core.PuregoSafeRegister(&xBottomSheetGetCanClose, libs, "adw_bottom_sheet_get_can_close")
-	core.PuregoSafeRegister(&xBottomSheetGetCanOpen, libs, "adw_bottom_sheet_get_can_open")
-	core.PuregoSafeRegister(&xBottomSheetGetContent, libs, "adw_bottom_sheet_get_content")
-	core.PuregoSafeRegister(&xBottomSheetGetFullWidth, libs, "adw_bottom_sheet_get_full_width")
-	core.PuregoSafeRegister(&xBottomSheetGetModal, libs, "adw_bottom_sheet_get_modal")
-	core.PuregoSafeRegister(&xBottomSheetGetOpen, libs, "adw_bottom_sheet_get_open")
-	core.PuregoSafeRegister(&xBottomSheetGetRevealBottomBar, libs, "adw_bottom_sheet_get_reveal_bottom_bar")
-	core.PuregoSafeRegister(&xBottomSheetGetSheet, libs, "adw_bottom_sheet_get_sheet")
-	core.PuregoSafeRegister(&xBottomSheetGetSheetHeight, libs, "adw_bottom_sheet_get_sheet_height")
-	core.PuregoSafeRegister(&xBottomSheetGetShowDragHandle, libs, "adw_bottom_sheet_get_show_drag_handle")
-	core.PuregoSafeRegister(&xBottomSheetSetAlign, libs, "adw_bottom_sheet_set_align")
-	core.PuregoSafeRegister(&xBottomSheetSetBottomBar, libs, "adw_bottom_sheet_set_bottom_bar")
-	core.PuregoSafeRegister(&xBottomSheetSetCanClose, libs, "adw_bottom_sheet_set_can_close")
-	core.PuregoSafeRegister(&xBottomSheetSetCanOpen, libs, "adw_bottom_sheet_set_can_open")
-	core.PuregoSafeRegister(&xBottomSheetSetContent, libs, "adw_bottom_sheet_set_content")
-	core.PuregoSafeRegister(&xBottomSheetSetFullWidth, libs, "adw_bottom_sheet_set_full_width")
-	core.PuregoSafeRegister(&xBottomSheetSetModal, libs, "adw_bottom_sheet_set_modal")
-	core.PuregoSafeRegister(&xBottomSheetSetOpen, libs, "adw_bottom_sheet_set_open")
-	core.PuregoSafeRegister(&xBottomSheetSetRevealBottomBar, libs, "adw_bottom_sheet_set_reveal_bottom_bar")
-	core.PuregoSafeRegister(&xBottomSheetSetSheet, libs, "adw_bottom_sheet_set_sheet")
-	core.PuregoSafeRegister(&xBottomSheetSetShowDragHandle, libs, "adw_bottom_sheet_set_show_drag_handle")
 }

@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -144,6 +143,7 @@ type PrintSettings struct {
 var xPrintSettingsGLibType func() types.GType
 
 func PrintSettingsGLibType() types.GType {
+	core.LazyRegister(&xPrintSettingsGLibType, "GTK", "gtk_print_settings_get_type", false)
 	return xPrintSettingsGLibType()
 }
 
@@ -157,6 +157,7 @@ var xNewPrintSettings func() uintptr
 
 // Creates a new `GtkPrintSettings` object.
 func NewPrintSettings() *PrintSettings {
+	core.LazyRegister(&xNewPrintSettings, "GTK", "gtk_print_settings_new", false)
 	var cls *PrintSettings
 
 	cret := xNewPrintSettings()
@@ -179,6 +180,7 @@ var xNewPrintSettingsFromFile func(string, **glib.Error) uintptr
 //
 // See [method@Gtk.PrintSettings.to_file].
 func NewPrintSettingsFromFile(FileNameVar string) (*PrintSettings, error) {
+	core.LazyRegister(&xNewPrintSettingsFromFile, "GTK", "gtk_print_settings_new_from_file", false)
 	var cls *PrintSettings
 	var cerr *glib.Error
 
@@ -202,6 +204,7 @@ var xNewPrintSettingsFromGvariant func(*glib.Variant) uintptr
 // The variant must be in the format produced by
 // [method@Gtk.PrintSettings.to_gvariant].
 func NewPrintSettingsFromGvariant(VariantVar *glib.Variant) *PrintSettings {
+	core.LazyRegister(&xNewPrintSettingsFromGvariant, "GTK", "gtk_print_settings_new_from_gvariant", false)
 	var cls *PrintSettings
 
 	cret := xNewPrintSettingsFromGvariant(VariantVar)
@@ -222,6 +225,7 @@ var xNewPrintSettingsFromKeyFile func(*glib.KeyFile, uintptr, **glib.Error) uint
 // or %NULL if an error occurred. If the file could not be loaded then
 // error is set to either `GFileError` or `GKeyFileError`.
 func NewPrintSettingsFromKeyFile(KeyFileVar *glib.KeyFile, GroupNameVar *string) (*PrintSettings, error) {
+	core.LazyRegister(&xNewPrintSettingsFromKeyFile, "GTK", "gtk_print_settings_new_from_key_file", false)
 	var cls *PrintSettings
 	var cerr *glib.Error
 
@@ -245,6 +249,7 @@ var xPrintSettingsCopy func(uintptr) uintptr
 
 // Copies a `GtkPrintSettings` object.
 func (x *PrintSettings) Copy() *PrintSettings {
+	core.LazyRegister(&xPrintSettingsCopy, "GTK", "gtk_print_settings_copy", false)
 	var cls *PrintSettings
 
 	cret := xPrintSettingsCopy(x.GoPointer())
@@ -261,6 +266,8 @@ var xPrintSettingsForeach func(uintptr, uintptr, uintptr)
 
 // Calls @func for each key-value pair of @settings.
 func (x *PrintSettings) Foreach(FuncVar *PrintSettingsFunc, UserDataVar uintptr) {
+	core.LazyRegister(&xPrintSettingsForeach, "GTK", "gtk_print_settings_foreach", false)
+
 	xPrintSettingsForeach(x.GoPointer(), glib.NewCallback(FuncVar), UserDataVar)
 }
 
@@ -268,6 +275,8 @@ var xPrintSettingsGet func(uintptr, string) string
 
 // Looks up the string value associated with @key.
 func (x *PrintSettings) Get(KeyVar string) string {
+	core.LazyRegister(&xPrintSettingsGet, "GTK", "gtk_print_settings_get", false)
+
 	cret := xPrintSettingsGet(x.GoPointer(), KeyVar)
 	return cret
 }
@@ -280,6 +289,8 @@ var xPrintSettingsGetBool func(uintptr, string) bool
 // The string “true” represents %TRUE, any other
 // string %FALSE.
 func (x *PrintSettings) GetBool(KeyVar string) bool {
+	core.LazyRegister(&xPrintSettingsGetBool, "GTK", "gtk_print_settings_get_bool", false)
+
 	cret := xPrintSettingsGetBool(x.GoPointer(), KeyVar)
 	return cret
 }
@@ -288,6 +299,8 @@ var xPrintSettingsGetCollate func(uintptr) bool
 
 // Gets the value of %GTK_PRINT_SETTINGS_COLLATE.
 func (x *PrintSettings) GetCollate() bool {
+	core.LazyRegister(&xPrintSettingsGetCollate, "GTK", "gtk_print_settings_get_collate", false)
+
 	cret := xPrintSettingsGetCollate(x.GoPointer())
 	return cret
 }
@@ -296,6 +309,8 @@ var xPrintSettingsGetDefaultSource func(uintptr) string
 
 // Gets the value of %GTK_PRINT_SETTINGS_DEFAULT_SOURCE.
 func (x *PrintSettings) GetDefaultSource() string {
+	core.LazyRegister(&xPrintSettingsGetDefaultSource, "GTK", "gtk_print_settings_get_default_source", false)
+
 	cret := xPrintSettingsGetDefaultSource(x.GoPointer())
 	return cret
 }
@@ -304,6 +319,8 @@ var xPrintSettingsGetDither func(uintptr) string
 
 // Gets the value of %GTK_PRINT_SETTINGS_DITHER.
 func (x *PrintSettings) GetDither() string {
+	core.LazyRegister(&xPrintSettingsGetDither, "GTK", "gtk_print_settings_get_dither", false)
+
 	cret := xPrintSettingsGetDither(x.GoPointer())
 	return cret
 }
@@ -312,6 +329,8 @@ var xPrintSettingsGetDouble func(uintptr, string) float64
 
 // Returns the double value associated with @key, or 0.
 func (x *PrintSettings) GetDouble(KeyVar string) float64 {
+	core.LazyRegister(&xPrintSettingsGetDouble, "GTK", "gtk_print_settings_get_double", false)
+
 	cret := xPrintSettingsGetDouble(x.GoPointer(), KeyVar)
 	return cret
 }
@@ -324,6 +343,8 @@ var xPrintSettingsGetDoubleWithDefault func(uintptr, string, float64) float64
 //
 // Floating point numbers are parsed with g_ascii_strtod().
 func (x *PrintSettings) GetDoubleWithDefault(KeyVar string, DefVar float64) float64 {
+	core.LazyRegister(&xPrintSettingsGetDoubleWithDefault, "GTK", "gtk_print_settings_get_double_with_default", false)
+
 	cret := xPrintSettingsGetDoubleWithDefault(x.GoPointer(), KeyVar, DefVar)
 	return cret
 }
@@ -332,6 +353,8 @@ var xPrintSettingsGetDuplex func(uintptr) PrintDuplex
 
 // Gets the value of %GTK_PRINT_SETTINGS_DUPLEX.
 func (x *PrintSettings) GetDuplex() PrintDuplex {
+	core.LazyRegister(&xPrintSettingsGetDuplex, "GTK", "gtk_print_settings_get_duplex", false)
+
 	cret := xPrintSettingsGetDuplex(x.GoPointer())
 	return cret
 }
@@ -340,6 +363,8 @@ var xPrintSettingsGetFinishings func(uintptr) string
 
 // Gets the value of %GTK_PRINT_SETTINGS_FINISHINGS.
 func (x *PrintSettings) GetFinishings() string {
+	core.LazyRegister(&xPrintSettingsGetFinishings, "GTK", "gtk_print_settings_get_finishings", false)
+
 	cret := xPrintSettingsGetFinishings(x.GoPointer())
 	return cret
 }
@@ -348,6 +373,8 @@ var xPrintSettingsGetInt func(uintptr, string) int
 
 // Returns the integer value of @key, or 0.
 func (x *PrintSettings) GetInt(KeyVar string) int {
+	core.LazyRegister(&xPrintSettingsGetInt, "GTK", "gtk_print_settings_get_int", false)
+
 	cret := xPrintSettingsGetInt(x.GoPointer(), KeyVar)
 	return cret
 }
@@ -357,6 +384,8 @@ var xPrintSettingsGetIntWithDefault func(uintptr, string, int) int
 // Returns the value of @key, interpreted as
 // an integer, or the default value.
 func (x *PrintSettings) GetIntWithDefault(KeyVar string, DefVar int) int {
+	core.LazyRegister(&xPrintSettingsGetIntWithDefault, "GTK", "gtk_print_settings_get_int_with_default", false)
+
 	cret := xPrintSettingsGetIntWithDefault(x.GoPointer(), KeyVar, DefVar)
 	return cret
 }
@@ -368,6 +397,8 @@ var xPrintSettingsGetLength func(uintptr, string, Unit) float64
 //
 // The returned value is converted to @units.
 func (x *PrintSettings) GetLength(KeyVar string, UnitVar Unit) float64 {
+	core.LazyRegister(&xPrintSettingsGetLength, "GTK", "gtk_print_settings_get_length", false)
+
 	cret := xPrintSettingsGetLength(x.GoPointer(), KeyVar, UnitVar)
 	return cret
 }
@@ -378,6 +409,8 @@ var xPrintSettingsGetMediaType func(uintptr) string
 //
 // The set of media types is defined in PWG 5101.1-2002 PWG.
 func (x *PrintSettings) GetMediaType() string {
+	core.LazyRegister(&xPrintSettingsGetMediaType, "GTK", "gtk_print_settings_get_media_type", false)
+
 	cret := xPrintSettingsGetMediaType(x.GoPointer())
 	return cret
 }
@@ -386,6 +419,8 @@ var xPrintSettingsGetNCopies func(uintptr) int
 
 // Gets the value of %GTK_PRINT_SETTINGS_N_COPIES.
 func (x *PrintSettings) GetNCopies() int {
+	core.LazyRegister(&xPrintSettingsGetNCopies, "GTK", "gtk_print_settings_get_n_copies", false)
+
 	cret := xPrintSettingsGetNCopies(x.GoPointer())
 	return cret
 }
@@ -394,6 +429,8 @@ var xPrintSettingsGetNumberUp func(uintptr) int
 
 // Gets the value of %GTK_PRINT_SETTINGS_NUMBER_UP.
 func (x *PrintSettings) GetNumberUp() int {
+	core.LazyRegister(&xPrintSettingsGetNumberUp, "GTK", "gtk_print_settings_get_number_up", false)
+
 	cret := xPrintSettingsGetNumberUp(x.GoPointer())
 	return cret
 }
@@ -402,6 +439,8 @@ var xPrintSettingsGetNumberUpLayout func(uintptr) NumberUpLayout
 
 // Gets the value of %GTK_PRINT_SETTINGS_NUMBER_UP_LAYOUT.
 func (x *PrintSettings) GetNumberUpLayout() NumberUpLayout {
+	core.LazyRegister(&xPrintSettingsGetNumberUpLayout, "GTK", "gtk_print_settings_get_number_up_layout", false)
+
 	cret := xPrintSettingsGetNumberUpLayout(x.GoPointer())
 	return cret
 }
@@ -411,6 +450,8 @@ var xPrintSettingsGetOrientation func(uintptr) PageOrientation
 // Get the value of %GTK_PRINT_SETTINGS_ORIENTATION,
 // converted to a `GtkPageOrientation`.
 func (x *PrintSettings) GetOrientation() PageOrientation {
+	core.LazyRegister(&xPrintSettingsGetOrientation, "GTK", "gtk_print_settings_get_orientation", false)
+
 	cret := xPrintSettingsGetOrientation(x.GoPointer())
 	return cret
 }
@@ -419,6 +460,8 @@ var xPrintSettingsGetOutputBin func(uintptr) string
 
 // Gets the value of %GTK_PRINT_SETTINGS_OUTPUT_BIN.
 func (x *PrintSettings) GetOutputBin() string {
+	core.LazyRegister(&xPrintSettingsGetOutputBin, "GTK", "gtk_print_settings_get_output_bin", false)
+
 	cret := xPrintSettingsGetOutputBin(x.GoPointer())
 	return cret
 }
@@ -427,6 +470,8 @@ var xPrintSettingsGetPageRanges func(uintptr, *int) uintptr
 
 // Gets the value of %GTK_PRINT_SETTINGS_PAGE_RANGES.
 func (x *PrintSettings) GetPageRanges(NumRangesVar *int) uintptr {
+	core.LazyRegister(&xPrintSettingsGetPageRanges, "GTK", "gtk_print_settings_get_page_ranges", false)
+
 	cret := xPrintSettingsGetPageRanges(x.GoPointer(), NumRangesVar)
 	return cret
 }
@@ -435,6 +480,8 @@ var xPrintSettingsGetPageSet func(uintptr) PageSet
 
 // Gets the value of %GTK_PRINT_SETTINGS_PAGE_SET.
 func (x *PrintSettings) GetPageSet() PageSet {
+	core.LazyRegister(&xPrintSettingsGetPageSet, "GTK", "gtk_print_settings_get_page_set", false)
+
 	cret := xPrintSettingsGetPageSet(x.GoPointer())
 	return cret
 }
@@ -444,6 +491,8 @@ var xPrintSettingsGetPaperHeight func(uintptr, Unit) float64
 // Gets the value of %GTK_PRINT_SETTINGS_PAPER_HEIGHT,
 // converted to @unit.
 func (x *PrintSettings) GetPaperHeight(UnitVar Unit) float64 {
+	core.LazyRegister(&xPrintSettingsGetPaperHeight, "GTK", "gtk_print_settings_get_paper_height", false)
+
 	cret := xPrintSettingsGetPaperHeight(x.GoPointer(), UnitVar)
 	return cret
 }
@@ -453,6 +502,8 @@ var xPrintSettingsGetPaperSize func(uintptr) uintptr
 // Gets the value of %GTK_PRINT_SETTINGS_PAPER_FORMAT,
 // converted to a `GtkPaperSize`.
 func (x *PrintSettings) GetPaperSize() *PaperSize {
+	core.LazyRegister(&xPrintSettingsGetPaperSize, "GTK", "gtk_print_settings_get_paper_size", false)
+
 	cret := xPrintSettingsGetPaperSize(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -465,6 +516,8 @@ var xPrintSettingsGetPaperWidth func(uintptr, Unit) float64
 // Gets the value of %GTK_PRINT_SETTINGS_PAPER_WIDTH,
 // converted to @unit.
 func (x *PrintSettings) GetPaperWidth(UnitVar Unit) float64 {
+	core.LazyRegister(&xPrintSettingsGetPaperWidth, "GTK", "gtk_print_settings_get_paper_width", false)
+
 	cret := xPrintSettingsGetPaperWidth(x.GoPointer(), UnitVar)
 	return cret
 }
@@ -473,6 +526,8 @@ var xPrintSettingsGetPrintPages func(uintptr) PrintPages
 
 // Gets the value of %GTK_PRINT_SETTINGS_PRINT_PAGES.
 func (x *PrintSettings) GetPrintPages() PrintPages {
+	core.LazyRegister(&xPrintSettingsGetPrintPages, "GTK", "gtk_print_settings_get_print_pages", false)
+
 	cret := xPrintSettingsGetPrintPages(x.GoPointer())
 	return cret
 }
@@ -482,6 +537,8 @@ var xPrintSettingsGetPrinter func(uintptr) string
 // Convenience function to obtain the value of
 // %GTK_PRINT_SETTINGS_PRINTER.
 func (x *PrintSettings) GetPrinter() string {
+	core.LazyRegister(&xPrintSettingsGetPrinter, "GTK", "gtk_print_settings_get_printer", false)
+
 	cret := xPrintSettingsGetPrinter(x.GoPointer())
 	return cret
 }
@@ -490,6 +547,8 @@ var xPrintSettingsGetPrinterLpi func(uintptr) float64
 
 // Gets the value of %GTK_PRINT_SETTINGS_PRINTER_LPI.
 func (x *PrintSettings) GetPrinterLpi() float64 {
+	core.LazyRegister(&xPrintSettingsGetPrinterLpi, "GTK", "gtk_print_settings_get_printer_lpi", false)
+
 	cret := xPrintSettingsGetPrinterLpi(x.GoPointer())
 	return cret
 }
@@ -498,6 +557,8 @@ var xPrintSettingsGetQuality func(uintptr) PrintQuality
 
 // Gets the value of %GTK_PRINT_SETTINGS_QUALITY.
 func (x *PrintSettings) GetQuality() PrintQuality {
+	core.LazyRegister(&xPrintSettingsGetQuality, "GTK", "gtk_print_settings_get_quality", false)
+
 	cret := xPrintSettingsGetQuality(x.GoPointer())
 	return cret
 }
@@ -506,6 +567,8 @@ var xPrintSettingsGetResolution func(uintptr) int
 
 // Gets the value of %GTK_PRINT_SETTINGS_RESOLUTION.
 func (x *PrintSettings) GetResolution() int {
+	core.LazyRegister(&xPrintSettingsGetResolution, "GTK", "gtk_print_settings_get_resolution", false)
+
 	cret := xPrintSettingsGetResolution(x.GoPointer())
 	return cret
 }
@@ -514,6 +577,8 @@ var xPrintSettingsGetResolutionX func(uintptr) int
 
 // Gets the value of %GTK_PRINT_SETTINGS_RESOLUTION_X.
 func (x *PrintSettings) GetResolutionX() int {
+	core.LazyRegister(&xPrintSettingsGetResolutionX, "GTK", "gtk_print_settings_get_resolution_x", false)
+
 	cret := xPrintSettingsGetResolutionX(x.GoPointer())
 	return cret
 }
@@ -522,6 +587,8 @@ var xPrintSettingsGetResolutionY func(uintptr) int
 
 // Gets the value of %GTK_PRINT_SETTINGS_RESOLUTION_Y.
 func (x *PrintSettings) GetResolutionY() int {
+	core.LazyRegister(&xPrintSettingsGetResolutionY, "GTK", "gtk_print_settings_get_resolution_y", false)
+
 	cret := xPrintSettingsGetResolutionY(x.GoPointer())
 	return cret
 }
@@ -530,6 +597,8 @@ var xPrintSettingsGetReverse func(uintptr) bool
 
 // Gets the value of %GTK_PRINT_SETTINGS_REVERSE.
 func (x *PrintSettings) GetReverse() bool {
+	core.LazyRegister(&xPrintSettingsGetReverse, "GTK", "gtk_print_settings_get_reverse", false)
+
 	cret := xPrintSettingsGetReverse(x.GoPointer())
 	return cret
 }
@@ -538,6 +607,8 @@ var xPrintSettingsGetScale func(uintptr) float64
 
 // Gets the value of %GTK_PRINT_SETTINGS_SCALE.
 func (x *PrintSettings) GetScale() float64 {
+	core.LazyRegister(&xPrintSettingsGetScale, "GTK", "gtk_print_settings_get_scale", false)
+
 	cret := xPrintSettingsGetScale(x.GoPointer())
 	return cret
 }
@@ -546,6 +617,8 @@ var xPrintSettingsGetUseColor func(uintptr) bool
 
 // Gets the value of %GTK_PRINT_SETTINGS_USE_COLOR.
 func (x *PrintSettings) GetUseColor() bool {
+	core.LazyRegister(&xPrintSettingsGetUseColor, "GTK", "gtk_print_settings_get_use_color", false)
+
 	cret := xPrintSettingsGetUseColor(x.GoPointer())
 	return cret
 }
@@ -554,6 +627,8 @@ var xPrintSettingsHasKey func(uintptr, string) bool
 
 // Returns %TRUE, if a value is associated with @key.
 func (x *PrintSettings) HasKey(KeyVar string) bool {
+	core.LazyRegister(&xPrintSettingsHasKey, "GTK", "gtk_print_settings_has_key", false)
+
 	cret := xPrintSettingsHasKey(x.GoPointer(), KeyVar)
 	return cret
 }
@@ -567,6 +642,7 @@ var xPrintSettingsLoadFile func(uintptr, string, **glib.Error) bool
 //
 // See [method@Gtk.PrintSettings.to_file].
 func (x *PrintSettings) LoadFile(FileNameVar string) (bool, error) {
+	core.LazyRegister(&xPrintSettingsLoadFile, "GTK", "gtk_print_settings_load_file", false)
 	var cerr *glib.Error
 
 	cret := xPrintSettingsLoadFile(x.GoPointer(), FileNameVar, &cerr)
@@ -583,6 +659,7 @@ var xPrintSettingsLoadKeyFile func(uintptr, *glib.KeyFile, uintptr, **glib.Error
 // If the file could not be loaded then error is set to either a
 // `GFileError` or `GKeyFileError`.
 func (x *PrintSettings) LoadKeyFile(KeyFileVar *glib.KeyFile, GroupNameVar *string) (bool, error) {
+	core.LazyRegister(&xPrintSettingsLoadKeyFile, "GTK", "gtk_print_settings_load_key_file", false)
 	var cerr *glib.Error
 
 	GroupNameVarPtr := core.GStrdupNullable(GroupNameVar)
@@ -599,6 +676,8 @@ var xPrintSettingsSet func(uintptr, string, uintptr)
 
 // Associates @value with @key.
 func (x *PrintSettings) Set(KeyVar string, ValueVar *string) {
+	core.LazyRegister(&xPrintSettingsSet, "GTK", "gtk_print_settings_set", false)
+
 	ValueVarPtr := core.GStrdupNullable(ValueVar)
 	defer core.GFreeNullable(ValueVarPtr)
 
@@ -609,6 +688,8 @@ var xPrintSettingsSetBool func(uintptr, string, bool)
 
 // Sets @key to a boolean value.
 func (x *PrintSettings) SetBool(KeyVar string, ValueVar bool) {
+	core.LazyRegister(&xPrintSettingsSetBool, "GTK", "gtk_print_settings_set_bool", false)
+
 	xPrintSettingsSetBool(x.GoPointer(), KeyVar, ValueVar)
 }
 
@@ -616,6 +697,8 @@ var xPrintSettingsSetCollate func(uintptr, bool)
 
 // Sets the value of %GTK_PRINT_SETTINGS_COLLATE.
 func (x *PrintSettings) SetCollate(CollateVar bool) {
+	core.LazyRegister(&xPrintSettingsSetCollate, "GTK", "gtk_print_settings_set_collate", false)
+
 	xPrintSettingsSetCollate(x.GoPointer(), CollateVar)
 }
 
@@ -623,6 +706,8 @@ var xPrintSettingsSetDefaultSource func(uintptr, string)
 
 // Sets the value of %GTK_PRINT_SETTINGS_DEFAULT_SOURCE.
 func (x *PrintSettings) SetDefaultSource(DefaultSourceVar string) {
+	core.LazyRegister(&xPrintSettingsSetDefaultSource, "GTK", "gtk_print_settings_set_default_source", false)
+
 	xPrintSettingsSetDefaultSource(x.GoPointer(), DefaultSourceVar)
 }
 
@@ -630,6 +715,8 @@ var xPrintSettingsSetDither func(uintptr, string)
 
 // Sets the value of %GTK_PRINT_SETTINGS_DITHER.
 func (x *PrintSettings) SetDither(DitherVar string) {
+	core.LazyRegister(&xPrintSettingsSetDither, "GTK", "gtk_print_settings_set_dither", false)
+
 	xPrintSettingsSetDither(x.GoPointer(), DitherVar)
 }
 
@@ -637,6 +724,8 @@ var xPrintSettingsSetDouble func(uintptr, string, float64)
 
 // Sets @key to a double value.
 func (x *PrintSettings) SetDouble(KeyVar string, ValueVar float64) {
+	core.LazyRegister(&xPrintSettingsSetDouble, "GTK", "gtk_print_settings_set_double", false)
+
 	xPrintSettingsSetDouble(x.GoPointer(), KeyVar, ValueVar)
 }
 
@@ -644,6 +733,8 @@ var xPrintSettingsSetDuplex func(uintptr, PrintDuplex)
 
 // Sets the value of %GTK_PRINT_SETTINGS_DUPLEX.
 func (x *PrintSettings) SetDuplex(DuplexVar PrintDuplex) {
+	core.LazyRegister(&xPrintSettingsSetDuplex, "GTK", "gtk_print_settings_set_duplex", false)
+
 	xPrintSettingsSetDuplex(x.GoPointer(), DuplexVar)
 }
 
@@ -651,6 +742,8 @@ var xPrintSettingsSetFinishings func(uintptr, string)
 
 // Sets the value of %GTK_PRINT_SETTINGS_FINISHINGS.
 func (x *PrintSettings) SetFinishings(FinishingsVar string) {
+	core.LazyRegister(&xPrintSettingsSetFinishings, "GTK", "gtk_print_settings_set_finishings", false)
+
 	xPrintSettingsSetFinishings(x.GoPointer(), FinishingsVar)
 }
 
@@ -658,6 +751,8 @@ var xPrintSettingsSetInt func(uintptr, string, int)
 
 // Sets @key to an integer value.
 func (x *PrintSettings) SetInt(KeyVar string, ValueVar int) {
+	core.LazyRegister(&xPrintSettingsSetInt, "GTK", "gtk_print_settings_set_int", false)
+
 	xPrintSettingsSetInt(x.GoPointer(), KeyVar, ValueVar)
 }
 
@@ -665,6 +760,8 @@ var xPrintSettingsSetLength func(uintptr, string, float64, Unit)
 
 // Associates a length in units of @unit with @key.
 func (x *PrintSettings) SetLength(KeyVar string, ValueVar float64, UnitVar Unit) {
+	core.LazyRegister(&xPrintSettingsSetLength, "GTK", "gtk_print_settings_set_length", false)
+
 	xPrintSettingsSetLength(x.GoPointer(), KeyVar, ValueVar, UnitVar)
 }
 
@@ -674,6 +771,8 @@ var xPrintSettingsSetMediaType func(uintptr, string)
 //
 // The set of media types is defined in PWG 5101.1-2002 PWG.
 func (x *PrintSettings) SetMediaType(MediaTypeVar string) {
+	core.LazyRegister(&xPrintSettingsSetMediaType, "GTK", "gtk_print_settings_set_media_type", false)
+
 	xPrintSettingsSetMediaType(x.GoPointer(), MediaTypeVar)
 }
 
@@ -681,6 +780,8 @@ var xPrintSettingsSetNCopies func(uintptr, int)
 
 // Sets the value of %GTK_PRINT_SETTINGS_N_COPIES.
 func (x *PrintSettings) SetNCopies(NumCopiesVar int) {
+	core.LazyRegister(&xPrintSettingsSetNCopies, "GTK", "gtk_print_settings_set_n_copies", false)
+
 	xPrintSettingsSetNCopies(x.GoPointer(), NumCopiesVar)
 }
 
@@ -688,6 +789,8 @@ var xPrintSettingsSetNumberUp func(uintptr, int)
 
 // Sets the value of %GTK_PRINT_SETTINGS_NUMBER_UP.
 func (x *PrintSettings) SetNumberUp(NumberUpVar int) {
+	core.LazyRegister(&xPrintSettingsSetNumberUp, "GTK", "gtk_print_settings_set_number_up", false)
+
 	xPrintSettingsSetNumberUp(x.GoPointer(), NumberUpVar)
 }
 
@@ -695,6 +798,8 @@ var xPrintSettingsSetNumberUpLayout func(uintptr, NumberUpLayout)
 
 // Sets the value of %GTK_PRINT_SETTINGS_NUMBER_UP_LAYOUT.
 func (x *PrintSettings) SetNumberUpLayout(NumberUpLayoutVar NumberUpLayout) {
+	core.LazyRegister(&xPrintSettingsSetNumberUpLayout, "GTK", "gtk_print_settings_set_number_up_layout", false)
+
 	xPrintSettingsSetNumberUpLayout(x.GoPointer(), NumberUpLayoutVar)
 }
 
@@ -702,6 +807,8 @@ var xPrintSettingsSetOrientation func(uintptr, PageOrientation)
 
 // Sets the value of %GTK_PRINT_SETTINGS_ORIENTATION.
 func (x *PrintSettings) SetOrientation(OrientationVar PageOrientation) {
+	core.LazyRegister(&xPrintSettingsSetOrientation, "GTK", "gtk_print_settings_set_orientation", false)
+
 	xPrintSettingsSetOrientation(x.GoPointer(), OrientationVar)
 }
 
@@ -709,6 +816,8 @@ var xPrintSettingsSetOutputBin func(uintptr, string)
 
 // Sets the value of %GTK_PRINT_SETTINGS_OUTPUT_BIN.
 func (x *PrintSettings) SetOutputBin(OutputBinVar string) {
+	core.LazyRegister(&xPrintSettingsSetOutputBin, "GTK", "gtk_print_settings_set_output_bin", false)
+
 	xPrintSettingsSetOutputBin(x.GoPointer(), OutputBinVar)
 }
 
@@ -716,6 +825,8 @@ var xPrintSettingsSetPageRanges func(uintptr, []PageRange, int)
 
 // Sets the value of %GTK_PRINT_SETTINGS_PAGE_RANGES.
 func (x *PrintSettings) SetPageRanges(PageRangesVar []PageRange, NumRangesVar int) {
+	core.LazyRegister(&xPrintSettingsSetPageRanges, "GTK", "gtk_print_settings_set_page_ranges", false)
+
 	xPrintSettingsSetPageRanges(x.GoPointer(), PageRangesVar, NumRangesVar)
 }
 
@@ -723,6 +834,8 @@ var xPrintSettingsSetPageSet func(uintptr, PageSet)
 
 // Sets the value of %GTK_PRINT_SETTINGS_PAGE_SET.
 func (x *PrintSettings) SetPageSet(PageSetVar PageSet) {
+	core.LazyRegister(&xPrintSettingsSetPageSet, "GTK", "gtk_print_settings_set_page_set", false)
+
 	xPrintSettingsSetPageSet(x.GoPointer(), PageSetVar)
 }
 
@@ -730,6 +843,8 @@ var xPrintSettingsSetPaperHeight func(uintptr, float64, Unit)
 
 // Sets the value of %GTK_PRINT_SETTINGS_PAPER_HEIGHT.
 func (x *PrintSettings) SetPaperHeight(HeightVar float64, UnitVar Unit) {
+	core.LazyRegister(&xPrintSettingsSetPaperHeight, "GTK", "gtk_print_settings_set_paper_height", false)
+
 	xPrintSettingsSetPaperHeight(x.GoPointer(), HeightVar, UnitVar)
 }
 
@@ -739,6 +854,8 @@ var xPrintSettingsSetPaperSize func(uintptr, *PaperSize)
 // %GTK_PRINT_SETTINGS_PAPER_WIDTH and
 // %GTK_PRINT_SETTINGS_PAPER_HEIGHT.
 func (x *PrintSettings) SetPaperSize(PaperSizeVar *PaperSize) {
+	core.LazyRegister(&xPrintSettingsSetPaperSize, "GTK", "gtk_print_settings_set_paper_size", false)
+
 	xPrintSettingsSetPaperSize(x.GoPointer(), PaperSizeVar)
 }
 
@@ -746,6 +863,8 @@ var xPrintSettingsSetPaperWidth func(uintptr, float64, Unit)
 
 // Sets the value of %GTK_PRINT_SETTINGS_PAPER_WIDTH.
 func (x *PrintSettings) SetPaperWidth(WidthVar float64, UnitVar Unit) {
+	core.LazyRegister(&xPrintSettingsSetPaperWidth, "GTK", "gtk_print_settings_set_paper_width", false)
+
 	xPrintSettingsSetPaperWidth(x.GoPointer(), WidthVar, UnitVar)
 }
 
@@ -753,6 +872,8 @@ var xPrintSettingsSetPrintPages func(uintptr, PrintPages)
 
 // Sets the value of %GTK_PRINT_SETTINGS_PRINT_PAGES.
 func (x *PrintSettings) SetPrintPages(PagesVar PrintPages) {
+	core.LazyRegister(&xPrintSettingsSetPrintPages, "GTK", "gtk_print_settings_set_print_pages", false)
+
 	xPrintSettingsSetPrintPages(x.GoPointer(), PagesVar)
 }
 
@@ -761,6 +882,8 @@ var xPrintSettingsSetPrinter func(uintptr, string)
 // Convenience function to set %GTK_PRINT_SETTINGS_PRINTER
 // to @printer.
 func (x *PrintSettings) SetPrinter(PrinterVar string) {
+	core.LazyRegister(&xPrintSettingsSetPrinter, "GTK", "gtk_print_settings_set_printer", false)
+
 	xPrintSettingsSetPrinter(x.GoPointer(), PrinterVar)
 }
 
@@ -768,6 +891,8 @@ var xPrintSettingsSetPrinterLpi func(uintptr, float64)
 
 // Sets the value of %GTK_PRINT_SETTINGS_PRINTER_LPI.
 func (x *PrintSettings) SetPrinterLpi(LpiVar float64) {
+	core.LazyRegister(&xPrintSettingsSetPrinterLpi, "GTK", "gtk_print_settings_set_printer_lpi", false)
+
 	xPrintSettingsSetPrinterLpi(x.GoPointer(), LpiVar)
 }
 
@@ -775,6 +900,8 @@ var xPrintSettingsSetQuality func(uintptr, PrintQuality)
 
 // Sets the value of %GTK_PRINT_SETTINGS_QUALITY.
 func (x *PrintSettings) SetQuality(QualityVar PrintQuality) {
+	core.LazyRegister(&xPrintSettingsSetQuality, "GTK", "gtk_print_settings_set_quality", false)
+
 	xPrintSettingsSetQuality(x.GoPointer(), QualityVar)
 }
 
@@ -784,6 +911,8 @@ var xPrintSettingsSetResolution func(uintptr, int)
 // %GTK_PRINT_SETTINGS_RESOLUTION_X and
 // %GTK_PRINT_SETTINGS_RESOLUTION_Y.
 func (x *PrintSettings) SetResolution(ResolutionVar int) {
+	core.LazyRegister(&xPrintSettingsSetResolution, "GTK", "gtk_print_settings_set_resolution", false)
+
 	xPrintSettingsSetResolution(x.GoPointer(), ResolutionVar)
 }
 
@@ -793,6 +922,8 @@ var xPrintSettingsSetResolutionXy func(uintptr, int, int)
 // %GTK_PRINT_SETTINGS_RESOLUTION_X and
 // %GTK_PRINT_SETTINGS_RESOLUTION_Y.
 func (x *PrintSettings) SetResolutionXy(ResolutionXVar int, ResolutionYVar int) {
+	core.LazyRegister(&xPrintSettingsSetResolutionXy, "GTK", "gtk_print_settings_set_resolution_xy", false)
+
 	xPrintSettingsSetResolutionXy(x.GoPointer(), ResolutionXVar, ResolutionYVar)
 }
 
@@ -800,6 +931,8 @@ var xPrintSettingsSetReverse func(uintptr, bool)
 
 // Sets the value of %GTK_PRINT_SETTINGS_REVERSE.
 func (x *PrintSettings) SetReverse(ReverseVar bool) {
+	core.LazyRegister(&xPrintSettingsSetReverse, "GTK", "gtk_print_settings_set_reverse", false)
+
 	xPrintSettingsSetReverse(x.GoPointer(), ReverseVar)
 }
 
@@ -807,6 +940,8 @@ var xPrintSettingsSetScale func(uintptr, float64)
 
 // Sets the value of %GTK_PRINT_SETTINGS_SCALE.
 func (x *PrintSettings) SetScale(ScaleVar float64) {
+	core.LazyRegister(&xPrintSettingsSetScale, "GTK", "gtk_print_settings_set_scale", false)
+
 	xPrintSettingsSetScale(x.GoPointer(), ScaleVar)
 }
 
@@ -814,6 +949,8 @@ var xPrintSettingsSetUseColor func(uintptr, bool)
 
 // Sets the value of %GTK_PRINT_SETTINGS_USE_COLOR.
 func (x *PrintSettings) SetUseColor(UseColorVar bool) {
+	core.LazyRegister(&xPrintSettingsSetUseColor, "GTK", "gtk_print_settings_set_use_color", false)
+
 	xPrintSettingsSetUseColor(x.GoPointer(), UseColorVar)
 }
 
@@ -824,6 +961,7 @@ var xPrintSettingsToFile func(uintptr, string, **glib.Error) bool
 // If the file could not be written then error is set to either a
 // `GFileError` or `GKeyFileError`.
 func (x *PrintSettings) ToFile(FileNameVar string) (bool, error) {
+	core.LazyRegister(&xPrintSettingsToFile, "GTK", "gtk_print_settings_to_file", false)
 	var cerr *glib.Error
 
 	cret := xPrintSettingsToFile(x.GoPointer(), FileNameVar, &cerr)
@@ -837,6 +975,8 @@ var xPrintSettingsToGvariant func(uintptr) uintptr
 
 // Serialize print settings to an a{sv} variant.
 func (x *PrintSettings) ToGvariant() *glib.Variant {
+	core.LazyRegister(&xPrintSettingsToGvariant, "GTK", "gtk_print_settings_to_gvariant", false)
+
 	cret := xPrintSettingsToGvariant(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -848,6 +988,8 @@ var xPrintSettingsToKeyFile func(uintptr, *glib.KeyFile, uintptr)
 
 // This function adds the print settings from @settings to @key_file.
 func (x *PrintSettings) ToKeyFile(KeyFileVar *glib.KeyFile, GroupNameVar *string) {
+	core.LazyRegister(&xPrintSettingsToKeyFile, "GTK", "gtk_print_settings_to_key_file", false)
+
 	GroupNameVarPtr := core.GStrdupNullable(GroupNameVar)
 	defer core.GFreeNullable(GroupNameVarPtr)
 
@@ -860,6 +1002,8 @@ var xPrintSettingsUnset func(uintptr, string)
 //
 // This has the same effect as setting the value to %NULL.
 func (x *PrintSettings) Unset(KeyVar string) {
+	core.LazyRegister(&xPrintSettingsUnset, "GTK", "gtk_print_settings_unset", false)
+
 	xPrintSettingsUnset(x.GoPointer(), KeyVar)
 }
 
@@ -877,92 +1021,4 @@ func (c *PrintSettings) SetGoPointer(ptr uintptr) {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GTK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xPrintSettingsGLibType, libs, "gtk_print_settings_get_type")
-
-	core.PuregoSafeRegister(&xNewPrintSettings, libs, "gtk_print_settings_new")
-	core.PuregoSafeRegister(&xNewPrintSettingsFromFile, libs, "gtk_print_settings_new_from_file")
-	core.PuregoSafeRegister(&xNewPrintSettingsFromGvariant, libs, "gtk_print_settings_new_from_gvariant")
-	core.PuregoSafeRegister(&xNewPrintSettingsFromKeyFile, libs, "gtk_print_settings_new_from_key_file")
-
-	core.PuregoSafeRegister(&xPrintSettingsCopy, libs, "gtk_print_settings_copy")
-	core.PuregoSafeRegister(&xPrintSettingsForeach, libs, "gtk_print_settings_foreach")
-	core.PuregoSafeRegister(&xPrintSettingsGet, libs, "gtk_print_settings_get")
-	core.PuregoSafeRegister(&xPrintSettingsGetBool, libs, "gtk_print_settings_get_bool")
-	core.PuregoSafeRegister(&xPrintSettingsGetCollate, libs, "gtk_print_settings_get_collate")
-	core.PuregoSafeRegister(&xPrintSettingsGetDefaultSource, libs, "gtk_print_settings_get_default_source")
-	core.PuregoSafeRegister(&xPrintSettingsGetDither, libs, "gtk_print_settings_get_dither")
-	core.PuregoSafeRegister(&xPrintSettingsGetDouble, libs, "gtk_print_settings_get_double")
-	core.PuregoSafeRegister(&xPrintSettingsGetDoubleWithDefault, libs, "gtk_print_settings_get_double_with_default")
-	core.PuregoSafeRegister(&xPrintSettingsGetDuplex, libs, "gtk_print_settings_get_duplex")
-	core.PuregoSafeRegister(&xPrintSettingsGetFinishings, libs, "gtk_print_settings_get_finishings")
-	core.PuregoSafeRegister(&xPrintSettingsGetInt, libs, "gtk_print_settings_get_int")
-	core.PuregoSafeRegister(&xPrintSettingsGetIntWithDefault, libs, "gtk_print_settings_get_int_with_default")
-	core.PuregoSafeRegister(&xPrintSettingsGetLength, libs, "gtk_print_settings_get_length")
-	core.PuregoSafeRegister(&xPrintSettingsGetMediaType, libs, "gtk_print_settings_get_media_type")
-	core.PuregoSafeRegister(&xPrintSettingsGetNCopies, libs, "gtk_print_settings_get_n_copies")
-	core.PuregoSafeRegister(&xPrintSettingsGetNumberUp, libs, "gtk_print_settings_get_number_up")
-	core.PuregoSafeRegister(&xPrintSettingsGetNumberUpLayout, libs, "gtk_print_settings_get_number_up_layout")
-	core.PuregoSafeRegister(&xPrintSettingsGetOrientation, libs, "gtk_print_settings_get_orientation")
-	core.PuregoSafeRegister(&xPrintSettingsGetOutputBin, libs, "gtk_print_settings_get_output_bin")
-	core.PuregoSafeRegister(&xPrintSettingsGetPageRanges, libs, "gtk_print_settings_get_page_ranges")
-	core.PuregoSafeRegister(&xPrintSettingsGetPageSet, libs, "gtk_print_settings_get_page_set")
-	core.PuregoSafeRegister(&xPrintSettingsGetPaperHeight, libs, "gtk_print_settings_get_paper_height")
-	core.PuregoSafeRegister(&xPrintSettingsGetPaperSize, libs, "gtk_print_settings_get_paper_size")
-	core.PuregoSafeRegister(&xPrintSettingsGetPaperWidth, libs, "gtk_print_settings_get_paper_width")
-	core.PuregoSafeRegister(&xPrintSettingsGetPrintPages, libs, "gtk_print_settings_get_print_pages")
-	core.PuregoSafeRegister(&xPrintSettingsGetPrinter, libs, "gtk_print_settings_get_printer")
-	core.PuregoSafeRegister(&xPrintSettingsGetPrinterLpi, libs, "gtk_print_settings_get_printer_lpi")
-	core.PuregoSafeRegister(&xPrintSettingsGetQuality, libs, "gtk_print_settings_get_quality")
-	core.PuregoSafeRegister(&xPrintSettingsGetResolution, libs, "gtk_print_settings_get_resolution")
-	core.PuregoSafeRegister(&xPrintSettingsGetResolutionX, libs, "gtk_print_settings_get_resolution_x")
-	core.PuregoSafeRegister(&xPrintSettingsGetResolutionY, libs, "gtk_print_settings_get_resolution_y")
-	core.PuregoSafeRegister(&xPrintSettingsGetReverse, libs, "gtk_print_settings_get_reverse")
-	core.PuregoSafeRegister(&xPrintSettingsGetScale, libs, "gtk_print_settings_get_scale")
-	core.PuregoSafeRegister(&xPrintSettingsGetUseColor, libs, "gtk_print_settings_get_use_color")
-	core.PuregoSafeRegister(&xPrintSettingsHasKey, libs, "gtk_print_settings_has_key")
-	core.PuregoSafeRegister(&xPrintSettingsLoadFile, libs, "gtk_print_settings_load_file")
-	core.PuregoSafeRegister(&xPrintSettingsLoadKeyFile, libs, "gtk_print_settings_load_key_file")
-	core.PuregoSafeRegister(&xPrintSettingsSet, libs, "gtk_print_settings_set")
-	core.PuregoSafeRegister(&xPrintSettingsSetBool, libs, "gtk_print_settings_set_bool")
-	core.PuregoSafeRegister(&xPrintSettingsSetCollate, libs, "gtk_print_settings_set_collate")
-	core.PuregoSafeRegister(&xPrintSettingsSetDefaultSource, libs, "gtk_print_settings_set_default_source")
-	core.PuregoSafeRegister(&xPrintSettingsSetDither, libs, "gtk_print_settings_set_dither")
-	core.PuregoSafeRegister(&xPrintSettingsSetDouble, libs, "gtk_print_settings_set_double")
-	core.PuregoSafeRegister(&xPrintSettingsSetDuplex, libs, "gtk_print_settings_set_duplex")
-	core.PuregoSafeRegister(&xPrintSettingsSetFinishings, libs, "gtk_print_settings_set_finishings")
-	core.PuregoSafeRegister(&xPrintSettingsSetInt, libs, "gtk_print_settings_set_int")
-	core.PuregoSafeRegister(&xPrintSettingsSetLength, libs, "gtk_print_settings_set_length")
-	core.PuregoSafeRegister(&xPrintSettingsSetMediaType, libs, "gtk_print_settings_set_media_type")
-	core.PuregoSafeRegister(&xPrintSettingsSetNCopies, libs, "gtk_print_settings_set_n_copies")
-	core.PuregoSafeRegister(&xPrintSettingsSetNumberUp, libs, "gtk_print_settings_set_number_up")
-	core.PuregoSafeRegister(&xPrintSettingsSetNumberUpLayout, libs, "gtk_print_settings_set_number_up_layout")
-	core.PuregoSafeRegister(&xPrintSettingsSetOrientation, libs, "gtk_print_settings_set_orientation")
-	core.PuregoSafeRegister(&xPrintSettingsSetOutputBin, libs, "gtk_print_settings_set_output_bin")
-	core.PuregoSafeRegister(&xPrintSettingsSetPageRanges, libs, "gtk_print_settings_set_page_ranges")
-	core.PuregoSafeRegister(&xPrintSettingsSetPageSet, libs, "gtk_print_settings_set_page_set")
-	core.PuregoSafeRegister(&xPrintSettingsSetPaperHeight, libs, "gtk_print_settings_set_paper_height")
-	core.PuregoSafeRegister(&xPrintSettingsSetPaperSize, libs, "gtk_print_settings_set_paper_size")
-	core.PuregoSafeRegister(&xPrintSettingsSetPaperWidth, libs, "gtk_print_settings_set_paper_width")
-	core.PuregoSafeRegister(&xPrintSettingsSetPrintPages, libs, "gtk_print_settings_set_print_pages")
-	core.PuregoSafeRegister(&xPrintSettingsSetPrinter, libs, "gtk_print_settings_set_printer")
-	core.PuregoSafeRegister(&xPrintSettingsSetPrinterLpi, libs, "gtk_print_settings_set_printer_lpi")
-	core.PuregoSafeRegister(&xPrintSettingsSetQuality, libs, "gtk_print_settings_set_quality")
-	core.PuregoSafeRegister(&xPrintSettingsSetResolution, libs, "gtk_print_settings_set_resolution")
-	core.PuregoSafeRegister(&xPrintSettingsSetResolutionXy, libs, "gtk_print_settings_set_resolution_xy")
-	core.PuregoSafeRegister(&xPrintSettingsSetReverse, libs, "gtk_print_settings_set_reverse")
-	core.PuregoSafeRegister(&xPrintSettingsSetScale, libs, "gtk_print_settings_set_scale")
-	core.PuregoSafeRegister(&xPrintSettingsSetUseColor, libs, "gtk_print_settings_set_use_color")
-	core.PuregoSafeRegister(&xPrintSettingsToFile, libs, "gtk_print_settings_to_file")
-	core.PuregoSafeRegister(&xPrintSettingsToGvariant, libs, "gtk_print_settings_to_gvariant")
-	core.PuregoSafeRegister(&xPrintSettingsToKeyFile, libs, "gtk_print_settings_to_key_file")
-	core.PuregoSafeRegister(&xPrintSettingsUnset, libs, "gtk_print_settings_unset")
 }

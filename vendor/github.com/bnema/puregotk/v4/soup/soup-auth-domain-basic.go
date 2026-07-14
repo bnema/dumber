@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -58,6 +57,7 @@ type AuthDomainBasic struct {
 var xAuthDomainBasicGLibType func() types.GType
 
 func AuthDomainBasicGLibType() types.GType {
+	core.LazyRegister(&xAuthDomainBasicGLibType, "SOUP", "soup_auth_domain_basic_get_type", false)
 	return xAuthDomainBasicGLibType()
 }
 
@@ -75,6 +75,7 @@ var xNewAuthDomainBasic func(string, ...interface{}) uintptr
 // name to be returned with the authentication challenge to the client. Other
 // parameters are optional.
 func NewAuthDomainBasic(Optname1Var string, varArgs ...interface{}) *AuthDomainBasic {
+	core.LazyRegister(&xNewAuthDomainBasic, "SOUP", "soup_auth_domain_basic_new", false)
 	var cls *AuthDomainBasic
 
 	cret := xNewAuthDomainBasic(Optname1Var, varArgs...)
@@ -101,6 +102,8 @@ var xAuthDomainBasicSetAuthCallback func(uintptr, uintptr, uintptr, uintptr)
 // [property@AuthDomainBasic:auth-data] properties, which can also be used to
 // set the callback at construct time.
 func (x *AuthDomainBasic) SetAuthCallback(CallbackVar *AuthDomainBasicAuthCallback, UserDataVar uintptr, DnotifyVar *glib.DestroyNotify) {
+	core.LazyRegister(&xAuthDomainBasicSetAuthCallback, "SOUP", "soup_auth_domain_basic_set_auth_callback", false)
+
 	xAuthDomainBasicSetAuthCallback(x.GoPointer(), glib.NewCallback(CallbackVar), UserDataVar, glib.NewCallbackNullable(DnotifyVar))
 }
 
@@ -135,18 +138,4 @@ func (x *AuthDomainBasic) GetPropertyAuthData() uintptr {
 func init() {
 	core.SetPackageName("SOUP", "libsoup-3.0")
 	core.SetSharedLibraries("SOUP", []string{"libsoup-3.0.so.0", "libsoup-3.0.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("SOUP") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xAuthDomainBasicGLibType, libs, "soup_auth_domain_basic_get_type")
-
-	core.PuregoSafeRegister(&xNewAuthDomainBasic, libs, "soup_auth_domain_basic_new")
-
-	core.PuregoSafeRegister(&xAuthDomainBasicSetAuthCallback, libs, "soup_auth_domain_basic_set_auth_callback")
 }

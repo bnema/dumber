@@ -2,7 +2,6 @@
 package gtk
 
 import (
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gdk"
 	"github.com/bnema/puregotk/v4/gdkpixbuf"
@@ -24,6 +23,7 @@ type ImageType int
 var xImageTypeGLibType func() types.GType
 
 func ImageTypeGLibType() types.GType {
+	core.LazyRegister(&xImageTypeGLibType, "GTK", "gtk_image_type_get_type", false)
 	return xImageTypeGLibType()
 }
 
@@ -90,6 +90,7 @@ type Image struct {
 var xImageGLibType func() types.GType
 
 func ImageGLibType() types.GType {
+	core.LazyRegister(&xImageGLibType, "GTK", "gtk_image_get_type", false)
 	return xImageGLibType()
 }
 
@@ -103,6 +104,7 @@ var xNewImage func() uintptr
 
 // Creates a new empty `GtkImage` widget.
 func NewImage() *Image {
+	core.LazyRegister(&xNewImage, "GTK", "gtk_image_new", false)
 	var cls *Image
 
 	cret := xNewImage()
@@ -132,6 +134,7 @@ var xNewImageFromFile func(string) uintptr
 // of the returned image is not defined, it will be whatever
 // is appropriate for displaying the file.
 func NewImageFromFile(FilenameVar string) *Image {
+	core.LazyRegister(&xNewImageFromFile, "GTK", "gtk_image_new_from_file", false)
 	var cls *Image
 
 	cret := xNewImageFromFile(FilenameVar)
@@ -153,6 +156,7 @@ var xNewImageFromGicon func(uintptr) uintptr
 // displayed instead. If the current icon theme is changed, the icon
 // will be updated appropriately.
 func NewImageFromGicon(IconVar gio.Icon) *Image {
+	core.LazyRegister(&xNewImageFromGicon, "GTK", "gtk_image_new_from_gicon", false)
 	var cls *Image
 
 	cret := xNewImageFromGicon(IconVar.GoPointer())
@@ -174,6 +178,7 @@ var xNewImageFromIconName func(uintptr) uintptr
 // displayed instead. If the current icon theme is changed, the icon
 // will be updated appropriately.
 func NewImageFromIconName(IconNameVar *string) *Image {
+	core.LazyRegister(&xNewImageFromIconName, "GTK", "gtk_image_new_from_icon_name", false)
 	var cls *Image
 
 	IconNameVarPtr := core.GStrdupNullable(IconNameVar)
@@ -208,6 +213,7 @@ var xNewImageFromPaintable func(uintptr) uintptr
 // If @paintable is a [iface@Gtk.SymbolicPaintable], then it will be
 // recolored with the symbolic palette from the theme.
 func NewImageFromPaintable(PaintableVar gdk.Paintable) *Image {
+	core.LazyRegister(&xNewImageFromPaintable, "GTK", "gtk_image_new_from_paintable", false)
 	var cls *Image
 
 	cret := xNewImageFromPaintable(PaintableVar.GoPointer())
@@ -236,6 +242,7 @@ var xNewImageFromPixbuf func(uintptr) uintptr
 // The `GtkImage` created will not react to state changes. Should you
 // want that, you should use [ctor@Gtk.Image.new_from_icon_name].
 func NewImageFromPixbuf(PixbufVar *gdkpixbuf.Pixbuf) *Image {
+	core.LazyRegister(&xNewImageFromPixbuf, "GTK", "gtk_image_new_from_pixbuf", false)
 	var cls *Image
 
 	cret := xNewImageFromPixbuf(PixbufVar.GoPointer())
@@ -265,6 +272,7 @@ var xNewImageFromResource func(string) uintptr
 // the returned image is not defined, it will be whatever is
 // appropriate for displaying the file.
 func NewImageFromResource(ResourcePathVar string) *Image {
+	core.LazyRegister(&xNewImageFromResource, "GTK", "gtk_image_new_from_resource", false)
 	var cls *Image
 
 	cret := xNewImageFromResource(ResourcePathVar)
@@ -282,6 +290,8 @@ var xImageClear func(uintptr)
 
 // Resets the image to be empty.
 func (x *Image) Clear() {
+	core.LazyRegister(&xImageClear, "GTK", "gtk_image_clear", false)
+
 	xImageClear(x.GoPointer())
 }
 
@@ -294,6 +304,7 @@ var xImageGetGicon func(uintptr) uintptr
 // The caller of this function does not own a reference to the
 // returned `GIcon`.
 func (x *Image) GetGicon() *gio.IconBase {
+	core.LazyRegister(&xImageGetGicon, "GTK", "gtk_image_get_gicon", false)
 	var cls *gio.IconBase
 
 	cret := xImageGetGicon(x.GoPointer())
@@ -316,6 +327,8 @@ var xImageGetIconName func(uintptr) string
 // The returned string is owned by the `GtkImage` and should not
 // be freed.
 func (x *Image) GetIconName() string {
+	core.LazyRegister(&xImageGetIconName, "GTK", "gtk_image_get_icon_name", false)
+
 	cret := xImageGetIconName(x.GoPointer())
 	return cret
 }
@@ -324,6 +337,8 @@ var xImageGetIconSize func(uintptr) IconSize
 
 // Gets the icon size used by the @image when rendering icons.
 func (x *Image) GetIconSize() IconSize {
+	core.LazyRegister(&xImageGetIconSize, "GTK", "gtk_image_get_icon_size", false)
+
 	cret := xImageGetIconSize(x.GoPointer())
 	return cret
 }
@@ -337,6 +352,7 @@ var xImageGetPaintable func(uintptr) uintptr
 // The caller of this function does not own a reference to the
 // returned paintable.
 func (x *Image) GetPaintable() *gdk.PaintableBase {
+	core.LazyRegister(&xImageGetPaintable, "GTK", "gtk_image_get_paintable", false)
 	var cls *gdk.PaintableBase
 
 	cret := xImageGetPaintable(x.GoPointer())
@@ -354,6 +370,8 @@ var xImageGetPixelSize func(uintptr) int
 
 // Gets the pixel size used for named icons.
 func (x *Image) GetPixelSize() int {
+	core.LazyRegister(&xImageGetPixelSize, "GTK", "gtk_image_get_pixel_size", false)
+
 	cret := xImageGetPixelSize(x.GoPointer())
 	return cret
 }
@@ -366,6 +384,8 @@ var xImageGetStorageType func(uintptr) ImageType
 // If the `GtkImage` has no image data, the return value will
 // be %GTK_IMAGE_EMPTY.
 func (x *Image) GetStorageType() ImageType {
+	core.LazyRegister(&xImageGetStorageType, "GTK", "gtk_image_get_storage_type", false)
+
 	cret := xImageGetStorageType(x.GoPointer())
 	return cret
 }
@@ -383,6 +403,8 @@ var xImageSetFromFile func(uintptr, uintptr)
 //	load many image formats into a `GdkTexture`, and then use
 //	[method@Gtk.Image.set_from_paintable].
 func (x *Image) SetFromFile(FilenameVar *string) {
+	core.LazyRegister(&xImageSetFromFile, "GTK", "gtk_image_set_from_file", false)
+
 	FilenameVarPtr := core.GStrdupNullable(FilenameVar)
 	defer core.GFreeNullable(FilenameVarPtr)
 
@@ -395,6 +417,8 @@ var xImageSetFromGicon func(uintptr, uintptr)
 //
 // See [ctor@Gtk.Image.new_from_gicon] for details.
 func (x *Image) SetFromGicon(IconVar gio.Icon) {
+	core.LazyRegister(&xImageSetFromGicon, "GTK", "gtk_image_set_from_gicon", false)
+
 	xImageSetFromGicon(x.GoPointer(), IconVar.GoPointer())
 }
 
@@ -404,6 +428,8 @@ var xImageSetFromIconName func(uintptr, uintptr)
 //
 // See [ctor@Gtk.Image.new_from_icon_name] for details.
 func (x *Image) SetFromIconName(IconNameVar *string) {
+	core.LazyRegister(&xImageSetFromIconName, "GTK", "gtk_image_set_from_icon_name", false)
+
 	IconNameVarPtr := core.GStrdupNullable(IconNameVar)
 	defer core.GFreeNullable(IconNameVarPtr)
 
@@ -416,6 +442,8 @@ var xImageSetFromPaintable func(uintptr, uintptr)
 //
 // See [ctor@Gtk.Image.new_from_paintable] for details.
 func (x *Image) SetFromPaintable(PaintableVar gdk.Paintable) {
+	core.LazyRegister(&xImageSetFromPaintable, "GTK", "gtk_image_set_from_paintable", false)
+
 	xImageSetFromPaintable(x.GoPointer(), PaintableVar.GoPointer())
 }
 
@@ -429,6 +457,8 @@ var xImageSetFromPixbuf func(uintptr, uintptr)
 // and you can't get back the exact pixbuf once this is called,
 // only a paintable.
 func (x *Image) SetFromPixbuf(PixbufVar *gdkpixbuf.Pixbuf) {
+	core.LazyRegister(&xImageSetFromPixbuf, "GTK", "gtk_image_set_from_pixbuf", false)
+
 	xImageSetFromPixbuf(x.GoPointer(), PixbufVar.GoPointer())
 }
 
@@ -438,6 +468,8 @@ var xImageSetFromResource func(uintptr, uintptr)
 //
 // See [ctor@Gtk.Image.new_from_resource] for details.
 func (x *Image) SetFromResource(ResourcePathVar *string) {
+	core.LazyRegister(&xImageSetFromResource, "GTK", "gtk_image_set_from_resource", false)
+
 	ResourcePathVarPtr := core.GStrdupNullable(ResourcePathVar)
 	defer core.GFreeNullable(ResourcePathVarPtr)
 
@@ -448,6 +480,8 @@ var xImageSetIconSize func(uintptr, IconSize)
 
 // Suggests an icon size to the theme for named icons.
 func (x *Image) SetIconSize(IconSizeVar IconSize) {
+	core.LazyRegister(&xImageSetIconSize, "GTK", "gtk_image_set_icon_size", false)
+
 	xImageSetIconSize(x.GoPointer(), IconSizeVar)
 }
 
@@ -458,6 +492,8 @@ var xImageSetPixelSize func(uintptr, int)
 // If the pixel size is set to a value != -1, it is used instead
 // of the icon size set by [method@Gtk.Image.set_icon_size].
 func (x *Image) SetPixelSize(PixelSizeVar int) {
+	core.LazyRegister(&xImageSetPixelSize, "GTK", "gtk_image_set_pixel_size", false)
+
 	xImageSetPixelSize(x.GoPointer(), PixelSizeVar)
 }
 
@@ -840,40 +876,4 @@ func (x *Image) GetBuildableId() string {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GTK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xImageTypeGLibType, libs, "gtk_image_type_get_type")
-
-	core.PuregoSafeRegister(&xImageGLibType, libs, "gtk_image_get_type")
-
-	core.PuregoSafeRegister(&xNewImage, libs, "gtk_image_new")
-	core.PuregoSafeRegister(&xNewImageFromFile, libs, "gtk_image_new_from_file")
-	core.PuregoSafeRegister(&xNewImageFromGicon, libs, "gtk_image_new_from_gicon")
-	core.PuregoSafeRegister(&xNewImageFromIconName, libs, "gtk_image_new_from_icon_name")
-	core.PuregoSafeRegister(&xNewImageFromPaintable, libs, "gtk_image_new_from_paintable")
-	core.PuregoSafeRegister(&xNewImageFromPixbuf, libs, "gtk_image_new_from_pixbuf")
-	core.PuregoSafeRegister(&xNewImageFromResource, libs, "gtk_image_new_from_resource")
-
-	core.PuregoSafeRegister(&xImageClear, libs, "gtk_image_clear")
-	core.PuregoSafeRegister(&xImageGetGicon, libs, "gtk_image_get_gicon")
-	core.PuregoSafeRegister(&xImageGetIconName, libs, "gtk_image_get_icon_name")
-	core.PuregoSafeRegister(&xImageGetIconSize, libs, "gtk_image_get_icon_size")
-	core.PuregoSafeRegister(&xImageGetPaintable, libs, "gtk_image_get_paintable")
-	core.PuregoSafeRegister(&xImageGetPixelSize, libs, "gtk_image_get_pixel_size")
-	core.PuregoSafeRegister(&xImageGetStorageType, libs, "gtk_image_get_storage_type")
-	core.PuregoSafeRegister(&xImageSetFromFile, libs, "gtk_image_set_from_file")
-	core.PuregoSafeRegister(&xImageSetFromGicon, libs, "gtk_image_set_from_gicon")
-	core.PuregoSafeRegister(&xImageSetFromIconName, libs, "gtk_image_set_from_icon_name")
-	core.PuregoSafeRegister(&xImageSetFromPaintable, libs, "gtk_image_set_from_paintable")
-	core.PuregoSafeRegister(&xImageSetFromPixbuf, libs, "gtk_image_set_from_pixbuf")
-	core.PuregoSafeRegister(&xImageSetFromResource, libs, "gtk_image_set_from_resource")
-	core.PuregoSafeRegister(&xImageSetIconSize, libs, "gtk_image_set_icon_size")
-	core.PuregoSafeRegister(&xImageSetPixelSize, libs, "gtk_image_set_pixel_size")
 }

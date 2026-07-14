@@ -51,7 +51,7 @@ func (x *BufferedInputStreamClass) OverrideFill(cb func(*BufferedInputStream, in
 	if cb == nil {
 		x.xFill = 0
 	} else {
-		x.xFill = purego.NewCallback(func(StreamVarp uintptr, CountVarp int, CancellableVarp uintptr) int {
+		x.xFill = purego.NewCallback(func(StreamVarp uintptr, CountVarp int, CancellableVarp uintptr, cerrp **glib.Error) int {
 			return cb(BufferedInputStreamNewFromInternalPtr(StreamVarp), CountVarp, CancellableNewFromInternalPtr(CancellableVarp))
 		})
 	}
@@ -62,10 +62,11 @@ func (x *BufferedInputStreamClass) GetFill() func(*BufferedInputStream, int, *Ca
 	if x.xFill == 0 {
 		return nil
 	}
-	var rawCallback func(StreamVarp uintptr, CountVarp int, CancellableVarp uintptr) int
+	var rawCallback func(StreamVarp uintptr, CountVarp int, CancellableVarp uintptr, cerrp **glib.Error) int
 	purego.RegisterFunc(&rawCallback, x.xFill)
 	return func(StreamVar *BufferedInputStream, CountVar int, CancellableVar *Cancellable) int {
-		return rawCallback(StreamVar.GoPointer(), CountVar, CancellableVar.GoPointer())
+		var cerr *glib.Error
+		return rawCallback(StreamVar.GoPointer(), CountVar, CancellableVar.GoPointer(), &cerr)
 	}
 }
 
@@ -97,7 +98,7 @@ func (x *BufferedInputStreamClass) OverrideFillFinish(cb func(*BufferedInputStre
 	if cb == nil {
 		x.xFillFinish = 0
 	} else {
-		x.xFillFinish = purego.NewCallback(func(StreamVarp uintptr, ResultVarp uintptr) int {
+		x.xFillFinish = purego.NewCallback(func(StreamVarp uintptr, ResultVarp uintptr, cerrp **glib.Error) int {
 			return cb(BufferedInputStreamNewFromInternalPtr(StreamVarp), &AsyncResultBase{Ptr: ResultVarp})
 		})
 	}
@@ -108,10 +109,11 @@ func (x *BufferedInputStreamClass) GetFillFinish() func(*BufferedInputStream, As
 	if x.xFillFinish == 0 {
 		return nil
 	}
-	var rawCallback func(StreamVarp uintptr, ResultVarp uintptr) int
+	var rawCallback func(StreamVarp uintptr, ResultVarp uintptr, cerrp **glib.Error) int
 	purego.RegisterFunc(&rawCallback, x.xFillFinish)
 	return func(StreamVar *BufferedInputStream, ResultVar AsyncResult) int {
-		return rawCallback(StreamVar.GoPointer(), ResultVar.GoPointer())
+		var cerr *glib.Error
+		return rawCallback(StreamVar.GoPointer(), ResultVar.GoPointer(), &cerr)
 	}
 }
 
@@ -266,6 +268,7 @@ type BufferedInputStream struct {
 var xBufferedInputStreamGLibType func() types.GType
 
 func BufferedInputStreamGLibType() types.GType {
+	core.LazyRegister(&xBufferedInputStreamGLibType, "GIO", "g_buffered_input_stream_get_type", false)
 	return xBufferedInputStreamGLibType()
 }
 
@@ -280,6 +283,7 @@ var xNewBufferedInputStream func(uintptr) uintptr
 // Creates a new [class@Gio.InputStream] from the given @base_stream, with
 // a buffer set to the default size (4 kilobytes).
 func NewBufferedInputStream(BaseStreamVar *InputStream) *BufferedInputStream {
+	core.LazyRegister(&xNewBufferedInputStream, "GIO", "g_buffered_input_stream_new", false)
 	var cls *BufferedInputStream
 
 	cret := xNewBufferedInputStream(BaseStreamVar.GoPointer())
@@ -297,6 +301,7 @@ var xNewBufferedInputStreamSized func(uintptr, uint) uintptr
 // Creates a new [class@Gio.BufferedInputStream] from the given @base_stream,
 // with a buffer set to @size.
 func NewBufferedInputStreamSized(BaseStreamVar *InputStream, SizeVar uint) *BufferedInputStream {
+	core.LazyRegister(&xNewBufferedInputStreamSized, "GIO", "g_buffered_input_stream_new_sized", false)
 	var cls *BufferedInputStream
 
 	cret := xNewBufferedInputStreamSized(BaseStreamVar.GoPointer(), SizeVar)
@@ -337,6 +342,7 @@ var xBufferedInputStreamFill func(uintptr, int, uintptr, **glib.Error) int
 // For the asynchronous, non-blocking, version of this function, see
 // [method@Gio.BufferedInputStream.fill_async].
 func (x *BufferedInputStream) Fill(CountVar int, CancellableVar *Cancellable) (int, error) {
+	core.LazyRegister(&xBufferedInputStreamFill, "GIO", "g_buffered_input_stream_fill", false)
 	var cerr *glib.Error
 
 	cret := xBufferedInputStreamFill(x.GoPointer(), CountVar, CancellableVar.GoPointer(), &cerr)
@@ -355,6 +361,8 @@ var xBufferedInputStreamFillAsync func(uintptr, int, int, uintptr, uintptr, uint
 // If @count is `-1` then the attempted read size is equal to the number
 // of bytes that are required to fill the buffer.
 func (x *BufferedInputStream) FillAsync(CountVar int, IoPriorityVar int, CancellableVar *Cancellable, CallbackVar *AsyncReadyCallback, UserDataVar uintptr) {
+	core.LazyRegister(&xBufferedInputStreamFillAsync, "GIO", "g_buffered_input_stream_fill_async", false)
+
 	xBufferedInputStreamFillAsync(x.GoPointer(), CountVar, IoPriorityVar, CancellableVar.GoPointer(), glib.NewCallbackNullable(CallbackVar), UserDataVar)
 }
 
@@ -362,6 +370,7 @@ var xBufferedInputStreamFillFinish func(uintptr, uintptr, **glib.Error) int
 
 // Finishes an asynchronous read.
 func (x *BufferedInputStream) FillFinish(ResultVar AsyncResult) (int, error) {
+	core.LazyRegister(&xBufferedInputStreamFillFinish, "GIO", "g_buffered_input_stream_fill_finish", false)
 	var cerr *glib.Error
 
 	cret := xBufferedInputStreamFillFinish(x.GoPointer(), ResultVar.GoPointer(), &cerr)
@@ -375,6 +384,8 @@ var xBufferedInputStreamGetAvailable func(uintptr) uint
 
 // Gets the size of the available data within the stream.
 func (x *BufferedInputStream) GetAvailable() uint {
+	core.LazyRegister(&xBufferedInputStreamGetAvailable, "GIO", "g_buffered_input_stream_get_available", false)
+
 	cret := xBufferedInputStreamGetAvailable(x.GoPointer())
 	return cret
 }
@@ -383,6 +394,8 @@ var xBufferedInputStreamGetBufferSize func(uintptr) uint
 
 // Gets the size of the input buffer.
 func (x *BufferedInputStream) GetBufferSize() uint {
+	core.LazyRegister(&xBufferedInputStreamGetBufferSize, "GIO", "g_buffered_input_stream_get_buffer_size", false)
+
 	cret := xBufferedInputStreamGetBufferSize(x.GoPointer())
 	return cret
 }
@@ -392,6 +405,8 @@ var xBufferedInputStreamPeek func(uintptr, []byte, uint, uint) uint
 // Peeks in the buffered input, copying @count bytes of data from @offset bytes
 // in the buffered input into @buffer.
 func (x *BufferedInputStream) Peek(BufferVar []byte, OffsetVar uint, CountVar uint) uint {
+	core.LazyRegister(&xBufferedInputStreamPeek, "GIO", "g_buffered_input_stream_peek", false)
+
 	cret := xBufferedInputStreamPeek(x.GoPointer(), BufferVar, OffsetVar, CountVar)
 	return cret
 }
@@ -402,6 +417,8 @@ var xBufferedInputStreamPeekBuffer func(uintptr, *uint) uintptr
 // buffer must not be modified and will become invalid when reading from
 // the stream or filling the buffer.
 func (x *BufferedInputStream) PeekBuffer(CountVar *uint) uintptr {
+	core.LazyRegister(&xBufferedInputStreamPeekBuffer, "GIO", "g_buffered_input_stream_peek_buffer", false)
+
 	cret := xBufferedInputStreamPeekBuffer(x.GoPointer(), CountVar)
 	return cret
 }
@@ -422,6 +439,7 @@ var xBufferedInputStreamBufferedInputStreamReadByte func(uintptr, uintptr, **gli
 //
 // On error `-1` is returned and @error is set accordingly.
 func (x *BufferedInputStream) BufferedInputStreamReadByte(CancellableVar *Cancellable) (int, error) {
+	core.LazyRegister(&xBufferedInputStreamBufferedInputStreamReadByte, "GIO", "g_buffered_input_stream_read_byte", false)
 	var cerr *glib.Error
 
 	cret := xBufferedInputStreamBufferedInputStreamReadByte(x.GoPointer(), CancellableVar.GoPointer(), &cerr)
@@ -437,6 +455,8 @@ var xBufferedInputStreamSetBufferSize func(uintptr, uint)
 // size of the contents of the buffer. The buffer can never be resized
 // smaller than its current contents.
 func (x *BufferedInputStream) SetBufferSize(SizeVar uint) {
+	core.LazyRegister(&xBufferedInputStreamSetBufferSize, "GIO", "g_buffered_input_stream_set_buffer_size", false)
+
 	xBufferedInputStreamSetBufferSize(x.GoPointer(), SizeVar)
 }
 
@@ -533,27 +553,4 @@ func (x *BufferedInputStream) Truncate(OffsetVar int64, CancellableVar *Cancella
 func init() {
 	core.SetPackageName("GIO", "gio-2.0")
 	core.SetSharedLibraries("GIO", []string{"libgio-2.0.so.0", "libgio-2.0.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GIO") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xBufferedInputStreamGLibType, libs, "g_buffered_input_stream_get_type")
-
-	core.PuregoSafeRegister(&xNewBufferedInputStream, libs, "g_buffered_input_stream_new")
-	core.PuregoSafeRegister(&xNewBufferedInputStreamSized, libs, "g_buffered_input_stream_new_sized")
-
-	core.PuregoSafeRegister(&xBufferedInputStreamFill, libs, "g_buffered_input_stream_fill")
-	core.PuregoSafeRegister(&xBufferedInputStreamFillAsync, libs, "g_buffered_input_stream_fill_async")
-	core.PuregoSafeRegister(&xBufferedInputStreamFillFinish, libs, "g_buffered_input_stream_fill_finish")
-	core.PuregoSafeRegister(&xBufferedInputStreamGetAvailable, libs, "g_buffered_input_stream_get_available")
-	core.PuregoSafeRegister(&xBufferedInputStreamGetBufferSize, libs, "g_buffered_input_stream_get_buffer_size")
-	core.PuregoSafeRegister(&xBufferedInputStreamPeek, libs, "g_buffered_input_stream_peek")
-	core.PuregoSafeRegister(&xBufferedInputStreamPeekBuffer, libs, "g_buffered_input_stream_peek_buffer")
-	core.PuregoSafeRegister(&xBufferedInputStreamBufferedInputStreamReadByte, libs, "g_buffered_input_stream_read_byte")
-	core.PuregoSafeRegister(&xBufferedInputStreamSetBufferSize, libs, "g_buffered_input_stream_set_buffer_size")
 }

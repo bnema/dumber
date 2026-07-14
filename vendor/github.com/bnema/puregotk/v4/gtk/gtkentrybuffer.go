@@ -397,6 +397,7 @@ type EntryBuffer struct {
 var xEntryBufferGLibType func() types.GType
 
 func EntryBufferGLibType() types.GType {
+	core.LazyRegister(&xEntryBufferGLibType, "GTK", "gtk_entry_buffer_get_type", false)
 	return xEntryBufferGLibType()
 }
 
@@ -412,6 +413,7 @@ var xNewEntryBuffer func(uintptr, int) uintptr
 //
 // Optionally, specify initial text to set in the buffer.
 func NewEntryBuffer(InitialCharsVar *string, NInitialCharsVar int) *EntryBuffer {
+	core.LazyRegister(&xNewEntryBuffer, "GTK", "gtk_entry_buffer_new", false)
 	var cls *EntryBuffer
 
 	InitialCharsVarPtr := core.GStrdupNullable(InitialCharsVar)
@@ -441,6 +443,8 @@ var xEntryBufferDeleteText func(uintptr, uint, int) uint
 // Note that the positions are specified in characters,
 // not bytes.
 func (x *EntryBuffer) DeleteText(PositionVar uint, NCharsVar int) uint {
+	core.LazyRegister(&xEntryBufferDeleteText, "GTK", "gtk_entry_buffer_delete_text", false)
+
 	cret := xEntryBufferDeleteText(x.GoPointer(), PositionVar, NCharsVar)
 	return cret
 }
@@ -449,6 +453,8 @@ var xEntryBufferEmitDeletedText func(uintptr, uint, uint)
 
 // Used when subclassing `GtkEntryBuffer`.
 func (x *EntryBuffer) EmitDeletedText(PositionVar uint, NCharsVar uint) {
+	core.LazyRegister(&xEntryBufferEmitDeletedText, "GTK", "gtk_entry_buffer_emit_deleted_text", false)
+
 	xEntryBufferEmitDeletedText(x.GoPointer(), PositionVar, NCharsVar)
 }
 
@@ -456,6 +462,8 @@ var xEntryBufferEmitInsertedText func(uintptr, uint, string, uint)
 
 // Used when subclassing `GtkEntryBuffer`.
 func (x *EntryBuffer) EmitInsertedText(PositionVar uint, CharsVar string, NCharsVar uint) {
+	core.LazyRegister(&xEntryBufferEmitInsertedText, "GTK", "gtk_entry_buffer_emit_inserted_text", false)
+
 	xEntryBufferEmitInsertedText(x.GoPointer(), PositionVar, CharsVar, NCharsVar)
 }
 
@@ -465,6 +473,8 @@ var xEntryBufferGetBytes func(uintptr) uint
 //
 // See [method@Gtk.EntryBuffer.get_length].
 func (x *EntryBuffer) GetBytes() uint {
+	core.LazyRegister(&xEntryBufferGetBytes, "GTK", "gtk_entry_buffer_get_bytes", false)
+
 	cret := xEntryBufferGetBytes(x.GoPointer())
 	return cret
 }
@@ -473,6 +483,8 @@ var xEntryBufferGetLength func(uintptr) uint
 
 // Retrieves the length in characters of the buffer.
 func (x *EntryBuffer) GetLength() uint {
+	core.LazyRegister(&xEntryBufferGetLength, "GTK", "gtk_entry_buffer_get_length", false)
+
 	cret := xEntryBufferGetLength(x.GoPointer())
 	return cret
 }
@@ -481,6 +493,8 @@ var xEntryBufferGetMaxLength func(uintptr) int
 
 // Retrieves the maximum allowed length of the text in @buffer.
 func (x *EntryBuffer) GetMaxLength() int {
+	core.LazyRegister(&xEntryBufferGetMaxLength, "GTK", "gtk_entry_buffer_get_max_length", false)
+
 	cret := xEntryBufferGetMaxLength(x.GoPointer())
 	return cret
 }
@@ -492,6 +506,8 @@ var xEntryBufferGetText func(uintptr) string
 // The memory pointer returned by this call will not change
 // unless this object emits a signal, or is finalized.
 func (x *EntryBuffer) GetText() string {
+	core.LazyRegister(&xEntryBufferGetText, "GTK", "gtk_entry_buffer_get_text", false)
+
 	cret := xEntryBufferGetText(x.GoPointer())
 	return cret
 }
@@ -508,6 +524,8 @@ var xEntryBufferInsertText func(uintptr, uint, string, int) uint
 //
 // Note that the position and length are in characters, not in bytes.
 func (x *EntryBuffer) InsertText(PositionVar uint, CharsVar string, NCharsVar int) uint {
+	core.LazyRegister(&xEntryBufferInsertText, "GTK", "gtk_entry_buffer_insert_text", false)
+
 	cret := xEntryBufferInsertText(x.GoPointer(), PositionVar, CharsVar, NCharsVar)
 	return cret
 }
@@ -519,6 +537,8 @@ var xEntryBufferSetMaxLength func(uintptr, int)
 // If the current contents are longer than the given length, then
 // they will be truncated to fit.
 func (x *EntryBuffer) SetMaxLength(MaxLengthVar int) {
+	core.LazyRegister(&xEntryBufferSetMaxLength, "GTK", "gtk_entry_buffer_set_max_length", false)
+
 	xEntryBufferSetMaxLength(x.GoPointer(), MaxLengthVar)
 }
 
@@ -532,6 +552,8 @@ var xEntryBufferSetText func(uintptr, string, int)
 //
 // Note that @n_chars is in characters, not in bytes.
 func (x *EntryBuffer) SetText(CharsVar string, NCharsVar int) {
+	core.LazyRegister(&xEntryBufferSetText, "GTK", "gtk_entry_buffer_set_text", false)
+
 	xEntryBufferSetText(x.GoPointer(), CharsVar, NCharsVar)
 }
 
@@ -640,27 +662,4 @@ func (x *EntryBuffer) ConnectInsertedText(cb *func(EntryBuffer, uint, string, ui
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GTK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xEntryBufferGLibType, libs, "gtk_entry_buffer_get_type")
-
-	core.PuregoSafeRegister(&xNewEntryBuffer, libs, "gtk_entry_buffer_new")
-
-	core.PuregoSafeRegister(&xEntryBufferDeleteText, libs, "gtk_entry_buffer_delete_text")
-	core.PuregoSafeRegister(&xEntryBufferEmitDeletedText, libs, "gtk_entry_buffer_emit_deleted_text")
-	core.PuregoSafeRegister(&xEntryBufferEmitInsertedText, libs, "gtk_entry_buffer_emit_inserted_text")
-	core.PuregoSafeRegister(&xEntryBufferGetBytes, libs, "gtk_entry_buffer_get_bytes")
-	core.PuregoSafeRegister(&xEntryBufferGetLength, libs, "gtk_entry_buffer_get_length")
-	core.PuregoSafeRegister(&xEntryBufferGetMaxLength, libs, "gtk_entry_buffer_get_max_length")
-	core.PuregoSafeRegister(&xEntryBufferGetText, libs, "gtk_entry_buffer_get_text")
-	core.PuregoSafeRegister(&xEntryBufferInsertText, libs, "gtk_entry_buffer_insert_text")
-	core.PuregoSafeRegister(&xEntryBufferSetMaxLength, libs, "gtk_entry_buffer_set_max_length")
-	core.PuregoSafeRegister(&xEntryBufferSetText, libs, "gtk_entry_buffer_set_text")
 }

@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -56,6 +55,7 @@ type DebugController interface {
 var xDebugControllerGLibType func() types.GType
 
 func DebugControllerGLibType() types.GType {
+	core.LazyRegister(&xDebugControllerGLibType, "GIO", "g_debug_controller_get_type", false)
 	return xDebugControllerGLibType()
 }
 
@@ -108,10 +108,19 @@ func (x *DebugControllerBase) GetPropertyDebugEnabled() bool {
 	return v.GetBoolean()
 }
 
+var XGDebugControllerGetDebugEnabled func(uintptr) bool = func(instance uintptr) bool {
+	core.LazyRegister(&xXGDebugControllerGetDebugEnabled, "GIO", "g_debug_controller_get_debug_enabled", false)
+	return xXGDebugControllerGetDebugEnabled(instance)
+}
+
 var (
-	XGDebugControllerGetDebugEnabled func(uintptr) bool
-	XGDebugControllerSetDebugEnabled func(uintptr, bool)
+	xXGDebugControllerGetDebugEnabled func(uintptr) bool
+	XGDebugControllerSetDebugEnabled  func(uintptr, bool) = func(instance uintptr, DebugEnabledVarp bool) {
+		core.LazyRegister(&xXGDebugControllerSetDebugEnabled, "GIO", "g_debug_controller_set_debug_enabled", false)
+		xXGDebugControllerSetDebugEnabled(instance, DebugEnabledVarp)
+	}
 )
+var xXGDebugControllerSetDebugEnabled func(uintptr, bool)
 
 const (
 	// Extension point for debug control functionality.
@@ -122,17 +131,4 @@ const (
 func init() {
 	core.SetPackageName("GIO", "gio-2.0")
 	core.SetSharedLibraries("GIO", []string{"libgio-2.0.so.0", "libgio-2.0.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GIO") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xDebugControllerGLibType, libs, "g_debug_controller_get_type")
-
-	core.PuregoSafeRegister(&XGDebugControllerGetDebugEnabled, libs, "g_debug_controller_get_debug_enabled")
-	core.PuregoSafeRegister(&XGDebugControllerSetDebugEnabled, libs, "g_debug_controller_set_debug_enabled")
 }

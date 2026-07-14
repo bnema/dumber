@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gdk"
 	"github.com/bnema/puregotk/v4/glib"
@@ -43,6 +42,7 @@ type DropControllerMotion struct {
 var xDropControllerMotionGLibType func() types.GType
 
 func DropControllerMotionGLibType() types.GType {
+	core.LazyRegister(&xDropControllerMotionGLibType, "GTK", "gtk_drop_controller_motion_get_type", false)
 	return xDropControllerMotionGLibType()
 }
 
@@ -57,6 +57,7 @@ var xNewDropControllerMotion func() uintptr
 // Creates a new event controller that will handle pointer motion
 // events during drag and drop.
 func NewDropControllerMotion() *DropControllerMotion {
+	core.LazyRegister(&xNewDropControllerMotion, "GTK", "gtk_drop_controller_motion_new", false)
 	var cls *DropControllerMotion
 
 	cret := xNewDropControllerMotion()
@@ -74,6 +75,8 @@ var xDropControllerMotionContainsPointer func(uintptr) bool
 // Returns if a Drag-and-Drop operation is within the widget
 // @self or one of its children.
 func (x *DropControllerMotion) ContainsPointer() bool {
+	core.LazyRegister(&xDropControllerMotionContainsPointer, "GTK", "gtk_drop_controller_motion_contains_pointer", false)
+
 	cret := xDropControllerMotionContainsPointer(x.GoPointer())
 	return cret
 }
@@ -83,6 +86,7 @@ var xDropControllerMotionGetDrop func(uintptr) uintptr
 // Returns the `GdkDrop` of a current Drag-and-Drop operation
 // over the widget of @self.
 func (x *DropControllerMotion) GetDrop() *gdk.Drop {
+	core.LazyRegister(&xDropControllerMotionGetDrop, "GTK", "gtk_drop_controller_motion_get_drop", false)
 	var cls *gdk.Drop
 
 	cret := xDropControllerMotionGetDrop(x.GoPointer())
@@ -101,6 +105,8 @@ var xDropControllerMotionIsPointer func(uintptr) bool
 // Returns if a Drag-and-Drop operation is within the widget
 // @self, not one of its children.
 func (x *DropControllerMotion) IsPointer() bool {
+	core.LazyRegister(&xDropControllerMotionIsPointer, "GTK", "gtk_drop_controller_motion_is_pointer", false)
+
 	cret := xDropControllerMotionIsPointer(x.GoPointer())
 	return cret
 }
@@ -218,20 +224,4 @@ func (x *DropControllerMotion) ConnectMotion(cb *func(DropControllerMotion, floa
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GTK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xDropControllerMotionGLibType, libs, "gtk_drop_controller_motion_get_type")
-
-	core.PuregoSafeRegister(&xNewDropControllerMotion, libs, "gtk_drop_controller_motion_new")
-
-	core.PuregoSafeRegister(&xDropControllerMotionContainsPointer, libs, "gtk_drop_controller_motion_contains_pointer")
-	core.PuregoSafeRegister(&xDropControllerMotionGetDrop, libs, "gtk_drop_controller_motion_get_drop")
-	core.PuregoSafeRegister(&xDropControllerMotionIsPointer, libs, "gtk_drop_controller_motion_is_pointer")
 }

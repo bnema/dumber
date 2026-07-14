@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -44,6 +43,7 @@ type Download struct {
 var xDownloadGLibType func() types.GType
 
 func DownloadGLibType() types.GType {
+	core.LazyRegister(&xDownloadGLibType, "WEBKIT", "webkit_download_get_type", false)
 	return xDownloadGLibType()
 }
 
@@ -62,6 +62,8 @@ var xDownloadCancel func(uintptr)
 // #WebKitDownload::failed is emitted with
 // %WEBKIT_DOWNLOAD_ERROR_CANCELLED_BY_USER error.
 func (x *Download) Cancel() {
+	core.LazyRegister(&xDownloadCancel, "WEBKIT", "webkit_download_cancel", false)
+
 	xDownloadCancel(x.GoPointer())
 }
 
@@ -73,6 +75,8 @@ var xDownloadGetAllowOverwrite func(uintptr) bool
 // which determines whether the download will overwrite an existing file on
 // disk, or if it will fail if the destination already exists.
 func (x *Download) GetAllowOverwrite() bool {
+	core.LazyRegister(&xDownloadGetAllowOverwrite, "WEBKIT", "webkit_download_get_allow_overwrite", false)
+
 	cret := xDownloadGetAllowOverwrite(x.GoPointer())
 	return cret
 }
@@ -84,6 +88,8 @@ var xDownloadGetDestination func(uintptr) string
 // You can connect to #WebKitDownload::created-destination to make
 // sure this method returns a valid destination.
 func (x *Download) GetDestination() string {
+	core.LazyRegister(&xDownloadGetDestination, "WEBKIT", "webkit_download_get_destination", false)
+
 	cret := xDownloadGetDestination(x.GoPointer())
 	return cret
 }
@@ -95,6 +101,8 @@ var xDownloadGetElapsedTime func(uintptr) float64
 // If the download finished, had an error or was cancelled this is
 // the time between its start and the event.
 func (x *Download) GetElapsedTime() float64 {
+	core.LazyRegister(&xDownloadGetElapsedTime, "WEBKIT", "webkit_download_get_elapsed_time", false)
+
 	cret := xDownloadGetElapsedTime(x.GoPointer())
 	return cret
 }
@@ -106,6 +114,8 @@ var xDownloadGetEstimatedProgress func(uintptr) float64
 // You can monitor the estimated progress of the download operation by
 // connecting to the notify::estimated-progress signal of @download.
 func (x *Download) GetEstimatedProgress() float64 {
+	core.LazyRegister(&xDownloadGetEstimatedProgress, "WEBKIT", "webkit_download_get_estimated_progress", false)
+
 	cret := xDownloadGetEstimatedProgress(x.GoPointer())
 	return cret
 }
@@ -117,6 +127,8 @@ var xDownloadGetReceivedDataLength func(uintptr) uint64
 // Gets the length of the data already downloaded for @download
 // in bytes.
 func (x *Download) GetReceivedDataLength() uint64 {
+	core.LazyRegister(&xDownloadGetReceivedDataLength, "WEBKIT", "webkit_download_get_received_data_length", false)
+
 	cret := xDownloadGetReceivedDataLength(x.GoPointer())
 	return cret
 }
@@ -126,6 +138,7 @@ var xDownloadGetRequest func(uintptr) uintptr
 // Retrieves the #WebKitURIRequest object that backs the download
 // process.
 func (x *Download) GetRequest() *URIRequest {
+	core.LazyRegister(&xDownloadGetRequest, "WEBKIT", "webkit_download_get_request", false)
 	var cls *URIRequest
 
 	cret := xDownloadGetRequest(x.GoPointer())
@@ -148,6 +161,7 @@ var xDownloadGetResponse func(uintptr) uintptr
 // is received from the server. You can connect to notify::response
 // signal to be notified when the response is received.
 func (x *Download) GetResponse() *URIResponse {
+	core.LazyRegister(&xDownloadGetResponse, "WEBKIT", "webkit_download_get_response", false)
 	var cls *URIResponse
 
 	cret := xDownloadGetResponse(x.GoPointer())
@@ -165,6 +179,7 @@ var xDownloadGetWebView func(uintptr) uintptr
 
 // Get the #WebKitWebView that initiated the download.
 func (x *Download) GetWebView() *WebView {
+	core.LazyRegister(&xDownloadGetWebView, "WEBKIT", "webkit_download_get_web_view", false)
 	var cls *WebView
 
 	cret := xDownloadGetWebView(x.GoPointer())
@@ -186,6 +201,8 @@ var xDownloadSetAllowOverwrite func(uintptr, bool)
 // the download may overwrite an existing file on disk, or if it will fail if
 // the destination already exists.
 func (x *Download) SetAllowOverwrite(AllowedVar bool) {
+	core.LazyRegister(&xDownloadSetAllowOverwrite, "WEBKIT", "webkit_download_set_allow_overwrite", false)
+
 	xDownloadSetAllowOverwrite(x.GoPointer(), AllowedVar)
 }
 
@@ -207,6 +224,8 @@ var xDownloadSetDestination func(uintptr, string)
 // the file will be saved with the filename suggested by the server in
 // %G_USER_DIRECTORY_DOWNLOAD directory.
 func (x *Download) SetDestination(DestinationVar string) {
+	core.LazyRegister(&xDownloadSetDestination, "WEBKIT", "webkit_download_set_destination", false)
+
 	xDownloadSetDestination(x.GoPointer(), DestinationVar)
 }
 
@@ -403,31 +422,8 @@ func (x *Download) ConnectReceivedData(cb *func(Download, uint64)) uint {
 func init() {
 	core.SetPackageName("WEBKIT", "webkitgtk-6.0")
 	core.SetSharedLibraries("WEBKIT", []string{"libwebkitgtk-6.0.so.4", "libjavascriptcoregtk-6.0.so.1", "libwebkitgtk-6.0.4.dylib", "libjavascriptcoregtk-6.0.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("WEBKIT") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
 
-	core.PuregoSafeRegister(&xDownloadGLibType, libs, "webkit_download_get_type")
-
-	core.PuregoSafeRegister(&xDownloadCancel, libs, "webkit_download_cancel")
-	core.PuregoSafeRegister(&xDownloadGetAllowOverwrite, libs, "webkit_download_get_allow_overwrite")
-	core.PuregoSafeRegister(&xDownloadGetDestination, libs, "webkit_download_get_destination")
-	core.PuregoSafeRegister(&xDownloadGetElapsedTime, libs, "webkit_download_get_elapsed_time")
-	core.PuregoSafeRegister(&xDownloadGetEstimatedProgress, libs, "webkit_download_get_estimated_progress")
-	core.PuregoSafeRegister(&xDownloadGetReceivedDataLength, libs, "webkit_download_get_received_data_length")
-	core.PuregoSafeRegister(&xDownloadGetRequest, libs, "webkit_download_get_request")
-	core.PuregoSafeRegister(&xDownloadGetResponse, libs, "webkit_download_get_response")
-	core.PuregoSafeRegister(&xDownloadGetWebView, libs, "webkit_download_get_web_view")
-	core.PuregoSafeRegister(&xDownloadSetAllowOverwrite, libs, "webkit_download_set_allow_overwrite")
-	core.PuregoSafeRegister(&xDownloadSetDestination, libs, "webkit_download_set_destination")
-
-	// Manually register types since they aren't being automatically registered when
-	// the library is loaded
-	// See https://bugs.webkit.org/show_bug.cgi?id=175937
+	// Manually register types since they aren't automatically registered when
+	// WebKit is loaded. See https://bugs.webkit.org/show_bug.cgi?id=175937.
 	DownloadGLibType()
 }

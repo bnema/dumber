@@ -2,7 +2,6 @@
 package gtk
 
 import (
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 )
@@ -11,6 +10,8 @@ var xCssParserErrorQuark func() glib.Quark
 
 // Registers an error quark for CSS parsing errors.
 func CssParserErrorQuark() glib.Quark {
+	core.LazyRegister(&xCssParserErrorQuark, "GTK", "gtk_css_parser_error_quark", false)
+
 	cret := xCssParserErrorQuark()
 	return cret
 }
@@ -19,6 +20,8 @@ var xCssParserWarningQuark func() glib.Quark
 
 // Registers an error quark for CSS parsing warnings.
 func CssParserWarningQuark() glib.Quark {
+	core.LazyRegister(&xCssParserWarningQuark, "GTK", "gtk_css_parser_warning_quark", false)
+
 	cret := xCssParserWarningQuark()
 	return cret
 }
@@ -26,15 +29,4 @@ func CssParserWarningQuark() glib.Quark {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GTK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xCssParserErrorQuark, libs, "gtk_css_parser_error_quark")
-	core.PuregoSafeRegister(&xCssParserWarningQuark, libs, "gtk_css_parser_warning_quark")
 }

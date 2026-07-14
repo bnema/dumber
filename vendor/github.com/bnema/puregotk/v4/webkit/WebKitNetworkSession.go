@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gio"
 	"github.com/bnema/puregotk/v4/glib"
@@ -39,6 +38,7 @@ type NetworkSession struct {
 var xNetworkSessionGLibType func() types.GType
 
 func NetworkSessionGLibType() types.GType {
+	core.LazyRegister(&xNetworkSessionGLibType, "WEBKIT", "webkit_network_session_get_type", false)
 	return xNetworkSessionGLibType()
 }
 
@@ -60,6 +60,7 @@ var xNewNetworkSession func(uintptr, uintptr) uintptr
 //
 // It must be passed as construct parameter of a #WebKitWebView.
 func NewNetworkSession(DataDirectoryVar *string, CacheDirectoryVar *string) *NetworkSession {
+	core.LazyRegister(&xNewNetworkSession, "WEBKIT", "webkit_network_session_new", false)
 	var cls *NetworkSession
 
 	DataDirectoryVarPtr := core.GStrdupNullable(DataDirectoryVar)
@@ -82,6 +83,7 @@ var xNewNetworkSessionEphemeral func() uintptr
 
 // Creates a new #WebKitNetworkSession with an ephemeral #WebKitWebsiteDataManager.
 func NewNetworkSessionEphemeral() *NetworkSession {
+	core.LazyRegister(&xNewNetworkSessionEphemeral, "WEBKIT", "webkit_network_session_new_ephemeral", false)
 	var cls *NetworkSession
 
 	cret := xNewNetworkSessionEphemeral()
@@ -101,6 +103,8 @@ var xNetworkSessionAllowTlsCertificateForHost func(uintptr, uintptr, string)
 // If @host is an IPv6 address, it should not be surrounded by brackets. This
 // expectation matches g_uri_get_host().
 func (x *NetworkSession) AllowTlsCertificateForHost(CertificateVar *gio.TlsCertificate, HostVar string) {
+	core.LazyRegister(&xNetworkSessionAllowTlsCertificateForHost, "WEBKIT", "webkit_network_session_allow_tls_certificate_for_host", false)
+
 	xNetworkSessionAllowTlsCertificateForHost(x.GoPointer(), CertificateVar.GoPointer(), HostVar)
 }
 
@@ -112,6 +116,7 @@ var xNetworkSessionDownloadUri func(uintptr, string) uintptr
 // if you are interested in starting a download from a particular #WebKitWebView use
 // webkit_web_view_download_uri() instead.
 func (x *NetworkSession) DownloadUri(UriVar string) *Download {
+	core.LazyRegister(&xNetworkSessionDownloadUri, "WEBKIT", "webkit_network_session_download_uri", false)
 	var cls *Download
 
 	cret := xNetworkSessionDownloadUri(x.GoPointer(), UriVar)
@@ -128,6 +133,7 @@ var xNetworkSessionGetCookieManager func(uintptr) uintptr
 
 // Get the #WebKitCookieManager of @session.
 func (x *NetworkSession) GetCookieManager() *CookieManager {
+	core.LazyRegister(&xNetworkSessionGetCookieManager, "WEBKIT", "webkit_network_session_get_cookie_manager", false)
 	var cls *CookieManager
 
 	cret := xNetworkSessionGetCookieManager(x.GoPointer())
@@ -145,6 +151,8 @@ var xNetworkSessionGetItpEnabled func(uintptr) bool
 
 // Get whether Intelligent Tracking Prevention (ITP) is enabled or not.
 func (x *NetworkSession) GetItpEnabled() bool {
+	core.LazyRegister(&xNetworkSessionGetItpEnabled, "WEBKIT", "webkit_network_session_get_itp_enabled", false)
+
 	cret := xNetworkSessionGetItpEnabled(x.GoPointer())
 	return cret
 }
@@ -159,6 +167,8 @@ var xNetworkSessionGetItpSummary func(uintptr, uintptr, uintptr, uintptr)
 // When the operation is finished, @callback will be called. You can then call
 // webkit_network_session_get_itp_summary_finish() to get the result of the operation.
 func (x *NetworkSession) GetItpSummary(CancellableVar *gio.Cancellable, CallbackVar *gio.AsyncReadyCallback, UserDataVar uintptr) {
+	core.LazyRegister(&xNetworkSessionGetItpSummary, "WEBKIT", "webkit_network_session_get_itp_summary", false)
+
 	xNetworkSessionGetItpSummary(x.GoPointer(), CancellableVar.GoPointer(), glib.NewCallbackNullable(CallbackVar), UserDataVar)
 }
 
@@ -166,6 +176,7 @@ var xNetworkSessionGetItpSummaryFinish func(uintptr, uintptr, **glib.Error) uint
 
 // Finish an asynchronous operation started with webkit_network_session_get_itp_summary().
 func (x *NetworkSession) GetItpSummaryFinish(ResultVar gio.AsyncResult) (*glib.List, error) {
+	core.LazyRegister(&xNetworkSessionGetItpSummaryFinish, "WEBKIT", "webkit_network_session_get_itp_summary_finish", false)
 	var cerr *glib.Error
 
 	cret := xNetworkSessionGetItpSummaryFinish(x.GoPointer(), ResultVar.GoPointer(), &cerr)
@@ -184,6 +195,8 @@ var xNetworkSessionGetPersistentCredentialStorageEnabled func(uintptr) bool
 //
 // See also webkit_network_session_set_persistent_credential_storage_enabled().
 func (x *NetworkSession) GetPersistentCredentialStorageEnabled() bool {
+	core.LazyRegister(&xNetworkSessionGetPersistentCredentialStorageEnabled, "WEBKIT", "webkit_network_session_get_persistent_credential_storage_enabled", false)
+
 	cret := xNetworkSessionGetPersistentCredentialStorageEnabled(x.GoPointer())
 	return cret
 }
@@ -192,6 +205,8 @@ var xNetworkSessionGetTlsErrorsPolicy func(uintptr) TLSErrorsPolicy
 
 // Get the TLS errors policy of @session.
 func (x *NetworkSession) GetTlsErrorsPolicy() TLSErrorsPolicy {
+	core.LazyRegister(&xNetworkSessionGetTlsErrorsPolicy, "WEBKIT", "webkit_network_session_get_tls_errors_policy", false)
+
 	cret := xNetworkSessionGetTlsErrorsPolicy(x.GoPointer())
 	return cret
 }
@@ -200,6 +215,7 @@ var xNetworkSessionGetWebsiteDataManager func(uintptr) uintptr
 
 // Get the #WebKitWebsiteDataManager of @session.
 func (x *NetworkSession) GetWebsiteDataManager() *WebsiteDataManager {
+	core.LazyRegister(&xNetworkSessionGetWebsiteDataManager, "WEBKIT", "webkit_network_session_get_website_data_manager", false)
 	var cls *WebsiteDataManager
 
 	cret := xNetworkSessionGetWebsiteDataManager(x.GoPointer())
@@ -219,6 +235,8 @@ var xNetworkSessionIsEphemeral func(uintptr) bool
 // A #WebKitNetworkSession is ephemeral when its #WebKitWebsiteDataManager is ephemeral.
 // See #WebKitWebsiteDataManager:is-ephemeral for more details.
 func (x *NetworkSession) IsEphemeral() bool {
+	core.LazyRegister(&xNetworkSessionIsEphemeral, "WEBKIT", "webkit_network_session_is_ephemeral", false)
+
 	cret := xNetworkSessionIsEphemeral(x.GoPointer())
 	return cret
 }
@@ -228,6 +246,8 @@ var xNetworkSessionPrefetchDns func(uintptr, string)
 // Resolve the domain name of the given @hostname in advance, so that if a URI
 // of @hostname is requested the load will be performed more quickly.
 func (x *NetworkSession) PrefetchDns(HostnameVar string) {
+	core.LazyRegister(&xNetworkSessionPrefetchDns, "WEBKIT", "webkit_network_session_prefetch_dns", false)
+
 	xNetworkSessionPrefetchDns(x.GoPointer(), HostnameVar)
 }
 
@@ -240,6 +260,8 @@ var xNetworkSessionSetItpEnabled func(uintptr, bool)
 // Note that while ITP is enabled the accept policy %WEBKIT_COOKIE_POLICY_ACCEPT_NO_THIRD_PARTY is ignored and
 // %WEBKIT_COOKIE_POLICY_ACCEPT_ALWAYS is used instead. See also webkit_cookie_session_set_accept_policy().
 func (x *NetworkSession) SetItpEnabled(EnabledVar bool) {
+	core.LazyRegister(&xNetworkSessionSetItpEnabled, "WEBKIT", "webkit_network_session_set_itp_enabled", false)
+
 	xNetworkSessionSetItpEnabled(x.GoPointer(), EnabledVar)
 }
 
@@ -251,6 +273,8 @@ var xNetworkSessionSetPersistentCredentialStorageEnabled func(uintptr, bool)
 // non-ephemeral sessions, the network process will try to read and write HTTP authentiacation
 // credentials from persistent storage.
 func (x *NetworkSession) SetPersistentCredentialStorageEnabled(EnabledVar bool) {
+	core.LazyRegister(&xNetworkSessionSetPersistentCredentialStorageEnabled, "WEBKIT", "webkit_network_session_set_persistent_credential_storage_enabled", false)
+
 	xNetworkSessionSetPersistentCredentialStorageEnabled(x.GoPointer(), EnabledVar)
 }
 
@@ -266,6 +290,8 @@ var xNetworkSessionSetProxySettings func(uintptr, NetworkProxyMode, *NetworkProx
 // When @proxy_mode is %WEBKIT_NETWORK_PROXY_MODE_CUSTOM @proxy_settings must be
 // a valid #WebKitNetworkProxySettings; otherwise, @proxy_settings must be %NULL.
 func (x *NetworkSession) SetProxySettings(ProxyModeVar NetworkProxyMode, ProxySettingsVar *NetworkProxySettings) {
+	core.LazyRegister(&xNetworkSessionSetProxySettings, "WEBKIT", "webkit_network_session_set_proxy_settings", false)
+
 	xNetworkSessionSetProxySettings(x.GoPointer(), ProxyModeVar, ProxySettingsVar)
 }
 
@@ -273,6 +299,8 @@ var xNetworkSessionSetTlsErrorsPolicy func(uintptr, TLSErrorsPolicy)
 
 // Set the TLS errors policy of @session as @policy.
 func (x *NetworkSession) SetTlsErrorsPolicy(PolicyVar TLSErrorsPolicy) {
+	core.LazyRegister(&xNetworkSessionSetTlsErrorsPolicy, "WEBKIT", "webkit_network_session_set_tls_errors_policy", false)
+
 	xNetworkSessionSetTlsErrorsPolicy(x.GoPointer(), PolicyVar)
 }
 
@@ -351,6 +379,7 @@ var xNetworkSessionGetDefault func() uintptr
 // The default network session is created using webkit_network_session_new() and passing
 // %NULL as data and cache directories.
 func NetworkSessionGetDefault() *NetworkSession {
+	core.LazyRegister(&xNetworkSessionGetDefault, "WEBKIT", "webkit_network_session_get_default", false)
 	var cls *NetworkSession
 
 	cret := xNetworkSessionGetDefault()
@@ -379,47 +408,16 @@ var xNetworkSessionSetMemoryPressureSettings func(*MemoryPressureSettings)
 // to remove the custom settings and disable the periodic check, this function must be called
 // passing %NULL as the value of @settings.
 func NetworkSessionSetMemoryPressureSettings(SettingsVar *MemoryPressureSettings) {
+	core.LazyRegister(&xNetworkSessionSetMemoryPressureSettings, "WEBKIT", "webkit_network_session_set_memory_pressure_settings", false)
+
 	xNetworkSessionSetMemoryPressureSettings(SettingsVar)
 }
 
 func init() {
 	core.SetPackageName("WEBKIT", "webkitgtk-6.0")
 	core.SetSharedLibraries("WEBKIT", []string{"libwebkitgtk-6.0.so.4", "libjavascriptcoregtk-6.0.so.1", "libwebkitgtk-6.0.4.dylib", "libjavascriptcoregtk-6.0.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("WEBKIT") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
 
-	core.PuregoSafeRegister(&xNetworkSessionGLibType, libs, "webkit_network_session_get_type")
-
-	core.PuregoSafeRegister(&xNewNetworkSession, libs, "webkit_network_session_new")
-	core.PuregoSafeRegister(&xNewNetworkSessionEphemeral, libs, "webkit_network_session_new_ephemeral")
-
-	core.PuregoSafeRegister(&xNetworkSessionAllowTlsCertificateForHost, libs, "webkit_network_session_allow_tls_certificate_for_host")
-	core.PuregoSafeRegister(&xNetworkSessionDownloadUri, libs, "webkit_network_session_download_uri")
-	core.PuregoSafeRegister(&xNetworkSessionGetCookieManager, libs, "webkit_network_session_get_cookie_manager")
-	core.PuregoSafeRegister(&xNetworkSessionGetItpEnabled, libs, "webkit_network_session_get_itp_enabled")
-	core.PuregoSafeRegister(&xNetworkSessionGetItpSummary, libs, "webkit_network_session_get_itp_summary")
-	core.PuregoSafeRegister(&xNetworkSessionGetItpSummaryFinish, libs, "webkit_network_session_get_itp_summary_finish")
-	core.PuregoSafeRegister(&xNetworkSessionGetPersistentCredentialStorageEnabled, libs, "webkit_network_session_get_persistent_credential_storage_enabled")
-	core.PuregoSafeRegister(&xNetworkSessionGetTlsErrorsPolicy, libs, "webkit_network_session_get_tls_errors_policy")
-	core.PuregoSafeRegister(&xNetworkSessionGetWebsiteDataManager, libs, "webkit_network_session_get_website_data_manager")
-	core.PuregoSafeRegister(&xNetworkSessionIsEphemeral, libs, "webkit_network_session_is_ephemeral")
-	core.PuregoSafeRegister(&xNetworkSessionPrefetchDns, libs, "webkit_network_session_prefetch_dns")
-	core.PuregoSafeRegister(&xNetworkSessionSetItpEnabled, libs, "webkit_network_session_set_itp_enabled")
-	core.PuregoSafeRegister(&xNetworkSessionSetPersistentCredentialStorageEnabled, libs, "webkit_network_session_set_persistent_credential_storage_enabled")
-	core.PuregoSafeRegister(&xNetworkSessionSetProxySettings, libs, "webkit_network_session_set_proxy_settings")
-	core.PuregoSafeRegister(&xNetworkSessionSetTlsErrorsPolicy, libs, "webkit_network_session_set_tls_errors_policy")
-
-	core.PuregoSafeRegister(&xNetworkSessionGetDefault, libs, "webkit_network_session_get_default")
-	core.PuregoSafeRegister(&xNetworkSessionSetMemoryPressureSettings, libs, "webkit_network_session_set_memory_pressure_settings")
-
-	// Manually register types since they aren't being automatically registered when
-	// the library is loaded
-	// See https://bugs.webkit.org/show_bug.cgi?id=175937
+	// Manually register types since they aren't automatically registered when
+	// WebKit is loaded. See https://bugs.webkit.org/show_bug.cgi?id=175937.
 	NetworkSessionGLibType()
 }

@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject/types"
 )
@@ -32,6 +31,7 @@ type HashTable struct {
 var xHashTableGLibType func() types.GType
 
 func HashTableGLibType() types.GType {
+	core.LazyRegister(&xHashTableGLibType, "GLIB", "g_hash_table_get_type", false)
 	return xHashTableGLibType()
 }
 
@@ -86,6 +86,8 @@ var xHashTableIterGetHashTable func(uintptr) uintptr
 
 // Returns the #GHashTable associated with @iter.
 func (x *HashTableIter) GetHashTable() *HashTable {
+	core.LazyRegister(&xHashTableIterGetHashTable, "GLIB", "g_hash_table_iter_get_hash_table", false)
+
 	cret := xHashTableIterGetHashTable(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -115,6 +117,8 @@ var xHashTableIterInit func(uintptr, *HashTable)
 //
 // ]|
 func (x *HashTableIter) Init(HashTableVar *HashTable) {
+	core.LazyRegister(&xHashTableIterInit, "GLIB", "g_hash_table_iter_init", false)
+
 	xHashTableIterInit(x.GoPointer(), HashTableVar)
 }
 
@@ -124,6 +128,8 @@ var xHashTableIterNext func(uintptr, *uintptr, *uintptr) bool
 // pointed to as a result of this advancement. If %FALSE is returned,
 // @key and @value are not set, and the iterator becomes invalid.
 func (x *HashTableIter) Next(KeyVar *uintptr, ValueVar *uintptr) bool {
+	core.LazyRegister(&xHashTableIterNext, "GLIB", "g_hash_table_iter_next", false)
+
 	cret := xHashTableIterNext(x.GoPointer(), KeyVar, ValueVar)
 	return cret
 }
@@ -151,6 +157,8 @@ var xHashTableIterRemove func(uintptr)
 //
 // ]|
 func (x *HashTableIter) Remove() {
+	core.LazyRegister(&xHashTableIterRemove, "GLIB", "g_hash_table_iter_remove", false)
+
 	xHashTableIterRemove(x.GoPointer())
 }
 
@@ -163,6 +171,8 @@ var xHashTableIterReplace func(uintptr, uintptr)
 // If you supplied a @value_destroy_func when creating the
 // #GHashTable, the old value is freed using that function.
 func (x *HashTableIter) Replace(ValueVar uintptr) {
+	core.LazyRegister(&xHashTableIterReplace, "GLIB", "g_hash_table_iter_replace", false)
+
 	xHashTableIterReplace(x.GoPointer(), ValueVar)
 }
 
@@ -174,6 +184,8 @@ var xHashTableIterSteal func(uintptr)
 // after g_hash_table_iter_next() returned %TRUE, and cannot
 // be called more than once for the same key/value pair.
 func (x *HashTableIter) Steal() {
+	core.LazyRegister(&xHashTableIterSteal, "GLIB", "g_hash_table_iter_steal", false)
+
 	xHashTableIterSteal(x.GoPointer())
 }
 
@@ -187,6 +199,8 @@ var xDirectEqual func(uintptr, uintptr) bool
 // This equality function is also appropriate for keys that are integers
 // stored in pointers, such as `GINT_TO_POINTER (n)`.
 func DirectEqual(V1Var uintptr, V2Var uintptr) bool {
+	core.LazyRegister(&xDirectEqual, "GLIB", "g_direct_equal", false)
+
 	cret := xDirectEqual(V1Var, V2Var)
 	return cret
 }
@@ -201,6 +215,8 @@ var xDirectHash func(uintptr) uint
 // This hash function is also appropriate for keys that are integers
 // stored in pointers, such as `GINT_TO_POINTER (n)`.
 func DirectHash(VVar uintptr) uint {
+	core.LazyRegister(&xDirectHash, "GLIB", "g_direct_hash", false)
+
 	cret := xDirectHash(VVar)
 	return cret
 }
@@ -213,6 +229,8 @@ var xDoubleEqual func(uintptr, uintptr) bool
 // parameter, when using non-%NULL pointers to doubles as keys in a
 // #GHashTable.
 func DoubleEqual(V1Var uintptr, V2Var uintptr) bool {
+	core.LazyRegister(&xDoubleEqual, "GLIB", "g_double_equal", false)
+
 	cret := xDoubleEqual(V1Var, V2Var)
 	return cret
 }
@@ -224,6 +242,8 @@ var xDoubleHash func(uintptr) uint
 // It can be passed to g_hash_table_new() as the @hash_func parameter,
 // when using non-%NULL pointers to doubles as keys in a #GHashTable.
 func DoubleHash(VVar uintptr) uint {
+	core.LazyRegister(&xDoubleHash, "GLIB", "g_double_hash", false)
+
 	cret := xDoubleHash(VVar)
 	return cret
 }
@@ -246,6 +266,8 @@ var xHashTableAdd func(*HashTable, uintptr) bool
 // indicate whether the newly added value was already in the hash table
 // or not.
 func HashTableAdd(HashTableVar *HashTable, KeyVar uintptr) bool {
+	core.LazyRegister(&xHashTableAdd, "GLIB", "g_hash_table_add", false)
+
 	cret := xHashTableAdd(HashTableVar, KeyVar)
 	return cret
 }
@@ -254,6 +276,8 @@ var xHashTableContains func(*HashTable, uintptr) bool
 
 // Checks if @key is in @hash_table.
 func HashTableContains(HashTableVar *HashTable, KeyVar uintptr) bool {
+	core.LazyRegister(&xHashTableContains, "GLIB", "g_hash_table_contains", false)
+
 	cret := xHashTableContains(HashTableVar, KeyVar)
 	return cret
 }
@@ -267,6 +291,8 @@ var xHashTableDestroy func(*HashTable)
 // functions you supplied will be called on all keys and values during the
 // destruction phase.
 func HashTableDestroy(HashTableVar *HashTable) {
+	core.LazyRegister(&xHashTableDestroy, "GLIB", "g_hash_table_destroy", false)
+
 	xHashTableDestroy(HashTableVar)
 }
 
@@ -286,6 +312,8 @@ var xHashTableFind func(*HashTable, uintptr, uintptr) uintptr
 // (keep in mind that an O(n) find/foreach operation issued for all n
 // values in a hash table ends up needing O(n*n) operations).
 func HashTableFind(HashTableVar *HashTable, PredicateVar *HRFunc, UserDataVar uintptr) uintptr {
+	core.LazyRegister(&xHashTableFind, "GLIB", "g_hash_table_find", false)
+
 	cret := xHashTableFind(HashTableVar, NewCallback(PredicateVar), UserDataVar)
 	return cret
 }
@@ -305,6 +333,8 @@ var xHashTableForeach func(*HashTable, uintptr, uintptr)
 // See g_hash_table_find() for performance caveats for linear
 // order searches in contrast to g_hash_table_lookup().
 func HashTableForeach(HashTableVar *HashTable, FuncVar *HFunc, UserDataVar uintptr) {
+	core.LazyRegister(&xHashTableForeach, "GLIB", "g_hash_table_foreach", false)
+
 	xHashTableForeach(HashTableVar, NewCallback(FuncVar), UserDataVar)
 }
 
@@ -319,6 +349,8 @@ var xHashTableForeachRemove func(*HashTable, uintptr, uintptr) uint
 // See #GHashTableIter for an alternative way to loop over the
 // key/value pairs in the hash table.
 func HashTableForeachRemove(HashTableVar *HashTable, FuncVar *HRFunc, UserDataVar uintptr) uint {
+	core.LazyRegister(&xHashTableForeachRemove, "GLIB", "g_hash_table_foreach_remove", false)
+
 	cret := xHashTableForeachRemove(HashTableVar, NewCallback(FuncVar), UserDataVar)
 	return cret
 }
@@ -333,6 +365,8 @@ var xHashTableForeachSteal func(*HashTable, uintptr, uintptr) uint
 // See #GHashTableIter for an alternative way to loop over the
 // key/value pairs in the hash table.
 func HashTableForeachSteal(HashTableVar *HashTable, FuncVar *HRFunc, UserDataVar uintptr) uint {
+	core.LazyRegister(&xHashTableForeachSteal, "GLIB", "g_hash_table_foreach_steal", false)
+
 	cret := xHashTableForeachSteal(HashTableVar, NewCallback(FuncVar), UserDataVar)
 	return cret
 }
@@ -348,6 +382,8 @@ var xHashTableGetKeysAsPtrArray func(*HashTable) uintptr
 //
 // You should always unref the returned array with g_ptr_array_unref().
 func HashTableGetKeysAsPtrArray(HashTableVar *HashTable) uintptr {
+	core.LazyRegister(&xHashTableGetKeysAsPtrArray, "GLIB", "g_hash_table_get_keys_as_ptr_array", false)
+
 	cret := xHashTableGetKeysAsPtrArray(HashTableVar)
 	return cret
 }
@@ -363,6 +399,8 @@ var xHashTableGetValuesAsPtrArray func(*HashTable) uintptr
 //
 // You should always unref the returned array with g_ptr_array_unref().
 func HashTableGetValuesAsPtrArray(HashTableVar *HashTable) uintptr {
+	core.LazyRegister(&xHashTableGetValuesAsPtrArray, "GLIB", "g_hash_table_get_values_as_ptr_array", false)
+
 	cret := xHashTableGetValuesAsPtrArray(HashTableVar)
 	return cret
 }
@@ -382,6 +420,8 @@ var xHashTableInsert func(*HashTable, uintptr, uintptr) bool
 // indicate whether the newly added value was already in the hash table
 // or not.
 func HashTableInsert(HashTableVar *HashTable, KeyVar uintptr, ValueVar uintptr) bool {
+	core.LazyRegister(&xHashTableInsert, "GLIB", "g_hash_table_insert", false)
+
 	cret := xHashTableInsert(HashTableVar, KeyVar, ValueVar)
 	return cret
 }
@@ -393,6 +433,8 @@ var xHashTableLookup func(*HashTable, uintptr) uintptr
 // and has the value %NULL. If you need this distinction, use
 // g_hash_table_lookup_extended().
 func HashTableLookup(HashTableVar *HashTable, KeyVar uintptr) uintptr {
+	core.LazyRegister(&xHashTableLookup, "GLIB", "g_hash_table_lookup", false)
+
 	cret := xHashTableLookup(HashTableVar, KeyVar)
 	return cret
 }
@@ -408,6 +450,8 @@ var xHashTableLookupExtended func(*HashTable, uintptr, *uintptr, *uintptr) bool
 // whether the %NULL key exists, provided the hash and equal functions
 // of @hash_table are %NULL-safe.
 func HashTableLookupExtended(HashTableVar *HashTable, LookupKeyVar uintptr, OrigKeyVar *uintptr, ValueVar *uintptr) bool {
+	core.LazyRegister(&xHashTableLookupExtended, "GLIB", "g_hash_table_lookup_extended", false)
+
 	cret := xHashTableLookupExtended(HashTableVar, LookupKeyVar, OrigKeyVar, ValueVar)
 	return cret
 }
@@ -423,6 +467,8 @@ var xHashTableNewSimilar func(*HashTable) uintptr
 // The returned hash table will be empty; it will not contain the keys
 // or values from @other_hash_table.
 func HashTableNewSimilar(OtherHashTableVar *HashTable) *HashTable {
+	core.LazyRegister(&xHashTableNewSimilar, "GLIB", "g_hash_table_new_similar", false)
+
 	cret := xHashTableNewSimilar(OtherHashTableVar)
 	if cret == 0 {
 		return nil
@@ -435,6 +481,8 @@ var xHashTableRef func(*HashTable) uintptr
 // Atomically increments the reference count of @hash_table by one.
 // This function is MT-safe and may be called from any thread.
 func HashTableRef(HashTableVar *HashTable) *HashTable {
+	core.LazyRegister(&xHashTableRef, "GLIB", "g_hash_table_ref", false)
+
 	cret := xHashTableRef(HashTableVar)
 	if cret == 0 {
 		return nil
@@ -451,6 +499,8 @@ var xHashTableRemove func(*HashTable, uintptr) bool
 // you have to make sure that any dynamically allocated values are freed
 // yourself.
 func HashTableRemove(HashTableVar *HashTable, KeyVar uintptr) bool {
+	core.LazyRegister(&xHashTableRemove, "GLIB", "g_hash_table_remove", false)
+
 	cret := xHashTableRemove(HashTableVar, KeyVar)
 	return cret
 }
@@ -464,6 +514,8 @@ var xHashTableRemoveAll func(*HashTable)
 // otherwise you have to make sure that any dynamically allocated
 // values are freed yourself.
 func HashTableRemoveAll(HashTableVar *HashTable) {
+	core.LazyRegister(&xHashTableRemoveAll, "GLIB", "g_hash_table_remove_all", false)
+
 	xHashTableRemoveAll(HashTableVar)
 }
 
@@ -481,6 +533,8 @@ var xHashTableReplace func(*HashTable, uintptr, uintptr) bool
 // indicate whether the newly added value was already in the hash table
 // or not.
 func HashTableReplace(HashTableVar *HashTable, KeyVar uintptr, ValueVar uintptr) bool {
+	core.LazyRegister(&xHashTableReplace, "GLIB", "g_hash_table_replace", false)
+
 	cret := xHashTableReplace(HashTableVar, KeyVar, ValueVar)
 	return cret
 }
@@ -489,6 +543,8 @@ var xHashTableSize func(*HashTable) uint
 
 // Returns the number of elements contained in the #GHashTable.
 func HashTableSize(HashTableVar *HashTable) uint {
+	core.LazyRegister(&xHashTableSize, "GLIB", "g_hash_table_size", false)
+
 	cret := xHashTableSize(HashTableVar)
 	return cret
 }
@@ -498,6 +554,8 @@ var xHashTableSteal func(*HashTable, uintptr) bool
 // Removes a key and its associated value from a #GHashTable without
 // calling the key and value destroy functions.
 func HashTableSteal(HashTableVar *HashTable, KeyVar uintptr) bool {
+	core.LazyRegister(&xHashTableSteal, "GLIB", "g_hash_table_steal", false)
+
 	cret := xHashTableSteal(HashTableVar, KeyVar)
 	return cret
 }
@@ -507,6 +565,8 @@ var xHashTableStealAll func(*HashTable)
 // Removes all keys and their associated values from a #GHashTable
 // without calling the key and value destroy functions.
 func HashTableStealAll(HashTableVar *HashTable) {
+	core.LazyRegister(&xHashTableStealAll, "GLIB", "g_hash_table_steal_all", false)
+
 	xHashTableStealAll(HashTableVar)
 }
 
@@ -517,6 +577,8 @@ var xHashTableStealAllKeys func(*HashTable) uintptr
 // as a #GPtrArray with the free func set to the @hash_table key
 // destroy function.
 func HashTableStealAllKeys(HashTableVar *HashTable) uintptr {
+	core.LazyRegister(&xHashTableStealAllKeys, "GLIB", "g_hash_table_steal_all_keys", false)
+
 	cret := xHashTableStealAllKeys(HashTableVar)
 	return cret
 }
@@ -528,6 +590,8 @@ var xHashTableStealAllValues func(*HashTable) uintptr
 // as a #GPtrArray with the free func set to the @hash_table value
 // destroy function.
 func HashTableStealAllValues(HashTableVar *HashTable) uintptr {
+	core.LazyRegister(&xHashTableStealAllValues, "GLIB", "g_hash_table_steal_all_values", false)
+
 	cret := xHashTableStealAllValues(HashTableVar)
 	return cret
 }
@@ -552,6 +616,8 @@ var xHashTableStealExtended func(*HashTable, uintptr, *uintptr, *uintptr) bool
 // stealing both the key and the value from such a dictionary, the value was
 // %NULL. Since 2.82, the returned value and key will be the same.
 func HashTableStealExtended(HashTableVar *HashTable, LookupKeyVar uintptr, StolenKeyVar *uintptr, StolenValueVar *uintptr) bool {
+	core.LazyRegister(&xHashTableStealExtended, "GLIB", "g_hash_table_steal_extended", false)
+
 	cret := xHashTableStealExtended(HashTableVar, LookupKeyVar, StolenKeyVar, StolenValueVar)
 	return cret
 }
@@ -563,6 +629,8 @@ var xHashTableUnref func(*HashTable)
 // destroyed, and all memory allocated by the hash table is released.
 // This function is MT-safe and may be called from any thread.
 func HashTableUnref(HashTableVar *HashTable) {
+	core.LazyRegister(&xHashTableUnref, "GLIB", "g_hash_table_unref", false)
+
 	xHashTableUnref(HashTableVar)
 }
 
@@ -574,6 +642,8 @@ var xInt64Equal func(uintptr, uintptr) bool
 // parameter, when using non-%NULL pointers to 64-bit integers as keys in a
 // #GHashTable.
 func Int64Equal(V1Var uintptr, V2Var uintptr) bool {
+	core.LazyRegister(&xInt64Equal, "GLIB", "g_int64_equal", false)
+
 	cret := xInt64Equal(V1Var, V2Var)
 	return cret
 }
@@ -586,6 +656,8 @@ var xInt64Hash func(uintptr) uint
 // when using non-%NULL pointers to 64-bit integer values as keys in a
 // #GHashTable.
 func Int64Hash(VVar uintptr) uint {
+	core.LazyRegister(&xInt64Hash, "GLIB", "g_int64_hash", false)
+
 	cret := xInt64Hash(VVar)
 	return cret
 }
@@ -602,6 +674,8 @@ var xIntEqual func(uintptr, uintptr) bool
 // directly: if your hash table's keys are of the form
 // `GINT_TO_POINTER (n)`, use g_direct_equal() instead.
 func IntEqual(V1Var uintptr, V2Var uintptr) bool {
+	core.LazyRegister(&xIntEqual, "GLIB", "g_int_equal", false)
+
 	cret := xIntEqual(V1Var, V2Var)
 	return cret
 }
@@ -616,6 +690,8 @@ var xIntHash func(uintptr) uint
 // directly: if your hash table's keys are of the form
 // `GINT_TO_POINTER (n)`, use g_direct_hash() instead.
 func IntHash(VVar uintptr) uint {
+	core.LazyRegister(&xIntHash, "GLIB", "g_int_hash", false)
+
 	cret := xIntHash(VVar)
 	return cret
 }
@@ -631,6 +707,8 @@ var xStrEqual func(uintptr, uintptr) bool
 // for general purpose comparisons of non-%NULL strings. For a %NULL-safe string
 // comparison function, see g_strcmp0().
 func StrEqual(V1Var uintptr, V2Var uintptr) bool {
+	core.LazyRegister(&xStrEqual, "GLIB", "g_str_equal", false)
+
 	cret := xStrEqual(V1Var, V2Var)
 	return cret
 }
@@ -652,6 +730,8 @@ var xStrHash func(uintptr) uint
 // For example, it produces some hash collisions with strings as short
 // as 2.
 func StrHash(VVar uintptr) uint {
+	core.LazyRegister(&xStrHash, "GLIB", "g_str_hash", false)
+
 	cret := xStrHash(VVar)
 	return cret
 }
@@ -659,56 +739,4 @@ func StrHash(VVar uintptr) uint {
 func init() {
 	core.SetPackageName("GLIB", "glib-2.0")
 	core.SetSharedLibraries("GLIB", []string{"libgobject-2.0.so.0", "libglib-2.0.so.0", "libgobject-2.0.0.dylib", "libglib-2.0.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GLIB") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xDirectEqual, libs, "g_direct_equal")
-	core.PuregoSafeRegister(&xDirectHash, libs, "g_direct_hash")
-	core.PuregoSafeRegister(&xDoubleEqual, libs, "g_double_equal")
-	core.PuregoSafeRegister(&xDoubleHash, libs, "g_double_hash")
-	core.PuregoSafeRegister(&xHashTableAdd, libs, "g_hash_table_add")
-	core.PuregoSafeRegister(&xHashTableContains, libs, "g_hash_table_contains")
-	core.PuregoSafeRegister(&xHashTableDestroy, libs, "g_hash_table_destroy")
-	core.PuregoSafeRegister(&xHashTableFind, libs, "g_hash_table_find")
-	core.PuregoSafeRegister(&xHashTableForeach, libs, "g_hash_table_foreach")
-	core.PuregoSafeRegister(&xHashTableForeachRemove, libs, "g_hash_table_foreach_remove")
-	core.PuregoSafeRegister(&xHashTableForeachSteal, libs, "g_hash_table_foreach_steal")
-	core.PuregoSafeRegister(&xHashTableGetKeysAsPtrArray, libs, "g_hash_table_get_keys_as_ptr_array")
-	core.PuregoSafeRegister(&xHashTableGetValuesAsPtrArray, libs, "g_hash_table_get_values_as_ptr_array")
-	core.PuregoSafeRegister(&xHashTableInsert, libs, "g_hash_table_insert")
-	core.PuregoSafeRegister(&xHashTableLookup, libs, "g_hash_table_lookup")
-	core.PuregoSafeRegister(&xHashTableLookupExtended, libs, "g_hash_table_lookup_extended")
-	core.PuregoSafeRegister(&xHashTableNewSimilar, libs, "g_hash_table_new_similar")
-	core.PuregoSafeRegister(&xHashTableRef, libs, "g_hash_table_ref")
-	core.PuregoSafeRegister(&xHashTableRemove, libs, "g_hash_table_remove")
-	core.PuregoSafeRegister(&xHashTableRemoveAll, libs, "g_hash_table_remove_all")
-	core.PuregoSafeRegister(&xHashTableReplace, libs, "g_hash_table_replace")
-	core.PuregoSafeRegister(&xHashTableSize, libs, "g_hash_table_size")
-	core.PuregoSafeRegister(&xHashTableSteal, libs, "g_hash_table_steal")
-	core.PuregoSafeRegister(&xHashTableStealAll, libs, "g_hash_table_steal_all")
-	core.PuregoSafeRegister(&xHashTableStealAllKeys, libs, "g_hash_table_steal_all_keys")
-	core.PuregoSafeRegister(&xHashTableStealAllValues, libs, "g_hash_table_steal_all_values")
-	core.PuregoSafeRegister(&xHashTableStealExtended, libs, "g_hash_table_steal_extended")
-	core.PuregoSafeRegister(&xHashTableUnref, libs, "g_hash_table_unref")
-	core.PuregoSafeRegister(&xInt64Equal, libs, "g_int64_equal")
-	core.PuregoSafeRegister(&xInt64Hash, libs, "g_int64_hash")
-	core.PuregoSafeRegister(&xIntEqual, libs, "g_int_equal")
-	core.PuregoSafeRegister(&xIntHash, libs, "g_int_hash")
-	core.PuregoSafeRegister(&xStrEqual, libs, "g_str_equal")
-	core.PuregoSafeRegister(&xStrHash, libs, "g_str_hash")
-
-	core.PuregoSafeRegister(&xHashTableGLibType, libs, "g_hash_table_get_type")
-
-	core.PuregoSafeRegister(&xHashTableIterGetHashTable, libs, "g_hash_table_iter_get_hash_table")
-	core.PuregoSafeRegister(&xHashTableIterInit, libs, "g_hash_table_iter_init")
-	core.PuregoSafeRegister(&xHashTableIterNext, libs, "g_hash_table_iter_next")
-	core.PuregoSafeRegister(&xHashTableIterRemove, libs, "g_hash_table_iter_remove")
-	core.PuregoSafeRegister(&xHashTableIterReplace, libs, "g_hash_table_iter_replace")
-	core.PuregoSafeRegister(&xHashTableIterSteal, libs, "g_hash_table_iter_steal")
 }

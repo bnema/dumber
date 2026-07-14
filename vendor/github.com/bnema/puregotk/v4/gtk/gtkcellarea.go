@@ -84,6 +84,7 @@ var xCellAreaClassFindCellProperty func(uintptr, string) uintptr
 
 // Finds a cell property of a cell area class by name.
 func (x *CellAreaClass) FindCellProperty(PropertyNameVar string) *gobject.ParamSpec {
+	core.LazyRegister(&xCellAreaClassFindCellProperty, "GTK", "gtk_cell_area_class_find_cell_property", false)
 	var cls *gobject.ParamSpec
 
 	cret := xCellAreaClassFindCellProperty(x.GoPointer(), PropertyNameVar)
@@ -101,6 +102,8 @@ var xCellAreaClassInstallCellProperty func(uintptr, uint, uintptr)
 
 // Installs a cell property on a cell area class.
 func (x *CellAreaClass) InstallCellProperty(PropertyIdVar uint, PspecVar *gobject.ParamSpec) {
+	core.LazyRegister(&xCellAreaClassInstallCellProperty, "GTK", "gtk_cell_area_class_install_cell_property", false)
+
 	xCellAreaClassInstallCellProperty(x.GoPointer(), PropertyIdVar, PspecVar.GoPointer())
 }
 
@@ -108,6 +111,8 @@ var xCellAreaClassListCellProperties func(uintptr, *uint) uintptr
 
 // Returns all cell properties of a cell area class.
 func (x *CellAreaClass) ListCellProperties(NPropertiesVar *uint) uintptr {
+	core.LazyRegister(&xCellAreaClassListCellProperties, "GTK", "gtk_cell_area_class_list_cell_properties", false)
+
 	cret := xCellAreaClassListCellProperties(x.GoPointer(), NPropertiesVar)
 	return cret
 }
@@ -1068,6 +1073,7 @@ type CellArea struct {
 var xCellAreaGLibType func() types.GType
 
 func CellAreaGLibType() types.GType {
+	core.LazyRegister(&xCellAreaGLibType, "GTK", "gtk_cell_area_get_type", false)
 	return xCellAreaGLibType()
 }
 
@@ -1083,6 +1089,8 @@ var xCellAreaActivate func(uintptr, uintptr, uintptr, *gdk.Rectangle, CellRender
 // cell, however some subclasses which embed widgets in the area
 // can also activate a widget if it currently has the focus.
 func (x *CellArea) Activate(ContextVar *CellAreaContext, WidgetVar *Widget, CellAreaVar *gdk.Rectangle, FlagsVar CellRendererState, EditOnlyVar bool) bool {
+	core.LazyRegister(&xCellAreaActivate, "GTK", "gtk_cell_area_activate", false)
+
 	cret := xCellAreaActivate(x.GoPointer(), ContextVar.GoPointer(), WidgetVar.GoPointer(), CellAreaVar, FlagsVar, EditOnlyVar)
 	return cret
 }
@@ -1094,6 +1102,8 @@ var xCellAreaActivateCell func(uintptr, uintptr, uintptr, uintptr, *gdk.Rectangl
 // for keyboard events for free in its own GtkCellArea-&gt;activate()
 // implementation.
 func (x *CellArea) ActivateCell(WidgetVar *Widget, RendererVar *CellRenderer, EventVar *gdk.Event, CellAreaVar *gdk.Rectangle, FlagsVar CellRendererState) bool {
+	core.LazyRegister(&xCellAreaActivateCell, "GTK", "gtk_cell_area_activate_cell", false)
+
 	cret := xCellAreaActivateCell(x.GoPointer(), WidgetVar.GoPointer(), RendererVar.GoPointer(), EventVar.GoPointer(), CellAreaVar, FlagsVar)
 	return cret
 }
@@ -1102,6 +1112,8 @@ var xCellAreaAdd func(uintptr, uintptr)
 
 // Adds @renderer to @area with the default child cell properties.
 func (x *CellArea) Add(RendererVar *CellRenderer) {
+	core.LazyRegister(&xCellAreaAdd, "GTK", "gtk_cell_area_add", false)
+
 	xCellAreaAdd(x.GoPointer(), RendererVar.GoPointer())
 }
 
@@ -1114,6 +1126,8 @@ var xCellAreaAddFocusSibling func(uintptr, uintptr, uintptr)
 // Events handled by focus siblings can also activate the given
 // focusable @renderer.
 func (x *CellArea) AddFocusSibling(RendererVar *CellRenderer, SiblingVar *CellRenderer) {
+	core.LazyRegister(&xCellAreaAddFocusSibling, "GTK", "gtk_cell_area_add_focus_sibling", false)
+
 	xCellAreaAddFocusSibling(x.GoPointer(), RendererVar.GoPointer(), SiblingVar.GoPointer())
 }
 
@@ -1122,6 +1136,8 @@ var xCellAreaAddWithProperties func(uintptr, uintptr, string, ...interface{})
 // Adds @renderer to @area, setting cell properties at the same time.
 // See gtk_cell_area_add() and gtk_cell_area_cell_set() for more details.
 func (x *CellArea) AddWithProperties(RendererVar *CellRenderer, FirstPropNameVar string, varArgs ...interface{}) {
+	core.LazyRegister(&xCellAreaAddWithProperties, "GTK", "gtk_cell_area_add_with_properties", false)
+
 	xCellAreaAddWithProperties(x.GoPointer(), RendererVar.GoPointer(), FirstPropNameVar, varArgs...)
 }
 
@@ -1130,6 +1146,8 @@ var xCellAreaApplyAttributes func(uintptr, uintptr, *TreeIter, bool, bool)
 // Applies any connected attributes to the renderers in
 // @area by pulling the values from @tree_model.
 func (x *CellArea) ApplyAttributes(TreeModelVar TreeModel, IterVar *TreeIter, IsExpanderVar bool, IsExpandedVar bool) {
+	core.LazyRegister(&xCellAreaApplyAttributes, "GTK", "gtk_cell_area_apply_attributes", false)
+
 	xCellAreaApplyAttributes(x.GoPointer(), TreeModelVar.GoPointer(), IterVar, IsExpanderVar, IsExpandedVar)
 }
 
@@ -1138,6 +1156,8 @@ var xCellAreaAttributeConnect func(uintptr, uintptr, string, int)
 // Connects an @attribute to apply values from @column for the
 // `GtkTreeModel` in use.
 func (x *CellArea) AttributeConnect(RendererVar *CellRenderer, AttributeVar string, ColumnVar int) {
+	core.LazyRegister(&xCellAreaAttributeConnect, "GTK", "gtk_cell_area_attribute_connect", false)
+
 	xCellAreaAttributeConnect(x.GoPointer(), RendererVar.GoPointer(), AttributeVar, ColumnVar)
 }
 
@@ -1147,6 +1167,8 @@ var xCellAreaAttributeDisconnect func(uintptr, uintptr, string)
 // attribute will no longer be updated with values from the
 // model.
 func (x *CellArea) AttributeDisconnect(RendererVar *CellRenderer, AttributeVar string) {
+	core.LazyRegister(&xCellAreaAttributeDisconnect, "GTK", "gtk_cell_area_attribute_disconnect", false)
+
 	xCellAreaAttributeDisconnect(x.GoPointer(), RendererVar.GoPointer(), AttributeVar)
 }
 
@@ -1155,6 +1177,8 @@ var xCellAreaAttributeGetColumn func(uintptr, uintptr, string) int
 // Returns the model column that an attribute has been mapped to,
 // or -1 if the attribute is not mapped.
 func (x *CellArea) AttributeGetColumn(RendererVar *CellRenderer, AttributeVar string) int {
+	core.LazyRegister(&xCellAreaAttributeGetColumn, "GTK", "gtk_cell_area_attribute_get_column", false)
+
 	cret := xCellAreaAttributeGetColumn(x.GoPointer(), RendererVar.GoPointer(), AttributeVar)
 	return cret
 }
@@ -1163,6 +1187,8 @@ var xCellAreaCellGet func(uintptr, uintptr, string, ...interface{})
 
 // Gets the values of one or more cell properties for @renderer in @area.
 func (x *CellArea) CellGet(RendererVar *CellRenderer, FirstPropNameVar string, varArgs ...interface{}) {
+	core.LazyRegister(&xCellAreaCellGet, "GTK", "gtk_cell_area_cell_get", false)
+
 	xCellAreaCellGet(x.GoPointer(), RendererVar.GoPointer(), FirstPropNameVar, varArgs...)
 }
 
@@ -1170,6 +1196,8 @@ var xCellAreaCellGetProperty func(uintptr, uintptr, string, *gobject.Value)
 
 // Gets the value of a cell property for @renderer in @area.
 func (x *CellArea) CellGetProperty(RendererVar *CellRenderer, PropertyNameVar string, ValueVar *gobject.Value) {
+	core.LazyRegister(&xCellAreaCellGetProperty, "GTK", "gtk_cell_area_cell_get_property", false)
+
 	xCellAreaCellGetProperty(x.GoPointer(), RendererVar.GoPointer(), PropertyNameVar, ValueVar)
 }
 
@@ -1177,6 +1205,8 @@ var xCellAreaCellGetValist func(uintptr, uintptr, string, []interface{})
 
 // Gets the values of one or more cell properties for @renderer in @area.
 func (x *CellArea) CellGetValist(RendererVar *CellRenderer, FirstPropertyNameVar string, VarArgsVar []interface{}) {
+	core.LazyRegister(&xCellAreaCellGetValist, "GTK", "gtk_cell_area_cell_get_valist", false)
+
 	xCellAreaCellGetValist(x.GoPointer(), RendererVar.GoPointer(), FirstPropertyNameVar, VarArgsVar)
 }
 
@@ -1184,6 +1214,8 @@ var xCellAreaCellSet func(uintptr, uintptr, string, ...interface{})
 
 // Sets one or more cell properties for @cell in @area.
 func (x *CellArea) CellSet(RendererVar *CellRenderer, FirstPropNameVar string, varArgs ...interface{}) {
+	core.LazyRegister(&xCellAreaCellSet, "GTK", "gtk_cell_area_cell_set", false)
+
 	xCellAreaCellSet(x.GoPointer(), RendererVar.GoPointer(), FirstPropNameVar, varArgs...)
 }
 
@@ -1191,6 +1223,8 @@ var xCellAreaCellSetProperty func(uintptr, uintptr, string, *gobject.Value)
 
 // Sets a cell property for @renderer in @area.
 func (x *CellArea) CellSetProperty(RendererVar *CellRenderer, PropertyNameVar string, ValueVar *gobject.Value) {
+	core.LazyRegister(&xCellAreaCellSetProperty, "GTK", "gtk_cell_area_cell_set_property", false)
+
 	xCellAreaCellSetProperty(x.GoPointer(), RendererVar.GoPointer(), PropertyNameVar, ValueVar)
 }
 
@@ -1198,6 +1232,8 @@ var xCellAreaCellSetValist func(uintptr, uintptr, string, []interface{})
 
 // Sets one or more cell properties for @renderer in @area.
 func (x *CellArea) CellSetValist(RendererVar *CellRenderer, FirstPropertyNameVar string, VarArgsVar []interface{}) {
+	core.LazyRegister(&xCellAreaCellSetValist, "GTK", "gtk_cell_area_cell_set_valist", false)
+
 	xCellAreaCellSetValist(x.GoPointer(), RendererVar.GoPointer(), FirstPropertyNameVar, VarArgsVar)
 }
 
@@ -1215,6 +1251,7 @@ var xCellAreaCopyContext func(uintptr, uintptr) uintptr
 // was already used to request all the row widths that are
 // to be displayed.
 func (x *CellArea) CopyContext(ContextVar *CellAreaContext) *CellAreaContext {
+	core.LazyRegister(&xCellAreaCopyContext, "GTK", "gtk_cell_area_copy_context", false)
 	var cls *CellAreaContext
 
 	cret := xCellAreaCopyContext(x.GoPointer(), ContextVar.GoPointer())
@@ -1236,6 +1273,7 @@ var xCellAreaCreateContext func(uintptr) uintptr
 // one should render and handle events with the same `GtkCellArea`Context
 // which was used to request the size of those rows of data).
 func (x *CellArea) CreateContext() *CellAreaContext {
+	core.LazyRegister(&xCellAreaCreateContext, "GTK", "gtk_cell_area_create_context", false)
 	var cls *CellAreaContext
 
 	cret := xCellAreaCreateContext(x.GoPointer())
@@ -1252,6 +1290,8 @@ var xCellAreaEvent func(uintptr, uintptr, uintptr, uintptr, *gdk.Rectangle, Cell
 
 // Delegates event handling to a `GtkCellArea`.
 func (x *CellArea) Event(ContextVar *CellAreaContext, WidgetVar *Widget, EventVar *gdk.Event, CellAreaVar *gdk.Rectangle, FlagsVar CellRendererState) int {
+	core.LazyRegister(&xCellAreaEvent, "GTK", "gtk_cell_area_event", false)
+
 	cret := xCellAreaEvent(x.GoPointer(), ContextVar.GoPointer(), WidgetVar.GoPointer(), EventVar.GoPointer(), CellAreaVar, FlagsVar)
 	return cret
 }
@@ -1266,6 +1306,8 @@ var xCellAreaFocus func(uintptr, DirectionType) bool
 // method to receive and navigate focus in its own way particular
 // to how it lays out cells.
 func (x *CellArea) Focus(DirectionVar DirectionType) bool {
+	core.LazyRegister(&xCellAreaFocus, "GTK", "gtk_cell_area_focus", false)
+
 	cret := xCellAreaFocus(x.GoPointer(), DirectionVar)
 	return cret
 }
@@ -1274,6 +1316,8 @@ var xCellAreaForeach func(uintptr, uintptr, uintptr)
 
 // Calls @callback for every `GtkCellRenderer` in @area.
 func (x *CellArea) Foreach(CallbackVar *CellCallback, CallbackDataVar uintptr) {
+	core.LazyRegister(&xCellAreaForeach, "GTK", "gtk_cell_area_foreach", false)
+
 	xCellAreaForeach(x.GoPointer(), glib.NewCallback(CallbackVar), CallbackDataVar)
 }
 
@@ -1282,6 +1326,8 @@ var xCellAreaForeachAlloc func(uintptr, uintptr, uintptr, *gdk.Rectangle, *gdk.R
 // Calls @callback for every `GtkCellRenderer` in @area with the
 // allocated rectangle inside @cell_area.
 func (x *CellArea) ForeachAlloc(ContextVar *CellAreaContext, WidgetVar *Widget, CellAreaVar *gdk.Rectangle, BackgroundAreaVar *gdk.Rectangle, CallbackVar *CellAllocCallback, CallbackDataVar uintptr) {
+	core.LazyRegister(&xCellAreaForeachAlloc, "GTK", "gtk_cell_area_foreach_alloc", false)
+
 	xCellAreaForeachAlloc(x.GoPointer(), ContextVar.GoPointer(), WidgetVar.GoPointer(), CellAreaVar, BackgroundAreaVar, glib.NewCallback(CallbackVar), CallbackDataVar)
 }
 
@@ -1290,6 +1336,8 @@ var xCellAreaGetCellAllocation func(uintptr, uintptr, uintptr, uintptr, *gdk.Rec
 // Derives the allocation of @renderer inside @area if @area
 // were to be rendered in @cell_area.
 func (x *CellArea) GetCellAllocation(ContextVar *CellAreaContext, WidgetVar *Widget, RendererVar *CellRenderer, CellAreaVar *gdk.Rectangle, AllocationVar *gdk.Rectangle) {
+	core.LazyRegister(&xCellAreaGetCellAllocation, "GTK", "gtk_cell_area_get_cell_allocation", false)
+
 	xCellAreaGetCellAllocation(x.GoPointer(), ContextVar.GoPointer(), WidgetVar.GoPointer(), RendererVar.GoPointer(), CellAreaVar, AllocationVar)
 }
 
@@ -1298,6 +1346,7 @@ var xCellAreaGetCellAtPosition func(uintptr, uintptr, uintptr, *gdk.Rectangle, i
 // Gets the `GtkCellRenderer` at @x and @y coordinates inside @area and optionally
 // returns the full cell allocation for it inside @cell_area.
 func (x *CellArea) GetCellAtPosition(ContextVar *CellAreaContext, WidgetVar *Widget, CellAreaVar *gdk.Rectangle, XVar int, YVar int, AllocAreaVar *gdk.Rectangle) *CellRenderer {
+	core.LazyRegister(&xCellAreaGetCellAtPosition, "GTK", "gtk_cell_area_get_cell_at_position", false)
 	var cls *CellRenderer
 
 	cret := xCellAreaGetCellAtPosition(x.GoPointer(), ContextVar.GoPointer(), WidgetVar.GoPointer(), CellAreaVar, XVar, YVar, AllocAreaVar)
@@ -1319,6 +1368,8 @@ var xCellAreaGetCurrentPathString func(uintptr) string
 // used to interact with renderers from `GtkCellArea`
 // subclasses.
 func (x *CellArea) GetCurrentPathString() string {
+	core.LazyRegister(&xCellAreaGetCurrentPathString, "GTK", "gtk_cell_area_get_current_path_string", false)
+
 	cret := xCellAreaGetCurrentPathString(x.GoPointer())
 	return cret
 }
@@ -1328,6 +1379,7 @@ var xCellAreaGetEditWidget func(uintptr) uintptr
 // Gets the `GtkCellEditable` widget currently used
 // to edit the currently edited cell.
 func (x *CellArea) GetEditWidget() *CellEditableBase {
+	core.LazyRegister(&xCellAreaGetEditWidget, "GTK", "gtk_cell_area_get_edit_widget", false)
 	var cls *CellEditableBase
 
 	cret := xCellAreaGetEditWidget(x.GoPointer())
@@ -1346,6 +1398,7 @@ var xCellAreaGetEditedCell func(uintptr) uintptr
 // Gets the `GtkCellRenderer` in @area that is currently
 // being edited.
 func (x *CellArea) GetEditedCell() *CellRenderer {
+	core.LazyRegister(&xCellAreaGetEditedCell, "GTK", "gtk_cell_area_get_edited_cell", false)
 	var cls *CellRenderer
 
 	cret := xCellAreaGetEditedCell(x.GoPointer())
@@ -1363,6 +1416,7 @@ var xCellAreaGetFocusCell func(uintptr) uintptr
 
 // Retrieves the currently focused cell for @area
 func (x *CellArea) GetFocusCell() *CellRenderer {
+	core.LazyRegister(&xCellAreaGetFocusCell, "GTK", "gtk_cell_area_get_focus_cell", false)
 	var cls *CellRenderer
 
 	cret := xCellAreaGetFocusCell(x.GoPointer())
@@ -1386,6 +1440,7 @@ var xCellAreaGetFocusFromSibling func(uintptr, uintptr) uintptr
 // then chose to activate the focus cell for which the event
 // cell may have been a sibling.
 func (x *CellArea) GetFocusFromSibling(RendererVar *CellRenderer) *CellRenderer {
+	core.LazyRegister(&xCellAreaGetFocusFromSibling, "GTK", "gtk_cell_area_get_focus_from_sibling", false)
 	var cls *CellRenderer
 
 	cret := xCellAreaGetFocusFromSibling(x.GoPointer(), RendererVar.GoPointer())
@@ -1403,6 +1458,8 @@ var xCellAreaGetFocusSiblings func(uintptr, uintptr) uintptr
 
 // Gets the focus sibling cell renderers for @renderer.
 func (x *CellArea) GetFocusSiblings(RendererVar *CellRenderer) *glib.List {
+	core.LazyRegister(&xCellAreaGetFocusSiblings, "GTK", "gtk_cell_area_get_focus_siblings", false)
+
 	cret := xCellAreaGetFocusSiblings(x.GoPointer(), RendererVar.GoPointer())
 	if cret == 0 {
 		return nil
@@ -1420,6 +1477,8 @@ var xCellAreaGetPreferredHeight func(uintptr, uintptr, uintptr, *int, *int)
 // consult gtk_cell_area_context_get_preferred_height() after a series of
 // requests.
 func (x *CellArea) GetPreferredHeight(ContextVar *CellAreaContext, WidgetVar *Widget, MinimumHeightVar *int, NaturalHeightVar *int) {
+	core.LazyRegister(&xCellAreaGetPreferredHeight, "GTK", "gtk_cell_area_get_preferred_height", false)
+
 	xCellAreaGetPreferredHeight(x.GoPointer(), ContextVar.GoPointer(), WidgetVar.GoPointer(), MinimumHeightVar, NaturalHeightVar)
 }
 
@@ -1440,6 +1499,8 @@ var xCellAreaGetPreferredHeightForWidth func(uintptr, uintptr, uintptr, int, *in
 // the full width of the requested rows checked again with
 // gtk_cell_area_context_get_preferred_width().
 func (x *CellArea) GetPreferredHeightForWidth(ContextVar *CellAreaContext, WidgetVar *Widget, WidthVar int, MinimumHeightVar *int, NaturalHeightVar *int) {
+	core.LazyRegister(&xCellAreaGetPreferredHeightForWidth, "GTK", "gtk_cell_area_get_preferred_height_for_width", false)
+
 	xCellAreaGetPreferredHeightForWidth(x.GoPointer(), ContextVar.GoPointer(), WidgetVar.GoPointer(), WidthVar, MinimumHeightVar, NaturalHeightVar)
 }
 
@@ -1453,6 +1514,8 @@ var xCellAreaGetPreferredWidth func(uintptr, uintptr, uintptr, *int, *int)
 // consult gtk_cell_area_context_get_preferred_width() after a series of
 // requests.
 func (x *CellArea) GetPreferredWidth(ContextVar *CellAreaContext, WidgetVar *Widget, MinimumWidthVar *int, NaturalWidthVar *int) {
+	core.LazyRegister(&xCellAreaGetPreferredWidth, "GTK", "gtk_cell_area_get_preferred_width", false)
+
 	xCellAreaGetPreferredWidth(x.GoPointer(), ContextVar.GoPointer(), WidgetVar.GoPointer(), MinimumWidthVar, NaturalWidthVar)
 }
 
@@ -1473,6 +1536,8 @@ var xCellAreaGetPreferredWidthForHeight func(uintptr, uintptr, uintptr, int, *in
 // the full height of the requested rows checked again with
 // gtk_cell_area_context_get_preferred_height().
 func (x *CellArea) GetPreferredWidthForHeight(ContextVar *CellAreaContext, WidgetVar *Widget, HeightVar int, MinimumWidthVar *int, NaturalWidthVar *int) {
+	core.LazyRegister(&xCellAreaGetPreferredWidthForHeight, "GTK", "gtk_cell_area_get_preferred_width_for_height", false)
+
 	xCellAreaGetPreferredWidthForHeight(x.GoPointer(), ContextVar.GoPointer(), WidgetVar.GoPointer(), HeightVar, MinimumWidthVar, NaturalWidthVar)
 }
 
@@ -1481,6 +1546,8 @@ var xCellAreaGetRequestMode func(uintptr) SizeRequestMode
 // Gets whether the area prefers a height-for-width layout
 // or a width-for-height layout.
 func (x *CellArea) GetRequestMode() SizeRequestMode {
+	core.LazyRegister(&xCellAreaGetRequestMode, "GTK", "gtk_cell_area_get_request_mode", false)
+
 	cret := xCellAreaGetRequestMode(x.GoPointer())
 	return cret
 }
@@ -1489,6 +1556,8 @@ var xCellAreaHasRenderer func(uintptr, uintptr) bool
 
 // Checks if @area contains @renderer.
 func (x *CellArea) HasRenderer(RendererVar *CellRenderer) bool {
+	core.LazyRegister(&xCellAreaHasRenderer, "GTK", "gtk_cell_area_has_renderer", false)
+
 	cret := xCellAreaHasRenderer(x.GoPointer(), RendererVar.GoPointer())
 	return cret
 }
@@ -1499,6 +1568,8 @@ var xCellAreaInnerCellArea func(uintptr, uintptr, *gdk.Rectangle, *gdk.Rectangle
 // to get the inner area where a given `GtkCellRenderer` will be
 // rendered. It removes any padding previously added by gtk_cell_area_request_renderer().
 func (x *CellArea) InnerCellArea(WidgetVar *Widget, CellAreaVar *gdk.Rectangle, InnerAreaVar *gdk.Rectangle) {
+	core.LazyRegister(&xCellAreaInnerCellArea, "GTK", "gtk_cell_area_inner_cell_area", false)
+
 	xCellAreaInnerCellArea(x.GoPointer(), WidgetVar.GoPointer(), CellAreaVar, InnerAreaVar)
 }
 
@@ -1507,6 +1578,8 @@ var xCellAreaIsActivatable func(uintptr) bool
 // Returns whether the area can do anything when activated,
 // after applying new attributes to @area.
 func (x *CellArea) IsActivatable() bool {
+	core.LazyRegister(&xCellAreaIsActivatable, "GTK", "gtk_cell_area_is_activatable", false)
+
 	cret := xCellAreaIsActivatable(x.GoPointer())
 	return cret
 }
@@ -1516,6 +1589,8 @@ var xCellAreaIsFocusSibling func(uintptr, uintptr, uintptr) bool
 // Returns whether @sibling is one of @renderer’s focus siblings
 // (see gtk_cell_area_add_focus_sibling()).
 func (x *CellArea) IsFocusSibling(RendererVar *CellRenderer, SiblingVar *CellRenderer) bool {
+	core.LazyRegister(&xCellAreaIsFocusSibling, "GTK", "gtk_cell_area_is_focus_sibling", false)
+
 	cret := xCellAreaIsFocusSibling(x.GoPointer(), RendererVar.GoPointer(), SiblingVar.GoPointer())
 	return cret
 }
@@ -1524,6 +1599,8 @@ var xCellAreaRemove func(uintptr, uintptr)
 
 // Removes @renderer from @area.
 func (x *CellArea) Remove(RendererVar *CellRenderer) {
+	core.LazyRegister(&xCellAreaRemove, "GTK", "gtk_cell_area_remove", false)
+
 	xCellAreaRemove(x.GoPointer(), RendererVar.GoPointer())
 }
 
@@ -1532,6 +1609,8 @@ var xCellAreaRemoveFocusSibling func(uintptr, uintptr, uintptr)
 // Removes @sibling from @renderer’s focus sibling list
 // (see gtk_cell_area_add_focus_sibling()).
 func (x *CellArea) RemoveFocusSibling(RendererVar *CellRenderer, SiblingVar *CellRenderer) {
+	core.LazyRegister(&xCellAreaRemoveFocusSibling, "GTK", "gtk_cell_area_remove_focus_sibling", false)
+
 	xCellAreaRemoveFocusSibling(x.GoPointer(), RendererVar.GoPointer(), SiblingVar.GoPointer())
 }
 
@@ -1543,6 +1622,8 @@ var xCellAreaRequestRenderer func(uintptr, uintptr, Orientation, uintptr, int, *
 // at render and event time since this function will add padding
 // around the cell for focus painting.
 func (x *CellArea) RequestRenderer(RendererVar *CellRenderer, OrientationVar Orientation, WidgetVar *Widget, ForSizeVar int, MinimumSizeVar *int, NaturalSizeVar *int) {
+	core.LazyRegister(&xCellAreaRequestRenderer, "GTK", "gtk_cell_area_request_renderer", false)
+
 	xCellAreaRequestRenderer(x.GoPointer(), RendererVar.GoPointer(), OrientationVar, WidgetVar.GoPointer(), ForSizeVar, MinimumSizeVar, NaturalSizeVar)
 }
 
@@ -1555,6 +1636,8 @@ var xCellAreaSetFocusCell func(uintptr, uintptr)
 // however it can also be used to implement functions such
 // as gtk_tree_view_set_cursor_on_cell().
 func (x *CellArea) SetFocusCell(RendererVar *CellRenderer) {
+	core.LazyRegister(&xCellAreaSetFocusCell, "GTK", "gtk_cell_area_set_focus_cell", false)
+
 	xCellAreaSetFocusCell(x.GoPointer(), RendererVar.GoPointer())
 }
 
@@ -1563,6 +1646,8 @@ var xCellAreaSnapshot func(uintptr, uintptr, uintptr, uintptr, *gdk.Rectangle, *
 // Snapshots @area’s cells according to @area’s layout onto at
 // the given coordinates.
 func (x *CellArea) Snapshot(ContextVar *CellAreaContext, WidgetVar *Widget, SnapshotVar *Snapshot, BackgroundAreaVar *gdk.Rectangle, CellAreaVar *gdk.Rectangle, FlagsVar CellRendererState, PaintFocusVar bool) {
+	core.LazyRegister(&xCellAreaSnapshot, "GTK", "gtk_cell_area_snapshot", false)
+
 	xCellAreaSnapshot(x.GoPointer(), ContextVar.GoPointer(), WidgetVar.GoPointer(), SnapshotVar.GoPointer(), BackgroundAreaVar, CellAreaVar, FlagsVar, PaintFocusVar)
 }
 
@@ -1577,6 +1662,8 @@ var xCellAreaStopEditing func(uintptr, bool)
 //
 // See gtk_cell_area_get_edited_cell() and gtk_cell_area_get_edit_widget().
 func (x *CellArea) StopEditing(CanceledVar bool) {
+	core.LazyRegister(&xCellAreaStopEditing, "GTK", "gtk_cell_area_stop_editing", false)
+
 	xCellAreaStopEditing(x.GoPointer(), CanceledVar)
 }
 
@@ -1802,63 +1889,4 @@ func (x *CellArea) SetCellDataFunc(CellVar *CellRenderer, FuncVar *CellLayoutDat
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GTK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xCellAreaClassFindCellProperty, libs, "gtk_cell_area_class_find_cell_property")
-	core.PuregoSafeRegister(&xCellAreaClassInstallCellProperty, libs, "gtk_cell_area_class_install_cell_property")
-	core.PuregoSafeRegister(&xCellAreaClassListCellProperties, libs, "gtk_cell_area_class_list_cell_properties")
-
-	core.PuregoSafeRegister(&xCellAreaGLibType, libs, "gtk_cell_area_get_type")
-
-	core.PuregoSafeRegister(&xCellAreaActivate, libs, "gtk_cell_area_activate")
-	core.PuregoSafeRegister(&xCellAreaActivateCell, libs, "gtk_cell_area_activate_cell")
-	core.PuregoSafeRegister(&xCellAreaAdd, libs, "gtk_cell_area_add")
-	core.PuregoSafeRegister(&xCellAreaAddFocusSibling, libs, "gtk_cell_area_add_focus_sibling")
-	core.PuregoSafeRegister(&xCellAreaAddWithProperties, libs, "gtk_cell_area_add_with_properties")
-	core.PuregoSafeRegister(&xCellAreaApplyAttributes, libs, "gtk_cell_area_apply_attributes")
-	core.PuregoSafeRegister(&xCellAreaAttributeConnect, libs, "gtk_cell_area_attribute_connect")
-	core.PuregoSafeRegister(&xCellAreaAttributeDisconnect, libs, "gtk_cell_area_attribute_disconnect")
-	core.PuregoSafeRegister(&xCellAreaAttributeGetColumn, libs, "gtk_cell_area_attribute_get_column")
-	core.PuregoSafeRegister(&xCellAreaCellGet, libs, "gtk_cell_area_cell_get")
-	core.PuregoSafeRegister(&xCellAreaCellGetProperty, libs, "gtk_cell_area_cell_get_property")
-	core.PuregoSafeRegister(&xCellAreaCellGetValist, libs, "gtk_cell_area_cell_get_valist")
-	core.PuregoSafeRegister(&xCellAreaCellSet, libs, "gtk_cell_area_cell_set")
-	core.PuregoSafeRegister(&xCellAreaCellSetProperty, libs, "gtk_cell_area_cell_set_property")
-	core.PuregoSafeRegister(&xCellAreaCellSetValist, libs, "gtk_cell_area_cell_set_valist")
-	core.PuregoSafeRegister(&xCellAreaCopyContext, libs, "gtk_cell_area_copy_context")
-	core.PuregoSafeRegister(&xCellAreaCreateContext, libs, "gtk_cell_area_create_context")
-	core.PuregoSafeRegister(&xCellAreaEvent, libs, "gtk_cell_area_event")
-	core.PuregoSafeRegister(&xCellAreaFocus, libs, "gtk_cell_area_focus")
-	core.PuregoSafeRegister(&xCellAreaForeach, libs, "gtk_cell_area_foreach")
-	core.PuregoSafeRegister(&xCellAreaForeachAlloc, libs, "gtk_cell_area_foreach_alloc")
-	core.PuregoSafeRegister(&xCellAreaGetCellAllocation, libs, "gtk_cell_area_get_cell_allocation")
-	core.PuregoSafeRegister(&xCellAreaGetCellAtPosition, libs, "gtk_cell_area_get_cell_at_position")
-	core.PuregoSafeRegister(&xCellAreaGetCurrentPathString, libs, "gtk_cell_area_get_current_path_string")
-	core.PuregoSafeRegister(&xCellAreaGetEditWidget, libs, "gtk_cell_area_get_edit_widget")
-	core.PuregoSafeRegister(&xCellAreaGetEditedCell, libs, "gtk_cell_area_get_edited_cell")
-	core.PuregoSafeRegister(&xCellAreaGetFocusCell, libs, "gtk_cell_area_get_focus_cell")
-	core.PuregoSafeRegister(&xCellAreaGetFocusFromSibling, libs, "gtk_cell_area_get_focus_from_sibling")
-	core.PuregoSafeRegister(&xCellAreaGetFocusSiblings, libs, "gtk_cell_area_get_focus_siblings")
-	core.PuregoSafeRegister(&xCellAreaGetPreferredHeight, libs, "gtk_cell_area_get_preferred_height")
-	core.PuregoSafeRegister(&xCellAreaGetPreferredHeightForWidth, libs, "gtk_cell_area_get_preferred_height_for_width")
-	core.PuregoSafeRegister(&xCellAreaGetPreferredWidth, libs, "gtk_cell_area_get_preferred_width")
-	core.PuregoSafeRegister(&xCellAreaGetPreferredWidthForHeight, libs, "gtk_cell_area_get_preferred_width_for_height")
-	core.PuregoSafeRegister(&xCellAreaGetRequestMode, libs, "gtk_cell_area_get_request_mode")
-	core.PuregoSafeRegister(&xCellAreaHasRenderer, libs, "gtk_cell_area_has_renderer")
-	core.PuregoSafeRegister(&xCellAreaInnerCellArea, libs, "gtk_cell_area_inner_cell_area")
-	core.PuregoSafeRegister(&xCellAreaIsActivatable, libs, "gtk_cell_area_is_activatable")
-	core.PuregoSafeRegister(&xCellAreaIsFocusSibling, libs, "gtk_cell_area_is_focus_sibling")
-	core.PuregoSafeRegister(&xCellAreaRemove, libs, "gtk_cell_area_remove")
-	core.PuregoSafeRegister(&xCellAreaRemoveFocusSibling, libs, "gtk_cell_area_remove_focus_sibling")
-	core.PuregoSafeRegister(&xCellAreaRequestRenderer, libs, "gtk_cell_area_request_renderer")
-	core.PuregoSafeRegister(&xCellAreaSetFocusCell, libs, "gtk_cell_area_set_focus_cell")
-	core.PuregoSafeRegister(&xCellAreaSnapshot, libs, "gtk_cell_area_snapshot")
-	core.PuregoSafeRegister(&xCellAreaStopEditing, libs, "gtk_cell_area_stop_editing")
 }

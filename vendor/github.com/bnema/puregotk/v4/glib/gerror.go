@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject/types"
 )
@@ -52,6 +51,7 @@ type Error struct {
 var xErrorGLibType func() types.GType
 
 func ErrorGLibType() types.GType {
+	core.LazyRegister(&xErrorGLibType, "GLIB", "g_error_get_type", false)
 	return xErrorGLibType()
 }
 
@@ -72,6 +72,8 @@ var xNewError func(Quark, int, string, ...interface{}) uintptr
 // Creates a new #GError with the given @domain and @code,
 // and a message formatted with @format.
 func NewError(DomainVar Quark, CodeVar int, FormatVar string, varArgs ...interface{}) *Error {
+	core.LazyRegister(&xNewError, "GLIB", "g_error_new", false)
+
 	cret := xNewError(DomainVar, CodeVar, FormatVar, varArgs...)
 	if cret == 0 {
 		return nil
@@ -86,6 +88,8 @@ var xNewErrorLiteral func(Quark, int, string) uintptr
 // @message contains text you don't have control over,
 // that could include printf() escape sequences.
 func NewErrorLiteral(DomainVar Quark, CodeVar int, MessageVar string) *Error {
+	core.LazyRegister(&xNewErrorLiteral, "GLIB", "g_error_new_literal", false)
+
 	cret := xNewErrorLiteral(DomainVar, CodeVar, MessageVar)
 	if cret == 0 {
 		return nil
@@ -98,6 +102,8 @@ var xNewErrorValist func(Quark, int, string, []interface{}) uintptr
 // Creates a new #GError with the given @domain and @code,
 // and a message formatted with @format.
 func NewErrorValist(DomainVar Quark, CodeVar int, FormatVar string, ArgsVar []interface{}) *Error {
+	core.LazyRegister(&xNewErrorValist, "GLIB", "g_error_new_valist", false)
+
 	cret := xNewErrorValist(DomainVar, CodeVar, FormatVar, ArgsVar)
 	if cret == 0 {
 		return nil
@@ -109,6 +115,8 @@ var xErrorCopy func(uintptr) uintptr
 
 // Makes a copy of @error.
 func (x *Error) Copy() *Error {
+	core.LazyRegister(&xErrorCopy, "GLIB", "g_error_copy", false)
+
 	cret := xErrorCopy(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -120,6 +128,8 @@ var xErrorFree func(uintptr)
 
 // Frees a #GError and associated resources.
 func (x *Error) Free() {
+	core.LazyRegister(&xErrorFree, "GLIB", "g_error_free", false)
+
 	xErrorFree(x.GoPointer())
 }
 
@@ -136,6 +146,8 @@ var xErrorMatches func(uintptr, Quark, int) bool
 // extended in the future to provide a more specific error code for
 // a certain case, your code will still work.
 func (x *Error) Matches(DomainVar Quark, CodeVar int) bool {
+	core.LazyRegister(&xErrorMatches, "GLIB", "g_error_matches", false)
+
 	cret := xErrorMatches(x.GoPointer(), DomainVar, CodeVar)
 	return cret
 }
@@ -145,6 +157,7 @@ var xClearError func(**Error)
 // If @err or `*err` is %NULL, does nothing. Otherwise,
 // calls g_error_free() on `*err` and sets `*err` to %NULL.
 func ClearError() error {
+	core.LazyRegister(&xClearError, "GLIB", "g_clear_error", false)
 	var cerr *Error
 
 	xClearError(&cerr)
@@ -160,6 +173,8 @@ var xErrorDomainRegister func(string, uint, uintptr, uintptr, uintptr) Quark
 // @error_type_name will be duplicated. Otherwise does the same as
 // g_error_domain_register_static().
 func ErrorDomainRegister(ErrorTypeNameVar string, ErrorTypePrivateSizeVar uint, ErrorTypeInitVar *ErrorInitFunc, ErrorTypeCopyVar *ErrorCopyFunc, ErrorTypeClearVar *ErrorClearFunc) Quark {
+	core.LazyRegister(&xErrorDomainRegister, "GLIB", "g_error_domain_register", false)
+
 	cret := xErrorDomainRegister(ErrorTypeNameVar, ErrorTypePrivateSizeVar, NewCallback(ErrorTypeInitVar), NewCallback(ErrorTypeCopyVar), NewCallback(ErrorTypeClearVar))
 	return cret
 }
@@ -184,6 +199,8 @@ var xErrorDomainRegisterStatic func(string, uint, uintptr, uintptr, uintptr) Qua
 // Normally, it is better to use G_DEFINE_EXTENDED_ERROR(), as it
 // already takes care of passing valid information to this function.
 func ErrorDomainRegisterStatic(ErrorTypeNameVar string, ErrorTypePrivateSizeVar uint, ErrorTypeInitVar *ErrorInitFunc, ErrorTypeCopyVar *ErrorCopyFunc, ErrorTypeClearVar *ErrorClearFunc) Quark {
+	core.LazyRegister(&xErrorDomainRegisterStatic, "GLIB", "g_error_domain_register_static", false)
+
 	cret := xErrorDomainRegisterStatic(ErrorTypeNameVar, ErrorTypePrivateSizeVar, NewCallback(ErrorTypeInitVar), NewCallback(ErrorTypeCopyVar), NewCallback(ErrorTypeClearVar))
 	return cret
 }
@@ -197,6 +214,8 @@ var xPrefixError func(**Error, string, ...interface{})
 // If `*err` is %NULL (ie: an error variable is present but there is no
 // error condition) then also do nothing.
 func PrefixError(ErrVar **Error, FormatVar string, varArgs ...interface{}) {
+	core.LazyRegister(&xPrefixError, "GLIB", "g_prefix_error", false)
+
 	xPrefixError(ErrVar, FormatVar, varArgs...)
 }
 
@@ -205,6 +224,8 @@ var xPrefixErrorLiteral func(**Error, string)
 // Prefixes @prefix to an existing error message. If @err or `*err` is
 // %NULL (i.e.: no error variable) then do nothing.
 func PrefixErrorLiteral(ErrVar **Error, PrefixVar string) {
+	core.LazyRegister(&xPrefixErrorLiteral, "GLIB", "g_prefix_error_literal", false)
+
 	xPrefixErrorLiteral(ErrVar, PrefixVar)
 }
 
@@ -219,6 +240,8 @@ var xPropagateError func(**Error, *Error)
 // to keep using the same GError*, you need to set it to %NULL
 // after calling this function on it.
 func PropagateError(DestVar **Error, SrcVar *Error) {
+	core.LazyRegister(&xPropagateError, "GLIB", "g_propagate_error", false)
+
 	xPropagateError(DestVar, SrcVar)
 }
 
@@ -228,6 +251,8 @@ var xPropagatePrefixedError func(**Error, *Error, string, ...interface{})
 // `*dest` must be %NULL. After the move, add a prefix as with
 // g_prefix_error().
 func PropagatePrefixedError(DestVar **Error, SrcVar *Error, FormatVar string, varArgs ...interface{}) {
+	core.LazyRegister(&xPropagatePrefixedError, "GLIB", "g_propagate_prefixed_error", false)
+
 	xPropagatePrefixedError(DestVar, SrcVar, FormatVar, varArgs...)
 }
 
@@ -236,6 +261,8 @@ var xSetError func(**Error, Quark, int, string, ...interface{})
 // Does nothing if @err is %NULL; if @err is non-%NULL, then `*err`
 // must be %NULL. A new #GError is created and assigned to `*err`.
 func SetError(ErrVar **Error, DomainVar Quark, CodeVar int, FormatVar string, varArgs ...interface{}) {
+	core.LazyRegister(&xSetError, "GLIB", "g_set_error", false)
+
 	xSetError(ErrVar, DomainVar, CodeVar, FormatVar, varArgs...)
 }
 
@@ -247,38 +274,12 @@ var xSetErrorLiteral func(**Error, Quark, int, string)
 // Use this function if @message contains text you don't have control over,
 // that could include printf() escape sequences.
 func SetErrorLiteral(ErrVar **Error, DomainVar Quark, CodeVar int, MessageVar string) {
+	core.LazyRegister(&xSetErrorLiteral, "GLIB", "g_set_error_literal", false)
+
 	xSetErrorLiteral(ErrVar, DomainVar, CodeVar, MessageVar)
 }
 
 func init() {
 	core.SetPackageName("GLIB", "glib-2.0")
 	core.SetSharedLibraries("GLIB", []string{"libgobject-2.0.so.0", "libglib-2.0.so.0", "libgobject-2.0.0.dylib", "libglib-2.0.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GLIB") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xClearError, libs, "g_clear_error")
-	core.PuregoSafeRegister(&xErrorDomainRegister, libs, "g_error_domain_register")
-	core.PuregoSafeRegister(&xErrorDomainRegisterStatic, libs, "g_error_domain_register_static")
-	core.PuregoSafeRegister(&xPrefixError, libs, "g_prefix_error")
-	core.PuregoSafeRegister(&xPrefixErrorLiteral, libs, "g_prefix_error_literal")
-	core.PuregoSafeRegister(&xPropagateError, libs, "g_propagate_error")
-	core.PuregoSafeRegister(&xPropagatePrefixedError, libs, "g_propagate_prefixed_error")
-	core.PuregoSafeRegister(&xSetError, libs, "g_set_error")
-	core.PuregoSafeRegister(&xSetErrorLiteral, libs, "g_set_error_literal")
-
-	core.PuregoSafeRegister(&xErrorGLibType, libs, "g_error_get_type")
-
-	core.PuregoSafeRegister(&xNewError, libs, "g_error_new")
-	core.PuregoSafeRegister(&xNewErrorLiteral, libs, "g_error_new_literal")
-	core.PuregoSafeRegister(&xNewErrorValist, libs, "g_error_new_valist")
-
-	core.PuregoSafeRegister(&xErrorCopy, libs, "g_error_copy")
-	core.PuregoSafeRegister(&xErrorFree, libs, "g_error_free")
-	core.PuregoSafeRegister(&xErrorMatches, libs, "g_error_matches")
 }

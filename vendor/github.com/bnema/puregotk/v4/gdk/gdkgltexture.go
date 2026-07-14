@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gio"
 	"github.com/bnema/puregotk/v4/glib"
@@ -36,6 +35,7 @@ type GLTexture struct {
 var xGLTextureGLibType func() types.GType
 
 func GLTextureGLibType() types.GType {
+	core.LazyRegister(&xGLTextureGLibType, "GDK", "gdk_gl_texture_get_type", false)
 	return xGLTextureGLibType()
 }
 
@@ -53,6 +53,7 @@ var xNewGLTexture func(uintptr, uint, int, int, uintptr, uintptr) uintptr
 // which will happen when the GdkTexture object is finalized, or due to
 // an explicit call of [method@Gdk.GLTexture.release].
 func NewGLTexture(ContextVar *GLContext, IdVar uint, WidthVar int, HeightVar int, DestroyVar *glib.DestroyNotify, DataVar uintptr) *GLTexture {
+	core.LazyRegister(&xNewGLTexture, "GDK", "gdk_gl_texture_new", false)
 	var cls *GLTexture
 
 	cret := xNewGLTexture(ContextVar.GoPointer(), IdVar, WidthVar, HeightVar, glib.NewCallbackNullable(DestroyVar), DataVar)
@@ -73,6 +74,8 @@ var xGLTextureRelease func(uintptr)
 // [method@Gdk.Texture.download] function, after this
 // function has been called.
 func (x *GLTexture) Release() {
+	core.LazyRegister(&xGLTextureRelease, "GDK", "gdk_gl_texture_release", false)
+
 	xGLTextureRelease(x.GoPointer())
 }
 
@@ -312,18 +315,4 @@ func (x *GLTexture) LoadFinish(ResVar gio.AsyncResult, TypeVar *string) (*gio.In
 func init() {
 	core.SetPackageName("GDK", "gtk4")
 	core.SetSharedLibraries("GDK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GDK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xGLTextureGLibType, libs, "gdk_gl_texture_get_type")
-
-	core.PuregoSafeRegister(&xNewGLTexture, libs, "gdk_gl_texture_new")
-
-	core.PuregoSafeRegister(&xGLTextureRelease, libs, "gdk_gl_texture_release")
 }

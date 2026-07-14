@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -44,6 +43,7 @@ type GestureDrag struct {
 var xGestureDragGLibType func() types.GType
 
 func GestureDragGLibType() types.GType {
+	core.LazyRegister(&xGestureDragGLibType, "GTK", "gtk_gesture_drag_get_type", false)
 	return xGestureDragGLibType()
 }
 
@@ -57,6 +57,7 @@ var xNewGestureDrag func() uintptr
 
 // Returns a newly created `GtkGesture` that recognizes drags.
 func NewGestureDrag() *GestureDrag {
+	core.LazyRegister(&xNewGestureDrag, "GTK", "gtk_gesture_drag_new", false)
 	var cls *GestureDrag
 
 	cret := xNewGestureDrag()
@@ -77,6 +78,8 @@ var xGestureDragGetOffset func(uintptr, *float64, *float64) bool
 // fills in @x and @y with the coordinates of the current point,
 // as an offset to the starting drag point.
 func (x *GestureDrag) GetOffset(XVar *float64, YVar *float64) bool {
+	core.LazyRegister(&xGestureDragGetOffset, "GTK", "gtk_gesture_drag_get_offset", false)
+
 	cret := xGestureDragGetOffset(x.GoPointer(), XVar, YVar)
 	return cret
 }
@@ -89,6 +92,8 @@ var xGestureDragGetStartPoint func(uintptr, *float64, *float64) bool
 // and fills in @x and @y with the drag start coordinates,
 // in widget-relative coordinates.
 func (x *GestureDrag) GetStartPoint(XVar *float64, YVar *float64) bool {
+	core.LazyRegister(&xGestureDragGetStartPoint, "GTK", "gtk_gesture_drag_get_start_point", false)
+
 	cret := xGestureDragGetStartPoint(x.GoPointer(), XVar, YVar)
 	return cret
 }
@@ -176,19 +181,4 @@ func (x *GestureDrag) ConnectDragUpdate(cb *func(GestureDrag, float64, float64))
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GTK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xGestureDragGLibType, libs, "gtk_gesture_drag_get_type")
-
-	core.PuregoSafeRegister(&xNewGestureDrag, libs, "gtk_gesture_drag_new")
-
-	core.PuregoSafeRegister(&xGestureDragGetOffset, libs, "gtk_gesture_drag_get_offset")
-	core.PuregoSafeRegister(&xGestureDragGetStartPoint, libs, "gtk_gesture_drag_get_start_point")
 }

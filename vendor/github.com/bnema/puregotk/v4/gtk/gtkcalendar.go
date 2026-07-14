@@ -4,7 +4,6 @@ package gtk
 import (
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -78,6 +77,7 @@ type Calendar struct {
 var xCalendarGLibType func() types.GType
 
 func CalendarGLibType() types.GType {
+	core.LazyRegister(&xCalendarGLibType, "GTK", "gtk_calendar_get_type", false)
 	return xCalendarGLibType()
 }
 
@@ -91,6 +91,7 @@ var xNewCalendar func() uintptr
 
 // Creates a new calendar, with the current date being selected.
 func NewCalendar() *Calendar {
+	core.LazyRegister(&xNewCalendar, "GTK", "gtk_calendar_new", false)
 	var cls *Calendar
 
 	cret := xNewCalendar()
@@ -108,6 +109,8 @@ var xCalendarClearMarks func(uintptr)
 
 // Remove all visual markers.
 func (x *Calendar) ClearMarks() {
+	core.LazyRegister(&xCalendarClearMarks, "GTK", "gtk_calendar_clear_marks", false)
+
 	xCalendarClearMarks(x.GoPointer())
 }
 
@@ -118,6 +121,8 @@ var xCalendarGetDate func(uintptr) uintptr
 //
 // The returned date is in the local time zone.
 func (x *Calendar) GetDate() *glib.DateTime {
+	core.LazyRegister(&xCalendarGetDate, "GTK", "gtk_calendar_get_date", false)
+
 	cret := xCalendarGetDate(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -129,6 +134,8 @@ var xCalendarGetDay func(uintptr) int
 
 // Gets the day of the selected date.
 func (x *Calendar) GetDay() int {
+	core.LazyRegister(&xCalendarGetDay, "GTK", "gtk_calendar_get_day", false)
+
 	cret := xCalendarGetDay(x.GoPointer())
 	return cret
 }
@@ -137,6 +144,8 @@ var xCalendarGetDayIsMarked func(uintptr, uint) bool
 
 // Returns if the @day of the @calendar is already marked.
 func (x *Calendar) GetDayIsMarked(DayVar uint) bool {
+	core.LazyRegister(&xCalendarGetDayIsMarked, "GTK", "gtk_calendar_get_day_is_marked", false)
+
 	cret := xCalendarGetDayIsMarked(x.GoPointer(), DayVar)
 	return cret
 }
@@ -145,6 +154,8 @@ var xCalendarGetMonth func(uintptr) int
 
 // Gets the month of the selected date.
 func (x *Calendar) GetMonth() int {
+	core.LazyRegister(&xCalendarGetMonth, "GTK", "gtk_calendar_get_month", false)
+
 	cret := xCalendarGetMonth(x.GoPointer())
 	return cret
 }
@@ -157,6 +168,8 @@ var xCalendarGetShowDayNames func(uintptr) bool
 // This is the value of the [property@Gtk.Calendar:show-day-names]
 // property.
 func (x *Calendar) GetShowDayNames() bool {
+	core.LazyRegister(&xCalendarGetShowDayNames, "GTK", "gtk_calendar_get_show_day_names", false)
+
 	cret := xCalendarGetShowDayNames(x.GoPointer())
 	return cret
 }
@@ -168,6 +181,8 @@ var xCalendarGetShowHeading func(uintptr) bool
 // This is the value of the [property@Gtk.Calendar:show-heading]
 // property.
 func (x *Calendar) GetShowHeading() bool {
+	core.LazyRegister(&xCalendarGetShowHeading, "GTK", "gtk_calendar_get_show_heading", false)
+
 	cret := xCalendarGetShowHeading(x.GoPointer())
 	return cret
 }
@@ -180,6 +195,8 @@ var xCalendarGetShowWeekNumbers func(uintptr) bool
 // This is the value of the [property@Gtk.Calendar:show-week-numbers]
 // property.
 func (x *Calendar) GetShowWeekNumbers() bool {
+	core.LazyRegister(&xCalendarGetShowWeekNumbers, "GTK", "gtk_calendar_get_show_week_numbers", false)
+
 	cret := xCalendarGetShowWeekNumbers(x.GoPointer())
 	return cret
 }
@@ -188,6 +205,8 @@ var xCalendarGetYear func(uintptr) int
 
 // Gets the year of the selected date.
 func (x *Calendar) GetYear() int {
+	core.LazyRegister(&xCalendarGetYear, "GTK", "gtk_calendar_get_year", false)
+
 	cret := xCalendarGetYear(x.GoPointer())
 	return cret
 }
@@ -196,6 +215,8 @@ var xCalendarMarkDay func(uintptr, uint)
 
 // Places a visual marker on a particular day of the current month.
 func (x *Calendar) MarkDay(DayVar uint) {
+	core.LazyRegister(&xCalendarMarkDay, "GTK", "gtk_calendar_mark_day", false)
+
 	xCalendarMarkDay(x.GoPointer(), DayVar)
 }
 
@@ -203,6 +224,8 @@ var xCalendarSelectDay func(uintptr, *glib.DateTime)
 
 // Switches to @date's year and month and select its day.
 func (x *Calendar) SelectDay(DateVar *glib.DateTime) {
+	core.LazyRegister(&xCalendarSelectDay, "GTK", "gtk_calendar_select_day", false)
+
 	xCalendarSelectDay(x.GoPointer(), DateVar)
 }
 
@@ -210,6 +233,8 @@ var xCalendarSetDate func(uintptr, *glib.DateTime)
 
 // Switches to @date's year and month and selects its day.
 func (x *Calendar) SetDate(DateVar *glib.DateTime) {
+	core.LazyRegister(&xCalendarSetDate, "GTK", "gtk_calendar_set_date", false)
+
 	xCalendarSetDate(x.GoPointer(), DateVar)
 }
 
@@ -220,6 +245,8 @@ var xCalendarSetDay func(uintptr, int)
 // The new date must be valid. For example, setting the day to 31 when the
 // month is February will fail.
 func (x *Calendar) SetDay(DayVar int) {
+	core.LazyRegister(&xCalendarSetDay, "GTK", "gtk_calendar_set_day", false)
+
 	xCalendarSetDay(x.GoPointer(), DayVar)
 }
 
@@ -230,6 +257,8 @@ var xCalendarSetMonth func(uintptr, int)
 // The new date must be valid. For example, setting the month to 1 (February)
 // when the day is 31 will fail.
 func (x *Calendar) SetMonth(MonthVar int) {
+	core.LazyRegister(&xCalendarSetMonth, "GTK", "gtk_calendar_set_month", false)
+
 	xCalendarSetMonth(x.GoPointer(), MonthVar)
 }
 
@@ -237,6 +266,8 @@ var xCalendarSetShowDayNames func(uintptr, bool)
 
 // Sets whether the calendar shows day names.
 func (x *Calendar) SetShowDayNames(ValueVar bool) {
+	core.LazyRegister(&xCalendarSetShowDayNames, "GTK", "gtk_calendar_set_show_day_names", false)
+
 	xCalendarSetShowDayNames(x.GoPointer(), ValueVar)
 }
 
@@ -247,6 +278,8 @@ var xCalendarSetShowHeading func(uintptr, bool)
 // The heading contains the current year and month as well as
 // buttons for changing both.
 func (x *Calendar) SetShowHeading(ValueVar bool) {
+	core.LazyRegister(&xCalendarSetShowHeading, "GTK", "gtk_calendar_set_show_heading", false)
+
 	xCalendarSetShowHeading(x.GoPointer(), ValueVar)
 }
 
@@ -254,6 +287,8 @@ var xCalendarSetShowWeekNumbers func(uintptr, bool)
 
 // Sets whether week numbers are shown in the calendar.
 func (x *Calendar) SetShowWeekNumbers(ValueVar bool) {
+	core.LazyRegister(&xCalendarSetShowWeekNumbers, "GTK", "gtk_calendar_set_show_week_numbers", false)
+
 	xCalendarSetShowWeekNumbers(x.GoPointer(), ValueVar)
 }
 
@@ -264,6 +299,8 @@ var xCalendarSetYear func(uintptr, int)
 // The new date must be valid. For example, setting the year to 2023 when the
 // date is February 29 will fail.
 func (x *Calendar) SetYear(YearVar int) {
+	core.LazyRegister(&xCalendarSetYear, "GTK", "gtk_calendar_set_year", false)
+
 	xCalendarSetYear(x.GoPointer(), YearVar)
 }
 
@@ -271,6 +308,8 @@ var xCalendarUnmarkDay func(uintptr, uint)
 
 // Removes the visual marker from a particular day.
 func (x *Calendar) UnmarkDay(DayVar uint) {
+	core.LazyRegister(&xCalendarUnmarkDay, "GTK", "gtk_calendar_unmark_day", false)
+
 	xCalendarUnmarkDay(x.GoPointer(), DayVar)
 }
 
@@ -794,36 +833,4 @@ func (x *Calendar) GetBuildableId() string {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GTK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xCalendarGLibType, libs, "gtk_calendar_get_type")
-
-	core.PuregoSafeRegister(&xNewCalendar, libs, "gtk_calendar_new")
-
-	core.PuregoSafeRegister(&xCalendarClearMarks, libs, "gtk_calendar_clear_marks")
-	core.PuregoSafeRegister(&xCalendarGetDate, libs, "gtk_calendar_get_date")
-	core.PuregoSafeRegister(&xCalendarGetDay, libs, "gtk_calendar_get_day")
-	core.PuregoSafeRegister(&xCalendarGetDayIsMarked, libs, "gtk_calendar_get_day_is_marked")
-	core.PuregoSafeRegister(&xCalendarGetMonth, libs, "gtk_calendar_get_month")
-	core.PuregoSafeRegister(&xCalendarGetShowDayNames, libs, "gtk_calendar_get_show_day_names")
-	core.PuregoSafeRegister(&xCalendarGetShowHeading, libs, "gtk_calendar_get_show_heading")
-	core.PuregoSafeRegister(&xCalendarGetShowWeekNumbers, libs, "gtk_calendar_get_show_week_numbers")
-	core.PuregoSafeRegister(&xCalendarGetYear, libs, "gtk_calendar_get_year")
-	core.PuregoSafeRegister(&xCalendarMarkDay, libs, "gtk_calendar_mark_day")
-	core.PuregoSafeRegister(&xCalendarSelectDay, libs, "gtk_calendar_select_day")
-	core.PuregoSafeRegister(&xCalendarSetDate, libs, "gtk_calendar_set_date")
-	core.PuregoSafeRegister(&xCalendarSetDay, libs, "gtk_calendar_set_day")
-	core.PuregoSafeRegister(&xCalendarSetMonth, libs, "gtk_calendar_set_month")
-	core.PuregoSafeRegister(&xCalendarSetShowDayNames, libs, "gtk_calendar_set_show_day_names")
-	core.PuregoSafeRegister(&xCalendarSetShowHeading, libs, "gtk_calendar_set_show_heading")
-	core.PuregoSafeRegister(&xCalendarSetShowWeekNumbers, libs, "gtk_calendar_set_show_week_numbers")
-	core.PuregoSafeRegister(&xCalendarSetYear, libs, "gtk_calendar_set_year")
-	core.PuregoSafeRegister(&xCalendarUnmarkDay, libs, "gtk_calendar_unmark_day")
 }

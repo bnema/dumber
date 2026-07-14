@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -751,6 +750,7 @@ type FileInfo struct {
 var xFileInfoGLibType func() types.GType
 
 func FileInfoGLibType() types.GType {
+	core.LazyRegister(&xFileInfoGLibType, "GIO", "g_file_info_get_type", false)
 	return xFileInfoGLibType()
 }
 
@@ -764,6 +764,7 @@ var xNewFileInfo func() uintptr
 
 // Creates a new file info structure.
 func NewFileInfo() *FileInfo {
+	core.LazyRegister(&xNewFileInfo, "GIO", "g_file_info_new", false)
 	var cls *FileInfo
 
 	cret := xNewFileInfo()
@@ -780,6 +781,8 @@ var xFileInfoClearStatus func(uintptr)
 
 // Clears the status information from @info.
 func (x *FileInfo) ClearStatus() {
+	core.LazyRegister(&xFileInfoClearStatus, "GIO", "g_file_info_clear_status", false)
+
 	xFileInfoClearStatus(x.GoPointer())
 }
 
@@ -788,6 +791,8 @@ var xFileInfoCopyInto func(uintptr, uintptr)
 // First clears all of the [GFileAttribute](file-attributes.html#file-attributes) of
 // @dest_info, and then copies all of the file attributes from @src_info to @dest_info.
 func (x *FileInfo) CopyInto(DestInfoVar *FileInfo) {
+	core.LazyRegister(&xFileInfoCopyInto, "GIO", "g_file_info_copy_into", false)
+
 	xFileInfoCopyInto(x.GoPointer(), DestInfoVar.GoPointer())
 }
 
@@ -795,6 +800,7 @@ var xFileInfoDup func(uintptr) uintptr
 
 // Duplicates a file info structure.
 func (x *FileInfo) Dup() *FileInfo {
+	core.LazyRegister(&xFileInfoDup, "GIO", "g_file_info_dup", false)
 	var cls *FileInfo
 
 	cret := xFileInfoDup(x.GoPointer())
@@ -820,6 +826,8 @@ var xFileInfoGetAccessDateTime func(uintptr) uintptr
 // If nanosecond precision is needed, %G_FILE_ATTRIBUTE_TIME_ACCESS_NSEC must
 // be queried separately using g_file_info_get_attribute_uint32().
 func (x *FileInfo) GetAccessDateTime() *glib.DateTime {
+	core.LazyRegister(&xFileInfoGetAccessDateTime, "GIO", "g_file_info_get_access_date_time", false)
+
 	cret := xFileInfoGetAccessDateTime(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -850,6 +858,8 @@ var xFileInfoGetAttributeAsString func(uintptr, string) string
 //
 // ```
 func (x *FileInfo) GetAttributeAsString(AttributeVar string) string {
+	core.LazyRegister(&xFileInfoGetAttributeAsString, "GIO", "g_file_info_get_attribute_as_string", false)
+
 	cret := xFileInfoGetAttributeAsString(x.GoPointer(), AttributeVar)
 	return cret
 }
@@ -859,6 +869,8 @@ var xFileInfoGetAttributeBoolean func(uintptr, string) bool
 // Gets the value of a boolean attribute. If the attribute does not
 // contain a boolean value, %FALSE will be returned.
 func (x *FileInfo) GetAttributeBoolean(AttributeVar string) bool {
+	core.LazyRegister(&xFileInfoGetAttributeBoolean, "GIO", "g_file_info_get_attribute_boolean", false)
+
 	cret := xFileInfoGetAttributeBoolean(x.GoPointer(), AttributeVar)
 	return cret
 }
@@ -868,6 +880,8 @@ var xFileInfoGetAttributeByteString func(uintptr, string) string
 // Gets the value of a byte string attribute. If the attribute does
 // not contain a byte string, %NULL will be returned.
 func (x *FileInfo) GetAttributeByteString(AttributeVar string) string {
+	core.LazyRegister(&xFileInfoGetAttributeByteString, "GIO", "g_file_info_get_attribute_byte_string", false)
+
 	cret := xFileInfoGetAttributeByteString(x.GoPointer(), AttributeVar)
 	return cret
 }
@@ -876,6 +890,8 @@ var xFileInfoGetAttributeData func(uintptr, string, *FileAttributeType, *uintptr
 
 // Gets the attribute type, value and status for an attribute key.
 func (x *FileInfo) GetAttributeData(AttributeVar string, TypeVar *FileAttributeType, ValuePpVar *uintptr, StatusVar *FileAttributeStatus) bool {
+	core.LazyRegister(&xFileInfoGetAttributeData, "GIO", "g_file_info_get_attribute_data", false)
+
 	cret := xFileInfoGetAttributeData(x.GoPointer(), AttributeVar, TypeVar, ValuePpVar, StatusVar)
 	return cret
 }
@@ -889,6 +905,8 @@ var xFileInfoGetAttributeFilePath func(uintptr, string) string
 // This function is meant to be used by language bindings that have specific
 // handling for Unix paths.
 func (x *FileInfo) GetAttributeFilePath(AttributeVar string) string {
+	core.LazyRegister(&xFileInfoGetAttributeFilePath, "GIO", "g_file_info_get_attribute_file_path", false)
+
 	cret := xFileInfoGetAttributeFilePath(x.GoPointer(), AttributeVar)
 	return cret
 }
@@ -899,6 +917,8 @@ var xFileInfoGetAttributeInt32 func(uintptr, string) int32
 // attribute does not contain a signed 32-bit integer, or is invalid,
 // 0 will be returned.
 func (x *FileInfo) GetAttributeInt32(AttributeVar string) int32 {
+	core.LazyRegister(&xFileInfoGetAttributeInt32, "GIO", "g_file_info_get_attribute_int32", false)
+
 	cret := xFileInfoGetAttributeInt32(x.GoPointer(), AttributeVar)
 	return cret
 }
@@ -909,6 +929,8 @@ var xFileInfoGetAttributeInt64 func(uintptr, string) int64
 // attribute does not contain a signed 64-bit integer, or is invalid,
 // 0 will be returned.
 func (x *FileInfo) GetAttributeInt64(AttributeVar string) int64 {
+	core.LazyRegister(&xFileInfoGetAttributeInt64, "GIO", "g_file_info_get_attribute_int64", false)
+
 	cret := xFileInfoGetAttributeInt64(x.GoPointer(), AttributeVar)
 	return cret
 }
@@ -918,6 +940,7 @@ var xFileInfoGetAttributeObject func(uintptr, string) uintptr
 // Gets the value of a #GObject attribute. If the attribute does
 // not contain a #GObject, %NULL will be returned.
 func (x *FileInfo) GetAttributeObject(AttributeVar string) *gobject.Object {
+	core.LazyRegister(&xFileInfoGetAttributeObject, "GIO", "g_file_info_get_attribute_object", false)
 	var cls *gobject.Object
 
 	cret := xFileInfoGetAttributeObject(x.GoPointer(), AttributeVar)
@@ -935,6 +958,8 @@ var xFileInfoGetAttributeStatus func(uintptr, string) FileAttributeStatus
 
 // Gets the attribute status for an attribute key.
 func (x *FileInfo) GetAttributeStatus(AttributeVar string) FileAttributeStatus {
+	core.LazyRegister(&xFileInfoGetAttributeStatus, "GIO", "g_file_info_get_attribute_status", false)
+
 	cret := xFileInfoGetAttributeStatus(x.GoPointer(), AttributeVar)
 	return cret
 }
@@ -944,6 +969,8 @@ var xFileInfoGetAttributeString func(uintptr, string) string
 // Gets the value of a string attribute. If the attribute does
 // not contain a string, %NULL will be returned.
 func (x *FileInfo) GetAttributeString(AttributeVar string) string {
+	core.LazyRegister(&xFileInfoGetAttributeString, "GIO", "g_file_info_get_attribute_string", false)
+
 	cret := xFileInfoGetAttributeString(x.GoPointer(), AttributeVar)
 	return cret
 }
@@ -953,6 +980,8 @@ var xFileInfoGetAttributeStringv func(uintptr, string) []string
 // Gets the value of a stringv attribute. If the attribute does
 // not contain a stringv, %NULL will be returned.
 func (x *FileInfo) GetAttributeStringv(AttributeVar string) []string {
+	core.LazyRegister(&xFileInfoGetAttributeStringv, "GIO", "g_file_info_get_attribute_stringv", false)
+
 	cret := xFileInfoGetAttributeStringv(x.GoPointer(), AttributeVar)
 	return cret
 }
@@ -961,6 +990,8 @@ var xFileInfoGetAttributeType func(uintptr, string) FileAttributeType
 
 // Gets the attribute type for an attribute key.
 func (x *FileInfo) GetAttributeType(AttributeVar string) FileAttributeType {
+	core.LazyRegister(&xFileInfoGetAttributeType, "GIO", "g_file_info_get_attribute_type", false)
+
 	cret := xFileInfoGetAttributeType(x.GoPointer(), AttributeVar)
 	return cret
 }
@@ -971,6 +1002,8 @@ var xFileInfoGetAttributeUint32 func(uintptr, string) uint32
 // attribute does not contain an unsigned 32-bit integer, or is invalid,
 // 0 will be returned.
 func (x *FileInfo) GetAttributeUint32(AttributeVar string) uint32 {
+	core.LazyRegister(&xFileInfoGetAttributeUint32, "GIO", "g_file_info_get_attribute_uint32", false)
+
 	cret := xFileInfoGetAttributeUint32(x.GoPointer(), AttributeVar)
 	return cret
 }
@@ -981,6 +1014,8 @@ var xFileInfoGetAttributeUint64 func(uintptr, string) uint64
 // attribute does not contain an unsigned 64-bit integer, or is invalid,
 // 0 will be returned.
 func (x *FileInfo) GetAttributeUint64(AttributeVar string) uint64 {
+	core.LazyRegister(&xFileInfoGetAttributeUint64, "GIO", "g_file_info_get_attribute_uint64", false)
+
 	cret := xFileInfoGetAttributeUint64(x.GoPointer(), AttributeVar)
 	return cret
 }
@@ -992,6 +1027,8 @@ var xFileInfoGetContentType func(uintptr) string
 // It is an error to call this if the #GFileInfo does not contain
 // %G_FILE_ATTRIBUTE_STANDARD_CONTENT_TYPE.
 func (x *FileInfo) GetContentType() string {
+	core.LazyRegister(&xFileInfoGetContentType, "GIO", "g_file_info_get_content_type", false)
+
 	cret := xFileInfoGetContentType(x.GoPointer())
 	return cret
 }
@@ -1009,6 +1046,8 @@ var xFileInfoGetCreationDateTime func(uintptr) uintptr
 // If nanosecond precision is needed, %G_FILE_ATTRIBUTE_TIME_CREATED_NSEC must
 // be queried separately using g_file_info_get_attribute_uint32().
 func (x *FileInfo) GetCreationDateTime() *glib.DateTime {
+	core.LazyRegister(&xFileInfoGetCreationDateTime, "GIO", "g_file_info_get_creation_date_time", false)
+
 	cret := xFileInfoGetCreationDateTime(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -1022,6 +1061,8 @@ var xFileInfoGetDeletionDate func(uintptr) uintptr
 // available in %G_FILE_ATTRIBUTE_TRASH_DELETION_DATE. If the
 // %G_FILE_ATTRIBUTE_TRASH_DELETION_DATE attribute is unset, %NULL is returned.
 func (x *FileInfo) GetDeletionDate() *glib.DateTime {
+	core.LazyRegister(&xFileInfoGetDeletionDate, "GIO", "g_file_info_get_deletion_date", false)
+
 	cret := xFileInfoGetDeletionDate(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -1036,6 +1077,8 @@ var xFileInfoGetDisplayName func(uintptr) string
 // It is an error to call this if the #GFileInfo does not contain
 // %G_FILE_ATTRIBUTE_STANDARD_DISPLAY_NAME.
 func (x *FileInfo) GetDisplayName() string {
+	core.LazyRegister(&xFileInfoGetDisplayName, "GIO", "g_file_info_get_display_name", false)
+
 	cret := xFileInfoGetDisplayName(x.GoPointer())
 	return cret
 }
@@ -1047,6 +1090,8 @@ var xFileInfoGetEditName func(uintptr) string
 // It is an error to call this if the #GFileInfo does not contain
 // %G_FILE_ATTRIBUTE_STANDARD_EDIT_NAME.
 func (x *FileInfo) GetEditName() string {
+	core.LazyRegister(&xFileInfoGetEditName, "GIO", "g_file_info_get_edit_name", false)
+
 	cret := xFileInfoGetEditName(x.GoPointer())
 	return cret
 }
@@ -1059,6 +1104,8 @@ var xFileInfoGetEtag func(uintptr) string
 // It is an error to call this if the #GFileInfo does not contain
 // %G_FILE_ATTRIBUTE_ETAG_VALUE.
 func (x *FileInfo) GetEtag() string {
+	core.LazyRegister(&xFileInfoGetEtag, "GIO", "g_file_info_get_etag", false)
+
 	cret := xFileInfoGetEtag(x.GoPointer())
 	return cret
 }
@@ -1071,6 +1118,8 @@ var xFileInfoGetFileType func(uintptr) FileType
 // It is an error to call this if the #GFileInfo does not contain
 // %G_FILE_ATTRIBUTE_STANDARD_TYPE.
 func (x *FileInfo) GetFileType() FileType {
+	core.LazyRegister(&xFileInfoGetFileType, "GIO", "g_file_info_get_file_type", false)
+
 	cret := xFileInfoGetFileType(x.GoPointer())
 	return cret
 }
@@ -1082,6 +1131,7 @@ var xFileInfoGetIcon func(uintptr) uintptr
 // It is an error to call this if the #GFileInfo does not contain
 // %G_FILE_ATTRIBUTE_STANDARD_ICON.
 func (x *FileInfo) GetIcon() *IconBase {
+	core.LazyRegister(&xFileInfoGetIcon, "GIO", "g_file_info_get_icon", false)
 	var cls *IconBase
 
 	cret := xFileInfoGetIcon(x.GoPointer())
@@ -1107,6 +1157,8 @@ var xFileInfoGetIsBackup func(uintptr) bool
 // It is an error to call this if the #GFileInfo does not contain
 // %G_FILE_ATTRIBUTE_STANDARD_IS_BACKUP.
 func (x *FileInfo) GetIsBackup() bool {
+	core.LazyRegister(&xFileInfoGetIsBackup, "GIO", "g_file_info_get_is_backup", false)
+
 	cret := xFileInfoGetIsBackup(x.GoPointer())
 	return cret
 }
@@ -1118,6 +1170,8 @@ var xFileInfoGetIsHidden func(uintptr) bool
 // It is an error to call this if the #GFileInfo does not contain
 // %G_FILE_ATTRIBUTE_STANDARD_IS_HIDDEN.
 func (x *FileInfo) GetIsHidden() bool {
+	core.LazyRegister(&xFileInfoGetIsHidden, "GIO", "g_file_info_get_is_hidden", false)
+
 	cret := xFileInfoGetIsHidden(x.GoPointer())
 	return cret
 }
@@ -1129,6 +1183,8 @@ var xFileInfoGetIsSymlink func(uintptr) bool
 // It is an error to call this if the #GFileInfo does not contain
 // %G_FILE_ATTRIBUTE_STANDARD_IS_SYMLINK.
 func (x *FileInfo) GetIsSymlink() bool {
+	core.LazyRegister(&xFileInfoGetIsSymlink, "GIO", "g_file_info_get_is_symlink", false)
+
 	cret := xFileInfoGetIsSymlink(x.GoPointer())
 	return cret
 }
@@ -1146,6 +1202,8 @@ var xFileInfoGetModificationDateTime func(uintptr) uintptr
 // If nanosecond precision is needed, %G_FILE_ATTRIBUTE_TIME_MODIFIED_NSEC must
 // be queried separately using g_file_info_get_attribute_uint32().
 func (x *FileInfo) GetModificationDateTime() *glib.DateTime {
+	core.LazyRegister(&xFileInfoGetModificationDateTime, "GIO", "g_file_info_get_modification_date_time", false)
+
 	cret := xFileInfoGetModificationDateTime(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -1162,6 +1220,8 @@ var xFileInfoGetModificationTime func(uintptr, *glib.TimeVal)
 // %G_FILE_ATTRIBUTE_TIME_MODIFIED. If %G_FILE_ATTRIBUTE_TIME_MODIFIED_USEC is
 // provided it will be used too.
 func (x *FileInfo) GetModificationTime(ResultVar *glib.TimeVal) {
+	core.LazyRegister(&xFileInfoGetModificationTime, "GIO", "g_file_info_get_modification_time", false)
+
 	xFileInfoGetModificationTime(x.GoPointer(), ResultVar)
 }
 
@@ -1172,6 +1232,8 @@ var xFileInfoGetName func(uintptr) string
 // It is an error to call this if the #GFileInfo does not contain
 // %G_FILE_ATTRIBUTE_STANDARD_NAME.
 func (x *FileInfo) GetName() string {
+	core.LazyRegister(&xFileInfoGetName, "GIO", "g_file_info_get_name", false)
+
 	cret := xFileInfoGetName(x.GoPointer())
 	return cret
 }
@@ -1185,6 +1247,8 @@ var xFileInfoGetSize func(uintptr) int64
 // It is an error to call this if the #GFileInfo does not contain
 // %G_FILE_ATTRIBUTE_STANDARD_SIZE.
 func (x *FileInfo) GetSize() int64 {
+	core.LazyRegister(&xFileInfoGetSize, "GIO", "g_file_info_get_size", false)
+
 	cret := xFileInfoGetSize(x.GoPointer())
 	return cret
 }
@@ -1197,6 +1261,8 @@ var xFileInfoGetSortOrder func(uintptr) int32
 // It is an error to call this if the #GFileInfo does not contain
 // %G_FILE_ATTRIBUTE_STANDARD_SORT_ORDER.
 func (x *FileInfo) GetSortOrder() int32 {
+	core.LazyRegister(&xFileInfoGetSortOrder, "GIO", "g_file_info_get_sort_order", false)
+
 	cret := xFileInfoGetSortOrder(x.GoPointer())
 	return cret
 }
@@ -1208,6 +1274,7 @@ var xFileInfoGetSymbolicIcon func(uintptr) uintptr
 // It is an error to call this if the #GFileInfo does not contain
 // %G_FILE_ATTRIBUTE_STANDARD_SYMBOLIC_ICON.
 func (x *FileInfo) GetSymbolicIcon() *IconBase {
+	core.LazyRegister(&xFileInfoGetSymbolicIcon, "GIO", "g_file_info_get_symbolic_icon", false)
 	var cls *IconBase
 
 	cret := xFileInfoGetSymbolicIcon(x.GoPointer())
@@ -1228,6 +1295,8 @@ var xFileInfoGetSymlinkTarget func(uintptr) string
 // It is an error to call this if the #GFileInfo does not contain
 // %G_FILE_ATTRIBUTE_STANDARD_SYMLINK_TARGET.
 func (x *FileInfo) GetSymlinkTarget() string {
+	core.LazyRegister(&xFileInfoGetSymlinkTarget, "GIO", "g_file_info_get_symlink_target", false)
+
 	cret := xFileInfoGetSymlinkTarget(x.GoPointer())
 	return cret
 }
@@ -1236,6 +1305,8 @@ var xFileInfoHasAttribute func(uintptr, string) bool
 
 // Checks if a file info structure has an attribute named @attribute.
 func (x *FileInfo) HasAttribute(AttributeVar string) bool {
+	core.LazyRegister(&xFileInfoHasAttribute, "GIO", "g_file_info_has_attribute", false)
+
 	cret := xFileInfoHasAttribute(x.GoPointer(), AttributeVar)
 	return cret
 }
@@ -1245,6 +1316,8 @@ var xFileInfoHasNamespace func(uintptr, string) bool
 // Checks if a file info structure has an attribute in the
 // specified @name_space.
 func (x *FileInfo) HasNamespace(NameSpaceVar string) bool {
+	core.LazyRegister(&xFileInfoHasNamespace, "GIO", "g_file_info_has_namespace", false)
+
 	cret := xFileInfoHasNamespace(x.GoPointer(), NameSpaceVar)
 	return cret
 }
@@ -1253,6 +1326,8 @@ var xFileInfoListAttributes func(uintptr, uintptr) []string
 
 // Lists the file info structure's attributes.
 func (x *FileInfo) ListAttributes(NameSpaceVar *string) []string {
+	core.LazyRegister(&xFileInfoListAttributes, "GIO", "g_file_info_list_attributes", false)
+
 	NameSpaceVarPtr := core.GStrdupNullable(NameSpaceVar)
 	defer core.GFreeNullable(NameSpaceVarPtr)
 
@@ -1264,6 +1339,8 @@ var xFileInfoRemoveAttribute func(uintptr, string)
 
 // Removes all cases of @attribute from @info if it exists.
 func (x *FileInfo) RemoveAttribute(AttributeVar string) {
+	core.LazyRegister(&xFileInfoRemoveAttribute, "GIO", "g_file_info_remove_attribute", false)
+
 	xFileInfoRemoveAttribute(x.GoPointer(), AttributeVar)
 }
 
@@ -1275,6 +1352,8 @@ var xFileInfoSetAccessDateTime func(uintptr, *glib.DateTime)
 //
 // %G_FILE_ATTRIBUTE_TIME_ACCESS_NSEC will be cleared.
 func (x *FileInfo) SetAccessDateTime(AtimeVar *glib.DateTime) {
+	core.LazyRegister(&xFileInfoSetAccessDateTime, "GIO", "g_file_info_set_access_date_time", false)
+
 	xFileInfoSetAccessDateTime(x.GoPointer(), AtimeVar)
 }
 
@@ -1283,6 +1362,8 @@ var xFileInfoSetAttribute func(uintptr, string, FileAttributeType, uintptr)
 // Sets the @attribute to contain the given value, if possible. To unset the
 // attribute, use %G_FILE_ATTRIBUTE_TYPE_INVALID for @type.
 func (x *FileInfo) SetAttribute(AttributeVar string, TypeVar FileAttributeType, ValuePVar uintptr) {
+	core.LazyRegister(&xFileInfoSetAttribute, "GIO", "g_file_info_set_attribute", false)
+
 	xFileInfoSetAttribute(x.GoPointer(), AttributeVar, TypeVar, ValuePVar)
 }
 
@@ -1291,6 +1372,8 @@ var xFileInfoSetAttributeBoolean func(uintptr, string, bool)
 // Sets the @attribute to contain the given @attr_value,
 // if possible.
 func (x *FileInfo) SetAttributeBoolean(AttributeVar string, AttrValueVar bool) {
+	core.LazyRegister(&xFileInfoSetAttributeBoolean, "GIO", "g_file_info_set_attribute_boolean", false)
+
 	xFileInfoSetAttributeBoolean(x.GoPointer(), AttributeVar, AttrValueVar)
 }
 
@@ -1299,6 +1382,8 @@ var xFileInfoSetAttributeByteString func(uintptr, string, string)
 // Sets the @attribute to contain the given @attr_value,
 // if possible.
 func (x *FileInfo) SetAttributeByteString(AttributeVar string, AttrValueVar string) {
+	core.LazyRegister(&xFileInfoSetAttributeByteString, "GIO", "g_file_info_set_attribute_byte_string", false)
+
 	xFileInfoSetAttributeByteString(x.GoPointer(), AttributeVar, AttrValueVar)
 }
 
@@ -1310,6 +1395,8 @@ var xFileInfoSetAttributeFilePath func(uintptr, string, string)
 // This function is meant to be used by language bindings that have specific
 // handling for Unix paths.
 func (x *FileInfo) SetAttributeFilePath(AttributeVar string, AttrValueVar string) {
+	core.LazyRegister(&xFileInfoSetAttributeFilePath, "GIO", "g_file_info_set_attribute_file_path", false)
+
 	xFileInfoSetAttributeFilePath(x.GoPointer(), AttributeVar, AttrValueVar)
 }
 
@@ -1318,6 +1405,8 @@ var xFileInfoSetAttributeInt32 func(uintptr, string, int32)
 // Sets the @attribute to contain the given @attr_value,
 // if possible.
 func (x *FileInfo) SetAttributeInt32(AttributeVar string, AttrValueVar int32) {
+	core.LazyRegister(&xFileInfoSetAttributeInt32, "GIO", "g_file_info_set_attribute_int32", false)
+
 	xFileInfoSetAttributeInt32(x.GoPointer(), AttributeVar, AttrValueVar)
 }
 
@@ -1326,6 +1415,8 @@ var xFileInfoSetAttributeInt64 func(uintptr, string, int64)
 // Sets the @attribute to contain the given @attr_value,
 // if possible.
 func (x *FileInfo) SetAttributeInt64(AttributeVar string, AttrValueVar int64) {
+	core.LazyRegister(&xFileInfoSetAttributeInt64, "GIO", "g_file_info_set_attribute_int64", false)
+
 	xFileInfoSetAttributeInt64(x.GoPointer(), AttributeVar, AttrValueVar)
 }
 
@@ -1333,6 +1424,8 @@ var xFileInfoSetAttributeMask func(uintptr, *FileAttributeMatcher)
 
 // Sets @mask on @info to match specific attribute types.
 func (x *FileInfo) SetAttributeMask(MaskVar *FileAttributeMatcher) {
+	core.LazyRegister(&xFileInfoSetAttributeMask, "GIO", "g_file_info_set_attribute_mask", false)
+
 	xFileInfoSetAttributeMask(x.GoPointer(), MaskVar)
 }
 
@@ -1341,6 +1434,8 @@ var xFileInfoSetAttributeObject func(uintptr, string, uintptr)
 // Sets the @attribute to contain the given @attr_value,
 // if possible.
 func (x *FileInfo) SetAttributeObject(AttributeVar string, AttrValueVar *gobject.Object) {
+	core.LazyRegister(&xFileInfoSetAttributeObject, "GIO", "g_file_info_set_attribute_object", false)
+
 	xFileInfoSetAttributeObject(x.GoPointer(), AttributeVar, AttrValueVar.GoPointer())
 }
 
@@ -1353,6 +1448,8 @@ var xFileInfoSetAttributeStatus func(uintptr, string, FileAttributeStatus) bool
 // The attribute must exist in @info for this to work. Otherwise %FALSE
 // is returned and @info is unchanged.
 func (x *FileInfo) SetAttributeStatus(AttributeVar string, StatusVar FileAttributeStatus) bool {
+	core.LazyRegister(&xFileInfoSetAttributeStatus, "GIO", "g_file_info_set_attribute_status", false)
+
 	cret := xFileInfoSetAttributeStatus(x.GoPointer(), AttributeVar, StatusVar)
 	return cret
 }
@@ -1362,6 +1459,8 @@ var xFileInfoSetAttributeString func(uintptr, string, string)
 // Sets the @attribute to contain the given @attr_value,
 // if possible.
 func (x *FileInfo) SetAttributeString(AttributeVar string, AttrValueVar string) {
+	core.LazyRegister(&xFileInfoSetAttributeString, "GIO", "g_file_info_set_attribute_string", false)
+
 	xFileInfoSetAttributeString(x.GoPointer(), AttributeVar, AttrValueVar)
 }
 
@@ -1372,6 +1471,8 @@ var xFileInfoSetAttributeStringv func(uintptr, string, []string)
 //
 // Sinze: 2.22
 func (x *FileInfo) SetAttributeStringv(AttributeVar string, AttrValueVar []string) {
+	core.LazyRegister(&xFileInfoSetAttributeStringv, "GIO", "g_file_info_set_attribute_stringv", false)
+
 	xFileInfoSetAttributeStringv(x.GoPointer(), AttributeVar, AttrValueVar)
 }
 
@@ -1380,6 +1481,8 @@ var xFileInfoSetAttributeUint32 func(uintptr, string, uint32)
 // Sets the @attribute to contain the given @attr_value,
 // if possible.
 func (x *FileInfo) SetAttributeUint32(AttributeVar string, AttrValueVar uint32) {
+	core.LazyRegister(&xFileInfoSetAttributeUint32, "GIO", "g_file_info_set_attribute_uint32", false)
+
 	xFileInfoSetAttributeUint32(x.GoPointer(), AttributeVar, AttrValueVar)
 }
 
@@ -1388,6 +1491,8 @@ var xFileInfoSetAttributeUint64 func(uintptr, string, uint64)
 // Sets the @attribute to contain the given @attr_value,
 // if possible.
 func (x *FileInfo) SetAttributeUint64(AttributeVar string, AttrValueVar uint64) {
+	core.LazyRegister(&xFileInfoSetAttributeUint64, "GIO", "g_file_info_set_attribute_uint64", false)
+
 	xFileInfoSetAttributeUint64(x.GoPointer(), AttributeVar, AttrValueVar)
 }
 
@@ -1396,6 +1501,8 @@ var xFileInfoSetContentType func(uintptr, string)
 // Sets the content type attribute for a given #GFileInfo.
 // See %G_FILE_ATTRIBUTE_STANDARD_CONTENT_TYPE.
 func (x *FileInfo) SetContentType(ContentTypeVar string) {
+	core.LazyRegister(&xFileInfoSetContentType, "GIO", "g_file_info_set_content_type", false)
+
 	xFileInfoSetContentType(x.GoPointer(), ContentTypeVar)
 }
 
@@ -1407,6 +1514,8 @@ var xFileInfoSetCreationDateTime func(uintptr, *glib.DateTime)
 //
 // %G_FILE_ATTRIBUTE_TIME_CREATED_NSEC will be cleared.
 func (x *FileInfo) SetCreationDateTime(CreationTimeVar *glib.DateTime) {
+	core.LazyRegister(&xFileInfoSetCreationDateTime, "GIO", "g_file_info_set_creation_date_time", false)
+
 	xFileInfoSetCreationDateTime(x.GoPointer(), CreationTimeVar)
 }
 
@@ -1415,6 +1524,8 @@ var xFileInfoSetDisplayName func(uintptr, string)
 // Sets the display name for the current #GFileInfo.
 // See %G_FILE_ATTRIBUTE_STANDARD_DISPLAY_NAME.
 func (x *FileInfo) SetDisplayName(DisplayNameVar string) {
+	core.LazyRegister(&xFileInfoSetDisplayName, "GIO", "g_file_info_set_display_name", false)
+
 	xFileInfoSetDisplayName(x.GoPointer(), DisplayNameVar)
 }
 
@@ -1423,6 +1534,8 @@ var xFileInfoSetEditName func(uintptr, string)
 // Sets the edit name for the current file.
 // See %G_FILE_ATTRIBUTE_STANDARD_EDIT_NAME.
 func (x *FileInfo) SetEditName(EditNameVar string) {
+	core.LazyRegister(&xFileInfoSetEditName, "GIO", "g_file_info_set_edit_name", false)
+
 	xFileInfoSetEditName(x.GoPointer(), EditNameVar)
 }
 
@@ -1431,6 +1544,8 @@ var xFileInfoSetFileType func(uintptr, FileType)
 // Sets the file type in a #GFileInfo to @type.
 // See %G_FILE_ATTRIBUTE_STANDARD_TYPE.
 func (x *FileInfo) SetFileType(TypeVar FileType) {
+	core.LazyRegister(&xFileInfoSetFileType, "GIO", "g_file_info_set_file_type", false)
+
 	xFileInfoSetFileType(x.GoPointer(), TypeVar)
 }
 
@@ -1439,6 +1554,8 @@ var xFileInfoSetIcon func(uintptr, uintptr)
 // Sets the icon for a given #GFileInfo.
 // See %G_FILE_ATTRIBUTE_STANDARD_ICON.
 func (x *FileInfo) SetIcon(IconVar Icon) {
+	core.LazyRegister(&xFileInfoSetIcon, "GIO", "g_file_info_set_icon", false)
+
 	xFileInfoSetIcon(x.GoPointer(), IconVar.GoPointer())
 }
 
@@ -1447,6 +1564,8 @@ var xFileInfoSetIsHidden func(uintptr, bool)
 // Sets the "is_hidden" attribute in a #GFileInfo according to @is_hidden.
 // See %G_FILE_ATTRIBUTE_STANDARD_IS_HIDDEN.
 func (x *FileInfo) SetIsHidden(IsHiddenVar bool) {
+	core.LazyRegister(&xFileInfoSetIsHidden, "GIO", "g_file_info_set_is_hidden", false)
+
 	xFileInfoSetIsHidden(x.GoPointer(), IsHiddenVar)
 }
 
@@ -1455,6 +1574,8 @@ var xFileInfoSetIsSymlink func(uintptr, bool)
 // Sets the "is_symlink" attribute in a #GFileInfo according to @is_symlink.
 // See %G_FILE_ATTRIBUTE_STANDARD_IS_SYMLINK.
 func (x *FileInfo) SetIsSymlink(IsSymlinkVar bool) {
+	core.LazyRegister(&xFileInfoSetIsSymlink, "GIO", "g_file_info_set_is_symlink", false)
+
 	xFileInfoSetIsSymlink(x.GoPointer(), IsSymlinkVar)
 }
 
@@ -1466,6 +1587,8 @@ var xFileInfoSetModificationDateTime func(uintptr, *glib.DateTime)
 //
 // %G_FILE_ATTRIBUTE_TIME_MODIFIED_NSEC will be cleared.
 func (x *FileInfo) SetModificationDateTime(MtimeVar *glib.DateTime) {
+	core.LazyRegister(&xFileInfoSetModificationDateTime, "GIO", "g_file_info_set_modification_date_time", false)
+
 	xFileInfoSetModificationDateTime(x.GoPointer(), MtimeVar)
 }
 
@@ -1477,6 +1600,8 @@ var xFileInfoSetModificationTime func(uintptr, *glib.TimeVal)
 //
 // %G_FILE_ATTRIBUTE_TIME_MODIFIED_NSEC will be cleared.
 func (x *FileInfo) SetModificationTime(MtimeVar *glib.TimeVal) {
+	core.LazyRegister(&xFileInfoSetModificationTime, "GIO", "g_file_info_set_modification_time", false)
+
 	xFileInfoSetModificationTime(x.GoPointer(), MtimeVar)
 }
 
@@ -1485,6 +1610,8 @@ var xFileInfoSetName func(uintptr, string)
 // Sets the name attribute for the current #GFileInfo.
 // See %G_FILE_ATTRIBUTE_STANDARD_NAME.
 func (x *FileInfo) SetName(NameVar string) {
+	core.LazyRegister(&xFileInfoSetName, "GIO", "g_file_info_set_name", false)
+
 	xFileInfoSetName(x.GoPointer(), NameVar)
 }
 
@@ -1493,6 +1620,8 @@ var xFileInfoSetSize func(uintptr, int64)
 // Sets the %G_FILE_ATTRIBUTE_STANDARD_SIZE attribute in the file info
 // to the given size.
 func (x *FileInfo) SetSize(SizeVar int64) {
+	core.LazyRegister(&xFileInfoSetSize, "GIO", "g_file_info_set_size", false)
+
 	xFileInfoSetSize(x.GoPointer(), SizeVar)
 }
 
@@ -1501,6 +1630,8 @@ var xFileInfoSetSortOrder func(uintptr, int32)
 // Sets the sort order attribute in the file info structure. See
 // %G_FILE_ATTRIBUTE_STANDARD_SORT_ORDER.
 func (x *FileInfo) SetSortOrder(SortOrderVar int32) {
+	core.LazyRegister(&xFileInfoSetSortOrder, "GIO", "g_file_info_set_sort_order", false)
+
 	xFileInfoSetSortOrder(x.GoPointer(), SortOrderVar)
 }
 
@@ -1509,6 +1640,8 @@ var xFileInfoSetSymbolicIcon func(uintptr, uintptr)
 // Sets the symbolic icon for a given #GFileInfo.
 // See %G_FILE_ATTRIBUTE_STANDARD_SYMBOLIC_ICON.
 func (x *FileInfo) SetSymbolicIcon(IconVar Icon) {
+	core.LazyRegister(&xFileInfoSetSymbolicIcon, "GIO", "g_file_info_set_symbolic_icon", false)
+
 	xFileInfoSetSymbolicIcon(x.GoPointer(), IconVar.GoPointer())
 }
 
@@ -1517,6 +1650,8 @@ var xFileInfoSetSymlinkTarget func(uintptr, string)
 // Sets the %G_FILE_ATTRIBUTE_STANDARD_SYMLINK_TARGET attribute in the file info
 // to the given symlink target.
 func (x *FileInfo) SetSymlinkTarget(SymlinkTargetVar string) {
+	core.LazyRegister(&xFileInfoSetSymlinkTarget, "GIO", "g_file_info_set_symlink_target", false)
+
 	xFileInfoSetSymlinkTarget(x.GoPointer(), SymlinkTargetVar)
 }
 
@@ -1525,6 +1660,8 @@ var xFileInfoUnsetAttributeMask func(uintptr)
 // Unsets a mask set by g_file_info_set_attribute_mask(), if one
 // is set.
 func (x *FileInfo) UnsetAttributeMask() {
+	core.LazyRegister(&xFileInfoUnsetAttributeMask, "GIO", "g_file_info_unset_attribute_mask", false)
+
 	xFileInfoUnsetAttributeMask(x.GoPointer())
 }
 
@@ -1542,87 +1679,4 @@ func (c *FileInfo) SetGoPointer(ptr uintptr) {
 func init() {
 	core.SetPackageName("GIO", "gio-2.0")
 	core.SetSharedLibraries("GIO", []string{"libgio-2.0.so.0", "libgio-2.0.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GIO") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xFileInfoGLibType, libs, "g_file_info_get_type")
-
-	core.PuregoSafeRegister(&xNewFileInfo, libs, "g_file_info_new")
-
-	core.PuregoSafeRegister(&xFileInfoClearStatus, libs, "g_file_info_clear_status")
-	core.PuregoSafeRegister(&xFileInfoCopyInto, libs, "g_file_info_copy_into")
-	core.PuregoSafeRegister(&xFileInfoDup, libs, "g_file_info_dup")
-	core.PuregoSafeRegister(&xFileInfoGetAccessDateTime, libs, "g_file_info_get_access_date_time")
-	core.PuregoSafeRegister(&xFileInfoGetAttributeAsString, libs, "g_file_info_get_attribute_as_string")
-	core.PuregoSafeRegister(&xFileInfoGetAttributeBoolean, libs, "g_file_info_get_attribute_boolean")
-	core.PuregoSafeRegister(&xFileInfoGetAttributeByteString, libs, "g_file_info_get_attribute_byte_string")
-	core.PuregoSafeRegister(&xFileInfoGetAttributeData, libs, "g_file_info_get_attribute_data")
-	core.PuregoSafeRegister(&xFileInfoGetAttributeFilePath, libs, "g_file_info_get_attribute_file_path")
-	core.PuregoSafeRegister(&xFileInfoGetAttributeInt32, libs, "g_file_info_get_attribute_int32")
-	core.PuregoSafeRegister(&xFileInfoGetAttributeInt64, libs, "g_file_info_get_attribute_int64")
-	core.PuregoSafeRegister(&xFileInfoGetAttributeObject, libs, "g_file_info_get_attribute_object")
-	core.PuregoSafeRegister(&xFileInfoGetAttributeStatus, libs, "g_file_info_get_attribute_status")
-	core.PuregoSafeRegister(&xFileInfoGetAttributeString, libs, "g_file_info_get_attribute_string")
-	core.PuregoSafeRegister(&xFileInfoGetAttributeStringv, libs, "g_file_info_get_attribute_stringv")
-	core.PuregoSafeRegister(&xFileInfoGetAttributeType, libs, "g_file_info_get_attribute_type")
-	core.PuregoSafeRegister(&xFileInfoGetAttributeUint32, libs, "g_file_info_get_attribute_uint32")
-	core.PuregoSafeRegister(&xFileInfoGetAttributeUint64, libs, "g_file_info_get_attribute_uint64")
-	core.PuregoSafeRegister(&xFileInfoGetContentType, libs, "g_file_info_get_content_type")
-	core.PuregoSafeRegister(&xFileInfoGetCreationDateTime, libs, "g_file_info_get_creation_date_time")
-	core.PuregoSafeRegister(&xFileInfoGetDeletionDate, libs, "g_file_info_get_deletion_date")
-	core.PuregoSafeRegister(&xFileInfoGetDisplayName, libs, "g_file_info_get_display_name")
-	core.PuregoSafeRegister(&xFileInfoGetEditName, libs, "g_file_info_get_edit_name")
-	core.PuregoSafeRegister(&xFileInfoGetEtag, libs, "g_file_info_get_etag")
-	core.PuregoSafeRegister(&xFileInfoGetFileType, libs, "g_file_info_get_file_type")
-	core.PuregoSafeRegister(&xFileInfoGetIcon, libs, "g_file_info_get_icon")
-	core.PuregoSafeRegister(&xFileInfoGetIsBackup, libs, "g_file_info_get_is_backup")
-	core.PuregoSafeRegister(&xFileInfoGetIsHidden, libs, "g_file_info_get_is_hidden")
-	core.PuregoSafeRegister(&xFileInfoGetIsSymlink, libs, "g_file_info_get_is_symlink")
-	core.PuregoSafeRegister(&xFileInfoGetModificationDateTime, libs, "g_file_info_get_modification_date_time")
-	core.PuregoSafeRegister(&xFileInfoGetModificationTime, libs, "g_file_info_get_modification_time")
-	core.PuregoSafeRegister(&xFileInfoGetName, libs, "g_file_info_get_name")
-	core.PuregoSafeRegister(&xFileInfoGetSize, libs, "g_file_info_get_size")
-	core.PuregoSafeRegister(&xFileInfoGetSortOrder, libs, "g_file_info_get_sort_order")
-	core.PuregoSafeRegister(&xFileInfoGetSymbolicIcon, libs, "g_file_info_get_symbolic_icon")
-	core.PuregoSafeRegister(&xFileInfoGetSymlinkTarget, libs, "g_file_info_get_symlink_target")
-	core.PuregoSafeRegister(&xFileInfoHasAttribute, libs, "g_file_info_has_attribute")
-	core.PuregoSafeRegister(&xFileInfoHasNamespace, libs, "g_file_info_has_namespace")
-	core.PuregoSafeRegister(&xFileInfoListAttributes, libs, "g_file_info_list_attributes")
-	core.PuregoSafeRegister(&xFileInfoRemoveAttribute, libs, "g_file_info_remove_attribute")
-	core.PuregoSafeRegister(&xFileInfoSetAccessDateTime, libs, "g_file_info_set_access_date_time")
-	core.PuregoSafeRegister(&xFileInfoSetAttribute, libs, "g_file_info_set_attribute")
-	core.PuregoSafeRegister(&xFileInfoSetAttributeBoolean, libs, "g_file_info_set_attribute_boolean")
-	core.PuregoSafeRegister(&xFileInfoSetAttributeByteString, libs, "g_file_info_set_attribute_byte_string")
-	core.PuregoSafeRegister(&xFileInfoSetAttributeFilePath, libs, "g_file_info_set_attribute_file_path")
-	core.PuregoSafeRegister(&xFileInfoSetAttributeInt32, libs, "g_file_info_set_attribute_int32")
-	core.PuregoSafeRegister(&xFileInfoSetAttributeInt64, libs, "g_file_info_set_attribute_int64")
-	core.PuregoSafeRegister(&xFileInfoSetAttributeMask, libs, "g_file_info_set_attribute_mask")
-	core.PuregoSafeRegister(&xFileInfoSetAttributeObject, libs, "g_file_info_set_attribute_object")
-	core.PuregoSafeRegister(&xFileInfoSetAttributeStatus, libs, "g_file_info_set_attribute_status")
-	core.PuregoSafeRegister(&xFileInfoSetAttributeString, libs, "g_file_info_set_attribute_string")
-	core.PuregoSafeRegister(&xFileInfoSetAttributeStringv, libs, "g_file_info_set_attribute_stringv")
-	core.PuregoSafeRegister(&xFileInfoSetAttributeUint32, libs, "g_file_info_set_attribute_uint32")
-	core.PuregoSafeRegister(&xFileInfoSetAttributeUint64, libs, "g_file_info_set_attribute_uint64")
-	core.PuregoSafeRegister(&xFileInfoSetContentType, libs, "g_file_info_set_content_type")
-	core.PuregoSafeRegister(&xFileInfoSetCreationDateTime, libs, "g_file_info_set_creation_date_time")
-	core.PuregoSafeRegister(&xFileInfoSetDisplayName, libs, "g_file_info_set_display_name")
-	core.PuregoSafeRegister(&xFileInfoSetEditName, libs, "g_file_info_set_edit_name")
-	core.PuregoSafeRegister(&xFileInfoSetFileType, libs, "g_file_info_set_file_type")
-	core.PuregoSafeRegister(&xFileInfoSetIcon, libs, "g_file_info_set_icon")
-	core.PuregoSafeRegister(&xFileInfoSetIsHidden, libs, "g_file_info_set_is_hidden")
-	core.PuregoSafeRegister(&xFileInfoSetIsSymlink, libs, "g_file_info_set_is_symlink")
-	core.PuregoSafeRegister(&xFileInfoSetModificationDateTime, libs, "g_file_info_set_modification_date_time")
-	core.PuregoSafeRegister(&xFileInfoSetModificationTime, libs, "g_file_info_set_modification_time")
-	core.PuregoSafeRegister(&xFileInfoSetName, libs, "g_file_info_set_name")
-	core.PuregoSafeRegister(&xFileInfoSetSize, libs, "g_file_info_set_size")
-	core.PuregoSafeRegister(&xFileInfoSetSortOrder, libs, "g_file_info_set_sort_order")
-	core.PuregoSafeRegister(&xFileInfoSetSymbolicIcon, libs, "g_file_info_set_symbolic_icon")
-	core.PuregoSafeRegister(&xFileInfoSetSymlinkTarget, libs, "g_file_info_set_symlink_target")
-	core.PuregoSafeRegister(&xFileInfoUnsetAttributeMask, libs, "g_file_info_unset_attribute_mask")
 }

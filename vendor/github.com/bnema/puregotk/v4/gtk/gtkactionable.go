@@ -173,6 +173,7 @@ type Actionable interface {
 var xActionableGLibType func() types.GType
 
 func ActionableGLibType() types.GType {
+	core.LazyRegister(&xActionableGLibType, "GTK", "gtk_actionable_get_type", false)
 	return xActionableGLibType()
 }
 
@@ -312,33 +313,49 @@ func (x *ActionableBase) GetPropertyActionTarget() uintptr {
 	return v.GetPointer()
 }
 
+var XGtkActionableGetActionName func(uintptr) string = func(instance uintptr) string {
+	core.LazyRegister(&xXGtkActionableGetActionName, "GTK", "gtk_actionable_get_action_name", false)
+	return xXGtkActionableGetActionName(instance)
+}
+
 var (
-	XGtkActionableGetActionName         func(uintptr) string
-	XGtkActionableGetActionTargetValue  func(uintptr) uintptr
-	XGtkActionableSetActionName         func(uintptr, uintptr)
-	XGtkActionableSetActionTarget       func(uintptr, string, ...interface{})
-	XGtkActionableSetActionTargetValue  func(uintptr, *glib.Variant)
-	XGtkActionableSetDetailedActionName func(uintptr, string)
+	xXGtkActionableGetActionName       func(uintptr) string
+	XGtkActionableGetActionTargetValue func(uintptr) uintptr = func(instance uintptr) uintptr {
+		core.LazyRegister(&xXGtkActionableGetActionTargetValue, "GTK", "gtk_actionable_get_action_target_value", false)
+		return xXGtkActionableGetActionTargetValue(instance)
+	}
 )
+var (
+	xXGtkActionableGetActionTargetValue func(uintptr) uintptr
+	XGtkActionableSetActionName         func(uintptr, uintptr) = func(instance uintptr, ActionNameVarp uintptr) {
+		core.LazyRegister(&xXGtkActionableSetActionName, "GTK", "gtk_actionable_set_action_name", false)
+		xXGtkActionableSetActionName(instance, ActionNameVarp)
+	}
+)
+var (
+	xXGtkActionableSetActionName  func(uintptr, uintptr)
+	XGtkActionableSetActionTarget func(uintptr, string, ...interface{}) = func(instance uintptr, FormatStringVarp string, varArgsp ...interface{}) {
+		core.LazyRegister(&xXGtkActionableSetActionTarget, "GTK", "gtk_actionable_set_action_target", false)
+		xXGtkActionableSetActionTarget(instance, FormatStringVarp, varArgsp)
+	}
+)
+var (
+	xXGtkActionableSetActionTarget     func(uintptr, string, ...interface{})
+	XGtkActionableSetActionTargetValue func(uintptr, *glib.Variant) = func(instance uintptr, TargetValueVarp *glib.Variant) {
+		core.LazyRegister(&xXGtkActionableSetActionTargetValue, "GTK", "gtk_actionable_set_action_target_value", false)
+		xXGtkActionableSetActionTargetValue(instance, TargetValueVarp)
+	}
+)
+var (
+	xXGtkActionableSetActionTargetValue func(uintptr, *glib.Variant)
+	XGtkActionableSetDetailedActionName func(uintptr, string) = func(instance uintptr, DetailedActionNameVarp string) {
+		core.LazyRegister(&xXGtkActionableSetDetailedActionName, "GTK", "gtk_actionable_set_detailed_action_name", false)
+		xXGtkActionableSetDetailedActionName(instance, DetailedActionNameVarp)
+	}
+)
+var xXGtkActionableSetDetailedActionName func(uintptr, string)
 
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GTK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xActionableGLibType, libs, "gtk_actionable_get_type")
-
-	core.PuregoSafeRegister(&XGtkActionableGetActionName, libs, "gtk_actionable_get_action_name")
-	core.PuregoSafeRegister(&XGtkActionableGetActionTargetValue, libs, "gtk_actionable_get_action_target_value")
-	core.PuregoSafeRegister(&XGtkActionableSetActionName, libs, "gtk_actionable_set_action_name")
-	core.PuregoSafeRegister(&XGtkActionableSetActionTarget, libs, "gtk_actionable_set_action_target")
-	core.PuregoSafeRegister(&XGtkActionableSetActionTargetValue, libs, "gtk_actionable_set_action_target_value")
-	core.PuregoSafeRegister(&XGtkActionableSetDetailedActionName, libs, "gtk_actionable_set_detailed_action_name")
 }

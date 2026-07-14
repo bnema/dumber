@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gio"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -56,6 +55,7 @@ type EnumListItem struct {
 var xEnumListItemGLibType func() types.GType
 
 func EnumListItemGLibType() types.GType {
+	core.LazyRegister(&xEnumListItemGLibType, "ADW", "adw_enum_list_item_get_type", false)
 	return xEnumListItemGLibType()
 }
 
@@ -69,6 +69,8 @@ var xEnumListItemGetName func(uintptr) string
 
 // Gets the enum value name.
 func (x *EnumListItem) GetName() string {
+	core.LazyRegister(&xEnumListItemGetName, "ADW", "adw_enum_list_item_get_name", false)
+
 	cret := xEnumListItemGetName(x.GoPointer())
 	return cret
 }
@@ -77,6 +79,8 @@ var xEnumListItemGetNick func(uintptr) string
 
 // Gets the enum value nick.
 func (x *EnumListItem) GetNick() string {
+	core.LazyRegister(&xEnumListItemGetNick, "ADW", "adw_enum_list_item_get_nick", false)
+
 	cret := xEnumListItemGetNick(x.GoPointer())
 	return cret
 }
@@ -85,6 +89,8 @@ var xEnumListItemGetValue func(uintptr) int
 
 // Gets the enum value.
 func (x *EnumListItem) GetValue() int {
+	core.LazyRegister(&xEnumListItemGetValue, "ADW", "adw_enum_list_item_get_value", false)
+
 	cret := xEnumListItemGetValue(x.GoPointer())
 	return cret
 }
@@ -134,6 +140,7 @@ type EnumListModel struct {
 var xEnumListModelGLibType func() types.GType
 
 func EnumListModelGLibType() types.GType {
+	core.LazyRegister(&xEnumListModelGLibType, "ADW", "adw_enum_list_model_get_type", false)
 	return xEnumListModelGLibType()
 }
 
@@ -147,6 +154,7 @@ var xNewEnumListModel func(types.GType) uintptr
 
 // Creates a new `AdwEnumListModel` for @enum_type.
 func NewEnumListModel(EnumTypeVar types.GType) *EnumListModel {
+	core.LazyRegister(&xNewEnumListModel, "ADW", "adw_enum_list_model_new", false)
 	var cls *EnumListModel
 
 	cret := xNewEnumListModel(EnumTypeVar)
@@ -165,6 +173,8 @@ var xEnumListModelFindPosition func(uintptr, int) uint
 //
 // If the value is not found, [const@Gtk.INVALID_LIST_POSITION] is returned.
 func (x *EnumListModel) FindPosition(ValueVar int) uint {
+	core.LazyRegister(&xEnumListModelFindPosition, "ADW", "adw_enum_list_model_find_position", false)
+
 	cret := xEnumListModelFindPosition(x.GoPointer(), ValueVar)
 	return cret
 }
@@ -173,6 +183,8 @@ var xEnumListModelGetEnumType func(uintptr) types.GType
 
 // Gets the type of the enum represented by @self.
 func (x *EnumListModel) GetEnumType() types.GType {
+	core.LazyRegister(&xEnumListModelGetEnumType, "ADW", "adw_enum_list_model_get_enum_type", false)
+
 	cret := xEnumListModelGetEnumType(x.GoPointer())
 	return cret
 }
@@ -285,25 +297,4 @@ func (x *EnumListModel) ItemsChanged(PositionVar uint, RemovedVar uint, AddedVar
 func init() {
 	core.SetPackageName("ADW", "libadwaita-1")
 	core.SetSharedLibraries("ADW", []string{"libadwaita-1.so.0", "libadwaita-1.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("ADW") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xEnumListItemGLibType, libs, "adw_enum_list_item_get_type")
-
-	core.PuregoSafeRegister(&xEnumListItemGetName, libs, "adw_enum_list_item_get_name")
-	core.PuregoSafeRegister(&xEnumListItemGetNick, libs, "adw_enum_list_item_get_nick")
-	core.PuregoSafeRegister(&xEnumListItemGetValue, libs, "adw_enum_list_item_get_value")
-
-	core.PuregoSafeRegister(&xEnumListModelGLibType, libs, "adw_enum_list_model_get_type")
-
-	core.PuregoSafeRegister(&xNewEnumListModel, libs, "adw_enum_list_model_new")
-
-	core.PuregoSafeRegister(&xEnumListModelFindPosition, libs, "adw_enum_list_model_find_position")
-	core.PuregoSafeRegister(&xEnumListModelGetEnumType, libs, "adw_enum_list_model_get_enum_type")
 }

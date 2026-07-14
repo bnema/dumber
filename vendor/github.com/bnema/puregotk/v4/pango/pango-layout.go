@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -41,6 +40,7 @@ type LayoutIter struct {
 var xLayoutIterGLibType func() types.GType
 
 func LayoutIterGLibType() types.GType {
+	core.LazyRegister(&xLayoutIterGLibType, "PANGO", "pango_layout_iter_get_type", false)
 	return xLayoutIterGLibType()
 }
 
@@ -60,6 +60,8 @@ var xLayoutIterAtLastLine func(uintptr) bool
 
 // Determines whether @iter is on the last line of the layout.
 func (x *LayoutIter) AtLastLine() bool {
+	core.LazyRegister(&xLayoutIterAtLastLine, "PANGO", "pango_layout_iter_at_last_line", false)
+
 	cret := xLayoutIterAtLastLine(x.GoPointer())
 	return cret
 }
@@ -68,6 +70,8 @@ var xLayoutIterCopy func(uintptr) uintptr
 
 // Copies a `PangoLayoutIter`.
 func (x *LayoutIter) Copy() *LayoutIter {
+	core.LazyRegister(&xLayoutIterCopy, "PANGO", "pango_layout_iter_copy", false)
+
 	cret := xLayoutIterCopy(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -79,6 +83,8 @@ var xLayoutIterFree func(uintptr)
 
 // Frees an iterator that's no longer in use.
 func (x *LayoutIter) Free() {
+	core.LazyRegister(&xLayoutIterFree, "PANGO", "pango_layout_iter_free", false)
+
 	xLayoutIterFree(x.GoPointer())
 }
 
@@ -89,6 +95,8 @@ var xLayoutIterGetBaseline func(uintptr) int
 //
 // Layout coordinates have the origin at the top left of the entire layout.
 func (x *LayoutIter) GetBaseline() int {
+	core.LazyRegister(&xLayoutIterGetBaseline, "PANGO", "pango_layout_iter_get_baseline", false)
+
 	cret := xLayoutIterGetBaseline(x.GoPointer())
 	return cret
 }
@@ -102,6 +110,8 @@ var xLayoutIterGetCharExtents func(uintptr, *Rectangle)
 // Only logical extents can sensibly be obtained for characters;
 // ink extents make sense only down to the level of clusters.
 func (x *LayoutIter) GetCharExtents(LogicalRectVar *Rectangle) {
+	core.LazyRegister(&xLayoutIterGetCharExtents, "PANGO", "pango_layout_iter_get_char_extents", false)
+
 	xLayoutIterGetCharExtents(x.GoPointer(), LogicalRectVar)
 }
 
@@ -111,6 +121,8 @@ var xLayoutIterGetClusterExtents func(uintptr, *Rectangle, *Rectangle)
 //
 // Layout coordinates have the origin at the top left of the entire layout.
 func (x *LayoutIter) GetClusterExtents(InkRectVar *Rectangle, LogicalRectVar *Rectangle) {
+	core.LazyRegister(&xLayoutIterGetClusterExtents, "PANGO", "pango_layout_iter_get_cluster_extents", false)
+
 	xLayoutIterGetClusterExtents(x.GoPointer(), InkRectVar, LogicalRectVar)
 }
 
@@ -123,6 +135,8 @@ var xLayoutIterGetIndex func(uintptr) int
 // the index may be equal to the length of the text in the
 // layout, if on the %NULL run (see [method@Pango.LayoutIter.get_run]).
 func (x *LayoutIter) GetIndex() int {
+	core.LazyRegister(&xLayoutIterGetIndex, "PANGO", "pango_layout_iter_get_index", false)
+
 	cret := xLayoutIterGetIndex(x.GoPointer())
 	return cret
 }
@@ -131,6 +145,7 @@ var xLayoutIterGetLayout func(uintptr) uintptr
 
 // Gets the layout associated with a `PangoLayoutIter`.
 func (x *LayoutIter) GetLayout() *Layout {
+	core.LazyRegister(&xLayoutIterGetLayout, "PANGO", "pango_layout_iter_get_layout", false)
 	var cls *Layout
 
 	cret := xLayoutIterGetLayout(x.GoPointer())
@@ -148,6 +163,8 @@ var xLayoutIterGetLayoutExtents func(uintptr, *Rectangle, *Rectangle)
 
 // Obtains the extents of the `PangoLayout` being iterated over.
 func (x *LayoutIter) GetLayoutExtents(InkRectVar *Rectangle, LogicalRectVar *Rectangle) {
+	core.LazyRegister(&xLayoutIterGetLayoutExtents, "PANGO", "pango_layout_iter_get_layout_extents", false)
+
 	xLayoutIterGetLayoutExtents(x.GoPointer(), InkRectVar, LogicalRectVar)
 }
 
@@ -159,6 +176,8 @@ var xLayoutIterGetLine func(uintptr) uintptr
 // you do not plan to modify the contents of the line (glyphs,
 // glyph widths, etc.).
 func (x *LayoutIter) GetLine() *LayoutLine {
+	core.LazyRegister(&xLayoutIterGetLine, "PANGO", "pango_layout_iter_get_line", false)
+
 	cret := xLayoutIterGetLine(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -175,6 +194,8 @@ var xLayoutIterGetLineExtents func(uintptr, *Rectangle, *Rectangle)
 // function will be the same width/height but not at the same x/y
 // as the extents returned from [method@Pango.LayoutLine.get_extents].
 func (x *LayoutIter) GetLineExtents(InkRectVar *Rectangle, LogicalRectVar *Rectangle) {
+	core.LazyRegister(&xLayoutIterGetLineExtents, "PANGO", "pango_layout_iter_get_line_extents", false)
+
 	xLayoutIterGetLineExtents(x.GoPointer(), InkRectVar, LogicalRectVar)
 }
 
@@ -186,6 +207,8 @@ var xLayoutIterGetLineReadonly func(uintptr) uintptr
 // but the user is not expected to modify the contents of the line
 // (glyphs, glyph widths, etc.).
 func (x *LayoutIter) GetLineReadonly() *LayoutLine {
+	core.LazyRegister(&xLayoutIterGetLineReadonly, "PANGO", "pango_layout_iter_get_line_readonly", false)
+
 	cret := xLayoutIterGetLineReadonly(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -207,6 +230,8 @@ var xLayoutIterGetLineYrange func(uintptr, *int, *int)
 // Note: Since 1.44, Pango uses line heights for placing lines, and there
 // may be gaps between the ranges returned by this function.
 func (x *LayoutIter) GetLineYrange(Y0Var *int, Y1Var *int) {
+	core.LazyRegister(&xLayoutIterGetLineYrange, "PANGO", "pango_layout_iter_get_line_yrange", false)
+
 	xLayoutIterGetLineYrange(x.GoPointer(), Y0Var, Y1Var)
 }
 
@@ -222,6 +247,8 @@ var xLayoutIterGetRun func(uintptr) uintptr
 // Use the faster [method@Pango.LayoutIter.get_run_readonly] if you do not
 // plan to modify the contents of the run (glyphs, glyph widths, etc.).
 func (x *LayoutIter) GetRun() *LayoutRun {
+	core.LazyRegister(&xLayoutIterGetRun, "PANGO", "pango_layout_iter_get_run", false)
+
 	cret := xLayoutIterGetRun(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -239,6 +266,8 @@ var xLayoutIterGetRunBaseline func(uintptr) int
 // The run baseline can be different from the line baseline, for
 // example due to superscript or subscript positioning.
 func (x *LayoutIter) GetRunBaseline() int {
+	core.LazyRegister(&xLayoutIterGetRunBaseline, "PANGO", "pango_layout_iter_get_run_baseline", false)
+
 	cret := xLayoutIterGetRunBaseline(x.GoPointer())
 	return cret
 }
@@ -249,6 +278,8 @@ var xLayoutIterGetRunExtents func(uintptr, *Rectangle, *Rectangle)
 //
 // Layout coordinates have the origin at the top left of the entire layout.
 func (x *LayoutIter) GetRunExtents(InkRectVar *Rectangle, LogicalRectVar *Rectangle) {
+	core.LazyRegister(&xLayoutIterGetRunExtents, "PANGO", "pango_layout_iter_get_run_extents", false)
+
 	xLayoutIterGetRunExtents(x.GoPointer(), InkRectVar, LogicalRectVar)
 }
 
@@ -265,6 +296,8 @@ var xLayoutIterGetRunReadonly func(uintptr) uintptr
 // but the user is not expected to modify the contents of the run (glyphs,
 // glyph widths, etc.).
 func (x *LayoutIter) GetRunReadonly() *LayoutRun {
+	core.LazyRegister(&xLayoutIterGetRunReadonly, "PANGO", "pango_layout_iter_get_run_readonly", false)
+
 	cret := xLayoutIterGetRunReadonly(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -278,6 +311,8 @@ var xLayoutIterNextChar func(uintptr) bool
 //
 // If @iter was already at the end of the layout, returns %FALSE.
 func (x *LayoutIter) NextChar() bool {
+	core.LazyRegister(&xLayoutIterNextChar, "PANGO", "pango_layout_iter_next_char", false)
+
 	cret := xLayoutIterNextChar(x.GoPointer())
 	return cret
 }
@@ -288,6 +323,8 @@ var xLayoutIterNextCluster func(uintptr) bool
 //
 // If @iter was already at the end of the layout, returns %FALSE.
 func (x *LayoutIter) NextCluster() bool {
+	core.LazyRegister(&xLayoutIterNextCluster, "PANGO", "pango_layout_iter_next_cluster", false)
+
 	cret := xLayoutIterNextCluster(x.GoPointer())
 	return cret
 }
@@ -298,6 +335,8 @@ var xLayoutIterNextLine func(uintptr) bool
 //
 // If @iter is already on the last line, returns %FALSE.
 func (x *LayoutIter) NextLine() bool {
+	core.LazyRegister(&xLayoutIterNextLine, "PANGO", "pango_layout_iter_next_line", false)
+
 	cret := xLayoutIterNextLine(x.GoPointer())
 	return cret
 }
@@ -308,6 +347,8 @@ var xLayoutIterNextRun func(uintptr) bool
 //
 // If @iter was already at the end of the layout, returns %FALSE.
 func (x *LayoutIter) NextRun() bool {
+	core.LazyRegister(&xLayoutIterNextRun, "PANGO", "pango_layout_iter_next_run", false)
+
 	cret := xLayoutIterNextRun(x.GoPointer())
 	return cret
 }
@@ -337,6 +378,7 @@ type LayoutLine struct {
 var xLayoutLineGLibType func() types.GType
 
 func LayoutLineGLibType() types.GType {
+	core.LazyRegister(&xLayoutLineGLibType, "PANGO", "pango_layout_line_get_type", false)
 	return xLayoutLineGLibType()
 }
 
@@ -359,6 +401,8 @@ var xLayoutLineGetExtents func(uintptr, *Rectangle, *Rectangle)
 // See [method@Pango.Font.get_glyph_extents] for details
 // about the interpretation of the rectangles.
 func (x *LayoutLine) GetExtents(InkRectVar *Rectangle, LogicalRectVar *Rectangle) {
+	core.LazyRegister(&xLayoutLineGetExtents, "PANGO", "pango_layout_line_get_extents", false)
+
 	xLayoutLineGetExtents(x.GoPointer(), InkRectVar, LogicalRectVar)
 }
 
@@ -372,6 +416,8 @@ var xLayoutLineGetHeight func(uintptr, *int)
 // [method@Pango.Layout.set_spacing] and
 // [method@Pango.Layout.set_line_spacing].
 func (x *LayoutLine) GetHeight(HeightVar *int) {
+	core.LazyRegister(&xLayoutLineGetHeight, "PANGO", "pango_layout_line_get_height", false)
+
 	xLayoutLineGetHeight(x.GoPointer(), HeightVar)
 }
 
@@ -379,6 +425,8 @@ var xLayoutLineGetLength func(uintptr) int
 
 // Returns the length of the line, in bytes.
 func (x *LayoutLine) GetLength() int {
+	core.LazyRegister(&xLayoutLineGetLength, "PANGO", "pango_layout_line_get_length", false)
+
 	cret := xLayoutLineGetLength(x.GoPointer())
 	return cret
 }
@@ -392,6 +440,8 @@ var xLayoutLineGetPixelExtents func(uintptr, *Rectangle, *Rectangle)
 // such that the rounded rectangles fully contain the unrounded one (that is,
 // passes them as first argument to [func@extents_to_pixels]).
 func (x *LayoutLine) GetPixelExtents(InkRectVar *Rectangle, LogicalRectVar *Rectangle) {
+	core.LazyRegister(&xLayoutLineGetPixelExtents, "PANGO", "pango_layout_line_get_pixel_extents", false)
+
 	xLayoutLineGetPixelExtents(x.GoPointer(), InkRectVar, LogicalRectVar)
 }
 
@@ -399,6 +449,8 @@ var xLayoutLineGetResolvedDirection func(uintptr) Direction
 
 // Returns the resolved direction of the line.
 func (x *LayoutLine) GetResolvedDirection() Direction {
+	core.LazyRegister(&xLayoutLineGetResolvedDirection, "PANGO", "pango_layout_line_get_resolved_direction", false)
+
 	cret := xLayoutLineGetResolvedDirection(x.GoPointer())
 	return cret
 }
@@ -408,6 +460,8 @@ var xLayoutLineGetStartIndex func(uintptr) int
 // Returns the start index of the line, as byte index
 // into the text of the layout.
 func (x *LayoutLine) GetStartIndex() int {
+	core.LazyRegister(&xLayoutLineGetStartIndex, "PANGO", "pango_layout_line_get_start_index", false)
+
 	cret := xLayoutLineGetStartIndex(x.GoPointer())
 	return cret
 }
@@ -421,6 +475,8 @@ var xLayoutLineGetXRanges func(uintptr, int, int, *[]int, *int)
 // right. The ranges are with respect to the left edge of the entire
 // layout, not with respect to the line.
 func (x *LayoutLine) GetXRanges(StartIndexVar int, EndIndexVar int, RangesVar *[]int, NRangesVar *int) {
+	core.LazyRegister(&xLayoutLineGetXRanges, "PANGO", "pango_layout_line_get_x_ranges", false)
+
 	xLayoutLineGetXRanges(x.GoPointer(), StartIndexVar, EndIndexVar, RangesVar, NRangesVar)
 }
 
@@ -428,6 +484,8 @@ var xLayoutLineIndexToX func(uintptr, int, bool, *int)
 
 // Converts an index within a line to a X position.
 func (x *LayoutLine) IndexToX(IndexVar int, TrailingVar bool, XPosVar *int) {
+	core.LazyRegister(&xLayoutLineIndexToX, "PANGO", "pango_layout_line_index_to_x", false)
+
 	xLayoutLineIndexToX(x.GoPointer(), IndexVar, TrailingVar, XPosVar)
 }
 
@@ -435,6 +493,8 @@ var xLayoutLineIsParagraphStartFn func(uintptr) bool
 
 // Returns whether this is the first line of the paragraph.
 func (x *LayoutLine) IsParagraphStartFn() bool {
+	core.LazyRegister(&xLayoutLineIsParagraphStartFn, "PANGO", "pango_layout_line_is_paragraph_start", false)
+
 	cret := xLayoutLineIsParagraphStartFn(x.GoPointer())
 	return cret
 }
@@ -443,6 +503,8 @@ var xLayoutLineRef func(uintptr) uintptr
 
 // Increase the reference count of a `PangoLayoutLine` by one.
 func (x *LayoutLine) Ref() *LayoutLine {
+	core.LazyRegister(&xLayoutLineRef, "PANGO", "pango_layout_line_ref", false)
+
 	cret := xLayoutLineRef(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -457,6 +519,8 @@ var xLayoutLineUnref func(uintptr)
 // If the result is zero, the line and all associated memory
 // will be freed.
 func (x *LayoutLine) Unref() {
+	core.LazyRegister(&xLayoutLineUnref, "PANGO", "pango_layout_line_unref", false)
+
 	xLayoutLineUnref(x.GoPointer())
 }
 
@@ -474,6 +538,8 @@ var xLayoutLineXToIndex func(uintptr, int, *int, *int) bool
 // in the line and @trailing being set to the number of characters in that
 // grapheme. The reverse is true for a left-to-right line.
 func (x *LayoutLine) XToIndex(XPosVar int, IndexVar *int, TrailingVar *int) bool {
+	core.LazyRegister(&xLayoutLineXToIndex, "PANGO", "pango_layout_line_x_to_index", false)
+
 	cret := xLayoutLineXToIndex(x.GoPointer(), XPosVar, IndexVar, TrailingVar)
 	return cret
 }
@@ -492,6 +558,7 @@ type LayoutDeserializeFlags int
 var xLayoutDeserializeFlagsGLibType func() types.GType
 
 func LayoutDeserializeFlagsGLibType() types.GType {
+	core.LazyRegister(&xLayoutDeserializeFlagsGLibType, "PANGO", "pango_layout_deserialize_flags_get_type", false)
 	return xLayoutDeserializeFlagsGLibType()
 }
 
@@ -512,6 +579,7 @@ type LayoutSerializeFlags int
 var xLayoutSerializeFlagsGLibType func() types.GType
 
 func LayoutSerializeFlagsGLibType() types.GType {
+	core.LazyRegister(&xLayoutSerializeFlagsGLibType, "PANGO", "pango_layout_serialize_flags_get_type", false)
 	return xLayoutSerializeFlagsGLibType()
 }
 
@@ -538,6 +606,7 @@ type Alignment int
 var xAlignmentGLibType func() types.GType
 
 func AlignmentGLibType() types.GType {
+	core.LazyRegister(&xAlignmentGLibType, "PANGO", "pango_alignment_get_type", false)
 	return xAlignmentGLibType()
 }
 
@@ -562,6 +631,7 @@ type EllipsizeMode int
 var xEllipsizeModeGLibType func() types.GType
 
 func EllipsizeModeGLibType() types.GType {
+	core.LazyRegister(&xEllipsizeModeGLibType, "PANGO", "pango_ellipsize_mode_get_type", false)
 	return xEllipsizeModeGLibType()
 }
 
@@ -583,6 +653,7 @@ type LayoutDeserializeError int
 var xLayoutDeserializeErrorGLibType func() types.GType
 
 func LayoutDeserializeErrorGLibType() types.GType {
+	core.LazyRegister(&xLayoutDeserializeErrorGLibType, "PANGO", "pango_layout_deserialize_error_get_type", false)
 	return xLayoutDeserializeErrorGLibType()
 }
 
@@ -610,6 +681,7 @@ type WrapMode int
 var xWrapModeGLibType func() types.GType
 
 func WrapModeGLibType() types.GType {
+	core.LazyRegister(&xWrapModeGLibType, "PANGO", "pango_wrap_mode_get_type", false)
 	return xWrapModeGLibType()
 }
 
@@ -672,6 +744,7 @@ type Layout struct {
 var xLayoutGLibType func() types.GType
 
 func LayoutGLibType() types.GType {
+	core.LazyRegister(&xLayoutGLibType, "PANGO", "pango_layout_get_type", false)
 	return xLayoutGLibType()
 }
 
@@ -686,6 +759,7 @@ var xNewLayout func(uintptr) uintptr
 // Create a new `PangoLayout` object with attributes initialized to
 // default values for a particular `PangoContext`.
 func NewLayout(ContextVar *Context) *Layout {
+	core.LazyRegister(&xNewLayout, "PANGO", "pango_layout_new", false)
 	var cls *Layout
 
 	cret := xNewLayout(ContextVar.GoPointer())
@@ -706,6 +780,8 @@ var xLayoutContextChanged func(uintptr)
 // This function should be called if you make changes to the context
 // subsequent to creating the layout.
 func (x *Layout) ContextChanged() {
+	core.LazyRegister(&xLayoutContextChanged, "PANGO", "pango_layout_context_changed", false)
+
 	xLayoutContextChanged(x.GoPointer())
 }
 
@@ -716,6 +792,7 @@ var xLayoutCopy func(uintptr) uintptr
 // The attribute list, tab array, and text from the original layout
 // are all copied by value.
 func (x *Layout) Copy() *Layout {
+	core.LazyRegister(&xLayoutCopy, "PANGO", "pango_layout_copy", false)
 	var cls *Layout
 
 	cret := xLayoutCopy(x.GoPointer())
@@ -733,6 +810,8 @@ var xLayoutGetAlignment func(uintptr) Alignment
 // Gets the alignment for the layout: how partial lines are
 // positioned within the horizontal space available.
 func (x *Layout) GetAlignment() Alignment {
+	core.LazyRegister(&xLayoutGetAlignment, "PANGO", "pango_layout_get_alignment", false)
+
 	cret := xLayoutGetAlignment(x.GoPointer())
 	return cret
 }
@@ -741,6 +820,8 @@ var xLayoutGetAttributes func(uintptr) uintptr
 
 // Gets the attribute list for the layout, if any.
 func (x *Layout) GetAttributes() *AttrList {
+	core.LazyRegister(&xLayoutGetAttributes, "PANGO", "pango_layout_get_attributes", false)
+
 	cret := xLayoutGetAttributes(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -755,6 +836,8 @@ var xLayoutGetAutoDir func(uintptr) bool
 //
 // See [method@Pango.Layout.set_auto_dir].
 func (x *Layout) GetAutoDir() bool {
+	core.LazyRegister(&xLayoutGetAutoDir, "PANGO", "pango_layout_get_auto_dir", false)
+
 	cret := xLayoutGetAutoDir(x.GoPointer())
 	return cret
 }
@@ -763,6 +846,8 @@ var xLayoutGetBaseline func(uintptr) int
 
 // Gets the Y position of baseline of the first line in @layout.
 func (x *Layout) GetBaseline() int {
+	core.LazyRegister(&xLayoutGetBaseline, "PANGO", "pango_layout_get_baseline", false)
+
 	cret := xLayoutGetBaseline(x.GoPointer())
 	return cret
 }
@@ -783,6 +868,8 @@ var xLayoutGetCaretPos func(uintptr, int, *Rectangle, *Rectangle)
 //
 // &lt;/picture&gt;
 func (x *Layout) GetCaretPos(IndexVar int, StrongPosVar *Rectangle, WeakPosVar *Rectangle) {
+	core.LazyRegister(&xLayoutGetCaretPos, "PANGO", "pango_layout_get_caret_pos", false)
+
 	xLayoutGetCaretPos(x.GoPointer(), IndexVar, StrongPosVar, WeakPosVar)
 }
 
@@ -791,6 +878,8 @@ var xLayoutGetCharacterCount func(uintptr) int
 // Returns the number of Unicode characters in the
 // the text of @layout.
 func (x *Layout) GetCharacterCount() int {
+	core.LazyRegister(&xLayoutGetCharacterCount, "PANGO", "pango_layout_get_character_count", false)
+
 	cret := xLayoutGetCharacterCount(x.GoPointer())
 	return cret
 }
@@ -799,6 +888,7 @@ var xLayoutGetContext func(uintptr) uintptr
 
 // Retrieves the `PangoContext` used for this layout.
 func (x *Layout) GetContext() *Context {
+	core.LazyRegister(&xLayoutGetContext, "PANGO", "pango_layout_get_context", false)
 	var cls *Context
 
 	cret := xLayoutGetContext(x.GoPointer())
@@ -846,6 +936,8 @@ var xLayoutGetCursorPos func(uintptr, int, *Rectangle, *Rectangle)
 // character after the 'b', and typing another Hebrew character, like 'ג',
 // will insert it at the end.
 func (x *Layout) GetCursorPos(IndexVar int, StrongPosVar *Rectangle, WeakPosVar *Rectangle) {
+	core.LazyRegister(&xLayoutGetCursorPos, "PANGO", "pango_layout_get_cursor_pos", false)
+
 	xLayoutGetCursorPos(x.GoPointer(), IndexVar, StrongPosVar, WeakPosVar)
 }
 
@@ -853,6 +945,8 @@ var xLayoutGetDirection func(uintptr, int) Direction
 
 // Gets the text direction at the given character position in @layout.
 func (x *Layout) GetDirection(IndexVar int) Direction {
+	core.LazyRegister(&xLayoutGetDirection, "PANGO", "pango_layout_get_direction", false)
+
 	cret := xLayoutGetDirection(x.GoPointer(), IndexVar)
 	return cret
 }
@@ -866,6 +960,8 @@ var xLayoutGetEllipsize func(uintptr) EllipsizeMode
 // Use [method@Pango.Layout.is_ellipsized] to query whether any
 // paragraphs were actually ellipsized.
 func (x *Layout) GetEllipsize() EllipsizeMode {
+	core.LazyRegister(&xLayoutGetEllipsize, "PANGO", "pango_layout_get_ellipsize", false)
+
 	cret := xLayoutGetEllipsize(x.GoPointer())
 	return cret
 }
@@ -883,6 +979,8 @@ var xLayoutGetExtents func(uintptr, *Rectangle, *Rectangle)
 // The extents are given in layout coordinates and in Pango units; layout
 // coordinates begin at the top left corner of the layout.
 func (x *Layout) GetExtents(InkRectVar *Rectangle, LogicalRectVar *Rectangle) {
+	core.LazyRegister(&xLayoutGetExtents, "PANGO", "pango_layout_get_extents", false)
+
 	xLayoutGetExtents(x.GoPointer(), InkRectVar, LogicalRectVar)
 }
 
@@ -890,6 +988,8 @@ var xLayoutGetFontDescription func(uintptr) uintptr
 
 // Gets the font description for the layout, if any.
 func (x *Layout) GetFontDescription() *FontDescription {
+	core.LazyRegister(&xLayoutGetFontDescription, "PANGO", "pango_layout_get_font_description", false)
+
 	cret := xLayoutGetFontDescription(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -903,6 +1003,8 @@ var xLayoutGetHeight func(uintptr) int
 //
 // See [method@Pango.Layout.set_height] for details.
 func (x *Layout) GetHeight() int {
+	core.LazyRegister(&xLayoutGetHeight, "PANGO", "pango_layout_get_height", false)
+
 	cret := xLayoutGetHeight(x.GoPointer())
 	return cret
 }
@@ -913,6 +1015,8 @@ var xLayoutGetIndent func(uintptr) int
 //
 // A negative value indicates a hanging indentation.
 func (x *Layout) GetIndent() int {
+	core.LazyRegister(&xLayoutGetIndent, "PANGO", "pango_layout_get_indent", false)
+
 	cret := xLayoutGetIndent(x.GoPointer())
 	return cret
 }
@@ -921,6 +1025,8 @@ var xLayoutGetIter func(uintptr) uintptr
 
 // Returns an iterator to iterate over the visual extents of the layout.
 func (x *Layout) GetIter() *LayoutIter {
+	core.LazyRegister(&xLayoutGetIter, "PANGO", "pango_layout_get_iter", false)
+
 	cret := xLayoutGetIter(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -933,6 +1039,8 @@ var xLayoutGetJustify func(uintptr) bool
 // Gets whether each complete line should be stretched to fill the entire
 // width of the layout.
 func (x *Layout) GetJustify() bool {
+	core.LazyRegister(&xLayoutGetJustify, "PANGO", "pango_layout_get_justify", false)
+
 	cret := xLayoutGetJustify(x.GoPointer())
 	return cret
 }
@@ -942,6 +1050,8 @@ var xLayoutGetJustifyLastLine func(uintptr) bool
 // Gets whether the last line should be stretched
 // to fill the entire width of the layout.
 func (x *Layout) GetJustifyLastLine() bool {
+	core.LazyRegister(&xLayoutGetJustifyLastLine, "PANGO", "pango_layout_get_justify_last_line", false)
+
 	cret := xLayoutGetJustifyLastLine(x.GoPointer())
 	return cret
 }
@@ -953,6 +1063,8 @@ var xLayoutGetLine func(uintptr, int) uintptr
 // Use the faster [method@Pango.Layout.get_line_readonly] if you do not
 // plan to modify the contents of the line (glyphs, glyph widths, etc.).
 func (x *Layout) GetLine(LineVar int) *LayoutLine {
+	core.LazyRegister(&xLayoutGetLine, "PANGO", "pango_layout_get_line", false)
+
 	cret := xLayoutGetLine(x.GoPointer(), LineVar)
 	if cret == 0 {
 		return nil
@@ -964,6 +1076,8 @@ var xLayoutGetLineCount func(uintptr) int
 
 // Retrieves the count of lines for the @layout.
 func (x *Layout) GetLineCount() int {
+	core.LazyRegister(&xLayoutGetLineCount, "PANGO", "pango_layout_get_line_count", false)
+
 	cret := xLayoutGetLineCount(x.GoPointer())
 	return cret
 }
@@ -976,6 +1090,8 @@ var xLayoutGetLineReadonly func(uintptr, int) uintptr
 // but the user is not expected to modify the contents of the line
 // (glyphs, glyph widths, etc.).
 func (x *Layout) GetLineReadonly(LineVar int) *LayoutLine {
+	core.LazyRegister(&xLayoutGetLineReadonly, "PANGO", "pango_layout_get_line_readonly", false)
+
 	cret := xLayoutGetLineReadonly(x.GoPointer(), LineVar)
 	if cret == 0 {
 		return nil
@@ -989,6 +1105,8 @@ var xLayoutGetLineSpacing func(uintptr) float32
 //
 // See [method@Pango.Layout.set_line_spacing].
 func (x *Layout) GetLineSpacing() float32 {
+	core.LazyRegister(&xLayoutGetLineSpacing, "PANGO", "pango_layout_get_line_spacing", false)
+
 	cret := xLayoutGetLineSpacing(x.GoPointer())
 	return cret
 }
@@ -1000,6 +1118,8 @@ var xLayoutGetLines func(uintptr) uintptr
 // Use the faster [method@Pango.Layout.get_lines_readonly] if you do not
 // plan to modify the contents of the lines (glyphs, glyph widths, etc.).
 func (x *Layout) GetLines() *glib.SList {
+	core.LazyRegister(&xLayoutGetLines, "PANGO", "pango_layout_get_lines", false)
+
 	cret := xLayoutGetLines(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -1015,6 +1135,8 @@ var xLayoutGetLinesReadonly func(uintptr) uintptr
 // but the user is not expected to modify the contents of the lines
 // (glyphs, glyph widths, etc.).
 func (x *Layout) GetLinesReadonly() *glib.SList {
+	core.LazyRegister(&xLayoutGetLinesReadonly, "PANGO", "pango_layout_get_lines_readonly", false)
+
 	cret := xLayoutGetLinesReadonly(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -1027,6 +1149,8 @@ var xLayoutGetLogAttrs func(uintptr, *uintptr, *int)
 // Retrieves an array of logical attributes for each character in
 // the @layout.
 func (x *Layout) GetLogAttrs(AttrsVar *uintptr, NAttrsVar *int) {
+	core.LazyRegister(&xLayoutGetLogAttrs, "PANGO", "pango_layout_get_log_attrs", false)
+
 	xLayoutGetLogAttrs(x.GoPointer(), AttrsVar, NAttrsVar)
 }
 
@@ -1044,6 +1168,8 @@ var xLayoutGetLogAttrsReadonly func(uintptr, *int) uintptr
 // need to be attributes corresponding to both the position before
 // the first character and the position after the last character.
 func (x *Layout) GetLogAttrsReadonly(NAttrsVar *int) uintptr {
+	core.LazyRegister(&xLayoutGetLogAttrsReadonly, "PANGO", "pango_layout_get_log_attrs_readonly", false)
+
 	cret := xLayoutGetLogAttrsReadonly(x.GoPointer(), NAttrsVar)
 	return cret
 }
@@ -1057,6 +1183,8 @@ var xLayoutGetPixelExtents func(uintptr, *Rectangle, *Rectangle)
 // such that the rounded rectangles fully contain the unrounded one (that is,
 // passes them as first argument to [func@Pango.extents_to_pixels]).
 func (x *Layout) GetPixelExtents(InkRectVar *Rectangle, LogicalRectVar *Rectangle) {
+	core.LazyRegister(&xLayoutGetPixelExtents, "PANGO", "pango_layout_get_pixel_extents", false)
+
 	xLayoutGetPixelExtents(x.GoPointer(), InkRectVar, LogicalRectVar)
 }
 
@@ -1069,6 +1197,8 @@ var xLayoutGetPixelSize func(uintptr, *int, *int)
 // scaled by %PANGO_SCALE. This is simply a convenience function
 // around [method@Pango.Layout.get_pixel_extents].
 func (x *Layout) GetPixelSize(WidthVar *int, HeightVar *int) {
+	core.LazyRegister(&xLayoutGetPixelSize, "PANGO", "pango_layout_get_pixel_size", false)
+
 	xLayoutGetPixelSize(x.GoPointer(), WidthVar, HeightVar)
 }
 
@@ -1087,6 +1217,8 @@ var xLayoutGetSerial func(uintptr) uint
 // To force the serial to be increased, use
 // [method@Pango.Layout.context_changed].
 func (x *Layout) GetSerial() uint {
+	core.LazyRegister(&xLayoutGetSerial, "PANGO", "pango_layout_get_serial", false)
+
 	cret := xLayoutGetSerial(x.GoPointer())
 	return cret
 }
@@ -1097,6 +1229,8 @@ var xLayoutGetSingleParagraphMode func(uintptr) bool
 //
 // See [method@Pango.Layout.set_single_paragraph_mode].
 func (x *Layout) GetSingleParagraphMode() bool {
+	core.LazyRegister(&xLayoutGetSingleParagraphMode, "PANGO", "pango_layout_get_single_paragraph_mode", false)
+
 	cret := xLayoutGetSingleParagraphMode(x.GoPointer())
 	return cret
 }
@@ -1108,6 +1242,8 @@ var xLayoutGetSize func(uintptr, *int, *int)
 //
 // This is simply a convenience function around [method@Pango.Layout.get_extents].
 func (x *Layout) GetSize(WidthVar *int, HeightVar *int) {
+	core.LazyRegister(&xLayoutGetSize, "PANGO", "pango_layout_get_size", false)
+
 	xLayoutGetSize(x.GoPointer(), WidthVar, HeightVar)
 }
 
@@ -1115,6 +1251,8 @@ var xLayoutGetSpacing func(uintptr) int
 
 // Gets the amount of spacing between the lines of the layout.
 func (x *Layout) GetSpacing() int {
+	core.LazyRegister(&xLayoutGetSpacing, "PANGO", "pango_layout_get_spacing", false)
+
 	cret := xLayoutGetSpacing(x.GoPointer())
 	return cret
 }
@@ -1128,6 +1266,8 @@ var xLayoutGetTabs func(uintptr) uintptr
 //
 // The return value should be freed with [method@Pango.TabArray.free].
 func (x *Layout) GetTabs() *TabArray {
+	core.LazyRegister(&xLayoutGetTabs, "PANGO", "pango_layout_get_tabs", false)
+
 	cret := xLayoutGetTabs(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -1141,6 +1281,8 @@ var xLayoutGetText func(uintptr) string
 //
 // The returned text should not be freed or modified.
 func (x *Layout) GetText() string {
+	core.LazyRegister(&xLayoutGetText, "PANGO", "pango_layout_get_text", false)
+
 	cret := xLayoutGetText(x.GoPointer())
 	return cret
 }
@@ -1154,6 +1296,8 @@ var xLayoutGetUnknownGlyphsCount func(uintptr) int
 // used in combination with %PANGO_ATTR_FALLBACK, to check if a
 // certain font supports all the characters in the string.
 func (x *Layout) GetUnknownGlyphsCount() int {
+	core.LazyRegister(&xLayoutGetUnknownGlyphsCount, "PANGO", "pango_layout_get_unknown_glyphs_count", false)
+
 	cret := xLayoutGetUnknownGlyphsCount(x.GoPointer())
 	return cret
 }
@@ -1162,6 +1306,8 @@ var xLayoutGetWidth func(uintptr) int
 
 // Gets the width to which the lines of the `PangoLayout` should wrap.
 func (x *Layout) GetWidth() int {
+	core.LazyRegister(&xLayoutGetWidth, "PANGO", "pango_layout_get_width", false)
+
 	cret := xLayoutGetWidth(x.GoPointer())
 	return cret
 }
@@ -1173,6 +1319,8 @@ var xLayoutGetWrap func(uintptr) WrapMode
 // Use [method@Pango.Layout.is_wrapped] to query whether
 // any paragraphs were actually wrapped.
 func (x *Layout) GetWrap() WrapMode {
+	core.LazyRegister(&xLayoutGetWrap, "PANGO", "pango_layout_get_wrap", false)
+
 	cret := xLayoutGetWrap(x.GoPointer())
 	return cret
 }
@@ -1183,6 +1331,8 @@ var xLayoutIndexToLineX func(uintptr, int, bool, *int, *int)
 //
 // The X position is measured from the left edge of the line.
 func (x *Layout) IndexToLineX(IndexVar int, TrailingVar bool, LineVar *int, XPosVar *int) {
+	core.LazyRegister(&xLayoutIndexToLineX, "PANGO", "pango_layout_index_to_line_x", false)
+
 	xLayoutIndexToLineX(x.GoPointer(), IndexVar, TrailingVar, LineVar, XPosVar)
 }
 
@@ -1196,6 +1346,8 @@ var xLayoutIndexToPos func(uintptr, int, *Rectangle)
 // trailing edge of the grapheme. If the directionality of the grapheme
 // is right-to-left, then `pos-&gt;width` will be negative.
 func (x *Layout) IndexToPos(IndexVar int, PosVar *Rectangle) {
+	core.LazyRegister(&xLayoutIndexToPos, "PANGO", "pango_layout_index_to_pos", false)
+
 	xLayoutIndexToPos(x.GoPointer(), IndexVar, PosVar)
 }
 
@@ -1208,6 +1360,8 @@ var xLayoutIsEllipsized func(uintptr) bool
 // and there are paragraphs exceeding that width that have to be
 // ellipsized.
 func (x *Layout) IsEllipsized() bool {
+	core.LazyRegister(&xLayoutIsEllipsized, "PANGO", "pango_layout_is_ellipsized", false)
+
 	cret := xLayoutIsEllipsized(x.GoPointer())
 	return cret
 }
@@ -1220,6 +1374,8 @@ var xLayoutIsWrapped func(uintptr) bool
 // and there are paragraphs exceeding the layout width that have
 // to be wrapped.
 func (x *Layout) IsWrapped() bool {
+	core.LazyRegister(&xLayoutIsWrapped, "PANGO", "pango_layout_is_wrapped", false)
+
 	cret := xLayoutIsWrapped(x.GoPointer())
 	return cret
 }
@@ -1242,6 +1398,8 @@ var xLayoutMoveCursorVisually func(uintptr, bool, int, int, int, *int, *int)
 // call to this function may move the cursor over multiple characters
 // when multiple characters combine to form a single grapheme.
 func (x *Layout) MoveCursorVisually(StrongVar bool, OldIndexVar int, OldTrailingVar int, DirectionVar int, NewIndexVar *int, NewTrailingVar *int) {
+	core.LazyRegister(&xLayoutMoveCursorVisually, "PANGO", "pango_layout_move_cursor_visually", false)
+
 	xLayoutMoveCursorVisually(x.GoPointer(), StrongVar, OldIndexVar, OldTrailingVar, DirectionVar, NewIndexVar, NewTrailingVar)
 }
 
@@ -1256,6 +1414,8 @@ var xLayoutSerialize func(uintptr, LayoutSerializeFlags) uintptr
 // The intended use of this function is testing, benchmarking and debugging.
 // The format is not meant as a permanent storage format.
 func (x *Layout) Serialize(FlagsVar LayoutSerializeFlags) *glib.Bytes {
+	core.LazyRegister(&xLayoutSerialize, "PANGO", "pango_layout_serialize", false)
+
 	cret := xLayoutSerialize(x.GoPointer(), FlagsVar)
 	if cret == 0 {
 		return nil
@@ -1270,6 +1430,8 @@ var xLayoutSetAlignment func(uintptr, Alignment)
 //
 // The default alignment is %PANGO_ALIGN_LEFT.
 func (x *Layout) SetAlignment(AlignmentVar Alignment) {
+	core.LazyRegister(&xLayoutSetAlignment, "PANGO", "pango_layout_set_alignment", false)
+
 	xLayoutSetAlignment(x.GoPointer(), AlignmentVar)
 }
 
@@ -1279,6 +1441,8 @@ var xLayoutSetAttributes func(uintptr, *AttrList)
 //
 // References @attrs, so the caller can unref its reference.
 func (x *Layout) SetAttributes(AttrsVar *AttrList) {
+	core.LazyRegister(&xLayoutSetAttributes, "PANGO", "pango_layout_set_attributes", false)
+
 	xLayoutSetAttributes(x.GoPointer(), AttrsVar)
 }
 
@@ -1301,6 +1465,8 @@ var xLayoutSetAutoDir func(uintptr, bool)
 // base direction of the context, the interpretation of
 // %PANGO_ALIGN_LEFT and %PANGO_ALIGN_RIGHT are swapped.
 func (x *Layout) SetAutoDir(AutoDirVar bool) {
+	core.LazyRegister(&xLayoutSetAutoDir, "PANGO", "pango_layout_set_auto_dir", false)
+
 	xLayoutSetAutoDir(x.GoPointer(), AutoDirVar)
 }
 
@@ -1322,6 +1488,8 @@ var xLayoutSetEllipsize func(uintptr, EllipsizeMode)
 //
 // See [method@Pango.Layout.set_height] for details.
 func (x *Layout) SetEllipsize(EllipsizeVar EllipsizeMode) {
+	core.LazyRegister(&xLayoutSetEllipsize, "PANGO", "pango_layout_set_ellipsize", false)
+
 	xLayoutSetEllipsize(x.GoPointer(), EllipsizeVar)
 }
 
@@ -1332,6 +1500,8 @@ var xLayoutSetFontDescription func(uintptr, *FontDescription)
 // If no font description is set on the layout, the
 // font description from the layout's context is used.
 func (x *Layout) SetFontDescription(DescVar *FontDescription) {
+	core.LazyRegister(&xLayoutSetFontDescription, "PANGO", "pango_layout_set_font_description", false)
+
 	xLayoutSetFontDescription(x.GoPointer(), DescVar)
 }
 
@@ -1363,6 +1533,8 @@ var xLayoutSetHeight func(uintptr, int)
 // ellipsization mode is set to %PANGO_ELLIPSIZE_NONE, and may change in the
 // future.
 func (x *Layout) SetHeight(HeightVar int) {
+	core.LazyRegister(&xLayoutSetHeight, "PANGO", "pango_layout_set_height", false)
+
 	xLayoutSetHeight(x.GoPointer(), HeightVar)
 }
 
@@ -1379,6 +1551,8 @@ var xLayoutSetIndent func(uintptr, int)
 //
 // The default value is 0.
 func (x *Layout) SetIndent(IndentVar int) {
+	core.LazyRegister(&xLayoutSetIndent, "PANGO", "pango_layout_set_indent", false)
+
 	xLayoutSetIndent(x.GoPointer(), IndentVar)
 }
 
@@ -1402,6 +1576,8 @@ var xLayoutSetJustify func(uintptr, bool)
 //
 // Also see [method@Pango.Layout.set_justify_last_line].
 func (x *Layout) SetJustify(JustifyVar bool) {
+	core.LazyRegister(&xLayoutSetJustify, "PANGO", "pango_layout_set_justify", false)
+
 	xLayoutSetJustify(x.GoPointer(), JustifyVar)
 }
 
@@ -1415,6 +1591,8 @@ var xLayoutSetJustifyLastLine func(uintptr, bool)
 //
 // The default value is %FALSE.
 func (x *Layout) SetJustifyLastLine(JustifyVar bool) {
+	core.LazyRegister(&xLayoutSetJustifyLastLine, "PANGO", "pango_layout_set_justify_last_line", false)
+
 	xLayoutSetJustifyLastLine(x.GoPointer(), JustifyVar)
 }
 
@@ -1437,6 +1615,8 @@ var xLayoutSetLineSpacing func(uintptr, float32)
 // Note: for semantics that are closer to the CSS line-height
 // property, see [func@Pango.attr_line_height_new].
 func (x *Layout) SetLineSpacing(FactorVar float32) {
+	core.LazyRegister(&xLayoutSetLineSpacing, "PANGO", "pango_layout_set_line_spacing", false)
+
 	xLayoutSetLineSpacing(x.GoPointer(), FactorVar)
 }
 
@@ -1451,6 +1631,8 @@ var xLayoutSetMarkup func(uintptr, string, int)
 // This is the same as [method@Pango.Layout.set_markup_with_accel],
 // but the markup text isn't scanned for accelerators.
 func (x *Layout) SetMarkup(MarkupVar string, LengthVar int) {
+	core.LazyRegister(&xLayoutSetMarkup, "PANGO", "pango_layout_set_markup", false)
+
 	xLayoutSetMarkup(x.GoPointer(), MarkupVar, LengthVar)
 }
 
@@ -1470,6 +1652,8 @@ var xLayoutSetMarkupWithAccel func(uintptr, string, int, uint32, *uint32)
 // Two @accel_marker characters following each other produce a single
 // literal @accel_marker character.
 func (x *Layout) SetMarkupWithAccel(MarkupVar string, LengthVar int, AccelMarkerVar uint32, AccelCharVar *uint32) {
+	core.LazyRegister(&xLayoutSetMarkupWithAccel, "PANGO", "pango_layout_set_markup_with_accel", false)
+
 	xLayoutSetMarkupWithAccel(x.GoPointer(), MarkupVar, LengthVar, AccelMarkerVar, AccelCharVar)
 }
 
@@ -1484,6 +1668,8 @@ var xLayoutSetSingleParagraphMode func(uintptr, bool)
 //
 // The default value is %FALSE.
 func (x *Layout) SetSingleParagraphMode(SettingVar bool) {
+	core.LazyRegister(&xLayoutSetSingleParagraphMode, "PANGO", "pango_layout_set_single_paragraph_mode", false)
+
 	xLayoutSetSingleParagraphMode(x.GoPointer(), SettingVar)
 }
 
@@ -1506,6 +1692,8 @@ var xLayoutSetSpacing func(uintptr, int)
 // Note: for semantics that are closer to the CSS line-height
 // property, see [func@Pango.attr_line_height_new].
 func (x *Layout) SetSpacing(SpacingVar int) {
+	core.LazyRegister(&xLayoutSetSpacing, "PANGO", "pango_layout_set_spacing", false)
+
 	xLayoutSetSpacing(x.GoPointer(), SpacingVar)
 }
 
@@ -1525,6 +1713,8 @@ var xLayoutSetTabs func(uintptr, *TabArray)
 // positions. The same is true for alignments other than
 // %PANGO_ALIGN_LEFT.
 func (x *Layout) SetTabs(TabsVar *TabArray) {
+	core.LazyRegister(&xLayoutSetTabs, "PANGO", "pango_layout_set_tabs", false)
+
 	xLayoutSetTabs(x.GoPointer(), TabsVar)
 }
 
@@ -1541,6 +1731,8 @@ var xLayoutSetText func(uintptr, string, int)
 // attributes set on the layout from the markup as this function does
 // not clear attributes.
 func (x *Layout) SetText(TextVar string, LengthVar int) {
+	core.LazyRegister(&xLayoutSetText, "PANGO", "pango_layout_set_text", false)
+
 	xLayoutSetText(x.GoPointer(), TextVar, LengthVar)
 }
 
@@ -1551,6 +1743,8 @@ var xLayoutSetWidth func(uintptr, int)
 //
 // The default value is -1: no width set.
 func (x *Layout) SetWidth(WidthVar int) {
+	core.LazyRegister(&xLayoutSetWidth, "PANGO", "pango_layout_set_width", false)
+
 	xLayoutSetWidth(x.GoPointer(), WidthVar)
 }
 
@@ -1564,6 +1758,8 @@ var xLayoutSetWrap func(uintptr, WrapMode)
 //
 // The default value is %PANGO_WRAP_WORD.
 func (x *Layout) SetWrap(WrapVar WrapMode) {
+	core.LazyRegister(&xLayoutSetWrap, "PANGO", "pango_layout_set_wrap", false)
+
 	xLayoutSetWrap(x.GoPointer(), WrapVar)
 }
 
@@ -1579,6 +1775,7 @@ var xLayoutWriteToFile func(uintptr, LayoutSerializeFlags, string, **glib.Error)
 // It is mostly intended for use inside a debugger to quickly dump
 // a layout to a file for later inspection.
 func (x *Layout) WriteToFile(FlagsVar LayoutSerializeFlags, FilenameVar string) (bool, error) {
+	core.LazyRegister(&xLayoutWriteToFile, "PANGO", "pango_layout_write_to_file", false)
 	var cerr *glib.Error
 
 	cret := xLayoutWriteToFile(x.GoPointer(), FlagsVar, FilenameVar, &cerr)
@@ -1600,6 +1797,8 @@ var xLayoutXyToIndex func(uintptr, int, int, *int, *int) bool
 // the X or Y positions were not inside the layout, then the function returns
 // %FALSE; on an exact hit, it returns %TRUE.
 func (x *Layout) XyToIndex(XVar int, YVar int, IndexVar *int, TrailingVar *int) bool {
+	core.LazyRegister(&xLayoutXyToIndex, "PANGO", "pango_layout_xy_to_index", false)
+
 	cret := xLayoutXyToIndex(x.GoPointer(), XVar, YVar, IndexVar, TrailingVar)
 	return cret
 }
@@ -1625,6 +1824,7 @@ var xLayoutDeserialize func(uintptr, *glib.Bytes, LayoutDeserializeFlags, **glib
 // the one that was serialized, you can compare @bytes to the
 // result of serializing the layout again.
 func LayoutDeserialize(ContextVar *Context, BytesVar *glib.Bytes, FlagsVar LayoutDeserializeFlags) (*Layout, error) {
+	core.LazyRegister(&xLayoutDeserialize, "PANGO", "pango_layout_deserialize", false)
 	var cls *Layout
 	var cerr *glib.Error
 
@@ -1644,134 +1844,4 @@ func LayoutDeserialize(ContextVar *Context, BytesVar *glib.Bytes, FlagsVar Layou
 func init() {
 	core.SetPackageName("PANGO", "pango")
 	core.SetSharedLibraries("PANGO", []string{"libpango-1.0.so.0", "libpango-1.0.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("PANGO") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xLayoutDeserializeFlagsGLibType, libs, "pango_layout_deserialize_flags_get_type")
-
-	core.PuregoSafeRegister(&xLayoutSerializeFlagsGLibType, libs, "pango_layout_serialize_flags_get_type")
-
-	core.PuregoSafeRegister(&xAlignmentGLibType, libs, "pango_alignment_get_type")
-
-	core.PuregoSafeRegister(&xEllipsizeModeGLibType, libs, "pango_ellipsize_mode_get_type")
-
-	core.PuregoSafeRegister(&xLayoutDeserializeErrorGLibType, libs, "pango_layout_deserialize_error_get_type")
-
-	core.PuregoSafeRegister(&xWrapModeGLibType, libs, "pango_wrap_mode_get_type")
-
-	core.PuregoSafeRegister(&xLayoutIterGLibType, libs, "pango_layout_iter_get_type")
-
-	core.PuregoSafeRegister(&xLayoutIterAtLastLine, libs, "pango_layout_iter_at_last_line")
-	core.PuregoSafeRegister(&xLayoutIterCopy, libs, "pango_layout_iter_copy")
-	core.PuregoSafeRegister(&xLayoutIterFree, libs, "pango_layout_iter_free")
-	core.PuregoSafeRegister(&xLayoutIterGetBaseline, libs, "pango_layout_iter_get_baseline")
-	core.PuregoSafeRegister(&xLayoutIterGetCharExtents, libs, "pango_layout_iter_get_char_extents")
-	core.PuregoSafeRegister(&xLayoutIterGetClusterExtents, libs, "pango_layout_iter_get_cluster_extents")
-	core.PuregoSafeRegister(&xLayoutIterGetIndex, libs, "pango_layout_iter_get_index")
-	core.PuregoSafeRegister(&xLayoutIterGetLayout, libs, "pango_layout_iter_get_layout")
-	core.PuregoSafeRegister(&xLayoutIterGetLayoutExtents, libs, "pango_layout_iter_get_layout_extents")
-	core.PuregoSafeRegister(&xLayoutIterGetLine, libs, "pango_layout_iter_get_line")
-	core.PuregoSafeRegister(&xLayoutIterGetLineExtents, libs, "pango_layout_iter_get_line_extents")
-	core.PuregoSafeRegister(&xLayoutIterGetLineReadonly, libs, "pango_layout_iter_get_line_readonly")
-	core.PuregoSafeRegister(&xLayoutIterGetLineYrange, libs, "pango_layout_iter_get_line_yrange")
-	core.PuregoSafeRegister(&xLayoutIterGetRun, libs, "pango_layout_iter_get_run")
-	core.PuregoSafeRegister(&xLayoutIterGetRunBaseline, libs, "pango_layout_iter_get_run_baseline")
-	core.PuregoSafeRegister(&xLayoutIterGetRunExtents, libs, "pango_layout_iter_get_run_extents")
-	core.PuregoSafeRegister(&xLayoutIterGetRunReadonly, libs, "pango_layout_iter_get_run_readonly")
-	core.PuregoSafeRegister(&xLayoutIterNextChar, libs, "pango_layout_iter_next_char")
-	core.PuregoSafeRegister(&xLayoutIterNextCluster, libs, "pango_layout_iter_next_cluster")
-	core.PuregoSafeRegister(&xLayoutIterNextLine, libs, "pango_layout_iter_next_line")
-	core.PuregoSafeRegister(&xLayoutIterNextRun, libs, "pango_layout_iter_next_run")
-
-	core.PuregoSafeRegister(&xLayoutLineGLibType, libs, "pango_layout_line_get_type")
-
-	core.PuregoSafeRegister(&xLayoutLineGetExtents, libs, "pango_layout_line_get_extents")
-	core.PuregoSafeRegister(&xLayoutLineGetHeight, libs, "pango_layout_line_get_height")
-	core.PuregoSafeRegister(&xLayoutLineGetLength, libs, "pango_layout_line_get_length")
-	core.PuregoSafeRegister(&xLayoutLineGetPixelExtents, libs, "pango_layout_line_get_pixel_extents")
-	core.PuregoSafeRegister(&xLayoutLineGetResolvedDirection, libs, "pango_layout_line_get_resolved_direction")
-	core.PuregoSafeRegister(&xLayoutLineGetStartIndex, libs, "pango_layout_line_get_start_index")
-	core.PuregoSafeRegister(&xLayoutLineGetXRanges, libs, "pango_layout_line_get_x_ranges")
-	core.PuregoSafeRegister(&xLayoutLineIndexToX, libs, "pango_layout_line_index_to_x")
-	core.PuregoSafeRegister(&xLayoutLineIsParagraphStartFn, libs, "pango_layout_line_is_paragraph_start")
-	core.PuregoSafeRegister(&xLayoutLineRef, libs, "pango_layout_line_ref")
-	core.PuregoSafeRegister(&xLayoutLineUnref, libs, "pango_layout_line_unref")
-	core.PuregoSafeRegister(&xLayoutLineXToIndex, libs, "pango_layout_line_x_to_index")
-
-	core.PuregoSafeRegister(&xLayoutGLibType, libs, "pango_layout_get_type")
-
-	core.PuregoSafeRegister(&xNewLayout, libs, "pango_layout_new")
-
-	core.PuregoSafeRegister(&xLayoutContextChanged, libs, "pango_layout_context_changed")
-	core.PuregoSafeRegister(&xLayoutCopy, libs, "pango_layout_copy")
-	core.PuregoSafeRegister(&xLayoutGetAlignment, libs, "pango_layout_get_alignment")
-	core.PuregoSafeRegister(&xLayoutGetAttributes, libs, "pango_layout_get_attributes")
-	core.PuregoSafeRegister(&xLayoutGetAutoDir, libs, "pango_layout_get_auto_dir")
-	core.PuregoSafeRegister(&xLayoutGetBaseline, libs, "pango_layout_get_baseline")
-	core.PuregoSafeRegister(&xLayoutGetCaretPos, libs, "pango_layout_get_caret_pos")
-	core.PuregoSafeRegister(&xLayoutGetCharacterCount, libs, "pango_layout_get_character_count")
-	core.PuregoSafeRegister(&xLayoutGetContext, libs, "pango_layout_get_context")
-	core.PuregoSafeRegister(&xLayoutGetCursorPos, libs, "pango_layout_get_cursor_pos")
-	core.PuregoSafeRegister(&xLayoutGetDirection, libs, "pango_layout_get_direction")
-	core.PuregoSafeRegister(&xLayoutGetEllipsize, libs, "pango_layout_get_ellipsize")
-	core.PuregoSafeRegister(&xLayoutGetExtents, libs, "pango_layout_get_extents")
-	core.PuregoSafeRegister(&xLayoutGetFontDescription, libs, "pango_layout_get_font_description")
-	core.PuregoSafeRegister(&xLayoutGetHeight, libs, "pango_layout_get_height")
-	core.PuregoSafeRegister(&xLayoutGetIndent, libs, "pango_layout_get_indent")
-	core.PuregoSafeRegister(&xLayoutGetIter, libs, "pango_layout_get_iter")
-	core.PuregoSafeRegister(&xLayoutGetJustify, libs, "pango_layout_get_justify")
-	core.PuregoSafeRegister(&xLayoutGetJustifyLastLine, libs, "pango_layout_get_justify_last_line")
-	core.PuregoSafeRegister(&xLayoutGetLine, libs, "pango_layout_get_line")
-	core.PuregoSafeRegister(&xLayoutGetLineCount, libs, "pango_layout_get_line_count")
-	core.PuregoSafeRegister(&xLayoutGetLineReadonly, libs, "pango_layout_get_line_readonly")
-	core.PuregoSafeRegister(&xLayoutGetLineSpacing, libs, "pango_layout_get_line_spacing")
-	core.PuregoSafeRegister(&xLayoutGetLines, libs, "pango_layout_get_lines")
-	core.PuregoSafeRegister(&xLayoutGetLinesReadonly, libs, "pango_layout_get_lines_readonly")
-	core.PuregoSafeRegister(&xLayoutGetLogAttrs, libs, "pango_layout_get_log_attrs")
-	core.PuregoSafeRegister(&xLayoutGetLogAttrsReadonly, libs, "pango_layout_get_log_attrs_readonly")
-	core.PuregoSafeRegister(&xLayoutGetPixelExtents, libs, "pango_layout_get_pixel_extents")
-	core.PuregoSafeRegister(&xLayoutGetPixelSize, libs, "pango_layout_get_pixel_size")
-	core.PuregoSafeRegister(&xLayoutGetSerial, libs, "pango_layout_get_serial")
-	core.PuregoSafeRegister(&xLayoutGetSingleParagraphMode, libs, "pango_layout_get_single_paragraph_mode")
-	core.PuregoSafeRegister(&xLayoutGetSize, libs, "pango_layout_get_size")
-	core.PuregoSafeRegister(&xLayoutGetSpacing, libs, "pango_layout_get_spacing")
-	core.PuregoSafeRegister(&xLayoutGetTabs, libs, "pango_layout_get_tabs")
-	core.PuregoSafeRegister(&xLayoutGetText, libs, "pango_layout_get_text")
-	core.PuregoSafeRegister(&xLayoutGetUnknownGlyphsCount, libs, "pango_layout_get_unknown_glyphs_count")
-	core.PuregoSafeRegister(&xLayoutGetWidth, libs, "pango_layout_get_width")
-	core.PuregoSafeRegister(&xLayoutGetWrap, libs, "pango_layout_get_wrap")
-	core.PuregoSafeRegister(&xLayoutIndexToLineX, libs, "pango_layout_index_to_line_x")
-	core.PuregoSafeRegister(&xLayoutIndexToPos, libs, "pango_layout_index_to_pos")
-	core.PuregoSafeRegister(&xLayoutIsEllipsized, libs, "pango_layout_is_ellipsized")
-	core.PuregoSafeRegister(&xLayoutIsWrapped, libs, "pango_layout_is_wrapped")
-	core.PuregoSafeRegister(&xLayoutMoveCursorVisually, libs, "pango_layout_move_cursor_visually")
-	core.PuregoSafeRegister(&xLayoutSerialize, libs, "pango_layout_serialize")
-	core.PuregoSafeRegister(&xLayoutSetAlignment, libs, "pango_layout_set_alignment")
-	core.PuregoSafeRegister(&xLayoutSetAttributes, libs, "pango_layout_set_attributes")
-	core.PuregoSafeRegister(&xLayoutSetAutoDir, libs, "pango_layout_set_auto_dir")
-	core.PuregoSafeRegister(&xLayoutSetEllipsize, libs, "pango_layout_set_ellipsize")
-	core.PuregoSafeRegister(&xLayoutSetFontDescription, libs, "pango_layout_set_font_description")
-	core.PuregoSafeRegister(&xLayoutSetHeight, libs, "pango_layout_set_height")
-	core.PuregoSafeRegister(&xLayoutSetIndent, libs, "pango_layout_set_indent")
-	core.PuregoSafeRegister(&xLayoutSetJustify, libs, "pango_layout_set_justify")
-	core.PuregoSafeRegister(&xLayoutSetJustifyLastLine, libs, "pango_layout_set_justify_last_line")
-	core.PuregoSafeRegister(&xLayoutSetLineSpacing, libs, "pango_layout_set_line_spacing")
-	core.PuregoSafeRegister(&xLayoutSetMarkup, libs, "pango_layout_set_markup")
-	core.PuregoSafeRegister(&xLayoutSetMarkupWithAccel, libs, "pango_layout_set_markup_with_accel")
-	core.PuregoSafeRegister(&xLayoutSetSingleParagraphMode, libs, "pango_layout_set_single_paragraph_mode")
-	core.PuregoSafeRegister(&xLayoutSetSpacing, libs, "pango_layout_set_spacing")
-	core.PuregoSafeRegister(&xLayoutSetTabs, libs, "pango_layout_set_tabs")
-	core.PuregoSafeRegister(&xLayoutSetText, libs, "pango_layout_set_text")
-	core.PuregoSafeRegister(&xLayoutSetWidth, libs, "pango_layout_set_width")
-	core.PuregoSafeRegister(&xLayoutSetWrap, libs, "pango_layout_set_wrap")
-	core.PuregoSafeRegister(&xLayoutWriteToFile, libs, "pango_layout_write_to_file")
-	core.PuregoSafeRegister(&xLayoutXyToIndex, libs, "pango_layout_xy_to_index")
-
-	core.PuregoSafeRegister(&xLayoutDeserialize, libs, "pango_layout_deserialize")
 }

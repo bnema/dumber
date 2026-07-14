@@ -4,7 +4,6 @@ package gsk
 import (
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -19,6 +18,7 @@ type StrokeNode struct {
 var xStrokeNodeGLibType func() types.GType
 
 func StrokeNodeGLibType() types.GType {
+	core.LazyRegister(&xStrokeNodeGLibType, "GSK", "gsk_stroke_node_get_type", false)
 	return xStrokeNodeGLibType()
 }
 
@@ -39,6 +39,7 @@ var xNewStrokeNode func(uintptr, *Path, *Stroke) uintptr
 // E.g. zero-length contours will get round or square line
 // caps drawn, regardless whether they are closed or not.
 func NewStrokeNode(ChildVar *RenderNode, PathVar *Path, StrokeVar *Stroke) *StrokeNode {
+	core.LazyRegister(&xNewStrokeNode, "GSK", "gsk_stroke_node_new", false)
 	var cls *StrokeNode
 
 	cret := xNewStrokeNode(ChildVar.GoPointer(), PathVar, StrokeVar)
@@ -56,6 +57,7 @@ var xStrokeNodeGetChild func(uintptr) uintptr
 
 // Gets the child node that is getting drawn by the given @node.
 func (x *StrokeNode) GetChild() *RenderNode {
+	core.LazyRegister(&xStrokeNodeGetChild, "GSK", "gsk_stroke_node_get_child", false)
 	var cls *RenderNode
 
 	cret := xStrokeNodeGetChild(x.GoPointer())
@@ -74,6 +76,8 @@ var xStrokeNodeGetPath func(uintptr) uintptr
 // Retrieves the path that will be stroked with the contents of
 // the @node.
 func (x *StrokeNode) GetPath() *Path {
+	core.LazyRegister(&xStrokeNodeGetPath, "GSK", "gsk_stroke_node_get_path", false)
+
 	cret := xStrokeNodeGetPath(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -85,6 +89,8 @@ var xStrokeNodeGetStroke func(uintptr) uintptr
 
 // Retrieves the stroke attributes used in this @node.
 func (x *StrokeNode) GetStroke() *Stroke {
+	core.LazyRegister(&xStrokeNodeGetStroke, "GSK", "gsk_stroke_node_get_stroke", false)
+
 	cret := xStrokeNodeGetStroke(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -106,20 +112,4 @@ func (c *StrokeNode) SetGoPointer(ptr uintptr) {
 func init() {
 	core.SetPackageName("GSK", "gtk4")
 	core.SetSharedLibraries("GSK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GSK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xStrokeNodeGLibType, libs, "gsk_stroke_node_get_type")
-
-	core.PuregoSafeRegister(&xNewStrokeNode, libs, "gsk_stroke_node_new")
-
-	core.PuregoSafeRegister(&xStrokeNodeGetChild, libs, "gsk_stroke_node_get_child")
-	core.PuregoSafeRegister(&xStrokeNodeGetPath, libs, "gsk_stroke_node_get_path")
-	core.PuregoSafeRegister(&xStrokeNodeGetStroke, libs, "gsk_stroke_node_get_stroke")
 }

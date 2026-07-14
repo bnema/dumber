@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -110,6 +109,7 @@ type FileAttributeMatcher struct {
 var xFileAttributeMatcherGLibType func() types.GType
 
 func FileAttributeMatcherGLibType() types.GType {
+	core.LazyRegister(&xFileAttributeMatcherGLibType, "GIO", "g_file_attribute_matcher_get_type", false)
 	return xFileAttributeMatcherGLibType()
 }
 
@@ -147,6 +147,8 @@ var xNewFileAttributeMatcher func(string) uintptr
 //   - `"standard::type,unix::*"`: matches the type key in the standard
 //     namespace and all keys in the unix namespace.
 func NewFileAttributeMatcher(AttributesVar string) *FileAttributeMatcher {
+	core.LazyRegister(&xNewFileAttributeMatcher, "GIO", "g_file_attribute_matcher_new", false)
+
 	cret := xNewFileAttributeMatcher(AttributesVar)
 	if cret == 0 {
 		return nil
@@ -163,6 +165,8 @@ var xFileAttributeMatcherEnumerateNamespace func(uintptr, string) bool
 //
 // TODO: this is awkwardly worded.
 func (x *FileAttributeMatcher) EnumerateNamespace(NsVar string) bool {
+	core.LazyRegister(&xFileAttributeMatcherEnumerateNamespace, "GIO", "g_file_attribute_matcher_enumerate_namespace", false)
+
 	cret := xFileAttributeMatcherEnumerateNamespace(x.GoPointer(), NsVar)
 	return cret
 }
@@ -171,6 +175,8 @@ var xFileAttributeMatcherEnumerateNext func(uintptr) string
 
 // Gets the next matched attribute from a #GFileAttributeMatcher.
 func (x *FileAttributeMatcher) EnumerateNext() string {
+	core.LazyRegister(&xFileAttributeMatcherEnumerateNext, "GIO", "g_file_attribute_matcher_enumerate_next", false)
+
 	cret := xFileAttributeMatcherEnumerateNext(x.GoPointer())
 	return cret
 }
@@ -181,6 +187,8 @@ var xFileAttributeMatcherMatches func(uintptr, string) bool
 // the matcher was created with the "*" matching string, this function
 // will always return %TRUE.
 func (x *FileAttributeMatcher) Matches(AttributeVar string) bool {
+	core.LazyRegister(&xFileAttributeMatcherMatches, "GIO", "g_file_attribute_matcher_matches", false)
+
 	cret := xFileAttributeMatcherMatches(x.GoPointer(), AttributeVar)
 	return cret
 }
@@ -190,6 +198,8 @@ var xFileAttributeMatcherMatchesOnly func(uintptr, string) bool
 // Checks if an attribute matcher only matches a given attribute. Always
 // returns %FALSE if "*" was used when creating the matcher.
 func (x *FileAttributeMatcher) MatchesOnly(AttributeVar string) bool {
+	core.LazyRegister(&xFileAttributeMatcherMatchesOnly, "GIO", "g_file_attribute_matcher_matches_only", false)
+
 	cret := xFileAttributeMatcherMatchesOnly(x.GoPointer(), AttributeVar)
 	return cret
 }
@@ -198,6 +208,8 @@ var xFileAttributeMatcherRef func(uintptr) uintptr
 
 // References a file attribute matcher.
 func (x *FileAttributeMatcher) Ref() *FileAttributeMatcher {
+	core.LazyRegister(&xFileAttributeMatcherRef, "GIO", "g_file_attribute_matcher_ref", false)
+
 	cret := xFileAttributeMatcherRef(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -216,6 +228,8 @@ var xFileAttributeMatcherSubtract func(uintptr, *FileAttributeMatcher) uintptr
 // is a limitation of the current implementation, but may be fixed
 // in the future.
 func (x *FileAttributeMatcher) Subtract(SubtractVar *FileAttributeMatcher) *FileAttributeMatcher {
+	core.LazyRegister(&xFileAttributeMatcherSubtract, "GIO", "g_file_attribute_matcher_subtract", false)
+
 	cret := xFileAttributeMatcherSubtract(x.GoPointer(), SubtractVar)
 	if cret == 0 {
 		return nil
@@ -230,6 +244,8 @@ var xFileAttributeMatcherToString func(uintptr) string
 // The output however, might not be identical, as the matcher may
 // decide to use a different order or omit needless parts.
 func (x *FileAttributeMatcher) ToString() string {
+	core.LazyRegister(&xFileAttributeMatcherToString, "GIO", "g_file_attribute_matcher_to_string", false)
+
 	cret := xFileAttributeMatcherToString(x.GoPointer())
 	return cret
 }
@@ -239,6 +255,8 @@ var xFileAttributeMatcherUnref func(uintptr)
 // Unreferences @matcher. If the reference count falls below 1,
 // the @matcher is automatically freed.
 func (x *FileAttributeMatcher) Unref() {
+	core.LazyRegister(&xFileAttributeMatcherUnref, "GIO", "g_file_attribute_matcher_unref", false)
+
 	xFileAttributeMatcherUnref(x.GoPointer())
 }
 
@@ -267,6 +285,8 @@ var xIOExtensionGetName func(uintptr) string
 // Note that the same type may be registered as extension
 // for multiple extension points, under different names.
 func (x *IOExtension) GetName() string {
+	core.LazyRegister(&xIOExtensionGetName, "GIO", "g_io_extension_get_name", false)
+
 	cret := xIOExtensionGetName(x.GoPointer())
 	return cret
 }
@@ -275,6 +295,8 @@ var xIOExtensionGetPriority func(uintptr) int
 
 // Gets the priority with which @extension was registered.
 func (x *IOExtension) GetPriority() int {
+	core.LazyRegister(&xIOExtensionGetPriority, "GIO", "g_io_extension_get_priority", false)
+
 	cret := xIOExtensionGetPriority(x.GoPointer())
 	return cret
 }
@@ -283,6 +305,8 @@ var xIOExtensionGetType func(uintptr) types.GType
 
 // Gets the type associated with @extension.
 func (x *IOExtension) GetType() types.GType {
+	core.LazyRegister(&xIOExtensionGetType, "GIO", "g_io_extension_get_type", false)
+
 	cret := xIOExtensionGetType(x.GoPointer())
 	return cret
 }
@@ -292,6 +316,8 @@ var xIOExtensionRefClass func(uintptr) uintptr
 // Gets a reference to the class for the type that is
 // associated with @extension.
 func (x *IOExtension) RefClass() *gobject.TypeClass {
+	core.LazyRegister(&xIOExtensionRefClass, "GIO", "g_io_extension_ref_class", false)
+
 	cret := xIOExtensionRefClass(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -372,6 +398,8 @@ var xIOExtensionPointGetExtensionByName func(uintptr, string) uintptr
 
 // Finds a #GIOExtension for an extension point by name.
 func (x *IOExtensionPoint) GetExtensionByName(NameVar string) *IOExtension {
+	core.LazyRegister(&xIOExtensionPointGetExtensionByName, "GIO", "g_io_extension_point_get_extension_by_name", false)
+
 	cret := xIOExtensionPointGetExtensionByName(x.GoPointer(), NameVar)
 	if cret == 0 {
 		return nil
@@ -384,6 +412,8 @@ var xIOExtensionPointGetExtensions func(uintptr) uintptr
 // Gets a list of all extensions that implement this extension point.
 // The list is sorted by priority, beginning with the highest priority.
 func (x *IOExtensionPoint) GetExtensions() *glib.List {
+	core.LazyRegister(&xIOExtensionPointGetExtensions, "GIO", "g_io_extension_point_get_extensions", false)
+
 	cret := xIOExtensionPointGetExtensions(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -395,6 +425,8 @@ var xIOExtensionPointGetRequiredType func(uintptr) types.GType
 
 // Gets the required type for @extension_point.
 func (x *IOExtensionPoint) GetRequiredType() types.GType {
+	core.LazyRegister(&xIOExtensionPointGetRequiredType, "GIO", "g_io_extension_point_get_required_type", false)
+
 	cret := xIOExtensionPointGetRequiredType(x.GoPointer())
 	return cret
 }
@@ -404,6 +436,8 @@ var xIOExtensionPointSetRequiredType func(uintptr, types.GType)
 // Sets the required type for @extension_point to @type.
 // All implementations must henceforth have this type.
 func (x *IOExtensionPoint) SetRequiredType(TypeVar types.GType) {
+	core.LazyRegister(&xIOExtensionPointSetRequiredType, "GIO", "g_io_extension_point_set_required_type", false)
+
 	xIOExtensionPointSetRequiredType(x.GoPointer(), TypeVar)
 }
 
@@ -430,6 +464,8 @@ var xIOSchedulerJobSendToMainloop func(uintptr, uintptr, uintptr, uintptr) bool
 // that the job was started from, waiting for the result (and thus
 // blocking the I/O job).
 func (x *IOSchedulerJob) SendToMainloop(FuncVar *glib.SourceFunc, UserDataVar uintptr, NotifyVar *glib.DestroyNotify) bool {
+	core.LazyRegister(&xIOSchedulerJobSendToMainloop, "GIO", "g_io_scheduler_job_send_to_mainloop", false)
+
 	cret := xIOSchedulerJobSendToMainloop(x.GoPointer(), glib.NewCallback(FuncVar), UserDataVar, glib.NewCallbackNullable(NotifyVar))
 	return cret
 }
@@ -446,6 +482,8 @@ var xIOSchedulerJobSendToMainloopAsync func(uintptr, uintptr, uintptr, uintptr)
 // @func is called, either by passing %NULL as @notify to
 // g_io_scheduler_push_job() or by using refcounting for @user_data.
 func (x *IOSchedulerJob) SendToMainloopAsync(FuncVar *glib.SourceFunc, UserDataVar uintptr, NotifyVar *glib.DestroyNotify) {
+	core.LazyRegister(&xIOSchedulerJobSendToMainloopAsync, "GIO", "g_io_scheduler_job_send_to_mainloop_async", false)
+
 	xIOSchedulerJobSendToMainloopAsync(x.GoPointer(), glib.NewCallback(FuncVar), UserDataVar, glib.NewCallbackNullable(NotifyVar))
 }
 
@@ -767,6 +805,7 @@ type Resource struct {
 var xResourceGLibType func() types.GType
 
 func ResourceGLibType() types.GType {
+	core.LazyRegister(&xResourceGLibType, "GIO", "g_resource_get_type", false)
 	return xResourceGLibType()
 }
 
@@ -798,6 +837,7 @@ var xNewResourceFromData func(*glib.Bytes, **glib.Error) uintptr
 //
 // If @data is empty or corrupt, %G_RESOURCE_ERROR_INTERNAL will be returned.
 func NewResourceFromData(DataVar *glib.Bytes) (*Resource, error) {
+	core.LazyRegister(&xNewResourceFromData, "GIO", "g_resource_new_from_data", false)
 	var cerr *glib.Error
 
 	cret := xNewResourceFromData(DataVar, &cerr)
@@ -818,6 +858,8 @@ var xResourceRegister func(uintptr)
 // with the global resource lookup functions like
 // [func@Gio.resources_lookup_data].
 func (x *Resource) Register() {
+	core.LazyRegister(&xResourceRegister, "GIO", "g_resources_register", false)
+
 	xResourceRegister(x.GoPointer())
 }
 
@@ -825,6 +867,8 @@ var xResourceUnregister func(uintptr)
 
 // Unregisters the resource from the process-global set of resources.
 func (x *Resource) Unregister() {
+	core.LazyRegister(&xResourceUnregister, "GIO", "g_resources_unregister", false)
+
 	xResourceUnregister(x.GoPointer())
 }
 
@@ -840,6 +884,7 @@ var xResourceEnumerateChildren func(uintptr, string, ResourceLookupFlags, **glib
 //
 // @lookup_flags controls the behaviour of the lookup.
 func (x *Resource) EnumerateChildren(PathVar string, LookupFlagsVar ResourceLookupFlags) ([]string, error) {
+	core.LazyRegister(&xResourceEnumerateChildren, "GIO", "g_resource_enumerate_children", false)
 	var cerr *glib.Error
 
 	cret := xResourceEnumerateChildren(x.GoPointer(), PathVar, LookupFlagsVar, &cerr)
@@ -859,6 +904,7 @@ var xResourceGetInfo func(uintptr, string, ResourceLookupFlags, *uint, *uint32, 
 // The only error this can return is %G_RESOURCE_ERROR_NOT_FOUND, if @path was
 // not found in @resource.
 func (x *Resource) GetInfo(PathVar string, LookupFlagsVar ResourceLookupFlags, SizeVar *uint, FlagsVar *uint32) (bool, error) {
+	core.LazyRegister(&xResourceGetInfo, "GIO", "g_resource_get_info", false)
 	var cerr *glib.Error
 
 	cret := xResourceGetInfo(x.GoPointer(), PathVar, LookupFlagsVar, SizeVar, FlagsVar, &cerr)
@@ -873,6 +919,8 @@ var xResourceHasChildren func(uintptr, string) bool
 // Returns whether the specified @path in the resource
 // has children.
 func (x *Resource) HasChildren(PathVar string) bool {
+	core.LazyRegister(&xResourceHasChildren, "GIO", "g_resource_has_children", false)
+
 	cret := xResourceHasChildren(x.GoPointer(), PathVar)
 	return cret
 }
@@ -898,6 +946,7 @@ var xResourceLookupData func(uintptr, string, ResourceLookupFlags, **glib.Error)
 // @resource, or %G_RESOURCE_ERROR_INTERNAL if decompression of a compressed
 // resource failed.
 func (x *Resource) LookupData(PathVar string, LookupFlagsVar ResourceLookupFlags) (*glib.Bytes, error) {
+	core.LazyRegister(&xResourceLookupData, "GIO", "g_resource_lookup_data", false)
 	var cerr *glib.Error
 
 	cret := xResourceLookupData(x.GoPointer(), PathVar, LookupFlagsVar, &cerr)
@@ -920,6 +969,7 @@ var xResourceOpenStream func(uintptr, string, ResourceLookupFlags, **glib.Error)
 // The only error this can return is %G_RESOURCE_ERROR_NOT_FOUND, if @path was
 // not found in @resource.
 func (x *Resource) OpenStream(PathVar string, LookupFlagsVar ResourceLookupFlags) (*InputStream, error) {
+	core.LazyRegister(&xResourceOpenStream, "GIO", "g_resource_open_stream", false)
 	var cls *InputStream
 	var cerr *glib.Error
 
@@ -942,6 +992,8 @@ var xResourceRef func(uintptr) uintptr
 //
 // This function is threadsafe and may be called from any thread.
 func (x *Resource) Ref() *Resource {
+	core.LazyRegister(&xResourceRef, "GIO", "g_resource_ref", false)
+
 	cret := xResourceRef(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -957,6 +1009,8 @@ var xResourceUnref func(uintptr)
 // released. This function is threadsafe and may be called from any
 // thread.
 func (x *Resource) Unref() {
+	core.LazyRegister(&xResourceUnref, "GIO", "g_resource_unref", false)
+
 	xResourceUnref(x.GoPointer())
 }
 
@@ -983,6 +1037,7 @@ type SrvTarget struct {
 var xSrvTargetGLibType func() types.GType
 
 func SrvTargetGLibType() types.GType {
+	core.LazyRegister(&xSrvTargetGLibType, "GIO", "g_srv_target_get_type", false)
 	return xSrvTargetGLibType()
 }
 
@@ -1005,6 +1060,8 @@ var xNewSrvTarget func(string, uint16, uint16, uint16) uintptr
 // You should not need to use this; normally #GSrvTargets are
 // created by #GResolver.
 func NewSrvTarget(HostnameVar string, PortVar uint16, PriorityVar uint16, WeightVar uint16) *SrvTarget {
+	core.LazyRegister(&xNewSrvTarget, "GIO", "g_srv_target_new", false)
+
 	cret := xNewSrvTarget(HostnameVar, PortVar, PriorityVar, WeightVar)
 	if cret == 0 {
 		return nil
@@ -1016,6 +1073,8 @@ var xSrvTargetCopy func(uintptr) uintptr
 
 // Copies @target
 func (x *SrvTarget) Copy() *SrvTarget {
+	core.LazyRegister(&xSrvTargetCopy, "GIO", "g_srv_target_copy", false)
+
 	cret := xSrvTargetCopy(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -1027,6 +1086,8 @@ var xSrvTargetFree func(uintptr)
 
 // Frees @target
 func (x *SrvTarget) Free() {
+	core.LazyRegister(&xSrvTargetFree, "GIO", "g_srv_target_free", false)
+
 	xSrvTargetFree(x.GoPointer())
 }
 
@@ -1037,6 +1098,8 @@ var xSrvTargetGetHostname func(uintptr) string
 // check if it contains encoded Unicode segments, and use
 // g_hostname_to_unicode() to convert it if it does.)
 func (x *SrvTarget) GetHostname() string {
+	core.LazyRegister(&xSrvTargetGetHostname, "GIO", "g_srv_target_get_hostname", false)
+
 	cret := xSrvTargetGetHostname(x.GoPointer())
 	return cret
 }
@@ -1045,6 +1108,8 @@ var xSrvTargetGetPort func(uintptr) uint16
 
 // Gets @target's port
 func (x *SrvTarget) GetPort() uint16 {
+	core.LazyRegister(&xSrvTargetGetPort, "GIO", "g_srv_target_get_port", false)
+
 	cret := xSrvTargetGetPort(x.GoPointer())
 	return cret
 }
@@ -1055,6 +1120,8 @@ var xSrvTargetGetPriority func(uintptr) uint16
 // #GResolver already sorts the targets according to the algorithm in
 // RFC 2782.
 func (x *SrvTarget) GetPriority() uint16 {
+	core.LazyRegister(&xSrvTargetGetPriority, "GIO", "g_srv_target_get_priority", false)
+
 	cret := xSrvTargetGetPriority(x.GoPointer())
 	return cret
 }
@@ -1065,6 +1132,8 @@ var xSrvTargetGetWeight func(uintptr) uint16
 // #GResolver already sorts the targets according to the algorithm in
 // RFC 2782.
 func (x *SrvTarget) GetWeight() uint16 {
+	core.LazyRegister(&xSrvTargetGetWeight, "GIO", "g_srv_target_get_weight", false)
+
 	cret := xSrvTargetGetWeight(x.GoPointer())
 	return cret
 }
@@ -1072,63 +1141,4 @@ func (x *SrvTarget) GetWeight() uint16 {
 func init() {
 	core.SetPackageName("GIO", "gio-2.0")
 	core.SetSharedLibraries("GIO", []string{"libgio-2.0.so.0", "libgio-2.0.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GIO") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xFileAttributeMatcherGLibType, libs, "g_file_attribute_matcher_get_type")
-
-	core.PuregoSafeRegister(&xNewFileAttributeMatcher, libs, "g_file_attribute_matcher_new")
-
-	core.PuregoSafeRegister(&xFileAttributeMatcherEnumerateNamespace, libs, "g_file_attribute_matcher_enumerate_namespace")
-	core.PuregoSafeRegister(&xFileAttributeMatcherEnumerateNext, libs, "g_file_attribute_matcher_enumerate_next")
-	core.PuregoSafeRegister(&xFileAttributeMatcherMatches, libs, "g_file_attribute_matcher_matches")
-	core.PuregoSafeRegister(&xFileAttributeMatcherMatchesOnly, libs, "g_file_attribute_matcher_matches_only")
-	core.PuregoSafeRegister(&xFileAttributeMatcherRef, libs, "g_file_attribute_matcher_ref")
-	core.PuregoSafeRegister(&xFileAttributeMatcherSubtract, libs, "g_file_attribute_matcher_subtract")
-	core.PuregoSafeRegister(&xFileAttributeMatcherToString, libs, "g_file_attribute_matcher_to_string")
-	core.PuregoSafeRegister(&xFileAttributeMatcherUnref, libs, "g_file_attribute_matcher_unref")
-
-	core.PuregoSafeRegister(&xIOExtensionGetName, libs, "g_io_extension_get_name")
-	core.PuregoSafeRegister(&xIOExtensionGetPriority, libs, "g_io_extension_get_priority")
-	core.PuregoSafeRegister(&xIOExtensionGetType, libs, "g_io_extension_get_type")
-	core.PuregoSafeRegister(&xIOExtensionRefClass, libs, "g_io_extension_ref_class")
-
-	core.PuregoSafeRegister(&xIOExtensionPointGetExtensionByName, libs, "g_io_extension_point_get_extension_by_name")
-	core.PuregoSafeRegister(&xIOExtensionPointGetExtensions, libs, "g_io_extension_point_get_extensions")
-	core.PuregoSafeRegister(&xIOExtensionPointGetRequiredType, libs, "g_io_extension_point_get_required_type")
-	core.PuregoSafeRegister(&xIOExtensionPointSetRequiredType, libs, "g_io_extension_point_set_required_type")
-
-	core.PuregoSafeRegister(&xIOSchedulerJobSendToMainloop, libs, "g_io_scheduler_job_send_to_mainloop")
-	core.PuregoSafeRegister(&xIOSchedulerJobSendToMainloopAsync, libs, "g_io_scheduler_job_send_to_mainloop_async")
-
-	core.PuregoSafeRegister(&xResourceGLibType, libs, "g_resource_get_type")
-
-	core.PuregoSafeRegister(&xNewResourceFromData, libs, "g_resource_new_from_data")
-
-	core.PuregoSafeRegister(&xResourceRegister, libs, "g_resources_register")
-	core.PuregoSafeRegister(&xResourceUnregister, libs, "g_resources_unregister")
-	core.PuregoSafeRegister(&xResourceEnumerateChildren, libs, "g_resource_enumerate_children")
-	core.PuregoSafeRegister(&xResourceGetInfo, libs, "g_resource_get_info")
-	core.PuregoSafeRegister(&xResourceHasChildren, libs, "g_resource_has_children")
-	core.PuregoSafeRegister(&xResourceLookupData, libs, "g_resource_lookup_data")
-	core.PuregoSafeRegister(&xResourceOpenStream, libs, "g_resource_open_stream")
-	core.PuregoSafeRegister(&xResourceRef, libs, "g_resource_ref")
-	core.PuregoSafeRegister(&xResourceUnref, libs, "g_resource_unref")
-
-	core.PuregoSafeRegister(&xSrvTargetGLibType, libs, "g_srv_target_get_type")
-
-	core.PuregoSafeRegister(&xNewSrvTarget, libs, "g_srv_target_new")
-
-	core.PuregoSafeRegister(&xSrvTargetCopy, libs, "g_srv_target_copy")
-	core.PuregoSafeRegister(&xSrvTargetFree, libs, "g_srv_target_free")
-	core.PuregoSafeRegister(&xSrvTargetGetHostname, libs, "g_srv_target_get_hostname")
-	core.PuregoSafeRegister(&xSrvTargetGetPort, libs, "g_srv_target_get_port")
-	core.PuregoSafeRegister(&xSrvTargetGetPriority, libs, "g_srv_target_get_priority")
-	core.PuregoSafeRegister(&xSrvTargetGetWeight, libs, "g_srv_target_get_weight")
 }

@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -43,6 +42,7 @@ type SecurityManager struct {
 var xSecurityManagerGLibType func() types.GType
 
 func SecurityManagerGLibType() types.GType {
+	core.LazyRegister(&xSecurityManagerGLibType, "WEBKIT", "webkit_security_manager_get_type", false)
 	return xSecurityManagerGLibType()
 }
 
@@ -59,6 +59,8 @@ var xSecurityManagerRegisterUriSchemeAsCorsEnabled func(uintptr, string)
 // This means that CORS requests are allowed. See W3C CORS specification
 // http://www.w3.org/TR/cors/.
 func (x *SecurityManager) RegisterUriSchemeAsCorsEnabled(SchemeVar string) {
+	core.LazyRegister(&xSecurityManagerRegisterUriSchemeAsCorsEnabled, "WEBKIT", "webkit_security_manager_register_uri_scheme_as_cors_enabled", false)
+
 	xSecurityManagerRegisterUriSchemeAsCorsEnabled(x.GoPointer(), SchemeVar)
 }
 
@@ -69,6 +71,8 @@ var xSecurityManagerRegisterUriSchemeAsDisplayIsolated func(uintptr, string)
 // This means that pages cannot
 // display these URIs unless they are from the same scheme.
 func (x *SecurityManager) RegisterUriSchemeAsDisplayIsolated(SchemeVar string) {
+	core.LazyRegister(&xSecurityManagerRegisterUriSchemeAsDisplayIsolated, "WEBKIT", "webkit_security_manager_register_uri_scheme_as_display_isolated", false)
+
 	xSecurityManagerRegisterUriSchemeAsDisplayIsolated(x.GoPointer(), SchemeVar)
 }
 
@@ -79,6 +83,8 @@ var xSecurityManagerRegisterUriSchemeAsEmptyDocument func(uintptr, string)
 // This means that
 // they are allowed to commit synchronously.
 func (x *SecurityManager) RegisterUriSchemeAsEmptyDocument(SchemeVar string) {
+	core.LazyRegister(&xSecurityManagerRegisterUriSchemeAsEmptyDocument, "WEBKIT", "webkit_security_manager_register_uri_scheme_as_empty_document", false)
+
 	xSecurityManagerRegisterUriSchemeAsEmptyDocument(x.GoPointer(), SchemeVar)
 }
 
@@ -89,6 +95,8 @@ var xSecurityManagerRegisterUriSchemeAsLocal func(uintptr, string)
 // This means that other non-local pages
 // cannot link to or access URIs of this scheme.
 func (x *SecurityManager) RegisterUriSchemeAsLocal(SchemeVar string) {
+	core.LazyRegister(&xSecurityManagerRegisterUriSchemeAsLocal, "WEBKIT", "webkit_security_manager_register_uri_scheme_as_local", false)
+
 	xSecurityManagerRegisterUriSchemeAsLocal(x.GoPointer(), SchemeVar)
 }
 
@@ -99,6 +107,8 @@ var xSecurityManagerRegisterUriSchemeAsNoAccess func(uintptr, string)
 // This means that pages loaded
 // with this URI scheme cannot access pages loaded with any other URI scheme.
 func (x *SecurityManager) RegisterUriSchemeAsNoAccess(SchemeVar string) {
+	core.LazyRegister(&xSecurityManagerRegisterUriSchemeAsNoAccess, "WEBKIT", "webkit_security_manager_register_uri_scheme_as_no_access", false)
+
 	xSecurityManagerRegisterUriSchemeAsNoAccess(x.GoPointer(), SchemeVar)
 }
 
@@ -110,6 +120,8 @@ var xSecurityManagerRegisterUriSchemeAsSecure func(uintptr, string)
 // content warnings won't be generated for this scheme when
 // included by an HTTPS page.
 func (x *SecurityManager) RegisterUriSchemeAsSecure(SchemeVar string) {
+	core.LazyRegister(&xSecurityManagerRegisterUriSchemeAsSecure, "WEBKIT", "webkit_security_manager_register_uri_scheme_as_secure", false)
+
 	xSecurityManagerRegisterUriSchemeAsSecure(x.GoPointer(), SchemeVar)
 }
 
@@ -119,6 +131,8 @@ var xSecurityManagerUriSchemeIsCorsEnabled func(uintptr, string) bool
 //
 // See also webkit_security_manager_register_uri_scheme_as_cors_enabled().
 func (x *SecurityManager) UriSchemeIsCorsEnabled(SchemeVar string) bool {
+	core.LazyRegister(&xSecurityManagerUriSchemeIsCorsEnabled, "WEBKIT", "webkit_security_manager_uri_scheme_is_cors_enabled", false)
+
 	cret := xSecurityManagerUriSchemeIsCorsEnabled(x.GoPointer(), SchemeVar)
 	return cret
 }
@@ -129,6 +143,8 @@ var xSecurityManagerUriSchemeIsDisplayIsolated func(uintptr, string) bool
 //
 // See also webkit_security_manager_register_uri_scheme_as_display_isolated().
 func (x *SecurityManager) UriSchemeIsDisplayIsolated(SchemeVar string) bool {
+	core.LazyRegister(&xSecurityManagerUriSchemeIsDisplayIsolated, "WEBKIT", "webkit_security_manager_uri_scheme_is_display_isolated", false)
+
 	cret := xSecurityManagerUriSchemeIsDisplayIsolated(x.GoPointer(), SchemeVar)
 	return cret
 }
@@ -139,6 +155,8 @@ var xSecurityManagerUriSchemeIsEmptyDocument func(uintptr, string) bool
 //
 // See also webkit_security_manager_register_uri_scheme_as_empty_document().
 func (x *SecurityManager) UriSchemeIsEmptyDocument(SchemeVar string) bool {
+	core.LazyRegister(&xSecurityManagerUriSchemeIsEmptyDocument, "WEBKIT", "webkit_security_manager_uri_scheme_is_empty_document", false)
+
 	cret := xSecurityManagerUriSchemeIsEmptyDocument(x.GoPointer(), SchemeVar)
 	return cret
 }
@@ -149,6 +167,8 @@ var xSecurityManagerUriSchemeIsLocal func(uintptr, string) bool
 //
 // See also webkit_security_manager_register_uri_scheme_as_local().
 func (x *SecurityManager) UriSchemeIsLocal(SchemeVar string) bool {
+	core.LazyRegister(&xSecurityManagerUriSchemeIsLocal, "WEBKIT", "webkit_security_manager_uri_scheme_is_local", false)
+
 	cret := xSecurityManagerUriSchemeIsLocal(x.GoPointer(), SchemeVar)
 	return cret
 }
@@ -159,6 +179,8 @@ var xSecurityManagerUriSchemeIsNoAccess func(uintptr, string) bool
 //
 // See also webkit_security_manager_register_uri_scheme_as_no_access().
 func (x *SecurityManager) UriSchemeIsNoAccess(SchemeVar string) bool {
+	core.LazyRegister(&xSecurityManagerUriSchemeIsNoAccess, "WEBKIT", "webkit_security_manager_uri_scheme_is_no_access", false)
+
 	cret := xSecurityManagerUriSchemeIsNoAccess(x.GoPointer(), SchemeVar)
 	return cret
 }
@@ -169,6 +191,8 @@ var xSecurityManagerUriSchemeIsSecure func(uintptr, string) bool
 //
 // See also webkit_security_manager_register_uri_scheme_as_secure().
 func (x *SecurityManager) UriSchemeIsSecure(SchemeVar string) bool {
+	core.LazyRegister(&xSecurityManagerUriSchemeIsSecure, "WEBKIT", "webkit_security_manager_uri_scheme_is_secure", false)
+
 	cret := xSecurityManagerUriSchemeIsSecure(x.GoPointer(), SchemeVar)
 	return cret
 }
@@ -187,32 +211,8 @@ func (c *SecurityManager) SetGoPointer(ptr uintptr) {
 func init() {
 	core.SetPackageName("WEBKIT", "webkitgtk-6.0")
 	core.SetSharedLibraries("WEBKIT", []string{"libwebkitgtk-6.0.so.4", "libjavascriptcoregtk-6.0.so.1", "libwebkitgtk-6.0.4.dylib", "libjavascriptcoregtk-6.0.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("WEBKIT") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
 
-	core.PuregoSafeRegister(&xSecurityManagerGLibType, libs, "webkit_security_manager_get_type")
-
-	core.PuregoSafeRegister(&xSecurityManagerRegisterUriSchemeAsCorsEnabled, libs, "webkit_security_manager_register_uri_scheme_as_cors_enabled")
-	core.PuregoSafeRegister(&xSecurityManagerRegisterUriSchemeAsDisplayIsolated, libs, "webkit_security_manager_register_uri_scheme_as_display_isolated")
-	core.PuregoSafeRegister(&xSecurityManagerRegisterUriSchemeAsEmptyDocument, libs, "webkit_security_manager_register_uri_scheme_as_empty_document")
-	core.PuregoSafeRegister(&xSecurityManagerRegisterUriSchemeAsLocal, libs, "webkit_security_manager_register_uri_scheme_as_local")
-	core.PuregoSafeRegister(&xSecurityManagerRegisterUriSchemeAsNoAccess, libs, "webkit_security_manager_register_uri_scheme_as_no_access")
-	core.PuregoSafeRegister(&xSecurityManagerRegisterUriSchemeAsSecure, libs, "webkit_security_manager_register_uri_scheme_as_secure")
-	core.PuregoSafeRegister(&xSecurityManagerUriSchemeIsCorsEnabled, libs, "webkit_security_manager_uri_scheme_is_cors_enabled")
-	core.PuregoSafeRegister(&xSecurityManagerUriSchemeIsDisplayIsolated, libs, "webkit_security_manager_uri_scheme_is_display_isolated")
-	core.PuregoSafeRegister(&xSecurityManagerUriSchemeIsEmptyDocument, libs, "webkit_security_manager_uri_scheme_is_empty_document")
-	core.PuregoSafeRegister(&xSecurityManagerUriSchemeIsLocal, libs, "webkit_security_manager_uri_scheme_is_local")
-	core.PuregoSafeRegister(&xSecurityManagerUriSchemeIsNoAccess, libs, "webkit_security_manager_uri_scheme_is_no_access")
-	core.PuregoSafeRegister(&xSecurityManagerUriSchemeIsSecure, libs, "webkit_security_manager_uri_scheme_is_secure")
-
-	// Manually register types since they aren't being automatically registered when
-	// the library is loaded
-	// See https://bugs.webkit.org/show_bug.cgi?id=175937
+	// Manually register types since they aren't automatically registered when
+	// WebKit is loaded. See https://bugs.webkit.org/show_bug.cgi?id=175937.
 	SecurityManagerGLibType()
 }

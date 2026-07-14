@@ -4,7 +4,6 @@ package gsk
 import (
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -18,6 +17,7 @@ type RoundedClipNode struct {
 var xRoundedClipNodeGLibType func() types.GType
 
 func RoundedClipNodeGLibType() types.GType {
+	core.LazyRegister(&xRoundedClipNodeGLibType, "GSK", "gsk_rounded_clip_node_get_type", false)
 	return xRoundedClipNodeGLibType()
 }
 
@@ -32,6 +32,7 @@ var xNewRoundedClipNode func(uintptr, *RoundedRect) uintptr
 // Creates a `GskRenderNode` that will clip the @child to the area
 // given by @clip.
 func NewRoundedClipNode(ChildVar *RenderNode, ClipVar *RoundedRect) *RoundedClipNode {
+	core.LazyRegister(&xNewRoundedClipNode, "GSK", "gsk_rounded_clip_node_new", false)
 	var cls *RoundedClipNode
 
 	cret := xNewRoundedClipNode(ChildVar.GoPointer(), ClipVar)
@@ -48,6 +49,7 @@ var xRoundedClipNodeGetChild func(uintptr) uintptr
 
 // Gets the child node that is getting clipped by the given @node.
 func (x *RoundedClipNode) GetChild() *RenderNode {
+	core.LazyRegister(&xRoundedClipNodeGetChild, "GSK", "gsk_rounded_clip_node_get_child", false)
 	var cls *RenderNode
 
 	cret := xRoundedClipNodeGetChild(x.GoPointer())
@@ -65,6 +67,8 @@ var xRoundedClipNodeGetClip func(uintptr) uintptr
 
 // Retrieves the rounded rectangle used to clip the contents of the @node.
 func (x *RoundedClipNode) GetClip() *RoundedRect {
+	core.LazyRegister(&xRoundedClipNodeGetClip, "GSK", "gsk_rounded_clip_node_get_clip", false)
+
 	cret := xRoundedClipNodeGetClip(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -86,19 +90,4 @@ func (c *RoundedClipNode) SetGoPointer(ptr uintptr) {
 func init() {
 	core.SetPackageName("GSK", "gtk4")
 	core.SetSharedLibraries("GSK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GSK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xRoundedClipNodeGLibType, libs, "gsk_rounded_clip_node_get_type")
-
-	core.PuregoSafeRegister(&xNewRoundedClipNode, libs, "gsk_rounded_clip_node_new")
-
-	core.PuregoSafeRegister(&xRoundedClipNodeGetChild, libs, "gsk_rounded_clip_node_get_child")
-	core.PuregoSafeRegister(&xRoundedClipNodeGetClip, libs, "gsk_rounded_clip_node_get_clip")
 }

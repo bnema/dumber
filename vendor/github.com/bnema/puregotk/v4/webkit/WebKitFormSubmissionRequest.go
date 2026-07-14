@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -44,6 +43,7 @@ type FormSubmissionRequest struct {
 var xFormSubmissionRequestGLibType func() types.GType
 
 func FormSubmissionRequestGLibType() types.GType {
+	core.LazyRegister(&xFormSubmissionRequestGLibType, "WEBKIT", "webkit_form_submission_request_get_type", false)
 	return xFormSubmissionRequestGLibType()
 }
 
@@ -64,6 +64,8 @@ var xFormSubmissionRequestListTextFields func(uintptr, *[]string, *[]string) boo
 // If this function returns %FALSE, then both @field_names and
 // @field_values will be empty.
 func (x *FormSubmissionRequest) ListTextFields(FieldNamesVar *[]string, FieldValuesVar *[]string) bool {
+	core.LazyRegister(&xFormSubmissionRequestListTextFields, "WEBKIT", "webkit_form_submission_request_list_text_fields", false)
+
 	cret := xFormSubmissionRequestListTextFields(x.GoPointer(), FieldNamesVar, FieldValuesVar)
 	return cret
 }
@@ -72,6 +74,8 @@ var xFormSubmissionRequestSubmit func(uintptr)
 
 // Continue the form submission.
 func (x *FormSubmissionRequest) Submit() {
+	core.LazyRegister(&xFormSubmissionRequestSubmit, "WEBKIT", "webkit_form_submission_request_submit", false)
+
 	xFormSubmissionRequestSubmit(x.GoPointer())
 }
 
@@ -89,22 +93,8 @@ func (c *FormSubmissionRequest) SetGoPointer(ptr uintptr) {
 func init() {
 	core.SetPackageName("WEBKIT", "webkitgtk-6.0")
 	core.SetSharedLibraries("WEBKIT", []string{"libwebkitgtk-6.0.so.4", "libjavascriptcoregtk-6.0.so.1", "libwebkitgtk-6.0.4.dylib", "libjavascriptcoregtk-6.0.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("WEBKIT") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
 
-	core.PuregoSafeRegister(&xFormSubmissionRequestGLibType, libs, "webkit_form_submission_request_get_type")
-
-	core.PuregoSafeRegister(&xFormSubmissionRequestListTextFields, libs, "webkit_form_submission_request_list_text_fields")
-	core.PuregoSafeRegister(&xFormSubmissionRequestSubmit, libs, "webkit_form_submission_request_submit")
-
-	// Manually register types since they aren't being automatically registered when
-	// the library is loaded
-	// See https://bugs.webkit.org/show_bug.cgi?id=175937
+	// Manually register types since they aren't automatically registered when
+	// WebKit is loaded. See https://bugs.webkit.org/show_bug.cgi?id=175937.
 	FormSubmissionRequestGLibType()
 }

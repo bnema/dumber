@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -52,6 +51,7 @@ type WindowTitle struct {
 var xWindowTitleGLibType func() types.GType
 
 func WindowTitleGLibType() types.GType {
+	core.LazyRegister(&xWindowTitleGLibType, "ADW", "adw_window_title_get_type", false)
 	return xWindowTitleGLibType()
 }
 
@@ -65,6 +65,7 @@ var xNewWindowTitle func(string, string) uintptr
 
 // Creates a new `AdwWindowTitle`.
 func NewWindowTitle(TitleVar string, SubtitleVar string) *WindowTitle {
+	core.LazyRegister(&xNewWindowTitle, "ADW", "adw_window_title_new", false)
 	var cls *WindowTitle
 
 	cret := xNewWindowTitle(TitleVar, SubtitleVar)
@@ -82,6 +83,8 @@ var xWindowTitleGetSubtitle func(uintptr) string
 
 // Gets the subtitle of @self.
 func (x *WindowTitle) GetSubtitle() string {
+	core.LazyRegister(&xWindowTitleGetSubtitle, "ADW", "adw_window_title_get_subtitle", false)
+
 	cret := xWindowTitleGetSubtitle(x.GoPointer())
 	return cret
 }
@@ -90,6 +93,8 @@ var xWindowTitleGetTitle func(uintptr) string
 
 // Gets the title of @self.
 func (x *WindowTitle) GetTitle() string {
+	core.LazyRegister(&xWindowTitleGetTitle, "ADW", "adw_window_title_get_title", false)
+
 	cret := xWindowTitleGetTitle(x.GoPointer())
 	return cret
 }
@@ -100,6 +105,8 @@ var xWindowTitleSetSubtitle func(uintptr, string)
 //
 // The subtitle should give the user additional details.
 func (x *WindowTitle) SetSubtitle(SubtitleVar string) {
+	core.LazyRegister(&xWindowTitleSetSubtitle, "ADW", "adw_window_title_set_subtitle", false)
+
 	xWindowTitleSetSubtitle(x.GoPointer(), SubtitleVar)
 }
 
@@ -110,6 +117,8 @@ var xWindowTitleSetTitle func(uintptr, string)
 // The title typically identifies the current view or content item, and
 // generally does not use the application name.
 func (x *WindowTitle) SetTitle(TitleVar string) {
+	core.LazyRegister(&xWindowTitleSetTitle, "ADW", "adw_window_title_set_title", false)
+
 	xWindowTitleSetTitle(x.GoPointer(), TitleVar)
 }
 
@@ -431,21 +440,4 @@ func (x *WindowTitle) GetBuildableId() string {
 func init() {
 	core.SetPackageName("ADW", "libadwaita-1")
 	core.SetSharedLibraries("ADW", []string{"libadwaita-1.so.0", "libadwaita-1.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("ADW") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xWindowTitleGLibType, libs, "adw_window_title_get_type")
-
-	core.PuregoSafeRegister(&xNewWindowTitle, libs, "adw_window_title_new")
-
-	core.PuregoSafeRegister(&xWindowTitleGetSubtitle, libs, "adw_window_title_get_subtitle")
-	core.PuregoSafeRegister(&xWindowTitleGetTitle, libs, "adw_window_title_get_title")
-	core.PuregoSafeRegister(&xWindowTitleSetSubtitle, libs, "adw_window_title_set_subtitle")
-	core.PuregoSafeRegister(&xWindowTitleSetTitle, libs, "adw_window_title_set_title")
 }

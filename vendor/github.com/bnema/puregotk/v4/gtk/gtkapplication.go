@@ -105,6 +105,7 @@ type ApplicationInhibitFlags int
 var xApplicationInhibitFlagsGLibType func() types.GType
 
 func ApplicationInhibitFlagsGLibType() types.GType {
+	core.LazyRegister(&xApplicationInhibitFlagsGLibType, "GTK", "gtk_application_inhibit_flags_get_type", false)
 	return xApplicationInhibitFlagsGLibType()
 }
 
@@ -224,6 +225,7 @@ type Application struct {
 var xApplicationGLibType func() types.GType
 
 func ApplicationGLibType() types.GType {
+	core.LazyRegister(&xApplicationGLibType, "GTK", "gtk_application_get_type", false)
 	return xApplicationGLibType()
 }
 
@@ -254,6 +256,7 @@ var xNewApplication func(uintptr, gio.ApplicationFlags) uintptr
 // If no application ID is given then some features (most notably application
 // uniqueness) will be disabled.
 func NewApplication(ApplicationIdVar *string, FlagsVar gio.ApplicationFlags) *Application {
+	core.LazyRegister(&xNewApplication, "GTK", "gtk_application_new", false)
 	var cls *Application
 
 	ApplicationIdVarPtr := core.GStrdupNullable(ApplicationIdVar)
@@ -286,6 +289,8 @@ var xApplicationAddWindow func(uintptr, uintptr)
 //
 // GTK will keep the application running as long as it has any windows.
 func (x *Application) AddWindow(WindowVar *Window) {
+	core.LazyRegister(&xApplicationAddWindow, "GTK", "gtk_application_add_window", false)
+
 	xApplicationAddWindow(x.GoPointer(), WindowVar.GoPointer())
 }
 
@@ -294,6 +299,8 @@ var xApplicationGetAccelsForAction func(uintptr, string) []string
 // Gets the accelerators that are currently associated with
 // the given action.
 func (x *Application) GetAccelsForAction(DetailedActionNameVar string) []string {
+	core.LazyRegister(&xApplicationGetAccelsForAction, "GTK", "gtk_application_get_accels_for_action", false)
+
 	cret := xApplicationGetAccelsForAction(x.GoPointer(), DetailedActionNameVar)
 	return cret
 }
@@ -318,6 +325,8 @@ var xApplicationGetActionsForAccel func(uintptr, string) []string
 //
 // If you are unsure, check it with [func@Gtk.accelerator_parse] first.
 func (x *Application) GetActionsForAccel(AccelVar string) []string {
+	core.LazyRegister(&xApplicationGetActionsForAccel, "GTK", "gtk_application_get_actions_for_accel", false)
+
 	cret := xApplicationGetActionsForAccel(x.GoPointer(), AccelVar)
 	return cret
 }
@@ -331,6 +340,7 @@ var xApplicationGetActiveWindow func(uintptr) uintptr
 // at the moment if another application has it — this is just
 // the most recently-focused window within this application.
 func (x *Application) GetActiveWindow() *Window {
+	core.LazyRegister(&xApplicationGetActiveWindow, "GTK", "gtk_application_get_active_window", false)
 	var cls *Window
 
 	cret := xApplicationGetActiveWindow(x.GoPointer())
@@ -351,6 +361,7 @@ var xApplicationGetMenuById func(uintptr, string) uintptr
 // See [the section on Automatic resources](class.Application.html#automatic-resources)
 // for more information.
 func (x *Application) GetMenuById(IdVar string) *gio.Menu {
+	core.LazyRegister(&xApplicationGetMenuById, "GTK", "gtk_application_get_menu_by_id", false)
 	var cls *gio.Menu
 
 	cret := xApplicationGetMenuById(x.GoPointer(), IdVar)
@@ -368,6 +379,7 @@ var xApplicationGetMenubar func(uintptr) uintptr
 
 // Returns the menu model for the menu bar of the application.
 func (x *Application) GetMenubar() *gio.MenuModel {
+	core.LazyRegister(&xApplicationGetMenubar, "GTK", "gtk_application_get_menubar", false)
 	var cls *gio.MenuModel
 
 	cret := xApplicationGetMenubar(x.GoPointer())
@@ -388,6 +400,7 @@ var xApplicationGetWindowById func(uintptr, uint) uintptr
 // The ID of a `GtkApplicationWindow` can be retrieved with
 // [method@Gtk.ApplicationWindow.get_id].
 func (x *Application) GetWindowById(IdVar uint) *Window {
+	core.LazyRegister(&xApplicationGetWindowById, "GTK", "gtk_application_get_window_by_id", false)
 	var cls *Window
 
 	cret := xApplicationGetWindowById(x.GoPointer(), IdVar)
@@ -413,6 +426,8 @@ var xApplicationGetWindows func(uintptr) uintptr
 // only remain valid until the next focus change or window creation or
 // deletion.
 func (x *Application) GetWindows() *glib.List {
+	core.LazyRegister(&xApplicationGetWindows, "GTK", "gtk_application_get_windows", false)
+
 	cret := xApplicationGetWindows(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -450,6 +465,8 @@ var xApplicationInhibit func(uintptr, uintptr, ApplicationInhibitFlags, uintptr)
 // argument to [method@Gtk.Application.uninhibit] in order to remove
 // the request.
 func (x *Application) Inhibit(WindowVar *Window, FlagsVar ApplicationInhibitFlags, ReasonVar *string) uint {
+	core.LazyRegister(&xApplicationInhibit, "GTK", "gtk_application_inhibit", false)
+
 	ReasonVarPtr := core.GStrdupNullable(ReasonVar)
 	defer core.GFreeNullable(ReasonVarPtr)
 
@@ -463,6 +480,8 @@ var xApplicationListActionDescriptions func(uintptr) []string
 //
 // See [method@Gtk.Application.set_accels_for_action].
 func (x *Application) ListActionDescriptions() []string {
+	core.LazyRegister(&xApplicationListActionDescriptions, "GTK", "gtk_application_list_action_descriptions", false)
+
 	cret := xApplicationListActionDescriptions(x.GoPointer())
 	return cret
 }
@@ -478,6 +497,8 @@ var xApplicationRemoveWindow func(uintptr, uintptr)
 // The application may stop running as a result of a call to this
 // function, if the window was the last window of the application.
 func (x *Application) RemoveWindow(WindowVar *Window) {
+	core.LazyRegister(&xApplicationRemoveWindow, "GTK", "gtk_application_remove_window", false)
+
 	xApplicationRemoveWindow(x.GoPointer(), WindowVar.GoPointer())
 }
 
@@ -495,6 +516,8 @@ var xApplicationSetAccelsForAction func(uintptr, string, []string)
 // For the @detailed_action_name, see [func@Gio.Action.parse_detailed_name]
 // and [Gio.Action.print_detailed_name].
 func (x *Application) SetAccelsForAction(DetailedActionNameVar string, AccelsVar []string) {
+	core.LazyRegister(&xApplicationSetAccelsForAction, "GTK", "gtk_application_set_accels_for_action", false)
+
 	xApplicationSetAccelsForAction(x.GoPointer(), DetailedActionNameVar, AccelsVar)
 }
 
@@ -519,6 +542,8 @@ var xApplicationSetMenubar func(uintptr, uintptr)
 // Use the base `GActionMap` interface to add actions, to respond to the
 // user selecting these menu items.
 func (x *Application) SetMenubar(MenubarVar *gio.MenuModel) {
+	core.LazyRegister(&xApplicationSetMenubar, "GTK", "gtk_application_set_menubar", false)
+
 	xApplicationSetMenubar(x.GoPointer(), MenubarVar.GoPointer())
 }
 
@@ -530,6 +555,8 @@ var xApplicationUninhibit func(uintptr, uint)
 //
 // Inhibitors are also cleared when the application exits.
 func (x *Application) Uninhibit(CookieVar uint) {
+	core.LazyRegister(&xApplicationUninhibit, "GTK", "gtk_application_uninhibit", false)
+
 	xApplicationUninhibit(x.GoPointer(), CookieVar)
 }
 
@@ -993,33 +1020,4 @@ func (x *Application) RemoveActionEntries(EntriesVar []gio.ActionEntry, NEntries
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GTK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xApplicationInhibitFlagsGLibType, libs, "gtk_application_inhibit_flags_get_type")
-
-	core.PuregoSafeRegister(&xApplicationGLibType, libs, "gtk_application_get_type")
-
-	core.PuregoSafeRegister(&xNewApplication, libs, "gtk_application_new")
-
-	core.PuregoSafeRegister(&xApplicationAddWindow, libs, "gtk_application_add_window")
-	core.PuregoSafeRegister(&xApplicationGetAccelsForAction, libs, "gtk_application_get_accels_for_action")
-	core.PuregoSafeRegister(&xApplicationGetActionsForAccel, libs, "gtk_application_get_actions_for_accel")
-	core.PuregoSafeRegister(&xApplicationGetActiveWindow, libs, "gtk_application_get_active_window")
-	core.PuregoSafeRegister(&xApplicationGetMenuById, libs, "gtk_application_get_menu_by_id")
-	core.PuregoSafeRegister(&xApplicationGetMenubar, libs, "gtk_application_get_menubar")
-	core.PuregoSafeRegister(&xApplicationGetWindowById, libs, "gtk_application_get_window_by_id")
-	core.PuregoSafeRegister(&xApplicationGetWindows, libs, "gtk_application_get_windows")
-	core.PuregoSafeRegister(&xApplicationInhibit, libs, "gtk_application_inhibit")
-	core.PuregoSafeRegister(&xApplicationListActionDescriptions, libs, "gtk_application_list_action_descriptions")
-	core.PuregoSafeRegister(&xApplicationRemoveWindow, libs, "gtk_application_remove_window")
-	core.PuregoSafeRegister(&xApplicationSetAccelsForAction, libs, "gtk_application_set_accels_for_action")
-	core.PuregoSafeRegister(&xApplicationSetMenubar, libs, "gtk_application_set_menubar")
-	core.PuregoSafeRegister(&xApplicationUninhibit, libs, "gtk_application_uninhibit")
 }

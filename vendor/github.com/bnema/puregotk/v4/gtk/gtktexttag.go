@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -72,6 +71,7 @@ type TextTag struct {
 var xTextTagGLibType func() types.GType
 
 func TextTagGLibType() types.GType {
+	core.LazyRegister(&xTextTagGLibType, "GTK", "gtk_text_tag_get_type", false)
 	return xTextTagGLibType()
 }
 
@@ -85,6 +85,7 @@ var xNewTextTag func(uintptr) uintptr
 
 // Creates a `GtkTextTag`.
 func NewTextTag(NameVar *string) *TextTag {
+	core.LazyRegister(&xNewTextTag, "GTK", "gtk_text_tag_new", false)
 	var cls *TextTag
 
 	NameVarPtr := core.GStrdupNullable(NameVar)
@@ -108,6 +109,8 @@ var xTextTagChanged func(uintptr, bool)
 // The signal is already emitted when setting a `GtkTextTag` property.
 // This function is useful for a `GtkTextTag` subclass.
 func (x *TextTag) Changed(SizeChangedVar bool) {
+	core.LazyRegister(&xTextTagChanged, "GTK", "gtk_text_tag_changed", false)
+
 	xTextTagChanged(x.GoPointer(), SizeChangedVar)
 }
 
@@ -115,6 +118,8 @@ var xTextTagGetPriority func(uintptr) int
 
 // Get the tag priority.
 func (x *TextTag) GetPriority() int {
+	core.LazyRegister(&xTextTagGetPriority, "GTK", "gtk_text_tag_get_priority", false)
+
 	cret := xTextTagGetPriority(x.GoPointer())
 	return cret
 }
@@ -136,6 +141,8 @@ var xTextTagSetPriority func(uintptr, int)
 // to the table, or created with [method@Gtk.TextBuffer.create_tag],
 // which adds the tag to the buffer’s table automatically.
 func (x *TextTag) SetPriority(PriorityVar int) {
+	core.LazyRegister(&xTextTagSetPriority, "GTK", "gtk_text_tag_set_priority", false)
+
 	xTextTagSetPriority(x.GoPointer(), PriorityVar)
 }
 
@@ -1564,20 +1571,4 @@ func (x *TextTag) GetPropertyWrapModeSet() bool {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GTK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xTextTagGLibType, libs, "gtk_text_tag_get_type")
-
-	core.PuregoSafeRegister(&xNewTextTag, libs, "gtk_text_tag_new")
-
-	core.PuregoSafeRegister(&xTextTagChanged, libs, "gtk_text_tag_changed")
-	core.PuregoSafeRegister(&xTextTagGetPriority, libs, "gtk_text_tag_get_priority")
-	core.PuregoSafeRegister(&xTextTagSetPriority, libs, "gtk_text_tag_set_priority")
 }

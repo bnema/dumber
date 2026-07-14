@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -49,6 +48,7 @@ type ColumnViewCell struct {
 var xColumnViewCellGLibType func() types.GType
 
 func ColumnViewCellGLibType() types.GType {
+	core.LazyRegister(&xColumnViewCellGLibType, "GTK", "gtk_column_view_cell_get_type", false)
 	return xColumnViewCellGLibType()
 }
 
@@ -63,6 +63,7 @@ var xColumnViewCellGetChild func(uintptr) uintptr
 // Gets the child previously set via gtk_column_view_cell_set_child() or
 // %NULL if none was set.
 func (x *ColumnViewCell) GetChild() *Widget {
+	core.LazyRegister(&xColumnViewCellGetChild, "GTK", "gtk_column_view_cell_get_child", false)
 	var cls *Widget
 
 	cret := xColumnViewCellGetChild(x.GoPointer())
@@ -81,6 +82,8 @@ var xColumnViewCellGetFocusable func(uintptr) bool
 // Checks if a list item has been set to be focusable via
 // gtk_column_view_cell_set_focusable().
 func (x *ColumnViewCell) GetFocusable() bool {
+	core.LazyRegister(&xColumnViewCellGetFocusable, "GTK", "gtk_column_view_cell_get_focusable", false)
+
 	cret := xColumnViewCellGetFocusable(x.GoPointer())
 	return cret
 }
@@ -91,6 +94,7 @@ var xColumnViewCellGetItem func(uintptr) uintptr
 //
 // If @self is unbound, this function returns %NULL.
 func (x *ColumnViewCell) GetItem() *gobject.Object {
+	core.LazyRegister(&xColumnViewCellGetItem, "GTK", "gtk_column_view_cell_get_item", false)
 	var cls *gobject.Object
 
 	cret := xColumnViewCellGetItem(x.GoPointer())
@@ -110,6 +114,8 @@ var xColumnViewCellGetPosition func(uintptr) uint
 //
 // If @self is unbound, %GTK_INVALID_LIST_POSITION is returned.
 func (x *ColumnViewCell) GetPosition() uint {
+	core.LazyRegister(&xColumnViewCellGetPosition, "GTK", "gtk_column_view_cell_get_position", false)
+
 	cret := xColumnViewCellGetPosition(x.GoPointer())
 	return cret
 }
@@ -121,6 +127,8 @@ var xColumnViewCellGetSelected func(uintptr) bool
 // The selected state is maintained by the list widget and its model
 // and cannot be set otherwise.
 func (x *ColumnViewCell) GetSelected() bool {
+	core.LazyRegister(&xColumnViewCellGetSelected, "GTK", "gtk_column_view_cell_get_selected", false)
+
 	cret := xColumnViewCellGetSelected(x.GoPointer())
 	return cret
 }
@@ -133,6 +141,8 @@ var xColumnViewCellSetChild func(uintptr, uintptr)
 // setting up a listitem so that the widget can be reused when
 // binding it multiple times.
 func (x *ColumnViewCell) SetChild(ChildVar *Widget) {
+	core.LazyRegister(&xColumnViewCellSetChild, "GTK", "gtk_column_view_cell_set_child", false)
+
 	xColumnViewCellSetChild(x.GoPointer(), ChildVar.GoPointer())
 }
 
@@ -148,6 +158,8 @@ var xColumnViewCellSetFocusable func(uintptr, bool)
 //
 // By default, list items are focusable.
 func (x *ColumnViewCell) SetFocusable(FocusableVar bool) {
+	core.LazyRegister(&xColumnViewCellSetFocusable, "GTK", "gtk_column_view_cell_set_focusable", false)
+
 	xColumnViewCellSetFocusable(x.GoPointer(), FocusableVar)
 }
 
@@ -198,22 +210,4 @@ func (x *ColumnViewCell) GetPropertySelected() bool {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GTK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xColumnViewCellGLibType, libs, "gtk_column_view_cell_get_type")
-
-	core.PuregoSafeRegister(&xColumnViewCellGetChild, libs, "gtk_column_view_cell_get_child")
-	core.PuregoSafeRegister(&xColumnViewCellGetFocusable, libs, "gtk_column_view_cell_get_focusable")
-	core.PuregoSafeRegister(&xColumnViewCellGetItem, libs, "gtk_column_view_cell_get_item")
-	core.PuregoSafeRegister(&xColumnViewCellGetPosition, libs, "gtk_column_view_cell_get_position")
-	core.PuregoSafeRegister(&xColumnViewCellGetSelected, libs, "gtk_column_view_cell_get_selected")
-	core.PuregoSafeRegister(&xColumnViewCellSetChild, libs, "gtk_column_view_cell_set_child")
-	core.PuregoSafeRegister(&xColumnViewCellSetFocusable, libs, "gtk_column_view_cell_set_focusable")
 }

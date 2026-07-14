@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gio"
 	"github.com/bnema/puregotk/v4/glib"
@@ -90,6 +89,7 @@ type SplitButton struct {
 var xSplitButtonGLibType func() types.GType
 
 func SplitButtonGLibType() types.GType {
+	core.LazyRegister(&xSplitButtonGLibType, "ADW", "adw_split_button_get_type", false)
 	return xSplitButtonGLibType()
 }
 
@@ -103,6 +103,7 @@ var xNewSplitButton func() uintptr
 
 // Creates a new `AdwSplitButton`.
 func NewSplitButton() *SplitButton {
+	core.LazyRegister(&xNewSplitButton, "ADW", "adw_split_button_new", false)
 	var cls *SplitButton
 
 	cret := xNewSplitButton()
@@ -120,6 +121,8 @@ var xSplitButtonGetCanShrink func(uintptr) bool
 
 // gets whether the button can be smaller than the natural size of its contents.
 func (x *SplitButton) GetCanShrink() bool {
+	core.LazyRegister(&xSplitButtonGetCanShrink, "ADW", "adw_split_button_get_can_shrink", false)
+
 	cret := xSplitButtonGetCanShrink(x.GoPointer())
 	return cret
 }
@@ -128,6 +131,7 @@ var xSplitButtonGetChild func(uintptr) uintptr
 
 // Gets the child widget.
 func (x *SplitButton) GetChild() *gtk.Widget {
+	core.LazyRegister(&xSplitButtonGetChild, "ADW", "adw_split_button_get_child", false)
 	var cls *gtk.Widget
 
 	cret := xSplitButtonGetChild(x.GoPointer())
@@ -145,6 +149,8 @@ var xSplitButtonGetDirection func(uintptr) gtk.ArrowType
 
 // Gets the direction in which the popup will be popped up.
 func (x *SplitButton) GetDirection() gtk.ArrowType {
+	core.LazyRegister(&xSplitButtonGetDirection, "ADW", "adw_split_button_get_direction", false)
+
 	cret := xSplitButtonGetDirection(x.GoPointer())
 	return cret
 }
@@ -153,6 +159,8 @@ var xSplitButtonGetDropdownTooltip func(uintptr) string
 
 // Gets the tooltip of the dropdown button of @self.
 func (x *SplitButton) GetDropdownTooltip() string {
+	core.LazyRegister(&xSplitButtonGetDropdownTooltip, "ADW", "adw_split_button_get_dropdown_tooltip", false)
+
 	cret := xSplitButtonGetDropdownTooltip(x.GoPointer())
 	return cret
 }
@@ -161,6 +169,8 @@ var xSplitButtonGetIconName func(uintptr) string
 
 // Gets the name of the icon used to automatically populate the button.
 func (x *SplitButton) GetIconName() string {
+	core.LazyRegister(&xSplitButtonGetIconName, "ADW", "adw_split_button_get_icon_name", false)
+
 	cret := xSplitButtonGetIconName(x.GoPointer())
 	return cret
 }
@@ -169,6 +179,8 @@ var xSplitButtonGetLabel func(uintptr) string
 
 // Gets the label for @self.
 func (x *SplitButton) GetLabel() string {
+	core.LazyRegister(&xSplitButtonGetLabel, "ADW", "adw_split_button_get_label", false)
+
 	cret := xSplitButtonGetLabel(x.GoPointer())
 	return cret
 }
@@ -177,6 +189,7 @@ var xSplitButtonGetMenuModel func(uintptr) uintptr
 
 // Gets the menu model from which the popup will be created.
 func (x *SplitButton) GetMenuModel() *gio.MenuModel {
+	core.LazyRegister(&xSplitButtonGetMenuModel, "ADW", "adw_split_button_get_menu_model", false)
 	var cls *gio.MenuModel
 
 	cret := xSplitButtonGetMenuModel(x.GoPointer())
@@ -194,6 +207,7 @@ var xSplitButtonGetPopover func(uintptr) uintptr
 
 // Gets the popover that will be popped up when the dropdown is clicked.
 func (x *SplitButton) GetPopover() *gtk.Popover {
+	core.LazyRegister(&xSplitButtonGetPopover, "ADW", "adw_split_button_get_popover", false)
 	var cls *gtk.Popover
 
 	cret := xSplitButtonGetPopover(x.GoPointer())
@@ -211,6 +225,8 @@ var xSplitButtonGetUseUnderline func(uintptr) bool
 
 // Gets whether an underline in the text indicates a mnemonic.
 func (x *SplitButton) GetUseUnderline() bool {
+	core.LazyRegister(&xSplitButtonGetUseUnderline, "ADW", "adw_split_button_get_use_underline", false)
+
 	cret := xSplitButtonGetUseUnderline(x.GoPointer())
 	return cret
 }
@@ -219,6 +235,8 @@ var xSplitButtonPopdown func(uintptr)
 
 // Dismisses the menu.
 func (x *SplitButton) Popdown() {
+	core.LazyRegister(&xSplitButtonPopdown, "ADW", "adw_split_button_popdown", false)
+
 	xSplitButtonPopdown(x.GoPointer())
 }
 
@@ -226,6 +244,8 @@ var xSplitButtonPopup func(uintptr)
 
 // Pops up the menu.
 func (x *SplitButton) Popup() {
+	core.LazyRegister(&xSplitButtonPopup, "ADW", "adw_split_button_popup", false)
+
 	xSplitButtonPopup(x.GoPointer())
 }
 
@@ -238,6 +258,8 @@ var xSplitButtonSetCanShrink func(uintptr, bool)
 // See [method@Gtk.Button.set_can_shrink] and
 // [method@Gtk.MenuButton.set_can_shrink].
 func (x *SplitButton) SetCanShrink(CanShrinkVar bool) {
+	core.LazyRegister(&xSplitButtonSetCanShrink, "ADW", "adw_split_button_set_can_shrink", false)
+
 	xSplitButtonSetCanShrink(x.GoPointer(), CanShrinkVar)
 }
 
@@ -248,6 +270,8 @@ var xSplitButtonSetChild func(uintptr, uintptr)
 // Setting the child widget will set [property@SplitButton:label] and
 // [property@SplitButton:icon-name] to `NULL`.
 func (x *SplitButton) SetChild(ChildVar *gtk.Widget) {
+	core.LazyRegister(&xSplitButtonSetChild, "ADW", "adw_split_button_set_child", false)
+
 	xSplitButtonSetChild(x.GoPointer(), ChildVar.GoPointer())
 }
 
@@ -262,6 +286,8 @@ var xSplitButtonSetDirection func(uintptr, gtk.ArrowType)
 //
 // [enum@Gtk.ArrowType.none] behaves same as [enum@Gtk.ArrowType.down].
 func (x *SplitButton) SetDirection(DirectionVar gtk.ArrowType) {
+	core.LazyRegister(&xSplitButtonSetDirection, "ADW", "adw_split_button_set_direction", false)
+
 	xSplitButtonSetDirection(x.GoPointer(), DirectionVar)
 }
 
@@ -271,6 +297,8 @@ var xSplitButtonSetDropdownTooltip func(uintptr, string)
 //
 // The tooltip can be marked up with the Pango text markup language.
 func (x *SplitButton) SetDropdownTooltip(TooltipVar string) {
+	core.LazyRegister(&xSplitButtonSetDropdownTooltip, "ADW", "adw_split_button_set_dropdown_tooltip", false)
+
 	xSplitButtonSetDropdownTooltip(x.GoPointer(), TooltipVar)
 }
 
@@ -281,6 +309,8 @@ var xSplitButtonSetIconName func(uintptr, string)
 // Setting the icon name will set [property@SplitButton:label] and
 // [property@SplitButton:child] to `NULL`.
 func (x *SplitButton) SetIconName(IconNameVar string) {
+	core.LazyRegister(&xSplitButtonSetIconName, "ADW", "adw_split_button_set_icon_name", false)
+
 	xSplitButtonSetIconName(x.GoPointer(), IconNameVar)
 }
 
@@ -291,6 +321,8 @@ var xSplitButtonSetLabel func(uintptr, string)
 // Setting the label will set [property@SplitButton:icon-name] and
 // [property@SplitButton:child] to `NULL`.
 func (x *SplitButton) SetLabel(LabelVar string) {
+	core.LazyRegister(&xSplitButtonSetLabel, "ADW", "adw_split_button_set_label", false)
+
 	xSplitButtonSetLabel(x.GoPointer(), LabelVar)
 }
 
@@ -307,6 +339,8 @@ var xSplitButtonSetMenuModel func(uintptr, uintptr)
 // If [property@SplitButton:popover] is already set, it will be dissociated from
 // the button, and the property is set to `NULL`.
 func (x *SplitButton) SetMenuModel(MenuModelVar *gio.MenuModel) {
+	core.LazyRegister(&xSplitButtonSetMenuModel, "ADW", "adw_split_button_set_menu_model", false)
+
 	xSplitButtonSetMenuModel(x.GoPointer(), MenuModelVar.GoPointer())
 }
 
@@ -319,6 +353,8 @@ var xSplitButtonSetPopover func(uintptr, uintptr)
 // If [property@SplitButton:menu-model] is set, the menu model is dissociated
 // from the button, and the property is set to `NULL`.
 func (x *SplitButton) SetPopover(PopoverVar *gtk.Popover) {
+	core.LazyRegister(&xSplitButtonSetPopover, "ADW", "adw_split_button_set_popover", false)
+
 	xSplitButtonSetPopover(x.GoPointer(), PopoverVar.GoPointer())
 }
 
@@ -328,6 +364,8 @@ var xSplitButtonSetUseUnderline func(uintptr, bool)
 //
 // See [property@SplitButton:label].
 func (x *SplitButton) SetUseUnderline(UseUnderlineVar bool) {
+	core.LazyRegister(&xSplitButtonSetUseUnderline, "ADW", "adw_split_button_set_use_underline", false)
+
 	xSplitButtonSetUseUnderline(x.GoPointer(), UseUnderlineVar)
 }
 
@@ -848,37 +886,4 @@ func (x *SplitButton) GetBuildableId() string {
 func init() {
 	core.SetPackageName("ADW", "libadwaita-1")
 	core.SetSharedLibraries("ADW", []string{"libadwaita-1.so.0", "libadwaita-1.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("ADW") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xSplitButtonGLibType, libs, "adw_split_button_get_type")
-
-	core.PuregoSafeRegister(&xNewSplitButton, libs, "adw_split_button_new")
-
-	core.PuregoSafeRegister(&xSplitButtonGetCanShrink, libs, "adw_split_button_get_can_shrink")
-	core.PuregoSafeRegister(&xSplitButtonGetChild, libs, "adw_split_button_get_child")
-	core.PuregoSafeRegister(&xSplitButtonGetDirection, libs, "adw_split_button_get_direction")
-	core.PuregoSafeRegister(&xSplitButtonGetDropdownTooltip, libs, "adw_split_button_get_dropdown_tooltip")
-	core.PuregoSafeRegister(&xSplitButtonGetIconName, libs, "adw_split_button_get_icon_name")
-	core.PuregoSafeRegister(&xSplitButtonGetLabel, libs, "adw_split_button_get_label")
-	core.PuregoSafeRegister(&xSplitButtonGetMenuModel, libs, "adw_split_button_get_menu_model")
-	core.PuregoSafeRegister(&xSplitButtonGetPopover, libs, "adw_split_button_get_popover")
-	core.PuregoSafeRegister(&xSplitButtonGetUseUnderline, libs, "adw_split_button_get_use_underline")
-	core.PuregoSafeRegister(&xSplitButtonPopdown, libs, "adw_split_button_popdown")
-	core.PuregoSafeRegister(&xSplitButtonPopup, libs, "adw_split_button_popup")
-	core.PuregoSafeRegister(&xSplitButtonSetCanShrink, libs, "adw_split_button_set_can_shrink")
-	core.PuregoSafeRegister(&xSplitButtonSetChild, libs, "adw_split_button_set_child")
-	core.PuregoSafeRegister(&xSplitButtonSetDirection, libs, "adw_split_button_set_direction")
-	core.PuregoSafeRegister(&xSplitButtonSetDropdownTooltip, libs, "adw_split_button_set_dropdown_tooltip")
-	core.PuregoSafeRegister(&xSplitButtonSetIconName, libs, "adw_split_button_set_icon_name")
-	core.PuregoSafeRegister(&xSplitButtonSetLabel, libs, "adw_split_button_set_label")
-	core.PuregoSafeRegister(&xSplitButtonSetMenuModel, libs, "adw_split_button_set_menu_model")
-	core.PuregoSafeRegister(&xSplitButtonSetPopover, libs, "adw_split_button_set_popover")
-	core.PuregoSafeRegister(&xSplitButtonSetUseUnderline, libs, "adw_split_button_set_use_underline")
 }

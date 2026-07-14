@@ -2,7 +2,6 @@
 package gtk
 
 import (
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -70,6 +69,7 @@ type ProgressBar struct {
 var xProgressBarGLibType func() types.GType
 
 func ProgressBarGLibType() types.GType {
+	core.LazyRegister(&xProgressBarGLibType, "GTK", "gtk_progress_bar_get_type", false)
 	return xProgressBarGLibType()
 }
 
@@ -83,6 +83,7 @@ var xNewProgressBar func() uintptr
 
 // Creates a new `GtkProgressBar`.
 func NewProgressBar() *ProgressBar {
+	core.LazyRegister(&xNewProgressBar, "GTK", "gtk_progress_bar_new", false)
 	var cls *ProgressBar
 
 	cret := xNewProgressBar()
@@ -102,6 +103,8 @@ var xProgressBarGetEllipsize func(uintptr) pango.EllipsizeMode
 //
 // See [method@Gtk.ProgressBar.set_ellipsize].
 func (x *ProgressBar) GetEllipsize() pango.EllipsizeMode {
+	core.LazyRegister(&xProgressBarGetEllipsize, "GTK", "gtk_progress_bar_get_ellipsize", false)
+
 	cret := xProgressBarGetEllipsize(x.GoPointer())
 	return cret
 }
@@ -110,6 +113,8 @@ var xProgressBarGetFraction func(uintptr) float64
 
 // Returns the current fraction of the task that’s been completed.
 func (x *ProgressBar) GetFraction() float64 {
+	core.LazyRegister(&xProgressBarGetFraction, "GTK", "gtk_progress_bar_get_fraction", false)
+
 	cret := xProgressBarGetFraction(x.GoPointer())
 	return cret
 }
@@ -118,6 +123,8 @@ var xProgressBarGetInverted func(uintptr) bool
 
 // Returns whether the progress bar is inverted.
 func (x *ProgressBar) GetInverted() bool {
+	core.LazyRegister(&xProgressBarGetInverted, "GTK", "gtk_progress_bar_get_inverted", false)
+
 	cret := xProgressBarGetInverted(x.GoPointer())
 	return cret
 }
@@ -128,6 +135,8 @@ var xProgressBarGetPulseStep func(uintptr) float64
 //
 // See [method@Gtk.ProgressBar.set_pulse_step].
 func (x *ProgressBar) GetPulseStep() float64 {
+	core.LazyRegister(&xProgressBarGetPulseStep, "GTK", "gtk_progress_bar_get_pulse_step", false)
+
 	cret := xProgressBarGetPulseStep(x.GoPointer())
 	return cret
 }
@@ -138,6 +147,8 @@ var xProgressBarGetShowText func(uintptr) bool
 //
 // See [method@Gtk.ProgressBar.set_show_text].
 func (x *ProgressBar) GetShowText() bool {
+	core.LazyRegister(&xProgressBarGetShowText, "GTK", "gtk_progress_bar_get_show_text", false)
+
 	cret := xProgressBarGetShowText(x.GoPointer())
 	return cret
 }
@@ -149,6 +160,8 @@ var xProgressBarGetText func(uintptr) string
 // The return value is a reference to the text, not a copy of it,
 // so will become invalid if you change the text in the progress bar.
 func (x *ProgressBar) GetText() string {
+	core.LazyRegister(&xProgressBarGetText, "GTK", "gtk_progress_bar_get_text", false)
+
 	cret := xProgressBarGetText(x.GoPointer())
 	return cret
 }
@@ -162,6 +175,8 @@ var xProgressBarPulse func(uintptr)
 // causes the block to move by a little bit (the amount of movement
 // per pulse is determined by [method@Gtk.ProgressBar.set_pulse_step]).
 func (x *ProgressBar) Pulse() {
+	core.LazyRegister(&xProgressBarPulse, "GTK", "gtk_progress_bar_pulse", false)
+
 	xProgressBarPulse(x.GoPointer())
 }
 
@@ -172,6 +187,8 @@ var xProgressBarSetEllipsize func(uintptr, pango.EllipsizeMode)
 // The text is ellipsized if there is not enough space
 // to render the entire string.
 func (x *ProgressBar) SetEllipsize(ModeVar pango.EllipsizeMode) {
+	core.LazyRegister(&xProgressBarSetEllipsize, "GTK", "gtk_progress_bar_set_ellipsize", false)
+
 	xProgressBarSetEllipsize(x.GoPointer(), ModeVar)
 }
 
@@ -182,6 +199,8 @@ var xProgressBarSetFraction func(uintptr, float64)
 //
 // The fraction should be between 0.0 and 1.0, inclusive.
 func (x *ProgressBar) SetFraction(FractionVar float64) {
+	core.LazyRegister(&xProgressBarSetFraction, "GTK", "gtk_progress_bar_set_fraction", false)
+
 	xProgressBarSetFraction(x.GoPointer(), FractionVar)
 }
 
@@ -192,6 +211,8 @@ var xProgressBarSetInverted func(uintptr, bool)
 // Progress bars normally grow from top to bottom or left to right.
 // Inverted progress bars grow in the opposite direction.
 func (x *ProgressBar) SetInverted(InvertedVar bool) {
+	core.LazyRegister(&xProgressBarSetInverted, "GTK", "gtk_progress_bar_set_inverted", false)
+
 	xProgressBarSetInverted(x.GoPointer(), InvertedVar)
 }
 
@@ -203,6 +224,8 @@ var xProgressBarSetPulseStep func(uintptr, float64)
 // The bouncing block is moved when [method@Gtk.ProgressBar.pulse]
 // is called.
 func (x *ProgressBar) SetPulseStep(FractionVar float64) {
+	core.LazyRegister(&xProgressBarSetPulseStep, "GTK", "gtk_progress_bar_set_pulse_step", false)
+
 	xProgressBarSetPulseStep(x.GoPointer(), FractionVar)
 }
 
@@ -218,6 +241,8 @@ var xProgressBarSetShowText func(uintptr, bool)
 // text (even if the actual text is blank), set [property@Gtk.ProgressBar:show-text]
 // to %TRUE and [property@Gtk.ProgressBar:text] to the empty string (not %NULL).
 func (x *ProgressBar) SetShowText(ShowTextVar bool) {
+	core.LazyRegister(&xProgressBarSetShowText, "GTK", "gtk_progress_bar_set_show_text", false)
+
 	xProgressBarSetShowText(x.GoPointer(), ShowTextVar)
 }
 
@@ -235,6 +260,8 @@ var xProgressBarSetText func(uintptr, uintptr)
 // be styled and sized suitably for containing text, as long as
 // [property@Gtk.ProgressBar:show-text] is %TRUE.
 func (x *ProgressBar) SetText(TextVar *string) {
+	core.LazyRegister(&xProgressBarSetText, "GTK", "gtk_progress_bar_set_text", false)
+
 	TextVarPtr := core.GStrdupNullable(TextVar)
 	defer core.GFreeNullable(TextVarPtr)
 
@@ -629,30 +656,4 @@ func (x *ProgressBar) SetOrientation(OrientationVar Orientation) {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GTK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xProgressBarGLibType, libs, "gtk_progress_bar_get_type")
-
-	core.PuregoSafeRegister(&xNewProgressBar, libs, "gtk_progress_bar_new")
-
-	core.PuregoSafeRegister(&xProgressBarGetEllipsize, libs, "gtk_progress_bar_get_ellipsize")
-	core.PuregoSafeRegister(&xProgressBarGetFraction, libs, "gtk_progress_bar_get_fraction")
-	core.PuregoSafeRegister(&xProgressBarGetInverted, libs, "gtk_progress_bar_get_inverted")
-	core.PuregoSafeRegister(&xProgressBarGetPulseStep, libs, "gtk_progress_bar_get_pulse_step")
-	core.PuregoSafeRegister(&xProgressBarGetShowText, libs, "gtk_progress_bar_get_show_text")
-	core.PuregoSafeRegister(&xProgressBarGetText, libs, "gtk_progress_bar_get_text")
-	core.PuregoSafeRegister(&xProgressBarPulse, libs, "gtk_progress_bar_pulse")
-	core.PuregoSafeRegister(&xProgressBarSetEllipsize, libs, "gtk_progress_bar_set_ellipsize")
-	core.PuregoSafeRegister(&xProgressBarSetFraction, libs, "gtk_progress_bar_set_fraction")
-	core.PuregoSafeRegister(&xProgressBarSetInverted, libs, "gtk_progress_bar_set_inverted")
-	core.PuregoSafeRegister(&xProgressBarSetPulseStep, libs, "gtk_progress_bar_set_pulse_step")
-	core.PuregoSafeRegister(&xProgressBarSetShowText, libs, "gtk_progress_bar_set_show_text")
-	core.PuregoSafeRegister(&xProgressBarSetText, libs, "gtk_progress_bar_set_text")
 }

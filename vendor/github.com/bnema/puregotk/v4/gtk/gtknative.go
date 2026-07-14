@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gdk"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -56,6 +55,7 @@ type Native interface {
 var xNativeGLibType func() types.GType
 
 func NativeGLibType() types.GType {
+	core.LazyRegister(&xNativeGLibType, "GTK", "gtk_native_get_type", false)
 	return xNativeGLibType()
 }
 
@@ -126,18 +126,46 @@ func (x *NativeBase) Unrealize() {
 	XGtkNativeUnrealize(x.GoPointer())
 }
 
+var XGtkNativeGetRenderer func(uintptr) uintptr = func(instance uintptr) uintptr {
+	core.LazyRegister(&xXGtkNativeGetRenderer, "GTK", "gtk_native_get_renderer", false)
+	return xXGtkNativeGetRenderer(instance)
+}
+
 var (
-	XGtkNativeGetRenderer         func(uintptr) uintptr
-	XGtkNativeGetSurface          func(uintptr) uintptr
-	XGtkNativeGetSurfaceTransform func(uintptr, *float64, *float64)
-	XGtkNativeRealize             func(uintptr)
-	XGtkNativeUnrealize           func(uintptr)
+	xXGtkNativeGetRenderer func(uintptr) uintptr
+	XGtkNativeGetSurface   func(uintptr) uintptr = func(instance uintptr) uintptr {
+		core.LazyRegister(&xXGtkNativeGetSurface, "GTK", "gtk_native_get_surface", false)
+		return xXGtkNativeGetSurface(instance)
+	}
 )
+var (
+	xXGtkNativeGetSurface         func(uintptr) uintptr
+	XGtkNativeGetSurfaceTransform func(uintptr, *float64, *float64) = func(instance uintptr, XVarp *float64, YVarp *float64) {
+		core.LazyRegister(&xXGtkNativeGetSurfaceTransform, "GTK", "gtk_native_get_surface_transform", false)
+		xXGtkNativeGetSurfaceTransform(instance, XVarp, YVarp)
+	}
+)
+var (
+	xXGtkNativeGetSurfaceTransform func(uintptr, *float64, *float64)
+	XGtkNativeRealize              func(uintptr) = func(instance uintptr) {
+		core.LazyRegister(&xXGtkNativeRealize, "GTK", "gtk_native_realize", false)
+		xXGtkNativeRealize(instance)
+	}
+)
+var (
+	xXGtkNativeRealize  func(uintptr)
+	XGtkNativeUnrealize func(uintptr) = func(instance uintptr) {
+		core.LazyRegister(&xXGtkNativeUnrealize, "GTK", "gtk_native_unrealize", false)
+		xXGtkNativeUnrealize(instance)
+	}
+)
+var xXGtkNativeUnrealize func(uintptr)
 
 var xNativeGetForSurface func(uintptr) uintptr
 
 // Finds the `GtkNative` associated with the surface.
 func NativeGetForSurface(SurfaceVar *gdk.Surface) *NativeBase {
+	core.LazyRegister(&xNativeGetForSurface, "GTK", "gtk_native_get_for_surface", false)
 	var cls *NativeBase
 
 	cret := xNativeGetForSurface(SurfaceVar.GoPointer())
@@ -154,22 +182,4 @@ func NativeGetForSurface(SurfaceVar *gdk.Surface) *NativeBase {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GTK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xNativeGetForSurface, libs, "gtk_native_get_for_surface")
-
-	core.PuregoSafeRegister(&xNativeGLibType, libs, "gtk_native_get_type")
-
-	core.PuregoSafeRegister(&XGtkNativeGetRenderer, libs, "gtk_native_get_renderer")
-	core.PuregoSafeRegister(&XGtkNativeGetSurface, libs, "gtk_native_get_surface")
-	core.PuregoSafeRegister(&XGtkNativeGetSurfaceTransform, libs, "gtk_native_get_surface_transform")
-	core.PuregoSafeRegister(&XGtkNativeRealize, libs, "gtk_native_realize")
-	core.PuregoSafeRegister(&XGtkNativeUnrealize, libs, "gtk_native_unrealize")
 }

@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gdk"
 	"github.com/bnema/puregotk/v4/glib"
@@ -94,6 +93,7 @@ type TabBar struct {
 var xTabBarGLibType func() types.GType
 
 func TabBarGLibType() types.GType {
+	core.LazyRegister(&xTabBarGLibType, "ADW", "adw_tab_bar_get_type", false)
 	return xTabBarGLibType()
 }
 
@@ -107,6 +107,7 @@ var xNewTabBar func() uintptr
 
 // Creates a new `AdwTabBar`.
 func NewTabBar() *TabBar {
+	core.LazyRegister(&xNewTabBar, "ADW", "adw_tab_bar_new", false)
 	var cls *TabBar
 
 	cret := xNewTabBar()
@@ -124,6 +125,8 @@ var xTabBarGetAutohide func(uintptr) bool
 
 // Gets whether the tabs automatically hide.
 func (x *TabBar) GetAutohide() bool {
+	core.LazyRegister(&xTabBarGetAutohide, "ADW", "adw_tab_bar_get_autohide", false)
+
 	cret := xTabBarGetAutohide(x.GoPointer())
 	return cret
 }
@@ -132,6 +135,7 @@ var xTabBarGetEndActionWidget func(uintptr) uintptr
 
 // Gets the widget shown after the tabs.
 func (x *TabBar) GetEndActionWidget() *gtk.Widget {
+	core.LazyRegister(&xTabBarGetEndActionWidget, "ADW", "adw_tab_bar_get_end_action_widget", false)
 	var cls *gtk.Widget
 
 	cret := xTabBarGetEndActionWidget(x.GoPointer())
@@ -149,6 +153,8 @@ var xTabBarGetExpandTabs func(uintptr) bool
 
 // Gets whether tabs expand to full width.
 func (x *TabBar) GetExpandTabs() bool {
+	core.LazyRegister(&xTabBarGetExpandTabs, "ADW", "adw_tab_bar_get_expand_tabs", false)
+
 	cret := xTabBarGetExpandTabs(x.GoPointer())
 	return cret
 }
@@ -163,6 +169,8 @@ var xTabBarGetExtraDragPreferredAction func(uintptr) gdk.DragAction
 // The action will be a subset of what was originally passed to
 // [method@TabBar.setup_extra_drop_target].
 func (x *TabBar) GetExtraDragPreferredAction() gdk.DragAction {
+	core.LazyRegister(&xTabBarGetExtraDragPreferredAction, "ADW", "adw_tab_bar_get_extra_drag_preferred_action", false)
+
 	cret := xTabBarGetExtraDragPreferredAction(x.GoPointer())
 	return cret
 }
@@ -171,6 +179,8 @@ var xTabBarGetExtraDragPreload func(uintptr) bool
 
 // Gets whether drop data should be preloaded on hover.
 func (x *TabBar) GetExtraDragPreload() bool {
+	core.LazyRegister(&xTabBarGetExtraDragPreload, "ADW", "adw_tab_bar_get_extra_drag_preload", false)
+
 	cret := xTabBarGetExtraDragPreload(x.GoPointer())
 	return cret
 }
@@ -179,6 +189,8 @@ var xTabBarGetInverted func(uintptr) bool
 
 // Gets whether tabs use inverted layout.
 func (x *TabBar) GetInverted() bool {
+	core.LazyRegister(&xTabBarGetInverted, "ADW", "adw_tab_bar_get_inverted", false)
+
 	cret := xTabBarGetInverted(x.GoPointer())
 	return cret
 }
@@ -189,6 +201,8 @@ var xTabBarGetIsOverflowing func(uintptr) bool
 //
 // If `TRUE`, all tabs cannot be displayed at once and require scrolling.
 func (x *TabBar) GetIsOverflowing() bool {
+	core.LazyRegister(&xTabBarGetIsOverflowing, "ADW", "adw_tab_bar_get_is_overflowing", false)
+
 	cret := xTabBarGetIsOverflowing(x.GoPointer())
 	return cret
 }
@@ -197,6 +211,7 @@ var xTabBarGetStartActionWidget func(uintptr) uintptr
 
 // Gets the widget shown before the tabs.
 func (x *TabBar) GetStartActionWidget() *gtk.Widget {
+	core.LazyRegister(&xTabBarGetStartActionWidget, "ADW", "adw_tab_bar_get_start_action_widget", false)
 	var cls *gtk.Widget
 
 	cret := xTabBarGetStartActionWidget(x.GoPointer())
@@ -216,6 +231,8 @@ var xTabBarGetTabsRevealed func(uintptr) bool
 //
 // See [property@TabBar:autohide].
 func (x *TabBar) GetTabsRevealed() bool {
+	core.LazyRegister(&xTabBarGetTabsRevealed, "ADW", "adw_tab_bar_get_tabs_revealed", false)
+
 	cret := xTabBarGetTabsRevealed(x.GoPointer())
 	return cret
 }
@@ -224,6 +241,7 @@ var xTabBarGetView func(uintptr) uintptr
 
 // Gets the tab view @self controls.
 func (x *TabBar) GetView() *TabView {
+	core.LazyRegister(&xTabBarGetView, "ADW", "adw_tab_bar_get_view", false)
 	var cls *TabView
 
 	cret := xTabBarGetView(x.GoPointer())
@@ -246,6 +264,8 @@ var xTabBarSetAutohide func(uintptr, bool)
 //
 // See [property@TabBar:tabs-revealed].
 func (x *TabBar) SetAutohide(AutohideVar bool) {
+	core.LazyRegister(&xTabBarSetAutohide, "ADW", "adw_tab_bar_set_autohide", false)
+
 	xTabBarSetAutohide(x.GoPointer(), AutohideVar)
 }
 
@@ -253,6 +273,8 @@ var xTabBarSetEndActionWidget func(uintptr, uintptr)
 
 // Sets the widget to show after the tabs.
 func (x *TabBar) SetEndActionWidget(WidgetVar *gtk.Widget) {
+	core.LazyRegister(&xTabBarSetEndActionWidget, "ADW", "adw_tab_bar_set_end_action_widget", false)
+
 	xTabBarSetEndActionWidget(x.GoPointer(), WidgetVar.GoPointer())
 }
 
@@ -263,6 +285,8 @@ var xTabBarSetExpandTabs func(uintptr, bool)
 // If set to `TRUE`, the tabs will always vary width filling the whole width
 // when possible, otherwise tabs will always have the minimum possible size.
 func (x *TabBar) SetExpandTabs(ExpandTabsVar bool) {
+	core.LazyRegister(&xTabBarSetExpandTabs, "ADW", "adw_tab_bar_set_expand_tabs", false)
+
 	xTabBarSetExpandTabs(x.GoPointer(), ExpandTabsVar)
 }
 
@@ -272,6 +296,8 @@ var xTabBarSetExtraDragPreload func(uintptr, bool)
 //
 // See [property@Gtk.DropTarget:preload].
 func (x *TabBar) SetExtraDragPreload(PreloadVar bool) {
+	core.LazyRegister(&xTabBarSetExtraDragPreload, "ADW", "adw_tab_bar_set_extra_drag_preload", false)
+
 	xTabBarSetExtraDragPreload(x.GoPointer(), PreloadVar)
 }
 
@@ -282,6 +308,8 @@ var xTabBarSetInverted func(uintptr, bool)
 // If set to `TRUE`, non-pinned tabs will have the close button at the beginning
 // and the indicator at the end rather than the opposite.
 func (x *TabBar) SetInverted(InvertedVar bool) {
+	core.LazyRegister(&xTabBarSetInverted, "ADW", "adw_tab_bar_set_inverted", false)
+
 	xTabBarSetInverted(x.GoPointer(), InvertedVar)
 }
 
@@ -289,6 +317,8 @@ var xTabBarSetStartActionWidget func(uintptr, uintptr)
 
 // Sets the widget to show before the tabs.
 func (x *TabBar) SetStartActionWidget(WidgetVar *gtk.Widget) {
+	core.LazyRegister(&xTabBarSetStartActionWidget, "ADW", "adw_tab_bar_set_start_action_widget", false)
+
 	xTabBarSetStartActionWidget(x.GoPointer(), WidgetVar.GoPointer())
 }
 
@@ -296,6 +326,8 @@ var xTabBarSetView func(uintptr, uintptr)
 
 // Sets the tab view @self controls.
 func (x *TabBar) SetView(ViewVar *TabView) {
+	core.LazyRegister(&xTabBarSetView, "ADW", "adw_tab_bar_set_view", false)
+
 	xTabBarSetView(x.GoPointer(), ViewVar.GoPointer())
 }
 
@@ -311,6 +343,8 @@ var xTabBarSetupExtraDropTarget func(uintptr, gdk.DragAction, []types.GType, uin
 //
 // The [signal@TabBar::extra-drag-drop] signal can be used to handle the drop.
 func (x *TabBar) SetupExtraDropTarget(ActionsVar gdk.DragAction, TypesVar []types.GType, NTypesVar uint) {
+	core.LazyRegister(&xTabBarSetupExtraDropTarget, "ADW", "adw_tab_bar_setup_extra_drop_target", false)
+
 	xTabBarSetupExtraDropTarget(x.GoPointer(), ActionsVar, TypesVar, NTypesVar)
 }
 
@@ -765,35 +799,4 @@ func (x *TabBar) GetBuildableId() string {
 func init() {
 	core.SetPackageName("ADW", "libadwaita-1")
 	core.SetSharedLibraries("ADW", []string{"libadwaita-1.so.0", "libadwaita-1.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("ADW") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xTabBarGLibType, libs, "adw_tab_bar_get_type")
-
-	core.PuregoSafeRegister(&xNewTabBar, libs, "adw_tab_bar_new")
-
-	core.PuregoSafeRegister(&xTabBarGetAutohide, libs, "adw_tab_bar_get_autohide")
-	core.PuregoSafeRegister(&xTabBarGetEndActionWidget, libs, "adw_tab_bar_get_end_action_widget")
-	core.PuregoSafeRegister(&xTabBarGetExpandTabs, libs, "adw_tab_bar_get_expand_tabs")
-	core.PuregoSafeRegister(&xTabBarGetExtraDragPreferredAction, libs, "adw_tab_bar_get_extra_drag_preferred_action")
-	core.PuregoSafeRegister(&xTabBarGetExtraDragPreload, libs, "adw_tab_bar_get_extra_drag_preload")
-	core.PuregoSafeRegister(&xTabBarGetInverted, libs, "adw_tab_bar_get_inverted")
-	core.PuregoSafeRegister(&xTabBarGetIsOverflowing, libs, "adw_tab_bar_get_is_overflowing")
-	core.PuregoSafeRegister(&xTabBarGetStartActionWidget, libs, "adw_tab_bar_get_start_action_widget")
-	core.PuregoSafeRegister(&xTabBarGetTabsRevealed, libs, "adw_tab_bar_get_tabs_revealed")
-	core.PuregoSafeRegister(&xTabBarGetView, libs, "adw_tab_bar_get_view")
-	core.PuregoSafeRegister(&xTabBarSetAutohide, libs, "adw_tab_bar_set_autohide")
-	core.PuregoSafeRegister(&xTabBarSetEndActionWidget, libs, "adw_tab_bar_set_end_action_widget")
-	core.PuregoSafeRegister(&xTabBarSetExpandTabs, libs, "adw_tab_bar_set_expand_tabs")
-	core.PuregoSafeRegister(&xTabBarSetExtraDragPreload, libs, "adw_tab_bar_set_extra_drag_preload")
-	core.PuregoSafeRegister(&xTabBarSetInverted, libs, "adw_tab_bar_set_inverted")
-	core.PuregoSafeRegister(&xTabBarSetStartActionWidget, libs, "adw_tab_bar_set_start_action_widget")
-	core.PuregoSafeRegister(&xTabBarSetView, libs, "adw_tab_bar_set_view")
-	core.PuregoSafeRegister(&xTabBarSetupExtraDropTarget, libs, "adw_tab_bar_setup_extra_drop_target")
 }
