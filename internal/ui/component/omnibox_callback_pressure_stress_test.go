@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"encoding/json"
 	"os"
-	"strings"
 	"testing"
 	"time"
 
@@ -72,6 +71,7 @@ func runGTKCallbackLifecycleStressOnMain(t *testing.T, mainContext *glib.MainCon
 	root.Append(&p0.Widget)
 	assertMainContextOwner()
 	root.Append(&p3.Widget)
+	ledgerStart := len(readCallbackLedgerEvents(t, ledgerPath))
 
 	enters, leaves := 0, 0
 	for i := 0; i < gtkCallbackStressIterations; i++ {
@@ -119,12 +119,9 @@ func runGTKCallbackLifecycleStressOnMain(t *testing.T, mainContext *glib.MainCon
 	require.Equal(t, gtkCallbackStressIterations, enters)
 	require.Equal(t, gtkCallbackStressIterations, leaves)
 
-	events := readCallbackLedgerEvents(t, ledgerPath)
+	events := readCallbackLedgerEvents(t, ledgerPath)[ledgerStart:]
 	var tickReleases, tickReuses int
 	for _, event := range events {
-		if !strings.Contains(event.Type, "TickCallback") {
-			continue
-		}
 		switch event.Event {
 		case "release-fnptr", "release":
 			tickReleases++
@@ -135,7 +132,9 @@ func runGTKCallbackLifecycleStressOnMain(t *testing.T, mainContext *glib.MainCon
 		}
 	}
 	require.Equal(t, gtkCallbackStressIterations, tickReleases, "every raw GTK tick slot must be released exactly once")
-	require.GreaterOrEqual(t, tickReuses, gtkCallbackStressIterations-1, "released raw tick slots must be reused")
+	// The first motion-controller connection may initialize one shared GTK
+	// trampoline after the baseline; every subsequent raw tick slot is reused.
+	require.GreaterOrEqual(t, tickReuses, gtkCallbackStressIterations-2, "released raw tick slots must be reused")
 }
 
 func readCallbackLedgerEvents(t *testing.T, path string) []callbackLedgerEvent {
