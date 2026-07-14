@@ -108,7 +108,7 @@ func runGTKCallbackLifecycleStressOnMain(t *testing.T, mainContext *glib.MainCon
 		assertMainContextOwner()
 		gobject.SignalHandlerDisconnect(gobject.ObjectNewFromInternalPtr(controller.GoPointer()), leaveID)
 		assertMainContextOwner()
-		pane.Widget.RemoveController(&controller.EventController)
+		pane.RemoveController(&controller.EventController)
 
 		// Alternate p3 <-> p0 close/rebuild mutations on the same main context.
 		assertMainContextOwner()
