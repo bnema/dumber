@@ -45,6 +45,10 @@ func NewEngine(
 ) (*Engine, error) {
 	logger := logging.FromContext(ctx)
 	stateRoot := resolvedStateRoot(paths.StateRoot, opts)
+	if consumeNextStartSafetyMarker(stateRoot) {
+		applyNextStartSafetyEnvironment()
+		logger.Warn().Str("state_root", stateRoot).Msg("cef: applying next-start GPU safety recovery")
+	}
 	cleanStaleSingletonLocks(logger, stateRoot)
 	windowlessFrameRate := normalizedWindowlessFrameRate(cfg.WindowlessFrameRate)
 	renderStackPlan, err := resolveCEFRenderStackPlan(cfg.RenderStack)
@@ -67,6 +71,7 @@ func NewEngine(
 		ctx:                    ctx,
 		profileLogDir:          paths.ProfileLogDir,
 		runtimeCEFDir:          settings.CEFDir,
+		stateRoot:              stateRoot,
 		renderStackPlan:        renderStackPlan,
 		applicationScale:       normalizedApplicationScale(cfg.ApplicationScale),
 		registerHandlers:       deps.RegisterHandlers,

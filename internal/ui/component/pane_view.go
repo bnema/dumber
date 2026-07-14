@@ -516,6 +516,7 @@ func (pv *PaneView) Cleanup() {
 	pv.onFocusIn = nil
 	pv.onFocusOut = nil
 	pv.onHover = nil
+	pv.onMouseMotion = nil
 
 	// Detach hover handler if present
 	if pv.hoverHandler != nil {
@@ -530,6 +531,10 @@ func (pv *PaneView) Cleanup() {
 	}
 
 	// Clear other overlay children
+	if pv.loading != nil {
+		pv.overlay.RemoveOverlay(pv.loading.Widget())
+		pv.loading = nil
+	}
 	if pv.progressBar != nil {
 		pv.overlay.RemoveOverlay(pv.progressBar.Widget())
 		pv.progressBar = nil

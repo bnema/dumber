@@ -448,12 +448,30 @@ func isBrowseRelaunchCommandLine(commandLine purecef.CommandLine) bool {
 	return len(args) >= 2 && args[1] == "browse"
 }
 
+func isGPUProcessRelaunchCommandLine(commandLine purecef.CommandLine) bool {
+	if commandLine == nil {
+		return false
+	}
+	for _, arg := range parseRelaunchCommandLineArgs(commandLine.GetCommandLineString()) {
+		if arg == "--type=gpu-process" {
+			return true
+		}
+	}
+	return false
+}
+
 func parseBrowseURLFromRelaunchCommandLine(commandLine purecef.CommandLine) string {
 	browseURL, _ := parseBrowseRelaunchCommandLine(commandLine)
 	return browseURL
 }
 
 func (h *dumberBPH) OnAlreadyRunningAppRelaunch(commandLine purecef.CommandLine, _ string) int32 {
+	if isGPUProcessRelaunchCommandLine(commandLine) {
+		if h != nil && h.engine != nil {
+			h.engine.recordGPURelaunch()
+		}
+		return 0
+	}
 	if browseURL, ok := parseBrowseRelaunchCommandLine(commandLine); ok {
 		if h != nil && h.engine != nil {
 			if handler := h.engine.alreadyRunningAppRelaunchCallback(); handler != nil {

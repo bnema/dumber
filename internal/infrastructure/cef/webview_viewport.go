@@ -24,6 +24,38 @@ type pendingBrowserCreateObservedSizeBridge interface {
 	RefreshObservedSizeOnGTKThread() (int32, int32)
 }
 
+// viewportWidgetVisibility is the effective GTK state of a widget in its
+// hierarchy. Gtk.Widget.IsVisible already includes ancestor visibility; mapped
+// is checked separately because a visible widget can still be unmapped.
+type viewportWidgetVisibility struct {
+	visible bool
+	mapped  bool
+}
+
+func effectiveViewportVisibility(states []viewportWidgetVisibility) bool {
+	if len(states) == 0 {
+		return false
+	}
+	for _, state := range states {
+		if !state.visible || !state.mapped {
+			return false
+		}
+	}
+	return true
+}
+
+func effectiveViewportWidgetVisibility(widget *gtk.Widget) bool {
+	if widget == nil {
+		return false
+	}
+	// IsVisible is GTK's ancestor-aware visibility predicate. Pairing it with
+	// GetMapped makes hidden/unmapped ancestors effective CEF-hidden states.
+	return effectiveViewportVisibility([]viewportWidgetVisibility{{
+		visible: widget.IsVisible(),
+		mapped:  widget.GetMapped(),
+	}})
+}
+
 const (
 	// pendingBrowserCreateObservedSizeRetryDelay spaces retries while waiting
 	// for the GTK bridge to observe the widget's allocated size.
@@ -129,7 +161,7 @@ func (wv *WebView) syncViewportNowOnGTK(ctx context.Context, reason string) bool
 	}
 
 	widget := wv.viewBridge.Widget()
-	visible := widget != nil && widget.IsVisible()
+	visible := effectiveViewportWidgetVisibility(widget)
 	wv.notifyViewportSyncOnCEFUIThread(host, visible)
 	wv.syncZoomForBackingScaleOnCEFUIThread(host, reason)
 	logging.FromContext(ctx).Debug().
@@ -437,12 +469,20 @@ func (wv *WebView) installViewportSyncHooksOnGTKThread() {
 	wv.viewportShowFunc = func(gtk.Widget) {
 		wv.SyncViewport(wv.ctx, "gtk-show")
 	}
+	wv.viewportHideFunc = func(gtk.Widget) {
+		wv.SyncViewport(wv.ctx, "gtk-hide")
+	}
+	wv.viewportUnmapFunc = func(gtk.Widget) {
+		wv.SyncViewport(wv.ctx, "gtk-unmap")
+	}
 	wv.viewportRealizeFunc = func(gtk.Widget) {
 		wv.SyncViewport(wv.ctx, "gtk-realize")
 	}
 
 	wv.viewportMapSignalID = widget.ConnectMap(&wv.viewportMapFunc)
 	wv.viewportShowSignalID = widget.ConnectShow(&wv.viewportShowFunc)
+	wv.viewportHideSignalID = widget.ConnectHide(&wv.viewportHideFunc)
+	wv.viewportUnmapSignalID = widget.ConnectUnmap(&wv.viewportUnmapFunc)
 	wv.viewportRealizeSignalID = widget.ConnectRealize(&wv.viewportRealizeFunc)
 }
 
@@ -463,6 +503,14 @@ func (wv *WebView) disconnectViewportSyncHooksOnGTKThread() {
 				gobject.SignalHandlerDisconnect(obj, wv.viewportShowSignalID)
 				wv.viewportShowSignalID = 0
 			}
+			if wv.viewportHideSignalID != 0 {
+				gobject.SignalHandlerDisconnect(obj, wv.viewportHideSignalID)
+				wv.viewportHideSignalID = 0
+			}
+			if wv.viewportUnmapSignalID != 0 {
+				gobject.SignalHandlerDisconnect(obj, wv.viewportUnmapSignalID)
+				wv.viewportUnmapSignalID = 0
+			}
 			if wv.viewportRealizeSignalID != 0 {
 				gobject.SignalHandlerDisconnect(obj, wv.viewportRealizeSignalID)
 				wv.viewportRealizeSignalID = 0
@@ -471,6 +519,8 @@ func (wv *WebView) disconnectViewportSyncHooksOnGTKThread() {
 	}
 	wv.viewportMapFunc = nil
 	wv.viewportShowFunc = nil
+	wv.viewportHideFunc = nil
+	wv.viewportUnmapFunc = nil
 	wv.viewportRealizeFunc = nil
 }
 
@@ -488,7 +538,8 @@ func (wv *WebView) notifyViewportSyncOnCEFUIThread(host viewportSyncBrowserHost,
 		if currentHost != host {
 			return
 		}
-		notifyBrowserViewportSync(host, visible)
+		wv.applyEffectiveVisibility(host, visible)
+		notifyBrowserViewportResize(host)
 	}))
 	if task == nil {
 		return
@@ -524,6 +575,28 @@ func (wv *WebView) syncZoomForBackingScaleOnCEFUIThread(host purecef.BrowserHost
 		return
 	}
 	cefPostDelayedTask(purecef.ThreadIDTidUi, task, 0)
+}
+
+// applyEffectiveVisibility reports the initial effective visibility and later
+// transitions exactly once. CEF OSR begins hidden, so even an initially hidden
+// GTK widget must be explicitly reported to keep both lifecycles aligned.
+func (wv *WebView) applyEffectiveVisibility(host viewportSyncBrowserHost, visible bool) {
+	if wv == nil || host == nil || wv.destroyed.Load() {
+		return
+	}
+	wv.mu.Lock()
+	if wv.effectiveVisibilityKnown && wv.effectiveVisible == visible {
+		wv.mu.Unlock()
+		return
+	}
+	wv.effectiveVisibilityKnown = true
+	wv.effectiveVisible = visible
+	wv.mu.Unlock()
+	if visible {
+		host.WasHidden(0)
+		return
+	}
+	host.WasHidden(1)
 }
 
 func notifyBrowserViewportSync(host viewportSyncBrowserHost, visible bool) {

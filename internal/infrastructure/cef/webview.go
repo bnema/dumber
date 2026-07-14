@@ -39,6 +39,10 @@ var (
 // errDestroyed is returned when an operation is attempted on a destroyed WebView.
 var errDestroyed = errors.New("cef: webview is destroyed")
 
+// unrefTickCallback is the canonical puregotk/purego callback-slot release.
+// It remains injectable so lifecycle tests can prove exactly-once ownership.
+var unrefTickCallback = glib.UnrefCallback
+
 // errNoBrowser is returned when the browser has not been created yet.
 var errNoBrowser = errors.New("cef: browser not yet created")
 
@@ -107,11 +111,19 @@ type WebView struct {
 	viewportSyncReason      string
 	viewportMapFunc         func(gtk.Widget)
 	viewportShowFunc        func(gtk.Widget)
+	viewportHideFunc        func(gtk.Widget)
+	viewportUnmapFunc       func(gtk.Widget)
 	viewportRealizeFunc     func(gtk.Widget)
 	viewportMapSignalID     uint
 	viewportShowSignalID    uint
+	viewportHideSignalID    uint
+	viewportUnmapSignalID   uint
 	viewportRealizeSignalID uint
 	viewportResizePulseSeq  atomic.Uint64
+	// effectiveVisibility records the last CEF WasHidden state dispatched. It
+	// is guarded by mu because GTK and CEF UI work cross threads.
+	effectiveVisibilityKnown bool
+	effectiveVisible         bool
 
 	adaptiveWindowlessFrameRate bool
 	windowlessFrameRateMax      int32
@@ -2067,12 +2079,14 @@ func (wv *WebView) startBeginFrameLoop() {
 	cb := new(gtk.TickCallback)
 	*cb = func(_, _, _ uintptr) bool {
 		if wv.destroyed.Load() {
+			wv.releaseBeginFrameTickCallback()
 			return false
 		}
 		wv.mu.RLock()
 		host := wv.host
 		wv.mu.RUnlock()
 		if host == nil {
+			wv.releaseBeginFrameTickCallback()
 			return false
 		}
 		host.SendExternalBeginFrame()
@@ -2095,19 +2109,34 @@ func (wv *WebView) startBeginFrameLoop() {
 }
 
 func (wv *WebView) stopBeginFrameLoop() {
-	if wv.viewBridge == nil || wv.viewBridge.Widget() == nil {
-		return
-	}
-
 	wv.mu.Lock()
 	tickID := wv.beginFrameTickID
+	callback := wv.beginFrameTick
 	wv.beginFrameTickID = 0
 	wv.beginFrameTick = nil
-	widget := wv.viewBridge.Widget()
+	bridge := wv.viewBridge
 	wv.mu.Unlock()
 
-	if tickID != 0 {
-		widget.RemoveTickCallback(tickID)
+	if tickID != 0 && bridge != nil {
+		if widget := bridge.Widget(); widget != nil {
+			widget.RemoveTickCallback(tickID)
+		}
+	}
+	if callback != nil {
+		_ = unrefTickCallback(callback)
+	}
+}
+
+// releaseBeginFrameTickCallback releases the purego callback slot after GTK
+// removes a source because its callback returned false.
+func (wv *WebView) releaseBeginFrameTickCallback() {
+	wv.mu.Lock()
+	callback := wv.beginFrameTick
+	wv.beginFrameTickID = 0
+	wv.beginFrameTick = nil
+	wv.mu.Unlock()
+	if callback != nil {
+		_ = unrefTickCallback(callback)
 	}
 }
 

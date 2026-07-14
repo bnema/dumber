@@ -819,9 +819,8 @@ func (h *handlerSet) attachAfterCreatedBrowser(
 		})
 	}
 
-	// Mark browser as visible — CEF OSR starts in hidden state and suppresses
-	// painting/caret updates until explicitly told the browser is shown.
-	host.WasHidden(0)
+	// CEF OSR starts hidden. SyncViewport reads GTK's mapped, ancestor-aware
+	// effective state on the main context and reports that truthful initial state.
 	if h.wv != nil {
 		if h.wv.ctx != nil {
 			logging.FromContext(h.wv.ctx).Info().

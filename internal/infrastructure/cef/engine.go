@@ -31,6 +31,7 @@ type Engine struct {
 	pool               *WebViewPool
 	profileLogDir      string
 	runtimeCEFDir      string
+	stateRoot          string
 	renderStackPlan    cef2gtk.RenderStackPlan
 	applicationScaleMu sync.RWMutex
 	applicationScale   float64
@@ -54,6 +55,7 @@ type Engine struct {
 	downloadHandler                  *downloadHandler
 	alreadyRunningAppRelaunchMu      sync.RWMutex
 	alreadyRunningAppRelaunchHandler func(string)
+	gpuRelaunchCount                 atomic.Int32
 
 	// activeWebViews tracks all live webviews for CSS broadcast.
 	activeWebViews  sync.Map // map[port.WebViewID]*WebView
@@ -143,6 +145,17 @@ func (e *Engine) alreadyRunningAppRelaunchCallback() func(string) {
 	e.alreadyRunningAppRelaunchMu.RLock()
 	defer e.alreadyRunningAppRelaunchMu.RUnlock()
 	return e.alreadyRunningAppRelaunchHandler
+}
+
+// recordGPURelaunch asks the next engine start to use Chromium's conservative
+// defaults after two GPU-process relaunch attempts in one running instance.
+func (e *Engine) recordGPURelaunch() {
+	if e == nil || e.gpuRelaunchCount.Add(1) != 2 {
+		return
+	}
+	if err := writeNextStartSafetyMarker(e.stateRoot); err != nil {
+		logging.FromContext(e.ctx).Warn().Err(err).Msg("cef: failed to mark next start safe after repeated GPU relaunch")
+	}
 }
 
 // registerWebView adds a webview to the active tracking map.
