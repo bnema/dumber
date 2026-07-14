@@ -1189,31 +1189,19 @@ func (h *handlerSet) buildAudioStreamFormat(params *purecef.AudioParameters, cha
 	}
 }
 
-// OnAudioStreamPacket receives audio packets and forwards them to the output stream.
-// The mutex is held across both the stream snapshot and Write to prevent
-// closeAudioStream from closing the stream mid-write.
+// OnAudioStreamPacket hands CEF's callback-owned packet to the active output.
+// AudioOutputStream takes its one owned copy synchronously. The stream lock is
+// only held for the snapshot, so neither copying nor the callback is serialized
+// behind lifecycle work; Write and Close are a port-level concurrent contract.
 func (h *handlerSet) OnAudioStreamPacket(_ purecef.Browser, data [][]float32, frames int32, pts int64) {
 	if len(data) == 0 || frames <= 0 {
 		return
 	}
 
-	// Copy the data before acquiring the stream lock because CEF can reuse the
-	// buffer as soon as this callback returns.
-	copiedData := make([][]float32, len(data))
-	for i, channel := range data {
-		if len(channel) < int(frames) {
-			continue
-		}
-		copiedData[i] = make([]float32, frames)
-		copy(copiedData[i], channel[:frames])
-	}
-
-	// Hold the lock across the stream read and Write so closeAudioStream
-	// cannot close the stream between snapshot and write.
 	h.wv.audioStreamMu.Lock()
 	stream := h.wv.activeAudioStream
+	h.wv.audioStreamMu.Unlock()
 	if stream == nil {
-		h.wv.audioStreamMu.Unlock()
 		return
 	}
 
@@ -1226,8 +1214,7 @@ func (h *handlerSet) OnAudioStreamPacket(_ purecef.Browser, data [][]float32, fr
 			Msg("cef: first audio packet received")
 	}
 
-	err := stream.Write(copiedData)
-	h.wv.audioStreamMu.Unlock()
+	err := stream.Write(data)
 
 	if err != nil {
 		if h.wv.ctx != nil {

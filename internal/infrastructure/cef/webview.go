@@ -2331,20 +2331,18 @@ func (wv *WebView) takePendingCreate() *pendingBrowserCreate {
 	return pc
 }
 
-// closeAudioStream closes and clears the active audio output stream.
-// This is safe to call even if no stream is active.
+// closeAudioStream detaches then closes the active output stream. Detaching
+// under the lock keeps packet snapshots consistent without holding the lock
+// while PipeWire shutdown runs; the port guarantees Close/Write safety.
 func (wv *WebView) closeAudioStream() {
 	wv.audioStreamMu.Lock()
-	defer wv.audioStreamMu.Unlock()
+	stream := wv.activeAudioStream
+	wv.activeAudioStream = nil
+	wv.audioStreamMu.Unlock()
 
-	if wv.activeAudioStream != nil {
-		if err := wv.activeAudioStream.Close(); err != nil {
-			if wv.ctx != nil {
-				logging.FromContext(wv.ctx).Debug().
-					Err(err).
-					Msg("cef: error closing audio stream")
-			}
+	if stream != nil {
+		if err := stream.Close(); err != nil && wv.ctx != nil {
+			logging.FromContext(wv.ctx).Debug().Err(err).Msg("cef: error closing audio stream")
 		}
-		wv.activeAudioStream = nil
 	}
 }
