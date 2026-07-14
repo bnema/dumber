@@ -39,6 +39,10 @@ var (
 // errDestroyed is returned when an operation is attempted on a destroyed WebView.
 var errDestroyed = errors.New("cef: webview is destroyed")
 
+// unrefTickCallback is the canonical puregotk/purego callback-slot release.
+// It remains injectable so lifecycle tests can prove exactly-once ownership.
+var unrefTickCallback = glib.UnrefCallback
+
 // errNoBrowser is returned when the browser has not been created yet.
 var errNoBrowser = errors.New("cef: browser not yet created")
 
@@ -2103,26 +2107,33 @@ func (wv *WebView) startBeginFrameLoop() {
 func (wv *WebView) stopBeginFrameLoop() {
 	wv.mu.Lock()
 	tickID := wv.beginFrameTickID
+	callback := wv.beginFrameTick
 	wv.beginFrameTickID = 0
 	wv.beginFrameTick = nil
 	bridge := wv.viewBridge
 	wv.mu.Unlock()
 
-	if tickID == 0 || bridge == nil {
-		return
+	if tickID != 0 && bridge != nil {
+		if widget := bridge.Widget(); widget != nil {
+			widget.RemoveTickCallback(tickID)
+		}
 	}
-	if widget := bridge.Widget(); widget != nil {
-		widget.RemoveTickCallback(tickID)
+	if callback != nil {
+		_ = unrefTickCallback(callback)
 	}
 }
 
-// releaseBeginFrameTickCallback releases the Go callback reference after GTK
+// releaseBeginFrameTickCallback releases the purego callback slot after GTK
 // removes a source because its callback returned false.
 func (wv *WebView) releaseBeginFrameTickCallback() {
 	wv.mu.Lock()
+	callback := wv.beginFrameTick
 	wv.beginFrameTickID = 0
 	wv.beginFrameTick = nil
 	wv.mu.Unlock()
+	if callback != nil {
+		_ = unrefTickCallback(callback)
+	}
 }
 
 func (wv *WebView) runOnGTK(fn func()) {
