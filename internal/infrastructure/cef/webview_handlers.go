@@ -819,10 +819,10 @@ func (h *handlerSet) attachAfterCreatedBrowser(
 		})
 	}
 
-	// Mark browser as visible — CEF OSR starts in hidden state and suppresses
-	// painting/caret updates until explicitly told the browser is shown.
-	host.WasHidden(0)
+	// CEF OSR starts hidden; record the initial effective state before viewport
+	// synchronization so the following visible sync is deduplicated.
 	if h.wv != nil {
+		h.wv.applyEffectiveVisibility(host, true)
 		if h.wv.ctx != nil {
 			logging.FromContext(h.wv.ctx).Info().
 				Int32("windowless_frame_rate_configured", host.GetWindowlessFrameRate()).

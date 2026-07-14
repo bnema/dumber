@@ -112,6 +112,10 @@ type WebView struct {
 	viewportShowSignalID    uint
 	viewportRealizeSignalID uint
 	viewportResizePulseSeq  atomic.Uint64
+	// effectiveVisibility records the last CEF WasHidden state dispatched. It
+	// is guarded by mu because GTK and CEF UI work cross threads.
+	effectiveVisibilityKnown bool
+	effectiveVisible         bool
 
 	adaptiveWindowlessFrameRate bool
 	windowlessFrameRateMax      int32

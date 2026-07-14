@@ -488,7 +488,8 @@ func (wv *WebView) notifyViewportSyncOnCEFUIThread(host viewportSyncBrowserHost,
 		if currentHost != host {
 			return
 		}
-		notifyBrowserViewportSync(host, visible)
+		wv.applyEffectiveVisibility(host, visible)
+		notifyBrowserViewportResize(host)
 	}))
 	if task == nil {
 		return
@@ -524,6 +525,28 @@ func (wv *WebView) syncZoomForBackingScaleOnCEFUIThread(host purecef.BrowserHost
 		return
 	}
 	cefPostDelayedTask(purecef.ThreadIDTidUi, task, 0)
+}
+
+// applyEffectiveVisibility reports the initial effective visibility and later
+// transitions exactly once. CEF OSR begins hidden, so even an initially hidden
+// GTK widget must be explicitly reported to keep both lifecycles aligned.
+func (wv *WebView) applyEffectiveVisibility(host viewportSyncBrowserHost, visible bool) {
+	if wv == nil || host == nil || wv.destroyed.Load() {
+		return
+	}
+	wv.mu.Lock()
+	if wv.effectiveVisibilityKnown && wv.effectiveVisible == visible {
+		wv.mu.Unlock()
+		return
+	}
+	wv.effectiveVisibilityKnown = true
+	wv.effectiveVisible = visible
+	wv.mu.Unlock()
+	if visible {
+		host.WasHidden(0)
+		return
+	}
+	host.WasHidden(1)
 }
 
 func notifyBrowserViewportSync(host viewportSyncBrowserHost, visible bool) {
