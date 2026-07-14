@@ -118,6 +118,7 @@ aur/*/LICENSE
 aur/*/dev.bnema.Dumber.desktop
 aur/*/logo-512.png
 
-# Planning/runbook notes stored outside product docs
+# Planning/runbook notes and generated roadmap evidence stored outside the repository
 docs/reference/stability-performance-multi-agent-runbook-*.md
+/phase1/
 perf.data
