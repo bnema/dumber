@@ -20,6 +20,92 @@ const validFirstPresentationLog = `{"message":"startup_trace: milestone","milest
 {"message":"startup_trace: milestone","milestone":"first_gtk_presentation","t_ms":7,"delta_ms":1}
 {"message":"startup_trace: first presentation","backend":"gdk-dmabuf","incomplete_reason":"","total_ms":7,"host":"alice"}`
 
+func TestFirstPresentationCollectorNeverRecursivelyDeletesCallerOutput(t *testing.T) {
+	repoRoot, err := filepath.Abs(filepath.Join("..", ".."))
+	require.NoError(t, err)
+	script, err := os.ReadFile(filepath.Join(repoRoot, "scripts", "collect_first_presentation.sh"))
+	require.NoError(t, err)
+	require.NotContains(t, string(script), "rm -rf \"$output\"")
+	require.NotContains(t, string(script), "rm -rf -- \"$output\"")
+}
+
+func TestFirstPresentationCollectorRejectsUnsafeOutputPaths(t *testing.T) {
+	repoRoot, err := filepath.Abs(filepath.Join("..", ".."))
+	require.NoError(t, err)
+	temp := t.TempDir()
+	runtime := filepath.Join(temp, "cef-147-runtime")
+	require.NoError(t, os.Mkdir(runtime, 0o755))
+	binary := filepath.Join(temp, "dumber")
+	require.NoError(t, os.WriteFile(binary, collectorTestBinary(validFirstPresentationLog), 0o755))
+	home := filepath.Join(temp, "home")
+	require.NoError(t, os.Mkdir(home, 0o755))
+
+	unrelated := filepath.Join(temp, "unrelated")
+	require.NoError(t, os.Mkdir(unrelated, 0o755))
+	unrelatedSentinel := filepath.Join(unrelated, "keep")
+	require.NoError(t, os.WriteFile(unrelatedSentinel, []byte("do not delete"), 0o600))
+
+	safeParent := filepath.Join(temp, "safe")
+	require.NoError(t, os.Mkdir(safeParent, 0o755))
+	parentSentinel := filepath.Join(safeParent, "keep")
+	require.NoError(t, os.WriteFile(parentSentinel, []byte("do not delete"), 0o600))
+
+	external := filepath.Join(temp, "external")
+	require.NoError(t, os.Mkdir(external, 0o755))
+	externalSentinel := filepath.Join(external, "keep")
+	require.NoError(t, os.WriteFile(externalSentinel, []byte("do not delete"), 0o600))
+	link := filepath.Join(temp, "link")
+	require.NoError(t, os.Symlink(external, link))
+
+	for _, test := range []struct {
+		name   string
+		output string
+		verify func(t *testing.T)
+	}{
+		{name: "empty", output: ""},
+		{name: "root", output: "/"},
+		{name: "home", output: home},
+		{name: "existing unrelated directory", output: unrelated, verify: func(t *testing.T) {
+			requireFileContents(t, unrelatedSentinel, "do not delete")
+		}},
+		{name: "parent traversal", output: safeParent + "/../escaped", verify: func(t *testing.T) {
+			requireFileContents(t, parentSentinel, "do not delete")
+			require.NoFileExists(t, filepath.Join(temp, "escaped"))
+		}},
+		{name: "symlink escape", output: filepath.Join(link, "escaped"), verify: func(t *testing.T) {
+			requireFileContents(t, externalSentinel, "do not delete")
+			require.NoFileExists(t, filepath.Join(external, "escaped"))
+		}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			cmd := exec.Command(filepath.Join(repoRoot, "scripts", "collect_first_presentation.sh"))
+			// An isolated directory prevents a regression from reaching the tracked
+			// default artifact path while this test proves output validation is first.
+			cmd.Dir = temp
+			cmd.Env = append(os.Environ(),
+				"HOME="+home,
+				"DISPLAY=:test",
+				"DUMBER_CEF_DIR="+runtime,
+				"DUMBER_FIRST_PRESENTATION_BIN="+binary,
+				"DUMBER_FIRST_PRESENTATION_OUTPUT="+test.output,
+			)
+			result, err := cmd.CombinedOutput()
+			require.Errorf(t, err, "collector accepted unsafe output %q: %s", test.output, result)
+			require.Contains(t, string(result), "unsafe output path")
+			if test.verify != nil {
+				test.verify(t)
+			}
+		})
+	}
+}
+
+func requireFileContents(t *testing.T, path, want string) {
+	t.Helper()
+	contents, err := os.ReadFile(path)
+	require.NoError(t, err)
+	require.Equal(t, want, string(contents))
+}
+
 func TestFirstPresentationCollectorSanitizesMachineLocalValues(t *testing.T) {
 	repoRoot, err := filepath.Abs(filepath.Join("..", ".."))
 	require.NoError(t, err)

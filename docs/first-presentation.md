@@ -25,10 +25,13 @@ Build the candidate, then run:
 
 ```bash
 DUMBER_FIRST_PRESENTATION_BIN="$PWD/dist/dumber" \
+DUMBER_FIRST_PRESENTATION_OUTPUT="$PWD/phase1/first-presentation-$(date +%s)" \
   scripts/collect_first_presentation.sh
 ```
 
-The script requires the current display and the CEF 147 runtime at
+The output directory must be a new, absolute directory below an existing
+non-symlink parent. The collector refuses to clear or reuse a caller-supplied
+path; review and publish a fresh collection explicitly. The script requires the current display and the CEF 147 runtime at
 `~/.local/share/cef-147-runtime` (override with `DUMBER_CEF_DIR`). It performs
 exactly five bounded launches with fresh XDG homes and CEF root cache, fixes the
 DMABUF/Vulkan environment, and writes `metadata.json`, `run-01.json` through

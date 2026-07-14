@@ -8,10 +8,49 @@ readonly runs=5
 readonly timeout_seconds="${DUMBER_FIRST_PRESENTATION_TIMEOUT_SECONDS:-45}"
 readonly runtime="${DUMBER_CEF_DIR:-$HOME/.local/share/cef-147-runtime}"
 readonly binary="${DUMBER_FIRST_PRESENTATION_BIN:-$PWD/dist/dumber}"
-readonly output="${DUMBER_FIRST_PRESENTATION_OUTPUT:-$PWD/phase1/first-presentation}"
+if [[ -v DUMBER_FIRST_PRESENTATION_OUTPUT ]]; then
+  output="$DUMBER_FIRST_PRESENTATION_OUTPUT"
+else
+  output="$PWD/phase1/first-presentation"
+fi
+readonly output
 readonly upstream_module="github.com/bnema/purego-cef2gtk"
 readonly upstream_tag="v0.8.4"
 readonly upstream_revision="f217ece342dea3ef2a3f98671fcd16a39ad0037d"
+
+fail_unsafe_output() {
+  echo "first-presentation: unsafe output path: $1" >&2
+  exit 2
+}
+
+# The artifact destination is caller-controlled. Never empty or recursively
+# clear it: collection only writes to a newly-created directory whose parent is
+# already canonical and contains no symbolic-link hop.
+prepare_output() {
+  local parent name canonical_parent canonical_output
+
+  [[ -n "$output" ]] || fail_unsafe_output "path must not be empty"
+  [[ "$output" == /* ]] || fail_unsafe_output "path must be absolute"
+  [[ "$output" != "/" ]] || fail_unsafe_output "path must not be /"
+  [[ "${output%/}" != "${HOME%/}" ]] || fail_unsafe_output "path must not be HOME"
+  [[ "$output" != .. && "$output" != ../* && "$output" != */.. && "$output" != */../* ]] || \
+    fail_unsafe_output "path must not contain parent traversal"
+  [[ ! -e "$output" && ! -L "$output" ]] || fail_unsafe_output "path must be a fresh directory"
+
+  parent="$(dirname -- "$output")"
+  name="$(basename -- "$output")"
+  [[ -n "$name" && "$name" != "." && "$name" != ".." ]] || fail_unsafe_output "invalid directory name"
+  [[ -d "$parent" && ! -L "$parent" ]] || fail_unsafe_output "parent must be an existing directory"
+  canonical_parent="$(realpath -e -- "$parent")" || fail_unsafe_output "parent cannot be canonicalized"
+  [[ "$parent" == "$canonical_parent" ]] || fail_unsafe_output "parent must not contain symbolic links"
+
+  mkdir -- "$output" || fail_unsafe_output "could not create fresh directory"
+  canonical_output="$(realpath -e -- "$output")" || fail_unsafe_output "created directory cannot be canonicalized"
+  [[ -d "$output" && ! -L "$output" && "$canonical_output" == "$canonical_parent/$name" ]] || \
+    fail_unsafe_output "created directory changed unexpectedly"
+}
+
+prepare_output
 
 [[ -x "$binary" ]] || { echo "first-presentation: executable not found: $binary" >&2; exit 2; }
 [[ -d "$runtime" ]] || { echo "first-presentation: CEF runtime not found: $runtime" >&2; exit 2; }
@@ -21,12 +60,14 @@ readonly upstream_revision="f217ece342dea3ef2a3f98671fcd16a39ad0037d"
   exit 2
 }
 
-rm -rf "$output"
-mkdir -p "$output"
 # Raw logs and temporary XDG homes may contain machine-local paths. Keep them
 # outside the committed artifact directory and always remove them.
-work_root="$(mktemp -d "${TMPDIR:-/tmp}/dumber-first-presentation.XXXXXX")"
-trap 'rm -rf "$work_root"' EXIT
+readonly work_root="$(mktemp -d "${TMPDIR:-/tmp}/dumber-first-presentation.XXXXXX")"
+cleanup_work_root() {
+  [[ -n "${work_root:-}" && -d "$work_root" && ! -L "$work_root" ]] || return
+  rm -rf -- "$work_root"
+}
+trap cleanup_work_root EXIT
 python3 - "$output/metadata.json" "$binary" "$timeout_seconds" "$upstream_module" "$upstream_tag" "$upstream_revision" <<'PY'
 import hashlib, json, os, subprocess, sys
 path, binary, timeout, upstream_module, upstream_tag, upstream_revision = sys.argv[1:]
