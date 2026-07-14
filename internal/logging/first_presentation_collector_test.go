@@ -134,9 +134,9 @@ func TestFirstPresentationCollectorSanitizesMachineLocalValues(t *testing.T) {
 
 	var artifacts strings.Builder
 	for _, name := range append([]string{"metadata.json", "baseline.json"}, runArtifactNames()...) {
-		contents, err := os.ReadFile(filepath.Join(output, name))
-		require.NoError(t, err)
-		artifacts.Write(contents)
+		artifactContents, readErr := os.ReadFile(filepath.Join(output, name))
+		require.NoError(t, readErr)
+		artifacts.Write(artifactContents)
 	}
 	for _, forbidden := range []string{"/home/", temp, "alice", "machine_path", `"time"`} {
 		require.NotContainsf(t, artifacts.String(), forbidden, "committed artifact leaked %q", forbidden)
