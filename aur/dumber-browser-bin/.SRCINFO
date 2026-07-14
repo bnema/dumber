@@ -8,6 +8,7 @@ pkgbase = dumber-browser-bin
 	depends = gtk4
 	depends = cef
 	depends = webkitgtk-6.0
+	depends = libwebp
 	optdepends = gst-plugins-base: Base media codecs
 	optdepends = gst-plugins-good: Additional media codecs
 	optdepends = gst-plugins-bad: Extended media codecs

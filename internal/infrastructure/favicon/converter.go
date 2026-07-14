@@ -16,17 +16,25 @@ import (
 )
 
 // ImageConverter converts safe favicon image formats into normalized PNGs.
-type ImageConverter struct{}
+type ImageConverter struct {
+	webp *webPDecoder
+}
 
-func NewImageConverter() *ImageConverter { return &ImageConverter{} }
+func NewImageConverter() *ImageConverter { return &ImageConverter{webp: newDefaultWebPDecoder()} }
 
-func (*ImageConverter) Convert(ctx context.Context, original []byte, contentType string, sizes []int) (*appport.ConvertedFavicon, error) {
+// newImageConverterWithWebPRuntime provides an infrastructure test seam while
+// application ports remain independent of the libwebp implementation.
+func newImageConverterWithWebPRuntime(runtime webpRuntime) *ImageConverter {
+	return &ImageConverter{webp: newWebPDecoder(runtime)}
+}
+
+func (c *ImageConverter) Convert(ctx context.Context, original []byte, contentType string, sizes []int) (*appport.ConvertedFavicon, error) {
 	_ = ctx
 	if len(original) == 0 {
 		return nil, fmt.Errorf("%w: empty image", appport.ErrFaviconMiss)
 	}
 
-	img, err := decodeFaviconImage(original, normalizeContentType(contentType))
+	img, err := decodeFaviconImage(original, normalizeContentType(contentType), c.webp)
 	if err != nil {
 		return nil, err
 	}
@@ -48,7 +56,7 @@ func (*ImageConverter) Convert(ctx context.Context, original []byte, contentType
 	return out, nil
 }
 
-func decodeFaviconImage(data []byte, ct string) (image.Image, error) {
+func decodeFaviconImage(data []byte, ct string, webp *webPDecoder) (image.Image, error) {
 	switch ct {
 	case "image/svg+xml":
 		return nil, fmt.Errorf("%w: svg favicon conversion is disabled", appport.ErrFaviconMiss)
@@ -59,9 +67,13 @@ func decodeFaviconImage(data []byte, ct string) (image.Image, error) {
 		}
 		return img, nil
 	case "image/webp":
-		return nil, fmt.Errorf("%w: webp favicon conversion is disabled", appport.ErrFaviconMiss)
+		img, err := webp.Decode(data)
+		if err != nil {
+			return nil, fmt.Errorf("%w: decode webp favicon: %w", appport.ErrFaviconMiss, err)
+		}
+		return img, nil
 	}
-	if ct != "" && ct != "image/png" && ct != "image/jpeg" && ct != "image/gif" && ct != "image/webp" {
+	if ct != "" && ct != "image/png" && ct != "image/jpeg" && ct != "image/gif" {
 		return nil, fmt.Errorf("%w: unsupported favicon content type %s", appport.ErrFaviconMiss, ct)
 	}
 	img, _, err := image.Decode(bytes.NewReader(data))

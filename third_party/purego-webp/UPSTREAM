@@ -1,0 +1,4 @@
+Source: https://github.com/bnema/purego-webp
+Commit: bc33db63042a1087e349e2e8cb3d42b57df784d9
+Patch: loader import uses Dumber's existing github.com/bnema/purego runtime.
+Reason: both purego implementations export the same syscall linknames and cannot coexist in one binary.
