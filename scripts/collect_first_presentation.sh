@@ -78,7 +78,7 @@ json.dump({
   "runtime": {"label": "cef", "version": os.environ.get("DUMBER_CEF_RUNTIME_VERSION", "147")},
   "binary": {"label": "dumber", "sha256": binary_sha256},
   "timeout_seconds": int(timeout),
-  "measured_source_revision": subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip(),
+  "measured_source_revision": subprocess.check_output(["git", "-c", f"safe.directory={os.getcwd()}", "rev-parse", "HEAD"], text=True).strip(),
   "upstream": {"module": upstream_module, "tag": upstream_tag, "revision": upstream_revision},
   "fixed_environment": {"DUMBER_RENDER_STACK": "vulkan-dmabuf", "PUREGO_CEF2GTK_BACKEND": "gdk-dmabuf", "GSK_RENDERER": "vulkan"}
 }, open(path, "w"), indent=2, sort_keys=True)

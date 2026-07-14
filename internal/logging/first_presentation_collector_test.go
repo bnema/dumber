@@ -1,6 +1,7 @@
 package logging
 
 import (
+	"encoding/json"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -145,6 +146,50 @@ func TestFirstPresentationCollectorSanitizesMachineLocalValues(t *testing.T) {
 	} {
 		require.Contains(t, artifacts.String(), required)
 	}
+}
+
+func TestFirstPresentationCollectorReadsProvenanceWithScopedGitSafeDirectory(t *testing.T) {
+	repoRoot, err := filepath.Abs(filepath.Join("..", ".."))
+	require.NoError(t, err)
+	temp := t.TempDir()
+	runtime := filepath.Join(temp, "cef-147-runtime")
+	require.NoError(t, os.Mkdir(runtime, 0o755))
+	binary := filepath.Join(temp, "dumber")
+	require.NoError(t, os.WriteFile(binary, collectorTestBinary(validFirstPresentationLog), 0o755))
+	gitDir := filepath.Join(temp, "bin")
+	require.NoError(t, os.Mkdir(gitDir, 0o755))
+	git := filepath.Join(gitDir, "git")
+	require.NoError(t, os.WriteFile(git, []byte(`#!/bin/sh
+if [ "$1" = "-c" ] && [ "$2" = "safe.directory=$EXPECTED_SAFE_DIRECTORY" ] && [ "$3" = "rev-parse" ] && [ "$4" = "HEAD" ]; then
+  echo 0123456789abcdef0123456789abcdef01234567
+  exit 0
+fi
+echo "fatal: detected dubious ownership in repository" >&2
+exit 128
+`), 0o755))
+
+	output := filepath.Join(temp, "artifacts")
+	cmd := exec.Command(filepath.Join(repoRoot, "scripts", "collect_first_presentation.sh"))
+	cmd.Dir = repoRoot
+	cmd.Env = append(os.Environ(),
+		"DISPLAY=:test",
+		"DUMBER_CEF_DIR="+runtime,
+		"DUMBER_FIRST_PRESENTATION_BIN="+binary,
+		"DUMBER_FIRST_PRESENTATION_OUTPUT="+output,
+		"DUMBER_FIRST_PRESENTATION_TIMEOUT_SECONDS=1",
+		"EXPECTED_SAFE_DIRECTORY="+repoRoot,
+		"PATH="+gitDir+":"+os.Getenv("PATH"),
+	)
+	result, err := cmd.CombinedOutput()
+	require.NoErrorf(t, err, "collector failed: %s", result)
+
+	var metadata struct {
+		MeasuredSourceRevision string `json:"measured_source_revision"`
+	}
+	contents, err := os.ReadFile(filepath.Join(output, "metadata.json"))
+	require.NoError(t, err)
+	require.NoError(t, json.Unmarshal(contents, &metadata))
+	require.Equal(t, "0123456789abcdef0123456789abcdef01234567", metadata.MeasuredSourceRevision)
 }
 
 func TestFirstPresentationCollectorRejectsInconsistentTiming(t *testing.T) {
