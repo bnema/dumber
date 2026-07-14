@@ -1,0 +1,14 @@
+/simple-browser
+/probe-*
+*.test
+coverage.out
+
+# C/C++ artifacts from local CEF/GL experiments.
+*.o
+*.so
+*.a
+*.dylib
+
+.idea/
+.vscode/
+.DS_Store
