@@ -89,6 +89,13 @@ func TestCompareFirstPresentationRejectsUnpairedProvenanceAndRegression(t *testi
 	require.Contains(t, string(result), "candidate p95 regression exceeds 10%")
 
 	require.NoError(t, os.RemoveAll(candidate))
+	writeComparisonEvidence(t, candidate, []int{12, 12, 12, 12, 12}, "intel-integrated")
+	cmd = exec.Command("python3", filepath.Join(repoRoot, "scripts", "compare_first_presentation.py"), baseline, candidate)
+	result, err = cmd.CombinedOutput()
+	require.Error(t, err)
+	require.Contains(t, string(result), "candidate median regression exceeds 10%")
+
+	require.NoError(t, os.RemoveAll(candidate))
 	writeComparisonEvidence(t, candidate, []int{10, 10, 10, 10, 10}, "amd")
 	cmd = exec.Command("python3", filepath.Join(repoRoot, "scripts", "compare_first_presentation.py"), baseline, candidate)
 	result, err = cmd.CombinedOutput()
