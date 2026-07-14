@@ -35,12 +35,12 @@ type HoverHandler struct {
 	leaveCb  func(gtk.EventControllerMotion)
 	motionCb func(gtk.EventControllerMotion, float64, float64)
 
-	timerMu       sync.Mutex
-	sourceID      uint
-	generation    uint64
-	detached      bool
-	schedule      func(uint, func(uintptr) bool) uint
-	removeSource  func(uint) bool
+	timerMu      sync.Mutex
+	sourceID     uint
+	generation   uint64
+	detached     bool
+	schedule     func(uint, func(uintptr) bool) uint
+	removeSource func(uint) bool
 
 	ctx context.Context
 }
