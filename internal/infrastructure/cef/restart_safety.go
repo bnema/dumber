@@ -6,7 +6,11 @@ import (
 	"path/filepath"
 )
 
-const nextStartSafetyMarkerFile = "cef-next-start-safe"
+const (
+	nextStartSafetyMarkerFile = "cef-next-start-safe"
+	safetyMarkerDirPerm       = 0o700
+	safetyMarkerFilePerm      = 0o600
+)
 
 // writeNextStartSafetyMarker records a one-shot recovery request for the next
 // CEF start. The marker lives beside CEF's root cache so it follows explicit
@@ -15,7 +19,7 @@ func writeNextStartSafetyMarker(stateRoot string) error {
 	if stateRoot == "" {
 		return errors.New("CEF state root is empty")
 	}
-	if err := os.MkdirAll(stateRoot, 0o700); err != nil {
+	if err := os.MkdirAll(stateRoot, safetyMarkerDirPerm); err != nil {
 		return err
 	}
 
@@ -25,8 +29,8 @@ func writeNextStartSafetyMarker(stateRoot string) error {
 		return err
 	}
 	temporaryName := temporary.Name()
-	defer os.Remove(temporaryName)
-	if err := temporary.Chmod(0o600); err != nil {
+	defer func() { _ = os.Remove(temporaryName) }()
+	if err := temporary.Chmod(safetyMarkerFilePerm); err != nil {
 		_ = temporary.Close()
 		return err
 	}
