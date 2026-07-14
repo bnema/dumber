@@ -94,7 +94,6 @@ templates/
 .serena/
 config.yaml
 .dev/
-vendor/
 
 # WebKit runtime data
 serviceworkers/
