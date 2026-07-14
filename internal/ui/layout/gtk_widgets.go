@@ -1,7 +1,10 @@
 package layout
 
 import (
+	"sync"
+
 	"github.com/bnema/puregotk/v4/gdk"
+	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/graphene"
 	"github.com/bnema/puregotk/v4/gtk"
@@ -82,7 +85,13 @@ func (w *gtkWidget) ComputePoint(target Widget) (x, y float64, ok bool) {
 // gtkPaned wraps gtk.Paned to implement PanedWidget.
 type gtkPaned struct {
 	inner *gtk.Paned
+
+	tickMu        sync.Mutex
+	tickCallbacks map[uint]*gtk.TickCallback
 }
+
+// unrefTickCallback is the canonical puregotk/purego callback-slot release.
+var unrefTickCallback = glib.UnrefCallback
 
 func (p *gtkPaned) Show()                         { p.inner.Show() }
 func (p *gtkPaned) Hide()                         { p.inner.Hide() }
@@ -176,13 +185,46 @@ func (p *gtkPaned) ConnectNotifyPosition(callback func()) uint {
 }
 
 func (p *gtkPaned) AddTickCallback(callback func() bool) uint {
-	cb := gtk.TickCallback(func(widget uintptr, frameClock uintptr, userData uintptr) bool {
-		return callback()
-	})
-	return p.inner.AddTickCallback(&cb, 0, nil)
+	cb := new(gtk.TickCallback)
+	var id uint
+	*cb = func(_ uintptr, _ uintptr, _ uintptr) bool {
+		keepRunning := callback()
+		if !keepRunning {
+			// GTK removes a false-returning source itself; release its matching
+			// purego slot exactly once rather than merely dropping the Go pointer.
+			p.releaseTickCallback(id)
+		}
+		return keepRunning
+	}
+	id = p.inner.AddTickCallback(cb, 0, nil)
+	if id != 0 {
+		p.tickMu.Lock()
+		if p.tickCallbacks == nil {
+			p.tickCallbacks = make(map[uint]*gtk.TickCallback)
+		}
+		p.tickCallbacks[id] = cb
+		p.tickMu.Unlock()
+	}
+	return id
 }
 
-func (p *gtkPaned) RemoveTickCallback(id uint) { p.inner.RemoveTickCallback(id) }
+func (p *gtkPaned) RemoveTickCallback(id uint) {
+	p.inner.RemoveTickCallback(id)
+	p.releaseTickCallback(id)
+}
+
+func (p *gtkPaned) releaseTickCallback(id uint) {
+	if id == 0 {
+		return
+	}
+	p.tickMu.Lock()
+	callback := p.tickCallbacks[id]
+	delete(p.tickCallbacks, id)
+	p.tickMu.Unlock()
+	if callback != nil {
+		_ = unrefTickCallback(callback)
+	}
+}
 
 func (p *gtkPaned) GetAllocatedWidth() int               { return p.inner.GetAllocatedWidth() }
 func (p *gtkPaned) GetAllocatedHeight() int              { return p.inner.GetAllocatedHeight() }
@@ -781,7 +823,7 @@ func (f *GtkWidgetFactory) NewPaned(orientation Orientation) PanedWidget {
 	paned := gtk.NewPaned(orientation)
 	paned.SetHexpand(true)
 	paned.SetVexpand(true)
-	return &gtkPaned{inner: paned}
+	return &gtkPaned{inner: paned, tickCallbacks: make(map[uint]*gtk.TickCallback)}
 }
 
 func (f *GtkWidgetFactory) NewBox(orientation Orientation, spacing int) BoxWidget {
