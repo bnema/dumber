@@ -141,6 +141,11 @@ func configureBrowserLaunchRelay(cfg *config.Config) {
 }
 
 func main() {
+	// This is intentionally before subprocess detection: each process records
+	// its own first observable main event before CEF can take over execution.
+	logging.InitStartupTrace("")
+	logging.Trace().Mark("process_entry")
+
 	// CEF subprocess handling: when CEF re-launches this binary with
 	// --type=renderer/gpu/etc, we must call ExecuteProcess before anything
 	// else (Cobra, config, arg stripping). We only treat a leading Chromium
@@ -218,6 +223,7 @@ func runGUI(cfg *config.Config) int {
 		cfg = initConfig()
 		configureBrowserLaunchRelay(cfg)
 	}
+	logging.Trace().Mark("config_complete")
 	timer.Mark("config")
 
 	ctx := initStartupContextWithTrace(cfg)
@@ -414,7 +420,6 @@ func resolveCurrentExecutable(executable func() (string, error)) (string, error)
 
 func initStartupContextWithTrace(cfg *config.Config) context.Context {
 	logging.InitStartupTrace(cfg.Logging.Level)
-	logging.Trace().Mark("config_loaded")
 
 	ctx := initStartupContext(cfg)
 	bootstrapLog := logging.FromContext(ctx)

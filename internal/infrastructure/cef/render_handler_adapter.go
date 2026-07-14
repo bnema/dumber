@@ -23,6 +23,26 @@ type dumberRenderHandler struct {
 
 var _ purecef.RenderHandler = (*dumberRenderHandler)(nil)
 
+// startupPresentationHooks consumes the one-shot facts emitted by
+// purego-cef2gtk. The bridge owns the native DMABUF and frame-clock boundaries;
+// Dumber only records their ordered application-level timeline.
+func startupPresentationHooks() cef2gtk.Hooks {
+	return cef2gtk.Hooks{
+		OnFirstAcceleratedPaint: func() {
+			logging.Trace().Mark("first_accelerated_paint_received")
+		},
+		OnFirstDMABUFTextureSwap: func() {
+			logging.Trace().Mark("first_dmabuf_texture_swap")
+		},
+		OnFirstPresentation: func() {
+			logging.Trace().Mark("first_gtk_presentation")
+		},
+		OnDMABUFUnsupported: func() {
+			logging.Trace().SetIncompleteReason("dmabuf_texture_swap_unavailable")
+		},
+	}
+}
+
 func newDumberRenderHandler(wv *WebView) purecef.RenderHandler {
 	if wv == nil || wv.viewBridge == nil {
 		return nil
@@ -30,23 +50,23 @@ func newDumberRenderHandler(wv *WebView) purecef.RenderHandler {
 	h := &dumberRenderHandler{wv: wv}
 
 	var unsupportedPaintOnce sync.Once
-	h.main = wv.viewBridge.RenderHandler(cef2gtk.Hooks{
-		OnUnsupportedPaint: func() {
-			unsupportedPaintOnce.Do(func() {
-				if wv.ctx != nil {
-					logging.FromContext(wv.ctx).Warn().Msg("cef: unsupported CPU paint from accelerated bridge")
-				}
-			})
-		},
-		OnError: func(err error) {
+	hooks := startupPresentationHooks()
+	hooks.OnUnsupportedPaint = func() {
+		unsupportedPaintOnce.Do(func() {
 			if wv.ctx != nil {
-				logging.FromContext(wv.ctx).Warn().Err(err).Msg("cef: accelerated render bridge error")
+				logging.FromContext(wv.ctx).Warn().Msg("cef: unsupported CPU paint from accelerated bridge")
 			}
-		},
-		OnTextSelectionChanged: func(selectedText string, _ *purecef.Range) {
-			handleRenderTextSelectionChanged(wv, selectedText)
-		},
-	})
+		})
+	}
+	hooks.OnError = func(err error) {
+		if wv.ctx != nil {
+			logging.FromContext(wv.ctx).Warn().Err(err).Msg("cef: accelerated render bridge error")
+		}
+	}
+	hooks.OnTextSelectionChanged = func(selectedText string, _ *purecef.Range) {
+		handleRenderTextSelectionChanged(wv, selectedText)
+	}
+	h.main = wv.viewBridge.RenderHandler(hooks)
 
 	if wv.popupSurface != nil {
 		var popupUnsupportedPaintOnce sync.Once

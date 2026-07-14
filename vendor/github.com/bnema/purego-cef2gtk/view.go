@@ -31,6 +31,14 @@ type Hooks struct {
 	OnUnsupportedPaint     func()
 	OnError                func(error)
 	OnTextSelectionChanged func(selectedText string, selectedRange *cef.Range)
+	// OnFirstAcceleratedPaint is invoked once when CEF first supplies an accelerated frame.
+	OnFirstAcceleratedPaint func()
+	// OnFirstDMABUFTextureSwap is invoked once after GtkPicture.SetPaintable succeeds.
+	OnFirstDMABUFTextureSwap func()
+	// OnFirstPresentation is invoked once at the first GTK frame-clock after-paint following the swap.
+	OnFirstPresentation func()
+	// OnDMABUFUnsupported is invoked once when the active renderer cannot complete a DMABUF texture swap.
+	OnDMABUFUnsupported func()
 }
 
 type renderer interface {
@@ -57,6 +65,18 @@ type View struct {
 	renderLifecycleMu           sync.RWMutex
 	hooks                       Hooks
 	handler                     *renderHandler
+	firstPresentationMu         sync.Mutex
+	firstAcceleratedPaint       bool
+	firstDMABUFTextureSwap      bool
+	firstPresentation           bool
+	firstPresentationArmed      bool
+	dmabufCompletionConfigured  bool
+	dmabufCompletionSupported   bool
+	afterPaintFunc              func(gdk.FrameClock)
+	afterPaintClock             *gdk.FrameClock
+	afterPaintHandlerID         uint
+	afterPaintDisconnect        func()
+	frameClockAfterPaintConnect func(func()) func()
 	renderFunc                  func(gtk.GLArea, uintptr) bool
 	resizeFunc                  func(gtk.GLArea, int, int)
 	mapFunc                     func(gtk.Widget)
@@ -226,6 +246,7 @@ func (v *View) handleObservationSignal() {
 	v.refreshSurfaceSignals()
 	v.currentSizeObservationOnGTKThread()
 	v.armSizeTickObservation()
+	v.armFirstPresentationAfterPaint()
 }
 
 func (v *View) refreshSurfaceSignals() {
@@ -665,6 +686,166 @@ func (v *View) emitSizeHooks(width, height int32) {
 	}
 }
 
+type dmabufTextureSwapHookSetter interface {
+	SetFirstDMABUFTextureSwapHook(func()) bool
+}
+
+func (v *View) configureFirstPresentationHooks() {
+	if v == nil {
+		return
+	}
+	v.firstPresentationMu.Lock()
+	if v.dmabufCompletionConfigured {
+		v.firstPresentationMu.Unlock()
+		return
+	}
+	v.dmabufCompletionConfigured = true
+	v.firstPresentationMu.Unlock()
+
+	supported := false
+	if setter, ok := v.renderer.(dmabufTextureSwapHookSetter); ok {
+		supported = setter.SetFirstDMABUFTextureSwapHook(v.recordFirstDMABUFTextureSwap)
+	}
+	v.firstPresentationMu.Lock()
+	v.dmabufCompletionSupported = supported
+	v.firstPresentationMu.Unlock()
+}
+
+// claimFirstAcceleratedPaint atomically records the one-shot transition and
+// snapshots its hooks. Call while renderLifecycleMu excludes Destroy; invoke
+// the returned hooks only after that lock has been released.
+func (v *View) claimFirstAcceleratedPaint() (Hooks, bool, bool) {
+	if v == nil {
+		return Hooks{}, false, false
+	}
+	v.firstPresentationMu.Lock()
+	defer v.firstPresentationMu.Unlock()
+	if v.destroyed.Load() || v.firstAcceleratedPaint {
+		return Hooks{}, false, false
+	}
+	v.firstAcceleratedPaint = true
+	return v.hooks, v.dmabufCompletionConfigured && !v.dmabufCompletionSupported, true
+}
+
+func invokeFirstAcceleratedPaintHooks(hooks Hooks, unsupported bool) {
+	if hooks.OnFirstAcceleratedPaint != nil {
+		hooks.OnFirstAcceleratedPaint()
+	}
+	if unsupported && hooks.OnDMABUFUnsupported != nil {
+		hooks.OnDMABUFUnsupported()
+	}
+}
+
+func (v *View) recordFirstDMABUFTextureSwap() {
+	if v == nil {
+		return
+	}
+	v.firstPresentationMu.Lock()
+	if v.destroyed.Load() || v.firstDMABUFTextureSwap {
+		v.firstPresentationMu.Unlock()
+		return
+	}
+	v.firstDMABUFTextureSwap = true
+	hooks := v.hooks
+	v.firstPresentationMu.Unlock()
+	if hooks.OnFirstDMABUFTextureSwap != nil {
+		hooks.OnFirstDMABUFTextureSwap()
+	}
+	v.armFirstPresentationAfterPaint()
+}
+
+func (v *View) armFirstPresentationAfterPaint() {
+	if v == nil {
+		return
+	}
+	v.firstPresentationMu.Lock()
+	if v.destroyed.Load() || !v.firstDMABUFTextureSwap || v.firstPresentation || v.firstPresentationArmed {
+		v.firstPresentationMu.Unlock()
+		return
+	}
+	v.firstPresentationArmed = true
+	v.firstPresentationMu.Unlock()
+
+	connect := v.frameClockAfterPaintConnect
+	if connect == nil {
+		connect = v.connectFirstPresentationAfterPaint
+	}
+	disconnect := connect(v.recordFirstPresentation)
+
+	v.firstPresentationMu.Lock()
+	if disconnect == nil {
+		v.firstPresentationArmed = false
+		v.firstPresentationMu.Unlock()
+		return
+	}
+	if v.destroyed.Load() || v.firstPresentation {
+		v.firstPresentationArmed = false
+		v.firstPresentationMu.Unlock()
+		if disconnect != nil {
+			disconnect()
+		}
+		return
+	}
+	v.afterPaintDisconnect = disconnect
+	v.firstPresentationMu.Unlock()
+}
+
+func (v *View) connectFirstPresentationAfterPaint(fn func()) func() {
+	if v == nil || v.widget == nil || fn == nil {
+		return nil
+	}
+	clock := v.widget.GetFrameClock()
+	if clock == nil {
+		return nil
+	}
+	v.afterPaintFunc = func(gdk.FrameClock) { fn() }
+	v.afterPaintClock = clock
+	v.afterPaintHandlerID = clock.ConnectAfterPaint(&v.afterPaintFunc)
+	return func() {
+		if v.afterPaintClock != nil && v.afterPaintHandlerID != 0 {
+			gobject.SignalHandlerDisconnect(&v.afterPaintClock.Object, v.afterPaintHandlerID)
+			v.afterPaintHandlerID = 0
+		}
+	}
+}
+
+func (v *View) recordFirstPresentation() {
+	if v == nil {
+		return
+	}
+	v.firstPresentationMu.Lock()
+	if v.destroyed.Load() || !v.firstPresentationArmed || v.firstPresentation {
+		v.firstPresentationMu.Unlock()
+		return
+	}
+	v.firstPresentation = true
+	v.firstPresentationArmed = false
+	disconnect := v.afterPaintDisconnect
+	v.afterPaintDisconnect = nil
+	hooks := v.hooks
+	v.firstPresentationMu.Unlock()
+	if disconnect != nil {
+		disconnect()
+	}
+	if hooks.OnFirstPresentation != nil {
+		hooks.OnFirstPresentation()
+	}
+}
+
+func (v *View) disconnectFirstPresentationAfterPaint() {
+	if v == nil {
+		return
+	}
+	v.firstPresentationMu.Lock()
+	v.firstPresentationArmed = false
+	disconnect := v.afterPaintDisconnect
+	v.afterPaintDisconnect = nil
+	v.firstPresentationMu.Unlock()
+	if disconnect != nil {
+		disconnect()
+	}
+}
+
 func (v *View) renderOnGTKThread() bool {
 	if v == nil || v.renderer == nil {
 		return false
@@ -891,6 +1072,7 @@ func (v *View) Destroy() error {
 	v.renderLifecycleMu.Lock()
 	defer v.renderLifecycleMu.Unlock()
 	v.destroyed.Store(true)
+	v.disconnectFirstPresentationAfterPaint()
 	if v.input != nil {
 		v.input.Detach()
 		v.input = nil

@@ -32,6 +32,7 @@ func (v *View) RenderHandler(hooks Hooks) cef.RenderHandler {
 		return &renderHandler{staticHooks: hooks}
 	}
 	v.hooks = hooks
+	v.configureFirstPresentationHooks()
 	if v.handler != nil {
 		return v.handler
 	}
@@ -109,11 +110,27 @@ func (h *renderHandler) OnAcceleratedPaint(_ cef.Browser, _ cef.PaintElementType
 		h.diag.RecordAcceleratedPaint()
 	}
 	if h.view != nil {
-		// Serialize accelerated-paint imports with View.Destroy's renderer teardown.
-		// The destroyed flag alone is only a preflight check: without this read lock,
-		// a callback could pass the flag check just before Destroy starts closing the
-		// cached renderer. Holding the read lock through import and render queueing
-		// keeps teardown from racing in-flight callbacks.
+		// Claim the one-shot state while teardown is excluded, but invoke its hooks
+		// only after releasing the lifecycle lock. A hook is allowed to Destroy its
+		// view, and must not wait on the read lock held by this CEF callback.
+		h.view.renderLifecycleMu.RLock()
+		if h.view.destroyed.Load() {
+			h.view.renderLifecycleMu.RUnlock()
+			if h.diag != nil {
+				h.diag.RecordStaleAcceleratedPaint()
+			}
+			return
+		}
+		hooks, unsupported, first := h.view.claimFirstAcceleratedPaint()
+		h.view.recordProfileFrameReceived()
+		h.view.renderLifecycleMu.RUnlock()
+
+		if first {
+			invokeFirstAcceleratedPaintHooks(hooks, unsupported)
+		}
+
+		// Serialize accelerated-paint imports and render queueing with Destroy's
+		// renderer teardown. The hook above may have destroyed the view.
 		h.view.renderLifecycleMu.RLock()
 		defer h.view.renderLifecycleMu.RUnlock()
 		if h.view.destroyed.Load() {
@@ -122,7 +139,6 @@ func (h *renderHandler) OnAcceleratedPaint(_ cef.Browser, _ cef.PaintElementType
 			}
 			return
 		}
-		h.view.recordProfileFrameReceived()
 	}
 	if h.renderer == nil {
 		h.handleAcceleratedError(gtkgl.ErrNilAcceleratedRenderer)

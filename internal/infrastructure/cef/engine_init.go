@@ -56,6 +56,7 @@ func NewEngine(
 		return nil, err
 	}
 	cef2gtk.ConfigureRenderStackEnvironment(renderStackPlan)
+	logging.Trace().SetBackend(renderStackPlan.Backend.String())
 
 	settings, err := prepareCEFSettings(opts, paths, cfg, logger)
 	if err != nil {
@@ -199,9 +200,13 @@ func initializeCEF(eng *Engine, settings purecef.Settings, logger *zerolog.Logge
 		Str("env_cef_dir", os.Getenv("CEF_DIR")).
 		Msg("cef: runtime selection")
 	logger.Debug().Msg("cef: calling InitWithApp")
+	// InitWithApp encapsulates loading libcef, so only the begin boundary is
+	// observable here; do not invent a separate library-load completion event.
+	logging.Trace().Mark("cef_library_load_begin")
 	if err := purecef.InitWithApp(settings, app); err != nil {
 		return fmt.Errorf("cef.InitWithApp: %w", err)
 	}
+	logging.Trace().Mark("cef_initialized")
 	if libcefPath := loadedLibCEFPath(); libcefPath != "" {
 		logger.Info().Str("libcef_path", libcefPath).Msg("cef: runtime library loaded")
 	} else {

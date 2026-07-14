@@ -72,6 +72,12 @@ func NewAcceleratedRenderer(area *gtk.GLArea) *AcceleratedRenderer {
 	return &AcceleratedRenderer{area: area}
 }
 
+// SetFirstDMABUFTextureSwapHook reports that GLArea has no GtkPicture DMABUF
+// texture-swap milestone. Its copied GL frame path must never claim one.
+func (r *AcceleratedRenderer) SetFirstDMABUFTextureSwapHook(func()) bool {
+	return false
+}
+
 // InitializeOnGTKThread initializes EGL/GL import and copy primitives with the
 // GtkGLArea context current. It must be called on the GTK thread.
 func (r *AcceleratedRenderer) InitializeOnGTKThread() error {
