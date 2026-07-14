@@ -167,7 +167,10 @@ type floatingWorkspaceSession struct {
 	omnibox             *component.Omnibox
 	omniboxWidget       layout.Widget
 	resizeWatcherActive bool
-	resizeTickID        uint
+	// resizeTickCallback keeps the purego callback live until its GTK source is
+	// removed. It is cleared exactly once with resizeTickID.
+	resizeTickCallback *gtk.TickCallback
+	resizeTickID       uint
 	appliedWidth        int
 	appliedHeight       int
 }
@@ -4594,22 +4597,22 @@ func (a *App) startFloatingResizeWatcher(session *floatingWorkspaceSession) {
 
 	session.resizeWatcherActive = true
 	paneID := session.paneID
-	tickCallback := gtk.TickCallback(func(_ uintptr, _ uintptr, _ uintptr) bool {
+	callback := new(gtk.TickCallback)
+	*callback = func(_ uintptr, _ uintptr, _ uintptr) bool {
 		liveSession := a.floatingSessionByPaneID(paneID)
 		if liveSession == nil {
-			session.resizeWatcherActive = false
-			session.resizeTickID = 0
+			session.releaseResizeTickCallback()
 			return false
 		}
 
 		keepRunning := a.handleFloatingViewportTick(liveSession)
 		if !keepRunning {
-			liveSession.resizeWatcherActive = false
-			liveSession.resizeTickID = 0
+			liveSession.releaseResizeTickCallback()
 		}
 		return keepRunning
-	})
-	session.resizeTickID = overlayWidget.AddTickCallback(&tickCallback, 0, nil)
+	}
+	session.resizeTickCallback = callback
+	session.resizeTickID = overlayWidget.AddTickCallback(callback, 0, nil)
 }
 
 func (a *App) stopFloatingResizeWatcher(session *floatingWorkspaceSession) {
@@ -4617,12 +4620,23 @@ func (a *App) stopFloatingResizeWatcher(session *floatingWorkspaceSession) {
 		return
 	}
 
-	if session.resizeTickID != 0 && session.overlay != nil {
+	tickID := session.resizeTickID
+	session.releaseResizeTickCallback()
+	if tickID != 0 && session.overlay != nil {
 		if overlayWidget := session.overlay.GtkWidget(); overlayWidget != nil {
-			overlayWidget.RemoveTickCallback(session.resizeTickID)
+			overlayWidget.RemoveTickCallback(tickID)
 		}
 	}
+}
+
+// releaseResizeTickCallback releases the raw purego callback slot. It is safe
+// to call after GTK has already removed a callback that returned false.
+func (session *floatingWorkspaceSession) releaseResizeTickCallback() {
+	if session == nil {
+		return
+	}
 	session.resizeTickID = 0
+	session.resizeTickCallback = nil
 	session.resizeWatcherActive = false
 }
 

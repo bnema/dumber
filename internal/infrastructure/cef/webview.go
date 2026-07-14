@@ -2071,12 +2071,14 @@ func (wv *WebView) startBeginFrameLoop() {
 	cb := new(gtk.TickCallback)
 	*cb = func(_, _, _ uintptr) bool {
 		if wv.destroyed.Load() {
+			wv.releaseBeginFrameTickCallback()
 			return false
 		}
 		wv.mu.RLock()
 		host := wv.host
 		wv.mu.RUnlock()
 		if host == nil {
+			wv.releaseBeginFrameTickCallback()
 			return false
 		}
 		host.SendExternalBeginFrame()
@@ -2099,20 +2101,28 @@ func (wv *WebView) startBeginFrameLoop() {
 }
 
 func (wv *WebView) stopBeginFrameLoop() {
-	if wv.viewBridge == nil || wv.viewBridge.Widget() == nil {
-		return
-	}
-
 	wv.mu.Lock()
 	tickID := wv.beginFrameTickID
 	wv.beginFrameTickID = 0
 	wv.beginFrameTick = nil
-	widget := wv.viewBridge.Widget()
+	bridge := wv.viewBridge
 	wv.mu.Unlock()
 
-	if tickID != 0 {
+	if tickID == 0 || bridge == nil {
+		return
+	}
+	if widget := bridge.Widget(); widget != nil {
 		widget.RemoveTickCallback(tickID)
 	}
+}
+
+// releaseBeginFrameTickCallback releases the Go callback reference after GTK
+// removes a source because its callback returned false.
+func (wv *WebView) releaseBeginFrameTickCallback() {
+	wv.mu.Lock()
+	wv.beginFrameTickID = 0
+	wv.beginFrameTick = nil
+	wv.mu.Unlock()
 }
 
 func (wv *WebView) runOnGTK(fn func()) {
