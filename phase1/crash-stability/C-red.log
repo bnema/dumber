@@ -1,0 +1,7 @@
+# github.com/bnema/dumber/internal/infrastructure/cef [github.com/bnema/dumber/internal/infrastructure/cef.test]
+internal/infrastructure/cef/webview_visibility_test.go:13:5: wv.applyEffectiveVisibility undefined (type *WebView has no field or method applyEffectiveVisibility)
+internal/infrastructure/cef/webview_visibility_test.go:17:5: wv.applyEffectiveVisibility undefined (type *WebView has no field or method applyEffectiveVisibility)
+internal/infrastructure/cef/webview_visibility_test.go:20:5: wv.applyEffectiveVisibility undefined (type *WebView has no field or method applyEffectiveVisibility)
+internal/infrastructure/cef/webview_visibility_test.go:24:5: wv.applyEffectiveVisibility undefined (type *WebView has no field or method applyEffectiveVisibility)
+FAIL	github.com/bnema/dumber/internal/infrastructure/cef [build failed]
+FAIL

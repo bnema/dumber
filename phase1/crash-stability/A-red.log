@@ -1,0 +1,6 @@
+# github.com/bnema/dumber/internal/ui/input [github.com/bnema/dumber/internal/ui/input.test]
+internal/ui/input/hover_test.go:13:4: h.schedule undefined (type *HoverHandler has no field or method schedule)
+internal/ui/input/hover_test.go:41:4: h.schedule undefined (type *HoverHandler has no field or method schedule)
+internal/ui/input/hover_test.go:42:4: h.removeSource undefined (type *HoverHandler has no field or method removeSource)
+FAIL	github.com/bnema/dumber/internal/ui/input [build failed]
+FAIL

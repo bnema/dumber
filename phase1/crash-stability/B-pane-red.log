@@ -1,0 +1,5 @@
+--- FAIL: TestPaneViewCleanupClearsMouseMotionCallback (0.00s)
+    pane_view_cleanup_test.go:11: Cleanup must release the mouse-motion callback slot
+FAIL
+FAIL	github.com/bnema/dumber/internal/ui/component	0.044s
+FAIL

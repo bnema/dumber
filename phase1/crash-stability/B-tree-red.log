@@ -1,0 +1,9 @@
+--- FAIL: TestTreeRendererClearReleasesOwnedSplitTickExactlyOnce (0.00s)
+    widgets.go:1231: FAIL:	RemoveTickCallback(uint)
+        		at: [/home/brice/dev/projects/dumber/.worktrees/crash-stability/internal/ui/layout/mocks/widgets.go:2442 /home/brice/dev/projects/dumber/.worktrees/crash-stability/internal/ui/layout/tree_cleanup_test.go:40]
+    widgets.go:1231: FAIL: 9 out of 10 expectation(s) were met.
+        	The code you are testing needs to make 1 more call(s).
+        	at: [/home/brice/dev/projects/dumber/.worktrees/crash-stability/internal/ui/layout/mocks/widgets.go:1231 /home/brice/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.3.linux-amd64/src/testing/testing.go:1317 /home/brice/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.3.linux-amd64/src/testing/testing.go:1667 /home/brice/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.3.linux-amd64/src/testing/testing.go:2030]
+FAIL
+FAIL	github.com/bnema/dumber/internal/ui/layout	0.049s
+FAIL

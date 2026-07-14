@@ -1,0 +1,85 @@
+ok  	github.com/bnema/dumber/assets	(cached)
+ok  	github.com/bnema/dumber/cmd/dumber	0.077s
+ok  	github.com/bnema/dumber/cmd/systemviews	(cached)
+ok  	github.com/bnema/dumber/internal/application/dto	(cached)
+ok  	github.com/bnema/dumber/internal/application/port	(cached)
+?   	github.com/bnema/dumber/internal/application/port/mocks	[no test files]
+ok  	github.com/bnema/dumber/internal/application/usecase	(cached)
+ok  	github.com/bnema/dumber/internal/bootstrap	0.077s
+?   	github.com/bnema/dumber/internal/bootstrap/mocks	[no test files]
+ok  	github.com/bnema/dumber/internal/cli	0.075s
+ok  	github.com/bnema/dumber/internal/cli/cmd	0.077s
+?   	github.com/bnema/dumber/internal/cli/cmd/mocks	[no test files]
+ok  	github.com/bnema/dumber/internal/cli/model	(cached)
+ok  	github.com/bnema/dumber/internal/cli/styles	(cached)
+ok  	github.com/bnema/dumber/internal/domain/autocomplete	(cached)
+?   	github.com/bnema/dumber/internal/domain/build	[no test files]
+ok  	github.com/bnema/dumber/internal/domain/download	(cached)
+ok  	github.com/bnema/dumber/internal/domain/entity	(cached)
+?   	github.com/bnema/dumber/internal/domain/errors	[no test files]
+ok  	github.com/bnema/dumber/internal/domain/favicon	(cached)
+ok  	github.com/bnema/dumber/internal/domain/history	(cached)
+?   	github.com/bnema/dumber/internal/domain/repository	[no test files]
+?   	github.com/bnema/dumber/internal/domain/repository/mocks	[no test files]
+?   	github.com/bnema/dumber/internal/domain/service	[no test files]
+ok  	github.com/bnema/dumber/internal/domain/url	(cached)
+?   	github.com/bnema/dumber/internal/domain/validation	[no test files]
+ok  	github.com/bnema/dumber/internal/infrastructure/audio/factory	(cached)
+ok  	github.com/bnema/dumber/internal/infrastructure/audio/null	(cached)
+ok  	github.com/bnema/dumber/internal/infrastructure/audio/pipewire	(cached)
+?   	github.com/bnema/dumber/internal/infrastructure/audio/pipewire/mocks	[no test files]
+ok  	github.com/bnema/dumber/internal/infrastructure/cache	(cached)
+ok  	github.com/bnema/dumber/internal/infrastructure/cef	0.180s
+ok  	github.com/bnema/dumber/internal/infrastructure/clipboard	(cached)
+?   	github.com/bnema/dumber/internal/infrastructure/clipboard/mocks	[no test files]
+ok  	github.com/bnema/dumber/internal/infrastructure/colorscheme	(cached)
+ok  	github.com/bnema/dumber/internal/infrastructure/config	(cached)
+?   	github.com/bnema/dumber/internal/infrastructure/deps	[no test files]
+ok  	github.com/bnema/dumber/internal/infrastructure/desktop	(cached)
+ok  	github.com/bnema/dumber/internal/infrastructure/downloadruntime	(cached)
+ok  	github.com/bnema/dumber/internal/infrastructure/env	(cached)
+ok  	github.com/bnema/dumber/internal/infrastructure/externaltheme/noctalia	(cached)
+ok  	github.com/bnema/dumber/internal/infrastructure/favicon	(cached)
+ok  	github.com/bnema/dumber/internal/infrastructure/filesystem	(cached)
+ok  	github.com/bnema/dumber/internal/infrastructure/filtering	(cached)
+?   	github.com/bnema/dumber/internal/infrastructure/filtering/mocks	[no test files]
+ok  	github.com/bnema/dumber/internal/infrastructure/fonts	(cached)
+ok  	github.com/bnema/dumber/internal/infrastructure/gtkmenu	(cached)
+ok  	github.com/bnema/dumber/internal/infrastructure/gtkutil	(cached)
+ok  	github.com/bnema/dumber/internal/infrastructure/handlers	(cached)
+ok  	github.com/bnema/dumber/internal/infrastructure/handlers/homepage	(cached)
+ok  	github.com/bnema/dumber/internal/infrastructure/idle	(cached)
+?   	github.com/bnema/dumber/internal/infrastructure/logging	[no test files]
+?   	github.com/bnema/dumber/internal/infrastructure/media	[no test files]
+ok  	github.com/bnema/dumber/internal/infrastructure/persistence/sqlite	(cached)
+?   	github.com/bnema/dumber/internal/infrastructure/persistence/sqlite/sqlc	[no test files]
+ok  	github.com/bnema/dumber/internal/infrastructure/process	(cached)
+ok  	github.com/bnema/dumber/internal/infrastructure/runtimeprofile	(cached)
+ok  	github.com/bnema/dumber/internal/infrastructure/snapshot	(cached)
+ok  	github.com/bnema/dumber/internal/infrastructure/systemviewsbridge	(cached)
+?   	github.com/bnema/dumber/internal/infrastructure/systemviewsbridge/mocks	[no test files]
+?   	github.com/bnema/dumber/internal/infrastructure/textinput	[no test files]
+ok  	github.com/bnema/dumber/internal/infrastructure/updater	(cached)
+ok  	github.com/bnema/dumber/internal/infrastructure/webkit	(cached)
+ok  	github.com/bnema/dumber/internal/infrastructure/webutil	(cached)
+ok  	github.com/bnema/dumber/internal/infrastructure/xdg	(cached)
+ok  	github.com/bnema/dumber/internal/logging	(cached)
+ok  	github.com/bnema/dumber/internal/shared/syncdispatch	(cached)
+ok  	github.com/bnema/dumber/internal/ui	0.218s
+ok  	github.com/bnema/dumber/internal/ui/adapter	(cached)
+ok  	github.com/bnema/dumber/internal/ui/component	0.175s
+ok  	github.com/bnema/dumber/internal/ui/coordinator	0.046s
+ok  	github.com/bnema/dumber/internal/ui/coordinator/content	0.263s
+?   	github.com/bnema/dumber/internal/ui/coordinator/mocks	[no test files]
+ok  	github.com/bnema/dumber/internal/ui/dialog	(cached)
+?   	github.com/bnema/dumber/internal/ui/dialog/mocks	[no test files]
+ok  	github.com/bnema/dumber/internal/ui/dispatcher	0.051s
+ok  	github.com/bnema/dumber/internal/ui/focus	0.046s
+ok  	github.com/bnema/dumber/internal/ui/input	0.488s
+ok  	github.com/bnema/dumber/internal/ui/layout	0.084s
+?   	github.com/bnema/dumber/internal/ui/layout/mocks	[no test files]
+ok  	github.com/bnema/dumber/internal/ui/mainloop	(cached)
+ok  	github.com/bnema/dumber/internal/ui/systemviews	(cached)
+ok  	github.com/bnema/dumber/internal/ui/theme	(cached)
+?   	github.com/bnema/dumber/internal/ui/window	[no test files]
+?   	github.com/bnema/dumber/scripts	[no test files]

@@ -1,0 +1,10 @@
+# github.com/bnema/dumber/internal/infrastructure/cef [github.com/bnema/dumber/internal/infrastructure/cef.test]
+internal/infrastructure/cef/restart_safety_test.go:17:21: undefined: writeNextStartSafetyMarker
+internal/infrastructure/cef/restart_safety_test.go:18:18: undefined: consumeNextStartSafetyMarker
+internal/infrastructure/cef/restart_safety_test.go:19:2: undefined: applyNextStartSafetyEnvironment
+internal/infrastructure/cef/restart_safety_test.go:24:40: undefined: nextStartSafetyMarkerFile
+internal/infrastructure/cef/restart_safety_test.go:30:20: unknown field stateRoot in struct literal of type Engine
+internal/infrastructure/cef/restart_safety_test.go:35:46: undefined: nextStartSafetyMarkerFile
+internal/infrastructure/cef/restart_safety_test.go:37:44: undefined: nextStartSafetyMarkerFile
+FAIL	github.com/bnema/dumber/internal/infrastructure/cef [build failed]
+FAIL

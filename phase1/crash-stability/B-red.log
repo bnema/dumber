@@ -1,0 +1,6 @@
+# github.com/bnema/dumber/internal/ui/layout_test [github.com/bnema/dumber/internal/ui/layout.test]
+internal/ui/layout/split_cleanup_test.go:24:17: paned.EXPECT().RemoveTickCallback undefined (type *mocks.MockPanedWidget_Expecter has no field or method RemoveTickCallback)
+internal/ui/layout/split_cleanup_test.go:27:5: sv.Cleanup undefined (type *layout.SplitView has no field or method Cleanup)
+internal/ui/layout/split_cleanup_test.go:28:5: sv.Cleanup undefined (type *layout.SplitView has no field or method Cleanup)
+FAIL	github.com/bnema/dumber/internal/ui/layout [build failed]
+FAIL

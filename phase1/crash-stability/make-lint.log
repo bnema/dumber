@@ -1,0 +1,15 @@
+Running golangci-lint...
+golangci-lint run
+internal/infrastructure/cef/restart_safety.go:28:17: Error return value of `os.Remove` is not checked (errcheck)
+	defer os.Remove(temporaryName)
+	               ^
+internal/infrastructure/cef/restart_safety.go:18:35: Magic number: 0o700, in <argument> detected (mnd)
+	if err := os.MkdirAll(stateRoot, 0o700); err != nil {
+	                                 ^
+internal/infrastructure/cef/restart_safety.go:29:28: Magic number: 0o600, in <argument> detected (mnd)
+	if err := temporary.Chmod(0o600); err != nil {
+	                          ^
+3 issues:
+* errcheck: 1
+* mnd: 2
+make: *** [Makefile:146: lint] Error 1

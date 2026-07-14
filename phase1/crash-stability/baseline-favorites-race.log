@@ -1,0 +1,53 @@
+==================
+WARNING: DATA RACE
+Write at 0x00c000105b68 by goroutine 34:
+  github.com/bnema/dumber/internal/ui/component.(*FavoritesSidebar).applyLoadedData()
+      /tmp/dumber-crash-baseline-298123/internal/ui/component/favorites_sidebar.go:317 +0x24d
+  github.com/bnema/dumber/internal/ui/component.(*FavoritesSidebar).startLoad.func2.1()
+      /tmp/dumber-crash-baseline-298123/internal/ui/component/favorites_sidebar.go:291 +0xd8
+  github.com/bnema/dumber/internal/ui/component.TestFavoritesSidebarAddShortcutFailureClosesFormAfterCreate.newFavoritesSidebarHarness.func1()
+      /tmp/dumber-crash-baseline-298123/internal/ui/component/favorites_sidebar_test.go:103 +0x28
+  github.com/bnema/dumber/internal/ui/component.(*FavoritesSidebar).scheduleIdle()
+      /tmp/dumber-crash-baseline-298123/internal/ui/component/favorites_sidebar.go:368 +0x9a
+  github.com/bnema/dumber/internal/ui/component.(*FavoritesSidebar).startLoad.func2()
+      /tmp/dumber-crash-baseline-298123/internal/ui/component/favorites_sidebar.go:290 +0x297
+
+Previous read at 0x00c000105b68 by goroutine 33:
+  github.com/bnema/dumber/internal/ui/component.TestFavoritesSidebarAddShortcutFailureClosesFormAfterCreate()
+      /tmp/dumber-crash-baseline-298123/internal/ui/component/favorites_sidebar_test.go:497 +0x5a6
+  testing.tRunner()
+      /home/brice/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.3.linux-amd64/src/testing/testing.go:2036 +0x21c
+  testing.(*T).Run.gowrap1()
+      /home/brice/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.3.linux-amd64/src/testing/testing.go:2101 +0x38
+
+Goroutine 34 (running) created at:
+  github.com/bnema/dumber/internal/ui/component.(*FavoritesSidebar).startLoad()
+      /tmp/dumber-crash-baseline-298123/internal/ui/component/favorites_sidebar.go:283 +0x3ba
+  github.com/bnema/dumber/internal/ui/component.(*FavoritesSidebar).submitForm()
+      /tmp/dumber-crash-baseline-298123/internal/ui/component/favorites_sidebar_forms.go:218 +0x384
+  github.com/bnema/dumber/internal/ui/component.TestFavoritesSidebarAddShortcutFailureClosesFormAfterCreate()
+      /tmp/dumber-crash-baseline-298123/internal/ui/component/favorites_sidebar_test.go:494 +0x4c4
+  testing.tRunner()
+      /home/brice/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.3.linux-amd64/src/testing/testing.go:2036 +0x21c
+  testing.(*T).Run.gowrap1()
+      /home/brice/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.3.linux-amd64/src/testing/testing.go:2101 +0x38
+
+Goroutine 33 (finished) created at:
+  testing.(*T).Run()
+      /home/brice/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.3.linux-amd64/src/testing/testing.go:2101 +0xb12
+  testing.runTests.func1()
+      /home/brice/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.3.linux-amd64/src/testing/testing.go:2585 +0x84
+  testing.tRunner()
+      /home/brice/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.3.linux-amd64/src/testing/testing.go:2036 +0x21c
+  testing.runTests()
+      /home/brice/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.3.linux-amd64/src/testing/testing.go:2583 +0x9e9
+  testing.(*M).Run()
+      /home/brice/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.3.linux-amd64/src/testing/testing.go:2443 +0xf4b
+  main.main()
+      _testmain.go:482 +0x164
+  runtime.main()
+      /home/brice/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.3.linux-amd64/src/runtime/proc.go:290 +0x2d4
+==================
+FAIL
+FAIL	github.com/bnema/dumber/internal/ui/component	0.108s
+FAIL
