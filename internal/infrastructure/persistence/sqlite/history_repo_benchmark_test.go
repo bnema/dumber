@@ -22,6 +22,12 @@ func newHistoryBenchmarkRepository(b *testing.B) (repository.HistoryRepository, 
 		b.Fatal(err)
 	}
 
+	b.Cleanup(func() {
+		if err := db.Close(); err != nil {
+			b.Errorf("close benchmark database: %v", err)
+		}
+	})
+
 	repo := sqlite.NewHistoryRepository(db)
 	for i := range 200 {
 		entry := &entity.HistoryEntry{
@@ -29,12 +35,11 @@ func newHistoryBenchmarkRepository(b *testing.B) (repository.HistoryRepository, 
 			Title: fmt.Sprintf("Dumber history entry %d", i),
 		}
 		if err := repo.Save(ctx, entry); err != nil {
-			_ = db.Close()
 			b.Fatal(err)
 		}
 	}
 
-	return repo, func() { _ = db.Close() }
+	return repo, func() {}
 }
 
 func BenchmarkHistorySQLiteSidebarRecent(b *testing.B) {
