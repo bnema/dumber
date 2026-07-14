@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -62,7 +63,6 @@ type Toplevel interface {
 var xToplevelGLibType func() types.GType
 
 func ToplevelGLibType() types.GType {
-	core.LazyRegister(&xToplevelGLibType, "GDK", "gdk_toplevel_get_type", false)
 	return xToplevelGLibType()
 }
 
@@ -433,159 +433,30 @@ func (x *ToplevelBase) GetPropertyTitle() string {
 	return v.GetString()
 }
 
-var XGdkToplevelBeginMove func(uintptr, uintptr, int, float64, float64, uint32) = func(instance uintptr, DeviceVarp uintptr, ButtonVarp int, XVarp float64, YVarp float64, TimestampVarp uint32) {
-	core.LazyRegister(&xXGdkToplevelBeginMove, "GDK", "gdk_toplevel_begin_move", false)
-	xXGdkToplevelBeginMove(instance, DeviceVarp, ButtonVarp, XVarp, YVarp, TimestampVarp)
-}
-
 var (
-	xXGdkToplevelBeginMove  func(uintptr, uintptr, int, float64, float64, uint32)
-	XGdkToplevelBeginResize func(uintptr, SurfaceEdge, uintptr, int, float64, float64, uint32) = func(instance uintptr, EdgeVarp SurfaceEdge, DeviceVarp uintptr, ButtonVarp int, XVarp float64, YVarp float64, TimestampVarp uint32) {
-		core.LazyRegister(&xXGdkToplevelBeginResize, "GDK", "gdk_toplevel_begin_resize", false)
-		xXGdkToplevelBeginResize(instance, EdgeVarp, DeviceVarp, ButtonVarp, XVarp, YVarp, TimestampVarp)
-	}
+	XGdkToplevelBeginMove               func(uintptr, uintptr, int, float64, float64, uint32)
+	XGdkToplevelBeginResize             func(uintptr, SurfaceEdge, uintptr, int, float64, float64, uint32)
+	XGdkToplevelFocus                   func(uintptr, uint32)
+	XGdkToplevelGetCapabilities         func(uintptr) ToplevelCapabilities
+	XGdkToplevelGetGravity              func(uintptr) Gravity
+	XGdkToplevelGetState                func(uintptr) ToplevelState
+	XGdkToplevelInhibitSystemShortcuts  func(uintptr, uintptr)
+	XGdkToplevelLower                   func(uintptr) bool
+	XGdkToplevelMinimize                func(uintptr) bool
+	XGdkToplevelPresent                 func(uintptr, *ToplevelLayout)
+	XGdkToplevelRestoreSystemShortcuts  func(uintptr)
+	XGdkToplevelSetDecorated            func(uintptr, bool)
+	XGdkToplevelSetDeletable            func(uintptr, bool)
+	XGdkToplevelSetGravity              func(uintptr, Gravity)
+	XGdkToplevelSetIconList             func(uintptr, *glib.List)
+	XGdkToplevelSetModal                func(uintptr, bool)
+	XGdkToplevelSetStartupId            func(uintptr, string)
+	XGdkToplevelSetTitle                func(uintptr, string)
+	XGdkToplevelSetTransientFor         func(uintptr, uintptr)
+	XGdkToplevelShowWindowMenu          func(uintptr, uintptr) bool
+	XGdkToplevelSupportsEdgeConstraints func(uintptr) bool
+	XGdkToplevelTitlebarGesture         func(uintptr, TitlebarGesture) bool
 )
-var (
-	xXGdkToplevelBeginResize func(uintptr, SurfaceEdge, uintptr, int, float64, float64, uint32)
-	XGdkToplevelFocus        func(uintptr, uint32) = func(instance uintptr, TimestampVarp uint32) {
-		core.LazyRegister(&xXGdkToplevelFocus, "GDK", "gdk_toplevel_focus", false)
-		xXGdkToplevelFocus(instance, TimestampVarp)
-	}
-)
-var (
-	xXGdkToplevelFocus          func(uintptr, uint32)
-	XGdkToplevelGetCapabilities func(uintptr) ToplevelCapabilities = func(instance uintptr) ToplevelCapabilities {
-		core.LazyRegister(&xXGdkToplevelGetCapabilities, "GDK", "gdk_toplevel_get_capabilities", false)
-		return xXGdkToplevelGetCapabilities(instance)
-	}
-)
-var (
-	xXGdkToplevelGetCapabilities func(uintptr) ToplevelCapabilities
-	XGdkToplevelGetGravity       func(uintptr) Gravity = func(instance uintptr) Gravity {
-		core.LazyRegister(&xXGdkToplevelGetGravity, "GDK", "gdk_toplevel_get_gravity", false)
-		return xXGdkToplevelGetGravity(instance)
-	}
-)
-var (
-	xXGdkToplevelGetGravity func(uintptr) Gravity
-	XGdkToplevelGetState    func(uintptr) ToplevelState = func(instance uintptr) ToplevelState {
-		core.LazyRegister(&xXGdkToplevelGetState, "GDK", "gdk_toplevel_get_state", false)
-		return xXGdkToplevelGetState(instance)
-	}
-)
-var (
-	xXGdkToplevelGetState              func(uintptr) ToplevelState
-	XGdkToplevelInhibitSystemShortcuts func(uintptr, uintptr) = func(instance uintptr, EventVarp uintptr) {
-		core.LazyRegister(&xXGdkToplevelInhibitSystemShortcuts, "GDK", "gdk_toplevel_inhibit_system_shortcuts", false)
-		xXGdkToplevelInhibitSystemShortcuts(instance, EventVarp)
-	}
-)
-var (
-	xXGdkToplevelInhibitSystemShortcuts func(uintptr, uintptr)
-	XGdkToplevelLower                   func(uintptr) bool = func(instance uintptr) bool {
-		core.LazyRegister(&xXGdkToplevelLower, "GDK", "gdk_toplevel_lower", false)
-		return xXGdkToplevelLower(instance)
-	}
-)
-var (
-	xXGdkToplevelLower   func(uintptr) bool
-	XGdkToplevelMinimize func(uintptr) bool = func(instance uintptr) bool {
-		core.LazyRegister(&xXGdkToplevelMinimize, "GDK", "gdk_toplevel_minimize", false)
-		return xXGdkToplevelMinimize(instance)
-	}
-)
-var (
-	xXGdkToplevelMinimize func(uintptr) bool
-	XGdkToplevelPresent   func(uintptr, *ToplevelLayout) = func(instance uintptr, LayoutVarp *ToplevelLayout) {
-		core.LazyRegister(&xXGdkToplevelPresent, "GDK", "gdk_toplevel_present", false)
-		xXGdkToplevelPresent(instance, LayoutVarp)
-	}
-)
-var (
-	xXGdkToplevelPresent               func(uintptr, *ToplevelLayout)
-	XGdkToplevelRestoreSystemShortcuts func(uintptr) = func(instance uintptr) {
-		core.LazyRegister(&xXGdkToplevelRestoreSystemShortcuts, "GDK", "gdk_toplevel_restore_system_shortcuts", false)
-		xXGdkToplevelRestoreSystemShortcuts(instance)
-	}
-)
-var (
-	xXGdkToplevelRestoreSystemShortcuts func(uintptr)
-	XGdkToplevelSetDecorated            func(uintptr, bool) = func(instance uintptr, DecoratedVarp bool) {
-		core.LazyRegister(&xXGdkToplevelSetDecorated, "GDK", "gdk_toplevel_set_decorated", false)
-		xXGdkToplevelSetDecorated(instance, DecoratedVarp)
-	}
-)
-var (
-	xXGdkToplevelSetDecorated func(uintptr, bool)
-	XGdkToplevelSetDeletable  func(uintptr, bool) = func(instance uintptr, DeletableVarp bool) {
-		core.LazyRegister(&xXGdkToplevelSetDeletable, "GDK", "gdk_toplevel_set_deletable", false)
-		xXGdkToplevelSetDeletable(instance, DeletableVarp)
-	}
-)
-var (
-	xXGdkToplevelSetDeletable func(uintptr, bool)
-	XGdkToplevelSetGravity    func(uintptr, Gravity) = func(instance uintptr, GravityVarp Gravity) {
-		core.LazyRegister(&xXGdkToplevelSetGravity, "GDK", "gdk_toplevel_set_gravity", false)
-		xXGdkToplevelSetGravity(instance, GravityVarp)
-	}
-)
-var (
-	xXGdkToplevelSetGravity func(uintptr, Gravity)
-	XGdkToplevelSetIconList func(uintptr, *glib.List) = func(instance uintptr, SurfacesVarp *glib.List) {
-		core.LazyRegister(&xXGdkToplevelSetIconList, "GDK", "gdk_toplevel_set_icon_list", false)
-		xXGdkToplevelSetIconList(instance, SurfacesVarp)
-	}
-)
-var (
-	xXGdkToplevelSetIconList func(uintptr, *glib.List)
-	XGdkToplevelSetModal     func(uintptr, bool) = func(instance uintptr, ModalVarp bool) {
-		core.LazyRegister(&xXGdkToplevelSetModal, "GDK", "gdk_toplevel_set_modal", false)
-		xXGdkToplevelSetModal(instance, ModalVarp)
-	}
-)
-var (
-	xXGdkToplevelSetModal    func(uintptr, bool)
-	XGdkToplevelSetStartupId func(uintptr, string) = func(instance uintptr, StartupIdVarp string) {
-		core.LazyRegister(&xXGdkToplevelSetStartupId, "GDK", "gdk_toplevel_set_startup_id", false)
-		xXGdkToplevelSetStartupId(instance, StartupIdVarp)
-	}
-)
-var (
-	xXGdkToplevelSetStartupId func(uintptr, string)
-	XGdkToplevelSetTitle      func(uintptr, string) = func(instance uintptr, TitleVarp string) {
-		core.LazyRegister(&xXGdkToplevelSetTitle, "GDK", "gdk_toplevel_set_title", false)
-		xXGdkToplevelSetTitle(instance, TitleVarp)
-	}
-)
-var (
-	xXGdkToplevelSetTitle       func(uintptr, string)
-	XGdkToplevelSetTransientFor func(uintptr, uintptr) = func(instance uintptr, ParentVarp uintptr) {
-		core.LazyRegister(&xXGdkToplevelSetTransientFor, "GDK", "gdk_toplevel_set_transient_for", false)
-		xXGdkToplevelSetTransientFor(instance, ParentVarp)
-	}
-)
-var (
-	xXGdkToplevelSetTransientFor func(uintptr, uintptr)
-	XGdkToplevelShowWindowMenu   func(uintptr, uintptr) bool = func(instance uintptr, EventVarp uintptr) bool {
-		core.LazyRegister(&xXGdkToplevelShowWindowMenu, "GDK", "gdk_toplevel_show_window_menu", false)
-		return xXGdkToplevelShowWindowMenu(instance, EventVarp)
-	}
-)
-var (
-	xXGdkToplevelShowWindowMenu         func(uintptr, uintptr) bool
-	XGdkToplevelSupportsEdgeConstraints func(uintptr) bool = func(instance uintptr) bool {
-		core.LazyRegister(&xXGdkToplevelSupportsEdgeConstraints, "GDK", "gdk_toplevel_supports_edge_constraints", false)
-		return xXGdkToplevelSupportsEdgeConstraints(instance)
-	}
-)
-var (
-	xXGdkToplevelSupportsEdgeConstraints func(uintptr) bool
-	XGdkToplevelTitlebarGesture          func(uintptr, TitlebarGesture) bool = func(instance uintptr, GestureVarp TitlebarGesture) bool {
-		core.LazyRegister(&xXGdkToplevelTitlebarGesture, "GDK", "gdk_toplevel_titlebar_gesture", false)
-		return xXGdkToplevelTitlebarGesture(instance, GestureVarp)
-	}
-)
-var xXGdkToplevelTitlebarGesture func(uintptr, TitlebarGesture) bool
 
 // Reflects what features a `GdkToplevel` supports.
 type ToplevelCapabilities int
@@ -593,7 +464,6 @@ type ToplevelCapabilities int
 var xToplevelCapabilitiesGLibType func() types.GType
 
 func ToplevelCapabilitiesGLibType() types.GType {
-	core.LazyRegister(&xToplevelCapabilitiesGLibType, "GDK", "gdk_toplevel_capabilities_get_type", false)
 	return xToplevelCapabilitiesGLibType()
 }
 
@@ -634,7 +504,6 @@ type ToplevelState int
 var xToplevelStateGLibType func() types.GType
 
 func ToplevelStateGLibType() types.GType {
-	core.LazyRegister(&xToplevelStateGLibType, "GDK", "gdk_toplevel_state_get_type", false)
 	return xToplevelStateGLibType()
 }
 
@@ -682,7 +551,6 @@ type FullscreenMode int
 var xFullscreenModeGLibType func() types.GType
 
 func FullscreenModeGLibType() types.GType {
-	core.LazyRegister(&xFullscreenModeGLibType, "GDK", "gdk_fullscreen_mode_get_type", false)
 	return xFullscreenModeGLibType()
 }
 
@@ -700,7 +568,6 @@ type SurfaceEdge int
 var xSurfaceEdgeGLibType func() types.GType
 
 func SurfaceEdgeGLibType() types.GType {
-	core.LazyRegister(&xSurfaceEdgeGLibType, "GDK", "gdk_surface_edge_get_type", false)
 	return xSurfaceEdgeGLibType()
 }
 
@@ -731,7 +598,6 @@ type TitlebarGesture int
 var xTitlebarGestureGLibType func() types.GType
 
 func TitlebarGestureGLibType() types.GType {
-	core.LazyRegister(&xTitlebarGestureGLibType, "GDK", "gdk_titlebar_gesture_get_type", false)
 	return xTitlebarGestureGLibType()
 }
 
@@ -748,4 +614,47 @@ const (
 func init() {
 	core.SetPackageName("GDK", "gtk4")
 	core.SetSharedLibraries("GDK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GDK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xToplevelCapabilitiesGLibType, libs, "gdk_toplevel_capabilities_get_type")
+
+	core.PuregoSafeRegister(&xToplevelStateGLibType, libs, "gdk_toplevel_state_get_type")
+
+	core.PuregoSafeRegister(&xFullscreenModeGLibType, libs, "gdk_fullscreen_mode_get_type")
+
+	core.PuregoSafeRegister(&xSurfaceEdgeGLibType, libs, "gdk_surface_edge_get_type")
+
+	core.PuregoSafeRegister(&xTitlebarGestureGLibType, libs, "gdk_titlebar_gesture_get_type")
+
+	core.PuregoSafeRegister(&xToplevelGLibType, libs, "gdk_toplevel_get_type")
+
+	core.PuregoSafeRegister(&XGdkToplevelBeginMove, libs, "gdk_toplevel_begin_move")
+	core.PuregoSafeRegister(&XGdkToplevelBeginResize, libs, "gdk_toplevel_begin_resize")
+	core.PuregoSafeRegister(&XGdkToplevelFocus, libs, "gdk_toplevel_focus")
+	core.PuregoSafeRegister(&XGdkToplevelGetCapabilities, libs, "gdk_toplevel_get_capabilities")
+	core.PuregoSafeRegister(&XGdkToplevelGetGravity, libs, "gdk_toplevel_get_gravity")
+	core.PuregoSafeRegister(&XGdkToplevelGetState, libs, "gdk_toplevel_get_state")
+	core.PuregoSafeRegister(&XGdkToplevelInhibitSystemShortcuts, libs, "gdk_toplevel_inhibit_system_shortcuts")
+	core.PuregoSafeRegister(&XGdkToplevelLower, libs, "gdk_toplevel_lower")
+	core.PuregoSafeRegister(&XGdkToplevelMinimize, libs, "gdk_toplevel_minimize")
+	core.PuregoSafeRegister(&XGdkToplevelPresent, libs, "gdk_toplevel_present")
+	core.PuregoSafeRegister(&XGdkToplevelRestoreSystemShortcuts, libs, "gdk_toplevel_restore_system_shortcuts")
+	core.PuregoSafeRegister(&XGdkToplevelSetDecorated, libs, "gdk_toplevel_set_decorated")
+	core.PuregoSafeRegister(&XGdkToplevelSetDeletable, libs, "gdk_toplevel_set_deletable")
+	core.PuregoSafeRegister(&XGdkToplevelSetGravity, libs, "gdk_toplevel_set_gravity")
+	core.PuregoSafeRegister(&XGdkToplevelSetIconList, libs, "gdk_toplevel_set_icon_list")
+	core.PuregoSafeRegister(&XGdkToplevelSetModal, libs, "gdk_toplevel_set_modal")
+	core.PuregoSafeRegister(&XGdkToplevelSetStartupId, libs, "gdk_toplevel_set_startup_id")
+	core.PuregoSafeRegister(&XGdkToplevelSetTitle, libs, "gdk_toplevel_set_title")
+	core.PuregoSafeRegister(&XGdkToplevelSetTransientFor, libs, "gdk_toplevel_set_transient_for")
+	core.PuregoSafeRegister(&XGdkToplevelShowWindowMenu, libs, "gdk_toplevel_show_window_menu")
+	core.PuregoSafeRegister(&XGdkToplevelSupportsEdgeConstraints, libs, "gdk_toplevel_supports_edge_constraints")
+	core.PuregoSafeRegister(&XGdkToplevelTitlebarGesture, libs, "gdk_toplevel_titlebar_gesture")
 }

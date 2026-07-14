@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -38,7 +39,6 @@ type CicpRange int
 var xCicpRangeGLibType func() types.GType
 
 func CicpRangeGLibType() types.GType {
-	core.LazyRegister(&xCicpRangeGLibType, "GDK", "gdk_cicp_range_get_type", false)
 	return xCicpRangeGLibType()
 }
 
@@ -76,7 +76,6 @@ type CicpParams struct {
 var xCicpParamsGLibType func() types.GType
 
 func CicpParamsGLibType() types.GType {
-	core.LazyRegister(&xCicpParamsGLibType, "GDK", "gdk_cicp_params_get_type", false)
 	return xCicpParamsGLibType()
 }
 
@@ -93,7 +92,6 @@ var xNewCicpParams func() uintptr
 // The initial values of the properties are the values for "undefined"
 // and need to be set before a color state object can be built.
 func NewCicpParams() *CicpParams {
-	core.LazyRegister(&xNewCicpParams, "GDK", "gdk_cicp_params_new", false)
 	var cls *CicpParams
 
 	cret := xNewCicpParams()
@@ -114,7 +112,6 @@ var xCicpParamsBuildColorState func(uintptr, **glib.Error) uintptr
 // supported by GTK. In that case, `NULL` is returned, and @error is set
 // with an error message that can be presented to the user.
 func (x *CicpParams) BuildColorState() (*ColorState, error) {
-	core.LazyRegister(&xCicpParamsBuildColorState, "GDK", "gdk_cicp_params_build_color_state", false)
 	var cerr *glib.Error
 
 	cret := xCicpParamsBuildColorState(x.GoPointer(), &cerr)
@@ -132,8 +129,6 @@ var xCicpParamsGetColorPrimaries func(uintptr) uint
 // Returns the value of the color-primaries property
 // of @self.
 func (x *CicpParams) GetColorPrimaries() uint {
-	core.LazyRegister(&xCicpParamsGetColorPrimaries, "GDK", "gdk_cicp_params_get_color_primaries", false)
-
 	cret := xCicpParamsGetColorPrimaries(x.GoPointer())
 	return cret
 }
@@ -142,8 +137,6 @@ var xCicpParamsGetMatrixCoefficients func(uintptr) uint
 
 // Gets the matrix-coefficients property of @self.
 func (x *CicpParams) GetMatrixCoefficients() uint {
-	core.LazyRegister(&xCicpParamsGetMatrixCoefficients, "GDK", "gdk_cicp_params_get_matrix_coefficients", false)
-
 	cret := xCicpParamsGetMatrixCoefficients(x.GoPointer())
 	return cret
 }
@@ -152,8 +145,6 @@ var xCicpParamsGetRange func(uintptr) CicpRange
 
 // Gets the range property of @self.
 func (x *CicpParams) GetRange() CicpRange {
-	core.LazyRegister(&xCicpParamsGetRange, "GDK", "gdk_cicp_params_get_range", false)
-
 	cret := xCicpParamsGetRange(x.GoPointer())
 	return cret
 }
@@ -162,8 +153,6 @@ var xCicpParamsGetTransferFunction func(uintptr) uint
 
 // Gets the transfer-function property of @self.
 func (x *CicpParams) GetTransferFunction() uint {
-	core.LazyRegister(&xCicpParamsGetTransferFunction, "GDK", "gdk_cicp_params_get_transfer_function", false)
-
 	cret := xCicpParamsGetTransferFunction(x.GoPointer())
 	return cret
 }
@@ -172,8 +161,6 @@ var xCicpParamsSetColorPrimaries func(uintptr, uint)
 
 // Sets the color-primaries property of @self.
 func (x *CicpParams) SetColorPrimaries(ColorPrimariesVar uint) {
-	core.LazyRegister(&xCicpParamsSetColorPrimaries, "GDK", "gdk_cicp_params_set_color_primaries", false)
-
 	xCicpParamsSetColorPrimaries(x.GoPointer(), ColorPrimariesVar)
 }
 
@@ -182,8 +169,6 @@ var xCicpParamsSetMatrixCoefficients func(uintptr, uint)
 // @self a `GdkCicpParams`
 // Sets the matrix-coefficients property of @self.
 func (x *CicpParams) SetMatrixCoefficients(MatrixCoefficientsVar uint) {
-	core.LazyRegister(&xCicpParamsSetMatrixCoefficients, "GDK", "gdk_cicp_params_set_matrix_coefficients", false)
-
 	xCicpParamsSetMatrixCoefficients(x.GoPointer(), MatrixCoefficientsVar)
 }
 
@@ -191,8 +176,6 @@ var xCicpParamsSetRange func(uintptr, CicpRange)
 
 // Sets the range property of @self
 func (x *CicpParams) SetRange(RangeVar CicpRange) {
-	core.LazyRegister(&xCicpParamsSetRange, "GDK", "gdk_cicp_params_set_range", false)
-
 	xCicpParamsSetRange(x.GoPointer(), RangeVar)
 }
 
@@ -200,8 +183,6 @@ var xCicpParamsSetTransferFunction func(uintptr, uint)
 
 // Sets the transfer-function property of @self.
 func (x *CicpParams) SetTransferFunction(TransferFunctionVar uint) {
-	core.LazyRegister(&xCicpParamsSetTransferFunction, "GDK", "gdk_cicp_params_set_transfer_function", false)
-
 	xCicpParamsSetTransferFunction(x.GoPointer(), TransferFunctionVar)
 }
 
@@ -326,4 +307,28 @@ func (x *CicpParams) GetPropertyTransferFunction() uint {
 func init() {
 	core.SetPackageName("GDK", "gtk4")
 	core.SetSharedLibraries("GDK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GDK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xCicpRangeGLibType, libs, "gdk_cicp_range_get_type")
+
+	core.PuregoSafeRegister(&xCicpParamsGLibType, libs, "gdk_cicp_params_get_type")
+
+	core.PuregoSafeRegister(&xNewCicpParams, libs, "gdk_cicp_params_new")
+
+	core.PuregoSafeRegister(&xCicpParamsBuildColorState, libs, "gdk_cicp_params_build_color_state")
+	core.PuregoSafeRegister(&xCicpParamsGetColorPrimaries, libs, "gdk_cicp_params_get_color_primaries")
+	core.PuregoSafeRegister(&xCicpParamsGetMatrixCoefficients, libs, "gdk_cicp_params_get_matrix_coefficients")
+	core.PuregoSafeRegister(&xCicpParamsGetRange, libs, "gdk_cicp_params_get_range")
+	core.PuregoSafeRegister(&xCicpParamsGetTransferFunction, libs, "gdk_cicp_params_get_transfer_function")
+	core.PuregoSafeRegister(&xCicpParamsSetColorPrimaries, libs, "gdk_cicp_params_set_color_primaries")
+	core.PuregoSafeRegister(&xCicpParamsSetMatrixCoefficients, libs, "gdk_cicp_params_set_matrix_coefficients")
+	core.PuregoSafeRegister(&xCicpParamsSetRange, libs, "gdk_cicp_params_set_range")
+	core.PuregoSafeRegister(&xCicpParamsSetTransferFunction, libs, "gdk_cicp_params_set_transfer_function")
 }

@@ -206,7 +206,6 @@ type SocketConnectable interface {
 var xSocketConnectableGLibType func() types.GType
 
 func SocketConnectableGLibType() types.GType {
-	core.LazyRegister(&xSocketConnectableGLibType, "GIO", "g_socket_connectable_get_type", false)
 	return xSocketConnectableGLibType()
 }
 
@@ -271,28 +270,27 @@ func (x *SocketConnectableBase) ToString() string {
 	return cret
 }
 
-var XGSocketConnectableEnumerate func(uintptr) uintptr = func(instance uintptr) uintptr {
-	core.LazyRegister(&xXGSocketConnectableEnumerate, "GIO", "g_socket_connectable_enumerate", false)
-	return xXGSocketConnectableEnumerate(instance)
-}
-
 var (
-	xXGSocketConnectableEnumerate     func(uintptr) uintptr
-	XGSocketConnectableProxyEnumerate func(uintptr) uintptr = func(instance uintptr) uintptr {
-		core.LazyRegister(&xXGSocketConnectableProxyEnumerate, "GIO", "g_socket_connectable_proxy_enumerate", false)
-		return xXGSocketConnectableProxyEnumerate(instance)
-	}
+	XGSocketConnectableEnumerate      func(uintptr) uintptr
+	XGSocketConnectableProxyEnumerate func(uintptr) uintptr
+	XGSocketConnectableToString       func(uintptr) string
 )
-var (
-	xXGSocketConnectableProxyEnumerate func(uintptr) uintptr
-	XGSocketConnectableToString        func(uintptr) string = func(instance uintptr) string {
-		core.LazyRegister(&xXGSocketConnectableToString, "GIO", "g_socket_connectable_to_string", false)
-		return xXGSocketConnectableToString(instance)
-	}
-)
-var xXGSocketConnectableToString func(uintptr) string
 
 func init() {
 	core.SetPackageName("GIO", "gio-2.0")
 	core.SetSharedLibraries("GIO", []string{"libgio-2.0.so.0", "libgio-2.0.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GIO") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xSocketConnectableGLibType, libs, "g_socket_connectable_get_type")
+
+	core.PuregoSafeRegister(&XGSocketConnectableEnumerate, libs, "g_socket_connectable_enumerate")
+	core.PuregoSafeRegister(&XGSocketConnectableProxyEnumerate, libs, "g_socket_connectable_proxy_enumerate")
+	core.PuregoSafeRegister(&XGSocketConnectableToString, libs, "g_socket_connectable_to_string")
 }

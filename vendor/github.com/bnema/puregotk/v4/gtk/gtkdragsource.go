@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gdk"
 	"github.com/bnema/puregotk/v4/glib"
@@ -119,7 +120,6 @@ type DragSource struct {
 var xDragSourceGLibType func() types.GType
 
 func DragSourceGLibType() types.GType {
-	core.LazyRegister(&xDragSourceGLibType, "GTK", "gtk_drag_source_get_type", false)
 	return xDragSourceGLibType()
 }
 
@@ -133,7 +133,6 @@ var xNewDragSource func() uintptr
 
 // Creates a new `GtkDragSource` object.
 func NewDragSource() *DragSource {
-	core.LazyRegister(&xNewDragSource, "GTK", "gtk_drag_source_new", false)
 	var cls *DragSource
 
 	cret := xNewDragSource()
@@ -150,8 +149,6 @@ var xDragSourceDragCancel func(uintptr)
 
 // Cancels a currently ongoing drag operation.
 func (x *DragSource) DragCancel() {
-	core.LazyRegister(&xDragSourceDragCancel, "GTK", "gtk_drag_source_drag_cancel", false)
-
 	xDragSourceDragCancel(x.GoPointer())
 }
 
@@ -159,8 +156,6 @@ var xDragSourceGetActions func(uintptr) gdk.DragAction
 
 // Gets the actions that are currently set on the `GtkDragSource`.
 func (x *DragSource) GetActions() gdk.DragAction {
-	core.LazyRegister(&xDragSourceGetActions, "GTK", "gtk_drag_source_get_actions", false)
-
 	cret := xDragSourceGetActions(x.GoPointer())
 	return cret
 }
@@ -169,7 +164,6 @@ var xDragSourceGetContent func(uintptr) uintptr
 
 // Gets the current content provider of a `GtkDragSource`.
 func (x *DragSource) GetContent() *gdk.ContentProvider {
-	core.LazyRegister(&xDragSourceGetContent, "GTK", "gtk_drag_source_get_content", false)
 	var cls *gdk.ContentProvider
 
 	cret := xDragSourceGetContent(x.GoPointer())
@@ -187,7 +181,6 @@ var xDragSourceGetDrag func(uintptr) uintptr
 
 // Returns the underlying `GdkDrag` object for an ongoing drag.
 func (x *DragSource) GetDrag() *gdk.Drag {
-	core.LazyRegister(&xDragSourceGetDrag, "GTK", "gtk_drag_source_get_drag", false)
 	var cls *gdk.Drag
 
 	cret := xDragSourceGetDrag(x.GoPointer())
@@ -213,8 +206,6 @@ var xDragSourceSetActions func(uintptr, gdk.DragAction)
 // This function can be called before a drag is started,
 // or in a handler for the [signal@Gtk.DragSource::prepare] signal.
 func (x *DragSource) SetActions(ActionsVar gdk.DragAction) {
-	core.LazyRegister(&xDragSourceSetActions, "GTK", "gtk_drag_source_set_actions", false)
-
 	xDragSourceSetActions(x.GoPointer(), ActionsVar)
 }
 
@@ -231,8 +222,6 @@ var xDragSourceSetContent func(uintptr, uintptr)
 // You may consider setting the content provider back to
 // %NULL in a [signal@Gtk.DragSource::drag-end] signal handler.
 func (x *DragSource) SetContent(ContentVar *gdk.ContentProvider) {
-	core.LazyRegister(&xDragSourceSetContent, "GTK", "gtk_drag_source_set_content", false)
-
 	xDragSourceSetContent(x.GoPointer(), ContentVar.GoPointer())
 }
 
@@ -249,8 +238,6 @@ var xDragSourceSetIcon func(uintptr, uintptr, int, int)
 // a [signal@Gtk.DragSource::prepare] or
 // [signal@Gtk.DragSource::drag-begin] signal handler.
 func (x *DragSource) SetIcon(PaintableVar gdk.Paintable, HotXVar int, HotYVar int) {
-	core.LazyRegister(&xDragSourceSetIcon, "GTK", "gtk_drag_source_set_icon", false)
-
 	xDragSourceSetIcon(x.GoPointer(), PaintableVar.GoPointer(), HotXVar, HotYVar)
 }
 
@@ -381,4 +368,24 @@ func (x *DragSource) ConnectPrepare(cb *func(DragSource, float64, float64) gdk.C
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GTK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xDragSourceGLibType, libs, "gtk_drag_source_get_type")
+
+	core.PuregoSafeRegister(&xNewDragSource, libs, "gtk_drag_source_new")
+
+	core.PuregoSafeRegister(&xDragSourceDragCancel, libs, "gtk_drag_source_drag_cancel")
+	core.PuregoSafeRegister(&xDragSourceGetActions, libs, "gtk_drag_source_get_actions")
+	core.PuregoSafeRegister(&xDragSourceGetContent, libs, "gtk_drag_source_get_content")
+	core.PuregoSafeRegister(&xDragSourceGetDrag, libs, "gtk_drag_source_get_drag")
+	core.PuregoSafeRegister(&xDragSourceSetActions, libs, "gtk_drag_source_set_actions")
+	core.PuregoSafeRegister(&xDragSourceSetContent, libs, "gtk_drag_source_set_content")
+	core.PuregoSafeRegister(&xDragSourceSetIcon, libs, "gtk_drag_source_set_icon")
 }

@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -53,7 +54,6 @@ type AuthManager struct {
 var xAuthManagerGLibType func() types.GType
 
 func AuthManagerGLibType() types.GType {
-	core.LazyRegister(&xAuthManagerGLibType, "SOUP", "soup_auth_manager_get_type", false)
 	return xAuthManagerGLibType()
 }
 
@@ -67,8 +67,6 @@ var xAuthManagerClearCachedCredentials func(uintptr)
 
 // Clear all credentials cached by @manager.
 func (x *AuthManager) ClearCachedCredentials() {
-	core.LazyRegister(&xAuthManagerClearCachedCredentials, "SOUP", "soup_auth_manager_clear_cached_credentials", false)
-
 	xAuthManagerClearCachedCredentials(x.GoPointer())
 }
 
@@ -85,8 +83,6 @@ var xAuthManagerUseAuth func(uintptr, *glib.Uri, uintptr)
 // Authorization header does not depend on any additional information
 // from the server. (Eg, Basic or NTLM, but not Digest.)
 func (x *AuthManager) UseAuth(UriVar *glib.Uri, AuthVar *Auth) {
-	core.LazyRegister(&xAuthManagerUseAuth, "SOUP", "soup_auth_manager_use_auth", false)
-
 	xAuthManagerUseAuth(x.GoPointer(), UriVar, AuthVar.GoPointer())
 }
 
@@ -104,4 +100,17 @@ func (c *AuthManager) SetGoPointer(ptr uintptr) {
 func init() {
 	core.SetPackageName("SOUP", "libsoup-3.0")
 	core.SetSharedLibraries("SOUP", []string{"libsoup-3.0.so.0", "libsoup-3.0.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("SOUP") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xAuthManagerGLibType, libs, "soup_auth_manager_get_type")
+
+	core.PuregoSafeRegister(&xAuthManagerClearCachedCredentials, libs, "soup_auth_manager_clear_cached_credentials")
+	core.PuregoSafeRegister(&xAuthManagerUseAuth, libs, "soup_auth_manager_use_auth")
 }

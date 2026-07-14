@@ -2,6 +2,7 @@
 package gtk
 
 import (
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -42,7 +43,6 @@ type TextTagTable struct {
 var xTextTagTableGLibType func() types.GType
 
 func TextTagTableGLibType() types.GType {
-	core.LazyRegister(&xTextTagTableGLibType, "GTK", "gtk_text_tag_table_get_type", false)
 	return xTextTagTableGLibType()
 }
 
@@ -58,7 +58,6 @@ var xNewTextTagTable func() uintptr
 //
 // The table contains no tags by default.
 func NewTextTagTable() *TextTagTable {
-	core.LazyRegister(&xNewTextTagTable, "GTK", "gtk_text_tag_table_new", false)
 	var cls *TextTagTable
 
 	cret := xNewTextTagTable()
@@ -80,8 +79,6 @@ var xTextTagTableAdd func(uintptr, uintptr) bool
 // @tag must not be in a tag table already, and may not have
 // the same name as an already-added tag.
 func (x *TextTagTable) Add(TagVar *TextTag) bool {
-	core.LazyRegister(&xTextTagTableAdd, "GTK", "gtk_text_tag_table_add", false)
-
 	cret := xTextTagTableAdd(x.GoPointer(), TagVar.GoPointer())
 	return cret
 }
@@ -93,8 +90,6 @@ var xTextTagTableForeach func(uintptr, uintptr, uintptr)
 // Note that the table may not be modified while iterating
 // over it (you can’t add/remove tags).
 func (x *TextTagTable) Foreach(FuncVar *TextTagTableForeach, DataVar uintptr) {
-	core.LazyRegister(&xTextTagTableForeach, "GTK", "gtk_text_tag_table_foreach", false)
-
 	xTextTagTableForeach(x.GoPointer(), glib.NewCallback(FuncVar), DataVar)
 }
 
@@ -102,8 +97,6 @@ var xTextTagTableGetSize func(uintptr) int
 
 // Returns the size of the table (number of tags)
 func (x *TextTagTable) GetSize() int {
-	core.LazyRegister(&xTextTagTableGetSize, "GTK", "gtk_text_tag_table_get_size", false)
-
 	cret := xTextTagTableGetSize(x.GoPointer())
 	return cret
 }
@@ -112,7 +105,6 @@ var xTextTagTableLookup func(uintptr, string) uintptr
 
 // Look up a named tag.
 func (x *TextTagTable) Lookup(NameVar string) *TextTag {
-	core.LazyRegister(&xTextTagTableLookup, "GTK", "gtk_text_tag_table_lookup", false)
 	var cls *TextTag
 
 	cret := xTextTagTableLookup(x.GoPointer(), NameVar)
@@ -135,8 +127,6 @@ var xTextTagTableRemove func(uintptr, uintptr)
 // removed, so the tag will end up destroyed if you don’t have
 // a reference to it.
 func (x *TextTagTable) Remove(TagVar *TextTag) {
-	core.LazyRegister(&xTextTagTableRemove, "GTK", "gtk_text_tag_table_remove", false)
-
 	xTextTagTableRemove(x.GoPointer(), TagVar.GoPointer())
 }
 
@@ -235,4 +225,22 @@ func (x *TextTagTable) GetBuildableId() string {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GTK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xTextTagTableGLibType, libs, "gtk_text_tag_table_get_type")
+
+	core.PuregoSafeRegister(&xNewTextTagTable, libs, "gtk_text_tag_table_new")
+
+	core.PuregoSafeRegister(&xTextTagTableAdd, libs, "gtk_text_tag_table_add")
+	core.PuregoSafeRegister(&xTextTagTableForeach, libs, "gtk_text_tag_table_foreach")
+	core.PuregoSafeRegister(&xTextTagTableGetSize, libs, "gtk_text_tag_table_get_size")
+	core.PuregoSafeRegister(&xTextTagTableLookup, libs, "gtk_text_tag_table_lookup")
+	core.PuregoSafeRegister(&xTextTagTableRemove, libs, "gtk_text_tag_table_remove")
 }

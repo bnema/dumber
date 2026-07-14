@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gio"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -69,7 +70,6 @@ type AnyFilter struct {
 var xAnyFilterGLibType func() types.GType
 
 func AnyFilterGLibType() types.GType {
-	core.LazyRegister(&xAnyFilterGLibType, "GTK", "gtk_any_filter_get_type", false)
 	return xAnyFilterGLibType()
 }
 
@@ -89,7 +89,6 @@ var xNewAnyFilter func() uintptr
 // matches the item. In particular, this means that if no filter
 // has been added to it, the filter matches no item.
 func NewAnyFilter() *AnyFilter {
-	core.LazyRegister(&xNewAnyFilter, "GTK", "gtk_any_filter_new", false)
 	var cls *AnyFilter
 
 	cret := xNewAnyFilter()
@@ -218,7 +217,6 @@ type EveryFilter struct {
 var xEveryFilterGLibType func() types.GType
 
 func EveryFilterGLibType() types.GType {
-	core.LazyRegister(&xEveryFilterGLibType, "GTK", "gtk_every_filter_get_type", false)
 	return xEveryFilterGLibType()
 }
 
@@ -238,7 +236,6 @@ var xNewEveryFilter func() uintptr
 // matches the item. In particular, this means that if no filter
 // has been added to it, the filter matches every item.
 func NewEveryFilter() *EveryFilter {
-	core.LazyRegister(&xNewEveryFilter, "GTK", "gtk_every_filter_new", false)
 	var cls *EveryFilter
 
 	cret := xNewEveryFilter()
@@ -365,7 +362,6 @@ type MultiFilter struct {
 var xMultiFilterGLibType func() types.GType
 
 func MultiFilterGLibType() types.GType {
-	core.LazyRegister(&xMultiFilterGLibType, "GTK", "gtk_multi_filter_get_type", false)
 	return xMultiFilterGLibType()
 }
 
@@ -379,8 +375,6 @@ var xMultiFilterAppend func(uintptr, uintptr)
 
 // Adds a filter.
 func (x *MultiFilter) Append(FilterVar *Filter) {
-	core.LazyRegister(&xMultiFilterAppend, "GTK", "gtk_multi_filter_append", false)
-
 	xMultiFilterAppend(x.GoPointer(), FilterVar.GoPointer())
 }
 
@@ -391,8 +385,6 @@ var xMultiFilterRemove func(uintptr, uint)
 // If @position is larger than the number of filters,
 // nothing happens.
 func (x *MultiFilter) Remove(PositionVar uint) {
-	core.LazyRegister(&xMultiFilterRemove, "GTK", "gtk_multi_filter_remove", false)
-
 	xMultiFilterRemove(x.GoPointer(), PositionVar)
 }
 
@@ -515,4 +507,25 @@ func (x *MultiFilter) GetBuildableId() string {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GTK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xAnyFilterGLibType, libs, "gtk_any_filter_get_type")
+
+	core.PuregoSafeRegister(&xNewAnyFilter, libs, "gtk_any_filter_new")
+
+	core.PuregoSafeRegister(&xEveryFilterGLibType, libs, "gtk_every_filter_get_type")
+
+	core.PuregoSafeRegister(&xNewEveryFilter, libs, "gtk_every_filter_new")
+
+	core.PuregoSafeRegister(&xMultiFilterGLibType, libs, "gtk_multi_filter_get_type")
+
+	core.PuregoSafeRegister(&xMultiFilterAppend, libs, "gtk_multi_filter_append")
+	core.PuregoSafeRegister(&xMultiFilterRemove, libs, "gtk_multi_filter_remove")
 }

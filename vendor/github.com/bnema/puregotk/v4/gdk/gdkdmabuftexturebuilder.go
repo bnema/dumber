@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/cairo"
 	"github.com/bnema/puregotk/v4/glib"
@@ -91,7 +92,6 @@ type DmabufTextureBuilder struct {
 var xDmabufTextureBuilderGLibType func() types.GType
 
 func DmabufTextureBuilderGLibType() types.GType {
-	core.LazyRegister(&xDmabufTextureBuilderGLibType, "GDK", "gdk_dmabuf_texture_builder_get_type", false)
 	return xDmabufTextureBuilderGLibType()
 }
 
@@ -105,7 +105,6 @@ var xNewDmabufTextureBuilder func() uintptr
 
 // Creates a new texture builder.
 func NewDmabufTextureBuilder() *DmabufTextureBuilder {
-	core.LazyRegister(&xNewDmabufTextureBuilder, "GDK", "gdk_dmabuf_texture_builder_new", false)
 	var cls *DmabufTextureBuilder
 
 	cret := xNewDmabufTextureBuilder()
@@ -137,7 +136,6 @@ var xDmabufTextureBuilderBuild func(uintptr, uintptr, uintptr, **glib.Error) uin
 // It is possible to call this function multiple times to create multiple textures,
 // possibly with changing properties in between.
 func (x *DmabufTextureBuilder) Build(DestroyVar *glib.DestroyNotify, DataVar uintptr) (*Texture, error) {
-	core.LazyRegister(&xDmabufTextureBuilderBuild, "GDK", "gdk_dmabuf_texture_builder_build", false)
 	var cls *Texture
 	var cerr *glib.Error
 
@@ -158,8 +156,6 @@ var xDmabufTextureBuilderGetColorState func(uintptr) uintptr
 
 // Gets the color state previously set via gdk_dmabuf_texture_builder_set_color_state().
 func (x *DmabufTextureBuilder) GetColorState() *ColorState {
-	core.LazyRegister(&xDmabufTextureBuilderGetColorState, "GDK", "gdk_dmabuf_texture_builder_get_color_state", false)
-
 	cret := xDmabufTextureBuilderGetColorState(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -172,7 +168,6 @@ var xDmabufTextureBuilderGetDisplay func(uintptr) uintptr
 // Returns the display that this texture builder is
 // associated with.
 func (x *DmabufTextureBuilder) GetDisplay() *Display {
-	core.LazyRegister(&xDmabufTextureBuilderGetDisplay, "GDK", "gdk_dmabuf_texture_builder_get_display", false)
 	var cls *Display
 
 	cret := xDmabufTextureBuilderGetDisplay(x.GoPointer())
@@ -190,8 +185,6 @@ var xDmabufTextureBuilderGetFd func(uintptr, uint) int
 
 // Gets the file descriptor for a plane.
 func (x *DmabufTextureBuilder) GetFd(PlaneVar uint) int {
-	core.LazyRegister(&xDmabufTextureBuilderGetFd, "GDK", "gdk_dmabuf_texture_builder_get_fd", false)
-
 	cret := xDmabufTextureBuilderGetFd(x.GoPointer(), PlaneVar)
 	return cret
 }
@@ -203,8 +196,6 @@ var xDmabufTextureBuilderGetFourcc func(uintptr) uint32
 //
 // The format is specified as a fourcc code.
 func (x *DmabufTextureBuilder) GetFourcc() uint32 {
-	core.LazyRegister(&xDmabufTextureBuilderGetFourcc, "GDK", "gdk_dmabuf_texture_builder_get_fourcc", false)
-
 	cret := xDmabufTextureBuilderGetFourcc(x.GoPointer())
 	return cret
 }
@@ -214,8 +205,6 @@ var xDmabufTextureBuilderGetHeight func(uintptr) uint
 // Gets the height previously set via gdk_dmabuf_texture_builder_set_height() or
 // 0 if the height wasn't set.
 func (x *DmabufTextureBuilder) GetHeight() uint {
-	core.LazyRegister(&xDmabufTextureBuilderGetHeight, "GDK", "gdk_dmabuf_texture_builder_get_height", false)
-
 	cret := xDmabufTextureBuilderGetHeight(x.GoPointer())
 	return cret
 }
@@ -224,8 +213,6 @@ var xDmabufTextureBuilderGetModifier func(uintptr) uint64
 
 // Gets the modifier value.
 func (x *DmabufTextureBuilder) GetModifier() uint64 {
-	core.LazyRegister(&xDmabufTextureBuilderGetModifier, "GDK", "gdk_dmabuf_texture_builder_get_modifier", false)
-
 	cret := xDmabufTextureBuilderGetModifier(x.GoPointer())
 	return cret
 }
@@ -234,8 +221,6 @@ var xDmabufTextureBuilderGetNPlanes func(uintptr) uint
 
 // Gets the number of planes.
 func (x *DmabufTextureBuilder) GetNPlanes() uint {
-	core.LazyRegister(&xDmabufTextureBuilderGetNPlanes, "GDK", "gdk_dmabuf_texture_builder_get_n_planes", false)
-
 	cret := xDmabufTextureBuilderGetNPlanes(x.GoPointer())
 	return cret
 }
@@ -244,8 +229,6 @@ var xDmabufTextureBuilderGetOffset func(uintptr, uint) uint
 
 // Gets the offset value for a plane.
 func (x *DmabufTextureBuilder) GetOffset(PlaneVar uint) uint {
-	core.LazyRegister(&xDmabufTextureBuilderGetOffset, "GDK", "gdk_dmabuf_texture_builder_get_offset", false)
-
 	cret := xDmabufTextureBuilderGetOffset(x.GoPointer(), PlaneVar)
 	return cret
 }
@@ -254,8 +237,6 @@ var xDmabufTextureBuilderGetPremultiplied func(uintptr) bool
 
 // Whether the data is premultiplied.
 func (x *DmabufTextureBuilder) GetPremultiplied() bool {
-	core.LazyRegister(&xDmabufTextureBuilderGetPremultiplied, "GDK", "gdk_dmabuf_texture_builder_get_premultiplied", false)
-
 	cret := xDmabufTextureBuilderGetPremultiplied(x.GoPointer())
 	return cret
 }
@@ -264,8 +245,6 @@ var xDmabufTextureBuilderGetStride func(uintptr, uint) uint
 
 // Gets the stride value for a plane.
 func (x *DmabufTextureBuilder) GetStride(PlaneVar uint) uint {
-	core.LazyRegister(&xDmabufTextureBuilderGetStride, "GDK", "gdk_dmabuf_texture_builder_get_stride", false)
-
 	cret := xDmabufTextureBuilderGetStride(x.GoPointer(), PlaneVar)
 	return cret
 }
@@ -275,8 +254,6 @@ var xDmabufTextureBuilderGetUpdateRegion func(uintptr) uintptr
 // Gets the region previously set via gdk_dmabuf_texture_builder_set_update_region() or
 // %NULL if none was set.
 func (x *DmabufTextureBuilder) GetUpdateRegion() *cairo.Region {
-	core.LazyRegister(&xDmabufTextureBuilderGetUpdateRegion, "GDK", "gdk_dmabuf_texture_builder_get_update_region", false)
-
 	cret := xDmabufTextureBuilderGetUpdateRegion(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -289,7 +266,6 @@ var xDmabufTextureBuilderGetUpdateTexture func(uintptr) uintptr
 // Gets the texture previously set via gdk_dmabuf_texture_builder_set_update_texture() or
 // %NULL if none was set.
 func (x *DmabufTextureBuilder) GetUpdateTexture() *Texture {
-	core.LazyRegister(&xDmabufTextureBuilderGetUpdateTexture, "GDK", "gdk_dmabuf_texture_builder_get_update_texture", false)
 	var cls *Texture
 
 	cret := xDmabufTextureBuilderGetUpdateTexture(x.GoPointer())
@@ -308,8 +284,6 @@ var xDmabufTextureBuilderGetWidth func(uintptr) uint
 // Gets the width previously set via gdk_dmabuf_texture_builder_set_width() or
 // 0 if the width wasn't set.
 func (x *DmabufTextureBuilder) GetWidth() uint {
-	core.LazyRegister(&xDmabufTextureBuilderGetWidth, "GDK", "gdk_dmabuf_texture_builder_get_width", false)
-
 	cret := xDmabufTextureBuilderGetWidth(x.GoPointer())
 	return cret
 }
@@ -322,8 +296,6 @@ var xDmabufTextureBuilderSetColorState func(uintptr, *ColorState)
 // correct colorstate based on the format.
 // If you don't know what colorstates are, this is probably the right thing.
 func (x *DmabufTextureBuilder) SetColorState(ColorStateVar *ColorState) {
-	core.LazyRegister(&xDmabufTextureBuilderSetColorState, "GDK", "gdk_dmabuf_texture_builder_set_color_state", false)
-
 	xDmabufTextureBuilderSetColorState(x.GoPointer(), ColorStateVar)
 }
 
@@ -335,8 +307,6 @@ var xDmabufTextureBuilderSetDisplay func(uintptr, uintptr)
 // The display is used to determine the supported
 // dma-buf formats.
 func (x *DmabufTextureBuilder) SetDisplay(DisplayVar *Display) {
-	core.LazyRegister(&xDmabufTextureBuilderSetDisplay, "GDK", "gdk_dmabuf_texture_builder_set_display", false)
-
 	xDmabufTextureBuilderSetDisplay(x.GoPointer(), DisplayVar.GoPointer())
 }
 
@@ -344,8 +314,6 @@ var xDmabufTextureBuilderSetFd func(uintptr, uint, int)
 
 // Sets the file descriptor for a plane.
 func (x *DmabufTextureBuilder) SetFd(PlaneVar uint, FdVar int) {
-	core.LazyRegister(&xDmabufTextureBuilderSetFd, "GDK", "gdk_dmabuf_texture_builder_set_fd", false)
-
 	xDmabufTextureBuilderSetFd(x.GoPointer(), PlaneVar, FdVar)
 }
 
@@ -357,8 +325,6 @@ var xDmabufTextureBuilderSetFourcc func(uintptr, uint32)
 //
 // The format must be set before calling [method@Gdk.DmabufTextureBuilder.build].
 func (x *DmabufTextureBuilder) SetFourcc(FourccVar uint32) {
-	core.LazyRegister(&xDmabufTextureBuilderSetFourcc, "GDK", "gdk_dmabuf_texture_builder_set_fourcc", false)
-
 	xDmabufTextureBuilderSetFourcc(x.GoPointer(), FourccVar)
 }
 
@@ -368,8 +334,6 @@ var xDmabufTextureBuilderSetHeight func(uintptr, uint)
 //
 // The height must be set before calling [method@Gdk.DmabufTextureBuilder.build].
 func (x *DmabufTextureBuilder) SetHeight(HeightVar uint) {
-	core.LazyRegister(&xDmabufTextureBuilderSetHeight, "GDK", "gdk_dmabuf_texture_builder_set_height", false)
-
 	xDmabufTextureBuilderSetHeight(x.GoPointer(), HeightVar)
 }
 
@@ -377,8 +341,6 @@ var xDmabufTextureBuilderSetModifier func(uintptr, uint64)
 
 // Sets the modifier.
 func (x *DmabufTextureBuilder) SetModifier(ModifierVar uint64) {
-	core.LazyRegister(&xDmabufTextureBuilderSetModifier, "GDK", "gdk_dmabuf_texture_builder_set_modifier", false)
-
 	xDmabufTextureBuilderSetModifier(x.GoPointer(), ModifierVar)
 }
 
@@ -386,8 +348,6 @@ var xDmabufTextureBuilderSetNPlanes func(uintptr, uint)
 
 // Sets the number of planes of the texture.
 func (x *DmabufTextureBuilder) SetNPlanes(NPlanesVar uint) {
-	core.LazyRegister(&xDmabufTextureBuilderSetNPlanes, "GDK", "gdk_dmabuf_texture_builder_set_n_planes", false)
-
 	xDmabufTextureBuilderSetNPlanes(x.GoPointer(), NPlanesVar)
 }
 
@@ -395,8 +355,6 @@ var xDmabufTextureBuilderSetOffset func(uintptr, uint, uint)
 
 // Sets the offset for a plane.
 func (x *DmabufTextureBuilder) SetOffset(PlaneVar uint, OffsetVar uint) {
-	core.LazyRegister(&xDmabufTextureBuilderSetOffset, "GDK", "gdk_dmabuf_texture_builder_set_offset", false)
-
 	xDmabufTextureBuilderSetOffset(x.GoPointer(), PlaneVar, OffsetVar)
 }
 
@@ -407,8 +365,6 @@ var xDmabufTextureBuilderSetPremultiplied func(uintptr, bool)
 // Unless otherwise specified, all formats including alpha channels are assumed
 // to be premultiplied.
 func (x *DmabufTextureBuilder) SetPremultiplied(PremultipliedVar bool) {
-	core.LazyRegister(&xDmabufTextureBuilderSetPremultiplied, "GDK", "gdk_dmabuf_texture_builder_set_premultiplied", false)
-
 	xDmabufTextureBuilderSetPremultiplied(x.GoPointer(), PremultipliedVar)
 }
 
@@ -418,8 +374,6 @@ var xDmabufTextureBuilderSetStride func(uintptr, uint, uint)
 //
 // The stride must be set for all planes before calling [method@Gdk.DmabufTextureBuilder.build].
 func (x *DmabufTextureBuilder) SetStride(PlaneVar uint, StrideVar uint) {
-	core.LazyRegister(&xDmabufTextureBuilderSetStride, "GDK", "gdk_dmabuf_texture_builder_set_stride", false)
-
 	xDmabufTextureBuilderSetStride(x.GoPointer(), PlaneVar, StrideVar)
 }
 
@@ -436,8 +390,6 @@ var xDmabufTextureBuilderSetUpdateRegion func(uintptr, *cairo.Region)
 //
 // An example would be a screen recording where only the mouse pointer moves.
 func (x *DmabufTextureBuilder) SetUpdateRegion(RegionVar *cairo.Region) {
-	core.LazyRegister(&xDmabufTextureBuilderSetUpdateRegion, "GDK", "gdk_dmabuf_texture_builder_set_update_region", false)
-
 	xDmabufTextureBuilderSetUpdateRegion(x.GoPointer(), RegionVar)
 }
 
@@ -446,8 +398,6 @@ var xDmabufTextureBuilderSetUpdateTexture func(uintptr, uintptr)
 // Sets the texture to be updated by this texture. See
 // [method@Gdk.DmabufTextureBuilder.set_update_region] for an explanation.
 func (x *DmabufTextureBuilder) SetUpdateTexture(TextureVar *Texture) {
-	core.LazyRegister(&xDmabufTextureBuilderSetUpdateTexture, "GDK", "gdk_dmabuf_texture_builder_set_update_texture", false)
-
 	xDmabufTextureBuilderSetUpdateTexture(x.GoPointer(), TextureVar.GoPointer())
 }
 
@@ -457,8 +407,6 @@ var xDmabufTextureBuilderSetWidth func(uintptr, uint)
 //
 // The width must be set before calling [method@Gdk.DmabufTextureBuilder.build].
 func (x *DmabufTextureBuilder) SetWidth(WidthVar uint) {
-	core.LazyRegister(&xDmabufTextureBuilderSetWidth, "GDK", "gdk_dmabuf_texture_builder_set_width", false)
-
 	xDmabufTextureBuilderSetWidth(x.GoPointer(), WidthVar)
 }
 
@@ -622,4 +570,44 @@ func (x *DmabufTextureBuilder) GetPropertyWidth() uint {
 func init() {
 	core.SetPackageName("GDK", "gtk4")
 	core.SetSharedLibraries("GDK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GDK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xDmabufTextureBuilderGLibType, libs, "gdk_dmabuf_texture_builder_get_type")
+
+	core.PuregoSafeRegister(&xNewDmabufTextureBuilder, libs, "gdk_dmabuf_texture_builder_new")
+
+	core.PuregoSafeRegister(&xDmabufTextureBuilderBuild, libs, "gdk_dmabuf_texture_builder_build")
+	core.PuregoSafeRegister(&xDmabufTextureBuilderGetColorState, libs, "gdk_dmabuf_texture_builder_get_color_state")
+	core.PuregoSafeRegister(&xDmabufTextureBuilderGetDisplay, libs, "gdk_dmabuf_texture_builder_get_display")
+	core.PuregoSafeRegister(&xDmabufTextureBuilderGetFd, libs, "gdk_dmabuf_texture_builder_get_fd")
+	core.PuregoSafeRegister(&xDmabufTextureBuilderGetFourcc, libs, "gdk_dmabuf_texture_builder_get_fourcc")
+	core.PuregoSafeRegister(&xDmabufTextureBuilderGetHeight, libs, "gdk_dmabuf_texture_builder_get_height")
+	core.PuregoSafeRegister(&xDmabufTextureBuilderGetModifier, libs, "gdk_dmabuf_texture_builder_get_modifier")
+	core.PuregoSafeRegister(&xDmabufTextureBuilderGetNPlanes, libs, "gdk_dmabuf_texture_builder_get_n_planes")
+	core.PuregoSafeRegister(&xDmabufTextureBuilderGetOffset, libs, "gdk_dmabuf_texture_builder_get_offset")
+	core.PuregoSafeRegister(&xDmabufTextureBuilderGetPremultiplied, libs, "gdk_dmabuf_texture_builder_get_premultiplied")
+	core.PuregoSafeRegister(&xDmabufTextureBuilderGetStride, libs, "gdk_dmabuf_texture_builder_get_stride")
+	core.PuregoSafeRegister(&xDmabufTextureBuilderGetUpdateRegion, libs, "gdk_dmabuf_texture_builder_get_update_region")
+	core.PuregoSafeRegister(&xDmabufTextureBuilderGetUpdateTexture, libs, "gdk_dmabuf_texture_builder_get_update_texture")
+	core.PuregoSafeRegister(&xDmabufTextureBuilderGetWidth, libs, "gdk_dmabuf_texture_builder_get_width")
+	core.PuregoSafeRegister(&xDmabufTextureBuilderSetColorState, libs, "gdk_dmabuf_texture_builder_set_color_state")
+	core.PuregoSafeRegister(&xDmabufTextureBuilderSetDisplay, libs, "gdk_dmabuf_texture_builder_set_display")
+	core.PuregoSafeRegister(&xDmabufTextureBuilderSetFd, libs, "gdk_dmabuf_texture_builder_set_fd")
+	core.PuregoSafeRegister(&xDmabufTextureBuilderSetFourcc, libs, "gdk_dmabuf_texture_builder_set_fourcc")
+	core.PuregoSafeRegister(&xDmabufTextureBuilderSetHeight, libs, "gdk_dmabuf_texture_builder_set_height")
+	core.PuregoSafeRegister(&xDmabufTextureBuilderSetModifier, libs, "gdk_dmabuf_texture_builder_set_modifier")
+	core.PuregoSafeRegister(&xDmabufTextureBuilderSetNPlanes, libs, "gdk_dmabuf_texture_builder_set_n_planes")
+	core.PuregoSafeRegister(&xDmabufTextureBuilderSetOffset, libs, "gdk_dmabuf_texture_builder_set_offset")
+	core.PuregoSafeRegister(&xDmabufTextureBuilderSetPremultiplied, libs, "gdk_dmabuf_texture_builder_set_premultiplied")
+	core.PuregoSafeRegister(&xDmabufTextureBuilderSetStride, libs, "gdk_dmabuf_texture_builder_set_stride")
+	core.PuregoSafeRegister(&xDmabufTextureBuilderSetUpdateRegion, libs, "gdk_dmabuf_texture_builder_set_update_region")
+	core.PuregoSafeRegister(&xDmabufTextureBuilderSetUpdateTexture, libs, "gdk_dmabuf_texture_builder_set_update_texture")
+	core.PuregoSafeRegister(&xDmabufTextureBuilderSetWidth, libs, "gdk_dmabuf_texture_builder_set_width")
 }

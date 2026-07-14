@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gio"
 	"github.com/bnema/puregotk/v4/glib"
@@ -189,7 +190,6 @@ type FileChooserNative struct {
 var xFileChooserNativeGLibType func() types.GType
 
 func FileChooserNativeGLibType() types.GType {
-	core.LazyRegister(&xFileChooserNativeGLibType, "GTK", "gtk_file_chooser_native_get_type", false)
 	return xFileChooserNativeGLibType()
 }
 
@@ -203,7 +203,6 @@ var xNewFileChooserNative func(uintptr, uintptr, FileChooserAction, uintptr, uin
 
 // Creates a new `GtkFileChooserNative`.
 func NewFileChooserNative(TitleVar *string, ParentVar *Window, ActionVar FileChooserAction, AcceptLabelVar *string, CancelLabelVar *string) *FileChooserNative {
-	core.LazyRegister(&xNewFileChooserNative, "GTK", "gtk_file_chooser_native_new", false)
 	var cls *FileChooserNative
 
 	TitleVarPtr := core.GStrdupNullable(TitleVar)
@@ -229,8 +228,6 @@ var xFileChooserNativeGetAcceptLabel func(uintptr) string
 
 // Retrieves the custom label text for the accept button.
 func (x *FileChooserNative) GetAcceptLabel() string {
-	core.LazyRegister(&xFileChooserNativeGetAcceptLabel, "GTK", "gtk_file_chooser_native_get_accept_label", false)
-
 	cret := xFileChooserNativeGetAcceptLabel(x.GoPointer())
 	return cret
 }
@@ -239,8 +236,6 @@ var xFileChooserNativeGetCancelLabel func(uintptr) string
 
 // Retrieves the custom label text for the cancel button.
 func (x *FileChooserNative) GetCancelLabel() string {
-	core.LazyRegister(&xFileChooserNativeGetCancelLabel, "GTK", "gtk_file_chooser_native_get_cancel_label", false)
-
 	cret := xFileChooserNativeGetCancelLabel(x.GoPointer())
 	return cret
 }
@@ -256,8 +251,6 @@ var xFileChooserNativeSetAcceptLabel func(uintptr, uintptr)
 //
 // Pressing Alt and that key should activate the button.
 func (x *FileChooserNative) SetAcceptLabel(AcceptLabelVar *string) {
-	core.LazyRegister(&xFileChooserNativeSetAcceptLabel, "GTK", "gtk_file_chooser_native_set_accept_label", false)
-
 	AcceptLabelVarPtr := core.GStrdupNullable(AcceptLabelVar)
 	defer core.GFreeNullable(AcceptLabelVarPtr)
 
@@ -275,8 +268,6 @@ var xFileChooserNativeSetCancelLabel func(uintptr, uintptr)
 //
 // Pressing Alt and that key should activate the button.
 func (x *FileChooserNative) SetCancelLabel(CancelLabelVar *string) {
-	core.LazyRegister(&xFileChooserNativeSetCancelLabel, "GTK", "gtk_file_chooser_native_set_cancel_label", false)
-
 	CancelLabelVarPtr := core.GStrdupNullable(CancelLabelVar)
 	defer core.GFreeNullable(CancelLabelVarPtr)
 
@@ -659,4 +650,21 @@ func (x *FileChooserNative) SetSelectMultiple(SelectMultipleVar bool) {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GTK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xFileChooserNativeGLibType, libs, "gtk_file_chooser_native_get_type")
+
+	core.PuregoSafeRegister(&xNewFileChooserNative, libs, "gtk_file_chooser_native_new")
+
+	core.PuregoSafeRegister(&xFileChooserNativeGetAcceptLabel, libs, "gtk_file_chooser_native_get_accept_label")
+	core.PuregoSafeRegister(&xFileChooserNativeGetCancelLabel, libs, "gtk_file_chooser_native_get_cancel_label")
+	core.PuregoSafeRegister(&xFileChooserNativeSetAcceptLabel, libs, "gtk_file_chooser_native_set_accept_label")
+	core.PuregoSafeRegister(&xFileChooserNativeSetCancelLabel, libs, "gtk_file_chooser_native_set_cancel_label")
 }

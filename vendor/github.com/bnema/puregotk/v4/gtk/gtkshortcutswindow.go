@@ -2,6 +2,7 @@
 package gtk
 
 import (
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gdk"
 	"github.com/bnema/puregotk/v4/glib"
@@ -90,7 +91,6 @@ type ShortcutsWindow struct {
 var xShortcutsWindowGLibType func() types.GType
 
 func ShortcutsWindowGLibType() types.GType {
-	core.LazyRegister(&xShortcutsWindowGLibType, "GTK", "gtk_shortcuts_window_get_type", false)
 	return xShortcutsWindowGLibType()
 }
 
@@ -110,8 +110,6 @@ var xShortcutsWindowAddSection func(uintptr, uintptr)
 // Using [method@Gtk.Window.set_child] is not appropriate as the shortcuts
 // window manages its children internally.
 func (x *ShortcutsWindow) AddSection(SectionVar *ShortcutsSection) {
-	core.LazyRegister(&xShortcutsWindowAddSection, "GTK", "gtk_shortcuts_window_add_section", false)
-
 	xShortcutsWindowAddSection(x.GoPointer(), SectionVar.GoPointer())
 }
 
@@ -594,4 +592,16 @@ func (x *ShortcutsWindow) SetFocus(FocusVar *Widget) {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GTK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xShortcutsWindowGLibType, libs, "gtk_shortcuts_window_get_type")
+
+	core.PuregoSafeRegister(&xShortcutsWindowAddSection, libs, "gtk_shortcuts_window_add_section")
 }

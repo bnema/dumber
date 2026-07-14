@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject/types"
 )
@@ -31,7 +32,6 @@ type Bitset struct {
 var xBitsetGLibType func() types.GType
 
 func BitsetGLibType() types.GType {
-	core.LazyRegister(&xBitsetGLibType, "GTK", "gtk_bitset_get_type", false)
 	return xBitsetGLibType()
 }
 
@@ -51,8 +51,6 @@ var xNewBitsetEmpty func() uintptr
 
 // Creates a new empty bitset.
 func NewBitsetEmpty() *Bitset {
-	core.LazyRegister(&xNewBitsetEmpty, "GTK", "gtk_bitset_new_empty", false)
-
 	cret := xNewBitsetEmpty()
 	if cret == 0 {
 		return nil
@@ -64,8 +62,6 @@ var xNewBitsetRange func(uint, uint) uintptr
 
 // Creates a bitset with the given range set.
 func NewBitsetRange(StartVar uint, NItemsVar uint) *Bitset {
-	core.LazyRegister(&xNewBitsetRange, "GTK", "gtk_bitset_new_range", false)
-
 	cret := xNewBitsetRange(StartVar, NItemsVar)
 	if cret == 0 {
 		return nil
@@ -77,8 +73,6 @@ var xBitsetAdd func(uintptr, uint) bool
 
 // Adds @value to @self if it wasn't part of it before.
 func (x *Bitset) Add(ValueVar uint) bool {
-	core.LazyRegister(&xBitsetAdd, "GTK", "gtk_bitset_add", false)
-
 	cret := xBitsetAdd(x.GoPointer(), ValueVar)
 	return cret
 }
@@ -88,8 +82,6 @@ var xBitsetAddRange func(uintptr, uint, uint)
 // Adds all values from @start (inclusive) to @start + @n_items
 // (exclusive) in @self.
 func (x *Bitset) AddRange(StartVar uint, NItemsVar uint) {
-	core.LazyRegister(&xBitsetAddRange, "GTK", "gtk_bitset_add_range", false)
-
 	xBitsetAddRange(x.GoPointer(), StartVar, NItemsVar)
 }
 
@@ -98,8 +90,6 @@ var xBitsetAddRangeClosed func(uintptr, uint, uint)
 // Adds the closed range [@first, @last], so @first, @last and all
 // values in between. @first must be smaller than @last.
 func (x *Bitset) AddRangeClosed(FirstVar uint, LastVar uint) {
-	core.LazyRegister(&xBitsetAddRangeClosed, "GTK", "gtk_bitset_add_range_closed", false)
-
 	xBitsetAddRangeClosed(x.GoPointer(), FirstVar, LastVar)
 }
 
@@ -108,8 +98,6 @@ var xBitsetAddRectangle func(uintptr, uint, uint, uint, uint)
 // Interprets the values as a 2-dimensional boolean grid with the given @stride
 // and inside that grid, adds a rectangle with the given @width and @height.
 func (x *Bitset) AddRectangle(StartVar uint, WidthVar uint, HeightVar uint, StrideVar uint) {
-	core.LazyRegister(&xBitsetAddRectangle, "GTK", "gtk_bitset_add_rectangle", false)
-
 	xBitsetAddRectangle(x.GoPointer(), StartVar, WidthVar, HeightVar, StrideVar)
 }
 
@@ -117,8 +105,6 @@ var xBitsetContains func(uintptr, uint) bool
 
 // Checks if the given @value has been added to @self
 func (x *Bitset) Contains(ValueVar uint) bool {
-	core.LazyRegister(&xBitsetContains, "GTK", "gtk_bitset_contains", false)
-
 	cret := xBitsetContains(x.GoPointer(), ValueVar)
 	return cret
 }
@@ -127,8 +113,6 @@ var xBitsetCopy func(uintptr) uintptr
 
 // Creates a copy of @self.
 func (x *Bitset) Copy() *Bitset {
-	core.LazyRegister(&xBitsetCopy, "GTK", "gtk_bitset_copy", false)
-
 	cret := xBitsetCopy(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -147,8 +131,6 @@ var xBitsetDifference func(uintptr, *Bitset)
 // It is allowed for @self and @other to be the same bitset. The bitset
 // will be emptied in that case.
 func (x *Bitset) Difference(OtherVar *Bitset) {
-	core.LazyRegister(&xBitsetDifference, "GTK", "gtk_bitset_difference", false)
-
 	xBitsetDifference(x.GoPointer(), OtherVar)
 }
 
@@ -156,8 +138,6 @@ var xBitsetEquals func(uintptr, *Bitset) bool
 
 // Returns %TRUE if @self and @other contain the same values.
 func (x *Bitset) Equals(OtherVar *Bitset) bool {
-	core.LazyRegister(&xBitsetEquals, "GTK", "gtk_bitset_equals", false)
-
 	cret := xBitsetEquals(x.GoPointer(), OtherVar)
 	return cret
 }
@@ -168,8 +148,6 @@ var xBitsetGetMaximum func(uintptr) uint
 //
 // If @self is empty, 0 is returned.
 func (x *Bitset) GetMaximum() uint {
-	core.LazyRegister(&xBitsetGetMaximum, "GTK", "gtk_bitset_get_maximum", false)
-
 	cret := xBitsetGetMaximum(x.GoPointer())
 	return cret
 }
@@ -180,8 +158,6 @@ var xBitsetGetMinimum func(uintptr) uint
 //
 // If @self is empty, `G_MAXUINT` is returned.
 func (x *Bitset) GetMinimum() uint {
-	core.LazyRegister(&xBitsetGetMinimum, "GTK", "gtk_bitset_get_minimum", false)
-
 	cret := xBitsetGetMinimum(x.GoPointer())
 	return cret
 }
@@ -192,8 +168,6 @@ var xBitsetGetNth func(uintptr, uint) uint
 //
 // If @nth is &gt;= the size of @self, 0 is returned.
 func (x *Bitset) GetNth(NthVar uint) uint {
-	core.LazyRegister(&xBitsetGetNth, "GTK", "gtk_bitset_get_nth", false)
-
 	cret := xBitsetGetNth(x.GoPointer(), NthVar)
 	return cret
 }
@@ -209,8 +183,6 @@ var xBitsetGetSize func(uintptr) uint64
 // are sure this cannot happen (it can't with `GListModel`), be sure
 // to use a 64bit type.
 func (x *Bitset) GetSize() uint64 {
-	core.LazyRegister(&xBitsetGetSize, "GTK", "gtk_bitset_get_size", false)
-
 	cret := xBitsetGetSize(x.GoPointer())
 	return cret
 }
@@ -224,8 +196,6 @@ var xBitsetGetSizeInRange func(uintptr, uint, uint) uint64
 // set, the return value is `G_MAXUINT + 1`. Unless you are sure this cannot
 // happen (it can't with `GListModel`), be sure to use a 64bit type.
 func (x *Bitset) GetSizeInRange(FirstVar uint, LastVar uint) uint64 {
-	core.LazyRegister(&xBitsetGetSizeInRange, "GTK", "gtk_bitset_get_size_in_range", false)
-
 	cret := xBitsetGetSizeInRange(x.GoPointer(), FirstVar, LastVar)
 	return cret
 }
@@ -239,8 +209,6 @@ var xBitsetIntersect func(uintptr, *Bitset)
 // It is allowed for @self and @other to be the same bitset. Nothing will
 // happen in that case.
 func (x *Bitset) Intersect(OtherVar *Bitset) {
-	core.LazyRegister(&xBitsetIntersect, "GTK", "gtk_bitset_intersect", false)
-
 	xBitsetIntersect(x.GoPointer(), OtherVar)
 }
 
@@ -248,8 +216,6 @@ var xBitsetIsEmpty func(uintptr) bool
 
 // Check if no value is contained in bitset.
 func (x *Bitset) IsEmpty() bool {
-	core.LazyRegister(&xBitsetIsEmpty, "GTK", "gtk_bitset_is_empty", false)
-
 	cret := xBitsetIsEmpty(x.GoPointer())
 	return cret
 }
@@ -258,8 +224,6 @@ var xBitsetRef func(uintptr) uintptr
 
 // Acquires a reference on the given `GtkBitset`.
 func (x *Bitset) Ref() *Bitset {
-	core.LazyRegister(&xBitsetRef, "GTK", "gtk_bitset_ref", false)
-
 	cret := xBitsetRef(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -271,8 +235,6 @@ var xBitsetRemove func(uintptr, uint) bool
 
 // Removes @value from @self if it was part of it before.
 func (x *Bitset) Remove(ValueVar uint) bool {
-	core.LazyRegister(&xBitsetRemove, "GTK", "gtk_bitset_remove", false)
-
 	cret := xBitsetRemove(x.GoPointer(), ValueVar)
 	return cret
 }
@@ -281,8 +243,6 @@ var xBitsetRemoveAll func(uintptr)
 
 // Removes all values from the bitset so that it is empty again.
 func (x *Bitset) RemoveAll() {
-	core.LazyRegister(&xBitsetRemoveAll, "GTK", "gtk_bitset_remove_all", false)
-
 	xBitsetRemoveAll(x.GoPointer())
 }
 
@@ -291,8 +251,6 @@ var xBitsetRemoveRange func(uintptr, uint, uint)
 // Removes all values from @start (inclusive) to @start + @n_items (exclusive)
 // in @self.
 func (x *Bitset) RemoveRange(StartVar uint, NItemsVar uint) {
-	core.LazyRegister(&xBitsetRemoveRange, "GTK", "gtk_bitset_remove_range", false)
-
 	xBitsetRemoveRange(x.GoPointer(), StartVar, NItemsVar)
 }
 
@@ -301,8 +259,6 @@ var xBitsetRemoveRangeClosed func(uintptr, uint, uint)
 // Removes the closed range [@first, @last], so @first, @last and all
 // values in between. @first must be smaller than @last.
 func (x *Bitset) RemoveRangeClosed(FirstVar uint, LastVar uint) {
-	core.LazyRegister(&xBitsetRemoveRangeClosed, "GTK", "gtk_bitset_remove_range_closed", false)
-
 	xBitsetRemoveRangeClosed(x.GoPointer(), FirstVar, LastVar)
 }
 
@@ -311,8 +267,6 @@ var xBitsetRemoveRectangle func(uintptr, uint, uint, uint, uint)
 // Interprets the values as a 2-dimensional boolean grid with the given @stride
 // and inside that grid, removes a rectangle with the given @width and @height.
 func (x *Bitset) RemoveRectangle(StartVar uint, WidthVar uint, HeightVar uint, StrideVar uint) {
-	core.LazyRegister(&xBitsetRemoveRectangle, "GTK", "gtk_bitset_remove_rectangle", false)
-
 	xBitsetRemoveRectangle(x.GoPointer(), StartVar, WidthVar, HeightVar, StrideVar)
 }
 
@@ -322,8 +276,6 @@ var xBitsetShiftLeft func(uintptr, uint)
 //
 // Values smaller than @amount are discarded.
 func (x *Bitset) ShiftLeft(AmountVar uint) {
-	core.LazyRegister(&xBitsetShiftLeft, "GTK", "gtk_bitset_shift_left", false)
-
 	xBitsetShiftLeft(x.GoPointer(), AmountVar)
 }
 
@@ -333,8 +285,6 @@ var xBitsetShiftRight func(uintptr, uint)
 //
 // Values that end up too large to be held in a #guint are discarded.
 func (x *Bitset) ShiftRight(AmountVar uint) {
-	core.LazyRegister(&xBitsetShiftRight, "GTK", "gtk_bitset_shift_right", false)
-
 	xBitsetShiftRight(x.GoPointer(), AmountVar)
 }
 
@@ -351,8 +301,6 @@ var xBitsetSplice func(uintptr, uint, uint, uint)
 // larger than @position by @added spaces to the right. This frees
 // up space that can then be filled.
 func (x *Bitset) Splice(PositionVar uint, RemovedVar uint, AddedVar uint) {
-	core.LazyRegister(&xBitsetSplice, "GTK", "gtk_bitset_splice", false)
-
 	xBitsetSplice(x.GoPointer(), PositionVar, RemovedVar, AddedVar)
 }
 
@@ -365,8 +313,6 @@ var xBitsetSubtract func(uintptr, *Bitset)
 // It is allowed for @self and @other to be the same bitset. The bitset
 // will be emptied in that case.
 func (x *Bitset) Subtract(OtherVar *Bitset) {
-	core.LazyRegister(&xBitsetSubtract, "GTK", "gtk_bitset_subtract", false)
-
 	xBitsetSubtract(x.GoPointer(), OtherVar)
 }
 
@@ -379,8 +325,6 @@ var xBitsetUnion func(uintptr, *Bitset)
 // It is allowed for @self and @other to be the same bitset. Nothing will
 // happen in that case.
 func (x *Bitset) Union(OtherVar *Bitset) {
-	core.LazyRegister(&xBitsetUnion, "GTK", "gtk_bitset_union", false)
-
 	xBitsetUnion(x.GoPointer(), OtherVar)
 }
 
@@ -391,8 +335,6 @@ var xBitsetUnref func(uintptr)
 // If the reference was the last, the resources associated to the @self are
 // freed.
 func (x *Bitset) Unref() {
-	core.LazyRegister(&xBitsetUnref, "GTK", "gtk_bitset_unref", false)
-
 	xBitsetUnref(x.GoPointer())
 }
 
@@ -424,7 +366,6 @@ type ScrollInfo struct {
 var xScrollInfoGLibType func() types.GType
 
 func ScrollInfoGLibType() types.GType {
-	core.LazyRegister(&xScrollInfoGLibType, "GTK", "gtk_scroll_info_get_type", false)
 	return xScrollInfoGLibType()
 }
 
@@ -444,8 +385,6 @@ var xNewScrollInfo func() uintptr
 
 // Creates a new scroll info for scrolling an element into view.
 func NewScrollInfo() *ScrollInfo {
-	core.LazyRegister(&xNewScrollInfo, "GTK", "gtk_scroll_info_new", false)
-
 	cret := xNewScrollInfo()
 	if cret == 0 {
 		return nil
@@ -457,8 +396,6 @@ var xScrollInfoGetEnableHorizontal func(uintptr) bool
 
 // Checks if horizontal scrolling is enabled.
 func (x *ScrollInfo) GetEnableHorizontal() bool {
-	core.LazyRegister(&xScrollInfoGetEnableHorizontal, "GTK", "gtk_scroll_info_get_enable_horizontal", false)
-
 	cret := xScrollInfoGetEnableHorizontal(x.GoPointer())
 	return cret
 }
@@ -467,8 +404,6 @@ var xScrollInfoGetEnableVertical func(uintptr) bool
 
 // Checks if vertical scrolling is enabled.
 func (x *ScrollInfo) GetEnableVertical() bool {
-	core.LazyRegister(&xScrollInfoGetEnableVertical, "GTK", "gtk_scroll_info_get_enable_vertical", false)
-
 	cret := xScrollInfoGetEnableVertical(x.GoPointer())
 	return cret
 }
@@ -477,8 +412,6 @@ var xScrollInfoRef func(uintptr) uintptr
 
 // Increases the reference count of a `GtkScrollInfo` by one.
 func (x *ScrollInfo) Ref() *ScrollInfo {
-	core.LazyRegister(&xScrollInfoRef, "GTK", "gtk_scroll_info_ref", false)
-
 	cret := xScrollInfoRef(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -490,8 +423,6 @@ var xScrollInfoSetEnableHorizontal func(uintptr, bool)
 
 // Turns horizontal scrolling on or off.
 func (x *ScrollInfo) SetEnableHorizontal(HorizontalVar bool) {
-	core.LazyRegister(&xScrollInfoSetEnableHorizontal, "GTK", "gtk_scroll_info_set_enable_horizontal", false)
-
 	xScrollInfoSetEnableHorizontal(x.GoPointer(), HorizontalVar)
 }
 
@@ -499,8 +430,6 @@ var xScrollInfoSetEnableVertical func(uintptr, bool)
 
 // Turns vertical scrolling on or off.
 func (x *ScrollInfo) SetEnableVertical(VerticalVar bool) {
-	core.LazyRegister(&xScrollInfoSetEnableVertical, "GTK", "gtk_scroll_info_set_enable_vertical", false)
-
 	xScrollInfoSetEnableVertical(x.GoPointer(), VerticalVar)
 }
 
@@ -510,8 +439,6 @@ var xScrollInfoUnref func(uintptr)
 //
 // If the resulting reference count is zero, frees the self.
 func (x *ScrollInfo) Unref() {
-	core.LazyRegister(&xScrollInfoUnref, "GTK", "gtk_scroll_info_unref", false)
-
 	xScrollInfoUnref(x.GoPointer())
 }
 
@@ -531,4 +458,56 @@ const (
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GTK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xBitsetGLibType, libs, "gtk_bitset_get_type")
+
+	core.PuregoSafeRegister(&xNewBitsetEmpty, libs, "gtk_bitset_new_empty")
+	core.PuregoSafeRegister(&xNewBitsetRange, libs, "gtk_bitset_new_range")
+
+	core.PuregoSafeRegister(&xBitsetAdd, libs, "gtk_bitset_add")
+	core.PuregoSafeRegister(&xBitsetAddRange, libs, "gtk_bitset_add_range")
+	core.PuregoSafeRegister(&xBitsetAddRangeClosed, libs, "gtk_bitset_add_range_closed")
+	core.PuregoSafeRegister(&xBitsetAddRectangle, libs, "gtk_bitset_add_rectangle")
+	core.PuregoSafeRegister(&xBitsetContains, libs, "gtk_bitset_contains")
+	core.PuregoSafeRegister(&xBitsetCopy, libs, "gtk_bitset_copy")
+	core.PuregoSafeRegister(&xBitsetDifference, libs, "gtk_bitset_difference")
+	core.PuregoSafeRegister(&xBitsetEquals, libs, "gtk_bitset_equals")
+	core.PuregoSafeRegister(&xBitsetGetMaximum, libs, "gtk_bitset_get_maximum")
+	core.PuregoSafeRegister(&xBitsetGetMinimum, libs, "gtk_bitset_get_minimum")
+	core.PuregoSafeRegister(&xBitsetGetNth, libs, "gtk_bitset_get_nth")
+	core.PuregoSafeRegister(&xBitsetGetSize, libs, "gtk_bitset_get_size")
+	core.PuregoSafeRegister(&xBitsetGetSizeInRange, libs, "gtk_bitset_get_size_in_range")
+	core.PuregoSafeRegister(&xBitsetIntersect, libs, "gtk_bitset_intersect")
+	core.PuregoSafeRegister(&xBitsetIsEmpty, libs, "gtk_bitset_is_empty")
+	core.PuregoSafeRegister(&xBitsetRef, libs, "gtk_bitset_ref")
+	core.PuregoSafeRegister(&xBitsetRemove, libs, "gtk_bitset_remove")
+	core.PuregoSafeRegister(&xBitsetRemoveAll, libs, "gtk_bitset_remove_all")
+	core.PuregoSafeRegister(&xBitsetRemoveRange, libs, "gtk_bitset_remove_range")
+	core.PuregoSafeRegister(&xBitsetRemoveRangeClosed, libs, "gtk_bitset_remove_range_closed")
+	core.PuregoSafeRegister(&xBitsetRemoveRectangle, libs, "gtk_bitset_remove_rectangle")
+	core.PuregoSafeRegister(&xBitsetShiftLeft, libs, "gtk_bitset_shift_left")
+	core.PuregoSafeRegister(&xBitsetShiftRight, libs, "gtk_bitset_shift_right")
+	core.PuregoSafeRegister(&xBitsetSplice, libs, "gtk_bitset_splice")
+	core.PuregoSafeRegister(&xBitsetSubtract, libs, "gtk_bitset_subtract")
+	core.PuregoSafeRegister(&xBitsetUnion, libs, "gtk_bitset_union")
+	core.PuregoSafeRegister(&xBitsetUnref, libs, "gtk_bitset_unref")
+
+	core.PuregoSafeRegister(&xScrollInfoGLibType, libs, "gtk_scroll_info_get_type")
+
+	core.PuregoSafeRegister(&xNewScrollInfo, libs, "gtk_scroll_info_new")
+
+	core.PuregoSafeRegister(&xScrollInfoGetEnableHorizontal, libs, "gtk_scroll_info_get_enable_horizontal")
+	core.PuregoSafeRegister(&xScrollInfoGetEnableVertical, libs, "gtk_scroll_info_get_enable_vertical")
+	core.PuregoSafeRegister(&xScrollInfoRef, libs, "gtk_scroll_info_ref")
+	core.PuregoSafeRegister(&xScrollInfoSetEnableHorizontal, libs, "gtk_scroll_info_set_enable_horizontal")
+	core.PuregoSafeRegister(&xScrollInfoSetEnableVertical, libs, "gtk_scroll_info_set_enable_vertical")
+	core.PuregoSafeRegister(&xScrollInfoUnref, libs, "gtk_scroll_info_unref")
 }

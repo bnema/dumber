@@ -198,7 +198,6 @@ type TreeModelFilter struct {
 var xTreeModelFilterGLibType func() types.GType
 
 func TreeModelFilterGLibType() types.GType {
-	core.LazyRegister(&xTreeModelFilterGLibType, "GTK", "gtk_tree_model_filter_get_type", false)
 	return xTreeModelFilterGLibType()
 }
 
@@ -217,8 +216,6 @@ var xTreeModelFilterClearCache func(uintptr)
 // a lot of unreffed access to nodes. As a side effect of this function,
 // all unreffed iters will be invalid.
 func (x *TreeModelFilter) ClearCache() {
-	core.LazyRegister(&xTreeModelFilterClearCache, "GTK", "gtk_tree_model_filter_clear_cache", false)
-
 	xTreeModelFilterClearCache(x.GoPointer())
 }
 
@@ -228,8 +225,6 @@ var xTreeModelFilterConvertChildIterToIter func(uintptr, *TreeIter, *TreeIter) b
 // row pointed at by @child_iter.  If @filter_iter was not set, %FALSE is
 // returned.
 func (x *TreeModelFilter) ConvertChildIterToIter(FilterIterVar *TreeIter, ChildIterVar *TreeIter) bool {
-	core.LazyRegister(&xTreeModelFilterConvertChildIterToIter, "GTK", "gtk_tree_model_filter_convert_child_iter_to_iter", false)
-
 	cret := xTreeModelFilterConvertChildIterToIter(x.GoPointer(), FilterIterVar, ChildIterVar)
 	return cret
 }
@@ -242,8 +237,6 @@ var xTreeModelFilterConvertChildPathToPath func(uintptr, *TreePath) uintptr
 // child model or points to a row which is not visible in @filter, then %NULL
 // is returned.
 func (x *TreeModelFilter) ConvertChildPathToPath(ChildPathVar *TreePath) *TreePath {
-	core.LazyRegister(&xTreeModelFilterConvertChildPathToPath, "GTK", "gtk_tree_model_filter_convert_child_path_to_path", false)
-
 	cret := xTreeModelFilterConvertChildPathToPath(x.GoPointer(), ChildPathVar)
 	if cret == 0 {
 		return nil
@@ -255,8 +248,6 @@ var xTreeModelFilterConvertIterToChildIter func(uintptr, *TreeIter, *TreeIter)
 
 // Sets @child_iter to point to the row pointed to by @filter_iter.
 func (x *TreeModelFilter) ConvertIterToChildIter(ChildIterVar *TreeIter, FilterIterVar *TreeIter) {
-	core.LazyRegister(&xTreeModelFilterConvertIterToChildIter, "GTK", "gtk_tree_model_filter_convert_iter_to_child_iter", false)
-
 	xTreeModelFilterConvertIterToChildIter(x.GoPointer(), ChildIterVar, FilterIterVar)
 }
 
@@ -267,8 +258,6 @@ var xTreeModelFilterConvertPathToChildPath func(uintptr, *TreePath) uintptr
 // point to the same location in the model not being filtered. If @filter_path
 // does not point to a location in the child model, %NULL is returned.
 func (x *TreeModelFilter) ConvertPathToChildPath(FilterPathVar *TreePath) *TreePath {
-	core.LazyRegister(&xTreeModelFilterConvertPathToChildPath, "GTK", "gtk_tree_model_filter_convert_path_to_child_path", false)
-
 	cret := xTreeModelFilterConvertPathToChildPath(x.GoPointer(), FilterPathVar)
 	if cret == 0 {
 		return nil
@@ -280,7 +269,6 @@ var xTreeModelFilterGetModel func(uintptr) uintptr
 
 // Returns a pointer to the child model of @filter.
 func (x *TreeModelFilter) GetModel() *TreeModelBase {
-	core.LazyRegister(&xTreeModelFilterGetModel, "GTK", "gtk_tree_model_filter_get_model", false)
 	var cls *TreeModelBase
 
 	cret := xTreeModelFilterGetModel(x.GoPointer())
@@ -299,8 +287,6 @@ var xTreeModelFilterRefilter func(uintptr)
 // Emits ::row_changed for each row in the child model, which causes
 // the filter to re-evaluate whether a row is visible or not.
 func (x *TreeModelFilter) Refilter() {
-	core.LazyRegister(&xTreeModelFilterRefilter, "GTK", "gtk_tree_model_filter_refilter", false)
-
 	xTreeModelFilterRefilter(x.GoPointer())
 }
 
@@ -317,8 +303,6 @@ var xTreeModelFilterSetModifyFunc func(uintptr, int, []types.GType, uintptr, uin
 // Note that gtk_tree_model_filter_set_modify_func()
 // can only be called once for a given filter model.
 func (x *TreeModelFilter) SetModifyFunc(NColumnsVar int, TypesVar []types.GType, FuncVar *TreeModelFilterModifyFunc, DataVar uintptr, DestroyVar *glib.DestroyNotify) {
-	core.LazyRegister(&xTreeModelFilterSetModifyFunc, "GTK", "gtk_tree_model_filter_set_modify_func", false)
-
 	xTreeModelFilterSetModifyFunc(x.GoPointer(), NColumnsVar, TypesVar, glib.NewCallback(FuncVar), DataVar, glib.NewCallbackNullable(DestroyVar))
 }
 
@@ -333,8 +317,6 @@ var xTreeModelFilterSetVisibleColumn func(uintptr, int)
 // gtk_tree_model_filter_set_visible_column() can only be called
 // once for a given filter model.
 func (x *TreeModelFilter) SetVisibleColumn(ColumnVar int) {
-	core.LazyRegister(&xTreeModelFilterSetVisibleColumn, "GTK", "gtk_tree_model_filter_set_visible_column", false)
-
 	xTreeModelFilterSetVisibleColumn(x.GoPointer(), ColumnVar)
 }
 
@@ -379,8 +361,6 @@ var xTreeModelFilterSetVisibleFunc func(uintptr, uintptr, uintptr, uintptr)
 // gtk_tree_model_filter_set_visible_column() can only be called
 // once for a given filter model.
 func (x *TreeModelFilter) SetVisibleFunc(FuncVar *TreeModelFilterVisibleFunc, DataVar uintptr, DestroyVar *glib.DestroyNotify) {
-	core.LazyRegister(&xTreeModelFilterSetVisibleFunc, "GTK", "gtk_tree_model_filter_set_visible_func", false)
-
 	xTreeModelFilterSetVisibleFunc(x.GoPointer(), glib.NewCallback(FuncVar), DataVar, glib.NewCallbackNullable(DestroyVar))
 }
 
@@ -738,4 +718,25 @@ func (x *TreeModelFilter) UnrefNode(IterVar *TreeIter) {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GTK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xTreeModelFilterGLibType, libs, "gtk_tree_model_filter_get_type")
+
+	core.PuregoSafeRegister(&xTreeModelFilterClearCache, libs, "gtk_tree_model_filter_clear_cache")
+	core.PuregoSafeRegister(&xTreeModelFilterConvertChildIterToIter, libs, "gtk_tree_model_filter_convert_child_iter_to_iter")
+	core.PuregoSafeRegister(&xTreeModelFilterConvertChildPathToPath, libs, "gtk_tree_model_filter_convert_child_path_to_path")
+	core.PuregoSafeRegister(&xTreeModelFilterConvertIterToChildIter, libs, "gtk_tree_model_filter_convert_iter_to_child_iter")
+	core.PuregoSafeRegister(&xTreeModelFilterConvertPathToChildPath, libs, "gtk_tree_model_filter_convert_path_to_child_path")
+	core.PuregoSafeRegister(&xTreeModelFilterGetModel, libs, "gtk_tree_model_filter_get_model")
+	core.PuregoSafeRegister(&xTreeModelFilterRefilter, libs, "gtk_tree_model_filter_refilter")
+	core.PuregoSafeRegister(&xTreeModelFilterSetModifyFunc, libs, "gtk_tree_model_filter_set_modify_func")
+	core.PuregoSafeRegister(&xTreeModelFilterSetVisibleColumn, libs, "gtk_tree_model_filter_set_visible_column")
+	core.PuregoSafeRegister(&xTreeModelFilterSetVisibleFunc, libs, "gtk_tree_model_filter_set_visible_func")
 }

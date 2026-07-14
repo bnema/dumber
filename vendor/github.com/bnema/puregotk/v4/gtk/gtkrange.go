@@ -179,7 +179,6 @@ type Range struct {
 var xRangeGLibType func() types.GType
 
 func RangeGLibType() types.GType {
-	core.LazyRegister(&xRangeGLibType, "GTK", "gtk_range_get_type", false)
 	return xRangeGLibType()
 }
 
@@ -193,7 +192,6 @@ var xRangeGetAdjustment func(uintptr) uintptr
 
 // Get the adjustment which is the “model” object for `GtkRange`.
 func (x *Range) GetAdjustment() *Adjustment {
-	core.LazyRegister(&xRangeGetAdjustment, "GTK", "gtk_range_get_adjustment", false)
 	var cls *Adjustment
 
 	cret := xRangeGetAdjustment(x.GoPointer())
@@ -211,8 +209,6 @@ var xRangeGetFillLevel func(uintptr) float64
 
 // Gets the current position of the fill level indicator.
 func (x *Range) GetFillLevel() float64 {
-	core.LazyRegister(&xRangeGetFillLevel, "GTK", "gtk_range_get_fill_level", false)
-
 	cret := xRangeGetFillLevel(x.GoPointer())
 	return cret
 }
@@ -223,8 +219,6 @@ var xRangeGetFlippable func(uintptr) bool
 //
 // See [method@Gtk.Range.set_flippable].
 func (x *Range) GetFlippable() bool {
-	core.LazyRegister(&xRangeGetFlippable, "GTK", "gtk_range_get_flippable", false)
-
 	cret := xRangeGetFlippable(x.GoPointer())
 	return cret
 }
@@ -235,8 +229,6 @@ var xRangeGetInverted func(uintptr) bool
 //
 // See [method@Gtk.Range.set_inverted].
 func (x *Range) GetInverted() bool {
-	core.LazyRegister(&xRangeGetInverted, "GTK", "gtk_range_get_inverted", false)
-
 	cret := xRangeGetInverted(x.GoPointer())
 	return cret
 }
@@ -248,8 +240,6 @@ var xRangeGetRangeRect func(uintptr, *gdk.Rectangle)
 //
 // This function is useful mainly for `GtkRange` subclasses.
 func (x *Range) GetRangeRect(RangeRectVar *gdk.Rectangle) {
-	core.LazyRegister(&xRangeGetRangeRect, "GTK", "gtk_range_get_range_rect", false)
-
 	xRangeGetRangeRect(x.GoPointer(), RangeRectVar)
 }
 
@@ -257,8 +247,6 @@ var xRangeGetRestrictToFillLevel func(uintptr) bool
 
 // Gets whether the range is restricted to the fill level.
 func (x *Range) GetRestrictToFillLevel() bool {
-	core.LazyRegister(&xRangeGetRestrictToFillLevel, "GTK", "gtk_range_get_restrict_to_fill_level", false)
-
 	cret := xRangeGetRestrictToFillLevel(x.GoPointer())
 	return cret
 }
@@ -270,8 +258,6 @@ var xRangeGetRoundDigits func(uintptr) int
 //
 // See [signal@Gtk.Range::change-value].
 func (x *Range) GetRoundDigits() int {
-	core.LazyRegister(&xRangeGetRoundDigits, "GTK", "gtk_range_get_round_digits", false)
-
 	cret := xRangeGetRoundDigits(x.GoPointer())
 	return cret
 }
@@ -280,8 +266,6 @@ var xRangeGetShowFillLevel func(uintptr) bool
 
 // Gets whether the range displays the fill level graphically.
 func (x *Range) GetShowFillLevel() bool {
-	core.LazyRegister(&xRangeGetShowFillLevel, "GTK", "gtk_range_get_show_fill_level", false)
-
 	cret := xRangeGetShowFillLevel(x.GoPointer())
 	return cret
 }
@@ -293,8 +277,6 @@ var xRangeGetSliderRange func(uintptr, *int, *int)
 //
 // This function is useful mainly for `GtkRange` subclasses.
 func (x *Range) GetSliderRange(SliderStartVar *int, SliderEndVar *int) {
-	core.LazyRegister(&xRangeGetSliderRange, "GTK", "gtk_range_get_slider_range", false)
-
 	xRangeGetSliderRange(x.GoPointer(), SliderStartVar, SliderEndVar)
 }
 
@@ -304,8 +286,6 @@ var xRangeGetSliderSizeFixed func(uintptr) bool
 //
 // See [method@Gtk.Range.set_slider_size_fixed].
 func (x *Range) GetSliderSizeFixed() bool {
-	core.LazyRegister(&xRangeGetSliderSizeFixed, "GTK", "gtk_range_get_slider_size_fixed", false)
-
 	cret := xRangeGetSliderSizeFixed(x.GoPointer())
 	return cret
 }
@@ -314,8 +294,6 @@ var xRangeGetValue func(uintptr) float64
 
 // Gets the current value of the range.
 func (x *Range) GetValue() float64 {
-	core.LazyRegister(&xRangeGetValue, "GTK", "gtk_range_get_value", false)
-
 	cret := xRangeGetValue(x.GoPointer())
 	return cret
 }
@@ -332,8 +310,6 @@ var xRangeSetAdjustment func(uintptr, uintptr)
 // and indicates the size of the visible area of the widget being scrolled.
 // The page size affects the size of the scrollbar slider.
 func (x *Range) SetAdjustment(AdjustmentVar *Adjustment) {
-	core.LazyRegister(&xRangeSetAdjustment, "GTK", "gtk_range_set_adjustment", false)
-
 	xRangeSetAdjustment(x.GoPointer(), AdjustmentVar.GoPointer())
 }
 
@@ -357,8 +333,6 @@ var xRangeSetFillLevel func(uintptr, float64)
 // by [method@Gtk.Range.set_restrict_to_fill_level] and is by default
 // enabled.
 func (x *Range) SetFillLevel(FillLevelVar float64) {
-	core.LazyRegister(&xRangeSetFillLevel, "GTK", "gtk_range_set_fill_level", false)
-
 	xRangeSetFillLevel(x.GoPointer(), FillLevelVar)
 }
 
@@ -371,8 +345,6 @@ var xRangeSetFlippable func(uintptr, bool)
 //
 // See [method@Gtk.Widget.get_direction].
 func (x *Range) SetFlippable(FlippableVar bool) {
-	core.LazyRegister(&xRangeSetFlippable, "GTK", "gtk_range_set_flippable", false)
-
 	xRangeSetFlippable(x.GoPointer(), FlippableVar)
 }
 
@@ -384,8 +356,6 @@ var xRangeSetIncrements func(uintptr, float64, float64)
 // arrows or moves a `GtkScale` via arrow keys. The page size
 // is used for example when moving via Page Up or Page Down keys.
 func (x *Range) SetIncrements(StepVar float64, PageVar float64) {
-	core.LazyRegister(&xRangeSetIncrements, "GTK", "gtk_range_set_increments", false)
-
 	xRangeSetIncrements(x.GoPointer(), StepVar, PageVar)
 }
 
@@ -398,8 +368,6 @@ var xRangeSetInverted func(uintptr, bool)
 // ranges have higher values at the top or on the right rather
 // than on the bottom or left.
 func (x *Range) SetInverted(SettingVar bool) {
-	core.LazyRegister(&xRangeSetInverted, "GTK", "gtk_range_set_inverted", false)
-
 	xRangeSetInverted(x.GoPointer(), SettingVar)
 }
 
@@ -411,8 +379,6 @@ var xRangeSetRange func(uintptr, float64, float64)
 // (If the range has a non-zero page size, it is clamped
 // between @min and @max - page-size.)
 func (x *Range) SetRange(MinVar float64, MaxVar float64) {
-	core.LazyRegister(&xRangeSetRange, "GTK", "gtk_range_set_range", false)
-
 	xRangeSetRange(x.GoPointer(), MinVar, MaxVar)
 }
 
@@ -423,8 +389,6 @@ var xRangeSetRestrictToFillLevel func(uintptr, bool)
 // See [method@Gtk.Range.set_fill_level] for a general description
 // of the fill level concept.
 func (x *Range) SetRestrictToFillLevel(RestrictToFillLevelVar bool) {
-	core.LazyRegister(&xRangeSetRestrictToFillLevel, "GTK", "gtk_range_set_restrict_to_fill_level", false)
-
 	xRangeSetRestrictToFillLevel(x.GoPointer(), RestrictToFillLevelVar)
 }
 
@@ -435,8 +399,6 @@ var xRangeSetRoundDigits func(uintptr, int)
 //
 // See [signal@Gtk.Range::change-value].
 func (x *Range) SetRoundDigits(RoundDigitsVar int) {
-	core.LazyRegister(&xRangeSetRoundDigits, "GTK", "gtk_range_set_round_digits", false)
-
 	xRangeSetRoundDigits(x.GoPointer(), RoundDigitsVar)
 }
 
@@ -447,8 +409,6 @@ var xRangeSetShowFillLevel func(uintptr, bool)
 // See [method@Gtk.Range.set_fill_level] for a general description
 // of the fill level concept.
 func (x *Range) SetShowFillLevel(ShowFillLevelVar bool) {
-	core.LazyRegister(&xRangeSetShowFillLevel, "GTK", "gtk_range_set_show_fill_level", false)
-
 	xRangeSetShowFillLevel(x.GoPointer(), ShowFillLevelVar)
 }
 
@@ -459,8 +419,6 @@ var xRangeSetSliderSizeFixed func(uintptr, bool)
 //
 // This function is useful mainly for `GtkRange` subclasses.
 func (x *Range) SetSliderSizeFixed(SizeFixedVar bool) {
-	core.LazyRegister(&xRangeSetSliderSizeFixed, "GTK", "gtk_range_set_slider_size_fixed", false)
-
 	xRangeSetSliderSizeFixed(x.GoPointer(), SizeFixedVar)
 }
 
@@ -472,8 +430,6 @@ var xRangeSetValue func(uintptr, float64)
 // it will be clamped to fit inside them. The range emits the
 // [signal@Gtk.Range::value-changed] signal if the value changes.
 func (x *Range) SetValue(ValueVar float64) {
-	core.LazyRegister(&xRangeSetValue, "GTK", "gtk_range_set_value", false)
-
 	xRangeSetValue(x.GoPointer(), ValueVar)
 }
 
@@ -965,4 +921,37 @@ func (x *Range) SetOrientation(OrientationVar Orientation) {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GTK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xRangeGLibType, libs, "gtk_range_get_type")
+
+	core.PuregoSafeRegister(&xRangeGetAdjustment, libs, "gtk_range_get_adjustment")
+	core.PuregoSafeRegister(&xRangeGetFillLevel, libs, "gtk_range_get_fill_level")
+	core.PuregoSafeRegister(&xRangeGetFlippable, libs, "gtk_range_get_flippable")
+	core.PuregoSafeRegister(&xRangeGetInverted, libs, "gtk_range_get_inverted")
+	core.PuregoSafeRegister(&xRangeGetRangeRect, libs, "gtk_range_get_range_rect")
+	core.PuregoSafeRegister(&xRangeGetRestrictToFillLevel, libs, "gtk_range_get_restrict_to_fill_level")
+	core.PuregoSafeRegister(&xRangeGetRoundDigits, libs, "gtk_range_get_round_digits")
+	core.PuregoSafeRegister(&xRangeGetShowFillLevel, libs, "gtk_range_get_show_fill_level")
+	core.PuregoSafeRegister(&xRangeGetSliderRange, libs, "gtk_range_get_slider_range")
+	core.PuregoSafeRegister(&xRangeGetSliderSizeFixed, libs, "gtk_range_get_slider_size_fixed")
+	core.PuregoSafeRegister(&xRangeGetValue, libs, "gtk_range_get_value")
+	core.PuregoSafeRegister(&xRangeSetAdjustment, libs, "gtk_range_set_adjustment")
+	core.PuregoSafeRegister(&xRangeSetFillLevel, libs, "gtk_range_set_fill_level")
+	core.PuregoSafeRegister(&xRangeSetFlippable, libs, "gtk_range_set_flippable")
+	core.PuregoSafeRegister(&xRangeSetIncrements, libs, "gtk_range_set_increments")
+	core.PuregoSafeRegister(&xRangeSetInverted, libs, "gtk_range_set_inverted")
+	core.PuregoSafeRegister(&xRangeSetRange, libs, "gtk_range_set_range")
+	core.PuregoSafeRegister(&xRangeSetRestrictToFillLevel, libs, "gtk_range_set_restrict_to_fill_level")
+	core.PuregoSafeRegister(&xRangeSetRoundDigits, libs, "gtk_range_set_round_digits")
+	core.PuregoSafeRegister(&xRangeSetShowFillLevel, libs, "gtk_range_set_show_fill_level")
+	core.PuregoSafeRegister(&xRangeSetSliderSizeFixed, libs, "gtk_range_set_slider_size_fixed")
+	core.PuregoSafeRegister(&xRangeSetValue, libs, "gtk_range_set_value")
 }

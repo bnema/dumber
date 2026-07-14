@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gio"
 	"github.com/bnema/puregotk/v4/glib"
@@ -78,7 +79,6 @@ type MapListModel struct {
 var xMapListModelGLibType func() types.GType
 
 func MapListModelGLibType() types.GType {
-	core.LazyRegister(&xMapListModelGLibType, "GTK", "gtk_map_list_model_get_type", false)
 	return xMapListModelGLibType()
 }
 
@@ -92,7 +92,6 @@ var xNewMapListModel func(uintptr, uintptr, uintptr, uintptr) uintptr
 
 // Creates a new `GtkMapListModel` for the given arguments.
 func NewMapListModel(ModelVar gio.ListModel, MapFuncVar *MapListModelMapFunc, UserDataVar uintptr, UserDestroyVar *glib.DestroyNotify) *MapListModel {
-	core.LazyRegister(&xNewMapListModel, "GTK", "gtk_map_list_model_new", false)
 	var cls *MapListModel
 
 	cret := xNewMapListModel(ModelVar.GoPointer(), glib.NewCallbackNullable(MapFuncVar), UserDataVar, glib.NewCallbackNullable(UserDestroyVar))
@@ -109,7 +108,6 @@ var xMapListModelGetModel func(uintptr) uintptr
 
 // Gets the model that is currently being mapped or %NULL if none.
 func (x *MapListModel) GetModel() *gio.ListModelBase {
-	core.LazyRegister(&xMapListModelGetModel, "GTK", "gtk_map_list_model_get_model", false)
 	var cls *gio.ListModelBase
 
 	cret := xMapListModelGetModel(x.GoPointer())
@@ -127,8 +125,6 @@ var xMapListModelHasMap func(uintptr) bool
 
 // Checks if a map function is currently set on @self.
 func (x *MapListModel) HasMap() bool {
-	core.LazyRegister(&xMapListModelHasMap, "GTK", "gtk_map_list_model_has_map", false)
-
 	cret := xMapListModelHasMap(x.GoPointer())
 	return cret
 }
@@ -147,8 +143,6 @@ var xMapListModelSetMapFunc func(uintptr, uintptr, uintptr, uintptr)
 // of @self. It assumes that the caller knows what they are doing and the map
 // function returns items of the appropriate type.
 func (x *MapListModel) SetMapFunc(MapFuncVar *MapListModelMapFunc, UserDataVar uintptr, UserDestroyVar *glib.DestroyNotify) {
-	core.LazyRegister(&xMapListModelSetMapFunc, "GTK", "gtk_map_list_model_set_map_func", false)
-
 	xMapListModelSetMapFunc(x.GoPointer(), glib.NewCallbackNullable(MapFuncVar), UserDataVar, glib.NewCallbackNullable(UserDestroyVar))
 }
 
@@ -160,8 +154,6 @@ var xMapListModelSetModel func(uintptr, uintptr)
 // expected by the map function. It assumes that the caller knows what
 // they are doing and have set up an appropriate map function.
 func (x *MapListModel) SetModel(ModelVar gio.ListModel) {
-	core.LazyRegister(&xMapListModelSetModel, "GTK", "gtk_map_list_model_set_model", false)
-
 	xMapListModelSetModel(x.GoPointer(), ModelVar.GoPointer())
 }
 
@@ -309,4 +301,21 @@ func (x *MapListModel) SectionsChanged(PositionVar uint, NItemsVar uint) {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GTK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xMapListModelGLibType, libs, "gtk_map_list_model_get_type")
+
+	core.PuregoSafeRegister(&xNewMapListModel, libs, "gtk_map_list_model_new")
+
+	core.PuregoSafeRegister(&xMapListModelGetModel, libs, "gtk_map_list_model_get_model")
+	core.PuregoSafeRegister(&xMapListModelHasMap, libs, "gtk_map_list_model_has_map")
+	core.PuregoSafeRegister(&xMapListModelSetMapFunc, libs, "gtk_map_list_model_set_map_func")
+	core.PuregoSafeRegister(&xMapListModelSetModel, libs, "gtk_map_list_model_set_model")
 }

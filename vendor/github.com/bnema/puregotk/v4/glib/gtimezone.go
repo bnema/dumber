@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject/types"
 )
@@ -42,7 +43,6 @@ type TimeZone struct {
 var xTimeZoneGLibType func() types.GType
 
 func TimeZoneGLibType() types.GType {
-	core.LazyRegister(&xTimeZoneGLibType, "GLIB", "g_time_zone_get_type", false)
 	return xTimeZoneGLibType()
 }
 
@@ -66,8 +66,6 @@ var xNewTimeZone func(uintptr) uintptr
 // If you need to check whether @identifier was loaded successfully, use
 // g_time_zone_new_identifier().
 func NewTimeZone(IdentifierVar *string) *TimeZone {
-	core.LazyRegister(&xNewTimeZone, "GLIB", "g_time_zone_new", false)
-
 	IdentifierVarPtr := core.GStrdupNullable(IdentifierVar)
 	defer core.GFreeNullable(IdentifierVarPtr)
 
@@ -146,8 +144,6 @@ var xNewTimeZoneIdentifier func(uintptr) uintptr
 // You should release the return value by calling g_time_zone_unref()
 // when you are done with it.
 func NewTimeZoneIdentifier(IdentifierVar *string) *TimeZone {
-	core.LazyRegister(&xNewTimeZoneIdentifier, "GLIB", "g_time_zone_new_identifier", false)
-
 	IdentifierVarPtr := core.GStrdupNullable(IdentifierVar)
 	defer core.GFreeNullable(IdentifierVarPtr)
 
@@ -170,8 +166,6 @@ var xNewTimeZoneLocal func() uintptr
 // You should release the return value by calling g_time_zone_unref()
 // when you are done with it.
 func NewTimeZoneLocal() *TimeZone {
-	core.LazyRegister(&xNewTimeZoneLocal, "GLIB", "g_time_zone_new_local", false)
-
 	cret := xNewTimeZoneLocal()
 	if cret == 0 {
 		return nil
@@ -192,8 +186,6 @@ var xNewTimeZoneOffset func(int32) uintptr
 // backwards compatibility. To detect failures like this, use
 // g_time_zone_new_identifier() directly.
 func NewTimeZoneOffset(SecondsVar int32) *TimeZone {
-	core.LazyRegister(&xNewTimeZoneOffset, "GLIB", "g_time_zone_new_offset", false)
-
 	cret := xNewTimeZoneOffset(SecondsVar)
 	if cret == 0 {
 		return nil
@@ -211,8 +203,6 @@ var xNewTimeZoneUtc func() uintptr
 // You should release the return value by calling g_time_zone_unref()
 // when you are done with it.
 func NewTimeZoneUtc() *TimeZone {
-	core.LazyRegister(&xNewTimeZoneUtc, "GLIB", "g_time_zone_new_utc", false)
-
 	cret := xNewTimeZoneUtc()
 	if cret == 0 {
 		return nil
@@ -239,8 +229,6 @@ var xTimeZoneAdjustTime func(uintptr, TimeType, *int64) int
 // adjust @time_ to be 03:00 and return the interval containing the
 // adjusted time.
 func (x *TimeZone) AdjustTime(TypeVar TimeType, TimeVar *int64) int {
-	core.LazyRegister(&xTimeZoneAdjustTime, "GLIB", "g_time_zone_adjust_time", false)
-
 	cret := xTimeZoneAdjustTime(x.GoPointer(), TypeVar, TimeVar)
 	return cret
 }
@@ -266,8 +254,6 @@ var xTimeZoneFindInterval func(uintptr, TimeType, int64) int
 // forward to begin daylight savings time).  -1 is returned in that
 // case.
 func (x *TimeZone) FindInterval(TypeVar TimeType, TimeVar int64) int {
-	core.LazyRegister(&xTimeZoneFindInterval, "GLIB", "g_time_zone_find_interval", false)
-
 	cret := xTimeZoneFindInterval(x.GoPointer(), TypeVar, TimeVar)
 	return cret
 }
@@ -281,8 +267,6 @@ var xTimeZoneGetAbbreviation func(uintptr, int) string
 // months and "EDT" during the summer months when daylight savings time
 // is in effect.
 func (x *TimeZone) GetAbbreviation(IntervalVar int) string {
-	core.LazyRegister(&xTimeZoneGetAbbreviation, "GLIB", "g_time_zone_get_abbreviation", false)
-
 	cret := xTimeZoneGetAbbreviation(x.GoPointer(), IntervalVar)
 	return cret
 }
@@ -298,8 +282,6 @@ var xTimeZoneGetIdentifier func(uintptr) string
 // construction time: if provided as a time offset, that will be returned by
 // this function.
 func (x *TimeZone) GetIdentifier() string {
-	core.LazyRegister(&xTimeZoneGetIdentifier, "GLIB", "g_time_zone_get_identifier", false)
-
 	cret := xTimeZoneGetIdentifier(x.GoPointer())
 	return cret
 }
@@ -313,8 +295,6 @@ var xTimeZoneGetOffset func(uintptr, int) int32
 // arrive at local time for @tz (ie: negative numbers for time zones
 // west of GMT, positive numbers for east).
 func (x *TimeZone) GetOffset(IntervalVar int) int32 {
-	core.LazyRegister(&xTimeZoneGetOffset, "GLIB", "g_time_zone_get_offset", false)
-
 	cret := xTimeZoneGetOffset(x.GoPointer(), IntervalVar)
 	return cret
 }
@@ -324,8 +304,6 @@ var xTimeZoneIsDst func(uintptr, int) bool
 // Determines if daylight savings time is in effect during a particular
 // @interval of time in the time zone @tz.
 func (x *TimeZone) IsDst(IntervalVar int) bool {
-	core.LazyRegister(&xTimeZoneIsDst, "GLIB", "g_time_zone_is_dst", false)
-
 	cret := xTimeZoneIsDst(x.GoPointer(), IntervalVar)
 	return cret
 }
@@ -334,8 +312,6 @@ var xTimeZoneRef func(uintptr) uintptr
 
 // Increases the reference count on @tz.
 func (x *TimeZone) Ref() *TimeZone {
-	core.LazyRegister(&xTimeZoneRef, "GLIB", "g_time_zone_ref", false)
-
 	cret := xTimeZoneRef(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -347,8 +323,6 @@ var xTimeZoneUnref func(uintptr)
 
 // Decreases the reference count on @tz.
 func (x *TimeZone) Unref() {
-	core.LazyRegister(&xTimeZoneUnref, "GLIB", "g_time_zone_unref", false)
-
 	xTimeZoneUnref(x.GoPointer())
 }
 
@@ -375,4 +349,29 @@ const (
 func init() {
 	core.SetPackageName("GLIB", "glib-2.0")
 	core.SetSharedLibraries("GLIB", []string{"libgobject-2.0.so.0", "libglib-2.0.so.0", "libgobject-2.0.0.dylib", "libglib-2.0.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GLIB") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xTimeZoneGLibType, libs, "g_time_zone_get_type")
+
+	core.PuregoSafeRegister(&xNewTimeZone, libs, "g_time_zone_new")
+	core.PuregoSafeRegister(&xNewTimeZoneIdentifier, libs, "g_time_zone_new_identifier")
+	core.PuregoSafeRegister(&xNewTimeZoneLocal, libs, "g_time_zone_new_local")
+	core.PuregoSafeRegister(&xNewTimeZoneOffset, libs, "g_time_zone_new_offset")
+	core.PuregoSafeRegister(&xNewTimeZoneUtc, libs, "g_time_zone_new_utc")
+
+	core.PuregoSafeRegister(&xTimeZoneAdjustTime, libs, "g_time_zone_adjust_time")
+	core.PuregoSafeRegister(&xTimeZoneFindInterval, libs, "g_time_zone_find_interval")
+	core.PuregoSafeRegister(&xTimeZoneGetAbbreviation, libs, "g_time_zone_get_abbreviation")
+	core.PuregoSafeRegister(&xTimeZoneGetIdentifier, libs, "g_time_zone_get_identifier")
+	core.PuregoSafeRegister(&xTimeZoneGetOffset, libs, "g_time_zone_get_offset")
+	core.PuregoSafeRegister(&xTimeZoneIsDst, libs, "g_time_zone_is_dst")
+	core.PuregoSafeRegister(&xTimeZoneRef, libs, "g_time_zone_ref")
+	core.PuregoSafeRegister(&xTimeZoneUnref, libs, "g_time_zone_unref")
 }

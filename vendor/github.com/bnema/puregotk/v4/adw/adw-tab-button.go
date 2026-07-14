@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -69,7 +70,6 @@ type TabButton struct {
 var xTabButtonGLibType func() types.GType
 
 func TabButtonGLibType() types.GType {
-	core.LazyRegister(&xTabButtonGLibType, "ADW", "adw_tab_button_get_type", false)
 	return xTabButtonGLibType()
 }
 
@@ -83,7 +83,6 @@ var xNewTabButton func() uintptr
 
 // Creates a new `AdwTabButton`.
 func NewTabButton() *TabButton {
-	core.LazyRegister(&xNewTabButton, "ADW", "adw_tab_button_new", false)
 	var cls *TabButton
 
 	cret := xNewTabButton()
@@ -101,7 +100,6 @@ var xTabButtonGetView func(uintptr) uintptr
 
 // Gets the tab view @self displays.
 func (x *TabButton) GetView() *TabView {
-	core.LazyRegister(&xTabButtonGetView, "ADW", "adw_tab_button_get_view", false)
 	var cls *TabView
 
 	cret := xTabButtonGetView(x.GoPointer())
@@ -119,8 +117,6 @@ var xTabButtonSetView func(uintptr, uintptr)
 
 // Sets the tab view to display.
 func (x *TabButton) SetView(ViewVar *TabView) {
-	core.LazyRegister(&xTabButtonSetView, "ADW", "adw_tab_button_set_view", false)
-
 	xTabButtonSetView(x.GoPointer(), ViewVar.GoPointer())
 }
 
@@ -526,4 +522,19 @@ func (x *TabButton) GetBuildableId() string {
 func init() {
 	core.SetPackageName("ADW", "libadwaita-1")
 	core.SetSharedLibraries("ADW", []string{"libadwaita-1.so.0", "libadwaita-1.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("ADW") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xTabButtonGLibType, libs, "adw_tab_button_get_type")
+
+	core.PuregoSafeRegister(&xNewTabButton, libs, "adw_tab_button_new")
+
+	core.PuregoSafeRegister(&xTabButtonGetView, libs, "adw_tab_button_get_view")
+	core.PuregoSafeRegister(&xTabButtonSetView, libs, "adw_tab_button_set_view")
 }

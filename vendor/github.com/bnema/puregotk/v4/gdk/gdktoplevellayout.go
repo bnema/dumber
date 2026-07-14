@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -26,7 +27,6 @@ type ToplevelLayout struct {
 var xToplevelLayoutGLibType func() types.GType
 
 func ToplevelLayoutGLibType() types.GType {
-	core.LazyRegister(&xToplevelLayoutGLibType, "GDK", "gdk_toplevel_layout_get_type", false)
 	return xToplevelLayoutGLibType()
 }
 
@@ -52,8 +52,6 @@ var xNewToplevelLayout func() uintptr
 // The size is in ”application pixels”, not
 // ”device pixels” (see [method@Gdk.Surface.get_scale]).
 func NewToplevelLayout() *ToplevelLayout {
-	core.LazyRegister(&xNewToplevelLayout, "GDK", "gdk_toplevel_layout_new", false)
-
 	cret := xNewToplevelLayout()
 	if cret == 0 {
 		return nil
@@ -65,8 +63,6 @@ var xToplevelLayoutCopy func(uintptr) uintptr
 
 // Create a new `GdkToplevelLayout` and copy the contents of @layout into it.
 func (x *ToplevelLayout) Copy() *ToplevelLayout {
-	core.LazyRegister(&xToplevelLayoutCopy, "GDK", "gdk_toplevel_layout_copy", false)
-
 	cret := xToplevelLayoutCopy(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -78,8 +74,6 @@ var xToplevelLayoutEqual func(uintptr, *ToplevelLayout) bool
 
 // Check whether @layout and @other has identical layout properties.
 func (x *ToplevelLayout) Equal(OtherVar *ToplevelLayout) bool {
-	core.LazyRegister(&xToplevelLayoutEqual, "GDK", "gdk_toplevel_layout_equal", false)
-
 	cret := xToplevelLayoutEqual(x.GoPointer(), OtherVar)
 	return cret
 }
@@ -90,8 +84,6 @@ var xToplevelLayoutGetFullscreen func(uintptr, *bool) bool
 // the value pointed to by @fullscreen is set to true if it should go
 // fullscreen, or false, if it should go unfullscreen.
 func (x *ToplevelLayout) GetFullscreen(FullscreenVar *bool) bool {
-	core.LazyRegister(&xToplevelLayoutGetFullscreen, "GDK", "gdk_toplevel_layout_get_fullscreen", false)
-
 	cret := xToplevelLayoutGetFullscreen(x.GoPointer(), FullscreenVar)
 	return cret
 }
@@ -101,7 +93,6 @@ var xToplevelLayoutGetFullscreenMonitor func(uintptr) uintptr
 // Returns the monitor that the layout is fullscreening
 // the surface on.
 func (x *ToplevelLayout) GetFullscreenMonitor() *Monitor {
-	core.LazyRegister(&xToplevelLayoutGetFullscreenMonitor, "GDK", "gdk_toplevel_layout_get_fullscreen_monitor", false)
 	var cls *Monitor
 
 	cret := xToplevelLayoutGetFullscreenMonitor(x.GoPointer())
@@ -121,8 +112,6 @@ var xToplevelLayoutGetMaximized func(uintptr, *bool) bool
 // the value pointed to by @maximized is set to true if it should go
 // maximized, or false, if it should go unmaximized.
 func (x *ToplevelLayout) GetMaximized(MaximizedVar *bool) bool {
-	core.LazyRegister(&xToplevelLayoutGetMaximized, "GDK", "gdk_toplevel_layout_get_maximized", false)
-
 	cret := xToplevelLayoutGetMaximized(x.GoPointer(), MaximizedVar)
 	return cret
 }
@@ -132,8 +121,6 @@ var xToplevelLayoutGetResizable func(uintptr) bool
 // Returns whether the layout should allow the user
 // to resize the surface.
 func (x *ToplevelLayout) GetResizable() bool {
-	core.LazyRegister(&xToplevelLayoutGetResizable, "GDK", "gdk_toplevel_layout_get_resizable", false)
-
 	cret := xToplevelLayoutGetResizable(x.GoPointer())
 	return cret
 }
@@ -142,8 +129,6 @@ var xToplevelLayoutRef func(uintptr) uintptr
 
 // Increases the reference count of @layout.
 func (x *ToplevelLayout) Ref() *ToplevelLayout {
-	core.LazyRegister(&xToplevelLayoutRef, "GDK", "gdk_toplevel_layout_ref", false)
-
 	cret := xToplevelLayoutRef(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -156,8 +141,6 @@ var xToplevelLayoutSetFullscreen func(uintptr, bool, uintptr)
 // Sets whether the layout should cause the surface
 // to be fullscreen when presented.
 func (x *ToplevelLayout) SetFullscreen(FullscreenVar bool, MonitorVar *Monitor) {
-	core.LazyRegister(&xToplevelLayoutSetFullscreen, "GDK", "gdk_toplevel_layout_set_fullscreen", false)
-
 	xToplevelLayoutSetFullscreen(x.GoPointer(), FullscreenVar, MonitorVar.GoPointer())
 }
 
@@ -166,8 +149,6 @@ var xToplevelLayoutSetMaximized func(uintptr, bool)
 // Sets whether the layout should cause the surface
 // to be maximized when presented.
 func (x *ToplevelLayout) SetMaximized(MaximizedVar bool) {
-	core.LazyRegister(&xToplevelLayoutSetMaximized, "GDK", "gdk_toplevel_layout_set_maximized", false)
-
 	xToplevelLayoutSetMaximized(x.GoPointer(), MaximizedVar)
 }
 
@@ -176,8 +157,6 @@ var xToplevelLayoutSetResizable func(uintptr, bool)
 // Sets whether the layout should allow the user
 // to resize the surface after it has been presented.
 func (x *ToplevelLayout) SetResizable(ResizableVar bool) {
-	core.LazyRegister(&xToplevelLayoutSetResizable, "GDK", "gdk_toplevel_layout_set_resizable", false)
-
 	xToplevelLayoutSetResizable(x.GoPointer(), ResizableVar)
 }
 
@@ -185,12 +164,34 @@ var xToplevelLayoutUnref func(uintptr)
 
 // Decreases the reference count of @layout.
 func (x *ToplevelLayout) Unref() {
-	core.LazyRegister(&xToplevelLayoutUnref, "GDK", "gdk_toplevel_layout_unref", false)
-
 	xToplevelLayoutUnref(x.GoPointer())
 }
 
 func init() {
 	core.SetPackageName("GDK", "gtk4")
 	core.SetSharedLibraries("GDK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GDK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xToplevelLayoutGLibType, libs, "gdk_toplevel_layout_get_type")
+
+	core.PuregoSafeRegister(&xNewToplevelLayout, libs, "gdk_toplevel_layout_new")
+
+	core.PuregoSafeRegister(&xToplevelLayoutCopy, libs, "gdk_toplevel_layout_copy")
+	core.PuregoSafeRegister(&xToplevelLayoutEqual, libs, "gdk_toplevel_layout_equal")
+	core.PuregoSafeRegister(&xToplevelLayoutGetFullscreen, libs, "gdk_toplevel_layout_get_fullscreen")
+	core.PuregoSafeRegister(&xToplevelLayoutGetFullscreenMonitor, libs, "gdk_toplevel_layout_get_fullscreen_monitor")
+	core.PuregoSafeRegister(&xToplevelLayoutGetMaximized, libs, "gdk_toplevel_layout_get_maximized")
+	core.PuregoSafeRegister(&xToplevelLayoutGetResizable, libs, "gdk_toplevel_layout_get_resizable")
+	core.PuregoSafeRegister(&xToplevelLayoutRef, libs, "gdk_toplevel_layout_ref")
+	core.PuregoSafeRegister(&xToplevelLayoutSetFullscreen, libs, "gdk_toplevel_layout_set_fullscreen")
+	core.PuregoSafeRegister(&xToplevelLayoutSetMaximized, libs, "gdk_toplevel_layout_set_maximized")
+	core.PuregoSafeRegister(&xToplevelLayoutSetResizable, libs, "gdk_toplevel_layout_set_resizable")
+	core.PuregoSafeRegister(&xToplevelLayoutUnref, libs, "gdk_toplevel_layout_unref")
 }

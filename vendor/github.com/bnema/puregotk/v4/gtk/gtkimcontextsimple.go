@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject/types"
 )
@@ -95,7 +96,6 @@ type IMContextSimple struct {
 var xIMContextSimpleGLibType func() types.GType
 
 func IMContextSimpleGLibType() types.GType {
-	core.LazyRegister(&xIMContextSimpleGLibType, "GTK", "gtk_im_context_simple_get_type", false)
 	return xIMContextSimpleGLibType()
 }
 
@@ -109,7 +109,6 @@ var xNewIMContextSimple func() uintptr
 
 // Creates a new `GtkIMContextSimple`.
 func NewIMContextSimple() *IMContextSimple {
-	core.LazyRegister(&xNewIMContextSimple, "GTK", "gtk_im_context_simple_new", false)
 	var cls *IMContextSimple
 
 	cret := xNewIMContextSimple()
@@ -126,8 +125,6 @@ var xIMContextSimpleAddComposeFile func(uintptr, string)
 
 // Adds an additional table from the X11 compose file.
 func (x *IMContextSimple) AddComposeFile(ComposeFileVar string) {
-	core.LazyRegister(&xIMContextSimpleAddComposeFile, "GTK", "gtk_im_context_simple_add_compose_file", false)
-
 	xIMContextSimpleAddComposeFile(x.GoPointer(), ComposeFileVar)
 }
 
@@ -143,8 +140,6 @@ var xIMContextSimpleAddTable func(uintptr, []uint16, int, int)
 // numeric value of the key symbol fields. (Values beyond
 // the length of the sequence should be zero.)
 func (x *IMContextSimple) AddTable(DataVar []uint16, MaxSeqLenVar int, NSeqsVar int) {
-	core.LazyRegister(&xIMContextSimpleAddTable, "GTK", "gtk_im_context_simple_add_table", false)
-
 	xIMContextSimpleAddTable(x.GoPointer(), DataVar, MaxSeqLenVar, NSeqsVar)
 }
 
@@ -162,4 +157,19 @@ func (c *IMContextSimple) SetGoPointer(ptr uintptr) {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GTK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xIMContextSimpleGLibType, libs, "gtk_im_context_simple_get_type")
+
+	core.PuregoSafeRegister(&xNewIMContextSimple, libs, "gtk_im_context_simple_new")
+
+	core.PuregoSafeRegister(&xIMContextSimpleAddComposeFile, libs, "gtk_im_context_simple_add_compose_file")
+	core.PuregoSafeRegister(&xIMContextSimpleAddTable, libs, "gtk_im_context_simple_add_table")
 }

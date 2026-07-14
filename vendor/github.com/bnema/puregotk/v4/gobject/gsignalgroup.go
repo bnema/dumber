@@ -2,6 +2,7 @@
 package gobject
 
 import (
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -33,7 +34,6 @@ type SignalGroup struct {
 var xSignalGroupGLibType func() types.GType
 
 func SignalGroupGLibType() types.GType {
-	core.LazyRegister(&xSignalGroupGLibType, "GOBJECT", "g_signal_group_get_type", false)
 	return xSignalGroupGLibType()
 }
 
@@ -47,7 +47,6 @@ var xNewSignalGroup func(types.GType) uintptr
 
 // Creates a new #GSignalGroup for target instances of @target_type.
 func NewSignalGroup(TargetTypeVar types.GType) *SignalGroup {
-	core.LazyRegister(&xNewSignalGroup, "GOBJECT", "g_signal_group_new", false)
 	var cls *SignalGroup
 
 	cret := xNewSignalGroup(TargetTypeVar)
@@ -68,8 +67,6 @@ var xSignalGroupBlock func(uintptr)
 //
 // This blocked state will be kept across changes of the target instance.
 func (x *SignalGroup) Block() {
-	core.LazyRegister(&xSignalGroupBlock, "GOBJECT", "g_signal_group_block", false)
-
 	xSignalGroupBlock(x.GoPointer())
 }
 
@@ -80,8 +77,6 @@ var xSignalGroupConnect func(uintptr, string, uintptr, uintptr)
 //
 // You cannot connect a signal handler after #GSignalGroup:target has been set.
 func (x *SignalGroup) Connect(DetailedSignalVar string, CHandlerVar *Callback, DataVar uintptr) {
-	core.LazyRegister(&xSignalGroupConnect, "GOBJECT", "g_signal_group_connect", false)
-
 	xSignalGroupConnect(x.GoPointer(), DetailedSignalVar, glib.NewCallback(CHandlerVar), DataVar)
 }
 
@@ -94,8 +89,6 @@ var xSignalGroupConnectAfter func(uintptr, string, uintptr, uintptr)
 //
 // You cannot connect a signal handler after #GSignalGroup:target has been set.
 func (x *SignalGroup) ConnectAfter(DetailedSignalVar string, CHandlerVar *Callback, DataVar uintptr) {
-	core.LazyRegister(&xSignalGroupConnectAfter, "GOBJECT", "g_signal_group_connect_after", false)
-
 	xSignalGroupConnectAfter(x.GoPointer(), DetailedSignalVar, glib.NewCallback(CHandlerVar), DataVar)
 }
 
@@ -105,8 +98,6 @@ var xSignalGroupConnectClosure func(uintptr, string, *Closure, bool)
 //
 // You cannot connect a signal handler after #GSignalGroup:target has been set.
 func (x *SignalGroup) ConnectClosure(DetailedSignalVar string, ClosureVar *Closure, AfterVar bool) {
-	core.LazyRegister(&xSignalGroupConnectClosure, "GOBJECT", "g_signal_group_connect_closure", false)
-
 	xSignalGroupConnectClosure(x.GoPointer(), DetailedSignalVar, ClosureVar, AfterVar)
 }
 
@@ -117,8 +108,6 @@ var xSignalGroupConnectData func(uintptr, string, uintptr, uintptr, uintptr, Con
 //
 // You cannot connect a signal handler after #GSignalGroup:target has been set.
 func (x *SignalGroup) ConnectData(DetailedSignalVar string, CHandlerVar *Callback, DataVar uintptr, NotifyVar *ClosureNotify, FlagsVar ConnectFlags) {
-	core.LazyRegister(&xSignalGroupConnectData, "GOBJECT", "g_signal_group_connect_data", false)
-
 	xSignalGroupConnectData(x.GoPointer(), DetailedSignalVar, glib.NewCallback(CHandlerVar), DataVar, glib.NewCallbackNullable(NotifyVar), FlagsVar)
 }
 
@@ -132,8 +121,6 @@ var xSignalGroupConnectObject func(uintptr, string, uintptr, uintptr, ConnectFla
 //
 // You cannot connect a signal handler after #GSignalGroup:target has been set.
 func (x *SignalGroup) ConnectObject(DetailedSignalVar string, CHandlerVar *Callback, ObjectVar uintptr, FlagsVar ConnectFlags) {
-	core.LazyRegister(&xSignalGroupConnectObject, "GOBJECT", "g_signal_group_connect_object", false)
-
 	xSignalGroupConnectObject(x.GoPointer(), DetailedSignalVar, glib.NewCallback(CHandlerVar), ObjectVar, FlagsVar)
 }
 
@@ -147,8 +134,6 @@ var xSignalGroupConnectSwapped func(uintptr, string, uintptr, uintptr)
 //
 // You cannot connect a signal handler after #GSignalGroup:target has been set.
 func (x *SignalGroup) ConnectSwapped(DetailedSignalVar string, CHandlerVar *Callback, DataVar uintptr) {
-	core.LazyRegister(&xSignalGroupConnectSwapped, "GOBJECT", "g_signal_group_connect_swapped", false)
-
 	xSignalGroupConnectSwapped(x.GoPointer(), DetailedSignalVar, glib.NewCallback(CHandlerVar), DataVar)
 }
 
@@ -156,7 +141,6 @@ var xSignalGroupDupTarget func(uintptr) uintptr
 
 // Gets the target instance used when connecting signals.
 func (x *SignalGroup) DupTarget() *Object {
-	core.LazyRegister(&xSignalGroupDupTarget, "GOBJECT", "g_signal_group_dup_target", false)
 	var cls *Object
 
 	cret := xSignalGroupDupTarget(x.GoPointer())
@@ -178,8 +162,6 @@ var xSignalGroupSetTarget func(uintptr, uintptr)
 // If the target instance was previously set, signals will be
 // disconnected from that object prior to connecting to @target.
 func (x *SignalGroup) SetTarget(TargetVar *Object) {
-	core.LazyRegister(&xSignalGroupSetTarget, "GOBJECT", "g_signal_group_set_target", false)
-
 	xSignalGroupSetTarget(x.GoPointer(), TargetVar.GoPointer())
 }
 
@@ -190,8 +172,6 @@ var xSignalGroupUnblock func(uintptr)
 // again. Must be unblocked exactly the same number of times it
 // has been blocked to become active again.
 func (x *SignalGroup) Unblock() {
-	core.LazyRegister(&xSignalGroupUnblock, "GOBJECT", "g_signal_group_unblock", false)
-
 	xSignalGroupUnblock(x.GoPointer())
 }
 
@@ -262,4 +242,27 @@ func (x *SignalGroup) ConnectUnbind(cb *func(SignalGroup)) uint {
 func init() {
 	core.SetPackageName("GOBJECT", "gobject-2.0")
 	core.SetSharedLibraries("GOBJECT", []string{"libgobject-2.0.so.0", "libgobject-2.0.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GOBJECT") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xSignalGroupGLibType, libs, "g_signal_group_get_type")
+
+	core.PuregoSafeRegister(&xNewSignalGroup, libs, "g_signal_group_new")
+
+	core.PuregoSafeRegister(&xSignalGroupBlock, libs, "g_signal_group_block")
+	core.PuregoSafeRegister(&xSignalGroupConnect, libs, "g_signal_group_connect")
+	core.PuregoSafeRegister(&xSignalGroupConnectAfter, libs, "g_signal_group_connect_after")
+	core.PuregoSafeRegister(&xSignalGroupConnectClosure, libs, "g_signal_group_connect_closure")
+	core.PuregoSafeRegister(&xSignalGroupConnectData, libs, "g_signal_group_connect_data")
+	core.PuregoSafeRegister(&xSignalGroupConnectObject, libs, "g_signal_group_connect_object")
+	core.PuregoSafeRegister(&xSignalGroupConnectSwapped, libs, "g_signal_group_connect_swapped")
+	core.PuregoSafeRegister(&xSignalGroupDupTarget, libs, "g_signal_group_dup_target")
+	core.PuregoSafeRegister(&xSignalGroupSetTarget, libs, "g_signal_group_set_target")
+	core.PuregoSafeRegister(&xSignalGroupUnblock, libs, "g_signal_group_unblock")
 }

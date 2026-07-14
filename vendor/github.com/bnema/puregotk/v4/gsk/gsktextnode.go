@@ -4,6 +4,7 @@ package gsk
 import (
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gdk"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -20,7 +21,6 @@ type TextNode struct {
 var xTextNodeGLibType func() types.GType
 
 func TextNodeGLibType() types.GType {
-	core.LazyRegister(&xTextNodeGLibType, "GSK", "gsk_text_node_get_type", false)
 	return xTextNodeGLibType()
 }
 
@@ -37,7 +37,6 @@ var xNewTextNode func(uintptr, *pango.GlyphString, *gdk.RGBA, *graphene.Point) u
 // Note that @color may not be used if the font contains
 // color glyphs.
 func NewTextNode(FontVar *pango.Font, GlyphsVar *pango.GlyphString, ColorVar *gdk.RGBA, OffsetVar *graphene.Point) *TextNode {
-	core.LazyRegister(&xNewTextNode, "GSK", "gsk_text_node_new", false)
 	var cls *TextNode
 
 	cret := xNewTextNode(FontVar.GoPointer(), GlyphsVar, ColorVar, OffsetVar)
@@ -57,8 +56,6 @@ var xTextNodeGetColor func(uintptr) uintptr
 // The value returned by this function will not be correct
 // if the render node was created for a non-sRGB color.
 func (x *TextNode) GetColor() *gdk.RGBA {
-	core.LazyRegister(&xTextNodeGetColor, "GSK", "gsk_text_node_get_color", false)
-
 	cret := xTextNodeGetColor(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -70,7 +67,6 @@ var xTextNodeGetFont func(uintptr) uintptr
 
 // Returns the font used by the text @node.
 func (x *TextNode) GetFont() *pango.Font {
-	core.LazyRegister(&xTextNodeGetFont, "GSK", "gsk_text_node_get_font", false)
 	var cls *pango.Font
 
 	cret := xTextNodeGetFont(x.GoPointer())
@@ -88,8 +84,6 @@ var xTextNodeGetGlyphs func(uintptr, *uint) uintptr
 
 // Retrieves the glyph information in the @node.
 func (x *TextNode) GetGlyphs(NGlyphsVar *uint) uintptr {
-	core.LazyRegister(&xTextNodeGetGlyphs, "GSK", "gsk_text_node_get_glyphs", false)
-
 	cret := xTextNodeGetGlyphs(x.GoPointer(), NGlyphsVar)
 	return cret
 }
@@ -98,8 +92,6 @@ var xTextNodeGetNumGlyphs func(uintptr) uint
 
 // Retrieves the number of glyphs in the text node.
 func (x *TextNode) GetNumGlyphs() uint {
-	core.LazyRegister(&xTextNodeGetNumGlyphs, "GSK", "gsk_text_node_get_num_glyphs", false)
-
 	cret := xTextNodeGetNumGlyphs(x.GoPointer())
 	return cret
 }
@@ -108,8 +100,6 @@ var xTextNodeGetOffset func(uintptr) uintptr
 
 // Retrieves the offset applied to the text.
 func (x *TextNode) GetOffset() *graphene.Point {
-	core.LazyRegister(&xTextNodeGetOffset, "GSK", "gsk_text_node_get_offset", false)
-
 	cret := xTextNodeGetOffset(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -121,8 +111,6 @@ var xTextNodeHasColorGlyphs func(uintptr) bool
 
 // Checks whether the text @node has color glyphs.
 func (x *TextNode) HasColorGlyphs() bool {
-	core.LazyRegister(&xTextNodeHasColorGlyphs, "GSK", "gsk_text_node_has_color_glyphs", false)
-
 	cret := xTextNodeHasColorGlyphs(x.GoPointer())
 	return cret
 }
@@ -141,4 +129,23 @@ func (c *TextNode) SetGoPointer(ptr uintptr) {
 func init() {
 	core.SetPackageName("GSK", "gtk4")
 	core.SetSharedLibraries("GSK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GSK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xTextNodeGLibType, libs, "gsk_text_node_get_type")
+
+	core.PuregoSafeRegister(&xNewTextNode, libs, "gsk_text_node_new")
+
+	core.PuregoSafeRegister(&xTextNodeGetColor, libs, "gsk_text_node_get_color")
+	core.PuregoSafeRegister(&xTextNodeGetFont, libs, "gsk_text_node_get_font")
+	core.PuregoSafeRegister(&xTextNodeGetGlyphs, libs, "gsk_text_node_get_glyphs")
+	core.PuregoSafeRegister(&xTextNodeGetNumGlyphs, libs, "gsk_text_node_get_num_glyphs")
+	core.PuregoSafeRegister(&xTextNodeGetOffset, libs, "gsk_text_node_get_offset")
+	core.PuregoSafeRegister(&xTextNodeHasColorGlyphs, libs, "gsk_text_node_has_color_glyphs")
 }

@@ -4,6 +4,7 @@ package gsk
 import (
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject/types"
 	"github.com/bnema/puregotk/v4/graphene"
@@ -17,7 +18,6 @@ type RadialGradientNode struct {
 var xRadialGradientNodeGLibType func() types.GType
 
 func RadialGradientNodeGLibType() types.GType {
-	core.LazyRegister(&xRadialGradientNodeGLibType, "GSK", "gsk_radial_gradient_node_get_type", false)
 	return xRadialGradientNodeGLibType()
 }
 
@@ -35,7 +35,6 @@ var xNewRadialGradientNode func(*graphene.Rect, *graphene.Point, float32, float3
 // starts around @center. The size of the gradient is dictated by @hradius
 // in horizontal orientation and by @vradius in vertical orientation.
 func NewRadialGradientNode(BoundsVar *graphene.Rect, CenterVar *graphene.Point, HradiusVar float32, VradiusVar float32, StartVar float32, EndVar float32, ColorStopsVar []ColorStop, NColorStopsVar uint) *RadialGradientNode {
-	core.LazyRegister(&xNewRadialGradientNode, "GSK", "gsk_radial_gradient_node_new", false)
 	var cls *RadialGradientNode
 
 	cret := xNewRadialGradientNode(BoundsVar, CenterVar, HradiusVar, VradiusVar, StartVar, EndVar, ColorStopsVar, NColorStopsVar)
@@ -52,8 +51,6 @@ var xRadialGradientNodeGetCenter func(uintptr) uintptr
 
 // Retrieves the center pointer for the gradient.
 func (x *RadialGradientNode) GetCenter() *graphene.Point {
-	core.LazyRegister(&xRadialGradientNodeGetCenter, "GSK", "gsk_radial_gradient_node_get_center", false)
-
 	cret := xRadialGradientNodeGetCenter(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -65,8 +62,6 @@ var xRadialGradientNodeGetColorStops func(uintptr, *uint) uintptr
 
 // Retrieves the color stops in the gradient.
 func (x *RadialGradientNode) GetColorStops(NStopsVar *uint) uintptr {
-	core.LazyRegister(&xRadialGradientNodeGetColorStops, "GSK", "gsk_radial_gradient_node_get_color_stops", false)
-
 	cret := xRadialGradientNodeGetColorStops(x.GoPointer(), NStopsVar)
 	return cret
 }
@@ -75,8 +70,6 @@ var xRadialGradientNodeGetEnd func(uintptr) float32
 
 // Retrieves the end value for the gradient.
 func (x *RadialGradientNode) GetEnd() float32 {
-	core.LazyRegister(&xRadialGradientNodeGetEnd, "GSK", "gsk_radial_gradient_node_get_end", false)
-
 	cret := xRadialGradientNodeGetEnd(x.GoPointer())
 	return cret
 }
@@ -85,8 +78,6 @@ var xRadialGradientNodeGetHradius func(uintptr) float32
 
 // Retrieves the horizontal radius for the gradient.
 func (x *RadialGradientNode) GetHradius() float32 {
-	core.LazyRegister(&xRadialGradientNodeGetHradius, "GSK", "gsk_radial_gradient_node_get_hradius", false)
-
 	cret := xRadialGradientNodeGetHradius(x.GoPointer())
 	return cret
 }
@@ -95,8 +86,6 @@ var xRadialGradientNodeGetNColorStops func(uintptr) uint
 
 // Retrieves the number of color stops in the gradient.
 func (x *RadialGradientNode) GetNColorStops() uint {
-	core.LazyRegister(&xRadialGradientNodeGetNColorStops, "GSK", "gsk_radial_gradient_node_get_n_color_stops", false)
-
 	cret := xRadialGradientNodeGetNColorStops(x.GoPointer())
 	return cret
 }
@@ -105,8 +94,6 @@ var xRadialGradientNodeGetStart func(uintptr) float32
 
 // Retrieves the start value for the gradient.
 func (x *RadialGradientNode) GetStart() float32 {
-	core.LazyRegister(&xRadialGradientNodeGetStart, "GSK", "gsk_radial_gradient_node_get_start", false)
-
 	cret := xRadialGradientNodeGetStart(x.GoPointer())
 	return cret
 }
@@ -115,8 +102,6 @@ var xRadialGradientNodeGetVradius func(uintptr) float32
 
 // Retrieves the vertical radius for the gradient.
 func (x *RadialGradientNode) GetVradius() float32 {
-	core.LazyRegister(&xRadialGradientNodeGetVradius, "GSK", "gsk_radial_gradient_node_get_vradius", false)
-
 	cret := xRadialGradientNodeGetVradius(x.GoPointer())
 	return cret
 }
@@ -140,7 +125,6 @@ type RepeatingRadialGradientNode struct {
 var xRepeatingRadialGradientNodeGLibType func() types.GType
 
 func RepeatingRadialGradientNodeGLibType() types.GType {
-	core.LazyRegister(&xRepeatingRadialGradientNodeGLibType, "GSK", "gsk_repeating_radial_gradient_node_get_type", false)
 	return xRepeatingRadialGradientNodeGLibType()
 }
 
@@ -158,7 +142,6 @@ var xNewRepeatingRadialGradientNode func(*graphene.Rect, *graphene.Point, float3
 // is dictated by @hradius in horizontal orientation and by @vradius
 // in vertical orientation.
 func NewRepeatingRadialGradientNode(BoundsVar *graphene.Rect, CenterVar *graphene.Point, HradiusVar float32, VradiusVar float32, StartVar float32, EndVar float32, ColorStopsVar []ColorStop, NColorStopsVar uint) *RepeatingRadialGradientNode {
-	core.LazyRegister(&xNewRepeatingRadialGradientNode, "GSK", "gsk_repeating_radial_gradient_node_new", false)
 	var cls *RepeatingRadialGradientNode
 
 	cret := xNewRepeatingRadialGradientNode(BoundsVar, CenterVar, HradiusVar, VradiusVar, StartVar, EndVar, ColorStopsVar, NColorStopsVar)
@@ -185,4 +168,28 @@ func (c *RepeatingRadialGradientNode) SetGoPointer(ptr uintptr) {
 func init() {
 	core.SetPackageName("GSK", "gtk4")
 	core.SetSharedLibraries("GSK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GSK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xRadialGradientNodeGLibType, libs, "gsk_radial_gradient_node_get_type")
+
+	core.PuregoSafeRegister(&xNewRadialGradientNode, libs, "gsk_radial_gradient_node_new")
+
+	core.PuregoSafeRegister(&xRadialGradientNodeGetCenter, libs, "gsk_radial_gradient_node_get_center")
+	core.PuregoSafeRegister(&xRadialGradientNodeGetColorStops, libs, "gsk_radial_gradient_node_get_color_stops")
+	core.PuregoSafeRegister(&xRadialGradientNodeGetEnd, libs, "gsk_radial_gradient_node_get_end")
+	core.PuregoSafeRegister(&xRadialGradientNodeGetHradius, libs, "gsk_radial_gradient_node_get_hradius")
+	core.PuregoSafeRegister(&xRadialGradientNodeGetNColorStops, libs, "gsk_radial_gradient_node_get_n_color_stops")
+	core.PuregoSafeRegister(&xRadialGradientNodeGetStart, libs, "gsk_radial_gradient_node_get_start")
+	core.PuregoSafeRegister(&xRadialGradientNodeGetVradius, libs, "gsk_radial_gradient_node_get_vradius")
+
+	core.PuregoSafeRegister(&xRepeatingRadialGradientNodeGLibType, libs, "gsk_repeating_radial_gradient_node_get_type")
+
+	core.PuregoSafeRegister(&xNewRepeatingRadialGradientNode, libs, "gsk_repeating_radial_gradient_node_new")
 }

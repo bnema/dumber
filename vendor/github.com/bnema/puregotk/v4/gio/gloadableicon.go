@@ -42,7 +42,7 @@ func (x *LoadableIconIface) OverrideLoad(cb func(LoadableIcon, int, *string, *Ca
 	if cb == nil {
 		x.xLoad = 0
 	} else {
-		x.xLoad = purego.NewCallback(func(IconVarp uintptr, SizeVarp int, TypeVarp *string, CancellableVarp uintptr, cerrp **glib.Error) uintptr {
+		x.xLoad = purego.NewCallback(func(IconVarp uintptr, SizeVarp int, TypeVarp *string, CancellableVarp uintptr) uintptr {
 			ret := cb(&LoadableIconBase{Ptr: IconVarp}, SizeVarp, TypeVarp, CancellableNewFromInternalPtr(CancellableVarp))
 			if ret == nil {
 				return 0
@@ -58,11 +58,10 @@ func (x *LoadableIconIface) GetLoad() func(LoadableIcon, int, *string, *Cancella
 	if x.xLoad == 0 {
 		return nil
 	}
-	var rawCallback func(IconVarp uintptr, SizeVarp int, TypeVarp *string, CancellableVarp uintptr, cerrp **glib.Error) uintptr
+	var rawCallback func(IconVarp uintptr, SizeVarp int, TypeVarp *string, CancellableVarp uintptr) uintptr
 	purego.RegisterFunc(&rawCallback, x.xLoad)
 	return func(IconVar LoadableIcon, SizeVar int, TypeVar *string, CancellableVar *Cancellable) *InputStream {
-		var cerr *glib.Error
-		rawRet := rawCallback(IconVar.GoPointer(), SizeVar, TypeVar, CancellableVar.GoPointer(), &cerr)
+		rawRet := rawCallback(IconVar.GoPointer(), SizeVar, TypeVar, CancellableVar.GoPointer())
 		if rawRet == 0 {
 			return nil
 		}
@@ -103,7 +102,7 @@ func (x *LoadableIconIface) OverrideLoadFinish(cb func(LoadableIcon, AsyncResult
 	if cb == nil {
 		x.xLoadFinish = 0
 	} else {
-		x.xLoadFinish = purego.NewCallback(func(IconVarp uintptr, ResVarp uintptr, TypeVarp *string, cerrp **glib.Error) uintptr {
+		x.xLoadFinish = purego.NewCallback(func(IconVarp uintptr, ResVarp uintptr, TypeVarp *string) uintptr {
 			ret := cb(&LoadableIconBase{Ptr: IconVarp}, &AsyncResultBase{Ptr: ResVarp}, TypeVarp)
 			if ret == nil {
 				return 0
@@ -119,11 +118,10 @@ func (x *LoadableIconIface) GetLoadFinish() func(LoadableIcon, AsyncResult, *str
 	if x.xLoadFinish == 0 {
 		return nil
 	}
-	var rawCallback func(IconVarp uintptr, ResVarp uintptr, TypeVarp *string, cerrp **glib.Error) uintptr
+	var rawCallback func(IconVarp uintptr, ResVarp uintptr, TypeVarp *string) uintptr
 	purego.RegisterFunc(&rawCallback, x.xLoadFinish)
 	return func(IconVar LoadableIcon, ResVar AsyncResult, TypeVar *string) *InputStream {
-		var cerr *glib.Error
-		rawRet := rawCallback(IconVar.GoPointer(), ResVar.GoPointer(), TypeVar, &cerr)
+		rawRet := rawCallback(IconVar.GoPointer(), ResVar.GoPointer(), TypeVar)
 		if rawRet == 0 {
 			return nil
 		}
@@ -146,7 +144,6 @@ type LoadableIcon interface {
 var xLoadableIconGLibType func() types.GType
 
 func LoadableIconGLibType() types.GType {
-	core.LazyRegister(&xLoadableIconGLibType, "GIO", "g_loadable_icon_get_type", false)
 	return xLoadableIconGLibType()
 }
 
@@ -209,28 +206,27 @@ func (x *LoadableIconBase) LoadFinish(ResVar AsyncResult, TypeVar *string) (*Inp
 	return cls, cerr
 }
 
-var XGLoadableIconLoad func(uintptr, int, *string, uintptr, **glib.Error) uintptr = func(instance uintptr, SizeVarp int, TypeVarp *string, CancellableVarp uintptr, cerrp **glib.Error) uintptr {
-	core.LazyRegister(&xXGLoadableIconLoad, "GIO", "g_loadable_icon_load", false)
-	return xXGLoadableIconLoad(instance, SizeVarp, TypeVarp, CancellableVarp, cerrp)
-}
-
 var (
-	xXGLoadableIconLoad     func(uintptr, int, *string, uintptr, **glib.Error) uintptr
-	XGLoadableIconLoadAsync func(uintptr, int, uintptr, uintptr, uintptr) = func(instance uintptr, SizeVarp int, CancellableVarp uintptr, CallbackVarp uintptr, UserDataVarp uintptr) {
-		core.LazyRegister(&xXGLoadableIconLoadAsync, "GIO", "g_loadable_icon_load_async", false)
-		xXGLoadableIconLoadAsync(instance, SizeVarp, CancellableVarp, CallbackVarp, UserDataVarp)
-	}
+	XGLoadableIconLoad       func(uintptr, int, *string, uintptr, **glib.Error) uintptr
+	XGLoadableIconLoadAsync  func(uintptr, int, uintptr, uintptr, uintptr)
+	XGLoadableIconLoadFinish func(uintptr, uintptr, *string, **glib.Error) uintptr
 )
-var (
-	xXGLoadableIconLoadAsync func(uintptr, int, uintptr, uintptr, uintptr)
-	XGLoadableIconLoadFinish func(uintptr, uintptr, *string, **glib.Error) uintptr = func(instance uintptr, ResVarp uintptr, TypeVarp *string, cerrp **glib.Error) uintptr {
-		core.LazyRegister(&xXGLoadableIconLoadFinish, "GIO", "g_loadable_icon_load_finish", false)
-		return xXGLoadableIconLoadFinish(instance, ResVarp, TypeVarp, cerrp)
-	}
-)
-var xXGLoadableIconLoadFinish func(uintptr, uintptr, *string, **glib.Error) uintptr
 
 func init() {
 	core.SetPackageName("GIO", "gio-2.0")
 	core.SetSharedLibraries("GIO", []string{"libgio-2.0.so.0", "libgio-2.0.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GIO") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xLoadableIconGLibType, libs, "g_loadable_icon_get_type")
+
+	core.PuregoSafeRegister(&XGLoadableIconLoad, libs, "g_loadable_icon_load")
+	core.PuregoSafeRegister(&XGLoadableIconLoadAsync, libs, "g_loadable_icon_load_async")
+	core.PuregoSafeRegister(&XGLoadableIconLoadFinish, libs, "g_loadable_icon_load_finish")
 }

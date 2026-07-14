@@ -188,7 +188,6 @@ type DBusObjectManagerClient struct {
 var xDBusObjectManagerClientGLibType func() types.GType
 
 func DBusObjectManagerClientGLibType() types.GType {
-	core.LazyRegister(&xDBusObjectManagerClientGLibType, "GIO", "g_dbus_object_manager_client_get_type", false)
 	return xDBusObjectManagerClientGLibType()
 }
 
@@ -202,7 +201,6 @@ var xNewDBusObjectManagerClientFinish func(uintptr, **glib.Error) uintptr
 
 // Finishes an operation started with g_dbus_object_manager_client_new().
 func NewDBusObjectManagerClientFinish(ResVar AsyncResult) (*DBusObjectManagerClient, error) {
-	core.LazyRegister(&xNewDBusObjectManagerClientFinish, "GIO", "g_dbus_object_manager_client_new_finish", false)
 	var cls *DBusObjectManagerClient
 	var cerr *glib.Error
 
@@ -223,7 +221,6 @@ var xNewDBusObjectManagerClientForBusFinish func(uintptr, **glib.Error) uintptr
 
 // Finishes an operation started with g_dbus_object_manager_client_new_for_bus().
 func NewDBusObjectManagerClientForBusFinish(ResVar AsyncResult) (*DBusObjectManagerClient, error) {
-	core.LazyRegister(&xNewDBusObjectManagerClientForBusFinish, "GIO", "g_dbus_object_manager_client_new_for_bus_finish", false)
 	var cls *DBusObjectManagerClient
 	var cerr *glib.Error
 
@@ -249,7 +246,6 @@ var xNewDBusObjectManagerClientForBusSync func(BusType, DBusObjectManagerClientF
 // blocked until a reply is received. See g_dbus_object_manager_client_new_for_bus()
 // for the asynchronous version.
 func NewDBusObjectManagerClientForBusSync(BusTypeVar BusType, FlagsVar DBusObjectManagerClientFlags, NameVar string, ObjectPathVar string, GetProxyTypeFuncVar *DBusProxyTypeFunc, GetProxyTypeUserDataVar uintptr, GetProxyTypeDestroyNotifyVar *glib.DestroyNotify, CancellableVar *Cancellable) (*DBusObjectManagerClient, error) {
-	core.LazyRegister(&xNewDBusObjectManagerClientForBusSync, "GIO", "g_dbus_object_manager_client_new_for_bus_sync", false)
 	var cls *DBusObjectManagerClient
 	var cerr *glib.Error
 
@@ -274,7 +270,6 @@ var xNewDBusObjectManagerClientSync func(uintptr, DBusObjectManagerClientFlags, 
 // blocked until a reply is received. See g_dbus_object_manager_client_new()
 // for the asynchronous version.
 func NewDBusObjectManagerClientSync(ConnectionVar *DBusConnection, FlagsVar DBusObjectManagerClientFlags, NameVar *string, ObjectPathVar string, GetProxyTypeFuncVar *DBusProxyTypeFunc, GetProxyTypeUserDataVar uintptr, GetProxyTypeDestroyNotifyVar *glib.DestroyNotify, CancellableVar *Cancellable) (*DBusObjectManagerClient, error) {
-	core.LazyRegister(&xNewDBusObjectManagerClientSync, "GIO", "g_dbus_object_manager_client_new_sync", false)
 	var cls *DBusObjectManagerClient
 	var cerr *glib.Error
 
@@ -298,7 +293,6 @@ var xDBusObjectManagerClientGetConnection func(uintptr) uintptr
 
 // Gets the #GDBusConnection used by @manager.
 func (x *DBusObjectManagerClient) GetConnection() *DBusConnection {
-	core.LazyRegister(&xDBusObjectManagerClientGetConnection, "GIO", "g_dbus_object_manager_client_get_connection", false)
 	var cls *DBusConnection
 
 	cret := xDBusObjectManagerClientGetConnection(x.GoPointer())
@@ -316,8 +310,6 @@ var xDBusObjectManagerClientGetFlags func(uintptr) DBusObjectManagerClientFlags
 
 // Gets the flags that @manager was constructed with.
 func (x *DBusObjectManagerClient) GetFlags() DBusObjectManagerClientFlags {
-	core.LazyRegister(&xDBusObjectManagerClientGetFlags, "GIO", "g_dbus_object_manager_client_get_flags", false)
-
 	cret := xDBusObjectManagerClientGetFlags(x.GoPointer())
 	return cret
 }
@@ -327,8 +319,6 @@ var xDBusObjectManagerClientGetName func(uintptr) string
 // Gets the name that @manager is for, or %NULL if not a message bus
 // connection.
 func (x *DBusObjectManagerClient) GetName() string {
-	core.LazyRegister(&xDBusObjectManagerClientGetName, "GIO", "g_dbus_object_manager_client_get_name", false)
-
 	cret := xDBusObjectManagerClientGetName(x.GoPointer())
 	return cret
 }
@@ -340,8 +330,6 @@ var xDBusObjectManagerClientGetNameOwner func(uintptr) string
 // #GObject::notify signal to track changes to the
 // #GDBusObjectManagerClient:name-owner property.
 func (x *DBusObjectManagerClient) GetNameOwner() string {
-	core.LazyRegister(&xDBusObjectManagerClientGetNameOwner, "GIO", "g_dbus_object_manager_client_get_name_owner", false)
-
 	cret := xDBusObjectManagerClientGetNameOwner(x.GoPointer())
 	return cret
 }
@@ -691,8 +679,6 @@ var xDBusObjectManagerClientNew func(uintptr, DBusObjectManagerClientFlags, stri
 // g_dbus_object_manager_client_new_finish() to get the result. See
 // g_dbus_object_manager_client_new_sync() for the synchronous version.
 func DBusObjectManagerClientNew(ConnectionVar *DBusConnection, FlagsVar DBusObjectManagerClientFlags, NameVar string, ObjectPathVar string, GetProxyTypeFuncVar *DBusProxyTypeFunc, GetProxyTypeUserDataVar uintptr, GetProxyTypeDestroyNotifyVar *glib.DestroyNotify, CancellableVar *Cancellable, CallbackVar *AsyncReadyCallback, UserDataVar uintptr) {
-	core.LazyRegister(&xDBusObjectManagerClientNew, "GIO", "g_dbus_object_manager_client_new", false)
-
 	xDBusObjectManagerClientNew(ConnectionVar.GoPointer(), FlagsVar, NameVar, ObjectPathVar, glib.NewCallbackNullable(GetProxyTypeFuncVar), GetProxyTypeUserDataVar, glib.NewCallbackNullable(GetProxyTypeDestroyNotifyVar), CancellableVar.GoPointer(), glib.NewCallbackNullable(CallbackVar), UserDataVar)
 }
 
@@ -708,12 +694,33 @@ var xDBusObjectManagerClientNewForBus func(BusType, DBusObjectManagerClientFlags
 // then call g_dbus_object_manager_client_new_for_bus_finish() to get the result. See
 // g_dbus_object_manager_client_new_for_bus_sync() for the synchronous version.
 func DBusObjectManagerClientNewForBus(BusTypeVar BusType, FlagsVar DBusObjectManagerClientFlags, NameVar string, ObjectPathVar string, GetProxyTypeFuncVar *DBusProxyTypeFunc, GetProxyTypeUserDataVar uintptr, GetProxyTypeDestroyNotifyVar *glib.DestroyNotify, CancellableVar *Cancellable, CallbackVar *AsyncReadyCallback, UserDataVar uintptr) {
-	core.LazyRegister(&xDBusObjectManagerClientNewForBus, "GIO", "g_dbus_object_manager_client_new_for_bus", false)
-
 	xDBusObjectManagerClientNewForBus(BusTypeVar, FlagsVar, NameVar, ObjectPathVar, glib.NewCallbackNullable(GetProxyTypeFuncVar), GetProxyTypeUserDataVar, glib.NewCallbackNullable(GetProxyTypeDestroyNotifyVar), CancellableVar.GoPointer(), glib.NewCallbackNullable(CallbackVar), UserDataVar)
 }
 
 func init() {
 	core.SetPackageName("GIO", "gio-2.0")
 	core.SetSharedLibraries("GIO", []string{"libgio-2.0.so.0", "libgio-2.0.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GIO") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xDBusObjectManagerClientGLibType, libs, "g_dbus_object_manager_client_get_type")
+
+	core.PuregoSafeRegister(&xNewDBusObjectManagerClientFinish, libs, "g_dbus_object_manager_client_new_finish")
+	core.PuregoSafeRegister(&xNewDBusObjectManagerClientForBusFinish, libs, "g_dbus_object_manager_client_new_for_bus_finish")
+	core.PuregoSafeRegister(&xNewDBusObjectManagerClientForBusSync, libs, "g_dbus_object_manager_client_new_for_bus_sync")
+	core.PuregoSafeRegister(&xNewDBusObjectManagerClientSync, libs, "g_dbus_object_manager_client_new_sync")
+
+	core.PuregoSafeRegister(&xDBusObjectManagerClientGetConnection, libs, "g_dbus_object_manager_client_get_connection")
+	core.PuregoSafeRegister(&xDBusObjectManagerClientGetFlags, libs, "g_dbus_object_manager_client_get_flags")
+	core.PuregoSafeRegister(&xDBusObjectManagerClientGetName, libs, "g_dbus_object_manager_client_get_name")
+	core.PuregoSafeRegister(&xDBusObjectManagerClientGetNameOwner, libs, "g_dbus_object_manager_client_get_name_owner")
+
+	core.PuregoSafeRegister(&xDBusObjectManagerClientNew, libs, "g_dbus_object_manager_client_new")
+	core.PuregoSafeRegister(&xDBusObjectManagerClientNewForBus, libs, "g_dbus_object_manager_client_new_for_bus")
 }

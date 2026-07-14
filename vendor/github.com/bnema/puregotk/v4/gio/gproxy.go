@@ -46,7 +46,7 @@ func (x *ProxyInterface) OverrideConnect(cb func(Proxy, *IOStream, *ProxyAddress
 	if cb == nil {
 		x.xConnect = 0
 	} else {
-		x.xConnect = purego.NewCallback(func(ProxyVarp uintptr, ConnectionVarp uintptr, ProxyAddressVarp uintptr, CancellableVarp uintptr, cerrp **glib.Error) uintptr {
+		x.xConnect = purego.NewCallback(func(ProxyVarp uintptr, ConnectionVarp uintptr, ProxyAddressVarp uintptr, CancellableVarp uintptr) uintptr {
 			ret := cb(&ProxyBase{Ptr: ProxyVarp}, IOStreamNewFromInternalPtr(ConnectionVarp), ProxyAddressNewFromInternalPtr(ProxyAddressVarp), CancellableNewFromInternalPtr(CancellableVarp))
 			if ret == nil {
 				return 0
@@ -64,11 +64,10 @@ func (x *ProxyInterface) GetConnect() func(Proxy, *IOStream, *ProxyAddress, *Can
 	if x.xConnect == 0 {
 		return nil
 	}
-	var rawCallback func(ProxyVarp uintptr, ConnectionVarp uintptr, ProxyAddressVarp uintptr, CancellableVarp uintptr, cerrp **glib.Error) uintptr
+	var rawCallback func(ProxyVarp uintptr, ConnectionVarp uintptr, ProxyAddressVarp uintptr, CancellableVarp uintptr) uintptr
 	purego.RegisterFunc(&rawCallback, x.xConnect)
 	return func(ProxyVar Proxy, ConnectionVar *IOStream, ProxyAddressVar *ProxyAddress, CancellableVar *Cancellable) *IOStream {
-		var cerr *glib.Error
-		rawRet := rawCallback(ProxyVar.GoPointer(), ConnectionVar.GoPointer(), ProxyAddressVar.GoPointer(), CancellableVar.GoPointer(), &cerr)
+		rawRet := rawCallback(ProxyVar.GoPointer(), ConnectionVar.GoPointer(), ProxyAddressVar.GoPointer(), CancellableVar.GoPointer())
 		if rawRet == 0 {
 			return nil
 		}
@@ -109,7 +108,7 @@ func (x *ProxyInterface) OverrideConnectFinish(cb func(Proxy, AsyncResult) *IOSt
 	if cb == nil {
 		x.xConnectFinish = 0
 	} else {
-		x.xConnectFinish = purego.NewCallback(func(ProxyVarp uintptr, ResultVarp uintptr, cerrp **glib.Error) uintptr {
+		x.xConnectFinish = purego.NewCallback(func(ProxyVarp uintptr, ResultVarp uintptr) uintptr {
 			ret := cb(&ProxyBase{Ptr: ProxyVarp}, &AsyncResultBase{Ptr: ResultVarp})
 			if ret == nil {
 				return 0
@@ -125,11 +124,10 @@ func (x *ProxyInterface) GetConnectFinish() func(Proxy, AsyncResult) *IOStream {
 	if x.xConnectFinish == 0 {
 		return nil
 	}
-	var rawCallback func(ProxyVarp uintptr, ResultVarp uintptr, cerrp **glib.Error) uintptr
+	var rawCallback func(ProxyVarp uintptr, ResultVarp uintptr) uintptr
 	purego.RegisterFunc(&rawCallback, x.xConnectFinish)
 	return func(ProxyVar Proxy, ResultVar AsyncResult) *IOStream {
-		var cerr *glib.Error
-		rawRet := rawCallback(ProxyVar.GoPointer(), ResultVar.GoPointer(), &cerr)
+		rawRet := rawCallback(ProxyVar.GoPointer(), ResultVar.GoPointer())
 		if rawRet == 0 {
 			return nil
 		}
@@ -182,7 +180,6 @@ type Proxy interface {
 var xProxyGLibType func() types.GType
 
 func ProxyGLibType() types.GType {
-	core.LazyRegister(&xProxyGLibType, "GIO", "g_proxy_get_type", false)
 	return xProxyGLibType()
 }
 
@@ -257,33 +254,12 @@ func (x *ProxyBase) SupportsHostname() bool {
 	return cret
 }
 
-var XGProxyConnect func(uintptr, uintptr, uintptr, uintptr, **glib.Error) uintptr = func(instance uintptr, ConnectionVarp uintptr, ProxyAddressVarp uintptr, CancellableVarp uintptr, cerrp **glib.Error) uintptr {
-	core.LazyRegister(&xXGProxyConnect, "GIO", "g_proxy_connect", false)
-	return xXGProxyConnect(instance, ConnectionVarp, ProxyAddressVarp, CancellableVarp, cerrp)
-}
-
 var (
-	xXGProxyConnect     func(uintptr, uintptr, uintptr, uintptr, **glib.Error) uintptr
-	XGProxyConnectAsync func(uintptr, uintptr, uintptr, uintptr, uintptr, uintptr) = func(instance uintptr, ConnectionVarp uintptr, ProxyAddressVarp uintptr, CancellableVarp uintptr, CallbackVarp uintptr, UserDataVarp uintptr) {
-		core.LazyRegister(&xXGProxyConnectAsync, "GIO", "g_proxy_connect_async", false)
-		xXGProxyConnectAsync(instance, ConnectionVarp, ProxyAddressVarp, CancellableVarp, CallbackVarp, UserDataVarp)
-	}
+	XGProxyConnect          func(uintptr, uintptr, uintptr, uintptr, **glib.Error) uintptr
+	XGProxyConnectAsync     func(uintptr, uintptr, uintptr, uintptr, uintptr, uintptr)
+	XGProxyConnectFinish    func(uintptr, uintptr, **glib.Error) uintptr
+	XGProxySupportsHostname func(uintptr) bool
 )
-var (
-	xXGProxyConnectAsync func(uintptr, uintptr, uintptr, uintptr, uintptr, uintptr)
-	XGProxyConnectFinish func(uintptr, uintptr, **glib.Error) uintptr = func(instance uintptr, ResultVarp uintptr, cerrp **glib.Error) uintptr {
-		core.LazyRegister(&xXGProxyConnectFinish, "GIO", "g_proxy_connect_finish", false)
-		return xXGProxyConnectFinish(instance, ResultVarp, cerrp)
-	}
-)
-var (
-	xXGProxyConnectFinish   func(uintptr, uintptr, **glib.Error) uintptr
-	XGProxySupportsHostname func(uintptr) bool = func(instance uintptr) bool {
-		core.LazyRegister(&xXGProxySupportsHostname, "GIO", "g_proxy_supports_hostname", false)
-		return xXGProxySupportsHostname(instance)
-	}
-)
-var xXGProxySupportsHostname func(uintptr) bool
 
 const (
 	// Extension point for proxy functionality.
@@ -296,7 +272,6 @@ var xProxyGetDefaultForProtocol func(string) uintptr
 // Find the `gio-proxy` extension point for a proxy implementation that supports
 // the specified protocol.
 func ProxyGetDefaultForProtocol(ProtocolVar string) *ProxyBase {
-	core.LazyRegister(&xProxyGetDefaultForProtocol, "GIO", "g_proxy_get_default_for_protocol", false)
 	var cls *ProxyBase
 
 	cret := xProxyGetDefaultForProtocol(ProtocolVar)
@@ -312,4 +287,21 @@ func ProxyGetDefaultForProtocol(ProtocolVar string) *ProxyBase {
 func init() {
 	core.SetPackageName("GIO", "gio-2.0")
 	core.SetSharedLibraries("GIO", []string{"libgio-2.0.so.0", "libgio-2.0.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GIO") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xProxyGetDefaultForProtocol, libs, "g_proxy_get_default_for_protocol")
+
+	core.PuregoSafeRegister(&xProxyGLibType, libs, "g_proxy_get_type")
+
+	core.PuregoSafeRegister(&XGProxyConnect, libs, "g_proxy_connect")
+	core.PuregoSafeRegister(&XGProxyConnectAsync, libs, "g_proxy_connect_async")
+	core.PuregoSafeRegister(&XGProxyConnectFinish, libs, "g_proxy_connect_finish")
+	core.PuregoSafeRegister(&XGProxySupportsHostname, libs, "g_proxy_supports_hostname")
 }

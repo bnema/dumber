@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gio"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -37,7 +38,6 @@ type SelectionFilterModel struct {
 var xSelectionFilterModelGLibType func() types.GType
 
 func SelectionFilterModelGLibType() types.GType {
-	core.LazyRegister(&xSelectionFilterModelGLibType, "GTK", "gtk_selection_filter_model_get_type", false)
 	return xSelectionFilterModelGLibType()
 }
 
@@ -52,7 +52,6 @@ var xNewSelectionFilterModel func(uintptr) uintptr
 // Creates a new `GtkSelectionFilterModel` that will include the
 // selected items from the underlying selection model.
 func NewSelectionFilterModel(ModelVar SelectionModel) *SelectionFilterModel {
-	core.LazyRegister(&xNewSelectionFilterModel, "GTK", "gtk_selection_filter_model_new", false)
 	var cls *SelectionFilterModel
 
 	cret := xNewSelectionFilterModel(ModelVar.GoPointer())
@@ -69,7 +68,6 @@ var xSelectionFilterModelGetModel func(uintptr) uintptr
 
 // Gets the model currently filtered or %NULL if none.
 func (x *SelectionFilterModel) GetModel() *SelectionModelBase {
-	core.LazyRegister(&xSelectionFilterModelGetModel, "GTK", "gtk_selection_filter_model_get_model", false)
 	var cls *SelectionModelBase
 
 	cret := xSelectionFilterModelGetModel(x.GoPointer())
@@ -92,8 +90,6 @@ var xSelectionFilterModelSetModel func(uintptr, uintptr)
 // are doing and have set up an appropriate filter to ensure that item
 // types match.
 func (x *SelectionFilterModel) SetModel(ModelVar SelectionModel) {
-	core.LazyRegister(&xSelectionFilterModelSetModel, "GTK", "gtk_selection_filter_model_set_model", false)
-
 	xSelectionFilterModelSetModel(x.GoPointer(), ModelVar.GoPointer())
 }
 
@@ -205,4 +201,19 @@ func (x *SelectionFilterModel) ItemsChanged(PositionVar uint, RemovedVar uint, A
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GTK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xSelectionFilterModelGLibType, libs, "gtk_selection_filter_model_get_type")
+
+	core.PuregoSafeRegister(&xNewSelectionFilterModel, libs, "gtk_selection_filter_model_new")
+
+	core.PuregoSafeRegister(&xSelectionFilterModelGetModel, libs, "gtk_selection_filter_model_get_model")
+	core.PuregoSafeRegister(&xSelectionFilterModelSetModel, libs, "gtk_selection_filter_model_set_model")
 }

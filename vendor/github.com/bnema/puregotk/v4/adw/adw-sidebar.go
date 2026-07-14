@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gdk"
 	"github.com/bnema/puregotk/v4/gio"
@@ -40,7 +41,6 @@ type SidebarMode int
 var xSidebarModeGLibType func() types.GType
 
 func SidebarModeGLibType() types.GType {
-	core.LazyRegister(&xSidebarModeGLibType, "ADW", "adw_sidebar_mode_get_type", false)
 	return xSidebarModeGLibType()
 }
 
@@ -283,7 +283,6 @@ type Sidebar struct {
 var xSidebarGLibType func() types.GType
 
 func SidebarGLibType() types.GType {
-	core.LazyRegister(&xSidebarGLibType, "ADW", "adw_sidebar_get_type", false)
 	return xSidebarGLibType()
 }
 
@@ -297,7 +296,6 @@ var xNewSidebar func() uintptr
 
 // Creates a new `AdwSidebar`.
 func NewSidebar() *Sidebar {
-	core.LazyRegister(&xNewSidebar, "ADW", "adw_sidebar_new", false)
 	var cls *Sidebar
 
 	cret := xNewSidebar()
@@ -315,8 +313,6 @@ var xSidebarAppend func(uintptr, uintptr)
 
 // Appends @section to @self.
 func (x *Sidebar) Append(SectionVar *SidebarSection) {
-	core.LazyRegister(&xSidebarAppend, "ADW", "adw_sidebar_append", false)
-
 	xSidebarAppend(x.GoPointer(), SectionVar.GoPointer())
 }
 
@@ -324,8 +320,6 @@ var xSidebarGetDropPreload func(uintptr) bool
 
 // Gets whether drop data should be preloaded on hover.
 func (x *Sidebar) GetDropPreload() bool {
-	core.LazyRegister(&xSidebarGetDropPreload, "ADW", "adw_sidebar_get_drop_preload", false)
-
 	cret := xSidebarGetDropPreload(x.GoPointer())
 	return cret
 }
@@ -334,7 +328,6 @@ var xSidebarGetFilter func(uintptr) uintptr
 
 // Gets the item filter for @self.
 func (x *Sidebar) GetFilter() *gtk.Filter {
-	core.LazyRegister(&xSidebarGetFilter, "ADW", "adw_sidebar_get_filter", false)
 	var cls *gtk.Filter
 
 	cret := xSidebarGetFilter(x.GoPointer())
@@ -357,7 +350,6 @@ var xSidebarGetItem func(uintptr, uint) uintptr
 //
 // Can return `NULL` if @index is larger or equal to the number of items.
 func (x *Sidebar) GetItem(IndexVar uint) *SidebarItem {
-	core.LazyRegister(&xSidebarGetItem, "ADW", "adw_sidebar_get_item", false)
 	var cls *SidebarItem
 
 	cret := xSidebarGetItem(x.GoPointer(), IndexVar)
@@ -385,7 +377,6 @@ var xSidebarGetItems func(uintptr) uintptr
 //
 // To only track sections, use [property@Sidebar:sections] instead.
 func (x *Sidebar) GetItems() *gtk.SelectionModelBase {
-	core.LazyRegister(&xSidebarGetItems, "ADW", "adw_sidebar_get_items", false)
 	var cls *gtk.SelectionModelBase
 
 	cret := xSidebarGetItems(x.GoPointer())
@@ -402,7 +393,6 @@ var xSidebarGetMenuModel func(uintptr) uintptr
 
 // Gets the context menu model for @self's items.
 func (x *Sidebar) GetMenuModel() *gio.MenuModel {
-	core.LazyRegister(&xSidebarGetMenuModel, "ADW", "adw_sidebar_get_menu_model", false)
 	var cls *gio.MenuModel
 
 	cret := xSidebarGetMenuModel(x.GoPointer())
@@ -420,8 +410,6 @@ var xSidebarGetMode func(uintptr) SidebarMode
 
 // Gets @self's look and behavior.
 func (x *Sidebar) GetMode() SidebarMode {
-	core.LazyRegister(&xSidebarGetMode, "ADW", "adw_sidebar_get_mode", false)
-
 	cret := xSidebarGetMode(x.GoPointer())
 	return cret
 }
@@ -430,7 +418,6 @@ var xSidebarGetPlaceholder func(uintptr) uintptr
 
 // Gets the placeholder widget for @self.
 func (x *Sidebar) GetPlaceholder() *gtk.Widget {
-	core.LazyRegister(&xSidebarGetPlaceholder, "ADW", "adw_sidebar_get_placeholder", false)
 	var cls *gtk.Widget
 
 	cret := xSidebarGetPlaceholder(x.GoPointer())
@@ -450,7 +437,6 @@ var xSidebarGetSection func(uintptr, uint) uintptr
 //
 // Can return `NULL` if @index is larger or equal to the number of sections.
 func (x *Sidebar) GetSection(IndexVar uint) *SidebarSection {
-	core.LazyRegister(&xSidebarGetSection, "ADW", "adw_sidebar_get_section", false)
 	var cls *SidebarSection
 
 	cret := xSidebarGetSection(x.GoPointer(), IndexVar)
@@ -472,7 +458,6 @@ var xSidebarGetSections func(uintptr) uintptr
 //
 // To track items, use [property@Sidebar:items] instead.
 func (x *Sidebar) GetSections() *gio.ListModelBase {
-	core.LazyRegister(&xSidebarGetSections, "ADW", "adw_sidebar_get_sections", false)
 	var cls *gio.ListModelBase
 
 	cret := xSidebarGetSections(x.GoPointer())
@@ -491,8 +476,6 @@ var xSidebarGetSelected func(uintptr) uint
 //
 // See also: [method@Sidebar.get_selected_item].
 func (x *Sidebar) GetSelected() uint {
-	core.LazyRegister(&xSidebarGetSelected, "ADW", "adw_sidebar_get_selected", false)
-
 	cret := xSidebarGetSelected(x.GoPointer())
 	return cret
 }
@@ -506,7 +489,6 @@ var xSidebarGetSelectedItem func(uintptr) uintptr
 //
 // To change selection, use [method@Sidebar.set_selected].
 func (x *Sidebar) GetSelectedItem() *SidebarItem {
-	core.LazyRegister(&xSidebarGetSelectedItem, "ADW", "adw_sidebar_get_selected_item", false)
 	var cls *SidebarItem
 
 	cret := xSidebarGetSelectedItem(x.GoPointer())
@@ -527,8 +509,6 @@ var xSidebarInsert func(uintptr, uintptr, int)
 // If @position is -1, or larger than the total number of sections in @self,
 // the section will be appended to the end.
 func (x *Sidebar) Insert(SectionVar *SidebarSection, PositionVar int) {
-	core.LazyRegister(&xSidebarInsert, "ADW", "adw_sidebar_insert", false)
-
 	xSidebarInsert(x.GoPointer(), SectionVar.GoPointer(), PositionVar)
 }
 
@@ -536,8 +516,6 @@ var xSidebarPrepend func(uintptr, uintptr)
 
 // Prepends @section to @self.
 func (x *Sidebar) Prepend(SectionVar *SidebarSection) {
-	core.LazyRegister(&xSidebarPrepend, "ADW", "adw_sidebar_prepend", false)
-
 	xSidebarPrepend(x.GoPointer(), SectionVar.GoPointer())
 }
 
@@ -545,8 +523,6 @@ var xSidebarRemove func(uintptr, uintptr)
 
 // Removes @section from @self.
 func (x *Sidebar) Remove(SectionVar *SidebarSection) {
-	core.LazyRegister(&xSidebarRemove, "ADW", "adw_sidebar_remove", false)
-
 	xSidebarRemove(x.GoPointer(), SectionVar.GoPointer())
 }
 
@@ -554,8 +530,6 @@ var xSidebarRemoveAll func(uintptr)
 
 // Removes all sections from @self.
 func (x *Sidebar) RemoveAll() {
-	core.LazyRegister(&xSidebarRemoveAll, "ADW", "adw_sidebar_remove_all", false)
-
 	xSidebarRemoveAll(x.GoPointer())
 }
 
@@ -565,8 +539,6 @@ var xSidebarSetDropPreload func(uintptr, bool)
 //
 // See [property@Gtk.DropTarget:preload].
 func (x *Sidebar) SetDropPreload(PreloadVar bool) {
-	core.LazyRegister(&xSidebarSetDropPreload, "ADW", "adw_sidebar_set_drop_preload", false)
-
 	xSidebarSetDropPreload(x.GoPointer(), PreloadVar)
 }
 
@@ -578,8 +550,6 @@ var xSidebarSetFilter func(uintptr, uintptr)
 //
 // Use [property@Sidebar:placeholder] to provide an empty state.
 func (x *Sidebar) SetFilter(FilterVar *gtk.Filter) {
-	core.LazyRegister(&xSidebarSetFilter, "ADW", "adw_sidebar_set_filter", false)
-
 	xSidebarSetFilter(x.GoPointer(), FilterVar.GoPointer())
 }
 
@@ -593,8 +563,6 @@ var xSidebarSetMenuModel func(uintptr, uintptr)
 //
 // [property@Sidebar:menu-model] will be preferred over this model if set.
 func (x *Sidebar) SetMenuModel(MenuModelVar *gio.MenuModel) {
-	core.LazyRegister(&xSidebarSetMenuModel, "ADW", "adw_sidebar_set_menu_model", false)
-
 	xSidebarSetMenuModel(x.GoPointer(), MenuModelVar.GoPointer())
 }
 
@@ -622,8 +590,6 @@ var xSidebarSetMode func(uintptr, SidebarMode)
 // When used with [class@OverlaySplitView], the sidebar should stay in sidebar
 // mode, as the sidebar pane is still a sidebar when collapsed.
 func (x *Sidebar) SetMode(ModeVar SidebarMode) {
-	core.LazyRegister(&xSidebarSetMode, "ADW", "adw_sidebar_set_mode", false)
-
 	xSidebarSetMode(x.GoPointer(), ModeVar)
 }
 
@@ -634,8 +600,6 @@ var xSidebarSetPlaceholder func(uintptr, uintptr)
 // This widget will be shown if @self has no items, or all of its items have
 // been filtered out by [property@Sidebar:filter].
 func (x *Sidebar) SetPlaceholder(PlaceholderVar *gtk.Widget) {
-	core.LazyRegister(&xSidebarSetPlaceholder, "ADW", "adw_sidebar_set_placeholder", false)
-
 	xSidebarSetPlaceholder(x.GoPointer(), PlaceholderVar.GoPointer())
 }
 
@@ -651,8 +615,6 @@ var xSidebarSetSelected func(uintptr, uint)
 //
 // See also: [property@Sidebar:selected-item].
 func (x *Sidebar) SetSelected(SelectedVar uint) {
-	core.LazyRegister(&xSidebarSetSelected, "ADW", "adw_sidebar_set_selected", false)
-
 	xSidebarSetSelected(x.GoPointer(), SelectedVar)
 }
 
@@ -664,8 +626,6 @@ var xSidebarSetupDropTarget func(uintptr, gdk.DragAction, []types.GType, uint)
 //
 // The [signal@Sidebar::drop] signal can be used to handle the drop.
 func (x *Sidebar) SetupDropTarget(ActionsVar gdk.DragAction, TypesVar []types.GType, NTypesVar uint) {
-	core.LazyRegister(&xSidebarSetupDropTarget, "ADW", "adw_sidebar_setup_drop_target", false)
-
 	xSidebarSetupDropTarget(x.GoPointer(), ActionsVar, TypesVar, NTypesVar)
 }
 
@@ -1141,4 +1101,42 @@ func (x *Sidebar) GetBuildableId() string {
 func init() {
 	core.SetPackageName("ADW", "libadwaita-1")
 	core.SetSharedLibraries("ADW", []string{"libadwaita-1.so.0", "libadwaita-1.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("ADW") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xSidebarModeGLibType, libs, "adw_sidebar_mode_get_type")
+
+	core.PuregoSafeRegister(&xSidebarGLibType, libs, "adw_sidebar_get_type")
+
+	core.PuregoSafeRegister(&xNewSidebar, libs, "adw_sidebar_new")
+
+	core.PuregoSafeRegister(&xSidebarAppend, libs, "adw_sidebar_append")
+	core.PuregoSafeRegister(&xSidebarGetDropPreload, libs, "adw_sidebar_get_drop_preload")
+	core.PuregoSafeRegister(&xSidebarGetFilter, libs, "adw_sidebar_get_filter")
+	core.PuregoSafeRegister(&xSidebarGetItem, libs, "adw_sidebar_get_item")
+	core.PuregoSafeRegister(&xSidebarGetItems, libs, "adw_sidebar_get_items")
+	core.PuregoSafeRegister(&xSidebarGetMenuModel, libs, "adw_sidebar_get_menu_model")
+	core.PuregoSafeRegister(&xSidebarGetMode, libs, "adw_sidebar_get_mode")
+	core.PuregoSafeRegister(&xSidebarGetPlaceholder, libs, "adw_sidebar_get_placeholder")
+	core.PuregoSafeRegister(&xSidebarGetSection, libs, "adw_sidebar_get_section")
+	core.PuregoSafeRegister(&xSidebarGetSections, libs, "adw_sidebar_get_sections")
+	core.PuregoSafeRegister(&xSidebarGetSelected, libs, "adw_sidebar_get_selected")
+	core.PuregoSafeRegister(&xSidebarGetSelectedItem, libs, "adw_sidebar_get_selected_item")
+	core.PuregoSafeRegister(&xSidebarInsert, libs, "adw_sidebar_insert")
+	core.PuregoSafeRegister(&xSidebarPrepend, libs, "adw_sidebar_prepend")
+	core.PuregoSafeRegister(&xSidebarRemove, libs, "adw_sidebar_remove")
+	core.PuregoSafeRegister(&xSidebarRemoveAll, libs, "adw_sidebar_remove_all")
+	core.PuregoSafeRegister(&xSidebarSetDropPreload, libs, "adw_sidebar_set_drop_preload")
+	core.PuregoSafeRegister(&xSidebarSetFilter, libs, "adw_sidebar_set_filter")
+	core.PuregoSafeRegister(&xSidebarSetMenuModel, libs, "adw_sidebar_set_menu_model")
+	core.PuregoSafeRegister(&xSidebarSetMode, libs, "adw_sidebar_set_mode")
+	core.PuregoSafeRegister(&xSidebarSetPlaceholder, libs, "adw_sidebar_set_placeholder")
+	core.PuregoSafeRegister(&xSidebarSetSelected, libs, "adw_sidebar_set_selected")
+	core.PuregoSafeRegister(&xSidebarSetupDropTarget, libs, "adw_sidebar_setup_drop_target")
 }

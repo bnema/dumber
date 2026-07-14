@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject/types"
 )
@@ -53,7 +54,6 @@ type DevicePad interface {
 var xDevicePadGLibType func() types.GType
 
 func DevicePadGLibType() types.GType {
-	core.LazyRegister(&xDevicePadGLibType, "GDK", "gdk_device_pad_get_type", false)
 	return xDevicePadGLibType()
 }
 
@@ -102,33 +102,12 @@ func (x *DevicePadBase) GetNGroups() int {
 	return cret
 }
 
-var XGdkDevicePadGetFeatureGroup func(uintptr, DevicePadFeature, int) int = func(instance uintptr, FeatureVarp DevicePadFeature, FeatureIdxVarp int) int {
-	core.LazyRegister(&xXGdkDevicePadGetFeatureGroup, "GDK", "gdk_device_pad_get_feature_group", false)
-	return xXGdkDevicePadGetFeatureGroup(instance, FeatureVarp, FeatureIdxVarp)
-}
-
 var (
-	xXGdkDevicePadGetFeatureGroup func(uintptr, DevicePadFeature, int) int
-	XGdkDevicePadGetGroupNModes   func(uintptr, int) int = func(instance uintptr, GroupIdxVarp int) int {
-		core.LazyRegister(&xXGdkDevicePadGetGroupNModes, "GDK", "gdk_device_pad_get_group_n_modes", false)
-		return xXGdkDevicePadGetGroupNModes(instance, GroupIdxVarp)
-	}
+	XGdkDevicePadGetFeatureGroup func(uintptr, DevicePadFeature, int) int
+	XGdkDevicePadGetGroupNModes  func(uintptr, int) int
+	XGdkDevicePadGetNFeatures    func(uintptr, DevicePadFeature) int
+	XGdkDevicePadGetNGroups      func(uintptr) int
 )
-var (
-	xXGdkDevicePadGetGroupNModes func(uintptr, int) int
-	XGdkDevicePadGetNFeatures    func(uintptr, DevicePadFeature) int = func(instance uintptr, FeatureVarp DevicePadFeature) int {
-		core.LazyRegister(&xXGdkDevicePadGetNFeatures, "GDK", "gdk_device_pad_get_n_features", false)
-		return xXGdkDevicePadGetNFeatures(instance, FeatureVarp)
-	}
-)
-var (
-	xXGdkDevicePadGetNFeatures func(uintptr, DevicePadFeature) int
-	XGdkDevicePadGetNGroups    func(uintptr) int = func(instance uintptr) int {
-		core.LazyRegister(&xXGdkDevicePadGetNGroups, "GDK", "gdk_device_pad_get_n_groups", false)
-		return xXGdkDevicePadGetNGroups(instance)
-	}
-)
-var xXGdkDevicePadGetNGroups func(uintptr) int
 
 // A pad feature.
 type DevicePadFeature int
@@ -136,7 +115,6 @@ type DevicePadFeature int
 var xDevicePadFeatureGLibType func() types.GType
 
 func DevicePadFeatureGLibType() types.GType {
-	core.LazyRegister(&xDevicePadFeatureGLibType, "GDK", "gdk_device_pad_feature_get_type", false)
 	return xDevicePadFeatureGLibType()
 }
 
@@ -153,4 +131,21 @@ const (
 func init() {
 	core.SetPackageName("GDK", "gtk4")
 	core.SetSharedLibraries("GDK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GDK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xDevicePadFeatureGLibType, libs, "gdk_device_pad_feature_get_type")
+
+	core.PuregoSafeRegister(&xDevicePadGLibType, libs, "gdk_device_pad_get_type")
+
+	core.PuregoSafeRegister(&XGdkDevicePadGetFeatureGroup, libs, "gdk_device_pad_get_feature_group")
+	core.PuregoSafeRegister(&XGdkDevicePadGetGroupNModes, libs, "gdk_device_pad_get_group_n_modes")
+	core.PuregoSafeRegister(&XGdkDevicePadGetNFeatures, libs, "gdk_device_pad_get_n_features")
+	core.PuregoSafeRegister(&XGdkDevicePadGetNGroups, libs, "gdk_device_pad_get_n_groups")
 }

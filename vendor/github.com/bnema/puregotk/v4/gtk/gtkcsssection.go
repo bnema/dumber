@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gio"
 	"github.com/bnema/puregotk/v4/glib"
@@ -23,7 +24,6 @@ type CssSection struct {
 var xCssSectionGLibType func() types.GType
 
 func CssSectionGLibType() types.GType {
-	core.LazyRegister(&xCssSectionGLibType, "GTK", "gtk_css_section_get_type", false)
 	return xCssSectionGLibType()
 }
 
@@ -45,8 +45,6 @@ var xNewCssSection func(uintptr, *CssLocation, *CssLocation) uintptr
 // in the given `file` from the `start` location to the
 // `end` location.
 func NewCssSection(FileVar gio.File, StartVar *CssLocation, EndVar *CssLocation) *CssSection {
-	core.LazyRegister(&xNewCssSection, "GTK", "gtk_css_section_new", false)
-
 	cret := xNewCssSection(FileVar.GoPointer(), StartVar, EndVar)
 	if cret == 0 {
 		return nil
@@ -60,8 +58,6 @@ var xNewCssSectionWithBytes func(uintptr, *glib.Bytes, *CssLocation, *CssLocatio
 // in the given `file` or the given `bytes` from the `start` location to the
 // `end` location.
 func NewCssSectionWithBytes(FileVar gio.File, BytesVar *glib.Bytes, StartVar *CssLocation, EndVar *CssLocation) *CssSection {
-	core.LazyRegister(&xNewCssSectionWithBytes, "GTK", "gtk_css_section_new_with_bytes", false)
-
 	cret := xNewCssSectionWithBytes(FileVar.GoPointer(), BytesVar, StartVar, EndVar)
 	if cret == 0 {
 		return nil
@@ -73,8 +69,6 @@ var xCssSectionGetBytes func(uintptr) uintptr
 
 // Gets the bytes that @section was parsed from.
 func (x *CssSection) GetBytes() *glib.Bytes {
-	core.LazyRegister(&xCssSectionGetBytes, "GTK", "gtk_css_section_get_bytes", false)
-
 	cret := xCssSectionGetBytes(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -86,8 +80,6 @@ var xCssSectionGetEndLocation func(uintptr) uintptr
 
 // Returns the location in the CSS document where this section ends.
 func (x *CssSection) GetEndLocation() *CssLocation {
-	core.LazyRegister(&xCssSectionGetEndLocation, "GTK", "gtk_css_section_get_end_location", false)
-
 	cret := xCssSectionGetEndLocation(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -102,7 +94,6 @@ var xCssSectionGetFile func(uintptr) uintptr
 // If no such file exists, for example because the CSS was loaded via
 // [method@Gtk.CssProvider.load_from_data], then `NULL` is returned.
 func (x *CssSection) GetFile() *gio.FileBase {
-	core.LazyRegister(&xCssSectionGetFile, "GTK", "gtk_css_section_get_file", false)
 	var cls *gio.FileBase
 
 	cret := xCssSectionGetFile(x.GoPointer())
@@ -127,8 +118,6 @@ var xCssSectionGetParent func(uintptr) uintptr
 // `GTK_CSS_SECTION_IMPORT` if it was loaded with an `@import` rule from
 // a different file.
 func (x *CssSection) GetParent() *CssSection {
-	core.LazyRegister(&xCssSectionGetParent, "GTK", "gtk_css_section_get_parent", false)
-
 	cret := xCssSectionGetParent(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -140,8 +129,6 @@ var xCssSectionGetStartLocation func(uintptr) uintptr
 
 // Returns the location in the CSS document where this section starts.
 func (x *CssSection) GetStartLocation() *CssLocation {
-	core.LazyRegister(&xCssSectionGetStartLocation, "GTK", "gtk_css_section_get_start_location", false)
-
 	cret := xCssSectionGetStartLocation(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -156,8 +143,6 @@ var xCssSectionPrint func(uintptr, *glib.String)
 // This is a form like `gtk.css:32:1-23` to denote line 32, characters
 // 1 to 23 in the file `gtk.css`.
 func (x *CssSection) Print(StringVar *glib.String) {
-	core.LazyRegister(&xCssSectionPrint, "GTK", "gtk_css_section_print", false)
-
 	xCssSectionPrint(x.GoPointer(), StringVar)
 }
 
@@ -165,8 +150,6 @@ var xCssSectionRef func(uintptr) uintptr
 
 // Increments the reference count on `section`.
 func (x *CssSection) Ref() *CssSection {
-	core.LazyRegister(&xCssSectionRef, "GTK", "gtk_css_section_ref", false)
-
 	cret := xCssSectionRef(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -179,8 +162,6 @@ var xCssSectionToString func(uintptr) string
 // Prints the section into a human-readable text form using
 // [method@Gtk.CssSection.print].
 func (x *CssSection) ToString() string {
-	core.LazyRegister(&xCssSectionToString, "GTK", "gtk_css_section_to_string", false)
-
 	cret := xCssSectionToString(x.GoPointer())
 	return cret
 }
@@ -190,12 +171,33 @@ var xCssSectionUnref func(uintptr)
 // Decrements the reference count on `section`, freeing the
 // structure if the reference count reaches 0.
 func (x *CssSection) Unref() {
-	core.LazyRegister(&xCssSectionUnref, "GTK", "gtk_css_section_unref", false)
-
 	xCssSectionUnref(x.GoPointer())
 }
 
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GTK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xCssSectionGLibType, libs, "gtk_css_section_get_type")
+
+	core.PuregoSafeRegister(&xNewCssSection, libs, "gtk_css_section_new")
+	core.PuregoSafeRegister(&xNewCssSectionWithBytes, libs, "gtk_css_section_new_with_bytes")
+
+	core.PuregoSafeRegister(&xCssSectionGetBytes, libs, "gtk_css_section_get_bytes")
+	core.PuregoSafeRegister(&xCssSectionGetEndLocation, libs, "gtk_css_section_get_end_location")
+	core.PuregoSafeRegister(&xCssSectionGetFile, libs, "gtk_css_section_get_file")
+	core.PuregoSafeRegister(&xCssSectionGetParent, libs, "gtk_css_section_get_parent")
+	core.PuregoSafeRegister(&xCssSectionGetStartLocation, libs, "gtk_css_section_get_start_location")
+	core.PuregoSafeRegister(&xCssSectionPrint, libs, "gtk_css_section_print")
+	core.PuregoSafeRegister(&xCssSectionRef, libs, "gtk_css_section_ref")
+	core.PuregoSafeRegister(&xCssSectionToString, libs, "gtk_css_section_to_string")
+	core.PuregoSafeRegister(&xCssSectionUnref, libs, "gtk_css_section_unref")
 }

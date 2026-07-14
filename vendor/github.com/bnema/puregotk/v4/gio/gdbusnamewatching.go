@@ -2,6 +2,7 @@
 package gio
 
 import (
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -28,8 +29,6 @@ var xBusUnwatchName func(uint)
 // order to avoid memory leaks through callbacks queued on the #GMainContext
 // after it’s stopped being iterated.
 func BusUnwatchName(WatcherIdVar uint) {
-	core.LazyRegister(&xBusUnwatchName, "GIO", "g_bus_unwatch_name", false)
-
 	xBusUnwatchName(WatcherIdVar)
 }
 
@@ -65,8 +64,6 @@ var xBusWatchName func(BusType, string, BusNameWatcherFlags, uintptr, uintptr, u
 // @name_appeared_handler and destroy them again (if any) in
 // @name_vanished_handler.
 func BusWatchName(BusTypeVar BusType, NameVar string, FlagsVar BusNameWatcherFlags, NameAppearedHandlerVar *BusNameAppearedCallback, NameVanishedHandlerVar *BusNameVanishedCallback, UserDataVar uintptr, UserDataFreeFuncVar *glib.DestroyNotify) uint {
-	core.LazyRegister(&xBusWatchName, "GIO", "g_bus_watch_name", false)
-
 	cret := xBusWatchName(BusTypeVar, NameVar, FlagsVar, glib.NewCallbackNullable(NameAppearedHandlerVar), glib.NewCallbackNullable(NameVanishedHandlerVar), UserDataVar, glib.NewCallbackNullable(UserDataFreeFuncVar))
 	return cret
 }
@@ -76,8 +73,6 @@ var xBusWatchNameOnConnection func(uintptr, string, BusNameWatcherFlags, uintptr
 // Like g_bus_watch_name() but takes a #GDBusConnection instead of a
 // #GBusType.
 func BusWatchNameOnConnection(ConnectionVar *DBusConnection, NameVar string, FlagsVar BusNameWatcherFlags, NameAppearedHandlerVar *BusNameAppearedCallback, NameVanishedHandlerVar *BusNameVanishedCallback, UserDataVar uintptr, UserDataFreeFuncVar *glib.DestroyNotify) uint {
-	core.LazyRegister(&xBusWatchNameOnConnection, "GIO", "g_bus_watch_name_on_connection", false)
-
 	cret := xBusWatchNameOnConnection(ConnectionVar.GoPointer(), NameVar, FlagsVar, glib.NewCallbackNullable(NameAppearedHandlerVar), glib.NewCallbackNullable(NameVanishedHandlerVar), UserDataVar, glib.NewCallbackNullable(UserDataFreeFuncVar))
 	return cret
 }
@@ -87,8 +82,6 @@ var xBusWatchNameOnConnectionWithClosures func(uintptr, string, BusNameWatcherFl
 // Version of g_bus_watch_name_on_connection() using closures instead of callbacks for
 // easier binding in other languages.
 func BusWatchNameOnConnectionWithClosures(ConnectionVar *DBusConnection, NameVar string, FlagsVar BusNameWatcherFlags, NameAppearedClosureVar *gobject.Closure, NameVanishedClosureVar *gobject.Closure) uint {
-	core.LazyRegister(&xBusWatchNameOnConnectionWithClosures, "GIO", "g_bus_watch_name_on_connection_with_closures", false)
-
 	cret := xBusWatchNameOnConnectionWithClosures(ConnectionVar.GoPointer(), NameVar, FlagsVar, NameAppearedClosureVar, NameVanishedClosureVar)
 	return cret
 }
@@ -98,8 +91,6 @@ var xBusWatchNameWithClosures func(BusType, string, BusNameWatcherFlags, *gobjec
 // Version of g_bus_watch_name() using closures instead of callbacks for
 // easier binding in other languages.
 func BusWatchNameWithClosures(BusTypeVar BusType, NameVar string, FlagsVar BusNameWatcherFlags, NameAppearedClosureVar *gobject.Closure, NameVanishedClosureVar *gobject.Closure) uint {
-	core.LazyRegister(&xBusWatchNameWithClosures, "GIO", "g_bus_watch_name_with_closures", false)
-
 	cret := xBusWatchNameWithClosures(BusTypeVar, NameVar, FlagsVar, NameAppearedClosureVar, NameVanishedClosureVar)
 	return cret
 }
@@ -107,4 +98,18 @@ func BusWatchNameWithClosures(BusTypeVar BusType, NameVar string, FlagsVar BusNa
 func init() {
 	core.SetPackageName("GIO", "gio-2.0")
 	core.SetSharedLibraries("GIO", []string{"libgio-2.0.so.0", "libgio-2.0.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GIO") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xBusUnwatchName, libs, "g_bus_unwatch_name")
+	core.PuregoSafeRegister(&xBusWatchName, libs, "g_bus_watch_name")
+	core.PuregoSafeRegister(&xBusWatchNameOnConnection, libs, "g_bus_watch_name_on_connection")
+	core.PuregoSafeRegister(&xBusWatchNameOnConnectionWithClosures, libs, "g_bus_watch_name_on_connection_with_closures")
+	core.PuregoSafeRegister(&xBusWatchNameWithClosures, libs, "g_bus_watch_name_with_closures")
 }

@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -54,7 +55,6 @@ type FileChooserRequest struct {
 var xFileChooserRequestGLibType func() types.GType
 
 func FileChooserRequestGLibType() types.GType {
-	core.LazyRegister(&xFileChooserRequestGLibType, "WEBKIT", "webkit_file_chooser_request_get_type", false)
 	return xFileChooserRequestGLibType()
 }
 
@@ -73,8 +73,6 @@ var xFileChooserRequestCancel func(uintptr)
 // won't be properly completed and the browser will keep the request
 // pending forever, which might cause the browser to hang.
 func (x *FileChooserRequest) Cancel() {
-	core.LazyRegister(&xFileChooserRequestCancel, "WEBKIT", "webkit_file_chooser_request_cancel", false)
-
 	xFileChooserRequestCancel(x.GoPointer())
 }
 
@@ -89,8 +87,6 @@ var xFileChooserRequestGetMimeTypes func(uintptr) []string
 // the file chooser dialog to the user, to decide whether to allow the
 // user to select multiple files at once or only one.
 func (x *FileChooserRequest) GetMimeTypes() []string {
-	core.LazyRegister(&xFileChooserRequestGetMimeTypes, "WEBKIT", "webkit_file_chooser_request_get_mime_types", false)
-
 	cret := xFileChooserRequestGetMimeTypes(x.GoPointer())
 	return cret
 }
@@ -108,7 +104,6 @@ var xFileChooserRequestGetMimeTypesFilter func(uintptr) uintptr
 // See webkit_file_chooser_request_get_mime_types() if you are
 // interested in getting the list of accepted MIME types.
 func (x *FileChooserRequest) GetMimeTypesFilter() *gtk.FileFilter {
-	core.LazyRegister(&xFileChooserRequestGetMimeTypesFilter, "WEBKIT", "webkit_file_chooser_request_get_mime_types_filter", false)
 	var cls *gtk.FileFilter
 
 	cret := xFileChooserRequestGetMimeTypesFilter(x.GoPointer())
@@ -131,8 +126,6 @@ var xFileChooserRequestGetSelectMultiple func(uintptr) bool
 // which depends on the HTML input element having a 'multiple'
 // attribute defined.
 func (x *FileChooserRequest) GetSelectMultiple() bool {
-	core.LazyRegister(&xFileChooserRequestGetSelectMultiple, "WEBKIT", "webkit_file_chooser_request_get_select_multiple", false)
-
 	cret := xFileChooserRequestGetSelectMultiple(x.GoPointer())
 	return cret
 }
@@ -151,8 +144,6 @@ var xFileChooserRequestGetSelectedFiles func(uintptr) []string
 // file chooser dialog to the user, to decide whether to perform some
 // extra action, like pre-selecting the files from a previous request.
 func (x *FileChooserRequest) GetSelectedFiles() []string {
-	core.LazyRegister(&xFileChooserRequestGetSelectedFiles, "WEBKIT", "webkit_file_chooser_request_get_selected_files", false)
-
 	cret := xFileChooserRequestGetSelectedFiles(x.GoPointer())
 	return cret
 }
@@ -162,8 +153,6 @@ var xFileChooserRequestSelectFiles func(uintptr, []string)
 // Ask WebKit to select local files for upload and complete the
 // request.
 func (x *FileChooserRequest) SelectFiles(FilesVar []string) {
-	core.LazyRegister(&xFileChooserRequestSelectFiles, "WEBKIT", "webkit_file_chooser_request_select_files", false)
-
 	xFileChooserRequestSelectFiles(x.GoPointer(), FilesVar)
 }
 
@@ -212,8 +201,26 @@ func (x *FileChooserRequest) GetPropertySelectedFiles() []string {
 func init() {
 	core.SetPackageName("WEBKIT", "webkitgtk-6.0")
 	core.SetSharedLibraries("WEBKIT", []string{"libwebkitgtk-6.0.so.4", "libjavascriptcoregtk-6.0.so.1", "libwebkitgtk-6.0.4.dylib", "libjavascriptcoregtk-6.0.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("WEBKIT") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
 
-	// Manually register types since they aren't automatically registered when
-	// WebKit is loaded. See https://bugs.webkit.org/show_bug.cgi?id=175937.
+	core.PuregoSafeRegister(&xFileChooserRequestGLibType, libs, "webkit_file_chooser_request_get_type")
+
+	core.PuregoSafeRegister(&xFileChooserRequestCancel, libs, "webkit_file_chooser_request_cancel")
+	core.PuregoSafeRegister(&xFileChooserRequestGetMimeTypes, libs, "webkit_file_chooser_request_get_mime_types")
+	core.PuregoSafeRegister(&xFileChooserRequestGetMimeTypesFilter, libs, "webkit_file_chooser_request_get_mime_types_filter")
+	core.PuregoSafeRegister(&xFileChooserRequestGetSelectMultiple, libs, "webkit_file_chooser_request_get_select_multiple")
+	core.PuregoSafeRegister(&xFileChooserRequestGetSelectedFiles, libs, "webkit_file_chooser_request_get_selected_files")
+	core.PuregoSafeRegister(&xFileChooserRequestSelectFiles, libs, "webkit_file_chooser_request_select_files")
+
+	// Manually register types since they aren't being automatically registered when
+	// the library is loaded
+	// See https://bugs.webkit.org/show_bug.cgi?id=175937
 	FileChooserRequestGLibType()
 }

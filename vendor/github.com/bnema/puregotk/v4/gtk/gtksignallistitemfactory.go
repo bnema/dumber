@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -73,7 +74,6 @@ type SignalListItemFactory struct {
 var xSignalListItemFactoryGLibType func() types.GType
 
 func SignalListItemFactoryGLibType() types.GType {
-	core.LazyRegister(&xSignalListItemFactoryGLibType, "GTK", "gtk_signal_list_item_factory_get_type", false)
 	return xSignalListItemFactoryGLibType()
 }
 
@@ -89,7 +89,6 @@ var xNewSignalListItemFactory func() uintptr
 //
 // You need to connect signal handlers before you use it.
 func NewSignalListItemFactory() *SignalListItemFactory {
-	core.LazyRegister(&xNewSignalListItemFactory, "GTK", "gtk_signal_list_item_factory_new", false)
 	var cls *SignalListItemFactory
 
 	cret := xNewSignalListItemFactory()
@@ -238,4 +237,16 @@ func (x *SignalListItemFactory) ConnectUnbind(cb *func(SignalListItemFactory, ui
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GTK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xSignalListItemFactoryGLibType, libs, "gtk_signal_list_item_factory_get_type")
+
+	core.PuregoSafeRegister(&xNewSignalListItemFactory, libs, "gtk_signal_list_item_factory_new")
 }

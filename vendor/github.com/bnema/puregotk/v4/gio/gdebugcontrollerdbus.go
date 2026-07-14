@@ -183,7 +183,6 @@ type DebugControllerDBus struct {
 var xDebugControllerDBusGLibType func() types.GType
 
 func DebugControllerDBusGLibType() types.GType {
-	core.LazyRegister(&xDebugControllerDBusGLibType, "GIO", "g_debug_controller_dbus_get_type", false)
 	return xDebugControllerDBusGLibType()
 }
 
@@ -203,7 +202,6 @@ var xNewDebugControllerDBus func(uintptr, uintptr, **glib.Error) uintptr
 //
 // Initialization may fail if registering the object on @connection fails.
 func NewDebugControllerDBus(ConnectionVar *DBusConnection, CancellableVar *Cancellable) (*DebugControllerDBus, error) {
-	core.LazyRegister(&xNewDebugControllerDBus, "GIO", "g_debug_controller_dbus_new", false)
 	var cls *DebugControllerDBus
 	var cerr *glib.Error
 
@@ -239,8 +237,6 @@ var xDebugControllerDBusStop func(uintptr)
 // Calling this method from within a #GDebugControllerDBus::authorize signal
 // handler will cause a deadlock and must not be done.
 func (x *DebugControllerDBus) Stop() {
-	core.LazyRegister(&xDebugControllerDBusStop, "GIO", "g_debug_controller_dbus_stop", false)
-
 	xDebugControllerDBusStop(x.GoPointer())
 }
 
@@ -358,4 +354,18 @@ func (x *DebugControllerDBus) Init(CancellableVar *Cancellable) (bool, error) {
 func init() {
 	core.SetPackageName("GIO", "gio-2.0")
 	core.SetSharedLibraries("GIO", []string{"libgio-2.0.so.0", "libgio-2.0.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GIO") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xDebugControllerDBusGLibType, libs, "g_debug_controller_dbus_get_type")
+
+	core.PuregoSafeRegister(&xNewDebugControllerDBus, libs, "g_debug_controller_dbus_new")
+
+	core.PuregoSafeRegister(&xDebugControllerDBusStop, libs, "g_debug_controller_dbus_stop")
 }

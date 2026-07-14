@@ -77,7 +77,6 @@ type EntryIconPosition int
 var xEntryIconPositionGLibType func() types.GType
 
 func EntryIconPositionGLibType() types.GType {
-	core.LazyRegister(&xEntryIconPositionGLibType, "GTK", "gtk_entry_icon_position_get_type", false)
 	return xEntryIconPositionGLibType()
 }
 
@@ -190,7 +189,6 @@ type Entry struct {
 var xEntryGLibType func() types.GType
 
 func EntryGLibType() types.GType {
-	core.LazyRegister(&xEntryGLibType, "GTK", "gtk_entry_get_type", false)
 	return xEntryGLibType()
 }
 
@@ -204,7 +202,6 @@ var xNewEntry func() uintptr
 
 // Creates a new entry.
 func NewEntry() *Entry {
-	core.LazyRegister(&xNewEntry, "GTK", "gtk_entry_new", false)
 	var cls *Entry
 
 	cret := xNewEntry()
@@ -222,7 +219,6 @@ var xNewEntryWithBuffer func(uintptr) uintptr
 
 // Creates a new entry with the specified text buffer.
 func NewEntryWithBuffer(BufferVar *EntryBuffer) *Entry {
-	core.LazyRegister(&xNewEntryWithBuffer, "GTK", "gtk_entry_new_with_buffer", false)
 	var cls *Entry
 
 	cret := xNewEntryWithBuffer(BufferVar.GoPointer())
@@ -240,8 +236,6 @@ var xEntryGetActivatesDefault func(uintptr) bool
 
 // Retrieves the value set by gtk_entry_set_activates_default().
 func (x *Entry) GetActivatesDefault() bool {
-	core.LazyRegister(&xEntryGetActivatesDefault, "GTK", "gtk_entry_get_activates_default", false)
-
 	cret := xEntryGetActivatesDefault(x.GoPointer())
 	return cret
 }
@@ -252,8 +246,6 @@ var xEntryGetAlignment func(uintptr) float32
 //
 // See also: [property@Gtk.Editable:xalign]
 func (x *Entry) GetAlignment() float32 {
-	core.LazyRegister(&xEntryGetAlignment, "GTK", "gtk_entry_get_alignment", false)
-
 	cret := xEntryGetAlignment(x.GoPointer())
 	return cret
 }
@@ -264,8 +256,6 @@ var xEntryGetAttributes func(uintptr) uintptr
 //
 // See [method@Gtk.Entry.set_attributes].
 func (x *Entry) GetAttributes() *pango.AttrList {
-	core.LazyRegister(&xEntryGetAttributes, "GTK", "gtk_entry_get_attributes", false)
-
 	cret := xEntryGetAttributes(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -278,7 +268,6 @@ var xEntryGetBuffer func(uintptr) uintptr
 // Get the `GtkEntryBuffer` object which holds the text for
 // this widget.
 func (x *Entry) GetBuffer() *EntryBuffer {
-	core.LazyRegister(&xEntryGetBuffer, "GTK", "gtk_entry_get_buffer", false)
 	var cls *EntryBuffer
 
 	cret := xEntryGetBuffer(x.GoPointer())
@@ -297,7 +286,6 @@ var xEntryGetCompletion func(uintptr) uintptr
 // Returns the auxiliary completion object currently
 // in use by @entry.
 func (x *Entry) GetCompletion() *EntryCompletion {
-	core.LazyRegister(&xEntryGetCompletion, "GTK", "gtk_entry_get_completion", false)
 	var cls *EntryCompletion
 
 	cret := xEntryGetCompletion(x.GoPointer())
@@ -316,8 +304,6 @@ var xEntryGetCurrentIconDragSource func(uintptr) int
 // Returns the index of the icon which is the source of the
 // current  DND operation, or -1.
 func (x *Entry) GetCurrentIconDragSource() int {
-	core.LazyRegister(&xEntryGetCurrentIconDragSource, "GTK", "gtk_entry_get_current_icon_drag_source", false)
-
 	cret := xEntryGetCurrentIconDragSource(x.GoPointer())
 	return cret
 }
@@ -326,7 +312,6 @@ var xEntryGetExtraMenu func(uintptr) uintptr
 
 // Gets the menu model set with gtk_entry_set_extra_menu().
 func (x *Entry) GetExtraMenu() *gio.MenuModel {
-	core.LazyRegister(&xEntryGetExtraMenu, "GTK", "gtk_entry_get_extra_menu", false)
 	var cls *gio.MenuModel
 
 	cret := xEntryGetExtraMenu(x.GoPointer())
@@ -344,8 +329,6 @@ var xEntryGetHasFrame func(uintptr) bool
 
 // Gets the value set by gtk_entry_set_has_frame().
 func (x *Entry) GetHasFrame() bool {
-	core.LazyRegister(&xEntryGetHasFrame, "GTK", "gtk_entry_get_has_frame", false)
-
 	cret := xEntryGetHasFrame(x.GoPointer())
 	return cret
 }
@@ -354,8 +337,6 @@ var xEntryGetIconActivatable func(uintptr, EntryIconPosition) bool
 
 // Returns whether the icon is activatable.
 func (x *Entry) GetIconActivatable(IconPosVar EntryIconPosition) bool {
-	core.LazyRegister(&xEntryGetIconActivatable, "GTK", "gtk_entry_get_icon_activatable", false)
-
 	cret := xEntryGetIconActivatable(x.GoPointer(), IconPosVar)
 	return cret
 }
@@ -372,8 +353,6 @@ var xEntryGetIconArea func(uintptr, EntryIconPosition, *gdk.Rectangle)
 // @icon_area will be filled with the icon's allocation,
 // relative to @entry's allocation.
 func (x *Entry) GetIconArea(IconPosVar EntryIconPosition, IconAreaVar *gdk.Rectangle) {
-	core.LazyRegister(&xEntryGetIconArea, "GTK", "gtk_entry_get_icon_area", false)
-
 	xEntryGetIconArea(x.GoPointer(), IconPosVar, IconAreaVar)
 }
 
@@ -386,8 +365,6 @@ var xEntryGetIconAtPos func(uintptr, int, int) int
 // -1 is returned. This function is intended for use in a
 // [signal@Gtk.Widget::query-tooltip] signal handler.
 func (x *Entry) GetIconAtPos(XVar int, YVar int) int {
-	core.LazyRegister(&xEntryGetIconAtPos, "GTK", "gtk_entry_get_icon_at_pos", false)
-
 	cret := xEntryGetIconAtPos(x.GoPointer(), XVar, YVar)
 	return cret
 }
@@ -399,7 +376,6 @@ var xEntryGetIconGicon func(uintptr, EntryIconPosition) uintptr
 // %NULL will be returned if there is no icon or if the icon was
 // set by some other method (e.g., by `GdkPaintable` or icon name).
 func (x *Entry) GetIconGicon(IconPosVar EntryIconPosition) *gio.IconBase {
-	core.LazyRegister(&xEntryGetIconGicon, "GTK", "gtk_entry_get_icon_gicon", false)
 	var cls *gio.IconBase
 
 	cret := xEntryGetIconGicon(x.GoPointer(), IconPosVar)
@@ -420,8 +396,6 @@ var xEntryGetIconName func(uintptr, EntryIconPosition) string
 // %NULL is returned if there is no icon or if the icon was set
 // by some other method (e.g., by `GdkPaintable` or gicon).
 func (x *Entry) GetIconName(IconPosVar EntryIconPosition) string {
-	core.LazyRegister(&xEntryGetIconName, "GTK", "gtk_entry_get_icon_name", false)
-
 	cret := xEntryGetIconName(x.GoPointer(), IconPosVar)
 	return cret
 }
@@ -432,7 +406,6 @@ var xEntryGetIconPaintable func(uintptr, EntryIconPosition) uintptr
 //
 // If no `GdkPaintable` was used for the icon, %NULL is returned.
 func (x *Entry) GetIconPaintable(IconPosVar EntryIconPosition) *gdk.PaintableBase {
-	core.LazyRegister(&xEntryGetIconPaintable, "GTK", "gtk_entry_get_icon_paintable", false)
 	var cls *gdk.PaintableBase
 
 	cret := xEntryGetIconPaintable(x.GoPointer(), IconPosVar)
@@ -450,8 +423,6 @@ var xEntryGetIconSensitive func(uintptr, EntryIconPosition) bool
 
 // Returns whether the icon appears sensitive or insensitive.
 func (x *Entry) GetIconSensitive(IconPosVar EntryIconPosition) bool {
-	core.LazyRegister(&xEntryGetIconSensitive, "GTK", "gtk_entry_get_icon_sensitive", false)
-
 	cret := xEntryGetIconSensitive(x.GoPointer(), IconPosVar)
 	return cret
 }
@@ -464,8 +435,6 @@ var xEntryGetIconStorageType func(uintptr, EntryIconPosition) ImageType
 // If the icon has no image data, the return value will
 // be %GTK_IMAGE_EMPTY.
 func (x *Entry) GetIconStorageType(IconPosVar EntryIconPosition) ImageType {
-	core.LazyRegister(&xEntryGetIconStorageType, "GTK", "gtk_entry_get_icon_storage_type", false)
-
 	cret := xEntryGetIconStorageType(x.GoPointer(), IconPosVar)
 	return cret
 }
@@ -475,8 +444,6 @@ var xEntryGetIconTooltipMarkup func(uintptr, EntryIconPosition) string
 // Gets the contents of the tooltip on the icon at the specified
 // position in @entry.
 func (x *Entry) GetIconTooltipMarkup(IconPosVar EntryIconPosition) string {
-	core.LazyRegister(&xEntryGetIconTooltipMarkup, "GTK", "gtk_entry_get_icon_tooltip_markup", false)
-
 	cret := xEntryGetIconTooltipMarkup(x.GoPointer(), IconPosVar)
 	return cret
 }
@@ -486,8 +453,6 @@ var xEntryGetIconTooltipText func(uintptr, EntryIconPosition) string
 // Gets the contents of the tooltip on the icon at the specified
 // position in @entry.
 func (x *Entry) GetIconTooltipText(IconPosVar EntryIconPosition) string {
-	core.LazyRegister(&xEntryGetIconTooltipText, "GTK", "gtk_entry_get_icon_tooltip_text", false)
-
 	cret := xEntryGetIconTooltipText(x.GoPointer(), IconPosVar)
 	return cret
 }
@@ -496,8 +461,6 @@ var xEntryGetInputHints func(uintptr) InputHints
 
 // Gets the input hints of this `GtkEntry`.
 func (x *Entry) GetInputHints() InputHints {
-	core.LazyRegister(&xEntryGetInputHints, "GTK", "gtk_entry_get_input_hints", false)
-
 	cret := xEntryGetInputHints(x.GoPointer())
 	return cret
 }
@@ -506,8 +469,6 @@ var xEntryGetInputPurpose func(uintptr) InputPurpose
 
 // Gets the input purpose of the `GtkEntry`.
 func (x *Entry) GetInputPurpose() InputPurpose {
-	core.LazyRegister(&xEntryGetInputPurpose, "GTK", "gtk_entry_get_input_purpose", false)
-
 	cret := xEntryGetInputPurpose(x.GoPointer())
 	return cret
 }
@@ -517,8 +478,6 @@ var xEntryGetInvisibleChar func(uintptr) uint32
 // Retrieves the character displayed in place of the actual text
 // in “password mode”.
 func (x *Entry) GetInvisibleChar() uint32 {
-	core.LazyRegister(&xEntryGetInvisibleChar, "GTK", "gtk_entry_get_invisible_char", false)
-
 	cret := xEntryGetInvisibleChar(x.GoPointer())
 	return cret
 }
@@ -529,8 +488,6 @@ var xEntryGetMaxLength func(uintptr) int
 //
 // See [method@Gtk.Entry.set_max_length].
 func (x *Entry) GetMaxLength() int {
-	core.LazyRegister(&xEntryGetMaxLength, "GTK", "gtk_entry_get_max_length", false)
-
 	cret := xEntryGetMaxLength(x.GoPointer())
 	return cret
 }
@@ -544,8 +501,6 @@ var xEntryGetMenuEntryIconText func(uintptr, EntryIconPosition) string
 // aren't focusable when using keyboard navigation. This is why Gtk recommends
 // to add the same action to the context menu.
 func (x *Entry) GetMenuEntryIconText(IconPosVar EntryIconPosition) string {
-	core.LazyRegister(&xEntryGetMenuEntryIconText, "GTK", "gtk_entry_get_menu_entry_icon_text", false)
-
 	cret := xEntryGetMenuEntryIconText(x.GoPointer(), IconPosVar)
 	return cret
 }
@@ -554,8 +509,6 @@ var xEntryGetOverwriteMode func(uintptr) bool
 
 // Gets whether the `GtkEntry` is in overwrite mode.
 func (x *Entry) GetOverwriteMode() bool {
-	core.LazyRegister(&xEntryGetOverwriteMode, "GTK", "gtk_entry_get_overwrite_mode", false)
-
 	cret := xEntryGetOverwriteMode(x.GoPointer())
 	return cret
 }
@@ -565,8 +518,6 @@ var xEntryGetPlaceholderText func(uintptr) string
 // Retrieves the text that will be displayed when @entry
 // is empty and unfocused
 func (x *Entry) GetPlaceholderText() string {
-	core.LazyRegister(&xEntryGetPlaceholderText, "GTK", "gtk_entry_get_placeholder_text", false)
-
 	cret := xEntryGetPlaceholderText(x.GoPointer())
 	return cret
 }
@@ -577,8 +528,6 @@ var xEntryGetProgressFraction func(uintptr) float64
 //
 // See [method@Gtk.Entry.set_progress_fraction].
 func (x *Entry) GetProgressFraction() float64 {
-	core.LazyRegister(&xEntryGetProgressFraction, "GTK", "gtk_entry_get_progress_fraction", false)
-
 	cret := xEntryGetProgressFraction(x.GoPointer())
 	return cret
 }
@@ -588,8 +537,6 @@ var xEntryGetProgressPulseStep func(uintptr) float64
 // Retrieves the pulse step set with
 // gtk_entry_set_progress_pulse_step().
 func (x *Entry) GetProgressPulseStep() float64 {
-	core.LazyRegister(&xEntryGetProgressPulseStep, "GTK", "gtk_entry_get_progress_pulse_step", false)
-
 	cret := xEntryGetProgressPulseStep(x.GoPointer())
 	return cret
 }
@@ -600,8 +547,6 @@ var xEntryGetTabs func(uintptr) uintptr
 //
 // See [method@Gtk.Entry.set_tabs].
 func (x *Entry) GetTabs() *pango.TabArray {
-	core.LazyRegister(&xEntryGetTabs, "GTK", "gtk_entry_get_tabs", false)
-
 	cret := xEntryGetTabs(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -616,8 +561,6 @@ var xEntryGetTextLength func(uintptr) uint16
 // This is equivalent to getting @entry's `GtkEntryBuffer`
 // and calling [method@Gtk.EntryBuffer.get_length] on it.
 func (x *Entry) GetTextLength() uint16 {
-	core.LazyRegister(&xEntryGetTextLength, "GTK", "gtk_entry_get_text_length", false)
-
 	cret := xEntryGetTextLength(x.GoPointer())
 	return cret
 }
@@ -628,8 +571,6 @@ var xEntryGetVisibility func(uintptr) bool
 //
 // See [method@Gtk.Entry.set_visibility].
 func (x *Entry) GetVisibility() bool {
-	core.LazyRegister(&xEntryGetVisibility, "GTK", "gtk_entry_get_visibility", false)
-
 	cret := xEntryGetVisibility(x.GoPointer())
 	return cret
 }
@@ -643,8 +584,6 @@ var xEntryGrabFocusWithoutSelecting func(uintptr) bool
 // special entries which the user usually doesn't want to replace all text
 // in, such as search-as-you-type entries.
 func (x *Entry) GrabFocusWithoutSelecting() bool {
-	core.LazyRegister(&xEntryGrabFocusWithoutSelecting, "GTK", "gtk_entry_grab_focus_without_selecting", false)
-
 	cret := xEntryGrabFocusWithoutSelecting(x.GoPointer())
 	return cret
 }
@@ -660,8 +599,6 @@ var xEntryProgressPulse func(uintptr)
 // little bit (the amount of movement per pulse is determined
 // by [method@Gtk.Entry.set_progress_pulse_step]).
 func (x *Entry) ProgressPulse() {
-	core.LazyRegister(&xEntryProgressPulse, "GTK", "gtk_entry_progress_pulse", false)
-
 	xEntryProgressPulse(x.GoPointer())
 }
 
@@ -672,8 +609,6 @@ var xEntryResetImContext func(uintptr)
 // This can be necessary in the case where modifying the buffer
 // would confuse on-going input method behavior.
 func (x *Entry) ResetImContext() {
-	core.LazyRegister(&xEntryResetImContext, "GTK", "gtk_entry_reset_im_context", false)
-
 	xEntryResetImContext(x.GoPointer())
 }
 
@@ -685,8 +620,6 @@ var xEntrySetActivatesDefault func(uintptr, bool)
 // This usually means that the dialog containing the entry will be closed,
 // since the default widget is usually one of the dialog buttons.
 func (x *Entry) SetActivatesDefault(SettingVar bool) {
-	core.LazyRegister(&xEntrySetActivatesDefault, "GTK", "gtk_entry_set_activates_default", false)
-
 	xEntrySetActivatesDefault(x.GoPointer(), SettingVar)
 }
 
@@ -699,8 +632,6 @@ var xEntrySetAlignment func(uintptr, float32)
 //
 // See also: [property@Gtk.Editable:xalign]
 func (x *Entry) SetAlignment(XalignVar float32) {
-	core.LazyRegister(&xEntrySetAlignment, "GTK", "gtk_entry_set_alignment", false)
-
 	xEntrySetAlignment(x.GoPointer(), XalignVar)
 }
 
@@ -714,8 +645,6 @@ var xEntrySetAttributes func(uintptr, *pango.AttrList)
 // as the user types, it makes most sense to use attributes
 // with unlimited extent.
 func (x *Entry) SetAttributes(AttrsVar *pango.AttrList) {
-	core.LazyRegister(&xEntrySetAttributes, "GTK", "gtk_entry_set_attributes", false)
-
 	xEntrySetAttributes(x.GoPointer(), AttrsVar)
 }
 
@@ -724,8 +653,6 @@ var xEntrySetBuffer func(uintptr, uintptr)
 // Set the `GtkEntryBuffer` object which holds the text for
 // this widget.
 func (x *Entry) SetBuffer(BufferVar *EntryBuffer) {
-	core.LazyRegister(&xEntrySetBuffer, "GTK", "gtk_entry_set_buffer", false)
-
 	xEntrySetBuffer(x.GoPointer(), BufferVar.GoPointer())
 }
 
@@ -738,8 +665,6 @@ var xEntrySetCompletion func(uintptr, uintptr)
 // done on @completion using the `GtkEntryCompletion` API.
 // Completion is disabled if @completion is set to %NULL.
 func (x *Entry) SetCompletion(CompletionVar *EntryCompletion) {
-	core.LazyRegister(&xEntrySetCompletion, "GTK", "gtk_entry_set_completion", false)
-
 	xEntrySetCompletion(x.GoPointer(), CompletionVar.GoPointer())
 }
 
@@ -748,8 +673,6 @@ var xEntrySetExtraMenu func(uintptr, uintptr)
 // Sets a menu model to add when constructing
 // the context menu for @entry.
 func (x *Entry) SetExtraMenu(ModelVar *gio.MenuModel) {
-	core.LazyRegister(&xEntrySetExtraMenu, "GTK", "gtk_entry_set_extra_menu", false)
-
 	xEntrySetExtraMenu(x.GoPointer(), ModelVar.GoPointer())
 }
 
@@ -757,8 +680,6 @@ var xEntrySetHasFrame func(uintptr, bool)
 
 // Sets whether the entry has a beveled frame around it.
 func (x *Entry) SetHasFrame(SettingVar bool) {
-	core.LazyRegister(&xEntrySetHasFrame, "GTK", "gtk_entry_set_has_frame", false)
-
 	xEntrySetHasFrame(x.GoPointer(), SettingVar)
 }
 
@@ -766,8 +687,6 @@ var xEntrySetIconActivatable func(uintptr, EntryIconPosition, bool)
 
 // Sets whether the icon is activatable.
 func (x *Entry) SetIconActivatable(IconPosVar EntryIconPosition, ActivatableVar bool) {
-	core.LazyRegister(&xEntrySetIconActivatable, "GTK", "gtk_entry_set_icon_activatable", false)
-
 	xEntrySetIconActivatable(x.GoPointer(), IconPosVar, ActivatableVar)
 }
 
@@ -778,8 +697,6 @@ var xEntrySetIconDragSource func(uintptr, EntryIconPosition, uintptr, gdk.DragAc
 // This makes it so that GTK will start a drag
 // operation when the user clicks and drags the icon.
 func (x *Entry) SetIconDragSource(IconPosVar EntryIconPosition, ProviderVar *gdk.ContentProvider, ActionsVar gdk.DragAction) {
-	core.LazyRegister(&xEntrySetIconDragSource, "GTK", "gtk_entry_set_icon_drag_source", false)
-
 	xEntrySetIconDragSource(x.GoPointer(), IconPosVar, ProviderVar.GoPointer(), ActionsVar)
 }
 
@@ -794,8 +711,6 @@ var xEntrySetIconFromGicon func(uintptr, EntryIconPosition, uintptr)
 // If @icon is %NULL, no icon will be shown in the
 // specified position.
 func (x *Entry) SetIconFromGicon(IconPosVar EntryIconPosition, IconVar gio.Icon) {
-	core.LazyRegister(&xEntrySetIconFromGicon, "GTK", "gtk_entry_set_icon_from_gicon", false)
-
 	xEntrySetIconFromGicon(x.GoPointer(), IconPosVar, IconVar.GoPointer())
 }
 
@@ -810,8 +725,6 @@ var xEntrySetIconFromIconName func(uintptr, EntryIconPosition, uintptr)
 // If @icon_name is %NULL, no icon will be shown in the
 // specified position.
 func (x *Entry) SetIconFromIconName(IconPosVar EntryIconPosition, IconNameVar *string) {
-	core.LazyRegister(&xEntrySetIconFromIconName, "GTK", "gtk_entry_set_icon_from_icon_name", false)
-
 	IconNameVarPtr := core.GStrdupNullable(IconNameVar)
 	defer core.GFreeNullable(IconNameVarPtr)
 
@@ -824,8 +737,6 @@ var xEntrySetIconFromPaintable func(uintptr, EntryIconPosition, uintptr)
 //
 // If @paintable is %NULL, no icon will be shown in the specified position.
 func (x *Entry) SetIconFromPaintable(IconPosVar EntryIconPosition, PaintableVar gdk.Paintable) {
-	core.LazyRegister(&xEntrySetIconFromPaintable, "GTK", "gtk_entry_set_icon_from_paintable", false)
-
 	xEntrySetIconFromPaintable(x.GoPointer(), IconPosVar, PaintableVar.GoPointer())
 }
 
@@ -833,8 +744,6 @@ var xEntrySetIconSensitive func(uintptr, EntryIconPosition, bool)
 
 // Sets the sensitivity for the specified icon.
 func (x *Entry) SetIconSensitive(IconPosVar EntryIconPosition, SensitiveVar bool) {
-	core.LazyRegister(&xEntrySetIconSensitive, "GTK", "gtk_entry_set_icon_sensitive", false)
-
 	xEntrySetIconSensitive(x.GoPointer(), IconPosVar, SensitiveVar)
 }
 
@@ -850,8 +759,6 @@ var xEntrySetIconTooltipMarkup func(uintptr, EntryIconPosition, uintptr)
 // See also [method@Gtk.Widget.set_tooltip_markup] and
 // [method@Gtk.Entry.set_icon_tooltip_text].
 func (x *Entry) SetIconTooltipMarkup(IconPosVar EntryIconPosition, TooltipVar *string) {
-	core.LazyRegister(&xEntrySetIconTooltipMarkup, "GTK", "gtk_entry_set_icon_tooltip_markup", false)
-
 	TooltipVarPtr := core.GStrdupNullable(TooltipVar)
 	defer core.GFreeNullable(TooltipVarPtr)
 
@@ -878,8 +785,6 @@ var xEntrySetIconTooltipText func(uintptr, EntryIconPosition, uintptr)
 // setting at least one non-empty tooltip on any icon
 // achieves the same result.
 func (x *Entry) SetIconTooltipText(IconPosVar EntryIconPosition, TooltipVar *string) {
-	core.LazyRegister(&xEntrySetIconTooltipText, "GTK", "gtk_entry_set_icon_tooltip_text", false)
-
 	TooltipVarPtr := core.GStrdupNullable(TooltipVar)
 	defer core.GFreeNullable(TooltipVarPtr)
 
@@ -891,8 +796,6 @@ var xEntrySetInputHints func(uintptr, InputHints)
 // Set additional hints which allow input methods to
 // fine-tune their behavior.
 func (x *Entry) SetInputHints(HintsVar InputHints) {
-	core.LazyRegister(&xEntrySetInputHints, "GTK", "gtk_entry_set_input_hints", false)
-
 	xEntrySetInputHints(x.GoPointer(), HintsVar)
 }
 
@@ -901,8 +804,6 @@ var xEntrySetInputPurpose func(uintptr, InputPurpose)
 // Sets the input purpose which can be used by input methods
 // to adjust their behavior.
 func (x *Entry) SetInputPurpose(PurposeVar InputPurpose) {
-	core.LazyRegister(&xEntrySetInputPurpose, "GTK", "gtk_entry_set_input_purpose", false)
-
 	xEntrySetInputPurpose(x.GoPointer(), PurposeVar)
 }
 
@@ -919,8 +820,6 @@ var xEntrySetInvisibleChar func(uintptr, uint32)
 // the user will get no feedback at all; there will be no text
 // on the screen as they type.
 func (x *Entry) SetInvisibleChar(ChVar uint32) {
-	core.LazyRegister(&xEntrySetInvisibleChar, "GTK", "gtk_entry_set_invisible_char", false)
-
 	xEntrySetInvisibleChar(x.GoPointer(), ChVar)
 }
 
@@ -934,8 +833,6 @@ var xEntrySetMaxLength func(uintptr, int)
 // This is equivalent to getting @entry's `GtkEntryBuffer` and
 // calling [method@Gtk.EntryBuffer.set_max_length] on it.
 func (x *Entry) SetMaxLength(MaxVar int) {
-	core.LazyRegister(&xEntrySetMaxLength, "GTK", "gtk_entry_set_max_length", false)
-
 	xEntrySetMaxLength(x.GoPointer(), MaxVar)
 }
 
@@ -948,8 +845,6 @@ var xEntrySetMenuEntryIconText func(uintptr, EntryIconPosition, string)
 // aren't focusable when using keyboard navigation. This is why Gtk recommends
 // to add the same action to the context menu.
 func (x *Entry) SetMenuEntryIconText(IconPosVar EntryIconPosition, TextVar string) {
-	core.LazyRegister(&xEntrySetMenuEntryIconText, "GTK", "gtk_entry_set_menu_entry_icon_text", false)
-
 	xEntrySetMenuEntryIconText(x.GoPointer(), IconPosVar, TextVar)
 }
 
@@ -957,8 +852,6 @@ var xEntrySetOverwriteMode func(uintptr, bool)
 
 // Sets whether the text is overwritten when typing in the `GtkEntry`.
 func (x *Entry) SetOverwriteMode(OverwriteVar bool) {
-	core.LazyRegister(&xEntrySetOverwriteMode, "GTK", "gtk_entry_set_overwrite_mode", false)
-
 	xEntrySetOverwriteMode(x.GoPointer(), OverwriteVar)
 }
 
@@ -969,8 +862,6 @@ var xEntrySetPlaceholderText func(uintptr, uintptr)
 // This can be used to give a visual hint of the expected
 // contents of the `GtkEntry`.
 func (x *Entry) SetPlaceholderText(TextVar *string) {
-	core.LazyRegister(&xEntrySetPlaceholderText, "GTK", "gtk_entry_set_placeholder_text", false)
-
 	TextVarPtr := core.GStrdupNullable(TextVar)
 	defer core.GFreeNullable(TextVarPtr)
 
@@ -984,8 +875,6 @@ var xEntrySetProgressFraction func(uintptr, float64)
 //
 // The fraction should be between 0.0 and 1.0, inclusive.
 func (x *Entry) SetProgressFraction(FractionVar float64) {
-	core.LazyRegister(&xEntrySetProgressFraction, "GTK", "gtk_entry_set_progress_fraction", false)
-
 	xEntrySetProgressFraction(x.GoPointer(), FractionVar)
 }
 
@@ -997,8 +886,6 @@ var xEntrySetProgressPulseStep func(uintptr, float64)
 // Use [method@Gtk.Entry.progress_pulse] to pulse
 // the progress.
 func (x *Entry) SetProgressPulseStep(FractionVar float64) {
-	core.LazyRegister(&xEntrySetProgressPulseStep, "GTK", "gtk_entry_set_progress_pulse_step", false)
-
 	xEntrySetProgressPulseStep(x.GoPointer(), FractionVar)
 }
 
@@ -1008,8 +895,6 @@ var xEntrySetTabs func(uintptr, *pango.TabArray)
 //
 // The tabstops in the array are applied to the entry text.
 func (x *Entry) SetTabs(TabsVar *pango.TabArray) {
-	core.LazyRegister(&xEntrySetTabs, "GTK", "gtk_entry_set_tabs", false)
-
 	xEntrySetTabs(x.GoPointer(), TabsVar)
 }
 
@@ -1030,8 +915,6 @@ var xEntrySetVisibility func(uintptr, bool)
 // inform input methods about the purpose of this entry,
 // in addition to setting visibility to %FALSE.
 func (x *Entry) SetVisibility(VisibleVar bool) {
-	core.LazyRegister(&xEntrySetVisibility, "GTK", "gtk_entry_set_visibility", false)
-
 	xEntrySetVisibility(x.GoPointer(), VisibleVar)
 }
 
@@ -1040,8 +923,6 @@ var xEntryUnsetInvisibleChar func(uintptr)
 // Unsets the invisible char, so that the default invisible char
 // is used again. See [method@Gtk.Entry.set_invisible_char].
 func (x *Entry) UnsetInvisibleChar() {
-	core.LazyRegister(&xEntryUnsetInvisibleChar, "GTK", "gtk_entry_unset_invisible_char", false)
-
 	xEntryUnsetInvisibleChar(x.GoPointer())
 }
 
@@ -2293,4 +2174,80 @@ func (x *Entry) SetWidthChars(NCharsVar int) {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GTK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xEntryIconPositionGLibType, libs, "gtk_entry_icon_position_get_type")
+
+	core.PuregoSafeRegister(&xEntryGLibType, libs, "gtk_entry_get_type")
+
+	core.PuregoSafeRegister(&xNewEntry, libs, "gtk_entry_new")
+	core.PuregoSafeRegister(&xNewEntryWithBuffer, libs, "gtk_entry_new_with_buffer")
+
+	core.PuregoSafeRegister(&xEntryGetActivatesDefault, libs, "gtk_entry_get_activates_default")
+	core.PuregoSafeRegister(&xEntryGetAlignment, libs, "gtk_entry_get_alignment")
+	core.PuregoSafeRegister(&xEntryGetAttributes, libs, "gtk_entry_get_attributes")
+	core.PuregoSafeRegister(&xEntryGetBuffer, libs, "gtk_entry_get_buffer")
+	core.PuregoSafeRegister(&xEntryGetCompletion, libs, "gtk_entry_get_completion")
+	core.PuregoSafeRegister(&xEntryGetCurrentIconDragSource, libs, "gtk_entry_get_current_icon_drag_source")
+	core.PuregoSafeRegister(&xEntryGetExtraMenu, libs, "gtk_entry_get_extra_menu")
+	core.PuregoSafeRegister(&xEntryGetHasFrame, libs, "gtk_entry_get_has_frame")
+	core.PuregoSafeRegister(&xEntryGetIconActivatable, libs, "gtk_entry_get_icon_activatable")
+	core.PuregoSafeRegister(&xEntryGetIconArea, libs, "gtk_entry_get_icon_area")
+	core.PuregoSafeRegister(&xEntryGetIconAtPos, libs, "gtk_entry_get_icon_at_pos")
+	core.PuregoSafeRegister(&xEntryGetIconGicon, libs, "gtk_entry_get_icon_gicon")
+	core.PuregoSafeRegister(&xEntryGetIconName, libs, "gtk_entry_get_icon_name")
+	core.PuregoSafeRegister(&xEntryGetIconPaintable, libs, "gtk_entry_get_icon_paintable")
+	core.PuregoSafeRegister(&xEntryGetIconSensitive, libs, "gtk_entry_get_icon_sensitive")
+	core.PuregoSafeRegister(&xEntryGetIconStorageType, libs, "gtk_entry_get_icon_storage_type")
+	core.PuregoSafeRegister(&xEntryGetIconTooltipMarkup, libs, "gtk_entry_get_icon_tooltip_markup")
+	core.PuregoSafeRegister(&xEntryGetIconTooltipText, libs, "gtk_entry_get_icon_tooltip_text")
+	core.PuregoSafeRegister(&xEntryGetInputHints, libs, "gtk_entry_get_input_hints")
+	core.PuregoSafeRegister(&xEntryGetInputPurpose, libs, "gtk_entry_get_input_purpose")
+	core.PuregoSafeRegister(&xEntryGetInvisibleChar, libs, "gtk_entry_get_invisible_char")
+	core.PuregoSafeRegister(&xEntryGetMaxLength, libs, "gtk_entry_get_max_length")
+	core.PuregoSafeRegister(&xEntryGetMenuEntryIconText, libs, "gtk_entry_get_menu_entry_icon_text")
+	core.PuregoSafeRegister(&xEntryGetOverwriteMode, libs, "gtk_entry_get_overwrite_mode")
+	core.PuregoSafeRegister(&xEntryGetPlaceholderText, libs, "gtk_entry_get_placeholder_text")
+	core.PuregoSafeRegister(&xEntryGetProgressFraction, libs, "gtk_entry_get_progress_fraction")
+	core.PuregoSafeRegister(&xEntryGetProgressPulseStep, libs, "gtk_entry_get_progress_pulse_step")
+	core.PuregoSafeRegister(&xEntryGetTabs, libs, "gtk_entry_get_tabs")
+	core.PuregoSafeRegister(&xEntryGetTextLength, libs, "gtk_entry_get_text_length")
+	core.PuregoSafeRegister(&xEntryGetVisibility, libs, "gtk_entry_get_visibility")
+	core.PuregoSafeRegister(&xEntryGrabFocusWithoutSelecting, libs, "gtk_entry_grab_focus_without_selecting")
+	core.PuregoSafeRegister(&xEntryProgressPulse, libs, "gtk_entry_progress_pulse")
+	core.PuregoSafeRegister(&xEntryResetImContext, libs, "gtk_entry_reset_im_context")
+	core.PuregoSafeRegister(&xEntrySetActivatesDefault, libs, "gtk_entry_set_activates_default")
+	core.PuregoSafeRegister(&xEntrySetAlignment, libs, "gtk_entry_set_alignment")
+	core.PuregoSafeRegister(&xEntrySetAttributes, libs, "gtk_entry_set_attributes")
+	core.PuregoSafeRegister(&xEntrySetBuffer, libs, "gtk_entry_set_buffer")
+	core.PuregoSafeRegister(&xEntrySetCompletion, libs, "gtk_entry_set_completion")
+	core.PuregoSafeRegister(&xEntrySetExtraMenu, libs, "gtk_entry_set_extra_menu")
+	core.PuregoSafeRegister(&xEntrySetHasFrame, libs, "gtk_entry_set_has_frame")
+	core.PuregoSafeRegister(&xEntrySetIconActivatable, libs, "gtk_entry_set_icon_activatable")
+	core.PuregoSafeRegister(&xEntrySetIconDragSource, libs, "gtk_entry_set_icon_drag_source")
+	core.PuregoSafeRegister(&xEntrySetIconFromGicon, libs, "gtk_entry_set_icon_from_gicon")
+	core.PuregoSafeRegister(&xEntrySetIconFromIconName, libs, "gtk_entry_set_icon_from_icon_name")
+	core.PuregoSafeRegister(&xEntrySetIconFromPaintable, libs, "gtk_entry_set_icon_from_paintable")
+	core.PuregoSafeRegister(&xEntrySetIconSensitive, libs, "gtk_entry_set_icon_sensitive")
+	core.PuregoSafeRegister(&xEntrySetIconTooltipMarkup, libs, "gtk_entry_set_icon_tooltip_markup")
+	core.PuregoSafeRegister(&xEntrySetIconTooltipText, libs, "gtk_entry_set_icon_tooltip_text")
+	core.PuregoSafeRegister(&xEntrySetInputHints, libs, "gtk_entry_set_input_hints")
+	core.PuregoSafeRegister(&xEntrySetInputPurpose, libs, "gtk_entry_set_input_purpose")
+	core.PuregoSafeRegister(&xEntrySetInvisibleChar, libs, "gtk_entry_set_invisible_char")
+	core.PuregoSafeRegister(&xEntrySetMaxLength, libs, "gtk_entry_set_max_length")
+	core.PuregoSafeRegister(&xEntrySetMenuEntryIconText, libs, "gtk_entry_set_menu_entry_icon_text")
+	core.PuregoSafeRegister(&xEntrySetOverwriteMode, libs, "gtk_entry_set_overwrite_mode")
+	core.PuregoSafeRegister(&xEntrySetPlaceholderText, libs, "gtk_entry_set_placeholder_text")
+	core.PuregoSafeRegister(&xEntrySetProgressFraction, libs, "gtk_entry_set_progress_fraction")
+	core.PuregoSafeRegister(&xEntrySetProgressPulseStep, libs, "gtk_entry_set_progress_pulse_step")
+	core.PuregoSafeRegister(&xEntrySetTabs, libs, "gtk_entry_set_tabs")
+	core.PuregoSafeRegister(&xEntrySetVisibility, libs, "gtk_entry_set_visibility")
+	core.PuregoSafeRegister(&xEntryUnsetInvisibleChar, libs, "gtk_entry_unset_invisible_char")
 }

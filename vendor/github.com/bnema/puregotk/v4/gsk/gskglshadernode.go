@@ -4,6 +4,7 @@ package gsk
 import (
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -19,7 +20,6 @@ type GLShaderNode struct {
 var xGLShaderNodeGLibType func() types.GType
 
 func GLShaderNodeGLibType() types.GType {
-	core.LazyRegister(&xGLShaderNodeGLibType, "GSK", "gsk_gl_shader_node_get_type", false)
 	return xGLShaderNodeGLibType()
 }
 
@@ -49,7 +49,6 @@ var xNewGLShaderNode func(uintptr, *graphene.Rect, *glib.Bytes, uintptr, uint) u
 // [method@Gsk.GLShader.compile] to ensure the @shader will work for the
 // renderer before using it.
 func NewGLShaderNode(ShaderVar *GLShader, BoundsVar *graphene.Rect, ArgsVar *glib.Bytes, ChildrenVar uintptr, NChildrenVar uint) *GLShaderNode {
-	core.LazyRegister(&xNewGLShaderNode, "GSK", "gsk_gl_shader_node_new", false)
 	var cls *GLShaderNode
 
 	cret := xNewGLShaderNode(ShaderVar.GoPointer(), BoundsVar, ArgsVar, ChildrenVar, NChildrenVar)
@@ -66,8 +65,6 @@ var xGLShaderNodeGetArgs func(uintptr) uintptr
 
 // Gets args for the node.
 func (x *GLShaderNode) GetArgs() *glib.Bytes {
-	core.LazyRegister(&xGLShaderNodeGetArgs, "GSK", "gsk_gl_shader_node_get_args", false)
-
 	cret := xGLShaderNodeGetArgs(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -79,7 +76,6 @@ var xGLShaderNodeGetChild func(uintptr, uint) uintptr
 
 // Gets one of the children.
 func (x *GLShaderNode) GetChild(IdxVar uint) *RenderNode {
-	core.LazyRegister(&xGLShaderNodeGetChild, "GSK", "gsk_gl_shader_node_get_child", false)
 	var cls *RenderNode
 
 	cret := xGLShaderNodeGetChild(x.GoPointer(), IdxVar)
@@ -97,8 +93,6 @@ var xGLShaderNodeGetNChildren func(uintptr) uint
 
 // Returns the number of children
 func (x *GLShaderNode) GetNChildren() uint {
-	core.LazyRegister(&xGLShaderNodeGetNChildren, "GSK", "gsk_gl_shader_node_get_n_children", false)
-
 	cret := xGLShaderNodeGetNChildren(x.GoPointer())
 	return cret
 }
@@ -107,7 +101,6 @@ var xGLShaderNodeGetShader func(uintptr) uintptr
 
 // Gets shader code for the node.
 func (x *GLShaderNode) GetShader() *GLShader {
-	core.LazyRegister(&xGLShaderNodeGetShader, "GSK", "gsk_gl_shader_node_get_shader", false)
 	var cls *GLShader
 
 	cret := xGLShaderNodeGetShader(x.GoPointer())
@@ -135,4 +128,21 @@ func (c *GLShaderNode) SetGoPointer(ptr uintptr) {
 func init() {
 	core.SetPackageName("GSK", "gtk4")
 	core.SetSharedLibraries("GSK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GSK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xGLShaderNodeGLibType, libs, "gsk_gl_shader_node_get_type")
+
+	core.PuregoSafeRegister(&xNewGLShaderNode, libs, "gsk_gl_shader_node_new")
+
+	core.PuregoSafeRegister(&xGLShaderNodeGetArgs, libs, "gsk_gl_shader_node_get_args")
+	core.PuregoSafeRegister(&xGLShaderNodeGetChild, libs, "gsk_gl_shader_node_get_child")
+	core.PuregoSafeRegister(&xGLShaderNodeGetNChildren, libs, "gsk_gl_shader_node_get_n_children")
+	core.PuregoSafeRegister(&xGLShaderNodeGetShader, libs, "gsk_gl_shader_node_get_shader")
 }

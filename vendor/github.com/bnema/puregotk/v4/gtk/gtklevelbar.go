@@ -2,6 +2,7 @@
 package gtk
 
 import (
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -130,7 +131,6 @@ type LevelBar struct {
 var xLevelBarGLibType func() types.GType
 
 func LevelBarGLibType() types.GType {
-	core.LazyRegister(&xLevelBarGLibType, "GTK", "gtk_level_bar_get_type", false)
 	return xLevelBarGLibType()
 }
 
@@ -144,7 +144,6 @@ var xNewLevelBar func() uintptr
 
 // Creates a new `GtkLevelBar`.
 func NewLevelBar() *LevelBar {
-	core.LazyRegister(&xNewLevelBar, "GTK", "gtk_level_bar_new", false)
 	var cls *LevelBar
 
 	cret := xNewLevelBar()
@@ -162,7 +161,6 @@ var xNewLevelBarForInterval func(float64, float64) uintptr
 
 // Creates a new `GtkLevelBar` for the specified interval.
 func NewLevelBarForInterval(MinValueVar float64, MaxValueVar float64) *LevelBar {
-	core.LazyRegister(&xNewLevelBarForInterval, "GTK", "gtk_level_bar_new_for_interval", false)
 	var cls *LevelBar
 
 	cret := xNewLevelBarForInterval(MinValueVar, MaxValueVar)
@@ -188,8 +186,6 @@ var xLevelBarAddOffsetValue func(uintptr, string, float64)
 // If another offset marker named @name exists, its value will be
 // replaced by @value.
 func (x *LevelBar) AddOffsetValue(NameVar string, ValueVar float64) {
-	core.LazyRegister(&xLevelBarAddOffsetValue, "GTK", "gtk_level_bar_add_offset_value", false)
-
 	xLevelBarAddOffsetValue(x.GoPointer(), NameVar, ValueVar)
 }
 
@@ -197,8 +193,6 @@ var xLevelBarGetInverted func(uintptr) bool
 
 // Returns whether the levelbar is inverted.
 func (x *LevelBar) GetInverted() bool {
-	core.LazyRegister(&xLevelBarGetInverted, "GTK", "gtk_level_bar_get_inverted", false)
-
 	cret := xLevelBarGetInverted(x.GoPointer())
 	return cret
 }
@@ -207,8 +201,6 @@ var xLevelBarGetMaxValue func(uintptr) float64
 
 // Returns the `max-value` of the `GtkLevelBar`.
 func (x *LevelBar) GetMaxValue() float64 {
-	core.LazyRegister(&xLevelBarGetMaxValue, "GTK", "gtk_level_bar_get_max_value", false)
-
 	cret := xLevelBarGetMaxValue(x.GoPointer())
 	return cret
 }
@@ -217,8 +209,6 @@ var xLevelBarGetMinValue func(uintptr) float64
 
 // Returns the `min-value` of the `GtkLevelBar`.
 func (x *LevelBar) GetMinValue() float64 {
-	core.LazyRegister(&xLevelBarGetMinValue, "GTK", "gtk_level_bar_get_min_value", false)
-
 	cret := xLevelBarGetMinValue(x.GoPointer())
 	return cret
 }
@@ -227,8 +217,6 @@ var xLevelBarGetMode func(uintptr) LevelBarMode
 
 // Returns the `mode` of the `GtkLevelBar`.
 func (x *LevelBar) GetMode() LevelBarMode {
-	core.LazyRegister(&xLevelBarGetMode, "GTK", "gtk_level_bar_get_mode", false)
-
 	cret := xLevelBarGetMode(x.GoPointer())
 	return cret
 }
@@ -237,8 +225,6 @@ var xLevelBarGetOffsetValue func(uintptr, uintptr, *float64) bool
 
 // Fetches the value specified for the offset marker @name in @self.
 func (x *LevelBar) GetOffsetValue(NameVar *string, ValueVar *float64) bool {
-	core.LazyRegister(&xLevelBarGetOffsetValue, "GTK", "gtk_level_bar_get_offset_value", false)
-
 	NameVarPtr := core.GStrdupNullable(NameVar)
 	defer core.GFreeNullable(NameVarPtr)
 
@@ -250,8 +236,6 @@ var xLevelBarGetValue func(uintptr) float64
 
 // Returns the `value` of the `GtkLevelBar`.
 func (x *LevelBar) GetValue() float64 {
-	core.LazyRegister(&xLevelBarGetValue, "GTK", "gtk_level_bar_get_value", false)
-
 	cret := xLevelBarGetValue(x.GoPointer())
 	return cret
 }
@@ -263,8 +247,6 @@ var xLevelBarRemoveOffsetValue func(uintptr, uintptr)
 // The marker must have been previously added with
 // [method@Gtk.LevelBar.add_offset_value].
 func (x *LevelBar) RemoveOffsetValue(NameVar *string) {
-	core.LazyRegister(&xLevelBarRemoveOffsetValue, "GTK", "gtk_level_bar_remove_offset_value", false)
-
 	NameVarPtr := core.GStrdupNullable(NameVar)
 	defer core.GFreeNullable(NameVarPtr)
 
@@ -275,8 +257,6 @@ var xLevelBarSetInverted func(uintptr, bool)
 
 // Sets whether the `GtkLevelBar` is inverted.
 func (x *LevelBar) SetInverted(InvertedVar bool) {
-	core.LazyRegister(&xLevelBarSetInverted, "GTK", "gtk_level_bar_set_inverted", false)
-
 	xLevelBarSetInverted(x.GoPointer(), InvertedVar)
 }
 
@@ -287,8 +267,6 @@ var xLevelBarSetMaxValue func(uintptr, float64)
 // You probably want to update preexisting level offsets after calling
 // this function.
 func (x *LevelBar) SetMaxValue(ValueVar float64) {
-	core.LazyRegister(&xLevelBarSetMaxValue, "GTK", "gtk_level_bar_set_max_value", false)
-
 	xLevelBarSetMaxValue(x.GoPointer(), ValueVar)
 }
 
@@ -299,8 +277,6 @@ var xLevelBarSetMinValue func(uintptr, float64)
 // You probably want to update preexisting level offsets after calling
 // this function.
 func (x *LevelBar) SetMinValue(ValueVar float64) {
-	core.LazyRegister(&xLevelBarSetMinValue, "GTK", "gtk_level_bar_set_min_value", false)
-
 	xLevelBarSetMinValue(x.GoPointer(), ValueVar)
 }
 
@@ -308,8 +284,6 @@ var xLevelBarSetMode func(uintptr, LevelBarMode)
 
 // Sets the `mode` of the `GtkLevelBar`.
 func (x *LevelBar) SetMode(ModeVar LevelBarMode) {
-	core.LazyRegister(&xLevelBarSetMode, "GTK", "gtk_level_bar_set_mode", false)
-
 	xLevelBarSetMode(x.GoPointer(), ModeVar)
 }
 
@@ -317,8 +291,6 @@ var xLevelBarSetValue func(uintptr, float64)
 
 // Sets the value of the `GtkLevelBar`.
 func (x *LevelBar) SetValue(ValueVar float64) {
-	core.LazyRegister(&xLevelBarSetValue, "GTK", "gtk_level_bar_set_value", false)
-
 	xLevelBarSetValue(x.GoPointer(), ValueVar)
 }
 
@@ -711,4 +683,31 @@ func (x *LevelBar) SetOrientation(OrientationVar Orientation) {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GTK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xLevelBarGLibType, libs, "gtk_level_bar_get_type")
+
+	core.PuregoSafeRegister(&xNewLevelBar, libs, "gtk_level_bar_new")
+	core.PuregoSafeRegister(&xNewLevelBarForInterval, libs, "gtk_level_bar_new_for_interval")
+
+	core.PuregoSafeRegister(&xLevelBarAddOffsetValue, libs, "gtk_level_bar_add_offset_value")
+	core.PuregoSafeRegister(&xLevelBarGetInverted, libs, "gtk_level_bar_get_inverted")
+	core.PuregoSafeRegister(&xLevelBarGetMaxValue, libs, "gtk_level_bar_get_max_value")
+	core.PuregoSafeRegister(&xLevelBarGetMinValue, libs, "gtk_level_bar_get_min_value")
+	core.PuregoSafeRegister(&xLevelBarGetMode, libs, "gtk_level_bar_get_mode")
+	core.PuregoSafeRegister(&xLevelBarGetOffsetValue, libs, "gtk_level_bar_get_offset_value")
+	core.PuregoSafeRegister(&xLevelBarGetValue, libs, "gtk_level_bar_get_value")
+	core.PuregoSafeRegister(&xLevelBarRemoveOffsetValue, libs, "gtk_level_bar_remove_offset_value")
+	core.PuregoSafeRegister(&xLevelBarSetInverted, libs, "gtk_level_bar_set_inverted")
+	core.PuregoSafeRegister(&xLevelBarSetMaxValue, libs, "gtk_level_bar_set_max_value")
+	core.PuregoSafeRegister(&xLevelBarSetMinValue, libs, "gtk_level_bar_set_min_value")
+	core.PuregoSafeRegister(&xLevelBarSetMode, libs, "gtk_level_bar_set_mode")
+	core.PuregoSafeRegister(&xLevelBarSetValue, libs, "gtk_level_bar_set_value")
 }

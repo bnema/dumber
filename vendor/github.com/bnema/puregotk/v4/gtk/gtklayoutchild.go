@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -43,7 +44,6 @@ type LayoutChild struct {
 var xLayoutChildGLibType func() types.GType
 
 func LayoutChildGLibType() types.GType {
-	core.LazyRegister(&xLayoutChildGLibType, "GTK", "gtk_layout_child_get_type", false)
 	return xLayoutChildGLibType()
 }
 
@@ -57,7 +57,6 @@ var xLayoutChildGetChildWidget func(uintptr) uintptr
 
 // Retrieves the `GtkWidget` associated to the given @layout_child.
 func (x *LayoutChild) GetChildWidget() *Widget {
-	core.LazyRegister(&xLayoutChildGetChildWidget, "GTK", "gtk_layout_child_get_child_widget", false)
 	var cls *Widget
 
 	cret := xLayoutChildGetChildWidget(x.GoPointer())
@@ -76,7 +75,6 @@ var xLayoutChildGetLayoutManager func(uintptr) uintptr
 // Retrieves the `GtkLayoutManager` instance that created the
 // given @layout_child.
 func (x *LayoutChild) GetLayoutManager() *LayoutManager {
-	core.LazyRegister(&xLayoutChildGetLayoutManager, "GTK", "gtk_layout_child_get_layout_manager", false)
 	var cls *LayoutManager
 
 	cret := xLayoutChildGetLayoutManager(x.GoPointer())
@@ -104,4 +102,17 @@ func (c *LayoutChild) SetGoPointer(ptr uintptr) {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GTK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xLayoutChildGLibType, libs, "gtk_layout_child_get_type")
+
+	core.PuregoSafeRegister(&xLayoutChildGetChildWidget, libs, "gtk_layout_child_get_child_widget")
+	core.PuregoSafeRegister(&xLayoutChildGetLayoutManager, libs, "gtk_layout_child_get_layout_manager")
 }

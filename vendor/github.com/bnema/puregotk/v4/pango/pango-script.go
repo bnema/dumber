@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject/types"
 )
@@ -18,7 +19,6 @@ type ScriptIter struct {
 var xScriptIterGLibType func() types.GType
 
 func ScriptIterGLibType() types.GType {
-	core.LazyRegister(&xScriptIterGLibType, "PANGO", "pango_script_iter_get_type", false)
 	return xScriptIterGLibType()
 }
 
@@ -43,8 +43,6 @@ var xNewScriptIter func(string, int) uintptr
 // sure it remains valid until the iterator is freed with
 // [method@Pango.ScriptIter.free].
 func NewScriptIter(TextVar string, LengthVar int) *ScriptIter {
-	core.LazyRegister(&xNewScriptIter, "PANGO", "pango_script_iter_new", false)
-
 	cret := xNewScriptIter(TextVar, LengthVar)
 	if cret == 0 {
 		return nil
@@ -56,8 +54,6 @@ var xScriptIterFree func(uintptr)
 
 // Frees a `PangoScriptIter`.
 func (x *ScriptIter) Free() {
-	core.LazyRegister(&xScriptIterFree, "PANGO", "pango_script_iter_free", false)
-
 	xScriptIterFree(x.GoPointer())
 }
 
@@ -73,8 +69,6 @@ var xScriptIterGetRange func(uintptr, *string, *string, *Script)
 // `GUnicodeScript` values. Callers must be prepared to handle unknown
 // values.
 func (x *ScriptIter) GetRange(StartVar *string, EndVar *string, ScriptVar *Script) {
-	core.LazyRegister(&xScriptIterGetRange, "PANGO", "pango_script_iter_get_range", false)
-
 	xScriptIterGetRange(x.GoPointer(), StartVar, EndVar, ScriptVar)
 }
 
@@ -85,8 +79,6 @@ var xScriptIterNext func(uintptr) bool
 // If @iter is already at the end, it is left unchanged
 // and %FALSE is returned.
 func (x *ScriptIter) Next() bool {
-	core.LazyRegister(&xScriptIterNext, "PANGO", "pango_script_iter_next", false)
-
 	cret := xScriptIterNext(x.GoPointer())
 	return cret
 }
@@ -106,7 +98,6 @@ type Script int
 var xScriptGLibType func() types.GType
 
 func ScriptGLibType() types.GType {
-	core.LazyRegister(&xScriptGLibType, "PANGO", "pango_script_get_type", false)
 	return xScriptGLibType()
 }
 
@@ -366,8 +357,6 @@ var xScriptForUnichar func(uint32) Script
 // the return value of [func@GLib.unichar_get_script]. Callers must be
 // prepared to handle unknown values.
 func ScriptForUnichar(ChVar uint32) Script {
-	core.LazyRegister(&xScriptForUnichar, "PANGO", "pango_script_for_unichar", false)
-
 	cret := xScriptForUnichar(ChVar)
 	return cret
 }
@@ -404,8 +393,6 @@ var xScriptGetSampleLanguage func(Script) uintptr
 // choose a default language for %PANGO_SCRIPT_HAN when setting
 // context language is not feasible.
 func ScriptGetSampleLanguage(ScriptVar Script) *Language {
-	core.LazyRegister(&xScriptGetSampleLanguage, "PANGO", "pango_script_get_sample_language", false)
-
 	cret := xScriptGetSampleLanguage(ScriptVar)
 	if cret == 0 {
 		return nil
@@ -416,4 +403,25 @@ func ScriptGetSampleLanguage(ScriptVar Script) *Language {
 func init() {
 	core.SetPackageName("PANGO", "pango")
 	core.SetSharedLibraries("PANGO", []string{"libpango-1.0.so.0", "libpango-1.0.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("PANGO") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xScriptGLibType, libs, "pango_script_get_type")
+
+	core.PuregoSafeRegister(&xScriptForUnichar, libs, "pango_script_for_unichar")
+	core.PuregoSafeRegister(&xScriptGetSampleLanguage, libs, "pango_script_get_sample_language")
+
+	core.PuregoSafeRegister(&xScriptIterGLibType, libs, "pango_script_iter_get_type")
+
+	core.PuregoSafeRegister(&xNewScriptIter, libs, "pango_script_iter_new")
+
+	core.PuregoSafeRegister(&xScriptIterFree, libs, "pango_script_iter_free")
+	core.PuregoSafeRegister(&xScriptIterGetRange, libs, "pango_script_iter_get_range")
+	core.PuregoSafeRegister(&xScriptIterNext, libs, "pango_script_iter_next")
 }

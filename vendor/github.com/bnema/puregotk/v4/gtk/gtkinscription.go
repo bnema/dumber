@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -36,7 +37,6 @@ type InscriptionOverflow int
 var xInscriptionOverflowGLibType func() types.GType
 
 func InscriptionOverflowGLibType() types.GType {
-	core.LazyRegister(&xInscriptionOverflowGLibType, "GTK", "gtk_inscription_overflow_get_type", false)
 	return xInscriptionOverflowGLibType()
 }
 
@@ -75,7 +75,6 @@ type Inscription struct {
 var xInscriptionGLibType func() types.GType
 
 func InscriptionGLibType() types.GType {
-	core.LazyRegister(&xInscriptionGLibType, "GTK", "gtk_inscription_get_type", false)
 	return xInscriptionGLibType()
 }
 
@@ -89,7 +88,6 @@ var xNewInscription func(uintptr) uintptr
 
 // Creates a new `GtkInscription` with the given text.
 func NewInscription(TextVar *string) *Inscription {
-	core.LazyRegister(&xNewInscription, "GTK", "gtk_inscription_new", false)
 	var cls *Inscription
 
 	TextVarPtr := core.GStrdupNullable(TextVar)
@@ -110,8 +108,6 @@ var xInscriptionGetAttributes func(uintptr) uintptr
 
 // Gets the inscription's attribute list.
 func (x *Inscription) GetAttributes() *pango.AttrList {
-	core.LazyRegister(&xInscriptionGetAttributes, "GTK", "gtk_inscription_get_attributes", false)
-
 	cret := xInscriptionGetAttributes(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -125,8 +121,6 @@ var xInscriptionGetMinChars func(uintptr) uint
 //
 // See the [property@Gtk.Inscription:min-chars] property.
 func (x *Inscription) GetMinChars() uint {
-	core.LazyRegister(&xInscriptionGetMinChars, "GTK", "gtk_inscription_get_min_chars", false)
-
 	cret := xInscriptionGetMinChars(x.GoPointer())
 	return cret
 }
@@ -137,8 +131,6 @@ var xInscriptionGetMinLines func(uintptr) uint
 //
 // See the [property@Gtk.Inscription:min-lines] property.
 func (x *Inscription) GetMinLines() uint {
-	core.LazyRegister(&xInscriptionGetMinLines, "GTK", "gtk_inscription_get_min_lines", false)
-
 	cret := xInscriptionGetMinLines(x.GoPointer())
 	return cret
 }
@@ -149,8 +141,6 @@ var xInscriptionGetNatChars func(uintptr) uint
 //
 // See the [property@Gtk.Inscription:nat-chars] property.
 func (x *Inscription) GetNatChars() uint {
-	core.LazyRegister(&xInscriptionGetNatChars, "GTK", "gtk_inscription_get_nat_chars", false)
-
 	cret := xInscriptionGetNatChars(x.GoPointer())
 	return cret
 }
@@ -161,8 +151,6 @@ var xInscriptionGetNatLines func(uintptr) uint
 //
 // See the [property@Gtk.Inscription:nat-lines] property.
 func (x *Inscription) GetNatLines() uint {
-	core.LazyRegister(&xInscriptionGetNatLines, "GTK", "gtk_inscription_get_nat_lines", false)
-
 	cret := xInscriptionGetNatLines(x.GoPointer())
 	return cret
 }
@@ -171,8 +159,6 @@ var xInscriptionGetText func(uintptr) string
 
 // Gets the text that is displayed.
 func (x *Inscription) GetText() string {
-	core.LazyRegister(&xInscriptionGetText, "GTK", "gtk_inscription_get_text", false)
-
 	cret := xInscriptionGetText(x.GoPointer())
 	return cret
 }
@@ -181,8 +167,6 @@ var xInscriptionGetTextOverflow func(uintptr) InscriptionOverflow
 
 // Gets the inscription's overflow method.
 func (x *Inscription) GetTextOverflow() InscriptionOverflow {
-	core.LazyRegister(&xInscriptionGetTextOverflow, "GTK", "gtk_inscription_get_text_overflow", false)
-
 	cret := xInscriptionGetTextOverflow(x.GoPointer())
 	return cret
 }
@@ -193,8 +177,6 @@ var xInscriptionGetWrapMode func(uintptr) pango.WrapMode
 //
 // See [method@Gtk.Inscription.set_wrap_mode].
 func (x *Inscription) GetWrapMode() pango.WrapMode {
-	core.LazyRegister(&xInscriptionGetWrapMode, "GTK", "gtk_inscription_get_wrap_mode", false)
-
 	cret := xInscriptionGetWrapMode(x.GoPointer())
 	return cret
 }
@@ -205,8 +187,6 @@ var xInscriptionGetXalign func(uintptr) float32
 //
 // See the [property@Gtk.Inscription:xalign] property.
 func (x *Inscription) GetXalign() float32 {
-	core.LazyRegister(&xInscriptionGetXalign, "GTK", "gtk_inscription_get_xalign", false)
-
 	cret := xInscriptionGetXalign(x.GoPointer())
 	return cret
 }
@@ -217,8 +197,6 @@ var xInscriptionGetYalign func(uintptr) float32
 //
 // See the [property@Gtk.Inscription:yalign] property.
 func (x *Inscription) GetYalign() float32 {
-	core.LazyRegister(&xInscriptionGetYalign, "GTK", "gtk_inscription_get_yalign", false)
-
 	cret := xInscriptionGetYalign(x.GoPointer())
 	return cret
 }
@@ -229,8 +207,6 @@ var xInscriptionSetAttributes func(uintptr, *pango.AttrList)
 //
 // These attributes will not be evaluated for sizing the inscription.
 func (x *Inscription) SetAttributes(AttrsVar *pango.AttrList) {
-	core.LazyRegister(&xInscriptionSetAttributes, "GTK", "gtk_inscription_set_attributes", false)
-
 	xInscriptionSetAttributes(x.GoPointer(), AttrsVar)
 }
 
@@ -240,8 +216,6 @@ var xInscriptionSetMarkup func(uintptr, uintptr)
 //
 // See the [property@Gtk.Inscription:markup] property.
 func (x *Inscription) SetMarkup(MarkupVar *string) {
-	core.LazyRegister(&xInscriptionSetMarkup, "GTK", "gtk_inscription_set_markup", false)
-
 	MarkupVarPtr := core.GStrdupNullable(MarkupVar)
 	defer core.GFreeNullable(MarkupVarPtr)
 
@@ -254,8 +228,6 @@ var xInscriptionSetMinChars func(uintptr, uint)
 //
 // See the [property@Gtk.Inscription:min-chars] property.
 func (x *Inscription) SetMinChars(MinCharsVar uint) {
-	core.LazyRegister(&xInscriptionSetMinChars, "GTK", "gtk_inscription_set_min_chars", false)
-
 	xInscriptionSetMinChars(x.GoPointer(), MinCharsVar)
 }
 
@@ -265,8 +237,6 @@ var xInscriptionSetMinLines func(uintptr, uint)
 //
 // See the [property@Gtk.Inscription:min-lines] property.
 func (x *Inscription) SetMinLines(MinLinesVar uint) {
-	core.LazyRegister(&xInscriptionSetMinLines, "GTK", "gtk_inscription_set_min_lines", false)
-
 	xInscriptionSetMinLines(x.GoPointer(), MinLinesVar)
 }
 
@@ -276,8 +246,6 @@ var xInscriptionSetNatChars func(uintptr, uint)
 //
 // See the [property@Gtk.Inscription:nat-chars] property.
 func (x *Inscription) SetNatChars(NatCharsVar uint) {
-	core.LazyRegister(&xInscriptionSetNatChars, "GTK", "gtk_inscription_set_nat_chars", false)
-
 	xInscriptionSetNatChars(x.GoPointer(), NatCharsVar)
 }
 
@@ -287,8 +255,6 @@ var xInscriptionSetNatLines func(uintptr, uint)
 //
 // See the [property@Gtk.Inscription:nat-lines] property.
 func (x *Inscription) SetNatLines(NatLinesVar uint) {
-	core.LazyRegister(&xInscriptionSetNatLines, "GTK", "gtk_inscription_set_nat_lines", false)
-
 	xInscriptionSetNatLines(x.GoPointer(), NatLinesVar)
 }
 
@@ -296,8 +262,6 @@ var xInscriptionSetText func(uintptr, uintptr)
 
 // Sets the text to be displayed.
 func (x *Inscription) SetText(TextVar *string) {
-	core.LazyRegister(&xInscriptionSetText, "GTK", "gtk_inscription_set_text", false)
-
 	TextVarPtr := core.GStrdupNullable(TextVar)
 	defer core.GFreeNullable(TextVarPtr)
 
@@ -308,8 +272,6 @@ var xInscriptionSetTextOverflow func(uintptr, InscriptionOverflow)
 
 // Sets what to do when the text doesn't fit.
 func (x *Inscription) SetTextOverflow(OverflowVar InscriptionOverflow) {
-	core.LazyRegister(&xInscriptionSetTextOverflow, "GTK", "gtk_inscription_set_text_overflow", false)
-
 	xInscriptionSetTextOverflow(x.GoPointer(), OverflowVar)
 }
 
@@ -317,8 +279,6 @@ var xInscriptionSetWrapMode func(uintptr, pango.WrapMode)
 
 // Controls how line wrapping is done.
 func (x *Inscription) SetWrapMode(WrapModeVar pango.WrapMode) {
-	core.LazyRegister(&xInscriptionSetWrapMode, "GTK", "gtk_inscription_set_wrap_mode", false)
-
 	xInscriptionSetWrapMode(x.GoPointer(), WrapModeVar)
 }
 
@@ -328,8 +288,6 @@ var xInscriptionSetXalign func(uintptr, float32)
 //
 // See the [property@Gtk.Inscription:xalign] property.
 func (x *Inscription) SetXalign(XalignVar float32) {
-	core.LazyRegister(&xInscriptionSetXalign, "GTK", "gtk_inscription_set_xalign", false)
-
 	xInscriptionSetXalign(x.GoPointer(), XalignVar)
 }
 
@@ -339,8 +297,6 @@ var xInscriptionSetYalign func(uintptr, float32)
 //
 // See the [property@Gtk.Inscription:yalign] property.
 func (x *Inscription) SetYalign(YalignVar float32) {
-	core.LazyRegister(&xInscriptionSetYalign, "GTK", "gtk_inscription_set_yalign", false)
-
 	xInscriptionSetYalign(x.GoPointer(), YalignVar)
 }
 
@@ -878,4 +834,40 @@ func (x *Inscription) GetBuildableId() string {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GTK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xInscriptionOverflowGLibType, libs, "gtk_inscription_overflow_get_type")
+
+	core.PuregoSafeRegister(&xInscriptionGLibType, libs, "gtk_inscription_get_type")
+
+	core.PuregoSafeRegister(&xNewInscription, libs, "gtk_inscription_new")
+
+	core.PuregoSafeRegister(&xInscriptionGetAttributes, libs, "gtk_inscription_get_attributes")
+	core.PuregoSafeRegister(&xInscriptionGetMinChars, libs, "gtk_inscription_get_min_chars")
+	core.PuregoSafeRegister(&xInscriptionGetMinLines, libs, "gtk_inscription_get_min_lines")
+	core.PuregoSafeRegister(&xInscriptionGetNatChars, libs, "gtk_inscription_get_nat_chars")
+	core.PuregoSafeRegister(&xInscriptionGetNatLines, libs, "gtk_inscription_get_nat_lines")
+	core.PuregoSafeRegister(&xInscriptionGetText, libs, "gtk_inscription_get_text")
+	core.PuregoSafeRegister(&xInscriptionGetTextOverflow, libs, "gtk_inscription_get_text_overflow")
+	core.PuregoSafeRegister(&xInscriptionGetWrapMode, libs, "gtk_inscription_get_wrap_mode")
+	core.PuregoSafeRegister(&xInscriptionGetXalign, libs, "gtk_inscription_get_xalign")
+	core.PuregoSafeRegister(&xInscriptionGetYalign, libs, "gtk_inscription_get_yalign")
+	core.PuregoSafeRegister(&xInscriptionSetAttributes, libs, "gtk_inscription_set_attributes")
+	core.PuregoSafeRegister(&xInscriptionSetMarkup, libs, "gtk_inscription_set_markup")
+	core.PuregoSafeRegister(&xInscriptionSetMinChars, libs, "gtk_inscription_set_min_chars")
+	core.PuregoSafeRegister(&xInscriptionSetMinLines, libs, "gtk_inscription_set_min_lines")
+	core.PuregoSafeRegister(&xInscriptionSetNatChars, libs, "gtk_inscription_set_nat_chars")
+	core.PuregoSafeRegister(&xInscriptionSetNatLines, libs, "gtk_inscription_set_nat_lines")
+	core.PuregoSafeRegister(&xInscriptionSetText, libs, "gtk_inscription_set_text")
+	core.PuregoSafeRegister(&xInscriptionSetTextOverflow, libs, "gtk_inscription_set_text_overflow")
+	core.PuregoSafeRegister(&xInscriptionSetWrapMode, libs, "gtk_inscription_set_wrap_mode")
+	core.PuregoSafeRegister(&xInscriptionSetXalign, libs, "gtk_inscription_set_xalign")
+	core.PuregoSafeRegister(&xInscriptionSetYalign, libs, "gtk_inscription_set_yalign")
 }

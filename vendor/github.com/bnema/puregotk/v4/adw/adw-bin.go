@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -50,7 +51,6 @@ type Bin struct {
 var xBinGLibType func() types.GType
 
 func BinGLibType() types.GType {
-	core.LazyRegister(&xBinGLibType, "ADW", "adw_bin_get_type", false)
 	return xBinGLibType()
 }
 
@@ -64,7 +64,6 @@ var xNewBin func() uintptr
 
 // Creates a new `AdwBin`.
 func NewBin() *Bin {
-	core.LazyRegister(&xNewBin, "ADW", "adw_bin_new", false)
 	var cls *Bin
 
 	cret := xNewBin()
@@ -82,7 +81,6 @@ var xBinGetChild func(uintptr) uintptr
 
 // Gets the child widget of @self.
 func (x *Bin) GetChild() *gtk.Widget {
-	core.LazyRegister(&xBinGetChild, "ADW", "adw_bin_get_child", false)
 	var cls *gtk.Widget
 
 	cret := xBinGetChild(x.GoPointer())
@@ -100,8 +98,6 @@ var xBinSetChild func(uintptr, uintptr)
 
 // Sets the child widget of @self.
 func (x *Bin) SetChild(ChildVar *gtk.Widget) {
-	core.LazyRegister(&xBinSetChild, "ADW", "adw_bin_set_child", false)
-
 	xBinSetChild(x.GoPointer(), ChildVar.GoPointer())
 }
 
@@ -379,4 +375,19 @@ func (x *Bin) GetBuildableId() string {
 func init() {
 	core.SetPackageName("ADW", "libadwaita-1")
 	core.SetSharedLibraries("ADW", []string{"libadwaita-1.so.0", "libadwaita-1.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("ADW") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xBinGLibType, libs, "adw_bin_get_type")
+
+	core.PuregoSafeRegister(&xNewBin, libs, "adw_bin_new")
+
+	core.PuregoSafeRegister(&xBinGetChild, libs, "adw_bin_get_child")
+	core.PuregoSafeRegister(&xBinSetChild, libs, "adw_bin_set_child")
 }

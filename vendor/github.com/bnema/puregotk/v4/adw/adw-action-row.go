@@ -119,7 +119,6 @@ type ActionRow struct {
 var xActionRowGLibType func() types.GType
 
 func ActionRowGLibType() types.GType {
-	core.LazyRegister(&xActionRowGLibType, "ADW", "adw_action_row_get_type", false)
 	return xActionRowGLibType()
 }
 
@@ -133,7 +132,6 @@ var xNewActionRow func() uintptr
 
 // Creates a new `AdwActionRow`.
 func NewActionRow() *ActionRow {
-	core.LazyRegister(&xNewActionRow, "ADW", "adw_action_row_new", false)
 	var cls *ActionRow
 
 	cret := xNewActionRow()
@@ -151,8 +149,6 @@ var xActionRowActivate func(uintptr)
 
 // Activates @self.
 func (x *ActionRow) Activate() {
-	core.LazyRegister(&xActionRowActivate, "ADW", "adw_action_row_activate", false)
-
 	xActionRowActivate(x.GoPointer())
 }
 
@@ -160,8 +156,6 @@ var xActionRowAddPrefix func(uintptr, uintptr)
 
 // Adds a prefix widget to @self.
 func (x *ActionRow) AddPrefix(WidgetVar *gtk.Widget) {
-	core.LazyRegister(&xActionRowAddPrefix, "ADW", "adw_action_row_add_prefix", false)
-
 	xActionRowAddPrefix(x.GoPointer(), WidgetVar.GoPointer())
 }
 
@@ -169,8 +163,6 @@ var xActionRowAddSuffix func(uintptr, uintptr)
 
 // Adds a suffix widget to @self.
 func (x *ActionRow) AddSuffix(WidgetVar *gtk.Widget) {
-	core.LazyRegister(&xActionRowAddSuffix, "ADW", "adw_action_row_add_suffix", false)
-
 	xActionRowAddSuffix(x.GoPointer(), WidgetVar.GoPointer())
 }
 
@@ -178,7 +170,6 @@ var xActionRowGetActivatableWidget func(uintptr) uintptr
 
 // Gets the widget activated when @self is activated.
 func (x *ActionRow) GetActivatableWidget() *gtk.Widget {
-	core.LazyRegister(&xActionRowGetActivatableWidget, "ADW", "adw_action_row_get_activatable_widget", false)
 	var cls *gtk.Widget
 
 	cret := xActionRowGetActivatableWidget(x.GoPointer())
@@ -196,8 +187,6 @@ var xActionRowGetIconName func(uintptr) string
 
 // Gets the icon name for @self.
 func (x *ActionRow) GetIconName() string {
-	core.LazyRegister(&xActionRowGetIconName, "ADW", "adw_action_row_get_icon_name", false)
-
 	cret := xActionRowGetIconName(x.GoPointer())
 	return cret
 }
@@ -206,8 +195,6 @@ var xActionRowGetSubtitle func(uintptr) string
 
 // Gets the subtitle for @self.
 func (x *ActionRow) GetSubtitle() string {
-	core.LazyRegister(&xActionRowGetSubtitle, "ADW", "adw_action_row_get_subtitle", false)
-
 	cret := xActionRowGetSubtitle(x.GoPointer())
 	return cret
 }
@@ -217,8 +204,6 @@ var xActionRowGetSubtitleLines func(uintptr) int
 // Gets the number of lines at the end of which the subtitle label will be
 // ellipsized.
 func (x *ActionRow) GetSubtitleLines() int {
-	core.LazyRegister(&xActionRowGetSubtitleLines, "ADW", "adw_action_row_get_subtitle_lines", false)
-
 	cret := xActionRowGetSubtitleLines(x.GoPointer())
 	return cret
 }
@@ -227,8 +212,6 @@ var xActionRowGetSubtitleSelectable func(uintptr) bool
 
 // Gets whether the user can copy the subtitle from the label
 func (x *ActionRow) GetSubtitleSelectable() bool {
-	core.LazyRegister(&xActionRowGetSubtitleSelectable, "ADW", "adw_action_row_get_subtitle_selectable", false)
-
 	cret := xActionRowGetSubtitleSelectable(x.GoPointer())
 	return cret
 }
@@ -238,8 +221,6 @@ var xActionRowGetTitleLines func(uintptr) int
 // Gets the number of lines at the end of which the title label will be
 // ellipsized.
 func (x *ActionRow) GetTitleLines() int {
-	core.LazyRegister(&xActionRowGetTitleLines, "ADW", "adw_action_row_get_title_lines", false)
-
 	cret := xActionRowGetTitleLines(x.GoPointer())
 	return cret
 }
@@ -248,8 +229,6 @@ var xActionRowRemove func(uintptr, uintptr)
 
 // Removes a child from @self.
 func (x *ActionRow) Remove(WidgetVar *gtk.Widget) {
-	core.LazyRegister(&xActionRowRemove, "ADW", "adw_action_row_remove", false)
-
 	xActionRowRemove(x.GoPointer(), WidgetVar.GoPointer())
 }
 
@@ -264,8 +243,6 @@ var xActionRowSetActivatableWidget func(uintptr, uintptr)
 // The target widget will be activated by emitting the
 // [signal@Gtk.Widget::mnemonic-activate] signal on it.
 func (x *ActionRow) SetActivatableWidget(WidgetVar *gtk.Widget) {
-	core.LazyRegister(&xActionRowSetActivatableWidget, "ADW", "adw_action_row_set_activatable_widget", false)
-
 	xActionRowSetActivatableWidget(x.GoPointer(), WidgetVar.GoPointer())
 }
 
@@ -273,8 +250,6 @@ var xActionRowSetIconName func(uintptr, uintptr)
 
 // Sets the icon name for @self.
 func (x *ActionRow) SetIconName(IconNameVar *string) {
-	core.LazyRegister(&xActionRowSetIconName, "ADW", "adw_action_row_set_icon_name", false)
-
 	IconNameVarPtr := core.GStrdupNullable(IconNameVar)
 	defer core.GFreeNullable(IconNameVarPtr)
 
@@ -288,8 +263,6 @@ var xActionRowSetSubtitle func(uintptr, string)
 // The subtitle is interpreted as Pango markup unless
 // [property@PreferencesRow:use-markup] is set to `FALSE`.
 func (x *ActionRow) SetSubtitle(SubtitleVar string) {
-	core.LazyRegister(&xActionRowSetSubtitle, "ADW", "adw_action_row_set_subtitle", false)
-
 	xActionRowSetSubtitle(x.GoPointer(), SubtitleVar)
 }
 
@@ -300,8 +273,6 @@ var xActionRowSetSubtitleLines func(uintptr, int)
 //
 // If the value is 0, the number of lines won't be limited.
 func (x *ActionRow) SetSubtitleLines(SubtitleLinesVar int) {
-	core.LazyRegister(&xActionRowSetSubtitleLines, "ADW", "adw_action_row_set_subtitle_lines", false)
-
 	xActionRowSetSubtitleLines(x.GoPointer(), SubtitleLinesVar)
 }
 
@@ -311,8 +282,6 @@ var xActionRowSetSubtitleSelectable func(uintptr, bool)
 //
 // See also [property@Gtk.Label:selectable].
 func (x *ActionRow) SetSubtitleSelectable(SubtitleSelectableVar bool) {
-	core.LazyRegister(&xActionRowSetSubtitleSelectable, "ADW", "adw_action_row_set_subtitle_selectable", false)
-
 	xActionRowSetSubtitleSelectable(x.GoPointer(), SubtitleSelectableVar)
 }
 
@@ -323,8 +292,6 @@ var xActionRowSetTitleLines func(uintptr, int)
 //
 // If the value is 0, the number of lines won't be limited.
 func (x *ActionRow) SetTitleLines(TitleLinesVar int) {
-	core.LazyRegister(&xActionRowSetTitleLines, "ADW", "adw_action_row_set_title_lines", false)
-
 	xActionRowSetTitleLines(x.GoPointer(), TitleLinesVar)
 }
 
@@ -809,4 +776,33 @@ func (x *ActionRow) GetBuildableId() string {
 func init() {
 	core.SetPackageName("ADW", "libadwaita-1")
 	core.SetSharedLibraries("ADW", []string{"libadwaita-1.so.0", "libadwaita-1.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("ADW") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xActionRowGLibType, libs, "adw_action_row_get_type")
+
+	core.PuregoSafeRegister(&xNewActionRow, libs, "adw_action_row_new")
+
+	core.PuregoSafeRegister(&xActionRowActivate, libs, "adw_action_row_activate")
+	core.PuregoSafeRegister(&xActionRowAddPrefix, libs, "adw_action_row_add_prefix")
+	core.PuregoSafeRegister(&xActionRowAddSuffix, libs, "adw_action_row_add_suffix")
+	core.PuregoSafeRegister(&xActionRowGetActivatableWidget, libs, "adw_action_row_get_activatable_widget")
+	core.PuregoSafeRegister(&xActionRowGetIconName, libs, "adw_action_row_get_icon_name")
+	core.PuregoSafeRegister(&xActionRowGetSubtitle, libs, "adw_action_row_get_subtitle")
+	core.PuregoSafeRegister(&xActionRowGetSubtitleLines, libs, "adw_action_row_get_subtitle_lines")
+	core.PuregoSafeRegister(&xActionRowGetSubtitleSelectable, libs, "adw_action_row_get_subtitle_selectable")
+	core.PuregoSafeRegister(&xActionRowGetTitleLines, libs, "adw_action_row_get_title_lines")
+	core.PuregoSafeRegister(&xActionRowRemove, libs, "adw_action_row_remove")
+	core.PuregoSafeRegister(&xActionRowSetActivatableWidget, libs, "adw_action_row_set_activatable_widget")
+	core.PuregoSafeRegister(&xActionRowSetIconName, libs, "adw_action_row_set_icon_name")
+	core.PuregoSafeRegister(&xActionRowSetSubtitle, libs, "adw_action_row_set_subtitle")
+	core.PuregoSafeRegister(&xActionRowSetSubtitleLines, libs, "adw_action_row_set_subtitle_lines")
+	core.PuregoSafeRegister(&xActionRowSetSubtitleSelectable, libs, "adw_action_row_set_subtitle_selectable")
+	core.PuregoSafeRegister(&xActionRowSetTitleLines, libs, "adw_action_row_set_title_lines")
 }

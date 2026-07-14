@@ -296,7 +296,6 @@ type Fontset struct {
 var xFontsetGLibType func() types.GType
 
 func FontsetGLibType() types.GType {
-	core.LazyRegister(&xFontsetGLibType, "PANGO", "pango_fontset_get_type", false)
 	return xFontsetGLibType()
 }
 
@@ -313,8 +312,6 @@ var xFontsetForeach func(uintptr, uintptr, uintptr)
 //
 // If @func returns %TRUE, that stops the iteration.
 func (x *Fontset) Foreach(FuncVar *FontsetForeachFunc, DataVar uintptr) {
-	core.LazyRegister(&xFontsetForeach, "PANGO", "pango_fontset_foreach", false)
-
 	xFontsetForeach(x.GoPointer(), glib.NewCallback(FuncVar), DataVar)
 }
 
@@ -323,7 +320,6 @@ var xFontsetGetFont func(uintptr, uint) uintptr
 // Returns the font in the fontset that contains the best
 // glyph for a Unicode character.
 func (x *Fontset) GetFont(WcVar uint) *Font {
-	core.LazyRegister(&xFontsetGetFont, "PANGO", "pango_fontset_get_font", false)
 	var cls *Font
 
 	cret := xFontsetGetFont(x.GoPointer(), WcVar)
@@ -340,8 +336,6 @@ var xFontsetGetMetrics func(uintptr) uintptr
 
 // Get overall metric information for the fonts in the fontset.
 func (x *Fontset) GetMetrics() *FontMetrics {
-	core.LazyRegister(&xFontsetGetMetrics, "PANGO", "pango_fontset_get_metrics", false)
-
 	cret := xFontsetGetMetrics(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -363,4 +357,18 @@ func (c *Fontset) SetGoPointer(ptr uintptr) {
 func init() {
 	core.SetPackageName("PANGO", "pango")
 	core.SetSharedLibraries("PANGO", []string{"libpango-1.0.so.0", "libpango-1.0.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("PANGO") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xFontsetGLibType, libs, "pango_fontset_get_type")
+
+	core.PuregoSafeRegister(&xFontsetForeach, libs, "pango_fontset_foreach")
+	core.PuregoSafeRegister(&xFontsetGetFont, libs, "pango_fontset_get_font")
+	core.PuregoSafeRegister(&xFontsetGetMetrics, libs, "pango_fontset_get_metrics")
 }

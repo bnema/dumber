@@ -2,6 +2,7 @@
 package gio
 
 import (
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 )
@@ -9,8 +10,6 @@ import (
 var xDbusErrorQuark func() glib.Quark
 
 func DbusErrorQuark() glib.Quark {
-	core.LazyRegister(&xDbusErrorQuark, "GIO", "g_dbus_error_quark", false)
-
 	cret := xDbusErrorQuark()
 	return cret
 }
@@ -18,4 +17,14 @@ func DbusErrorQuark() glib.Quark {
 func init() {
 	core.SetPackageName("GIO", "gio-2.0")
 	core.SetSharedLibraries("GIO", []string{"libgio-2.0.so.0", "libgio-2.0.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GIO") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xDbusErrorQuark, libs, "g_dbus_error_quark")
 }

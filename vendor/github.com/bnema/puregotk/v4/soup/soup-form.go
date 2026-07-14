@@ -4,6 +4,7 @@ package soup
 import (
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 )
@@ -25,8 +26,6 @@ var xFormDecode func(string) uintptr
 //
 // which is an urlencoded dataset as defined in the HTML 4.01 spec.
 func FormDecode(EncodedFormVar string) *glib.HashTable {
-	core.LazyRegister(&xFormDecode, "SOUP", "soup_form_decode", false)
-
 	cret := xFormDecode(EncodedFormVar)
 	if cret == 0 {
 		return nil
@@ -56,8 +55,6 @@ var xFormDecodeMultipart func(*Multipart, uintptr, *string, *string, **glib.Byte
 // need to decode it manually, using [ctor@Multipart.new_from_message]
 // and [method@Multipart.get_part].
 func FormDecodeMultipart(MultipartVar *Multipart, FileControlNameVar *string, FilenameVar *string, ContentTypeVar *string, FileVar **glib.Bytes) *glib.HashTable {
-	core.LazyRegister(&xFormDecodeMultipart, "SOUP", "soup_form_decode_multipart", false)
-
 	FileControlNameVarPtr := core.GStrdupNullable(FileControlNameVar)
 	defer core.GFreeNullable(FileControlNameVarPtr)
 
@@ -82,8 +79,6 @@ var xFormEncode func(string, ...interface{}) string
 //
 // See also: [ctor@Message.new_from_encoded_form].
 func FormEncode(FirstFieldVar string, varArgs ...interface{}) string {
-	core.LazyRegister(&xFormEncode, "SOUP", "soup_form_encode", false)
-
 	cret := xFormEncode(FirstFieldVar, varArgs...)
 	return cret
 }
@@ -99,8 +94,6 @@ var xFormEncodeDatalist func(**glib.Data) string
 //
 // See also: [ctor@Message.new_from_encoded_form].
 func FormEncodeDatalist(FormDataSetVar **glib.Data) string {
-	core.LazyRegister(&xFormEncodeDatalist, "SOUP", "soup_form_encode_datalist", false)
-
 	cret := xFormEncodeDatalist(FormDataSetVar)
 	return cret
 }
@@ -119,8 +112,6 @@ var xFormEncodeHash func(*glib.HashTable) string
 //
 // See also: [ctor@Message.new_from_encoded_form].
 func FormEncodeHash(FormDataSetVar *glib.HashTable) string {
-	core.LazyRegister(&xFormEncodeHash, "SOUP", "soup_form_encode_hash", false)
-
 	cret := xFormEncodeHash(FormDataSetVar)
 	return cret
 }
@@ -134,8 +125,6 @@ var xFormEncodeValist func(string, []interface{}) string
 //
 // See also: [ctor@Message.new_from_encoded_form].
 func FormEncodeValist(FirstFieldVar string, ArgsVar []interface{}) string {
-	core.LazyRegister(&xFormEncodeValist, "SOUP", "soup_form_encode_valist", false)
-
 	cret := xFormEncodeValist(FirstFieldVar, ArgsVar)
 	return cret
 }
@@ -143,4 +132,19 @@ func FormEncodeValist(FirstFieldVar string, ArgsVar []interface{}) string {
 func init() {
 	core.SetPackageName("SOUP", "libsoup-3.0")
 	core.SetSharedLibraries("SOUP", []string{"libsoup-3.0.so.0", "libsoup-3.0.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("SOUP") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xFormDecode, libs, "soup_form_decode")
+	core.PuregoSafeRegister(&xFormDecodeMultipart, libs, "soup_form_decode_multipart")
+	core.PuregoSafeRegister(&xFormEncode, libs, "soup_form_encode")
+	core.PuregoSafeRegister(&xFormEncodeDatalist, libs, "soup_form_encode_datalist")
+	core.PuregoSafeRegister(&xFormEncodeHash, libs, "soup_form_encode_hash")
+	core.PuregoSafeRegister(&xFormEncodeValist, libs, "soup_form_encode_valist")
 }

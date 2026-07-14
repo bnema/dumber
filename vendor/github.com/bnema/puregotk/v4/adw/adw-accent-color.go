@@ -2,6 +2,7 @@
 package adw
 
 import (
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gdk"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -13,7 +14,6 @@ type AccentColor int
 var xAccentColorGLibType func() types.GType
 
 func AccentColorGLibType() types.GType {
-	core.LazyRegister(&xAccentColorGLibType, "ADW", "adw_accent_color_get_type", false)
 	return xAccentColorGLibType()
 }
 
@@ -45,8 +45,6 @@ var xAccentColorToRgba func(AccentColor, *gdk.RGBA)
 //
 // The matching foreground color is white.
 func AccentColorToRgba(SelfVar AccentColor, RgbaVar *gdk.RGBA) {
-	core.LazyRegister(&xAccentColorToRgba, "ADW", "adw_accent_color_to_rgba", false)
-
 	xAccentColorToRgba(SelfVar, RgbaVar)
 }
 
@@ -57,8 +55,6 @@ var xAccentColorToStandaloneRgba func(AccentColor, bool, *gdk.RGBA)
 // It will typically be darker for light background, and lighter for dark
 // background, ensuring contrast.
 func AccentColorToStandaloneRgba(SelfVar AccentColor, DarkVar bool, RgbaVar *gdk.RGBA) {
-	core.LazyRegister(&xAccentColorToStandaloneRgba, "ADW", "adw_accent_color_to_standalone_rgba", false)
-
 	xAccentColorToStandaloneRgba(SelfVar, DarkVar, RgbaVar)
 }
 
@@ -69,12 +65,24 @@ var xRgbaToStandalone func(*gdk.RGBA, bool, *gdk.RGBA)
 // It will typically be darker for light background, and lighter for dark
 // background, ensuring contrast.
 func RgbaToStandalone(RgbaVar *gdk.RGBA, DarkVar bool, StandaloneRgbaVar *gdk.RGBA) {
-	core.LazyRegister(&xRgbaToStandalone, "ADW", "adw_rgba_to_standalone", false)
-
 	xRgbaToStandalone(RgbaVar, DarkVar, StandaloneRgbaVar)
 }
 
 func init() {
 	core.SetPackageName("ADW", "libadwaita-1")
 	core.SetSharedLibraries("ADW", []string{"libadwaita-1.so.0", "libadwaita-1.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("ADW") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xAccentColorGLibType, libs, "adw_accent_color_get_type")
+
+	core.PuregoSafeRegister(&xAccentColorToRgba, libs, "adw_accent_color_to_rgba")
+	core.PuregoSafeRegister(&xAccentColorToStandaloneRgba, libs, "adw_accent_color_to_standalone_rgba")
+	core.PuregoSafeRegister(&xRgbaToStandalone, libs, "adw_rgba_to_standalone")
 }

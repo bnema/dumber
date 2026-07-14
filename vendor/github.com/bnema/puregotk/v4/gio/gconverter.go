@@ -42,7 +42,7 @@ func (x *ConverterIface) OverrideConvert(cb func(Converter, []byte, uint, []byte
 	if cb == nil {
 		x.xConvert = 0
 	} else {
-		x.xConvert = purego.NewCallback(func(ConverterVarp uintptr, InbufVarp []byte, InbufSizeVarp uint, OutbufVarp []byte, OutbufSizeVarp uint, FlagsVarp ConverterFlags, BytesReadVarp *uint, BytesWrittenVarp *uint, cerrp **glib.Error) ConverterResult {
+		x.xConvert = purego.NewCallback(func(ConverterVarp uintptr, InbufVarp []byte, InbufSizeVarp uint, OutbufVarp []byte, OutbufSizeVarp uint, FlagsVarp ConverterFlags, BytesReadVarp *uint, BytesWrittenVarp *uint) ConverterResult {
 			return cb(&ConverterBase{Ptr: ConverterVarp}, InbufVarp, InbufSizeVarp, OutbufVarp, OutbufSizeVarp, FlagsVarp, BytesReadVarp, BytesWrittenVarp)
 		})
 	}
@@ -54,11 +54,10 @@ func (x *ConverterIface) GetConvert() func(Converter, []byte, uint, []byte, uint
 	if x.xConvert == 0 {
 		return nil
 	}
-	var rawCallback func(ConverterVarp uintptr, InbufVarp []byte, InbufSizeVarp uint, OutbufVarp []byte, OutbufSizeVarp uint, FlagsVarp ConverterFlags, BytesReadVarp *uint, BytesWrittenVarp *uint, cerrp **glib.Error) ConverterResult
+	var rawCallback func(ConverterVarp uintptr, InbufVarp []byte, InbufSizeVarp uint, OutbufVarp []byte, OutbufSizeVarp uint, FlagsVarp ConverterFlags, BytesReadVarp *uint, BytesWrittenVarp *uint) ConverterResult
 	purego.RegisterFunc(&rawCallback, x.xConvert)
 	return func(ConverterVar Converter, InbufVar []byte, InbufSizeVar uint, OutbufVar []byte, OutbufSizeVar uint, FlagsVar ConverterFlags, BytesReadVar *uint, BytesWrittenVar *uint) ConverterResult {
-		var cerr *glib.Error
-		return rawCallback(ConverterVar.GoPointer(), InbufVar, InbufSizeVar, OutbufVar, OutbufSizeVar, FlagsVar, BytesReadVar, BytesWrittenVar, &cerr)
+		return rawCallback(ConverterVar.GoPointer(), InbufVar, InbufSizeVar, OutbufVar, OutbufSizeVar, FlagsVar, BytesReadVar, BytesWrittenVar)
 	}
 }
 
@@ -107,7 +106,6 @@ type Converter interface {
 var xConverterGLibType func() types.GType
 
 func ConverterGLibType() types.GType {
-	core.LazyRegister(&xConverterGLibType, "GIO", "g_converter_get_type", false)
 	return xConverterGLibType()
 }
 
@@ -239,28 +237,27 @@ func (x *ConverterBase) Reset() {
 	XGConverterReset(x.GoPointer())
 }
 
-var XGConverterConvert func(uintptr, []byte, uint, []byte, uint, ConverterFlags, *uint, *uint, **glib.Error) ConverterResult = func(instance uintptr, InbufVarp []byte, InbufSizeVarp uint, OutbufVarp []byte, OutbufSizeVarp uint, FlagsVarp ConverterFlags, BytesReadVarp *uint, BytesWrittenVarp *uint, cerrp **glib.Error) ConverterResult {
-	core.LazyRegister(&xXGConverterConvert, "GIO", "g_converter_convert", false)
-	return xXGConverterConvert(instance, InbufVarp, InbufSizeVarp, OutbufVarp, OutbufSizeVarp, FlagsVarp, BytesReadVarp, BytesWrittenVarp, cerrp)
-}
-
 var (
-	xXGConverterConvert     func(uintptr, []byte, uint, []byte, uint, ConverterFlags, *uint, *uint, **glib.Error) ConverterResult
-	XGConverterConvertBytes func(uintptr, *glib.Bytes, **glib.Error) uintptr = func(instance uintptr, BytesVarp *glib.Bytes, cerrp **glib.Error) uintptr {
-		core.LazyRegister(&xXGConverterConvertBytes, "GIO", "g_converter_convert_bytes", false)
-		return xXGConverterConvertBytes(instance, BytesVarp, cerrp)
-	}
+	XGConverterConvert      func(uintptr, []byte, uint, []byte, uint, ConverterFlags, *uint, *uint, **glib.Error) ConverterResult
+	XGConverterConvertBytes func(uintptr, *glib.Bytes, **glib.Error) uintptr
+	XGConverterReset        func(uintptr)
 )
-var (
-	xXGConverterConvertBytes func(uintptr, *glib.Bytes, **glib.Error) uintptr
-	XGConverterReset         func(uintptr) = func(instance uintptr) {
-		core.LazyRegister(&xXGConverterReset, "GIO", "g_converter_reset", false)
-		xXGConverterReset(instance)
-	}
-)
-var xXGConverterReset func(uintptr)
 
 func init() {
 	core.SetPackageName("GIO", "gio-2.0")
 	core.SetSharedLibraries("GIO", []string{"libgio-2.0.so.0", "libgio-2.0.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GIO") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xConverterGLibType, libs, "g_converter_get_type")
+
+	core.PuregoSafeRegister(&XGConverterConvert, libs, "g_converter_convert")
+	core.PuregoSafeRegister(&XGConverterConvertBytes, libs, "g_converter_convert_bytes")
+	core.PuregoSafeRegister(&XGConverterReset, libs, "g_converter_reset")
 }

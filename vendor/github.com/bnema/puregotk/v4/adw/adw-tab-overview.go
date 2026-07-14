@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gdk"
 	"github.com/bnema/puregotk/v4/gio"
@@ -117,7 +118,6 @@ type TabOverview struct {
 var xTabOverviewGLibType func() types.GType
 
 func TabOverviewGLibType() types.GType {
-	core.LazyRegister(&xTabOverviewGLibType, "ADW", "adw_tab_overview_get_type", false)
 	return xTabOverviewGLibType()
 }
 
@@ -131,7 +131,6 @@ var xNewTabOverview func() uintptr
 
 // Creates a new `AdwTabOverview`.
 func NewTabOverview() *TabOverview {
-	core.LazyRegister(&xNewTabOverview, "ADW", "adw_tab_overview_new", false)
 	var cls *TabOverview
 
 	cret := xNewTabOverview()
@@ -149,7 +148,6 @@ var xTabOverviewGetChild func(uintptr) uintptr
 
 // Gets the child widget of @self.
 func (x *TabOverview) GetChild() *gtk.Widget {
-	core.LazyRegister(&xTabOverviewGetChild, "ADW", "adw_tab_overview_get_child", false)
 	var cls *gtk.Widget
 
 	cret := xTabOverviewGetChild(x.GoPointer())
@@ -167,8 +165,6 @@ var xTabOverviewGetEnableNewTab func(uintptr) bool
 
 // Gets whether to new tab button is enabled for @self.
 func (x *TabOverview) GetEnableNewTab() bool {
-	core.LazyRegister(&xTabOverviewGetEnableNewTab, "ADW", "adw_tab_overview_get_enable_new_tab", false)
-
 	cret := xTabOverviewGetEnableNewTab(x.GoPointer())
 	return cret
 }
@@ -177,8 +173,6 @@ var xTabOverviewGetEnableSearch func(uintptr) bool
 
 // Gets whether search in tabs is enabled for @self.
 func (x *TabOverview) GetEnableSearch() bool {
-	core.LazyRegister(&xTabOverviewGetEnableSearch, "ADW", "adw_tab_overview_get_enable_search", false)
-
 	cret := xTabOverviewGetEnableSearch(x.GoPointer())
 	return cret
 }
@@ -187,8 +181,6 @@ var xTabOverviewGetExtraDragPreferredAction func(uintptr) gdk.DragAction
 
 // Gets the current action during a drop on the extra_drop_target.
 func (x *TabOverview) GetExtraDragPreferredAction() gdk.DragAction {
-	core.LazyRegister(&xTabOverviewGetExtraDragPreferredAction, "ADW", "adw_tab_overview_get_extra_drag_preferred_action", false)
-
 	cret := xTabOverviewGetExtraDragPreferredAction(x.GoPointer())
 	return cret
 }
@@ -203,8 +195,6 @@ var xTabOverviewGetExtraDragPreload func(uintptr) bool
 // The action will be a subset of what was originally passed to
 // [method@TabOverview.setup_extra_drop_target].
 func (x *TabOverview) GetExtraDragPreload() bool {
-	core.LazyRegister(&xTabOverviewGetExtraDragPreload, "ADW", "adw_tab_overview_get_extra_drag_preload", false)
-
 	cret := xTabOverviewGetExtraDragPreload(x.GoPointer())
 	return cret
 }
@@ -213,8 +203,6 @@ var xTabOverviewGetInverted func(uintptr) bool
 
 // Gets whether thumbnails use inverted layout.
 func (x *TabOverview) GetInverted() bool {
-	core.LazyRegister(&xTabOverviewGetInverted, "ADW", "adw_tab_overview_get_inverted", false)
-
 	cret := xTabOverviewGetInverted(x.GoPointer())
 	return cret
 }
@@ -223,8 +211,6 @@ var xTabOverviewGetOpen func(uintptr) bool
 
 // Gets whether @self is open.
 func (x *TabOverview) GetOpen() bool {
-	core.LazyRegister(&xTabOverviewGetOpen, "ADW", "adw_tab_overview_get_open", false)
-
 	cret := xTabOverviewGetOpen(x.GoPointer())
 	return cret
 }
@@ -235,8 +221,6 @@ var xTabOverviewGetSearchActive func(uintptr) bool
 //
 // See [property@TabOverview:enable-search].
 func (x *TabOverview) GetSearchActive() bool {
-	core.LazyRegister(&xTabOverviewGetSearchActive, "ADW", "adw_tab_overview_get_search_active", false)
-
 	cret := xTabOverviewGetSearchActive(x.GoPointer())
 	return cret
 }
@@ -245,7 +229,6 @@ var xTabOverviewGetSecondaryMenu func(uintptr) uintptr
 
 // Gets the secondary menu model for @self.
 func (x *TabOverview) GetSecondaryMenu() *gio.MenuModel {
-	core.LazyRegister(&xTabOverviewGetSecondaryMenu, "ADW", "adw_tab_overview_get_secondary_menu", false)
 	var cls *gio.MenuModel
 
 	cret := xTabOverviewGetSecondaryMenu(x.GoPointer())
@@ -263,8 +246,6 @@ var xTabOverviewGetShowEndTitleButtons func(uintptr) bool
 
 // Gets whether end title buttons are shown in @self's header bar.
 func (x *TabOverview) GetShowEndTitleButtons() bool {
-	core.LazyRegister(&xTabOverviewGetShowEndTitleButtons, "ADW", "adw_tab_overview_get_show_end_title_buttons", false)
-
 	cret := xTabOverviewGetShowEndTitleButtons(x.GoPointer())
 	return cret
 }
@@ -273,8 +254,6 @@ var xTabOverviewGetShowStartTitleButtons func(uintptr) bool
 
 // Gets whether start title buttons are shown in @self's header bar.
 func (x *TabOverview) GetShowStartTitleButtons() bool {
-	core.LazyRegister(&xTabOverviewGetShowStartTitleButtons, "ADW", "adw_tab_overview_get_show_start_title_buttons", false)
-
 	cret := xTabOverviewGetShowStartTitleButtons(x.GoPointer())
 	return cret
 }
@@ -283,7 +262,6 @@ var xTabOverviewGetView func(uintptr) uintptr
 
 // Gets the tab view @self controls.
 func (x *TabOverview) GetView() *TabView {
-	core.LazyRegister(&xTabOverviewGetView, "ADW", "adw_tab_overview_get_view", false)
 	var cls *TabView
 
 	cret := xTabOverviewGetView(x.GoPointer())
@@ -301,8 +279,6 @@ var xTabOverviewSetChild func(uintptr, uintptr)
 
 // Sets the child widget of @self.
 func (x *TabOverview) SetChild(ChildVar *gtk.Widget) {
-	core.LazyRegister(&xTabOverviewSetChild, "ADW", "adw_tab_overview_set_child", false)
-
 	xTabOverviewSetChild(x.GoPointer(), ChildVar.GoPointer())
 }
 
@@ -312,8 +288,6 @@ var xTabOverviewSetEnableNewTab func(uintptr, bool)
 //
 // Connect to the [signal@TabOverview::create-tab] signal to use it.
 func (x *TabOverview) SetEnableNewTab(EnableNewTabVar bool) {
-	core.LazyRegister(&xTabOverviewSetEnableNewTab, "ADW", "adw_tab_overview_set_enable_new_tab", false)
-
 	xTabOverviewSetEnableNewTab(x.GoPointer(), EnableNewTabVar)
 }
 
@@ -330,8 +304,6 @@ var xTabOverviewSetEnableSearch func(uintptr, bool)
 // Use [property@TabOverview:search-active] to check out if search is currently
 // active.
 func (x *TabOverview) SetEnableSearch(EnableSearchVar bool) {
-	core.LazyRegister(&xTabOverviewSetEnableSearch, "ADW", "adw_tab_overview_set_enable_search", false)
-
 	xTabOverviewSetEnableSearch(x.GoPointer(), EnableSearchVar)
 }
 
@@ -341,8 +313,6 @@ var xTabOverviewSetExtraDragPreload func(uintptr, bool)
 //
 // See [property@Gtk.DropTarget:preload].
 func (x *TabOverview) SetExtraDragPreload(PreloadVar bool) {
-	core.LazyRegister(&xTabOverviewSetExtraDragPreload, "ADW", "adw_tab_overview_set_extra_drag_preload", false)
-
 	xTabOverviewSetExtraDragPreload(x.GoPointer(), PreloadVar)
 }
 
@@ -353,8 +323,6 @@ var xTabOverviewSetInverted func(uintptr, bool)
 // If set to `TRUE`, thumbnails will have the close or unpin button at the
 // beginning and the indicator at the end rather than the other way around.
 func (x *TabOverview) SetInverted(InvertedVar bool) {
-	core.LazyRegister(&xTabOverviewSetInverted, "ADW", "adw_tab_overview_set_inverted", false)
-
 	xTabOverviewSetInverted(x.GoPointer(), InvertedVar)
 }
 
@@ -362,8 +330,6 @@ var xTabOverviewSetOpen func(uintptr, bool)
 
 // Sets whether the to open @self.
 func (x *TabOverview) SetOpen(OpenVar bool) {
-	core.LazyRegister(&xTabOverviewSetOpen, "ADW", "adw_tab_overview_set_open", false)
-
 	xTabOverviewSetOpen(x.GoPointer(), OpenVar)
 }
 
@@ -373,8 +339,6 @@ var xTabOverviewSetSecondaryMenu func(uintptr, uintptr)
 //
 // Use it to add extra actions, e.g. to open a new window or undo closed tab.
 func (x *TabOverview) SetSecondaryMenu(SecondaryMenuVar *gio.MenuModel) {
-	core.LazyRegister(&xTabOverviewSetSecondaryMenu, "ADW", "adw_tab_overview_set_secondary_menu", false)
-
 	xTabOverviewSetSecondaryMenu(x.GoPointer(), SecondaryMenuVar.GoPointer())
 }
 
@@ -384,8 +348,6 @@ var xTabOverviewSetShowEndTitleButtons func(uintptr, bool)
 //
 // See [property@HeaderBar:show-start-title-buttons] for the other side.
 func (x *TabOverview) SetShowEndTitleButtons(ShowEndTitleButtonsVar bool) {
-	core.LazyRegister(&xTabOverviewSetShowEndTitleButtons, "ADW", "adw_tab_overview_set_show_end_title_buttons", false)
-
 	xTabOverviewSetShowEndTitleButtons(x.GoPointer(), ShowEndTitleButtonsVar)
 }
 
@@ -395,8 +357,6 @@ var xTabOverviewSetShowStartTitleButtons func(uintptr, bool)
 //
 // See [property@HeaderBar:show-end-title-buttons] for the other side.
 func (x *TabOverview) SetShowStartTitleButtons(ShowStartTitleButtonsVar bool) {
-	core.LazyRegister(&xTabOverviewSetShowStartTitleButtons, "ADW", "adw_tab_overview_set_show_start_title_buttons", false)
-
 	xTabOverviewSetShowStartTitleButtons(x.GoPointer(), ShowStartTitleButtonsVar)
 }
 
@@ -406,8 +366,6 @@ var xTabOverviewSetView func(uintptr, uintptr)
 //
 // The view must be inside @self, see [property@TabOverview:child].
 func (x *TabOverview) SetView(ViewVar *TabView) {
-	core.LazyRegister(&xTabOverviewSetView, "ADW", "adw_tab_overview_set_view", false)
-
 	xTabOverviewSetView(x.GoPointer(), ViewVar.GoPointer())
 }
 
@@ -424,8 +382,6 @@ var xTabOverviewSetupExtraDropTarget func(uintptr, gdk.DragAction, []types.GType
 // The [signal@TabOverview::extra-drag-drop] signal can be used to handle the
 // drop.
 func (x *TabOverview) SetupExtraDropTarget(ActionsVar gdk.DragAction, TypesVar []types.GType, NTypesVar uint) {
-	core.LazyRegister(&xTabOverviewSetupExtraDropTarget, "ADW", "adw_tab_overview_setup_extra_drop_target", false)
-
 	xTabOverviewSetupExtraDropTarget(x.GoPointer(), ActionsVar, TypesVar, NTypesVar)
 }
 
@@ -967,4 +923,40 @@ func (x *TabOverview) GetBuildableId() string {
 func init() {
 	core.SetPackageName("ADW", "libadwaita-1")
 	core.SetSharedLibraries("ADW", []string{"libadwaita-1.so.0", "libadwaita-1.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("ADW") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xTabOverviewGLibType, libs, "adw_tab_overview_get_type")
+
+	core.PuregoSafeRegister(&xNewTabOverview, libs, "adw_tab_overview_new")
+
+	core.PuregoSafeRegister(&xTabOverviewGetChild, libs, "adw_tab_overview_get_child")
+	core.PuregoSafeRegister(&xTabOverviewGetEnableNewTab, libs, "adw_tab_overview_get_enable_new_tab")
+	core.PuregoSafeRegister(&xTabOverviewGetEnableSearch, libs, "adw_tab_overview_get_enable_search")
+	core.PuregoSafeRegister(&xTabOverviewGetExtraDragPreferredAction, libs, "adw_tab_overview_get_extra_drag_preferred_action")
+	core.PuregoSafeRegister(&xTabOverviewGetExtraDragPreload, libs, "adw_tab_overview_get_extra_drag_preload")
+	core.PuregoSafeRegister(&xTabOverviewGetInverted, libs, "adw_tab_overview_get_inverted")
+	core.PuregoSafeRegister(&xTabOverviewGetOpen, libs, "adw_tab_overview_get_open")
+	core.PuregoSafeRegister(&xTabOverviewGetSearchActive, libs, "adw_tab_overview_get_search_active")
+	core.PuregoSafeRegister(&xTabOverviewGetSecondaryMenu, libs, "adw_tab_overview_get_secondary_menu")
+	core.PuregoSafeRegister(&xTabOverviewGetShowEndTitleButtons, libs, "adw_tab_overview_get_show_end_title_buttons")
+	core.PuregoSafeRegister(&xTabOverviewGetShowStartTitleButtons, libs, "adw_tab_overview_get_show_start_title_buttons")
+	core.PuregoSafeRegister(&xTabOverviewGetView, libs, "adw_tab_overview_get_view")
+	core.PuregoSafeRegister(&xTabOverviewSetChild, libs, "adw_tab_overview_set_child")
+	core.PuregoSafeRegister(&xTabOverviewSetEnableNewTab, libs, "adw_tab_overview_set_enable_new_tab")
+	core.PuregoSafeRegister(&xTabOverviewSetEnableSearch, libs, "adw_tab_overview_set_enable_search")
+	core.PuregoSafeRegister(&xTabOverviewSetExtraDragPreload, libs, "adw_tab_overview_set_extra_drag_preload")
+	core.PuregoSafeRegister(&xTabOverviewSetInverted, libs, "adw_tab_overview_set_inverted")
+	core.PuregoSafeRegister(&xTabOverviewSetOpen, libs, "adw_tab_overview_set_open")
+	core.PuregoSafeRegister(&xTabOverviewSetSecondaryMenu, libs, "adw_tab_overview_set_secondary_menu")
+	core.PuregoSafeRegister(&xTabOverviewSetShowEndTitleButtons, libs, "adw_tab_overview_set_show_end_title_buttons")
+	core.PuregoSafeRegister(&xTabOverviewSetShowStartTitleButtons, libs, "adw_tab_overview_set_show_start_title_buttons")
+	core.PuregoSafeRegister(&xTabOverviewSetView, libs, "adw_tab_overview_set_view")
+	core.PuregoSafeRegister(&xTabOverviewSetupExtraDropTarget, libs, "adw_tab_overview_setup_extra_drop_target")
 }

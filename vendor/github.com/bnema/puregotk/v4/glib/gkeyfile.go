@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject/types"
 )
@@ -157,7 +158,6 @@ type KeyFile struct {
 var xKeyFileGLibType func() types.GType
 
 func KeyFileGLibType() types.GType {
-	core.LazyRegister(&xKeyFileGLibType, "GLIB", "g_key_file_get_type", false)
 	return xKeyFileGLibType()
 }
 
@@ -182,8 +182,6 @@ var xNewKeyFile func() uintptr
 // [method@GLib.KeyFile.load_from_data_dirs] to
 // read an existing key file.
 func NewKeyFile() *KeyFile {
-	core.LazyRegister(&xNewKeyFile, "GLIB", "g_key_file_new", false)
-
 	cret := xNewKeyFile()
 	if cret == 0 {
 		return nil
@@ -199,8 +197,6 @@ var xKeyFileFree func(uintptr)
 // If the reference count reaches zero, frees the key file and all its allocated
 // memory.
 func (x *KeyFile) Free() {
-	core.LazyRegister(&xKeyFileFree, "GLIB", "g_key_file_free", false)
-
 	xKeyFileFree(x.GoPointer())
 }
 
@@ -213,7 +209,6 @@ var xKeyFileGetBoolean func(uintptr, string, string, **Error) bool
 // returned. Likewise, if the value associated with @key cannot be interpreted
 // as a boolean then [error@GLib.KeyFileError.INVALID_VALUE] is returned.
 func (x *KeyFile) GetBoolean(GroupNameVar string, KeyVar string) (bool, error) {
-	core.LazyRegister(&xKeyFileGetBoolean, "GLIB", "g_key_file_get_boolean", false)
 	var cerr *Error
 
 	cret := xKeyFileGetBoolean(x.GoPointer(), GroupNameVar, KeyVar, &cerr)
@@ -232,7 +227,6 @@ var xKeyFileGetBooleanList func(uintptr, string, string, *uint, **Error) uintptr
 // returned. Likewise, if the values associated with @key cannot be interpreted
 // as booleans then [error@GLib.KeyFileError.INVALID_VALUE] is returned.
 func (x *KeyFile) GetBooleanList(GroupNameVar string, KeyVar string, LengthVar *uint) (uintptr, error) {
-	core.LazyRegister(&xKeyFileGetBooleanList, "GLIB", "g_key_file_get_boolean_list", false)
 	var cerr *Error
 
 	cret := xKeyFileGetBooleanList(x.GoPointer(), GroupNameVar, KeyVar, LengthVar, &cerr)
@@ -254,7 +248,6 @@ var xKeyFileGetComment func(uintptr, uintptr, uintptr, **Error) string
 // but does include any whitespace after them (on each line). It includes
 // the line breaks between lines, but does not include the final line break.
 func (x *KeyFile) GetComment(GroupNameVar *string, KeyVar *string) (string, error) {
-	core.LazyRegister(&xKeyFileGetComment, "GLIB", "g_key_file_get_comment", false)
 	var cerr *Error
 
 	GroupNameVarPtr := core.GStrdupNullable(GroupNameVar)
@@ -278,7 +271,6 @@ var xKeyFileGetDouble func(uintptr, string, string, **Error) float64
 // returned. Likewise, if the value associated with @key cannot be interpreted
 // as a double then [error@GLib.KeyFileError.INVALID_VALUE] is returned.
 func (x *KeyFile) GetDouble(GroupNameVar string, KeyVar string) (float64, error) {
-	core.LazyRegister(&xKeyFileGetDouble, "GLIB", "g_key_file_get_double", false)
 	var cerr *Error
 
 	cret := xKeyFileGetDouble(x.GoPointer(), GroupNameVar, KeyVar, &cerr)
@@ -297,7 +289,6 @@ var xKeyFileGetDoubleList func(uintptr, string, string, *uint, **Error) uintptr
 // returned. Likewise, if the values associated with @key cannot be interpreted
 // as doubles then [error@GLib.KeyFileError.INVALID_VALUE] is returned.
 func (x *KeyFile) GetDoubleList(GroupNameVar string, KeyVar string, LengthVar *uint) (uintptr, error) {
-	core.LazyRegister(&xKeyFileGetDoubleList, "GLIB", "g_key_file_get_double_list", false)
 	var cerr *Error
 
 	cret := xKeyFileGetDoubleList(x.GoPointer(), GroupNameVar, KeyVar, LengthVar, &cerr)
@@ -314,8 +305,6 @@ var xKeyFileGetGroups func(uintptr, *uint) []string
 // The array of returned groups will be `NULL`-terminated, so
 // @length may optionally be `NULL`.
 func (x *KeyFile) GetGroups(LengthVar *uint) []string {
-	core.LazyRegister(&xKeyFileGetGroups, "GLIB", "g_key_file_get_groups", false)
-
 	cret := xKeyFileGetGroups(x.GoPointer(), LengthVar)
 	return cret
 }
@@ -328,7 +317,6 @@ var xKeyFileGetInt64 func(uintptr, string, string, **Error) int64
 // This is similar to [method@GLib.KeyFile.get_integer] but can return
 // 64-bit results without truncation.
 func (x *KeyFile) GetInt64(GroupNameVar string, KeyVar string) (int64, error) {
-	core.LazyRegister(&xKeyFileGetInt64, "GLIB", "g_key_file_get_int64", false)
 	var cerr *Error
 
 	cret := xKeyFileGetInt64(x.GoPointer(), GroupNameVar, KeyVar, &cerr)
@@ -348,7 +336,6 @@ var xKeyFileGetInteger func(uintptr, string, string, **Error) int
 // as an integer, or is out of range for a `gint`, then
 // [error@GLib.KeyFileError.INVALID_VALUE] is returned.
 func (x *KeyFile) GetInteger(GroupNameVar string, KeyVar string) (int, error) {
-	core.LazyRegister(&xKeyFileGetInteger, "GLIB", "g_key_file_get_integer", false)
 	var cerr *Error
 
 	cret := xKeyFileGetInteger(x.GoPointer(), GroupNameVar, KeyVar, &cerr)
@@ -368,7 +355,6 @@ var xKeyFileGetIntegerList func(uintptr, string, string, *uint, **Error) uintptr
 // as integers, or are out of range for `gint`, then
 // [error@GLib.KeyFileError.INVALID_VALUE] is returned.
 func (x *KeyFile) GetIntegerList(GroupNameVar string, KeyVar string, LengthVar *uint) (uintptr, error) {
-	core.LazyRegister(&xKeyFileGetIntegerList, "GLIB", "g_key_file_get_integer_list", false)
 	var cerr *Error
 
 	cret := xKeyFileGetIntegerList(x.GoPointer(), GroupNameVar, KeyVar, LengthVar, &cerr)
@@ -386,7 +372,6 @@ var xKeyFileGetKeys func(uintptr, string, *uint, **Error) []string
 // optionally be `NULL`. If the @group_name cannot be found,
 // [error@GLib.KeyFileError.GROUP_NOT_FOUND] is returned.
 func (x *KeyFile) GetKeys(GroupNameVar string, LengthVar *uint) ([]string, error) {
-	core.LazyRegister(&xKeyFileGetKeys, "GLIB", "g_key_file_get_keys", false)
 	var cerr *Error
 
 	cret := xKeyFileGetKeys(x.GoPointer(), GroupNameVar, LengthVar, &cerr)
@@ -408,8 +393,6 @@ var xKeyFileGetLocaleForKey func(uintptr, string, string, uintptr) string
 // have originally been tagged with the locale that is the result of
 // this function.
 func (x *KeyFile) GetLocaleForKey(GroupNameVar string, KeyVar string, LocaleVar *string) string {
-	core.LazyRegister(&xKeyFileGetLocaleForKey, "GLIB", "g_key_file_get_locale_for_key", false)
-
 	LocaleVarPtr := core.GStrdupNullable(LocaleVar)
 	defer core.GFreeNullable(LocaleVarPtr)
 
@@ -436,7 +419,6 @@ var xKeyFileGetLocaleString func(uintptr, string, string, uintptr, **Error) stri
 // with @key cannot be interpreted or no suitable translation can
 // be found then the untranslated value is returned.
 func (x *KeyFile) GetLocaleString(GroupNameVar string, KeyVar string, LocaleVar *string) (string, error) {
-	core.LazyRegister(&xKeyFileGetLocaleString, "GLIB", "g_key_file_get_locale_string", false)
 	var cerr *Error
 
 	LocaleVarPtr := core.GStrdupNullable(LocaleVar)
@@ -470,7 +452,6 @@ var xKeyFileGetLocaleStringList func(uintptr, string, string, uintptr, *uint, **
 // returned array is `NULL`-terminated, so @length may optionally
 // be `NULL`.
 func (x *KeyFile) GetLocaleStringList(GroupNameVar string, KeyVar string, LocaleVar *string, LengthVar *uint) ([]string, error) {
-	core.LazyRegister(&xKeyFileGetLocaleStringList, "GLIB", "g_key_file_get_locale_string_list", false)
 	var cerr *Error
 
 	LocaleVarPtr := core.GStrdupNullable(LocaleVar)
@@ -487,8 +468,6 @@ var xKeyFileGetStartGroup func(uintptr) string
 
 // Returns the name of the start group of the file.
 func (x *KeyFile) GetStartGroup() string {
-	core.LazyRegister(&xKeyFileGetStartGroup, "GLIB", "g_key_file_get_start_group", false)
-
 	cret := xKeyFileGetStartGroup(x.GoPointer())
 	return cret
 }
@@ -504,7 +483,6 @@ var xKeyFileGetString func(uintptr, string, string, **Error) string
 // returned. If the @group_name cannot be found,
 // [error@GLib.KeyFileError.GROUP_NOT_FOUND] is returned.
 func (x *KeyFile) GetString(GroupNameVar string, KeyVar string) (string, error) {
-	core.LazyRegister(&xKeyFileGetString, "GLIB", "g_key_file_get_string", false)
 	var cerr *Error
 
 	cret := xKeyFileGetString(x.GoPointer(), GroupNameVar, KeyVar, &cerr)
@@ -522,7 +500,6 @@ var xKeyFileGetStringList func(uintptr, string, string, *uint, **Error) []string
 // returned. If the @group_name cannot be found,
 // [error@GLib.KeyFileError.GROUP_NOT_FOUND] is returned.
 func (x *KeyFile) GetStringList(GroupNameVar string, KeyVar string, LengthVar *uint) ([]string, error) {
-	core.LazyRegister(&xKeyFileGetStringList, "GLIB", "g_key_file_get_string_list", false)
 	var cerr *Error
 
 	cret := xKeyFileGetStringList(x.GoPointer(), GroupNameVar, KeyVar, LengthVar, &cerr)
@@ -540,7 +517,6 @@ var xKeyFileGetUint64 func(uintptr, string, string, **Error) uint64
 // This is similar to [method@GLib.KeyFile.get_integer] but can return
 // large positive results without truncation.
 func (x *KeyFile) GetUint64(GroupNameVar string, KeyVar string) (uint64, error) {
-	core.LazyRegister(&xKeyFileGetUint64, "GLIB", "g_key_file_get_uint64", false)
 	var cerr *Error
 
 	cret := xKeyFileGetUint64(x.GoPointer(), GroupNameVar, KeyVar, &cerr)
@@ -560,7 +536,6 @@ var xKeyFileGetValue func(uintptr, string, string, **Error) string
 // is returned.  If the @group_name cannot be found,
 // [error@GLib.KeyFileError.GROUP_NOT_FOUND] is returned.
 func (x *KeyFile) GetValue(GroupNameVar string, KeyVar string) (string, error) {
-	core.LazyRegister(&xKeyFileGetValue, "GLIB", "g_key_file_get_value", false)
 	var cerr *Error
 
 	cret := xKeyFileGetValue(x.GoPointer(), GroupNameVar, KeyVar, &cerr)
@@ -574,8 +549,6 @@ var xKeyFileHasGroup func(uintptr, string) bool
 
 // Looks whether the key file has the group @group_name.
 func (x *KeyFile) HasGroup(GroupNameVar string) bool {
-	core.LazyRegister(&xKeyFileHasGroup, "GLIB", "g_key_file_has_group", false)
-
 	cret := xKeyFileHasGroup(x.GoPointer(), GroupNameVar)
 	return cret
 }
@@ -594,7 +567,6 @@ var xKeyFileHasKey func(uintptr, string, string, **Error) bool
 // Language bindings should use [method@GLib.KeyFile.get_value] to test whether
 // a key exists.
 func (x *KeyFile) HasKey(GroupNameVar string, KeyVar string) (bool, error) {
-	core.LazyRegister(&xKeyFileHasKey, "GLIB", "g_key_file_has_key", false)
 	var cerr *Error
 
 	cret := xKeyFileHasKey(x.GoPointer(), GroupNameVar, KeyVar, &cerr)
@@ -611,7 +583,6 @@ var xKeyFileLoadFromBytes func(uintptr, *Bytes, KeyFileFlags, **Error) bool
 //
 // If the object cannot be created then a [error@GLib.KeyFileError] is returned.
 func (x *KeyFile) LoadFromBytes(BytesVar *Bytes, FlagsVar KeyFileFlags) (bool, error) {
-	core.LazyRegister(&xKeyFileLoadFromBytes, "GLIB", "g_key_file_load_from_bytes", false)
 	var cerr *Error
 
 	cret := xKeyFileLoadFromBytes(x.GoPointer(), BytesVar, FlagsVar, &cerr)
@@ -627,7 +598,6 @@ var xKeyFileLoadFromData func(uintptr, string, uint, KeyFileFlags, **Error) bool
 //
 // If the object cannot be created then a [error@GLib.KeyFileError is returned.
 func (x *KeyFile) LoadFromData(DataVar string, LengthVar uint, FlagsVar KeyFileFlags) (bool, error) {
-	core.LazyRegister(&xKeyFileLoadFromData, "GLIB", "g_key_file_load_from_data", false)
 	var cerr *Error
 
 	cret := xKeyFileLoadFromData(x.GoPointer(), DataVar, LengthVar, FlagsVar, &cerr)
@@ -649,7 +619,6 @@ var xKeyFileLoadFromDataDirs func(uintptr, string, *string, KeyFileFlags, **Erro
 // If the file could not be loaded then either a [error@GLib.FileError] or
 // [error@GLib.KeyFileError] is returned.
 func (x *KeyFile) LoadFromDataDirs(FileVar string, FullPathVar *string, FlagsVar KeyFileFlags) (bool, error) {
-	core.LazyRegister(&xKeyFileLoadFromDataDirs, "GLIB", "g_key_file_load_from_data_dirs", false)
 	var cerr *Error
 
 	cret := xKeyFileLoadFromDataDirs(x.GoPointer(), FileVar, FullPathVar, FlagsVar, &cerr)
@@ -677,7 +646,6 @@ var xKeyFileLoadFromDirs func(uintptr, string, []string, *string, KeyFileFlags, 
 // file, a [error@GLib.FileError] is returned. If there is a problem parsing the
 // file, a [error@GLib.KeyFileError] is returned.
 func (x *KeyFile) LoadFromDirs(FileVar string, SearchDirsVar []string, FullPathVar *string, FlagsVar KeyFileFlags) (bool, error) {
-	core.LazyRegister(&xKeyFileLoadFromDirs, "GLIB", "g_key_file_load_from_dirs", false)
 	var cerr *Error
 
 	cret := xKeyFileLoadFromDirs(x.GoPointer(), FileVar, SearchDirsVar, FullPathVar, FlagsVar, &cerr)
@@ -698,7 +666,6 @@ var xKeyFileLoadFromFile func(uintptr, string, KeyFileFlags, **Error) bool
 // This function will never return a [error@GLib.KeyFileError.NOT_FOUND]
 // error. If the @file is not found, [error@GLib.FileError.NOENT] is returned.
 func (x *KeyFile) LoadFromFile(FileVar string, FlagsVar KeyFileFlags) (bool, error) {
-	core.LazyRegister(&xKeyFileLoadFromFile, "GLIB", "g_key_file_load_from_file", false)
 	var cerr *Error
 
 	cret := xKeyFileLoadFromFile(x.GoPointer(), FileVar, FlagsVar, &cerr)
@@ -712,8 +679,6 @@ var xKeyFileRef func(uintptr) uintptr
 
 // Increases the reference count of @key_file.
 func (x *KeyFile) Ref() *KeyFile {
-	core.LazyRegister(&xKeyFileRef, "GLIB", "g_key_file_ref", false)
-
 	cret := xKeyFileRef(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -729,7 +694,6 @@ var xKeyFileRemoveComment func(uintptr, uintptr, uintptr, **Error) bool
 // If both @key and @group_name are `NULL`, then @comment will
 // be removed above the first group in the file.
 func (x *KeyFile) RemoveComment(GroupNameVar *string, KeyVar *string) (bool, error) {
-	core.LazyRegister(&xKeyFileRemoveComment, "GLIB", "g_key_file_remove_comment", false)
 	var cerr *Error
 
 	GroupNameVarPtr := core.GStrdupNullable(GroupNameVar)
@@ -750,7 +714,6 @@ var xKeyFileRemoveGroup func(uintptr, string, **Error) bool
 // Removes the specified group, @group_name,
 // from the key file.
 func (x *KeyFile) RemoveGroup(GroupNameVar string) (bool, error) {
-	core.LazyRegister(&xKeyFileRemoveGroup, "GLIB", "g_key_file_remove_group", false)
 	var cerr *Error
 
 	cret := xKeyFileRemoveGroup(x.GoPointer(), GroupNameVar, &cerr)
@@ -764,7 +727,6 @@ var xKeyFileRemoveKey func(uintptr, string, string, **Error) bool
 
 // Removes @key in @group_name from the key file.
 func (x *KeyFile) RemoveKey(GroupNameVar string, KeyVar string) (bool, error) {
-	core.LazyRegister(&xKeyFileRemoveKey, "GLIB", "g_key_file_remove_key", false)
 	var cerr *Error
 
 	cret := xKeyFileRemoveKey(x.GoPointer(), GroupNameVar, KeyVar, &cerr)
@@ -787,7 +749,6 @@ var xKeyFileSaveToFile func(uintptr, string, **Error) bool
 // This function can fail for any of the reasons that
 // [func@GLib.file_set_contents] may fail.
 func (x *KeyFile) SaveToFile(FilenameVar string) (bool, error) {
-	core.LazyRegister(&xKeyFileSaveToFile, "GLIB", "g_key_file_save_to_file", false)
 	var cerr *Error
 
 	cret := xKeyFileSaveToFile(x.GoPointer(), FilenameVar, &cerr)
@@ -803,8 +764,6 @@ var xKeyFileSetBoolean func(uintptr, string, string, bool)
 //
 // If @key cannot be found then it is created.
 func (x *KeyFile) SetBoolean(GroupNameVar string, KeyVar string, ValueVar bool) {
-	core.LazyRegister(&xKeyFileSetBoolean, "GLIB", "g_key_file_set_boolean", false)
-
 	xKeyFileSetBoolean(x.GoPointer(), GroupNameVar, KeyVar, ValueVar)
 }
 
@@ -814,8 +773,6 @@ var xKeyFileSetBooleanList func(uintptr, string, string, []bool, uint)
 //
 // If @key cannot be found then it is created.
 func (x *KeyFile) SetBooleanList(GroupNameVar string, KeyVar string, ListVar []bool, LengthVar uint) {
-	core.LazyRegister(&xKeyFileSetBooleanList, "GLIB", "g_key_file_set_boolean_list", false)
-
 	xKeyFileSetBooleanList(x.GoPointer(), GroupNameVar, KeyVar, ListVar, LengthVar)
 }
 
@@ -835,7 +792,6 @@ var xKeyFileSetComment func(uintptr, uintptr, uintptr, string, **Error) bool
 // Note that this function prepends a `#` comment marker to
 // each line of @comment.
 func (x *KeyFile) SetComment(GroupNameVar *string, KeyVar *string, CommentVar string) (bool, error) {
-	core.LazyRegister(&xKeyFileSetComment, "GLIB", "g_key_file_set_comment", false)
 	var cerr *Error
 
 	GroupNameVarPtr := core.GStrdupNullable(GroupNameVar)
@@ -857,8 +813,6 @@ var xKeyFileSetDouble func(uintptr, string, string, float64)
 //
 // If @key cannot be found then it is created.
 func (x *KeyFile) SetDouble(GroupNameVar string, KeyVar string, ValueVar float64) {
-	core.LazyRegister(&xKeyFileSetDouble, "GLIB", "g_key_file_set_double", false)
-
 	xKeyFileSetDouble(x.GoPointer(), GroupNameVar, KeyVar, ValueVar)
 }
 
@@ -868,8 +822,6 @@ var xKeyFileSetDoubleList func(uintptr, string, string, []float64, uint)
 //
 // If @key cannot be found then it is created.
 func (x *KeyFile) SetDoubleList(GroupNameVar string, KeyVar string, ListVar []float64, LengthVar uint) {
-	core.LazyRegister(&xKeyFileSetDoubleList, "GLIB", "g_key_file_set_double_list", false)
-
 	xKeyFileSetDoubleList(x.GoPointer(), GroupNameVar, KeyVar, ListVar, LengthVar)
 }
 
@@ -879,8 +831,6 @@ var xKeyFileSetInt64 func(uintptr, string, string, int64)
 //
 // If @key cannot be found then it is created.
 func (x *KeyFile) SetInt64(GroupNameVar string, KeyVar string, ValueVar int64) {
-	core.LazyRegister(&xKeyFileSetInt64, "GLIB", "g_key_file_set_int64", false)
-
 	xKeyFileSetInt64(x.GoPointer(), GroupNameVar, KeyVar, ValueVar)
 }
 
@@ -890,8 +840,6 @@ var xKeyFileSetInteger func(uintptr, string, string, int)
 //
 // If @key cannot be found then it is created.
 func (x *KeyFile) SetInteger(GroupNameVar string, KeyVar string, ValueVar int) {
-	core.LazyRegister(&xKeyFileSetInteger, "GLIB", "g_key_file_set_integer", false)
-
 	xKeyFileSetInteger(x.GoPointer(), GroupNameVar, KeyVar, ValueVar)
 }
 
@@ -901,8 +849,6 @@ var xKeyFileSetIntegerList func(uintptr, string, string, []int, uint)
 //
 // If @key cannot be found then it is created.
 func (x *KeyFile) SetIntegerList(GroupNameVar string, KeyVar string, ListVar []int, LengthVar uint) {
-	core.LazyRegister(&xKeyFileSetIntegerList, "GLIB", "g_key_file_set_integer_list", false)
-
 	xKeyFileSetIntegerList(x.GoPointer(), GroupNameVar, KeyVar, ListVar, LengthVar)
 }
 
@@ -913,8 +859,6 @@ var xKeyFileSetListSeparator func(uintptr, byte)
 // Typically `;` or `,` are used as separators. The default list separator
 // is `;`.
 func (x *KeyFile) SetListSeparator(SeparatorVar byte) {
-	core.LazyRegister(&xKeyFileSetListSeparator, "GLIB", "g_key_file_set_list_separator", false)
-
 	xKeyFileSetListSeparator(x.GoPointer(), SeparatorVar)
 }
 
@@ -926,8 +870,6 @@ var xKeyFileSetLocaleString func(uintptr, string, string, string, string)
 //
 // If @locale is `C` then the untranslated value is set (since GLib 2.84).
 func (x *KeyFile) SetLocaleString(GroupNameVar string, KeyVar string, LocaleVar string, StringVar string) {
-	core.LazyRegister(&xKeyFileSetLocaleString, "GLIB", "g_key_file_set_locale_string", false)
-
 	xKeyFileSetLocaleString(x.GoPointer(), GroupNameVar, KeyVar, LocaleVar, StringVar)
 }
 
@@ -940,8 +882,6 @@ var xKeyFileSetLocaleStringList func(uintptr, string, string, string, []string, 
 //
 // If the translation for @key cannot be found then it is created.
 func (x *KeyFile) SetLocaleStringList(GroupNameVar string, KeyVar string, LocaleVar string, ListVar []string, LengthVar uint) {
-	core.LazyRegister(&xKeyFileSetLocaleStringList, "GLIB", "g_key_file_set_locale_string_list", false)
-
 	xKeyFileSetLocaleStringList(x.GoPointer(), GroupNameVar, KeyVar, LocaleVar, ListVar, LengthVar)
 }
 
@@ -954,8 +894,6 @@ var xKeyFileSetString func(uintptr, string, string, string)
 // Unlike [method@GLib.KeyFile.set_value], this function handles characters
 // that need escaping, such as newlines.
 func (x *KeyFile) SetString(GroupNameVar string, KeyVar string, StringVar string) {
-	core.LazyRegister(&xKeyFileSetString, "GLIB", "g_key_file_set_string", false)
-
 	xKeyFileSetString(x.GoPointer(), GroupNameVar, KeyVar, StringVar)
 }
 
@@ -966,8 +904,6 @@ var xKeyFileSetStringList func(uintptr, string, string, []string, uint)
 // If @key cannot be found then it is created.
 // If @group_name cannot be found then it is created.
 func (x *KeyFile) SetStringList(GroupNameVar string, KeyVar string, ListVar []string, LengthVar uint) {
-	core.LazyRegister(&xKeyFileSetStringList, "GLIB", "g_key_file_set_string_list", false)
-
 	xKeyFileSetStringList(x.GoPointer(), GroupNameVar, KeyVar, ListVar, LengthVar)
 }
 
@@ -977,8 +913,6 @@ var xKeyFileSetUint64 func(uintptr, string, string, uint64)
 //
 // If @key cannot be found then it is created.
 func (x *KeyFile) SetUint64(GroupNameVar string, KeyVar string, ValueVar uint64) {
-	core.LazyRegister(&xKeyFileSetUint64, "GLIB", "g_key_file_set_uint64", false)
-
 	xKeyFileSetUint64(x.GoPointer(), GroupNameVar, KeyVar, ValueVar)
 }
 
@@ -991,8 +925,6 @@ var xKeyFileSetValue func(uintptr, string, string, string)
 // characters that need escaping (such as newlines or spaces), use
 // [method@GLib.KeyFile.set_string].
 func (x *KeyFile) SetValue(GroupNameVar string, KeyVar string, ValueVar string) {
-	core.LazyRegister(&xKeyFileSetValue, "GLIB", "g_key_file_set_value", false)
-
 	xKeyFileSetValue(x.GoPointer(), GroupNameVar, KeyVar, ValueVar)
 }
 
@@ -1002,7 +934,6 @@ var xKeyFileToData func(uintptr, *uint, **Error) string
 //
 // Note that this function never reports an error.
 func (x *KeyFile) ToData(LengthVar *uint) (string, error) {
-	core.LazyRegister(&xKeyFileToData, "GLIB", "g_key_file_to_data", false)
 	var cerr *Error
 
 	cret := xKeyFileToData(x.GoPointer(), LengthVar, &cerr)
@@ -1019,8 +950,6 @@ var xKeyFileUnref func(uintptr)
 // If the reference count reaches zero, frees the key file and all its allocated
 // memory.
 func (x *KeyFile) Unref() {
-	core.LazyRegister(&xKeyFileUnref, "GLIB", "g_key_file_unref", false)
-
 	xKeyFileUnref(x.GoPointer())
 }
 
@@ -1171,4 +1100,65 @@ const (
 func init() {
 	core.SetPackageName("GLIB", "glib-2.0")
 	core.SetSharedLibraries("GLIB", []string{"libgobject-2.0.so.0", "libglib-2.0.so.0", "libgobject-2.0.0.dylib", "libglib-2.0.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GLIB") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xKeyFileGLibType, libs, "g_key_file_get_type")
+
+	core.PuregoSafeRegister(&xNewKeyFile, libs, "g_key_file_new")
+
+	core.PuregoSafeRegister(&xKeyFileFree, libs, "g_key_file_free")
+	core.PuregoSafeRegister(&xKeyFileGetBoolean, libs, "g_key_file_get_boolean")
+	core.PuregoSafeRegister(&xKeyFileGetBooleanList, libs, "g_key_file_get_boolean_list")
+	core.PuregoSafeRegister(&xKeyFileGetComment, libs, "g_key_file_get_comment")
+	core.PuregoSafeRegister(&xKeyFileGetDouble, libs, "g_key_file_get_double")
+	core.PuregoSafeRegister(&xKeyFileGetDoubleList, libs, "g_key_file_get_double_list")
+	core.PuregoSafeRegister(&xKeyFileGetGroups, libs, "g_key_file_get_groups")
+	core.PuregoSafeRegister(&xKeyFileGetInt64, libs, "g_key_file_get_int64")
+	core.PuregoSafeRegister(&xKeyFileGetInteger, libs, "g_key_file_get_integer")
+	core.PuregoSafeRegister(&xKeyFileGetIntegerList, libs, "g_key_file_get_integer_list")
+	core.PuregoSafeRegister(&xKeyFileGetKeys, libs, "g_key_file_get_keys")
+	core.PuregoSafeRegister(&xKeyFileGetLocaleForKey, libs, "g_key_file_get_locale_for_key")
+	core.PuregoSafeRegister(&xKeyFileGetLocaleString, libs, "g_key_file_get_locale_string")
+	core.PuregoSafeRegister(&xKeyFileGetLocaleStringList, libs, "g_key_file_get_locale_string_list")
+	core.PuregoSafeRegister(&xKeyFileGetStartGroup, libs, "g_key_file_get_start_group")
+	core.PuregoSafeRegister(&xKeyFileGetString, libs, "g_key_file_get_string")
+	core.PuregoSafeRegister(&xKeyFileGetStringList, libs, "g_key_file_get_string_list")
+	core.PuregoSafeRegister(&xKeyFileGetUint64, libs, "g_key_file_get_uint64")
+	core.PuregoSafeRegister(&xKeyFileGetValue, libs, "g_key_file_get_value")
+	core.PuregoSafeRegister(&xKeyFileHasGroup, libs, "g_key_file_has_group")
+	core.PuregoSafeRegister(&xKeyFileHasKey, libs, "g_key_file_has_key")
+	core.PuregoSafeRegister(&xKeyFileLoadFromBytes, libs, "g_key_file_load_from_bytes")
+	core.PuregoSafeRegister(&xKeyFileLoadFromData, libs, "g_key_file_load_from_data")
+	core.PuregoSafeRegister(&xKeyFileLoadFromDataDirs, libs, "g_key_file_load_from_data_dirs")
+	core.PuregoSafeRegister(&xKeyFileLoadFromDirs, libs, "g_key_file_load_from_dirs")
+	core.PuregoSafeRegister(&xKeyFileLoadFromFile, libs, "g_key_file_load_from_file")
+	core.PuregoSafeRegister(&xKeyFileRef, libs, "g_key_file_ref")
+	core.PuregoSafeRegister(&xKeyFileRemoveComment, libs, "g_key_file_remove_comment")
+	core.PuregoSafeRegister(&xKeyFileRemoveGroup, libs, "g_key_file_remove_group")
+	core.PuregoSafeRegister(&xKeyFileRemoveKey, libs, "g_key_file_remove_key")
+	core.PuregoSafeRegister(&xKeyFileSaveToFile, libs, "g_key_file_save_to_file")
+	core.PuregoSafeRegister(&xKeyFileSetBoolean, libs, "g_key_file_set_boolean")
+	core.PuregoSafeRegister(&xKeyFileSetBooleanList, libs, "g_key_file_set_boolean_list")
+	core.PuregoSafeRegister(&xKeyFileSetComment, libs, "g_key_file_set_comment")
+	core.PuregoSafeRegister(&xKeyFileSetDouble, libs, "g_key_file_set_double")
+	core.PuregoSafeRegister(&xKeyFileSetDoubleList, libs, "g_key_file_set_double_list")
+	core.PuregoSafeRegister(&xKeyFileSetInt64, libs, "g_key_file_set_int64")
+	core.PuregoSafeRegister(&xKeyFileSetInteger, libs, "g_key_file_set_integer")
+	core.PuregoSafeRegister(&xKeyFileSetIntegerList, libs, "g_key_file_set_integer_list")
+	core.PuregoSafeRegister(&xKeyFileSetListSeparator, libs, "g_key_file_set_list_separator")
+	core.PuregoSafeRegister(&xKeyFileSetLocaleString, libs, "g_key_file_set_locale_string")
+	core.PuregoSafeRegister(&xKeyFileSetLocaleStringList, libs, "g_key_file_set_locale_string_list")
+	core.PuregoSafeRegister(&xKeyFileSetString, libs, "g_key_file_set_string")
+	core.PuregoSafeRegister(&xKeyFileSetStringList, libs, "g_key_file_set_string_list")
+	core.PuregoSafeRegister(&xKeyFileSetUint64, libs, "g_key_file_set_uint64")
+	core.PuregoSafeRegister(&xKeyFileSetValue, libs, "g_key_file_set_value")
+	core.PuregoSafeRegister(&xKeyFileToData, libs, "g_key_file_to_data")
+	core.PuregoSafeRegister(&xKeyFileUnref, libs, "g_key_file_unref")
 }

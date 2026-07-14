@@ -6,7 +6,6 @@ import (
 	"unsafe"
 
 	"github.com/bnema/purego"
-	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject/types"
 )
 
@@ -86,7 +85,6 @@ type AccessibleRange interface {
 var xAccessibleRangeGLibType func() types.GType
 
 func AccessibleRangeGLibType() types.GType {
-	core.LazyRegister(&xAccessibleRangeGLibType, "GTK", "gtk_accessible_range_get_type", false)
 	return xAccessibleRangeGLibType()
 }
 
@@ -103,9 +101,4 @@ func (x *AccessibleRangeBase) GoPointer() uintptr {
 
 func (x *AccessibleRangeBase) SetGoPointer(ptr uintptr) {
 	x.Ptr = ptr
-}
-
-func init() {
-	core.SetPackageName("GTK", "gtk4")
-	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
 }

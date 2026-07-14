@@ -4,6 +4,7 @@ package gsk
 import (
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject/types"
 	"github.com/bnema/puregotk/v4/graphene"
@@ -17,7 +18,6 @@ type LinearGradientNode struct {
 var xLinearGradientNodeGLibType func() types.GType
 
 func LinearGradientNodeGLibType() types.GType {
-	core.LazyRegister(&xLinearGradientNodeGLibType, "GSK", "gsk_linear_gradient_node_get_type", false)
 	return xLinearGradientNodeGLibType()
 }
 
@@ -32,7 +32,6 @@ var xNewLinearGradientNode func(*graphene.Rect, *graphene.Point, *graphene.Point
 // Creates a `GskRenderNode` that will create a linear gradient from the given
 // points and color stops, and render that into the area given by @bounds.
 func NewLinearGradientNode(BoundsVar *graphene.Rect, StartVar *graphene.Point, EndVar *graphene.Point, ColorStopsVar []ColorStop, NColorStopsVar uint) *LinearGradientNode {
-	core.LazyRegister(&xNewLinearGradientNode, "GSK", "gsk_linear_gradient_node_new", false)
 	var cls *LinearGradientNode
 
 	cret := xNewLinearGradientNode(BoundsVar, StartVar, EndVar, ColorStopsVar, NColorStopsVar)
@@ -49,8 +48,6 @@ var xLinearGradientNodeGetColorStops func(uintptr, *uint) uintptr
 
 // Retrieves the color stops in the gradient.
 func (x *LinearGradientNode) GetColorStops(NStopsVar *uint) uintptr {
-	core.LazyRegister(&xLinearGradientNodeGetColorStops, "GSK", "gsk_linear_gradient_node_get_color_stops", false)
-
 	cret := xLinearGradientNodeGetColorStops(x.GoPointer(), NStopsVar)
 	return cret
 }
@@ -59,8 +56,6 @@ var xLinearGradientNodeGetEnd func(uintptr) uintptr
 
 // Retrieves the final point of the linear gradient.
 func (x *LinearGradientNode) GetEnd() *graphene.Point {
-	core.LazyRegister(&xLinearGradientNodeGetEnd, "GSK", "gsk_linear_gradient_node_get_end", false)
-
 	cret := xLinearGradientNodeGetEnd(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -72,8 +67,6 @@ var xLinearGradientNodeGetNColorStops func(uintptr) uint
 
 // Retrieves the number of color stops in the gradient.
 func (x *LinearGradientNode) GetNColorStops() uint {
-	core.LazyRegister(&xLinearGradientNodeGetNColorStops, "GSK", "gsk_linear_gradient_node_get_n_color_stops", false)
-
 	cret := xLinearGradientNodeGetNColorStops(x.GoPointer())
 	return cret
 }
@@ -82,8 +75,6 @@ var xLinearGradientNodeGetStart func(uintptr) uintptr
 
 // Retrieves the initial point of the linear gradient.
 func (x *LinearGradientNode) GetStart() *graphene.Point {
-	core.LazyRegister(&xLinearGradientNodeGetStart, "GSK", "gsk_linear_gradient_node_get_start", false)
-
 	cret := xLinearGradientNodeGetStart(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -110,7 +101,6 @@ type RepeatingLinearGradientNode struct {
 var xRepeatingLinearGradientNodeGLibType func() types.GType
 
 func RepeatingLinearGradientNodeGLibType() types.GType {
-	core.LazyRegister(&xRepeatingLinearGradientNodeGLibType, "GSK", "gsk_repeating_linear_gradient_node_get_type", false)
 	return xRepeatingLinearGradientNodeGLibType()
 }
 
@@ -126,7 +116,6 @@ var xNewRepeatingLinearGradientNode func(*graphene.Rect, *graphene.Point, *graph
 // from the given points and color stops, and render that into the area
 // given by @bounds.
 func NewRepeatingLinearGradientNode(BoundsVar *graphene.Rect, StartVar *graphene.Point, EndVar *graphene.Point, ColorStopsVar []ColorStop, NColorStopsVar uint) *RepeatingLinearGradientNode {
-	core.LazyRegister(&xNewRepeatingLinearGradientNode, "GSK", "gsk_repeating_linear_gradient_node_new", false)
 	var cls *RepeatingLinearGradientNode
 
 	cret := xNewRepeatingLinearGradientNode(BoundsVar, StartVar, EndVar, ColorStopsVar, NColorStopsVar)
@@ -153,4 +142,25 @@ func (c *RepeatingLinearGradientNode) SetGoPointer(ptr uintptr) {
 func init() {
 	core.SetPackageName("GSK", "gtk4")
 	core.SetSharedLibraries("GSK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GSK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xLinearGradientNodeGLibType, libs, "gsk_linear_gradient_node_get_type")
+
+	core.PuregoSafeRegister(&xNewLinearGradientNode, libs, "gsk_linear_gradient_node_new")
+
+	core.PuregoSafeRegister(&xLinearGradientNodeGetColorStops, libs, "gsk_linear_gradient_node_get_color_stops")
+	core.PuregoSafeRegister(&xLinearGradientNodeGetEnd, libs, "gsk_linear_gradient_node_get_end")
+	core.PuregoSafeRegister(&xLinearGradientNodeGetNColorStops, libs, "gsk_linear_gradient_node_get_n_color_stops")
+	core.PuregoSafeRegister(&xLinearGradientNodeGetStart, libs, "gsk_linear_gradient_node_get_start")
+
+	core.PuregoSafeRegister(&xRepeatingLinearGradientNodeGLibType, libs, "gsk_repeating_linear_gradient_node_get_type")
+
+	core.PuregoSafeRegister(&xNewRepeatingLinearGradientNode, libs, "gsk_repeating_linear_gradient_node_new")
 }

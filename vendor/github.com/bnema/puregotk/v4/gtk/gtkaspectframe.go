@@ -2,6 +2,7 @@
 package gtk
 
 import (
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -28,7 +29,6 @@ type AspectFrame struct {
 var xAspectFrameGLibType func() types.GType
 
 func AspectFrameGLibType() types.GType {
-	core.LazyRegister(&xAspectFrameGLibType, "GTK", "gtk_aspect_frame_get_type", false)
 	return xAspectFrameGLibType()
 }
 
@@ -42,7 +42,6 @@ var xNewAspectFrame func(float32, float32, float32, bool) uintptr
 
 // Create a new `GtkAspectFrame`.
 func NewAspectFrame(XalignVar float32, YalignVar float32, RatioVar float32, ObeyChildVar bool) *AspectFrame {
-	core.LazyRegister(&xNewAspectFrame, "GTK", "gtk_aspect_frame_new", false)
 	var cls *AspectFrame
 
 	cret := xNewAspectFrame(XalignVar, YalignVar, RatioVar, ObeyChildVar)
@@ -60,7 +59,6 @@ var xAspectFrameGetChild func(uintptr) uintptr
 
 // Gets the child widget of @self.
 func (x *AspectFrame) GetChild() *Widget {
-	core.LazyRegister(&xAspectFrameGetChild, "GTK", "gtk_aspect_frame_get_child", false)
 	var cls *Widget
 
 	cret := xAspectFrameGetChild(x.GoPointer())
@@ -79,8 +77,6 @@ var xAspectFrameGetObeyChild func(uintptr) bool
 // Returns whether the child's size request should override
 // the set aspect ratio of the `GtkAspectFrame`.
 func (x *AspectFrame) GetObeyChild() bool {
-	core.LazyRegister(&xAspectFrameGetObeyChild, "GTK", "gtk_aspect_frame_get_obey_child", false)
-
 	cret := xAspectFrameGetObeyChild(x.GoPointer())
 	return cret
 }
@@ -89,8 +85,6 @@ var xAspectFrameGetRatio func(uintptr) float32
 
 // Returns the desired aspect ratio of the child.
 func (x *AspectFrame) GetRatio() float32 {
-	core.LazyRegister(&xAspectFrameGetRatio, "GTK", "gtk_aspect_frame_get_ratio", false)
-
 	cret := xAspectFrameGetRatio(x.GoPointer())
 	return cret
 }
@@ -100,8 +94,6 @@ var xAspectFrameGetXalign func(uintptr) float32
 // Returns the horizontal alignment of the child within the
 // allocation of the `GtkAspectFrame`.
 func (x *AspectFrame) GetXalign() float32 {
-	core.LazyRegister(&xAspectFrameGetXalign, "GTK", "gtk_aspect_frame_get_xalign", false)
-
 	cret := xAspectFrameGetXalign(x.GoPointer())
 	return cret
 }
@@ -111,8 +103,6 @@ var xAspectFrameGetYalign func(uintptr) float32
 // Returns the vertical alignment of the child within the
 // allocation of the `GtkAspectFrame`.
 func (x *AspectFrame) GetYalign() float32 {
-	core.LazyRegister(&xAspectFrameGetYalign, "GTK", "gtk_aspect_frame_get_yalign", false)
-
 	cret := xAspectFrameGetYalign(x.GoPointer())
 	return cret
 }
@@ -121,8 +111,6 @@ var xAspectFrameSetChild func(uintptr, uintptr)
 
 // Sets the child widget of @self.
 func (x *AspectFrame) SetChild(ChildVar *Widget) {
-	core.LazyRegister(&xAspectFrameSetChild, "GTK", "gtk_aspect_frame_set_child", false)
-
 	xAspectFrameSetChild(x.GoPointer(), ChildVar.GoPointer())
 }
 
@@ -132,8 +120,6 @@ var xAspectFrameSetObeyChild func(uintptr, bool)
 // request should override the set aspect ratio of
 // the `GtkAspectFrame`.
 func (x *AspectFrame) SetObeyChild(ObeyChildVar bool) {
-	core.LazyRegister(&xAspectFrameSetObeyChild, "GTK", "gtk_aspect_frame_set_obey_child", false)
-
 	xAspectFrameSetObeyChild(x.GoPointer(), ObeyChildVar)
 }
 
@@ -141,8 +127,6 @@ var xAspectFrameSetRatio func(uintptr, float32)
 
 // Sets the desired aspect ratio of the child.
 func (x *AspectFrame) SetRatio(RatioVar float32) {
-	core.LazyRegister(&xAspectFrameSetRatio, "GTK", "gtk_aspect_frame_set_ratio", false)
-
 	xAspectFrameSetRatio(x.GoPointer(), RatioVar)
 }
 
@@ -151,8 +135,6 @@ var xAspectFrameSetXalign func(uintptr, float32)
 // Sets the horizontal alignment of the child within the allocation
 // of the `GtkAspectFrame`.
 func (x *AspectFrame) SetXalign(XalignVar float32) {
-	core.LazyRegister(&xAspectFrameSetXalign, "GTK", "gtk_aspect_frame_set_xalign", false)
-
 	xAspectFrameSetXalign(x.GoPointer(), XalignVar)
 }
 
@@ -161,8 +143,6 @@ var xAspectFrameSetYalign func(uintptr, float32)
 // Sets the vertical alignment of the child within the allocation
 // of the `GtkAspectFrame`.
 func (x *AspectFrame) SetYalign(YalignVar float32) {
-	core.LazyRegister(&xAspectFrameSetYalign, "GTK", "gtk_aspect_frame_set_yalign", false)
-
 	xAspectFrameSetYalign(x.GoPointer(), YalignVar)
 }
 
@@ -514,4 +494,27 @@ func (x *AspectFrame) GetBuildableId() string {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GTK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xAspectFrameGLibType, libs, "gtk_aspect_frame_get_type")
+
+	core.PuregoSafeRegister(&xNewAspectFrame, libs, "gtk_aspect_frame_new")
+
+	core.PuregoSafeRegister(&xAspectFrameGetChild, libs, "gtk_aspect_frame_get_child")
+	core.PuregoSafeRegister(&xAspectFrameGetObeyChild, libs, "gtk_aspect_frame_get_obey_child")
+	core.PuregoSafeRegister(&xAspectFrameGetRatio, libs, "gtk_aspect_frame_get_ratio")
+	core.PuregoSafeRegister(&xAspectFrameGetXalign, libs, "gtk_aspect_frame_get_xalign")
+	core.PuregoSafeRegister(&xAspectFrameGetYalign, libs, "gtk_aspect_frame_get_yalign")
+	core.PuregoSafeRegister(&xAspectFrameSetChild, libs, "gtk_aspect_frame_set_child")
+	core.PuregoSafeRegister(&xAspectFrameSetObeyChild, libs, "gtk_aspect_frame_set_obey_child")
+	core.PuregoSafeRegister(&xAspectFrameSetRatio, libs, "gtk_aspect_frame_set_ratio")
+	core.PuregoSafeRegister(&xAspectFrameSetXalign, libs, "gtk_aspect_frame_set_xalign")
+	core.PuregoSafeRegister(&xAspectFrameSetYalign, libs, "gtk_aspect_frame_set_yalign")
 }

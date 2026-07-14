@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gio"
 	"github.com/bnema/puregotk/v4/glib"
@@ -44,7 +45,6 @@ type AlertDialog struct {
 var xAlertDialogGLibType func() types.GType
 
 func AlertDialogGLibType() types.GType {
-	core.LazyRegister(&xAlertDialogGLibType, "GTK", "gtk_alert_dialog_get_type", false)
 	return xAlertDialogGLibType()
 }
 
@@ -61,7 +61,6 @@ var xNewAlertDialog func(string, ...interface{}) uintptr
 // The message will be set to the formatted string
 // resulting from the arguments.
 func NewAlertDialog(FormatVar string, varArgs ...interface{}) *AlertDialog {
-	core.LazyRegister(&xNewAlertDialog, "GTK", "gtk_alert_dialog_new", false)
 	var cls *AlertDialog
 
 	cret := xNewAlertDialog(FormatVar, varArgs...)
@@ -82,8 +81,6 @@ var xAlertDialogChoose func(uintptr, uintptr, uintptr, uintptr, uintptr)
 // does not have more than one button. A simpler API for
 // this case is [method@Gtk.AlertDialog.show].
 func (x *AlertDialog) Choose(ParentVar *Window, CancellableVar *gio.Cancellable, CallbackVar *gio.AsyncReadyCallback, UserDataVar uintptr) {
-	core.LazyRegister(&xAlertDialogChoose, "GTK", "gtk_alert_dialog_choose", false)
-
 	xAlertDialogChoose(x.GoPointer(), ParentVar.GoPointer(), CancellableVar.GoPointer(), glib.NewCallbackNullable(CallbackVar), UserDataVar)
 }
 
@@ -91,7 +88,6 @@ var xAlertDialogChooseFinish func(uintptr, uintptr, **glib.Error) int
 
 // Finishes the [method@Gtk.AlertDialog.choose] call.
 func (x *AlertDialog) ChooseFinish(ResultVar gio.AsyncResult) (int, error) {
-	core.LazyRegister(&xAlertDialogChooseFinish, "GTK", "gtk_alert_dialog_choose_finish", false)
 	var cerr *glib.Error
 
 	cret := xAlertDialogChooseFinish(x.GoPointer(), ResultVar.GoPointer(), &cerr)
@@ -105,8 +101,6 @@ var xAlertDialogGetButtons func(uintptr) []string
 
 // Returns the button labels for the alert.
 func (x *AlertDialog) GetButtons() []string {
-	core.LazyRegister(&xAlertDialogGetButtons, "GTK", "gtk_alert_dialog_get_buttons", false)
-
 	cret := xAlertDialogGetButtons(x.GoPointer())
 	return cret
 }
@@ -115,8 +109,6 @@ var xAlertDialogGetCancelButton func(uintptr) int
 
 // Returns the index of the cancel button.
 func (x *AlertDialog) GetCancelButton() int {
-	core.LazyRegister(&xAlertDialogGetCancelButton, "GTK", "gtk_alert_dialog_get_cancel_button", false)
-
 	cret := xAlertDialogGetCancelButton(x.GoPointer())
 	return cret
 }
@@ -125,8 +117,6 @@ var xAlertDialogGetDefaultButton func(uintptr) int
 
 // Returns the index of the default button.
 func (x *AlertDialog) GetDefaultButton() int {
-	core.LazyRegister(&xAlertDialogGetDefaultButton, "GTK", "gtk_alert_dialog_get_default_button", false)
-
 	cret := xAlertDialogGetDefaultButton(x.GoPointer())
 	return cret
 }
@@ -135,8 +125,6 @@ var xAlertDialogGetDetail func(uintptr) string
 
 // Returns the detail text that will be shown in the alert.
 func (x *AlertDialog) GetDetail() string {
-	core.LazyRegister(&xAlertDialogGetDetail, "GTK", "gtk_alert_dialog_get_detail", false)
-
 	cret := xAlertDialogGetDetail(x.GoPointer())
 	return cret
 }
@@ -145,8 +133,6 @@ var xAlertDialogGetMessage func(uintptr) string
 
 // Returns the message that will be shown in the alert.
 func (x *AlertDialog) GetMessage() string {
-	core.LazyRegister(&xAlertDialogGetMessage, "GTK", "gtk_alert_dialog_get_message", false)
-
 	cret := xAlertDialogGetMessage(x.GoPointer())
 	return cret
 }
@@ -156,8 +142,6 @@ var xAlertDialogGetModal func(uintptr) bool
 // Returns whether the alert blocks interaction
 // with the parent window while it is presented.
 func (x *AlertDialog) GetModal() bool {
-	core.LazyRegister(&xAlertDialogGetModal, "GTK", "gtk_alert_dialog_get_modal", false)
-
 	cret := xAlertDialogGetModal(x.GoPointer())
 	return cret
 }
@@ -166,8 +150,6 @@ var xAlertDialogSetButtons func(uintptr, []string)
 
 // Sets the button labels for the alert.
 func (x *AlertDialog) SetButtons(LabelsVar []string) {
-	core.LazyRegister(&xAlertDialogSetButtons, "GTK", "gtk_alert_dialog_set_buttons", false)
-
 	xAlertDialogSetButtons(x.GoPointer(), LabelsVar)
 }
 
@@ -178,8 +160,6 @@ var xAlertDialogSetCancelButton func(uintptr, int)
 // See [property@Gtk.AlertDialog:cancel-button] for
 // details of how this value is used.
 func (x *AlertDialog) SetCancelButton(ButtonVar int) {
-	core.LazyRegister(&xAlertDialogSetCancelButton, "GTK", "gtk_alert_dialog_set_cancel_button", false)
-
 	xAlertDialogSetCancelButton(x.GoPointer(), ButtonVar)
 }
 
@@ -190,8 +170,6 @@ var xAlertDialogSetDefaultButton func(uintptr, int)
 // See [property@Gtk.AlertDialog:default-button] for
 // details of how this value is used.
 func (x *AlertDialog) SetDefaultButton(ButtonVar int) {
-	core.LazyRegister(&xAlertDialogSetDefaultButton, "GTK", "gtk_alert_dialog_set_default_button", false)
-
 	xAlertDialogSetDefaultButton(x.GoPointer(), ButtonVar)
 }
 
@@ -199,8 +177,6 @@ var xAlertDialogSetDetail func(uintptr, string)
 
 // Sets the detail text that will be shown in the alert.
 func (x *AlertDialog) SetDetail(DetailVar string) {
-	core.LazyRegister(&xAlertDialogSetDetail, "GTK", "gtk_alert_dialog_set_detail", false)
-
 	xAlertDialogSetDetail(x.GoPointer(), DetailVar)
 }
 
@@ -208,8 +184,6 @@ var xAlertDialogSetMessage func(uintptr, string)
 
 // Sets the message that will be shown in the alert.
 func (x *AlertDialog) SetMessage(MessageVar string) {
-	core.LazyRegister(&xAlertDialogSetMessage, "GTK", "gtk_alert_dialog_set_message", false)
-
 	xAlertDialogSetMessage(x.GoPointer(), MessageVar)
 }
 
@@ -218,8 +192,6 @@ var xAlertDialogSetModal func(uintptr, bool)
 // Sets whether the alert blocks interaction
 // with the parent window while it is presented.
 func (x *AlertDialog) SetModal(ModalVar bool) {
-	core.LazyRegister(&xAlertDialogSetModal, "GTK", "gtk_alert_dialog_set_modal", false)
-
 	xAlertDialogSetModal(x.GoPointer(), ModalVar)
 }
 
@@ -234,8 +206,6 @@ var xAlertDialogShow func(uintptr, uintptr)
 // button, you should use that function instead and provide it with a
 // [class@Gio.Cancellable] and callback respectively.
 func (x *AlertDialog) Show(ParentVar *Window) {
-	core.LazyRegister(&xAlertDialogShow, "GTK", "gtk_alert_dialog_show", false)
-
 	xAlertDialogShow(x.GoPointer(), ParentVar.GoPointer())
 }
 
@@ -399,4 +369,32 @@ func (x *AlertDialog) GetPropertyModal() bool {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GTK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xAlertDialogGLibType, libs, "gtk_alert_dialog_get_type")
+
+	core.PuregoSafeRegister(&xNewAlertDialog, libs, "gtk_alert_dialog_new")
+
+	core.PuregoSafeRegister(&xAlertDialogChoose, libs, "gtk_alert_dialog_choose")
+	core.PuregoSafeRegister(&xAlertDialogChooseFinish, libs, "gtk_alert_dialog_choose_finish")
+	core.PuregoSafeRegister(&xAlertDialogGetButtons, libs, "gtk_alert_dialog_get_buttons")
+	core.PuregoSafeRegister(&xAlertDialogGetCancelButton, libs, "gtk_alert_dialog_get_cancel_button")
+	core.PuregoSafeRegister(&xAlertDialogGetDefaultButton, libs, "gtk_alert_dialog_get_default_button")
+	core.PuregoSafeRegister(&xAlertDialogGetDetail, libs, "gtk_alert_dialog_get_detail")
+	core.PuregoSafeRegister(&xAlertDialogGetMessage, libs, "gtk_alert_dialog_get_message")
+	core.PuregoSafeRegister(&xAlertDialogGetModal, libs, "gtk_alert_dialog_get_modal")
+	core.PuregoSafeRegister(&xAlertDialogSetButtons, libs, "gtk_alert_dialog_set_buttons")
+	core.PuregoSafeRegister(&xAlertDialogSetCancelButton, libs, "gtk_alert_dialog_set_cancel_button")
+	core.PuregoSafeRegister(&xAlertDialogSetDefaultButton, libs, "gtk_alert_dialog_set_default_button")
+	core.PuregoSafeRegister(&xAlertDialogSetDetail, libs, "gtk_alert_dialog_set_detail")
+	core.PuregoSafeRegister(&xAlertDialogSetMessage, libs, "gtk_alert_dialog_set_message")
+	core.PuregoSafeRegister(&xAlertDialogSetModal, libs, "gtk_alert_dialog_set_modal")
+	core.PuregoSafeRegister(&xAlertDialogShow, libs, "gtk_alert_dialog_show")
 }

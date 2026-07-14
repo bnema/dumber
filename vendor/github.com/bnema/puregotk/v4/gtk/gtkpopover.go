@@ -193,7 +193,6 @@ type Popover struct {
 var xPopoverGLibType func() types.GType
 
 func PopoverGLibType() types.GType {
-	core.LazyRegister(&xPopoverGLibType, "GTK", "gtk_popover_get_type", false)
 	return xPopoverGLibType()
 }
 
@@ -207,7 +206,6 @@ var xNewPopover func() uintptr
 
 // Creates a new `GtkPopover`.
 func NewPopover() *Popover {
-	core.LazyRegister(&xNewPopover, "GTK", "gtk_popover_new", false)
 	var cls *Popover
 
 	cret := xNewPopover()
@@ -228,8 +226,6 @@ var xPopoverGetAutohide func(uintptr) bool
 // See [method@Gtk.Popover.set_autohide] for the
 // implications of this.
 func (x *Popover) GetAutohide() bool {
-	core.LazyRegister(&xPopoverGetAutohide, "GTK", "gtk_popover_get_autohide", false)
-
 	cret := xPopoverGetAutohide(x.GoPointer())
 	return cret
 }
@@ -238,8 +234,6 @@ var xPopoverGetCascadePopdown func(uintptr) bool
 
 // Returns whether the popover will close after a modal child is closed.
 func (x *Popover) GetCascadePopdown() bool {
-	core.LazyRegister(&xPopoverGetCascadePopdown, "GTK", "gtk_popover_get_cascade_popdown", false)
-
 	cret := xPopoverGetCascadePopdown(x.GoPointer())
 	return cret
 }
@@ -248,7 +242,6 @@ var xPopoverGetChild func(uintptr) uintptr
 
 // Gets the child widget of @popover.
 func (x *Popover) GetChild() *Widget {
-	core.LazyRegister(&xPopoverGetChild, "GTK", "gtk_popover_get_child", false)
 	var cls *Widget
 
 	cret := xPopoverGetChild(x.GoPointer())
@@ -267,8 +260,6 @@ var xPopoverGetHasArrow func(uintptr) bool
 // Gets whether this popover is showing an arrow
 // pointing at the widget that it is relative to.
 func (x *Popover) GetHasArrow() bool {
-	core.LazyRegister(&xPopoverGetHasArrow, "GTK", "gtk_popover_get_has_arrow", false)
-
 	cret := xPopoverGetHasArrow(x.GoPointer())
 	return cret
 }
@@ -277,8 +268,6 @@ var xPopoverGetMnemonicsVisible func(uintptr) bool
 
 // Gets whether mnemonics are visible.
 func (x *Popover) GetMnemonicsVisible() bool {
-	core.LazyRegister(&xPopoverGetMnemonicsVisible, "GTK", "gtk_popover_get_mnemonics_visible", false)
-
 	cret := xPopoverGetMnemonicsVisible(x.GoPointer())
 	return cret
 }
@@ -287,8 +276,6 @@ var xPopoverGetOffset func(uintptr, *int, *int)
 
 // Gets the offset previous set with [method@Gtk.Popover.set_offset].
 func (x *Popover) GetOffset(XOffsetVar *int, YOffsetVar *int) {
-	core.LazyRegister(&xPopoverGetOffset, "GTK", "gtk_popover_get_offset", false)
-
 	xPopoverGetOffset(x.GoPointer(), XOffsetVar, YOffsetVar)
 }
 
@@ -301,8 +288,6 @@ var xPopoverGetPointingTo func(uintptr, *gdk.Rectangle) bool
 // it will return %FALSE and fill in @rect with the parent
 // widget coordinates.
 func (x *Popover) GetPointingTo(RectVar *gdk.Rectangle) bool {
-	core.LazyRegister(&xPopoverGetPointingTo, "GTK", "gtk_popover_get_pointing_to", false)
-
 	cret := xPopoverGetPointingTo(x.GoPointer(), RectVar)
 	return cret
 }
@@ -311,8 +296,6 @@ var xPopoverGetPosition func(uintptr) PositionType
 
 // Returns the preferred position of @popover.
 func (x *Popover) GetPosition() PositionType {
-	core.LazyRegister(&xPopoverGetPosition, "GTK", "gtk_popover_get_position", false)
-
 	cret := xPopoverGetPosition(x.GoPointer())
 	return cret
 }
@@ -324,8 +307,6 @@ var xPopoverPopdown func(uintptr)
 // This may have the side-effect of closing a parent popover
 // as well. See [property@Gtk.Popover:cascade-popdown].
 func (x *Popover) Popdown() {
-	core.LazyRegister(&xPopoverPopdown, "GTK", "gtk_popover_popdown", false)
-
 	xPopoverPopdown(x.GoPointer())
 }
 
@@ -333,8 +314,6 @@ var xPopoverPopup func(uintptr)
 
 // Pops @popover up.
 func (x *Popover) Popup() {
-	core.LazyRegister(&xPopoverPopup, "GTK", "gtk_popover_popup", false)
-
 	xPopoverPopup(x.GoPointer())
 }
 
@@ -348,8 +327,6 @@ var xPopoverPresent func(uintptr)
 //
 // To make a popover appear on screen, use [method@Gtk.Popover.popup].
 func (x *Popover) Present() {
-	core.LazyRegister(&xPopoverPresent, "GTK", "gtk_popover_present", false)
-
 	xPopoverPresent(x.GoPointer())
 }
 
@@ -365,8 +342,6 @@ var xPopoverSetAutohide func(uintptr, bool)
 // autohide value different from the current one, will cause the
 // popup to be hidden.
 func (x *Popover) SetAutohide(AutohideVar bool) {
-	core.LazyRegister(&xPopoverSetAutohide, "GTK", "gtk_popover_set_autohide", false)
-
 	xPopoverSetAutohide(x.GoPointer(), AutohideVar)
 }
 
@@ -377,8 +352,6 @@ var xPopoverSetCascadePopdown func(uintptr, bool)
 //
 // If %FALSE, @popover will stay visible.
 func (x *Popover) SetCascadePopdown(CascadePopdownVar bool) {
-	core.LazyRegister(&xPopoverSetCascadePopdown, "GTK", "gtk_popover_set_cascade_popdown", false)
-
 	xPopoverSetCascadePopdown(x.GoPointer(), CascadePopdownVar)
 }
 
@@ -386,8 +359,6 @@ var xPopoverSetChild func(uintptr, uintptr)
 
 // Sets the child widget of @popover.
 func (x *Popover) SetChild(ChildVar *Widget) {
-	core.LazyRegister(&xPopoverSetChild, "GTK", "gtk_popover_set_child", false)
-
 	xPopoverSetChild(x.GoPointer(), ChildVar.GoPointer())
 }
 
@@ -399,8 +370,6 @@ var xPopoverSetDefaultWidget func(uintptr, uintptr)
 // presses Enter in a dialog (for example). This function sets or
 // unsets the default widget for a `GtkPopover`.
 func (x *Popover) SetDefaultWidget(WidgetVar *Widget) {
-	core.LazyRegister(&xPopoverSetDefaultWidget, "GTK", "gtk_popover_set_default_widget", false)
-
 	xPopoverSetDefaultWidget(x.GoPointer(), WidgetVar.GoPointer())
 }
 
@@ -409,8 +378,6 @@ var xPopoverSetHasArrow func(uintptr, bool)
 // Sets whether this popover should draw an arrow
 // pointing at the widget it is relative to.
 func (x *Popover) SetHasArrow(HasArrowVar bool) {
-	core.LazyRegister(&xPopoverSetHasArrow, "GTK", "gtk_popover_set_has_arrow", false)
-
 	xPopoverSetHasArrow(x.GoPointer(), HasArrowVar)
 }
 
@@ -418,8 +385,6 @@ var xPopoverSetMnemonicsVisible func(uintptr, bool)
 
 // Sets whether mnemonics should be visible.
 func (x *Popover) SetMnemonicsVisible(MnemonicsVisibleVar bool) {
-	core.LazyRegister(&xPopoverSetMnemonicsVisible, "GTK", "gtk_popover_set_mnemonics_visible", false)
-
 	xPopoverSetMnemonicsVisible(x.GoPointer(), MnemonicsVisibleVar)
 }
 
@@ -431,8 +396,6 @@ var xPopoverSetOffset func(uintptr, int, int)
 // These values are used when preparing the [struct@Gdk.PopupLayout]
 // for positioning the popover.
 func (x *Popover) SetOffset(XOffsetVar int, YOffsetVar int) {
-	core.LazyRegister(&xPopoverSetOffset, "GTK", "gtk_popover_set_offset", false)
-
 	xPopoverSetOffset(x.GoPointer(), XOffsetVar, YOffsetVar)
 }
 
@@ -442,8 +405,6 @@ var xPopoverSetPointingTo func(uintptr, *gdk.Rectangle)
 //
 // This is in the coordinate space of the @popover parent.
 func (x *Popover) SetPointingTo(RectVar *gdk.Rectangle) {
-	core.LazyRegister(&xPopoverSetPointingTo, "GTK", "gtk_popover_set_pointing_to", false)
-
 	xPopoverSetPointingTo(x.GoPointer(), RectVar)
 }
 
@@ -458,8 +419,6 @@ var xPopoverSetPosition func(uintptr, PositionType)
 // on lack of space (eg. if close to the window edges), the
 // `GtkPopover` may choose to appear on the opposite side.
 func (x *Popover) SetPosition(PositionVar PositionType) {
-	core.LazyRegister(&xPopoverSetPosition, "GTK", "gtk_popover_set_position", false)
-
 	xPopoverSetPosition(x.GoPointer(), PositionVar)
 }
 
@@ -928,4 +887,37 @@ func (x *Popover) Unrealize() {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GTK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xPopoverGLibType, libs, "gtk_popover_get_type")
+
+	core.PuregoSafeRegister(&xNewPopover, libs, "gtk_popover_new")
+
+	core.PuregoSafeRegister(&xPopoverGetAutohide, libs, "gtk_popover_get_autohide")
+	core.PuregoSafeRegister(&xPopoverGetCascadePopdown, libs, "gtk_popover_get_cascade_popdown")
+	core.PuregoSafeRegister(&xPopoverGetChild, libs, "gtk_popover_get_child")
+	core.PuregoSafeRegister(&xPopoverGetHasArrow, libs, "gtk_popover_get_has_arrow")
+	core.PuregoSafeRegister(&xPopoverGetMnemonicsVisible, libs, "gtk_popover_get_mnemonics_visible")
+	core.PuregoSafeRegister(&xPopoverGetOffset, libs, "gtk_popover_get_offset")
+	core.PuregoSafeRegister(&xPopoverGetPointingTo, libs, "gtk_popover_get_pointing_to")
+	core.PuregoSafeRegister(&xPopoverGetPosition, libs, "gtk_popover_get_position")
+	core.PuregoSafeRegister(&xPopoverPopdown, libs, "gtk_popover_popdown")
+	core.PuregoSafeRegister(&xPopoverPopup, libs, "gtk_popover_popup")
+	core.PuregoSafeRegister(&xPopoverPresent, libs, "gtk_popover_present")
+	core.PuregoSafeRegister(&xPopoverSetAutohide, libs, "gtk_popover_set_autohide")
+	core.PuregoSafeRegister(&xPopoverSetCascadePopdown, libs, "gtk_popover_set_cascade_popdown")
+	core.PuregoSafeRegister(&xPopoverSetChild, libs, "gtk_popover_set_child")
+	core.PuregoSafeRegister(&xPopoverSetDefaultWidget, libs, "gtk_popover_set_default_widget")
+	core.PuregoSafeRegister(&xPopoverSetHasArrow, libs, "gtk_popover_set_has_arrow")
+	core.PuregoSafeRegister(&xPopoverSetMnemonicsVisible, libs, "gtk_popover_set_mnemonics_visible")
+	core.PuregoSafeRegister(&xPopoverSetOffset, libs, "gtk_popover_set_offset")
+	core.PuregoSafeRegister(&xPopoverSetPointingTo, libs, "gtk_popover_set_pointing_to")
+	core.PuregoSafeRegister(&xPopoverSetPosition, libs, "gtk_popover_set_position")
 }

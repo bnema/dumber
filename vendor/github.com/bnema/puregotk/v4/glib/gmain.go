@@ -105,7 +105,6 @@ type MainContext struct {
 var xMainContextGLibType func() types.GType
 
 func MainContextGLibType() types.GType {
-	core.LazyRegister(&xMainContextGLibType, "GLIB", "g_main_context_get_type", false)
 	return xMainContextGLibType()
 }
 
@@ -125,8 +124,6 @@ var xNewMainContext func() uintptr
 
 // Creates a new [struct@GLib.MainContext] structure.
 func NewMainContext() *MainContext {
-	core.LazyRegister(&xNewMainContext, "GLIB", "g_main_context_new", false)
-
 	cret := xNewMainContext()
 	if cret == 0 {
 		return nil
@@ -138,8 +135,6 @@ var xNewMainContextWithFlags func(MainContextFlags) uintptr
 
 // Creates a new [struct@GLib.MainContext] structure.
 func NewMainContextWithFlags(FlagsVar MainContextFlags) *MainContext {
-	core.LazyRegister(&xNewMainContextWithFlags, "GLIB", "g_main_context_new_with_flags", false)
-
 	cret := xNewMainContextWithFlags(FlagsVar)
 	if cret == 0 {
 		return nil
@@ -165,8 +160,6 @@ var xMainContextAcquire func(uintptr) bool
 // Since 2.76 @context can be `NULL` to use the global-default
 // main context.
 func (x *MainContext) Acquire() bool {
-	core.LazyRegister(&xMainContextAcquire, "GLIB", "g_main_context_acquire", false)
-
 	cret := xMainContextAcquire(x.GoPointer())
 	return cret
 }
@@ -179,8 +172,6 @@ var xMainContextAddPoll func(uintptr, *PollFD, int)
 // This will very seldom be used directly. Instead
 // a typical event source will use `g_source_add_unix_fd()` instead.
 func (x *MainContext) AddPoll(FdVar *PollFD, PriorityVar int) {
-	core.LazyRegister(&xMainContextAddPoll, "GLIB", "g_main_context_add_poll", false)
-
 	xMainContextAddPoll(x.GoPointer(), FdVar, PriorityVar)
 }
 
@@ -199,8 +190,6 @@ var xMainContextCheck func(uintptr, int, []PollFD, int) bool
 // Since 2.76 @context can be `NULL` to use the global-default
 // main context.
 func (x *MainContext) Check(MaxPriorityVar int, FdsVar []PollFD, NFdsVar int) bool {
-	core.LazyRegister(&xMainContextCheck, "GLIB", "g_main_context_check", false)
-
 	cret := xMainContextCheck(x.GoPointer(), MaxPriorityVar, FdsVar, NFdsVar)
 	return cret
 }
@@ -215,8 +204,6 @@ var xMainContextDispatch func(uintptr)
 // Since 2.76 @context can be `NULL` to use the global-default
 // main context.
 func (x *MainContext) Dispatch() {
-	core.LazyRegister(&xMainContextDispatch, "GLIB", "g_main_context_dispatch", false)
-
 	xMainContextDispatch(x.GoPointer())
 }
 
@@ -227,8 +214,6 @@ var xMainContextFindSourceByFuncsUserData func(uintptr, *SourceFuncs, uintptr) u
 // If multiple sources exist with the same source function and user data,
 // the first one found will be returned.
 func (x *MainContext) FindSourceByFuncsUserData(FuncsVar *SourceFuncs, UserDataVar uintptr) *Source {
-	core.LazyRegister(&xMainContextFindSourceByFuncsUserData, "GLIB", "g_main_context_find_source_by_funcs_user_data", false)
-
 	cret := xMainContextFindSourceByFuncsUserData(x.GoPointer(), FuncsVar, UserDataVar)
 	if cret == 0 {
 		return nil
@@ -251,8 +236,6 @@ var xMainContextFindSourceById func(uintptr, uint) uintptr
 // been reissued, leading to the operation being performed against the
 // wrong source.
 func (x *MainContext) FindSourceById(SourceIdVar uint) *Source {
-	core.LazyRegister(&xMainContextFindSourceById, "GLIB", "g_main_context_find_source_by_id", false)
-
 	cret := xMainContextFindSourceById(x.GoPointer(), SourceIdVar)
 	if cret == 0 {
 		return nil
@@ -267,8 +250,6 @@ var xMainContextFindSourceByUserData func(uintptr, uintptr) uintptr
 // If multiple sources exist with the same user data, the first
 // one found will be returned.
 func (x *MainContext) FindSourceByUserData(UserDataVar uintptr) *Source {
-	core.LazyRegister(&xMainContextFindSourceByUserData, "GLIB", "g_main_context_find_source_by_user_data", false)
-
 	cret := xMainContextFindSourceByUserData(x.GoPointer(), UserDataVar)
 	if cret == 0 {
 		return nil
@@ -280,8 +261,6 @@ var xMainContextGetPollFunc func(uintptr) uintptr
 
 // Gets the poll function set by [method@GLib.MainContext.set_poll_func].
 func (x *MainContext) GetPollFunc() uintptr {
-	core.LazyRegister(&xMainContextGetPollFunc, "GLIB", "g_main_context_get_poll_func", false)
-
 	cret := xMainContextGetPollFunc(x.GoPointer())
 	return cret
 }
@@ -310,8 +289,6 @@ var xMainContextInvoke func(uintptr, uintptr, uintptr)
 // [const@GLib.SOURCE_REMOVE].  If it returns [const@GLib.SOURCE_CONTINUE], it
 // will be continuously run in a loop (and may prevent this call from returning).
 func (x *MainContext) Invoke(FunctionVar *SourceFunc, DataVar uintptr) {
-	core.LazyRegister(&xMainContextInvoke, "GLIB", "g_main_context_invoke", false)
-
 	xMainContextInvoke(x.GoPointer(), NewCallback(FunctionVar), DataVar)
 }
 
@@ -328,8 +305,6 @@ var xMainContextInvokeFull func(uintptr, int, uintptr, uintptr, uintptr)
 // The @notify function should not assume that it is called from any particular
 // thread or with any particular context acquired.
 func (x *MainContext) InvokeFull(PriorityVar int, FunctionVar *SourceFunc, DataVar uintptr, NotifyVar *DestroyNotify) {
-	core.LazyRegister(&xMainContextInvokeFull, "GLIB", "g_main_context_invoke_full", false)
-
 	xMainContextInvokeFull(x.GoPointer(), PriorityVar, NewCallback(FunctionVar), DataVar, NewCallbackNullable(NotifyVar))
 }
 
@@ -342,8 +317,6 @@ var xMainContextIsOwner func(uintptr) bool
 // know before waiting on another thread that may be
 // blocking to get ownership of @context.
 func (x *MainContext) IsOwner() bool {
-	core.LazyRegister(&xMainContextIsOwner, "GLIB", "g_main_context_is_owner", false)
-
 	cret := xMainContextIsOwner(x.GoPointer())
 	return cret
 }
@@ -364,8 +337,6 @@ var xMainContextIteration func(uintptr, bool) bool
 // [method@GLib.MainContext.iteration] to return false, since the wait may
 // be interrupted for other reasons than an event source becoming ready.
 func (x *MainContext) Iteration(MayBlockVar bool) bool {
-	core.LazyRegister(&xMainContextIteration, "GLIB", "g_main_context_iteration", false)
-
 	cret := xMainContextIteration(x.GoPointer(), MayBlockVar)
 	return cret
 }
@@ -374,8 +345,6 @@ var xMainContextPending func(uintptr) bool
 
 // Checks if any sources have pending events for the given context.
 func (x *MainContext) Pending() bool {
-	core.LazyRegister(&xMainContextPending, "GLIB", "g_main_context_pending", false)
-
 	cret := xMainContextPending(x.GoPointer())
 	return cret
 }
@@ -385,8 +354,6 @@ var xMainContextPopThreadDefault func(uintptr)
 // Pops @context off the thread-default context stack (verifying that
 // it was on the top of the stack).
 func (x *MainContext) PopThreadDefault() {
-	core.LazyRegister(&xMainContextPopThreadDefault, "GLIB", "g_main_context_pop_thread_default", false)
-
 	xMainContextPopThreadDefault(x.GoPointer())
 }
 
@@ -400,8 +367,6 @@ var xMainContextPrepare func(uintptr, *int) bool
 // You must have successfully acquired the context with
 // [method@GLib.MainContext.acquire] before you may call this function.
 func (x *MainContext) Prepare(PriorityVar *int) bool {
-	core.LazyRegister(&xMainContextPrepare, "GLIB", "g_main_context_prepare", false)
-
 	cret := xMainContextPrepare(x.GoPointer(), PriorityVar)
 	return cret
 }
@@ -448,8 +413,6 @@ var xMainContextPushThreadDefault func(uintptr)
 // handle being used from a thread with a thread-default context. For example,
 // see `g_file_supports_thread_contexts()`.
 func (x *MainContext) PushThreadDefault() {
-	core.LazyRegister(&xMainContextPushThreadDefault, "GLIB", "g_main_context_push_thread_default", false)
-
 	xMainContextPushThreadDefault(x.GoPointer())
 }
 
@@ -496,8 +459,6 @@ var xMainContextPusherNew func(uintptr) *MainContextPusher
 //
 // ]|
 func (x *MainContext) PusherNew() *MainContextPusher {
-	core.LazyRegister(&xMainContextPusherNew, "GLIB", "g_main_context_pusher_new", false)
-
 	cret := xMainContextPusherNew(x.GoPointer())
 	return cret
 }
@@ -514,8 +475,6 @@ var xMainContextQuery func(uintptr, int, *int, *[]PollFD, int) int
 // You must have successfully acquired the context with
 // [method@GLib.MainContext.acquire] before you may call this function.
 func (x *MainContext) Query(MaxPriorityVar int, TimeoutVar *int, FdsVar *[]PollFD, NFdsVar int) int {
-	core.LazyRegister(&xMainContextQuery, "GLIB", "g_main_context_query", false)
-
 	cret := xMainContextQuery(x.GoPointer(), MaxPriorityVar, TimeoutVar, FdsVar, NFdsVar)
 	return cret
 }
@@ -524,8 +483,6 @@ var xMainContextRef func(uintptr) uintptr
 
 // Increases the reference count on a [struct@GLib.MainContext] object by one.
 func (x *MainContext) Ref() *MainContext {
-	core.LazyRegister(&xMainContextRef, "GLIB", "g_main_context_ref", false)
-
 	cret := xMainContextRef(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -545,8 +502,6 @@ var xMainContextRelease func(uintptr)
 // You must have successfully acquired the context with
 // [method@GLib.MainContext.acquire] before you may call this function.
 func (x *MainContext) Release() {
-	core.LazyRegister(&xMainContextRelease, "GLIB", "g_main_context_release", false)
-
 	xMainContextRelease(x.GoPointer())
 }
 
@@ -555,8 +510,6 @@ var xMainContextRemovePoll func(uintptr, *PollFD)
 // Removes file descriptor from the set of file descriptors to be
 // polled for a particular context.
 func (x *MainContext) RemovePoll(FdVar *PollFD) {
-	core.LazyRegister(&xMainContextRemovePoll, "GLIB", "g_main_context_remove_poll", false)
-
 	xMainContextRemovePoll(x.GoPointer(), FdVar)
 }
 
@@ -571,8 +524,6 @@ var xMainContextSetPollFunc func(uintptr, uintptr)
 // This function could possibly be used to integrate the GLib event
 // loop with an external event loop.
 func (x *MainContext) SetPollFunc(FuncVar *PollFunc) {
-	core.LazyRegister(&xMainContextSetPollFunc, "GLIB", "g_main_context_set_poll_func", false)
-
 	xMainContextSetPollFunc(x.GoPointer(), NewCallback(FuncVar))
 }
 
@@ -582,8 +533,6 @@ var xMainContextUnref func(uintptr)
 // If
 // the result is zero, free the context and free all associated memory.
 func (x *MainContext) Unref() {
-	core.LazyRegister(&xMainContextUnref, "GLIB", "g_main_context_unref", false)
-
 	xMainContextUnref(x.GoPointer())
 }
 
@@ -597,8 +546,6 @@ var xMainContextWait func(uintptr, *Cond, *Mutex) bool
 // that owner releases ownership or until @cond is signaled, then
 // try again (once) to become the owner.
 func (x *MainContext) Wait(CondVar *Cond, MutexVar *Mutex) bool {
-	core.LazyRegister(&xMainContextWait, "GLIB", "g_main_context_wait", false)
-
 	cret := xMainContextWait(x.GoPointer(), CondVar, MutexVar)
 	return cret
 }
@@ -641,8 +588,6 @@ var xMainContextWakeup func(uintptr)
 //
 // ```
 func (x *MainContext) Wakeup() {
-	core.LazyRegister(&xMainContextWakeup, "GLIB", "g_main_context_wakeup", false)
-
 	xMainContextWakeup(x.GoPointer())
 }
 
@@ -655,7 +600,6 @@ type MainLoop struct {
 var xMainLoopGLibType func() types.GType
 
 func MainLoopGLibType() types.GType {
-	core.LazyRegister(&xMainLoopGLibType, "GLIB", "g_main_loop_get_type", false)
 	return xMainLoopGLibType()
 }
 
@@ -675,8 +619,6 @@ var xNewMainLoop func(*MainContext, bool) uintptr
 
 // Creates a new [struct@GLib.MainLoop] structure.
 func NewMainLoop(ContextVar *MainContext, IsRunningVar bool) *MainLoop {
-	core.LazyRegister(&xNewMainLoop, "GLIB", "g_main_loop_new", false)
-
 	cret := xNewMainLoop(ContextVar, IsRunningVar)
 	if cret == 0 {
 		return nil
@@ -688,8 +630,6 @@ var xMainLoopGetContext func(uintptr) uintptr
 
 // Returns the [struct@GLib.MainContext] of @loop.
 func (x *MainLoop) GetContext() *MainContext {
-	core.LazyRegister(&xMainLoopGetContext, "GLIB", "g_main_loop_get_context", false)
-
 	cret := xMainLoopGetContext(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -702,8 +642,6 @@ var xMainLoopIsRunning func(uintptr) bool
 // Checks to see if the main loop is currently being run via
 // [method@GLib.MainLoop.run].
 func (x *MainLoop) IsRunning() bool {
-	core.LazyRegister(&xMainLoopIsRunning, "GLIB", "g_main_loop_is_running", false)
-
 	cret := xMainLoopIsRunning(x.GoPointer())
 	return cret
 }
@@ -716,8 +654,6 @@ var xMainLoopQuit func(uintptr)
 // Note that sources that have already been dispatched when
 // [method@GLib.MainLoop.quit] is called will still be executed.
 func (x *MainLoop) Quit() {
-	core.LazyRegister(&xMainLoopQuit, "GLIB", "g_main_loop_quit", false)
-
 	xMainLoopQuit(x.GoPointer())
 }
 
@@ -725,8 +661,6 @@ var xMainLoopRef func(uintptr) uintptr
 
 // Increases the reference count on a [struct@GLib.MainLoop] object by one.
 func (x *MainLoop) Ref() *MainLoop {
-	core.LazyRegister(&xMainLoopRef, "GLIB", "g_main_loop_ref", false)
-
 	cret := xMainLoopRef(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -742,8 +676,6 @@ var xMainLoopRun func(uintptr)
 // it will process events from the loop, otherwise it will
 // simply wait.
 func (x *MainLoop) Run() {
-	core.LazyRegister(&xMainLoopRun, "GLIB", "g_main_loop_run", false)
-
 	xMainLoopRun(x.GoPointer())
 }
 
@@ -753,8 +685,6 @@ var xMainLoopUnref func(uintptr)
 //
 // If the result is zero, the loop and all associated memory are freed.
 func (x *MainLoop) Unref() {
-	core.LazyRegister(&xMainLoopUnref, "GLIB", "g_main_loop_unref", false)
-
 	xMainLoopUnref(x.GoPointer())
 }
 
@@ -793,7 +723,6 @@ type Source struct {
 var xSourceGLibType func() types.GType
 
 func SourceGLibType() types.GType {
-	core.LazyRegister(&xSourceGLibType, "GLIB", "g_source_get_type", false)
 	return xSourceGLibType()
 }
 
@@ -822,8 +751,6 @@ var xNewSource func(*SourceFuncs, uint) uintptr
 // and must be added to one with [method@GLib.Source.attach] before it will be
 // executed.
 func NewSource(SourceFuncsVar *SourceFuncs, StructSizeVar uint) *Source {
-	core.LazyRegister(&xNewSource, "GLIB", "g_source_new", false)
-
 	cret := xNewSource(SourceFuncsVar, StructSizeVar)
 	if cret == 0 {
 		return nil
@@ -853,8 +780,6 @@ var xSourceAddChildSource func(uintptr, *Source)
 // This API is only intended to be used by implementations of [struct@GLib.Source].
 // Do not call this API on a [struct@GLib.Source] that you did not create.
 func (x *Source) AddChildSource(ChildSourceVar *Source) {
-	core.LazyRegister(&xSourceAddChildSource, "GLIB", "g_source_add_child_source", false)
-
 	xSourceAddChildSource(x.GoPointer(), ChildSourceVar)
 }
 
@@ -875,8 +800,6 @@ var xSourceAddPoll func(uintptr, *PollFD)
 // main loop iteration.  Newly-written event sources should try to use
 // `g_source_add_unix_fd()` instead of this API.
 func (x *Source) AddPoll(FdVar *PollFD) {
-	core.LazyRegister(&xSourceAddPoll, "GLIB", "g_source_add_poll", false)
-
 	xSourceAddPoll(x.GoPointer(), FdVar)
 }
 
@@ -896,8 +819,6 @@ var xSourceAddUnixFd func(uintptr, int, IOCondition) uintptr
 //
 // As the name suggests, this function is not available on Windows.
 func (x *Source) AddUnixFd(FdVar int, EventsVar IOCondition) uintptr {
-	core.LazyRegister(&xSourceAddUnixFd, "GLIB", "g_source_add_unix_fd", false)
-
 	cret := xSourceAddUnixFd(x.GoPointer(), FdVar, EventsVar)
 	return cret
 }
@@ -912,8 +833,6 @@ var xSourceAttach func(uintptr, *MainContext) uint
 // This function is safe to call from any thread, regardless of which thread
 // the @context is running in.
 func (x *Source) Attach(ContextVar *MainContext) uint {
-	core.LazyRegister(&xSourceAttach, "GLIB", "g_source_attach", false)
-
 	cret := xSourceAttach(x.GoPointer(), ContextVar)
 	return cret
 }
@@ -938,8 +857,6 @@ var xSourceDestroy func(uintptr)
 // [method@GLib.Source.set_callback]. This can mean, that the data’s
 // [callback@GLib.DestroyNotify] gets called right away.
 func (x *Source) Destroy() {
-	core.LazyRegister(&xSourceDestroy, "GLIB", "g_source_destroy", false)
-
 	xSourceDestroy(x.GoPointer())
 }
 
@@ -952,8 +869,6 @@ var xSourceDupContext func(uintptr) uintptr
 // always call this function on the source returned from
 // [func@GLib.main_current_source].
 func (x *Source) DupContext() *MainContext {
-	core.LazyRegister(&xSourceDupContext, "GLIB", "g_source_dup_context", false)
-
 	cret := xSourceDupContext(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -967,8 +882,6 @@ var xSourceGetCanRecurse func(uintptr) bool
 //
 // See [method@GLib.Source.set_can_recurse].
 func (x *Source) GetCanRecurse() bool {
-	core.LazyRegister(&xSourceGetCanRecurse, "GLIB", "g_source_get_can_recurse", false)
-
 	cret := xSourceGetCanRecurse(x.GoPointer())
 	return cret
 }
@@ -988,8 +901,6 @@ var xSourceGetContext func(uintptr) uintptr
 // a different thread, then this function is not safe to call and
 // [method@GLib.Source.dup_context] should be used instead.
 func (x *Source) GetContext() *MainContext {
-	core.LazyRegister(&xSourceGetContext, "GLIB", "g_source_get_context", false)
-
 	cret := xSourceGetContext(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -1002,8 +913,6 @@ var xSourceGetCurrentTime func(uintptr, *TimeVal)
 // This function ignores @source and is otherwise the same as
 // [func@GLib.get_current_time].
 func (x *Source) GetCurrentTime(TimevalVar *TimeVal) {
-	core.LazyRegister(&xSourceGetCurrentTime, "GLIB", "g_source_get_current_time", false)
-
 	xSourceGetCurrentTime(x.GoPointer(), TimevalVar)
 }
 
@@ -1022,8 +931,6 @@ var xSourceGetId func(uintptr) uint
 // undefined behavior. The ID returned is unique within the
 // [struct@GLib.MainContext] instance passed to [method@GLib.Source.attach].
 func (x *Source) GetId() uint {
-	core.LazyRegister(&xSourceGetId, "GLIB", "g_source_get_id", false)
-
 	cret := xSourceGetId(x.GoPointer())
 	return cret
 }
@@ -1035,8 +942,6 @@ var xSourceGetName func(uintptr) string
 // The
 // name may be `NULL` if it has never been set with [method@GLib.Source.set_name].
 func (x *Source) GetName() string {
-	core.LazyRegister(&xSourceGetName, "GLIB", "g_source_get_name", false)
-
 	cret := xSourceGetName(x.GoPointer())
 	return cret
 }
@@ -1045,8 +950,6 @@ var xSourceGetPriority func(uintptr) int
 
 // Gets the priority of a source.
 func (x *Source) GetPriority() int {
-	core.LazyRegister(&xSourceGetPriority, "GLIB", "g_source_get_priority", false)
-
 	cret := xSourceGetPriority(x.GoPointer())
 	return cret
 }
@@ -1059,8 +962,6 @@ var xSourceGetReadyTime func(uintptr) int64
 // Any time before or equal to the current monotonic time (including zero)
 // is an indication that the source will fire immediately.
 func (x *Source) GetReadyTime() int64 {
-	core.LazyRegister(&xSourceGetReadyTime, "GLIB", "g_source_get_ready_time", false)
-
 	cret := xSourceGetReadyTime(x.GoPointer())
 	return cret
 }
@@ -1077,8 +978,6 @@ var xSourceGetTime func(uintptr) int64
 // The time here is the system monotonic time, if available, or some
 // other reasonable alternative otherwise.  See [func@GLib.get_monotonic_time].
 func (x *Source) GetTime() int64 {
-	core.LazyRegister(&xSourceGetTime, "GLIB", "g_source_get_time", false)
-
 	cret := xSourceGetTime(x.GoPointer())
 	return cret
 }
@@ -1171,8 +1070,6 @@ var xSourceIsDestroyed func(uintptr) bool
 // returns. However, once a source is destroyed it cannot be un-destroyed, so
 // this function can be used for opportunistic checks from any thread.
 func (x *Source) IsDestroyed() bool {
-	core.LazyRegister(&xSourceIsDestroyed, "GLIB", "g_source_is_destroyed", false)
-
 	cret := xSourceIsDestroyed(x.GoPointer())
 	return cret
 }
@@ -1191,8 +1088,6 @@ var xSourceModifyUnixFd func(uintptr, uintptr, IOCondition)
 //
 // As the name suggests, this function is not available on Windows.
 func (x *Source) ModifyUnixFd(TagVar uintptr, NewEventsVar IOCondition) {
-	core.LazyRegister(&xSourceModifyUnixFd, "GLIB", "g_source_modify_unix_fd", false)
-
 	xSourceModifyUnixFd(x.GoPointer(), TagVar, NewEventsVar)
 }
 
@@ -1209,8 +1104,6 @@ var xSourceQueryUnixFd func(uintptr, uintptr) IOCondition
 //
 // As the name suggests, this function is not available on Windows.
 func (x *Source) QueryUnixFd(TagVar uintptr) IOCondition {
-	core.LazyRegister(&xSourceQueryUnixFd, "GLIB", "g_source_query_unix_fd", false)
-
 	cret := xSourceQueryUnixFd(x.GoPointer(), TagVar)
 	return cret
 }
@@ -1219,8 +1112,6 @@ var xSourceRef func(uintptr) uintptr
 
 // Increases the reference count on a source by one.
 func (x *Source) Ref() *Source {
-	core.LazyRegister(&xSourceRef, "GLIB", "g_source_ref", false)
-
 	cret := xSourceRef(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -1235,8 +1126,6 @@ var xSourceRemoveChildSource func(uintptr, *Source)
 // This API is only intended to be used by implementations of [struct@GLib.Source].
 // Do not call this API on a [struct@GLib.Source] that you did not create.
 func (x *Source) RemoveChildSource(ChildSourceVar *Source) {
-	core.LazyRegister(&xSourceRemoveChildSource, "GLIB", "g_source_remove_child_source", false)
-
 	xSourceRemoveChildSource(x.GoPointer(), ChildSourceVar)
 }
 
@@ -1248,8 +1137,6 @@ var xSourceRemovePoll func(uintptr, *PollFD)
 // This API is only intended to be used by implementations of [struct@GLib.Source].
 // Do not call this API on a [struct@GLib.Source] that you did not create.
 func (x *Source) RemovePoll(FdVar *PollFD) {
-	core.LazyRegister(&xSourceRemovePoll, "GLIB", "g_source_remove_poll", false)
-
 	xSourceRemovePoll(x.GoPointer(), FdVar)
 }
 
@@ -1266,8 +1153,6 @@ var xSourceRemoveUnixFd func(uintptr, uintptr)
 //
 // As the name suggests, this function is not available on Windows.
 func (x *Source) RemoveUnixFd(TagVar uintptr) {
-	core.LazyRegister(&xSourceRemoveUnixFd, "GLIB", "g_source_remove_unix_fd", false)
-
 	xSourceRemoveUnixFd(x.GoPointer(), TagVar)
 }
 
@@ -1295,8 +1180,6 @@ var xSourceSetCallback func(uintptr, uintptr, uintptr, uintptr)
 // Note that [method@GLib.Source.destroy] for a currently attached source has the effect
 // of also unsetting the callback.
 func (x *Source) SetCallback(FuncVar *SourceFunc, DataVar uintptr, NotifyVar *DestroyNotify) {
-	core.LazyRegister(&xSourceSetCallback, "GLIB", "g_source_set_callback", false)
-
 	xSourceSetCallback(x.GoPointer(), NewCallback(FuncVar), DataVar, NewCallbackNullable(NotifyVar))
 }
 
@@ -1315,8 +1198,6 @@ var xSourceSetCallbackIndirect func(uintptr, uintptr, *SourceCallbackFuncs)
 // been attached to a context. The changes will take effect for the next time
 // the source is dispatched after this call returns.
 func (x *Source) SetCallbackIndirect(CallbackDataVar uintptr, CallbackFuncsVar *SourceCallbackFuncs) {
-	core.LazyRegister(&xSourceSetCallbackIndirect, "GLIB", "g_source_set_callback_indirect", false)
-
 	xSourceSetCallbackIndirect(x.GoPointer(), CallbackDataVar, CallbackFuncsVar)
 }
 
@@ -1328,8 +1209,6 @@ var xSourceSetCanRecurse func(uintptr, bool)
 // source will be processed normally. Otherwise, all processing of this
 // source is blocked until the dispatch function returns.
 func (x *Source) SetCanRecurse(CanRecurseVar bool) {
-	core.LazyRegister(&xSourceSetCanRecurse, "GLIB", "g_source_set_can_recurse", false)
-
 	xSourceSetCanRecurse(x.GoPointer(), CanRecurseVar)
 }
 
@@ -1356,8 +1235,6 @@ var xSourceSetDisposeFunction func(uintptr, uintptr)
 //
 // This should only ever be called from [struct@GLib.Source] implementations.
 func (x *Source) SetDisposeFunction(DisposeVar *SourceDisposeFunc) {
-	core.LazyRegister(&xSourceSetDisposeFunction, "GLIB", "g_source_set_dispose_function", false)
-
 	xSourceSetDisposeFunction(x.GoPointer(), NewCallback(DisposeVar))
 }
 
@@ -1368,8 +1245,6 @@ var xSourceSetFuncs func(uintptr, *SourceFuncs)
 // These can be used to override the default implementations for the type
 // of @source.
 func (x *Source) SetFuncs(FuncsVar *SourceFuncs) {
-	core.LazyRegister(&xSourceSetFuncs, "GLIB", "g_source_set_funcs", false)
-
 	xSourceSetFuncs(x.GoPointer(), FuncsVar)
 }
 
@@ -1396,8 +1271,6 @@ var xSourceSetName func(uintptr, string)
 //
 // Also see [method@GLib.Source.set_static_name].
 func (x *Source) SetName(NameVar string) {
-	core.LazyRegister(&xSourceSetName, "GLIB", "g_source_set_name", false)
-
 	xSourceSetName(x.GoPointer(), NameVar)
 }
 
@@ -1414,8 +1287,6 @@ var xSourceSetPriority func(uintptr, int)
 // permitted to change the priority of a source once it has been added
 // as a child of another source.
 func (x *Source) SetPriority(PriorityVar int) {
-	core.LazyRegister(&xSourceSetPriority, "GLIB", "g_source_set_priority", false)
-
 	xSourceSetPriority(x.GoPointer(), PriorityVar)
 }
 
@@ -1446,8 +1317,6 @@ var xSourceSetReadyTime func(uintptr, int64)
 // This API is only intended to be used by implementations of [struct@GLib.Source].
 // Do not call this API on a [struct@GLib.Source] that you did not create.
 func (x *Source) SetReadyTime(ReadyTimeVar int64) {
-	core.LazyRegister(&xSourceSetReadyTime, "GLIB", "g_source_set_ready_time", false)
-
 	xSourceSetReadyTime(x.GoPointer(), ReadyTimeVar)
 }
 
@@ -1457,8 +1326,6 @@ var xSourceSetStaticName func(uintptr, string)
 // duplicate the @name, and can only be used with
 // string literals.
 func (x *Source) SetStaticName(NameVar string) {
-	core.LazyRegister(&xSourceSetStaticName, "GLIB", "g_source_set_static_name", false)
-
 	xSourceSetStaticName(x.GoPointer(), NameVar)
 }
 
@@ -1469,8 +1336,6 @@ var xSourceUnref func(uintptr)
 // If the resulting reference count is zero the source and associated
 // memory will be destroyed.
 func (x *Source) Unref() {
-	core.LazyRegister(&xSourceUnref, "GLIB", "g_source_unref", false)
-
 	xSourceUnref(x.GoPointer())
 }
 
@@ -1718,7 +1583,6 @@ var xChildWatchAdd func(Pid, uintptr, uintptr) uint
 // using [method@GLib.Source.attach]. You can do these steps manually if you
 // need greater control.
 func ChildWatchAdd(PidVar Pid, FunctionVar *ChildWatchFunc, DataVar uintptr) uint {
-	core.LazyRegister(&xChildWatchAdd, "GLIB", "g_child_watch_add", false)
 	var functionRef uintptr
 	if FunctionVar != nil {
 		functionRef = childWatchFuncTrampolineCb
@@ -1756,7 +1620,6 @@ var xChildWatchAddFull func(int, Pid, uintptr, uintptr, uintptr) uint
 // using [method@GLib.Source.attach]. You can do these steps manually if you
 // need greater control.
 func ChildWatchAddFull(PriorityVar int, PidVar Pid, FunctionVar *ChildWatchFunc, DataVar uintptr, NotifyVar *DestroyNotify) uint {
-	core.LazyRegister(&xChildWatchAddFull, "GLIB", "g_child_watch_add_full", false)
 	var functionRef uintptr
 	if FunctionVar != nil {
 		functionRef = childWatchFuncTrampolineCb
@@ -1809,8 +1672,6 @@ var xChildWatchSourceNew func(Pid) uintptr
 // Calling [`waitpid()`](man:waitpid(2)) for specific processes other than @pid
 // remains a valid thing to do.
 func ChildWatchSourceNew(PidVar Pid) *Source {
-	core.LazyRegister(&xChildWatchSourceNew, "GLIB", "g_child_watch_source_new", false)
-
 	cret := xChildWatchSourceNew(PidVar)
 	if cret == 0 {
 		return nil
@@ -1831,8 +1692,6 @@ var xClearHandleId func(uint, uintptr)
 // A macro is also included that allows this function to be used without
 // pointer casts.
 func ClearHandleId(TagPtrVar uint, ClearFuncVar *ClearHandleFunc) {
-	core.LazyRegister(&xClearHandleId, "GLIB", "g_clear_handle_id", false)
-
 	xClearHandleId(TagPtrVar, NewCallback(ClearFuncVar))
 }
 
@@ -1845,8 +1704,6 @@ var xGetCurrentTime func(*TimeVal)
 //
 // You may find [func@GLib.get_real_time] to be more convenient.
 func GetCurrentTime(ResultVar *TimeVal) {
-	core.LazyRegister(&xGetCurrentTime, "GLIB", "g_get_current_time", false)
-
 	xGetCurrentTime(ResultVar)
 }
 
@@ -1867,8 +1724,6 @@ var xGetMonotonicTime func() int64
 // A more accurate version of this function exists.
 // [func@GLib.get_monotonic_time_ns] returns the time in nanoseconds.
 func GetMonotonicTime() int64 {
-	core.LazyRegister(&xGetMonotonicTime, "GLIB", "g_get_monotonic_time", false)
-
 	cret := xGetMonotonicTime()
 	return cret
 }
@@ -1891,8 +1746,6 @@ var xGetMonotonicTimeNs func() uint64
 // [func@GLib.get_monotonic_time] returns the time in microseconds.
 // If you want to support older GLib versions, it is an alternative.
 func GetMonotonicTimeNs() uint64 {
-	core.LazyRegister(&xGetMonotonicTimeNs, "GLIB", "g_get_monotonic_time_ns", false)
-
 	cret := xGetMonotonicTimeNs()
 	return cret
 }
@@ -1908,8 +1761,6 @@ var xGetRealTime func() int64
 // wall-clock time. [func@GLib.get_monotonic_time] is probably more useful for
 // measuring intervals.
 func GetRealTime() int64 {
-	core.LazyRegister(&xGetRealTime, "GLIB", "g_get_real_time", false)
-
 	cret := xGetRealTime()
 	return cret
 }
@@ -1933,7 +1784,6 @@ var xIdleAdd func(uintptr, uintptr) uint
 // thread is running that main context. You can do these steps manually if you
 // need greater control or to use a custom main context.
 func IdleAdd(FunctionVar *SourceFunc, DataVar uintptr) uint {
-	core.LazyRegister(&xIdleAdd, "GLIB", "g_idle_add", false)
 	var functionRef uintptr
 	if FunctionVar != nil {
 		functionRef = sourceFuncTrampolineCb
@@ -1960,7 +1810,6 @@ var xIdleAddFull func(int, uintptr, uintptr, uintptr) uint
 // thread is running that main context. You can do these steps manually if you
 // need greater control or to use a custom main context.
 func IdleAddFull(PriorityVar int, FunctionVar *SourceFunc, DataVar uintptr, NotifyVar *DestroyNotify) uint {
-	core.LazyRegister(&xIdleAddFull, "GLIB", "g_idle_add_full", false)
 	var functionRef uintptr
 	if FunctionVar != nil {
 		functionRef = sourceFuncTrampolineCb
@@ -1983,7 +1832,6 @@ var xIdleAddOnce func(uintptr, uintptr) uint
 //
 // This function otherwise behaves like [func@GLib.idle_add].
 func IdleAddOnce(FunctionVar *SourceOnceFunc, DataVar uintptr) uint {
-	core.LazyRegister(&xIdleAddOnce, "GLIB", "g_idle_add_once", false)
 	var functionRef uintptr
 	if FunctionVar != nil {
 		functionRef = sourceOnceFuncTrampolineCb
@@ -1997,7 +1845,6 @@ var xIdleRemoveByData func(uintptr) bool
 
 // Removes the idle function with the given data.
 func IdleRemoveByData(DataVar uintptr) bool {
-	core.LazyRegister(&xIdleRemoveByData, "GLIB", "g_idle_remove_by_data", false)
 	trackedSourceID := trackedSourceIDByUserData(DataVar)
 	cret := xIdleRemoveByData(DataVar)
 	if cret {
@@ -2017,8 +1864,6 @@ var xIdleSourceNew func() uintptr
 // compared to other sources which have a default priority of
 // [const@GLib.PRIORITY_DEFAULT].
 func IdleSourceNew() *Source {
-	core.LazyRegister(&xIdleSourceNew, "GLIB", "g_idle_source_new", false)
-
 	cret := xIdleSourceNew()
 	if cret == 0 {
 		return nil
@@ -2035,8 +1880,6 @@ var xMainContextDefault func() uintptr
 // specified, and corresponds to the ‘main’ main loop. See also
 // [func@GLib.MainContext.get_thread_default].
 func MainContextDefault() *MainContext {
-	core.LazyRegister(&xMainContextDefault, "GLIB", "g_main_context_default", false)
-
 	cret := xMainContextDefault()
 	if cret == 0 {
 		return nil
@@ -2059,8 +1902,6 @@ var xMainContextGetThreadDefault func() uintptr
 // If you need to hold a reference on the context, use
 // [func@GLib.MainContext.ref_thread_default] instead.
 func MainContextGetThreadDefault() *MainContext {
-	core.LazyRegister(&xMainContextGetThreadDefault, "GLIB", "g_main_context_get_thread_default", false)
-
 	cret := xMainContextGetThreadDefault()
 	if cret == 0 {
 		return nil
@@ -2081,8 +1922,6 @@ var xMainContextRefThreadDefault func() uintptr
 // [struct@GLib.MainContext] (with a ref added to it) rather than returning
 // `NULL`.
 func MainContextRefThreadDefault() *MainContext {
-	core.LazyRegister(&xMainContextRefThreadDefault, "GLIB", "g_main_context_ref_thread_default", false)
-
 	cret := xMainContextRefThreadDefault()
 	if cret == 0 {
 		return nil
@@ -2094,8 +1933,6 @@ var xMainCurrentSource func() uintptr
 
 // Returns the currently firing source for this thread.
 func MainCurrentSource() *Source {
-	core.LazyRegister(&xMainCurrentSource, "GLIB", "g_main_current_source", false)
-
 	cret := xMainCurrentSource()
 	if cret == 0 {
 		return nil
@@ -2215,8 +2052,6 @@ var xMainDepth func() int
 //     simply return to the main loop and then get called again when
 //     there is more work to do.
 func MainDepth() int {
-	core.LazyRegister(&xMainDepth, "GLIB", "g_main_depth", false)
-
 	cret := xMainDepth()
 	return cret
 }
@@ -2246,7 +2081,6 @@ var xSourceRemove func(uint) bool
 // been reissued, leading to the operation being performed against the
 // wrong source.
 func SourceRemove(TagVar uint) bool {
-	core.LazyRegister(&xSourceRemove, "GLIB", "g_source_remove", false)
 	cret := xSourceRemove(TagVar)
 	if cret {
 		removeTrackedSource(TagVar)
@@ -2262,8 +2096,6 @@ var xSourceRemoveByFuncsUserData func(*SourceFuncs, uintptr) bool
 // If multiple sources exist with the same source functions and user data, only
 // one will be destroyed.
 func SourceRemoveByFuncsUserData(FuncsVar *SourceFuncs, UserDataVar uintptr) bool {
-	core.LazyRegister(&xSourceRemoveByFuncsUserData, "GLIB", "g_source_remove_by_funcs_user_data", false)
-
 	cret := xSourceRemoveByFuncsUserData(FuncsVar, UserDataVar)
 	return cret
 }
@@ -2275,7 +2107,6 @@ var xSourceRemoveByUserData func(uintptr) bool
 //
 // If multiple sources exist with the same user data, only one will be destroyed.
 func SourceRemoveByUserData(UserDataVar uintptr) bool {
-	core.LazyRegister(&xSourceRemoveByUserData, "GLIB", "g_source_remove_by_user_data", false)
 	trackedSourceID := trackedSourceIDByUserData(UserDataVar)
 	cret := xSourceRemoveByUserData(UserDataVar)
 	if cret {
@@ -2303,8 +2134,6 @@ var xSourceSetNameById func(uint, string)
 // been reissued, leading to the operation being performed against the
 // wrong source.
 func SourceSetNameById(TagVar uint, NameVar string) {
-	core.LazyRegister(&xSourceSetNameById, "GLIB", "g_source_set_name_by_id", false)
-
 	xSourceSetNameById(TagVar, NameVar)
 }
 
@@ -2344,7 +2173,6 @@ var xTimeoutAdd func(uint, uintptr, uintptr) uint
 // The interval given is in terms of monotonic time, not wall clock
 // time. See [func@GLib.get_monotonic_time].
 func TimeoutAdd(IntervalVar uint, FunctionVar *SourceFunc, DataVar uintptr) uint {
-	core.LazyRegister(&xTimeoutAdd, "GLIB", "g_timeout_add", false)
 	var functionRef uintptr
 	if FunctionVar != nil {
 		functionRef = sourceFuncTrampolineCb
@@ -2385,7 +2213,6 @@ var xTimeoutAddFull func(int, uint, uintptr, uintptr, uintptr) uint
 // The interval given is in terms of monotonic time, not wall clock time.
 // See [func@GLib.get_monotonic_time].
 func TimeoutAddFull(PriorityVar int, IntervalVar uint, FunctionVar *SourceFunc, DataVar uintptr, NotifyVar *DestroyNotify) uint {
-	core.LazyRegister(&xTimeoutAddFull, "GLIB", "g_timeout_add_full", false)
 	var functionRef uintptr
 	if FunctionVar != nil {
 		functionRef = sourceFuncTrampolineCb
@@ -2405,7 +2232,6 @@ var xTimeoutAddOnce func(uint, uintptr, uintptr) uint
 //
 // This function otherwise behaves like [func@GLib.timeout_add].
 func TimeoutAddOnce(IntervalVar uint, FunctionVar *SourceOnceFunc, DataVar uintptr) uint {
-	core.LazyRegister(&xTimeoutAddOnce, "GLIB", "g_timeout_add_once", false)
 	var functionRef uintptr
 	if FunctionVar != nil {
 		functionRef = sourceOnceFuncTrampolineCb
@@ -2441,7 +2267,6 @@ var xTimeoutAddSeconds func(uint, uintptr, uintptr) uint
 // The interval given is in terms of monotonic time, not wall clock
 // time. See [func@GLib.get_monotonic_time].
 func TimeoutAddSeconds(IntervalVar uint, FunctionVar *SourceFunc, DataVar uintptr) uint {
-	core.LazyRegister(&xTimeoutAddSeconds, "GLIB", "g_timeout_add_seconds", false)
 	var functionRef uintptr
 	if FunctionVar != nil {
 		functionRef = sourceFuncTrampolineCb
@@ -2494,7 +2319,6 @@ var xTimeoutAddSecondsFull func(int, uint, uintptr, uintptr, uintptr) uint
 // The interval given is in terms of monotonic time, not wall clock
 // time. See [func@GLib.get_monotonic_time].
 func TimeoutAddSecondsFull(PriorityVar int, IntervalVar uint, FunctionVar *SourceFunc, DataVar uintptr, NotifyVar *DestroyNotify) uint {
-	core.LazyRegister(&xTimeoutAddSecondsFull, "GLIB", "g_timeout_add_seconds_full", false)
 	var functionRef uintptr
 	if FunctionVar != nil {
 		functionRef = sourceFuncTrampolineCb
@@ -2509,7 +2333,6 @@ var xTimeoutAddSecondsOnce func(uint, uintptr, uintptr) uint
 // This function behaves like [func@GLib.timeout_add_once] but with a range in
 // seconds.
 func TimeoutAddSecondsOnce(IntervalVar uint, FunctionVar *SourceOnceFunc, DataVar uintptr) uint {
-	core.LazyRegister(&xTimeoutAddSecondsOnce, "GLIB", "g_timeout_add_seconds_once", false)
 	var functionRef uintptr
 	if FunctionVar != nil {
 		functionRef = sourceOnceFuncTrampolineCb
@@ -2530,8 +2353,6 @@ var xTimeoutSourceNew func(uint) uintptr
 // The interval given is in terms of monotonic time, not wall clock
 // time.  See [func@GLib.get_monotonic_time].
 func TimeoutSourceNew(IntervalVar uint) *Source {
-	core.LazyRegister(&xTimeoutSourceNew, "GLIB", "g_timeout_source_new", false)
-
 	cret := xTimeoutSourceNew(IntervalVar)
 	if cret == 0 {
 		return nil
@@ -2553,8 +2374,6 @@ var xTimeoutSourceNewSeconds func(uint) uintptr
 // The interval given is in terms of monotonic time, not wall clock time.
 // See [func@GLib.get_monotonic_time].
 func TimeoutSourceNewSeconds(IntervalVar uint) *Source {
-	core.LazyRegister(&xTimeoutSourceNewSeconds, "GLIB", "g_timeout_source_new_seconds", false)
-
 	cret := xTimeoutSourceNewSeconds(IntervalVar)
 	if cret == 0 {
 		return nil
@@ -2565,4 +2384,121 @@ func TimeoutSourceNewSeconds(IntervalVar uint) *Source {
 func init() {
 	core.SetPackageName("GLIB", "glib-2.0")
 	core.SetSharedLibraries("GLIB", []string{"libgobject-2.0.so.0", "libglib-2.0.so.0", "libgobject-2.0.0.dylib", "libglib-2.0.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GLIB") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xChildWatchAdd, libs, "g_child_watch_add")
+	core.PuregoSafeRegister(&xChildWatchAddFull, libs, "g_child_watch_add_full")
+	core.PuregoSafeRegister(&xChildWatchSourceNew, libs, "g_child_watch_source_new")
+	core.PuregoSafeRegister(&xClearHandleId, libs, "g_clear_handle_id")
+	core.PuregoSafeRegister(&xGetCurrentTime, libs, "g_get_current_time")
+	core.PuregoSafeRegister(&xGetMonotonicTime, libs, "g_get_monotonic_time")
+	core.PuregoSafeRegister(&xGetMonotonicTimeNs, libs, "g_get_monotonic_time_ns")
+	core.PuregoSafeRegister(&xGetRealTime, libs, "g_get_real_time")
+	core.PuregoSafeRegister(&xIdleAdd, libs, "g_idle_add")
+	core.PuregoSafeRegister(&xIdleAddFull, libs, "g_idle_add_full")
+	core.PuregoSafeRegister(&xIdleAddOnce, libs, "g_idle_add_once")
+	core.PuregoSafeRegister(&xIdleRemoveByData, libs, "g_idle_remove_by_data")
+	core.PuregoSafeRegister(&xIdleSourceNew, libs, "g_idle_source_new")
+	core.PuregoSafeRegister(&xMainContextDefault, libs, "g_main_context_default")
+	core.PuregoSafeRegister(&xMainContextGetThreadDefault, libs, "g_main_context_get_thread_default")
+	core.PuregoSafeRegister(&xMainContextRefThreadDefault, libs, "g_main_context_ref_thread_default")
+	core.PuregoSafeRegister(&xMainCurrentSource, libs, "g_main_current_source")
+	core.PuregoSafeRegister(&xMainDepth, libs, "g_main_depth")
+	core.PuregoSafeRegister(&xSourceRemove, libs, "g_source_remove")
+	core.PuregoSafeRegister(&xSourceRemoveByFuncsUserData, libs, "g_source_remove_by_funcs_user_data")
+	core.PuregoSafeRegister(&xSourceRemoveByUserData, libs, "g_source_remove_by_user_data")
+	core.PuregoSafeRegister(&xSourceSetNameById, libs, "g_source_set_name_by_id")
+	core.PuregoSafeRegister(&xTimeoutAdd, libs, "g_timeout_add")
+	core.PuregoSafeRegister(&xTimeoutAddFull, libs, "g_timeout_add_full")
+	core.PuregoSafeRegister(&xTimeoutAddOnce, libs, "g_timeout_add_once")
+	core.PuregoSafeRegister(&xTimeoutAddSeconds, libs, "g_timeout_add_seconds")
+	core.PuregoSafeRegister(&xTimeoutAddSecondsFull, libs, "g_timeout_add_seconds_full")
+	core.PuregoSafeRegister(&xTimeoutAddSecondsOnce, libs, "g_timeout_add_seconds_once")
+	core.PuregoSafeRegister(&xTimeoutSourceNew, libs, "g_timeout_source_new")
+	core.PuregoSafeRegister(&xTimeoutSourceNewSeconds, libs, "g_timeout_source_new_seconds")
+
+	core.PuregoSafeRegister(&xMainContextGLibType, libs, "g_main_context_get_type")
+
+	core.PuregoSafeRegister(&xNewMainContext, libs, "g_main_context_new")
+	core.PuregoSafeRegister(&xNewMainContextWithFlags, libs, "g_main_context_new_with_flags")
+
+	core.PuregoSafeRegister(&xMainContextAcquire, libs, "g_main_context_acquire")
+	core.PuregoSafeRegister(&xMainContextAddPoll, libs, "g_main_context_add_poll")
+	core.PuregoSafeRegister(&xMainContextCheck, libs, "g_main_context_check")
+	core.PuregoSafeRegister(&xMainContextDispatch, libs, "g_main_context_dispatch")
+	core.PuregoSafeRegister(&xMainContextFindSourceByFuncsUserData, libs, "g_main_context_find_source_by_funcs_user_data")
+	core.PuregoSafeRegister(&xMainContextFindSourceById, libs, "g_main_context_find_source_by_id")
+	core.PuregoSafeRegister(&xMainContextFindSourceByUserData, libs, "g_main_context_find_source_by_user_data")
+	core.PuregoSafeRegister(&xMainContextGetPollFunc, libs, "g_main_context_get_poll_func")
+	core.PuregoSafeRegister(&xMainContextInvoke, libs, "g_main_context_invoke")
+	core.PuregoSafeRegister(&xMainContextInvokeFull, libs, "g_main_context_invoke_full")
+	core.PuregoSafeRegister(&xMainContextIsOwner, libs, "g_main_context_is_owner")
+	core.PuregoSafeRegister(&xMainContextIteration, libs, "g_main_context_iteration")
+	core.PuregoSafeRegister(&xMainContextPending, libs, "g_main_context_pending")
+	core.PuregoSafeRegister(&xMainContextPopThreadDefault, libs, "g_main_context_pop_thread_default")
+	core.PuregoSafeRegister(&xMainContextPrepare, libs, "g_main_context_prepare")
+	core.PuregoSafeRegister(&xMainContextPushThreadDefault, libs, "g_main_context_push_thread_default")
+	core.PuregoSafeRegister(&xMainContextPusherNew, libs, "g_main_context_pusher_new")
+	core.PuregoSafeRegister(&xMainContextQuery, libs, "g_main_context_query")
+	core.PuregoSafeRegister(&xMainContextRef, libs, "g_main_context_ref")
+	core.PuregoSafeRegister(&xMainContextRelease, libs, "g_main_context_release")
+	core.PuregoSafeRegister(&xMainContextRemovePoll, libs, "g_main_context_remove_poll")
+	core.PuregoSafeRegister(&xMainContextSetPollFunc, libs, "g_main_context_set_poll_func")
+	core.PuregoSafeRegister(&xMainContextUnref, libs, "g_main_context_unref")
+	core.PuregoSafeRegister(&xMainContextWait, libs, "g_main_context_wait")
+	core.PuregoSafeRegister(&xMainContextWakeup, libs, "g_main_context_wakeup")
+
+	core.PuregoSafeRegister(&xMainLoopGLibType, libs, "g_main_loop_get_type")
+
+	core.PuregoSafeRegister(&xNewMainLoop, libs, "g_main_loop_new")
+
+	core.PuregoSafeRegister(&xMainLoopGetContext, libs, "g_main_loop_get_context")
+	core.PuregoSafeRegister(&xMainLoopIsRunning, libs, "g_main_loop_is_running")
+	core.PuregoSafeRegister(&xMainLoopQuit, libs, "g_main_loop_quit")
+	core.PuregoSafeRegister(&xMainLoopRef, libs, "g_main_loop_ref")
+	core.PuregoSafeRegister(&xMainLoopRun, libs, "g_main_loop_run")
+	core.PuregoSafeRegister(&xMainLoopUnref, libs, "g_main_loop_unref")
+
+	core.PuregoSafeRegister(&xSourceGLibType, libs, "g_source_get_type")
+
+	core.PuregoSafeRegister(&xNewSource, libs, "g_source_new")
+
+	core.PuregoSafeRegister(&xSourceAddChildSource, libs, "g_source_add_child_source")
+	core.PuregoSafeRegister(&xSourceAddPoll, libs, "g_source_add_poll")
+	core.PuregoSafeRegister(&xSourceAddUnixFd, libs, "g_source_add_unix_fd")
+	core.PuregoSafeRegister(&xSourceAttach, libs, "g_source_attach")
+	core.PuregoSafeRegister(&xSourceDestroy, libs, "g_source_destroy")
+	core.PuregoSafeRegister(&xSourceDupContext, libs, "g_source_dup_context")
+	core.PuregoSafeRegister(&xSourceGetCanRecurse, libs, "g_source_get_can_recurse")
+	core.PuregoSafeRegister(&xSourceGetContext, libs, "g_source_get_context")
+	core.PuregoSafeRegister(&xSourceGetCurrentTime, libs, "g_source_get_current_time")
+	core.PuregoSafeRegister(&xSourceGetId, libs, "g_source_get_id")
+	core.PuregoSafeRegister(&xSourceGetName, libs, "g_source_get_name")
+	core.PuregoSafeRegister(&xSourceGetPriority, libs, "g_source_get_priority")
+	core.PuregoSafeRegister(&xSourceGetReadyTime, libs, "g_source_get_ready_time")
+	core.PuregoSafeRegister(&xSourceGetTime, libs, "g_source_get_time")
+	core.PuregoSafeRegister(&xSourceIsDestroyed, libs, "g_source_is_destroyed")
+	core.PuregoSafeRegister(&xSourceModifyUnixFd, libs, "g_source_modify_unix_fd")
+	core.PuregoSafeRegister(&xSourceQueryUnixFd, libs, "g_source_query_unix_fd")
+	core.PuregoSafeRegister(&xSourceRef, libs, "g_source_ref")
+	core.PuregoSafeRegister(&xSourceRemoveChildSource, libs, "g_source_remove_child_source")
+	core.PuregoSafeRegister(&xSourceRemovePoll, libs, "g_source_remove_poll")
+	core.PuregoSafeRegister(&xSourceRemoveUnixFd, libs, "g_source_remove_unix_fd")
+	core.PuregoSafeRegister(&xSourceSetCallback, libs, "g_source_set_callback")
+	core.PuregoSafeRegister(&xSourceSetCallbackIndirect, libs, "g_source_set_callback_indirect")
+	core.PuregoSafeRegister(&xSourceSetCanRecurse, libs, "g_source_set_can_recurse")
+	core.PuregoSafeRegister(&xSourceSetDisposeFunction, libs, "g_source_set_dispose_function")
+	core.PuregoSafeRegister(&xSourceSetFuncs, libs, "g_source_set_funcs")
+	core.PuregoSafeRegister(&xSourceSetName, libs, "g_source_set_name")
+	core.PuregoSafeRegister(&xSourceSetPriority, libs, "g_source_set_priority")
+	core.PuregoSafeRegister(&xSourceSetReadyTime, libs, "g_source_set_ready_time")
+	core.PuregoSafeRegister(&xSourceSetStaticName, libs, "g_source_set_static_name")
+	core.PuregoSafeRegister(&xSourceUnref, libs, "g_source_unref")
 }

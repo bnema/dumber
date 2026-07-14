@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -47,7 +48,6 @@ type ListItem struct {
 var xListItemGLibType func() types.GType
 
 func ListItemGLibType() types.GType {
-	core.LazyRegister(&xListItemGLibType, "GTK", "gtk_list_item_get_type", false)
 	return xListItemGLibType()
 }
 
@@ -61,8 +61,6 @@ var xListItemGetAccessibleDescription func(uintptr) string
 
 // Gets the accessible description of @self.
 func (x *ListItem) GetAccessibleDescription() string {
-	core.LazyRegister(&xListItemGetAccessibleDescription, "GTK", "gtk_list_item_get_accessible_description", false)
-
 	cret := xListItemGetAccessibleDescription(x.GoPointer())
 	return cret
 }
@@ -71,8 +69,6 @@ var xListItemGetAccessibleLabel func(uintptr) string
 
 // Gets the accessible label of @self.
 func (x *ListItem) GetAccessibleLabel() string {
-	core.LazyRegister(&xListItemGetAccessibleLabel, "GTK", "gtk_list_item_get_accessible_label", false)
-
 	cret := xListItemGetAccessibleLabel(x.GoPointer())
 	return cret
 }
@@ -82,8 +78,6 @@ var xListItemGetActivatable func(uintptr) bool
 // Checks if a listitem has been set to be activatable via
 // [method@Gtk.ListItem.set_activatable].
 func (x *ListItem) GetActivatable() bool {
-	core.LazyRegister(&xListItemGetActivatable, "GTK", "gtk_list_item_get_activatable", false)
-
 	cret := xListItemGetActivatable(x.GoPointer())
 	return cret
 }
@@ -93,7 +87,6 @@ var xListItemGetChild func(uintptr) uintptr
 // Gets the child previously set via [method@Gtk.ListItem.set_child]
 // or `NULL` if none was set.
 func (x *ListItem) GetChild() *Widget {
-	core.LazyRegister(&xListItemGetChild, "GTK", "gtk_list_item_get_child", false)
 	var cls *Widget
 
 	cret := xListItemGetChild(x.GoPointer())
@@ -112,8 +105,6 @@ var xListItemGetFocusable func(uintptr) bool
 // Checks if a listitem has been set to be focusable via
 // [method@Gtk.ListItem.set_focusable].
 func (x *ListItem) GetFocusable() bool {
-	core.LazyRegister(&xListItemGetFocusable, "GTK", "gtk_list_item_get_focusable", false)
-
 	cret := xListItemGetFocusable(x.GoPointer())
 	return cret
 }
@@ -124,7 +115,6 @@ var xListItemGetItem func(uintptr) uintptr
 //
 // If @self is unbound, this function returns `NULL`.
 func (x *ListItem) GetItem() *gobject.Object {
-	core.LazyRegister(&xListItemGetItem, "GTK", "gtk_list_item_get_item", false)
 	var cls *gobject.Object
 
 	cret := xListItemGetItem(x.GoPointer())
@@ -144,8 +134,6 @@ var xListItemGetPosition func(uintptr) uint
 //
 // If @self is unbound, `GTK_INVALID_LIST_POSITION` is returned.
 func (x *ListItem) GetPosition() uint {
-	core.LazyRegister(&xListItemGetPosition, "GTK", "gtk_list_item_get_position", false)
-
 	cret := xListItemGetPosition(x.GoPointer())
 	return cret
 }
@@ -157,8 +145,6 @@ var xListItemGetSelectable func(uintptr) bool
 //
 // Do not confuse this function with [method@Gtk.ListItem.get_selected].
 func (x *ListItem) GetSelectable() bool {
-	core.LazyRegister(&xListItemGetSelectable, "GTK", "gtk_list_item_get_selectable", false)
-
 	cret := xListItemGetSelectable(x.GoPointer())
 	return cret
 }
@@ -170,8 +156,6 @@ var xListItemGetSelected func(uintptr) bool
 // The selected state is maintained by the list widget and its model
 // and cannot be set otherwise.
 func (x *ListItem) GetSelected() bool {
-	core.LazyRegister(&xListItemGetSelected, "GTK", "gtk_list_item_get_selected", false)
-
 	cret := xListItemGetSelected(x.GoPointer())
 	return cret
 }
@@ -182,8 +166,6 @@ var xListItemSetAccessibleDescription func(uintptr, string)
 //
 // The accessible description may be used by e.g. screen readers.
 func (x *ListItem) SetAccessibleDescription(DescriptionVar string) {
-	core.LazyRegister(&xListItemSetAccessibleDescription, "GTK", "gtk_list_item_set_accessible_description", false)
-
 	xListItemSetAccessibleDescription(x.GoPointer(), DescriptionVar)
 }
 
@@ -193,8 +175,6 @@ var xListItemSetAccessibleLabel func(uintptr, string)
 //
 // The accessible label may be used by e.g. screen readers.
 func (x *ListItem) SetAccessibleLabel(LabelVar string) {
-	core.LazyRegister(&xListItemSetAccessibleLabel, "GTK", "gtk_list_item_set_accessible_label", false)
-
 	xListItemSetAccessibleLabel(x.GoPointer(), LabelVar)
 }
 
@@ -210,8 +190,6 @@ var xListItemSetActivatable func(uintptr, bool)
 //
 // By default, listitems are activatable.
 func (x *ListItem) SetActivatable(ActivatableVar bool) {
-	core.LazyRegister(&xListItemSetActivatable, "GTK", "gtk_list_item_set_activatable", false)
-
 	xListItemSetActivatable(x.GoPointer(), ActivatableVar)
 }
 
@@ -223,8 +201,6 @@ var xListItemSetChild func(uintptr, uintptr)
 // setting up a listitem so that the widget can be reused when
 // binding it multiple times.
 func (x *ListItem) SetChild(ChildVar *Widget) {
-	core.LazyRegister(&xListItemSetChild, "GTK", "gtk_list_item_set_child", false)
-
 	xListItemSetChild(x.GoPointer(), ChildVar.GoPointer())
 }
 
@@ -240,8 +216,6 @@ var xListItemSetFocusable func(uintptr, bool)
 //
 // By default, listitems are focusable.
 func (x *ListItem) SetFocusable(FocusableVar bool) {
-	core.LazyRegister(&xListItemSetFocusable, "GTK", "gtk_list_item_set_focusable", false)
-
 	xListItemSetFocusable(x.GoPointer(), FocusableVar)
 }
 
@@ -260,8 +234,6 @@ var xListItemSetSelectable func(uintptr, bool)
 // By default, listitems are selectable. When rebinding them to
 // a new item, they will also be reset to be selectable by GTK.
 func (x *ListItem) SetSelectable(SelectableVar bool) {
-	core.LazyRegister(&xListItemSetSelectable, "GTK", "gtk_list_item_set_selectable", false)
-
 	xListItemSetSelectable(x.GoPointer(), SelectableVar)
 }
 
@@ -380,4 +352,30 @@ func (x *ListItem) GetPropertySelected() bool {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GTK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xListItemGLibType, libs, "gtk_list_item_get_type")
+
+	core.PuregoSafeRegister(&xListItemGetAccessibleDescription, libs, "gtk_list_item_get_accessible_description")
+	core.PuregoSafeRegister(&xListItemGetAccessibleLabel, libs, "gtk_list_item_get_accessible_label")
+	core.PuregoSafeRegister(&xListItemGetActivatable, libs, "gtk_list_item_get_activatable")
+	core.PuregoSafeRegister(&xListItemGetChild, libs, "gtk_list_item_get_child")
+	core.PuregoSafeRegister(&xListItemGetFocusable, libs, "gtk_list_item_get_focusable")
+	core.PuregoSafeRegister(&xListItemGetItem, libs, "gtk_list_item_get_item")
+	core.PuregoSafeRegister(&xListItemGetPosition, libs, "gtk_list_item_get_position")
+	core.PuregoSafeRegister(&xListItemGetSelectable, libs, "gtk_list_item_get_selectable")
+	core.PuregoSafeRegister(&xListItemGetSelected, libs, "gtk_list_item_get_selected")
+	core.PuregoSafeRegister(&xListItemSetAccessibleDescription, libs, "gtk_list_item_set_accessible_description")
+	core.PuregoSafeRegister(&xListItemSetAccessibleLabel, libs, "gtk_list_item_set_accessible_label")
+	core.PuregoSafeRegister(&xListItemSetActivatable, libs, "gtk_list_item_set_activatable")
+	core.PuregoSafeRegister(&xListItemSetChild, libs, "gtk_list_item_set_child")
+	core.PuregoSafeRegister(&xListItemSetFocusable, libs, "gtk_list_item_set_focusable")
+	core.PuregoSafeRegister(&xListItemSetSelectable, libs, "gtk_list_item_set_selectable")
 }

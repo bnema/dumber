@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gio"
 	"github.com/bnema/puregotk/v4/glib"
@@ -36,7 +37,6 @@ type MessageFlags int
 var xMessageFlagsGLibType func() types.GType
 
 func MessageFlagsGLibType() types.GType {
-	core.LazyRegister(&xMessageFlagsGLibType, "SOUP", "soup_message_flags_get_type", false)
 	return xMessageFlagsGLibType()
 }
 
@@ -75,7 +75,6 @@ type MessagePriority int
 var xMessagePriorityGLibType func() types.GType
 
 func MessagePriorityGLibType() types.GType {
-	core.LazyRegister(&xMessagePriorityGLibType, "SOUP", "soup_message_priority_get_type", false)
 	return xMessagePriorityGLibType()
 }
 
@@ -129,7 +128,6 @@ type Message struct {
 var xMessageGLibType func() types.GType
 
 func MessageGLibType() types.GType {
-	core.LazyRegister(&xMessageGLibType, "SOUP", "soup_message_get_type", false)
 	return xMessageGLibType()
 }
 
@@ -143,7 +141,6 @@ var xNewMessage func(string, string) uintptr
 
 // Creates a new empty [class@Message], which will connect to @uri.
 func NewMessage(MethodVar string, UriStringVar string) *Message {
-	core.LazyRegister(&xNewMessage, "SOUP", "soup_message_new", false)
 	var cls *Message
 
 	cret := xNewMessage(MethodVar, UriStringVar)
@@ -167,7 +164,6 @@ var xNewMessageFromEncodedForm func(string, string, string) uintptr
 // with [func@GLib.free] when no longer in use. See also [func@form_encode],
 // [func@form_encode_hash] and [func@form_encode_datalist].
 func NewMessageFromEncodedForm(MethodVar string, UriStringVar string, EncodedFormVar string) *Message {
-	core.LazyRegister(&xNewMessageFromEncodedForm, "SOUP", "soup_message_new_from_encoded_form", false)
 	var cls *Message
 
 	cret := xNewMessageFromEncodedForm(MethodVar, UriStringVar, EncodedFormVar)
@@ -185,7 +181,6 @@ var xNewMessageFromMultipart func(string, *Multipart) uintptr
 // Creates a new [class@Message] and sets it up to send @multipart to
 // @uri_string via POST.
 func NewMessageFromMultipart(UriStringVar string, MultipartVar *Multipart) *Message {
-	core.LazyRegister(&xNewMessageFromMultipart, "SOUP", "soup_message_new_from_multipart", false)
 	var cls *Message
 
 	cret := xNewMessageFromMultipart(UriStringVar, MultipartVar)
@@ -202,7 +197,6 @@ var xNewMessageFromUri func(string, *glib.Uri) uintptr
 
 // Creates a new empty [class@Message], which will connect to @uri.
 func NewMessageFromUri(MethodVar string, UriVar *glib.Uri) *Message {
-	core.LazyRegister(&xNewMessageFromUri, "SOUP", "soup_message_new_from_uri", false)
 	var cls *Message
 
 	cret := xNewMessageFromUri(MethodVar, UriVar)
@@ -220,7 +214,6 @@ var xNewMessageOptionsPing func(*glib.Uri) uintptr
 // Creates a new [class@Message] to send `OPTIONS *` to a server. The path of
 // @base_uri will be ignored.
 func NewMessageOptionsPing(BaseUriVar *glib.Uri) *Message {
-	core.LazyRegister(&xNewMessageOptionsPing, "SOUP", "soup_message_new_options_ping", false)
 	var cls *Message
 
 	cret := xNewMessageOptionsPing(BaseUriVar)
@@ -237,8 +230,6 @@ var xMessageAddFlags func(uintptr, MessageFlags)
 
 // Adds @flags to the set of @msg's flags.
 func (x *Message) AddFlags(FlagsVar MessageFlags) {
-	core.LazyRegister(&xMessageAddFlags, "SOUP", "soup_message_add_flags", false)
-
 	xMessageAddFlags(x.GoPointer(), FlagsVar)
 }
 
@@ -250,8 +241,6 @@ var xMessageAddHeaderHandler func(uintptr, string, string, uintptr, uintptr) uin
 // if @msg's incoming messages headers (that is, the `request_headers`) contain
 // a header named @header.
 func (x *Message) AddHeaderHandler(SignalVar string, HeaderVar string, CallbackVar *gobject.Callback, UserDataVar uintptr) uint {
-	core.LazyRegister(&xMessageAddHeaderHandler, "SOUP", "soup_message_add_header_handler", false)
-
 	cret := xMessageAddHeaderHandler(x.GoPointer(), SignalVar, HeaderVar, glib.NewCallback(CallbackVar), UserDataVar)
 	return cret
 }
@@ -266,8 +255,6 @@ var xMessageAddStatusCodeHandler func(uintptr, string, uint, uintptr, uintptr) u
 // @signal must be a signal that will be emitted after @msg's status
 // is set (this means it can't be a "wrote" signal).
 func (x *Message) AddStatusCodeHandler(SignalVar string, StatusCodeVar uint, CallbackVar *gobject.Callback, UserDataVar uintptr) uint {
-	core.LazyRegister(&xMessageAddStatusCodeHandler, "SOUP", "soup_message_add_status_code_handler", false)
-
 	cret := xMessageAddStatusCodeHandler(x.GoPointer(), SignalVar, StatusCodeVar, glib.NewCallback(CallbackVar), UserDataVar)
 	return cret
 }
@@ -286,8 +273,6 @@ var xMessageDisableFeature func(uintptr, types.GType)
 // you cannot call this on a message that is being requeued after a
 // redirect or authentication.
 func (x *Message) DisableFeature(FeatureTypeVar types.GType) {
-	core.LazyRegister(&xMessageDisableFeature, "SOUP", "soup_message_disable_feature", false)
-
 	xMessageDisableFeature(x.GoPointer(), FeatureTypeVar)
 }
 
@@ -298,8 +283,6 @@ var xMessageGetConnectionId func(uintptr) uint64
 // This may be 0 if it was a cached resource or it has not gotten
 // a connection yet.
 func (x *Message) GetConnectionId() uint64 {
-	core.LazyRegister(&xMessageGetConnectionId, "SOUP", "soup_message_get_connection_id", false)
-
 	cret := xMessageGetConnectionId(x.GoPointer())
 	return cret
 }
@@ -308,8 +291,6 @@ var xMessageGetFirstParty func(uintptr) uintptr
 
 // Gets @msg's first-party [struct@GLib.Uri].
 func (x *Message) GetFirstParty() *glib.Uri {
-	core.LazyRegister(&xMessageGetFirstParty, "SOUP", "soup_message_get_first_party", false)
-
 	cret := xMessageGetFirstParty(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -321,8 +302,6 @@ var xMessageGetFlags func(uintptr) MessageFlags
 
 // Gets the flags on @msg.
 func (x *Message) GetFlags() MessageFlags {
-	core.LazyRegister(&xMessageGetFlags, "SOUP", "soup_message_get_flags", false)
-
 	cret := xMessageGetFlags(x.GoPointer())
 	return cret
 }
@@ -331,8 +310,6 @@ var xMessageGetForceHttp1 func(uintptr) bool
 
 // Returns whether HTTP/1 version is currently demanded for the @msg send.
 func (x *Message) GetForceHttp1() bool {
-	core.LazyRegister(&xMessageGetForceHttp1, "SOUP", "soup_message_get_force_http1", false)
-
 	cret := xMessageGetForceHttp1(x.GoPointer())
 	return cret
 }
@@ -344,8 +321,6 @@ var xMessageGetHttpVersion func(uintptr) HTTPVersion
 // This is the minimum of the version from the request and the version from the
 // response.
 func (x *Message) GetHttpVersion() HTTPVersion {
-	core.LazyRegister(&xMessageGetHttpVersion, "SOUP", "soup_message_get_http_version", false)
-
 	cret := xMessageGetHttpVersion(x.GoPointer())
 	return cret
 }
@@ -354,8 +329,6 @@ var xMessageGetIsOptionsPing func(uintptr) bool
 
 // Gets whether @msg is intended to be used to send `OPTIONS *` to a server.
 func (x *Message) GetIsOptionsPing() bool {
-	core.LazyRegister(&xMessageGetIsOptionsPing, "SOUP", "soup_message_get_is_options_ping", false)
-
 	cret := xMessageGetIsOptionsPing(x.GoPointer())
 	return cret
 }
@@ -366,8 +339,6 @@ var xMessageGetIsTopLevelNavigation func(uintptr) bool
 //
 // Used for same-site policy checks.
 func (x *Message) GetIsTopLevelNavigation() bool {
-	core.LazyRegister(&xMessageGetIsTopLevelNavigation, "SOUP", "soup_message_get_is_top_level_navigation", false)
-
 	cret := xMessageGetIsTopLevelNavigation(x.GoPointer())
 	return cret
 }
@@ -376,8 +347,6 @@ var xMessageGetMethod func(uintptr) string
 
 // Returns the method of this message.
 func (x *Message) GetMethod() string {
-	core.LazyRegister(&xMessageGetMethod, "SOUP", "soup_message_get_method", false)
-
 	cret := xMessageGetMethod(x.GoPointer())
 	return cret
 }
@@ -389,8 +358,6 @@ var xMessageGetMetrics func(uintptr) uintptr
 // If the flag %SOUP_MESSAGE_COLLECT_METRICS is not enabled for @msg this will
 // return %NULL.
 func (x *Message) GetMetrics() *MessageMetrics {
-	core.LazyRegister(&xMessageGetMetrics, "SOUP", "soup_message_get_metrics", false)
-
 	cret := xMessageGetMetrics(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -404,8 +371,6 @@ var xMessageGetPriority func(uintptr) MessagePriority
 //
 // If not set this value defaults to #SOUP_MESSAGE_PRIORITY_NORMAL.
 func (x *Message) GetPriority() MessagePriority {
-	core.LazyRegister(&xMessageGetPriority, "SOUP", "soup_message_get_priority", false)
-
 	cret := xMessageGetPriority(x.GoPointer())
 	return cret
 }
@@ -414,8 +379,6 @@ var xMessageGetReasonPhrase func(uintptr) string
 
 // Returns the reason phrase for the status of this message.
 func (x *Message) GetReasonPhrase() string {
-	core.LazyRegister(&xMessageGetReasonPhrase, "SOUP", "soup_message_get_reason_phrase", false)
-
 	cret := xMessageGetReasonPhrase(x.GoPointer())
 	return cret
 }
@@ -431,7 +394,6 @@ var xMessageGetRemoteAddress func(uintptr) uintptr
 // [property@Session:remote-connectable] is set the returned address id for the
 // connection to the session's remote connectable.
 func (x *Message) GetRemoteAddress() *gio.SocketAddress {
-	core.LazyRegister(&xMessageGetRemoteAddress, "SOUP", "soup_message_get_remote_address", false)
 	var cls *gio.SocketAddress
 
 	cret := xMessageGetRemoteAddress(x.GoPointer())
@@ -449,8 +411,6 @@ var xMessageGetRequestHeaders func(uintptr) uintptr
 
 // Returns the headers sent with the request.
 func (x *Message) GetRequestHeaders() *MessageHeaders {
-	core.LazyRegister(&xMessageGetRequestHeaders, "SOUP", "soup_message_get_request_headers", false)
-
 	cret := xMessageGetRequestHeaders(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -462,8 +422,6 @@ var xMessageGetResponseHeaders func(uintptr) uintptr
 
 // Returns the headers recieved with the response.
 func (x *Message) GetResponseHeaders() *MessageHeaders {
-	core.LazyRegister(&xMessageGetResponseHeaders, "SOUP", "soup_message_get_response_headers", false)
-
 	cret := xMessageGetResponseHeaders(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -475,8 +433,6 @@ var xMessageGetSiteForCookies func(uintptr) uintptr
 
 // Gets @msg's site for cookies #GUri.
 func (x *Message) GetSiteForCookies() *glib.Uri {
-	core.LazyRegister(&xMessageGetSiteForCookies, "SOUP", "soup_message_get_site_for_cookies", false)
-
 	cret := xMessageGetSiteForCookies(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -488,8 +444,6 @@ var xMessageGetStatus func(uintptr) Status
 
 // Returns the set status of this message.
 func (x *Message) GetStatus() Status {
-	core.LazyRegister(&xMessageGetStatus, "SOUP", "soup_message_get_status", false)
-
 	cret := xMessageGetStatus(x.GoPointer())
 	return cret
 }
@@ -498,8 +452,6 @@ var xMessageGetTlsCiphersuiteName func(uintptr) string
 
 // Gets the name of the TLS ciphersuite negotiated for @msg's connection.
 func (x *Message) GetTlsCiphersuiteName() string {
-	core.LazyRegister(&xMessageGetTlsCiphersuiteName, "SOUP", "soup_message_get_tls_ciphersuite_name", false)
-
 	cret := xMessageGetTlsCiphersuiteName(x.GoPointer())
 	return cret
 }
@@ -511,7 +463,6 @@ var xMessageGetTlsPeerCertificate func(uintptr) uintptr
 // Note that this is not set yet during the emission of
 // [signal@Message::accept-certificate] signal.
 func (x *Message) GetTlsPeerCertificate() *gio.TlsCertificate {
-	core.LazyRegister(&xMessageGetTlsPeerCertificate, "SOUP", "soup_message_get_tls_peer_certificate", false)
 	var cls *gio.TlsCertificate
 
 	cret := xMessageGetTlsPeerCertificate(x.GoPointer())
@@ -531,8 +482,6 @@ var xMessageGetTlsPeerCertificateErrors func(uintptr) gio.TlsCertificateFlags
 // Note that this is not set yet during the emission of
 // [signal@Message::accept-certificate] signal.
 func (x *Message) GetTlsPeerCertificateErrors() gio.TlsCertificateFlags {
-	core.LazyRegister(&xMessageGetTlsPeerCertificateErrors, "SOUP", "soup_message_get_tls_peer_certificate_errors", false)
-
 	cret := xMessageGetTlsPeerCertificateErrors(x.GoPointer())
 	return cret
 }
@@ -543,8 +492,6 @@ var xMessageGetTlsProtocolVersion func(uintptr) gio.TlsProtocolVersion
 //
 // If the message connection is not SSL, %G_TLS_PROTOCOL_VERSION_UNKNOWN is returned.
 func (x *Message) GetTlsProtocolVersion() gio.TlsProtocolVersion {
-	core.LazyRegister(&xMessageGetTlsProtocolVersion, "SOUP", "soup_message_get_tls_protocol_version", false)
-
 	cret := xMessageGetTlsProtocolVersion(x.GoPointer())
 	return cret
 }
@@ -553,8 +500,6 @@ var xMessageGetUri func(uintptr) uintptr
 
 // Gets @msg's URI.
 func (x *Message) GetUri() *glib.Uri {
-	core.LazyRegister(&xMessageGetUri, "SOUP", "soup_message_get_uri", false)
-
 	cret := xMessageGetUri(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -569,8 +514,6 @@ var xMessageIsFeatureDisabled func(uintptr, types.GType) bool
 //
 // See [method@Message.disable_feature].
 func (x *Message) IsFeatureDisabled(FeatureTypeVar types.GType) bool {
-	core.LazyRegister(&xMessageIsFeatureDisabled, "SOUP", "soup_message_is_feature_disabled", false)
-
 	cret := xMessageIsFeatureDisabled(x.GoPointer(), FeatureTypeVar)
 	return cret
 }
@@ -582,8 +525,6 @@ var xMessageIsKeepalive func(uintptr) bool
 //
 // The result is based on the HTTP version, Connection header, etc.
 func (x *Message) IsKeepalive() bool {
-	core.LazyRegister(&xMessageIsKeepalive, "SOUP", "soup_message_is_keepalive", false)
-
 	cret := xMessageIsKeepalive(x.GoPointer())
 	return cret
 }
@@ -592,8 +533,6 @@ var xMessageQueryFlags func(uintptr, MessageFlags) bool
 
 // Queries if @flags are present in the set of @msg's flags.
 func (x *Message) QueryFlags(FlagsVar MessageFlags) bool {
-	core.LazyRegister(&xMessageQueryFlags, "SOUP", "soup_message_query_flags", false)
-
 	cret := xMessageQueryFlags(x.GoPointer(), FlagsVar)
 	return cret
 }
@@ -602,8 +541,6 @@ var xMessageRemoveFlags func(uintptr, MessageFlags)
 
 // Removes @flags from the set of @msg's flags.
 func (x *Message) RemoveFlags(FlagsVar MessageFlags) {
-	core.LazyRegister(&xMessageRemoveFlags, "SOUP", "soup_message_remove_flags", false)
-
 	xMessageRemoveFlags(x.GoPointer(), FlagsVar)
 }
 
@@ -614,8 +551,6 @@ var xMessageSetFirstParty func(uintptr, *glib.Uri)
 // For details of when and how this is used refer to the documentation for
 // [enum@CookieJarAcceptPolicy].
 func (x *Message) SetFirstParty(FirstPartyVar *glib.Uri) {
-	core.LazyRegister(&xMessageSetFirstParty, "SOUP", "soup_message_set_first_party", false)
-
 	xMessageSetFirstParty(x.GoPointer(), FirstPartyVar)
 }
 
@@ -623,8 +558,6 @@ var xMessageSetFlags func(uintptr, MessageFlags)
 
 // Sets the specified flags on @msg.
 func (x *Message) SetFlags(FlagsVar MessageFlags) {
-	core.LazyRegister(&xMessageSetFlags, "SOUP", "soup_message_set_flags", false)
-
 	xMessageSetFlags(x.GoPointer(), FlagsVar)
 }
 
@@ -635,8 +568,6 @@ var xMessageSetForceHttp1 func(uintptr, bool)
 //
 // Note the value is unset after the message send is finished.
 func (x *Message) SetForceHttp1(ValueVar bool) {
-	core.LazyRegister(&xMessageSetForceHttp1, "SOUP", "soup_message_set_force_http1", false)
-
 	xMessageSetForceHttp1(x.GoPointer(), ValueVar)
 }
 
@@ -647,8 +578,6 @@ var xMessageSetIsOptionsPing func(uintptr, bool)
 // When set to %TRUE, the path of [property@Message:uri] will be ignored and
 // [property@Message:method] set to %SOUP_METHOD_OPTIONS.
 func (x *Message) SetIsOptionsPing(IsOptionsPingVar bool) {
-	core.LazyRegister(&xMessageSetIsOptionsPing, "SOUP", "soup_message_set_is_options_ping", false)
-
 	xMessageSetIsOptionsPing(x.GoPointer(), IsOptionsPingVar)
 }
 
@@ -659,8 +588,6 @@ var xMessageSetIsTopLevelNavigation func(uintptr, bool)
 // See the [same-site spec](https://tools.ietf.org/html/draft-ietf-httpbis-cookie-same-site-00)
 // for more information.
 func (x *Message) SetIsTopLevelNavigation(IsTopLevelNavigationVar bool) {
-	core.LazyRegister(&xMessageSetIsTopLevelNavigation, "SOUP", "soup_message_set_is_top_level_navigation", false)
-
 	xMessageSetIsTopLevelNavigation(x.GoPointer(), IsTopLevelNavigationVar)
 }
 
@@ -668,8 +595,6 @@ var xMessageSetMethod func(uintptr, string)
 
 // Set @msg's HTTP method to @method.
 func (x *Message) SetMethod(MethodVar string) {
-	core.LazyRegister(&xMessageSetMethod, "SOUP", "soup_message_set_method", false)
-
 	xMessageSetMethod(x.GoPointer(), MethodVar)
 }
 
@@ -688,8 +613,6 @@ var xMessageSetPriority func(uintptr, MessagePriority)
 // because in the synchronous/blocking case, priority ends up being determined
 // semi-randomly by thread scheduling.
 func (x *Message) SetPriority(PriorityVar MessagePriority) {
-	core.LazyRegister(&xMessageSetPriority, "SOUP", "soup_message_set_priority", false)
-
 	xMessageSetPriority(x.GoPointer(), PriorityVar)
 }
 
@@ -702,8 +625,6 @@ var xMessageSetRequestBody func(uintptr, uintptr, uintptr, int)
 // The request body needs to be set again in case @msg is restarted
 // (in case of redirection or authentication).
 func (x *Message) SetRequestBody(ContentTypeVar *string, StreamVar *gio.InputStream, ContentLengthVar int) {
-	core.LazyRegister(&xMessageSetRequestBody, "SOUP", "soup_message_set_request_body", false)
-
 	ContentTypeVarPtr := core.GStrdupNullable(ContentTypeVar)
 	defer core.GFreeNullable(ContentTypeVarPtr)
 
@@ -719,8 +640,6 @@ var xMessageSetRequestBodyFromBytes func(uintptr, uintptr, *glib.Bytes)
 // The request body needs to be set again in case @msg is restarted
 // (in case of redirection or authentication).
 func (x *Message) SetRequestBodyFromBytes(ContentTypeVar *string, BytesVar *glib.Bytes) {
-	core.LazyRegister(&xMessageSetRequestBodyFromBytes, "SOUP", "soup_message_set_request_body_from_bytes", false)
-
 	ContentTypeVarPtr := core.GStrdupNullable(ContentTypeVar)
 	defer core.GFreeNullable(ContentTypeVarPtr)
 
@@ -739,8 +658,6 @@ var xMessageSetSiteForCookies func(uintptr, *glib.Uri)
 // See the [same-site spec](https://tools.ietf.org/html/draft-ietf-httpbis-cookie-same-site-00)
 // for more information.
 func (x *Message) SetSiteForCookies(SiteForCookiesVar *glib.Uri) {
-	core.LazyRegister(&xMessageSetSiteForCookies, "SOUP", "soup_message_set_site_for_cookies", false)
-
 	xMessageSetSiteForCookies(x.GoPointer(), SiteForCookiesVar)
 }
 
@@ -755,8 +672,6 @@ var xMessageSetTlsClientCertificate func(uintptr, uintptr)
 // Note that the [class@Gio.TlsCertificate] set by this function will be ignored if
 // [property@Session:tls-interaction] is not %NULL.
 func (x *Message) SetTlsClientCertificate(CertificateVar *gio.TlsCertificate) {
-	core.LazyRegister(&xMessageSetTlsClientCertificate, "SOUP", "soup_message_set_tls_client_certificate", false)
-
 	xMessageSetTlsClientCertificate(x.GoPointer(), CertificateVar.GoPointer())
 }
 
@@ -767,8 +682,6 @@ var xMessageSetUri func(uintptr, *glib.Uri)
 // If @msg has already been sent and you want to re-send it with the new URI,
 // you need to send it again.
 func (x *Message) SetUri(UriVar *glib.Uri) {
-	core.LazyRegister(&xMessageSetUri, "SOUP", "soup_message_set_uri", false)
-
 	xMessageSetUri(x.GoPointer(), UriVar)
 }
 
@@ -780,8 +693,6 @@ var xMessageTlsClientCertificatePasswordRequestComplete func(uintptr)
 // [signal@Message::request-certificate-password] signal, to notify @msg that
 // the [class@Gio.TlsPassword] has already been updated.
 func (x *Message) TlsClientCertificatePasswordRequestComplete() {
-	core.LazyRegister(&xMessageTlsClientCertificatePasswordRequestComplete, "SOUP", "soup_message_tls_client_certificate_password_request_complete", false)
-
 	xMessageTlsClientCertificatePasswordRequestComplete(x.GoPointer())
 }
 
@@ -1442,4 +1353,67 @@ func (x *Message) ConnectWroteHeaders(cb *func(Message)) uint {
 func init() {
 	core.SetPackageName("SOUP", "libsoup-3.0")
 	core.SetSharedLibraries("SOUP", []string{"libsoup-3.0.so.0", "libsoup-3.0.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("SOUP") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xMessageFlagsGLibType, libs, "soup_message_flags_get_type")
+
+	core.PuregoSafeRegister(&xMessagePriorityGLibType, libs, "soup_message_priority_get_type")
+
+	core.PuregoSafeRegister(&xMessageGLibType, libs, "soup_message_get_type")
+
+	core.PuregoSafeRegister(&xNewMessage, libs, "soup_message_new")
+	core.PuregoSafeRegister(&xNewMessageFromEncodedForm, libs, "soup_message_new_from_encoded_form")
+	core.PuregoSafeRegister(&xNewMessageFromMultipart, libs, "soup_message_new_from_multipart")
+	core.PuregoSafeRegister(&xNewMessageFromUri, libs, "soup_message_new_from_uri")
+	core.PuregoSafeRegister(&xNewMessageOptionsPing, libs, "soup_message_new_options_ping")
+
+	core.PuregoSafeRegister(&xMessageAddFlags, libs, "soup_message_add_flags")
+	core.PuregoSafeRegister(&xMessageAddHeaderHandler, libs, "soup_message_add_header_handler")
+	core.PuregoSafeRegister(&xMessageAddStatusCodeHandler, libs, "soup_message_add_status_code_handler")
+	core.PuregoSafeRegister(&xMessageDisableFeature, libs, "soup_message_disable_feature")
+	core.PuregoSafeRegister(&xMessageGetConnectionId, libs, "soup_message_get_connection_id")
+	core.PuregoSafeRegister(&xMessageGetFirstParty, libs, "soup_message_get_first_party")
+	core.PuregoSafeRegister(&xMessageGetFlags, libs, "soup_message_get_flags")
+	core.PuregoSafeRegister(&xMessageGetForceHttp1, libs, "soup_message_get_force_http1")
+	core.PuregoSafeRegister(&xMessageGetHttpVersion, libs, "soup_message_get_http_version")
+	core.PuregoSafeRegister(&xMessageGetIsOptionsPing, libs, "soup_message_get_is_options_ping")
+	core.PuregoSafeRegister(&xMessageGetIsTopLevelNavigation, libs, "soup_message_get_is_top_level_navigation")
+	core.PuregoSafeRegister(&xMessageGetMethod, libs, "soup_message_get_method")
+	core.PuregoSafeRegister(&xMessageGetMetrics, libs, "soup_message_get_metrics")
+	core.PuregoSafeRegister(&xMessageGetPriority, libs, "soup_message_get_priority")
+	core.PuregoSafeRegister(&xMessageGetReasonPhrase, libs, "soup_message_get_reason_phrase")
+	core.PuregoSafeRegister(&xMessageGetRemoteAddress, libs, "soup_message_get_remote_address")
+	core.PuregoSafeRegister(&xMessageGetRequestHeaders, libs, "soup_message_get_request_headers")
+	core.PuregoSafeRegister(&xMessageGetResponseHeaders, libs, "soup_message_get_response_headers")
+	core.PuregoSafeRegister(&xMessageGetSiteForCookies, libs, "soup_message_get_site_for_cookies")
+	core.PuregoSafeRegister(&xMessageGetStatus, libs, "soup_message_get_status")
+	core.PuregoSafeRegister(&xMessageGetTlsCiphersuiteName, libs, "soup_message_get_tls_ciphersuite_name")
+	core.PuregoSafeRegister(&xMessageGetTlsPeerCertificate, libs, "soup_message_get_tls_peer_certificate")
+	core.PuregoSafeRegister(&xMessageGetTlsPeerCertificateErrors, libs, "soup_message_get_tls_peer_certificate_errors")
+	core.PuregoSafeRegister(&xMessageGetTlsProtocolVersion, libs, "soup_message_get_tls_protocol_version")
+	core.PuregoSafeRegister(&xMessageGetUri, libs, "soup_message_get_uri")
+	core.PuregoSafeRegister(&xMessageIsFeatureDisabled, libs, "soup_message_is_feature_disabled")
+	core.PuregoSafeRegister(&xMessageIsKeepalive, libs, "soup_message_is_keepalive")
+	core.PuregoSafeRegister(&xMessageQueryFlags, libs, "soup_message_query_flags")
+	core.PuregoSafeRegister(&xMessageRemoveFlags, libs, "soup_message_remove_flags")
+	core.PuregoSafeRegister(&xMessageSetFirstParty, libs, "soup_message_set_first_party")
+	core.PuregoSafeRegister(&xMessageSetFlags, libs, "soup_message_set_flags")
+	core.PuregoSafeRegister(&xMessageSetForceHttp1, libs, "soup_message_set_force_http1")
+	core.PuregoSafeRegister(&xMessageSetIsOptionsPing, libs, "soup_message_set_is_options_ping")
+	core.PuregoSafeRegister(&xMessageSetIsTopLevelNavigation, libs, "soup_message_set_is_top_level_navigation")
+	core.PuregoSafeRegister(&xMessageSetMethod, libs, "soup_message_set_method")
+	core.PuregoSafeRegister(&xMessageSetPriority, libs, "soup_message_set_priority")
+	core.PuregoSafeRegister(&xMessageSetRequestBody, libs, "soup_message_set_request_body")
+	core.PuregoSafeRegister(&xMessageSetRequestBodyFromBytes, libs, "soup_message_set_request_body_from_bytes")
+	core.PuregoSafeRegister(&xMessageSetSiteForCookies, libs, "soup_message_set_site_for_cookies")
+	core.PuregoSafeRegister(&xMessageSetTlsClientCertificate, libs, "soup_message_set_tls_client_certificate")
+	core.PuregoSafeRegister(&xMessageSetUri, libs, "soup_message_set_uri")
+	core.PuregoSafeRegister(&xMessageTlsClientCertificatePasswordRequestComplete, libs, "soup_message_tls_client_certificate_password_request_complete")
 }

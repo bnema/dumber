@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 )
 
@@ -45,8 +46,6 @@ var xIConvGIconv func(uintptr, string, *uint, string, *uint) uint
 // See [`iconv(3posix)`](man:iconv(3posix)) and [`iconv(3)`](man:iconv(3)) for more details about behavior when an
 // error occurs.
 func (x *IConv) GIconv(InbufVar string, InbytesLeftVar *uint, OutbufVar string, OutbytesLeftVar *uint) uint {
-	core.LazyRegister(&xIConvGIconv, "GLIB", "g_iconv", false)
-
 	cret := xIConvGIconv(x.GoPointer(), InbufVar, InbytesLeftVar, OutbufVar, OutbytesLeftVar)
 	return cret
 }
@@ -62,8 +61,6 @@ var xIConvClose func(uintptr) int
 // GLib provides g_convert() and g_locale_to_utf8() which are likely
 // more convenient than the raw iconv wrappers.
 func (x *IConv) Close() int {
-	core.LazyRegister(&xIConvClose, "GLIB", "g_iconv_close", false)
-
 	cret := xIConvClose(x.GoPointer())
 	return cret
 }
@@ -113,7 +110,6 @@ var xConvert func([]byte, int, string, string, *uint, *uint, **Error) uintptr
 // Using extensions such as "//TRANSLIT" may not work (or may not work
 // well) on many platforms.  Consider using g_str_to_ascii() instead.
 func Convert(StrVar []byte, LenVar int, ToCodesetVar string, FromCodesetVar string, BytesReadVar *uint, BytesWrittenVar *uint) (uintptr, error) {
-	core.LazyRegister(&xConvert, "GLIB", "g_convert", false)
 	var cerr *Error
 
 	cret := xConvert(StrVar, LenVar, ToCodesetVar, FromCodesetVar, BytesReadVar, BytesWrittenVar, &cerr)
@@ -143,7 +139,6 @@ var xConvertWithFallback func([]byte, int, string, string, string, *uint, *uint,
 // character until it knows that the next character is not a mark that
 // could combine with the base character.)
 func ConvertWithFallback(StrVar []byte, LenVar int, ToCodesetVar string, FromCodesetVar string, FallbackVar string, BytesReadVar *uint, BytesWrittenVar *uint) (uintptr, error) {
-	core.LazyRegister(&xConvertWithFallback, "GLIB", "g_convert_with_fallback", false)
 	var cerr *Error
 
 	cret := xConvertWithFallback(StrVar, LenVar, ToCodesetVar, FromCodesetVar, FallbackVar, BytesReadVar, BytesWrittenVar, &cerr)
@@ -175,7 +170,6 @@ var xConvertWithIconv func([]byte, int, uintptr, *uint, *uint, **Error) uintptr
 // the input character set. To get defined behaviour for conversion of
 // unrepresentable characters, use g_convert_with_fallback().
 func ConvertWithIconv(StrVar []byte, LenVar int, ConverterVar uintptr, BytesReadVar *uint, BytesWrittenVar *uint) (uintptr, error) {
-	core.LazyRegister(&xConvertWithIconv, "GLIB", "g_convert_with_iconv", false)
 	var cerr *Error
 
 	cret := xConvertWithIconv(StrVar, LenVar, ConverterVar, BytesReadVar, BytesWrittenVar, &cerr)
@@ -204,8 +198,6 @@ var xFilenameDisplayBasename func(string) string
 // This function is preferred over g_filename_display_name() if you know the
 // whole path, as it allows translation.
 func FilenameDisplayBasename(FilenameVar string) string {
-	core.LazyRegister(&xFilenameDisplayBasename, "GLIB", "g_filename_display_basename", false)
-
 	cret := xFilenameDisplayBasename(FilenameVar)
 	return cret
 }
@@ -228,8 +220,6 @@ var xFilenameDisplayName func(string) string
 // g_filename_display_basename(), since that allows location-based
 // translation of filenames.
 func FilenameDisplayName(FilenameVar string) string {
-	core.LazyRegister(&xFilenameDisplayName, "GLIB", "g_filename_display_name", false)
-
 	cret := xFilenameDisplayName(FilenameVar)
 	return cret
 }
@@ -244,7 +234,6 @@ var xFilenameFromUri func(string, *string, **Error) string
 // We take inspiration from https://url.spec.whatwg.org/#file-state,
 // but we don't support the entire standard.
 func FilenameFromUri(UriVar string, HostnameVar *string) (string, error) {
-	core.LazyRegister(&xFilenameFromUri, "GLIB", "g_filename_from_uri", false)
 	var cerr *Error
 
 	cret := xFilenameFromUri(UriVar, HostnameVar, &cerr)
@@ -267,7 +256,6 @@ var xFilenameFromUtf8 func(string, int, *uint, *uint, **Error) string
 // not UTF-8 and the conversion output contains a nul character, the error
 // %G_CONVERT_ERROR_EMBEDDED_NUL is set and the function returns %NULL.
 func FilenameFromUtf8(Utf8stringVar string, LenVar int, BytesReadVar *uint, BytesWrittenVar *uint) (string, error) {
-	core.LazyRegister(&xFilenameFromUtf8, "GLIB", "g_filename_from_utf8", false)
 	var cerr *Error
 
 	cret := xFilenameFromUtf8(Utf8stringVar, LenVar, BytesReadVar, BytesWrittenVar, &cerr)
@@ -282,7 +270,6 @@ var xFilenameToUri func(string, uintptr, **Error) string
 // Converts an absolute filename to an escaped ASCII-encoded URI, with the path
 // component following Section 3.3. of RFC 2396.
 func FilenameToUri(FilenameVar string, HostnameVar *string) (string, error) {
-	core.LazyRegister(&xFilenameToUri, "GLIB", "g_filename_to_uri", false)
 	var cerr *Error
 
 	HostnameVarPtr := core.GStrdupNullable(HostnameVar)
@@ -310,7 +297,6 @@ var xFilenameToUtf8 func(string, int, *uint, *uint, **Error) string
 // function returns %NULL. Use g_convert() to produce output that
 // may contain embedded nul characters.
 func FilenameToUtf8(OpsysstringVar string, LenVar int, BytesReadVar *uint, BytesWrittenVar *uint) (string, error) {
-	core.LazyRegister(&xFilenameToUtf8, "GLIB", "g_filename_to_utf8", false)
 	var cerr *Error
 
 	cret := xFilenameToUtf8(OpsysstringVar, LenVar, BytesReadVar, BytesWrittenVar, &cerr)
@@ -347,8 +333,6 @@ var xGetFilenameCharsets func(*[]string) bool
 // `G_FILENAME_ENCODING` value, the actual file names present
 // on a system might be in any random encoding or just gibberish.
 func GetFilenameCharsets(FilenameCharsetsVar *[]string) bool {
-	core.LazyRegister(&xGetFilenameCharsets, "GLIB", "g_get_filename_charsets", false)
-
 	cret := xGetFilenameCharsets(FilenameCharsetsVar)
 	return cret
 }
@@ -372,8 +356,6 @@ var xIconv func(uintptr, string, *uint, string, *uint) uint
 // See [`iconv(3posix)`](man:iconv(3posix)) and [`iconv(3)`](man:iconv(3)) for more details about behavior when an
 // error occurs.
 func Iconv(ConverterVar uintptr, InbufVar string, InbytesLeftVar *uint, OutbufVar string, OutbytesLeftVar *uint) uint {
-	core.LazyRegister(&xIconv, "GLIB", "g_iconv", false)
-
 	cret := xIconv(ConverterVar, InbufVar, InbytesLeftVar, OutbufVar, OutbytesLeftVar)
 	return cret
 }
@@ -387,8 +369,6 @@ var xIconvOpen func(string, string) uintptr
 // GLib provides g_convert() and g_locale_to_utf8() which are likely
 // more convenient than the raw iconv wrappers.
 func IconvOpen(ToCodesetVar string, FromCodesetVar string) uintptr {
-	core.LazyRegister(&xIconvOpen, "GLIB", "g_iconv_open", false)
-
 	cret := xIconvOpen(ToCodesetVar, FromCodesetVar)
 	return cret
 }
@@ -405,7 +385,6 @@ var xLocaleFromUtf8 func(string, int, *uint, *uint, **Error) uintptr
 // in error %G_CONVERT_ERROR_ILLEGAL_SEQUENCE. Use g_convert() to convert
 // input that may contain embedded nul characters.
 func LocaleFromUtf8(Utf8stringVar string, LenVar int, BytesReadVar *uint, BytesWrittenVar *uint) (uintptr, error) {
-	core.LazyRegister(&xLocaleFromUtf8, "GLIB", "g_locale_from_utf8", false)
 	var cerr *Error
 
 	cret := xLocaleFromUtf8(Utf8stringVar, LenVar, BytesReadVar, BytesWrittenVar, &cerr)
@@ -429,7 +408,6 @@ var xLocaleToUtf8 func([]byte, int, *uint, *uint, **Error) string
 // earlier versions of this library. Use g_convert() to produce output that
 // may contain embedded nul characters.
 func LocaleToUtf8(OpsysstringVar []byte, LenVar int, BytesReadVar *uint, BytesWrittenVar *uint) (string, error) {
-	core.LazyRegister(&xLocaleToUtf8, "GLIB", "g_locale_to_utf8", false)
 	var cerr *Error
 
 	cret := xLocaleToUtf8(OpsysstringVar, LenVar, BytesReadVar, BytesWrittenVar, &cerr)
@@ -445,8 +423,6 @@ var xUriListExtractUris func(string) []string
 // mime type defined in RFC 2483 into individual URIs,
 // discarding any comments. The URIs are not validated.
 func UriListExtractUris(UriListVar string) []string {
-	core.LazyRegister(&xUriListExtractUris, "GLIB", "g_uri_list_extract_uris", false)
-
 	cret := xUriListExtractUris(UriListVar)
 	return cret
 }
@@ -454,4 +430,31 @@ func UriListExtractUris(UriListVar string) []string {
 func init() {
 	core.SetPackageName("GLIB", "glib-2.0")
 	core.SetSharedLibraries("GLIB", []string{"libgobject-2.0.so.0", "libglib-2.0.so.0", "libgobject-2.0.0.dylib", "libglib-2.0.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GLIB") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xConvert, libs, "g_convert")
+	core.PuregoSafeRegister(&xConvertWithFallback, libs, "g_convert_with_fallback")
+	core.PuregoSafeRegister(&xConvertWithIconv, libs, "g_convert_with_iconv")
+	core.PuregoSafeRegister(&xFilenameDisplayBasename, libs, "g_filename_display_basename")
+	core.PuregoSafeRegister(&xFilenameDisplayName, libs, "g_filename_display_name")
+	core.PuregoSafeRegister(&xFilenameFromUri, libs, "g_filename_from_uri")
+	core.PuregoSafeRegister(&xFilenameFromUtf8, libs, "g_filename_from_utf8")
+	core.PuregoSafeRegister(&xFilenameToUri, libs, "g_filename_to_uri")
+	core.PuregoSafeRegister(&xFilenameToUtf8, libs, "g_filename_to_utf8")
+	core.PuregoSafeRegister(&xGetFilenameCharsets, libs, "g_get_filename_charsets")
+	core.PuregoSafeRegister(&xIconv, libs, "g_iconv")
+	core.PuregoSafeRegister(&xIconvOpen, libs, "g_iconv_open")
+	core.PuregoSafeRegister(&xLocaleFromUtf8, libs, "g_locale_from_utf8")
+	core.PuregoSafeRegister(&xLocaleToUtf8, libs, "g_locale_to_utf8")
+	core.PuregoSafeRegister(&xUriListExtractUris, libs, "g_uri_list_extract_uris")
+
+	core.PuregoSafeRegister(&xIConvGIconv, libs, "g_iconv")
+	core.PuregoSafeRegister(&xIConvClose, libs, "g_iconv_close")
 }

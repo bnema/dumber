@@ -4,6 +4,7 @@ package gtk
 import (
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gdk"
 	"github.com/bnema/puregotk/v4/glib"
@@ -82,7 +83,6 @@ type ComboBoxText struct {
 var xComboBoxTextGLibType func() types.GType
 
 func ComboBoxTextGLibType() types.GType {
-	core.LazyRegister(&xComboBoxTextGLibType, "GTK", "gtk_combo_box_text_get_type", false)
 	return xComboBoxTextGLibType()
 }
 
@@ -96,7 +96,6 @@ var xNewComboBoxText func() uintptr
 
 // Creates a new `GtkComboBoxText`.
 func NewComboBoxText() *ComboBoxText {
-	core.LazyRegister(&xNewComboBoxText, "GTK", "gtk_combo_box_text_new", false)
 	var cls *ComboBoxText
 
 	cret := xNewComboBoxText()
@@ -114,7 +113,6 @@ var xNewComboBoxTextWithEntry func() uintptr
 
 // Creates a new `GtkComboBoxText` with an entry.
 func NewComboBoxTextWithEntry() *ComboBoxText {
-	core.LazyRegister(&xNewComboBoxTextWithEntry, "GTK", "gtk_combo_box_text_new_with_entry", false)
 	var cls *ComboBoxText
 
 	cret := xNewComboBoxTextWithEntry()
@@ -137,8 +135,6 @@ var xComboBoxTextAppend func(uintptr, uintptr, string)
 // This is the same as calling [method@Gtk.ComboBoxText.insert]
 // with a position of -1.
 func (x *ComboBoxText) Append(IdVar *string, TextVar string) {
-	core.LazyRegister(&xComboBoxTextAppend, "GTK", "gtk_combo_box_text_append", false)
-
 	IdVarPtr := core.GStrdupNullable(IdVar)
 	defer core.GFreeNullable(IdVarPtr)
 
@@ -152,8 +148,6 @@ var xComboBoxTextAppendText func(uintptr, string)
 // This is the same as calling [method@Gtk.ComboBoxText.insert_text]
 // with a position of -1.
 func (x *ComboBoxText) AppendText(TextVar string) {
-	core.LazyRegister(&xComboBoxTextAppendText, "GTK", "gtk_combo_box_text_append_text", false)
-
 	xComboBoxTextAppendText(x.GoPointer(), TextVar)
 }
 
@@ -166,8 +160,6 @@ var xComboBoxTextGetActiveText func(uintptr) string
 // return its contents (which will not necessarily
 // be an item from the list).
 func (x *ComboBoxText) GetActiveText() string {
-	core.LazyRegister(&xComboBoxTextGetActiveText, "GTK", "gtk_combo_box_text_get_active_text", false)
-
 	cret := xComboBoxTextGetActiveText(x.GoPointer())
 	return cret
 }
@@ -181,8 +173,6 @@ var xComboBoxTextInsert func(uintptr, int, uintptr, string)
 //
 // If @position is negative then @text is appended.
 func (x *ComboBoxText) Insert(PositionVar int, IdVar *string, TextVar string) {
-	core.LazyRegister(&xComboBoxTextInsert, "GTK", "gtk_combo_box_text_insert", false)
-
 	IdVarPtr := core.GStrdupNullable(IdVar)
 	defer core.GFreeNullable(IdVarPtr)
 
@@ -198,8 +188,6 @@ var xComboBoxTextInsertText func(uintptr, int, string)
 // This is the same as calling [method@Gtk.ComboBoxText.insert]
 // with a %NULL ID string.
 func (x *ComboBoxText) InsertText(PositionVar int, TextVar string) {
-	core.LazyRegister(&xComboBoxTextInsertText, "GTK", "gtk_combo_box_text_insert_text", false)
-
 	xComboBoxTextInsertText(x.GoPointer(), PositionVar, TextVar)
 }
 
@@ -212,8 +200,6 @@ var xComboBoxTextPrepend func(uintptr, uintptr, string)
 // This is the same as calling [method@Gtk.ComboBoxText.insert]
 // with a position of 0.
 func (x *ComboBoxText) Prepend(IdVar *string, TextVar string) {
-	core.LazyRegister(&xComboBoxTextPrepend, "GTK", "gtk_combo_box_text_prepend", false)
-
 	IdVarPtr := core.GStrdupNullable(IdVar)
 	defer core.GFreeNullable(IdVarPtr)
 
@@ -227,8 +213,6 @@ var xComboBoxTextPrependText func(uintptr, string)
 // This is the same as calling [method@Gtk.ComboBoxText.insert_text]
 // with a position of 0.
 func (x *ComboBoxText) PrependText(TextVar string) {
-	core.LazyRegister(&xComboBoxTextPrependText, "GTK", "gtk_combo_box_text_prepend_text", false)
-
 	xComboBoxTextPrependText(x.GoPointer(), TextVar)
 }
 
@@ -236,8 +220,6 @@ var xComboBoxTextRemove func(uintptr, int)
 
 // Removes the string at @position from @combo_box.
 func (x *ComboBoxText) Remove(PositionVar int) {
-	core.LazyRegister(&xComboBoxTextRemove, "GTK", "gtk_combo_box_text_remove", false)
-
 	xComboBoxTextRemove(x.GoPointer(), PositionVar)
 }
 
@@ -245,8 +227,6 @@ var xComboBoxTextRemoveAll func(uintptr)
 
 // Removes all the text entries from the combo box.
 func (x *ComboBoxText) RemoveAll() {
-	core.LazyRegister(&xComboBoxTextRemoveAll, "GTK", "gtk_combo_box_text_remove_all", false)
-
 	xComboBoxTextRemoveAll(x.GoPointer())
 }
 
@@ -646,4 +626,27 @@ func (x *ComboBoxText) SetCellDataFunc(CellVar *CellRenderer, FuncVar *CellLayou
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GTK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xComboBoxTextGLibType, libs, "gtk_combo_box_text_get_type")
+
+	core.PuregoSafeRegister(&xNewComboBoxText, libs, "gtk_combo_box_text_new")
+	core.PuregoSafeRegister(&xNewComboBoxTextWithEntry, libs, "gtk_combo_box_text_new_with_entry")
+
+	core.PuregoSafeRegister(&xComboBoxTextAppend, libs, "gtk_combo_box_text_append")
+	core.PuregoSafeRegister(&xComboBoxTextAppendText, libs, "gtk_combo_box_text_append_text")
+	core.PuregoSafeRegister(&xComboBoxTextGetActiveText, libs, "gtk_combo_box_text_get_active_text")
+	core.PuregoSafeRegister(&xComboBoxTextInsert, libs, "gtk_combo_box_text_insert")
+	core.PuregoSafeRegister(&xComboBoxTextInsertText, libs, "gtk_combo_box_text_insert_text")
+	core.PuregoSafeRegister(&xComboBoxTextPrepend, libs, "gtk_combo_box_text_prepend")
+	core.PuregoSafeRegister(&xComboBoxTextPrependText, libs, "gtk_combo_box_text_prepend_text")
+	core.PuregoSafeRegister(&xComboBoxTextRemove, libs, "gtk_combo_box_text_remove")
+	core.PuregoSafeRegister(&xComboBoxTextRemoveAll, libs, "gtk_combo_box_text_remove_all")
 }

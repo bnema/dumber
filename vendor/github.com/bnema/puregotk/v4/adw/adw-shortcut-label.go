@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -103,7 +104,6 @@ type ShortcutLabel struct {
 var xShortcutLabelGLibType func() types.GType
 
 func ShortcutLabelGLibType() types.GType {
-	core.LazyRegister(&xShortcutLabelGLibType, "ADW", "adw_shortcut_label_get_type", false)
 	return xShortcutLabelGLibType()
 }
 
@@ -117,7 +117,6 @@ var xNewShortcutLabel func(string) uintptr
 
 // Creates a new `AdwShortcutLabel` showing @accelerator.
 func NewShortcutLabel(AcceleratorVar string) *ShortcutLabel {
-	core.LazyRegister(&xNewShortcutLabel, "ADW", "adw_shortcut_label_new", false)
 	var cls *ShortcutLabel
 
 	cret := xNewShortcutLabel(AcceleratorVar)
@@ -135,8 +134,6 @@ var xShortcutLabelGetAccelerator func(uintptr) string
 
 // Gets the accelerator displayed by @self.
 func (x *ShortcutLabel) GetAccelerator() string {
-	core.LazyRegister(&xShortcutLabelGetAccelerator, "ADW", "adw_shortcut_label_get_accelerator", false)
-
 	cret := xShortcutLabelGetAccelerator(x.GoPointer())
 	return cret
 }
@@ -145,8 +142,6 @@ var xShortcutLabelGetDisabledText func(uintptr) string
 
 // Gets the text displayed by @self when no accelerator is set.
 func (x *ShortcutLabel) GetDisabledText() string {
-	core.LazyRegister(&xShortcutLabelGetDisabledText, "ADW", "adw_shortcut_label_get_disabled_text", false)
-
 	cret := xShortcutLabelGetDisabledText(x.GoPointer())
 	return cret
 }
@@ -155,8 +150,6 @@ var xShortcutLabelSetAccelerator func(uintptr, string)
 
 // Sets the accelerator to be displayed by @self.
 func (x *ShortcutLabel) SetAccelerator(AcceleratorVar string) {
-	core.LazyRegister(&xShortcutLabelSetAccelerator, "ADW", "adw_shortcut_label_set_accelerator", false)
-
 	xShortcutLabelSetAccelerator(x.GoPointer(), AcceleratorVar)
 }
 
@@ -164,8 +157,6 @@ var xShortcutLabelSetDisabledText func(uintptr, string)
 
 // Sets the text to be displayed by @self when no accelerator is set.
 func (x *ShortcutLabel) SetDisabledText(DisabledTextVar string) {
-	core.LazyRegister(&xShortcutLabelSetDisabledText, "ADW", "adw_shortcut_label_set_disabled_text", false)
-
 	xShortcutLabelSetDisabledText(x.GoPointer(), DisabledTextVar)
 }
 
@@ -477,4 +468,21 @@ func (x *ShortcutLabel) GetBuildableId() string {
 func init() {
 	core.SetPackageName("ADW", "libadwaita-1")
 	core.SetSharedLibraries("ADW", []string{"libadwaita-1.so.0", "libadwaita-1.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("ADW") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xShortcutLabelGLibType, libs, "adw_shortcut_label_get_type")
+
+	core.PuregoSafeRegister(&xNewShortcutLabel, libs, "adw_shortcut_label_new")
+
+	core.PuregoSafeRegister(&xShortcutLabelGetAccelerator, libs, "adw_shortcut_label_get_accelerator")
+	core.PuregoSafeRegister(&xShortcutLabelGetDisabledText, libs, "adw_shortcut_label_get_disabled_text")
+	core.PuregoSafeRegister(&xShortcutLabelSetAccelerator, libs, "adw_shortcut_label_set_accelerator")
+	core.PuregoSafeRegister(&xShortcutLabelSetDisabledText, libs, "adw_shortcut_label_set_disabled_text")
 }

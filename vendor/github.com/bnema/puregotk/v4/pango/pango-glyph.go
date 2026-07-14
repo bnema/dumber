@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject/types"
 )
@@ -90,7 +91,6 @@ type GlyphString struct {
 var xGlyphStringGLibType func() types.GType
 
 func GlyphStringGLibType() types.GType {
-	core.LazyRegister(&xGlyphStringGLibType, "PANGO", "pango_glyph_string_get_type", false)
 	return xGlyphStringGLibType()
 }
 
@@ -110,8 +110,6 @@ var xNewGlyphString func() uintptr
 
 // Create a new `PangoGlyphString`.
 func NewGlyphString() *GlyphString {
-	core.LazyRegister(&xNewGlyphString, "PANGO", "pango_glyph_string_new", false)
-
 	cret := xNewGlyphString()
 	if cret == 0 {
 		return nil
@@ -123,8 +121,6 @@ var xGlyphStringCopy func(uintptr) uintptr
 
 // Copy a glyph string and associated storage.
 func (x *GlyphString) Copy() *GlyphString {
-	core.LazyRegister(&xGlyphStringCopy, "PANGO", "pango_glyph_string_copy", false)
-
 	cret := xGlyphStringCopy(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -143,8 +139,6 @@ var xGlyphStringExtents func(uintptr, uintptr, *Rectangle, *Rectangle)
 //
 // ![](rects1.png) ![](rects2.png)
 func (x *GlyphString) Extents(FontVar *Font, InkRectVar *Rectangle, LogicalRectVar *Rectangle) {
-	core.LazyRegister(&xGlyphStringExtents, "PANGO", "pango_glyph_string_extents", false)
-
 	xGlyphStringExtents(x.GoPointer(), FontVar.GoPointer(), InkRectVar, LogicalRectVar)
 }
 
@@ -156,8 +150,6 @@ var xGlyphStringExtentsRange func(uintptr, int, int, uintptr, *Rectangle, *Recta
 // (the origin of their coordinate system is at the start of the range,
 // not at the start of the entire glyph string).
 func (x *GlyphString) ExtentsRange(StartVar int, EndVar int, FontVar *Font, InkRectVar *Rectangle, LogicalRectVar *Rectangle) {
-	core.LazyRegister(&xGlyphStringExtentsRange, "PANGO", "pango_glyph_string_extents_range", false)
-
 	xGlyphStringExtentsRange(x.GoPointer(), StartVar, EndVar, FontVar.GoPointer(), InkRectVar, LogicalRectVar)
 }
 
@@ -165,8 +157,6 @@ var xGlyphStringFree func(uintptr)
 
 // Free a glyph string and associated storage.
 func (x *GlyphString) Free() {
-	core.LazyRegister(&xGlyphStringFree, "PANGO", "pango_glyph_string_free", false)
-
 	xGlyphStringFree(x.GoPointer())
 }
 
@@ -180,8 +170,6 @@ var xGlyphStringGetLogicalWidths func(uintptr, string, int, int, *[]int)
 //
 // See also [method@Pango.GlyphItem.get_logical_widths].
 func (x *GlyphString) GetLogicalWidths(TextVar string, LengthVar int, EmbeddingLevelVar int, LogicalWidthsVar *[]int) {
-	core.LazyRegister(&xGlyphStringGetLogicalWidths, "PANGO", "pango_glyph_string_get_logical_widths", false)
-
 	xGlyphStringGetLogicalWidths(x.GoPointer(), TextVar, LengthVar, EmbeddingLevelVar, LogicalWidthsVar)
 }
 
@@ -194,8 +182,6 @@ var xGlyphStringGetWidth func(uintptr) int
 // is in fact only a convenience function that computes the sum of
 // @geometry.width for each glyph in the @glyphs.
 func (x *GlyphString) GetWidth() int {
-	core.LazyRegister(&xGlyphStringGetWidth, "PANGO", "pango_glyph_string_get_width", false)
-
 	cret := xGlyphStringGetWidth(x.GoPointer())
 	return cret
 }
@@ -216,8 +202,6 @@ var xGlyphStringIndexToX func(uintptr, string, int, *Analysis, int, bool, *int)
 //
 // &lt;/picture&gt;
 func (x *GlyphString) IndexToX(TextVar string, LengthVar int, AnalysisVar *Analysis, IndexVar int, TrailingVar bool, XPosVar *int) {
-	core.LazyRegister(&xGlyphStringIndexToX, "PANGO", "pango_glyph_string_index_to_x", false)
-
 	xGlyphStringIndexToX(x.GoPointer(), TextVar, LengthVar, AnalysisVar, IndexVar, TrailingVar, XPosVar)
 }
 
@@ -230,8 +214,6 @@ var xGlyphStringIndexToXFull func(uintptr, string, int, *Analysis, *LogAttr, int
 // in it can be used to disambiguate positioning inside some complex
 // clusters.
 func (x *GlyphString) IndexToXFull(TextVar string, LengthVar int, AnalysisVar *Analysis, AttrsVar *LogAttr, IndexVar int, TrailingVar bool, XPosVar *int) {
-	core.LazyRegister(&xGlyphStringIndexToXFull, "PANGO", "pango_glyph_string_index_to_x_full", false)
-
 	xGlyphStringIndexToXFull(x.GoPointer(), TextVar, LengthVar, AnalysisVar, AttrsVar, IndexVar, TrailingVar, XPosVar)
 }
 
@@ -239,8 +221,6 @@ var xGlyphStringSetSize func(uintptr, int)
 
 // Resize a glyph string to the given length.
 func (x *GlyphString) SetSize(NewLenVar int) {
-	core.LazyRegister(&xGlyphStringSetSize, "PANGO", "pango_glyph_string_set_size", false)
-
 	xGlyphStringSetSize(x.GoPointer(), NewLenVar)
 }
 
@@ -254,8 +234,6 @@ var xGlyphStringXToIndex func(uintptr, string, int, *Analysis, int, *int, *int)
 // cursor position; the caller must combine the result with the logical
 // attributes for the text to compute the valid cursor position.
 func (x *GlyphString) XToIndex(TextVar string, LengthVar int, AnalysisVar *Analysis, XPosVar int, IndexVar *int, TrailingVar *int) {
-	core.LazyRegister(&xGlyphStringXToIndex, "PANGO", "pango_glyph_string_x_to_index", false)
-
 	xGlyphStringXToIndex(x.GoPointer(), TextVar, LengthVar, AnalysisVar, XPosVar, IndexVar, TrailingVar)
 }
 
@@ -310,7 +288,6 @@ type ShapeFlags int
 var xShapeFlagsGLibType func() types.GType
 
 func ShapeFlagsGLibType() types.GType {
-	core.LazyRegister(&xShapeFlagsGLibType, "PANGO", "pango_shape_flags_get_type", false)
 	return xShapeFlagsGLibType()
 }
 
@@ -344,8 +321,6 @@ var xShape func(string, int, *Analysis, *GlyphString)
 // so you need to subtract the item offset from their indices before
 // calling [func@Pango.shape].
 func Shape(TextVar string, LengthVar int, AnalysisVar *Analysis, GlyphsVar *GlyphString) {
-	core.LazyRegister(&xShape, "PANGO", "pango_shape", false)
-
 	xShape(TextVar, LengthVar, AnalysisVar, GlyphsVar)
 }
 
@@ -373,8 +348,6 @@ var xShapeFull func(string, int, uintptr, int, *Analysis, *GlyphString)
 // to subtract the item offset from their indices before calling
 // [func@Pango.shape_full].
 func ShapeFull(ItemTextVar string, ItemLengthVar int, ParagraphTextVar *string, ParagraphLengthVar int, AnalysisVar *Analysis, GlyphsVar *GlyphString) {
-	core.LazyRegister(&xShapeFull, "PANGO", "pango_shape_full", false)
-
 	ParagraphTextVarPtr := core.GStrdupNullable(ParagraphTextVar)
 	defer core.GFreeNullable(ParagraphTextVarPtr)
 
@@ -397,8 +370,6 @@ var xShapeItem func(*Item, uintptr, int, *LogAttr, *GlyphString, ShapeFlags)
 // to subtract the item offset from their indices before calling
 // [func@Pango.shape_with_flags].
 func ShapeItem(ItemVar *Item, ParagraphTextVar *string, ParagraphLengthVar int, LogAttrsVar *LogAttr, GlyphsVar *GlyphString, FlagsVar ShapeFlags) {
-	core.LazyRegister(&xShapeItem, "PANGO", "pango_shape_item", false)
-
 	ParagraphTextVarPtr := core.GStrdupNullable(ParagraphTextVar)
 	defer core.GFreeNullable(ParagraphTextVarPtr)
 
@@ -426,8 +397,6 @@ var xShapeWithFlags func(string, int, uintptr, int, *Analysis, *GlyphString, Sha
 // to subtract the item offset from their indices before calling
 // [func@Pango.shape_with_flags].
 func ShapeWithFlags(ItemTextVar string, ItemLengthVar int, ParagraphTextVar *string, ParagraphLengthVar int, AnalysisVar *Analysis, GlyphsVar *GlyphString, FlagsVar ShapeFlags) {
-	core.LazyRegister(&xShapeWithFlags, "PANGO", "pango_shape_with_flags", false)
-
 	ParagraphTextVarPtr := core.GStrdupNullable(ParagraphTextVar)
 	defer core.GFreeNullable(ParagraphTextVarPtr)
 
@@ -437,4 +406,34 @@ func ShapeWithFlags(ItemTextVar string, ItemLengthVar int, ParagraphTextVar *str
 func init() {
 	core.SetPackageName("PANGO", "pango")
 	core.SetSharedLibraries("PANGO", []string{"libpango-1.0.so.0", "libpango-1.0.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("PANGO") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xShapeFlagsGLibType, libs, "pango_shape_flags_get_type")
+
+	core.PuregoSafeRegister(&xShape, libs, "pango_shape")
+	core.PuregoSafeRegister(&xShapeFull, libs, "pango_shape_full")
+	core.PuregoSafeRegister(&xShapeItem, libs, "pango_shape_item")
+	core.PuregoSafeRegister(&xShapeWithFlags, libs, "pango_shape_with_flags")
+
+	core.PuregoSafeRegister(&xGlyphStringGLibType, libs, "pango_glyph_string_get_type")
+
+	core.PuregoSafeRegister(&xNewGlyphString, libs, "pango_glyph_string_new")
+
+	core.PuregoSafeRegister(&xGlyphStringCopy, libs, "pango_glyph_string_copy")
+	core.PuregoSafeRegister(&xGlyphStringExtents, libs, "pango_glyph_string_extents")
+	core.PuregoSafeRegister(&xGlyphStringExtentsRange, libs, "pango_glyph_string_extents_range")
+	core.PuregoSafeRegister(&xGlyphStringFree, libs, "pango_glyph_string_free")
+	core.PuregoSafeRegister(&xGlyphStringGetLogicalWidths, libs, "pango_glyph_string_get_logical_widths")
+	core.PuregoSafeRegister(&xGlyphStringGetWidth, libs, "pango_glyph_string_get_width")
+	core.PuregoSafeRegister(&xGlyphStringIndexToX, libs, "pango_glyph_string_index_to_x")
+	core.PuregoSafeRegister(&xGlyphStringIndexToXFull, libs, "pango_glyph_string_index_to_x_full")
+	core.PuregoSafeRegister(&xGlyphStringSetSize, libs, "pango_glyph_string_set_size")
+	core.PuregoSafeRegister(&xGlyphStringXToIndex, libs, "pango_glyph_string_x_to_index")
 }

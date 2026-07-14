@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -39,7 +40,6 @@ type DtlsServerConnection interface {
 var xDtlsServerConnectionGLibType func() types.GType
 
 func DtlsServerConnectionGLibType() types.GType {
-	core.LazyRegister(&xDtlsServerConnectionGLibType, "GIO", "g_dtls_server_connection_get_type", false)
 	return xDtlsServerConnectionGLibType()
 }
 
@@ -62,7 +62,6 @@ var xDtlsServerConnectionNew func(uintptr, uintptr, **glib.Error) uintptr
 
 // Creates a new #GDtlsServerConnection wrapping @base_socket.
 func DtlsServerConnectionNew(BaseSocketVar DatagramBased, CertificateVar *TlsCertificate) (*DtlsServerConnectionBase, error) {
-	core.LazyRegister(&xDtlsServerConnectionNew, "GIO", "g_dtls_server_connection_new", false)
 	var cls *DtlsServerConnectionBase
 	var cerr *glib.Error
 
@@ -82,4 +81,16 @@ func DtlsServerConnectionNew(BaseSocketVar DatagramBased, CertificateVar *TlsCer
 func init() {
 	core.SetPackageName("GIO", "gio-2.0")
 	core.SetSharedLibraries("GIO", []string{"libgio-2.0.so.0", "libgio-2.0.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GIO") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xDtlsServerConnectionNew, libs, "g_dtls_server_connection_new")
+
+	core.PuregoSafeRegister(&xDtlsServerConnectionGLibType, libs, "g_dtls_server_connection_get_type")
 }

@@ -287,7 +287,6 @@ type SessionError int
 var xSessionErrorGLibType func() types.GType
 
 func SessionErrorGLibType() types.GType {
-	core.LazyRegister(&xSessionErrorGLibType, "SOUP", "soup_session_error_get_type", false)
 	return xSessionErrorGLibType()
 }
 
@@ -320,8 +319,6 @@ var xSessionErrorQuark func() glib.Quark
 
 // Registers error quark for SoupSession if needed.
 func SessionErrorQuark() glib.Quark {
-	core.LazyRegister(&xSessionErrorQuark, "SOUP", "soup_session_error_quark", false)
-
 	cret := xSessionErrorQuark()
 	return cret
 }
@@ -367,7 +364,6 @@ type Session struct {
 var xSessionGLibType func() types.GType
 
 func SessionGLibType() types.GType {
-	core.LazyRegister(&xSessionGLibType, "SOUP", "soup_session_get_type", false)
 	return xSessionGLibType()
 }
 
@@ -381,7 +377,6 @@ var xNewSession func() uintptr
 
 // Creates a [class@Session] with the default options.
 func NewSession() *Session {
-	core.LazyRegister(&xNewSession, "SOUP", "soup_session_new", false)
 	var cls *Session
 
 	cret := xNewSession()
@@ -398,7 +393,6 @@ var xNewSessionWithOptions func(string, ...interface{}) uintptr
 
 // Creates a [class@Session] with the specified options.
 func NewSessionWithOptions(Optname1Var string, varArgs ...interface{}) *Session {
-	core.LazyRegister(&xNewSessionWithOptions, "SOUP", "soup_session_new_with_options", false)
 	var cls *Session
 
 	cret := xNewSessionWithOptions(Optname1Var, varArgs...)
@@ -416,8 +410,6 @@ var xSessionAbort func(uintptr)
 // Cancels all pending requests in @session and closes all idle
 // persistent connections.
 func (x *Session) Abort() {
-	core.LazyRegister(&xSessionAbort, "SOUP", "soup_session_abort", false)
-
 	xSessionAbort(x.GoPointer())
 }
 
@@ -429,8 +421,6 @@ var xSessionAddFeature func(uintptr, uintptr)
 // See the main [class@Session] documentation for information on what
 // features are present in sessions by default.
 func (x *Session) AddFeature(FeatureVar SessionFeature) {
-	core.LazyRegister(&xSessionAddFeature, "SOUP", "soup_session_add_feature", false)
-
 	xSessionAddFeature(x.GoPointer(), FeatureVar.GoPointer())
 }
 
@@ -449,8 +439,6 @@ var xSessionAddFeatureByType func(uintptr, types.GType)
 // See the main [class@Session] documentation for information on what
 // features are present in sessions by default.
 func (x *Session) AddFeatureByType(FeatureTypeVar types.GType) {
-	core.LazyRegister(&xSessionAddFeatureByType, "SOUP", "soup_session_add_feature_by_type", false)
-
 	xSessionAddFeatureByType(x.GoPointer(), FeatureTypeVar)
 }
 
@@ -459,8 +447,6 @@ var xSessionGetAcceptLanguage func(uintptr) string
 // Get the value used by @session for the "Accept-Language" header on new
 // requests.
 func (x *Session) GetAcceptLanguage() string {
-	core.LazyRegister(&xSessionGetAcceptLanguage, "SOUP", "soup_session_get_accept_language", false)
-
 	cret := xSessionGetAcceptLanguage(x.GoPointer())
 	return cret
 }
@@ -470,8 +456,6 @@ var xSessionGetAcceptLanguageAuto func(uintptr) bool
 // Gets whether @session automatically sets the "Accept-Language" header on new
 // requests.
 func (x *Session) GetAcceptLanguageAuto() bool {
-	core.LazyRegister(&xSessionGetAcceptLanguageAuto, "SOUP", "soup_session_get_accept_language_auto", false)
-
 	cret := xSessionGetAcceptLanguageAuto(x.GoPointer())
 	return cret
 }
@@ -482,7 +466,6 @@ var xSessionGetAsyncResultMessage func(uintptr, uintptr) uintptr
 // to get the [class@Message] of an asynchronous operation started by @session
 // from its [callback@Gio.AsyncReadyCallback].
 func (x *Session) GetAsyncResultMessage(ResultVar gio.AsyncResult) *Message {
-	core.LazyRegister(&xSessionGetAsyncResultMessage, "SOUP", "soup_session_get_async_result_message", false)
 	var cls *Message
 
 	cret := xSessionGetAsyncResultMessage(x.GoPointer(), ResultVar.GoPointer())
@@ -500,7 +483,6 @@ var xSessionGetFeature func(uintptr, types.GType) uintptr
 
 // Gets the feature in @session of type @feature_type.
 func (x *Session) GetFeature(FeatureTypeVar types.GType) *SessionFeatureBase {
-	core.LazyRegister(&xSessionGetFeature, "SOUP", "soup_session_get_feature", false)
 	var cls *SessionFeatureBase
 
 	cret := xSessionGetFeature(x.GoPointer(), FeatureTypeVar)
@@ -519,7 +501,6 @@ var xSessionGetFeatureForMessage func(uintptr, types.GType, uintptr) uintptr
 // Gets the feature in @session of type @feature_type, provided
 // that it is not disabled for @msg.
 func (x *Session) GetFeatureForMessage(FeatureTypeVar types.GType, MsgVar *Message) *SessionFeatureBase {
-	core.LazyRegister(&xSessionGetFeatureForMessage, "SOUP", "soup_session_get_feature_for_message", false)
 	var cls *SessionFeatureBase
 
 	cret := xSessionGetFeatureForMessage(x.GoPointer(), FeatureTypeVar, MsgVar.GoPointer())
@@ -538,8 +519,6 @@ var xSessionGetIdleTimeout func(uintptr) uint
 // Get the timeout in seconds for idle connection lifetime currently used by
 // @session.
 func (x *Session) GetIdleTimeout() uint {
-	core.LazyRegister(&xSessionGetIdleTimeout, "SOUP", "soup_session_get_idle_timeout", false)
-
 	cret := xSessionGetIdleTimeout(x.GoPointer())
 	return cret
 }
@@ -549,7 +528,6 @@ var xSessionGetLocalAddress func(uintptr) uintptr
 // Get the [class@Gio.InetSocketAddress] to use for the client side of
 // connections in @session.
 func (x *Session) GetLocalAddress() *gio.InetSocketAddress {
-	core.LazyRegister(&xSessionGetLocalAddress, "SOUP", "soup_session_get_local_address", false)
 	var cls *gio.InetSocketAddress
 
 	cret := xSessionGetLocalAddress(x.GoPointer())
@@ -567,8 +545,6 @@ var xSessionGetMaxConns func(uintptr) uint
 
 // Get the maximum number of connections that @session can open at once.
 func (x *Session) GetMaxConns() uint {
-	core.LazyRegister(&xSessionGetMaxConns, "SOUP", "soup_session_get_max_conns", false)
-
 	cret := xSessionGetMaxConns(x.GoPointer())
 	return cret
 }
@@ -578,8 +554,6 @@ var xSessionGetMaxConnsPerHost func(uintptr) uint
 // Get the maximum number of connections that @session can open at once to a
 // given host.
 func (x *Session) GetMaxConnsPerHost() uint {
-	core.LazyRegister(&xSessionGetMaxConnsPerHost, "SOUP", "soup_session_get_max_conns_per_host", false)
-
 	cret := xSessionGetMaxConnsPerHost(x.GoPointer())
 	return cret
 }
@@ -588,7 +562,6 @@ var xSessionGetProxyResolver func(uintptr) uintptr
 
 // Get the [iface@Gio.ProxyResolver] currently used by @session.
 func (x *Session) GetProxyResolver() *gio.ProxyResolverBase {
-	core.LazyRegister(&xSessionGetProxyResolver, "SOUP", "soup_session_get_proxy_resolver", false)
 	var cls *gio.ProxyResolverBase
 
 	cret := xSessionGetProxyResolver(x.GoPointer())
@@ -606,7 +579,6 @@ var xSessionGetRemoteConnectable func(uintptr) uintptr
 
 // Gets the remote connectable if one set.
 func (x *Session) GetRemoteConnectable() *gio.SocketConnectableBase {
-	core.LazyRegister(&xSessionGetRemoteConnectable, "SOUP", "soup_session_get_remote_connectable", false)
 	var cls *gio.SocketConnectableBase
 
 	cret := xSessionGetRemoteConnectable(x.GoPointer())
@@ -625,8 +597,6 @@ var xSessionGetTimeout func(uintptr) uint
 // Get the timeout in seconds for socket I/O operations currently used by
 // @session.
 func (x *Session) GetTimeout() uint {
-	core.LazyRegister(&xSessionGetTimeout, "SOUP", "soup_session_get_timeout", false)
-
 	cret := xSessionGetTimeout(x.GoPointer())
 	return cret
 }
@@ -635,7 +605,6 @@ var xSessionGetTlsDatabase func(uintptr) uintptr
 
 // Get the [class@Gio.TlsDatabase] currently used by @session.
 func (x *Session) GetTlsDatabase() *gio.TlsDatabase {
-	core.LazyRegister(&xSessionGetTlsDatabase, "SOUP", "soup_session_get_tls_database", false)
 	var cls *gio.TlsDatabase
 
 	cret := xSessionGetTlsDatabase(x.GoPointer())
@@ -653,7 +622,6 @@ var xSessionGetTlsInteraction func(uintptr) uintptr
 
 // Get the [class@Gio.TlsInteraction] currently used by @session.
 func (x *Session) GetTlsInteraction() *gio.TlsInteraction {
-	core.LazyRegister(&xSessionGetTlsInteraction, "SOUP", "soup_session_get_tls_interaction", false)
 	var cls *gio.TlsInteraction
 
 	cret := xSessionGetTlsInteraction(x.GoPointer())
@@ -671,8 +639,6 @@ var xSessionGetUserAgent func(uintptr) string
 
 // Get the value used by @session for the "User-Agent" header on new requests.
 func (x *Session) GetUserAgent() string {
-	core.LazyRegister(&xSessionGetUserAgent, "SOUP", "soup_session_get_user_agent", false)
-
 	cret := xSessionGetUserAgent(x.GoPointer())
 	return cret
 }
@@ -683,8 +649,6 @@ var xSessionHasFeature func(uintptr, types.GType) bool
 // be the type of either a [iface@SessionFeature], or else a subtype of
 // some class managed by another feature, such as [class@Auth]).
 func (x *Session) HasFeature(FeatureTypeVar types.GType) bool {
-	core.LazyRegister(&xSessionHasFeature, "SOUP", "soup_session_has_feature", false)
-
 	cret := xSessionHasFeature(x.GoPointer(), FeatureTypeVar)
 	return cret
 }
@@ -703,8 +667,6 @@ var xSessionPreconnectAsync func(uintptr, uintptr, int, uintptr, uintptr, uintpt
 //
 // The operation finishes when the connection is done or an error occurred.
 func (x *Session) PreconnectAsync(MsgVar *Message, IoPriorityVar int, CancellableVar *gio.Cancellable, CallbackVar *gio.AsyncReadyCallback, UserDataVar uintptr) {
-	core.LazyRegister(&xSessionPreconnectAsync, "SOUP", "soup_session_preconnect_async", false)
-
 	xSessionPreconnectAsync(x.GoPointer(), MsgVar.GoPointer(), IoPriorityVar, CancellableVar.GoPointer(), glib.NewCallbackNullable(CallbackVar), UserDataVar)
 }
 
@@ -712,7 +674,6 @@ var xSessionPreconnectFinish func(uintptr, uintptr, **glib.Error) bool
 
 // Complete a preconnect async operation started with [method@Session.preconnect_async].
 func (x *Session) PreconnectFinish(ResultVar gio.AsyncResult) (bool, error) {
-	core.LazyRegister(&xSessionPreconnectFinish, "SOUP", "soup_session_preconnect_finish", false)
 	var cerr *glib.Error
 
 	cret := xSessionPreconnectFinish(x.GoPointer(), ResultVar.GoPointer(), &cerr)
@@ -726,8 +687,6 @@ var xSessionRemoveFeature func(uintptr, uintptr)
 
 // Removes @feature's functionality from @session.
 func (x *Session) RemoveFeature(FeatureVar SessionFeature) {
-	core.LazyRegister(&xSessionRemoveFeature, "SOUP", "soup_session_remove_feature", false)
-
 	xSessionRemoveFeature(x.GoPointer(), FeatureVar.GoPointer())
 }
 
@@ -736,8 +695,6 @@ var xSessionRemoveFeatureByType func(uintptr, types.GType)
 // Removes all features of type @feature_type (or any subclass of
 // @feature_type) from @session.
 func (x *Session) RemoveFeatureByType(FeatureTypeVar types.GType) {
-	core.LazyRegister(&xSessionRemoveFeatureByType, "SOUP", "soup_session_remove_feature_by_type", false)
-
 	xSessionRemoveFeatureByType(x.GoPointer(), FeatureTypeVar)
 }
 
@@ -765,7 +722,6 @@ var xSessionSend func(uintptr, uintptr, uintptr, **glib.Error) uintptr
 // Possible error domains include [error@SessionError], [error@Gio.IOErrorEnum],
 // and [error@Gio.TlsError] which you may want to specifically handle.
 func (x *Session) Send(MsgVar *Message, CancellableVar *gio.Cancellable) (*gio.InputStream, error) {
-	core.LazyRegister(&xSessionSend, "SOUP", "soup_session_send", false)
 	var cls *gio.InputStream
 	var cerr *glib.Error
 
@@ -792,7 +748,6 @@ var xSessionSendAndRead func(uintptr, uintptr, uintptr, **glib.Error) uintptr
 //
 // See [method@Session.send] for more details on the general semantics.
 func (x *Session) SendAndRead(MsgVar *Message, CancellableVar *gio.Cancellable) (*glib.Bytes, error) {
-	core.LazyRegister(&xSessionSendAndRead, "SOUP", "soup_session_send_and_read", false)
 	var cerr *glib.Error
 
 	cret := xSessionSendAndRead(x.GoPointer(), MsgVar.GoPointer(), CancellableVar.GoPointer(), &cerr)
@@ -817,8 +772,6 @@ var xSessionSendAndReadAsync func(uintptr, uintptr, int, uintptr, uintptr, uintp
 //
 // See [method@Session.send] for more details on the general semantics.
 func (x *Session) SendAndReadAsync(MsgVar *Message, IoPriorityVar int, CancellableVar *gio.Cancellable, CallbackVar *gio.AsyncReadyCallback, UserDataVar uintptr) {
-	core.LazyRegister(&xSessionSendAndReadAsync, "SOUP", "soup_session_send_and_read_async", false)
-
 	xSessionSendAndReadAsync(x.GoPointer(), MsgVar.GoPointer(), IoPriorityVar, CancellableVar.GoPointer(), glib.NewCallbackNullable(CallbackVar), UserDataVar)
 }
 
@@ -828,7 +781,6 @@ var xSessionSendAndReadFinish func(uintptr, uintptr, **glib.Error) uintptr
 //
 // If successful, returns a [struct@GLib.Bytes] with the response body.
 func (x *Session) SendAndReadFinish(ResultVar gio.AsyncResult) (*glib.Bytes, error) {
-	core.LazyRegister(&xSessionSendAndReadFinish, "SOUP", "soup_session_send_and_read_finish", false)
 	var cerr *glib.Error
 
 	cret := xSessionSendAndReadFinish(x.GoPointer(), ResultVar.GoPointer(), &cerr)
@@ -847,7 +799,6 @@ var xSessionSendAndSplice func(uintptr, uintptr, uintptr, gio.OutputStreamSplice
 //
 // See [method@Session.send] for more details on the general semantics.
 func (x *Session) SendAndSplice(MsgVar *Message, OutStreamVar *gio.OutputStream, FlagsVar gio.OutputStreamSpliceFlags, CancellableVar *gio.Cancellable) (int, error) {
-	core.LazyRegister(&xSessionSendAndSplice, "SOUP", "soup_session_send_and_splice", false)
 	var cerr *glib.Error
 
 	cret := xSessionSendAndSplice(x.GoPointer(), MsgVar.GoPointer(), OutStreamVar.GoPointer(), FlagsVar, CancellableVar.GoPointer(), &cerr)
@@ -865,8 +816,6 @@ var xSessionSendAndSpliceAsync func(uintptr, uintptr, uintptr, gio.OutputStreamS
 //
 // See [method@Session.send] for more details on the general semantics.
 func (x *Session) SendAndSpliceAsync(MsgVar *Message, OutStreamVar *gio.OutputStream, FlagsVar gio.OutputStreamSpliceFlags, IoPriorityVar int, CancellableVar *gio.Cancellable, CallbackVar *gio.AsyncReadyCallback, UserDataVar uintptr) {
-	core.LazyRegister(&xSessionSendAndSpliceAsync, "SOUP", "soup_session_send_and_splice_async", false)
-
 	xSessionSendAndSpliceAsync(x.GoPointer(), MsgVar.GoPointer(), OutStreamVar.GoPointer(), FlagsVar, IoPriorityVar, CancellableVar.GoPointer(), glib.NewCallbackNullable(CallbackVar), UserDataVar)
 }
 
@@ -874,7 +823,6 @@ var xSessionSendAndSpliceFinish func(uintptr, uintptr, **glib.Error) int
 
 // Gets the response to a [method@Session.send_and_splice_async].
 func (x *Session) SendAndSpliceFinish(ResultVar gio.AsyncResult) (int, error) {
-	core.LazyRegister(&xSessionSendAndSpliceFinish, "SOUP", "soup_session_send_and_splice_finish", false)
 	var cerr *glib.Error
 
 	cret := xSessionSendAndSpliceFinish(x.GoPointer(), ResultVar.GoPointer(), &cerr)
@@ -895,8 +843,6 @@ var xSessionSendAsync func(uintptr, uintptr, int, uintptr, uintptr, uintptr)
 //
 // See [method@Session.send] for more details on the general semantics.
 func (x *Session) SendAsync(MsgVar *Message, IoPriorityVar int, CancellableVar *gio.Cancellable, CallbackVar *gio.AsyncReadyCallback, UserDataVar uintptr) {
-	core.LazyRegister(&xSessionSendAsync, "SOUP", "soup_session_send_async", false)
-
 	xSessionSendAsync(x.GoPointer(), MsgVar.GoPointer(), IoPriorityVar, CancellableVar.GoPointer(), glib.NewCallbackNullable(CallbackVar), UserDataVar)
 }
 
@@ -907,7 +853,6 @@ var xSessionSendFinish func(uintptr, uintptr, **glib.Error) uintptr
 // If successful returns a [class@Gio.InputStream] that can be used to read the
 // response body.
 func (x *Session) SendFinish(ResultVar gio.AsyncResult) (*gio.InputStream, error) {
-	core.LazyRegister(&xSessionSendFinish, "SOUP", "soup_session_send_finish", false)
 	var cls *gio.InputStream
 	var cerr *glib.Error
 
@@ -932,8 +877,6 @@ var xSessionSetAcceptLanguage func(uintptr, string)
 // If @accept_language is %NULL then no "Accept-Language" will be included in
 // requests. See [property@Session:accept-language] for more information.
 func (x *Session) SetAcceptLanguage(AcceptLanguageVar string) {
-	core.LazyRegister(&xSessionSetAcceptLanguage, "SOUP", "soup_session_set_accept_language", false)
-
 	xSessionSetAcceptLanguage(x.GoPointer(), AcceptLanguageVar)
 }
 
@@ -945,8 +888,6 @@ var xSessionSetAcceptLanguageAuto func(uintptr, bool)
 //
 // See [property@Session:accept-language-auto] for more information.
 func (x *Session) SetAcceptLanguageAuto(AcceptLanguageAutoVar bool) {
-	core.LazyRegister(&xSessionSetAcceptLanguageAuto, "SOUP", "soup_session_set_accept_language_auto", false)
-
 	xSessionSetAcceptLanguageAuto(x.GoPointer(), AcceptLanguageAutoVar)
 }
 
@@ -957,8 +898,6 @@ var xSessionSetIdleTimeout func(uintptr, uint)
 //
 // See [property@Session:idle-timeout] for more information.
 func (x *Session) SetIdleTimeout(TimeoutVar uint) {
-	core.LazyRegister(&xSessionSetIdleTimeout, "SOUP", "soup_session_set_idle_timeout", false)
-
 	xSessionSetIdleTimeout(x.GoPointer(), TimeoutVar)
 }
 
@@ -969,8 +908,6 @@ var xSessionSetProxyResolver func(uintptr, uintptr)
 // If @proxy_resolver is %NULL then no proxies will be used. See
 // [property@Session:proxy-resolver] for more information.
 func (x *Session) SetProxyResolver(ProxyResolverVar gio.ProxyResolver) {
-	core.LazyRegister(&xSessionSetProxyResolver, "SOUP", "soup_session_set_proxy_resolver", false)
-
 	xSessionSetProxyResolver(x.GoPointer(), ProxyResolverVar.GoPointer())
 }
 
@@ -981,8 +918,6 @@ var xSessionSetTimeout func(uintptr, uint)
 //
 // See [property@Session:timeout] for more information.
 func (x *Session) SetTimeout(TimeoutVar uint) {
-	core.LazyRegister(&xSessionSetTimeout, "SOUP", "soup_session_set_timeout", false)
-
 	xSessionSetTimeout(x.GoPointer(), TimeoutVar)
 }
 
@@ -993,8 +928,6 @@ var xSessionSetTlsDatabase func(uintptr, uintptr)
 // If @tls_database is %NULL then certificate validation will always fail. See
 // [property@Session:tls-database] for more information.
 func (x *Session) SetTlsDatabase(TlsDatabaseVar *gio.TlsDatabase) {
-	core.LazyRegister(&xSessionSetTlsDatabase, "SOUP", "soup_session_set_tls_database", false)
-
 	xSessionSetTlsDatabase(x.GoPointer(), TlsDatabaseVar.GoPointer())
 }
 
@@ -1007,8 +940,6 @@ var xSessionSetTlsInteraction func(uintptr, uintptr)
 //
 // See [property@Session:tls-interaction] for more information.
 func (x *Session) SetTlsInteraction(TlsInteractionVar *gio.TlsInteraction) {
-	core.LazyRegister(&xSessionSetTlsInteraction, "SOUP", "soup_session_set_tls_interaction", false)
-
 	xSessionSetTlsInteraction(x.GoPointer(), TlsInteractionVar.GoPointer())
 }
 
@@ -1022,8 +953,6 @@ var xSessionSetUserAgent func(uintptr, string)
 // is %NULL then no "User-Agent" will be included in requests. See
 // [property@Session:user-agent] for more information.
 func (x *Session) SetUserAgent(UserAgentVar string) {
-	core.LazyRegister(&xSessionSetUserAgent, "SOUP", "soup_session_set_user_agent", false)
-
 	xSessionSetUserAgent(x.GoPointer(), UserAgentVar)
 }
 
@@ -1047,8 +976,6 @@ var xSessionWebsocketConnectAsync func(uintptr, uintptr, uintptr, []string, int,
 // response, and [method@Session.websocket_connect_finish] will return
 // %SOUP_WEBSOCKET_ERROR_NOT_WEBSOCKET.
 func (x *Session) WebsocketConnectAsync(MsgVar *Message, OriginVar *string, ProtocolsVar []string, IoPriorityVar int, CancellableVar *gio.Cancellable, CallbackVar *gio.AsyncReadyCallback, UserDataVar uintptr) {
-	core.LazyRegister(&xSessionWebsocketConnectAsync, "SOUP", "soup_session_websocket_connect_async", false)
-
 	OriginVarPtr := core.GStrdupNullable(OriginVar)
 	defer core.GFreeNullable(OriginVarPtr)
 
@@ -1063,7 +990,6 @@ var xSessionWebsocketConnectFinish func(uintptr, uintptr, **glib.Error) uintptr
 // If successful, returns a [class@WebsocketConnection] that can be used to
 // communicate with the server.
 func (x *Session) WebsocketConnectFinish(ResultVar gio.AsyncResult) (*WebsocketConnection, error) {
-	core.LazyRegister(&xSessionWebsocketConnectFinish, "SOUP", "soup_session_websocket_connect_finish", false)
 	var cls *WebsocketConnection
 	var cerr *glib.Error
 
@@ -1394,4 +1320,64 @@ func (x *Session) ConnectRequestUnqueued(cb *func(Session, uintptr)) uint {
 func init() {
 	core.SetPackageName("SOUP", "libsoup-3.0")
 	core.SetSharedLibraries("SOUP", []string{"libsoup-3.0.so.0", "libsoup-3.0.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("SOUP") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xSessionErrorGLibType, libs, "soup_session_error_get_type")
+
+	core.PuregoSafeRegister(&xSessionErrorQuark, libs, "soup_session_error_quark")
+
+	core.PuregoSafeRegister(&xSessionGLibType, libs, "soup_session_get_type")
+
+	core.PuregoSafeRegister(&xNewSession, libs, "soup_session_new")
+	core.PuregoSafeRegister(&xNewSessionWithOptions, libs, "soup_session_new_with_options")
+
+	core.PuregoSafeRegister(&xSessionAbort, libs, "soup_session_abort")
+	core.PuregoSafeRegister(&xSessionAddFeature, libs, "soup_session_add_feature")
+	core.PuregoSafeRegister(&xSessionAddFeatureByType, libs, "soup_session_add_feature_by_type")
+	core.PuregoSafeRegister(&xSessionGetAcceptLanguage, libs, "soup_session_get_accept_language")
+	core.PuregoSafeRegister(&xSessionGetAcceptLanguageAuto, libs, "soup_session_get_accept_language_auto")
+	core.PuregoSafeRegister(&xSessionGetAsyncResultMessage, libs, "soup_session_get_async_result_message")
+	core.PuregoSafeRegister(&xSessionGetFeature, libs, "soup_session_get_feature")
+	core.PuregoSafeRegister(&xSessionGetFeatureForMessage, libs, "soup_session_get_feature_for_message")
+	core.PuregoSafeRegister(&xSessionGetIdleTimeout, libs, "soup_session_get_idle_timeout")
+	core.PuregoSafeRegister(&xSessionGetLocalAddress, libs, "soup_session_get_local_address")
+	core.PuregoSafeRegister(&xSessionGetMaxConns, libs, "soup_session_get_max_conns")
+	core.PuregoSafeRegister(&xSessionGetMaxConnsPerHost, libs, "soup_session_get_max_conns_per_host")
+	core.PuregoSafeRegister(&xSessionGetProxyResolver, libs, "soup_session_get_proxy_resolver")
+	core.PuregoSafeRegister(&xSessionGetRemoteConnectable, libs, "soup_session_get_remote_connectable")
+	core.PuregoSafeRegister(&xSessionGetTimeout, libs, "soup_session_get_timeout")
+	core.PuregoSafeRegister(&xSessionGetTlsDatabase, libs, "soup_session_get_tls_database")
+	core.PuregoSafeRegister(&xSessionGetTlsInteraction, libs, "soup_session_get_tls_interaction")
+	core.PuregoSafeRegister(&xSessionGetUserAgent, libs, "soup_session_get_user_agent")
+	core.PuregoSafeRegister(&xSessionHasFeature, libs, "soup_session_has_feature")
+	core.PuregoSafeRegister(&xSessionPreconnectAsync, libs, "soup_session_preconnect_async")
+	core.PuregoSafeRegister(&xSessionPreconnectFinish, libs, "soup_session_preconnect_finish")
+	core.PuregoSafeRegister(&xSessionRemoveFeature, libs, "soup_session_remove_feature")
+	core.PuregoSafeRegister(&xSessionRemoveFeatureByType, libs, "soup_session_remove_feature_by_type")
+	core.PuregoSafeRegister(&xSessionSend, libs, "soup_session_send")
+	core.PuregoSafeRegister(&xSessionSendAndRead, libs, "soup_session_send_and_read")
+	core.PuregoSafeRegister(&xSessionSendAndReadAsync, libs, "soup_session_send_and_read_async")
+	core.PuregoSafeRegister(&xSessionSendAndReadFinish, libs, "soup_session_send_and_read_finish")
+	core.PuregoSafeRegister(&xSessionSendAndSplice, libs, "soup_session_send_and_splice")
+	core.PuregoSafeRegister(&xSessionSendAndSpliceAsync, libs, "soup_session_send_and_splice_async")
+	core.PuregoSafeRegister(&xSessionSendAndSpliceFinish, libs, "soup_session_send_and_splice_finish")
+	core.PuregoSafeRegister(&xSessionSendAsync, libs, "soup_session_send_async")
+	core.PuregoSafeRegister(&xSessionSendFinish, libs, "soup_session_send_finish")
+	core.PuregoSafeRegister(&xSessionSetAcceptLanguage, libs, "soup_session_set_accept_language")
+	core.PuregoSafeRegister(&xSessionSetAcceptLanguageAuto, libs, "soup_session_set_accept_language_auto")
+	core.PuregoSafeRegister(&xSessionSetIdleTimeout, libs, "soup_session_set_idle_timeout")
+	core.PuregoSafeRegister(&xSessionSetProxyResolver, libs, "soup_session_set_proxy_resolver")
+	core.PuregoSafeRegister(&xSessionSetTimeout, libs, "soup_session_set_timeout")
+	core.PuregoSafeRegister(&xSessionSetTlsDatabase, libs, "soup_session_set_tls_database")
+	core.PuregoSafeRegister(&xSessionSetTlsInteraction, libs, "soup_session_set_tls_interaction")
+	core.PuregoSafeRegister(&xSessionSetUserAgent, libs, "soup_session_set_user_agent")
+	core.PuregoSafeRegister(&xSessionWebsocketConnectAsync, libs, "soup_session_websocket_connect_async")
+	core.PuregoSafeRegister(&xSessionWebsocketConnectFinish, libs, "soup_session_websocket_connect_finish")
 }

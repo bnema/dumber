@@ -2,6 +2,7 @@
 package soup
 
 import (
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject/types"
 )
@@ -12,7 +13,6 @@ type HTTPVersion int
 var xHTTPVersionGLibType func() types.GType
 
 func HTTPVersionGLibType() types.GType {
-	core.LazyRegister(&xHTTPVersionGLibType, "SOUP", "soup_http_version_get_type", false)
 	return xHTTPVersionGLibType()
 }
 
@@ -37,7 +37,6 @@ type Status int
 var xStatusGLibType func() types.GType
 
 func StatusGLibType() types.GType {
-	core.LazyRegister(&xStatusGLibType, "SOUP", "soup_status_get_type", false)
 	return xStatusGLibType()
 }
 
@@ -181,8 +180,6 @@ var xStatusGetPhrase func(uint) string
 // Instead, you should create you own error messages based on the
 // status code, and on what you were trying to do.
 func StatusGetPhrase(StatusCodeVar uint) string {
-	core.LazyRegister(&xStatusGetPhrase, "SOUP", "soup_status_get_phrase", false)
-
 	cret := xStatusGetPhrase(StatusCodeVar)
 	return cret
 }
@@ -190,4 +187,18 @@ func StatusGetPhrase(StatusCodeVar uint) string {
 func init() {
 	core.SetPackageName("SOUP", "libsoup-3.0")
 	core.SetSharedLibraries("SOUP", []string{"libsoup-3.0.so.0", "libsoup-3.0.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("SOUP") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xHTTPVersionGLibType, libs, "soup_http_version_get_type")
+
+	core.PuregoSafeRegister(&xStatusGLibType, libs, "soup_status_get_type")
+
+	core.PuregoSafeRegister(&xStatusGetPhrase, libs, "soup_status_get_phrase")
 }

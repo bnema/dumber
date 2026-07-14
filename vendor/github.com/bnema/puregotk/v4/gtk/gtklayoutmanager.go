@@ -291,7 +291,6 @@ type LayoutManager struct {
 var xLayoutManagerGLibType func() types.GType
 
 func LayoutManagerGLibType() types.GType {
-	core.LazyRegister(&xLayoutManagerGLibType, "GTK", "gtk_layout_manager_get_type", false)
 	return xLayoutManagerGLibType()
 }
 
@@ -307,8 +306,6 @@ var xLayoutManagerAllocate func(uintptr, uintptr, int, int, int)
 // a @widget, and computes the position and sizes of the children of
 // the @widget using the layout management policy of @manager.
 func (x *LayoutManager) Allocate(WidgetVar *Widget, WidthVar int, HeightVar int, BaselineVar int) {
-	core.LazyRegister(&xLayoutManagerAllocate, "GTK", "gtk_layout_manager_allocate", false)
-
 	xLayoutManagerAllocate(x.GoPointer(), WidgetVar.GoPointer(), WidthVar, HeightVar, BaselineVar)
 }
 
@@ -323,7 +320,6 @@ var xLayoutManagerGetLayoutChild func(uintptr, uintptr) uintptr
 // and is guaranteed to exist as long as @child is a child of the
 // `GtkWidget` using the given `GtkLayoutManager`.
 func (x *LayoutManager) GetLayoutChild(ChildVar *Widget) *LayoutChild {
-	core.LazyRegister(&xLayoutManagerGetLayoutChild, "GTK", "gtk_layout_manager_get_layout_child", false)
 	var cls *LayoutChild
 
 	cret := xLayoutManagerGetLayoutChild(x.GoPointer(), ChildVar.GoPointer())
@@ -341,8 +337,6 @@ var xLayoutManagerGetRequestMode func(uintptr) SizeRequestMode
 
 // Retrieves the request mode of @manager.
 func (x *LayoutManager) GetRequestMode() SizeRequestMode {
-	core.LazyRegister(&xLayoutManagerGetRequestMode, "GTK", "gtk_layout_manager_get_request_mode", false)
-
 	cret := xLayoutManagerGetRequestMode(x.GoPointer())
 	return cret
 }
@@ -351,7 +345,6 @@ var xLayoutManagerGetWidget func(uintptr) uintptr
 
 // Retrieves the `GtkWidget` using the given `GtkLayoutManager`.
 func (x *LayoutManager) GetWidget() *Widget {
-	core.LazyRegister(&xLayoutManagerGetWidget, "GTK", "gtk_layout_manager_get_widget", false)
 	var cls *Widget
 
 	cret := xLayoutManagerGetWidget(x.GoPointer())
@@ -372,8 +365,6 @@ var xLayoutManagerLayoutChanged func(uintptr)
 // This function should be called by subclasses of `GtkLayoutManager`
 // in response to changes to their layout management policies.
 func (x *LayoutManager) LayoutChanged() {
-	core.LazyRegister(&xLayoutManagerLayoutChanged, "GTK", "gtk_layout_manager_layout_changed", false)
-
 	xLayoutManagerLayoutChanged(x.GoPointer())
 }
 
@@ -385,8 +376,6 @@ var xLayoutManagerMeasure func(uintptr, uintptr, Orientation, int, *int, *int, *
 // See the [class@Gtk.Widget] documentation on layout management for
 // more details.
 func (x *LayoutManager) Measure(WidgetVar *Widget, OrientationVar Orientation, ForSizeVar int, MinimumVar *int, NaturalVar *int, MinimumBaselineVar *int, NaturalBaselineVar *int) {
-	core.LazyRegister(&xLayoutManagerMeasure, "GTK", "gtk_layout_manager_measure", false)
-
 	xLayoutManagerMeasure(x.GoPointer(), WidgetVar.GoPointer(), OrientationVar, ForSizeVar, MinimumVar, NaturalVar, MinimumBaselineVar, NaturalBaselineVar)
 }
 
@@ -404,4 +393,21 @@ func (c *LayoutManager) SetGoPointer(ptr uintptr) {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GTK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xLayoutManagerGLibType, libs, "gtk_layout_manager_get_type")
+
+	core.PuregoSafeRegister(&xLayoutManagerAllocate, libs, "gtk_layout_manager_allocate")
+	core.PuregoSafeRegister(&xLayoutManagerGetLayoutChild, libs, "gtk_layout_manager_get_layout_child")
+	core.PuregoSafeRegister(&xLayoutManagerGetRequestMode, libs, "gtk_layout_manager_get_request_mode")
+	core.PuregoSafeRegister(&xLayoutManagerGetWidget, libs, "gtk_layout_manager_get_widget")
+	core.PuregoSafeRegister(&xLayoutManagerLayoutChanged, libs, "gtk_layout_manager_layout_changed")
+	core.PuregoSafeRegister(&xLayoutManagerMeasure, libs, "gtk_layout_manager_measure")
 }

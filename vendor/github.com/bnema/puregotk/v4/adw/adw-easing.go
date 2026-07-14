@@ -2,6 +2,7 @@
 package adw
 
 import (
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject/types"
 )
@@ -15,7 +16,6 @@ type Easing int
 var xEasingGLibType func() types.GType
 
 func EasingGLibType() types.GType {
-	core.LazyRegister(&xEasingGLibType, "ADW", "adw_easing_get_type", false)
 	return xEasingGLibType()
 }
 
@@ -132,8 +132,6 @@ var xEasingEase func(Easing, float64) float64
 //
 // @value should generally be in the [0, 1] range.
 func EasingEase(SelfVar Easing, ValueVar float64) float64 {
-	core.LazyRegister(&xEasingEase, "ADW", "adw_easing_ease", false)
-
 	cret := xEasingEase(SelfVar, ValueVar)
 	return cret
 }
@@ -141,4 +139,16 @@ func EasingEase(SelfVar Easing, ValueVar float64) float64 {
 func init() {
 	core.SetPackageName("ADW", "libadwaita-1")
 	core.SetSharedLibraries("ADW", []string{"libadwaita-1.so.0", "libadwaita-1.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("ADW") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xEasingGLibType, libs, "adw_easing_get_type")
+
+	core.PuregoSafeRegister(&xEasingEase, libs, "adw_easing_ease")
 }

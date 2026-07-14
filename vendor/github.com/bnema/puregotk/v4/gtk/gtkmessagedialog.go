@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gdk"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -41,7 +42,6 @@ type ButtonsType int
 var xButtonsTypeGLibType func() types.GType
 
 func ButtonsTypeGLibType() types.GType {
-	core.LazyRegister(&xButtonsTypeGLibType, "GTK", "gtk_buttons_type_get_type", false)
 	return xButtonsTypeGLibType()
 }
 
@@ -136,7 +136,6 @@ type MessageDialog struct {
 var xMessageDialogGLibType func() types.GType
 
 func MessageDialogGLibType() types.GType {
-	core.LazyRegister(&xMessageDialogGLibType, "GTK", "gtk_message_dialog_get_type", false)
 	return xMessageDialogGLibType()
 }
 
@@ -155,7 +154,6 @@ var xNewMessageDialog func(uintptr, DialogFlags, MessageType, ButtonsType, uintp
 // response IDs from [enum@Gtk.ResponseType]. See [class@Gtk.Dialog]
 // for more details.
 func NewMessageDialog(ParentVar *Window, FlagsVar DialogFlags, TypeVar MessageType, ButtonsVar ButtonsType, MessageFormatVar *string, varArgs ...interface{}) *MessageDialog {
-	core.LazyRegister(&xNewMessageDialog, "GTK", "gtk_message_dialog_new", false)
 	var cls *MessageDialog
 
 	MessageFormatVarPtr := core.GStrdupNullable(MessageFormatVar)
@@ -207,7 +205,6 @@ var xNewMessageDialogWithMarkup func(uintptr, DialogFlags, MessageType, ButtonsT
 //
 // ```
 func NewMessageDialogWithMarkup(ParentVar *Window, FlagsVar DialogFlags, TypeVar MessageType, ButtonsVar ButtonsType, MessageFormatVar *string, varArgs ...interface{}) *MessageDialog {
-	core.LazyRegister(&xNewMessageDialogWithMarkup, "GTK", "gtk_message_dialog_new_with_markup", false)
 	var cls *MessageDialog
 
 	MessageFormatVarPtr := core.GStrdupNullable(MessageFormatVar)
@@ -246,8 +243,6 @@ var xMessageDialogFormatSecondaryMarkup func(uintptr, string, ...interface{})
 // g_free (msg);
 // ```
 func (x *MessageDialog) FormatSecondaryMarkup(MessageFormatVar string, varArgs ...interface{}) {
-	core.LazyRegister(&xMessageDialogFormatSecondaryMarkup, "GTK", "gtk_message_dialog_format_secondary_markup", false)
-
 	xMessageDialogFormatSecondaryMarkup(x.GoPointer(), MessageFormatVar, varArgs...)
 }
 
@@ -255,8 +250,6 @@ var xMessageDialogFormatSecondaryText func(uintptr, uintptr, ...interface{})
 
 // Sets the secondary text of the message dialog.
 func (x *MessageDialog) FormatSecondaryText(MessageFormatVar *string, varArgs ...interface{}) {
-	core.LazyRegister(&xMessageDialogFormatSecondaryText, "GTK", "gtk_message_dialog_format_secondary_text", false)
-
 	MessageFormatVarPtr := core.GStrdupNullable(MessageFormatVar)
 	defer core.GFreeNullable(MessageFormatVarPtr)
 
@@ -272,7 +265,6 @@ var xMessageDialogGetMessageArea func(uintptr) uintptr
 // will appear below those labels. See [method@Gtk.Dialog.get_content_area]
 // for the corresponding function in the parent [class@Gtk.Dialog].
 func (x *MessageDialog) GetMessageArea() *Widget {
-	core.LazyRegister(&xMessageDialogGetMessageArea, "GTK", "gtk_message_dialog_get_message_area", false)
 	var cls *Widget
 
 	cret := xMessageDialogGetMessageArea(x.GoPointer())
@@ -290,8 +282,6 @@ var xMessageDialogSetMarkup func(uintptr, string)
 
 // Sets the text of the message dialog.
 func (x *MessageDialog) SetMarkup(StrVar string) {
-	core.LazyRegister(&xMessageDialogSetMarkup, "GTK", "gtk_message_dialog_set_markup", false)
-
 	xMessageDialogSetMarkup(x.GoPointer(), StrVar)
 }
 
@@ -748,4 +738,24 @@ func (x *MessageDialog) SetFocus(FocusVar *Widget) {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GTK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xButtonsTypeGLibType, libs, "gtk_buttons_type_get_type")
+
+	core.PuregoSafeRegister(&xMessageDialogGLibType, libs, "gtk_message_dialog_get_type")
+
+	core.PuregoSafeRegister(&xNewMessageDialog, libs, "gtk_message_dialog_new")
+	core.PuregoSafeRegister(&xNewMessageDialogWithMarkup, libs, "gtk_message_dialog_new_with_markup")
+
+	core.PuregoSafeRegister(&xMessageDialogFormatSecondaryMarkup, libs, "gtk_message_dialog_format_secondary_markup")
+	core.PuregoSafeRegister(&xMessageDialogFormatSecondaryText, libs, "gtk_message_dialog_format_secondary_text")
+	core.PuregoSafeRegister(&xMessageDialogGetMessageArea, libs, "gtk_message_dialog_get_message_area")
+	core.PuregoSafeRegister(&xMessageDialogSetMarkup, libs, "gtk_message_dialog_set_markup")
 }

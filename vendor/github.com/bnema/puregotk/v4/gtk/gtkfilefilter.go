@@ -4,6 +4,7 @@ package gtk
 import (
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -65,7 +66,6 @@ type FileFilter struct {
 var xFileFilterGLibType func() types.GType
 
 func FileFilterGLibType() types.GType {
-	core.LazyRegister(&xFileFilterGLibType, "GTK", "gtk_file_filter_get_type", false)
 	return xFileFilterGLibType()
 }
 
@@ -92,7 +92,6 @@ var xNewFileFilter func() uintptr
 // gtk_file_filter_add_pattern (filter, "*");
 // ```
 func NewFileFilter() *FileFilter {
-	core.LazyRegister(&xNewFileFilter, "GTK", "gtk_file_filter_new", false)
 	var cls *FileFilter
 
 	cret := xNewFileFilter()
@@ -112,7 +111,6 @@ var xNewFileFilterFromGvariant func(*glib.Variant) uintptr
 // The variant must be in the format produced by
 // [method@Gtk.FileFilter.to_gvariant].
 func NewFileFilterFromGvariant(VariantVar *glib.Variant) *FileFilter {
-	core.LazyRegister(&xNewFileFilterFromGvariant, "GTK", "gtk_file_filter_new_from_gvariant", false)
 	var cls *FileFilter
 
 	cret := xNewFileFilterFromGvariant(VariantVar)
@@ -129,8 +127,6 @@ var xFileFilterAddMimeType func(uintptr, string)
 
 // Adds a rule allowing a given mime type.
 func (x *FileFilter) AddMimeType(MimeTypeVar string) {
-	core.LazyRegister(&xFileFilterAddMimeType, "GTK", "gtk_file_filter_add_mime_type", false)
-
 	xFileFilterAddMimeType(x.GoPointer(), MimeTypeVar)
 }
 
@@ -143,8 +139,6 @@ var xFileFilterAddMimeTypes func(uintptr, []string)
 // This is equivalent to calling [method@Gtk.FileFilter.add_mime_type]
 // for all the supported mime types.
 func (x *FileFilter) AddMimeTypes(MimeTypesVar []string) {
-	core.LazyRegister(&xFileFilterAddMimeTypes, "GTK", "gtk_file_filter_add_mime_types", false)
-
 	xFileFilterAddMimeTypes(x.GoPointer(), MimeTypesVar)
 }
 
@@ -156,8 +150,6 @@ var xFileFilterAddPattern func(uintptr, string)
 // matching ignores case or not. On Windows, it does, on
 // other platforms, it doesn't.
 func (x *FileFilter) AddPattern(PatternVar string) {
-	core.LazyRegister(&xFileFilterAddPattern, "GTK", "gtk_file_filter_add_pattern", false)
-
 	xFileFilterAddPattern(x.GoPointer(), PatternVar)
 }
 
@@ -168,8 +160,6 @@ var xFileFilterAddPixbufFormats func(uintptr)
 // This is equivalent to calling [method@Gtk.FileFilter.add_mime_type]
 // for all the supported mime types.
 func (x *FileFilter) AddPixbufFormats() {
-	core.LazyRegister(&xFileFilterAddPixbufFormats, "GTK", "gtk_file_filter_add_pixbuf_formats", false)
-
 	xFileFilterAddPixbufFormats(x.GoPointer())
 }
 
@@ -189,8 +179,6 @@ var xFileFilterAddSuffix func(uintptr, string)
 // In contrast to pattern matches, suffix matches
 // are *always* case-insensitive.
 func (x *FileFilter) AddSuffix(SuffixVar string) {
-	core.LazyRegister(&xFileFilterAddSuffix, "GTK", "gtk_file_filter_add_suffix", false)
-
 	xFileFilterAddSuffix(x.GoPointer(), SuffixVar)
 }
 
@@ -202,8 +190,6 @@ var xFileFilterGetAttributes func(uintptr) []string
 // This function will not typically be used by applications;
 // it is intended for use in file chooser implementation.
 func (x *FileFilter) GetAttributes() []string {
-	core.LazyRegister(&xFileFilterGetAttributes, "GTK", "gtk_file_filter_get_attributes", false)
-
 	cret := xFileFilterGetAttributes(x.GoPointer())
 	return cret
 }
@@ -214,8 +200,6 @@ var xFileFilterGetName func(uintptr) string
 //
 // See [method@Gtk.FileFilter.set_name].
 func (x *FileFilter) GetName() string {
-	core.LazyRegister(&xFileFilterGetName, "GTK", "gtk_file_filter_get_name", false)
-
 	cret := xFileFilterGetName(x.GoPointer())
 	return cret
 }
@@ -227,8 +211,6 @@ var xFileFilterSetName func(uintptr, uintptr)
 // This is the string that will be displayed in the user interface
 // if there is a selectable list of filters.
 func (x *FileFilter) SetName(NameVar *string) {
-	core.LazyRegister(&xFileFilterSetName, "GTK", "gtk_file_filter_set_name", false)
-
 	NameVarPtr := core.GStrdupNullable(NameVar)
 	defer core.GFreeNullable(NameVarPtr)
 
@@ -239,8 +221,6 @@ var xFileFilterToGvariant func(uintptr) uintptr
 
 // Serialize a file filter to an `a{sv}` variant.
 func (x *FileFilter) ToGvariant() *glib.Variant {
-	core.LazyRegister(&xFileFilterToGvariant, "GTK", "gtk_file_filter_to_gvariant", false)
-
 	cret := xFileFilterToGvariant(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -321,4 +301,27 @@ func (x *FileFilter) GetBuildableId() string {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GTK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xFileFilterGLibType, libs, "gtk_file_filter_get_type")
+
+	core.PuregoSafeRegister(&xNewFileFilter, libs, "gtk_file_filter_new")
+	core.PuregoSafeRegister(&xNewFileFilterFromGvariant, libs, "gtk_file_filter_new_from_gvariant")
+
+	core.PuregoSafeRegister(&xFileFilterAddMimeType, libs, "gtk_file_filter_add_mime_type")
+	core.PuregoSafeRegister(&xFileFilterAddMimeTypes, libs, "gtk_file_filter_add_mime_types")
+	core.PuregoSafeRegister(&xFileFilterAddPattern, libs, "gtk_file_filter_add_pattern")
+	core.PuregoSafeRegister(&xFileFilterAddPixbufFormats, libs, "gtk_file_filter_add_pixbuf_formats")
+	core.PuregoSafeRegister(&xFileFilterAddSuffix, libs, "gtk_file_filter_add_suffix")
+	core.PuregoSafeRegister(&xFileFilterGetAttributes, libs, "gtk_file_filter_get_attributes")
+	core.PuregoSafeRegister(&xFileFilterGetName, libs, "gtk_file_filter_get_name")
+	core.PuregoSafeRegister(&xFileFilterSetName, libs, "gtk_file_filter_set_name")
+	core.PuregoSafeRegister(&xFileFilterToGvariant, libs, "gtk_file_filter_to_gvariant")
 }

@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gdk"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -56,7 +57,6 @@ type LeafletTransitionType int
 var xLeafletTransitionTypeGLibType func() types.GType
 
 func LeafletTransitionTypeGLibType() types.GType {
-	core.LazyRegister(&xLeafletTransitionTypeGLibType, "ADW", "adw_leaflet_transition_type_get_type", false)
 	return xLeafletTransitionTypeGLibType()
 }
 
@@ -112,7 +112,6 @@ type Leaflet struct {
 var xLeafletGLibType func() types.GType
 
 func LeafletGLibType() types.GType {
-	core.LazyRegister(&xLeafletGLibType, "ADW", "adw_leaflet_get_type", false)
 	return xLeafletGLibType()
 }
 
@@ -126,7 +125,6 @@ var xNewLeaflet func() uintptr
 
 // Creates a new `AdwLeaflet`.
 func NewLeaflet() *Leaflet {
-	core.LazyRegister(&xNewLeaflet, "ADW", "adw_leaflet_new", false)
 	var cls *Leaflet
 
 	cret := xNewLeaflet()
@@ -144,7 +142,6 @@ var xLeafletAppend func(uintptr, uintptr) uintptr
 
 // Adds a child to @self.
 func (x *Leaflet) Append(ChildVar *gtk.Widget) *LeafletPage {
-	core.LazyRegister(&xLeafletAppend, "ADW", "adw_leaflet_append", false)
 	var cls *LeafletPage
 
 	cret := xLeafletAppend(x.GoPointer(), ChildVar.GoPointer())
@@ -169,7 +166,6 @@ var xLeafletGetAdjacentChild func(uintptr, NavigationDirection) uintptr
 //
 // See [property@LeafletPage:navigatable].
 func (x *Leaflet) GetAdjacentChild(DirectionVar NavigationDirection) *gtk.Widget {
-	core.LazyRegister(&xLeafletGetAdjacentChild, "ADW", "adw_leaflet_get_adjacent_child", false)
 	var cls *gtk.Widget
 
 	cret := xLeafletGetAdjacentChild(x.GoPointer(), DirectionVar)
@@ -187,8 +183,6 @@ var xLeafletGetCanNavigateBack func(uintptr) bool
 
 // Gets whether gestures and shortcuts for navigating backward are enabled.
 func (x *Leaflet) GetCanNavigateBack() bool {
-	core.LazyRegister(&xLeafletGetCanNavigateBack, "ADW", "adw_leaflet_get_can_navigate_back", false)
-
 	cret := xLeafletGetCanNavigateBack(x.GoPointer())
 	return cret
 }
@@ -197,8 +191,6 @@ var xLeafletGetCanNavigateForward func(uintptr) bool
 
 // Gets whether gestures and shortcuts for navigating forward are enabled.
 func (x *Leaflet) GetCanNavigateForward() bool {
-	core.LazyRegister(&xLeafletGetCanNavigateForward, "ADW", "adw_leaflet_get_can_navigate_forward", false)
-
 	cret := xLeafletGetCanNavigateForward(x.GoPointer())
 	return cret
 }
@@ -207,8 +199,6 @@ var xLeafletGetCanUnfold func(uintptr) bool
 
 // Gets whether @self can unfold.
 func (x *Leaflet) GetCanUnfold() bool {
-	core.LazyRegister(&xLeafletGetCanUnfold, "ADW", "adw_leaflet_get_can_unfold", false)
-
 	cret := xLeafletGetCanUnfold(x.GoPointer())
 	return cret
 }
@@ -221,7 +211,6 @@ var xLeafletGetChildByName func(uintptr, string) uintptr
 //
 // See [property@LeafletPage:name].
 func (x *Leaflet) GetChildByName(NameVar string) *gtk.Widget {
-	core.LazyRegister(&xLeafletGetChildByName, "ADW", "adw_leaflet_get_child_by_name", false)
 	var cls *gtk.Widget
 
 	cret := xLeafletGetChildByName(x.GoPointer(), NameVar)
@@ -239,8 +228,6 @@ var xLeafletGetChildTransitionParams func(uintptr) uintptr
 
 // Gets the child transition spring parameters for @self.
 func (x *Leaflet) GetChildTransitionParams() *SpringParams {
-	core.LazyRegister(&xLeafletGetChildTransitionParams, "ADW", "adw_leaflet_get_child_transition_params", false)
-
 	cret := xLeafletGetChildTransitionParams(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -252,8 +239,6 @@ var xLeafletGetChildTransitionRunning func(uintptr) bool
 
 // Gets whether a child transition is currently running for @self.
 func (x *Leaflet) GetChildTransitionRunning() bool {
-	core.LazyRegister(&xLeafletGetChildTransitionRunning, "ADW", "adw_leaflet_get_child_transition_running", false)
-
 	cret := xLeafletGetChildTransitionRunning(x.GoPointer())
 	return cret
 }
@@ -262,8 +247,6 @@ var xLeafletGetFoldThresholdPolicy func(uintptr) FoldThresholdPolicy
 
 // Gets the fold threshold policy for @self.
 func (x *Leaflet) GetFoldThresholdPolicy() FoldThresholdPolicy {
-	core.LazyRegister(&xLeafletGetFoldThresholdPolicy, "ADW", "adw_leaflet_get_fold_threshold_policy", false)
-
 	cret := xLeafletGetFoldThresholdPolicy(x.GoPointer())
 	return cret
 }
@@ -276,8 +259,6 @@ var xLeafletGetFolded func(uintptr) bool
 // sum of the minimum or natural sizes of the children (see
 // [property@Leaflet:fold-threshold-policy]), it will be unfolded otherwise.
 func (x *Leaflet) GetFolded() bool {
-	core.LazyRegister(&xLeafletGetFolded, "ADW", "adw_leaflet_get_folded", false)
-
 	cret := xLeafletGetFolded(x.GoPointer())
 	return cret
 }
@@ -286,8 +267,6 @@ var xLeafletGetHomogeneous func(uintptr) bool
 
 // Gets whether @self is homogeneous.
 func (x *Leaflet) GetHomogeneous() bool {
-	core.LazyRegister(&xLeafletGetHomogeneous, "ADW", "adw_leaflet_get_homogeneous", false)
-
 	cret := xLeafletGetHomogeneous(x.GoPointer())
 	return cret
 }
@@ -296,8 +275,6 @@ var xLeafletGetModeTransitionDuration func(uintptr) uint
 
 // Gets the mode transition animation duration for @self.
 func (x *Leaflet) GetModeTransitionDuration() uint {
-	core.LazyRegister(&xLeafletGetModeTransitionDuration, "ADW", "adw_leaflet_get_mode_transition_duration", false)
-
 	cret := xLeafletGetModeTransitionDuration(x.GoPointer())
 	return cret
 }
@@ -306,7 +283,6 @@ var xLeafletGetPage func(uintptr, uintptr) uintptr
 
 // Returns the [class@LeafletPage] object for @child.
 func (x *Leaflet) GetPage(ChildVar *gtk.Widget) *LeafletPage {
-	core.LazyRegister(&xLeafletGetPage, "ADW", "adw_leaflet_get_page", false)
 	var cls *LeafletPage
 
 	cret := xLeafletGetPage(x.GoPointer(), ChildVar.GoPointer())
@@ -328,7 +304,6 @@ var xLeafletGetPages func(uintptr) uintptr
 // [iface@Gtk.SelectionModel] and can be used to track and change the visible
 // page.
 func (x *Leaflet) GetPages() *gtk.SelectionModelBase {
-	core.LazyRegister(&xLeafletGetPages, "ADW", "adw_leaflet_get_pages", false)
 	var cls *gtk.SelectionModelBase
 
 	cret := xLeafletGetPages(x.GoPointer())
@@ -345,8 +320,6 @@ var xLeafletGetTransitionType func(uintptr) LeafletTransitionType
 
 // Gets the type of animation used for transitions between modes and children.
 func (x *Leaflet) GetTransitionType() LeafletTransitionType {
-	core.LazyRegister(&xLeafletGetTransitionType, "ADW", "adw_leaflet_get_transition_type", false)
-
 	cret := xLeafletGetTransitionType(x.GoPointer())
 	return cret
 }
@@ -355,7 +328,6 @@ var xLeafletGetVisibleChild func(uintptr) uintptr
 
 // Gets the widget currently visible when the leaflet is folded.
 func (x *Leaflet) GetVisibleChild() *gtk.Widget {
-	core.LazyRegister(&xLeafletGetVisibleChild, "ADW", "adw_leaflet_get_visible_child", false)
 	var cls *gtk.Widget
 
 	cret := xLeafletGetVisibleChild(x.GoPointer())
@@ -373,8 +345,6 @@ var xLeafletGetVisibleChildName func(uintptr) string
 
 // Gets the name of the currently visible child widget.
 func (x *Leaflet) GetVisibleChildName() string {
-	core.LazyRegister(&xLeafletGetVisibleChildName, "ADW", "adw_leaflet_get_visible_child_name", false)
-
 	cret := xLeafletGetVisibleChildName(x.GoPointer())
 	return cret
 }
@@ -385,7 +355,6 @@ var xLeafletInsertChildAfter func(uintptr, uintptr, uintptr) uintptr
 //
 // If @sibling is `NULL`, inserts @child at the first position.
 func (x *Leaflet) InsertChildAfter(ChildVar *gtk.Widget, SiblingVar *gtk.Widget) *LeafletPage {
-	core.LazyRegister(&xLeafletInsertChildAfter, "ADW", "adw_leaflet_insert_child_after", false)
 	var cls *LeafletPage
 
 	cret := xLeafletInsertChildAfter(x.GoPointer(), ChildVar.GoPointer(), SiblingVar.GoPointer())
@@ -409,8 +378,6 @@ var xLeafletNavigate func(uintptr, NavigationDirection) bool
 // This will be the same child as returned by
 // [method@Leaflet.get_adjacent_child] or navigated to via swipe gestures.
 func (x *Leaflet) Navigate(DirectionVar NavigationDirection) bool {
-	core.LazyRegister(&xLeafletNavigate, "ADW", "adw_leaflet_navigate", false)
-
 	cret := xLeafletNavigate(x.GoPointer(), DirectionVar)
 	return cret
 }
@@ -419,7 +386,6 @@ var xLeafletPrepend func(uintptr, uintptr) uintptr
 
 // Inserts @child at the first position in @self.
 func (x *Leaflet) Prepend(ChildVar *gtk.Widget) *LeafletPage {
-	core.LazyRegister(&xLeafletPrepend, "ADW", "adw_leaflet_prepend", false)
 	var cls *LeafletPage
 
 	cret := xLeafletPrepend(x.GoPointer(), ChildVar.GoPointer())
@@ -437,8 +403,6 @@ var xLeafletRemove func(uintptr, uintptr)
 
 // Removes a child widget from @self.
 func (x *Leaflet) Remove(ChildVar *gtk.Widget) {
-	core.LazyRegister(&xLeafletRemove, "ADW", "adw_leaflet_remove", false)
-
 	xLeafletRemove(x.GoPointer(), ChildVar.GoPointer())
 }
 
@@ -448,8 +412,6 @@ var xLeafletReorderChildAfter func(uintptr, uintptr, uintptr)
 //
 // If @sibling is `NULL`, moves @child to the first position.
 func (x *Leaflet) ReorderChildAfter(ChildVar *gtk.Widget, SiblingVar *gtk.Widget) {
-	core.LazyRegister(&xLeafletReorderChildAfter, "ADW", "adw_leaflet_reorder_child_after", false)
-
 	xLeafletReorderChildAfter(x.GoPointer(), ChildVar.GoPointer(), SiblingVar.GoPointer())
 }
 
@@ -473,8 +435,6 @@ var xLeafletSetCanNavigateBack func(uintptr, bool)
 // Only children that have [property@LeafletPage:navigatable] set to `TRUE` can
 // be navigated to.
 func (x *Leaflet) SetCanNavigateBack(CanNavigateBackVar bool) {
-	core.LazyRegister(&xLeafletSetCanNavigateBack, "ADW", "adw_leaflet_set_can_navigate_back", false)
-
 	xLeafletSetCanNavigateBack(x.GoPointer(), CanNavigateBackVar)
 }
 
@@ -498,8 +458,6 @@ var xLeafletSetCanNavigateForward func(uintptr, bool)
 // Only children that have [property@LeafletPage:navigatable] set to `TRUE` can
 // be navigated to.
 func (x *Leaflet) SetCanNavigateForward(CanNavigateForwardVar bool) {
-	core.LazyRegister(&xLeafletSetCanNavigateForward, "ADW", "adw_leaflet_set_can_navigate_forward", false)
-
 	xLeafletSetCanNavigateForward(x.GoPointer(), CanNavigateForwardVar)
 }
 
@@ -507,8 +465,6 @@ var xLeafletSetCanUnfold func(uintptr, bool)
 
 // Sets whether @self can unfold.
 func (x *Leaflet) SetCanUnfold(CanUnfoldVar bool) {
-	core.LazyRegister(&xLeafletSetCanUnfold, "ADW", "adw_leaflet_set_can_unfold", false)
-
 	xLeafletSetCanUnfold(x.GoPointer(), CanUnfoldVar)
 }
 
@@ -522,8 +478,6 @@ var xLeafletSetChildTransitionParams func(uintptr, *SpringParams)
 // adw_spring_params_new (1, 0.5, 500)
 // ```
 func (x *Leaflet) SetChildTransitionParams(ParamsVar *SpringParams) {
-	core.LazyRegister(&xLeafletSetChildTransitionParams, "ADW", "adw_leaflet_set_child_transition_params", false)
-
 	xLeafletSetChildTransitionParams(x.GoPointer(), ParamsVar)
 }
 
@@ -538,8 +492,6 @@ var xLeafletSetFoldThresholdPolicy func(uintptr, FoldThresholdPolicy)
 // This can be useful if you have a long ellipsizing label and want to let it
 // ellipsize instead of immediately folding.
 func (x *Leaflet) SetFoldThresholdPolicy(PolicyVar FoldThresholdPolicy) {
-	core.LazyRegister(&xLeafletSetFoldThresholdPolicy, "ADW", "adw_leaflet_set_fold_threshold_policy", false)
-
 	xLeafletSetFoldThresholdPolicy(x.GoPointer(), PolicyVar)
 }
 
@@ -550,8 +502,6 @@ var xLeafletSetHomogeneous func(uintptr, bool)
 // If set to `FALSE`, different children can have different size along the
 // opposite orientation.
 func (x *Leaflet) SetHomogeneous(HomogeneousVar bool) {
-	core.LazyRegister(&xLeafletSetHomogeneous, "ADW", "adw_leaflet_set_homogeneous", false)
-
 	xLeafletSetHomogeneous(x.GoPointer(), HomogeneousVar)
 }
 
@@ -559,8 +509,6 @@ var xLeafletSetModeTransitionDuration func(uintptr, uint)
 
 // Sets the mode transition animation duration for @self.
 func (x *Leaflet) SetModeTransitionDuration(DurationVar uint) {
-	core.LazyRegister(&xLeafletSetModeTransitionDuration, "ADW", "adw_leaflet_set_mode_transition_duration", false)
-
 	xLeafletSetModeTransitionDuration(x.GoPointer(), DurationVar)
 }
 
@@ -572,8 +520,6 @@ var xLeafletSetTransitionType func(uintptr, LeafletTransitionType)
 // possible to change the animation based on the mode or child that is about to
 // become current.
 func (x *Leaflet) SetTransitionType(TransitionVar LeafletTransitionType) {
-	core.LazyRegister(&xLeafletSetTransitionType, "ADW", "adw_leaflet_set_transition_type", false)
-
 	xLeafletSetTransitionType(x.GoPointer(), TransitionVar)
 }
 
@@ -586,8 +532,6 @@ var xLeafletSetVisibleChild func(uintptr, uintptr)
 // by the user, in which case visible child will change back to the previously
 // visible child.
 func (x *Leaflet) SetVisibleChild(VisibleChildVar *gtk.Widget) {
-	core.LazyRegister(&xLeafletSetVisibleChild, "ADW", "adw_leaflet_set_visible_child", false)
-
 	xLeafletSetVisibleChild(x.GoPointer(), VisibleChildVar.GoPointer())
 }
 
@@ -597,8 +541,6 @@ var xLeafletSetVisibleChildName func(uintptr, string)
 //
 // See [property@Leaflet:visible-child].
 func (x *Leaflet) SetVisibleChildName(NameVar string) {
-	core.LazyRegister(&xLeafletSetVisibleChildName, "ADW", "adw_leaflet_set_visible_child_name", false)
-
 	xLeafletSetVisibleChildName(x.GoPointer(), NameVar)
 }
 
@@ -1159,7 +1101,6 @@ type LeafletPage struct {
 var xLeafletPageGLibType func() types.GType
 
 func LeafletPageGLibType() types.GType {
-	core.LazyRegister(&xLeafletPageGLibType, "ADW", "adw_leaflet_page_get_type", false)
 	return xLeafletPageGLibType()
 }
 
@@ -1173,7 +1114,6 @@ var xLeafletPageGetChild func(uintptr) uintptr
 
 // Gets the leaflet child to which @self belongs.
 func (x *LeafletPage) GetChild() *gtk.Widget {
-	core.LazyRegister(&xLeafletPageGetChild, "ADW", "adw_leaflet_page_get_child", false)
 	var cls *gtk.Widget
 
 	cret := xLeafletPageGetChild(x.GoPointer())
@@ -1191,8 +1131,6 @@ var xLeafletPageGetName func(uintptr) string
 
 // Gets the name of @self.
 func (x *LeafletPage) GetName() string {
-	core.LazyRegister(&xLeafletPageGetName, "ADW", "adw_leaflet_page_get_name", false)
-
 	cret := xLeafletPageGetName(x.GoPointer())
 	return cret
 }
@@ -1201,8 +1139,6 @@ var xLeafletPageGetNavigatable func(uintptr) bool
 
 // Gets whether the child can be navigated to when folded.
 func (x *LeafletPage) GetNavigatable() bool {
-	core.LazyRegister(&xLeafletPageGetNavigatable, "ADW", "adw_leaflet_page_get_navigatable", false)
-
 	cret := xLeafletPageGetNavigatable(x.GoPointer())
 	return cret
 }
@@ -1211,8 +1147,6 @@ var xLeafletPageSetName func(uintptr, uintptr)
 
 // Sets the name of the @self.
 func (x *LeafletPage) SetName(NameVar *string) {
-	core.LazyRegister(&xLeafletPageSetName, "ADW", "adw_leaflet_page_set_name", false)
-
 	NameVarPtr := core.GStrdupNullable(NameVar)
 	defer core.GFreeNullable(NameVarPtr)
 
@@ -1228,8 +1162,6 @@ var xLeafletPageSetNavigatable func(uintptr, bool)
 //
 // This can be used used to prevent switching to widgets like separators.
 func (x *LeafletPage) SetNavigatable(NavigatableVar bool) {
-	core.LazyRegister(&xLeafletPageSetNavigatable, "ADW", "adw_leaflet_page_set_navigatable", false)
-
 	xLeafletPageSetNavigatable(x.GoPointer(), NavigatableVar)
 }
 
@@ -1293,4 +1225,59 @@ func (x *LeafletPage) GetPropertyNavigatable() bool {
 func init() {
 	core.SetPackageName("ADW", "libadwaita-1")
 	core.SetSharedLibraries("ADW", []string{"libadwaita-1.so.0", "libadwaita-1.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("ADW") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xLeafletTransitionTypeGLibType, libs, "adw_leaflet_transition_type_get_type")
+
+	core.PuregoSafeRegister(&xLeafletGLibType, libs, "adw_leaflet_get_type")
+
+	core.PuregoSafeRegister(&xNewLeaflet, libs, "adw_leaflet_new")
+
+	core.PuregoSafeRegister(&xLeafletAppend, libs, "adw_leaflet_append")
+	core.PuregoSafeRegister(&xLeafletGetAdjacentChild, libs, "adw_leaflet_get_adjacent_child")
+	core.PuregoSafeRegister(&xLeafletGetCanNavigateBack, libs, "adw_leaflet_get_can_navigate_back")
+	core.PuregoSafeRegister(&xLeafletGetCanNavigateForward, libs, "adw_leaflet_get_can_navigate_forward")
+	core.PuregoSafeRegister(&xLeafletGetCanUnfold, libs, "adw_leaflet_get_can_unfold")
+	core.PuregoSafeRegister(&xLeafletGetChildByName, libs, "adw_leaflet_get_child_by_name")
+	core.PuregoSafeRegister(&xLeafletGetChildTransitionParams, libs, "adw_leaflet_get_child_transition_params")
+	core.PuregoSafeRegister(&xLeafletGetChildTransitionRunning, libs, "adw_leaflet_get_child_transition_running")
+	core.PuregoSafeRegister(&xLeafletGetFoldThresholdPolicy, libs, "adw_leaflet_get_fold_threshold_policy")
+	core.PuregoSafeRegister(&xLeafletGetFolded, libs, "adw_leaflet_get_folded")
+	core.PuregoSafeRegister(&xLeafletGetHomogeneous, libs, "adw_leaflet_get_homogeneous")
+	core.PuregoSafeRegister(&xLeafletGetModeTransitionDuration, libs, "adw_leaflet_get_mode_transition_duration")
+	core.PuregoSafeRegister(&xLeafletGetPage, libs, "adw_leaflet_get_page")
+	core.PuregoSafeRegister(&xLeafletGetPages, libs, "adw_leaflet_get_pages")
+	core.PuregoSafeRegister(&xLeafletGetTransitionType, libs, "adw_leaflet_get_transition_type")
+	core.PuregoSafeRegister(&xLeafletGetVisibleChild, libs, "adw_leaflet_get_visible_child")
+	core.PuregoSafeRegister(&xLeafletGetVisibleChildName, libs, "adw_leaflet_get_visible_child_name")
+	core.PuregoSafeRegister(&xLeafletInsertChildAfter, libs, "adw_leaflet_insert_child_after")
+	core.PuregoSafeRegister(&xLeafletNavigate, libs, "adw_leaflet_navigate")
+	core.PuregoSafeRegister(&xLeafletPrepend, libs, "adw_leaflet_prepend")
+	core.PuregoSafeRegister(&xLeafletRemove, libs, "adw_leaflet_remove")
+	core.PuregoSafeRegister(&xLeafletReorderChildAfter, libs, "adw_leaflet_reorder_child_after")
+	core.PuregoSafeRegister(&xLeafletSetCanNavigateBack, libs, "adw_leaflet_set_can_navigate_back")
+	core.PuregoSafeRegister(&xLeafletSetCanNavigateForward, libs, "adw_leaflet_set_can_navigate_forward")
+	core.PuregoSafeRegister(&xLeafletSetCanUnfold, libs, "adw_leaflet_set_can_unfold")
+	core.PuregoSafeRegister(&xLeafletSetChildTransitionParams, libs, "adw_leaflet_set_child_transition_params")
+	core.PuregoSafeRegister(&xLeafletSetFoldThresholdPolicy, libs, "adw_leaflet_set_fold_threshold_policy")
+	core.PuregoSafeRegister(&xLeafletSetHomogeneous, libs, "adw_leaflet_set_homogeneous")
+	core.PuregoSafeRegister(&xLeafletSetModeTransitionDuration, libs, "adw_leaflet_set_mode_transition_duration")
+	core.PuregoSafeRegister(&xLeafletSetTransitionType, libs, "adw_leaflet_set_transition_type")
+	core.PuregoSafeRegister(&xLeafletSetVisibleChild, libs, "adw_leaflet_set_visible_child")
+	core.PuregoSafeRegister(&xLeafletSetVisibleChildName, libs, "adw_leaflet_set_visible_child_name")
+
+	core.PuregoSafeRegister(&xLeafletPageGLibType, libs, "adw_leaflet_page_get_type")
+
+	core.PuregoSafeRegister(&xLeafletPageGetChild, libs, "adw_leaflet_page_get_child")
+	core.PuregoSafeRegister(&xLeafletPageGetName, libs, "adw_leaflet_page_get_name")
+	core.PuregoSafeRegister(&xLeafletPageGetNavigatable, libs, "adw_leaflet_page_get_navigatable")
+	core.PuregoSafeRegister(&xLeafletPageSetName, libs, "adw_leaflet_page_set_name")
+	core.PuregoSafeRegister(&xLeafletPageSetNavigatable, libs, "adw_leaflet_page_set_navigatable")
 }

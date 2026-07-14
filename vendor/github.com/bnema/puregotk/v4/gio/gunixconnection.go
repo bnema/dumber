@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -63,7 +64,6 @@ type UnixConnection struct {
 var xUnixConnectionGLibType func() types.GType
 
 func UnixConnectionGLibType() types.GType {
-	core.LazyRegister(&xUnixConnectionGLibType, "GIO", "g_unix_connection_get_type", false)
 	return xUnixConnectionGLibType()
 }
 
@@ -94,7 +94,6 @@ var xUnixConnectionReceiveCredentials func(uintptr, uintptr, **glib.Error) uintp
 // Other ways to exchange credentials with a foreign peer includes the
 // #GUnixCredentialsMessage type and g_socket_get_credentials() function.
 func (x *UnixConnection) ReceiveCredentials(CancellableVar *Cancellable) (*Credentials, error) {
-	core.LazyRegister(&xUnixConnectionReceiveCredentials, "GIO", "g_unix_connection_receive_credentials", false)
 	var cls *Credentials
 	var cerr *glib.Error
 
@@ -121,8 +120,6 @@ var xUnixConnectionReceiveCredentialsAsync func(uintptr, uintptr, uintptr, uintp
 // When the operation is finished, @callback will be called. You can then call
 // g_unix_connection_receive_credentials_finish() to get the result of the operation.
 func (x *UnixConnection) ReceiveCredentialsAsync(CancellableVar *Cancellable, CallbackVar *AsyncReadyCallback, UserDataVar uintptr) {
-	core.LazyRegister(&xUnixConnectionReceiveCredentialsAsync, "GIO", "g_unix_connection_receive_credentials_async", false)
-
 	xUnixConnectionReceiveCredentialsAsync(x.GoPointer(), CancellableVar.GoPointer(), glib.NewCallbackNullable(CallbackVar), UserDataVar)
 }
 
@@ -131,7 +128,6 @@ var xUnixConnectionReceiveCredentialsFinish func(uintptr, uintptr, **glib.Error)
 // Finishes an asynchronous receive credentials operation started with
 // g_unix_connection_receive_credentials_async().
 func (x *UnixConnection) ReceiveCredentialsFinish(ResultVar AsyncResult) (*Credentials, error) {
-	core.LazyRegister(&xUnixConnectionReceiveCredentialsFinish, "GIO", "g_unix_connection_receive_credentials_finish", false)
 	var cls *Credentials
 	var cerr *glib.Error
 
@@ -158,7 +154,6 @@ var xUnixConnectionReceiveFd func(uintptr, uintptr, **glib.Error) int
 // stream, as this is required for fd passing to work on some
 // implementations.
 func (x *UnixConnection) ReceiveFd(CancellableVar *Cancellable) (int, error) {
-	core.LazyRegister(&xUnixConnectionReceiveFd, "GIO", "g_unix_connection_receive_fd", false)
 	var cerr *glib.Error
 
 	cret := xUnixConnectionReceiveFd(x.GoPointer(), CancellableVar.GoPointer(), &cerr)
@@ -190,7 +185,6 @@ var xUnixConnectionSendCredentials func(uintptr, uintptr, **glib.Error) bool
 // Other ways to exchange credentials with a foreign peer includes the
 // #GUnixCredentialsMessage type and g_socket_get_credentials() function.
 func (x *UnixConnection) SendCredentials(CancellableVar *Cancellable) (bool, error) {
-	core.LazyRegister(&xUnixConnectionSendCredentials, "GIO", "g_unix_connection_send_credentials", false)
 	var cerr *glib.Error
 
 	cret := xUnixConnectionSendCredentials(x.GoPointer(), CancellableVar.GoPointer(), &cerr)
@@ -210,8 +204,6 @@ var xUnixConnectionSendCredentialsAsync func(uintptr, uintptr, uintptr, uintptr)
 // When the operation is finished, @callback will be called. You can then call
 // g_unix_connection_send_credentials_finish() to get the result of the operation.
 func (x *UnixConnection) SendCredentialsAsync(CancellableVar *Cancellable, CallbackVar *AsyncReadyCallback, UserDataVar uintptr) {
-	core.LazyRegister(&xUnixConnectionSendCredentialsAsync, "GIO", "g_unix_connection_send_credentials_async", false)
-
 	xUnixConnectionSendCredentialsAsync(x.GoPointer(), CancellableVar.GoPointer(), glib.NewCallbackNullable(CallbackVar), UserDataVar)
 }
 
@@ -220,7 +212,6 @@ var xUnixConnectionSendCredentialsFinish func(uintptr, uintptr, **glib.Error) bo
 // Finishes an asynchronous send credentials operation started with
 // g_unix_connection_send_credentials_async().
 func (x *UnixConnection) SendCredentialsFinish(ResultVar AsyncResult) (bool, error) {
-	core.LazyRegister(&xUnixConnectionSendCredentialsFinish, "GIO", "g_unix_connection_send_credentials_finish", false)
 	var cerr *glib.Error
 
 	cret := xUnixConnectionSendCredentialsFinish(x.GoPointer(), ResultVar.GoPointer(), &cerr)
@@ -240,7 +231,6 @@ var xUnixConnectionSendFd func(uintptr, int, uintptr, **glib.Error) bool
 // stream, as this is required for fd passing to work on some
 // implementations.
 func (x *UnixConnection) SendFd(FdVar int, CancellableVar *Cancellable) (bool, error) {
-	core.LazyRegister(&xUnixConnectionSendFd, "GIO", "g_unix_connection_send_fd", false)
 	var cerr *glib.Error
 
 	cret := xUnixConnectionSendFd(x.GoPointer(), FdVar, CancellableVar.GoPointer(), &cerr)
@@ -264,4 +254,23 @@ func (c *UnixConnection) SetGoPointer(ptr uintptr) {
 func init() {
 	core.SetPackageName("GIO", "gio-2.0")
 	core.SetSharedLibraries("GIO", []string{"libgio-2.0.so.0", "libgio-2.0.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GIO") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xUnixConnectionGLibType, libs, "g_unix_connection_get_type")
+
+	core.PuregoSafeRegister(&xUnixConnectionReceiveCredentials, libs, "g_unix_connection_receive_credentials")
+	core.PuregoSafeRegister(&xUnixConnectionReceiveCredentialsAsync, libs, "g_unix_connection_receive_credentials_async")
+	core.PuregoSafeRegister(&xUnixConnectionReceiveCredentialsFinish, libs, "g_unix_connection_receive_credentials_finish")
+	core.PuregoSafeRegister(&xUnixConnectionReceiveFd, libs, "g_unix_connection_receive_fd")
+	core.PuregoSafeRegister(&xUnixConnectionSendCredentials, libs, "g_unix_connection_send_credentials")
+	core.PuregoSafeRegister(&xUnixConnectionSendCredentialsAsync, libs, "g_unix_connection_send_credentials_async")
+	core.PuregoSafeRegister(&xUnixConnectionSendCredentialsFinish, libs, "g_unix_connection_send_credentials_finish")
+	core.PuregoSafeRegister(&xUnixConnectionSendFd, libs, "g_unix_connection_send_fd")
 }

@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/graphene"
 )
@@ -46,8 +47,6 @@ var xRoundedRectContainsPoint func(uintptr, *graphene.Point) bool
 
 // Checks if the given point is inside the rounded rectangle.
 func (x *RoundedRect) ContainsPoint(PointVar *graphene.Point) bool {
-	core.LazyRegister(&xRoundedRectContainsPoint, "GSK", "gsk_rounded_rect_contains_point", false)
-
 	cret := xRoundedRectContainsPoint(x.GoPointer(), PointVar)
 	return cret
 }
@@ -56,8 +55,6 @@ var xRoundedRectContainsRect func(uintptr, *graphene.Rect) bool
 
 // Checks if the given rectangle is contained inside the rounded rectangle.
 func (x *RoundedRect) ContainsRect(RectVar *graphene.Rect) bool {
-	core.LazyRegister(&xRoundedRectContainsRect, "GSK", "gsk_rounded_rect_contains_rect", false)
-
 	cret := xRoundedRectContainsRect(x.GoPointer(), RectVar)
 	return cret
 }
@@ -69,8 +66,6 @@ var xRoundedRectInit func(uintptr, *graphene.Rect, *graphene.Size, *graphene.Siz
 // This function will implicitly normalize the rounded rectangle
 // before returning.
 func (x *RoundedRect) Init(BoundsVar *graphene.Rect, TopLeftVar *graphene.Size, TopRightVar *graphene.Size, BottomRightVar *graphene.Size, BottomLeftVar *graphene.Size) *RoundedRect {
-	core.LazyRegister(&xRoundedRectInit, "GSK", "gsk_rounded_rect_init", false)
-
 	cret := xRoundedRectInit(x.GoPointer(), BoundsVar, TopLeftVar, TopRightVar, BottomRightVar, BottomLeftVar)
 	if cret == 0 {
 		return nil
@@ -85,8 +80,6 @@ var xRoundedRectInitCopy func(uintptr, *RoundedRect) uintptr
 // This function will not normalize the rounded rectangle,
 // so make sure the source is normalized.
 func (x *RoundedRect) InitCopy(SrcVar *RoundedRect) *RoundedRect {
-	core.LazyRegister(&xRoundedRectInitCopy, "GSK", "gsk_rounded_rect_init_copy", false)
-
 	cret := xRoundedRectInitCopy(x.GoPointer(), SrcVar)
 	if cret == 0 {
 		return nil
@@ -99,8 +92,6 @@ var xRoundedRectInitFromRect func(uintptr, *graphene.Rect, float32) uintptr
 // Initializes a rounded rectangle to the given bounds
 // and sets the radius of all four corners equally.
 func (x *RoundedRect) InitFromRect(BoundsVar *graphene.Rect, RadiusVar float32) *RoundedRect {
-	core.LazyRegister(&xRoundedRectInitFromRect, "GSK", "gsk_rounded_rect_init_from_rect", false)
-
 	cret := xRoundedRectInitFromRect(x.GoPointer(), BoundsVar, RadiusVar)
 	if cret == 0 {
 		return nil
@@ -113,8 +104,6 @@ var xRoundedRectIntersectsRect func(uintptr, *graphene.Rect) bool
 // Checks if part a rectangle is contained
 // inside the rounded rectangle.
 func (x *RoundedRect) IntersectsRect(RectVar *graphene.Rect) bool {
-	core.LazyRegister(&xRoundedRectIntersectsRect, "GSK", "gsk_rounded_rect_intersects_rect", false)
-
 	cret := xRoundedRectIntersectsRect(x.GoPointer(), RectVar)
 	return cret
 }
@@ -127,8 +116,6 @@ var xRoundedRectIsRectilinear func(uintptr) bool
 // This information can be used to decide if [ctor@Gsk.ClipNode.new]
 // or [ctor@Gsk.RoundedClipNode.new] should be called.
 func (x *RoundedRect) IsRectilinear() bool {
-	core.LazyRegister(&xRoundedRectIsRectilinear, "GSK", "gsk_rounded_rect_is_rectilinear", false)
-
 	cret := xRoundedRectIsRectilinear(x.GoPointer())
 	return cret
 }
@@ -141,8 +128,6 @@ var xRoundedRectNormalize func(uintptr) uintptr
 // are normalized and ensure that the corner values are positive
 // and the corners do not overlap.
 func (x *RoundedRect) Normalize() *RoundedRect {
-	core.LazyRegister(&xRoundedRectNormalize, "GSK", "gsk_rounded_rect_normalize", false)
-
 	cret := xRoundedRectNormalize(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -156,8 +141,6 @@ var xRoundedRectOffset func(uintptr, float32, float32) uintptr
 //
 // The size and corners of the rounded rectangle are unchanged.
 func (x *RoundedRect) Offset(DxVar float32, DyVar float32) *RoundedRect {
-	core.LazyRegister(&xRoundedRectOffset, "GSK", "gsk_rounded_rect_offset", false)
-
 	cret := xRoundedRectOffset(x.GoPointer(), DxVar, DyVar)
 	if cret == 0 {
 		return nil
@@ -176,8 +159,6 @@ var xRoundedRectShrink func(uintptr, float32, float32, float32, float32) uintptr
 // This function also works for growing rounded rectangles
 // if you pass negative values for the @top, @right, @bottom or @left.
 func (x *RoundedRect) Shrink(TopVar float32, RightVar float32, BottomVar float32, LeftVar float32) *RoundedRect {
-	core.LazyRegister(&xRoundedRectShrink, "GSK", "gsk_rounded_rect_shrink", false)
-
 	cret := xRoundedRectShrink(x.GoPointer(), TopVar, RightVar, BottomVar, LeftVar)
 	if cret == 0 {
 		return nil
@@ -188,4 +169,23 @@ func (x *RoundedRect) Shrink(TopVar float32, RightVar float32, BottomVar float32
 func init() {
 	core.SetPackageName("GSK", "gtk4")
 	core.SetSharedLibraries("GSK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GSK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xRoundedRectContainsPoint, libs, "gsk_rounded_rect_contains_point")
+	core.PuregoSafeRegister(&xRoundedRectContainsRect, libs, "gsk_rounded_rect_contains_rect")
+	core.PuregoSafeRegister(&xRoundedRectInit, libs, "gsk_rounded_rect_init")
+	core.PuregoSafeRegister(&xRoundedRectInitCopy, libs, "gsk_rounded_rect_init_copy")
+	core.PuregoSafeRegister(&xRoundedRectInitFromRect, libs, "gsk_rounded_rect_init_from_rect")
+	core.PuregoSafeRegister(&xRoundedRectIntersectsRect, libs, "gsk_rounded_rect_intersects_rect")
+	core.PuregoSafeRegister(&xRoundedRectIsRectilinear, libs, "gsk_rounded_rect_is_rectilinear")
+	core.PuregoSafeRegister(&xRoundedRectNormalize, libs, "gsk_rounded_rect_normalize")
+	core.PuregoSafeRegister(&xRoundedRectOffset, libs, "gsk_rounded_rect_offset")
+	core.PuregoSafeRegister(&xRoundedRectShrink, libs, "gsk_rounded_rect_shrink")
 }

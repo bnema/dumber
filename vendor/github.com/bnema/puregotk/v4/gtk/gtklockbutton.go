@@ -4,6 +4,7 @@ package gtk
 import (
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gio"
 	"github.com/bnema/puregotk/v4/glib"
@@ -75,7 +76,6 @@ type LockButton struct {
 var xLockButtonGLibType func() types.GType
 
 func LockButtonGLibType() types.GType {
-	core.LazyRegister(&xLockButtonGLibType, "GTK", "gtk_lock_button_get_type", false)
 	return xLockButtonGLibType()
 }
 
@@ -89,7 +89,6 @@ var xNewLockButton func(uintptr) uintptr
 
 // Creates a new lock button which reflects the @permission.
 func NewLockButton(PermissionVar *gio.Permission) *LockButton {
-	core.LazyRegister(&xNewLockButton, "GTK", "gtk_lock_button_new", false)
 	var cls *LockButton
 
 	cret := xNewLockButton(PermissionVar.GoPointer())
@@ -107,7 +106,6 @@ var xLockButtonGetPermission func(uintptr) uintptr
 
 // Obtains the `GPermission` object that controls @button.
 func (x *LockButton) GetPermission() *gio.Permission {
-	core.LazyRegister(&xLockButtonGetPermission, "GTK", "gtk_lock_button_get_permission", false)
 	var cls *gio.Permission
 
 	cret := xLockButtonGetPermission(x.GoPointer())
@@ -125,8 +123,6 @@ var xLockButtonSetPermission func(uintptr, uintptr)
 
 // Sets the `GPermission` object that controls @button.
 func (x *LockButton) SetPermission(PermissionVar *gio.Permission) {
-	core.LazyRegister(&xLockButtonSetPermission, "GTK", "gtk_lock_button_set_permission", false)
-
 	xLockButtonSetPermission(x.GoPointer(), PermissionVar.GoPointer())
 }
 
@@ -568,4 +564,19 @@ func (x *LockButton) GetBuildableId() string {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GTK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xLockButtonGLibType, libs, "gtk_lock_button_get_type")
+
+	core.PuregoSafeRegister(&xNewLockButton, libs, "gtk_lock_button_new")
+
+	core.PuregoSafeRegister(&xLockButtonGetPermission, libs, "gtk_lock_button_get_permission")
+	core.PuregoSafeRegister(&xLockButtonSetPermission, libs, "gtk_lock_button_set_permission")
 }

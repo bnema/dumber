@@ -4,6 +4,7 @@ package gio
 import (
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -19,7 +20,6 @@ type DBusMessage struct {
 var xDBusMessageGLibType func() types.GType
 
 func DBusMessageGLibType() types.GType {
-	core.LazyRegister(&xDBusMessageGLibType, "GIO", "g_dbus_message_get_type", false)
 	return xDBusMessageGLibType()
 }
 
@@ -33,7 +33,6 @@ var xNewDBusMessage func() uintptr
 
 // Creates a new empty #GDBusMessage.
 func NewDBusMessage() *DBusMessage {
-	core.LazyRegister(&xNewDBusMessage, "GIO", "g_dbus_message_new", false)
 	var cls *DBusMessage
 
 	cret := xNewDBusMessage()
@@ -55,7 +54,6 @@ var xNewDBusMessageFromBlob func([]byte, uint, DBusCapabilityFlags, **glib.Error
 // If the @blob cannot be parsed, contains invalid fields, or contains invalid
 // headers, %G_IO_ERROR_INVALID_ARGUMENT will be returned.
 func NewDBusMessageFromBlob(BlobVar []byte, BlobLenVar uint, CapabilitiesVar DBusCapabilityFlags) (*DBusMessage, error) {
-	core.LazyRegister(&xNewDBusMessageFromBlob, "GIO", "g_dbus_message_new_from_blob", false)
 	var cls *DBusMessage
 	var cerr *glib.Error
 
@@ -76,7 +74,6 @@ var xNewDBusMessageMethodCall func(uintptr, string, uintptr, string) uintptr
 
 // Creates a new #GDBusMessage for a method call.
 func NewDBusMessageMethodCall(NameVar *string, PathVar string, InterfaceVar *string, MethodVar string) *DBusMessage {
-	core.LazyRegister(&xNewDBusMessageMethodCall, "GIO", "g_dbus_message_new_method_call", false)
 	var cls *DBusMessage
 
 	NameVarPtr := core.GStrdupNullable(NameVar)
@@ -99,7 +96,6 @@ var xNewDBusMessageSignal func(string, string, string) uintptr
 
 // Creates a new #GDBusMessage for a signal emission.
 func NewDBusMessageSignal(PathVar string, InterfaceVar string, SignalVar string) *DBusMessage {
-	core.LazyRegister(&xNewDBusMessageSignal, "GIO", "g_dbus_message_new_signal", false)
 	var cls *DBusMessage
 
 	cret := xNewDBusMessageSignal(PathVar, InterfaceVar, SignalVar)
@@ -121,7 +117,6 @@ var xDBusMessageCopy func(uintptr, **glib.Error) uintptr
 // This operation can fail if e.g. @message contains file descriptors
 // and the per-process or system-wide open files limit is reached.
 func (x *DBusMessage) Copy() (*DBusMessage, error) {
-	core.LazyRegister(&xDBusMessageCopy, "GIO", "g_dbus_message_copy", false)
 	var cls *DBusMessage
 	var cerr *glib.Error
 
@@ -145,8 +140,6 @@ var xDBusMessageGetArg0 func(uintptr) string
 // See [method@Gio.DBusMessage.get_arg0_path] for returning object-path-typed
 // arg0 values.
 func (x *DBusMessage) GetArg0() string {
-	core.LazyRegister(&xDBusMessageGetArg0, "GIO", "g_dbus_message_get_arg0", false)
-
 	cret := xDBusMessageGetArg0(x.GoPointer())
 	return cret
 }
@@ -157,8 +150,6 @@ var xDBusMessageGetArg0Path func(uintptr) string
 //
 // See [method@Gio.DBusMessage.get_arg0] for returning string-typed arg0 values.
 func (x *DBusMessage) GetArg0Path() string {
-	core.LazyRegister(&xDBusMessageGetArg0Path, "GIO", "g_dbus_message_get_arg0_path", false)
-
 	cret := xDBusMessageGetArg0Path(x.GoPointer())
 	return cret
 }
@@ -167,8 +158,6 @@ var xDBusMessageGetBody func(uintptr) uintptr
 
 // Gets the body of a message.
 func (x *DBusMessage) GetBody() *glib.Variant {
-	core.LazyRegister(&xDBusMessageGetBody, "GIO", "g_dbus_message_get_body", false)
-
 	cret := xDBusMessageGetBody(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -180,8 +169,6 @@ var xDBusMessageGetByteOrder func(uintptr) DBusMessageByteOrder
 
 // Gets the byte order of @message.
 func (x *DBusMessage) GetByteOrder() DBusMessageByteOrder {
-	core.LazyRegister(&xDBusMessageGetByteOrder, "GIO", "g_dbus_message_get_byte_order", false)
-
 	cret := xDBusMessageGetByteOrder(x.GoPointer())
 	return cret
 }
@@ -190,8 +177,6 @@ var xDBusMessageGetDestination func(uintptr) string
 
 // Convenience getter for the %G_DBUS_MESSAGE_HEADER_FIELD_DESTINATION header field.
 func (x *DBusMessage) GetDestination() string {
-	core.LazyRegister(&xDBusMessageGetDestination, "GIO", "g_dbus_message_get_destination", false)
-
 	cret := xDBusMessageGetDestination(x.GoPointer())
 	return cret
 }
@@ -200,8 +185,6 @@ var xDBusMessageGetErrorName func(uintptr) string
 
 // Convenience getter for the %G_DBUS_MESSAGE_HEADER_FIELD_ERROR_NAME header field.
 func (x *DBusMessage) GetErrorName() string {
-	core.LazyRegister(&xDBusMessageGetErrorName, "GIO", "g_dbus_message_get_error_name", false)
-
 	cret := xDBusMessageGetErrorName(x.GoPointer())
 	return cret
 }
@@ -210,8 +193,6 @@ var xDBusMessageGetFlags func(uintptr) DBusMessageFlags
 
 // Gets the flags for @message.
 func (x *DBusMessage) GetFlags() DBusMessageFlags {
-	core.LazyRegister(&xDBusMessageGetFlags, "GIO", "g_dbus_message_get_flags", false)
-
 	cret := xDBusMessageGetFlags(x.GoPointer())
 	return cret
 }
@@ -223,8 +204,6 @@ var xDBusMessageGetHeader func(uintptr, DBusMessageHeaderField) uintptr
 // The caller is responsible for checking the type of the returned #GVariant
 // matches what is expected.
 func (x *DBusMessage) GetHeader(HeaderFieldVar DBusMessageHeaderField) *glib.Variant {
-	core.LazyRegister(&xDBusMessageGetHeader, "GIO", "g_dbus_message_get_header", false)
-
 	cret := xDBusMessageGetHeader(x.GoPointer(), HeaderFieldVar)
 	if cret == 0 {
 		return nil
@@ -236,8 +215,6 @@ var xDBusMessageGetHeaderFields func(uintptr) uintptr
 
 // Gets an array of all header fields on @message that are set.
 func (x *DBusMessage) GetHeaderFields() uintptr {
-	core.LazyRegister(&xDBusMessageGetHeaderFields, "GIO", "g_dbus_message_get_header_fields", false)
-
 	cret := xDBusMessageGetHeaderFields(x.GoPointer())
 	return cret
 }
@@ -246,8 +223,6 @@ var xDBusMessageGetInterface func(uintptr) string
 
 // Convenience getter for the %G_DBUS_MESSAGE_HEADER_FIELD_INTERFACE header field.
 func (x *DBusMessage) GetInterface() string {
-	core.LazyRegister(&xDBusMessageGetInterface, "GIO", "g_dbus_message_get_interface", false)
-
 	cret := xDBusMessageGetInterface(x.GoPointer())
 	return cret
 }
@@ -258,8 +233,6 @@ var xDBusMessageGetLocked func(uintptr) bool
 // value, connect to the #GObject::notify signal to listen for changes
 // on the #GDBusMessage:locked property.
 func (x *DBusMessage) GetLocked() bool {
-	core.LazyRegister(&xDBusMessageGetLocked, "GIO", "g_dbus_message_get_locked", false)
-
 	cret := xDBusMessageGetLocked(x.GoPointer())
 	return cret
 }
@@ -268,8 +241,6 @@ var xDBusMessageGetMember func(uintptr) string
 
 // Convenience getter for the %G_DBUS_MESSAGE_HEADER_FIELD_MEMBER header field.
 func (x *DBusMessage) GetMember() string {
-	core.LazyRegister(&xDBusMessageGetMember, "GIO", "g_dbus_message_get_member", false)
-
 	cret := xDBusMessageGetMember(x.GoPointer())
 	return cret
 }
@@ -278,8 +249,6 @@ var xDBusMessageGetMessageType func(uintptr) DBusMessageType
 
 // Gets the type of @message.
 func (x *DBusMessage) GetMessageType() DBusMessageType {
-	core.LazyRegister(&xDBusMessageGetMessageType, "GIO", "g_dbus_message_get_message_type", false)
-
 	cret := xDBusMessageGetMessageType(x.GoPointer())
 	return cret
 }
@@ -288,8 +257,6 @@ var xDBusMessageGetNumUnixFds func(uintptr) uint32
 
 // Convenience getter for the %G_DBUS_MESSAGE_HEADER_FIELD_NUM_UNIX_FDS header field.
 func (x *DBusMessage) GetNumUnixFds() uint32 {
-	core.LazyRegister(&xDBusMessageGetNumUnixFds, "GIO", "g_dbus_message_get_num_unix_fds", false)
-
 	cret := xDBusMessageGetNumUnixFds(x.GoPointer())
 	return cret
 }
@@ -298,8 +265,6 @@ var xDBusMessageGetPath func(uintptr) string
 
 // Convenience getter for the %G_DBUS_MESSAGE_HEADER_FIELD_PATH header field.
 func (x *DBusMessage) GetPath() string {
-	core.LazyRegister(&xDBusMessageGetPath, "GIO", "g_dbus_message_get_path", false)
-
 	cret := xDBusMessageGetPath(x.GoPointer())
 	return cret
 }
@@ -308,8 +273,6 @@ var xDBusMessageGetReplySerial func(uintptr) uint32
 
 // Convenience getter for the %G_DBUS_MESSAGE_HEADER_FIELD_REPLY_SERIAL header field.
 func (x *DBusMessage) GetReplySerial() uint32 {
-	core.LazyRegister(&xDBusMessageGetReplySerial, "GIO", "g_dbus_message_get_reply_serial", false)
-
 	cret := xDBusMessageGetReplySerial(x.GoPointer())
 	return cret
 }
@@ -318,8 +281,6 @@ var xDBusMessageGetSender func(uintptr) string
 
 // Convenience getter for the %G_DBUS_MESSAGE_HEADER_FIELD_SENDER header field.
 func (x *DBusMessage) GetSender() string {
-	core.LazyRegister(&xDBusMessageGetSender, "GIO", "g_dbus_message_get_sender", false)
-
 	cret := xDBusMessageGetSender(x.GoPointer())
 	return cret
 }
@@ -328,8 +289,6 @@ var xDBusMessageGetSerial func(uintptr) uint32
 
 // Gets the serial for @message.
 func (x *DBusMessage) GetSerial() uint32 {
-	core.LazyRegister(&xDBusMessageGetSerial, "GIO", "g_dbus_message_get_serial", false)
-
 	cret := xDBusMessageGetSerial(x.GoPointer())
 	return cret
 }
@@ -340,8 +299,6 @@ var xDBusMessageGetSignature func(uintptr) string
 //
 // This will always be non-%NULL, but may be an empty string.
 func (x *DBusMessage) GetSignature() string {
-	core.LazyRegister(&xDBusMessageGetSignature, "GIO", "g_dbus_message_get_signature", false)
-
 	cret := xDBusMessageGetSignature(x.GoPointer())
 	return cret
 }
@@ -358,7 +315,6 @@ var xDBusMessageGetUnixFdList func(uintptr) uintptr
 // to the file descriptor that can be accessed by
 // `g_unix_fd_list_get (list, 5, ...)`.
 func (x *DBusMessage) GetUnixFdList() *UnixFDList {
-	core.LazyRegister(&xDBusMessageGetUnixFdList, "GIO", "g_dbus_message_get_unix_fd_list", false)
 	var cls *UnixFDList
 
 	cret := xDBusMessageGetUnixFdList(x.GoPointer())
@@ -376,8 +332,6 @@ var xDBusMessageLock func(uintptr)
 
 // If @message is locked, does nothing. Otherwise locks the message.
 func (x *DBusMessage) Lock() {
-	core.LazyRegister(&xDBusMessageLock, "GIO", "g_dbus_message_lock", false)
-
 	xDBusMessageLock(x.GoPointer())
 }
 
@@ -385,7 +339,6 @@ var xDBusMessageNewMethodError func(uintptr, string, string, ...interface{}) uin
 
 // Creates a new #GDBusMessage that is an error reply to @method_call_message.
 func (x *DBusMessage) NewMethodError(ErrorNameVar string, ErrorMessageFormatVar string, varArgs ...interface{}) *DBusMessage {
-	core.LazyRegister(&xDBusMessageNewMethodError, "GIO", "g_dbus_message_new_method_error", false)
 	var cls *DBusMessage
 
 	cret := xDBusMessageNewMethodError(x.GoPointer(), ErrorNameVar, ErrorMessageFormatVar, varArgs...)
@@ -402,7 +355,6 @@ var xDBusMessageNewMethodErrorLiteral func(uintptr, string, string) uintptr
 
 // Creates a new #GDBusMessage that is an error reply to @method_call_message.
 func (x *DBusMessage) NewMethodErrorLiteral(ErrorNameVar string, ErrorMessageVar string) *DBusMessage {
-	core.LazyRegister(&xDBusMessageNewMethodErrorLiteral, "GIO", "g_dbus_message_new_method_error_literal", false)
 	var cls *DBusMessage
 
 	cret := xDBusMessageNewMethodErrorLiteral(x.GoPointer(), ErrorNameVar, ErrorMessageVar)
@@ -419,7 +371,6 @@ var xDBusMessageNewMethodErrorValist func(uintptr, string, string, []interface{}
 
 // Like g_dbus_message_new_method_error() but intended for language bindings.
 func (x *DBusMessage) NewMethodErrorValist(ErrorNameVar string, ErrorMessageFormatVar string, VarArgsVar []interface{}) *DBusMessage {
-	core.LazyRegister(&xDBusMessageNewMethodErrorValist, "GIO", "g_dbus_message_new_method_error_valist", false)
 	var cls *DBusMessage
 
 	cret := xDBusMessageNewMethodErrorValist(x.GoPointer(), ErrorNameVar, ErrorMessageFormatVar, VarArgsVar)
@@ -436,7 +387,6 @@ var xDBusMessageNewMethodReply func(uintptr) uintptr
 
 // Creates a new #GDBusMessage that is a reply to @method_call_message.
 func (x *DBusMessage) NewMethodReply() *DBusMessage {
-	core.LazyRegister(&xDBusMessageNewMethodReply, "GIO", "g_dbus_message_new_method_reply", false)
 	var cls *DBusMessage
 
 	cret := xDBusMessageNewMethodReply(x.GoPointer())
@@ -492,8 +442,6 @@ var xDBusMessagePrint func(uintptr, uint) string
 //
 // ```
 func (x *DBusMessage) Print(IndentVar uint) string {
-	core.LazyRegister(&xDBusMessagePrint, "GIO", "g_dbus_message_print", false)
-
 	cret := xDBusMessagePrint(x.GoPointer(), IndentVar)
 	return cret
 }
@@ -506,8 +454,6 @@ var xDBusMessageSetBody func(uintptr, *glib.Variant)
 //
 // If @body is floating, @message assumes ownership of @body.
 func (x *DBusMessage) SetBody(BodyVar *glib.Variant) {
-	core.LazyRegister(&xDBusMessageSetBody, "GIO", "g_dbus_message_set_body", false)
-
 	xDBusMessageSetBody(x.GoPointer(), BodyVar)
 }
 
@@ -515,8 +461,6 @@ var xDBusMessageSetByteOrder func(uintptr, DBusMessageByteOrder)
 
 // Sets the byte order of @message.
 func (x *DBusMessage) SetByteOrder(ByteOrderVar DBusMessageByteOrder) {
-	core.LazyRegister(&xDBusMessageSetByteOrder, "GIO", "g_dbus_message_set_byte_order", false)
-
 	xDBusMessageSetByteOrder(x.GoPointer(), ByteOrderVar)
 }
 
@@ -524,8 +468,6 @@ var xDBusMessageSetDestination func(uintptr, uintptr)
 
 // Convenience setter for the %G_DBUS_MESSAGE_HEADER_FIELD_DESTINATION header field.
 func (x *DBusMessage) SetDestination(ValueVar *string) {
-	core.LazyRegister(&xDBusMessageSetDestination, "GIO", "g_dbus_message_set_destination", false)
-
 	ValueVarPtr := core.GStrdupNullable(ValueVar)
 	defer core.GFreeNullable(ValueVarPtr)
 
@@ -536,8 +478,6 @@ var xDBusMessageSetErrorName func(uintptr, string)
 
 // Convenience setter for the %G_DBUS_MESSAGE_HEADER_FIELD_ERROR_NAME header field.
 func (x *DBusMessage) SetErrorName(ValueVar string) {
-	core.LazyRegister(&xDBusMessageSetErrorName, "GIO", "g_dbus_message_set_error_name", false)
-
 	xDBusMessageSetErrorName(x.GoPointer(), ValueVar)
 }
 
@@ -545,8 +485,6 @@ var xDBusMessageSetFlags func(uintptr, DBusMessageFlags)
 
 // Sets the flags to set on @message.
 func (x *DBusMessage) SetFlags(FlagsVar DBusMessageFlags) {
-	core.LazyRegister(&xDBusMessageSetFlags, "GIO", "g_dbus_message_set_flags", false)
-
 	xDBusMessageSetFlags(x.GoPointer(), FlagsVar)
 }
 
@@ -556,8 +494,6 @@ var xDBusMessageSetHeader func(uintptr, DBusMessageHeaderField, *glib.Variant)
 //
 // If @value is floating, @message assumes ownership of @value.
 func (x *DBusMessage) SetHeader(HeaderFieldVar DBusMessageHeaderField, ValueVar *glib.Variant) {
-	core.LazyRegister(&xDBusMessageSetHeader, "GIO", "g_dbus_message_set_header", false)
-
 	xDBusMessageSetHeader(x.GoPointer(), HeaderFieldVar, ValueVar)
 }
 
@@ -565,8 +501,6 @@ var xDBusMessageSetInterface func(uintptr, uintptr)
 
 // Convenience setter for the %G_DBUS_MESSAGE_HEADER_FIELD_INTERFACE header field.
 func (x *DBusMessage) SetInterface(ValueVar *string) {
-	core.LazyRegister(&xDBusMessageSetInterface, "GIO", "g_dbus_message_set_interface", false)
-
 	ValueVarPtr := core.GStrdupNullable(ValueVar)
 	defer core.GFreeNullable(ValueVarPtr)
 
@@ -577,8 +511,6 @@ var xDBusMessageSetMember func(uintptr, uintptr)
 
 // Convenience setter for the %G_DBUS_MESSAGE_HEADER_FIELD_MEMBER header field.
 func (x *DBusMessage) SetMember(ValueVar *string) {
-	core.LazyRegister(&xDBusMessageSetMember, "GIO", "g_dbus_message_set_member", false)
-
 	ValueVarPtr := core.GStrdupNullable(ValueVar)
 	defer core.GFreeNullable(ValueVarPtr)
 
@@ -589,8 +521,6 @@ var xDBusMessageSetMessageType func(uintptr, DBusMessageType)
 
 // Sets @message to be of @type.
 func (x *DBusMessage) SetMessageType(TypeVar DBusMessageType) {
-	core.LazyRegister(&xDBusMessageSetMessageType, "GIO", "g_dbus_message_set_message_type", false)
-
 	xDBusMessageSetMessageType(x.GoPointer(), TypeVar)
 }
 
@@ -598,8 +528,6 @@ var xDBusMessageSetNumUnixFds func(uintptr, uint32)
 
 // Convenience setter for the %G_DBUS_MESSAGE_HEADER_FIELD_NUM_UNIX_FDS header field.
 func (x *DBusMessage) SetNumUnixFds(ValueVar uint32) {
-	core.LazyRegister(&xDBusMessageSetNumUnixFds, "GIO", "g_dbus_message_set_num_unix_fds", false)
-
 	xDBusMessageSetNumUnixFds(x.GoPointer(), ValueVar)
 }
 
@@ -607,8 +535,6 @@ var xDBusMessageSetPath func(uintptr, uintptr)
 
 // Convenience setter for the %G_DBUS_MESSAGE_HEADER_FIELD_PATH header field.
 func (x *DBusMessage) SetPath(ValueVar *string) {
-	core.LazyRegister(&xDBusMessageSetPath, "GIO", "g_dbus_message_set_path", false)
-
 	ValueVarPtr := core.GStrdupNullable(ValueVar)
 	defer core.GFreeNullable(ValueVarPtr)
 
@@ -619,8 +545,6 @@ var xDBusMessageSetReplySerial func(uintptr, uint32)
 
 // Convenience setter for the %G_DBUS_MESSAGE_HEADER_FIELD_REPLY_SERIAL header field.
 func (x *DBusMessage) SetReplySerial(ValueVar uint32) {
-	core.LazyRegister(&xDBusMessageSetReplySerial, "GIO", "g_dbus_message_set_reply_serial", false)
-
 	xDBusMessageSetReplySerial(x.GoPointer(), ValueVar)
 }
 
@@ -628,8 +552,6 @@ var xDBusMessageSetSender func(uintptr, uintptr)
 
 // Convenience setter for the %G_DBUS_MESSAGE_HEADER_FIELD_SENDER header field.
 func (x *DBusMessage) SetSender(ValueVar *string) {
-	core.LazyRegister(&xDBusMessageSetSender, "GIO", "g_dbus_message_set_sender", false)
-
 	ValueVarPtr := core.GStrdupNullable(ValueVar)
 	defer core.GFreeNullable(ValueVarPtr)
 
@@ -643,8 +565,6 @@ var xDBusMessageSetSerial func(uintptr, uint32)
 // The [D-Bus specification](https://dbus.freedesktop.org/doc/dbus-specification.html#message-protocol-messages)
 // does not allow the @serial to be zero.
 func (x *DBusMessage) SetSerial(SerialVar uint32) {
-	core.LazyRegister(&xDBusMessageSetSerial, "GIO", "g_dbus_message_set_serial", false)
-
 	xDBusMessageSetSerial(x.GoPointer(), SerialVar)
 }
 
@@ -652,8 +572,6 @@ var xDBusMessageSetSignature func(uintptr, uintptr)
 
 // Convenience setter for the %G_DBUS_MESSAGE_HEADER_FIELD_SIGNATURE header field.
 func (x *DBusMessage) SetSignature(ValueVar *string) {
-	core.LazyRegister(&xDBusMessageSetSignature, "GIO", "g_dbus_message_set_signature", false)
-
 	ValueVarPtr := core.GStrdupNullable(ValueVar)
 	defer core.GFreeNullable(ValueVarPtr)
 
@@ -674,8 +592,6 @@ var xDBusMessageSetUnixFdList func(uintptr, uintptr)
 // access file descriptors if they are referenced by a value of type
 // %G_VARIANT_TYPE_HANDLE in the body of the message.
 func (x *DBusMessage) SetUnixFdList(FdListVar *UnixFDList) {
-	core.LazyRegister(&xDBusMessageSetUnixFdList, "GIO", "g_dbus_message_set_unix_fd_list", false)
-
 	xDBusMessageSetUnixFdList(x.GoPointer(), FdListVar.GoPointer())
 }
 
@@ -684,7 +600,6 @@ var xDBusMessageToBlob func(uintptr, *uint, DBusCapabilityFlags, **glib.Error) u
 // Serializes @message to a blob. The byte order returned by
 // g_dbus_message_get_byte_order() will be used.
 func (x *DBusMessage) ToBlob(OutSizeVar *uint, CapabilitiesVar DBusCapabilityFlags) (uintptr, error) {
-	core.LazyRegister(&xDBusMessageToBlob, "GIO", "g_dbus_message_to_blob", false)
 	var cerr *glib.Error
 
 	cret := xDBusMessageToBlob(x.GoPointer(), OutSizeVar, CapabilitiesVar, &cerr)
@@ -704,7 +619,6 @@ var xDBusMessageToGerror func(uintptr, **glib.Error) bool
 // %G_DBUS_MESSAGE_HEADER_FIELD_ERROR_NAME header field of @message as
 // well as the first string item in @message's body.
 func (x *DBusMessage) ToGerror() (bool, error) {
-	core.LazyRegister(&xDBusMessageToGerror, "GIO", "g_dbus_message_to_gerror", false)
 	var cerr *glib.Error
 
 	cret := xDBusMessageToGerror(x.GoPointer(), &cerr)
@@ -737,7 +651,6 @@ var xDBusMessageBytesNeeded func([]byte, uint, **glib.Error) int
 // Utility function to calculate how many bytes are needed to
 // completely deserialize the D-Bus message stored at @blob.
 func DBusMessageBytesNeeded(BlobVar []byte, BlobLenVar uint) (int, error) {
-	core.LazyRegister(&xDBusMessageBytesNeeded, "GIO", "g_dbus_message_bytes_needed", false)
 	var cerr *glib.Error
 
 	cret := xDBusMessageBytesNeeded(BlobVar, BlobLenVar, &cerr)
@@ -750,4 +663,67 @@ func DBusMessageBytesNeeded(BlobVar []byte, BlobLenVar uint) (int, error) {
 func init() {
 	core.SetPackageName("GIO", "gio-2.0")
 	core.SetSharedLibraries("GIO", []string{"libgio-2.0.so.0", "libgio-2.0.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GIO") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xDBusMessageGLibType, libs, "g_dbus_message_get_type")
+
+	core.PuregoSafeRegister(&xNewDBusMessage, libs, "g_dbus_message_new")
+	core.PuregoSafeRegister(&xNewDBusMessageFromBlob, libs, "g_dbus_message_new_from_blob")
+	core.PuregoSafeRegister(&xNewDBusMessageMethodCall, libs, "g_dbus_message_new_method_call")
+	core.PuregoSafeRegister(&xNewDBusMessageSignal, libs, "g_dbus_message_new_signal")
+
+	core.PuregoSafeRegister(&xDBusMessageCopy, libs, "g_dbus_message_copy")
+	core.PuregoSafeRegister(&xDBusMessageGetArg0, libs, "g_dbus_message_get_arg0")
+	core.PuregoSafeRegister(&xDBusMessageGetArg0Path, libs, "g_dbus_message_get_arg0_path")
+	core.PuregoSafeRegister(&xDBusMessageGetBody, libs, "g_dbus_message_get_body")
+	core.PuregoSafeRegister(&xDBusMessageGetByteOrder, libs, "g_dbus_message_get_byte_order")
+	core.PuregoSafeRegister(&xDBusMessageGetDestination, libs, "g_dbus_message_get_destination")
+	core.PuregoSafeRegister(&xDBusMessageGetErrorName, libs, "g_dbus_message_get_error_name")
+	core.PuregoSafeRegister(&xDBusMessageGetFlags, libs, "g_dbus_message_get_flags")
+	core.PuregoSafeRegister(&xDBusMessageGetHeader, libs, "g_dbus_message_get_header")
+	core.PuregoSafeRegister(&xDBusMessageGetHeaderFields, libs, "g_dbus_message_get_header_fields")
+	core.PuregoSafeRegister(&xDBusMessageGetInterface, libs, "g_dbus_message_get_interface")
+	core.PuregoSafeRegister(&xDBusMessageGetLocked, libs, "g_dbus_message_get_locked")
+	core.PuregoSafeRegister(&xDBusMessageGetMember, libs, "g_dbus_message_get_member")
+	core.PuregoSafeRegister(&xDBusMessageGetMessageType, libs, "g_dbus_message_get_message_type")
+	core.PuregoSafeRegister(&xDBusMessageGetNumUnixFds, libs, "g_dbus_message_get_num_unix_fds")
+	core.PuregoSafeRegister(&xDBusMessageGetPath, libs, "g_dbus_message_get_path")
+	core.PuregoSafeRegister(&xDBusMessageGetReplySerial, libs, "g_dbus_message_get_reply_serial")
+	core.PuregoSafeRegister(&xDBusMessageGetSender, libs, "g_dbus_message_get_sender")
+	core.PuregoSafeRegister(&xDBusMessageGetSerial, libs, "g_dbus_message_get_serial")
+	core.PuregoSafeRegister(&xDBusMessageGetSignature, libs, "g_dbus_message_get_signature")
+	core.PuregoSafeRegister(&xDBusMessageGetUnixFdList, libs, "g_dbus_message_get_unix_fd_list")
+	core.PuregoSafeRegister(&xDBusMessageLock, libs, "g_dbus_message_lock")
+	core.PuregoSafeRegister(&xDBusMessageNewMethodError, libs, "g_dbus_message_new_method_error")
+	core.PuregoSafeRegister(&xDBusMessageNewMethodErrorLiteral, libs, "g_dbus_message_new_method_error_literal")
+	core.PuregoSafeRegister(&xDBusMessageNewMethodErrorValist, libs, "g_dbus_message_new_method_error_valist")
+	core.PuregoSafeRegister(&xDBusMessageNewMethodReply, libs, "g_dbus_message_new_method_reply")
+	core.PuregoSafeRegister(&xDBusMessagePrint, libs, "g_dbus_message_print")
+	core.PuregoSafeRegister(&xDBusMessageSetBody, libs, "g_dbus_message_set_body")
+	core.PuregoSafeRegister(&xDBusMessageSetByteOrder, libs, "g_dbus_message_set_byte_order")
+	core.PuregoSafeRegister(&xDBusMessageSetDestination, libs, "g_dbus_message_set_destination")
+	core.PuregoSafeRegister(&xDBusMessageSetErrorName, libs, "g_dbus_message_set_error_name")
+	core.PuregoSafeRegister(&xDBusMessageSetFlags, libs, "g_dbus_message_set_flags")
+	core.PuregoSafeRegister(&xDBusMessageSetHeader, libs, "g_dbus_message_set_header")
+	core.PuregoSafeRegister(&xDBusMessageSetInterface, libs, "g_dbus_message_set_interface")
+	core.PuregoSafeRegister(&xDBusMessageSetMember, libs, "g_dbus_message_set_member")
+	core.PuregoSafeRegister(&xDBusMessageSetMessageType, libs, "g_dbus_message_set_message_type")
+	core.PuregoSafeRegister(&xDBusMessageSetNumUnixFds, libs, "g_dbus_message_set_num_unix_fds")
+	core.PuregoSafeRegister(&xDBusMessageSetPath, libs, "g_dbus_message_set_path")
+	core.PuregoSafeRegister(&xDBusMessageSetReplySerial, libs, "g_dbus_message_set_reply_serial")
+	core.PuregoSafeRegister(&xDBusMessageSetSender, libs, "g_dbus_message_set_sender")
+	core.PuregoSafeRegister(&xDBusMessageSetSerial, libs, "g_dbus_message_set_serial")
+	core.PuregoSafeRegister(&xDBusMessageSetSignature, libs, "g_dbus_message_set_signature")
+	core.PuregoSafeRegister(&xDBusMessageSetUnixFdList, libs, "g_dbus_message_set_unix_fd_list")
+	core.PuregoSafeRegister(&xDBusMessageToBlob, libs, "g_dbus_message_to_blob")
+	core.PuregoSafeRegister(&xDBusMessageToGerror, libs, "g_dbus_message_to_gerror")
+
+	core.PuregoSafeRegister(&xDBusMessageBytesNeeded, libs, "g_dbus_message_bytes_needed")
 }

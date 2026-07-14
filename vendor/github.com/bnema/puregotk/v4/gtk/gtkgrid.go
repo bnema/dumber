@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -127,7 +128,6 @@ type Grid struct {
 var xGridGLibType func() types.GType
 
 func GridGLibType() types.GType {
-	core.LazyRegister(&xGridGLibType, "GTK", "gtk_grid_get_type", false)
 	return xGridGLibType()
 }
 
@@ -141,7 +141,6 @@ var xNewGrid func() uintptr
 
 // Creates a new grid widget.
 func NewGrid() *Grid {
-	core.LazyRegister(&xNewGrid, "GTK", "gtk_grid_new", false)
 	var cls *Grid
 
 	cret := xNewGrid()
@@ -163,8 +162,6 @@ var xGridAttach func(uintptr, uintptr, int, int, int, int)
 // The number of “cells” that @child will occupy is determined
 // by @width and @height.
 func (x *Grid) Attach(ChildVar *Widget, ColumnVar int, RowVar int, WidthVar int, HeightVar int) {
-	core.LazyRegister(&xGridAttach, "GTK", "gtk_grid_attach", false)
-
 	xGridAttach(x.GoPointer(), ChildVar.GoPointer(), ColumnVar, RowVar, WidthVar, HeightVar)
 }
 
@@ -180,8 +177,6 @@ var xGridAttachNextTo func(uintptr, uintptr, uintptr, PositionType, int, int)
 // Attaching widgets labeled `[1]`, `[2]`, `[3]` with `@sibling == %NULL` and
 // `@side == %GTK_POS_LEFT` yields a layout of `[3][2][1]`.
 func (x *Grid) AttachNextTo(ChildVar *Widget, SiblingVar *Widget, SideVar PositionType, WidthVar int, HeightVar int) {
-	core.LazyRegister(&xGridAttachNextTo, "GTK", "gtk_grid_attach_next_to", false)
-
 	xGridAttachNextTo(x.GoPointer(), ChildVar.GoPointer(), SiblingVar.GoPointer(), SideVar, WidthVar, HeightVar)
 }
 
@@ -189,8 +184,6 @@ var xGridGetBaselineRow func(uintptr) int
 
 // Returns which row defines the global baseline of @grid.
 func (x *Grid) GetBaselineRow() int {
-	core.LazyRegister(&xGridGetBaselineRow, "GTK", "gtk_grid_get_baseline_row", false)
-
 	cret := xGridGetBaselineRow(x.GoPointer())
 	return cret
 }
@@ -200,7 +193,6 @@ var xGridGetChildAt func(uintptr, int, int) uintptr
 // Gets the child of @grid whose area covers the grid
 // cell at @column, @row.
 func (x *Grid) GetChildAt(ColumnVar int, RowVar int) *Widget {
-	core.LazyRegister(&xGridGetChildAt, "GTK", "gtk_grid_get_child_at", false)
 	var cls *Widget
 
 	cret := xGridGetChildAt(x.GoPointer(), ColumnVar, RowVar)
@@ -218,8 +210,6 @@ var xGridGetColumnHomogeneous func(uintptr) bool
 
 // Returns whether all columns of @grid have the same width.
 func (x *Grid) GetColumnHomogeneous() bool {
-	core.LazyRegister(&xGridGetColumnHomogeneous, "GTK", "gtk_grid_get_column_homogeneous", false)
-
 	cret := xGridGetColumnHomogeneous(x.GoPointer())
 	return cret
 }
@@ -228,8 +218,6 @@ var xGridGetColumnSpacing func(uintptr) uint
 
 // Returns the amount of space between the columns of @grid.
 func (x *Grid) GetColumnSpacing() uint {
-	core.LazyRegister(&xGridGetColumnSpacing, "GTK", "gtk_grid_get_column_spacing", false)
-
 	cret := xGridGetColumnSpacing(x.GoPointer())
 	return cret
 }
@@ -240,8 +228,6 @@ var xGridGetRowBaselinePosition func(uintptr, int) BaselinePosition
 //
 // See [method@Gtk.Grid.set_row_baseline_position].
 func (x *Grid) GetRowBaselinePosition(RowVar int) BaselinePosition {
-	core.LazyRegister(&xGridGetRowBaselinePosition, "GTK", "gtk_grid_get_row_baseline_position", false)
-
 	cret := xGridGetRowBaselinePosition(x.GoPointer(), RowVar)
 	return cret
 }
@@ -250,8 +236,6 @@ var xGridGetRowHomogeneous func(uintptr) bool
 
 // Returns whether all rows of @grid have the same height.
 func (x *Grid) GetRowHomogeneous() bool {
-	core.LazyRegister(&xGridGetRowHomogeneous, "GTK", "gtk_grid_get_row_homogeneous", false)
-
 	cret := xGridGetRowHomogeneous(x.GoPointer())
 	return cret
 }
@@ -260,8 +244,6 @@ var xGridGetRowSpacing func(uintptr) uint
 
 // Returns the amount of space between the rows of @grid.
 func (x *Grid) GetRowSpacing() uint {
-	core.LazyRegister(&xGridGetRowSpacing, "GTK", "gtk_grid_get_row_spacing", false)
-
 	cret := xGridGetRowSpacing(x.GoPointer())
 	return cret
 }
@@ -274,8 +256,6 @@ var xGridInsertColumn func(uintptr, int)
 // are moved one column to the right. Children which span across this
 // position are grown to span the new column.
 func (x *Grid) InsertColumn(PositionVar int) {
-	core.LazyRegister(&xGridInsertColumn, "GTK", "gtk_grid_insert_column", false)
-
 	xGridInsertColumn(x.GoPointer(), PositionVar)
 }
 
@@ -288,8 +268,6 @@ var xGridInsertNextTo func(uintptr, uintptr, PositionType)
 // a row is inserted. If @side is %GTK_POS_LEFT of %GTK_POS_RIGHT,
 // a column is inserted.
 func (x *Grid) InsertNextTo(SiblingVar *Widget, SideVar PositionType) {
-	core.LazyRegister(&xGridInsertNextTo, "GTK", "gtk_grid_insert_next_to", false)
-
 	xGridInsertNextTo(x.GoPointer(), SiblingVar.GoPointer(), SideVar)
 }
 
@@ -301,8 +279,6 @@ var xGridInsertRow func(uintptr, int)
 // are moved one row down. Children which span across this
 // position are grown to span the new row.
 func (x *Grid) InsertRow(PositionVar int) {
-	core.LazyRegister(&xGridInsertRow, "GTK", "gtk_grid_insert_row", false)
-
 	xGridInsertRow(x.GoPointer(), PositionVar)
 }
 
@@ -310,8 +286,6 @@ var xGridQueryChild func(uintptr, uintptr, *int, *int, *int, *int)
 
 // Queries the attach points and spans of @child inside the given `GtkGrid`.
 func (x *Grid) QueryChild(ChildVar *Widget, ColumnVar *int, RowVar *int, WidthVar *int, HeightVar *int) {
-	core.LazyRegister(&xGridQueryChild, "GTK", "gtk_grid_query_child", false)
-
 	xGridQueryChild(x.GoPointer(), ChildVar.GoPointer(), ColumnVar, RowVar, WidthVar, HeightVar)
 }
 
@@ -322,8 +296,6 @@ var xGridRemove func(uintptr, uintptr)
 // The child must have been added with
 // [method@Gtk.Grid.attach] or [method@Gtk.Grid.attach_next_to].
 func (x *Grid) Remove(ChildVar *Widget) {
-	core.LazyRegister(&xGridRemove, "GTK", "gtk_grid_remove", false)
-
 	xGridRemove(x.GoPointer(), ChildVar.GoPointer())
 }
 
@@ -336,8 +308,6 @@ var xGridRemoveColumn func(uintptr, int)
 // width reduced by one, and children after the column
 // are moved to the left.
 func (x *Grid) RemoveColumn(PositionVar int) {
-	core.LazyRegister(&xGridRemoveColumn, "GTK", "gtk_grid_remove_column", false)
-
 	xGridRemoveColumn(x.GoPointer(), PositionVar)
 }
 
@@ -350,8 +320,6 @@ var xGridRemoveRow func(uintptr, int)
 // height reduced by one, and children below the row
 // are moved up.
 func (x *Grid) RemoveRow(PositionVar int) {
-	core.LazyRegister(&xGridRemoveRow, "GTK", "gtk_grid_remove_row", false)
-
 	xGridRemoveRow(x.GoPointer(), PositionVar)
 }
 
@@ -363,8 +331,6 @@ var xGridSetBaselineRow func(uintptr, int)
 // one of those is global, meaning it will be the baseline in the
 // parent of the @grid.
 func (x *Grid) SetBaselineRow(RowVar int) {
-	core.LazyRegister(&xGridSetBaselineRow, "GTK", "gtk_grid_set_baseline_row", false)
-
 	xGridSetBaselineRow(x.GoPointer(), RowVar)
 }
 
@@ -372,8 +338,6 @@ var xGridSetColumnHomogeneous func(uintptr, bool)
 
 // Sets whether all columns of @grid will have the same width.
 func (x *Grid) SetColumnHomogeneous(HomogeneousVar bool) {
-	core.LazyRegister(&xGridSetColumnHomogeneous, "GTK", "gtk_grid_set_column_homogeneous", false)
-
 	xGridSetColumnHomogeneous(x.GoPointer(), HomogeneousVar)
 }
 
@@ -381,8 +345,6 @@ var xGridSetColumnSpacing func(uintptr, uint)
 
 // Sets the amount of space between columns of @grid.
 func (x *Grid) SetColumnSpacing(SpacingVar uint) {
-	core.LazyRegister(&xGridSetColumnSpacing, "GTK", "gtk_grid_set_column_spacing", false)
-
 	xGridSetColumnSpacing(x.GoPointer(), SpacingVar)
 }
 
@@ -393,8 +355,6 @@ var xGridSetRowBaselinePosition func(uintptr, int, BaselinePosition)
 //
 // The default baseline position is %GTK_BASELINE_POSITION_CENTER.
 func (x *Grid) SetRowBaselinePosition(RowVar int, PosVar BaselinePosition) {
-	core.LazyRegister(&xGridSetRowBaselinePosition, "GTK", "gtk_grid_set_row_baseline_position", false)
-
 	xGridSetRowBaselinePosition(x.GoPointer(), RowVar, PosVar)
 }
 
@@ -402,8 +362,6 @@ var xGridSetRowHomogeneous func(uintptr, bool)
 
 // Sets whether all rows of @grid will have the same height.
 func (x *Grid) SetRowHomogeneous(HomogeneousVar bool) {
-	core.LazyRegister(&xGridSetRowHomogeneous, "GTK", "gtk_grid_set_row_homogeneous", false)
-
 	xGridSetRowHomogeneous(x.GoPointer(), HomogeneousVar)
 }
 
@@ -411,8 +369,6 @@ var xGridSetRowSpacing func(uintptr, uint)
 
 // Sets the amount of space between rows of @grid.
 func (x *Grid) SetRowSpacing(SpacingVar uint) {
-	core.LazyRegister(&xGridSetRowSpacing, "GTK", "gtk_grid_set_row_spacing", false)
-
 	xGridSetRowSpacing(x.GoPointer(), SpacingVar)
 }
 
@@ -786,4 +742,39 @@ func (x *Grid) SetOrientation(OrientationVar Orientation) {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GTK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xGridGLibType, libs, "gtk_grid_get_type")
+
+	core.PuregoSafeRegister(&xNewGrid, libs, "gtk_grid_new")
+
+	core.PuregoSafeRegister(&xGridAttach, libs, "gtk_grid_attach")
+	core.PuregoSafeRegister(&xGridAttachNextTo, libs, "gtk_grid_attach_next_to")
+	core.PuregoSafeRegister(&xGridGetBaselineRow, libs, "gtk_grid_get_baseline_row")
+	core.PuregoSafeRegister(&xGridGetChildAt, libs, "gtk_grid_get_child_at")
+	core.PuregoSafeRegister(&xGridGetColumnHomogeneous, libs, "gtk_grid_get_column_homogeneous")
+	core.PuregoSafeRegister(&xGridGetColumnSpacing, libs, "gtk_grid_get_column_spacing")
+	core.PuregoSafeRegister(&xGridGetRowBaselinePosition, libs, "gtk_grid_get_row_baseline_position")
+	core.PuregoSafeRegister(&xGridGetRowHomogeneous, libs, "gtk_grid_get_row_homogeneous")
+	core.PuregoSafeRegister(&xGridGetRowSpacing, libs, "gtk_grid_get_row_spacing")
+	core.PuregoSafeRegister(&xGridInsertColumn, libs, "gtk_grid_insert_column")
+	core.PuregoSafeRegister(&xGridInsertNextTo, libs, "gtk_grid_insert_next_to")
+	core.PuregoSafeRegister(&xGridInsertRow, libs, "gtk_grid_insert_row")
+	core.PuregoSafeRegister(&xGridQueryChild, libs, "gtk_grid_query_child")
+	core.PuregoSafeRegister(&xGridRemove, libs, "gtk_grid_remove")
+	core.PuregoSafeRegister(&xGridRemoveColumn, libs, "gtk_grid_remove_column")
+	core.PuregoSafeRegister(&xGridRemoveRow, libs, "gtk_grid_remove_row")
+	core.PuregoSafeRegister(&xGridSetBaselineRow, libs, "gtk_grid_set_baseline_row")
+	core.PuregoSafeRegister(&xGridSetColumnHomogeneous, libs, "gtk_grid_set_column_homogeneous")
+	core.PuregoSafeRegister(&xGridSetColumnSpacing, libs, "gtk_grid_set_column_spacing")
+	core.PuregoSafeRegister(&xGridSetRowBaselinePosition, libs, "gtk_grid_set_row_baseline_position")
+	core.PuregoSafeRegister(&xGridSetRowHomogeneous, libs, "gtk_grid_set_row_homogeneous")
+	core.PuregoSafeRegister(&xGridSetRowSpacing, libs, "gtk_grid_set_row_spacing")
 }

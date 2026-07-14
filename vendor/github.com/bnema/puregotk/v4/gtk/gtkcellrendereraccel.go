@@ -2,6 +2,7 @@
 package gtk
 
 import (
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gdk"
 	"github.com/bnema/puregotk/v4/glib"
@@ -15,7 +16,6 @@ type CellRendererAccelMode int
 var xCellRendererAccelModeGLibType func() types.GType
 
 func CellRendererAccelModeGLibType() types.GType {
-	core.LazyRegister(&xCellRendererAccelModeGLibType, "GTK", "gtk_cell_renderer_accel_mode_get_type", false)
 	return xCellRendererAccelModeGLibType()
 }
 
@@ -39,7 +39,6 @@ type CellRendererAccel struct {
 var xCellRendererAccelGLibType func() types.GType
 
 func CellRendererAccelGLibType() types.GType {
-	core.LazyRegister(&xCellRendererAccelGLibType, "GTK", "gtk_cell_renderer_accel_get_type", false)
 	return xCellRendererAccelGLibType()
 }
 
@@ -53,7 +52,6 @@ var xNewCellRendererAccel func() uintptr
 
 // Creates a new `GtkCellRendererAccel`.
 func NewCellRendererAccel() *CellRendererAccel {
-	core.LazyRegister(&xNewCellRendererAccel, "GTK", "gtk_cell_renderer_accel_new", false)
 	var cls *CellRendererAccel
 
 	cret := xNewCellRendererAccel()
@@ -165,4 +163,18 @@ func (x *CellRendererAccel) ConnectAccelEdited(cb *func(CellRendererAccel, strin
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GTK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xCellRendererAccelModeGLibType, libs, "gtk_cell_renderer_accel_mode_get_type")
+
+	core.PuregoSafeRegister(&xCellRendererAccelGLibType, libs, "gtk_cell_renderer_accel_get_type")
+
+	core.PuregoSafeRegister(&xNewCellRendererAccel, libs, "gtk_cell_renderer_accel_new")
 }

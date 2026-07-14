@@ -277,7 +277,6 @@ type FontChooser interface {
 var xFontChooserGLibType func() types.GType
 
 func FontChooserGLibType() types.GType {
-	core.LazyRegister(&xFontChooserGLibType, "GTK", "gtk_font_chooser_get_type", false)
 	return xFontChooserGLibType()
 }
 
@@ -606,138 +605,27 @@ func (x *FontChooserBase) GetPropertyShowPreviewEntry() bool {
 	return v.GetBoolean()
 }
 
-var XGtkFontChooserGetFont func(uintptr) string = func(instance uintptr) string {
-	core.LazyRegister(&xXGtkFontChooserGetFont, "GTK", "gtk_font_chooser_get_font", false)
-	return xXGtkFontChooserGetFont(instance)
-}
-
 var (
-	xXGtkFontChooserGetFont    func(uintptr) string
-	XGtkFontChooserGetFontDesc func(uintptr) uintptr = func(instance uintptr) uintptr {
-		core.LazyRegister(&xXGtkFontChooserGetFontDesc, "GTK", "gtk_font_chooser_get_font_desc", false)
-		return xXGtkFontChooserGetFontDesc(instance)
-	}
+	XGtkFontChooserGetFont             func(uintptr) string
+	XGtkFontChooserGetFontDesc         func(uintptr) uintptr
+	XGtkFontChooserGetFontFace         func(uintptr) uintptr
+	XGtkFontChooserGetFontFamily       func(uintptr) uintptr
+	XGtkFontChooserGetFontFeatures     func(uintptr) string
+	XGtkFontChooserGetFontMap          func(uintptr) uintptr
+	XGtkFontChooserGetFontSize         func(uintptr) int
+	XGtkFontChooserGetLanguage         func(uintptr) string
+	XGtkFontChooserGetLevel            func(uintptr) FontChooserLevel
+	XGtkFontChooserGetPreviewText      func(uintptr) string
+	XGtkFontChooserGetShowPreviewEntry func(uintptr) bool
+	XGtkFontChooserSetFilterFunc       func(uintptr, uintptr, uintptr, uintptr)
+	XGtkFontChooserSetFont             func(uintptr, string)
+	XGtkFontChooserSetFontDesc         func(uintptr, *pango.FontDescription)
+	XGtkFontChooserSetFontMap          func(uintptr, uintptr)
+	XGtkFontChooserSetLanguage         func(uintptr, string)
+	XGtkFontChooserSetLevel            func(uintptr, FontChooserLevel)
+	XGtkFontChooserSetPreviewText      func(uintptr, string)
+	XGtkFontChooserSetShowPreviewEntry func(uintptr, bool)
 )
-var (
-	xXGtkFontChooserGetFontDesc func(uintptr) uintptr
-	XGtkFontChooserGetFontFace  func(uintptr) uintptr = func(instance uintptr) uintptr {
-		core.LazyRegister(&xXGtkFontChooserGetFontFace, "GTK", "gtk_font_chooser_get_font_face", false)
-		return xXGtkFontChooserGetFontFace(instance)
-	}
-)
-var (
-	xXGtkFontChooserGetFontFace  func(uintptr) uintptr
-	XGtkFontChooserGetFontFamily func(uintptr) uintptr = func(instance uintptr) uintptr {
-		core.LazyRegister(&xXGtkFontChooserGetFontFamily, "GTK", "gtk_font_chooser_get_font_family", false)
-		return xXGtkFontChooserGetFontFamily(instance)
-	}
-)
-var (
-	xXGtkFontChooserGetFontFamily  func(uintptr) uintptr
-	XGtkFontChooserGetFontFeatures func(uintptr) string = func(instance uintptr) string {
-		core.LazyRegister(&xXGtkFontChooserGetFontFeatures, "GTK", "gtk_font_chooser_get_font_features", false)
-		return xXGtkFontChooserGetFontFeatures(instance)
-	}
-)
-var (
-	xXGtkFontChooserGetFontFeatures func(uintptr) string
-	XGtkFontChooserGetFontMap       func(uintptr) uintptr = func(instance uintptr) uintptr {
-		core.LazyRegister(&xXGtkFontChooserGetFontMap, "GTK", "gtk_font_chooser_get_font_map", false)
-		return xXGtkFontChooserGetFontMap(instance)
-	}
-)
-var (
-	xXGtkFontChooserGetFontMap func(uintptr) uintptr
-	XGtkFontChooserGetFontSize func(uintptr) int = func(instance uintptr) int {
-		core.LazyRegister(&xXGtkFontChooserGetFontSize, "GTK", "gtk_font_chooser_get_font_size", false)
-		return xXGtkFontChooserGetFontSize(instance)
-	}
-)
-var (
-	xXGtkFontChooserGetFontSize func(uintptr) int
-	XGtkFontChooserGetLanguage  func(uintptr) string = func(instance uintptr) string {
-		core.LazyRegister(&xXGtkFontChooserGetLanguage, "GTK", "gtk_font_chooser_get_language", false)
-		return xXGtkFontChooserGetLanguage(instance)
-	}
-)
-var (
-	xXGtkFontChooserGetLanguage func(uintptr) string
-	XGtkFontChooserGetLevel     func(uintptr) FontChooserLevel = func(instance uintptr) FontChooserLevel {
-		core.LazyRegister(&xXGtkFontChooserGetLevel, "GTK", "gtk_font_chooser_get_level", false)
-		return xXGtkFontChooserGetLevel(instance)
-	}
-)
-var (
-	xXGtkFontChooserGetLevel      func(uintptr) FontChooserLevel
-	XGtkFontChooserGetPreviewText func(uintptr) string = func(instance uintptr) string {
-		core.LazyRegister(&xXGtkFontChooserGetPreviewText, "GTK", "gtk_font_chooser_get_preview_text", false)
-		return xXGtkFontChooserGetPreviewText(instance)
-	}
-)
-var (
-	xXGtkFontChooserGetPreviewText     func(uintptr) string
-	XGtkFontChooserGetShowPreviewEntry func(uintptr) bool = func(instance uintptr) bool {
-		core.LazyRegister(&xXGtkFontChooserGetShowPreviewEntry, "GTK", "gtk_font_chooser_get_show_preview_entry", false)
-		return xXGtkFontChooserGetShowPreviewEntry(instance)
-	}
-)
-var (
-	xXGtkFontChooserGetShowPreviewEntry func(uintptr) bool
-	XGtkFontChooserSetFilterFunc        func(uintptr, uintptr, uintptr, uintptr) = func(instance uintptr, FilterVarp uintptr, UserDataVarp uintptr, DestroyVarp uintptr) {
-		core.LazyRegister(&xXGtkFontChooserSetFilterFunc, "GTK", "gtk_font_chooser_set_filter_func", false)
-		xXGtkFontChooserSetFilterFunc(instance, FilterVarp, UserDataVarp, DestroyVarp)
-	}
-)
-var (
-	xXGtkFontChooserSetFilterFunc func(uintptr, uintptr, uintptr, uintptr)
-	XGtkFontChooserSetFont        func(uintptr, string) = func(instance uintptr, FontnameVarp string) {
-		core.LazyRegister(&xXGtkFontChooserSetFont, "GTK", "gtk_font_chooser_set_font", false)
-		xXGtkFontChooserSetFont(instance, FontnameVarp)
-	}
-)
-var (
-	xXGtkFontChooserSetFont    func(uintptr, string)
-	XGtkFontChooserSetFontDesc func(uintptr, *pango.FontDescription) = func(instance uintptr, FontDescVarp *pango.FontDescription) {
-		core.LazyRegister(&xXGtkFontChooserSetFontDesc, "GTK", "gtk_font_chooser_set_font_desc", false)
-		xXGtkFontChooserSetFontDesc(instance, FontDescVarp)
-	}
-)
-var (
-	xXGtkFontChooserSetFontDesc func(uintptr, *pango.FontDescription)
-	XGtkFontChooserSetFontMap   func(uintptr, uintptr) = func(instance uintptr, FontmapVarp uintptr) {
-		core.LazyRegister(&xXGtkFontChooserSetFontMap, "GTK", "gtk_font_chooser_set_font_map", false)
-		xXGtkFontChooserSetFontMap(instance, FontmapVarp)
-	}
-)
-var (
-	xXGtkFontChooserSetFontMap func(uintptr, uintptr)
-	XGtkFontChooserSetLanguage func(uintptr, string) = func(instance uintptr, LanguageVarp string) {
-		core.LazyRegister(&xXGtkFontChooserSetLanguage, "GTK", "gtk_font_chooser_set_language", false)
-		xXGtkFontChooserSetLanguage(instance, LanguageVarp)
-	}
-)
-var (
-	xXGtkFontChooserSetLanguage func(uintptr, string)
-	XGtkFontChooserSetLevel     func(uintptr, FontChooserLevel) = func(instance uintptr, LevelVarp FontChooserLevel) {
-		core.LazyRegister(&xXGtkFontChooserSetLevel, "GTK", "gtk_font_chooser_set_level", false)
-		xXGtkFontChooserSetLevel(instance, LevelVarp)
-	}
-)
-var (
-	xXGtkFontChooserSetLevel      func(uintptr, FontChooserLevel)
-	XGtkFontChooserSetPreviewText func(uintptr, string) = func(instance uintptr, TextVarp string) {
-		core.LazyRegister(&xXGtkFontChooserSetPreviewText, "GTK", "gtk_font_chooser_set_preview_text", false)
-		xXGtkFontChooserSetPreviewText(instance, TextVarp)
-	}
-)
-var (
-	xXGtkFontChooserSetPreviewText     func(uintptr, string)
-	XGtkFontChooserSetShowPreviewEntry func(uintptr, bool) = func(instance uintptr, ShowPreviewEntryVarp bool) {
-		core.LazyRegister(&xXGtkFontChooserSetShowPreviewEntry, "GTK", "gtk_font_chooser_set_show_preview_entry", false)
-		xXGtkFontChooserSetShowPreviewEntry(instance, ShowPreviewEntryVarp)
-	}
-)
-var xXGtkFontChooserSetShowPreviewEntry func(uintptr, bool)
 
 // Specifies the granularity of font selection
 // that is desired in a `GtkFontChooser`.
@@ -749,7 +637,6 @@ type FontChooserLevel int
 var xFontChooserLevelGLibType func() types.GType
 
 func FontChooserLevelGLibType() types.GType {
-	core.LazyRegister(&xFontChooserLevelGLibType, "GTK", "gtk_font_chooser_level_get_type", false)
 	return xFontChooserLevelGLibType()
 }
 
@@ -770,4 +657,36 @@ const (
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GTK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xFontChooserLevelGLibType, libs, "gtk_font_chooser_level_get_type")
+
+	core.PuregoSafeRegister(&xFontChooserGLibType, libs, "gtk_font_chooser_get_type")
+
+	core.PuregoSafeRegister(&XGtkFontChooserGetFont, libs, "gtk_font_chooser_get_font")
+	core.PuregoSafeRegister(&XGtkFontChooserGetFontDesc, libs, "gtk_font_chooser_get_font_desc")
+	core.PuregoSafeRegister(&XGtkFontChooserGetFontFace, libs, "gtk_font_chooser_get_font_face")
+	core.PuregoSafeRegister(&XGtkFontChooserGetFontFamily, libs, "gtk_font_chooser_get_font_family")
+	core.PuregoSafeRegister(&XGtkFontChooserGetFontFeatures, libs, "gtk_font_chooser_get_font_features")
+	core.PuregoSafeRegister(&XGtkFontChooserGetFontMap, libs, "gtk_font_chooser_get_font_map")
+	core.PuregoSafeRegister(&XGtkFontChooserGetFontSize, libs, "gtk_font_chooser_get_font_size")
+	core.PuregoSafeRegister(&XGtkFontChooserGetLanguage, libs, "gtk_font_chooser_get_language")
+	core.PuregoSafeRegister(&XGtkFontChooserGetLevel, libs, "gtk_font_chooser_get_level")
+	core.PuregoSafeRegister(&XGtkFontChooserGetPreviewText, libs, "gtk_font_chooser_get_preview_text")
+	core.PuregoSafeRegister(&XGtkFontChooserGetShowPreviewEntry, libs, "gtk_font_chooser_get_show_preview_entry")
+	core.PuregoSafeRegister(&XGtkFontChooserSetFilterFunc, libs, "gtk_font_chooser_set_filter_func")
+	core.PuregoSafeRegister(&XGtkFontChooserSetFont, libs, "gtk_font_chooser_set_font")
+	core.PuregoSafeRegister(&XGtkFontChooserSetFontDesc, libs, "gtk_font_chooser_set_font_desc")
+	core.PuregoSafeRegister(&XGtkFontChooserSetFontMap, libs, "gtk_font_chooser_set_font_map")
+	core.PuregoSafeRegister(&XGtkFontChooserSetLanguage, libs, "gtk_font_chooser_set_language")
+	core.PuregoSafeRegister(&XGtkFontChooserSetLevel, libs, "gtk_font_chooser_set_level")
+	core.PuregoSafeRegister(&XGtkFontChooserSetPreviewText, libs, "gtk_font_chooser_set_preview_text")
+	core.PuregoSafeRegister(&XGtkFontChooserSetShowPreviewEntry, libs, "gtk_font_chooser_set_show_preview_entry")
 }

@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -41,7 +42,6 @@ type URIResponse struct {
 var xURIResponseGLibType func() types.GType
 
 func URIResponseGLibType() types.GType {
-	core.LazyRegister(&xURIResponseGLibType, "WEBKIT", "webkit_uri_response_get_type", false)
 	return xURIResponseGLibType()
 }
 
@@ -57,8 +57,6 @@ var xURIResponseGetContentLength func(uintptr) uint64
 //
 // It can be 0 if the server provided an incorrect or missing Content-Length.
 func (x *URIResponse) GetContentLength() uint64 {
-	core.LazyRegister(&xURIResponseGetContentLength, "WEBKIT", "webkit_uri_response_get_content_length", false)
-
 	cret := xURIResponseGetContentLength(x.GoPointer())
 	return cret
 }
@@ -67,8 +65,6 @@ var xURIResponseGetHttpHeaders func(uintptr) uintptr
 
 // Get the HTTP headers of a #WebKitURIResponse as a #SoupMessageHeaders.
 func (x *URIResponse) GetHttpHeaders() *soup.MessageHeaders {
-	core.LazyRegister(&xURIResponseGetHttpHeaders, "WEBKIT", "webkit_uri_response_get_http_headers", false)
-
 	cret := xURIResponseGetHttpHeaders(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -80,8 +76,6 @@ var xURIResponseGetMimeType func(uintptr) string
 
 // Gets the MIME type of the response.
 func (x *URIResponse) GetMimeType() string {
-	core.LazyRegister(&xURIResponseGetMimeType, "WEBKIT", "webkit_uri_response_get_mime_type", false)
-
 	cret := xURIResponseGetMimeType(x.GoPointer())
 	return cret
 }
@@ -95,8 +89,6 @@ var xURIResponseGetStatusCode func(uintptr) uint
 // example %SOUP_STATUS_OK, though the server can respond with any
 // unsigned integer.
 func (x *URIResponse) GetStatusCode() uint {
-	core.LazyRegister(&xURIResponseGetStatusCode, "WEBKIT", "webkit_uri_response_get_status_code", false)
-
 	cret := xURIResponseGetStatusCode(x.GoPointer())
 	return cret
 }
@@ -109,8 +101,6 @@ var xURIResponseGetSuggestedFilename func(uintptr) string
 // the 'Content-Disposition' HTTP header, or %NULL if it's not
 // present.
 func (x *URIResponse) GetSuggestedFilename() string {
-	core.LazyRegister(&xURIResponseGetSuggestedFilename, "WEBKIT", "webkit_uri_response_get_suggested_filename", false)
-
 	cret := xURIResponseGetSuggestedFilename(x.GoPointer())
 	return cret
 }
@@ -119,8 +109,6 @@ var xURIResponseGetUri func(uintptr) string
 
 // Gets the URI which resulted in the response.
 func (x *URIResponse) GetUri() string {
-	core.LazyRegister(&xURIResponseGetUri, "WEBKIT", "webkit_uri_response_get_uri", false)
-
 	cret := xURIResponseGetUri(x.GoPointer())
 	return cret
 }
@@ -187,8 +175,26 @@ func (x *URIResponse) GetPropertyUri() string {
 func init() {
 	core.SetPackageName("WEBKIT", "webkitgtk-6.0")
 	core.SetSharedLibraries("WEBKIT", []string{"libwebkitgtk-6.0.so.4", "libjavascriptcoregtk-6.0.so.1", "libwebkitgtk-6.0.4.dylib", "libjavascriptcoregtk-6.0.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("WEBKIT") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
 
-	// Manually register types since they aren't automatically registered when
-	// WebKit is loaded. See https://bugs.webkit.org/show_bug.cgi?id=175937.
+	core.PuregoSafeRegister(&xURIResponseGLibType, libs, "webkit_uri_response_get_type")
+
+	core.PuregoSafeRegister(&xURIResponseGetContentLength, libs, "webkit_uri_response_get_content_length")
+	core.PuregoSafeRegister(&xURIResponseGetHttpHeaders, libs, "webkit_uri_response_get_http_headers")
+	core.PuregoSafeRegister(&xURIResponseGetMimeType, libs, "webkit_uri_response_get_mime_type")
+	core.PuregoSafeRegister(&xURIResponseGetStatusCode, libs, "webkit_uri_response_get_status_code")
+	core.PuregoSafeRegister(&xURIResponseGetSuggestedFilename, libs, "webkit_uri_response_get_suggested_filename")
+	core.PuregoSafeRegister(&xURIResponseGetUri, libs, "webkit_uri_response_get_uri")
+
+	// Manually register types since they aren't being automatically registered when
+	// the library is loaded
+	// See https://bugs.webkit.org/show_bug.cgi?id=175937
 	URIResponseGLibType()
 }

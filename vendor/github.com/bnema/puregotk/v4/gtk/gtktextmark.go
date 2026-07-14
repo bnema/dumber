@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -70,7 +71,6 @@ type TextMark struct {
 var xTextMarkGLibType func() types.GType
 
 func TextMarkGLibType() types.GType {
-	core.LazyRegister(&xTextMarkGLibType, "GTK", "gtk_text_mark_get_type", false)
 	return xTextMarkGLibType()
 }
 
@@ -94,7 +94,6 @@ var xNewTextMark func(uintptr, bool) uintptr
 // is a mark with right gravity (when you type, the cursor stays on the
 // right side of the text you’re typing).
 func NewTextMark(NameVar *string, LeftGravityVar bool) *TextMark {
-	core.LazyRegister(&xNewTextMark, "GTK", "gtk_text_mark_new", false)
 	var cls *TextMark
 
 	NameVarPtr := core.GStrdupNullable(NameVar)
@@ -116,7 +115,6 @@ var xTextMarkGetBuffer func(uintptr) uintptr
 //
 // Returns %NULL if the mark is deleted.
 func (x *TextMark) GetBuffer() *TextBuffer {
-	core.LazyRegister(&xTextMarkGetBuffer, "GTK", "gtk_text_mark_get_buffer", false)
 	var cls *TextBuffer
 
 	cret := xTextMarkGetBuffer(x.GoPointer())
@@ -137,8 +135,6 @@ var xTextMarkGetDeleted func(uintptr) bool
 // See [method@Gtk.TextBuffer.add_mark] for a way to add it
 // to a buffer again.
 func (x *TextMark) GetDeleted() bool {
-	core.LazyRegister(&xTextMarkGetDeleted, "GTK", "gtk_text_mark_get_deleted", false)
-
 	cret := xTextMarkGetDeleted(x.GoPointer())
 	return cret
 }
@@ -147,8 +143,6 @@ var xTextMarkGetLeftGravity func(uintptr) bool
 
 // Determines whether the mark has left gravity.
 func (x *TextMark) GetLeftGravity() bool {
-	core.LazyRegister(&xTextMarkGetLeftGravity, "GTK", "gtk_text_mark_get_left_gravity", false)
-
 	cret := xTextMarkGetLeftGravity(x.GoPointer())
 	return cret
 }
@@ -159,8 +153,6 @@ var xTextMarkGetName func(uintptr) string
 //
 // Returns %NULL for anonymous marks.
 func (x *TextMark) GetName() string {
-	core.LazyRegister(&xTextMarkGetName, "GTK", "gtk_text_mark_get_name", false)
-
 	cret := xTextMarkGetName(x.GoPointer())
 	return cret
 }
@@ -171,8 +163,6 @@ var xTextMarkGetVisible func(uintptr) bool
 //
 // A cursor is displayed for visible marks.
 func (x *TextMark) GetVisible() bool {
-	core.LazyRegister(&xTextMarkGetVisible, "GTK", "gtk_text_mark_get_visible", false)
-
 	cret := xTextMarkGetVisible(x.GoPointer())
 	return cret
 }
@@ -188,8 +178,6 @@ var xTextMarkSetVisible func(uintptr, bool)
 //
 // Marks are not visible by default.
 func (x *TextMark) SetVisible(SettingVar bool) {
-	core.LazyRegister(&xTextMarkSetVisible, "GTK", "gtk_text_mark_set_visible", false)
-
 	xTextMarkSetVisible(x.GoPointer(), SettingVar)
 }
 
@@ -249,4 +237,23 @@ func (x *TextMark) GetPropertyName() string {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GTK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xTextMarkGLibType, libs, "gtk_text_mark_get_type")
+
+	core.PuregoSafeRegister(&xNewTextMark, libs, "gtk_text_mark_new")
+
+	core.PuregoSafeRegister(&xTextMarkGetBuffer, libs, "gtk_text_mark_get_buffer")
+	core.PuregoSafeRegister(&xTextMarkGetDeleted, libs, "gtk_text_mark_get_deleted")
+	core.PuregoSafeRegister(&xTextMarkGetLeftGravity, libs, "gtk_text_mark_get_left_gravity")
+	core.PuregoSafeRegister(&xTextMarkGetName, libs, "gtk_text_mark_get_name")
+	core.PuregoSafeRegister(&xTextMarkGetVisible, libs, "gtk_text_mark_get_visible")
+	core.PuregoSafeRegister(&xTextMarkSetVisible, libs, "gtk_text_mark_set_visible")
 }

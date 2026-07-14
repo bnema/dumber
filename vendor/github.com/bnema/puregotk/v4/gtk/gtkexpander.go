@@ -2,6 +2,7 @@
 package gtk
 
 import (
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -114,7 +115,6 @@ type Expander struct {
 var xExpanderGLibType func() types.GType
 
 func ExpanderGLibType() types.GType {
-	core.LazyRegister(&xExpanderGLibType, "GTK", "gtk_expander_get_type", false)
 	return xExpanderGLibType()
 }
 
@@ -128,7 +128,6 @@ var xNewExpander func(uintptr) uintptr
 
 // Creates a new expander using @label as the text of the label.
 func NewExpander(LabelVar *string) *Expander {
-	core.LazyRegister(&xNewExpander, "GTK", "gtk_expander_new", false)
 	var cls *Expander
 
 	LabelVarPtr := core.GStrdupNullable(LabelVar)
@@ -156,7 +155,6 @@ var xNewExpanderWithMnemonic func(uintptr) uintptr
 //
 // Pressing Alt and that key activates the button.
 func NewExpanderWithMnemonic(LabelVar *string) *Expander {
-	core.LazyRegister(&xNewExpanderWithMnemonic, "GTK", "gtk_expander_new_with_mnemonic", false)
 	var cls *Expander
 
 	LabelVarPtr := core.GStrdupNullable(LabelVar)
@@ -177,7 +175,6 @@ var xExpanderGetChild func(uintptr) uintptr
 
 // Gets the child widget of @expander.
 func (x *Expander) GetChild() *Widget {
-	core.LazyRegister(&xExpanderGetChild, "GTK", "gtk_expander_get_child", false)
 	var cls *Widget
 
 	cret := xExpanderGetChild(x.GoPointer())
@@ -197,8 +194,6 @@ var xExpanderGetExpanded func(uintptr) bool
 //
 // Returns %TRUE if the child widget is revealed.
 func (x *Expander) GetExpanded() bool {
-	core.LazyRegister(&xExpanderGetExpanded, "GTK", "gtk_expander_get_expanded", false)
-
 	cret := xExpanderGetExpanded(x.GoPointer())
 	return cret
 }
@@ -213,8 +208,6 @@ var xExpanderGetLabel func(uintptr) string
 // case if you create an empty button with gtk_button_new() to use as a
 // container.
 func (x *Expander) GetLabel() string {
-	core.LazyRegister(&xExpanderGetLabel, "GTK", "gtk_expander_get_label", false)
-
 	cret := xExpanderGetLabel(x.GoPointer())
 	return cret
 }
@@ -223,7 +216,6 @@ var xExpanderGetLabelWidget func(uintptr) uintptr
 
 // Retrieves the label widget for the frame.
 func (x *Expander) GetLabelWidget() *Widget {
-	core.LazyRegister(&xExpanderGetLabelWidget, "GTK", "gtk_expander_get_label_widget", false)
 	var cls *Widget
 
 	cret := xExpanderGetLabelWidget(x.GoPointer())
@@ -242,8 +234,6 @@ var xExpanderGetResizeToplevel func(uintptr) bool
 // Returns whether the expander will resize the toplevel widget
 // containing the expander upon resizing and collapsing.
 func (x *Expander) GetResizeToplevel() bool {
-	core.LazyRegister(&xExpanderGetResizeToplevel, "GTK", "gtk_expander_get_resize_toplevel", false)
-
 	cret := xExpanderGetResizeToplevel(x.GoPointer())
 	return cret
 }
@@ -252,8 +242,6 @@ var xExpanderGetUseMarkup func(uintptr) bool
 
 // Returns whether the label’s text is interpreted as Pango markup.
 func (x *Expander) GetUseMarkup() bool {
-	core.LazyRegister(&xExpanderGetUseMarkup, "GTK", "gtk_expander_get_use_markup", false)
-
 	cret := xExpanderGetUseMarkup(x.GoPointer())
 	return cret
 }
@@ -262,8 +250,6 @@ var xExpanderGetUseUnderline func(uintptr) bool
 
 // Returns whether an underline in the text indicates a mnemonic.
 func (x *Expander) GetUseUnderline() bool {
-	core.LazyRegister(&xExpanderGetUseUnderline, "GTK", "gtk_expander_get_use_underline", false)
-
 	cret := xExpanderGetUseUnderline(x.GoPointer())
 	return cret
 }
@@ -272,8 +258,6 @@ var xExpanderSetChild func(uintptr, uintptr)
 
 // Sets the child widget of @expander.
 func (x *Expander) SetChild(ChildVar *Widget) {
-	core.LazyRegister(&xExpanderSetChild, "GTK", "gtk_expander_set_child", false)
-
 	xExpanderSetChild(x.GoPointer(), ChildVar.GoPointer())
 }
 
@@ -284,8 +268,6 @@ var xExpanderSetExpanded func(uintptr, bool)
 // Set to %TRUE, if you want the child widget to be revealed,
 // and %FALSE if you want the child widget to be hidden.
 func (x *Expander) SetExpanded(ExpandedVar bool) {
-	core.LazyRegister(&xExpanderSetExpanded, "GTK", "gtk_expander_set_expanded", false)
-
 	xExpanderSetExpanded(x.GoPointer(), ExpandedVar)
 }
 
@@ -295,8 +277,6 @@ var xExpanderSetLabel func(uintptr, uintptr)
 //
 // This will also clear any previously set labels.
 func (x *Expander) SetLabel(LabelVar *string) {
-	core.LazyRegister(&xExpanderSetLabel, "GTK", "gtk_expander_set_label", false)
-
 	LabelVarPtr := core.GStrdupNullable(LabelVar)
 	defer core.GFreeNullable(LabelVarPtr)
 
@@ -310,8 +290,6 @@ var xExpanderSetLabelWidget func(uintptr, uintptr)
 // This is the widget that will appear embedded alongside
 // the expander arrow.
 func (x *Expander) SetLabelWidget(LabelWidgetVar *Widget) {
-	core.LazyRegister(&xExpanderSetLabelWidget, "GTK", "gtk_expander_set_label_widget", false)
-
 	xExpanderSetLabelWidget(x.GoPointer(), LabelWidgetVar.GoPointer())
 }
 
@@ -320,8 +298,6 @@ var xExpanderSetResizeToplevel func(uintptr, bool)
 // Sets whether the expander will resize the toplevel widget
 // containing the expander upon resizing and collapsing.
 func (x *Expander) SetResizeToplevel(ResizeToplevelVar bool) {
-	core.LazyRegister(&xExpanderSetResizeToplevel, "GTK", "gtk_expander_set_resize_toplevel", false)
-
 	xExpanderSetResizeToplevel(x.GoPointer(), ResizeToplevelVar)
 }
 
@@ -329,8 +305,6 @@ var xExpanderSetUseMarkup func(uintptr, bool)
 
 // Sets whether the text of the label contains Pango markup.
 func (x *Expander) SetUseMarkup(UseMarkupVar bool) {
-	core.LazyRegister(&xExpanderSetUseMarkup, "GTK", "gtk_expander_set_use_markup", false)
-
 	xExpanderSetUseMarkup(x.GoPointer(), UseMarkupVar)
 }
 
@@ -338,8 +312,6 @@ var xExpanderSetUseUnderline func(uintptr, bool)
 
 // If true, an underline in the text indicates a mnemonic.
 func (x *Expander) SetUseUnderline(UseUnderlineVar bool) {
-	core.LazyRegister(&xExpanderSetUseUnderline, "GTK", "gtk_expander_set_use_underline", false)
-
 	xExpanderSetUseUnderline(x.GoPointer(), UseUnderlineVar)
 }
 
@@ -727,4 +699,32 @@ func (x *Expander) GetBuildableId() string {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GTK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xExpanderGLibType, libs, "gtk_expander_get_type")
+
+	core.PuregoSafeRegister(&xNewExpander, libs, "gtk_expander_new")
+	core.PuregoSafeRegister(&xNewExpanderWithMnemonic, libs, "gtk_expander_new_with_mnemonic")
+
+	core.PuregoSafeRegister(&xExpanderGetChild, libs, "gtk_expander_get_child")
+	core.PuregoSafeRegister(&xExpanderGetExpanded, libs, "gtk_expander_get_expanded")
+	core.PuregoSafeRegister(&xExpanderGetLabel, libs, "gtk_expander_get_label")
+	core.PuregoSafeRegister(&xExpanderGetLabelWidget, libs, "gtk_expander_get_label_widget")
+	core.PuregoSafeRegister(&xExpanderGetResizeToplevel, libs, "gtk_expander_get_resize_toplevel")
+	core.PuregoSafeRegister(&xExpanderGetUseMarkup, libs, "gtk_expander_get_use_markup")
+	core.PuregoSafeRegister(&xExpanderGetUseUnderline, libs, "gtk_expander_get_use_underline")
+	core.PuregoSafeRegister(&xExpanderSetChild, libs, "gtk_expander_set_child")
+	core.PuregoSafeRegister(&xExpanderSetExpanded, libs, "gtk_expander_set_expanded")
+	core.PuregoSafeRegister(&xExpanderSetLabel, libs, "gtk_expander_set_label")
+	core.PuregoSafeRegister(&xExpanderSetLabelWidget, libs, "gtk_expander_set_label_widget")
+	core.PuregoSafeRegister(&xExpanderSetResizeToplevel, libs, "gtk_expander_set_resize_toplevel")
+	core.PuregoSafeRegister(&xExpanderSetUseMarkup, libs, "gtk_expander_set_use_markup")
+	core.PuregoSafeRegister(&xExpanderSetUseUnderline, libs, "gtk_expander_set_use_underline")
 }

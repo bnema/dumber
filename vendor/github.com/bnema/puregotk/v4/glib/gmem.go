@@ -205,8 +205,6 @@ var xAlignedAlloc func(uint, uint, uint) uintptr
 // Aligned memory allocations returned by this function can only be
 // freed using g_aligned_free_sized() or g_aligned_free().
 func AlignedAlloc(NBlocksVar uint, NBlockBytesVar uint, AlignmentVar uint) uintptr {
-	core.LazyRegister(&xAlignedAlloc, "GLIB", "g_aligned_alloc", false)
-
 	cret := xAlignedAlloc(NBlocksVar, NBlockBytesVar, AlignmentVar)
 	return cret
 }
@@ -216,8 +214,6 @@ var xAlignedAlloc0 func(uint, uint, uint) uintptr
 // This function is similar to g_aligned_alloc(), but it will
 // also clear the allocated memory before returning it.
 func AlignedAlloc0(NBlocksVar uint, NBlockBytesVar uint, AlignmentVar uint) uintptr {
-	core.LazyRegister(&xAlignedAlloc0, "GLIB", "g_aligned_alloc0", false)
-
 	cret := xAlignedAlloc0(NBlocksVar, NBlockBytesVar, AlignmentVar)
 	return cret
 }
@@ -226,8 +222,6 @@ var xAlignedFree func(uintptr)
 
 // Frees the memory allocated by g_aligned_alloc().
 func AlignedFree(MemVar uintptr) {
-	core.LazyRegister(&xAlignedFree, "GLIB", "g_aligned_free", false)
-
 	xAlignedFree(MemVar)
 }
 
@@ -243,8 +237,6 @@ var xAlignedFreeSized func(uintptr, uint, uint)
 // passed to this function to allow optimizations in the allocator. If you
 // don’t know either of them, use g_aligned_free() instead.
 func AlignedFreeSized(MemVar uintptr, AlignmentVar uint, SizeVar uint) {
-	core.LazyRegister(&xAlignedFreeSized, "GLIB", "g_aligned_free_sized", false)
-
 	xAlignedFreeSized(MemVar, AlignmentVar, SizeVar)
 }
 
@@ -288,8 +280,6 @@ var xClearPointer func(*uintptr, uintptr)
 // g_clear_pointer (&amp;sync, destroy_sync);
 // ```
 func ClearPointer(PpVar *uintptr, DestroyVar *DestroyNotify) {
-	core.LazyRegister(&xClearPointer, "GLIB", "g_clear_pointer", false)
-
 	xClearPointer(PpVar, NewCallbackNullable(DestroyVar))
 }
 
@@ -309,8 +299,6 @@ var xFree func(uintptr)
 // If @mem is %NULL it simply returns, so there is no need to check @mem
 // against %NULL before calling this function.
 func Free(MemVar uintptr) {
-	core.LazyRegister(&xFree, "GLIB", "g_free", false)
-
 	xFree(MemVar)
 }
 
@@ -328,8 +316,6 @@ var xFreeSized func(uintptr, uint)
 // automatically via g_free() if the allocated size is known at compile time,
 // since GLib 2.78.
 func FreeSized(MemVar uintptr, SizeVar uint) {
-	core.LazyRegister(&xFreeSized, "GLIB", "g_free_sized", false)
-
 	xFreeSized(MemVar, SizeVar)
 }
 
@@ -341,8 +327,6 @@ var xMalloc func(uint) uintptr
 // If the allocation fails (because the system is out of memory),
 // the program is terminated.
 func Malloc(NBytesVar uint) uintptr {
-	core.LazyRegister(&xMalloc, "GLIB", "g_malloc", false)
-
 	cret := xMalloc(NBytesVar)
 	return cret
 }
@@ -355,8 +339,6 @@ var xMalloc0 func(uint) uintptr
 // If the allocation fails (because the system is out of memory),
 // the program is terminated.
 func Malloc0(NBytesVar uint) uintptr {
-	core.LazyRegister(&xMalloc0, "GLIB", "g_malloc0", false)
-
 	cret := xMalloc0(NBytesVar)
 	return cret
 }
@@ -369,8 +351,6 @@ var xMalloc0N func(uint, uint) uintptr
 // If the allocation fails (because the system is out of memory),
 // the program is terminated.
 func Malloc0N(NBlocksVar uint, NBlockBytesVar uint) uintptr {
-	core.LazyRegister(&xMalloc0N, "GLIB", "g_malloc0_n", false)
-
 	cret := xMalloc0N(NBlocksVar, NBlockBytesVar)
 	return cret
 }
@@ -383,8 +363,6 @@ var xMallocN func(uint, uint) uintptr
 // If the allocation fails (because the system is out of memory),
 // the program is terminated.
 func MallocN(NBlocksVar uint, NBlockBytesVar uint) uintptr {
-	core.LazyRegister(&xMallocN, "GLIB", "g_malloc_n", false)
-
 	cret := xMallocN(NBlocksVar, NBlockBytesVar)
 	return cret
 }
@@ -397,8 +375,6 @@ var xMemIsSystemMalloc func() bool
 // This function is useful for avoiding an extra copy of allocated memory returned
 // by a non-GLib-based API.
 func MemIsSystemMalloc() bool {
-	core.LazyRegister(&xMemIsSystemMalloc, "GLIB", "g_mem_is_system_malloc", false)
-
 	cret := xMemIsSystemMalloc()
 	return cret
 }
@@ -409,8 +385,6 @@ var xMemProfile func()
 // no longer works. There are many other useful tools for memory
 // profiling these days which can be used instead.
 func MemProfile() {
-	core.LazyRegister(&xMemProfile, "GLIB", "g_mem_profile", false)
-
 	xMemProfile()
 }
 
@@ -421,8 +395,6 @@ var xMemSetVtable func(*MemVTable)
 // in GLib and GIO, because those use the GLib allocators before main is
 // reached. Therefore this function is now deprecated and is just a stub.
 func MemSetVtable(VtableVar *MemVTable) {
-	core.LazyRegister(&xMemSetVtable, "GLIB", "g_mem_set_vtable", false)
-
 	xMemSetVtable(VtableVar)
 }
 
@@ -437,8 +409,6 @@ var xRealloc func(uintptr, uint) uintptr
 // If the allocation fails (because the system is out of memory),
 // the program is terminated.
 func Realloc(MemVar uintptr, NBytesVar uint) uintptr {
-	core.LazyRegister(&xRealloc, "GLIB", "g_realloc", false)
-
 	cret := xRealloc(MemVar, NBytesVar)
 	return cret
 }
@@ -451,8 +421,6 @@ var xReallocN func(uintptr, uint, uint) uintptr
 // If the allocation fails (because the system is out of memory),
 // the program is terminated.
 func ReallocN(MemVar uintptr, NBlocksVar uint, NBlockBytesVar uint) uintptr {
-	core.LazyRegister(&xReallocN, "GLIB", "g_realloc_n", false)
-
 	cret := xReallocN(MemVar, NBlocksVar, NBlockBytesVar)
 	return cret
 }
@@ -462,8 +430,6 @@ var xTryMalloc func(uint) uintptr
 // Attempts to allocate @n_bytes, and returns %NULL on failure.
 // Contrast with g_malloc(), which aborts the program on failure.
 func TryMalloc(NBytesVar uint) uintptr {
-	core.LazyRegister(&xTryMalloc, "GLIB", "g_try_malloc", false)
-
 	cret := xTryMalloc(NBytesVar)
 	return cret
 }
@@ -473,8 +439,6 @@ var xTryMalloc0 func(uint) uintptr
 // Attempts to allocate @n_bytes, initialized to 0's, and returns %NULL on
 // failure. Contrast with g_malloc0(), which aborts the program on failure.
 func TryMalloc0(NBytesVar uint) uintptr {
-	core.LazyRegister(&xTryMalloc0, "GLIB", "g_try_malloc0", false)
-
 	cret := xTryMalloc0(NBytesVar)
 	return cret
 }
@@ -484,8 +448,6 @@ var xTryMalloc0N func(uint, uint) uintptr
 // This function is similar to g_try_malloc0(), allocating (@n_blocks * @n_block_bytes) bytes,
 // but care is taken to detect possible overflow during multiplication.
 func TryMalloc0N(NBlocksVar uint, NBlockBytesVar uint) uintptr {
-	core.LazyRegister(&xTryMalloc0N, "GLIB", "g_try_malloc0_n", false)
-
 	cret := xTryMalloc0N(NBlocksVar, NBlockBytesVar)
 	return cret
 }
@@ -495,8 +457,6 @@ var xTryMallocN func(uint, uint) uintptr
 // This function is similar to g_try_malloc(), allocating (@n_blocks * @n_block_bytes) bytes,
 // but care is taken to detect possible overflow during multiplication.
 func TryMallocN(NBlocksVar uint, NBlockBytesVar uint) uintptr {
-	core.LazyRegister(&xTryMallocN, "GLIB", "g_try_malloc_n", false)
-
 	cret := xTryMallocN(NBlocksVar, NBlockBytesVar)
 	return cret
 }
@@ -509,8 +469,6 @@ var xTryRealloc func(uintptr, uint) uintptr
 //
 // If @mem is %NULL, behaves the same as g_try_malloc().
 func TryRealloc(MemVar uintptr, NBytesVar uint) uintptr {
-	core.LazyRegister(&xTryRealloc, "GLIB", "g_try_realloc", false)
-
 	cret := xTryRealloc(MemVar, NBytesVar)
 	return cret
 }
@@ -520,8 +478,6 @@ var xTryReallocN func(uintptr, uint, uint) uintptr
 // This function is similar to g_try_realloc(), allocating (@n_blocks * @n_block_bytes) bytes,
 // but care is taken to detect possible overflow during multiplication.
 func TryReallocN(MemVar uintptr, NBlocksVar uint, NBlockBytesVar uint) uintptr {
-	core.LazyRegister(&xTryReallocN, "GLIB", "g_try_realloc_n", false)
-
 	cret := xTryReallocN(MemVar, NBlocksVar, NBlockBytesVar)
 	return cret
 }
@@ -529,4 +485,35 @@ func TryReallocN(MemVar uintptr, NBlocksVar uint, NBlockBytesVar uint) uintptr {
 func init() {
 	core.SetPackageName("GLIB", "glib-2.0")
 	core.SetSharedLibraries("GLIB", []string{"libgobject-2.0.so.0", "libglib-2.0.so.0", "libgobject-2.0.0.dylib", "libglib-2.0.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GLIB") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xAlignedAlloc, libs, "g_aligned_alloc")
+	core.PuregoSafeRegister(&xAlignedAlloc0, libs, "g_aligned_alloc0")
+	core.PuregoSafeRegister(&xAlignedFree, libs, "g_aligned_free")
+	core.PuregoSafeRegister(&xAlignedFreeSized, libs, "g_aligned_free_sized")
+	core.PuregoSafeRegister(&xClearPointer, libs, "g_clear_pointer")
+	core.PuregoSafeRegister(&xFree, libs, "g_free")
+	core.PuregoSafeRegister(&xFreeSized, libs, "g_free_sized")
+	core.PuregoSafeRegister(&xMalloc, libs, "g_malloc")
+	core.PuregoSafeRegister(&xMalloc0, libs, "g_malloc0")
+	core.PuregoSafeRegister(&xMalloc0N, libs, "g_malloc0_n")
+	core.PuregoSafeRegister(&xMallocN, libs, "g_malloc_n")
+	core.PuregoSafeRegister(&xMemIsSystemMalloc, libs, "g_mem_is_system_malloc")
+	core.PuregoSafeRegister(&xMemProfile, libs, "g_mem_profile")
+	core.PuregoSafeRegister(&xMemSetVtable, libs, "g_mem_set_vtable")
+	core.PuregoSafeRegister(&xRealloc, libs, "g_realloc")
+	core.PuregoSafeRegister(&xReallocN, libs, "g_realloc_n")
+	core.PuregoSafeRegister(&xTryMalloc, libs, "g_try_malloc")
+	core.PuregoSafeRegister(&xTryMalloc0, libs, "g_try_malloc0")
+	core.PuregoSafeRegister(&xTryMalloc0N, libs, "g_try_malloc0_n")
+	core.PuregoSafeRegister(&xTryMallocN, libs, "g_try_malloc_n")
+	core.PuregoSafeRegister(&xTryRealloc, libs, "g_try_realloc")
+	core.PuregoSafeRegister(&xTryReallocN, libs, "g_try_realloc_n")
 }

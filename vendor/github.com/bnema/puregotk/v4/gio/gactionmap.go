@@ -264,7 +264,6 @@ type ActionMap interface {
 var xActionMapGLibType func() types.GType
 
 func ActionMapGLibType() types.GType {
-	core.LazyRegister(&xActionMapGLibType, "GIO", "g_action_map_get_type", false)
 	return xActionMapGLibType()
 }
 
@@ -393,42 +392,31 @@ func (x *ActionMapBase) RemoveActionEntries(EntriesVar []ActionEntry, NEntriesVa
 	XGActionMapRemoveActionEntries(x.GoPointer(), EntriesVar, NEntriesVar)
 }
 
-var XGActionMapAddAction func(uintptr, uintptr) = func(instance uintptr, ActionVarp uintptr) {
-	core.LazyRegister(&xXGActionMapAddAction, "GIO", "g_action_map_add_action", false)
-	xXGActionMapAddAction(instance, ActionVarp)
-}
-
 var (
-	xXGActionMapAddAction       func(uintptr, uintptr)
-	XGActionMapAddActionEntries func(uintptr, []ActionEntry, int, uintptr) = func(instance uintptr, EntriesVarp []ActionEntry, NEntriesVarp int, UserDataVarp uintptr) {
-		core.LazyRegister(&xXGActionMapAddActionEntries, "GIO", "g_action_map_add_action_entries", false)
-		xXGActionMapAddActionEntries(instance, EntriesVarp, NEntriesVarp, UserDataVarp)
-	}
+	XGActionMapAddAction           func(uintptr, uintptr)
+	XGActionMapAddActionEntries    func(uintptr, []ActionEntry, int, uintptr)
+	XGActionMapLookupAction        func(uintptr, string) uintptr
+	XGActionMapRemoveAction        func(uintptr, string)
+	XGActionMapRemoveActionEntries func(uintptr, []ActionEntry, int)
 )
-var (
-	xXGActionMapAddActionEntries func(uintptr, []ActionEntry, int, uintptr)
-	XGActionMapLookupAction      func(uintptr, string) uintptr = func(instance uintptr, ActionNameVarp string) uintptr {
-		core.LazyRegister(&xXGActionMapLookupAction, "GIO", "g_action_map_lookup_action", false)
-		return xXGActionMapLookupAction(instance, ActionNameVarp)
-	}
-)
-var (
-	xXGActionMapLookupAction func(uintptr, string) uintptr
-	XGActionMapRemoveAction  func(uintptr, string) = func(instance uintptr, ActionNameVarp string) {
-		core.LazyRegister(&xXGActionMapRemoveAction, "GIO", "g_action_map_remove_action", false)
-		xXGActionMapRemoveAction(instance, ActionNameVarp)
-	}
-)
-var (
-	xXGActionMapRemoveAction       func(uintptr, string)
-	XGActionMapRemoveActionEntries func(uintptr, []ActionEntry, int) = func(instance uintptr, EntriesVarp []ActionEntry, NEntriesVarp int) {
-		core.LazyRegister(&xXGActionMapRemoveActionEntries, "GIO", "g_action_map_remove_action_entries", false)
-		xXGActionMapRemoveActionEntries(instance, EntriesVarp, NEntriesVarp)
-	}
-)
-var xXGActionMapRemoveActionEntries func(uintptr, []ActionEntry, int)
 
 func init() {
 	core.SetPackageName("GIO", "gio-2.0")
 	core.SetSharedLibraries("GIO", []string{"libgio-2.0.so.0", "libgio-2.0.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GIO") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xActionMapGLibType, libs, "g_action_map_get_type")
+
+	core.PuregoSafeRegister(&XGActionMapAddAction, libs, "g_action_map_add_action")
+	core.PuregoSafeRegister(&XGActionMapAddActionEntries, libs, "g_action_map_add_action_entries")
+	core.PuregoSafeRegister(&XGActionMapLookupAction, libs, "g_action_map_lookup_action")
+	core.PuregoSafeRegister(&XGActionMapRemoveAction, libs, "g_action_map_remove_action")
+	core.PuregoSafeRegister(&XGActionMapRemoveActionEntries, libs, "g_action_map_remove_action_entries")
 }

@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -38,7 +39,6 @@ type ZlibDecompressor struct {
 var xZlibDecompressorGLibType func() types.GType
 
 func ZlibDecompressorGLibType() types.GType {
-	core.LazyRegister(&xZlibDecompressorGLibType, "GIO", "g_zlib_decompressor_get_type", false)
 	return xZlibDecompressorGLibType()
 }
 
@@ -52,7 +52,6 @@ var xNewZlibDecompressor func(ZlibCompressorFormat) uintptr
 
 // Creates a new decompressor.
 func NewZlibDecompressor(FormatVar ZlibCompressorFormat) *ZlibDecompressor {
-	core.LazyRegister(&xNewZlibDecompressor, "GIO", "g_zlib_decompressor_new", false)
 	var cls *ZlibDecompressor
 
 	cret := xNewZlibDecompressor(FormatVar)
@@ -69,7 +68,6 @@ var xZlibDecompressorGetFileInfo func(uintptr) uintptr
 
 // Gets the [property@Gio.ZlibDecompressor:file-info] property.
 func (x *ZlibDecompressor) GetFileInfo() *FileInfo {
-	core.LazyRegister(&xZlibDecompressorGetFileInfo, "GIO", "g_zlib_decompressor_get_file_info", false)
 	var cls *FileInfo
 
 	cret := xZlibDecompressorGetFileInfo(x.GoPointer())
@@ -210,4 +208,18 @@ func (x *ZlibDecompressor) Reset() {
 func init() {
 	core.SetPackageName("GIO", "gio-2.0")
 	core.SetSharedLibraries("GIO", []string{"libgio-2.0.so.0", "libgio-2.0.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GIO") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xZlibDecompressorGLibType, libs, "g_zlib_decompressor_get_type")
+
+	core.PuregoSafeRegister(&xNewZlibDecompressor, libs, "g_zlib_decompressor_new")
+
+	core.PuregoSafeRegister(&xZlibDecompressorGetFileInfo, libs, "g_zlib_decompressor_get_file_info")
 }

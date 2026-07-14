@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject/types"
 )
@@ -37,7 +38,6 @@ type FontsetSimple struct {
 var xFontsetSimpleGLibType func() types.GType
 
 func FontsetSimpleGLibType() types.GType {
-	core.LazyRegister(&xFontsetSimpleGLibType, "PANGO", "pango_fontset_simple_get_type", false)
 	return xFontsetSimpleGLibType()
 }
 
@@ -51,7 +51,6 @@ var xNewFontsetSimple func(*Language) uintptr
 
 // Creates a new `PangoFontsetSimple` for the given language.
 func NewFontsetSimple(LanguageVar *Language) *FontsetSimple {
-	core.LazyRegister(&xNewFontsetSimple, "PANGO", "pango_fontset_simple_new", false)
 	var cls *FontsetSimple
 
 	cret := xNewFontsetSimple(LanguageVar)
@@ -70,8 +69,6 @@ var xFontsetSimpleAppend func(uintptr, uintptr)
 //
 // The fontset takes ownership of @font.
 func (x *FontsetSimple) Append(FontVar *Font) {
-	core.LazyRegister(&xFontsetSimpleAppend, "PANGO", "pango_fontset_simple_append", false)
-
 	xFontsetSimpleAppend(x.GoPointer(), FontVar.GoPointer())
 }
 
@@ -79,8 +76,6 @@ var xFontsetSimpleSize func(uintptr) int
 
 // Returns the number of fonts in the fontset.
 func (x *FontsetSimple) Size() int {
-	core.LazyRegister(&xFontsetSimpleSize, "PANGO", "pango_fontset_simple_size", false)
-
 	cret := xFontsetSimpleSize(x.GoPointer())
 	return cret
 }
@@ -99,4 +94,19 @@ func (c *FontsetSimple) SetGoPointer(ptr uintptr) {
 func init() {
 	core.SetPackageName("PANGO", "pango")
 	core.SetSharedLibraries("PANGO", []string{"libpango-1.0.so.0", "libpango-1.0.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("PANGO") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xFontsetSimpleGLibType, libs, "pango_fontset_simple_get_type")
+
+	core.PuregoSafeRegister(&xNewFontsetSimple, libs, "pango_fontset_simple_new")
+
+	core.PuregoSafeRegister(&xFontsetSimpleAppend, libs, "pango_fontset_simple_append")
+	core.PuregoSafeRegister(&xFontsetSimpleSize, libs, "pango_fontset_simple_size")
 }

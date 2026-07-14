@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -114,7 +115,6 @@ type SettingsSchema struct {
 var xSettingsSchemaGLibType func() types.GType
 
 func SettingsSchemaGLibType() types.GType {
-	core.LazyRegister(&xSettingsSchemaGLibType, "GIO", "g_settings_schema_get_type", false)
 	return xSettingsSchemaGLibType()
 }
 
@@ -134,8 +134,6 @@ var xSettingsSchemaGetId func(uintptr) string
 
 // Get the ID of @schema.
 func (x *SettingsSchema) GetId() string {
-	core.LazyRegister(&xSettingsSchemaGetId, "GIO", "g_settings_schema_get_id", false)
-
 	cret := xSettingsSchemaGetId(x.GoPointer())
 	return cret
 }
@@ -147,8 +145,6 @@ var xSettingsSchemaGetKey func(uintptr, string) uintptr
 // It is a programmer error to request a key that does not exist.  See
 // g_settings_schema_list_keys().
 func (x *SettingsSchema) GetKey(NameVar string) *SettingsSchemaKey {
-	core.LazyRegister(&xSettingsSchemaGetKey, "GIO", "g_settings_schema_get_key", false)
-
 	cret := xSettingsSchemaGetKey(x.GoPointer(), NameVar)
 	if cret == 0 {
 		return nil
@@ -168,8 +164,6 @@ var xSettingsSchemaGetPath func(uintptr) string
 // therefore describe multiple sets of keys at different locations.  For
 // relocatable schemas, this function will return %NULL.
 func (x *SettingsSchema) GetPath() string {
-	core.LazyRegister(&xSettingsSchemaGetPath, "GIO", "g_settings_schema_get_path", false)
-
 	cret := xSettingsSchemaGetPath(x.GoPointer())
 	return cret
 }
@@ -178,8 +172,6 @@ var xSettingsSchemaHasKey func(uintptr, string) bool
 
 // Checks if @schema has a key named @name.
 func (x *SettingsSchema) HasKey(NameVar string) bool {
-	core.LazyRegister(&xSettingsSchemaHasKey, "GIO", "g_settings_schema_has_key", false)
-
 	cret := xSettingsSchemaHasKey(x.GoPointer(), NameVar)
 	return cret
 }
@@ -191,8 +183,6 @@ var xSettingsSchemaListChildren func(uintptr) []string
 // You should free the return value with g_strfreev() when you are done
 // with it.
 func (x *SettingsSchema) ListChildren() []string {
-	core.LazyRegister(&xSettingsSchemaListChildren, "GIO", "g_settings_schema_list_children", false)
-
 	cret := xSettingsSchemaListChildren(x.GoPointer())
 	return cret
 }
@@ -205,8 +195,6 @@ var xSettingsSchemaListKeys func(uintptr) []string
 // (since you should already know what keys are in your schema).  This
 // function is intended for introspection reasons.
 func (x *SettingsSchema) ListKeys() []string {
-	core.LazyRegister(&xSettingsSchemaListKeys, "GIO", "g_settings_schema_list_keys", false)
-
 	cret := xSettingsSchemaListKeys(x.GoPointer())
 	return cret
 }
@@ -215,8 +203,6 @@ var xSettingsSchemaRef func(uintptr) uintptr
 
 // Increase the reference count of @schema, returning a new reference.
 func (x *SettingsSchema) Ref() *SettingsSchema {
-	core.LazyRegister(&xSettingsSchemaRef, "GIO", "g_settings_schema_ref", false)
-
 	cret := xSettingsSchemaRef(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -228,8 +214,6 @@ var xSettingsSchemaUnref func(uintptr)
 
 // Decrease the reference count of @schema, possibly freeing it.
 func (x *SettingsSchema) Unref() {
-	core.LazyRegister(&xSettingsSchemaUnref, "GIO", "g_settings_schema_unref", false)
-
 	xSettingsSchemaUnref(x.GoPointer())
 }
 
@@ -242,7 +226,6 @@ type SettingsSchemaKey struct {
 var xSettingsSchemaKeyGLibType func() types.GType
 
 func SettingsSchemaKeyGLibType() types.GType {
-	core.LazyRegister(&xSettingsSchemaKeyGLibType, "GIO", "g_settings_schema_key_get_type", false)
 	return xSettingsSchemaKeyGLibType()
 }
 
@@ -265,8 +248,6 @@ var xSettingsSchemaKeyGetDefaultValue func(uintptr) uintptr
 // Note that this is the default value according to the schema.  System
 // administrator defaults and lockdown are not visible via this API.
 func (x *SettingsSchemaKey) GetDefaultValue() *glib.Variant {
-	core.LazyRegister(&xSettingsSchemaKeyGetDefaultValue, "GIO", "g_settings_schema_key_get_default_value", false)
-
 	cret := xSettingsSchemaKeyGetDefaultValue(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -291,8 +272,6 @@ var xSettingsSchemaKeyGetDescription func(uintptr) string
 // function has to parse all of the source XML files in the schema
 // directory.
 func (x *SettingsSchemaKey) GetDescription() string {
-	core.LazyRegister(&xSettingsSchemaKeyGetDescription, "GIO", "g_settings_schema_key_get_description", false)
-
 	cret := xSettingsSchemaKeyGetDescription(x.GoPointer())
 	return cret
 }
@@ -301,8 +280,6 @@ var xSettingsSchemaKeyGetName func(uintptr) string
 
 // Gets the name of @key.
 func (x *SettingsSchemaKey) GetName() string {
-	core.LazyRegister(&xSettingsSchemaKeyGetName, "GIO", "g_settings_schema_key_get_name", false)
-
 	cret := xSettingsSchemaKeyGetName(x.GoPointer())
 	return cret
 }
@@ -346,8 +323,6 @@ var xSettingsSchemaKeyGetRange func(uintptr) uintptr
 // You should free the returned value with g_variant_unref() when it is
 // no longer needed.
 func (x *SettingsSchemaKey) GetRange() *glib.Variant {
-	core.LazyRegister(&xSettingsSchemaKeyGetRange, "GIO", "g_settings_schema_key_get_range", false)
-
 	cret := xSettingsSchemaKeyGetRange(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -371,8 +346,6 @@ var xSettingsSchemaKeyGetSummary func(uintptr) string
 // function has to parse all of the source XML files in the schema
 // directory.
 func (x *SettingsSchemaKey) GetSummary() string {
-	core.LazyRegister(&xSettingsSchemaKeyGetSummary, "GIO", "g_settings_schema_key_get_summary", false)
-
 	cret := xSettingsSchemaKeyGetSummary(x.GoPointer())
 	return cret
 }
@@ -381,8 +354,6 @@ var xSettingsSchemaKeyGetValueType func(uintptr) uintptr
 
 // Gets the #GVariantType of @key.
 func (x *SettingsSchemaKey) GetValueType() *glib.VariantType {
-	core.LazyRegister(&xSettingsSchemaKeyGetValueType, "GIO", "g_settings_schema_key_get_value_type", false)
-
 	cret := xSettingsSchemaKeyGetValueType(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -398,8 +369,6 @@ var xSettingsSchemaKeyRangeCheck func(uintptr, *glib.Variant) bool
 // It is a programmer error if @value is not of the correct type — you
 // must check for this first.
 func (x *SettingsSchemaKey) RangeCheck(ValueVar *glib.Variant) bool {
-	core.LazyRegister(&xSettingsSchemaKeyRangeCheck, "GIO", "g_settings_schema_key_range_check", false)
-
 	cret := xSettingsSchemaKeyRangeCheck(x.GoPointer(), ValueVar)
 	return cret
 }
@@ -408,8 +377,6 @@ var xSettingsSchemaKeyRef func(uintptr) uintptr
 
 // Increase the reference count of @key, returning a new reference.
 func (x *SettingsSchemaKey) Ref() *SettingsSchemaKey {
-	core.LazyRegister(&xSettingsSchemaKeyRef, "GIO", "g_settings_schema_key_ref", false)
-
 	cret := xSettingsSchemaKeyRef(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -421,8 +388,6 @@ var xSettingsSchemaKeyUnref func(uintptr)
 
 // Decrease the reference count of @key, possibly freeing it.
 func (x *SettingsSchemaKey) Unref() {
-	core.LazyRegister(&xSettingsSchemaKeyUnref, "GIO", "g_settings_schema_key_unref", false)
-
 	xSettingsSchemaKeyUnref(x.GoPointer())
 }
 
@@ -434,7 +399,6 @@ type SettingsSchemaSource struct {
 var xSettingsSchemaSourceGLibType func() types.GType
 
 func SettingsSchemaSourceGLibType() types.GType {
-	core.LazyRegister(&xSettingsSchemaSourceGLibType, "GIO", "g_settings_schema_source_get_type", false)
 	return xSettingsSchemaSourceGLibType()
 }
 
@@ -484,7 +448,6 @@ var xNewSettingsSchemaSourceFromDirectory func(string, *SettingsSchemaSource, bo
 // @parent should probably be given as the default schema source, as
 // returned by g_settings_schema_source_get_default().
 func NewSettingsSchemaSourceFromDirectory(DirectoryVar string, ParentVar *SettingsSchemaSource, TrustedVar bool) (*SettingsSchemaSource, error) {
-	core.LazyRegister(&xNewSettingsSchemaSourceFromDirectory, "GIO", "g_settings_schema_source_new_from_directory", false)
 	var cerr *glib.Error
 
 	cret := xNewSettingsSchemaSourceFromDirectory(DirectoryVar, ParentVar, TrustedVar, &cerr)
@@ -512,8 +475,6 @@ var xSettingsSchemaSourceListSchemas func(uintptr, bool, *[]string, *[]string)
 // Do not call this function from normal programs.  This is designed for
 // use by database editors, commandline tools, etc.
 func (x *SettingsSchemaSource) ListSchemas(RecursiveVar bool, NonRelocatableVar *[]string, RelocatableVar *[]string) {
-	core.LazyRegister(&xSettingsSchemaSourceListSchemas, "GIO", "g_settings_schema_source_list_schemas", false)
-
 	xSettingsSchemaSourceListSchemas(x.GoPointer(), RecursiveVar, NonRelocatableVar, RelocatableVar)
 }
 
@@ -530,8 +491,6 @@ var xSettingsSchemaSourceLookup func(uintptr, string, bool) uintptr
 //
 // If the schema isn't found, %NULL is returned.
 func (x *SettingsSchemaSource) Lookup(SchemaIdVar string, RecursiveVar bool) *SettingsSchema {
-	core.LazyRegister(&xSettingsSchemaSourceLookup, "GIO", "g_settings_schema_source_lookup", false)
-
 	cret := xSettingsSchemaSourceLookup(x.GoPointer(), SchemaIdVar, RecursiveVar)
 	if cret == 0 {
 		return nil
@@ -543,8 +502,6 @@ var xSettingsSchemaSourceRef func(uintptr) uintptr
 
 // Increase the reference count of @source, returning a new reference.
 func (x *SettingsSchemaSource) Ref() *SettingsSchemaSource {
-	core.LazyRegister(&xSettingsSchemaSourceRef, "GIO", "g_settings_schema_source_ref", false)
-
 	cret := xSettingsSchemaSourceRef(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -556,8 +513,6 @@ var xSettingsSchemaSourceUnref func(uintptr)
 
 // Decrease the reference count of @source, possibly freeing it.
 func (x *SettingsSchemaSource) Unref() {
-	core.LazyRegister(&xSettingsSchemaSourceUnref, "GIO", "g_settings_schema_source_unref", false)
-
 	xSettingsSchemaSourceUnref(x.GoPointer())
 }
 
@@ -577,8 +532,6 @@ var xSettingsSchemaSourceGetDefault func() uintptr
 // lookups performed against the default source should probably be done
 // recursively.
 func SettingsSchemaSourceGetDefault() *SettingsSchemaSource {
-	core.LazyRegister(&xSettingsSchemaSourceGetDefault, "GIO", "g_settings_schema_source_get_default", false)
-
 	cret := xSettingsSchemaSourceGetDefault()
 	if cret == 0 {
 		return nil
@@ -589,4 +542,46 @@ func SettingsSchemaSourceGetDefault() *SettingsSchemaSource {
 func init() {
 	core.SetPackageName("GIO", "gio-2.0")
 	core.SetSharedLibraries("GIO", []string{"libgio-2.0.so.0", "libgio-2.0.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GIO") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xSettingsSchemaSourceGetDefault, libs, "g_settings_schema_source_get_default")
+
+	core.PuregoSafeRegister(&xSettingsSchemaGLibType, libs, "g_settings_schema_get_type")
+
+	core.PuregoSafeRegister(&xSettingsSchemaGetId, libs, "g_settings_schema_get_id")
+	core.PuregoSafeRegister(&xSettingsSchemaGetKey, libs, "g_settings_schema_get_key")
+	core.PuregoSafeRegister(&xSettingsSchemaGetPath, libs, "g_settings_schema_get_path")
+	core.PuregoSafeRegister(&xSettingsSchemaHasKey, libs, "g_settings_schema_has_key")
+	core.PuregoSafeRegister(&xSettingsSchemaListChildren, libs, "g_settings_schema_list_children")
+	core.PuregoSafeRegister(&xSettingsSchemaListKeys, libs, "g_settings_schema_list_keys")
+	core.PuregoSafeRegister(&xSettingsSchemaRef, libs, "g_settings_schema_ref")
+	core.PuregoSafeRegister(&xSettingsSchemaUnref, libs, "g_settings_schema_unref")
+
+	core.PuregoSafeRegister(&xSettingsSchemaKeyGLibType, libs, "g_settings_schema_key_get_type")
+
+	core.PuregoSafeRegister(&xSettingsSchemaKeyGetDefaultValue, libs, "g_settings_schema_key_get_default_value")
+	core.PuregoSafeRegister(&xSettingsSchemaKeyGetDescription, libs, "g_settings_schema_key_get_description")
+	core.PuregoSafeRegister(&xSettingsSchemaKeyGetName, libs, "g_settings_schema_key_get_name")
+	core.PuregoSafeRegister(&xSettingsSchemaKeyGetRange, libs, "g_settings_schema_key_get_range")
+	core.PuregoSafeRegister(&xSettingsSchemaKeyGetSummary, libs, "g_settings_schema_key_get_summary")
+	core.PuregoSafeRegister(&xSettingsSchemaKeyGetValueType, libs, "g_settings_schema_key_get_value_type")
+	core.PuregoSafeRegister(&xSettingsSchemaKeyRangeCheck, libs, "g_settings_schema_key_range_check")
+	core.PuregoSafeRegister(&xSettingsSchemaKeyRef, libs, "g_settings_schema_key_ref")
+	core.PuregoSafeRegister(&xSettingsSchemaKeyUnref, libs, "g_settings_schema_key_unref")
+
+	core.PuregoSafeRegister(&xSettingsSchemaSourceGLibType, libs, "g_settings_schema_source_get_type")
+
+	core.PuregoSafeRegister(&xNewSettingsSchemaSourceFromDirectory, libs, "g_settings_schema_source_new_from_directory")
+
+	core.PuregoSafeRegister(&xSettingsSchemaSourceListSchemas, libs, "g_settings_schema_source_list_schemas")
+	core.PuregoSafeRegister(&xSettingsSchemaSourceLookup, libs, "g_settings_schema_source_lookup")
+	core.PuregoSafeRegister(&xSettingsSchemaSourceRef, libs, "g_settings_schema_source_ref")
+	core.PuregoSafeRegister(&xSettingsSchemaSourceUnref, libs, "g_settings_schema_source_unref")
 }

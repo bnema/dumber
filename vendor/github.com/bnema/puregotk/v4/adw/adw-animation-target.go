@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -86,7 +87,6 @@ type AnimationTarget struct {
 var xAnimationTargetGLibType func() types.GType
 
 func AnimationTargetGLibType() types.GType {
-	core.LazyRegister(&xAnimationTargetGLibType, "ADW", "adw_animation_target_get_type", false)
 	return xAnimationTargetGLibType()
 }
 
@@ -116,7 +116,6 @@ type CallbackAnimationTarget struct {
 var xCallbackAnimationTargetGLibType func() types.GType
 
 func CallbackAnimationTargetGLibType() types.GType {
-	core.LazyRegister(&xCallbackAnimationTargetGLibType, "ADW", "adw_callback_animation_target_get_type", false)
 	return xCallbackAnimationTargetGLibType()
 }
 
@@ -131,7 +130,6 @@ var xNewCallbackAnimationTarget func(uintptr, uintptr, uintptr) uintptr
 // Creates a new `AdwAnimationTarget` that calls the given @callback during
 // the animation.
 func NewCallbackAnimationTarget(CallbackVar *AnimationTargetFunc, UserDataVar uintptr, DestroyVar *glib.DestroyNotify) *CallbackAnimationTarget {
-	core.LazyRegister(&xNewCallbackAnimationTarget, "ADW", "adw_callback_animation_target_new", false)
 	var cls *CallbackAnimationTarget
 
 	cret := xNewCallbackAnimationTarget(glib.NewCallback(CallbackVar), UserDataVar, glib.NewCallbackNullable(DestroyVar))
@@ -163,7 +161,6 @@ type NoneAnimationTarget struct {
 var xNoneAnimationTargetGLibType func() types.GType
 
 func NoneAnimationTargetGLibType() types.GType {
-	core.LazyRegister(&xNoneAnimationTargetGLibType, "ADW", "adw_none_animation_target_get_type", false)
 	return xNoneAnimationTargetGLibType()
 }
 
@@ -177,7 +174,6 @@ var xNewNoneAnimationTarget func() uintptr
 
 // Creates a new `AdwAnimationTarget` that doesn't do anything.
 func NewNoneAnimationTarget() *NoneAnimationTarget {
-	core.LazyRegister(&xNewNoneAnimationTarget, "ADW", "adw_none_animation_target_new", false)
 	var cls *NoneAnimationTarget
 
 	cret := xNewNoneAnimationTarget()
@@ -210,7 +206,6 @@ type PropertyAnimationTarget struct {
 var xPropertyAnimationTargetGLibType func() types.GType
 
 func PropertyAnimationTargetGLibType() types.GType {
-	core.LazyRegister(&xPropertyAnimationTargetGLibType, "ADW", "adw_property_animation_target_get_type", false)
 	return xPropertyAnimationTargetGLibType()
 }
 
@@ -225,7 +220,6 @@ var xNewPropertyAnimationTarget func(uintptr, string) uintptr
 // Creates a new `AdwPropertyAnimationTarget` for the @property_name property on
 // @object.
 func NewPropertyAnimationTarget(ObjectVar *gobject.Object, PropertyNameVar string) *PropertyAnimationTarget {
-	core.LazyRegister(&xNewPropertyAnimationTarget, "ADW", "adw_property_animation_target_new", false)
 	var cls *PropertyAnimationTarget
 
 	cret := xNewPropertyAnimationTarget(ObjectVar.GoPointer(), PropertyNameVar)
@@ -243,7 +237,6 @@ var xNewPropertyAnimationTargetForPspec func(uintptr, uintptr) uintptr
 // Creates a new `AdwPropertyAnimationTarget` for the @pspec property on
 // @object.
 func NewPropertyAnimationTargetForPspec(ObjectVar *gobject.Object, PspecVar *gobject.ParamSpec) *PropertyAnimationTarget {
-	core.LazyRegister(&xNewPropertyAnimationTargetForPspec, "ADW", "adw_property_animation_target_new_for_pspec", false)
 	var cls *PropertyAnimationTarget
 
 	cret := xNewPropertyAnimationTargetForPspec(ObjectVar.GoPointer(), PspecVar.GoPointer())
@@ -264,7 +257,6 @@ var xPropertyAnimationTargetGetObject func(uintptr) uintptr
 // the object; make sure the object is kept alive throughout the target's
 // lifetime.
 func (x *PropertyAnimationTarget) GetObject() *gobject.Object {
-	core.LazyRegister(&xPropertyAnimationTargetGetObject, "ADW", "adw_property_animation_target_get_object", false)
 	var cls *gobject.Object
 
 	cret := xPropertyAnimationTargetGetObject(x.GoPointer())
@@ -282,7 +274,6 @@ var xPropertyAnimationTargetGetPspec func(uintptr) uintptr
 
 // Gets the `GParamSpec` of the property animated by @self.
 func (x *PropertyAnimationTarget) GetPspec() *gobject.ParamSpec {
-	core.LazyRegister(&xPropertyAnimationTargetGetPspec, "ADW", "adw_property_animation_target_get_pspec", false)
 	var cls *gobject.ParamSpec
 
 	cret := xPropertyAnimationTargetGetPspec(x.GoPointer())
@@ -310,4 +301,30 @@ func (c *PropertyAnimationTarget) SetGoPointer(ptr uintptr) {
 func init() {
 	core.SetPackageName("ADW", "libadwaita-1")
 	core.SetSharedLibraries("ADW", []string{"libadwaita-1.so.0", "libadwaita-1.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("ADW") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xAnimationTargetGLibType, libs, "adw_animation_target_get_type")
+
+	core.PuregoSafeRegister(&xCallbackAnimationTargetGLibType, libs, "adw_callback_animation_target_get_type")
+
+	core.PuregoSafeRegister(&xNewCallbackAnimationTarget, libs, "adw_callback_animation_target_new")
+
+	core.PuregoSafeRegister(&xNoneAnimationTargetGLibType, libs, "adw_none_animation_target_get_type")
+
+	core.PuregoSafeRegister(&xNewNoneAnimationTarget, libs, "adw_none_animation_target_new")
+
+	core.PuregoSafeRegister(&xPropertyAnimationTargetGLibType, libs, "adw_property_animation_target_get_type")
+
+	core.PuregoSafeRegister(&xNewPropertyAnimationTarget, libs, "adw_property_animation_target_new")
+	core.PuregoSafeRegister(&xNewPropertyAnimationTargetForPspec, libs, "adw_property_animation_target_new_for_pspec")
+
+	core.PuregoSafeRegister(&xPropertyAnimationTargetGetObject, libs, "adw_property_animation_target_get_object")
+	core.PuregoSafeRegister(&xPropertyAnimationTargetGetPspec, libs, "adw_property_animation_target_get_pspec")
 }

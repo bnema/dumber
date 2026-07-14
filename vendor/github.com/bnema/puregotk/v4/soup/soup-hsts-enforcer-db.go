@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -39,7 +40,6 @@ type HSTSEnforcerDB struct {
 var xHSTSEnforcerDBGLibType func() types.GType
 
 func HSTSEnforcerDBGLibType() types.GType {
-	core.LazyRegister(&xHSTSEnforcerDBGLibType, "SOUP", "soup_hsts_enforcer_db_get_type", false)
 	return xHSTSEnforcerDBGLibType()
 }
 
@@ -60,7 +60,6 @@ var xNewHSTSEnforcerDB func(string) uintptr
 // [class@HSTSEnforcerDB] will be written to @filename when
 // [signal@HSTSEnforcer::changed] is emitted.
 func NewHSTSEnforcerDB(FilenameVar string) *HSTSEnforcerDB {
-	core.LazyRegister(&xNewHSTSEnforcerDB, "SOUP", "soup_hsts_enforcer_db_new", false)
 	var cls *HSTSEnforcerDB
 
 	cret := xNewHSTSEnforcerDB(FilenameVar)
@@ -104,4 +103,16 @@ func (x *HSTSEnforcerDB) GetPropertyFilename() string {
 func init() {
 	core.SetPackageName("SOUP", "libsoup-3.0")
 	core.SetSharedLibraries("SOUP", []string{"libsoup-3.0.so.0", "libsoup-3.0.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("SOUP") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xHSTSEnforcerDBGLibType, libs, "soup_hsts_enforcer_db_get_type")
+
+	core.PuregoSafeRegister(&xNewHSTSEnforcerDB, libs, "soup_hsts_enforcer_db_new")
 }

@@ -4,6 +4,7 @@ package soup
 import (
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 )
@@ -15,8 +16,6 @@ var xHeaderContains func(string, string) bool
 //
 // Note that this can't be used with lists that have qvalues.
 func HeaderContains(HeaderVar string, TokenVar string) bool {
-	core.LazyRegister(&xHeaderContains, "SOUP", "soup_header_contains", false)
-
 	cret := xHeaderContains(HeaderVar, TokenVar)
 	return cret
 }
@@ -25,8 +24,6 @@ var xHeaderFreeList func(*glib.SList)
 
 // Frees @list.
 func HeaderFreeList(ListVar *glib.SList) {
-	core.LazyRegister(&xHeaderFreeList, "SOUP", "soup_header_free_list", false)
-
 	xHeaderFreeList(ListVar)
 }
 
@@ -34,8 +31,6 @@ var xHeaderFreeParamList func(*glib.HashTable)
 
 // Frees @param_list.
 func HeaderFreeParamList(ParamListVar *glib.HashTable) {
-	core.LazyRegister(&xHeaderFreeParamList, "SOUP", "soup_header_free_param_list", false)
-
 	xHeaderFreeParamList(ParamListVar)
 }
 
@@ -52,8 +47,6 @@ var xHeaderGStringAppendParam func(*glib.String, string, uintptr)
 //
 // If @value is %NULL, this will just append @name to @string.
 func HeaderGStringAppendParam(StringVar *glib.String, NameVar string, ValueVar *string) {
-	core.LazyRegister(&xHeaderGStringAppendParam, "SOUP", "soup_header_g_string_append_param", false)
-
 	ValueVarPtr := core.GStrdupNullable(ValueVar)
 	defer core.GFreeNullable(ValueVarPtr)
 
@@ -68,8 +61,6 @@ var xHeaderGStringAppendParamQuoted func(*glib.String, string, string)
 // If @value is (non-ASCII) UTF-8, this will instead use RFC 5987
 // encoding, just like [func@header_g_string_append_param].
 func HeaderGStringAppendParamQuoted(StringVar *glib.String, NameVar string, ValueVar string) {
-	core.LazyRegister(&xHeaderGStringAppendParamQuoted, "SOUP", "soup_header_g_string_append_param_quoted", false)
-
 	xHeaderGStringAppendParamQuoted(StringVar, NameVar, ValueVar)
 }
 
@@ -79,8 +70,6 @@ var xHeaderParseList func(string) uintptr
 //
 // "something" does not itself contain commas, except as part of quoted-strings.
 func HeaderParseList(HeaderVar string) *glib.SList {
-	core.LazyRegister(&xHeaderParseList, "SOUP", "soup_header_parse_list", false)
-
 	cret := xHeaderParseList(HeaderVar)
 	if cret == 0 {
 		return nil
@@ -100,8 +89,6 @@ var xHeaderParseParamList func(string) uintptr
 // for giving UTF8-encoded filenames in the Content-Disposition
 // header).
 func HeaderParseParamList(HeaderVar string) *glib.HashTable {
-	core.LazyRegister(&xHeaderParseParamList, "SOUP", "soup_header_parse_param_list", false)
-
 	cret := xHeaderParseParamList(HeaderVar)
 	if cret == 0 {
 		return nil
@@ -120,8 +107,6 @@ var xHeaderParseParamListStrict func(string) uintptr
 // RFC5987-encoded parameters, use
 // [func@header_parse_param_list] instead.
 func HeaderParseParamListStrict(HeaderVar string) *glib.HashTable {
-	core.LazyRegister(&xHeaderParseParamListStrict, "SOUP", "soup_header_parse_param_list_strict", false)
-
 	cret := xHeaderParseParamListStrict(HeaderVar)
 	if cret == 0 {
 		return nil
@@ -139,8 +124,6 @@ var xHeaderParseQualityList func(string, **glib.SList) uintptr
 // items with qvalue 0. Either way, those items will be removed from
 // the main list.
 func HeaderParseQualityList(HeaderVar string, UnacceptableVar **glib.SList) *glib.SList {
-	core.LazyRegister(&xHeaderParseQualityList, "SOUP", "soup_header_parse_quality_list", false)
-
 	cret := xHeaderParseQualityList(HeaderVar, UnacceptableVar)
 	if cret == 0 {
 		return nil
@@ -160,8 +143,6 @@ var xHeaderParseSemiParamList func(string) uintptr
 // for giving UTF8-encoded filenames in the Content-Disposition
 // header).
 func HeaderParseSemiParamList(HeaderVar string) *glib.HashTable {
-	core.LazyRegister(&xHeaderParseSemiParamList, "SOUP", "soup_header_parse_semi_param_list", false)
-
 	cret := xHeaderParseSemiParamList(HeaderVar)
 	if cret == 0 {
 		return nil
@@ -180,8 +161,6 @@ var xHeaderParseSemiParamListStrict func(string) uintptr
 // RFC5987-encoded parameters, use
 // [func@header_parse_semi_param_list] instead.
 func HeaderParseSemiParamListStrict(HeaderVar string) *glib.HashTable {
-	core.LazyRegister(&xHeaderParseSemiParamListStrict, "SOUP", "soup_header_parse_semi_param_list_strict", false)
-
 	cret := xHeaderParseSemiParamListStrict(HeaderVar)
 	if cret == 0 {
 		return nil
@@ -199,8 +178,6 @@ var xHeadersParse func(string, int, *MessageHeaders) bool
 // This is a low-level method; normally you would use
 // [func@headers_parse_request] or [func@headers_parse_response].
 func HeadersParse(StrVar string, LenVar int, DestVar *MessageHeaders) bool {
-	core.LazyRegister(&xHeadersParse, "SOUP", "soup_headers_parse", false)
-
 	cret := xHeadersParse(StrVar, LenVar, DestVar)
 	return cret
 }
@@ -212,8 +189,6 @@ var xHeadersParseRequest func(string, int, *MessageHeaders, *string, *string, *H
 //
 // Beware that @req_headers may be modified even on failure.
 func HeadersParseRequest(StrVar string, LenVar int, ReqHeadersVar *MessageHeaders, ReqMethodVar *string, ReqPathVar *string, VerVar *HTTPVersion) uint {
-	core.LazyRegister(&xHeadersParseRequest, "SOUP", "soup_headers_parse_request", false)
-
 	cret := xHeadersParseRequest(StrVar, LenVar, ReqHeadersVar, ReqMethodVar, ReqPathVar, VerVar)
 	return cret
 }
@@ -225,8 +200,6 @@ var xHeadersParseResponse func(string, int, *MessageHeaders, *HTTPVersion, *uint
 //
 // Beware that @headers may be modified even on failure.
 func HeadersParseResponse(StrVar string, LenVar int, HeadersVar *MessageHeaders, VerVar *HTTPVersion, StatusCodeVar *uint, ReasonPhraseVar *string) bool {
-	core.LazyRegister(&xHeadersParseResponse, "SOUP", "soup_headers_parse_response", false)
-
 	cret := xHeadersParseResponse(StrVar, LenVar, HeadersVar, VerVar, StatusCodeVar, ReasonPhraseVar)
 	return cret
 }
@@ -238,8 +211,6 @@ var xHeadersParseStatusLine func(string, *HTTPVersion, *uint, *string) bool
 //
 // @status_line must be terminated by either "\0" or "\r\n".
 func HeadersParseStatusLine(StatusLineVar string, VerVar *HTTPVersion, StatusCodeVar *uint, ReasonPhraseVar *string) bool {
-	core.LazyRegister(&xHeadersParseStatusLine, "SOUP", "soup_headers_parse_status_line", false)
-
 	cret := xHeadersParseStatusLine(StatusLineVar, VerVar, StatusCodeVar, ReasonPhraseVar)
 	return cret
 }
@@ -247,4 +218,28 @@ func HeadersParseStatusLine(StatusLineVar string, VerVar *HTTPVersion, StatusCod
 func init() {
 	core.SetPackageName("SOUP", "libsoup-3.0")
 	core.SetSharedLibraries("SOUP", []string{"libsoup-3.0.so.0", "libsoup-3.0.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("SOUP") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xHeaderContains, libs, "soup_header_contains")
+	core.PuregoSafeRegister(&xHeaderFreeList, libs, "soup_header_free_list")
+	core.PuregoSafeRegister(&xHeaderFreeParamList, libs, "soup_header_free_param_list")
+	core.PuregoSafeRegister(&xHeaderGStringAppendParam, libs, "soup_header_g_string_append_param")
+	core.PuregoSafeRegister(&xHeaderGStringAppendParamQuoted, libs, "soup_header_g_string_append_param_quoted")
+	core.PuregoSafeRegister(&xHeaderParseList, libs, "soup_header_parse_list")
+	core.PuregoSafeRegister(&xHeaderParseParamList, libs, "soup_header_parse_param_list")
+	core.PuregoSafeRegister(&xHeaderParseParamListStrict, libs, "soup_header_parse_param_list_strict")
+	core.PuregoSafeRegister(&xHeaderParseQualityList, libs, "soup_header_parse_quality_list")
+	core.PuregoSafeRegister(&xHeaderParseSemiParamList, libs, "soup_header_parse_semi_param_list")
+	core.PuregoSafeRegister(&xHeaderParseSemiParamListStrict, libs, "soup_header_parse_semi_param_list_strict")
+	core.PuregoSafeRegister(&xHeadersParse, libs, "soup_headers_parse")
+	core.PuregoSafeRegister(&xHeadersParseRequest, libs, "soup_headers_parse_request")
+	core.PuregoSafeRegister(&xHeadersParseResponse, libs, "soup_headers_parse_response")
+	core.PuregoSafeRegister(&xHeadersParseStatusLine, libs, "soup_headers_parse_status_line")
 }

@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -59,7 +60,6 @@ type DBusObjectProxy struct {
 var xDBusObjectProxyGLibType func() types.GType
 
 func DBusObjectProxyGLibType() types.GType {
-	core.LazyRegister(&xDBusObjectProxyGLibType, "GIO", "g_dbus_object_proxy_get_type", false)
 	return xDBusObjectProxyGLibType()
 }
 
@@ -74,7 +74,6 @@ var xNewDBusObjectProxy func(uintptr, string) uintptr
 // Creates a new #GDBusObjectProxy for the given connection and
 // object path.
 func NewDBusObjectProxy(ConnectionVar *DBusConnection, ObjectPathVar string) *DBusObjectProxy {
-	core.LazyRegister(&xNewDBusObjectProxy, "GIO", "g_dbus_object_proxy_new", false)
 	var cls *DBusObjectProxy
 
 	cret := xNewDBusObjectProxy(ConnectionVar.GoPointer(), ObjectPathVar)
@@ -91,7 +90,6 @@ var xDBusObjectProxyGetConnection func(uintptr) uintptr
 
 // Gets the connection that @proxy is for.
 func (x *DBusObjectProxy) GetConnection() *DBusConnection {
-	core.LazyRegister(&xDBusObjectProxyGetConnection, "GIO", "g_dbus_object_proxy_get_connection", false)
 	var cls *DBusConnection
 
 	cret := xDBusObjectProxyGetConnection(x.GoPointer())
@@ -166,4 +164,18 @@ func (x *DBusObjectProxy) GetObjectPath() string {
 func init() {
 	core.SetPackageName("GIO", "gio-2.0")
 	core.SetSharedLibraries("GIO", []string{"libgio-2.0.so.0", "libgio-2.0.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GIO") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xDBusObjectProxyGLibType, libs, "g_dbus_object_proxy_get_type")
+
+	core.PuregoSafeRegister(&xNewDBusObjectProxy, libs, "g_dbus_object_proxy_new")
+
+	core.PuregoSafeRegister(&xDBusObjectProxyGetConnection, libs, "g_dbus_object_proxy_get_connection")
 }

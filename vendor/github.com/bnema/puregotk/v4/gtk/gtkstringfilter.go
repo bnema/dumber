@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -34,7 +35,6 @@ type StringFilterMatchMode int
 var xStringFilterMatchModeGLibType func() types.GType
 
 func StringFilterMatchModeGLibType() types.GType {
-	core.LazyRegister(&xStringFilterMatchModeGLibType, "GTK", "gtk_string_filter_match_mode_get_type", false)
 	return xStringFilterMatchModeGLibType()
 }
 
@@ -70,7 +70,6 @@ type StringFilter struct {
 var xStringFilterGLibType func() types.GType
 
 func StringFilterGLibType() types.GType {
-	core.LazyRegister(&xStringFilterGLibType, "GTK", "gtk_string_filter_get_type", false)
 	return xStringFilterGLibType()
 }
 
@@ -87,7 +86,6 @@ var xNewStringFilter func(uintptr) uintptr
 // You will want to set up the filter by providing a string to search for
 // and by providing a property to look up on the item.
 func NewStringFilter(ExpressionVar *Expression) *StringFilter {
-	core.LazyRegister(&xNewStringFilter, "GTK", "gtk_string_filter_new", false)
 	var cls *StringFilter
 
 	cret := xNewStringFilter(ExpressionVar.GoPointer())
@@ -105,7 +103,6 @@ var xStringFilterGetExpression func(uintptr) uintptr
 // Gets the expression that the string filter uses to
 // obtain strings from items.
 func (x *StringFilter) GetExpression() *Expression {
-	core.LazyRegister(&xStringFilterGetExpression, "GTK", "gtk_string_filter_get_expression", false)
 	var cls *Expression
 
 	cret := xStringFilterGetExpression(x.GoPointer())
@@ -123,8 +120,6 @@ var xStringFilterGetIgnoreCase func(uintptr) bool
 
 // Returns whether the filter ignores case differences.
 func (x *StringFilter) GetIgnoreCase() bool {
-	core.LazyRegister(&xStringFilterGetIgnoreCase, "GTK", "gtk_string_filter_get_ignore_case", false)
-
 	cret := xStringFilterGetIgnoreCase(x.GoPointer())
 	return cret
 }
@@ -133,8 +128,6 @@ var xStringFilterGetMatchMode func(uintptr) StringFilterMatchMode
 
 // Returns the match mode that the filter is using.
 func (x *StringFilter) GetMatchMode() StringFilterMatchMode {
-	core.LazyRegister(&xStringFilterGetMatchMode, "GTK", "gtk_string_filter_get_match_mode", false)
-
 	cret := xStringFilterGetMatchMode(x.GoPointer())
 	return cret
 }
@@ -143,8 +136,6 @@ var xStringFilterGetSearch func(uintptr) string
 
 // Gets the search term.
 func (x *StringFilter) GetSearch() string {
-	core.LazyRegister(&xStringFilterGetSearch, "GTK", "gtk_string_filter_get_search", false)
-
 	cret := xStringFilterGetSearch(x.GoPointer())
 	return cret
 }
@@ -156,8 +147,6 @@ var xStringFilterSetExpression func(uintptr, uintptr)
 //
 // The expression must have a value type of `G_TYPE_STRING`.
 func (x *StringFilter) SetExpression(ExpressionVar *Expression) {
-	core.LazyRegister(&xStringFilterSetExpression, "GTK", "gtk_string_filter_set_expression", false)
-
 	xStringFilterSetExpression(x.GoPointer(), ExpressionVar.GoPointer())
 }
 
@@ -165,8 +154,6 @@ var xStringFilterSetIgnoreCase func(uintptr, bool)
 
 // Sets whether the filter ignores case differences.
 func (x *StringFilter) SetIgnoreCase(IgnoreCaseVar bool) {
-	core.LazyRegister(&xStringFilterSetIgnoreCase, "GTK", "gtk_string_filter_set_ignore_case", false)
-
 	xStringFilterSetIgnoreCase(x.GoPointer(), IgnoreCaseVar)
 }
 
@@ -174,8 +161,6 @@ var xStringFilterSetMatchMode func(uintptr, StringFilterMatchMode)
 
 // Sets the match mode for the filter.
 func (x *StringFilter) SetMatchMode(ModeVar StringFilterMatchMode) {
-	core.LazyRegister(&xStringFilterSetMatchMode, "GTK", "gtk_string_filter_set_match_mode", false)
-
 	xStringFilterSetMatchMode(x.GoPointer(), ModeVar)
 }
 
@@ -183,8 +168,6 @@ var xStringFilterSetSearch func(uintptr, uintptr)
 
 // Sets the string to search for.
 func (x *StringFilter) SetSearch(SearchVar *string) {
-	core.LazyRegister(&xStringFilterSetSearch, "GTK", "gtk_string_filter_set_search", false)
-
 	SearchVarPtr := core.GStrdupNullable(SearchVar)
 	defer core.GFreeNullable(SearchVarPtr)
 
@@ -239,4 +222,27 @@ func (x *StringFilter) GetPropertySearch() string {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GTK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xStringFilterMatchModeGLibType, libs, "gtk_string_filter_match_mode_get_type")
+
+	core.PuregoSafeRegister(&xStringFilterGLibType, libs, "gtk_string_filter_get_type")
+
+	core.PuregoSafeRegister(&xNewStringFilter, libs, "gtk_string_filter_new")
+
+	core.PuregoSafeRegister(&xStringFilterGetExpression, libs, "gtk_string_filter_get_expression")
+	core.PuregoSafeRegister(&xStringFilterGetIgnoreCase, libs, "gtk_string_filter_get_ignore_case")
+	core.PuregoSafeRegister(&xStringFilterGetMatchMode, libs, "gtk_string_filter_get_match_mode")
+	core.PuregoSafeRegister(&xStringFilterGetSearch, libs, "gtk_string_filter_get_search")
+	core.PuregoSafeRegister(&xStringFilterSetExpression, libs, "gtk_string_filter_set_expression")
+	core.PuregoSafeRegister(&xStringFilterSetIgnoreCase, libs, "gtk_string_filter_set_ignore_case")
+	core.PuregoSafeRegister(&xStringFilterSetMatchMode, libs, "gtk_string_filter_set_match_mode")
+	core.PuregoSafeRegister(&xStringFilterSetSearch, libs, "gtk_string_filter_set_search")
 }

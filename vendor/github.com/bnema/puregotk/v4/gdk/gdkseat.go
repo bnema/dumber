@@ -4,6 +4,7 @@ package gdk
 import (
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -16,7 +17,6 @@ type SeatCapabilities int
 var xSeatCapabilitiesGLibType func() types.GType
 
 func SeatCapabilitiesGLibType() types.GType {
-	core.LazyRegister(&xSeatCapabilitiesGLibType, "GDK", "gdk_seat_capabilities_get_type", false)
 	return xSeatCapabilitiesGLibType()
 }
 
@@ -48,7 +48,6 @@ type Seat struct {
 var xSeatGLibType func() types.GType
 
 func SeatGLibType() types.GType {
-	core.LazyRegister(&xSeatGLibType, "GDK", "gdk_seat_get_type", false)
 	return xSeatGLibType()
 }
 
@@ -62,8 +61,6 @@ var xSeatGetCapabilities func(uintptr) SeatCapabilities
 
 // Returns the capabilities this `GdkSeat` currently has.
 func (x *Seat) GetCapabilities() SeatCapabilities {
-	core.LazyRegister(&xSeatGetCapabilities, "GDK", "gdk_seat_get_capabilities", false)
-
 	cret := xSeatGetCapabilities(x.GoPointer())
 	return cret
 }
@@ -72,8 +69,6 @@ var xSeatGetDevices func(uintptr, SeatCapabilities) uintptr
 
 // Returns the devices that match the given capabilities.
 func (x *Seat) GetDevices(CapabilitiesVar SeatCapabilities) *glib.List {
-	core.LazyRegister(&xSeatGetDevices, "GDK", "gdk_seat_get_devices", false)
-
 	cret := xSeatGetDevices(x.GoPointer(), CapabilitiesVar)
 	if cret == 0 {
 		return nil
@@ -85,7 +80,6 @@ var xSeatGetDisplay func(uintptr) uintptr
 
 // Returns the `GdkDisplay` this seat belongs to.
 func (x *Seat) GetDisplay() *Display {
-	core.LazyRegister(&xSeatGetDisplay, "GDK", "gdk_seat_get_display", false)
 	var cls *Display
 
 	cret := xSeatGetDisplay(x.GoPointer())
@@ -103,7 +97,6 @@ var xSeatGetKeyboard func(uintptr) uintptr
 
 // Returns the device that routes keyboard events.
 func (x *Seat) GetKeyboard() *Device {
-	core.LazyRegister(&xSeatGetKeyboard, "GDK", "gdk_seat_get_keyboard", false)
 	var cls *Device
 
 	cret := xSeatGetKeyboard(x.GoPointer())
@@ -121,7 +114,6 @@ var xSeatGetPointer func(uintptr) uintptr
 
 // Returns the device that routes pointer events.
 func (x *Seat) GetPointer() *Device {
-	core.LazyRegister(&xSeatGetPointer, "GDK", "gdk_seat_get_pointer", false)
 	var cls *Device
 
 	cret := xSeatGetPointer(x.GoPointer())
@@ -139,8 +131,6 @@ var xSeatGetTools func(uintptr) uintptr
 
 // Returns all `GdkDeviceTools` that are known to the application.
 func (x *Seat) GetTools() *glib.List {
-	core.LazyRegister(&xSeatGetTools, "GDK", "gdk_seat_get_tools", false)
-
 	cret := xSeatGetTools(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -260,4 +250,23 @@ func (x *Seat) ConnectToolRemoved(cb *func(Seat, uintptr)) uint {
 func init() {
 	core.SetPackageName("GDK", "gtk4")
 	core.SetSharedLibraries("GDK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GDK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xSeatCapabilitiesGLibType, libs, "gdk_seat_capabilities_get_type")
+
+	core.PuregoSafeRegister(&xSeatGLibType, libs, "gdk_seat_get_type")
+
+	core.PuregoSafeRegister(&xSeatGetCapabilities, libs, "gdk_seat_get_capabilities")
+	core.PuregoSafeRegister(&xSeatGetDevices, libs, "gdk_seat_get_devices")
+	core.PuregoSafeRegister(&xSeatGetDisplay, libs, "gdk_seat_get_display")
+	core.PuregoSafeRegister(&xSeatGetKeyboard, libs, "gdk_seat_get_keyboard")
+	core.PuregoSafeRegister(&xSeatGetPointer, libs, "gdk_seat_get_pointer")
+	core.PuregoSafeRegister(&xSeatGetTools, libs, "gdk_seat_get_tools")
 }

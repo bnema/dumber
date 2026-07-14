@@ -4,6 +4,7 @@ package gio
 import (
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -69,7 +70,6 @@ type PropertyAction struct {
 var xPropertyActionGLibType func() types.GType
 
 func PropertyActionGLibType() types.GType {
-	core.LazyRegister(&xPropertyActionGLibType, "GIO", "g_property_action_get_type", false)
 	return xPropertyActionGLibType()
 }
 
@@ -90,7 +90,6 @@ var xNewPropertyAction func(string, uintptr, string) uintptr
 // This function takes a reference on @object and doesn't release it
 // until the action is destroyed.
 func NewPropertyAction(NameVar string, ObjectVar *gobject.Object, PropertyNameVar string) *PropertyAction {
-	core.LazyRegister(&xNewPropertyAction, "GIO", "g_property_action_new", false)
 	var cls *PropertyAction
 
 	cret := xNewPropertyAction(NameVar, ObjectVar.GoPointer(), PropertyNameVar)
@@ -323,4 +322,16 @@ func (x *PropertyAction) GetStateType() *glib.VariantType {
 func init() {
 	core.SetPackageName("GIO", "gio-2.0")
 	core.SetSharedLibraries("GIO", []string{"libgio-2.0.so.0", "libgio-2.0.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GIO") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xPropertyActionGLibType, libs, "g_property_action_get_type")
+
+	core.PuregoSafeRegister(&xNewPropertyAction, libs, "g_property_action_new")
 }

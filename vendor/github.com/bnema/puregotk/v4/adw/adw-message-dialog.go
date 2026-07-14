@@ -207,7 +207,6 @@ type MessageDialog struct {
 var xMessageDialogGLibType func() types.GType
 
 func MessageDialogGLibType() types.GType {
-	core.LazyRegister(&xMessageDialogGLibType, "ADW", "adw_message_dialog_get_type", false)
 	return xMessageDialogGLibType()
 }
 
@@ -236,7 +235,6 @@ var xNewMessageDialog func(uintptr, uintptr, uintptr) uintptr
 //
 // ```
 func NewMessageDialog(ParentVar *gtk.Window, HeadingVar *string, BodyVar *string) *MessageDialog {
-	core.LazyRegister(&xNewMessageDialog, "ADW", "adw_message_dialog_new", false)
 	var cls *MessageDialog
 
 	HeadingVarPtr := core.GStrdupNullable(HeadingVar)
@@ -275,8 +273,6 @@ var xMessageDialogAddResponse func(uintptr, string, string)
 // [method@MessageDialog.set_response_appearance] can be used to customize the
 // responses further.
 func (x *MessageDialog) AddResponse(IdVar string, LabelVar string) {
-	core.LazyRegister(&xMessageDialogAddResponse, "ADW", "adw_message_dialog_add_response", false)
-
 	xMessageDialogAddResponse(x.GoPointer(), IdVar, LabelVar)
 }
 
@@ -300,8 +296,6 @@ var xMessageDialogAddResponses func(uintptr, string, ...interface{})
 //
 // ```
 func (x *MessageDialog) AddResponses(FirstIdVar string, varArgs ...interface{}) {
-	core.LazyRegister(&xMessageDialogAddResponses, "ADW", "adw_message_dialog_add_responses", false)
-
 	xMessageDialogAddResponses(x.GoPointer(), FirstIdVar, varArgs...)
 }
 
@@ -309,8 +303,6 @@ var xMessageDialogChoose func(uintptr, uintptr, uintptr, uintptr)
 
 // This function shows @self to the user.
 func (x *MessageDialog) Choose(CancellableVar *gio.Cancellable, CallbackVar *gio.AsyncReadyCallback, UserDataVar uintptr) {
-	core.LazyRegister(&xMessageDialogChoose, "ADW", "adw_message_dialog_choose", false)
-
 	xMessageDialogChoose(x.GoPointer(), CancellableVar.GoPointer(), glib.NewCallbackNullable(CallbackVar), UserDataVar)
 }
 
@@ -318,8 +310,6 @@ var xMessageDialogChooseFinish func(uintptr, uintptr) string
 
 // Finishes the [method@MessageDialog.choose] call and returns the response ID.
 func (x *MessageDialog) ChooseFinish(ResultVar gio.AsyncResult) string {
-	core.LazyRegister(&xMessageDialogChooseFinish, "ADW", "adw_message_dialog_choose_finish", false)
-
 	cret := xMessageDialogChooseFinish(x.GoPointer(), ResultVar.GoPointer())
 	return cret
 }
@@ -330,8 +320,6 @@ var xMessageDialogFormatBody func(uintptr, string, ...interface{})
 //
 // See [property@MessageDialog:body].
 func (x *MessageDialog) FormatBody(FormatVar string, varArgs ...interface{}) {
-	core.LazyRegister(&xMessageDialogFormatBody, "ADW", "adw_message_dialog_format_body", false)
-
 	xMessageDialogFormatBody(x.GoPointer(), FormatVar, varArgs...)
 }
 
@@ -347,8 +335,6 @@ var xMessageDialogFormatBodyMarkup func(uintptr, string, ...interface{})
 //
 // See [property@MessageDialog:body].
 func (x *MessageDialog) FormatBodyMarkup(FormatVar string, varArgs ...interface{}) {
-	core.LazyRegister(&xMessageDialogFormatBodyMarkup, "ADW", "adw_message_dialog_format_body_markup", false)
-
 	xMessageDialogFormatBodyMarkup(x.GoPointer(), FormatVar, varArgs...)
 }
 
@@ -358,8 +344,6 @@ var xMessageDialogFormatHeading func(uintptr, string, ...interface{})
 //
 // See [property@MessageDialog:heading].
 func (x *MessageDialog) FormatHeading(FormatVar string, varArgs ...interface{}) {
-	core.LazyRegister(&xMessageDialogFormatHeading, "ADW", "adw_message_dialog_format_heading", false)
-
 	xMessageDialogFormatHeading(x.GoPointer(), FormatVar, varArgs...)
 }
 
@@ -375,8 +359,6 @@ var xMessageDialogFormatHeadingMarkup func(uintptr, string, ...interface{})
 //
 // See [property@MessageDialog:heading].
 func (x *MessageDialog) FormatHeadingMarkup(FormatVar string, varArgs ...interface{}) {
-	core.LazyRegister(&xMessageDialogFormatHeadingMarkup, "ADW", "adw_message_dialog_format_heading_markup", false)
-
 	xMessageDialogFormatHeadingMarkup(x.GoPointer(), FormatVar, varArgs...)
 }
 
@@ -384,8 +366,6 @@ var xMessageDialogGetBody func(uintptr) string
 
 // Gets the body text of @self.
 func (x *MessageDialog) GetBody() string {
-	core.LazyRegister(&xMessageDialogGetBody, "ADW", "adw_message_dialog_get_body", false)
-
 	cret := xMessageDialogGetBody(x.GoPointer())
 	return cret
 }
@@ -394,8 +374,6 @@ var xMessageDialogGetBodyUseMarkup func(uintptr) bool
 
 // Gets whether the body text of @self includes Pango markup.
 func (x *MessageDialog) GetBodyUseMarkup() bool {
-	core.LazyRegister(&xMessageDialogGetBodyUseMarkup, "ADW", "adw_message_dialog_get_body_use_markup", false)
-
 	cret := xMessageDialogGetBodyUseMarkup(x.GoPointer())
 	return cret
 }
@@ -404,8 +382,6 @@ var xMessageDialogGetCloseResponse func(uintptr) string
 
 // Gets the ID of the close response of @self.
 func (x *MessageDialog) GetCloseResponse() string {
-	core.LazyRegister(&xMessageDialogGetCloseResponse, "ADW", "adw_message_dialog_get_close_response", false)
-
 	cret := xMessageDialogGetCloseResponse(x.GoPointer())
 	return cret
 }
@@ -414,8 +390,6 @@ var xMessageDialogGetDefaultResponse func(uintptr) string
 
 // Gets the ID of the default response of @self.
 func (x *MessageDialog) GetDefaultResponse() string {
-	core.LazyRegister(&xMessageDialogGetDefaultResponse, "ADW", "adw_message_dialog_get_default_response", false)
-
 	cret := xMessageDialogGetDefaultResponse(x.GoPointer())
 	return cret
 }
@@ -424,7 +398,6 @@ var xMessageDialogGetExtraChild func(uintptr) uintptr
 
 // Gets the child widget of @self.
 func (x *MessageDialog) GetExtraChild() *gtk.Widget {
-	core.LazyRegister(&xMessageDialogGetExtraChild, "ADW", "adw_message_dialog_get_extra_child", false)
 	var cls *gtk.Widget
 
 	cret := xMessageDialogGetExtraChild(x.GoPointer())
@@ -442,8 +415,6 @@ var xMessageDialogGetHeading func(uintptr) string
 
 // Gets the heading of @self.
 func (x *MessageDialog) GetHeading() string {
-	core.LazyRegister(&xMessageDialogGetHeading, "ADW", "adw_message_dialog_get_heading", false)
-
 	cret := xMessageDialogGetHeading(x.GoPointer())
 	return cret
 }
@@ -452,8 +423,6 @@ var xMessageDialogGetHeadingUseMarkup func(uintptr) bool
 
 // Gets whether the heading of @self includes Pango markup.
 func (x *MessageDialog) GetHeadingUseMarkup() bool {
-	core.LazyRegister(&xMessageDialogGetHeadingUseMarkup, "ADW", "adw_message_dialog_get_heading_use_markup", false)
-
 	cret := xMessageDialogGetHeadingUseMarkup(x.GoPointer())
 	return cret
 }
@@ -464,8 +433,6 @@ var xMessageDialogGetResponseAppearance func(uintptr, string) ResponseAppearance
 //
 // See [method@MessageDialog.set_response_appearance].
 func (x *MessageDialog) GetResponseAppearance(ResponseVar string) ResponseAppearance {
-	core.LazyRegister(&xMessageDialogGetResponseAppearance, "ADW", "adw_message_dialog_get_response_appearance", false)
-
 	cret := xMessageDialogGetResponseAppearance(x.GoPointer(), ResponseVar)
 	return cret
 }
@@ -476,8 +443,6 @@ var xMessageDialogGetResponseEnabled func(uintptr, string) bool
 //
 // See [method@MessageDialog.set_response_enabled].
 func (x *MessageDialog) GetResponseEnabled(ResponseVar string) bool {
-	core.LazyRegister(&xMessageDialogGetResponseEnabled, "ADW", "adw_message_dialog_get_response_enabled", false)
-
 	cret := xMessageDialogGetResponseEnabled(x.GoPointer(), ResponseVar)
 	return cret
 }
@@ -488,8 +453,6 @@ var xMessageDialogGetResponseLabel func(uintptr, string) string
 //
 // See [method@MessageDialog.set_response_label].
 func (x *MessageDialog) GetResponseLabel(ResponseVar string) string {
-	core.LazyRegister(&xMessageDialogGetResponseLabel, "ADW", "adw_message_dialog_get_response_label", false)
-
 	cret := xMessageDialogGetResponseLabel(x.GoPointer(), ResponseVar)
 	return cret
 }
@@ -498,8 +461,6 @@ var xMessageDialogHasResponse func(uintptr, string) bool
 
 // Gets whether @self has a response with the ID @response.
 func (x *MessageDialog) HasResponse(ResponseVar string) bool {
-	core.LazyRegister(&xMessageDialogHasResponse, "ADW", "adw_message_dialog_has_response", false)
-
 	cret := xMessageDialogHasResponse(x.GoPointer(), ResponseVar)
 	return cret
 }
@@ -508,8 +469,6 @@ var xMessageDialogRemoveResponse func(uintptr, string)
 
 // Removes a response from @self.
 func (x *MessageDialog) RemoveResponse(IdVar string) {
-	core.LazyRegister(&xMessageDialogRemoveResponse, "ADW", "adw_message_dialog_remove_response", false)
-
 	xMessageDialogRemoveResponse(x.GoPointer(), IdVar)
 }
 
@@ -519,8 +478,6 @@ var xMessageDialogResponse func(uintptr, string)
 //
 // Used to indicate that the user has responded to the dialog in some way.
 func (x *MessageDialog) Response(ResponseVar string) {
-	core.LazyRegister(&xMessageDialogResponse, "ADW", "adw_message_dialog_response", false)
-
 	xMessageDialogResponse(x.GoPointer(), ResponseVar)
 }
 
@@ -528,8 +485,6 @@ var xMessageDialogSetBody func(uintptr, string)
 
 // Sets the body text of @self.
 func (x *MessageDialog) SetBody(BodyVar string) {
-	core.LazyRegister(&xMessageDialogSetBody, "ADW", "adw_message_dialog_set_body", false)
-
 	xMessageDialogSetBody(x.GoPointer(), BodyVar)
 }
 
@@ -539,8 +494,6 @@ var xMessageDialogSetBodyUseMarkup func(uintptr, bool)
 //
 // See [func@Pango.parse_markup].
 func (x *MessageDialog) SetBodyUseMarkup(UseMarkupVar bool) {
-	core.LazyRegister(&xMessageDialogSetBodyUseMarkup, "ADW", "adw_message_dialog_set_body_use_markup", false)
-
 	xMessageDialogSetBodyUseMarkup(x.GoPointer(), UseMarkupVar)
 }
 
@@ -555,8 +508,6 @@ var xMessageDialogSetCloseResponse func(uintptr, string)
 //
 // The default close response is `close`.
 func (x *MessageDialog) SetCloseResponse(ResponseVar string) {
-	core.LazyRegister(&xMessageDialogSetCloseResponse, "ADW", "adw_message_dialog_set_close_response", false)
-
 	xMessageDialogSetCloseResponse(x.GoPointer(), ResponseVar)
 }
 
@@ -572,8 +523,6 @@ var xMessageDialogSetDefaultResponse func(uintptr, uintptr)
 //
 // See [property@Gtk.Window:default-widget].
 func (x *MessageDialog) SetDefaultResponse(ResponseVar *string) {
-	core.LazyRegister(&xMessageDialogSetDefaultResponse, "ADW", "adw_message_dialog_set_default_response", false)
-
 	ResponseVarPtr := core.GStrdupNullable(ResponseVar)
 	defer core.GFreeNullable(ResponseVarPtr)
 
@@ -586,8 +535,6 @@ var xMessageDialogSetExtraChild func(uintptr, uintptr)
 //
 // The child widget is displayed below the heading and body.
 func (x *MessageDialog) SetExtraChild(ChildVar *gtk.Widget) {
-	core.LazyRegister(&xMessageDialogSetExtraChild, "ADW", "adw_message_dialog_set_extra_child", false)
-
 	xMessageDialogSetExtraChild(x.GoPointer(), ChildVar.GoPointer())
 }
 
@@ -595,8 +542,6 @@ var xMessageDialogSetHeading func(uintptr, uintptr)
 
 // Sets the heading of @self.
 func (x *MessageDialog) SetHeading(HeadingVar *string) {
-	core.LazyRegister(&xMessageDialogSetHeading, "ADW", "adw_message_dialog_set_heading", false)
-
 	HeadingVarPtr := core.GStrdupNullable(HeadingVar)
 	defer core.GFreeNullable(HeadingVarPtr)
 
@@ -609,8 +554,6 @@ var xMessageDialogSetHeadingUseMarkup func(uintptr, bool)
 //
 // See [func@Pango.parse_markup].
 func (x *MessageDialog) SetHeadingUseMarkup(UseMarkupVar bool) {
-	core.LazyRegister(&xMessageDialogSetHeadingUseMarkup, "ADW", "adw_message_dialog_set_heading_use_markup", false)
-
 	xMessageDialogSetHeadingUseMarkup(x.GoPointer(), UseMarkupVar)
 }
 
@@ -637,8 +580,6 @@ var xMessageDialogSetResponseAppearance func(uintptr, string, ResponseAppearance
 //
 // Negative responses like Cancel or Close should use the default appearance.
 func (x *MessageDialog) SetResponseAppearance(ResponseVar string, AppearanceVar ResponseAppearance) {
-	core.LazyRegister(&xMessageDialogSetResponseAppearance, "ADW", "adw_message_dialog_set_response_appearance", false)
-
 	xMessageDialogSetResponseAppearance(x.GoPointer(), ResponseVar, AppearanceVar)
 }
 
@@ -655,8 +596,6 @@ var xMessageDialogSetResponseEnabled func(uintptr, string, bool)
 //
 // Responses are enabled by default.
 func (x *MessageDialog) SetResponseEnabled(ResponseVar string, EnabledVar bool) {
-	core.LazyRegister(&xMessageDialogSetResponseEnabled, "ADW", "adw_message_dialog_set_response_enabled", false)
-
 	xMessageDialogSetResponseEnabled(x.GoPointer(), ResponseVar, EnabledVar)
 }
 
@@ -667,8 +606,6 @@ var xMessageDialogSetResponseLabel func(uintptr, string, string)
 // Labels are displayed on the dialog buttons. An embedded underline in @label
 // indicates a mnemonic.
 func (x *MessageDialog) SetResponseLabel(ResponseVar string, LabelVar string) {
-	core.LazyRegister(&xMessageDialogSetResponseLabel, "ADW", "adw_message_dialog_set_response_label", false)
-
 	xMessageDialogSetResponseLabel(x.GoPointer(), ResponseVar, LabelVar)
 }
 
@@ -1215,4 +1152,48 @@ func (x *MessageDialog) SetFocus(FocusVar *gtk.Widget) {
 func init() {
 	core.SetPackageName("ADW", "libadwaita-1")
 	core.SetSharedLibraries("ADW", []string{"libadwaita-1.so.0", "libadwaita-1.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("ADW") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xMessageDialogGLibType, libs, "adw_message_dialog_get_type")
+
+	core.PuregoSafeRegister(&xNewMessageDialog, libs, "adw_message_dialog_new")
+
+	core.PuregoSafeRegister(&xMessageDialogAddResponse, libs, "adw_message_dialog_add_response")
+	core.PuregoSafeRegister(&xMessageDialogAddResponses, libs, "adw_message_dialog_add_responses")
+	core.PuregoSafeRegister(&xMessageDialogChoose, libs, "adw_message_dialog_choose")
+	core.PuregoSafeRegister(&xMessageDialogChooseFinish, libs, "adw_message_dialog_choose_finish")
+	core.PuregoSafeRegister(&xMessageDialogFormatBody, libs, "adw_message_dialog_format_body")
+	core.PuregoSafeRegister(&xMessageDialogFormatBodyMarkup, libs, "adw_message_dialog_format_body_markup")
+	core.PuregoSafeRegister(&xMessageDialogFormatHeading, libs, "adw_message_dialog_format_heading")
+	core.PuregoSafeRegister(&xMessageDialogFormatHeadingMarkup, libs, "adw_message_dialog_format_heading_markup")
+	core.PuregoSafeRegister(&xMessageDialogGetBody, libs, "adw_message_dialog_get_body")
+	core.PuregoSafeRegister(&xMessageDialogGetBodyUseMarkup, libs, "adw_message_dialog_get_body_use_markup")
+	core.PuregoSafeRegister(&xMessageDialogGetCloseResponse, libs, "adw_message_dialog_get_close_response")
+	core.PuregoSafeRegister(&xMessageDialogGetDefaultResponse, libs, "adw_message_dialog_get_default_response")
+	core.PuregoSafeRegister(&xMessageDialogGetExtraChild, libs, "adw_message_dialog_get_extra_child")
+	core.PuregoSafeRegister(&xMessageDialogGetHeading, libs, "adw_message_dialog_get_heading")
+	core.PuregoSafeRegister(&xMessageDialogGetHeadingUseMarkup, libs, "adw_message_dialog_get_heading_use_markup")
+	core.PuregoSafeRegister(&xMessageDialogGetResponseAppearance, libs, "adw_message_dialog_get_response_appearance")
+	core.PuregoSafeRegister(&xMessageDialogGetResponseEnabled, libs, "adw_message_dialog_get_response_enabled")
+	core.PuregoSafeRegister(&xMessageDialogGetResponseLabel, libs, "adw_message_dialog_get_response_label")
+	core.PuregoSafeRegister(&xMessageDialogHasResponse, libs, "adw_message_dialog_has_response")
+	core.PuregoSafeRegister(&xMessageDialogRemoveResponse, libs, "adw_message_dialog_remove_response")
+	core.PuregoSafeRegister(&xMessageDialogResponse, libs, "adw_message_dialog_response")
+	core.PuregoSafeRegister(&xMessageDialogSetBody, libs, "adw_message_dialog_set_body")
+	core.PuregoSafeRegister(&xMessageDialogSetBodyUseMarkup, libs, "adw_message_dialog_set_body_use_markup")
+	core.PuregoSafeRegister(&xMessageDialogSetCloseResponse, libs, "adw_message_dialog_set_close_response")
+	core.PuregoSafeRegister(&xMessageDialogSetDefaultResponse, libs, "adw_message_dialog_set_default_response")
+	core.PuregoSafeRegister(&xMessageDialogSetExtraChild, libs, "adw_message_dialog_set_extra_child")
+	core.PuregoSafeRegister(&xMessageDialogSetHeading, libs, "adw_message_dialog_set_heading")
+	core.PuregoSafeRegister(&xMessageDialogSetHeadingUseMarkup, libs, "adw_message_dialog_set_heading_use_markup")
+	core.PuregoSafeRegister(&xMessageDialogSetResponseAppearance, libs, "adw_message_dialog_set_response_appearance")
+	core.PuregoSafeRegister(&xMessageDialogSetResponseEnabled, libs, "adw_message_dialog_set_response_enabled")
+	core.PuregoSafeRegister(&xMessageDialogSetResponseLabel, libs, "adw_message_dialog_set_response_label")
 }

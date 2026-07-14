@@ -2,6 +2,7 @@
 package gtk
 
 import (
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gdk"
 	"github.com/bnema/puregotk/v4/gio"
@@ -198,7 +199,6 @@ type FileChooserDialog struct {
 var xFileChooserDialogGLibType func() types.GType
 
 func FileChooserDialogGLibType() types.GType {
-	core.LazyRegister(&xFileChooserDialogGLibType, "GTK", "gtk_file_chooser_dialog_get_type", false)
 	return xFileChooserDialogGLibType()
 }
 
@@ -214,7 +214,6 @@ var xNewFileChooserDialog func(uintptr, uintptr, FileChooserAction, uintptr, ...
 //
 // This function is analogous to [ctor@Gtk.Dialog.new_with_buttons].
 func NewFileChooserDialog(TitleVar *string, ParentVar *Window, ActionVar FileChooserAction, FirstButtonTextVar *string, varArgs ...interface{}) *FileChooserDialog {
-	core.LazyRegister(&xNewFileChooserDialog, "GTK", "gtk_file_chooser_dialog_new", false)
 	var cls *FileChooserDialog
 
 	TitleVarPtr := core.GStrdupNullable(TitleVar)
@@ -931,4 +930,16 @@ func (x *FileChooserDialog) SetFocus(FocusVar *Widget) {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GTK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xFileChooserDialogGLibType, libs, "gtk_file_chooser_dialog_get_type")
+
+	core.PuregoSafeRegister(&xNewFileChooserDialog, libs, "gtk_file_chooser_dialog_new")
 }

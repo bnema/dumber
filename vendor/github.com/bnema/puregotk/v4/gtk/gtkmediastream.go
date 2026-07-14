@@ -405,7 +405,6 @@ type MediaStream struct {
 var xMediaStreamGLibType func() types.GType
 
 func MediaStreamGLibType() types.GType {
-	core.LazyRegister(&xMediaStreamGLibType, "GTK", "gtk_media_stream_get_type", false)
 	return xMediaStreamGLibType()
 }
 
@@ -424,8 +423,6 @@ var xMediaStreamEnded func(uintptr)
 //
 // The media stream must be prepared when this function is called.
 func (x *MediaStream) Ended() {
-	core.LazyRegister(&xMediaStreamEnded, "GTK", "gtk_media_stream_ended", false)
-
 	xMediaStreamEnded(x.GoPointer())
 }
 
@@ -436,8 +433,6 @@ var xMediaStreamError func(uintptr, glib.Quark, int, string, ...interface{})
 // This is a utility function that calls [method@Gtk.MediaStream.gerror].
 // See that function for details.
 func (x *MediaStream) Error(DomainVar glib.Quark, CodeVar int, FormatVar string, varArgs ...interface{}) {
-	core.LazyRegister(&xMediaStreamError, "GTK", "gtk_media_stream_error", false)
-
 	xMediaStreamError(x.GoPointer(), DomainVar, CodeVar, FormatVar, varArgs...)
 }
 
@@ -448,8 +443,6 @@ var xMediaStreamErrorValist func(uintptr, glib.Quark, int, string, []interface{}
 // This is a utility function that calls [method@Gtk.MediaStream.gerror].
 // See that function for details.
 func (x *MediaStream) ErrorValist(DomainVar glib.Quark, CodeVar int, FormatVar string, ArgsVar []interface{}) {
-	core.LazyRegister(&xMediaStreamErrorValist, "GTK", "gtk_media_stream_error_valist", false)
-
 	xMediaStreamErrorValist(x.GoPointer(), DomainVar, CodeVar, FormatVar, ArgsVar)
 }
 
@@ -468,8 +461,6 @@ var xMediaStreamGerror func(uintptr, *glib.Error)
 // To unset an error, the stream must be reset via a call to
 // [method@Gtk.MediaStream.unprepared].
 func (x *MediaStream) Gerror(ErrorVar *glib.Error) {
-	core.LazyRegister(&xMediaStreamGerror, "GTK", "gtk_media_stream_gerror", false)
-
 	xMediaStreamGerror(x.GoPointer(), ErrorVar)
 }
 
@@ -479,8 +470,6 @@ var xMediaStreamGetDuration func(uintptr) int64
 //
 // If the duration is not known, 0 will be returned.
 func (x *MediaStream) GetDuration() int64 {
-	core.LazyRegister(&xMediaStreamGetDuration, "GTK", "gtk_media_stream_get_duration", false)
-
 	cret := xMediaStreamGetDuration(x.GoPointer())
 	return cret
 }
@@ -489,8 +478,6 @@ var xMediaStreamGetEnded func(uintptr) bool
 
 // Returns whether the streams playback is finished.
 func (x *MediaStream) GetEnded() bool {
-	core.LazyRegister(&xMediaStreamGetEnded, "GTK", "gtk_media_stream_get_ended", false)
-
 	cret := xMediaStreamGetEnded(x.GoPointer())
 	return cret
 }
@@ -512,8 +499,6 @@ var xMediaStreamGetError func(uintptr) uintptr
 // a [class@Gtk.MediaFile] will unset errors when a new source is
 // set, e.g. with [method@Gtk.MediaFile.set_file].
 func (x *MediaStream) GetError() *glib.Error {
-	core.LazyRegister(&xMediaStreamGetError, "GTK", "gtk_media_stream_get_error", false)
-
 	cret := xMediaStreamGetError(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -527,8 +512,6 @@ var xMediaStreamGetLoop func(uintptr) bool
 //
 // See [method@Gtk.MediaStream.set_loop] for details.
 func (x *MediaStream) GetLoop() bool {
-	core.LazyRegister(&xMediaStreamGetLoop, "GTK", "gtk_media_stream_get_loop", false)
-
 	cret := xMediaStreamGetLoop(x.GoPointer())
 	return cret
 }
@@ -539,8 +522,6 @@ var xMediaStreamGetMuted func(uintptr) bool
 //
 // See [method@Gtk.MediaStream.set_muted] for details.
 func (x *MediaStream) GetMuted() bool {
-	core.LazyRegister(&xMediaStreamGetMuted, "GTK", "gtk_media_stream_get_muted", false)
-
 	cret := xMediaStreamGetMuted(x.GoPointer())
 	return cret
 }
@@ -549,8 +530,6 @@ var xMediaStreamGetPlaying func(uintptr) bool
 
 // Return whether the stream is currently playing.
 func (x *MediaStream) GetPlaying() bool {
-	core.LazyRegister(&xMediaStreamGetPlaying, "GTK", "gtk_media_stream_get_playing", false)
-
 	cret := xMediaStreamGetPlaying(x.GoPointer())
 	return cret
 }
@@ -559,8 +538,6 @@ var xMediaStreamGetTimestamp func(uintptr) int64
 
 // Returns the current presentation timestamp in microseconds.
 func (x *MediaStream) GetTimestamp() int64 {
-	core.LazyRegister(&xMediaStreamGetTimestamp, "GTK", "gtk_media_stream_get_timestamp", false)
-
 	cret := xMediaStreamGetTimestamp(x.GoPointer())
 	return cret
 }
@@ -571,8 +548,6 @@ var xMediaStreamGetVolume func(uintptr) float64
 //
 // See [method@Gtk.MediaStream.set_volume] for details.
 func (x *MediaStream) GetVolume() float64 {
-	core.LazyRegister(&xMediaStreamGetVolume, "GTK", "gtk_media_stream_get_volume", false)
-
 	cret := xMediaStreamGetVolume(x.GoPointer())
 	return cret
 }
@@ -581,8 +556,6 @@ var xMediaStreamHasAudio func(uintptr) bool
 
 // Returns whether the stream has audio.
 func (x *MediaStream) HasAudio() bool {
-	core.LazyRegister(&xMediaStreamHasAudio, "GTK", "gtk_media_stream_has_audio", false)
-
 	cret := xMediaStreamHasAudio(x.GoPointer())
 	return cret
 }
@@ -591,8 +564,6 @@ var xMediaStreamHasVideo func(uintptr) bool
 
 // Returns whether the stream has video.
 func (x *MediaStream) HasVideo() bool {
-	core.LazyRegister(&xMediaStreamHasVideo, "GTK", "gtk_media_stream_has_video", false)
-
 	cret := xMediaStreamHasVideo(x.GoPointer())
 	return cret
 }
@@ -603,8 +574,6 @@ var xMediaStreamIsPrepared func(uintptr) bool
 //
 // At this point the existence of audio and video is known.
 func (x *MediaStream) IsPrepared() bool {
-	core.LazyRegister(&xMediaStreamIsPrepared, "GTK", "gtk_media_stream_is_prepared", false)
-
 	cret := xMediaStreamIsPrepared(x.GoPointer())
 	return cret
 }
@@ -621,8 +590,6 @@ var xMediaStreamIsSeekable func(uintptr) bool
 // It is allowed to call [method@Gtk.MediaStream.seek] on a non-seekable
 // stream, though it will not do anything.
 func (x *MediaStream) IsSeekable() bool {
-	core.LazyRegister(&xMediaStreamIsSeekable, "GTK", "gtk_media_stream_is_seekable", false)
-
 	cret := xMediaStreamIsSeekable(x.GoPointer())
 	return cret
 }
@@ -631,8 +598,6 @@ var xMediaStreamIsSeeking func(uintptr) bool
 
 // Checks if there is currently a seek operation going on.
 func (x *MediaStream) IsSeeking() bool {
-	core.LazyRegister(&xMediaStreamIsSeeking, "GTK", "gtk_media_stream_is_seeking", false)
-
 	cret := xMediaStreamIsSeeking(x.GoPointer())
 	return cret
 }
@@ -643,8 +608,6 @@ var xMediaStreamPause func(uintptr)
 //
 // If the stream is not playing, do nothing.
 func (x *MediaStream) Pause() {
-	core.LazyRegister(&xMediaStreamPause, "GTK", "gtk_media_stream_pause", false)
-
 	xMediaStreamPause(x.GoPointer())
 }
 
@@ -654,8 +617,6 @@ var xMediaStreamPlay func(uintptr)
 //
 // If the stream is in error or already playing, do nothing.
 func (x *MediaStream) Play() {
-	core.LazyRegister(&xMediaStreamPlay, "GTK", "gtk_media_stream_play", false)
-
 	xMediaStreamPlay(x.GoPointer())
 }
 
@@ -663,8 +624,6 @@ var xMediaStreamPrepared func(uintptr, bool, bool, bool, int64)
 
 // Same as gtk_media_stream_stream_prepared().
 func (x *MediaStream) Prepared(HasAudioVar bool, HasVideoVar bool, SeekableVar bool, DurationVar int64) {
-	core.LazyRegister(&xMediaStreamPrepared, "GTK", "gtk_media_stream_prepared", false)
-
 	xMediaStreamPrepared(x.GoPointer(), HasAudioVar, HasVideoVar, SeekableVar, DurationVar)
 }
 
@@ -687,8 +646,6 @@ var xMediaStreamRealize func(uintptr, uintptr)
 //
 // It is not required to call this function to make a media stream work.
 func (x *MediaStream) Realize(SurfaceVar *gdk.Surface) {
-	core.LazyRegister(&xMediaStreamRealize, "GTK", "gtk_media_stream_realize", false)
-
 	xMediaStreamRealize(x.GoPointer(), SurfaceVar.GoPointer())
 }
 
@@ -706,8 +663,6 @@ var xMediaStreamMediaStreamSeek func(uintptr, int64)
 // ongoing seek operation, the new seek will override
 // any pending seek.
 func (x *MediaStream) MediaStreamSeek(TimestampVar int64) {
-	core.LazyRegister(&xMediaStreamMediaStreamSeek, "GTK", "gtk_media_stream_seek", false)
-
 	xMediaStreamMediaStreamSeek(x.GoPointer(), TimestampVar)
 }
 
@@ -721,8 +676,6 @@ var xMediaStreamSeekFailed func(uintptr)
 // See [method@Gtk.MediaStream.seek_success] for the other way of
 // ending a seek.
 func (x *MediaStream) SeekFailed() {
-	core.LazyRegister(&xMediaStreamSeekFailed, "GTK", "gtk_media_stream_seek_failed", false)
-
 	xMediaStreamSeekFailed(x.GoPointer())
 }
 
@@ -736,8 +689,6 @@ var xMediaStreamSeekSuccess func(uintptr)
 // See [method@Gtk.MediaStream.seek_failed] for the other way of
 // ending a seek.
 func (x *MediaStream) SeekSuccess() {
-	core.LazyRegister(&xMediaStreamSeekSuccess, "GTK", "gtk_media_stream_seek_success", false)
-
 	xMediaStreamSeekSuccess(x.GoPointer())
 }
 
@@ -752,8 +703,6 @@ var xMediaStreamSetLoop func(uintptr, bool)
 // non-seekable streams. Those streams will ignore the
 // loop setting and just end.
 func (x *MediaStream) SetLoop(LoopVar bool) {
-	core.LazyRegister(&xMediaStreamSetLoop, "GTK", "gtk_media_stream_set_loop", false)
-
 	xMediaStreamSetLoop(x.GoPointer(), LoopVar)
 }
 
@@ -768,8 +717,6 @@ var xMediaStreamSetMuted func(uintptr, bool)
 // If the stream has no audio, calling this function will
 // still work but it will not have an audible effect.
 func (x *MediaStream) SetMuted(MutedVar bool) {
-	core.LazyRegister(&xMediaStreamSetMuted, "GTK", "gtk_media_stream_set_muted", false)
-
 	xMediaStreamSetMuted(x.GoPointer(), MutedVar)
 }
 
@@ -777,8 +724,6 @@ var xMediaStreamSetPlaying func(uintptr, bool)
 
 // Starts or pauses playback of the stream.
 func (x *MediaStream) SetPlaying(PlayingVar bool) {
-	core.LazyRegister(&xMediaStreamSetPlaying, "GTK", "gtk_media_stream_set_playing", false)
-
 	xMediaStreamSetPlaying(x.GoPointer(), PlayingVar)
 }
 
@@ -796,8 +741,6 @@ var xMediaStreamSetVolume func(uintptr, float64)
 // will still work but it will not have an immediate audible effect.
 // When the stream is unmuted, the new volume setting will take effect.
 func (x *MediaStream) SetVolume(VolumeVar float64) {
-	core.LazyRegister(&xMediaStreamSetVolume, "GTK", "gtk_media_stream_set_volume", false)
-
 	xMediaStreamSetVolume(x.GoPointer(), VolumeVar)
 }
 
@@ -810,8 +753,6 @@ var xMediaStreamStreamEnded func(uintptr)
 //
 // The media stream must be prepared when this function is called.
 func (x *MediaStream) StreamEnded() {
-	core.LazyRegister(&xMediaStreamStreamEnded, "GTK", "gtk_media_stream_stream_ended", false)
-
 	xMediaStreamStreamEnded(x.GoPointer())
 }
 
@@ -828,8 +769,6 @@ var xMediaStreamStreamPrepared func(uintptr, bool, bool, bool, int64)
 // This function may not be called again until the stream has been
 // reset via [method@Gtk.MediaStream.stream_unprepared].
 func (x *MediaStream) StreamPrepared(HasAudioVar bool, HasVideoVar bool, SeekableVar bool, DurationVar int64) {
-	core.LazyRegister(&xMediaStreamStreamPrepared, "GTK", "gtk_media_stream_stream_prepared", false)
-
 	xMediaStreamStreamPrepared(x.GoPointer(), HasAudioVar, HasVideoVar, SeekableVar, DurationVar)
 }
 
@@ -841,8 +780,6 @@ var xMediaStreamStreamUnprepared func(uintptr)
 //
 // This function will also reset any error state the stream was in.
 func (x *MediaStream) StreamUnprepared() {
-	core.LazyRegister(&xMediaStreamStreamUnprepared, "GTK", "gtk_media_stream_stream_unprepared", false)
-
 	xMediaStreamStreamUnprepared(x.GoPointer())
 }
 
@@ -850,8 +787,6 @@ var xMediaStreamUnprepared func(uintptr)
 
 // Same as gtk_media_stream_stream_unprepared().
 func (x *MediaStream) Unprepared() {
-	core.LazyRegister(&xMediaStreamUnprepared, "GTK", "gtk_media_stream_unprepared", false)
-
 	xMediaStreamUnprepared(x.GoPointer())
 }
 
@@ -862,8 +797,6 @@ var xMediaStreamUnrealize func(uintptr, uintptr)
 // This causes the stream to release all resources it had
 // allocated from @surface.
 func (x *MediaStream) Unrealize(SurfaceVar *gdk.Surface) {
-	core.LazyRegister(&xMediaStreamUnrealize, "GTK", "gtk_media_stream_unrealize", false)
-
 	xMediaStreamUnrealize(x.GoPointer(), SurfaceVar.GoPointer())
 }
 
@@ -877,8 +810,6 @@ var xMediaStreamUpdate func(uintptr, int64)
 //
 // The media stream must be prepared when this function is called.
 func (x *MediaStream) Update(TimestampVar int64) {
-	core.LazyRegister(&xMediaStreamUpdate, "GTK", "gtk_media_stream_update", false)
-
 	xMediaStreamUpdate(x.GoPointer(), TimestampVar)
 }
 
@@ -1170,4 +1101,49 @@ func (x *MediaStream) Snapshot(SnapshotVar *gdk.Snapshot, WidthVar float64, Heig
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GTK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xMediaStreamGLibType, libs, "gtk_media_stream_get_type")
+
+	core.PuregoSafeRegister(&xMediaStreamEnded, libs, "gtk_media_stream_ended")
+	core.PuregoSafeRegister(&xMediaStreamError, libs, "gtk_media_stream_error")
+	core.PuregoSafeRegister(&xMediaStreamErrorValist, libs, "gtk_media_stream_error_valist")
+	core.PuregoSafeRegister(&xMediaStreamGerror, libs, "gtk_media_stream_gerror")
+	core.PuregoSafeRegister(&xMediaStreamGetDuration, libs, "gtk_media_stream_get_duration")
+	core.PuregoSafeRegister(&xMediaStreamGetEnded, libs, "gtk_media_stream_get_ended")
+	core.PuregoSafeRegister(&xMediaStreamGetError, libs, "gtk_media_stream_get_error")
+	core.PuregoSafeRegister(&xMediaStreamGetLoop, libs, "gtk_media_stream_get_loop")
+	core.PuregoSafeRegister(&xMediaStreamGetMuted, libs, "gtk_media_stream_get_muted")
+	core.PuregoSafeRegister(&xMediaStreamGetPlaying, libs, "gtk_media_stream_get_playing")
+	core.PuregoSafeRegister(&xMediaStreamGetTimestamp, libs, "gtk_media_stream_get_timestamp")
+	core.PuregoSafeRegister(&xMediaStreamGetVolume, libs, "gtk_media_stream_get_volume")
+	core.PuregoSafeRegister(&xMediaStreamHasAudio, libs, "gtk_media_stream_has_audio")
+	core.PuregoSafeRegister(&xMediaStreamHasVideo, libs, "gtk_media_stream_has_video")
+	core.PuregoSafeRegister(&xMediaStreamIsPrepared, libs, "gtk_media_stream_is_prepared")
+	core.PuregoSafeRegister(&xMediaStreamIsSeekable, libs, "gtk_media_stream_is_seekable")
+	core.PuregoSafeRegister(&xMediaStreamIsSeeking, libs, "gtk_media_stream_is_seeking")
+	core.PuregoSafeRegister(&xMediaStreamPause, libs, "gtk_media_stream_pause")
+	core.PuregoSafeRegister(&xMediaStreamPlay, libs, "gtk_media_stream_play")
+	core.PuregoSafeRegister(&xMediaStreamPrepared, libs, "gtk_media_stream_prepared")
+	core.PuregoSafeRegister(&xMediaStreamRealize, libs, "gtk_media_stream_realize")
+	core.PuregoSafeRegister(&xMediaStreamMediaStreamSeek, libs, "gtk_media_stream_seek")
+	core.PuregoSafeRegister(&xMediaStreamSeekFailed, libs, "gtk_media_stream_seek_failed")
+	core.PuregoSafeRegister(&xMediaStreamSeekSuccess, libs, "gtk_media_stream_seek_success")
+	core.PuregoSafeRegister(&xMediaStreamSetLoop, libs, "gtk_media_stream_set_loop")
+	core.PuregoSafeRegister(&xMediaStreamSetMuted, libs, "gtk_media_stream_set_muted")
+	core.PuregoSafeRegister(&xMediaStreamSetPlaying, libs, "gtk_media_stream_set_playing")
+	core.PuregoSafeRegister(&xMediaStreamSetVolume, libs, "gtk_media_stream_set_volume")
+	core.PuregoSafeRegister(&xMediaStreamStreamEnded, libs, "gtk_media_stream_stream_ended")
+	core.PuregoSafeRegister(&xMediaStreamStreamPrepared, libs, "gtk_media_stream_stream_prepared")
+	core.PuregoSafeRegister(&xMediaStreamStreamUnprepared, libs, "gtk_media_stream_stream_unprepared")
+	core.PuregoSafeRegister(&xMediaStreamUnprepared, libs, "gtk_media_stream_unprepared")
+	core.PuregoSafeRegister(&xMediaStreamUnrealize, libs, "gtk_media_stream_unrealize")
+	core.PuregoSafeRegister(&xMediaStreamUpdate, libs, "gtk_media_stream_update")
 }

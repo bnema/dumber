@@ -202,7 +202,6 @@ type ListModel interface {
 var xListModelGLibType func() types.GType
 
 func ListModelGLibType() types.GType {
-	core.LazyRegister(&xListModelGLibType, "GIO", "g_list_model_get_type", false)
 	return xListModelGLibType()
 }
 
@@ -307,42 +306,31 @@ func (x *ListModelBase) ItemsChanged(PositionVar uint, RemovedVar uint, AddedVar
 	XGListModelItemsChanged(x.GoPointer(), PositionVar, RemovedVar, AddedVar)
 }
 
-var XGListModelGetItem func(uintptr, uint) uintptr = func(instance uintptr, PositionVarp uint) uintptr {
-	core.LazyRegister(&xXGListModelGetItem, "GIO", "g_list_model_get_item", false)
-	return xXGListModelGetItem(instance, PositionVarp)
-}
-
 var (
-	xXGListModelGetItem    func(uintptr, uint) uintptr
-	XGListModelGetItemType func(uintptr) types.GType = func(instance uintptr) types.GType {
-		core.LazyRegister(&xXGListModelGetItemType, "GIO", "g_list_model_get_item_type", false)
-		return xXGListModelGetItemType(instance)
-	}
+	XGListModelGetItem      func(uintptr, uint) uintptr
+	XGListModelGetItemType  func(uintptr) types.GType
+	XGListModelGetNItems    func(uintptr) uint
+	XGListModelGetObject    func(uintptr, uint) uintptr
+	XGListModelItemsChanged func(uintptr, uint, uint, uint)
 )
-var (
-	xXGListModelGetItemType func(uintptr) types.GType
-	XGListModelGetNItems    func(uintptr) uint = func(instance uintptr) uint {
-		core.LazyRegister(&xXGListModelGetNItems, "GIO", "g_list_model_get_n_items", false)
-		return xXGListModelGetNItems(instance)
-	}
-)
-var (
-	xXGListModelGetNItems func(uintptr) uint
-	XGListModelGetObject  func(uintptr, uint) uintptr = func(instance uintptr, PositionVarp uint) uintptr {
-		core.LazyRegister(&xXGListModelGetObject, "GIO", "g_list_model_get_object", false)
-		return xXGListModelGetObject(instance, PositionVarp)
-	}
-)
-var (
-	xXGListModelGetObject   func(uintptr, uint) uintptr
-	XGListModelItemsChanged func(uintptr, uint, uint, uint) = func(instance uintptr, PositionVarp uint, RemovedVarp uint, AddedVarp uint) {
-		core.LazyRegister(&xXGListModelItemsChanged, "GIO", "g_list_model_items_changed", false)
-		xXGListModelItemsChanged(instance, PositionVarp, RemovedVarp, AddedVarp)
-	}
-)
-var xXGListModelItemsChanged func(uintptr, uint, uint, uint)
 
 func init() {
 	core.SetPackageName("GIO", "gio-2.0")
 	core.SetSharedLibraries("GIO", []string{"libgio-2.0.so.0", "libgio-2.0.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GIO") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xListModelGLibType, libs, "g_list_model_get_type")
+
+	core.PuregoSafeRegister(&XGListModelGetItem, libs, "g_list_model_get_item")
+	core.PuregoSafeRegister(&XGListModelGetItemType, libs, "g_list_model_get_item_type")
+	core.PuregoSafeRegister(&XGListModelGetNItems, libs, "g_list_model_get_n_items")
+	core.PuregoSafeRegister(&XGListModelGetObject, libs, "g_list_model_get_object")
+	core.PuregoSafeRegister(&XGListModelItemsChanged, libs, "g_list_model_items_changed")
 }

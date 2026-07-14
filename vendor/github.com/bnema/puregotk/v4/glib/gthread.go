@@ -108,8 +108,6 @@ var xCondBroadcast func(uintptr)
 // It is good practice to lock the same mutex as the waiting threads
 // while calling this function, though not required.
 func (x *Cond) Broadcast() {
-	core.LazyRegister(&xCondBroadcast, "GLIB", "g_cond_broadcast", false)
-
 	xCondBroadcast(x.GoPointer())
 }
 
@@ -123,8 +121,6 @@ var xCondClear func(uintptr)
 // Calling g_cond_clear() for a #GCond on which threads are
 // blocking leads to undefined behaviour.
 func (x *Cond) Clear() {
-	core.LazyRegister(&xCondClear, "GLIB", "g_cond_clear", false)
-
 	xCondClear(x.GoPointer())
 }
 
@@ -135,8 +131,6 @@ var xCondFree func(uintptr)
 // Calling g_cond_free() for a #GCond on which threads are
 // blocking leads to undefined behaviour.
 func (x *Cond) Free() {
-	core.LazyRegister(&xCondFree, "GLIB", "g_cond_free", false)
-
 	xCondFree(x.GoPointer())
 }
 
@@ -154,8 +148,6 @@ var xCondInit func(uintptr)
 // Calling g_cond_init() on an already-initialised #GCond leads
 // to undefined behaviour.
 func (x *Cond) Init() {
-	core.LazyRegister(&xCondInit, "GLIB", "g_cond_init", false)
-
 	xCondInit(x.GoPointer())
 }
 
@@ -166,8 +158,6 @@ var xCondSignal func(uintptr)
 // It is good practice to hold the same lock as the waiting thread
 // while calling this function, though not required.
 func (x *Cond) Signal() {
-	core.LazyRegister(&xCondSignal, "GLIB", "g_cond_signal", false)
-
 	xCondSignal(x.GoPointer())
 }
 
@@ -185,8 +175,6 @@ var xCondTimedWait func(uintptr, *Mutex, *TimeVal) bool
 // To easily calculate @abs_time a combination of g_get_real_time()
 // and g_time_val_add() can be used.
 func (x *Cond) TimedWait(MutexVar *Mutex, AbsTimeVar *TimeVal) bool {
-	core.LazyRegister(&xCondTimedWait, "GLIB", "g_cond_timed_wait", false)
-
 	cret := xCondTimedWait(x.GoPointer(), MutexVar, AbsTimeVar)
 	return cret
 }
@@ -208,8 +196,6 @@ var xCondWait func(uintptr, *Mutex)
 // For this reason, g_cond_wait() must always be used in a loop.  See
 // the documentation for #GCond for a complete example.
 func (x *Cond) Wait(MutexVar *Mutex) {
-	core.LazyRegister(&xCondWait, "GLIB", "g_cond_wait", false)
-
 	xCondWait(x.GoPointer(), MutexVar)
 }
 
@@ -266,8 +252,6 @@ var xCondWaitUntil func(uintptr, *Mutex, int64) bool
 // have to start over waiting again (which would lead to a total wait
 // time of more than 5 seconds).
 func (x *Cond) WaitUntil(MutexVar *Mutex, EndTimeVar int64) bool {
-	core.LazyRegister(&xCondWaitUntil, "GLIB", "g_cond_wait_until", false)
-
 	cret := xCondWaitUntil(x.GoPointer(), MutexVar, EndTimeVar)
 	return cret
 }
@@ -298,8 +282,6 @@ func OnceNewFromInternalPtr(ptr uintptr) *Once {
 var xOnceImpl func(uintptr, uintptr, uintptr) uintptr
 
 func (x *Once) Impl(FuncVar *ThreadFunc, ArgVar uintptr) uintptr {
-	core.LazyRegister(&xOnceImpl, "GLIB", "g_once_impl", false)
-
 	cret := xOnceImpl(x.GoPointer(), NewCallback(FuncVar), ArgVar)
 	return cret
 }
@@ -351,8 +333,6 @@ var xPrivateGet func(uintptr) uintptr
 // Values are never copied between threads (when a new thread is
 // created, for example).
 func (x *Private) Get() uintptr {
-	core.LazyRegister(&xPrivateGet, "GLIB", "g_private_get", false)
-
 	cret := xPrivateGet(x.GoPointer())
 	return cret
 }
@@ -366,8 +346,6 @@ var xPrivateReplace func(uintptr, uintptr)
 // the previous value was non-%NULL then the #GDestroyNotify handler for
 // @key is run on it.
 func (x *Private) Replace(ValueVar uintptr) {
-	core.LazyRegister(&xPrivateReplace, "GLIB", "g_private_replace", false)
-
 	xPrivateReplace(x.GoPointer(), ValueVar)
 }
 
@@ -379,8 +357,6 @@ var xPrivateSet func(uintptr, uintptr)
 // This function differs from g_private_replace() in the following way:
 // the #GDestroyNotify for @key is not called on the old value.
 func (x *Private) Set(ValueVar uintptr) {
-	core.LazyRegister(&xPrivateSet, "GLIB", "g_private_set", false)
-
 	xPrivateSet(x.GoPointer(), ValueVar)
 }
 
@@ -479,8 +455,6 @@ var xRWLockClear func(uintptr)
 // Calling g_rw_lock_clear() when any thread holds the lock
 // leads to undefined behaviour.
 func (x *RWLock) Clear() {
-	core.LazyRegister(&xRWLockClear, "GLIB", "g_rw_lock_clear", false)
-
 	xRWLockClear(x.GoPointer())
 }
 
@@ -512,8 +486,6 @@ var xRWLockInit func(uintptr)
 // Calling g_rw_lock_init() on an already initialized #GRWLock leads
 // to undefined behaviour.
 func (x *RWLock) Init() {
-	core.LazyRegister(&xRWLockInit, "GLIB", "g_rw_lock_init", false)
-
 	xRWLockInit(x.GoPointer())
 }
 
@@ -535,8 +507,6 @@ var xRWLockReaderLock func(uintptr)
 // held on the same lock simultaneously. If the limit is hit,
 // or if a deadlock is detected, a critical warning will be emitted.
 func (x *RWLock) ReaderLock() {
-	core.LazyRegister(&xRWLockReaderLock, "GLIB", "g_rw_lock_reader_lock", false)
-
 	xRWLockReaderLock(x.GoPointer())
 }
 
@@ -546,8 +516,6 @@ var xRWLockReaderTrylock func(uintptr) bool
 // the read lock was successfully obtained. Otherwise it
 // returns %FALSE.
 func (x *RWLock) ReaderTrylock() bool {
-	core.LazyRegister(&xRWLockReaderTrylock, "GLIB", "g_rw_lock_reader_trylock", false)
-
 	cret := xRWLockReaderTrylock(x.GoPointer())
 	return cret
 }
@@ -559,8 +527,6 @@ var xRWLockReaderUnlock func(uintptr)
 // Calling g_rw_lock_reader_unlock() on a lock that is not held
 // by the current thread leads to undefined behaviour.
 func (x *RWLock) ReaderUnlock() {
-	core.LazyRegister(&xRWLockReaderUnlock, "GLIB", "g_rw_lock_reader_unlock", false)
-
 	xRWLockReaderUnlock(x.GoPointer())
 }
 
@@ -573,8 +539,6 @@ var xRWLockWriterLock func(uintptr)
 // Calling g_rw_lock_writer_lock() while the current thread already
 // owns a read or write lock on @rw_lock leads to undefined behaviour.
 func (x *RWLock) WriterLock() {
-	core.LazyRegister(&xRWLockWriterLock, "GLIB", "g_rw_lock_writer_lock", false)
-
 	xRWLockWriterLock(x.GoPointer())
 }
 
@@ -585,8 +549,6 @@ var xRWLockWriterTrylock func(uintptr) bool
 // returns %FALSE.
 // Otherwise it locks @rw_lock and returns %TRUE.
 func (x *RWLock) WriterTrylock() bool {
-	core.LazyRegister(&xRWLockWriterTrylock, "GLIB", "g_rw_lock_writer_trylock", false)
-
 	cret := xRWLockWriterTrylock(x.GoPointer())
 	return cret
 }
@@ -598,8 +560,6 @@ var xRWLockWriterUnlock func(uintptr)
 // Calling g_rw_lock_writer_unlock() on a lock that is not held
 // by the current thread leads to undefined behaviour.
 func (x *RWLock) WriterUnlock() {
-	core.LazyRegister(&xRWLockWriterUnlock, "GLIB", "g_rw_lock_writer_unlock", false)
-
 	xRWLockWriterUnlock(x.GoPointer())
 }
 
@@ -646,8 +606,6 @@ var xRecMutexClear func(uintptr)
 // Calling g_rec_mutex_clear() on a locked recursive mutex leads
 // to undefined behaviour.
 func (x *RecMutex) Clear() {
-	core.LazyRegister(&xRecMutexClear, "GLIB", "g_rec_mutex_clear", false)
-
 	xRecMutexClear(x.GoPointer())
 }
 
@@ -681,8 +639,6 @@ var xRecMutexInit func(uintptr)
 // To undo the effect of g_rec_mutex_init() when a recursive mutex
 // is no longer needed, use g_rec_mutex_clear().
 func (x *RecMutex) Init() {
-	core.LazyRegister(&xRecMutexInit, "GLIB", "g_rec_mutex_init", false)
-
 	xRecMutexInit(x.GoPointer())
 }
 
@@ -695,8 +651,6 @@ var xRecMutexLock func(uintptr)
 // The mutex will only become available again when it is unlocked
 // as many times as it has been locked.
 func (x *RecMutex) Lock() {
-	core.LazyRegister(&xRecMutexLock, "GLIB", "g_rec_mutex_lock", false)
-
 	xRecMutexLock(x.GoPointer())
 }
 
@@ -706,8 +660,6 @@ var xRecMutexTrylock func(uintptr) bool
 // by another thread, it immediately returns %FALSE. Otherwise
 // it locks @rec_mutex and returns %TRUE.
 func (x *RecMutex) Trylock() bool {
-	core.LazyRegister(&xRecMutexTrylock, "GLIB", "g_rec_mutex_trylock", false)
-
 	cret := xRecMutexTrylock(x.GoPointer())
 	return cret
 }
@@ -721,8 +673,6 @@ var xRecMutexUnlock func(uintptr)
 // Calling g_rec_mutex_unlock() on a recursive mutex that is not
 // locked by the current thread leads to undefined behaviour.
 func (x *RecMutex) Unlock() {
-	core.LazyRegister(&xRecMutexUnlock, "GLIB", "g_rec_mutex_unlock", false)
-
 	xRecMutexUnlock(x.GoPointer())
 }
 
@@ -804,16 +754,12 @@ var xStaticMutexFree func(uintptr)
 // Calling g_static_mutex_free() on a locked mutex may result in
 // undefined behaviour.
 func (x *StaticMutex) Free() {
-	core.LazyRegister(&xStaticMutexFree, "GLIB", "g_static_mutex_free", false)
-
 	xStaticMutexFree(x.GoPointer())
 }
 
 var xStaticMutexGetMutexImpl func(uintptr) *Mutex
 
 func (x *StaticMutex) GetMutexImpl() *Mutex {
-	core.LazyRegister(&xStaticMutexGetMutexImpl, "GLIB", "g_static_mutex_get_mutex_impl", false)
-
 	cret := xStaticMutexGetMutexImpl(x.GoPointer())
 	return cret
 }
@@ -823,8 +769,6 @@ var xStaticMutexInit func(uintptr)
 // Initializes @mutex.
 // Alternatively you can initialize it with %G_STATIC_MUTEX_INIT.
 func (x *StaticMutex) Init() {
-	core.LazyRegister(&xStaticMutexInit, "GLIB", "g_static_mutex_init", false)
-
 	xStaticMutexInit(x.GoPointer())
 }
 
@@ -882,8 +826,6 @@ var xStaticPrivateFree func(uintptr)
 // a #GStaticPrivate as a member of a structure and the structure is
 // freed, you should also free the #GStaticPrivate.
 func (x *StaticPrivate) Free() {
-	core.LazyRegister(&xStaticPrivateFree, "GLIB", "g_static_private_free", false)
-
 	xStaticPrivateFree(x.GoPointer())
 }
 
@@ -893,8 +835,6 @@ var xStaticPrivateGet func(uintptr) uintptr
 //
 // This function works even if g_thread_init() has not yet been called.
 func (x *StaticPrivate) Get() uintptr {
-	core.LazyRegister(&xStaticPrivateGet, "GLIB", "g_static_private_get", false)
-
 	cret := xStaticPrivateGet(x.GoPointer())
 	return cret
 }
@@ -904,8 +844,6 @@ var xStaticPrivateInit func(uintptr)
 // Initializes @private_key. Alternatively you can initialize it with
 // %G_STATIC_PRIVATE_INIT.
 func (x *StaticPrivate) Init() {
-	core.LazyRegister(&xStaticPrivateInit, "GLIB", "g_static_private_init", false)
-
 	xStaticPrivateInit(x.GoPointer())
 }
 
@@ -923,8 +861,6 @@ var xStaticPrivateSet func(uintptr, uintptr, uintptr)
 //
 // @notify is used quite differently from @destructor in g_private_new().
 func (x *StaticPrivate) Set(DataVar uintptr, NotifyVar *DestroyNotify) {
-	core.LazyRegister(&xStaticPrivateSet, "GLIB", "g_static_private_set", false)
-
 	xStaticPrivateSet(x.GoPointer(), DataVar, NewCallbackNullable(NotifyVar))
 }
 
@@ -1041,8 +977,6 @@ var xStaticRWLockFree func(uintptr)
 // a #GStaticRWLock as a member of a structure, and the structure is
 // freed, you should also free the #GStaticRWLock.
 func (x *StaticRWLock) Free() {
-	core.LazyRegister(&xStaticRWLockFree, "GLIB", "g_static_rw_lock_free", false)
-
 	xStaticRWLockFree(x.GoPointer())
 }
 
@@ -1052,8 +986,6 @@ var xStaticRWLockInit func(uintptr)
 // can be used. Alternatively you can initialize it with
 // %G_STATIC_RW_LOCK_INIT.
 func (x *StaticRWLock) Init() {
-	core.LazyRegister(&xStaticRWLockInit, "GLIB", "g_static_rw_lock_init", false)
-
 	xStaticRWLockInit(x.GoPointer())
 }
 
@@ -1071,8 +1003,6 @@ var xStaticRWLockReaderLock func(uintptr)
 // recursively lock for reading, but that can result in a deadlock, due
 // to writer preference.
 func (x *StaticRWLock) ReaderLock() {
-	core.LazyRegister(&xStaticRWLockReaderLock, "GLIB", "g_static_rw_lock_reader_lock", false)
-
 	xStaticRWLockReaderLock(x.GoPointer())
 }
 
@@ -1084,8 +1014,6 @@ var xStaticRWLockReaderTrylock func(uintptr) bool
 // @lock for reading and returns %TRUE. This lock has to be unlocked by
 // g_static_rw_lock_reader_unlock().
 func (x *StaticRWLock) ReaderTrylock() bool {
-	core.LazyRegister(&xStaticRWLockReaderTrylock, "GLIB", "g_static_rw_lock_reader_trylock", false)
-
 	cret := xStaticRWLockReaderTrylock(x.GoPointer())
 	return cret
 }
@@ -1096,8 +1024,6 @@ var xStaticRWLockReaderUnlock func(uintptr)
 // locks for reading have been unlocked, the waiting thread is woken up
 // and can lock @lock for writing.
 func (x *StaticRWLock) ReaderUnlock() {
-	core.LazyRegister(&xStaticRWLockReaderUnlock, "GLIB", "g_static_rw_lock_reader_unlock", false)
-
 	xStaticRWLockReaderUnlock(x.GoPointer())
 }
 
@@ -1111,8 +1037,6 @@ var xStaticRWLockWriterLock func(uintptr)
 // @lock (neither for reading nor writing). This lock has to be
 // unlocked by g_static_rw_lock_writer_unlock().
 func (x *StaticRWLock) WriterLock() {
-	core.LazyRegister(&xStaticRWLockWriterLock, "GLIB", "g_static_rw_lock_writer_lock", false)
-
 	xStaticRWLockWriterLock(x.GoPointer())
 }
 
@@ -1123,8 +1047,6 @@ var xStaticRWLockWriterTrylock func(uintptr) bool
 // %FALSE. Otherwise it locks @lock for writing and returns %TRUE. This
 // lock has to be unlocked by g_static_rw_lock_writer_unlock().
 func (x *StaticRWLock) WriterTrylock() bool {
-	core.LazyRegister(&xStaticRWLockWriterTrylock, "GLIB", "g_static_rw_lock_writer_trylock", false)
-
 	cret := xStaticRWLockWriterTrylock(x.GoPointer())
 	return cret
 }
@@ -1138,8 +1060,6 @@ var xStaticRWLockWriterUnlock func(uintptr)
 // lock @lock for reading, the waiting threads are woken up and can
 // lock @lock for reading.
 func (x *StaticRWLock) WriterUnlock() {
-	core.LazyRegister(&xStaticRWLockWriterUnlock, "GLIB", "g_static_rw_lock_writer_unlock", false)
-
 	xStaticRWLockWriterUnlock(x.GoPointer())
 }
 
@@ -1189,8 +1109,6 @@ var xStaticRecMutexFree func(uintptr)
 // a #GStaticRecMutex as a member of a structure and the structure is
 // freed, you should also free the #GStaticRecMutex.
 func (x *StaticRecMutex) Free() {
-	core.LazyRegister(&xStaticRecMutexFree, "GLIB", "g_static_rec_mutex_free", false)
-
 	xStaticRecMutexFree(x.GoPointer())
 }
 
@@ -1200,8 +1118,6 @@ var xStaticRecMutexInit func(uintptr)
 // can be used. Alternatively you can initialize it with
 // %G_STATIC_REC_MUTEX_INIT.
 func (x *StaticRecMutex) Init() {
-	core.LazyRegister(&xStaticRecMutexInit, "GLIB", "g_static_rec_mutex_init", false)
-
 	xStaticRecMutexInit(x.GoPointer())
 }
 
@@ -1212,8 +1128,6 @@ var xStaticRecMutexLock func(uintptr)
 // thread. If @mutex is already locked by the calling thread, this
 // functions increases the depth of @mutex and returns immediately.
 func (x *StaticRecMutex) Lock() {
-	core.LazyRegister(&xStaticRecMutexLock, "GLIB", "g_static_rec_mutex_lock", false)
-
 	xStaticRecMutexLock(x.GoPointer())
 }
 
@@ -1221,8 +1135,6 @@ var xStaticRecMutexLockFull func(uintptr, uint)
 
 // Works like calling g_static_rec_mutex_lock() for @mutex @depth times.
 func (x *StaticRecMutex) LockFull(DepthVar uint) {
-	core.LazyRegister(&xStaticRecMutexLockFull, "GLIB", "g_static_rec_mutex_lock_full", false)
-
 	xStaticRecMutexLockFull(x.GoPointer(), DepthVar)
 }
 
@@ -1234,8 +1146,6 @@ var xStaticRecMutexTrylock func(uintptr) bool
 // functions increases the depth of @mutex and immediately returns
 // %TRUE.
 func (x *StaticRecMutex) Trylock() bool {
-	core.LazyRegister(&xStaticRecMutexTrylock, "GLIB", "g_static_rec_mutex_trylock", false)
-
 	cret := xStaticRecMutexTrylock(x.GoPointer())
 	return cret
 }
@@ -1248,8 +1158,6 @@ var xStaticRecMutexUnlock func(uintptr)
 // blocked in a g_static_rec_mutex_lock() call for @mutex, it will be
 // woken and can lock @mutex itself.
 func (x *StaticRecMutex) Unlock() {
-	core.LazyRegister(&xStaticRecMutexUnlock, "GLIB", "g_static_rec_mutex_unlock", false)
-
 	xStaticRecMutexUnlock(x.GoPointer())
 }
 
@@ -1263,8 +1171,6 @@ var xStaticRecMutexUnlockFull func(uintptr) uint
 // g_static_rec_mutex_lock_full() with the depth returned by this
 // function.
 func (x *StaticRecMutex) UnlockFull() uint {
-	core.LazyRegister(&xStaticRecMutexUnlockFull, "GLIB", "g_static_rec_mutex_unlock_full", false)
-
 	cret := xStaticRecMutexUnlockFull(x.GoPointer())
 	return cret
 }
@@ -1297,7 +1203,6 @@ type Thread struct {
 var xThreadGLibType func() types.GType
 
 func ThreadGLibType() types.GType {
-	core.LazyRegister(&xThreadGLibType, "GLIB", "g_thread_get_type", false)
 	return xThreadGLibType()
 }
 
@@ -1343,8 +1248,6 @@ var xNewThread func(uintptr, uintptr, uintptr) uintptr
 // Starting with GLib 2.64 the behaviour is now consistent between Windows and
 // POSIX and all threads inherit their parent thread's priority.
 func NewThread(NameVar *string, FuncVar *ThreadFunc, DataVar uintptr) *Thread {
-	core.LazyRegister(&xNewThread, "GLIB", "g_thread_new", false)
-
 	NameVarPtr := core.GStrdupNullable(NameVar)
 	defer core.GFreeNullable(NameVarPtr)
 
@@ -1363,7 +1266,6 @@ var xThreadTryNew func(uintptr, uintptr, uintptr, **Error) uintptr
 // If a thread can not be created (due to resource limits),
 // @error is set and %NULL is returned.
 func ThreadTryNew(NameVar *string, FuncVar *ThreadFunc, DataVar uintptr) (*Thread, error) {
-	core.LazyRegister(&xThreadTryNew, "GLIB", "g_thread_try_new", false)
 	var cerr *Error
 
 	NameVarPtr := core.GStrdupNullable(NameVar)
@@ -1385,8 +1287,6 @@ var xThreadGetName func(uintptr) string
 //
 // This function is intended for debugging purposes.
 func (x *Thread) GetName() string {
-	core.LazyRegister(&xThreadGetName, "GLIB", "g_thread_get_name", false)
-
 	cret := xThreadGetName(x.GoPointer())
 	return cret
 }
@@ -1410,8 +1310,6 @@ var xThreadJoin func(uintptr) uintptr
 // to be freed. Use g_thread_ref() to obtain an extra reference if you
 // want to keep the GThread alive beyond the g_thread_join() call.
 func (x *Thread) Join() uintptr {
-	core.LazyRegister(&xThreadJoin, "GLIB", "g_thread_join", false)
-
 	cret := xThreadJoin(x.GoPointer())
 	return cret
 }
@@ -1420,8 +1318,6 @@ var xThreadRef func(uintptr) uintptr
 
 // Increase the reference count on @thread.
 func (x *Thread) Ref() *Thread {
-	core.LazyRegister(&xThreadRef, "GLIB", "g_thread_ref", false)
-
 	cret := xThreadRef(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -1433,8 +1329,6 @@ var xThreadSetPriority func(uintptr, ThreadPriority)
 
 // This function does nothing.
 func (x *Thread) SetPriority(PriorityVar ThreadPriority) {
-	core.LazyRegister(&xThreadSetPriority, "GLIB", "g_thread_set_priority", false)
-
 	xThreadSetPriority(x.GoPointer(), PriorityVar)
 }
 
@@ -1447,8 +1341,6 @@ var xThreadUnref func(uintptr)
 // it is running, so it is safe to drop your own reference to it
 // if you don't need it anymore.
 func (x *Thread) Unref() {
-	core.LazyRegister(&xThreadUnref, "GLIB", "g_thread_unref", false)
-
 	xThreadUnref(x.GoPointer())
 }
 
@@ -1884,7 +1776,7 @@ func (x *ThreadFunctions) OverrideThreadCreate(cb func(*ThreadFunc, uintptr, uin
 	if cb == nil {
 		x.xThreadCreate = 0
 	} else {
-		x.xThreadCreate = purego.NewCallback(func(FuncVarp uintptr, DataVarp uintptr, StackSizeVarp uint, JoinableVarp bool, BoundVarp bool, PriorityVarp ThreadPriority, ThreadVarp uintptr, cerrp **Error) {
+		x.xThreadCreate = purego.NewCallback(func(FuncVarp uintptr, DataVarp uintptr, StackSizeVarp uint, JoinableVarp bool, BoundVarp bool, PriorityVarp ThreadPriority, ThreadVarp uintptr) {
 			cb((*ThreadFunc)(unsafe.Pointer(FuncVarp)), DataVarp, StackSizeVarp, JoinableVarp, BoundVarp, PriorityVarp, ThreadVarp)
 		})
 	}
@@ -1896,11 +1788,10 @@ func (x *ThreadFunctions) GetThreadCreate() func(*ThreadFunc, uintptr, uint, boo
 	if x.xThreadCreate == 0 {
 		return nil
 	}
-	var rawCallback func(FuncVarp uintptr, DataVarp uintptr, StackSizeVarp uint, JoinableVarp bool, BoundVarp bool, PriorityVarp ThreadPriority, ThreadVarp uintptr, cerrp **Error)
+	var rawCallback func(FuncVarp uintptr, DataVarp uintptr, StackSizeVarp uint, JoinableVarp bool, BoundVarp bool, PriorityVarp ThreadPriority, ThreadVarp uintptr)
 	purego.RegisterFunc(&rawCallback, x.xThreadCreate)
 	return func(FuncVar *ThreadFunc, DataVar uintptr, StackSizeVar uint, JoinableVar bool, BoundVar bool, PriorityVar ThreadPriority, ThreadVar uintptr) {
-		var cerr *Error
-		rawCallback(NewCallback(FuncVar), DataVar, StackSizeVar, JoinableVar, BoundVar, PriorityVar, ThreadVar, &cerr)
+		rawCallback(NewCallback(FuncVar), DataVar, StackSizeVar, JoinableVar, BoundVar, PriorityVar, ThreadVar)
 	}
 }
 
@@ -2167,8 +2058,6 @@ var xCondNew func() uintptr
 
 // Allocates and initializes a new #GCond.
 func CondNew() *Cond {
-	core.LazyRegister(&xCondNew, "GLIB", "g_cond_new", false)
-
 	cret := xCondNew()
 	if cret == 0 {
 		return nil
@@ -2183,8 +2072,6 @@ var xGetNumProcessors func() uint
 // used as a parameter to g_thread_pool_new() for CPU bound tasks and
 // similar cases.
 func GetNumProcessors() uint {
-	core.LazyRegister(&xGetNumProcessors, "GLIB", "g_get_num_processors", false)
-
 	cret := xGetNumProcessors()
 	return cret
 }
@@ -2193,8 +2080,6 @@ var xMutexNew func() *Mutex
 
 // Allocates and initializes a new #GMutex.
 func MutexNew() *Mutex {
-	core.LazyRegister(&xMutexNew, "GLIB", "g_mutex_new", false)
-
 	cret := xMutexNew()
 	return cret
 }
@@ -2229,8 +2114,6 @@ var xOnceInitEnter func(*uintptr) bool
 // While @location has a `volatile` qualifier, this is a historical artifact and
 // the pointer passed to it should not be `volatile`.
 func OnceInitEnter(LocationVar *uintptr) bool {
-	core.LazyRegister(&xOnceInitEnter, "GLIB", "g_once_init_enter", false)
-
 	cret := xOnceInitEnter(LocationVar)
 	return cret
 }
@@ -2238,8 +2121,6 @@ func OnceInitEnter(LocationVar *uintptr) bool {
 var xOnceInitEnterImpl func(uint) bool
 
 func OnceInitEnterImpl(LocationVar uint) bool {
-	core.LazyRegister(&xOnceInitEnterImpl, "GLIB", "g_once_init_enter_impl", false)
-
 	cret := xOnceInitEnterImpl(LocationVar)
 	return cret
 }
@@ -2264,8 +2145,6 @@ var xOnceInitEnterPointer func(uintptr) bool
 //
 // ]|
 func OnceInitEnterPointer(LocationVar uintptr) bool {
-	core.LazyRegister(&xOnceInitEnterPointer, "GLIB", "g_once_init_enter_pointer", false)
-
 	cret := xOnceInitEnterPointer(LocationVar)
 	return cret
 }
@@ -2281,8 +2160,6 @@ var xOnceInitLeave func(*uintptr, uint)
 // While @location has a `volatile` qualifier, this is a historical artifact and
 // the pointer passed to it should not be `volatile`.
 func OnceInitLeave(LocationVar *uintptr, ResultVar uint) {
-	core.LazyRegister(&xOnceInitLeave, "GLIB", "g_once_init_leave", false)
-
 	xOnceInitLeave(LocationVar, ResultVar)
 }
 
@@ -2297,8 +2174,6 @@ var xOnceInitLeavePointer func(uintptr, uintptr)
 // This functions behaves in the same way as g_once_init_leave(), but
 // can be used to initialize pointers (or #guintptr) instead of #gsize.
 func OnceInitLeavePointer(LocationVar uintptr, ResultVar uintptr) {
-	core.LazyRegister(&xOnceInitLeavePointer, "GLIB", "g_once_init_leave_pointer", false)
-
 	xOnceInitLeavePointer(LocationVar, ResultVar)
 }
 
@@ -2306,8 +2181,6 @@ var xPrivateNew func(uintptr) uintptr
 
 // Creates a new #GPrivate.
 func PrivateNew(NotifyVar *DestroyNotify) *Private {
-	core.LazyRegister(&xPrivateNew, "GLIB", "g_private_new", false)
-
 	cret := xPrivateNew(NewCallbackNullable(NotifyVar))
 	if cret == 0 {
 		return nil
@@ -2330,7 +2203,6 @@ var xThreadCreate func(uintptr, uintptr, bool, **Error) uintptr
 // calling g_thread_unref() or g_thread_join().  If @joinable is %FALSE
 // then you should probably not touch the return value.
 func ThreadCreate(FuncVar *ThreadFunc, DataVar uintptr, JoinableVar bool) (*Thread, error) {
-	core.LazyRegister(&xThreadCreate, "GLIB", "g_thread_create", false)
 	var cerr *Error
 
 	cret := xThreadCreate(NewCallback(FuncVar), DataVar, JoinableVar, &cerr)
@@ -2347,7 +2219,6 @@ var xThreadCreateFull func(uintptr, uintptr, uint, bool, bool, ThreadPriority, *
 
 // This function creates a new thread.
 func ThreadCreateFull(FuncVar *ThreadFunc, DataVar uintptr, StackSizeVar uint, JoinableVar bool, BoundVar bool, PriorityVar ThreadPriority) (*Thread, error) {
-	core.LazyRegister(&xThreadCreateFull, "GLIB", "g_thread_create_full", false)
 	var cerr *Error
 
 	cret := xThreadCreateFull(NewCallback(FuncVar), DataVar, StackSizeVar, JoinableVar, BoundVar, PriorityVar, &cerr)
@@ -2376,8 +2247,6 @@ var xThreadExit func(uintptr)
 // this function from a thread created with another threading library
 // or or from within a #GThreadPool.
 func ThreadExit(RetvalVar uintptr) {
-	core.LazyRegister(&xThreadExit, "GLIB", "g_thread_exit", false)
-
 	xThreadExit(RetvalVar)
 }
 
@@ -2395,8 +2264,6 @@ var xThreadForeach func(uintptr, uintptr)
 // Due to thread lifetime checks, this function has an execution complexity
 // which is quadratic in the number of existing threads.
 func ThreadForeach(ThreadFuncVar *Func, UserDataVar uintptr) {
-	core.LazyRegister(&xThreadForeach, "GLIB", "g_thread_foreach", false)
-
 	xThreadForeach(NewCallback(ThreadFuncVar), UserDataVar)
 }
 
@@ -2404,8 +2271,6 @@ var xThreadGetInitialized func() bool
 
 // Indicates if g_thread_init() has been called.
 func ThreadGetInitialized() bool {
-	core.LazyRegister(&xThreadGetInitialized, "GLIB", "g_thread_get_initialized", false)
-
 	cret := xThreadGetInitialized()
 	return cret
 }
@@ -2435,16 +2300,12 @@ var xThreadInit func(uintptr)
 //	functions of GLib. Those can be used without having to link
 //	with the thread libraries.
 func ThreadInit(VtableVar uintptr) {
-	core.LazyRegister(&xThreadInit, "GLIB", "g_thread_init", false)
-
 	xThreadInit(VtableVar)
 }
 
 var xThreadInitWithErrorcheckMutexes func(uintptr)
 
 func ThreadInitWithErrorcheckMutexes(VtableVar uintptr) {
-	core.LazyRegister(&xThreadInitWithErrorcheckMutexes, "GLIB", "g_thread_init_with_errorcheck_mutexes", false)
-
 	xThreadInitWithErrorcheckMutexes(VtableVar)
 }
 
@@ -2460,8 +2321,6 @@ var xThreadSelf func() uintptr
 // (i.e. comparisons) but you must not use GLib functions (such
 // as g_thread_join()) on these threads.
 func ThreadSelf() *Thread {
-	core.LazyRegister(&xThreadSelf, "GLIB", "g_thread_self", false)
-
 	cret := xThreadSelf()
 	if cret == 0 {
 		return nil
@@ -2476,12 +2335,104 @@ var xThreadYield func()
 //
 // This function is often used as a method to make busy wait less evil.
 func ThreadYield() {
-	core.LazyRegister(&xThreadYield, "GLIB", "g_thread_yield", false)
-
 	xThreadYield()
 }
 
 func init() {
 	core.SetPackageName("GLIB", "glib-2.0")
 	core.SetSharedLibraries("GLIB", []string{"libgobject-2.0.so.0", "libglib-2.0.so.0", "libgobject-2.0.0.dylib", "libglib-2.0.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GLIB") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xCondNew, libs, "g_cond_new")
+	core.PuregoSafeRegister(&xGetNumProcessors, libs, "g_get_num_processors")
+	core.PuregoSafeRegister(&xMutexNew, libs, "g_mutex_new")
+	core.PuregoSafeRegister(&xOnceInitEnter, libs, "g_once_init_enter")
+	core.PuregoSafeRegister(&xOnceInitEnterImpl, libs, "g_once_init_enter_impl")
+	core.PuregoSafeRegister(&xOnceInitEnterPointer, libs, "g_once_init_enter_pointer")
+	core.PuregoSafeRegister(&xOnceInitLeave, libs, "g_once_init_leave")
+	core.PuregoSafeRegister(&xOnceInitLeavePointer, libs, "g_once_init_leave_pointer")
+	core.PuregoSafeRegister(&xPrivateNew, libs, "g_private_new")
+	core.PuregoSafeRegister(&xThreadCreate, libs, "g_thread_create")
+	core.PuregoSafeRegister(&xThreadCreateFull, libs, "g_thread_create_full")
+	core.PuregoSafeRegister(&xThreadExit, libs, "g_thread_exit")
+	core.PuregoSafeRegister(&xThreadForeach, libs, "g_thread_foreach")
+	core.PuregoSafeRegister(&xThreadGetInitialized, libs, "g_thread_get_initialized")
+	core.PuregoSafeRegister(&xThreadInit, libs, "g_thread_init")
+	core.PuregoSafeRegister(&xThreadInitWithErrorcheckMutexes, libs, "g_thread_init_with_errorcheck_mutexes")
+	core.PuregoSafeRegister(&xThreadSelf, libs, "g_thread_self")
+	core.PuregoSafeRegister(&xThreadYield, libs, "g_thread_yield")
+
+	core.PuregoSafeRegister(&xCondBroadcast, libs, "g_cond_broadcast")
+	core.PuregoSafeRegister(&xCondClear, libs, "g_cond_clear")
+	core.PuregoSafeRegister(&xCondFree, libs, "g_cond_free")
+	core.PuregoSafeRegister(&xCondInit, libs, "g_cond_init")
+	core.PuregoSafeRegister(&xCondSignal, libs, "g_cond_signal")
+	core.PuregoSafeRegister(&xCondTimedWait, libs, "g_cond_timed_wait")
+	core.PuregoSafeRegister(&xCondWait, libs, "g_cond_wait")
+	core.PuregoSafeRegister(&xCondWaitUntil, libs, "g_cond_wait_until")
+
+	core.PuregoSafeRegister(&xOnceImpl, libs, "g_once_impl")
+
+	core.PuregoSafeRegister(&xPrivateGet, libs, "g_private_get")
+	core.PuregoSafeRegister(&xPrivateReplace, libs, "g_private_replace")
+	core.PuregoSafeRegister(&xPrivateSet, libs, "g_private_set")
+
+	core.PuregoSafeRegister(&xRWLockClear, libs, "g_rw_lock_clear")
+	core.PuregoSafeRegister(&xRWLockInit, libs, "g_rw_lock_init")
+	core.PuregoSafeRegister(&xRWLockReaderLock, libs, "g_rw_lock_reader_lock")
+	core.PuregoSafeRegister(&xRWLockReaderTrylock, libs, "g_rw_lock_reader_trylock")
+	core.PuregoSafeRegister(&xRWLockReaderUnlock, libs, "g_rw_lock_reader_unlock")
+	core.PuregoSafeRegister(&xRWLockWriterLock, libs, "g_rw_lock_writer_lock")
+	core.PuregoSafeRegister(&xRWLockWriterTrylock, libs, "g_rw_lock_writer_trylock")
+	core.PuregoSafeRegister(&xRWLockWriterUnlock, libs, "g_rw_lock_writer_unlock")
+
+	core.PuregoSafeRegister(&xRecMutexClear, libs, "g_rec_mutex_clear")
+	core.PuregoSafeRegister(&xRecMutexInit, libs, "g_rec_mutex_init")
+	core.PuregoSafeRegister(&xRecMutexLock, libs, "g_rec_mutex_lock")
+	core.PuregoSafeRegister(&xRecMutexTrylock, libs, "g_rec_mutex_trylock")
+	core.PuregoSafeRegister(&xRecMutexUnlock, libs, "g_rec_mutex_unlock")
+
+	core.PuregoSafeRegister(&xStaticMutexFree, libs, "g_static_mutex_free")
+	core.PuregoSafeRegister(&xStaticMutexGetMutexImpl, libs, "g_static_mutex_get_mutex_impl")
+	core.PuregoSafeRegister(&xStaticMutexInit, libs, "g_static_mutex_init")
+
+	core.PuregoSafeRegister(&xStaticPrivateFree, libs, "g_static_private_free")
+	core.PuregoSafeRegister(&xStaticPrivateGet, libs, "g_static_private_get")
+	core.PuregoSafeRegister(&xStaticPrivateInit, libs, "g_static_private_init")
+	core.PuregoSafeRegister(&xStaticPrivateSet, libs, "g_static_private_set")
+
+	core.PuregoSafeRegister(&xStaticRWLockFree, libs, "g_static_rw_lock_free")
+	core.PuregoSafeRegister(&xStaticRWLockInit, libs, "g_static_rw_lock_init")
+	core.PuregoSafeRegister(&xStaticRWLockReaderLock, libs, "g_static_rw_lock_reader_lock")
+	core.PuregoSafeRegister(&xStaticRWLockReaderTrylock, libs, "g_static_rw_lock_reader_trylock")
+	core.PuregoSafeRegister(&xStaticRWLockReaderUnlock, libs, "g_static_rw_lock_reader_unlock")
+	core.PuregoSafeRegister(&xStaticRWLockWriterLock, libs, "g_static_rw_lock_writer_lock")
+	core.PuregoSafeRegister(&xStaticRWLockWriterTrylock, libs, "g_static_rw_lock_writer_trylock")
+	core.PuregoSafeRegister(&xStaticRWLockWriterUnlock, libs, "g_static_rw_lock_writer_unlock")
+
+	core.PuregoSafeRegister(&xStaticRecMutexFree, libs, "g_static_rec_mutex_free")
+	core.PuregoSafeRegister(&xStaticRecMutexInit, libs, "g_static_rec_mutex_init")
+	core.PuregoSafeRegister(&xStaticRecMutexLock, libs, "g_static_rec_mutex_lock")
+	core.PuregoSafeRegister(&xStaticRecMutexLockFull, libs, "g_static_rec_mutex_lock_full")
+	core.PuregoSafeRegister(&xStaticRecMutexTrylock, libs, "g_static_rec_mutex_trylock")
+	core.PuregoSafeRegister(&xStaticRecMutexUnlock, libs, "g_static_rec_mutex_unlock")
+	core.PuregoSafeRegister(&xStaticRecMutexUnlockFull, libs, "g_static_rec_mutex_unlock_full")
+
+	core.PuregoSafeRegister(&xThreadGLibType, libs, "g_thread_get_type")
+
+	core.PuregoSafeRegister(&xNewThread, libs, "g_thread_new")
+	core.PuregoSafeRegister(&xThreadTryNew, libs, "g_thread_try_new")
+
+	core.PuregoSafeRegister(&xThreadGetName, libs, "g_thread_get_name")
+	core.PuregoSafeRegister(&xThreadJoin, libs, "g_thread_join")
+	core.PuregoSafeRegister(&xThreadRef, libs, "g_thread_ref")
+	core.PuregoSafeRegister(&xThreadSetPriority, libs, "g_thread_set_priority")
+	core.PuregoSafeRegister(&xThreadUnref, libs, "g_thread_unref")
 }

@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject/types"
 )
@@ -32,7 +33,6 @@ type String struct {
 var xStringGLibType func() types.GType
 
 func StringGLibType() types.GType {
-	core.LazyRegister(&xStringGLibType, "GLIB", "g_gstring_get_type", false)
 	return xStringGLibType()
 }
 
@@ -52,8 +52,6 @@ var xNewString func(uintptr) uintptr
 
 // Creates a new #GString, initialized with the given string.
 func NewString(InitVar *string) *String {
-	core.LazyRegister(&xNewString, "GLIB", "g_string_new", false)
-
 	InitVarPtr := core.GStrdupNullable(InitVar)
 	defer core.GFreeNullable(InitVarPtr)
 
@@ -74,8 +72,6 @@ var xNewStringLen func(string, int) uintptr
 // responsibility to ensure that @init has at least @len addressable
 // bytes.
 func NewStringLen(InitVar string, LenVar int) *String {
-	core.LazyRegister(&xNewStringLen, "GLIB", "g_string_new_len", false)
-
 	cret := xNewStringLen(InitVar, LenVar)
 	if cret == 0 {
 		return nil
@@ -91,8 +87,6 @@ var xNewStringTake func(uintptr) uintptr
 // modified by the caller. The memory of @init has to be dynamically
 // allocated and will eventually be freed with g_free().
 func NewStringTake(InitVar *string) *String {
-	core.LazyRegister(&xNewStringTake, "GLIB", "g_string_new_take", false)
-
 	InitVarPtr := core.GStrdupNullable(InitVar)
 	defer core.GFreeNullable(InitVarPtr)
 
@@ -110,8 +104,6 @@ var xStringSizedNew func(uint) uintptr
 // text to the string and don't want it to be reallocated
 // too often.
 func StringSizedNew(DflSizeVar uint) *String {
-	core.LazyRegister(&xStringSizedNew, "GLIB", "g_string_sized_new", false)
-
 	cret := xStringSizedNew(DflSizeVar)
 	if cret == 0 {
 		return nil
@@ -124,8 +116,6 @@ var xStringAppend func(uintptr, string) uintptr
 // Adds a string onto the end of a #GString, expanding
 // it if necessary.
 func (x *String) Append(ValVar string) *String {
-	core.LazyRegister(&xStringAppend, "GLIB", "g_string_append", false)
-
 	cret := xStringAppend(x.GoPointer(), ValVar)
 	if cret == 0 {
 		return nil
@@ -138,8 +128,6 @@ var xStringAppendC func(uintptr, byte) uintptr
 // Adds a byte onto the end of a #GString, expanding
 // it if necessary.
 func (x *String) AppendC(CVar byte) *String {
-	core.LazyRegister(&xStringAppendC, "GLIB", "g_string_append_c", false)
-
 	cret := xStringAppendC(x.GoPointer(), CVar)
 	if cret == 0 {
 		return nil
@@ -159,8 +147,6 @@ var xStringAppendLen func(uintptr, string, int) uintptr
 // is considered to request the entire string length. This
 // makes g_string_append_len() equivalent to g_string_append().
 func (x *String) AppendLen(ValVar string, LenVar int) *String {
-	core.LazyRegister(&xStringAppendLen, "GLIB", "g_string_append_len", false)
-
 	cret := xStringAppendLen(x.GoPointer(), ValVar, LenVar)
 	if cret == 0 {
 		return nil
@@ -174,8 +160,6 @@ var xStringAppendPrintf func(uintptr, string, ...interface{})
 // This function is similar to g_string_printf() except
 // that the text is appended to the #GString.
 func (x *String) AppendPrintf(FormatVar string, varArgs ...interface{}) {
-	core.LazyRegister(&xStringAppendPrintf, "GLIB", "g_string_append_printf", false)
-
 	xStringAppendPrintf(x.GoPointer(), FormatVar, varArgs...)
 }
 
@@ -184,8 +168,6 @@ var xStringAppendUnichar func(uintptr, uint32) uintptr
 // Converts a Unicode character into UTF-8, and appends it
 // to the string.
 func (x *String) AppendUnichar(WcVar uint32) *String {
-	core.LazyRegister(&xStringAppendUnichar, "GLIB", "g_string_append_unichar", false)
-
 	cret := xStringAppendUnichar(x.GoPointer(), WcVar)
 	if cret == 0 {
 		return nil
@@ -198,8 +180,6 @@ var xStringAppendUriEscaped func(uintptr, string, string, bool) uintptr
 // Appends @unescaped to @string, escaping any characters that
 // are reserved in URIs using URI-style escape sequences.
 func (x *String) AppendUriEscaped(UnescapedVar string, ReservedCharsAllowedVar string, AllowUtf8Var bool) *String {
-	core.LazyRegister(&xStringAppendUriEscaped, "GLIB", "g_string_append_uri_escaped", false)
-
 	cret := xStringAppendUriEscaped(x.GoPointer(), UnescapedVar, ReservedCharsAllowedVar, AllowUtf8Var)
 	if cret == 0 {
 		return nil
@@ -214,8 +194,6 @@ var xStringAppendVprintf func(uintptr, string, []interface{})
 // except that the arguments to the format string are passed
 // as a va_list.
 func (x *String) AppendVprintf(FormatVar string, ArgsVar []interface{}) {
-	core.LazyRegister(&xStringAppendVprintf, "GLIB", "g_string_append_vprintf", false)
-
 	xStringAppendVprintf(x.GoPointer(), FormatVar, ArgsVar)
 }
 
@@ -223,8 +201,6 @@ var xStringAsciiDown func(uintptr) uintptr
 
 // Converts all uppercase ASCII letters to lowercase ASCII letters.
 func (x *String) AsciiDown() *String {
-	core.LazyRegister(&xStringAsciiDown, "GLIB", "g_string_ascii_down", false)
-
 	cret := xStringAsciiDown(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -236,8 +212,6 @@ var xStringAsciiUp func(uintptr) uintptr
 
 // Converts all lowercase ASCII letters to uppercase ASCII letters.
 func (x *String) AsciiUp() *String {
-	core.LazyRegister(&xStringAsciiUp, "GLIB", "g_string_ascii_up", false)
-
 	cret := xStringAsciiUp(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -252,8 +226,6 @@ var xStringAssign func(uintptr, string) uintptr
 // the standard strcpy() function, except that you do not
 // have to worry about having enough space to copy the string.
 func (x *String) Assign(RvalVar string) *String {
-	core.LazyRegister(&xStringAssign, "GLIB", "g_string_assign", false)
-
 	cret := xStringAssign(x.GoPointer(), RvalVar)
 	if cret == 0 {
 		return nil
@@ -268,8 +240,6 @@ var xStringCopy func(uintptr) uintptr
 // This will preserve the allocation length of the [struct@GLib.String] in the
 // copy.
 func (x *String) Copy() *String {
-	core.LazyRegister(&xStringCopy, "GLIB", "g_string_copy", false)
-
 	cret := xStringCopy(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -281,8 +251,6 @@ var xStringDown func(uintptr) uintptr
 
 // Converts a #GString to lowercase.
 func (x *String) Down() *String {
-	core.LazyRegister(&xStringDown, "GLIB", "g_string_down", false)
-
 	cret := xStringDown(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -295,8 +263,6 @@ var xStringEqual func(uintptr, *String) bool
 // Compares two strings for equality, returning %TRUE if they are equal.
 // For use with #GHashTable.
 func (x *String) Equal(V2Var *String) bool {
-	core.LazyRegister(&xStringEqual, "GLIB", "g_string_equal", false)
-
 	cret := xStringEqual(x.GoPointer(), V2Var)
 	return cret
 }
@@ -306,8 +272,6 @@ var xStringErase func(uintptr, int, int) uintptr
 // Removes @len bytes from a #GString, starting at position @pos.
 // The rest of the #GString is shifted down to fill the gap.
 func (x *String) Erase(PosVar int, LenVar int) *String {
-	core.LazyRegister(&xStringErase, "GLIB", "g_string_erase", false)
-
 	cret := xStringErase(x.GoPointer(), PosVar, LenVar)
 	if cret == 0 {
 		return nil
@@ -325,8 +289,6 @@ var xStringFree func(uintptr, bool) string
 // Instead of passing %FALSE to this function, consider using
 // g_string_free_and_steal().
 func (x *String) Free(FreeSegmentVar bool) string {
-	core.LazyRegister(&xStringFree, "GLIB", "g_string_free", false)
-
 	cret := xStringFree(x.GoPointer(), FreeSegmentVar)
 	return cret
 }
@@ -338,8 +300,6 @@ var xStringFreeAndSteal func(uintptr) string
 // The caller gains ownership of the buffer and
 // must free it after use with g_free().
 func (x *String) FreeAndSteal() string {
-	core.LazyRegister(&xStringFreeAndSteal, "GLIB", "g_string_free_and_steal", false)
-
 	cret := xStringFreeAndSteal(x.GoPointer())
 	return cret
 }
@@ -355,8 +315,6 @@ var xStringFreeToBytes func(uintptr) uintptr
 // #GBytes does not include this extra nul; i.e. it has length exactly
 // equal to the "len" member.
 func (x *String) FreeToBytes() *Bytes {
-	core.LazyRegister(&xStringFreeToBytes, "GLIB", "g_string_free_to_bytes", false)
-
 	cret := xStringFreeToBytes(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -368,8 +326,6 @@ var xStringHash func(uintptr) uint
 
 // Creates a hash code for @str; for use with #GHashTable.
 func (x *String) Hash() uint {
-	core.LazyRegister(&xStringHash, "GLIB", "g_string_hash", false)
-
 	cret := xStringHash(x.GoPointer())
 	return cret
 }
@@ -379,8 +335,6 @@ var xStringInsert func(uintptr, int, string) uintptr
 // Inserts a copy of a string into a #GString,
 // expanding it if necessary.
 func (x *String) Insert(PosVar int, ValVar string) *String {
-	core.LazyRegister(&xStringInsert, "GLIB", "g_string_insert", false)
-
 	cret := xStringInsert(x.GoPointer(), PosVar, ValVar)
 	if cret == 0 {
 		return nil
@@ -392,8 +346,6 @@ var xStringInsertC func(uintptr, int, byte) uintptr
 
 // Inserts a byte into a #GString, expanding it if necessary.
 func (x *String) InsertC(PosVar int, CVar byte) *String {
-	core.LazyRegister(&xStringInsertC, "GLIB", "g_string_insert_c", false)
-
 	cret := xStringInsertC(x.GoPointer(), PosVar, CVar)
 	if cret == 0 {
 		return nil
@@ -414,8 +366,6 @@ var xStringInsertLen func(uintptr, int, string, int) uintptr
 //
 // If @pos is -1, bytes are inserted at the end of the string.
 func (x *String) InsertLen(PosVar int, ValVar string, LenVar int) *String {
-	core.LazyRegister(&xStringInsertLen, "GLIB", "g_string_insert_len", false)
-
 	cret := xStringInsertLen(x.GoPointer(), PosVar, ValVar, LenVar)
 	if cret == 0 {
 		return nil
@@ -428,8 +378,6 @@ var xStringInsertUnichar func(uintptr, int, uint32) uintptr
 // Converts a Unicode character into UTF-8, and insert it
 // into the string at the given position.
 func (x *String) InsertUnichar(PosVar int, WcVar uint32) *String {
-	core.LazyRegister(&xStringInsertUnichar, "GLIB", "g_string_insert_unichar", false)
-
 	cret := xStringInsertUnichar(x.GoPointer(), PosVar, WcVar)
 	if cret == 0 {
 		return nil
@@ -441,8 +389,6 @@ var xStringOverwrite func(uintptr, uint, string) uintptr
 
 // Overwrites part of a string, lengthening it if necessary.
 func (x *String) Overwrite(PosVar uint, ValVar string) *String {
-	core.LazyRegister(&xStringOverwrite, "GLIB", "g_string_overwrite", false)
-
 	cret := xStringOverwrite(x.GoPointer(), PosVar, ValVar)
 	if cret == 0 {
 		return nil
@@ -455,8 +401,6 @@ var xStringOverwriteLen func(uintptr, uint, string, int) uintptr
 // Overwrites part of a string, lengthening it if necessary.
 // This function will work with embedded nuls.
 func (x *String) OverwriteLen(PosVar uint, ValVar string, LenVar int) *String {
-	core.LazyRegister(&xStringOverwriteLen, "GLIB", "g_string_overwrite_len", false)
-
 	cret := xStringOverwriteLen(x.GoPointer(), PosVar, ValVar, LenVar)
 	if cret == 0 {
 		return nil
@@ -469,8 +413,6 @@ var xStringPrepend func(uintptr, string) uintptr
 // Adds a string on to the start of a #GString,
 // expanding it if necessary.
 func (x *String) Prepend(ValVar string) *String {
-	core.LazyRegister(&xStringPrepend, "GLIB", "g_string_prepend", false)
-
 	cret := xStringPrepend(x.GoPointer(), ValVar)
 	if cret == 0 {
 		return nil
@@ -483,8 +425,6 @@ var xStringPrependC func(uintptr, byte) uintptr
 // Adds a byte onto the start of a #GString,
 // expanding it if necessary.
 func (x *String) PrependC(CVar byte) *String {
-	core.LazyRegister(&xStringPrependC, "GLIB", "g_string_prepend_c", false)
-
 	cret := xStringPrependC(x.GoPointer(), CVar)
 	if cret == 0 {
 		return nil
@@ -504,8 +444,6 @@ var xStringPrependLen func(uintptr, string, int) uintptr
 // is considered to request the entire string length. This
 // makes g_string_prepend_len() equivalent to g_string_prepend().
 func (x *String) PrependLen(ValVar string, LenVar int) *String {
-	core.LazyRegister(&xStringPrependLen, "GLIB", "g_string_prepend_len", false)
-
 	cret := xStringPrependLen(x.GoPointer(), ValVar, LenVar)
 	if cret == 0 {
 		return nil
@@ -518,8 +456,6 @@ var xStringPrependUnichar func(uintptr, uint32) uintptr
 // Converts a Unicode character into UTF-8, and prepends it
 // to the string.
 func (x *String) PrependUnichar(WcVar uint32) *String {
-	core.LazyRegister(&xStringPrependUnichar, "GLIB", "g_string_prepend_unichar", false)
-
 	cret := xStringPrependUnichar(x.GoPointer(), WcVar)
 	if cret == 0 {
 		return nil
@@ -535,8 +471,6 @@ var xStringPrintf func(uintptr, string, ...interface{})
 // to contain the results. The previous contents of the
 // #GString are destroyed.
 func (x *String) Printf(FormatVar string, varArgs ...interface{}) {
-	core.LazyRegister(&xStringPrintf, "GLIB", "g_string_printf", false)
-
 	xStringPrintf(x.GoPointer(), FormatVar, varArgs...)
 }
 
@@ -556,8 +490,6 @@ var xStringReplace func(uintptr, string, string, uint) uint
 // the input string, they will all be replaced, but the return value will
 // be capped at `G_MAXUINT`.
 func (x *String) Replace(FindVar string, ReplaceVar string, LimitVar uint) uint {
-	core.LazyRegister(&xStringReplace, "GLIB", "g_string_replace", false)
-
 	cret := xStringReplace(x.GoPointer(), FindVar, ReplaceVar, LimitVar)
 	return cret
 }
@@ -570,8 +502,6 @@ var xStringSetSize func(uintptr, uint) uintptr
 // of the newly added area are undefined. (However, as
 // always, string-&gt;str[string-&gt;len] will be a nul byte.)
 func (x *String) SetSize(LenVar uint) *String {
-	core.LazyRegister(&xStringSetSize, "GLIB", "g_string_set_size", false)
-
 	cret := xStringSetSize(x.GoPointer(), LenVar)
 	if cret == 0 {
 		return nil
@@ -583,8 +513,6 @@ var xStringTruncate func(uintptr, uint) uintptr
 
 // Cuts off the end of the GString, leaving the first @len bytes.
 func (x *String) Truncate(LenVar uint) *String {
-	core.LazyRegister(&xStringTruncate, "GLIB", "g_string_truncate", false)
-
 	cret := xStringTruncate(x.GoPointer(), LenVar)
 	if cret == 0 {
 		return nil
@@ -596,8 +524,6 @@ var xStringUp func(uintptr) uintptr
 
 // Converts a #GString to uppercase.
 func (x *String) Up() *String {
-	core.LazyRegister(&xStringUp, "GLIB", "g_string_up", false)
-
 	cret := xStringUp(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -611,12 +537,60 @@ var xStringVprintf func(uintptr, string, []interface{})
 // This function is similar to g_string_printf() except that
 // the arguments to the format string are passed as a va_list.
 func (x *String) Vprintf(FormatVar string, ArgsVar []interface{}) {
-	core.LazyRegister(&xStringVprintf, "GLIB", "g_string_vprintf", false)
-
 	xStringVprintf(x.GoPointer(), FormatVar, ArgsVar)
 }
 
 func init() {
 	core.SetPackageName("GLIB", "glib-2.0")
 	core.SetSharedLibraries("GLIB", []string{"libgobject-2.0.so.0", "libglib-2.0.so.0", "libgobject-2.0.0.dylib", "libglib-2.0.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GLIB") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xStringGLibType, libs, "g_gstring_get_type")
+
+	core.PuregoSafeRegister(&xNewString, libs, "g_string_new")
+	core.PuregoSafeRegister(&xNewStringLen, libs, "g_string_new_len")
+	core.PuregoSafeRegister(&xNewStringTake, libs, "g_string_new_take")
+	core.PuregoSafeRegister(&xStringSizedNew, libs, "g_string_sized_new")
+
+	core.PuregoSafeRegister(&xStringAppend, libs, "g_string_append")
+	core.PuregoSafeRegister(&xStringAppendC, libs, "g_string_append_c")
+	core.PuregoSafeRegister(&xStringAppendLen, libs, "g_string_append_len")
+	core.PuregoSafeRegister(&xStringAppendPrintf, libs, "g_string_append_printf")
+	core.PuregoSafeRegister(&xStringAppendUnichar, libs, "g_string_append_unichar")
+	core.PuregoSafeRegister(&xStringAppendUriEscaped, libs, "g_string_append_uri_escaped")
+	core.PuregoSafeRegister(&xStringAppendVprintf, libs, "g_string_append_vprintf")
+	core.PuregoSafeRegister(&xStringAsciiDown, libs, "g_string_ascii_down")
+	core.PuregoSafeRegister(&xStringAsciiUp, libs, "g_string_ascii_up")
+	core.PuregoSafeRegister(&xStringAssign, libs, "g_string_assign")
+	core.PuregoSafeRegister(&xStringCopy, libs, "g_string_copy")
+	core.PuregoSafeRegister(&xStringDown, libs, "g_string_down")
+	core.PuregoSafeRegister(&xStringEqual, libs, "g_string_equal")
+	core.PuregoSafeRegister(&xStringErase, libs, "g_string_erase")
+	core.PuregoSafeRegister(&xStringFree, libs, "g_string_free")
+	core.PuregoSafeRegister(&xStringFreeAndSteal, libs, "g_string_free_and_steal")
+	core.PuregoSafeRegister(&xStringFreeToBytes, libs, "g_string_free_to_bytes")
+	core.PuregoSafeRegister(&xStringHash, libs, "g_string_hash")
+	core.PuregoSafeRegister(&xStringInsert, libs, "g_string_insert")
+	core.PuregoSafeRegister(&xStringInsertC, libs, "g_string_insert_c")
+	core.PuregoSafeRegister(&xStringInsertLen, libs, "g_string_insert_len")
+	core.PuregoSafeRegister(&xStringInsertUnichar, libs, "g_string_insert_unichar")
+	core.PuregoSafeRegister(&xStringOverwrite, libs, "g_string_overwrite")
+	core.PuregoSafeRegister(&xStringOverwriteLen, libs, "g_string_overwrite_len")
+	core.PuregoSafeRegister(&xStringPrepend, libs, "g_string_prepend")
+	core.PuregoSafeRegister(&xStringPrependC, libs, "g_string_prepend_c")
+	core.PuregoSafeRegister(&xStringPrependLen, libs, "g_string_prepend_len")
+	core.PuregoSafeRegister(&xStringPrependUnichar, libs, "g_string_prepend_unichar")
+	core.PuregoSafeRegister(&xStringPrintf, libs, "g_string_printf")
+	core.PuregoSafeRegister(&xStringReplace, libs, "g_string_replace")
+	core.PuregoSafeRegister(&xStringSetSize, libs, "g_string_set_size")
+	core.PuregoSafeRegister(&xStringTruncate, libs, "g_string_truncate")
+	core.PuregoSafeRegister(&xStringUp, libs, "g_string_up")
+	core.PuregoSafeRegister(&xStringVprintf, libs, "g_string_vprintf")
 }

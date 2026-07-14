@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gobject/types"
 )
@@ -36,7 +35,6 @@ type Snapshot struct {
 var xSnapshotGLibType func() types.GType
 
 func SnapshotGLibType() types.GType {
-	core.LazyRegister(&xSnapshotGLibType, "GDK", "gdk_snapshot_get_type", false)
 	return xSnapshotGLibType()
 }
 
@@ -55,9 +53,4 @@ func (c *Snapshot) GoPointer() uintptr {
 
 func (c *Snapshot) SetGoPointer(ptr uintptr) {
 	c.Ptr = ptr
-}
-
-func init() {
-	core.SetPackageName("GDK", "gtk4")
-	core.SetSharedLibraries("GDK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
 }

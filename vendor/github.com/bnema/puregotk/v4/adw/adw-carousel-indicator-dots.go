@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -56,7 +57,6 @@ type CarouselIndicatorDots struct {
 var xCarouselIndicatorDotsGLibType func() types.GType
 
 func CarouselIndicatorDotsGLibType() types.GType {
-	core.LazyRegister(&xCarouselIndicatorDotsGLibType, "ADW", "adw_carousel_indicator_dots_get_type", false)
 	return xCarouselIndicatorDotsGLibType()
 }
 
@@ -70,7 +70,6 @@ var xNewCarouselIndicatorDots func() uintptr
 
 // Creates a new `AdwCarouselIndicatorDots`.
 func NewCarouselIndicatorDots() *CarouselIndicatorDots {
-	core.LazyRegister(&xNewCarouselIndicatorDots, "ADW", "adw_carousel_indicator_dots_new", false)
 	var cls *CarouselIndicatorDots
 
 	cret := xNewCarouselIndicatorDots()
@@ -88,7 +87,6 @@ var xCarouselIndicatorDotsGetCarousel func(uintptr) uintptr
 
 // Gets the displayed carousel.
 func (x *CarouselIndicatorDots) GetCarousel() *Carousel {
-	core.LazyRegister(&xCarouselIndicatorDotsGetCarousel, "ADW", "adw_carousel_indicator_dots_get_carousel", false)
 	var cls *Carousel
 
 	cret := xCarouselIndicatorDotsGetCarousel(x.GoPointer())
@@ -106,8 +104,6 @@ var xCarouselIndicatorDotsSetCarousel func(uintptr, uintptr)
 
 // Sets the displayed carousel.
 func (x *CarouselIndicatorDots) SetCarousel(CarouselVar *Carousel) {
-	core.LazyRegister(&xCarouselIndicatorDotsSetCarousel, "ADW", "adw_carousel_indicator_dots_set_carousel", false)
-
 	xCarouselIndicatorDotsSetCarousel(x.GoPointer(), CarouselVar.GoPointer())
 }
 
@@ -396,4 +392,19 @@ func (x *CarouselIndicatorDots) SetOrientation(OrientationVar gtk.Orientation) {
 func init() {
 	core.SetPackageName("ADW", "libadwaita-1")
 	core.SetSharedLibraries("ADW", []string{"libadwaita-1.so.0", "libadwaita-1.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("ADW") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xCarouselIndicatorDotsGLibType, libs, "adw_carousel_indicator_dots_get_type")
+
+	core.PuregoSafeRegister(&xNewCarouselIndicatorDots, libs, "adw_carousel_indicator_dots_new")
+
+	core.PuregoSafeRegister(&xCarouselIndicatorDotsGetCarousel, libs, "adw_carousel_indicator_dots_get_carousel")
+	core.PuregoSafeRegister(&xCarouselIndicatorDotsSetCarousel, libs, "adw_carousel_indicator_dots_set_carousel")
 }

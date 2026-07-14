@@ -219,7 +219,6 @@ type ThreadedSocketService struct {
 var xThreadedSocketServiceGLibType func() types.GType
 
 func ThreadedSocketServiceGLibType() types.GType {
-	core.LazyRegister(&xThreadedSocketServiceGLibType, "GIO", "g_threaded_socket_service_get_type", false)
 	return xThreadedSocketServiceGLibType()
 }
 
@@ -234,7 +233,6 @@ var xNewThreadedSocketService func(int) uintptr
 // Creates a new #GThreadedSocketService with no listeners. Listeners
 // must be added with one of the #GSocketListener "add" methods.
 func NewThreadedSocketService(MaxThreadsVar int) *ThreadedSocketService {
-	core.LazyRegister(&xNewThreadedSocketService, "GIO", "g_threaded_socket_service_new", false)
 	var cls *ThreadedSocketService
 
 	cret := xNewThreadedSocketService(MaxThreadsVar)
@@ -306,4 +304,16 @@ func (x *ThreadedSocketService) ConnectRun(cb *func(ThreadedSocketService, uintp
 func init() {
 	core.SetPackageName("GIO", "gio-2.0")
 	core.SetSharedLibraries("GIO", []string{"libgio-2.0.so.0", "libgio-2.0.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GIO") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xThreadedSocketServiceGLibType, libs, "g_threaded_socket_service_get_type")
+
+	core.PuregoSafeRegister(&xNewThreadedSocketService, libs, "g_threaded_socket_service_new")
 }

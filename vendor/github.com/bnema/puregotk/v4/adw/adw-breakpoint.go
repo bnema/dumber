@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -38,7 +39,6 @@ type BreakpointCondition struct {
 var xBreakpointConditionGLibType func() types.GType
 
 func BreakpointConditionGLibType() types.GType {
-	core.LazyRegister(&xBreakpointConditionGLibType, "ADW", "adw_breakpoint_condition_get_type", false)
 	return xBreakpointConditionGLibType()
 }
 
@@ -59,8 +59,6 @@ var xNewBreakpointConditionAnd func(*BreakpointCondition, *BreakpointCondition) 
 // Creates a condition that triggers when @condition_1 and @condition_2 are both
 // true.
 func NewBreakpointConditionAnd(Condition1Var *BreakpointCondition, Condition2Var *BreakpointCondition) *BreakpointCondition {
-	core.LazyRegister(&xNewBreakpointConditionAnd, "ADW", "adw_breakpoint_condition_new_and", false)
-
 	cret := xNewBreakpointConditionAnd(Condition1Var, Condition2Var)
 	if cret == 0 {
 		return nil
@@ -72,8 +70,6 @@ var xNewBreakpointConditionLength func(BreakpointConditionLengthType, float64, L
 
 // Creates a condition that triggers on length changes.
 func NewBreakpointConditionLength(TypeVar BreakpointConditionLengthType, ValueVar float64, UnitVar LengthUnit) *BreakpointCondition {
-	core.LazyRegister(&xNewBreakpointConditionLength, "ADW", "adw_breakpoint_condition_new_length", false)
-
 	cret := xNewBreakpointConditionLength(TypeVar, ValueVar, UnitVar)
 	if cret == 0 {
 		return nil
@@ -86,8 +82,6 @@ var xNewBreakpointConditionOr func(*BreakpointCondition, *BreakpointCondition) u
 // Creates a condition that triggers when either @condition_1 or @condition_2 is
 // true.
 func NewBreakpointConditionOr(Condition1Var *BreakpointCondition, Condition2Var *BreakpointCondition) *BreakpointCondition {
-	core.LazyRegister(&xNewBreakpointConditionOr, "ADW", "adw_breakpoint_condition_new_or", false)
-
 	cret := xNewBreakpointConditionOr(Condition1Var, Condition2Var)
 	if cret == 0 {
 		return nil
@@ -101,8 +95,6 @@ var xNewBreakpointConditionRatio func(BreakpointConditionRatioType, int, int) ui
 //
 // The ratio is represented as @width divided by @height.
 func NewBreakpointConditionRatio(TypeVar BreakpointConditionRatioType, WidthVar int, HeightVar int) *BreakpointCondition {
-	core.LazyRegister(&xNewBreakpointConditionRatio, "ADW", "adw_breakpoint_condition_new_ratio", false)
-
 	cret := xNewBreakpointConditionRatio(TypeVar, WidthVar, HeightVar)
 	if cret == 0 {
 		return nil
@@ -114,8 +106,6 @@ var xBreakpointConditionCopy func(uintptr) uintptr
 
 // Copies @self.
 func (x *BreakpointCondition) Copy() *BreakpointCondition {
-	core.LazyRegister(&xBreakpointConditionCopy, "ADW", "adw_breakpoint_condition_copy", false)
-
 	cret := xBreakpointConditionCopy(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -127,8 +117,6 @@ var xBreakpointConditionFree func(uintptr)
 
 // Frees @self.
 func (x *BreakpointCondition) Free() {
-	core.LazyRegister(&xBreakpointConditionFree, "ADW", "adw_breakpoint_condition_free", false)
-
 	xBreakpointConditionFree(x.GoPointer())
 }
 
@@ -138,8 +126,6 @@ var xBreakpointConditionToString func(uintptr) string
 //
 // The returned string can be parsed by [func@BreakpointCondition.parse].
 func (x *BreakpointCondition) ToString() string {
-	core.LazyRegister(&xBreakpointConditionToString, "ADW", "adw_breakpoint_condition_to_string", false)
-
 	cret := xBreakpointConditionToString(x.GoPointer())
 	return cret
 }
@@ -154,7 +140,6 @@ type BreakpointConditionLengthType int
 var xBreakpointConditionLengthTypeGLibType func() types.GType
 
 func BreakpointConditionLengthTypeGLibType() types.GType {
-	core.LazyRegister(&xBreakpointConditionLengthTypeGLibType, "ADW", "adw_breakpoint_condition_length_type_get_type", false)
 	return xBreakpointConditionLengthTypeGLibType()
 }
 
@@ -184,7 +169,6 @@ type BreakpointConditionRatioType int
 var xBreakpointConditionRatioTypeGLibType func() types.GType
 
 func BreakpointConditionRatioTypeGLibType() types.GType {
-	core.LazyRegister(&xBreakpointConditionRatioTypeGLibType, "ADW", "adw_breakpoint_condition_ratio_type_get_type", false)
 	return xBreakpointConditionRatioTypeGLibType()
 }
 
@@ -256,8 +240,6 @@ var xBreakpointConditionParse func(string) uintptr
 //
 // If parentheses are omitted, the first operator takes priority.
 func BreakpointConditionParse(StrVar string) *BreakpointCondition {
-	core.LazyRegister(&xBreakpointConditionParse, "ADW", "adw_breakpoint_condition_parse", false)
-
 	cret := xBreakpointConditionParse(StrVar)
 	if cret == 0 {
 		return nil
@@ -320,7 +302,6 @@ type Breakpoint struct {
 var xBreakpointGLibType func() types.GType
 
 func BreakpointGLibType() types.GType {
-	core.LazyRegister(&xBreakpointGLibType, "ADW", "adw_breakpoint_get_type", false)
 	return xBreakpointGLibType()
 }
 
@@ -334,7 +315,6 @@ var xNewBreakpoint func(*BreakpointCondition) uintptr
 
 // Creates a new `AdwBreakpoint` with @condition.
 func NewBreakpoint(ConditionVar *BreakpointCondition) *Breakpoint {
-	core.LazyRegister(&xNewBreakpoint, "ADW", "adw_breakpoint_new", false)
 	var cls *Breakpoint
 
 	cret := xNewBreakpoint(ConditionVar)
@@ -393,8 +373,6 @@ var xBreakpointAddSetter func(uintptr, uintptr, string, *gobject.Value)
 //
 // ```
 func (x *Breakpoint) AddSetter(ObjectVar *gobject.Object, PropertyVar string, ValueVar *gobject.Value) {
-	core.LazyRegister(&xBreakpointAddSetter, "ADW", "adw_breakpoint_add_setter", false)
-
 	xBreakpointAddSetter(x.GoPointer(), ObjectVar.GoPointer(), PropertyVar, ValueVar)
 }
 
@@ -416,8 +394,6 @@ var xBreakpointAddSetters func(uintptr, uintptr, string, ...interface{})
 //
 // ```
 func (x *Breakpoint) AddSetters(FirstObjectVar *gobject.Object, FirstPropertyVar string, varArgs ...interface{}) {
-	core.LazyRegister(&xBreakpointAddSetters, "ADW", "adw_breakpoint_add_setters", false)
-
 	xBreakpointAddSetters(x.GoPointer(), FirstObjectVar.GoPointer(), FirstPropertyVar, varArgs...)
 }
 
@@ -427,8 +403,6 @@ var xBreakpointAddSettersValist func(uintptr, uintptr, string, []interface{})
 //
 // See [method@Breakpoint.add_setters].
 func (x *Breakpoint) AddSettersValist(FirstObjectVar *gobject.Object, FirstPropertyVar string, ArgsVar []interface{}) {
-	core.LazyRegister(&xBreakpointAddSettersValist, "ADW", "adw_breakpoint_add_setters_valist", false)
-
 	xBreakpointAddSettersValist(x.GoPointer(), FirstObjectVar.GoPointer(), FirstPropertyVar, ArgsVar)
 }
 
@@ -442,8 +416,6 @@ var xBreakpointAddSettersv func(uintptr, int, uintptr, []string, uintptr)
 //
 // This function is meant to be used by language bindings.
 func (x *Breakpoint) AddSettersv(NSettersVar int, ObjectsVar uintptr, NamesVar []string, ValuesVar uintptr) {
-	core.LazyRegister(&xBreakpointAddSettersv, "ADW", "adw_breakpoint_add_settersv", false)
-
 	xBreakpointAddSettersv(x.GoPointer(), NSettersVar, ObjectsVar, NamesVar, ValuesVar)
 }
 
@@ -451,8 +423,6 @@ var xBreakpointGetCondition func(uintptr) uintptr
 
 // Gets the condition for @self.
 func (x *Breakpoint) GetCondition() *BreakpointCondition {
-	core.LazyRegister(&xBreakpointGetCondition, "ADW", "adw_breakpoint_get_condition", false)
-
 	cret := xBreakpointGetCondition(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -464,8 +434,6 @@ var xBreakpointSetCondition func(uintptr, *BreakpointCondition)
 
 // Sets the condition for @self.
 func (x *Breakpoint) SetCondition(ConditionVar *BreakpointCondition) {
-	core.LazyRegister(&xBreakpointSetCondition, "ADW", "adw_breakpoint_set_condition", false)
-
 	xBreakpointSetCondition(x.GoPointer(), ConditionVar)
 }
 
@@ -559,4 +527,40 @@ func (x *Breakpoint) GetBuildableId() string {
 func init() {
 	core.SetPackageName("ADW", "libadwaita-1")
 	core.SetSharedLibraries("ADW", []string{"libadwaita-1.so.0", "libadwaita-1.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("ADW") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xBreakpointConditionLengthTypeGLibType, libs, "adw_breakpoint_condition_length_type_get_type")
+
+	core.PuregoSafeRegister(&xBreakpointConditionRatioTypeGLibType, libs, "adw_breakpoint_condition_ratio_type_get_type")
+
+	core.PuregoSafeRegister(&xBreakpointConditionParse, libs, "adw_breakpoint_condition_parse")
+
+	core.PuregoSafeRegister(&xBreakpointConditionGLibType, libs, "adw_breakpoint_condition_get_type")
+
+	core.PuregoSafeRegister(&xNewBreakpointConditionAnd, libs, "adw_breakpoint_condition_new_and")
+	core.PuregoSafeRegister(&xNewBreakpointConditionLength, libs, "adw_breakpoint_condition_new_length")
+	core.PuregoSafeRegister(&xNewBreakpointConditionOr, libs, "adw_breakpoint_condition_new_or")
+	core.PuregoSafeRegister(&xNewBreakpointConditionRatio, libs, "adw_breakpoint_condition_new_ratio")
+
+	core.PuregoSafeRegister(&xBreakpointConditionCopy, libs, "adw_breakpoint_condition_copy")
+	core.PuregoSafeRegister(&xBreakpointConditionFree, libs, "adw_breakpoint_condition_free")
+	core.PuregoSafeRegister(&xBreakpointConditionToString, libs, "adw_breakpoint_condition_to_string")
+
+	core.PuregoSafeRegister(&xBreakpointGLibType, libs, "adw_breakpoint_get_type")
+
+	core.PuregoSafeRegister(&xNewBreakpoint, libs, "adw_breakpoint_new")
+
+	core.PuregoSafeRegister(&xBreakpointAddSetter, libs, "adw_breakpoint_add_setter")
+	core.PuregoSafeRegister(&xBreakpointAddSetters, libs, "adw_breakpoint_add_setters")
+	core.PuregoSafeRegister(&xBreakpointAddSettersValist, libs, "adw_breakpoint_add_setters_valist")
+	core.PuregoSafeRegister(&xBreakpointAddSettersv, libs, "adw_breakpoint_add_settersv")
+	core.PuregoSafeRegister(&xBreakpointGetCondition, libs, "adw_breakpoint_get_condition")
+	core.PuregoSafeRegister(&xBreakpointSetCondition, libs, "adw_breakpoint_set_condition")
 }

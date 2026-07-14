@@ -179,7 +179,6 @@ type DataInputStream struct {
 var xDataInputStreamGLibType func() types.GType
 
 func DataInputStreamGLibType() types.GType {
-	core.LazyRegister(&xDataInputStreamGLibType, "GIO", "g_data_input_stream_get_type", false)
 	return xDataInputStreamGLibType()
 }
 
@@ -193,7 +192,6 @@ var xNewDataInputStream func(uintptr) uintptr
 
 // Creates a new data input stream for the @base_stream.
 func NewDataInputStream(BaseStreamVar *InputStream) *DataInputStream {
-	core.LazyRegister(&xNewDataInputStream, "GIO", "g_data_input_stream_new", false)
 	var cls *DataInputStream
 
 	cret := xNewDataInputStream(BaseStreamVar.GoPointer())
@@ -210,8 +208,6 @@ var xDataInputStreamGetByteOrder func(uintptr) DataStreamByteOrder
 
 // Gets the byte order for the data input stream.
 func (x *DataInputStream) GetByteOrder() DataStreamByteOrder {
-	core.LazyRegister(&xDataInputStreamGetByteOrder, "GIO", "g_data_input_stream_get_byte_order", false)
-
 	cret := xDataInputStreamGetByteOrder(x.GoPointer())
 	return cret
 }
@@ -220,8 +216,6 @@ var xDataInputStreamGetNewlineType func(uintptr) DataStreamNewlineType
 
 // Gets the current newline type for the @stream.
 func (x *DataInputStream) GetNewlineType() DataStreamNewlineType {
-	core.LazyRegister(&xDataInputStreamGetNewlineType, "GIO", "g_data_input_stream_get_newline_type", false)
-
 	cret := xDataInputStreamGetNewlineType(x.GoPointer())
 	return cret
 }
@@ -230,7 +224,6 @@ var xDataInputStreamDataInputStreamReadByte func(uintptr, uintptr, **glib.Error)
 
 // Reads an unsigned 8-bit/1-byte value from @stream.
 func (x *DataInputStream) DataInputStreamReadByte(CancellableVar *Cancellable) (byte, error) {
-	core.LazyRegister(&xDataInputStreamDataInputStreamReadByte, "GIO", "g_data_input_stream_read_byte", false)
 	var cerr *glib.Error
 
 	cret := xDataInputStreamDataInputStreamReadByte(x.GoPointer(), CancellableVar.GoPointer(), &cerr)
@@ -247,7 +240,6 @@ var xDataInputStreamReadInt16 func(uintptr, uintptr, **glib.Error) int16
 // In order to get the correct byte order for this read operation,
 // see g_data_input_stream_get_byte_order() and g_data_input_stream_set_byte_order().
 func (x *DataInputStream) ReadInt16(CancellableVar *Cancellable) (int16, error) {
-	core.LazyRegister(&xDataInputStreamReadInt16, "GIO", "g_data_input_stream_read_int16", false)
 	var cerr *glib.Error
 
 	cret := xDataInputStreamReadInt16(x.GoPointer(), CancellableVar.GoPointer(), &cerr)
@@ -268,7 +260,6 @@ var xDataInputStreamReadInt32 func(uintptr, uintptr, **glib.Error) int32
 // triggering the cancellable object from another thread. If the operation
 // was cancelled, the error %G_IO_ERROR_CANCELLED will be returned.
 func (x *DataInputStream) ReadInt32(CancellableVar *Cancellable) (int32, error) {
-	core.LazyRegister(&xDataInputStreamReadInt32, "GIO", "g_data_input_stream_read_int32", false)
 	var cerr *glib.Error
 
 	cret := xDataInputStreamReadInt32(x.GoPointer(), CancellableVar.GoPointer(), &cerr)
@@ -289,7 +280,6 @@ var xDataInputStreamReadInt64 func(uintptr, uintptr, **glib.Error) int64
 // triggering the cancellable object from another thread. If the operation
 // was cancelled, the error %G_IO_ERROR_CANCELLED will be returned.
 func (x *DataInputStream) ReadInt64(CancellableVar *Cancellable) (int64, error) {
-	core.LazyRegister(&xDataInputStreamReadInt64, "GIO", "g_data_input_stream_read_int64", false)
 	var cerr *glib.Error
 
 	cret := xDataInputStreamReadInt64(x.GoPointer(), CancellableVar.GoPointer(), &cerr)
@@ -309,7 +299,6 @@ var xDataInputStreamReadLine func(uintptr, *uint, uintptr, **glib.Error) uintptr
 // triggering the cancellable object from another thread. If the operation
 // was cancelled, the error %G_IO_ERROR_CANCELLED will be returned.
 func (x *DataInputStream) ReadLine(LengthVar *uint, CancellableVar *Cancellable) (uintptr, error) {
-	core.LazyRegister(&xDataInputStreamReadLine, "GIO", "g_data_input_stream_read_line", false)
 	var cerr *glib.Error
 
 	cret := xDataInputStreamReadLine(x.GoPointer(), LengthVar, CancellableVar.GoPointer(), &cerr)
@@ -328,8 +317,6 @@ var xDataInputStreamReadLineAsync func(uintptr, int, uintptr, uintptr, uintptr)
 // can then call g_data_input_stream_read_line_finish() to get
 // the result of the operation.
 func (x *DataInputStream) ReadLineAsync(IoPriorityVar int, CancellableVar *Cancellable, CallbackVar *AsyncReadyCallback, UserDataVar uintptr) {
-	core.LazyRegister(&xDataInputStreamReadLineAsync, "GIO", "g_data_input_stream_read_line_async", false)
-
 	xDataInputStreamReadLineAsync(x.GoPointer(), IoPriorityVar, CancellableVar.GoPointer(), glib.NewCallbackNullable(CallbackVar), UserDataVar)
 }
 
@@ -340,7 +327,6 @@ var xDataInputStreamReadLineFinish func(uintptr, uintptr, *uint, **glib.Error) u
 // string encoding in g_data_input_stream_read_line() applies here as
 // well.
 func (x *DataInputStream) ReadLineFinish(ResultVar AsyncResult, LengthVar *uint) (uintptr, error) {
-	core.LazyRegister(&xDataInputStreamReadLineFinish, "GIO", "g_data_input_stream_read_line_finish", false)
 	var cerr *glib.Error
 
 	cret := xDataInputStreamReadLineFinish(x.GoPointer(), ResultVar.GoPointer(), LengthVar, &cerr)
@@ -355,7 +341,6 @@ var xDataInputStreamReadLineFinishUtf8 func(uintptr, uintptr, *uint, **glib.Erro
 // Finish an asynchronous call started by
 // g_data_input_stream_read_line_async().
 func (x *DataInputStream) ReadLineFinishUtf8(ResultVar AsyncResult, LengthVar *uint) (string, error) {
-	core.LazyRegister(&xDataInputStreamReadLineFinishUtf8, "GIO", "g_data_input_stream_read_line_finish_utf8", false)
 	var cerr *glib.Error
 
 	cret := xDataInputStreamReadLineFinishUtf8(x.GoPointer(), ResultVar.GoPointer(), LengthVar, &cerr)
@@ -373,7 +358,6 @@ var xDataInputStreamReadLineUtf8 func(uintptr, *uint, uintptr, **glib.Error) str
 // triggering the cancellable object from another thread. If the operation
 // was cancelled, the error %G_IO_ERROR_CANCELLED will be returned.
 func (x *DataInputStream) ReadLineUtf8(LengthVar *uint, CancellableVar *Cancellable) (string, error) {
-	core.LazyRegister(&xDataInputStreamReadLineUtf8, "GIO", "g_data_input_stream_read_line_utf8", false)
 	var cerr *glib.Error
 
 	cret := xDataInputStreamReadLineUtf8(x.GoPointer(), LengthVar, CancellableVar.GoPointer(), &cerr)
@@ -390,7 +374,6 @@ var xDataInputStreamReadUint16 func(uintptr, uintptr, **glib.Error) uint16
 // In order to get the correct byte order for this read operation,
 // see g_data_input_stream_get_byte_order() and g_data_input_stream_set_byte_order().
 func (x *DataInputStream) ReadUint16(CancellableVar *Cancellable) (uint16, error) {
-	core.LazyRegister(&xDataInputStreamReadUint16, "GIO", "g_data_input_stream_read_uint16", false)
 	var cerr *glib.Error
 
 	cret := xDataInputStreamReadUint16(x.GoPointer(), CancellableVar.GoPointer(), &cerr)
@@ -411,7 +394,6 @@ var xDataInputStreamReadUint32 func(uintptr, uintptr, **glib.Error) uint32
 // triggering the cancellable object from another thread. If the operation
 // was cancelled, the error %G_IO_ERROR_CANCELLED will be returned.
 func (x *DataInputStream) ReadUint32(CancellableVar *Cancellable) (uint32, error) {
-	core.LazyRegister(&xDataInputStreamReadUint32, "GIO", "g_data_input_stream_read_uint32", false)
 	var cerr *glib.Error
 
 	cret := xDataInputStreamReadUint32(x.GoPointer(), CancellableVar.GoPointer(), &cerr)
@@ -432,7 +414,6 @@ var xDataInputStreamReadUint64 func(uintptr, uintptr, **glib.Error) uint64
 // triggering the cancellable object from another thread. If the operation
 // was cancelled, the error %G_IO_ERROR_CANCELLED will be returned.
 func (x *DataInputStream) ReadUint64(CancellableVar *Cancellable) (uint64, error) {
-	core.LazyRegister(&xDataInputStreamReadUint64, "GIO", "g_data_input_stream_read_uint64", false)
 	var cerr *glib.Error
 
 	cret := xDataInputStreamReadUint64(x.GoPointer(), CancellableVar.GoPointer(), &cerr)
@@ -456,7 +437,6 @@ var xDataInputStreamReadUntil func(uintptr, string, *uint, uintptr, **glib.Error
 // g_data_input_stream_read_upto() instead, but note that that function
 // does not consume the stop character.
 func (x *DataInputStream) ReadUntil(StopCharsVar string, LengthVar *uint, CancellableVar *Cancellable) (string, error) {
-	core.LazyRegister(&xDataInputStreamReadUntil, "GIO", "g_data_input_stream_read_until", false)
 	var cerr *glib.Error
 
 	cret := xDataInputStreamReadUntil(x.GoPointer(), StopCharsVar, LengthVar, CancellableVar.GoPointer(), &cerr)
@@ -484,8 +464,6 @@ var xDataInputStreamReadUntilAsync func(uintptr, string, int, uintptr, uintptr, 
 // will be marked as deprecated in a future release.  Use
 // g_data_input_stream_read_upto_async() instead.
 func (x *DataInputStream) ReadUntilAsync(StopCharsVar string, IoPriorityVar int, CancellableVar *Cancellable, CallbackVar *AsyncReadyCallback, UserDataVar uintptr) {
-	core.LazyRegister(&xDataInputStreamReadUntilAsync, "GIO", "g_data_input_stream_read_until_async", false)
-
 	xDataInputStreamReadUntilAsync(x.GoPointer(), StopCharsVar, IoPriorityVar, CancellableVar.GoPointer(), glib.NewCallbackNullable(CallbackVar), UserDataVar)
 }
 
@@ -494,7 +472,6 @@ var xDataInputStreamReadUntilFinish func(uintptr, uintptr, *uint, **glib.Error) 
 // Finish an asynchronous call started by
 // g_data_input_stream_read_until_async().
 func (x *DataInputStream) ReadUntilFinish(ResultVar AsyncResult, LengthVar *uint) (string, error) {
-	core.LazyRegister(&xDataInputStreamReadUntilFinish, "GIO", "g_data_input_stream_read_until_finish", false)
 	var cerr *glib.Error
 
 	cret := xDataInputStreamReadUntilFinish(x.GoPointer(), ResultVar.GoPointer(), LengthVar, &cerr)
@@ -519,7 +496,6 @@ var xDataInputStreamReadUpto func(uintptr, string, int, *uint, uintptr, **glib.E
 //
 // The returned string will always be nul-terminated on success.
 func (x *DataInputStream) ReadUpto(StopCharsVar string, StopCharsLenVar int, LengthVar *uint, CancellableVar *Cancellable) (string, error) {
-	core.LazyRegister(&xDataInputStreamReadUpto, "GIO", "g_data_input_stream_read_upto", false)
 	var cerr *glib.Error
 
 	cret := xDataInputStreamReadUpto(x.GoPointer(), StopCharsVar, StopCharsLenVar, LengthVar, CancellableVar.GoPointer(), &cerr)
@@ -546,8 +522,6 @@ var xDataInputStreamReadUptoAsync func(uintptr, string, int, int, uintptr, uintp
 // can then call g_data_input_stream_read_upto_finish() to get
 // the result of the operation.
 func (x *DataInputStream) ReadUptoAsync(StopCharsVar string, StopCharsLenVar int, IoPriorityVar int, CancellableVar *Cancellable, CallbackVar *AsyncReadyCallback, UserDataVar uintptr) {
-	core.LazyRegister(&xDataInputStreamReadUptoAsync, "GIO", "g_data_input_stream_read_upto_async", false)
-
 	xDataInputStreamReadUptoAsync(x.GoPointer(), StopCharsVar, StopCharsLenVar, IoPriorityVar, CancellableVar.GoPointer(), glib.NewCallbackNullable(CallbackVar), UserDataVar)
 }
 
@@ -562,7 +536,6 @@ var xDataInputStreamReadUptoFinish func(uintptr, uintptr, *uint, **glib.Error) s
 //
 // The returned string will always be nul-terminated on success.
 func (x *DataInputStream) ReadUptoFinish(ResultVar AsyncResult, LengthVar *uint) (string, error) {
-	core.LazyRegister(&xDataInputStreamReadUptoFinish, "GIO", "g_data_input_stream_read_upto_finish", false)
 	var cerr *glib.Error
 
 	cret := xDataInputStreamReadUptoFinish(x.GoPointer(), ResultVar.GoPointer(), LengthVar, &cerr)
@@ -577,8 +550,6 @@ var xDataInputStreamSetByteOrder func(uintptr, DataStreamByteOrder)
 // This function sets the byte order for the given @stream. All subsequent
 // reads from the @stream will be read in the given @order.
 func (x *DataInputStream) SetByteOrder(OrderVar DataStreamByteOrder) {
-	core.LazyRegister(&xDataInputStreamSetByteOrder, "GIO", "g_data_input_stream_set_byte_order", false)
-
 	xDataInputStreamSetByteOrder(x.GoPointer(), OrderVar)
 }
 
@@ -590,8 +561,6 @@ var xDataInputStreamSetNewlineType func(uintptr, DataStreamNewlineType)
 // chunk ends in "CR" we must read an additional byte to know if this is "CR" or
 // "CR LF", and this might block if there is no more data available.
 func (x *DataInputStream) SetNewlineType(TypeVar DataStreamNewlineType) {
-	core.LazyRegister(&xDataInputStreamSetNewlineType, "GIO", "g_data_input_stream_set_newline_type", false)
-
 	xDataInputStreamSetNewlineType(x.GoPointer(), TypeVar)
 }
 
@@ -671,4 +640,39 @@ func (x *DataInputStream) Truncate(OffsetVar int64, CancellableVar *Cancellable)
 func init() {
 	core.SetPackageName("GIO", "gio-2.0")
 	core.SetSharedLibraries("GIO", []string{"libgio-2.0.so.0", "libgio-2.0.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GIO") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xDataInputStreamGLibType, libs, "g_data_input_stream_get_type")
+
+	core.PuregoSafeRegister(&xNewDataInputStream, libs, "g_data_input_stream_new")
+
+	core.PuregoSafeRegister(&xDataInputStreamGetByteOrder, libs, "g_data_input_stream_get_byte_order")
+	core.PuregoSafeRegister(&xDataInputStreamGetNewlineType, libs, "g_data_input_stream_get_newline_type")
+	core.PuregoSafeRegister(&xDataInputStreamDataInputStreamReadByte, libs, "g_data_input_stream_read_byte")
+	core.PuregoSafeRegister(&xDataInputStreamReadInt16, libs, "g_data_input_stream_read_int16")
+	core.PuregoSafeRegister(&xDataInputStreamReadInt32, libs, "g_data_input_stream_read_int32")
+	core.PuregoSafeRegister(&xDataInputStreamReadInt64, libs, "g_data_input_stream_read_int64")
+	core.PuregoSafeRegister(&xDataInputStreamReadLine, libs, "g_data_input_stream_read_line")
+	core.PuregoSafeRegister(&xDataInputStreamReadLineAsync, libs, "g_data_input_stream_read_line_async")
+	core.PuregoSafeRegister(&xDataInputStreamReadLineFinish, libs, "g_data_input_stream_read_line_finish")
+	core.PuregoSafeRegister(&xDataInputStreamReadLineFinishUtf8, libs, "g_data_input_stream_read_line_finish_utf8")
+	core.PuregoSafeRegister(&xDataInputStreamReadLineUtf8, libs, "g_data_input_stream_read_line_utf8")
+	core.PuregoSafeRegister(&xDataInputStreamReadUint16, libs, "g_data_input_stream_read_uint16")
+	core.PuregoSafeRegister(&xDataInputStreamReadUint32, libs, "g_data_input_stream_read_uint32")
+	core.PuregoSafeRegister(&xDataInputStreamReadUint64, libs, "g_data_input_stream_read_uint64")
+	core.PuregoSafeRegister(&xDataInputStreamReadUntil, libs, "g_data_input_stream_read_until")
+	core.PuregoSafeRegister(&xDataInputStreamReadUntilAsync, libs, "g_data_input_stream_read_until_async")
+	core.PuregoSafeRegister(&xDataInputStreamReadUntilFinish, libs, "g_data_input_stream_read_until_finish")
+	core.PuregoSafeRegister(&xDataInputStreamReadUpto, libs, "g_data_input_stream_read_upto")
+	core.PuregoSafeRegister(&xDataInputStreamReadUptoAsync, libs, "g_data_input_stream_read_upto_async")
+	core.PuregoSafeRegister(&xDataInputStreamReadUptoFinish, libs, "g_data_input_stream_read_upto_finish")
+	core.PuregoSafeRegister(&xDataInputStreamSetByteOrder, libs, "g_data_input_stream_set_byte_order")
+	core.PuregoSafeRegister(&xDataInputStreamSetNewlineType, libs, "g_data_input_stream_set_newline_type")
 }

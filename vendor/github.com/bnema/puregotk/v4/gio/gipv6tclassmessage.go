@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject/types"
 )
@@ -48,7 +49,6 @@ type IPv6TclassMessage struct {
 var xIPv6TclassMessageGLibType func() types.GType
 
 func IPv6TclassMessageGLibType() types.GType {
-	core.LazyRegister(&xIPv6TclassMessageGLibType, "GIO", "g_ipv6_tclass_message_get_type", false)
 	return xIPv6TclassMessageGLibType()
 }
 
@@ -62,7 +62,6 @@ var xNewIPv6TclassMessage func(byte, EcnCodePoint) uintptr
 
 // Creates a new traffic class message with given DSCP and ECN values.
 func NewIPv6TclassMessage(DscpVar byte, EcnVar EcnCodePoint) *IPv6TclassMessage {
-	core.LazyRegister(&xNewIPv6TclassMessage, "GIO", "g_ipv6_tclass_message_new", false)
 	var cls *IPv6TclassMessage
 
 	cret := xNewIPv6TclassMessage(DscpVar, EcnVar)
@@ -79,8 +78,6 @@ var xIPv6TclassMessageGetDscp func(uintptr) byte
 
 // Gets the differentiated services code point stored in @message.
 func (x *IPv6TclassMessage) GetDscp() byte {
-	core.LazyRegister(&xIPv6TclassMessageGetDscp, "GIO", "g_ipv6_tclass_message_get_dscp", false)
-
 	cret := xIPv6TclassMessageGetDscp(x.GoPointer())
 	return cret
 }
@@ -89,8 +86,6 @@ var xIPv6TclassMessageGetEcn func(uintptr) EcnCodePoint
 
 // Gets the Explicit Congestion Notification code point stored in @message.
 func (x *IPv6TclassMessage) GetEcn() EcnCodePoint {
-	core.LazyRegister(&xIPv6TclassMessageGetEcn, "GIO", "g_ipv6_tclass_message_get_ecn", false)
-
 	cret := xIPv6TclassMessageGetEcn(x.GoPointer())
 	return cret
 }
@@ -109,4 +104,19 @@ func (c *IPv6TclassMessage) SetGoPointer(ptr uintptr) {
 func init() {
 	core.SetPackageName("GIO", "gio-2.0")
 	core.SetSharedLibraries("GIO", []string{"libgio-2.0.so.0", "libgio-2.0.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GIO") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xIPv6TclassMessageGLibType, libs, "g_ipv6_tclass_message_get_type")
+
+	core.PuregoSafeRegister(&xNewIPv6TclassMessage, libs, "g_ipv6_tclass_message_new")
+
+	core.PuregoSafeRegister(&xIPv6TclassMessageGetDscp, libs, "g_ipv6_tclass_message_get_dscp")
+	core.PuregoSafeRegister(&xIPv6TclassMessageGetEcn, libs, "g_ipv6_tclass_message_get_ecn")
 }

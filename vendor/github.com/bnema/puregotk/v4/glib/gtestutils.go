@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 )
 
@@ -52,8 +53,6 @@ var xTestCaseFree func(uintptr)
 
 // Free the @test_case.
 func (x *TestCase) Free() {
-	core.LazyRegister(&xTestCaseFree, "GLIB", "g_test_case_free", false)
-
 	xTestCaseFree(x.GoPointer())
 }
 
@@ -109,8 +108,6 @@ var xTestLogBufferFree func(uintptr)
 
 // Internal function for gtester to free test log messages, no ABI guarantees provided.
 func (x *TestLogBuffer) Free() {
-	core.LazyRegister(&xTestLogBufferFree, "GLIB", "g_test_log_buffer_free", false)
-
 	xTestLogBufferFree(x.GoPointer())
 }
 
@@ -118,8 +115,6 @@ var xTestLogBufferPop func(uintptr) uintptr
 
 // Internal function for gtester to retrieve test log messages, no ABI guarantees provided.
 func (x *TestLogBuffer) Pop() *TestLogMsg {
-	core.LazyRegister(&xTestLogBufferPop, "GLIB", "g_test_log_buffer_pop", false)
-
 	cret := xTestLogBufferPop(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -131,8 +126,6 @@ var xTestLogBufferPush func(uintptr, uint, byte)
 
 // Internal function for gtester to decode test log messages, no ABI guarantees provided.
 func (x *TestLogBuffer) Push(NBytesVar uint, BytesVar byte) {
-	core.LazyRegister(&xTestLogBufferPush, "GLIB", "g_test_log_buffer_push", false)
-
 	xTestLogBufferPush(x.GoPointer(), NBytesVar, BytesVar)
 }
 
@@ -166,8 +159,6 @@ var xTestLogMsgFree func(uintptr)
 
 // Internal function for gtester to free test log messages, no ABI guarantees provided.
 func (x *TestLogMsg) Free() {
-	core.LazyRegister(&xTestLogMsgFree, "GLIB", "g_test_log_msg_free", false)
-
 	xTestLogMsgFree(x.GoPointer())
 }
 
@@ -192,8 +183,6 @@ var xTestSuiteAdd func(uintptr, *TestCase)
 
 // Adds @test_case to @suite.
 func (x *TestSuite) Add(TestCaseVar *TestCase) {
-	core.LazyRegister(&xTestSuiteAdd, "GLIB", "g_test_suite_add", false)
-
 	xTestSuiteAdd(x.GoPointer(), TestCaseVar)
 }
 
@@ -201,8 +190,6 @@ var xTestSuiteAddSuite func(uintptr, *TestSuite)
 
 // Adds @nestedsuite to @suite.
 func (x *TestSuite) AddSuite(NestedsuiteVar *TestSuite) {
-	core.LazyRegister(&xTestSuiteAddSuite, "GLIB", "g_test_suite_add_suite", false)
-
 	xTestSuiteAddSuite(x.GoPointer(), NestedsuiteVar)
 }
 
@@ -210,8 +197,6 @@ var xTestSuiteFree func(uintptr)
 
 // Frees the @suite and all nested suites.
 func (x *TestSuite) Free() {
-	core.LazyRegister(&xTestSuiteFree, "GLIB", "g_test_suite_free", false)
-
 	xTestSuiteFree(x.GoPointer())
 }
 
@@ -380,48 +365,36 @@ const (
 var xAssertionMessage func(string, string, int, string, string)
 
 func AssertionMessage(DomainVar string, FileVar string, LineVar int, FuncVar string, MessageVar string) {
-	core.LazyRegister(&xAssertionMessage, "GLIB", "g_assertion_message", false)
-
 	xAssertionMessage(DomainVar, FileVar, LineVar, FuncVar, MessageVar)
 }
 
 var xAssertionMessageCmpint func(string, string, int, string, string, uint64, string, uint64, byte)
 
 func AssertionMessageCmpint(DomainVar string, FileVar string, LineVar int, FuncVar string, ExprVar string, Arg1Var uint64, CmpVar string, Arg2Var uint64, NumtypeVar byte) {
-	core.LazyRegister(&xAssertionMessageCmpint, "GLIB", "g_assertion_message_cmpint", false)
-
 	xAssertionMessageCmpint(DomainVar, FileVar, LineVar, FuncVar, ExprVar, Arg1Var, CmpVar, Arg2Var, NumtypeVar)
 }
 
 var xAssertionMessageCmpnum func(string, string, int, string, string, float64, string, float64, byte)
 
 func AssertionMessageCmpnum(DomainVar string, FileVar string, LineVar int, FuncVar string, ExprVar string, Arg1Var float64, CmpVar string, Arg2Var float64, NumtypeVar byte) {
-	core.LazyRegister(&xAssertionMessageCmpnum, "GLIB", "g_assertion_message_cmpnum", false)
-
 	xAssertionMessageCmpnum(DomainVar, FileVar, LineVar, FuncVar, ExprVar, Arg1Var, CmpVar, Arg2Var, NumtypeVar)
 }
 
 var xAssertionMessageCmpstr func(string, string, int, string, string, string, string, string)
 
 func AssertionMessageCmpstr(DomainVar string, FileVar string, LineVar int, FuncVar string, ExprVar string, Arg1Var string, CmpVar string, Arg2Var string) {
-	core.LazyRegister(&xAssertionMessageCmpstr, "GLIB", "g_assertion_message_cmpstr", false)
-
 	xAssertionMessageCmpstr(DomainVar, FileVar, LineVar, FuncVar, ExprVar, Arg1Var, CmpVar, Arg2Var)
 }
 
 var xAssertionMessageCmpstrv func(string, string, int, string, string, string, string, uint)
 
 func AssertionMessageCmpstrv(DomainVar string, FileVar string, LineVar int, FuncVar string, ExprVar string, Arg1Var string, Arg2Var string, FirstWrongIdxVar uint) {
-	core.LazyRegister(&xAssertionMessageCmpstrv, "GLIB", "g_assertion_message_cmpstrv", false)
-
 	xAssertionMessageCmpstrv(DomainVar, FileVar, LineVar, FuncVar, ExprVar, Arg1Var, Arg2Var, FirstWrongIdxVar)
 }
 
 var xAssertionMessageError func(string, string, int, string, string, *Error, Quark, int)
 
 func AssertionMessageError(DomainVar string, FileVar string, LineVar int, FuncVar string, ExprVar string, ErrorVar *Error, ErrorDomainVar Quark, ErrorCodeVar int) {
-	core.LazyRegister(&xAssertionMessageError, "GLIB", "g_assertion_message_error", false)
-
 	xAssertionMessageError(DomainVar, FileVar, LineVar, FuncVar, ExprVar, ErrorVar, ErrorDomainVar, ErrorCodeVar)
 }
 
@@ -430,8 +403,6 @@ var xAssertionMessageExpr func(uintptr, string, int, string, uintptr)
 // Internal function used to print messages from the public
 // g_assert() and g_assert_not_reached() macros.
 func AssertionMessageExpr(DomainVar *string, FileVar string, LineVar int, FuncVar string, ExprVar *string) {
-	core.LazyRegister(&xAssertionMessageExpr, "GLIB", "g_assertion_message_expr", false)
-
 	DomainVarPtr := core.GStrdupNullable(DomainVar)
 	defer core.GFreeNullable(DomainVarPtr)
 
@@ -448,8 +419,6 @@ var xStrcmp0 func(uintptr, uintptr) int
 // Handles `NULL` gracefully by sorting it before non-`NULL` strings.
 // Comparing two `NULL` pointers returns 0.
 func Strcmp0(Str1Var *string, Str2Var *string) int {
-	core.LazyRegister(&xStrcmp0, "GLIB", "g_strcmp0", false)
-
 	Str1VarPtr := core.GStrdupNullable(Str1Var)
 	defer core.GFreeNullable(Str1VarPtr)
 
@@ -478,8 +447,6 @@ var xTestAddDataFunc func(string, uintptr, uintptr)
 // [const@GLib.TEST_OPTION_ISOLATE_DIRS] option is being used;
 // and it is recommended to do so even if it isn’t.
 func TestAddDataFunc(TestpathVar string, TestDataVar uintptr, TestFuncVar *TestDataFunc) {
-	core.LazyRegister(&xTestAddDataFunc, "GLIB", "g_test_add_data_func", false)
-
 	xTestAddDataFunc(TestpathVar, TestDataVar, NewCallback(TestFuncVar))
 }
 
@@ -490,8 +457,6 @@ var xTestAddDataFuncFull func(string, uintptr, uintptr, uintptr)
 // In contrast to [func@GLib.test_add_data_func], this function
 // is freeing @test_data after the test run is complete.
 func TestAddDataFuncFull(TestpathVar string, TestDataVar uintptr, TestFuncVar *TestDataFunc, DataFreeFuncVar *DestroyNotify) {
-	core.LazyRegister(&xTestAddDataFuncFull, "GLIB", "g_test_add_data_func_full", false)
-
 	xTestAddDataFuncFull(TestpathVar, TestDataVar, NewCallback(TestFuncVar), NewCallback(DataFreeFuncVar))
 }
 
@@ -512,24 +477,18 @@ var xTestAddFunc func(string, uintptr)
 // [const@GLib.TEST_OPTION_ISOLATE_DIRS] option is being used; and
 // it is recommended to do so even if it isn’t.
 func TestAddFunc(TestpathVar string, TestFuncVar *TestFunc) {
-	core.LazyRegister(&xTestAddFunc, "GLIB", "g_test_add_func", false)
-
 	xTestAddFunc(TestpathVar, NewCallback(TestFuncVar))
 }
 
 var xTestAddVtable func(string, uint, uintptr, uintptr, uintptr, uintptr)
 
 func TestAddVtable(TestpathVar string, DataSizeVar uint, TestDataVar uintptr, DataSetupVar *TestFixtureFunc, DataTestVar *TestFixtureFunc, DataTeardownVar *TestFixtureFunc) {
-	core.LazyRegister(&xTestAddVtable, "GLIB", "g_test_add_vtable", false)
-
 	xTestAddVtable(TestpathVar, DataSizeVar, TestDataVar, NewCallback(DataSetupVar), NewCallback(DataTestVar), NewCallback(DataTeardownVar))
 }
 
 var xTestAssertExpectedMessagesInternal func(string, string, int, string)
 
 func TestAssertExpectedMessagesInternal(DomainVar string, FileVar string, LineVar int, FuncVar string) {
-	core.LazyRegister(&xTestAssertExpectedMessagesInternal, "GLIB", "g_test_assert_expected_messages_internal", false)
-
 	xTestAssertExpectedMessagesInternal(DomainVar, FileVar, LineVar, FuncVar)
 }
 
@@ -547,8 +506,6 @@ var xTestBug func(string)
 // Since GLib 2.70, the base URI is not prepended to @bug_uri_snippet
 // if it is already a valid URI.
 func TestBug(BugUriSnippetVar string) {
-	core.LazyRegister(&xTestBug, "GLIB", "g_test_bug", false)
-
 	xTestBug(BugUriSnippetVar)
 }
 
@@ -569,8 +526,6 @@ var xTestBugBase func(string)
 // If [func@GLib.test_bug_base] is not called, bug URIs are formed
 // solely from the value provided by [func@GLib.test_bug].
 func TestBugBase(UriPatternVar string) {
-	core.LazyRegister(&xTestBugBase, "GLIB", "g_test_bug_base", false)
-
 	xTestBugBase(UriPatternVar)
 }
 
@@ -599,8 +554,6 @@ var xTestBuildFilename func(TestFileType, string, ...interface{}) string
 // installed tests, assuming the data files have been installed in the
 // same relative path as the test binary.
 func TestBuildFilename(FileTypeVar TestFileType, FirstPathVar string, varArgs ...interface{}) string {
-	core.LazyRegister(&xTestBuildFilename, "GLIB", "g_test_build_filename", false)
-
 	cret := xTestBuildFilename(FileTypeVar, FirstPathVar, varArgs...)
 	return cret
 }
@@ -625,8 +578,6 @@ var xTestCreateCase func(string, uint, uintptr, uintptr, uintptr, uintptr) uintp
 // called with the same type of fixture (the @data_size argument), but
 // varying @test_name and @data_test arguments.
 func TestCreateCase(TestNameVar string, DataSizeVar uint, TestDataVar uintptr, DataSetupVar *TestFixtureFunc, DataTestVar *TestFixtureFunc, DataTeardownVar *TestFixtureFunc) *TestCase {
-	core.LazyRegister(&xTestCreateCase, "GLIB", "g_test_create_case", false)
-
 	cret := xTestCreateCase(TestNameVar, DataSizeVar, TestDataVar, NewCallback(DataSetupVar), NewCallback(DataTestVar), NewCallback(DataTeardownVar))
 	if cret == 0 {
 		return nil
@@ -638,8 +589,6 @@ var xTestCreateSuite func(string) uintptr
 
 // Creates a new test suite with the name @suite_name.
 func TestCreateSuite(SuiteNameVar string) *TestSuite {
-	core.LazyRegister(&xTestCreateSuite, "GLIB", "g_test_create_suite", false)
-
 	cret := xTestCreateSuite(SuiteNameVar)
 	if cret == 0 {
 		return nil
@@ -655,8 +604,6 @@ var xTestDisableCrashReporting func()
 // expected or intended to crash, to avoid wasting resources in system-wide
 // crash collection infrastructure such as systemd-coredump or abrt.
 func TestDisableCrashReporting() {
-	core.LazyRegister(&xTestDisableCrashReporting, "GLIB", "g_test_disable_crash_reporting", false)
-
 	xTestDisableCrashReporting()
 }
 
@@ -700,8 +647,6 @@ var xTestExpectMessage func(uintptr, LogLevelFlags, string)
 // If messages at [flags@GLib.LogLevelFlags.LEVEL_DEBUG] are emitted, but not explicitly
 // expected via [func@GLib.test_expect_message] then they will be ignored.
 func TestExpectMessage(LogDomainVar *string, LogLevelVar LogLevelFlags, PatternVar string) {
-	core.LazyRegister(&xTestExpectMessage, "GLIB", "g_test_expect_message", false)
-
 	LogDomainVarPtr := core.GStrdupNullable(LogDomainVar)
 	defer core.GFreeNullable(LogDomainVarPtr)
 
@@ -731,8 +676,6 @@ var xTestFail func()
 // [func@GLib.test_message] before [func@GLib.test_fail], or use
 // [func@GLib.test_fail_printf] instead.
 func TestFail() {
-	core.LazyRegister(&xTestFail, "GLIB", "g_test_fail", false)
-
 	xTestFail()
 }
 
@@ -744,8 +687,6 @@ var xTestFailPrintf func(string, ...interface{})
 //
 // The message is formatted as if by [func@GLib.strdup_printf].
 func TestFailPrintf(FormatVar string, varArgs ...interface{}) {
-	core.LazyRegister(&xTestFailPrintf, "GLIB", "g_test_fail_printf", false)
-
 	xTestFailPrintf(FormatVar, varArgs...)
 }
 
@@ -763,8 +704,6 @@ var xTestFailed func() bool
 // The return value of this function is only meaningful
 // if it is called from inside a test function.
 func TestFailed() bool {
-	core.LazyRegister(&xTestFailed, "GLIB", "g_test_failed", false)
-
 	cret := xTestFailed()
 	return cret
 }
@@ -777,8 +716,6 @@ var xTestGetDir func(TestFileType) string
 // This is approximately the same as calling `g_test_build_filename(".")`,
 // but you don't need to free the return value.
 func TestGetDir(FileTypeVar TestFileType) string {
-	core.LazyRegister(&xTestGetDir, "GLIB", "g_test_get_dir", false)
-
 	cret := xTestGetDir(FileTypeVar)
 	return cret
 }
@@ -798,8 +735,6 @@ var xTestGetFilename func(TestFileType, string, ...interface{}) string
 // function returns (ie: it is best to ensure that all threads have been
 // joined).
 func TestGetFilename(FileTypeVar TestFileType, FirstPathVar string, varArgs ...interface{}) string {
-	core.LazyRegister(&xTestGetFilename, "GLIB", "g_test_get_filename", false)
-
 	cret := xTestGetFilename(FileTypeVar, FirstPathVar, varArgs...)
 	return cret
 }
@@ -815,8 +750,6 @@ var xTestGetPath func() string
 //
 // Note that this is a test path, not a file system path.
 func TestGetPath() string {
-	core.LazyRegister(&xTestGetPath, "GLIB", "g_test_get_path", false)
-
 	cret := xTestGetPath()
 	return cret
 }
@@ -825,8 +758,6 @@ var xTestGetRoot func() uintptr
 
 // Gets the toplevel test suite for the test path API.
 func TestGetRoot() *TestSuite {
-	core.LazyRegister(&xTestGetRoot, "GLIB", "g_test_get_root", false)
-
 	cret := xTestGetRoot()
 	if cret == 0 {
 		return nil
@@ -848,8 +779,6 @@ var xTestIncomplete func(uintptr)
 //
 // If not called from inside a test, this function does nothing.
 func TestIncomplete(MsgVar *string) {
-	core.LazyRegister(&xTestIncomplete, "GLIB", "g_test_incomplete", false)
-
 	MsgVarPtr := core.GStrdupNullable(MsgVar)
 	defer core.GFreeNullable(MsgVarPtr)
 
@@ -864,8 +793,6 @@ var xTestIncompletePrintf func(string, ...interface{})
 // Equivalent to [func@GLib.test_incomplete], but the explanation
 // is formatted as if by [func@GLib.strdup_printf].
 func TestIncompletePrintf(FormatVar string, varArgs ...interface{}) {
-	core.LazyRegister(&xTestIncompletePrintf, "GLIB", "g_test_incomplete_printf", false)
-
 	xTestIncompletePrintf(FormatVar, varArgs...)
 }
 
@@ -931,8 +858,6 @@ var xTestInit func(int, string, ...interface{})
 // when compiled with `G_DISABLE_ASSERT`. Ensure your tests are compiled without
 // `G_DISABLE_ASSERT` defined.
 func TestInit(ArgcVar int, ArgvVar string, varArgs ...interface{}) {
-	core.LazyRegister(&xTestInit, "GLIB", "g_test_init", false)
-
 	xTestInit(ArgcVar, ArgvVar, varArgs...)
 }
 
@@ -960,16 +885,12 @@ var xTestLogSetFatalHandler func(uintptr, uintptr)
 // writer function using [func@GLib.log_set_writer_func].See
 // [Using Structured Logging](logging.html#using-structured-logging).
 func TestLogSetFatalHandler(LogFuncVar *TestLogFatalFunc, UserDataVar uintptr) {
-	core.LazyRegister(&xTestLogSetFatalHandler, "GLIB", "g_test_log_set_fatal_handler", false)
-
 	xTestLogSetFatalHandler(NewCallback(LogFuncVar), UserDataVar)
 }
 
 var xTestLogTypeName func(TestLogType) string
 
 func TestLogTypeName(LogTypeVar TestLogType) string {
-	core.LazyRegister(&xTestLogTypeName, "GLIB", "g_test_log_type_name", false)
-
 	cret := xTestLogTypeName(LogTypeVar)
 	return cret
 }
@@ -983,8 +904,6 @@ var xTestMaximizedResult func(float64, string, ...interface{})
 // this and @maximized_quantity can determine sorting
 // order for test result reports.
 func TestMaximizedResult(MaximizedQuantityVar float64, FormatVar string, varArgs ...interface{}) {
-	core.LazyRegister(&xTestMaximizedResult, "GLIB", "g_test_maximized_result", false)
-
 	xTestMaximizedResult(MaximizedQuantityVar, FormatVar, varArgs...)
 }
 
@@ -992,8 +911,6 @@ var xTestMessage func(string, ...interface{})
 
 // Adds a message to the test report.
 func TestMessage(FormatVar string, varArgs ...interface{}) {
-	core.LazyRegister(&xTestMessage, "GLIB", "g_test_message", false)
-
 	xTestMessage(FormatVar, varArgs...)
 }
 
@@ -1006,8 +923,6 @@ var xTestMinimizedResult func(float64, string, ...interface{})
 // this and @minimized_quantity can determine sorting
 // order for test result reports.
 func TestMinimizedResult(MinimizedQuantityVar float64, FormatVar string, varArgs ...interface{}) {
-	core.LazyRegister(&xTestMinimizedResult, "GLIB", "g_test_minimized_result", false)
-
 	xTestMinimizedResult(MinimizedQuantityVar, FormatVar, varArgs...)
 }
 
@@ -1021,8 +936,6 @@ var xTestQueueDestroy func(uintptr, uintptr)
 // enqueueing callback `A` before callback `B` will cause `B()` to be called
 // before `A()` during teardown.
 func TestQueueDestroy(DestroyFuncVar *DestroyNotify, DestroyDataVar uintptr) {
-	core.LazyRegister(&xTestQueueDestroy, "GLIB", "g_test_queue_destroy", false)
-
 	xTestQueueDestroy(NewCallbackNullable(DestroyFuncVar), DestroyDataVar)
 }
 
@@ -1034,8 +947,6 @@ var xTestQueueFree func(uintptr)
 // This is equivalent to calling [func@GLib.test_queue_destroy]
 // with a destroy callback of [func@GLib.free].
 func TestQueueFree(GfreePointerVar uintptr) {
-	core.LazyRegister(&xTestQueueFree, "GLIB", "g_test_queue_free", false)
-
 	xTestQueueFree(GfreePointerVar)
 }
 
@@ -1045,8 +956,6 @@ var xTestRandDouble func() float64
 //
 // See [func@GLib.test_rand_int] for details on test case random numbers.
 func TestRandDouble() float64 {
-	core.LazyRegister(&xTestRandDouble, "GLIB", "g_test_rand_double", false)
-
 	cret := xTestRandDouble()
 	return cret
 }
@@ -1057,8 +966,6 @@ var xTestRandDoubleRange func(float64, float64) float64
 //
 // See [func@GLib.test_rand_int] for details on test case random numbers.
 func TestRandDoubleRange(RangeStartVar float64, RangeEndVar float64) float64 {
-	core.LazyRegister(&xTestRandDoubleRange, "GLIB", "g_test_rand_double_range", false)
-
 	cret := xTestRandDoubleRange(RangeStartVar, RangeEndVar)
 	return cret
 }
@@ -1075,8 +982,6 @@ var xTestRandInt func() int32
 // reseeded, to avoid dependencies between tests and to make --seed
 // effective for all test cases.
 func TestRandInt() int32 {
-	core.LazyRegister(&xTestRandInt, "GLIB", "g_test_rand_int", false)
-
 	cret := xTestRandInt()
 	return cret
 }
@@ -1087,8 +992,6 @@ var xTestRandIntRange func(int32, int32) int32
 //
 // See [func@GLib.test_rand_int] for details on test case random numbers.
 func TestRandIntRange(BeginVar int32, EndVar int32) int32 {
-	core.LazyRegister(&xTestRandIntRange, "GLIB", "g_test_rand_int_range", false)
-
 	cret := xTestRandIntRange(BeginVar, EndVar)
 	return cret
 }
@@ -1130,8 +1033,6 @@ var xTestRun func() int
 // this function will return 0 if producing TAP output, or 77 (treated
 // as "skip test" by Automake) otherwise.
 func TestRun() int {
-	core.LazyRegister(&xTestRun, "GLIB", "g_test_run", false)
-
 	cret := xTestRun()
 	return cret
 }
@@ -1148,8 +1049,6 @@ var xTestRunSuite func(*TestSuite) int
 // [func@GLib.test_run_suite] or [func@GLib.test_run] may only be
 // called once in a program.
 func TestRunSuite(SuiteVar *TestSuite) int {
-	core.LazyRegister(&xTestRunSuite, "GLIB", "g_test_run_suite", false)
-
 	cret := xTestRunSuite(SuiteVar)
 	return cret
 }
@@ -1172,8 +1071,6 @@ var xTestSetNonfatalAssertions func()
 //
 // This function can only be called after [func@GLib.test_init].
 func TestSetNonfatalAssertions() {
-	core.LazyRegister(&xTestSetNonfatalAssertions, "GLIB", "g_test_set_nonfatal_assertions", false)
-
 	xTestSetNonfatalAssertions()
 }
 
@@ -1188,8 +1085,6 @@ var xTestSkip func(uintptr)
 //
 // If not called from inside a test, this function does nothing.
 func TestSkip(MsgVar *string) {
-	core.LazyRegister(&xTestSkip, "GLIB", "g_test_skip", false)
-
 	MsgVarPtr := core.GStrdupNullable(MsgVar)
 	defer core.GFreeNullable(MsgVarPtr)
 
@@ -1203,8 +1098,6 @@ var xTestSkipPrintf func(string, ...interface{})
 // Equivalent to [func@GLib.test_skip], but the explanation
 // is formatted as if by [func@GLib.strdup_printf].
 func TestSkipPrintf(FormatVar string, varArgs ...interface{}) {
-	core.LazyRegister(&xTestSkipPrintf, "GLIB", "g_test_skip_printf", false)
-
 	xTestSkipPrintf(FormatVar, varArgs...)
 }
 
@@ -1212,8 +1105,6 @@ var xTestSubprocess func() bool
 
 // Returns true if the test program is running under [func@GLib.test_trap_subprocess].
 func TestSubprocess() bool {
-	core.LazyRegister(&xTestSubprocess, "GLIB", "g_test_subprocess", false)
-
 	cret := xTestSubprocess()
 	return cret
 }
@@ -1245,8 +1136,6 @@ var xTestSummary func(string)
 //
 // See also [func@GLib.test_bug].
 func TestSummary(SummaryVar string) {
-	core.LazyRegister(&xTestSummary, "GLIB", "g_test_summary", false)
-
 	xTestSummary(SummaryVar)
 }
 
@@ -1255,8 +1144,6 @@ var xTestTimerElapsed func() float64
 // Gets the number of seconds since the last start of the timer with
 // [func@GLib.test_timer_start].
 func TestTimerElapsed() float64 {
-	core.LazyRegister(&xTestTimerElapsed, "GLIB", "g_test_timer_elapsed", false)
-
 	cret := xTestTimerElapsed()
 	return cret
 }
@@ -1265,8 +1152,6 @@ var xTestTimerLast func() float64
 
 // Reports the last result of [func@GLib.test_timer_elapsed].
 func TestTimerLast() float64 {
-	core.LazyRegister(&xTestTimerLast, "GLIB", "g_test_timer_last", false)
-
 	cret := xTestTimerLast()
 	return cret
 }
@@ -1278,16 +1163,12 @@ var xTestTimerStart func()
 // Call [func@GLib.test_timer_elapsed] when the task is supposed
 // to be done. Call this function again to restart the timer.
 func TestTimerStart() {
-	core.LazyRegister(&xTestTimerStart, "GLIB", "g_test_timer_start", false)
-
 	xTestTimerStart()
 }
 
 var xTestTrapAssertions func(string, string, int, string, uint64, string)
 
 func TestTrapAssertions(DomainVar string, FileVar string, LineVar int, FuncVar string, AssertionFlagsVar uint64, PatternVar string) {
-	core.LazyRegister(&xTestTrapAssertions, "GLIB", "g_test_trap_assertions", false)
-
 	xTestTrapAssertions(DomainVar, FileVar, LineVar, FuncVar, AssertionFlagsVar, PatternVar)
 }
 
@@ -1331,8 +1212,6 @@ var xTestTrapFork func(uint64, TestTrapFlags) bool
 //
 // ```
 func TestTrapFork(UsecTimeoutVar uint64, TestTrapFlagsVar TestTrapFlags) bool {
-	core.LazyRegister(&xTestTrapFork, "GLIB", "g_test_trap_fork", false)
-
 	cret := xTestTrapFork(UsecTimeoutVar, TestTrapFlagsVar)
 	return cret
 }
@@ -1341,8 +1220,6 @@ var xTestTrapHasPassed func() bool
 
 // Checks the result of the last [func@GLib.test_trap_subprocess] call.
 func TestTrapHasPassed() bool {
-	core.LazyRegister(&xTestTrapHasPassed, "GLIB", "g_test_trap_has_passed", false)
-
 	cret := xTestTrapHasPassed()
 	return cret
 }
@@ -1351,8 +1228,6 @@ var xTestTrapHasSkipped func() bool
 
 // Checks the result of the last [func@GLib.test_trap_subprocess] call.
 func TestTrapHasSkipped() bool {
-	core.LazyRegister(&xTestTrapHasSkipped, "GLIB", "g_test_trap_has_skipped", false)
-
 	cret := xTestTrapHasSkipped()
 	return cret
 }
@@ -1361,8 +1236,6 @@ var xTestTrapReachedTimeout func() bool
 
 // Checks the result of the last [func@GLib.test_trap_subprocess] call.
 func TestTrapReachedTimeout() bool {
-	core.LazyRegister(&xTestTrapReachedTimeout, "GLIB", "g_test_trap_reached_timeout", false)
-
 	cret := xTestTrapReachedTimeout()
 	return cret
 }
@@ -1375,8 +1248,6 @@ var xTestTrapSubprocess func(uintptr, uint64, TestSubprocessFlags)
 // with `envp` set to `NULL`. See the documentation for that function
 // for full details.
 func TestTrapSubprocess(TestPathVar *string, UsecTimeoutVar uint64, TestFlagsVar TestSubprocessFlags) {
-	core.LazyRegister(&xTestTrapSubprocess, "GLIB", "g_test_trap_subprocess", false)
-
 	TestPathVarPtr := core.GStrdupNullable(TestPathVar)
 	defer core.GFreeNullable(TestPathVarPtr)
 
@@ -1477,8 +1348,6 @@ var xTestTrapSubprocessWithEnvp func(uintptr, []string, uint64, TestSubprocessFl
 //
 // ```
 func TestTrapSubprocessWithEnvp(TestPathVar *string, EnvpVar []string, UsecTimeoutVar uint64, TestFlagsVar TestSubprocessFlags) {
-	core.LazyRegister(&xTestTrapSubprocessWithEnvp, "GLIB", "g_test_trap_subprocess_with_envp", false)
-
 	TestPathVarPtr := core.GStrdupNullable(TestPathVar)
 	defer core.GFreeNullable(TestPathVarPtr)
 
@@ -1488,4 +1357,83 @@ func TestTrapSubprocessWithEnvp(TestPathVar *string, EnvpVar []string, UsecTimeo
 func init() {
 	core.SetPackageName("GLIB", "glib-2.0")
 	core.SetSharedLibraries("GLIB", []string{"libgobject-2.0.so.0", "libglib-2.0.so.0", "libgobject-2.0.0.dylib", "libglib-2.0.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GLIB") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xAssertionMessage, libs, "g_assertion_message")
+	core.PuregoSafeRegister(&xAssertionMessageCmpint, libs, "g_assertion_message_cmpint")
+	core.PuregoSafeRegister(&xAssertionMessageCmpnum, libs, "g_assertion_message_cmpnum")
+	core.PuregoSafeRegister(&xAssertionMessageCmpstr, libs, "g_assertion_message_cmpstr")
+	core.PuregoSafeRegister(&xAssertionMessageCmpstrv, libs, "g_assertion_message_cmpstrv")
+	core.PuregoSafeRegister(&xAssertionMessageError, libs, "g_assertion_message_error")
+	core.PuregoSafeRegister(&xAssertionMessageExpr, libs, "g_assertion_message_expr")
+	core.PuregoSafeRegister(&xStrcmp0, libs, "g_strcmp0")
+	core.PuregoSafeRegister(&xTestAddDataFunc, libs, "g_test_add_data_func")
+	core.PuregoSafeRegister(&xTestAddDataFuncFull, libs, "g_test_add_data_func_full")
+	core.PuregoSafeRegister(&xTestAddFunc, libs, "g_test_add_func")
+	core.PuregoSafeRegister(&xTestAddVtable, libs, "g_test_add_vtable")
+	core.PuregoSafeRegister(&xTestAssertExpectedMessagesInternal, libs, "g_test_assert_expected_messages_internal")
+	core.PuregoSafeRegister(&xTestBug, libs, "g_test_bug")
+	core.PuregoSafeRegister(&xTestBugBase, libs, "g_test_bug_base")
+	core.PuregoSafeRegister(&xTestBuildFilename, libs, "g_test_build_filename")
+	core.PuregoSafeRegister(&xTestCreateCase, libs, "g_test_create_case")
+	core.PuregoSafeRegister(&xTestCreateSuite, libs, "g_test_create_suite")
+	core.PuregoSafeRegister(&xTestDisableCrashReporting, libs, "g_test_disable_crash_reporting")
+	core.PuregoSafeRegister(&xTestExpectMessage, libs, "g_test_expect_message")
+	core.PuregoSafeRegister(&xTestFail, libs, "g_test_fail")
+	core.PuregoSafeRegister(&xTestFailPrintf, libs, "g_test_fail_printf")
+	core.PuregoSafeRegister(&xTestFailed, libs, "g_test_failed")
+	core.PuregoSafeRegister(&xTestGetDir, libs, "g_test_get_dir")
+	core.PuregoSafeRegister(&xTestGetFilename, libs, "g_test_get_filename")
+	core.PuregoSafeRegister(&xTestGetPath, libs, "g_test_get_path")
+	core.PuregoSafeRegister(&xTestGetRoot, libs, "g_test_get_root")
+	core.PuregoSafeRegister(&xTestIncomplete, libs, "g_test_incomplete")
+	core.PuregoSafeRegister(&xTestIncompletePrintf, libs, "g_test_incomplete_printf")
+	core.PuregoSafeRegister(&xTestInit, libs, "g_test_init")
+	core.PuregoSafeRegister(&xTestLogSetFatalHandler, libs, "g_test_log_set_fatal_handler")
+	core.PuregoSafeRegister(&xTestLogTypeName, libs, "g_test_log_type_name")
+	core.PuregoSafeRegister(&xTestMaximizedResult, libs, "g_test_maximized_result")
+	core.PuregoSafeRegister(&xTestMessage, libs, "g_test_message")
+	core.PuregoSafeRegister(&xTestMinimizedResult, libs, "g_test_minimized_result")
+	core.PuregoSafeRegister(&xTestQueueDestroy, libs, "g_test_queue_destroy")
+	core.PuregoSafeRegister(&xTestQueueFree, libs, "g_test_queue_free")
+	core.PuregoSafeRegister(&xTestRandDouble, libs, "g_test_rand_double")
+	core.PuregoSafeRegister(&xTestRandDoubleRange, libs, "g_test_rand_double_range")
+	core.PuregoSafeRegister(&xTestRandInt, libs, "g_test_rand_int")
+	core.PuregoSafeRegister(&xTestRandIntRange, libs, "g_test_rand_int_range")
+	core.PuregoSafeRegister(&xTestRun, libs, "g_test_run")
+	core.PuregoSafeRegister(&xTestRunSuite, libs, "g_test_run_suite")
+	core.PuregoSafeRegister(&xTestSetNonfatalAssertions, libs, "g_test_set_nonfatal_assertions")
+	core.PuregoSafeRegister(&xTestSkip, libs, "g_test_skip")
+	core.PuregoSafeRegister(&xTestSkipPrintf, libs, "g_test_skip_printf")
+	core.PuregoSafeRegister(&xTestSubprocess, libs, "g_test_subprocess")
+	core.PuregoSafeRegister(&xTestSummary, libs, "g_test_summary")
+	core.PuregoSafeRegister(&xTestTimerElapsed, libs, "g_test_timer_elapsed")
+	core.PuregoSafeRegister(&xTestTimerLast, libs, "g_test_timer_last")
+	core.PuregoSafeRegister(&xTestTimerStart, libs, "g_test_timer_start")
+	core.PuregoSafeRegister(&xTestTrapAssertions, libs, "g_test_trap_assertions")
+	core.PuregoSafeRegister(&xTestTrapFork, libs, "g_test_trap_fork")
+	core.PuregoSafeRegister(&xTestTrapHasPassed, libs, "g_test_trap_has_passed")
+	core.PuregoSafeRegister(&xTestTrapHasSkipped, libs, "g_test_trap_has_skipped")
+	core.PuregoSafeRegister(&xTestTrapReachedTimeout, libs, "g_test_trap_reached_timeout")
+	core.PuregoSafeRegister(&xTestTrapSubprocess, libs, "g_test_trap_subprocess")
+	core.PuregoSafeRegister(&xTestTrapSubprocessWithEnvp, libs, "g_test_trap_subprocess_with_envp")
+
+	core.PuregoSafeRegister(&xTestCaseFree, libs, "g_test_case_free")
+
+	core.PuregoSafeRegister(&xTestLogBufferFree, libs, "g_test_log_buffer_free")
+	core.PuregoSafeRegister(&xTestLogBufferPop, libs, "g_test_log_buffer_pop")
+	core.PuregoSafeRegister(&xTestLogBufferPush, libs, "g_test_log_buffer_push")
+
+	core.PuregoSafeRegister(&xTestLogMsgFree, libs, "g_test_log_msg_free")
+
+	core.PuregoSafeRegister(&xTestSuiteAdd, libs, "g_test_suite_add")
+	core.PuregoSafeRegister(&xTestSuiteAddSuite, libs, "g_test_suite_add_suite")
+	core.PuregoSafeRegister(&xTestSuiteFree, libs, "g_test_suite_free")
 }

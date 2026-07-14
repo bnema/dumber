@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -40,7 +41,6 @@ type NavigationPolicyDecision struct {
 var xNavigationPolicyDecisionGLibType func() types.GType
 
 func NavigationPolicyDecisionGLibType() types.GType {
-	core.LazyRegister(&xNavigationPolicyDecisionGLibType, "WEBKIT", "webkit_navigation_policy_decision_get_type", false)
 	return xNavigationPolicyDecisionGLibType()
 }
 
@@ -54,8 +54,6 @@ var xNavigationPolicyDecisionGetNavigationAction func(uintptr) uintptr
 
 // Gets the value of the #WebKitNavigationPolicyDecision:navigation-action property.
 func (x *NavigationPolicyDecision) GetNavigationAction() *NavigationAction {
-	core.LazyRegister(&xNavigationPolicyDecisionGetNavigationAction, "WEBKIT", "webkit_navigation_policy_decision_get_navigation_action", false)
-
 	cret := xNavigationPolicyDecisionGetNavigationAction(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -85,8 +83,21 @@ func (x *NavigationPolicyDecision) GetPropertyNavigationAction() uintptr {
 func init() {
 	core.SetPackageName("WEBKIT", "webkitgtk-6.0")
 	core.SetSharedLibraries("WEBKIT", []string{"libwebkitgtk-6.0.so.4", "libjavascriptcoregtk-6.0.so.1", "libwebkitgtk-6.0.4.dylib", "libjavascriptcoregtk-6.0.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("WEBKIT") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
 
-	// Manually register types since they aren't automatically registered when
-	// WebKit is loaded. See https://bugs.webkit.org/show_bug.cgi?id=175937.
+	core.PuregoSafeRegister(&xNavigationPolicyDecisionGLibType, libs, "webkit_navigation_policy_decision_get_type")
+
+	core.PuregoSafeRegister(&xNavigationPolicyDecisionGetNavigationAction, libs, "webkit_navigation_policy_decision_get_navigation_action")
+
+	// Manually register types since they aren't being automatically registered when
+	// the library is loaded
+	// See https://bugs.webkit.org/show_bug.cgi?id=175937
 	NavigationPolicyDecisionGLibType()
 }

@@ -2,6 +2,7 @@
 package gtk
 
 import (
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gdk"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -47,7 +48,6 @@ type ColorChooserWidget struct {
 var xColorChooserWidgetGLibType func() types.GType
 
 func ColorChooserWidgetGLibType() types.GType {
-	core.LazyRegister(&xColorChooserWidgetGLibType, "GTK", "gtk_color_chooser_widget_get_type", false)
 	return xColorChooserWidgetGLibType()
 }
 
@@ -61,7 +61,6 @@ var xNewColorChooserWidget func() uintptr
 
 // Creates a new `GtkColorChooserWidget`.
 func NewColorChooserWidget() *ColorChooserWidget {
-	core.LazyRegister(&xNewColorChooserWidget, "GTK", "gtk_color_chooser_widget_new", false)
 	var cls *ColorChooserWidget
 
 	cret := xNewColorChooserWidget()
@@ -412,4 +411,16 @@ func (x *ColorChooserWidget) SetUseAlpha(UseAlphaVar bool) {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GTK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xColorChooserWidgetGLibType, libs, "gtk_color_chooser_widget_get_type")
+
+	core.PuregoSafeRegister(&xNewColorChooserWidget, libs, "gtk_color_chooser_widget_new")
 }

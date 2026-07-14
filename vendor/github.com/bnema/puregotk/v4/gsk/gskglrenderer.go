@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject/types"
 )
@@ -35,7 +36,6 @@ type GLRenderer struct {
 var xGLRendererGLibType func() types.GType
 
 func GLRendererGLibType() types.GType {
-	core.LazyRegister(&xGLRendererGLibType, "GSK", "gsk_gl_renderer_get_type", false)
 	return xGLRendererGLibType()
 }
 
@@ -49,7 +49,6 @@ var xNewGLRenderer func() uintptr
 
 // Creates an instance of the GL renderer.
 func NewGLRenderer() *GLRenderer {
-	core.LazyRegister(&xNewGLRenderer, "GSK", "gsk_gl_renderer_new", false)
 	var cls *GLRenderer
 
 	cret := xNewGLRenderer()
@@ -83,7 +82,6 @@ type NglRenderer struct {
 var xNglRendererGLibType func() types.GType
 
 func NglRendererGLibType() types.GType {
-	core.LazyRegister(&xNglRendererGLibType, "GSK", "gsk_ngl_renderer_get_type", false)
 	return xNglRendererGLibType()
 }
 
@@ -97,7 +95,6 @@ var xNewNglRenderer func() uintptr
 
 // Same as gsk_gl_renderer_new().
 func NewNglRenderer() *NglRenderer {
-	core.LazyRegister(&xNewNglRenderer, "GSK", "gsk_ngl_renderer_new", false)
 	var cls *NglRenderer
 
 	cret := xNewNglRenderer()
@@ -124,4 +121,20 @@ func (c *NglRenderer) SetGoPointer(ptr uintptr) {
 func init() {
 	core.SetPackageName("GSK", "gtk4")
 	core.SetSharedLibraries("GSK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GSK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xGLRendererGLibType, libs, "gsk_gl_renderer_get_type")
+
+	core.PuregoSafeRegister(&xNewGLRenderer, libs, "gsk_gl_renderer_new")
+
+	core.PuregoSafeRegister(&xNglRendererGLibType, libs, "gsk_ngl_renderer_get_type")
+
+	core.PuregoSafeRegister(&xNewNglRenderer, libs, "gsk_ngl_renderer_new")
 }

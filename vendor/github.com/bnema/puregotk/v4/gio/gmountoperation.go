@@ -450,7 +450,6 @@ type MountOperation struct {
 var xMountOperationGLibType func() types.GType
 
 func MountOperationGLibType() types.GType {
-	core.LazyRegister(&xMountOperationGLibType, "GIO", "g_mount_operation_get_type", false)
 	return xMountOperationGLibType()
 }
 
@@ -464,7 +463,6 @@ var xNewMountOperation func() uintptr
 
 // Creates a new mount operation.
 func NewMountOperation() *MountOperation {
-	core.LazyRegister(&xNewMountOperation, "GIO", "g_mount_operation_new", false)
 	var cls *MountOperation
 
 	cret := xNewMountOperation()
@@ -482,8 +480,6 @@ var xMountOperationGetAnonymous func(uintptr) bool
 // Check to see whether the mount operation is being used
 // for an anonymous user.
 func (x *MountOperation) GetAnonymous() bool {
-	core.LazyRegister(&xMountOperationGetAnonymous, "GIO", "g_mount_operation_get_anonymous", false)
-
 	cret := xMountOperationGetAnonymous(x.GoPointer())
 	return cret
 }
@@ -492,8 +488,6 @@ var xMountOperationGetChoice func(uintptr) int
 
 // Gets a choice from the mount operation.
 func (x *MountOperation) GetChoice() int {
-	core.LazyRegister(&xMountOperationGetChoice, "GIO", "g_mount_operation_get_choice", false)
-
 	cret := xMountOperationGetChoice(x.GoPointer())
 	return cret
 }
@@ -502,8 +496,6 @@ var xMountOperationGetDomain func(uintptr) string
 
 // Gets the domain of the mount operation.
 func (x *MountOperation) GetDomain() string {
-	core.LazyRegister(&xMountOperationGetDomain, "GIO", "g_mount_operation_get_domain", false)
-
 	cret := xMountOperationGetDomain(x.GoPointer())
 	return cret
 }
@@ -513,8 +505,6 @@ var xMountOperationGetIsTcryptHiddenVolume func(uintptr) bool
 // Check to see whether the mount operation is being used
 // for a TCRYPT hidden volume.
 func (x *MountOperation) GetIsTcryptHiddenVolume() bool {
-	core.LazyRegister(&xMountOperationGetIsTcryptHiddenVolume, "GIO", "g_mount_operation_get_is_tcrypt_hidden_volume", false)
-
 	cret := xMountOperationGetIsTcryptHiddenVolume(x.GoPointer())
 	return cret
 }
@@ -524,8 +514,6 @@ var xMountOperationGetIsTcryptSystemVolume func(uintptr) bool
 // Check to see whether the mount operation is being used
 // for a TCRYPT system volume.
 func (x *MountOperation) GetIsTcryptSystemVolume() bool {
-	core.LazyRegister(&xMountOperationGetIsTcryptSystemVolume, "GIO", "g_mount_operation_get_is_tcrypt_system_volume", false)
-
 	cret := xMountOperationGetIsTcryptSystemVolume(x.GoPointer())
 	return cret
 }
@@ -534,8 +522,6 @@ var xMountOperationGetPassword func(uintptr) string
 
 // Gets a password from the mount operation.
 func (x *MountOperation) GetPassword() string {
-	core.LazyRegister(&xMountOperationGetPassword, "GIO", "g_mount_operation_get_password", false)
-
 	cret := xMountOperationGetPassword(x.GoPointer())
 	return cret
 }
@@ -544,8 +530,6 @@ var xMountOperationGetPasswordSave func(uintptr) PasswordSave
 
 // Gets the state of saving passwords for the mount operation.
 func (x *MountOperation) GetPasswordSave() PasswordSave {
-	core.LazyRegister(&xMountOperationGetPasswordSave, "GIO", "g_mount_operation_get_password_save", false)
-
 	cret := xMountOperationGetPasswordSave(x.GoPointer())
 	return cret
 }
@@ -554,8 +538,6 @@ var xMountOperationGetPim func(uintptr) uint
 
 // Gets a PIM from the mount operation.
 func (x *MountOperation) GetPim() uint {
-	core.LazyRegister(&xMountOperationGetPim, "GIO", "g_mount_operation_get_pim", false)
-
 	cret := xMountOperationGetPim(x.GoPointer())
 	return cret
 }
@@ -564,8 +546,6 @@ var xMountOperationGetUsername func(uintptr) string
 
 // Get the user name from the mount operation.
 func (x *MountOperation) GetUsername() string {
-	core.LazyRegister(&xMountOperationGetUsername, "GIO", "g_mount_operation_get_username", false)
-
 	cret := xMountOperationGetUsername(x.GoPointer())
 	return cret
 }
@@ -574,8 +554,6 @@ var xMountOperationReply func(uintptr, MountOperationResult)
 
 // Emits the #GMountOperation::reply signal.
 func (x *MountOperation) Reply(ResultVar MountOperationResult) {
-	core.LazyRegister(&xMountOperationReply, "GIO", "g_mount_operation_reply", false)
-
 	xMountOperationReply(x.GoPointer(), ResultVar)
 }
 
@@ -583,8 +561,6 @@ var xMountOperationSetAnonymous func(uintptr, bool)
 
 // Sets the mount operation to use an anonymous user if @anonymous is %TRUE.
 func (x *MountOperation) SetAnonymous(AnonymousVar bool) {
-	core.LazyRegister(&xMountOperationSetAnonymous, "GIO", "g_mount_operation_set_anonymous", false)
-
 	xMountOperationSetAnonymous(x.GoPointer(), AnonymousVar)
 }
 
@@ -592,8 +568,6 @@ var xMountOperationSetChoice func(uintptr, int)
 
 // Sets a default choice for the mount operation.
 func (x *MountOperation) SetChoice(ChoiceVar int) {
-	core.LazyRegister(&xMountOperationSetChoice, "GIO", "g_mount_operation_set_choice", false)
-
 	xMountOperationSetChoice(x.GoPointer(), ChoiceVar)
 }
 
@@ -601,8 +575,6 @@ var xMountOperationSetDomain func(uintptr, uintptr)
 
 // Sets the mount operation's domain.
 func (x *MountOperation) SetDomain(DomainVar *string) {
-	core.LazyRegister(&xMountOperationSetDomain, "GIO", "g_mount_operation_set_domain", false)
-
 	DomainVarPtr := core.GStrdupNullable(DomainVar)
 	defer core.GFreeNullable(DomainVarPtr)
 
@@ -613,8 +585,6 @@ var xMountOperationSetIsTcryptHiddenVolume func(uintptr, bool)
 
 // Sets the mount operation to use a hidden volume if @hidden_volume is %TRUE.
 func (x *MountOperation) SetIsTcryptHiddenVolume(HiddenVolumeVar bool) {
-	core.LazyRegister(&xMountOperationSetIsTcryptHiddenVolume, "GIO", "g_mount_operation_set_is_tcrypt_hidden_volume", false)
-
 	xMountOperationSetIsTcryptHiddenVolume(x.GoPointer(), HiddenVolumeVar)
 }
 
@@ -622,8 +592,6 @@ var xMountOperationSetIsTcryptSystemVolume func(uintptr, bool)
 
 // Sets the mount operation to use a system volume if @system_volume is %TRUE.
 func (x *MountOperation) SetIsTcryptSystemVolume(SystemVolumeVar bool) {
-	core.LazyRegister(&xMountOperationSetIsTcryptSystemVolume, "GIO", "g_mount_operation_set_is_tcrypt_system_volume", false)
-
 	xMountOperationSetIsTcryptSystemVolume(x.GoPointer(), SystemVolumeVar)
 }
 
@@ -631,8 +599,6 @@ var xMountOperationSetPassword func(uintptr, uintptr)
 
 // Sets the mount operation's password to @password.
 func (x *MountOperation) SetPassword(PasswordVar *string) {
-	core.LazyRegister(&xMountOperationSetPassword, "GIO", "g_mount_operation_set_password", false)
-
 	PasswordVarPtr := core.GStrdupNullable(PasswordVar)
 	defer core.GFreeNullable(PasswordVarPtr)
 
@@ -643,8 +609,6 @@ var xMountOperationSetPasswordSave func(uintptr, PasswordSave)
 
 // Sets the state of saving passwords for the mount operation.
 func (x *MountOperation) SetPasswordSave(SaveVar PasswordSave) {
-	core.LazyRegister(&xMountOperationSetPasswordSave, "GIO", "g_mount_operation_set_password_save", false)
-
 	xMountOperationSetPasswordSave(x.GoPointer(), SaveVar)
 }
 
@@ -652,8 +616,6 @@ var xMountOperationSetPim func(uintptr, uint)
 
 // Sets the mount operation's PIM to @pim.
 func (x *MountOperation) SetPim(PimVar uint) {
-	core.LazyRegister(&xMountOperationSetPim, "GIO", "g_mount_operation_set_pim", false)
-
 	xMountOperationSetPim(x.GoPointer(), PimVar)
 }
 
@@ -661,8 +623,6 @@ var xMountOperationSetUsername func(uintptr, uintptr)
 
 // Sets the user name within @op to @username.
 func (x *MountOperation) SetUsername(UsernameVar *string) {
-	core.LazyRegister(&xMountOperationSetUsername, "GIO", "g_mount_operation_set_username", false)
-
 	UsernameVarPtr := core.GStrdupNullable(UsernameVar)
 	defer core.GFreeNullable(UsernameVarPtr)
 
@@ -1014,4 +974,36 @@ func (x *MountOperation) ConnectShowUnmountProgress(cb *func(MountOperation, str
 func init() {
 	core.SetPackageName("GIO", "gio-2.0")
 	core.SetSharedLibraries("GIO", []string{"libgio-2.0.so.0", "libgio-2.0.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GIO") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xMountOperationGLibType, libs, "g_mount_operation_get_type")
+
+	core.PuregoSafeRegister(&xNewMountOperation, libs, "g_mount_operation_new")
+
+	core.PuregoSafeRegister(&xMountOperationGetAnonymous, libs, "g_mount_operation_get_anonymous")
+	core.PuregoSafeRegister(&xMountOperationGetChoice, libs, "g_mount_operation_get_choice")
+	core.PuregoSafeRegister(&xMountOperationGetDomain, libs, "g_mount_operation_get_domain")
+	core.PuregoSafeRegister(&xMountOperationGetIsTcryptHiddenVolume, libs, "g_mount_operation_get_is_tcrypt_hidden_volume")
+	core.PuregoSafeRegister(&xMountOperationGetIsTcryptSystemVolume, libs, "g_mount_operation_get_is_tcrypt_system_volume")
+	core.PuregoSafeRegister(&xMountOperationGetPassword, libs, "g_mount_operation_get_password")
+	core.PuregoSafeRegister(&xMountOperationGetPasswordSave, libs, "g_mount_operation_get_password_save")
+	core.PuregoSafeRegister(&xMountOperationGetPim, libs, "g_mount_operation_get_pim")
+	core.PuregoSafeRegister(&xMountOperationGetUsername, libs, "g_mount_operation_get_username")
+	core.PuregoSafeRegister(&xMountOperationReply, libs, "g_mount_operation_reply")
+	core.PuregoSafeRegister(&xMountOperationSetAnonymous, libs, "g_mount_operation_set_anonymous")
+	core.PuregoSafeRegister(&xMountOperationSetChoice, libs, "g_mount_operation_set_choice")
+	core.PuregoSafeRegister(&xMountOperationSetDomain, libs, "g_mount_operation_set_domain")
+	core.PuregoSafeRegister(&xMountOperationSetIsTcryptHiddenVolume, libs, "g_mount_operation_set_is_tcrypt_hidden_volume")
+	core.PuregoSafeRegister(&xMountOperationSetIsTcryptSystemVolume, libs, "g_mount_operation_set_is_tcrypt_system_volume")
+	core.PuregoSafeRegister(&xMountOperationSetPassword, libs, "g_mount_operation_set_password")
+	core.PuregoSafeRegister(&xMountOperationSetPasswordSave, libs, "g_mount_operation_set_password_save")
+	core.PuregoSafeRegister(&xMountOperationSetPim, libs, "g_mount_operation_set_pim")
+	core.PuregoSafeRegister(&xMountOperationSetUsername, libs, "g_mount_operation_set_username")
 }

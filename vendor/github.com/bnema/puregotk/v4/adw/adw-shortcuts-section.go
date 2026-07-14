@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gio"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -48,7 +49,6 @@ type ShortcutsSection struct {
 var xShortcutsSectionGLibType func() types.GType
 
 func ShortcutsSectionGLibType() types.GType {
-	core.LazyRegister(&xShortcutsSectionGLibType, "ADW", "adw_shortcuts_section_get_type", false)
 	return xShortcutsSectionGLibType()
 }
 
@@ -62,7 +62,6 @@ var xNewShortcutsSection func(uintptr) uintptr
 
 // Creates a new `AdwShortcutsSection` with @title as its title if provided.
 func NewShortcutsSection(TitleVar *string) *ShortcutsSection {
-	core.LazyRegister(&xNewShortcutsSection, "ADW", "adw_shortcuts_section_new", false)
 	var cls *ShortcutsSection
 
 	TitleVarPtr := core.GStrdupNullable(TitleVar)
@@ -82,8 +81,6 @@ var xShortcutsSectionAdd func(uintptr, uintptr)
 
 // Adds @item to @self.
 func (x *ShortcutsSection) Add(ItemVar *ShortcutsItem) {
-	core.LazyRegister(&xShortcutsSectionAdd, "ADW", "adw_shortcuts_section_add", false)
-
 	xShortcutsSectionAdd(x.GoPointer(), ItemVar.GoPointer())
 }
 
@@ -91,8 +88,6 @@ var xShortcutsSectionGetTitle func(uintptr) string
 
 // Gets the title of @self.
 func (x *ShortcutsSection) GetTitle() string {
-	core.LazyRegister(&xShortcutsSectionGetTitle, "ADW", "adw_shortcuts_section_get_title", false)
-
 	cret := xShortcutsSectionGetTitle(x.GoPointer())
 	return cret
 }
@@ -101,8 +96,6 @@ var xShortcutsSectionSetTitle func(uintptr, uintptr)
 
 // Sets the title of @self.
 func (x *ShortcutsSection) SetTitle(TitleVar *string) {
-	core.LazyRegister(&xShortcutsSectionSetTitle, "ADW", "adw_shortcuts_section_set_title", false)
-
 	TitleVarPtr := core.GStrdupNullable(TitleVar)
 	defer core.GFreeNullable(TitleVarPtr)
 
@@ -243,4 +236,20 @@ func (x *ShortcutsSection) GetBuildableId() string {
 func init() {
 	core.SetPackageName("ADW", "libadwaita-1")
 	core.SetSharedLibraries("ADW", []string{"libadwaita-1.so.0", "libadwaita-1.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("ADW") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xShortcutsSectionGLibType, libs, "adw_shortcuts_section_get_type")
+
+	core.PuregoSafeRegister(&xNewShortcutsSection, libs, "adw_shortcuts_section_new")
+
+	core.PuregoSafeRegister(&xShortcutsSectionAdd, libs, "adw_shortcuts_section_add")
+	core.PuregoSafeRegister(&xShortcutsSectionGetTitle, libs, "adw_shortcuts_section_get_title")
+	core.PuregoSafeRegister(&xShortcutsSectionSetTitle, libs, "adw_shortcuts_section_set_title")
 }

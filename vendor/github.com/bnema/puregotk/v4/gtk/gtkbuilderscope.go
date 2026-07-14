@@ -138,7 +138,7 @@ func (x *BuilderScopeInterface) OverrideCreateClosure(cb func(BuilderScope, *Bui
 	if cb == nil {
 		x.xCreateClosure = 0
 	} else {
-		x.xCreateClosure = purego.NewCallback(func(SelfVarp uintptr, BuilderVarp uintptr, FunctionNameVarp string, FlagsVarp BuilderClosureFlags, ObjectVarp uintptr, cerrp **glib.Error) uintptr {
+		x.xCreateClosure = purego.NewCallback(func(SelfVarp uintptr, BuilderVarp uintptr, FunctionNameVarp string, FlagsVarp BuilderClosureFlags, ObjectVarp uintptr) uintptr {
 			ret := cb(&BuilderScopeBase{Ptr: SelfVarp}, BuilderNewFromInternalPtr(BuilderVarp), FunctionNameVarp, FlagsVarp, gobject.ObjectNewFromInternalPtr(ObjectVarp))
 			if ret == nil {
 				return 0
@@ -159,11 +159,10 @@ func (x *BuilderScopeInterface) GetCreateClosure() func(BuilderScope, *Builder, 
 	if x.xCreateClosure == 0 {
 		return nil
 	}
-	var rawCallback func(SelfVarp uintptr, BuilderVarp uintptr, FunctionNameVarp string, FlagsVarp BuilderClosureFlags, ObjectVarp uintptr, cerrp **glib.Error) uintptr
+	var rawCallback func(SelfVarp uintptr, BuilderVarp uintptr, FunctionNameVarp string, FlagsVarp BuilderClosureFlags, ObjectVarp uintptr) uintptr
 	purego.RegisterFunc(&rawCallback, x.xCreateClosure)
 	return func(SelfVar BuilderScope, BuilderVar *Builder, FunctionNameVar string, FlagsVar BuilderClosureFlags, ObjectVar *gobject.Object) *gobject.Closure {
-		var cerr *glib.Error
-		rawRet := rawCallback(SelfVar.GoPointer(), BuilderVar.GoPointer(), FunctionNameVar, FlagsVar, ObjectVar.GoPointer(), &cerr)
+		rawRet := rawCallback(SelfVar.GoPointer(), BuilderVar.GoPointer(), FunctionNameVar, FlagsVar, ObjectVar.GoPointer())
 		if rawRet == 0 {
 			return nil
 		}
@@ -196,7 +195,6 @@ type BuilderScope interface {
 var xBuilderScopeGLibType func() types.GType
 
 func BuilderScopeGLibType() types.GType {
-	core.LazyRegister(&xBuilderScopeGLibType, "GTK", "gtk_builder_scope_get_type", false)
 	return xBuilderScopeGLibType()
 }
 
@@ -226,7 +224,6 @@ type BuilderClosureFlags int
 var xBuilderClosureFlagsGLibType func() types.GType
 
 func BuilderClosureFlagsGLibType() types.GType {
-	core.LazyRegister(&xBuilderClosureFlagsGLibType, "GTK", "gtk_builder_closure_flags_get_type", false)
 	return xBuilderClosureFlagsGLibType()
 }
 
@@ -260,7 +257,6 @@ type BuilderCScope struct {
 var xBuilderCScopeGLibType func() types.GType
 
 func BuilderCScopeGLibType() types.GType {
-	core.LazyRegister(&xBuilderCScopeGLibType, "GTK", "gtk_builder_cscope_get_type", false)
 	return xBuilderCScopeGLibType()
 }
 
@@ -278,7 +274,6 @@ var xNewBuilderCScope func() uintptr
 // Calling this function is only necessary if you want to add
 // custom callbacks via [method@Gtk.BuilderCScope.add_callback_symbol].
 func NewBuilderCScope() *BuilderCScope {
-	core.LazyRegister(&xNewBuilderCScope, "GTK", "gtk_builder_cscope_new", false)
 	var cls *BuilderCScope
 
 	cret := xNewBuilderCScope()
@@ -302,8 +297,6 @@ var xBuilderCScopeAddCallbackSymbol func(uintptr, string, uintptr)
 // does not require that callback symbols be declared in the global
 // namespace.
 func (x *BuilderCScope) AddCallbackSymbol(CallbackNameVar string, CallbackSymbolVar *gobject.Callback) {
-	core.LazyRegister(&xBuilderCScopeAddCallbackSymbol, "GTK", "gtk_builder_cscope_add_callback_symbol", false)
-
 	xBuilderCScopeAddCallbackSymbol(x.GoPointer(), CallbackNameVar, glib.NewCallback(CallbackSymbolVar))
 }
 
@@ -314,8 +307,6 @@ var xBuilderCScopeAddCallbackSymbols func(uintptr, string, uintptr, ...interface
 // This is equivalent to calling [method@Gtk.BuilderCScope.add_callback_symbol]
 // for each symbol.
 func (x *BuilderCScope) AddCallbackSymbols(FirstCallbackNameVar string, FirstCallbackSymbolVar *gobject.Callback, varArgs ...interface{}) {
-	core.LazyRegister(&xBuilderCScopeAddCallbackSymbols, "GTK", "gtk_builder_cscope_add_callback_symbols", false)
-
 	xBuilderCScopeAddCallbackSymbols(x.GoPointer(), FirstCallbackNameVar, glib.NewCallback(FirstCallbackSymbolVar), varArgs...)
 }
 
@@ -324,8 +315,6 @@ var xBuilderCScopeLookupCallbackSymbol func(uintptr, string) uintptr
 // Fetches a symbol previously added with
 // gtk_builder_cscope_add_callback_symbol().
 func (x *BuilderCScope) LookupCallbackSymbol(CallbackNameVar string) uintptr {
-	core.LazyRegister(&xBuilderCScopeLookupCallbackSymbol, "GTK", "gtk_builder_cscope_lookup_callback_symbol", false)
-
 	cret := xBuilderCScopeLookupCallbackSymbol(x.GoPointer(), CallbackNameVar)
 	return cret
 }
@@ -344,4 +333,24 @@ func (c *BuilderCScope) SetGoPointer(ptr uintptr) {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GTK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xBuilderClosureFlagsGLibType, libs, "gtk_builder_closure_flags_get_type")
+
+	core.PuregoSafeRegister(&xBuilderCScopeGLibType, libs, "gtk_builder_cscope_get_type")
+
+	core.PuregoSafeRegister(&xNewBuilderCScope, libs, "gtk_builder_cscope_new")
+
+	core.PuregoSafeRegister(&xBuilderCScopeAddCallbackSymbol, libs, "gtk_builder_cscope_add_callback_symbol")
+	core.PuregoSafeRegister(&xBuilderCScopeAddCallbackSymbols, libs, "gtk_builder_cscope_add_callback_symbols")
+	core.PuregoSafeRegister(&xBuilderCScopeLookupCallbackSymbol, libs, "gtk_builder_cscope_lookup_callback_symbol")
+
+	core.PuregoSafeRegister(&xBuilderScopeGLibType, libs, "gtk_builder_scope_get_type")
 }

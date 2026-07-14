@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gdk"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -36,7 +37,6 @@ type FlapFoldPolicy int
 var xFlapFoldPolicyGLibType func() types.GType
 
 func FlapFoldPolicyGLibType() types.GType {
-	core.LazyRegister(&xFlapFoldPolicyGLibType, "ADW", "adw_flap_fold_policy_get_type", false)
 	return xFlapFoldPolicyGLibType()
 }
 
@@ -62,7 +62,6 @@ type FlapTransitionType int
 var xFlapTransitionTypeGLibType func() types.GType
 
 func FlapTransitionTypeGLibType() types.GType {
-	core.LazyRegister(&xFlapTransitionTypeGLibType, "ADW", "adw_flap_transition_type_get_type", false)
 	return xFlapTransitionTypeGLibType()
 }
 
@@ -148,7 +147,6 @@ type Flap struct {
 var xFlapGLibType func() types.GType
 
 func FlapGLibType() types.GType {
-	core.LazyRegister(&xFlapGLibType, "ADW", "adw_flap_get_type", false)
 	return xFlapGLibType()
 }
 
@@ -162,7 +160,6 @@ var xNewFlap func() uintptr
 
 // Creates a new `AdwFlap`.
 func NewFlap() *Flap {
-	core.LazyRegister(&xNewFlap, "ADW", "adw_flap_new", false)
 	var cls *Flap
 
 	cret := xNewFlap()
@@ -180,7 +177,6 @@ var xFlapGetContent func(uintptr) uintptr
 
 // Gets the content widget for @self.
 func (x *Flap) GetContent() *gtk.Widget {
-	core.LazyRegister(&xFlapGetContent, "ADW", "adw_flap_get_content", false)
 	var cls *gtk.Widget
 
 	cret := xFlapGetContent(x.GoPointer())
@@ -198,7 +194,6 @@ var xFlapGetFlap func(uintptr) uintptr
 
 // Gets the flap widget for @self.
 func (x *Flap) GetFlap() *gtk.Widget {
-	core.LazyRegister(&xFlapGetFlap, "ADW", "adw_flap_get_flap", false)
 	var cls *gtk.Widget
 
 	cret := xFlapGetFlap(x.GoPointer())
@@ -216,8 +211,6 @@ var xFlapGetFlapPosition func(uintptr) gtk.PackType
 
 // Gets the flap position for @self.
 func (x *Flap) GetFlapPosition() gtk.PackType {
-	core.LazyRegister(&xFlapGetFlapPosition, "ADW", "adw_flap_get_flap_position", false)
-
 	cret := xFlapGetFlapPosition(x.GoPointer())
 	return cret
 }
@@ -226,8 +219,6 @@ var xFlapGetFoldDuration func(uintptr) uint
 
 // Gets the fold transition animation duration for @self, in milliseconds.
 func (x *Flap) GetFoldDuration() uint {
-	core.LazyRegister(&xFlapGetFoldDuration, "ADW", "adw_flap_get_fold_duration", false)
-
 	cret := xFlapGetFoldDuration(x.GoPointer())
 	return cret
 }
@@ -236,8 +227,6 @@ var xFlapGetFoldPolicy func(uintptr) FlapFoldPolicy
 
 // Gets the fold policy for @self.
 func (x *Flap) GetFoldPolicy() FlapFoldPolicy {
-	core.LazyRegister(&xFlapGetFoldPolicy, "ADW", "adw_flap_get_fold_policy", false)
-
 	cret := xFlapGetFoldPolicy(x.GoPointer())
 	return cret
 }
@@ -246,8 +235,6 @@ var xFlapGetFoldThresholdPolicy func(uintptr) FoldThresholdPolicy
 
 // Gets the fold threshold policy for @self.
 func (x *Flap) GetFoldThresholdPolicy() FoldThresholdPolicy {
-	core.LazyRegister(&xFlapGetFoldThresholdPolicy, "ADW", "adw_flap_get_fold_threshold_policy", false)
-
 	cret := xFlapGetFoldThresholdPolicy(x.GoPointer())
 	return cret
 }
@@ -258,8 +245,6 @@ var xFlapGetFolded func(uintptr) bool
 //
 // See [property@Flap:fold-policy].
 func (x *Flap) GetFolded() bool {
-	core.LazyRegister(&xFlapGetFolded, "ADW", "adw_flap_get_folded", false)
-
 	cret := xFlapGetFolded(x.GoPointer())
 	return cret
 }
@@ -268,8 +253,6 @@ var xFlapGetLocked func(uintptr) bool
 
 // Gets whether @self is locked.
 func (x *Flap) GetLocked() bool {
-	core.LazyRegister(&xFlapGetLocked, "ADW", "adw_flap_get_locked", false)
-
 	cret := xFlapGetLocked(x.GoPointer())
 	return cret
 }
@@ -278,8 +261,6 @@ var xFlapGetModal func(uintptr) bool
 
 // Gets whether @self is modal.
 func (x *Flap) GetModal() bool {
-	core.LazyRegister(&xFlapGetModal, "ADW", "adw_flap_get_modal", false)
-
 	cret := xFlapGetModal(x.GoPointer())
 	return cret
 }
@@ -288,8 +269,6 @@ var xFlapGetRevealFlap func(uintptr) bool
 
 // Gets whether the flap widget is revealed for @self.
 func (x *Flap) GetRevealFlap() bool {
-	core.LazyRegister(&xFlapGetRevealFlap, "ADW", "adw_flap_get_reveal_flap", false)
-
 	cret := xFlapGetRevealFlap(x.GoPointer())
 	return cret
 }
@@ -298,8 +277,6 @@ var xFlapGetRevealParams func(uintptr) uintptr
 
 // Gets the reveal animation spring parameters for @self.
 func (x *Flap) GetRevealParams() *SpringParams {
-	core.LazyRegister(&xFlapGetRevealParams, "ADW", "adw_flap_get_reveal_params", false)
-
 	cret := xFlapGetRevealParams(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -315,8 +292,6 @@ var xFlapGetRevealProgress func(uintptr) float64
 //
 // See [property@Flap:reveal-flap].
 func (x *Flap) GetRevealProgress() float64 {
-	core.LazyRegister(&xFlapGetRevealProgress, "ADW", "adw_flap_get_reveal_progress", false)
-
 	cret := xFlapGetRevealProgress(x.GoPointer())
 	return cret
 }
@@ -325,7 +300,6 @@ var xFlapGetSeparator func(uintptr) uintptr
 
 // Gets the separator widget for @self.
 func (x *Flap) GetSeparator() *gtk.Widget {
-	core.LazyRegister(&xFlapGetSeparator, "ADW", "adw_flap_get_separator", false)
 	var cls *gtk.Widget
 
 	cret := xFlapGetSeparator(x.GoPointer())
@@ -343,8 +317,6 @@ var xFlapGetSwipeToClose func(uintptr) bool
 
 // Gets whether @self can be closed with a swipe gesture.
 func (x *Flap) GetSwipeToClose() bool {
-	core.LazyRegister(&xFlapGetSwipeToClose, "ADW", "adw_flap_get_swipe_to_close", false)
-
 	cret := xFlapGetSwipeToClose(x.GoPointer())
 	return cret
 }
@@ -353,8 +325,6 @@ var xFlapGetSwipeToOpen func(uintptr) bool
 
 // Gets whether @self can be opened with a swipe gesture.
 func (x *Flap) GetSwipeToOpen() bool {
-	core.LazyRegister(&xFlapGetSwipeToOpen, "ADW", "adw_flap_get_swipe_to_open", false)
-
 	cret := xFlapGetSwipeToOpen(x.GoPointer())
 	return cret
 }
@@ -363,8 +333,6 @@ var xFlapGetTransitionType func(uintptr) FlapTransitionType
 
 // Gets the type of animation used for reveal and fold transitions in @self.
 func (x *Flap) GetTransitionType() FlapTransitionType {
-	core.LazyRegister(&xFlapGetTransitionType, "ADW", "adw_flap_get_transition_type", false)
-
 	cret := xFlapGetTransitionType(x.GoPointer())
 	return cret
 }
@@ -375,8 +343,6 @@ var xFlapSetContent func(uintptr, uintptr)
 //
 // It's always displayed when unfolded, and partially visible when folded.
 func (x *Flap) SetContent(ContentVar *gtk.Widget) {
-	core.LazyRegister(&xFlapSetContent, "ADW", "adw_flap_set_content", false)
-
 	xFlapSetContent(x.GoPointer(), ContentVar.GoPointer())
 }
 
@@ -386,8 +352,6 @@ var xFlapSetFlap func(uintptr, uintptr)
 //
 // It's only visible when [property@Flap:reveal-progress] is greater than 0.
 func (x *Flap) SetFlap(FlapVar *gtk.Widget) {
-	core.LazyRegister(&xFlapSetFlap, "ADW", "adw_flap_set_flap", false)
-
 	xFlapSetFlap(x.GoPointer(), FlapVar.GoPointer())
 }
 
@@ -398,8 +362,6 @@ var xFlapSetFlapPosition func(uintptr, gtk.PackType)
 // If it's set to [enum@Gtk.PackType.start], the flap is displayed before the
 // content, if [enum@Gtk.PackType.end], it's displayed after the content.
 func (x *Flap) SetFlapPosition(PositionVar gtk.PackType) {
-	core.LazyRegister(&xFlapSetFlapPosition, "ADW", "adw_flap_set_flap_position", false)
-
 	xFlapSetFlapPosition(x.GoPointer(), PositionVar)
 }
 
@@ -407,8 +369,6 @@ var xFlapSetFoldDuration func(uintptr, uint)
 
 // Sets the fold transition animation duration for @self, in milliseconds.
 func (x *Flap) SetFoldDuration(DurationVar uint) {
-	core.LazyRegister(&xFlapSetFoldDuration, "ADW", "adw_flap_set_fold_duration", false)
-
 	xFlapSetFoldDuration(x.GoPointer(), DurationVar)
 }
 
@@ -416,8 +376,6 @@ var xFlapSetFoldPolicy func(uintptr, FlapFoldPolicy)
 
 // Sets the fold policy for @self.
 func (x *Flap) SetFoldPolicy(PolicyVar FlapFoldPolicy) {
-	core.LazyRegister(&xFlapSetFoldPolicy, "ADW", "adw_flap_set_fold_policy", false)
-
 	xFlapSetFoldPolicy(x.GoPointer(), PolicyVar)
 }
 
@@ -432,8 +390,6 @@ var xFlapSetFoldThresholdPolicy func(uintptr, FoldThresholdPolicy)
 // This can be useful if you have a long ellipsizing label and want to let it
 // ellipsize instead of immediately folding.
 func (x *Flap) SetFoldThresholdPolicy(PolicyVar FoldThresholdPolicy) {
-	core.LazyRegister(&xFlapSetFoldThresholdPolicy, "ADW", "adw_flap_set_fold_threshold_policy", false)
-
 	xFlapSetFoldThresholdPolicy(x.GoPointer(), PolicyVar)
 }
 
@@ -445,8 +401,6 @@ var xFlapSetLocked func(uintptr, bool)
 // unfolding it when the flap is not revealed opens it. If `TRUE`,
 // [property@Flap:reveal-flap] value never changes on its own.
 func (x *Flap) SetLocked(LockedVar bool) {
-	core.LazyRegister(&xFlapSetLocked, "ADW", "adw_flap_set_locked", false)
-
 	xFlapSetLocked(x.GoPointer(), LockedVar)
 }
 
@@ -458,8 +412,6 @@ var xFlapSetModal func(uintptr, bool)
 // pressing the &lt;kbd&gt;Esc&lt;/kbd&gt; key, will close the flap. If `FALSE`, clicks are
 // passed through to the content widget.
 func (x *Flap) SetModal(ModalVar bool) {
-	core.LazyRegister(&xFlapSetModal, "ADW", "adw_flap_set_modal", false)
-
 	xFlapSetModal(x.GoPointer(), ModalVar)
 }
 
@@ -467,8 +419,6 @@ var xFlapSetRevealFlap func(uintptr, bool)
 
 // Sets whether the flap widget is revealed for @self.
 func (x *Flap) SetRevealFlap(RevealFlapVar bool) {
-	core.LazyRegister(&xFlapSetRevealFlap, "ADW", "adw_flap_set_reveal_flap", false)
-
 	xFlapSetRevealFlap(x.GoPointer(), RevealFlapVar)
 }
 
@@ -482,8 +432,6 @@ var xFlapSetRevealParams func(uintptr, *SpringParams)
 // adw_spring_params_new (1, 0.5, 500)
 // ```
 func (x *Flap) SetRevealParams(ParamsVar *SpringParams) {
-	core.LazyRegister(&xFlapSetRevealParams, "ADW", "adw_flap_set_reveal_params", false)
-
 	xFlapSetRevealParams(x.GoPointer(), ParamsVar)
 }
 
@@ -495,8 +443,6 @@ var xFlapSetSeparator func(uintptr, uintptr)
 // When exactly it's visible depends on the [property@Flap:transition-type]
 // value.
 func (x *Flap) SetSeparator(SeparatorVar *gtk.Widget) {
-	core.LazyRegister(&xFlapSetSeparator, "ADW", "adw_flap_set_separator", false)
-
 	xFlapSetSeparator(x.GoPointer(), SeparatorVar.GoPointer())
 }
 
@@ -507,8 +453,6 @@ var xFlapSetSwipeToClose func(uintptr, bool)
 // The area that can be swiped depends on the [property@Flap:transition-type]
 // value.
 func (x *Flap) SetSwipeToClose(SwipeToCloseVar bool) {
-	core.LazyRegister(&xFlapSetSwipeToClose, "ADW", "adw_flap_set_swipe_to_close", false)
-
 	xFlapSetSwipeToClose(x.GoPointer(), SwipeToCloseVar)
 }
 
@@ -519,8 +463,6 @@ var xFlapSetSwipeToOpen func(uintptr, bool)
 // The area that can be swiped depends on the [property@Flap:transition-type]
 // value.
 func (x *Flap) SetSwipeToOpen(SwipeToOpenVar bool) {
-	core.LazyRegister(&xFlapSetSwipeToOpen, "ADW", "adw_flap_set_swipe_to_open", false)
-
 	xFlapSetSwipeToOpen(x.GoPointer(), SwipeToOpenVar)
 }
 
@@ -533,8 +475,6 @@ var xFlapSetTransitionType func(uintptr, FlapTransitionType)
 // the [`.background`](style-classes.html#background) style class to it if this
 // is unwanted.
 func (x *Flap) SetTransitionType(TransitionTypeVar FlapTransitionType) {
-	core.LazyRegister(&xFlapSetTransitionType, "ADW", "adw_flap_set_transition_type", false)
-
 	xFlapSetTransitionType(x.GoPointer(), TransitionTypeVar)
 }
 
@@ -1046,4 +986,51 @@ func (x *Flap) SetOrientation(OrientationVar gtk.Orientation) {
 func init() {
 	core.SetPackageName("ADW", "libadwaita-1")
 	core.SetSharedLibraries("ADW", []string{"libadwaita-1.so.0", "libadwaita-1.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("ADW") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xFlapFoldPolicyGLibType, libs, "adw_flap_fold_policy_get_type")
+
+	core.PuregoSafeRegister(&xFlapTransitionTypeGLibType, libs, "adw_flap_transition_type_get_type")
+
+	core.PuregoSafeRegister(&xFlapGLibType, libs, "adw_flap_get_type")
+
+	core.PuregoSafeRegister(&xNewFlap, libs, "adw_flap_new")
+
+	core.PuregoSafeRegister(&xFlapGetContent, libs, "adw_flap_get_content")
+	core.PuregoSafeRegister(&xFlapGetFlap, libs, "adw_flap_get_flap")
+	core.PuregoSafeRegister(&xFlapGetFlapPosition, libs, "adw_flap_get_flap_position")
+	core.PuregoSafeRegister(&xFlapGetFoldDuration, libs, "adw_flap_get_fold_duration")
+	core.PuregoSafeRegister(&xFlapGetFoldPolicy, libs, "adw_flap_get_fold_policy")
+	core.PuregoSafeRegister(&xFlapGetFoldThresholdPolicy, libs, "adw_flap_get_fold_threshold_policy")
+	core.PuregoSafeRegister(&xFlapGetFolded, libs, "adw_flap_get_folded")
+	core.PuregoSafeRegister(&xFlapGetLocked, libs, "adw_flap_get_locked")
+	core.PuregoSafeRegister(&xFlapGetModal, libs, "adw_flap_get_modal")
+	core.PuregoSafeRegister(&xFlapGetRevealFlap, libs, "adw_flap_get_reveal_flap")
+	core.PuregoSafeRegister(&xFlapGetRevealParams, libs, "adw_flap_get_reveal_params")
+	core.PuregoSafeRegister(&xFlapGetRevealProgress, libs, "adw_flap_get_reveal_progress")
+	core.PuregoSafeRegister(&xFlapGetSeparator, libs, "adw_flap_get_separator")
+	core.PuregoSafeRegister(&xFlapGetSwipeToClose, libs, "adw_flap_get_swipe_to_close")
+	core.PuregoSafeRegister(&xFlapGetSwipeToOpen, libs, "adw_flap_get_swipe_to_open")
+	core.PuregoSafeRegister(&xFlapGetTransitionType, libs, "adw_flap_get_transition_type")
+	core.PuregoSafeRegister(&xFlapSetContent, libs, "adw_flap_set_content")
+	core.PuregoSafeRegister(&xFlapSetFlap, libs, "adw_flap_set_flap")
+	core.PuregoSafeRegister(&xFlapSetFlapPosition, libs, "adw_flap_set_flap_position")
+	core.PuregoSafeRegister(&xFlapSetFoldDuration, libs, "adw_flap_set_fold_duration")
+	core.PuregoSafeRegister(&xFlapSetFoldPolicy, libs, "adw_flap_set_fold_policy")
+	core.PuregoSafeRegister(&xFlapSetFoldThresholdPolicy, libs, "adw_flap_set_fold_threshold_policy")
+	core.PuregoSafeRegister(&xFlapSetLocked, libs, "adw_flap_set_locked")
+	core.PuregoSafeRegister(&xFlapSetModal, libs, "adw_flap_set_modal")
+	core.PuregoSafeRegister(&xFlapSetRevealFlap, libs, "adw_flap_set_reveal_flap")
+	core.PuregoSafeRegister(&xFlapSetRevealParams, libs, "adw_flap_set_reveal_params")
+	core.PuregoSafeRegister(&xFlapSetSeparator, libs, "adw_flap_set_separator")
+	core.PuregoSafeRegister(&xFlapSetSwipeToClose, libs, "adw_flap_set_swipe_to_close")
+	core.PuregoSafeRegister(&xFlapSetSwipeToOpen, libs, "adw_flap_set_swipe_to_open")
+	core.PuregoSafeRegister(&xFlapSetTransitionType, libs, "adw_flap_set_transition_type")
 }

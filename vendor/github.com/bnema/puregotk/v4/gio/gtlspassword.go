@@ -143,7 +143,6 @@ type TlsPassword struct {
 var xTlsPasswordGLibType func() types.GType
 
 func TlsPasswordGLibType() types.GType {
-	core.LazyRegister(&xTlsPasswordGLibType, "GIO", "g_tls_password_get_type", false)
 	return xTlsPasswordGLibType()
 }
 
@@ -157,7 +156,6 @@ var xNewTlsPassword func(TlsPasswordFlags, string) uintptr
 
 // Create a new #GTlsPassword object.
 func NewTlsPassword(FlagsVar TlsPasswordFlags, DescriptionVar string) *TlsPassword {
-	core.LazyRegister(&xNewTlsPassword, "GIO", "g_tls_password_new", false)
 	var cls *TlsPassword
 
 	cret := xNewTlsPassword(FlagsVar, DescriptionVar)
@@ -174,8 +172,6 @@ var xTlsPasswordGetDescription func(uintptr) string
 
 // Get a description string about what the password will be used for.
 func (x *TlsPassword) GetDescription() string {
-	core.LazyRegister(&xTlsPasswordGetDescription, "GIO", "g_tls_password_get_description", false)
-
 	cret := xTlsPasswordGetDescription(x.GoPointer())
 	return cret
 }
@@ -184,8 +180,6 @@ var xTlsPasswordGetFlags func(uintptr) TlsPasswordFlags
 
 // Get flags about the password.
 func (x *TlsPassword) GetFlags() TlsPasswordFlags {
-	core.LazyRegister(&xTlsPasswordGetFlags, "GIO", "g_tls_password_get_flags", false)
-
 	cret := xTlsPasswordGetFlags(x.GoPointer())
 	return cret
 }
@@ -198,8 +192,6 @@ var xTlsPasswordGetValue func(uintptr, *uint) uintptr
 // for @length in contexts where you know the password will have a
 // certain fixed length.)
 func (x *TlsPassword) GetValue(LengthVar *uint) uintptr {
-	core.LazyRegister(&xTlsPasswordGetValue, "GIO", "g_tls_password_get_value", false)
-
 	cret := xTlsPasswordGetValue(x.GoPointer(), LengthVar)
 	return cret
 }
@@ -210,8 +202,6 @@ var xTlsPasswordGetWarning func(uintptr) string
 // representation of the password flags returned from
 // g_tls_password_get_flags().
 func (x *TlsPassword) GetWarning() string {
-	core.LazyRegister(&xTlsPasswordGetWarning, "GIO", "g_tls_password_get_warning", false)
-
 	cret := xTlsPasswordGetWarning(x.GoPointer())
 	return cret
 }
@@ -220,8 +210,6 @@ var xTlsPasswordSetDescription func(uintptr, string)
 
 // Set a description string about what the password will be used for.
 func (x *TlsPassword) SetDescription(DescriptionVar string) {
-	core.LazyRegister(&xTlsPasswordSetDescription, "GIO", "g_tls_password_set_description", false)
-
 	xTlsPasswordSetDescription(x.GoPointer(), DescriptionVar)
 }
 
@@ -229,8 +217,6 @@ var xTlsPasswordSetFlags func(uintptr, TlsPasswordFlags)
 
 // Set flags about the password.
 func (x *TlsPassword) SetFlags(FlagsVar TlsPasswordFlags) {
-	core.LazyRegister(&xTlsPasswordSetFlags, "GIO", "g_tls_password_set_flags", false)
-
 	xTlsPasswordSetFlags(x.GoPointer(), FlagsVar)
 }
 
@@ -244,8 +230,6 @@ var xTlsPasswordSetValue func(uintptr, []byte, int)
 // calculated automatically. (Note that the terminating nul is not
 // considered part of the password in this case.)
 func (x *TlsPassword) SetValue(ValueVar []byte, LengthVar int) {
-	core.LazyRegister(&xTlsPasswordSetValue, "GIO", "g_tls_password_set_value", false)
-
 	xTlsPasswordSetValue(x.GoPointer(), ValueVar, LengthVar)
 }
 
@@ -261,8 +245,6 @@ var xTlsPasswordSetValueFull func(uintptr, []byte, int, uintptr)
 // calculated automatically. (Note that the terminating nul is not
 // considered part of the password in this case.)
 func (x *TlsPassword) SetValueFull(ValueVar []byte, LengthVar int, DestroyVar *glib.DestroyNotify) {
-	core.LazyRegister(&xTlsPasswordSetValueFull, "GIO", "g_tls_password_set_value_full", false)
-
 	xTlsPasswordSetValueFull(x.GoPointer(), ValueVar, LengthVar, glib.NewCallbackNullable(DestroyVar))
 }
 
@@ -272,8 +254,6 @@ var xTlsPasswordSetWarning func(uintptr, string)
 // representation of the password flags returned from
 // g_tls_password_get_flags().
 func (x *TlsPassword) SetWarning(WarningVar string) {
-	core.LazyRegister(&xTlsPasswordSetWarning, "GIO", "g_tls_password_set_warning", false)
-
 	xTlsPasswordSetWarning(x.GoPointer(), WarningVar)
 }
 
@@ -325,4 +305,26 @@ func (x *TlsPassword) GetPropertyWarning() string {
 func init() {
 	core.SetPackageName("GIO", "gio-2.0")
 	core.SetSharedLibraries("GIO", []string{"libgio-2.0.so.0", "libgio-2.0.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GIO") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xTlsPasswordGLibType, libs, "g_tls_password_get_type")
+
+	core.PuregoSafeRegister(&xNewTlsPassword, libs, "g_tls_password_new")
+
+	core.PuregoSafeRegister(&xTlsPasswordGetDescription, libs, "g_tls_password_get_description")
+	core.PuregoSafeRegister(&xTlsPasswordGetFlags, libs, "g_tls_password_get_flags")
+	core.PuregoSafeRegister(&xTlsPasswordGetValue, libs, "g_tls_password_get_value")
+	core.PuregoSafeRegister(&xTlsPasswordGetWarning, libs, "g_tls_password_get_warning")
+	core.PuregoSafeRegister(&xTlsPasswordSetDescription, libs, "g_tls_password_set_description")
+	core.PuregoSafeRegister(&xTlsPasswordSetFlags, libs, "g_tls_password_set_flags")
+	core.PuregoSafeRegister(&xTlsPasswordSetValue, libs, "g_tls_password_set_value")
+	core.PuregoSafeRegister(&xTlsPasswordSetValueFull, libs, "g_tls_password_set_value_full")
+	core.PuregoSafeRegister(&xTlsPasswordSetWarning, libs, "g_tls_password_set_warning")
 }

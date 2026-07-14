@@ -2,6 +2,7 @@
 package gtk
 
 import (
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gdk"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -34,7 +35,6 @@ type PageSetupUnixDialog struct {
 var xPageSetupUnixDialogGLibType func() types.GType
 
 func PageSetupUnixDialogGLibType() types.GType {
-	core.LazyRegister(&xPageSetupUnixDialogGLibType, "GTK", "gtk_page_setup_unix_dialog_get_type", false)
 	return xPageSetupUnixDialogGLibType()
 }
 
@@ -48,7 +48,6 @@ var xNewPageSetupUnixDialog func(uintptr, uintptr) uintptr
 
 // Creates a new page setup dialog.
 func NewPageSetupUnixDialog(TitleVar *string, ParentVar *Window) *PageSetupUnixDialog {
-	core.LazyRegister(&xNewPageSetupUnixDialog, "GTK", "gtk_page_setup_unix_dialog_new", false)
 	var cls *PageSetupUnixDialog
 
 	TitleVarPtr := core.GStrdupNullable(TitleVar)
@@ -69,7 +68,6 @@ var xPageSetupUnixDialogGetPageSetup func(uintptr) uintptr
 
 // Gets the currently selected page setup from the dialog.
 func (x *PageSetupUnixDialog) GetPageSetup() *PageSetup {
-	core.LazyRegister(&xPageSetupUnixDialogGetPageSetup, "GTK", "gtk_page_setup_unix_dialog_get_page_setup", false)
 	var cls *PageSetup
 
 	cret := xPageSetupUnixDialogGetPageSetup(x.GoPointer())
@@ -87,7 +85,6 @@ var xPageSetupUnixDialogGetPrintSettings func(uintptr) uintptr
 
 // Gets the current print settings from the dialog.
 func (x *PageSetupUnixDialog) GetPrintSettings() *PrintSettings {
-	core.LazyRegister(&xPageSetupUnixDialogGetPrintSettings, "GTK", "gtk_page_setup_unix_dialog_get_print_settings", false)
 	var cls *PrintSettings
 
 	cret := xPageSetupUnixDialogGetPrintSettings(x.GoPointer())
@@ -106,8 +103,6 @@ var xPageSetupUnixDialogSetPageSetup func(uintptr, uintptr)
 // Sets the `GtkPageSetup` from which the page setup
 // dialog takes its values.
 func (x *PageSetupUnixDialog) SetPageSetup(PageSetupVar *PageSetup) {
-	core.LazyRegister(&xPageSetupUnixDialogSetPageSetup, "GTK", "gtk_page_setup_unix_dialog_set_page_setup", false)
-
 	xPageSetupUnixDialogSetPageSetup(x.GoPointer(), PageSetupVar.GoPointer())
 }
 
@@ -116,8 +111,6 @@ var xPageSetupUnixDialogSetPrintSettings func(uintptr, uintptr)
 // Sets the `GtkPrintSettings` from which the page setup dialog
 // takes its values.
 func (x *PageSetupUnixDialog) SetPrintSettings(PrintSettingsVar *PrintSettings) {
-	core.LazyRegister(&xPageSetupUnixDialogSetPrintSettings, "GTK", "gtk_page_setup_unix_dialog_set_print_settings", false)
-
 	xPageSetupUnixDialogSetPrintSettings(x.GoPointer(), PrintSettingsVar.GoPointer())
 }
 
@@ -494,4 +487,21 @@ func (x *PageSetupUnixDialog) SetFocus(FocusVar *Widget) {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GTK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xPageSetupUnixDialogGLibType, libs, "gtk_page_setup_unix_dialog_get_type")
+
+	core.PuregoSafeRegister(&xNewPageSetupUnixDialog, libs, "gtk_page_setup_unix_dialog_new")
+
+	core.PuregoSafeRegister(&xPageSetupUnixDialogGetPageSetup, libs, "gtk_page_setup_unix_dialog_get_page_setup")
+	core.PuregoSafeRegister(&xPageSetupUnixDialogGetPrintSettings, libs, "gtk_page_setup_unix_dialog_get_print_settings")
+	core.PuregoSafeRegister(&xPageSetupUnixDialogSetPageSetup, libs, "gtk_page_setup_unix_dialog_set_page_setup")
+	core.PuregoSafeRegister(&xPageSetupUnixDialogSetPrintSettings, libs, "gtk_page_setup_unix_dialog_set_print_settings")
 }

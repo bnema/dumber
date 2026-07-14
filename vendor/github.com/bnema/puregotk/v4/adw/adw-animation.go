@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -45,7 +46,6 @@ type AnimationState int
 var xAnimationStateGLibType func() types.GType
 
 func AnimationStateGLibType() types.GType {
-	core.LazyRegister(&xAnimationStateGLibType, "ADW", "adw_animation_state_get_type", false)
 	return xAnimationStateGLibType()
 }
 
@@ -117,7 +117,6 @@ type Animation struct {
 var xAnimationGLibType func() types.GType
 
 func AnimationGLibType() types.GType {
-	core.LazyRegister(&xAnimationGLibType, "ADW", "adw_animation_get_type", false)
 	return xAnimationGLibType()
 }
 
@@ -131,8 +130,6 @@ var xAnimationGetFollowEnableAnimationsSetting func(uintptr) bool
 
 // Gets whether @self should be skipped when animations are globally disabled.
 func (x *Animation) GetFollowEnableAnimationsSetting() bool {
-	core.LazyRegister(&xAnimationGetFollowEnableAnimationsSetting, "ADW", "adw_animation_get_follow_enable_animations_setting", false)
-
 	cret := xAnimationGetFollowEnableAnimationsSetting(x.GoPointer())
 	return cret
 }
@@ -144,8 +141,6 @@ var xAnimationGetState func(uintptr) AnimationState
 // The state indicates whether @self is currently playing, paused, finished or
 // hasn't been started yet.
 func (x *Animation) GetState() AnimationState {
-	core.LazyRegister(&xAnimationGetState, "ADW", "adw_animation_get_state", false)
-
 	cret := xAnimationGetState(x.GoPointer())
 	return cret
 }
@@ -154,7 +149,6 @@ var xAnimationGetTarget func(uintptr) uintptr
 
 // Gets the target @self animates.
 func (x *Animation) GetTarget() *AnimationTarget {
-	core.LazyRegister(&xAnimationGetTarget, "ADW", "adw_animation_get_target", false)
 	var cls *AnimationTarget
 
 	cret := xAnimationGetTarget(x.GoPointer())
@@ -172,8 +166,6 @@ var xAnimationGetValue func(uintptr) float64
 
 // Gets the current value of @self.
 func (x *Animation) GetValue() float64 {
-	core.LazyRegister(&xAnimationGetValue, "ADW", "adw_animation_get_value", false)
-
 	cret := xAnimationGetValue(x.GoPointer())
 	return cret
 }
@@ -189,7 +181,6 @@ var xAnimationGetWidget func(uintptr) uintptr
 // mapped, or if it gets unmapped during an ongoing animation, the animation
 // will be automatically skipped.
 func (x *Animation) GetWidget() *gtk.Widget {
-	core.LazyRegister(&xAnimationGetWidget, "ADW", "adw_animation_get_widget", false)
 	var cls *gtk.Widget
 
 	cret := xAnimationGetWidget(x.GoPointer())
@@ -212,8 +203,6 @@ var xAnimationPause func(uintptr)
 //
 // Sets [property@Animation:state] to [enum@Adw.AnimationState.paused].
 func (x *Animation) Pause() {
-	core.LazyRegister(&xAnimationPause, "ADW", "adw_animation_pause", false)
-
 	xAnimationPause(x.GoPointer())
 }
 
@@ -235,8 +224,6 @@ var xAnimationPlay func(uintptr)
 // immediately afterwards, it's entirely possible that the idle callback will
 // run after the animation has already finished, and not while it's playing.
 func (x *Animation) Play() {
-	core.LazyRegister(&xAnimationPlay, "ADW", "adw_animation_play", false)
-
 	xAnimationPlay(x.GoPointer())
 }
 
@@ -246,8 +233,6 @@ var xAnimationReset func(uintptr)
 //
 // Sets [property@Animation:state] to [enum@Adw.AnimationState.idle].
 func (x *Animation) Reset() {
-	core.LazyRegister(&xAnimationReset, "ADW", "adw_animation_reset", false)
-
 	xAnimationReset(x.GoPointer())
 }
 
@@ -260,8 +245,6 @@ var xAnimationResume func(uintptr)
 //
 // Sets [property@Animation:state] to [enum@Adw.AnimationState.playing].
 func (x *Animation) Resume() {
-	core.LazyRegister(&xAnimationResume, "ADW", "adw_animation_resume", false)
-
 	xAnimationResume(x.GoPointer())
 }
 
@@ -277,8 +260,6 @@ var xAnimationSetFollowEnableAnimationsSetting func(uintptr, bool)
 //
 // See [property@Gtk.Settings:gtk-enable-animations].
 func (x *Animation) SetFollowEnableAnimationsSetting(SettingVar bool) {
-	core.LazyRegister(&xAnimationSetFollowEnableAnimationsSetting, "ADW", "adw_animation_set_follow_enable_animations_setting", false)
-
 	xAnimationSetFollowEnableAnimationsSetting(x.GoPointer(), SettingVar)
 }
 
@@ -286,8 +267,6 @@ var xAnimationSetTarget func(uintptr, uintptr)
 
 // Sets the target @self animates to @target.
 func (x *Animation) SetTarget(TargetVar *AnimationTarget) {
-	core.LazyRegister(&xAnimationSetTarget, "ADW", "adw_animation_set_target", false)
-
 	xAnimationSetTarget(x.GoPointer(), TargetVar.GoPointer())
 }
 
@@ -301,8 +280,6 @@ var xAnimationSkip func(uintptr)
 //
 // Sets [property@Animation:state] to [enum@Adw.AnimationState.finished].
 func (x *Animation) Skip() {
-	core.LazyRegister(&xAnimationSkip, "ADW", "adw_animation_skip", false)
-
 	xAnimationSkip(x.GoPointer())
 }
 
@@ -385,4 +362,29 @@ func (x *Animation) ConnectDone(cb *func(Animation)) uint {
 func init() {
 	core.SetPackageName("ADW", "libadwaita-1")
 	core.SetSharedLibraries("ADW", []string{"libadwaita-1.so.0", "libadwaita-1.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("ADW") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xAnimationStateGLibType, libs, "adw_animation_state_get_type")
+
+	core.PuregoSafeRegister(&xAnimationGLibType, libs, "adw_animation_get_type")
+
+	core.PuregoSafeRegister(&xAnimationGetFollowEnableAnimationsSetting, libs, "adw_animation_get_follow_enable_animations_setting")
+	core.PuregoSafeRegister(&xAnimationGetState, libs, "adw_animation_get_state")
+	core.PuregoSafeRegister(&xAnimationGetTarget, libs, "adw_animation_get_target")
+	core.PuregoSafeRegister(&xAnimationGetValue, libs, "adw_animation_get_value")
+	core.PuregoSafeRegister(&xAnimationGetWidget, libs, "adw_animation_get_widget")
+	core.PuregoSafeRegister(&xAnimationPause, libs, "adw_animation_pause")
+	core.PuregoSafeRegister(&xAnimationPlay, libs, "adw_animation_play")
+	core.PuregoSafeRegister(&xAnimationReset, libs, "adw_animation_reset")
+	core.PuregoSafeRegister(&xAnimationResume, libs, "adw_animation_resume")
+	core.PuregoSafeRegister(&xAnimationSetFollowEnableAnimationsSetting, libs, "adw_animation_set_follow_enable_animations_setting")
+	core.PuregoSafeRegister(&xAnimationSetTarget, libs, "adw_animation_set_target")
+	core.PuregoSafeRegister(&xAnimationSkip, libs, "adw_animation_skip")
 }

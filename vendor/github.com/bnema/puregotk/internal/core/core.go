@@ -8,7 +8,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"reflect"
 	"runtime"
 	"strings"
 	"sync"
@@ -16,184 +15,6 @@ import (
 
 	"github.com/bnema/purego"
 )
-
-// LibraryOpener opens a shared library path and returns its handle.
-type LibraryOpener func(path string) (uintptr, error)
-
-// LibraryPathResolver returns the candidate paths for a named library.
-type LibraryPathResolver func(library string) ([]string, error)
-
-// SymbolResolver resolves and publishes a symbol into target using library handles.
-type SymbolResolver func(target any, libraries []uintptr, symbol string) error
-
-// LazyResolver safely caches library opens and symbol publication. It is safe for
-// concurrent use. Its injected dependencies make resolution deterministic in tests.
-type LazyResolver struct {
-	paths   LibraryPathResolver
-	opener  LibraryOpener
-	resolve SymbolResolver
-
-	mu        sync.Mutex
-	libraries map[string]*lazyLibrary
-	symbols   map[lazySymbolKey]*lazySymbol
-}
-
-type lazyLibrary struct {
-	once    sync.Once
-	handles []uintptr
-	err     error
-}
-
-type lazySymbolKey struct {
-	library string
-	symbol  string
-	target  uintptr
-}
-
-type lazySymbol struct {
-	once sync.Once
-	err  error
-}
-
-// NewLazyResolver constructs an isolated lazy resolver. All dependencies must
-// be non-nil.
-func NewLazyResolver(paths LibraryPathResolver, opener LibraryOpener, resolve SymbolResolver) *LazyResolver {
-	if paths == nil || opener == nil || resolve == nil {
-		panic("core: lazy resolver dependencies must not be nil")
-	}
-	return &LazyResolver{
-		paths:     paths,
-		opener:    opener,
-		resolve:   resolve,
-		libraries: make(map[string]*lazyLibrary),
-		symbols:   make(map[lazySymbolKey]*lazySymbol),
-	}
-}
-
-// Register resolves and publishes symbol into target once. Library and symbol
-// failures are cached as well as successful resolutions.
-func (r *LazyResolver) Register(target any, library, symbol string) error {
-	if r == nil {
-		return fmt.Errorf("core: nil lazy resolver")
-	}
-	value := reflect.ValueOf(target)
-	if !value.IsValid() || value.Kind() != reflect.Ptr || value.IsNil() {
-		return fmt.Errorf("core: lazy symbol target must be a non-nil pointer")
-	}
-	key := lazySymbolKey{library: library, symbol: symbol, target: value.Pointer()}
-
-	r.mu.Lock()
-	state := r.symbols[key]
-	if state == nil {
-		// Generated binding tests and embedders may provide a function before
-		// the first call. Do not replace that explicit implementation with a
-		// symbol. Once a resolution has started, use its sync.Once rather than
-		// inspecting a function that the resolver may be publishing.
-		if value.Elem().Kind() == reflect.Func && !value.Elem().IsNil() {
-			r.mu.Unlock()
-			return nil
-		}
-		state = &lazySymbol{}
-		r.symbols[key] = state
-	}
-	r.mu.Unlock()
-
-	state.once.Do(func() {
-		libraries, err := r.open(library)
-		if err != nil {
-			state.err = err
-			return
-		}
-		state.err = r.resolve(target, libraries, symbol)
-	})
-	return state.err
-}
-
-// RegisterOptional is Register for optional libraries. It reports whether the
-// symbol was published and caches an unavailable-library failure.
-func (r *LazyResolver) RegisterOptional(target any, library, symbol string) bool {
-	return r.Register(target, library, symbol) == nil
-}
-
-func (r *LazyResolver) open(name string) ([]uintptr, error) {
-	r.mu.Lock()
-	state := r.libraries[name]
-	if state == nil {
-		state = &lazyLibrary{}
-		r.libraries[name] = state
-	}
-	r.mu.Unlock()
-
-	state.once.Do(func() {
-		paths, err := r.paths(name)
-		if err != nil {
-			state.err = err
-			return
-		}
-		if len(paths) == 0 {
-			state.err = fmt.Errorf("core: no paths found for library %s", name)
-			return
-		}
-		var lastErr error
-		for _, path := range paths {
-			handle, err := r.opener(path)
-			if err != nil {
-				lastErr = err
-				continue
-			}
-			state.handles = append(state.handles, handle)
-		}
-		if len(state.handles) == 0 {
-			state.err = fmt.Errorf("core: open library %s: %w", name, lastErr)
-		}
-	})
-	return state.handles, state.err
-}
-
-var defaultLazyResolver = NewLazyResolver(
-	func(name string) ([]string, error) {
-		paths := tryFindPaths(name)
-		if len(paths) == 0 {
-			return nil, fmt.Errorf("core: no paths found for library %s", name)
-		}
-		return paths, nil
-	},
-	func(path string) (uintptr, error) {
-		return purego.Dlopen(path, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-	},
-	func(target any, libraries []uintptr, symbol string) error {
-		var lastErr error
-		for _, library := range libraries {
-			address, err := purego.Dlsym(library, symbol)
-			if err != nil {
-				lastErr = err
-				continue
-			}
-			registerFuncSafe(target, address)
-			return nil
-		}
-		return fmt.Errorf("core: resolve symbol %s: %w", symbol, lastErr)
-	},
-)
-
-// LazyRegister publishes a generated function's native symbol on its first
-// call. Required-library failures panic; optional-library failures return false.
-func LazyRegister(target any, library, symbol string, optional bool) bool {
-	if err := defaultLazyResolver.Register(target, library, symbol); err != nil {
-		if optional {
-			return false
-		}
-		panic(err)
-	}
-	return true
-}
-
-// LibraryAvailable reports whether an optional library can be opened. The open
-// result, including failure, is shared with LazyRegister.
-func LibraryAvailable(library string) bool {
-	_, err := defaultLazyResolver.open(library)
-	return err == nil
-}
 
 func PuregoSafeRegister(fptr interface{}, libs []uintptr, name string) {
 	for _, lib := range libs {
@@ -232,10 +53,7 @@ var paths = map[string][]string{
 
 // names is a lookup from library names to shared object filenames
 // This is populated dynamically via SetSharedLibrary
-var (
-	libraryConfigMu sync.RWMutex
-	names           = map[string][]string{}
-)
+var names = map[string][]string{}
 
 // pkgConfNames is a lookup from library names to pkg-config library names
 // This is populated dynamically via SetPackageName
@@ -245,8 +63,6 @@ var pkgConfNames = map[string]string{}
 // This is used by the code generator to set package names from GIR files.
 // It won't override existing entries to preserve defaults.
 func SetPackageName(libName, pkgName string) {
-	libraryConfigMu.Lock()
-	defer libraryConfigMu.Unlock()
 	if _, exists := pkgConfNames[libName]; !exists && pkgName != "" {
 		pkgConfNames[libName] = pkgName
 	}
@@ -256,22 +72,16 @@ func SetPackageName(libName, pkgName string) {
 // This is used by the code generator to set library names from GIR files.
 // It won't override existing entries to preserve defaults.
 func SetSharedLibraries(libName string, sharedLibs []string) {
-	libraryConfigMu.Lock()
-	defer libraryConfigMu.Unlock()
 	if _, exists := names[libName]; !exists && len(sharedLibs) > 0 {
-		names[libName] = append([]string(nil), sharedLibs...)
+		names[libName] = sharedLibs
 	}
 }
 
 // findSos tries to find all shared objects from a path and a library name
 // It does this by mapping the library name to all suitable shared object filenames and then trying some suffixes
 func findSos(path string, name string) []string {
-	libraryConfigMu.RLock()
-	libraryNames := append([]string(nil), names[name]...)
-	libraryConfigMu.RUnlock()
-
 	sos := []string{}
-	for _, n := range libraryNames {
+	for _, n := range names[name] {
 		suffixes := []string{"", ".0", ".1", ".2"}
 		fn := filepath.Join(path, n)
 		for _, s := range suffixes {
@@ -287,10 +97,7 @@ func findSos(path string, name string) []string {
 // it does this by running pkg-config --libs-only-L libname
 // and then it loops over the directories returned and finds all suitable ones
 func findPkgConf(name string) []string {
-	libraryConfigMu.RLock()
-	pkgName := pkgConfNames[name]
-	libraryConfigMu.RUnlock()
-	cmd := exec.Command("pkg-config", "--libs-only-L", pkgName)
+	cmd := exec.Command("pkg-config", "--libs-only-L", pkgConfNames[name])
 	var out, outerr bytes.Buffer
 	cmd.Stdout = &out
 	cmd.Stderr = &outerr

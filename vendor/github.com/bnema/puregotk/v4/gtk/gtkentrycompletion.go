@@ -4,6 +4,7 @@ package gtk
 import (
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -64,7 +65,6 @@ type EntryCompletion struct {
 var xEntryCompletionGLibType func() types.GType
 
 func EntryCompletionGLibType() types.GType {
-	core.LazyRegister(&xEntryCompletionGLibType, "GTK", "gtk_entry_completion_get_type", false)
 	return xEntryCompletionGLibType()
 }
 
@@ -78,7 +78,6 @@ var xNewEntryCompletion func() uintptr
 
 // Creates a new `GtkEntryCompletion` object.
 func NewEntryCompletion() *EntryCompletion {
-	core.LazyRegister(&xNewEntryCompletion, "GTK", "gtk_entry_completion_new", false)
 	var cls *EntryCompletion
 
 	cret := xNewEntryCompletion()
@@ -99,7 +98,6 @@ var xNewEntryCompletionWithArea func(uintptr) uintptr
 // The `GtkCellArea` is used to layout cells in the underlying
 // `GtkTreeViewColumn` for the drop-down menu.
 func NewEntryCompletionWithArea(AreaVar *CellArea) *EntryCompletion {
-	core.LazyRegister(&xNewEntryCompletionWithArea, "GTK", "gtk_entry_completion_new_with_area", false)
 	var cls *EntryCompletion
 
 	cret := xNewEntryCompletionWithArea(AreaVar.GoPointer())
@@ -119,8 +117,6 @@ var xEntryCompletionComplete func(uintptr)
 //
 // The completion list view will be updated accordingly.
 func (x *EntryCompletion) Complete() {
-	core.LazyRegister(&xEntryCompletionComplete, "GTK", "gtk_entry_completion_complete", false)
-
 	xEntryCompletionComplete(x.GoPointer())
 }
 
@@ -133,8 +129,6 @@ var xEntryCompletionComputePrefix func(uintptr, string) string
 // Note that a text column must have been set for this function to work,
 // see [method@Gtk.EntryCompletion.set_text_column] for details.
 func (x *EntryCompletion) ComputePrefix(KeyVar string) string {
-	core.LazyRegister(&xEntryCompletionComputePrefix, "GTK", "gtk_entry_completion_compute_prefix", false)
-
 	cret := xEntryCompletionComputePrefix(x.GoPointer(), KeyVar)
 	return cret
 }
@@ -144,8 +138,6 @@ var xEntryCompletionGetCompletionPrefix func(uintptr) string
 // Get the original text entered by the user that triggered
 // the completion or %NULL if there’s no completion ongoing.
 func (x *EntryCompletion) GetCompletionPrefix() string {
-	core.LazyRegister(&xEntryCompletionGetCompletionPrefix, "GTK", "gtk_entry_completion_get_completion_prefix", false)
-
 	cret := xEntryCompletionGetCompletionPrefix(x.GoPointer())
 	return cret
 }
@@ -154,7 +146,6 @@ var xEntryCompletionGetEntry func(uintptr) uintptr
 
 // Gets the entry @completion has been attached to.
 func (x *EntryCompletion) GetEntry() *Widget {
-	core.LazyRegister(&xEntryCompletionGetEntry, "GTK", "gtk_entry_completion_get_entry", false)
 	var cls *Widget
 
 	cret := xEntryCompletionGetEntry(x.GoPointer())
@@ -173,8 +164,6 @@ var xEntryCompletionGetInlineCompletion func(uintptr) bool
 // Returns whether the common prefix of the possible completions should
 // be automatically inserted in the entry.
 func (x *EntryCompletion) GetInlineCompletion() bool {
-	core.LazyRegister(&xEntryCompletionGetInlineCompletion, "GTK", "gtk_entry_completion_get_inline_completion", false)
-
 	cret := xEntryCompletionGetInlineCompletion(x.GoPointer())
 	return cret
 }
@@ -183,8 +172,6 @@ var xEntryCompletionGetInlineSelection func(uintptr) bool
 
 // Returns %TRUE if inline-selection mode is turned on.
 func (x *EntryCompletion) GetInlineSelection() bool {
-	core.LazyRegister(&xEntryCompletionGetInlineSelection, "GTK", "gtk_entry_completion_get_inline_selection", false)
-
 	cret := xEntryCompletionGetInlineSelection(x.GoPointer())
 	return cret
 }
@@ -193,8 +180,6 @@ var xEntryCompletionGetMinimumKeyLength func(uintptr) int
 
 // Returns the minimum key length as set for @completion.
 func (x *EntryCompletion) GetMinimumKeyLength() int {
-	core.LazyRegister(&xEntryCompletionGetMinimumKeyLength, "GTK", "gtk_entry_completion_get_minimum_key_length", false)
-
 	cret := xEntryCompletionGetMinimumKeyLength(x.GoPointer())
 	return cret
 }
@@ -205,7 +190,6 @@ var xEntryCompletionGetModel func(uintptr) uintptr
 //
 // Returns %NULL if the model is unset.
 func (x *EntryCompletion) GetModel() *TreeModelBase {
-	core.LazyRegister(&xEntryCompletionGetModel, "GTK", "gtk_entry_completion_get_model", false)
 	var cls *TreeModelBase
 
 	cret := xEntryCompletionGetModel(x.GoPointer())
@@ -223,8 +207,6 @@ var xEntryCompletionGetPopupCompletion func(uintptr) bool
 
 // Returns whether the completions should be presented in a popup window.
 func (x *EntryCompletion) GetPopupCompletion() bool {
-	core.LazyRegister(&xEntryCompletionGetPopupCompletion, "GTK", "gtk_entry_completion_get_popup_completion", false)
-
 	cret := xEntryCompletionGetPopupCompletion(x.GoPointer())
 	return cret
 }
@@ -234,8 +216,6 @@ var xEntryCompletionGetPopupSetWidth func(uintptr) bool
 // Returns whether the completion popup window will be resized to the
 // width of the entry.
 func (x *EntryCompletion) GetPopupSetWidth() bool {
-	core.LazyRegister(&xEntryCompletionGetPopupSetWidth, "GTK", "gtk_entry_completion_get_popup_set_width", false)
-
 	cret := xEntryCompletionGetPopupSetWidth(x.GoPointer())
 	return cret
 }
@@ -245,8 +225,6 @@ var xEntryCompletionGetPopupSingleMatch func(uintptr) bool
 // Returns whether the completion popup window will appear even if there is
 // only a single match.
 func (x *EntryCompletion) GetPopupSingleMatch() bool {
-	core.LazyRegister(&xEntryCompletionGetPopupSingleMatch, "GTK", "gtk_entry_completion_get_popup_single_match", false)
-
 	cret := xEntryCompletionGetPopupSingleMatch(x.GoPointer())
 	return cret
 }
@@ -255,8 +233,6 @@ var xEntryCompletionGetTextColumn func(uintptr) int
 
 // Returns the column in the model of @completion to get strings from.
 func (x *EntryCompletion) GetTextColumn() int {
-	core.LazyRegister(&xEntryCompletionGetTextColumn, "GTK", "gtk_entry_completion_get_text_column", false)
-
 	cret := xEntryCompletionGetTextColumn(x.GoPointer())
 	return cret
 }
@@ -265,8 +241,6 @@ var xEntryCompletionInsertPrefix func(uintptr)
 
 // Requests a prefix insertion.
 func (x *EntryCompletion) InsertPrefix() {
-	core.LazyRegister(&xEntryCompletionInsertPrefix, "GTK", "gtk_entry_completion_insert_prefix", false)
-
 	xEntryCompletionInsertPrefix(x.GoPointer())
 }
 
@@ -275,8 +249,6 @@ var xEntryCompletionSetInlineCompletion func(uintptr, bool)
 // Sets whether the common prefix of the possible completions should
 // be automatically inserted in the entry.
 func (x *EntryCompletion) SetInlineCompletion(InlineCompletionVar bool) {
-	core.LazyRegister(&xEntryCompletionSetInlineCompletion, "GTK", "gtk_entry_completion_set_inline_completion", false)
-
 	xEntryCompletionSetInlineCompletion(x.GoPointer(), InlineCompletionVar)
 }
 
@@ -285,8 +257,6 @@ var xEntryCompletionSetInlineSelection func(uintptr, bool)
 // Sets whether it is possible to cycle through the possible completions
 // inside the entry.
 func (x *EntryCompletion) SetInlineSelection(InlineSelectionVar bool) {
-	core.LazyRegister(&xEntryCompletionSetInlineSelection, "GTK", "gtk_entry_completion_set_inline_selection", false)
-
 	xEntryCompletionSetInlineSelection(x.GoPointer(), InlineSelectionVar)
 }
 
@@ -297,8 +267,6 @@ var xEntryCompletionSetMatchFunc func(uintptr, uintptr, uintptr, uintptr)
 // The match function is used to determine if a row should or
 // should not be in the completion list.
 func (x *EntryCompletion) SetMatchFunc(FuncVar *EntryCompletionMatchFunc, FuncDataVar uintptr, FuncNotifyVar *glib.DestroyNotify) {
-	core.LazyRegister(&xEntryCompletionSetMatchFunc, "GTK", "gtk_entry_completion_set_match_func", false)
-
 	xEntryCompletionSetMatchFunc(x.GoPointer(), glib.NewCallback(FuncVar), FuncDataVar, glib.NewCallbackNullable(FuncNotifyVar))
 }
 
@@ -311,8 +279,6 @@ var xEntryCompletionSetMinimumKeyLength func(uintptr, int)
 // key takes a lot of time and will come up with meaningless results anyway
 // (ie, a too large dataset).
 func (x *EntryCompletion) SetMinimumKeyLength(LengthVar int) {
-	core.LazyRegister(&xEntryCompletionSetMinimumKeyLength, "GTK", "gtk_entry_completion_set_minimum_key_length", false)
-
 	xEntryCompletionSetMinimumKeyLength(x.GoPointer(), LengthVar)
 }
 
@@ -324,8 +290,6 @@ var xEntryCompletionSetModel func(uintptr, uintptr)
 // before setting the new model. If model is %NULL, then it
 // will unset the model.
 func (x *EntryCompletion) SetModel(ModelVar TreeModel) {
-	core.LazyRegister(&xEntryCompletionSetModel, "GTK", "gtk_entry_completion_set_model", false)
-
 	xEntryCompletionSetModel(x.GoPointer(), ModelVar.GoPointer())
 }
 
@@ -333,8 +297,6 @@ var xEntryCompletionSetPopupCompletion func(uintptr, bool)
 
 // Sets whether the completions should be presented in a popup window.
 func (x *EntryCompletion) SetPopupCompletion(PopupCompletionVar bool) {
-	core.LazyRegister(&xEntryCompletionSetPopupCompletion, "GTK", "gtk_entry_completion_set_popup_completion", false)
-
 	xEntryCompletionSetPopupCompletion(x.GoPointer(), PopupCompletionVar)
 }
 
@@ -343,8 +305,6 @@ var xEntryCompletionSetPopupSetWidth func(uintptr, bool)
 // Sets whether the completion popup window will be resized to be the same
 // width as the entry.
 func (x *EntryCompletion) SetPopupSetWidth(PopupSetWidthVar bool) {
-	core.LazyRegister(&xEntryCompletionSetPopupSetWidth, "GTK", "gtk_entry_completion_set_popup_set_width", false)
-
 	xEntryCompletionSetPopupSetWidth(x.GoPointer(), PopupSetWidthVar)
 }
 
@@ -356,8 +316,6 @@ var xEntryCompletionSetPopupSingleMatch func(uintptr, bool)
 // You may want to set this to %FALSE if you
 // are using [property@Gtk.EntryCompletion:inline-completion].
 func (x *EntryCompletion) SetPopupSingleMatch(PopupSingleMatchVar bool) {
-	core.LazyRegister(&xEntryCompletionSetPopupSingleMatch, "GTK", "gtk_entry_completion_set_popup_single_match", false)
-
 	xEntryCompletionSetPopupSingleMatch(x.GoPointer(), PopupSingleMatchVar)
 }
 
@@ -375,8 +333,6 @@ var xEntryCompletionSetTextColumn func(uintptr, int)
 // renderer, use g_object_set() to set the
 // [property@Gtk.EntryCompletion:text-column] property directly.
 func (x *EntryCompletion) SetTextColumn(ColumnVar int) {
-	core.LazyRegister(&xEntryCompletionSetTextColumn, "GTK", "gtk_entry_completion_set_text_column", false)
-
 	xEntryCompletionSetTextColumn(x.GoPointer(), ColumnVar)
 }
 
@@ -769,4 +725,40 @@ func (x *EntryCompletion) SetCellDataFunc(CellVar *CellRenderer, FuncVar *CellLa
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GTK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xEntryCompletionGLibType, libs, "gtk_entry_completion_get_type")
+
+	core.PuregoSafeRegister(&xNewEntryCompletion, libs, "gtk_entry_completion_new")
+	core.PuregoSafeRegister(&xNewEntryCompletionWithArea, libs, "gtk_entry_completion_new_with_area")
+
+	core.PuregoSafeRegister(&xEntryCompletionComplete, libs, "gtk_entry_completion_complete")
+	core.PuregoSafeRegister(&xEntryCompletionComputePrefix, libs, "gtk_entry_completion_compute_prefix")
+	core.PuregoSafeRegister(&xEntryCompletionGetCompletionPrefix, libs, "gtk_entry_completion_get_completion_prefix")
+	core.PuregoSafeRegister(&xEntryCompletionGetEntry, libs, "gtk_entry_completion_get_entry")
+	core.PuregoSafeRegister(&xEntryCompletionGetInlineCompletion, libs, "gtk_entry_completion_get_inline_completion")
+	core.PuregoSafeRegister(&xEntryCompletionGetInlineSelection, libs, "gtk_entry_completion_get_inline_selection")
+	core.PuregoSafeRegister(&xEntryCompletionGetMinimumKeyLength, libs, "gtk_entry_completion_get_minimum_key_length")
+	core.PuregoSafeRegister(&xEntryCompletionGetModel, libs, "gtk_entry_completion_get_model")
+	core.PuregoSafeRegister(&xEntryCompletionGetPopupCompletion, libs, "gtk_entry_completion_get_popup_completion")
+	core.PuregoSafeRegister(&xEntryCompletionGetPopupSetWidth, libs, "gtk_entry_completion_get_popup_set_width")
+	core.PuregoSafeRegister(&xEntryCompletionGetPopupSingleMatch, libs, "gtk_entry_completion_get_popup_single_match")
+	core.PuregoSafeRegister(&xEntryCompletionGetTextColumn, libs, "gtk_entry_completion_get_text_column")
+	core.PuregoSafeRegister(&xEntryCompletionInsertPrefix, libs, "gtk_entry_completion_insert_prefix")
+	core.PuregoSafeRegister(&xEntryCompletionSetInlineCompletion, libs, "gtk_entry_completion_set_inline_completion")
+	core.PuregoSafeRegister(&xEntryCompletionSetInlineSelection, libs, "gtk_entry_completion_set_inline_selection")
+	core.PuregoSafeRegister(&xEntryCompletionSetMatchFunc, libs, "gtk_entry_completion_set_match_func")
+	core.PuregoSafeRegister(&xEntryCompletionSetMinimumKeyLength, libs, "gtk_entry_completion_set_minimum_key_length")
+	core.PuregoSafeRegister(&xEntryCompletionSetModel, libs, "gtk_entry_completion_set_model")
+	core.PuregoSafeRegister(&xEntryCompletionSetPopupCompletion, libs, "gtk_entry_completion_set_popup_completion")
+	core.PuregoSafeRegister(&xEntryCompletionSetPopupSetWidth, libs, "gtk_entry_completion_set_popup_set_width")
+	core.PuregoSafeRegister(&xEntryCompletionSetPopupSingleMatch, libs, "gtk_entry_completion_set_popup_single_match")
+	core.PuregoSafeRegister(&xEntryCompletionSetTextColumn, libs, "gtk_entry_completion_set_text_column")
 }

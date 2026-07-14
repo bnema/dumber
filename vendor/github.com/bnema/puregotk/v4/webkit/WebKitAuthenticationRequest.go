@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gio"
 	"github.com/bnema/puregotk/v4/glib"
@@ -36,7 +37,6 @@ type AuthenticationScheme int
 var xAuthenticationSchemeGLibType func() types.GType
 
 func AuthenticationSchemeGLibType() types.GType {
-	core.LazyRegister(&xAuthenticationSchemeGLibType, "WEBKIT", "webkit_authentication_scheme_get_type", false)
 	return xAuthenticationSchemeGLibType()
 }
 
@@ -85,7 +85,6 @@ type AuthenticationRequest struct {
 var xAuthenticationRequestGLibType func() types.GType
 
 func AuthenticationRequestGLibType() types.GType {
-	core.LazyRegister(&xAuthenticationRequestGLibType, "WEBKIT", "webkit_authentication_request_get_type", false)
 	return xAuthenticationRequestGLibType()
 }
 
@@ -102,8 +101,6 @@ var xAuthenticationRequestAuthenticate func(uintptr, *Credential)
 // Authenticate the #WebKitAuthenticationRequest using the #WebKitCredential
 // supplied. To continue without credentials, pass %NULL as @credential.
 func (x *AuthenticationRequest) Authenticate(CredentialVar *Credential) {
-	core.LazyRegister(&xAuthenticationRequestAuthenticate, "WEBKIT", "webkit_authentication_request_authenticate", false)
-
 	xAuthenticationRequestAuthenticate(x.GoPointer(), CredentialVar)
 }
 
@@ -118,8 +115,6 @@ var xAuthenticationRequestCanSaveCredentials func(uintptr) bool
 // disabled in #WebKitWebsiteDataManager, unless credentials saving has been
 // explicitly enabled with webkit_authentication_request_set_can_save_credentials().
 func (x *AuthenticationRequest) CanSaveCredentials() bool {
-	core.LazyRegister(&xAuthenticationRequestCanSaveCredentials, "WEBKIT", "webkit_authentication_request_can_save_credentials", false)
-
 	cret := xAuthenticationRequestCanSaveCredentials(x.GoPointer())
 	return cret
 }
@@ -131,8 +126,6 @@ var xAuthenticationRequestCancel func(uintptr)
 // This will also cancel the page loading and result in a
 // #WebKitWebView::load-failed signal with a #WebKitNetworkError of type %WEBKIT_NETWORK_ERROR_CANCELLED being emitted.
 func (x *AuthenticationRequest) Cancel() {
-	core.LazyRegister(&xAuthenticationRequestCancel, "WEBKIT", "webkit_authentication_request_cancel", false)
-
 	xAuthenticationRequestCancel(x.GoPointer())
 }
 
@@ -140,8 +133,6 @@ var xAuthenticationRequestGetCertificatePinFlags func(uintptr) gio.TlsPasswordFl
 
 // Get the #GTlsPasswordFlags of the %WEBKIT_AUTHENTICATION_SCHEME_CLIENT_CERTIFICATE_PIN_REQUESTED authentication challenge.
 func (x *AuthenticationRequest) GetCertificatePinFlags() gio.TlsPasswordFlags {
-	core.LazyRegister(&xAuthenticationRequestGetCertificatePinFlags, "WEBKIT", "webkit_authentication_request_get_certificate_pin_flags", false)
-
 	cret := xAuthenticationRequestGetCertificatePinFlags(x.GoPointer())
 	return cret
 }
@@ -150,8 +141,6 @@ var xAuthenticationRequestGetHost func(uintptr) string
 
 // Get the host that this authentication challenge is applicable to.
 func (x *AuthenticationRequest) GetHost() string {
-	core.LazyRegister(&xAuthenticationRequestGetHost, "WEBKIT", "webkit_authentication_request_get_host", false)
-
 	cret := xAuthenticationRequestGetHost(x.GoPointer())
 	return cret
 }
@@ -160,8 +149,6 @@ var xAuthenticationRequestGetPort func(uintptr) uint
 
 // Get the port that this authentication challenge is applicable to.
 func (x *AuthenticationRequest) GetPort() uint {
-	core.LazyRegister(&xAuthenticationRequestGetPort, "WEBKIT", "webkit_authentication_request_get_port", false)
-
 	cret := xAuthenticationRequestGetPort(x.GoPointer())
 	return cret
 }
@@ -174,8 +161,6 @@ var xAuthenticationRequestGetProposedCredential func(uintptr) uintptr
 // stored from a previous session. The client can use this directly for
 // authentication or construct their own #WebKitCredential.
 func (x *AuthenticationRequest) GetProposedCredential() *Credential {
-	core.LazyRegister(&xAuthenticationRequestGetProposedCredential, "WEBKIT", "webkit_authentication_request_get_proposed_credential", false)
-
 	cret := xAuthenticationRequestGetProposedCredential(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -187,8 +172,6 @@ var xAuthenticationRequestGetRealm func(uintptr) string
 
 // Get the realm that this authentication challenge is applicable to.
 func (x *AuthenticationRequest) GetRealm() string {
-	core.LazyRegister(&xAuthenticationRequestGetRealm, "WEBKIT", "webkit_authentication_request_get_realm", false)
-
 	cret := xAuthenticationRequestGetRealm(x.GoPointer())
 	return cret
 }
@@ -197,8 +180,6 @@ var xAuthenticationRequestGetScheme func(uintptr) AuthenticationScheme
 
 // Get the authentication scheme of the authentication challenge.
 func (x *AuthenticationRequest) GetScheme() AuthenticationScheme {
-	core.LazyRegister(&xAuthenticationRequestGetScheme, "WEBKIT", "webkit_authentication_request_get_scheme", false)
-
 	cret := xAuthenticationRequestGetScheme(x.GoPointer())
 	return cret
 }
@@ -207,8 +188,6 @@ var xAuthenticationRequestGetSecurityOrigin func(uintptr) uintptr
 
 // Get the #WebKitSecurityOrigin that this authentication challenge is applicable to.
 func (x *AuthenticationRequest) GetSecurityOrigin() *SecurityOrigin {
-	core.LazyRegister(&xAuthenticationRequestGetSecurityOrigin, "WEBKIT", "webkit_authentication_request_get_security_origin", false)
-
 	cret := xAuthenticationRequestGetSecurityOrigin(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -222,8 +201,6 @@ var xAuthenticationRequestIsForProxy func(uintptr) bool
 //
 // Determine whether the authentication challenge is associated with a proxy server rather than an "origin" server.
 func (x *AuthenticationRequest) IsForProxy() bool {
-	core.LazyRegister(&xAuthenticationRequestIsForProxy, "WEBKIT", "webkit_authentication_request_is_for_proxy", false)
-
 	cret := xAuthenticationRequestIsForProxy(x.GoPointer())
 	return cret
 }
@@ -232,8 +209,6 @@ var xAuthenticationRequestIsRetry func(uintptr) bool
 
 // Determine whether this this is a first attempt or a retry for this authentication challenge.
 func (x *AuthenticationRequest) IsRetry() bool {
-	core.LazyRegister(&xAuthenticationRequestIsRetry, "WEBKIT", "webkit_authentication_request_is_retry", false)
-
 	cret := xAuthenticationRequestIsRetry(x.GoPointer())
 	return cret
 }
@@ -251,8 +226,6 @@ var xAuthenticationRequestSetCanSaveCredentials func(uintptr, bool)
 // Note that storing of credentials will not be allowed on ephemeral
 // sessions in any case.
 func (x *AuthenticationRequest) SetCanSaveCredentials(EnabledVar bool) {
-	core.LazyRegister(&xAuthenticationRequestSetCanSaveCredentials, "WEBKIT", "webkit_authentication_request_set_can_save_credentials", false)
-
 	xAuthenticationRequestSetCanSaveCredentials(x.GoPointer(), EnabledVar)
 }
 
@@ -267,8 +240,6 @@ var xAuthenticationRequestSetProposedCredential func(uintptr, *Credential)
 // credentials.)
 // Passing a %NULL @credential will clear the proposed credential.
 func (x *AuthenticationRequest) SetProposedCredential(CredentialVar *Credential) {
-	core.LazyRegister(&xAuthenticationRequestSetProposedCredential, "WEBKIT", "webkit_authentication_request_set_proposed_credential", false)
-
 	xAuthenticationRequestSetProposedCredential(x.GoPointer(), CredentialVar)
 }
 
@@ -336,8 +307,36 @@ func (x *AuthenticationRequest) ConnectCancelled(cb *func(AuthenticationRequest)
 func init() {
 	core.SetPackageName("WEBKIT", "webkitgtk-6.0")
 	core.SetSharedLibraries("WEBKIT", []string{"libwebkitgtk-6.0.so.4", "libjavascriptcoregtk-6.0.so.1", "libwebkitgtk-6.0.4.dylib", "libjavascriptcoregtk-6.0.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("WEBKIT") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
 
-	// Manually register types since they aren't automatically registered when
-	// WebKit is loaded. See https://bugs.webkit.org/show_bug.cgi?id=175937.
+	core.PuregoSafeRegister(&xAuthenticationSchemeGLibType, libs, "webkit_authentication_scheme_get_type")
+
+	core.PuregoSafeRegister(&xAuthenticationRequestGLibType, libs, "webkit_authentication_request_get_type")
+
+	core.PuregoSafeRegister(&xAuthenticationRequestAuthenticate, libs, "webkit_authentication_request_authenticate")
+	core.PuregoSafeRegister(&xAuthenticationRequestCanSaveCredentials, libs, "webkit_authentication_request_can_save_credentials")
+	core.PuregoSafeRegister(&xAuthenticationRequestCancel, libs, "webkit_authentication_request_cancel")
+	core.PuregoSafeRegister(&xAuthenticationRequestGetCertificatePinFlags, libs, "webkit_authentication_request_get_certificate_pin_flags")
+	core.PuregoSafeRegister(&xAuthenticationRequestGetHost, libs, "webkit_authentication_request_get_host")
+	core.PuregoSafeRegister(&xAuthenticationRequestGetPort, libs, "webkit_authentication_request_get_port")
+	core.PuregoSafeRegister(&xAuthenticationRequestGetProposedCredential, libs, "webkit_authentication_request_get_proposed_credential")
+	core.PuregoSafeRegister(&xAuthenticationRequestGetRealm, libs, "webkit_authentication_request_get_realm")
+	core.PuregoSafeRegister(&xAuthenticationRequestGetScheme, libs, "webkit_authentication_request_get_scheme")
+	core.PuregoSafeRegister(&xAuthenticationRequestGetSecurityOrigin, libs, "webkit_authentication_request_get_security_origin")
+	core.PuregoSafeRegister(&xAuthenticationRequestIsForProxy, libs, "webkit_authentication_request_is_for_proxy")
+	core.PuregoSafeRegister(&xAuthenticationRequestIsRetry, libs, "webkit_authentication_request_is_retry")
+	core.PuregoSafeRegister(&xAuthenticationRequestSetCanSaveCredentials, libs, "webkit_authentication_request_set_can_save_credentials")
+	core.PuregoSafeRegister(&xAuthenticationRequestSetProposedCredential, libs, "webkit_authentication_request_set_proposed_credential")
+
+	// Manually register types since they aren't being automatically registered when
+	// the library is loaded
+	// See https://bugs.webkit.org/show_bug.cgi?id=175937
 	AuthenticationRequestGLibType()
 }

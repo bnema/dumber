@@ -2,6 +2,7 @@
 package gtk
 
 import (
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -26,7 +27,6 @@ type CellRendererSpinner struct {
 var xCellRendererSpinnerGLibType func() types.GType
 
 func CellRendererSpinnerGLibType() types.GType {
-	core.LazyRegister(&xCellRendererSpinnerGLibType, "GTK", "gtk_cell_renderer_spinner_get_type", false)
 	return xCellRendererSpinnerGLibType()
 }
 
@@ -41,7 +41,6 @@ var xNewCellRendererSpinner func() uintptr
 // Returns a new cell renderer which will show a spinner to indicate
 // activity.
 func NewCellRendererSpinner() *CellRendererSpinner {
-	core.LazyRegister(&xNewCellRendererSpinner, "GTK", "gtk_cell_renderer_spinner_new", false)
 	var cls *CellRendererSpinner
 
 	cret := xNewCellRendererSpinner()
@@ -111,4 +110,16 @@ func (x *CellRendererSpinner) GetPropertyPulse() uint {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GTK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xCellRendererSpinnerGLibType, libs, "gtk_cell_renderer_spinner_get_type")
+
+	core.PuregoSafeRegister(&xNewCellRendererSpinner, libs, "gtk_cell_renderer_spinner_new")
 }

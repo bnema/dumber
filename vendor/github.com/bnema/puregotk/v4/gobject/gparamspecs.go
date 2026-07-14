@@ -2,6 +2,7 @@
 package gobject
 
 import (
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -17,7 +18,6 @@ var xNewParamSpecBoolean func(string, uintptr, uintptr, bool, ParamFlags) uintpt
 //
 // See g_param_spec_internal() for details on property names.
 func NewParamSpecBoolean(NameVar string, NickVar *string, BlurbVar *string, DefaultValueVar bool, FlagsVar ParamFlags) *ParamSpec {
-	core.LazyRegister(&xNewParamSpecBoolean, "GOBJECT", "g_param_spec_boolean", false)
 	var cls *ParamSpec
 
 	NickVarPtr := core.GStrdupNullable(NickVar)
@@ -43,7 +43,6 @@ var xNewParamSpecBoxed func(string, uintptr, uintptr, types.GType, ParamFlags) u
 //
 // See g_param_spec_internal() for details on property names.
 func NewParamSpecBoxed(NameVar string, NickVar *string, BlurbVar *string, BoxedTypeVar types.GType, FlagsVar ParamFlags) *ParamSpec {
-	core.LazyRegister(&xNewParamSpecBoxed, "GOBJECT", "g_param_spec_boxed", false)
 	var cls *ParamSpec
 
 	NickVarPtr := core.GStrdupNullable(NickVar)
@@ -66,7 +65,6 @@ var xNewParamSpecChar func(string, uintptr, uintptr, int8, int8, int8, ParamFlag
 
 // Creates a new #GParamSpecChar instance specifying a %G_TYPE_CHAR property.
 func NewParamSpecChar(NameVar string, NickVar *string, BlurbVar *string, MinimumVar int8, MaximumVar int8, DefaultValueVar int8, FlagsVar ParamFlags) *ParamSpec {
-	core.LazyRegister(&xNewParamSpecChar, "GOBJECT", "g_param_spec_char", false)
 	var cls *ParamSpec
 
 	NickVarPtr := core.GStrdupNullable(NickVar)
@@ -92,7 +90,6 @@ var xNewParamSpecDouble func(string, uintptr, uintptr, float64, float64, float64
 //
 // See g_param_spec_internal() for details on property names.
 func NewParamSpecDouble(NameVar string, NickVar *string, BlurbVar *string, MinimumVar float64, MaximumVar float64, DefaultValueVar float64, FlagsVar ParamFlags) *ParamSpec {
-	core.LazyRegister(&xNewParamSpecDouble, "GOBJECT", "g_param_spec_double", false)
 	var cls *ParamSpec
 
 	NickVarPtr := core.GStrdupNullable(NickVar)
@@ -118,7 +115,6 @@ var xNewParamSpecEnum func(string, uintptr, uintptr, types.GType, int, ParamFlag
 //
 // See g_param_spec_internal() for details on property names.
 func NewParamSpecEnum(NameVar string, NickVar *string, BlurbVar *string, EnumTypeVar types.GType, DefaultValueVar int, FlagsVar ParamFlags) *ParamSpec {
-	core.LazyRegister(&xNewParamSpecEnum, "GOBJECT", "g_param_spec_enum", false)
 	var cls *ParamSpec
 
 	NickVarPtr := core.GStrdupNullable(NickVar)
@@ -144,7 +140,6 @@ var xNewParamSpecFlags func(string, uintptr, uintptr, types.GType, uint, ParamFl
 //
 // See g_param_spec_internal() for details on property names.
 func NewParamSpecFlags(NameVar string, NickVar *string, BlurbVar *string, FlagsTypeVar types.GType, DefaultValueVar uint, FlagsVar ParamFlags) *ParamSpec {
-	core.LazyRegister(&xNewParamSpecFlags, "GOBJECT", "g_param_spec_flags", false)
 	var cls *ParamSpec
 
 	NickVarPtr := core.GStrdupNullable(NickVar)
@@ -169,7 +164,6 @@ var xNewParamSpecFloat func(string, uintptr, uintptr, float32, float32, float32,
 //
 // See g_param_spec_internal() for details on property names.
 func NewParamSpecFloat(NameVar string, NickVar *string, BlurbVar *string, MinimumVar float32, MaximumVar float32, DefaultValueVar float32, FlagsVar ParamFlags) *ParamSpec {
-	core.LazyRegister(&xNewParamSpecFloat, "GOBJECT", "g_param_spec_float", false)
 	var cls *ParamSpec
 
 	NickVarPtr := core.GStrdupNullable(NickVar)
@@ -195,7 +189,6 @@ var xParamSpecGtype func(string, uintptr, uintptr, types.GType, ParamFlags) uint
 //
 // See g_param_spec_internal() for details on property names.
 func ParamSpecGtype(NameVar string, NickVar *string, BlurbVar *string, IsATypeVar types.GType, FlagsVar ParamFlags) *ParamSpec {
-	core.LazyRegister(&xParamSpecGtype, "GOBJECT", "g_param_spec_gtype", false)
 	var cls *ParamSpec
 
 	NickVarPtr := core.GStrdupNullable(NickVar)
@@ -220,7 +213,6 @@ var xNewParamSpecInt func(string, uintptr, uintptr, int, int, int, ParamFlags) u
 //
 // See g_param_spec_internal() for details on property names.
 func NewParamSpecInt(NameVar string, NickVar *string, BlurbVar *string, MinimumVar int, MaximumVar int, DefaultValueVar int, FlagsVar ParamFlags) *ParamSpec {
-	core.LazyRegister(&xNewParamSpecInt, "GOBJECT", "g_param_spec_int", false)
 	var cls *ParamSpec
 
 	NickVarPtr := core.GStrdupNullable(NickVar)
@@ -245,7 +237,6 @@ var xNewParamSpecInt64 func(string, uintptr, uintptr, int64, int64, int64, Param
 //
 // See g_param_spec_internal() for details on property names.
 func NewParamSpecInt64(NameVar string, NickVar *string, BlurbVar *string, MinimumVar int64, MaximumVar int64, DefaultValueVar int64, FlagsVar ParamFlags) *ParamSpec {
-	core.LazyRegister(&xNewParamSpecInt64, "GOBJECT", "g_param_spec_int64", false)
 	var cls *ParamSpec
 
 	NickVarPtr := core.GStrdupNullable(NickVar)
@@ -270,7 +261,6 @@ var xNewParamSpecLong func(string, uintptr, uintptr, int, int, int, ParamFlags) 
 //
 // See g_param_spec_internal() for details on property names.
 func NewParamSpecLong(NameVar string, NickVar *string, BlurbVar *string, MinimumVar int, MaximumVar int, DefaultValueVar int, FlagsVar ParamFlags) *ParamSpec {
-	core.LazyRegister(&xNewParamSpecLong, "GOBJECT", "g_param_spec_long", false)
 	var cls *ParamSpec
 
 	NickVarPtr := core.GStrdupNullable(NickVar)
@@ -296,7 +286,6 @@ var xNewParamSpecObject func(string, uintptr, uintptr, types.GType, ParamFlags) 
 //
 // See g_param_spec_internal() for details on property names.
 func NewParamSpecObject(NameVar string, NickVar *string, BlurbVar *string, ObjectTypeVar types.GType, FlagsVar ParamFlags) *ParamSpec {
-	core.LazyRegister(&xNewParamSpecObject, "GOBJECT", "g_param_spec_object", false)
 	var cls *ParamSpec
 
 	NickVarPtr := core.GStrdupNullable(NickVar)
@@ -321,7 +310,6 @@ var xNewParamSpecOverride func(string, uintptr) uintptr
 // to direct operations to another paramspec, and will not be directly
 // useful unless you are implementing a new base type similar to GObject.
 func NewParamSpecOverride(NameVar string, OverriddenVar *ParamSpec) *ParamSpec {
-	core.LazyRegister(&xNewParamSpecOverride, "GOBJECT", "g_param_spec_override", false)
 	var cls *ParamSpec
 
 	cret := xNewParamSpecOverride(NameVar, OverriddenVar.GoPointer())
@@ -341,7 +329,6 @@ var xNewParamSpecParam func(string, uintptr, uintptr, types.GType, ParamFlags) u
 //
 // See g_param_spec_internal() for details on property names.
 func NewParamSpecParam(NameVar string, NickVar *string, BlurbVar *string, ParamTypeVar types.GType, FlagsVar ParamFlags) *ParamSpec {
-	core.LazyRegister(&xNewParamSpecParam, "GOBJECT", "g_param_spec_param", false)
 	var cls *ParamSpec
 
 	NickVarPtr := core.GStrdupNullable(NickVar)
@@ -368,7 +355,6 @@ var xNewParamSpecPointer func(string, uintptr, uintptr, ParamFlags) uintptr
 //
 // See g_param_spec_internal() for details on property names.
 func NewParamSpecPointer(NameVar string, NickVar *string, BlurbVar *string, FlagsVar ParamFlags) *ParamSpec {
-	core.LazyRegister(&xNewParamSpecPointer, "GOBJECT", "g_param_spec_pointer", false)
 	var cls *ParamSpec
 
 	NickVarPtr := core.GStrdupNullable(NickVar)
@@ -393,7 +379,6 @@ var xNewParamSpecString func(string, uintptr, uintptr, uintptr, ParamFlags) uint
 //
 // See g_param_spec_internal() for details on property names.
 func NewParamSpecString(NameVar string, NickVar *string, BlurbVar *string, DefaultValueVar *string, FlagsVar ParamFlags) *ParamSpec {
-	core.LazyRegister(&xNewParamSpecString, "GOBJECT", "g_param_spec_string", false)
 	var cls *ParamSpec
 
 	NickVarPtr := core.GStrdupNullable(NickVar)
@@ -419,7 +404,6 @@ var xParamSpecUchar func(string, uintptr, uintptr, byte, byte, byte, ParamFlags)
 
 // Creates a new #GParamSpecUChar instance specifying a %G_TYPE_UCHAR property.
 func ParamSpecUchar(NameVar string, NickVar *string, BlurbVar *string, MinimumVar byte, MaximumVar byte, DefaultValueVar byte, FlagsVar ParamFlags) *ParamSpec {
-	core.LazyRegister(&xParamSpecUchar, "GOBJECT", "g_param_spec_uchar", false)
 	var cls *ParamSpec
 
 	NickVarPtr := core.GStrdupNullable(NickVar)
@@ -444,7 +428,6 @@ var xParamSpecUint func(string, uintptr, uintptr, uint, uint, uint, ParamFlags) 
 //
 // See g_param_spec_internal() for details on property names.
 func ParamSpecUint(NameVar string, NickVar *string, BlurbVar *string, MinimumVar uint, MaximumVar uint, DefaultValueVar uint, FlagsVar ParamFlags) *ParamSpec {
-	core.LazyRegister(&xParamSpecUint, "GOBJECT", "g_param_spec_uint", false)
 	var cls *ParamSpec
 
 	NickVarPtr := core.GStrdupNullable(NickVar)
@@ -470,7 +453,6 @@ var xParamSpecUint64 func(string, uintptr, uintptr, uint64, uint64, uint64, Para
 //
 // See g_param_spec_internal() for details on property names.
 func ParamSpecUint64(NameVar string, NickVar *string, BlurbVar *string, MinimumVar uint64, MaximumVar uint64, DefaultValueVar uint64, FlagsVar ParamFlags) *ParamSpec {
-	core.LazyRegister(&xParamSpecUint64, "GOBJECT", "g_param_spec_uint64", false)
 	var cls *ParamSpec
 
 	NickVarPtr := core.GStrdupNullable(NickVar)
@@ -496,7 +478,6 @@ var xParamSpecUlong func(string, uintptr, uintptr, uint, uint, uint, ParamFlags)
 //
 // See g_param_spec_internal() for details on property names.
 func ParamSpecUlong(NameVar string, NickVar *string, BlurbVar *string, MinimumVar uint, MaximumVar uint, DefaultValueVar uint, FlagsVar ParamFlags) *ParamSpec {
-	core.LazyRegister(&xParamSpecUlong, "GOBJECT", "g_param_spec_ulong", false)
 	var cls *ParamSpec
 
 	NickVarPtr := core.GStrdupNullable(NickVar)
@@ -523,7 +504,6 @@ var xNewParamSpecUnichar func(string, uintptr, uintptr, uint32, ParamFlags) uint
 //
 // See g_param_spec_internal() for details on property names.
 func NewParamSpecUnichar(NameVar string, NickVar *string, BlurbVar *string, DefaultValueVar uint32, FlagsVar ParamFlags) *ParamSpec {
-	core.LazyRegister(&xNewParamSpecUnichar, "GOBJECT", "g_param_spec_unichar", false)
 	var cls *ParamSpec
 
 	NickVarPtr := core.GStrdupNullable(NickVar)
@@ -551,7 +531,6 @@ var xNewParamSpecValueArray func(string, uintptr, uintptr, uintptr, ParamFlags) 
 //
 // See g_param_spec_internal() for details on property names.
 func NewParamSpecValueArray(NameVar string, NickVar *string, BlurbVar *string, ElementSpecVar *ParamSpec, FlagsVar ParamFlags) *ParamSpec {
-	core.LazyRegister(&xNewParamSpecValueArray, "GOBJECT", "g_param_spec_value_array", false)
 	var cls *ParamSpec
 
 	NickVarPtr := core.GStrdupNullable(NickVar)
@@ -579,7 +558,6 @@ var xNewParamSpecVariant func(string, uintptr, uintptr, *glib.VariantType, *glib
 //
 // See g_param_spec_internal() for details on property names.
 func NewParamSpecVariant(NameVar string, NickVar *string, BlurbVar *string, TypeVar *glib.VariantType, DefaultValueVar *glib.Variant, FlagsVar ParamFlags) *ParamSpec {
-	core.LazyRegister(&xNewParamSpecVariant, "GOBJECT", "g_param_spec_variant", false)
 	var cls *ParamSpec
 
 	NickVarPtr := core.GStrdupNullable(NickVar)
@@ -606,7 +584,6 @@ type ParamSpecBoolean struct {
 var xParamSpecBooleanGLibType func() types.GType
 
 func ParamSpecBooleanGLibType() types.GType {
-	core.LazyRegister(&xParamSpecBooleanGLibType, "GOBJECT", "intern", false)
 	return xParamSpecBooleanGLibType()
 }
 
@@ -635,7 +612,6 @@ type ParamSpecBoxed struct {
 var xParamSpecBoxedGLibType func() types.GType
 
 func ParamSpecBoxedGLibType() types.GType {
-	core.LazyRegister(&xParamSpecBoxedGLibType, "GOBJECT", "intern", false)
 	return xParamSpecBoxedGLibType()
 }
 
@@ -664,7 +640,6 @@ type ParamSpecChar struct {
 var xParamSpecCharGLibType func() types.GType
 
 func ParamSpecCharGLibType() types.GType {
-	core.LazyRegister(&xParamSpecCharGLibType, "GOBJECT", "intern", false)
 	return xParamSpecCharGLibType()
 }
 
@@ -693,7 +668,6 @@ type ParamSpecDouble struct {
 var xParamSpecDoubleGLibType func() types.GType
 
 func ParamSpecDoubleGLibType() types.GType {
-	core.LazyRegister(&xParamSpecDoubleGLibType, "GOBJECT", "intern", false)
 	return xParamSpecDoubleGLibType()
 }
 
@@ -723,7 +697,6 @@ type ParamSpecEnum struct {
 var xParamSpecEnumGLibType func() types.GType
 
 func ParamSpecEnumGLibType() types.GType {
-	core.LazyRegister(&xParamSpecEnumGLibType, "GOBJECT", "intern", false)
 	return xParamSpecEnumGLibType()
 }
 
@@ -753,7 +726,6 @@ type ParamSpecFlags struct {
 var xParamSpecFlagsGLibType func() types.GType
 
 func ParamSpecFlagsGLibType() types.GType {
-	core.LazyRegister(&xParamSpecFlagsGLibType, "GOBJECT", "intern", false)
 	return xParamSpecFlagsGLibType()
 }
 
@@ -782,7 +754,6 @@ type ParamSpecFloat struct {
 var xParamSpecFloatGLibType func() types.GType
 
 func ParamSpecFloatGLibType() types.GType {
-	core.LazyRegister(&xParamSpecFloatGLibType, "GOBJECT", "intern", false)
 	return xParamSpecFloatGLibType()
 }
 
@@ -811,7 +782,6 @@ type ParamSpecGType struct {
 var xParamSpecGTypeGLibType func() types.GType
 
 func ParamSpecGTypeGLibType() types.GType {
-	core.LazyRegister(&xParamSpecGTypeGLibType, "GOBJECT", "intern", false)
 	return xParamSpecGTypeGLibType()
 }
 
@@ -840,7 +810,6 @@ type ParamSpecInt struct {
 var xParamSpecIntGLibType func() types.GType
 
 func ParamSpecIntGLibType() types.GType {
-	core.LazyRegister(&xParamSpecIntGLibType, "GOBJECT", "intern", false)
 	return xParamSpecIntGLibType()
 }
 
@@ -869,7 +838,6 @@ type ParamSpecInt64 struct {
 var xParamSpecInt64GLibType func() types.GType
 
 func ParamSpecInt64GLibType() types.GType {
-	core.LazyRegister(&xParamSpecInt64GLibType, "GOBJECT", "intern", false)
 	return xParamSpecInt64GLibType()
 }
 
@@ -898,7 +866,6 @@ type ParamSpecLong struct {
 var xParamSpecLongGLibType func() types.GType
 
 func ParamSpecLongGLibType() types.GType {
-	core.LazyRegister(&xParamSpecLongGLibType, "GOBJECT", "intern", false)
 	return xParamSpecLongGLibType()
 }
 
@@ -927,7 +894,6 @@ type ParamSpecObject struct {
 var xParamSpecObjectGLibType func() types.GType
 
 func ParamSpecObjectGLibType() types.GType {
-	core.LazyRegister(&xParamSpecObjectGLibType, "GOBJECT", "intern", false)
 	return xParamSpecObjectGLibType()
 }
 
@@ -966,7 +932,6 @@ type ParamSpecOverride struct {
 var xParamSpecOverrideGLibType func() types.GType
 
 func ParamSpecOverrideGLibType() types.GType {
-	core.LazyRegister(&xParamSpecOverrideGLibType, "GOBJECT", "intern", false)
 	return xParamSpecOverrideGLibType()
 }
 
@@ -996,7 +961,6 @@ type ParamSpecParam struct {
 var xParamSpecParamGLibType func() types.GType
 
 func ParamSpecParamGLibType() types.GType {
-	core.LazyRegister(&xParamSpecParamGLibType, "GOBJECT", "intern", false)
 	return xParamSpecParamGLibType()
 }
 
@@ -1025,7 +989,6 @@ type ParamSpecPointer struct {
 var xParamSpecPointerGLibType func() types.GType
 
 func ParamSpecPointerGLibType() types.GType {
-	core.LazyRegister(&xParamSpecPointerGLibType, "GOBJECT", "intern", false)
 	return xParamSpecPointerGLibType()
 }
 
@@ -1055,7 +1018,6 @@ type ParamSpecString struct {
 var xParamSpecStringGLibType func() types.GType
 
 func ParamSpecStringGLibType() types.GType {
-	core.LazyRegister(&xParamSpecStringGLibType, "GOBJECT", "intern", false)
 	return xParamSpecStringGLibType()
 }
 
@@ -1084,7 +1046,6 @@ type ParamSpecUChar struct {
 var xParamSpecUCharGLibType func() types.GType
 
 func ParamSpecUCharGLibType() types.GType {
-	core.LazyRegister(&xParamSpecUCharGLibType, "GOBJECT", "intern", false)
 	return xParamSpecUCharGLibType()
 }
 
@@ -1113,7 +1074,6 @@ type ParamSpecUInt struct {
 var xParamSpecUIntGLibType func() types.GType
 
 func ParamSpecUIntGLibType() types.GType {
-	core.LazyRegister(&xParamSpecUIntGLibType, "GOBJECT", "intern", false)
 	return xParamSpecUIntGLibType()
 }
 
@@ -1142,7 +1102,6 @@ type ParamSpecUInt64 struct {
 var xParamSpecUInt64GLibType func() types.GType
 
 func ParamSpecUInt64GLibType() types.GType {
-	core.LazyRegister(&xParamSpecUInt64GLibType, "GOBJECT", "intern", false)
 	return xParamSpecUInt64GLibType()
 }
 
@@ -1171,7 +1130,6 @@ type ParamSpecULong struct {
 var xParamSpecULongGLibType func() types.GType
 
 func ParamSpecULongGLibType() types.GType {
-	core.LazyRegister(&xParamSpecULongGLibType, "GOBJECT", "intern", false)
 	return xParamSpecULongGLibType()
 }
 
@@ -1200,7 +1158,6 @@ type ParamSpecUnichar struct {
 var xParamSpecUnicharGLibType func() types.GType
 
 func ParamSpecUnicharGLibType() types.GType {
-	core.LazyRegister(&xParamSpecUnicharGLibType, "GOBJECT", "intern", false)
 	return xParamSpecUnicharGLibType()
 }
 
@@ -1229,7 +1186,6 @@ type ParamSpecValueArray struct {
 var xParamSpecValueArrayGLibType func() types.GType
 
 func ParamSpecValueArrayGLibType() types.GType {
-	core.LazyRegister(&xParamSpecValueArrayGLibType, "GOBJECT", "intern", false)
 	return xParamSpecValueArrayGLibType()
 }
 
@@ -1264,7 +1220,6 @@ type ParamSpecVariant struct {
 var xParamSpecVariantGLibType func() types.GType
 
 func ParamSpecVariantGLibType() types.GType {
-	core.LazyRegister(&xParamSpecVariantGLibType, "GOBJECT", "intern", false)
 	return xParamSpecVariantGLibType()
 }
 
@@ -1288,4 +1243,82 @@ func (c *ParamSpecVariant) SetGoPointer(ptr uintptr) {
 func init() {
 	core.SetPackageName("GOBJECT", "gobject-2.0")
 	core.SetSharedLibraries("GOBJECT", []string{"libgobject-2.0.so.0", "libgobject-2.0.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GOBJECT") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xNewParamSpecBoolean, libs, "g_param_spec_boolean")
+	core.PuregoSafeRegister(&xNewParamSpecBoxed, libs, "g_param_spec_boxed")
+	core.PuregoSafeRegister(&xNewParamSpecChar, libs, "g_param_spec_char")
+	core.PuregoSafeRegister(&xNewParamSpecDouble, libs, "g_param_spec_double")
+	core.PuregoSafeRegister(&xNewParamSpecEnum, libs, "g_param_spec_enum")
+	core.PuregoSafeRegister(&xNewParamSpecFlags, libs, "g_param_spec_flags")
+	core.PuregoSafeRegister(&xNewParamSpecFloat, libs, "g_param_spec_float")
+	core.PuregoSafeRegister(&xParamSpecGtype, libs, "g_param_spec_gtype")
+	core.PuregoSafeRegister(&xNewParamSpecInt, libs, "g_param_spec_int")
+	core.PuregoSafeRegister(&xNewParamSpecInt64, libs, "g_param_spec_int64")
+	core.PuregoSafeRegister(&xNewParamSpecLong, libs, "g_param_spec_long")
+	core.PuregoSafeRegister(&xNewParamSpecObject, libs, "g_param_spec_object")
+	core.PuregoSafeRegister(&xNewParamSpecOverride, libs, "g_param_spec_override")
+	core.PuregoSafeRegister(&xNewParamSpecParam, libs, "g_param_spec_param")
+	core.PuregoSafeRegister(&xNewParamSpecPointer, libs, "g_param_spec_pointer")
+	core.PuregoSafeRegister(&xNewParamSpecString, libs, "g_param_spec_string")
+	core.PuregoSafeRegister(&xParamSpecUchar, libs, "g_param_spec_uchar")
+	core.PuregoSafeRegister(&xParamSpecUint, libs, "g_param_spec_uint")
+	core.PuregoSafeRegister(&xParamSpecUint64, libs, "g_param_spec_uint64")
+	core.PuregoSafeRegister(&xParamSpecUlong, libs, "g_param_spec_ulong")
+	core.PuregoSafeRegister(&xNewParamSpecUnichar, libs, "g_param_spec_unichar")
+	core.PuregoSafeRegister(&xNewParamSpecValueArray, libs, "g_param_spec_value_array")
+	core.PuregoSafeRegister(&xNewParamSpecVariant, libs, "g_param_spec_variant")
+
+	core.PuregoSafeRegister(&xParamSpecBooleanGLibType, libs, "intern")
+
+	core.PuregoSafeRegister(&xParamSpecBoxedGLibType, libs, "intern")
+
+	core.PuregoSafeRegister(&xParamSpecCharGLibType, libs, "intern")
+
+	core.PuregoSafeRegister(&xParamSpecDoubleGLibType, libs, "intern")
+
+	core.PuregoSafeRegister(&xParamSpecEnumGLibType, libs, "intern")
+
+	core.PuregoSafeRegister(&xParamSpecFlagsGLibType, libs, "intern")
+
+	core.PuregoSafeRegister(&xParamSpecFloatGLibType, libs, "intern")
+
+	core.PuregoSafeRegister(&xParamSpecGTypeGLibType, libs, "intern")
+
+	core.PuregoSafeRegister(&xParamSpecIntGLibType, libs, "intern")
+
+	core.PuregoSafeRegister(&xParamSpecInt64GLibType, libs, "intern")
+
+	core.PuregoSafeRegister(&xParamSpecLongGLibType, libs, "intern")
+
+	core.PuregoSafeRegister(&xParamSpecObjectGLibType, libs, "intern")
+
+	core.PuregoSafeRegister(&xParamSpecOverrideGLibType, libs, "intern")
+
+	core.PuregoSafeRegister(&xParamSpecParamGLibType, libs, "intern")
+
+	core.PuregoSafeRegister(&xParamSpecPointerGLibType, libs, "intern")
+
+	core.PuregoSafeRegister(&xParamSpecStringGLibType, libs, "intern")
+
+	core.PuregoSafeRegister(&xParamSpecUCharGLibType, libs, "intern")
+
+	core.PuregoSafeRegister(&xParamSpecUIntGLibType, libs, "intern")
+
+	core.PuregoSafeRegister(&xParamSpecUInt64GLibType, libs, "intern")
+
+	core.PuregoSafeRegister(&xParamSpecULongGLibType, libs, "intern")
+
+	core.PuregoSafeRegister(&xParamSpecUnicharGLibType, libs, "intern")
+
+	core.PuregoSafeRegister(&xParamSpecValueArrayGLibType, libs, "intern")
+
+	core.PuregoSafeRegister(&xParamSpecVariantGLibType, libs, "intern")
 }

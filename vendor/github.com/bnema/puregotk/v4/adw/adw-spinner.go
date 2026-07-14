@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -76,7 +77,6 @@ type Spinner struct {
 var xSpinnerGLibType func() types.GType
 
 func SpinnerGLibType() types.GType {
-	core.LazyRegister(&xSpinnerGLibType, "ADW", "adw_spinner_get_type", false)
 	return xSpinnerGLibType()
 }
 
@@ -90,7 +90,6 @@ var xNewSpinner func() uintptr
 
 // Creates a new `AdwSpinner`.
 func NewSpinner() *Spinner {
-	core.LazyRegister(&xNewSpinner, "ADW", "adw_spinner_new", false)
 	var cls *Spinner
 
 	cret := xNewSpinner()
@@ -378,4 +377,16 @@ func (x *Spinner) GetBuildableId() string {
 func init() {
 	core.SetPackageName("ADW", "libadwaita-1")
 	core.SetSharedLibraries("ADW", []string{"libadwaita-1.so.0", "libadwaita-1.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("ADW") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xSpinnerGLibType, libs, "adw_spinner_get_type")
+
+	core.PuregoSafeRegister(&xNewSpinner, libs, "adw_spinner_new")
 }

@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gio"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -42,7 +43,6 @@ type NoSelection struct {
 var xNoSelectionGLibType func() types.GType
 
 func NoSelectionGLibType() types.GType {
-	core.LazyRegister(&xNoSelectionGLibType, "GTK", "gtk_no_selection_get_type", false)
 	return xNoSelectionGLibType()
 }
 
@@ -56,7 +56,6 @@ var xNewNoSelection func(uintptr) uintptr
 
 // Creates a new selection to handle @model.
 func NewNoSelection(ModelVar gio.ListModel) *NoSelection {
-	core.LazyRegister(&xNewNoSelection, "GTK", "gtk_no_selection_new", false)
 	var cls *NoSelection
 
 	cret := xNewNoSelection(ModelVar.GoPointer())
@@ -73,7 +72,6 @@ var xNoSelectionGetModel func(uintptr) uintptr
 
 // Gets the model that @self is wrapping.
 func (x *NoSelection) GetModel() *gio.ListModelBase {
-	core.LazyRegister(&xNoSelectionGetModel, "GTK", "gtk_no_selection_get_model", false)
 	var cls *gio.ListModelBase
 
 	cret := xNoSelectionGetModel(x.GoPointer())
@@ -93,8 +91,6 @@ var xNoSelectionSetModel func(uintptr, uintptr)
 //
 // If @model is %NULL, this model will be empty.
 func (x *NoSelection) SetModel(ModelVar gio.ListModel) {
-	core.LazyRegister(&xNoSelectionSetModel, "GTK", "gtk_no_selection_set_model", false)
-
 	xNoSelectionSetModel(x.GoPointer(), ModelVar.GoPointer())
 }
 
@@ -353,4 +349,19 @@ func (x *NoSelection) UnselectRange(PositionVar uint, NItemsVar uint) bool {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GTK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xNoSelectionGLibType, libs, "gtk_no_selection_get_type")
+
+	core.PuregoSafeRegister(&xNewNoSelection, libs, "gtk_no_selection_new")
+
+	core.PuregoSafeRegister(&xNoSelectionGetModel, libs, "gtk_no_selection_get_model")
+	core.PuregoSafeRegister(&xNoSelectionSetModel, libs, "gtk_no_selection_set_model")
 }

@@ -2,6 +2,7 @@
 package adw
 
 import (
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gtk"
 )
@@ -13,8 +14,6 @@ var xGetEnableAnimations func(uintptr) bool
 // This should be used when implementing an animated widget to know whether to
 // animate it or not.
 func GetEnableAnimations(WidgetVar *gtk.Widget) bool {
-	core.LazyRegister(&xGetEnableAnimations, "ADW", "adw_get_enable_animations", false)
-
 	cret := xGetEnableAnimations(WidgetVar.GoPointer())
 	return cret
 }
@@ -23,8 +22,6 @@ var xLerp func(float64, float64, float64) float64
 
 // Computes the linear interpolation between @a and @b for @t.
 func Lerp(AVar float64, BVar float64, TVar float64) float64 {
-	core.LazyRegister(&xLerp, "ADW", "adw_lerp", false)
-
 	cret := xLerp(AVar, BVar, TVar)
 	return cret
 }
@@ -32,4 +29,15 @@ func Lerp(AVar float64, BVar float64, TVar float64) float64 {
 func init() {
 	core.SetPackageName("ADW", "libadwaita-1")
 	core.SetSharedLibraries("ADW", []string{"libadwaita-1.so.0", "libadwaita-1.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("ADW") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xGetEnableAnimations, libs, "adw_get_enable_animations")
+	core.PuregoSafeRegister(&xLerp, libs, "adw_lerp")
 }

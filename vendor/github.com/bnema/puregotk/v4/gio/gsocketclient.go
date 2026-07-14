@@ -191,7 +191,6 @@ type SocketClient struct {
 var xSocketClientGLibType func() types.GType
 
 func SocketClientGLibType() types.GType {
-	core.LazyRegister(&xSocketClientGLibType, "GIO", "g_socket_client_get_type", false)
 	return xSocketClientGLibType()
 }
 
@@ -205,7 +204,6 @@ var xNewSocketClient func() uintptr
 
 // Creates a new #GSocketClient with the default options.
 func NewSocketClient() *SocketClient {
-	core.LazyRegister(&xNewSocketClient, "GIO", "g_socket_client_new", false)
 	var cls *SocketClient
 
 	cret := xNewSocketClient()
@@ -240,8 +238,6 @@ var xSocketClientAddApplicationProxy func(uintptr, string)
 // will be skipped. This is required to let the application do the proxy
 // specific handshake.
 func (x *SocketClient) AddApplicationProxy(ProtocolVar string) {
-	core.LazyRegister(&xSocketClientAddApplicationProxy, "GIO", "g_socket_client_add_application_proxy", false)
-
 	xSocketClientAddApplicationProxy(x.GoPointer(), ProtocolVar)
 }
 
@@ -266,7 +262,6 @@ var xSocketClientConnect func(uintptr, uintptr, uintptr, **glib.Error) uintptr
 // If a local address is specified with g_socket_client_set_local_address() the
 // socket will be bound to this address before connecting.
 func (x *SocketClient) Connect(ConnectableVar SocketConnectable, CancellableVar *Cancellable) (*SocketConnection, error) {
-	core.LazyRegister(&xSocketClientConnect, "GIO", "g_socket_client_connect", false)
 	var cls *SocketConnection
 	var cerr *glib.Error
 
@@ -300,8 +295,6 @@ var xSocketClientConnectAsync func(uintptr, uintptr, uintptr, uintptr, uintptr)
 // called. You can then call g_socket_client_connect_finish() to get
 // the result of the operation.
 func (x *SocketClient) ConnectAsync(ConnectableVar SocketConnectable, CancellableVar *Cancellable, CallbackVar *AsyncReadyCallback, UserDataVar uintptr) {
-	core.LazyRegister(&xSocketClientConnectAsync, "GIO", "g_socket_client_connect_async", false)
-
 	xSocketClientConnectAsync(x.GoPointer(), ConnectableVar.GoPointer(), CancellableVar.GoPointer(), glib.NewCallbackNullable(CallbackVar), UserDataVar)
 }
 
@@ -309,7 +302,6 @@ var xSocketClientConnectFinish func(uintptr, uintptr, **glib.Error) uintptr
 
 // Finishes an async connect operation. See g_socket_client_connect_async()
 func (x *SocketClient) ConnectFinish(ResultVar AsyncResult) (*SocketConnection, error) {
-	core.LazyRegister(&xSocketClientConnectFinish, "GIO", "g_socket_client_connect_finish", false)
 	var cls *SocketConnection
 	var cerr *glib.Error
 
@@ -359,7 +351,6 @@ var xSocketClientConnectToHost func(uintptr, string, uint16, uintptr, **glib.Err
 // connectable) %NULL is returned and @error (if non-%NULL) is set
 // accordingly.
 func (x *SocketClient) ConnectToHost(HostAndPortVar string, DefaultPortVar uint16, CancellableVar *Cancellable) (*SocketConnection, error) {
-	core.LazyRegister(&xSocketClientConnectToHost, "GIO", "g_socket_client_connect_to_host", false)
 	var cls *SocketConnection
 	var cerr *glib.Error
 
@@ -384,8 +375,6 @@ var xSocketClientConnectToHostAsync func(uintptr, string, uint16, uintptr, uintp
 // called. You can then call g_socket_client_connect_to_host_finish() to get
 // the result of the operation.
 func (x *SocketClient) ConnectToHostAsync(HostAndPortVar string, DefaultPortVar uint16, CancellableVar *Cancellable, CallbackVar *AsyncReadyCallback, UserDataVar uintptr) {
-	core.LazyRegister(&xSocketClientConnectToHostAsync, "GIO", "g_socket_client_connect_to_host_async", false)
-
 	xSocketClientConnectToHostAsync(x.GoPointer(), HostAndPortVar, DefaultPortVar, CancellableVar.GoPointer(), glib.NewCallbackNullable(CallbackVar), UserDataVar)
 }
 
@@ -393,7 +382,6 @@ var xSocketClientConnectToHostFinish func(uintptr, uintptr, **glib.Error) uintpt
 
 // Finishes an async connect operation. See g_socket_client_connect_to_host_async()
 func (x *SocketClient) ConnectToHostFinish(ResultVar AsyncResult) (*SocketConnection, error) {
-	core.LazyRegister(&xSocketClientConnectToHostFinish, "GIO", "g_socket_client_connect_to_host_finish", false)
 	var cls *SocketConnection
 	var cerr *glib.Error
 
@@ -427,7 +415,6 @@ var xSocketClientConnectToService func(uintptr, string, string, uintptr, **glib.
 // connectable) %NULL is returned and @error (if non-%NULL) is set
 // accordingly.
 func (x *SocketClient) ConnectToService(DomainVar string, ServiceVar string, CancellableVar *Cancellable) (*SocketConnection, error) {
-	core.LazyRegister(&xSocketClientConnectToService, "GIO", "g_socket_client_connect_to_service", false)
 	var cls *SocketConnection
 	var cerr *glib.Error
 
@@ -449,8 +436,6 @@ var xSocketClientConnectToServiceAsync func(uintptr, string, string, uintptr, ui
 // This is the asynchronous version of
 // g_socket_client_connect_to_service().
 func (x *SocketClient) ConnectToServiceAsync(DomainVar string, ServiceVar string, CancellableVar *Cancellable, CallbackVar *AsyncReadyCallback, UserDataVar uintptr) {
-	core.LazyRegister(&xSocketClientConnectToServiceAsync, "GIO", "g_socket_client_connect_to_service_async", false)
-
 	xSocketClientConnectToServiceAsync(x.GoPointer(), DomainVar, ServiceVar, CancellableVar.GoPointer(), glib.NewCallbackNullable(CallbackVar), UserDataVar)
 }
 
@@ -458,7 +443,6 @@ var xSocketClientConnectToServiceFinish func(uintptr, uintptr, **glib.Error) uin
 
 // Finishes an async connect operation. See g_socket_client_connect_to_service_async()
 func (x *SocketClient) ConnectToServiceFinish(ResultVar AsyncResult) (*SocketConnection, error) {
-	core.LazyRegister(&xSocketClientConnectToServiceFinish, "GIO", "g_socket_client_connect_to_service_finish", false)
 	var cls *SocketConnection
 	var cerr *glib.Error
 
@@ -499,7 +483,6 @@ var xSocketClientConnectToUri func(uintptr, string, uint16, uintptr, **glib.Erro
 // connectable) %NULL is returned and @error (if non-%NULL) is set
 // accordingly.
 func (x *SocketClient) ConnectToUri(UriVar string, DefaultPortVar uint16, CancellableVar *Cancellable) (*SocketConnection, error) {
-	core.LazyRegister(&xSocketClientConnectToUri, "GIO", "g_socket_client_connect_to_uri", false)
 	var cls *SocketConnection
 	var cerr *glib.Error
 
@@ -524,8 +507,6 @@ var xSocketClientConnectToUriAsync func(uintptr, string, uint16, uintptr, uintpt
 // called. You can then call g_socket_client_connect_to_uri_finish() to get
 // the result of the operation.
 func (x *SocketClient) ConnectToUriAsync(UriVar string, DefaultPortVar uint16, CancellableVar *Cancellable, CallbackVar *AsyncReadyCallback, UserDataVar uintptr) {
-	core.LazyRegister(&xSocketClientConnectToUriAsync, "GIO", "g_socket_client_connect_to_uri_async", false)
-
 	xSocketClientConnectToUriAsync(x.GoPointer(), UriVar, DefaultPortVar, CancellableVar.GoPointer(), glib.NewCallbackNullable(CallbackVar), UserDataVar)
 }
 
@@ -533,7 +514,6 @@ var xSocketClientConnectToUriFinish func(uintptr, uintptr, **glib.Error) uintptr
 
 // Finishes an async connect operation. See g_socket_client_connect_to_uri_async()
 func (x *SocketClient) ConnectToUriFinish(ResultVar AsyncResult) (*SocketConnection, error) {
-	core.LazyRegister(&xSocketClientConnectToUriFinish, "GIO", "g_socket_client_connect_to_uri_finish", false)
 	var cls *SocketConnection
 	var cerr *glib.Error
 
@@ -554,8 +534,6 @@ var xSocketClientGetEnableProxy func(uintptr) bool
 
 // Gets the proxy enable state; see g_socket_client_set_enable_proxy()
 func (x *SocketClient) GetEnableProxy() bool {
-	core.LazyRegister(&xSocketClientGetEnableProxy, "GIO", "g_socket_client_get_enable_proxy", false)
-
 	cret := xSocketClientGetEnableProxy(x.GoPointer())
 	return cret
 }
@@ -566,8 +544,6 @@ var xSocketClientGetFamily func(uintptr) SocketFamily
 //
 // See g_socket_client_set_family() for details.
 func (x *SocketClient) GetFamily() SocketFamily {
-	core.LazyRegister(&xSocketClientGetFamily, "GIO", "g_socket_client_get_family", false)
-
 	cret := xSocketClientGetFamily(x.GoPointer())
 	return cret
 }
@@ -578,7 +554,6 @@ var xSocketClientGetLocalAddress func(uintptr) uintptr
 //
 // See g_socket_client_set_local_address() for details.
 func (x *SocketClient) GetLocalAddress() *SocketAddress {
-	core.LazyRegister(&xSocketClientGetLocalAddress, "GIO", "g_socket_client_get_local_address", false)
 	var cls *SocketAddress
 
 	cret := xSocketClientGetLocalAddress(x.GoPointer())
@@ -598,8 +573,6 @@ var xSocketClientGetProtocol func(uintptr) SocketProtocol
 //
 // See g_socket_client_set_protocol() for details.
 func (x *SocketClient) GetProtocol() SocketProtocol {
-	core.LazyRegister(&xSocketClientGetProtocol, "GIO", "g_socket_client_get_protocol", false)
-
 	cret := xSocketClientGetProtocol(x.GoPointer())
 	return cret
 }
@@ -610,7 +583,6 @@ var xSocketClientGetProxyResolver func(uintptr) uintptr
 // be the resolver returned by g_proxy_resolver_get_default(), but you
 // can override it with g_socket_client_set_proxy_resolver().
 func (x *SocketClient) GetProxyResolver() *ProxyResolverBase {
-	core.LazyRegister(&xSocketClientGetProxyResolver, "GIO", "g_socket_client_get_proxy_resolver", false)
 	var cls *ProxyResolverBase
 
 	cret := xSocketClientGetProxyResolver(x.GoPointer())
@@ -630,8 +602,6 @@ var xSocketClientGetSocketType func(uintptr) SocketType
 //
 // See g_socket_client_set_socket_type() for details.
 func (x *SocketClient) GetSocketType() SocketType {
-	core.LazyRegister(&xSocketClientGetSocketType, "GIO", "g_socket_client_get_socket_type", false)
-
 	cret := xSocketClientGetSocketType(x.GoPointer())
 	return cret
 }
@@ -642,8 +612,6 @@ var xSocketClientGetTimeout func(uintptr) uint
 //
 // See g_socket_client_set_timeout() for details.
 func (x *SocketClient) GetTimeout() uint {
-	core.LazyRegister(&xSocketClientGetTimeout, "GIO", "g_socket_client_get_timeout", false)
-
 	cret := xSocketClientGetTimeout(x.GoPointer())
 	return cret
 }
@@ -653,8 +621,6 @@ var xSocketClientGetTls func(uintptr) bool
 // Gets whether @client creates TLS connections. See
 // g_socket_client_set_tls() for details.
 func (x *SocketClient) GetTls() bool {
-	core.LazyRegister(&xSocketClientGetTls, "GIO", "g_socket_client_get_tls", false)
-
 	cret := xSocketClientGetTls(x.GoPointer())
 	return cret
 }
@@ -668,8 +634,6 @@ var xSocketClientGetTlsValidationFlags func(uintptr) TlsCertificateFlags
 // to use correctly. See #GSocketClient:tls-validation-flags for more
 // information.
 func (x *SocketClient) GetTlsValidationFlags() TlsCertificateFlags {
-	core.LazyRegister(&xSocketClientGetTlsValidationFlags, "GIO", "g_socket_client_get_tls_validation_flags", false)
-
 	cret := xSocketClientGetTlsValidationFlags(x.GoPointer())
 	return cret
 }
@@ -683,8 +647,6 @@ var xSocketClientSetEnableProxy func(uintptr, bool)
 //
 // See also g_socket_client_set_proxy_resolver().
 func (x *SocketClient) SetEnableProxy(EnableVar bool) {
-	core.LazyRegister(&xSocketClientSetEnableProxy, "GIO", "g_socket_client_set_enable_proxy", false)
-
 	xSocketClientSetEnableProxy(x.GoPointer(), EnableVar)
 }
 
@@ -699,8 +661,6 @@ var xSocketClientSetFamily func(uintptr, SocketFamily)
 // connection to be an ipv4 socket, even though the address might
 // be an ipv6 mapped to ipv4 address.
 func (x *SocketClient) SetFamily(FamilyVar SocketFamily) {
-	core.LazyRegister(&xSocketClientSetFamily, "GIO", "g_socket_client_set_family", false)
-
 	xSocketClientSetFamily(x.GoPointer(), FamilyVar)
 }
 
@@ -714,8 +674,6 @@ var xSocketClientSetLocalAddress func(uintptr, uintptr)
 // side of the connection is on a specific port, or on
 // a specific interface.
 func (x *SocketClient) SetLocalAddress(AddressVar *SocketAddress) {
-	core.LazyRegister(&xSocketClientSetLocalAddress, "GIO", "g_socket_client_set_local_address", false)
-
 	xSocketClientSetLocalAddress(x.GoPointer(), AddressVar.GoPointer())
 }
 
@@ -728,8 +686,6 @@ var xSocketClientSetProtocol func(uintptr, SocketProtocol)
 // If @protocol is %G_SOCKET_PROTOCOL_DEFAULT that means to use the default
 // protocol for the socket family and type.
 func (x *SocketClient) SetProtocol(ProtocolVar SocketProtocol) {
-	core.LazyRegister(&xSocketClientSetProtocol, "GIO", "g_socket_client_set_protocol", false)
-
 	xSocketClientSetProtocol(x.GoPointer(), ProtocolVar)
 }
 
@@ -743,8 +699,6 @@ var xSocketClientSetProxyResolver func(uintptr, uintptr)
 // depends on the setting of #GSocketClient:enable-proxy, which is not
 // changed by this function (but which is %TRUE by default)
 func (x *SocketClient) SetProxyResolver(ProxyResolverVar ProxyResolver) {
-	core.LazyRegister(&xSocketClientSetProxyResolver, "GIO", "g_socket_client_set_proxy_resolver", false)
-
 	xSocketClientSetProxyResolver(x.GoPointer(), ProxyResolverVar.GoPointer())
 }
 
@@ -757,8 +711,6 @@ var xSocketClientSetSocketType func(uintptr, SocketType)
 // It doesn't make sense to specify a type of %G_SOCKET_TYPE_DATAGRAM,
 // as GSocketClient is used for connection oriented services.
 func (x *SocketClient) SetSocketType(TypeVar SocketType) {
-	core.LazyRegister(&xSocketClientSetSocketType, "GIO", "g_socket_client_set_socket_type", false)
-
 	xSocketClientSetSocketType(x.GoPointer(), TypeVar)
 }
 
@@ -771,8 +723,6 @@ var xSocketClientSetTimeout func(uintptr, uint)
 // so setting this may cause calls to g_socket_client_connect(), etc,
 // to fail with %G_IO_ERROR_TIMED_OUT.
 func (x *SocketClient) SetTimeout(TimeoutVar uint) {
-	core.LazyRegister(&xSocketClientSetTimeout, "GIO", "g_socket_client_set_timeout", false)
-
 	xSocketClientSetTimeout(x.GoPointer(), TimeoutVar)
 }
 
@@ -797,8 +747,6 @@ var xSocketClientSetTls func(uintptr, bool)
 // a chance to see the #GTlsClientConnection before the handshake
 // starts.
 func (x *SocketClient) SetTls(TlsVar bool) {
-	core.LazyRegister(&xSocketClientSetTls, "GIO", "g_socket_client_set_tls", false)
-
 	xSocketClientSetTls(x.GoPointer(), TlsVar)
 }
 
@@ -811,8 +759,6 @@ var xSocketClientSetTlsValidationFlags func(uintptr, TlsCertificateFlags)
 // to use correctly. See #GSocketClient:tls-validation-flags for more
 // information.
 func (x *SocketClient) SetTlsValidationFlags(FlagsVar TlsCertificateFlags) {
-	core.LazyRegister(&xSocketClientSetTlsValidationFlags, "GIO", "g_socket_client_set_tls_validation_flags", false)
-
 	xSocketClientSetTlsValidationFlags(x.GoPointer(), FlagsVar)
 }
 
@@ -952,4 +898,48 @@ func (x *SocketClient) ConnectEvent(cb *func(SocketClient, SocketClientEvent, ui
 func init() {
 	core.SetPackageName("GIO", "gio-2.0")
 	core.SetSharedLibraries("GIO", []string{"libgio-2.0.so.0", "libgio-2.0.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GIO") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xSocketClientGLibType, libs, "g_socket_client_get_type")
+
+	core.PuregoSafeRegister(&xNewSocketClient, libs, "g_socket_client_new")
+
+	core.PuregoSafeRegister(&xSocketClientAddApplicationProxy, libs, "g_socket_client_add_application_proxy")
+	core.PuregoSafeRegister(&xSocketClientConnect, libs, "g_socket_client_connect")
+	core.PuregoSafeRegister(&xSocketClientConnectAsync, libs, "g_socket_client_connect_async")
+	core.PuregoSafeRegister(&xSocketClientConnectFinish, libs, "g_socket_client_connect_finish")
+	core.PuregoSafeRegister(&xSocketClientConnectToHost, libs, "g_socket_client_connect_to_host")
+	core.PuregoSafeRegister(&xSocketClientConnectToHostAsync, libs, "g_socket_client_connect_to_host_async")
+	core.PuregoSafeRegister(&xSocketClientConnectToHostFinish, libs, "g_socket_client_connect_to_host_finish")
+	core.PuregoSafeRegister(&xSocketClientConnectToService, libs, "g_socket_client_connect_to_service")
+	core.PuregoSafeRegister(&xSocketClientConnectToServiceAsync, libs, "g_socket_client_connect_to_service_async")
+	core.PuregoSafeRegister(&xSocketClientConnectToServiceFinish, libs, "g_socket_client_connect_to_service_finish")
+	core.PuregoSafeRegister(&xSocketClientConnectToUri, libs, "g_socket_client_connect_to_uri")
+	core.PuregoSafeRegister(&xSocketClientConnectToUriAsync, libs, "g_socket_client_connect_to_uri_async")
+	core.PuregoSafeRegister(&xSocketClientConnectToUriFinish, libs, "g_socket_client_connect_to_uri_finish")
+	core.PuregoSafeRegister(&xSocketClientGetEnableProxy, libs, "g_socket_client_get_enable_proxy")
+	core.PuregoSafeRegister(&xSocketClientGetFamily, libs, "g_socket_client_get_family")
+	core.PuregoSafeRegister(&xSocketClientGetLocalAddress, libs, "g_socket_client_get_local_address")
+	core.PuregoSafeRegister(&xSocketClientGetProtocol, libs, "g_socket_client_get_protocol")
+	core.PuregoSafeRegister(&xSocketClientGetProxyResolver, libs, "g_socket_client_get_proxy_resolver")
+	core.PuregoSafeRegister(&xSocketClientGetSocketType, libs, "g_socket_client_get_socket_type")
+	core.PuregoSafeRegister(&xSocketClientGetTimeout, libs, "g_socket_client_get_timeout")
+	core.PuregoSafeRegister(&xSocketClientGetTls, libs, "g_socket_client_get_tls")
+	core.PuregoSafeRegister(&xSocketClientGetTlsValidationFlags, libs, "g_socket_client_get_tls_validation_flags")
+	core.PuregoSafeRegister(&xSocketClientSetEnableProxy, libs, "g_socket_client_set_enable_proxy")
+	core.PuregoSafeRegister(&xSocketClientSetFamily, libs, "g_socket_client_set_family")
+	core.PuregoSafeRegister(&xSocketClientSetLocalAddress, libs, "g_socket_client_set_local_address")
+	core.PuregoSafeRegister(&xSocketClientSetProtocol, libs, "g_socket_client_set_protocol")
+	core.PuregoSafeRegister(&xSocketClientSetProxyResolver, libs, "g_socket_client_set_proxy_resolver")
+	core.PuregoSafeRegister(&xSocketClientSetSocketType, libs, "g_socket_client_set_socket_type")
+	core.PuregoSafeRegister(&xSocketClientSetTimeout, libs, "g_socket_client_set_timeout")
+	core.PuregoSafeRegister(&xSocketClientSetTls, libs, "g_socket_client_set_tls")
+	core.PuregoSafeRegister(&xSocketClientSetTlsValidationFlags, libs, "g_socket_client_set_tls_validation_flags")
 }

@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -70,7 +71,6 @@ type Credentials struct {
 var xCredentialsGLibType func() types.GType
 
 func CredentialsGLibType() types.GType {
-	core.LazyRegister(&xCredentialsGLibType, "GIO", "g_credentials_get_type", false)
 	return xCredentialsGLibType()
 }
 
@@ -85,7 +85,6 @@ var xNewCredentials func() uintptr
 // Creates a new #GCredentials object with credentials matching the
 // the current process.
 func NewCredentials() *Credentials {
-	core.LazyRegister(&xNewCredentials, "GIO", "g_credentials_new", false)
 	var cls *Credentials
 
 	cret := xNewCredentials()
@@ -107,8 +106,6 @@ var xCredentialsGetNative func(uintptr, CredentialsType) uintptr
 // logged) to use this method if there is no #GCredentials support for
 // the OS or if @native_type isn't supported by the OS.
 func (x *Credentials) GetNative(NativeTypeVar CredentialsType) uintptr {
-	core.LazyRegister(&xCredentialsGetNative, "GIO", "g_credentials_get_native", false)
-
 	cret := xCredentialsGetNative(x.GoPointer(), NativeTypeVar)
 	return cret
 }
@@ -122,7 +119,6 @@ var xCredentialsGetUnixPid func(uintptr, **glib.Error) int
 // OS or if the native credentials type does not contain information
 // about the UNIX process ID.
 func (x *Credentials) GetUnixPid() (int, error) {
-	core.LazyRegister(&xCredentialsGetUnixPid, "GIO", "g_credentials_get_unix_pid", false)
 	var cerr *glib.Error
 
 	cret := xCredentialsGetUnixPid(x.GoPointer(), &cerr)
@@ -145,7 +141,6 @@ var xCredentialsGetUnixUser func(uintptr, **glib.Error) uint
 // check @error for failure rather than trying to check the return value,
 // particularly in language bindings.
 func (x *Credentials) GetUnixUser() (uint, error) {
-	core.LazyRegister(&xCredentialsGetUnixUser, "GIO", "g_credentials_get_unix_user", false)
 	var cerr *glib.Error
 
 	cret := xCredentialsGetUnixUser(x.GoPointer(), &cerr)
@@ -162,7 +157,6 @@ var xCredentialsIsSameUser func(uintptr, uintptr, **glib.Error) bool
 // This operation can fail if #GCredentials is not supported on the
 // the OS.
 func (x *Credentials) IsSameUser(OtherCredentialsVar *Credentials) (bool, error) {
-	core.LazyRegister(&xCredentialsIsSameUser, "GIO", "g_credentials_is_same_user", false)
 	var cerr *glib.Error
 
 	cret := xCredentialsIsSameUser(x.GoPointer(), OtherCredentialsVar.GoPointer(), &cerr)
@@ -181,8 +175,6 @@ var xCredentialsSetNative func(uintptr, CredentialsType, uintptr)
 // logged) to use this method if there is no #GCredentials support for
 // the OS or if @native_type isn't supported by the OS.
 func (x *Credentials) SetNative(NativeTypeVar CredentialsType, NativeVar uintptr) {
-	core.LazyRegister(&xCredentialsSetNative, "GIO", "g_credentials_set_native", false)
-
 	xCredentialsSetNative(x.GoPointer(), NativeTypeVar, NativeVar)
 }
 
@@ -196,7 +188,6 @@ var xCredentialsSetUnixUser func(uintptr, uint, **glib.Error) bool
 // about the UNIX user. It can also fail if the OS does not allow the
 // use of "spoofed" credentials.
 func (x *Credentials) SetUnixUser(UidVar uint) (bool, error) {
-	core.LazyRegister(&xCredentialsSetUnixUser, "GIO", "g_credentials_set_unix_user", false)
 	var cerr *glib.Error
 
 	cret := xCredentialsSetUnixUser(x.GoPointer(), UidVar, &cerr)
@@ -212,8 +203,6 @@ var xCredentialsToString func(uintptr) string
 // that can be used in logging and debug messages. The format of the
 // returned string may change in future GLib release.
 func (x *Credentials) ToString() string {
-	core.LazyRegister(&xCredentialsToString, "GIO", "g_credentials_to_string", false)
-
 	cret := xCredentialsToString(x.GoPointer())
 	return cret
 }
@@ -232,4 +221,24 @@ func (c *Credentials) SetGoPointer(ptr uintptr) {
 func init() {
 	core.SetPackageName("GIO", "gio-2.0")
 	core.SetSharedLibraries("GIO", []string{"libgio-2.0.so.0", "libgio-2.0.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GIO") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xCredentialsGLibType, libs, "g_credentials_get_type")
+
+	core.PuregoSafeRegister(&xNewCredentials, libs, "g_credentials_new")
+
+	core.PuregoSafeRegister(&xCredentialsGetNative, libs, "g_credentials_get_native")
+	core.PuregoSafeRegister(&xCredentialsGetUnixPid, libs, "g_credentials_get_unix_pid")
+	core.PuregoSafeRegister(&xCredentialsGetUnixUser, libs, "g_credentials_get_unix_user")
+	core.PuregoSafeRegister(&xCredentialsIsSameUser, libs, "g_credentials_is_same_user")
+	core.PuregoSafeRegister(&xCredentialsSetNative, libs, "g_credentials_set_native")
+	core.PuregoSafeRegister(&xCredentialsSetUnixUser, libs, "g_credentials_set_unix_user")
+	core.PuregoSafeRegister(&xCredentialsToString, libs, "g_credentials_to_string")
 }

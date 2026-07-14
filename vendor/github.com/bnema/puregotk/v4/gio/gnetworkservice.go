@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -60,7 +61,6 @@ type NetworkService struct {
 var xNetworkServiceGLibType func() types.GType
 
 func NetworkServiceGLibType() types.GType {
-	core.LazyRegister(&xNetworkServiceGLibType, "GIO", "g_network_service_get_type", false)
 	return xNetworkServiceGLibType()
 }
 
@@ -76,7 +76,6 @@ var xNewNetworkService func(string, string, string) uintptr
 // @protocol, and @domain. This will initially be unresolved; use the
 // #GSocketConnectable interface to resolve it.
 func NewNetworkService(ServiceVar string, ProtocolVar string, DomainVar string) *NetworkService {
-	core.LazyRegister(&xNewNetworkService, "GIO", "g_network_service_new", false)
 	var cls *NetworkService
 
 	cret := xNewNetworkService(ServiceVar, ProtocolVar, DomainVar)
@@ -94,8 +93,6 @@ var xNetworkServiceGetDomain func(uintptr) string
 // Gets the domain that @srv serves. This might be either UTF-8 or
 // ASCII-encoded, depending on what @srv was created with.
 func (x *NetworkService) GetDomain() string {
-	core.LazyRegister(&xNetworkServiceGetDomain, "GIO", "g_network_service_get_domain", false)
-
 	cret := xNetworkServiceGetDomain(x.GoPointer())
 	return cret
 }
@@ -104,8 +101,6 @@ var xNetworkServiceGetProtocol func(uintptr) string
 
 // Gets @srv's protocol name (eg, "tcp").
 func (x *NetworkService) GetProtocol() string {
-	core.LazyRegister(&xNetworkServiceGetProtocol, "GIO", "g_network_service_get_protocol", false)
-
 	cret := xNetworkServiceGetProtocol(x.GoPointer())
 	return cret
 }
@@ -115,8 +110,6 @@ var xNetworkServiceGetScheme func(uintptr) string
 // Gets the URI scheme used to resolve proxies. By default, the service name
 // is used as scheme.
 func (x *NetworkService) GetScheme() string {
-	core.LazyRegister(&xNetworkServiceGetScheme, "GIO", "g_network_service_get_scheme", false)
-
 	cret := xNetworkServiceGetScheme(x.GoPointer())
 	return cret
 }
@@ -125,8 +118,6 @@ var xNetworkServiceGetService func(uintptr) string
 
 // Gets @srv's service name (eg, "ldap").
 func (x *NetworkService) GetService() string {
-	core.LazyRegister(&xNetworkServiceGetService, "GIO", "g_network_service_get_service", false)
-
 	cret := xNetworkServiceGetService(x.GoPointer())
 	return cret
 }
@@ -136,8 +127,6 @@ var xNetworkServiceSetScheme func(uintptr, string)
 // Set's the URI scheme used to resolve proxies. By default, the service name
 // is used as scheme.
 func (x *NetworkService) SetScheme(SchemeVar string) {
-	core.LazyRegister(&xNetworkServiceSetScheme, "GIO", "g_network_service_set_scheme", false)
-
 	xNetworkServiceSetScheme(x.GoPointer(), SchemeVar)
 }
 
@@ -269,4 +258,22 @@ func (x *NetworkService) ToString() string {
 func init() {
 	core.SetPackageName("GIO", "gio-2.0")
 	core.SetSharedLibraries("GIO", []string{"libgio-2.0.so.0", "libgio-2.0.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GIO") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xNetworkServiceGLibType, libs, "g_network_service_get_type")
+
+	core.PuregoSafeRegister(&xNewNetworkService, libs, "g_network_service_new")
+
+	core.PuregoSafeRegister(&xNetworkServiceGetDomain, libs, "g_network_service_get_domain")
+	core.PuregoSafeRegister(&xNetworkServiceGetProtocol, libs, "g_network_service_get_protocol")
+	core.PuregoSafeRegister(&xNetworkServiceGetScheme, libs, "g_network_service_get_scheme")
+	core.PuregoSafeRegister(&xNetworkServiceGetService, libs, "g_network_service_get_service")
+	core.PuregoSafeRegister(&xNetworkServiceSetScheme, libs, "g_network_service_set_scheme")
 }

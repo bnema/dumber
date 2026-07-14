@@ -385,7 +385,6 @@ type SelectionModel interface {
 var xSelectionModelGLibType func() types.GType
 
 func SelectionModelGLibType() types.GType {
-	core.LazyRegister(&xSelectionModelGLibType, "GTK", "gtk_selection_model_get_type", false)
 	return xSelectionModelGLibType()
 }
 
@@ -523,84 +522,43 @@ func (x *SelectionModelBase) UnselectRange(PositionVar uint, NItemsVar uint) boo
 	return cret
 }
 
-var XGtkSelectionModelGetSelection func(uintptr) uintptr = func(instance uintptr) uintptr {
-	core.LazyRegister(&xXGtkSelectionModelGetSelection, "GTK", "gtk_selection_model_get_selection", false)
-	return xXGtkSelectionModelGetSelection(instance)
-}
-
 var (
-	xXGtkSelectionModelGetSelection       func(uintptr) uintptr
-	XGtkSelectionModelGetSelectionInRange func(uintptr, uint, uint) uintptr = func(instance uintptr, PositionVarp uint, NItemsVarp uint) uintptr {
-		core.LazyRegister(&xXGtkSelectionModelGetSelectionInRange, "GTK", "gtk_selection_model_get_selection_in_range", false)
-		return xXGtkSelectionModelGetSelectionInRange(instance, PositionVarp, NItemsVarp)
-	}
+	XGtkSelectionModelGetSelection        func(uintptr) uintptr
+	XGtkSelectionModelGetSelectionInRange func(uintptr, uint, uint) uintptr
+	XGtkSelectionModelIsSelected          func(uintptr, uint) bool
+	XGtkSelectionModelSelectAll           func(uintptr) bool
+	XGtkSelectionModelSelectItem          func(uintptr, uint, bool) bool
+	XGtkSelectionModelSelectRange         func(uintptr, uint, uint, bool) bool
+	XGtkSelectionModelSelectionChanged    func(uintptr, uint, uint)
+	XGtkSelectionModelSetSelection        func(uintptr, *Bitset, *Bitset) bool
+	XGtkSelectionModelUnselectAll         func(uintptr) bool
+	XGtkSelectionModelUnselectItem        func(uintptr, uint) bool
+	XGtkSelectionModelUnselectRange       func(uintptr, uint, uint) bool
 )
-var (
-	xXGtkSelectionModelGetSelectionInRange func(uintptr, uint, uint) uintptr
-	XGtkSelectionModelIsSelected           func(uintptr, uint) bool = func(instance uintptr, PositionVarp uint) bool {
-		core.LazyRegister(&xXGtkSelectionModelIsSelected, "GTK", "gtk_selection_model_is_selected", false)
-		return xXGtkSelectionModelIsSelected(instance, PositionVarp)
-	}
-)
-var (
-	xXGtkSelectionModelIsSelected func(uintptr, uint) bool
-	XGtkSelectionModelSelectAll   func(uintptr) bool = func(instance uintptr) bool {
-		core.LazyRegister(&xXGtkSelectionModelSelectAll, "GTK", "gtk_selection_model_select_all", false)
-		return xXGtkSelectionModelSelectAll(instance)
-	}
-)
-var (
-	xXGtkSelectionModelSelectAll func(uintptr) bool
-	XGtkSelectionModelSelectItem func(uintptr, uint, bool) bool = func(instance uintptr, PositionVarp uint, UnselectRestVarp bool) bool {
-		core.LazyRegister(&xXGtkSelectionModelSelectItem, "GTK", "gtk_selection_model_select_item", false)
-		return xXGtkSelectionModelSelectItem(instance, PositionVarp, UnselectRestVarp)
-	}
-)
-var (
-	xXGtkSelectionModelSelectItem func(uintptr, uint, bool) bool
-	XGtkSelectionModelSelectRange func(uintptr, uint, uint, bool) bool = func(instance uintptr, PositionVarp uint, NItemsVarp uint, UnselectRestVarp bool) bool {
-		core.LazyRegister(&xXGtkSelectionModelSelectRange, "GTK", "gtk_selection_model_select_range", false)
-		return xXGtkSelectionModelSelectRange(instance, PositionVarp, NItemsVarp, UnselectRestVarp)
-	}
-)
-var (
-	xXGtkSelectionModelSelectRange     func(uintptr, uint, uint, bool) bool
-	XGtkSelectionModelSelectionChanged func(uintptr, uint, uint) = func(instance uintptr, PositionVarp uint, NItemsVarp uint) {
-		core.LazyRegister(&xXGtkSelectionModelSelectionChanged, "GTK", "gtk_selection_model_selection_changed", false)
-		xXGtkSelectionModelSelectionChanged(instance, PositionVarp, NItemsVarp)
-	}
-)
-var (
-	xXGtkSelectionModelSelectionChanged func(uintptr, uint, uint)
-	XGtkSelectionModelSetSelection      func(uintptr, *Bitset, *Bitset) bool = func(instance uintptr, SelectedVarp *Bitset, MaskVarp *Bitset) bool {
-		core.LazyRegister(&xXGtkSelectionModelSetSelection, "GTK", "gtk_selection_model_set_selection", false)
-		return xXGtkSelectionModelSetSelection(instance, SelectedVarp, MaskVarp)
-	}
-)
-var (
-	xXGtkSelectionModelSetSelection func(uintptr, *Bitset, *Bitset) bool
-	XGtkSelectionModelUnselectAll   func(uintptr) bool = func(instance uintptr) bool {
-		core.LazyRegister(&xXGtkSelectionModelUnselectAll, "GTK", "gtk_selection_model_unselect_all", false)
-		return xXGtkSelectionModelUnselectAll(instance)
-	}
-)
-var (
-	xXGtkSelectionModelUnselectAll func(uintptr) bool
-	XGtkSelectionModelUnselectItem func(uintptr, uint) bool = func(instance uintptr, PositionVarp uint) bool {
-		core.LazyRegister(&xXGtkSelectionModelUnselectItem, "GTK", "gtk_selection_model_unselect_item", false)
-		return xXGtkSelectionModelUnselectItem(instance, PositionVarp)
-	}
-)
-var (
-	xXGtkSelectionModelUnselectItem func(uintptr, uint) bool
-	XGtkSelectionModelUnselectRange func(uintptr, uint, uint) bool = func(instance uintptr, PositionVarp uint, NItemsVarp uint) bool {
-		core.LazyRegister(&xXGtkSelectionModelUnselectRange, "GTK", "gtk_selection_model_unselect_range", false)
-		return xXGtkSelectionModelUnselectRange(instance, PositionVarp, NItemsVarp)
-	}
-)
-var xXGtkSelectionModelUnselectRange func(uintptr, uint, uint) bool
 
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GTK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xSelectionModelGLibType, libs, "gtk_selection_model_get_type")
+
+	core.PuregoSafeRegister(&XGtkSelectionModelGetSelection, libs, "gtk_selection_model_get_selection")
+	core.PuregoSafeRegister(&XGtkSelectionModelGetSelectionInRange, libs, "gtk_selection_model_get_selection_in_range")
+	core.PuregoSafeRegister(&XGtkSelectionModelIsSelected, libs, "gtk_selection_model_is_selected")
+	core.PuregoSafeRegister(&XGtkSelectionModelSelectAll, libs, "gtk_selection_model_select_all")
+	core.PuregoSafeRegister(&XGtkSelectionModelSelectItem, libs, "gtk_selection_model_select_item")
+	core.PuregoSafeRegister(&XGtkSelectionModelSelectRange, libs, "gtk_selection_model_select_range")
+	core.PuregoSafeRegister(&XGtkSelectionModelSelectionChanged, libs, "gtk_selection_model_selection_changed")
+	core.PuregoSafeRegister(&XGtkSelectionModelSetSelection, libs, "gtk_selection_model_set_selection")
+	core.PuregoSafeRegister(&XGtkSelectionModelUnselectAll, libs, "gtk_selection_model_unselect_all")
+	core.PuregoSafeRegister(&XGtkSelectionModelUnselectItem, libs, "gtk_selection_model_unselect_item")
+	core.PuregoSafeRegister(&XGtkSelectionModelUnselectRange, libs, "gtk_selection_model_unselect_range")
 }

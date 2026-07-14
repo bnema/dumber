@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -34,7 +35,6 @@ type GraphicsOffloadEnabled int
 var xGraphicsOffloadEnabledGLibType func() types.GType
 
 func GraphicsOffloadEnabledGLibType() types.GType {
-	core.LazyRegister(&xGraphicsOffloadEnabledGLibType, "GTK", "gtk_graphics_offload_enabled_get_type", false)
 	return xGraphicsOffloadEnabledGLibType()
 }
 
@@ -88,7 +88,6 @@ type GraphicsOffload struct {
 var xGraphicsOffloadGLibType func() types.GType
 
 func GraphicsOffloadGLibType() types.GType {
-	core.LazyRegister(&xGraphicsOffloadGLibType, "GTK", "gtk_graphics_offload_get_type", false)
 	return xGraphicsOffloadGLibType()
 }
 
@@ -102,7 +101,6 @@ var xNewGraphicsOffload func(uintptr) uintptr
 
 // Creates a new GtkGraphicsOffload widget.
 func NewGraphicsOffload(ChildVar *Widget) *GraphicsOffload {
-	core.LazyRegister(&xNewGraphicsOffload, "GTK", "gtk_graphics_offload_new", false)
 	var cls *GraphicsOffload
 
 	cret := xNewGraphicsOffload(ChildVar.GoPointer())
@@ -122,8 +120,6 @@ var xGraphicsOffloadGetBlackBackground func(uintptr) bool
 //
 // See [method@Gtk.GraphicsOffload.set_black_background].
 func (x *GraphicsOffload) GetBlackBackground() bool {
-	core.LazyRegister(&xGraphicsOffloadGetBlackBackground, "GTK", "gtk_graphics_offload_get_black_background", false)
-
 	cret := xGraphicsOffloadGetBlackBackground(x.GoPointer())
 	return cret
 }
@@ -132,7 +128,6 @@ var xGraphicsOffloadGetChild func(uintptr) uintptr
 
 // Gets the child of @self.
 func (x *GraphicsOffload) GetChild() *Widget {
-	core.LazyRegister(&xGraphicsOffloadGetChild, "GTK", "gtk_graphics_offload_get_child", false)
 	var cls *Widget
 
 	cret := xGraphicsOffloadGetChild(x.GoPointer())
@@ -150,8 +145,6 @@ var xGraphicsOffloadGetEnabled func(uintptr) GraphicsOffloadEnabled
 
 // Returns whether offload is enabled for @self.
 func (x *GraphicsOffload) GetEnabled() GraphicsOffloadEnabled {
-	core.LazyRegister(&xGraphicsOffloadGetEnabled, "GTK", "gtk_graphics_offload_get_enabled", false)
-
 	cret := xGraphicsOffloadGetEnabled(x.GoPointer())
 	return cret
 }
@@ -173,8 +166,6 @@ var xGraphicsOffloadSetBlackBackground func(uintptr, bool)
 // [single-pixel buffer](https://wayland.app/protocols/single-pixel-buffer-v1)
 // protocol.
 func (x *GraphicsOffload) SetBlackBackground(ValueVar bool) {
-	core.LazyRegister(&xGraphicsOffloadSetBlackBackground, "GTK", "gtk_graphics_offload_set_black_background", false)
-
 	xGraphicsOffloadSetBlackBackground(x.GoPointer(), ValueVar)
 }
 
@@ -182,8 +173,6 @@ var xGraphicsOffloadSetChild func(uintptr, uintptr)
 
 // Sets the child of @self.
 func (x *GraphicsOffload) SetChild(ChildVar *Widget) {
-	core.LazyRegister(&xGraphicsOffloadSetChild, "GTK", "gtk_graphics_offload_set_child", false)
-
 	xGraphicsOffloadSetChild(x.GoPointer(), ChildVar.GoPointer())
 }
 
@@ -192,8 +181,6 @@ var xGraphicsOffloadSetEnabled func(uintptr, GraphicsOffloadEnabled)
 // Sets whether this GtkGraphicsOffload widget will attempt
 // to offload the content of its child widget.
 func (x *GraphicsOffload) SetEnabled(EnabledVar GraphicsOffloadEnabled) {
-	core.LazyRegister(&xGraphicsOffloadSetEnabled, "GTK", "gtk_graphics_offload_set_enabled", false)
-
 	xGraphicsOffloadSetEnabled(x.GoPointer(), EnabledVar)
 }
 
@@ -488,4 +475,25 @@ func (x *GraphicsOffload) GetBuildableId() string {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GTK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xGraphicsOffloadEnabledGLibType, libs, "gtk_graphics_offload_enabled_get_type")
+
+	core.PuregoSafeRegister(&xGraphicsOffloadGLibType, libs, "gtk_graphics_offload_get_type")
+
+	core.PuregoSafeRegister(&xNewGraphicsOffload, libs, "gtk_graphics_offload_new")
+
+	core.PuregoSafeRegister(&xGraphicsOffloadGetBlackBackground, libs, "gtk_graphics_offload_get_black_background")
+	core.PuregoSafeRegister(&xGraphicsOffloadGetChild, libs, "gtk_graphics_offload_get_child")
+	core.PuregoSafeRegister(&xGraphicsOffloadGetEnabled, libs, "gtk_graphics_offload_get_enabled")
+	core.PuregoSafeRegister(&xGraphicsOffloadSetBlackBackground, libs, "gtk_graphics_offload_set_black_background")
+	core.PuregoSafeRegister(&xGraphicsOffloadSetChild, libs, "gtk_graphics_offload_set_child")
+	core.PuregoSafeRegister(&xGraphicsOffloadSetEnabled, libs, "gtk_graphics_offload_set_enabled")
 }

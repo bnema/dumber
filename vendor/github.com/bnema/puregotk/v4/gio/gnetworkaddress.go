@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -62,7 +63,6 @@ type NetworkAddress struct {
 var xNetworkAddressGLibType func() types.GType
 
 func NetworkAddressGLibType() types.GType {
-	core.LazyRegister(&xNetworkAddressGLibType, "GIO", "g_network_address_get_type", false)
 	return xNetworkAddressGLibType()
 }
 
@@ -83,7 +83,6 @@ var xNewNetworkAddress func(string, uint16) uintptr
 // g_network_address_new_loopback() to create a #GNetworkAddress that
 // is guaranteed to resolve to both addresses.
 func NewNetworkAddress(HostnameVar string, PortVar uint16) *NetworkAddress {
-	core.LazyRegister(&xNewNetworkAddress, "GIO", "g_network_address_new", false)
 	var cls *NetworkAddress
 
 	cret := xNewNetworkAddress(HostnameVar, PortVar)
@@ -111,7 +110,6 @@ var xNewNetworkAddressLoopback func(uint16) uintptr
 // g_network_address_get_hostname() will always return `localhost` for
 // a #GNetworkAddress created with this constructor.
 func NewNetworkAddressLoopback(PortVar uint16) *NetworkAddress {
-	core.LazyRegister(&xNewNetworkAddressLoopback, "GIO", "g_network_address_new_loopback", false)
 	var cls *NetworkAddress
 
 	cret := xNewNetworkAddressLoopback(PortVar)
@@ -129,8 +127,6 @@ var xNetworkAddressGetHostname func(uintptr) string
 // Gets @addr's hostname. This might be either UTF-8 or ASCII-encoded,
 // depending on what @addr was created with.
 func (x *NetworkAddress) GetHostname() string {
-	core.LazyRegister(&xNetworkAddressGetHostname, "GIO", "g_network_address_get_hostname", false)
-
 	cret := xNetworkAddressGetHostname(x.GoPointer())
 	return cret
 }
@@ -139,8 +135,6 @@ var xNetworkAddressGetPort func(uintptr) uint16
 
 // Gets @addr's port number
 func (x *NetworkAddress) GetPort() uint16 {
-	core.LazyRegister(&xNetworkAddressGetPort, "GIO", "g_network_address_get_port", false)
-
 	cret := xNetworkAddressGetPort(x.GoPointer())
 	return cret
 }
@@ -149,8 +143,6 @@ var xNetworkAddressGetScheme func(uintptr) string
 
 // Gets @addr's scheme
 func (x *NetworkAddress) GetScheme() string {
-	core.LazyRegister(&xNetworkAddressGetScheme, "GIO", "g_network_address_get_scheme", false)
-
 	cret := xNetworkAddressGetScheme(x.GoPointer())
 	return cret
 }
@@ -287,7 +279,6 @@ var xNetworkAddressParse func(string, uint16, **glib.Error) uintptr
 // is deprecated, because it depends on the contents of /etc/services,
 // which is generally quite sparse on platforms other than Linux.)
 func NetworkAddressParse(HostAndPortVar string, DefaultPortVar uint16) (*NetworkAddress, error) {
-	core.LazyRegister(&xNetworkAddressParse, "GIO", "g_network_address_parse", false)
 	var cls *NetworkAddress
 	var cerr *glib.Error
 
@@ -313,7 +304,6 @@ var xNetworkAddressParseUri func(string, uint16, **glib.Error) uintptr
 // g_network_address_parse() allows #GSocketClient to determine
 // when to use application-specific proxy protocols.
 func NetworkAddressParseUri(UriVar string, DefaultPortVar uint16) (*NetworkAddress, error) {
-	core.LazyRegister(&xNetworkAddressParseUri, "GIO", "g_network_address_parse_uri", false)
 	var cls *NetworkAddress
 	var cerr *glib.Error
 
@@ -333,4 +323,24 @@ func NetworkAddressParseUri(UriVar string, DefaultPortVar uint16) (*NetworkAddre
 func init() {
 	core.SetPackageName("GIO", "gio-2.0")
 	core.SetSharedLibraries("GIO", []string{"libgio-2.0.so.0", "libgio-2.0.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GIO") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xNetworkAddressGLibType, libs, "g_network_address_get_type")
+
+	core.PuregoSafeRegister(&xNewNetworkAddress, libs, "g_network_address_new")
+	core.PuregoSafeRegister(&xNewNetworkAddressLoopback, libs, "g_network_address_new_loopback")
+
+	core.PuregoSafeRegister(&xNetworkAddressGetHostname, libs, "g_network_address_get_hostname")
+	core.PuregoSafeRegister(&xNetworkAddressGetPort, libs, "g_network_address_get_port")
+	core.PuregoSafeRegister(&xNetworkAddressGetScheme, libs, "g_network_address_get_scheme")
+
+	core.PuregoSafeRegister(&xNetworkAddressParse, libs, "g_network_address_parse")
+	core.PuregoSafeRegister(&xNetworkAddressParseUri, libs, "g_network_address_parse_uri")
 }

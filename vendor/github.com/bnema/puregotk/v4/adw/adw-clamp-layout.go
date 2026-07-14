@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -63,7 +64,6 @@ type ClampLayout struct {
 var xClampLayoutGLibType func() types.GType
 
 func ClampLayoutGLibType() types.GType {
-	core.LazyRegister(&xClampLayoutGLibType, "ADW", "adw_clamp_layout_get_type", false)
 	return xClampLayoutGLibType()
 }
 
@@ -77,7 +77,6 @@ var xNewClampLayout func() uintptr
 
 // Creates a new `AdwClampLayout`.
 func NewClampLayout() *ClampLayout {
-	core.LazyRegister(&xNewClampLayout, "ADW", "adw_clamp_layout_new", false)
 	var cls *ClampLayout
 
 	cret := xNewClampLayout()
@@ -94,8 +93,6 @@ var xClampLayoutGetMaximumSize func(uintptr) int
 
 // Gets the maximum size allocated to the children.
 func (x *ClampLayout) GetMaximumSize() int {
-	core.LazyRegister(&xClampLayoutGetMaximumSize, "ADW", "adw_clamp_layout_get_maximum_size", false)
-
 	cret := xClampLayoutGetMaximumSize(x.GoPointer())
 	return cret
 }
@@ -104,8 +101,6 @@ var xClampLayoutGetTighteningThreshold func(uintptr) int
 
 // Gets the size above which the children are clamped.
 func (x *ClampLayout) GetTighteningThreshold() int {
-	core.LazyRegister(&xClampLayoutGetTighteningThreshold, "ADW", "adw_clamp_layout_get_tightening_threshold", false)
-
 	cret := xClampLayoutGetTighteningThreshold(x.GoPointer())
 	return cret
 }
@@ -114,8 +109,6 @@ var xClampLayoutGetUnit func(uintptr) LengthUnit
 
 // Gets the length unit for maximum size and tightening threshold.
 func (x *ClampLayout) GetUnit() LengthUnit {
-	core.LazyRegister(&xClampLayoutGetUnit, "ADW", "adw_clamp_layout_get_unit", false)
-
 	cret := xClampLayoutGetUnit(x.GoPointer())
 	return cret
 }
@@ -126,8 +119,6 @@ var xClampLayoutSetMaximumSize func(uintptr, int)
 //
 // It is the width if the layout is horizontal, or the height if it is vertical.
 func (x *ClampLayout) SetMaximumSize(MaximumSizeVar int) {
-	core.LazyRegister(&xClampLayoutSetMaximumSize, "ADW", "adw_clamp_layout_set_maximum_size", false)
-
 	xClampLayoutSetMaximumSize(x.GoPointer(), MaximumSizeVar)
 }
 
@@ -148,8 +139,6 @@ var xClampLayoutSetTighteningThreshold func(uintptr, int)
 // Effectively, tightening the grip on a child before it reaches its maximum
 // size makes transitions to and from the maximum size smoother when resizing.
 func (x *ClampLayout) SetTighteningThreshold(TighteningThresholdVar int) {
-	core.LazyRegister(&xClampLayoutSetTighteningThreshold, "ADW", "adw_clamp_layout_set_tightening_threshold", false)
-
 	xClampLayoutSetTighteningThreshold(x.GoPointer(), TighteningThresholdVar)
 }
 
@@ -159,8 +148,6 @@ var xClampLayoutSetUnit func(uintptr, LengthUnit)
 //
 // Allows the sizes to vary depending on the text scale factor.
 func (x *ClampLayout) SetUnit(UnitVar LengthUnit) {
-	core.LazyRegister(&xClampLayoutSetUnit, "ADW", "adw_clamp_layout_set_unit", false)
-
 	xClampLayoutSetUnit(x.GoPointer(), UnitVar)
 }
 
@@ -255,4 +242,23 @@ func (x *ClampLayout) SetOrientation(OrientationVar gtk.Orientation) {
 func init() {
 	core.SetPackageName("ADW", "libadwaita-1")
 	core.SetSharedLibraries("ADW", []string{"libadwaita-1.so.0", "libadwaita-1.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("ADW") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xClampLayoutGLibType, libs, "adw_clamp_layout_get_type")
+
+	core.PuregoSafeRegister(&xNewClampLayout, libs, "adw_clamp_layout_new")
+
+	core.PuregoSafeRegister(&xClampLayoutGetMaximumSize, libs, "adw_clamp_layout_get_maximum_size")
+	core.PuregoSafeRegister(&xClampLayoutGetTighteningThreshold, libs, "adw_clamp_layout_get_tightening_threshold")
+	core.PuregoSafeRegister(&xClampLayoutGetUnit, libs, "adw_clamp_layout_get_unit")
+	core.PuregoSafeRegister(&xClampLayoutSetMaximumSize, libs, "adw_clamp_layout_set_maximum_size")
+	core.PuregoSafeRegister(&xClampLayoutSetTighteningThreshold, libs, "adw_clamp_layout_set_tightening_threshold")
+	core.PuregoSafeRegister(&xClampLayoutSetUnit, libs, "adw_clamp_layout_set_unit")
 }

@@ -69,7 +69,7 @@ func (x *TlsDatabaseClass) OverrideVerifyChain(cb func(*TlsDatabase, *TlsCertifi
 	if cb == nil {
 		x.xVerifyChain = 0
 	} else {
-		x.xVerifyChain = purego.NewCallback(func(SelfVarp uintptr, ChainVarp uintptr, PurposeVarp string, IdentityVarp uintptr, InteractionVarp uintptr, FlagsVarp TlsDatabaseVerifyFlags, CancellableVarp uintptr, cerrp **glib.Error) TlsCertificateFlags {
+		x.xVerifyChain = purego.NewCallback(func(SelfVarp uintptr, ChainVarp uintptr, PurposeVarp string, IdentityVarp uintptr, InteractionVarp uintptr, FlagsVarp TlsDatabaseVerifyFlags, CancellableVarp uintptr) TlsCertificateFlags {
 			return cb(TlsDatabaseNewFromInternalPtr(SelfVarp), TlsCertificateNewFromInternalPtr(ChainVarp), PurposeVarp, &SocketConnectableBase{Ptr: IdentityVarp}, TlsInteractionNewFromInternalPtr(InteractionVarp), FlagsVarp, CancellableNewFromInternalPtr(CancellableVarp))
 		})
 	}
@@ -83,11 +83,10 @@ func (x *TlsDatabaseClass) GetVerifyChain() func(*TlsDatabase, *TlsCertificate, 
 	if x.xVerifyChain == 0 {
 		return nil
 	}
-	var rawCallback func(SelfVarp uintptr, ChainVarp uintptr, PurposeVarp string, IdentityVarp uintptr, InteractionVarp uintptr, FlagsVarp TlsDatabaseVerifyFlags, CancellableVarp uintptr, cerrp **glib.Error) TlsCertificateFlags
+	var rawCallback func(SelfVarp uintptr, ChainVarp uintptr, PurposeVarp string, IdentityVarp uintptr, InteractionVarp uintptr, FlagsVarp TlsDatabaseVerifyFlags, CancellableVarp uintptr) TlsCertificateFlags
 	purego.RegisterFunc(&rawCallback, x.xVerifyChain)
 	return func(SelfVar *TlsDatabase, ChainVar *TlsCertificate, PurposeVar string, IdentityVar SocketConnectable, InteractionVar *TlsInteraction, FlagsVar TlsDatabaseVerifyFlags, CancellableVar *Cancellable) TlsCertificateFlags {
-		var cerr *glib.Error
-		return rawCallback(SelfVar.GoPointer(), ChainVar.GoPointer(), PurposeVar, IdentityVar.GoPointer(), InteractionVar.GoPointer(), FlagsVar, CancellableVar.GoPointer(), &cerr)
+		return rawCallback(SelfVar.GoPointer(), ChainVar.GoPointer(), PurposeVar, IdentityVar.GoPointer(), InteractionVar.GoPointer(), FlagsVar, CancellableVar.GoPointer())
 	}
 }
 
@@ -128,7 +127,7 @@ func (x *TlsDatabaseClass) OverrideVerifyChainFinish(cb func(*TlsDatabase, Async
 	if cb == nil {
 		x.xVerifyChainFinish = 0
 	} else {
-		x.xVerifyChainFinish = purego.NewCallback(func(SelfVarp uintptr, ResultVarp uintptr, cerrp **glib.Error) TlsCertificateFlags {
+		x.xVerifyChainFinish = purego.NewCallback(func(SelfVarp uintptr, ResultVarp uintptr) TlsCertificateFlags {
 			return cb(TlsDatabaseNewFromInternalPtr(SelfVarp), &AsyncResultBase{Ptr: ResultVarp})
 		})
 	}
@@ -142,11 +141,10 @@ func (x *TlsDatabaseClass) GetVerifyChainFinish() func(*TlsDatabase, AsyncResult
 	if x.xVerifyChainFinish == 0 {
 		return nil
 	}
-	var rawCallback func(SelfVarp uintptr, ResultVarp uintptr, cerrp **glib.Error) TlsCertificateFlags
+	var rawCallback func(SelfVarp uintptr, ResultVarp uintptr) TlsCertificateFlags
 	purego.RegisterFunc(&rawCallback, x.xVerifyChainFinish)
 	return func(SelfVar *TlsDatabase, ResultVar AsyncResult) TlsCertificateFlags {
-		var cerr *glib.Error
-		return rawCallback(SelfVar.GoPointer(), ResultVar.GoPointer(), &cerr)
+		return rawCallback(SelfVar.GoPointer(), ResultVar.GoPointer())
 	}
 }
 
@@ -187,7 +185,7 @@ func (x *TlsDatabaseClass) OverrideLookupCertificateForHandle(cb func(*TlsDataba
 	if cb == nil {
 		x.xLookupCertificateForHandle = 0
 	} else {
-		x.xLookupCertificateForHandle = purego.NewCallback(func(SelfVarp uintptr, HandleVarp string, InteractionVarp uintptr, FlagsVarp TlsDatabaseLookupFlags, CancellableVarp uintptr, cerrp **glib.Error) uintptr {
+		x.xLookupCertificateForHandle = purego.NewCallback(func(SelfVarp uintptr, HandleVarp string, InteractionVarp uintptr, FlagsVarp TlsDatabaseLookupFlags, CancellableVarp uintptr) uintptr {
 			ret := cb(TlsDatabaseNewFromInternalPtr(SelfVarp), HandleVarp, TlsInteractionNewFromInternalPtr(InteractionVarp), FlagsVarp, CancellableNewFromInternalPtr(CancellableVarp))
 			if ret == nil {
 				return 0
@@ -205,11 +203,10 @@ func (x *TlsDatabaseClass) GetLookupCertificateForHandle() func(*TlsDatabase, st
 	if x.xLookupCertificateForHandle == 0 {
 		return nil
 	}
-	var rawCallback func(SelfVarp uintptr, HandleVarp string, InteractionVarp uintptr, FlagsVarp TlsDatabaseLookupFlags, CancellableVarp uintptr, cerrp **glib.Error) uintptr
+	var rawCallback func(SelfVarp uintptr, HandleVarp string, InteractionVarp uintptr, FlagsVarp TlsDatabaseLookupFlags, CancellableVarp uintptr) uintptr
 	purego.RegisterFunc(&rawCallback, x.xLookupCertificateForHandle)
 	return func(SelfVar *TlsDatabase, HandleVar string, InteractionVar *TlsInteraction, FlagsVar TlsDatabaseLookupFlags, CancellableVar *Cancellable) *TlsCertificate {
-		var cerr *glib.Error
-		rawRet := rawCallback(SelfVar.GoPointer(), HandleVar, InteractionVar.GoPointer(), FlagsVar, CancellableVar.GoPointer(), &cerr)
+		rawRet := rawCallback(SelfVar.GoPointer(), HandleVar, InteractionVar.GoPointer(), FlagsVar, CancellableVar.GoPointer())
 		if rawRet == 0 {
 			return nil
 		}
@@ -256,7 +253,7 @@ func (x *TlsDatabaseClass) OverrideLookupCertificateForHandleFinish(cb func(*Tls
 	if cb == nil {
 		x.xLookupCertificateForHandleFinish = 0
 	} else {
-		x.xLookupCertificateForHandleFinish = purego.NewCallback(func(SelfVarp uintptr, ResultVarp uintptr, cerrp **glib.Error) uintptr {
+		x.xLookupCertificateForHandleFinish = purego.NewCallback(func(SelfVarp uintptr, ResultVarp uintptr) uintptr {
 			ret := cb(TlsDatabaseNewFromInternalPtr(SelfVarp), &AsyncResultBase{Ptr: ResultVarp})
 			if ret == nil {
 				return 0
@@ -274,11 +271,10 @@ func (x *TlsDatabaseClass) GetLookupCertificateForHandleFinish() func(*TlsDataba
 	if x.xLookupCertificateForHandleFinish == 0 {
 		return nil
 	}
-	var rawCallback func(SelfVarp uintptr, ResultVarp uintptr, cerrp **glib.Error) uintptr
+	var rawCallback func(SelfVarp uintptr, ResultVarp uintptr) uintptr
 	purego.RegisterFunc(&rawCallback, x.xLookupCertificateForHandleFinish)
 	return func(SelfVar *TlsDatabase, ResultVar AsyncResult) *TlsCertificate {
-		var cerr *glib.Error
-		rawRet := rawCallback(SelfVar.GoPointer(), ResultVar.GoPointer(), &cerr)
+		rawRet := rawCallback(SelfVar.GoPointer(), ResultVar.GoPointer())
 		if rawRet == 0 {
 			return nil
 		}
@@ -296,7 +292,7 @@ func (x *TlsDatabaseClass) OverrideLookupCertificateIssuer(cb func(*TlsDatabase,
 	if cb == nil {
 		x.xLookupCertificateIssuer = 0
 	} else {
-		x.xLookupCertificateIssuer = purego.NewCallback(func(SelfVarp uintptr, CertificateVarp uintptr, InteractionVarp uintptr, FlagsVarp TlsDatabaseLookupFlags, CancellableVarp uintptr, cerrp **glib.Error) uintptr {
+		x.xLookupCertificateIssuer = purego.NewCallback(func(SelfVarp uintptr, CertificateVarp uintptr, InteractionVarp uintptr, FlagsVarp TlsDatabaseLookupFlags, CancellableVarp uintptr) uintptr {
 			ret := cb(TlsDatabaseNewFromInternalPtr(SelfVarp), TlsCertificateNewFromInternalPtr(CertificateVarp), TlsInteractionNewFromInternalPtr(InteractionVarp), FlagsVarp, CancellableNewFromInternalPtr(CancellableVarp))
 			if ret == nil {
 				return 0
@@ -314,11 +310,10 @@ func (x *TlsDatabaseClass) GetLookupCertificateIssuer() func(*TlsDatabase, *TlsC
 	if x.xLookupCertificateIssuer == 0 {
 		return nil
 	}
-	var rawCallback func(SelfVarp uintptr, CertificateVarp uintptr, InteractionVarp uintptr, FlagsVarp TlsDatabaseLookupFlags, CancellableVarp uintptr, cerrp **glib.Error) uintptr
+	var rawCallback func(SelfVarp uintptr, CertificateVarp uintptr, InteractionVarp uintptr, FlagsVarp TlsDatabaseLookupFlags, CancellableVarp uintptr) uintptr
 	purego.RegisterFunc(&rawCallback, x.xLookupCertificateIssuer)
 	return func(SelfVar *TlsDatabase, CertificateVar *TlsCertificate, InteractionVar *TlsInteraction, FlagsVar TlsDatabaseLookupFlags, CancellableVar *Cancellable) *TlsCertificate {
-		var cerr *glib.Error
-		rawRet := rawCallback(SelfVar.GoPointer(), CertificateVar.GoPointer(), InteractionVar.GoPointer(), FlagsVar, CancellableVar.GoPointer(), &cerr)
+		rawRet := rawCallback(SelfVar.GoPointer(), CertificateVar.GoPointer(), InteractionVar.GoPointer(), FlagsVar, CancellableVar.GoPointer())
 		if rawRet == 0 {
 			return nil
 		}
@@ -365,7 +360,7 @@ func (x *TlsDatabaseClass) OverrideLookupCertificateIssuerFinish(cb func(*TlsDat
 	if cb == nil {
 		x.xLookupCertificateIssuerFinish = 0
 	} else {
-		x.xLookupCertificateIssuerFinish = purego.NewCallback(func(SelfVarp uintptr, ResultVarp uintptr, cerrp **glib.Error) uintptr {
+		x.xLookupCertificateIssuerFinish = purego.NewCallback(func(SelfVarp uintptr, ResultVarp uintptr) uintptr {
 			ret := cb(TlsDatabaseNewFromInternalPtr(SelfVarp), &AsyncResultBase{Ptr: ResultVarp})
 			if ret == nil {
 				return 0
@@ -383,11 +378,10 @@ func (x *TlsDatabaseClass) GetLookupCertificateIssuerFinish() func(*TlsDatabase,
 	if x.xLookupCertificateIssuerFinish == 0 {
 		return nil
 	}
-	var rawCallback func(SelfVarp uintptr, ResultVarp uintptr, cerrp **glib.Error) uintptr
+	var rawCallback func(SelfVarp uintptr, ResultVarp uintptr) uintptr
 	purego.RegisterFunc(&rawCallback, x.xLookupCertificateIssuerFinish)
 	return func(SelfVar *TlsDatabase, ResultVar AsyncResult) *TlsCertificate {
-		var cerr *glib.Error
-		rawRet := rawCallback(SelfVar.GoPointer(), ResultVar.GoPointer(), &cerr)
+		rawRet := rawCallback(SelfVar.GoPointer(), ResultVar.GoPointer())
 		if rawRet == 0 {
 			return nil
 		}
@@ -405,7 +399,7 @@ func (x *TlsDatabaseClass) OverrideLookupCertificatesIssuedBy(cb func(*TlsDataba
 	if cb == nil {
 		x.xLookupCertificatesIssuedBy = 0
 	} else {
-		x.xLookupCertificatesIssuedBy = purego.NewCallback(func(SelfVarp uintptr, IssuerRawDnVarp []byte, InteractionVarp uintptr, FlagsVarp TlsDatabaseLookupFlags, CancellableVarp uintptr, cerrp **glib.Error) uintptr {
+		x.xLookupCertificatesIssuedBy = purego.NewCallback(func(SelfVarp uintptr, IssuerRawDnVarp []byte, InteractionVarp uintptr, FlagsVarp TlsDatabaseLookupFlags, CancellableVarp uintptr) uintptr {
 			ret := cb(TlsDatabaseNewFromInternalPtr(SelfVarp), IssuerRawDnVarp, TlsInteractionNewFromInternalPtr(InteractionVarp), FlagsVarp, CancellableNewFromInternalPtr(CancellableVarp))
 			if ret == nil {
 				return 0
@@ -423,11 +417,10 @@ func (x *TlsDatabaseClass) GetLookupCertificatesIssuedBy() func(*TlsDatabase, []
 	if x.xLookupCertificatesIssuedBy == 0 {
 		return nil
 	}
-	var rawCallback func(SelfVarp uintptr, IssuerRawDnVarp []byte, InteractionVarp uintptr, FlagsVarp TlsDatabaseLookupFlags, CancellableVarp uintptr, cerrp **glib.Error) uintptr
+	var rawCallback func(SelfVarp uintptr, IssuerRawDnVarp []byte, InteractionVarp uintptr, FlagsVarp TlsDatabaseLookupFlags, CancellableVarp uintptr) uintptr
 	purego.RegisterFunc(&rawCallback, x.xLookupCertificatesIssuedBy)
 	return func(SelfVar *TlsDatabase, IssuerRawDnVar []byte, InteractionVar *TlsInteraction, FlagsVar TlsDatabaseLookupFlags, CancellableVar *Cancellable) *glib.List {
-		var cerr *glib.Error
-		rawRet := rawCallback(SelfVar.GoPointer(), IssuerRawDnVar, InteractionVar.GoPointer(), FlagsVar, CancellableVar.GoPointer(), &cerr)
+		rawRet := rawCallback(SelfVar.GoPointer(), IssuerRawDnVar, InteractionVar.GoPointer(), FlagsVar, CancellableVar.GoPointer())
 		if rawRet == 0 {
 			return nil
 		}
@@ -472,7 +465,7 @@ func (x *TlsDatabaseClass) OverrideLookupCertificatesIssuedByFinish(cb func(*Tls
 	if cb == nil {
 		x.xLookupCertificatesIssuedByFinish = 0
 	} else {
-		x.xLookupCertificatesIssuedByFinish = purego.NewCallback(func(SelfVarp uintptr, ResultVarp uintptr, cerrp **glib.Error) uintptr {
+		x.xLookupCertificatesIssuedByFinish = purego.NewCallback(func(SelfVarp uintptr, ResultVarp uintptr) uintptr {
 			ret := cb(TlsDatabaseNewFromInternalPtr(SelfVarp), &AsyncResultBase{Ptr: ResultVarp})
 			if ret == nil {
 				return 0
@@ -490,11 +483,10 @@ func (x *TlsDatabaseClass) GetLookupCertificatesIssuedByFinish() func(*TlsDataba
 	if x.xLookupCertificatesIssuedByFinish == 0 {
 		return nil
 	}
-	var rawCallback func(SelfVarp uintptr, ResultVarp uintptr, cerrp **glib.Error) uintptr
+	var rawCallback func(SelfVarp uintptr, ResultVarp uintptr) uintptr
 	purego.RegisterFunc(&rawCallback, x.xLookupCertificatesIssuedByFinish)
 	return func(SelfVar *TlsDatabase, ResultVar AsyncResult) *glib.List {
-		var cerr *glib.Error
-		rawRet := rawCallback(SelfVar.GoPointer(), ResultVar.GoPointer(), &cerr)
+		rawRet := rawCallback(SelfVar.GoPointer(), ResultVar.GoPointer())
 		if rawRet == 0 {
 			return nil
 		}
@@ -543,7 +535,6 @@ type TlsDatabase struct {
 var xTlsDatabaseGLibType func() types.GType
 
 func TlsDatabaseGLibType() types.GType {
-	core.LazyRegister(&xTlsDatabaseGLibType, "GIO", "g_tls_database_get_type", false)
 	return xTlsDatabaseGLibType()
 }
 
@@ -564,8 +555,6 @@ var xTlsDatabaseCreateCertificateHandle func(uintptr, uintptr) string
 // and between applications. If a certificate is modified in the database,
 // then it is not guaranteed that this handle will continue to point to it.
 func (x *TlsDatabase) CreateCertificateHandle(CertificateVar *TlsCertificate) string {
-	core.LazyRegister(&xTlsDatabaseCreateCertificateHandle, "GIO", "g_tls_database_create_certificate_handle", false)
-
 	cret := xTlsDatabaseCreateCertificateHandle(x.GoPointer(), CertificateVar.GoPointer())
 	return cret
 }
@@ -585,7 +574,6 @@ var xTlsDatabaseLookupCertificateForHandle func(uintptr, string, uintptr, TlsDat
 // This function can block, use g_tls_database_lookup_certificate_for_handle_async() to perform
 // the lookup operation asynchronously.
 func (x *TlsDatabase) LookupCertificateForHandle(HandleVar string, InteractionVar *TlsInteraction, FlagsVar TlsDatabaseLookupFlags, CancellableVar *Cancellable) (*TlsCertificate, error) {
-	core.LazyRegister(&xTlsDatabaseLookupCertificateForHandle, "GIO", "g_tls_database_lookup_certificate_for_handle", false)
 	var cls *TlsCertificate
 	var cerr *glib.Error
 
@@ -607,8 +595,6 @@ var xTlsDatabaseLookupCertificateForHandleAsync func(uintptr, string, uintptr, T
 // Asynchronously look up a certificate by its handle in the database. See
 // g_tls_database_lookup_certificate_for_handle() for more information.
 func (x *TlsDatabase) LookupCertificateForHandleAsync(HandleVar string, InteractionVar *TlsInteraction, FlagsVar TlsDatabaseLookupFlags, CancellableVar *Cancellable, CallbackVar *AsyncReadyCallback, UserDataVar uintptr) {
-	core.LazyRegister(&xTlsDatabaseLookupCertificateForHandleAsync, "GIO", "g_tls_database_lookup_certificate_for_handle_async", false)
-
 	xTlsDatabaseLookupCertificateForHandleAsync(x.GoPointer(), HandleVar, InteractionVar.GoPointer(), FlagsVar, CancellableVar.GoPointer(), glib.NewCallbackNullable(CallbackVar), UserDataVar)
 }
 
@@ -620,7 +606,6 @@ var xTlsDatabaseLookupCertificateForHandleFinish func(uintptr, uintptr, **glib.E
 // If the handle is no longer valid, or does not point to a certificate in
 // this database, then %NULL will be returned.
 func (x *TlsDatabase) LookupCertificateForHandleFinish(ResultVar AsyncResult) (*TlsCertificate, error) {
-	core.LazyRegister(&xTlsDatabaseLookupCertificateForHandleFinish, "GIO", "g_tls_database_lookup_certificate_for_handle_finish", false)
 	var cls *TlsCertificate
 	var cerr *glib.Error
 
@@ -660,7 +645,6 @@ var xTlsDatabaseLookupCertificateIssuer func(uintptr, uintptr, uintptr, TlsDatab
 // security-related decisions. Only GLib itself should make security
 // decisions about TLS certificates.
 func (x *TlsDatabase) LookupCertificateIssuer(CertificateVar *TlsCertificate, InteractionVar *TlsInteraction, FlagsVar TlsDatabaseLookupFlags, CancellableVar *Cancellable) (*TlsCertificate, error) {
-	core.LazyRegister(&xTlsDatabaseLookupCertificateIssuer, "GIO", "g_tls_database_lookup_certificate_issuer", false)
 	var cls *TlsCertificate
 	var cerr *glib.Error
 
@@ -682,8 +666,6 @@ var xTlsDatabaseLookupCertificateIssuerAsync func(uintptr, uintptr, uintptr, Tls
 // Asynchronously look up the issuer of @certificate in the database. See
 // g_tls_database_lookup_certificate_issuer() for more information.
 func (x *TlsDatabase) LookupCertificateIssuerAsync(CertificateVar *TlsCertificate, InteractionVar *TlsInteraction, FlagsVar TlsDatabaseLookupFlags, CancellableVar *Cancellable, CallbackVar *AsyncReadyCallback, UserDataVar uintptr) {
-	core.LazyRegister(&xTlsDatabaseLookupCertificateIssuerAsync, "GIO", "g_tls_database_lookup_certificate_issuer_async", false)
-
 	xTlsDatabaseLookupCertificateIssuerAsync(x.GoPointer(), CertificateVar.GoPointer(), InteractionVar.GoPointer(), FlagsVar, CancellableVar.GoPointer(), glib.NewCallbackNullable(CallbackVar), UserDataVar)
 }
 
@@ -692,7 +674,6 @@ var xTlsDatabaseLookupCertificateIssuerFinish func(uintptr, uintptr, **glib.Erro
 // Finish an asynchronous lookup issuer operation. See
 // g_tls_database_lookup_certificate_issuer() for more information.
 func (x *TlsDatabase) LookupCertificateIssuerFinish(ResultVar AsyncResult) (*TlsCertificate, error) {
-	core.LazyRegister(&xTlsDatabaseLookupCertificateIssuerFinish, "GIO", "g_tls_database_lookup_certificate_issuer_finish", false)
 	var cls *TlsCertificate
 	var cerr *glib.Error
 
@@ -716,7 +697,6 @@ var xTlsDatabaseLookupCertificatesIssuedBy func(uintptr, []byte, uintptr, TlsDat
 // This function can block, use g_tls_database_lookup_certificates_issued_by_async() to perform
 // the lookup operation asynchronously.
 func (x *TlsDatabase) LookupCertificatesIssuedBy(IssuerRawDnVar []byte, InteractionVar *TlsInteraction, FlagsVar TlsDatabaseLookupFlags, CancellableVar *Cancellable) (*glib.List, error) {
-	core.LazyRegister(&xTlsDatabaseLookupCertificatesIssuedBy, "GIO", "g_tls_database_lookup_certificates_issued_by", false)
 	var cerr *glib.Error
 
 	cret := xTlsDatabaseLookupCertificatesIssuedBy(x.GoPointer(), IssuerRawDnVar, InteractionVar.GoPointer(), FlagsVar, CancellableVar.GoPointer(), &cerr)
@@ -738,8 +718,6 @@ var xTlsDatabaseLookupCertificatesIssuedByAsync func(uintptr, []byte, uintptr, T
 // of this asynchronous operation. The byte array should not be modified during
 // this time.
 func (x *TlsDatabase) LookupCertificatesIssuedByAsync(IssuerRawDnVar []byte, InteractionVar *TlsInteraction, FlagsVar TlsDatabaseLookupFlags, CancellableVar *Cancellable, CallbackVar *AsyncReadyCallback, UserDataVar uintptr) {
-	core.LazyRegister(&xTlsDatabaseLookupCertificatesIssuedByAsync, "GIO", "g_tls_database_lookup_certificates_issued_by_async", false)
-
 	xTlsDatabaseLookupCertificatesIssuedByAsync(x.GoPointer(), IssuerRawDnVar, InteractionVar.GoPointer(), FlagsVar, CancellableVar.GoPointer(), glib.NewCallbackNullable(CallbackVar), UserDataVar)
 }
 
@@ -748,7 +726,6 @@ var xTlsDatabaseLookupCertificatesIssuedByFinish func(uintptr, uintptr, **glib.E
 // Finish an asynchronous lookup of certificates. See
 // g_tls_database_lookup_certificates_issued_by() for more information.
 func (x *TlsDatabase) LookupCertificatesIssuedByFinish(ResultVar AsyncResult) (*glib.List, error) {
-	core.LazyRegister(&xTlsDatabaseLookupCertificatesIssuedByFinish, "GIO", "g_tls_database_lookup_certificates_issued_by_finish", false)
 	var cerr *glib.Error
 
 	cret := xTlsDatabaseLookupCertificatesIssuedByFinish(x.GoPointer(), ResultVar.GoPointer(), &cerr)
@@ -824,7 +801,6 @@ var xTlsDatabaseVerifyChain func(uintptr, uintptr, string, uintptr, uintptr, Tls
 // This function can block. Use g_tls_database_verify_chain_async() to
 // perform the verification operation asynchronously.
 func (x *TlsDatabase) VerifyChain(ChainVar *TlsCertificate, PurposeVar string, IdentityVar SocketConnectable, InteractionVar *TlsInteraction, FlagsVar TlsDatabaseVerifyFlags, CancellableVar *Cancellable) (TlsCertificateFlags, error) {
-	core.LazyRegister(&xTlsDatabaseVerifyChain, "GIO", "g_tls_database_verify_chain", false)
 	var cerr *glib.Error
 
 	cret := xTlsDatabaseVerifyChain(x.GoPointer(), ChainVar.GoPointer(), PurposeVar, IdentityVar.GoPointer(), InteractionVar.GoPointer(), FlagsVar, CancellableVar.GoPointer(), &cerr)
@@ -840,8 +816,6 @@ var xTlsDatabaseVerifyChainAsync func(uintptr, uintptr, string, uintptr, uintptr
 // looking up and adding any missing certificates to the chain. See
 // g_tls_database_verify_chain() for more information.
 func (x *TlsDatabase) VerifyChainAsync(ChainVar *TlsCertificate, PurposeVar string, IdentityVar SocketConnectable, InteractionVar *TlsInteraction, FlagsVar TlsDatabaseVerifyFlags, CancellableVar *Cancellable, CallbackVar *AsyncReadyCallback, UserDataVar uintptr) {
-	core.LazyRegister(&xTlsDatabaseVerifyChainAsync, "GIO", "g_tls_database_verify_chain_async", false)
-
 	xTlsDatabaseVerifyChainAsync(x.GoPointer(), ChainVar.GoPointer(), PurposeVar, IdentityVar.GoPointer(), InteractionVar.GoPointer(), FlagsVar, CancellableVar.GoPointer(), glib.NewCallbackNullable(CallbackVar), UserDataVar)
 }
 
@@ -859,7 +833,6 @@ var xTlsDatabaseVerifyChainFinish func(uintptr, uintptr, **glib.Error) TlsCertif
 // accordingly. @error is not set when @chain is successfully analyzed
 // but found to be invalid.
 func (x *TlsDatabase) VerifyChainFinish(ResultVar AsyncResult) (TlsCertificateFlags, error) {
-	core.LazyRegister(&xTlsDatabaseVerifyChainFinish, "GIO", "g_tls_database_verify_chain_finish", false)
 	var cerr *glib.Error
 
 	cret := xTlsDatabaseVerifyChainFinish(x.GoPointer(), ResultVar.GoPointer(), &cerr)
@@ -883,4 +856,28 @@ func (c *TlsDatabase) SetGoPointer(ptr uintptr) {
 func init() {
 	core.SetPackageName("GIO", "gio-2.0")
 	core.SetSharedLibraries("GIO", []string{"libgio-2.0.so.0", "libgio-2.0.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GIO") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xTlsDatabaseGLibType, libs, "g_tls_database_get_type")
+
+	core.PuregoSafeRegister(&xTlsDatabaseCreateCertificateHandle, libs, "g_tls_database_create_certificate_handle")
+	core.PuregoSafeRegister(&xTlsDatabaseLookupCertificateForHandle, libs, "g_tls_database_lookup_certificate_for_handle")
+	core.PuregoSafeRegister(&xTlsDatabaseLookupCertificateForHandleAsync, libs, "g_tls_database_lookup_certificate_for_handle_async")
+	core.PuregoSafeRegister(&xTlsDatabaseLookupCertificateForHandleFinish, libs, "g_tls_database_lookup_certificate_for_handle_finish")
+	core.PuregoSafeRegister(&xTlsDatabaseLookupCertificateIssuer, libs, "g_tls_database_lookup_certificate_issuer")
+	core.PuregoSafeRegister(&xTlsDatabaseLookupCertificateIssuerAsync, libs, "g_tls_database_lookup_certificate_issuer_async")
+	core.PuregoSafeRegister(&xTlsDatabaseLookupCertificateIssuerFinish, libs, "g_tls_database_lookup_certificate_issuer_finish")
+	core.PuregoSafeRegister(&xTlsDatabaseLookupCertificatesIssuedBy, libs, "g_tls_database_lookup_certificates_issued_by")
+	core.PuregoSafeRegister(&xTlsDatabaseLookupCertificatesIssuedByAsync, libs, "g_tls_database_lookup_certificates_issued_by_async")
+	core.PuregoSafeRegister(&xTlsDatabaseLookupCertificatesIssuedByFinish, libs, "g_tls_database_lookup_certificates_issued_by_finish")
+	core.PuregoSafeRegister(&xTlsDatabaseVerifyChain, libs, "g_tls_database_verify_chain")
+	core.PuregoSafeRegister(&xTlsDatabaseVerifyChainAsync, libs, "g_tls_database_verify_chain_async")
+	core.PuregoSafeRegister(&xTlsDatabaseVerifyChainFinish, libs, "g_tls_database_verify_chain_finish")
 }

@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -62,7 +63,6 @@ type PowerProfileMonitor interface {
 var xPowerProfileMonitorGLibType func() types.GType
 
 func PowerProfileMonitorGLibType() types.GType {
-	core.LazyRegister(&xPowerProfileMonitorGLibType, "GIO", "g_power_profile_monitor_get_type", false)
 	return xPowerProfileMonitorGLibType()
 }
 
@@ -101,11 +101,7 @@ func (x *PowerProfileMonitorBase) GetPropertyPowerSaverEnabled() bool {
 	return v.GetBoolean()
 }
 
-var XGPowerProfileMonitorGetPowerSaverEnabled func(uintptr) bool = func(instance uintptr) bool {
-	core.LazyRegister(&xXGPowerProfileMonitorGetPowerSaverEnabled, "GIO", "g_power_profile_monitor_get_power_saver_enabled", false)
-	return xXGPowerProfileMonitorGetPowerSaverEnabled(instance)
-}
-var xXGPowerProfileMonitorGetPowerSaverEnabled func(uintptr) bool
+var XGPowerProfileMonitorGetPowerSaverEnabled func(uintptr) bool
 
 const (
 	// Extension point for power profile usage monitoring functionality.
@@ -117,7 +113,6 @@ var xPowerProfileMonitorDupDefault func() uintptr
 
 // Gets a reference to the default #GPowerProfileMonitor for the system.
 func PowerProfileMonitorDupDefault() *PowerProfileMonitorBase {
-	core.LazyRegister(&xPowerProfileMonitorDupDefault, "GIO", "g_power_profile_monitor_dup_default", false)
 	var cls *PowerProfileMonitorBase
 
 	cret := xPowerProfileMonitorDupDefault()
@@ -133,4 +128,18 @@ func PowerProfileMonitorDupDefault() *PowerProfileMonitorBase {
 func init() {
 	core.SetPackageName("GIO", "gio-2.0")
 	core.SetSharedLibraries("GIO", []string{"libgio-2.0.so.0", "libgio-2.0.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GIO") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xPowerProfileMonitorDupDefault, libs, "g_power_profile_monitor_dup_default")
+
+	core.PuregoSafeRegister(&xPowerProfileMonitorGLibType, libs, "g_power_profile_monitor_get_type")
+
+	core.PuregoSafeRegister(&XGPowerProfileMonitorGetPowerSaverEnabled, libs, "g_power_profile_monitor_get_power_saver_enabled")
 }

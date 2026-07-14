@@ -153,7 +153,6 @@ type ColorChooser interface {
 var xColorChooserGLibType func() types.GType
 
 func ColorChooserGLibType() types.GType {
-	core.LazyRegister(&xColorChooserGLibType, "GTK", "gtk_color_chooser_get_type", false)
 	return xColorChooserGLibType()
 }
 
@@ -276,42 +275,31 @@ func (x *ColorChooserBase) GetPropertyUseAlpha() bool {
 	return v.GetBoolean()
 }
 
-var XGtkColorChooserAddPalette func(uintptr, Orientation, int, int, []gdk.RGBA) = func(instance uintptr, OrientationVarp Orientation, ColorsPerLineVarp int, NColorsVarp int, ColorsVarp []gdk.RGBA) {
-	core.LazyRegister(&xXGtkColorChooserAddPalette, "GTK", "gtk_color_chooser_add_palette", false)
-	xXGtkColorChooserAddPalette(instance, OrientationVarp, ColorsPerLineVarp, NColorsVarp, ColorsVarp)
-}
-
 var (
-	xXGtkColorChooserAddPalette func(uintptr, Orientation, int, int, []gdk.RGBA)
-	XGtkColorChooserGetRgba     func(uintptr, *gdk.RGBA) = func(instance uintptr, ColorVarp *gdk.RGBA) {
-		core.LazyRegister(&xXGtkColorChooserGetRgba, "GTK", "gtk_color_chooser_get_rgba", false)
-		xXGtkColorChooserGetRgba(instance, ColorVarp)
-	}
+	XGtkColorChooserAddPalette  func(uintptr, Orientation, int, int, []gdk.RGBA)
+	XGtkColorChooserGetRgba     func(uintptr, *gdk.RGBA)
+	XGtkColorChooserGetUseAlpha func(uintptr) bool
+	XGtkColorChooserSetRgba     func(uintptr, *gdk.RGBA)
+	XGtkColorChooserSetUseAlpha func(uintptr, bool)
 )
-var (
-	xXGtkColorChooserGetRgba    func(uintptr, *gdk.RGBA)
-	XGtkColorChooserGetUseAlpha func(uintptr) bool = func(instance uintptr) bool {
-		core.LazyRegister(&xXGtkColorChooserGetUseAlpha, "GTK", "gtk_color_chooser_get_use_alpha", false)
-		return xXGtkColorChooserGetUseAlpha(instance)
-	}
-)
-var (
-	xXGtkColorChooserGetUseAlpha func(uintptr) bool
-	XGtkColorChooserSetRgba      func(uintptr, *gdk.RGBA) = func(instance uintptr, ColorVarp *gdk.RGBA) {
-		core.LazyRegister(&xXGtkColorChooserSetRgba, "GTK", "gtk_color_chooser_set_rgba", false)
-		xXGtkColorChooserSetRgba(instance, ColorVarp)
-	}
-)
-var (
-	xXGtkColorChooserSetRgba    func(uintptr, *gdk.RGBA)
-	XGtkColorChooserSetUseAlpha func(uintptr, bool) = func(instance uintptr, UseAlphaVarp bool) {
-		core.LazyRegister(&xXGtkColorChooserSetUseAlpha, "GTK", "gtk_color_chooser_set_use_alpha", false)
-		xXGtkColorChooserSetUseAlpha(instance, UseAlphaVarp)
-	}
-)
-var xXGtkColorChooserSetUseAlpha func(uintptr, bool)
 
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GTK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xColorChooserGLibType, libs, "gtk_color_chooser_get_type")
+
+	core.PuregoSafeRegister(&XGtkColorChooserAddPalette, libs, "gtk_color_chooser_add_palette")
+	core.PuregoSafeRegister(&XGtkColorChooserGetRgba, libs, "gtk_color_chooser_get_rgba")
+	core.PuregoSafeRegister(&XGtkColorChooserGetUseAlpha, libs, "gtk_color_chooser_get_use_alpha")
+	core.PuregoSafeRegister(&XGtkColorChooserSetRgba, libs, "gtk_color_chooser_set_rgba")
+	core.PuregoSafeRegister(&XGtkColorChooserSetUseAlpha, libs, "gtk_color_chooser_set_use_alpha")
 }

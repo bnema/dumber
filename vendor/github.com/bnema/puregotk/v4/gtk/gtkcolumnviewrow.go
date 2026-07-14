@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -37,7 +38,6 @@ type ColumnViewRow struct {
 var xColumnViewRowGLibType func() types.GType
 
 func ColumnViewRowGLibType() types.GType {
-	core.LazyRegister(&xColumnViewRowGLibType, "GTK", "gtk_column_view_row_get_type", false)
 	return xColumnViewRowGLibType()
 }
 
@@ -51,8 +51,6 @@ var xColumnViewRowGetAccessibleDescription func(uintptr) string
 
 // Gets the accessible description of @self.
 func (x *ColumnViewRow) GetAccessibleDescription() string {
-	core.LazyRegister(&xColumnViewRowGetAccessibleDescription, "GTK", "gtk_column_view_row_get_accessible_description", false)
-
 	cret := xColumnViewRowGetAccessibleDescription(x.GoPointer())
 	return cret
 }
@@ -61,8 +59,6 @@ var xColumnViewRowGetAccessibleLabel func(uintptr) string
 
 // Gets the accessible label of @self.
 func (x *ColumnViewRow) GetAccessibleLabel() string {
-	core.LazyRegister(&xColumnViewRowGetAccessibleLabel, "GTK", "gtk_column_view_row_get_accessible_label", false)
-
 	cret := xColumnViewRowGetAccessibleLabel(x.GoPointer())
 	return cret
 }
@@ -72,8 +68,6 @@ var xColumnViewRowGetActivatable func(uintptr) bool
 // Checks if the row has been set to be activatable via
 // gtk_column_view_row_set_activatable().
 func (x *ColumnViewRow) GetActivatable() bool {
-	core.LazyRegister(&xColumnViewRowGetActivatable, "GTK", "gtk_column_view_row_get_activatable", false)
-
 	cret := xColumnViewRowGetActivatable(x.GoPointer())
 	return cret
 }
@@ -83,8 +77,6 @@ var xColumnViewRowGetFocusable func(uintptr) bool
 // Checks if a row item has been set to be focusable via
 // gtk_column_view_row_set_focusable().
 func (x *ColumnViewRow) GetFocusable() bool {
-	core.LazyRegister(&xColumnViewRowGetFocusable, "GTK", "gtk_column_view_row_get_focusable", false)
-
 	cret := xColumnViewRowGetFocusable(x.GoPointer())
 	return cret
 }
@@ -95,7 +87,6 @@ var xColumnViewRowGetItem func(uintptr) uintptr
 //
 // If @self is unbound, this function returns %NULL.
 func (x *ColumnViewRow) GetItem() *gobject.Object {
-	core.LazyRegister(&xColumnViewRowGetItem, "GTK", "gtk_column_view_row_get_item", false)
 	var cls *gobject.Object
 
 	cret := xColumnViewRowGetItem(x.GoPointer())
@@ -115,8 +106,6 @@ var xColumnViewRowGetPosition func(uintptr) uint
 //
 // If @self is unbound, %GTK_INVALID_LIST_POSITION is returned.
 func (x *ColumnViewRow) GetPosition() uint {
-	core.LazyRegister(&xColumnViewRowGetPosition, "GTK", "gtk_column_view_row_get_position", false)
-
 	cret := xColumnViewRowGetPosition(x.GoPointer())
 	return cret
 }
@@ -128,8 +117,6 @@ var xColumnViewRowGetSelectable func(uintptr) bool
 //
 // Do not confuse this function with [method@Gtk.ColumnViewRow.get_selected].
 func (x *ColumnViewRow) GetSelectable() bool {
-	core.LazyRegister(&xColumnViewRowGetSelectable, "GTK", "gtk_column_view_row_get_selectable", false)
-
 	cret := xColumnViewRowGetSelectable(x.GoPointer())
 	return cret
 }
@@ -141,8 +128,6 @@ var xColumnViewRowGetSelected func(uintptr) bool
 // The selected state is maintained by the list widget and its model
 // and cannot be set otherwise.
 func (x *ColumnViewRow) GetSelected() bool {
-	core.LazyRegister(&xColumnViewRowGetSelected, "GTK", "gtk_column_view_row_get_selected", false)
-
 	cret := xColumnViewRowGetSelected(x.GoPointer())
 	return cret
 }
@@ -152,8 +137,6 @@ var xColumnViewRowSetAccessibleDescription func(uintptr, string)
 // Sets the accessible description for the row,
 // which may be used by e.g. screen readers.
 func (x *ColumnViewRow) SetAccessibleDescription(DescriptionVar string) {
-	core.LazyRegister(&xColumnViewRowSetAccessibleDescription, "GTK", "gtk_column_view_row_set_accessible_description", false)
-
 	xColumnViewRowSetAccessibleDescription(x.GoPointer(), DescriptionVar)
 }
 
@@ -162,8 +145,6 @@ var xColumnViewRowSetAccessibleLabel func(uintptr, string)
 // Sets the accessible label for the row,
 // which may be used by e.g. screen readers.
 func (x *ColumnViewRow) SetAccessibleLabel(LabelVar string) {
-	core.LazyRegister(&xColumnViewRowSetAccessibleLabel, "GTK", "gtk_column_view_row_set_accessible_label", false)
-
 	xColumnViewRowSetAccessibleLabel(x.GoPointer(), LabelVar)
 }
 
@@ -178,8 +159,6 @@ var xColumnViewRowSetActivatable func(uintptr, bool)
 //
 // By default, row are activatable.
 func (x *ColumnViewRow) SetActivatable(ActivatableVar bool) {
-	core.LazyRegister(&xColumnViewRowSetActivatable, "GTK", "gtk_column_view_row_set_activatable", false)
-
 	xColumnViewRowSetActivatable(x.GoPointer(), ActivatableVar)
 }
 
@@ -195,8 +174,6 @@ var xColumnViewRowSetFocusable func(uintptr, bool)
 //
 // By default, rows are focusable.
 func (x *ColumnViewRow) SetFocusable(FocusableVar bool) {
-	core.LazyRegister(&xColumnViewRowSetFocusable, "GTK", "gtk_column_view_row_set_focusable", false)
-
 	xColumnViewRowSetFocusable(x.GoPointer(), FocusableVar)
 }
 
@@ -214,8 +191,6 @@ var xColumnViewRowSetSelectable func(uintptr, bool)
 //
 // By default, rows are selectable.
 func (x *ColumnViewRow) SetSelectable(SelectableVar bool) {
-	core.LazyRegister(&xColumnViewRowSetSelectable, "GTK", "gtk_column_view_row_set_selectable", false)
-
 	xColumnViewRowSetSelectable(x.GoPointer(), SelectableVar)
 }
 
@@ -334,4 +309,28 @@ func (x *ColumnViewRow) GetPropertySelected() bool {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GTK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xColumnViewRowGLibType, libs, "gtk_column_view_row_get_type")
+
+	core.PuregoSafeRegister(&xColumnViewRowGetAccessibleDescription, libs, "gtk_column_view_row_get_accessible_description")
+	core.PuregoSafeRegister(&xColumnViewRowGetAccessibleLabel, libs, "gtk_column_view_row_get_accessible_label")
+	core.PuregoSafeRegister(&xColumnViewRowGetActivatable, libs, "gtk_column_view_row_get_activatable")
+	core.PuregoSafeRegister(&xColumnViewRowGetFocusable, libs, "gtk_column_view_row_get_focusable")
+	core.PuregoSafeRegister(&xColumnViewRowGetItem, libs, "gtk_column_view_row_get_item")
+	core.PuregoSafeRegister(&xColumnViewRowGetPosition, libs, "gtk_column_view_row_get_position")
+	core.PuregoSafeRegister(&xColumnViewRowGetSelectable, libs, "gtk_column_view_row_get_selectable")
+	core.PuregoSafeRegister(&xColumnViewRowGetSelected, libs, "gtk_column_view_row_get_selected")
+	core.PuregoSafeRegister(&xColumnViewRowSetAccessibleDescription, libs, "gtk_column_view_row_set_accessible_description")
+	core.PuregoSafeRegister(&xColumnViewRowSetAccessibleLabel, libs, "gtk_column_view_row_set_accessible_label")
+	core.PuregoSafeRegister(&xColumnViewRowSetActivatable, libs, "gtk_column_view_row_set_activatable")
+	core.PuregoSafeRegister(&xColumnViewRowSetFocusable, libs, "gtk_column_view_row_set_focusable")
+	core.PuregoSafeRegister(&xColumnViewRowSetSelectable, libs, "gtk_column_view_row_set_selectable")
 }

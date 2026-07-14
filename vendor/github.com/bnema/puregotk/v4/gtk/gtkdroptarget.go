@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gdk"
 	"github.com/bnema/puregotk/v4/glib"
@@ -110,7 +111,6 @@ type DropTarget struct {
 var xDropTargetGLibType func() types.GType
 
 func DropTargetGLibType() types.GType {
-	core.LazyRegister(&xDropTargetGLibType, "GTK", "gtk_drop_target_get_type", false)
 	return xDropTargetGLibType()
 }
 
@@ -128,7 +128,6 @@ var xNewDropTarget func(types.GType, gdk.DragAction) uintptr
 // %G_TYPE_INVALID for @type and then call
 // [method@Gtk.DropTarget.set_gtypes].
 func NewDropTarget(TypeVar types.GType, ActionsVar gdk.DragAction) *DropTarget {
-	core.LazyRegister(&xNewDropTarget, "GTK", "gtk_drop_target_new", false)
 	var cls *DropTarget
 
 	cret := xNewDropTarget(TypeVar, ActionsVar)
@@ -145,8 +144,6 @@ var xDropTargetGetActions func(uintptr) gdk.DragAction
 
 // Gets the actions that this drop target supports.
 func (x *DropTarget) GetActions() gdk.DragAction {
-	core.LazyRegister(&xDropTargetGetActions, "GTK", "gtk_drop_target_get_actions", false)
-
 	cret := xDropTargetGetActions(x.GoPointer())
 	return cret
 }
@@ -157,7 +154,6 @@ var xDropTargetGetCurrentDrop func(uintptr) uintptr
 //
 // If no drop operation is going on, %NULL is returned.
 func (x *DropTarget) GetCurrentDrop() *gdk.Drop {
-	core.LazyRegister(&xDropTargetGetCurrentDrop, "GTK", "gtk_drop_target_get_current_drop", false)
 	var cls *gdk.Drop
 
 	cret := xDropTargetGetCurrentDrop(x.GoPointer())
@@ -177,7 +173,6 @@ var xDropTargetGetDrop func(uintptr) uintptr
 //
 // If no drop operation is going on, %NULL is returned.
 func (x *DropTarget) GetDrop() *gdk.Drop {
-	core.LazyRegister(&xDropTargetGetDrop, "GTK", "gtk_drop_target_get_drop", false)
 	var cls *gdk.Drop
 
 	cret := xDropTargetGetDrop(x.GoPointer())
@@ -197,8 +192,6 @@ var xDropTargetGetFormats func(uintptr) uintptr
 //
 // If the result is %NULL, all formats are expected to be supported.
 func (x *DropTarget) GetFormats() *gdk.ContentFormats {
-	core.LazyRegister(&xDropTargetGetFormats, "GTK", "gtk_drop_target_get_formats", false)
-
 	cret := xDropTargetGetFormats(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -212,8 +205,6 @@ var xDropTargetGetGtypes func(uintptr, *uint) uintptr
 //
 // If no types have been set, `NULL` will be returned.
 func (x *DropTarget) GetGtypes(NTypesVar *uint) uintptr {
-	core.LazyRegister(&xDropTargetGetGtypes, "GTK", "gtk_drop_target_get_gtypes", false)
-
 	cret := xDropTargetGetGtypes(x.GoPointer(), NTypesVar)
 	return cret
 }
@@ -222,8 +213,6 @@ var xDropTargetGetPreload func(uintptr) bool
 
 // Gets whether data should be preloaded on hover.
 func (x *DropTarget) GetPreload() bool {
-	core.LazyRegister(&xDropTargetGetPreload, "GTK", "gtk_drop_target_get_preload", false)
-
 	cret := xDropTargetGetPreload(x.GoPointer())
 	return cret
 }
@@ -232,8 +221,6 @@ var xDropTargetGetValue func(uintptr) uintptr
 
 // Gets the current drop data, as a `GValue`.
 func (x *DropTarget) GetValue() *gobject.Value {
-	core.LazyRegister(&xDropTargetGetValue, "GTK", "gtk_drop_target_get_value", false)
-
 	cret := xDropTargetGetValue(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -252,8 +239,6 @@ var xDropTargetReject func(uintptr)
 // on whether to accept a drag or not until after reading
 // the data.
 func (x *DropTarget) Reject() {
-	core.LazyRegister(&xDropTargetReject, "GTK", "gtk_drop_target_reject", false)
-
 	xDropTargetReject(x.GoPointer())
 }
 
@@ -261,8 +246,6 @@ var xDropTargetSetActions func(uintptr, gdk.DragAction)
 
 // Sets the actions that this drop target supports.
 func (x *DropTarget) SetActions(ActionsVar gdk.DragAction) {
-	core.LazyRegister(&xDropTargetSetActions, "GTK", "gtk_drop_target_set_actions", false)
-
 	xDropTargetSetActions(x.GoPointer(), ActionsVar)
 }
 
@@ -270,8 +253,6 @@ var xDropTargetSetGtypes func(uintptr, []types.GType, uint)
 
 // Sets the supported `GType`s for this drop target.
 func (x *DropTarget) SetGtypes(TypesVar []types.GType, NTypesVar uint) {
-	core.LazyRegister(&xDropTargetSetGtypes, "GTK", "gtk_drop_target_set_gtypes", false)
-
 	xDropTargetSetGtypes(x.GoPointer(), TypesVar, NTypesVar)
 }
 
@@ -279,8 +260,6 @@ var xDropTargetSetPreload func(uintptr, bool)
 
 // Sets whether data should be preloaded on hover.
 func (x *DropTarget) SetPreload(PreloadVar bool) {
-	core.LazyRegister(&xDropTargetSetPreload, "GTK", "gtk_drop_target_set_preload", false)
-
 	xDropTargetSetPreload(x.GoPointer(), PreloadVar)
 }
 
@@ -533,4 +512,28 @@ func (x *DropTarget) ConnectMotion(cb *func(DropTarget, float64, float64) gdk.Dr
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GTK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xDropTargetGLibType, libs, "gtk_drop_target_get_type")
+
+	core.PuregoSafeRegister(&xNewDropTarget, libs, "gtk_drop_target_new")
+
+	core.PuregoSafeRegister(&xDropTargetGetActions, libs, "gtk_drop_target_get_actions")
+	core.PuregoSafeRegister(&xDropTargetGetCurrentDrop, libs, "gtk_drop_target_get_current_drop")
+	core.PuregoSafeRegister(&xDropTargetGetDrop, libs, "gtk_drop_target_get_drop")
+	core.PuregoSafeRegister(&xDropTargetGetFormats, libs, "gtk_drop_target_get_formats")
+	core.PuregoSafeRegister(&xDropTargetGetGtypes, libs, "gtk_drop_target_get_gtypes")
+	core.PuregoSafeRegister(&xDropTargetGetPreload, libs, "gtk_drop_target_get_preload")
+	core.PuregoSafeRegister(&xDropTargetGetValue, libs, "gtk_drop_target_get_value")
+	core.PuregoSafeRegister(&xDropTargetReject, libs, "gtk_drop_target_reject")
+	core.PuregoSafeRegister(&xDropTargetSetActions, libs, "gtk_drop_target_set_actions")
+	core.PuregoSafeRegister(&xDropTargetSetGtypes, libs, "gtk_drop_target_set_gtypes")
+	core.PuregoSafeRegister(&xDropTargetSetPreload, libs, "gtk_drop_target_set_preload")
 }

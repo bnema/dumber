@@ -2,6 +2,7 @@
 package gtk
 
 import (
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gio"
 	"github.com/bnema/puregotk/v4/glib"
@@ -93,7 +94,6 @@ type MenuButton struct {
 var xMenuButtonGLibType func() types.GType
 
 func MenuButtonGLibType() types.GType {
-	core.LazyRegister(&xMenuButtonGLibType, "GTK", "gtk_menu_button_get_type", false)
 	return xMenuButtonGLibType()
 }
 
@@ -111,7 +111,6 @@ var xNewMenuButton func() uintptr
 // You can replace the child widget with another `GtkWidget`
 // should you wish to.
 func NewMenuButton() *MenuButton {
-	core.LazyRegister(&xNewMenuButton, "GTK", "gtk_menu_button_new", false)
 	var cls *MenuButton
 
 	cret := xNewMenuButton()
@@ -129,8 +128,6 @@ var xMenuButtonGetActive func(uintptr) bool
 
 // Returns whether the menu button is active.
 func (x *MenuButton) GetActive() bool {
-	core.LazyRegister(&xMenuButtonGetActive, "GTK", "gtk_menu_button_get_active", false)
-
 	cret := xMenuButtonGetActive(x.GoPointer())
 	return cret
 }
@@ -140,8 +137,6 @@ var xMenuButtonGetAlwaysShowArrow func(uintptr) bool
 // Gets whether to show a dropdown arrow even when using an icon or a custom
 // child.
 func (x *MenuButton) GetAlwaysShowArrow() bool {
-	core.LazyRegister(&xMenuButtonGetAlwaysShowArrow, "GTK", "gtk_menu_button_get_always_show_arrow", false)
-
 	cret := xMenuButtonGetAlwaysShowArrow(x.GoPointer())
 	return cret
 }
@@ -151,8 +146,6 @@ var xMenuButtonGetCanShrink func(uintptr) bool
 // Retrieves whether the button can be smaller than the natural
 // size of its contents.
 func (x *MenuButton) GetCanShrink() bool {
-	core.LazyRegister(&xMenuButtonGetCanShrink, "GTK", "gtk_menu_button_get_can_shrink", false)
-
 	cret := xMenuButtonGetCanShrink(x.GoPointer())
 	return cret
 }
@@ -161,7 +154,6 @@ var xMenuButtonGetChild func(uintptr) uintptr
 
 // Gets the child widget of @menu_button.
 func (x *MenuButton) GetChild() *Widget {
-	core.LazyRegister(&xMenuButtonGetChild, "GTK", "gtk_menu_button_get_child", false)
 	var cls *Widget
 
 	cret := xMenuButtonGetChild(x.GoPointer())
@@ -179,8 +171,6 @@ var xMenuButtonGetDirection func(uintptr) ArrowType
 
 // Returns the direction the popup will be pointing at when popped up.
 func (x *MenuButton) GetDirection() ArrowType {
-	core.LazyRegister(&xMenuButtonGetDirection, "GTK", "gtk_menu_button_get_direction", false)
-
 	cret := xMenuButtonGetDirection(x.GoPointer())
 	return cret
 }
@@ -189,8 +179,6 @@ var xMenuButtonGetHasFrame func(uintptr) bool
 
 // Returns whether the button has a frame.
 func (x *MenuButton) GetHasFrame() bool {
-	core.LazyRegister(&xMenuButtonGetHasFrame, "GTK", "gtk_menu_button_get_has_frame", false)
-
 	cret := xMenuButtonGetHasFrame(x.GoPointer())
 	return cret
 }
@@ -199,8 +187,6 @@ var xMenuButtonGetIconName func(uintptr) string
 
 // Gets the name of the icon shown in the button.
 func (x *MenuButton) GetIconName() string {
-	core.LazyRegister(&xMenuButtonGetIconName, "GTK", "gtk_menu_button_get_icon_name", false)
-
 	cret := xMenuButtonGetIconName(x.GoPointer())
 	return cret
 }
@@ -209,8 +195,6 @@ var xMenuButtonGetLabel func(uintptr) string
 
 // Gets the label shown in the button
 func (x *MenuButton) GetLabel() string {
-	core.LazyRegister(&xMenuButtonGetLabel, "GTK", "gtk_menu_button_get_label", false)
-
 	cret := xMenuButtonGetLabel(x.GoPointer())
 	return cret
 }
@@ -219,7 +203,6 @@ var xMenuButtonGetMenuModel func(uintptr) uintptr
 
 // Returns the `GMenuModel` used to generate the popup.
 func (x *MenuButton) GetMenuModel() *gio.MenuModel {
-	core.LazyRegister(&xMenuButtonGetMenuModel, "GTK", "gtk_menu_button_get_menu_model", false)
 	var cls *gio.MenuModel
 
 	cret := xMenuButtonGetMenuModel(x.GoPointer())
@@ -240,7 +223,6 @@ var xMenuButtonGetPopover func(uintptr) uintptr
 // If the button is not using a `GtkPopover`, this function
 // returns %NULL.
 func (x *MenuButton) GetPopover() *Popover {
-	core.LazyRegister(&xMenuButtonGetPopover, "GTK", "gtk_menu_button_get_popover", false)
 	var cls *Popover
 
 	cret := xMenuButtonGetPopover(x.GoPointer())
@@ -258,8 +240,6 @@ var xMenuButtonGetPrimary func(uintptr) bool
 
 // Returns whether the menu button acts as a primary menu.
 func (x *MenuButton) GetPrimary() bool {
-	core.LazyRegister(&xMenuButtonGetPrimary, "GTK", "gtk_menu_button_get_primary", false)
-
 	cret := xMenuButtonGetPrimary(x.GoPointer())
 	return cret
 }
@@ -269,8 +249,6 @@ var xMenuButtonGetUseUnderline func(uintptr) bool
 // Returns whether an embedded underline in the text indicates a
 // mnemonic.
 func (x *MenuButton) GetUseUnderline() bool {
-	core.LazyRegister(&xMenuButtonGetUseUnderline, "GTK", "gtk_menu_button_get_use_underline", false)
-
 	cret := xMenuButtonGetUseUnderline(x.GoPointer())
 	return cret
 }
@@ -279,8 +257,6 @@ var xMenuButtonPopdown func(uintptr)
 
 // Dismiss the menu.
 func (x *MenuButton) Popdown() {
-	core.LazyRegister(&xMenuButtonPopdown, "GTK", "gtk_menu_button_popdown", false)
-
 	xMenuButtonPopdown(x.GoPointer())
 }
 
@@ -288,8 +264,6 @@ var xMenuButtonPopup func(uintptr)
 
 // Pop up the menu.
 func (x *MenuButton) Popup() {
-	core.LazyRegister(&xMenuButtonPopup, "GTK", "gtk_menu_button_popup", false)
-
 	xMenuButtonPopup(x.GoPointer())
 }
 
@@ -297,8 +271,6 @@ var xMenuButtonSetActive func(uintptr, bool)
 
 // Sets whether the menu button is active.
 func (x *MenuButton) SetActive(ActiveVar bool) {
-	core.LazyRegister(&xMenuButtonSetActive, "GTK", "gtk_menu_button_set_active", false)
-
 	xMenuButtonSetActive(x.GoPointer(), ActiveVar)
 }
 
@@ -307,8 +279,6 @@ var xMenuButtonSetAlwaysShowArrow func(uintptr, bool)
 // Sets whether to show a dropdown arrow even when using an icon or a custom
 // child.
 func (x *MenuButton) SetAlwaysShowArrow(AlwaysShowArrowVar bool) {
-	core.LazyRegister(&xMenuButtonSetAlwaysShowArrow, "GTK", "gtk_menu_button_set_always_show_arrow", false)
-
 	xMenuButtonSetAlwaysShowArrow(x.GoPointer(), AlwaysShowArrowVar)
 }
 
@@ -321,8 +291,6 @@ var xMenuButtonSetCanShrink func(uintptr, bool)
 //
 // For icon buttons, this function has no effect.
 func (x *MenuButton) SetCanShrink(CanShrinkVar bool) {
-	core.LazyRegister(&xMenuButtonSetCanShrink, "GTK", "gtk_menu_button_set_can_shrink", false)
-
 	xMenuButtonSetCanShrink(x.GoPointer(), CanShrinkVar)
 }
 
@@ -337,8 +305,6 @@ var xMenuButtonSetChild func(uintptr, uintptr)
 // [property@Gtk.MenuButton:direction] is not `GTK_ARROW_NONE`, a dropdown arrow
 // will be shown next to the child.
 func (x *MenuButton) SetChild(ChildVar *Widget) {
-	core.LazyRegister(&xMenuButtonSetChild, "GTK", "gtk_menu_button_set_child", false)
-
 	xMenuButtonSetChild(x.GoPointer(), ChildVar.GoPointer())
 }
 
@@ -357,8 +323,6 @@ var xMenuButtonSetCreatePopupFunc func(uintptr, uintptr, uintptr, uintptr)
 // Using this function will not reset the menu widget attached to
 // @menu_button. Instead, this can be done manually in @func.
 func (x *MenuButton) SetCreatePopupFunc(FuncVar *MenuButtonCreatePopupFunc, UserDataVar uintptr, DestroyNotifyVar *glib.DestroyNotify) {
-	core.LazyRegister(&xMenuButtonSetCreatePopupFunc, "GTK", "gtk_menu_button_set_create_popup_func", false)
-
 	xMenuButtonSetCreatePopupFunc(x.GoPointer(), glib.NewCallbackNullable(FuncVar), UserDataVar, glib.NewCallbackNullable(DestroyNotifyVar))
 }
 
@@ -375,8 +339,6 @@ var xMenuButtonSetDirection func(uintptr, ArrowType)
 // If you pass %GTK_ARROW_NONE for a @direction, the popup will behave
 // as if you passed %GTK_ARROW_DOWN (although you won’t see any arrows).
 func (x *MenuButton) SetDirection(DirectionVar ArrowType) {
-	core.LazyRegister(&xMenuButtonSetDirection, "GTK", "gtk_menu_button_set_direction", false)
-
 	xMenuButtonSetDirection(x.GoPointer(), DirectionVar)
 }
 
@@ -384,8 +346,6 @@ var xMenuButtonSetHasFrame func(uintptr, bool)
 
 // Sets the style of the button.
 func (x *MenuButton) SetHasFrame(HasFrameVar bool) {
-	core.LazyRegister(&xMenuButtonSetHasFrame, "GTK", "gtk_menu_button_set_has_frame", false)
-
 	xMenuButtonSetHasFrame(x.GoPointer(), HasFrameVar)
 }
 
@@ -400,8 +360,6 @@ var xMenuButtonSetIconName func(uintptr, string)
 // [property@Gtk.MenuButton:direction] is not `GTK_ARROW_NONE`, a dropdown arrow
 // will be shown next to the icon.
 func (x *MenuButton) SetIconName(IconNameVar string) {
-	core.LazyRegister(&xMenuButtonSetIconName, "GTK", "gtk_menu_button_set_icon_name", false)
-
 	xMenuButtonSetIconName(x.GoPointer(), IconNameVar)
 }
 
@@ -415,8 +373,6 @@ var xMenuButtonSetLabel func(uintptr, string)
 // If [property@Gtk.MenuButton:direction] is not `GTK_ARROW_NONE`, a dropdown
 // arrow will be shown next to the label.
 func (x *MenuButton) SetLabel(LabelVar string) {
-	core.LazyRegister(&xMenuButtonSetLabel, "GTK", "gtk_menu_button_set_label", false)
-
 	xMenuButtonSetLabel(x.GoPointer(), LabelVar)
 }
 
@@ -433,8 +389,6 @@ var xMenuButtonSetMenuModel func(uintptr, uintptr)
 // If [property@Gtk.MenuButton:popover] is already set, it will be
 // dissociated from the @menu_button, and the property is set to %NULL.
 func (x *MenuButton) SetMenuModel(MenuModelVar *gio.MenuModel) {
-	core.LazyRegister(&xMenuButtonSetMenuModel, "GTK", "gtk_menu_button_set_menu_model", false)
-
 	xMenuButtonSetMenuModel(x.GoPointer(), MenuModelVar.GoPointer())
 }
 
@@ -447,8 +401,6 @@ var xMenuButtonSetPopover func(uintptr, uintptr)
 // If [property@Gtk.MenuButton:menu-model] is set, the menu model is dissociated
 // from the @menu_button, and the property is set to %NULL.
 func (x *MenuButton) SetPopover(PopoverVar *Popover) {
-	core.LazyRegister(&xMenuButtonSetPopover, "GTK", "gtk_menu_button_set_popover", false)
-
 	xMenuButtonSetPopover(x.GoPointer(), PopoverVar.GoPointer())
 }
 
@@ -458,8 +410,6 @@ var xMenuButtonSetPrimary func(uintptr, bool)
 //
 // Primary menus can be opened with the &lt;kbd&gt;F10&lt;/kbd&gt; key.
 func (x *MenuButton) SetPrimary(PrimaryVar bool) {
-	core.LazyRegister(&xMenuButtonSetPrimary, "GTK", "gtk_menu_button_set_primary", false)
-
 	xMenuButtonSetPrimary(x.GoPointer(), PrimaryVar)
 }
 
@@ -467,8 +417,6 @@ var xMenuButtonSetUseUnderline func(uintptr, bool)
 
 // If true, an underline in the text indicates a mnemonic.
 func (x *MenuButton) SetUseUnderline(UseUnderlineVar bool) {
-	core.LazyRegister(&xMenuButtonSetUseUnderline, "GTK", "gtk_menu_button_set_use_underline", false)
-
 	xMenuButtonSetUseUnderline(x.GoPointer(), UseUnderlineVar)
 }
 
@@ -914,4 +862,44 @@ func (x *MenuButton) GetBuildableId() string {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GTK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xMenuButtonGLibType, libs, "gtk_menu_button_get_type")
+
+	core.PuregoSafeRegister(&xNewMenuButton, libs, "gtk_menu_button_new")
+
+	core.PuregoSafeRegister(&xMenuButtonGetActive, libs, "gtk_menu_button_get_active")
+	core.PuregoSafeRegister(&xMenuButtonGetAlwaysShowArrow, libs, "gtk_menu_button_get_always_show_arrow")
+	core.PuregoSafeRegister(&xMenuButtonGetCanShrink, libs, "gtk_menu_button_get_can_shrink")
+	core.PuregoSafeRegister(&xMenuButtonGetChild, libs, "gtk_menu_button_get_child")
+	core.PuregoSafeRegister(&xMenuButtonGetDirection, libs, "gtk_menu_button_get_direction")
+	core.PuregoSafeRegister(&xMenuButtonGetHasFrame, libs, "gtk_menu_button_get_has_frame")
+	core.PuregoSafeRegister(&xMenuButtonGetIconName, libs, "gtk_menu_button_get_icon_name")
+	core.PuregoSafeRegister(&xMenuButtonGetLabel, libs, "gtk_menu_button_get_label")
+	core.PuregoSafeRegister(&xMenuButtonGetMenuModel, libs, "gtk_menu_button_get_menu_model")
+	core.PuregoSafeRegister(&xMenuButtonGetPopover, libs, "gtk_menu_button_get_popover")
+	core.PuregoSafeRegister(&xMenuButtonGetPrimary, libs, "gtk_menu_button_get_primary")
+	core.PuregoSafeRegister(&xMenuButtonGetUseUnderline, libs, "gtk_menu_button_get_use_underline")
+	core.PuregoSafeRegister(&xMenuButtonPopdown, libs, "gtk_menu_button_popdown")
+	core.PuregoSafeRegister(&xMenuButtonPopup, libs, "gtk_menu_button_popup")
+	core.PuregoSafeRegister(&xMenuButtonSetActive, libs, "gtk_menu_button_set_active")
+	core.PuregoSafeRegister(&xMenuButtonSetAlwaysShowArrow, libs, "gtk_menu_button_set_always_show_arrow")
+	core.PuregoSafeRegister(&xMenuButtonSetCanShrink, libs, "gtk_menu_button_set_can_shrink")
+	core.PuregoSafeRegister(&xMenuButtonSetChild, libs, "gtk_menu_button_set_child")
+	core.PuregoSafeRegister(&xMenuButtonSetCreatePopupFunc, libs, "gtk_menu_button_set_create_popup_func")
+	core.PuregoSafeRegister(&xMenuButtonSetDirection, libs, "gtk_menu_button_set_direction")
+	core.PuregoSafeRegister(&xMenuButtonSetHasFrame, libs, "gtk_menu_button_set_has_frame")
+	core.PuregoSafeRegister(&xMenuButtonSetIconName, libs, "gtk_menu_button_set_icon_name")
+	core.PuregoSafeRegister(&xMenuButtonSetLabel, libs, "gtk_menu_button_set_label")
+	core.PuregoSafeRegister(&xMenuButtonSetMenuModel, libs, "gtk_menu_button_set_menu_model")
+	core.PuregoSafeRegister(&xMenuButtonSetPopover, libs, "gtk_menu_button_set_popover")
+	core.PuregoSafeRegister(&xMenuButtonSetPrimary, libs, "gtk_menu_button_set_primary")
+	core.PuregoSafeRegister(&xMenuButtonSetUseUnderline, libs, "gtk_menu_button_set_use_underline")
 }

@@ -2,6 +2,7 @@
 package gio
 
 import (
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -63,7 +64,6 @@ type Notification struct {
 var xNotificationGLibType func() types.GType
 
 func NotificationGLibType() types.GType {
-	core.LazyRegister(&xNotificationGLibType, "GIO", "g_notification_get_type", false)
 	return xNotificationGLibType()
 }
 
@@ -82,7 +82,6 @@ var xNewNotification func(string) uintptr
 // any properties after this call will not have any effect until
 // resending @notification.
 func NewNotification(TitleVar string) *Notification {
-	core.LazyRegister(&xNewNotification, "GIO", "g_notification_new", false)
 	var cls *Notification
 
 	cret := xNewNotification(TitleVar)
@@ -106,8 +105,6 @@ var xNotificationAddButton func(uintptr, string, string)
 // See g_action_parse_detailed_name() for a description of the format
 // for @detailed_action.
 func (x *Notification) AddButton(LabelVar string, DetailedActionVar string) {
-	core.LazyRegister(&xNotificationAddButton, "GIO", "g_notification_add_button", false)
-
 	xNotificationAddButton(x.GoPointer(), LabelVar, DetailedActionVar)
 }
 
@@ -121,8 +118,6 @@ var xNotificationAddButtonWithTarget func(uintptr, string, string, uintptr, ...i
 // g_variant_new(). @action will be activated with that #GVariant as its
 // parameter.
 func (x *Notification) AddButtonWithTarget(LabelVar string, ActionVar string, TargetFormatVar *string, varArgs ...interface{}) {
-	core.LazyRegister(&xNotificationAddButtonWithTarget, "GIO", "g_notification_add_button_with_target", false)
-
 	TargetFormatVarPtr := core.GStrdupNullable(TargetFormatVar)
 	defer core.GFreeNullable(TargetFormatVarPtr)
 
@@ -137,8 +132,6 @@ var xNotificationAddButtonWithTargetValue func(uintptr, string, string, *glib.Va
 // If @target is non-%NULL, @action will be activated with @target as
 // its parameter.
 func (x *Notification) AddButtonWithTargetValue(LabelVar string, ActionVar string, TargetVar *glib.Variant) {
-	core.LazyRegister(&xNotificationAddButtonWithTargetValue, "GIO", "g_notification_add_button_with_target_value", false)
-
 	xNotificationAddButtonWithTargetValue(x.GoPointer(), LabelVar, ActionVar, TargetVar)
 }
 
@@ -146,8 +139,6 @@ var xNotificationSetBody func(uintptr, uintptr)
 
 // Sets the body of @notification to @body.
 func (x *Notification) SetBody(BodyVar *string) {
-	core.LazyRegister(&xNotificationSetBody, "GIO", "g_notification_set_body", false)
-
 	BodyVarPtr := core.GStrdupNullable(BodyVar)
 	defer core.GFreeNullable(BodyVarPtr)
 
@@ -163,8 +154,6 @@ var xNotificationSetCategory func(uintptr, uintptr)
 //
 // Standard categories are [listed in the specification](https://specifications.freedesktop.org/notification-spec/latest/ar01s06.html).
 func (x *Notification) SetCategory(CategoryVar *string) {
-	core.LazyRegister(&xNotificationSetCategory, "GIO", "g_notification_set_category", false)
-
 	CategoryVarPtr := core.GStrdupNullable(CategoryVar)
 	defer core.GFreeNullable(CategoryVarPtr)
 
@@ -185,8 +174,6 @@ var xNotificationSetDefaultAction func(uintptr, string)
 // When no default action is set, the application that the notification
 // was sent on is activated.
 func (x *Notification) SetDefaultAction(DetailedActionVar string) {
-	core.LazyRegister(&xNotificationSetDefaultAction, "GIO", "g_notification_set_default_action", false)
-
 	xNotificationSetDefaultAction(x.GoPointer(), DetailedActionVar)
 }
 
@@ -204,8 +191,6 @@ var xNotificationSetDefaultActionAndTarget func(uintptr, string, uintptr, ...int
 // When no default action is set, the application that the notification
 // was sent on is activated.
 func (x *Notification) SetDefaultActionAndTarget(ActionVar string, TargetFormatVar *string, varArgs ...interface{}) {
-	core.LazyRegister(&xNotificationSetDefaultActionAndTarget, "GIO", "g_notification_set_default_action_and_target", false)
-
 	TargetFormatVarPtr := core.GStrdupNullable(TargetFormatVar)
 	defer core.GFreeNullable(TargetFormatVarPtr)
 
@@ -224,8 +209,6 @@ var xNotificationSetDefaultActionAndTargetValue func(uintptr, string, *glib.Vari
 // When no default action is set, the application that the notification
 // was sent on is activated.
 func (x *Notification) SetDefaultActionAndTargetValue(ActionVar string, TargetVar *glib.Variant) {
-	core.LazyRegister(&xNotificationSetDefaultActionAndTargetValue, "GIO", "g_notification_set_default_action_and_target_value", false)
-
 	xNotificationSetDefaultActionAndTargetValue(x.GoPointer(), ActionVar, TargetVar)
 }
 
@@ -233,8 +216,6 @@ var xNotificationSetIcon func(uintptr, uintptr)
 
 // Sets the icon of @notification to @icon.
 func (x *Notification) SetIcon(IconVar Icon) {
-	core.LazyRegister(&xNotificationSetIcon, "GIO", "g_notification_set_icon", false)
-
 	xNotificationSetIcon(x.GoPointer(), IconVar.GoPointer())
 }
 
@@ -243,8 +224,6 @@ var xNotificationSetPriority func(uintptr, NotificationPriority)
 // Sets the priority of @notification to @priority. See
 // #GNotificationPriority for possible values.
 func (x *Notification) SetPriority(PriorityVar NotificationPriority) {
-	core.LazyRegister(&xNotificationSetPriority, "GIO", "g_notification_set_priority", false)
-
 	xNotificationSetPriority(x.GoPointer(), PriorityVar)
 }
 
@@ -252,8 +231,6 @@ var xNotificationSetTitle func(uintptr, string)
 
 // Sets the title of @notification to @title.
 func (x *Notification) SetTitle(TitleVar string) {
-	core.LazyRegister(&xNotificationSetTitle, "GIO", "g_notification_set_title", false)
-
 	xNotificationSetTitle(x.GoPointer(), TitleVar)
 }
 
@@ -261,8 +238,6 @@ var xNotificationSetUrgent func(uintptr, bool)
 
 // Deprecated in favor of g_notification_set_priority().
 func (x *Notification) SetUrgent(UrgentVar bool) {
-	core.LazyRegister(&xNotificationSetUrgent, "GIO", "g_notification_set_urgent", false)
-
 	xNotificationSetUrgent(x.GoPointer(), UrgentVar)
 }
 
@@ -280,4 +255,29 @@ func (c *Notification) SetGoPointer(ptr uintptr) {
 func init() {
 	core.SetPackageName("GIO", "gio-2.0")
 	core.SetSharedLibraries("GIO", []string{"libgio-2.0.so.0", "libgio-2.0.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GIO") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xNotificationGLibType, libs, "g_notification_get_type")
+
+	core.PuregoSafeRegister(&xNewNotification, libs, "g_notification_new")
+
+	core.PuregoSafeRegister(&xNotificationAddButton, libs, "g_notification_add_button")
+	core.PuregoSafeRegister(&xNotificationAddButtonWithTarget, libs, "g_notification_add_button_with_target")
+	core.PuregoSafeRegister(&xNotificationAddButtonWithTargetValue, libs, "g_notification_add_button_with_target_value")
+	core.PuregoSafeRegister(&xNotificationSetBody, libs, "g_notification_set_body")
+	core.PuregoSafeRegister(&xNotificationSetCategory, libs, "g_notification_set_category")
+	core.PuregoSafeRegister(&xNotificationSetDefaultAction, libs, "g_notification_set_default_action")
+	core.PuregoSafeRegister(&xNotificationSetDefaultActionAndTarget, libs, "g_notification_set_default_action_and_target")
+	core.PuregoSafeRegister(&xNotificationSetDefaultActionAndTargetValue, libs, "g_notification_set_default_action_and_target_value")
+	core.PuregoSafeRegister(&xNotificationSetIcon, libs, "g_notification_set_icon")
+	core.PuregoSafeRegister(&xNotificationSetPriority, libs, "g_notification_set_priority")
+	core.PuregoSafeRegister(&xNotificationSetTitle, libs, "g_notification_set_title")
+	core.PuregoSafeRegister(&xNotificationSetUrgent, libs, "g_notification_set_urgent")
 }

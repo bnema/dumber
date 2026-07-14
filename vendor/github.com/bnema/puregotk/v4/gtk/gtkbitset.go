@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject/types"
 )
@@ -25,7 +26,6 @@ type BitsetIter struct {
 var xBitsetIterGLibType func() types.GType
 
 func BitsetIterGLibType() types.GType {
-	core.LazyRegister(&xBitsetIterGLibType, "GTK", "gtk_bitset_iter_get_type", false)
 	return xBitsetIterGLibType()
 }
 
@@ -48,8 +48,6 @@ var xBitsetIterGetValue func(uintptr) uint
 // If @iter is not valid and [method@Gtk.BitsetIter.is_valid]
 // returns %FALSE, this function returns 0.
 func (x *BitsetIter) GetValue() uint {
-	core.LazyRegister(&xBitsetIterGetValue, "GTK", "gtk_bitset_iter_get_value", false)
-
 	cret := xBitsetIterGetValue(x.GoPointer())
 	return cret
 }
@@ -58,8 +56,6 @@ var xBitsetIterIsValid func(uintptr) bool
 
 // Checks if @iter points to a valid value.
 func (x *BitsetIter) IsValid() bool {
-	core.LazyRegister(&xBitsetIterIsValid, "GTK", "gtk_bitset_iter_is_valid", false)
-
 	cret := xBitsetIterIsValid(x.GoPointer())
 	return cret
 }
@@ -71,8 +67,6 @@ var xBitsetIterNext func(uintptr, *uint) bool
 // If it was already pointing to the last value in the set,
 // %FALSE is returned and @iter is invalidated.
 func (x *BitsetIter) Next(ValueVar *uint) bool {
-	core.LazyRegister(&xBitsetIterNext, "GTK", "gtk_bitset_iter_next", false)
-
 	cret := xBitsetIterNext(x.GoPointer(), ValueVar)
 	return cret
 }
@@ -84,8 +78,6 @@ var xBitsetIterPrevious func(uintptr, *uint) bool
 // If it was already pointing to the first value in the set,
 // %FALSE is returned and @iter is invalidated.
 func (x *BitsetIter) Previous(ValueVar *uint) bool {
-	core.LazyRegister(&xBitsetIterPrevious, "GTK", "gtk_bitset_iter_previous", false)
-
 	cret := xBitsetIterPrevious(x.GoPointer(), ValueVar)
 	return cret
 }
@@ -97,8 +89,6 @@ var xBitsetIterInitAt func(*BitsetIter, *Bitset, uint, *uint) bool
 // If @target is not found, finds the next value after it.
 // If no value &gt;= @target exists in @set, this function returns %FALSE.
 func BitsetIterInitAt(IterVar *BitsetIter, SetVar *Bitset, TargetVar uint, ValueVar *uint) bool {
-	core.LazyRegister(&xBitsetIterInitAt, "GTK", "gtk_bitset_iter_init_at", false)
-
 	cret := xBitsetIterInitAt(IterVar, SetVar, TargetVar, ValueVar)
 	return cret
 }
@@ -110,8 +100,6 @@ var xBitsetIterInitFirst func(*BitsetIter, *Bitset, *uint) bool
 //
 // If @set is empty, %FALSE is returned and @value is set to %G_MAXUINT.
 func BitsetIterInitFirst(IterVar *BitsetIter, SetVar *Bitset, ValueVar *uint) bool {
-	core.LazyRegister(&xBitsetIterInitFirst, "GTK", "gtk_bitset_iter_init_first", false)
-
 	cret := xBitsetIterInitFirst(IterVar, SetVar, ValueVar)
 	return cret
 }
@@ -123,8 +111,6 @@ var xBitsetIterInitLast func(*BitsetIter, *Bitset, *uint) bool
 //
 // If @set is empty, %FALSE is returned.
 func BitsetIterInitLast(IterVar *BitsetIter, SetVar *Bitset, ValueVar *uint) bool {
-	core.LazyRegister(&xBitsetIterInitLast, "GTK", "gtk_bitset_iter_init_last", false)
-
 	cret := xBitsetIterInitLast(IterVar, SetVar, ValueVar)
 	return cret
 }
@@ -132,4 +118,23 @@ func BitsetIterInitLast(IterVar *BitsetIter, SetVar *Bitset, ValueVar *uint) boo
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GTK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xBitsetIterInitAt, libs, "gtk_bitset_iter_init_at")
+	core.PuregoSafeRegister(&xBitsetIterInitFirst, libs, "gtk_bitset_iter_init_first")
+	core.PuregoSafeRegister(&xBitsetIterInitLast, libs, "gtk_bitset_iter_init_last")
+
+	core.PuregoSafeRegister(&xBitsetIterGLibType, libs, "gtk_bitset_iter_get_type")
+
+	core.PuregoSafeRegister(&xBitsetIterGetValue, libs, "gtk_bitset_iter_get_value")
+	core.PuregoSafeRegister(&xBitsetIterIsValid, libs, "gtk_bitset_iter_is_valid")
+	core.PuregoSafeRegister(&xBitsetIterNext, libs, "gtk_bitset_iter_next")
+	core.PuregoSafeRegister(&xBitsetIterPrevious, libs, "gtk_bitset_iter_previous")
 }

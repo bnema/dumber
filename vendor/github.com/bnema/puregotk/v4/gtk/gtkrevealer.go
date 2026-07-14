@@ -2,6 +2,7 @@
 package gtk
 
 import (
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -14,7 +15,6 @@ type RevealerTransitionType int
 var xRevealerTransitionTypeGLibType func() types.GType
 
 func RevealerTransitionTypeGLibType() types.GType {
-	core.LazyRegister(&xRevealerTransitionTypeGLibType, "GTK", "gtk_revealer_transition_type_get_type", false)
 	return xRevealerTransitionTypeGLibType()
 }
 
@@ -82,7 +82,6 @@ type Revealer struct {
 var xRevealerGLibType func() types.GType
 
 func RevealerGLibType() types.GType {
-	core.LazyRegister(&xRevealerGLibType, "GTK", "gtk_revealer_get_type", false)
 	return xRevealerGLibType()
 }
 
@@ -96,7 +95,6 @@ var xNewRevealer func() uintptr
 
 // Creates a new `GtkRevealer`.
 func NewRevealer() *Revealer {
-	core.LazyRegister(&xNewRevealer, "GTK", "gtk_revealer_new", false)
 	var cls *Revealer
 
 	cret := xNewRevealer()
@@ -114,7 +112,6 @@ var xRevealerGetChild func(uintptr) uintptr
 
 // Gets the child widget of @revealer.
 func (x *Revealer) GetChild() *Widget {
-	core.LazyRegister(&xRevealerGetChild, "GTK", "gtk_revealer_get_child", false)
 	var cls *Widget
 
 	cret := xRevealerGetChild(x.GoPointer())
@@ -135,8 +132,6 @@ var xRevealerGetChildRevealed func(uintptr) bool
 // In other words, this returns whether the transition
 // to the revealed state is completed.
 func (x *Revealer) GetChildRevealed() bool {
-	core.LazyRegister(&xRevealerGetChildRevealed, "GTK", "gtk_revealer_get_child_revealed", false)
-
 	cret := xRevealerGetChildRevealed(x.GoPointer())
 	return cret
 }
@@ -150,8 +145,6 @@ var xRevealerGetRevealChild func(uintptr) bool
 // the child is fully revealed (ie the transition is completed),
 // use [method@Gtk.Revealer.get_child_revealed].
 func (x *Revealer) GetRevealChild() bool {
-	core.LazyRegister(&xRevealerGetRevealChild, "GTK", "gtk_revealer_get_reveal_child", false)
-
 	cret := xRevealerGetRevealChild(x.GoPointer())
 	return cret
 }
@@ -161,8 +154,6 @@ var xRevealerGetTransitionDuration func(uintptr) uint
 // Returns the amount of time (in milliseconds) that
 // transitions will take.
 func (x *Revealer) GetTransitionDuration() uint {
-	core.LazyRegister(&xRevealerGetTransitionDuration, "GTK", "gtk_revealer_get_transition_duration", false)
-
 	cret := xRevealerGetTransitionDuration(x.GoPointer())
 	return cret
 }
@@ -172,8 +163,6 @@ var xRevealerGetTransitionType func(uintptr) RevealerTransitionType
 // Gets the type of animation that will be used
 // for transitions in @revealer.
 func (x *Revealer) GetTransitionType() RevealerTransitionType {
-	core.LazyRegister(&xRevealerGetTransitionType, "GTK", "gtk_revealer_get_transition_type", false)
-
 	cret := xRevealerGetTransitionType(x.GoPointer())
 	return cret
 }
@@ -182,8 +171,6 @@ var xRevealerSetChild func(uintptr, uintptr)
 
 // Sets the child widget of @revealer.
 func (x *Revealer) SetChild(ChildVar *Widget) {
-	core.LazyRegister(&xRevealerSetChild, "GTK", "gtk_revealer_set_child", false)
-
 	xRevealerSetChild(x.GoPointer(), ChildVar.GoPointer())
 }
 
@@ -194,8 +181,6 @@ var xRevealerSetRevealChild func(uintptr, bool)
 // The transition will be animated with the current
 // transition type of @revealer.
 func (x *Revealer) SetRevealChild(RevealChildVar bool) {
-	core.LazyRegister(&xRevealerSetRevealChild, "GTK", "gtk_revealer_set_reveal_child", false)
-
 	xRevealerSetRevealChild(x.GoPointer(), RevealChildVar)
 }
 
@@ -203,8 +188,6 @@ var xRevealerSetTransitionDuration func(uintptr, uint)
 
 // Sets the duration that transitions will take.
 func (x *Revealer) SetTransitionDuration(DurationVar uint) {
-	core.LazyRegister(&xRevealerSetTransitionDuration, "GTK", "gtk_revealer_set_transition_duration", false)
-
 	xRevealerSetTransitionDuration(x.GoPointer(), DurationVar)
 }
 
@@ -215,8 +198,6 @@ var xRevealerSetTransitionType func(uintptr, RevealerTransitionType)
 //
 // Available types include various kinds of fades and slides.
 func (x *Revealer) SetTransitionType(TransitionVar RevealerTransitionType) {
-	core.LazyRegister(&xRevealerSetTransitionType, "GTK", "gtk_revealer_set_transition_type", false)
-
 	xRevealerSetTransitionType(x.GoPointer(), TransitionVar)
 }
 
@@ -536,4 +517,28 @@ func (x *Revealer) GetBuildableId() string {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GTK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xRevealerTransitionTypeGLibType, libs, "gtk_revealer_transition_type_get_type")
+
+	core.PuregoSafeRegister(&xRevealerGLibType, libs, "gtk_revealer_get_type")
+
+	core.PuregoSafeRegister(&xNewRevealer, libs, "gtk_revealer_new")
+
+	core.PuregoSafeRegister(&xRevealerGetChild, libs, "gtk_revealer_get_child")
+	core.PuregoSafeRegister(&xRevealerGetChildRevealed, libs, "gtk_revealer_get_child_revealed")
+	core.PuregoSafeRegister(&xRevealerGetRevealChild, libs, "gtk_revealer_get_reveal_child")
+	core.PuregoSafeRegister(&xRevealerGetTransitionDuration, libs, "gtk_revealer_get_transition_duration")
+	core.PuregoSafeRegister(&xRevealerGetTransitionType, libs, "gtk_revealer_get_transition_type")
+	core.PuregoSafeRegister(&xRevealerSetChild, libs, "gtk_revealer_set_child")
+	core.PuregoSafeRegister(&xRevealerSetRevealChild, libs, "gtk_revealer_set_reveal_child")
+	core.PuregoSafeRegister(&xRevealerSetTransitionDuration, libs, "gtk_revealer_set_transition_duration")
+	core.PuregoSafeRegister(&xRevealerSetTransitionType, libs, "gtk_revealer_set_transition_type")
 }

@@ -2,6 +2,7 @@
 package gtk
 
 import (
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gio"
 	"github.com/bnema/puregotk/v4/glib"
@@ -48,7 +49,6 @@ type AppChooserButton struct {
 var xAppChooserButtonGLibType func() types.GType
 
 func AppChooserButtonGLibType() types.GType {
-	core.LazyRegister(&xAppChooserButtonGLibType, "GTK", "gtk_app_chooser_button_get_type", false)
 	return xAppChooserButtonGLibType()
 }
 
@@ -63,7 +63,6 @@ var xNewAppChooserButton func(string) uintptr
 // Creates a new `GtkAppChooserButton` for applications
 // that can handle content of the given type.
 func NewAppChooserButton(ContentTypeVar string) *AppChooserButton {
-	core.LazyRegister(&xNewAppChooserButton, "GTK", "gtk_app_chooser_button_new", false)
 	var cls *AppChooserButton
 
 	cret := xNewAppChooserButton(ContentTypeVar)
@@ -89,8 +88,6 @@ var xAppChooserButtonAppendCustomItem func(uintptr, string, string, uintptr)
 //
 // See also [method@Gtk.AppChooserButton.append_separator].
 func (x *AppChooserButton) AppendCustomItem(NameVar string, LabelVar string, IconVar gio.Icon) {
-	core.LazyRegister(&xAppChooserButtonAppendCustomItem, "GTK", "gtk_app_chooser_button_append_custom_item", false)
-
 	xAppChooserButtonAppendCustomItem(x.GoPointer(), NameVar, LabelVar, IconVar.GoPointer())
 }
 
@@ -99,8 +96,6 @@ var xAppChooserButtonAppendSeparator func(uintptr)
 // Appends a separator to the list of applications that is shown
 // in the popup.
 func (x *AppChooserButton) AppendSeparator() {
-	core.LazyRegister(&xAppChooserButtonAppendSeparator, "GTK", "gtk_app_chooser_button_append_separator", false)
-
 	xAppChooserButtonAppendSeparator(x.GoPointer())
 }
 
@@ -108,8 +103,6 @@ var xAppChooserButtonGetHeading func(uintptr) string
 
 // Returns the text to display at the top of the dialog.
 func (x *AppChooserButton) GetHeading() string {
-	core.LazyRegister(&xAppChooserButtonGetHeading, "GTK", "gtk_app_chooser_button_get_heading", false)
-
 	cret := xAppChooserButtonGetHeading(x.GoPointer())
 	return cret
 }
@@ -118,8 +111,6 @@ var xAppChooserButtonGetModal func(uintptr) bool
 
 // Gets whether the dialog is modal.
 func (x *AppChooserButton) GetModal() bool {
-	core.LazyRegister(&xAppChooserButtonGetModal, "GTK", "gtk_app_chooser_button_get_modal", false)
-
 	cret := xAppChooserButtonGetModal(x.GoPointer())
 	return cret
 }
@@ -129,8 +120,6 @@ var xAppChooserButtonGetShowDefaultItem func(uintptr) bool
 // Returns whether the dropdown menu should show the default
 // application at the top.
 func (x *AppChooserButton) GetShowDefaultItem() bool {
-	core.LazyRegister(&xAppChooserButtonGetShowDefaultItem, "GTK", "gtk_app_chooser_button_get_show_default_item", false)
-
 	cret := xAppChooserButtonGetShowDefaultItem(x.GoPointer())
 	return cret
 }
@@ -140,8 +129,6 @@ var xAppChooserButtonGetShowDialogItem func(uintptr) bool
 // Returns whether the dropdown menu shows an item
 // for a `GtkAppChooserDialog`.
 func (x *AppChooserButton) GetShowDialogItem() bool {
-	core.LazyRegister(&xAppChooserButtonGetShowDialogItem, "GTK", "gtk_app_chooser_button_get_show_dialog_item", false)
-
 	cret := xAppChooserButtonGetShowDialogItem(x.GoPointer())
 	return cret
 }
@@ -155,8 +142,6 @@ var xAppChooserButtonSetActiveCustomItem func(uintptr, string)
 // Use [method@Gtk.AppChooser.refresh] to bring the selection
 // to its initial state.
 func (x *AppChooserButton) SetActiveCustomItem(NameVar string) {
-	core.LazyRegister(&xAppChooserButtonSetActiveCustomItem, "GTK", "gtk_app_chooser_button_set_active_custom_item", false)
-
 	xAppChooserButtonSetActiveCustomItem(x.GoPointer(), NameVar)
 }
 
@@ -166,8 +151,6 @@ var xAppChooserButtonSetHeading func(uintptr, string)
 //
 // If the heading is not set, the dialog displays a default text.
 func (x *AppChooserButton) SetHeading(HeadingVar string) {
-	core.LazyRegister(&xAppChooserButtonSetHeading, "GTK", "gtk_app_chooser_button_set_heading", false)
-
 	xAppChooserButtonSetHeading(x.GoPointer(), HeadingVar)
 }
 
@@ -175,8 +158,6 @@ var xAppChooserButtonSetModal func(uintptr, bool)
 
 // Sets whether the dialog should be modal.
 func (x *AppChooserButton) SetModal(ModalVar bool) {
-	core.LazyRegister(&xAppChooserButtonSetModal, "GTK", "gtk_app_chooser_button_set_modal", false)
-
 	xAppChooserButtonSetModal(x.GoPointer(), ModalVar)
 }
 
@@ -185,8 +166,6 @@ var xAppChooserButtonSetShowDefaultItem func(uintptr, bool)
 // Sets whether the dropdown menu of this button should show the
 // default application for the given content type at top.
 func (x *AppChooserButton) SetShowDefaultItem(SettingVar bool) {
-	core.LazyRegister(&xAppChooserButtonSetShowDefaultItem, "GTK", "gtk_app_chooser_button_set_show_default_item", false)
-
 	xAppChooserButtonSetShowDefaultItem(x.GoPointer(), SettingVar)
 }
 
@@ -195,8 +174,6 @@ var xAppChooserButtonSetShowDialogItem func(uintptr, bool)
 // Sets whether the dropdown menu of this button should show an
 // entry to trigger a `GtkAppChooserDialog`.
 func (x *AppChooserButton) SetShowDialogItem(SettingVar bool) {
-	core.LazyRegister(&xAppChooserButtonSetShowDialogItem, "GTK", "gtk_app_chooser_button_set_show_dialog_item", false)
-
 	xAppChooserButtonSetShowDialogItem(x.GoPointer(), SettingVar)
 }
 
@@ -653,4 +630,28 @@ func (x *AppChooserButton) GetBuildableId() string {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GTK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xAppChooserButtonGLibType, libs, "gtk_app_chooser_button_get_type")
+
+	core.PuregoSafeRegister(&xNewAppChooserButton, libs, "gtk_app_chooser_button_new")
+
+	core.PuregoSafeRegister(&xAppChooserButtonAppendCustomItem, libs, "gtk_app_chooser_button_append_custom_item")
+	core.PuregoSafeRegister(&xAppChooserButtonAppendSeparator, libs, "gtk_app_chooser_button_append_separator")
+	core.PuregoSafeRegister(&xAppChooserButtonGetHeading, libs, "gtk_app_chooser_button_get_heading")
+	core.PuregoSafeRegister(&xAppChooserButtonGetModal, libs, "gtk_app_chooser_button_get_modal")
+	core.PuregoSafeRegister(&xAppChooserButtonGetShowDefaultItem, libs, "gtk_app_chooser_button_get_show_default_item")
+	core.PuregoSafeRegister(&xAppChooserButtonGetShowDialogItem, libs, "gtk_app_chooser_button_get_show_dialog_item")
+	core.PuregoSafeRegister(&xAppChooserButtonSetActiveCustomItem, libs, "gtk_app_chooser_button_set_active_custom_item")
+	core.PuregoSafeRegister(&xAppChooserButtonSetHeading, libs, "gtk_app_chooser_button_set_heading")
+	core.PuregoSafeRegister(&xAppChooserButtonSetModal, libs, "gtk_app_chooser_button_set_modal")
+	core.PuregoSafeRegister(&xAppChooserButtonSetShowDefaultItem, libs, "gtk_app_chooser_button_set_show_default_item")
+	core.PuregoSafeRegister(&xAppChooserButtonSetShowDialogItem, libs, "gtk_app_chooser_button_set_show_dialog_item")
 }

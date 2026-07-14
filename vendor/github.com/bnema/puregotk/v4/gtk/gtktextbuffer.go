@@ -603,7 +603,6 @@ type TextBuffer struct {
 var xTextBufferGLibType func() types.GType
 
 func TextBufferGLibType() types.GType {
-	core.LazyRegister(&xTextBufferGLibType, "GTK", "gtk_text_buffer_get_type", false)
 	return xTextBufferGLibType()
 }
 
@@ -617,7 +616,6 @@ var xNewTextBuffer func(uintptr) uintptr
 
 // Creates a new text buffer.
 func NewTextBuffer(TableVar *TextTagTable) *TextBuffer {
-	core.LazyRegister(&xNewTextBuffer, "GTK", "gtk_text_buffer_new", false)
 	var cls *TextBuffer
 
 	cret := xNewTextBuffer(TableVar.GoPointer())
@@ -644,8 +642,6 @@ var xTextBufferAddCommitNotify func(uintptr, TextBufferNotifyFlags, uintptr, uin
 // [signal@Gtk.TextBuffer::delete-range] signals to avoid ordering issues with
 // other signal handlers which may further modify the [type@Gtk.TextBuffer].
 func (x *TextBuffer) AddCommitNotify(FlagsVar TextBufferNotifyFlags, CommitNotifyVar *TextBufferCommitNotify, UserDataVar uintptr, DestroyVar *glib.DestroyNotify) uint {
-	core.LazyRegister(&xTextBufferAddCommitNotify, "GTK", "gtk_text_buffer_add_commit_notify", false)
-
 	cret := xTextBufferAddCommitNotify(x.GoPointer(), FlagsVar, glib.NewCallbackNullable(CommitNotifyVar), UserDataVar, glib.NewCallbackNullable(DestroyVar))
 	return cret
 }
@@ -661,8 +657,6 @@ var xTextBufferAddMark func(uintptr, uintptr, *TextIter)
 // Emits the [signal@Gtk.TextBuffer::mark-set] signal as notification
 // of the mark's initial placement.
 func (x *TextBuffer) AddMark(MarkVar *TextMark, WhereVar *TextIter) {
-	core.LazyRegister(&xTextBufferAddMark, "GTK", "gtk_text_buffer_add_mark", false)
-
 	xTextBufferAddMark(x.GoPointer(), MarkVar.GoPointer(), WhereVar)
 }
 
@@ -674,8 +668,6 @@ var xTextBufferAddSelectionClipboard func(uintptr, uintptr)
 // In most cases, @clipboard will be the `GdkClipboard` returned by
 // [method@Gtk.Widget.get_primary_clipboard] for a view of @buffer.
 func (x *TextBuffer) AddSelectionClipboard(ClipboardVar *gdk.Clipboard) {
-	core.LazyRegister(&xTextBufferAddSelectionClipboard, "GTK", "gtk_text_buffer_add_selection_clipboard", false)
-
 	xTextBufferAddSelectionClipboard(x.GoPointer(), ClipboardVar.GoPointer())
 }
 
@@ -687,8 +679,6 @@ var xTextBufferApplyTag func(uintptr, uintptr, *TextIter, *TextIter)
 // @tag to the given range. @start and @end do
 // not have to be in order.
 func (x *TextBuffer) ApplyTag(TagVar *TextTag, StartVar *TextIter, EndVar *TextIter) {
-	core.LazyRegister(&xTextBufferApplyTag, "GTK", "gtk_text_buffer_apply_tag", false)
-
 	xTextBufferApplyTag(x.GoPointer(), TagVar.GoPointer(), StartVar, EndVar)
 }
 
@@ -700,8 +690,6 @@ var xTextBufferApplyTagByName func(uintptr, string, *TextIter, *TextIter)
 // tag table to get a `GtkTextTag`, then calls
 // [method@Gtk.TextBuffer.apply_tag].
 func (x *TextBuffer) ApplyTagByName(NameVar string, StartVar *TextIter, EndVar *TextIter) {
-	core.LazyRegister(&xTextBufferApplyTagByName, "GTK", "gtk_text_buffer_apply_tag_by_name", false)
-
 	xTextBufferApplyTagByName(x.GoPointer(), NameVar, StartVar, EndVar)
 }
 
@@ -719,8 +707,6 @@ var xTextBufferBackspace func(uintptr, *TextIter, bool, bool) bool
 // invalid after calling this function; however, the @iter will be
 // re-initialized to point to the location where text was deleted.
 func (x *TextBuffer) Backspace(IterVar *TextIter, InteractiveVar bool, DefaultEditableVar bool) bool {
-	core.LazyRegister(&xTextBufferBackspace, "GTK", "gtk_text_buffer_backspace", false)
-
 	cret := xTextBufferBackspace(x.GoPointer(), IterVar, InteractiveVar, DefaultEditableVar)
 	return cret
 }
@@ -739,8 +725,6 @@ var xTextBufferBeginIrreversibleAction func(uintptr)
 // You may nest calls to gtk_text_buffer_begin_irreversible_action()
 // and gtk_text_buffer_end_irreversible_action() pairs.
 func (x *TextBuffer) BeginIrreversibleAction() {
-	core.LazyRegister(&xTextBufferBeginIrreversibleAction, "GTK", "gtk_text_buffer_begin_irreversible_action", false)
-
 	xTextBufferBeginIrreversibleAction(x.GoPointer())
 }
 
@@ -765,8 +749,6 @@ var xTextBufferBeginUserAction func(uintptr)
 // so there's no need to add extra calls if you user action consists
 // solely of a single call to one of those functions.
 func (x *TextBuffer) BeginUserAction() {
-	core.LazyRegister(&xTextBufferBeginUserAction, "GTK", "gtk_text_buffer_begin_user_action", false)
-
 	xTextBufferBeginUserAction(x.GoPointer())
 }
 
@@ -774,8 +756,6 @@ var xTextBufferCopyClipboard func(uintptr, uintptr)
 
 // Copies the currently-selected text to a clipboard.
 func (x *TextBuffer) CopyClipboard(ClipboardVar *gdk.Clipboard) {
-	core.LazyRegister(&xTextBufferCopyClipboard, "GTK", "gtk_text_buffer_copy_clipboard", false)
-
 	xTextBufferCopyClipboard(x.GoPointer(), ClipboardVar.GoPointer())
 }
 
@@ -790,7 +770,6 @@ var xTextBufferCreateChildAnchor func(uintptr, *TextIter) uintptr
 // The new anchor is owned by the buffer; no reference count is
 // returned to the caller of this function.
 func (x *TextBuffer) CreateChildAnchor(IterVar *TextIter) *TextChildAnchor {
-	core.LazyRegister(&xTextBufferCreateChildAnchor, "GTK", "gtk_text_buffer_create_child_anchor", false)
 	var cls *TextChildAnchor
 
 	cret := xTextBufferCreateChildAnchor(x.GoPointer(), IterVar)
@@ -826,7 +805,6 @@ var xTextBufferCreateMark func(uintptr, uintptr, *TextIter, bool) uintptr
 // Emits the [signal@Gtk.TextBuffer::mark-set] signal as notification
 // of the mark's initial placement.
 func (x *TextBuffer) CreateMark(MarkNameVar *string, WhereVar *TextIter, LeftGravityVar bool) *TextMark {
-	core.LazyRegister(&xTextBufferCreateMark, "GTK", "gtk_text_buffer_create_mark", false)
 	var cls *TextMark
 
 	MarkNameVarPtr := core.GStrdupNullable(MarkNameVar)
@@ -859,7 +837,6 @@ var xTextBufferCreateTag func(uintptr, uintptr, uintptr, ...interface{}) uintptr
 // The @first_property_name argument and subsequent arguments are a list
 // of properties to set on the tag, as with g_object_set().
 func (x *TextBuffer) CreateTag(TagNameVar *string, FirstPropertyNameVar *string, varArgs ...interface{}) *TextTag {
-	core.LazyRegister(&xTextBufferCreateTag, "GTK", "gtk_text_buffer_create_tag", false)
 	var cls *TextTag
 
 	TagNameVarPtr := core.GStrdupNullable(TagNameVar)
@@ -884,8 +861,6 @@ var xTextBufferCutClipboard func(uintptr, uintptr, bool)
 // Copies the currently-selected text to a clipboard,
 // then deletes said text if it’s editable.
 func (x *TextBuffer) CutClipboard(ClipboardVar *gdk.Clipboard, DefaultEditableVar bool) {
-	core.LazyRegister(&xTextBufferCutClipboard, "GTK", "gtk_text_buffer_cut_clipboard", false)
-
 	xTextBufferCutClipboard(x.GoPointer(), ClipboardVar.GoPointer(), DefaultEditableVar)
 }
 
@@ -902,8 +877,6 @@ var xTextBufferDelete func(uintptr, *TextIter, *TextIter)
 // calling this function; however, the @start and @end will be
 // re-initialized to point to the location where text was deleted.
 func (x *TextBuffer) Delete(StartVar *TextIter, EndVar *TextIter) {
-	core.LazyRegister(&xTextBufferDelete, "GTK", "gtk_text_buffer_delete", false)
-
 	xTextBufferDelete(x.GoPointer(), StartVar, EndVar)
 }
 
@@ -916,8 +889,6 @@ var xTextBufferDeleteInteractive func(uintptr, *TextIter, *TextIter, bool) bool
 // to point to the location of the last deleted range, or left
 // untouched if no text was deleted.
 func (x *TextBuffer) DeleteInteractive(StartIterVar *TextIter, EndIterVar *TextIter, DefaultEditableVar bool) bool {
-	core.LazyRegister(&xTextBufferDeleteInteractive, "GTK", "gtk_text_buffer_delete_interactive", false)
-
 	cret := xTextBufferDeleteInteractive(x.GoPointer(), StartIterVar, EndIterVar, DefaultEditableVar)
 	return cret
 }
@@ -937,8 +908,6 @@ var xTextBufferDeleteMark func(uintptr, uintptr)
 // The [signal@Gtk.TextBuffer::mark-deleted] signal will be emitted as
 // notification after the mark is deleted.
 func (x *TextBuffer) DeleteMark(MarkVar *TextMark) {
-	core.LazyRegister(&xTextBufferDeleteMark, "GTK", "gtk_text_buffer_delete_mark", false)
-
 	xTextBufferDeleteMark(x.GoPointer(), MarkVar.GoPointer())
 }
 
@@ -948,8 +917,6 @@ var xTextBufferDeleteMarkByName func(uintptr, string)
 //
 // See [method@Gtk.TextBuffer.delete_mark] for details.
 func (x *TextBuffer) DeleteMarkByName(NameVar string) {
-	core.LazyRegister(&xTextBufferDeleteMarkByName, "GTK", "gtk_text_buffer_delete_mark_by_name", false)
-
 	xTextBufferDeleteMarkByName(x.GoPointer(), NameVar)
 }
 
@@ -961,8 +928,6 @@ var xTextBufferDeleteSelection func(uintptr, bool, bool) bool
 // If @interactive is %TRUE, the editability of the selection will be
 // considered (users can’t delete uneditable text).
 func (x *TextBuffer) DeleteSelection(InteractiveVar bool, DefaultEditableVar bool) bool {
-	core.LazyRegister(&xTextBufferDeleteSelection, "GTK", "gtk_text_buffer_delete_selection", false)
-
 	cret := xTextBufferDeleteSelection(x.GoPointer(), InteractiveVar, DefaultEditableVar)
 	return cret
 }
@@ -981,8 +946,6 @@ var xTextBufferEndIrreversibleAction func(uintptr)
 // You may nest calls to gtk_text_buffer_begin_irreversible_action()
 // and gtk_text_buffer_end_irreversible_action() pairs.
 func (x *TextBuffer) EndIrreversibleAction() {
-	core.LazyRegister(&xTextBufferEndIrreversibleAction, "GTK", "gtk_text_buffer_end_irreversible_action", false)
-
 	xTextBufferEndIrreversibleAction(x.GoPointer())
 }
 
@@ -994,8 +957,6 @@ var xTextBufferEndUserAction func(uintptr)
 // [method@Gtk.TextBuffer.begin_user_action].
 // See that function for a full explanation.
 func (x *TextBuffer) EndUserAction() {
-	core.LazyRegister(&xTextBufferEndUserAction, "GTK", "gtk_text_buffer_end_user_action", false)
-
 	xTextBufferEndUserAction(x.GoPointer())
 }
 
@@ -1004,8 +965,6 @@ var xTextBufferGetBounds func(uintptr, *TextIter, *TextIter)
 // Retrieves the first and last iterators in the buffer, i.e. the
 // entire buffer lies within the range [@start,@end).
 func (x *TextBuffer) GetBounds(StartVar *TextIter, EndVar *TextIter) {
-	core.LazyRegister(&xTextBufferGetBounds, "GTK", "gtk_text_buffer_get_bounds", false)
-
 	xTextBufferGetBounds(x.GoPointer(), StartVar, EndVar)
 }
 
@@ -1013,8 +972,6 @@ var xTextBufferGetCanRedo func(uintptr) bool
 
 // Gets whether there is a redoable action in the history.
 func (x *TextBuffer) GetCanRedo() bool {
-	core.LazyRegister(&xTextBufferGetCanRedo, "GTK", "gtk_text_buffer_get_can_redo", false)
-
 	cret := xTextBufferGetCanRedo(x.GoPointer())
 	return cret
 }
@@ -1023,8 +980,6 @@ var xTextBufferGetCanUndo func(uintptr) bool
 
 // Gets whether there is an undoable action in the history.
 func (x *TextBuffer) GetCanUndo() bool {
-	core.LazyRegister(&xTextBufferGetCanUndo, "GTK", "gtk_text_buffer_get_can_undo", false)
-
 	cret := xTextBufferGetCanUndo(x.GoPointer())
 	return cret
 }
@@ -1039,8 +994,6 @@ var xTextBufferGetCharCount func(uintptr) int
 //
 // The character count is cached, so this function is very fast.
 func (x *TextBuffer) GetCharCount() int {
-	core.LazyRegister(&xTextBufferGetCharCount, "GTK", "gtk_text_buffer_get_char_count", false)
-
 	cret := xTextBufferGetCharCount(x.GoPointer())
 	return cret
 }
@@ -1054,8 +1007,6 @@ var xTextBufferGetEnableUndo func(uintptr) bool
 // [method@Gtk.TextBuffer.end_irreversible_action] to create
 // changes to the buffer that cannot be undone.
 func (x *TextBuffer) GetEnableUndo() bool {
-	core.LazyRegister(&xTextBufferGetEnableUndo, "GTK", "gtk_text_buffer_get_enable_undo", false)
-
 	cret := xTextBufferGetEnableUndo(x.GoPointer())
 	return cret
 }
@@ -1071,8 +1022,6 @@ var xTextBufferGetEndIter func(uintptr, *TextIter)
 // the buffer (call [method@Gtk.TextBuffer.get_start_iter] to get
 // character position 0) to the end iterator.
 func (x *TextBuffer) GetEndIter(IterVar *TextIter) {
-	core.LazyRegister(&xTextBufferGetEndIter, "GTK", "gtk_text_buffer_get_end_iter", false)
-
 	xTextBufferGetEndIter(x.GoPointer(), IterVar)
 }
 
@@ -1080,8 +1029,6 @@ var xTextBufferGetHasSelection func(uintptr) bool
 
 // Indicates whether the buffer has some text currently selected.
 func (x *TextBuffer) GetHasSelection() bool {
-	core.LazyRegister(&xTextBufferGetHasSelection, "GTK", "gtk_text_buffer_get_has_selection", false)
-
 	cret := xTextBufferGetHasSelection(x.GoPointer())
 	return cret
 }
@@ -1094,7 +1041,6 @@ var xTextBufferGetInsert func(uintptr) uintptr
 // to get the mark named “insert”, but very slightly more
 // efficient, and involves less typing.
 func (x *TextBuffer) GetInsert() *TextMark {
-	core.LazyRegister(&xTextBufferGetInsert, "GTK", "gtk_text_buffer_get_insert", false)
 	var cls *TextMark
 
 	cret := xTextBufferGetInsert(x.GoPointer())
@@ -1112,8 +1058,6 @@ var xTextBufferGetIterAtChildAnchor func(uintptr, *TextIter, uintptr)
 
 // Obtains the location of @anchor within @buffer.
 func (x *TextBuffer) GetIterAtChildAnchor(IterVar *TextIter, AnchorVar *TextChildAnchor) {
-	core.LazyRegister(&xTextBufferGetIterAtChildAnchor, "GTK", "gtk_text_buffer_get_iter_at_child_anchor", false)
-
 	xTextBufferGetIterAtChildAnchor(x.GoPointer(), IterVar, AnchorVar.GoPointer())
 }
 
@@ -1124,8 +1068,6 @@ var xTextBufferGetIterAtLine func(uintptr, *TextIter, int) bool
 // If @line_number is greater than or equal to the number of lines
 // in the @buffer, the end iterator is returned.
 func (x *TextBuffer) GetIterAtLine(IterVar *TextIter, LineNumberVar int) bool {
-	core.LazyRegister(&xTextBufferGetIterAtLine, "GTK", "gtk_text_buffer_get_iter_at_line", false)
-
 	cret := xTextBufferGetIterAtLine(x.GoPointer(), IterVar, LineNumberVar)
 	return cret
 }
@@ -1141,8 +1083,6 @@ var xTextBufferGetIterAtLineIndex func(uintptr, *TextIter, int, int) bool
 // the end iterator is returned. And if @byte_index is off the
 // end of the line, the iterator at the end of the line is returned.
 func (x *TextBuffer) GetIterAtLineIndex(IterVar *TextIter, LineNumberVar int, ByteIndexVar int) bool {
-	core.LazyRegister(&xTextBufferGetIterAtLineIndex, "GTK", "gtk_text_buffer_get_iter_at_line_index", false)
-
 	cret := xTextBufferGetIterAtLineIndex(x.GoPointer(), IterVar, LineNumberVar, ByteIndexVar)
 	return cret
 }
@@ -1158,8 +1098,6 @@ var xTextBufferGetIterAtLineOffset func(uintptr, *TextIter, int, int) bool
 // the end iterator is returned. And if @char_offset is off the
 // end of the line, the iterator at the end of the line is returned.
 func (x *TextBuffer) GetIterAtLineOffset(IterVar *TextIter, LineNumberVar int, CharOffsetVar int) bool {
-	core.LazyRegister(&xTextBufferGetIterAtLineOffset, "GTK", "gtk_text_buffer_get_iter_at_line_offset", false)
-
 	cret := xTextBufferGetIterAtLineOffset(x.GoPointer(), IterVar, LineNumberVar, CharOffsetVar)
 	return cret
 }
@@ -1168,8 +1106,6 @@ var xTextBufferGetIterAtMark func(uintptr, *TextIter, uintptr)
 
 // Initializes @iter with the current position of @mark.
 func (x *TextBuffer) GetIterAtMark(IterVar *TextIter, MarkVar *TextMark) {
-	core.LazyRegister(&xTextBufferGetIterAtMark, "GTK", "gtk_text_buffer_get_iter_at_mark", false)
-
 	xTextBufferGetIterAtMark(x.GoPointer(), IterVar, MarkVar.GoPointer())
 }
 
@@ -1182,8 +1118,6 @@ var xTextBufferGetIterAtOffset func(uintptr, *TextIter, int)
 // of characters in the buffer, @iter is initialized to the end iterator,
 // the iterator one past the last valid character in the buffer.
 func (x *TextBuffer) GetIterAtOffset(IterVar *TextIter, CharOffsetVar int) {
-	core.LazyRegister(&xTextBufferGetIterAtOffset, "GTK", "gtk_text_buffer_get_iter_at_offset", false)
-
 	xTextBufferGetIterAtOffset(x.GoPointer(), IterVar, CharOffsetVar)
 }
 
@@ -1193,8 +1127,6 @@ var xTextBufferGetLineCount func(uintptr) int
 //
 // This value is cached, so the function is very fast.
 func (x *TextBuffer) GetLineCount() int {
-	core.LazyRegister(&xTextBufferGetLineCount, "GTK", "gtk_text_buffer_get_line_count", false)
-
 	cret := xTextBufferGetLineCount(x.GoPointer())
 	return cret
 }
@@ -1204,7 +1136,6 @@ var xTextBufferGetMark func(uintptr, string) uintptr
 // Returns the mark named @name in buffer @buffer, or %NULL if no such
 // mark exists in the buffer.
 func (x *TextBuffer) GetMark(NameVar string) *TextMark {
-	core.LazyRegister(&xTextBufferGetMark, "GTK", "gtk_text_buffer_get_mark", false)
 	var cls *TextMark
 
 	cret := xTextBufferGetMark(x.GoPointer(), NameVar)
@@ -1226,8 +1157,6 @@ var xTextBufferGetMaxUndoLevels func(uintptr) uint
 // have a memory usage impact as it requires storing an additional
 // copy of the inserted or removed text within the text buffer.
 func (x *TextBuffer) GetMaxUndoLevels() uint {
-	core.LazyRegister(&xTextBufferGetMaxUndoLevels, "GTK", "gtk_text_buffer_get_max_undo_levels", false)
-
 	cret := xTextBufferGetMaxUndoLevels(x.GoPointer())
 	return cret
 }
@@ -1240,8 +1169,6 @@ var xTextBufferGetModified func(uintptr) bool
 //
 // Used for example to enable a “save” function in a text editor.
 func (x *TextBuffer) GetModified() bool {
-	core.LazyRegister(&xTextBufferGetModified, "GTK", "gtk_text_buffer_get_modified", false)
-
 	cret := xTextBufferGetModified(x.GoPointer())
 	return cret
 }
@@ -1261,7 +1188,6 @@ var xTextBufferGetSelectionBound func(uintptr) uintptr
 // function for handling the selection, if you just want to know whether
 // there’s a selection and what its bounds are.
 func (x *TextBuffer) GetSelectionBound() *TextMark {
-	core.LazyRegister(&xTextBufferGetSelectionBound, "GTK", "gtk_text_buffer_get_selection_bound", false)
 	var cls *TextMark
 
 	cret := xTextBufferGetSelectionBound(x.GoPointer())
@@ -1285,8 +1211,6 @@ var xTextBufferGetSelectionBounds func(uintptr, *TextIter, *TextIter) bool
 // If @start and @end are %NULL, then they are not filled in, but the
 // return value still indicates whether text is selected.
 func (x *TextBuffer) GetSelectionBounds(StartVar *TextIter, EndVar *TextIter) bool {
-	core.LazyRegister(&xTextBufferGetSelectionBounds, "GTK", "gtk_text_buffer_get_selection_bounds", false)
-
 	cret := xTextBufferGetSelectionBounds(x.GoPointer(), StartVar, EndVar)
 	return cret
 }
@@ -1298,7 +1222,6 @@ var xTextBufferGetSelectionContent func(uintptr) uintptr
 // It can be used to make the content of @buffer available
 // in a `GdkClipboard`, see [method@Gdk.Clipboard.set_content].
 func (x *TextBuffer) GetSelectionContent() *gdk.ContentProvider {
-	core.LazyRegister(&xTextBufferGetSelectionContent, "GTK", "gtk_text_buffer_get_selection_content", false)
 	var cls *gdk.ContentProvider
 
 	cret := xTextBufferGetSelectionContent(x.GoPointer())
@@ -1324,8 +1247,6 @@ var xTextBufferGetSlice func(uintptr, *TextIter, *TextIter, bool) string
 // Note that 0xFFFC can occur in normal text as well, so it is not a
 // reliable indicator that a paintable or widget is in the buffer.
 func (x *TextBuffer) GetSlice(StartVar *TextIter, EndVar *TextIter, IncludeHiddenCharsVar bool) string {
-	core.LazyRegister(&xTextBufferGetSlice, "GTK", "gtk_text_buffer_get_slice", false)
-
 	cret := xTextBufferGetSlice(x.GoPointer(), StartVar, EndVar, IncludeHiddenCharsVar)
 	return cret
 }
@@ -1337,8 +1258,6 @@ var xTextBufferGetStartIter func(uintptr, *TextIter)
 // This is the same as using [method@Gtk.TextBuffer.get_iter_at_offset]
 // to get the iter at character offset 0.
 func (x *TextBuffer) GetStartIter(IterVar *TextIter) {
-	core.LazyRegister(&xTextBufferGetStartIter, "GTK", "gtk_text_buffer_get_start_iter", false)
-
 	xTextBufferGetStartIter(x.GoPointer(), IterVar)
 }
 
@@ -1346,7 +1265,6 @@ var xTextBufferGetTagTable func(uintptr) uintptr
 
 // Get the `GtkTextTagTable` associated with this buffer.
 func (x *TextBuffer) GetTagTable() *TextTagTable {
-	core.LazyRegister(&xTextBufferGetTagTable, "GTK", "gtk_text_buffer_get_tag_table", false)
 	var cls *TextTagTable
 
 	cret := xTextBufferGetTagTable(x.GoPointer())
@@ -1371,8 +1289,6 @@ var xTextBufferGetText func(uintptr, *TextIter, *TextIter, bool) string
 // correspond to byte and character indexes into the buffer.
 // Contrast with [method@Gtk.TextBuffer.get_slice].
 func (x *TextBuffer) GetText(StartVar *TextIter, EndVar *TextIter, IncludeHiddenCharsVar bool) string {
-	core.LazyRegister(&xTextBufferGetText, "GTK", "gtk_text_buffer_get_text", false)
-
 	cret := xTextBufferGetText(x.GoPointer(), StartVar, EndVar, IncludeHiddenCharsVar)
 	return cret
 }
@@ -1388,8 +1304,6 @@ var xTextBufferInsert func(uintptr, *TextIter, string, int)
 // default signal handler revalidates it to point to the end of the
 // inserted text.
 func (x *TextBuffer) Insert(IterVar *TextIter, TextVar string, LenVar int) {
-	core.LazyRegister(&xTextBufferInsert, "GTK", "gtk_text_buffer_insert", false)
-
 	xTextBufferInsert(x.GoPointer(), IterVar, TextVar, LenVar)
 }
 
@@ -1400,8 +1314,6 @@ var xTextBufferInsertAtCursor func(uintptr, string, int)
 // Simply calls [method@Gtk.TextBuffer.insert],
 // using the current cursor position as the insertion point.
 func (x *TextBuffer) InsertAtCursor(TextVar string, LenVar int) {
-	core.LazyRegister(&xTextBufferInsertAtCursor, "GTK", "gtk_text_buffer_insert_at_cursor", false)
-
 	xTextBufferInsertAtCursor(x.GoPointer(), TextVar, LenVar)
 }
 
@@ -1421,8 +1333,6 @@ var xTextBufferInsertChildAnchor func(uintptr, *TextIter, uintptr)
 // convenient alternative to this function. The buffer will add a
 // reference to the anchor, so you can unref it after insertion.
 func (x *TextBuffer) InsertChildAnchor(IterVar *TextIter, AnchorVar *TextChildAnchor) {
-	core.LazyRegister(&xTextBufferInsertChildAnchor, "GTK", "gtk_text_buffer_insert_child_anchor", false)
-
 	xTextBufferInsertChildAnchor(x.GoPointer(), IterVar, AnchorVar.GoPointer())
 }
 
@@ -1439,8 +1349,6 @@ var xTextBufferInsertInteractive func(uintptr, *TextIter, string, int, bool) boo
 // have a tag affecting editability applied to it. Typically the
 // result of [method@Gtk.TextView.get_editable] is appropriate here.
 func (x *TextBuffer) InsertInteractive(IterVar *TextIter, TextVar string, LenVar int, DefaultEditableVar bool) bool {
-	core.LazyRegister(&xTextBufferInsertInteractive, "GTK", "gtk_text_buffer_insert_interactive", false)
-
 	cret := xTextBufferInsertInteractive(x.GoPointer(), IterVar, TextVar, LenVar, DefaultEditableVar)
 	return cret
 }
@@ -1456,8 +1364,6 @@ var xTextBufferInsertInteractiveAtCursor func(uintptr, string, int, bool) bool
 // have a tag affecting editability applied to it. Typically the
 // result of [method@Gtk.TextView.get_editable] is appropriate here.
 func (x *TextBuffer) InsertInteractiveAtCursor(TextVar string, LenVar int, DefaultEditableVar bool) bool {
-	core.LazyRegister(&xTextBufferInsertInteractiveAtCursor, "GTK", "gtk_text_buffer_insert_interactive_at_cursor", false)
-
 	cret := xTextBufferInsertInteractiveAtCursor(x.GoPointer(), TextVar, LenVar, DefaultEditableVar)
 	return cret
 }
@@ -1471,8 +1377,6 @@ var xTextBufferInsertMarkup func(uintptr, *TextIter, string, int)
 // possibly multiple times; insertion actually occurs in the default handler
 // for the signal. @iter will point to the end of the inserted text on return.
 func (x *TextBuffer) InsertMarkup(IterVar *TextIter, MarkupVar string, LenVar int) {
-	core.LazyRegister(&xTextBufferInsertMarkup, "GTK", "gtk_text_buffer_insert_markup", false)
-
 	xTextBufferInsertMarkup(x.GoPointer(), IterVar, MarkupVar, LenVar)
 }
 
@@ -1488,8 +1392,6 @@ var xTextBufferInsertPaintable func(uintptr, *TextIter, uintptr)
 // variants do not. e.g. see [method@Gtk.TextBuffer.get_slice] and
 // [method@Gtk.TextBuffer.get_text].
 func (x *TextBuffer) InsertPaintable(IterVar *TextIter, PaintableVar gdk.Paintable) {
-	core.LazyRegister(&xTextBufferInsertPaintable, "GTK", "gtk_text_buffer_insert_paintable", false)
-
 	xTextBufferInsertPaintable(x.GoPointer(), IterVar, PaintableVar.GoPointer())
 }
 
@@ -1507,8 +1409,6 @@ var xTextBufferInsertRange func(uintptr, *TextIter, *TextIter, *TextIter)
 // Implemented via emissions of the ::insert-text and ::apply-tag signals,
 // so expect those.
 func (x *TextBuffer) InsertRange(IterVar *TextIter, StartVar *TextIter, EndVar *TextIter) {
-	core.LazyRegister(&xTextBufferInsertRange, "GTK", "gtk_text_buffer_insert_range", false)
-
 	xTextBufferInsertRange(x.GoPointer(), IterVar, StartVar, EndVar)
 }
 
@@ -1523,8 +1423,6 @@ var xTextBufferInsertRangeInteractive func(uintptr, *TextIter, *TextIter, *TextI
 // no tags enclosing @iter affect editability. Typically the result
 // of [method@Gtk.TextView.get_editable] is appropriate here.
 func (x *TextBuffer) InsertRangeInteractive(IterVar *TextIter, StartVar *TextIter, EndVar *TextIter, DefaultEditableVar bool) bool {
-	core.LazyRegister(&xTextBufferInsertRangeInteractive, "GTK", "gtk_text_buffer_insert_range_interactive", false)
-
 	cret := xTextBufferInsertRangeInteractive(x.GoPointer(), IterVar, StartVar, EndVar, DefaultEditableVar)
 	return cret
 }
@@ -1539,8 +1437,6 @@ var xTextBufferInsertWithTags func(uintptr, *TextIter, string, int, uintptr, ...
 // then [method@Gtk.TextBuffer.apply_tag] on the inserted text;
 // this is just a convenience function.
 func (x *TextBuffer) InsertWithTags(IterVar *TextIter, TextVar string, LenVar int, FirstTagVar *TextTag, varArgs ...interface{}) {
-	core.LazyRegister(&xTextBufferInsertWithTags, "GTK", "gtk_text_buffer_insert_with_tags", false)
-
 	xTextBufferInsertWithTags(x.GoPointer(), IterVar, TextVar, LenVar, FirstTagVar.GoPointer(), varArgs...)
 }
 
@@ -1552,8 +1448,6 @@ var xTextBufferInsertWithTagsByName func(uintptr, *TextIter, string, int, string
 // Same as [method@Gtk.TextBuffer.insert_with_tags], but allows you
 // to pass in tag names instead of tag objects.
 func (x *TextBuffer) InsertWithTagsByName(IterVar *TextIter, TextVar string, LenVar int, FirstTagNameVar string, varArgs ...interface{}) {
-	core.LazyRegister(&xTextBufferInsertWithTagsByName, "GTK", "gtk_text_buffer_insert_with_tags_by_name", false)
-
 	xTextBufferInsertWithTagsByName(x.GoPointer(), IterVar, TextVar, LenVar, FirstTagNameVar, varArgs...)
 }
 
@@ -1564,8 +1458,6 @@ var xTextBufferMoveMark func(uintptr, uintptr, *TextIter)
 // Emits the [signal@Gtk.TextBuffer::mark-set] signal
 // as notification of the move.
 func (x *TextBuffer) MoveMark(MarkVar *TextMark, WhereVar *TextIter) {
-	core.LazyRegister(&xTextBufferMoveMark, "GTK", "gtk_text_buffer_move_mark", false)
-
 	xTextBufferMoveMark(x.GoPointer(), MarkVar.GoPointer(), WhereVar)
 }
 
@@ -1575,8 +1467,6 @@ var xTextBufferMoveMarkByName func(uintptr, string, *TextIter)
 //
 // See [method@Gtk.TextBuffer.move_mark] for details.
 func (x *TextBuffer) MoveMarkByName(NameVar string, WhereVar *TextIter) {
-	core.LazyRegister(&xTextBufferMoveMarkByName, "GTK", "gtk_text_buffer_move_mark_by_name", false)
-
 	xTextBufferMoveMarkByName(x.GoPointer(), NameVar, WhereVar)
 }
 
@@ -1592,8 +1482,6 @@ var xTextBufferPasteClipboard func(uintptr, uintptr, *TextIter, bool)
 // and return, and at some point later after the main loop runs, the paste
 // data will be inserted.
 func (x *TextBuffer) PasteClipboard(ClipboardVar *gdk.Clipboard, OverrideLocationVar *TextIter, DefaultEditableVar bool) {
-	core.LazyRegister(&xTextBufferPasteClipboard, "GTK", "gtk_text_buffer_paste_clipboard", false)
-
 	xTextBufferPasteClipboard(x.GoPointer(), ClipboardVar.GoPointer(), OverrideLocationVar, DefaultEditableVar)
 }
 
@@ -1609,8 +1497,6 @@ var xTextBufferPlaceCursor func(uintptr, *TextIter)
 // to be recalculated. This function moves them as a unit, which can
 // be optimized.
 func (x *TextBuffer) PlaceCursor(WhereVar *TextIter) {
-	core.LazyRegister(&xTextBufferPlaceCursor, "GTK", "gtk_text_buffer_place_cursor", false)
-
 	xTextBufferPlaceCursor(x.GoPointer(), WhereVar)
 }
 
@@ -1618,8 +1504,6 @@ var xTextBufferRedo func(uintptr)
 
 // Redoes the next redoable action on the buffer, if there is one.
 func (x *TextBuffer) Redo() {
-	core.LazyRegister(&xTextBufferRedo, "GTK", "gtk_text_buffer_redo", false)
-
 	xTextBufferRedo(x.GoPointer())
 }
 
@@ -1632,8 +1516,6 @@ var xTextBufferRemoveAllTags func(uintptr, *TextIter, *TextIter)
 // function is probably a bad idea if you have two or more unrelated
 // code sections that add tags.
 func (x *TextBuffer) RemoveAllTags(StartVar *TextIter, EndVar *TextIter) {
-	core.LazyRegister(&xTextBufferRemoveAllTags, "GTK", "gtk_text_buffer_remove_all_tags", false)
-
 	xTextBufferRemoveAllTags(x.GoPointer(), StartVar, EndVar)
 }
 
@@ -1645,8 +1527,6 @@ var xTextBufferRemoveCommitNotify func(uintptr, uint)
 // This may result in the `user_data_destroy` being called that was passed when registering
 // the commit notify functions.
 func (x *TextBuffer) RemoveCommitNotify(CommitNotifyHandlerVar uint) {
-	core.LazyRegister(&xTextBufferRemoveCommitNotify, "GTK", "gtk_text_buffer_remove_commit_notify", false)
-
 	xTextBufferRemoveCommitNotify(x.GoPointer(), CommitNotifyHandlerVar)
 }
 
@@ -1655,8 +1535,6 @@ var xTextBufferRemoveSelectionClipboard func(uintptr, uintptr)
 // Removes a `GdkClipboard` added with
 // [method@Gtk.TextBuffer.add_selection_clipboard]
 func (x *TextBuffer) RemoveSelectionClipboard(ClipboardVar *gdk.Clipboard) {
-	core.LazyRegister(&xTextBufferRemoveSelectionClipboard, "GTK", "gtk_text_buffer_remove_selection_clipboard", false)
-
 	xTextBufferRemoveSelectionClipboard(x.GoPointer(), ClipboardVar.GoPointer())
 }
 
@@ -1668,8 +1546,6 @@ var xTextBufferRemoveTag func(uintptr, uintptr, *TextIter, *TextIter)
 // of @tag from the given range. @start and @end don’t have
 // to be in order.
 func (x *TextBuffer) RemoveTag(TagVar *TextTag, StartVar *TextIter, EndVar *TextIter) {
-	core.LazyRegister(&xTextBufferRemoveTag, "GTK", "gtk_text_buffer_remove_tag", false)
-
 	xTextBufferRemoveTag(x.GoPointer(), TagVar.GoPointer(), StartVar, EndVar)
 }
 
@@ -1681,8 +1557,6 @@ var xTextBufferRemoveTagByName func(uintptr, string, *TextIter, *TextIter)
 // tag table to get a `GtkTextTag`, then calls
 // [method@Gtk.TextBuffer.remove_tag].
 func (x *TextBuffer) RemoveTagByName(NameVar string, StartVar *TextIter, EndVar *TextIter) {
-	core.LazyRegister(&xTextBufferRemoveTagByName, "GTK", "gtk_text_buffer_remove_tag_by_name", false)
-
 	xTextBufferRemoveTagByName(x.GoPointer(), NameVar, StartVar, EndVar)
 }
 
@@ -1698,8 +1572,6 @@ var xTextBufferSelectRange func(uintptr, *TextIter, *TextIter)
 // to be recalculated. This function moves them as a unit, which can
 // be optimized.
 func (x *TextBuffer) SelectRange(InsVar *TextIter, BoundVar *TextIter) {
-	core.LazyRegister(&xTextBufferSelectRange, "GTK", "gtk_text_buffer_select_range", false)
-
 	xTextBufferSelectRange(x.GoPointer(), InsVar, BoundVar)
 }
 
@@ -1717,8 +1589,6 @@ var xTextBufferSetEnableUndo func(uintptr, bool)
 // [method@Gtk.TextBuffer.end_irreversible_action] to create
 // changes to the buffer that cannot be undone.
 func (x *TextBuffer) SetEnableUndo(EnableUndoVar bool) {
-	core.LazyRegister(&xTextBufferSetEnableUndo, "GTK", "gtk_text_buffer_set_enable_undo", false)
-
 	xTextBufferSetEnableUndo(x.GoPointer(), EnableUndoVar)
 }
 
@@ -1730,8 +1600,6 @@ var xTextBufferSetMaxUndoLevels func(uintptr, uint)
 // have a memory usage impact as it requires storing an additional
 // copy of the inserted or removed text within the text buffer.
 func (x *TextBuffer) SetMaxUndoLevels(MaxUndoLevelsVar uint) {
-	core.LazyRegister(&xTextBufferSetMaxUndoLevels, "GTK", "gtk_text_buffer_set_max_undo_levels", false)
-
 	xTextBufferSetMaxUndoLevels(x.GoPointer(), MaxUndoLevelsVar)
 }
 
@@ -1747,8 +1615,6 @@ var xTextBufferSetModified func(uintptr, bool)
 // bit flips, the buffer emits the
 // [signal@Gtk.TextBuffer::modified-changed] signal.
 func (x *TextBuffer) SetModified(SettingVar bool) {
-	core.LazyRegister(&xTextBufferSetModified, "GTK", "gtk_text_buffer_set_modified", false)
-
 	xTextBufferSetModified(x.GoPointer(), SettingVar)
 }
 
@@ -1762,8 +1628,6 @@ var xTextBufferSetText func(uintptr, string, int)
 // If @len is -1, @text must be nul-terminated.
 // @text must be valid UTF-8.
 func (x *TextBuffer) SetText(TextVar string, LenVar int) {
-	core.LazyRegister(&xTextBufferSetText, "GTK", "gtk_text_buffer_set_text", false)
-
 	xTextBufferSetText(x.GoPointer(), TextVar, LenVar)
 }
 
@@ -1771,8 +1635,6 @@ var xTextBufferUndo func(uintptr)
 
 // Undoes the last undoable action on the buffer, if there is one.
 func (x *TextBuffer) Undo() {
-	core.LazyRegister(&xTextBufferUndo, "GTK", "gtk_text_buffer_undo", false)
-
 	xTextBufferUndo(x.GoPointer())
 }
 
@@ -2302,4 +2164,89 @@ func (x *TextBuffer) ConnectUndo(cb *func(TextBuffer)) uint {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GTK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xTextBufferGLibType, libs, "gtk_text_buffer_get_type")
+
+	core.PuregoSafeRegister(&xNewTextBuffer, libs, "gtk_text_buffer_new")
+
+	core.PuregoSafeRegister(&xTextBufferAddCommitNotify, libs, "gtk_text_buffer_add_commit_notify")
+	core.PuregoSafeRegister(&xTextBufferAddMark, libs, "gtk_text_buffer_add_mark")
+	core.PuregoSafeRegister(&xTextBufferAddSelectionClipboard, libs, "gtk_text_buffer_add_selection_clipboard")
+	core.PuregoSafeRegister(&xTextBufferApplyTag, libs, "gtk_text_buffer_apply_tag")
+	core.PuregoSafeRegister(&xTextBufferApplyTagByName, libs, "gtk_text_buffer_apply_tag_by_name")
+	core.PuregoSafeRegister(&xTextBufferBackspace, libs, "gtk_text_buffer_backspace")
+	core.PuregoSafeRegister(&xTextBufferBeginIrreversibleAction, libs, "gtk_text_buffer_begin_irreversible_action")
+	core.PuregoSafeRegister(&xTextBufferBeginUserAction, libs, "gtk_text_buffer_begin_user_action")
+	core.PuregoSafeRegister(&xTextBufferCopyClipboard, libs, "gtk_text_buffer_copy_clipboard")
+	core.PuregoSafeRegister(&xTextBufferCreateChildAnchor, libs, "gtk_text_buffer_create_child_anchor")
+	core.PuregoSafeRegister(&xTextBufferCreateMark, libs, "gtk_text_buffer_create_mark")
+	core.PuregoSafeRegister(&xTextBufferCreateTag, libs, "gtk_text_buffer_create_tag")
+	core.PuregoSafeRegister(&xTextBufferCutClipboard, libs, "gtk_text_buffer_cut_clipboard")
+	core.PuregoSafeRegister(&xTextBufferDelete, libs, "gtk_text_buffer_delete")
+	core.PuregoSafeRegister(&xTextBufferDeleteInteractive, libs, "gtk_text_buffer_delete_interactive")
+	core.PuregoSafeRegister(&xTextBufferDeleteMark, libs, "gtk_text_buffer_delete_mark")
+	core.PuregoSafeRegister(&xTextBufferDeleteMarkByName, libs, "gtk_text_buffer_delete_mark_by_name")
+	core.PuregoSafeRegister(&xTextBufferDeleteSelection, libs, "gtk_text_buffer_delete_selection")
+	core.PuregoSafeRegister(&xTextBufferEndIrreversibleAction, libs, "gtk_text_buffer_end_irreversible_action")
+	core.PuregoSafeRegister(&xTextBufferEndUserAction, libs, "gtk_text_buffer_end_user_action")
+	core.PuregoSafeRegister(&xTextBufferGetBounds, libs, "gtk_text_buffer_get_bounds")
+	core.PuregoSafeRegister(&xTextBufferGetCanRedo, libs, "gtk_text_buffer_get_can_redo")
+	core.PuregoSafeRegister(&xTextBufferGetCanUndo, libs, "gtk_text_buffer_get_can_undo")
+	core.PuregoSafeRegister(&xTextBufferGetCharCount, libs, "gtk_text_buffer_get_char_count")
+	core.PuregoSafeRegister(&xTextBufferGetEnableUndo, libs, "gtk_text_buffer_get_enable_undo")
+	core.PuregoSafeRegister(&xTextBufferGetEndIter, libs, "gtk_text_buffer_get_end_iter")
+	core.PuregoSafeRegister(&xTextBufferGetHasSelection, libs, "gtk_text_buffer_get_has_selection")
+	core.PuregoSafeRegister(&xTextBufferGetInsert, libs, "gtk_text_buffer_get_insert")
+	core.PuregoSafeRegister(&xTextBufferGetIterAtChildAnchor, libs, "gtk_text_buffer_get_iter_at_child_anchor")
+	core.PuregoSafeRegister(&xTextBufferGetIterAtLine, libs, "gtk_text_buffer_get_iter_at_line")
+	core.PuregoSafeRegister(&xTextBufferGetIterAtLineIndex, libs, "gtk_text_buffer_get_iter_at_line_index")
+	core.PuregoSafeRegister(&xTextBufferGetIterAtLineOffset, libs, "gtk_text_buffer_get_iter_at_line_offset")
+	core.PuregoSafeRegister(&xTextBufferGetIterAtMark, libs, "gtk_text_buffer_get_iter_at_mark")
+	core.PuregoSafeRegister(&xTextBufferGetIterAtOffset, libs, "gtk_text_buffer_get_iter_at_offset")
+	core.PuregoSafeRegister(&xTextBufferGetLineCount, libs, "gtk_text_buffer_get_line_count")
+	core.PuregoSafeRegister(&xTextBufferGetMark, libs, "gtk_text_buffer_get_mark")
+	core.PuregoSafeRegister(&xTextBufferGetMaxUndoLevels, libs, "gtk_text_buffer_get_max_undo_levels")
+	core.PuregoSafeRegister(&xTextBufferGetModified, libs, "gtk_text_buffer_get_modified")
+	core.PuregoSafeRegister(&xTextBufferGetSelectionBound, libs, "gtk_text_buffer_get_selection_bound")
+	core.PuregoSafeRegister(&xTextBufferGetSelectionBounds, libs, "gtk_text_buffer_get_selection_bounds")
+	core.PuregoSafeRegister(&xTextBufferGetSelectionContent, libs, "gtk_text_buffer_get_selection_content")
+	core.PuregoSafeRegister(&xTextBufferGetSlice, libs, "gtk_text_buffer_get_slice")
+	core.PuregoSafeRegister(&xTextBufferGetStartIter, libs, "gtk_text_buffer_get_start_iter")
+	core.PuregoSafeRegister(&xTextBufferGetTagTable, libs, "gtk_text_buffer_get_tag_table")
+	core.PuregoSafeRegister(&xTextBufferGetText, libs, "gtk_text_buffer_get_text")
+	core.PuregoSafeRegister(&xTextBufferInsert, libs, "gtk_text_buffer_insert")
+	core.PuregoSafeRegister(&xTextBufferInsertAtCursor, libs, "gtk_text_buffer_insert_at_cursor")
+	core.PuregoSafeRegister(&xTextBufferInsertChildAnchor, libs, "gtk_text_buffer_insert_child_anchor")
+	core.PuregoSafeRegister(&xTextBufferInsertInteractive, libs, "gtk_text_buffer_insert_interactive")
+	core.PuregoSafeRegister(&xTextBufferInsertInteractiveAtCursor, libs, "gtk_text_buffer_insert_interactive_at_cursor")
+	core.PuregoSafeRegister(&xTextBufferInsertMarkup, libs, "gtk_text_buffer_insert_markup")
+	core.PuregoSafeRegister(&xTextBufferInsertPaintable, libs, "gtk_text_buffer_insert_paintable")
+	core.PuregoSafeRegister(&xTextBufferInsertRange, libs, "gtk_text_buffer_insert_range")
+	core.PuregoSafeRegister(&xTextBufferInsertRangeInteractive, libs, "gtk_text_buffer_insert_range_interactive")
+	core.PuregoSafeRegister(&xTextBufferInsertWithTags, libs, "gtk_text_buffer_insert_with_tags")
+	core.PuregoSafeRegister(&xTextBufferInsertWithTagsByName, libs, "gtk_text_buffer_insert_with_tags_by_name")
+	core.PuregoSafeRegister(&xTextBufferMoveMark, libs, "gtk_text_buffer_move_mark")
+	core.PuregoSafeRegister(&xTextBufferMoveMarkByName, libs, "gtk_text_buffer_move_mark_by_name")
+	core.PuregoSafeRegister(&xTextBufferPasteClipboard, libs, "gtk_text_buffer_paste_clipboard")
+	core.PuregoSafeRegister(&xTextBufferPlaceCursor, libs, "gtk_text_buffer_place_cursor")
+	core.PuregoSafeRegister(&xTextBufferRedo, libs, "gtk_text_buffer_redo")
+	core.PuregoSafeRegister(&xTextBufferRemoveAllTags, libs, "gtk_text_buffer_remove_all_tags")
+	core.PuregoSafeRegister(&xTextBufferRemoveCommitNotify, libs, "gtk_text_buffer_remove_commit_notify")
+	core.PuregoSafeRegister(&xTextBufferRemoveSelectionClipboard, libs, "gtk_text_buffer_remove_selection_clipboard")
+	core.PuregoSafeRegister(&xTextBufferRemoveTag, libs, "gtk_text_buffer_remove_tag")
+	core.PuregoSafeRegister(&xTextBufferRemoveTagByName, libs, "gtk_text_buffer_remove_tag_by_name")
+	core.PuregoSafeRegister(&xTextBufferSelectRange, libs, "gtk_text_buffer_select_range")
+	core.PuregoSafeRegister(&xTextBufferSetEnableUndo, libs, "gtk_text_buffer_set_enable_undo")
+	core.PuregoSafeRegister(&xTextBufferSetMaxUndoLevels, libs, "gtk_text_buffer_set_max_undo_levels")
+	core.PuregoSafeRegister(&xTextBufferSetModified, libs, "gtk_text_buffer_set_modified")
+	core.PuregoSafeRegister(&xTextBufferSetText, libs, "gtk_text_buffer_set_text")
+	core.PuregoSafeRegister(&xTextBufferUndo, libs, "gtk_text_buffer_undo")
 }

@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject/types"
 )
@@ -22,7 +23,6 @@ type Quad struct {
 var xQuadGLibType func() types.GType
 
 func QuadGLibType() types.GType {
-	core.LazyRegister(&xQuadGLibType, "GRAPHENE", "graphene_quad_get_type", false)
 	return xQuadGLibType()
 }
 
@@ -44,8 +44,6 @@ var xQuadAlloc func() uintptr
 //
 // The contents of the returned instance are undefined.
 func QuadAlloc() *Quad {
-	core.LazyRegister(&xQuadAlloc, "GRAPHENE", "graphene_quad_alloc", false)
-
 	cret := xQuadAlloc()
 	if cret == 0 {
 		return nil
@@ -57,8 +55,6 @@ var xQuadBounds func(uintptr, *Rect)
 
 // Computes the bounding rectangle of @q and places it into @r.
 func (x *Quad) Bounds(RVar *Rect) {
-	core.LazyRegister(&xQuadBounds, "GRAPHENE", "graphene_quad_bounds", false)
-
 	xQuadBounds(x.GoPointer(), RVar)
 }
 
@@ -66,8 +62,6 @@ var xQuadContains func(uintptr, *Point) bool
 
 // Checks if the given #graphene_quad_t contains the given #graphene_point_t.
 func (x *Quad) Contains(PVar *Point) bool {
-	core.LazyRegister(&xQuadContains, "GRAPHENE", "graphene_quad_contains", false)
-
 	cret := xQuadContains(x.GoPointer(), PVar)
 	return cret
 }
@@ -76,8 +70,6 @@ var xQuadFree func(uintptr)
 
 // Frees the resources allocated by graphene_quad_alloc()
 func (x *Quad) Free() {
-	core.LazyRegister(&xQuadFree, "GRAPHENE", "graphene_quad_free", false)
-
 	xQuadFree(x.GoPointer())
 }
 
@@ -85,8 +77,6 @@ var xQuadGetPoint func(uintptr, uint) uintptr
 
 // Retrieves the point of a #graphene_quad_t at the given index.
 func (x *Quad) GetPoint(IndexVar uint) *Point {
-	core.LazyRegister(&xQuadGetPoint, "GRAPHENE", "graphene_quad_get_point", false)
-
 	cret := xQuadGetPoint(x.GoPointer(), IndexVar)
 	if cret == 0 {
 		return nil
@@ -98,8 +88,6 @@ var xQuadInit func(uintptr, *Point, *Point, *Point, *Point) uintptr
 
 // Initializes a #graphene_quad_t with the given points.
 func (x *Quad) Init(P1Var *Point, P2Var *Point, P3Var *Point, P4Var *Point) *Quad {
-	core.LazyRegister(&xQuadInit, "GRAPHENE", "graphene_quad_init", false)
-
 	cret := xQuadInit(x.GoPointer(), P1Var, P2Var, P3Var, P4Var)
 	if cret == 0 {
 		return nil
@@ -111,8 +99,6 @@ var xQuadInitFromPoints func(uintptr, [4]Point) uintptr
 
 // Initializes a #graphene_quad_t using an array of points.
 func (x *Quad) InitFromPoints(PointsVar [4]Point) *Quad {
-	core.LazyRegister(&xQuadInitFromPoints, "GRAPHENE", "graphene_quad_init_from_points", false)
-
 	cret := xQuadInitFromPoints(x.GoPointer(), PointsVar)
 	if cret == 0 {
 		return nil
@@ -125,8 +111,6 @@ var xQuadInitFromRect func(uintptr, *Rect) uintptr
 // Initializes a #graphene_quad_t using the four corners of the
 // given #graphene_rect_t.
 func (x *Quad) InitFromRect(RVar *Rect) *Quad {
-	core.LazyRegister(&xQuadInitFromRect, "GRAPHENE", "graphene_quad_init_from_rect", false)
-
 	cret := xQuadInitFromRect(x.GoPointer(), RVar)
 	if cret == 0 {
 		return nil
@@ -137,4 +121,24 @@ func (x *Quad) InitFromRect(RVar *Rect) *Quad {
 func init() {
 	core.SetPackageName("GRAPHENE", "graphene-gobject-1.0")
 	core.SetSharedLibraries("GRAPHENE", []string{"libgraphene-1.0.so.0", "libgraphene-1.0.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GRAPHENE") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xQuadGLibType, libs, "graphene_quad_get_type")
+
+	core.PuregoSafeRegister(&xQuadAlloc, libs, "graphene_quad_alloc")
+
+	core.PuregoSafeRegister(&xQuadBounds, libs, "graphene_quad_bounds")
+	core.PuregoSafeRegister(&xQuadContains, libs, "graphene_quad_contains")
+	core.PuregoSafeRegister(&xQuadFree, libs, "graphene_quad_free")
+	core.PuregoSafeRegister(&xQuadGetPoint, libs, "graphene_quad_get_point")
+	core.PuregoSafeRegister(&xQuadInit, libs, "graphene_quad_init")
+	core.PuregoSafeRegister(&xQuadInitFromPoints, libs, "graphene_quad_init_from_points")
+	core.PuregoSafeRegister(&xQuadInitFromRect, libs, "graphene_quad_init_from_rect")
 }

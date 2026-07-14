@@ -2,6 +2,7 @@
 package gtk
 
 import (
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gio"
 	"github.com/bnema/puregotk/v4/glib"
@@ -12,8 +13,6 @@ var xShowUri func(uintptr, string, uint32)
 // This function launches the default application for showing
 // a given uri, or shows an error dialog if that fails.
 func ShowUri(ParentVar *Window, UriVar string, TimestampVar uint32) {
-	core.LazyRegister(&xShowUri, "GTK", "gtk_show_uri", false)
-
 	xShowUri(ParentVar.GoPointer(), UriVar, TimestampVar)
 }
 
@@ -27,8 +26,6 @@ var xShowUriFull func(uintptr, string, uint32, uintptr, uintptr, uintptr)
 // This is the recommended call to be used as it passes information
 // necessary for sandbox helpers to parent their dialogs properly.
 func ShowUriFull(ParentVar *Window, UriVar string, TimestampVar uint32, CancellableVar *gio.Cancellable, CallbackVar *gio.AsyncReadyCallback, UserDataVar uintptr) {
-	core.LazyRegister(&xShowUriFull, "GTK", "gtk_show_uri_full", false)
-
 	xShowUriFull(ParentVar.GoPointer(), UriVar, TimestampVar, CancellableVar.GoPointer(), glib.NewCallbackNullable(CallbackVar), UserDataVar)
 }
 
@@ -37,7 +34,6 @@ var xShowUriFullFinish func(uintptr, uintptr, **glib.Error) bool
 // Finishes the gtk_show_uri() call and returns the result
 // of the operation.
 func ShowUriFullFinish(ParentVar *Window, ResultVar gio.AsyncResult) (bool, error) {
-	core.LazyRegister(&xShowUriFullFinish, "GTK", "gtk_show_uri_full_finish", false)
 	var cerr *glib.Error
 
 	cret := xShowUriFullFinish(ParentVar.GoPointer(), ResultVar.GoPointer(), &cerr)
@@ -50,4 +46,16 @@ func ShowUriFullFinish(ParentVar *Window, ResultVar gio.AsyncResult) (bool, erro
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GTK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xShowUri, libs, "gtk_show_uri")
+	core.PuregoSafeRegister(&xShowUriFull, libs, "gtk_show_uri_full")
+	core.PuregoSafeRegister(&xShowUriFullFinish, libs, "gtk_show_uri_full_finish")
 }

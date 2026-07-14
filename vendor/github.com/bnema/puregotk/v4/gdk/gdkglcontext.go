@@ -2,6 +2,7 @@
 package gdk
 
 import (
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -12,8 +13,6 @@ var xGlErrorQuark func() glib.Quark
 
 // Registers an error quark for [class@Gdk.GLContext] errors.
 func GlErrorQuark() glib.Quark {
-	core.LazyRegister(&xGlErrorQuark, "GDK", "gdk_gl_error_quark", false)
-
 	cret := xGlErrorQuark()
 	return cret
 }
@@ -73,7 +72,6 @@ type GLContext struct {
 var xGLContextGLibType func() types.GType
 
 func GLContextGLibType() types.GType {
-	core.LazyRegister(&xGLContextGLibType, "GDK", "gdk_gl_context_get_type", false)
 	return xGLContextGLibType()
 }
 
@@ -87,8 +85,6 @@ var xGLContextGetAllowedApis func(uintptr) GLAPI
 
 // Gets the allowed APIs set via gdk_gl_context_set_allowed_apis().
 func (x *GLContext) GetAllowedApis() GLAPI {
-	core.LazyRegister(&xGLContextGetAllowedApis, "GDK", "gdk_gl_context_get_allowed_apis", false)
-
 	cret := xGLContextGetAllowedApis(x.GoPointer())
 	return cret
 }
@@ -99,8 +95,6 @@ var xGLContextGetApi func(uintptr) GLAPI
 //
 // If the renderer has not been realized yet, 0 is returned.
 func (x *GLContext) GetApi() GLAPI {
-	core.LazyRegister(&xGLContextGetApi, "GDK", "gdk_gl_context_get_api", false)
-
 	cret := xGLContextGetApi(x.GoPointer())
 	return cret
 }
@@ -111,8 +105,6 @@ var xGLContextGetDebugEnabled func(uintptr) bool
 //
 // See [method@Gdk.GLContext.set_debug_enabled].
 func (x *GLContext) GetDebugEnabled() bool {
-	core.LazyRegister(&xGLContextGetDebugEnabled, "GDK", "gdk_gl_context_get_debug_enabled", false)
-
 	cret := xGLContextGetDebugEnabled(x.GoPointer())
 	return cret
 }
@@ -121,7 +113,6 @@ var xGLContextGetDisplay func(uintptr) uintptr
 
 // Retrieves the display the @context is created for
 func (x *GLContext) GetDisplay() *Display {
-	core.LazyRegister(&xGLContextGetDisplay, "GDK", "gdk_gl_context_get_display", false)
 	var cls *Display
 
 	cret := xGLContextGetDisplay(x.GoPointer())
@@ -141,8 +132,6 @@ var xGLContextGetForwardCompatible func(uintptr) bool
 //
 // See [method@Gdk.GLContext.set_forward_compatible].
 func (x *GLContext) GetForwardCompatible() bool {
-	core.LazyRegister(&xGLContextGetForwardCompatible, "GDK", "gdk_gl_context_get_forward_compatible", false)
-
 	cret := xGLContextGetForwardCompatible(x.GoPointer())
 	return cret
 }
@@ -156,8 +145,6 @@ var xGLContextGetRequiredVersion func(uintptr, *int, *int)
 //
 // See [method@Gdk.GLContext.set_required_version].
 func (x *GLContext) GetRequiredVersion(MajorVar *int, MinorVar *int) {
-	core.LazyRegister(&xGLContextGetRequiredVersion, "GDK", "gdk_gl_context_get_required_version", false)
-
 	xGLContextGetRequiredVersion(x.GoPointer(), MajorVar, MinorVar)
 }
 
@@ -168,7 +155,6 @@ var xGLContextGetSharedContext func(uintptr) uintptr
 // As many contexts can share data now and no single shared context exists
 // anymore, this function has been deprecated and now always returns %NULL.
 func (x *GLContext) GetSharedContext() *GLContext {
-	core.LazyRegister(&xGLContextGetSharedContext, "GDK", "gdk_gl_context_get_shared_context", false)
 	var cls *GLContext
 
 	cret := xGLContextGetSharedContext(x.GoPointer())
@@ -186,7 +172,6 @@ var xGLContextGetSurface func(uintptr) uintptr
 
 // Retrieves the surface used by the @context.
 func (x *GLContext) GetSurface() *Surface {
-	core.LazyRegister(&xGLContextGetSurface, "GDK", "gdk_gl_context_get_surface", false)
 	var cls *Surface
 
 	cret := xGLContextGetSurface(x.GoPointer())
@@ -204,8 +189,6 @@ var xGLContextGetUseEs func(uintptr) bool
 
 // Checks whether the @context is using an OpenGL or OpenGL ES profile.
 func (x *GLContext) GetUseEs() bool {
-	core.LazyRegister(&xGLContextGetUseEs, "GDK", "gdk_gl_context_get_use_es", false)
-
 	cret := xGLContextGetUseEs(x.GoPointer())
 	return cret
 }
@@ -216,8 +199,6 @@ var xGLContextGetVersion func(uintptr, *int, *int)
 //
 // The @context must be realized prior to calling this function.
 func (x *GLContext) GetVersion(MajorVar *int, MinorVar *int) {
-	core.LazyRegister(&xGLContextGetVersion, "GDK", "gdk_gl_context_get_version", false)
-
 	xGLContextGetVersion(x.GoPointer(), MajorVar, MinorVar)
 }
 
@@ -240,8 +221,6 @@ var xGLContextIsLegacy func(uintptr) bool
 // of OpenGL API to use, or whether to do extension discovery, or what
 // kind of shader programs to load.
 func (x *GLContext) IsLegacy() bool {
-	core.LazyRegister(&xGLContextIsLegacy, "GDK", "gdk_gl_context_is_legacy", false)
-
 	cret := xGLContextIsLegacy(x.GoPointer())
 	return cret
 }
@@ -261,8 +240,6 @@ var xGLContextIsShared func(uintptr, uintptr) bool
 // Both contexts must be realized for this check to succeed. If either one
 // is not, this function will return %FALSE.
 func (x *GLContext) IsShared(OtherVar *GLContext) bool {
-	core.LazyRegister(&xGLContextIsShared, "GDK", "gdk_gl_context_is_shared", false)
-
 	cret := xGLContextIsShared(x.GoPointer(), OtherVar.GoPointer())
 	return cret
 }
@@ -271,8 +248,6 @@ var xGLContextMakeCurrent func(uintptr)
 
 // Makes the @context the current one.
 func (x *GLContext) MakeCurrent() {
-	core.LazyRegister(&xGLContextMakeCurrent, "GDK", "gdk_gl_context_make_current", false)
-
 	xGLContextMakeCurrent(x.GoPointer())
 }
 
@@ -282,7 +257,6 @@ var xGLContextRealize func(uintptr, **glib.Error) bool
 //
 // It is safe to call this function on a realized `GdkGLContext`.
 func (x *GLContext) Realize() (bool, error) {
-	core.LazyRegister(&xGLContextRealize, "GDK", "gdk_gl_context_realize", false)
 	var cerr *glib.Error
 
 	cret := xGLContextRealize(x.GoPointer(), &cerr)
@@ -302,8 +276,6 @@ var xGLContextSetAllowedApis func(uintptr, GLAPI)
 //
 // By default, all APIs are allowed.
 func (x *GLContext) SetAllowedApis(ApisVar GLAPI) {
-	core.LazyRegister(&xGLContextSetAllowedApis, "GDK", "gdk_gl_context_set_allowed_apis", false)
-
 	xGLContextSetAllowedApis(x.GoPointer(), ApisVar)
 }
 
@@ -317,8 +289,6 @@ var xGLContextSetDebugEnabled func(uintptr, bool)
 // The `GdkGLContext` must not be realized or made current prior to
 // calling this function.
 func (x *GLContext) SetDebugEnabled(EnabledVar bool) {
-	core.LazyRegister(&xGLContextSetDebugEnabled, "GDK", "gdk_gl_context_set_debug_enabled", false)
-
 	xGLContextSetDebugEnabled(x.GoPointer(), EnabledVar)
 }
 
@@ -334,8 +304,6 @@ var xGLContextSetForwardCompatible func(uintptr, bool)
 // The `GdkGLContext` must not be realized or made current prior to calling
 // this function.
 func (x *GLContext) SetForwardCompatible(CompatibleVar bool) {
-	core.LazyRegister(&xGLContextSetForwardCompatible, "GDK", "gdk_gl_context_set_forward_compatible", false)
-
 	xGLContextSetForwardCompatible(x.GoPointer(), CompatibleVar)
 }
 
@@ -351,8 +319,6 @@ var xGLContextSetRequiredVersion func(uintptr, int, int)
 // The @context must not be realized or made current prior to calling
 // this function.
 func (x *GLContext) SetRequiredVersion(MajorVar int, MinorVar int) {
-	core.LazyRegister(&xGLContextSetRequiredVersion, "GDK", "gdk_gl_context_set_required_version", false)
-
 	xGLContextSetRequiredVersion(x.GoPointer(), MajorVar, MinorVar)
 }
 
@@ -372,8 +338,6 @@ var xGLContextSetUseEs func(uintptr, int)
 // after calling [method@Gdk.GLContext.realize] to decide whether to use
 // the OpenGL or OpenGL ES API, extensions, or shaders.
 func (x *GLContext) SetUseEs(UseEsVar int) {
-	core.LazyRegister(&xGLContextSetUseEs, "GDK", "gdk_gl_context_set_use_es", false)
-
 	xGLContextSetUseEs(x.GoPointer(), UseEsVar)
 }
 
@@ -395,8 +359,6 @@ var xGLContextClearCurrent func()
 // Any OpenGL call after this function returns will be ignored
 // until [method@Gdk.GLContext.make_current] is called.
 func GLContextClearCurrent() {
-	core.LazyRegister(&xGLContextClearCurrent, "GDK", "gdk_gl_context_clear_current", false)
-
 	xGLContextClearCurrent()
 }
 
@@ -404,7 +366,6 @@ var xGLContextGetCurrent func() uintptr
 
 // Retrieves the current `GdkGLContext`.
 func GLContextGetCurrent() *GLContext {
-	core.LazyRegister(&xGLContextGetCurrent, "GDK", "gdk_gl_context_get_current", false)
 	var cls *GLContext
 
 	cret := xGLContextGetCurrent()
@@ -421,4 +382,39 @@ func GLContextGetCurrent() *GLContext {
 func init() {
 	core.SetPackageName("GDK", "gtk4")
 	core.SetSharedLibraries("GDK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GDK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xGlErrorQuark, libs, "gdk_gl_error_quark")
+
+	core.PuregoSafeRegister(&xGLContextGLibType, libs, "gdk_gl_context_get_type")
+
+	core.PuregoSafeRegister(&xGLContextGetAllowedApis, libs, "gdk_gl_context_get_allowed_apis")
+	core.PuregoSafeRegister(&xGLContextGetApi, libs, "gdk_gl_context_get_api")
+	core.PuregoSafeRegister(&xGLContextGetDebugEnabled, libs, "gdk_gl_context_get_debug_enabled")
+	core.PuregoSafeRegister(&xGLContextGetDisplay, libs, "gdk_gl_context_get_display")
+	core.PuregoSafeRegister(&xGLContextGetForwardCompatible, libs, "gdk_gl_context_get_forward_compatible")
+	core.PuregoSafeRegister(&xGLContextGetRequiredVersion, libs, "gdk_gl_context_get_required_version")
+	core.PuregoSafeRegister(&xGLContextGetSharedContext, libs, "gdk_gl_context_get_shared_context")
+	core.PuregoSafeRegister(&xGLContextGetSurface, libs, "gdk_gl_context_get_surface")
+	core.PuregoSafeRegister(&xGLContextGetUseEs, libs, "gdk_gl_context_get_use_es")
+	core.PuregoSafeRegister(&xGLContextGetVersion, libs, "gdk_gl_context_get_version")
+	core.PuregoSafeRegister(&xGLContextIsLegacy, libs, "gdk_gl_context_is_legacy")
+	core.PuregoSafeRegister(&xGLContextIsShared, libs, "gdk_gl_context_is_shared")
+	core.PuregoSafeRegister(&xGLContextMakeCurrent, libs, "gdk_gl_context_make_current")
+	core.PuregoSafeRegister(&xGLContextRealize, libs, "gdk_gl_context_realize")
+	core.PuregoSafeRegister(&xGLContextSetAllowedApis, libs, "gdk_gl_context_set_allowed_apis")
+	core.PuregoSafeRegister(&xGLContextSetDebugEnabled, libs, "gdk_gl_context_set_debug_enabled")
+	core.PuregoSafeRegister(&xGLContextSetForwardCompatible, libs, "gdk_gl_context_set_forward_compatible")
+	core.PuregoSafeRegister(&xGLContextSetRequiredVersion, libs, "gdk_gl_context_set_required_version")
+	core.PuregoSafeRegister(&xGLContextSetUseEs, libs, "gdk_gl_context_set_use_es")
+
+	core.PuregoSafeRegister(&xGLContextClearCurrent, libs, "gdk_gl_context_clear_current")
+	core.PuregoSafeRegister(&xGLContextGetCurrent, libs, "gdk_gl_context_get_current")
 }

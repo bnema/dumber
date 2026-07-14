@@ -2,6 +2,7 @@
 package pango
 
 import (
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 )
@@ -9,8 +10,6 @@ import (
 var xLayoutDeserializeErrorQuark func() glib.Quark
 
 func LayoutDeserializeErrorQuark() glib.Quark {
-	core.LazyRegister(&xLayoutDeserializeErrorQuark, "PANGO", "pango_layout_deserialize_error_quark", false)
-
 	cret := xLayoutDeserializeErrorQuark()
 	return cret
 }
@@ -18,4 +17,14 @@ func LayoutDeserializeErrorQuark() glib.Quark {
 func init() {
 	core.SetPackageName("PANGO", "pango")
 	core.SetSharedLibraries("PANGO", []string{"libpango-1.0.so.0", "libpango-1.0.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("PANGO") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xLayoutDeserializeErrorQuark, libs, "pango_layout_deserialize_error_quark")
 }

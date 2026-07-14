@@ -119,7 +119,6 @@ type SymbolicPaintable interface {
 var xSymbolicPaintableGLibType func() types.GType
 
 func SymbolicPaintableGLibType() types.GType {
-	core.LazyRegister(&xSymbolicPaintableGLibType, "GTK", "gtk_symbolic_paintable_get_type", false)
 	return xSymbolicPaintableGLibType()
 }
 
@@ -154,21 +153,25 @@ func (x *SymbolicPaintableBase) SnapshotWithWeight(SnapshotVar *gdk.Snapshot, Wi
 	XGtkSymbolicPaintableSnapshotWithWeight(x.GoPointer(), SnapshotVar.GoPointer(), WidthVar, HeightVar, ColorsVar, NColorsVar, WeightVar)
 }
 
-var XGtkSymbolicPaintableSnapshotSymbolic func(uintptr, uintptr, float64, float64, []gdk.RGBA, uint) = func(instance uintptr, SnapshotVarp uintptr, WidthVarp float64, HeightVarp float64, ColorsVarp []gdk.RGBA, NColorsVarp uint) {
-	core.LazyRegister(&xXGtkSymbolicPaintableSnapshotSymbolic, "GTK", "gtk_symbolic_paintable_snapshot_symbolic", false)
-	xXGtkSymbolicPaintableSnapshotSymbolic(instance, SnapshotVarp, WidthVarp, HeightVarp, ColorsVarp, NColorsVarp)
-}
-
 var (
-	xXGtkSymbolicPaintableSnapshotSymbolic  func(uintptr, uintptr, float64, float64, []gdk.RGBA, uint)
-	XGtkSymbolicPaintableSnapshotWithWeight func(uintptr, uintptr, float64, float64, []gdk.RGBA, uint, float64) = func(instance uintptr, SnapshotVarp uintptr, WidthVarp float64, HeightVarp float64, ColorsVarp []gdk.RGBA, NColorsVarp uint, WeightVarp float64) {
-		core.LazyRegister(&xXGtkSymbolicPaintableSnapshotWithWeight, "GTK", "gtk_symbolic_paintable_snapshot_with_weight", false)
-		xXGtkSymbolicPaintableSnapshotWithWeight(instance, SnapshotVarp, WidthVarp, HeightVarp, ColorsVarp, NColorsVarp, WeightVarp)
-	}
+	XGtkSymbolicPaintableSnapshotSymbolic   func(uintptr, uintptr, float64, float64, []gdk.RGBA, uint)
+	XGtkSymbolicPaintableSnapshotWithWeight func(uintptr, uintptr, float64, float64, []gdk.RGBA, uint, float64)
 )
-var xXGtkSymbolicPaintableSnapshotWithWeight func(uintptr, uintptr, float64, float64, []gdk.RGBA, uint, float64)
 
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GTK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xSymbolicPaintableGLibType, libs, "gtk_symbolic_paintable_get_type")
+
+	core.PuregoSafeRegister(&XGtkSymbolicPaintableSnapshotSymbolic, libs, "gtk_symbolic_paintable_snapshot_symbolic")
+	core.PuregoSafeRegister(&XGtkSymbolicPaintableSnapshotWithWeight, libs, "gtk_symbolic_paintable_snapshot_with_weight")
 }

@@ -44,7 +44,6 @@ type Requisition struct {
 var xRequisitionGLibType func() types.GType
 
 func RequisitionGLibType() types.GType {
-	core.LazyRegister(&xRequisitionGLibType, "GTK", "gtk_requisition_get_type", false)
 	return xRequisitionGLibType()
 }
 
@@ -66,8 +65,6 @@ var xNewRequisition func() uintptr
 //
 // The struct is initialized to zero.
 func NewRequisition() *Requisition {
-	core.LazyRegister(&xNewRequisition, "GTK", "gtk_requisition_new", false)
-
 	cret := xNewRequisition()
 	if cret == 0 {
 		return nil
@@ -79,8 +76,6 @@ var xRequisitionCopy func(uintptr) uintptr
 
 // Copies a `GtkRequisition`.
 func (x *Requisition) Copy() *Requisition {
-	core.LazyRegister(&xRequisitionCopy, "GTK", "gtk_requisition_copy", false)
-
 	cret := xRequisitionCopy(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -92,8 +87,6 @@ var xRequisitionFree func(uintptr)
 
 // Frees a `GtkRequisition`.
 func (x *Requisition) Free() {
-	core.LazyRegister(&xRequisitionFree, "GTK", "gtk_requisition_free", false)
-
 	xRequisitionFree(x.GoPointer())
 }
 
@@ -183,8 +176,6 @@ var xWidgetClassAddBinding func(uintptr, uint, gdk.ModifierType, uintptr, uintpt
 // you will have to use [method@Gtk.WidgetClass.add_shortcut] with a custom
 // shortcut.
 func (x *WidgetClass) AddBinding(KeyvalVar uint, ModsVar gdk.ModifierType, CallbackVar *ShortcutFunc, FormatStringVar *string, varArgs ...interface{}) {
-	core.LazyRegister(&xWidgetClassAddBinding, "GTK", "gtk_widget_class_add_binding", false)
-
 	FormatStringVarPtr := core.GStrdupNullable(FormatStringVar)
 	defer core.GFreeNullable(FormatStringVarPtr)
 
@@ -203,8 +194,6 @@ var xWidgetClassAddBindingAction func(uintptr, uint, gdk.ModifierType, string, u
 // [method@Gtk.WidgetClass.add_shortcut] and must be called during class
 // initialization.
 func (x *WidgetClass) AddBindingAction(KeyvalVar uint, ModsVar gdk.ModifierType, ActionNameVar string, FormatStringVar *string, varArgs ...interface{}) {
-	core.LazyRegister(&xWidgetClassAddBindingAction, "GTK", "gtk_widget_class_add_binding_action", false)
-
 	FormatStringVarPtr := core.GStrdupNullable(FormatStringVar)
 	defer core.GFreeNullable(FormatStringVarPtr)
 
@@ -223,8 +212,6 @@ var xWidgetClassAddBindingSignal func(uintptr, uint, gdk.ModifierType, string, u
 // [method@Gtk.WidgetClass.add_shortcut] and must be called during class
 // initialization.
 func (x *WidgetClass) AddBindingSignal(KeyvalVar uint, ModsVar gdk.ModifierType, SignalVar string, FormatStringVar *string, varArgs ...interface{}) {
-	core.LazyRegister(&xWidgetClassAddBindingSignal, "GTK", "gtk_widget_class_add_binding_signal", false)
-
 	FormatStringVarPtr := core.GStrdupNullable(FormatStringVar)
 	defer core.GFreeNullable(FormatStringVarPtr)
 
@@ -244,8 +231,6 @@ var xWidgetClassAddShortcut func(uintptr, uintptr)
 // This function must only be used in class initialization functions
 // otherwise it is not guaranteed that the shortcut will be installed.
 func (x *WidgetClass) AddShortcut(ShortcutVar *Shortcut) {
-	core.LazyRegister(&xWidgetClassAddShortcut, "GTK", "gtk_widget_class_add_shortcut", false)
-
 	xWidgetClassAddShortcut(x.GoPointer(), ShortcutVar.GoPointer())
 }
 
@@ -261,8 +246,6 @@ var xWidgetClassBindTemplateCallbackFull func(uintptr, string, uintptr)
 // Note that this must be called from a composite widget classes
 // class initializer after calling [method@Gtk.WidgetClass.set_template].
 func (x *WidgetClass) BindTemplateCallbackFull(CallbackNameVar string, CallbackSymbolVar *gobject.Callback) {
-	core.LazyRegister(&xWidgetClassBindTemplateCallbackFull, "GTK", "gtk_widget_class_bind_template_callback_full", false)
-
 	xWidgetClassBindTemplateCallbackFull(x.GoPointer(), CallbackNameVar, glib.NewCallback(CallbackSymbolVar))
 }
 
@@ -297,8 +280,6 @@ var xWidgetClassBindTemplateChildFull func(uintptr, string, bool, int)
 // Note that this must be called from a composite widget classes class
 // initializer after calling [method@Gtk.WidgetClass.set_template].
 func (x *WidgetClass) BindTemplateChildFull(NameVar string, InternalChildVar bool, StructOffsetVar int) {
-	core.LazyRegister(&xWidgetClassBindTemplateChildFull, "GTK", "gtk_widget_class_bind_template_child_full", false)
-
 	xWidgetClassBindTemplateChildFull(x.GoPointer(), NameVar, InternalChildVar, StructOffsetVar)
 }
 
@@ -311,8 +292,6 @@ var xWidgetClassGetAccessibleRole func(uintptr) AccessibleRole
 //
 // See also: [method@Gtk.Accessible.get_accessible_role].
 func (x *WidgetClass) GetAccessibleRole() AccessibleRole {
-	core.LazyRegister(&xWidgetClassGetAccessibleRole, "GTK", "gtk_widget_class_get_accessible_role", false)
-
 	cret := xWidgetClassGetAccessibleRole(x.GoPointer())
 	return cret
 }
@@ -324,8 +303,6 @@ var xWidgetClassGetActivateSignal func(uintptr) uint
 // The activation signal is set using
 // [method@Gtk.WidgetClass.set_activate_signal].
 func (x *WidgetClass) GetActivateSignal() uint {
-	core.LazyRegister(&xWidgetClassGetActivateSignal, "GTK", "gtk_widget_class_get_activate_signal", false)
-
 	cret := xWidgetClassGetActivateSignal(x.GoPointer())
 	return cret
 }
@@ -336,8 +313,6 @@ var xWidgetClassGetCssName func(uintptr) string
 //
 // See [method@Gtk.WidgetClass.set_css_name] for details.
 func (x *WidgetClass) GetCssName() string {
-	core.LazyRegister(&xWidgetClassGetCssName, "GTK", "gtk_widget_class_get_css_name", false)
-
 	cret := xWidgetClassGetCssName(x.GoPointer())
 	return cret
 }
@@ -349,8 +324,6 @@ var xWidgetClassGetLayoutManagerType func(uintptr) types.GType
 //
 // See also: [method@Gtk.WidgetClass.set_layout_manager_type].
 func (x *WidgetClass) GetLayoutManagerType() types.GType {
-	core.LazyRegister(&xWidgetClassGetLayoutManagerType, "GTK", "gtk_widget_class_get_layout_manager_type", false)
-
 	cret := xWidgetClassGetLayoutManagerType(x.GoPointer())
 	return cret
 }
@@ -365,8 +338,6 @@ var xWidgetClassInstallAction func(uintptr, string, uintptr, uintptr)
 // they have is whether they are enabled or not (which can be changed
 // with [method@Gtk.Widget.action_set_enabled]).
 func (x *WidgetClass) InstallAction(ActionNameVar string, ParameterTypeVar *string, ActivateVar *WidgetActionActivateFunc) {
-	core.LazyRegister(&xWidgetClassInstallAction, "GTK", "gtk_widget_class_install_action", false)
-
 	ParameterTypeVarPtr := core.GStrdupNullable(ParameterTypeVar)
 	defer core.GFreeNullable(ParameterTypeVarPtr)
 
@@ -391,8 +362,6 @@ var xWidgetClassInstallPropertyAction func(uintptr, string, string)
 // toggle the property value. Otherwise, the action will have a parameter
 // of the same type as the property.
 func (x *WidgetClass) InstallPropertyAction(ActionNameVar string, PropertyNameVar string) {
-	core.LazyRegister(&xWidgetClassInstallPropertyAction, "GTK", "gtk_widget_class_install_property_action", false)
-
 	xWidgetClassInstallPropertyAction(x.GoPointer(), ActionNameVar, PropertyNameVar)
 }
 
@@ -408,8 +377,6 @@ var xWidgetClassQueryAction func(uintptr, uint, *types.GType, *string, **glib.Va
 // by parent classes. You can identify those by looking
 // at @owner.
 func (x *WidgetClass) QueryAction(IndexVar uint, OwnerVar *types.GType, ActionNameVar *string, ParameterTypeVar **glib.VariantType, PropertyNameVar *string) bool {
-	core.LazyRegister(&xWidgetClassQueryAction, "GTK", "gtk_widget_class_query_action", false)
-
 	cret := xWidgetClassQueryAction(x.GoPointer(), IndexVar, OwnerVar, ActionNameVar, ParameterTypeVar, PropertyNameVar)
 	return cret
 }
@@ -421,8 +388,6 @@ var xWidgetClassSetAccessibleRole func(uintptr, AccessibleRole)
 // Different accessible roles have different states, and are
 // rendered differently by assistive technologies.
 func (x *WidgetClass) SetAccessibleRole(AccessibleRoleVar AccessibleRole) {
-	core.LazyRegister(&xWidgetClassSetAccessibleRole, "GTK", "gtk_widget_class_set_accessible_role", false)
-
 	xWidgetClassSetAccessibleRole(x.GoPointer(), AccessibleRoleVar)
 }
 
@@ -435,8 +400,6 @@ var xWidgetClassSetActivateSignal func(uintptr, uint)
 // The @signal_id must have been registered with [function.GObject.signal_new]
 // or [func@GObject.signal_newv] before calling this function.
 func (x *WidgetClass) SetActivateSignal(SignalIdVar uint) {
-	core.LazyRegister(&xWidgetClassSetActivateSignal, "GTK", "gtk_widget_class_set_activate_signal", false)
-
 	xWidgetClassSetActivateSignal(x.GoPointer(), SignalIdVar)
 }
 
@@ -451,8 +414,6 @@ var xWidgetClassSetActivateSignalFromName func(uintptr, string)
 // The @signal_name must have been registered with [function.GObject.signal_new]
 // or [func@GObject.signal_newv] before calling this function.
 func (x *WidgetClass) SetActivateSignalFromName(SignalNameVar string) {
-	core.LazyRegister(&xWidgetClassSetActivateSignalFromName, "GTK", "gtk_widget_class_set_activate_signal_from_name", false)
-
 	xWidgetClassSetActivateSignalFromName(x.GoPointer(), SignalNameVar)
 }
 
@@ -464,8 +425,6 @@ var xWidgetClassSetCssName func(uintptr, string)
 // set on the parent class is used. By default, `GtkWidget`
 // uses the name "widget".
 func (x *WidgetClass) SetCssName(NameVar string) {
-	core.LazyRegister(&xWidgetClassSetCssName, "GTK", "gtk_widget_class_set_css_name", false)
-
 	xWidgetClassSetCssName(x.GoPointer(), NameVar)
 }
 
@@ -479,8 +438,6 @@ var xWidgetClassSetLayoutManagerType func(uintptr, types.GType)
 // This function should only be called from class init functions
 // of widgets.
 func (x *WidgetClass) SetLayoutManagerType(TypeVar types.GType) {
-	core.LazyRegister(&xWidgetClassSetLayoutManagerType, "GTK", "gtk_widget_class_set_layout_manager_type", false)
-
 	xWidgetClassSetLayoutManagerType(x.GoPointer(), TypeVar)
 }
 
@@ -495,8 +452,6 @@ var xWidgetClassSetTemplate func(uintptr, *glib.Bytes)
 // Note that any class that installs templates must call
 // [method@Gtk.Widget.init_template] in the widget’s instance initializer.
 func (x *WidgetClass) SetTemplate(TemplateBytesVar *glib.Bytes) {
-	core.LazyRegister(&xWidgetClassSetTemplate, "GTK", "gtk_widget_class_set_template", false)
-
 	xWidgetClassSetTemplate(x.GoPointer(), TemplateBytesVar)
 }
 
@@ -509,8 +464,6 @@ var xWidgetClassSetTemplateFromResource func(uintptr, string)
 // [method@Gtk.Widget.init_template] in the widget’s instance
 // initializer.
 func (x *WidgetClass) SetTemplateFromResource(ResourceNameVar string) {
-	core.LazyRegister(&xWidgetClassSetTemplateFromResource, "GTK", "gtk_widget_class_set_template_from_resource", false)
-
 	xWidgetClassSetTemplateFromResource(x.GoPointer(), ResourceNameVar)
 }
 
@@ -523,8 +476,6 @@ var xWidgetClassSetTemplateScope func(uintptr, uintptr)
 // Note that this must be called from a composite widget classes class
 // initializer after calling [method@Gtk.WidgetClass.set_template].
 func (x *WidgetClass) SetTemplateScope(ScopeVar BuilderScope) {
-	core.LazyRegister(&xWidgetClassSetTemplateScope, "GTK", "gtk_widget_class_set_template_scope", false)
-
 	xWidgetClassSetTemplateScope(x.GoPointer(), ScopeVar.GoPointer())
 }
 
@@ -1727,7 +1678,6 @@ type Widget struct {
 var xWidgetGLibType func() types.GType
 
 func WidgetGLibType() types.GType {
-	core.LazyRegister(&xWidgetGLibType, "GTK", "gtk_widget_get_type", false)
 	return xWidgetGLibType()
 }
 
@@ -1742,8 +1692,6 @@ var xWidgetActionSetEnabled func(uintptr, string, bool)
 // Enables or disables an action installed with
 // [method@Gtk.WidgetClass.install_action].
 func (x *Widget) ActionSetEnabled(ActionNameVar string, EnabledVar bool) {
-	core.LazyRegister(&xWidgetActionSetEnabled, "GTK", "gtk_widget_action_set_enabled", false)
-
 	xWidgetActionSetEnabled(x.GoPointer(), ActionNameVar, EnabledVar)
 }
 
@@ -1764,8 +1712,6 @@ var xWidgetActivate func(uintptr) bool
 //
 // If @widget is not activatable, the function returns false.
 func (x *Widget) Activate() bool {
-	core.LazyRegister(&xWidgetActivate, "GTK", "gtk_widget_activate", false)
-
 	cret := xWidgetActivate(x.GoPointer())
 	return cret
 }
@@ -1780,8 +1726,6 @@ var xWidgetActivateAction func(uintptr, string, uintptr, ...interface{}) bool
 // This is a wrapper around [method@Gtk.Widget.activate_action_variant]
 // that constructs the @args variant according to @format_string.
 func (x *Widget) ActivateAction(NameVar string, FormatStringVar *string, varArgs ...interface{}) bool {
-	core.LazyRegister(&xWidgetActivateAction, "GTK", "gtk_widget_activate_action", false)
-
 	FormatStringVarPtr := core.GStrdupNullable(FormatStringVar)
 	defer core.GFreeNullable(FormatStringVarPtr)
 
@@ -1804,8 +1748,6 @@ var xWidgetActivateActionVariant func(uintptr, string, *glib.Variant) bool
 // The arguments must match the actions expected parameter type,
 // as returned by [method@Gio.Action.get_parameter_type].
 func (x *Widget) ActivateActionVariant(NameVar string, ArgsVar *glib.Variant) bool {
-	core.LazyRegister(&xWidgetActivateActionVariant, "GTK", "gtk_widget_activate_action_variant", false)
-
 	cret := xWidgetActivateActionVariant(x.GoPointer(), NameVar, ArgsVar)
 	return cret
 }
@@ -1817,8 +1759,6 @@ var xWidgetActivateDefault func(uintptr)
 // The action is looked up in the same was as for
 // [method@Gtk.Widget.activate_action].
 func (x *Widget) ActivateDefault() {
-	core.LazyRegister(&xWidgetActivateDefault, "GTK", "gtk_widget_activate_default", false)
-
 	xWidgetActivateDefault(x.GoPointer())
 }
 
@@ -1832,8 +1772,6 @@ var xWidgetAddController func(uintptr, uintptr)
 // You will usually want to call this function right after
 // creating any kind of [class@Gtk.EventController].
 func (x *Widget) AddController(ControllerVar *EventController) {
-	core.LazyRegister(&xWidgetAddController, "GTK", "gtk_widget_add_controller", false)
-
 	xWidgetAddController(x.GoPointer(), ControllerVar.GoPointer())
 }
 
@@ -1847,8 +1785,6 @@ var xWidgetAddCssClass func(uintptr, string)
 // Use [method@Gtk.Widget.remove_css_class] to remove the
 // style again.
 func (x *Widget) AddCssClass(CssClassVar string) {
-	core.LazyRegister(&xWidgetAddCssClass, "GTK", "gtk_widget_add_css_class", false)
-
 	xWidgetAddCssClass(x.GoPointer(), CssClassVar)
 }
 
@@ -1862,8 +1798,6 @@ var xWidgetAddMnemonicLabel func(uintptr, uintptr)
 // when the widget is destroyed, so the caller must make sure
 // to update its internal state at this point as well.
 func (x *Widget) AddMnemonicLabel(LabelVar *Widget) {
-	core.LazyRegister(&xWidgetAddMnemonicLabel, "GTK", "gtk_widget_add_mnemonic_label", false)
-
 	xWidgetAddMnemonicLabel(x.GoPointer(), LabelVar.GoPointer())
 }
 
@@ -1896,8 +1830,6 @@ var xWidgetAddTickCallback func(uintptr, uintptr, uintptr, uintptr) uint
 // To remove a tick callback, pass the ID that is returned by this function
 // to [method@Gtk.Widget.remove_tick_callback].
 func (x *Widget) AddTickCallback(CallbackVar *TickCallback, UserDataVar uintptr, NotifyVar *glib.DestroyNotify) uint {
-	core.LazyRegister(&xWidgetAddTickCallback, "GTK", "gtk_widget_add_tick_callback", false)
-
 	cret := xWidgetAddTickCallback(x.GoPointer(), glib.NewCallback(CallbackVar), UserDataVar, glib.NewCallbackNullable(NotifyVar))
 	return cret
 }
@@ -1916,8 +1848,6 @@ var xWidgetAllocate func(uintptr, int, int, int, *gsk.Transform)
 // For a version that does not take a transform, see
 // [method@Gtk.Widget.size_allocate].
 func (x *Widget) Allocate(WidthVar int, HeightVar int, BaselineVar int, TransformVar *gsk.Transform) {
-	core.LazyRegister(&xWidgetAllocate, "GTK", "gtk_widget_allocate", false)
-
 	xWidgetAllocate(x.GoPointer(), WidthVar, HeightVar, BaselineVar, TransformVar)
 }
 
@@ -1944,8 +1874,6 @@ var xWidgetChildFocus func(uintptr, DirectionType) bool
 // writing an app, you’d use [method@Gtk.Widget.grab_focus] to move
 // the focus to a particular widget.
 func (x *Widget) ChildFocus(DirectionVar DirectionType) bool {
-	core.LazyRegister(&xWidgetChildFocus, "GTK", "gtk_widget_child_focus", false)
-
 	cret := xWidgetChildFocus(x.GoPointer(), DirectionVar)
 	return cret
 }
@@ -1965,8 +1893,6 @@ var xWidgetComputeBounds func(uintptr, uintptr, *graphene.Rect) bool
 //
 // It is valid for @widget and @target to be the same widget.
 func (x *Widget) ComputeBounds(TargetVar *Widget, OutBoundsVar *graphene.Rect) bool {
-	core.LazyRegister(&xWidgetComputeBounds, "GTK", "gtk_widget_compute_bounds", false)
-
 	cret := xWidgetComputeBounds(x.GoPointer(), TargetVar.GoPointer(), OutBoundsVar)
 	return cret
 }
@@ -1987,8 +1913,6 @@ var xWidgetComputeExpand func(uintptr, Orientation) bool
 // set on the widget itself, or, if none has been explicitly set,
 // the widget may expand if some of its children do.
 func (x *Widget) ComputeExpand(OrientationVar Orientation) bool {
-	core.LazyRegister(&xWidgetComputeExpand, "GTK", "gtk_widget_compute_expand", false)
-
 	cret := xWidgetComputeExpand(x.GoPointer(), OrientationVar)
 	return cret
 }
@@ -2002,8 +1926,6 @@ var xWidgetComputePoint func(uintptr, uintptr, *graphene.Point, *graphene.Point)
 // a common ancestor. If that is not the case, @out_point is set
 // to (0, 0) and false is returned.
 func (x *Widget) ComputePoint(TargetVar *Widget, PointVar *graphene.Point, OutPointVar *graphene.Point) bool {
-	core.LazyRegister(&xWidgetComputePoint, "GTK", "gtk_widget_compute_point", false)
-
 	cret := xWidgetComputePoint(x.GoPointer(), TargetVar.GoPointer(), PointVar, OutPointVar)
 	return cret
 }
@@ -2020,8 +1942,6 @@ var xWidgetComputeTransform func(uintptr, uintptr, *graphene.Matrix) bool
 // To learn more about widget coordinate systems, see the coordinate
 // system [overview](coordinates.html).
 func (x *Widget) ComputeTransform(TargetVar *Widget, OutTransformVar *graphene.Matrix) bool {
-	core.LazyRegister(&xWidgetComputeTransform, "GTK", "gtk_widget_compute_transform", false)
-
 	cret := xWidgetComputeTransform(x.GoPointer(), TargetVar.GoPointer(), OutTransformVar)
 	return cret
 }
@@ -2033,8 +1953,6 @@ var xWidgetContains func(uintptr, float64, float64) bool
 // The coordinates for (x, y) must be in widget coordinates, so
 // (0, 0) is assumed to be the top left of @widget's content area.
 func (x *Widget) Contains(XVar float64, YVar float64) bool {
-	core.LazyRegister(&xWidgetContains, "GTK", "gtk_widget_contains", false)
-
 	cret := xWidgetContains(x.GoPointer(), XVar, YVar)
 	return cret
 }
@@ -2048,7 +1966,6 @@ var xWidgetCreatePangoContext func(uintptr) uintptr
 //
 // See also [method@Gtk.Widget.get_pango_context].
 func (x *Widget) CreatePangoContext() *pango.Context {
-	core.LazyRegister(&xWidgetCreatePangoContext, "GTK", "gtk_widget_create_pango_context", false)
 	var cls *pango.Context
 
 	cret := xWidgetCreatePangoContext(x.GoPointer())
@@ -2073,7 +1990,6 @@ var xWidgetCreatePangoLayout func(uintptr, uintptr) uintptr
 // is replaced. This can be tracked by listening to changes
 // of the [property@Gtk.Widget:root] property on the widget.
 func (x *Widget) CreatePangoLayout(TextVar *string) *pango.Layout {
-	core.LazyRegister(&xWidgetCreatePangoLayout, "GTK", "gtk_widget_create_pango_layout", false)
 	var cls *pango.Layout
 
 	TextVarPtr := core.GStrdupNullable(TextVar)
@@ -2119,8 +2035,6 @@ var xWidgetDisposeTemplate func(uintptr, types.GType)
 //
 // ```
 func (x *Widget) DisposeTemplate(WidgetTypeVar types.GType) {
-	core.LazyRegister(&xWidgetDisposeTemplate, "GTK", "gtk_widget_dispose_template", false)
-
 	xWidgetDisposeTemplate(x.GoPointer(), WidgetTypeVar)
 }
 
@@ -2128,8 +2042,6 @@ var xWidgetDragCheckThreshold func(uintptr, int, int, int, int) bool
 
 // Checks to see if a drag movement has passed the GTK drag threshold.
 func (x *Widget) DragCheckThreshold(StartXVar int, StartYVar int, CurrentXVar int, CurrentYVar int) bool {
-	core.LazyRegister(&xWidgetDragCheckThreshold, "GTK", "gtk_drag_check_threshold", false)
-
 	cret := xWidgetDragCheckThreshold(x.GoPointer(), StartXVar, StartYVar, CurrentXVar, CurrentYVar)
 	return cret
 }
@@ -2145,8 +2057,6 @@ var xWidgetErrorBell func(uintptr)
 // in many ways, depending on the windowing backend and the desktop
 // environment or window manager that is used.
 func (x *Widget) ErrorBell() {
-	core.LazyRegister(&xWidgetErrorBell, "GTK", "gtk_widget_error_bell", false)
-
 	xWidgetErrorBell(x.GoPointer())
 }
 
@@ -2158,8 +2068,6 @@ var xWidgetGetAllocatedBaseline func(uintptr) int
 // for the `GtkWidget`Class.snapshot() function, and when allocating
 // child widgets in `GtkWidget`Class.size_allocate().
 func (x *Widget) GetAllocatedBaseline() int {
-	core.LazyRegister(&xWidgetGetAllocatedBaseline, "GTK", "gtk_widget_get_allocated_baseline", false)
-
 	cret := xWidgetGetAllocatedBaseline(x.GoPointer())
 	return cret
 }
@@ -2171,8 +2079,6 @@ var xWidgetGetAllocatedHeight func(uintptr) int
 // To learn more about widget sizes, see the coordinate
 // system [overview](coordinates.html).
 func (x *Widget) GetAllocatedHeight() int {
-	core.LazyRegister(&xWidgetGetAllocatedHeight, "GTK", "gtk_widget_get_allocated_height", false)
-
 	cret := xWidgetGetAllocatedHeight(x.GoPointer())
 	return cret
 }
@@ -2184,8 +2090,6 @@ var xWidgetGetAllocatedWidth func(uintptr) int
 // To learn more about widget sizes, see the coordinate
 // system [overview](coordinates.html).
 func (x *Widget) GetAllocatedWidth() int {
-	core.LazyRegister(&xWidgetGetAllocatedWidth, "GTK", "gtk_widget_get_allocated_width", false)
-
 	cret := xWidgetGetAllocatedWidth(x.GoPointer())
 	return cret
 }
@@ -2208,8 +2112,6 @@ var xWidgetGetAllocation func(uintptr, *Allocation)
 // the assigned bounds, but not that they have exactly the bounds the
 // widget assigned.
 func (x *Widget) GetAllocation(AllocationVar *Allocation) {
-	core.LazyRegister(&xWidgetGetAllocation, "GTK", "gtk_widget_get_allocation", false)
-
 	xWidgetGetAllocation(x.GoPointer(), AllocationVar)
 }
 
@@ -2225,7 +2127,6 @@ var xWidgetGetAncestor func(uintptr, types.GType) uintptr
 // Note that unlike [method@Gtk.Widget.is_ancestor], this function
 // considers @widget to be an ancestor of itself.
 func (x *Widget) GetAncestor(WidgetTypeVar types.GType) *Widget {
-	core.LazyRegister(&xWidgetGetAncestor, "GTK", "gtk_widget_get_ancestor", false)
 	var cls *Widget
 
 	cret := xWidgetGetAncestor(x.GoPointer(), WidgetTypeVar)
@@ -2247,8 +2148,6 @@ var xWidgetGetBaseline func(uintptr) int
 // for the `GtkWidgetClass.snapshot()` function, and when allocating
 // child widgets in `GtkWidgetClass.size_allocate()`.
 func (x *Widget) GetBaseline() int {
-	core.LazyRegister(&xWidgetGetBaseline, "GTK", "gtk_widget_get_baseline", false)
-
 	cret := xWidgetGetBaseline(x.GoPointer())
 	return cret
 }
@@ -2260,8 +2159,6 @@ var xWidgetGetCanFocus func(uintptr) bool
 //
 // See [method@Gtk.Widget.set_can_focus].
 func (x *Widget) GetCanFocus() bool {
-	core.LazyRegister(&xWidgetGetCanFocus, "GTK", "gtk_widget_get_can_focus", false)
-
 	cret := xWidgetGetCanFocus(x.GoPointer())
 	return cret
 }
@@ -2270,8 +2167,6 @@ var xWidgetGetCanTarget func(uintptr) bool
 
 // Queries whether the widget can be the target of pointer events.
 func (x *Widget) GetCanTarget() bool {
-	core.LazyRegister(&xWidgetGetCanTarget, "GTK", "gtk_widget_get_can_target", false)
-
 	cret := xWidgetGetCanTarget(x.GoPointer())
 	return cret
 }
@@ -2286,8 +2181,6 @@ var xWidgetGetChildVisible func(uintptr) bool
 // This function is only useful for widget implementations
 // and should never be called by an application.
 func (x *Widget) GetChildVisible() bool {
-	core.LazyRegister(&xWidgetGetChildVisible, "GTK", "gtk_widget_get_child_visible", false)
-
 	cret := xWidgetGetChildVisible(x.GoPointer())
 	return cret
 }
@@ -2302,7 +2195,6 @@ var xWidgetGetClipboard func(uintptr) uintptr
 // Note that this function always works, even when @widget is not
 // realized yet.
 func (x *Widget) GetClipboard() *gdk.Clipboard {
-	core.LazyRegister(&xWidgetGetClipboard, "GTK", "gtk_widget_get_clipboard", false)
 	var cls *gdk.Clipboard
 
 	cret := xWidgetGetClipboard(x.GoPointer())
@@ -2324,8 +2216,6 @@ var xWidgetGetColor func(uintptr, *gdk.RGBA)
 // implementations that need to do custom drawing
 // with the foreground color.
 func (x *Widget) GetColor(ColorVar *gdk.RGBA) {
-	core.LazyRegister(&xWidgetGetColor, "GTK", "gtk_widget_get_color", false)
-
 	xWidgetGetColor(x.GoPointer(), ColorVar)
 }
 
@@ -2333,8 +2223,6 @@ var xWidgetGetCssClasses func(uintptr) []string
 
 // Returns the list of style classes applied to the widget.
 func (x *Widget) GetCssClasses() []string {
-	core.LazyRegister(&xWidgetGetCssClasses, "GTK", "gtk_widget_get_css_classes", false)
-
 	cret := xWidgetGetCssClasses(x.GoPointer())
 	return cret
 }
@@ -2343,8 +2231,6 @@ var xWidgetGetCssName func(uintptr) string
 
 // Returns the CSS name of the widget.
 func (x *Widget) GetCssName() string {
-	core.LazyRegister(&xWidgetGetCssName, "GTK", "gtk_widget_get_css_name", false)
-
 	cret := xWidgetGetCssName(x.GoPointer())
 	return cret
 }
@@ -2355,7 +2241,6 @@ var xWidgetGetCursor func(uintptr) uintptr
 //
 // See [method@Gtk.Widget.set_cursor] for details.
 func (x *Widget) GetCursor() *gdk.Cursor {
-	core.LazyRegister(&xWidgetGetCursor, "GTK", "gtk_widget_get_cursor", false)
 	var cls *gdk.Cursor
 
 	cret := xWidgetGetCursor(x.GoPointer())
@@ -2375,8 +2260,6 @@ var xWidgetGetDirection func(uintptr) TextDirection
 //
 // See [method@Gtk.Widget.set_direction].
 func (x *Widget) GetDirection() TextDirection {
-	core.LazyRegister(&xWidgetGetDirection, "GTK", "gtk_widget_get_direction", false)
-
 	cret := xWidgetGetDirection(x.GoPointer())
 	return cret
 }
@@ -2392,7 +2275,6 @@ var xWidgetGetDisplay func(uintptr) uintptr
 // resources when a widget has been realized, and you should
 // free those resources when the widget is unrealized.
 func (x *Widget) GetDisplay() *gdk.Display {
-	core.LazyRegister(&xWidgetGetDisplay, "GTK", "gtk_widget_get_display", false)
 	var cls *gdk.Display
 
 	cret := xWidgetGetDisplay(x.GoPointer())
@@ -2412,7 +2294,6 @@ var xWidgetGetFirstChild func(uintptr) uintptr
 //
 // This function is primarily meant for widget implementations.
 func (x *Widget) GetFirstChild() *Widget {
-	core.LazyRegister(&xWidgetGetFirstChild, "GTK", "gtk_widget_get_first_child", false)
 	var cls *Widget
 
 	cret := xWidgetGetFirstChild(x.GoPointer())
@@ -2430,7 +2311,6 @@ var xWidgetGetFocusChild func(uintptr) uintptr
 
 // Returns the focus child of the widget.
 func (x *Widget) GetFocusChild() *Widget {
-	core.LazyRegister(&xWidgetGetFocusChild, "GTK", "gtk_widget_get_focus_child", false)
 	var cls *Widget
 
 	cret := xWidgetGetFocusChild(x.GoPointer())
@@ -2451,8 +2331,6 @@ var xWidgetGetFocusOnClick func(uintptr) bool
 //
 // See [method@Gtk.Widget.set_focus_on_click].
 func (x *Widget) GetFocusOnClick() bool {
-	core.LazyRegister(&xWidgetGetFocusOnClick, "GTK", "gtk_widget_get_focus_on_click", false)
-
 	cret := xWidgetGetFocusOnClick(x.GoPointer())
 	return cret
 }
@@ -2463,8 +2341,6 @@ var xWidgetGetFocusable func(uintptr) bool
 //
 // See [method@Gtk.Widget.set_focusable].
 func (x *Widget) GetFocusable() bool {
-	core.LazyRegister(&xWidgetGetFocusable, "GTK", "gtk_widget_get_focusable", false)
-
 	cret := xWidgetGetFocusable(x.GoPointer())
 	return cret
 }
@@ -2475,7 +2351,6 @@ var xWidgetGetFontMap func(uintptr) uintptr
 //
 // See [method@Gtk.Widget.set_font_map].
 func (x *Widget) GetFontMap() *pango.FontMap {
-	core.LazyRegister(&xWidgetGetFontMap, "GTK", "gtk_widget_get_font_map", false)
 	var cls *pango.FontMap
 
 	cret := xWidgetGetFontMap(x.GoPointer())
@@ -2495,8 +2370,6 @@ var xWidgetGetFontOptions func(uintptr) uintptr
 //
 // Seee [method@Gtk.Widget.set_font_options].
 func (x *Widget) GetFontOptions() *cairo.FontOptions {
-	core.LazyRegister(&xWidgetGetFontOptions, "GTK", "gtk_widget_get_font_options", false)
-
 	cret := xWidgetGetFontOptions(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -2529,7 +2402,6 @@ var xWidgetGetFrameClock func(uintptr) uintptr
 //
 // Unrealized widgets do not have a frame clock.
 func (x *Widget) GetFrameClock() *gdk.FrameClock {
-	core.LazyRegister(&xWidgetGetFrameClock, "GTK", "gtk_widget_get_frame_clock", false)
 	var cls *gdk.FrameClock
 
 	cret := xWidgetGetFrameClock(x.GoPointer())
@@ -2553,8 +2425,6 @@ var xWidgetGetHalign func(uintptr) Align
 //
 // Baselines are not supported for horizontal alignment.
 func (x *Widget) GetHalign() Align {
-	core.LazyRegister(&xWidgetGetHalign, "GTK", "gtk_widget_get_halign", false)
-
 	cret := xWidgetGetHalign(x.GoPointer())
 	return cret
 }
@@ -2563,8 +2433,6 @@ var xWidgetGetHasTooltip func(uintptr) bool
 
 // Returns the current value of the `has-tooltip` property.
 func (x *Widget) GetHasTooltip() bool {
-	core.LazyRegister(&xWidgetGetHasTooltip, "GTK", "gtk_widget_get_has_tooltip", false)
-
 	cret := xWidgetGetHasTooltip(x.GoPointer())
 	return cret
 }
@@ -2582,8 +2450,6 @@ var xWidgetGetHeight func(uintptr) int
 // To learn more about widget sizes, see the coordinate
 // system [overview](coordinates.html).
 func (x *Widget) GetHeight() int {
-	core.LazyRegister(&xWidgetGetHeight, "GTK", "gtk_widget_get_height", false)
-
 	cret := xWidgetGetHeight(x.GoPointer())
 	return cret
 }
@@ -2606,8 +2472,6 @@ var xWidgetGetHexpand func(uintptr) bool
 // than computing whether the entire widget tree rooted at this widget
 // wants to expand.
 func (x *Widget) GetHexpand() bool {
-	core.LazyRegister(&xWidgetGetHexpand, "GTK", "gtk_widget_get_hexpand", false)
-
 	cret := xWidgetGetHexpand(x.GoPointer())
 	return cret
 }
@@ -2624,8 +2488,6 @@ var xWidgetGetHexpandSet func(uintptr) bool
 // There are few reasons to use this function, but it’s here
 // for completeness and consistency.
 func (x *Widget) GetHexpandSet() bool {
-	core.LazyRegister(&xWidgetGetHexpandSet, "GTK", "gtk_widget_get_hexpand_set", false)
-
 	cret := xWidgetGetHexpandSet(x.GoPointer())
 	return cret
 }
@@ -2636,7 +2498,6 @@ var xWidgetGetLastChild func(uintptr) uintptr
 //
 // This function is primarily meant for widget implementations.
 func (x *Widget) GetLastChild() *Widget {
-	core.LazyRegister(&xWidgetGetLastChild, "GTK", "gtk_widget_get_last_child", false)
 	var cls *Widget
 
 	cret := xWidgetGetLastChild(x.GoPointer())
@@ -2656,7 +2517,6 @@ var xWidgetGetLayoutManager func(uintptr) uintptr
 //
 // See [method@Gtk.Widget.set_layout_manager].
 func (x *Widget) GetLayoutManager() *LayoutManager {
-	core.LazyRegister(&xWidgetGetLayoutManager, "GTK", "gtk_widget_get_layout_manager", false)
 	var cls *LayoutManager
 
 	cret := xWidgetGetLayoutManager(x.GoPointer())
@@ -2674,8 +2534,6 @@ var xWidgetGetLimitEvents func(uintptr) bool
 
 // Gets the value of the [property@Gtk.Widget:limit-events] property.
 func (x *Widget) GetLimitEvents() bool {
-	core.LazyRegister(&xWidgetGetLimitEvents, "GTK", "gtk_widget_get_limit_events", false)
-
 	cret := xWidgetGetLimitEvents(x.GoPointer())
 	return cret
 }
@@ -2684,8 +2542,6 @@ var xWidgetGetMapped func(uintptr) bool
 
 // Returns whether the widget is mapped.
 func (x *Widget) GetMapped() bool {
-	core.LazyRegister(&xWidgetGetMapped, "GTK", "gtk_widget_get_mapped", false)
-
 	cret := xWidgetGetMapped(x.GoPointer())
 	return cret
 }
@@ -2694,8 +2550,6 @@ var xWidgetGetMarginBottom func(uintptr) int
 
 // Gets the bottom margin of the widget.
 func (x *Widget) GetMarginBottom() int {
-	core.LazyRegister(&xWidgetGetMarginBottom, "GTK", "gtk_widget_get_margin_bottom", false)
-
 	cret := xWidgetGetMarginBottom(x.GoPointer())
 	return cret
 }
@@ -2704,8 +2558,6 @@ var xWidgetGetMarginEnd func(uintptr) int
 
 // Gets the end margin of the widget.
 func (x *Widget) GetMarginEnd() int {
-	core.LazyRegister(&xWidgetGetMarginEnd, "GTK", "gtk_widget_get_margin_end", false)
-
 	cret := xWidgetGetMarginEnd(x.GoPointer())
 	return cret
 }
@@ -2714,8 +2566,6 @@ var xWidgetGetMarginStart func(uintptr) int
 
 // Gets the start margin of the widget.
 func (x *Widget) GetMarginStart() int {
-	core.LazyRegister(&xWidgetGetMarginStart, "GTK", "gtk_widget_get_margin_start", false)
-
 	cret := xWidgetGetMarginStart(x.GoPointer())
 	return cret
 }
@@ -2724,8 +2574,6 @@ var xWidgetGetMarginTop func(uintptr) int
 
 // Gets the top margin of the widget.
 func (x *Widget) GetMarginTop() int {
-	core.LazyRegister(&xWidgetGetMarginTop, "GTK", "gtk_widget_get_margin_top", false)
-
 	cret := xWidgetGetMarginTop(x.GoPointer())
 	return cret
 }
@@ -2736,8 +2584,6 @@ var xWidgetGetName func(uintptr) string
 //
 // See [method@Gtk.Widget.set_name] for the significance of widget names.
 func (x *Widget) GetName() string {
-	core.LazyRegister(&xWidgetGetName, "GTK", "gtk_widget_get_name", false)
-
 	cret := xWidgetGetName(x.GoPointer())
 	return cret
 }
@@ -2751,7 +2597,6 @@ var xWidgetGetNative func(uintptr) uintptr
 //
 // `GtkNative` widgets will return themselves here.
 func (x *Widget) GetNative() *NativeBase {
-	core.LazyRegister(&xWidgetGetNative, "GTK", "gtk_widget_get_native", false)
 	var cls *NativeBase
 
 	cret := xWidgetGetNative(x.GoPointer())
@@ -2771,7 +2616,6 @@ var xWidgetGetNextSibling func(uintptr) uintptr
 //
 // This function is primarily meant for widget implementations.
 func (x *Widget) GetNextSibling() *Widget {
-	core.LazyRegister(&xWidgetGetNextSibling, "GTK", "gtk_widget_get_next_sibling", false)
 	var cls *Widget
 
 	cret := xWidgetGetNextSibling(x.GoPointer())
@@ -2791,8 +2635,6 @@ var xWidgetGetOpacity func(uintptr) float64
 //
 // See [method@Gtk.Widget.set_opacity].
 func (x *Widget) GetOpacity() float64 {
-	core.LazyRegister(&xWidgetGetOpacity, "GTK", "gtk_widget_get_opacity", false)
-
 	cret := xWidgetGetOpacity(x.GoPointer())
 	return cret
 }
@@ -2801,8 +2643,6 @@ var xWidgetGetOverflow func(uintptr) Overflow
 
 // Returns the widget’s overflow value.
 func (x *Widget) GetOverflow() Overflow {
-	core.LazyRegister(&xWidgetGetOverflow, "GTK", "gtk_widget_get_overflow", false)
-
 	cret := xWidgetGetOverflow(x.GoPointer())
 	return cret
 }
@@ -2821,7 +2661,6 @@ var xWidgetGetPangoContext func(uintptr) uintptr
 // This can be tracked by listening to changes of the
 // [property@Gtk.Widget:root] property on the widget.
 func (x *Widget) GetPangoContext() *pango.Context {
-	core.LazyRegister(&xWidgetGetPangoContext, "GTK", "gtk_widget_get_pango_context", false)
 	var cls *pango.Context
 
 	cret := xWidgetGetPangoContext(x.GoPointer())
@@ -2839,7 +2678,6 @@ var xWidgetGetParent func(uintptr) uintptr
 
 // Returns the parent widget of the widget.
 func (x *Widget) GetParent() *Widget {
-	core.LazyRegister(&xWidgetGetParent, "GTK", "gtk_widget_get_parent", false)
 	var cls *Widget
 
 	cret := xWidgetGetParent(x.GoPointer())
@@ -2870,8 +2708,6 @@ var xWidgetGetPreferredSize func(uintptr, *Requisition, *Requisition)
 //
 // Use [method@Gtk.Widget.measure] if you want to support baseline alignment.
 func (x *Widget) GetPreferredSize(MinimumSizeVar *Requisition, NaturalSizeVar *Requisition) {
-	core.LazyRegister(&xWidgetGetPreferredSize, "GTK", "gtk_widget_get_preferred_size", false)
-
 	xWidgetGetPreferredSize(x.GoPointer(), MinimumSizeVar, NaturalSizeVar)
 }
 
@@ -2881,7 +2717,6 @@ var xWidgetGetPrevSibling func(uintptr) uintptr
 //
 // This function is primarily meant for widget implementations.
 func (x *Widget) GetPrevSibling() *Widget {
-	core.LazyRegister(&xWidgetGetPrevSibling, "GTK", "gtk_widget_get_prev_sibling", false)
 	var cls *Widget
 
 	cret := xWidgetGetPrevSibling(x.GoPointer())
@@ -2905,7 +2740,6 @@ var xWidgetGetPrimaryClipboard func(uintptr) uintptr
 // Note that this function always works, even when @widget is not
 // realized yet.
 func (x *Widget) GetPrimaryClipboard() *gdk.Clipboard {
-	core.LazyRegister(&xWidgetGetPrimaryClipboard, "GTK", "gtk_widget_get_primary_clipboard", false)
 	var cls *gdk.Clipboard
 
 	cret := xWidgetGetPrimaryClipboard(x.GoPointer())
@@ -2923,8 +2757,6 @@ var xWidgetGetRealized func(uintptr) bool
 
 // Determines whether the widget is realized.
 func (x *Widget) GetRealized() bool {
-	core.LazyRegister(&xWidgetGetRealized, "GTK", "gtk_widget_get_realized", false)
-
 	cret := xWidgetGetRealized(x.GoPointer())
 	return cret
 }
@@ -2937,8 +2769,6 @@ var xWidgetGetReceivesDefault func(uintptr) bool
 //
 // See [method@Gtk.Widget.set_receives_default].
 func (x *Widget) GetReceivesDefault() bool {
-	core.LazyRegister(&xWidgetGetReceivesDefault, "GTK", "gtk_widget_get_receives_default", false)
-
 	cret := xWidgetGetReceivesDefault(x.GoPointer())
 	return cret
 }
@@ -2953,8 +2783,6 @@ var xWidgetGetRequestMode func(uintptr) SizeRequestMode
 // either in context of their children or in context of their
 // allocation capabilities.
 func (x *Widget) GetRequestMode() SizeRequestMode {
-	core.LazyRegister(&xWidgetGetRequestMode, "GTK", "gtk_widget_get_request_mode", false)
-
 	cret := xWidgetGetRequestMode(x.GoPointer())
 	return cret
 }
@@ -2968,7 +2796,6 @@ var xWidgetGetRoot func(uintptr) uintptr
 //
 // `GtkRoot` widgets will return themselves here.
 func (x *Widget) GetRoot() *RootBase {
-	core.LazyRegister(&xWidgetGetRoot, "GTK", "gtk_widget_get_root", false)
 	var cls *RootBase
 
 	cret := xWidgetGetRoot(x.GoPointer())
@@ -2998,8 +2825,6 @@ var xWidgetGetScaleFactor func(uintptr) int
 // but you probably want to use [method@Gdk.Surface.get_scale]
 // to get the fractional scale value.
 func (x *Widget) GetScaleFactor() int {
-	core.LazyRegister(&xWidgetGetScaleFactor, "GTK", "gtk_widget_get_scale_factor", false)
-
 	cret := xWidgetGetScaleFactor(x.GoPointer())
 	return cret
 }
@@ -3015,8 +2840,6 @@ var xWidgetGetSensitive func(uintptr) bool
 // by both its own and its parent widget’s sensitivity.
 // See [method@Gtk.Widget.is_sensitive].
 func (x *Widget) GetSensitive() bool {
-	core.LazyRegister(&xWidgetGetSensitive, "GTK", "gtk_widget_get_sensitive", false)
-
 	cret := xWidgetGetSensitive(x.GoPointer())
 	return cret
 }
@@ -3030,7 +2853,6 @@ var xWidgetGetSettings func(uintptr) uintptr
 // to a particular display. If you want to monitor the widget for
 // changes in its settings, connect to the `notify::display` signal.
 func (x *Widget) GetSettings() *Settings {
-	core.LazyRegister(&xWidgetGetSettings, "GTK", "gtk_widget_get_settings", false)
 	var cls *Settings
 
 	cret := xWidgetGetSettings(x.GoPointer())
@@ -3059,8 +2881,6 @@ var xWidgetGetSize func(uintptr, Orientation) int
 // To learn more about widget sizes, see the coordinate
 // system [overview](coordinates.html).
 func (x *Widget) GetSize(OrientationVar Orientation) int {
-	core.LazyRegister(&xWidgetGetSize, "GTK", "gtk_widget_get_size", false)
-
 	cret := xWidgetGetSize(x.GoPointer(), OrientationVar)
 	return cret
 }
@@ -3078,8 +2898,6 @@ var xWidgetGetSizeRequest func(uintptr, *int, *int)
 // To get the size a widget will actually request, call
 // [method@Gtk.Widget.measure] instead of this function.
 func (x *Widget) GetSizeRequest(WidthVar *int, HeightVar *int) {
-	core.LazyRegister(&xWidgetGetSizeRequest, "GTK", "gtk_widget_get_size_request", false)
-
 	xWidgetGetSizeRequest(x.GoPointer(), WidthVar, HeightVar)
 }
 
@@ -3095,8 +2913,6 @@ var xWidgetGetStateFlags func(uintptr) StateFlags
 // [flags@Gtk.StateFlags] to pass to a [class@Gtk.StyleContext]
 // method, you should look at [method@Gtk.StyleContext.get_state].
 func (x *Widget) GetStateFlags() StateFlags {
-	core.LazyRegister(&xWidgetGetStateFlags, "GTK", "gtk_widget_get_state_flags", false)
-
 	cret := xWidgetGetStateFlags(x.GoPointer())
 	return cret
 }
@@ -3108,7 +2924,6 @@ var xWidgetGetStyleContext func(uintptr) uintptr
 // The returned object is guaranteed to be the same
 // for the lifetime of @widget.
 func (x *Widget) GetStyleContext() *StyleContext {
-	core.LazyRegister(&xWidgetGetStyleContext, "GTK", "gtk_widget_get_style_context", false)
 	var cls *StyleContext
 
 	cret := xWidgetGetStyleContext(x.GoPointer())
@@ -3135,7 +2950,6 @@ var xWidgetGetTemplateChild func(uintptr, types.GType, string) uintptr
 // to the @widget_type which declared the child and is meant for language
 // bindings which cannot easily make use of the GObject structure offsets.
 func (x *Widget) GetTemplateChild(WidgetTypeVar types.GType, NameVar string) *gobject.Object {
-	core.LazyRegister(&xWidgetGetTemplateChild, "GTK", "gtk_widget_get_template_child", false)
 	var cls *gobject.Object
 
 	cret := xWidgetGetTemplateChild(x.GoPointer(), WidgetTypeVar, NameVar)
@@ -3157,8 +2971,6 @@ var xWidgetGetTooltipMarkup func(uintptr) string
 // [method@Gtk.Widget.set_tooltip_markup], this
 // function returns `NULL`.
 func (x *Widget) GetTooltipMarkup() string {
-	core.LazyRegister(&xWidgetGetTooltipMarkup, "GTK", "gtk_widget_get_tooltip_markup", false)
-
 	cret := xWidgetGetTooltipMarkup(x.GoPointer())
 	return cret
 }
@@ -3171,8 +2983,6 @@ var xWidgetGetTooltipText func(uintptr) string
 // [method@Gtk.Widget.set_tooltip_markup],
 // this function will return the escaped text.
 func (x *Widget) GetTooltipText() string {
-	core.LazyRegister(&xWidgetGetTooltipText, "GTK", "gtk_widget_get_tooltip_text", false)
-
 	cret := xWidgetGetTooltipText(x.GoPointer())
 	return cret
 }
@@ -3181,8 +2991,6 @@ var xWidgetGetValign func(uintptr) Align
 
 // Gets the vertical alignment of the widget.
 func (x *Widget) GetValign() Align {
-	core.LazyRegister(&xWidgetGetValign, "GTK", "gtk_widget_get_valign", false)
-
 	cret := xWidgetGetValign(x.GoPointer())
 	return cret
 }
@@ -3194,8 +3002,6 @@ var xWidgetGetVexpand func(uintptr) bool
 //
 // See [method@Gtk.Widget.get_hexpand] for more detail.
 func (x *Widget) GetVexpand() bool {
-	core.LazyRegister(&xWidgetGetVexpand, "GTK", "gtk_widget_get_vexpand", false)
-
 	cret := xWidgetGetVexpand(x.GoPointer())
 	return cret
 }
@@ -3206,8 +3012,6 @@ var xWidgetGetVexpandSet func(uintptr) bool
 //
 // See [method@Gtk.Widget.get_hexpand_set] for more detail.
 func (x *Widget) GetVexpandSet() bool {
-	core.LazyRegister(&xWidgetGetVexpandSet, "GTK", "gtk_widget_get_vexpand_set", false)
-
 	cret := xWidgetGetVexpandSet(x.GoPointer())
 	return cret
 }
@@ -3225,8 +3029,6 @@ var xWidgetGetVisible func(uintptr) bool
 //
 // See [method@Gtk.Widget.set_visible].
 func (x *Widget) GetVisible() bool {
-	core.LazyRegister(&xWidgetGetVisible, "GTK", "gtk_widget_get_visible", false)
-
 	cret := xWidgetGetVisible(x.GoPointer())
 	return cret
 }
@@ -3244,8 +3046,6 @@ var xWidgetGetWidth func(uintptr) int
 // To learn more about widget sizes, see the coordinate
 // system [overview](coordinates.html).
 func (x *Widget) GetWidth() int {
-	core.LazyRegister(&xWidgetGetWidth, "GTK", "gtk_widget_get_width", false)
-
 	cret := xWidgetGetWidth(x.GoPointer())
 	return cret
 }
@@ -3262,8 +3062,6 @@ var xWidgetGrabFocus func(uintptr) bool
 // Calling [method@Gtk.Widget.grab_focus] on an already focused widget
 // is allowed, should not have an effect, and return true.
 func (x *Widget) GrabFocus() bool {
-	core.LazyRegister(&xWidgetGrabFocus, "GTK", "gtk_widget_grab_focus", false)
-
 	cret := xWidgetGrabFocus(x.GoPointer())
 	return cret
 }
@@ -3272,8 +3070,6 @@ var xWidgetHasCssClass func(uintptr, string) bool
 
 // Returns whether a style class is currently applied to the widget.
 func (x *Widget) HasCssClass(CssClassVar string) bool {
-	core.LazyRegister(&xWidgetHasCssClass, "GTK", "gtk_widget_has_css_class", false)
-
 	cret := xWidgetHasCssClass(x.GoPointer(), CssClassVar)
 	return cret
 }
@@ -3283,8 +3079,6 @@ var xWidgetHasDefault func(uintptr) bool
 // Determines whether the widget is the current default widget
 // within its toplevel.
 func (x *Widget) HasDefault() bool {
-	core.LazyRegister(&xWidgetHasDefault, "GTK", "gtk_widget_has_default", false)
-
 	cret := xWidgetHasDefault(x.GoPointer())
 	return cret
 }
@@ -3297,8 +3091,6 @@ var xWidgetHasFocus func(uintptr) bool
 // having the global input focus, and only having the focus
 // within a toplevel.
 func (x *Widget) HasFocus() bool {
-	core.LazyRegister(&xWidgetHasFocus, "GTK", "gtk_widget_has_focus", false)
-
 	cret := xWidgetHasFocus(x.GoPointer())
 	return cret
 }
@@ -3316,8 +3108,6 @@ var xWidgetHasVisibleFocus func(uintptr) bool
 // To find out if the widget has the global input focus, use
 // [method@Gtk.Widget.has_focus].
 func (x *Widget) HasVisibleFocus() bool {
-	core.LazyRegister(&xWidgetHasVisibleFocus, "GTK", "gtk_widget_has_visible_focus", false)
-
 	cret := xWidgetHasVisibleFocus(x.GoPointer())
 	return cret
 }
@@ -3328,8 +3118,6 @@ var xWidgetHide func(uintptr)
 //
 // This is causing the widget to be hidden (invisible to the user).
 func (x *Widget) Hide() {
-	core.LazyRegister(&xWidgetHide, "GTK", "gtk_widget_hide", false)
-
 	xWidgetHide(x.GoPointer())
 }
 
@@ -3340,8 +3128,6 @@ var xWidgetInDestruction func(uintptr) bool
 // This information can sometimes be used to avoid doing
 // unnecessary work.
 func (x *Widget) InDestruction() bool {
-	core.LazyRegister(&xWidgetInDestruction, "GTK", "gtk_widget_in_destruction", false)
-
 	cret := xWidgetInDestruction(x.GoPointer())
 	return cret
 }
@@ -3369,8 +3155,6 @@ var xWidgetInitTemplate func(uintptr)
 // A good rule of thumb is to call this function as the first thing in
 // an instance initialization function.
 func (x *Widget) InitTemplate() {
-	core.LazyRegister(&xWidgetInitTemplate, "GTK", "gtk_widget_init_template", false)
-
 	xWidgetInitTemplate(x.GoPointer())
 }
 
@@ -3390,8 +3174,6 @@ var xWidgetInsertActionGroup func(uintptr, string, uintptr)
 // If @group is `NULL`, a previously inserted group for @name is
 // removed from @widget.
 func (x *Widget) InsertActionGroup(NameVar string, GroupVar gio.ActionGroup) {
-	core.LazyRegister(&xWidgetInsertActionGroup, "GTK", "gtk_widget_insert_action_group", false)
-
 	xWidgetInsertActionGroup(x.GoPointer(), NameVar, GroupVar.GoPointer())
 }
 
@@ -3416,8 +3198,6 @@ var xWidgetInsertAfter func(uintptr, uintptr, uintptr)
 // This function is primarily meant for widget implementations; if you are
 // just using a widget, you *must* use its own API for adding children.
 func (x *Widget) InsertAfter(ParentVar *Widget, PreviousSiblingVar *Widget) {
-	core.LazyRegister(&xWidgetInsertAfter, "GTK", "gtk_widget_insert_after", false)
-
 	xWidgetInsertAfter(x.GoPointer(), ParentVar.GoPointer(), PreviousSiblingVar.GoPointer())
 }
 
@@ -3441,8 +3221,6 @@ var xWidgetInsertBefore func(uintptr, uintptr, uintptr)
 // This function is primarily meant for widget implementations; if you are
 // just using a widget, you *must* use its own API for adding children.
 func (x *Widget) InsertBefore(ParentVar *Widget, NextSiblingVar *Widget) {
-	core.LazyRegister(&xWidgetInsertBefore, "GTK", "gtk_widget_insert_before", false)
-
 	xWidgetInsertBefore(x.GoPointer(), ParentVar.GoPointer(), NextSiblingVar.GoPointer())
 }
 
@@ -3450,8 +3228,6 @@ var xWidgetIsAncestor func(uintptr, uintptr) bool
 
 // Determines whether the widget is a descendent of @ancestor.
 func (x *Widget) IsAncestor(AncestorVar *Widget) bool {
-	core.LazyRegister(&xWidgetIsAncestor, "GTK", "gtk_widget_is_ancestor", false)
-
 	cret := xWidgetIsAncestor(x.GoPointer(), AncestorVar.GoPointer())
 	return cret
 }
@@ -3462,8 +3238,6 @@ var xWidgetIsDrawable func(uintptr) bool
 //
 // A widget can be drawn if it is mapped and visible.
 func (x *Widget) IsDrawable() bool {
-	core.LazyRegister(&xWidgetIsDrawable, "GTK", "gtk_widget_is_drawable", false)
-
 	cret := xWidgetIsDrawable(x.GoPointer())
 	return cret
 }
@@ -3478,8 +3252,6 @@ var xWidgetIsFocus func(uintptr) bool
 // will only be set if the toplevel widget additionally has the
 // global input focus.
 func (x *Widget) IsFocus() bool {
-	core.LazyRegister(&xWidgetIsFocus, "GTK", "gtk_widget_is_focus", false)
-
 	cret := xWidgetIsFocus(x.GoPointer())
 	return cret
 }
@@ -3491,8 +3263,6 @@ var xWidgetIsSensitive func(uintptr) bool
 // This means it is sensitive itself and also its
 // parent widget is sensitive.
 func (x *Widget) IsSensitive() bool {
-	core.LazyRegister(&xWidgetIsSensitive, "GTK", "gtk_widget_is_sensitive", false)
-
 	cret := xWidgetIsSensitive(x.GoPointer())
 	return cret
 }
@@ -3507,8 +3277,6 @@ var xWidgetIsVisible func(uintptr) bool
 // See also [method@Gtk.Widget.get_visible] and
 // [method@Gtk.Widget.set_visible].
 func (x *Widget) IsVisible() bool {
-	core.LazyRegister(&xWidgetIsVisible, "GTK", "gtk_widget_is_visible", false)
-
 	cret := xWidgetIsVisible(x.GoPointer())
 	return cret
 }
@@ -3544,8 +3312,6 @@ var xWidgetKeynavFailed func(uintptr, DirectionType) bool
 // the entire row with the cursor keys, as e.g. known from user
 // interfaces that require entering license keys.
 func (x *Widget) KeynavFailed(DirectionVar DirectionType) bool {
-	core.LazyRegister(&xWidgetKeynavFailed, "GTK", "gtk_widget_keynav_failed", false)
-
 	cret := xWidgetKeynavFailed(x.GoPointer(), DirectionVar)
 	return cret
 }
@@ -3564,8 +3330,6 @@ var xWidgetListMnemonicLabels func(uintptr) uintptr
 // must call `g_list_foreach (result, (GFunc)g_object_ref, NULL)`
 // first, and then unref all the widgets afterwards.
 func (x *Widget) ListMnemonicLabels() *glib.List {
-	core.LazyRegister(&xWidgetListMnemonicLabels, "GTK", "gtk_widget_list_mnemonic_labels", false)
-
 	cret := xWidgetListMnemonicLabels(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -3579,8 +3343,6 @@ var xWidgetMap func(uintptr)
 //
 // This function is only for use in widget implementations.
 func (x *Widget) Map() {
-	core.LazyRegister(&xWidgetMap, "GTK", "gtk_widget_map", false)
-
 	xWidgetMap(x.GoPointer())
 }
 
@@ -3595,8 +3357,6 @@ var xWidgetMeasure func(uintptr, Orientation, int, *int, *int, *int, *int)
 // See [GtkWidget’s geometry management section](class.Widget.html#height-for-width-geometry-management) for
 // a more details on implementing `GtkWidgetClass.measure()`.
 func (x *Widget) Measure(OrientationVar Orientation, ForSizeVar int, MinimumVar *int, NaturalVar *int, MinimumBaselineVar *int, NaturalBaselineVar *int) {
-	core.LazyRegister(&xWidgetMeasure, "GTK", "gtk_widget_measure", false)
-
 	xWidgetMeasure(x.GoPointer(), OrientationVar, ForSizeVar, MinimumVar, NaturalVar, MinimumBaselineVar, NaturalBaselineVar)
 }
 
@@ -3604,8 +3364,6 @@ var xWidgetMnemonicActivate func(uintptr, bool) bool
 
 // Emits the [signal@Gtk.Widget::mnemonic-activate] signal.
 func (x *Widget) MnemonicActivate(GroupCyclingVar bool) bool {
-	core.LazyRegister(&xWidgetMnemonicActivate, "GTK", "gtk_widget_mnemonic_activate", false)
-
 	cret := xWidgetMnemonicActivate(x.GoPointer(), GroupCyclingVar)
 	return cret
 }
@@ -3621,7 +3379,6 @@ var xWidgetObserveChildren func(uintptr) uintptr
 // Applications should try hard to avoid calling this function
 // because of the slowdowns.
 func (x *Widget) ObserveChildren() *gio.ListModelBase {
-	core.LazyRegister(&xWidgetObserveChildren, "GTK", "gtk_widget_observe_children", false)
 	var cls *gio.ListModelBase
 
 	cret := xWidgetObserveChildren(x.GoPointer())
@@ -3645,7 +3402,6 @@ var xWidgetObserveControllers func(uintptr) uintptr
 // Applications should try hard to avoid calling this function
 // because of the slowdowns.
 func (x *Widget) ObserveControllers() *gio.ListModelBase {
-	core.LazyRegister(&xWidgetObserveControllers, "GTK", "gtk_widget_observe_controllers", false)
 	var cls *gio.ListModelBase
 
 	cret := xWidgetObserveControllers(x.GoPointer())
@@ -3675,7 +3431,6 @@ var xWidgetPick func(uintptr, float64, float64, PickFlags) uintptr
 // below the mouse cursor for purposes of hover highlighting and
 // delivering events.
 func (x *Widget) Pick(XVar float64, YVar float64, FlagsVar PickFlags) *Widget {
-	core.LazyRegister(&xWidgetPick, "GTK", "gtk_widget_pick", false)
 	var cls *Widget
 
 	cret := xWidgetPick(x.GoPointer(), XVar, YVar, FlagsVar)
@@ -3702,8 +3457,6 @@ var xWidgetQueueAllocate func(uintptr)
 //
 // This function is only for use in widget implementations.
 func (x *Widget) QueueAllocate() {
-	core.LazyRegister(&xWidgetQueueAllocate, "GTK", "gtk_widget_queue_allocate", false)
-
 	xWidgetQueueAllocate(x.GoPointer())
 }
 
@@ -3717,8 +3470,6 @@ var xWidgetQueueDraw func(uintptr)
 // This means @widget's [vfunc@Gtk.Widget.snapshot]
 // implementation will be called.
 func (x *Widget) QueueDraw() {
-	core.LazyRegister(&xWidgetQueueDraw, "GTK", "gtk_widget_queue_draw", false)
-
 	xWidgetQueueDraw(x.GoPointer())
 }
 
@@ -3738,8 +3489,6 @@ var xWidgetQueueResize func(uintptr)
 //
 // This function is only for use in widget implementations.
 func (x *Widget) QueueResize() {
-	core.LazyRegister(&xWidgetQueueResize, "GTK", "gtk_widget_queue_resize", false)
-
 	xWidgetQueueResize(x.GoPointer())
 }
 
@@ -3762,8 +3511,6 @@ var xWidgetRealize func(uintptr)
 // called after the widget is realized automatically, such as
 // [signal@Gtk.Widget::realize].
 func (x *Widget) Realize() {
-	core.LazyRegister(&xWidgetRealize, "GTK", "gtk_widget_realize", false)
-
 	xWidgetRealize(x.GoPointer())
 }
 
@@ -3777,8 +3524,6 @@ var xWidgetRemoveController func(uintptr, uintptr)
 // Widgets will remove all event controllers automatically when they
 // are destroyed, there is normally no need to call this function.
 func (x *Widget) RemoveController(ControllerVar *EventController) {
-	core.LazyRegister(&xWidgetRemoveController, "GTK", "gtk_widget_remove_controller", false)
-
 	xWidgetRemoveController(x.GoPointer(), ControllerVar.GoPointer())
 }
 
@@ -3788,8 +3533,6 @@ var xWidgetRemoveCssClass func(uintptr, string)
 //
 // After this, the style of @widget will stop matching for @css_class.
 func (x *Widget) RemoveCssClass(CssClassVar string) {
-	core.LazyRegister(&xWidgetRemoveCssClass, "GTK", "gtk_widget_remove_css_class", false)
-
 	xWidgetRemoveCssClass(x.GoPointer(), CssClassVar)
 }
 
@@ -3802,8 +3545,6 @@ var xWidgetRemoveMnemonicLabel func(uintptr, uintptr)
 // The widget must have previously been added to the list with
 // [method@Gtk.Widget.add_mnemonic_label].
 func (x *Widget) RemoveMnemonicLabel(LabelVar *Widget) {
-	core.LazyRegister(&xWidgetRemoveMnemonicLabel, "GTK", "gtk_widget_remove_mnemonic_label", false)
-
 	xWidgetRemoveMnemonicLabel(x.GoPointer(), LabelVar.GoPointer())
 }
 
@@ -3812,8 +3553,6 @@ var xWidgetRemoveTickCallback func(uintptr, uint)
 // Removes a tick callback previously registered with
 // [method@Gtk.Widget.add_tick_callback].
 func (x *Widget) RemoveTickCallback(IdVar uint) {
-	core.LazyRegister(&xWidgetRemoveTickCallback, "GTK", "gtk_widget_remove_tick_callback", false)
-
 	xWidgetRemoveTickCallback(x.GoPointer(), IdVar)
 }
 
@@ -3834,8 +3573,6 @@ var xWidgetSetCanFocus func(uintptr, bool)
 // See [method@Gtk.Widget.grab_focus] for actually setting
 // the input focus on a widget.
 func (x *Widget) SetCanFocus(CanFocusVar bool) {
-	core.LazyRegister(&xWidgetSetCanFocus, "GTK", "gtk_widget_set_can_focus", false)
-
 	xWidgetSetCanFocus(x.GoPointer(), CanFocusVar)
 }
 
@@ -3843,8 +3580,6 @@ var xWidgetSetCanTarget func(uintptr, bool)
 
 // Sets whether the widget can be the target of pointer events.
 func (x *Widget) SetCanTarget(CanTargetVar bool) {
-	core.LazyRegister(&xWidgetSetCanTarget, "GTK", "gtk_widget_set_can_target", false)
-
 	xWidgetSetCanTarget(x.GoPointer(), CanTargetVar)
 }
 
@@ -3867,8 +3602,6 @@ var xWidgetSetChildVisible func(uintptr, bool)
 // This function is only useful for widget implementations
 // and should never be called by an application.
 func (x *Widget) SetChildVisible(ChildVisibleVar bool) {
-	core.LazyRegister(&xWidgetSetChildVisible, "GTK", "gtk_widget_set_child_visible", false)
-
 	xWidgetSetChildVisible(x.GoPointer(), ChildVisibleVar)
 }
 
@@ -3876,8 +3609,6 @@ var xWidgetSetCssClasses func(uintptr, []string)
 
 // Replaces the current style classes of the widget with @classes.
 func (x *Widget) SetCssClasses(ClassesVar []string) {
-	core.LazyRegister(&xWidgetSetCssClasses, "GTK", "gtk_widget_set_css_classes", false)
-
 	xWidgetSetCssClasses(x.GoPointer(), ClassesVar)
 }
 
@@ -3889,8 +3620,6 @@ var xWidgetSetCursor func(uintptr, uintptr)
 // If the @cursor is `NULL`, @widget will use the cursor
 // inherited from its parent.
 func (x *Widget) SetCursor(CursorVar *gdk.Cursor) {
-	core.LazyRegister(&xWidgetSetCursor, "GTK", "gtk_widget_set_cursor", false)
-
 	xWidgetSetCursor(x.GoPointer(), CursorVar.GoPointer())
 }
 
@@ -3908,8 +3637,6 @@ var xWidgetSetCursorFromName func(uintptr, uintptr)
 // will do the same as calling [method@Gtk.Widget.set_cursor]
 // with a `NULL` cursor.
 func (x *Widget) SetCursorFromName(NameVar *string) {
-	core.LazyRegister(&xWidgetSetCursorFromName, "GTK", "gtk_widget_set_cursor_from_name", false)
-
 	NameVarPtr := core.GStrdupNullable(NameVar)
 	defer core.GFreeNullable(NameVarPtr)
 
@@ -3934,8 +3661,6 @@ var xWidgetSetDirection func(uintptr, TextDirection)
 // If the direction is set to [enum@Gtk.TextDirection.none], then
 // the value set by [func@Gtk.Widget.set_default_direction] will be used.
 func (x *Widget) SetDirection(DirVar TextDirection) {
-	core.LazyRegister(&xWidgetSetDirection, "GTK", "gtk_widget_set_direction", false)
-
 	xWidgetSetDirection(x.GoPointer(), DirVar)
 }
 
@@ -3947,8 +3672,6 @@ var xWidgetSetFocusChild func(uintptr, uintptr)
 // If you want a certain widget to get the input focus, call
 // [method@Gtk.Widget.grab_focus] on it.
 func (x *Widget) SetFocusChild(ChildVar *Widget) {
-	core.LazyRegister(&xWidgetSetFocusChild, "GTK", "gtk_widget_set_focus_child", false)
-
 	xWidgetSetFocusChild(x.GoPointer(), ChildVar.GoPointer())
 }
 
@@ -3961,8 +3684,6 @@ var xWidgetSetFocusOnClick func(uintptr, bool)
 // toolbars where you don’t want the keyboard focus removed from
 // the main area of the application.
 func (x *Widget) SetFocusOnClick(FocusOnClickVar bool) {
-	core.LazyRegister(&xWidgetSetFocusOnClick, "GTK", "gtk_widget_set_focus_on_click", false)
-
 	xWidgetSetFocusOnClick(x.GoPointer(), FocusOnClickVar)
 }
 
@@ -3982,8 +3703,6 @@ var xWidgetSetFocusable func(uintptr, bool)
 // See [method@Gtk.Widget.grab_focus] for actually setting
 // the input focus on a widget.
 func (x *Widget) SetFocusable(FocusableVar bool) {
-	core.LazyRegister(&xWidgetSetFocusable, "GTK", "gtk_widget_set_focusable", false)
-
 	xWidgetSetFocusable(x.GoPointer(), FocusableVar)
 }
 
@@ -3998,8 +3717,6 @@ var xWidgetSetFontMap func(uintptr, uintptr)
 //
 // When not set, the widget will inherit the font map from its parent.
 func (x *Widget) SetFontMap(FontMapVar *pango.FontMap) {
-	core.LazyRegister(&xWidgetSetFontMap, "GTK", "gtk_widget_set_font_map", false)
-
 	xWidgetSetFontMap(x.GoPointer(), FontMapVar.GoPointer())
 }
 
@@ -4011,8 +3728,6 @@ var xWidgetSetFontOptions func(uintptr, *cairo.FontOptions)
 // When not set, the default font options for the `GdkDisplay`
 // will be used.
 func (x *Widget) SetFontOptions(OptionsVar *cairo.FontOptions) {
-	core.LazyRegister(&xWidgetSetFontOptions, "GTK", "gtk_widget_set_font_options", false)
-
 	xWidgetSetFontOptions(x.GoPointer(), OptionsVar)
 }
 
@@ -4020,8 +3735,6 @@ var xWidgetSetHalign func(uintptr, Align)
 
 // Sets the horizontal alignment of the widget.
 func (x *Widget) SetHalign(AlignVar Align) {
-	core.LazyRegister(&xWidgetSetHalign, "GTK", "gtk_widget_set_halign", false)
-
 	xWidgetSetHalign(x.GoPointer(), AlignVar)
 }
 
@@ -4029,8 +3742,6 @@ var xWidgetSetHasTooltip func(uintptr, bool)
 
 // Sets the `has-tooltip` property on the widget.
 func (x *Widget) SetHasTooltip(HasTooltipVar bool) {
-	core.LazyRegister(&xWidgetSetHasTooltip, "GTK", "gtk_widget_set_has_tooltip", false)
-
 	xWidgetSetHasTooltip(x.GoPointer(), HasTooltipVar)
 }
 
@@ -4063,8 +3774,6 @@ var xWidgetSetHexpand func(uintptr, bool)
 // [method@Gtk.Widget.set_hexpand_set]) which causes the widget’s hexpand
 // value to be used, rather than looking at children and widget state.
 func (x *Widget) SetHexpand(ExpandVar bool) {
-	core.LazyRegister(&xWidgetSetHexpand, "GTK", "gtk_widget_set_hexpand", false)
-
 	xWidgetSetHexpand(x.GoPointer(), ExpandVar)
 }
 
@@ -4085,8 +3794,6 @@ var xWidgetSetHexpandSet func(uintptr, bool)
 // There are few reasons to use this function, but it’s here
 // for completeness and consistency.
 func (x *Widget) SetHexpandSet(SetVar bool) {
-	core.LazyRegister(&xWidgetSetHexpandSet, "GTK", "gtk_widget_set_hexpand_set", false)
-
 	xWidgetSetHexpandSet(x.GoPointer(), SetVar)
 }
 
@@ -4095,8 +3802,6 @@ var xWidgetSetLayoutManager func(uintptr, uintptr)
 // Sets the layout manager to use for measuring and allocating children
 // of the widget.
 func (x *Widget) SetLayoutManager(LayoutManagerVar *LayoutManager) {
-	core.LazyRegister(&xWidgetSetLayoutManager, "GTK", "gtk_widget_set_layout_manager", false)
-
 	xWidgetSetLayoutManager(x.GoPointer(), LayoutManagerVar.GoPointer())
 }
 
@@ -4105,8 +3810,6 @@ var xWidgetSetLimitEvents func(uintptr, bool)
 // Sets whether the widget acts like a modal dialog,
 // with respect to event delivery.
 func (x *Widget) SetLimitEvents(LimitEventsVar bool) {
-	core.LazyRegister(&xWidgetSetLimitEvents, "GTK", "gtk_widget_set_limit_events", false)
-
 	xWidgetSetLimitEvents(x.GoPointer(), LimitEventsVar)
 }
 
@@ -4114,8 +3817,6 @@ var xWidgetSetMarginBottom func(uintptr, int)
 
 // Sets the bottom margin of the widget.
 func (x *Widget) SetMarginBottom(MarginVar int) {
-	core.LazyRegister(&xWidgetSetMarginBottom, "GTK", "gtk_widget_set_margin_bottom", false)
-
 	xWidgetSetMarginBottom(x.GoPointer(), MarginVar)
 }
 
@@ -4123,8 +3824,6 @@ var xWidgetSetMarginEnd func(uintptr, int)
 
 // Sets the end margin of the widget.
 func (x *Widget) SetMarginEnd(MarginVar int) {
-	core.LazyRegister(&xWidgetSetMarginEnd, "GTK", "gtk_widget_set_margin_end", false)
-
 	xWidgetSetMarginEnd(x.GoPointer(), MarginVar)
 }
 
@@ -4132,8 +3831,6 @@ var xWidgetSetMarginStart func(uintptr, int)
 
 // Sets the start margin of the widget.
 func (x *Widget) SetMarginStart(MarginVar int) {
-	core.LazyRegister(&xWidgetSetMarginStart, "GTK", "gtk_widget_set_margin_start", false)
-
 	xWidgetSetMarginStart(x.GoPointer(), MarginVar)
 }
 
@@ -4141,8 +3838,6 @@ var xWidgetSetMarginTop func(uintptr, int)
 
 // Sets the top margin of the widget.
 func (x *Widget) SetMarginTop(MarginVar int) {
-	core.LazyRegister(&xWidgetSetMarginTop, "GTK", "gtk_widget_set_margin_top", false)
-
 	xWidgetSetMarginTop(x.GoPointer(), MarginVar)
 }
 
@@ -4160,8 +3855,6 @@ var xWidgetSetName func(uintptr, string)
 // these will make your widget impossible to match by name. Any combination
 // of alphanumeric symbols, dashes and underscores will suffice.
 func (x *Widget) SetName(NameVar string) {
-	core.LazyRegister(&xWidgetSetName, "GTK", "gtk_widget_set_name", false)
-
 	xWidgetSetName(x.GoPointer(), NameVar)
 }
 
@@ -4191,8 +3884,6 @@ var xWidgetSetOpacity func(uintptr, float64)
 // non-translucent, even if they are attached to a toplevel that
 // is translucent.
 func (x *Widget) SetOpacity(OpacityVar float64) {
-	core.LazyRegister(&xWidgetSetOpacity, "GTK", "gtk_widget_set_opacity", false)
-
 	xWidgetSetOpacity(x.GoPointer(), OpacityVar)
 }
 
@@ -4208,8 +3899,6 @@ var xWidgetSetOverflow func(uintptr, Overflow)
 //
 // The default value is [enum@Gtk.Overflow.visible].
 func (x *Widget) SetOverflow(OverflowVar Overflow) {
-	core.LazyRegister(&xWidgetSetOverflow, "GTK", "gtk_widget_set_overflow", false)
-
 	xWidgetSetOverflow(x.GoPointer(), OverflowVar)
 }
 
@@ -4224,8 +3913,6 @@ var xWidgetSetParent func(uintptr, uintptr)
 // This function is useful only when implementing subclasses of
 // `GtkWidget`.
 func (x *Widget) SetParent(ParentVar *Widget) {
-	core.LazyRegister(&xWidgetSetParent, "GTK", "gtk_widget_set_parent", false)
-
 	xWidgetSetParent(x.GoPointer(), ParentVar.GoPointer())
 }
 
@@ -4235,8 +3922,6 @@ var xWidgetSetReceivesDefault func(uintptr, bool)
 // widget within its toplevel when it has the focus, even if
 // another widget is the default.
 func (x *Widget) SetReceivesDefault(ReceivesDefaultVar bool) {
-	core.LazyRegister(&xWidgetSetReceivesDefault, "GTK", "gtk_widget_set_receives_default", false)
-
 	xWidgetSetReceivesDefault(x.GoPointer(), ReceivesDefaultVar)
 }
 
@@ -4249,8 +3934,6 @@ var xWidgetSetSensitive func(uintptr, bool)
 // interact with them. Insensitive widgets are known as
 // “inactive”, “disabled”, or “ghosted” in some other toolkits.
 func (x *Widget) SetSensitive(SensitiveVar bool) {
-	core.LazyRegister(&xWidgetSetSensitive, "GTK", "gtk_widget_set_sensitive", false)
-
 	xWidgetSetSensitive(x.GoPointer(), SensitiveVar)
 }
 
@@ -4291,8 +3974,6 @@ var xWidgetSetSizeRequest func(uintptr, int, int)
 // much all other padding or border properties set by any subclass
 // of `GtkWidget`.
 func (x *Widget) SetSizeRequest(WidthVar int, HeightVar int) {
-	core.LazyRegister(&xWidgetSetSizeRequest, "GTK", "gtk_widget_set_size_request", false)
-
 	xWidgetSetSizeRequest(x.GoPointer(), WidthVar, HeightVar)
 }
 
@@ -4308,8 +3989,6 @@ var xWidgetSetStateFlags func(uintptr, StateFlags, bool)
 //
 // This function is for use in widget implementations.
 func (x *Widget) SetStateFlags(FlagsVar StateFlags, ClearVar bool) {
-	core.LazyRegister(&xWidgetSetStateFlags, "GTK", "gtk_widget_set_state_flags", false)
-
 	xWidgetSetStateFlags(x.GoPointer(), FlagsVar, ClearVar)
 }
 
@@ -4325,8 +4004,6 @@ var xWidgetSetTooltipMarkup func(uintptr, uintptr)
 //
 // See also [method@Gtk.Tooltip.set_markup].
 func (x *Widget) SetTooltipMarkup(MarkupVar *string) {
-	core.LazyRegister(&xWidgetSetTooltipMarkup, "GTK", "gtk_widget_set_tooltip_markup", false)
-
 	MarkupVarPtr := core.GStrdupNullable(MarkupVar)
 	defer core.GFreeNullable(MarkupVarPtr)
 
@@ -4346,8 +4023,6 @@ var xWidgetSetTooltipText func(uintptr, uintptr)
 //
 // See also [method@Gtk.Tooltip.set_text].
 func (x *Widget) SetTooltipText(TextVar *string) {
-	core.LazyRegister(&xWidgetSetTooltipText, "GTK", "gtk_widget_set_tooltip_text", false)
-
 	TextVarPtr := core.GStrdupNullable(TextVar)
 	defer core.GFreeNullable(TextVarPtr)
 
@@ -4358,8 +4033,6 @@ var xWidgetSetValign func(uintptr, Align)
 
 // Sets the vertical alignment of the widget.
 func (x *Widget) SetValign(AlignVar Align) {
-	core.LazyRegister(&xWidgetSetValign, "GTK", "gtk_widget_set_valign", false)
-
 	xWidgetSetValign(x.GoPointer(), AlignVar)
 }
 
@@ -4370,8 +4043,6 @@ var xWidgetSetVexpand func(uintptr, bool)
 //
 // See [method@Gtk.Widget.set_hexpand] for more detail.
 func (x *Widget) SetVexpand(ExpandVar bool) {
-	core.LazyRegister(&xWidgetSetVexpand, "GTK", "gtk_widget_set_vexpand", false)
-
 	xWidgetSetVexpand(x.GoPointer(), ExpandVar)
 }
 
@@ -4381,8 +4052,6 @@ var xWidgetSetVexpandSet func(uintptr, bool)
 //
 // See [method@Gtk.Widget.set_hexpand_set] for more detail.
 func (x *Widget) SetVexpandSet(SetVar bool) {
-	core.LazyRegister(&xWidgetSetVexpandSet, "GTK", "gtk_widget_set_vexpand_set", false)
-
 	xWidgetSetVexpandSet(x.GoPointer(), SetVar)
 }
 
@@ -4393,8 +4062,6 @@ var xWidgetSetVisible func(uintptr, bool)
 // Note that setting this to true doesn’t mean the widget is
 // actually viewable, see [method@Gtk.Widget.get_visible].
 func (x *Widget) SetVisible(VisibleVar bool) {
-	core.LazyRegister(&xWidgetSetVisible, "GTK", "gtk_widget_set_visible", false)
-
 	xWidgetSetVisible(x.GoPointer(), VisibleVar)
 }
 
@@ -4407,8 +4074,6 @@ var xWidgetShouldLayout func(uintptr) bool
 // for children that have their own surface, such
 // as [class@Gtk.Popover] instances.
 func (x *Widget) ShouldLayout() bool {
-	core.LazyRegister(&xWidgetShouldLayout, "GTK", "gtk_widget_should_layout", false)
-
 	cret := xWidgetShouldLayout(x.GoPointer())
 	return cret
 }
@@ -4426,8 +4091,6 @@ var xWidgetShow func(uintptr)
 // mapped; other shown widgets are realized and mapped when their
 // toplevel widget is realized and mapped.
 func (x *Widget) Show() {
-	core.LazyRegister(&xWidgetShow, "GTK", "gtk_widget_show", false)
-
 	xWidgetShow(x.GoPointer())
 }
 
@@ -4438,8 +4101,6 @@ var xWidgetSizeAllocate func(uintptr, *Allocation, int)
 //
 // This is a simple form of [method@Gtk.Widget.allocate].
 func (x *Widget) SizeAllocate(AllocationVar *Allocation, BaselineVar int) {
-	core.LazyRegister(&xWidgetSizeAllocate, "GTK", "gtk_widget_size_allocate", false)
-
 	xWidgetSizeAllocate(x.GoPointer(), AllocationVar, BaselineVar)
 }
 
@@ -4460,8 +4121,6 @@ var xWidgetSnapshotChild func(uintptr, uintptr, uintptr)
 //
 // It does nothing for children that implement `GtkNative`.
 func (x *Widget) SnapshotChild(ChildVar *Widget, SnapshotVar *Snapshot) {
-	core.LazyRegister(&xWidgetSnapshotChild, "GTK", "gtk_widget_snapshot_child", false)
-
 	xWidgetSnapshotChild(x.GoPointer(), ChildVar.GoPointer(), SnapshotVar.GoPointer())
 }
 
@@ -4474,8 +4133,6 @@ var xWidgetTranslateCoordinates func(uintptr, uintptr, float64, float64, *float6
 // a common ancestor. If that is not the case, @dest_x and @dest_y
 // are set to 0 and false is returned.
 func (x *Widget) TranslateCoordinates(DestWidgetVar *Widget, SrcXVar float64, SrcYVar float64, DestXVar *float64, DestYVar *float64) bool {
-	core.LazyRegister(&xWidgetTranslateCoordinates, "GTK", "gtk_widget_translate_coordinates", false)
-
 	cret := xWidgetTranslateCoordinates(x.GoPointer(), DestWidgetVar.GoPointer(), SrcXVar, SrcYVar, DestXVar, DestYVar)
 	return cret
 }
@@ -4484,8 +4141,6 @@ var xWidgetTriggerTooltipQuery func(uintptr)
 
 // Triggers a tooltip query on the display of the widget.
 func (x *Widget) TriggerTooltipQuery() {
-	core.LazyRegister(&xWidgetTriggerTooltipQuery, "GTK", "gtk_widget_trigger_tooltip_query", false)
-
 	xWidgetTriggerTooltipQuery(x.GoPointer())
 }
 
@@ -4495,8 +4150,6 @@ var xWidgetUnmap func(uintptr)
 //
 // This function is only for use in widget implementations.
 func (x *Widget) Unmap() {
-	core.LazyRegister(&xWidgetUnmap, "GTK", "gtk_widget_unmap", false)
-
 	xWidgetUnmap(x.GoPointer())
 }
 
@@ -4507,8 +4160,6 @@ var xWidgetUnparent func(uintptr)
 // This function is only for use in widget implementations,
 // typically in dispose.
 func (x *Widget) Unparent() {
-	core.LazyRegister(&xWidgetUnparent, "GTK", "gtk_widget_unparent", false)
-
 	xWidgetUnparent(x.GoPointer())
 }
 
@@ -4520,8 +4171,6 @@ var xWidgetUnrealize func(uintptr)
 //
 // This function is only useful in widget implementations.
 func (x *Widget) Unrealize() {
-	core.LazyRegister(&xWidgetUnrealize, "GTK", "gtk_widget_unrealize", false)
-
 	xWidgetUnrealize(x.GoPointer())
 }
 
@@ -4533,8 +4182,6 @@ var xWidgetUnsetStateFlags func(uintptr, StateFlags)
 //
 // This function is for use in widget implementations.
 func (x *Widget) UnsetStateFlags(FlagsVar StateFlags) {
-	core.LazyRegister(&xWidgetUnsetStateFlags, "GTK", "gtk_widget_unset_state_flags", false)
-
 	xWidgetUnsetStateFlags(x.GoPointer(), FlagsVar)
 }
 
@@ -5754,8 +5401,6 @@ var xWidgetGetDefaultDirection func() TextDirection
 //
 // See [func@Gtk.Widget.set_default_direction].
 func WidgetGetDefaultDirection() TextDirection {
-	core.LazyRegister(&xWidgetGetDefaultDirection, "GTK", "gtk_widget_get_default_direction", false)
-
 	cret := xWidgetGetDefaultDirection()
 	return cret
 }
@@ -5766,12 +5411,217 @@ var xWidgetSetDefaultDirection func(TextDirection)
 //
 // See [method@Gtk.Widget.set_direction].
 func WidgetSetDefaultDirection(DirVar TextDirection) {
-	core.LazyRegister(&xWidgetSetDefaultDirection, "GTK", "gtk_widget_set_default_direction", false)
-
 	xWidgetSetDefaultDirection(DirVar)
 }
 
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GTK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xRequisitionGLibType, libs, "gtk_requisition_get_type")
+
+	core.PuregoSafeRegister(&xNewRequisition, libs, "gtk_requisition_new")
+
+	core.PuregoSafeRegister(&xRequisitionCopy, libs, "gtk_requisition_copy")
+	core.PuregoSafeRegister(&xRequisitionFree, libs, "gtk_requisition_free")
+
+	core.PuregoSafeRegister(&xWidgetClassAddBinding, libs, "gtk_widget_class_add_binding")
+	core.PuregoSafeRegister(&xWidgetClassAddBindingAction, libs, "gtk_widget_class_add_binding_action")
+	core.PuregoSafeRegister(&xWidgetClassAddBindingSignal, libs, "gtk_widget_class_add_binding_signal")
+	core.PuregoSafeRegister(&xWidgetClassAddShortcut, libs, "gtk_widget_class_add_shortcut")
+	core.PuregoSafeRegister(&xWidgetClassBindTemplateCallbackFull, libs, "gtk_widget_class_bind_template_callback_full")
+	core.PuregoSafeRegister(&xWidgetClassBindTemplateChildFull, libs, "gtk_widget_class_bind_template_child_full")
+	core.PuregoSafeRegister(&xWidgetClassGetAccessibleRole, libs, "gtk_widget_class_get_accessible_role")
+	core.PuregoSafeRegister(&xWidgetClassGetActivateSignal, libs, "gtk_widget_class_get_activate_signal")
+	core.PuregoSafeRegister(&xWidgetClassGetCssName, libs, "gtk_widget_class_get_css_name")
+	core.PuregoSafeRegister(&xWidgetClassGetLayoutManagerType, libs, "gtk_widget_class_get_layout_manager_type")
+	core.PuregoSafeRegister(&xWidgetClassInstallAction, libs, "gtk_widget_class_install_action")
+	core.PuregoSafeRegister(&xWidgetClassInstallPropertyAction, libs, "gtk_widget_class_install_property_action")
+	core.PuregoSafeRegister(&xWidgetClassQueryAction, libs, "gtk_widget_class_query_action")
+	core.PuregoSafeRegister(&xWidgetClassSetAccessibleRole, libs, "gtk_widget_class_set_accessible_role")
+	core.PuregoSafeRegister(&xWidgetClassSetActivateSignal, libs, "gtk_widget_class_set_activate_signal")
+	core.PuregoSafeRegister(&xWidgetClassSetActivateSignalFromName, libs, "gtk_widget_class_set_activate_signal_from_name")
+	core.PuregoSafeRegister(&xWidgetClassSetCssName, libs, "gtk_widget_class_set_css_name")
+	core.PuregoSafeRegister(&xWidgetClassSetLayoutManagerType, libs, "gtk_widget_class_set_layout_manager_type")
+	core.PuregoSafeRegister(&xWidgetClassSetTemplate, libs, "gtk_widget_class_set_template")
+	core.PuregoSafeRegister(&xWidgetClassSetTemplateFromResource, libs, "gtk_widget_class_set_template_from_resource")
+	core.PuregoSafeRegister(&xWidgetClassSetTemplateScope, libs, "gtk_widget_class_set_template_scope")
+
+	core.PuregoSafeRegister(&xWidgetGLibType, libs, "gtk_widget_get_type")
+
+	core.PuregoSafeRegister(&xWidgetActionSetEnabled, libs, "gtk_widget_action_set_enabled")
+	core.PuregoSafeRegister(&xWidgetActivate, libs, "gtk_widget_activate")
+	core.PuregoSafeRegister(&xWidgetActivateAction, libs, "gtk_widget_activate_action")
+	core.PuregoSafeRegister(&xWidgetActivateActionVariant, libs, "gtk_widget_activate_action_variant")
+	core.PuregoSafeRegister(&xWidgetActivateDefault, libs, "gtk_widget_activate_default")
+	core.PuregoSafeRegister(&xWidgetAddController, libs, "gtk_widget_add_controller")
+	core.PuregoSafeRegister(&xWidgetAddCssClass, libs, "gtk_widget_add_css_class")
+	core.PuregoSafeRegister(&xWidgetAddMnemonicLabel, libs, "gtk_widget_add_mnemonic_label")
+	core.PuregoSafeRegister(&xWidgetAddTickCallback, libs, "gtk_widget_add_tick_callback")
+	core.PuregoSafeRegister(&xWidgetAllocate, libs, "gtk_widget_allocate")
+	core.PuregoSafeRegister(&xWidgetChildFocus, libs, "gtk_widget_child_focus")
+	core.PuregoSafeRegister(&xWidgetComputeBounds, libs, "gtk_widget_compute_bounds")
+	core.PuregoSafeRegister(&xWidgetComputeExpand, libs, "gtk_widget_compute_expand")
+	core.PuregoSafeRegister(&xWidgetComputePoint, libs, "gtk_widget_compute_point")
+	core.PuregoSafeRegister(&xWidgetComputeTransform, libs, "gtk_widget_compute_transform")
+	core.PuregoSafeRegister(&xWidgetContains, libs, "gtk_widget_contains")
+	core.PuregoSafeRegister(&xWidgetCreatePangoContext, libs, "gtk_widget_create_pango_context")
+	core.PuregoSafeRegister(&xWidgetCreatePangoLayout, libs, "gtk_widget_create_pango_layout")
+	core.PuregoSafeRegister(&xWidgetDisposeTemplate, libs, "gtk_widget_dispose_template")
+	core.PuregoSafeRegister(&xWidgetDragCheckThreshold, libs, "gtk_drag_check_threshold")
+	core.PuregoSafeRegister(&xWidgetErrorBell, libs, "gtk_widget_error_bell")
+	core.PuregoSafeRegister(&xWidgetGetAllocatedBaseline, libs, "gtk_widget_get_allocated_baseline")
+	core.PuregoSafeRegister(&xWidgetGetAllocatedHeight, libs, "gtk_widget_get_allocated_height")
+	core.PuregoSafeRegister(&xWidgetGetAllocatedWidth, libs, "gtk_widget_get_allocated_width")
+	core.PuregoSafeRegister(&xWidgetGetAllocation, libs, "gtk_widget_get_allocation")
+	core.PuregoSafeRegister(&xWidgetGetAncestor, libs, "gtk_widget_get_ancestor")
+	core.PuregoSafeRegister(&xWidgetGetBaseline, libs, "gtk_widget_get_baseline")
+	core.PuregoSafeRegister(&xWidgetGetCanFocus, libs, "gtk_widget_get_can_focus")
+	core.PuregoSafeRegister(&xWidgetGetCanTarget, libs, "gtk_widget_get_can_target")
+	core.PuregoSafeRegister(&xWidgetGetChildVisible, libs, "gtk_widget_get_child_visible")
+	core.PuregoSafeRegister(&xWidgetGetClipboard, libs, "gtk_widget_get_clipboard")
+	core.PuregoSafeRegister(&xWidgetGetColor, libs, "gtk_widget_get_color")
+	core.PuregoSafeRegister(&xWidgetGetCssClasses, libs, "gtk_widget_get_css_classes")
+	core.PuregoSafeRegister(&xWidgetGetCssName, libs, "gtk_widget_get_css_name")
+	core.PuregoSafeRegister(&xWidgetGetCursor, libs, "gtk_widget_get_cursor")
+	core.PuregoSafeRegister(&xWidgetGetDirection, libs, "gtk_widget_get_direction")
+	core.PuregoSafeRegister(&xWidgetGetDisplay, libs, "gtk_widget_get_display")
+	core.PuregoSafeRegister(&xWidgetGetFirstChild, libs, "gtk_widget_get_first_child")
+	core.PuregoSafeRegister(&xWidgetGetFocusChild, libs, "gtk_widget_get_focus_child")
+	core.PuregoSafeRegister(&xWidgetGetFocusOnClick, libs, "gtk_widget_get_focus_on_click")
+	core.PuregoSafeRegister(&xWidgetGetFocusable, libs, "gtk_widget_get_focusable")
+	core.PuregoSafeRegister(&xWidgetGetFontMap, libs, "gtk_widget_get_font_map")
+	core.PuregoSafeRegister(&xWidgetGetFontOptions, libs, "gtk_widget_get_font_options")
+	core.PuregoSafeRegister(&xWidgetGetFrameClock, libs, "gtk_widget_get_frame_clock")
+	core.PuregoSafeRegister(&xWidgetGetHalign, libs, "gtk_widget_get_halign")
+	core.PuregoSafeRegister(&xWidgetGetHasTooltip, libs, "gtk_widget_get_has_tooltip")
+	core.PuregoSafeRegister(&xWidgetGetHeight, libs, "gtk_widget_get_height")
+	core.PuregoSafeRegister(&xWidgetGetHexpand, libs, "gtk_widget_get_hexpand")
+	core.PuregoSafeRegister(&xWidgetGetHexpandSet, libs, "gtk_widget_get_hexpand_set")
+	core.PuregoSafeRegister(&xWidgetGetLastChild, libs, "gtk_widget_get_last_child")
+	core.PuregoSafeRegister(&xWidgetGetLayoutManager, libs, "gtk_widget_get_layout_manager")
+	core.PuregoSafeRegister(&xWidgetGetLimitEvents, libs, "gtk_widget_get_limit_events")
+	core.PuregoSafeRegister(&xWidgetGetMapped, libs, "gtk_widget_get_mapped")
+	core.PuregoSafeRegister(&xWidgetGetMarginBottom, libs, "gtk_widget_get_margin_bottom")
+	core.PuregoSafeRegister(&xWidgetGetMarginEnd, libs, "gtk_widget_get_margin_end")
+	core.PuregoSafeRegister(&xWidgetGetMarginStart, libs, "gtk_widget_get_margin_start")
+	core.PuregoSafeRegister(&xWidgetGetMarginTop, libs, "gtk_widget_get_margin_top")
+	core.PuregoSafeRegister(&xWidgetGetName, libs, "gtk_widget_get_name")
+	core.PuregoSafeRegister(&xWidgetGetNative, libs, "gtk_widget_get_native")
+	core.PuregoSafeRegister(&xWidgetGetNextSibling, libs, "gtk_widget_get_next_sibling")
+	core.PuregoSafeRegister(&xWidgetGetOpacity, libs, "gtk_widget_get_opacity")
+	core.PuregoSafeRegister(&xWidgetGetOverflow, libs, "gtk_widget_get_overflow")
+	core.PuregoSafeRegister(&xWidgetGetPangoContext, libs, "gtk_widget_get_pango_context")
+	core.PuregoSafeRegister(&xWidgetGetParent, libs, "gtk_widget_get_parent")
+	core.PuregoSafeRegister(&xWidgetGetPreferredSize, libs, "gtk_widget_get_preferred_size")
+	core.PuregoSafeRegister(&xWidgetGetPrevSibling, libs, "gtk_widget_get_prev_sibling")
+	core.PuregoSafeRegister(&xWidgetGetPrimaryClipboard, libs, "gtk_widget_get_primary_clipboard")
+	core.PuregoSafeRegister(&xWidgetGetRealized, libs, "gtk_widget_get_realized")
+	core.PuregoSafeRegister(&xWidgetGetReceivesDefault, libs, "gtk_widget_get_receives_default")
+	core.PuregoSafeRegister(&xWidgetGetRequestMode, libs, "gtk_widget_get_request_mode")
+	core.PuregoSafeRegister(&xWidgetGetRoot, libs, "gtk_widget_get_root")
+	core.PuregoSafeRegister(&xWidgetGetScaleFactor, libs, "gtk_widget_get_scale_factor")
+	core.PuregoSafeRegister(&xWidgetGetSensitive, libs, "gtk_widget_get_sensitive")
+	core.PuregoSafeRegister(&xWidgetGetSettings, libs, "gtk_widget_get_settings")
+	core.PuregoSafeRegister(&xWidgetGetSize, libs, "gtk_widget_get_size")
+	core.PuregoSafeRegister(&xWidgetGetSizeRequest, libs, "gtk_widget_get_size_request")
+	core.PuregoSafeRegister(&xWidgetGetStateFlags, libs, "gtk_widget_get_state_flags")
+	core.PuregoSafeRegister(&xWidgetGetStyleContext, libs, "gtk_widget_get_style_context")
+	core.PuregoSafeRegister(&xWidgetGetTemplateChild, libs, "gtk_widget_get_template_child")
+	core.PuregoSafeRegister(&xWidgetGetTooltipMarkup, libs, "gtk_widget_get_tooltip_markup")
+	core.PuregoSafeRegister(&xWidgetGetTooltipText, libs, "gtk_widget_get_tooltip_text")
+	core.PuregoSafeRegister(&xWidgetGetValign, libs, "gtk_widget_get_valign")
+	core.PuregoSafeRegister(&xWidgetGetVexpand, libs, "gtk_widget_get_vexpand")
+	core.PuregoSafeRegister(&xWidgetGetVexpandSet, libs, "gtk_widget_get_vexpand_set")
+	core.PuregoSafeRegister(&xWidgetGetVisible, libs, "gtk_widget_get_visible")
+	core.PuregoSafeRegister(&xWidgetGetWidth, libs, "gtk_widget_get_width")
+	core.PuregoSafeRegister(&xWidgetGrabFocus, libs, "gtk_widget_grab_focus")
+	core.PuregoSafeRegister(&xWidgetHasCssClass, libs, "gtk_widget_has_css_class")
+	core.PuregoSafeRegister(&xWidgetHasDefault, libs, "gtk_widget_has_default")
+	core.PuregoSafeRegister(&xWidgetHasFocus, libs, "gtk_widget_has_focus")
+	core.PuregoSafeRegister(&xWidgetHasVisibleFocus, libs, "gtk_widget_has_visible_focus")
+	core.PuregoSafeRegister(&xWidgetHide, libs, "gtk_widget_hide")
+	core.PuregoSafeRegister(&xWidgetInDestruction, libs, "gtk_widget_in_destruction")
+	core.PuregoSafeRegister(&xWidgetInitTemplate, libs, "gtk_widget_init_template")
+	core.PuregoSafeRegister(&xWidgetInsertActionGroup, libs, "gtk_widget_insert_action_group")
+	core.PuregoSafeRegister(&xWidgetInsertAfter, libs, "gtk_widget_insert_after")
+	core.PuregoSafeRegister(&xWidgetInsertBefore, libs, "gtk_widget_insert_before")
+	core.PuregoSafeRegister(&xWidgetIsAncestor, libs, "gtk_widget_is_ancestor")
+	core.PuregoSafeRegister(&xWidgetIsDrawable, libs, "gtk_widget_is_drawable")
+	core.PuregoSafeRegister(&xWidgetIsFocus, libs, "gtk_widget_is_focus")
+	core.PuregoSafeRegister(&xWidgetIsSensitive, libs, "gtk_widget_is_sensitive")
+	core.PuregoSafeRegister(&xWidgetIsVisible, libs, "gtk_widget_is_visible")
+	core.PuregoSafeRegister(&xWidgetKeynavFailed, libs, "gtk_widget_keynav_failed")
+	core.PuregoSafeRegister(&xWidgetListMnemonicLabels, libs, "gtk_widget_list_mnemonic_labels")
+	core.PuregoSafeRegister(&xWidgetMap, libs, "gtk_widget_map")
+	core.PuregoSafeRegister(&xWidgetMeasure, libs, "gtk_widget_measure")
+	core.PuregoSafeRegister(&xWidgetMnemonicActivate, libs, "gtk_widget_mnemonic_activate")
+	core.PuregoSafeRegister(&xWidgetObserveChildren, libs, "gtk_widget_observe_children")
+	core.PuregoSafeRegister(&xWidgetObserveControllers, libs, "gtk_widget_observe_controllers")
+	core.PuregoSafeRegister(&xWidgetPick, libs, "gtk_widget_pick")
+	core.PuregoSafeRegister(&xWidgetQueueAllocate, libs, "gtk_widget_queue_allocate")
+	core.PuregoSafeRegister(&xWidgetQueueDraw, libs, "gtk_widget_queue_draw")
+	core.PuregoSafeRegister(&xWidgetQueueResize, libs, "gtk_widget_queue_resize")
+	core.PuregoSafeRegister(&xWidgetRealize, libs, "gtk_widget_realize")
+	core.PuregoSafeRegister(&xWidgetRemoveController, libs, "gtk_widget_remove_controller")
+	core.PuregoSafeRegister(&xWidgetRemoveCssClass, libs, "gtk_widget_remove_css_class")
+	core.PuregoSafeRegister(&xWidgetRemoveMnemonicLabel, libs, "gtk_widget_remove_mnemonic_label")
+	core.PuregoSafeRegister(&xWidgetRemoveTickCallback, libs, "gtk_widget_remove_tick_callback")
+	core.PuregoSafeRegister(&xWidgetSetCanFocus, libs, "gtk_widget_set_can_focus")
+	core.PuregoSafeRegister(&xWidgetSetCanTarget, libs, "gtk_widget_set_can_target")
+	core.PuregoSafeRegister(&xWidgetSetChildVisible, libs, "gtk_widget_set_child_visible")
+	core.PuregoSafeRegister(&xWidgetSetCssClasses, libs, "gtk_widget_set_css_classes")
+	core.PuregoSafeRegister(&xWidgetSetCursor, libs, "gtk_widget_set_cursor")
+	core.PuregoSafeRegister(&xWidgetSetCursorFromName, libs, "gtk_widget_set_cursor_from_name")
+	core.PuregoSafeRegister(&xWidgetSetDirection, libs, "gtk_widget_set_direction")
+	core.PuregoSafeRegister(&xWidgetSetFocusChild, libs, "gtk_widget_set_focus_child")
+	core.PuregoSafeRegister(&xWidgetSetFocusOnClick, libs, "gtk_widget_set_focus_on_click")
+	core.PuregoSafeRegister(&xWidgetSetFocusable, libs, "gtk_widget_set_focusable")
+	core.PuregoSafeRegister(&xWidgetSetFontMap, libs, "gtk_widget_set_font_map")
+	core.PuregoSafeRegister(&xWidgetSetFontOptions, libs, "gtk_widget_set_font_options")
+	core.PuregoSafeRegister(&xWidgetSetHalign, libs, "gtk_widget_set_halign")
+	core.PuregoSafeRegister(&xWidgetSetHasTooltip, libs, "gtk_widget_set_has_tooltip")
+	core.PuregoSafeRegister(&xWidgetSetHexpand, libs, "gtk_widget_set_hexpand")
+	core.PuregoSafeRegister(&xWidgetSetHexpandSet, libs, "gtk_widget_set_hexpand_set")
+	core.PuregoSafeRegister(&xWidgetSetLayoutManager, libs, "gtk_widget_set_layout_manager")
+	core.PuregoSafeRegister(&xWidgetSetLimitEvents, libs, "gtk_widget_set_limit_events")
+	core.PuregoSafeRegister(&xWidgetSetMarginBottom, libs, "gtk_widget_set_margin_bottom")
+	core.PuregoSafeRegister(&xWidgetSetMarginEnd, libs, "gtk_widget_set_margin_end")
+	core.PuregoSafeRegister(&xWidgetSetMarginStart, libs, "gtk_widget_set_margin_start")
+	core.PuregoSafeRegister(&xWidgetSetMarginTop, libs, "gtk_widget_set_margin_top")
+	core.PuregoSafeRegister(&xWidgetSetName, libs, "gtk_widget_set_name")
+	core.PuregoSafeRegister(&xWidgetSetOpacity, libs, "gtk_widget_set_opacity")
+	core.PuregoSafeRegister(&xWidgetSetOverflow, libs, "gtk_widget_set_overflow")
+	core.PuregoSafeRegister(&xWidgetSetParent, libs, "gtk_widget_set_parent")
+	core.PuregoSafeRegister(&xWidgetSetReceivesDefault, libs, "gtk_widget_set_receives_default")
+	core.PuregoSafeRegister(&xWidgetSetSensitive, libs, "gtk_widget_set_sensitive")
+	core.PuregoSafeRegister(&xWidgetSetSizeRequest, libs, "gtk_widget_set_size_request")
+	core.PuregoSafeRegister(&xWidgetSetStateFlags, libs, "gtk_widget_set_state_flags")
+	core.PuregoSafeRegister(&xWidgetSetTooltipMarkup, libs, "gtk_widget_set_tooltip_markup")
+	core.PuregoSafeRegister(&xWidgetSetTooltipText, libs, "gtk_widget_set_tooltip_text")
+	core.PuregoSafeRegister(&xWidgetSetValign, libs, "gtk_widget_set_valign")
+	core.PuregoSafeRegister(&xWidgetSetVexpand, libs, "gtk_widget_set_vexpand")
+	core.PuregoSafeRegister(&xWidgetSetVexpandSet, libs, "gtk_widget_set_vexpand_set")
+	core.PuregoSafeRegister(&xWidgetSetVisible, libs, "gtk_widget_set_visible")
+	core.PuregoSafeRegister(&xWidgetShouldLayout, libs, "gtk_widget_should_layout")
+	core.PuregoSafeRegister(&xWidgetShow, libs, "gtk_widget_show")
+	core.PuregoSafeRegister(&xWidgetSizeAllocate, libs, "gtk_widget_size_allocate")
+	core.PuregoSafeRegister(&xWidgetSnapshotChild, libs, "gtk_widget_snapshot_child")
+	core.PuregoSafeRegister(&xWidgetTranslateCoordinates, libs, "gtk_widget_translate_coordinates")
+	core.PuregoSafeRegister(&xWidgetTriggerTooltipQuery, libs, "gtk_widget_trigger_tooltip_query")
+	core.PuregoSafeRegister(&xWidgetUnmap, libs, "gtk_widget_unmap")
+	core.PuregoSafeRegister(&xWidgetUnparent, libs, "gtk_widget_unparent")
+	core.PuregoSafeRegister(&xWidgetUnrealize, libs, "gtk_widget_unrealize")
+	core.PuregoSafeRegister(&xWidgetUnsetStateFlags, libs, "gtk_widget_unset_state_flags")
+
+	core.PuregoSafeRegister(&xWidgetGetDefaultDirection, libs, "gtk_widget_get_default_direction")
+	core.PuregoSafeRegister(&xWidgetSetDefaultDirection, libs, "gtk_widget_set_default_direction")
 }

@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gdk"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -48,7 +49,6 @@ type DragIcon struct {
 var xDragIconGLibType func() types.GType
 
 func DragIconGLibType() types.GType {
-	core.LazyRegister(&xDragIconGLibType, "GTK", "gtk_drag_icon_get_type", false)
 	return xDragIconGLibType()
 }
 
@@ -65,7 +65,6 @@ var xDragIconGetForDrag func(uintptr) uintptr
 // If no drag icon exists yet, a new one will be created
 // and shown.
 func DragIconGetForDrag(DragVar *gdk.Drag) *DragIcon {
-	core.LazyRegister(&xDragIconGetForDrag, "GTK", "gtk_drag_icon_get_for_drag", false)
 	var cls *DragIcon
 
 	cret := xDragIconGetForDrag(DragVar.GoPointer())
@@ -83,7 +82,6 @@ var xDragIconGetChild func(uintptr) uintptr
 
 // Gets the widget currently used as drag icon.
 func (x *DragIcon) GetChild() *Widget {
-	core.LazyRegister(&xDragIconGetChild, "GTK", "gtk_drag_icon_get_child", false)
 	var cls *Widget
 
 	cret := xDragIconGetChild(x.GoPointer())
@@ -101,8 +99,6 @@ var xDragIconSetChild func(uintptr, uintptr)
 
 // Sets the widget to display as the drag icon.
 func (x *DragIcon) SetChild(ChildVar *Widget) {
-	core.LazyRegister(&xDragIconSetChild, "GTK", "gtk_drag_icon_set_child", false)
-
 	xDragIconSetChild(x.GoPointer(), ChildVar.GoPointer())
 }
 
@@ -489,7 +485,6 @@ var xDragIconCreateWidgetForValue func(*gobject.Value) uintptr
 // operations started by `GtkDragSource`, so you don't need to set
 // a drag icon using this function there.
 func DragIconCreateWidgetForValue(ValueVar *gobject.Value) *Widget {
-	core.LazyRegister(&xDragIconCreateWidgetForValue, "GTK", "gtk_drag_icon_create_widget_for_value", false)
 	var cls *Widget
 
 	cret := xDragIconCreateWidgetForValue(ValueVar)
@@ -510,12 +505,28 @@ var xDragIconSetFromPaintable func(uintptr, uintptr, int, int)
 // The hotspot position on the paintable is aligned with the
 // hotspot of the cursor.
 func DragIconSetFromPaintable(DragVar *gdk.Drag, PaintableVar gdk.Paintable, HotXVar int, HotYVar int) {
-	core.LazyRegister(&xDragIconSetFromPaintable, "GTK", "gtk_drag_icon_set_from_paintable", false)
-
 	xDragIconSetFromPaintable(DragVar.GoPointer(), PaintableVar.GoPointer(), HotXVar, HotYVar)
 }
 
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GTK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xDragIconGLibType, libs, "gtk_drag_icon_get_type")
+
+	core.PuregoSafeRegister(&xDragIconGetForDrag, libs, "gtk_drag_icon_get_for_drag")
+
+	core.PuregoSafeRegister(&xDragIconGetChild, libs, "gtk_drag_icon_get_child")
+	core.PuregoSafeRegister(&xDragIconSetChild, libs, "gtk_drag_icon_set_child")
+
+	core.PuregoSafeRegister(&xDragIconCreateWidgetForValue, libs, "gtk_drag_icon_create_widget_for_value")
+	core.PuregoSafeRegister(&xDragIconSetFromPaintable, libs, "gtk_drag_icon_set_from_paintable")
 }

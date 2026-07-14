@@ -4,6 +4,7 @@ package gdk
 import (
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gio"
 	"github.com/bnema/puregotk/v4/glib"
@@ -32,7 +33,6 @@ type Drop struct {
 var xDropGLibType func() types.GType
 
 func DropGLibType() types.GType {
-	core.LazyRegister(&xDropGLibType, "GDK", "gdk_drop_get_type", false)
 	return xDropGLibType()
 }
 
@@ -49,8 +49,6 @@ var xDropFinish func(uintptr, DragAction)
 // The @action must be a single action selected from the actions
 // available via [method@Gdk.Drop.get_actions].
 func (x *Drop) Finish(ActionVar DragAction) {
-	core.LazyRegister(&xDropFinish, "GDK", "gdk_drop_finish", false)
-
 	xDropFinish(x.GoPointer(), ActionVar)
 }
 
@@ -71,8 +69,6 @@ var xDropGetActions func(uintptr) DragAction
 // [method@Gdk.Drop.status] or [method@Gdk.Drop.finish]. The source
 // side will not change this value anymore once a drop has started.
 func (x *Drop) GetActions() DragAction {
-	core.LazyRegister(&xDropGetActions, "GDK", "gdk_drop_get_actions", false)
-
 	cret := xDropGetActions(x.GoPointer())
 	return cret
 }
@@ -81,7 +77,6 @@ var xDropGetDevice func(uintptr) uintptr
 
 // Returns the `GdkDevice` performing the drop.
 func (x *Drop) GetDevice() *Device {
-	core.LazyRegister(&xDropGetDevice, "GDK", "gdk_drop_get_device", false)
 	var cls *Device
 
 	cret := xDropGetDevice(x.GoPointer())
@@ -99,7 +94,6 @@ var xDropGetDisplay func(uintptr) uintptr
 
 // Gets the `GdkDisplay` that @self was created for.
 func (x *Drop) GetDisplay() *Display {
-	core.LazyRegister(&xDropGetDisplay, "GDK", "gdk_drop_get_display", false)
 	var cls *Display
 
 	cret := xDropGetDisplay(x.GoPointer())
@@ -120,7 +114,6 @@ var xDropGetDrag func(uintptr) uintptr
 //
 // If it is not, `NULL` is returned.
 func (x *Drop) GetDrag() *Drag {
-	core.LazyRegister(&xDropGetDrag, "GDK", "gdk_drop_get_drag", false)
 	var cls *Drag
 
 	cret := xDropGetDrag(x.GoPointer())
@@ -139,8 +132,6 @@ var xDropGetFormats func(uintptr) uintptr
 // Returns the `GdkContentFormats` that the drop offers the data
 // to be read in.
 func (x *Drop) GetFormats() *ContentFormats {
-	core.LazyRegister(&xDropGetFormats, "GDK", "gdk_drop_get_formats", false)
-
 	cret := xDropGetFormats(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -152,7 +143,6 @@ var xDropGetSurface func(uintptr) uintptr
 
 // Returns the `GdkSurface` performing the drop.
 func (x *Drop) GetSurface() *Surface {
-	core.LazyRegister(&xDropGetSurface, "GDK", "gdk_drop_get_surface", false)
 	var cls *Surface
 
 	cret := xDropGetSurface(x.GoPointer())
@@ -171,8 +161,6 @@ var xDropReadAsync func(uintptr, []string, int, uintptr, uintptr, uintptr)
 // Asynchronously read the dropped data from a `GdkDrop`
 // in a format that complies with one of the mime types.
 func (x *Drop) ReadAsync(MimeTypesVar []string, IoPriorityVar int, CancellableVar *gio.Cancellable, CallbackVar *gio.AsyncReadyCallback, UserDataVar uintptr) {
-	core.LazyRegister(&xDropReadAsync, "GDK", "gdk_drop_read_async", false)
-
 	xDropReadAsync(x.GoPointer(), MimeTypesVar, IoPriorityVar, CancellableVar.GoPointer(), glib.NewCallbackNullable(CallbackVar), UserDataVar)
 }
 
@@ -187,7 +175,6 @@ var xDropReadFinish func(uintptr, uintptr, *string, **glib.Error) uintptr
 //
 // See [method@Gdk.Drop.read_async].
 func (x *Drop) ReadFinish(ResultVar gio.AsyncResult, OutMimeTypeVar *string) (*gio.InputStream, error) {
-	core.LazyRegister(&xDropReadFinish, "GDK", "gdk_drop_read_finish", false)
 	var cls *gio.InputStream
 	var cerr *glib.Error
 
@@ -213,8 +200,6 @@ var xDropReadValueAsync func(uintptr, types.GType, int, uintptr, uintptr, uintpt
 // `GType`, the value will be copied directly. Otherwise, GDK will
 // try to use [func@Gdk.content_deserialize_async] to convert the data.
 func (x *Drop) ReadValueAsync(TypeVar types.GType, IoPriorityVar int, CancellableVar *gio.Cancellable, CallbackVar *gio.AsyncReadyCallback, UserDataVar uintptr) {
-	core.LazyRegister(&xDropReadValueAsync, "GDK", "gdk_drop_read_value_async", false)
-
 	xDropReadValueAsync(x.GoPointer(), TypeVar, IoPriorityVar, CancellableVar.GoPointer(), glib.NewCallbackNullable(CallbackVar), UserDataVar)
 }
 
@@ -224,7 +209,6 @@ var xDropReadValueFinish func(uintptr, uintptr, **glib.Error) uintptr
 //
 // See [method@Gdk.Drop.read_value_async].
 func (x *Drop) ReadValueFinish(ResultVar gio.AsyncResult) (*gobject.Value, error) {
-	core.LazyRegister(&xDropReadValueFinish, "GDK", "gdk_drop_read_value_finish", false)
 	var cerr *glib.Error
 
 	cret := xDropReadValueFinish(x.GoPointer(), ResultVar.GoPointer(), &cerr)
@@ -253,8 +237,6 @@ var xDropStatus func(uintptr, DragAction, DragAction)
 // not yet know the exact actions it supports, it should set any possible
 // actions first and then later call this function again.
 func (x *Drop) Status(ActionsVar DragAction, PreferredVar DragAction) {
-	core.LazyRegister(&xDropStatus, "GDK", "gdk_drop_status", false)
-
 	xDropStatus(x.GoPointer(), ActionsVar, PreferredVar)
 }
 
@@ -289,4 +271,27 @@ func (x *Drop) GetPropertyFormats() uintptr {
 func init() {
 	core.SetPackageName("GDK", "gtk4")
 	core.SetSharedLibraries("GDK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GDK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xDropGLibType, libs, "gdk_drop_get_type")
+
+	core.PuregoSafeRegister(&xDropFinish, libs, "gdk_drop_finish")
+	core.PuregoSafeRegister(&xDropGetActions, libs, "gdk_drop_get_actions")
+	core.PuregoSafeRegister(&xDropGetDevice, libs, "gdk_drop_get_device")
+	core.PuregoSafeRegister(&xDropGetDisplay, libs, "gdk_drop_get_display")
+	core.PuregoSafeRegister(&xDropGetDrag, libs, "gdk_drop_get_drag")
+	core.PuregoSafeRegister(&xDropGetFormats, libs, "gdk_drop_get_formats")
+	core.PuregoSafeRegister(&xDropGetSurface, libs, "gdk_drop_get_surface")
+	core.PuregoSafeRegister(&xDropReadAsync, libs, "gdk_drop_read_async")
+	core.PuregoSafeRegister(&xDropReadFinish, libs, "gdk_drop_read_finish")
+	core.PuregoSafeRegister(&xDropReadValueAsync, libs, "gdk_drop_read_value_async")
+	core.PuregoSafeRegister(&xDropReadValueFinish, libs, "gdk_drop_read_value_finish")
+	core.PuregoSafeRegister(&xDropStatus, libs, "gdk_drop_status")
 }

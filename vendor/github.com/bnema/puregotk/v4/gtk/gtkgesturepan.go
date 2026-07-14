@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -48,7 +49,6 @@ type GesturePan struct {
 var xGesturePanGLibType func() types.GType
 
 func GesturePanGLibType() types.GType {
-	core.LazyRegister(&xGesturePanGLibType, "GTK", "gtk_gesture_pan_get_type", false)
 	return xGesturePanGLibType()
 }
 
@@ -62,7 +62,6 @@ var xNewGesturePan func(Orientation) uintptr
 
 // Returns a newly created `GtkGesture` that recognizes pan gestures.
 func NewGesturePan(OrientationVar Orientation) *GesturePan {
-	core.LazyRegister(&xNewGesturePan, "GTK", "gtk_gesture_pan_new", false)
 	var cls *GesturePan
 
 	cret := xNewGesturePan(OrientationVar)
@@ -79,8 +78,6 @@ var xGesturePanGetOrientation func(uintptr) Orientation
 
 // Returns the orientation of the pan gestures that this @gesture expects.
 func (x *GesturePan) GetOrientation() Orientation {
-	core.LazyRegister(&xGesturePanGetOrientation, "GTK", "gtk_gesture_pan_get_orientation", false)
-
 	cret := xGesturePanGetOrientation(x.GoPointer())
 	return cret
 }
@@ -89,8 +86,6 @@ var xGesturePanSetOrientation func(uintptr, Orientation)
 
 // Sets the orientation to be expected on pan gestures.
 func (x *GesturePan) SetOrientation(OrientationVar Orientation) {
-	core.LazyRegister(&xGesturePanSetOrientation, "GTK", "gtk_gesture_pan_set_orientation", false)
-
 	xGesturePanSetOrientation(x.GoPointer(), OrientationVar)
 }
 
@@ -131,4 +126,19 @@ func (x *GesturePan) ConnectPan(cb *func(GesturePan, PanDirection, float64)) uin
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GTK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xGesturePanGLibType, libs, "gtk_gesture_pan_get_type")
+
+	core.PuregoSafeRegister(&xNewGesturePan, libs, "gtk_gesture_pan_new")
+
+	core.PuregoSafeRegister(&xGesturePanGetOrientation, libs, "gtk_gesture_pan_get_orientation")
+	core.PuregoSafeRegister(&xGesturePanSetOrientation, libs, "gtk_gesture_pan_set_orientation")
 }

@@ -160,7 +160,6 @@ type ListBox struct {
 var xListBoxGLibType func() types.GType
 
 func ListBoxGLibType() types.GType {
-	core.LazyRegister(&xListBoxGLibType, "GTK", "gtk_list_box_get_type", false)
 	return xListBoxGLibType()
 }
 
@@ -174,7 +173,6 @@ var xNewListBox func() uintptr
 
 // Creates a new `GtkListBox` container.
 func NewListBox() *ListBox {
-	core.LazyRegister(&xNewListBox, "GTK", "gtk_list_box_new", false)
 	var cls *ListBox
 
 	cret := xNewListBox()
@@ -195,8 +193,6 @@ var xListBoxAppend func(uintptr, uintptr)
 // If a sort function is set, the widget will
 // actually be inserted at the calculated position.
 func (x *ListBox) Append(ChildVar *Widget) {
-	core.LazyRegister(&xListBoxAppend, "GTK", "gtk_list_box_append", false)
-
 	xListBoxAppend(x.GoPointer(), ChildVar.GoPointer())
 }
 
@@ -218,8 +214,6 @@ var xListBoxBindModel func(uintptr, uintptr, uintptr, uintptr, uintptr)
 // functionality in `GtkListBox`. When using a model, filtering and sorting
 // should be implemented by the model.
 func (x *ListBox) BindModel(ModelVar gio.ListModel, CreateWidgetFuncVar *ListBoxCreateWidgetFunc, UserDataVar uintptr, UserDataFreeFuncVar *glib.DestroyNotify) {
-	core.LazyRegister(&xListBoxBindModel, "GTK", "gtk_list_box_bind_model", false)
-
 	xListBoxBindModel(x.GoPointer(), ModelVar.GoPointer(), glib.NewCallbackNullable(CreateWidgetFuncVar), UserDataVar, glib.NewCallback(UserDataFreeFuncVar))
 }
 
@@ -235,8 +229,6 @@ var xListBoxDragHighlightRow func(uintptr, uintptr)
 // The row will also be unhighlighted when the widget gets
 // a drag leave event.
 func (x *ListBox) DragHighlightRow(RowVar *ListBoxRow) {
-	core.LazyRegister(&xListBoxDragHighlightRow, "GTK", "gtk_list_box_drag_highlight_row", false)
-
 	xListBoxDragHighlightRow(x.GoPointer(), RowVar.GoPointer())
 }
 
@@ -245,8 +237,6 @@ var xListBoxDragUnhighlightRow func(uintptr)
 // If a row has previously been highlighted via gtk_list_box_drag_highlight_row(),
 // it will have the highlight removed.
 func (x *ListBox) DragUnhighlightRow() {
-	core.LazyRegister(&xListBoxDragUnhighlightRow, "GTK", "gtk_list_box_drag_unhighlight_row", false)
-
 	xListBoxDragUnhighlightRow(x.GoPointer())
 }
 
@@ -254,8 +244,6 @@ var xListBoxGetActivateOnSingleClick func(uintptr) bool
 
 // Returns whether rows activate on single clicks.
 func (x *ListBox) GetActivateOnSingleClick() bool {
-	core.LazyRegister(&xListBoxGetActivateOnSingleClick, "GTK", "gtk_list_box_get_activate_on_single_click", false)
-
 	cret := xListBoxGetActivateOnSingleClick(x.GoPointer())
 	return cret
 }
@@ -265,7 +253,6 @@ var xListBoxGetAdjustment func(uintptr) uintptr
 // Gets the adjustment (if any) that the widget uses to
 // for vertical scrolling.
 func (x *ListBox) GetAdjustment() *Adjustment {
-	core.LazyRegister(&xListBoxGetAdjustment, "GTK", "gtk_list_box_get_adjustment", false)
 	var cls *Adjustment
 
 	cret := xListBoxGetAdjustment(x.GoPointer())
@@ -286,7 +273,6 @@ var xListBoxGetRowAtIndex func(uintptr, int) uintptr
 // If @index_ is negative or larger than the number of items in the
 // list, %NULL is returned.
 func (x *ListBox) GetRowAtIndex(IndexVar int) *ListBoxRow {
-	core.LazyRegister(&xListBoxGetRowAtIndex, "GTK", "gtk_list_box_get_row_at_index", false)
 	var cls *ListBoxRow
 
 	cret := xListBoxGetRowAtIndex(x.GoPointer(), IndexVar)
@@ -304,7 +290,6 @@ var xListBoxGetRowAtY func(uintptr, int) uintptr
 
 // Gets the row at the @y position.
 func (x *ListBox) GetRowAtY(YVar int) *ListBoxRow {
-	core.LazyRegister(&xListBoxGetRowAtY, "GTK", "gtk_list_box_get_row_at_y", false)
 	var cls *ListBoxRow
 
 	cret := xListBoxGetRowAtY(x.GoPointer(), YVar)
@@ -326,7 +311,6 @@ var xListBoxGetSelectedRow func(uintptr) uintptr
 // case you should use [method@Gtk.ListBox.selected_foreach] to
 // find all selected rows.
 func (x *ListBox) GetSelectedRow() *ListBoxRow {
-	core.LazyRegister(&xListBoxGetSelectedRow, "GTK", "gtk_list_box_get_selected_row", false)
 	var cls *ListBoxRow
 
 	cret := xListBoxGetSelectedRow(x.GoPointer())
@@ -344,8 +328,6 @@ var xListBoxGetSelectedRows func(uintptr) uintptr
 
 // Creates a list of all selected children.
 func (x *ListBox) GetSelectedRows() *glib.List {
-	core.LazyRegister(&xListBoxGetSelectedRows, "GTK", "gtk_list_box_get_selected_rows", false)
-
 	cret := xListBoxGetSelectedRows(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -357,8 +339,6 @@ var xListBoxGetSelectionMode func(uintptr) SelectionMode
 
 // Gets the selection mode of the listbox.
 func (x *ListBox) GetSelectionMode() SelectionMode {
-	core.LazyRegister(&xListBoxGetSelectionMode, "GTK", "gtk_list_box_get_selection_mode", false)
-
 	cret := xListBoxGetSelectionMode(x.GoPointer())
 	return cret
 }
@@ -368,8 +348,6 @@ var xListBoxGetShowSeparators func(uintptr) bool
 // Returns whether the list box should show separators
 // between rows.
 func (x *ListBox) GetShowSeparators() bool {
-	core.LazyRegister(&xListBoxGetShowSeparators, "GTK", "gtk_list_box_get_show_separators", false)
-
 	cret := xListBoxGetShowSeparators(x.GoPointer())
 	return cret
 }
@@ -378,8 +356,6 @@ var xListBoxGetTabBehavior func(uintptr) ListTabBehavior
 
 // Returns the behavior of the &lt;kbd&gt;Tab&lt;/kbd&gt; and &lt;kbd&gt;Shift&lt;/kbd&gt;+&lt;kbd&gt;Tab&lt;/kbd&gt; keys.
 func (x *ListBox) GetTabBehavior() ListTabBehavior {
-	core.LazyRegister(&xListBoxGetTabBehavior, "GTK", "gtk_list_box_get_tab_behavior", false)
-
 	cret := xListBoxGetTabBehavior(x.GoPointer())
 	return cret
 }
@@ -394,8 +370,6 @@ var xListBoxInsert func(uintptr, uintptr, int)
 // If @position is -1, or larger than the total number of items in the
 // @box, then the @child will be appended to the end.
 func (x *ListBox) Insert(ChildVar *Widget, PositionVar int) {
-	core.LazyRegister(&xListBoxInsert, "GTK", "gtk_list_box_insert", false)
-
 	xListBoxInsert(x.GoPointer(), ChildVar.GoPointer(), PositionVar)
 }
 
@@ -409,8 +383,6 @@ var xListBoxInvalidateFilter func(uintptr)
 // if the filter function just looked for a specific search
 // string and the entry with the search string has changed.
 func (x *ListBox) InvalidateFilter() {
-	core.LazyRegister(&xListBoxInvalidateFilter, "GTK", "gtk_list_box_invalidate_filter", false)
-
 	xListBoxInvalidateFilter(x.GoPointer())
 }
 
@@ -422,8 +394,6 @@ var xListBoxInvalidateHeaders func(uintptr)
 // of the header function on the @box is changed due
 // to an external factor.
 func (x *ListBox) InvalidateHeaders() {
-	core.LazyRegister(&xListBoxInvalidateHeaders, "GTK", "gtk_list_box_invalidate_headers", false)
-
 	xListBoxInvalidateHeaders(x.GoPointer())
 }
 
@@ -435,8 +405,6 @@ var xListBoxInvalidateSort func(uintptr)
 // of the sort function on the @box is changed due
 // to an external factor.
 func (x *ListBox) InvalidateSort() {
-	core.LazyRegister(&xListBoxInvalidateSort, "GTK", "gtk_list_box_invalidate_sort", false)
-
 	xListBoxInvalidateSort(x.GoPointer())
 }
 
@@ -447,8 +415,6 @@ var xListBoxPrepend func(uintptr, uintptr)
 // If a sort function is set, the widget will
 // actually be inserted at the calculated position.
 func (x *ListBox) Prepend(ChildVar *Widget) {
-	core.LazyRegister(&xListBoxPrepend, "GTK", "gtk_list_box_prepend", false)
-
 	xListBoxPrepend(x.GoPointer(), ChildVar.GoPointer())
 }
 
@@ -456,8 +422,6 @@ var xListBoxRemove func(uintptr, uintptr)
 
 // Removes a child from @box.
 func (x *ListBox) Remove(ChildVar *Widget) {
-	core.LazyRegister(&xListBoxRemove, "GTK", "gtk_list_box_remove", false)
-
 	xListBoxRemove(x.GoPointer(), ChildVar.GoPointer())
 }
 
@@ -467,8 +431,6 @@ var xListBoxRemoveAll func(uintptr)
 //
 // This function does nothing if @box is backed by a model.
 func (x *ListBox) RemoveAll() {
-	core.LazyRegister(&xListBoxRemoveAll, "GTK", "gtk_list_box_remove_all", false)
-
 	xListBoxRemoveAll(x.GoPointer())
 }
 
@@ -476,8 +438,6 @@ var xListBoxSelectAll func(uintptr)
 
 // Select all children of @box, if the selection mode allows it.
 func (x *ListBox) SelectAll() {
-	core.LazyRegister(&xListBoxSelectAll, "GTK", "gtk_list_box_select_all", false)
-
 	xListBoxSelectAll(x.GoPointer())
 }
 
@@ -485,8 +445,6 @@ var xListBoxSelectRow func(uintptr, uintptr)
 
 // Make @row the currently selected row.
 func (x *ListBox) SelectRow(RowVar *ListBoxRow) {
-	core.LazyRegister(&xListBoxSelectRow, "GTK", "gtk_list_box_select_row", false)
-
 	xListBoxSelectRow(x.GoPointer(), RowVar.GoPointer())
 }
 
@@ -496,8 +454,6 @@ var xListBoxSelectedForeach func(uintptr, uintptr, uintptr)
 //
 // Note that the selection cannot be modified from within this function.
 func (x *ListBox) SelectedForeach(FuncVar *ListBoxForeachFunc, DataVar uintptr) {
-	core.LazyRegister(&xListBoxSelectedForeach, "GTK", "gtk_list_box_selected_foreach", false)
-
 	xListBoxSelectedForeach(x.GoPointer(), glib.NewCallback(FuncVar), DataVar)
 }
 
@@ -506,8 +462,6 @@ var xListBoxSetActivateOnSingleClick func(uintptr, bool)
 // If @single is %TRUE, rows will be activated when you click on them,
 // otherwise you need to double-click.
 func (x *ListBox) SetActivateOnSingleClick(SingleVar bool) {
-	core.LazyRegister(&xListBoxSetActivateOnSingleClick, "GTK", "gtk_list_box_set_activate_on_single_click", false)
-
 	xListBoxSetActivateOnSingleClick(x.GoPointer(), SingleVar)
 }
 
@@ -524,8 +478,6 @@ var xListBoxSetAdjustment func(uintptr, uintptr)
 // be picked up automatically, so there is no need
 // to manually do that.
 func (x *ListBox) SetAdjustment(AdjustmentVar *Adjustment) {
-	core.LazyRegister(&xListBoxSetAdjustment, "GTK", "gtk_list_box_set_adjustment", false)
-
 	xListBoxSetAdjustment(x.GoPointer(), AdjustmentVar.GoPointer())
 }
 
@@ -545,8 +497,6 @@ var xListBoxSetFilterFunc func(uintptr, uintptr, uintptr, uintptr)
 // Note that using a filter function is incompatible with using a model
 // (see [method@Gtk.ListBox.bind_model]).
 func (x *ListBox) SetFilterFunc(FilterFuncVar *ListBoxFilterFunc, UserDataVar uintptr, DestroyVar *glib.DestroyNotify) {
-	core.LazyRegister(&xListBoxSetFilterFunc, "GTK", "gtk_list_box_set_filter_func", false)
-
 	xListBoxSetFilterFunc(x.GoPointer(), glib.NewCallbackNullable(FilterFuncVar), UserDataVar, glib.NewCallbackNullable(DestroyVar))
 }
 
@@ -578,8 +528,6 @@ var xListBoxSetHeaderFunc func(uintptr, uintptr, uintptr, uintptr)
 // row becomes a different row). It is also called for all rows when
 // [method@Gtk.ListBox.invalidate_headers] is called.
 func (x *ListBox) SetHeaderFunc(UpdateHeaderVar *ListBoxUpdateHeaderFunc, UserDataVar uintptr, DestroyVar *glib.DestroyNotify) {
-	core.LazyRegister(&xListBoxSetHeaderFunc, "GTK", "gtk_list_box_set_header_func", false)
-
 	xListBoxSetHeaderFunc(x.GoPointer(), glib.NewCallbackNullable(UpdateHeaderVar), UserDataVar, glib.NewCallbackNullable(DestroyVar))
 }
 
@@ -588,8 +536,6 @@ var xListBoxSetPlaceholder func(uintptr, uintptr)
 // Sets the placeholder widget that is shown in the list when
 // it doesn't display any visible children.
 func (x *ListBox) SetPlaceholder(PlaceholderVar *Widget) {
-	core.LazyRegister(&xListBoxSetPlaceholder, "GTK", "gtk_list_box_set_placeholder", false)
-
 	xListBoxSetPlaceholder(x.GoPointer(), PlaceholderVar.GoPointer())
 }
 
@@ -597,8 +543,6 @@ var xListBoxSetSelectionMode func(uintptr, SelectionMode)
 
 // Sets how selection works in the listbox.
 func (x *ListBox) SetSelectionMode(ModeVar SelectionMode) {
-	core.LazyRegister(&xListBoxSetSelectionMode, "GTK", "gtk_list_box_set_selection_mode", false)
-
 	xListBoxSetSelectionMode(x.GoPointer(), ModeVar)
 }
 
@@ -607,8 +551,6 @@ var xListBoxSetShowSeparators func(uintptr, bool)
 // Sets whether the list box should show separators
 // between rows.
 func (x *ListBox) SetShowSeparators(ShowSeparatorsVar bool) {
-	core.LazyRegister(&xListBoxSetShowSeparators, "GTK", "gtk_list_box_set_show_separators", false)
-
 	xListBoxSetShowSeparators(x.GoPointer(), ShowSeparatorsVar)
 }
 
@@ -627,8 +569,6 @@ var xListBoxSetSortFunc func(uintptr, uintptr, uintptr, uintptr)
 // Note that using a sort function is incompatible with using a model
 // (see [method@Gtk.ListBox.bind_model]).
 func (x *ListBox) SetSortFunc(SortFuncVar *ListBoxSortFunc, UserDataVar uintptr, DestroyVar *glib.DestroyNotify) {
-	core.LazyRegister(&xListBoxSetSortFunc, "GTK", "gtk_list_box_set_sort_func", false)
-
 	xListBoxSetSortFunc(x.GoPointer(), glib.NewCallbackNullable(SortFuncVar), UserDataVar, glib.NewCallbackNullable(DestroyVar))
 }
 
@@ -636,8 +576,6 @@ var xListBoxSetTabBehavior func(uintptr, ListTabBehavior)
 
 // Sets the behavior of the &lt;kbd&gt;Tab&lt;/kbd&gt; and &lt;kbd&gt;Shift&lt;/kbd&gt;+&lt;kbd&gt;Tab&lt;/kbd&gt; keys.
 func (x *ListBox) SetTabBehavior(BehaviorVar ListTabBehavior) {
-	core.LazyRegister(&xListBoxSetTabBehavior, "GTK", "gtk_list_box_set_tab_behavior", false)
-
 	xListBoxSetTabBehavior(x.GoPointer(), BehaviorVar)
 }
 
@@ -645,8 +583,6 @@ var xListBoxUnselectAll func(uintptr)
 
 // Unselect all children of @box, if the selection mode allows it.
 func (x *ListBox) UnselectAll() {
-	core.LazyRegister(&xListBoxUnselectAll, "GTK", "gtk_list_box_unselect_all", false)
-
 	xListBoxUnselectAll(x.GoPointer())
 }
 
@@ -654,8 +590,6 @@ var xListBoxUnselectRow func(uintptr, uintptr)
 
 // Unselects a single row of @box, if the selection mode allows it.
 func (x *ListBox) UnselectRow(RowVar *ListBoxRow) {
-	core.LazyRegister(&xListBoxUnselectRow, "GTK", "gtk_list_box_unselect_row", false)
-
 	xListBoxUnselectRow(x.GoPointer(), RowVar.GoPointer())
 }
 
@@ -1206,7 +1140,6 @@ type ListBoxRow struct {
 var xListBoxRowGLibType func() types.GType
 
 func ListBoxRowGLibType() types.GType {
-	core.LazyRegister(&xListBoxRowGLibType, "GTK", "gtk_list_box_row_get_type", false)
 	return xListBoxRowGLibType()
 }
 
@@ -1220,7 +1153,6 @@ var xNewListBoxRow func() uintptr
 
 // Creates a new `GtkListBoxRow`.
 func NewListBoxRow() *ListBoxRow {
-	core.LazyRegister(&xNewListBoxRow, "GTK", "gtk_list_box_row_new", false)
 	var cls *ListBoxRow
 
 	cret := xNewListBoxRow()
@@ -1255,8 +1187,6 @@ var xListBoxRowChanged func(uintptr)
 // is to call [method@Gtk.ListBox.invalidate_sort] on any model change,
 // but that is more expensive.
 func (x *ListBoxRow) Changed() {
-	core.LazyRegister(&xListBoxRowChanged, "GTK", "gtk_list_box_row_changed", false)
-
 	xListBoxRowChanged(x.GoPointer())
 }
 
@@ -1264,8 +1194,6 @@ var xListBoxRowGetActivatable func(uintptr) bool
 
 // Gets whether the row is activatable.
 func (x *ListBoxRow) GetActivatable() bool {
-	core.LazyRegister(&xListBoxRowGetActivatable, "GTK", "gtk_list_box_row_get_activatable", false)
-
 	cret := xListBoxRowGetActivatable(x.GoPointer())
 	return cret
 }
@@ -1274,7 +1202,6 @@ var xListBoxRowGetChild func(uintptr) uintptr
 
 // Gets the child widget of @row.
 func (x *ListBoxRow) GetChild() *Widget {
-	core.LazyRegister(&xListBoxRowGetChild, "GTK", "gtk_list_box_row_get_child", false)
 	var cls *Widget
 
 	cret := xListBoxRowGetChild(x.GoPointer())
@@ -1297,7 +1224,6 @@ var xListBoxRowGetHeader func(uintptr) uintptr
 // there is a header set already, and if so to update
 // the state of it.
 func (x *ListBoxRow) GetHeader() *Widget {
-	core.LazyRegister(&xListBoxRowGetHeader, "GTK", "gtk_list_box_row_get_header", false)
 	var cls *Widget
 
 	cret := xListBoxRowGetHeader(x.GoPointer())
@@ -1315,8 +1241,6 @@ var xListBoxRowGetIndex func(uintptr) int
 
 // Gets the current index of the @row in its `GtkListBox` container.
 func (x *ListBoxRow) GetIndex() int {
-	core.LazyRegister(&xListBoxRowGetIndex, "GTK", "gtk_list_box_row_get_index", false)
-
 	cret := xListBoxRowGetIndex(x.GoPointer())
 	return cret
 }
@@ -1325,8 +1249,6 @@ var xListBoxRowGetSelectable func(uintptr) bool
 
 // Gets whether the row can be selected.
 func (x *ListBoxRow) GetSelectable() bool {
-	core.LazyRegister(&xListBoxRowGetSelectable, "GTK", "gtk_list_box_row_get_selectable", false)
-
 	cret := xListBoxRowGetSelectable(x.GoPointer())
 	return cret
 }
@@ -1336,8 +1258,6 @@ var xListBoxRowIsSelected func(uintptr) bool
 // Returns whether the child is currently selected in its
 // `GtkListBox` container.
 func (x *ListBoxRow) IsSelected() bool {
-	core.LazyRegister(&xListBoxRowIsSelected, "GTK", "gtk_list_box_row_is_selected", false)
-
 	cret := xListBoxRowIsSelected(x.GoPointer())
 	return cret
 }
@@ -1346,8 +1266,6 @@ var xListBoxRowSetActivatable func(uintptr, bool)
 
 // Set whether the row is activatable.
 func (x *ListBoxRow) SetActivatable(ActivatableVar bool) {
-	core.LazyRegister(&xListBoxRowSetActivatable, "GTK", "gtk_list_box_row_set_activatable", false)
-
 	xListBoxRowSetActivatable(x.GoPointer(), ActivatableVar)
 }
 
@@ -1355,8 +1273,6 @@ var xListBoxRowSetChild func(uintptr, uintptr)
 
 // Sets the child widget of @self.
 func (x *ListBoxRow) SetChild(ChildVar *Widget) {
-	core.LazyRegister(&xListBoxRowSetChild, "GTK", "gtk_list_box_row_set_child", false)
-
 	xListBoxRowSetChild(x.GoPointer(), ChildVar.GoPointer())
 }
 
@@ -1369,8 +1285,6 @@ var xListBoxRowSetHeader func(uintptr, uintptr)
 // It will replace any existing header in the row,
 // and be shown in front of the row in the listbox.
 func (x *ListBoxRow) SetHeader(HeaderVar *Widget) {
-	core.LazyRegister(&xListBoxRowSetHeader, "GTK", "gtk_list_box_row_set_header", false)
-
 	xListBoxRowSetHeader(x.GoPointer(), HeaderVar.GoPointer())
 }
 
@@ -1378,8 +1292,6 @@ var xListBoxRowSetSelectable func(uintptr, bool)
 
 // Set whether the row can be selected.
 func (x *ListBoxRow) SetSelectable(SelectableVar bool) {
-	core.LazyRegister(&xListBoxRowSetSelectable, "GTK", "gtk_list_box_row_set_selectable", false)
-
 	xListBoxRowSetSelectable(x.GoPointer(), SelectableVar)
 }
 
@@ -1799,4 +1711,67 @@ func (x *ListBoxRow) GetBuildableId() string {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GTK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xListBoxGLibType, libs, "gtk_list_box_get_type")
+
+	core.PuregoSafeRegister(&xNewListBox, libs, "gtk_list_box_new")
+
+	core.PuregoSafeRegister(&xListBoxAppend, libs, "gtk_list_box_append")
+	core.PuregoSafeRegister(&xListBoxBindModel, libs, "gtk_list_box_bind_model")
+	core.PuregoSafeRegister(&xListBoxDragHighlightRow, libs, "gtk_list_box_drag_highlight_row")
+	core.PuregoSafeRegister(&xListBoxDragUnhighlightRow, libs, "gtk_list_box_drag_unhighlight_row")
+	core.PuregoSafeRegister(&xListBoxGetActivateOnSingleClick, libs, "gtk_list_box_get_activate_on_single_click")
+	core.PuregoSafeRegister(&xListBoxGetAdjustment, libs, "gtk_list_box_get_adjustment")
+	core.PuregoSafeRegister(&xListBoxGetRowAtIndex, libs, "gtk_list_box_get_row_at_index")
+	core.PuregoSafeRegister(&xListBoxGetRowAtY, libs, "gtk_list_box_get_row_at_y")
+	core.PuregoSafeRegister(&xListBoxGetSelectedRow, libs, "gtk_list_box_get_selected_row")
+	core.PuregoSafeRegister(&xListBoxGetSelectedRows, libs, "gtk_list_box_get_selected_rows")
+	core.PuregoSafeRegister(&xListBoxGetSelectionMode, libs, "gtk_list_box_get_selection_mode")
+	core.PuregoSafeRegister(&xListBoxGetShowSeparators, libs, "gtk_list_box_get_show_separators")
+	core.PuregoSafeRegister(&xListBoxGetTabBehavior, libs, "gtk_list_box_get_tab_behavior")
+	core.PuregoSafeRegister(&xListBoxInsert, libs, "gtk_list_box_insert")
+	core.PuregoSafeRegister(&xListBoxInvalidateFilter, libs, "gtk_list_box_invalidate_filter")
+	core.PuregoSafeRegister(&xListBoxInvalidateHeaders, libs, "gtk_list_box_invalidate_headers")
+	core.PuregoSafeRegister(&xListBoxInvalidateSort, libs, "gtk_list_box_invalidate_sort")
+	core.PuregoSafeRegister(&xListBoxPrepend, libs, "gtk_list_box_prepend")
+	core.PuregoSafeRegister(&xListBoxRemove, libs, "gtk_list_box_remove")
+	core.PuregoSafeRegister(&xListBoxRemoveAll, libs, "gtk_list_box_remove_all")
+	core.PuregoSafeRegister(&xListBoxSelectAll, libs, "gtk_list_box_select_all")
+	core.PuregoSafeRegister(&xListBoxSelectRow, libs, "gtk_list_box_select_row")
+	core.PuregoSafeRegister(&xListBoxSelectedForeach, libs, "gtk_list_box_selected_foreach")
+	core.PuregoSafeRegister(&xListBoxSetActivateOnSingleClick, libs, "gtk_list_box_set_activate_on_single_click")
+	core.PuregoSafeRegister(&xListBoxSetAdjustment, libs, "gtk_list_box_set_adjustment")
+	core.PuregoSafeRegister(&xListBoxSetFilterFunc, libs, "gtk_list_box_set_filter_func")
+	core.PuregoSafeRegister(&xListBoxSetHeaderFunc, libs, "gtk_list_box_set_header_func")
+	core.PuregoSafeRegister(&xListBoxSetPlaceholder, libs, "gtk_list_box_set_placeholder")
+	core.PuregoSafeRegister(&xListBoxSetSelectionMode, libs, "gtk_list_box_set_selection_mode")
+	core.PuregoSafeRegister(&xListBoxSetShowSeparators, libs, "gtk_list_box_set_show_separators")
+	core.PuregoSafeRegister(&xListBoxSetSortFunc, libs, "gtk_list_box_set_sort_func")
+	core.PuregoSafeRegister(&xListBoxSetTabBehavior, libs, "gtk_list_box_set_tab_behavior")
+	core.PuregoSafeRegister(&xListBoxUnselectAll, libs, "gtk_list_box_unselect_all")
+	core.PuregoSafeRegister(&xListBoxUnselectRow, libs, "gtk_list_box_unselect_row")
+
+	core.PuregoSafeRegister(&xListBoxRowGLibType, libs, "gtk_list_box_row_get_type")
+
+	core.PuregoSafeRegister(&xNewListBoxRow, libs, "gtk_list_box_row_new")
+
+	core.PuregoSafeRegister(&xListBoxRowChanged, libs, "gtk_list_box_row_changed")
+	core.PuregoSafeRegister(&xListBoxRowGetActivatable, libs, "gtk_list_box_row_get_activatable")
+	core.PuregoSafeRegister(&xListBoxRowGetChild, libs, "gtk_list_box_row_get_child")
+	core.PuregoSafeRegister(&xListBoxRowGetHeader, libs, "gtk_list_box_row_get_header")
+	core.PuregoSafeRegister(&xListBoxRowGetIndex, libs, "gtk_list_box_row_get_index")
+	core.PuregoSafeRegister(&xListBoxRowGetSelectable, libs, "gtk_list_box_row_get_selectable")
+	core.PuregoSafeRegister(&xListBoxRowIsSelected, libs, "gtk_list_box_row_is_selected")
+	core.PuregoSafeRegister(&xListBoxRowSetActivatable, libs, "gtk_list_box_row_set_activatable")
+	core.PuregoSafeRegister(&xListBoxRowSetChild, libs, "gtk_list_box_row_set_child")
+	core.PuregoSafeRegister(&xListBoxRowSetHeader, libs, "gtk_list_box_row_set_header")
+	core.PuregoSafeRegister(&xListBoxRowSetSelectable, libs, "gtk_list_box_row_set_selectable")
 }

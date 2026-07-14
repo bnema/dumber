@@ -114,7 +114,6 @@ type CookieJarAcceptPolicy int
 var xCookieJarAcceptPolicyGLibType func() types.GType
 
 func CookieJarAcceptPolicyGLibType() types.GType {
-	core.LazyRegister(&xCookieJarAcceptPolicyGLibType, "SOUP", "soup_cookie_jar_accept_policy_get_type", false)
 	return xCookieJarAcceptPolicyGLibType()
 }
 
@@ -168,7 +167,6 @@ type CookieJar struct {
 var xCookieJarGLibType func() types.GType
 
 func CookieJarGLibType() types.GType {
-	core.LazyRegister(&xCookieJarGLibType, "SOUP", "soup_cookie_jar_get_type", false)
 	return xCookieJarGLibType()
 }
 
@@ -185,7 +183,6 @@ var xNewCookieJar func() uintptr
 // The base [class@CookieJar] class does not support persistent storage of cookies;
 // use a subclass for that.
 func NewCookieJar() *CookieJar {
-	core.LazyRegister(&xNewCookieJar, "SOUP", "soup_cookie_jar_new", false)
 	var cls *CookieJar
 
 	cret := xNewCookieJar()
@@ -208,8 +205,6 @@ var xCookieJarAddCookie func(uintptr, *Cookie)
 //
 // @cookie will be 'stolen' by the jar, so don't free it afterwards.
 func (x *CookieJar) AddCookie(CookieVar *Cookie) {
-	core.LazyRegister(&xCookieJarAddCookie, "SOUP", "soup_cookie_jar_add_cookie", false)
-
 	xCookieJarAddCookie(x.GoPointer(), CookieVar)
 }
 
@@ -229,8 +224,6 @@ var xCookieJarAddCookieFull func(uintptr, *Cookie, *glib.Uri, *glib.Uri)
 //
 // @cookie will be 'stolen' by the jar, so don't free it afterwards.
 func (x *CookieJar) AddCookieFull(CookieVar *Cookie, UriVar *glib.Uri, FirstPartyVar *glib.Uri) {
-	core.LazyRegister(&xCookieJarAddCookieFull, "SOUP", "soup_cookie_jar_add_cookie_full", false)
-
 	xCookieJarAddCookieFull(x.GoPointer(), CookieVar, UriVar, FirstPartyVar)
 }
 
@@ -250,8 +243,6 @@ var xCookieJarAddCookieWithFirstParty func(uintptr, *glib.Uri, *Cookie)
 // For secure cookies to work properly you may want to use
 // [method@CookieJar.add_cookie_full].
 func (x *CookieJar) AddCookieWithFirstParty(FirstPartyVar *glib.Uri, CookieVar *Cookie) {
-	core.LazyRegister(&xCookieJarAddCookieWithFirstParty, "SOUP", "soup_cookie_jar_add_cookie_with_first_party", false)
-
 	xCookieJarAddCookieWithFirstParty(x.GoPointer(), FirstPartyVar, CookieVar)
 }
 
@@ -264,8 +255,6 @@ var xCookieJarAllCookies func(uintptr) uintptr
 //
 // For historical reasons this list is in reverse order.
 func (x *CookieJar) AllCookies() *glib.SList {
-	core.LazyRegister(&xCookieJarAllCookies, "SOUP", "soup_cookie_jar_all_cookies", false)
-
 	cret := xCookieJarAllCookies(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -279,8 +268,6 @@ var xCookieJarDeleteCookie func(uintptr, *Cookie)
 //
 // Emits the [signal@CookieJar::changed] signal.
 func (x *CookieJar) DeleteCookie(CookieVar *Cookie) {
-	core.LazyRegister(&xCookieJarDeleteCookie, "SOUP", "soup_cookie_jar_delete_cookie", false)
-
 	xCookieJarDeleteCookie(x.GoPointer(), CookieVar)
 }
 
@@ -288,8 +275,6 @@ var xCookieJarGetAcceptPolicy func(uintptr) CookieJarAcceptPolicy
 
 // Gets @jar's [enum@CookieJarAcceptPolicy].
 func (x *CookieJar) GetAcceptPolicy() CookieJarAcceptPolicy {
-	core.LazyRegister(&xCookieJarGetAcceptPolicy, "SOUP", "soup_cookie_jar_get_accept_policy", false)
-
 	cret := xCookieJarGetAcceptPolicy(x.GoPointer())
 	return cret
 }
@@ -307,8 +292,6 @@ var xCookieJarGetCookieList func(uintptr, *glib.Uri, bool) uintptr
 // almost certainly be setting @for_http to %FALSE if you are calling
 // this.
 func (x *CookieJar) GetCookieList(UriVar *glib.Uri, ForHttpVar bool) *glib.SList {
-	core.LazyRegister(&xCookieJarGetCookieList, "SOUP", "soup_cookie_jar_get_cookie_list", false)
-
 	cret := xCookieJarGetCookieList(x.GoPointer(), UriVar, ForHttpVar)
 	if cret == 0 {
 		return nil
@@ -325,8 +308,6 @@ var xCookieJarGetCookieListWithSameSiteInfo func(uintptr, *glib.Uri, *glib.Uri, 
 // spec](https://tools.ietf.org/html/draft-ietf-httpbis-cookie-same-site-00) for
 // more detailed information.
 func (x *CookieJar) GetCookieListWithSameSiteInfo(UriVar *glib.Uri, TopLevelVar *glib.Uri, SiteForCookiesVar *glib.Uri, ForHttpVar bool, IsSafeMethodVar bool, IsTopLevelNavigationVar bool) *glib.SList {
-	core.LazyRegister(&xCookieJarGetCookieListWithSameSiteInfo, "SOUP", "soup_cookie_jar_get_cookie_list_with_same_site_info", false)
-
 	cret := xCookieJarGetCookieListWithSameSiteInfo(x.GoPointer(), UriVar, TopLevelVar, SiteForCookiesVar, ForHttpVar, IsSafeMethodVar, IsTopLevelNavigationVar)
 	if cret == 0 {
 		return nil
@@ -347,8 +328,6 @@ var xCookieJarGetCookies func(uintptr, *glib.Uri, bool) string
 // almost certainly be setting @for_http to %FALSE if you are calling
 // this.
 func (x *CookieJar) GetCookies(UriVar *glib.Uri, ForHttpVar bool) string {
-	core.LazyRegister(&xCookieJarGetCookies, "SOUP", "soup_cookie_jar_get_cookies", false)
-
 	cret := xCookieJarGetCookies(x.GoPointer(), UriVar, ForHttpVar)
 	return cret
 }
@@ -357,8 +336,6 @@ var xCookieJarIsPersistent func(uintptr) bool
 
 // Gets whether @jar stores cookies persistenly.
 func (x *CookieJar) IsPersistent() bool {
-	core.LazyRegister(&xCookieJarIsPersistent, "SOUP", "soup_cookie_jar_is_persistent", false)
-
 	cret := xCookieJarIsPersistent(x.GoPointer())
 	return cret
 }
@@ -367,8 +344,6 @@ var xCookieJarSetAcceptPolicy func(uintptr, CookieJarAcceptPolicy)
 
 // Sets @policy as the cookie acceptance policy for @jar.
 func (x *CookieJar) SetAcceptPolicy(PolicyVar CookieJarAcceptPolicy) {
-	core.LazyRegister(&xCookieJarSetAcceptPolicy, "SOUP", "soup_cookie_jar_set_accept_policy", false)
-
 	xCookieJarSetAcceptPolicy(x.GoPointer(), PolicyVar)
 }
 
@@ -384,8 +359,6 @@ var xCookieJarSetCookie func(uintptr, *glib.Uri, string)
 // will have no way of knowing if the cookie is being set by a third
 // party or not.
 func (x *CookieJar) SetCookie(UriVar *glib.Uri, CookieVar string) {
-	core.LazyRegister(&xCookieJarSetCookie, "SOUP", "soup_cookie_jar_set_cookie", false)
-
 	xCookieJarSetCookie(x.GoPointer(), UriVar, CookieVar)
 }
 
@@ -397,8 +370,6 @@ var xCookieJarSetCookieWithFirstParty func(uintptr, *glib.Uri, *glib.Uri, string
 // @first_party will be used to reject cookies coming from third party resources
 // in case such a security policy is set in the @jar.
 func (x *CookieJar) SetCookieWithFirstParty(UriVar *glib.Uri, FirstPartyVar *glib.Uri, CookieVar string) {
-	core.LazyRegister(&xCookieJarSetCookieWithFirstParty, "SOUP", "soup_cookie_jar_set_cookie_with_first_party", false)
-
 	xCookieJarSetCookieWithFirstParty(x.GoPointer(), UriVar, FirstPartyVar, CookieVar)
 }
 
@@ -464,4 +435,32 @@ func (x *CookieJar) ConnectChanged(cb *func(CookieJar, uintptr, uintptr)) uint {
 func init() {
 	core.SetPackageName("SOUP", "libsoup-3.0")
 	core.SetSharedLibraries("SOUP", []string{"libsoup-3.0.so.0", "libsoup-3.0.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("SOUP") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xCookieJarAcceptPolicyGLibType, libs, "soup_cookie_jar_accept_policy_get_type")
+
+	core.PuregoSafeRegister(&xCookieJarGLibType, libs, "soup_cookie_jar_get_type")
+
+	core.PuregoSafeRegister(&xNewCookieJar, libs, "soup_cookie_jar_new")
+
+	core.PuregoSafeRegister(&xCookieJarAddCookie, libs, "soup_cookie_jar_add_cookie")
+	core.PuregoSafeRegister(&xCookieJarAddCookieFull, libs, "soup_cookie_jar_add_cookie_full")
+	core.PuregoSafeRegister(&xCookieJarAddCookieWithFirstParty, libs, "soup_cookie_jar_add_cookie_with_first_party")
+	core.PuregoSafeRegister(&xCookieJarAllCookies, libs, "soup_cookie_jar_all_cookies")
+	core.PuregoSafeRegister(&xCookieJarDeleteCookie, libs, "soup_cookie_jar_delete_cookie")
+	core.PuregoSafeRegister(&xCookieJarGetAcceptPolicy, libs, "soup_cookie_jar_get_accept_policy")
+	core.PuregoSafeRegister(&xCookieJarGetCookieList, libs, "soup_cookie_jar_get_cookie_list")
+	core.PuregoSafeRegister(&xCookieJarGetCookieListWithSameSiteInfo, libs, "soup_cookie_jar_get_cookie_list_with_same_site_info")
+	core.PuregoSafeRegister(&xCookieJarGetCookies, libs, "soup_cookie_jar_get_cookies")
+	core.PuregoSafeRegister(&xCookieJarIsPersistent, libs, "soup_cookie_jar_is_persistent")
+	core.PuregoSafeRegister(&xCookieJarSetAcceptPolicy, libs, "soup_cookie_jar_set_accept_policy")
+	core.PuregoSafeRegister(&xCookieJarSetCookie, libs, "soup_cookie_jar_set_cookie")
+	core.PuregoSafeRegister(&xCookieJarSetCookieWithFirstParty, libs, "soup_cookie_jar_set_cookie_with_first_party")
 }

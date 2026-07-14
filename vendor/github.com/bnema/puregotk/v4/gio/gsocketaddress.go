@@ -87,7 +87,7 @@ func (x *SocketAddressClass) OverrideToNative(cb func(*SocketAddress, uintptr, u
 	if cb == nil {
 		x.xToNative = 0
 	} else {
-		x.xToNative = purego.NewCallback(func(AddressVarp uintptr, DestVarp uintptr, DestlenVarp uint, cerrp **glib.Error) bool {
+		x.xToNative = purego.NewCallback(func(AddressVarp uintptr, DestVarp uintptr, DestlenVarp uint) bool {
 			return cb(SocketAddressNewFromInternalPtr(AddressVarp), DestVarp, DestlenVarp)
 		})
 	}
@@ -98,11 +98,10 @@ func (x *SocketAddressClass) GetToNative() func(*SocketAddress, uintptr, uint) b
 	if x.xToNative == 0 {
 		return nil
 	}
-	var rawCallback func(AddressVarp uintptr, DestVarp uintptr, DestlenVarp uint, cerrp **glib.Error) bool
+	var rawCallback func(AddressVarp uintptr, DestVarp uintptr, DestlenVarp uint) bool
 	purego.RegisterFunc(&rawCallback, x.xToNative)
 	return func(AddressVar *SocketAddress, DestVar uintptr, DestlenVar uint) bool {
-		var cerr *glib.Error
-		return rawCallback(AddressVar.GoPointer(), DestVar, DestlenVar, &cerr)
+		return rawCallback(AddressVar.GoPointer(), DestVar, DestlenVar)
 	}
 }
 
@@ -117,7 +116,6 @@ type SocketAddress struct {
 var xSocketAddressGLibType func() types.GType
 
 func SocketAddressGLibType() types.GType {
-	core.LazyRegister(&xSocketAddressGLibType, "GIO", "g_socket_address_get_type", false)
 	return xSocketAddressGLibType()
 }
 
@@ -132,7 +130,6 @@ var xNewSocketAddressFromNative func(uintptr, uint) uintptr
 // Creates a #GSocketAddress subclass corresponding to the native
 // struct sockaddr @native.
 func NewSocketAddressFromNative(NativeVar uintptr, LenVar uint) *SocketAddress {
-	core.LazyRegister(&xNewSocketAddressFromNative, "GIO", "g_socket_address_new_from_native", false)
 	var cls *SocketAddress
 
 	cret := xNewSocketAddressFromNative(NativeVar, LenVar)
@@ -149,8 +146,6 @@ var xSocketAddressGetFamily func(uintptr) SocketFamily
 
 // Gets the socket family type of @address.
 func (x *SocketAddress) GetFamily() SocketFamily {
-	core.LazyRegister(&xSocketAddressGetFamily, "GIO", "g_socket_address_get_family", false)
-
 	cret := xSocketAddressGetFamily(x.GoPointer())
 	return cret
 }
@@ -161,8 +156,6 @@ var xSocketAddressGetNativeSize func(uintptr) int
 // You can use this to allocate memory to pass to
 // g_socket_address_to_native().
 func (x *SocketAddress) GetNativeSize() int {
-	core.LazyRegister(&xSocketAddressGetNativeSize, "GIO", "g_socket_address_get_native_size", false)
-
 	cret := xSocketAddressGetNativeSize(x.GoPointer())
 	return cret
 }
@@ -176,7 +169,6 @@ var xSocketAddressToNative func(uintptr, uintptr, uint, **glib.Error) bool
 // is returned. If the address type is not known on the system
 // then a %G_IO_ERROR_NOT_SUPPORTED error is returned.
 func (x *SocketAddress) ToNative(DestVar uintptr, DestlenVar uint) (bool, error) {
-	core.LazyRegister(&xSocketAddressToNative, "GIO", "g_socket_address_to_native", false)
 	var cerr *glib.Error
 
 	cret := xSocketAddressToNative(x.GoPointer(), DestVar, DestlenVar, &cerr)
@@ -246,4 +238,20 @@ func (x *SocketAddress) ToString() string {
 func init() {
 	core.SetPackageName("GIO", "gio-2.0")
 	core.SetSharedLibraries("GIO", []string{"libgio-2.0.so.0", "libgio-2.0.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GIO") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xSocketAddressGLibType, libs, "g_socket_address_get_type")
+
+	core.PuregoSafeRegister(&xNewSocketAddressFromNative, libs, "g_socket_address_new_from_native")
+
+	core.PuregoSafeRegister(&xSocketAddressGetFamily, libs, "g_socket_address_get_family")
+	core.PuregoSafeRegister(&xSocketAddressGetNativeSize, libs, "g_socket_address_get_native_size")
+	core.PuregoSafeRegister(&xSocketAddressToNative, libs, "g_socket_address_to_native")
 }

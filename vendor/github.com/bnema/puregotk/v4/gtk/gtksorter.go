@@ -296,7 +296,6 @@ type SorterChange int
 var xSorterChangeGLibType func() types.GType
 
 func SorterChangeGLibType() types.GType {
-	core.LazyRegister(&xSorterChangeGLibType, "GTK", "gtk_sorter_change_get_type", false)
 	return xSorterChangeGLibType()
 }
 
@@ -323,7 +322,6 @@ type SorterOrder int
 var xSorterOrderGLibType func() types.GType
 
 func SorterOrderGLibType() types.GType {
-	core.LazyRegister(&xSorterOrderGLibType, "GTK", "gtk_sorter_order_get_type", false)
 	return xSorterOrderGLibType()
 }
 
@@ -367,7 +365,6 @@ type Sorter struct {
 var xSorterGLibType func() types.GType
 
 func SorterGLibType() types.GType {
-	core.LazyRegister(&xSorterGLibType, "GTK", "gtk_sorter_get_type", false)
 	return xSorterGLibType()
 }
 
@@ -392,8 +389,6 @@ var xSorterChanged func(uintptr, SorterChange)
 // This function is intended for implementers of `GtkSorter`
 // subclasses and should not be called from other functions.
 func (x *Sorter) Changed(ChangeVar SorterChange) {
-	core.LazyRegister(&xSorterChanged, "GTK", "gtk_sorter_changed", false)
-
 	xSorterChanged(x.GoPointer(), ChangeVar)
 }
 
@@ -412,8 +407,6 @@ var xSorterCompare func(uintptr, uintptr, uintptr) Ordering
 // The sorter may signal it conforms to additional constraints
 // via the return value of [method@Gtk.Sorter.get_order].
 func (x *Sorter) Compare(Item1Var *gobject.Object, Item2Var *gobject.Object) Ordering {
-	core.LazyRegister(&xSorterCompare, "GTK", "gtk_sorter_compare", false)
-
 	cret := xSorterCompare(x.GoPointer(), Item1Var.GoPointer(), Item2Var.GoPointer())
 	return cret
 }
@@ -427,8 +420,6 @@ var xSorterGetOrder func(uintptr) SorterOrder
 //
 // This function is intended to allow optimizations.
 func (x *Sorter) GetOrder() SorterOrder {
-	core.LazyRegister(&xSorterGetOrder, "GTK", "gtk_sorter_get_order", false)
-
 	cret := xSorterGetOrder(x.GoPointer())
 	return cret
 }
@@ -479,4 +470,22 @@ func (x *Sorter) ConnectChanged(cb *func(Sorter, SorterChange)) uint {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GTK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xSorterChangeGLibType, libs, "gtk_sorter_change_get_type")
+
+	core.PuregoSafeRegister(&xSorterOrderGLibType, libs, "gtk_sorter_order_get_type")
+
+	core.PuregoSafeRegister(&xSorterGLibType, libs, "gtk_sorter_get_type")
+
+	core.PuregoSafeRegister(&xSorterChanged, libs, "gtk_sorter_changed")
+	core.PuregoSafeRegister(&xSorterCompare, libs, "gtk_sorter_compare")
+	core.PuregoSafeRegister(&xSorterGetOrder, libs, "gtk_sorter_get_order")
 }

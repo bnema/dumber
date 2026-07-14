@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject/types"
 )
@@ -24,7 +25,6 @@ type Color struct {
 var xColorGLibType func() types.GType
 
 func ColorGLibType() types.GType {
-	core.LazyRegister(&xColorGLibType, "PANGO", "pango_color_get_type", false)
 	return xColorGLibType()
 }
 
@@ -49,8 +49,6 @@ var xColorCopy func(uintptr) uintptr
 // otherwise (since colors can just be copied by assignment
 // in C).
 func (x *Color) Copy() *Color {
-	core.LazyRegister(&xColorCopy, "PANGO", "pango_color_copy", false)
-
 	cret := xColorCopy(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -62,8 +60,6 @@ var xColorFree func(uintptr)
 
 // Frees a color allocated by [method@Pango.Color.copy].
 func (x *Color) Free() {
-	core.LazyRegister(&xColorFree, "PANGO", "pango_color_free", false)
-
 	xColorFree(x.GoPointer())
 }
 
@@ -79,8 +75,6 @@ var xColorParse func(uintptr, string) bool
 // of the color, respectively. (White in the four forms is
 // `#fff`, `#ffffff`, `#fffffffff` and `#ffffffffffff`.)
 func (x *Color) Parse(SpecVar string) bool {
-	core.LazyRegister(&xColorParse, "PANGO", "pango_color_parse", false)
-
 	cret := xColorParse(x.GoPointer(), SpecVar)
 	return cret
 }
@@ -103,8 +97,6 @@ var xColorParseWithAlpha func(uintptr, *uint16, string) bool
 // component is found in @spec, @alpha is set to 0xffff (for a
 // solid color).
 func (x *Color) ParseWithAlpha(AlphaVar *uint16, SpecVar string) bool {
-	core.LazyRegister(&xColorParseWithAlpha, "PANGO", "pango_color_parse_with_alpha", false)
-
 	cret := xColorParseWithAlpha(x.GoPointer(), AlphaVar, SpecVar)
 	return cret
 }
@@ -117,8 +109,6 @@ var xColorToString func(uintptr) string
 // where `r`, `g` and `b` are hex digits representing the
 // red, green, and blue components respectively.
 func (x *Color) ToString() string {
-	core.LazyRegister(&xColorToString, "PANGO", "pango_color_to_string", false)
-
 	cret := xColorToString(x.GoPointer())
 	return cret
 }
@@ -126,4 +116,20 @@ func (x *Color) ToString() string {
 func init() {
 	core.SetPackageName("PANGO", "pango")
 	core.SetSharedLibraries("PANGO", []string{"libpango-1.0.so.0", "libpango-1.0.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("PANGO") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xColorGLibType, libs, "pango_color_get_type")
+
+	core.PuregoSafeRegister(&xColorCopy, libs, "pango_color_copy")
+	core.PuregoSafeRegister(&xColorFree, libs, "pango_color_free")
+	core.PuregoSafeRegister(&xColorParse, libs, "pango_color_parse")
+	core.PuregoSafeRegister(&xColorParseWithAlpha, libs, "pango_color_parse_with_alpha")
+	core.PuregoSafeRegister(&xColorToString, libs, "pango_color_to_string")
 }

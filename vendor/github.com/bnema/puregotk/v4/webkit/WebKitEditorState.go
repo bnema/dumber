@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -35,7 +36,6 @@ type EditorTypingAttributes int
 var xEditorTypingAttributesGLibType func() types.GType
 
 func EditorTypingAttributesGLibType() types.GType {
-	core.LazyRegister(&xEditorTypingAttributesGLibType, "WEBKIT", "webkit_editor_typing_attributes_get_type", false)
 	return xEditorTypingAttributesGLibType()
 }
 
@@ -65,7 +65,6 @@ type EditorState struct {
 var xEditorStateGLibType func() types.GType
 
 func EditorStateGLibType() types.GType {
-	core.LazyRegister(&xEditorStateGLibType, "WEBKIT", "webkit_editor_state_get_type", false)
 	return xEditorStateGLibType()
 }
 
@@ -84,8 +83,6 @@ var xEditorStateGetTypingAttributes func(uintptr) uint
 // typing attributes are considered active only when they are
 // present throughout the selection.
 func (x *EditorState) GetTypingAttributes() uint {
-	core.LazyRegister(&xEditorStateGetTypingAttributes, "WEBKIT", "webkit_editor_state_get_typing_attributes", false)
-
 	cret := xEditorStateGetTypingAttributes(x.GoPointer())
 	return cret
 }
@@ -94,8 +91,6 @@ var xEditorStateIsCopyAvailable func(uintptr) bool
 
 // Gets whether a copy command can be issued.
 func (x *EditorState) IsCopyAvailable() bool {
-	core.LazyRegister(&xEditorStateIsCopyAvailable, "WEBKIT", "webkit_editor_state_is_copy_available", false)
-
 	cret := xEditorStateIsCopyAvailable(x.GoPointer())
 	return cret
 }
@@ -104,8 +99,6 @@ var xEditorStateIsCutAvailable func(uintptr) bool
 
 // Gets whether a cut command can be issued.
 func (x *EditorState) IsCutAvailable() bool {
-	core.LazyRegister(&xEditorStateIsCutAvailable, "WEBKIT", "webkit_editor_state_is_cut_available", false)
-
 	cret := xEditorStateIsCutAvailable(x.GoPointer())
 	return cret
 }
@@ -114,8 +107,6 @@ var xEditorStateIsPasteAvailable func(uintptr) bool
 
 // Gets whether a paste command can be issued.
 func (x *EditorState) IsPasteAvailable() bool {
-	core.LazyRegister(&xEditorStateIsPasteAvailable, "WEBKIT", "webkit_editor_state_is_paste_available", false)
-
 	cret := xEditorStateIsPasteAvailable(x.GoPointer())
 	return cret
 }
@@ -124,8 +115,6 @@ var xEditorStateIsRedoAvailable func(uintptr) bool
 
 // Gets whether a redo command can be issued.
 func (x *EditorState) IsRedoAvailable() bool {
-	core.LazyRegister(&xEditorStateIsRedoAvailable, "WEBKIT", "webkit_editor_state_is_redo_available", false)
-
 	cret := xEditorStateIsRedoAvailable(x.GoPointer())
 	return cret
 }
@@ -134,8 +123,6 @@ var xEditorStateIsUndoAvailable func(uintptr) bool
 
 // Gets whether an undo command can be issued.
 func (x *EditorState) IsUndoAvailable() bool {
-	core.LazyRegister(&xEditorStateIsUndoAvailable, "WEBKIT", "webkit_editor_state_is_undo_available", false)
-
 	cret := xEditorStateIsUndoAvailable(x.GoPointer())
 	return cret
 }
@@ -186,8 +173,28 @@ func (x *EditorState) ConnectChanged(cb *func(EditorState)) uint {
 func init() {
 	core.SetPackageName("WEBKIT", "webkitgtk-6.0")
 	core.SetSharedLibraries("WEBKIT", []string{"libwebkitgtk-6.0.so.4", "libjavascriptcoregtk-6.0.so.1", "libwebkitgtk-6.0.4.dylib", "libjavascriptcoregtk-6.0.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("WEBKIT") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
 
-	// Manually register types since they aren't automatically registered when
-	// WebKit is loaded. See https://bugs.webkit.org/show_bug.cgi?id=175937.
+	core.PuregoSafeRegister(&xEditorTypingAttributesGLibType, libs, "webkit_editor_typing_attributes_get_type")
+
+	core.PuregoSafeRegister(&xEditorStateGLibType, libs, "webkit_editor_state_get_type")
+
+	core.PuregoSafeRegister(&xEditorStateGetTypingAttributes, libs, "webkit_editor_state_get_typing_attributes")
+	core.PuregoSafeRegister(&xEditorStateIsCopyAvailable, libs, "webkit_editor_state_is_copy_available")
+	core.PuregoSafeRegister(&xEditorStateIsCutAvailable, libs, "webkit_editor_state_is_cut_available")
+	core.PuregoSafeRegister(&xEditorStateIsPasteAvailable, libs, "webkit_editor_state_is_paste_available")
+	core.PuregoSafeRegister(&xEditorStateIsRedoAvailable, libs, "webkit_editor_state_is_redo_available")
+	core.PuregoSafeRegister(&xEditorStateIsUndoAvailable, libs, "webkit_editor_state_is_undo_available")
+
+	// Manually register types since they aren't being automatically registered when
+	// the library is loaded
+	// See https://bugs.webkit.org/show_bug.cgi?id=175937
 	EditorStateGLibType()
 }

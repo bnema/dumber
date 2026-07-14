@@ -4,6 +4,7 @@ package gdk
 import (
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gio"
 	"github.com/bnema/puregotk/v4/glib"
@@ -34,7 +35,6 @@ type Clipboard struct {
 var xClipboardGLibType func() types.GType
 
 func ClipboardGLibType() types.GType {
-	core.LazyRegister(&xClipboardGLibType, "GDK", "gdk_clipboard_get_type", false)
 	return xClipboardGLibType()
 }
 
@@ -51,7 +51,6 @@ var xClipboardGetContent func(uintptr) uintptr
 // If the @clipboard is empty or its contents are not owned by the
 // current process, %NULL will be returned.
 func (x *Clipboard) GetContent() *ContentProvider {
-	core.LazyRegister(&xClipboardGetContent, "GDK", "gdk_clipboard_get_content", false)
 	var cls *ContentProvider
 
 	cret := xClipboardGetContent(x.GoPointer())
@@ -69,7 +68,6 @@ var xClipboardGetDisplay func(uintptr) uintptr
 
 // Gets the `GdkDisplay` that the clipboard was created for.
 func (x *Clipboard) GetDisplay() *Display {
-	core.LazyRegister(&xClipboardGetDisplay, "GDK", "gdk_clipboard_get_display", false)
 	var cls *Display
 
 	cret := xClipboardGetDisplay(x.GoPointer())
@@ -87,8 +85,6 @@ var xClipboardGetFormats func(uintptr) uintptr
 
 // Gets the formats that the clipboard can provide its current contents in.
 func (x *Clipboard) GetFormats() *ContentFormats {
-	core.LazyRegister(&xClipboardGetFormats, "GDK", "gdk_clipboard_get_formats", false)
-
 	cret := xClipboardGetFormats(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -106,8 +102,6 @@ var xClipboardIsLocal func(uintptr) bool
 // Note that [method@Gdk.Clipboard.get_content] may return %NULL
 // even on a local clipboard. In this case the clipboard is empty.
 func (x *Clipboard) IsLocal() bool {
-	core.LazyRegister(&xClipboardIsLocal, "GDK", "gdk_clipboard_is_local", false)
-
 	cret := xClipboardIsLocal(x.GoPointer())
 	return cret
 }
@@ -120,8 +114,6 @@ var xClipboardReadAsync func(uintptr, []string, int, uintptr, uintptr, uintptr)
 // The clipboard will choose the most suitable mime type from the given list
 // to fulfill the request, preferring the ones listed first.
 func (x *Clipboard) ReadAsync(MimeTypesVar []string, IoPriorityVar int, CancellableVar *gio.Cancellable, CallbackVar *gio.AsyncReadyCallback, UserDataVar uintptr) {
-	core.LazyRegister(&xClipboardReadAsync, "GDK", "gdk_clipboard_read_async", false)
-
 	xClipboardReadAsync(x.GoPointer(), MimeTypesVar, IoPriorityVar, CancellableVar.GoPointer(), glib.NewCallbackNullable(CallbackVar), UserDataVar)
 }
 
@@ -131,7 +123,6 @@ var xClipboardReadFinish func(uintptr, uintptr, *string, **glib.Error) uintptr
 //
 // See [method@Gdk.Clipboard.read_async].
 func (x *Clipboard) ReadFinish(ResultVar gio.AsyncResult, OutMimeTypeVar *string) (*gio.InputStream, error) {
-	core.LazyRegister(&xClipboardReadFinish, "GDK", "gdk_clipboard_read_finish", false)
 	var cls *gio.InputStream
 	var cerr *glib.Error
 
@@ -156,8 +147,6 @@ var xClipboardReadTextAsync func(uintptr, uintptr, uintptr, uintptr)
 // Use that function or [method@Gdk.Clipboard.read_async] directly if you
 // need more control over the operation.
 func (x *Clipboard) ReadTextAsync(CancellableVar *gio.Cancellable, CallbackVar *gio.AsyncReadyCallback, UserDataVar uintptr) {
-	core.LazyRegister(&xClipboardReadTextAsync, "GDK", "gdk_clipboard_read_text_async", false)
-
 	xClipboardReadTextAsync(x.GoPointer(), CancellableVar.GoPointer(), glib.NewCallbackNullable(CallbackVar), UserDataVar)
 }
 
@@ -167,7 +156,6 @@ var xClipboardReadTextFinish func(uintptr, uintptr, **glib.Error) string
 //
 // See [method@Gdk.Clipboard.read_text_async].
 func (x *Clipboard) ReadTextFinish(ResultVar gio.AsyncResult) (string, error) {
-	core.LazyRegister(&xClipboardReadTextFinish, "GDK", "gdk_clipboard_read_text_finish", false)
 	var cerr *glib.Error
 
 	cret := xClipboardReadTextFinish(x.GoPointer(), ResultVar.GoPointer(), &cerr)
@@ -185,8 +173,6 @@ var xClipboardReadTextureAsync func(uintptr, uintptr, uintptr, uintptr)
 // Use that function or [method@Gdk.Clipboard.read_async] directly if you
 // need more control over the operation.
 func (x *Clipboard) ReadTextureAsync(CancellableVar *gio.Cancellable, CallbackVar *gio.AsyncReadyCallback, UserDataVar uintptr) {
-	core.LazyRegister(&xClipboardReadTextureAsync, "GDK", "gdk_clipboard_read_texture_async", false)
-
 	xClipboardReadTextureAsync(x.GoPointer(), CancellableVar.GoPointer(), glib.NewCallbackNullable(CallbackVar), UserDataVar)
 }
 
@@ -196,7 +182,6 @@ var xClipboardReadTextureFinish func(uintptr, uintptr, **glib.Error) uintptr
 //
 // See [method@Gdk.Clipboard.read_texture_async].
 func (x *Clipboard) ReadTextureFinish(ResultVar gio.AsyncResult) (*Texture, error) {
-	core.LazyRegister(&xClipboardReadTextureFinish, "GDK", "gdk_clipboard_read_texture_finish", false)
 	var cls *Texture
 	var cerr *glib.Error
 
@@ -222,8 +207,6 @@ var xClipboardReadValueAsync func(uintptr, types.GType, int, uintptr, uintptr, u
 // the value will be copied directly. Otherwise, GDK will try to use
 // [func@content_deserialize_async] to convert the clipboard's data.
 func (x *Clipboard) ReadValueAsync(TypeVar types.GType, IoPriorityVar int, CancellableVar *gio.Cancellable, CallbackVar *gio.AsyncReadyCallback, UserDataVar uintptr) {
-	core.LazyRegister(&xClipboardReadValueAsync, "GDK", "gdk_clipboard_read_value_async", false)
-
 	xClipboardReadValueAsync(x.GoPointer(), TypeVar, IoPriorityVar, CancellableVar.GoPointer(), glib.NewCallbackNullable(CallbackVar), UserDataVar)
 }
 
@@ -233,7 +216,6 @@ var xClipboardReadValueFinish func(uintptr, uintptr, **glib.Error) uintptr
 //
 // See [method@Gdk.Clipboard.read_value_async].
 func (x *Clipboard) ReadValueFinish(ResultVar gio.AsyncResult) (*gobject.Value, error) {
-	core.LazyRegister(&xClipboardReadValueFinish, "GDK", "gdk_clipboard_read_value_finish", false)
 	var cerr *glib.Error
 
 	cret := xClipboardReadValueFinish(x.GoPointer(), ResultVar.GoPointer(), &cerr)
@@ -260,8 +242,6 @@ var xClipboardSet func(uintptr, types.GType, ...interface{})
 // gdk_clipboard_set (clipboard, GDK_TYPE_TEXTURE, some_texture);
 // ```
 func (x *Clipboard) Set(TypeVar types.GType, varArgs ...interface{}) {
-	core.LazyRegister(&xClipboardSet, "GDK", "gdk_clipboard_set", false)
-
 	xClipboardSet(x.GoPointer(), TypeVar, varArgs...)
 }
 
@@ -280,8 +260,6 @@ var xClipboardSetContent func(uintptr, uintptr) bool
 // @clipboard's read functions, @clipboard will select the best format to
 // transfer the contents and then request that format from @provider.
 func (x *Clipboard) SetContent(ProviderVar *ContentProvider) bool {
-	core.LazyRegister(&xClipboardSetContent, "GDK", "gdk_clipboard_set_content", false)
-
 	cret := xClipboardSetContent(x.GoPointer(), ProviderVar.GoPointer())
 	return cret
 }
@@ -290,8 +268,6 @@ var xClipboardSetText func(uintptr, string)
 
 // Puts the given @text into the clipboard.
 func (x *Clipboard) SetText(TextVar string) {
-	core.LazyRegister(&xClipboardSetText, "GDK", "gdk_clipboard_set_text", false)
-
 	xClipboardSetText(x.GoPointer(), TextVar)
 }
 
@@ -299,8 +275,6 @@ var xClipboardSetTexture func(uintptr, uintptr)
 
 // Puts the given @texture into the clipboard.
 func (x *Clipboard) SetTexture(TextureVar *Texture) {
-	core.LazyRegister(&xClipboardSetTexture, "GDK", "gdk_clipboard_set_texture", false)
-
 	xClipboardSetTexture(x.GoPointer(), TextureVar.GoPointer())
 }
 
@@ -308,8 +282,6 @@ var xClipboardSetValist func(uintptr, types.GType, []interface{})
 
 // Sets the clipboard to contain the value collected from the given @args.
 func (x *Clipboard) SetValist(TypeVar types.GType, ArgsVar []interface{}) {
-	core.LazyRegister(&xClipboardSetValist, "GDK", "gdk_clipboard_set_valist", false)
-
 	xClipboardSetValist(x.GoPointer(), TypeVar, ArgsVar)
 }
 
@@ -317,8 +289,6 @@ var xClipboardSetValue func(uintptr, *gobject.Value)
 
 // Sets the @clipboard to contain the given @value.
 func (x *Clipboard) SetValue(ValueVar *gobject.Value) {
-	core.LazyRegister(&xClipboardSetValue, "GDK", "gdk_clipboard_set_value", false)
-
 	xClipboardSetValue(x.GoPointer(), ValueVar)
 }
 
@@ -337,8 +307,6 @@ var xClipboardStoreAsync func(uintptr, int, uintptr, uintptr, uintptr)
 // [GtkApplication](../gtk4/class.Application.html)
 // is shut down, so you likely don't need to call it.
 func (x *Clipboard) StoreAsync(IoPriorityVar int, CancellableVar *gio.Cancellable, CallbackVar *gio.AsyncReadyCallback, UserDataVar uintptr) {
-	core.LazyRegister(&xClipboardStoreAsync, "GDK", "gdk_clipboard_store_async", false)
-
 	xClipboardStoreAsync(x.GoPointer(), IoPriorityVar, CancellableVar.GoPointer(), glib.NewCallbackNullable(CallbackVar), UserDataVar)
 }
 
@@ -348,7 +316,6 @@ var xClipboardStoreFinish func(uintptr, uintptr, **glib.Error) bool
 //
 // See [method@Gdk.Clipboard.store_async].
 func (x *Clipboard) StoreFinish(ResultVar gio.AsyncResult) (bool, error) {
-	core.LazyRegister(&xClipboardStoreFinish, "GDK", "gdk_clipboard_store_finish", false)
 	var cerr *glib.Error
 
 	cret := xClipboardStoreFinish(x.GoPointer(), ResultVar.GoPointer(), &cerr)
@@ -411,4 +378,35 @@ func (x *Clipboard) ConnectChanged(cb *func(Clipboard)) uint {
 func init() {
 	core.SetPackageName("GDK", "gtk4")
 	core.SetSharedLibraries("GDK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GDK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xClipboardGLibType, libs, "gdk_clipboard_get_type")
+
+	core.PuregoSafeRegister(&xClipboardGetContent, libs, "gdk_clipboard_get_content")
+	core.PuregoSafeRegister(&xClipboardGetDisplay, libs, "gdk_clipboard_get_display")
+	core.PuregoSafeRegister(&xClipboardGetFormats, libs, "gdk_clipboard_get_formats")
+	core.PuregoSafeRegister(&xClipboardIsLocal, libs, "gdk_clipboard_is_local")
+	core.PuregoSafeRegister(&xClipboardReadAsync, libs, "gdk_clipboard_read_async")
+	core.PuregoSafeRegister(&xClipboardReadFinish, libs, "gdk_clipboard_read_finish")
+	core.PuregoSafeRegister(&xClipboardReadTextAsync, libs, "gdk_clipboard_read_text_async")
+	core.PuregoSafeRegister(&xClipboardReadTextFinish, libs, "gdk_clipboard_read_text_finish")
+	core.PuregoSafeRegister(&xClipboardReadTextureAsync, libs, "gdk_clipboard_read_texture_async")
+	core.PuregoSafeRegister(&xClipboardReadTextureFinish, libs, "gdk_clipboard_read_texture_finish")
+	core.PuregoSafeRegister(&xClipboardReadValueAsync, libs, "gdk_clipboard_read_value_async")
+	core.PuregoSafeRegister(&xClipboardReadValueFinish, libs, "gdk_clipboard_read_value_finish")
+	core.PuregoSafeRegister(&xClipboardSet, libs, "gdk_clipboard_set")
+	core.PuregoSafeRegister(&xClipboardSetContent, libs, "gdk_clipboard_set_content")
+	core.PuregoSafeRegister(&xClipboardSetText, libs, "gdk_clipboard_set_text")
+	core.PuregoSafeRegister(&xClipboardSetTexture, libs, "gdk_clipboard_set_texture")
+	core.PuregoSafeRegister(&xClipboardSetValist, libs, "gdk_clipboard_set_valist")
+	core.PuregoSafeRegister(&xClipboardSetValue, libs, "gdk_clipboard_set_value")
+	core.PuregoSafeRegister(&xClipboardStoreAsync, libs, "gdk_clipboard_store_async")
+	core.PuregoSafeRegister(&xClipboardStoreFinish, libs, "gdk_clipboard_store_finish")
 }

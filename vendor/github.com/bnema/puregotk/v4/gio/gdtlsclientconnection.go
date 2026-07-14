@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -45,7 +46,6 @@ type DtlsClientConnection interface {
 var xDtlsClientConnectionGLibType func() types.GType
 
 func DtlsClientConnectionGLibType() types.GType {
-	core.LazyRegister(&xDtlsClientConnectionGLibType, "GIO", "g_dtls_client_connection_get_type", false)
 	return xDtlsClientConnectionGLibType()
 }
 
@@ -123,47 +123,19 @@ func (x *DtlsClientConnectionBase) SetValidationFlags(FlagsVar TlsCertificateFla
 	XGDtlsClientConnectionSetValidationFlags(x.GoPointer(), FlagsVar)
 }
 
-var XGDtlsClientConnectionGetAcceptedCas func(uintptr) uintptr = func(instance uintptr) uintptr {
-	core.LazyRegister(&xXGDtlsClientConnectionGetAcceptedCas, "GIO", "g_dtls_client_connection_get_accepted_cas", false)
-	return xXGDtlsClientConnectionGetAcceptedCas(instance)
-}
-
 var (
-	xXGDtlsClientConnectionGetAcceptedCas   func(uintptr) uintptr
-	XGDtlsClientConnectionGetServerIdentity func(uintptr) uintptr = func(instance uintptr) uintptr {
-		core.LazyRegister(&xXGDtlsClientConnectionGetServerIdentity, "GIO", "g_dtls_client_connection_get_server_identity", false)
-		return xXGDtlsClientConnectionGetServerIdentity(instance)
-	}
+	XGDtlsClientConnectionGetAcceptedCas     func(uintptr) uintptr
+	XGDtlsClientConnectionGetServerIdentity  func(uintptr) uintptr
+	XGDtlsClientConnectionGetValidationFlags func(uintptr) TlsCertificateFlags
+	XGDtlsClientConnectionSetServerIdentity  func(uintptr, uintptr)
+	XGDtlsClientConnectionSetValidationFlags func(uintptr, TlsCertificateFlags)
 )
-var (
-	xXGDtlsClientConnectionGetServerIdentity func(uintptr) uintptr
-	XGDtlsClientConnectionGetValidationFlags func(uintptr) TlsCertificateFlags = func(instance uintptr) TlsCertificateFlags {
-		core.LazyRegister(&xXGDtlsClientConnectionGetValidationFlags, "GIO", "g_dtls_client_connection_get_validation_flags", false)
-		return xXGDtlsClientConnectionGetValidationFlags(instance)
-	}
-)
-var (
-	xXGDtlsClientConnectionGetValidationFlags func(uintptr) TlsCertificateFlags
-	XGDtlsClientConnectionSetServerIdentity   func(uintptr, uintptr) = func(instance uintptr, IdentityVarp uintptr) {
-		core.LazyRegister(&xXGDtlsClientConnectionSetServerIdentity, "GIO", "g_dtls_client_connection_set_server_identity", false)
-		xXGDtlsClientConnectionSetServerIdentity(instance, IdentityVarp)
-	}
-)
-var (
-	xXGDtlsClientConnectionSetServerIdentity func(uintptr, uintptr)
-	XGDtlsClientConnectionSetValidationFlags func(uintptr, TlsCertificateFlags) = func(instance uintptr, FlagsVarp TlsCertificateFlags) {
-		core.LazyRegister(&xXGDtlsClientConnectionSetValidationFlags, "GIO", "g_dtls_client_connection_set_validation_flags", false)
-		xXGDtlsClientConnectionSetValidationFlags(instance, FlagsVarp)
-	}
-)
-var xXGDtlsClientConnectionSetValidationFlags func(uintptr, TlsCertificateFlags)
 
 var xDtlsClientConnectionNew func(uintptr, uintptr, **glib.Error) uintptr
 
 // Creates a new #GDtlsClientConnection wrapping @base_socket which is
 // assumed to communicate with the server identified by @server_identity.
 func DtlsClientConnectionNew(BaseSocketVar DatagramBased, ServerIdentityVar SocketConnectable) (*DtlsClientConnectionBase, error) {
-	core.LazyRegister(&xDtlsClientConnectionNew, "GIO", "g_dtls_client_connection_new", false)
 	var cls *DtlsClientConnectionBase
 	var cerr *glib.Error
 
@@ -183,4 +155,22 @@ func DtlsClientConnectionNew(BaseSocketVar DatagramBased, ServerIdentityVar Sock
 func init() {
 	core.SetPackageName("GIO", "gio-2.0")
 	core.SetSharedLibraries("GIO", []string{"libgio-2.0.so.0", "libgio-2.0.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GIO") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xDtlsClientConnectionNew, libs, "g_dtls_client_connection_new")
+
+	core.PuregoSafeRegister(&xDtlsClientConnectionGLibType, libs, "g_dtls_client_connection_get_type")
+
+	core.PuregoSafeRegister(&XGDtlsClientConnectionGetAcceptedCas, libs, "g_dtls_client_connection_get_accepted_cas")
+	core.PuregoSafeRegister(&XGDtlsClientConnectionGetServerIdentity, libs, "g_dtls_client_connection_get_server_identity")
+	core.PuregoSafeRegister(&XGDtlsClientConnectionGetValidationFlags, libs, "g_dtls_client_connection_get_validation_flags")
+	core.PuregoSafeRegister(&XGDtlsClientConnectionSetServerIdentity, libs, "g_dtls_client_connection_set_server_identity")
+	core.PuregoSafeRegister(&XGDtlsClientConnectionSetValidationFlags, libs, "g_dtls_client_connection_set_validation_flags")
 }

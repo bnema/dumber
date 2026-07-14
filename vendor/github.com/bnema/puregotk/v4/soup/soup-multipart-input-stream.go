@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gio"
 	"github.com/bnema/puregotk/v4/glib"
@@ -47,7 +48,6 @@ type MultipartInputStream struct {
 var xMultipartInputStreamGLibType func() types.GType
 
 func MultipartInputStreamGLibType() types.GType {
-	core.LazyRegister(&xMultipartInputStreamGLibType, "SOUP", "soup_multipart_input_stream_get_type", false)
 	return xMultipartInputStreamGLibType()
 }
 
@@ -66,7 +66,6 @@ var xNewMultipartInputStream func(uintptr, uintptr) uintptr
 // returned by [method@MultipartInputStream.next_part] or its async
 // counterpart instead.
 func NewMultipartInputStream(MsgVar *Message, BaseStreamVar *gio.InputStream) *MultipartInputStream {
-	core.LazyRegister(&xNewMultipartInputStream, "SOUP", "soup_multipart_input_stream_new", false)
 	var cls *MultipartInputStream
 
 	cret := xNewMultipartInputStream(MsgVar.GoPointer(), BaseStreamVar.GoPointer())
@@ -91,8 +90,6 @@ var xMultipartInputStreamGetHeaders func(uintptr) uintptr
 // Note that if a part had no headers at all an empty [struct@MessageHeaders]
 // will be returned.
 func (x *MultipartInputStream) GetHeaders() *MessageHeaders {
-	core.LazyRegister(&xMultipartInputStreamGetHeaders, "SOUP", "soup_multipart_input_stream_get_headers", false)
-
 	cret := xMultipartInputStreamGetHeaders(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -117,7 +114,6 @@ var xMultipartInputStreamNextPart func(uintptr, uintptr, **glib.Error) uintptr
 // @error will only be set if an error happens during a read, %NULL
 // is a valid return value otherwise.
 func (x *MultipartInputStream) NextPart(CancellableVar *gio.Cancellable) (*gio.InputStream, error) {
-	core.LazyRegister(&xMultipartInputStreamNextPart, "SOUP", "soup_multipart_input_stream_next_part", false)
 	var cls *gio.InputStream
 	var cerr *glib.Error
 
@@ -140,8 +136,6 @@ var xMultipartInputStreamNextPartAsync func(uintptr, int, uintptr, uintptr, uint
 //
 // See [method@MultipartInputStream.next_part] for details on the workflow.
 func (x *MultipartInputStream) NextPartAsync(IoPriorityVar int, CancellableVar *gio.Cancellable, CallbackVar *gio.AsyncReadyCallback, DataVar uintptr) {
-	core.LazyRegister(&xMultipartInputStreamNextPartAsync, "SOUP", "soup_multipart_input_stream_next_part_async", false)
-
 	xMultipartInputStreamNextPartAsync(x.GoPointer(), IoPriorityVar, CancellableVar.GoPointer(), glib.NewCallbackNullable(CallbackVar), DataVar)
 }
 
@@ -149,7 +143,6 @@ var xMultipartInputStreamNextPartFinish func(uintptr, uintptr, **glib.Error) uin
 
 // Finishes an asynchronous request for the next part.
 func (x *MultipartInputStream) NextPartFinish(ResultVar gio.AsyncResult) (*gio.InputStream, error) {
-	core.LazyRegister(&xMultipartInputStreamNextPartFinish, "SOUP", "soup_multipart_input_stream_next_part_finish", false)
 	var cls *gio.InputStream
 	var cerr *glib.Error
 
@@ -251,4 +244,21 @@ func (x *MultipartInputStream) ReadNonblocking(BufferVar *[]byte, CountVar uint,
 func init() {
 	core.SetPackageName("SOUP", "libsoup-3.0")
 	core.SetSharedLibraries("SOUP", []string{"libsoup-3.0.so.0", "libsoup-3.0.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("SOUP") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xMultipartInputStreamGLibType, libs, "soup_multipart_input_stream_get_type")
+
+	core.PuregoSafeRegister(&xNewMultipartInputStream, libs, "soup_multipart_input_stream_new")
+
+	core.PuregoSafeRegister(&xMultipartInputStreamGetHeaders, libs, "soup_multipart_input_stream_get_headers")
+	core.PuregoSafeRegister(&xMultipartInputStreamNextPart, libs, "soup_multipart_input_stream_next_part")
+	core.PuregoSafeRegister(&xMultipartInputStreamNextPartAsync, libs, "soup_multipart_input_stream_next_part_async")
+	core.PuregoSafeRegister(&xMultipartInputStreamNextPartFinish, libs, "soup_multipart_input_stream_next_part_finish")
 }

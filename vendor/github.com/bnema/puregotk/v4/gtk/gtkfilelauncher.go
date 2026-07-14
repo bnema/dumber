@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gio"
 	"github.com/bnema/puregotk/v4/glib"
@@ -48,7 +49,6 @@ type FileLauncher struct {
 var xFileLauncherGLibType func() types.GType
 
 func FileLauncherGLibType() types.GType {
-	core.LazyRegister(&xFileLauncherGLibType, "GTK", "gtk_file_launcher_get_type", false)
 	return xFileLauncherGLibType()
 }
 
@@ -62,7 +62,6 @@ var xNewFileLauncher func(uintptr) uintptr
 
 // Creates a new `GtkFileLauncher` object.
 func NewFileLauncher(FileVar gio.File) *FileLauncher {
-	core.LazyRegister(&xNewFileLauncher, "GTK", "gtk_file_launcher_new", false)
 	var cls *FileLauncher
 
 	cret := xNewFileLauncher(FileVar.GoPointer())
@@ -79,8 +78,6 @@ var xFileLauncherGetAlwaysAsk func(uintptr) bool
 
 // Returns whether to ask the user which app to use.
 func (x *FileLauncher) GetAlwaysAsk() bool {
-	core.LazyRegister(&xFileLauncherGetAlwaysAsk, "GTK", "gtk_file_launcher_get_always_ask", false)
-
 	cret := xFileLauncherGetAlwaysAsk(x.GoPointer())
 	return cret
 }
@@ -89,7 +86,6 @@ var xFileLauncherGetFile func(uintptr) uintptr
 
 // Gets the file that will be opened.
 func (x *FileLauncher) GetFile() *gio.FileBase {
-	core.LazyRegister(&xFileLauncherGetFile, "GTK", "gtk_file_launcher_get_file", false)
 	var cls *gio.FileBase
 
 	cret := xFileLauncherGetFile(x.GoPointer())
@@ -107,8 +103,6 @@ var xFileLauncherGetWritable func(uintptr) bool
 
 // Returns whether to make the file writable for the handler.
 func (x *FileLauncher) GetWritable() bool {
-	core.LazyRegister(&xFileLauncherGetWritable, "GTK", "gtk_file_launcher_get_writable", false)
-
 	cret := xFileLauncherGetWritable(x.GoPointer())
 	return cret
 }
@@ -119,8 +113,6 @@ var xFileLauncherLaunch func(uintptr, uintptr, uintptr, uintptr, uintptr)
 //
 // This may present an app chooser dialog to the user.
 func (x *FileLauncher) Launch(ParentVar *Window, CancellableVar *gio.Cancellable, CallbackVar *gio.AsyncReadyCallback, UserDataVar uintptr) {
-	core.LazyRegister(&xFileLauncherLaunch, "GTK", "gtk_file_launcher_launch", false)
-
 	xFileLauncherLaunch(x.GoPointer(), ParentVar.GoPointer(), CancellableVar.GoPointer(), glib.NewCallbackNullable(CallbackVar), UserDataVar)
 }
 
@@ -129,7 +121,6 @@ var xFileLauncherLaunchFinish func(uintptr, uintptr, **glib.Error) bool
 // Finishes the [method@Gtk.FileLauncher.launch] call and
 // returns the result.
 func (x *FileLauncher) LaunchFinish(ResultVar gio.AsyncResult) (bool, error) {
-	core.LazyRegister(&xFileLauncherLaunchFinish, "GTK", "gtk_file_launcher_launch_finish", false)
 	var cerr *glib.Error
 
 	cret := xFileLauncherLaunchFinish(x.GoPointer(), ResultVar.GoPointer(), &cerr)
@@ -146,8 +137,6 @@ var xFileLauncherOpenContainingFolder func(uintptr, uintptr, uintptr, uintptr, u
 // This is only supported for native files. It will fail if @file
 // is e.g. a http:// uri.
 func (x *FileLauncher) OpenContainingFolder(ParentVar *Window, CancellableVar *gio.Cancellable, CallbackVar *gio.AsyncReadyCallback, UserDataVar uintptr) {
-	core.LazyRegister(&xFileLauncherOpenContainingFolder, "GTK", "gtk_file_launcher_open_containing_folder", false)
-
 	xFileLauncherOpenContainingFolder(x.GoPointer(), ParentVar.GoPointer(), CancellableVar.GoPointer(), glib.NewCallbackNullable(CallbackVar), UserDataVar)
 }
 
@@ -156,7 +145,6 @@ var xFileLauncherOpenContainingFolderFinish func(uintptr, uintptr, **glib.Error)
 // Finishes the [method@Gtk.FileLauncher.open_containing_folder]
 // call and returns the result.
 func (x *FileLauncher) OpenContainingFolderFinish(ResultVar gio.AsyncResult) (bool, error) {
-	core.LazyRegister(&xFileLauncherOpenContainingFolderFinish, "GTK", "gtk_file_launcher_open_containing_folder_finish", false)
 	var cerr *glib.Error
 
 	cret := xFileLauncherOpenContainingFolderFinish(x.GoPointer(), ResultVar.GoPointer(), &cerr)
@@ -173,8 +161,6 @@ var xFileLauncherSetAlwaysAsk func(uintptr, bool)
 // If false, the file might be opened with a default app
 // or the previous choice.
 func (x *FileLauncher) SetAlwaysAsk(AlwaysAskVar bool) {
-	core.LazyRegister(&xFileLauncherSetAlwaysAsk, "GTK", "gtk_file_launcher_set_always_ask", false)
-
 	xFileLauncherSetAlwaysAsk(x.GoPointer(), AlwaysAskVar)
 }
 
@@ -182,8 +168,6 @@ var xFileLauncherSetFile func(uintptr, uintptr)
 
 // Sets the file that will be opened.
 func (x *FileLauncher) SetFile(FileVar gio.File) {
-	core.LazyRegister(&xFileLauncherSetFile, "GTK", "gtk_file_launcher_set_file", false)
-
 	xFileLauncherSetFile(x.GoPointer(), FileVar.GoPointer())
 }
 
@@ -191,8 +175,6 @@ var xFileLauncherSetWritable func(uintptr, bool)
 
 // Sets whether to make the file writable for the handler.
 func (x *FileLauncher) SetWritable(WritableVar bool) {
-	core.LazyRegister(&xFileLauncherSetWritable, "GTK", "gtk_file_launcher_set_writable", false)
-
 	xFileLauncherSetWritable(x.GoPointer(), WritableVar)
 }
 
@@ -246,4 +228,27 @@ func (x *FileLauncher) GetPropertyWritable() bool {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GTK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xFileLauncherGLibType, libs, "gtk_file_launcher_get_type")
+
+	core.PuregoSafeRegister(&xNewFileLauncher, libs, "gtk_file_launcher_new")
+
+	core.PuregoSafeRegister(&xFileLauncherGetAlwaysAsk, libs, "gtk_file_launcher_get_always_ask")
+	core.PuregoSafeRegister(&xFileLauncherGetFile, libs, "gtk_file_launcher_get_file")
+	core.PuregoSafeRegister(&xFileLauncherGetWritable, libs, "gtk_file_launcher_get_writable")
+	core.PuregoSafeRegister(&xFileLauncherLaunch, libs, "gtk_file_launcher_launch")
+	core.PuregoSafeRegister(&xFileLauncherLaunchFinish, libs, "gtk_file_launcher_launch_finish")
+	core.PuregoSafeRegister(&xFileLauncherOpenContainingFolder, libs, "gtk_file_launcher_open_containing_folder")
+	core.PuregoSafeRegister(&xFileLauncherOpenContainingFolderFinish, libs, "gtk_file_launcher_open_containing_folder_finish")
+	core.PuregoSafeRegister(&xFileLauncherSetAlwaysAsk, libs, "gtk_file_launcher_set_always_ask")
+	core.PuregoSafeRegister(&xFileLauncherSetFile, libs, "gtk_file_launcher_set_file")
+	core.PuregoSafeRegister(&xFileLauncherSetWritable, libs, "gtk_file_launcher_set_writable")
 }

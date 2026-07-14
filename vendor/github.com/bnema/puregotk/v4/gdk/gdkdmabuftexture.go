@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gio"
 	"github.com/bnema/puregotk/v4/glib"
@@ -31,8 +32,6 @@ var xDmabufErrorQuark func() glib.Quark
 
 // Registers an error quark for [class@Gdk.DmabufTexture] errors.
 func DmabufErrorQuark() glib.Quark {
-	core.LazyRegister(&xDmabufErrorQuark, "GDK", "gdk_dmabuf_error_quark", false)
-
 	cret := xDmabufErrorQuark()
 	return cret
 }
@@ -50,7 +49,6 @@ type DmabufTexture struct {
 var xDmabufTextureGLibType func() types.GType
 
 func DmabufTextureGLibType() types.GType {
-	core.LazyRegister(&xDmabufTextureGLibType, "GDK", "gdk_dmabuf_texture_get_type", false)
 	return xDmabufTextureGLibType()
 }
 
@@ -296,4 +294,16 @@ func (x *DmabufTexture) LoadFinish(ResVar gio.AsyncResult, TypeVar *string) (*gi
 func init() {
 	core.SetPackageName("GDK", "gtk4")
 	core.SetSharedLibraries("GDK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GDK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xDmabufErrorQuark, libs, "gdk_dmabuf_error_quark")
+
+	core.PuregoSafeRegister(&xDmabufTextureGLibType, libs, "gdk_dmabuf_texture_get_type")
 }

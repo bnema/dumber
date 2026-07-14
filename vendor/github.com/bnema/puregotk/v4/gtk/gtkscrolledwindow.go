@@ -2,6 +2,7 @@
 package gtk
 
 import (
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -17,7 +18,6 @@ type CornerType int
 var xCornerTypeGLibType func() types.GType
 
 func CornerTypeGLibType() types.GType {
-	core.LazyRegister(&xCornerTypeGLibType, "GTK", "gtk_corner_type_get_type", false)
 	return xCornerTypeGLibType()
 }
 
@@ -44,7 +44,6 @@ type PolicyType int
 var xPolicyTypeGLibType func() types.GType
 
 func PolicyTypeGLibType() types.GType {
-	core.LazyRegister(&xPolicyTypeGLibType, "GTK", "gtk_policy_type_get_type", false)
 	return xPolicyTypeGLibType()
 }
 
@@ -154,7 +153,6 @@ type ScrolledWindow struct {
 var xScrolledWindowGLibType func() types.GType
 
 func ScrolledWindowGLibType() types.GType {
-	core.LazyRegister(&xScrolledWindowGLibType, "GTK", "gtk_scrolled_window_get_type", false)
 	return xScrolledWindowGLibType()
 }
 
@@ -168,7 +166,6 @@ var xNewScrolledWindow func() uintptr
 
 // Creates a new scrolled window.
 func NewScrolledWindow() *ScrolledWindow {
-	core.LazyRegister(&xNewScrolledWindow, "GTK", "gtk_scrolled_window_new", false)
 	var cls *ScrolledWindow
 
 	cret := xNewScrolledWindow()
@@ -190,7 +187,6 @@ var xScrolledWindowGetChild func(uintptr) uintptr
 // function will return the viewport widget, and you can retrieve its child
 // using [method@Gtk.Viewport.get_child].
 func (x *ScrolledWindow) GetChild() *Widget {
-	core.LazyRegister(&xScrolledWindowGetChild, "GTK", "gtk_scrolled_window_get_child", false)
 	var cls *Widget
 
 	cret := xScrolledWindowGetChild(x.GoPointer())
@@ -211,7 +207,6 @@ var xScrolledWindowGetHadjustment func(uintptr) uintptr
 // This is the adjustment used to connect the horizontal scrollbar
 // to the child widget’s horizontal scroll functionality.
 func (x *ScrolledWindow) GetHadjustment() *Adjustment {
-	core.LazyRegister(&xScrolledWindowGetHadjustment, "GTK", "gtk_scrolled_window_get_hadjustment", false)
 	var cls *Adjustment
 
 	cret := xScrolledWindowGetHadjustment(x.GoPointer())
@@ -229,8 +224,6 @@ var xScrolledWindowGetHasFrame func(uintptr) bool
 
 // Gets whether the scrolled window draws a frame.
 func (x *ScrolledWindow) GetHasFrame() bool {
-	core.LazyRegister(&xScrolledWindowGetHasFrame, "GTK", "gtk_scrolled_window_get_has_frame", false)
-
 	cret := xScrolledWindowGetHasFrame(x.GoPointer())
 	return cret
 }
@@ -239,7 +232,6 @@ var xScrolledWindowGetHscrollbar func(uintptr) uintptr
 
 // Returns the horizontal scrollbar of @scrolled_window.
 func (x *ScrolledWindow) GetHscrollbar() *Widget {
-	core.LazyRegister(&xScrolledWindowGetHscrollbar, "GTK", "gtk_scrolled_window_get_hscrollbar", false)
 	var cls *Widget
 
 	cret := xScrolledWindowGetHscrollbar(x.GoPointer())
@@ -257,8 +249,6 @@ var xScrolledWindowGetKineticScrolling func(uintptr) bool
 
 // Returns the specified kinetic scrolling behavior.
 func (x *ScrolledWindow) GetKineticScrolling() bool {
-	core.LazyRegister(&xScrolledWindowGetKineticScrolling, "GTK", "gtk_scrolled_window_get_kinetic_scrolling", false)
-
 	cret := xScrolledWindowGetKineticScrolling(x.GoPointer())
 	return cret
 }
@@ -267,8 +257,6 @@ var xScrolledWindowGetMaxContentHeight func(uintptr) int
 
 // Returns the maximum content height set.
 func (x *ScrolledWindow) GetMaxContentHeight() int {
-	core.LazyRegister(&xScrolledWindowGetMaxContentHeight, "GTK", "gtk_scrolled_window_get_max_content_height", false)
-
 	cret := xScrolledWindowGetMaxContentHeight(x.GoPointer())
 	return cret
 }
@@ -277,8 +265,6 @@ var xScrolledWindowGetMaxContentWidth func(uintptr) int
 
 // Returns the maximum content width set.
 func (x *ScrolledWindow) GetMaxContentWidth() int {
-	core.LazyRegister(&xScrolledWindowGetMaxContentWidth, "GTK", "gtk_scrolled_window_get_max_content_width", false)
-
 	cret := xScrolledWindowGetMaxContentWidth(x.GoPointer())
 	return cret
 }
@@ -287,8 +273,6 @@ var xScrolledWindowGetMinContentHeight func(uintptr) int
 
 // Gets the minimal content height of @scrolled_window.
 func (x *ScrolledWindow) GetMinContentHeight() int {
-	core.LazyRegister(&xScrolledWindowGetMinContentHeight, "GTK", "gtk_scrolled_window_get_min_content_height", false)
-
 	cret := xScrolledWindowGetMinContentHeight(x.GoPointer())
 	return cret
 }
@@ -297,8 +281,6 @@ var xScrolledWindowGetMinContentWidth func(uintptr) int
 
 // Gets the minimum content width of @scrolled_window.
 func (x *ScrolledWindow) GetMinContentWidth() int {
-	core.LazyRegister(&xScrolledWindowGetMinContentWidth, "GTK", "gtk_scrolled_window_get_min_content_width", false)
-
 	cret := xScrolledWindowGetMinContentWidth(x.GoPointer())
 	return cret
 }
@@ -307,8 +289,6 @@ var xScrolledWindowGetOverlayScrolling func(uintptr) bool
 
 // Returns whether overlay scrolling is enabled for this scrolled window.
 func (x *ScrolledWindow) GetOverlayScrolling() bool {
-	core.LazyRegister(&xScrolledWindowGetOverlayScrolling, "GTK", "gtk_scrolled_window_get_overlay_scrolling", false)
-
 	cret := xScrolledWindowGetOverlayScrolling(x.GoPointer())
 	return cret
 }
@@ -317,8 +297,6 @@ var xScrolledWindowGetPlacement func(uintptr) CornerType
 
 // Gets the placement of the contents with respect to the scrollbars.
 func (x *ScrolledWindow) GetPlacement() CornerType {
-	core.LazyRegister(&xScrolledWindowGetPlacement, "GTK", "gtk_scrolled_window_get_placement", false)
-
 	cret := xScrolledWindowGetPlacement(x.GoPointer())
 	return cret
 }
@@ -330,8 +308,6 @@ var xScrolledWindowGetPolicy func(uintptr, *PolicyType, *PolicyType)
 //
 // See [method@Gtk.ScrolledWindow.set_policy].
 func (x *ScrolledWindow) GetPolicy(HscrollbarPolicyVar *PolicyType, VscrollbarPolicyVar *PolicyType) {
-	core.LazyRegister(&xScrolledWindowGetPolicy, "GTK", "gtk_scrolled_window_get_policy", false)
-
 	xScrolledWindowGetPolicy(x.GoPointer(), HscrollbarPolicyVar, VscrollbarPolicyVar)
 }
 
@@ -340,8 +316,6 @@ var xScrolledWindowGetPropagateNaturalHeight func(uintptr) bool
 // Reports whether the natural height of the child will be calculated
 // and propagated through the scrolled window’s requested natural height.
 func (x *ScrolledWindow) GetPropagateNaturalHeight() bool {
-	core.LazyRegister(&xScrolledWindowGetPropagateNaturalHeight, "GTK", "gtk_scrolled_window_get_propagate_natural_height", false)
-
 	cret := xScrolledWindowGetPropagateNaturalHeight(x.GoPointer())
 	return cret
 }
@@ -351,8 +325,6 @@ var xScrolledWindowGetPropagateNaturalWidth func(uintptr) bool
 // Reports whether the natural width of the child will be calculated
 // and propagated through the scrolled window’s requested natural width.
 func (x *ScrolledWindow) GetPropagateNaturalWidth() bool {
-	core.LazyRegister(&xScrolledWindowGetPropagateNaturalWidth, "GTK", "gtk_scrolled_window_get_propagate_natural_width", false)
-
 	cret := xScrolledWindowGetPropagateNaturalWidth(x.GoPointer())
 	return cret
 }
@@ -364,7 +336,6 @@ var xScrolledWindowGetVadjustment func(uintptr) uintptr
 // This is the adjustment used to connect the vertical
 // scrollbar to the child widget’s vertical scroll functionality.
 func (x *ScrolledWindow) GetVadjustment() *Adjustment {
-	core.LazyRegister(&xScrolledWindowGetVadjustment, "GTK", "gtk_scrolled_window_get_vadjustment", false)
 	var cls *Adjustment
 
 	cret := xScrolledWindowGetVadjustment(x.GoPointer())
@@ -382,7 +353,6 @@ var xScrolledWindowGetVscrollbar func(uintptr) uintptr
 
 // Returns the vertical scrollbar of @scrolled_window.
 func (x *ScrolledWindow) GetVscrollbar() *Widget {
-	core.LazyRegister(&xScrolledWindowGetVscrollbar, "GTK", "gtk_scrolled_window_get_vscrollbar", false)
 	var cls *Widget
 
 	cret := xScrolledWindowGetVscrollbar(x.GoPointer())
@@ -404,8 +374,6 @@ var xScrolledWindowSetChild func(uintptr, uintptr)
 // the scrolled window will add @child to a [class@Gtk.Viewport] instance
 // and then add the viewport as its child widget.
 func (x *ScrolledWindow) SetChild(ChildVar *Widget) {
-	core.LazyRegister(&xScrolledWindowSetChild, "GTK", "gtk_scrolled_window_set_child", false)
-
 	xScrolledWindowSetChild(x.GoPointer(), ChildVar.GoPointer())
 }
 
@@ -413,8 +381,6 @@ var xScrolledWindowSetHadjustment func(uintptr, uintptr)
 
 // Sets the `GtkAdjustment` for the horizontal scrollbar.
 func (x *ScrolledWindow) SetHadjustment(HadjustmentVar *Adjustment) {
-	core.LazyRegister(&xScrolledWindowSetHadjustment, "GTK", "gtk_scrolled_window_set_hadjustment", false)
-
 	xScrolledWindowSetHadjustment(x.GoPointer(), HadjustmentVar.GoPointer())
 }
 
@@ -422,8 +388,6 @@ var xScrolledWindowSetHasFrame func(uintptr, bool)
 
 // Changes the frame drawn around the contents of @scrolled_window.
 func (x *ScrolledWindow) SetHasFrame(HasFrameVar bool) {
-	core.LazyRegister(&xScrolledWindowSetHasFrame, "GTK", "gtk_scrolled_window_set_has_frame", false)
-
 	xScrolledWindowSetHasFrame(x.GoPointer(), HasFrameVar)
 }
 
@@ -434,8 +398,6 @@ var xScrolledWindowSetKineticScrolling func(uintptr, bool)
 // Kinetic scrolling only applies to devices with source
 // %GDK_SOURCE_TOUCHSCREEN.
 func (x *ScrolledWindow) SetKineticScrolling(KineticScrollingVar bool) {
-	core.LazyRegister(&xScrolledWindowSetKineticScrolling, "GTK", "gtk_scrolled_window_set_kinetic_scrolling", false)
-
 	xScrolledWindowSetKineticScrolling(x.GoPointer(), KineticScrollingVar)
 }
 
@@ -449,8 +411,6 @@ var xScrolledWindowSetMaxContentHeight func(uintptr, int)
 // It is a programming error to set the maximum content height to a value
 // smaller than [property@Gtk.ScrolledWindow:min-content-height].
 func (x *ScrolledWindow) SetMaxContentHeight(HeightVar int) {
-	core.LazyRegister(&xScrolledWindowSetMaxContentHeight, "GTK", "gtk_scrolled_window_set_max_content_height", false)
-
 	xScrolledWindowSetMaxContentHeight(x.GoPointer(), HeightVar)
 }
 
@@ -464,8 +424,6 @@ var xScrolledWindowSetMaxContentWidth func(uintptr, int)
 // It is a programming error to set the maximum content width to a
 // value smaller than [property@Gtk.ScrolledWindow:min-content-width].
 func (x *ScrolledWindow) SetMaxContentWidth(WidthVar int) {
-	core.LazyRegister(&xScrolledWindowSetMaxContentWidth, "GTK", "gtk_scrolled_window_set_max_content_width", false)
-
 	xScrolledWindowSetMaxContentWidth(x.GoPointer(), WidthVar)
 }
 
@@ -479,8 +437,6 @@ var xScrolledWindowSetMinContentHeight func(uintptr, int)
 // It is a programming error to set the minimum content height to a
 // value greater than [property@Gtk.ScrolledWindow:max-content-height].
 func (x *ScrolledWindow) SetMinContentHeight(HeightVar int) {
-	core.LazyRegister(&xScrolledWindowSetMinContentHeight, "GTK", "gtk_scrolled_window_set_min_content_height", false)
-
 	xScrolledWindowSetMinContentHeight(x.GoPointer(), HeightVar)
 }
 
@@ -494,8 +450,6 @@ var xScrolledWindowSetMinContentWidth func(uintptr, int)
 // It is a programming error to set the minimum content width to a
 // value greater than [property@Gtk.ScrolledWindow:max-content-width].
 func (x *ScrolledWindow) SetMinContentWidth(WidthVar int) {
-	core.LazyRegister(&xScrolledWindowSetMinContentWidth, "GTK", "gtk_scrolled_window_set_min_content_width", false)
-
 	xScrolledWindowSetMinContentWidth(x.GoPointer(), WidthVar)
 }
 
@@ -503,8 +457,6 @@ var xScrolledWindowSetOverlayScrolling func(uintptr, bool)
 
 // Enables or disables overlay scrolling for this scrolled window.
 func (x *ScrolledWindow) SetOverlayScrolling(OverlayScrollingVar bool) {
-	core.LazyRegister(&xScrolledWindowSetOverlayScrolling, "GTK", "gtk_scrolled_window_set_overlay_scrolling", false)
-
 	xScrolledWindowSetOverlayScrolling(x.GoPointer(), OverlayScrollingVar)
 }
 
@@ -521,8 +473,6 @@ var xScrolledWindowSetPlacement func(uintptr, CornerType)
 // See also [method@Gtk.ScrolledWindow.get_placement] and
 // [method@Gtk.ScrolledWindow.unset_placement].
 func (x *ScrolledWindow) SetPlacement(WindowPlacementVar CornerType) {
-	core.LazyRegister(&xScrolledWindowSetPlacement, "GTK", "gtk_scrolled_window_set_placement", false)
-
 	xScrolledWindowSetPlacement(x.GoPointer(), WindowPlacementVar)
 }
 
@@ -537,8 +487,6 @@ var xScrolledWindowSetPolicy func(uintptr, PolicyType, PolicyType)
 // if needed (that is, if the slider part of the bar would be smaller
 // than the trough — the display is larger than the page size).
 func (x *ScrolledWindow) SetPolicy(HscrollbarPolicyVar PolicyType, VscrollbarPolicyVar PolicyType) {
-	core.LazyRegister(&xScrolledWindowSetPolicy, "GTK", "gtk_scrolled_window_set_policy", false)
-
 	xScrolledWindowSetPolicy(x.GoPointer(), HscrollbarPolicyVar, VscrollbarPolicyVar)
 }
 
@@ -547,8 +495,6 @@ var xScrolledWindowSetPropagateNaturalHeight func(uintptr, bool)
 // Sets whether the natural height of the child should be calculated
 // and propagated through the scrolled window’s requested natural height.
 func (x *ScrolledWindow) SetPropagateNaturalHeight(PropagateVar bool) {
-	core.LazyRegister(&xScrolledWindowSetPropagateNaturalHeight, "GTK", "gtk_scrolled_window_set_propagate_natural_height", false)
-
 	xScrolledWindowSetPropagateNaturalHeight(x.GoPointer(), PropagateVar)
 }
 
@@ -557,8 +503,6 @@ var xScrolledWindowSetPropagateNaturalWidth func(uintptr, bool)
 // Sets whether the natural width of the child should be calculated
 // and propagated through the scrolled window’s requested natural width.
 func (x *ScrolledWindow) SetPropagateNaturalWidth(PropagateVar bool) {
-	core.LazyRegister(&xScrolledWindowSetPropagateNaturalWidth, "GTK", "gtk_scrolled_window_set_propagate_natural_width", false)
-
 	xScrolledWindowSetPropagateNaturalWidth(x.GoPointer(), PropagateVar)
 }
 
@@ -566,8 +510,6 @@ var xScrolledWindowSetVadjustment func(uintptr, uintptr)
 
 // Sets the `GtkAdjustment` for the vertical scrollbar.
 func (x *ScrolledWindow) SetVadjustment(VadjustmentVar *Adjustment) {
-	core.LazyRegister(&xScrolledWindowSetVadjustment, "GTK", "gtk_scrolled_window_set_vadjustment", false)
-
 	xScrolledWindowSetVadjustment(x.GoPointer(), VadjustmentVar.GoPointer())
 }
 
@@ -578,8 +520,6 @@ var xScrolledWindowUnsetPlacement func(uintptr)
 // If no window placement is set for a scrolled window,
 // it defaults to %GTK_CORNER_TOP_LEFT.
 func (x *ScrolledWindow) UnsetPlacement() {
-	core.LazyRegister(&xScrolledWindowUnsetPlacement, "GTK", "gtk_scrolled_window_unset_placement", false)
-
 	xScrolledWindowUnsetPlacement(x.GoPointer())
 }
 
@@ -1166,4 +1106,52 @@ func (x *ScrolledWindow) GetBuildableId() string {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GTK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xCornerTypeGLibType, libs, "gtk_corner_type_get_type")
+
+	core.PuregoSafeRegister(&xPolicyTypeGLibType, libs, "gtk_policy_type_get_type")
+
+	core.PuregoSafeRegister(&xScrolledWindowGLibType, libs, "gtk_scrolled_window_get_type")
+
+	core.PuregoSafeRegister(&xNewScrolledWindow, libs, "gtk_scrolled_window_new")
+
+	core.PuregoSafeRegister(&xScrolledWindowGetChild, libs, "gtk_scrolled_window_get_child")
+	core.PuregoSafeRegister(&xScrolledWindowGetHadjustment, libs, "gtk_scrolled_window_get_hadjustment")
+	core.PuregoSafeRegister(&xScrolledWindowGetHasFrame, libs, "gtk_scrolled_window_get_has_frame")
+	core.PuregoSafeRegister(&xScrolledWindowGetHscrollbar, libs, "gtk_scrolled_window_get_hscrollbar")
+	core.PuregoSafeRegister(&xScrolledWindowGetKineticScrolling, libs, "gtk_scrolled_window_get_kinetic_scrolling")
+	core.PuregoSafeRegister(&xScrolledWindowGetMaxContentHeight, libs, "gtk_scrolled_window_get_max_content_height")
+	core.PuregoSafeRegister(&xScrolledWindowGetMaxContentWidth, libs, "gtk_scrolled_window_get_max_content_width")
+	core.PuregoSafeRegister(&xScrolledWindowGetMinContentHeight, libs, "gtk_scrolled_window_get_min_content_height")
+	core.PuregoSafeRegister(&xScrolledWindowGetMinContentWidth, libs, "gtk_scrolled_window_get_min_content_width")
+	core.PuregoSafeRegister(&xScrolledWindowGetOverlayScrolling, libs, "gtk_scrolled_window_get_overlay_scrolling")
+	core.PuregoSafeRegister(&xScrolledWindowGetPlacement, libs, "gtk_scrolled_window_get_placement")
+	core.PuregoSafeRegister(&xScrolledWindowGetPolicy, libs, "gtk_scrolled_window_get_policy")
+	core.PuregoSafeRegister(&xScrolledWindowGetPropagateNaturalHeight, libs, "gtk_scrolled_window_get_propagate_natural_height")
+	core.PuregoSafeRegister(&xScrolledWindowGetPropagateNaturalWidth, libs, "gtk_scrolled_window_get_propagate_natural_width")
+	core.PuregoSafeRegister(&xScrolledWindowGetVadjustment, libs, "gtk_scrolled_window_get_vadjustment")
+	core.PuregoSafeRegister(&xScrolledWindowGetVscrollbar, libs, "gtk_scrolled_window_get_vscrollbar")
+	core.PuregoSafeRegister(&xScrolledWindowSetChild, libs, "gtk_scrolled_window_set_child")
+	core.PuregoSafeRegister(&xScrolledWindowSetHadjustment, libs, "gtk_scrolled_window_set_hadjustment")
+	core.PuregoSafeRegister(&xScrolledWindowSetHasFrame, libs, "gtk_scrolled_window_set_has_frame")
+	core.PuregoSafeRegister(&xScrolledWindowSetKineticScrolling, libs, "gtk_scrolled_window_set_kinetic_scrolling")
+	core.PuregoSafeRegister(&xScrolledWindowSetMaxContentHeight, libs, "gtk_scrolled_window_set_max_content_height")
+	core.PuregoSafeRegister(&xScrolledWindowSetMaxContentWidth, libs, "gtk_scrolled_window_set_max_content_width")
+	core.PuregoSafeRegister(&xScrolledWindowSetMinContentHeight, libs, "gtk_scrolled_window_set_min_content_height")
+	core.PuregoSafeRegister(&xScrolledWindowSetMinContentWidth, libs, "gtk_scrolled_window_set_min_content_width")
+	core.PuregoSafeRegister(&xScrolledWindowSetOverlayScrolling, libs, "gtk_scrolled_window_set_overlay_scrolling")
+	core.PuregoSafeRegister(&xScrolledWindowSetPlacement, libs, "gtk_scrolled_window_set_placement")
+	core.PuregoSafeRegister(&xScrolledWindowSetPolicy, libs, "gtk_scrolled_window_set_policy")
+	core.PuregoSafeRegister(&xScrolledWindowSetPropagateNaturalHeight, libs, "gtk_scrolled_window_set_propagate_natural_height")
+	core.PuregoSafeRegister(&xScrolledWindowSetPropagateNaturalWidth, libs, "gtk_scrolled_window_set_propagate_natural_width")
+	core.PuregoSafeRegister(&xScrolledWindowSetVadjustment, libs, "gtk_scrolled_window_set_vadjustment")
+	core.PuregoSafeRegister(&xScrolledWindowUnsetPlacement, libs, "gtk_scrolled_window_unset_placement")
 }

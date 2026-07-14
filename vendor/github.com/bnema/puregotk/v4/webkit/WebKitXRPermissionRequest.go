@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -37,7 +38,6 @@ type XRSessionFeatures int
 var xXRSessionFeaturesGLibType func() types.GType
 
 func XRSessionFeaturesGLibType() types.GType {
-	core.LazyRegister(&xXRSessionFeaturesGLibType, "WEBKIT", "webkit_xr_session_features_get_type", false)
 	return xXRSessionFeaturesGLibType()
 }
 
@@ -69,7 +69,6 @@ type XRSessionMode int
 var xXRSessionModeGLibType func() types.GType
 
 func XRSessionModeGLibType() types.GType {
-	core.LazyRegister(&xXRSessionModeGLibType, "WEBKIT", "webkit_xr_session_mode_get_type", false)
 	return xXRSessionModeGLibType()
 }
 
@@ -100,7 +99,6 @@ type XRPermissionRequest struct {
 var xXRPermissionRequestGLibType func() types.GType
 
 func XRPermissionRequestGLibType() types.GType {
-	core.LazyRegister(&xXRPermissionRequestGLibType, "WEBKIT", "webkit_xr_permission_request_get_type", false)
 	return xXRPermissionRequestGLibType()
 }
 
@@ -118,8 +116,6 @@ var xXRPermissionRequestGetConsentOptionalFeatures func(uintptr) XRSessionFeatur
 // webkit_xr_permission_request_set_granted_optional_features()
 // before allowing the request with webkit_permission_request_allow().
 func (x *XRPermissionRequest) GetConsentOptionalFeatures() XRSessionFeatures {
-	core.LazyRegister(&xXRPermissionRequestGetConsentOptionalFeatures, "WEBKIT", "webkit_xr_permission_request_get_consent_optional_features", false)
-
 	cret := xXRPermissionRequestGetConsentOptionalFeatures(x.GoPointer())
 	return cret
 }
@@ -131,8 +127,6 @@ var xXRPermissionRequestGetConsentRequiredFeatures func(uintptr) XRSessionFeatur
 // These features are automatically granted if the request is allowed with
 // webkit_permission_request_allow().
 func (x *XRPermissionRequest) GetConsentRequiredFeatures() XRSessionFeatures {
-	core.LazyRegister(&xXRPermissionRequestGetConsentRequiredFeatures, "WEBKIT", "webkit_xr_permission_request_get_consent_required_features", false)
-
 	cret := xXRPermissionRequestGetConsentRequiredFeatures(x.GoPointer())
 	return cret
 }
@@ -143,8 +137,6 @@ var xXRPermissionRequestGetGrantedFeatures func(uintptr) XRSessionFeatures
 // are either granted by default or have been explicitly granted by
 // the user.
 func (x *XRPermissionRequest) GetGrantedFeatures() XRSessionFeatures {
-	core.LazyRegister(&xXRPermissionRequestGetGrantedFeatures, "WEBKIT", "webkit_xr_permission_request_get_granted_features", false)
-
 	cret := xXRPermissionRequestGetGrantedFeatures(x.GoPointer())
 	return cret
 }
@@ -155,8 +147,6 @@ var xXRPermissionRequestGetOptionalFeaturesRequested func(uintptr) XRSessionFeat
 //
 // This includes both already granted features and those requiring consent.
 func (x *XRPermissionRequest) GetOptionalFeaturesRequested() XRSessionFeatures {
-	core.LazyRegister(&xXRPermissionRequestGetOptionalFeaturesRequested, "WEBKIT", "webkit_xr_permission_request_get_optional_features_requested", false)
-
 	cret := xXRPermissionRequestGetOptionalFeaturesRequested(x.GoPointer())
 	return cret
 }
@@ -167,8 +157,6 @@ var xXRPermissionRequestGetRequiredFeaturesRequested func(uintptr) XRSessionFeat
 //
 // This includes both already granted features and those requiring consent.
 func (x *XRPermissionRequest) GetRequiredFeaturesRequested() XRSessionFeatures {
-	core.LazyRegister(&xXRPermissionRequestGetRequiredFeaturesRequested, "WEBKIT", "webkit_xr_permission_request_get_required_features_requested", false)
-
 	cret := xXRPermissionRequestGetRequiredFeaturesRequested(x.GoPointer())
 	return cret
 }
@@ -177,8 +165,6 @@ var xXRPermissionRequestGetSecurityOrigin func(uintptr) uintptr
 
 // Gets the security origin that initiated the permission request.
 func (x *XRPermissionRequest) GetSecurityOrigin() *SecurityOrigin {
-	core.LazyRegister(&xXRPermissionRequestGetSecurityOrigin, "WEBKIT", "webkit_xr_permission_request_get_security_origin", false)
-
 	cret := xXRPermissionRequestGetSecurityOrigin(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -190,8 +176,6 @@ var xXRPermissionRequestGetSessionMode func(uintptr) XRSessionMode
 
 // Gets the session mode for which permission is being requested.
 func (x *XRPermissionRequest) GetSessionMode() XRSessionMode {
-	core.LazyRegister(&xXRPermissionRequestGetSessionMode, "WEBKIT", "webkit_xr_permission_request_get_session_mode", false)
-
 	cret := xXRPermissionRequestGetSessionMode(x.GoPointer())
 	return cret
 }
@@ -205,8 +189,6 @@ var xXRPermissionRequestSetGrantedOptionalFeatures func(uintptr, XRSessionFeatur
 // webkit_permission_request_allow(). If the request is denied, no features are
 // granted, regardless of what is set here.
 func (x *XRPermissionRequest) SetGrantedOptionalFeatures(GrantedVar XRSessionFeatures) {
-	core.LazyRegister(&xXRPermissionRequestSetGrantedOptionalFeatures, "WEBKIT", "webkit_xr_permission_request_set_granted_optional_features", false)
-
 	xXRPermissionRequestSetGrantedOptionalFeatures(x.GoPointer(), GrantedVar)
 }
 
@@ -234,8 +216,32 @@ func (x *XRPermissionRequest) Deny() {
 func init() {
 	core.SetPackageName("WEBKIT", "webkitgtk-6.0")
 	core.SetSharedLibraries("WEBKIT", []string{"libwebkitgtk-6.0.so.4", "libjavascriptcoregtk-6.0.so.1", "libwebkitgtk-6.0.4.dylib", "libjavascriptcoregtk-6.0.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("WEBKIT") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
 
-	// Manually register types since they aren't automatically registered when
-	// WebKit is loaded. See https://bugs.webkit.org/show_bug.cgi?id=175937.
+	core.PuregoSafeRegister(&xXRSessionFeaturesGLibType, libs, "webkit_xr_session_features_get_type")
+
+	core.PuregoSafeRegister(&xXRSessionModeGLibType, libs, "webkit_xr_session_mode_get_type")
+
+	core.PuregoSafeRegister(&xXRPermissionRequestGLibType, libs, "webkit_xr_permission_request_get_type")
+
+	core.PuregoSafeRegister(&xXRPermissionRequestGetConsentOptionalFeatures, libs, "webkit_xr_permission_request_get_consent_optional_features")
+	core.PuregoSafeRegister(&xXRPermissionRequestGetConsentRequiredFeatures, libs, "webkit_xr_permission_request_get_consent_required_features")
+	core.PuregoSafeRegister(&xXRPermissionRequestGetGrantedFeatures, libs, "webkit_xr_permission_request_get_granted_features")
+	core.PuregoSafeRegister(&xXRPermissionRequestGetOptionalFeaturesRequested, libs, "webkit_xr_permission_request_get_optional_features_requested")
+	core.PuregoSafeRegister(&xXRPermissionRequestGetRequiredFeaturesRequested, libs, "webkit_xr_permission_request_get_required_features_requested")
+	core.PuregoSafeRegister(&xXRPermissionRequestGetSecurityOrigin, libs, "webkit_xr_permission_request_get_security_origin")
+	core.PuregoSafeRegister(&xXRPermissionRequestGetSessionMode, libs, "webkit_xr_permission_request_get_session_mode")
+	core.PuregoSafeRegister(&xXRPermissionRequestSetGrantedOptionalFeatures, libs, "webkit_xr_permission_request_set_granted_optional_features")
+
+	// Manually register types since they aren't being automatically registered when
+	// the library is loaded
+	// See https://bugs.webkit.org/show_bug.cgi?id=175937
 	XRPermissionRequestGLibType()
 }

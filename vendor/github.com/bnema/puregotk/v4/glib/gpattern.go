@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject/types"
 )
@@ -32,7 +33,6 @@ type PatternSpec struct {
 var xPatternSpecGLibType func() types.GType
 
 func PatternSpecGLibType() types.GType {
-	core.LazyRegister(&xPatternSpecGLibType, "GLIB", "g_pattern_spec_get_type", false)
 	return xPatternSpecGLibType()
 }
 
@@ -52,8 +52,6 @@ var xNewPatternSpec func(string) uintptr
 
 // Compiles a pattern to a [type@GLib.PatternSpec].
 func NewPatternSpec(PatternVar string) *PatternSpec {
-	core.LazyRegister(&xNewPatternSpec, "GLIB", "g_pattern_spec_new", false)
-
 	cret := xNewPatternSpec(PatternVar)
 	if cret == 0 {
 		return nil
@@ -65,8 +63,6 @@ var xPatternSpecCopy func(uintptr) uintptr
 
 // Copies @pspec in a new [type@GLib.PatternSpec].
 func (x *PatternSpec) Copy() *PatternSpec {
-	core.LazyRegister(&xPatternSpecCopy, "GLIB", "g_pattern_spec_copy", false)
-
 	cret := xPatternSpecCopy(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -79,8 +75,6 @@ var xPatternSpecEqual func(uintptr, *PatternSpec) bool
 // Compares two compiled pattern specs and returns whether they will
 // match the same set of strings.
 func (x *PatternSpec) Equal(Pspec2Var *PatternSpec) bool {
-	core.LazyRegister(&xPatternSpecEqual, "GLIB", "g_pattern_spec_equal", false)
-
 	cret := xPatternSpecEqual(x.GoPointer(), Pspec2Var)
 	return cret
 }
@@ -89,8 +83,6 @@ var xPatternSpecFree func(uintptr)
 
 // Frees the memory allocated for the [type@GLib.PatternSpec].
 func (x *PatternSpec) Free() {
-	core.LazyRegister(&xPatternSpecFree, "GLIB", "g_pattern_spec_free", false)
-
 	xPatternSpecFree(x.GoPointer())
 }
 
@@ -116,8 +108,6 @@ var xPatternSpecMatch func(uintptr, uint, string, uintptr) bool
 // does not contain any multibyte characters. GLib offers the
 // [func@GLib.utf8_strreverse] function to reverse UTF-8 encoded strings.
 func (x *PatternSpec) Match(StringLengthVar uint, StringVar string, StringReversedVar *string) bool {
-	core.LazyRegister(&xPatternSpecMatch, "GLIB", "g_pattern_spec_match", false)
-
 	StringReversedVarPtr := core.GStrdupNullable(StringReversedVar)
 	defer core.GFreeNullable(StringReversedVarPtr)
 
@@ -133,8 +123,6 @@ var xPatternSpecMatchString func(uintptr, string) bool
 // matched against more than one pattern, consider using
 // [method@GLib.PatternSpec.match] instead while supplying the reversed string.
 func (x *PatternSpec) MatchString(StringVar string) bool {
-	core.LazyRegister(&xPatternSpecMatchString, "GLIB", "g_pattern_spec_match_string", false)
-
 	cret := xPatternSpecMatchString(x.GoPointer(), StringVar)
 	return cret
 }
@@ -161,8 +149,6 @@ var xPatternMatch func(*PatternSpec, uint, string, uintptr) bool
 // does not contain any multibyte characters. GLib offers the
 // [func@GLib.utf8_strreverse] function to reverse UTF-8 encoded strings.
 func PatternMatch(PspecVar *PatternSpec, StringLengthVar uint, StringVar string, StringReversedVar *string) bool {
-	core.LazyRegister(&xPatternMatch, "GLIB", "g_pattern_match", false)
-
 	StringReversedVarPtr := core.GStrdupNullable(StringReversedVar)
 	defer core.GFreeNullable(StringReversedVarPtr)
 
@@ -179,8 +165,6 @@ var xPatternMatchSimple func(string, string) bool
 // the pattern once with [ctor@GLib.PatternSpec.new] and call
 // [method@GLib.PatternSpec.match_string] repeatedly.
 func PatternMatchSimple(PatternVar string, StringVar string) bool {
-	core.LazyRegister(&xPatternMatchSimple, "GLIB", "g_pattern_match_simple", false)
-
 	cret := xPatternMatchSimple(PatternVar, StringVar)
 	return cret
 }
@@ -193,8 +177,6 @@ var xPatternMatchString func(*PatternSpec, string) bool
 // matched against more than one pattern, consider using
 // [method@GLib.PatternSpec.match] instead while supplying the reversed string.
 func PatternMatchString(PspecVar *PatternSpec, StringVar string) bool {
-	core.LazyRegister(&xPatternMatchString, "GLIB", "g_pattern_match_string", false)
-
 	cret := xPatternMatchString(PspecVar, StringVar)
 	return cret
 }
@@ -202,4 +184,26 @@ func PatternMatchString(PspecVar *PatternSpec, StringVar string) bool {
 func init() {
 	core.SetPackageName("GLIB", "glib-2.0")
 	core.SetSharedLibraries("GLIB", []string{"libgobject-2.0.so.0", "libglib-2.0.so.0", "libgobject-2.0.0.dylib", "libglib-2.0.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GLIB") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xPatternMatch, libs, "g_pattern_match")
+	core.PuregoSafeRegister(&xPatternMatchSimple, libs, "g_pattern_match_simple")
+	core.PuregoSafeRegister(&xPatternMatchString, libs, "g_pattern_match_string")
+
+	core.PuregoSafeRegister(&xPatternSpecGLibType, libs, "g_pattern_spec_get_type")
+
+	core.PuregoSafeRegister(&xNewPatternSpec, libs, "g_pattern_spec_new")
+
+	core.PuregoSafeRegister(&xPatternSpecCopy, libs, "g_pattern_spec_copy")
+	core.PuregoSafeRegister(&xPatternSpecEqual, libs, "g_pattern_spec_equal")
+	core.PuregoSafeRegister(&xPatternSpecFree, libs, "g_pattern_spec_free")
+	core.PuregoSafeRegister(&xPatternSpecMatch, libs, "g_pattern_spec_match")
+	core.PuregoSafeRegister(&xPatternSpecMatchString, libs, "g_pattern_spec_match_string")
 }

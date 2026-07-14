@@ -89,7 +89,6 @@ type SectionModel interface {
 var xSectionModelGLibType func() types.GType
 
 func SectionModelGLibType() types.GType {
-	core.LazyRegister(&xSectionModelGLibType, "GTK", "gtk_section_model_get_type", false)
 	return xSectionModelGLibType()
 }
 
@@ -136,21 +135,25 @@ func (x *SectionModelBase) SectionsChanged(PositionVar uint, NItemsVar uint) {
 	XGtkSectionModelSectionsChanged(x.GoPointer(), PositionVar, NItemsVar)
 }
 
-var XGtkSectionModelGetSection func(uintptr, uint, *uint, *uint) = func(instance uintptr, PositionVarp uint, OutStartVarp *uint, OutEndVarp *uint) {
-	core.LazyRegister(&xXGtkSectionModelGetSection, "GTK", "gtk_section_model_get_section", false)
-	xXGtkSectionModelGetSection(instance, PositionVarp, OutStartVarp, OutEndVarp)
-}
-
 var (
-	xXGtkSectionModelGetSection     func(uintptr, uint, *uint, *uint)
-	XGtkSectionModelSectionsChanged func(uintptr, uint, uint) = func(instance uintptr, PositionVarp uint, NItemsVarp uint) {
-		core.LazyRegister(&xXGtkSectionModelSectionsChanged, "GTK", "gtk_section_model_sections_changed", false)
-		xXGtkSectionModelSectionsChanged(instance, PositionVarp, NItemsVarp)
-	}
+	XGtkSectionModelGetSection      func(uintptr, uint, *uint, *uint)
+	XGtkSectionModelSectionsChanged func(uintptr, uint, uint)
 )
-var xXGtkSectionModelSectionsChanged func(uintptr, uint, uint)
 
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GTK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xSectionModelGLibType, libs, "gtk_section_model_get_type")
+
+	core.PuregoSafeRegister(&XGtkSectionModelGetSection, libs, "gtk_section_model_get_section")
+	core.PuregoSafeRegister(&XGtkSectionModelSectionsChanged, libs, "gtk_section_model_sections_changed")
 }

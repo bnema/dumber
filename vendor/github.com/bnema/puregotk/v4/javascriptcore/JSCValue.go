@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -93,7 +94,6 @@ type Value struct {
 var xValueGLibType func() types.GType
 
 func ValueGLibType() types.GType {
-	core.LazyRegister(&xValueGLibType, "JAVASCRIPTCORE", "jsc_value_get_type", false)
 	return xValueGLibType()
 }
 
@@ -108,7 +108,6 @@ var xNewValueArray func(uintptr, types.GType, ...interface{}) uintptr
 // Create a new #JSCValue referencing an array with the given items. If @first_item_type
 // is %G_TYPE_NONE an empty array is created.
 func NewValueArray(ContextVar *Context, FirstItemTypeVar types.GType, varArgs ...interface{}) *Value {
-	core.LazyRegister(&xNewValueArray, "JAVASCRIPTCORE", "jsc_value_new_array", false)
 	var cls *Value
 
 	cret := xNewValueArray(ContextVar.GoPointer(), FirstItemTypeVar, varArgs...)
@@ -150,7 +149,6 @@ var xNewValueArrayBuffer func(uintptr, uintptr, uint, uintptr, uintptr) uintptr
 // JSCValue *value = jsc_value_new_array_buffer (context, bytes, 100, g_free, bytes);
 // ]|
 func NewValueArrayBuffer(ContextVar *Context, DataVar uintptr, SizeVar uint, DestroyNotifyVar *glib.DestroyNotify, UserDataVar uintptr) *Value {
-	core.LazyRegister(&xNewValueArrayBuffer, "JAVASCRIPTCORE", "jsc_value_new_array_buffer", false)
 	var cls *Value
 
 	cret := xNewValueArrayBuffer(ContextVar.GoPointer(), DataVar, SizeVar, glib.NewCallbackNullable(DestroyNotifyVar), UserDataVar)
@@ -169,7 +167,6 @@ var xNewValueArrayFromGarray func(uintptr, []Value) uintptr
 // is %NULL or empty a new empty array will be created. Elements of @array should be
 // pointers to a #JSCValue.
 func NewValueArrayFromGarray(ContextVar *Context, ArrayVar []Value) *Value {
-	core.LazyRegister(&xNewValueArrayFromGarray, "JAVASCRIPTCORE", "jsc_value_new_array_from_garray", false)
 	var cls *Value
 
 	cret := xNewValueArrayFromGarray(ContextVar.GoPointer(), ArrayVar)
@@ -187,7 +184,6 @@ var xNewValueArrayFromStrv func(uintptr, []string) uintptr
 // Create a new #JSCValue referencing an array of strings with the items from @strv. If @array
 // is %NULL or empty a new empty array will be created.
 func NewValueArrayFromStrv(ContextVar *Context, StrvVar []string) *Value {
-	core.LazyRegister(&xNewValueArrayFromStrv, "JAVASCRIPTCORE", "jsc_value_new_array_from_strv", false)
 	var cls *Value
 
 	cret := xNewValueArrayFromStrv(ContextVar.GoPointer(), StrvVar)
@@ -204,7 +200,6 @@ var xNewValueBoolean func(uintptr, bool) uintptr
 
 // Create a new #JSCValue from @value
 func NewValueBoolean(ContextVar *Context, ValueVar bool) *Value {
-	core.LazyRegister(&xNewValueBoolean, "JAVASCRIPTCORE", "jsc_value_new_boolean", false)
 	var cls *Value
 
 	cret := xNewValueBoolean(ContextVar.GoPointer(), ValueVar)
@@ -221,7 +216,6 @@ var xNewValueFromJson func(uintptr, string) uintptr
 
 // Create a new #JSCValue referencing a new value created by parsing @json.
 func NewValueFromJson(ContextVar *Context, JsonVar string) *Value {
-	core.LazyRegister(&xNewValueFromJson, "JAVASCRIPTCORE", "jsc_value_new_from_json", false)
 	var cls *Value
 
 	cret := xNewValueFromJson(ContextVar.GoPointer(), JsonVar)
@@ -246,7 +240,6 @@ var xNewValueFunction func(uintptr, uintptr, uintptr, uintptr, uintptr, types.GT
 // If you really want to return a new copy of the boxed type, use #JSC_TYPE_VALUE and return a #JSCValue created
 // with jsc_value_new_object() that receives the copy as instance parameter.
 func NewValueFunction(ContextVar *Context, NameVar *string, CallbackVar *gobject.Callback, UserDataVar uintptr, DestroyNotifyVar *glib.DestroyNotify, ReturnTypeVar types.GType, NParamsVar uint, varArgs ...interface{}) *Value {
-	core.LazyRegister(&xNewValueFunction, "JAVASCRIPTCORE", "jsc_value_new_function", false)
 	var cls *Value
 
 	NameVarPtr := core.GStrdupNullable(NameVar)
@@ -274,7 +267,6 @@ var xNewValueFunctionVariadic func(uintptr, uintptr, uintptr, uintptr, uintptr, 
 // If you really want to return a new copy of the boxed type, use #JSC_TYPE_VALUE and return a #JSCValue created
 // with jsc_value_new_object() that receives the copy as instance parameter.
 func NewValueFunctionVariadic(ContextVar *Context, NameVar *string, CallbackVar *gobject.Callback, UserDataVar uintptr, DestroyNotifyVar *glib.DestroyNotify, ReturnTypeVar types.GType) *Value {
-	core.LazyRegister(&xNewValueFunctionVariadic, "JAVASCRIPTCORE", "jsc_value_new_function_variadic", false)
 	var cls *Value
 
 	NameVarPtr := core.GStrdupNullable(NameVar)
@@ -302,7 +294,6 @@ var xNewValueFunctionv func(uintptr, uintptr, uintptr, uintptr, uintptr, types.G
 // If you really want to return a new copy of the boxed type, use #JSC_TYPE_VALUE and return a #JSCValue created
 // with jsc_value_new_object() that receives the copy as instance parameter.
 func NewValueFunctionv(ContextVar *Context, NameVar *string, CallbackVar *gobject.Callback, UserDataVar uintptr, DestroyNotifyVar *glib.DestroyNotify, ReturnTypeVar types.GType, NParametersVar uint, ParameterTypesVar []types.GType) *Value {
-	core.LazyRegister(&xNewValueFunctionv, "JAVASCRIPTCORE", "jsc_value_new_functionv", false)
 	var cls *Value
 
 	NameVarPtr := core.GStrdupNullable(NameVar)
@@ -322,7 +313,6 @@ var xNewValueNull func(uintptr) uintptr
 
 // Create a new #JSCValue referencing &lt;function&gt;null&lt;/function&gt; in @context.
 func NewValueNull(ContextVar *Context) *Value {
-	core.LazyRegister(&xNewValueNull, "JAVASCRIPTCORE", "jsc_value_new_null", false)
 	var cls *Value
 
 	cret := xNewValueNull(ContextVar.GoPointer())
@@ -339,7 +329,6 @@ var xNewValueNumber func(uintptr, float64) uintptr
 
 // Create a new #JSCValue from @number.
 func NewValueNumber(ContextVar *Context, NumberVar float64) *Value {
-	core.LazyRegister(&xNewValueNumber, "JAVASCRIPTCORE", "jsc_value_new_number", false)
 	var cls *Value
 
 	cret := xNewValueNumber(ContextVar.GoPointer(), NumberVar)
@@ -358,7 +347,6 @@ var xNewValueObject func(uintptr, uintptr, uintptr) uintptr
 // When @instance is provided, @jsc_class must be provided too. @jsc_class takes ownership of
 // @instance that will be freed by the #GDestroyNotify passed to jsc_context_register_class().
 func NewValueObject(ContextVar *Context, InstanceVar uintptr, JscClassVar *Class) *Value {
-	core.LazyRegister(&xNewValueObject, "JAVASCRIPTCORE", "jsc_value_new_object", false)
 	var cls *Value
 
 	cret := xNewValueObject(ContextVar.GoPointer(), InstanceVar, JscClassVar.GoPointer())
@@ -379,7 +367,6 @@ var xNewValuePromise func(uintptr, uintptr, uintptr) uintptr
 // during the executor invocation will not be propagated to the context, but
 // handled by the promise causing a rejection.
 func NewValuePromise(ContextVar *Context, ExecutorVar *Executor, UserDataVar uintptr) *Value {
-	core.LazyRegister(&xNewValuePromise, "JAVASCRIPTCORE", "jsc_value_new_promise", false)
 	var cls *Value
 
 	cret := xNewValuePromise(ContextVar.GoPointer(), glib.NewCallback(ExecutorVar), UserDataVar)
@@ -397,7 +384,6 @@ var xNewValueString func(uintptr, uintptr) uintptr
 // Create a new #JSCValue from @string. If you need to create a #JSCValue from a
 // string containing null characters, use jsc_value_new_string_from_bytes() instead.
 func NewValueString(ContextVar *Context, StringVar *string) *Value {
-	core.LazyRegister(&xNewValueString, "JAVASCRIPTCORE", "jsc_value_new_string", false)
 	var cls *Value
 
 	StringVarPtr := core.GStrdupNullable(StringVar)
@@ -417,7 +403,6 @@ var xNewValueStringFromBytes func(uintptr, *glib.Bytes) uintptr
 
 // Create a new #JSCValue from @bytes.
 func NewValueStringFromBytes(ContextVar *Context, BytesVar *glib.Bytes) *Value {
-	core.LazyRegister(&xNewValueStringFromBytes, "JAVASCRIPTCORE", "jsc_value_new_string_from_bytes", false)
 	var cls *Value
 
 	cret := xNewValueStringFromBytes(ContextVar.GoPointer(), BytesVar)
@@ -441,7 +426,6 @@ var xNewValueTypedArray func(uintptr, TypedArrayType, uint) uintptr
 //
 // The @type must *not* be %JSC_TYPED_ARRAY_NONE.
 func NewValueTypedArray(ContextVar *Context, TypeVar TypedArrayType, LengthVar uint) *Value {
-	core.LazyRegister(&xNewValueTypedArray, "JAVASCRIPTCORE", "jsc_value_new_typed_array", false)
 	var cls *Value
 
 	cret := xNewValueTypedArray(ContextVar.GoPointer(), TypeVar, LengthVar)
@@ -458,7 +442,6 @@ var xNewValueUndefined func(uintptr) uintptr
 
 // Create a new #JSCValue referencing &lt;function&gt;undefined&lt;/function&gt; in @context.
 func NewValueUndefined(ContextVar *Context) *Value {
-	core.LazyRegister(&xNewValueUndefined, "JAVASCRIPTCORE", "jsc_value_new_undefined", false)
 	var cls *Value
 
 	cret := xNewValueUndefined(ContextVar.GoPointer())
@@ -489,8 +472,6 @@ var xValueArrayBufferGetData func(uintptr, *uint) uintptr
 // the meantime. Consider taking a copy of the data and using the copy instead
 // in asynchronous code.
 func (x *Value) ArrayBufferGetData(SizeVar *uint) uintptr {
-	core.LazyRegister(&xValueArrayBufferGetData, "JAVASCRIPTCORE", "jsc_value_array_buffer_get_data", false)
-
 	cret := xValueArrayBufferGetData(x.GoPointer(), SizeVar)
 	return cret
 }
@@ -502,8 +483,6 @@ var xValueArrayBufferGetSize func(uintptr) uint
 // Obtains the size in bytes of the memory region that holds the contents of
 // an %ArrayBuffer.
 func (x *Value) ArrayBufferGetSize() uint {
-	core.LazyRegister(&xValueArrayBufferGetSize, "JAVASCRIPTCORE", "jsc_value_array_buffer_get_size", false)
-
 	cret := xValueArrayBufferGetSize(x.GoPointer())
 	return cret
 }
@@ -513,7 +492,6 @@ var xValueConstructorCall func(uintptr, types.GType, ...interface{}) uintptr
 // Invoke &lt;function&gt;new&lt;/function&gt; with constructor referenced by @value. If @first_parameter_type
 // is %G_TYPE_NONE no parameters will be passed to the constructor.
 func (x *Value) ConstructorCall(FirstParameterTypeVar types.GType, varArgs ...interface{}) *Value {
-	core.LazyRegister(&xValueConstructorCall, "JAVASCRIPTCORE", "jsc_value_constructor_call", false)
 	var cls *Value
 
 	cret := xValueConstructorCall(x.GoPointer(), FirstParameterTypeVar, varArgs...)
@@ -531,7 +509,6 @@ var xValueConstructorCallv func(uintptr, uint, []Value) uintptr
 // Invoke &lt;function&gt;new&lt;/function&gt; with constructor referenced by @value. If @n_parameters
 // is 0 no parameters will be passed to the constructor.
 func (x *Value) ConstructorCallv(NParametersVar uint, ParametersVar []Value) *Value {
-	core.LazyRegister(&xValueConstructorCallv, "JAVASCRIPTCORE", "jsc_value_constructor_callv", false)
 	var cls *Value
 
 	cret := xValueConstructorCallv(x.GoPointer(), NParametersVar, ParametersVar)
@@ -552,7 +529,6 @@ var xValueFunctionCall func(uintptr, types.GType, ...interface{}) uintptr
 // This function always returns a #JSCValue, in case of void functions a #JSCValue referencing
 // &lt;function&gt;undefined&lt;/function&gt; is returned
 func (x *Value) FunctionCall(FirstParameterTypeVar types.GType, varArgs ...interface{}) *Value {
-	core.LazyRegister(&xValueFunctionCall, "JAVASCRIPTCORE", "jsc_value_function_call", false)
 	var cls *Value
 
 	cret := xValueFunctionCall(x.GoPointer(), FirstParameterTypeVar, varArgs...)
@@ -573,7 +549,6 @@ var xValueFunctionCallv func(uintptr, uint, []Value) uintptr
 // This function always returns a #JSCValue, in case of void functions a #JSCValue referencing
 // &lt;function&gt;undefined&lt;/function&gt; is returned
 func (x *Value) FunctionCallv(NParametersVar uint, ParametersVar []Value) *Value {
-	core.LazyRegister(&xValueFunctionCallv, "JAVASCRIPTCORE", "jsc_value_function_callv", false)
 	var cls *Value
 
 	cret := xValueFunctionCallv(x.GoPointer(), NParametersVar, ParametersVar)
@@ -590,7 +565,6 @@ var xValueGetContext func(uintptr) uintptr
 
 // Get the #JSCContext in which @value was created.
 func (x *Value) GetContext() *Context {
-	core.LazyRegister(&xValueGetContext, "JAVASCRIPTCORE", "jsc_value_get_context", false)
 	var cls *Context
 
 	cret := xValueGetContext(x.GoPointer())
@@ -608,8 +582,6 @@ var xValueIsArray func(uintptr) bool
 
 // Get whether the value referenced by @value is an array.
 func (x *Value) IsArray() bool {
-	core.LazyRegister(&xValueIsArray, "JAVASCRIPTCORE", "jsc_value_is_array", false)
-
 	cret := xValueIsArray(x.GoPointer())
 	return cret
 }
@@ -618,8 +590,6 @@ var xValueIsArrayBuffer func(uintptr) bool
 
 // Check whether the @value is an %ArrayBuffer.
 func (x *Value) IsArrayBuffer() bool {
-	core.LazyRegister(&xValueIsArrayBuffer, "JAVASCRIPTCORE", "jsc_value_is_array_buffer", false)
-
 	cret := xValueIsArrayBuffer(x.GoPointer())
 	return cret
 }
@@ -628,8 +598,6 @@ var xValueIsBoolean func(uintptr) bool
 
 // Get whether the value referenced by @value is a boolean.
 func (x *Value) IsBoolean() bool {
-	core.LazyRegister(&xValueIsBoolean, "JAVASCRIPTCORE", "jsc_value_is_boolean", false)
-
 	cret := xValueIsBoolean(x.GoPointer())
 	return cret
 }
@@ -638,8 +606,6 @@ var xValueIsConstructor func(uintptr) bool
 
 // Get whether the value referenced by @value is a constructor.
 func (x *Value) IsConstructor() bool {
-	core.LazyRegister(&xValueIsConstructor, "JAVASCRIPTCORE", "jsc_value_is_constructor", false)
-
 	cret := xValueIsConstructor(x.GoPointer())
 	return cret
 }
@@ -648,8 +614,6 @@ var xValueIsFunction func(uintptr) bool
 
 // Get whether the value referenced by @value is a function
 func (x *Value) IsFunction() bool {
-	core.LazyRegister(&xValueIsFunction, "JAVASCRIPTCORE", "jsc_value_is_function", false)
-
 	cret := xValueIsFunction(x.GoPointer())
 	return cret
 }
@@ -658,8 +622,6 @@ var xValueIsNull func(uintptr) bool
 
 // Get whether the value referenced by @value is &lt;function&gt;null&lt;/function&gt;.
 func (x *Value) IsNull() bool {
-	core.LazyRegister(&xValueIsNull, "JAVASCRIPTCORE", "jsc_value_is_null", false)
-
 	cret := xValueIsNull(x.GoPointer())
 	return cret
 }
@@ -668,8 +630,6 @@ var xValueIsNumber func(uintptr) bool
 
 // Get whether the value referenced by @value is a number.
 func (x *Value) IsNumber() bool {
-	core.LazyRegister(&xValueIsNumber, "JAVASCRIPTCORE", "jsc_value_is_number", false)
-
 	cret := xValueIsNumber(x.GoPointer())
 	return cret
 }
@@ -678,8 +638,6 @@ var xValueIsObject func(uintptr) bool
 
 // Get whether the value referenced by @value is an object.
 func (x *Value) IsObject() bool {
-	core.LazyRegister(&xValueIsObject, "JAVASCRIPTCORE", "jsc_value_is_object", false)
-
 	cret := xValueIsObject(x.GoPointer())
 	return cret
 }
@@ -688,8 +646,6 @@ var xValueIsString func(uintptr) bool
 
 // Get whether the value referenced by @value is a string
 func (x *Value) IsString() bool {
-	core.LazyRegister(&xValueIsString, "JAVASCRIPTCORE", "jsc_value_is_string", false)
-
 	cret := xValueIsString(x.GoPointer())
 	return cret
 }
@@ -698,8 +654,6 @@ var xValueIsTypedArray func(uintptr) bool
 
 // Determines whether a value is a typed array.
 func (x *Value) IsTypedArray() bool {
-	core.LazyRegister(&xValueIsTypedArray, "JAVASCRIPTCORE", "jsc_value_is_typed_array", false)
-
 	cret := xValueIsTypedArray(x.GoPointer())
 	return cret
 }
@@ -708,8 +662,6 @@ var xValueIsUndefined func(uintptr) bool
 
 // Get whether the value referenced by @value is &lt;function&gt;undefined&lt;/function&gt;.
 func (x *Value) IsUndefined() bool {
-	core.LazyRegister(&xValueIsUndefined, "JAVASCRIPTCORE", "jsc_value_is_undefined", false)
-
 	cret := xValueIsUndefined(x.GoPointer())
 	return cret
 }
@@ -731,7 +683,6 @@ var xValueNewTypedArrayWithBuffer func(uintptr, TypedArrayType, uint, int) uintp
 // with a non-zero @offset will expose the remainder of the @array_buffer
 // starting at the indicated offset.
 func (x *Value) NewTypedArrayWithBuffer(TypeVar TypedArrayType, OffsetVar uint, LengthVar int) *Value {
-	core.LazyRegister(&xValueNewTypedArrayWithBuffer, "JAVASCRIPTCORE", "jsc_value_new_typed_array_with_buffer", false)
 	var cls *Value
 
 	cret := xValueNewTypedArrayWithBuffer(x.GoPointer(), TypeVar, OffsetVar, LengthVar)
@@ -760,8 +711,6 @@ var xValueObjectDefinePropertyAccessor func(uintptr, string, ValuePropertyFlags,
 // Note that @getter and @setter are called as functions and not methods, so they don't receive an instance as
 // first parameter. Use jsc_class_add_property() if you want to add property accessor invoked as a method.
 func (x *Value) ObjectDefinePropertyAccessor(PropertyNameVar string, FlagsVar ValuePropertyFlags, PropertyTypeVar types.GType, GetterVar *gobject.Callback, SetterVar *gobject.Callback, UserDataVar uintptr, DestroyNotifyVar *glib.DestroyNotify) {
-	core.LazyRegister(&xValueObjectDefinePropertyAccessor, "JAVASCRIPTCORE", "jsc_value_object_define_property_accessor", false)
-
 	xValueObjectDefinePropertyAccessor(x.GoPointer(), PropertyNameVar, FlagsVar, PropertyTypeVar, glib.NewCallbackNullable(GetterVar), glib.NewCallbackNullable(SetterVar), UserDataVar, glib.NewCallbackNullable(DestroyNotifyVar))
 }
 
@@ -770,8 +719,6 @@ var xValueObjectDefinePropertyData func(uintptr, string, ValuePropertyFlags, uin
 // Define or modify a property with @property_name in object referenced by @value. This is equivalent to
 // JavaScript &lt;function&gt;Object.defineProperty()&lt;/function&gt; when used with a data descriptor.
 func (x *Value) ObjectDefinePropertyData(PropertyNameVar string, FlagsVar ValuePropertyFlags, PropertyValueVar *Value) {
-	core.LazyRegister(&xValueObjectDefinePropertyData, "JAVASCRIPTCORE", "jsc_value_object_define_property_data", false)
-
 	xValueObjectDefinePropertyData(x.GoPointer(), PropertyNameVar, FlagsVar, PropertyValueVar.GoPointer())
 }
 
@@ -780,8 +727,6 @@ var xValueObjectDeleteProperty func(uintptr, string) bool
 // Try to delete property with @name from @value. This function will return %FALSE if
 // the property was defined without %JSC_VALUE_PROPERTY_CONFIGURABLE flag.
 func (x *Value) ObjectDeleteProperty(NameVar string) bool {
-	core.LazyRegister(&xValueObjectDeleteProperty, "JAVASCRIPTCORE", "jsc_value_object_delete_property", false)
-
 	cret := xValueObjectDeleteProperty(x.GoPointer(), NameVar)
 	return cret
 }
@@ -791,8 +736,6 @@ var xValueObjectEnumerateProperties func(uintptr) []string
 // Get the list of property names of @value. Only properties defined with %JSC_VALUE_PROPERTY_ENUMERABLE
 // flag will be collected.
 func (x *Value) ObjectEnumerateProperties() []string {
-	core.LazyRegister(&xValueObjectEnumerateProperties, "JAVASCRIPTCORE", "jsc_value_object_enumerate_properties", false)
-
 	cret := xValueObjectEnumerateProperties(x.GoPointer())
 	return cret
 }
@@ -801,7 +744,6 @@ var xValueObjectGetProperty func(uintptr, string) uintptr
 
 // Get property with @name from @value.
 func (x *Value) ObjectGetProperty(NameVar string) *Value {
-	core.LazyRegister(&xValueObjectGetProperty, "JAVASCRIPTCORE", "jsc_value_object_get_property", false)
 	var cls *Value
 
 	cret := xValueObjectGetProperty(x.GoPointer(), NameVar)
@@ -818,7 +760,6 @@ var xValueObjectGetPropertyAtIndex func(uintptr, uint) uintptr
 
 // Get property at @index from @value.
 func (x *Value) ObjectGetPropertyAtIndex(IndexVar uint) *Value {
-	core.LazyRegister(&xValueObjectGetPropertyAtIndex, "JAVASCRIPTCORE", "jsc_value_object_get_property_at_index", false)
 	var cls *Value
 
 	cret := xValueObjectGetPropertyAtIndex(x.GoPointer(), IndexVar)
@@ -835,8 +776,6 @@ var xValueObjectHasProperty func(uintptr, string) bool
 
 // Get whether @value has property with @name.
 func (x *Value) ObjectHasProperty(NameVar string) bool {
-	core.LazyRegister(&xValueObjectHasProperty, "JAVASCRIPTCORE", "jsc_value_object_has_property", false)
-
 	cret := xValueObjectHasProperty(x.GoPointer(), NameVar)
 	return cret
 }
@@ -852,7 +791,6 @@ var xValueObjectInvokeMethod func(uintptr, string, types.GType, ...interface{}) 
 // This function always returns a #JSCValue, in case of void methods a #JSCValue referencing
 // &lt;function&gt;undefined&lt;/function&gt; is returned.
 func (x *Value) ObjectInvokeMethod(NameVar string, FirstParameterTypeVar types.GType, varArgs ...interface{}) *Value {
-	core.LazyRegister(&xValueObjectInvokeMethod, "JAVASCRIPTCORE", "jsc_value_object_invoke_method", false)
 	var cls *Value
 
 	cret := xValueObjectInvokeMethod(x.GoPointer(), NameVar, FirstParameterTypeVar, varArgs...)
@@ -876,7 +814,6 @@ var xValueObjectInvokeMethodv func(uintptr, string, uint, []Value) uintptr
 // This function always returns a #JSCValue, in case of void methods a #JSCValue referencing
 // &lt;function&gt;undefined&lt;/function&gt; is returned.
 func (x *Value) ObjectInvokeMethodv(NameVar string, NParametersVar uint, ParametersVar []Value) *Value {
-	core.LazyRegister(&xValueObjectInvokeMethodv, "JAVASCRIPTCORE", "jsc_value_object_invoke_methodv", false)
 	var cls *Value
 
 	cret := xValueObjectInvokeMethodv(x.GoPointer(), NameVar, NParametersVar, ParametersVar)
@@ -893,8 +830,6 @@ var xValueObjectIsInstanceOf func(uintptr, string) bool
 
 // Get whether the value referenced by @value is an instance of class @name.
 func (x *Value) ObjectIsInstanceOf(NameVar string) bool {
-	core.LazyRegister(&xValueObjectIsInstanceOf, "JAVASCRIPTCORE", "jsc_value_object_is_instance_of", false)
-
 	cret := xValueObjectIsInstanceOf(x.GoPointer(), NameVar)
 	return cret
 }
@@ -903,8 +838,6 @@ var xValueObjectSetProperty func(uintptr, string, uintptr)
 
 // Set @property with @name on @value.
 func (x *Value) ObjectSetProperty(NameVar string, PropertyVar *Value) {
-	core.LazyRegister(&xValueObjectSetProperty, "JAVASCRIPTCORE", "jsc_value_object_set_property", false)
-
 	xValueObjectSetProperty(x.GoPointer(), NameVar, PropertyVar.GoPointer())
 }
 
@@ -912,8 +845,6 @@ var xValueObjectSetPropertyAtIndex func(uintptr, uint, uintptr)
 
 // Set @property at @index on @value.
 func (x *Value) ObjectSetPropertyAtIndex(IndexVar uint, PropertyVar *Value) {
-	core.LazyRegister(&xValueObjectSetPropertyAtIndex, "JAVASCRIPTCORE", "jsc_value_object_set_property_at_index", false)
-
 	xValueObjectSetPropertyAtIndex(x.GoPointer(), IndexVar, PropertyVar.GoPointer())
 }
 
@@ -921,8 +852,6 @@ var xValueToBoolean func(uintptr) bool
 
 // Convert @value to a boolean.
 func (x *Value) ToBoolean() bool {
-	core.LazyRegister(&xValueToBoolean, "JAVASCRIPTCORE", "jsc_value_to_boolean", false)
-
 	cret := xValueToBoolean(x.GoPointer())
 	return cret
 }
@@ -931,8 +860,6 @@ var xValueToDouble func(uintptr) float64
 
 // Convert @value to a double.
 func (x *Value) ToDouble() float64 {
-	core.LazyRegister(&xValueToDouble, "JAVASCRIPTCORE", "jsc_value_to_double", false)
-
 	cret := xValueToDouble(x.GoPointer())
 	return cret
 }
@@ -941,8 +868,6 @@ var xValueToInt32 func(uintptr) int32
 
 // Convert @value to a #gint32.
 func (x *Value) ToInt32() int32 {
-	core.LazyRegister(&xValueToInt32, "JAVASCRIPTCORE", "jsc_value_to_int32", false)
-
 	cret := xValueToInt32(x.GoPointer())
 	return cret
 }
@@ -952,8 +877,6 @@ var xValueToJson func(uintptr, uint) string
 // Create a JSON string of @value serialization. If @indent is 0, the resulting JSON will
 // not contain newlines. The size of the indent is clamped to 10 spaces.
 func (x *Value) ToJson(IndentVar uint) string {
-	core.LazyRegister(&xValueToJson, "JAVASCRIPTCORE", "jsc_value_to_json", false)
-
 	cret := xValueToJson(x.GoPointer(), IndentVar)
 	return cret
 }
@@ -963,8 +886,6 @@ var xValueToString func(uintptr) string
 // Convert @value to a string. Use jsc_value_to_string_as_bytes() instead, if you need to
 // handle strings containing null characters.
 func (x *Value) ToString() string {
-	core.LazyRegister(&xValueToString, "JAVASCRIPTCORE", "jsc_value_to_string", false)
-
 	cret := xValueToString(x.GoPointer())
 	return cret
 }
@@ -974,8 +895,6 @@ var xValueToStringAsBytes func(uintptr) uintptr
 // Convert @value to a string and return the results as #GBytes. This is needed
 // to handle strings with null characters.
 func (x *Value) ToStringAsBytes() *glib.Bytes {
-	core.LazyRegister(&xValueToStringAsBytes, "JAVASCRIPTCORE", "jsc_value_to_string_as_bytes", false)
-
 	cret := xValueToStringAsBytes(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -987,7 +906,6 @@ var xValueTypedArrayGetBuffer func(uintptr) uintptr
 
 // Obtain the %ArrayBuffer for the memory region of the typed array elements.
 func (x *Value) TypedArrayGetBuffer() *Value {
-	core.LazyRegister(&xValueTypedArrayGetBuffer, "JAVASCRIPTCORE", "jsc_value_typed_array_get_buffer", false)
 	var cls *Value
 
 	cret := xValueTypedArrayGetBuffer(x.GoPointer())
@@ -1029,8 +947,6 @@ var xValueTypedArrayGetData func(uintptr, *uint) uintptr
 // the same after calls to other JSC API functions. See
 // jsc_value_array_buffer_get_data() for details.
 func (x *Value) TypedArrayGetData(LengthVar *uint) uintptr {
-	core.LazyRegister(&xValueTypedArrayGetData, "JAVASCRIPTCORE", "jsc_value_typed_array_get_data", false)
-
 	cret := xValueTypedArrayGetData(x.GoPointer(), LengthVar)
 	return cret
 }
@@ -1039,8 +955,6 @@ var xValueTypedArrayGetLength func(uintptr) uint
 
 // Gets the number of elements in a typed array.
 func (x *Value) TypedArrayGetLength() uint {
-	core.LazyRegister(&xValueTypedArrayGetLength, "JAVASCRIPTCORE", "jsc_value_typed_array_get_length", false)
-
 	cret := xValueTypedArrayGetLength(x.GoPointer())
 	return cret
 }
@@ -1049,8 +963,6 @@ var xValueTypedArrayGetOffset func(uintptr) uint
 
 // Gets the offset over the underlying array buffer data.
 func (x *Value) TypedArrayGetOffset() uint {
-	core.LazyRegister(&xValueTypedArrayGetOffset, "JAVASCRIPTCORE", "jsc_value_typed_array_get_offset", false)
-
 	cret := xValueTypedArrayGetOffset(x.GoPointer())
 	return cret
 }
@@ -1059,8 +971,6 @@ var xValueTypedArrayGetSize func(uintptr) uint
 
 // Gets the size of a typed array.
 func (x *Value) TypedArrayGetSize() uint {
-	core.LazyRegister(&xValueTypedArrayGetSize, "JAVASCRIPTCORE", "jsc_value_typed_array_get_size", false)
-
 	cret := xValueTypedArrayGetSize(x.GoPointer())
 	return cret
 }
@@ -1069,8 +979,6 @@ var xValueTypedArrayGetType func(uintptr) TypedArrayType
 
 // Gets the type of elements contained in a typed array.
 func (x *Value) TypedArrayGetType() TypedArrayType {
-	core.LazyRegister(&xValueTypedArrayGetType, "JAVASCRIPTCORE", "jsc_value_typed_array_get_type", false)
-
 	cret := xValueTypedArrayGetType(x.GoPointer())
 	return cret
 }
@@ -1089,4 +997,76 @@ func (c *Value) SetGoPointer(ptr uintptr) {
 func init() {
 	core.SetPackageName("JAVASCRIPTCORE", "javascriptcoregtk-6.0")
 	core.SetSharedLibraries("JAVASCRIPTCORE", []string{"libjavascriptcoregtk-6.0.so.1", "libjavascriptcoregtk-6.0.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("JAVASCRIPTCORE") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xValueGLibType, libs, "jsc_value_get_type")
+
+	core.PuregoSafeRegister(&xNewValueArray, libs, "jsc_value_new_array")
+	core.PuregoSafeRegister(&xNewValueArrayBuffer, libs, "jsc_value_new_array_buffer")
+	core.PuregoSafeRegister(&xNewValueArrayFromGarray, libs, "jsc_value_new_array_from_garray")
+	core.PuregoSafeRegister(&xNewValueArrayFromStrv, libs, "jsc_value_new_array_from_strv")
+	core.PuregoSafeRegister(&xNewValueBoolean, libs, "jsc_value_new_boolean")
+	core.PuregoSafeRegister(&xNewValueFromJson, libs, "jsc_value_new_from_json")
+	core.PuregoSafeRegister(&xNewValueFunction, libs, "jsc_value_new_function")
+	core.PuregoSafeRegister(&xNewValueFunctionVariadic, libs, "jsc_value_new_function_variadic")
+	core.PuregoSafeRegister(&xNewValueFunctionv, libs, "jsc_value_new_functionv")
+	core.PuregoSafeRegister(&xNewValueNull, libs, "jsc_value_new_null")
+	core.PuregoSafeRegister(&xNewValueNumber, libs, "jsc_value_new_number")
+	core.PuregoSafeRegister(&xNewValueObject, libs, "jsc_value_new_object")
+	core.PuregoSafeRegister(&xNewValuePromise, libs, "jsc_value_new_promise")
+	core.PuregoSafeRegister(&xNewValueString, libs, "jsc_value_new_string")
+	core.PuregoSafeRegister(&xNewValueStringFromBytes, libs, "jsc_value_new_string_from_bytes")
+	core.PuregoSafeRegister(&xNewValueTypedArray, libs, "jsc_value_new_typed_array")
+	core.PuregoSafeRegister(&xNewValueUndefined, libs, "jsc_value_new_undefined")
+
+	core.PuregoSafeRegister(&xValueArrayBufferGetData, libs, "jsc_value_array_buffer_get_data")
+	core.PuregoSafeRegister(&xValueArrayBufferGetSize, libs, "jsc_value_array_buffer_get_size")
+	core.PuregoSafeRegister(&xValueConstructorCall, libs, "jsc_value_constructor_call")
+	core.PuregoSafeRegister(&xValueConstructorCallv, libs, "jsc_value_constructor_callv")
+	core.PuregoSafeRegister(&xValueFunctionCall, libs, "jsc_value_function_call")
+	core.PuregoSafeRegister(&xValueFunctionCallv, libs, "jsc_value_function_callv")
+	core.PuregoSafeRegister(&xValueGetContext, libs, "jsc_value_get_context")
+	core.PuregoSafeRegister(&xValueIsArray, libs, "jsc_value_is_array")
+	core.PuregoSafeRegister(&xValueIsArrayBuffer, libs, "jsc_value_is_array_buffer")
+	core.PuregoSafeRegister(&xValueIsBoolean, libs, "jsc_value_is_boolean")
+	core.PuregoSafeRegister(&xValueIsConstructor, libs, "jsc_value_is_constructor")
+	core.PuregoSafeRegister(&xValueIsFunction, libs, "jsc_value_is_function")
+	core.PuregoSafeRegister(&xValueIsNull, libs, "jsc_value_is_null")
+	core.PuregoSafeRegister(&xValueIsNumber, libs, "jsc_value_is_number")
+	core.PuregoSafeRegister(&xValueIsObject, libs, "jsc_value_is_object")
+	core.PuregoSafeRegister(&xValueIsString, libs, "jsc_value_is_string")
+	core.PuregoSafeRegister(&xValueIsTypedArray, libs, "jsc_value_is_typed_array")
+	core.PuregoSafeRegister(&xValueIsUndefined, libs, "jsc_value_is_undefined")
+	core.PuregoSafeRegister(&xValueNewTypedArrayWithBuffer, libs, "jsc_value_new_typed_array_with_buffer")
+	core.PuregoSafeRegister(&xValueObjectDefinePropertyAccessor, libs, "jsc_value_object_define_property_accessor")
+	core.PuregoSafeRegister(&xValueObjectDefinePropertyData, libs, "jsc_value_object_define_property_data")
+	core.PuregoSafeRegister(&xValueObjectDeleteProperty, libs, "jsc_value_object_delete_property")
+	core.PuregoSafeRegister(&xValueObjectEnumerateProperties, libs, "jsc_value_object_enumerate_properties")
+	core.PuregoSafeRegister(&xValueObjectGetProperty, libs, "jsc_value_object_get_property")
+	core.PuregoSafeRegister(&xValueObjectGetPropertyAtIndex, libs, "jsc_value_object_get_property_at_index")
+	core.PuregoSafeRegister(&xValueObjectHasProperty, libs, "jsc_value_object_has_property")
+	core.PuregoSafeRegister(&xValueObjectInvokeMethod, libs, "jsc_value_object_invoke_method")
+	core.PuregoSafeRegister(&xValueObjectInvokeMethodv, libs, "jsc_value_object_invoke_methodv")
+	core.PuregoSafeRegister(&xValueObjectIsInstanceOf, libs, "jsc_value_object_is_instance_of")
+	core.PuregoSafeRegister(&xValueObjectSetProperty, libs, "jsc_value_object_set_property")
+	core.PuregoSafeRegister(&xValueObjectSetPropertyAtIndex, libs, "jsc_value_object_set_property_at_index")
+	core.PuregoSafeRegister(&xValueToBoolean, libs, "jsc_value_to_boolean")
+	core.PuregoSafeRegister(&xValueToDouble, libs, "jsc_value_to_double")
+	core.PuregoSafeRegister(&xValueToInt32, libs, "jsc_value_to_int32")
+	core.PuregoSafeRegister(&xValueToJson, libs, "jsc_value_to_json")
+	core.PuregoSafeRegister(&xValueToString, libs, "jsc_value_to_string")
+	core.PuregoSafeRegister(&xValueToStringAsBytes, libs, "jsc_value_to_string_as_bytes")
+	core.PuregoSafeRegister(&xValueTypedArrayGetBuffer, libs, "jsc_value_typed_array_get_buffer")
+	core.PuregoSafeRegister(&xValueTypedArrayGetData, libs, "jsc_value_typed_array_get_data")
+	core.PuregoSafeRegister(&xValueTypedArrayGetLength, libs, "jsc_value_typed_array_get_length")
+	core.PuregoSafeRegister(&xValueTypedArrayGetOffset, libs, "jsc_value_typed_array_get_offset")
+	core.PuregoSafeRegister(&xValueTypedArrayGetSize, libs, "jsc_value_typed_array_get_size")
+	core.PuregoSafeRegister(&xValueTypedArrayGetType, libs, "jsc_value_typed_array_get_type")
 }

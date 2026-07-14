@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gio"
 	"github.com/bnema/puregotk/v4/glib"
@@ -20,7 +21,6 @@ type ITPFirstParty struct {
 var xITPFirstPartyGLibType func() types.GType
 
 func ITPFirstPartyGLibType() types.GType {
-	core.LazyRegister(&xITPFirstPartyGLibType, "WEBKIT", "webkit_itp_first_party_get_type", false)
 	return xITPFirstPartyGLibType()
 }
 
@@ -40,8 +40,6 @@ var xITPFirstPartyGetDomain func(uintptr) string
 
 // Get the domain name of @itp_first_party.
 func (x *ITPFirstParty) GetDomain() string {
-	core.LazyRegister(&xITPFirstPartyGetDomain, "WEBKIT", "webkit_itp_first_party_get_domain", false)
-
 	cret := xITPFirstPartyGetDomain(x.GoPointer())
 	return cret
 }
@@ -53,8 +51,6 @@ var xITPFirstPartyGetLastUpdateTime func(uintptr) uintptr
 // Each @WebKitITPFirstParty is created by webkit_itp_third_party_get_first_parties() and
 // therefore corresponds to exactly one #WebKitITPThirdParty.
 func (x *ITPFirstParty) GetLastUpdateTime() *glib.DateTime {
-	core.LazyRegister(&xITPFirstPartyGetLastUpdateTime, "WEBKIT", "webkit_itp_first_party_get_last_update_time", false)
-
 	cret := xITPFirstPartyGetLastUpdateTime(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -69,8 +65,6 @@ var xITPFirstPartyGetWebsiteDataAccessAllowed func(uintptr) bool
 // Each @WebKitITPFirstParty is created by webkit_itp_third_party_get_first_parties() and
 // therefore corresponds to exactly one #WebKitITPThirdParty.
 func (x *ITPFirstParty) GetWebsiteDataAccessAllowed() bool {
-	core.LazyRegister(&xITPFirstPartyGetWebsiteDataAccessAllowed, "WEBKIT", "webkit_itp_first_party_get_website_data_access_allowed", false)
-
 	cret := xITPFirstPartyGetWebsiteDataAccessAllowed(x.GoPointer())
 	return cret
 }
@@ -81,8 +75,6 @@ var xITPFirstPartyRef func(uintptr) uintptr
 //
 // This function is MT-safe and may be called from any thread.
 func (x *ITPFirstParty) Ref() *ITPFirstParty {
-	core.LazyRegister(&xITPFirstPartyRef, "WEBKIT", "webkit_itp_first_party_ref", false)
-
 	cret := xITPFirstPartyRef(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -98,8 +90,6 @@ var xITPFirstPartyUnref func(uintptr)
 // #WebKitITPFirstParty is released. This function is MT-safe and may be
 // called from any thread.
 func (x *ITPFirstParty) Unref() {
-	core.LazyRegister(&xITPFirstPartyUnref, "WEBKIT", "webkit_itp_first_party_unref", false)
-
 	xITPFirstPartyUnref(x.GoPointer())
 }
 
@@ -111,7 +101,6 @@ type ITPThirdParty struct {
 var xITPThirdPartyGLibType func() types.GType
 
 func ITPThirdPartyGLibType() types.GType {
-	core.LazyRegister(&xITPThirdPartyGLibType, "WEBKIT", "webkit_itp_third_party_get_type", false)
 	return xITPThirdPartyGLibType()
 }
 
@@ -131,8 +120,6 @@ var xITPThirdPartyGetDomain func(uintptr) string
 
 // Get the domain name of @itp_third_party.
 func (x *ITPThirdParty) GetDomain() string {
-	core.LazyRegister(&xITPThirdPartyGetDomain, "WEBKIT", "webkit_itp_third_party_get_domain", false)
-
 	cret := xITPThirdPartyGetDomain(x.GoPointer())
 	return cret
 }
@@ -141,8 +128,6 @@ var xITPThirdPartyGetFirstParties func(uintptr) uintptr
 
 // Get the list of #WebKitITPFirstParty under which @itp_third_party has been seen.
 func (x *ITPThirdParty) GetFirstParties() *glib.List {
-	core.LazyRegister(&xITPThirdPartyGetFirstParties, "WEBKIT", "webkit_itp_third_party_get_first_parties", false)
-
 	cret := xITPThirdPartyGetFirstParties(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -156,8 +141,6 @@ var xITPThirdPartyRef func(uintptr) uintptr
 //
 // This function is MT-safe and may be called from any thread.
 func (x *ITPThirdParty) Ref() *ITPThirdParty {
-	core.LazyRegister(&xITPThirdPartyRef, "WEBKIT", "webkit_itp_third_party_ref", false)
-
 	cret := xITPThirdPartyRef(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -173,8 +156,6 @@ var xITPThirdPartyUnref func(uintptr)
 // #WebKitITPThirdParty is released. This function is MT-safe and may be
 // called from any thread.
 func (x *ITPThirdParty) Unref() {
-	core.LazyRegister(&xITPThirdPartyUnref, "WEBKIT", "webkit_itp_third_party_unref", false)
-
 	xITPThirdPartyUnref(x.GoPointer())
 }
 
@@ -202,7 +183,6 @@ type TLSErrorsPolicy int
 var xTLSErrorsPolicyGLibType func() types.GType
 
 func TLSErrorsPolicyGLibType() types.GType {
-	core.LazyRegister(&xTLSErrorsPolicyGLibType, "WEBKIT", "webkit_tls_errors_policy_get_type", false)
 	return xTLSErrorsPolicyGLibType()
 }
 
@@ -238,7 +218,6 @@ type WebsiteDataManager struct {
 var xWebsiteDataManagerGLibType func() types.GType
 
 func WebsiteDataManagerGLibType() types.GType {
-	core.LazyRegister(&xWebsiteDataManagerGLibType, "WEBKIT", "webkit_website_data_manager_get_type", false)
 	return xWebsiteDataManagerGLibType()
 }
 
@@ -261,8 +240,6 @@ var xWebsiteDataManagerClear func(uintptr, WebsiteDataTypes, glib.TimeSpan, uint
 // any stored cookies if @timespan is nonzero. This behavior may change in the
 // future.
 func (x *WebsiteDataManager) Clear(TypesVar WebsiteDataTypes, TimespanVar glib.TimeSpan, CancellableVar *gio.Cancellable, CallbackVar *gio.AsyncReadyCallback, UserDataVar uintptr) {
-	core.LazyRegister(&xWebsiteDataManagerClear, "WEBKIT", "webkit_website_data_manager_clear", false)
-
 	xWebsiteDataManagerClear(x.GoPointer(), TypesVar, TimespanVar, CancellableVar.GoPointer(), glib.NewCallbackNullable(CallbackVar), UserDataVar)
 }
 
@@ -270,7 +247,6 @@ var xWebsiteDataManagerClearFinish func(uintptr, uintptr, **glib.Error) bool
 
 // Finish an asynchronous operation started with webkit_website_data_manager_clear()
 func (x *WebsiteDataManager) ClearFinish(ResultVar gio.AsyncResult) (bool, error) {
-	core.LazyRegister(&xWebsiteDataManagerClearFinish, "WEBKIT", "webkit_website_data_manager_clear_finish", false)
 	var cerr *glib.Error
 
 	cret := xWebsiteDataManagerClearFinish(x.GoPointer(), ResultVar.GoPointer(), &cerr)
@@ -287,8 +263,6 @@ var xWebsiteDataManagerFetch func(uintptr, WebsiteDataTypes, uintptr, uintptr, u
 // When the operation is finished, @callback will be called. You can then call
 // webkit_website_data_manager_fetch_finish() to get the result of the operation.
 func (x *WebsiteDataManager) Fetch(TypesVar WebsiteDataTypes, CancellableVar *gio.Cancellable, CallbackVar *gio.AsyncReadyCallback, UserDataVar uintptr) {
-	core.LazyRegister(&xWebsiteDataManagerFetch, "WEBKIT", "webkit_website_data_manager_fetch", false)
-
 	xWebsiteDataManagerFetch(x.GoPointer(), TypesVar, CancellableVar.GoPointer(), glib.NewCallbackNullable(CallbackVar), UserDataVar)
 }
 
@@ -296,7 +270,6 @@ var xWebsiteDataManagerFetchFinish func(uintptr, uintptr, **glib.Error) uintptr
 
 // Finish an asynchronous operation started with webkit_website_data_manager_fetch().
 func (x *WebsiteDataManager) FetchFinish(ResultVar gio.AsyncResult) (*glib.List, error) {
-	core.LazyRegister(&xWebsiteDataManagerFetchFinish, "WEBKIT", "webkit_website_data_manager_fetch_finish", false)
 	var cerr *glib.Error
 
 	cret := xWebsiteDataManagerFetchFinish(x.GoPointer(), ResultVar.GoPointer(), &cerr)
@@ -313,8 +286,6 @@ var xWebsiteDataManagerGetBaseCacheDirectory func(uintptr) string
 
 // Get the #WebKitWebsiteDataManager:base-cache-directory property.
 func (x *WebsiteDataManager) GetBaseCacheDirectory() string {
-	core.LazyRegister(&xWebsiteDataManagerGetBaseCacheDirectory, "WEBKIT", "webkit_website_data_manager_get_base_cache_directory", false)
-
 	cret := xWebsiteDataManagerGetBaseCacheDirectory(x.GoPointer())
 	return cret
 }
@@ -323,8 +294,6 @@ var xWebsiteDataManagerGetBaseDataDirectory func(uintptr) string
 
 // Get the #WebKitWebsiteDataManager:base-data-directory property.
 func (x *WebsiteDataManager) GetBaseDataDirectory() string {
-	core.LazyRegister(&xWebsiteDataManagerGetBaseDataDirectory, "WEBKIT", "webkit_website_data_manager_get_base_data_directory", false)
-
 	cret := xWebsiteDataManagerGetBaseDataDirectory(x.GoPointer())
 	return cret
 }
@@ -333,7 +302,6 @@ var xWebsiteDataManagerGetFaviconDatabase func(uintptr) uintptr
 
 // Get the #WebKitFaviconDatabase of @manager.
 func (x *WebsiteDataManager) GetFaviconDatabase() *FaviconDatabase {
-	core.LazyRegister(&xWebsiteDataManagerGetFaviconDatabase, "WEBKIT", "webkit_website_data_manager_get_favicon_database", false)
 	var cls *FaviconDatabase
 
 	cret := xWebsiteDataManagerGetFaviconDatabase(x.GoPointer())
@@ -351,8 +319,6 @@ var xWebsiteDataManagerGetFaviconsEnabled func(uintptr) bool
 
 // Get whether website icons are enabled.
 func (x *WebsiteDataManager) GetFaviconsEnabled() bool {
-	core.LazyRegister(&xWebsiteDataManagerGetFaviconsEnabled, "WEBKIT", "webkit_website_data_manager_get_favicons_enabled", false)
-
 	cret := xWebsiteDataManagerGetFaviconsEnabled(x.GoPointer())
 	return cret
 }
@@ -367,8 +333,6 @@ var xWebsiteDataManagerGetItpSummary func(uintptr, uintptr, uintptr, uintptr)
 // When the operation is finished, @callback will be called. You can then call
 // webkit_website_data_manager_get_itp_summary_finish() to get the result of the operation.
 func (x *WebsiteDataManager) GetItpSummary(CancellableVar *gio.Cancellable, CallbackVar *gio.AsyncReadyCallback, UserDataVar uintptr) {
-	core.LazyRegister(&xWebsiteDataManagerGetItpSummary, "WEBKIT", "webkit_website_data_manager_get_itp_summary", false)
-
 	xWebsiteDataManagerGetItpSummary(x.GoPointer(), CancellableVar.GoPointer(), glib.NewCallbackNullable(CallbackVar), UserDataVar)
 }
 
@@ -376,7 +340,6 @@ var xWebsiteDataManagerGetItpSummaryFinish func(uintptr, uintptr, **glib.Error) 
 
 // Finish an asynchronous operation started with webkit_website_data_manager_get_itp_summary().
 func (x *WebsiteDataManager) GetItpSummaryFinish(ResultVar gio.AsyncResult) (*glib.List, error) {
-	core.LazyRegister(&xWebsiteDataManagerGetItpSummaryFinish, "WEBKIT", "webkit_website_data_manager_get_itp_summary_finish", false)
 	var cerr *glib.Error
 
 	cret := xWebsiteDataManagerGetItpSummaryFinish(x.GoPointer(), ResultVar.GoPointer(), &cerr)
@@ -395,8 +358,6 @@ var xWebsiteDataManagerIsEphemeral func(uintptr) bool
 //
 // See #WebKitWebsiteDataManager:is-ephemeral for more details.
 func (x *WebsiteDataManager) IsEphemeral() bool {
-	core.LazyRegister(&xWebsiteDataManagerIsEphemeral, "WEBKIT", "webkit_website_data_manager_is_ephemeral", false)
-
 	cret := xWebsiteDataManagerIsEphemeral(x.GoPointer())
 	return cret
 }
@@ -411,8 +372,6 @@ var xWebsiteDataManagerRemove func(uintptr, WebsiteDataTypes, *glib.List, uintpt
 // When the operation is finished, @callback will be called. You can then call
 // webkit_website_data_manager_remove_finish() to get the result of the operation.
 func (x *WebsiteDataManager) Remove(TypesVar WebsiteDataTypes, WebsiteDataVar *glib.List, CancellableVar *gio.Cancellable, CallbackVar *gio.AsyncReadyCallback, UserDataVar uintptr) {
-	core.LazyRegister(&xWebsiteDataManagerRemove, "WEBKIT", "webkit_website_data_manager_remove", false)
-
 	xWebsiteDataManagerRemove(x.GoPointer(), TypesVar, WebsiteDataVar, CancellableVar.GoPointer(), glib.NewCallbackNullable(CallbackVar), UserDataVar)
 }
 
@@ -420,7 +379,6 @@ var xWebsiteDataManagerRemoveFinish func(uintptr, uintptr, **glib.Error) bool
 
 // Finish an asynchronous operation started with webkit_website_data_manager_remove().
 func (x *WebsiteDataManager) RemoveFinish(ResultVar gio.AsyncResult) (bool, error) {
-	core.LazyRegister(&xWebsiteDataManagerRemoveFinish, "WEBKIT", "webkit_website_data_manager_remove_finish", false)
 	var cerr *glib.Error
 
 	cret := xWebsiteDataManagerRemoveFinish(x.GoPointer(), ResultVar.GoPointer(), &cerr)
@@ -438,8 +396,6 @@ var xWebsiteDataManagerSetFaviconsEnabled func(uintptr, bool)
 // return %NULL. If website icons are enabled again, a new #WebKitFaviconDatabase will
 // be created.
 func (x *WebsiteDataManager) SetFaviconsEnabled(EnabledVar bool) {
-	core.LazyRegister(&xWebsiteDataManagerSetFaviconsEnabled, "WEBKIT", "webkit_website_data_manager_set_favicons_enabled", false)
-
 	xWebsiteDataManagerSetFaviconsEnabled(x.GoPointer(), EnabledVar)
 }
 
@@ -538,8 +494,51 @@ func (x *WebsiteDataManager) SetPropertyTotalStorageRatio(value float64) {
 func init() {
 	core.SetPackageName("WEBKIT", "webkitgtk-6.0")
 	core.SetSharedLibraries("WEBKIT", []string{"libwebkitgtk-6.0.so.4", "libjavascriptcoregtk-6.0.so.1", "libwebkitgtk-6.0.4.dylib", "libjavascriptcoregtk-6.0.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("WEBKIT") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
 
-	// Manually register types since they aren't automatically registered when
-	// WebKit is loaded. See https://bugs.webkit.org/show_bug.cgi?id=175937.
+	core.PuregoSafeRegister(&xTLSErrorsPolicyGLibType, libs, "webkit_tls_errors_policy_get_type")
+
+	core.PuregoSafeRegister(&xITPFirstPartyGLibType, libs, "webkit_itp_first_party_get_type")
+
+	core.PuregoSafeRegister(&xITPFirstPartyGetDomain, libs, "webkit_itp_first_party_get_domain")
+	core.PuregoSafeRegister(&xITPFirstPartyGetLastUpdateTime, libs, "webkit_itp_first_party_get_last_update_time")
+	core.PuregoSafeRegister(&xITPFirstPartyGetWebsiteDataAccessAllowed, libs, "webkit_itp_first_party_get_website_data_access_allowed")
+	core.PuregoSafeRegister(&xITPFirstPartyRef, libs, "webkit_itp_first_party_ref")
+	core.PuregoSafeRegister(&xITPFirstPartyUnref, libs, "webkit_itp_first_party_unref")
+
+	core.PuregoSafeRegister(&xITPThirdPartyGLibType, libs, "webkit_itp_third_party_get_type")
+
+	core.PuregoSafeRegister(&xITPThirdPartyGetDomain, libs, "webkit_itp_third_party_get_domain")
+	core.PuregoSafeRegister(&xITPThirdPartyGetFirstParties, libs, "webkit_itp_third_party_get_first_parties")
+	core.PuregoSafeRegister(&xITPThirdPartyRef, libs, "webkit_itp_third_party_ref")
+	core.PuregoSafeRegister(&xITPThirdPartyUnref, libs, "webkit_itp_third_party_unref")
+
+	core.PuregoSafeRegister(&xWebsiteDataManagerGLibType, libs, "webkit_website_data_manager_get_type")
+
+	core.PuregoSafeRegister(&xWebsiteDataManagerClear, libs, "webkit_website_data_manager_clear")
+	core.PuregoSafeRegister(&xWebsiteDataManagerClearFinish, libs, "webkit_website_data_manager_clear_finish")
+	core.PuregoSafeRegister(&xWebsiteDataManagerFetch, libs, "webkit_website_data_manager_fetch")
+	core.PuregoSafeRegister(&xWebsiteDataManagerFetchFinish, libs, "webkit_website_data_manager_fetch_finish")
+	core.PuregoSafeRegister(&xWebsiteDataManagerGetBaseCacheDirectory, libs, "webkit_website_data_manager_get_base_cache_directory")
+	core.PuregoSafeRegister(&xWebsiteDataManagerGetBaseDataDirectory, libs, "webkit_website_data_manager_get_base_data_directory")
+	core.PuregoSafeRegister(&xWebsiteDataManagerGetFaviconDatabase, libs, "webkit_website_data_manager_get_favicon_database")
+	core.PuregoSafeRegister(&xWebsiteDataManagerGetFaviconsEnabled, libs, "webkit_website_data_manager_get_favicons_enabled")
+	core.PuregoSafeRegister(&xWebsiteDataManagerGetItpSummary, libs, "webkit_website_data_manager_get_itp_summary")
+	core.PuregoSafeRegister(&xWebsiteDataManagerGetItpSummaryFinish, libs, "webkit_website_data_manager_get_itp_summary_finish")
+	core.PuregoSafeRegister(&xWebsiteDataManagerIsEphemeral, libs, "webkit_website_data_manager_is_ephemeral")
+	core.PuregoSafeRegister(&xWebsiteDataManagerRemove, libs, "webkit_website_data_manager_remove")
+	core.PuregoSafeRegister(&xWebsiteDataManagerRemoveFinish, libs, "webkit_website_data_manager_remove_finish")
+	core.PuregoSafeRegister(&xWebsiteDataManagerSetFaviconsEnabled, libs, "webkit_website_data_manager_set_favicons_enabled")
+
+	// Manually register types since they aren't being automatically registered when
+	// the library is loaded
+	// See https://bugs.webkit.org/show_bug.cgi?id=175937
 	WebsiteDataManagerGLibType()
 }

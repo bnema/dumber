@@ -162,7 +162,6 @@ type CheckButton struct {
 var xCheckButtonGLibType func() types.GType
 
 func CheckButtonGLibType() types.GType {
-	core.LazyRegister(&xCheckButtonGLibType, "GTK", "gtk_check_button_get_type", false)
 	return xCheckButtonGLibType()
 }
 
@@ -176,7 +175,6 @@ var xNewCheckButton func() uintptr
 
 // Creates a new `GtkCheckButton`.
 func NewCheckButton() *CheckButton {
-	core.LazyRegister(&xNewCheckButton, "GTK", "gtk_check_button_new", false)
 	var cls *CheckButton
 
 	cret := xNewCheckButton()
@@ -194,7 +192,6 @@ var xNewCheckButtonWithLabel func(uintptr) uintptr
 
 // Creates a new `GtkCheckButton` with the given text.
 func NewCheckButtonWithLabel(LabelVar *string) *CheckButton {
-	core.LazyRegister(&xNewCheckButtonWithLabel, "GTK", "gtk_check_button_new_with_label", false)
 	var cls *CheckButton
 
 	LabelVarPtr := core.GStrdupNullable(LabelVar)
@@ -215,7 +212,6 @@ var xNewCheckButtonWithMnemonic func(uintptr) uintptr
 
 // Creates a new `GtkCheckButton` with the given text and a mnemonic.
 func NewCheckButtonWithMnemonic(LabelVar *string) *CheckButton {
-	core.LazyRegister(&xNewCheckButtonWithMnemonic, "GTK", "gtk_check_button_new_with_mnemonic", false)
 	var cls *CheckButton
 
 	LabelVarPtr := core.GStrdupNullable(LabelVar)
@@ -236,8 +232,6 @@ var xCheckButtonGetActive func(uintptr) bool
 
 // Returns whether the check button is active.
 func (x *CheckButton) GetActive() bool {
-	core.LazyRegister(&xCheckButtonGetActive, "GTK", "gtk_check_button_get_active", false)
-
 	cret := xCheckButtonGetActive(x.GoPointer())
 	return cret
 }
@@ -246,7 +240,6 @@ var xCheckButtonGetChild func(uintptr) uintptr
 
 // Gets the child widget of @button or `NULL` if [property@CheckButton:label] is set.
 func (x *CheckButton) GetChild() *Widget {
-	core.LazyRegister(&xCheckButtonGetChild, "GTK", "gtk_check_button_get_child", false)
 	var cls *Widget
 
 	cret := xCheckButtonGetChild(x.GoPointer())
@@ -264,8 +257,6 @@ var xCheckButtonGetInconsistent func(uintptr) bool
 
 // Returns whether the check button is in an inconsistent state.
 func (x *CheckButton) GetInconsistent() bool {
-	core.LazyRegister(&xCheckButtonGetInconsistent, "GTK", "gtk_check_button_get_inconsistent", false)
-
 	cret := xCheckButtonGetInconsistent(x.GoPointer())
 	return cret
 }
@@ -274,8 +265,6 @@ var xCheckButtonGetLabel func(uintptr) string
 
 // Returns the label of the check button or `NULL` if [property@CheckButton:child] is set.
 func (x *CheckButton) GetLabel() string {
-	core.LazyRegister(&xCheckButtonGetLabel, "GTK", "gtk_check_button_get_label", false)
-
 	cret := xCheckButtonGetLabel(x.GoPointer())
 	return cret
 }
@@ -284,8 +273,6 @@ var xCheckButtonGetUseUnderline func(uintptr) bool
 
 // Returns whether underlines in the label indicate mnemonics.
 func (x *CheckButton) GetUseUnderline() bool {
-	core.LazyRegister(&xCheckButtonGetUseUnderline, "GTK", "gtk_check_button_get_use_underline", false)
-
 	cret := xCheckButtonGetUseUnderline(x.GoPointer())
 	return cret
 }
@@ -294,8 +281,6 @@ var xCheckButtonSetActive func(uintptr, bool)
 
 // Changes the check buttons active state.
 func (x *CheckButton) SetActive(SettingVar bool) {
-	core.LazyRegister(&xCheckButtonSetActive, "GTK", "gtk_check_button_set_active", false)
-
 	xCheckButtonSetActive(x.GoPointer(), SettingVar)
 }
 
@@ -309,8 +294,6 @@ var xCheckButtonSetChild func(uintptr, uintptr)
 // for @button explicitly, or you'll set a labelled-by or described-by
 // relations from @child to @button.
 func (x *CheckButton) SetChild(ChildVar *Widget) {
-	core.LazyRegister(&xCheckButtonSetChild, "GTK", "gtk_check_button_set_child", false)
-
 	xCheckButtonSetChild(x.GoPointer(), ChildVar.GoPointer())
 }
 
@@ -332,8 +315,6 @@ var xCheckButtonSetGroup func(uintptr, uintptr)
 // for all buttons in the group, and giving each button its own target
 // value.
 func (x *CheckButton) SetGroup(GroupVar *CheckButton) {
-	core.LazyRegister(&xCheckButtonSetGroup, "GTK", "gtk_check_button_set_group", false)
-
 	xCheckButtonSetGroup(x.GoPointer(), GroupVar.GoPointer())
 }
 
@@ -344,8 +325,6 @@ var xCheckButtonSetInconsistent func(uintptr, bool)
 // You should turn off the inconsistent state again if the user checks
 // the check button. This has to be done manually.
 func (x *CheckButton) SetInconsistent(InconsistentVar bool) {
-	core.LazyRegister(&xCheckButtonSetInconsistent, "GTK", "gtk_check_button_set_inconsistent", false)
-
 	xCheckButtonSetInconsistent(x.GoPointer(), InconsistentVar)
 }
 
@@ -357,8 +336,6 @@ var xCheckButtonSetLabel func(uintptr, uintptr)
 // in @label is interpreted as mnemonic indicator, see
 // [method@Gtk.CheckButton.set_use_underline] for details on this behavior.
 func (x *CheckButton) SetLabel(LabelVar *string) {
-	core.LazyRegister(&xCheckButtonSetLabel, "GTK", "gtk_check_button_set_label", false)
-
 	LabelVarPtr := core.GStrdupNullable(LabelVar)
 	defer core.GFreeNullable(LabelVarPtr)
 
@@ -373,8 +350,6 @@ var xCheckButtonSetUseUnderline func(uintptr, bool)
 // indicates a mnemonic accelerator key. This behavior is similar
 // to [property@Gtk.Label:use-underline].
 func (x *CheckButton) SetUseUnderline(SettingVar bool) {
-	core.LazyRegister(&xCheckButtonSetUseUnderline, "GTK", "gtk_check_button_set_use_underline", false)
-
 	xCheckButtonSetUseUnderline(x.GoPointer(), SettingVar)
 }
 
@@ -869,4 +844,30 @@ func (x *CheckButton) GetBuildableId() string {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GTK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xCheckButtonGLibType, libs, "gtk_check_button_get_type")
+
+	core.PuregoSafeRegister(&xNewCheckButton, libs, "gtk_check_button_new")
+	core.PuregoSafeRegister(&xNewCheckButtonWithLabel, libs, "gtk_check_button_new_with_label")
+	core.PuregoSafeRegister(&xNewCheckButtonWithMnemonic, libs, "gtk_check_button_new_with_mnemonic")
+
+	core.PuregoSafeRegister(&xCheckButtonGetActive, libs, "gtk_check_button_get_active")
+	core.PuregoSafeRegister(&xCheckButtonGetChild, libs, "gtk_check_button_get_child")
+	core.PuregoSafeRegister(&xCheckButtonGetInconsistent, libs, "gtk_check_button_get_inconsistent")
+	core.PuregoSafeRegister(&xCheckButtonGetLabel, libs, "gtk_check_button_get_label")
+	core.PuregoSafeRegister(&xCheckButtonGetUseUnderline, libs, "gtk_check_button_get_use_underline")
+	core.PuregoSafeRegister(&xCheckButtonSetActive, libs, "gtk_check_button_set_active")
+	core.PuregoSafeRegister(&xCheckButtonSetChild, libs, "gtk_check_button_set_child")
+	core.PuregoSafeRegister(&xCheckButtonSetGroup, libs, "gtk_check_button_set_group")
+	core.PuregoSafeRegister(&xCheckButtonSetInconsistent, libs, "gtk_check_button_set_inconsistent")
+	core.PuregoSafeRegister(&xCheckButtonSetLabel, libs, "gtk_check_button_set_label")
+	core.PuregoSafeRegister(&xCheckButtonSetUseUnderline, libs, "gtk_check_button_set_use_underline")
 }

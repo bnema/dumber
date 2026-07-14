@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -39,7 +40,6 @@ type TlsServerConnection interface {
 var xTlsServerConnectionGLibType func() types.GType
 
 func TlsServerConnectionGLibType() types.GType {
-	core.LazyRegister(&xTlsServerConnectionGLibType, "GIO", "g_tls_server_connection_get_type", false)
 	return xTlsServerConnectionGLibType()
 }
 
@@ -67,7 +67,6 @@ var xTlsServerConnectionNew func(uintptr, uintptr, **glib.Error) uintptr
 // on when application code can run operations on the @base_io_stream after
 // this function has returned.
 func TlsServerConnectionNew(BaseIoStreamVar *IOStream, CertificateVar *TlsCertificate) (*TlsServerConnectionBase, error) {
-	core.LazyRegister(&xTlsServerConnectionNew, "GIO", "g_tls_server_connection_new", false)
 	var cls *TlsServerConnectionBase
 	var cerr *glib.Error
 
@@ -87,4 +86,16 @@ func TlsServerConnectionNew(BaseIoStreamVar *IOStream, CertificateVar *TlsCertif
 func init() {
 	core.SetPackageName("GIO", "gio-2.0")
 	core.SetSharedLibraries("GIO", []string{"libgio-2.0.so.0", "libgio-2.0.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GIO") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xTlsServerConnectionNew, libs, "g_tls_server_connection_new")
+
+	core.PuregoSafeRegister(&xTlsServerConnectionGLibType, libs, "g_tls_server_connection_get_type")
 }

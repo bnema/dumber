@@ -183,7 +183,6 @@ type ConverterOutputStream struct {
 var xConverterOutputStreamGLibType func() types.GType
 
 func ConverterOutputStreamGLibType() types.GType {
-	core.LazyRegister(&xConverterOutputStreamGLibType, "GIO", "g_converter_output_stream_get_type", false)
 	return xConverterOutputStreamGLibType()
 }
 
@@ -197,7 +196,6 @@ var xNewConverterOutputStream func(uintptr, uintptr) uintptr
 
 // Creates a new converter output stream for the @base_stream.
 func NewConverterOutputStream(BaseStreamVar *OutputStream, ConverterVar Converter) *ConverterOutputStream {
-	core.LazyRegister(&xNewConverterOutputStream, "GIO", "g_converter_output_stream_new", false)
 	var cls *ConverterOutputStream
 
 	cret := xNewConverterOutputStream(BaseStreamVar.GoPointer(), ConverterVar.GoPointer())
@@ -214,7 +212,6 @@ var xConverterOutputStreamGetConverter func(uintptr) uintptr
 
 // Gets the #GConverter that is used by @converter_stream.
 func (x *ConverterOutputStream) GetConverter() *ConverterBase {
-	core.LazyRegister(&xConverterOutputStreamGetConverter, "GIO", "g_converter_output_stream_get_converter", false)
 	var cls *ConverterBase
 
 	cret := xConverterOutputStreamGetConverter(x.GoPointer())
@@ -346,4 +343,18 @@ func (x *ConverterOutputStream) WritevNonblocking(VectorsVar []OutputVector, NVe
 func init() {
 	core.SetPackageName("GIO", "gio-2.0")
 	core.SetSharedLibraries("GIO", []string{"libgio-2.0.so.0", "libgio-2.0.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GIO") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xConverterOutputStreamGLibType, libs, "g_converter_output_stream_get_type")
+
+	core.PuregoSafeRegister(&xNewConverterOutputStream, libs, "g_converter_output_stream_new")
+
+	core.PuregoSafeRegister(&xConverterOutputStreamGetConverter, libs, "g_converter_output_stream_get_converter")
 }

@@ -139,7 +139,6 @@ type TextChildAnchor struct {
 var xTextChildAnchorGLibType func() types.GType
 
 func TextChildAnchorGLibType() types.GType {
-	core.LazyRegister(&xTextChildAnchorGLibType, "GTK", "gtk_text_child_anchor_get_type", false)
 	return xTextChildAnchorGLibType()
 }
 
@@ -158,7 +157,6 @@ var xNewTextChildAnchor func() uintptr
 // creation and insertion in one step, use the convenience
 // function [method@Gtk.TextBuffer.create_child_anchor].
 func NewTextChildAnchor() *TextChildAnchor {
-	core.LazyRegister(&xNewTextChildAnchor, "GTK", "gtk_text_child_anchor_new", false)
 	var cls *TextChildAnchor
 
 	cret := xNewTextChildAnchor()
@@ -178,7 +176,6 @@ var xNewTextChildAnchorWithReplacement func(string) uintptr
 // Usually you would then insert it into a `GtkTextBuffer` with
 // [method@Gtk.TextBuffer.insert_child_anchor].
 func NewTextChildAnchorWithReplacement(CharacterVar string) *TextChildAnchor {
-	core.LazyRegister(&xNewTextChildAnchorWithReplacement, "GTK", "gtk_text_child_anchor_new_with_replacement", false)
 	var cls *TextChildAnchor
 
 	cret := xNewTextChildAnchorWithReplacement(CharacterVar)
@@ -202,8 +199,6 @@ var xTextChildAnchorGetDeleted func(uintptr) bool
 // function — otherwise all deleted child anchors will also
 // be finalized.
 func (x *TextChildAnchor) GetDeleted() bool {
-	core.LazyRegister(&xTextChildAnchorGetDeleted, "GTK", "gtk_text_child_anchor_get_deleted", false)
-
 	cret := xTextChildAnchorGetDeleted(x.GoPointer())
 	return cret
 }
@@ -214,8 +209,6 @@ var xTextChildAnchorGetWidgets func(uintptr, *uint) uintptr
 //
 // The order in which the widgets are returned is not defined.
 func (x *TextChildAnchor) GetWidgets(OutLenVar *uint) uintptr {
-	core.LazyRegister(&xTextChildAnchorGetWidgets, "GTK", "gtk_text_child_anchor_get_widgets", false)
-
 	cret := xTextChildAnchorGetWidgets(x.GoPointer(), OutLenVar)
 	return cret
 }
@@ -234,4 +227,20 @@ func (c *TextChildAnchor) SetGoPointer(ptr uintptr) {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GTK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xTextChildAnchorGLibType, libs, "gtk_text_child_anchor_get_type")
+
+	core.PuregoSafeRegister(&xNewTextChildAnchor, libs, "gtk_text_child_anchor_new")
+	core.PuregoSafeRegister(&xNewTextChildAnchorWithReplacement, libs, "gtk_text_child_anchor_new_with_replacement")
+
+	core.PuregoSafeRegister(&xTextChildAnchorGetDeleted, libs, "gtk_text_child_anchor_get_deleted")
+	core.PuregoSafeRegister(&xTextChildAnchorGetWidgets, libs, "gtk_text_child_anchor_get_widgets")
 }

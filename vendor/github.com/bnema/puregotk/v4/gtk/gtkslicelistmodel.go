@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gio"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -43,7 +44,6 @@ type SliceListModel struct {
 var xSliceListModelGLibType func() types.GType
 
 func SliceListModelGLibType() types.GType {
-	core.LazyRegister(&xSliceListModelGLibType, "GTK", "gtk_slice_list_model_get_type", false)
 	return xSliceListModelGLibType()
 }
 
@@ -60,7 +60,6 @@ var xNewSliceListModel func(uintptr, uint, uint) uintptr
 // It presents the slice from @offset to offset + @size
 // of the given @model.
 func NewSliceListModel(ModelVar gio.ListModel, OffsetVar uint, SizeVar uint) *SliceListModel {
-	core.LazyRegister(&xNewSliceListModel, "GTK", "gtk_slice_list_model_new", false)
 	var cls *SliceListModel
 
 	cret := xNewSliceListModel(ModelVar.GoPointer(), OffsetVar, SizeVar)
@@ -77,7 +76,6 @@ var xSliceListModelGetModel func(uintptr) uintptr
 
 // Gets the model that is currently being used or %NULL if none.
 func (x *SliceListModel) GetModel() *gio.ListModelBase {
-	core.LazyRegister(&xSliceListModelGetModel, "GTK", "gtk_slice_list_model_get_model", false)
 	var cls *gio.ListModelBase
 
 	cret := xSliceListModelGetModel(x.GoPointer())
@@ -95,8 +93,6 @@ var xSliceListModelGetOffset func(uintptr) uint
 
 // Gets the offset set via gtk_slice_list_model_set_offset().
 func (x *SliceListModel) GetOffset() uint {
-	core.LazyRegister(&xSliceListModelGetOffset, "GTK", "gtk_slice_list_model_get_offset", false)
-
 	cret := xSliceListModelGetOffset(x.GoPointer())
 	return cret
 }
@@ -105,8 +101,6 @@ var xSliceListModelGetSize func(uintptr) uint
 
 // Gets the size set via gtk_slice_list_model_set_size().
 func (x *SliceListModel) GetSize() uint {
-	core.LazyRegister(&xSliceListModelGetSize, "GTK", "gtk_slice_list_model_get_size", false)
-
 	cret := xSliceListModelGetSize(x.GoPointer())
 	return cret
 }
@@ -117,8 +111,6 @@ var xSliceListModelSetModel func(uintptr, uintptr)
 //
 // The model's item type must conform to @self's item type.
 func (x *SliceListModel) SetModel(ModelVar gio.ListModel) {
-	core.LazyRegister(&xSliceListModelSetModel, "GTK", "gtk_slice_list_model_set_model", false)
-
 	xSliceListModelSetModel(x.GoPointer(), ModelVar.GoPointer())
 }
 
@@ -129,8 +121,6 @@ var xSliceListModelSetOffset func(uintptr, uint)
 // If the offset is too large for the sliced model,
 // @self will end up empty.
 func (x *SliceListModel) SetOffset(OffsetVar uint) {
-	core.LazyRegister(&xSliceListModelSetOffset, "GTK", "gtk_slice_list_model_set_offset", false)
-
 	xSliceListModelSetOffset(x.GoPointer(), OffsetVar)
 }
 
@@ -142,8 +132,6 @@ var xSliceListModelSetSize func(uintptr, uint)
 // It can however have fewer items if the offset is too large
 // or the model sliced from doesn't have enough items.
 func (x *SliceListModel) SetSize(SizeVar uint) {
-	core.LazyRegister(&xSliceListModelSetSize, "GTK", "gtk_slice_list_model_set_size", false)
-
 	xSliceListModelSetSize(x.GoPointer(), SizeVar)
 }
 
@@ -317,4 +305,23 @@ func (x *SliceListModel) SectionsChanged(PositionVar uint, NItemsVar uint) {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GTK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xSliceListModelGLibType, libs, "gtk_slice_list_model_get_type")
+
+	core.PuregoSafeRegister(&xNewSliceListModel, libs, "gtk_slice_list_model_new")
+
+	core.PuregoSafeRegister(&xSliceListModelGetModel, libs, "gtk_slice_list_model_get_model")
+	core.PuregoSafeRegister(&xSliceListModelGetOffset, libs, "gtk_slice_list_model_get_offset")
+	core.PuregoSafeRegister(&xSliceListModelGetSize, libs, "gtk_slice_list_model_get_size")
+	core.PuregoSafeRegister(&xSliceListModelSetModel, libs, "gtk_slice_list_model_set_model")
+	core.PuregoSafeRegister(&xSliceListModelSetOffset, libs, "gtk_slice_list_model_set_offset")
+	core.PuregoSafeRegister(&xSliceListModelSetSize, libs, "gtk_slice_list_model_set_size")
 }

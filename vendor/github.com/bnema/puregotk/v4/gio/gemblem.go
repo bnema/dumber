@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -40,7 +41,6 @@ type Emblem struct {
 var xEmblemGLibType func() types.GType
 
 func EmblemGLibType() types.GType {
-	core.LazyRegister(&xEmblemGLibType, "GIO", "g_emblem_get_type", false)
 	return xEmblemGLibType()
 }
 
@@ -54,7 +54,6 @@ var xNewEmblem func(uintptr) uintptr
 
 // Creates a new emblem for @icon.
 func NewEmblem(IconVar Icon) *Emblem {
-	core.LazyRegister(&xNewEmblem, "GIO", "g_emblem_new", false)
 	var cls *Emblem
 
 	cret := xNewEmblem(IconVar.GoPointer())
@@ -71,7 +70,6 @@ var xNewEmblemWithOrigin func(uintptr, EmblemOrigin) uintptr
 
 // Creates a new emblem for @icon.
 func NewEmblemWithOrigin(IconVar Icon, OriginVar EmblemOrigin) *Emblem {
-	core.LazyRegister(&xNewEmblemWithOrigin, "GIO", "g_emblem_new_with_origin", false)
 	var cls *Emblem
 
 	cret := xNewEmblemWithOrigin(IconVar.GoPointer(), OriginVar)
@@ -88,7 +86,6 @@ var xEmblemGetIcon func(uintptr) uintptr
 
 // Gives back the icon from @emblem.
 func (x *Emblem) GetIcon() *IconBase {
-	core.LazyRegister(&xEmblemGetIcon, "GIO", "g_emblem_get_icon", false)
 	var cls *IconBase
 
 	cret := xEmblemGetIcon(x.GoPointer())
@@ -106,8 +103,6 @@ var xEmblemGetOrigin func(uintptr) EmblemOrigin
 
 // Gets the origin of the emblem.
 func (x *Emblem) GetOrigin() EmblemOrigin {
-	core.LazyRegister(&xEmblemGetOrigin, "GIO", "g_emblem_get_origin", false)
-
 	cret := xEmblemGetOrigin(x.GoPointer())
 	return cret
 }
@@ -172,4 +167,20 @@ func (x *Emblem) ToString() string {
 func init() {
 	core.SetPackageName("GIO", "gio-2.0")
 	core.SetSharedLibraries("GIO", []string{"libgio-2.0.so.0", "libgio-2.0.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GIO") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xEmblemGLibType, libs, "g_emblem_get_type")
+
+	core.PuregoSafeRegister(&xNewEmblem, libs, "g_emblem_new")
+	core.PuregoSafeRegister(&xNewEmblemWithOrigin, libs, "g_emblem_new_with_origin")
+
+	core.PuregoSafeRegister(&xEmblemGetIcon, libs, "g_emblem_get_icon")
+	core.PuregoSafeRegister(&xEmblemGetOrigin, libs, "g_emblem_get_origin")
 }

@@ -67,7 +67,7 @@ func (x *AsyncInitableIface) OverrideInitFinish(cb func(AsyncInitable, AsyncResu
 	if cb == nil {
 		x.xInitFinish = 0
 	} else {
-		x.xInitFinish = purego.NewCallback(func(InitableVarp uintptr, ResVarp uintptr, cerrp **glib.Error) bool {
+		x.xInitFinish = purego.NewCallback(func(InitableVarp uintptr, ResVarp uintptr) bool {
 			return cb(&AsyncInitableBase{Ptr: InitableVarp}, &AsyncResultBase{Ptr: ResVarp})
 		})
 	}
@@ -79,11 +79,10 @@ func (x *AsyncInitableIface) GetInitFinish() func(AsyncInitable, AsyncResult) bo
 	if x.xInitFinish == 0 {
 		return nil
 	}
-	var rawCallback func(InitableVarp uintptr, ResVarp uintptr, cerrp **glib.Error) bool
+	var rawCallback func(InitableVarp uintptr, ResVarp uintptr) bool
 	purego.RegisterFunc(&rawCallback, x.xInitFinish)
 	return func(InitableVar AsyncInitable, ResVar AsyncResult) bool {
-		var cerr *glib.Error
-		return rawCallback(InitableVar.GoPointer(), ResVar.GoPointer(), &cerr)
+		return rawCallback(InitableVar.GoPointer(), ResVar.GoPointer())
 	}
 }
 
@@ -208,7 +207,6 @@ type AsyncInitable interface {
 var xAsyncInitableGLibType func() types.GType
 
 func AsyncInitableGLibType() types.GType {
-	core.LazyRegister(&xAsyncInitableGLibType, "GIO", "g_async_initable_get_type", false)
 	return xAsyncInitableGLibType()
 }
 
@@ -298,26 +296,11 @@ func (x *AsyncInitableBase) NewFinish(ResVar AsyncResult) (*gobject.Object, erro
 	return cls, cerr
 }
 
-var XGAsyncInitableInitAsync func(uintptr, int, uintptr, uintptr, uintptr) = func(instance uintptr, IoPriorityVarp int, CancellableVarp uintptr, CallbackVarp uintptr, UserDataVarp uintptr) {
-	core.LazyRegister(&xXGAsyncInitableInitAsync, "GIO", "g_async_initable_init_async", false)
-	xXGAsyncInitableInitAsync(instance, IoPriorityVarp, CancellableVarp, CallbackVarp, UserDataVarp)
-}
-
 var (
-	xXGAsyncInitableInitAsync func(uintptr, int, uintptr, uintptr, uintptr)
-	XGAsyncInitableInitFinish func(uintptr, uintptr, **glib.Error) bool = func(instance uintptr, ResVarp uintptr, cerrp **glib.Error) bool {
-		core.LazyRegister(&xXGAsyncInitableInitFinish, "GIO", "g_async_initable_init_finish", false)
-		return xXGAsyncInitableInitFinish(instance, ResVarp, cerrp)
-	}
+	XGAsyncInitableInitAsync  func(uintptr, int, uintptr, uintptr, uintptr)
+	XGAsyncInitableInitFinish func(uintptr, uintptr, **glib.Error) bool
+	XGAsyncInitableNewFinish  func(uintptr, uintptr, **glib.Error) uintptr
 )
-var (
-	xXGAsyncInitableInitFinish func(uintptr, uintptr, **glib.Error) bool
-	XGAsyncInitableNewFinish   func(uintptr, uintptr, **glib.Error) uintptr = func(instance uintptr, ResVarp uintptr, cerrp **glib.Error) uintptr {
-		core.LazyRegister(&xXGAsyncInitableNewFinish, "GIO", "g_async_initable_new_finish", false)
-		return xXGAsyncInitableNewFinish(instance, ResVarp, cerrp)
-	}
-)
-var xXGAsyncInitableNewFinish func(uintptr, uintptr, **glib.Error) uintptr
 
 var xAsyncInitableNewvAsync func(types.GType, uint, *gobject.Parameter, int, uintptr, uintptr, uintptr)
 
@@ -328,12 +311,26 @@ var xAsyncInitableNewvAsync func(types.GType, uint, *gobject.Parameter, int, uin
 // then call g_async_initable_new_finish() to get the new object and check
 // for any errors.
 func AsyncInitableNewvAsync(ObjectTypeVar types.GType, NParametersVar uint, ParametersVar *gobject.Parameter, IoPriorityVar int, CancellableVar *Cancellable, CallbackVar *AsyncReadyCallback, UserDataVar uintptr) {
-	core.LazyRegister(&xAsyncInitableNewvAsync, "GIO", "g_async_initable_newv_async", false)
-
 	xAsyncInitableNewvAsync(ObjectTypeVar, NParametersVar, ParametersVar, IoPriorityVar, CancellableVar.GoPointer(), glib.NewCallbackNullable(CallbackVar), UserDataVar)
 }
 
 func init() {
 	core.SetPackageName("GIO", "gio-2.0")
 	core.SetSharedLibraries("GIO", []string{"libgio-2.0.so.0", "libgio-2.0.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GIO") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xAsyncInitableNewvAsync, libs, "g_async_initable_newv_async")
+
+	core.PuregoSafeRegister(&xAsyncInitableGLibType, libs, "g_async_initable_get_type")
+
+	core.PuregoSafeRegister(&XGAsyncInitableInitAsync, libs, "g_async_initable_init_async")
+	core.PuregoSafeRegister(&XGAsyncInitableInitFinish, libs, "g_async_initable_init_finish")
+	core.PuregoSafeRegister(&XGAsyncInitableNewFinish, libs, "g_async_initable_new_finish")
 }

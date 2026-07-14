@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -40,7 +41,6 @@ type FontLevel int
 var xFontLevelGLibType func() types.GType
 
 func FontLevelGLibType() types.GType {
-	core.LazyRegister(&xFontLevelGLibType, "GTK", "gtk_font_level_get_type", false)
 	return xFontLevelGLibType()
 }
 
@@ -86,7 +86,6 @@ type FontDialogButton struct {
 var xFontDialogButtonGLibType func() types.GType
 
 func FontDialogButtonGLibType() types.GType {
-	core.LazyRegister(&xFontDialogButtonGLibType, "GTK", "gtk_font_dialog_button_get_type", false)
 	return xFontDialogButtonGLibType()
 }
 
@@ -104,7 +103,6 @@ var xNewFontDialogButton func(uintptr) uintptr
 // You can pass `NULL` to this function and set a `GtkFontDialog`
 // later. The button will be insensitive until that happens.
 func NewFontDialogButton(DialogVar *FontDialog) *FontDialogButton {
-	core.LazyRegister(&xNewFontDialogButton, "GTK", "gtk_font_dialog_button_new", false)
 	var cls *FontDialogButton
 
 	cret := xNewFontDialogButton(DialogVar.GoPointer())
@@ -122,7 +120,6 @@ var xFontDialogButtonGetDialog func(uintptr) uintptr
 
 // Returns the `GtkFontDialog` of @self.
 func (x *FontDialogButton) GetDialog() *FontDialog {
-	core.LazyRegister(&xFontDialogButtonGetDialog, "GTK", "gtk_font_dialog_button_get_dialog", false)
 	var cls *FontDialog
 
 	cret := xFontDialogButtonGetDialog(x.GoPointer())
@@ -144,8 +141,6 @@ var xFontDialogButtonGetFontDesc func(uintptr) uintptr
 // the font that was chosen by the user. To get
 // informed about changes, listen to "notify::font-desc".
 func (x *FontDialogButton) GetFontDesc() *pango.FontDescription {
-	core.LazyRegister(&xFontDialogButtonGetFontDesc, "GTK", "gtk_font_dialog_button_get_font_desc", false)
-
 	cret := xFontDialogButtonGetFontDesc(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -165,8 +160,6 @@ var xFontDialogButtonGetFontFeatures func(uintptr) string
 // if [property@Gtk.FontDialogButton:level] is set to
 // `GTK_FONT_LEVEL_FEATURES`.
 func (x *FontDialogButton) GetFontFeatures() string {
-	core.LazyRegister(&xFontDialogButtonGetFontFeatures, "GTK", "gtk_font_dialog_button_get_font_features", false)
-
 	cret := xFontDialogButtonGetFontFeatures(x.GoPointer())
 	return cret
 }
@@ -175,8 +168,6 @@ var xFontDialogButtonGetLanguage func(uintptr) uintptr
 
 // Returns the language that is used for font features.
 func (x *FontDialogButton) GetLanguage() *pango.Language {
-	core.LazyRegister(&xFontDialogButtonGetLanguage, "GTK", "gtk_font_dialog_button_get_language", false)
-
 	cret := xFontDialogButtonGetLanguage(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -189,8 +180,6 @@ var xFontDialogButtonGetLevel func(uintptr) FontLevel
 // Returns the level of detail at which this dialog
 // lets the user select fonts.
 func (x *FontDialogButton) GetLevel() FontLevel {
-	core.LazyRegister(&xFontDialogButtonGetLevel, "GTK", "gtk_font_dialog_button_get_level", false)
-
 	cret := xFontDialogButtonGetLevel(x.GoPointer())
 	return cret
 }
@@ -199,8 +188,6 @@ var xFontDialogButtonGetUseFont func(uintptr) bool
 
 // Returns whether the selected font is used in the label.
 func (x *FontDialogButton) GetUseFont() bool {
-	core.LazyRegister(&xFontDialogButtonGetUseFont, "GTK", "gtk_font_dialog_button_get_use_font", false)
-
 	cret := xFontDialogButtonGetUseFont(x.GoPointer())
 	return cret
 }
@@ -209,8 +196,6 @@ var xFontDialogButtonGetUseSize func(uintptr) bool
 
 // Returns whether the selected font size is used in the label.
 func (x *FontDialogButton) GetUseSize() bool {
-	core.LazyRegister(&xFontDialogButtonGetUseSize, "GTK", "gtk_font_dialog_button_get_use_size", false)
-
 	cret := xFontDialogButtonGetUseSize(x.GoPointer())
 	return cret
 }
@@ -221,8 +206,6 @@ var xFontDialogButtonSetDialog func(uintptr, uintptr)
 // creating the font chooser dialog that is
 // presented when the user clicks the button.
 func (x *FontDialogButton) SetDialog(DialogVar *FontDialog) {
-	core.LazyRegister(&xFontDialogButtonSetDialog, "GTK", "gtk_font_dialog_button_set_dialog", false)
-
 	xFontDialogButtonSetDialog(x.GoPointer(), DialogVar.GoPointer())
 }
 
@@ -230,8 +213,6 @@ var xFontDialogButtonSetFontDesc func(uintptr, *pango.FontDescription)
 
 // Sets the font of the button.
 func (x *FontDialogButton) SetFontDesc(FontDescVar *pango.FontDescription) {
-	core.LazyRegister(&xFontDialogButtonSetFontDesc, "GTK", "gtk_font_dialog_button_set_font_desc", false)
-
 	xFontDialogButtonSetFontDesc(x.GoPointer(), FontDescVar)
 }
 
@@ -239,8 +220,6 @@ var xFontDialogButtonSetFontFeatures func(uintptr, uintptr)
 
 // Sets the font features of the button.
 func (x *FontDialogButton) SetFontFeatures(FontFeaturesVar *string) {
-	core.LazyRegister(&xFontDialogButtonSetFontFeatures, "GTK", "gtk_font_dialog_button_set_font_features", false)
-
 	FontFeaturesVarPtr := core.GStrdupNullable(FontFeaturesVar)
 	defer core.GFreeNullable(FontFeaturesVarPtr)
 
@@ -251,8 +230,6 @@ var xFontDialogButtonSetLanguage func(uintptr, *pango.Language)
 
 // Sets the language to use for font features.
 func (x *FontDialogButton) SetLanguage(LanguageVar *pango.Language) {
-	core.LazyRegister(&xFontDialogButtonSetLanguage, "GTK", "gtk_font_dialog_button_set_language", false)
-
 	xFontDialogButtonSetLanguage(x.GoPointer(), LanguageVar)
 }
 
@@ -261,8 +238,6 @@ var xFontDialogButtonSetLevel func(uintptr, FontLevel)
 // Sets the level of detail at which this dialog
 // lets the user select fonts.
 func (x *FontDialogButton) SetLevel(LevelVar FontLevel) {
-	core.LazyRegister(&xFontDialogButtonSetLevel, "GTK", "gtk_font_dialog_button_set_level", false)
-
 	xFontDialogButtonSetLevel(x.GoPointer(), LevelVar)
 }
 
@@ -271,8 +246,6 @@ var xFontDialogButtonSetUseFont func(uintptr, bool)
 // If @use_font is `TRUE`, the font name will be written
 // using the selected font.
 func (x *FontDialogButton) SetUseFont(UseFontVar bool) {
-	core.LazyRegister(&xFontDialogButtonSetUseFont, "GTK", "gtk_font_dialog_button_set_use_font", false)
-
 	xFontDialogButtonSetUseFont(x.GoPointer(), UseFontVar)
 }
 
@@ -281,8 +254,6 @@ var xFontDialogButtonSetUseSize func(uintptr, bool)
 // If @use_size is `TRUE`, the font name will be written
 // using the selected font size.
 func (x *FontDialogButton) SetUseSize(UseSizeVar bool) {
-	core.LazyRegister(&xFontDialogButtonSetUseSize, "GTK", "gtk_font_dialog_button_set_use_size", false)
-
 	xFontDialogButtonSetUseSize(x.GoPointer(), UseSizeVar)
 }
 
@@ -709,4 +680,33 @@ func (x *FontDialogButton) GetBuildableId() string {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GTK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xFontLevelGLibType, libs, "gtk_font_level_get_type")
+
+	core.PuregoSafeRegister(&xFontDialogButtonGLibType, libs, "gtk_font_dialog_button_get_type")
+
+	core.PuregoSafeRegister(&xNewFontDialogButton, libs, "gtk_font_dialog_button_new")
+
+	core.PuregoSafeRegister(&xFontDialogButtonGetDialog, libs, "gtk_font_dialog_button_get_dialog")
+	core.PuregoSafeRegister(&xFontDialogButtonGetFontDesc, libs, "gtk_font_dialog_button_get_font_desc")
+	core.PuregoSafeRegister(&xFontDialogButtonGetFontFeatures, libs, "gtk_font_dialog_button_get_font_features")
+	core.PuregoSafeRegister(&xFontDialogButtonGetLanguage, libs, "gtk_font_dialog_button_get_language")
+	core.PuregoSafeRegister(&xFontDialogButtonGetLevel, libs, "gtk_font_dialog_button_get_level")
+	core.PuregoSafeRegister(&xFontDialogButtonGetUseFont, libs, "gtk_font_dialog_button_get_use_font")
+	core.PuregoSafeRegister(&xFontDialogButtonGetUseSize, libs, "gtk_font_dialog_button_get_use_size")
+	core.PuregoSafeRegister(&xFontDialogButtonSetDialog, libs, "gtk_font_dialog_button_set_dialog")
+	core.PuregoSafeRegister(&xFontDialogButtonSetFontDesc, libs, "gtk_font_dialog_button_set_font_desc")
+	core.PuregoSafeRegister(&xFontDialogButtonSetFontFeatures, libs, "gtk_font_dialog_button_set_font_features")
+	core.PuregoSafeRegister(&xFontDialogButtonSetLanguage, libs, "gtk_font_dialog_button_set_language")
+	core.PuregoSafeRegister(&xFontDialogButtonSetLevel, libs, "gtk_font_dialog_button_set_level")
+	core.PuregoSafeRegister(&xFontDialogButtonSetUseFont, libs, "gtk_font_dialog_button_set_use_font")
+	core.PuregoSafeRegister(&xFontDialogButtonSetUseSize, libs, "gtk_font_dialog_button_set_use_size")
 }

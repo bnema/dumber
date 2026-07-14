@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject/types"
 )
@@ -24,7 +25,6 @@ type MatchInfo struct {
 var xMatchInfoGLibType func() types.GType
 
 func MatchInfoGLibType() types.GType {
-	core.LazyRegister(&xMatchInfoGLibType, "GLIB", "g_match_info_get_type", false)
 	return xMatchInfoGLibType()
 }
 
@@ -60,7 +60,6 @@ var xMatchInfoExpandReferences func(uintptr, string, **Error) string
 // Use g_regex_check_replacement() to find out whether @string_to_expand
 // contains references.
 func (x *MatchInfo) ExpandReferences(StringToExpandVar string) (string, error) {
-	core.LazyRegister(&xMatchInfoExpandReferences, "GLIB", "g_match_info_expand_references", false)
 	var cerr *Error
 
 	cret := xMatchInfoExpandReferences(x.GoPointer(), StringToExpandVar, &cerr)
@@ -89,8 +88,6 @@ var xMatchInfoFetch func(uintptr, int) string
 // The string is fetched from the string passed to the match function,
 // so you cannot call this function after freeing the string.
 func (x *MatchInfo) Fetch(MatchNumVar int) string {
-	core.LazyRegister(&xMatchInfoFetch, "GLIB", "g_match_info_fetch", false)
-
 	cret := xMatchInfoFetch(x.GoPointer(), MatchNumVar)
 	return cret
 }
@@ -114,8 +111,6 @@ var xMatchInfoFetchAll func(uintptr) []string
 // The strings are fetched from the string passed to the match function,
 // so you cannot call this function after freeing the string.
 func (x *MatchInfo) FetchAll() []string {
-	core.LazyRegister(&xMatchInfoFetchAll, "GLIB", "g_match_info_fetch_all", false)
-
 	cret := xMatchInfoFetchAll(x.GoPointer())
 	return cret
 }
@@ -131,8 +126,6 @@ var xMatchInfoFetchNamed func(uintptr, string) string
 // The string is fetched from the string passed to the match function,
 // so you cannot call this function after freeing the string.
 func (x *MatchInfo) FetchNamed(NameVar string) string {
-	core.LazyRegister(&xMatchInfoFetchNamed, "GLIB", "g_match_info_fetch_named", false)
-
 	cret := xMatchInfoFetchNamed(x.GoPointer(), NameVar)
 	return cret
 }
@@ -148,8 +141,6 @@ var xMatchInfoFetchNamedPos func(uintptr, string, *int, *int) bool
 // As @end_pos is set to the byte after the final byte of the match (on success),
 // the length of the match can be calculated as `end_pos - start_pos`.
 func (x *MatchInfo) FetchNamedPos(NameVar string, StartPosVar *int, EndPosVar *int) bool {
-	core.LazyRegister(&xMatchInfoFetchNamedPos, "GLIB", "g_match_info_fetch_named_pos", false)
-
 	cret := xMatchInfoFetchNamedPos(x.GoPointer(), NameVar, StartPosVar, EndPosVar)
 	return cret
 }
@@ -364,8 +355,6 @@ var xMatchInfoFetchPos func(uintptr, int, *int, *int) bool
 // 3         N/A                       0            2147483647         2147483647
 // ```
 func (x *MatchInfo) FetchPos(MatchNumVar int, StartPosVar *int, EndPosVar *int) bool {
-	core.LazyRegister(&xMatchInfoFetchPos, "GLIB", "g_match_info_fetch_pos", false)
-
 	cret := xMatchInfoFetchPos(x.GoPointer(), MatchNumVar, StartPosVar, EndPosVar)
 	return cret
 }
@@ -375,8 +364,6 @@ var xMatchInfoFree func(uintptr)
 // If @match_info is not %NULL, calls g_match_info_unref(); otherwise does
 // nothing.
 func (x *MatchInfo) Free() {
-	core.LazyRegister(&xMatchInfoFree, "GLIB", "g_match_info_free", false)
-
 	xMatchInfoFree(x.GoPointer())
 }
 
@@ -391,8 +378,6 @@ var xMatchInfoGetMatchCount func(uintptr) int
 // count is not that of the number of capturing parentheses but that of
 // the number of matched substrings.
 func (x *MatchInfo) GetMatchCount() int {
-	core.LazyRegister(&xMatchInfoGetMatchCount, "GLIB", "g_match_info_get_match_count", false)
-
 	cret := xMatchInfoGetMatchCount(x.GoPointer())
 	return cret
 }
@@ -403,8 +388,6 @@ var xMatchInfoGetRegex func(uintptr) uintptr
 // and must not be freed. Use g_regex_ref() if you need to keep it
 // after you free @match_info object.
 func (x *MatchInfo) GetRegex() *Regex {
-	core.LazyRegister(&xMatchInfoGetRegex, "GLIB", "g_match_info_get_regex", false)
-
 	cret := xMatchInfoGetRegex(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -418,8 +401,6 @@ var xMatchInfoGetString func(uintptr) string
 // string passed to g_regex_match() or g_regex_replace() so
 // you may not free it before calling this function.
 func (x *MatchInfo) GetString() string {
-	core.LazyRegister(&xMatchInfoGetString, "GLIB", "g_match_info_get_string", false)
-
 	cret := xMatchInfoGetString(x.GoPointer())
 	return cret
 }
@@ -460,8 +441,6 @@ var xMatchInfoIsPartialMatch func(uintptr) bool
 //
 // See pcrepartial(3) for more information on partial matching.
 func (x *MatchInfo) IsPartialMatch() bool {
-	core.LazyRegister(&xMatchInfoIsPartialMatch, "GLIB", "g_match_info_is_partial_match", false)
-
 	cret := xMatchInfoIsPartialMatch(x.GoPointer())
 	return cret
 }
@@ -470,8 +449,6 @@ var xMatchInfoMatches func(uintptr) bool
 
 // Returns whether the previous match operation succeeded.
 func (x *MatchInfo) Matches() bool {
-	core.LazyRegister(&xMatchInfoMatches, "GLIB", "g_match_info_matches", false)
-
 	cret := xMatchInfoMatches(x.GoPointer())
 	return cret
 }
@@ -485,7 +462,6 @@ var xMatchInfoNext func(uintptr, **Error) bool
 // The match is done on the string passed to the match function, so you
 // cannot free it before calling this function.
 func (x *MatchInfo) Next() (bool, error) {
-	core.LazyRegister(&xMatchInfoNext, "GLIB", "g_match_info_next", false)
 	var cerr *Error
 
 	cret := xMatchInfoNext(x.GoPointer(), &cerr)
@@ -499,8 +475,6 @@ var xMatchInfoRef func(uintptr) uintptr
 
 // Increases reference count of @match_info by 1.
 func (x *MatchInfo) Ref() *MatchInfo {
-	core.LazyRegister(&xMatchInfoRef, "GLIB", "g_match_info_ref", false)
-
 	cret := xMatchInfoRef(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -513,8 +487,6 @@ var xMatchInfoUnref func(uintptr)
 // Decreases reference count of @match_info by 1. When reference count drops
 // to zero, it frees all the memory associated with the match_info structure.
 func (x *MatchInfo) Unref() {
-	core.LazyRegister(&xMatchInfoUnref, "GLIB", "g_match_info_unref", false)
-
 	xMatchInfoUnref(x.GoPointer())
 }
 
@@ -661,7 +633,6 @@ type Regex struct {
 var xRegexGLibType func() types.GType
 
 func RegexGLibType() types.GType {
-	core.LazyRegister(&xRegexGLibType, "GLIB", "g_regex_get_type", false)
 	return xRegexGLibType()
 }
 
@@ -682,7 +653,6 @@ var xNewRegex func(string, RegexCompileFlags, RegexMatchFlags, **Error) uintptr
 // Compiles the regular expression to an internal form, and does
 // the initial setup of the #GRegex structure.
 func NewRegex(PatternVar string, CompileOptionsVar RegexCompileFlags, MatchOptionsVar RegexMatchFlags) (*Regex, error) {
-	core.LazyRegister(&xNewRegex, "GLIB", "g_regex_new", false)
 	var cerr *Error
 
 	cret := xNewRegex(PatternVar, CompileOptionsVar, MatchOptionsVar, &cerr)
@@ -699,8 +669,6 @@ var xRegexGetCaptureCount func(uintptr) int
 
 // Returns the number of capturing subpatterns in the pattern.
 func (x *Regex) GetCaptureCount() int {
-	core.LazyRegister(&xRegexGetCaptureCount, "GLIB", "g_regex_get_capture_count", false)
-
 	cret := xRegexGetCaptureCount(x.GoPointer())
 	return cret
 }
@@ -713,8 +681,6 @@ var xRegexGetCompileFlags func(uintptr) RegexCompileFlags
 // include flags set by option expressions such as `(?i)` found at the
 // top-level within the compiled pattern.
 func (x *Regex) GetCompileFlags() RegexCompileFlags {
-	core.LazyRegister(&xRegexGetCompileFlags, "GLIB", "g_regex_get_compile_flags", false)
-
 	cret := xRegexGetCompileFlags(x.GoPointer())
 	return cret
 }
@@ -723,8 +689,6 @@ var xRegexGetHasCrOrLf func(uintptr) bool
 
 // Checks whether the pattern contains explicit CR or LF references.
 func (x *Regex) GetHasCrOrLf() bool {
-	core.LazyRegister(&xRegexGetHasCrOrLf, "GLIB", "g_regex_get_has_cr_or_lf", false)
-
 	cret := xRegexGetHasCrOrLf(x.GoPointer())
 	return cret
 }
@@ -733,8 +697,6 @@ var xRegexGetMatchFlags func(uintptr) RegexMatchFlags
 
 // Returns the match options that @regex was created with.
 func (x *Regex) GetMatchFlags() RegexMatchFlags {
-	core.LazyRegister(&xRegexGetMatchFlags, "GLIB", "g_regex_get_match_flags", false)
-
 	cret := xRegexGetMatchFlags(x.GoPointer())
 	return cret
 }
@@ -745,8 +707,6 @@ var xRegexGetMaxBackref func(uintptr) int
 // in the pattern, or 0 if the pattern does not contain
 // back references.
 func (x *Regex) GetMaxBackref() int {
-	core.LazyRegister(&xRegexGetMaxBackref, "GLIB", "g_regex_get_max_backref", false)
-
 	cret := xRegexGetMaxBackref(x.GoPointer())
 	return cret
 }
@@ -757,8 +717,6 @@ var xRegexGetMaxLookbehind func(uintptr) int
 // pattern. This information is useful when doing multi-segment matching using
 // the partial matching facilities.
 func (x *Regex) GetMaxLookbehind() int {
-	core.LazyRegister(&xRegexGetMaxLookbehind, "GLIB", "g_regex_get_max_lookbehind", false)
-
 	cret := xRegexGetMaxLookbehind(x.GoPointer())
 	return cret
 }
@@ -768,8 +726,6 @@ var xRegexGetPattern func(uintptr) string
 // Gets the pattern string associated with @regex, i.e. a copy of
 // the string passed to g_regex_new().
 func (x *Regex) GetPattern() string {
-	core.LazyRegister(&xRegexGetPattern, "GLIB", "g_regex_get_pattern", false)
-
 	cret := xRegexGetPattern(x.GoPointer())
 	return cret
 }
@@ -778,8 +734,6 @@ var xRegexGetStringNumber func(uintptr, string) int
 
 // Retrieves the number of the subexpression named @name.
 func (x *Regex) GetStringNumber(NameVar string) int {
-	core.LazyRegister(&xRegexGetStringNumber, "GLIB", "g_regex_get_string_number", false)
-
 	cret := xRegexGetStringNumber(x.GoPointer(), NameVar)
 	return cret
 }
@@ -829,8 +783,6 @@ var xRegexMatch func(uintptr, string, RegexMatchFlags, **MatchInfo) bool
 // you use any #GMatchInfo method (except g_match_info_free()) after
 // freeing or modifying @string then the behaviour is undefined.
 func (x *Regex) Match(StringVar string, MatchOptionsVar RegexMatchFlags, MatchInfoVar **MatchInfo) bool {
-	core.LazyRegister(&xRegexMatch, "GLIB", "g_regex_match", false)
-
 	cret := xRegexMatch(x.GoPointer(), StringVar, MatchOptionsVar, MatchInfoVar)
 	return cret
 }
@@ -852,8 +804,6 @@ var xRegexMatchAll func(uintptr, string, RegexMatchFlags, **MatchInfo) bool
 // you use any #GMatchInfo method (except g_match_info_free()) after
 // freeing or modifying @string then the behaviour is undefined.
 func (x *Regex) MatchAll(StringVar string, MatchOptionsVar RegexMatchFlags, MatchInfoVar **MatchInfo) bool {
-	core.LazyRegister(&xRegexMatchAll, "GLIB", "g_regex_match_all", false)
-
 	cret := xRegexMatchAll(x.GoPointer(), StringVar, MatchOptionsVar, MatchInfoVar)
 	return cret
 }
@@ -899,7 +849,6 @@ var xRegexMatchAllFull func(uintptr, []string, int, int, RegexMatchFlags, **Matc
 // you use any #GMatchInfo method (except g_match_info_free()) after
 // freeing or modifying @string then the behaviour is undefined.
 func (x *Regex) MatchAllFull(StringVar []string, StringLenVar int, StartPositionVar int, MatchOptionsVar RegexMatchFlags, MatchInfoVar **MatchInfo) (bool, error) {
-	core.LazyRegister(&xRegexMatchAllFull, "GLIB", "g_regex_match_all_full", false)
 	var cerr *Error
 
 	cret := xRegexMatchAllFull(x.GoPointer(), StringVar, StringLenVar, StartPositionVar, MatchOptionsVar, MatchInfoVar, &cerr)
@@ -965,7 +914,6 @@ var xRegexMatchFull func(uintptr, []string, int, int, RegexMatchFlags, **MatchIn
 //
 // ]|
 func (x *Regex) MatchFull(StringVar []string, StringLenVar int, StartPositionVar int, MatchOptionsVar RegexMatchFlags, MatchInfoVar **MatchInfo) (bool, error) {
-	core.LazyRegister(&xRegexMatchFull, "GLIB", "g_regex_match_full", false)
 	var cerr *Error
 
 	cret := xRegexMatchFull(x.GoPointer(), StringVar, StringLenVar, StartPositionVar, MatchOptionsVar, MatchInfoVar, &cerr)
@@ -979,8 +927,6 @@ var xRegexRef func(uintptr) uintptr
 
 // Increases reference count of @regex by 1.
 func (x *Regex) Ref() *Regex {
-	core.LazyRegister(&xRegexRef, "GLIB", "g_regex_ref", false)
-
 	cret := xRegexRef(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -1017,7 +963,6 @@ var xRegexReplace func(uintptr, []string, int, int, string, RegexMatchFlags, **E
 // string and setting %G_REGEX_MATCH_NOTBOL in the case of a pattern that
 // begins with any kind of lookbehind assertion, such as "\b".
 func (x *Regex) Replace(StringVar []string, StringLenVar int, StartPositionVar int, ReplacementVar string, MatchOptionsVar RegexMatchFlags) (string, error) {
-	core.LazyRegister(&xRegexReplace, "GLIB", "g_regex_replace", false)
 	var cerr *Error
 
 	cret := xRegexReplace(x.GoPointer(), StringVar, StringLenVar, StartPositionVar, ReplacementVar, MatchOptionsVar, &cerr)
@@ -1077,7 +1022,6 @@ var xRegexReplaceEval func(uintptr, []string, int, int, RegexMatchFlags, uintptr
 // ...
 // ]|
 func (x *Regex) ReplaceEval(StringVar []string, StringLenVar int, StartPositionVar int, MatchOptionsVar RegexMatchFlags, EvalVar *RegexEvalCallback, UserDataVar uintptr) (string, error) {
-	core.LazyRegister(&xRegexReplaceEval, "GLIB", "g_regex_replace_eval", false)
 	var cerr *Error
 
 	cret := xRegexReplaceEval(x.GoPointer(), StringVar, StringLenVar, StartPositionVar, MatchOptionsVar, NewCallback(EvalVar), UserDataVar, &cerr)
@@ -1098,7 +1042,6 @@ var xRegexReplaceLiteral func(uintptr, []string, int, int, string, RegexMatchFla
 // case of a pattern that begins with any kind of lookbehind
 // assertion, such as "\b".
 func (x *Regex) ReplaceLiteral(StringVar []string, StringLenVar int, StartPositionVar int, ReplacementVar string, MatchOptionsVar RegexMatchFlags) (string, error) {
-	core.LazyRegister(&xRegexReplaceLiteral, "GLIB", "g_regex_replace_literal", false)
 	var cerr *Error
 
 	cret := xRegexReplaceLiteral(x.GoPointer(), StringVar, StringLenVar, StartPositionVar, ReplacementVar, MatchOptionsVar, &cerr)
@@ -1128,8 +1071,6 @@ var xRegexSplit func(uintptr, string, RegexMatchFlags) []string
 // For example splitting "ab c" using as a separator "\s*", you will get
 // "a", "b" and "c".
 func (x *Regex) Split(StringVar string, MatchOptionsVar RegexMatchFlags) []string {
-	core.LazyRegister(&xRegexSplit, "GLIB", "g_regex_split", false)
-
 	cret := xRegexSplit(x.GoPointer(), StringVar, MatchOptionsVar)
 	return cret
 }
@@ -1158,7 +1099,6 @@ var xRegexSplitFull func(uintptr, []string, int, int, RegexMatchFlags, int, **Er
 // string and setting %G_REGEX_MATCH_NOTBOL in the case of a pattern
 // that begins with any kind of lookbehind assertion, such as "\b".
 func (x *Regex) SplitFull(StringVar []string, StringLenVar int, StartPositionVar int, MatchOptionsVar RegexMatchFlags, MaxTokensVar int) ([]string, error) {
-	core.LazyRegister(&xRegexSplitFull, "GLIB", "g_regex_split_full", false)
 	var cerr *Error
 
 	cret := xRegexSplitFull(x.GoPointer(), StringVar, StringLenVar, StartPositionVar, MatchOptionsVar, MaxTokensVar, &cerr)
@@ -1173,8 +1113,6 @@ var xRegexUnref func(uintptr)
 // Decreases reference count of @regex by 1. When reference count drops
 // to zero, it frees all the memory associated with the regex structure.
 func (x *Regex) Unref() {
-	core.LazyRegister(&xRegexUnref, "GLIB", "g_regex_unref", false)
-
 	xRegexUnref(x.GoPointer())
 }
 
@@ -1524,7 +1462,6 @@ var xRegexCheckReplacement func(string, *bool, **Error) bool
 // about actual match, but '\0\1' (whole match followed by first
 // subpattern) requires valid #GMatchInfo object.
 func RegexCheckReplacement(ReplacementVar string, HasReferencesVar *bool) (bool, error) {
-	core.LazyRegister(&xRegexCheckReplacement, "GLIB", "g_regex_check_replacement", false)
 	var cerr *Error
 
 	cret := xRegexCheckReplacement(ReplacementVar, HasReferencesVar, &cerr)
@@ -1542,8 +1479,6 @@ var xRegexEscapeNul func(string, int) string
 // For completeness, @length can be -1 for a nul-terminated string.
 // In this case the output string will be of course equal to @string.
 func RegexEscapeNul(StringVar string, LengthVar int) string {
-	core.LazyRegister(&xRegexEscapeNul, "GLIB", "g_regex_escape_nul", false)
-
 	cret := xRegexEscapeNul(StringVar, LengthVar)
 	return cret
 }
@@ -1558,8 +1493,6 @@ var xRegexEscapeString func(string, int) string
 // in this case remember to specify the correct length of @string
 // in @length.
 func RegexEscapeString(StringVar string, LengthVar int) string {
-	core.LazyRegister(&xRegexEscapeString, "GLIB", "g_regex_escape_string", false)
-
 	cret := xRegexEscapeString(StringVar, LengthVar)
 	return cret
 }
@@ -1577,8 +1510,6 @@ var xRegexMatchSimple func(string, string, RegexCompileFlags, RegexMatchFlags) b
 // once, it's more efficient to compile the pattern once with
 // g_regex_new() and then use g_regex_match().
 func RegexMatchSimple(PatternVar string, StringVar string, CompileOptionsVar RegexCompileFlags, MatchOptionsVar RegexMatchFlags) bool {
-	core.LazyRegister(&xRegexMatchSimple, "GLIB", "g_regex_match_simple", false)
-
 	cret := xRegexMatchSimple(PatternVar, StringVar, CompileOptionsVar, MatchOptionsVar)
 	return cret
 }
@@ -1613,8 +1544,6 @@ var xRegexSplitSimple func(string, string, RegexCompileFlags, RegexMatchFlags) [
 // characters. For example splitting "ab c" using as a separator
 // "\s*", you will get "a", "b" and "c".
 func RegexSplitSimple(PatternVar string, StringVar string, CompileOptionsVar RegexCompileFlags, MatchOptionsVar RegexMatchFlags) []string {
-	core.LazyRegister(&xRegexSplitSimple, "GLIB", "g_regex_split_simple", false)
-
 	cret := xRegexSplitSimple(PatternVar, StringVar, CompileOptionsVar, MatchOptionsVar)
 	return cret
 }
@@ -1622,4 +1551,60 @@ func RegexSplitSimple(PatternVar string, StringVar string, CompileOptionsVar Reg
 func init() {
 	core.SetPackageName("GLIB", "glib-2.0")
 	core.SetSharedLibraries("GLIB", []string{"libgobject-2.0.so.0", "libglib-2.0.so.0", "libgobject-2.0.0.dylib", "libglib-2.0.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GLIB") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xRegexCheckReplacement, libs, "g_regex_check_replacement")
+	core.PuregoSafeRegister(&xRegexEscapeNul, libs, "g_regex_escape_nul")
+	core.PuregoSafeRegister(&xRegexEscapeString, libs, "g_regex_escape_string")
+	core.PuregoSafeRegister(&xRegexMatchSimple, libs, "g_regex_match_simple")
+	core.PuregoSafeRegister(&xRegexSplitSimple, libs, "g_regex_split_simple")
+
+	core.PuregoSafeRegister(&xMatchInfoGLibType, libs, "g_match_info_get_type")
+
+	core.PuregoSafeRegister(&xMatchInfoExpandReferences, libs, "g_match_info_expand_references")
+	core.PuregoSafeRegister(&xMatchInfoFetch, libs, "g_match_info_fetch")
+	core.PuregoSafeRegister(&xMatchInfoFetchAll, libs, "g_match_info_fetch_all")
+	core.PuregoSafeRegister(&xMatchInfoFetchNamed, libs, "g_match_info_fetch_named")
+	core.PuregoSafeRegister(&xMatchInfoFetchNamedPos, libs, "g_match_info_fetch_named_pos")
+	core.PuregoSafeRegister(&xMatchInfoFetchPos, libs, "g_match_info_fetch_pos")
+	core.PuregoSafeRegister(&xMatchInfoFree, libs, "g_match_info_free")
+	core.PuregoSafeRegister(&xMatchInfoGetMatchCount, libs, "g_match_info_get_match_count")
+	core.PuregoSafeRegister(&xMatchInfoGetRegex, libs, "g_match_info_get_regex")
+	core.PuregoSafeRegister(&xMatchInfoGetString, libs, "g_match_info_get_string")
+	core.PuregoSafeRegister(&xMatchInfoIsPartialMatch, libs, "g_match_info_is_partial_match")
+	core.PuregoSafeRegister(&xMatchInfoMatches, libs, "g_match_info_matches")
+	core.PuregoSafeRegister(&xMatchInfoNext, libs, "g_match_info_next")
+	core.PuregoSafeRegister(&xMatchInfoRef, libs, "g_match_info_ref")
+	core.PuregoSafeRegister(&xMatchInfoUnref, libs, "g_match_info_unref")
+
+	core.PuregoSafeRegister(&xRegexGLibType, libs, "g_regex_get_type")
+
+	core.PuregoSafeRegister(&xNewRegex, libs, "g_regex_new")
+
+	core.PuregoSafeRegister(&xRegexGetCaptureCount, libs, "g_regex_get_capture_count")
+	core.PuregoSafeRegister(&xRegexGetCompileFlags, libs, "g_regex_get_compile_flags")
+	core.PuregoSafeRegister(&xRegexGetHasCrOrLf, libs, "g_regex_get_has_cr_or_lf")
+	core.PuregoSafeRegister(&xRegexGetMatchFlags, libs, "g_regex_get_match_flags")
+	core.PuregoSafeRegister(&xRegexGetMaxBackref, libs, "g_regex_get_max_backref")
+	core.PuregoSafeRegister(&xRegexGetMaxLookbehind, libs, "g_regex_get_max_lookbehind")
+	core.PuregoSafeRegister(&xRegexGetPattern, libs, "g_regex_get_pattern")
+	core.PuregoSafeRegister(&xRegexGetStringNumber, libs, "g_regex_get_string_number")
+	core.PuregoSafeRegister(&xRegexMatch, libs, "g_regex_match")
+	core.PuregoSafeRegister(&xRegexMatchAll, libs, "g_regex_match_all")
+	core.PuregoSafeRegister(&xRegexMatchAllFull, libs, "g_regex_match_all_full")
+	core.PuregoSafeRegister(&xRegexMatchFull, libs, "g_regex_match_full")
+	core.PuregoSafeRegister(&xRegexRef, libs, "g_regex_ref")
+	core.PuregoSafeRegister(&xRegexReplace, libs, "g_regex_replace")
+	core.PuregoSafeRegister(&xRegexReplaceEval, libs, "g_regex_replace_eval")
+	core.PuregoSafeRegister(&xRegexReplaceLiteral, libs, "g_regex_replace_literal")
+	core.PuregoSafeRegister(&xRegexSplit, libs, "g_regex_split")
+	core.PuregoSafeRegister(&xRegexSplitFull, libs, "g_regex_split_full")
+	core.PuregoSafeRegister(&xRegexUnref, libs, "g_regex_unref")
 }

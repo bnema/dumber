@@ -72,7 +72,6 @@ type CellRendererText struct {
 var xCellRendererTextGLibType func() types.GType
 
 func CellRendererTextGLibType() types.GType {
-	core.LazyRegister(&xCellRendererTextGLibType, "GTK", "gtk_cell_renderer_text_get_type", false)
 	return xCellRendererTextGLibType()
 }
 
@@ -92,7 +91,6 @@ var xNewCellRendererText func() uintptr
 // value in the model, thus rendering a different string in each row
 // of the `GtkTreeView`.
 func NewCellRendererText() *CellRendererText {
-	core.LazyRegister(&xNewCellRendererText, "GTK", "gtk_cell_renderer_text_new", false)
 	var cls *CellRendererText
 
 	cret := xNewCellRendererText()
@@ -116,8 +114,6 @@ var xCellRendererTextSetFixedHeightFromFont func(uintptr, int)
 // displayed).  If @number_of_rows is -1, then the fixed height is unset, and
 // the height is determined by the properties again.
 func (x *CellRendererText) SetFixedHeightFromFont(NumberOfRowsVar int) {
-	core.LazyRegister(&xCellRendererTextSetFixedHeightFromFont, "GTK", "gtk_cell_renderer_text_set_fixed_height_from_font", false)
-
 	xCellRendererTextSetFixedHeightFromFont(x.GoPointer(), NumberOfRowsVar)
 }
 
@@ -761,4 +757,18 @@ func (x *CellRendererText) ConnectEdited(cb *func(CellRendererText, string, stri
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GTK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xCellRendererTextGLibType, libs, "gtk_cell_renderer_text_get_type")
+
+	core.PuregoSafeRegister(&xNewCellRendererText, libs, "gtk_cell_renderer_text_new")
+
+	core.PuregoSafeRegister(&xCellRendererTextSetFixedHeightFromFont, libs, "gtk_cell_renderer_text_set_fixed_height_from_font")
 }

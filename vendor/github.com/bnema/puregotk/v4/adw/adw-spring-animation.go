@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -65,7 +66,6 @@ type SpringAnimation struct {
 var xSpringAnimationGLibType func() types.GType
 
 func SpringAnimationGLibType() types.GType {
-	core.LazyRegister(&xSpringAnimationGLibType, "ADW", "adw_spring_animation_get_type", false)
 	return xSpringAnimationGLibType()
 }
 
@@ -82,7 +82,6 @@ var xNewSpringAnimation func(uintptr, float64, float64, *SpringParams, uintptr) 
 // The animation will animate @target from @from to @to with the dynamics of a
 // spring described by @spring_params.
 func NewSpringAnimation(WidgetVar *gtk.Widget, FromVar float64, ToVar float64, SpringParamsVar *SpringParams, TargetVar *AnimationTarget) *SpringAnimation {
-	core.LazyRegister(&xNewSpringAnimation, "ADW", "adw_spring_animation_new", false)
 	var cls *SpringAnimation
 
 	cret := xNewSpringAnimation(WidgetVar.GoPointer(), FromVar, ToVar, SpringParamsVar, TargetVar.GoPointer())
@@ -105,8 +104,6 @@ var xSpringAnimationCalculateValue func(uintptr, uint) float64
 //
 // See also [method@SpringAnimation.calculate_velocity].
 func (x *SpringAnimation) CalculateValue(TimeVar uint) float64 {
-	core.LazyRegister(&xSpringAnimationCalculateValue, "ADW", "adw_spring_animation_calculate_value", false)
-
 	cret := xSpringAnimationCalculateValue(x.GoPointer(), TimeVar)
 	return cret
 }
@@ -120,8 +117,6 @@ var xSpringAnimationCalculateVelocity func(uintptr, uint) float64
 //
 // See also [method@SpringAnimation.calculate_value].
 func (x *SpringAnimation) CalculateVelocity(TimeVar uint) float64 {
-	core.LazyRegister(&xSpringAnimationCalculateVelocity, "ADW", "adw_spring_animation_calculate_velocity", false)
-
 	cret := xSpringAnimationCalculateVelocity(x.GoPointer(), TimeVar)
 	return cret
 }
@@ -130,8 +125,6 @@ var xSpringAnimationGetClamp func(uintptr) bool
 
 // Gets whether @self should be clamped.
 func (x *SpringAnimation) GetClamp() bool {
-	core.LazyRegister(&xSpringAnimationGetClamp, "ADW", "adw_spring_animation_get_clamp", false)
-
 	cret := xSpringAnimationGetClamp(x.GoPointer())
 	return cret
 }
@@ -140,8 +133,6 @@ var xSpringAnimationGetEpsilon func(uintptr) float64
 
 // Gets the precision of the spring.
 func (x *SpringAnimation) GetEpsilon() float64 {
-	core.LazyRegister(&xSpringAnimationGetEpsilon, "ADW", "adw_spring_animation_get_epsilon", false)
-
 	cret := xSpringAnimationGetEpsilon(x.GoPointer())
 	return cret
 }
@@ -152,8 +143,6 @@ var xSpringAnimationGetEstimatedDuration func(uintptr) uint
 //
 // Can be [const@DURATION_INFINITE] if the spring damping is set to 0.
 func (x *SpringAnimation) GetEstimatedDuration() uint {
-	core.LazyRegister(&xSpringAnimationGetEstimatedDuration, "ADW", "adw_spring_animation_get_estimated_duration", false)
-
 	cret := xSpringAnimationGetEstimatedDuration(x.GoPointer())
 	return cret
 }
@@ -162,8 +151,6 @@ var xSpringAnimationGetInitialVelocity func(uintptr) float64
 
 // Gets the initial velocity of @self.
 func (x *SpringAnimation) GetInitialVelocity() float64 {
-	core.LazyRegister(&xSpringAnimationGetInitialVelocity, "ADW", "adw_spring_animation_get_initial_velocity", false)
-
 	cret := xSpringAnimationGetInitialVelocity(x.GoPointer())
 	return cret
 }
@@ -172,8 +159,6 @@ var xSpringAnimationGetSpringParams func(uintptr) uintptr
 
 // Gets the physical parameters of the spring of @self.
 func (x *SpringAnimation) GetSpringParams() *SpringParams {
-	core.LazyRegister(&xSpringAnimationGetSpringParams, "ADW", "adw_spring_animation_get_spring_params", false)
-
 	cret := xSpringAnimationGetSpringParams(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -185,8 +170,6 @@ var xSpringAnimationGetValueFrom func(uintptr) float64
 
 // Gets the value @self will animate from.
 func (x *SpringAnimation) GetValueFrom() float64 {
-	core.LazyRegister(&xSpringAnimationGetValueFrom, "ADW", "adw_spring_animation_get_value_from", false)
-
 	cret := xSpringAnimationGetValueFrom(x.GoPointer())
 	return cret
 }
@@ -195,8 +178,6 @@ var xSpringAnimationGetValueTo func(uintptr) float64
 
 // Gets the value @self will animate to.
 func (x *SpringAnimation) GetValueTo() float64 {
-	core.LazyRegister(&xSpringAnimationGetValueTo, "ADW", "adw_spring_animation_get_value_to", false)
-
 	cret := xSpringAnimationGetValueTo(x.GoPointer())
 	return cret
 }
@@ -205,8 +186,6 @@ var xSpringAnimationGetVelocity func(uintptr) float64
 
 // Gets the current velocity of @self.
 func (x *SpringAnimation) GetVelocity() float64 {
-	core.LazyRegister(&xSpringAnimationGetVelocity, "ADW", "adw_spring_animation_get_velocity", false)
-
 	cret := xSpringAnimationGetVelocity(x.GoPointer())
 	return cret
 }
@@ -221,8 +200,6 @@ var xSpringAnimationSetClamp func(uintptr, bool)
 // It won't prevent overshooting [property@SpringAnimation:value-from] if a
 // relative negative [property@SpringAnimation:initial-velocity] is set.
 func (x *SpringAnimation) SetClamp(ClampVar bool) {
-	core.LazyRegister(&xSpringAnimationSetClamp, "ADW", "adw_spring_animation_set_clamp", false)
-
 	xSpringAnimationSetClamp(x.GoPointer(), ClampVar)
 }
 
@@ -241,8 +218,6 @@ var xSpringAnimationSetEpsilon func(uintptr, float64)
 //
 // The default value is 0.001.
 func (x *SpringAnimation) SetEpsilon(EpsilonVar float64) {
-	core.LazyRegister(&xSpringAnimationSetEpsilon, "ADW", "adw_spring_animation_set_epsilon", false)
-
 	xSpringAnimationSetEpsilon(x.GoPointer(), EpsilonVar)
 }
 
@@ -252,8 +227,6 @@ var xSpringAnimationSetInitialVelocity func(uintptr, float64)
 //
 // Initial velocity affects only the animation curve, but not its duration.
 func (x *SpringAnimation) SetInitialVelocity(VelocityVar float64) {
-	core.LazyRegister(&xSpringAnimationSetInitialVelocity, "ADW", "adw_spring_animation_set_initial_velocity", false)
-
 	xSpringAnimationSetInitialVelocity(x.GoPointer(), VelocityVar)
 }
 
@@ -261,8 +234,6 @@ var xSpringAnimationSetSpringParams func(uintptr, *SpringParams)
 
 // Sets the physical parameters of the spring of @self.
 func (x *SpringAnimation) SetSpringParams(SpringParamsVar *SpringParams) {
-	core.LazyRegister(&xSpringAnimationSetSpringParams, "ADW", "adw_spring_animation_set_spring_params", false)
-
 	xSpringAnimationSetSpringParams(x.GoPointer(), SpringParamsVar)
 }
 
@@ -273,8 +244,6 @@ var xSpringAnimationSetValueFrom func(uintptr, float64)
 // The animation will start at this value and end at
 // [property@SpringAnimation:value-to].
 func (x *SpringAnimation) SetValueFrom(ValueVar float64) {
-	core.LazyRegister(&xSpringAnimationSetValueFrom, "ADW", "adw_spring_animation_set_value_from", false)
-
 	xSpringAnimationSetValueFrom(x.GoPointer(), ValueVar)
 }
 
@@ -285,8 +254,6 @@ var xSpringAnimationSetValueTo func(uintptr, float64)
 // The animation will start at [property@SpringAnimation:value-from] and end at
 // this value.
 func (x *SpringAnimation) SetValueTo(ValueVar float64) {
-	core.LazyRegister(&xSpringAnimationSetValueTo, "ADW", "adw_spring_animation_set_value_to", false)
-
 	xSpringAnimationSetValueTo(x.GoPointer(), ValueVar)
 }
 
@@ -474,4 +441,33 @@ func (x *SpringAnimation) GetPropertyVelocity() float64 {
 func init() {
 	core.SetPackageName("ADW", "libadwaita-1")
 	core.SetSharedLibraries("ADW", []string{"libadwaita-1.so.0", "libadwaita-1.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("ADW") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xSpringAnimationGLibType, libs, "adw_spring_animation_get_type")
+
+	core.PuregoSafeRegister(&xNewSpringAnimation, libs, "adw_spring_animation_new")
+
+	core.PuregoSafeRegister(&xSpringAnimationCalculateValue, libs, "adw_spring_animation_calculate_value")
+	core.PuregoSafeRegister(&xSpringAnimationCalculateVelocity, libs, "adw_spring_animation_calculate_velocity")
+	core.PuregoSafeRegister(&xSpringAnimationGetClamp, libs, "adw_spring_animation_get_clamp")
+	core.PuregoSafeRegister(&xSpringAnimationGetEpsilon, libs, "adw_spring_animation_get_epsilon")
+	core.PuregoSafeRegister(&xSpringAnimationGetEstimatedDuration, libs, "adw_spring_animation_get_estimated_duration")
+	core.PuregoSafeRegister(&xSpringAnimationGetInitialVelocity, libs, "adw_spring_animation_get_initial_velocity")
+	core.PuregoSafeRegister(&xSpringAnimationGetSpringParams, libs, "adw_spring_animation_get_spring_params")
+	core.PuregoSafeRegister(&xSpringAnimationGetValueFrom, libs, "adw_spring_animation_get_value_from")
+	core.PuregoSafeRegister(&xSpringAnimationGetValueTo, libs, "adw_spring_animation_get_value_to")
+	core.PuregoSafeRegister(&xSpringAnimationGetVelocity, libs, "adw_spring_animation_get_velocity")
+	core.PuregoSafeRegister(&xSpringAnimationSetClamp, libs, "adw_spring_animation_set_clamp")
+	core.PuregoSafeRegister(&xSpringAnimationSetEpsilon, libs, "adw_spring_animation_set_epsilon")
+	core.PuregoSafeRegister(&xSpringAnimationSetInitialVelocity, libs, "adw_spring_animation_set_initial_velocity")
+	core.PuregoSafeRegister(&xSpringAnimationSetSpringParams, libs, "adw_spring_animation_set_spring_params")
+	core.PuregoSafeRegister(&xSpringAnimationSetValueFrom, libs, "adw_spring_animation_set_value_from")
+	core.PuregoSafeRegister(&xSpringAnimationSetValueTo, libs, "adw_spring_animation_set_value_to")
 }

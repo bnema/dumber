@@ -2,6 +2,7 @@
 package gtk
 
 import (
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -35,7 +36,6 @@ type Separator struct {
 var xSeparatorGLibType func() types.GType
 
 func SeparatorGLibType() types.GType {
-	core.LazyRegister(&xSeparatorGLibType, "GTK", "gtk_separator_get_type", false)
 	return xSeparatorGLibType()
 }
 
@@ -49,7 +49,6 @@ var xNewSeparator func(Orientation) uintptr
 
 // Creates a new `GtkSeparator` with the given orientation.
 func NewSeparator(OrientationVar Orientation) *Separator {
-	core.LazyRegister(&xNewSeparator, "GTK", "gtk_separator_new", false)
 	var cls *Separator
 
 	cret := xNewSeparator(OrientationVar)
@@ -348,4 +347,16 @@ func (x *Separator) SetOrientation(OrientationVar Orientation) {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GTK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xSeparatorGLibType, libs, "gtk_separator_get_type")
+
+	core.PuregoSafeRegister(&xNewSeparator, libs, "gtk_separator_new")
 }

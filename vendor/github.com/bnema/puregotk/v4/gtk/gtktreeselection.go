@@ -4,6 +4,7 @@ package gtk
 import (
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -54,7 +55,6 @@ type TreeSelection struct {
 var xTreeSelectionGLibType func() types.GType
 
 func TreeSelectionGLibType() types.GType {
-	core.LazyRegister(&xTreeSelectionGLibType, "GTK", "gtk_tree_selection_get_type", false)
 	return xTreeSelectionGLibType()
 }
 
@@ -68,8 +68,6 @@ var xTreeSelectionCountSelectedRows func(uintptr) int
 
 // Returns the number of rows that have been selected in @tree.
 func (x *TreeSelection) CountSelectedRows() int {
-	core.LazyRegister(&xTreeSelectionCountSelectedRows, "GTK", "gtk_tree_selection_count_selected_rows", false)
-
 	cret := xTreeSelectionCountSelectedRows(x.GoPointer())
 	return cret
 }
@@ -79,8 +77,6 @@ var xTreeSelectionGetMode func(uintptr) SelectionMode
 // Gets the selection mode for @selection. See
 // gtk_tree_selection_set_mode().
 func (x *TreeSelection) GetMode() SelectionMode {
-	core.LazyRegister(&xTreeSelectionGetMode, "GTK", "gtk_tree_selection_get_mode", false)
-
 	cret := xTreeSelectionGetMode(x.GoPointer())
 	return cret
 }
@@ -89,8 +85,6 @@ var xTreeSelectionGetSelectFunction func(uintptr) uintptr
 
 // Returns the current selection function.
 func (x *TreeSelection) GetSelectFunction() uintptr {
-	core.LazyRegister(&xTreeSelectionGetSelectFunction, "GTK", "gtk_tree_selection_get_select_function", false)
-
 	cret := xTreeSelectionGetSelectFunction(x.GoPointer())
 	return cret
 }
@@ -103,8 +97,6 @@ var xTreeSelectionGetSelected func(uintptr, **TreeModel, *TreeIter) bool
 // with the current model as a convenience.  This function will not work if you
 // use @selection is %GTK_SELECTION_MULTIPLE.
 func (x *TreeSelection) GetSelected(ModelVar **TreeModel, IterVar *TreeIter) bool {
-	core.LazyRegister(&xTreeSelectionGetSelected, "GTK", "gtk_tree_selection_get_selected", false)
-
 	cret := xTreeSelectionGetSelected(x.GoPointer(), ModelVar, IterVar)
 	return cret
 }
@@ -122,8 +114,6 @@ var xTreeSelectionGetSelectedRows func(uintptr, **TreeModel) uintptr
 // g_list_free_full (list, (GDestroyNotify) gtk_tree_path_free);
 // ```
 func (x *TreeSelection) GetSelectedRows(ModelVar **TreeModel) *glib.List {
-	core.LazyRegister(&xTreeSelectionGetSelectedRows, "GTK", "gtk_tree_selection_get_selected_rows", false)
-
 	cret := xTreeSelectionGetSelectedRows(x.GoPointer(), ModelVar)
 	if cret == 0 {
 		return nil
@@ -135,7 +125,6 @@ var xTreeSelectionGetTreeView func(uintptr) uintptr
 
 // Returns the tree view associated with @selection.
 func (x *TreeSelection) GetTreeView() *TreeView {
-	core.LazyRegister(&xTreeSelectionGetTreeView, "GTK", "gtk_tree_selection_get_tree_view", false)
 	var cls *TreeView
 
 	cret := xTreeSelectionGetTreeView(x.GoPointer())
@@ -153,8 +142,6 @@ var xTreeSelectionGetUserData func(uintptr) uintptr
 
 // Returns the user data for the selection function.
 func (x *TreeSelection) GetUserData() uintptr {
-	core.LazyRegister(&xTreeSelectionGetUserData, "GTK", "gtk_tree_selection_get_user_data", false)
-
 	cret := xTreeSelectionGetUserData(x.GoPointer())
 	return cret
 }
@@ -163,8 +150,6 @@ var xTreeSelectionIterIsSelected func(uintptr, *TreeIter) bool
 
 // Returns %TRUE if the row at @iter is currently selected.
 func (x *TreeSelection) IterIsSelected(IterVar *TreeIter) bool {
-	core.LazyRegister(&xTreeSelectionIterIsSelected, "GTK", "gtk_tree_selection_iter_is_selected", false)
-
 	cret := xTreeSelectionIterIsSelected(x.GoPointer(), IterVar)
 	return cret
 }
@@ -174,8 +159,6 @@ var xTreeSelectionPathIsSelected func(uintptr, *TreePath) bool
 // Returns %TRUE if the row pointed to by @path is currently selected.  If @path
 // does not point to a valid location, %FALSE is returned
 func (x *TreeSelection) PathIsSelected(PathVar *TreePath) bool {
-	core.LazyRegister(&xTreeSelectionPathIsSelected, "GTK", "gtk_tree_selection_path_is_selected", false)
-
 	cret := xTreeSelectionPathIsSelected(x.GoPointer(), PathVar)
 	return cret
 }
@@ -185,8 +168,6 @@ var xTreeSelectionSelectAll func(uintptr)
 // Selects all the nodes. @selection must be set to %GTK_SELECTION_MULTIPLE
 // mode.
 func (x *TreeSelection) SelectAll() {
-	core.LazyRegister(&xTreeSelectionSelectAll, "GTK", "gtk_tree_selection_select_all", false)
-
 	xTreeSelectionSelectAll(x.GoPointer())
 }
 
@@ -194,8 +175,6 @@ var xTreeSelectionSelectIter func(uintptr, *TreeIter)
 
 // Selects the specified iterator.
 func (x *TreeSelection) SelectIter(IterVar *TreeIter) {
-	core.LazyRegister(&xTreeSelectionSelectIter, "GTK", "gtk_tree_selection_select_iter", false)
-
 	xTreeSelectionSelectIter(x.GoPointer(), IterVar)
 }
 
@@ -203,8 +182,6 @@ var xTreeSelectionSelectPath func(uintptr, *TreePath)
 
 // Select the row at @path.
 func (x *TreeSelection) SelectPath(PathVar *TreePath) {
-	core.LazyRegister(&xTreeSelectionSelectPath, "GTK", "gtk_tree_selection_select_path", false)
-
 	xTreeSelectionSelectPath(x.GoPointer(), PathVar)
 }
 
@@ -213,8 +190,6 @@ var xTreeSelectionSelectRange func(uintptr, *TreePath, *TreePath)
 // Selects a range of nodes, determined by @start_path and @end_path inclusive.
 // @selection must be set to %GTK_SELECTION_MULTIPLE mode.
 func (x *TreeSelection) SelectRange(StartPathVar *TreePath, EndPathVar *TreePath) {
-	core.LazyRegister(&xTreeSelectionSelectRange, "GTK", "gtk_tree_selection_select_range", false)
-
 	xTreeSelectionSelectRange(x.GoPointer(), StartPathVar, EndPathVar)
 }
 
@@ -224,8 +199,6 @@ var xTreeSelectionSelectedForeach func(uintptr, uintptr, uintptr)
 // the tree or selection from within this function. As a result,
 // gtk_tree_selection_get_selected_rows() might be more useful.
 func (x *TreeSelection) SelectedForeach(FuncVar *TreeSelectionForeachFunc, DataVar uintptr) {
-	core.LazyRegister(&xTreeSelectionSelectedForeach, "GTK", "gtk_tree_selection_selected_foreach", false)
-
 	xTreeSelectionSelectedForeach(x.GoPointer(), glib.NewCallback(FuncVar), DataVar)
 }
 
@@ -235,8 +208,6 @@ var xTreeSelectionSetMode func(uintptr, SelectionMode)
 // %GTK_SELECTION_MULTIPLE, then the anchor is kept selected, if it was
 // previously selected.
 func (x *TreeSelection) SetMode(TypeVar SelectionMode) {
-	core.LazyRegister(&xTreeSelectionSetMode, "GTK", "gtk_tree_selection_set_mode", false)
-
 	xTreeSelectionSetMode(x.GoPointer(), TypeVar)
 }
 
@@ -249,8 +220,6 @@ var xTreeSelectionSetSelectFunction func(uintptr, uintptr, uintptr, uintptr)
 // should return %TRUE if the state of the node may be toggled, and %FALSE
 // if the state of the node should be left unchanged.
 func (x *TreeSelection) SetSelectFunction(FuncVar *TreeSelectionFunc, DataVar uintptr, DestroyVar *glib.DestroyNotify) {
-	core.LazyRegister(&xTreeSelectionSetSelectFunction, "GTK", "gtk_tree_selection_set_select_function", false)
-
 	xTreeSelectionSetSelectFunction(x.GoPointer(), glib.NewCallbackNullable(FuncVar), DataVar, glib.NewCallbackNullable(DestroyVar))
 }
 
@@ -258,8 +227,6 @@ var xTreeSelectionUnselectAll func(uintptr)
 
 // Unselects all the nodes.
 func (x *TreeSelection) UnselectAll() {
-	core.LazyRegister(&xTreeSelectionUnselectAll, "GTK", "gtk_tree_selection_unselect_all", false)
-
 	xTreeSelectionUnselectAll(x.GoPointer())
 }
 
@@ -267,8 +234,6 @@ var xTreeSelectionUnselectIter func(uintptr, *TreeIter)
 
 // Unselects the specified iterator.
 func (x *TreeSelection) UnselectIter(IterVar *TreeIter) {
-	core.LazyRegister(&xTreeSelectionUnselectIter, "GTK", "gtk_tree_selection_unselect_iter", false)
-
 	xTreeSelectionUnselectIter(x.GoPointer(), IterVar)
 }
 
@@ -276,8 +241,6 @@ var xTreeSelectionUnselectPath func(uintptr, *TreePath)
 
 // Unselects the row at @path.
 func (x *TreeSelection) UnselectPath(PathVar *TreePath) {
-	core.LazyRegister(&xTreeSelectionUnselectPath, "GTK", "gtk_tree_selection_unselect_path", false)
-
 	xTreeSelectionUnselectPath(x.GoPointer(), PathVar)
 }
 
@@ -286,8 +249,6 @@ var xTreeSelectionUnselectRange func(uintptr, *TreePath, *TreePath)
 // Unselects a range of nodes, determined by @start_path and @end_path
 // inclusive.
 func (x *TreeSelection) UnselectRange(StartPathVar *TreePath, EndPathVar *TreePath) {
-	core.LazyRegister(&xTreeSelectionUnselectRange, "GTK", "gtk_tree_selection_unselect_range", false)
-
 	xTreeSelectionUnselectRange(x.GoPointer(), StartPathVar, EndPathVar)
 }
 
@@ -331,4 +292,35 @@ func (x *TreeSelection) ConnectChanged(cb *func(TreeSelection)) uint {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GTK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xTreeSelectionGLibType, libs, "gtk_tree_selection_get_type")
+
+	core.PuregoSafeRegister(&xTreeSelectionCountSelectedRows, libs, "gtk_tree_selection_count_selected_rows")
+	core.PuregoSafeRegister(&xTreeSelectionGetMode, libs, "gtk_tree_selection_get_mode")
+	core.PuregoSafeRegister(&xTreeSelectionGetSelectFunction, libs, "gtk_tree_selection_get_select_function")
+	core.PuregoSafeRegister(&xTreeSelectionGetSelected, libs, "gtk_tree_selection_get_selected")
+	core.PuregoSafeRegister(&xTreeSelectionGetSelectedRows, libs, "gtk_tree_selection_get_selected_rows")
+	core.PuregoSafeRegister(&xTreeSelectionGetTreeView, libs, "gtk_tree_selection_get_tree_view")
+	core.PuregoSafeRegister(&xTreeSelectionGetUserData, libs, "gtk_tree_selection_get_user_data")
+	core.PuregoSafeRegister(&xTreeSelectionIterIsSelected, libs, "gtk_tree_selection_iter_is_selected")
+	core.PuregoSafeRegister(&xTreeSelectionPathIsSelected, libs, "gtk_tree_selection_path_is_selected")
+	core.PuregoSafeRegister(&xTreeSelectionSelectAll, libs, "gtk_tree_selection_select_all")
+	core.PuregoSafeRegister(&xTreeSelectionSelectIter, libs, "gtk_tree_selection_select_iter")
+	core.PuregoSafeRegister(&xTreeSelectionSelectPath, libs, "gtk_tree_selection_select_path")
+	core.PuregoSafeRegister(&xTreeSelectionSelectRange, libs, "gtk_tree_selection_select_range")
+	core.PuregoSafeRegister(&xTreeSelectionSelectedForeach, libs, "gtk_tree_selection_selected_foreach")
+	core.PuregoSafeRegister(&xTreeSelectionSetMode, libs, "gtk_tree_selection_set_mode")
+	core.PuregoSafeRegister(&xTreeSelectionSetSelectFunction, libs, "gtk_tree_selection_set_select_function")
+	core.PuregoSafeRegister(&xTreeSelectionUnselectAll, libs, "gtk_tree_selection_unselect_all")
+	core.PuregoSafeRegister(&xTreeSelectionUnselectIter, libs, "gtk_tree_selection_unselect_iter")
+	core.PuregoSafeRegister(&xTreeSelectionUnselectPath, libs, "gtk_tree_selection_unselect_path")
+	core.PuregoSafeRegister(&xTreeSelectionUnselectRange, libs, "gtk_tree_selection_unselect_range")
 }

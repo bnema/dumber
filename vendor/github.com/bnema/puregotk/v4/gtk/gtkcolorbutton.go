@@ -2,6 +2,7 @@
 package gtk
 
 import (
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gdk"
 	"github.com/bnema/puregotk/v4/glib"
@@ -41,7 +42,6 @@ type ColorButton struct {
 var xColorButtonGLibType func() types.GType
 
 func ColorButtonGLibType() types.GType {
-	core.LazyRegister(&xColorButtonGLibType, "GTK", "gtk_color_button_get_type", false)
 	return xColorButtonGLibType()
 }
 
@@ -61,7 +61,6 @@ var xNewColorButton func() uintptr
 // to select a color. The swatch will be updated to reflect the new
 // color when the user finishes.
 func NewColorButton() *ColorButton {
-	core.LazyRegister(&xNewColorButton, "GTK", "gtk_color_button_new", false)
 	var cls *ColorButton
 
 	cret := xNewColorButton()
@@ -79,7 +78,6 @@ var xNewColorButtonWithRgba func(*gdk.RGBA) uintptr
 
 // Creates a new color button showing the given color.
 func NewColorButtonWithRgba(RgbaVar *gdk.RGBA) *ColorButton {
-	core.LazyRegister(&xNewColorButtonWithRgba, "GTK", "gtk_color_button_new_with_rgba", false)
 	var cls *ColorButton
 
 	cret := xNewColorButtonWithRgba(RgbaVar)
@@ -97,8 +95,6 @@ var xColorButtonGetModal func(uintptr) bool
 
 // Gets whether the dialog is modal.
 func (x *ColorButton) GetModal() bool {
-	core.LazyRegister(&xColorButtonGetModal, "GTK", "gtk_color_button_get_modal", false)
-
 	cret := xColorButtonGetModal(x.GoPointer())
 	return cret
 }
@@ -107,8 +103,6 @@ var xColorButtonGetTitle func(uintptr) string
 
 // Gets the title of the color chooser dialog.
 func (x *ColorButton) GetTitle() string {
-	core.LazyRegister(&xColorButtonGetTitle, "GTK", "gtk_color_button_get_title", false)
-
 	cret := xColorButtonGetTitle(x.GoPointer())
 	return cret
 }
@@ -117,8 +111,6 @@ var xColorButtonSetModal func(uintptr, bool)
 
 // Sets whether the dialog should be modal.
 func (x *ColorButton) SetModal(ModalVar bool) {
-	core.LazyRegister(&xColorButtonSetModal, "GTK", "gtk_color_button_set_modal", false)
-
 	xColorButtonSetModal(x.GoPointer(), ModalVar)
 }
 
@@ -126,8 +118,6 @@ var xColorButtonSetTitle func(uintptr, string)
 
 // Sets the title for the color chooser dialog.
 func (x *ColorButton) SetTitle(TitleVar string) {
-	core.LazyRegister(&xColorButtonSetTitle, "GTK", "gtk_color_button_set_title", false)
-
 	xColorButtonSetTitle(x.GoPointer(), TitleVar)
 }
 
@@ -562,4 +552,22 @@ func (x *ColorButton) SetUseAlpha(UseAlphaVar bool) {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GTK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xColorButtonGLibType, libs, "gtk_color_button_get_type")
+
+	core.PuregoSafeRegister(&xNewColorButton, libs, "gtk_color_button_new")
+	core.PuregoSafeRegister(&xNewColorButtonWithRgba, libs, "gtk_color_button_new_with_rgba")
+
+	core.PuregoSafeRegister(&xColorButtonGetModal, libs, "gtk_color_button_get_modal")
+	core.PuregoSafeRegister(&xColorButtonGetTitle, libs, "gtk_color_button_get_title")
+	core.PuregoSafeRegister(&xColorButtonSetModal, libs, "gtk_color_button_set_modal")
+	core.PuregoSafeRegister(&xColorButtonSetTitle, libs, "gtk_color_button_set_title")
 }

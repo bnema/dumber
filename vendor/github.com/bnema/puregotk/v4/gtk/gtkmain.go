@@ -4,6 +4,7 @@ package gtk
 import (
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/pango"
 )
@@ -23,8 +24,6 @@ var xDisablePortalInterfaces func([]string)
 //
 // This should only be used in portal implementations, apps must not call it.
 func DisablePortalInterfaces(PortalInterfacesVar []string) {
-	core.LazyRegister(&xDisablePortalInterfaces, "GTK", "gtk_disable_portal_interfaces", false)
-
 	xDisablePortalInterfaces(PortalInterfacesVar)
 }
 
@@ -36,8 +35,6 @@ var xDisablePortals func()
 //
 // This should only be used in portal implementations, apps must not call it.
 func DisablePortals() {
-	core.LazyRegister(&xDisablePortals, "GTK", "gtk_disable_portals", false)
-
 	xDisablePortals()
 }
 
@@ -51,8 +48,6 @@ var xDisableSetlocale func()
 //
 // Most programs should not need to call this function.
 func DisableSetlocale() {
-	core.LazyRegister(&xDisableSetlocale, "GTK", "gtk_disable_setlocale", false)
-
 	xDisableSetlocale()
 }
 
@@ -71,8 +66,6 @@ var xGetDefaultLanguage func() uintptr
 // This function is equivalent to [func@Pango.Language.get_default].
 // See that function for details.
 func GetDefaultLanguage() *pango.Language {
-	core.LazyRegister(&xGetDefaultLanguage, "GTK", "gtk_get_default_language", false)
-
 	cret := xGetDefaultLanguage()
 	if cret == 0 {
 		return nil
@@ -111,8 +104,6 @@ var xGetLocaleDirection func() TextDirection
 //
 // ```
 func GetLocaleDirection() TextDirection {
-	core.LazyRegister(&xGetLocaleDirection, "GTK", "gtk_get_locale_direction", false)
-
 	cret := xGetLocaleDirection()
 	return cret
 }
@@ -142,8 +133,6 @@ var xInit func()
 // the handler after gtk_init(), but notice that other libraries (e.g.
 // libdbus or gvfs) might do similar things.
 func Init() {
-	core.LazyRegister(&xInit, "GTK", "gtk_init", false)
-
 	xInit()
 }
 
@@ -159,8 +148,6 @@ var xInitCheck func() bool
 // communication with the user - for example a curses or command line
 // interface.
 func InitCheck() bool {
-	core.LazyRegister(&xInitCheck, "GTK", "gtk_init_check", false)
-
 	cret := xInitCheck()
 	return cret
 }
@@ -171,8 +158,6 @@ var xIsInitialized func() bool
 //
 // See [func@Gtk.init].
 func IsInitialized() bool {
-	core.LazyRegister(&xIsInitialized, "GTK", "gtk_is_initialized", false)
-
 	cret := xIsInitialized()
 	return cret
 }
@@ -180,4 +165,21 @@ func IsInitialized() bool {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GTK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xDisablePortalInterfaces, libs, "gtk_disable_portal_interfaces")
+	core.PuregoSafeRegister(&xDisablePortals, libs, "gtk_disable_portals")
+	core.PuregoSafeRegister(&xDisableSetlocale, libs, "gtk_disable_setlocale")
+	core.PuregoSafeRegister(&xGetDefaultLanguage, libs, "gtk_get_default_language")
+	core.PuregoSafeRegister(&xGetLocaleDirection, libs, "gtk_get_locale_direction")
+	core.PuregoSafeRegister(&xInit, libs, "gtk_init")
+	core.PuregoSafeRegister(&xInitCheck, libs, "gtk_init_check")
+	core.PuregoSafeRegister(&xIsInitialized, libs, "gtk_is_initialized")
 }

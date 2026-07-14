@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject/types"
 )
@@ -22,7 +23,6 @@ type Matrix struct {
 var xMatrixGLibType func() types.GType
 
 func MatrixGLibType() types.GType {
-	core.LazyRegister(&xMatrixGLibType, "GRAPHENE", "graphene_matrix_get_type", false)
 	return xMatrixGLibType()
 }
 
@@ -42,8 +42,6 @@ var xMatrixAlloc func() uintptr
 
 // Allocates a new #graphene_matrix_t.
 func MatrixAlloc() *Matrix {
-	core.LazyRegister(&xMatrixAlloc, "GRAPHENE", "graphene_matrix_alloc", false)
-
 	cret := xMatrixAlloc()
 	if cret == 0 {
 		return nil
@@ -61,8 +59,6 @@ var xMatrixDecompose func(uintptr, *Vec3, *Vec3, *Quaternion, *Vec3, *Vec4) bool
 // published in "Graphics Gems II", edited by Jim Arvo, and
 // [available online](http://web.archive.org/web/20150512160205/http://tog.acm.org/resources/GraphicsGems/gemsii/unmatrix.c).
 func (x *Matrix) Decompose(TranslateVar *Vec3, ScaleVar *Vec3, RotateVar *Quaternion, ShearVar *Vec3, PerspectiveVar *Vec4) bool {
-	core.LazyRegister(&xMatrixDecompose, "GRAPHENE", "graphene_matrix_decompose", false)
-
 	cret := xMatrixDecompose(x.GoPointer(), TranslateVar, ScaleVar, RotateVar, ShearVar, PerspectiveVar)
 	return cret
 }
@@ -71,8 +67,6 @@ var xMatrixDeterminant func(uintptr) float32
 
 // Computes the determinant of the given matrix.
 func (x *Matrix) Determinant() float32 {
-	core.LazyRegister(&xMatrixDeterminant, "GRAPHENE", "graphene_matrix_determinant", false)
-
 	cret := xMatrixDeterminant(x.GoPointer())
 	return cret
 }
@@ -81,8 +75,6 @@ var xMatrixEqual func(uintptr, *Matrix) bool
 
 // Checks whether the two given #graphene_matrix_t matrices are equal.
 func (x *Matrix) Equal(BVar *Matrix) bool {
-	core.LazyRegister(&xMatrixEqual, "GRAPHENE", "graphene_matrix_equal", false)
-
 	cret := xMatrixEqual(x.GoPointer(), BVar)
 	return cret
 }
@@ -115,8 +107,6 @@ var xMatrixEqualFast func(uintptr, *Matrix) bool
 //
 // ]|
 func (x *Matrix) EqualFast(BVar *Matrix) bool {
-	core.LazyRegister(&xMatrixEqualFast, "GRAPHENE", "graphene_matrix_equal_fast", false)
-
 	cret := xMatrixEqualFast(x.GoPointer(), BVar)
 	return cret
 }
@@ -125,8 +115,6 @@ var xMatrixFree func(uintptr)
 
 // Frees the resources allocated by graphene_matrix_alloc().
 func (x *Matrix) Free() {
-	core.LazyRegister(&xMatrixFree, "GRAPHENE", "graphene_matrix_free", false)
-
 	xMatrixFree(x.GoPointer())
 }
 
@@ -134,8 +122,6 @@ var xMatrixGetRow func(uintptr, uint, *Vec4)
 
 // Retrieves the given row vector at @index_ inside a matrix.
 func (x *Matrix) GetRow(IndexVar uint, ResVar *Vec4) {
-	core.LazyRegister(&xMatrixGetRow, "GRAPHENE", "graphene_matrix_get_row", false)
-
 	xMatrixGetRow(x.GoPointer(), IndexVar, ResVar)
 }
 
@@ -143,8 +129,6 @@ var xMatrixGetValue func(uintptr, uint, uint) float32
 
 // Retrieves the value at the given @row and @col index.
 func (x *Matrix) GetValue(RowVar uint, ColVar uint) float32 {
-	core.LazyRegister(&xMatrixGetValue, "GRAPHENE", "graphene_matrix_get_value", false)
-
 	cret := xMatrixGetValue(x.GoPointer(), RowVar, ColVar)
 	return cret
 }
@@ -153,8 +137,6 @@ var xMatrixGetXScale func(uintptr) float32
 
 // Retrieves the scaling factor on the X axis in @m.
 func (x *Matrix) GetXScale() float32 {
-	core.LazyRegister(&xMatrixGetXScale, "GRAPHENE", "graphene_matrix_get_x_scale", false)
-
 	cret := xMatrixGetXScale(x.GoPointer())
 	return cret
 }
@@ -163,8 +145,6 @@ var xMatrixGetXTranslation func(uintptr) float32
 
 // Retrieves the translation component on the X axis from @m.
 func (x *Matrix) GetXTranslation() float32 {
-	core.LazyRegister(&xMatrixGetXTranslation, "GRAPHENE", "graphene_matrix_get_x_translation", false)
-
 	cret := xMatrixGetXTranslation(x.GoPointer())
 	return cret
 }
@@ -173,8 +153,6 @@ var xMatrixGetYScale func(uintptr) float32
 
 // Retrieves the scaling factor on the Y axis in @m.
 func (x *Matrix) GetYScale() float32 {
-	core.LazyRegister(&xMatrixGetYScale, "GRAPHENE", "graphene_matrix_get_y_scale", false)
-
 	cret := xMatrixGetYScale(x.GoPointer())
 	return cret
 }
@@ -183,8 +161,6 @@ var xMatrixGetYTranslation func(uintptr) float32
 
 // Retrieves the translation component on the Y axis from @m.
 func (x *Matrix) GetYTranslation() float32 {
-	core.LazyRegister(&xMatrixGetYTranslation, "GRAPHENE", "graphene_matrix_get_y_translation", false)
-
 	cret := xMatrixGetYTranslation(x.GoPointer())
 	return cret
 }
@@ -193,8 +169,6 @@ var xMatrixGetZScale func(uintptr) float32
 
 // Retrieves the scaling factor on the Z axis in @m.
 func (x *Matrix) GetZScale() float32 {
-	core.LazyRegister(&xMatrixGetZScale, "GRAPHENE", "graphene_matrix_get_z_scale", false)
-
 	cret := xMatrixGetZScale(x.GoPointer())
 	return cret
 }
@@ -203,8 +177,6 @@ var xMatrixGetZTranslation func(uintptr) float32
 
 // Retrieves the translation component on the Z axis from @m.
 func (x *Matrix) GetZTranslation() float32 {
-	core.LazyRegister(&xMatrixGetZTranslation, "GRAPHENE", "graphene_matrix_get_z_translation", false)
-
 	cret := xMatrixGetZTranslation(x.GoPointer())
 	return cret
 }
@@ -227,8 +199,6 @@ var xMatrixInitFrom2d func(uintptr, float64, float64, float64, float64, float64,
 // This function can be used to convert between an affine matrix type
 // from other libraries and a #graphene_matrix_t.
 func (x *Matrix) InitFrom2d(XxVar float64, YxVar float64, XyVar float64, YyVar float64, X0Var float64, Y0Var float64) *Matrix {
-	core.LazyRegister(&xMatrixInitFrom2d, "GRAPHENE", "graphene_matrix_init_from_2d", false)
-
 	cret := xMatrixInitFrom2d(x.GoPointer(), XxVar, YxVar, XyVar, YyVar, X0Var, Y0Var)
 	if cret == 0 {
 		return nil
@@ -241,8 +211,6 @@ var xMatrixInitFromFloat func(uintptr, [16]float32) uintptr
 // Initializes a #graphene_matrix_t with the given array of floating
 // point values.
 func (x *Matrix) InitFromFloat(VVar [16]float32) *Matrix {
-	core.LazyRegister(&xMatrixInitFromFloat, "GRAPHENE", "graphene_matrix_init_from_float", false)
-
 	cret := xMatrixInitFromFloat(x.GoPointer(), VVar)
 	if cret == 0 {
 		return nil
@@ -255,8 +223,6 @@ var xMatrixInitFromMatrix func(uintptr, *Matrix) uintptr
 // Initializes a #graphene_matrix_t using the values of the
 // given matrix.
 func (x *Matrix) InitFromMatrix(SrcVar *Matrix) *Matrix {
-	core.LazyRegister(&xMatrixInitFromMatrix, "GRAPHENE", "graphene_matrix_init_from_matrix", false)
-
 	cret := xMatrixInitFromMatrix(x.GoPointer(), SrcVar)
 	if cret == 0 {
 		return nil
@@ -269,8 +235,6 @@ var xMatrixInitFromVec4 func(uintptr, *Vec4, *Vec4, *Vec4, *Vec4) uintptr
 // Initializes a #graphene_matrix_t with the given four row
 // vectors.
 func (x *Matrix) InitFromVec4(V0Var *Vec4, V1Var *Vec4, V2Var *Vec4, V3Var *Vec4) *Matrix {
-	core.LazyRegister(&xMatrixInitFromVec4, "GRAPHENE", "graphene_matrix_init_from_vec4", false)
-
 	cret := xMatrixInitFromVec4(x.GoPointer(), V0Var, V1Var, V2Var, V3Var)
 	if cret == 0 {
 		return nil
@@ -284,8 +248,6 @@ var xMatrixInitFrustum func(uintptr, float32, float32, float32, float32, float32
 //
 // See also: graphene_frustum_init_from_matrix()
 func (x *Matrix) InitFrustum(LeftVar float32, RightVar float32, BottomVar float32, TopVar float32, ZNearVar float32, ZFarVar float32) *Matrix {
-	core.LazyRegister(&xMatrixInitFrustum, "GRAPHENE", "graphene_matrix_init_frustum", false)
-
 	cret := xMatrixInitFrustum(x.GoPointer(), LeftVar, RightVar, BottomVar, TopVar, ZNearVar, ZFarVar)
 	if cret == 0 {
 		return nil
@@ -297,8 +259,6 @@ var xMatrixInitIdentity func(uintptr) uintptr
 
 // Initializes a #graphene_matrix_t with the identity matrix.
 func (x *Matrix) InitIdentity() *Matrix {
-	core.LazyRegister(&xMatrixInitIdentity, "GRAPHENE", "graphene_matrix_init_identity", false)
-
 	cret := xMatrixInitIdentity(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -325,8 +285,6 @@ var xMatrixInitLookAt func(uintptr, *Vec3, *Vec3, *Vec3) uintptr
 // camera projection transform to get from view to screen
 // coordinates.
 func (x *Matrix) InitLookAt(EyeVar *Vec3, CenterVar *Vec3, UpVar *Vec3) *Matrix {
-	core.LazyRegister(&xMatrixInitLookAt, "GRAPHENE", "graphene_matrix_init_look_at", false)
-
 	cret := xMatrixInitLookAt(x.GoPointer(), EyeVar, CenterVar, UpVar)
 	if cret == 0 {
 		return nil
@@ -338,8 +296,6 @@ var xMatrixInitOrtho func(uintptr, float32, float32, float32, float32, float32, 
 
 // Initializes a #graphene_matrix_t with an orthographic projection.
 func (x *Matrix) InitOrtho(LeftVar float32, RightVar float32, TopVar float32, BottomVar float32, ZNearVar float32, ZFarVar float32) *Matrix {
-	core.LazyRegister(&xMatrixInitOrtho, "GRAPHENE", "graphene_matrix_init_ortho", false)
-
 	cret := xMatrixInitOrtho(x.GoPointer(), LeftVar, RightVar, TopVar, BottomVar, ZNearVar, ZFarVar)
 	if cret == 0 {
 		return nil
@@ -351,8 +307,6 @@ var xMatrixInitPerspective func(uintptr, float32, float32, float32, float32) uin
 
 // Initializes a #graphene_matrix_t with a perspective projection.
 func (x *Matrix) InitPerspective(FovyVar float32, AspectVar float32, ZNearVar float32, ZFarVar float32) *Matrix {
-	core.LazyRegister(&xMatrixInitPerspective, "GRAPHENE", "graphene_matrix_init_perspective", false)
-
 	cret := xMatrixInitPerspective(x.GoPointer(), FovyVar, AspectVar, ZNearVar, ZFarVar)
 	if cret == 0 {
 		return nil
@@ -365,8 +319,6 @@ var xMatrixInitRotate func(uintptr, float32, *Vec3) uintptr
 // Initializes @m to represent a rotation of @angle degrees on
 // the axis represented by the @axis vector.
 func (x *Matrix) InitRotate(AngleVar float32, AxisVar *Vec3) *Matrix {
-	core.LazyRegister(&xMatrixInitRotate, "GRAPHENE", "graphene_matrix_init_rotate", false)
-
 	cret := xMatrixInitRotate(x.GoPointer(), AngleVar, AxisVar)
 	if cret == 0 {
 		return nil
@@ -378,8 +330,6 @@ var xMatrixInitScale func(uintptr, float32, float32, float32) uintptr
 
 // Initializes a #graphene_matrix_t with the given scaling factors.
 func (x *Matrix) InitScale(XVar float32, YVar float32, ZVar float32) *Matrix {
-	core.LazyRegister(&xMatrixInitScale, "GRAPHENE", "graphene_matrix_init_scale", false)
-
 	cret := xMatrixInitScale(x.GoPointer(), XVar, YVar, ZVar)
 	if cret == 0 {
 		return nil
@@ -392,8 +342,6 @@ var xMatrixInitSkew func(uintptr, float32, float32) uintptr
 // Initializes a #graphene_matrix_t with a skew transformation
 // with the given factors.
 func (x *Matrix) InitSkew(XSkewVar float32, YSkewVar float32) *Matrix {
-	core.LazyRegister(&xMatrixInitSkew, "GRAPHENE", "graphene_matrix_init_skew", false)
-
 	cret := xMatrixInitSkew(x.GoPointer(), XSkewVar, YSkewVar)
 	if cret == 0 {
 		return nil
@@ -406,8 +354,6 @@ var xMatrixInitTranslate func(uintptr, *Point3D) uintptr
 // Initializes a #graphene_matrix_t with a translation to the
 // given coordinates.
 func (x *Matrix) InitTranslate(PVar *Point3D) *Matrix {
-	core.LazyRegister(&xMatrixInitTranslate, "GRAPHENE", "graphene_matrix_init_translate", false)
-
 	cret := xMatrixInitTranslate(x.GoPointer(), PVar)
 	if cret == 0 {
 		return nil
@@ -424,8 +370,6 @@ var xMatrixInterpolate func(uintptr, *Matrix, float64, *Matrix)
 // then the interpolation cannot be performed, and this function
 // will return an identity matrix.
 func (x *Matrix) Interpolate(BVar *Matrix, FactorVar float64, ResVar *Matrix) {
-	core.LazyRegister(&xMatrixInterpolate, "GRAPHENE", "graphene_matrix_interpolate", false)
-
 	xMatrixInterpolate(x.GoPointer(), BVar, FactorVar, ResVar)
 }
 
@@ -433,8 +377,6 @@ var xMatrixInverse func(uintptr, *Matrix) bool
 
 // Inverts the given matrix.
 func (x *Matrix) Inverse(ResVar *Matrix) bool {
-	core.LazyRegister(&xMatrixInverse, "GRAPHENE", "graphene_matrix_inverse", false)
-
 	cret := xMatrixInverse(x.GoPointer(), ResVar)
 	return cret
 }
@@ -444,8 +386,6 @@ var xMatrixIs2d func(uintptr) bool
 // Checks whether the given #graphene_matrix_t is compatible with an
 // a 2D affine transformation matrix.
 func (x *Matrix) Is2d() bool {
-	core.LazyRegister(&xMatrixIs2d, "GRAPHENE", "graphene_matrix_is_2d", false)
-
 	cret := xMatrixIs2d(x.GoPointer())
 	return cret
 }
@@ -454,8 +394,6 @@ var xMatrixIsBackfaceVisible func(uintptr) bool
 
 // Checks whether a #graphene_matrix_t has a visible back face.
 func (x *Matrix) IsBackfaceVisible() bool {
-	core.LazyRegister(&xMatrixIsBackfaceVisible, "GRAPHENE", "graphene_matrix_is_backface_visible", false)
-
 	cret := xMatrixIsBackfaceVisible(x.GoPointer())
 	return cret
 }
@@ -464,8 +402,6 @@ var xMatrixIsIdentity func(uintptr) bool
 
 // Checks whether the given #graphene_matrix_t is the identity matrix.
 func (x *Matrix) IsIdentity() bool {
-	core.LazyRegister(&xMatrixIsIdentity, "GRAPHENE", "graphene_matrix_is_identity", false)
-
 	cret := xMatrixIsIdentity(x.GoPointer())
 	return cret
 }
@@ -474,8 +410,6 @@ var xMatrixIsSingular func(uintptr) bool
 
 // Checks whether a matrix is singular.
 func (x *Matrix) IsSingular() bool {
-	core.LazyRegister(&xMatrixIsSingular, "GRAPHENE", "graphene_matrix_is_singular", false)
-
 	cret := xMatrixIsSingular(x.GoPointer())
 	return cret
 }
@@ -487,8 +421,6 @@ var xMatrixMultiply func(uintptr, *Matrix, *Matrix)
 // Matrix multiplication is not commutative in general; the order of the factors matters.
 // The product of this multiplication is (@a × @b)
 func (x *Matrix) Multiply(BVar *Matrix, ResVar *Matrix) {
-	core.LazyRegister(&xMatrixMultiply, "GRAPHENE", "graphene_matrix_multiply", false)
-
 	xMatrixMultiply(x.GoPointer(), BVar, ResVar)
 }
 
@@ -498,8 +430,6 @@ var xMatrixNear func(uintptr, *Matrix, float32) bool
 // whether their values are within the given @epsilon of each
 // other.
 func (x *Matrix) Near(BVar *Matrix, EpsilonVar float32) bool {
-	core.LazyRegister(&xMatrixNear, "GRAPHENE", "graphene_matrix_near", false)
-
 	cret := xMatrixNear(x.GoPointer(), BVar, EpsilonVar)
 	return cret
 }
@@ -508,8 +438,6 @@ var xMatrixNormalize func(uintptr, *Matrix)
 
 // Normalizes the given #graphene_matrix_t.
 func (x *Matrix) Normalize(ResVar *Matrix) {
-	core.LazyRegister(&xMatrixNormalize, "GRAPHENE", "graphene_matrix_normalize", false)
-
 	xMatrixNormalize(x.GoPointer(), ResVar)
 }
 
@@ -517,8 +445,6 @@ var xMatrixPerspective func(uintptr, float32, *Matrix)
 
 // Applies a perspective of @depth to the matrix.
 func (x *Matrix) Perspective(DepthVar float32, ResVar *Matrix) {
-	core.LazyRegister(&xMatrixPerspective, "GRAPHENE", "graphene_matrix_perspective", false)
-
 	xMatrixPerspective(x.GoPointer(), DepthVar, ResVar)
 }
 
@@ -529,8 +455,6 @@ var xMatrixPrint func(uintptr)
 // This function is only useful for debugging; there are no guarantees
 // made on the format of the output.
 func (x *Matrix) Print() {
-	core.LazyRegister(&xMatrixPrint, "GRAPHENE", "graphene_matrix_print", false)
-
 	xMatrixPrint(x.GoPointer())
 }
 
@@ -538,8 +462,6 @@ var xMatrixProjectPoint func(uintptr, *Point, *Point)
 
 // Projects a #graphene_point_t using the matrix @m.
 func (x *Matrix) ProjectPoint(PVar *Point, ResVar *Point) {
-	core.LazyRegister(&xMatrixProjectPoint, "GRAPHENE", "graphene_matrix_project_point", false)
-
 	xMatrixProjectPoint(x.GoPointer(), PVar, ResVar)
 }
 
@@ -549,8 +471,6 @@ var xMatrixProjectRect func(uintptr, *Rect, *Quad)
 //
 // See also: graphene_matrix_project_point()
 func (x *Matrix) ProjectRect(RVar *Rect, ResVar *Quad) {
-	core.LazyRegister(&xMatrixProjectRect, "GRAPHENE", "graphene_matrix_project_rect", false)
-
 	xMatrixProjectRect(x.GoPointer(), RVar, ResVar)
 }
 
@@ -561,8 +481,6 @@ var xMatrixProjectRectBounds func(uintptr, *Rect, *Rect)
 // The resulting rectangle is the axis aligned bounding rectangle capable
 // of fully containing the projected rectangle.
 func (x *Matrix) ProjectRectBounds(RVar *Rect, ResVar *Rect) {
-	core.LazyRegister(&xMatrixProjectRectBounds, "GRAPHENE", "graphene_matrix_project_rect_bounds", false)
-
 	xMatrixProjectRectBounds(x.GoPointer(), RVar, ResVar)
 }
 
@@ -574,8 +492,6 @@ var xMatrixRotate func(uintptr, float32, *Vec3)
 // This is the equivalent of calling graphene_matrix_init_rotate() and
 // then multiplying the matrix @m with the rotation matrix.
 func (x *Matrix) Rotate(AngleVar float32, AxisVar *Vec3) {
-	core.LazyRegister(&xMatrixRotate, "GRAPHENE", "graphene_matrix_rotate", false)
-
 	xMatrixRotate(x.GoPointer(), AngleVar, AxisVar)
 }
 
@@ -584,8 +500,6 @@ var xMatrixRotateEuler func(uintptr, *Euler)
 // Adds a rotation transformation to @m, using the given
 // #graphene_euler_t.
 func (x *Matrix) RotateEuler(EVar *Euler) {
-	core.LazyRegister(&xMatrixRotateEuler, "GRAPHENE", "graphene_matrix_rotate_euler", false)
-
 	xMatrixRotateEuler(x.GoPointer(), EVar)
 }
 
@@ -597,8 +511,6 @@ var xMatrixRotateQuaternion func(uintptr, *Quaternion)
 // This is the equivalent of calling graphene_quaternion_to_matrix() and
 // then multiplying @m with the rotation matrix.
 func (x *Matrix) RotateQuaternion(QVar *Quaternion) {
-	core.LazyRegister(&xMatrixRotateQuaternion, "GRAPHENE", "graphene_matrix_rotate_quaternion", false)
-
 	xMatrixRotateQuaternion(x.GoPointer(), QVar)
 }
 
@@ -609,8 +521,6 @@ var xMatrixRotateX func(uintptr, float32)
 //
 // See also: graphene_matrix_rotate()
 func (x *Matrix) RotateX(AngleVar float32) {
-	core.LazyRegister(&xMatrixRotateX, "GRAPHENE", "graphene_matrix_rotate_x", false)
-
 	xMatrixRotateX(x.GoPointer(), AngleVar)
 }
 
@@ -621,8 +531,6 @@ var xMatrixRotateY func(uintptr, float32)
 //
 // See also: graphene_matrix_rotate()
 func (x *Matrix) RotateY(AngleVar float32) {
-	core.LazyRegister(&xMatrixRotateY, "GRAPHENE", "graphene_matrix_rotate_y", false)
-
 	xMatrixRotateY(x.GoPointer(), AngleVar)
 }
 
@@ -633,8 +541,6 @@ var xMatrixRotateZ func(uintptr, float32)
 //
 // See also: graphene_matrix_rotate()
 func (x *Matrix) RotateZ(AngleVar float32) {
-	core.LazyRegister(&xMatrixRotateZ, "GRAPHENE", "graphene_matrix_rotate_z", false)
-
 	xMatrixRotateZ(x.GoPointer(), AngleVar)
 }
 
@@ -646,8 +552,6 @@ var xMatrixScale func(uintptr, float32, float32, float32)
 // This is the equivalent of calling graphene_matrix_init_scale() and then
 // multiplying the matrix @m with the scale matrix.
 func (x *Matrix) Scale(FactorXVar float32, FactorYVar float32, FactorZVar float32) {
-	core.LazyRegister(&xMatrixScale, "GRAPHENE", "graphene_matrix_scale", false)
-
 	xMatrixScale(x.GoPointer(), FactorXVar, FactorYVar, FactorZVar)
 }
 
@@ -655,8 +559,6 @@ var xMatrixSkewXy func(uintptr, float32)
 
 // Adds a skew of @factor on the X and Y axis to the given matrix.
 func (x *Matrix) SkewXy(FactorVar float32) {
-	core.LazyRegister(&xMatrixSkewXy, "GRAPHENE", "graphene_matrix_skew_xy", false)
-
 	xMatrixSkewXy(x.GoPointer(), FactorVar)
 }
 
@@ -664,8 +566,6 @@ var xMatrixSkewXz func(uintptr, float32)
 
 // Adds a skew of @factor on the X and Z axis to the given matrix.
 func (x *Matrix) SkewXz(FactorVar float32) {
-	core.LazyRegister(&xMatrixSkewXz, "GRAPHENE", "graphene_matrix_skew_xz", false)
-
 	xMatrixSkewXz(x.GoPointer(), FactorVar)
 }
 
@@ -673,8 +573,6 @@ var xMatrixSkewYz func(uintptr, float32)
 
 // Adds a skew of @factor on the Y and Z axis to the given matrix.
 func (x *Matrix) SkewYz(FactorVar float32) {
-	core.LazyRegister(&xMatrixSkewYz, "GRAPHENE", "graphene_matrix_skew_yz", false)
-
 	xMatrixSkewYz(x.GoPointer(), FactorVar)
 }
 
@@ -696,8 +594,6 @@ var xMatrixTo2d func(uintptr, *float64, *float64, *float64, *float64, *float64, 
 // This function can be used to convert between a #graphene_matrix_t
 // and an affine matrix type from other libraries.
 func (x *Matrix) To2d(XxVar *float64, YxVar *float64, XyVar *float64, YyVar *float64, X0Var *float64, Y0Var *float64) bool {
-	core.LazyRegister(&xMatrixTo2d, "GRAPHENE", "graphene_matrix_to_2d", false)
-
 	cret := xMatrixTo2d(x.GoPointer(), XxVar, YxVar, XyVar, YyVar, X0Var, Y0Var)
 	return cret
 }
@@ -707,8 +603,6 @@ var xMatrixToFloat func(uintptr, *[16]float32)
 // Converts a #graphene_matrix_t to an array of floating point
 // values.
 func (x *Matrix) ToFloat(VVar *[16]float32) {
-	core.LazyRegister(&xMatrixToFloat, "GRAPHENE", "graphene_matrix_to_float", false)
-
 	xMatrixToFloat(x.GoPointer(), VVar)
 }
 
@@ -721,8 +615,6 @@ var xMatrixTransformBounds func(uintptr, *Rect, *Rect)
 //
 // See also: graphene_matrix_transform_point()
 func (x *Matrix) TransformBounds(RVar *Rect, ResVar *Rect) {
-	core.LazyRegister(&xMatrixTransformBounds, "GRAPHENE", "graphene_matrix_transform_bounds", false)
-
 	xMatrixTransformBounds(x.GoPointer(), RVar, ResVar)
 }
 
@@ -733,8 +625,6 @@ var xMatrixTransformBox func(uintptr, *Box, *Box)
 // The result is the axis aligned bounding box containing the transformed
 // vertices.
 func (x *Matrix) TransformBox(BVar *Box, ResVar *Box) {
-	core.LazyRegister(&xMatrixTransformBox, "GRAPHENE", "graphene_matrix_transform_box", false)
-
 	xMatrixTransformBox(x.GoPointer(), BVar, ResVar)
 }
 
@@ -748,8 +638,6 @@ var xMatrixTransformPoint func(uintptr, *Point, *Point)
 //
 // See also: graphene_simd4x4f_point3_mul()
 func (x *Matrix) TransformPoint(PVar *Point, ResVar *Point) {
-	core.LazyRegister(&xMatrixTransformPoint, "GRAPHENE", "graphene_matrix_transform_point", false)
-
 	xMatrixTransformPoint(x.GoPointer(), PVar, ResVar)
 }
 
@@ -763,8 +651,6 @@ var xMatrixTransformPoint3d func(uintptr, *Point3D, *Point3D)
 //
 // See also: graphene_simd4x4f_point3_mul()
 func (x *Matrix) TransformPoint3d(PVar *Point3D, ResVar *Point3D) {
-	core.LazyRegister(&xMatrixTransformPoint3d, "GRAPHENE", "graphene_matrix_transform_point3d", false)
-
 	xMatrixTransformPoint3d(x.GoPointer(), PVar, ResVar)
 }
 
@@ -772,8 +658,6 @@ var xMatrixTransformRay func(uintptr, *Ray, *Ray)
 
 // Transform a #graphene_ray_t using the given matrix @m.
 func (x *Matrix) TransformRay(RVar *Ray, ResVar *Ray) {
-	core.LazyRegister(&xMatrixTransformRay, "GRAPHENE", "graphene_matrix_transform_ray", false)
-
 	xMatrixTransformRay(x.GoPointer(), RVar, ResVar)
 }
 
@@ -785,8 +669,6 @@ var xMatrixTransformRect func(uintptr, *Rect, *Quad)
 //
 // See also: graphene_matrix_transform_point()
 func (x *Matrix) TransformRect(RVar *Rect, ResVar *Quad) {
-	core.LazyRegister(&xMatrixTransformRect, "GRAPHENE", "graphene_matrix_transform_rect", false)
-
 	xMatrixTransformRect(x.GoPointer(), RVar, ResVar)
 }
 
@@ -795,8 +677,6 @@ var xMatrixTransformSphere func(uintptr, *Sphere, *Sphere)
 // Transforms a #graphene_sphere_t using the given matrix @m. The
 // result is the bounding sphere containing the transformed sphere.
 func (x *Matrix) TransformSphere(SVar *Sphere, ResVar *Sphere) {
-	core.LazyRegister(&xMatrixTransformSphere, "GRAPHENE", "graphene_matrix_transform_sphere", false)
-
 	xMatrixTransformSphere(x.GoPointer(), SVar, ResVar)
 }
 
@@ -810,8 +690,6 @@ var xMatrixTransformVec3 func(uintptr, *Vec3, *Vec3)
 //
 // See also: graphene_simd4x4f_vec3_mul()
 func (x *Matrix) TransformVec3(VVar *Vec3, ResVar *Vec3) {
-	core.LazyRegister(&xMatrixTransformVec3, "GRAPHENE", "graphene_matrix_transform_vec3", false)
-
 	xMatrixTransformVec3(x.GoPointer(), VVar, ResVar)
 }
 
@@ -821,8 +699,6 @@ var xMatrixTransformVec4 func(uintptr, *Vec4, *Vec4)
 //
 // See also: graphene_simd4x4f_vec4_mul()
 func (x *Matrix) TransformVec4(VVar *Vec4, ResVar *Vec4) {
-	core.LazyRegister(&xMatrixTransformVec4, "GRAPHENE", "graphene_matrix_transform_vec4", false)
-
 	xMatrixTransformVec4(x.GoPointer(), VVar, ResVar)
 }
 
@@ -834,8 +710,6 @@ var xMatrixTranslate func(uintptr, *Point3D)
 // This is the equivalent of calling graphene_matrix_init_translate() and
 // then multiplying @m with the translation matrix.
 func (x *Matrix) Translate(PosVar *Point3D) {
-	core.LazyRegister(&xMatrixTranslate, "GRAPHENE", "graphene_matrix_translate", false)
-
 	xMatrixTranslate(x.GoPointer(), PosVar)
 }
 
@@ -843,8 +717,6 @@ var xMatrixTranspose func(uintptr, *Matrix)
 
 // Transposes the given matrix.
 func (x *Matrix) Transpose(ResVar *Matrix) {
-	core.LazyRegister(&xMatrixTranspose, "GRAPHENE", "graphene_matrix_transpose", false)
-
 	xMatrixTranspose(x.GoPointer(), ResVar)
 }
 
@@ -853,8 +725,6 @@ var xMatrixUnprojectPoint3d func(uintptr, *Matrix, *Point3D, *Point3D)
 // Unprojects the given @point using the @projection matrix and
 // a @modelview matrix.
 func (x *Matrix) UnprojectPoint3d(ModelviewVar *Matrix, PointVar *Point3D, ResVar *Point3D) {
-	core.LazyRegister(&xMatrixUnprojectPoint3d, "GRAPHENE", "graphene_matrix_unproject_point3d", false)
-
 	xMatrixUnprojectPoint3d(x.GoPointer(), ModelviewVar, PointVar, ResVar)
 }
 
@@ -863,8 +733,6 @@ var xMatrixUntransformBounds func(uintptr, *Rect, *Rect, *Rect)
 // Undoes the transformation on the corners of a #graphene_rect_t using the
 // given matrix, within the given axis aligned rectangular @bounds.
 func (x *Matrix) UntransformBounds(RVar *Rect, BoundsVar *Rect, ResVar *Rect) {
-	core.LazyRegister(&xMatrixUntransformBounds, "GRAPHENE", "graphene_matrix_untransform_bounds", false)
-
 	xMatrixUntransformBounds(x.GoPointer(), RVar, BoundsVar, ResVar)
 }
 
@@ -873,8 +741,6 @@ var xMatrixUntransformPoint func(uintptr, *Point, *Rect, *Point) bool
 // Undoes the transformation of a #graphene_point_t using the
 // given matrix, within the given axis aligned rectangular @bounds.
 func (x *Matrix) UntransformPoint(PVar *Point, BoundsVar *Rect, ResVar *Point) bool {
-	core.LazyRegister(&xMatrixUntransformPoint, "GRAPHENE", "graphene_matrix_untransform_point", false)
-
 	cret := xMatrixUntransformPoint(x.GoPointer(), PVar, BoundsVar, ResVar)
 	return cret
 }
@@ -882,4 +748,83 @@ func (x *Matrix) UntransformPoint(PVar *Point, BoundsVar *Rect, ResVar *Point) b
 func init() {
 	core.SetPackageName("GRAPHENE", "graphene-gobject-1.0")
 	core.SetSharedLibraries("GRAPHENE", []string{"libgraphene-1.0.so.0", "libgraphene-1.0.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GRAPHENE") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xMatrixGLibType, libs, "graphene_matrix_get_type")
+
+	core.PuregoSafeRegister(&xMatrixAlloc, libs, "graphene_matrix_alloc")
+
+	core.PuregoSafeRegister(&xMatrixDecompose, libs, "graphene_matrix_decompose")
+	core.PuregoSafeRegister(&xMatrixDeterminant, libs, "graphene_matrix_determinant")
+	core.PuregoSafeRegister(&xMatrixEqual, libs, "graphene_matrix_equal")
+	core.PuregoSafeRegister(&xMatrixEqualFast, libs, "graphene_matrix_equal_fast")
+	core.PuregoSafeRegister(&xMatrixFree, libs, "graphene_matrix_free")
+	core.PuregoSafeRegister(&xMatrixGetRow, libs, "graphene_matrix_get_row")
+	core.PuregoSafeRegister(&xMatrixGetValue, libs, "graphene_matrix_get_value")
+	core.PuregoSafeRegister(&xMatrixGetXScale, libs, "graphene_matrix_get_x_scale")
+	core.PuregoSafeRegister(&xMatrixGetXTranslation, libs, "graphene_matrix_get_x_translation")
+	core.PuregoSafeRegister(&xMatrixGetYScale, libs, "graphene_matrix_get_y_scale")
+	core.PuregoSafeRegister(&xMatrixGetYTranslation, libs, "graphene_matrix_get_y_translation")
+	core.PuregoSafeRegister(&xMatrixGetZScale, libs, "graphene_matrix_get_z_scale")
+	core.PuregoSafeRegister(&xMatrixGetZTranslation, libs, "graphene_matrix_get_z_translation")
+	core.PuregoSafeRegister(&xMatrixInitFrom2d, libs, "graphene_matrix_init_from_2d")
+	core.PuregoSafeRegister(&xMatrixInitFromFloat, libs, "graphene_matrix_init_from_float")
+	core.PuregoSafeRegister(&xMatrixInitFromMatrix, libs, "graphene_matrix_init_from_matrix")
+	core.PuregoSafeRegister(&xMatrixInitFromVec4, libs, "graphene_matrix_init_from_vec4")
+	core.PuregoSafeRegister(&xMatrixInitFrustum, libs, "graphene_matrix_init_frustum")
+	core.PuregoSafeRegister(&xMatrixInitIdentity, libs, "graphene_matrix_init_identity")
+	core.PuregoSafeRegister(&xMatrixInitLookAt, libs, "graphene_matrix_init_look_at")
+	core.PuregoSafeRegister(&xMatrixInitOrtho, libs, "graphene_matrix_init_ortho")
+	core.PuregoSafeRegister(&xMatrixInitPerspective, libs, "graphene_matrix_init_perspective")
+	core.PuregoSafeRegister(&xMatrixInitRotate, libs, "graphene_matrix_init_rotate")
+	core.PuregoSafeRegister(&xMatrixInitScale, libs, "graphene_matrix_init_scale")
+	core.PuregoSafeRegister(&xMatrixInitSkew, libs, "graphene_matrix_init_skew")
+	core.PuregoSafeRegister(&xMatrixInitTranslate, libs, "graphene_matrix_init_translate")
+	core.PuregoSafeRegister(&xMatrixInterpolate, libs, "graphene_matrix_interpolate")
+	core.PuregoSafeRegister(&xMatrixInverse, libs, "graphene_matrix_inverse")
+	core.PuregoSafeRegister(&xMatrixIs2d, libs, "graphene_matrix_is_2d")
+	core.PuregoSafeRegister(&xMatrixIsBackfaceVisible, libs, "graphene_matrix_is_backface_visible")
+	core.PuregoSafeRegister(&xMatrixIsIdentity, libs, "graphene_matrix_is_identity")
+	core.PuregoSafeRegister(&xMatrixIsSingular, libs, "graphene_matrix_is_singular")
+	core.PuregoSafeRegister(&xMatrixMultiply, libs, "graphene_matrix_multiply")
+	core.PuregoSafeRegister(&xMatrixNear, libs, "graphene_matrix_near")
+	core.PuregoSafeRegister(&xMatrixNormalize, libs, "graphene_matrix_normalize")
+	core.PuregoSafeRegister(&xMatrixPerspective, libs, "graphene_matrix_perspective")
+	core.PuregoSafeRegister(&xMatrixPrint, libs, "graphene_matrix_print")
+	core.PuregoSafeRegister(&xMatrixProjectPoint, libs, "graphene_matrix_project_point")
+	core.PuregoSafeRegister(&xMatrixProjectRect, libs, "graphene_matrix_project_rect")
+	core.PuregoSafeRegister(&xMatrixProjectRectBounds, libs, "graphene_matrix_project_rect_bounds")
+	core.PuregoSafeRegister(&xMatrixRotate, libs, "graphene_matrix_rotate")
+	core.PuregoSafeRegister(&xMatrixRotateEuler, libs, "graphene_matrix_rotate_euler")
+	core.PuregoSafeRegister(&xMatrixRotateQuaternion, libs, "graphene_matrix_rotate_quaternion")
+	core.PuregoSafeRegister(&xMatrixRotateX, libs, "graphene_matrix_rotate_x")
+	core.PuregoSafeRegister(&xMatrixRotateY, libs, "graphene_matrix_rotate_y")
+	core.PuregoSafeRegister(&xMatrixRotateZ, libs, "graphene_matrix_rotate_z")
+	core.PuregoSafeRegister(&xMatrixScale, libs, "graphene_matrix_scale")
+	core.PuregoSafeRegister(&xMatrixSkewXy, libs, "graphene_matrix_skew_xy")
+	core.PuregoSafeRegister(&xMatrixSkewXz, libs, "graphene_matrix_skew_xz")
+	core.PuregoSafeRegister(&xMatrixSkewYz, libs, "graphene_matrix_skew_yz")
+	core.PuregoSafeRegister(&xMatrixTo2d, libs, "graphene_matrix_to_2d")
+	core.PuregoSafeRegister(&xMatrixToFloat, libs, "graphene_matrix_to_float")
+	core.PuregoSafeRegister(&xMatrixTransformBounds, libs, "graphene_matrix_transform_bounds")
+	core.PuregoSafeRegister(&xMatrixTransformBox, libs, "graphene_matrix_transform_box")
+	core.PuregoSafeRegister(&xMatrixTransformPoint, libs, "graphene_matrix_transform_point")
+	core.PuregoSafeRegister(&xMatrixTransformPoint3d, libs, "graphene_matrix_transform_point3d")
+	core.PuregoSafeRegister(&xMatrixTransformRay, libs, "graphene_matrix_transform_ray")
+	core.PuregoSafeRegister(&xMatrixTransformRect, libs, "graphene_matrix_transform_rect")
+	core.PuregoSafeRegister(&xMatrixTransformSphere, libs, "graphene_matrix_transform_sphere")
+	core.PuregoSafeRegister(&xMatrixTransformVec3, libs, "graphene_matrix_transform_vec3")
+	core.PuregoSafeRegister(&xMatrixTransformVec4, libs, "graphene_matrix_transform_vec4")
+	core.PuregoSafeRegister(&xMatrixTranslate, libs, "graphene_matrix_translate")
+	core.PuregoSafeRegister(&xMatrixTranspose, libs, "graphene_matrix_transpose")
+	core.PuregoSafeRegister(&xMatrixUnprojectPoint3d, libs, "graphene_matrix_unproject_point3d")
+	core.PuregoSafeRegister(&xMatrixUntransformBounds, libs, "graphene_matrix_untransform_bounds")
+	core.PuregoSafeRegister(&xMatrixUntransformPoint, libs, "graphene_matrix_untransform_point")
 }

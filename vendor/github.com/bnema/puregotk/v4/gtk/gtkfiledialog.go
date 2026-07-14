@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gio"
 	"github.com/bnema/puregotk/v4/glib"
@@ -45,7 +46,6 @@ type FileDialog struct {
 var xFileDialogGLibType func() types.GType
 
 func FileDialogGLibType() types.GType {
-	core.LazyRegister(&xFileDialogGLibType, "GTK", "gtk_file_dialog_get_type", false)
 	return xFileDialogGLibType()
 }
 
@@ -59,7 +59,6 @@ var xNewFileDialog func() uintptr
 
 // Creates a new `GtkFileDialog` object.
 func NewFileDialog() *FileDialog {
-	core.LazyRegister(&xNewFileDialog, "GTK", "gtk_file_dialog_new", false)
 	var cls *FileDialog
 
 	cret := xNewFileDialog()
@@ -76,8 +75,6 @@ var xFileDialogGetAcceptLabel func(uintptr) string
 
 // Retrieves the text used by the dialog on its accept button.
 func (x *FileDialog) GetAcceptLabel() string {
-	core.LazyRegister(&xFileDialogGetAcceptLabel, "GTK", "gtk_file_dialog_get_accept_label", false)
-
 	cret := xFileDialogGetAcceptLabel(x.GoPointer())
 	return cret
 }
@@ -87,7 +84,6 @@ var xFileDialogGetDefaultFilter func(uintptr) uintptr
 // Gets the filter that will be selected by default
 // in the file chooser dialog.
 func (x *FileDialog) GetDefaultFilter() *FileFilter {
-	core.LazyRegister(&xFileDialogGetDefaultFilter, "GTK", "gtk_file_dialog_get_default_filter", false)
 	var cls *FileFilter
 
 	cret := xFileDialogGetDefaultFilter(x.GoPointer())
@@ -106,7 +102,6 @@ var xFileDialogGetFilters func(uintptr) uintptr
 // Gets the filters that will be offered to the user
 // in the file chooser dialog.
 func (x *FileDialog) GetFilters() *gio.ListModelBase {
-	core.LazyRegister(&xFileDialogGetFilters, "GTK", "gtk_file_dialog_get_filters", false)
 	var cls *gio.ListModelBase
 
 	cret := xFileDialogGetFilters(x.GoPointer())
@@ -125,7 +120,6 @@ var xFileDialogGetInitialFile func(uintptr) uintptr
 // Gets the file that will be initially selected in
 // the file chooser dialog.
 func (x *FileDialog) GetInitialFile() *gio.FileBase {
-	core.LazyRegister(&xFileDialogGetInitialFile, "GTK", "gtk_file_dialog_get_initial_file", false)
 	var cls *gio.FileBase
 
 	cret := xFileDialogGetInitialFile(x.GoPointer())
@@ -144,7 +138,6 @@ var xFileDialogGetInitialFolder func(uintptr) uintptr
 // Gets the folder that will be set as the
 // initial folder in the file chooser dialog.
 func (x *FileDialog) GetInitialFolder() *gio.FileBase {
-	core.LazyRegister(&xFileDialogGetInitialFolder, "GTK", "gtk_file_dialog_get_initial_folder", false)
 	var cls *gio.FileBase
 
 	cret := xFileDialogGetInitialFolder(x.GoPointer())
@@ -162,8 +155,6 @@ var xFileDialogGetInitialName func(uintptr) string
 
 // Gets the filename that will be initially selected.
 func (x *FileDialog) GetInitialName() string {
-	core.LazyRegister(&xFileDialogGetInitialName, "GTK", "gtk_file_dialog_get_initial_name", false)
-
 	cret := xFileDialogGetInitialName(x.GoPointer())
 	return cret
 }
@@ -173,8 +164,6 @@ var xFileDialogGetModal func(uintptr) bool
 // Returns whether the file chooser dialog blocks interaction
 // with the parent window while it is presented.
 func (x *FileDialog) GetModal() bool {
-	core.LazyRegister(&xFileDialogGetModal, "GTK", "gtk_file_dialog_get_modal", false)
-
 	cret := xFileDialogGetModal(x.GoPointer())
 	return cret
 }
@@ -183,8 +172,6 @@ var xFileDialogGetTitle func(uintptr) string
 
 // Returns the title that will be shown on the file chooser dialog.
 func (x *FileDialog) GetTitle() string {
-	core.LazyRegister(&xFileDialogGetTitle, "GTK", "gtk_file_dialog_get_title", false)
-
 	cret := xFileDialogGetTitle(x.GoPointer())
 	return cret
 }
@@ -197,8 +184,6 @@ var xFileDialogOpen func(uintptr, uintptr, uintptr, uintptr, uintptr)
 //
 // The @callback will be called when the dialog is closed.
 func (x *FileDialog) Open(ParentVar *Window, CancellableVar *gio.Cancellable, CallbackVar *gio.AsyncReadyCallback, UserDataVar uintptr) {
-	core.LazyRegister(&xFileDialogOpen, "GTK", "gtk_file_dialog_open", false)
-
 	xFileDialogOpen(x.GoPointer(), ParentVar.GoPointer(), CancellableVar.GoPointer(), glib.NewCallbackNullable(CallbackVar), UserDataVar)
 }
 
@@ -209,7 +194,6 @@ var xFileDialogOpenFinish func(uintptr, uintptr, **glib.Error) uintptr
 // Note that this function returns a [error@Gtk.DialogError.DISMISSED]
 // error if the user cancels the dialog.
 func (x *FileDialog) OpenFinish(ResultVar gio.AsyncResult) (*gio.FileBase, error) {
-	core.LazyRegister(&xFileDialogOpenFinish, "GTK", "gtk_file_dialog_open_finish", false)
 	var cls *gio.FileBase
 	var cerr *glib.Error
 
@@ -237,8 +221,6 @@ var xFileDialogOpenMultiple func(uintptr, uintptr, uintptr, uintptr, uintptr)
 //
 // The @callback will be called when the dialog is closed.
 func (x *FileDialog) OpenMultiple(ParentVar *Window, CancellableVar *gio.Cancellable, CallbackVar *gio.AsyncReadyCallback, UserDataVar uintptr) {
-	core.LazyRegister(&xFileDialogOpenMultiple, "GTK", "gtk_file_dialog_open_multiple", false)
-
 	xFileDialogOpenMultiple(x.GoPointer(), ParentVar.GoPointer(), CancellableVar.GoPointer(), glib.NewCallbackNullable(CallbackVar), UserDataVar)
 }
 
@@ -249,7 +231,6 @@ var xFileDialogOpenMultipleFinish func(uintptr, uintptr, **glib.Error) uintptr
 // Note that this function returns a [error@Gtk.DialogError.DISMISSED]
 // error if the user cancels the dialog.
 func (x *FileDialog) OpenMultipleFinish(ResultVar gio.AsyncResult) (*gio.ListModelBase, error) {
-	core.LazyRegister(&xFileDialogOpenMultipleFinish, "GTK", "gtk_file_dialog_open_multiple_finish", false)
 	var cls *gio.ListModelBase
 	var cerr *glib.Error
 
@@ -280,8 +261,6 @@ var xFileDialogOpenMultipleTextFiles func(uintptr, uintptr, uintptr, uintptr, ui
 //
 // The @callback will be called when the dialog is closed.
 func (x *FileDialog) OpenMultipleTextFiles(ParentVar *Window, CancellableVar *gio.Cancellable, CallbackVar *gio.AsyncReadyCallback, UserDataVar uintptr) {
-	core.LazyRegister(&xFileDialogOpenMultipleTextFiles, "GTK", "gtk_file_dialog_open_multiple_text_files", false)
-
 	xFileDialogOpenMultipleTextFiles(x.GoPointer(), ParentVar.GoPointer(), CancellableVar.GoPointer(), glib.NewCallbackNullable(CallbackVar), UserDataVar)
 }
 
@@ -292,7 +271,6 @@ var xFileDialogOpenMultipleTextFilesFinish func(uintptr, uintptr, *string, **gli
 // Note that this function returns a [error@Gtk.DialogError.DISMISSED]
 // error if the user cancels the dialog.
 func (x *FileDialog) OpenMultipleTextFilesFinish(ResultVar gio.AsyncResult, EncodingVar *string) (*gio.ListModelBase, error) {
-	core.LazyRegister(&xFileDialogOpenMultipleTextFilesFinish, "GTK", "gtk_file_dialog_open_multiple_text_files_finish", false)
 	var cls *gio.ListModelBase
 	var cerr *glib.Error
 
@@ -319,8 +297,6 @@ var xFileDialogOpenTextFile func(uintptr, uintptr, uintptr, uintptr, uintptr)
 //
 // The @callback will be called when the dialog is closed.
 func (x *FileDialog) OpenTextFile(ParentVar *Window, CancellableVar *gio.Cancellable, CallbackVar *gio.AsyncReadyCallback, UserDataVar uintptr) {
-	core.LazyRegister(&xFileDialogOpenTextFile, "GTK", "gtk_file_dialog_open_text_file", false)
-
 	xFileDialogOpenTextFile(x.GoPointer(), ParentVar.GoPointer(), CancellableVar.GoPointer(), glib.NewCallbackNullable(CallbackVar), UserDataVar)
 }
 
@@ -337,7 +313,6 @@ var xFileDialogOpenTextFileFinish func(uintptr, uintptr, *string, **glib.Error) 
 // Note that this function returns a [error@Gtk.DialogError.DISMISSED]
 // error if the user cancels the dialog.
 func (x *FileDialog) OpenTextFileFinish(ResultVar gio.AsyncResult, EncodingVar *string) (*gio.FileBase, error) {
-	core.LazyRegister(&xFileDialogOpenTextFileFinish, "GTK", "gtk_file_dialog_open_text_file_finish", false)
 	var cls *gio.FileBase
 	var cerr *glib.Error
 
@@ -362,8 +337,6 @@ var xFileDialogSave func(uintptr, uintptr, uintptr, uintptr, uintptr)
 //
 // The @callback will be called when the dialog is closed.
 func (x *FileDialog) Save(ParentVar *Window, CancellableVar *gio.Cancellable, CallbackVar *gio.AsyncReadyCallback, UserDataVar uintptr) {
-	core.LazyRegister(&xFileDialogSave, "GTK", "gtk_file_dialog_save", false)
-
 	xFileDialogSave(x.GoPointer(), ParentVar.GoPointer(), CancellableVar.GoPointer(), glib.NewCallbackNullable(CallbackVar), UserDataVar)
 }
 
@@ -374,7 +347,6 @@ var xFileDialogSaveFinish func(uintptr, uintptr, **glib.Error) uintptr
 // Note that this function returns a [error@Gtk.DialogError.DISMISSED]
 // error if the user cancels the dialog.
 func (x *FileDialog) SaveFinish(ResultVar gio.AsyncResult) (*gio.FileBase, error) {
-	core.LazyRegister(&xFileDialogSaveFinish, "GTK", "gtk_file_dialog_save_finish", false)
 	var cls *gio.FileBase
 	var cerr *glib.Error
 
@@ -402,8 +374,6 @@ var xFileDialogSaveTextFile func(uintptr, uintptr, uintptr, uintptr, uintptr)
 //
 // The @callback will be called when the dialog is closed.
 func (x *FileDialog) SaveTextFile(ParentVar *Window, CancellableVar *gio.Cancellable, CallbackVar *gio.AsyncReadyCallback, UserDataVar uintptr) {
-	core.LazyRegister(&xFileDialogSaveTextFile, "GTK", "gtk_file_dialog_save_text_file", false)
-
 	xFileDialogSaveTextFile(x.GoPointer(), ParentVar.GoPointer(), CancellableVar.GoPointer(), glib.NewCallbackNullable(CallbackVar), UserDataVar)
 }
 
@@ -423,7 +393,6 @@ var xFileDialogSaveTextFileFinish func(uintptr, uintptr, *string, *string, **gli
 // Note that this function returns a [error@Gtk.DialogError.DISMISSED]
 // error if the user cancels the dialog.
 func (x *FileDialog) SaveTextFileFinish(ResultVar gio.AsyncResult, EncodingVar *string, LineEndingVar *string) (*gio.FileBase, error) {
-	core.LazyRegister(&xFileDialogSaveTextFileFinish, "GTK", "gtk_file_dialog_save_text_file_finish", false)
 	var cls *gio.FileBase
 	var cerr *glib.Error
 
@@ -452,8 +421,6 @@ var xFileDialogSelectFolder func(uintptr, uintptr, uintptr, uintptr, uintptr)
 //
 // The @callback will be called when the dialog is closed.
 func (x *FileDialog) SelectFolder(ParentVar *Window, CancellableVar *gio.Cancellable, CallbackVar *gio.AsyncReadyCallback, UserDataVar uintptr) {
-	core.LazyRegister(&xFileDialogSelectFolder, "GTK", "gtk_file_dialog_select_folder", false)
-
 	xFileDialogSelectFolder(x.GoPointer(), ParentVar.GoPointer(), CancellableVar.GoPointer(), glib.NewCallbackNullable(CallbackVar), UserDataVar)
 }
 
@@ -464,7 +431,6 @@ var xFileDialogSelectFolderFinish func(uintptr, uintptr, **glib.Error) uintptr
 // Note that this function returns a [error@Gtk.DialogError.DISMISSED]
 // error if the user cancels the dialog.
 func (x *FileDialog) SelectFolderFinish(ResultVar gio.AsyncResult) (*gio.FileBase, error) {
-	core.LazyRegister(&xFileDialogSelectFolderFinish, "GTK", "gtk_file_dialog_select_folder_finish", false)
 	var cls *gio.FileBase
 	var cerr *glib.Error
 
@@ -493,8 +459,6 @@ var xFileDialogSelectMultipleFolders func(uintptr, uintptr, uintptr, uintptr, ui
 //
 // The @callback will be called when the dialog is closed.
 func (x *FileDialog) SelectMultipleFolders(ParentVar *Window, CancellableVar *gio.Cancellable, CallbackVar *gio.AsyncReadyCallback, UserDataVar uintptr) {
-	core.LazyRegister(&xFileDialogSelectMultipleFolders, "GTK", "gtk_file_dialog_select_multiple_folders", false)
-
 	xFileDialogSelectMultipleFolders(x.GoPointer(), ParentVar.GoPointer(), CancellableVar.GoPointer(), glib.NewCallbackNullable(CallbackVar), UserDataVar)
 }
 
@@ -505,7 +469,6 @@ var xFileDialogSelectMultipleFoldersFinish func(uintptr, uintptr, **glib.Error) 
 // Note that this function returns a [error@Gtk.DialogError.DISMISSED]
 // error if the user cancels the dialog.
 func (x *FileDialog) SelectMultipleFoldersFinish(ResultVar gio.AsyncResult) (*gio.ListModelBase, error) {
-	core.LazyRegister(&xFileDialogSelectMultipleFoldersFinish, "GTK", "gtk_file_dialog_select_multiple_folders_finish", false)
 	var cls *gio.ListModelBase
 	var cerr *glib.Error
 
@@ -530,8 +493,6 @@ var xFileDialogSetAcceptLabel func(uintptr, uintptr)
 // fall back to a default label, depending on what API is used
 // to launch the file dialog.
 func (x *FileDialog) SetAcceptLabel(AcceptLabelVar *string) {
-	core.LazyRegister(&xFileDialogSetAcceptLabel, "GTK", "gtk_file_dialog_set_accept_label", false)
-
 	AcceptLabelVarPtr := core.GStrdupNullable(AcceptLabelVar)
 	defer core.GFreeNullable(AcceptLabelVarPtr)
 
@@ -547,8 +508,6 @@ var xFileDialogSetDefaultFilter func(uintptr, uintptr)
 // will be used as the default filter. If that list is empty, the dialog
 // will be unfiltered.
 func (x *FileDialog) SetDefaultFilter(FilterVar *FileFilter) {
-	core.LazyRegister(&xFileDialogSetDefaultFilter, "GTK", "gtk_file_dialog_set_default_filter", false)
-
 	xFileDialogSetDefaultFilter(x.GoPointer(), FilterVar.GoPointer())
 }
 
@@ -557,8 +516,6 @@ var xFileDialogSetFilters func(uintptr, uintptr)
 // Sets the filters that will be offered to the user
 // in the file chooser dialog.
 func (x *FileDialog) SetFilters(FiltersVar gio.ListModel) {
-	core.LazyRegister(&xFileDialogSetFilters, "GTK", "gtk_file_dialog_set_filters", false)
-
 	xFileDialogSetFilters(x.GoPointer(), FiltersVar.GoPointer())
 }
 
@@ -572,8 +529,6 @@ var xFileDialogSetInitialFile func(uintptr, uintptr)
 // [method@Gtk.FileDialog.set_initial_name] with the
 // directory and name of @file, respectively.
 func (x *FileDialog) SetInitialFile(FileVar gio.File) {
-	core.LazyRegister(&xFileDialogSetInitialFile, "GTK", "gtk_file_dialog_set_initial_file", false)
-
 	xFileDialogSetInitialFile(x.GoPointer(), FileVar.GoPointer())
 }
 
@@ -582,8 +537,6 @@ var xFileDialogSetInitialFolder func(uintptr, uintptr)
 // Sets the folder that will be set as the
 // initial folder in the file chooser dialog.
 func (x *FileDialog) SetInitialFolder(FolderVar gio.File) {
-	core.LazyRegister(&xFileDialogSetInitialFolder, "GTK", "gtk_file_dialog_set_initial_folder", false)
-
 	xFileDialogSetInitialFolder(x.GoPointer(), FolderVar.GoPointer())
 }
 
@@ -598,8 +551,6 @@ var xFileDialogSetInitialName func(uintptr, uintptr)
 // via [property@Gtk.FileDialog:initial-folder], the dialog will
 // preselect it.
 func (x *FileDialog) SetInitialName(NameVar *string) {
-	core.LazyRegister(&xFileDialogSetInitialName, "GTK", "gtk_file_dialog_set_initial_name", false)
-
 	NameVarPtr := core.GStrdupNullable(NameVar)
 	defer core.GFreeNullable(NameVarPtr)
 
@@ -611,8 +562,6 @@ var xFileDialogSetModal func(uintptr, bool)
 // Sets whether the file chooser dialog blocks interaction
 // with the parent window while it is presented.
 func (x *FileDialog) SetModal(ModalVar bool) {
-	core.LazyRegister(&xFileDialogSetModal, "GTK", "gtk_file_dialog_set_modal", false)
-
 	xFileDialogSetModal(x.GoPointer(), ModalVar)
 }
 
@@ -620,8 +569,6 @@ var xFileDialogSetTitle func(uintptr, string)
 
 // Sets the title that will be shown on the file chooser dialog.
 func (x *FileDialog) SetTitle(TitleVar string) {
-	core.LazyRegister(&xFileDialogSetTitle, "GTK", "gtk_file_dialog_set_title", false)
-
 	xFileDialogSetTitle(x.GoPointer(), TitleVar)
 }
 
@@ -711,4 +658,49 @@ func (x *FileDialog) GetPropertyTitle() string {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GTK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xFileDialogGLibType, libs, "gtk_file_dialog_get_type")
+
+	core.PuregoSafeRegister(&xNewFileDialog, libs, "gtk_file_dialog_new")
+
+	core.PuregoSafeRegister(&xFileDialogGetAcceptLabel, libs, "gtk_file_dialog_get_accept_label")
+	core.PuregoSafeRegister(&xFileDialogGetDefaultFilter, libs, "gtk_file_dialog_get_default_filter")
+	core.PuregoSafeRegister(&xFileDialogGetFilters, libs, "gtk_file_dialog_get_filters")
+	core.PuregoSafeRegister(&xFileDialogGetInitialFile, libs, "gtk_file_dialog_get_initial_file")
+	core.PuregoSafeRegister(&xFileDialogGetInitialFolder, libs, "gtk_file_dialog_get_initial_folder")
+	core.PuregoSafeRegister(&xFileDialogGetInitialName, libs, "gtk_file_dialog_get_initial_name")
+	core.PuregoSafeRegister(&xFileDialogGetModal, libs, "gtk_file_dialog_get_modal")
+	core.PuregoSafeRegister(&xFileDialogGetTitle, libs, "gtk_file_dialog_get_title")
+	core.PuregoSafeRegister(&xFileDialogOpen, libs, "gtk_file_dialog_open")
+	core.PuregoSafeRegister(&xFileDialogOpenFinish, libs, "gtk_file_dialog_open_finish")
+	core.PuregoSafeRegister(&xFileDialogOpenMultiple, libs, "gtk_file_dialog_open_multiple")
+	core.PuregoSafeRegister(&xFileDialogOpenMultipleFinish, libs, "gtk_file_dialog_open_multiple_finish")
+	core.PuregoSafeRegister(&xFileDialogOpenMultipleTextFiles, libs, "gtk_file_dialog_open_multiple_text_files")
+	core.PuregoSafeRegister(&xFileDialogOpenMultipleTextFilesFinish, libs, "gtk_file_dialog_open_multiple_text_files_finish")
+	core.PuregoSafeRegister(&xFileDialogOpenTextFile, libs, "gtk_file_dialog_open_text_file")
+	core.PuregoSafeRegister(&xFileDialogOpenTextFileFinish, libs, "gtk_file_dialog_open_text_file_finish")
+	core.PuregoSafeRegister(&xFileDialogSave, libs, "gtk_file_dialog_save")
+	core.PuregoSafeRegister(&xFileDialogSaveFinish, libs, "gtk_file_dialog_save_finish")
+	core.PuregoSafeRegister(&xFileDialogSaveTextFile, libs, "gtk_file_dialog_save_text_file")
+	core.PuregoSafeRegister(&xFileDialogSaveTextFileFinish, libs, "gtk_file_dialog_save_text_file_finish")
+	core.PuregoSafeRegister(&xFileDialogSelectFolder, libs, "gtk_file_dialog_select_folder")
+	core.PuregoSafeRegister(&xFileDialogSelectFolderFinish, libs, "gtk_file_dialog_select_folder_finish")
+	core.PuregoSafeRegister(&xFileDialogSelectMultipleFolders, libs, "gtk_file_dialog_select_multiple_folders")
+	core.PuregoSafeRegister(&xFileDialogSelectMultipleFoldersFinish, libs, "gtk_file_dialog_select_multiple_folders_finish")
+	core.PuregoSafeRegister(&xFileDialogSetAcceptLabel, libs, "gtk_file_dialog_set_accept_label")
+	core.PuregoSafeRegister(&xFileDialogSetDefaultFilter, libs, "gtk_file_dialog_set_default_filter")
+	core.PuregoSafeRegister(&xFileDialogSetFilters, libs, "gtk_file_dialog_set_filters")
+	core.PuregoSafeRegister(&xFileDialogSetInitialFile, libs, "gtk_file_dialog_set_initial_file")
+	core.PuregoSafeRegister(&xFileDialogSetInitialFolder, libs, "gtk_file_dialog_set_initial_folder")
+	core.PuregoSafeRegister(&xFileDialogSetInitialName, libs, "gtk_file_dialog_set_initial_name")
+	core.PuregoSafeRegister(&xFileDialogSetModal, libs, "gtk_file_dialog_set_modal")
+	core.PuregoSafeRegister(&xFileDialogSetTitle, libs, "gtk_file_dialog_set_title")
 }

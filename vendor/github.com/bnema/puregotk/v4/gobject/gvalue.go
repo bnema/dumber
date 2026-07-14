@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -46,7 +47,6 @@ type Value struct {
 var xValueGLibType func() types.GType
 
 func ValueGLibType() types.GType {
-	core.LazyRegister(&xValueGLibType, "GOBJECT", "g_value_get_type", false)
 	return xValueGLibType()
 }
 
@@ -66,8 +66,6 @@ var xValueCopy func(uintptr, *Value)
 
 // Copies the value of @src_value into @dest_value.
 func (x *Value) Copy(DestValueVar *Value) {
-	core.LazyRegister(&xValueCopy, "GOBJECT", "g_value_copy", false)
-
 	xValueCopy(x.GoPointer(), DestValueVar)
 }
 
@@ -78,8 +76,6 @@ var xValueDupBoxed func(uintptr) uintptr
 // g_boxed_free(), e.g. like: g_boxed_free (G_VALUE_TYPE (@value),
 // return_value);
 func (x *Value) DupBoxed() uintptr {
-	core.LazyRegister(&xValueDupBoxed, "GOBJECT", "g_value_dup_boxed", false)
-
 	cret := xValueDupBoxed(x.GoPointer())
 	return cret
 }
@@ -90,7 +86,6 @@ var xValueDupObject func(uintptr) uintptr
 // its reference count. If the contents of the #GValue are %NULL, then
 // %NULL will be returned.
 func (x *Value) DupObject() *Object {
-	core.LazyRegister(&xValueDupObject, "GOBJECT", "g_value_dup_object", false)
 	var cls *Object
 
 	cret := xValueDupObject(x.GoPointer())
@@ -108,7 +103,6 @@ var xValueDupParam func(uintptr) uintptr
 // Get the contents of a %G_TYPE_PARAM #GValue, increasing its
 // reference count.
 func (x *Value) DupParam() *ParamSpec {
-	core.LazyRegister(&xValueDupParam, "GOBJECT", "g_value_dup_param", false)
 	var cls *ParamSpec
 
 	cret := xValueDupParam(x.GoPointer())
@@ -125,8 +119,6 @@ var xValueDupString func(uintptr) string
 
 // Get a copy the contents of a %G_TYPE_STRING #GValue.
 func (x *Value) DupString() string {
-	core.LazyRegister(&xValueDupString, "GOBJECT", "g_value_dup_string", false)
-
 	cret := xValueDupString(x.GoPointer())
 	return cret
 }
@@ -136,8 +128,6 @@ var xValueDupVariant func(uintptr) uintptr
 // Get the contents of a variant #GValue, increasing its refcount. The returned
 // #GVariant is never floating.
 func (x *Value) DupVariant() *glib.Variant {
-	core.LazyRegister(&xValueDupVariant, "GOBJECT", "g_value_dup_variant", false)
-
 	cret := xValueDupVariant(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -151,8 +141,6 @@ var xValueFitsPointer func(uintptr) bool
 //
 // This is an internal function introduced mainly for C marshallers.
 func (x *Value) FitsPointer() bool {
-	core.LazyRegister(&xValueFitsPointer, "GOBJECT", "g_value_fits_pointer", false)
-
 	cret := xValueFitsPointer(x.GoPointer())
 	return cret
 }
@@ -161,8 +149,6 @@ var xValueGetBoolean func(uintptr) bool
 
 // Get the contents of a %G_TYPE_BOOLEAN #GValue.
 func (x *Value) GetBoolean() bool {
-	core.LazyRegister(&xValueGetBoolean, "GOBJECT", "g_value_get_boolean", false)
-
 	cret := xValueGetBoolean(x.GoPointer())
 	return cret
 }
@@ -171,8 +157,6 @@ var xValueGetBoxed func(uintptr) uintptr
 
 // Get the contents of a %G_TYPE_BOXED derived #GValue.
 func (x *Value) GetBoxed() uintptr {
-	core.LazyRegister(&xValueGetBoxed, "GOBJECT", "g_value_get_boxed", false)
-
 	cret := xValueGetBoxed(x.GoPointer())
 	return cret
 }
@@ -184,8 +168,6 @@ var xValueGetChar func(uintptr) byte
 //
 // Get the contents of a %G_TYPE_CHAR #GValue.
 func (x *Value) GetChar() byte {
-	core.LazyRegister(&xValueGetChar, "GOBJECT", "g_value_get_char", false)
-
 	cret := xValueGetChar(x.GoPointer())
 	return cret
 }
@@ -194,8 +176,6 @@ var xValueGetDouble func(uintptr) float64
 
 // Get the contents of a %G_TYPE_DOUBLE #GValue.
 func (x *Value) GetDouble() float64 {
-	core.LazyRegister(&xValueGetDouble, "GOBJECT", "g_value_get_double", false)
-
 	cret := xValueGetDouble(x.GoPointer())
 	return cret
 }
@@ -204,8 +184,6 @@ var xValueGetEnum func(uintptr) int
 
 // Get the contents of a %G_TYPE_ENUM #GValue.
 func (x *Value) GetEnum() int {
-	core.LazyRegister(&xValueGetEnum, "GOBJECT", "g_value_get_enum", false)
-
 	cret := xValueGetEnum(x.GoPointer())
 	return cret
 }
@@ -214,8 +192,6 @@ var xValueGetFlags func(uintptr) uint
 
 // Get the contents of a %G_TYPE_FLAGS #GValue.
 func (x *Value) GetFlags() uint {
-	core.LazyRegister(&xValueGetFlags, "GOBJECT", "g_value_get_flags", false)
-
 	cret := xValueGetFlags(x.GoPointer())
 	return cret
 }
@@ -224,8 +200,6 @@ var xValueGetFloat func(uintptr) float32
 
 // Get the contents of a %G_TYPE_FLOAT #GValue.
 func (x *Value) GetFloat() float32 {
-	core.LazyRegister(&xValueGetFloat, "GOBJECT", "g_value_get_float", false)
-
 	cret := xValueGetFloat(x.GoPointer())
 	return cret
 }
@@ -234,8 +208,6 @@ var xValueGetGtype func(uintptr) types.GType
 
 // Get the contents of a %G_TYPE_GTYPE #GValue.
 func (x *Value) GetGtype() types.GType {
-	core.LazyRegister(&xValueGetGtype, "GOBJECT", "g_value_get_gtype", false)
-
 	cret := xValueGetGtype(x.GoPointer())
 	return cret
 }
@@ -244,8 +216,6 @@ var xValueGetInt func(uintptr) int
 
 // Get the contents of a %G_TYPE_INT #GValue.
 func (x *Value) GetInt() int {
-	core.LazyRegister(&xValueGetInt, "GOBJECT", "g_value_get_int", false)
-
 	cret := xValueGetInt(x.GoPointer())
 	return cret
 }
@@ -254,8 +224,6 @@ var xValueGetInt64 func(uintptr) int64
 
 // Get the contents of a %G_TYPE_INT64 #GValue.
 func (x *Value) GetInt64() int64 {
-	core.LazyRegister(&xValueGetInt64, "GOBJECT", "g_value_get_int64", false)
-
 	cret := xValueGetInt64(x.GoPointer())
 	return cret
 }
@@ -264,8 +232,6 @@ var xValueGetLong func(uintptr) int
 
 // Get the contents of a %G_TYPE_LONG #GValue.
 func (x *Value) GetLong() int {
-	core.LazyRegister(&xValueGetLong, "GOBJECT", "g_value_get_long", false)
-
 	cret := xValueGetLong(x.GoPointer())
 	return cret
 }
@@ -274,7 +240,6 @@ var xValueGetObject func(uintptr) uintptr
 
 // Get the contents of a %G_TYPE_OBJECT derived #GValue.
 func (x *Value) GetObject() *Object {
-	core.LazyRegister(&xValueGetObject, "GOBJECT", "g_value_get_object", false)
 	var cls *Object
 
 	cret := xValueGetObject(x.GoPointer())
@@ -292,7 +257,6 @@ var xValueGetParam func(uintptr) uintptr
 
 // Get the contents of a %G_TYPE_PARAM #GValue.
 func (x *Value) GetParam() *ParamSpec {
-	core.LazyRegister(&xValueGetParam, "GOBJECT", "g_value_get_param", false)
 	var cls *ParamSpec
 
 	cret := xValueGetParam(x.GoPointer())
@@ -310,8 +274,6 @@ var xValueGetPointer func(uintptr) uintptr
 
 // Get the contents of a pointer #GValue.
 func (x *Value) GetPointer() uintptr {
-	core.LazyRegister(&xValueGetPointer, "GOBJECT", "g_value_get_pointer", false)
-
 	cret := xValueGetPointer(x.GoPointer())
 	return cret
 }
@@ -320,8 +282,6 @@ var xValueGetSchar func(uintptr) int8
 
 // Get the contents of a %G_TYPE_CHAR #GValue.
 func (x *Value) GetSchar() int8 {
-	core.LazyRegister(&xValueGetSchar, "GOBJECT", "g_value_get_schar", false)
-
 	cret := xValueGetSchar(x.GoPointer())
 	return cret
 }
@@ -330,8 +290,6 @@ var xValueGetString func(uintptr) string
 
 // Get the contents of a %G_TYPE_STRING #GValue.
 func (x *Value) GetString() string {
-	core.LazyRegister(&xValueGetString, "GOBJECT", "g_value_get_string", false)
-
 	cret := xValueGetString(x.GoPointer())
 	return cret
 }
@@ -340,8 +298,6 @@ var xValueGetUchar func(uintptr) byte
 
 // Get the contents of a %G_TYPE_UCHAR #GValue.
 func (x *Value) GetUchar() byte {
-	core.LazyRegister(&xValueGetUchar, "GOBJECT", "g_value_get_uchar", false)
-
 	cret := xValueGetUchar(x.GoPointer())
 	return cret
 }
@@ -350,8 +306,6 @@ var xValueGetUint func(uintptr) uint
 
 // Get the contents of a %G_TYPE_UINT #GValue.
 func (x *Value) GetUint() uint {
-	core.LazyRegister(&xValueGetUint, "GOBJECT", "g_value_get_uint", false)
-
 	cret := xValueGetUint(x.GoPointer())
 	return cret
 }
@@ -360,8 +314,6 @@ var xValueGetUint64 func(uintptr) uint64
 
 // Get the contents of a %G_TYPE_UINT64 #GValue.
 func (x *Value) GetUint64() uint64 {
-	core.LazyRegister(&xValueGetUint64, "GOBJECT", "g_value_get_uint64", false)
-
 	cret := xValueGetUint64(x.GoPointer())
 	return cret
 }
@@ -370,8 +322,6 @@ var xValueGetUlong func(uintptr) uint
 
 // Get the contents of a %G_TYPE_ULONG #GValue.
 func (x *Value) GetUlong() uint {
-	core.LazyRegister(&xValueGetUlong, "GOBJECT", "g_value_get_ulong", false)
-
 	cret := xValueGetUlong(x.GoPointer())
 	return cret
 }
@@ -380,8 +330,6 @@ var xValueGetVariant func(uintptr) uintptr
 
 // Get the contents of a variant #GValue.
 func (x *Value) GetVariant() *glib.Variant {
-	core.LazyRegister(&xValueGetVariant, "GOBJECT", "g_value_get_variant", false)
-
 	cret := xValueGetVariant(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -407,8 +355,6 @@ var xValueInit func(uintptr, types.GType) uintptr
 //
 // ```
 func (x *Value) Init(GTypeVar types.GType) *Value {
-	core.LazyRegister(&xValueInit, "GOBJECT", "g_value_init", false)
-
 	cret := xValueInit(x.GoPointer(), GTypeVar)
 	if cret == 0 {
 		return nil
@@ -428,8 +374,6 @@ var xValueInitFromInstance func(uintptr, *TypeInstance)
 // [type@GObject.Type] (such as a parent class type), you need to manually call
 // [method@GObject.Value.init] and [method@GObject.Value.set_instance].
 func (x *Value) InitFromInstance(InstanceVar *TypeInstance) {
-	core.LazyRegister(&xValueInitFromInstance, "GOBJECT", "g_value_init_from_instance", false)
-
 	xValueInitFromInstance(x.GoPointer(), InstanceVar)
 }
 
@@ -442,8 +386,6 @@ var xValuePeekPointer func(uintptr) uintptr
 //
 // This is an internal function introduced mainly for C marshallers.
 func (x *Value) PeekPointer() uintptr {
-	core.LazyRegister(&xValuePeekPointer, "GOBJECT", "g_value_peek_pointer", false)
-
 	cret := xValuePeekPointer(x.GoPointer())
 	return cret
 }
@@ -454,8 +396,6 @@ var xValueReset func(uintptr) uintptr
 // (as if the value had just been initialized using
 // [method@GObject.Value.init]).
 func (x *Value) Reset() *Value {
-	core.LazyRegister(&xValueReset, "GOBJECT", "g_value_reset", false)
-
 	cret := xValueReset(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -467,8 +407,6 @@ var xValueSetBoolean func(uintptr, bool)
 
 // Set the contents of a %G_TYPE_BOOLEAN #GValue to @v_boolean.
 func (x *Value) SetBoolean(VBooleanVar bool) {
-	core.LazyRegister(&xValueSetBoolean, "GOBJECT", "g_value_set_boolean", false)
-
 	xValueSetBoolean(x.GoPointer(), VBooleanVar)
 }
 
@@ -476,8 +414,6 @@ var xValueSetBoxed func(uintptr, uintptr)
 
 // Set the contents of a %G_TYPE_BOXED derived #GValue to @v_boxed.
 func (x *Value) SetBoxed(VBoxedVar uintptr) {
-	core.LazyRegister(&xValueSetBoxed, "GOBJECT", "g_value_set_boxed", false)
-
 	xValueSetBoxed(x.GoPointer(), VBoxedVar)
 }
 
@@ -485,8 +421,6 @@ var xValueSetBoxedTakeOwnership func(uintptr, uintptr)
 
 // This is an internal function introduced mainly for C marshallers.
 func (x *Value) SetBoxedTakeOwnership(VBoxedVar uintptr) {
-	core.LazyRegister(&xValueSetBoxedTakeOwnership, "GOBJECT", "g_value_set_boxed_take_ownership", false)
-
 	xValueSetBoxedTakeOwnership(x.GoPointer(), VBoxedVar)
 }
 
@@ -494,8 +428,6 @@ var xValueSetChar func(uintptr, byte)
 
 // Set the contents of a %G_TYPE_CHAR #GValue to @v_char.
 func (x *Value) SetChar(VCharVar byte) {
-	core.LazyRegister(&xValueSetChar, "GOBJECT", "g_value_set_char", false)
-
 	xValueSetChar(x.GoPointer(), VCharVar)
 }
 
@@ -503,8 +435,6 @@ var xValueSetDouble func(uintptr, float64)
 
 // Set the contents of a %G_TYPE_DOUBLE #GValue to @v_double.
 func (x *Value) SetDouble(VDoubleVar float64) {
-	core.LazyRegister(&xValueSetDouble, "GOBJECT", "g_value_set_double", false)
-
 	xValueSetDouble(x.GoPointer(), VDoubleVar)
 }
 
@@ -512,8 +442,6 @@ var xValueSetEnum func(uintptr, int)
 
 // Set the contents of a %G_TYPE_ENUM #GValue to @v_enum.
 func (x *Value) SetEnum(VEnumVar int) {
-	core.LazyRegister(&xValueSetEnum, "GOBJECT", "g_value_set_enum", false)
-
 	xValueSetEnum(x.GoPointer(), VEnumVar)
 }
 
@@ -521,8 +449,6 @@ var xValueSetFlags func(uintptr, uint)
 
 // Set the contents of a %G_TYPE_FLAGS #GValue to @v_flags.
 func (x *Value) SetFlags(VFlagsVar uint) {
-	core.LazyRegister(&xValueSetFlags, "GOBJECT", "g_value_set_flags", false)
-
 	xValueSetFlags(x.GoPointer(), VFlagsVar)
 }
 
@@ -530,8 +456,6 @@ var xValueSetFloat func(uintptr, float32)
 
 // Set the contents of a %G_TYPE_FLOAT #GValue to @v_float.
 func (x *Value) SetFloat(VFloatVar float32) {
-	core.LazyRegister(&xValueSetFloat, "GOBJECT", "g_value_set_float", false)
-
 	xValueSetFloat(x.GoPointer(), VFloatVar)
 }
 
@@ -539,8 +463,6 @@ var xValueSetGtype func(uintptr, types.GType)
 
 // Set the contents of a %G_TYPE_GTYPE #GValue to @v_gtype.
 func (x *Value) SetGtype(VGtypeVar types.GType) {
-	core.LazyRegister(&xValueSetGtype, "GOBJECT", "g_value_set_gtype", false)
-
 	xValueSetGtype(x.GoPointer(), VGtypeVar)
 }
 
@@ -551,8 +473,6 @@ var xValueSetInstance func(uintptr, uintptr)
 // This calls the [callback@GObject.TypeValueCollectFunc] function for the type
 // the [struct@GObject.Value] contains.
 func (x *Value) SetInstance(InstanceVar uintptr) {
-	core.LazyRegister(&xValueSetInstance, "GOBJECT", "g_value_set_instance", false)
-
 	xValueSetInstance(x.GoPointer(), InstanceVar)
 }
 
@@ -560,8 +480,6 @@ var xValueSetInt func(uintptr, int)
 
 // Set the contents of a %G_TYPE_INT #GValue to @v_int.
 func (x *Value) SetInt(VIntVar int) {
-	core.LazyRegister(&xValueSetInt, "GOBJECT", "g_value_set_int", false)
-
 	xValueSetInt(x.GoPointer(), VIntVar)
 }
 
@@ -569,8 +487,6 @@ var xValueSetInt64 func(uintptr, int64)
 
 // Set the contents of a %G_TYPE_INT64 #GValue to @v_int64.
 func (x *Value) SetInt64(VInt64Var int64) {
-	core.LazyRegister(&xValueSetInt64, "GOBJECT", "g_value_set_int64", false)
-
 	xValueSetInt64(x.GoPointer(), VInt64Var)
 }
 
@@ -580,8 +496,6 @@ var xValueSetInternedString func(uintptr, uintptr)
 // assumed to be static and interned (canonical, for example from
 // g_intern_string()), and is thus not duplicated when setting the #GValue.
 func (x *Value) SetInternedString(VStringVar *string) {
-	core.LazyRegister(&xValueSetInternedString, "GOBJECT", "g_value_set_interned_string", false)
-
 	VStringVarPtr := core.GStrdupNullable(VStringVar)
 	defer core.GFreeNullable(VStringVarPtr)
 
@@ -592,8 +506,6 @@ var xValueSetLong func(uintptr, int)
 
 // Set the contents of a %G_TYPE_LONG #GValue to @v_long.
 func (x *Value) SetLong(VLongVar int) {
-	core.LazyRegister(&xValueSetLong, "GOBJECT", "g_value_set_long", false)
-
 	xValueSetLong(x.GoPointer(), VLongVar)
 }
 
@@ -611,8 +523,6 @@ var xValueSetObject func(uintptr, uintptr)
 // own, or one it has taken) to ensure that the object won't be destroyed while
 // the #GValue still exists).
 func (x *Value) SetObject(VObjectVar *Object) {
-	core.LazyRegister(&xValueSetObject, "GOBJECT", "g_value_set_object", false)
-
 	xValueSetObject(x.GoPointer(), VObjectVar.GoPointer())
 }
 
@@ -620,8 +530,6 @@ var xValueSetObjectTakeOwnership func(uintptr, uintptr)
 
 // This is an internal function introduced mainly for C marshallers.
 func (x *Value) SetObjectTakeOwnership(VObjectVar uintptr) {
-	core.LazyRegister(&xValueSetObjectTakeOwnership, "GOBJECT", "g_value_set_object_take_ownership", false)
-
 	xValueSetObjectTakeOwnership(x.GoPointer(), VObjectVar)
 }
 
@@ -629,8 +537,6 @@ var xValueSetParam func(uintptr, uintptr)
 
 // Set the contents of a %G_TYPE_PARAM #GValue to @param.
 func (x *Value) SetParam(ParamVar *ParamSpec) {
-	core.LazyRegister(&xValueSetParam, "GOBJECT", "g_value_set_param", false)
-
 	xValueSetParam(x.GoPointer(), ParamVar.GoPointer())
 }
 
@@ -638,8 +544,6 @@ var xValueSetParamTakeOwnership func(uintptr, uintptr)
 
 // This is an internal function introduced mainly for C marshallers.
 func (x *Value) SetParamTakeOwnership(ParamVar *ParamSpec) {
-	core.LazyRegister(&xValueSetParamTakeOwnership, "GOBJECT", "g_value_set_param_take_ownership", false)
-
 	xValueSetParamTakeOwnership(x.GoPointer(), ParamVar.GoPointer())
 }
 
@@ -647,8 +551,6 @@ var xValueSetPointer func(uintptr, uintptr)
 
 // Set the contents of a pointer #GValue to @v_pointer.
 func (x *Value) SetPointer(VPointerVar uintptr) {
-	core.LazyRegister(&xValueSetPointer, "GOBJECT", "g_value_set_pointer", false)
-
 	xValueSetPointer(x.GoPointer(), VPointerVar)
 }
 
@@ -656,8 +558,6 @@ var xValueSetSchar func(uintptr, int8)
 
 // Set the contents of a %G_TYPE_CHAR #GValue to @v_char.
 func (x *Value) SetSchar(VCharVar int8) {
-	core.LazyRegister(&xValueSetSchar, "GOBJECT", "g_value_set_schar", false)
-
 	xValueSetSchar(x.GoPointer(), VCharVar)
 }
 
@@ -668,8 +568,6 @@ var xValueSetStaticBoxed func(uintptr, uintptr)
 // The boxed value is assumed to be static, and is thus not duplicated
 // when setting the #GValue.
 func (x *Value) SetStaticBoxed(VBoxedVar uintptr) {
-	core.LazyRegister(&xValueSetStaticBoxed, "GOBJECT", "g_value_set_static_boxed", false)
-
 	xValueSetStaticBoxed(x.GoPointer(), VBoxedVar)
 }
 
@@ -682,8 +580,6 @@ var xValueSetStaticString func(uintptr, uintptr)
 // If the the string is a canonical string, using g_value_set_interned_string()
 // is more appropriate.
 func (x *Value) SetStaticString(VStringVar *string) {
-	core.LazyRegister(&xValueSetStaticString, "GOBJECT", "g_value_set_static_string", false)
-
 	VStringVarPtr := core.GStrdupNullable(VStringVar)
 	defer core.GFreeNullable(VStringVarPtr)
 
@@ -694,8 +590,6 @@ var xValueSetString func(uintptr, uintptr)
 
 // Set the contents of a %G_TYPE_STRING #GValue to a copy of @v_string.
 func (x *Value) SetString(VStringVar *string) {
-	core.LazyRegister(&xValueSetString, "GOBJECT", "g_value_set_string", false)
-
 	VStringVarPtr := core.GStrdupNullable(VStringVar)
 	defer core.GFreeNullable(VStringVarPtr)
 
@@ -706,8 +600,6 @@ var xValueSetStringTakeOwnership func(uintptr, uintptr)
 
 // This is an internal function introduced mainly for C marshallers.
 func (x *Value) SetStringTakeOwnership(VStringVar *string) {
-	core.LazyRegister(&xValueSetStringTakeOwnership, "GOBJECT", "g_value_set_string_take_ownership", false)
-
 	VStringVarPtr := core.GStrdupNullable(VStringVar)
 	defer core.GFreeNullable(VStringVarPtr)
 
@@ -718,8 +610,6 @@ var xValueSetUchar func(uintptr, byte)
 
 // Set the contents of a %G_TYPE_UCHAR #GValue to @v_uchar.
 func (x *Value) SetUchar(VUcharVar byte) {
-	core.LazyRegister(&xValueSetUchar, "GOBJECT", "g_value_set_uchar", false)
-
 	xValueSetUchar(x.GoPointer(), VUcharVar)
 }
 
@@ -727,8 +617,6 @@ var xValueSetUint func(uintptr, uint)
 
 // Set the contents of a %G_TYPE_UINT #GValue to @v_uint.
 func (x *Value) SetUint(VUintVar uint) {
-	core.LazyRegister(&xValueSetUint, "GOBJECT", "g_value_set_uint", false)
-
 	xValueSetUint(x.GoPointer(), VUintVar)
 }
 
@@ -736,8 +624,6 @@ var xValueSetUint64 func(uintptr, uint64)
 
 // Set the contents of a %G_TYPE_UINT64 #GValue to @v_uint64.
 func (x *Value) SetUint64(VUint64Var uint64) {
-	core.LazyRegister(&xValueSetUint64, "GOBJECT", "g_value_set_uint64", false)
-
 	xValueSetUint64(x.GoPointer(), VUint64Var)
 }
 
@@ -745,8 +631,6 @@ var xValueSetUlong func(uintptr, uint)
 
 // Set the contents of a %G_TYPE_ULONG #GValue to @v_ulong.
 func (x *Value) SetUlong(VUlongVar uint) {
-	core.LazyRegister(&xValueSetUlong, "GOBJECT", "g_value_set_ulong", false)
-
 	xValueSetUlong(x.GoPointer(), VUlongVar)
 }
 
@@ -755,8 +639,6 @@ var xValueSetVariant func(uintptr, *glib.Variant)
 // Set the contents of a variant #GValue to @variant.
 // If the variant is floating, it is consumed.
 func (x *Value) SetVariant(VariantVar *glib.Variant) {
-	core.LazyRegister(&xValueSetVariant, "GOBJECT", "g_value_set_variant", false)
-
 	xValueSetVariant(x.GoPointer(), VariantVar)
 }
 
@@ -772,8 +654,6 @@ var xValueStealString func(uintptr) string
 // static string, or an interned one, this function will return a copy
 // of the string. Otherwise the transfer notation would be ambiguous.
 func (x *Value) StealString() string {
-	core.LazyRegister(&xValueStealString, "GOBJECT", "g_value_steal_string", false)
-
 	cret := xValueStealString(x.GoPointer())
 	return cret
 }
@@ -784,8 +664,6 @@ var xValueTakeBoxed func(uintptr, uintptr)
 // and takes over the ownership of the caller’s reference to @v_boxed;
 // the caller doesn’t have to unref it any more.
 func (x *Value) TakeBoxed(VBoxedVar uintptr) {
-	core.LazyRegister(&xValueTakeBoxed, "GOBJECT", "g_value_take_boxed", false)
-
 	xValueTakeBoxed(x.GoPointer(), VBoxedVar)
 }
 
@@ -799,8 +677,6 @@ var xValueTakeObject func(uintptr, uintptr)
 // If you want the #GValue to hold its own reference to @v_object, use
 // g_value_set_object() instead.
 func (x *Value) TakeObject(VObjectVar uintptr) {
-	core.LazyRegister(&xValueTakeObject, "GOBJECT", "g_value_take_object", false)
-
 	xValueTakeObject(x.GoPointer(), VObjectVar)
 }
 
@@ -810,8 +686,6 @@ var xValueTakeParam func(uintptr, uintptr)
 // over the ownership of the caller’s reference to @param; the caller
 // doesn’t have to unref it any more.
 func (x *Value) TakeParam(ParamVar *ParamSpec) {
-	core.LazyRegister(&xValueTakeParam, "GOBJECT", "g_value_take_param", false)
-
 	xValueTakeParam(x.GoPointer(), ParamVar.GoPointer())
 }
 
@@ -819,8 +693,6 @@ var xValueTakeString func(uintptr, uintptr)
 
 // Sets the contents of a %G_TYPE_STRING #GValue to @v_string.
 func (x *Value) TakeString(VStringVar *string) {
-	core.LazyRegister(&xValueTakeString, "GOBJECT", "g_value_take_string", false)
-
 	VStringVarPtr := core.GStrdupNullable(VStringVar)
 	defer core.GFreeNullable(VStringVarPtr)
 
@@ -842,8 +714,6 @@ var xValueTakeVariant func(uintptr, *glib.Variant)
 //
 // This is an internal function introduced mainly for C marshallers.
 func (x *Value) TakeVariant(VariantVar *glib.Variant) {
-	core.LazyRegister(&xValueTakeVariant, "GOBJECT", "g_value_take_variant", false)
-
 	xValueTakeVariant(x.GoPointer(), VariantVar)
 }
 
@@ -862,8 +732,6 @@ var xValueTransform func(uintptr, *Value) bool
 // results and the format of particular transformations to strings is not
 // guaranteed over time.
 func (x *Value) Transform(DestValueVar *Value) bool {
-	core.LazyRegister(&xValueTransform, "GOBJECT", "g_value_transform", false)
-
 	cret := xValueTransform(x.GoPointer(), DestValueVar)
 	return cret
 }
@@ -876,8 +744,6 @@ var xValueUnset func(uintptr)
 // unset value is the same as a cleared (zero-filled)
 // [struct@GObject.Value] structure set to `G_VALUE_INIT`.
 func (x *Value) Unset() {
-	core.LazyRegister(&xValueUnset, "GOBJECT", "g_value_unset", false)
-
 	xValueUnset(x.GoPointer())
 }
 
@@ -914,8 +780,6 @@ var xValueRegisterTransformFunc func(types.GType, types.GType, uintptr)
 // Any previously registered transformation function for @src_type and
 // @dest_type will be replaced.
 func ValueRegisterTransformFunc(SrcTypeVar types.GType, DestTypeVar types.GType, TransformFuncVar *ValueTransform) {
-	core.LazyRegister(&xValueRegisterTransformFunc, "GOBJECT", "g_value_register_transform_func", false)
-
 	xValueRegisterTransformFunc(SrcTypeVar, DestTypeVar, glib.NewCallback(TransformFuncVar))
 }
 
@@ -924,8 +788,6 @@ var xValueTypeCompatible func(types.GType, types.GType) bool
 // Checks whether a [method@GObject.Value.copy] is able to copy values of type
 // @src_type into values of type @dest_type.
 func ValueTypeCompatible(SrcTypeVar types.GType, DestTypeVar types.GType) bool {
-	core.LazyRegister(&xValueTypeCompatible, "GOBJECT", "g_value_type_compatible", false)
-
 	cret := xValueTypeCompatible(SrcTypeVar, DestTypeVar)
 	return cret
 }
@@ -939,8 +801,6 @@ var xValueTypeTransformable func(types.GType, types.GType) bool
 // transformation function must be registered using
 // [func@GObject.Value.register_transform_func].
 func ValueTypeTransformable(SrcTypeVar types.GType, DestTypeVar types.GType) bool {
-	core.LazyRegister(&xValueTypeTransformable, "GOBJECT", "g_value_type_transformable", false)
-
 	cret := xValueTypeTransformable(SrcTypeVar, DestTypeVar)
 	return cret
 }
@@ -948,4 +808,88 @@ func ValueTypeTransformable(SrcTypeVar types.GType, DestTypeVar types.GType) boo
 func init() {
 	core.SetPackageName("GOBJECT", "gobject-2.0")
 	core.SetSharedLibraries("GOBJECT", []string{"libgobject-2.0.so.0", "libgobject-2.0.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GOBJECT") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xValueRegisterTransformFunc, libs, "g_value_register_transform_func")
+	core.PuregoSafeRegister(&xValueTypeCompatible, libs, "g_value_type_compatible")
+	core.PuregoSafeRegister(&xValueTypeTransformable, libs, "g_value_type_transformable")
+
+	core.PuregoSafeRegister(&xValueGLibType, libs, "g_value_get_type")
+
+	core.PuregoSafeRegister(&xValueCopy, libs, "g_value_copy")
+	core.PuregoSafeRegister(&xValueDupBoxed, libs, "g_value_dup_boxed")
+	core.PuregoSafeRegister(&xValueDupObject, libs, "g_value_dup_object")
+	core.PuregoSafeRegister(&xValueDupParam, libs, "g_value_dup_param")
+	core.PuregoSafeRegister(&xValueDupString, libs, "g_value_dup_string")
+	core.PuregoSafeRegister(&xValueDupVariant, libs, "g_value_dup_variant")
+	core.PuregoSafeRegister(&xValueFitsPointer, libs, "g_value_fits_pointer")
+	core.PuregoSafeRegister(&xValueGetBoolean, libs, "g_value_get_boolean")
+	core.PuregoSafeRegister(&xValueGetBoxed, libs, "g_value_get_boxed")
+	core.PuregoSafeRegister(&xValueGetChar, libs, "g_value_get_char")
+	core.PuregoSafeRegister(&xValueGetDouble, libs, "g_value_get_double")
+	core.PuregoSafeRegister(&xValueGetEnum, libs, "g_value_get_enum")
+	core.PuregoSafeRegister(&xValueGetFlags, libs, "g_value_get_flags")
+	core.PuregoSafeRegister(&xValueGetFloat, libs, "g_value_get_float")
+	core.PuregoSafeRegister(&xValueGetGtype, libs, "g_value_get_gtype")
+	core.PuregoSafeRegister(&xValueGetInt, libs, "g_value_get_int")
+	core.PuregoSafeRegister(&xValueGetInt64, libs, "g_value_get_int64")
+	core.PuregoSafeRegister(&xValueGetLong, libs, "g_value_get_long")
+	core.PuregoSafeRegister(&xValueGetObject, libs, "g_value_get_object")
+	core.PuregoSafeRegister(&xValueGetParam, libs, "g_value_get_param")
+	core.PuregoSafeRegister(&xValueGetPointer, libs, "g_value_get_pointer")
+	core.PuregoSafeRegister(&xValueGetSchar, libs, "g_value_get_schar")
+	core.PuregoSafeRegister(&xValueGetString, libs, "g_value_get_string")
+	core.PuregoSafeRegister(&xValueGetUchar, libs, "g_value_get_uchar")
+	core.PuregoSafeRegister(&xValueGetUint, libs, "g_value_get_uint")
+	core.PuregoSafeRegister(&xValueGetUint64, libs, "g_value_get_uint64")
+	core.PuregoSafeRegister(&xValueGetUlong, libs, "g_value_get_ulong")
+	core.PuregoSafeRegister(&xValueGetVariant, libs, "g_value_get_variant")
+	core.PuregoSafeRegister(&xValueInit, libs, "g_value_init")
+	core.PuregoSafeRegister(&xValueInitFromInstance, libs, "g_value_init_from_instance")
+	core.PuregoSafeRegister(&xValuePeekPointer, libs, "g_value_peek_pointer")
+	core.PuregoSafeRegister(&xValueReset, libs, "g_value_reset")
+	core.PuregoSafeRegister(&xValueSetBoolean, libs, "g_value_set_boolean")
+	core.PuregoSafeRegister(&xValueSetBoxed, libs, "g_value_set_boxed")
+	core.PuregoSafeRegister(&xValueSetBoxedTakeOwnership, libs, "g_value_set_boxed_take_ownership")
+	core.PuregoSafeRegister(&xValueSetChar, libs, "g_value_set_char")
+	core.PuregoSafeRegister(&xValueSetDouble, libs, "g_value_set_double")
+	core.PuregoSafeRegister(&xValueSetEnum, libs, "g_value_set_enum")
+	core.PuregoSafeRegister(&xValueSetFlags, libs, "g_value_set_flags")
+	core.PuregoSafeRegister(&xValueSetFloat, libs, "g_value_set_float")
+	core.PuregoSafeRegister(&xValueSetGtype, libs, "g_value_set_gtype")
+	core.PuregoSafeRegister(&xValueSetInstance, libs, "g_value_set_instance")
+	core.PuregoSafeRegister(&xValueSetInt, libs, "g_value_set_int")
+	core.PuregoSafeRegister(&xValueSetInt64, libs, "g_value_set_int64")
+	core.PuregoSafeRegister(&xValueSetInternedString, libs, "g_value_set_interned_string")
+	core.PuregoSafeRegister(&xValueSetLong, libs, "g_value_set_long")
+	core.PuregoSafeRegister(&xValueSetObject, libs, "g_value_set_object")
+	core.PuregoSafeRegister(&xValueSetObjectTakeOwnership, libs, "g_value_set_object_take_ownership")
+	core.PuregoSafeRegister(&xValueSetParam, libs, "g_value_set_param")
+	core.PuregoSafeRegister(&xValueSetParamTakeOwnership, libs, "g_value_set_param_take_ownership")
+	core.PuregoSafeRegister(&xValueSetPointer, libs, "g_value_set_pointer")
+	core.PuregoSafeRegister(&xValueSetSchar, libs, "g_value_set_schar")
+	core.PuregoSafeRegister(&xValueSetStaticBoxed, libs, "g_value_set_static_boxed")
+	core.PuregoSafeRegister(&xValueSetStaticString, libs, "g_value_set_static_string")
+	core.PuregoSafeRegister(&xValueSetString, libs, "g_value_set_string")
+	core.PuregoSafeRegister(&xValueSetStringTakeOwnership, libs, "g_value_set_string_take_ownership")
+	core.PuregoSafeRegister(&xValueSetUchar, libs, "g_value_set_uchar")
+	core.PuregoSafeRegister(&xValueSetUint, libs, "g_value_set_uint")
+	core.PuregoSafeRegister(&xValueSetUint64, libs, "g_value_set_uint64")
+	core.PuregoSafeRegister(&xValueSetUlong, libs, "g_value_set_ulong")
+	core.PuregoSafeRegister(&xValueSetVariant, libs, "g_value_set_variant")
+	core.PuregoSafeRegister(&xValueStealString, libs, "g_value_steal_string")
+	core.PuregoSafeRegister(&xValueTakeBoxed, libs, "g_value_take_boxed")
+	core.PuregoSafeRegister(&xValueTakeObject, libs, "g_value_take_object")
+	core.PuregoSafeRegister(&xValueTakeParam, libs, "g_value_take_param")
+	core.PuregoSafeRegister(&xValueTakeString, libs, "g_value_take_string")
+	core.PuregoSafeRegister(&xValueTakeVariant, libs, "g_value_take_variant")
+	core.PuregoSafeRegister(&xValueTransform, libs, "g_value_transform")
+	core.PuregoSafeRegister(&xValueUnset, libs, "g_value_unset")
 }

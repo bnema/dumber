@@ -4,6 +4,7 @@ package gsk
 import (
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gdk"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -19,7 +20,6 @@ type ComponentTransferNode struct {
 var xComponentTransferNodeGLibType func() types.GType
 
 func ComponentTransferNodeGLibType() types.GType {
-	core.LazyRegister(&xComponentTransferNodeGLibType, "GSK", "gsk_component_transfer_node_get_type", false)
 	return xComponentTransferNodeGLibType()
 }
 
@@ -34,7 +34,6 @@ var xNewComponentTransferNode func(uintptr, *ComponentTransfer, *ComponentTransf
 // Creates a render node that will apply component
 // transfers to a child node.
 func NewComponentTransferNode(ChildVar *RenderNode, RVar *ComponentTransfer, GVar *ComponentTransfer, BVar *ComponentTransfer, AVar *ComponentTransfer) *ComponentTransferNode {
-	core.LazyRegister(&xNewComponentTransferNode, "GSK", "gsk_component_transfer_node_new", false)
 	var cls *ComponentTransferNode
 
 	cret := xNewComponentTransferNode(ChildVar.GoPointer(), RVar, GVar, BVar, AVar)
@@ -51,7 +50,6 @@ var xComponentTransferNodeGetChild func(uintptr) uintptr
 
 // Gets the child node that is getting drawn by the given @node.
 func (x *ComponentTransferNode) GetChild() *RenderNode {
-	core.LazyRegister(&xComponentTransferNodeGetChild, "GSK", "gsk_component_transfer_node_get_child", false)
 	var cls *RenderNode
 
 	cret := xComponentTransferNodeGetChild(x.GoPointer())
@@ -69,8 +67,6 @@ var xComponentTransferNodeGetTransfer func(uintptr, gdk.ColorChannel) uintptr
 
 // Gets the component transfer for one of the components.
 func (x *ComponentTransferNode) GetTransfer(ComponentVar gdk.ColorChannel) *ComponentTransfer {
-	core.LazyRegister(&xComponentTransferNodeGetTransfer, "GSK", "gsk_component_transfer_node_get_transfer", false)
-
 	cret := xComponentTransferNodeGetTransfer(x.GoPointer(), ComponentVar)
 	if cret == 0 {
 		return nil
@@ -92,4 +88,19 @@ func (c *ComponentTransferNode) SetGoPointer(ptr uintptr) {
 func init() {
 	core.SetPackageName("GSK", "gtk4")
 	core.SetSharedLibraries("GSK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GSK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xComponentTransferNodeGLibType, libs, "gsk_component_transfer_node_get_type")
+
+	core.PuregoSafeRegister(&xNewComponentTransferNode, libs, "gsk_component_transfer_node_new")
+
+	core.PuregoSafeRegister(&xComponentTransferNodeGetChild, libs, "gsk_component_transfer_node_get_child")
+	core.PuregoSafeRegister(&xComponentTransferNodeGetTransfer, libs, "gsk_component_transfer_node_get_transfer")
 }

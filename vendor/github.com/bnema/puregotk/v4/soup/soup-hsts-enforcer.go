@@ -153,7 +153,6 @@ type HSTSEnforcer struct {
 var xHSTSEnforcerGLibType func() types.GType
 
 func HSTSEnforcerGLibType() types.GType {
-	core.LazyRegister(&xHSTSEnforcerGLibType, "SOUP", "soup_hsts_enforcer_get_type", false)
 	return xHSTSEnforcerGLibType()
 }
 
@@ -170,7 +169,6 @@ var xNewHSTSEnforcer func() uintptr
 // The base [class@HSTSEnforcer] class does not support persistent storage of HSTS
 // policies, see [class@HSTSEnforcerDB] for that.
 func NewHSTSEnforcer() *HSTSEnforcer {
-	core.LazyRegister(&xNewHSTSEnforcer, "SOUP", "soup_hsts_enforcer_new", false)
 	var cls *HSTSEnforcer
 
 	cret := xNewHSTSEnforcer()
@@ -187,8 +185,6 @@ var xHSTSEnforcerGetDomains func(uintptr, bool) uintptr
 
 // Gets a list of domains for which there are policies in @enforcer.
 func (x *HSTSEnforcer) GetDomains(SessionPoliciesVar bool) *glib.List {
-	core.LazyRegister(&xHSTSEnforcerGetDomains, "SOUP", "soup_hsts_enforcer_get_domains", false)
-
 	cret := xHSTSEnforcerGetDomains(x.GoPointer(), SessionPoliciesVar)
 	if cret == 0 {
 		return nil
@@ -200,8 +196,6 @@ var xHSTSEnforcerGetPolicies func(uintptr, bool) uintptr
 
 // Gets a list with the policies in @enforcer.
 func (x *HSTSEnforcer) GetPolicies(SessionPoliciesVar bool) *glib.List {
-	core.LazyRegister(&xHSTSEnforcerGetPolicies, "SOUP", "soup_hsts_enforcer_get_policies", false)
-
 	cret := xHSTSEnforcerGetPolicies(x.GoPointer(), SessionPoliciesVar)
 	if cret == 0 {
 		return nil
@@ -213,8 +207,6 @@ var xHSTSEnforcerHasValidPolicy func(uintptr, string) bool
 
 // Gets whether @hsts_enforcer has a currently valid policy for @domain.
 func (x *HSTSEnforcer) HasValidPolicy(DomainVar string) bool {
-	core.LazyRegister(&xHSTSEnforcerHasValidPolicy, "SOUP", "soup_hsts_enforcer_has_valid_policy", false)
-
 	cret := xHSTSEnforcerHasValidPolicy(x.GoPointer(), DomainVar)
 	return cret
 }
@@ -223,8 +215,6 @@ var xHSTSEnforcerIsPersistent func(uintptr) bool
 
 // Gets whether @hsts_enforcer stores policies persistenly.
 func (x *HSTSEnforcer) IsPersistent() bool {
-	core.LazyRegister(&xHSTSEnforcerIsPersistent, "SOUP", "soup_hsts_enforcer_is_persistent", false)
-
 	cret := xHSTSEnforcerIsPersistent(x.GoPointer())
 	return cret
 }
@@ -240,8 +230,6 @@ var xHSTSEnforcerSetPolicy func(uintptr, *HSTSPolicy)
 // expire and will be enforced during the lifetime of @hsts_enforcer's
 // [class@Session].
 func (x *HSTSEnforcer) SetPolicy(PolicyVar *HSTSPolicy) {
-	core.LazyRegister(&xHSTSEnforcerSetPolicy, "SOUP", "soup_hsts_enforcer_set_policy", false)
-
 	xHSTSEnforcerSetPolicy(x.GoPointer(), PolicyVar)
 }
 
@@ -252,8 +240,6 @@ var xHSTSEnforcerSetSessionPolicy func(uintptr, string, bool)
 // A session policy is a policy that is permanent to the lifetime of
 // @hsts_enforcer's [class@Session] and doesn't expire.
 func (x *HSTSEnforcer) SetSessionPolicy(DomainVar string, IncludeSubdomainsVar bool) {
-	core.LazyRegister(&xHSTSEnforcerSetSessionPolicy, "SOUP", "soup_hsts_enforcer_set_session_policy", false)
-
 	xHSTSEnforcerSetSessionPolicy(x.GoPointer(), DomainVar, IncludeSubdomainsVar)
 }
 
@@ -305,4 +291,23 @@ func (x *HSTSEnforcer) ConnectChanged(cb *func(HSTSEnforcer, uintptr, uintptr)) 
 func init() {
 	core.SetPackageName("SOUP", "libsoup-3.0")
 	core.SetSharedLibraries("SOUP", []string{"libsoup-3.0.so.0", "libsoup-3.0.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("SOUP") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xHSTSEnforcerGLibType, libs, "soup_hsts_enforcer_get_type")
+
+	core.PuregoSafeRegister(&xNewHSTSEnforcer, libs, "soup_hsts_enforcer_new")
+
+	core.PuregoSafeRegister(&xHSTSEnforcerGetDomains, libs, "soup_hsts_enforcer_get_domains")
+	core.PuregoSafeRegister(&xHSTSEnforcerGetPolicies, libs, "soup_hsts_enforcer_get_policies")
+	core.PuregoSafeRegister(&xHSTSEnforcerHasValidPolicy, libs, "soup_hsts_enforcer_has_valid_policy")
+	core.PuregoSafeRegister(&xHSTSEnforcerIsPersistent, libs, "soup_hsts_enforcer_is_persistent")
+	core.PuregoSafeRegister(&xHSTSEnforcerSetPolicy, libs, "soup_hsts_enforcer_set_policy")
+	core.PuregoSafeRegister(&xHSTSEnforcerSetSessionPolicy, libs, "soup_hsts_enforcer_set_session_policy")
 }

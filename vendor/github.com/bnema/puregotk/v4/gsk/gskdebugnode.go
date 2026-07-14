@@ -2,6 +2,7 @@
 package gsk
 
 import (
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -16,7 +17,6 @@ type DebugNode struct {
 var xDebugNodeGLibType func() types.GType
 
 func DebugNodeGLibType() types.GType {
-	core.LazyRegister(&xDebugNodeGLibType, "GSK", "gsk_debug_node_get_type", false)
 	return xDebugNodeGLibType()
 }
 
@@ -33,7 +33,6 @@ var xNewDebugNode func(uintptr, string) uintptr
 //
 // Adding this node has no visual effect.
 func NewDebugNode(ChildVar *RenderNode, MessageVar string) *DebugNode {
-	core.LazyRegister(&xNewDebugNode, "GSK", "gsk_debug_node_new", false)
 	var cls *DebugNode
 
 	cret := xNewDebugNode(ChildVar.GoPointer(), MessageVar)
@@ -50,7 +49,6 @@ var xDebugNodeGetChild func(uintptr) uintptr
 
 // Gets the child node that is getting drawn by the given @node.
 func (x *DebugNode) GetChild() *RenderNode {
-	core.LazyRegister(&xDebugNodeGetChild, "GSK", "gsk_debug_node_get_child", false)
 	var cls *RenderNode
 
 	cret := xDebugNodeGetChild(x.GoPointer())
@@ -68,8 +66,6 @@ var xDebugNodeGetMessage func(uintptr) string
 
 // Gets the debug message that was set on this node
 func (x *DebugNode) GetMessage() string {
-	core.LazyRegister(&xDebugNodeGetMessage, "GSK", "gsk_debug_node_get_message", false)
-
 	cret := xDebugNodeGetMessage(x.GoPointer())
 	return cret
 }
@@ -88,4 +84,19 @@ func (c *DebugNode) SetGoPointer(ptr uintptr) {
 func init() {
 	core.SetPackageName("GSK", "gtk4")
 	core.SetSharedLibraries("GSK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GSK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xDebugNodeGLibType, libs, "gsk_debug_node_get_type")
+
+	core.PuregoSafeRegister(&xNewDebugNode, libs, "gsk_debug_node_new")
+
+	core.PuregoSafeRegister(&xDebugNodeGetChild, libs, "gsk_debug_node_get_child")
+	core.PuregoSafeRegister(&xDebugNodeGetMessage, libs, "gsk_debug_node_get_message")
 }

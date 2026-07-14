@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gio"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -46,7 +47,6 @@ type FilterListModel struct {
 var xFilterListModelGLibType func() types.GType
 
 func FilterListModelGLibType() types.GType {
-	core.LazyRegister(&xFilterListModelGLibType, "GTK", "gtk_filter_list_model_get_type", false)
 	return xFilterListModelGLibType()
 }
 
@@ -61,7 +61,6 @@ var xNewFilterListModel func(uintptr, uintptr) uintptr
 // Creates a new `GtkFilterListModel` that will filter @model using the given
 // @filter.
 func NewFilterListModel(ModelVar gio.ListModel, FilterVar *Filter) *FilterListModel {
-	core.LazyRegister(&xNewFilterListModel, "GTK", "gtk_filter_list_model_new", false)
 	var cls *FilterListModel
 
 	cret := xNewFilterListModel(ModelVar.GoPointer(), FilterVar.GoPointer())
@@ -78,7 +77,6 @@ var xFilterListModelGetFilter func(uintptr) uintptr
 
 // Gets the `GtkFilter` currently set on @self.
 func (x *FilterListModel) GetFilter() *Filter {
-	core.LazyRegister(&xFilterListModelGetFilter, "GTK", "gtk_filter_list_model_get_filter", false)
 	var cls *Filter
 
 	cret := xFilterListModelGetFilter(x.GoPointer())
@@ -98,8 +96,6 @@ var xFilterListModelGetIncremental func(uintptr) bool
 //
 // See [method@Gtk.FilterListModel.set_incremental].
 func (x *FilterListModel) GetIncremental() bool {
-	core.LazyRegister(&xFilterListModelGetIncremental, "GTK", "gtk_filter_list_model_get_incremental", false)
-
 	cret := xFilterListModelGetIncremental(x.GoPointer())
 	return cret
 }
@@ -108,7 +104,6 @@ var xFilterListModelGetModel func(uintptr) uintptr
 
 // Gets the model currently filtered or %NULL if none.
 func (x *FilterListModel) GetModel() *gio.ListModelBase {
-	core.LazyRegister(&xFilterListModelGetModel, "GTK", "gtk_filter_list_model_get_model", false)
 	var cls *gio.ListModelBase
 
 	cret := xFilterListModelGetModel(x.GoPointer())
@@ -141,8 +136,6 @@ var xFilterListModelGetPending func(uintptr) uint
 // [property@Gtk.FilterListModel:incremental] is %FALSE - this
 // function returns 0.
 func (x *FilterListModel) GetPending() uint {
-	core.LazyRegister(&xFilterListModelGetPending, "GTK", "gtk_filter_list_model_get_pending", false)
-
 	cret := xFilterListModelGetPending(x.GoPointer())
 	return cret
 }
@@ -153,8 +146,6 @@ var xFilterListModelGetWatchItems func(uintptr) bool
 //
 // See [method@Gtk.FilterListModel.set_watch_items].
 func (x *FilterListModel) GetWatchItems() bool {
-	core.LazyRegister(&xFilterListModelGetWatchItems, "GTK", "gtk_filter_list_model_get_watch_items", false)
-
 	cret := xFilterListModelGetWatchItems(x.GoPointer())
 	return cret
 }
@@ -163,8 +154,6 @@ var xFilterListModelSetFilter func(uintptr, uintptr)
 
 // Sets the filter used to filter items.
 func (x *FilterListModel) SetFilter(FilterVar *Filter) {
-	core.LazyRegister(&xFilterListModelSetFilter, "GTK", "gtk_filter_list_model_set_filter", false)
-
 	xFilterListModelSetFilter(x.GoPointer(), FilterVar.GoPointer())
 }
 
@@ -187,8 +176,6 @@ var xFilterListModelSetIncremental func(uintptr, bool)
 // See [method@Gtk.FilterListModel.get_pending] for progress information
 // about an ongoing incremental filtering operation.
 func (x *FilterListModel) SetIncremental(IncrementalVar bool) {
-	core.LazyRegister(&xFilterListModelSetIncremental, "GTK", "gtk_filter_list_model_set_incremental", false)
-
 	xFilterListModelSetIncremental(x.GoPointer(), IncrementalVar)
 }
 
@@ -201,8 +188,6 @@ var xFilterListModelSetModel func(uintptr, uintptr)
 // are doing and have set up an appropriate filter to ensure that item
 // types match.
 func (x *FilterListModel) SetModel(ModelVar gio.ListModel) {
-	core.LazyRegister(&xFilterListModelSetModel, "GTK", "gtk_filter_list_model_set_model", false)
-
 	xFilterListModelSetModel(x.GoPointer(), ModelVar.GoPointer())
 }
 
@@ -216,8 +201,6 @@ var xFilterListModelSetWatchItems func(uintptr, bool)
 //
 // By default, watching items is disabled.
 func (x *FilterListModel) SetWatchItems(WatchItemsVar bool) {
-	core.LazyRegister(&xFilterListModelSetWatchItems, "GTK", "gtk_filter_list_model_set_watch_items", false)
-
 	xFilterListModelSetWatchItems(x.GoPointer(), WatchItemsVar)
 }
 
@@ -399,4 +382,26 @@ func (x *FilterListModel) SectionsChanged(PositionVar uint, NItemsVar uint) {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GTK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xFilterListModelGLibType, libs, "gtk_filter_list_model_get_type")
+
+	core.PuregoSafeRegister(&xNewFilterListModel, libs, "gtk_filter_list_model_new")
+
+	core.PuregoSafeRegister(&xFilterListModelGetFilter, libs, "gtk_filter_list_model_get_filter")
+	core.PuregoSafeRegister(&xFilterListModelGetIncremental, libs, "gtk_filter_list_model_get_incremental")
+	core.PuregoSafeRegister(&xFilterListModelGetModel, libs, "gtk_filter_list_model_get_model")
+	core.PuregoSafeRegister(&xFilterListModelGetPending, libs, "gtk_filter_list_model_get_pending")
+	core.PuregoSafeRegister(&xFilterListModelGetWatchItems, libs, "gtk_filter_list_model_get_watch_items")
+	core.PuregoSafeRegister(&xFilterListModelSetFilter, libs, "gtk_filter_list_model_set_filter")
+	core.PuregoSafeRegister(&xFilterListModelSetIncremental, libs, "gtk_filter_list_model_set_incremental")
+	core.PuregoSafeRegister(&xFilterListModelSetModel, libs, "gtk_filter_list_model_set_model")
+	core.PuregoSafeRegister(&xFilterListModelSetWatchItems, libs, "gtk_filter_list_model_set_watch_items")
 }

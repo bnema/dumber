@@ -456,7 +456,6 @@ type CellLayout interface {
 var xCellLayoutGLibType func() types.GType
 
 func CellLayoutGLibType() types.GType {
-	core.LazyRegister(&xCellLayoutGLibType, "GTK", "gtk_cell_layout_get_type", false)
 	return xCellLayoutGLibType()
 }
 
@@ -573,77 +572,41 @@ func (x *CellLayoutBase) SetCellDataFunc(CellVar *CellRenderer, FuncVar *CellLay
 	XGtkCellLayoutSetCellDataFunc(x.GoPointer(), CellVar.GoPointer(), glib.NewCallbackNullable(FuncVar), FuncDataVar, glib.NewCallbackNullable(DestroyVar))
 }
 
-var XGtkCellLayoutAddAttribute func(uintptr, uintptr, string, int) = func(instance uintptr, CellVarp uintptr, AttributeVarp string, ColumnVarp int) {
-	core.LazyRegister(&xXGtkCellLayoutAddAttribute, "GTK", "gtk_cell_layout_add_attribute", false)
-	xXGtkCellLayoutAddAttribute(instance, CellVarp, AttributeVarp, ColumnVarp)
-}
-
 var (
-	xXGtkCellLayoutAddAttribute func(uintptr, uintptr, string, int)
-	XGtkCellLayoutClear         func(uintptr) = func(instance uintptr) {
-		core.LazyRegister(&xXGtkCellLayoutClear, "GTK", "gtk_cell_layout_clear", false)
-		xXGtkCellLayoutClear(instance)
-	}
+	XGtkCellLayoutAddAttribute    func(uintptr, uintptr, string, int)
+	XGtkCellLayoutClear           func(uintptr)
+	XGtkCellLayoutClearAttributes func(uintptr, uintptr)
+	XGtkCellLayoutGetArea         func(uintptr) uintptr
+	XGtkCellLayoutGetCells        func(uintptr) uintptr
+	XGtkCellLayoutPackEnd         func(uintptr, uintptr, bool)
+	XGtkCellLayoutPackStart       func(uintptr, uintptr, bool)
+	XGtkCellLayoutReorder         func(uintptr, uintptr, int)
+	XGtkCellLayoutSetAttributes   func(uintptr, uintptr, ...interface{})
+	XGtkCellLayoutSetCellDataFunc func(uintptr, uintptr, uintptr, uintptr, uintptr)
 )
-var (
-	xXGtkCellLayoutClear          func(uintptr)
-	XGtkCellLayoutClearAttributes func(uintptr, uintptr) = func(instance uintptr, CellVarp uintptr) {
-		core.LazyRegister(&xXGtkCellLayoutClearAttributes, "GTK", "gtk_cell_layout_clear_attributes", false)
-		xXGtkCellLayoutClearAttributes(instance, CellVarp)
-	}
-)
-var (
-	xXGtkCellLayoutClearAttributes func(uintptr, uintptr)
-	XGtkCellLayoutGetArea          func(uintptr) uintptr = func(instance uintptr) uintptr {
-		core.LazyRegister(&xXGtkCellLayoutGetArea, "GTK", "gtk_cell_layout_get_area", false)
-		return xXGtkCellLayoutGetArea(instance)
-	}
-)
-var (
-	xXGtkCellLayoutGetArea func(uintptr) uintptr
-	XGtkCellLayoutGetCells func(uintptr) uintptr = func(instance uintptr) uintptr {
-		core.LazyRegister(&xXGtkCellLayoutGetCells, "GTK", "gtk_cell_layout_get_cells", false)
-		return xXGtkCellLayoutGetCells(instance)
-	}
-)
-var (
-	xXGtkCellLayoutGetCells func(uintptr) uintptr
-	XGtkCellLayoutPackEnd   func(uintptr, uintptr, bool) = func(instance uintptr, CellVarp uintptr, ExpandVarp bool) {
-		core.LazyRegister(&xXGtkCellLayoutPackEnd, "GTK", "gtk_cell_layout_pack_end", false)
-		xXGtkCellLayoutPackEnd(instance, CellVarp, ExpandVarp)
-	}
-)
-var (
-	xXGtkCellLayoutPackEnd  func(uintptr, uintptr, bool)
-	XGtkCellLayoutPackStart func(uintptr, uintptr, bool) = func(instance uintptr, CellVarp uintptr, ExpandVarp bool) {
-		core.LazyRegister(&xXGtkCellLayoutPackStart, "GTK", "gtk_cell_layout_pack_start", false)
-		xXGtkCellLayoutPackStart(instance, CellVarp, ExpandVarp)
-	}
-)
-var (
-	xXGtkCellLayoutPackStart func(uintptr, uintptr, bool)
-	XGtkCellLayoutReorder    func(uintptr, uintptr, int) = func(instance uintptr, CellVarp uintptr, PositionVarp int) {
-		core.LazyRegister(&xXGtkCellLayoutReorder, "GTK", "gtk_cell_layout_reorder", false)
-		xXGtkCellLayoutReorder(instance, CellVarp, PositionVarp)
-	}
-)
-var (
-	xXGtkCellLayoutReorder      func(uintptr, uintptr, int)
-	XGtkCellLayoutSetAttributes func(uintptr, uintptr, ...interface{}) = func(instance uintptr, CellVarp uintptr, varArgsp ...interface{}) {
-		core.LazyRegister(&xXGtkCellLayoutSetAttributes, "GTK", "gtk_cell_layout_set_attributes", false)
-		xXGtkCellLayoutSetAttributes(instance, CellVarp, varArgsp)
-	}
-)
-var (
-	xXGtkCellLayoutSetAttributes  func(uintptr, uintptr, ...interface{})
-	XGtkCellLayoutSetCellDataFunc func(uintptr, uintptr, uintptr, uintptr, uintptr) = func(instance uintptr, CellVarp uintptr, FuncVarp uintptr, FuncDataVarp uintptr, DestroyVarp uintptr) {
-		core.LazyRegister(&xXGtkCellLayoutSetCellDataFunc, "GTK", "gtk_cell_layout_set_cell_data_func", false)
-		xXGtkCellLayoutSetCellDataFunc(instance, CellVarp, FuncVarp, FuncDataVarp, DestroyVarp)
-	}
-)
-var xXGtkCellLayoutSetCellDataFunc func(uintptr, uintptr, uintptr, uintptr, uintptr)
 
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GTK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xCellLayoutGLibType, libs, "gtk_cell_layout_get_type")
+
+	core.PuregoSafeRegister(&XGtkCellLayoutAddAttribute, libs, "gtk_cell_layout_add_attribute")
+	core.PuregoSafeRegister(&XGtkCellLayoutClear, libs, "gtk_cell_layout_clear")
+	core.PuregoSafeRegister(&XGtkCellLayoutClearAttributes, libs, "gtk_cell_layout_clear_attributes")
+	core.PuregoSafeRegister(&XGtkCellLayoutGetArea, libs, "gtk_cell_layout_get_area")
+	core.PuregoSafeRegister(&XGtkCellLayoutGetCells, libs, "gtk_cell_layout_get_cells")
+	core.PuregoSafeRegister(&XGtkCellLayoutPackEnd, libs, "gtk_cell_layout_pack_end")
+	core.PuregoSafeRegister(&XGtkCellLayoutPackStart, libs, "gtk_cell_layout_pack_start")
+	core.PuregoSafeRegister(&XGtkCellLayoutReorder, libs, "gtk_cell_layout_reorder")
+	core.PuregoSafeRegister(&XGtkCellLayoutSetAttributes, libs, "gtk_cell_layout_set_attributes")
+	core.PuregoSafeRegister(&XGtkCellLayoutSetCellDataFunc, libs, "gtk_cell_layout_set_cell_data_func")
 }

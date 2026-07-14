@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -53,7 +54,6 @@ type TcpConnection struct {
 var xTcpConnectionGLibType func() types.GType
 
 func TcpConnectionGLibType() types.GType {
-	core.LazyRegister(&xTcpConnectionGLibType, "GIO", "g_tcp_connection_get_type", false)
 	return xTcpConnectionGLibType()
 }
 
@@ -68,8 +68,6 @@ var xTcpConnectionGetGracefulDisconnect func(uintptr) bool
 // Checks if graceful disconnects are used. See
 // g_tcp_connection_set_graceful_disconnect().
 func (x *TcpConnection) GetGracefulDisconnect() bool {
-	core.LazyRegister(&xTcpConnectionGetGracefulDisconnect, "GIO", "g_tcp_connection_get_graceful_disconnect", false)
-
 	cret := xTcpConnectionGetGracefulDisconnect(x.GoPointer())
 	return cret
 }
@@ -86,8 +84,6 @@ var xTcpConnectionSetGracefulDisconnect func(uintptr, bool)
 // other side and for it to acknowledge this by closing the socket, which may
 // take a while. For this reason it is disabled by default.
 func (x *TcpConnection) SetGracefulDisconnect(GracefulDisconnectVar bool) {
-	core.LazyRegister(&xTcpConnectionSetGracefulDisconnect, "GIO", "g_tcp_connection_set_graceful_disconnect", false)
-
 	xTcpConnectionSetGracefulDisconnect(x.GoPointer(), GracefulDisconnectVar)
 }
 
@@ -122,4 +118,17 @@ func (x *TcpConnection) GetPropertyGracefulDisconnect() bool {
 func init() {
 	core.SetPackageName("GIO", "gio-2.0")
 	core.SetSharedLibraries("GIO", []string{"libgio-2.0.so.0", "libgio-2.0.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GIO") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xTcpConnectionGLibType, libs, "g_tcp_connection_get_type")
+
+	core.PuregoSafeRegister(&xTcpConnectionGetGracefulDisconnect, libs, "g_tcp_connection_get_graceful_disconnect")
+	core.PuregoSafeRegister(&xTcpConnectionSetGracefulDisconnect, libs, "g_tcp_connection_set_graceful_disconnect")
 }
