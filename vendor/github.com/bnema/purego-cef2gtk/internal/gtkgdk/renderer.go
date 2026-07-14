@@ -96,27 +96,8 @@ type ownedFrame struct {
 	SourceSize  dmabuf.Size
 	Format      dmabuf.FourCC
 	Modifier    uint64
-	Planes      []ownedPlane
+	Plane       ownedPlane
 	onError     func(error)
-}
-
-func (f *ownedFrame) borrowed() dmabuf.BorrowedFrame {
-	if f == nil {
-		return dmabuf.BorrowedFrame{}
-	}
-	planes := make([]dmabuf.Plane, len(f.Planes))
-	for i, plane := range f.Planes {
-		planes[i] = dmabuf.Plane{FD: plane.FD, Stride: plane.Stride, Offset: plane.Offset, Size: plane.Size}
-	}
-	return dmabuf.BorrowedFrame{
-		CodedSize:   f.CodedSize,
-		VisibleRect: f.VisibleRect,
-		ContentRect: f.ContentRect,
-		SourceSize:  f.SourceSize,
-		Format:      f.Format,
-		Modifier:    f.Modifier,
-		Planes:      planes,
-	}
 }
 
 // Renderer owns a GtkPicture presenter and imports callback-scoped CEF DMABUFs
@@ -132,7 +113,9 @@ type Renderer struct {
 	formats             dmabufFormatSet
 	builder             dmabufTextureBuilder
 	current             *ownedTexture
-	retired             []*ownedTexture
+	retired             [retiredTextureLimit]*ownedTexture
+	retiredStart        int
+	retiredCount        int
 	pictureSetPaintable func(*gdk.Texture)
 	firstTextureSwapMu  sync.Mutex
 	firstTextureSwap    func()
@@ -367,11 +350,11 @@ func (r *Renderer) ImportAndQueueAsync(info *cef.AcceleratedPaintInfo, onError f
 	if r == nil {
 		return ErrNilRenderer
 	}
-	frame, err := cefadapter.BorrowedFrameFromAcceleratedPaint(info)
+	frame, err := cefadapter.SinglePlaneFrameFromAcceleratedPaint(info)
 	if err != nil {
 		return err
 	}
-	owned, err := r.duplicateFrame(frame)
+	owned, err := r.duplicateSinglePlaneFrame(frame)
 	if err != nil {
 		return err
 	}
@@ -385,11 +368,11 @@ func (r *Renderer) ImportAndQueueAsync(info *cef.AcceleratedPaintInfo, onError f
 // on the GTK main loop.
 func (r *Renderer) ImportAndQueueOnGTKThread(info *cef.AcceleratedPaintInfo) (queued gtkgl.QueuedFrame, retErr error) {
 	start := time.Now()
-	frame, err := cefadapter.BorrowedFrameFromAcceleratedPaint(info)
+	frame, err := cefadapter.SinglePlaneFrameFromAcceleratedPaint(info)
 	if err != nil {
 		return gtkgl.QueuedFrame{}, err
 	}
-	owned, err := r.duplicateFrame(frame)
+	owned, err := r.duplicateSinglePlaneFrame(frame)
 	if err != nil {
 		return gtkgl.QueuedFrame{}, err
 	}
@@ -535,7 +518,24 @@ func (r *Renderer) importAndSwapOwnedFrame(frame *ownedFrame) error {
 	return nil
 }
 
-func (r *Renderer) duplicateFrame(frame dmabuf.BorrowedFrame) (_ *ownedFrame, retErr error) {
+// duplicateFrame keeps the slice-backed compatibility path for callers outside
+// the GDK import hot path.
+func (r *Renderer) duplicateFrame(frame dmabuf.BorrowedFrame) (*ownedFrame, error) {
+	if err := frame.Validate(); err != nil {
+		return nil, err
+	}
+	return r.duplicateSinglePlaneFrame(dmabuf.SinglePlaneFrame{
+		CodedSize:   frame.CodedSize,
+		VisibleRect: frame.VisibleRect,
+		ContentRect: frame.ContentRect,
+		SourceSize:  frame.SourceSize,
+		Format:      frame.Format,
+		Modifier:    frame.Modifier,
+		Plane:       frame.Planes[0],
+	})
+}
+
+func (r *Renderer) duplicateSinglePlaneFrame(frame dmabuf.SinglePlaneFrame) (_ *ownedFrame, retErr error) {
 	if r == nil {
 		return nil, ErrNilRenderer
 	}
@@ -553,24 +553,19 @@ func (r *Renderer) duplicateFrame(frame dmabuf.BorrowedFrame) (_ *ownedFrame, re
 		SourceSize:  frame.SourceSize,
 		Format:      frame.Format,
 		Modifier:    frame.Modifier,
-		Planes:      make([]ownedPlane, len(frame.Planes)),
-	}
-	for i := range owned.Planes {
-		owned.Planes[i].FD = -1
+		Plane:       ownedPlane{FD: -1},
 	}
 	defer func() {
 		if retErr != nil {
 			r.releaseOwnedFrame(owned)
 		}
 	}()
-	for i, plane := range frame.Planes {
-		ownedFD, err := dup(plane.FD)
-		if err != nil {
-			r.recordFDDupFailure()
-			return nil, err
-		}
-		owned.Planes[i] = ownedPlane{FD: ownedFD, Stride: plane.Stride, Offset: plane.Offset, Size: plane.Size}
+	ownedFD, err := dup(frame.Plane.FD)
+	if err != nil {
+		r.recordFDDupFailure()
+		return nil, err
 	}
+	owned.Plane = ownedPlane{FD: ownedFD, Stride: frame.Plane.Stride, Offset: frame.Plane.Offset, Size: frame.Plane.Size}
 	return owned, nil
 }
 
@@ -584,27 +579,26 @@ func (r *Renderer) buildTextureFromOwnedFrame(frame *ownedFrame) (built *ownedTe
 	if frame == nil {
 		return nil, dmabuf.ErrInvalidPlaneFD
 	}
-	borrowed := frame.borrowed()
-	if err := borrowed.Validate(); err != nil {
+	if err := frame.validate(); err != nil {
 		return nil, err
 	}
-	gdkFormat := gdkTextureFormat(borrowed.Format)
-	if r.formats != nil && !r.formats.Contains(uint32(gdkFormat), borrowed.Modifier) {
+	gdkFormat := gdkTextureFormat(frame.Format)
+	if r.formats != nil && !r.formats.Contains(uint32(gdkFormat), frame.Modifier) {
 		r.recordUnsupportedFormat()
-		return nil, fmt.Errorf("%w: %s as %s modifier 0x%x", ErrUnsupportedFormat, borrowed.Format, gdkFormat, borrowed.Modifier)
+		return nil, fmt.Errorf("%w: %s as %s modifier 0x%x", ErrUnsupportedFormat, frame.Format, gdkFormat, frame.Modifier)
 	}
-	r.traceFrame(borrowed, gdkFormat)
+	r.traceFrame(frame, gdkFormat)
 	closeFD := r.closeFD
 	if closeFD == nil {
 		closeFD = unix.Close
 	}
 
-	ownedFD := borrowed.Planes[0].FD
+	ownedFD := frame.Plane.FD
 	textureOwnsFD := false
 	defer func() {
 		if !textureOwnsFD {
 			_ = closeFD(ownedFD)
-			frame.Planes[0].FD = -1
+			frame.Plane.FD = -1
 		}
 	}()
 	destroyNotify, destroyNotifyErr := resolveDestroyNotify()
@@ -613,11 +607,11 @@ func (r *Renderer) buildTextureFromOwnedFrame(frame *ownedFrame) (built *ownedTe
 		return nil, fmt.Errorf("%w: native close GDestroyNotify unavailable: %w", ErrTextureBuildFailed, destroyNotifyErr)
 	}
 
-	plane := borrowed.Planes[0]
-	r.builder.SetWidth(uint(borrowed.CodedSize.Width))
-	r.builder.SetHeight(uint(borrowed.CodedSize.Height))
+	plane := frame.Plane
+	r.builder.SetWidth(uint(frame.CodedSize.Width))
+	r.builder.SetHeight(uint(frame.CodedSize.Height))
 	r.builder.SetFourcc(uint32(gdkFormat))
-	r.builder.SetModifier(borrowed.Modifier)
+	r.builder.SetModifier(frame.Modifier)
 	r.builder.SetPremultiplied(false)
 	r.builder.SetNPlanes(1)
 	if r.display != nil {
@@ -653,9 +647,9 @@ func (r *Renderer) buildTextureFromOwnedFrame(frame *ownedFrame) (built *ownedTe
 		return nil, ErrTextureBuildFailed
 	}
 	textureOwnsFD = true
-	frame.Planes[0].FD = -1
+	frame.Plane.FD = -1
 	r.recordTextureBuilt()
-	r.traceTexturePresent(borrowed, gdkFormat, texture)
+	r.traceTexturePresent(frame, gdkFormat, texture)
 	return &ownedTexture{texture: texture}, nil
 }
 
@@ -698,6 +692,22 @@ func (r *Renderer) releaseOwnedFrame(frame *ownedFrame) {
 	closeOwnedFrame(frame, closeFD)
 }
 
+func (f *ownedFrame) validate() error {
+	if f == nil {
+		return dmabuf.ErrInvalidPlaneFD
+	}
+	return (dmabuf.SinglePlaneFrame{
+		CodedSize: f.CodedSize,
+		Format:    f.Format,
+		Plane: dmabuf.Plane{
+			FD:     f.Plane.FD,
+			Stride: f.Plane.Stride,
+			Offset: f.Plane.Offset,
+			Size:   f.Plane.Size,
+		},
+	}).Validate()
+}
+
 func closeOwnedFrame(frame *ownedFrame, closeFD func(int) error) {
 	if frame == nil {
 		return
@@ -705,11 +715,9 @@ func closeOwnedFrame(frame *ownedFrame, closeFD func(int) error) {
 	if closeFD == nil {
 		closeFD = unix.Close
 	}
-	for i := range frame.Planes {
-		if frame.Planes[i].FD >= 0 {
-			_ = closeFD(frame.Planes[i].FD)
-			frame.Planes[i].FD = -1
-		}
+	if frame.Plane.FD >= 0 {
+		_ = closeFD(frame.Plane.FD)
+		frame.Plane.FD = -1
 	}
 }
 
@@ -717,25 +725,37 @@ func (r *Renderer) retireOwnedTexture(owned *ownedTexture) {
 	if r == nil || owned == nil {
 		return
 	}
-	r.retired = append(r.retired, owned)
-	for len(r.retired) > retiredTextureLimit {
-		oldest := r.retired[0]
-		copy(r.retired, r.retired[1:])
-		r.retired[len(r.retired)-1] = nil
-		r.retired = r.retired[:len(r.retired)-1]
+	if r.retiredCount == retiredTextureLimit {
+		oldest := r.retired[r.retiredStart]
+		r.retired[r.retiredStart] = owned
+		r.retiredStart = (r.retiredStart + 1) % retiredTextureLimit
 		r.releaseOwnedTexture(oldest)
+		return
 	}
+	index := (r.retiredStart + r.retiredCount) % retiredTextureLimit
+	r.retired[index] = owned
+	r.retiredCount++
+}
+
+func (r *Renderer) retiredAt(offset int) *ownedTexture {
+	if r == nil || offset < 0 || offset >= r.retiredCount {
+		return nil
+	}
+	return r.retired[(r.retiredStart+offset)%retiredTextureLimit]
 }
 
 func (r *Renderer) releaseRetiredTextures() {
 	if r == nil {
 		return
 	}
-	for _, owned := range r.retired {
-		r.releaseOwnedTexture(owned)
+	for r.retiredCount > 0 {
+		index := r.retiredStart
+		r.releaseOwnedTexture(r.retired[index])
+		r.retired[index] = nil
+		r.retiredStart = (r.retiredStart + 1) % retiredTextureLimit
+		r.retiredCount--
 	}
-	clear(r.retired)
-	r.retired = nil
+	r.retiredStart = 0
 }
 
 func (r *Renderer) releaseOwnedTexture(owned *ownedTexture) {
@@ -762,11 +782,11 @@ func gdkTextureFormat(format dmabuf.FourCC) dmabuf.FourCC {
 	}
 }
 
-func (r *Renderer) traceFrame(frame dmabuf.BorrowedFrame, gdkFormat dmabuf.FourCC) {
+func (r *Renderer) traceFrame(frame *ownedFrame, gdkFormat dmabuf.FourCC) {
 	if os.Getenv("PUREGO_CEF2GTK_GDK_TRACE") == "" || r == nil || r.frameTraces.Add(1) > 8 {
 		return
 	}
-	plane := frame.Planes[0]
+	plane := frame.Plane
 	fmt.Fprintf(os.Stderr,
 		"cef2gtk-gdk-dmabuf frame coded=%dx%d visible=%dx%d+%d+%d content=%dx%d+%d+%d source=%dx%d cef_format=%s gdk_format=%s modifier=0x%x fd=%d stride=%d offset=%d size=%d\n",
 		frame.CodedSize.Width, frame.CodedSize.Height,
@@ -776,7 +796,7 @@ func (r *Renderer) traceFrame(frame dmabuf.BorrowedFrame, gdkFormat dmabuf.FourC
 		frame.Format, gdkFormat, frame.Modifier, plane.FD, plane.Stride, plane.Offset, plane.Size)
 }
 
-func (r *Renderer) traceTexturePresent(frame dmabuf.BorrowedFrame, gdkFormat dmabuf.FourCC, texture *gdk.Texture) {
+func (r *Renderer) traceTexturePresent(frame *ownedFrame, gdkFormat dmabuf.FourCC, texture *gdk.Texture) {
 	if os.Getenv("PUREGO_CEF2GTK_GDK_TRACE") == "" || r == nil || r.textureTraces.Add(1) > 8 {
 		return
 	}
