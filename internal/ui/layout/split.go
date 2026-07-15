@@ -23,6 +23,7 @@ type SplitView struct {
 	onRatioChanged      func(ratio float64)
 	pendingNotifyRatio  float64
 	notifyDebounceTimer *time.Timer
+	notifyGeneration    uint64
 	tickCallbackID      uint
 	cleanedUp           bool
 
@@ -39,6 +40,9 @@ const maxRetryFrames = 120
 const notifyPositionDebounceDelay = 100 * time.Millisecond
 const notifyPositionSuppressAfterApplyDelay = 50 * time.Millisecond
 const splitAllocationSettledTolerance = 2
+
+// idleAdd is a seam for scheduling work on GLib's main loop.
+var idleAdd = glib.IdleAdd
 
 func childAllocation(widget Widget) (int, int) {
 	if widget == nil {
@@ -153,25 +157,42 @@ func NewSplitView(
 		ratio := clampRatio(float64(position) / float64(totalSize))
 
 		sv.mu.Lock()
+		if sv.cleanedUp {
+			sv.mu.Unlock()
+			return
+		}
 		sv.ratio = ratio
 		sv.pendingNotifyRatio = ratio
-		onRatioChanged := sv.onRatioChanged
+		sv.notifyGeneration++
+		generation := sv.notifyGeneration
 
 		if sv.notifyDebounceTimer != nil {
 			sv.notifyDebounceTimer.Stop()
 		}
 		sv.notifyDebounceTimer = time.AfterFunc(notifyPositionDebounceDelay, func() {
-			if onRatioChanged == nil {
+			sv.mu.RLock()
+			valid := !sv.cleanedUp && generation == sv.notifyGeneration
+			sv.mu.RUnlock()
+			if !valid {
 				return
 			}
+
 			cb := glib.SourceFunc(func(_ uintptr) bool {
 				sv.mu.RLock()
+				if sv.cleanedUp || generation != sv.notifyGeneration {
+					sv.mu.RUnlock()
+					return false
+				}
+				onRatioChanged := sv.onRatioChanged
 				pending := sv.pendingNotifyRatio
 				sv.mu.RUnlock()
-				onRatioChanged(pending)
+
+				if onRatioChanged != nil {
+					onRatioChanged(pending)
+				}
 				return false
 			})
-			glib.IdleAdd(&cb, 0)
+			idleAdd(&cb, 0)
 		})
 
 		sv.mu.Unlock()
@@ -219,18 +240,23 @@ func NewSplitView(
 // tree rebuild and GTK teardown can both reach the same view.
 func (sv *SplitView) Cleanup() {
 	sv.mu.Lock()
-	defer sv.mu.Unlock()
 	if sv.cleanedUp {
+		sv.mu.Unlock()
 		return
 	}
 	sv.cleanedUp = true
+	sv.notifyGeneration++
+	sv.onRatioChanged = nil
 	if sv.notifyDebounceTimer != nil {
 		sv.notifyDebounceTimer.Stop()
 		sv.notifyDebounceTimer = nil
 	}
-	if sv.tickCallbackID != 0 {
-		sv.paned.RemoveTickCallback(sv.tickCallbackID)
-		sv.tickCallbackID = 0
+	tickCallbackID := sv.tickCallbackID
+	sv.tickCallbackID = 0
+	sv.mu.Unlock()
+
+	if tickCallbackID != 0 {
+		sv.paned.RemoveTickCallback(tickCallbackID)
 	}
 }
 
