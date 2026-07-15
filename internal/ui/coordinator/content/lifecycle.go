@@ -140,7 +140,7 @@ func (c *Coordinator) AttachToWorkspace(ctx context.Context, ws *entity.Workspac
 			Int("wrapped_widget_alloc_height", widget.GetAllocatedHeight()).
 			Msg("wrapped webview widget prepared for pane")
 
-		if err := wsView.AttachWebViewWidget(pane.ID, widget, c.WebViewRevealed(pane.ID)); err != nil {
+		if err := wsView.AttachWebViewWidget(pane.ID, widget, c.webViewRevealed(pane.ID, wv)); err != nil {
 			log.Warn().Err(err).Str("pane_id", string(pane.ID)).Msg("failed to attach webview widget")
 			continue
 		}

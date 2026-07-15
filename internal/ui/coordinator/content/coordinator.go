@@ -70,6 +70,14 @@ type Coordinator struct {
 	// Callback when the WebView becomes visible (first real commit)
 	onWebViewShown func(paneID entity.PaneID)
 
+	// setWebViewVisible is test-only injection for deterministic lifecycle
+	// serialization tests. Production uses the native widget provider directly.
+	setWebViewVisible func(port.WebView)
+
+	// revealMutationMu serializes mapping replacement/release with the native
+	// visibility transition. It is acquired before webViewsMu and revealMu.
+	revealMutationMu sync.Mutex
+
 	// revealMu is always acquired after webViewsMu. Reveal state is keyed by the
 	// WebView identity (ID plus pool-reuse generation), never by pane alone.
 	revealMu                sync.Mutex
@@ -348,6 +356,8 @@ func (c *Coordinator) ensureRevealMapsLocked() {
 // setWebViewLocked replaces the pane mapping and resets all reveal state in
 // one critical section. It is used by normal acquisition and popup paths.
 func (c *Coordinator) setWebViewLocked(paneID entity.PaneID, wv port.WebView) {
+	c.revealMutationMu.Lock()
+	defer c.revealMutationMu.Unlock()
 	c.webViewsMu.Lock()
 	c.revealMu.Lock()
 	defer c.revealMu.Unlock()
@@ -372,6 +382,8 @@ func (c *Coordinator) setWebViewLocked(paneID entity.PaneID, wv port.WebView) {
 // deleteWebViewLocked removes both the mapping and any presentation state,
 // including callers which release after another path already removed the map.
 func (c *Coordinator) deleteWebViewLocked(paneID entity.PaneID) port.WebView {
+	c.revealMutationMu.Lock()
+	defer c.revealMutationMu.Unlock()
 	c.webViewsMu.Lock()
 	c.revealMu.Lock()
 	defer c.revealMu.Unlock()

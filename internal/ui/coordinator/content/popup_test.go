@@ -137,7 +137,7 @@ func newPopupCreateCoordinatorForTest(t *testing.T, popupID port.WebViewID) (con
 	parentWV.EXPECT().ID().Return(port.WebViewID(101)).Once()
 
 	popupWV := mocks.NewMockWebView(t)
-	popupWV.EXPECT().ID().Return(popupID).Once()
+	popupWV.EXPECT().ID().Return(popupID).Maybe()
 
 	factory := mocks.NewMockWebViewFactory(t)
 	factory.EXPECT().CreateRelated(mock.Anything, port.WebViewID(101)).Return(popupWV, nil).Once()
@@ -158,8 +158,8 @@ func TestHandlePopupCreate_PrimesPopupNavigationCapability(t *testing.T) {
 	parentWV.EXPECT().ID().Return(port.WebViewID(101)).Once()
 
 	popupWV := &popupNavigationWebViewStub{MockWebView: mocks.NewMockWebView(t)}
-	popupWV.EXPECT().ID().Return(port.WebViewID(149)).Once()
-	popupWV.EXPECT().Generation().Return(uint64(1)).Once()
+	popupWV.EXPECT().ID().Return(port.WebViewID(149)).Maybe()
+	popupWV.EXPECT().Generation().Return(uint64(1)).Maybe()
 	popupWV.EXPECT().SetCallbacks(mock.Anything).Once()
 
 	factory := mocks.NewMockWebViewFactory(t)
@@ -187,7 +187,7 @@ func TestHandlePopupCreate_PrimesPopupNavigationCapability(t *testing.T) {
 
 func TestHandlePopupCreate_RegistersPopupWebViewBeforeWorkspaceInsertion(t *testing.T) {
 	ctx, parentPaneID, parentWV, popupWV, c := newPopupCreateCoordinatorForTest(t, port.WebViewID(150))
-	popupWV.EXPECT().Generation().Return(uint64(1)).Once()
+	popupWV.EXPECT().Generation().Return(uint64(1)).Maybe()
 	popupWV.EXPECT().SetCallbacks(mock.Anything).Once()
 	popupWV.EXPECT().IsLoading().Return(false).Once()
 	popupWV.EXPECT().URI().Return("").Once()
@@ -211,7 +211,7 @@ func TestHandlePopupCreate_RegistersPopupWebViewBeforeWorkspaceInsertion(t *test
 
 func TestHandlePopupCreate_CleansUpPreRegisteredPopupWebViewWhenInsertionFails(t *testing.T) {
 	ctx, parentPaneID, parentWV, popupWV, c := newPopupCreateCoordinatorForTest(t, port.WebViewID(151))
-	popupWV.EXPECT().Generation().Return(uint64(1)).Once()
+	popupWV.EXPECT().Generation().Return(uint64(1)).Maybe()
 	popupWV.EXPECT().SetCallbacks(mock.Anything).Once()
 	popupWV.EXPECT().Destroy().Once()
 
@@ -238,8 +238,8 @@ func TestHandlePopupCreate_UsesRelatedWebViewWhenPopupDisablesJavaScriptAccess(t
 	parentWV.EXPECT().ID().Return(port.WebViewID(101)).Once()
 
 	popupWV := mocks.NewMockWebView(t)
-	popupWV.EXPECT().ID().Return(port.WebViewID(150)).Once()
-	popupWV.EXPECT().Generation().Return(uint64(1)).Once()
+	popupWV.EXPECT().ID().Return(port.WebViewID(150)).Maybe()
+	popupWV.EXPECT().Generation().Return(uint64(1)).Maybe()
 	popupWV.EXPECT().SetCallbacks(mock.Anything).Once()
 	popupWV.EXPECT().IsLoading().Return(false).Once()
 	popupWV.EXPECT().URI().Return("").Once()

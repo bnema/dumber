@@ -17,7 +17,7 @@ import (
 // WebKit may reset zoom during document transitions, so we reapply after LoadCommitted.
 // History is recorded here because the URI is guaranteed to be correct after commit.
 // Also shows the WebView widget (it's hidden during creation to avoid white flash).
-func (c *Coordinator) onLoadCommitted(ctx context.Context, paneID entity.PaneID, wv port.WebView) {
+func (c *Coordinator) onLoadCommitted(ctx context.Context, paneID entity.PaneID, wv port.WebView, identity webViewIdentity) {
 	log := logging.FromContext(ctx)
 	logging.Trace().Mark("load_committed")
 
@@ -69,7 +69,7 @@ func (c *Coordinator) onLoadCommitted(ctx context.Context, paneID entity.PaneID,
 		// Avoid updating UI/domain state to about:blank when we know the pane is
 		// navigating to a different URL. This prevents the omnibox/window title from
 		// briefly showing about:blank on cold start.
-		c.clearPendingReveal(paneID, wv)
+		c.clearPendingReveal(paneID, identity)
 		return
 	}
 
@@ -77,8 +77,8 @@ func (c *Coordinator) onLoadCommitted(ctx context.Context, paneID entity.PaneID,
 		c.applyCurrentTheme(ctx, paneID, wv)
 	}
 
-	c.markPendingReveal(paneID, wv)
-	c.revealIfPending(ctx, paneID, wv, uri, "progress-after-commit")
+	c.markPendingReveal(paneID, identity)
+	c.revealIfPending(ctx, paneID, wv, identity, uri, "progress-after-commit")
 
 	// Update domain model with current URI for session snapshots
 	c.updatePaneURI(paneID, uri)
@@ -202,7 +202,7 @@ func (c *Coordinator) onLoadStarted(paneID entity.PaneID) {
 }
 
 // onLoadFinished hides the progress bar when page loading completes.
-func (c *Coordinator) onLoadFinished(ctx context.Context, paneID entity.PaneID, wv port.WebView) {
+func (c *Coordinator) onLoadFinished(ctx context.Context, paneID entity.PaneID, wv port.WebView, identity webViewIdentity) {
 	_, wsView := c.getActiveWS()
 	var paneView *component.PaneView
 	if wsView != nil {
@@ -216,7 +216,7 @@ func (c *Coordinator) onLoadFinished(ctx context.Context, paneID entity.PaneID, 
 		paneView.SetLoading(false)
 	}
 
-	c.revealIfPending(ctx, paneID, wv, "", "load-finished")
+	c.revealIfPending(ctx, paneID, wv, identity, "", "load-finished")
 	if c.shouldSkipAboutBlankAppearance(paneID, wv) {
 		return
 	}
@@ -225,9 +225,9 @@ func (c *Coordinator) onLoadFinished(ctx context.Context, paneID entity.PaneID, 
 }
 
 // onProgressChanged updates the progress bar with current load progress.
-func (c *Coordinator) onProgressChanged(paneID entity.PaneID, wv port.WebView, progress float64) {
+func (c *Coordinator) onProgressChanged(paneID entity.PaneID, wv port.WebView, identity webViewIdentity, progress float64) {
 	if progress > 0 {
-		c.revealIfPending(context.Background(), paneID, wv, "", "progress")
+		c.revealIfPending(context.Background(), paneID, wv, identity, "", "progress")
 	}
 
 	_, wsView := c.getActiveWS()
@@ -244,11 +244,7 @@ func (c *Coordinator) onProgressChanged(paneID entity.PaneID, wv port.WebView, p
 	}
 }
 
-func (c *Coordinator) markPendingReveal(paneID entity.PaneID, wv port.WebView) {
-	identity, ok := identityForWebView(wv)
-	if !ok {
-		return
-	}
+func (c *Coordinator) markPendingReveal(paneID entity.PaneID, identity webViewIdentity) {
 	c.webViewsMu.RLock()
 	c.revealMu.Lock()
 	defer c.revealMu.Unlock()
@@ -266,11 +262,7 @@ func (c *Coordinator) markPendingReveal(paneID entity.PaneID, wv port.WebView) {
 	c.pendingRevealIdentity[paneID] = identity
 }
 
-func (c *Coordinator) clearPendingReveal(paneID entity.PaneID, wv port.WebView) {
-	identity, ok := identityForWebView(wv)
-	if !ok {
-		return
-	}
+func (c *Coordinator) clearPendingReveal(paneID entity.PaneID, identity webViewIdentity) {
 	c.webViewsMu.RLock()
 	c.revealMu.Lock()
 	defer c.revealMu.Unlock()
@@ -285,19 +277,29 @@ func (c *Coordinator) clearPendingReveal(paneID entity.PaneID, wv port.WebView) 
 // WebViewRevealed reports whether this pane's current WebView has completed a
 // reveal. State is identity-bound so a replacement cannot inherit it.
 func (c *Coordinator) WebViewRevealed(paneID entity.PaneID) bool {
+	return c.webViewRevealed(paneID, nil)
+}
+
+// webViewRevealed verifies the identity being attached when one is supplied.
+// This prevents a rebuild from applying a replacement's reveal state to a
+// previously read pooled WebView.
+func (c *Coordinator) webViewRevealed(paneID entity.PaneID, expected port.WebView) bool {
 	c.webViewsMu.RLock()
 	c.revealMu.Lock()
 	defer c.revealMu.Unlock()
 	defer c.webViewsMu.RUnlock()
-	identity, ok := identityForWebView(c.webViews[paneID])
-	return ok && c.revealedWebViews[paneID] && c.revealedWebViewIdentity[paneID] == identity
+	current := c.webViews[paneID]
+	identity, ok := identityForWebView(current)
+	if !ok || expected != nil {
+		expectedIdentity, expectedOK := identityForWebView(expected)
+		if !expectedOK || expectedIdentity != identity {
+			return false
+		}
+	}
+	return c.revealedWebViews[paneID] && c.revealedWebViewIdentity[paneID] == identity
 }
 
-func (c *Coordinator) markWebViewRevealed(paneID entity.PaneID, wv port.WebView) bool {
-	identity, ok := identityForWebView(wv)
-	if !ok {
-		return false
-	}
+func (c *Coordinator) markWebViewRevealed(paneID entity.PaneID, identity webViewIdentity) bool {
 	c.webViewsMu.RLock()
 	c.revealMu.Lock()
 	defer c.revealMu.Unlock()
@@ -312,22 +314,27 @@ func (c *Coordinator) markWebViewRevealed(paneID entity.PaneID, wv port.WebView)
 	return true
 }
 
-func (c *Coordinator) revealIfPending(ctx context.Context, paneID entity.PaneID, wv port.WebView, uri, reason string) {
-	identity, ok := identityForWebView(wv)
-	if !ok {
-		return
-	}
+func (c *Coordinator) revealIfPending(
+	ctx context.Context, paneID entity.PaneID, wv port.WebView, identity webViewIdentity, uri, reason string,
+) {
+	// Mapping replacement and release acquire this gate too. No ordinary map
+	// lock is held across the native call, but the gate keeps the validated
+	// identity current until its widget visibility has been changed.
+	c.revealMutationMu.Lock()
+
 	c.webViewsMu.RLock()
 	c.revealMu.Lock()
 	if c.pendingRevealIdentity[paneID] != identity || !c.pendingReveal[paneID] {
 		c.revealMu.Unlock()
 		c.webViewsMu.RUnlock()
+		c.revealMutationMu.Unlock()
 		return
 	}
 	currentIdentity, current := identityForWebView(c.webViews[paneID])
 	if !current || currentIdentity != identity {
 		c.revealMu.Unlock()
 		c.webViewsMu.RUnlock()
+		c.revealMutationMu.Unlock()
 		return
 	}
 	delete(c.pendingReveal, paneID)
@@ -336,11 +343,13 @@ func (c *Coordinator) revealIfPending(ctx context.Context, paneID entity.PaneID,
 	c.webViewsMu.RUnlock()
 
 	if wv.IsDestroyed() {
+		c.revealMutationMu.Unlock()
 		return
 	}
 
-	// Use NativeWidgetProvider to make the widget visible (engine-agnostic)
-	if nwp, ok := wv.(port.NativeWidgetProvider); ok {
+	if c.setWebViewVisible != nil {
+		c.setWebViewVisible(wv)
+	} else if nwp, ok := wv.(port.NativeWidgetProvider); ok {
 		if ptr := nwp.NativeWidget(); ptr != 0 {
 			gtkWidget := &gtk.Widget{}
 			gtkWidget.Ptr = ptr
@@ -354,10 +363,11 @@ func (c *Coordinator) revealIfPending(ctx context.Context, paneID entity.PaneID,
 		}
 	}
 
-	// Record presentation state before notifying the UI. The callback may run
-	// while a WorkspaceView is being rebuilt, and the next PaneView must inherit
-	// this state even though the native widget was unparented during cleanup.
-	if c.markWebViewRevealed(paneID, wv) && c.onWebViewShown != nil {
+	// Keep the presentation record in the same serialized operation as the
+	// native mutation. User callbacks run only after the gate is released.
+	revealed := c.markWebViewRevealed(paneID, identity)
+	c.revealMutationMu.Unlock()
+	if revealed && c.onWebViewShown != nil {
 		c.onWebViewShown(paneID)
 	}
 }
