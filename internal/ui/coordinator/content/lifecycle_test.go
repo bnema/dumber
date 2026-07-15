@@ -458,3 +458,205 @@ func TestLifecycle_SyncWebViewViewport_NoopWithoutCapability(t *testing.T) {
 
 	c.SyncWebViewViewport(context.Background(), "pane-1", "unit-test")
 }
+
+type nativeLifecycleWebView struct {
+	port.WebView
+	widget uintptr
+}
+
+func (w *nativeLifecycleWebView) NativeWidget() uintptr { return w.widget }
+
+func TestLifecycle_AttachToWorkspace_RebuildPropagatesRevealStateToFreshPaneView(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		revealed bool
+	}{
+		{name: "revealed current identity hides and stops skeleton", revealed: true},
+		{name: "unrevealed current identity shows and starts skeleton", revealed: false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			paneID := entity.PaneID("pane-1")
+			ctx := context.Background()
+			factory := layoutmocks.NewMockWidgetFactory(t)
+			wsView, workspace, paneOverlay, loadingContainer, spinner := newLifecycleRebuildWorkspaceView(t, ctx, factory, paneID)
+			wrappedWidget := layoutmocks.NewMockWidget(t)
+			webViewMock := mocks.NewMockWebView(t)
+			webViewMock.EXPECT().ID().Return(port.WebViewID(201)).Maybe()
+			webViewMock.EXPECT().Generation().Return(uint64(3)).Maybe()
+			webViewMock.EXPECT().IsDestroyed().Return(false).Once()
+			webView := &nativeLifecycleWebView{WebView: webViewMock, widget: 0x351}
+
+			factory.EXPECT().WrapNativeWidget(uintptr(0x351)).Return(wrappedWidget).Once()
+			wrappedWidget.EXPECT().GtkWidget().Return(nil).Once()
+			wrappedWidget.EXPECT().GetAllocatedWidth().Return(0).Times(3)
+			wrappedWidget.EXPECT().GetAllocatedHeight().Return(0).Times(3)
+			wrappedWidget.EXPECT().GetParent().Return(nil).Once()
+			wrappedWidget.EXPECT().IsVisible().Return(true).Once()
+			paneOverlay.EXPECT().GetAllocatedWidth().Return(0).Twice()
+			paneOverlay.EXPECT().GetAllocatedHeight().Return(0).Twice()
+			paneOverlay.EXPECT().SetChild(wrappedWidget).Once()
+			loadingContainer.EXPECT().SetVisible(!tc.revealed).Once()
+			if tc.revealed {
+				spinner.EXPECT().Stop().Once()
+			} else {
+				spinner.EXPECT().Start().Once()
+			}
+
+			coordinator := newRevealTestCoordinator()
+			coordinator.widgetFactory = factory
+			coordinator.setWebViewLocked(paneID, webView)
+			if tc.revealed {
+				identity, ok := identityForWebView(webView)
+				require.True(t, ok)
+				coordinator.markWebViewRevealed(paneID, identity)
+			}
+
+			coordinator.AttachToWorkspace(ctx, workspace, wsView)
+
+			assert.Same(t, wrappedWidget, wsView.GetPaneView(paneID).WebViewWidget())
+		})
+	}
+}
+
+func newLifecycleRebuildWorkspaceView(
+	t *testing.T,
+	ctx context.Context,
+	factory *layoutmocks.MockWidgetFactory,
+	paneID entity.PaneID,
+) (*component.WorkspaceView, *entity.Workspace, *layoutmocks.MockOverlayWidget, *layoutmocks.MockBoxWidget, *layoutmocks.MockSpinnerWidget) {
+	t.Helper()
+	workspaceContainer := layoutmocks.NewMockBoxWidget(t)
+	workspaceOverlay := layoutmocks.NewMockOverlayWidget(t)
+	factory.EXPECT().NewBox(layout.OrientationVertical, 0).Return(workspaceContainer).Once()
+	workspaceContainer.EXPECT().SetHexpand(true).Once()
+	workspaceContainer.EXPECT().SetVexpand(true).Once()
+	workspaceContainer.EXPECT().SetVisible(true).Once()
+	factory.EXPECT().NewOverlay().Return(workspaceOverlay).Once()
+	workspaceOverlay.EXPECT().SetHexpand(true).Once()
+	workspaceOverlay.EXPECT().SetVexpand(true).Once()
+	workspaceOverlay.EXPECT().SetChild(workspaceContainer).Once()
+	workspaceOverlay.EXPECT().SetVisible(true).Once()
+	wsView := component.NewWorkspaceView(ctx, factory)
+
+	paneOverlay := layoutmocks.NewMockOverlayWidget(t)
+	loadingContainer := layoutmocks.NewMockBoxWidget(t)
+	loadingContent := layoutmocks.NewMockBoxWidget(t)
+	spinner := layoutmocks.NewMockSpinnerWidget(t)
+	logo := layoutmocks.NewMockImageWidget(t)
+	version := layoutmocks.NewMockLabelWidget(t)
+	border := layoutmocks.NewMockBoxWidget(t)
+
+	factory.EXPECT().NewOverlay().Return(paneOverlay).Once()
+	paneOverlay.EXPECT().SetHexpand(true).Once()
+	paneOverlay.EXPECT().SetVexpand(true).Once()
+	paneOverlay.EXPECT().SetVisible(true).Once()
+	paneOverlay.EXPECT().AddCssClass("pane-overlay").Once()
+	factory.EXPECT().NewBox(layout.OrientationVertical, 0).Return(loadingContainer).Once()
+	loadingContainer.EXPECT().SetHexpand(true).Once()
+	loadingContainer.EXPECT().SetVexpand(true).Once()
+	loadingContainer.EXPECT().SetHalign(mock.Anything).Once()
+	loadingContainer.EXPECT().SetValign(mock.Anything).Once()
+	loadingContainer.EXPECT().SetCanFocus(false).Times(2)
+	loadingContainer.EXPECT().SetCanTarget(false).Times(2)
+	loadingContainer.EXPECT().AddCssClass("loading-skeleton").Once()
+	factory.EXPECT().NewBox(layout.OrientationVertical, 6).Return(loadingContent).Once()
+	loadingContent.EXPECT().SetHalign(mock.Anything).Once()
+	loadingContent.EXPECT().SetValign(mock.Anything).Once()
+	loadingContent.EXPECT().SetCanFocus(false).Once()
+	loadingContent.EXPECT().SetCanTarget(false).Once()
+	loadingContent.EXPECT().AddCssClass("loading-skeleton-content").Once()
+	factory.EXPECT().NewImage().Return(logo).Once()
+	logo.EXPECT().SetHalign(mock.Anything).Once()
+	logo.EXPECT().SetValign(mock.Anything).Once()
+	logo.EXPECT().SetCanFocus(false).Once()
+	logo.EXPECT().SetCanTarget(false).Once()
+	logo.EXPECT().SetSizeRequest(256, 256).Once()
+	logo.EXPECT().SetPixelSize(256).Once()
+	logo.EXPECT().AddCssClass("loading-skeleton-logo").Once()
+	logo.EXPECT().SetFromPaintable(mock.Anything).Maybe()
+	factory.EXPECT().NewSpinner().Return(spinner).Once()
+	spinner.EXPECT().SetHalign(mock.Anything).Once()
+	spinner.EXPECT().SetValign(mock.Anything).Once()
+	spinner.EXPECT().SetCanFocus(false).Once()
+	spinner.EXPECT().SetCanTarget(false).Once()
+	spinner.EXPECT().SetSizeRequest(32, 32).Once()
+	spinner.EXPECT().AddCssClass("loading-skeleton-spinner").Once()
+	factory.EXPECT().NewLabel(mock.Anything).Return(version).Once()
+	version.EXPECT().SetHalign(mock.Anything).Once()
+	version.EXPECT().SetValign(mock.Anything).Once()
+	version.EXPECT().SetCanFocus(false).Once()
+	version.EXPECT().SetCanTarget(false).Once()
+	version.EXPECT().SetMaxWidthChars(mock.Anything).Once()
+	version.EXPECT().SetEllipsize(mock.Anything).Once()
+	version.EXPECT().AddCssClass("loading-skeleton-version").Once()
+	loadingContent.EXPECT().Append(logo).Once()
+	loadingContent.EXPECT().Append(spinner).Once()
+	loadingContent.EXPECT().Append(version).Once()
+	loadingContainer.EXPECT().Append(loadingContent).Once()
+	loadingContainer.EXPECT().SetVisible(true).Once()
+	spinner.EXPECT().Start().Once()
+	paneOverlay.EXPECT().AddOverlay(loadingContainer).Once()
+	paneOverlay.EXPECT().SetClipOverlay(loadingContainer, false).Once()
+	paneOverlay.EXPECT().SetMeasureOverlay(loadingContainer, false).Once()
+	factory.EXPECT().NewBox(layout.OrientationVertical, 0).Return(border).Once()
+	border.EXPECT().SetCanFocus(false).Once()
+	border.EXPECT().SetCanTarget(false).Once()
+	border.EXPECT().AddCssClass("pane-border").Once()
+	border.EXPECT().SetHexpand(true).Once()
+	border.EXPECT().SetVexpand(true).Once()
+	paneOverlay.EXPECT().AddOverlay(border).Once()
+	paneOverlay.EXPECT().SetClipOverlay(border, false).Once()
+	paneOverlay.EXPECT().SetMeasureOverlay(border, false).Once()
+
+	stackBox := layoutmocks.NewMockBoxWidget(t)
+	titleBar := layoutmocks.NewMockBoxWidget(t)
+	favicon := layoutmocks.NewMockImageWidget(t)
+	title := layoutmocks.NewMockLabelWidget(t)
+	closeButton := layoutmocks.NewMockButtonWidget(t)
+	factory.EXPECT().NewBox(layout.OrientationVertical, 0).Return(stackBox).Once()
+	stackBox.EXPECT().SetHexpand(true).Once()
+	stackBox.EXPECT().SetVexpand(true).Once()
+	factory.EXPECT().NewBox(layout.OrientationHorizontal, 4).Return(titleBar).Once()
+	titleBar.EXPECT().AddCssClass("stacked-pane-titlebar").Once()
+	titleBar.EXPECT().AddCssClass("stacked-pane-title-clickable").Once()
+	titleBar.EXPECT().SetVexpand(false).Once()
+	titleBar.EXPECT().SetHexpand(true).Once()
+	factory.EXPECT().NewImage().Return(favicon).Once()
+	favicon.EXPECT().SetFromIconName(mock.Anything).Once()
+	favicon.EXPECT().SetPixelSize(16).Once()
+	titleBar.EXPECT().Append(favicon).Once()
+	factory.EXPECT().NewLabel(mock.Anything).Return(title).Once()
+	title.EXPECT().SetEllipsize(layout.EllipsizeEnd).Once()
+	title.EXPECT().SetMaxWidthChars(30).Once()
+	title.EXPECT().SetHexpand(true).Once()
+	title.EXPECT().SetXalign(float32(0)).Once()
+	titleBar.EXPECT().Append(title).Once()
+	factory.EXPECT().NewButton().Return(closeButton).Once()
+	closeButton.EXPECT().SetIconName("window-close-symbolic").Once()
+	closeButton.EXPECT().AddCssClass("stacked-pane-close-button").Once()
+	closeButton.EXPECT().SetFocusOnClick(false).Once()
+	closeButton.EXPECT().SetVexpand(false).Once()
+	closeButton.EXPECT().SetHexpand(false).Once()
+	titleBar.EXPECT().Append(closeButton).Once()
+	titleBar.EXPECT().AddController(mock.Anything).Once()
+	closeButton.EXPECT().ConnectClicked(mock.Anything).Return(uint(2)).Once()
+	closeButton.EXPECT().GtkWidget().Return(nil).Maybe()
+	stackBox.EXPECT().Append(titleBar).Once()
+	stackBox.EXPECT().Append(paneOverlay).Once()
+	titleBar.EXPECT().SetVisible(false).Once()
+	paneOverlay.EXPECT().SetVisible(true).Once()
+	titleBar.EXPECT().AddCssClass("active").Once()
+	paneOverlay.EXPECT().GtkWidget().Return(nil).Maybe()
+	stackBox.EXPECT().SetVisible(true).Once()
+	workspaceContainer.EXPECT().Append(stackBox).Once()
+	workspaceContainer.EXPECT().AddCssClass("single-pane").Once()
+	border.EXPECT().AddCssClass("pane-active").Once()
+
+	workspace := &entity.Workspace{
+		ID:           "workspace-1",
+		Root:         &entity.PaneNode{ID: "node-1", Pane: entity.NewPane(paneID)},
+		ActivePaneID: paneID,
+	}
+	require.NoError(t, wsView.SetWorkspace(ctx, workspace))
+	return wsView, workspace, paneOverlay, loadingContainer, spinner
+}
