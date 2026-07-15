@@ -40,7 +40,6 @@ func NewEngine(
 
 	// --- Configure rendering environment (must be before GTK/WebKit init) ---
 	engineConfigureRenderingEnvironment(ctx, cfg, wkCfg, &perfSettings, logger)
-	logging.Trace().Mark("render_env")
 
 	// --- Build webKitContextOptions from opts + wkCfg + perfSettings ---
 	wkOpts := engineBuildContextOptions(opts, profile, wkCfg, &perfSettings)
@@ -53,7 +52,6 @@ func NewEngine(
 	if err != nil {
 		return nil, err
 	}
-	logging.Trace().Mark("webkit_context")
 
 	// --- Filter manager ---
 	filterManager := engineInitFilterManager(ctx, cfg, profile.Shared.DataDir, logger)
@@ -77,7 +75,6 @@ func NewEngine(
 	}
 
 	messageRouter := NewMessageRouter(ctx)
-	logging.Trace().Mark("settings_manager")
 
 	// --- WebView pool ---
 	poolCfg := DefaultPoolConfig()
@@ -100,7 +97,6 @@ func NewEngine(
 	} else {
 		logger.Warn().Msg("skipping first webview prewarm: no GDK display available yet")
 	}
-	logging.Trace().Mark("pool_prewarm_first")
 
 	// --- WebView factory ---
 	factory := NewWebViewFactory(wkCtx, settings, pool, injector, messageRouter)
@@ -147,7 +143,6 @@ func engineSurveyHardwareAndResolveProfile(
 ) config.ResolvedPerformanceSettings {
 	hwSurveyor := env.NewHardwareSurveyor()
 	hwInfo := hwSurveyor.Survey(ctx)
-	logging.Trace().Mark("hardware_survey")
 	logger.Info().
 		Int("cpu_cores", hwInfo.CPUCores).
 		Int("cpu_threads", hwInfo.CPUThreads).
@@ -158,7 +153,6 @@ func engineSurveyHardwareAndResolveProfile(
 
 	perfCfg := config.PerformanceConfigFromEngine(&cfg.Engine)
 	perfSettings := config.ResolvePerformanceProfile(&perfCfg, &hwInfo)
-	logging.Trace().Mark("performance_profile")
 	logger.Info().
 		Str("profile", string(cfg.Engine.Profile)).
 		Int("skia_cpu_threads", perfSettings.SkiaCPUPaintingThreads).
@@ -284,7 +278,6 @@ func engineInitFilterManager(ctx context.Context, cfg *config.Config, dataDir st
 	if err := filterManager.Initialize(ctx); err != nil {
 		logger.Warn().Err(err).Msg("failed to initialize filters, will load async")
 	}
-	logging.Trace().Mark("filter_manager")
 	return filterManager
 }
 

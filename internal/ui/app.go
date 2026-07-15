@@ -295,7 +295,6 @@ func (a *App) Run(ctx context.Context, args []string) int {
 	// Initialize libadwaita once (required before using StyleManager).
 	// This also initializes GTK implicitly.
 	EnsureAdwaitaInitialized()
-	logging.Trace().Mark("gtk_init")
 
 	// Mark adwaita detector as available now that adw.Init() is complete.
 	// This enables the highest-priority color scheme detector.
@@ -317,7 +316,6 @@ func (a *App) Run(ctx context.Context, args []string) int {
 		return 1
 	}
 	defer a.gtkApp.Unref()
-	logging.Trace().Mark("gtk_app_created")
 	a.dispatchOnMainThread = a.runOnMainThread
 
 	// Connect activate signal
@@ -353,7 +351,6 @@ func (a *App) onActivate(ctx context.Context) {
 		log.Error().Err(err).Msg("failed to create main window")
 		return
 	}
-	logging.Trace().Mark("window_created")
 
 	a.installCrashReportNotifier(ctx)
 	a.initFocusManager()
@@ -362,7 +359,6 @@ func (a *App) onActivate(ctx context.Context) {
 
 	a.initCoordinators(ctx)
 	a.wireWebRTCPermissionIndicator()
-	logging.Trace().Mark("coordinators_init")
 	a.initKeyboardHandler(ctx)
 	a.initOmniboxConfig(ctx)
 	a.initFindBarConfig(ctx)

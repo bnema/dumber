@@ -19,7 +19,6 @@ import (
 // Also shows the WebView widget (it's hidden during creation to avoid white flash).
 func (c *Coordinator) onLoadCommitted(ctx context.Context, paneID entity.PaneID, wv port.WebView, identity webViewIdentity) {
 	log := logging.FromContext(ctx)
-	logging.Trace().Mark("load_committed")
 
 	uri := wv.URI()
 	if uri == "" {
@@ -177,8 +176,6 @@ func (c *Coordinator) updatePaneURI(paneID entity.PaneID, uri string) {
 
 // onLoadStarted shows the progress bar when page loading begins.
 func (c *Coordinator) onLoadStarted(paneID entity.PaneID) {
-	logging.Trace().Mark("load_started")
-
 	// Trigger deferred initialization on first load_started.
 	// This ensures non-critical init runs after initial navigation starts.
 	c.loadStartedOnce.Do(func() {
