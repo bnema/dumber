@@ -9,9 +9,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestStartupTraceAcceptsOnlyOrderedOneShotMilestones(t *testing.T) {
+func TestCEFStartupTraceAcceptsOnlyOrderedOneShotMilestones(t *testing.T) {
 	now := time.Unix(100, 0)
-	trace := newStartupTrace(func() time.Time { return now })
+	trace := newCEFStartupTrace(func() time.Time { return now })
 
 	require.True(t, trace.Mark("process_entry"))
 	require.False(t, trace.Mark("cef_initialized"), "out-of-order transition must be rejected")
@@ -36,9 +36,9 @@ func TestStartupTraceAcceptsOnlyOrderedOneShotMilestones(t *testing.T) {
 	require.False(t, trace.Mark("first_gtk_presentation"))
 }
 
-func TestStartupTraceQuantizesDeltaToPublishedMilliseconds(t *testing.T) {
+func TestCEFStartupTraceQuantizesDeltaToPublishedMilliseconds(t *testing.T) {
 	now := time.Unix(100, 0)
-	trace := newStartupTrace(func() time.Time { return now })
+	trace := newCEFStartupTrace(func() time.Time { return now })
 
 	now = now.Add(1500 * time.Microsecond)
 	require.True(t, trace.Mark("process_entry"))
@@ -51,31 +51,30 @@ func TestStartupTraceQuantizesDeltaToPublishedMilliseconds(t *testing.T) {
 	require.Equal(t, int64(1), trace.milestones[1].Delta.Milliseconds())
 }
 
-func TestStartupTraceFinishCannotFabricateFirstGTKPresentation(t *testing.T) {
+func TestCEFStartupTraceReservesFirstGTKPresentationForAfterPaint(t *testing.T) {
 	now := time.Unix(100, 0)
-	trace := newStartupTrace(func() time.Time { return now })
+	trace := newCEFStartupTrace(func() time.Time { return now })
 
-	for _, name := range startupMilestoneOrder[:len(startupMilestoneOrder)-1] {
+	for _, name := range cefStartupMilestoneOrder[:len(cefStartupMilestoneOrder)-1] {
 		now = now.Add(time.Millisecond)
 		require.True(t, trace.Mark(name))
 	}
 
-	trace.Finish() // Legacy callers do not observe the upstream GTK after-paint.
-	require.Len(t, trace.milestones, len(startupMilestoneOrder)-1)
-	require.False(t, trace.Mark("first_gtk_presentation"), "generic callers cannot record the reserved milestone")
+	require.Len(t, trace.milestones, len(cefStartupMilestoneOrder)-1)
+	require.False(t, trace.Mark("first_gtk_presentation"), "only the CEF-to-GTK after-paint hook can record the reserved milestone")
 	require.False(t, trace.summaryEmitted)
 	require.True(t, trace.MarkGTKAfterPaint(), "only the after-paint hook may record this milestone")
 }
 
-func TestStartupTraceEmitsOneNormalSummaryAtFirstPresentation(t *testing.T) {
+func TestCEFStartupTraceEmitsOneNormalSummaryAtFirstPresentation(t *testing.T) {
 	var output bytes.Buffer
 	logger := zerolog.New(&output)
 	now := time.Unix(100, 0)
-	trace := newStartupTrace(func() time.Time { return now })
+	trace := newCEFStartupTrace(func() time.Time { return now })
 	trace.SetBackend("gdk-dmabuf")
 	trace.SetLogger(&logger)
 
-	for _, name := range startupMilestoneOrder[:len(startupMilestoneOrder)-1] {
+	for _, name := range cefStartupMilestoneOrder[:len(cefStartupMilestoneOrder)-1] {
 		now = now.Add(time.Millisecond)
 		require.True(t, trace.Mark(name))
 	}

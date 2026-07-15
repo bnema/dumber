@@ -28,16 +28,10 @@ func (c *Coordinator) EnsureWebView(ctx context.Context, paneID entity.PaneID) (
 		return nil, fmt.Errorf("webview pool not configured")
 	}
 
-	// Mark tab_created on first webview (first tab)
-	if c.webViewCount() == 0 {
-		logging.Trace().Mark("tab_created")
-	}
-
 	wv, err := c.pool.Acquire(ctx)
 	if err != nil {
 		return nil, err
 	}
-	logging.Trace().Mark("webview_acquired")
 
 	// setWebViewLocked atomically resets presentation state for the acquired
 	// WebView, including a pooled instance previously revealed in another pane.
@@ -144,7 +138,6 @@ func (c *Coordinator) AttachToWorkspace(ctx context.Context, ws *entity.Workspac
 			log.Warn().Err(err).Str("pane_id", string(pane.ID)).Msg("failed to attach webview widget")
 			continue
 		}
-		logging.Trace().Mark("webview_attached")
 	}
 }
 

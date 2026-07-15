@@ -1,8 +1,11 @@
-# First presentation startup trace
+# CEF accelerated first-presentation startup trace
 
-Dumber records one cold-start timeline for each GUI process. The trace begins
-at `process_entry`, before CEF subprocess handling, and accepts these one-shot
-milestones only in order:
+Dumber records this cold-start timeline **only for the accelerated CEF → DMABUF
+→ GTK path**. It is not a backend-neutral startup metric: the WebKit backend
+does not add milestones to this trace and never emits this CEF summary.
+
+For a CEF GUI process, the trace begins at `process_entry`, before CEF
+subprocess handling, and accepts these one-shot milestones only in order:
 
 1. `process_entry`
 2. `config_complete`
@@ -13,11 +16,19 @@ milestones only in order:
 7. `first_dmabuf_texture_swap` (after `GtkPicture.SetPaintable` succeeds)
 8. `first_gtk_presentation` (the subsequent GTK frame-clock after-paint)
 
-CEF library-load completion is intentionally not recorded: `InitWithApp` is an
+The CEF-to-GTK bridge owns the native accelerated-paint, DMABUF texture-swap,
+and GTK presentation boundaries. Dumber records the bridge's ordered callbacks;
+it does not synthesize them for another engine or rendering path. CEF
+library-load completion is intentionally not recorded: `InitWithApp` is an
 opaque operation. Duplicate, unknown, and out-of-order transitions are
 rejected. At the last milestone Dumber emits exactly one normal-level JSON
-summary (`startup_trace: first presentation`) with the selected `backend`, an
-`incomplete_reason`, total milliseconds, and monotonic milestones.
+summary (`startup_trace: first presentation`) with the selected CEF render
+backend, an `incomplete_reason`, total milliseconds, and monotonic milestones.
+
+A non-DMABUF CEF backend or a missing accelerated callback does not produce a
+complete summary and is not comparable with this measurement. In particular,
+WebKit startup must be measured with a separately defined WebKit-specific
+contract rather than this CEF trace.
 
 ## Reproducible collection
 
@@ -29,7 +40,8 @@ DUMBER_MACHINE_GPU_PROFILE=integrated-gpu \
   scripts/collect_first_presentation.sh
 ```
 
-By default each collection is a fresh directory below
+The collector is for the accelerated CEF/DMABUF/GTK contract above. By default
+each collection is a fresh directory below
 `$XDG_STATE_HOME/dumber/roadmap-evidence` (or
 `$HOME/.local/state/dumber/roadmap-evidence` when `XDG_STATE_HOME` is unset),
 not in the repository. `DUMBER_FIRST_PRESENTATION_OUTPUT` may override it only

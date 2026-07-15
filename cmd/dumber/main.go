@@ -143,8 +143,8 @@ func configureBrowserLaunchRelay(cfg *config.Config) {
 func main() {
 	// This is intentionally before subprocess detection: each process records
 	// its own first observable main event before CEF can take over execution.
-	logging.InitStartupTrace("")
-	logging.Trace().Mark("process_entry")
+	logging.InitCEFStartupTrace()
+	logging.CEFTrace().Mark("process_entry")
 
 	// CEF subprocess handling: when CEF re-launches this binary with
 	// --type=renderer/gpu/etc, we must call ExecuteProcess before anything
@@ -223,7 +223,7 @@ func runGUI(cfg *config.Config) int {
 		cfg = initConfig()
 		configureBrowserLaunchRelay(cfg)
 	}
-	logging.Trace().Mark("config_complete")
+	logging.CEFTrace().Mark("config_complete")
 	timer.Mark("config")
 
 	ctx := initStartupContextWithTrace(cfg)
@@ -259,7 +259,7 @@ func runGUI(cfg *config.Config) int {
 	timer.Mark("session")
 
 	log := logging.FromContext(ctx)
-	logging.Trace().UpdateLogger(log)
+	logging.CEFTrace().SetLogger(log)
 	logCoreDumpLimits(ctx)
 
 	engine.SetHandlerContext(ctx)
@@ -419,19 +419,17 @@ func resolveCurrentExecutable(executable func() (string, error)) (string, error)
 }
 
 func initStartupContextWithTrace(cfg *config.Config) context.Context {
-	logging.InitStartupTrace(cfg.Logging.Level)
+	logging.InitCEFStartupTrace()
 
 	ctx := initStartupContext(cfg)
 	bootstrapLog := logging.FromContext(ctx)
 
-	logging.Trace().SetLogger(bootstrapLog)
-	logging.Trace().Mark("logger_init")
+	logging.CEFTrace().SetLogger(bootstrapLog)
 
 	return ctx
 }
 
 func runParallelInitPhase(ctx context.Context, cfg *config.Config) (*bootstrap.ParallelInitResult, error) {
-	logging.Trace().Mark("parallel_start")
 	initResult, err := bootstrap.RunParallelInit(bootstrap.ParallelInitInput{
 		Ctx:    ctx,
 		Config: cfg,
@@ -440,7 +438,6 @@ func runParallelInitPhase(ctx context.Context, cfg *config.Config) (*bootstrap.P
 		handleParallelInitError(ctx, err)
 		return nil, err
 	}
-	logging.Trace().Mark("parallel_done")
 	return initResult, nil
 }
 

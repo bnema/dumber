@@ -314,12 +314,6 @@ func (c *Coordinator) activePaneOverrideID() (entity.PaneID, bool) {
 	return c.activePaneOverride, true
 }
 
-func (c *Coordinator) webViewCount() int {
-	c.webViewsMu.RLock()
-	defer c.webViewsMu.RUnlock()
-	return len(c.webViews)
-}
-
 func (c *Coordinator) getWebViewLocked(paneID entity.PaneID) port.WebView {
 	c.webViewsMu.RLock()
 	defer c.webViewsMu.RUnlock()

@@ -7,30 +7,30 @@ import (
 	"github.com/rs/zerolog"
 )
 
-// StartupTrace records the single truthful path from process entry to the first
-// GTK presentation. It deliberately rejects unknown, duplicate, and out of
-// order milestones: accepting a convenient timestamp would make the result
-// unsuitable for cold-start measurement.
-type StartupTrace struct {
+// CEFStartupTrace records the accelerated CEF/DMABUF/GTK path from process
+// entry to the first GTK presentation. It deliberately rejects unknown,
+// duplicate, and out-of-order milestones. Accepting a convenient timestamp
+// would make the result unsuitable for cold-start measurement.
+type CEFStartupTrace struct {
 	mu               sync.Mutex
 	now              func() time.Time
 	t0               time.Time
-	milestones       []Milestone
+	milestones       []CEFStartupMilestone
 	logger           *zerolog.Logger
-	buffered         []Milestone
+	buffered         []CEFStartupMilestone
 	backend          string
 	incompleteReason string
 	summaryEmitted   bool
 }
 
-// Milestone represents a timing checkpoint measured from process entry.
-type Milestone struct {
+// CEFStartupMilestone represents a timing checkpoint from process entry.
+type CEFStartupMilestone struct {
 	Name    string
 	Elapsed time.Duration
 	Delta   time.Duration
 }
 
-var startupMilestoneOrder = []string{
+var cefStartupMilestoneOrder = []string{
 	"process_entry",
 	"config_complete",
 	"cef_library_load_begin",
@@ -42,46 +42,49 @@ var startupMilestoneOrder = []string{
 }
 
 var (
-	globalTrace     *StartupTrace
-	globalTraceMu   sync.Mutex
-	globalTraceOnce sync.Once
+	globalCEFTrace     *CEFStartupTrace
+	globalCEFTraceMu   sync.Mutex
+	globalCEFTraceOnce sync.Once
 )
 
-func newStartupTrace(now func() time.Time) *StartupTrace {
+func newCEFStartupTrace(now func() time.Time) *CEFStartupTrace {
 	start := now()
-	return &StartupTrace{
+	return &CEFStartupTrace{
 		now:        now,
 		t0:         start,
-		milestones: make([]Milestone, 0, len(startupMilestoneOrder)),
-		buffered:   make([]Milestone, 0, len(startupMilestoneOrder)),
+		milestones: make([]CEFStartupMilestone, 0, len(cefStartupMilestoneOrder)),
+		buffered:   make([]CEFStartupMilestone, 0, len(cefStartupMilestoneOrder)),
 	}
 }
 
-// InitStartupTrace must be called at the first instruction in main. logLevel is
-// retained for source compatibility; this measurement is always collected so
-// its final structured summary is available at normal log level.
-func InitStartupTrace(_ string) {
-	globalTraceOnce.Do(func() {
-		trace := newStartupTrace(time.Now)
-		globalTraceMu.Lock()
-		globalTrace = trace
-		globalTraceMu.Unlock()
+// NewCEFStartupTrace creates an isolated accelerated CEF/DMABUF/GTK trace.
+// Production startup uses InitCEFStartupTrace and CEFTrace.
+func NewCEFStartupTrace() *CEFStartupTrace { return newCEFStartupTrace(time.Now) }
+
+// InitCEFStartupTrace begins the CEF/DMABUF/GTK measurement at process entry.
+// It is intentionally safe to call again during GUI bootstrap.
+func InitCEFStartupTrace() {
+	globalCEFTraceOnce.Do(func() {
+		trace := newCEFStartupTrace(time.Now)
+		globalCEFTraceMu.Lock()
+		globalCEFTrace = trace
+		globalCEFTraceMu.Unlock()
 	})
 }
 
-// Trace returns the process startup trace. Callers before initialization get a
-// harmless trace which rejects all transitions.
-func Trace() *StartupTrace {
-	globalTraceMu.Lock()
-	defer globalTraceMu.Unlock()
-	if globalTrace == nil {
-		return &StartupTrace{}
+// CEFTrace returns the accelerated CEF/DMABUF/GTK trace. Callers before
+// initialization get a harmless trace which rejects all transitions.
+func CEFTrace() *CEFStartupTrace {
+	globalCEFTraceMu.Lock()
+	defer globalCEFTraceMu.Unlock()
+	if globalCEFTrace == nil {
+		return &CEFStartupTrace{}
 	}
-	return globalTrace
+	return globalCEFTrace
 }
 
 // SetLogger makes buffered milestones available to the process logger.
-func (st *StartupTrace) SetLogger(logger *zerolog.Logger) {
+func (st *CEFStartupTrace) SetLogger(logger *zerolog.Logger) {
 	if st == nil || logger == nil {
 		return
 	}
@@ -89,18 +92,14 @@ func (st *StartupTrace) SetLogger(logger *zerolog.Logger) {
 	defer st.mu.Unlock()
 	st.logger = logger
 	for _, milestone := range st.buffered {
-		st.emitMilestone(milestone)
+		st.emitCEFStartupMilestone(milestone)
 	}
 	st.buffered = nil
 	st.emitSummaryLocked()
 }
 
-// UpdateLogger switches the destination without replaying events. Replaying
-// would violate the one-shot property in session logs.
-func (st *StartupTrace) UpdateLogger(logger *zerolog.Logger) { st.SetLogger(logger) }
-
 // SetBackend records the selected presentation backend for the final summary.
-func (st *StartupTrace) SetBackend(backend string) {
+func (st *CEFStartupTrace) SetBackend(backend string) {
 	if st == nil {
 		return
 	}
@@ -110,7 +109,7 @@ func (st *StartupTrace) SetBackend(backend string) {
 }
 
 // SetIncompleteReason records why a trace cannot reach a valid DMABUF result.
-func (st *StartupTrace) SetIncompleteReason(reason string) {
+func (st *CEFStartupTrace) SetIncompleteReason(reason string) {
 	if st == nil {
 		return
 	}
@@ -124,7 +123,7 @@ func (st *StartupTrace) SetIncompleteReason(reason string) {
 // Mark accepts exactly the next non-presentation startup milestone and returns
 // whether it was recorded. first_gtk_presentation is reserved for the GTK
 // frame-clock after-paint hook through MarkGTKAfterPaint.
-func (st *StartupTrace) Mark(name string) bool {
+func (st *CEFStartupTrace) Mark(name string) bool {
 	if name == "first_gtk_presentation" {
 		return false
 	}
@@ -133,24 +132,24 @@ func (st *StartupTrace) Mark(name string) bool {
 
 // MarkGTKAfterPaint records the final milestone. It is called only from the
 // upstream CEF-to-GTK bridge's first frame-clock after-paint callback.
-func (st *StartupTrace) MarkGTKAfterPaint() bool {
+func (st *CEFStartupTrace) MarkGTKAfterPaint() bool {
 	return st.mark("first_gtk_presentation")
 }
 
 // mark accepts the next milestone and is safe for callbacks from CEF and GTK
 // threads.
-func (st *StartupTrace) mark(name string) bool {
+func (st *CEFStartupTrace) mark(name string) bool {
 	if st == nil || st.now == nil {
 		return false
 	}
 	st.mu.Lock()
 	defer st.mu.Unlock()
-	if len(st.milestones) >= len(startupMilestoneOrder) || name != startupMilestoneOrder[len(st.milestones)] {
+	if len(st.milestones) >= len(cefStartupMilestoneOrder) || name != cefStartupMilestoneOrder[len(st.milestones)] {
 		return false
 	}
 
 	now := st.now()
-	milestone := Milestone{Name: name, Elapsed: now.Sub(st.t0)}
+	milestone := CEFStartupMilestone{Name: name, Elapsed: now.Sub(st.t0)}
 	// Published fields are integer milliseconds. Compute delta on that same
 	// scale so delta_ms always exactly reconstructs t_ms in collected evidence.
 	previousMilliseconds := int64(0)
@@ -162,13 +161,13 @@ func (st *StartupTrace) mark(name string) bool {
 	if st.logger == nil {
 		st.buffered = append(st.buffered, milestone)
 	} else {
-		st.emitMilestone(milestone)
+		st.emitCEFStartupMilestone(milestone)
 	}
 	st.emitSummaryLocked()
 	return true
 }
 
-func (st *StartupTrace) emitMilestone(m Milestone) {
+func (st *CEFStartupTrace) emitCEFStartupMilestone(m CEFStartupMilestone) {
 	if st.logger == nil {
 		return
 	}
@@ -179,8 +178,8 @@ func (st *StartupTrace) emitMilestone(m Milestone) {
 		Msg("startup_trace: milestone")
 }
 
-func (st *StartupTrace) emitSummaryLocked() {
-	if st.summaryEmitted || st.logger == nil || len(st.milestones) != len(startupMilestoneOrder) {
+func (st *CEFStartupTrace) emitSummaryLocked() {
+	if st.summaryEmitted || st.logger == nil || len(st.milestones) != len(cefStartupMilestoneOrder) {
 		return
 	}
 	st.summaryEmitted = true
@@ -192,13 +191,9 @@ func (st *StartupTrace) emitSummaryLocked() {
 		Msg("startup_trace: first presentation")
 }
 
-// Finish is retained as a harmless compatibility no-op. The only valid source
-// for first_gtk_presentation is the upstream GTK frame-clock after-paint hook.
-func (*StartupTrace) Finish() {}
+func (st *CEFStartupTrace) Enabled() bool { return st != nil && st.now != nil }
 
-func (st *StartupTrace) Enabled() bool { return st != nil && st.now != nil }
-
-func (st *StartupTrace) TotalElapsed() time.Duration {
+func (st *CEFStartupTrace) TotalElapsed() time.Duration {
 	if st == nil || st.now == nil {
 		return 0
 	}
