@@ -12,8 +12,8 @@ github.com/aymanbagabas/go-udiff v0.4.1 h1:OEIrQ8maEeDBXQDoGCbbTTXYJMYRCRO1fnodZ
 github.com/aymanbagabas/go-udiff v0.4.1/go.mod h1:0L9PGwj20lrtmEMeyw4WKJ/TMyDtvAoK9bf2u/mNo3w=
 github.com/bnema/purego v0.11.0-bnema.4 h1:uQjx9QtM945rD6HkwYzPGuVN7wKr5HrFKIWE3kRprbs=
 github.com/bnema/purego v0.11.0-bnema.4/go.mod h1:LHW8Sb4QO18dQaLVRU8tZCGM0SjsC+agFW/3M3nCUtg=
-github.com/bnema/purego-cef v0.13.4-0.20260715054414-19b947c13132 h1:C1uZC41XVJbq4i/xwGzf1vS55SD1YHP/IZq63hGeiBA=
-github.com/bnema/purego-cef v0.13.4-0.20260715054414-19b947c13132/go.mod h1:r+qCMwzuI+wq3xo189x3NAWWpALWoWwjtk+8wVCK1Eg=
+github.com/bnema/purego-cef v0.13.4 h1:Q5A88Z0qVTarFbHNv8Tl+kj/UhmyGFiL52z/mo9o5EE=
+github.com/bnema/purego-cef v0.13.4/go.mod h1:r+qCMwzuI+wq3xo189x3NAWWpALWoWwjtk+8wVCK1Eg=
 github.com/bnema/purego-cef2gtk v0.8.5 h1:Qwt9DkvCVBNN52dp1jikFU5B2Sg3dB16ayi/T4+2Bhg=
 github.com/bnema/purego-cef2gtk v0.8.5/go.mod h1:w/5Bjkm+ZaZbDIDS+ysC5qTBcpb8/WOeGDva8i39ocM=
 github.com/bnema/purego-pipewire v0.1.5 h1:wQQF2uHt/kVV3qOkdSE1CV0noQYkHS2+v9MXkgdjxEw=
