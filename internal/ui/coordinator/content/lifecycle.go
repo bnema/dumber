@@ -39,6 +39,8 @@ func (c *Coordinator) EnsureWebView(ctx context.Context, paneID entity.PaneID) (
 	}
 	logging.Trace().Mark("webview_acquired")
 
+	// setWebViewLocked atomically resets presentation state for the acquired
+	// WebView, including a pooled instance previously revealed in another pane.
 	c.setWebViewLocked(paneID, wv)
 	c.setupWebViewCallbacks(ctx, paneID, wv)
 
@@ -53,6 +55,8 @@ func (c *Coordinator) EnsureWebView(ctx context.Context, paneID entity.PaneID) (
 func (c *Coordinator) ReleaseWebView(ctx context.Context, paneID entity.PaneID) {
 	log := logging.FromContext(ctx)
 
+	// deleteWebViewLocked clears reveal state before returning, even when a
+	// previous cleanup already removed this pane's mapping.
 	wv := c.deleteWebViewLocked(paneID)
 	if wv == nil {
 		return
@@ -136,7 +140,7 @@ func (c *Coordinator) AttachToWorkspace(ctx context.Context, ws *entity.Workspac
 			Int("wrapped_widget_alloc_height", widget.GetAllocatedHeight()).
 			Msg("wrapped webview widget prepared for pane")
 
-		if err := wsView.SetWebViewWidget(pane.ID, widget); err != nil {
+		if err := wsView.AttachWebViewWidget(pane.ID, widget, c.webViewRevealed(pane.ID, wv)); err != nil {
 			log.Warn().Err(err).Str("pane_id", string(pane.ID)).Msg("failed to attach webview widget")
 			continue
 		}

@@ -62,8 +62,13 @@ func buildCrashPageURI(originalURI string) string {
 // setupWebViewCallbacks configures standard callbacks and popup handling.
 func (c *Coordinator) setupWebViewCallbacks(ctx context.Context, paneID entity.PaneID, wv port.WebView) {
 	log := logging.FromContext(ctx)
+	identity, ok := identityForWebView(wv)
+	if !ok {
+		return
+	}
 
-	// Build port callbacks for standard events
+	// Capture the association at installation, rather than reading mutable
+	// WebView identity from a callback that can outlive a pool reuse.
 	callbacks := &port.WebViewCallbacks{
 		OnTitleChanged: func(title string) {
 			c.onTitleChanged(ctx, paneID, title)
@@ -73,13 +78,13 @@ func (c *Coordinator) setupWebViewCallbacks(ctx context.Context, paneID entity.P
 			case port.LoadStarted:
 				c.onLoadStarted(paneID)
 			case port.LoadCommitted:
-				c.onLoadCommitted(ctx, paneID, wv)
+				c.onLoadCommitted(ctx, paneID, wv, identity)
 			case port.LoadFinished:
-				c.onLoadFinished(ctx, paneID, wv)
+				c.onLoadFinished(ctx, paneID, wv, identity)
 			}
 		},
 		OnProgressChanged: func(progress float64) {
-			c.onProgressChanged(paneID, progress)
+			c.onProgressChanged(paneID, wv, identity, progress)
 		},
 		OnURIChanged: func(uri string) {
 			c.handleURIChanged(ctx, paneID, wv, uri)

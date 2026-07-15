@@ -3,6 +3,7 @@ package component
 import (
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 
 	"github.com/bnema/dumber/internal/ui/layout"
@@ -79,4 +80,38 @@ func TestPaneView_HideLoadingSkeleton_HidesWhenPresent(t *testing.T) {
 func TestPaneView_HideLoadingSkeleton_NoOpWhenNil(t *testing.T) {
 	pv := &PaneView{}
 	pv.HideLoadingSkeleton()
+}
+
+func TestPaneView_AttachWebViewWidget_RevealedThenUnrevealedReplacementRestartsSkeleton(t *testing.T) {
+	overlay := mocks.NewMockOverlayWidget(t)
+	revealedWidget := mocks.NewMockWidget(t)
+	unrevealedWidget := mocks.NewMockWidget(t)
+	loadingContainer := mocks.NewMockBoxWidget(t)
+	spinner := mocks.NewMockSpinnerWidget(t)
+
+	overlay.EXPECT().GetAllocatedWidth().Return(0).Times(4)
+	overlay.EXPECT().GetAllocatedHeight().Return(0).Times(4)
+	for _, widget := range []*mocks.MockWidget{revealedWidget, unrevealedWidget} {
+		widget.EXPECT().GetAllocatedWidth().Return(0).Twice()
+		widget.EXPECT().GetAllocatedHeight().Return(0).Twice()
+		widget.EXPECT().GetParent().Return(nil).Once()
+		widget.EXPECT().IsVisible().Return(true).Once()
+	}
+	overlay.EXPECT().SetChild(revealedWidget).Once()
+	loadingContainer.EXPECT().SetVisible(false).Once()
+	spinner.EXPECT().Stop().Once()
+	overlay.EXPECT().SetChild(nil).Once()
+	overlay.EXPECT().SetChild(unrevealedWidget).Once()
+	loadingContainer.EXPECT().SetVisible(true).Once()
+	spinner.EXPECT().Start().Once()
+
+	pv := &PaneView{
+		overlay: overlay,
+		loading: &LoadingSkeleton{container: loadingContainer, spinner: spinner},
+	}
+
+	pv.AttachWebViewWidget(revealedWidget, true)
+	pv.AttachWebViewWidget(unrevealedWidget, false)
+
+	assert.Same(t, unrevealedWidget, pv.WebViewWidget())
 }
