@@ -21,7 +21,7 @@ type SplitView struct {
 	logger      zerolog.Logger
 
 	onRatioChanged      func(ratio float64)
-	pendingNotifyRatio  float64
+	idleAdd             func(*glib.SourceFunc, uintptr) uint
 	notifyDebounceTimer *time.Timer
 	notifyGeneration    uint64
 	tickCallbackID      uint
@@ -40,9 +40,6 @@ const maxRetryFrames = 120
 const notifyPositionDebounceDelay = 100 * time.Millisecond
 const notifyPositionSuppressAfterApplyDelay = 50 * time.Millisecond
 const splitAllocationSettledTolerance = 2
-
-// idleAdd is a seam for scheduling work on GLib's main loop.
-var idleAdd = glib.IdleAdd
 
 func childAllocation(widget Widget) (int, int) {
 	if widget == nil {
@@ -115,6 +112,7 @@ func NewSplitView(
 		endChild:    endChild,
 		ratio:       clampRatio(ratio),
 		logger:      log.With().Str("component", "split-view").Logger(),
+		idleAdd:     glib.IdleAdd,
 	}
 
 	// Set children
@@ -162,7 +160,6 @@ func NewSplitView(
 			return
 		}
 		sv.ratio = ratio
-		sv.pendingNotifyRatio = ratio
 		sv.notifyGeneration++
 		generation := sv.notifyGeneration
 
@@ -184,15 +181,14 @@ func NewSplitView(
 					return false
 				}
 				onRatioChanged := sv.onRatioChanged
-				pending := sv.pendingNotifyRatio
 				sv.mu.RUnlock()
 
 				if onRatioChanged != nil {
-					onRatioChanged(pending)
+					onRatioChanged(ratio)
 				}
 				return false
 			})
-			idleAdd(&cb, 0)
+			sv.idleAdd(&cb, 0)
 		})
 
 		sv.mu.Unlock()

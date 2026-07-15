@@ -60,16 +60,17 @@ func receiveQueuedIdle(t *testing.T, queued <-chan *glib.SourceFunc) *glib.Sourc
 	}
 }
 
-func TestSplitViewQueuedRatioCallbackDoesNotRunAfterCleanup(t *testing.T) {
-	queued := make(chan *glib.SourceFunc, 1)
-	previousIdleAdd := idleAdd
-	idleAdd = func(source *glib.SourceFunc, _ uintptr) uint {
+func setIdleScheduler(sv *SplitView, queued chan<- *glib.SourceFunc) {
+	sv.idleAdd = func(source *glib.SourceFunc, _ uintptr) uint {
 		queued <- source
 		return 1
 	}
-	t.Cleanup(func() { idleAdd = previousIdleAdd })
+}
 
+func TestSplitViewQueuedRatioCallbackDoesNotRunAfterCleanup(t *testing.T) {
+	queued := make(chan *glib.SourceFunc, 1)
 	sv, notify := newNotifyingSplitView(t)
+	setIdleScheduler(sv, queued)
 	var calls atomic.Int32
 	sv.SetOnRatioChanged(func(float64) { calls.Add(1) })
 
@@ -83,14 +84,8 @@ func TestSplitViewQueuedRatioCallbackDoesNotRunAfterCleanup(t *testing.T) {
 
 func TestSplitViewSupersededRatioCallbackDeliversOnlyLatestValueOnce(t *testing.T) {
 	queued := make(chan *glib.SourceFunc, 2)
-	previousIdleAdd := idleAdd
-	idleAdd = func(source *glib.SourceFunc, _ uintptr) uint {
-		queued <- source
-		return 1
-	}
-	t.Cleanup(func() { idleAdd = previousIdleAdd })
-
 	sv, notify := newNotifyingSplitView(t)
+	setIdleScheduler(sv, queued)
 	var ratios []float64
 	sv.SetOnRatioChanged(func(ratio float64) { ratios = append(ratios, ratio) })
 
@@ -102,4 +97,27 @@ func TestSplitViewSupersededRatioCallbackDeliversOnlyLatestValueOnce(t *testing.
 	(*second)(0)
 
 	require.Equal(t, []float64{0.8}, ratios)
+}
+
+func TestSplitViewIdleSchedulersAreInstanceScoped(t *testing.T) {
+	firstQueued := make(chan *glib.SourceFunc, 1)
+	secondQueued := make(chan *glib.SourceFunc, 1)
+	first, firstNotify := newNotifyingSplitView(t)
+	second, secondNotify := newNotifyingSplitView(t)
+	setIdleScheduler(first, firstQueued)
+	setIdleScheduler(second, secondQueued)
+
+	firstNotify(20)
+	secondNotify(80)
+
+	firstSource := receiveQueuedIdle(t, firstQueued)
+	secondSource := receiveQueuedIdle(t, secondQueued)
+	var firstCalls, secondCalls atomic.Int32
+	first.SetOnRatioChanged(func(float64) { firstCalls.Add(1) })
+	second.SetOnRatioChanged(func(float64) { secondCalls.Add(1) })
+	(*firstSource)(0)
+	(*secondSource)(0)
+
+	require.Equal(t, int32(1), firstCalls.Load())
+	require.Equal(t, int32(1), secondCalls.Load())
 }
