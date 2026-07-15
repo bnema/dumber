@@ -37,8 +37,8 @@ func displayHandlerOnAddressChangeCEFCallback() uintptr {
 		if !ownerOK {
 			return
 		}
-		browser := wrapBrowser(unsafe.Pointer(arg0))
-		frame := wrapFrame(unsafe.Pointer(arg1))
+		browser := wrapBrowser(cefCallbackPointer(arg0))
+		frame := wrapFrame(cefCallbackPointer(arg1))
 		uRL := goString(unsafe.Pointer(arg2))
 		impl.OnAddressChange(browser, frame, uRL)
 	})
@@ -53,7 +53,7 @@ func displayHandlerOnTitleChangeCEFCallback() uintptr {
 		if !ownerOK {
 			return
 		}
-		browser := wrapBrowser(unsafe.Pointer(arg0))
+		browser := wrapBrowser(cefCallbackPointer(arg0))
 		title := goString(unsafe.Pointer(arg1))
 		impl.OnTitleChange(browser, title)
 	})
@@ -68,7 +68,7 @@ func displayHandlerOnFaviconUrlchangeCEFCallback() uintptr {
 		if !ownerOK {
 			return
 		}
-		browser := wrapBrowser(unsafe.Pointer(arg0))
+		browser := wrapBrowser(cefCallbackPointer(arg0))
 		iconUrls := StringList(arg1)
 		impl.OnFaviconUrlchange(browser, iconUrls)
 	})
@@ -83,7 +83,7 @@ func displayHandlerOnFullscreenModeChangeCEFCallback() uintptr {
 		if !ownerOK {
 			return
 		}
-		browser := wrapBrowser(unsafe.Pointer(arg0))
+		browser := wrapBrowser(cefCallbackPointer(arg0))
 		fullscreen := int32(arg1)
 		impl.OnFullscreenModeChange(browser, fullscreen)
 	})
@@ -98,7 +98,7 @@ func displayHandlerOnTooltipCEFCallback() uintptr {
 		if !ownerOK {
 			return 0
 		}
-		browser := wrapBrowser(unsafe.Pointer(arg0))
+		browser := wrapBrowser(cefCallbackPointer(arg0))
 		text := uintptr(arg1)
 		return uintptr(impl.OnTooltip(browser, text))
 	})
@@ -113,7 +113,7 @@ func displayHandlerOnStatusMessageCEFCallback() uintptr {
 		if !ownerOK {
 			return
 		}
-		browser := wrapBrowser(unsafe.Pointer(arg0))
+		browser := wrapBrowser(cefCallbackPointer(arg0))
 		value := goString(unsafe.Pointer(arg1))
 		impl.OnStatusMessage(browser, value)
 	})
@@ -128,7 +128,7 @@ func displayHandlerOnConsoleMessageCEFCallback() uintptr {
 		if !ownerOK {
 			return 0
 		}
-		browser := wrapBrowser(unsafe.Pointer(arg0))
+		browser := wrapBrowser(cefCallbackPointer(arg0))
 		level := LogSeverity(arg1)
 		message := goString(unsafe.Pointer(arg2))
 		source := goString(unsafe.Pointer(arg3))
@@ -146,7 +146,7 @@ func displayHandlerOnAutoResizeCEFCallback() uintptr {
 		if !ownerOK {
 			return 0
 		}
-		browser := wrapBrowser(unsafe.Pointer(arg0))
+		browser := wrapBrowser(cefCallbackPointer(arg0))
 		newSize := (*Size)(unsafe.Pointer(arg1))
 		return uintptr(impl.OnAutoResize(browser, newSize))
 	})
@@ -161,7 +161,7 @@ func displayHandlerOnLoadingProgressChangeCEFCallback() uintptr {
 		if !ownerOK {
 			return
 		}
-		browser := wrapBrowser(unsafe.Pointer(arg0))
+		browser := wrapBrowser(cefCallbackPointer(arg0))
 		progress := arg1
 		impl.OnLoadingProgressChange(browser, progress)
 	})
@@ -176,7 +176,7 @@ func displayHandlerOnCursorChangeCEFCallback() uintptr {
 		if !ownerOK {
 			return 0
 		}
-		browser := wrapBrowser(unsafe.Pointer(arg0))
+		browser := wrapBrowser(cefCallbackPointer(arg0))
 		cursor := uintptr(arg1)
 		type_ := CursorType(arg2)
 		customCursorInfo := (*CursorInfo)(unsafe.Pointer(arg3))
@@ -193,7 +193,7 @@ func displayHandlerOnMediaAccessChangeCEFCallback() uintptr {
 		if !ownerOK {
 			return
 		}
-		browser := wrapBrowser(unsafe.Pointer(arg0))
+		browser := wrapBrowser(cefCallbackPointer(arg0))
 		hasVideoAccess := int32(arg1)
 		hasAudioAccess := int32(arg2)
 		impl.OnMediaAccessChange(browser, hasVideoAccess, hasAudioAccess)
@@ -209,7 +209,7 @@ func displayHandlerOnContentsBoundsChangeCEFCallback() uintptr {
 		if !ownerOK {
 			return 0
 		}
-		browser := wrapBrowser(unsafe.Pointer(arg0))
+		browser := wrapBrowser(cefCallbackPointer(arg0))
 		newBounds := (*Rect)(unsafe.Pointer(arg1))
 		return uintptr(impl.OnContentsBoundsChange(browser, newBounds))
 	})
@@ -224,7 +224,7 @@ func displayHandlerGetRootWindowScreenRectCEFCallback() uintptr {
 		if !ownerOK {
 			return 0
 		}
-		browser := wrapBrowser(unsafe.Pointer(arg0))
+		browser := wrapBrowser(cefCallbackPointer(arg0))
 		rect := (*Rect)(unsafe.Pointer(arg1))
 		return uintptr(impl.GetRootWindowScreenRect(browser, rect))
 	})

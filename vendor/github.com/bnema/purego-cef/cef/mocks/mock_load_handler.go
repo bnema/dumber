@@ -51,7 +51,7 @@ type MockLoadHandler_OnLoadEnd_Call struct {
 //   - browser in.Browser
 //   - frame in.Frame
 //   - httpstatuscode int32
-func (_e *MockLoadHandler_Expecter) OnLoadEnd(browser interface{}, frame interface{}, httpstatuscode interface{}) *MockLoadHandler_OnLoadEnd_Call {
+func (_e *MockLoadHandler_Expecter) OnLoadEnd(browser any, frame any, httpstatuscode any) *MockLoadHandler_OnLoadEnd_Call {
 	return &MockLoadHandler_OnLoadEnd_Call{Call: _e.mock.On("OnLoadEnd", browser, frame, httpstatuscode)}
 }
 
@@ -105,7 +105,7 @@ type MockLoadHandler_OnLoadError_Call struct {
 //   - errorcode in.Errorcode
 //   - errortext string
 //   - failedurl string
-func (_e *MockLoadHandler_Expecter) OnLoadError(browser interface{}, frame interface{}, errorcode interface{}, errortext interface{}, failedurl interface{}) *MockLoadHandler_OnLoadError_Call {
+func (_e *MockLoadHandler_Expecter) OnLoadError(browser any, frame any, errorcode any, errortext any, failedurl any) *MockLoadHandler_OnLoadError_Call {
 	return &MockLoadHandler_OnLoadError_Call{Call: _e.mock.On("OnLoadError", browser, frame, errorcode, errortext, failedurl)}
 }
 
@@ -167,7 +167,7 @@ type MockLoadHandler_OnLoadStart_Call struct {
 //   - browser in.Browser
 //   - frame in.Frame
 //   - transitionType in.TransitionType
-func (_e *MockLoadHandler_Expecter) OnLoadStart(browser interface{}, frame interface{}, transitionType interface{}) *MockLoadHandler_OnLoadStart_Call {
+func (_e *MockLoadHandler_Expecter) OnLoadStart(browser any, frame any, transitionType any) *MockLoadHandler_OnLoadStart_Call {
 	return &MockLoadHandler_OnLoadStart_Call{Call: _e.mock.On("OnLoadStart", browser, frame, transitionType)}
 }
 
@@ -220,7 +220,7 @@ type MockLoadHandler_OnLoadingStateChange_Call struct {
 //   - isloading int32
 //   - cangoback int32
 //   - cangoforward int32
-func (_e *MockLoadHandler_Expecter) OnLoadingStateChange(browser interface{}, isloading interface{}, cangoback interface{}, cangoforward interface{}) *MockLoadHandler_OnLoadingStateChange_Call {
+func (_e *MockLoadHandler_Expecter) OnLoadingStateChange(browser any, isloading any, cangoback any, cangoforward any) *MockLoadHandler_OnLoadingStateChange_Call {
 	return &MockLoadHandler_OnLoadingStateChange_Call{Call: _e.mock.On("OnLoadingStateChange", browser, isloading, cangoback, cangoforward)}
 }
 

@@ -148,7 +148,7 @@ type MockResponse_GetHeaderByName_Call struct {
 
 // GetHeaderByName is a helper method to define mock.On call
 //   - name string
-func (_e *MockResponse_Expecter) GetHeaderByName(name interface{}) *MockResponse_GetHeaderByName_Call {
+func (_e *MockResponse_Expecter) GetHeaderByName(name any) *MockResponse_GetHeaderByName_Call {
 	return &MockResponse_GetHeaderByName_Call{Call: _e.mock.On("GetHeaderByName", name)}
 }
 
@@ -188,7 +188,7 @@ type MockResponse_GetHeaderMap_Call struct {
 
 // GetHeaderMap is a helper method to define mock.On call
 //   - headermap in.StringMultimap
-func (_e *MockResponse_Expecter) GetHeaderMap(headermap interface{}) *MockResponse_GetHeaderMap_Call {
+func (_e *MockResponse_Expecter) GetHeaderMap(headermap any) *MockResponse_GetHeaderMap_Call {
 	return &MockResponse_GetHeaderMap_Call{Call: _e.mock.On("GetHeaderMap", headermap)}
 }
 
@@ -448,7 +448,7 @@ type MockResponse_SetCharset_Call struct {
 
 // SetCharset is a helper method to define mock.On call
 //   - charset string
-func (_e *MockResponse_Expecter) SetCharset(charset interface{}) *MockResponse_SetCharset_Call {
+func (_e *MockResponse_Expecter) SetCharset(charset any) *MockResponse_SetCharset_Call {
 	return &MockResponse_SetCharset_Call{Call: _e.mock.On("SetCharset", charset)}
 }
 
@@ -488,7 +488,7 @@ type MockResponse_SetError_Call struct {
 
 // SetError is a helper method to define mock.On call
 //   - error in.Errorcode
-func (_e *MockResponse_Expecter) SetError(error interface{}) *MockResponse_SetError_Call {
+func (_e *MockResponse_Expecter) SetError(error any) *MockResponse_SetError_Call {
 	return &MockResponse_SetError_Call{Call: _e.mock.On("SetError", error)}
 }
 
@@ -530,7 +530,7 @@ type MockResponse_SetHeaderByName_Call struct {
 //   - name string
 //   - value string
 //   - overwrite int32
-func (_e *MockResponse_Expecter) SetHeaderByName(name interface{}, value interface{}, overwrite interface{}) *MockResponse_SetHeaderByName_Call {
+func (_e *MockResponse_Expecter) SetHeaderByName(name any, value any, overwrite any) *MockResponse_SetHeaderByName_Call {
 	return &MockResponse_SetHeaderByName_Call{Call: _e.mock.On("SetHeaderByName", name, value, overwrite)}
 }
 
@@ -580,7 +580,7 @@ type MockResponse_SetHeaderMap_Call struct {
 
 // SetHeaderMap is a helper method to define mock.On call
 //   - headermap in.StringMultimap
-func (_e *MockResponse_Expecter) SetHeaderMap(headermap interface{}) *MockResponse_SetHeaderMap_Call {
+func (_e *MockResponse_Expecter) SetHeaderMap(headermap any) *MockResponse_SetHeaderMap_Call {
 	return &MockResponse_SetHeaderMap_Call{Call: _e.mock.On("SetHeaderMap", headermap)}
 }
 
@@ -620,7 +620,7 @@ type MockResponse_SetMimeType_Call struct {
 
 // SetMimeType is a helper method to define mock.On call
 //   - mimetype string
-func (_e *MockResponse_Expecter) SetMimeType(mimetype interface{}) *MockResponse_SetMimeType_Call {
+func (_e *MockResponse_Expecter) SetMimeType(mimetype any) *MockResponse_SetMimeType_Call {
 	return &MockResponse_SetMimeType_Call{Call: _e.mock.On("SetMimeType", mimetype)}
 }
 
@@ -660,7 +660,7 @@ type MockResponse_SetStatus_Call struct {
 
 // SetStatus is a helper method to define mock.On call
 //   - status int32
-func (_e *MockResponse_Expecter) SetStatus(status interface{}) *MockResponse_SetStatus_Call {
+func (_e *MockResponse_Expecter) SetStatus(status any) *MockResponse_SetStatus_Call {
 	return &MockResponse_SetStatus_Call{Call: _e.mock.On("SetStatus", status)}
 }
 
@@ -700,7 +700,7 @@ type MockResponse_SetStatusText_Call struct {
 
 // SetStatusText is a helper method to define mock.On call
 //   - statustext string
-func (_e *MockResponse_Expecter) SetStatusText(statustext interface{}) *MockResponse_SetStatusText_Call {
+func (_e *MockResponse_Expecter) SetStatusText(statustext any) *MockResponse_SetStatusText_Call {
 	return &MockResponse_SetStatusText_Call{Call: _e.mock.On("SetStatusText", statustext)}
 }
 
@@ -740,7 +740,7 @@ type MockResponse_SetURL_Call struct {
 
 // SetURL is a helper method to define mock.On call
 //   - uRL string
-func (_e *MockResponse_Expecter) SetURL(uRL interface{}) *MockResponse_SetURL_Call {
+func (_e *MockResponse_Expecter) SetURL(uRL any) *MockResponse_SetURL_Call {
 	return &MockResponse_SetURL_Call{Call: _e.mock.On("SetURL", uRL)}
 }
 

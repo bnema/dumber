@@ -37,7 +37,7 @@ func findHandlerOnFindResultCEFCallback() uintptr {
 		if !ownerOK {
 			return
 		}
-		browser := wrapBrowser(unsafe.Pointer(arg0))
+		browser := wrapBrowser(cefCallbackPointer(arg0))
 		identifier := int32(arg1)
 		count := int32(arg2)
 		selectionrect := (*Rect)(unsafe.Pointer(arg3))

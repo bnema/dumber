@@ -73,10 +73,10 @@ func schemeHandlerFactoryCreateCEFCallback() uintptr {
 		if !ownerOK {
 			return 0
 		}
-		browser := wrapBrowser(unsafe.Pointer(arg0))
-		frame := wrapFrame(unsafe.Pointer(arg1))
+		browser := wrapBrowser(cefCallbackPointer(arg0))
+		frame := wrapFrame(cefCallbackPointer(arg1))
 		schemeName := goString(unsafe.Pointer(arg2))
-		request := wrapRequest(unsafe.Pointer(arg3))
+		request := wrapRequest(cefCallbackPointer(arg3))
 		result := impl.Create(browser, frame, schemeName, request)
 		if result == nil {
 			return 0

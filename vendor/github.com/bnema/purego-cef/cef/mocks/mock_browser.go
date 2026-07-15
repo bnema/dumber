@@ -196,7 +196,7 @@ type MockBrowser_GetFrameByIdentifier_Call struct {
 
 // GetFrameByIdentifier is a helper method to define mock.On call
 //   - identifier string
-func (_e *MockBrowser_Expecter) GetFrameByIdentifier(identifier interface{}) *MockBrowser_GetFrameByIdentifier_Call {
+func (_e *MockBrowser_Expecter) GetFrameByIdentifier(identifier any) *MockBrowser_GetFrameByIdentifier_Call {
 	return &MockBrowser_GetFrameByIdentifier_Call{Call: _e.mock.On("GetFrameByIdentifier", identifier)}
 }
 
@@ -249,7 +249,7 @@ type MockBrowser_GetFrameByName_Call struct {
 
 // GetFrameByName is a helper method to define mock.On call
 //   - name string
-func (_e *MockBrowser_Expecter) GetFrameByName(name interface{}) *MockBrowser_GetFrameByName_Call {
+func (_e *MockBrowser_Expecter) GetFrameByName(name any) *MockBrowser_GetFrameByName_Call {
 	return &MockBrowser_GetFrameByName_Call{Call: _e.mock.On("GetFrameByName", name)}
 }
 
@@ -333,7 +333,7 @@ type MockBrowser_GetFrameIdentifiers_Call struct {
 
 // GetFrameIdentifiers is a helper method to define mock.On call
 //   - identifiers in.StringList
-func (_e *MockBrowser_Expecter) GetFrameIdentifiers(identifiers interface{}) *MockBrowser_GetFrameIdentifiers_Call {
+func (_e *MockBrowser_Expecter) GetFrameIdentifiers(identifiers any) *MockBrowser_GetFrameIdentifiers_Call {
 	return &MockBrowser_GetFrameIdentifiers_Call{Call: _e.mock.On("GetFrameIdentifiers", identifiers)}
 }
 
@@ -373,7 +373,7 @@ type MockBrowser_GetFrameNames_Call struct {
 
 // GetFrameNames is a helper method to define mock.On call
 //   - names in.StringList
-func (_e *MockBrowser_Expecter) GetFrameNames(names interface{}) *MockBrowser_GetFrameNames_Call {
+func (_e *MockBrowser_Expecter) GetFrameNames(names any) *MockBrowser_GetFrameNames_Call {
 	return &MockBrowser_GetFrameNames_Call{Call: _e.mock.On("GetFrameNames", names)}
 }
 
@@ -758,7 +758,7 @@ type MockBrowser_IsSame_Call struct {
 
 // IsSame is a helper method to define mock.On call
 //   - that in.Browser
-func (_e *MockBrowser_Expecter) IsSame(that interface{}) *MockBrowser_IsSame_Call {
+func (_e *MockBrowser_Expecter) IsSame(that any) *MockBrowser_IsSame_Call {
 	return &MockBrowser_IsSame_Call{Call: _e.mock.On("IsSame", that)}
 }
 

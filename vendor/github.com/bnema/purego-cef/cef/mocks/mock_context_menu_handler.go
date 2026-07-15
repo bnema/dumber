@@ -52,7 +52,7 @@ type MockContextMenuHandler_OnBeforeContextMenu_Call struct {
 //   - frame in.Frame
 //   - params in.ContextMenuParams
 //   - model in.MenuModel
-func (_e *MockContextMenuHandler_Expecter) OnBeforeContextMenu(browser interface{}, frame interface{}, params interface{}, model interface{}) *MockContextMenuHandler_OnBeforeContextMenu_Call {
+func (_e *MockContextMenuHandler_Expecter) OnBeforeContextMenu(browser any, frame any, params any, model any) *MockContextMenuHandler_OnBeforeContextMenu_Call {
 	return &MockContextMenuHandler_OnBeforeContextMenu_Call{Call: _e.mock.On("OnBeforeContextMenu", browser, frame, params, model)}
 }
 
@@ -122,7 +122,7 @@ type MockContextMenuHandler_OnContextMenuCommand_Call struct {
 //   - params in.ContextMenuParams
 //   - commandID int32
 //   - eventFlags in.EventFlags
-func (_e *MockContextMenuHandler_Expecter) OnContextMenuCommand(browser interface{}, frame interface{}, params interface{}, commandID interface{}, eventFlags interface{}) *MockContextMenuHandler_OnContextMenuCommand_Call {
+func (_e *MockContextMenuHandler_Expecter) OnContextMenuCommand(browser any, frame any, params any, commandID any, eventFlags any) *MockContextMenuHandler_OnContextMenuCommand_Call {
 	return &MockContextMenuHandler_OnContextMenuCommand_Call{Call: _e.mock.On("OnContextMenuCommand", browser, frame, params, commandID, eventFlags)}
 }
 
@@ -183,7 +183,7 @@ type MockContextMenuHandler_OnContextMenuDismissed_Call struct {
 // OnContextMenuDismissed is a helper method to define mock.On call
 //   - browser in.Browser
 //   - frame in.Frame
-func (_e *MockContextMenuHandler_Expecter) OnContextMenuDismissed(browser interface{}, frame interface{}) *MockContextMenuHandler_OnContextMenuDismissed_Call {
+func (_e *MockContextMenuHandler_Expecter) OnContextMenuDismissed(browser any, frame any) *MockContextMenuHandler_OnContextMenuDismissed_Call {
 	return &MockContextMenuHandler_OnContextMenuDismissed_Call{Call: _e.mock.On("OnContextMenuDismissed", browser, frame)}
 }
 
@@ -242,7 +242,7 @@ type MockContextMenuHandler_OnQuickMenuCommand_Call struct {
 //   - frame in.Frame
 //   - commandID int32
 //   - eventFlags in.EventFlags
-func (_e *MockContextMenuHandler_Expecter) OnQuickMenuCommand(browser interface{}, frame interface{}, commandID interface{}, eventFlags interface{}) *MockContextMenuHandler_OnQuickMenuCommand_Call {
+func (_e *MockContextMenuHandler_Expecter) OnQuickMenuCommand(browser any, frame any, commandID any, eventFlags any) *MockContextMenuHandler_OnQuickMenuCommand_Call {
 	return &MockContextMenuHandler_OnQuickMenuCommand_Call{Call: _e.mock.On("OnQuickMenuCommand", browser, frame, commandID, eventFlags)}
 }
 
@@ -298,7 +298,7 @@ type MockContextMenuHandler_OnQuickMenuDismissed_Call struct {
 // OnQuickMenuDismissed is a helper method to define mock.On call
 //   - browser in.Browser
 //   - frame in.Frame
-func (_e *MockContextMenuHandler_Expecter) OnQuickMenuDismissed(browser interface{}, frame interface{}) *MockContextMenuHandler_OnQuickMenuDismissed_Call {
+func (_e *MockContextMenuHandler_Expecter) OnQuickMenuDismissed(browser any, frame any) *MockContextMenuHandler_OnQuickMenuDismissed_Call {
 	return &MockContextMenuHandler_OnQuickMenuDismissed_Call{Call: _e.mock.On("OnQuickMenuDismissed", browser, frame)}
 }
 
@@ -358,7 +358,7 @@ type MockContextMenuHandler_RunContextMenu_Call struct {
 //   - params in.ContextMenuParams
 //   - model in.MenuModel
 //   - callback in.RunContextMenuCallback
-func (_e *MockContextMenuHandler_Expecter) RunContextMenu(browser interface{}, frame interface{}, params interface{}, model interface{}, callback interface{}) *MockContextMenuHandler_RunContextMenu_Call {
+func (_e *MockContextMenuHandler_Expecter) RunContextMenu(browser any, frame any, params any, model any, callback any) *MockContextMenuHandler_RunContextMenu_Call {
 	return &MockContextMenuHandler_RunContextMenu_Call{Call: _e.mock.On("RunContextMenu", browser, frame, params, model, callback)}
 }
 
@@ -434,7 +434,7 @@ type MockContextMenuHandler_RunQuickMenu_Call struct {
 //   - size *in.Size
 //   - editStateFlags in.QuickMenuEditStateFlags
 //   - callback in.RunQuickMenuCallback
-func (_e *MockContextMenuHandler_Expecter) RunQuickMenu(browser interface{}, frame interface{}, location interface{}, size interface{}, editStateFlags interface{}, callback interface{}) *MockContextMenuHandler_RunQuickMenu_Call {
+func (_e *MockContextMenuHandler_Expecter) RunQuickMenu(browser any, frame any, location any, size any, editStateFlags any, callback any) *MockContextMenuHandler_RunQuickMenu_Call {
 	return &MockContextMenuHandler_RunQuickMenu_Call{Call: _e.mock.On("RunQuickMenu", browser, frame, location, size, editStateFlags, callback)}
 }
 

@@ -307,10 +307,10 @@ func rawClientOnProcessMessageReceivedCEFCallback() uintptr {
 		if !ownerOK {
 			return 0
 		}
-		browser := wrapBrowser(unsafe.Pointer(arg0))
-		frame := wrapFrame(unsafe.Pointer(arg1))
+		browser := wrapBrowser(cefCallbackPointer(arg0))
+		frame := wrapFrame(cefCallbackPointer(arg1))
 		sourceProcess := ProcessID(arg2)
-		message := wrapProcessMessage(unsafe.Pointer(arg3))
+		message := wrapProcessMessage(cefCallbackPointer(arg3))
 		return uintptr(impl.OnProcessMessageReceived(browser, frame, sourceProcess, message))
 	})
 }

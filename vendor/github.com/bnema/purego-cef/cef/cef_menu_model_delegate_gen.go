@@ -37,7 +37,7 @@ func menuModelDelegateExecuteCommandCEFCallback() uintptr {
 		if !ownerOK {
 			return
 		}
-		menuModel := wrapMenuModel(unsafe.Pointer(arg0))
+		menuModel := wrapMenuModel(cefCallbackPointer(arg0))
 		commandID := int32(arg1)
 		eventFlags := EventFlags(arg2)
 		impl.ExecuteCommand(menuModel, commandID, eventFlags)
@@ -53,7 +53,7 @@ func menuModelDelegateMouseOutsideMenuCEFCallback() uintptr {
 		if !ownerOK {
 			return
 		}
-		menuModel := wrapMenuModel(unsafe.Pointer(arg0))
+		menuModel := wrapMenuModel(cefCallbackPointer(arg0))
 		screenPoint := (*Point)(unsafe.Pointer(arg1))
 		impl.MouseOutsideMenu(menuModel, screenPoint)
 	})
@@ -68,7 +68,7 @@ func menuModelDelegateUnhandledOpenSubmenuCEFCallback() uintptr {
 		if !ownerOK {
 			return
 		}
-		menuModel := wrapMenuModel(unsafe.Pointer(arg0))
+		menuModel := wrapMenuModel(cefCallbackPointer(arg0))
 		isRtl := int32(arg1)
 		impl.UnhandledOpenSubmenu(menuModel, isRtl)
 	})
@@ -83,7 +83,7 @@ func menuModelDelegateUnhandledCloseSubmenuCEFCallback() uintptr {
 		if !ownerOK {
 			return
 		}
-		menuModel := wrapMenuModel(unsafe.Pointer(arg0))
+		menuModel := wrapMenuModel(cefCallbackPointer(arg0))
 		isRtl := int32(arg1)
 		impl.UnhandledCloseSubmenu(menuModel, isRtl)
 	})
@@ -98,7 +98,7 @@ func menuModelDelegateMenuWillShowCEFCallback() uintptr {
 		if !ownerOK {
 			return
 		}
-		menuModel := wrapMenuModel(unsafe.Pointer(arg0))
+		menuModel := wrapMenuModel(cefCallbackPointer(arg0))
 		impl.MenuWillShow(menuModel)
 	})
 }
@@ -112,7 +112,7 @@ func menuModelDelegateMenuClosedCEFCallback() uintptr {
 		if !ownerOK {
 			return
 		}
-		menuModel := wrapMenuModel(unsafe.Pointer(arg0))
+		menuModel := wrapMenuModel(cefCallbackPointer(arg0))
 		impl.MenuClosed(menuModel)
 	})
 }
@@ -126,7 +126,7 @@ func menuModelDelegateFormatLabelCEFCallback() uintptr {
 		if !ownerOK {
 			return 0
 		}
-		menuModel := wrapMenuModel(unsafe.Pointer(arg0))
+		menuModel := wrapMenuModel(cefCallbackPointer(arg0))
 		label := uintptr(arg1)
 		return uintptr(impl.FormatLabel(menuModel, label))
 	})

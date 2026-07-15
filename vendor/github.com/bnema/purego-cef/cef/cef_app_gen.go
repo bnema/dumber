@@ -41,7 +41,7 @@ func appOnBeforeCommandLineProcessingCEFCallback() uintptr {
 			return
 		}
 		processType := goString(unsafe.Pointer(arg0))
-		commandLine := wrapCommandLine(unsafe.Pointer(arg1))
+		commandLine := wrapCommandLine(cefCallbackPointer(arg1))
 		impl.OnBeforeCommandLineProcessing(processType, commandLine)
 	})
 }
@@ -55,7 +55,7 @@ func appOnRegisterCustomSchemesCEFCallback() uintptr {
 		if !ownerOK {
 			return
 		}
-		registrar := wrapSchemeRegistrar(unsafe.Pointer(arg0))
+		registrar := wrapSchemeRegistrar(cefCallbackPointer(arg0))
 		impl.OnRegisterCustomSchemes(registrar)
 	})
 }

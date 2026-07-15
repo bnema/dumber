@@ -92,9 +92,9 @@ func requestHandlerOnBeforeBrowseCEFCallback() uintptr {
 		if !ownerOK {
 			return 0
 		}
-		browser := wrapBrowser(unsafe.Pointer(arg0))
-		frame := wrapFrame(unsafe.Pointer(arg1))
-		request := wrapRequest(unsafe.Pointer(arg2))
+		browser := wrapBrowser(cefCallbackPointer(arg0))
+		frame := wrapFrame(cefCallbackPointer(arg1))
+		request := wrapRequest(cefCallbackPointer(arg2))
 		userGesture := int32(arg3)
 		isRedirect := int32(arg4)
 		if impl.OnBeforeBrowse(browser, frame, request, userGesture, isRedirect) {
@@ -113,8 +113,8 @@ func requestHandlerOnOpenUrlfromTabCEFCallback() uintptr {
 		if !ownerOK {
 			return 0
 		}
-		browser := wrapBrowser(unsafe.Pointer(arg0))
-		frame := wrapFrame(unsafe.Pointer(arg1))
+		browser := wrapBrowser(cefCallbackPointer(arg0))
+		frame := wrapFrame(cefCallbackPointer(arg1))
 		targetURL := goString(unsafe.Pointer(arg2))
 		targetDisposition := WindowOpenDisposition(arg3)
 		userGesture := int32(arg4)
@@ -131,9 +131,9 @@ func requestHandlerGetResourceRequestHandlerCEFCallback() uintptr {
 		if !ownerOK {
 			return 0
 		}
-		browser := wrapBrowser(unsafe.Pointer(arg0))
-		frame := wrapFrame(unsafe.Pointer(arg1))
-		request := wrapRequest(unsafe.Pointer(arg2))
+		browser := wrapBrowser(cefCallbackPointer(arg0))
+		frame := wrapFrame(cefCallbackPointer(arg1))
+		request := wrapRequest(cefCallbackPointer(arg2))
 		isNavigation := int32(arg3)
 		isDownload := int32(arg4)
 		requestInitiator := goString(unsafe.Pointer(arg5))
@@ -157,14 +157,14 @@ func requestHandlerGetAuthCredentialsCEFCallback() uintptr {
 		if !ownerOK {
 			return 0
 		}
-		browser := wrapBrowser(unsafe.Pointer(arg0))
+		browser := wrapBrowser(cefCallbackPointer(arg0))
 		originURL := goString(unsafe.Pointer(arg1))
 		isproxy := int32(arg2)
 		host := goString(unsafe.Pointer(arg3))
 		port := int32(arg4)
 		realm := goString(unsafe.Pointer(arg5))
 		scheme := goString(unsafe.Pointer(arg6))
-		callback := wrapAuthCallback(unsafe.Pointer(arg7))
+		callback := wrapAuthCallback(cefCallbackPointer(arg7))
 		return uintptr(impl.GetAuthCredentials(browser, originURL, isproxy, host, port, realm, scheme, callback))
 	})
 }
@@ -178,11 +178,11 @@ func requestHandlerOnCertificateErrorCEFCallback() uintptr {
 		if !ownerOK {
 			return 0
 		}
-		browser := wrapBrowser(unsafe.Pointer(arg0))
+		browser := wrapBrowser(cefCallbackPointer(arg0))
 		certError := Errorcode(arg1)
 		requestURL := goString(unsafe.Pointer(arg2))
-		sslInfo := wrapSslinfo(unsafe.Pointer(arg3))
-		callback := wrapCallback(unsafe.Pointer(arg4))
+		sslInfo := wrapSslinfo(cefCallbackPointer(arg3))
+		callback := wrapCallback(cefCallbackPointer(arg4))
 		return uintptr(impl.OnCertificateError(browser, certError, requestURL, sslInfo, callback))
 	})
 }
@@ -196,19 +196,19 @@ func requestHandlerOnSelectClientCertificateCEFCallback() uintptr {
 		if !ownerOK {
 			return 0
 		}
-		browser := wrapBrowser(unsafe.Pointer(arg0))
+		browser := wrapBrowser(cefCallbackPointer(arg0))
 		isproxy := int32(arg1)
 		host := goString(unsafe.Pointer(arg2))
 		port := int32(arg3)
 		var certificates []X509Certificate
 		if arg5 != 0 && arg4 > 0 {
-			certificatesPtrs := unsafe.Slice((*uintptr)(unsafe.Pointer(arg5)), int(arg4))
+			certificatesPtrs := unsafe.Slice((*uintptr)(cefCallbackPointer(arg5)), int(arg4))
 			certificates = make([]X509Certificate, int(arg4))
 			for i, ptr := range certificatesPtrs {
-				certificates[i] = wrapX509Certificate(unsafe.Pointer(ptr))
+				certificates[i] = wrapX509Certificate(cefCallbackPointer(ptr))
 			}
 		}
-		callback := wrapSelectClientCertificateCallback(unsafe.Pointer(arg6))
+		callback := wrapSelectClientCertificateCallback(cefCallbackPointer(arg6))
 		return uintptr(impl.OnSelectClientCertificate(browser, isproxy, host, port, certificates, callback))
 	})
 }
@@ -222,7 +222,7 @@ func requestHandlerOnRenderViewReadyCEFCallback() uintptr {
 		if !ownerOK {
 			return
 		}
-		browser := wrapBrowser(unsafe.Pointer(arg0))
+		browser := wrapBrowser(cefCallbackPointer(arg0))
 		impl.OnRenderViewReady(browser)
 	})
 }
@@ -236,8 +236,8 @@ func requestHandlerOnRenderProcessUnresponsiveCEFCallback() uintptr {
 		if !ownerOK {
 			return 0
 		}
-		browser := wrapBrowser(unsafe.Pointer(arg0))
-		callback := wrapUnresponsiveProcessCallback(unsafe.Pointer(arg1))
+		browser := wrapBrowser(cefCallbackPointer(arg0))
+		callback := wrapUnresponsiveProcessCallback(cefCallbackPointer(arg1))
 		return uintptr(impl.OnRenderProcessUnresponsive(browser, callback))
 	})
 }
@@ -251,7 +251,7 @@ func requestHandlerOnRenderProcessResponsiveCEFCallback() uintptr {
 		if !ownerOK {
 			return
 		}
-		browser := wrapBrowser(unsafe.Pointer(arg0))
+		browser := wrapBrowser(cefCallbackPointer(arg0))
 		impl.OnRenderProcessResponsive(browser)
 	})
 }
@@ -265,7 +265,7 @@ func requestHandlerOnRenderProcessTerminatedCEFCallback() uintptr {
 		if !ownerOK {
 			return
 		}
-		browser := wrapBrowser(unsafe.Pointer(arg0))
+		browser := wrapBrowser(cefCallbackPointer(arg0))
 		status := TerminationStatus(arg1)
 		errorCode := int32(arg2)
 		errorString := goString(unsafe.Pointer(arg3))
@@ -282,7 +282,7 @@ func requestHandlerOnDocumentAvailableInMainFrameCEFCallback() uintptr {
 		if !ownerOK {
 			return
 		}
-		browser := wrapBrowser(unsafe.Pointer(arg0))
+		browser := wrapBrowser(cefCallbackPointer(arg0))
 		impl.OnDocumentAvailableInMainFrame(browser)
 	})
 }

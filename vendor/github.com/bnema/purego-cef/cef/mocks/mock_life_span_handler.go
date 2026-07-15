@@ -60,7 +60,7 @@ type MockLifeSpanHandler_DoClose_Call struct {
 
 // DoClose is a helper method to define mock.On call
 //   - browser cef.Browser
-func (_e *MockLifeSpanHandler_Expecter) DoClose(browser interface{}) *MockLifeSpanHandler_DoClose_Call {
+func (_e *MockLifeSpanHandler_Expecter) DoClose(browser any) *MockLifeSpanHandler_DoClose_Call {
 	return &MockLifeSpanHandler_DoClose_Call{Call: _e.mock.On("DoClose", browser)}
 }
 
@@ -100,7 +100,7 @@ type MockLifeSpanHandler_OnAfterCreated_Call struct {
 
 // OnAfterCreated is a helper method to define mock.On call
 //   - browser cef.Browser
-func (_e *MockLifeSpanHandler_Expecter) OnAfterCreated(browser interface{}) *MockLifeSpanHandler_OnAfterCreated_Call {
+func (_e *MockLifeSpanHandler_Expecter) OnAfterCreated(browser any) *MockLifeSpanHandler_OnAfterCreated_Call {
 	return &MockLifeSpanHandler_OnAfterCreated_Call{Call: _e.mock.On("OnAfterCreated", browser)}
 }
 
@@ -140,7 +140,7 @@ type MockLifeSpanHandler_OnBeforeClose_Call struct {
 
 // OnBeforeClose is a helper method to define mock.On call
 //   - browser cef.Browser
-func (_e *MockLifeSpanHandler_Expecter) OnBeforeClose(browser interface{}) *MockLifeSpanHandler_OnBeforeClose_Call {
+func (_e *MockLifeSpanHandler_Expecter) OnBeforeClose(browser any) *MockLifeSpanHandler_OnBeforeClose_Call {
 	return &MockLifeSpanHandler_OnBeforeClose_Call{Call: _e.mock.On("OnBeforeClose", browser)}
 }
 
@@ -185,7 +185,7 @@ type MockLifeSpanHandler_OnBeforeDevToolsPopup_Call struct {
 //   - settings *cef.BrowserSettings
 //   - extraInfo *cef.DictionaryValue
 //   - useDefaultWindow *bool
-func (_e *MockLifeSpanHandler_Expecter) OnBeforeDevToolsPopup(browser interface{}, windowInfo interface{}, client interface{}, settings interface{}, extraInfo interface{}, useDefaultWindow interface{}) *MockLifeSpanHandler_OnBeforeDevToolsPopup_Call {
+func (_e *MockLifeSpanHandler_Expecter) OnBeforeDevToolsPopup(browser any, windowInfo any, client any, settings any, extraInfo any, useDefaultWindow any) *MockLifeSpanHandler_OnBeforeDevToolsPopup_Call {
 	return &MockLifeSpanHandler_OnBeforeDevToolsPopup_Call{Call: _e.mock.On("OnBeforeDevToolsPopup", browser, windowInfo, client, settings, extraInfo, useDefaultWindow)}
 }
 
@@ -273,7 +273,7 @@ type MockLifeSpanHandler_OnBeforePopup_Call struct {
 //   - settings *cef.BrowserSettings
 //   - extraInfo *cef.DictionaryValue
 //   - noJavascriptAccess *bool
-func (_e *MockLifeSpanHandler_Expecter) OnBeforePopup(browser interface{}, frame interface{}, popupID interface{}, targetURL interface{}, targetFrameName interface{}, targetDisposition interface{}, userGesture interface{}, popupFeatures interface{}, windowInfo interface{}, client interface{}, settings interface{}, extraInfo interface{}, noJavascriptAccess interface{}) *MockLifeSpanHandler_OnBeforePopup_Call {
+func (_e *MockLifeSpanHandler_Expecter) OnBeforePopup(browser any, frame any, popupID any, targetURL any, targetFrameName any, targetDisposition any, userGesture any, popupFeatures any, windowInfo any, client any, settings any, extraInfo any, noJavascriptAccess any) *MockLifeSpanHandler_OnBeforePopup_Call {
 	return &MockLifeSpanHandler_OnBeforePopup_Call{Call: _e.mock.On("OnBeforePopup", browser, frame, popupID, targetURL, targetFrameName, targetDisposition, userGesture, popupFeatures, windowInfo, client, settings, extraInfo, noJavascriptAccess)}
 }
 
@@ -374,7 +374,7 @@ type MockLifeSpanHandler_OnBeforePopupAborted_Call struct {
 // OnBeforePopupAborted is a helper method to define mock.On call
 //   - browser cef.Browser
 //   - popupID int32
-func (_e *MockLifeSpanHandler_Expecter) OnBeforePopupAborted(browser interface{}, popupID interface{}) *MockLifeSpanHandler_OnBeforePopupAborted_Call {
+func (_e *MockLifeSpanHandler_Expecter) OnBeforePopupAborted(browser any, popupID any) *MockLifeSpanHandler_OnBeforePopupAborted_Call {
 	return &MockLifeSpanHandler_OnBeforePopupAborted_Call{Call: _e.mock.On("OnBeforePopupAborted", browser, popupID)}
 }
 

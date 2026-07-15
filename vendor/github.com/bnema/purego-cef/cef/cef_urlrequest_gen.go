@@ -146,7 +146,7 @@ func urlrequestClientOnRequestCompleteCEFCallback() uintptr {
 		if !ownerOK {
 			return
 		}
-		request := wrapUrlrequest(unsafe.Pointer(arg0))
+		request := wrapUrlrequest(cefCallbackPointer(arg0))
 		impl.OnRequestComplete(request)
 	})
 }
@@ -160,7 +160,7 @@ func urlrequestClientOnUploadProgressCEFCallback() uintptr {
 		if !ownerOK {
 			return
 		}
-		request := wrapUrlrequest(unsafe.Pointer(arg0))
+		request := wrapUrlrequest(cefCallbackPointer(arg0))
 		current := arg1
 		total := arg2
 		impl.OnUploadProgress(request, current, total)
@@ -176,7 +176,7 @@ func urlrequestClientOnDownloadProgressCEFCallback() uintptr {
 		if !ownerOK {
 			return
 		}
-		request := wrapUrlrequest(unsafe.Pointer(arg0))
+		request := wrapUrlrequest(cefCallbackPointer(arg0))
 		current := arg1
 		total := arg2
 		impl.OnDownloadProgress(request, current, total)
@@ -192,7 +192,7 @@ func urlrequestClientOnDownloadDataCEFCallback() uintptr {
 		if !ownerOK {
 			return
 		}
-		request := wrapUrlrequest(unsafe.Pointer(arg0))
+		request := wrapUrlrequest(cefCallbackPointer(arg0))
 		data := unsafe.Pointer(arg1)
 		dataLength := int(arg2)
 		impl.OnDownloadData(request, data, dataLength)
@@ -213,7 +213,7 @@ func urlrequestClientGetAuthCredentialsCEFCallback() uintptr {
 		port := int32(arg2)
 		realm := goString(unsafe.Pointer(arg3))
 		scheme := goString(unsafe.Pointer(arg4))
-		callback := wrapAuthCallback(unsafe.Pointer(arg5))
+		callback := wrapAuthCallback(cefCallbackPointer(arg5))
 		return uintptr(impl.GetAuthCredentials(isproxy, host, port, realm, scheme, callback))
 	})
 }

@@ -62,7 +62,7 @@ type MockKeyboardHandler_OnKeyEvent_Call struct {
 //   - browser in.Browser
 //   - event *in.KeyEvent
 //   - osEvent uintptr
-func (_e *MockKeyboardHandler_Expecter) OnKeyEvent(browser interface{}, event interface{}, osEvent interface{}) *MockKeyboardHandler_OnKeyEvent_Call {
+func (_e *MockKeyboardHandler_Expecter) OnKeyEvent(browser any, event any, osEvent any) *MockKeyboardHandler_OnKeyEvent_Call {
 	return &MockKeyboardHandler_OnKeyEvent_Call{Call: _e.mock.On("OnKeyEvent", browser, event, osEvent)}
 }
 
@@ -126,7 +126,7 @@ type MockKeyboardHandler_OnPreKeyEvent_Call struct {
 //   - event *in.KeyEvent
 //   - osEvent uintptr
 //   - isKeyboardShortcut *int32
-func (_e *MockKeyboardHandler_Expecter) OnPreKeyEvent(browser interface{}, event interface{}, osEvent interface{}, isKeyboardShortcut interface{}) *MockKeyboardHandler_OnPreKeyEvent_Call {
+func (_e *MockKeyboardHandler_Expecter) OnPreKeyEvent(browser any, event any, osEvent any, isKeyboardShortcut any) *MockKeyboardHandler_OnPreKeyEvent_Call {
 	return &MockKeyboardHandler_OnPreKeyEvent_Call{Call: _e.mock.On("OnPreKeyEvent", browser, event, osEvent, isKeyboardShortcut)}
 }
 

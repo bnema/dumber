@@ -94,12 +94,12 @@ func jsdialogHandlerOnJsdialogCEFCallback() uintptr {
 		if !ownerOK {
 			return 0
 		}
-		browser := wrapBrowser(unsafe.Pointer(arg0))
+		browser := wrapBrowser(cefCallbackPointer(arg0))
 		originURL := goString(unsafe.Pointer(arg1))
 		dialogType := JsdialogType(arg2)
 		messageText := goString(unsafe.Pointer(arg3))
 		defaultPromptText := goString(unsafe.Pointer(arg4))
-		callback := wrapJsdialogCallback(unsafe.Pointer(arg5))
+		callback := wrapJsdialogCallback(cefCallbackPointer(arg5))
 		suppressMessage := (*int32)(unsafe.Pointer(arg6))
 		return uintptr(impl.OnJsdialog(browser, originURL, dialogType, messageText, defaultPromptText, callback, suppressMessage))
 	})
@@ -114,10 +114,10 @@ func jsdialogHandlerOnBeforeUnloadDialogCEFCallback() uintptr {
 		if !ownerOK {
 			return 0
 		}
-		browser := wrapBrowser(unsafe.Pointer(arg0))
+		browser := wrapBrowser(cefCallbackPointer(arg0))
 		messageText := goString(unsafe.Pointer(arg1))
 		isReload := int32(arg2)
-		callback := wrapJsdialogCallback(unsafe.Pointer(arg3))
+		callback := wrapJsdialogCallback(cefCallbackPointer(arg3))
 		if impl.OnBeforeUnloadDialog(browser, messageText, isReload, callback) {
 			return 1
 		}
@@ -134,7 +134,7 @@ func jsdialogHandlerOnResetDialogStateCEFCallback() uintptr {
 		if !ownerOK {
 			return
 		}
-		browser := wrapBrowser(unsafe.Pointer(arg0))
+		browser := wrapBrowser(cefCallbackPointer(arg0))
 		impl.OnResetDialogState(browser)
 	})
 }
@@ -148,7 +148,7 @@ func jsdialogHandlerOnDialogClosedCEFCallback() uintptr {
 		if !ownerOK {
 			return
 		}
-		browser := wrapBrowser(unsafe.Pointer(arg0))
+		browser := wrapBrowser(cefCallbackPointer(arg0))
 		impl.OnDialogClosed(browser)
 	})
 }

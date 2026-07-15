@@ -40,7 +40,7 @@ func browserProcessHandlerOnRegisterCustomPreferencesCEFCallback() uintptr {
 			return
 		}
 		type_ := PreferencesType(arg0)
-		registrar := wrapPreferenceRegistrar(unsafe.Pointer(arg1))
+		registrar := wrapPreferenceRegistrar(cefCallbackPointer(arg1))
 		impl.OnRegisterCustomPreferences(type_, registrar)
 	})
 }
@@ -67,7 +67,7 @@ func browserProcessHandlerOnBeforeChildProcessLaunchCEFCallback() uintptr {
 		if !ownerOK {
 			return
 		}
-		commandLine := wrapCommandLine(unsafe.Pointer(arg0))
+		commandLine := wrapCommandLine(cefCallbackPointer(arg0))
 		impl.OnBeforeChildProcessLaunch(commandLine)
 	})
 }
@@ -81,7 +81,7 @@ func browserProcessHandlerOnAlreadyRunningAppRelaunchCEFCallback() uintptr {
 		if !ownerOK {
 			return 0
 		}
-		commandLine := wrapCommandLine(unsafe.Pointer(arg0))
+		commandLine := wrapCommandLine(cefCallbackPointer(arg0))
 		currentDirectory := goString(unsafe.Pointer(arg1))
 		return uintptr(impl.OnAlreadyRunningAppRelaunch(commandLine, currentDirectory))
 	})

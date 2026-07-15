@@ -165,7 +165,7 @@ func downloadHandlerCanDownloadCEFCallback() uintptr {
 		if !ownerOK {
 			return 0
 		}
-		browser := wrapBrowser(unsafe.Pointer(arg0))
+		browser := wrapBrowser(cefCallbackPointer(arg0))
 		uRL := goString(unsafe.Pointer(arg1))
 		requestMethod := goString(unsafe.Pointer(arg2))
 		if impl.CanDownload(browser, uRL, requestMethod) {
@@ -184,10 +184,10 @@ func downloadHandlerOnBeforeDownloadCEFCallback() uintptr {
 		if !ownerOK {
 			return 0
 		}
-		browser := wrapBrowser(unsafe.Pointer(arg0))
-		downloadItem := wrapDownloadItem(unsafe.Pointer(arg1))
+		browser := wrapBrowser(cefCallbackPointer(arg0))
+		downloadItem := wrapDownloadItem(cefCallbackPointer(arg1))
 		suggestedName := goString(unsafe.Pointer(arg2))
-		callback := wrapBeforeDownloadCallback(unsafe.Pointer(arg3))
+		callback := wrapBeforeDownloadCallback(cefCallbackPointer(arg3))
 		if impl.OnBeforeDownload(browser, downloadItem, suggestedName, callback) {
 			return 1
 		}
@@ -204,9 +204,9 @@ func downloadHandlerOnDownloadUpdatedCEFCallback() uintptr {
 		if !ownerOK {
 			return
 		}
-		browser := wrapBrowser(unsafe.Pointer(arg0))
-		downloadItem := wrapDownloadItem(unsafe.Pointer(arg1))
-		callback := wrapDownloadItemCallback(unsafe.Pointer(arg2))
+		browser := wrapBrowser(cefCallbackPointer(arg0))
+		downloadItem := wrapDownloadItem(cefCallbackPointer(arg1))
+		callback := wrapDownloadItemCallback(cefCallbackPointer(arg2))
 		impl.OnDownloadUpdated(browser, downloadItem, callback)
 	})
 }

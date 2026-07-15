@@ -96,7 +96,7 @@ type MockRenderProcessHandler_OnBrowserCreated_Call struct {
 // OnBrowserCreated is a helper method to define mock.On call
 //   - browser in.Browser
 //   - extraInfo in.DictionaryValue
-func (_e *MockRenderProcessHandler_Expecter) OnBrowserCreated(browser interface{}, extraInfo interface{}) *MockRenderProcessHandler_OnBrowserCreated_Call {
+func (_e *MockRenderProcessHandler_Expecter) OnBrowserCreated(browser any, extraInfo any) *MockRenderProcessHandler_OnBrowserCreated_Call {
 	return &MockRenderProcessHandler_OnBrowserCreated_Call{Call: _e.mock.On("OnBrowserCreated", browser, extraInfo)}
 }
 
@@ -141,7 +141,7 @@ type MockRenderProcessHandler_OnBrowserDestroyed_Call struct {
 
 // OnBrowserDestroyed is a helper method to define mock.On call
 //   - browser in.Browser
-func (_e *MockRenderProcessHandler_Expecter) OnBrowserDestroyed(browser interface{}) *MockRenderProcessHandler_OnBrowserDestroyed_Call {
+func (_e *MockRenderProcessHandler_Expecter) OnBrowserDestroyed(browser any) *MockRenderProcessHandler_OnBrowserDestroyed_Call {
 	return &MockRenderProcessHandler_OnBrowserDestroyed_Call{Call: _e.mock.On("OnBrowserDestroyed", browser)}
 }
 
@@ -183,7 +183,7 @@ type MockRenderProcessHandler_OnContextCreated_Call struct {
 //   - browser in.Browser
 //   - frame in.Frame
 //   - context in.V8Context
-func (_e *MockRenderProcessHandler_Expecter) OnContextCreated(browser interface{}, frame interface{}, context interface{}) *MockRenderProcessHandler_OnContextCreated_Call {
+func (_e *MockRenderProcessHandler_Expecter) OnContextCreated(browser any, frame any, context any) *MockRenderProcessHandler_OnContextCreated_Call {
 	return &MockRenderProcessHandler_OnContextCreated_Call{Call: _e.mock.On("OnContextCreated", browser, frame, context)}
 }
 
@@ -235,7 +235,7 @@ type MockRenderProcessHandler_OnContextReleased_Call struct {
 //   - browser in.Browser
 //   - frame in.Frame
 //   - context in.V8Context
-func (_e *MockRenderProcessHandler_Expecter) OnContextReleased(browser interface{}, frame interface{}, context interface{}) *MockRenderProcessHandler_OnContextReleased_Call {
+func (_e *MockRenderProcessHandler_Expecter) OnContextReleased(browser any, frame any, context any) *MockRenderProcessHandler_OnContextReleased_Call {
 	return &MockRenderProcessHandler_OnContextReleased_Call{Call: _e.mock.On("OnContextReleased", browser, frame, context)}
 }
 
@@ -287,7 +287,7 @@ type MockRenderProcessHandler_OnFocusedNodeChanged_Call struct {
 //   - browser in.Browser
 //   - frame in.Frame
 //   - node in.Domnode
-func (_e *MockRenderProcessHandler_Expecter) OnFocusedNodeChanged(browser interface{}, frame interface{}, node interface{}) *MockRenderProcessHandler_OnFocusedNodeChanged_Call {
+func (_e *MockRenderProcessHandler_Expecter) OnFocusedNodeChanged(browser any, frame any, node any) *MockRenderProcessHandler_OnFocusedNodeChanged_Call {
 	return &MockRenderProcessHandler_OnFocusedNodeChanged_Call{Call: _e.mock.On("OnFocusedNodeChanged", browser, frame, node)}
 }
 
@@ -351,7 +351,7 @@ type MockRenderProcessHandler_OnProcessMessageReceived_Call struct {
 //   - frame in.Frame
 //   - sourceProcess in.ProcessID
 //   - message in.ProcessMessage
-func (_e *MockRenderProcessHandler_Expecter) OnProcessMessageReceived(browser interface{}, frame interface{}, sourceProcess interface{}, message interface{}) *MockRenderProcessHandler_OnProcessMessageReceived_Call {
+func (_e *MockRenderProcessHandler_Expecter) OnProcessMessageReceived(browser any, frame any, sourceProcess any, message any) *MockRenderProcessHandler_OnProcessMessageReceived_Call {
 	return &MockRenderProcessHandler_OnProcessMessageReceived_Call{Call: _e.mock.On("OnProcessMessageReceived", browser, frame, sourceProcess, message)}
 }
 
@@ -410,7 +410,7 @@ type MockRenderProcessHandler_OnUncaughtException_Call struct {
 //   - context in.V8Context
 //   - exception in.V8Exception
 //   - stacktrace in.V8StackTrace
-func (_e *MockRenderProcessHandler_Expecter) OnUncaughtException(browser interface{}, frame interface{}, context interface{}, exception interface{}, stacktrace interface{}) *MockRenderProcessHandler_OnUncaughtException_Call {
+func (_e *MockRenderProcessHandler_Expecter) OnUncaughtException(browser any, frame any, context any, exception any, stacktrace any) *MockRenderProcessHandler_OnUncaughtException_Call {
 	return &MockRenderProcessHandler_OnUncaughtException_Call{Call: _e.mock.On("OnUncaughtException", browser, frame, context, exception, stacktrace)}
 }
 

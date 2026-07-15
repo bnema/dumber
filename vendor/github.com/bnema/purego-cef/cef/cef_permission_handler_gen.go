@@ -155,11 +155,11 @@ func permissionHandlerOnRequestMediaAccessPermissionCEFCallback() uintptr {
 		if !ownerOK {
 			return 0
 		}
-		browser := wrapBrowser(unsafe.Pointer(arg0))
-		frame := wrapFrame(unsafe.Pointer(arg1))
+		browser := wrapBrowser(cefCallbackPointer(arg0))
+		frame := wrapFrame(cefCallbackPointer(arg1))
 		requestingOrigin := goString(unsafe.Pointer(arg2))
 		requestedPermissions := uint32(arg3)
-		callback := wrapMediaAccessCallback(unsafe.Pointer(arg4))
+		callback := wrapMediaAccessCallback(cefCallbackPointer(arg4))
 		return uintptr(impl.OnRequestMediaAccessPermission(browser, frame, requestingOrigin, requestedPermissions, callback))
 	})
 }
@@ -173,11 +173,11 @@ func permissionHandlerOnShowPermissionPromptCEFCallback() uintptr {
 		if !ownerOK {
 			return 0
 		}
-		browser := wrapBrowser(unsafe.Pointer(arg0))
+		browser := wrapBrowser(cefCallbackPointer(arg0))
 		promptID := arg1
 		requestingOrigin := goString(unsafe.Pointer(arg2))
 		requestedPermissions := uint32(arg3)
-		callback := wrapPermissionPromptCallback(unsafe.Pointer(arg4))
+		callback := wrapPermissionPromptCallback(cefCallbackPointer(arg4))
 		return uintptr(impl.OnShowPermissionPrompt(browser, promptID, requestingOrigin, requestedPermissions, callback))
 	})
 }
@@ -191,7 +191,7 @@ func permissionHandlerOnDismissPermissionPromptCEFCallback() uintptr {
 		if !ownerOK {
 			return
 		}
-		browser := wrapBrowser(unsafe.Pointer(arg0))
+		browser := wrapBrowser(cefCallbackPointer(arg0))
 		promptID := arg1
 		result := PermissionRequestResult(arg2)
 		impl.OnDismissPermissionPrompt(browser, promptID, result)

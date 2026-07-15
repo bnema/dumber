@@ -37,7 +37,7 @@ func viewDelegateGetPreferredSizeCEFCallback() uintptr {
 		if !ownerOK {
 			return 0
 		}
-		view := wrapView(unsafe.Pointer(arg0))
+		view := wrapView(cefCallbackPointer(arg0))
 		return uintptr(impl.GetPreferredSize(view))
 	})
 }
@@ -51,7 +51,7 @@ func viewDelegateGetMinimumSizeCEFCallback() uintptr {
 		if !ownerOK {
 			return 0
 		}
-		view := wrapView(unsafe.Pointer(arg0))
+		view := wrapView(cefCallbackPointer(arg0))
 		return uintptr(impl.GetMinimumSize(view))
 	})
 }
@@ -65,7 +65,7 @@ func viewDelegateGetMaximumSizeCEFCallback() uintptr {
 		if !ownerOK {
 			return 0
 		}
-		view := wrapView(unsafe.Pointer(arg0))
+		view := wrapView(cefCallbackPointer(arg0))
 		return uintptr(impl.GetMaximumSize(view))
 	})
 }
@@ -79,7 +79,7 @@ func viewDelegateGetHeightForWidthCEFCallback() uintptr {
 		if !ownerOK {
 			return 0
 		}
-		view := wrapView(unsafe.Pointer(arg0))
+		view := wrapView(cefCallbackPointer(arg0))
 		width := int32(arg1)
 		return uintptr(impl.GetHeightForWidth(view, width))
 	})
@@ -94,9 +94,9 @@ func viewDelegateOnParentViewChangedCEFCallback() uintptr {
 		if !ownerOK {
 			return
 		}
-		view := wrapView(unsafe.Pointer(arg0))
+		view := wrapView(cefCallbackPointer(arg0))
 		added := int32(arg1)
-		parent := wrapView(unsafe.Pointer(arg2))
+		parent := wrapView(cefCallbackPointer(arg2))
 		impl.OnParentViewChanged(view, added, parent)
 	})
 }
@@ -110,9 +110,9 @@ func viewDelegateOnChildViewChangedCEFCallback() uintptr {
 		if !ownerOK {
 			return
 		}
-		view := wrapView(unsafe.Pointer(arg0))
+		view := wrapView(cefCallbackPointer(arg0))
 		added := int32(arg1)
-		child := wrapView(unsafe.Pointer(arg2))
+		child := wrapView(cefCallbackPointer(arg2))
 		impl.OnChildViewChanged(view, added, child)
 	})
 }
@@ -126,7 +126,7 @@ func viewDelegateOnWindowChangedCEFCallback() uintptr {
 		if !ownerOK {
 			return
 		}
-		view := wrapView(unsafe.Pointer(arg0))
+		view := wrapView(cefCallbackPointer(arg0))
 		added := int32(arg1)
 		impl.OnWindowChanged(view, added)
 	})
@@ -141,7 +141,7 @@ func viewDelegateOnLayoutChangedCEFCallback() uintptr {
 		if !ownerOK {
 			return
 		}
-		view := wrapView(unsafe.Pointer(arg0))
+		view := wrapView(cefCallbackPointer(arg0))
 		newBounds := (*Rect)(unsafe.Pointer(arg1))
 		impl.OnLayoutChanged(view, newBounds)
 	})
@@ -156,7 +156,7 @@ func viewDelegateOnFocusCEFCallback() uintptr {
 		if !ownerOK {
 			return
 		}
-		view := wrapView(unsafe.Pointer(arg0))
+		view := wrapView(cefCallbackPointer(arg0))
 		impl.OnFocus(view)
 	})
 }
@@ -170,7 +170,7 @@ func viewDelegateOnBlurCEFCallback() uintptr {
 		if !ownerOK {
 			return
 		}
-		view := wrapView(unsafe.Pointer(arg0))
+		view := wrapView(cefCallbackPointer(arg0))
 		impl.OnBlur(view)
 	})
 }
@@ -184,7 +184,7 @@ func viewDelegateOnThemeChangedCEFCallback() uintptr {
 		if !ownerOK {
 			return
 		}
-		view := wrapView(unsafe.Pointer(arg0))
+		view := wrapView(cefCallbackPointer(arg0))
 		impl.OnThemeChanged(view)
 	})
 }

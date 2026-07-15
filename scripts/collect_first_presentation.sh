@@ -38,7 +38,7 @@ readonly upstream_module="github.com/bnema/purego-cef2gtk"
 resolve_upstream_provenance() {
   local selected_metadata selected_version downloaded_metadata
 
-  selected_metadata="$(go list -m -json "$upstream_module" 2>/dev/null)" || {
+  selected_metadata="$(GOFLAGS=-mod=mod go list -m -json "$upstream_module" 2>/dev/null)" || {
     echo "first-presentation: immutable module provenance is unavailable" >&2
     exit 2
   }
@@ -75,9 +75,11 @@ try:
         fail()
     if downloaded.get("Version") != version:
         fail()
-    # A selected pseudo-version is an exact immutable selector, never a branch.
-    match = re.fullmatch(r"(v\d+\.\d+\.\d+)-0\.\d{14}-([0-9a-f]{12})", version)
-    if not match:
+    # A pseudo-version identifies an immutable commit; a released semver tag is
+    # accepted only when Go records that exact tag and its immutable hash.
+    pseudo_match = re.fullmatch(r"(v\d+\.\d+\.\d+)-0\.\d{14}-([0-9a-f]{12})", version)
+    tag_match = re.fullmatch(r"v\d+\.\d+\.\d+", version)
+    if not pseudo_match and not tag_match:
         fail()
     info_path = downloaded.get("Info")
     if not isinstance(info_path, str) or not info_path:
@@ -92,15 +94,21 @@ try:
         fail()
     if not isinstance(revision, str) or not re.fullmatch(r"[0-9a-f]{40}", revision):
         fail()
-    if not revision.startswith(match.group(2)):
-        fail()
-    # A named ref can move. Only the immutable hash itself is acceptable.
-    if origin.get("Ref") not in (None, "", revision):
-        fail()
+    if pseudo_match:
+        if not revision.startswith(pseudo_match.group(2)):
+            fail()
+        # A named ref can move. Only the immutable hash itself is acceptable.
+        if origin.get("Ref") not in (None, "", revision):
+            fail()
+        tag = pseudo_match.group(1)
+    else:
+        if origin.get("Ref") != "refs/tags/" + version:
+            fail()
+        tag = version
 except (AttributeError, KeyError, OSError, TypeError, ValueError, json.JSONDecodeError):
     fail()
 
-print("\t".join((version, match.group(1), revision)))
+print("\t".join((version, tag, revision)))
 PY
 }
 

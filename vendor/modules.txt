@@ -56,7 +56,7 @@ github.com/bnema/purego/internal/cgo
 github.com/bnema/purego/internal/fakecgo
 github.com/bnema/purego/internal/strings
 github.com/bnema/purego/internal/xreflect
-# github.com/bnema/purego-cef v0.13.4-0.20260714140305-f0b7414af67e
+# github.com/bnema/purego-cef v0.13.4
 ## explicit; go 1.26
 github.com/bnema/purego-cef/cef
 github.com/bnema/purego-cef/cef/mocks
@@ -65,7 +65,7 @@ github.com/bnema/purego-cef/internal/core
 github.com/bnema/purego-cef/internal/loader
 github.com/bnema/purego-cef/internal/ports/in
 github.com/bnema/purego-cef/internal/ports/out
-# github.com/bnema/purego-cef2gtk v0.8.4-0.20260714160309-bbd397409ebe
+# github.com/bnema/purego-cef2gtk v0.8.5
 ## explicit; go 1.26
 github.com/bnema/purego-cef2gtk
 github.com/bnema/purego-cef2gtk/internal/cefadapter
@@ -76,14 +76,14 @@ github.com/bnema/purego-cef2gtk/internal/gl
 github.com/bnema/purego-cef2gtk/internal/gtkgdk
 github.com/bnema/purego-cef2gtk/internal/gtkgl
 github.com/bnema/purego-cef2gtk/internal/profile
-# github.com/bnema/purego-pipewire v0.1.5-0.20260714124450-6504b9cdf02a
+# github.com/bnema/purego-pipewire v0.1.5
 ## explicit; go 1.26.1
 github.com/bnema/purego-pipewire/internal/capi
 github.com/bnema/purego-pipewire/internal/core
 github.com/bnema/purego-pipewire/internal/loader
 github.com/bnema/purego-pipewire/internal/ports/out
 github.com/bnema/purego-pipewire/pipewire
-# github.com/bnema/purego-sqlite v0.1.4-0.20260714131321-3614fe683b9c
+# github.com/bnema/purego-sqlite v0.1.4
 ## explicit; go 1.26.1
 github.com/bnema/purego-sqlite/driver
 github.com/bnema/purego-sqlite/internal/capi
@@ -92,11 +92,11 @@ github.com/bnema/purego-sqlite/internal/loader
 github.com/bnema/purego-sqlite/internal/ports/in
 github.com/bnema/purego-sqlite/internal/ports/out
 github.com/bnema/purego-sqlite/sqlite
-# github.com/bnema/purego-webp v0.2.1-0.20260714152238-7bc9c402fdf6
+# github.com/bnema/purego-webp v0.2.1
 ## explicit; go 1.26
 github.com/bnema/purego-webp/internal/libwebp
 github.com/bnema/purego-webp/libwebp
-# github.com/bnema/puregotk v0.7.1-0.20260714200603-7370c78950ef
+# github.com/bnema/puregotk v0.7.1
 ## explicit; go 1.24.0
 github.com/bnema/puregotk/internal/core
 github.com/bnema/puregotk/pkg/core
@@ -165,7 +165,7 @@ github.com/clipperhouse/uax29/v2/graphemes
 # github.com/cpuguy83/go-md2man/v2 v2.0.7
 ## explicit; go 1.12
 github.com/cpuguy83/go-md2man/v2/md2man
-# github.com/davecgh/go-spew v1.1.1
+# github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
 ## explicit
 github.com/davecgh/go-spew/spew
 # github.com/erikgeiser/coninput v0.0.0-20211004153227-1c3628e74d0f
@@ -185,8 +185,6 @@ github.com/go-viper/mapstructure/v2/internal/errors
 # github.com/godbus/dbus/v5 v5.2.2
 ## explicit; go 1.20
 github.com/godbus/dbus/v5
-# github.com/google/go-cmp v0.7.0
-## explicit; go 1.21
 # github.com/inconshreveable/mousetrap v1.1.0
 ## explicit; go 1.18
 github.com/inconshreveable/mousetrap
@@ -227,7 +225,7 @@ github.com/pelletier/go-toml/v2
 github.com/pelletier/go-toml/v2/internal/parserbridge
 github.com/pelletier/go-toml/v2/internal/tracker
 github.com/pelletier/go-toml/v2/unstable
-# github.com/pmezard/go-difflib v1.0.0
+# github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2
 ## explicit
 github.com/pmezard/go-difflib/difflib
 # github.com/pressly/goose/v3 v3.27.2
@@ -380,5 +378,3 @@ golang.org/x/tools/internal/versions
 # gopkg.in/yaml.v3 v3.0.1
 ## explicit
 gopkg.in/yaml.v3
-# mvdan.cc/gofumpt v0.9.2
-## explicit; go 1.24.0

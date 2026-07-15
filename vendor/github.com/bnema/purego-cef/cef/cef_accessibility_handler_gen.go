@@ -37,7 +37,7 @@ func accessibilityHandlerOnAccessibilityTreeChangeCEFCallback() uintptr {
 		if !ownerOK {
 			return
 		}
-		value := wrapValue(unsafe.Pointer(arg0))
+		value := wrapValue(cefCallbackPointer(arg0))
 		impl.OnAccessibilityTreeChange(value)
 	})
 }
@@ -51,7 +51,7 @@ func accessibilityHandlerOnAccessibilityLocationChangeCEFCallback() uintptr {
 		if !ownerOK {
 			return
 		}
-		value := wrapValue(unsafe.Pointer(arg0))
+		value := wrapValue(cefCallbackPointer(arg0))
 		impl.OnAccessibilityLocationChange(value)
 	})
 }

@@ -163,10 +163,10 @@ func contextMenuHandlerOnBeforeContextMenuCEFCallback() uintptr {
 		if !ownerOK {
 			return
 		}
-		browser := wrapBrowser(unsafe.Pointer(arg0))
-		frame := wrapFrame(unsafe.Pointer(arg1))
-		params := wrapContextMenuParams(unsafe.Pointer(arg2))
-		model := wrapMenuModel(unsafe.Pointer(arg3))
+		browser := wrapBrowser(cefCallbackPointer(arg0))
+		frame := wrapFrame(cefCallbackPointer(arg1))
+		params := wrapContextMenuParams(cefCallbackPointer(arg2))
+		model := wrapMenuModel(cefCallbackPointer(arg3))
 		impl.OnBeforeContextMenu(browser, frame, params, model)
 	})
 }
@@ -180,11 +180,11 @@ func contextMenuHandlerRunContextMenuCEFCallback() uintptr {
 		if !ownerOK {
 			return 0
 		}
-		browser := wrapBrowser(unsafe.Pointer(arg0))
-		frame := wrapFrame(unsafe.Pointer(arg1))
-		params := wrapContextMenuParams(unsafe.Pointer(arg2))
-		model := wrapMenuModel(unsafe.Pointer(arg3))
-		callback := wrapRunContextMenuCallback(unsafe.Pointer(arg4))
+		browser := wrapBrowser(cefCallbackPointer(arg0))
+		frame := wrapFrame(cefCallbackPointer(arg1))
+		params := wrapContextMenuParams(cefCallbackPointer(arg2))
+		model := wrapMenuModel(cefCallbackPointer(arg3))
+		callback := wrapRunContextMenuCallback(cefCallbackPointer(arg4))
 		return uintptr(impl.RunContextMenu(browser, frame, params, model, callback))
 	})
 }
@@ -198,9 +198,9 @@ func contextMenuHandlerOnContextMenuCommandCEFCallback() uintptr {
 		if !ownerOK {
 			return 0
 		}
-		browser := wrapBrowser(unsafe.Pointer(arg0))
-		frame := wrapFrame(unsafe.Pointer(arg1))
-		params := wrapContextMenuParams(unsafe.Pointer(arg2))
+		browser := wrapBrowser(cefCallbackPointer(arg0))
+		frame := wrapFrame(cefCallbackPointer(arg1))
+		params := wrapContextMenuParams(cefCallbackPointer(arg2))
 		commandID := int32(arg3)
 		eventFlags := EventFlags(arg4)
 		return uintptr(impl.OnContextMenuCommand(browser, frame, params, commandID, eventFlags))
@@ -216,8 +216,8 @@ func contextMenuHandlerOnContextMenuDismissedCEFCallback() uintptr {
 		if !ownerOK {
 			return
 		}
-		browser := wrapBrowser(unsafe.Pointer(arg0))
-		frame := wrapFrame(unsafe.Pointer(arg1))
+		browser := wrapBrowser(cefCallbackPointer(arg0))
+		frame := wrapFrame(cefCallbackPointer(arg1))
 		impl.OnContextMenuDismissed(browser, frame)
 	})
 }
@@ -231,12 +231,12 @@ func contextMenuHandlerRunQuickMenuCEFCallback() uintptr {
 		if !ownerOK {
 			return 0
 		}
-		browser := wrapBrowser(unsafe.Pointer(arg0))
-		frame := wrapFrame(unsafe.Pointer(arg1))
+		browser := wrapBrowser(cefCallbackPointer(arg0))
+		frame := wrapFrame(cefCallbackPointer(arg1))
 		location := (*Point)(unsafe.Pointer(arg2))
 		size := (*Size)(unsafe.Pointer(arg3))
 		editStateFlags := QuickMenuEditStateFlags(arg4)
-		callback := wrapRunQuickMenuCallback(unsafe.Pointer(arg5))
+		callback := wrapRunQuickMenuCallback(cefCallbackPointer(arg5))
 		return uintptr(impl.RunQuickMenu(browser, frame, location, size, editStateFlags, callback))
 	})
 }
@@ -250,8 +250,8 @@ func contextMenuHandlerOnQuickMenuCommandCEFCallback() uintptr {
 		if !ownerOK {
 			return 0
 		}
-		browser := wrapBrowser(unsafe.Pointer(arg0))
-		frame := wrapFrame(unsafe.Pointer(arg1))
+		browser := wrapBrowser(cefCallbackPointer(arg0))
+		frame := wrapFrame(cefCallbackPointer(arg1))
 		commandID := int32(arg2)
 		eventFlags := EventFlags(arg3)
 		return uintptr(impl.OnQuickMenuCommand(browser, frame, commandID, eventFlags))
@@ -267,8 +267,8 @@ func contextMenuHandlerOnQuickMenuDismissedCEFCallback() uintptr {
 		if !ownerOK {
 			return
 		}
-		browser := wrapBrowser(unsafe.Pointer(arg0))
-		frame := wrapFrame(unsafe.Pointer(arg1))
+		browser := wrapBrowser(cefCallbackPointer(arg0))
+		frame := wrapFrame(cefCallbackPointer(arg1))
 		impl.OnQuickMenuDismissed(browser, frame)
 	})
 }

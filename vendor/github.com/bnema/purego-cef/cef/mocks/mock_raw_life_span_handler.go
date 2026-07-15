@@ -62,7 +62,7 @@ type MockRawLifeSpanHandler_DoClose_Call struct {
 
 // DoClose is a helper method to define mock.On call
 //   - browser in.Browser
-func (_e *MockRawLifeSpanHandler_Expecter) DoClose(browser interface{}) *MockRawLifeSpanHandler_DoClose_Call {
+func (_e *MockRawLifeSpanHandler_Expecter) DoClose(browser any) *MockRawLifeSpanHandler_DoClose_Call {
 	return &MockRawLifeSpanHandler_DoClose_Call{Call: _e.mock.On("DoClose", browser)}
 }
 
@@ -102,7 +102,7 @@ type MockRawLifeSpanHandler_OnAfterCreated_Call struct {
 
 // OnAfterCreated is a helper method to define mock.On call
 //   - browser in.Browser
-func (_e *MockRawLifeSpanHandler_Expecter) OnAfterCreated(browser interface{}) *MockRawLifeSpanHandler_OnAfterCreated_Call {
+func (_e *MockRawLifeSpanHandler_Expecter) OnAfterCreated(browser any) *MockRawLifeSpanHandler_OnAfterCreated_Call {
 	return &MockRawLifeSpanHandler_OnAfterCreated_Call{Call: _e.mock.On("OnAfterCreated", browser)}
 }
 
@@ -142,7 +142,7 @@ type MockRawLifeSpanHandler_OnBeforeClose_Call struct {
 
 // OnBeforeClose is a helper method to define mock.On call
 //   - browser in.Browser
-func (_e *MockRawLifeSpanHandler_Expecter) OnBeforeClose(browser interface{}) *MockRawLifeSpanHandler_OnBeforeClose_Call {
+func (_e *MockRawLifeSpanHandler_Expecter) OnBeforeClose(browser any) *MockRawLifeSpanHandler_OnBeforeClose_Call {
 	return &MockRawLifeSpanHandler_OnBeforeClose_Call{Call: _e.mock.On("OnBeforeClose", browser)}
 }
 
@@ -187,7 +187,7 @@ type MockRawLifeSpanHandler_OnBeforeDevToolsPopup_Call struct {
 //   - settings *in.BrowserSettings
 //   - extraInfo unsafe.Pointer
 //   - useDefaultWindow *int32
-func (_e *MockRawLifeSpanHandler_Expecter) OnBeforeDevToolsPopup(browser interface{}, windowinfo interface{}, client interface{}, settings interface{}, extraInfo interface{}, useDefaultWindow interface{}) *MockRawLifeSpanHandler_OnBeforeDevToolsPopup_Call {
+func (_e *MockRawLifeSpanHandler_Expecter) OnBeforeDevToolsPopup(browser any, windowinfo any, client any, settings any, extraInfo any, useDefaultWindow any) *MockRawLifeSpanHandler_OnBeforeDevToolsPopup_Call {
 	return &MockRawLifeSpanHandler_OnBeforeDevToolsPopup_Call{Call: _e.mock.On("OnBeforeDevToolsPopup", browser, windowinfo, client, settings, extraInfo, useDefaultWindow)}
 }
 
@@ -275,7 +275,7 @@ type MockRawLifeSpanHandler_OnBeforePopup_Call struct {
 //   - settings *in.BrowserSettings
 //   - extraInfo unsafe.Pointer
 //   - noJavascriptAccess *int32
-func (_e *MockRawLifeSpanHandler_Expecter) OnBeforePopup(browser interface{}, frame interface{}, popupID interface{}, targetURL interface{}, targetFrameName interface{}, targetDisposition interface{}, userGesture interface{}, popupfeatures interface{}, windowinfo interface{}, client interface{}, settings interface{}, extraInfo interface{}, noJavascriptAccess interface{}) *MockRawLifeSpanHandler_OnBeforePopup_Call {
+func (_e *MockRawLifeSpanHandler_Expecter) OnBeforePopup(browser any, frame any, popupID any, targetURL any, targetFrameName any, targetDisposition any, userGesture any, popupfeatures any, windowinfo any, client any, settings any, extraInfo any, noJavascriptAccess any) *MockRawLifeSpanHandler_OnBeforePopup_Call {
 	return &MockRawLifeSpanHandler_OnBeforePopup_Call{Call: _e.mock.On("OnBeforePopup", browser, frame, popupID, targetURL, targetFrameName, targetDisposition, userGesture, popupfeatures, windowinfo, client, settings, extraInfo, noJavascriptAccess)}
 }
 
@@ -376,7 +376,7 @@ type MockRawLifeSpanHandler_OnBeforePopupAborted_Call struct {
 // OnBeforePopupAborted is a helper method to define mock.On call
 //   - browser in.Browser
 //   - popupID int32
-func (_e *MockRawLifeSpanHandler_Expecter) OnBeforePopupAborted(browser interface{}, popupID interface{}) *MockRawLifeSpanHandler_OnBeforePopupAborted_Call {
+func (_e *MockRawLifeSpanHandler_Expecter) OnBeforePopupAborted(browser any, popupID any) *MockRawLifeSpanHandler_OnBeforePopupAborted_Call {
 	return &MockRawLifeSpanHandler_OnBeforePopupAborted_Call{Call: _e.mock.On("OnBeforePopupAborted", browser, popupID)}
 }
 

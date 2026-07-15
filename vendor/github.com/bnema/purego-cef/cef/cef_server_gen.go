@@ -204,7 +204,7 @@ func serverHandlerOnServerCreatedCEFCallback() uintptr {
 		if !ownerOK {
 			return
 		}
-		server := wrapServer(unsafe.Pointer(arg0))
+		server := wrapServer(cefCallbackPointer(arg0))
 		impl.OnServerCreated(server)
 	})
 }
@@ -218,7 +218,7 @@ func serverHandlerOnServerDestroyedCEFCallback() uintptr {
 		if !ownerOK {
 			return
 		}
-		server := wrapServer(unsafe.Pointer(arg0))
+		server := wrapServer(cefCallbackPointer(arg0))
 		impl.OnServerDestroyed(server)
 	})
 }
@@ -232,7 +232,7 @@ func serverHandlerOnClientConnectedCEFCallback() uintptr {
 		if !ownerOK {
 			return
 		}
-		server := wrapServer(unsafe.Pointer(arg0))
+		server := wrapServer(cefCallbackPointer(arg0))
 		connectionID := int32(arg1)
 		impl.OnClientConnected(server, connectionID)
 	})
@@ -247,7 +247,7 @@ func serverHandlerOnClientDisconnectedCEFCallback() uintptr {
 		if !ownerOK {
 			return
 		}
-		server := wrapServer(unsafe.Pointer(arg0))
+		server := wrapServer(cefCallbackPointer(arg0))
 		connectionID := int32(arg1)
 		impl.OnClientDisconnected(server, connectionID)
 	})
@@ -262,10 +262,10 @@ func serverHandlerOnHttpRequestCEFCallback() uintptr {
 		if !ownerOK {
 			return
 		}
-		server := wrapServer(unsafe.Pointer(arg0))
+		server := wrapServer(cefCallbackPointer(arg0))
 		connectionID := int32(arg1)
 		clientAddress := goString(unsafe.Pointer(arg2))
-		request := wrapRequest(unsafe.Pointer(arg3))
+		request := wrapRequest(cefCallbackPointer(arg3))
 		impl.OnHttpRequest(server, connectionID, clientAddress, request)
 	})
 }
@@ -279,11 +279,11 @@ func serverHandlerOnWebSocketRequestCEFCallback() uintptr {
 		if !ownerOK {
 			return
 		}
-		server := wrapServer(unsafe.Pointer(arg0))
+		server := wrapServer(cefCallbackPointer(arg0))
 		connectionID := int32(arg1)
 		clientAddress := goString(unsafe.Pointer(arg2))
-		request := wrapRequest(unsafe.Pointer(arg3))
-		callback := wrapCallback(unsafe.Pointer(arg4))
+		request := wrapRequest(cefCallbackPointer(arg3))
+		callback := wrapCallback(cefCallbackPointer(arg4))
 		impl.OnWebSocketRequest(server, connectionID, clientAddress, request, callback)
 	})
 }
@@ -297,7 +297,7 @@ func serverHandlerOnWebSocketConnectedCEFCallback() uintptr {
 		if !ownerOK {
 			return
 		}
-		server := wrapServer(unsafe.Pointer(arg0))
+		server := wrapServer(cefCallbackPointer(arg0))
 		connectionID := int32(arg1)
 		impl.OnWebSocketConnected(server, connectionID)
 	})
@@ -312,7 +312,7 @@ func serverHandlerOnWebSocketMessageCEFCallback() uintptr {
 		if !ownerOK {
 			return
 		}
-		server := wrapServer(unsafe.Pointer(arg0))
+		server := wrapServer(cefCallbackPointer(arg0))
 		connectionID := int32(arg1)
 		data := unsafe.Pointer(arg2)
 		dataSize := int(arg3)

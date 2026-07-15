@@ -37,8 +37,8 @@ func browserViewDelegateOnBrowserCreatedCEFCallback() uintptr {
 		if !ownerOK {
 			return
 		}
-		browserView := wrapBrowserView(unsafe.Pointer(arg0))
-		browser := wrapBrowser(unsafe.Pointer(arg1))
+		browserView := wrapBrowserView(cefCallbackPointer(arg0))
+		browser := wrapBrowser(cefCallbackPointer(arg1))
 		impl.OnBrowserCreated(browserView, browser)
 	})
 }
@@ -52,8 +52,8 @@ func browserViewDelegateOnBrowserDestroyedCEFCallback() uintptr {
 		if !ownerOK {
 			return
 		}
-		browserView := wrapBrowserView(unsafe.Pointer(arg0))
-		browser := wrapBrowser(unsafe.Pointer(arg1))
+		browserView := wrapBrowserView(cefCallbackPointer(arg0))
+		browser := wrapBrowser(cefCallbackPointer(arg1))
 		impl.OnBrowserDestroyed(browserView, browser)
 	})
 }
@@ -67,9 +67,9 @@ func browserViewDelegateGetDelegateForPopupBrowserViewCEFCallback() uintptr {
 		if !ownerOK {
 			return 0
 		}
-		browserView := wrapBrowserView(unsafe.Pointer(arg0))
+		browserView := wrapBrowserView(cefCallbackPointer(arg0))
 		settings := (*BrowserSettings)(unsafe.Pointer(arg1))
-		client := wrapRawClient(unsafe.Pointer(arg2))
+		client := wrapRawClient(cefCallbackPointer(arg2))
 		isDevtools := int32(arg3)
 		result := impl.GetDelegateForPopupBrowserView(browserView, settings, client, isDevtools)
 		if result == nil {
@@ -90,8 +90,8 @@ func browserViewDelegateOnPopupBrowserViewCreatedCEFCallback() uintptr {
 		if !ownerOK {
 			return 0
 		}
-		browserView := wrapBrowserView(unsafe.Pointer(arg0))
-		popupBrowserView := wrapBrowserView(unsafe.Pointer(arg1))
+		browserView := wrapBrowserView(cefCallbackPointer(arg0))
+		popupBrowserView := wrapBrowserView(cefCallbackPointer(arg1))
 		isDevtools := int32(arg2)
 		return uintptr(impl.OnPopupBrowserViewCreated(browserView, popupBrowserView, isDevtools))
 	})
@@ -106,7 +106,7 @@ func browserViewDelegateGetChromeToolbarTypeCEFCallback() uintptr {
 		if !ownerOK {
 			return 0
 		}
-		browserView := wrapBrowserView(unsafe.Pointer(arg0))
+		browserView := wrapBrowserView(cefCallbackPointer(arg0))
 		return uintptr(impl.GetChromeToolbarType(browserView))
 	})
 }
@@ -120,7 +120,7 @@ func browserViewDelegateUseFramelessWindowForPictureInPictureCEFCallback() uintp
 		if !ownerOK {
 			return 0
 		}
-		browserView := wrapBrowserView(unsafe.Pointer(arg0))
+		browserView := wrapBrowserView(cefCallbackPointer(arg0))
 		return uintptr(impl.UseFramelessWindowForPictureInPicture(browserView))
 	})
 }
@@ -134,7 +134,7 @@ func browserViewDelegateOnGestureCommandCEFCallback() uintptr {
 		if !ownerOK {
 			return 0
 		}
-		browserView := wrapBrowserView(unsafe.Pointer(arg0))
+		browserView := wrapBrowserView(cefCallbackPointer(arg0))
 		gestureCommand := GestureCommand(arg1)
 		return uintptr(impl.OnGestureCommand(browserView, gestureCommand))
 	})
@@ -162,7 +162,7 @@ func browserViewDelegateAllowMoveForPictureInPictureCEFCallback() uintptr {
 		if !ownerOK {
 			return 0
 		}
-		browserView := wrapBrowserView(unsafe.Pointer(arg0))
+		browserView := wrapBrowserView(cefCallbackPointer(arg0))
 		return uintptr(impl.AllowMoveForPictureInPicture(browserView))
 	})
 }
@@ -176,7 +176,7 @@ func browserViewDelegateAllowPictureInPictureWithoutUserActivationCEFCallback() 
 		if !ownerOK {
 			return 0
 		}
-		browserView := wrapBrowserView(unsafe.Pointer(arg0))
+		browserView := wrapBrowserView(cefCallbackPointer(arg0))
 		return uintptr(impl.AllowPictureInPictureWithoutUserActivation(browserView))
 	})
 }

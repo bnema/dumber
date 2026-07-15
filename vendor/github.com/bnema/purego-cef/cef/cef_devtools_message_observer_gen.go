@@ -37,7 +37,7 @@ func devToolsMessageObserverOnDevToolsMessageCEFCallback() uintptr {
 		if !ownerOK {
 			return 0
 		}
-		browser := wrapBrowser(unsafe.Pointer(arg0))
+		browser := wrapBrowser(cefCallbackPointer(arg0))
 		message := unsafe.Pointer(arg1)
 		messageSize := int(arg2)
 		return uintptr(impl.OnDevToolsMessage(browser, message, messageSize))
@@ -53,7 +53,7 @@ func devToolsMessageObserverOnDevToolsMethodResultCEFCallback() uintptr {
 		if !ownerOK {
 			return
 		}
-		browser := wrapBrowser(unsafe.Pointer(arg0))
+		browser := wrapBrowser(cefCallbackPointer(arg0))
 		messageID := int32(arg1)
 		success := int32(arg2)
 		result := unsafe.Pointer(arg3)
@@ -71,7 +71,7 @@ func devToolsMessageObserverOnDevToolsEventCEFCallback() uintptr {
 		if !ownerOK {
 			return
 		}
-		browser := wrapBrowser(unsafe.Pointer(arg0))
+		browser := wrapBrowser(cefCallbackPointer(arg0))
 		method := goString(unsafe.Pointer(arg1))
 		params := unsafe.Pointer(arg2)
 		paramsSize := int(arg3)
@@ -88,7 +88,7 @@ func devToolsMessageObserverOnDevToolsAgentAttachedCEFCallback() uintptr {
 		if !ownerOK {
 			return
 		}
-		browser := wrapBrowser(unsafe.Pointer(arg0))
+		browser := wrapBrowser(cefCallbackPointer(arg0))
 		impl.OnDevToolsAgentAttached(browser)
 	})
 }
@@ -102,7 +102,7 @@ func devToolsMessageObserverOnDevToolsAgentDetachedCEFCallback() uintptr {
 		if !ownerOK {
 			return
 		}
-		browser := wrapBrowser(unsafe.Pointer(arg0))
+		browser := wrapBrowser(cefCallbackPointer(arg0))
 		impl.OnDevToolsAgentDetached(browser)
 	})
 }

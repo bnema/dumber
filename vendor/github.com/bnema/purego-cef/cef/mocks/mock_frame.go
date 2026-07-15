@@ -96,7 +96,7 @@ type MockFrame_CreateUrlrequest_Call struct {
 // CreateUrlrequest is a helper method to define mock.On call
 //   - request in.Request
 //   - client in.UrlrequestClient
-func (_e *MockFrame_Expecter) CreateUrlrequest(request interface{}, client interface{}) *MockFrame_CreateUrlrequest_Call {
+func (_e *MockFrame_Expecter) CreateUrlrequest(request any, client any) *MockFrame_CreateUrlrequest_Call {
 	return &MockFrame_CreateUrlrequest_Call{Call: _e.mock.On("CreateUrlrequest", request, client)}
 }
 
@@ -209,7 +209,7 @@ type MockFrame_ExecuteJavaScript_Call struct {
 //   - code string
 //   - scriptURL string
 //   - startLine int32
-func (_e *MockFrame_Expecter) ExecuteJavaScript(code interface{}, scriptURL interface{}, startLine interface{}) *MockFrame_ExecuteJavaScript_Call {
+func (_e *MockFrame_Expecter) ExecuteJavaScript(code any, scriptURL any, startLine any) *MockFrame_ExecuteJavaScript_Call {
 	return &MockFrame_ExecuteJavaScript_Call{Call: _e.mock.On("ExecuteJavaScript", code, scriptURL, startLine)}
 }
 
@@ -439,7 +439,7 @@ type MockFrame_GetSource_Call struct {
 
 // GetSource is a helper method to define mock.On call
 //   - visitor in.StringVisitor
-func (_e *MockFrame_Expecter) GetSource(visitor interface{}) *MockFrame_GetSource_Call {
+func (_e *MockFrame_Expecter) GetSource(visitor any) *MockFrame_GetSource_Call {
 	return &MockFrame_GetSource_Call{Call: _e.mock.On("GetSource", visitor)}
 }
 
@@ -479,7 +479,7 @@ type MockFrame_GetText_Call struct {
 
 // GetText is a helper method to define mock.On call
 //   - visitor in.StringVisitor
-func (_e *MockFrame_Expecter) GetText(visitor interface{}) *MockFrame_GetText_Call {
+func (_e *MockFrame_Expecter) GetText(visitor any) *MockFrame_GetText_Call {
 	return &MockFrame_GetText_Call{Call: _e.mock.On("GetText", visitor)}
 }
 
@@ -741,7 +741,7 @@ type MockFrame_LoadRequest_Call struct {
 
 // LoadRequest is a helper method to define mock.On call
 //   - request in.Request
-func (_e *MockFrame_Expecter) LoadRequest(request interface{}) *MockFrame_LoadRequest_Call {
+func (_e *MockFrame_Expecter) LoadRequest(request any) *MockFrame_LoadRequest_Call {
 	return &MockFrame_LoadRequest_Call{Call: _e.mock.On("LoadRequest", request)}
 }
 
@@ -781,7 +781,7 @@ type MockFrame_LoadURL_Call struct {
 
 // LoadURL is a helper method to define mock.On call
 //   - uRL string
-func (_e *MockFrame_Expecter) LoadURL(uRL interface{}) *MockFrame_LoadURL_Call {
+func (_e *MockFrame_Expecter) LoadURL(uRL any) *MockFrame_LoadURL_Call {
 	return &MockFrame_LoadURL_Call{Call: _e.mock.On("LoadURL", uRL)}
 }
 
@@ -954,7 +954,7 @@ type MockFrame_SendProcessMessage_Call struct {
 // SendProcessMessage is a helper method to define mock.On call
 //   - targetProcess in.ProcessID
 //   - message in.ProcessMessage
-func (_e *MockFrame_Expecter) SendProcessMessage(targetProcess interface{}, message interface{}) *MockFrame_SendProcessMessage_Call {
+func (_e *MockFrame_Expecter) SendProcessMessage(targetProcess any, message any) *MockFrame_SendProcessMessage_Call {
 	return &MockFrame_SendProcessMessage_Call{Call: _e.mock.On("SendProcessMessage", targetProcess, message)}
 }
 
@@ -1065,7 +1065,7 @@ type MockFrame_VisitDom_Call struct {
 
 // VisitDom is a helper method to define mock.On call
 //   - visitor in.Domvisitor
-func (_e *MockFrame_Expecter) VisitDom(visitor interface{}) *MockFrame_VisitDom_Call {
+func (_e *MockFrame_Expecter) VisitDom(visitor any) *MockFrame_VisitDom_Call {
 	return &MockFrame_VisitDom_Call{Call: _e.mock.On("VisitDom", visitor)}
 }
 

@@ -148,7 +148,7 @@ type MockRequest_GetHeaderByName_Call struct {
 
 // GetHeaderByName is a helper method to define mock.On call
 //   - name string
-func (_e *MockRequest_Expecter) GetHeaderByName(name interface{}) *MockRequest_GetHeaderByName_Call {
+func (_e *MockRequest_Expecter) GetHeaderByName(name any) *MockRequest_GetHeaderByName_Call {
 	return &MockRequest_GetHeaderByName_Call{Call: _e.mock.On("GetHeaderByName", name)}
 }
 
@@ -188,7 +188,7 @@ type MockRequest_GetHeaderMap_Call struct {
 
 // GetHeaderMap is a helper method to define mock.On call
 //   - headermap in.StringMultimap
-func (_e *MockRequest_Expecter) GetHeaderMap(headermap interface{}) *MockRequest_GetHeaderMap_Call {
+func (_e *MockRequest_Expecter) GetHeaderMap(headermap any) *MockRequest_GetHeaderMap_Call {
 	return &MockRequest_GetHeaderMap_Call{Call: _e.mock.On("GetHeaderMap", headermap)}
 }
 
@@ -629,7 +629,7 @@ type MockRequest_Set_Call struct {
 //   - method string
 //   - postdata in.PostData
 //   - headermap in.StringMultimap
-func (_e *MockRequest_Expecter) Set(uRL interface{}, method interface{}, postdata interface{}, headermap interface{}) *MockRequest_Set_Call {
+func (_e *MockRequest_Expecter) Set(uRL any, method any, postdata any, headermap any) *MockRequest_Set_Call {
 	return &MockRequest_Set_Call{Call: _e.mock.On("Set", uRL, method, postdata, headermap)}
 }
 
@@ -684,7 +684,7 @@ type MockRequest_SetFirstPartyForCookies_Call struct {
 
 // SetFirstPartyForCookies is a helper method to define mock.On call
 //   - uRL string
-func (_e *MockRequest_Expecter) SetFirstPartyForCookies(uRL interface{}) *MockRequest_SetFirstPartyForCookies_Call {
+func (_e *MockRequest_Expecter) SetFirstPartyForCookies(uRL any) *MockRequest_SetFirstPartyForCookies_Call {
 	return &MockRequest_SetFirstPartyForCookies_Call{Call: _e.mock.On("SetFirstPartyForCookies", uRL)}
 }
 
@@ -724,7 +724,7 @@ type MockRequest_SetFlags_Call struct {
 
 // SetFlags is a helper method to define mock.On call
 //   - flags int32
-func (_e *MockRequest_Expecter) SetFlags(flags interface{}) *MockRequest_SetFlags_Call {
+func (_e *MockRequest_Expecter) SetFlags(flags any) *MockRequest_SetFlags_Call {
 	return &MockRequest_SetFlags_Call{Call: _e.mock.On("SetFlags", flags)}
 }
 
@@ -766,7 +766,7 @@ type MockRequest_SetHeaderByName_Call struct {
 //   - name string
 //   - value string
 //   - overwrite int32
-func (_e *MockRequest_Expecter) SetHeaderByName(name interface{}, value interface{}, overwrite interface{}) *MockRequest_SetHeaderByName_Call {
+func (_e *MockRequest_Expecter) SetHeaderByName(name any, value any, overwrite any) *MockRequest_SetHeaderByName_Call {
 	return &MockRequest_SetHeaderByName_Call{Call: _e.mock.On("SetHeaderByName", name, value, overwrite)}
 }
 
@@ -816,7 +816,7 @@ type MockRequest_SetHeaderMap_Call struct {
 
 // SetHeaderMap is a helper method to define mock.On call
 //   - headermap in.StringMultimap
-func (_e *MockRequest_Expecter) SetHeaderMap(headermap interface{}) *MockRequest_SetHeaderMap_Call {
+func (_e *MockRequest_Expecter) SetHeaderMap(headermap any) *MockRequest_SetHeaderMap_Call {
 	return &MockRequest_SetHeaderMap_Call{Call: _e.mock.On("SetHeaderMap", headermap)}
 }
 
@@ -856,7 +856,7 @@ type MockRequest_SetMethod_Call struct {
 
 // SetMethod is a helper method to define mock.On call
 //   - method string
-func (_e *MockRequest_Expecter) SetMethod(method interface{}) *MockRequest_SetMethod_Call {
+func (_e *MockRequest_Expecter) SetMethod(method any) *MockRequest_SetMethod_Call {
 	return &MockRequest_SetMethod_Call{Call: _e.mock.On("SetMethod", method)}
 }
 
@@ -896,7 +896,7 @@ type MockRequest_SetPostData_Call struct {
 
 // SetPostData is a helper method to define mock.On call
 //   - postdata in.PostData
-func (_e *MockRequest_Expecter) SetPostData(postdata interface{}) *MockRequest_SetPostData_Call {
+func (_e *MockRequest_Expecter) SetPostData(postdata any) *MockRequest_SetPostData_Call {
 	return &MockRequest_SetPostData_Call{Call: _e.mock.On("SetPostData", postdata)}
 }
 
@@ -937,7 +937,7 @@ type MockRequest_SetReferrer_Call struct {
 // SetReferrer is a helper method to define mock.On call
 //   - referrerURL string
 //   - policy in.ReferrerPolicy
-func (_e *MockRequest_Expecter) SetReferrer(referrerURL interface{}, policy interface{}) *MockRequest_SetReferrer_Call {
+func (_e *MockRequest_Expecter) SetReferrer(referrerURL any, policy any) *MockRequest_SetReferrer_Call {
 	return &MockRequest_SetReferrer_Call{Call: _e.mock.On("SetReferrer", referrerURL, policy)}
 }
 
@@ -982,7 +982,7 @@ type MockRequest_SetURL_Call struct {
 
 // SetURL is a helper method to define mock.On call
 //   - uRL string
-func (_e *MockRequest_Expecter) SetURL(uRL interface{}) *MockRequest_SetURL_Call {
+func (_e *MockRequest_Expecter) SetURL(uRL any) *MockRequest_SetURL_Call {
 	return &MockRequest_SetURL_Call{Call: _e.mock.On("SetURL", uRL)}
 }
 

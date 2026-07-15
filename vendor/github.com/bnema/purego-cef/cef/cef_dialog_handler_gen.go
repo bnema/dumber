@@ -100,14 +100,14 @@ func dialogHandlerOnFileDialogCEFCallback() uintptr {
 		if !ownerOK {
 			return 0
 		}
-		browser := wrapBrowser(unsafe.Pointer(arg0))
+		browser := wrapBrowser(cefCallbackPointer(arg0))
 		mode := FileDialogMode(arg1)
 		title := goString(unsafe.Pointer(arg2))
 		defaultFilePath := goString(unsafe.Pointer(arg3))
 		acceptFilters := StringList(arg4)
 		acceptExtensions := StringList(arg5)
 		acceptDescriptions := StringList(arg6)
-		callback := wrapFileDialogCallback(unsafe.Pointer(arg7))
+		callback := wrapFileDialogCallback(cefCallbackPointer(arg7))
 		return uintptr(impl.OnFileDialog(browser, mode, title, defaultFilePath, acceptFilters, acceptExtensions, acceptDescriptions, callback))
 	})
 }

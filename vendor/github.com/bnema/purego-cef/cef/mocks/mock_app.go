@@ -188,7 +188,7 @@ type MockApp_OnBeforeCommandLineProcessing_Call struct {
 // OnBeforeCommandLineProcessing is a helper method to define mock.On call
 //   - processType string
 //   - commandLine in.CommandLine
-func (_e *MockApp_Expecter) OnBeforeCommandLineProcessing(processType interface{}, commandLine interface{}) *MockApp_OnBeforeCommandLineProcessing_Call {
+func (_e *MockApp_Expecter) OnBeforeCommandLineProcessing(processType any, commandLine any) *MockApp_OnBeforeCommandLineProcessing_Call {
 	return &MockApp_OnBeforeCommandLineProcessing_Call{Call: _e.mock.On("OnBeforeCommandLineProcessing", processType, commandLine)}
 }
 
@@ -233,7 +233,7 @@ type MockApp_OnRegisterCustomSchemes_Call struct {
 
 // OnRegisterCustomSchemes is a helper method to define mock.On call
 //   - registrar in.SchemeRegistrar
-func (_e *MockApp_Expecter) OnRegisterCustomSchemes(registrar interface{}) *MockApp_OnRegisterCustomSchemes_Call {
+func (_e *MockApp_Expecter) OnRegisterCustomSchemes(registrar any) *MockApp_OnRegisterCustomSchemes_Call {
 	return &MockApp_OnRegisterCustomSchemes_Call{Call: _e.mock.On("OnRegisterCustomSchemes", registrar)}
 }
 

@@ -130,10 +130,10 @@ func mediaObserverOnSinksCEFCallback() uintptr {
 		}
 		var sinks []MediaSink
 		if arg1 != 0 && arg0 > 0 {
-			sinksPtrs := unsafe.Slice((*uintptr)(unsafe.Pointer(arg1)), int(arg0))
+			sinksPtrs := unsafe.Slice((*uintptr)(cefCallbackPointer(arg1)), int(arg0))
 			sinks = make([]MediaSink, int(arg0))
 			for i, ptr := range sinksPtrs {
-				sinks[i] = wrapMediaSink(unsafe.Pointer(ptr))
+				sinks[i] = wrapMediaSink(cefCallbackPointer(ptr))
 			}
 		}
 		impl.OnSinks(sinks)
@@ -151,10 +151,10 @@ func mediaObserverOnRoutesCEFCallback() uintptr {
 		}
 		var routes []MediaRoute
 		if arg1 != 0 && arg0 > 0 {
-			routesPtrs := unsafe.Slice((*uintptr)(unsafe.Pointer(arg1)), int(arg0))
+			routesPtrs := unsafe.Slice((*uintptr)(cefCallbackPointer(arg1)), int(arg0))
 			routes = make([]MediaRoute, int(arg0))
 			for i, ptr := range routesPtrs {
-				routes[i] = wrapMediaRoute(unsafe.Pointer(ptr))
+				routes[i] = wrapMediaRoute(cefCallbackPointer(ptr))
 			}
 		}
 		impl.OnRoutes(routes)
@@ -170,7 +170,7 @@ func mediaObserverOnRouteStateChangedCEFCallback() uintptr {
 		if !ownerOK {
 			return
 		}
-		route := wrapMediaRoute(unsafe.Pointer(arg0))
+		route := wrapMediaRoute(cefCallbackPointer(arg0))
 		state := MediaRouteConnectionState(arg1)
 		impl.OnRouteStateChanged(route, state)
 	})
@@ -185,7 +185,7 @@ func mediaObserverOnRouteMessageReceivedCEFCallback() uintptr {
 		if !ownerOK {
 			return
 		}
-		route := wrapMediaRoute(unsafe.Pointer(arg0))
+		route := wrapMediaRoute(cefCallbackPointer(arg0))
 		message := unsafe.Pointer(arg1)
 		messageSize := int(arg2)
 		impl.OnRouteMessageReceived(route, message, messageSize)
@@ -425,7 +425,7 @@ func mediaRouteCreateCallbackOnMediaRouteCreateFinishedCEFCallback() uintptr {
 		}
 		result := MediaRouteCreateResult(arg0)
 		error := goString(unsafe.Pointer(arg1))
-		route := wrapMediaRoute(unsafe.Pointer(arg2))
+		route := wrapMediaRoute(cefCallbackPointer(arg2))
 		impl.OnMediaRouteCreateFinished(result, error, route)
 	})
 }

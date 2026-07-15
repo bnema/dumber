@@ -101,9 +101,9 @@ func testServerHandlerOnTestServerRequestCEFCallback() uintptr {
 		if !ownerOK {
 			return 0
 		}
-		server := wrapTestServer(unsafe.Pointer(arg0))
-		request := wrapRequest(unsafe.Pointer(arg1))
-		connection := wrapTestServerConnection(unsafe.Pointer(arg2))
+		server := wrapTestServer(cefCallbackPointer(arg0))
+		request := wrapRequest(cefCallbackPointer(arg1))
+		connection := wrapTestServerConnection(cefCallbackPointer(arg2))
 		return uintptr(impl.OnTestServerRequest(server, request, connection))
 	})
 }

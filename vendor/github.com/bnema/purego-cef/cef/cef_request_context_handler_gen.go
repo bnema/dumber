@@ -37,7 +37,7 @@ func requestContextHandlerOnRequestContextInitializedCEFCallback() uintptr {
 		if !ownerOK {
 			return
 		}
-		requestContext := wrapRequestContext(unsafe.Pointer(arg0))
+		requestContext := wrapRequestContext(cefCallbackPointer(arg0))
 		impl.OnRequestContextInitialized(requestContext)
 	})
 }
@@ -51,9 +51,9 @@ func requestContextHandlerGetResourceRequestHandlerCEFCallback() uintptr {
 		if !ownerOK {
 			return 0
 		}
-		browser := wrapBrowser(unsafe.Pointer(arg0))
-		frame := wrapFrame(unsafe.Pointer(arg1))
-		request := wrapRequest(unsafe.Pointer(arg2))
+		browser := wrapBrowser(cefCallbackPointer(arg0))
+		frame := wrapFrame(cefCallbackPointer(arg1))
+		request := wrapRequest(cefCallbackPointer(arg2))
 		isNavigation := int32(arg3)
 		isDownload := int32(arg4)
 		requestInitiator := goString(unsafe.Pointer(arg5))

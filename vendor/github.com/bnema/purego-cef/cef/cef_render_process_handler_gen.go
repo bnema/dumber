@@ -51,8 +51,8 @@ func renderProcessHandlerOnBrowserCreatedCEFCallback() uintptr {
 		if !ownerOK {
 			return
 		}
-		browser := wrapBrowser(unsafe.Pointer(arg0))
-		extraInfo := wrapDictionaryValue(unsafe.Pointer(arg1))
+		browser := wrapBrowser(cefCallbackPointer(arg0))
+		extraInfo := wrapDictionaryValue(cefCallbackPointer(arg1))
 		impl.OnBrowserCreated(browser, extraInfo)
 	})
 }
@@ -66,7 +66,7 @@ func renderProcessHandlerOnBrowserDestroyedCEFCallback() uintptr {
 		if !ownerOK {
 			return
 		}
-		browser := wrapBrowser(unsafe.Pointer(arg0))
+		browser := wrapBrowser(cefCallbackPointer(arg0))
 		impl.OnBrowserDestroyed(browser)
 	})
 }
@@ -94,9 +94,9 @@ func renderProcessHandlerOnContextCreatedCEFCallback() uintptr {
 		if !ownerOK {
 			return
 		}
-		browser := wrapBrowser(unsafe.Pointer(arg0))
-		frame := wrapFrame(unsafe.Pointer(arg1))
-		context := wrapV8Context(unsafe.Pointer(arg2))
+		browser := wrapBrowser(cefCallbackPointer(arg0))
+		frame := wrapFrame(cefCallbackPointer(arg1))
+		context := wrapV8Context(cefCallbackPointer(arg2))
 		impl.OnContextCreated(browser, frame, context)
 	})
 }
@@ -110,9 +110,9 @@ func renderProcessHandlerOnContextReleasedCEFCallback() uintptr {
 		if !ownerOK {
 			return
 		}
-		browser := wrapBrowser(unsafe.Pointer(arg0))
-		frame := wrapFrame(unsafe.Pointer(arg1))
-		context := wrapV8Context(unsafe.Pointer(arg2))
+		browser := wrapBrowser(cefCallbackPointer(arg0))
+		frame := wrapFrame(cefCallbackPointer(arg1))
+		context := wrapV8Context(cefCallbackPointer(arg2))
 		impl.OnContextReleased(browser, frame, context)
 	})
 }
@@ -126,11 +126,11 @@ func renderProcessHandlerOnUncaughtExceptionCEFCallback() uintptr {
 		if !ownerOK {
 			return
 		}
-		browser := wrapBrowser(unsafe.Pointer(arg0))
-		frame := wrapFrame(unsafe.Pointer(arg1))
-		context := wrapV8Context(unsafe.Pointer(arg2))
-		exception := wrapV8Exception(unsafe.Pointer(arg3))
-		stacktrace := wrapV8StackTrace(unsafe.Pointer(arg4))
+		browser := wrapBrowser(cefCallbackPointer(arg0))
+		frame := wrapFrame(cefCallbackPointer(arg1))
+		context := wrapV8Context(cefCallbackPointer(arg2))
+		exception := wrapV8Exception(cefCallbackPointer(arg3))
+		stacktrace := wrapV8StackTrace(cefCallbackPointer(arg4))
 		impl.OnUncaughtException(browser, frame, context, exception, stacktrace)
 	})
 }
@@ -144,9 +144,9 @@ func renderProcessHandlerOnFocusedNodeChangedCEFCallback() uintptr {
 		if !ownerOK {
 			return
 		}
-		browser := wrapBrowser(unsafe.Pointer(arg0))
-		frame := wrapFrame(unsafe.Pointer(arg1))
-		node := wrapDomnode(unsafe.Pointer(arg2))
+		browser := wrapBrowser(cefCallbackPointer(arg0))
+		frame := wrapFrame(cefCallbackPointer(arg1))
+		node := wrapDomnode(cefCallbackPointer(arg2))
 		impl.OnFocusedNodeChanged(browser, frame, node)
 	})
 }
@@ -160,10 +160,10 @@ func renderProcessHandlerOnProcessMessageReceivedCEFCallback() uintptr {
 		if !ownerOK {
 			return 0
 		}
-		browser := wrapBrowser(unsafe.Pointer(arg0))
-		frame := wrapFrame(unsafe.Pointer(arg1))
+		browser := wrapBrowser(cefCallbackPointer(arg0))
+		frame := wrapFrame(cefCallbackPointer(arg1))
 		sourceProcess := ProcessID(arg2)
-		message := wrapProcessMessage(unsafe.Pointer(arg3))
+		message := wrapProcessMessage(cefCallbackPointer(arg3))
 		return uintptr(impl.OnProcessMessageReceived(browser, frame, sourceProcess, message))
 	})
 }

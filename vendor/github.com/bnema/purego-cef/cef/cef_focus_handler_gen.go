@@ -37,7 +37,7 @@ func focusHandlerOnTakeFocusCEFCallback() uintptr {
 		if !ownerOK {
 			return
 		}
-		browser := wrapBrowser(unsafe.Pointer(arg0))
+		browser := wrapBrowser(cefCallbackPointer(arg0))
 		next := int32(arg1)
 		impl.OnTakeFocus(browser, next)
 	})
@@ -52,7 +52,7 @@ func focusHandlerOnSetFocusCEFCallback() uintptr {
 		if !ownerOK {
 			return 0
 		}
-		browser := wrapBrowser(unsafe.Pointer(arg0))
+		browser := wrapBrowser(cefCallbackPointer(arg0))
 		source := FocusSource(arg1)
 		return uintptr(impl.OnSetFocus(browser, source))
 	})
@@ -67,7 +67,7 @@ func focusHandlerOnGotFocusCEFCallback() uintptr {
 		if !ownerOK {
 			return
 		}
-		browser := wrapBrowser(unsafe.Pointer(arg0))
+		browser := wrapBrowser(cefCallbackPointer(arg0))
 		impl.OnGotFocus(browser)
 	})
 }

@@ -37,9 +37,9 @@ func resourceRequestHandlerGetCookieAccessFilterCEFCallback() uintptr {
 		if !ownerOK {
 			return 0
 		}
-		browser := wrapBrowser(unsafe.Pointer(arg0))
-		frame := wrapFrame(unsafe.Pointer(arg1))
-		request := wrapRequest(unsafe.Pointer(arg2))
+		browser := wrapBrowser(cefCallbackPointer(arg0))
+		frame := wrapFrame(cefCallbackPointer(arg1))
+		request := wrapRequest(cefCallbackPointer(arg2))
 		result := impl.GetCookieAccessFilter(browser, frame, request)
 		if result == nil {
 			return 0
@@ -59,10 +59,10 @@ func resourceRequestHandlerOnBeforeResourceLoadCEFCallback() uintptr {
 		if !ownerOK {
 			return 0
 		}
-		browser := wrapBrowser(unsafe.Pointer(arg0))
-		frame := wrapFrame(unsafe.Pointer(arg1))
-		request := wrapRequest(unsafe.Pointer(arg2))
-		callback := wrapCallback(unsafe.Pointer(arg3))
+		browser := wrapBrowser(cefCallbackPointer(arg0))
+		frame := wrapFrame(cefCallbackPointer(arg1))
+		request := wrapRequest(cefCallbackPointer(arg2))
+		callback := wrapCallback(cefCallbackPointer(arg3))
 		return uintptr(impl.OnBeforeResourceLoad(browser, frame, request, callback))
 	})
 }
@@ -76,9 +76,9 @@ func resourceRequestHandlerGetResourceHandlerCEFCallback() uintptr {
 		if !ownerOK {
 			return 0
 		}
-		browser := wrapBrowser(unsafe.Pointer(arg0))
-		frame := wrapFrame(unsafe.Pointer(arg1))
-		request := wrapRequest(unsafe.Pointer(arg2))
+		browser := wrapBrowser(cefCallbackPointer(arg0))
+		frame := wrapFrame(cefCallbackPointer(arg1))
+		request := wrapRequest(cefCallbackPointer(arg2))
 		result := impl.GetResourceHandler(browser, frame, request)
 		if result == nil {
 			return 0
@@ -98,10 +98,10 @@ func resourceRequestHandlerOnResourceRedirectCEFCallback() uintptr {
 		if !ownerOK {
 			return
 		}
-		browser := wrapBrowser(unsafe.Pointer(arg0))
-		frame := wrapFrame(unsafe.Pointer(arg1))
-		request := wrapRequest(unsafe.Pointer(arg2))
-		response := wrapResponse(unsafe.Pointer(arg3))
+		browser := wrapBrowser(cefCallbackPointer(arg0))
+		frame := wrapFrame(cefCallbackPointer(arg1))
+		request := wrapRequest(cefCallbackPointer(arg2))
+		response := wrapResponse(cefCallbackPointer(arg3))
 		newURL := uintptr(arg4)
 		impl.OnResourceRedirect(browser, frame, request, response, newURL)
 	})
@@ -116,10 +116,10 @@ func resourceRequestHandlerOnResourceResponseCEFCallback() uintptr {
 		if !ownerOK {
 			return 0
 		}
-		browser := wrapBrowser(unsafe.Pointer(arg0))
-		frame := wrapFrame(unsafe.Pointer(arg1))
-		request := wrapRequest(unsafe.Pointer(arg2))
-		response := wrapResponse(unsafe.Pointer(arg3))
+		browser := wrapBrowser(cefCallbackPointer(arg0))
+		frame := wrapFrame(cefCallbackPointer(arg1))
+		request := wrapRequest(cefCallbackPointer(arg2))
+		response := wrapResponse(cefCallbackPointer(arg3))
 		return uintptr(impl.OnResourceResponse(browser, frame, request, response))
 	})
 }
@@ -133,10 +133,10 @@ func resourceRequestHandlerGetResourceResponseFilterCEFCallback() uintptr {
 		if !ownerOK {
 			return 0
 		}
-		browser := wrapBrowser(unsafe.Pointer(arg0))
-		frame := wrapFrame(unsafe.Pointer(arg1))
-		request := wrapRequest(unsafe.Pointer(arg2))
-		response := wrapResponse(unsafe.Pointer(arg3))
+		browser := wrapBrowser(cefCallbackPointer(arg0))
+		frame := wrapFrame(cefCallbackPointer(arg1))
+		request := wrapRequest(cefCallbackPointer(arg2))
+		response := wrapResponse(cefCallbackPointer(arg3))
 		result := impl.GetResourceResponseFilter(browser, frame, request, response)
 		if result == nil {
 			return 0
@@ -156,10 +156,10 @@ func resourceRequestHandlerOnResourceLoadCompleteCEFCallback() uintptr {
 		if !ownerOK {
 			return
 		}
-		browser := wrapBrowser(unsafe.Pointer(arg0))
-		frame := wrapFrame(unsafe.Pointer(arg1))
-		request := wrapRequest(unsafe.Pointer(arg2))
-		response := wrapResponse(unsafe.Pointer(arg3))
+		browser := wrapBrowser(cefCallbackPointer(arg0))
+		frame := wrapFrame(cefCallbackPointer(arg1))
+		request := wrapRequest(cefCallbackPointer(arg2))
+		response := wrapResponse(cefCallbackPointer(arg3))
 		status := UrlrequestStatus(arg4)
 		receivedContentLength := arg5
 		impl.OnResourceLoadComplete(browser, frame, request, response, status, receivedContentLength)
@@ -175,9 +175,9 @@ func resourceRequestHandlerOnProtocolExecutionCEFCallback() uintptr {
 		if !ownerOK {
 			return
 		}
-		browser := wrapBrowser(unsafe.Pointer(arg0))
-		frame := wrapFrame(unsafe.Pointer(arg1))
-		request := wrapRequest(unsafe.Pointer(arg2))
+		browser := wrapBrowser(cefCallbackPointer(arg0))
+		frame := wrapFrame(cefCallbackPointer(arg1))
+		request := wrapRequest(cefCallbackPointer(arg2))
 		allowOsExecution := (*int32)(unsafe.Pointer(arg3))
 		impl.OnProtocolExecution(browser, frame, request, allowOsExecution)
 	})
@@ -356,9 +356,9 @@ func cookieAccessFilterCanSendCookieCEFCallback() uintptr {
 		if !ownerOK {
 			return 0
 		}
-		browser := wrapBrowser(unsafe.Pointer(arg0))
-		frame := wrapFrame(unsafe.Pointer(arg1))
-		request := wrapRequest(unsafe.Pointer(arg2))
+		browser := wrapBrowser(cefCallbackPointer(arg0))
+		frame := wrapFrame(cefCallbackPointer(arg1))
+		request := wrapRequest(cefCallbackPointer(arg2))
 		cookie := (*Cookie)(unsafe.Pointer(arg3))
 		if impl.CanSendCookie(browser, frame, request, cookie) {
 			return 1
@@ -376,10 +376,10 @@ func cookieAccessFilterCanSaveCookieCEFCallback() uintptr {
 		if !ownerOK {
 			return 0
 		}
-		browser := wrapBrowser(unsafe.Pointer(arg0))
-		frame := wrapFrame(unsafe.Pointer(arg1))
-		request := wrapRequest(unsafe.Pointer(arg2))
-		response := wrapResponse(unsafe.Pointer(arg3))
+		browser := wrapBrowser(cefCallbackPointer(arg0))
+		frame := wrapFrame(cefCallbackPointer(arg1))
+		request := wrapRequest(cefCallbackPointer(arg2))
+		response := wrapResponse(cefCallbackPointer(arg3))
 		cookie := (*Cookie)(unsafe.Pointer(arg4))
 		if impl.CanSaveCookie(browser, frame, request, response, cookie) {
 			return 1

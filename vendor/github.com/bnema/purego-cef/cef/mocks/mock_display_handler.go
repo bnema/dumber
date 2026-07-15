@@ -61,7 +61,7 @@ type MockDisplayHandler_GetRootWindowScreenRect_Call struct {
 // GetRootWindowScreenRect is a helper method to define mock.On call
 //   - browser in.Browser
 //   - rect *in.Rect
-func (_e *MockDisplayHandler_Expecter) GetRootWindowScreenRect(browser interface{}, rect interface{}) *MockDisplayHandler_GetRootWindowScreenRect_Call {
+func (_e *MockDisplayHandler_Expecter) GetRootWindowScreenRect(browser any, rect any) *MockDisplayHandler_GetRootWindowScreenRect_Call {
 	return &MockDisplayHandler_GetRootWindowScreenRect_Call{Call: _e.mock.On("GetRootWindowScreenRect", browser, rect)}
 }
 
@@ -108,7 +108,7 @@ type MockDisplayHandler_OnAddressChange_Call struct {
 //   - browser in.Browser
 //   - frame in.Frame
 //   - uRL string
-func (_e *MockDisplayHandler_Expecter) OnAddressChange(browser interface{}, frame interface{}, uRL interface{}) *MockDisplayHandler_OnAddressChange_Call {
+func (_e *MockDisplayHandler_Expecter) OnAddressChange(browser any, frame any, uRL any) *MockDisplayHandler_OnAddressChange_Call {
 	return &MockDisplayHandler_OnAddressChange_Call{Call: _e.mock.On("OnAddressChange", browser, frame, uRL)}
 }
 
@@ -170,7 +170,7 @@ type MockDisplayHandler_OnAutoResize_Call struct {
 // OnAutoResize is a helper method to define mock.On call
 //   - browser in.Browser
 //   - newSize *in.Size
-func (_e *MockDisplayHandler_Expecter) OnAutoResize(browser interface{}, newSize interface{}) *MockDisplayHandler_OnAutoResize_Call {
+func (_e *MockDisplayHandler_Expecter) OnAutoResize(browser any, newSize any) *MockDisplayHandler_OnAutoResize_Call {
 	return &MockDisplayHandler_OnAutoResize_Call{Call: _e.mock.On("OnAutoResize", browser, newSize)}
 }
 
@@ -230,7 +230,7 @@ type MockDisplayHandler_OnConsoleMessage_Call struct {
 //   - message string
 //   - source string
 //   - line int32
-func (_e *MockDisplayHandler_Expecter) OnConsoleMessage(browser interface{}, level interface{}, message interface{}, source interface{}, line interface{}) *MockDisplayHandler_OnConsoleMessage_Call {
+func (_e *MockDisplayHandler_Expecter) OnConsoleMessage(browser any, level any, message any, source any, line any) *MockDisplayHandler_OnConsoleMessage_Call {
 	return &MockDisplayHandler_OnConsoleMessage_Call{Call: _e.mock.On("OnConsoleMessage", browser, level, message, source, line)}
 }
 
@@ -302,7 +302,7 @@ type MockDisplayHandler_OnContentsBoundsChange_Call struct {
 // OnContentsBoundsChange is a helper method to define mock.On call
 //   - browser in.Browser
 //   - newBounds *in.Rect
-func (_e *MockDisplayHandler_Expecter) OnContentsBoundsChange(browser interface{}, newBounds interface{}) *MockDisplayHandler_OnContentsBoundsChange_Call {
+func (_e *MockDisplayHandler_Expecter) OnContentsBoundsChange(browser any, newBounds any) *MockDisplayHandler_OnContentsBoundsChange_Call {
 	return &MockDisplayHandler_OnContentsBoundsChange_Call{Call: _e.mock.On("OnContentsBoundsChange", browser, newBounds)}
 }
 
@@ -361,7 +361,7 @@ type MockDisplayHandler_OnCursorChange_Call struct {
 //   - cursor uintptr
 //   - type_ in.CursorType
 //   - customCursorInfo *in.CursorInfo
-func (_e *MockDisplayHandler_Expecter) OnCursorChange(browser interface{}, cursor interface{}, type_ interface{}, customCursorInfo interface{}) *MockDisplayHandler_OnCursorChange_Call {
+func (_e *MockDisplayHandler_Expecter) OnCursorChange(browser any, cursor any, type_ any, customCursorInfo any) *MockDisplayHandler_OnCursorChange_Call {
 	return &MockDisplayHandler_OnCursorChange_Call{Call: _e.mock.On("OnCursorChange", browser, cursor, type_, customCursorInfo)}
 }
 
@@ -417,7 +417,7 @@ type MockDisplayHandler_OnFaviconUrlchange_Call struct {
 // OnFaviconUrlchange is a helper method to define mock.On call
 //   - browser in.Browser
 //   - iconUrls in.StringList
-func (_e *MockDisplayHandler_Expecter) OnFaviconUrlchange(browser interface{}, iconUrls interface{}) *MockDisplayHandler_OnFaviconUrlchange_Call {
+func (_e *MockDisplayHandler_Expecter) OnFaviconUrlchange(browser any, iconUrls any) *MockDisplayHandler_OnFaviconUrlchange_Call {
 	return &MockDisplayHandler_OnFaviconUrlchange_Call{Call: _e.mock.On("OnFaviconUrlchange", browser, iconUrls)}
 }
 
@@ -463,7 +463,7 @@ type MockDisplayHandler_OnFullscreenModeChange_Call struct {
 // OnFullscreenModeChange is a helper method to define mock.On call
 //   - browser in.Browser
 //   - fullscreen int32
-func (_e *MockDisplayHandler_Expecter) OnFullscreenModeChange(browser interface{}, fullscreen interface{}) *MockDisplayHandler_OnFullscreenModeChange_Call {
+func (_e *MockDisplayHandler_Expecter) OnFullscreenModeChange(browser any, fullscreen any) *MockDisplayHandler_OnFullscreenModeChange_Call {
 	return &MockDisplayHandler_OnFullscreenModeChange_Call{Call: _e.mock.On("OnFullscreenModeChange", browser, fullscreen)}
 }
 
@@ -509,7 +509,7 @@ type MockDisplayHandler_OnLoadingProgressChange_Call struct {
 // OnLoadingProgressChange is a helper method to define mock.On call
 //   - browser in.Browser
 //   - progress float64
-func (_e *MockDisplayHandler_Expecter) OnLoadingProgressChange(browser interface{}, progress interface{}) *MockDisplayHandler_OnLoadingProgressChange_Call {
+func (_e *MockDisplayHandler_Expecter) OnLoadingProgressChange(browser any, progress any) *MockDisplayHandler_OnLoadingProgressChange_Call {
 	return &MockDisplayHandler_OnLoadingProgressChange_Call{Call: _e.mock.On("OnLoadingProgressChange", browser, progress)}
 }
 
@@ -556,7 +556,7 @@ type MockDisplayHandler_OnMediaAccessChange_Call struct {
 //   - browser in.Browser
 //   - hasVideoAccess int32
 //   - hasAudioAccess int32
-func (_e *MockDisplayHandler_Expecter) OnMediaAccessChange(browser interface{}, hasVideoAccess interface{}, hasAudioAccess interface{}) *MockDisplayHandler_OnMediaAccessChange_Call {
+func (_e *MockDisplayHandler_Expecter) OnMediaAccessChange(browser any, hasVideoAccess any, hasAudioAccess any) *MockDisplayHandler_OnMediaAccessChange_Call {
 	return &MockDisplayHandler_OnMediaAccessChange_Call{Call: _e.mock.On("OnMediaAccessChange", browser, hasVideoAccess, hasAudioAccess)}
 }
 
@@ -607,7 +607,7 @@ type MockDisplayHandler_OnStatusMessage_Call struct {
 // OnStatusMessage is a helper method to define mock.On call
 //   - browser in.Browser
 //   - value string
-func (_e *MockDisplayHandler_Expecter) OnStatusMessage(browser interface{}, value interface{}) *MockDisplayHandler_OnStatusMessage_Call {
+func (_e *MockDisplayHandler_Expecter) OnStatusMessage(browser any, value any) *MockDisplayHandler_OnStatusMessage_Call {
 	return &MockDisplayHandler_OnStatusMessage_Call{Call: _e.mock.On("OnStatusMessage", browser, value)}
 }
 
@@ -653,7 +653,7 @@ type MockDisplayHandler_OnTitleChange_Call struct {
 // OnTitleChange is a helper method to define mock.On call
 //   - browser in.Browser
 //   - title string
-func (_e *MockDisplayHandler_Expecter) OnTitleChange(browser interface{}, title interface{}) *MockDisplayHandler_OnTitleChange_Call {
+func (_e *MockDisplayHandler_Expecter) OnTitleChange(browser any, title any) *MockDisplayHandler_OnTitleChange_Call {
 	return &MockDisplayHandler_OnTitleChange_Call{Call: _e.mock.On("OnTitleChange", browser, title)}
 }
 
@@ -710,7 +710,7 @@ type MockDisplayHandler_OnTooltip_Call struct {
 // OnTooltip is a helper method to define mock.On call
 //   - browser in.Browser
 //   - text uintptr
-func (_e *MockDisplayHandler_Expecter) OnTooltip(browser interface{}, text interface{}) *MockDisplayHandler_OnTooltip_Call {
+func (_e *MockDisplayHandler_Expecter) OnTooltip(browser any, text any) *MockDisplayHandler_OnTooltip_Call {
 	return &MockDisplayHandler_OnTooltip_Call{Call: _e.mock.On("OnTooltip", browser, text)}
 }
 

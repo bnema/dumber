@@ -37,7 +37,7 @@ func keyboardHandlerOnPreKeyEventCEFCallback() uintptr {
 		if !ownerOK {
 			return 0
 		}
-		browser := wrapBrowser(unsafe.Pointer(arg0))
+		browser := wrapBrowser(cefCallbackPointer(arg0))
 		event := (*KeyEvent)(unsafe.Pointer(arg1))
 		osEvent := uintptr(arg2)
 		isKeyboardShortcut := (*int32)(unsafe.Pointer(arg3))
@@ -54,7 +54,7 @@ func keyboardHandlerOnKeyEventCEFCallback() uintptr {
 		if !ownerOK {
 			return 0
 		}
-		browser := wrapBrowser(unsafe.Pointer(arg0))
+		browser := wrapBrowser(cefCallbackPointer(arg0))
 		event := (*KeyEvent)(unsafe.Pointer(arg1))
 		osEvent := uintptr(arg2)
 		return uintptr(impl.OnKeyEvent(browser, event, osEvent))
