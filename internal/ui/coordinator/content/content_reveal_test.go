@@ -54,6 +54,22 @@ func TestRevealState_IsBoundToCurrentWebViewAcrossReplacementPaths(t *testing.T)
 	assert.False(t, c.WebViewRevealed(paneID), "popup registration must not inherit a prior WebView reveal")
 }
 
+func TestRevealState_StoresIdentityAsTheOnlyStateValue(t *testing.T) {
+	paneID := entity.PaneID("pane-1")
+	wv := revealTestWebView(t, 101, 1)
+	c := newRevealTestCoordinator()
+	c.setWebViewLocked(paneID, wv)
+	identity, _ := identityForWebView(wv)
+
+	c.markPendingReveal(paneID, identity)
+	c.markWebViewRevealed(paneID, identity)
+
+	c.revealMu.Lock()
+	defer c.revealMu.Unlock()
+	assert.Equal(t, identity, c.pendingReveal[paneID])
+	assert.Equal(t, identity, c.revealedWebViews[paneID])
+}
+
 func TestRevealState_ReleaseClearsStateWithoutWebViewMapping(t *testing.T) {
 	paneID := entity.PaneID("pane-1")
 	wv := revealTestWebView(t, 101, 1)
