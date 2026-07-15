@@ -39,6 +39,9 @@ func (c *Coordinator) EnsureWebView(ctx context.Context, paneID entity.PaneID) (
 	}
 	logging.Trace().Mark("webview_acquired")
 
+	// A pooled widget may have been previously revealed for another pane. Its
+	// presentation lifecycle starts unrevealed for this pane until a new reveal.
+	c.clearWebViewRevealed(paneID)
 	c.setWebViewLocked(paneID, wv)
 	c.setupWebViewCallbacks(ctx, paneID, wv)
 
@@ -60,6 +63,7 @@ func (c *Coordinator) ReleaseWebView(ctx context.Context, paneID entity.PaneID) 
 	c.ensurePopupManager().clearReusableNamedPopupByPaneID(paneID)
 	c.ensurePopupManager().clearReusableNamedPopupByWebViewID(wv.ID())
 	c.clearPendingAppearance(paneID)
+	c.clearWebViewRevealed(paneID)
 
 	// CRITICAL: If this webview was inhibiting idle (fullscreen or audio playing),
 	// we must release the inhibition before destroying the webview.
@@ -136,7 +140,7 @@ func (c *Coordinator) AttachToWorkspace(ctx context.Context, ws *entity.Workspac
 			Int("wrapped_widget_alloc_height", widget.GetAllocatedHeight()).
 			Msg("wrapped webview widget prepared for pane")
 
-		if err := wsView.SetWebViewWidget(pane.ID, widget); err != nil {
+		if err := wsView.AttachWebViewWidget(pane.ID, widget, c.WebViewRevealed(pane.ID)); err != nil {
 			log.Warn().Err(err).Str("pane_id", string(pane.ID)).Msg("failed to attach webview widget")
 			continue
 		}

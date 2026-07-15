@@ -70,8 +70,9 @@ type Coordinator struct {
 	// Callback when the WebView becomes visible (first real commit)
 	onWebViewShown func(paneID entity.PaneID)
 
-	revealMu      sync.Mutex
-	pendingReveal map[entity.PaneID]bool
+	revealMu         sync.Mutex
+	pendingReveal    map[entity.PaneID]bool
+	revealedWebViews map[entity.PaneID]bool
 
 	appearanceMu          sync.Mutex
 	pendingScriptRefresh  map[entity.PaneID]bool
@@ -148,6 +149,7 @@ func NewCoordinator(
 		paneTitles:           make(map[entity.PaneID]string),
 		navOrigins:           make(map[entity.PaneID]string),
 		pendingReveal:        make(map[entity.PaneID]bool),
+		revealedWebViews:     make(map[entity.PaneID]bool),
 		pendingScriptRefresh: make(map[entity.PaneID]bool),
 		pendingThemePanes:    make(map[entity.PaneID]bool),
 		getActiveWS:          getActiveWS,

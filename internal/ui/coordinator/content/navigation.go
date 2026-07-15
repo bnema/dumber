@@ -256,6 +256,30 @@ func (c *Coordinator) clearPendingReveal(paneID entity.PaneID) {
 	c.revealMu.Unlock()
 }
 
+// WebViewRevealed reports whether this pane's current WebView has completed a
+// reveal. This state belongs to content lifecycle rather than GTK widget
+// ownership, because WorkspaceView rebuilds unparent live native widgets.
+func (c *Coordinator) WebViewRevealed(paneID entity.PaneID) bool {
+	c.revealMu.Lock()
+	defer c.revealMu.Unlock()
+	return c.revealedWebViews[paneID]
+}
+
+func (c *Coordinator) markWebViewRevealed(paneID entity.PaneID) {
+	c.revealMu.Lock()
+	if c.revealedWebViews == nil {
+		c.revealedWebViews = make(map[entity.PaneID]bool)
+	}
+	c.revealedWebViews[paneID] = true
+	c.revealMu.Unlock()
+}
+
+func (c *Coordinator) clearWebViewRevealed(paneID entity.PaneID) {
+	c.revealMu.Lock()
+	delete(c.revealedWebViews, paneID)
+	c.revealMu.Unlock()
+}
+
 func (c *Coordinator) revealIfPending(ctx context.Context, paneID entity.PaneID, uri, reason string) {
 	c.revealMu.Lock()
 	pending := c.pendingReveal[paneID]
@@ -288,6 +312,10 @@ func (c *Coordinator) revealIfPending(ctx context.Context, paneID entity.PaneID,
 		}
 	}
 
+	// Record presentation state before notifying the UI. The callback may run
+	// while a WorkspaceView is being rebuilt, and the next PaneView must inherit
+	// this state even though the native widget was unparented during cleanup.
+	c.markWebViewRevealed(paneID)
 	if c.onWebViewShown != nil {
 		c.onWebViewShown(paneID)
 	}

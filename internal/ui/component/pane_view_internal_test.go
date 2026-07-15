@@ -80,3 +80,49 @@ func TestPaneView_HideLoadingSkeleton_NoOpWhenNil(t *testing.T) {
 	pv := &PaneView{}
 	pv.HideLoadingSkeleton()
 }
+
+func TestPaneView_AttachWebViewWidget_UsesExplicitRevealStateAfterCleanup(t *testing.T) {
+	widget := mocks.NewMockWidget(t)
+	oldOverlay := mocks.NewMockOverlayWidget(t)
+	oldOverlay.EXPECT().SetChild(nil).Once()
+	(&PaneView{overlay: oldOverlay, webViewWidget: widget}).Cleanup()
+
+	t.Run("revealed widget detached by cleanup hides fresh skeleton", func(t *testing.T) {
+		overlay := mocks.NewMockOverlayWidget(t)
+		loadingContainer := mocks.NewMockBoxWidget(t)
+		spinner := mocks.NewMockSpinnerWidget(t)
+		overlay.EXPECT().GetAllocatedWidth().Return(0).Twice()
+		overlay.EXPECT().GetAllocatedHeight().Return(0).Twice()
+		widget.EXPECT().GetAllocatedWidth().Return(0).Twice()
+		widget.EXPECT().GetAllocatedHeight().Return(0).Twice()
+		widget.EXPECT().GetParent().Return(nil).Once()
+		widget.EXPECT().IsVisible().Return(true).Once()
+		overlay.EXPECT().SetChild(widget).Once()
+		loadingContainer.EXPECT().SetVisible(false).Once()
+		spinner.EXPECT().Stop().Once()
+
+		pv := &PaneView{
+			overlay: overlay,
+			loading: &LoadingSkeleton{container: loadingContainer, spinner: spinner},
+		}
+		pv.AttachWebViewWidget(widget, true)
+	})
+
+	t.Run("new unrevealed widget keeps fresh skeleton visible", func(t *testing.T) {
+		overlay := mocks.NewMockOverlayWidget(t)
+		loadingContainer := mocks.NewMockBoxWidget(t)
+		overlay.EXPECT().GetAllocatedWidth().Return(0).Twice()
+		overlay.EXPECT().GetAllocatedHeight().Return(0).Twice()
+		widget.EXPECT().GetAllocatedWidth().Return(0).Twice()
+		widget.EXPECT().GetAllocatedHeight().Return(0).Twice()
+		widget.EXPECT().GetParent().Return(nil).Once()
+		widget.EXPECT().IsVisible().Return(true).Once()
+		overlay.EXPECT().SetChild(widget).Once()
+
+		pv := &PaneView{
+			overlay: overlay,
+			loading: &LoadingSkeleton{container: loadingContainer},
+		}
+		pv.AttachWebViewWidget(widget, false)
+	})
+}

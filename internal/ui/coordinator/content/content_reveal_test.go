@@ -17,6 +17,19 @@ import (
 // These are internal package tests that verify the state transitions
 // without needing to mock WebKit dependencies.
 
+func TestWebViewRevealed_PersistsUntilWebViewRelease(t *testing.T) {
+	paneID := entity.PaneID("pane-1")
+	c := &Coordinator{}
+
+	assert.False(t, c.WebViewRevealed(paneID))
+
+	c.markWebViewRevealed(paneID)
+	assert.True(t, c.WebViewRevealed(paneID))
+
+	c.clearWebViewRevealed(paneID)
+	assert.False(t, c.WebViewRevealed(paneID))
+}
+
 func TestMarkPendingReveal_SetsState(t *testing.T) {
 	c := &Coordinator{
 		pendingReveal: make(map[entity.PaneID]bool),
