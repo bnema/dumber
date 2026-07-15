@@ -4,12 +4,14 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/bnema/dumber/internal/application/port/mocks"
 	"github.com/bnema/dumber/internal/bootstrap"
 	"github.com/bnema/dumber/internal/infrastructure/colorscheme"
 	"github.com/bnema/dumber/internal/infrastructure/config"
 	"github.com/bnema/dumber/internal/infrastructure/desktop"
+	"github.com/rs/zerolog"
 )
 
 func TestLaunchModeFromArgs_DetectsStandaloneOmnibox(t *testing.T) {
@@ -169,6 +171,20 @@ func TestResolveCurrentExecutable_PropagatesError(t *testing.T) {
 	})
 	if !errors.Is(err, wantErr) {
 		t.Fatalf("expected error %v, got %v", wantErr, err)
+	}
+}
+
+func TestWebKitGUIStartupDoesNotActivateCEFTrace(t *testing.T) {
+	cfg := &config.Config{}
+	cfg.Engine.Type = config.EngineTypeWebKit
+	activationCalls := 0
+
+	activateCEFStartupTraceForGUI(cfg, startupTiming{}, nil, func(time.Time, time.Time, *zerolog.Logger) {
+		activationCalls++
+	})
+
+	if activationCalls != 0 {
+		t.Fatal("WebKit GUI startup must not initialize, record, or summarize the CEF first-presentation trace")
 	}
 }
 

@@ -5,15 +5,15 @@ import (
 	"encoding/json"
 	"strings"
 	"testing"
+	"time"
 
-	"github.com/bnema/dumber/internal/logging"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
 )
 
 func TestStartupPresentationHooksWireEveryUpstreamFirstPresentationCallback(t *testing.T) {
 	var output bytes.Buffer
-	trace := logging.NewCEFStartupTrace()
+	trace := newStartupTrace(time.Now, time.Now())
 	trace.SetBackend("gdk-dmabuf")
 	logger := zerolog.New(&output)
 	trace.SetLogger(&logger)

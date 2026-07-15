@@ -4,8 +4,12 @@ Dumber records this cold-start timeline **only for the accelerated CEF → DMABU
 → GTK path**. It is not a backend-neutral startup metric: the WebKit backend
 does not add milestones to this trace and never emits this CEF summary.
 
-For a CEF GUI process, the trace begins at `process_entry`, before CEF
-subprocess handling, and accepts these one-shot milestones only in order:
+For a selected CEF GUI process, Dumber captures neutral `process_entry` and
+`config_complete` timestamps, then activates and seeds this CEF-owned trace only
+after configuration selects CEF. CEF helper processes, WebKit GUI startup, the
+standalone omnibox, and CLI commands never initialize this trace, record its
+milestones, or emit its summary. A selected CEF GUI trace accepts these one-shot
+milestones only in order:
 
 1. `process_entry`
 2. `config_complete`

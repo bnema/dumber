@@ -1,4 +1,4 @@
-package logging
+package cef
 
 import (
 	"encoding/json"
@@ -23,7 +23,7 @@ const validFirstPresentationLog = `{"message":"startup_trace: milestone","milest
 {"message":"startup_trace: first presentation","backend":"gdk-dmabuf","incomplete_reason":"","total_ms":7,"host":"alice"}`
 
 func TestFirstPresentationCollectorNeverRecursivelyDeletesCallerOutput(t *testing.T) {
-	repoRoot, err := filepath.Abs(filepath.Join("..", ".."))
+	repoRoot, err := filepath.Abs(filepath.Join("..", "..", ".."))
 	require.NoError(t, err)
 	script, err := os.ReadFile(filepath.Join(repoRoot, "scripts", "collect_first_presentation.sh"))
 	require.NoError(t, err)
@@ -32,7 +32,7 @@ func TestFirstPresentationCollectorNeverRecursivelyDeletesCallerOutput(t *testin
 }
 
 func TestFirstPresentationCollectorRejectsUnsafeOutputPaths(t *testing.T) {
-	repoRoot, err := filepath.Abs(filepath.Join("..", ".."))
+	repoRoot, err := filepath.Abs(filepath.Join("..", "..", ".."))
 	require.NoError(t, err)
 	temp := t.TempDir()
 	runtime := filepath.Join(temp, "cef-147-runtime")
@@ -109,7 +109,7 @@ func requireFileContents(t *testing.T, path, want string) {
 }
 
 func TestFirstPresentationCollectorSanitizesMachineLocalValues(t *testing.T) {
-	repoRoot, err := filepath.Abs(filepath.Join("..", ".."))
+	repoRoot, err := filepath.Abs(filepath.Join("..", "..", ".."))
 	require.NoError(t, err)
 	temp := t.TempDir()
 	runtime := filepath.Join(temp, "cef-147-runtime")
@@ -169,7 +169,7 @@ func TestFirstPresentationCollectorSanitizesMachineLocalValues(t *testing.T) {
 }
 
 func TestFirstPresentationCollectorDerivesSelectedImmutableModuleProvenance(t *testing.T) {
-	repoRoot, err := filepath.Abs(filepath.Join("..", ".."))
+	repoRoot, err := filepath.Abs(filepath.Join("..", "..", ".."))
 	require.NoError(t, err)
 	temp := t.TempDir()
 	runtime := filepath.Join(temp, "cef-147-runtime")
@@ -218,7 +218,7 @@ func TestFirstPresentationCollectorDerivesSelectedImmutableModuleProvenance(t *t
 }
 
 func TestFirstPresentationCollectorRejectsNonImmutableModuleProvenanceWithoutLeaks(t *testing.T) {
-	repoRoot, err := filepath.Abs(filepath.Join("..", ".."))
+	repoRoot, err := filepath.Abs(filepath.Join("..", "..", ".."))
 	require.NoError(t, err)
 
 	for _, test := range []struct {
@@ -298,7 +298,7 @@ exit 1
 }
 
 func TestFirstPresentationCollectorDefaultsToXDGStateEvidenceDirectory(t *testing.T) {
-	repoRoot, err := filepath.Abs(filepath.Join("..", ".."))
+	repoRoot, err := filepath.Abs(filepath.Join("..", "..", ".."))
 	require.NoError(t, err)
 	temp := t.TempDir()
 	runtime := filepath.Join(temp, "cef-147-runtime")
@@ -342,7 +342,7 @@ func envWithout(name string) []string {
 }
 
 func TestFirstPresentationCollectorReadsProvenanceWithScopedGitSafeDirectory(t *testing.T) {
-	repoRoot, err := filepath.Abs(filepath.Join("..", ".."))
+	repoRoot, err := filepath.Abs(filepath.Join("..", "..", ".."))
 	require.NoError(t, err)
 	temp := t.TempDir()
 	runtime := filepath.Join(temp, "cef-147-runtime")
@@ -386,7 +386,7 @@ exit 128
 }
 
 func TestFirstPresentationCollectorRejectsInconsistentTiming(t *testing.T) {
-	repoRoot, err := filepath.Abs(filepath.Join("..", ".."))
+	repoRoot, err := filepath.Abs(filepath.Join("..", "..", ".."))
 	require.NoError(t, err)
 
 	for _, test := range []struct {

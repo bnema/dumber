@@ -26,7 +26,7 @@ var _ purecef.RenderHandler = (*dumberRenderHandler)(nil)
 // startupPresentationHooks consumes the one-shot facts emitted by
 // purego-cef2gtk. The bridge owns the native DMABUF and frame-clock boundaries;
 // Dumber only records their ordered application-level timeline.
-func startupPresentationHooks(trace *logging.CEFStartupTrace) cef2gtk.Hooks {
+func startupPresentationHooks(trace *startupTrace) cef2gtk.Hooks {
 	return cef2gtk.Hooks{
 		OnFirstAcceleratedPaint: func() {
 			trace.Mark("first_accelerated_paint_received")
@@ -50,7 +50,7 @@ func newDumberRenderHandler(wv *WebView) purecef.RenderHandler {
 	h := &dumberRenderHandler{wv: wv}
 
 	var unsupportedPaintOnce sync.Once
-	hooks := startupPresentationHooks(logging.CEFTrace())
+	hooks := startupPresentationHooks(activeStartupTrace())
 	hooks.OnUnsupportedPaint = func() {
 		unsupportedPaintOnce.Do(func() {
 			if wv.ctx != nil {

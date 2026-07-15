@@ -279,7 +279,7 @@ func (f *WebViewFactory) postPendingBrowserCreate(ctx context.Context, wv *WebVi
 		// OnAfterCreated once the host is fully wired.
 		initialURL := "about:blank"
 		// This is the request boundary, not the later OnAfterCreated callback.
-		logging.CEFTrace().Mark("browser_create_requested")
+		activeStartupTrace().Mark("browser_create_requested")
 		result := cefBrowserHostCreateBrowser(
 			pc.windowInfo,
 			pc.client,
