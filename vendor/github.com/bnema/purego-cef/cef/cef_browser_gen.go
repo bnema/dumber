@@ -368,7 +368,7 @@ func navigationEntryVisitorVisitCEFCallback() uintptr {
 		if !ownerOK {
 			return 0
 		}
-		entry := wrapNavigationEntry(unsafe.Pointer(arg0))
+		entry := wrapNavigationEntry(cefCallbackPointer(arg0))
 		current := int32(arg1)
 		index := int32(arg2)
 		total := int32(arg3)
@@ -573,7 +573,7 @@ func downloadImageCallbackOnDownloadImageFinishedCEFCallback() uintptr {
 		}
 		imageURL := goString(unsafe.Pointer(arg0))
 		httpStatusCode := int32(arg1)
-		image := wrapImage(unsafe.Pointer(arg2))
+		image := wrapImage(cefCallbackPointer(arg2))
 		impl.OnDownloadImageFinished(imageURL, httpStatusCode, image)
 	})
 }

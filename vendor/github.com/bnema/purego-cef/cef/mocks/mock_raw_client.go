@@ -891,7 +891,7 @@ type MockRawClient_OnProcessMessageReceived_Call struct {
 //   - frame in.Frame
 //   - sourceProcess in.ProcessID
 //   - message in.ProcessMessage
-func (_e *MockRawClient_Expecter) OnProcessMessageReceived(browser interface{}, frame interface{}, sourceProcess interface{}, message interface{}) *MockRawClient_OnProcessMessageReceived_Call {
+func (_e *MockRawClient_Expecter) OnProcessMessageReceived(browser any, frame any, sourceProcess any, message any) *MockRawClient_OnProcessMessageReceived_Call {
 	return &MockRawClient_OnProcessMessageReceived_Call{Call: _e.mock.On("OnProcessMessageReceived", browser, frame, sourceProcess, message)}
 }
 

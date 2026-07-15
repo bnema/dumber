@@ -153,7 +153,7 @@ type MockBrowserProcessHandler_OnAlreadyRunningAppRelaunch_Call struct {
 // OnAlreadyRunningAppRelaunch is a helper method to define mock.On call
 //   - commandLine in.CommandLine
 //   - currentDirectory string
-func (_e *MockBrowserProcessHandler_Expecter) OnAlreadyRunningAppRelaunch(commandLine interface{}, currentDirectory interface{}) *MockBrowserProcessHandler_OnAlreadyRunningAppRelaunch_Call {
+func (_e *MockBrowserProcessHandler_Expecter) OnAlreadyRunningAppRelaunch(commandLine any, currentDirectory any) *MockBrowserProcessHandler_OnAlreadyRunningAppRelaunch_Call {
 	return &MockBrowserProcessHandler_OnAlreadyRunningAppRelaunch_Call{Call: _e.mock.On("OnAlreadyRunningAppRelaunch", commandLine, currentDirectory)}
 }
 
@@ -198,7 +198,7 @@ type MockBrowserProcessHandler_OnBeforeChildProcessLaunch_Call struct {
 
 // OnBeforeChildProcessLaunch is a helper method to define mock.On call
 //   - commandLine in.CommandLine
-func (_e *MockBrowserProcessHandler_Expecter) OnBeforeChildProcessLaunch(commandLine interface{}) *MockBrowserProcessHandler_OnBeforeChildProcessLaunch_Call {
+func (_e *MockBrowserProcessHandler_Expecter) OnBeforeChildProcessLaunch(commandLine any) *MockBrowserProcessHandler_OnBeforeChildProcessLaunch_Call {
 	return &MockBrowserProcessHandler_OnBeforeChildProcessLaunch_Call{Call: _e.mock.On("OnBeforeChildProcessLaunch", commandLine)}
 }
 
@@ -272,7 +272,7 @@ type MockBrowserProcessHandler_OnRegisterCustomPreferences_Call struct {
 // OnRegisterCustomPreferences is a helper method to define mock.On call
 //   - type_ in.PreferencesType
 //   - registrar in.PreferenceRegistrar
-func (_e *MockBrowserProcessHandler_Expecter) OnRegisterCustomPreferences(type_ interface{}, registrar interface{}) *MockBrowserProcessHandler_OnRegisterCustomPreferences_Call {
+func (_e *MockBrowserProcessHandler_Expecter) OnRegisterCustomPreferences(type_ any, registrar any) *MockBrowserProcessHandler_OnRegisterCustomPreferences_Call {
 	return &MockBrowserProcessHandler_OnRegisterCustomPreferences_Call{Call: _e.mock.On("OnRegisterCustomPreferences", type_, registrar)}
 }
 
@@ -317,7 +317,7 @@ type MockBrowserProcessHandler_OnScheduleMessagePumpWork_Call struct {
 
 // OnScheduleMessagePumpWork is a helper method to define mock.On call
 //   - delayMs int64
-func (_e *MockBrowserProcessHandler_Expecter) OnScheduleMessagePumpWork(delayMs interface{}) *MockBrowserProcessHandler_OnScheduleMessagePumpWork_Call {
+func (_e *MockBrowserProcessHandler_Expecter) OnScheduleMessagePumpWork(delayMs any) *MockBrowserProcessHandler_OnScheduleMessagePumpWork_Call {
 	return &MockBrowserProcessHandler_OnScheduleMessagePumpWork_Call{Call: _e.mock.On("OnScheduleMessagePumpWork", delayMs)}
 }
 

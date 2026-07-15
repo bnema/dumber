@@ -37,7 +37,7 @@ func domvisitorVisitCEFCallback() uintptr {
 		if !ownerOK {
 			return
 		}
-		document := wrapDomdocument(unsafe.Pointer(arg0))
+		document := wrapDomdocument(cefCallbackPointer(arg0))
 		impl.Visit(document)
 	})
 }

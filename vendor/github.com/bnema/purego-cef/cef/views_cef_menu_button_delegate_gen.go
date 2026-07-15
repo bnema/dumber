@@ -84,9 +84,9 @@ func menuButtonDelegateOnMenuButtonPressedCEFCallback() uintptr {
 		if !ownerOK {
 			return
 		}
-		menuButton := wrapMenuButton(unsafe.Pointer(arg0))
+		menuButton := wrapMenuButton(cefCallbackPointer(arg0))
 		screenPoint := (*Point)(unsafe.Pointer(arg1))
-		buttonPressedLock := wrapMenuButtonPressedLock(unsafe.Pointer(arg2))
+		buttonPressedLock := wrapMenuButtonPressedLock(cefCallbackPointer(arg2))
 		impl.OnMenuButtonPressed(menuButton, screenPoint, buttonPressedLock)
 	})
 }

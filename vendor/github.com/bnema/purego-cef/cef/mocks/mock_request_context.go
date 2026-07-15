@@ -62,7 +62,7 @@ type MockRequestContext_AddSettingObserver_Call struct {
 
 // AddSettingObserver is a helper method to define mock.On call
 //   - observer in.SettingObserver
-func (_e *MockRequestContext_Expecter) AddSettingObserver(observer interface{}) *MockRequestContext_AddSettingObserver_Call {
+func (_e *MockRequestContext_Expecter) AddSettingObserver(observer any) *MockRequestContext_AddSettingObserver_Call {
 	return &MockRequestContext_AddSettingObserver_Call{Call: _e.mock.On("AddSettingObserver", observer)}
 }
 
@@ -102,7 +102,7 @@ type MockRequestContext_ClearCertificateExceptions_Call struct {
 
 // ClearCertificateExceptions is a helper method to define mock.On call
 //   - callback in.CompletionCallback
-func (_e *MockRequestContext_Expecter) ClearCertificateExceptions(callback interface{}) *MockRequestContext_ClearCertificateExceptions_Call {
+func (_e *MockRequestContext_Expecter) ClearCertificateExceptions(callback any) *MockRequestContext_ClearCertificateExceptions_Call {
 	return &MockRequestContext_ClearCertificateExceptions_Call{Call: _e.mock.On("ClearCertificateExceptions", callback)}
 }
 
@@ -142,7 +142,7 @@ type MockRequestContext_ClearHttpAuthCredentials_Call struct {
 
 // ClearHttpAuthCredentials is a helper method to define mock.On call
 //   - callback in.CompletionCallback
-func (_e *MockRequestContext_Expecter) ClearHttpAuthCredentials(callback interface{}) *MockRequestContext_ClearHttpAuthCredentials_Call {
+func (_e *MockRequestContext_Expecter) ClearHttpAuthCredentials(callback any) *MockRequestContext_ClearHttpAuthCredentials_Call {
 	return &MockRequestContext_ClearHttpAuthCredentials_Call{Call: _e.mock.On("ClearHttpAuthCredentials", callback)}
 }
 
@@ -182,7 +182,7 @@ type MockRequestContext_ClearHttpCache_Call struct {
 
 // ClearHttpCache is a helper method to define mock.On call
 //   - callback in.CompletionCallback
-func (_e *MockRequestContext_Expecter) ClearHttpCache(callback interface{}) *MockRequestContext_ClearHttpCache_Call {
+func (_e *MockRequestContext_Expecter) ClearHttpCache(callback any) *MockRequestContext_ClearHttpCache_Call {
 	return &MockRequestContext_ClearHttpCache_Call{Call: _e.mock.On("ClearHttpCache", callback)}
 }
 
@@ -266,7 +266,7 @@ type MockRequestContext_CloseAllConnections_Call struct {
 
 // CloseAllConnections is a helper method to define mock.On call
 //   - callback in.CompletionCallback
-func (_e *MockRequestContext_Expecter) CloseAllConnections(callback interface{}) *MockRequestContext_CloseAllConnections_Call {
+func (_e *MockRequestContext_Expecter) CloseAllConnections(callback any) *MockRequestContext_CloseAllConnections_Call {
 	return &MockRequestContext_CloseAllConnections_Call{Call: _e.mock.On("CloseAllConnections", callback)}
 }
 
@@ -495,7 +495,7 @@ type MockRequestContext_GetContentSetting_Call struct {
 //   - requestingURL string
 //   - topLevelURL string
 //   - contentType in.ContentSettingTypes
-func (_e *MockRequestContext_Expecter) GetContentSetting(requestingURL interface{}, topLevelURL interface{}, contentType interface{}) *MockRequestContext_GetContentSetting_Call {
+func (_e *MockRequestContext_Expecter) GetContentSetting(requestingURL any, topLevelURL any, contentType any) *MockRequestContext_GetContentSetting_Call {
 	return &MockRequestContext_GetContentSetting_Call{Call: _e.mock.On("GetContentSetting", requestingURL, topLevelURL, contentType)}
 }
 
@@ -558,7 +558,7 @@ type MockRequestContext_GetCookieManager_Call struct {
 
 // GetCookieManager is a helper method to define mock.On call
 //   - callback in.CompletionCallback
-func (_e *MockRequestContext_Expecter) GetCookieManager(callback interface{}) *MockRequestContext_GetCookieManager_Call {
+func (_e *MockRequestContext_Expecter) GetCookieManager(callback any) *MockRequestContext_GetCookieManager_Call {
 	return &MockRequestContext_GetCookieManager_Call{Call: _e.mock.On("GetCookieManager", callback)}
 }
 
@@ -657,7 +657,7 @@ type MockRequestContext_GetMediaRouter_Call struct {
 
 // GetMediaRouter is a helper method to define mock.On call
 //   - callback in.CompletionCallback
-func (_e *MockRequestContext_Expecter) GetMediaRouter(callback interface{}) *MockRequestContext_GetMediaRouter_Call {
+func (_e *MockRequestContext_Expecter) GetMediaRouter(callback any) *MockRequestContext_GetMediaRouter_Call {
 	return &MockRequestContext_GetMediaRouter_Call{Call: _e.mock.On("GetMediaRouter", callback)}
 }
 
@@ -712,7 +712,7 @@ type MockRequestContext_GetWebsiteSetting_Call struct {
 //   - requestingURL string
 //   - topLevelURL string
 //   - contentType in.ContentSettingTypes
-func (_e *MockRequestContext_Expecter) GetWebsiteSetting(requestingURL interface{}, topLevelURL interface{}, contentType interface{}) *MockRequestContext_GetWebsiteSetting_Call {
+func (_e *MockRequestContext_Expecter) GetWebsiteSetting(requestingURL any, topLevelURL any, contentType any) *MockRequestContext_GetWebsiteSetting_Call {
 	return &MockRequestContext_GetWebsiteSetting_Call{Call: _e.mock.On("GetWebsiteSetting", requestingURL, topLevelURL, contentType)}
 }
 
@@ -817,7 +817,7 @@ type MockRequestContext_IsSame_Call struct {
 
 // IsSame is a helper method to define mock.On call
 //   - other in.RequestContext
-func (_e *MockRequestContext_Expecter) IsSame(other interface{}) *MockRequestContext_IsSame_Call {
+func (_e *MockRequestContext_Expecter) IsSame(other any) *MockRequestContext_IsSame_Call {
 	return &MockRequestContext_IsSame_Call{Call: _e.mock.On("IsSame", other)}
 }
 
@@ -868,7 +868,7 @@ type MockRequestContext_IsSharingWith_Call struct {
 
 // IsSharingWith is a helper method to define mock.On call
 //   - other in.RequestContext
-func (_e *MockRequestContext_Expecter) IsSharingWith(other interface{}) *MockRequestContext_IsSharingWith_Call {
+func (_e *MockRequestContext_Expecter) IsSharingWith(other any) *MockRequestContext_IsSharingWith_Call {
 	return &MockRequestContext_IsSharingWith_Call{Call: _e.mock.On("IsSharingWith", other)}
 }
 
@@ -921,7 +921,7 @@ type MockRequestContext_RegisterSchemeHandlerFactory_Call struct {
 //   - schemeName string
 //   - domainName string
 //   - factory in.SchemeHandlerFactory
-func (_e *MockRequestContext_Expecter) RegisterSchemeHandlerFactory(schemeName interface{}, domainName interface{}, factory interface{}) *MockRequestContext_RegisterSchemeHandlerFactory_Call {
+func (_e *MockRequestContext_Expecter) RegisterSchemeHandlerFactory(schemeName any, domainName any, factory any) *MockRequestContext_RegisterSchemeHandlerFactory_Call {
 	return &MockRequestContext_RegisterSchemeHandlerFactory_Call{Call: _e.mock.On("RegisterSchemeHandlerFactory", schemeName, domainName, factory)}
 }
 
@@ -972,7 +972,7 @@ type MockRequestContext_ResolveHost_Call struct {
 // ResolveHost is a helper method to define mock.On call
 //   - origin string
 //   - callback in.ResolveCallback
-func (_e *MockRequestContext_Expecter) ResolveHost(origin interface{}, callback interface{}) *MockRequestContext_ResolveHost_Call {
+func (_e *MockRequestContext_Expecter) ResolveHost(origin any, callback any) *MockRequestContext_ResolveHost_Call {
 	return &MockRequestContext_ResolveHost_Call{Call: _e.mock.On("ResolveHost", origin, callback)}
 }
 
@@ -1018,7 +1018,7 @@ type MockRequestContext_SetChromeColorScheme_Call struct {
 // SetChromeColorScheme is a helper method to define mock.On call
 //   - variant in.ColorVariant
 //   - userColor uintptr
-func (_e *MockRequestContext_Expecter) SetChromeColorScheme(variant interface{}, userColor interface{}) *MockRequestContext_SetChromeColorScheme_Call {
+func (_e *MockRequestContext_Expecter) SetChromeColorScheme(variant any, userColor any) *MockRequestContext_SetChromeColorScheme_Call {
 	return &MockRequestContext_SetChromeColorScheme_Call{Call: _e.mock.On("SetChromeColorScheme", variant, userColor)}
 }
 
@@ -1066,7 +1066,7 @@ type MockRequestContext_SetContentSetting_Call struct {
 //   - topLevelURL string
 //   - contentType in.ContentSettingTypes
 //   - value in.ContentSettingValues
-func (_e *MockRequestContext_Expecter) SetContentSetting(requestingURL interface{}, topLevelURL interface{}, contentType interface{}, value interface{}) *MockRequestContext_SetContentSetting_Call {
+func (_e *MockRequestContext_Expecter) SetContentSetting(requestingURL any, topLevelURL any, contentType any, value any) *MockRequestContext_SetContentSetting_Call {
 	return &MockRequestContext_SetContentSetting_Call{Call: _e.mock.On("SetContentSetting", requestingURL, topLevelURL, contentType, value)}
 }
 
@@ -1124,7 +1124,7 @@ type MockRequestContext_SetWebsiteSetting_Call struct {
 //   - topLevelURL string
 //   - contentType in.ContentSettingTypes
 //   - value in.Value
-func (_e *MockRequestContext_Expecter) SetWebsiteSetting(requestingURL interface{}, topLevelURL interface{}, contentType interface{}, value interface{}) *MockRequestContext_SetWebsiteSetting_Call {
+func (_e *MockRequestContext_Expecter) SetWebsiteSetting(requestingURL any, topLevelURL any, contentType any, value any) *MockRequestContext_SetWebsiteSetting_Call {
 	return &MockRequestContext_SetWebsiteSetting_Call{Call: _e.mock.On("SetWebsiteSetting", requestingURL, topLevelURL, contentType, value)}
 }
 

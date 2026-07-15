@@ -37,7 +37,7 @@ func textfieldDelegateOnKeyEventCEFCallback() uintptr {
 		if !ownerOK {
 			return 0
 		}
-		textfield := wrapTextfield(unsafe.Pointer(arg0))
+		textfield := wrapTextfield(cefCallbackPointer(arg0))
 		event := (*KeyEvent)(unsafe.Pointer(arg1))
 		return uintptr(impl.OnKeyEvent(textfield, event))
 	})
@@ -52,7 +52,7 @@ func textfieldDelegateOnAfterUserActionCEFCallback() uintptr {
 		if !ownerOK {
 			return
 		}
-		textfield := wrapTextfield(unsafe.Pointer(arg0))
+		textfield := wrapTextfield(cefCallbackPointer(arg0))
 		impl.OnAfterUserAction(textfield)
 	})
 }

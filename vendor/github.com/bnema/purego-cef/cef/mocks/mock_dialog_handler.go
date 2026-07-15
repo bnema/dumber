@@ -67,7 +67,7 @@ type MockDialogHandler_OnFileDialog_Call struct {
 //   - acceptExtensions in.StringList
 //   - acceptDescriptions in.StringList
 //   - callback in.FileDialogCallback
-func (_e *MockDialogHandler_Expecter) OnFileDialog(browser interface{}, mode interface{}, title interface{}, defaultFilePath interface{}, acceptFilters interface{}, acceptExtensions interface{}, acceptDescriptions interface{}, callback interface{}) *MockDialogHandler_OnFileDialog_Call {
+func (_e *MockDialogHandler_Expecter) OnFileDialog(browser any, mode any, title any, defaultFilePath any, acceptFilters any, acceptExtensions any, acceptDescriptions any, callback any) *MockDialogHandler_OnFileDialog_Call {
 	return &MockDialogHandler_OnFileDialog_Call{Call: _e.mock.On("OnFileDialog", browser, mode, title, defaultFilePath, acceptFilters, acceptExtensions, acceptDescriptions, callback)}
 }
 

@@ -6,12 +6,12 @@ require (
 	github.com/a-h/templ v0.3.1020
 	github.com/andybalholm/brotli v1.2.2
 	github.com/bnema/purego v0.11.0-bnema.4
-	github.com/bnema/purego-cef v0.13.4-0.20260714140305-f0b7414af67e
-	github.com/bnema/purego-cef2gtk v0.8.4-0.20260714160309-bbd397409ebe
-	github.com/bnema/purego-pipewire v0.1.5-0.20260714124450-6504b9cdf02a
-	github.com/bnema/purego-sqlite v0.1.4-0.20260714131321-3614fe683b9c
-	github.com/bnema/purego-webp v0.2.1-0.20260714152238-7bc9c402fdf6
-	github.com/bnema/puregotk v0.7.1-0.20260714200603-7370c78950ef
+	github.com/bnema/purego-cef v0.13.4-0.20260715054414-19b947c13132
+	github.com/bnema/purego-cef2gtk v0.8.5
+	github.com/bnema/purego-pipewire v0.1.5
+	github.com/bnema/purego-sqlite v0.1.4
+	github.com/bnema/purego-webp v0.2.1
+	github.com/bnema/puregotk v0.7.1
 	github.com/charmbracelet/bubbles v1.0.0
 	github.com/charmbracelet/bubbletea v1.3.10
 	github.com/charmbracelet/lipgloss v1.1.0
@@ -43,11 +43,10 @@ require (
 	github.com/clipperhouse/displaywidth v0.11.0 // indirect
 	github.com/clipperhouse/uax29/v2 v2.7.0 // indirect
 	github.com/cpuguy83/go-md2man/v2 v2.0.7 // indirect
-	github.com/davecgh/go-spew v1.1.1 // indirect
+	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/erikgeiser/coninput v0.0.0-20211004153227-1c3628e74d0f // indirect
 	github.com/fatih/color v1.19.0 // indirect
 	github.com/go-viper/mapstructure/v2 v2.5.0 // indirect
-	github.com/google/go-cmp v0.7.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/lucasb-eyer/go-colorful v1.4.0 // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect
@@ -59,7 +58,7 @@ require (
 	github.com/muesli/cancelreader v0.2.2 // indirect
 	github.com/muesli/termenv v0.16.0 // indirect
 	github.com/natefinch/atomic v1.0.1 // indirect
-	github.com/pmezard/go-difflib v1.0.0 // indirect
+	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/rogpeppe/go-internal v1.14.1 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
@@ -81,7 +80,6 @@ require (
 	golang.org/x/text v0.40.0 // indirect
 	golang.org/x/tools v0.47.0 // indirect
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
-	mvdan.cc/gofumpt v0.9.2 // indirect
 )
 
 tool github.com/a-h/templ/cmd/templ

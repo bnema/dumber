@@ -37,7 +37,7 @@ func commandHandlerOnChromeCommandCEFCallback() uintptr {
 		if !ownerOK {
 			return 0
 		}
-		browser := wrapBrowser(unsafe.Pointer(arg0))
+		browser := wrapBrowser(cefCallbackPointer(arg0))
 		commandID := int32(arg1)
 		disposition := WindowOpenDisposition(arg2)
 		return uintptr(impl.OnChromeCommand(browser, commandID, disposition))
@@ -53,7 +53,7 @@ func commandHandlerIsChromeAppMenuItemVisibleCEFCallback() uintptr {
 		if !ownerOK {
 			return 0
 		}
-		browser := wrapBrowser(unsafe.Pointer(arg0))
+		browser := wrapBrowser(cefCallbackPointer(arg0))
 		commandID := int32(arg1)
 		if impl.IsChromeAppMenuItemVisible(browser, commandID) {
 			return 1
@@ -71,7 +71,7 @@ func commandHandlerIsChromeAppMenuItemEnabledCEFCallback() uintptr {
 		if !ownerOK {
 			return 0
 		}
-		browser := wrapBrowser(unsafe.Pointer(arg0))
+		browser := wrapBrowser(cefCallbackPointer(arg0))
 		commandID := int32(arg1)
 		if impl.IsChromeAppMenuItemEnabled(browser, commandID) {
 			return 1

@@ -37,7 +37,7 @@ func windowDelegateOnWindowCreatedCEFCallback() uintptr {
 		if !ownerOK {
 			return
 		}
-		window := wrapWindow(unsafe.Pointer(arg0))
+		window := wrapWindow(cefCallbackPointer(arg0))
 		impl.OnWindowCreated(window)
 	})
 }
@@ -51,7 +51,7 @@ func windowDelegateOnWindowClosingCEFCallback() uintptr {
 		if !ownerOK {
 			return
 		}
-		window := wrapWindow(unsafe.Pointer(arg0))
+		window := wrapWindow(cefCallbackPointer(arg0))
 		impl.OnWindowClosing(window)
 	})
 }
@@ -65,7 +65,7 @@ func windowDelegateOnWindowDestroyedCEFCallback() uintptr {
 		if !ownerOK {
 			return
 		}
-		window := wrapWindow(unsafe.Pointer(arg0))
+		window := wrapWindow(cefCallbackPointer(arg0))
 		impl.OnWindowDestroyed(window)
 	})
 }
@@ -79,7 +79,7 @@ func windowDelegateOnWindowActivationChangedCEFCallback() uintptr {
 		if !ownerOK {
 			return
 		}
-		window := wrapWindow(unsafe.Pointer(arg0))
+		window := wrapWindow(cefCallbackPointer(arg0))
 		active := int32(arg1)
 		impl.OnWindowActivationChanged(window, active)
 	})
@@ -94,7 +94,7 @@ func windowDelegateOnWindowBoundsChangedCEFCallback() uintptr {
 		if !ownerOK {
 			return
 		}
-		window := wrapWindow(unsafe.Pointer(arg0))
+		window := wrapWindow(cefCallbackPointer(arg0))
 		newBounds := (*Rect)(unsafe.Pointer(arg1))
 		impl.OnWindowBoundsChanged(window, newBounds)
 	})
@@ -109,7 +109,7 @@ func windowDelegateOnWindowFullscreenTransitionCEFCallback() uintptr {
 		if !ownerOK {
 			return
 		}
-		window := wrapWindow(unsafe.Pointer(arg0))
+		window := wrapWindow(cefCallbackPointer(arg0))
 		isCompleted := int32(arg1)
 		impl.OnWindowFullscreenTransition(window, isCompleted)
 	})
@@ -124,7 +124,7 @@ func windowDelegateGetParentWindowCEFCallback() uintptr {
 		if !ownerOK {
 			return 0
 		}
-		window := wrapWindow(unsafe.Pointer(arg0))
+		window := wrapWindow(cefCallbackPointer(arg0))
 		isMenu := (*int32)(unsafe.Pointer(arg1))
 		canActivateMenu := (*int32)(unsafe.Pointer(arg2))
 		return uintptr(extractRawPointer(impl.GetParentWindow(window, isMenu, canActivateMenu)))
@@ -140,7 +140,7 @@ func windowDelegateIsWindowModalDialogCEFCallback() uintptr {
 		if !ownerOK {
 			return 0
 		}
-		window := wrapWindow(unsafe.Pointer(arg0))
+		window := wrapWindow(cefCallbackPointer(arg0))
 		if impl.IsWindowModalDialog(window) {
 			return 1
 		}
@@ -157,7 +157,7 @@ func windowDelegateGetInitialBoundsCEFCallback() uintptr {
 		if !ownerOK {
 			return 0
 		}
-		window := wrapWindow(unsafe.Pointer(arg0))
+		window := wrapWindow(cefCallbackPointer(arg0))
 		return uintptr(impl.GetInitialBounds(window))
 	})
 }
@@ -171,7 +171,7 @@ func windowDelegateGetInitialShowStateCEFCallback() uintptr {
 		if !ownerOK {
 			return 0
 		}
-		window := wrapWindow(unsafe.Pointer(arg0))
+		window := wrapWindow(cefCallbackPointer(arg0))
 		return uintptr(impl.GetInitialShowState(window))
 	})
 }
@@ -185,7 +185,7 @@ func windowDelegateIsFramelessCEFCallback() uintptr {
 		if !ownerOK {
 			return 0
 		}
-		window := wrapWindow(unsafe.Pointer(arg0))
+		window := wrapWindow(cefCallbackPointer(arg0))
 		if impl.IsFrameless(window) {
 			return 1
 		}
@@ -202,7 +202,7 @@ func windowDelegateWithStandardWindowButtonsCEFCallback() uintptr {
 		if !ownerOK {
 			return 0
 		}
-		window := wrapWindow(unsafe.Pointer(arg0))
+		window := wrapWindow(cefCallbackPointer(arg0))
 		return uintptr(impl.WithStandardWindowButtons(window))
 	})
 }
@@ -216,7 +216,7 @@ func windowDelegateGetTitlebarHeightCEFCallback() uintptr {
 		if !ownerOK {
 			return 0
 		}
-		window := wrapWindow(unsafe.Pointer(arg0))
+		window := wrapWindow(cefCallbackPointer(arg0))
 		titlebarHeight := (*float32)(unsafe.Pointer(arg1))
 		return uintptr(impl.GetTitlebarHeight(window, titlebarHeight))
 	})
@@ -231,7 +231,7 @@ func windowDelegateAcceptsFirstMouseCEFCallback() uintptr {
 		if !ownerOK {
 			return 0
 		}
-		window := wrapWindow(unsafe.Pointer(arg0))
+		window := wrapWindow(cefCallbackPointer(arg0))
 		return uintptr(impl.AcceptsFirstMouse(window))
 	})
 }
@@ -245,7 +245,7 @@ func windowDelegateCanResizeCEFCallback() uintptr {
 		if !ownerOK {
 			return 0
 		}
-		window := wrapWindow(unsafe.Pointer(arg0))
+		window := wrapWindow(cefCallbackPointer(arg0))
 		if impl.CanResize(window) {
 			return 1
 		}
@@ -262,7 +262,7 @@ func windowDelegateCanMaximizeCEFCallback() uintptr {
 		if !ownerOK {
 			return 0
 		}
-		window := wrapWindow(unsafe.Pointer(arg0))
+		window := wrapWindow(cefCallbackPointer(arg0))
 		if impl.CanMaximize(window) {
 			return 1
 		}
@@ -279,7 +279,7 @@ func windowDelegateCanMinimizeCEFCallback() uintptr {
 		if !ownerOK {
 			return 0
 		}
-		window := wrapWindow(unsafe.Pointer(arg0))
+		window := wrapWindow(cefCallbackPointer(arg0))
 		if impl.CanMinimize(window) {
 			return 1
 		}
@@ -296,7 +296,7 @@ func windowDelegateCanCloseCEFCallback() uintptr {
 		if !ownerOK {
 			return 0
 		}
-		window := wrapWindow(unsafe.Pointer(arg0))
+		window := wrapWindow(cefCallbackPointer(arg0))
 		if impl.CanClose(window) {
 			return 1
 		}
@@ -313,7 +313,7 @@ func windowDelegateOnAcceleratorCEFCallback() uintptr {
 		if !ownerOK {
 			return 0
 		}
-		window := wrapWindow(unsafe.Pointer(arg0))
+		window := wrapWindow(cefCallbackPointer(arg0))
 		commandID := int32(arg1)
 		return uintptr(impl.OnAccelerator(window, commandID))
 	})
@@ -328,7 +328,7 @@ func windowDelegateOnKeyEventCEFCallback() uintptr {
 		if !ownerOK {
 			return 0
 		}
-		window := wrapWindow(unsafe.Pointer(arg0))
+		window := wrapWindow(cefCallbackPointer(arg0))
 		event := (*KeyEvent)(unsafe.Pointer(arg1))
 		return uintptr(impl.OnKeyEvent(window, event))
 	})
@@ -343,7 +343,7 @@ func windowDelegateOnThemeColorsChangedCEFCallback() uintptr {
 		if !ownerOK {
 			return
 		}
-		window := wrapWindow(unsafe.Pointer(arg0))
+		window := wrapWindow(cefCallbackPointer(arg0))
 		chromeTheme := int32(arg1)
 		impl.OnThemeColorsChanged(window, chromeTheme)
 	})
@@ -371,7 +371,7 @@ func windowDelegateGetLinuxWindowPropertiesCEFCallback() uintptr {
 		if !ownerOK {
 			return 0
 		}
-		window := wrapWindow(unsafe.Pointer(arg0))
+		window := wrapWindow(cefCallbackPointer(arg0))
 		properties := (*LinuxWindowProperties)(unsafe.Pointer(arg1))
 		return uintptr(impl.GetLinuxWindowProperties(window, properties))
 	})

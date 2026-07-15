@@ -37,8 +37,8 @@ func rawLifeSpanHandlerOnBeforePopupCEFCallback() uintptr {
 		if !ownerOK {
 			return 0
 		}
-		browser := wrapBrowser(unsafe.Pointer(arg0))
-		frame := wrapFrame(unsafe.Pointer(arg1))
+		browser := wrapBrowser(cefCallbackPointer(arg0))
+		frame := wrapFrame(cefCallbackPointer(arg1))
 		popupID := int32(arg2)
 		targetURL := goString(unsafe.Pointer(arg3))
 		targetFrameName := goString(unsafe.Pointer(arg4))
@@ -46,9 +46,9 @@ func rawLifeSpanHandlerOnBeforePopupCEFCallback() uintptr {
 		userGesture := int32(arg6)
 		popupfeatures := (*PopupFeatures)(unsafe.Pointer(arg7))
 		windowinfo := (*WindowInfo)(unsafe.Pointer(arg8))
-		client := unsafe.Pointer(arg9)
+		client := cefCallbackPointer(arg9)
 		settings := (*BrowserSettings)(unsafe.Pointer(arg10))
-		extraInfo := unsafe.Pointer(arg11)
+		extraInfo := cefCallbackPointer(arg11)
 		noJavascriptAccess := (*int32)(unsafe.Pointer(arg12))
 		if impl.OnBeforePopup(browser, frame, popupID, targetURL, targetFrameName, targetDisposition, userGesture, popupfeatures, windowinfo, client, settings, extraInfo, noJavascriptAccess) {
 			return 1
@@ -66,7 +66,7 @@ func rawLifeSpanHandlerOnBeforePopupAbortedCEFCallback() uintptr {
 		if !ownerOK {
 			return
 		}
-		browser := wrapBrowser(unsafe.Pointer(arg0))
+		browser := wrapBrowser(cefCallbackPointer(arg0))
 		popupID := int32(arg1)
 		impl.OnBeforePopupAborted(browser, popupID)
 	})
@@ -81,11 +81,11 @@ func rawLifeSpanHandlerOnBeforeDevToolsPopupCEFCallback() uintptr {
 		if !ownerOK {
 			return
 		}
-		browser := wrapBrowser(unsafe.Pointer(arg0))
+		browser := wrapBrowser(cefCallbackPointer(arg0))
 		windowinfo := (*WindowInfo)(unsafe.Pointer(arg1))
-		client := unsafe.Pointer(arg2)
+		client := cefCallbackPointer(arg2)
 		settings := (*BrowserSettings)(unsafe.Pointer(arg3))
-		extraInfo := unsafe.Pointer(arg4)
+		extraInfo := cefCallbackPointer(arg4)
 		useDefaultWindow := (*int32)(unsafe.Pointer(arg5))
 		impl.OnBeforeDevToolsPopup(browser, windowinfo, client, settings, extraInfo, useDefaultWindow)
 	})
@@ -100,7 +100,7 @@ func rawLifeSpanHandlerOnAfterCreatedCEFCallback() uintptr {
 		if !ownerOK {
 			return
 		}
-		browser := wrapBrowser(unsafe.Pointer(arg0))
+		browser := wrapBrowser(cefCallbackPointer(arg0))
 		impl.OnAfterCreated(browser)
 	})
 }
@@ -114,7 +114,7 @@ func rawLifeSpanHandlerDoCloseCEFCallback() uintptr {
 		if !ownerOK {
 			return 0
 		}
-		browser := wrapBrowser(unsafe.Pointer(arg0))
+		browser := wrapBrowser(cefCallbackPointer(arg0))
 		if impl.DoClose(browser) {
 			return 1
 		}
@@ -131,7 +131,7 @@ func rawLifeSpanHandlerOnBeforeCloseCEFCallback() uintptr {
 		if !ownerOK {
 			return
 		}
-		browser := wrapBrowser(unsafe.Pointer(arg0))
+		browser := wrapBrowser(cefCallbackPointer(arg0))
 		impl.OnBeforeClose(browser)
 	})
 }

@@ -49,7 +49,7 @@ type MockFocusHandler_OnGotFocus_Call struct {
 
 // OnGotFocus is a helper method to define mock.On call
 //   - browser in.Browser
-func (_e *MockFocusHandler_Expecter) OnGotFocus(browser interface{}) *MockFocusHandler_OnGotFocus_Call {
+func (_e *MockFocusHandler_Expecter) OnGotFocus(browser any) *MockFocusHandler_OnGotFocus_Call {
 	return &MockFocusHandler_OnGotFocus_Call{Call: _e.mock.On("OnGotFocus", browser)}
 }
 
@@ -101,7 +101,7 @@ type MockFocusHandler_OnSetFocus_Call struct {
 // OnSetFocus is a helper method to define mock.On call
 //   - browser in.Browser
 //   - source in.FocusSource
-func (_e *MockFocusHandler_Expecter) OnSetFocus(browser interface{}, source interface{}) *MockFocusHandler_OnSetFocus_Call {
+func (_e *MockFocusHandler_Expecter) OnSetFocus(browser any, source any) *MockFocusHandler_OnSetFocus_Call {
 	return &MockFocusHandler_OnSetFocus_Call{Call: _e.mock.On("OnSetFocus", browser, source)}
 }
 
@@ -147,7 +147,7 @@ type MockFocusHandler_OnTakeFocus_Call struct {
 // OnTakeFocus is a helper method to define mock.On call
 //   - browser in.Browser
 //   - next int32
-func (_e *MockFocusHandler_Expecter) OnTakeFocus(browser interface{}, next interface{}) *MockFocusHandler_OnTakeFocus_Call {
+func (_e *MockFocusHandler_Expecter) OnTakeFocus(browser any, next any) *MockFocusHandler_OnTakeFocus_Call {
 	return &MockFocusHandler_OnTakeFocus_Call{Call: _e.mock.On("OnTakeFocus", browser, next)}
 }
 

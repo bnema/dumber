@@ -37,7 +37,7 @@ func loadHandlerOnLoadingStateChangeCEFCallback() uintptr {
 		if !ownerOK {
 			return
 		}
-		browser := wrapBrowser(unsafe.Pointer(arg0))
+		browser := wrapBrowser(cefCallbackPointer(arg0))
 		isloading := int32(arg1)
 		cangoback := int32(arg2)
 		cangoforward := int32(arg3)
@@ -54,8 +54,8 @@ func loadHandlerOnLoadStartCEFCallback() uintptr {
 		if !ownerOK {
 			return
 		}
-		browser := wrapBrowser(unsafe.Pointer(arg0))
-		frame := wrapFrame(unsafe.Pointer(arg1))
+		browser := wrapBrowser(cefCallbackPointer(arg0))
+		frame := wrapFrame(cefCallbackPointer(arg1))
 		transitionType := TransitionType(arg2)
 		impl.OnLoadStart(browser, frame, transitionType)
 	})
@@ -70,8 +70,8 @@ func loadHandlerOnLoadEndCEFCallback() uintptr {
 		if !ownerOK {
 			return
 		}
-		browser := wrapBrowser(unsafe.Pointer(arg0))
-		frame := wrapFrame(unsafe.Pointer(arg1))
+		browser := wrapBrowser(cefCallbackPointer(arg0))
+		frame := wrapFrame(cefCallbackPointer(arg1))
 		httpstatuscode := int32(arg2)
 		impl.OnLoadEnd(browser, frame, httpstatuscode)
 	})
@@ -86,8 +86,8 @@ func loadHandlerOnLoadErrorCEFCallback() uintptr {
 		if !ownerOK {
 			return
 		}
-		browser := wrapBrowser(unsafe.Pointer(arg0))
-		frame := wrapFrame(unsafe.Pointer(arg1))
+		browser := wrapBrowser(cefCallbackPointer(arg0))
+		frame := wrapFrame(cefCallbackPointer(arg1))
 		errorcode := Errorcode(arg2)
 		errortext := goString(unsafe.Pointer(arg3))
 		failedurl := goString(unsafe.Pointer(arg4))

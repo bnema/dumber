@@ -182,16 +182,16 @@ func v8HandlerExecuteCEFCallback() uintptr {
 			return 0
 		}
 		name := goString(unsafe.Pointer(arg0))
-		object := wrapV8Value(unsafe.Pointer(arg1))
+		object := wrapV8Value(cefCallbackPointer(arg1))
 		var arguments []V8Value
 		if arg3 != 0 && arg2 > 0 {
-			argumentsPtrs := unsafe.Slice((*uintptr)(unsafe.Pointer(arg3)), int(arg2))
+			argumentsPtrs := unsafe.Slice((*uintptr)(cefCallbackPointer(arg3)), int(arg2))
 			arguments = make([]V8Value, int(arg2))
 			for i, ptr := range argumentsPtrs {
-				arguments[i] = wrapV8Value(unsafe.Pointer(ptr))
+				arguments[i] = wrapV8Value(cefCallbackPointer(ptr))
 			}
 		}
-		retval := unsafe.Pointer(arg4)
+		retval := cefCallbackPointer(arg4)
 		exception := uintptr(arg5)
 		return uintptr(impl.Execute(name, object, arguments, retval, exception))
 	})
@@ -303,8 +303,8 @@ func v8AccessorGetCEFCallback() uintptr {
 			return 0
 		}
 		name := goString(unsafe.Pointer(arg0))
-		object := wrapV8Value(unsafe.Pointer(arg1))
-		retval := unsafe.Pointer(arg2)
+		object := wrapV8Value(cefCallbackPointer(arg1))
+		retval := cefCallbackPointer(arg2)
 		exception := uintptr(arg3)
 		return uintptr(impl.Get(name, object, retval, exception))
 	})
@@ -320,8 +320,8 @@ func v8AccessorSetCEFCallback() uintptr {
 			return 0
 		}
 		name := goString(unsafe.Pointer(arg0))
-		object := wrapV8Value(unsafe.Pointer(arg1))
-		value := wrapV8Value(unsafe.Pointer(arg2))
+		object := wrapV8Value(cefCallbackPointer(arg1))
+		value := wrapV8Value(cefCallbackPointer(arg2))
 		exception := uintptr(arg3)
 		return uintptr(impl.Set(name, object, value, exception))
 	})
@@ -437,8 +437,8 @@ func v8InterceptorGetBynameCEFCallback() uintptr {
 			return 0
 		}
 		name := goString(unsafe.Pointer(arg0))
-		object := wrapV8Value(unsafe.Pointer(arg1))
-		retval := unsafe.Pointer(arg2)
+		object := wrapV8Value(cefCallbackPointer(arg1))
+		retval := cefCallbackPointer(arg2)
 		exception := uintptr(arg3)
 		return uintptr(impl.GetByname(name, object, retval, exception))
 	})
@@ -454,8 +454,8 @@ func v8InterceptorGetByindexCEFCallback() uintptr {
 			return 0
 		}
 		index := int32(arg0)
-		object := wrapV8Value(unsafe.Pointer(arg1))
-		retval := unsafe.Pointer(arg2)
+		object := wrapV8Value(cefCallbackPointer(arg1))
+		retval := cefCallbackPointer(arg2)
 		exception := uintptr(arg3)
 		return uintptr(impl.GetByindex(index, object, retval, exception))
 	})
@@ -471,8 +471,8 @@ func v8InterceptorSetBynameCEFCallback() uintptr {
 			return 0
 		}
 		name := goString(unsafe.Pointer(arg0))
-		object := wrapV8Value(unsafe.Pointer(arg1))
-		value := wrapV8Value(unsafe.Pointer(arg2))
+		object := wrapV8Value(cefCallbackPointer(arg1))
+		value := wrapV8Value(cefCallbackPointer(arg2))
 		exception := uintptr(arg3)
 		return uintptr(impl.SetByname(name, object, value, exception))
 	})
@@ -488,8 +488,8 @@ func v8InterceptorSetByindexCEFCallback() uintptr {
 			return 0
 		}
 		index := int32(arg0)
-		object := wrapV8Value(unsafe.Pointer(arg1))
-		value := wrapV8Value(unsafe.Pointer(arg2))
+		object := wrapV8Value(cefCallbackPointer(arg1))
+		value := wrapV8Value(cefCallbackPointer(arg2))
 		exception := uintptr(arg3)
 		return uintptr(impl.SetByindex(index, object, value, exception))
 	})

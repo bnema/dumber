@@ -155,7 +155,7 @@ func printHandlerOnPrintStartCEFCallback() uintptr {
 		if !ownerOK {
 			return
 		}
-		browser := wrapBrowser(unsafe.Pointer(arg0))
+		browser := wrapBrowser(cefCallbackPointer(arg0))
 		impl.OnPrintStart(browser)
 	})
 }
@@ -169,8 +169,8 @@ func printHandlerOnPrintSettingsCEFCallback() uintptr {
 		if !ownerOK {
 			return
 		}
-		browser := wrapBrowser(unsafe.Pointer(arg0))
-		settings := wrapPrintSettings(unsafe.Pointer(arg1))
+		browser := wrapBrowser(cefCallbackPointer(arg0))
+		settings := wrapPrintSettings(cefCallbackPointer(arg1))
 		getDefaults := int32(arg2)
 		impl.OnPrintSettings(browser, settings, getDefaults)
 	})
@@ -185,9 +185,9 @@ func printHandlerOnPrintDialogCEFCallback() uintptr {
 		if !ownerOK {
 			return 0
 		}
-		browser := wrapBrowser(unsafe.Pointer(arg0))
+		browser := wrapBrowser(cefCallbackPointer(arg0))
 		hasSelection := int32(arg1)
-		callback := wrapPrintDialogCallback(unsafe.Pointer(arg2))
+		callback := wrapPrintDialogCallback(cefCallbackPointer(arg2))
 		return uintptr(impl.OnPrintDialog(browser, hasSelection, callback))
 	})
 }
@@ -201,10 +201,10 @@ func printHandlerOnPrintJobCEFCallback() uintptr {
 		if !ownerOK {
 			return 0
 		}
-		browser := wrapBrowser(unsafe.Pointer(arg0))
+		browser := wrapBrowser(cefCallbackPointer(arg0))
 		documentName := goString(unsafe.Pointer(arg1))
 		pdfFilePath := goString(unsafe.Pointer(arg2))
-		callback := wrapPrintJobCallback(unsafe.Pointer(arg3))
+		callback := wrapPrintJobCallback(cefCallbackPointer(arg3))
 		return uintptr(impl.OnPrintJob(browser, documentName, pdfFilePath, callback))
 	})
 }
@@ -218,7 +218,7 @@ func printHandlerOnPrintResetCEFCallback() uintptr {
 		if !ownerOK {
 			return
 		}
-		browser := wrapBrowser(unsafe.Pointer(arg0))
+		browser := wrapBrowser(cefCallbackPointer(arg0))
 		impl.OnPrintReset(browser)
 	})
 }
@@ -232,7 +232,7 @@ func printHandlerGetPdfPaperSizeCEFCallback() uintptr {
 		if !ownerOK {
 			return 0
 		}
-		browser := wrapBrowser(unsafe.Pointer(arg0))
+		browser := wrapBrowser(cefCallbackPointer(arg0))
 		deviceUnitsPerInch := int32(arg1)
 		return uintptr(impl.GetPdfPaperSize(browser, deviceUnitsPerInch))
 	})

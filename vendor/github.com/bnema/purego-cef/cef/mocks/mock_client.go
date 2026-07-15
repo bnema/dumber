@@ -891,7 +891,7 @@ type MockClient_OnProcessMessageReceived_Call struct {
 //   - frame cef.Frame
 //   - sourceProcess cef.ProcessID
 //   - message cef.ProcessMessage
-func (_e *MockClient_Expecter) OnProcessMessageReceived(browser interface{}, frame interface{}, sourceProcess interface{}, message interface{}) *MockClient_OnProcessMessageReceived_Call {
+func (_e *MockClient_Expecter) OnProcessMessageReceived(browser any, frame any, sourceProcess any, message any) *MockClient_OnProcessMessageReceived_Call {
 	return &MockClient_OnProcessMessageReceived_Call{Call: _e.mock.On("OnProcessMessageReceived", browser, frame, sourceProcess, message)}
 }
 

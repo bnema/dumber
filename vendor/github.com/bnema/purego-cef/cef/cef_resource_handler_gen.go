@@ -152,9 +152,9 @@ func resourceHandlerOpenCEFCallback() uintptr {
 		if !ownerOK {
 			return 0
 		}
-		request := wrapRequest(unsafe.Pointer(arg0))
+		request := wrapRequest(cefCallbackPointer(arg0))
 		handleRequest := (*int32)(unsafe.Pointer(arg1))
-		callback := wrapCallback(unsafe.Pointer(arg2))
+		callback := wrapCallback(cefCallbackPointer(arg2))
 		return uintptr(impl.Open(request, handleRequest, callback))
 	})
 }
@@ -168,8 +168,8 @@ func resourceHandlerProcessRequestCEFCallback() uintptr {
 		if !ownerOK {
 			return 0
 		}
-		request := wrapRequest(unsafe.Pointer(arg0))
-		callback := wrapCallback(unsafe.Pointer(arg1))
+		request := wrapRequest(cefCallbackPointer(arg0))
+		callback := wrapCallback(cefCallbackPointer(arg1))
 		return uintptr(impl.ProcessRequest(request, callback))
 	})
 }
@@ -183,7 +183,7 @@ func resourceHandlerGetResponseHeadersCEFCallback() uintptr {
 		if !ownerOK {
 			return
 		}
-		response := wrapResponse(unsafe.Pointer(arg0))
+		response := wrapResponse(cefCallbackPointer(arg0))
 		responseLength := (*int64)(unsafe.Pointer(arg1))
 		redirecturl := uintptr(arg2)
 		impl.GetResponseHeaders(response, responseLength, redirecturl)
@@ -201,7 +201,7 @@ func resourceHandlerSkipCEFCallback() uintptr {
 		}
 		bytesToSkip := arg0
 		bytesSkipped := (*int64)(unsafe.Pointer(arg1))
-		callback := wrapResourceSkipCallback(unsafe.Pointer(arg2))
+		callback := wrapResourceSkipCallback(cefCallbackPointer(arg2))
 		return uintptr(impl.Skip(bytesToSkip, bytesSkipped, callback))
 	})
 }
@@ -218,7 +218,7 @@ func resourceHandlerReadCEFCallback() uintptr {
 		dataOut := unsafe.Pointer(arg0)
 		bytesToRead := int32(arg1)
 		bytesRead := (*int32)(unsafe.Pointer(arg2))
-		callback := wrapResourceReadCallback(unsafe.Pointer(arg3))
+		callback := wrapResourceReadCallback(cefCallbackPointer(arg3))
 		return uintptr(impl.Read(dataOut, bytesToRead, bytesRead, callback))
 	})
 }
@@ -235,7 +235,7 @@ func resourceHandlerReadResponseCEFCallback() uintptr {
 		dataOut := unsafe.Pointer(arg0)
 		bytesToRead := int32(arg1)
 		bytesRead := (*int32)(unsafe.Pointer(arg2))
-		callback := wrapCallback(unsafe.Pointer(arg3))
+		callback := wrapCallback(cefCallbackPointer(arg3))
 		return uintptr(impl.ReadResponse(dataOut, bytesToRead, bytesRead, callback))
 	})
 }

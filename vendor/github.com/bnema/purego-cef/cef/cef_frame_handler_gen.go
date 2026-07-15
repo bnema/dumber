@@ -37,8 +37,8 @@ func frameHandlerOnFrameCreatedCEFCallback() uintptr {
 		if !ownerOK {
 			return
 		}
-		browser := wrapBrowser(unsafe.Pointer(arg0))
-		frame := wrapFrame(unsafe.Pointer(arg1))
+		browser := wrapBrowser(cefCallbackPointer(arg0))
+		frame := wrapFrame(cefCallbackPointer(arg1))
 		impl.OnFrameCreated(browser, frame)
 	})
 }
@@ -52,8 +52,8 @@ func frameHandlerOnFrameDestroyedCEFCallback() uintptr {
 		if !ownerOK {
 			return
 		}
-		browser := wrapBrowser(unsafe.Pointer(arg0))
-		frame := wrapFrame(unsafe.Pointer(arg1))
+		browser := wrapBrowser(cefCallbackPointer(arg0))
+		frame := wrapFrame(cefCallbackPointer(arg1))
 		impl.OnFrameDestroyed(browser, frame)
 	})
 }
@@ -67,8 +67,8 @@ func frameHandlerOnFrameAttachedCEFCallback() uintptr {
 		if !ownerOK {
 			return
 		}
-		browser := wrapBrowser(unsafe.Pointer(arg0))
-		frame := wrapFrame(unsafe.Pointer(arg1))
+		browser := wrapBrowser(cefCallbackPointer(arg0))
+		frame := wrapFrame(cefCallbackPointer(arg1))
 		reattached := int32(arg2)
 		impl.OnFrameAttached(browser, frame, reattached)
 	})
@@ -83,8 +83,8 @@ func frameHandlerOnFrameDetachedCEFCallback() uintptr {
 		if !ownerOK {
 			return
 		}
-		browser := wrapBrowser(unsafe.Pointer(arg0))
-		frame := wrapFrame(unsafe.Pointer(arg1))
+		browser := wrapBrowser(cefCallbackPointer(arg0))
+		frame := wrapFrame(cefCallbackPointer(arg1))
 		impl.OnFrameDetached(browser, frame)
 	})
 }
@@ -98,9 +98,9 @@ func frameHandlerOnMainFrameChangedCEFCallback() uintptr {
 		if !ownerOK {
 			return
 		}
-		browser := wrapBrowser(unsafe.Pointer(arg0))
-		oldFrame := wrapFrame(unsafe.Pointer(arg1))
-		newFrame := wrapFrame(unsafe.Pointer(arg2))
+		browser := wrapBrowser(cefCallbackPointer(arg0))
+		oldFrame := wrapFrame(cefCallbackPointer(arg1))
+		newFrame := wrapFrame(cefCallbackPointer(arg2))
 		impl.OnMainFrameChanged(browser, oldFrame, newFrame)
 	})
 }

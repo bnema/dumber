@@ -37,7 +37,7 @@ func rawAudioHandlerGetAudioParametersCEFCallback() uintptr {
 		if !ownerOK {
 			return 0
 		}
-		browser := wrapBrowser(unsafe.Pointer(arg0))
+		browser := wrapBrowser(cefCallbackPointer(arg0))
 		params := (*AudioParameters)(unsafe.Pointer(arg1))
 		return uintptr(impl.GetAudioParameters(browser, params))
 	})
@@ -52,7 +52,7 @@ func rawAudioHandlerOnAudioStreamStartedCEFCallback() uintptr {
 		if !ownerOK {
 			return
 		}
-		browser := wrapBrowser(unsafe.Pointer(arg0))
+		browser := wrapBrowser(cefCallbackPointer(arg0))
 		params := (*AudioParameters)(unsafe.Pointer(arg1))
 		channels := int32(arg2)
 		impl.OnAudioStreamStarted(browser, params, channels)
@@ -68,7 +68,7 @@ func rawAudioHandlerOnAudioStreamPacketCEFCallback() uintptr {
 		if !ownerOK {
 			return
 		}
-		browser := wrapBrowser(unsafe.Pointer(arg0))
+		browser := wrapBrowser(cefCallbackPointer(arg0))
 		data := unsafe.Pointer(arg1)
 		frames := int32(arg2)
 		pts := arg3
@@ -85,7 +85,7 @@ func rawAudioHandlerOnAudioStreamStoppedCEFCallback() uintptr {
 		if !ownerOK {
 			return
 		}
-		browser := wrapBrowser(unsafe.Pointer(arg0))
+		browser := wrapBrowser(cefCallbackPointer(arg0))
 		impl.OnAudioStreamStopped(browser)
 	})
 }
@@ -99,7 +99,7 @@ func rawAudioHandlerOnAudioStreamErrorCEFCallback() uintptr {
 		if !ownerOK {
 			return
 		}
-		browser := wrapBrowser(unsafe.Pointer(arg0))
+		browser := wrapBrowser(cefCallbackPointer(arg0))
 		message := goString(unsafe.Pointer(arg1))
 		impl.OnAudioStreamError(browser, message)
 	})

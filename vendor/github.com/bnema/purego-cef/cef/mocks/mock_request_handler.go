@@ -67,7 +67,7 @@ type MockRequestHandler_GetAuthCredentials_Call struct {
 //   - realm string
 //   - scheme string
 //   - callback in.AuthCallback
-func (_e *MockRequestHandler_Expecter) GetAuthCredentials(browser interface{}, originURL interface{}, isproxy interface{}, host interface{}, port interface{}, realm interface{}, scheme interface{}, callback interface{}) *MockRequestHandler_GetAuthCredentials_Call {
+func (_e *MockRequestHandler_Expecter) GetAuthCredentials(browser any, originURL any, isproxy any, host any, port any, realm any, scheme any, callback any) *MockRequestHandler_GetAuthCredentials_Call {
 	return &MockRequestHandler_GetAuthCredentials_Call{Call: _e.mock.On("GetAuthCredentials", browser, originURL, isproxy, host, port, realm, scheme, callback)}
 }
 
@@ -161,7 +161,7 @@ type MockRequestHandler_GetResourceRequestHandler_Call struct {
 //   - isDownload int32
 //   - requestInitiator string
 //   - disableDefaultHandling *int32
-func (_e *MockRequestHandler_Expecter) GetResourceRequestHandler(browser interface{}, frame interface{}, request interface{}, isNavigation interface{}, isDownload interface{}, requestInitiator interface{}, disableDefaultHandling interface{}) *MockRequestHandler_GetResourceRequestHandler_Call {
+func (_e *MockRequestHandler_Expecter) GetResourceRequestHandler(browser any, frame any, request any, isNavigation any, isDownload any, requestInitiator any, disableDefaultHandling any) *MockRequestHandler_GetResourceRequestHandler_Call {
 	return &MockRequestHandler_GetResourceRequestHandler_Call{Call: _e.mock.On("GetResourceRequestHandler", browser, frame, request, isNavigation, isDownload, requestInitiator, disableDefaultHandling)}
 }
 
@@ -246,7 +246,7 @@ type MockRequestHandler_OnBeforeBrowse_Call struct {
 //   - request in.Request
 //   - userGesture int32
 //   - isRedirect int32
-func (_e *MockRequestHandler_Expecter) OnBeforeBrowse(browser interface{}, frame interface{}, request interface{}, userGesture interface{}, isRedirect interface{}) *MockRequestHandler_OnBeforeBrowse_Call {
+func (_e *MockRequestHandler_Expecter) OnBeforeBrowse(browser any, frame any, request any, userGesture any, isRedirect any) *MockRequestHandler_OnBeforeBrowse_Call {
 	return &MockRequestHandler_OnBeforeBrowse_Call{Call: _e.mock.On("OnBeforeBrowse", browser, frame, request, userGesture, isRedirect)}
 }
 
@@ -321,7 +321,7 @@ type MockRequestHandler_OnCertificateError_Call struct {
 //   - requestURL string
 //   - sslInfo in.Sslinfo
 //   - callback in.Callback
-func (_e *MockRequestHandler_Expecter) OnCertificateError(browser interface{}, certError interface{}, requestURL interface{}, sslInfo interface{}, callback interface{}) *MockRequestHandler_OnCertificateError_Call {
+func (_e *MockRequestHandler_Expecter) OnCertificateError(browser any, certError any, requestURL any, sslInfo any, callback any) *MockRequestHandler_OnCertificateError_Call {
 	return &MockRequestHandler_OnCertificateError_Call{Call: _e.mock.On("OnCertificateError", browser, certError, requestURL, sslInfo, callback)}
 }
 
@@ -381,7 +381,7 @@ type MockRequestHandler_OnDocumentAvailableInMainFrame_Call struct {
 
 // OnDocumentAvailableInMainFrame is a helper method to define mock.On call
 //   - browser in.Browser
-func (_e *MockRequestHandler_Expecter) OnDocumentAvailableInMainFrame(browser interface{}) *MockRequestHandler_OnDocumentAvailableInMainFrame_Call {
+func (_e *MockRequestHandler_Expecter) OnDocumentAvailableInMainFrame(browser any) *MockRequestHandler_OnDocumentAvailableInMainFrame_Call {
 	return &MockRequestHandler_OnDocumentAvailableInMainFrame_Call{Call: _e.mock.On("OnDocumentAvailableInMainFrame", browser)}
 }
 
@@ -436,7 +436,7 @@ type MockRequestHandler_OnOpenUrlfromTab_Call struct {
 //   - targetURL string
 //   - targetDisposition in.WindowOpenDisposition
 //   - userGesture int32
-func (_e *MockRequestHandler_Expecter) OnOpenUrlfromTab(browser interface{}, frame interface{}, targetURL interface{}, targetDisposition interface{}, userGesture interface{}) *MockRequestHandler_OnOpenUrlfromTab_Call {
+func (_e *MockRequestHandler_Expecter) OnOpenUrlfromTab(browser any, frame any, targetURL any, targetDisposition any, userGesture any) *MockRequestHandler_OnOpenUrlfromTab_Call {
 	return &MockRequestHandler_OnOpenUrlfromTab_Call{Call: _e.mock.On("OnOpenUrlfromTab", browser, frame, targetURL, targetDisposition, userGesture)}
 }
 
@@ -496,7 +496,7 @@ type MockRequestHandler_OnRenderProcessResponsive_Call struct {
 
 // OnRenderProcessResponsive is a helper method to define mock.On call
 //   - browser in.Browser
-func (_e *MockRequestHandler_Expecter) OnRenderProcessResponsive(browser interface{}) *MockRequestHandler_OnRenderProcessResponsive_Call {
+func (_e *MockRequestHandler_Expecter) OnRenderProcessResponsive(browser any) *MockRequestHandler_OnRenderProcessResponsive_Call {
 	return &MockRequestHandler_OnRenderProcessResponsive_Call{Call: _e.mock.On("OnRenderProcessResponsive", browser)}
 }
 
@@ -539,7 +539,7 @@ type MockRequestHandler_OnRenderProcessTerminated_Call struct {
 //   - status in.TerminationStatus
 //   - errorCode int32
 //   - errorString string
-func (_e *MockRequestHandler_Expecter) OnRenderProcessTerminated(browser interface{}, status interface{}, errorCode interface{}, errorString interface{}) *MockRequestHandler_OnRenderProcessTerminated_Call {
+func (_e *MockRequestHandler_Expecter) OnRenderProcessTerminated(browser any, status any, errorCode any, errorString any) *MockRequestHandler_OnRenderProcessTerminated_Call {
 	return &MockRequestHandler_OnRenderProcessTerminated_Call{Call: _e.mock.On("OnRenderProcessTerminated", browser, status, errorCode, errorString)}
 }
 
@@ -606,7 +606,7 @@ type MockRequestHandler_OnRenderProcessUnresponsive_Call struct {
 // OnRenderProcessUnresponsive is a helper method to define mock.On call
 //   - browser in.Browser
 //   - callback in.UnresponsiveProcessCallback
-func (_e *MockRequestHandler_Expecter) OnRenderProcessUnresponsive(browser interface{}, callback interface{}) *MockRequestHandler_OnRenderProcessUnresponsive_Call {
+func (_e *MockRequestHandler_Expecter) OnRenderProcessUnresponsive(browser any, callback any) *MockRequestHandler_OnRenderProcessUnresponsive_Call {
 	return &MockRequestHandler_OnRenderProcessUnresponsive_Call{Call: _e.mock.On("OnRenderProcessUnresponsive", browser, callback)}
 }
 
@@ -651,7 +651,7 @@ type MockRequestHandler_OnRenderViewReady_Call struct {
 
 // OnRenderViewReady is a helper method to define mock.On call
 //   - browser in.Browser
-func (_e *MockRequestHandler_Expecter) OnRenderViewReady(browser interface{}) *MockRequestHandler_OnRenderViewReady_Call {
+func (_e *MockRequestHandler_Expecter) OnRenderViewReady(browser any) *MockRequestHandler_OnRenderViewReady_Call {
 	return &MockRequestHandler_OnRenderViewReady_Call{Call: _e.mock.On("OnRenderViewReady", browser)}
 }
 
@@ -707,7 +707,7 @@ type MockRequestHandler_OnSelectClientCertificate_Call struct {
 //   - port int32
 //   - certificates []in.X509Certificate
 //   - callback in.SelectClientCertificateCallback
-func (_e *MockRequestHandler_Expecter) OnSelectClientCertificate(browser interface{}, isproxy interface{}, host interface{}, port interface{}, certificates interface{}, callback interface{}) *MockRequestHandler_OnSelectClientCertificate_Call {
+func (_e *MockRequestHandler_Expecter) OnSelectClientCertificate(browser any, isproxy any, host any, port any, certificates any, callback any) *MockRequestHandler_OnSelectClientCertificate_Call {
 	return &MockRequestHandler_OnSelectClientCertificate_Call{Call: _e.mock.On("OnSelectClientCertificate", browser, isproxy, host, port, certificates, callback)}
 }
 

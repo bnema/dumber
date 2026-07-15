@@ -52,7 +52,7 @@ func renderHandlerGetRootScreenRectCEFCallback() uintptr {
 		if !ownerOK {
 			return 0
 		}
-		browser := wrapBrowser(unsafe.Pointer(arg0))
+		browser := wrapBrowser(cefCallbackPointer(arg0))
 		rect := (*Rect)(unsafe.Pointer(arg1))
 		return uintptr(impl.GetRootScreenRect(browser, rect))
 	})
@@ -67,7 +67,7 @@ func renderHandlerGetViewRectCEFCallback() uintptr {
 		if !ownerOK {
 			return
 		}
-		browser := wrapBrowser(unsafe.Pointer(arg0))
+		browser := wrapBrowser(cefCallbackPointer(arg0))
 		rect := (*Rect)(unsafe.Pointer(arg1))
 		impl.GetViewRect(browser, rect)
 	})
@@ -82,7 +82,7 @@ func renderHandlerGetScreenPointCEFCallback() uintptr {
 		if !ownerOK {
 			return 0
 		}
-		browser := wrapBrowser(unsafe.Pointer(arg0))
+		browser := wrapBrowser(cefCallbackPointer(arg0))
 		viewx := int32(arg1)
 		viewy := int32(arg2)
 		screenx := (*int32)(unsafe.Pointer(arg3))
@@ -100,7 +100,7 @@ func renderHandlerGetScreenInfoCEFCallback() uintptr {
 		if !ownerOK {
 			return 0
 		}
-		browser := wrapBrowser(unsafe.Pointer(arg0))
+		browser := wrapBrowser(cefCallbackPointer(arg0))
 		screenInfo := (*ScreenInfo)(unsafe.Pointer(arg1))
 		return uintptr(impl.GetScreenInfo(browser, screenInfo))
 	})
@@ -115,7 +115,7 @@ func renderHandlerOnPopupShowCEFCallback() uintptr {
 		if !ownerOK {
 			return
 		}
-		browser := wrapBrowser(unsafe.Pointer(arg0))
+		browser := wrapBrowser(cefCallbackPointer(arg0))
 		show := int32(arg1)
 		impl.OnPopupShow(browser, show)
 	})
@@ -130,7 +130,7 @@ func renderHandlerOnPopupSizeCEFCallback() uintptr {
 		if !ownerOK {
 			return
 		}
-		browser := wrapBrowser(unsafe.Pointer(arg0))
+		browser := wrapBrowser(cefCallbackPointer(arg0))
 		rect := (*Rect)(unsafe.Pointer(arg1))
 		impl.OnPopupSize(browser, rect)
 	})
@@ -145,7 +145,7 @@ func renderHandlerOnPaintCEFCallback() uintptr {
 		if !ownerOK {
 			return
 		}
-		browser := wrapBrowser(unsafe.Pointer(arg0))
+		browser := wrapBrowser(cefCallbackPointer(arg0))
 		type_ := PaintElementType(arg1)
 		dirtyrects := decodeSlice[Rect](arg3, int(arg2))
 		buffer := unsafe.Slice((*byte)(unsafe.Pointer(arg4)), int(arg5)*int(arg6)*4)
@@ -164,7 +164,7 @@ func renderHandlerOnAcceleratedPaintCEFCallback() uintptr {
 		if !ownerOK {
 			return
 		}
-		browser := wrapBrowser(unsafe.Pointer(arg0))
+		browser := wrapBrowser(cefCallbackPointer(arg0))
 		type_ := PaintElementType(arg1)
 		dirtyrects := decodeSlice[Rect](arg3, int(arg2))
 		info := (*AcceleratedPaintInfo)(unsafe.Pointer(arg4))
@@ -181,7 +181,7 @@ func renderHandlerGetTouchHandleSizeCEFCallback() uintptr {
 		if !ownerOK {
 			return
 		}
-		browser := wrapBrowser(unsafe.Pointer(arg0))
+		browser := wrapBrowser(cefCallbackPointer(arg0))
 		orientation := HorizontalAlignment(arg1)
 		size := (*Size)(unsafe.Pointer(arg2))
 		impl.GetTouchHandleSize(browser, orientation, size)
@@ -197,7 +197,7 @@ func renderHandlerOnTouchHandleStateChangedCEFCallback() uintptr {
 		if !ownerOK {
 			return
 		}
-		browser := wrapBrowser(unsafe.Pointer(arg0))
+		browser := wrapBrowser(cefCallbackPointer(arg0))
 		state := (*TouchHandleState)(unsafe.Pointer(arg1))
 		impl.OnTouchHandleStateChanged(browser, state)
 	})
@@ -212,8 +212,8 @@ func renderHandlerStartDraggingCEFCallback() uintptr {
 		if !ownerOK {
 			return 0
 		}
-		browser := wrapBrowser(unsafe.Pointer(arg0))
-		dragData := wrapDragData(unsafe.Pointer(arg1))
+		browser := wrapBrowser(cefCallbackPointer(arg0))
+		dragData := wrapDragData(cefCallbackPointer(arg1))
 		allowedOps := DragOperationsMask(arg2)
 		x := int32(arg3)
 		y := int32(arg4)
@@ -230,7 +230,7 @@ func renderHandlerUpdateDragCursorCEFCallback() uintptr {
 		if !ownerOK {
 			return
 		}
-		browser := wrapBrowser(unsafe.Pointer(arg0))
+		browser := wrapBrowser(cefCallbackPointer(arg0))
 		operation := DragOperationsMask(arg1)
 		impl.UpdateDragCursor(browser, operation)
 	})
@@ -245,7 +245,7 @@ func renderHandlerOnScrollOffsetChangedCEFCallback() uintptr {
 		if !ownerOK {
 			return
 		}
-		browser := wrapBrowser(unsafe.Pointer(arg0))
+		browser := wrapBrowser(cefCallbackPointer(arg0))
 		x := arg1
 		y := arg2
 		impl.OnScrollOffsetChanged(browser, x, y)
@@ -261,7 +261,7 @@ func renderHandlerOnImeCompositionRangeChangedCEFCallback() uintptr {
 		if !ownerOK {
 			return
 		}
-		browser := wrapBrowser(unsafe.Pointer(arg0))
+		browser := wrapBrowser(cefCallbackPointer(arg0))
 		selectedRange := (*Range)(unsafe.Pointer(arg1))
 		characterBounds := decodeSlice[Rect](arg3, int(arg2))
 		impl.OnImeCompositionRangeChanged(browser, selectedRange, characterBounds)
@@ -277,7 +277,7 @@ func renderHandlerOnTextSelectionChangedCEFCallback() uintptr {
 		if !ownerOK {
 			return
 		}
-		browser := wrapBrowser(unsafe.Pointer(arg0))
+		browser := wrapBrowser(cefCallbackPointer(arg0))
 		selectedText := goString(unsafe.Pointer(arg1))
 		selectedRange := (*Range)(unsafe.Pointer(arg2))
 		impl.OnTextSelectionChanged(browser, selectedText, selectedRange)
@@ -293,7 +293,7 @@ func renderHandlerOnVirtualKeyboardRequestedCEFCallback() uintptr {
 		if !ownerOK {
 			return
 		}
-		browser := wrapBrowser(unsafe.Pointer(arg0))
+		browser := wrapBrowser(cefCallbackPointer(arg0))
 		inputMode := TextInputMode(arg1)
 		impl.OnVirtualKeyboardRequested(browser, inputMode)
 	})

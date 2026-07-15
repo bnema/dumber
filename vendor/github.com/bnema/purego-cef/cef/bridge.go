@@ -573,6 +573,15 @@ func sharedCEFCallback(once *sync.Once, slot *uintptr, fn any) uintptr {
 	return *slot
 }
 
+// cefCallbackPointer converts a native CEF callback uintptr to a pointer. CEF
+// may synchronously invoke callbacks with Go-backed pointers in tests, so keep
+// this checkptr exception at the native callback boundary.
+//
+//go:nocheckptr
+func cefCallbackPointer(value uintptr) unsafe.Pointer {
+	return unsafe.Pointer(value)
+}
+
 //go:nocheckptr
 func cefCallbackOwnerAs[T any](self uintptr) (T, bool) {
 	var zero T

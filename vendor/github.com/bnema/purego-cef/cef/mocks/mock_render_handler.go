@@ -107,7 +107,7 @@ type MockRenderHandler_GetRootScreenRect_Call struct {
 // GetRootScreenRect is a helper method to define mock.On call
 //   - browser in.Browser
 //   - rect *in.Rect
-func (_e *MockRenderHandler_Expecter) GetRootScreenRect(browser interface{}, rect interface{}) *MockRenderHandler_GetRootScreenRect_Call {
+func (_e *MockRenderHandler_Expecter) GetRootScreenRect(browser any, rect any) *MockRenderHandler_GetRootScreenRect_Call {
 	return &MockRenderHandler_GetRootScreenRect_Call{Call: _e.mock.On("GetRootScreenRect", browser, rect)}
 }
 
@@ -164,7 +164,7 @@ type MockRenderHandler_GetScreenInfo_Call struct {
 // GetScreenInfo is a helper method to define mock.On call
 //   - browser in.Browser
 //   - screenInfo *in.ScreenInfo
-func (_e *MockRenderHandler_Expecter) GetScreenInfo(browser interface{}, screenInfo interface{}) *MockRenderHandler_GetScreenInfo_Call {
+func (_e *MockRenderHandler_Expecter) GetScreenInfo(browser any, screenInfo any) *MockRenderHandler_GetScreenInfo_Call {
 	return &MockRenderHandler_GetScreenInfo_Call{Call: _e.mock.On("GetScreenInfo", browser, screenInfo)}
 }
 
@@ -224,7 +224,7 @@ type MockRenderHandler_GetScreenPoint_Call struct {
 //   - viewy int32
 //   - screenx *int32
 //   - screeny *int32
-func (_e *MockRenderHandler_Expecter) GetScreenPoint(browser interface{}, viewx interface{}, viewy interface{}, screenx interface{}, screeny interface{}) *MockRenderHandler_GetScreenPoint_Call {
+func (_e *MockRenderHandler_Expecter) GetScreenPoint(browser any, viewx any, viewy any, screenx any, screeny any) *MockRenderHandler_GetScreenPoint_Call {
 	return &MockRenderHandler_GetScreenPoint_Call{Call: _e.mock.On("GetScreenPoint", browser, viewx, viewy, screenx, screeny)}
 }
 
@@ -286,7 +286,7 @@ type MockRenderHandler_GetTouchHandleSize_Call struct {
 //   - browser in.Browser
 //   - orientation in.HorizontalAlignment
 //   - size *in.Size
-func (_e *MockRenderHandler_Expecter) GetTouchHandleSize(browser interface{}, orientation interface{}, size interface{}) *MockRenderHandler_GetTouchHandleSize_Call {
+func (_e *MockRenderHandler_Expecter) GetTouchHandleSize(browser any, orientation any, size any) *MockRenderHandler_GetTouchHandleSize_Call {
 	return &MockRenderHandler_GetTouchHandleSize_Call{Call: _e.mock.On("GetTouchHandleSize", browser, orientation, size)}
 }
 
@@ -337,7 +337,7 @@ type MockRenderHandler_GetViewRect_Call struct {
 // GetViewRect is a helper method to define mock.On call
 //   - browser in.Browser
 //   - rect *in.Rect
-func (_e *MockRenderHandler_Expecter) GetViewRect(browser interface{}, rect interface{}) *MockRenderHandler_GetViewRect_Call {
+func (_e *MockRenderHandler_Expecter) GetViewRect(browser any, rect any) *MockRenderHandler_GetViewRect_Call {
 	return &MockRenderHandler_GetViewRect_Call{Call: _e.mock.On("GetViewRect", browser, rect)}
 }
 
@@ -385,7 +385,7 @@ type MockRenderHandler_OnAcceleratedPaint_Call struct {
 //   - type_ in.PaintElementType
 //   - dirtyrects []in.Rect
 //   - info *in.AcceleratedPaintInfo
-func (_e *MockRenderHandler_Expecter) OnAcceleratedPaint(browser interface{}, type_ interface{}, dirtyrects interface{}, info interface{}) *MockRenderHandler_OnAcceleratedPaint_Call {
+func (_e *MockRenderHandler_Expecter) OnAcceleratedPaint(browser any, type_ any, dirtyrects any, info any) *MockRenderHandler_OnAcceleratedPaint_Call {
 	return &MockRenderHandler_OnAcceleratedPaint_Call{Call: _e.mock.On("OnAcceleratedPaint", browser, type_, dirtyrects, info)}
 }
 
@@ -442,7 +442,7 @@ type MockRenderHandler_OnImeCompositionRangeChanged_Call struct {
 //   - browser in.Browser
 //   - selectedRange *in.Range
 //   - characterBounds []in.Rect
-func (_e *MockRenderHandler_Expecter) OnImeCompositionRangeChanged(browser interface{}, selectedRange interface{}, characterBounds interface{}) *MockRenderHandler_OnImeCompositionRangeChanged_Call {
+func (_e *MockRenderHandler_Expecter) OnImeCompositionRangeChanged(browser any, selectedRange any, characterBounds any) *MockRenderHandler_OnImeCompositionRangeChanged_Call {
 	return &MockRenderHandler_OnImeCompositionRangeChanged_Call{Call: _e.mock.On("OnImeCompositionRangeChanged", browser, selectedRange, characterBounds)}
 }
 
@@ -497,7 +497,7 @@ type MockRenderHandler_OnPaint_Call struct {
 //   - buffer []byte
 //   - width int32
 //   - height int32
-func (_e *MockRenderHandler_Expecter) OnPaint(browser interface{}, type_ interface{}, dirtyrects interface{}, buffer interface{}, width interface{}, height interface{}) *MockRenderHandler_OnPaint_Call {
+func (_e *MockRenderHandler_Expecter) OnPaint(browser any, type_ any, dirtyrects any, buffer any, width any, height any) *MockRenderHandler_OnPaint_Call {
 	return &MockRenderHandler_OnPaint_Call{Call: _e.mock.On("OnPaint", browser, type_, dirtyrects, buffer, width, height)}
 }
 
@@ -563,7 +563,7 @@ type MockRenderHandler_OnPopupShow_Call struct {
 // OnPopupShow is a helper method to define mock.On call
 //   - browser in.Browser
 //   - show int32
-func (_e *MockRenderHandler_Expecter) OnPopupShow(browser interface{}, show interface{}) *MockRenderHandler_OnPopupShow_Call {
+func (_e *MockRenderHandler_Expecter) OnPopupShow(browser any, show any) *MockRenderHandler_OnPopupShow_Call {
 	return &MockRenderHandler_OnPopupShow_Call{Call: _e.mock.On("OnPopupShow", browser, show)}
 }
 
@@ -609,7 +609,7 @@ type MockRenderHandler_OnPopupSize_Call struct {
 // OnPopupSize is a helper method to define mock.On call
 //   - browser in.Browser
 //   - rect *in.Rect
-func (_e *MockRenderHandler_Expecter) OnPopupSize(browser interface{}, rect interface{}) *MockRenderHandler_OnPopupSize_Call {
+func (_e *MockRenderHandler_Expecter) OnPopupSize(browser any, rect any) *MockRenderHandler_OnPopupSize_Call {
 	return &MockRenderHandler_OnPopupSize_Call{Call: _e.mock.On("OnPopupSize", browser, rect)}
 }
 
@@ -656,7 +656,7 @@ type MockRenderHandler_OnScrollOffsetChanged_Call struct {
 //   - browser in.Browser
 //   - x float64
 //   - y float64
-func (_e *MockRenderHandler_Expecter) OnScrollOffsetChanged(browser interface{}, x interface{}, y interface{}) *MockRenderHandler_OnScrollOffsetChanged_Call {
+func (_e *MockRenderHandler_Expecter) OnScrollOffsetChanged(browser any, x any, y any) *MockRenderHandler_OnScrollOffsetChanged_Call {
 	return &MockRenderHandler_OnScrollOffsetChanged_Call{Call: _e.mock.On("OnScrollOffsetChanged", browser, x, y)}
 }
 
@@ -708,7 +708,7 @@ type MockRenderHandler_OnTextSelectionChanged_Call struct {
 //   - browser in.Browser
 //   - selectedText string
 //   - selectedRange *in.Range
-func (_e *MockRenderHandler_Expecter) OnTextSelectionChanged(browser interface{}, selectedText interface{}, selectedRange interface{}) *MockRenderHandler_OnTextSelectionChanged_Call {
+func (_e *MockRenderHandler_Expecter) OnTextSelectionChanged(browser any, selectedText any, selectedRange any) *MockRenderHandler_OnTextSelectionChanged_Call {
 	return &MockRenderHandler_OnTextSelectionChanged_Call{Call: _e.mock.On("OnTextSelectionChanged", browser, selectedText, selectedRange)}
 }
 
@@ -759,7 +759,7 @@ type MockRenderHandler_OnTouchHandleStateChanged_Call struct {
 // OnTouchHandleStateChanged is a helper method to define mock.On call
 //   - browser in.Browser
 //   - state *in.TouchHandleState
-func (_e *MockRenderHandler_Expecter) OnTouchHandleStateChanged(browser interface{}, state interface{}) *MockRenderHandler_OnTouchHandleStateChanged_Call {
+func (_e *MockRenderHandler_Expecter) OnTouchHandleStateChanged(browser any, state any) *MockRenderHandler_OnTouchHandleStateChanged_Call {
 	return &MockRenderHandler_OnTouchHandleStateChanged_Call{Call: _e.mock.On("OnTouchHandleStateChanged", browser, state)}
 }
 
@@ -805,7 +805,7 @@ type MockRenderHandler_OnVirtualKeyboardRequested_Call struct {
 // OnVirtualKeyboardRequested is a helper method to define mock.On call
 //   - browser in.Browser
 //   - inputMode in.TextInputMode
-func (_e *MockRenderHandler_Expecter) OnVirtualKeyboardRequested(browser interface{}, inputMode interface{}) *MockRenderHandler_OnVirtualKeyboardRequested_Call {
+func (_e *MockRenderHandler_Expecter) OnVirtualKeyboardRequested(browser any, inputMode any) *MockRenderHandler_OnVirtualKeyboardRequested_Call {
 	return &MockRenderHandler_OnVirtualKeyboardRequested_Call{Call: _e.mock.On("OnVirtualKeyboardRequested", browser, inputMode)}
 }
 
@@ -865,7 +865,7 @@ type MockRenderHandler_StartDragging_Call struct {
 //   - allowedOps in.DragOperationsMask
 //   - x int32
 //   - y int32
-func (_e *MockRenderHandler_Expecter) StartDragging(browser interface{}, dragData interface{}, allowedOps interface{}, x interface{}, y interface{}) *MockRenderHandler_StartDragging_Call {
+func (_e *MockRenderHandler_Expecter) StartDragging(browser any, dragData any, allowedOps any, x any, y any) *MockRenderHandler_StartDragging_Call {
 	return &MockRenderHandler_StartDragging_Call{Call: _e.mock.On("StartDragging", browser, dragData, allowedOps, x, y)}
 }
 
@@ -926,7 +926,7 @@ type MockRenderHandler_UpdateDragCursor_Call struct {
 // UpdateDragCursor is a helper method to define mock.On call
 //   - browser in.Browser
 //   - operation in.DragOperationsMask
-func (_e *MockRenderHandler_Expecter) UpdateDragCursor(browser interface{}, operation interface{}) *MockRenderHandler_UpdateDragCursor_Call {
+func (_e *MockRenderHandler_Expecter) UpdateDragCursor(browser any, operation any) *MockRenderHandler_UpdateDragCursor_Call {
 	return &MockRenderHandler_UpdateDragCursor_Call{Call: _e.mock.On("UpdateDragCursor", browser, operation)}
 }
 

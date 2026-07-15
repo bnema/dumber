@@ -37,7 +37,7 @@ func buttonDelegateOnButtonPressedCEFCallback() uintptr {
 		if !ownerOK {
 			return
 		}
-		button := wrapButton(unsafe.Pointer(arg0))
+		button := wrapButton(cefCallbackPointer(arg0))
 		impl.OnButtonPressed(button)
 	})
 }
@@ -51,7 +51,7 @@ func buttonDelegateOnButtonStateChangedCEFCallback() uintptr {
 		if !ownerOK {
 			return
 		}
-		button := wrapButton(unsafe.Pointer(arg0))
+		button := wrapButton(cefCallbackPointer(arg0))
 		impl.OnButtonStateChanged(button)
 	})
 }

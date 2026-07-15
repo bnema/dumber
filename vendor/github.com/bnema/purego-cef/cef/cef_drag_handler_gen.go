@@ -37,8 +37,8 @@ func dragHandlerOnDragEnterCEFCallback() uintptr {
 		if !ownerOK {
 			return 0
 		}
-		browser := wrapBrowser(unsafe.Pointer(arg0))
-		dragdata := wrapDragData(unsafe.Pointer(arg1))
+		browser := wrapBrowser(cefCallbackPointer(arg0))
+		dragdata := wrapDragData(cefCallbackPointer(arg1))
 		mask := DragOperationsMask(arg2)
 		return uintptr(impl.OnDragEnter(browser, dragdata, mask))
 	})
@@ -53,8 +53,8 @@ func dragHandlerOnDraggableRegionsChangedCEFCallback() uintptr {
 		if !ownerOK {
 			return
 		}
-		browser := wrapBrowser(unsafe.Pointer(arg0))
-		frame := wrapFrame(unsafe.Pointer(arg1))
+		browser := wrapBrowser(cefCallbackPointer(arg0))
+		frame := wrapFrame(cefCallbackPointer(arg1))
 		regions := decodeSlice[DraggableRegion](arg3, int(arg2))
 		impl.OnDraggableRegionsChanged(browser, frame, regions)
 	})
