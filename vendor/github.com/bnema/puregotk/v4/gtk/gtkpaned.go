@@ -2,7 +2,6 @@
 package gtk
 
 import (
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -99,6 +98,7 @@ type Paned struct {
 var xPanedGLibType func() types.GType
 
 func PanedGLibType() types.GType {
+	core.LazyRegister(&xPanedGLibType, "GTK", "gtk_paned_get_type", false)
 	return xPanedGLibType()
 }
 
@@ -112,6 +112,7 @@ var xNewPaned func(Orientation) uintptr
 
 // Creates a new `GtkPaned` widget.
 func NewPaned(OrientationVar Orientation) *Paned {
+	core.LazyRegister(&xNewPaned, "GTK", "gtk_paned_new", false)
 	var cls *Paned
 
 	cret := xNewPaned(OrientationVar)
@@ -129,6 +130,7 @@ var xPanedGetEndChild func(uintptr) uintptr
 
 // Retrieves the end child of the given `GtkPaned`.
 func (x *Paned) GetEndChild() *Widget {
+	core.LazyRegister(&xPanedGetEndChild, "GTK", "gtk_paned_get_end_child", false)
 	var cls *Widget
 
 	cret := xPanedGetEndChild(x.GoPointer())
@@ -146,6 +148,8 @@ var xPanedGetPosition func(uintptr) int
 
 // Obtains the position of the divider between the two panes.
 func (x *Paned) GetPosition() int {
+	core.LazyRegister(&xPanedGetPosition, "GTK", "gtk_paned_get_position", false)
+
 	cret := xPanedGetPosition(x.GoPointer())
 	return cret
 }
@@ -154,6 +158,8 @@ var xPanedGetResizeEndChild func(uintptr) bool
 
 // Returns whether the [property@Gtk.Paned:end-child] can be resized.
 func (x *Paned) GetResizeEndChild() bool {
+	core.LazyRegister(&xPanedGetResizeEndChild, "GTK", "gtk_paned_get_resize_end_child", false)
+
 	cret := xPanedGetResizeEndChild(x.GoPointer())
 	return cret
 }
@@ -162,6 +168,8 @@ var xPanedGetResizeStartChild func(uintptr) bool
 
 // Returns whether the [property@Gtk.Paned:start-child] can be resized.
 func (x *Paned) GetResizeStartChild() bool {
+	core.LazyRegister(&xPanedGetResizeStartChild, "GTK", "gtk_paned_get_resize_start_child", false)
+
 	cret := xPanedGetResizeStartChild(x.GoPointer())
 	return cret
 }
@@ -170,6 +178,8 @@ var xPanedGetShrinkEndChild func(uintptr) bool
 
 // Returns whether the [property@Gtk.Paned:end-child] can shrink.
 func (x *Paned) GetShrinkEndChild() bool {
+	core.LazyRegister(&xPanedGetShrinkEndChild, "GTK", "gtk_paned_get_shrink_end_child", false)
+
 	cret := xPanedGetShrinkEndChild(x.GoPointer())
 	return cret
 }
@@ -178,6 +188,8 @@ var xPanedGetShrinkStartChild func(uintptr) bool
 
 // Returns whether the [property@Gtk.Paned:start-child] can shrink.
 func (x *Paned) GetShrinkStartChild() bool {
+	core.LazyRegister(&xPanedGetShrinkStartChild, "GTK", "gtk_paned_get_shrink_start_child", false)
+
 	cret := xPanedGetShrinkStartChild(x.GoPointer())
 	return cret
 }
@@ -186,6 +198,7 @@ var xPanedGetStartChild func(uintptr) uintptr
 
 // Retrieves the start child of the given `GtkPaned`.
 func (x *Paned) GetStartChild() *Widget {
+	core.LazyRegister(&xPanedGetStartChild, "GTK", "gtk_paned_get_start_child", false)
 	var cls *Widget
 
 	cret := xPanedGetStartChild(x.GoPointer())
@@ -203,6 +216,8 @@ var xPanedGetWideHandle func(uintptr) bool
 
 // Gets whether the separator should be wide.
 func (x *Paned) GetWideHandle() bool {
+	core.LazyRegister(&xPanedGetWideHandle, "GTK", "gtk_paned_get_wide_handle", false)
+
 	cret := xPanedGetWideHandle(x.GoPointer())
 	return cret
 }
@@ -213,6 +228,8 @@ var xPanedSetEndChild func(uintptr, uintptr)
 //
 // If @child is `NULL`, the existing child will be removed.
 func (x *Paned) SetEndChild(ChildVar *Widget) {
+	core.LazyRegister(&xPanedSetEndChild, "GTK", "gtk_paned_set_end_child", false)
+
 	xPanedSetEndChild(x.GoPointer(), ChildVar.GoPointer())
 }
 
@@ -220,6 +237,8 @@ var xPanedSetPosition func(uintptr, int)
 
 // Sets the position of the divider between the two panes.
 func (x *Paned) SetPosition(PositionVar int) {
+	core.LazyRegister(&xPanedSetPosition, "GTK", "gtk_paned_set_position", false)
+
 	xPanedSetPosition(x.GoPointer(), PositionVar)
 }
 
@@ -227,6 +246,8 @@ var xPanedSetResizeEndChild func(uintptr, bool)
 
 // Sets whether the [property@Gtk.Paned:end-child] can be resized.
 func (x *Paned) SetResizeEndChild(ResizeVar bool) {
+	core.LazyRegister(&xPanedSetResizeEndChild, "GTK", "gtk_paned_set_resize_end_child", false)
+
 	xPanedSetResizeEndChild(x.GoPointer(), ResizeVar)
 }
 
@@ -234,6 +255,8 @@ var xPanedSetResizeStartChild func(uintptr, bool)
 
 // Sets whether the [property@Gtk.Paned:start-child] can be resized.
 func (x *Paned) SetResizeStartChild(ResizeVar bool) {
+	core.LazyRegister(&xPanedSetResizeStartChild, "GTK", "gtk_paned_set_resize_start_child", false)
+
 	xPanedSetResizeStartChild(x.GoPointer(), ResizeVar)
 }
 
@@ -241,6 +264,8 @@ var xPanedSetShrinkEndChild func(uintptr, bool)
 
 // Sets whether the [property@Gtk.Paned:end-child] can shrink.
 func (x *Paned) SetShrinkEndChild(ResizeVar bool) {
+	core.LazyRegister(&xPanedSetShrinkEndChild, "GTK", "gtk_paned_set_shrink_end_child", false)
+
 	xPanedSetShrinkEndChild(x.GoPointer(), ResizeVar)
 }
 
@@ -248,6 +273,8 @@ var xPanedSetShrinkStartChild func(uintptr, bool)
 
 // Sets whether the [property@Gtk.Paned:start-child] can shrink.
 func (x *Paned) SetShrinkStartChild(ResizeVar bool) {
+	core.LazyRegister(&xPanedSetShrinkStartChild, "GTK", "gtk_paned_set_shrink_start_child", false)
+
 	xPanedSetShrinkStartChild(x.GoPointer(), ResizeVar)
 }
 
@@ -257,6 +284,8 @@ var xPanedSetStartChild func(uintptr, uintptr)
 //
 // If @child is `NULL`, the existing child will be removed.
 func (x *Paned) SetStartChild(ChildVar *Widget) {
+	core.LazyRegister(&xPanedSetStartChild, "GTK", "gtk_paned_set_start_child", false)
+
 	xPanedSetStartChild(x.GoPointer(), ChildVar.GoPointer())
 }
 
@@ -264,6 +293,8 @@ var xPanedSetWideHandle func(uintptr, bool)
 
 // Sets whether the separator should be wide.
 func (x *Paned) SetWideHandle(WideVar bool) {
+	core.LazyRegister(&xPanedSetWideHandle, "GTK", "gtk_paned_set_wide_handle", false)
+
 	xPanedSetWideHandle(x.GoPointer(), WideVar)
 }
 
@@ -896,33 +927,4 @@ func (x *Paned) SetOrientation(OrientationVar Orientation) {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GTK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xPanedGLibType, libs, "gtk_paned_get_type")
-
-	core.PuregoSafeRegister(&xNewPaned, libs, "gtk_paned_new")
-
-	core.PuregoSafeRegister(&xPanedGetEndChild, libs, "gtk_paned_get_end_child")
-	core.PuregoSafeRegister(&xPanedGetPosition, libs, "gtk_paned_get_position")
-	core.PuregoSafeRegister(&xPanedGetResizeEndChild, libs, "gtk_paned_get_resize_end_child")
-	core.PuregoSafeRegister(&xPanedGetResizeStartChild, libs, "gtk_paned_get_resize_start_child")
-	core.PuregoSafeRegister(&xPanedGetShrinkEndChild, libs, "gtk_paned_get_shrink_end_child")
-	core.PuregoSafeRegister(&xPanedGetShrinkStartChild, libs, "gtk_paned_get_shrink_start_child")
-	core.PuregoSafeRegister(&xPanedGetStartChild, libs, "gtk_paned_get_start_child")
-	core.PuregoSafeRegister(&xPanedGetWideHandle, libs, "gtk_paned_get_wide_handle")
-	core.PuregoSafeRegister(&xPanedSetEndChild, libs, "gtk_paned_set_end_child")
-	core.PuregoSafeRegister(&xPanedSetPosition, libs, "gtk_paned_set_position")
-	core.PuregoSafeRegister(&xPanedSetResizeEndChild, libs, "gtk_paned_set_resize_end_child")
-	core.PuregoSafeRegister(&xPanedSetResizeStartChild, libs, "gtk_paned_set_resize_start_child")
-	core.PuregoSafeRegister(&xPanedSetShrinkEndChild, libs, "gtk_paned_set_shrink_end_child")
-	core.PuregoSafeRegister(&xPanedSetShrinkStartChild, libs, "gtk_paned_set_shrink_start_child")
-	core.PuregoSafeRegister(&xPanedSetStartChild, libs, "gtk_paned_set_start_child")
-	core.PuregoSafeRegister(&xPanedSetWideHandle, libs, "gtk_paned_set_wide_handle")
 }

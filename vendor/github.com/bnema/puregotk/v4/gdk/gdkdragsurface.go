@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject/types"
 )
@@ -37,6 +36,7 @@ type DragSurface interface {
 var xDragSurfaceGLibType func() types.GType
 
 func DragSurfaceGLibType() types.GType {
+	core.LazyRegister(&xDragSurfaceGLibType, "GDK", "gdk_drag_surface_get_type", false)
 	return xDragSurfaceGLibType()
 }
 
@@ -61,21 +61,13 @@ func (x *DragSurfaceBase) Present(WidthVar int, HeightVar int) bool {
 	return cret
 }
 
-var XGdkDragSurfacePresent func(uintptr, int, int) bool
+var XGdkDragSurfacePresent func(uintptr, int, int) bool = func(instance uintptr, WidthVarp int, HeightVarp int) bool {
+	core.LazyRegister(&xXGdkDragSurfacePresent, "GDK", "gdk_drag_surface_present", false)
+	return xXGdkDragSurfacePresent(instance, WidthVarp, HeightVarp)
+}
+var xXGdkDragSurfacePresent func(uintptr, int, int) bool
 
 func init() {
 	core.SetPackageName("GDK", "gtk4")
 	core.SetSharedLibraries("GDK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GDK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xDragSurfaceGLibType, libs, "gdk_drag_surface_get_type")
-
-	core.PuregoSafeRegister(&XGdkDragSurfacePresent, libs, "gdk_drag_surface_present")
 }

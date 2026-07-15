@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 )
 
@@ -38,20 +37,12 @@ var xClearList func(**List, uintptr)
 //
 // @list_ptr must be a valid pointer. If @list_ptr points to a null #GList, this does nothing.
 func ClearList(ListPtrVar **List, DestroyVar *DestroyNotify) {
+	core.LazyRegister(&xClearList, "GLIB", "g_clear_list", false)
+
 	xClearList(ListPtrVar, NewCallbackNullable(DestroyVar))
 }
 
 func init() {
 	core.SetPackageName("GLIB", "glib-2.0")
 	core.SetSharedLibraries("GLIB", []string{"libgobject-2.0.so.0", "libglib-2.0.so.0", "libgobject-2.0.0.dylib", "libglib-2.0.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GLIB") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xClearList, libs, "g_clear_list")
 }

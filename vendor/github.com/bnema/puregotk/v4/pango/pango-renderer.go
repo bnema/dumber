@@ -454,6 +454,7 @@ type RenderPart int
 var xRenderPartGLibType func() types.GType
 
 func RenderPartGLibType() types.GType {
+	core.LazyRegister(&xRenderPartGLibType, "PANGO", "pango_render_part_get_type", false)
 	return xRenderPartGLibType()
 }
 
@@ -484,6 +485,7 @@ type Renderer struct {
 var xRendererGLibType func() types.GType
 
 func RendererGLibType() types.GType {
+	core.LazyRegister(&xRendererGLibType, "PANGO", "pango_renderer_get_type", false)
 	return xRendererGLibType()
 }
 
@@ -505,6 +507,8 @@ var xRendererActivate func(uintptr)
 // [method@Pango.Renderer.deactivate] can be nested and the
 // renderer will only be initialized and deinitialized once.
 func (x *Renderer) Activate() {
+	core.LazyRegister(&xRendererActivate, "PANGO", "pango_renderer_activate", false)
+
 	xRendererActivate(x.GoPointer())
 }
 
@@ -514,6 +518,8 @@ var xRendererDeactivate func(uintptr)
 //
 // See docs for [method@Pango.Renderer.activate].
 func (x *Renderer) Deactivate() {
+	core.LazyRegister(&xRendererDeactivate, "PANGO", "pango_renderer_deactivate", false)
+
 	xRendererDeactivate(x.GoPointer())
 }
 
@@ -529,6 +535,8 @@ var xRendererDrawErrorUnderline func(uintptr, int, int, int, int)
 // This should be called while @renderer is already active.
 // Use [method@Pango.Renderer.activate] to activate a renderer.
 func (x *Renderer) DrawErrorUnderline(XVar int, YVar int, WidthVar int, HeightVar int) {
+	core.LazyRegister(&xRendererDrawErrorUnderline, "PANGO", "pango_renderer_draw_error_underline", false)
+
 	xRendererDrawErrorUnderline(x.GoPointer(), XVar, YVar, WidthVar, HeightVar)
 }
 
@@ -536,6 +544,8 @@ var xRendererDrawGlyph func(uintptr, uintptr, Glyph, float64, float64)
 
 // Draws a single glyph with coordinates in device space.
 func (x *Renderer) DrawGlyph(FontVar *Font, GlyphVar Glyph, XVar float64, YVar float64) {
+	core.LazyRegister(&xRendererDrawGlyph, "PANGO", "pango_renderer_draw_glyph", false)
+
 	xRendererDrawGlyph(x.GoPointer(), FontVar.GoPointer(), GlyphVar, XVar, YVar)
 }
 
@@ -560,6 +570,8 @@ var xRendererDrawGlyphItem func(uintptr, uintptr, *GlyphItem, int, int)
 // The default implementation of this method simply falls back to
 // [method@Pango.Renderer.draw_glyphs].
 func (x *Renderer) DrawGlyphItem(TextVar *string, GlyphItemVar *GlyphItem, XVar int, YVar int) {
+	core.LazyRegister(&xRendererDrawGlyphItem, "PANGO", "pango_renderer_draw_glyph_item", false)
+
 	TextVarPtr := core.GStrdupNullable(TextVar)
 	defer core.GFreeNullable(TextVarPtr)
 
@@ -570,6 +582,8 @@ var xRendererDrawGlyphs func(uintptr, uintptr, *GlyphString, int, int)
 
 // Draws the glyphs in @glyphs with the specified `PangoRenderer`.
 func (x *Renderer) DrawGlyphs(FontVar *Font, GlyphsVar *GlyphString, XVar int, YVar int) {
+	core.LazyRegister(&xRendererDrawGlyphs, "PANGO", "pango_renderer_draw_glyphs", false)
+
 	xRendererDrawGlyphs(x.GoPointer(), FontVar.GoPointer(), GlyphsVar, XVar, YVar)
 }
 
@@ -580,6 +594,8 @@ var xRendererDrawLayout func(uintptr, uintptr, int, int)
 // This is equivalent to drawing the lines of the layout, at their
 // respective positions relative to @x, @y.
 func (x *Renderer) DrawLayout(LayoutVar *Layout, XVar int, YVar int) {
+	core.LazyRegister(&xRendererDrawLayout, "PANGO", "pango_renderer_draw_layout", false)
+
 	xRendererDrawLayout(x.GoPointer(), LayoutVar.GoPointer(), XVar, YVar)
 }
 
@@ -591,6 +607,8 @@ var xRendererDrawLayoutLine func(uintptr, *LayoutLine, int, int)
 // shapes, backgrounds and lines that are specified by the attributes
 // of those items.
 func (x *Renderer) DrawLayoutLine(LineVar *LayoutLine, XVar int, YVar int) {
+	core.LazyRegister(&xRendererDrawLayoutLine, "PANGO", "pango_renderer_draw_layout_line", false)
+
 	xRendererDrawLayoutLine(x.GoPointer(), LineVar, XVar, YVar)
 }
 
@@ -602,6 +620,8 @@ var xRendererDrawRectangle func(uintptr, RenderPart, int, int, int, int)
 // This should be called while @renderer is already active.
 // Use [method@Pango.Renderer.activate] to activate a renderer.
 func (x *Renderer) DrawRectangle(PartVar RenderPart, XVar int, YVar int, WidthVar int, HeightVar int) {
+	core.LazyRegister(&xRendererDrawRectangle, "PANGO", "pango_renderer_draw_rectangle", false)
+
 	xRendererDrawRectangle(x.GoPointer(), PartVar, XVar, YVar, WidthVar, HeightVar)
 }
 
@@ -610,6 +630,8 @@ var xRendererDrawTrapezoid func(uintptr, RenderPart, float64, float64, float64, 
 // Draws a trapezoid with the parallel sides aligned with the X axis
 // using the given `PangoRenderer`; coordinates are in device space.
 func (x *Renderer) DrawTrapezoid(PartVar RenderPart, Y1Var float64, X11Var float64, X21Var float64, Y2Var float64, X12Var float64, X22Var float64) {
+	core.LazyRegister(&xRendererDrawTrapezoid, "PANGO", "pango_renderer_draw_trapezoid", false)
+
 	xRendererDrawTrapezoid(x.GoPointer(), PartVar, Y1Var, X11Var, X21Var, Y2Var, X12Var, X22Var)
 }
 
@@ -617,6 +639,8 @@ var xRendererGetAlpha func(uintptr, RenderPart) uint16
 
 // Gets the current alpha for the specified part.
 func (x *Renderer) GetAlpha(PartVar RenderPart) uint16 {
+	core.LazyRegister(&xRendererGetAlpha, "PANGO", "pango_renderer_get_alpha", false)
+
 	cret := xRendererGetAlpha(x.GoPointer(), PartVar)
 	return cret
 }
@@ -625,6 +649,8 @@ var xRendererGetColor func(uintptr, RenderPart) uintptr
 
 // Gets the current rendering color for the specified part.
 func (x *Renderer) GetColor(PartVar RenderPart) *Color {
+	core.LazyRegister(&xRendererGetColor, "PANGO", "pango_renderer_get_color", false)
+
 	cret := xRendererGetColor(x.GoPointer(), PartVar)
 	if cret == 0 {
 		return nil
@@ -642,6 +668,7 @@ var xRendererGetLayout func(uintptr) uintptr
 // The returned layout should not be modified while still being
 // rendered.
 func (x *Renderer) GetLayout() *Layout {
+	core.LazyRegister(&xRendererGetLayout, "PANGO", "pango_renderer_get_layout", false)
 	var cls *Layout
 
 	cret := xRendererGetLayout(x.GoPointer())
@@ -665,6 +692,8 @@ var xRendererGetLayoutLine func(uintptr) uintptr
 // The returned layout line should not be modified while still being
 // rendered.
 func (x *Renderer) GetLayoutLine() *LayoutLine {
+	core.LazyRegister(&xRendererGetLayoutLine, "PANGO", "pango_renderer_get_layout_line", false)
+
 	cret := xRendererGetLayoutLine(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -679,6 +708,8 @@ var xRendererGetMatrix func(uintptr) uintptr
 //
 // See [method@Pango.Renderer.set_matrix].
 func (x *Renderer) GetMatrix() *Matrix {
+	core.LazyRegister(&xRendererGetMatrix, "PANGO", "pango_renderer_get_matrix", false)
+
 	cret := xRendererGetMatrix(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -704,6 +735,8 @@ var xRendererPartChanged func(uintptr, RenderPart)
 // might be joined together. Pango automatically calls this for
 // changes to colors. (See [method@Pango.Renderer.set_color])
 func (x *Renderer) PartChanged(PartVar RenderPart) {
+	core.LazyRegister(&xRendererPartChanged, "PANGO", "pango_renderer_part_changed", false)
+
 	xRendererPartChanged(x.GoPointer(), PartVar)
 }
 
@@ -714,6 +747,8 @@ var xRendererSetAlpha func(uintptr, RenderPart, uint16)
 // Note that the alpha may only be used if a color is
 // specified for @part as well.
 func (x *Renderer) SetAlpha(PartVar RenderPart, AlphaVar uint16) {
+	core.LazyRegister(&xRendererSetAlpha, "PANGO", "pango_renderer_set_alpha", false)
+
 	xRendererSetAlpha(x.GoPointer(), PartVar, AlphaVar)
 }
 
@@ -723,6 +758,8 @@ var xRendererSetColor func(uintptr, RenderPart, *Color)
 //
 // Also see [method@Pango.Renderer.set_alpha].
 func (x *Renderer) SetColor(PartVar RenderPart, ColorVar *Color) {
+	core.LazyRegister(&xRendererSetColor, "PANGO", "pango_renderer_set_color", false)
+
 	xRendererSetColor(x.GoPointer(), PartVar, ColorVar)
 }
 
@@ -730,6 +767,8 @@ var xRendererSetMatrix func(uintptr, *Matrix)
 
 // Sets the transformation matrix that will be applied when rendering.
 func (x *Renderer) SetMatrix(MatrixVar *Matrix) {
+	core.LazyRegister(&xRendererSetMatrix, "PANGO", "pango_renderer_set_matrix", false)
+
 	xRendererSetMatrix(x.GoPointer(), MatrixVar)
 }
 
@@ -747,36 +786,4 @@ func (c *Renderer) SetGoPointer(ptr uintptr) {
 func init() {
 	core.SetPackageName("PANGO", "pango")
 	core.SetSharedLibraries("PANGO", []string{"libpango-1.0.so.0", "libpango-1.0.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("PANGO") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xRenderPartGLibType, libs, "pango_render_part_get_type")
-
-	core.PuregoSafeRegister(&xRendererGLibType, libs, "pango_renderer_get_type")
-
-	core.PuregoSafeRegister(&xRendererActivate, libs, "pango_renderer_activate")
-	core.PuregoSafeRegister(&xRendererDeactivate, libs, "pango_renderer_deactivate")
-	core.PuregoSafeRegister(&xRendererDrawErrorUnderline, libs, "pango_renderer_draw_error_underline")
-	core.PuregoSafeRegister(&xRendererDrawGlyph, libs, "pango_renderer_draw_glyph")
-	core.PuregoSafeRegister(&xRendererDrawGlyphItem, libs, "pango_renderer_draw_glyph_item")
-	core.PuregoSafeRegister(&xRendererDrawGlyphs, libs, "pango_renderer_draw_glyphs")
-	core.PuregoSafeRegister(&xRendererDrawLayout, libs, "pango_renderer_draw_layout")
-	core.PuregoSafeRegister(&xRendererDrawLayoutLine, libs, "pango_renderer_draw_layout_line")
-	core.PuregoSafeRegister(&xRendererDrawRectangle, libs, "pango_renderer_draw_rectangle")
-	core.PuregoSafeRegister(&xRendererDrawTrapezoid, libs, "pango_renderer_draw_trapezoid")
-	core.PuregoSafeRegister(&xRendererGetAlpha, libs, "pango_renderer_get_alpha")
-	core.PuregoSafeRegister(&xRendererGetColor, libs, "pango_renderer_get_color")
-	core.PuregoSafeRegister(&xRendererGetLayout, libs, "pango_renderer_get_layout")
-	core.PuregoSafeRegister(&xRendererGetLayoutLine, libs, "pango_renderer_get_layout_line")
-	core.PuregoSafeRegister(&xRendererGetMatrix, libs, "pango_renderer_get_matrix")
-	core.PuregoSafeRegister(&xRendererPartChanged, libs, "pango_renderer_part_changed")
-	core.PuregoSafeRegister(&xRendererSetAlpha, libs, "pango_renderer_set_alpha")
-	core.PuregoSafeRegister(&xRendererSetColor, libs, "pango_renderer_set_color")
-	core.PuregoSafeRegister(&xRendererSetMatrix, libs, "pango_renderer_set_matrix")
 }

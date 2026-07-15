@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -77,6 +76,7 @@ type Context struct {
 var xContextGLibType func() types.GType
 
 func ContextGLibType() types.GType {
+	core.LazyRegister(&xContextGLibType, "JAVASCRIPTCORE", "jsc_context_get_type", false)
 	return xContextGLibType()
 }
 
@@ -92,6 +92,7 @@ var xNewContext func() uintptr
 // Use jsc_context_new_with_virtual_machine() to create a new #JSCContext in an
 // existing #JSCVirtualMachine.
 func NewContext() *Context {
+	core.LazyRegister(&xNewContext, "JAVASCRIPTCORE", "jsc_context_new", false)
 	var cls *Context
 
 	cret := xNewContext()
@@ -108,6 +109,7 @@ var xNewContextWithVirtualMachine func(uintptr) uintptr
 
 // Create a new #JSCContext in @virtual_machine.
 func NewContextWithVirtualMachine(VmVar *VirtualMachine) *Context {
+	core.LazyRegister(&xNewContextWithVirtualMachine, "JAVASCRIPTCORE", "jsc_context_new_with_virtual_machine", false)
 	var cls *Context
 
 	cret := xNewContextWithVirtualMachine(VmVar.GoPointer())
@@ -127,6 +129,8 @@ var xContextCheckSyntax func(uintptr, string, int, CheckSyntaxMode, string, uint
 // In case of errors @exception will be set to a new #JSCException with the details. You can pass %NULL to
 // @exception to ignore the error details.
 func (x *Context) CheckSyntax(CodeVar string, LengthVar int, ModeVar CheckSyntaxMode, UriVar string, LineNumberVar uint, ExceptionVar **Exception) CheckSyntaxResult {
+	core.LazyRegister(&xContextCheckSyntax, "JAVASCRIPTCORE", "jsc_context_check_syntax", false)
+
 	cret := xContextCheckSyntax(x.GoPointer(), CodeVar, LengthVar, ModeVar, UriVar, LineNumberVar, ExceptionVar)
 	return cret
 }
@@ -135,6 +139,8 @@ var xContextClearException func(uintptr)
 
 // Clear the uncaught exception in @context if any.
 func (x *Context) ClearException() {
+	core.LazyRegister(&xContextClearException, "JAVASCRIPTCORE", "jsc_context_clear_exception", false)
+
 	xContextClearException(x.GoPointer())
 }
 
@@ -142,6 +148,7 @@ var xContextEvaluate func(uintptr, string, int) uintptr
 
 // Evaluate @code in @context.
 func (x *Context) Evaluate(CodeVar string, LengthVar int) *Value {
+	core.LazyRegister(&xContextEvaluate, "JAVASCRIPTCORE", "jsc_context_evaluate", false)
 	var cls *Value
 
 	cret := xContextEvaluate(x.GoPointer(), CodeVar, LengthVar)
@@ -162,6 +169,7 @@ var xContextEvaluateInObject func(uintptr, string, int, uintptr, uintptr, string
 // The @line_number is the starting line number in @uri; the value is one-based so the first line is 1.
 // @uri and @line_number will be shown in exceptions and they don't affect the behavior of the script.
 func (x *Context) EvaluateInObject(CodeVar string, LengthVar int, ObjectInstanceVar uintptr, ObjectClassVar *Class, UriVar string, LineNumberVar uint, ObjectVar **Value) *Value {
+	core.LazyRegister(&xContextEvaluateInObject, "JAVASCRIPTCORE", "jsc_context_evaluate_in_object", false)
 	var cls *Value
 
 	cret := xContextEvaluateInObject(x.GoPointer(), CodeVar, LengthVar, ObjectInstanceVar, ObjectClassVar.GoPointer(), UriVar, LineNumberVar, ObjectVar)
@@ -180,6 +188,7 @@ var xContextEvaluateWithSourceUri func(uintptr, string, int, string, uint) uintp
 // in @uri; the value is one-based so the first line is 1. @uri and @line_number will be shown in exceptions and
 // they don't affect the behavior of the script.
 func (x *Context) EvaluateWithSourceUri(CodeVar string, LengthVar int, UriVar string, LineNumberVar uint) *Value {
+	core.LazyRegister(&xContextEvaluateWithSourceUri, "JAVASCRIPTCORE", "jsc_context_evaluate_with_source_uri", false)
 	var cls *Value
 
 	cret := xContextEvaluateWithSourceUri(x.GoPointer(), CodeVar, LengthVar, UriVar, LineNumberVar)
@@ -196,6 +205,7 @@ var xContextGetException func(uintptr) uintptr
 
 // Get the last unhandled exception thrown in @context by API functions calls.
 func (x *Context) GetException() *Exception {
+	core.LazyRegister(&xContextGetException, "JAVASCRIPTCORE", "jsc_context_get_exception", false)
 	var cls *Exception
 
 	cret := xContextGetException(x.GoPointer())
@@ -213,6 +223,7 @@ var xContextGetGlobalObject func(uintptr) uintptr
 
 // Get a #JSCValue referencing the @context global object
 func (x *Context) GetGlobalObject() *Value {
+	core.LazyRegister(&xContextGetGlobalObject, "JAVASCRIPTCORE", "jsc_context_get_global_object", false)
 	var cls *Value
 
 	cret := xContextGetGlobalObject(x.GoPointer())
@@ -229,6 +240,7 @@ var xContextGetValue func(uintptr, string) uintptr
 
 // Get a property of @context global object with @name.
 func (x *Context) GetValue(NameVar string) *Value {
+	core.LazyRegister(&xContextGetValue, "JAVASCRIPTCORE", "jsc_context_get_value", false)
 	var cls *Value
 
 	cret := xContextGetValue(x.GoPointer(), NameVar)
@@ -245,6 +257,7 @@ var xContextGetVirtualMachine func(uintptr) uintptr
 
 // Get the #JSCVirtualMachine where @context was created.
 func (x *Context) GetVirtualMachine() *VirtualMachine {
+	core.LazyRegister(&xContextGetVirtualMachine, "JAVASCRIPTCORE", "jsc_context_get_virtual_machine", false)
 	var cls *VirtualMachine
 
 	cret := xContextGetVirtualMachine(x.GoPointer())
@@ -263,6 +276,8 @@ var xContextPopExceptionHandler func(uintptr)
 // Remove the last #JSCExceptionHandler previously pushed to @context with
 // jsc_context_push_exception_handler().
 func (x *Context) PopExceptionHandler() {
+	core.LazyRegister(&xContextPopExceptionHandler, "JAVASCRIPTCORE", "jsc_context_pop_exception_handler", false)
+
 	xContextPopExceptionHandler(x.GoPointer())
 }
 
@@ -277,6 +292,8 @@ var xContextPushExceptionHandler func(uintptr, uintptr, uintptr, uintptr)
 // jsc_context_pop_exception_handler() to remove it and set the previous one. When @handler
 // is removed from the context, @destroy_notify is called with @user_data as parameter.
 func (x *Context) PushExceptionHandler(HandlerVar *ExceptionHandler, UserDataVar uintptr, DestroyNotifyVar *glib.DestroyNotify) {
+	core.LazyRegister(&xContextPushExceptionHandler, "JAVASCRIPTCORE", "jsc_context_push_exception_handler", false)
+
 	xContextPushExceptionHandler(x.GoPointer(), glib.NewCallback(HandlerVar), UserDataVar, glib.NewCallbackNullable(DestroyNotifyVar))
 }
 
@@ -289,6 +306,7 @@ var xContextRegisterClass func(uintptr, string, uintptr, *ClassVTable, uintptr) 
 // When an instance of the #JSCClass is cleared in the context, @destroy_notify is called with
 // the instance as parameter.
 func (x *Context) RegisterClass(NameVar string, ParentClassVar *Class, VtableVar *ClassVTable, DestroyNotifyVar *glib.DestroyNotify) *Class {
+	core.LazyRegister(&xContextRegisterClass, "JAVASCRIPTCORE", "jsc_context_register_class", false)
 	var cls *Class
 
 	cret := xContextRegisterClass(x.GoPointer(), NameVar, ParentClassVar.GoPointer(), VtableVar, glib.NewCallbackNullable(DestroyNotifyVar))
@@ -306,6 +324,8 @@ var xContextSetValue func(uintptr, string, uintptr)
 
 // Set a property of @context global object with @name and @value.
 func (x *Context) SetValue(NameVar string, ValueVar *Value) {
+	core.LazyRegister(&xContextSetValue, "JAVASCRIPTCORE", "jsc_context_set_value", false)
+
 	xContextSetValue(x.GoPointer(), NameVar, ValueVar.GoPointer())
 }
 
@@ -314,6 +334,8 @@ var xContextThrow func(uintptr, string)
 // Throw an exception to @context using the given error message. The created #JSCException
 // can be retrieved with jsc_context_get_exception().
 func (x *Context) Throw(ErrorMessageVar string) {
+	core.LazyRegister(&xContextThrow, "JAVASCRIPTCORE", "jsc_context_throw", false)
+
 	xContextThrow(x.GoPointer(), ErrorMessageVar)
 }
 
@@ -321,6 +343,8 @@ var xContextThrowException func(uintptr, uintptr)
 
 // Throw @exception to @context.
 func (x *Context) ThrowException(ExceptionVar *Exception) {
+	core.LazyRegister(&xContextThrowException, "JAVASCRIPTCORE", "jsc_context_throw_exception", false)
+
 	xContextThrowException(x.GoPointer(), ExceptionVar.GoPointer())
 }
 
@@ -329,6 +353,8 @@ var xContextThrowPrintf func(uintptr, string, ...interface{})
 // Throw an exception to @context using the given formatted string as error message.
 // The created #JSCException can be retrieved with jsc_context_get_exception().
 func (x *Context) ThrowPrintf(FormatVar string, varArgs ...interface{}) {
+	core.LazyRegister(&xContextThrowPrintf, "JAVASCRIPTCORE", "jsc_context_throw_printf", false)
+
 	xContextThrowPrintf(x.GoPointer(), FormatVar, varArgs...)
 }
 
@@ -337,6 +363,8 @@ var xContextThrowWithName func(uintptr, string, string)
 // Throw an exception to @context using the given error name and message. The created #JSCException
 // can be retrieved with jsc_context_get_exception().
 func (x *Context) ThrowWithName(ErrorNameVar string, ErrorMessageVar string) {
+	core.LazyRegister(&xContextThrowWithName, "JAVASCRIPTCORE", "jsc_context_throw_with_name", false)
+
 	xContextThrowWithName(x.GoPointer(), ErrorNameVar, ErrorMessageVar)
 }
 
@@ -345,6 +373,8 @@ var xContextThrowWithNamePrintf func(uintptr, string, string, ...interface{})
 // Throw an exception to @context using the given error name and the formatted string as error message.
 // The created #JSCException can be retrieved with jsc_context_get_exception().
 func (x *Context) ThrowWithNamePrintf(ErrorNameVar string, FormatVar string, varArgs ...interface{}) {
+	core.LazyRegister(&xContextThrowWithNamePrintf, "JAVASCRIPTCORE", "jsc_context_throw_with_name_printf", false)
+
 	xContextThrowWithNamePrintf(x.GoPointer(), ErrorNameVar, FormatVar, varArgs...)
 }
 
@@ -364,6 +394,7 @@ var xContextGetCurrent func() uintptr
 // Get the #JSCContext that is currently executing a function. This should only be
 // called within a function or method callback, otherwise %NULL will be returned.
 func ContextGetCurrent() *Context {
+	core.LazyRegister(&xContextGetCurrent, "JAVASCRIPTCORE", "jsc_context_get_current", false)
 	var cls *Context
 
 	cret := xContextGetCurrent()
@@ -380,38 +411,4 @@ func ContextGetCurrent() *Context {
 func init() {
 	core.SetPackageName("JAVASCRIPTCORE", "javascriptcoregtk-6.0")
 	core.SetSharedLibraries("JAVASCRIPTCORE", []string{"libjavascriptcoregtk-6.0.so.1", "libjavascriptcoregtk-6.0.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("JAVASCRIPTCORE") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xContextGLibType, libs, "jsc_context_get_type")
-
-	core.PuregoSafeRegister(&xNewContext, libs, "jsc_context_new")
-	core.PuregoSafeRegister(&xNewContextWithVirtualMachine, libs, "jsc_context_new_with_virtual_machine")
-
-	core.PuregoSafeRegister(&xContextCheckSyntax, libs, "jsc_context_check_syntax")
-	core.PuregoSafeRegister(&xContextClearException, libs, "jsc_context_clear_exception")
-	core.PuregoSafeRegister(&xContextEvaluate, libs, "jsc_context_evaluate")
-	core.PuregoSafeRegister(&xContextEvaluateInObject, libs, "jsc_context_evaluate_in_object")
-	core.PuregoSafeRegister(&xContextEvaluateWithSourceUri, libs, "jsc_context_evaluate_with_source_uri")
-	core.PuregoSafeRegister(&xContextGetException, libs, "jsc_context_get_exception")
-	core.PuregoSafeRegister(&xContextGetGlobalObject, libs, "jsc_context_get_global_object")
-	core.PuregoSafeRegister(&xContextGetValue, libs, "jsc_context_get_value")
-	core.PuregoSafeRegister(&xContextGetVirtualMachine, libs, "jsc_context_get_virtual_machine")
-	core.PuregoSafeRegister(&xContextPopExceptionHandler, libs, "jsc_context_pop_exception_handler")
-	core.PuregoSafeRegister(&xContextPushExceptionHandler, libs, "jsc_context_push_exception_handler")
-	core.PuregoSafeRegister(&xContextRegisterClass, libs, "jsc_context_register_class")
-	core.PuregoSafeRegister(&xContextSetValue, libs, "jsc_context_set_value")
-	core.PuregoSafeRegister(&xContextThrow, libs, "jsc_context_throw")
-	core.PuregoSafeRegister(&xContextThrowException, libs, "jsc_context_throw_exception")
-	core.PuregoSafeRegister(&xContextThrowPrintf, libs, "jsc_context_throw_printf")
-	core.PuregoSafeRegister(&xContextThrowWithName, libs, "jsc_context_throw_with_name")
-	core.PuregoSafeRegister(&xContextThrowWithNamePrintf, libs, "jsc_context_throw_with_name_printf")
-
-	core.PuregoSafeRegister(&xContextGetCurrent, libs, "jsc_context_get_current")
 }

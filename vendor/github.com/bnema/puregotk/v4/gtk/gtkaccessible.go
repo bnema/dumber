@@ -262,6 +262,7 @@ type AccessibleList struct {
 var xAccessibleListGLibType func() types.GType
 
 func AccessibleListGLibType() types.GType {
+	core.LazyRegister(&xAccessibleListGLibType, "GTK", "gtk_accessible_list_get_type", false)
 	return xAccessibleListGLibType()
 }
 
@@ -281,6 +282,8 @@ var xNewAccessibleListFromArray func(uintptr, uint) uintptr
 
 // Allocates a new list of accessible objects.
 func NewAccessibleListFromArray(AccessiblesVar uintptr, NAccessiblesVar uint) *AccessibleList {
+	core.LazyRegister(&xNewAccessibleListFromArray, "GTK", "gtk_accessible_list_new_from_array", false)
+
 	cret := xNewAccessibleListFromArray(AccessiblesVar, NAccessiblesVar)
 	if cret == 0 {
 		return nil
@@ -293,6 +296,8 @@ var xNewAccessibleListFromList func(*glib.List) uintptr
 // Allocates a new `GtkAccessibleList`, doing a shallow copy
 // of the passed list of accessible objects
 func NewAccessibleListFromList(ListVar *glib.List) *AccessibleList {
+	core.LazyRegister(&xNewAccessibleListFromList, "GTK", "gtk_accessible_list_new_from_list", false)
+
 	cret := xNewAccessibleListFromList(ListVar)
 	if cret == 0 {
 		return nil
@@ -304,6 +309,8 @@ var xAccessibleListGetObjects func(uintptr) uintptr
 
 // Gets the list of objects this boxed type holds.
 func (x *AccessibleList) GetObjects() *glib.List {
+	core.LazyRegister(&xAccessibleListGetObjects, "GTK", "gtk_accessible_list_get_objects", false)
+
 	cret := xAccessibleListGetObjects(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -370,6 +377,7 @@ type Accessible interface {
 var xAccessibleGLibType func() types.GType
 
 func AccessibleGLibType() types.GType {
+	core.LazyRegister(&xAccessibleGLibType, "GTK", "gtk_accessible_get_type", false)
 	return xAccessibleGLibType()
 }
 
@@ -639,29 +647,152 @@ func (x *AccessibleBase) UpdateStateValue(NStatesVar int, StatesVar []Accessible
 	XGtkAccessibleUpdateStateValue(x.GoPointer(), NStatesVar, StatesVar, ValuesVar)
 }
 
+var XGtkAccessibleAnnounce func(uintptr, string, AccessibleAnnouncementPriority) = func(instance uintptr, MessageVarp string, PriorityVarp AccessibleAnnouncementPriority) {
+	core.LazyRegister(&xXGtkAccessibleAnnounce, "GTK", "gtk_accessible_announce", false)
+	xXGtkAccessibleAnnounce(instance, MessageVarp, PriorityVarp)
+}
+
 var (
-	XGtkAccessibleAnnounce                    func(uintptr, string, AccessibleAnnouncementPriority)
-	XGtkAccessibleGetAccessibleId             func(uintptr) string
-	XGtkAccessibleGetAccessibleParent         func(uintptr) uintptr
-	XGtkAccessibleGetAccessibleRole           func(uintptr) AccessibleRole
-	XGtkAccessibleGetAtContext                func(uintptr) uintptr
-	XGtkAccessibleGetBounds                   func(uintptr, *int, *int, *int, *int) bool
-	XGtkAccessibleGetFirstAccessibleChild     func(uintptr) uintptr
-	XGtkAccessibleGetNextAccessibleSibling    func(uintptr) uintptr
-	XGtkAccessibleGetPlatformState            func(uintptr, AccessiblePlatformState) bool
-	XGtkAccessibleResetProperty               func(uintptr, AccessibleProperty)
-	XGtkAccessibleResetRelation               func(uintptr, AccessibleRelation)
-	XGtkAccessibleResetState                  func(uintptr, AccessibleState)
-	XGtkAccessibleSetAccessibleParent         func(uintptr, uintptr, uintptr)
-	XGtkAccessibleUpdateNextAccessibleSibling func(uintptr, uintptr)
-	XGtkAccessibleUpdatePlatformState         func(uintptr, AccessiblePlatformState)
-	XGtkAccessibleUpdateProperty              func(uintptr, AccessibleProperty, ...interface{})
-	XGtkAccessibleUpdatePropertyValue         func(uintptr, int, []AccessibleProperty, []gobject.Value)
-	XGtkAccessibleUpdateRelation              func(uintptr, AccessibleRelation, ...interface{})
-	XGtkAccessibleUpdateRelationValue         func(uintptr, int, []AccessibleRelation, []gobject.Value)
-	XGtkAccessibleUpdateState                 func(uintptr, AccessibleState, ...interface{})
-	XGtkAccessibleUpdateStateValue            func(uintptr, int, []AccessibleState, []gobject.Value)
+	xXGtkAccessibleAnnounce       func(uintptr, string, AccessibleAnnouncementPriority)
+	XGtkAccessibleGetAccessibleId func(uintptr) string = func(instance uintptr) string {
+		core.LazyRegister(&xXGtkAccessibleGetAccessibleId, "GTK", "gtk_accessible_get_accessible_id", false)
+		return xXGtkAccessibleGetAccessibleId(instance)
+	}
 )
+var (
+	xXGtkAccessibleGetAccessibleId    func(uintptr) string
+	XGtkAccessibleGetAccessibleParent func(uintptr) uintptr = func(instance uintptr) uintptr {
+		core.LazyRegister(&xXGtkAccessibleGetAccessibleParent, "GTK", "gtk_accessible_get_accessible_parent", false)
+		return xXGtkAccessibleGetAccessibleParent(instance)
+	}
+)
+var (
+	xXGtkAccessibleGetAccessibleParent func(uintptr) uintptr
+	XGtkAccessibleGetAccessibleRole    func(uintptr) AccessibleRole = func(instance uintptr) AccessibleRole {
+		core.LazyRegister(&xXGtkAccessibleGetAccessibleRole, "GTK", "gtk_accessible_get_accessible_role", false)
+		return xXGtkAccessibleGetAccessibleRole(instance)
+	}
+)
+var (
+	xXGtkAccessibleGetAccessibleRole func(uintptr) AccessibleRole
+	XGtkAccessibleGetAtContext       func(uintptr) uintptr = func(instance uintptr) uintptr {
+		core.LazyRegister(&xXGtkAccessibleGetAtContext, "GTK", "gtk_accessible_get_at_context", false)
+		return xXGtkAccessibleGetAtContext(instance)
+	}
+)
+var (
+	xXGtkAccessibleGetAtContext func(uintptr) uintptr
+	XGtkAccessibleGetBounds     func(uintptr, *int, *int, *int, *int) bool = func(instance uintptr, XVarp *int, YVarp *int, WidthVarp *int, HeightVarp *int) bool {
+		core.LazyRegister(&xXGtkAccessibleGetBounds, "GTK", "gtk_accessible_get_bounds", false)
+		return xXGtkAccessibleGetBounds(instance, XVarp, YVarp, WidthVarp, HeightVarp)
+	}
+)
+var (
+	xXGtkAccessibleGetBounds              func(uintptr, *int, *int, *int, *int) bool
+	XGtkAccessibleGetFirstAccessibleChild func(uintptr) uintptr = func(instance uintptr) uintptr {
+		core.LazyRegister(&xXGtkAccessibleGetFirstAccessibleChild, "GTK", "gtk_accessible_get_first_accessible_child", false)
+		return xXGtkAccessibleGetFirstAccessibleChild(instance)
+	}
+)
+var (
+	xXGtkAccessibleGetFirstAccessibleChild func(uintptr) uintptr
+	XGtkAccessibleGetNextAccessibleSibling func(uintptr) uintptr = func(instance uintptr) uintptr {
+		core.LazyRegister(&xXGtkAccessibleGetNextAccessibleSibling, "GTK", "gtk_accessible_get_next_accessible_sibling", false)
+		return xXGtkAccessibleGetNextAccessibleSibling(instance)
+	}
+)
+var (
+	xXGtkAccessibleGetNextAccessibleSibling func(uintptr) uintptr
+	XGtkAccessibleGetPlatformState          func(uintptr, AccessiblePlatformState) bool = func(instance uintptr, StateVarp AccessiblePlatformState) bool {
+		core.LazyRegister(&xXGtkAccessibleGetPlatformState, "GTK", "gtk_accessible_get_platform_state", false)
+		return xXGtkAccessibleGetPlatformState(instance, StateVarp)
+	}
+)
+var (
+	xXGtkAccessibleGetPlatformState func(uintptr, AccessiblePlatformState) bool
+	XGtkAccessibleResetProperty     func(uintptr, AccessibleProperty) = func(instance uintptr, PropertyVarp AccessibleProperty) {
+		core.LazyRegister(&xXGtkAccessibleResetProperty, "GTK", "gtk_accessible_reset_property", false)
+		xXGtkAccessibleResetProperty(instance, PropertyVarp)
+	}
+)
+var (
+	xXGtkAccessibleResetProperty func(uintptr, AccessibleProperty)
+	XGtkAccessibleResetRelation  func(uintptr, AccessibleRelation) = func(instance uintptr, RelationVarp AccessibleRelation) {
+		core.LazyRegister(&xXGtkAccessibleResetRelation, "GTK", "gtk_accessible_reset_relation", false)
+		xXGtkAccessibleResetRelation(instance, RelationVarp)
+	}
+)
+var (
+	xXGtkAccessibleResetRelation func(uintptr, AccessibleRelation)
+	XGtkAccessibleResetState     func(uintptr, AccessibleState) = func(instance uintptr, StateVarp AccessibleState) {
+		core.LazyRegister(&xXGtkAccessibleResetState, "GTK", "gtk_accessible_reset_state", false)
+		xXGtkAccessibleResetState(instance, StateVarp)
+	}
+)
+var (
+	xXGtkAccessibleResetState         func(uintptr, AccessibleState)
+	XGtkAccessibleSetAccessibleParent func(uintptr, uintptr, uintptr) = func(instance uintptr, ParentVarp uintptr, NextSiblingVarp uintptr) {
+		core.LazyRegister(&xXGtkAccessibleSetAccessibleParent, "GTK", "gtk_accessible_set_accessible_parent", false)
+		xXGtkAccessibleSetAccessibleParent(instance, ParentVarp, NextSiblingVarp)
+	}
+)
+var (
+	xXGtkAccessibleSetAccessibleParent        func(uintptr, uintptr, uintptr)
+	XGtkAccessibleUpdateNextAccessibleSibling func(uintptr, uintptr) = func(instance uintptr, NewSiblingVarp uintptr) {
+		core.LazyRegister(&xXGtkAccessibleUpdateNextAccessibleSibling, "GTK", "gtk_accessible_update_next_accessible_sibling", false)
+		xXGtkAccessibleUpdateNextAccessibleSibling(instance, NewSiblingVarp)
+	}
+)
+var (
+	xXGtkAccessibleUpdateNextAccessibleSibling func(uintptr, uintptr)
+	XGtkAccessibleUpdatePlatformState          func(uintptr, AccessiblePlatformState) = func(instance uintptr, StateVarp AccessiblePlatformState) {
+		core.LazyRegister(&xXGtkAccessibleUpdatePlatformState, "GTK", "gtk_accessible_update_platform_state", false)
+		xXGtkAccessibleUpdatePlatformState(instance, StateVarp)
+	}
+)
+var (
+	xXGtkAccessibleUpdatePlatformState func(uintptr, AccessiblePlatformState)
+	XGtkAccessibleUpdateProperty       func(uintptr, AccessibleProperty, ...interface{}) = func(instance uintptr, FirstPropertyVarp AccessibleProperty, varArgsp ...interface{}) {
+		core.LazyRegister(&xXGtkAccessibleUpdateProperty, "GTK", "gtk_accessible_update_property", false)
+		xXGtkAccessibleUpdateProperty(instance, FirstPropertyVarp, varArgsp)
+	}
+)
+var (
+	xXGtkAccessibleUpdateProperty     func(uintptr, AccessibleProperty, ...interface{})
+	XGtkAccessibleUpdatePropertyValue func(uintptr, int, []AccessibleProperty, []gobject.Value) = func(instance uintptr, NPropertiesVarp int, PropertiesVarp []AccessibleProperty, ValuesVarp []gobject.Value) {
+		core.LazyRegister(&xXGtkAccessibleUpdatePropertyValue, "GTK", "gtk_accessible_update_property_value", false)
+		xXGtkAccessibleUpdatePropertyValue(instance, NPropertiesVarp, PropertiesVarp, ValuesVarp)
+	}
+)
+var (
+	xXGtkAccessibleUpdatePropertyValue func(uintptr, int, []AccessibleProperty, []gobject.Value)
+	XGtkAccessibleUpdateRelation       func(uintptr, AccessibleRelation, ...interface{}) = func(instance uintptr, FirstRelationVarp AccessibleRelation, varArgsp ...interface{}) {
+		core.LazyRegister(&xXGtkAccessibleUpdateRelation, "GTK", "gtk_accessible_update_relation", false)
+		xXGtkAccessibleUpdateRelation(instance, FirstRelationVarp, varArgsp)
+	}
+)
+var (
+	xXGtkAccessibleUpdateRelation     func(uintptr, AccessibleRelation, ...interface{})
+	XGtkAccessibleUpdateRelationValue func(uintptr, int, []AccessibleRelation, []gobject.Value) = func(instance uintptr, NRelationsVarp int, RelationsVarp []AccessibleRelation, ValuesVarp []gobject.Value) {
+		core.LazyRegister(&xXGtkAccessibleUpdateRelationValue, "GTK", "gtk_accessible_update_relation_value", false)
+		xXGtkAccessibleUpdateRelationValue(instance, NRelationsVarp, RelationsVarp, ValuesVarp)
+	}
+)
+var (
+	xXGtkAccessibleUpdateRelationValue func(uintptr, int, []AccessibleRelation, []gobject.Value)
+	XGtkAccessibleUpdateState          func(uintptr, AccessibleState, ...interface{}) = func(instance uintptr, FirstStateVarp AccessibleState, varArgsp ...interface{}) {
+		core.LazyRegister(&xXGtkAccessibleUpdateState, "GTK", "gtk_accessible_update_state", false)
+		xXGtkAccessibleUpdateState(instance, FirstStateVarp, varArgsp)
+	}
+)
+var (
+	xXGtkAccessibleUpdateState     func(uintptr, AccessibleState, ...interface{})
+	XGtkAccessibleUpdateStateValue func(uintptr, int, []AccessibleState, []gobject.Value) = func(instance uintptr, NStatesVarp int, StatesVarp []AccessibleState, ValuesVarp []gobject.Value) {
+		core.LazyRegister(&xXGtkAccessibleUpdateStateValue, "GTK", "gtk_accessible_update_state_value", false)
+		xXGtkAccessibleUpdateStateValue(instance, NStatesVarp, StatesVarp, ValuesVarp)
+	}
+)
+var xXGtkAccessibleUpdateStateValue func(uintptr, int, []AccessibleState, []gobject.Value)
 
 // The various platform states which can be queried
 // using [method@Gtk.Accessible.get_platform_state].
@@ -670,6 +801,7 @@ type AccessiblePlatformState int
 var xAccessiblePlatformStateGLibType func() types.GType
 
 func AccessiblePlatformStateGLibType() types.GType {
+	core.LazyRegister(&xAccessiblePlatformStateGLibType, "GTK", "gtk_accessible_platform_state_get_type", false)
 	return xAccessiblePlatformStateGLibType()
 }
 
@@ -690,6 +822,8 @@ var xAccessiblePropertyInitValue func(AccessibleProperty, *gobject.Value)
 // This function is mostly meant for language bindings, in conjunction
 // with gtk_accessible_update_property_value().
 func AccessiblePropertyInitValue(PropertyVar AccessibleProperty, ValueVar *gobject.Value) {
+	core.LazyRegister(&xAccessiblePropertyInitValue, "GTK", "gtk_accessible_property_init_value", false)
+
 	xAccessiblePropertyInitValue(PropertyVar, ValueVar)
 }
 
@@ -700,6 +834,8 @@ var xAccessibleRelationInitValue func(AccessibleRelation, *gobject.Value)
 // This function is mostly meant for language bindings, in conjunction
 // with gtk_accessible_update_relation_value().
 func AccessibleRelationInitValue(RelationVar AccessibleRelation, ValueVar *gobject.Value) {
+	core.LazyRegister(&xAccessibleRelationInitValue, "GTK", "gtk_accessible_relation_init_value", false)
+
 	xAccessibleRelationInitValue(RelationVar, ValueVar)
 }
 
@@ -710,55 +846,12 @@ var xAccessibleStateInitValue func(AccessibleState, *gobject.Value)
 // This function is mostly meant for language bindings, in conjunction
 // with gtk_accessible_update_relation_state().
 func AccessibleStateInitValue(StateVar AccessibleState, ValueVar *gobject.Value) {
+	core.LazyRegister(&xAccessibleStateInitValue, "GTK", "gtk_accessible_state_init_value", false)
+
 	xAccessibleStateInitValue(StateVar, ValueVar)
 }
 
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GTK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xAccessiblePlatformStateGLibType, libs, "gtk_accessible_platform_state_get_type")
-
-	core.PuregoSafeRegister(&xAccessiblePropertyInitValue, libs, "gtk_accessible_property_init_value")
-	core.PuregoSafeRegister(&xAccessibleRelationInitValue, libs, "gtk_accessible_relation_init_value")
-	core.PuregoSafeRegister(&xAccessibleStateInitValue, libs, "gtk_accessible_state_init_value")
-
-	core.PuregoSafeRegister(&xAccessibleListGLibType, libs, "gtk_accessible_list_get_type")
-
-	core.PuregoSafeRegister(&xNewAccessibleListFromArray, libs, "gtk_accessible_list_new_from_array")
-	core.PuregoSafeRegister(&xNewAccessibleListFromList, libs, "gtk_accessible_list_new_from_list")
-
-	core.PuregoSafeRegister(&xAccessibleListGetObjects, libs, "gtk_accessible_list_get_objects")
-
-	core.PuregoSafeRegister(&xAccessibleGLibType, libs, "gtk_accessible_get_type")
-
-	core.PuregoSafeRegister(&XGtkAccessibleAnnounce, libs, "gtk_accessible_announce")
-	core.PuregoSafeRegister(&XGtkAccessibleGetAccessibleId, libs, "gtk_accessible_get_accessible_id")
-	core.PuregoSafeRegister(&XGtkAccessibleGetAccessibleParent, libs, "gtk_accessible_get_accessible_parent")
-	core.PuregoSafeRegister(&XGtkAccessibleGetAccessibleRole, libs, "gtk_accessible_get_accessible_role")
-	core.PuregoSafeRegister(&XGtkAccessibleGetAtContext, libs, "gtk_accessible_get_at_context")
-	core.PuregoSafeRegister(&XGtkAccessibleGetBounds, libs, "gtk_accessible_get_bounds")
-	core.PuregoSafeRegister(&XGtkAccessibleGetFirstAccessibleChild, libs, "gtk_accessible_get_first_accessible_child")
-	core.PuregoSafeRegister(&XGtkAccessibleGetNextAccessibleSibling, libs, "gtk_accessible_get_next_accessible_sibling")
-	core.PuregoSafeRegister(&XGtkAccessibleGetPlatformState, libs, "gtk_accessible_get_platform_state")
-	core.PuregoSafeRegister(&XGtkAccessibleResetProperty, libs, "gtk_accessible_reset_property")
-	core.PuregoSafeRegister(&XGtkAccessibleResetRelation, libs, "gtk_accessible_reset_relation")
-	core.PuregoSafeRegister(&XGtkAccessibleResetState, libs, "gtk_accessible_reset_state")
-	core.PuregoSafeRegister(&XGtkAccessibleSetAccessibleParent, libs, "gtk_accessible_set_accessible_parent")
-	core.PuregoSafeRegister(&XGtkAccessibleUpdateNextAccessibleSibling, libs, "gtk_accessible_update_next_accessible_sibling")
-	core.PuregoSafeRegister(&XGtkAccessibleUpdatePlatformState, libs, "gtk_accessible_update_platform_state")
-	core.PuregoSafeRegister(&XGtkAccessibleUpdateProperty, libs, "gtk_accessible_update_property")
-	core.PuregoSafeRegister(&XGtkAccessibleUpdatePropertyValue, libs, "gtk_accessible_update_property_value")
-	core.PuregoSafeRegister(&XGtkAccessibleUpdateRelation, libs, "gtk_accessible_update_relation")
-	core.PuregoSafeRegister(&XGtkAccessibleUpdateRelationValue, libs, "gtk_accessible_update_relation_value")
-	core.PuregoSafeRegister(&XGtkAccessibleUpdateState, libs, "gtk_accessible_update_state")
-	core.PuregoSafeRegister(&XGtkAccessibleUpdateStateValue, libs, "gtk_accessible_update_state_value")
 }

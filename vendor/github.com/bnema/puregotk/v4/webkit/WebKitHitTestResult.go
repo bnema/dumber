@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -35,6 +34,7 @@ type HitTestResultContext int
 var xHitTestResultContextGLibType func() types.GType
 
 func HitTestResultContextGLibType() types.GType {
+	core.LazyRegister(&xHitTestResultContextGLibType, "WEBKIT", "webkit_hit_test_result_context_get_type", false)
 	return xHitTestResultContextGLibType()
 }
 
@@ -83,6 +83,7 @@ type HitTestResult struct {
 var xHitTestResultGLibType func() types.GType
 
 func HitTestResultGLibType() types.GType {
+	core.LazyRegister(&xHitTestResultGLibType, "WEBKIT", "webkit_hit_test_result_get_type", false)
 	return xHitTestResultGLibType()
 }
 
@@ -97,6 +98,8 @@ var xHitTestResultContextIsEditable func(uintptr) bool
 // Gets whether %WEBKIT_HIT_TEST_RESULT_CONTEXT_EDITABLE flag is present in
 // #WebKitHitTestResult:context.
 func (x *HitTestResult) ContextIsEditable() bool {
+	core.LazyRegister(&xHitTestResultContextIsEditable, "WEBKIT", "webkit_hit_test_result_context_is_editable", false)
+
 	cret := xHitTestResultContextIsEditable(x.GoPointer())
 	return cret
 }
@@ -106,6 +109,8 @@ var xHitTestResultContextIsImage func(uintptr) bool
 // Gets whether %WEBKIT_HIT_TEST_RESULT_CONTEXT_IMAGE flag is present in
 // #WebKitHitTestResult:context.
 func (x *HitTestResult) ContextIsImage() bool {
+	core.LazyRegister(&xHitTestResultContextIsImage, "WEBKIT", "webkit_hit_test_result_context_is_image", false)
+
 	cret := xHitTestResultContextIsImage(x.GoPointer())
 	return cret
 }
@@ -115,6 +120,8 @@ var xHitTestResultContextIsLink func(uintptr) bool
 // Gets whether %WEBKIT_HIT_TEST_RESULT_CONTEXT_LINK flag is present in
 // #WebKitHitTestResult:context.
 func (x *HitTestResult) ContextIsLink() bool {
+	core.LazyRegister(&xHitTestResultContextIsLink, "WEBKIT", "webkit_hit_test_result_context_is_link", false)
+
 	cret := xHitTestResultContextIsLink(x.GoPointer())
 	return cret
 }
@@ -124,6 +131,8 @@ var xHitTestResultContextIsMedia func(uintptr) bool
 // Gets whether %WEBKIT_HIT_TEST_RESULT_CONTEXT_MEDIA flag is present in
 // #WebKitHitTestResult:context.
 func (x *HitTestResult) ContextIsMedia() bool {
+	core.LazyRegister(&xHitTestResultContextIsMedia, "WEBKIT", "webkit_hit_test_result_context_is_media", false)
+
 	cret := xHitTestResultContextIsMedia(x.GoPointer())
 	return cret
 }
@@ -133,6 +142,8 @@ var xHitTestResultContextIsScrollbar func(uintptr) bool
 // Gets whether %WEBKIT_HIT_TEST_RESULT_CONTEXT_SCROLLBAR flag is present in
 // #WebKitHitTestResult:context.
 func (x *HitTestResult) ContextIsScrollbar() bool {
+	core.LazyRegister(&xHitTestResultContextIsScrollbar, "WEBKIT", "webkit_hit_test_result_context_is_scrollbar", false)
+
 	cret := xHitTestResultContextIsScrollbar(x.GoPointer())
 	return cret
 }
@@ -142,6 +153,8 @@ var xHitTestResultContextIsSelection func(uintptr) bool
 // Gets whether %WEBKIT_HIT_TEST_RESULT_CONTEXT_SELECTION flag is present in
 // #WebKitHitTestResult:context.
 func (x *HitTestResult) ContextIsSelection() bool {
+	core.LazyRegister(&xHitTestResultContextIsSelection, "WEBKIT", "webkit_hit_test_result_context_is_selection", false)
+
 	cret := xHitTestResultContextIsSelection(x.GoPointer())
 	return cret
 }
@@ -150,6 +163,8 @@ var xHitTestResultGetContext func(uintptr) uint
 
 // Gets the value of the #WebKitHitTestResult:context property.
 func (x *HitTestResult) GetContext() uint {
+	core.LazyRegister(&xHitTestResultGetContext, "WEBKIT", "webkit_hit_test_result_get_context", false)
+
 	cret := xHitTestResultGetContext(x.GoPointer())
 	return cret
 }
@@ -158,6 +173,8 @@ var xHitTestResultGetImageUri func(uintptr) string
 
 // Gets the value of the #WebKitHitTestResult:image-uri property.
 func (x *HitTestResult) GetImageUri() string {
+	core.LazyRegister(&xHitTestResultGetImageUri, "WEBKIT", "webkit_hit_test_result_get_image_uri", false)
+
 	cret := xHitTestResultGetImageUri(x.GoPointer())
 	return cret
 }
@@ -166,6 +183,8 @@ var xHitTestResultGetLinkLabel func(uintptr) string
 
 // Gets the value of the #WebKitHitTestResult:link-label property.
 func (x *HitTestResult) GetLinkLabel() string {
+	core.LazyRegister(&xHitTestResultGetLinkLabel, "WEBKIT", "webkit_hit_test_result_get_link_label", false)
+
 	cret := xHitTestResultGetLinkLabel(x.GoPointer())
 	return cret
 }
@@ -174,6 +193,8 @@ var xHitTestResultGetLinkTitle func(uintptr) string
 
 // Gets the value of the #WebKitHitTestResult:link-title property.
 func (x *HitTestResult) GetLinkTitle() string {
+	core.LazyRegister(&xHitTestResultGetLinkTitle, "WEBKIT", "webkit_hit_test_result_get_link_title", false)
+
 	cret := xHitTestResultGetLinkTitle(x.GoPointer())
 	return cret
 }
@@ -182,6 +203,8 @@ var xHitTestResultGetLinkUri func(uintptr) string
 
 // Gets the value of the #WebKitHitTestResult:link-uri property.
 func (x *HitTestResult) GetLinkUri() string {
+	core.LazyRegister(&xHitTestResultGetLinkUri, "WEBKIT", "webkit_hit_test_result_get_link_uri", false)
+
 	cret := xHitTestResultGetLinkUri(x.GoPointer())
 	return cret
 }
@@ -190,6 +213,8 @@ var xHitTestResultGetMediaUri func(uintptr) string
 
 // Gets the value of the #WebKitHitTestResult:media-uri property.
 func (x *HitTestResult) GetMediaUri() string {
+	core.LazyRegister(&xHitTestResultGetMediaUri, "WEBKIT", "webkit_hit_test_result_get_media_uri", false)
+
 	cret := xHitTestResultGetMediaUri(x.GoPointer())
 	return cret
 }
@@ -322,34 +347,8 @@ func (x *HitTestResult) GetPropertyMediaUri() string {
 func init() {
 	core.SetPackageName("WEBKIT", "webkitgtk-6.0")
 	core.SetSharedLibraries("WEBKIT", []string{"libwebkitgtk-6.0.so.4", "libjavascriptcoregtk-6.0.so.1", "libwebkitgtk-6.0.4.dylib", "libjavascriptcoregtk-6.0.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("WEBKIT") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
 
-	core.PuregoSafeRegister(&xHitTestResultContextGLibType, libs, "webkit_hit_test_result_context_get_type")
-
-	core.PuregoSafeRegister(&xHitTestResultGLibType, libs, "webkit_hit_test_result_get_type")
-
-	core.PuregoSafeRegister(&xHitTestResultContextIsEditable, libs, "webkit_hit_test_result_context_is_editable")
-	core.PuregoSafeRegister(&xHitTestResultContextIsImage, libs, "webkit_hit_test_result_context_is_image")
-	core.PuregoSafeRegister(&xHitTestResultContextIsLink, libs, "webkit_hit_test_result_context_is_link")
-	core.PuregoSafeRegister(&xHitTestResultContextIsMedia, libs, "webkit_hit_test_result_context_is_media")
-	core.PuregoSafeRegister(&xHitTestResultContextIsScrollbar, libs, "webkit_hit_test_result_context_is_scrollbar")
-	core.PuregoSafeRegister(&xHitTestResultContextIsSelection, libs, "webkit_hit_test_result_context_is_selection")
-	core.PuregoSafeRegister(&xHitTestResultGetContext, libs, "webkit_hit_test_result_get_context")
-	core.PuregoSafeRegister(&xHitTestResultGetImageUri, libs, "webkit_hit_test_result_get_image_uri")
-	core.PuregoSafeRegister(&xHitTestResultGetLinkLabel, libs, "webkit_hit_test_result_get_link_label")
-	core.PuregoSafeRegister(&xHitTestResultGetLinkTitle, libs, "webkit_hit_test_result_get_link_title")
-	core.PuregoSafeRegister(&xHitTestResultGetLinkUri, libs, "webkit_hit_test_result_get_link_uri")
-	core.PuregoSafeRegister(&xHitTestResultGetMediaUri, libs, "webkit_hit_test_result_get_media_uri")
-
-	// Manually register types since they aren't being automatically registered when
-	// the library is loaded
-	// See https://bugs.webkit.org/show_bug.cgi?id=175937
+	// Manually register types since they aren't automatically registered when
+	// WebKit is loaded. See https://bugs.webkit.org/show_bug.cgi?id=175937.
 	HitTestResultGLibType()
 }

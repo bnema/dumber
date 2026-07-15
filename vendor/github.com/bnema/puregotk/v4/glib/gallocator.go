@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 )
 
@@ -28,6 +27,8 @@ func AllocatorNewFromInternalPtr(ptr uintptr) *Allocator {
 var xAllocatorFree func(uintptr)
 
 func (x *Allocator) Free() {
+	core.LazyRegister(&xAllocatorFree, "GLIB", "g_allocator_free", false)
+
 	xAllocatorFree(x.GoPointer())
 }
 
@@ -50,6 +51,8 @@ func MemChunkNewFromInternalPtr(ptr uintptr) *MemChunk {
 var xMemChunkAlloc func(uintptr) uintptr
 
 func (x *MemChunk) Alloc() uintptr {
+	core.LazyRegister(&xMemChunkAlloc, "GLIB", "g_mem_chunk_alloc", false)
+
 	cret := xMemChunkAlloc(x.GoPointer())
 	return cret
 }
@@ -57,6 +60,8 @@ func (x *MemChunk) Alloc() uintptr {
 var xMemChunkAlloc0 func(uintptr) uintptr
 
 func (x *MemChunk) Alloc0() uintptr {
+	core.LazyRegister(&xMemChunkAlloc0, "GLIB", "g_mem_chunk_alloc0", false)
+
 	cret := xMemChunkAlloc0(x.GoPointer())
 	return cret
 }
@@ -64,30 +69,40 @@ func (x *MemChunk) Alloc0() uintptr {
 var xMemChunkClean func(uintptr)
 
 func (x *MemChunk) Clean() {
+	core.LazyRegister(&xMemChunkClean, "GLIB", "g_mem_chunk_clean", false)
+
 	xMemChunkClean(x.GoPointer())
 }
 
 var xMemChunkDestroy func(uintptr)
 
 func (x *MemChunk) Destroy() {
+	core.LazyRegister(&xMemChunkDestroy, "GLIB", "g_mem_chunk_destroy", false)
+
 	xMemChunkDestroy(x.GoPointer())
 }
 
 var xMemChunkFree func(uintptr, uintptr)
 
 func (x *MemChunk) Free(MemVar uintptr) {
+	core.LazyRegister(&xMemChunkFree, "GLIB", "g_mem_chunk_free", false)
+
 	xMemChunkFree(x.GoPointer(), MemVar)
 }
 
 var xMemChunkPrint func(uintptr)
 
 func (x *MemChunk) Print() {
+	core.LazyRegister(&xMemChunkPrint, "GLIB", "g_mem_chunk_print", false)
+
 	xMemChunkPrint(x.GoPointer())
 }
 
 var xMemChunkReset func(uintptr)
 
 func (x *MemChunk) Reset() {
+	core.LazyRegister(&xMemChunkReset, "GLIB", "g_mem_chunk_reset", false)
+
 	xMemChunkReset(x.GoPointer())
 }
 
@@ -106,79 +121,68 @@ const (
 var xBlowChunks func()
 
 func BlowChunks() {
+	core.LazyRegister(&xBlowChunks, "GLIB", "g_blow_chunks", false)
+
 	xBlowChunks()
 }
 
 var xListPopAllocator func()
 
 func ListPopAllocator() {
+	core.LazyRegister(&xListPopAllocator, "GLIB", "g_list_pop_allocator", false)
+
 	xListPopAllocator()
 }
 
 var xListPushAllocator func(*Allocator)
 
 func ListPushAllocator(AllocatorVar *Allocator) {
+	core.LazyRegister(&xListPushAllocator, "GLIB", "g_list_push_allocator", false)
+
 	xListPushAllocator(AllocatorVar)
 }
 
 var xMemChunkInfo func()
 
 func MemChunkInfo() {
+	core.LazyRegister(&xMemChunkInfo, "GLIB", "g_mem_chunk_info", false)
+
 	xMemChunkInfo()
 }
 
 var xNodePopAllocator func()
 
 func NodePopAllocator() {
+	core.LazyRegister(&xNodePopAllocator, "GLIB", "g_node_pop_allocator", false)
+
 	xNodePopAllocator()
 }
 
 var xNodePushAllocator func(*Allocator)
 
 func NodePushAllocator(AllocatorVar *Allocator) {
+	core.LazyRegister(&xNodePushAllocator, "GLIB", "g_node_push_allocator", false)
+
 	xNodePushAllocator(AllocatorVar)
 }
 
 var xSlistPopAllocator func()
 
 func SlistPopAllocator() {
+	core.LazyRegister(&xSlistPopAllocator, "GLIB", "g_slist_pop_allocator", false)
+
 	xSlistPopAllocator()
 }
 
 var xSlistPushAllocator func(*Allocator)
 
 func SlistPushAllocator(AllocatorVar *Allocator) {
+	core.LazyRegister(&xSlistPushAllocator, "GLIB", "g_slist_push_allocator", false)
+
 	xSlistPushAllocator(AllocatorVar)
 }
 
 func init() {
 	core.SetPackageName("GLIB", "glib-2.0")
 	core.SetSharedLibraries("GLIB", []string{"libgobject-2.0.so.0", "libglib-2.0.so.0", "libgobject-2.0.0.dylib", "libglib-2.0.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GLIB") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xBlowChunks, libs, "g_blow_chunks")
-	core.PuregoSafeRegister(&xListPopAllocator, libs, "g_list_pop_allocator")
-	core.PuregoSafeRegister(&xListPushAllocator, libs, "g_list_push_allocator")
-	core.PuregoSafeRegister(&xMemChunkInfo, libs, "g_mem_chunk_info")
-	core.PuregoSafeRegister(&xNodePopAllocator, libs, "g_node_pop_allocator")
-	core.PuregoSafeRegister(&xNodePushAllocator, libs, "g_node_push_allocator")
-	core.PuregoSafeRegister(&xSlistPopAllocator, libs, "g_slist_pop_allocator")
-	core.PuregoSafeRegister(&xSlistPushAllocator, libs, "g_slist_push_allocator")
-
-	core.PuregoSafeRegister(&xAllocatorFree, libs, "g_allocator_free")
-
-	core.PuregoSafeRegister(&xMemChunkAlloc, libs, "g_mem_chunk_alloc")
-	core.PuregoSafeRegister(&xMemChunkAlloc0, libs, "g_mem_chunk_alloc0")
-	core.PuregoSafeRegister(&xMemChunkClean, libs, "g_mem_chunk_clean")
-	core.PuregoSafeRegister(&xMemChunkDestroy, libs, "g_mem_chunk_destroy")
-	core.PuregoSafeRegister(&xMemChunkFree, libs, "g_mem_chunk_free")
-	core.PuregoSafeRegister(&xMemChunkPrint, libs, "g_mem_chunk_print")
-	core.PuregoSafeRegister(&xMemChunkReset, libs, "g_mem_chunk_reset")
 }

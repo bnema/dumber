@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -58,6 +57,7 @@ type LoggerLogLevel int
 var xLoggerLogLevelGLibType func() types.GType
 
 func LoggerLogLevelGLibType() types.GType {
+	core.LazyRegister(&xLoggerLogLevelGLibType, "SOUP", "soup_logger_log_level_get_type", false)
 	return xLoggerLogLevelGLibType()
 }
 
@@ -139,6 +139,7 @@ type Logger struct {
 var xLoggerGLibType func() types.GType
 
 func LoggerGLibType() types.GType {
+	core.LazyRegister(&xLoggerGLibType, "SOUP", "soup_logger_get_type", false)
 	return xLoggerGLibType()
 }
 
@@ -156,6 +157,7 @@ var xNewLogger func(LoggerLogLevel) uintptr
 // logged, use [method@Logger.set_request_filter] and
 // [method@Logger.set_response_filter].
 func NewLogger(LevelVar LoggerLogLevel) *Logger {
+	core.LazyRegister(&xNewLogger, "SOUP", "soup_logger_new", false)
 	var cls *Logger
 
 	cret := xNewLogger(LevelVar)
@@ -172,6 +174,8 @@ var xLoggerGetMaxBodySize func(uintptr) int
 
 // Get the maximum body size for @logger.
 func (x *Logger) GetMaxBodySize() int {
+	core.LazyRegister(&xLoggerGetMaxBodySize, "SOUP", "soup_logger_get_max_body_size", false)
+
 	cret := xLoggerGetMaxBodySize(x.GoPointer())
 	return cret
 }
@@ -180,6 +184,8 @@ var xLoggerSetMaxBodySize func(uintptr, int)
 
 // Sets the maximum body size for @logger (-1 means no limit).
 func (x *Logger) SetMaxBodySize(MaxBodySizeVar int) {
+	core.LazyRegister(&xLoggerSetMaxBodySize, "SOUP", "soup_logger_set_max_body_size", false)
+
 	xLoggerSetMaxBodySize(x.GoPointer(), MaxBodySizeVar)
 }
 
@@ -188,6 +194,8 @@ var xLoggerSetPrinter func(uintptr, uintptr, uintptr, uintptr)
 // Sets up an alternate log printing routine, if you don't want
 // the log to go to `stdout`.
 func (x *Logger) SetPrinter(PrinterVar *LoggerPrinter, PrinterDataVar uintptr, DestroyVar *glib.DestroyNotify) {
+	core.LazyRegister(&xLoggerSetPrinter, "SOUP", "soup_logger_set_printer", false)
+
 	xLoggerSetPrinter(x.GoPointer(), glib.NewCallback(PrinterVar), PrinterDataVar, glib.NewCallbackNullable(DestroyVar))
 }
 
@@ -200,6 +208,8 @@ var xLoggerSetRequestFilter func(uintptr, uintptr, uintptr, uintptr)
 // set a request filter, @logger will just always log requests at the
 // level passed to [ctor@Logger.new].)
 func (x *Logger) SetRequestFilter(RequestFilterVar *LoggerFilter, FilterDataVar uintptr, DestroyVar *glib.DestroyNotify) {
+	core.LazyRegister(&xLoggerSetRequestFilter, "SOUP", "soup_logger_set_request_filter", false)
+
 	xLoggerSetRequestFilter(x.GoPointer(), glib.NewCallback(RequestFilterVar), FilterDataVar, glib.NewCallbackNullable(DestroyVar))
 }
 
@@ -212,6 +222,8 @@ var xLoggerSetResponseFilter func(uintptr, uintptr, uintptr, uintptr)
 // set a response filter, @logger will just always log responses at
 // the level passed to [ctor@Logger.new].)
 func (x *Logger) SetResponseFilter(ResponseFilterVar *LoggerFilter, FilterDataVar uintptr, DestroyVar *glib.DestroyNotify) {
+	core.LazyRegister(&xLoggerSetResponseFilter, "SOUP", "soup_logger_set_response_filter", false)
+
 	xLoggerSetResponseFilter(x.GoPointer(), glib.NewCallback(ResponseFilterVar), FilterDataVar, glib.NewCallbackNullable(DestroyVar))
 }
 
@@ -250,24 +262,4 @@ func (x *Logger) GetPropertyMaxBodySize() int {
 func init() {
 	core.SetPackageName("SOUP", "libsoup-3.0")
 	core.SetSharedLibraries("SOUP", []string{"libsoup-3.0.so.0", "libsoup-3.0.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("SOUP") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xLoggerLogLevelGLibType, libs, "soup_logger_log_level_get_type")
-
-	core.PuregoSafeRegister(&xLoggerGLibType, libs, "soup_logger_get_type")
-
-	core.PuregoSafeRegister(&xNewLogger, libs, "soup_logger_new")
-
-	core.PuregoSafeRegister(&xLoggerGetMaxBodySize, libs, "soup_logger_get_max_body_size")
-	core.PuregoSafeRegister(&xLoggerSetMaxBodySize, libs, "soup_logger_set_max_body_size")
-	core.PuregoSafeRegister(&xLoggerSetPrinter, libs, "soup_logger_set_printer")
-	core.PuregoSafeRegister(&xLoggerSetRequestFilter, libs, "soup_logger_set_request_filter")
-	core.PuregoSafeRegister(&xLoggerSetResponseFilter, libs, "soup_logger_set_response_filter")
 }

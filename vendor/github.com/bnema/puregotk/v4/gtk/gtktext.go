@@ -4,7 +4,6 @@ package gtk
 import (
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gio"
 	"github.com/bnema/puregotk/v4/glib"
@@ -131,6 +130,7 @@ type Text struct {
 var xTextGLibType func() types.GType
 
 func TextGLibType() types.GType {
+	core.LazyRegister(&xTextGLibType, "GTK", "gtk_text_get_type", false)
 	return xTextGLibType()
 }
 
@@ -144,6 +144,7 @@ var xNewText func() uintptr
 
 // Creates a new `GtkText`.
 func NewText() *Text {
+	core.LazyRegister(&xNewText, "GTK", "gtk_text_new", false)
 	var cls *Text
 
 	cret := xNewText()
@@ -161,6 +162,7 @@ var xNewTextWithBuffer func(uintptr) uintptr
 
 // Creates a new `GtkText` with the specified buffer.
 func NewTextWithBuffer(BufferVar *EntryBuffer) *Text {
+	core.LazyRegister(&xNewTextWithBuffer, "GTK", "gtk_text_new_with_buffer", false)
 	var cls *Text
 
 	cret := xNewTextWithBuffer(BufferVar.GoPointer())
@@ -187,6 +189,8 @@ var xTextComputeCursorExtents func(uintptr, uint, *graphene.Rect, *graphene.Rect
 //
 // The rectangle positions are in widget coordinates.
 func (x *Text) ComputeCursorExtents(PositionVar uint, StrongVar *graphene.Rect, WeakVar *graphene.Rect) {
+	core.LazyRegister(&xTextComputeCursorExtents, "GTK", "gtk_text_compute_cursor_extents", false)
+
 	xTextComputeCursorExtents(x.GoPointer(), PositionVar, StrongVar, WeakVar)
 }
 
@@ -197,6 +201,8 @@ var xTextGetActivatesDefault func(uintptr) bool
 //
 // See [method@Gtk.Text.set_activates_default].
 func (x *Text) GetActivatesDefault() bool {
+	core.LazyRegister(&xTextGetActivatesDefault, "GTK", "gtk_text_get_activates_default", false)
+
 	cret := xTextGetActivatesDefault(x.GoPointer())
 	return cret
 }
@@ -207,6 +213,8 @@ var xTextGetAttributes func(uintptr) uintptr
 //
 // See [method@Gtk.Text.set_attributes].
 func (x *Text) GetAttributes() *pango.AttrList {
+	core.LazyRegister(&xTextGetAttributes, "GTK", "gtk_text_get_attributes", false)
+
 	cret := xTextGetAttributes(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -219,6 +227,7 @@ var xTextGetBuffer func(uintptr) uintptr
 // Get the entry buffer object which holds the text for
 // this widget.
 func (x *Text) GetBuffer() *EntryBuffer {
+	core.LazyRegister(&xTextGetBuffer, "GTK", "gtk_text_get_buffer", false)
 	var cls *EntryBuffer
 
 	cret := xTextGetBuffer(x.GoPointer())
@@ -236,6 +245,8 @@ var xTextGetEnableEmojiCompletion func(uintptr) bool
 
 // Returns whether Emoji completion is enabled.
 func (x *Text) GetEnableEmojiCompletion() bool {
+	core.LazyRegister(&xTextGetEnableEmojiCompletion, "GTK", "gtk_text_get_enable_emoji_completion", false)
+
 	cret := xTextGetEnableEmojiCompletion(x.GoPointer())
 	return cret
 }
@@ -246,6 +257,7 @@ var xTextGetExtraMenu func(uintptr) uintptr
 //
 // See [method@Gtk.Text.set_extra_menu].
 func (x *Text) GetExtraMenu() *gio.MenuModel {
+	core.LazyRegister(&xTextGetExtraMenu, "GTK", "gtk_text_get_extra_menu", false)
 	var cls *gio.MenuModel
 
 	cret := xTextGetExtraMenu(x.GoPointer())
@@ -263,6 +275,8 @@ var xTextGetInputHints func(uintptr) InputHints
 
 // Gets the input hints of the text widget.
 func (x *Text) GetInputHints() InputHints {
+	core.LazyRegister(&xTextGetInputHints, "GTK", "gtk_text_get_input_hints", false)
+
 	cret := xTextGetInputHints(x.GoPointer())
 	return cret
 }
@@ -271,6 +285,8 @@ var xTextGetInputPurpose func(uintptr) InputPurpose
 
 // Gets the input purpose of the text widget.
 func (x *Text) GetInputPurpose() InputPurpose {
+	core.LazyRegister(&xTextGetInputPurpose, "GTK", "gtk_text_get_input_purpose", false)
+
 	cret := xTextGetInputPurpose(x.GoPointer())
 	return cret
 }
@@ -283,6 +299,8 @@ var xTextGetInvisibleChar func(uintptr) uint32
 // so the value returned by this function is not very useful unless
 // it has been explicitly set with [method@Gtk.Text.set_invisible_char].
 func (x *Text) GetInvisibleChar() uint32 {
+	core.LazyRegister(&xTextGetInvisibleChar, "GTK", "gtk_text_get_invisible_char", false)
+
 	cret := xTextGetInvisibleChar(x.GoPointer())
 	return cret
 }
@@ -296,6 +314,8 @@ var xTextGetMaxLength func(uintptr) int
 // This is equivalent to getting @self's `GtkEntryBuffer` and
 // calling [method@Gtk.EntryBuffer.get_max_length] on it.
 func (x *Text) GetMaxLength() int {
+	core.LazyRegister(&xTextGetMaxLength, "GTK", "gtk_text_get_max_length", false)
+
 	cret := xTextGetMaxLength(x.GoPointer())
 	return cret
 }
@@ -306,6 +326,8 @@ var xTextGetOverwriteMode func(uintptr) bool
 //
 // See [method@Gtk.Text.set_overwrite_mode].
 func (x *Text) GetOverwriteMode() bool {
+	core.LazyRegister(&xTextGetOverwriteMode, "GTK", "gtk_text_get_overwrite_mode", false)
+
 	cret := xTextGetOverwriteMode(x.GoPointer())
 	return cret
 }
@@ -317,6 +339,8 @@ var xTextGetPlaceholderText func(uintptr) string
 //
 // See [method@Gtk.Text.set_placeholder_text].
 func (x *Text) GetPlaceholderText() string {
+	core.LazyRegister(&xTextGetPlaceholderText, "GTK", "gtk_text_get_placeholder_text", false)
+
 	cret := xTextGetPlaceholderText(x.GoPointer())
 	return cret
 }
@@ -326,6 +350,8 @@ var xTextGetPropagateTextWidth func(uintptr) bool
 // Returns whether the text widget will grow and shrink
 // with the content.
 func (x *Text) GetPropagateTextWidth() bool {
+	core.LazyRegister(&xTextGetPropagateTextWidth, "GTK", "gtk_text_get_propagate_text_width", false)
+
 	cret := xTextGetPropagateTextWidth(x.GoPointer())
 	return cret
 }
@@ -336,6 +362,8 @@ var xTextGetTabs func(uintptr) uintptr
 //
 // See [method@Gtk.Text.set_tabs].
 func (x *Text) GetTabs() *pango.TabArray {
+	core.LazyRegister(&xTextGetTabs, "GTK", "gtk_text_get_tabs", false)
+
 	cret := xTextGetTabs(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -350,6 +378,8 @@ var xTextGetTextLength func(uintptr) uint16
 // This is equivalent to getting @self's `GtkEntryBuffer`
 // and calling [method@Gtk.EntryBuffer.get_length] on it.
 func (x *Text) GetTextLength() uint16 {
+	core.LazyRegister(&xTextGetTextLength, "GTK", "gtk_text_get_text_length", false)
+
 	cret := xTextGetTextLength(x.GoPointer())
 	return cret
 }
@@ -358,6 +388,8 @@ var xTextGetTruncateMultiline func(uintptr) bool
 
 // Returns whether pasted text will be truncated to the first line.
 func (x *Text) GetTruncateMultiline() bool {
+	core.LazyRegister(&xTextGetTruncateMultiline, "GTK", "gtk_text_get_truncate_multiline", false)
+
 	cret := xTextGetTruncateMultiline(x.GoPointer())
 	return cret
 }
@@ -366,6 +398,8 @@ var xTextGetVisibility func(uintptr) bool
 
 // Retrieves whether the text is visible.
 func (x *Text) GetVisibility() bool {
+	core.LazyRegister(&xTextGetVisibility, "GTK", "gtk_text_get_visibility", false)
+
 	cret := xTextGetVisibility(x.GoPointer())
 	return cret
 }
@@ -381,6 +415,8 @@ var xTextGrabFocusWithoutSelecting func(uintptr) bool
 // which the user usually doesn't want to replace all
 // text in, such as search-as-you-type entries.
 func (x *Text) GrabFocusWithoutSelecting() bool {
+	core.LazyRegister(&xTextGrabFocusWithoutSelecting, "GTK", "gtk_text_grab_focus_without_selecting", false)
+
 	cret := xTextGrabFocusWithoutSelecting(x.GoPointer())
 	return cret
 }
@@ -394,6 +430,8 @@ var xTextSetActivatesDefault func(uintptr, bool)
 // be closed, since the default widget is usually one of
 // the dialog buttons.
 func (x *Text) SetActivatesDefault(ActivatesVar bool) {
+	core.LazyRegister(&xTextSetActivatesDefault, "GTK", "gtk_text_set_activates_default", false)
+
 	xTextSetActivatesDefault(x.GoPointer(), ActivatesVar)
 }
 
@@ -401,6 +439,8 @@ var xTextSetAttributes func(uintptr, *pango.AttrList)
 
 // Apply attributes to the contents of the text widget.
 func (x *Text) SetAttributes(AttrsVar *pango.AttrList) {
+	core.LazyRegister(&xTextSetAttributes, "GTK", "gtk_text_set_attributes", false)
+
 	xTextSetAttributes(x.GoPointer(), AttrsVar)
 }
 
@@ -409,6 +449,8 @@ var xTextSetBuffer func(uintptr, uintptr)
 // Set the entry buffer object which holds the text for
 // this widget.
 func (x *Text) SetBuffer(BufferVar *EntryBuffer) {
+	core.LazyRegister(&xTextSetBuffer, "GTK", "gtk_text_set_buffer", false)
+
 	xTextSetBuffer(x.GoPointer(), BufferVar.GoPointer())
 }
 
@@ -420,6 +462,8 @@ var xTextSetEnableEmojiCompletion func(uintptr, bool)
 // will pop up a window with suggested Emojis matching the
 // keyword.
 func (x *Text) SetEnableEmojiCompletion(EnableEmojiCompletionVar bool) {
+	core.LazyRegister(&xTextSetEnableEmojiCompletion, "GTK", "gtk_text_set_enable_emoji_completion", false)
+
 	xTextSetEnableEmojiCompletion(x.GoPointer(), EnableEmojiCompletionVar)
 }
 
@@ -427,6 +471,8 @@ var xTextSetExtraMenu func(uintptr, uintptr)
 
 // Sets a menu model to add to the context menu of the text widget.
 func (x *Text) SetExtraMenu(ModelVar *gio.MenuModel) {
+	core.LazyRegister(&xTextSetExtraMenu, "GTK", "gtk_text_set_extra_menu", false)
+
 	xTextSetExtraMenu(x.GoPointer(), ModelVar.GoPointer())
 }
 
@@ -434,6 +480,8 @@ var xTextSetInputHints func(uintptr, InputHints)
 
 // Sets hints that allow input methods to fine-tune their behaviour.
 func (x *Text) SetInputHints(HintsVar InputHints) {
+	core.LazyRegister(&xTextSetInputHints, "GTK", "gtk_text_set_input_hints", false)
+
 	xTextSetInputHints(x.GoPointer(), HintsVar)
 }
 
@@ -444,6 +492,8 @@ var xTextSetInputPurpose func(uintptr, InputPurpose)
 // The input purpose can be used by on-screen keyboards
 // and other input methods to adjust their behaviour.
 func (x *Text) SetInputPurpose(PurposeVar InputPurpose) {
+	core.LazyRegister(&xTextSetInputPurpose, "GTK", "gtk_text_set_input_purpose", false)
+
 	xTextSetInputPurpose(x.GoPointer(), PurposeVar)
 }
 
@@ -456,6 +506,8 @@ var xTextSetInvisibleChar func(uintptr, uint32)
 // will get no feedback at all; there will be no text on the screen
 // as they type.
 func (x *Text) SetInvisibleChar(ChVar uint32) {
+	core.LazyRegister(&xTextSetInvisibleChar, "GTK", "gtk_text_set_invisible_char", false)
+
 	xTextSetInvisibleChar(x.GoPointer(), ChVar)
 }
 
@@ -469,6 +521,8 @@ var xTextSetMaxLength func(uintptr, int)
 // This is equivalent to getting @self's `GtkEntryBuffer` and
 // calling [method@Gtk.EntryBuffer.set_max_length] on it.
 func (x *Text) SetMaxLength(LengthVar int) {
+	core.LazyRegister(&xTextSetMaxLength, "GTK", "gtk_text_set_max_length", false)
+
 	xTextSetMaxLength(x.GoPointer(), LengthVar)
 }
 
@@ -476,6 +530,8 @@ var xTextSetOverwriteMode func(uintptr, bool)
 
 // Sets whether the text is overwritten when typing.
 func (x *Text) SetOverwriteMode(OverwriteVar bool) {
+	core.LazyRegister(&xTextSetOverwriteMode, "GTK", "gtk_text_set_overwrite_mode", false)
+
 	xTextSetOverwriteMode(x.GoPointer(), OverwriteVar)
 }
 
@@ -487,6 +543,8 @@ var xTextSetPlaceholderText func(uintptr, uintptr)
 // This can be used to give a visual hint of the expected
 // contents of the text widget.
 func (x *Text) SetPlaceholderText(TextVar *string) {
+	core.LazyRegister(&xTextSetPlaceholderText, "GTK", "gtk_text_set_placeholder_text", false)
+
 	TextVarPtr := core.GStrdupNullable(TextVar)
 	defer core.GFreeNullable(TextVarPtr)
 
@@ -497,6 +555,8 @@ var xTextSetPropagateTextWidth func(uintptr, bool)
 
 // Sets whether the text widget should grow and shrink with the content.
 func (x *Text) SetPropagateTextWidth(PropagateTextWidthVar bool) {
+	core.LazyRegister(&xTextSetPropagateTextWidth, "GTK", "gtk_text_set_propagate_text_width", false)
+
 	xTextSetPropagateTextWidth(x.GoPointer(), PropagateTextWidthVar)
 }
 
@@ -504,6 +564,8 @@ var xTextSetTabs func(uintptr, *pango.TabArray)
 
 // Sets tab stops for the text widget.
 func (x *Text) SetTabs(TabsVar *pango.TabArray) {
+	core.LazyRegister(&xTextSetTabs, "GTK", "gtk_text_set_tabs", false)
+
 	xTextSetTabs(x.GoPointer(), TabsVar)
 }
 
@@ -511,6 +573,8 @@ var xTextSetTruncateMultiline func(uintptr, bool)
 
 // Sets whether pasted text should be truncated to the first line.
 func (x *Text) SetTruncateMultiline(TruncateMultilineVar bool) {
+	core.LazyRegister(&xTextSetTruncateMultiline, "GTK", "gtk_text_set_truncate_multiline", false)
+
 	xTextSetTruncateMultiline(x.GoPointer(), TruncateMultilineVar)
 }
 
@@ -531,6 +595,8 @@ var xTextSetVisibility func(uintptr, bool)
 // to inform input methods about the purpose of this widget, in addition
 // to setting visibility to false.
 func (x *Text) SetVisibility(VisibleVar bool) {
+	core.LazyRegister(&xTextSetVisibility, "GTK", "gtk_text_set_visibility", false)
+
 	xTextSetVisibility(x.GoPointer(), VisibleVar)
 }
 
@@ -540,6 +606,8 @@ var xTextUnsetInvisibleChar func(uintptr)
 //
 // After calling this, the default invisible char is used again.
 func (x *Text) UnsetInvisibleChar() {
+	core.LazyRegister(&xTextUnsetInvisibleChar, "GTK", "gtk_text_unset_invisible_char", false)
+
 	xTextUnsetInvisibleChar(x.GoPointer())
 }
 
@@ -1679,52 +1747,4 @@ func (x *Text) SetWidthChars(NCharsVar int) {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GTK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xTextGLibType, libs, "gtk_text_get_type")
-
-	core.PuregoSafeRegister(&xNewText, libs, "gtk_text_new")
-	core.PuregoSafeRegister(&xNewTextWithBuffer, libs, "gtk_text_new_with_buffer")
-
-	core.PuregoSafeRegister(&xTextComputeCursorExtents, libs, "gtk_text_compute_cursor_extents")
-	core.PuregoSafeRegister(&xTextGetActivatesDefault, libs, "gtk_text_get_activates_default")
-	core.PuregoSafeRegister(&xTextGetAttributes, libs, "gtk_text_get_attributes")
-	core.PuregoSafeRegister(&xTextGetBuffer, libs, "gtk_text_get_buffer")
-	core.PuregoSafeRegister(&xTextGetEnableEmojiCompletion, libs, "gtk_text_get_enable_emoji_completion")
-	core.PuregoSafeRegister(&xTextGetExtraMenu, libs, "gtk_text_get_extra_menu")
-	core.PuregoSafeRegister(&xTextGetInputHints, libs, "gtk_text_get_input_hints")
-	core.PuregoSafeRegister(&xTextGetInputPurpose, libs, "gtk_text_get_input_purpose")
-	core.PuregoSafeRegister(&xTextGetInvisibleChar, libs, "gtk_text_get_invisible_char")
-	core.PuregoSafeRegister(&xTextGetMaxLength, libs, "gtk_text_get_max_length")
-	core.PuregoSafeRegister(&xTextGetOverwriteMode, libs, "gtk_text_get_overwrite_mode")
-	core.PuregoSafeRegister(&xTextGetPlaceholderText, libs, "gtk_text_get_placeholder_text")
-	core.PuregoSafeRegister(&xTextGetPropagateTextWidth, libs, "gtk_text_get_propagate_text_width")
-	core.PuregoSafeRegister(&xTextGetTabs, libs, "gtk_text_get_tabs")
-	core.PuregoSafeRegister(&xTextGetTextLength, libs, "gtk_text_get_text_length")
-	core.PuregoSafeRegister(&xTextGetTruncateMultiline, libs, "gtk_text_get_truncate_multiline")
-	core.PuregoSafeRegister(&xTextGetVisibility, libs, "gtk_text_get_visibility")
-	core.PuregoSafeRegister(&xTextGrabFocusWithoutSelecting, libs, "gtk_text_grab_focus_without_selecting")
-	core.PuregoSafeRegister(&xTextSetActivatesDefault, libs, "gtk_text_set_activates_default")
-	core.PuregoSafeRegister(&xTextSetAttributes, libs, "gtk_text_set_attributes")
-	core.PuregoSafeRegister(&xTextSetBuffer, libs, "gtk_text_set_buffer")
-	core.PuregoSafeRegister(&xTextSetEnableEmojiCompletion, libs, "gtk_text_set_enable_emoji_completion")
-	core.PuregoSafeRegister(&xTextSetExtraMenu, libs, "gtk_text_set_extra_menu")
-	core.PuregoSafeRegister(&xTextSetInputHints, libs, "gtk_text_set_input_hints")
-	core.PuregoSafeRegister(&xTextSetInputPurpose, libs, "gtk_text_set_input_purpose")
-	core.PuregoSafeRegister(&xTextSetInvisibleChar, libs, "gtk_text_set_invisible_char")
-	core.PuregoSafeRegister(&xTextSetMaxLength, libs, "gtk_text_set_max_length")
-	core.PuregoSafeRegister(&xTextSetOverwriteMode, libs, "gtk_text_set_overwrite_mode")
-	core.PuregoSafeRegister(&xTextSetPlaceholderText, libs, "gtk_text_set_placeholder_text")
-	core.PuregoSafeRegister(&xTextSetPropagateTextWidth, libs, "gtk_text_set_propagate_text_width")
-	core.PuregoSafeRegister(&xTextSetTabs, libs, "gtk_text_set_tabs")
-	core.PuregoSafeRegister(&xTextSetTruncateMultiline, libs, "gtk_text_set_truncate_multiline")
-	core.PuregoSafeRegister(&xTextSetVisibility, libs, "gtk_text_set_visibility")
-	core.PuregoSafeRegister(&xTextUnsetInvisibleChar, libs, "gtk_text_unset_invisible_char")
 }

@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/cairo"
 	"github.com/bnema/puregotk/v4/glib"
@@ -47,6 +46,7 @@ type MemoryTextureBuilder struct {
 var xMemoryTextureBuilderGLibType func() types.GType
 
 func MemoryTextureBuilderGLibType() types.GType {
+	core.LazyRegister(&xMemoryTextureBuilderGLibType, "GDK", "gdk_memory_texture_builder_get_type", false)
 	return xMemoryTextureBuilderGLibType()
 }
 
@@ -60,6 +60,7 @@ var xNewMemoryTextureBuilder func() uintptr
 
 // Creates a new texture builder.
 func NewMemoryTextureBuilder() *MemoryTextureBuilder {
+	core.LazyRegister(&xNewMemoryTextureBuilder, "GDK", "gdk_memory_texture_builder_new", false)
 	var cls *MemoryTextureBuilder
 
 	cret := xNewMemoryTextureBuilder()
@@ -82,6 +83,7 @@ var xMemoryTextureBuilderBuild func(uintptr) uintptr
 // It is possible to call this function multiple times to create multiple textures,
 // possibly with changing properties in between.
 func (x *MemoryTextureBuilder) Build() *Texture {
+	core.LazyRegister(&xMemoryTextureBuilderBuild, "GDK", "gdk_memory_texture_builder_build", false)
 	var cls *Texture
 
 	cret := xMemoryTextureBuilderBuild(x.GoPointer())
@@ -99,6 +101,8 @@ var xMemoryTextureBuilderGetBytes func(uintptr) uintptr
 // Gets the bytes previously set via gdk_memory_texture_builder_set_bytes()
 // or %NULL if none was set.
 func (x *MemoryTextureBuilder) GetBytes() *glib.Bytes {
+	core.LazyRegister(&xMemoryTextureBuilderGetBytes, "GDK", "gdk_memory_texture_builder_get_bytes", false)
+
 	cret := xMemoryTextureBuilderGetBytes(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -110,6 +114,8 @@ var xMemoryTextureBuilderGetColorState func(uintptr) uintptr
 
 // Gets the colorstate previously set via gdk_memory_texture_builder_set_color_state().
 func (x *MemoryTextureBuilder) GetColorState() *ColorState {
+	core.LazyRegister(&xMemoryTextureBuilderGetColorState, "GDK", "gdk_memory_texture_builder_get_color_state", false)
+
 	cret := xMemoryTextureBuilderGetColorState(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -121,6 +127,8 @@ var xMemoryTextureBuilderGetFormat func(uintptr) MemoryFormat
 
 // Gets the format previously set via gdk_memory_texture_builder_set_format().
 func (x *MemoryTextureBuilder) GetFormat() MemoryFormat {
+	core.LazyRegister(&xMemoryTextureBuilderGetFormat, "GDK", "gdk_memory_texture_builder_get_format", false)
+
 	cret := xMemoryTextureBuilderGetFormat(x.GoPointer())
 	return cret
 }
@@ -130,6 +138,8 @@ var xMemoryTextureBuilderGetHeight func(uintptr) int
 // Gets the height previously set via gdk_memory_texture_builder_set_height()
 // or 0 if the height wasn't set.
 func (x *MemoryTextureBuilder) GetHeight() int {
+	core.LazyRegister(&xMemoryTextureBuilderGetHeight, "GDK", "gdk_memory_texture_builder_get_height", false)
+
 	cret := xMemoryTextureBuilderGetHeight(x.GoPointer())
 	return cret
 }
@@ -138,6 +148,8 @@ var xMemoryTextureBuilderGetOffset func(uintptr, uint) uint
 
 // Gets the offset previously set via gdk_memory_texture_builder_set_offset().
 func (x *MemoryTextureBuilder) GetOffset(PlaneVar uint) uint {
+	core.LazyRegister(&xMemoryTextureBuilderGetOffset, "GDK", "gdk_memory_texture_builder_get_offset", false)
+
 	cret := xMemoryTextureBuilderGetOffset(x.GoPointer(), PlaneVar)
 	return cret
 }
@@ -146,6 +158,8 @@ var xMemoryTextureBuilderGetStride func(uintptr) uint
 
 // Gets the stride previously set via gdk_memory_texture_builder_set_stride().
 func (x *MemoryTextureBuilder) GetStride() uint {
+	core.LazyRegister(&xMemoryTextureBuilderGetStride, "GDK", "gdk_memory_texture_builder_get_stride", false)
+
 	cret := xMemoryTextureBuilderGetStride(x.GoPointer())
 	return cret
 }
@@ -154,6 +168,8 @@ var xMemoryTextureBuilderGetStrideForPlane func(uintptr, uint) uint
 
 // Gets the stride previously set via gdk_memory_texture_builder_set_stride_for_plane().
 func (x *MemoryTextureBuilder) GetStrideForPlane(PlaneVar uint) uint {
+	core.LazyRegister(&xMemoryTextureBuilderGetStrideForPlane, "GDK", "gdk_memory_texture_builder_get_stride_for_plane", false)
+
 	cret := xMemoryTextureBuilderGetStrideForPlane(x.GoPointer(), PlaneVar)
 	return cret
 }
@@ -163,6 +179,8 @@ var xMemoryTextureBuilderGetUpdateRegion func(uintptr) uintptr
 // Gets the region previously set via gdk_memory_texture_builder_set_update_region()
 // or %NULL if none was set.
 func (x *MemoryTextureBuilder) GetUpdateRegion() *cairo.Region {
+	core.LazyRegister(&xMemoryTextureBuilderGetUpdateRegion, "GDK", "gdk_memory_texture_builder_get_update_region", false)
+
 	cret := xMemoryTextureBuilderGetUpdateRegion(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -175,6 +193,7 @@ var xMemoryTextureBuilderGetUpdateTexture func(uintptr) uintptr
 // Gets the texture previously set via gdk_memory_texture_builder_set_update_texture()
 // or %NULL if none was set.
 func (x *MemoryTextureBuilder) GetUpdateTexture() *Texture {
+	core.LazyRegister(&xMemoryTextureBuilderGetUpdateTexture, "GDK", "gdk_memory_texture_builder_get_update_texture", false)
 	var cls *Texture
 
 	cret := xMemoryTextureBuilderGetUpdateTexture(x.GoPointer())
@@ -193,6 +212,8 @@ var xMemoryTextureBuilderGetWidth func(uintptr) int
 // Gets the width previously set via gdk_memory_texture_builder_set_width()
 // or 0 if the width wasn't set.
 func (x *MemoryTextureBuilder) GetWidth() int {
+	core.LazyRegister(&xMemoryTextureBuilderGetWidth, "GDK", "gdk_memory_texture_builder_get_width", false)
+
 	cret := xMemoryTextureBuilderGetWidth(x.GoPointer())
 	return cret
 }
@@ -203,6 +224,8 @@ var xMemoryTextureBuilderSetBytes func(uintptr, *glib.Bytes)
 //
 // The bytes must be set before calling [method@Gdk.MemoryTextureBuilder.build].
 func (x *MemoryTextureBuilder) SetBytes(BytesVar *glib.Bytes) {
+	core.LazyRegister(&xMemoryTextureBuilderSetBytes, "GDK", "gdk_memory_texture_builder_set_bytes", false)
+
 	xMemoryTextureBuilderSetBytes(x.GoPointer(), BytesVar)
 }
 
@@ -213,6 +236,8 @@ var xMemoryTextureBuilderSetColorState func(uintptr, *ColorState)
 // By default, the sRGB colorstate is used. If you don't know
 // what colorstates are, this is probably the right thing.
 func (x *MemoryTextureBuilder) SetColorState(ColorStateVar *ColorState) {
+	core.LazyRegister(&xMemoryTextureBuilderSetColorState, "GDK", "gdk_memory_texture_builder_set_color_state", false)
+
 	xMemoryTextureBuilderSetColorState(x.GoPointer(), ColorStateVar)
 }
 
@@ -222,6 +247,8 @@ var xMemoryTextureBuilderSetFormat func(uintptr, MemoryFormat)
 //
 // The default is `GDK_MEMORY_R8G8B8A8_PREMULTIPLIED`.
 func (x *MemoryTextureBuilder) SetFormat(FormatVar MemoryFormat) {
+	core.LazyRegister(&xMemoryTextureBuilderSetFormat, "GDK", "gdk_memory_texture_builder_set_format", false)
+
 	xMemoryTextureBuilderSetFormat(x.GoPointer(), FormatVar)
 }
 
@@ -232,6 +259,8 @@ var xMemoryTextureBuilderSetHeight func(uintptr, int)
 // The height must be set before calling [method@Gdk.MemoryTextureBuilder.build]
 // and conform to size requirements of the provided format.
 func (x *MemoryTextureBuilder) SetHeight(HeightVar int) {
+	core.LazyRegister(&xMemoryTextureBuilderSetHeight, "GDK", "gdk_memory_texture_builder_set_height", false)
+
 	xMemoryTextureBuilderSetHeight(x.GoPointer(), HeightVar)
 }
 
@@ -239,6 +268,8 @@ var xMemoryTextureBuilderSetOffset func(uintptr, uint, uint)
 
 // Sets the offset of the texture for @plane.
 func (x *MemoryTextureBuilder) SetOffset(PlaneVar uint, OffsetVar uint) {
+	core.LazyRegister(&xMemoryTextureBuilderSetOffset, "GDK", "gdk_memory_texture_builder_set_offset", false)
+
 	xMemoryTextureBuilderSetOffset(x.GoPointer(), PlaneVar, OffsetVar)
 }
 
@@ -248,6 +279,8 @@ var xMemoryTextureBuilderSetStride func(uintptr, uint)
 //
 // The rowstride must be set before calling [method@Gdk.MemoryTextureBuilder.build].
 func (x *MemoryTextureBuilder) SetStride(StrideVar uint) {
+	core.LazyRegister(&xMemoryTextureBuilderSetStride, "GDK", "gdk_memory_texture_builder_set_stride", false)
+
 	xMemoryTextureBuilderSetStride(x.GoPointer(), StrideVar)
 }
 
@@ -255,6 +288,8 @@ var xMemoryTextureBuilderSetStrideForPlane func(uintptr, uint, uint)
 
 // Sets the stride of the texture for @plane.
 func (x *MemoryTextureBuilder) SetStrideForPlane(PlaneVar uint, StrideVar uint) {
+	core.LazyRegister(&xMemoryTextureBuilderSetStrideForPlane, "GDK", "gdk_memory_texture_builder_set_stride_for_plane", false)
+
 	xMemoryTextureBuilderSetStrideForPlane(x.GoPointer(), PlaneVar, StrideVar)
 }
 
@@ -272,6 +307,8 @@ var xMemoryTextureBuilderSetUpdateRegion func(uintptr, *cairo.Region)
 //
 // An example would be a screen recording where only the mouse pointer moves.
 func (x *MemoryTextureBuilder) SetUpdateRegion(RegionVar *cairo.Region) {
+	core.LazyRegister(&xMemoryTextureBuilderSetUpdateRegion, "GDK", "gdk_memory_texture_builder_set_update_region", false)
+
 	xMemoryTextureBuilderSetUpdateRegion(x.GoPointer(), RegionVar)
 }
 
@@ -281,6 +318,8 @@ var xMemoryTextureBuilderSetUpdateTexture func(uintptr, uintptr)
 //
 // See [method@Gdk.MemoryTextureBuilder.set_update_region] for an explanation.
 func (x *MemoryTextureBuilder) SetUpdateTexture(TextureVar *Texture) {
+	core.LazyRegister(&xMemoryTextureBuilderSetUpdateTexture, "GDK", "gdk_memory_texture_builder_set_update_texture", false)
+
 	xMemoryTextureBuilderSetUpdateTexture(x.GoPointer(), TextureVar.GoPointer())
 }
 
@@ -291,6 +330,8 @@ var xMemoryTextureBuilderSetWidth func(uintptr, int)
 // The width must be set before calling [method@Gdk.MemoryTextureBuilder.build]
 // and conform to size requirements of the provided format.
 func (x *MemoryTextureBuilder) SetWidth(WidthVar int) {
+	core.LazyRegister(&xMemoryTextureBuilderSetWidth, "GDK", "gdk_memory_texture_builder_set_width", false)
+
 	xMemoryTextureBuilderSetWidth(x.GoPointer(), WidthVar)
 }
 
@@ -416,38 +457,4 @@ func (x *MemoryTextureBuilder) GetPropertyWidth() int {
 func init() {
 	core.SetPackageName("GDK", "gtk4")
 	core.SetSharedLibraries("GDK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GDK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xMemoryTextureBuilderGLibType, libs, "gdk_memory_texture_builder_get_type")
-
-	core.PuregoSafeRegister(&xNewMemoryTextureBuilder, libs, "gdk_memory_texture_builder_new")
-
-	core.PuregoSafeRegister(&xMemoryTextureBuilderBuild, libs, "gdk_memory_texture_builder_build")
-	core.PuregoSafeRegister(&xMemoryTextureBuilderGetBytes, libs, "gdk_memory_texture_builder_get_bytes")
-	core.PuregoSafeRegister(&xMemoryTextureBuilderGetColorState, libs, "gdk_memory_texture_builder_get_color_state")
-	core.PuregoSafeRegister(&xMemoryTextureBuilderGetFormat, libs, "gdk_memory_texture_builder_get_format")
-	core.PuregoSafeRegister(&xMemoryTextureBuilderGetHeight, libs, "gdk_memory_texture_builder_get_height")
-	core.PuregoSafeRegister(&xMemoryTextureBuilderGetOffset, libs, "gdk_memory_texture_builder_get_offset")
-	core.PuregoSafeRegister(&xMemoryTextureBuilderGetStride, libs, "gdk_memory_texture_builder_get_stride")
-	core.PuregoSafeRegister(&xMemoryTextureBuilderGetStrideForPlane, libs, "gdk_memory_texture_builder_get_stride_for_plane")
-	core.PuregoSafeRegister(&xMemoryTextureBuilderGetUpdateRegion, libs, "gdk_memory_texture_builder_get_update_region")
-	core.PuregoSafeRegister(&xMemoryTextureBuilderGetUpdateTexture, libs, "gdk_memory_texture_builder_get_update_texture")
-	core.PuregoSafeRegister(&xMemoryTextureBuilderGetWidth, libs, "gdk_memory_texture_builder_get_width")
-	core.PuregoSafeRegister(&xMemoryTextureBuilderSetBytes, libs, "gdk_memory_texture_builder_set_bytes")
-	core.PuregoSafeRegister(&xMemoryTextureBuilderSetColorState, libs, "gdk_memory_texture_builder_set_color_state")
-	core.PuregoSafeRegister(&xMemoryTextureBuilderSetFormat, libs, "gdk_memory_texture_builder_set_format")
-	core.PuregoSafeRegister(&xMemoryTextureBuilderSetHeight, libs, "gdk_memory_texture_builder_set_height")
-	core.PuregoSafeRegister(&xMemoryTextureBuilderSetOffset, libs, "gdk_memory_texture_builder_set_offset")
-	core.PuregoSafeRegister(&xMemoryTextureBuilderSetStride, libs, "gdk_memory_texture_builder_set_stride")
-	core.PuregoSafeRegister(&xMemoryTextureBuilderSetStrideForPlane, libs, "gdk_memory_texture_builder_set_stride_for_plane")
-	core.PuregoSafeRegister(&xMemoryTextureBuilderSetUpdateRegion, libs, "gdk_memory_texture_builder_set_update_region")
-	core.PuregoSafeRegister(&xMemoryTextureBuilderSetUpdateTexture, libs, "gdk_memory_texture_builder_set_update_texture")
-	core.PuregoSafeRegister(&xMemoryTextureBuilderSetWidth, libs, "gdk_memory_texture_builder_set_width")
 }

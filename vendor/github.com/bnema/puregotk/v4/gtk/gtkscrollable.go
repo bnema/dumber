@@ -99,6 +99,7 @@ type Scrollable interface {
 var xScrollableGLibType func() types.GType
 
 func ScrollableGLibType() types.GType {
+	core.LazyRegister(&xScrollableGLibType, "GTK", "gtk_scrollable_get_type", false)
 	return xScrollableGLibType()
 }
 
@@ -196,39 +197,70 @@ func (x *ScrollableBase) SetVscrollPolicy(PolicyVar ScrollablePolicy) {
 	XGtkScrollableSetVscrollPolicy(x.GoPointer(), PolicyVar)
 }
 
+var XGtkScrollableGetBorder func(uintptr, *Border) bool = func(instance uintptr, BorderVarp *Border) bool {
+	core.LazyRegister(&xXGtkScrollableGetBorder, "GTK", "gtk_scrollable_get_border", false)
+	return xXGtkScrollableGetBorder(instance, BorderVarp)
+}
+
 var (
-	XGtkScrollableGetBorder        func(uintptr, *Border) bool
-	XGtkScrollableGetHadjustment   func(uintptr) uintptr
-	XGtkScrollableGetHscrollPolicy func(uintptr) ScrollablePolicy
-	XGtkScrollableGetVadjustment   func(uintptr) uintptr
-	XGtkScrollableGetVscrollPolicy func(uintptr) ScrollablePolicy
-	XGtkScrollableSetHadjustment   func(uintptr, uintptr)
-	XGtkScrollableSetHscrollPolicy func(uintptr, ScrollablePolicy)
-	XGtkScrollableSetVadjustment   func(uintptr, uintptr)
-	XGtkScrollableSetVscrollPolicy func(uintptr, ScrollablePolicy)
+	xXGtkScrollableGetBorder     func(uintptr, *Border) bool
+	XGtkScrollableGetHadjustment func(uintptr) uintptr = func(instance uintptr) uintptr {
+		core.LazyRegister(&xXGtkScrollableGetHadjustment, "GTK", "gtk_scrollable_get_hadjustment", false)
+		return xXGtkScrollableGetHadjustment(instance)
+	}
 )
+var (
+	xXGtkScrollableGetHadjustment  func(uintptr) uintptr
+	XGtkScrollableGetHscrollPolicy func(uintptr) ScrollablePolicy = func(instance uintptr) ScrollablePolicy {
+		core.LazyRegister(&xXGtkScrollableGetHscrollPolicy, "GTK", "gtk_scrollable_get_hscroll_policy", false)
+		return xXGtkScrollableGetHscrollPolicy(instance)
+	}
+)
+var (
+	xXGtkScrollableGetHscrollPolicy func(uintptr) ScrollablePolicy
+	XGtkScrollableGetVadjustment    func(uintptr) uintptr = func(instance uintptr) uintptr {
+		core.LazyRegister(&xXGtkScrollableGetVadjustment, "GTK", "gtk_scrollable_get_vadjustment", false)
+		return xXGtkScrollableGetVadjustment(instance)
+	}
+)
+var (
+	xXGtkScrollableGetVadjustment  func(uintptr) uintptr
+	XGtkScrollableGetVscrollPolicy func(uintptr) ScrollablePolicy = func(instance uintptr) ScrollablePolicy {
+		core.LazyRegister(&xXGtkScrollableGetVscrollPolicy, "GTK", "gtk_scrollable_get_vscroll_policy", false)
+		return xXGtkScrollableGetVscrollPolicy(instance)
+	}
+)
+var (
+	xXGtkScrollableGetVscrollPolicy func(uintptr) ScrollablePolicy
+	XGtkScrollableSetHadjustment    func(uintptr, uintptr) = func(instance uintptr, HadjustmentVarp uintptr) {
+		core.LazyRegister(&xXGtkScrollableSetHadjustment, "GTK", "gtk_scrollable_set_hadjustment", false)
+		xXGtkScrollableSetHadjustment(instance, HadjustmentVarp)
+	}
+)
+var (
+	xXGtkScrollableSetHadjustment  func(uintptr, uintptr)
+	XGtkScrollableSetHscrollPolicy func(uintptr, ScrollablePolicy) = func(instance uintptr, PolicyVarp ScrollablePolicy) {
+		core.LazyRegister(&xXGtkScrollableSetHscrollPolicy, "GTK", "gtk_scrollable_set_hscroll_policy", false)
+		xXGtkScrollableSetHscrollPolicy(instance, PolicyVarp)
+	}
+)
+var (
+	xXGtkScrollableSetHscrollPolicy func(uintptr, ScrollablePolicy)
+	XGtkScrollableSetVadjustment    func(uintptr, uintptr) = func(instance uintptr, VadjustmentVarp uintptr) {
+		core.LazyRegister(&xXGtkScrollableSetVadjustment, "GTK", "gtk_scrollable_set_vadjustment", false)
+		xXGtkScrollableSetVadjustment(instance, VadjustmentVarp)
+	}
+)
+var (
+	xXGtkScrollableSetVadjustment  func(uintptr, uintptr)
+	XGtkScrollableSetVscrollPolicy func(uintptr, ScrollablePolicy) = func(instance uintptr, PolicyVarp ScrollablePolicy) {
+		core.LazyRegister(&xXGtkScrollableSetVscrollPolicy, "GTK", "gtk_scrollable_set_vscroll_policy", false)
+		xXGtkScrollableSetVscrollPolicy(instance, PolicyVarp)
+	}
+)
+var xXGtkScrollableSetVscrollPolicy func(uintptr, ScrollablePolicy)
 
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GTK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xScrollableGLibType, libs, "gtk_scrollable_get_type")
-
-	core.PuregoSafeRegister(&XGtkScrollableGetBorder, libs, "gtk_scrollable_get_border")
-	core.PuregoSafeRegister(&XGtkScrollableGetHadjustment, libs, "gtk_scrollable_get_hadjustment")
-	core.PuregoSafeRegister(&XGtkScrollableGetHscrollPolicy, libs, "gtk_scrollable_get_hscroll_policy")
-	core.PuregoSafeRegister(&XGtkScrollableGetVadjustment, libs, "gtk_scrollable_get_vadjustment")
-	core.PuregoSafeRegister(&XGtkScrollableGetVscrollPolicy, libs, "gtk_scrollable_get_vscroll_policy")
-	core.PuregoSafeRegister(&XGtkScrollableSetHadjustment, libs, "gtk_scrollable_set_hadjustment")
-	core.PuregoSafeRegister(&XGtkScrollableSetHscrollPolicy, libs, "gtk_scrollable_set_hscroll_policy")
-	core.PuregoSafeRegister(&XGtkScrollableSetVadjustment, libs, "gtk_scrollable_set_vadjustment")
-	core.PuregoSafeRegister(&XGtkScrollableSetVscrollPolicy, libs, "gtk_scrollable_set_vscroll_policy")
 }

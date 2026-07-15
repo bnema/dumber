@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject/types"
 )
@@ -37,6 +36,7 @@ type MemoryPressureSettings struct {
 var xMemoryPressureSettingsGLibType func() types.GType
 
 func MemoryPressureSettingsGLibType() types.GType {
+	core.LazyRegister(&xMemoryPressureSettingsGLibType, "WEBKIT", "webkit_memory_pressure_settings_get_type", false)
 	return xMemoryPressureSettingsGLibType()
 }
 
@@ -56,6 +56,8 @@ var xNewMemoryPressureSettings func() uintptr
 
 // Create a new #WebKitMemoryPressureSettings with the default values.
 func NewMemoryPressureSettings() *MemoryPressureSettings {
+	core.LazyRegister(&xNewMemoryPressureSettings, "WEBKIT", "webkit_memory_pressure_settings_new", false)
+
 	cret := xNewMemoryPressureSettings()
 	if cret == 0 {
 		return nil
@@ -67,6 +69,8 @@ var xMemoryPressureSettingsCopy func(uintptr) uintptr
 
 // Make a copy of @settings.
 func (x *MemoryPressureSettings) Copy() *MemoryPressureSettings {
+	core.LazyRegister(&xMemoryPressureSettingsCopy, "WEBKIT", "webkit_memory_pressure_settings_copy", false)
+
 	cret := xMemoryPressureSettingsCopy(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -78,6 +82,8 @@ var xMemoryPressureSettingsFree func(uintptr)
 
 // Free the #WebKitMemoryPressureSettings.
 func (x *MemoryPressureSettings) Free() {
+	core.LazyRegister(&xMemoryPressureSettingsFree, "WEBKIT", "webkit_memory_pressure_settings_free", false)
+
 	xMemoryPressureSettingsFree(x.GoPointer())
 }
 
@@ -85,6 +91,8 @@ var xMemoryPressureSettingsGetConservativeThreshold func(uintptr) float64
 
 // Gets the conservative memory usage threshold.
 func (x *MemoryPressureSettings) GetConservativeThreshold() float64 {
+	core.LazyRegister(&xMemoryPressureSettingsGetConservativeThreshold, "WEBKIT", "webkit_memory_pressure_settings_get_conservative_threshold", false)
+
 	cret := xMemoryPressureSettingsGetConservativeThreshold(x.GoPointer())
 	return cret
 }
@@ -93,6 +101,8 @@ var xMemoryPressureSettingsGetKillThreshold func(uintptr) float64
 
 // Gets the kill memory usage threshold.
 func (x *MemoryPressureSettings) GetKillThreshold() float64 {
+	core.LazyRegister(&xMemoryPressureSettingsGetKillThreshold, "WEBKIT", "webkit_memory_pressure_settings_get_kill_threshold", false)
+
 	cret := xMemoryPressureSettingsGetKillThreshold(x.GoPointer())
 	return cret
 }
@@ -101,6 +111,8 @@ var xMemoryPressureSettingsGetMemoryLimit func(uintptr) uint
 
 // Gets the memory usage limit.
 func (x *MemoryPressureSettings) GetMemoryLimit() uint {
+	core.LazyRegister(&xMemoryPressureSettingsGetMemoryLimit, "WEBKIT", "webkit_memory_pressure_settings_get_memory_limit", false)
+
 	cret := xMemoryPressureSettingsGetMemoryLimit(x.GoPointer())
 	return cret
 }
@@ -109,6 +121,8 @@ var xMemoryPressureSettingsGetPollInterval func(uintptr) float64
 
 // Gets the interval at which memory usage is checked.
 func (x *MemoryPressureSettings) GetPollInterval() float64 {
+	core.LazyRegister(&xMemoryPressureSettingsGetPollInterval, "WEBKIT", "webkit_memory_pressure_settings_get_poll_interval", false)
+
 	cret := xMemoryPressureSettingsGetPollInterval(x.GoPointer())
 	return cret
 }
@@ -117,6 +131,8 @@ var xMemoryPressureSettingsGetStrictThreshold func(uintptr) float64
 
 // Gets the strict memory usage threshold.
 func (x *MemoryPressureSettings) GetStrictThreshold() float64 {
+	core.LazyRegister(&xMemoryPressureSettingsGetStrictThreshold, "WEBKIT", "webkit_memory_pressure_settings_get_strict_threshold", false)
+
 	cret := xMemoryPressureSettingsGetStrictThreshold(x.GoPointer())
 	return cret
 }
@@ -132,6 +148,8 @@ var xMemoryPressureSettingsSetConservativeThreshold func(uintptr, float64)
 // The threshold must be bigger than 0 and smaller than 1, and it must be smaller
 // than the strict threshold defined in @settings. The default value is 0.33.
 func (x *MemoryPressureSettings) SetConservativeThreshold(ValueVar float64) {
+	core.LazyRegister(&xMemoryPressureSettingsSetConservativeThreshold, "WEBKIT", "webkit_memory_pressure_settings_set_conservative_threshold", false)
+
 	xMemoryPressureSettingsSetConservativeThreshold(x.GoPointer(), ValueVar)
 }
 
@@ -144,6 +162,8 @@ var xMemoryPressureSettingsSetKillThreshold func(uintptr, float64)
 // is never killed. If the threshold is not 0, then it must be bigger than the strict threshold
 // defined in @settings. The threshold can also have values bigger than 1. The default value is 0.
 func (x *MemoryPressureSettings) SetKillThreshold(ValueVar float64) {
+	core.LazyRegister(&xMemoryPressureSettingsSetKillThreshold, "WEBKIT", "webkit_memory_pressure_settings_set_kill_threshold", false)
+
 	xMemoryPressureSettingsSetKillThreshold(x.GoPointer(), ValueVar)
 }
 
@@ -153,6 +173,8 @@ var xMemoryPressureSettingsSetMemoryLimit func(uintptr, uint)
 //
 // The default value is the system's RAM size with a maximum of 3GB.
 func (x *MemoryPressureSettings) SetMemoryLimit(MemoryLimitVar uint) {
+	core.LazyRegister(&xMemoryPressureSettingsSetMemoryLimit, "WEBKIT", "webkit_memory_pressure_settings_set_memory_limit", false)
+
 	xMemoryPressureSettingsSetMemoryLimit(x.GoPointer(), MemoryLimitVar)
 }
 
@@ -162,6 +184,8 @@ var xMemoryPressureSettingsSetPollInterval func(uintptr, float64)
 //
 // The poll interval value must be bigger than 0. The default value is 30 seconds.
 func (x *MemoryPressureSettings) SetPollInterval(ValueVar float64) {
+	core.LazyRegister(&xMemoryPressureSettingsSetPollInterval, "WEBKIT", "webkit_memory_pressure_settings_set_poll_interval", false)
+
 	xMemoryPressureSettingsSetPollInterval(x.GoPointer(), ValueVar)
 }
 
@@ -177,35 +201,15 @@ var xMemoryPressureSettingsSetStrictThreshold func(uintptr, float64)
 // than the conservative threshold defined in @settings, and smaller than the kill
 // threshold if the latter is not 0. The default value is 0.5.
 func (x *MemoryPressureSettings) SetStrictThreshold(ValueVar float64) {
+	core.LazyRegister(&xMemoryPressureSettingsSetStrictThreshold, "WEBKIT", "webkit_memory_pressure_settings_set_strict_threshold", false)
+
 	xMemoryPressureSettingsSetStrictThreshold(x.GoPointer(), ValueVar)
 }
 
 func init() {
 	core.SetPackageName("WEBKIT", "webkitgtk-6.0")
 	core.SetSharedLibraries("WEBKIT", []string{"libwebkitgtk-6.0.so.4", "libjavascriptcoregtk-6.0.so.1", "libwebkitgtk-6.0.4.dylib", "libjavascriptcoregtk-6.0.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("WEBKIT") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
 
-	core.PuregoSafeRegister(&xMemoryPressureSettingsGLibType, libs, "webkit_memory_pressure_settings_get_type")
-
-	core.PuregoSafeRegister(&xNewMemoryPressureSettings, libs, "webkit_memory_pressure_settings_new")
-
-	core.PuregoSafeRegister(&xMemoryPressureSettingsCopy, libs, "webkit_memory_pressure_settings_copy")
-	core.PuregoSafeRegister(&xMemoryPressureSettingsFree, libs, "webkit_memory_pressure_settings_free")
-	core.PuregoSafeRegister(&xMemoryPressureSettingsGetConservativeThreshold, libs, "webkit_memory_pressure_settings_get_conservative_threshold")
-	core.PuregoSafeRegister(&xMemoryPressureSettingsGetKillThreshold, libs, "webkit_memory_pressure_settings_get_kill_threshold")
-	core.PuregoSafeRegister(&xMemoryPressureSettingsGetMemoryLimit, libs, "webkit_memory_pressure_settings_get_memory_limit")
-	core.PuregoSafeRegister(&xMemoryPressureSettingsGetPollInterval, libs, "webkit_memory_pressure_settings_get_poll_interval")
-	core.PuregoSafeRegister(&xMemoryPressureSettingsGetStrictThreshold, libs, "webkit_memory_pressure_settings_get_strict_threshold")
-	core.PuregoSafeRegister(&xMemoryPressureSettingsSetConservativeThreshold, libs, "webkit_memory_pressure_settings_set_conservative_threshold")
-	core.PuregoSafeRegister(&xMemoryPressureSettingsSetKillThreshold, libs, "webkit_memory_pressure_settings_set_kill_threshold")
-	core.PuregoSafeRegister(&xMemoryPressureSettingsSetMemoryLimit, libs, "webkit_memory_pressure_settings_set_memory_limit")
-	core.PuregoSafeRegister(&xMemoryPressureSettingsSetPollInterval, libs, "webkit_memory_pressure_settings_set_poll_interval")
-	core.PuregoSafeRegister(&xMemoryPressureSettingsSetStrictThreshold, libs, "webkit_memory_pressure_settings_set_strict_threshold")
+	// Manually register types since they aren't automatically registered when
+	// WebKit is loaded. See https://bugs.webkit.org/show_bug.cgi?id=175937.
 }

@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/cairo"
 	"github.com/bnema/puregotk/v4/gdk"
@@ -48,6 +47,7 @@ type Renderer struct {
 var xRendererGLibType func() types.GType
 
 func RendererGLibType() types.GType {
+	core.LazyRegister(&xRendererGLibType, "GSK", "gsk_renderer_get_type", false)
 	return xRendererGLibType()
 }
 
@@ -67,6 +67,7 @@ var xNewRendererForSurface func(uintptr) uintptr
 //
 // The renderer will be realized before it is returned.
 func NewRendererForSurface(SurfaceVar *gdk.Surface) *Renderer {
+	core.LazyRegister(&xNewRendererForSurface, "GSK", "gsk_renderer_new_for_surface", false)
 	var cls *Renderer
 
 	cret := xNewRendererForSurface(SurfaceVar.GoPointer())
@@ -85,6 +86,7 @@ var xRendererGetSurface func(uintptr) uintptr
 //
 // If the renderer has not been realized yet, `NULL` will be returned.
 func (x *Renderer) GetSurface() *gdk.Surface {
+	core.LazyRegister(&xRendererGetSurface, "GSK", "gsk_renderer_get_surface", false)
 	var cls *gdk.Surface
 
 	cret := xRendererGetSurface(x.GoPointer())
@@ -102,6 +104,8 @@ var xRendererIsRealized func(uintptr) bool
 
 // Checks whether the renderer is realized or not.
 func (x *Renderer) IsRealized() bool {
+	core.LazyRegister(&xRendererIsRealized, "GSK", "gsk_renderer_is_realized", false)
+
 	cret := xRendererIsRealized(x.GoPointer())
 	return cret
 }
@@ -118,6 +122,7 @@ var xRendererRealize func(uintptr, uintptr, **glib.Error) bool
 // Note that it is mandatory to call [method@Gsk.Renderer.unrealize]
 // before destroying the renderer.
 func (x *Renderer) Realize(SurfaceVar *gdk.Surface) (bool, error) {
+	core.LazyRegister(&xRendererRealize, "GSK", "gsk_renderer_realize", false)
 	var cerr *glib.Error
 
 	cret := xRendererRealize(x.GoPointer(), SurfaceVar.GoPointer(), &cerr)
@@ -134,6 +139,7 @@ var xRendererRealizeForDisplay func(uintptr, uintptr, **glib.Error) bool
 // Note that it is mandatory to call [method@Gsk.Renderer.unrealize]
 // before destroying the renderer.
 func (x *Renderer) RealizeForDisplay(DisplayVar *gdk.Display) (bool, error) {
+	core.LazyRegister(&xRendererRealizeForDisplay, "GSK", "gsk_renderer_realize_for_display", false)
 	var cerr *glib.Error
 
 	cret := xRendererRealizeForDisplay(x.GoPointer(), DisplayVar.GoPointer(), &cerr)
@@ -158,6 +164,8 @@ var xRendererRender func(uintptr, uintptr, *cairo.Region)
 // The renderer will acquire a reference on the `GskRenderNode` tree while
 // the rendering is in progress.
 func (x *Renderer) Render(RootVar *RenderNode, RegionVar *cairo.Region) {
+	core.LazyRegister(&xRendererRender, "GSK", "gsk_renderer_render", false)
+
 	xRendererRender(x.GoPointer(), RootVar.GoPointer(), RegionVar)
 }
 
@@ -172,6 +180,7 @@ var xRendererRenderTexture func(uintptr, uintptr, *graphene.Rect) uintptr
 // If you want to apply any transformations to @root, you should put it into a
 // transform node and pass that node instead.
 func (x *Renderer) RenderTexture(RootVar *RenderNode, ViewportVar *graphene.Rect) *gdk.Texture {
+	core.LazyRegister(&xRendererRenderTexture, "GSK", "gsk_renderer_render_texture", false)
 	var cls *gdk.Texture
 
 	cret := xRendererRenderTexture(x.GoPointer(), RootVar.GoPointer(), ViewportVar)
@@ -188,6 +197,8 @@ var xRendererUnrealize func(uintptr)
 
 // Releases all the resources created by [method@Gsk.Renderer.realize].
 func (x *Renderer) Unrealize() {
+	core.LazyRegister(&xRendererUnrealize, "GSK", "gsk_renderer_unrealize", false)
+
 	xRendererUnrealize(x.GoPointer())
 }
 
@@ -213,24 +224,4 @@ func (x *Renderer) GetPropertyRealized() bool {
 func init() {
 	core.SetPackageName("GSK", "gtk4")
 	core.SetSharedLibraries("GSK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GSK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xRendererGLibType, libs, "gsk_renderer_get_type")
-
-	core.PuregoSafeRegister(&xNewRendererForSurface, libs, "gsk_renderer_new_for_surface")
-
-	core.PuregoSafeRegister(&xRendererGetSurface, libs, "gsk_renderer_get_surface")
-	core.PuregoSafeRegister(&xRendererIsRealized, libs, "gsk_renderer_is_realized")
-	core.PuregoSafeRegister(&xRendererRealize, libs, "gsk_renderer_realize")
-	core.PuregoSafeRegister(&xRendererRealizeForDisplay, libs, "gsk_renderer_realize_for_display")
-	core.PuregoSafeRegister(&xRendererRender, libs, "gsk_renderer_render")
-	core.PuregoSafeRegister(&xRendererRenderTexture, libs, "gsk_renderer_render_texture")
-	core.PuregoSafeRegister(&xRendererUnrealize, libs, "gsk_renderer_unrealize")
 }

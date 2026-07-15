@@ -226,6 +226,7 @@ type TreeDragDest interface {
 var xTreeDragDestGLibType func() types.GType
 
 func TreeDragDestGLibType() types.GType {
+	core.LazyRegister(&xTreeDragDestGLibType, "GTK", "gtk_tree_drag_dest_get_type", false)
 	return xTreeDragDestGLibType()
 }
 
@@ -265,10 +266,19 @@ func (x *TreeDragDestBase) RowDropPossible(DestPathVar *TreePath, ValueVar *gobj
 	return cret
 }
 
+var XGtkTreeDragDestDragDataReceived func(uintptr, *TreePath, *gobject.Value) bool = func(instance uintptr, DestVarp *TreePath, ValueVarp *gobject.Value) bool {
+	core.LazyRegister(&xXGtkTreeDragDestDragDataReceived, "GTK", "gtk_tree_drag_dest_drag_data_received", false)
+	return xXGtkTreeDragDestDragDataReceived(instance, DestVarp, ValueVarp)
+}
+
 var (
-	XGtkTreeDragDestDragDataReceived func(uintptr, *TreePath, *gobject.Value) bool
-	XGtkTreeDragDestRowDropPossible  func(uintptr, *TreePath, *gobject.Value) bool
+	xXGtkTreeDragDestDragDataReceived func(uintptr, *TreePath, *gobject.Value) bool
+	XGtkTreeDragDestRowDropPossible   func(uintptr, *TreePath, *gobject.Value) bool = func(instance uintptr, DestPathVarp *TreePath, ValueVarp *gobject.Value) bool {
+		core.LazyRegister(&xXGtkTreeDragDestRowDropPossible, "GTK", "gtk_tree_drag_dest_row_drop_possible", false)
+		return xXGtkTreeDragDestRowDropPossible(instance, DestPathVarp, ValueVarp)
+	}
 )
+var xXGtkTreeDragDestRowDropPossible func(uintptr, *TreePath, *gobject.Value) bool
 
 // Interface for Drag-and-Drop destinations in `GtkTreeView`.
 type TreeDragSource interface {
@@ -282,6 +292,7 @@ type TreeDragSource interface {
 var xTreeDragSourceGLibType func() types.GType
 
 func TreeDragSourceGLibType() types.GType {
+	core.LazyRegister(&xTreeDragSourceGLibType, "GTK", "gtk_tree_drag_source_get_type", false)
 	return xTreeDragSourceGLibType()
 }
 
@@ -334,16 +345,32 @@ func (x *TreeDragSourceBase) RowDraggable(PathVar *TreePath) bool {
 	return cret
 }
 
+var XGtkTreeDragSourceDragDataDelete func(uintptr, *TreePath) bool = func(instance uintptr, PathVarp *TreePath) bool {
+	core.LazyRegister(&xXGtkTreeDragSourceDragDataDelete, "GTK", "gtk_tree_drag_source_drag_data_delete", false)
+	return xXGtkTreeDragSourceDragDataDelete(instance, PathVarp)
+}
+
 var (
-	XGtkTreeDragSourceDragDataDelete func(uintptr, *TreePath) bool
-	XGtkTreeDragSourceDragDataGet    func(uintptr, *TreePath) uintptr
-	XGtkTreeDragSourceRowDraggable   func(uintptr, *TreePath) bool
+	xXGtkTreeDragSourceDragDataDelete func(uintptr, *TreePath) bool
+	XGtkTreeDragSourceDragDataGet     func(uintptr, *TreePath) uintptr = func(instance uintptr, PathVarp *TreePath) uintptr {
+		core.LazyRegister(&xXGtkTreeDragSourceDragDataGet, "GTK", "gtk_tree_drag_source_drag_data_get", false)
+		return xXGtkTreeDragSourceDragDataGet(instance, PathVarp)
+	}
 )
+var (
+	xXGtkTreeDragSourceDragDataGet func(uintptr, *TreePath) uintptr
+	XGtkTreeDragSourceRowDraggable func(uintptr, *TreePath) bool = func(instance uintptr, PathVarp *TreePath) bool {
+		core.LazyRegister(&xXGtkTreeDragSourceRowDraggable, "GTK", "gtk_tree_drag_source_row_draggable", false)
+		return xXGtkTreeDragSourceRowDraggable(instance, PathVarp)
+	}
+)
+var xXGtkTreeDragSourceRowDraggable func(uintptr, *TreePath) bool
 
 var xTreeCreateRowDragContent func(uintptr, *TreePath) uintptr
 
 // Creates a content provider for dragging @path from @tree_model.
 func TreeCreateRowDragContent(TreeModelVar TreeModel, PathVar *TreePath) *gdk.ContentProvider {
+	core.LazyRegister(&xTreeCreateRowDragContent, "GTK", "gtk_tree_create_row_drag_content", false)
 	var cls *gdk.ContentProvider
 
 	cret := xTreeCreateRowDragContent(TreeModelVar.GoPointer(), PathVar)
@@ -363,6 +390,8 @@ var xTreeGetRowDragData func(*gobject.Value, **TreeModel, **TreePath) bool
 //
 // The returned path must be freed with gtk_tree_path_free().
 func TreeGetRowDragData(ValueVar *gobject.Value, TreeModelVar **TreeModel, PathVar **TreePath) bool {
+	core.LazyRegister(&xTreeGetRowDragData, "GTK", "gtk_tree_get_row_drag_data", false)
+
 	cret := xTreeGetRowDragData(ValueVar, TreeModelVar, PathVar)
 	return cret
 }
@@ -370,26 +399,4 @@ func TreeGetRowDragData(ValueVar *gobject.Value, TreeModelVar **TreeModel, PathV
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GTK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xTreeCreateRowDragContent, libs, "gtk_tree_create_row_drag_content")
-	core.PuregoSafeRegister(&xTreeGetRowDragData, libs, "gtk_tree_get_row_drag_data")
-
-	core.PuregoSafeRegister(&xTreeDragDestGLibType, libs, "gtk_tree_drag_dest_get_type")
-
-	core.PuregoSafeRegister(&XGtkTreeDragDestDragDataReceived, libs, "gtk_tree_drag_dest_drag_data_received")
-	core.PuregoSafeRegister(&XGtkTreeDragDestRowDropPossible, libs, "gtk_tree_drag_dest_row_drop_possible")
-
-	core.PuregoSafeRegister(&xTreeDragSourceGLibType, libs, "gtk_tree_drag_source_get_type")
-
-	core.PuregoSafeRegister(&XGtkTreeDragSourceDragDataDelete, libs, "gtk_tree_drag_source_drag_data_delete")
-	core.PuregoSafeRegister(&XGtkTreeDragSourceDragDataGet, libs, "gtk_tree_drag_source_drag_data_get")
-	core.PuregoSafeRegister(&XGtkTreeDragSourceRowDraggable, libs, "gtk_tree_drag_source_row_draggable")
 }

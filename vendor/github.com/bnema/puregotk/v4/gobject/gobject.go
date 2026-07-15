@@ -435,6 +435,7 @@ var xObjectClassFindProperty func(uintptr, string) uintptr
 
 // Looks up the #GParamSpec for a property of a class.
 func (x *ObjectClass) FindProperty(PropertyNameVar string) *ParamSpec {
+	core.LazyRegister(&xObjectClassFindProperty, "GOBJECT", "g_object_class_find_property", false)
 	var cls *ParamSpec
 
 	cret := xObjectClassFindProperty(x.GoPointer(), PropertyNameVar)
@@ -519,6 +520,8 @@ var xObjectClassInstallProperties func(uintptr, uint, uintptr)
 //
 // ]|
 func (x *ObjectClass) InstallProperties(NPspecsVar uint, PspecsVar uintptr) {
+	core.LazyRegister(&xObjectClassInstallProperties, "GOBJECT", "g_object_class_install_properties", false)
+
 	xObjectClassInstallProperties(x.GoPointer(), NPspecsVar, PspecsVar)
 }
 
@@ -535,6 +538,8 @@ var xObjectClassInstallProperty func(uintptr, uint, uintptr)
 // by installing a property with the same name. This can be useful at times,
 // e.g. to change the range of allowed values or the default value.
 func (x *ObjectClass) InstallProperty(PropertyIdVar uint, PspecVar *ParamSpec) {
+	core.LazyRegister(&xObjectClassInstallProperty, "GOBJECT", "g_object_class_install_property", false)
+
 	xObjectClassInstallProperty(x.GoPointer(), PropertyIdVar, PspecVar.GoPointer())
 }
 
@@ -542,6 +547,8 @@ var xObjectClassListProperties func(uintptr, *uint) uintptr
 
 // Get an array of #GParamSpec* for all properties of a class.
 func (x *ObjectClass) ListProperties(NPropertiesVar *uint) uintptr {
+	core.LazyRegister(&xObjectClassListProperties, "GOBJECT", "g_object_class_list_properties", false)
+
 	cret := xObjectClassListProperties(x.GoPointer(), NPropertiesVar)
 	return cret
 }
@@ -565,6 +572,8 @@ var xObjectClassOverrideProperty func(uintptr, uint, string)
 // need to get the overridden property, you can call
 // g_param_spec_get_redirect_target().
 func (x *ObjectClass) OverrideProperty(PropertyIdVar uint, NameVar string) {
+	core.LazyRegister(&xObjectClassOverrideProperty, "GOBJECT", "g_object_class_override_property", false)
+
 	xObjectClassOverrideProperty(x.GoPointer(), PropertyIdVar, NameVar)
 }
 
@@ -888,6 +897,8 @@ var xWeakRefClear func(uintptr)
 // You should only call this on a #GWeakRef that previously had
 // g_weak_ref_init() called on it.
 func (x *WeakRef) Clear() {
+	core.LazyRegister(&xWeakRefClear, "GOBJECT", "g_weak_ref_clear", false)
+
 	xWeakRefClear(x.GoPointer())
 }
 
@@ -903,6 +914,7 @@ var xWeakRefGet func(uintptr) uintptr
 // The caller should release the resulting reference in the usual way,
 // by using g_object_unref().
 func (x *WeakRef) Get() *Object {
+	core.LazyRegister(&xWeakRefGet, "GOBJECT", "g_weak_ref_get", false)
 	var cls *Object
 
 	cret := xWeakRefGet(x.GoPointer())
@@ -927,6 +939,8 @@ var xWeakRefInit func(uintptr, uintptr)
 // #GWeakRef in static storage because it will already be
 // properly initialised.  Just use g_weak_ref_set() directly.
 func (x *WeakRef) Init(ObjectVar *Object) {
+	core.LazyRegister(&xWeakRefInit, "GOBJECT", "g_weak_ref_init", false)
+
 	xWeakRefInit(x.GoPointer(), ObjectVar.GoPointer())
 }
 
@@ -938,6 +952,8 @@ var xWeakRefSet func(uintptr, uintptr)
 // You must own a strong reference on @object while calling this
 // function.
 func (x *WeakRef) Set(ObjectVar *Object) {
+	core.LazyRegister(&xWeakRefSet, "GOBJECT", "g_weak_ref_set", false)
+
 	xWeakRefSet(x.GoPointer(), ObjectVar.GoPointer())
 }
 
@@ -949,6 +965,8 @@ var xCclosureNewObject func(uintptr, uintptr) uintptr
 // associated with a #GObject, and want the callback to no longer run
 // after the object is is freed.
 func CclosureNewObject(CallbackFuncVar *Callback, ObjectVar *Object) *Closure {
+	core.LazyRegister(&xCclosureNewObject, "GOBJECT", "g_cclosure_new_object", false)
+
 	cret := xCclosureNewObject(glib.NewCallback(CallbackFuncVar), ObjectVar.GoPointer())
 	if cret == 0 {
 		return nil
@@ -964,6 +982,8 @@ var xCclosureNewObjectSwap func(uintptr, uintptr) uintptr
 // associated with a #GObject, and want the callback to no longer run
 // after the object is is freed.
 func CclosureNewObjectSwap(CallbackFuncVar *Callback, ObjectVar *Object) *Closure {
+	core.LazyRegister(&xCclosureNewObjectSwap, "GOBJECT", "g_cclosure_new_object_swap", false)
+
 	cret := xCclosureNewObjectSwap(glib.NewCallback(CallbackFuncVar), ObjectVar.GoPointer())
 	if cret == 0 {
 		return nil
@@ -984,6 +1004,8 @@ var xClearObject func(uintptr)
 // A macro is also included that allows this function to be used without
 // pointer casts.
 func ClearObject(ObjectPtrVar **Object) {
+	core.LazyRegister(&xClearObject, "GOBJECT", "g_clear_object", false)
+
 	xClearObject(*ConvertPtr(ObjectPtrVar))
 }
 
@@ -1006,6 +1028,8 @@ var xSignalConnectObject func(*TypeInstance, string, uintptr, uintptr, ConnectFl
 // Refer to the [signals documentation](signals.html) for more
 // details.
 func SignalConnectObject(InstanceVar *TypeInstance, DetailedSignalVar string, CHandlerVar *Callback, GobjectVar *Object, ConnectFlagsVar ConnectFlags) uint {
+	core.LazyRegister(&xSignalConnectObject, "GOBJECT", "g_signal_connect_object", false)
+
 	cret := xSignalConnectObject(InstanceVar, DetailedSignalVar, glib.NewCallback(CHandlerVar), GobjectVar.GoPointer(), ConnectFlagsVar)
 	return cret
 }
@@ -1021,6 +1045,7 @@ type InitiallyUnowned struct {
 var xInitiallyUnownedGLibType func() types.GType
 
 func InitiallyUnownedGLibType() types.GType {
+	core.LazyRegister(&xInitiallyUnownedGLibType, "GOBJECT", "g_initially_unowned_get_type", false)
 	return xInitiallyUnownedGLibType()
 }
 
@@ -1070,6 +1095,7 @@ type Object struct {
 var xObjectGLibType func() types.GType
 
 func ObjectGLibType() types.GType {
+	core.LazyRegister(&xObjectGLibType, "GOBJECT", "g_object_get_type", false)
 	return xObjectGLibType()
 }
 
@@ -1108,6 +1134,7 @@ var xNewObject func(types.GType, string, ...interface{}) uintptr
 // should allocate it on the heap (aligned), or arrange for your #GObject to be
 // appropriately padded.
 func NewObject(ObjectTypeVar types.GType, FirstPropertyNameVar string, varArgs ...interface{}) *Object {
+	core.LazyRegister(&xNewObject, "GOBJECT", "g_object_new", false)
 	var cls *Object
 
 	cret := xNewObject(ObjectTypeVar, FirstPropertyNameVar, varArgs...)
@@ -1127,6 +1154,7 @@ var xNewObjectValist func(types.GType, string, []interface{}) uintptr
 // Construction parameters (see %G_PARAM_CONSTRUCT, %G_PARAM_CONSTRUCT_ONLY)
 // which are not explicitly specified are set to their default values.
 func NewObjectValist(ObjectTypeVar types.GType, FirstPropertyNameVar string, VarArgsVar []interface{}) *Object {
+	core.LazyRegister(&xNewObjectValist, "GOBJECT", "g_object_new_valist", false)
 	var cls *Object
 
 	cret := xNewObjectValist(ObjectTypeVar, FirstPropertyNameVar, VarArgsVar)
@@ -1148,6 +1176,7 @@ var xNewObjectWithProperties func(types.GType, uint, []string, []Value) uintptr
 // Construction parameters (see %G_PARAM_CONSTRUCT, %G_PARAM_CONSTRUCT_ONLY)
 // which are not explicitly specified are set to their default values.
 func NewObjectWithProperties(ObjectTypeVar types.GType, NPropertiesVar uint, NamesVar []string, ValuesVar []Value) *Object {
+	core.LazyRegister(&xNewObjectWithProperties, "GOBJECT", "g_object_new_with_properties", false)
 	var cls *Object
 
 	cret := xNewObjectWithProperties(ObjectTypeVar, NPropertiesVar, NamesVar, ValuesVar)
@@ -1167,6 +1196,7 @@ var xNewObjectv func(types.GType, uint, []Parameter) uintptr
 // Construction parameters (see %G_PARAM_CONSTRUCT, %G_PARAM_CONSTRUCT_ONLY)
 // which are not explicitly specified are set to their default values.
 func NewObjectv(ObjectTypeVar types.GType, NParametersVar uint, ParametersVar []Parameter) *Object {
+	core.LazyRegister(&xNewObjectv, "GOBJECT", "g_object_newv", false)
 	var cls *Object
 
 	cret := xNewObjectv(ObjectTypeVar, NParametersVar, ParametersVar)
@@ -1217,6 +1247,8 @@ var xObjectAddToggleRef func(uintptr, uintptr, uintptr)
 //
 // A g_object_add_toggle_ref() must be released with g_object_remove_toggle_ref().
 func (x *Object) AddToggleRef(NotifyVar *ToggleNotify, DataVar uintptr) {
+	core.LazyRegister(&xObjectAddToggleRef, "GOBJECT", "g_object_add_toggle_ref", false)
+
 	xObjectAddToggleRef(x.GoPointer(), glib.NewCallbackNullable(NotifyVar), DataVar)
 }
 
@@ -1232,6 +1264,8 @@ var xObjectAddWeakPointer func(uintptr, *uintptr)
 // thread if the object's last g_object_unref() might happen in another
 // thread. Use #GWeakRef if thread-safety is required.
 func (x *Object) AddWeakPointer(WeakPointerLocationVar *uintptr) {
+	core.LazyRegister(&xObjectAddWeakPointer, "GOBJECT", "g_object_add_weak_pointer", false)
+
 	xObjectAddWeakPointer(x.GoPointer(), WeakPointerLocationVar)
 }
 
@@ -1271,6 +1305,7 @@ var xObjectBindProperty func(uintptr, string, uintptr, string, BindingFlags) uin
 //
 // A #GObject can have multiple bindings.
 func (x *Object) BindProperty(SourcePropertyVar string, TargetVar *Object, TargetPropertyVar string, FlagsVar BindingFlags) *Binding {
+	core.LazyRegister(&xObjectBindProperty, "GOBJECT", "g_object_bind_property", false)
 	var cls *Binding
 
 	cret := xObjectBindProperty(x.GoPointer(), SourcePropertyVar, TargetVar.GoPointer(), TargetPropertyVar, FlagsVar)
@@ -1312,6 +1347,7 @@ var xObjectBindPropertyFull func(uintptr, string, uintptr, string, BindingFlags,
 // for each transformation function, please use
 // g_object_bind_property_with_closures() instead.
 func (x *Object) BindPropertyFull(SourcePropertyVar string, TargetVar *Object, TargetPropertyVar string, FlagsVar BindingFlags, TransformToVar *BindingTransformFunc, TransformFromVar *BindingTransformFunc, UserDataVar uintptr, NotifyVar *glib.DestroyNotify) *Binding {
+	core.LazyRegister(&xObjectBindPropertyFull, "GOBJECT", "g_object_bind_property_full", false)
 	var cls *Binding
 
 	cret := xObjectBindPropertyFull(x.GoPointer(), SourcePropertyVar, TargetVar.GoPointer(), TargetPropertyVar, FlagsVar, glib.NewCallbackNullable(TransformToVar), glib.NewCallbackNullable(TransformFromVar), UserDataVar, glib.NewCallbackNullable(NotifyVar))
@@ -1335,6 +1371,7 @@ var xObjectBindPropertyWithClosures func(uintptr, string, uintptr, string, Bindi
 // g_object_bind_property_full(), using #GClosures instead of
 // function pointers.
 func (x *Object) BindPropertyWithClosures(SourcePropertyVar string, TargetVar *Object, TargetPropertyVar string, FlagsVar BindingFlags, TransformToVar *Closure, TransformFromVar *Closure) *Binding {
+	core.LazyRegister(&xObjectBindPropertyWithClosures, "GOBJECT", "g_object_bind_property_with_closures", false)
 	var cls *Binding
 
 	cret := xObjectBindPropertyWithClosures(x.GoPointer(), SourcePropertyVar, TargetVar.GoPointer(), TargetPropertyVar, FlagsVar, TransformToVar, TransformFromVar)
@@ -1378,6 +1415,7 @@ var xObjectConnect func(uintptr, string, ...interface{}) uintptr
 //
 // ```
 func (x *Object) Connect(SignalSpecVar string, varArgs ...interface{}) *Object {
+	core.LazyRegister(&xObjectConnect, "GOBJECT", "g_object_connect", false)
 	var cls *Object
 
 	cret := xObjectConnect(x.GoPointer(), SignalSpecVar, varArgs...)
@@ -1400,6 +1438,8 @@ var xObjectDisconnect func(uintptr, string, ...interface{})
 // callback and data, or "any_signal::signal_name", which only
 // disconnects the signal named "signal_name".
 func (x *Object) Disconnect(SignalSpecVar string, varArgs ...interface{}) {
+	core.LazyRegister(&xObjectDisconnect, "GOBJECT", "g_object_disconnect", false)
+
 	xObjectDisconnect(x.GoPointer(), SignalSpecVar, varArgs...)
 }
 
@@ -1420,6 +1460,8 @@ var xObjectDupData func(uintptr, string, uintptr, uintptr) uintptr
 // threads are using object data on the same key on the same
 // object.
 func (x *Object) DupData(KeyVar string, DupFuncVar *glib.DuplicateFunc, UserDataVar uintptr) uintptr {
+	core.LazyRegister(&xObjectDupData, "GOBJECT", "g_object_dup_data", false)
+
 	cret := xObjectDupData(x.GoPointer(), KeyVar, glib.NewCallbackNullable(DupFuncVar), UserDataVar)
 	return cret
 }
@@ -1441,6 +1483,8 @@ var xObjectDupQdata func(uintptr, glib.Quark, uintptr, uintptr) uintptr
 // threads are using object data on the same key on the same
 // object.
 func (x *Object) DupQdata(QuarkVar glib.Quark, DupFuncVar *glib.DuplicateFunc, UserDataVar uintptr) uintptr {
+	core.LazyRegister(&xObjectDupQdata, "GOBJECT", "g_object_dup_qdata", false)
+
 	cret := xObjectDupQdata(x.GoPointer(), QuarkVar, glib.NewCallbackNullable(DupFuncVar), UserDataVar)
 	return cret
 }
@@ -1452,6 +1496,8 @@ var xObjectForceFloating func(uintptr)
 // required: all #GInitiallyUnowneds are created with a floating reference
 // which usually just needs to be sunken by calling g_object_ref_sink().
 func (x *Object) ForceFloating() {
+	core.LazyRegister(&xObjectForceFloating, "GOBJECT", "g_object_force_floating", false)
+
 	xObjectForceFloating(x.GoPointer())
 }
 
@@ -1467,6 +1513,8 @@ var xObjectFreezeNotify func(uintptr)
 // This is necessary for accessors that modify multiple properties to prevent
 // premature notification while the object is still being modified.
 func (x *Object) FreezeNotify() {
+	core.LazyRegister(&xObjectFreezeNotify, "GOBJECT", "g_object_freeze_notify", false)
+
 	xObjectFreezeNotify(x.GoPointer())
 }
 
@@ -1501,6 +1549,8 @@ var xObjectGet func(uintptr, string, ...interface{})
 //
 // ]|
 func (x *Object) Get(FirstPropertyNameVar string, varArgs ...interface{}) {
+	core.LazyRegister(&xObjectGet, "GOBJECT", "g_object_get", false)
+
 	xObjectGet(x.GoPointer(), FirstPropertyNameVar, varArgs...)
 }
 
@@ -1508,6 +1558,8 @@ var xObjectGetData func(uintptr, string) uintptr
 
 // Gets a named field from the objects table of associations (see g_object_set_data()).
 func (x *Object) GetData(KeyVar string) uintptr {
+	core.LazyRegister(&xObjectGetData, "GOBJECT", "g_object_get_data", false)
+
 	cret := xObjectGetData(x.GoPointer(), KeyVar)
 	return cret
 }
@@ -1531,6 +1583,8 @@ var xObjectGetProperty func(uintptr, string, *Value)
 // Note that g_object_get_property() is really intended for language
 // bindings, g_object_get() is much more convenient for C programming.
 func (x *Object) GetProperty(PropertyNameVar string, ValueVar *Value) {
+	core.LazyRegister(&xObjectGetProperty, "GOBJECT", "g_object_get_property", false)
+
 	xObjectGetProperty(x.GoPointer(), PropertyNameVar, ValueVar)
 }
 
@@ -1539,6 +1593,8 @@ var xObjectGetQdata func(uintptr, glib.Quark) uintptr
 // This function gets back user data pointers stored via
 // g_object_set_qdata().
 func (x *Object) GetQdata(QuarkVar glib.Quark) uintptr {
+	core.LazyRegister(&xObjectGetQdata, "GOBJECT", "g_object_get_qdata", false)
+
 	cret := xObjectGetQdata(x.GoPointer(), QuarkVar)
 	return cret
 }
@@ -1553,6 +1609,8 @@ var xObjectGetValist func(uintptr, string, []interface{})
 //
 // See g_object_get().
 func (x *Object) GetValist(FirstPropertyNameVar string, VarArgsVar []interface{}) {
+	core.LazyRegister(&xObjectGetValist, "GOBJECT", "g_object_get_valist", false)
+
 	xObjectGetValist(x.GoPointer(), FirstPropertyNameVar, VarArgsVar)
 }
 
@@ -1563,6 +1621,8 @@ var xObjectGetv func(uintptr, uint, []string, []Value)
 // Warnings will be emitted and undefined behaviour may result if invalid
 // properties are passed in.
 func (x *Object) Getv(NPropertiesVar uint, NamesVar []string, ValuesVar []Value) {
+	core.LazyRegister(&xObjectGetv, "GOBJECT", "g_object_getv", false)
+
 	xObjectGetv(x.GoPointer(), NPropertiesVar, NamesVar, ValuesVar)
 }
 
@@ -1570,6 +1630,8 @@ var xObjectIsFloating func(uintptr) bool
 
 // Checks whether @object has a [floating](floating-refs.html) reference.
 func (x *Object) IsFloating() bool {
+	core.LazyRegister(&xObjectIsFloating, "GOBJECT", "g_object_is_floating", false)
+
 	cret := xObjectIsFloating(x.GoPointer())
 	return cret
 }
@@ -1587,6 +1649,8 @@ var xObjectNotify func(uintptr, string)
 // and will be emitted (in reverse order) when g_object_thaw_notify() is
 // called.
 func (x *Object) Notify(PropertyNameVar string) {
+	core.LazyRegister(&xObjectNotify, "GOBJECT", "g_object_notify", false)
+
 	xObjectNotify(x.GoPointer(), PropertyNameVar)
 }
 
@@ -1634,6 +1698,8 @@ var xObjectNotifyByPspec func(uintptr, uintptr)
 //
 // ]|
 func (x *Object) NotifyByPspec(PspecVar *ParamSpec) {
+	core.LazyRegister(&xObjectNotifyByPspec, "GOBJECT", "g_object_notify_by_pspec", false)
+
 	xObjectNotifyByPspec(x.GoPointer(), PspecVar.GoPointer())
 }
 
@@ -1646,6 +1712,7 @@ var xObjectRef func(uintptr) uintptr
 // extension), so any casting the caller needs to do on the return type must be
 // explicit.
 func (x *Object) Ref() *Object {
+	core.LazyRegister(&xObjectRef, "GOBJECT", "g_object_ref", false)
 	var cls *Object
 
 	cret := xObjectRef(x.GoPointer())
@@ -1672,6 +1739,7 @@ var xObjectRefSink func(uintptr) uintptr
 // Since GLib 2.56, the type of @object will be propagated to the return type
 // under the same conditions as for g_object_ref().
 func (x *Object) RefSink() *Object {
+	core.LazyRegister(&xObjectRefSink, "GOBJECT", "g_object_ref_sink", false)
 	var cls *Object
 
 	cret := xObjectRefSink(x.GoPointer())
@@ -1695,6 +1763,8 @@ var xObjectRemoveToggleRef func(uintptr, uintptr, uintptr)
 // might be a dangling pointer. If the object is destroyed on other threads,
 // you must take care of that yourself.
 func (x *Object) RemoveToggleRef(NotifyVar *ToggleNotify, DataVar uintptr) {
+	core.LazyRegister(&xObjectRemoveToggleRef, "GOBJECT", "g_object_remove_toggle_ref", false)
+
 	xObjectRemoveToggleRef(x.GoPointer(), glib.NewCallbackNullable(NotifyVar), DataVar)
 }
 
@@ -1704,6 +1774,8 @@ var xObjectRemoveWeakPointer func(uintptr, *uintptr)
 // using g_object_add_weak_pointer(). The @weak_pointer_location has
 // to match the one used with g_object_add_weak_pointer().
 func (x *Object) RemoveWeakPointer(WeakPointerLocationVar *uintptr) {
+	core.LazyRegister(&xObjectRemoveWeakPointer, "GOBJECT", "g_object_remove_weak_pointer", false)
+
 	xObjectRemoveWeakPointer(x.GoPointer(), WeakPointerLocationVar)
 }
 
@@ -1726,6 +1798,8 @@ var xObjectReplaceData func(uintptr, string, uintptr, uintptr, uintptr, *glib.De
 // See g_object_set_data() for guidance on using a small, bounded set of values
 // for @key.
 func (x *Object) ReplaceData(KeyVar string, OldvalVar uintptr, NewvalVar uintptr, DestroyVar *glib.DestroyNotify, OldDestroyVar *glib.DestroyNotify) bool {
+	core.LazyRegister(&xObjectReplaceData, "GOBJECT", "g_object_replace_data", false)
+
 	cret := xObjectReplaceData(x.GoPointer(), KeyVar, OldvalVar, NewvalVar, glib.NewCallbackNullable(DestroyVar), OldDestroyVar)
 	return cret
 }
@@ -1746,6 +1820,8 @@ var xObjectReplaceQdata func(uintptr, glib.Quark, uintptr, uintptr, uintptr, *gl
 // or may not include using @old_destroy as sometimes replacement
 // should not destroy the object in the normal way.
 func (x *Object) ReplaceQdata(QuarkVar glib.Quark, OldvalVar uintptr, NewvalVar uintptr, DestroyVar *glib.DestroyNotify, OldDestroyVar *glib.DestroyNotify) bool {
+	core.LazyRegister(&xObjectReplaceQdata, "GOBJECT", "g_object_replace_qdata", false)
+
 	cret := xObjectReplaceQdata(x.GoPointer(), QuarkVar, OldvalVar, NewvalVar, glib.NewCallbackNullable(DestroyVar), OldDestroyVar)
 	return cret
 }
@@ -1757,6 +1833,8 @@ var xObjectRunDispose func(uintptr)
 //
 // This function should only be called from object system implementations.
 func (x *Object) RunDispose() {
+	core.LazyRegister(&xObjectRunDispose, "GOBJECT", "g_object_run_dispose", false)
+
 	xObjectRunDispose(x.GoPointer())
 }
 
@@ -1773,6 +1851,8 @@ var xObjectSet func(uintptr, string, ...interface{})
 // reverse order) after all properties have been set. See
 // g_object_freeze_notify().
 func (x *Object) Set(FirstPropertyNameVar string, varArgs ...interface{}) {
+	core.LazyRegister(&xObjectSet, "GOBJECT", "g_object_set", false)
+
 	xObjectSet(x.GoPointer(), FirstPropertyNameVar, varArgs...)
 }
 
@@ -1789,6 +1869,8 @@ var xObjectSetData func(uintptr, string, uintptr)
 // finalized) — so it is recommended to only use a small, bounded set of values
 // for @key in your program, to avoid the #GQuark storage growing unbounded.
 func (x *Object) SetData(KeyVar string, DataVar uintptr) {
+	core.LazyRegister(&xObjectSetData, "GOBJECT", "g_object_set_data", false)
+
 	xObjectSetData(x.GoPointer(), KeyVar, DataVar)
 }
 
@@ -1800,6 +1882,8 @@ var xObjectSetDataFull func(uintptr, string, uintptr, uintptr)
 //
 // Note that the @destroy callback is not called if @data is %NULL.
 func (x *Object) SetDataFull(KeyVar string, DataVar uintptr, DestroyVar *glib.DestroyNotify) {
+	core.LazyRegister(&xObjectSetDataFull, "GOBJECT", "g_object_set_data_full", false)
+
 	xObjectSetDataFull(x.GoPointer(), KeyVar, DataVar, glib.NewCallbackNullable(DestroyVar))
 }
 
@@ -1807,6 +1891,8 @@ var xObjectSetProperty func(uintptr, string, *Value)
 
 // Sets a property on an object.
 func (x *Object) SetProperty(PropertyNameVar string, ValueVar *Value) {
+	core.LazyRegister(&xObjectSetProperty, "GOBJECT", "g_object_set_property", false)
+
 	xObjectSetProperty(x.GoPointer(), PropertyNameVar, ValueVar)
 }
 
@@ -1821,6 +1907,8 @@ var xObjectSetQdata func(uintptr, glib.Quark, uintptr)
 // the old pointer set, using #NULL as pointer essentially
 // removes the data stored.
 func (x *Object) SetQdata(QuarkVar glib.Quark, DataVar uintptr) {
+	core.LazyRegister(&xObjectSetQdata, "GOBJECT", "g_object_set_qdata", false)
+
 	xObjectSetQdata(x.GoPointer(), QuarkVar, DataVar)
 }
 
@@ -1832,6 +1920,8 @@ var xObjectSetQdataFull func(uintptr, glib.Quark, uintptr, uintptr)
 // the data is being overwritten by a call to g_object_set_qdata()
 // with the same @quark.
 func (x *Object) SetQdataFull(QuarkVar glib.Quark, DataVar uintptr, DestroyVar *glib.DestroyNotify) {
+	core.LazyRegister(&xObjectSetQdataFull, "GOBJECT", "g_object_set_qdata_full", false)
+
 	xObjectSetQdataFull(x.GoPointer(), QuarkVar, DataVar, glib.NewCallbackNullable(DestroyVar))
 }
 
@@ -1839,6 +1929,8 @@ var xObjectSetValist func(uintptr, string, []interface{})
 
 // Sets properties on an object.
 func (x *Object) SetValist(FirstPropertyNameVar string, VarArgsVar []interface{}) {
+	core.LazyRegister(&xObjectSetValist, "GOBJECT", "g_object_set_valist", false)
+
 	xObjectSetValist(x.GoPointer(), FirstPropertyNameVar, VarArgsVar)
 }
 
@@ -1849,6 +1941,8 @@ var xObjectSetv func(uintptr, uint, []string, []Value)
 // valid. Warnings will be emitted and undefined behaviour may result if invalid
 // properties are passed in.
 func (x *Object) Setv(NPropertiesVar uint, NamesVar []string, ValuesVar []Value) {
+	core.LazyRegister(&xObjectSetv, "GOBJECT", "g_object_setv", false)
+
 	xObjectSetv(x.GoPointer(), NPropertiesVar, NamesVar, ValuesVar)
 }
 
@@ -1857,6 +1951,8 @@ var xObjectStealData func(uintptr, string) uintptr
 // Remove a specified datum from the object's data associations,
 // without invoking the association's destroy handler.
 func (x *Object) StealData(KeyVar string) uintptr {
+	core.LazyRegister(&xObjectStealData, "GOBJECT", "g_object_steal_data", false)
+
 	cret := xObjectStealData(x.GoPointer(), KeyVar)
 	return cret
 }
@@ -1904,6 +2000,8 @@ var xObjectStealQdata func(uintptr, glib.Quark) uintptr
 // and thus the partial string list would have been freed upon
 // g_object_set_qdata_full().
 func (x *Object) StealQdata(QuarkVar glib.Quark) uintptr {
+	core.LazyRegister(&xObjectStealQdata, "GOBJECT", "g_object_steal_qdata", false)
+
 	cret := xObjectStealQdata(x.GoPointer(), QuarkVar)
 	return cret
 }
@@ -1946,6 +2044,7 @@ var xObjectTakeRef func(uintptr) uintptr
 // additional reference on top of that one is added. It is best to avoid
 // this situation.
 func (x *Object) TakeRef() *Object {
+	core.LazyRegister(&xObjectTakeRef, "GOBJECT", "g_object_take_ref", false)
 	var cls *Object
 
 	cret := xObjectTakeRef(x.GoPointer())
@@ -1970,6 +2069,8 @@ var xObjectThawNotify func(uintptr)
 //
 // It is an error to call this function when the freeze count is zero.
 func (x *Object) ThawNotify() {
+	core.LazyRegister(&xObjectThawNotify, "GOBJECT", "g_object_thaw_notify", false)
+
 	xObjectThawNotify(x.GoPointer())
 }
 
@@ -1983,6 +2084,8 @@ var xObjectUnref func(uintptr)
 // pointer to %NULL rather than retain a dangling pointer to a potentially
 // invalid #GObject instance. Use g_clear_object() for this.
 func (x *Object) Unref() {
+	core.LazyRegister(&xObjectUnref, "GOBJECT", "g_object_unref", false)
+
 	xObjectUnref(x.GoPointer())
 }
 
@@ -1998,6 +2101,8 @@ var xObjectWatchClosure func(uintptr, *Closure)
 // @closure.  Usually, this function will be called on closures that
 // use this @object as closure data.
 func (x *Object) WatchClosure(ClosureVar *Closure) {
+	core.LazyRegister(&xObjectWatchClosure, "GOBJECT", "g_object_watch_closure", false)
+
 	xObjectWatchClosure(x.GoPointer(), ClosureVar)
 }
 
@@ -2014,6 +2119,8 @@ var xObjectWeakRef func(uintptr, uintptr, uintptr)
 // object's last g_object_unref() might happen in another thread.
 // Use #GWeakRef if thread-safety is required.
 func (x *Object) WeakRef(NotifyVar *WeakNotify, DataVar uintptr) {
+	core.LazyRegister(&xObjectWeakRef, "GOBJECT", "g_object_weak_ref", false)
+
 	xObjectWeakRef(x.GoPointer(), glib.NewCallbackNullable(NotifyVar), DataVar)
 }
 
@@ -2021,6 +2128,8 @@ var xObjectWeakUnref func(uintptr, uintptr, uintptr)
 
 // Removes a weak reference callback to an object.
 func (x *Object) WeakUnref(NotifyVar *WeakNotify, DataVar uintptr) {
+	core.LazyRegister(&xObjectWeakUnref, "GOBJECT", "g_object_weak_unref", false)
+
 	xObjectWeakUnref(x.GoPointer(), glib.NewCallbackNullable(NotifyVar), DataVar)
 }
 
@@ -2087,6 +2196,8 @@ func (x *Object) ConnectNotify(cb *func(Object, uintptr)) uint {
 var xObjectCompatControl func(uint, uintptr) uint
 
 func ObjectCompatControl(WhatVar uint, DataVar uintptr) uint {
+	core.LazyRegister(&xObjectCompatControl, "GOBJECT", "g_object_compat_control", false)
+
 	cret := xObjectCompatControl(WhatVar, DataVar)
 	return cret
 }
@@ -2099,6 +2210,7 @@ var xObjectInterfaceFindProperty func(*TypeInterface, string) uintptr
 // if you know the interface has already been loaded,
 // g_type_default_interface_peek().
 func ObjectInterfaceFindProperty(GIfaceVar *TypeInterface, PropertyNameVar string) *ParamSpec {
+	core.LazyRegister(&xObjectInterfaceFindProperty, "GOBJECT", "g_object_interface_find_property", false)
 	var cls *ParamSpec
 
 	cret := xObjectInterfaceFindProperty(GIfaceVar, PropertyNameVar)
@@ -2131,6 +2243,8 @@ var xObjectInterfaceInstallProperty func(*TypeInterface, uintptr)
 //
 // If @pspec is a floating reference, it will be consumed.
 func ObjectInterfaceInstallProperty(GIfaceVar *TypeInterface, PspecVar *ParamSpec) {
+	core.LazyRegister(&xObjectInterfaceInstallProperty, "GOBJECT", "g_object_interface_install_property", false)
+
 	xObjectInterfaceInstallProperty(GIfaceVar, PspecVar.GoPointer())
 }
 
@@ -2141,6 +2255,8 @@ var xObjectInterfaceListProperties func(*TypeInterface, *uint) uintptr
 // g_type_default_interface_ref(), or, if you know the interface has
 // already been loaded, g_type_default_interface_peek().
 func ObjectInterfaceListProperties(GIfaceVar *TypeInterface, NPropertiesPVar *uint) uintptr {
+	core.LazyRegister(&xObjectInterfaceListProperties, "GOBJECT", "g_object_interface_list_properties", false)
+
 	cret := xObjectInterfaceListProperties(GIfaceVar, NPropertiesPVar)
 	return cret
 }
@@ -2148,86 +2264,4 @@ func ObjectInterfaceListProperties(GIfaceVar *TypeInterface, NPropertiesPVar *ui
 func init() {
 	core.SetPackageName("GOBJECT", "gobject-2.0")
 	core.SetSharedLibraries("GOBJECT", []string{"libgobject-2.0.so.0", "libgobject-2.0.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GOBJECT") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xCclosureNewObject, libs, "g_cclosure_new_object")
-	core.PuregoSafeRegister(&xCclosureNewObjectSwap, libs, "g_cclosure_new_object_swap")
-	core.PuregoSafeRegister(&xClearObject, libs, "g_clear_object")
-	core.PuregoSafeRegister(&xSignalConnectObject, libs, "g_signal_connect_object")
-
-	core.PuregoSafeRegister(&xObjectClassFindProperty, libs, "g_object_class_find_property")
-	core.PuregoSafeRegister(&xObjectClassInstallProperties, libs, "g_object_class_install_properties")
-	core.PuregoSafeRegister(&xObjectClassInstallProperty, libs, "g_object_class_install_property")
-	core.PuregoSafeRegister(&xObjectClassListProperties, libs, "g_object_class_list_properties")
-	core.PuregoSafeRegister(&xObjectClassOverrideProperty, libs, "g_object_class_override_property")
-
-	core.PuregoSafeRegister(&xWeakRefClear, libs, "g_weak_ref_clear")
-	core.PuregoSafeRegister(&xWeakRefGet, libs, "g_weak_ref_get")
-	core.PuregoSafeRegister(&xWeakRefInit, libs, "g_weak_ref_init")
-	core.PuregoSafeRegister(&xWeakRefSet, libs, "g_weak_ref_set")
-
-	core.PuregoSafeRegister(&xInitiallyUnownedGLibType, libs, "g_initially_unowned_get_type")
-
-	core.PuregoSafeRegister(&xObjectGLibType, libs, "g_object_get_type")
-
-	core.PuregoSafeRegister(&xNewObject, libs, "g_object_new")
-	core.PuregoSafeRegister(&xNewObjectValist, libs, "g_object_new_valist")
-	core.PuregoSafeRegister(&xNewObjectWithProperties, libs, "g_object_new_with_properties")
-	core.PuregoSafeRegister(&xNewObjectv, libs, "g_object_newv")
-
-	core.PuregoSafeRegister(&xObjectAddToggleRef, libs, "g_object_add_toggle_ref")
-	core.PuregoSafeRegister(&xObjectAddWeakPointer, libs, "g_object_add_weak_pointer")
-	core.PuregoSafeRegister(&xObjectBindProperty, libs, "g_object_bind_property")
-	core.PuregoSafeRegister(&xObjectBindPropertyFull, libs, "g_object_bind_property_full")
-	core.PuregoSafeRegister(&xObjectBindPropertyWithClosures, libs, "g_object_bind_property_with_closures")
-	core.PuregoSafeRegister(&xObjectConnect, libs, "g_object_connect")
-	core.PuregoSafeRegister(&xObjectDisconnect, libs, "g_object_disconnect")
-	core.PuregoSafeRegister(&xObjectDupData, libs, "g_object_dup_data")
-	core.PuregoSafeRegister(&xObjectDupQdata, libs, "g_object_dup_qdata")
-	core.PuregoSafeRegister(&xObjectForceFloating, libs, "g_object_force_floating")
-	core.PuregoSafeRegister(&xObjectFreezeNotify, libs, "g_object_freeze_notify")
-	core.PuregoSafeRegister(&xObjectGet, libs, "g_object_get")
-	core.PuregoSafeRegister(&xObjectGetData, libs, "g_object_get_data")
-	core.PuregoSafeRegister(&xObjectGetProperty, libs, "g_object_get_property")
-	core.PuregoSafeRegister(&xObjectGetQdata, libs, "g_object_get_qdata")
-	core.PuregoSafeRegister(&xObjectGetValist, libs, "g_object_get_valist")
-	core.PuregoSafeRegister(&xObjectGetv, libs, "g_object_getv")
-	core.PuregoSafeRegister(&xObjectIsFloating, libs, "g_object_is_floating")
-	core.PuregoSafeRegister(&xObjectNotify, libs, "g_object_notify")
-	core.PuregoSafeRegister(&xObjectNotifyByPspec, libs, "g_object_notify_by_pspec")
-	core.PuregoSafeRegister(&xObjectRef, libs, "g_object_ref")
-	core.PuregoSafeRegister(&xObjectRefSink, libs, "g_object_ref_sink")
-	core.PuregoSafeRegister(&xObjectRemoveToggleRef, libs, "g_object_remove_toggle_ref")
-	core.PuregoSafeRegister(&xObjectRemoveWeakPointer, libs, "g_object_remove_weak_pointer")
-	core.PuregoSafeRegister(&xObjectReplaceData, libs, "g_object_replace_data")
-	core.PuregoSafeRegister(&xObjectReplaceQdata, libs, "g_object_replace_qdata")
-	core.PuregoSafeRegister(&xObjectRunDispose, libs, "g_object_run_dispose")
-	core.PuregoSafeRegister(&xObjectSet, libs, "g_object_set")
-	core.PuregoSafeRegister(&xObjectSetData, libs, "g_object_set_data")
-	core.PuregoSafeRegister(&xObjectSetDataFull, libs, "g_object_set_data_full")
-	core.PuregoSafeRegister(&xObjectSetProperty, libs, "g_object_set_property")
-	core.PuregoSafeRegister(&xObjectSetQdata, libs, "g_object_set_qdata")
-	core.PuregoSafeRegister(&xObjectSetQdataFull, libs, "g_object_set_qdata_full")
-	core.PuregoSafeRegister(&xObjectSetValist, libs, "g_object_set_valist")
-	core.PuregoSafeRegister(&xObjectSetv, libs, "g_object_setv")
-	core.PuregoSafeRegister(&xObjectStealData, libs, "g_object_steal_data")
-	core.PuregoSafeRegister(&xObjectStealQdata, libs, "g_object_steal_qdata")
-	core.PuregoSafeRegister(&xObjectTakeRef, libs, "g_object_take_ref")
-	core.PuregoSafeRegister(&xObjectThawNotify, libs, "g_object_thaw_notify")
-	core.PuregoSafeRegister(&xObjectUnref, libs, "g_object_unref")
-	core.PuregoSafeRegister(&xObjectWatchClosure, libs, "g_object_watch_closure")
-	core.PuregoSafeRegister(&xObjectWeakRef, libs, "g_object_weak_ref")
-	core.PuregoSafeRegister(&xObjectWeakUnref, libs, "g_object_weak_unref")
-
-	core.PuregoSafeRegister(&xObjectCompatControl, libs, "g_object_compat_control")
-	core.PuregoSafeRegister(&xObjectInterfaceFindProperty, libs, "g_object_interface_find_property")
-	core.PuregoSafeRegister(&xObjectInterfaceInstallProperty, libs, "g_object_interface_install_property")
-	core.PuregoSafeRegister(&xObjectInterfaceListProperties, libs, "g_object_interface_list_properties")
 }

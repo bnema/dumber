@@ -241,6 +241,7 @@ type FileMonitor struct {
 var xFileMonitorGLibType func() types.GType
 
 func FileMonitorGLibType() types.GType {
+	core.LazyRegister(&xFileMonitorGLibType, "GIO", "g_file_monitor_get_type", false)
 	return xFileMonitorGLibType()
 }
 
@@ -254,6 +255,8 @@ var xFileMonitorCancel func(uintptr) bool
 
 // Cancels a file monitor.
 func (x *FileMonitor) Cancel() bool {
+	core.LazyRegister(&xFileMonitorCancel, "GIO", "g_file_monitor_cancel", false)
+
 	cret := xFileMonitorCancel(x.GoPointer())
 	return cret
 }
@@ -268,6 +271,8 @@ var xFileMonitorEmitEvent func(uintptr, uintptr, uintptr, FileMonitorEvent)
 // thread-default main context (see [method@GLib.MainContext.push_thread_default])
 // of the thread that the monitor was created in.
 func (x *FileMonitor) EmitEvent(ChildVar File, OtherFileVar File, EventTypeVar FileMonitorEvent) {
+	core.LazyRegister(&xFileMonitorEmitEvent, "GIO", "g_file_monitor_emit_event", false)
+
 	xFileMonitorEmitEvent(x.GoPointer(), ChildVar.GoPointer(), OtherFileVar.GoPointer(), EventTypeVar)
 }
 
@@ -275,6 +280,8 @@ var xFileMonitorIsCancelled func(uintptr) bool
 
 // Returns whether the monitor is canceled.
 func (x *FileMonitor) IsCancelled() bool {
+	core.LazyRegister(&xFileMonitorIsCancelled, "GIO", "g_file_monitor_is_cancelled", false)
+
 	cret := xFileMonitorIsCancelled(x.GoPointer())
 	return cret
 }
@@ -284,6 +291,8 @@ var xFileMonitorSetRateLimit func(uintptr, int)
 // Sets the rate limit to which the @monitor will report
 // consecutive change events to the same file.
 func (x *FileMonitor) SetRateLimit(LimitMsecsVar int) {
+	core.LazyRegister(&xFileMonitorSetRateLimit, "GIO", "g_file_monitor_set_rate_limit", false)
+
 	xFileMonitorSetRateLimit(x.GoPointer(), LimitMsecsVar)
 }
 
@@ -376,19 +385,4 @@ func (x *FileMonitor) ConnectChanged(cb *func(FileMonitor, uintptr, uintptr, Fil
 func init() {
 	core.SetPackageName("GIO", "gio-2.0")
 	core.SetSharedLibraries("GIO", []string{"libgio-2.0.so.0", "libgio-2.0.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GIO") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xFileMonitorGLibType, libs, "g_file_monitor_get_type")
-
-	core.PuregoSafeRegister(&xFileMonitorCancel, libs, "g_file_monitor_cancel")
-	core.PuregoSafeRegister(&xFileMonitorEmitEvent, libs, "g_file_monitor_emit_event")
-	core.PuregoSafeRegister(&xFileMonitorIsCancelled, libs, "g_file_monitor_is_cancelled")
-	core.PuregoSafeRegister(&xFileMonitorSetRateLimit, libs, "g_file_monitor_set_rate_limit")
 }

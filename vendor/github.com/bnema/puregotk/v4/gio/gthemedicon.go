@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -44,6 +43,7 @@ type ThemedIcon struct {
 var xThemedIconGLibType func() types.GType
 
 func ThemedIconGLibType() types.GType {
+	core.LazyRegister(&xThemedIconGLibType, "GIO", "g_themed_icon_get_type", false)
 	return xThemedIconGLibType()
 }
 
@@ -57,6 +57,7 @@ var xNewThemedIcon func(string) uintptr
 
 // Creates a new themed icon for @iconname.
 func NewThemedIcon(IconnameVar string) *ThemedIcon {
+	core.LazyRegister(&xNewThemedIcon, "GIO", "g_themed_icon_new", false)
 	var cls *ThemedIcon
 
 	cret := xNewThemedIcon(IconnameVar)
@@ -73,6 +74,7 @@ var xNewThemedIconFromNames func([]string, int) uintptr
 
 // Creates a new themed icon for @iconnames.
 func NewThemedIconFromNames(IconnamesVar []string, LenVar int) *ThemedIcon {
+	core.LazyRegister(&xNewThemedIconFromNames, "GIO", "g_themed_icon_new_from_names", false)
 	var cls *ThemedIcon
 
 	cret := xNewThemedIconFromNames(IconnamesVar, LenVar)
@@ -104,6 +106,7 @@ var xNewThemedIconWithDefaultFallbacks func(string) uintptr
 // icon2 = g_themed_icon_new_with_default_fallbacks ("gnome-dev-cdrom-audio");
 // ]|
 func NewThemedIconWithDefaultFallbacks(IconnameVar string) *ThemedIcon {
+	core.LazyRegister(&xNewThemedIconWithDefaultFallbacks, "GIO", "g_themed_icon_new_with_default_fallbacks", false)
 	var cls *ThemedIcon
 
 	cret := xNewThemedIconWithDefaultFallbacks(IconnameVar)
@@ -123,6 +126,8 @@ var xThemedIconAppendName func(uintptr, string)
 // Note that doing so invalidates the hash computed by prior calls
 // to g_icon_hash().
 func (x *ThemedIcon) AppendName(IconnameVar string) {
+	core.LazyRegister(&xThemedIconAppendName, "GIO", "g_themed_icon_append_name", false)
+
 	xThemedIconAppendName(x.GoPointer(), IconnameVar)
 }
 
@@ -130,6 +135,8 @@ var xThemedIconGetNames func(uintptr) []string
 
 // Gets the names of icons from within @icon.
 func (x *ThemedIcon) GetNames() []string {
+	core.LazyRegister(&xThemedIconGetNames, "GIO", "g_themed_icon_get_names", false)
+
 	cret := xThemedIconGetNames(x.GoPointer())
 	return cret
 }
@@ -141,6 +148,8 @@ var xThemedIconPrependName func(uintptr, string)
 // Note that doing so invalidates the hash computed by prior calls
 // to g_icon_hash().
 func (x *ThemedIcon) PrependName(IconnameVar string) {
+	core.LazyRegister(&xThemedIconPrependName, "GIO", "g_themed_icon_prepend_name", false)
+
 	xThemedIconPrependName(x.GoPointer(), IconnameVar)
 }
 
@@ -279,22 +288,4 @@ func (x *ThemedIcon) ToString() string {
 func init() {
 	core.SetPackageName("GIO", "gio-2.0")
 	core.SetSharedLibraries("GIO", []string{"libgio-2.0.so.0", "libgio-2.0.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GIO") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xThemedIconGLibType, libs, "g_themed_icon_get_type")
-
-	core.PuregoSafeRegister(&xNewThemedIcon, libs, "g_themed_icon_new")
-	core.PuregoSafeRegister(&xNewThemedIconFromNames, libs, "g_themed_icon_new_from_names")
-	core.PuregoSafeRegister(&xNewThemedIconWithDefaultFallbacks, libs, "g_themed_icon_new_with_default_fallbacks")
-
-	core.PuregoSafeRegister(&xThemedIconAppendName, libs, "g_themed_icon_append_name")
-	core.PuregoSafeRegister(&xThemedIconGetNames, libs, "g_themed_icon_get_names")
-	core.PuregoSafeRegister(&xThemedIconPrependName, libs, "g_themed_icon_prepend_name")
 }

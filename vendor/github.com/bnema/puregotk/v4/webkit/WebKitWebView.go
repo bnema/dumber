@@ -1542,6 +1542,7 @@ type SnapshotOptions int
 var xSnapshotOptionsGLibType func() types.GType
 
 func SnapshotOptionsGLibType() types.GType {
+	core.LazyRegister(&xSnapshotOptionsGLibType, "WEBKIT", "webkit_snapshot_options_get_type", false)
 	return xSnapshotOptionsGLibType()
 }
 
@@ -1565,6 +1566,7 @@ type InsecureContentEvent int
 var xInsecureContentEventGLibType func() types.GType
 
 func InsecureContentEventGLibType() types.GType {
+	core.LazyRegister(&xInsecureContentEventGLibType, "WEBKIT", "webkit_insecure_content_event_get_type", false)
 	return xInsecureContentEventGLibType()
 }
 
@@ -1587,6 +1589,7 @@ type LoadEvent int
 var xLoadEventGLibType func() types.GType
 
 func LoadEventGLibType() types.GType {
+	core.LazyRegister(&xLoadEventGLibType, "WEBKIT", "webkit_load_event_get_type", false)
 	return xLoadEventGLibType()
 }
 
@@ -1616,6 +1619,7 @@ type MediaCaptureState int
 var xMediaCaptureStateGLibType func() types.GType
 
 func MediaCaptureStateGLibType() types.GType {
+	core.LazyRegister(&xMediaCaptureStateGLibType, "WEBKIT", "webkit_media_capture_state_get_type", false)
 	return xMediaCaptureStateGLibType()
 }
 
@@ -1636,6 +1640,7 @@ type PolicyDecisionType int
 var xPolicyDecisionTypeGLibType func() types.GType
 
 func PolicyDecisionTypeGLibType() types.GType {
+	core.LazyRegister(&xPolicyDecisionTypeGLibType, "WEBKIT", "webkit_policy_decision_type_get_type", false)
 	return xPolicyDecisionTypeGLibType()
 }
 
@@ -1675,6 +1680,7 @@ type SaveMode int
 var xSaveModeGLibType func() types.GType
 
 func SaveModeGLibType() types.GType {
+	core.LazyRegister(&xSaveModeGLibType, "WEBKIT", "webkit_save_mode_get_type", false)
 	return xSaveModeGLibType()
 }
 
@@ -1691,6 +1697,7 @@ type SnapshotRegion int
 var xSnapshotRegionGLibType func() types.GType
 
 func SnapshotRegionGLibType() types.GType {
+	core.LazyRegister(&xSnapshotRegionGLibType, "WEBKIT", "webkit_snapshot_region_get_type", false)
 	return xSnapshotRegionGLibType()
 }
 
@@ -1710,6 +1717,7 @@ type WebExtensionMode int
 var xWebExtensionModeGLibType func() types.GType
 
 func WebExtensionModeGLibType() types.GType {
+	core.LazyRegister(&xWebExtensionModeGLibType, "WEBKIT", "webkit_web_extension_mode_get_type", false)
 	return xWebExtensionModeGLibType()
 }
 
@@ -1729,6 +1737,7 @@ type WebProcessTerminationReason int
 var xWebProcessTerminationReasonGLibType func() types.GType
 
 func WebProcessTerminationReasonGLibType() types.GType {
+	core.LazyRegister(&xWebProcessTerminationReasonGLibType, "WEBKIT", "webkit_web_process_termination_reason_get_type", false)
 	return xWebProcessTerminationReasonGLibType()
 }
 
@@ -1759,6 +1768,7 @@ type WebView struct {
 var xWebViewGLibType func() types.GType
 
 func WebViewGLibType() types.GType {
+	core.LazyRegister(&xWebViewGLibType, "WEBKIT", "webkit_web_view_get_type", false)
 	return xWebViewGLibType()
 }
 
@@ -1778,6 +1788,7 @@ var xNewWebView func() uintptr
 // webkit_web_view_new_with_user_content_manager(), and
 // webkit_web_view_new_with_settings().
 func NewWebView() *WebView {
+	core.LazyRegister(&xNewWebView, "WEBKIT", "webkit_web_view_new", false)
 	var cls *WebView
 
 	cret := xNewWebView()
@@ -1856,6 +1867,8 @@ var xWebViewCallAsyncJavascriptFunction func(uintptr, string, int, *glib.Variant
 //
 // ```
 func (x *WebView) CallAsyncJavascriptFunction(BodyVar string, LengthVar int, ArgumentsVar *glib.Variant, WorldNameVar *string, SourceUriVar *string, CancellableVar *gio.Cancellable, CallbackVar *gio.AsyncReadyCallback, UserDataVar uintptr) {
+	core.LazyRegister(&xWebViewCallAsyncJavascriptFunction, "WEBKIT", "webkit_web_view_call_async_javascript_function", false)
+
 	WorldNameVarPtr := core.GStrdupNullable(WorldNameVar)
 	defer core.GFreeNullable(WorldNameVarPtr)
 
@@ -1869,6 +1882,7 @@ var xWebViewCallAsyncJavascriptFunctionFinish func(uintptr, uintptr, **glib.Erro
 
 // Finish an asynchronous operation started with webkit_web_view_call_async_javascript_function().
 func (x *WebView) CallAsyncJavascriptFunctionFinish(ResultVar gio.AsyncResult) (*javascriptcore.Value, error) {
+	core.LazyRegister(&xWebViewCallAsyncJavascriptFunctionFinish, "WEBKIT", "webkit_web_view_call_async_javascript_function_finish", false)
 	var cls *javascriptcore.Value
 	var cerr *glib.Error
 
@@ -1892,6 +1906,8 @@ var xWebViewCanExecuteEditingCommand func(uintptr, string, uintptr, uintptr, uin
 // When the operation is finished, @callback will be called. You can then call
 // webkit_web_view_can_execute_editing_command_finish() to get the result of the operation.
 func (x *WebView) CanExecuteEditingCommand(CommandVar string, CancellableVar *gio.Cancellable, CallbackVar *gio.AsyncReadyCallback, UserDataVar uintptr) {
+	core.LazyRegister(&xWebViewCanExecuteEditingCommand, "WEBKIT", "webkit_web_view_can_execute_editing_command", false)
+
 	xWebViewCanExecuteEditingCommand(x.GoPointer(), CommandVar, CancellableVar.GoPointer(), glib.NewCallbackNullable(CallbackVar), UserDataVar)
 }
 
@@ -1899,6 +1915,7 @@ var xWebViewCanExecuteEditingCommandFinish func(uintptr, uintptr, **glib.Error) 
 
 // Finish an asynchronous operation started with webkit_web_view_can_execute_editing_command().
 func (x *WebView) CanExecuteEditingCommandFinish(ResultVar gio.AsyncResult) (bool, error) {
+	core.LazyRegister(&xWebViewCanExecuteEditingCommandFinish, "WEBKIT", "webkit_web_view_can_execute_editing_command_finish", false)
 	var cerr *glib.Error
 
 	cret := xWebViewCanExecuteEditingCommandFinish(x.GoPointer(), ResultVar.GoPointer(), &cerr)
@@ -1912,6 +1929,8 @@ var xWebViewCanGoBack func(uintptr) bool
 
 // Determines whether @web_view has a previous history item.
 func (x *WebView) CanGoBack() bool {
+	core.LazyRegister(&xWebViewCanGoBack, "WEBKIT", "webkit_web_view_can_go_back", false)
+
 	cret := xWebViewCanGoBack(x.GoPointer())
 	return cret
 }
@@ -1920,6 +1939,8 @@ var xWebViewCanGoForward func(uintptr) bool
 
 // Determines whether @web_view has a next history item.
 func (x *WebView) CanGoForward() bool {
+	core.LazyRegister(&xWebViewCanGoForward, "WEBKIT", "webkit_web_view_can_go_forward", false)
+
 	cret := xWebViewCanGoForward(x.GoPointer())
 	return cret
 }
@@ -1928,6 +1949,8 @@ var xWebViewCanShowMimeType func(uintptr, string) bool
 
 // Whether or not a MIME type can be displayed in @web_view.
 func (x *WebView) CanShowMimeType(MimeTypeVar string) bool {
+	core.LazyRegister(&xWebViewCanShowMimeType, "WEBKIT", "webkit_web_view_can_show_mime_type", false)
+
 	cret := xWebViewCanShowMimeType(x.GoPointer(), MimeTypeVar)
 	return cret
 }
@@ -1936,6 +1959,7 @@ var xWebViewDownloadUri func(uintptr, string) uintptr
 
 // Requests downloading of the specified URI string for @web_view.
 func (x *WebView) DownloadUri(UriVar string) *Download {
+	core.LazyRegister(&xWebViewDownloadUri, "WEBKIT", "webkit_web_view_download_uri", false)
 	var cls *Download
 
 	cret := xWebViewDownloadUri(x.GoPointer(), UriVar)
@@ -2010,6 +2034,8 @@ var xWebViewEvaluateJavascript func(uintptr, string, int, uintptr, uintptr, uint
 //
 // ```
 func (x *WebView) EvaluateJavascript(ScriptVar string, LengthVar int, WorldNameVar *string, SourceUriVar *string, CancellableVar *gio.Cancellable, CallbackVar *gio.AsyncReadyCallback, UserDataVar uintptr) {
+	core.LazyRegister(&xWebViewEvaluateJavascript, "WEBKIT", "webkit_web_view_evaluate_javascript", false)
+
 	WorldNameVarPtr := core.GStrdupNullable(WorldNameVar)
 	defer core.GFreeNullable(WorldNameVarPtr)
 
@@ -2023,6 +2049,7 @@ var xWebViewEvaluateJavascriptFinish func(uintptr, uintptr, **glib.Error) uintpt
 
 // Finish an asynchronous operation started with webkit_web_view_evaluate_javascript().
 func (x *WebView) EvaluateJavascriptFinish(ResultVar gio.AsyncResult) (*javascriptcore.Value, error) {
+	core.LazyRegister(&xWebViewEvaluateJavascriptFinish, "WEBKIT", "webkit_web_view_evaluate_javascript_finish", false)
 	var cls *javascriptcore.Value
 	var cerr *glib.Error
 
@@ -2046,6 +2073,8 @@ var xWebViewExecuteEditingCommand func(uintptr, string)
 // You can use webkit_web_view_can_execute_editing_command() to check whether
 // it's possible to execute the command.
 func (x *WebView) ExecuteEditingCommand(CommandVar string) {
+	core.LazyRegister(&xWebViewExecuteEditingCommand, "WEBKIT", "webkit_web_view_execute_editing_command", false)
+
 	xWebViewExecuteEditingCommand(x.GoPointer(), CommandVar)
 }
 
@@ -2057,6 +2086,8 @@ var xWebViewExecuteEditingCommandWithArgument func(uintptr, string, string)
 // webkit_web_view_can_execute_editing_command() to check whether
 // it's possible to execute the command.
 func (x *WebView) ExecuteEditingCommandWithArgument(CommandVar string, ArgumentVar string) {
+	core.LazyRegister(&xWebViewExecuteEditingCommandWithArgument, "WEBKIT", "webkit_web_view_execute_editing_command_with_argument", false)
+
 	xWebViewExecuteEditingCommandWithArgument(x.GoPointer(), CommandVar, ArgumentVar)
 }
 
@@ -2064,6 +2095,8 @@ var xWebViewGetAutomationPresentationType func(uintptr) AutomationBrowsingContex
 
 // Get the presentation type of #WebKitWebView when created for automation.
 func (x *WebView) GetAutomationPresentationType() AutomationBrowsingContextPresentation {
+	core.LazyRegister(&xWebViewGetAutomationPresentationType, "WEBKIT", "webkit_web_view_get_automation_presentation_type", false)
+
 	cret := xWebViewGetAutomationPresentationType(x.GoPointer())
 	return cret
 }
@@ -2074,6 +2107,7 @@ var xWebViewGetBackForwardList func(uintptr) uintptr
 //
 // The #WebKitBackForwardList is owned by the #WebKitWebView.
 func (x *WebView) GetBackForwardList() *BackForwardList {
+	core.LazyRegister(&xWebViewGetBackForwardList, "WEBKIT", "webkit_web_view_get_back_forward_list", false)
 	var cls *BackForwardList
 
 	cret := xWebViewGetBackForwardList(x.GoPointer())
@@ -2095,6 +2129,8 @@ var xWebViewGetBackgroundColor func(uintptr, *gdk.RGBA)
 // the actual contents are rendered.
 // For more information see also webkit_web_view_set_background_color()
 func (x *WebView) GetBackgroundColor(RgbaVar *gdk.RGBA) {
+	core.LazyRegister(&xWebViewGetBackgroundColor, "WEBKIT", "webkit_web_view_get_background_color", false)
+
 	xWebViewGetBackgroundColor(x.GoPointer(), RgbaVar)
 }
 
@@ -2102,6 +2138,8 @@ var xWebViewGetCameraCaptureState func(uintptr) MediaCaptureState
 
 // Get the camera capture state of a #WebKitWebView.
 func (x *WebView) GetCameraCaptureState() MediaCaptureState {
+	core.LazyRegister(&xWebViewGetCameraCaptureState, "WEBKIT", "webkit_web_view_get_camera_capture_state", false)
+
 	cret := xWebViewGetCameraCaptureState(x.GoPointer())
 	return cret
 }
@@ -2110,6 +2148,7 @@ var xWebViewGetContext func(uintptr) uintptr
 
 // Gets the web context of @web_view.
 func (x *WebView) GetContext() *WebContext {
+	core.LazyRegister(&xWebViewGetContext, "WEBKIT", "webkit_web_view_get_context", false)
 	var cls *WebContext
 
 	cret := xWebViewGetContext(x.GoPointer())
@@ -2127,6 +2166,8 @@ var xWebViewGetCustomCharset func(uintptr) string
 
 // Returns the current custom character encoding name of @web_view.
 func (x *WebView) GetCustomCharset() string {
+	core.LazyRegister(&xWebViewGetCustomCharset, "WEBKIT", "webkit_web_view_get_custom_charset", false)
+
 	cret := xWebViewGetCustomCharset(x.GoPointer())
 	return cret
 }
@@ -2135,6 +2176,8 @@ var xWebViewGetDefaultContentSecurityPolicy func(uintptr) string
 
 // Gets the configured default Content-Security-Policy.
 func (x *WebView) GetDefaultContentSecurityPolicy() string {
+	core.LazyRegister(&xWebViewGetDefaultContentSecurityPolicy, "WEBKIT", "webkit_web_view_get_default_content_security_policy", false)
+
 	cret := xWebViewGetDefaultContentSecurityPolicy(x.GoPointer())
 	return cret
 }
@@ -2143,6 +2186,8 @@ var xWebViewGetDisplayCaptureState func(uintptr) MediaCaptureState
 
 // Get the display capture state of a #WebKitWebView.
 func (x *WebView) GetDisplayCaptureState() MediaCaptureState {
+	core.LazyRegister(&xWebViewGetDisplayCaptureState, "WEBKIT", "webkit_web_view_get_display_capture_state", false)
+
 	cret := xWebViewGetDisplayCaptureState(x.GoPointer())
 	return cret
 }
@@ -2151,6 +2196,7 @@ var xWebViewGetEditorState func(uintptr) uintptr
 
 // Gets the web editor state of @web_view.
 func (x *WebView) GetEditorState() *EditorState {
+	core.LazyRegister(&xWebViewGetEditorState, "WEBKIT", "webkit_web_view_get_editor_state", false)
 	var cls *EditorState
 
 	cret := xWebViewGetEditorState(x.GoPointer())
@@ -2171,6 +2217,8 @@ var xWebViewGetEstimatedLoadProgress func(uintptr) float64
 // You can monitor the estimated progress of a load operation by
 // connecting to the notify::estimated-load-progress signal of @web_view.
 func (x *WebView) GetEstimatedLoadProgress() float64 {
+	core.LazyRegister(&xWebViewGetEstimatedLoadProgress, "WEBKIT", "webkit_web_view_get_estimated_load_progress", false)
+
 	cret := xWebViewGetEstimatedLoadProgress(x.GoPointer())
 	return cret
 }
@@ -2183,6 +2231,7 @@ var xWebViewGetFavicon func(uintptr) uintptr
 // connect to notify::favicon signal of @web_view to be notified when
 // the favicon is available.
 func (x *WebView) GetFavicon() *gdk.Texture {
+	core.LazyRegister(&xWebViewGetFavicon, "WEBKIT", "webkit_web_view_get_favicon", false)
 	var cls *gdk.Texture
 
 	cret := xWebViewGetFavicon(x.GoPointer())
@@ -2203,6 +2252,7 @@ var xWebViewGetFindController func(uintptr) uintptr
 // Gets the #WebKitFindController that will allow the caller to query
 // the #WebKitWebView for the text to look for.
 func (x *WebView) GetFindController() *FindController {
+	core.LazyRegister(&xWebViewGetFindController, "WEBKIT", "webkit_web_view_get_find_controller", false)
 	var cls *FindController
 
 	cret := xWebViewGetFindController(x.GoPointer())
@@ -2222,6 +2272,7 @@ var xWebViewGetInputMethodContext func(uintptr) uintptr
 //
 // Get the #WebKitInputMethodContext currently in use by @web_view, or %NULL if no input method is being used.
 func (x *WebView) GetInputMethodContext() *InputMethodContext {
+	core.LazyRegister(&xWebViewGetInputMethodContext, "WEBKIT", "webkit_web_view_get_input_method_context", false)
 	var cls *InputMethodContext
 
 	cret := xWebViewGetInputMethodContext(x.GoPointer())
@@ -2239,6 +2290,7 @@ var xWebViewGetInspector func(uintptr) uintptr
 
 // Get the #WebKitWebInspector associated to @web_view
 func (x *WebView) GetInspector() *WebInspector {
+	core.LazyRegister(&xWebViewGetInspector, "WEBKIT", "webkit_web_view_get_inspector", false)
 	var cls *WebInspector
 
 	cret := xWebViewGetInspector(x.GoPointer())
@@ -2256,6 +2308,8 @@ var xWebViewGetIsMuted func(uintptr) bool
 
 // Gets the mute state of @web_view.
 func (x *WebView) GetIsMuted() bool {
+	core.LazyRegister(&xWebViewGetIsMuted, "WEBKIT", "webkit_web_view_get_is_muted", false)
+
 	cret := xWebViewGetIsMuted(x.GoPointer())
 	return cret
 }
@@ -2264,6 +2318,8 @@ var xWebViewGetIsWebProcessResponsive func(uintptr) bool
 
 // Get whether the current web process of a #WebKitWebView is responsive.
 func (x *WebView) GetIsWebProcessResponsive() bool {
+	core.LazyRegister(&xWebViewGetIsWebProcessResponsive, "WEBKIT", "webkit_web_view_get_is_web_process_responsive", false)
+
 	cret := xWebViewGetIsWebProcessResponsive(x.GoPointer())
 	return cret
 }
@@ -2272,6 +2328,7 @@ var xWebViewGetMainResource func(uintptr) uintptr
 
 // Return the main resource of @web_view.
 func (x *WebView) GetMainResource() *WebResource {
+	core.LazyRegister(&xWebViewGetMainResource, "WEBKIT", "webkit_web_view_get_main_resource", false)
 	var cls *WebResource
 
 	cret := xWebViewGetMainResource(x.GoPointer())
@@ -2289,6 +2346,8 @@ var xWebViewGetMicrophoneCaptureState func(uintptr) MediaCaptureState
 
 // Get the microphone capture state of a #WebKitWebView.
 func (x *WebView) GetMicrophoneCaptureState() MediaCaptureState {
+	core.LazyRegister(&xWebViewGetMicrophoneCaptureState, "WEBKIT", "webkit_web_view_get_microphone_capture_state", false)
+
 	cret := xWebViewGetMicrophoneCaptureState(x.GoPointer())
 	return cret
 }
@@ -2297,6 +2356,7 @@ var xWebViewGetNetworkSession func(uintptr) uintptr
 
 // Get the #WebKitNetworkSession associated to @web_view.
 func (x *WebView) GetNetworkSession() *NetworkSession {
+	core.LazyRegister(&xWebViewGetNetworkSession, "WEBKIT", "webkit_web_view_get_network_session", false)
 	var cls *NetworkSession
 
 	cret := xWebViewGetNetworkSession(x.GoPointer())
@@ -2315,6 +2375,8 @@ var xWebViewGetPageId func(uintptr) uint64
 // Get the identifier of the #WebKitWebPage corresponding to
 // the #WebKitWebView
 func (x *WebView) GetPageId() uint64 {
+	core.LazyRegister(&xWebViewGetPageId, "WEBKIT", "webkit_web_view_get_page_id", false)
+
 	cret := xWebViewGetPageId(x.GoPointer())
 	return cret
 }
@@ -2323,6 +2385,8 @@ var xWebViewGetSessionState func(uintptr) uintptr
 
 // Gets the current session state of @web_view
 func (x *WebView) GetSessionState() *WebViewSessionState {
+	core.LazyRegister(&xWebViewGetSessionState, "WEBKIT", "webkit_web_view_get_session_state", false)
+
 	cret := xWebViewGetSessionState(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -2347,6 +2411,7 @@ var xWebViewGetSettings func(uintptr) uintptr
 // the settings of a #WebKitWebView would affect other
 // #WebKitWebView&lt;!-- --&gt;s using the same #WebKitSettings.
 func (x *WebView) GetSettings() *Settings {
+	core.LazyRegister(&xWebViewGetSettings, "WEBKIT", "webkit_web_view_get_settings", false)
 	var cls *Settings
 
 	cret := xWebViewGetSettings(x.GoPointer())
@@ -2370,6 +2435,8 @@ var xWebViewGetSnapshot func(uintptr, SnapshotRegion, SnapshotOptions, uintptr, 
 // call webkit_web_view_get_snapshot_finish() to get the result of the
 // operation.
 func (x *WebView) GetSnapshot(RegionVar SnapshotRegion, OptionsVar SnapshotOptions, CancellableVar *gio.Cancellable, CallbackVar *gio.AsyncReadyCallback, UserDataVar uintptr) {
+	core.LazyRegister(&xWebViewGetSnapshot, "WEBKIT", "webkit_web_view_get_snapshot", false)
+
 	xWebViewGetSnapshot(x.GoPointer(), RegionVar, OptionsVar, CancellableVar.GoPointer(), glib.NewCallbackNullable(CallbackVar), UserDataVar)
 }
 
@@ -2378,6 +2445,7 @@ var xWebViewGetSnapshotFinish func(uintptr, uintptr, **glib.Error) uintptr
 // Finishes an asynchronous operation started with webkit_web_view_get_snapshot(), producing
 // an image of the snapshot using the BGRA8888 pixel format.
 func (x *WebView) GetSnapshotFinish(ResultVar gio.AsyncResult) (*gdk.Texture, error) {
+	core.LazyRegister(&xWebViewGetSnapshotFinish, "WEBKIT", "webkit_web_view_get_snapshot_finish", false)
 	var cls *gdk.Texture
 	var cerr *glib.Error
 
@@ -2400,6 +2468,8 @@ var xWebViewGetThemeColor func(uintptr, *gdk.RGBA) bool
 // If the @web_view doesn't have a theme color it will fill the @rgba
 // with transparent black content.
 func (x *WebView) GetThemeColor(RgbaVar *gdk.RGBA) bool {
+	core.LazyRegister(&xWebViewGetThemeColor, "WEBKIT", "webkit_web_view_get_theme_color", false)
+
 	cret := xWebViewGetThemeColor(x.GoPointer(), RgbaVar)
 	return cret
 }
@@ -2411,6 +2481,8 @@ var xWebViewGetTitle func(uintptr) string
 // You can connect to notify::title signal of @web_view to
 // be notified when the title has been received.
 func (x *WebView) GetTitle() string {
+	core.LazyRegister(&xWebViewGetTitle, "WEBKIT", "webkit_web_view_get_title", false)
+
 	cret := xWebViewGetTitle(x.GoPointer())
 	return cret
 }
@@ -2434,6 +2506,8 @@ var xWebViewGetTlsInfo func(uintptr, **gio.TlsCertificate, *gio.TlsCertificateFl
 // if the current #WebKitTLSErrorsPolicy is %WEBKIT_TLS_ERRORS_POLICY_FAIL, in
 // which case subresources that fail certificate verification will be blocked.
 func (x *WebView) GetTlsInfo(CertificateVar **gio.TlsCertificate, ErrorsVar *gio.TlsCertificateFlags) bool {
+	core.LazyRegister(&xWebViewGetTlsInfo, "WEBKIT", "webkit_web_view_get_tls_info", false)
+
 	cret := xWebViewGetTlsInfo(x.GoPointer(), CertificateVar, ErrorsVar)
 	return cret
 }
@@ -2501,6 +2575,8 @@ var xWebViewGetUri func(uintptr) string
 // You can monitor the active URI by connecting to the notify::uri
 // signal of @web_view.
 func (x *WebView) GetUri() string {
+	core.LazyRegister(&xWebViewGetUri, "WEBKIT", "webkit_web_view_get_uri", false)
+
 	cret := xWebViewGetUri(x.GoPointer())
 	return cret
 }
@@ -2509,6 +2585,7 @@ var xWebViewGetUserContentManager func(uintptr) uintptr
 
 // Gets the user content manager associated to @web_view.
 func (x *WebView) GetUserContentManager() *UserContentManager {
+	core.LazyRegister(&xWebViewGetUserContentManager, "WEBKIT", "webkit_web_view_get_user_content_manager", false)
 	var cls *UserContentManager
 
 	cret := xWebViewGetUserContentManager(x.GoPointer())
@@ -2526,6 +2603,8 @@ var xWebViewGetWebExtensionMode func(uintptr) WebExtensionMode
 
 // Get the view's #WebKitWebExtensionMode.
 func (x *WebView) GetWebExtensionMode() WebExtensionMode {
+	core.LazyRegister(&xWebViewGetWebExtensionMode, "WEBKIT", "webkit_web_view_get_web_extension_mode", false)
+
 	cret := xWebViewGetWebExtensionMode(x.GoPointer())
 	return cret
 }
@@ -2540,6 +2619,7 @@ var xWebViewGetWebsitePolicies func(uintptr) uintptr
 //
 // See also webkit_policy_decision_use_with_policies().
 func (x *WebView) GetWebsitePolicies() *WebsitePolicies {
+	core.LazyRegister(&xWebViewGetWebsitePolicies, "WEBKIT", "webkit_web_view_get_website_policies", false)
 	var cls *WebsitePolicies
 
 	cret := xWebViewGetWebsitePolicies(x.GoPointer())
@@ -2560,6 +2640,7 @@ var xWebViewGetWindowProperties func(uintptr) uintptr
 // Get the #WebKitWindowProperties object containing the properties
 // that the window containing @web_view should have.
 func (x *WebView) GetWindowProperties() *WindowProperties {
+	core.LazyRegister(&xWebViewGetWindowProperties, "WEBKIT", "webkit_web_view_get_window_properties", false)
 	var cls *WindowProperties
 
 	cret := xWebViewGetWindowProperties(x.GoPointer())
@@ -2580,6 +2661,8 @@ var xWebViewGetZoomLevel func(uintptr) float64
 // Get the zoom level of @web_view, i.e. the factor by which the
 // view contents are scaled with respect to their original size.
 func (x *WebView) GetZoomLevel() float64 {
+	core.LazyRegister(&xWebViewGetZoomLevel, "WEBKIT", "webkit_web_view_get_zoom_level", false)
+
 	cret := xWebViewGetZoomLevel(x.GoPointer())
 	return cret
 }
@@ -2591,6 +2674,8 @@ var xWebViewGoBack func(uintptr)
 // You can monitor the load operation by connecting to
 // #WebKitWebView::load-changed signal.
 func (x *WebView) GoBack() {
+	core.LazyRegister(&xWebViewGoBack, "WEBKIT", "webkit_web_view_go_back", false)
+
 	xWebViewGoBack(x.GoPointer())
 }
 
@@ -2601,6 +2686,8 @@ var xWebViewGoForward func(uintptr)
 // You can monitor the load operation by connecting to
 // #WebKitWebView::load-changed signal.
 func (x *WebView) GoForward() {
+	core.LazyRegister(&xWebViewGoForward, "WEBKIT", "webkit_web_view_go_forward", false)
+
 	xWebViewGoForward(x.GoPointer())
 }
 
@@ -2611,6 +2698,8 @@ var xWebViewGoToBackForwardListItem func(uintptr, uintptr)
 // You can monitor the load operation by connecting to
 // #WebKitWebView::load-changed signal.
 func (x *WebView) GoToBackForwardListItem(ListItemVar *BackForwardListItem) {
+	core.LazyRegister(&xWebViewGoToBackForwardListItem, "WEBKIT", "webkit_web_view_go_to_back_forward_list_item", false)
+
 	xWebViewGoToBackForwardListItem(x.GoPointer(), ListItemVar.GoPointer())
 }
 
@@ -2622,6 +2711,8 @@ var xWebViewIsControlledByAutomation func(uintptr) bool
 // Only #WebKitWebView&lt;!-- --&gt;s controlled by automation can be used in an
 // automation session.
 func (x *WebView) IsControlledByAutomation() bool {
+	core.LazyRegister(&xWebViewIsControlledByAutomation, "WEBKIT", "webkit_web_view_is_controlled_by_automation", false)
+
 	cret := xWebViewIsControlledByAutomation(x.GoPointer())
 	return cret
 }
@@ -2634,6 +2725,8 @@ var xWebViewIsEditable func(uintptr) bool
 // CONTENTEDITABLE attribute has been set on the element or one of its parent
 // elements. By default a #WebKitWebView is not editable.
 func (x *WebView) IsEditable() bool {
+	core.LazyRegister(&xWebViewIsEditable, "WEBKIT", "webkit_web_view_is_editable", false)
+
 	cret := xWebViewIsEditable(x.GoPointer())
 	return cret
 }
@@ -2647,6 +2740,8 @@ var xWebViewIsImmersiveModeEnabled func(uintptr) bool
 //
 // Note that if WebXR is disabled or OPENXR is not used, this API always returns %FALSE.
 func (x *WebView) IsImmersiveModeEnabled() bool {
+	core.LazyRegister(&xWebViewIsImmersiveModeEnabled, "WEBKIT", "webkit_web_view_is_immersive_mode_enabled", false)
+
 	cret := xWebViewIsImmersiveModeEnabled(x.GoPointer())
 	return cret
 }
@@ -2661,6 +2756,8 @@ var xWebViewIsLoading func(uintptr) bool
 // details about the status of the load operation, for example to start a spinner
 // when the view is loading a page and stop it when it finishes.
 func (x *WebView) IsLoading() bool {
+	core.LazyRegister(&xWebViewIsLoading, "WEBKIT", "webkit_web_view_is_loading", false)
+
 	cret := xWebViewIsLoading(x.GoPointer())
 	return cret
 }
@@ -2674,6 +2771,8 @@ var xWebViewIsPlayingAudio func(uintptr) bool
 // is useful when the application wants to provide visual feedback when a
 // page is producing sound.
 func (x *WebView) IsPlayingAudio() bool {
+	core.LazyRegister(&xWebViewIsPlayingAudio, "WEBKIT", "webkit_web_view_is_playing_audio", false)
+
 	cret := xWebViewIsPlayingAudio(x.GoPointer())
 	return cret
 }
@@ -2689,6 +2788,8 @@ var xWebViewLeaveImmersiveMode func(uintptr)
 // Note that if WebXR is disabled, or if it is enabled but the @web_view is not in
 // immersive mode, this API does nothing. See also webkit_web_view_is_immersive_mode_enabled().
 func (x *WebView) LeaveImmersiveMode() {
+	core.LazyRegister(&xWebViewLeaveImmersiveMode, "WEBKIT", "webkit_web_view_leave_immersive_mode", false)
+
 	xWebViewLeaveImmersiveMode(x.GoPointer())
 }
 
@@ -2701,6 +2802,8 @@ var xWebViewLoadAlternateHtml func(uintptr, string, string, uintptr)
 // error page, then the back-forward list is maintained appropriately.
 // For everything else this method works the same way as webkit_web_view_load_html().
 func (x *WebView) LoadAlternateHtml(ContentVar string, ContentUriVar string, BaseUriVar *string) {
+	core.LazyRegister(&xWebViewLoadAlternateHtml, "WEBKIT", "webkit_web_view_load_alternate_html", false)
+
 	BaseUriVarPtr := core.GStrdupNullable(BaseUriVar)
 	defer core.GFreeNullable(BaseUriVarPtr)
 
@@ -2716,6 +2819,8 @@ var xWebViewLoadBytes func(uintptr, *glib.Bytes, uintptr, uintptr, uintptr)
 // When @base_uri is %NULL, it defaults to "about:blank".
 // You can monitor the load operation by connecting to #WebKitWebView::load-changed signal.
 func (x *WebView) LoadBytes(BytesVar *glib.Bytes, MimeTypeVar *string, EncodingVar *string, BaseUriVar *string) {
+	core.LazyRegister(&xWebViewLoadBytes, "WEBKIT", "webkit_web_view_load_bytes", false)
+
 	MimeTypeVarPtr := core.GStrdupNullable(MimeTypeVar)
 	defer core.GFreeNullable(MimeTypeVarPtr)
 
@@ -2741,6 +2846,8 @@ var xWebViewLoadHtml func(uintptr, string, uintptr)
 // it defaults to "about:blank". The mime type of the document will be "text/html".
 // You can monitor the load operation by connecting to #WebKitWebView::load-changed signal.
 func (x *WebView) LoadHtml(ContentVar string, BaseUriVar *string) {
+	core.LazyRegister(&xWebViewLoadHtml, "WEBKIT", "webkit_web_view_load_html", false)
+
 	BaseUriVarPtr := core.GStrdupNullable(BaseUriVar)
 	defer core.GFreeNullable(BaseUriVarPtr)
 
@@ -2754,6 +2861,8 @@ var xWebViewLoadPlainText func(uintptr, string)
 // The mime type of document will be "text/plain". You can monitor the load
 // operation by connecting to #WebKitWebView::load-changed signal.
 func (x *WebView) LoadPlainText(PlainTextVar string) {
+	core.LazyRegister(&xWebViewLoadPlainText, "WEBKIT", "webkit_web_view_load_plain_text", false)
+
 	xWebViewLoadPlainText(x.GoPointer(), PlainTextVar)
 }
 
@@ -2764,6 +2873,8 @@ var xWebViewLoadRequest func(uintptr, uintptr)
 // You can monitor the load operation by connecting to
 // #WebKitWebView::load-changed signal.
 func (x *WebView) LoadRequest(RequestVar *URIRequest) {
+	core.LazyRegister(&xWebViewLoadRequest, "WEBKIT", "webkit_web_view_load_request", false)
+
 	xWebViewLoadRequest(x.GoPointer(), RequestVar.GoPointer())
 }
 
@@ -2774,6 +2885,8 @@ var xWebViewLoadUri func(uintptr, string)
 // You can monitor the load operation by connecting to
 // #WebKitWebView::load-changed signal.
 func (x *WebView) LoadUri(UriVar string) {
+	core.LazyRegister(&xWebViewLoadUri, "WEBKIT", "webkit_web_view_load_uri", false)
+
 	xWebViewLoadUri(x.GoPointer(), UriVar)
 }
 
@@ -2783,6 +2896,8 @@ var xWebViewReload func(uintptr)
 //
 // See also webkit_web_view_reload_bypass_cache().
 func (x *WebView) Reload() {
+	core.LazyRegister(&xWebViewReload, "WEBKIT", "webkit_web_view_reload", false)
+
 	xWebViewReload(x.GoPointer())
 }
 
@@ -2791,6 +2906,8 @@ var xWebViewReloadBypassCache func(uintptr)
 // Reloads the current contents of @web_view without
 // using any cached data.
 func (x *WebView) ReloadBypassCache() {
+	core.LazyRegister(&xWebViewReloadBypassCache, "WEBKIT", "webkit_web_view_reload_bypass_cache", false)
+
 	xWebViewReloadBypassCache(x.GoPointer())
 }
 
@@ -2798,6 +2915,8 @@ var xWebViewRestoreSessionState func(uintptr, *WebViewSessionState)
 
 // Restore the @web_view session state from @state
 func (x *WebView) RestoreSessionState(StateVar *WebViewSessionState) {
+	core.LazyRegister(&xWebViewRestoreSessionState, "WEBKIT", "webkit_web_view_restore_session_state", false)
+
 	xWebViewRestoreSessionState(x.GoPointer(), StateVar)
 }
 
@@ -2813,6 +2932,8 @@ var xWebViewSave func(uintptr, SaveMode, uintptr, uintptr, uintptr)
 // then call webkit_web_view_save_finish() to get the result of the
 // operation.
 func (x *WebView) Save(SaveModeVar SaveMode, CancellableVar *gio.Cancellable, CallbackVar *gio.AsyncReadyCallback, UserDataVar uintptr) {
+	core.LazyRegister(&xWebViewSave, "WEBKIT", "webkit_web_view_save", false)
+
 	xWebViewSave(x.GoPointer(), SaveModeVar, CancellableVar.GoPointer(), glib.NewCallbackNullable(CallbackVar), UserDataVar)
 }
 
@@ -2820,6 +2941,7 @@ var xWebViewSaveFinish func(uintptr, uintptr, **glib.Error) uintptr
 
 // Finish an asynchronous operation started with webkit_web_view_save().
 func (x *WebView) SaveFinish(ResultVar gio.AsyncResult) (*gio.InputStream, error) {
+	core.LazyRegister(&xWebViewSaveFinish, "WEBKIT", "webkit_web_view_save_finish", false)
 	var cls *gio.InputStream
 	var cerr *glib.Error
 
@@ -2848,6 +2970,8 @@ var xWebViewSaveToFile func(uintptr, uintptr, SaveMode, uintptr, uintptr, uintpt
 // then call webkit_web_view_save_to_file_finish() to get the result of the
 // operation.
 func (x *WebView) SaveToFile(FileVar gio.File, SaveModeVar SaveMode, CancellableVar *gio.Cancellable, CallbackVar *gio.AsyncReadyCallback, UserDataVar uintptr) {
+	core.LazyRegister(&xWebViewSaveToFile, "WEBKIT", "webkit_web_view_save_to_file", false)
+
 	xWebViewSaveToFile(x.GoPointer(), FileVar.GoPointer(), SaveModeVar, CancellableVar.GoPointer(), glib.NewCallbackNullable(CallbackVar), UserDataVar)
 }
 
@@ -2855,6 +2979,7 @@ var xWebViewSaveToFileFinish func(uintptr, uintptr, **glib.Error) bool
 
 // Finish an asynchronous operation started with webkit_web_view_save_to_file().
 func (x *WebView) SaveToFileFinish(ResultVar gio.AsyncResult) (bool, error) {
+	core.LazyRegister(&xWebViewSaveToFileFinish, "WEBKIT", "webkit_web_view_save_to_file_finish", false)
 	var cerr *glib.Error
 
 	cret := xWebViewSaveToFileFinish(x.GoPointer(), ResultVar.GoPointer(), &cerr)
@@ -2873,6 +2998,8 @@ var xWebViewSendMessageToPage func(uintptr, uintptr, uintptr, uintptr, uintptr)
 // When the operation is finished, @callback will be called. You can then call
 // webkit_web_view_send_message_to_page_finish() to get the message reply.
 func (x *WebView) SendMessageToPage(MessageVar *UserMessage, CancellableVar *gio.Cancellable, CallbackVar *gio.AsyncReadyCallback, UserDataVar uintptr) {
+	core.LazyRegister(&xWebViewSendMessageToPage, "WEBKIT", "webkit_web_view_send_message_to_page", false)
+
 	xWebViewSendMessageToPage(x.GoPointer(), MessageVar.GoPointer(), CancellableVar.GoPointer(), glib.NewCallbackNullable(CallbackVar), UserDataVar)
 }
 
@@ -2880,6 +3007,7 @@ var xWebViewSendMessageToPageFinish func(uintptr, uintptr, **glib.Error) uintptr
 
 // Finish an asynchronous operation started with webkit_web_view_send_message_to_page().
 func (x *WebView) SendMessageToPageFinish(ResultVar gio.AsyncResult) (*UserMessage, error) {
+	core.LazyRegister(&xWebViewSendMessageToPageFinish, "WEBKIT", "webkit_web_view_send_message_to_page_finish", false)
 	var cls *UserMessage
 	var cerr *glib.Error
 
@@ -2905,6 +3033,8 @@ var xWebViewSetBackgroundColor func(uintptr, *gdk.RGBA)
 // specifies a background color, it will take precedence over the @rgba color.
 // By default the @web_view background color is opaque white.
 func (x *WebView) SetBackgroundColor(RgbaVar *gdk.RGBA) {
+	core.LazyRegister(&xWebViewSetBackgroundColor, "WEBKIT", "webkit_web_view_set_background_color", false)
+
 	xWebViewSetBackgroundColor(x.GoPointer(), RgbaVar)
 }
 
@@ -2916,6 +3046,8 @@ var xWebViewSetCameraCaptureState func(uintptr, MediaCaptureState)
 // state of the device has been set to %WEBKIT_MEDIA_CAPTURE_STATE_NONE it cannot be changed
 // anymore. The page can however request capture again using the mediaDevices API.
 func (x *WebView) SetCameraCaptureState(StateVar MediaCaptureState) {
+	core.LazyRegister(&xWebViewSetCameraCaptureState, "WEBKIT", "webkit_web_view_set_camera_capture_state", false)
+
 	xWebViewSetCameraCaptureState(x.GoPointer(), StateVar)
 }
 
@@ -2938,6 +3070,8 @@ var xWebViewSetCorsAllowlist func(uintptr, []string)
 // If this function is called multiple times, only the allowlist set by
 // the most recent call will be effective.
 func (x *WebView) SetCorsAllowlist(AllowlistVar []string) {
+	core.LazyRegister(&xWebViewSetCorsAllowlist, "WEBKIT", "webkit_web_view_set_cors_allowlist", false)
+
 	xWebViewSetCorsAllowlist(x.GoPointer(), AllowlistVar)
 }
 
@@ -2950,6 +3084,8 @@ var xWebViewSetCustomCharset func(uintptr, uintptr)
 // current page. Setting the custom character encoding to %NULL removes the character
 // encoding override.
 func (x *WebView) SetCustomCharset(CharsetVar *string) {
+	core.LazyRegister(&xWebViewSetCustomCharset, "WEBKIT", "webkit_web_view_set_custom_charset", false)
+
 	CharsetVarPtr := core.GStrdupNullable(CharsetVar)
 	defer core.GFreeNullable(CharsetVarPtr)
 
@@ -2964,6 +3100,8 @@ var xWebViewSetDisplayCaptureState func(uintptr, MediaCaptureState)
 // state of the device has been set to %WEBKIT_MEDIA_CAPTURE_STATE_NONE it cannot be changed
 // anymore. The page can however request capture again using the mediaDevices API.
 func (x *WebView) SetDisplayCaptureState(StateVar MediaCaptureState) {
+	core.LazyRegister(&xWebViewSetDisplayCaptureState, "WEBKIT", "webkit_web_view_set_display_capture_state", false)
+
 	xWebViewSetDisplayCaptureState(x.GoPointer(), StateVar)
 }
 
@@ -2980,6 +3118,8 @@ var xWebViewSetEditable func(uintptr, bool)
 // document are editable. This function provides a way to make the contents
 // of a #WebKitWebView editable without altering the document or DOM structure.
 func (x *WebView) SetEditable(EditableVar bool) {
+	core.LazyRegister(&xWebViewSetEditable, "WEBKIT", "webkit_web_view_set_editable", false)
+
 	xWebViewSetEditable(x.GoPointer(), EditableVar)
 }
 
@@ -2990,6 +3130,8 @@ var xWebViewSetInputMethodContext func(uintptr, uintptr)
 // Set the #WebKitInputMethodContext to be used by @web_view, or %NULL to not use any input method.
 // Note that the same #WebKitInputMethodContext can't be set on more than one #WebKitWebView at the same time.
 func (x *WebView) SetInputMethodContext(ContextVar *InputMethodContext) {
+	core.LazyRegister(&xWebViewSetInputMethodContext, "WEBKIT", "webkit_web_view_set_input_method_context", false)
+
 	xWebViewSetInputMethodContext(x.GoPointer(), ContextVar.GoPointer())
 }
 
@@ -2997,6 +3139,8 @@ var xWebViewSetIsMuted func(uintptr, bool)
 
 // Sets the mute state of @web_view.
 func (x *WebView) SetIsMuted(MutedVar bool) {
+	core.LazyRegister(&xWebViewSetIsMuted, "WEBKIT", "webkit_web_view_set_is_muted", false)
+
 	xWebViewSetIsMuted(x.GoPointer(), MutedVar)
 }
 
@@ -3008,6 +3152,8 @@ var xWebViewSetMicrophoneCaptureState func(uintptr, MediaCaptureState)
 // state of the device has been set to %WEBKIT_MEDIA_CAPTURE_STATE_NONE it cannot be changed
 // anymore. The page can however request capture again using the mediaDevices API.
 func (x *WebView) SetMicrophoneCaptureState(StateVar MediaCaptureState) {
+	core.LazyRegister(&xWebViewSetMicrophoneCaptureState, "WEBKIT", "webkit_web_view_set_microphone_capture_state", false)
+
 	xWebViewSetMicrophoneCaptureState(x.GoPointer(), StateVar)
 }
 
@@ -3021,6 +3167,8 @@ var xWebViewSetSettings func(uintptr, uintptr)
 // The same #WebKitSettings object can be shared
 // by multiple #WebKitWebView&lt;!-- --&gt;s.
 func (x *WebView) SetSettings(SettingsVar *Settings) {
+	core.LazyRegister(&xWebViewSetSettings, "WEBKIT", "webkit_web_view_set_settings", false)
+
 	xWebViewSetSettings(x.GoPointer(), SettingsVar.GoPointer())
 }
 
@@ -3031,6 +3179,8 @@ var xWebViewSetZoomLevel func(uintptr, float64)
 // Set the zoom level of @web_view, i.e. the factor by which the
 // view contents are scaled with respect to their original size.
 func (x *WebView) SetZoomLevel(ZoomLevelVar float64) {
+	core.LazyRegister(&xWebViewSetZoomLevel, "WEBKIT", "webkit_web_view_set_zoom_level", false)
+
 	xWebViewSetZoomLevel(x.GoPointer(), ZoomLevelVar)
 }
 
@@ -3043,6 +3193,8 @@ var xWebViewStopLoading func(uintptr)
 // #WebKitWebView::load-failed signal will be emitted with
 // %WEBKIT_NETWORK_ERROR_CANCELLED error.
 func (x *WebView) StopLoading() {
+	core.LazyRegister(&xWebViewStopLoading, "WEBKIT", "webkit_web_view_stop_loading", false)
+
 	xWebViewStopLoading(x.GoPointer())
 }
 
@@ -3054,6 +3206,8 @@ var xWebViewTerminateWebProcess func(uintptr)
 // using this method, the #WebKitWebView::web-process-terminated signal is emitted with
 // %WEBKIT_WEB_PROCESS_TERMINATED_BY_API as the reason for termination.
 func (x *WebView) TerminateWebProcess() {
+	core.LazyRegister(&xWebViewTerminateWebProcess, "WEBKIT", "webkit_web_view_terminate_web_process", false)
+
 	xWebViewTerminateWebProcess(x.GoPointer())
 }
 
@@ -3066,6 +3220,8 @@ var xWebViewTryClose func(uintptr)
 // onbeforeunload event handler or the user confirms to close the page,
 // the #WebKitWebView::close signal is emitted, otherwise nothing happens.
 func (x *WebView) TryClose() {
+	core.LazyRegister(&xWebViewTryClose, "WEBKIT", "webkit_web_view_try_close", false)
+
 	xWebViewTryClose(x.GoPointer())
 }
 
@@ -4571,123 +4727,8 @@ func (x *WebView) GetBuildableId() string {
 func init() {
 	core.SetPackageName("WEBKIT", "webkitgtk-6.0")
 	core.SetSharedLibraries("WEBKIT", []string{"libwebkitgtk-6.0.so.4", "libjavascriptcoregtk-6.0.so.1", "libwebkitgtk-6.0.4.dylib", "libjavascriptcoregtk-6.0.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("WEBKIT") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
 
-	core.PuregoSafeRegister(&xSnapshotOptionsGLibType, libs, "webkit_snapshot_options_get_type")
-
-	core.PuregoSafeRegister(&xInsecureContentEventGLibType, libs, "webkit_insecure_content_event_get_type")
-
-	core.PuregoSafeRegister(&xLoadEventGLibType, libs, "webkit_load_event_get_type")
-
-	core.PuregoSafeRegister(&xMediaCaptureStateGLibType, libs, "webkit_media_capture_state_get_type")
-
-	core.PuregoSafeRegister(&xPolicyDecisionTypeGLibType, libs, "webkit_policy_decision_type_get_type")
-
-	core.PuregoSafeRegister(&xSaveModeGLibType, libs, "webkit_save_mode_get_type")
-
-	core.PuregoSafeRegister(&xSnapshotRegionGLibType, libs, "webkit_snapshot_region_get_type")
-
-	core.PuregoSafeRegister(&xWebExtensionModeGLibType, libs, "webkit_web_extension_mode_get_type")
-
-	core.PuregoSafeRegister(&xWebProcessTerminationReasonGLibType, libs, "webkit_web_process_termination_reason_get_type")
-
-	core.PuregoSafeRegister(&xWebViewGLibType, libs, "webkit_web_view_get_type")
-
-	core.PuregoSafeRegister(&xNewWebView, libs, "webkit_web_view_new")
-
-	core.PuregoSafeRegister(&xWebViewCallAsyncJavascriptFunction, libs, "webkit_web_view_call_async_javascript_function")
-	core.PuregoSafeRegister(&xWebViewCallAsyncJavascriptFunctionFinish, libs, "webkit_web_view_call_async_javascript_function_finish")
-	core.PuregoSafeRegister(&xWebViewCanExecuteEditingCommand, libs, "webkit_web_view_can_execute_editing_command")
-	core.PuregoSafeRegister(&xWebViewCanExecuteEditingCommandFinish, libs, "webkit_web_view_can_execute_editing_command_finish")
-	core.PuregoSafeRegister(&xWebViewCanGoBack, libs, "webkit_web_view_can_go_back")
-	core.PuregoSafeRegister(&xWebViewCanGoForward, libs, "webkit_web_view_can_go_forward")
-	core.PuregoSafeRegister(&xWebViewCanShowMimeType, libs, "webkit_web_view_can_show_mime_type")
-	core.PuregoSafeRegister(&xWebViewDownloadUri, libs, "webkit_web_view_download_uri")
-	core.PuregoSafeRegister(&xWebViewEvaluateJavascript, libs, "webkit_web_view_evaluate_javascript")
-	core.PuregoSafeRegister(&xWebViewEvaluateJavascriptFinish, libs, "webkit_web_view_evaluate_javascript_finish")
-	core.PuregoSafeRegister(&xWebViewExecuteEditingCommand, libs, "webkit_web_view_execute_editing_command")
-	core.PuregoSafeRegister(&xWebViewExecuteEditingCommandWithArgument, libs, "webkit_web_view_execute_editing_command_with_argument")
-	core.PuregoSafeRegister(&xWebViewGetAutomationPresentationType, libs, "webkit_web_view_get_automation_presentation_type")
-	core.PuregoSafeRegister(&xWebViewGetBackForwardList, libs, "webkit_web_view_get_back_forward_list")
-	core.PuregoSafeRegister(&xWebViewGetBackgroundColor, libs, "webkit_web_view_get_background_color")
-	core.PuregoSafeRegister(&xWebViewGetCameraCaptureState, libs, "webkit_web_view_get_camera_capture_state")
-	core.PuregoSafeRegister(&xWebViewGetContext, libs, "webkit_web_view_get_context")
-	core.PuregoSafeRegister(&xWebViewGetCustomCharset, libs, "webkit_web_view_get_custom_charset")
-	core.PuregoSafeRegister(&xWebViewGetDefaultContentSecurityPolicy, libs, "webkit_web_view_get_default_content_security_policy")
-	core.PuregoSafeRegister(&xWebViewGetDisplayCaptureState, libs, "webkit_web_view_get_display_capture_state")
-	core.PuregoSafeRegister(&xWebViewGetEditorState, libs, "webkit_web_view_get_editor_state")
-	core.PuregoSafeRegister(&xWebViewGetEstimatedLoadProgress, libs, "webkit_web_view_get_estimated_load_progress")
-	core.PuregoSafeRegister(&xWebViewGetFavicon, libs, "webkit_web_view_get_favicon")
-	core.PuregoSafeRegister(&xWebViewGetFindController, libs, "webkit_web_view_get_find_controller")
-	core.PuregoSafeRegister(&xWebViewGetInputMethodContext, libs, "webkit_web_view_get_input_method_context")
-	core.PuregoSafeRegister(&xWebViewGetInspector, libs, "webkit_web_view_get_inspector")
-	core.PuregoSafeRegister(&xWebViewGetIsMuted, libs, "webkit_web_view_get_is_muted")
-	core.PuregoSafeRegister(&xWebViewGetIsWebProcessResponsive, libs, "webkit_web_view_get_is_web_process_responsive")
-	core.PuregoSafeRegister(&xWebViewGetMainResource, libs, "webkit_web_view_get_main_resource")
-	core.PuregoSafeRegister(&xWebViewGetMicrophoneCaptureState, libs, "webkit_web_view_get_microphone_capture_state")
-	core.PuregoSafeRegister(&xWebViewGetNetworkSession, libs, "webkit_web_view_get_network_session")
-	core.PuregoSafeRegister(&xWebViewGetPageId, libs, "webkit_web_view_get_page_id")
-	core.PuregoSafeRegister(&xWebViewGetSessionState, libs, "webkit_web_view_get_session_state")
-	core.PuregoSafeRegister(&xWebViewGetSettings, libs, "webkit_web_view_get_settings")
-	core.PuregoSafeRegister(&xWebViewGetSnapshot, libs, "webkit_web_view_get_snapshot")
-	core.PuregoSafeRegister(&xWebViewGetSnapshotFinish, libs, "webkit_web_view_get_snapshot_finish")
-	core.PuregoSafeRegister(&xWebViewGetThemeColor, libs, "webkit_web_view_get_theme_color")
-	core.PuregoSafeRegister(&xWebViewGetTitle, libs, "webkit_web_view_get_title")
-	core.PuregoSafeRegister(&xWebViewGetTlsInfo, libs, "webkit_web_view_get_tls_info")
-	core.PuregoSafeRegister(&xWebViewGetUri, libs, "webkit_web_view_get_uri")
-	core.PuregoSafeRegister(&xWebViewGetUserContentManager, libs, "webkit_web_view_get_user_content_manager")
-	core.PuregoSafeRegister(&xWebViewGetWebExtensionMode, libs, "webkit_web_view_get_web_extension_mode")
-	core.PuregoSafeRegister(&xWebViewGetWebsitePolicies, libs, "webkit_web_view_get_website_policies")
-	core.PuregoSafeRegister(&xWebViewGetWindowProperties, libs, "webkit_web_view_get_window_properties")
-	core.PuregoSafeRegister(&xWebViewGetZoomLevel, libs, "webkit_web_view_get_zoom_level")
-	core.PuregoSafeRegister(&xWebViewGoBack, libs, "webkit_web_view_go_back")
-	core.PuregoSafeRegister(&xWebViewGoForward, libs, "webkit_web_view_go_forward")
-	core.PuregoSafeRegister(&xWebViewGoToBackForwardListItem, libs, "webkit_web_view_go_to_back_forward_list_item")
-	core.PuregoSafeRegister(&xWebViewIsControlledByAutomation, libs, "webkit_web_view_is_controlled_by_automation")
-	core.PuregoSafeRegister(&xWebViewIsEditable, libs, "webkit_web_view_is_editable")
-	core.PuregoSafeRegister(&xWebViewIsImmersiveModeEnabled, libs, "webkit_web_view_is_immersive_mode_enabled")
-	core.PuregoSafeRegister(&xWebViewIsLoading, libs, "webkit_web_view_is_loading")
-	core.PuregoSafeRegister(&xWebViewIsPlayingAudio, libs, "webkit_web_view_is_playing_audio")
-	core.PuregoSafeRegister(&xWebViewLeaveImmersiveMode, libs, "webkit_web_view_leave_immersive_mode")
-	core.PuregoSafeRegister(&xWebViewLoadAlternateHtml, libs, "webkit_web_view_load_alternate_html")
-	core.PuregoSafeRegister(&xWebViewLoadBytes, libs, "webkit_web_view_load_bytes")
-	core.PuregoSafeRegister(&xWebViewLoadHtml, libs, "webkit_web_view_load_html")
-	core.PuregoSafeRegister(&xWebViewLoadPlainText, libs, "webkit_web_view_load_plain_text")
-	core.PuregoSafeRegister(&xWebViewLoadRequest, libs, "webkit_web_view_load_request")
-	core.PuregoSafeRegister(&xWebViewLoadUri, libs, "webkit_web_view_load_uri")
-	core.PuregoSafeRegister(&xWebViewReload, libs, "webkit_web_view_reload")
-	core.PuregoSafeRegister(&xWebViewReloadBypassCache, libs, "webkit_web_view_reload_bypass_cache")
-	core.PuregoSafeRegister(&xWebViewRestoreSessionState, libs, "webkit_web_view_restore_session_state")
-	core.PuregoSafeRegister(&xWebViewSave, libs, "webkit_web_view_save")
-	core.PuregoSafeRegister(&xWebViewSaveFinish, libs, "webkit_web_view_save_finish")
-	core.PuregoSafeRegister(&xWebViewSaveToFile, libs, "webkit_web_view_save_to_file")
-	core.PuregoSafeRegister(&xWebViewSaveToFileFinish, libs, "webkit_web_view_save_to_file_finish")
-	core.PuregoSafeRegister(&xWebViewSendMessageToPage, libs, "webkit_web_view_send_message_to_page")
-	core.PuregoSafeRegister(&xWebViewSendMessageToPageFinish, libs, "webkit_web_view_send_message_to_page_finish")
-	core.PuregoSafeRegister(&xWebViewSetBackgroundColor, libs, "webkit_web_view_set_background_color")
-	core.PuregoSafeRegister(&xWebViewSetCameraCaptureState, libs, "webkit_web_view_set_camera_capture_state")
-	core.PuregoSafeRegister(&xWebViewSetCorsAllowlist, libs, "webkit_web_view_set_cors_allowlist")
-	core.PuregoSafeRegister(&xWebViewSetCustomCharset, libs, "webkit_web_view_set_custom_charset")
-	core.PuregoSafeRegister(&xWebViewSetDisplayCaptureState, libs, "webkit_web_view_set_display_capture_state")
-	core.PuregoSafeRegister(&xWebViewSetEditable, libs, "webkit_web_view_set_editable")
-	core.PuregoSafeRegister(&xWebViewSetInputMethodContext, libs, "webkit_web_view_set_input_method_context")
-	core.PuregoSafeRegister(&xWebViewSetIsMuted, libs, "webkit_web_view_set_is_muted")
-	core.PuregoSafeRegister(&xWebViewSetMicrophoneCaptureState, libs, "webkit_web_view_set_microphone_capture_state")
-	core.PuregoSafeRegister(&xWebViewSetSettings, libs, "webkit_web_view_set_settings")
-	core.PuregoSafeRegister(&xWebViewSetZoomLevel, libs, "webkit_web_view_set_zoom_level")
-	core.PuregoSafeRegister(&xWebViewStopLoading, libs, "webkit_web_view_stop_loading")
-	core.PuregoSafeRegister(&xWebViewTerminateWebProcess, libs, "webkit_web_view_terminate_web_process")
-	core.PuregoSafeRegister(&xWebViewTryClose, libs, "webkit_web_view_try_close")
-
-	// Manually register types since they aren't being automatically registered when
-	// the library is loaded
-	// See https://bugs.webkit.org/show_bug.cgi?id=175937
+	// Manually register types since they aren't automatically registered when
+	// WebKit is loaded. See https://bugs.webkit.org/show_bug.cgi?id=175937.
 	WebViewGLibType()
 }

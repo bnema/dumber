@@ -131,6 +131,7 @@ type Closure struct {
 var xClosureGLibType func() types.GType
 
 func ClosureGLibType() types.GType {
+	core.LazyRegister(&xClosureGLibType, "GOBJECT", "g_closure_get_type", false)
 	return xClosureGLibType()
 }
 
@@ -153,6 +154,8 @@ var xNewClosureObject func(uint, uintptr) uintptr
 // @object and the created closure. This function is mainly useful
 // when implementing new types of closures.
 func NewClosureObject(SizeofClosureVar uint, ObjectVar *Object) *Closure {
+	core.LazyRegister(&xNewClosureObject, "GOBJECT", "g_closure_new_object", false)
+
 	cret := xNewClosureObject(SizeofClosureVar, ObjectVar.GoPointer())
 	if cret == 0 {
 		return nil
@@ -205,6 +208,8 @@ var xNewClosureSimple func(uint, uintptr) uintptr
 //
 // ]|
 func NewClosureSimple(SizeofClosureVar uint, DataVar uintptr) *Closure {
+	core.LazyRegister(&xNewClosureSimple, "GOBJECT", "g_closure_new_simple", false)
+
 	cret := xNewClosureSimple(SizeofClosureVar, DataVar)
 	if cret == 0 {
 		return nil
@@ -222,6 +227,8 @@ var xClosureAddFinalizeNotifier func(uintptr, uintptr, uintptr)
 // the closure being both invalidated and finalized, then the invalidate
 // notifiers will be run before the finalize notifiers.
 func (x *Closure) AddFinalizeNotifier(NotifyDataVar uintptr, NotifyFuncVar *ClosureNotify) {
+	core.LazyRegister(&xClosureAddFinalizeNotifier, "GOBJECT", "g_closure_add_finalize_notifier", false)
+
 	xClosureAddFinalizeNotifier(x.GoPointer(), NotifyDataVar, glib.NewCallbackNullable(NotifyFuncVar))
 }
 
@@ -233,6 +240,8 @@ var xClosureAddInvalidateNotifier func(uintptr, uintptr, uintptr)
 // Invalidation notifiers are invoked before finalization notifiers,
 // in an unspecified order.
 func (x *Closure) AddInvalidateNotifier(NotifyDataVar uintptr, NotifyFuncVar *ClosureNotify) {
+	core.LazyRegister(&xClosureAddInvalidateNotifier, "GOBJECT", "g_closure_add_invalidate_notifier", false)
+
 	xClosureAddInvalidateNotifier(x.GoPointer(), NotifyDataVar, glib.NewCallbackNullable(NotifyFuncVar))
 }
 
@@ -245,6 +254,8 @@ var xClosureAddMarshalGuards func(uintptr, uintptr, uintptr, uintptr, uintptr)
 // duration of the callback. See g_object_watch_closure() for an
 // example of marshal guards.
 func (x *Closure) AddMarshalGuards(PreMarshalDataVar uintptr, PreMarshalNotifyVar *ClosureNotify, PostMarshalDataVar uintptr, PostMarshalNotifyVar *ClosureNotify) {
+	core.LazyRegister(&xClosureAddMarshalGuards, "GOBJECT", "g_closure_add_marshal_guards", false)
+
 	xClosureAddMarshalGuards(x.GoPointer(), PreMarshalDataVar, glib.NewCallbackNullable(PreMarshalNotifyVar), PostMarshalDataVar, glib.NewCallbackNullable(PostMarshalNotifyVar))
 }
 
@@ -266,6 +277,8 @@ var xClosureInvalidate func(uintptr)
 // reference count of a closure drops to zero (unless it has already
 // been invalidated before).
 func (x *Closure) Invalidate() {
+	core.LazyRegister(&xClosureInvalidate, "GOBJECT", "g_closure_invalidate", false)
+
 	xClosureInvalidate(x.GoPointer())
 }
 
@@ -273,6 +286,8 @@ var xClosureInvoke func(uintptr, *Value, uint, []Value, uintptr)
 
 // Invokes the closure, i.e. executes the callback represented by the @closure.
 func (x *Closure) Invoke(ReturnValueVar *Value, NParamValuesVar uint, ParamValuesVar []Value, InvocationHintVar uintptr) {
+	core.LazyRegister(&xClosureInvoke, "GOBJECT", "g_closure_invoke", false)
+
 	xClosureInvoke(x.GoPointer(), ReturnValueVar, NParamValuesVar, ParamValuesVar, InvocationHintVar)
 }
 
@@ -281,6 +296,8 @@ var xClosureRef func(uintptr) uintptr
 // Increments the reference count on a closure to force it staying
 // alive while the caller holds a pointer to it.
 func (x *Closure) Ref() *Closure {
+	core.LazyRegister(&xClosureRef, "GOBJECT", "g_closure_ref", false)
+
 	cret := xClosureRef(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -294,6 +311,8 @@ var xClosureRemoveFinalizeNotifier func(uintptr, uintptr, uintptr)
 //
 // Notice that notifiers are automatically removed after they are run.
 func (x *Closure) RemoveFinalizeNotifier(NotifyDataVar uintptr, NotifyFuncVar *ClosureNotify) {
+	core.LazyRegister(&xClosureRemoveFinalizeNotifier, "GOBJECT", "g_closure_remove_finalize_notifier", false)
+
 	xClosureRemoveFinalizeNotifier(x.GoPointer(), NotifyDataVar, glib.NewCallbackNullable(NotifyFuncVar))
 }
 
@@ -303,6 +322,8 @@ var xClosureRemoveInvalidateNotifier func(uintptr, uintptr, uintptr)
 //
 // Notice that notifiers are automatically removed after they are run.
 func (x *Closure) RemoveInvalidateNotifier(NotifyDataVar uintptr, NotifyFuncVar *ClosureNotify) {
+	core.LazyRegister(&xClosureRemoveInvalidateNotifier, "GOBJECT", "g_closure_remove_invalidate_notifier", false)
+
 	xClosureRemoveInvalidateNotifier(x.GoPointer(), NotifyDataVar, glib.NewCallbackNullable(NotifyFuncVar))
 }
 
@@ -319,6 +340,8 @@ var xClosureSetMarshal func(uintptr, uintptr)
 //
 // See also: g_closure_set_meta_marshal()
 func (x *Closure) SetMarshal(MarshalVar *ClosureMarshal) {
+	core.LazyRegister(&xClosureSetMarshal, "GOBJECT", "g_closure_set_marshal", false)
+
 	xClosureSetMarshal(x.GoPointer(), glib.NewCallback(MarshalVar))
 }
 
@@ -342,6 +365,8 @@ var xClosureSetMetaMarshal func(uintptr, uintptr, uintptr)
 // the right callback and passes it to the marshaller as the
 // @marshal_data argument.
 func (x *Closure) SetMetaMarshal(MarshalDataVar uintptr, MetaMarshalVar *ClosureMarshal) {
+	core.LazyRegister(&xClosureSetMetaMarshal, "GOBJECT", "g_closure_set_meta_marshal", false)
+
 	xClosureSetMetaMarshal(x.GoPointer(), MarshalDataVar, glib.NewCallback(MetaMarshalVar))
 }
 
@@ -397,6 +422,8 @@ var xClosureSink func(uintptr)
 // (if it hasn't been called on @closure yet) just like g_closure_unref(),
 // g_closure_ref() should be called prior to this function.
 func (x *Closure) Sink() {
+	core.LazyRegister(&xClosureSink, "GOBJECT", "g_closure_sink", false)
+
 	xClosureSink(x.GoPointer())
 }
 
@@ -408,6 +435,8 @@ var xClosureUnref func(uintptr)
 // If no other callers are using the closure, then the closure will be
 // destroyed and freed.
 func (x *Closure) Unref() {
+	core.LazyRegister(&xClosureUnref, "GOBJECT", "g_closure_unref", false)
+
 	xClosureUnref(x.GoPointer())
 }
 
@@ -462,6 +491,8 @@ var xCclosureMarshalGeneric func(*Closure, *Value, uint, *Value, uintptr, uintpt
 // Normally this function is not passed explicitly to g_signal_new(),
 // but used automatically by GLib when specifying a %NULL marshaller.
 func CclosureMarshalGeneric(ClosureVar *Closure, ReturnGvalueVar *Value, NParamValuesVar uint, ParamValuesVar *Value, InvocationHintVar uintptr, MarshalDataVar uintptr) {
+	core.LazyRegister(&xCclosureMarshalGeneric, "GOBJECT", "g_cclosure_marshal_generic", false)
+
 	xCclosureMarshalGeneric(ClosureVar, ReturnGvalueVar, NParamValuesVar, ParamValuesVar, InvocationHintVar, MarshalDataVar)
 }
 
@@ -472,6 +503,8 @@ var xCclosureNew func(uintptr, uintptr, uintptr) uintptr
 //
 // @destroy_data will be called as a finalize notifier on the #GClosure.
 func CclosureNew(CallbackFuncVar *Callback, UserDataVar uintptr, DestroyDataVar *ClosureNotify) *Closure {
+	core.LazyRegister(&xCclosureNew, "GOBJECT", "g_cclosure_new", false)
+
 	cret := xCclosureNew(glib.NewCallback(CallbackFuncVar), UserDataVar, glib.NewCallbackNullable(DestroyDataVar))
 	if cret == 0 {
 		return nil
@@ -486,6 +519,8 @@ var xCclosureNewSwap func(uintptr, uintptr, uintptr) uintptr
 //
 // @destroy_data will be called as a finalize notifier on the #GClosure.
 func CclosureNewSwap(CallbackFuncVar *Callback, UserDataVar uintptr, DestroyDataVar *ClosureNotify) *Closure {
+	core.LazyRegister(&xCclosureNewSwap, "GOBJECT", "g_cclosure_new_swap", false)
+
 	cret := xCclosureNewSwap(glib.NewCallback(CallbackFuncVar), UserDataVar, glib.NewCallbackNullable(DestroyDataVar))
 	if cret == 0 {
 		return nil
@@ -499,6 +534,8 @@ var xSignalTypeCclosureNew func(types.GType, uint) uintptr
 // @struct_offset in the class structure of the interface or classed type
 // identified by @itype.
 func SignalTypeCclosureNew(ItypeVar types.GType, StructOffsetVar uint) *Closure {
+	core.LazyRegister(&xSignalTypeCclosureNew, "GOBJECT", "g_signal_type_cclosure_new", false)
+
 	cret := xSignalTypeCclosureNew(ItypeVar, StructOffsetVar)
 	if cret == 0 {
 		return nil
@@ -509,35 +546,4 @@ func SignalTypeCclosureNew(ItypeVar types.GType, StructOffsetVar uint) *Closure 
 func init() {
 	core.SetPackageName("GOBJECT", "gobject-2.0")
 	core.SetSharedLibraries("GOBJECT", []string{"libgobject-2.0.so.0", "libgobject-2.0.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GOBJECT") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xCclosureMarshalGeneric, libs, "g_cclosure_marshal_generic")
-	core.PuregoSafeRegister(&xCclosureNew, libs, "g_cclosure_new")
-	core.PuregoSafeRegister(&xCclosureNewSwap, libs, "g_cclosure_new_swap")
-	core.PuregoSafeRegister(&xSignalTypeCclosureNew, libs, "g_signal_type_cclosure_new")
-
-	core.PuregoSafeRegister(&xClosureGLibType, libs, "g_closure_get_type")
-
-	core.PuregoSafeRegister(&xNewClosureObject, libs, "g_closure_new_object")
-	core.PuregoSafeRegister(&xNewClosureSimple, libs, "g_closure_new_simple")
-
-	core.PuregoSafeRegister(&xClosureAddFinalizeNotifier, libs, "g_closure_add_finalize_notifier")
-	core.PuregoSafeRegister(&xClosureAddInvalidateNotifier, libs, "g_closure_add_invalidate_notifier")
-	core.PuregoSafeRegister(&xClosureAddMarshalGuards, libs, "g_closure_add_marshal_guards")
-	core.PuregoSafeRegister(&xClosureInvalidate, libs, "g_closure_invalidate")
-	core.PuregoSafeRegister(&xClosureInvoke, libs, "g_closure_invoke")
-	core.PuregoSafeRegister(&xClosureRef, libs, "g_closure_ref")
-	core.PuregoSafeRegister(&xClosureRemoveFinalizeNotifier, libs, "g_closure_remove_finalize_notifier")
-	core.PuregoSafeRegister(&xClosureRemoveInvalidateNotifier, libs, "g_closure_remove_invalidate_notifier")
-	core.PuregoSafeRegister(&xClosureSetMarshal, libs, "g_closure_set_marshal")
-	core.PuregoSafeRegister(&xClosureSetMetaMarshal, libs, "g_closure_set_meta_marshal")
-	core.PuregoSafeRegister(&xClosureSink, libs, "g_closure_sink")
-	core.PuregoSafeRegister(&xClosureUnref, libs, "g_closure_unref")
 }

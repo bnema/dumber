@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gio"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -41,6 +40,7 @@ type MultiSorter struct {
 var xMultiSorterGLibType func() types.GType
 
 func MultiSorterGLibType() types.GType {
+	core.LazyRegister(&xMultiSorterGLibType, "GTK", "gtk_multi_sorter_get_type", false)
 	return xMultiSorterGLibType()
 }
 
@@ -59,6 +59,7 @@ var xNewMultiSorter func() uintptr
 // no sorter has been added to it, it will always compare
 // items as equal.
 func NewMultiSorter() *MultiSorter {
+	core.LazyRegister(&xNewMultiSorter, "GTK", "gtk_multi_sorter_new", false)
 	var cls *MultiSorter
 
 	cret := xNewMultiSorter()
@@ -78,6 +79,8 @@ var xMultiSorterAppend func(uintptr, uintptr)
 // @self will consult all existing sorters before it will
 // sort with the given @sorter.
 func (x *MultiSorter) Append(SorterVar *Sorter) {
+	core.LazyRegister(&xMultiSorterAppend, "GTK", "gtk_multi_sorter_append", false)
+
 	xMultiSorterAppend(x.GoPointer(), SorterVar.GoPointer())
 }
 
@@ -88,6 +91,8 @@ var xMultiSorterRemove func(uintptr, uint)
 //
 // If @position is larger than the number of sorters, nothing happens.
 func (x *MultiSorter) Remove(PositionVar uint) {
+	core.LazyRegister(&xMultiSorterRemove, "GTK", "gtk_multi_sorter_remove", false)
+
 	xMultiSorterRemove(x.GoPointer(), PositionVar)
 }
 
@@ -208,19 +213,4 @@ func (x *MultiSorter) GetBuildableId() string {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GTK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xMultiSorterGLibType, libs, "gtk_multi_sorter_get_type")
-
-	core.PuregoSafeRegister(&xNewMultiSorter, libs, "gtk_multi_sorter_new")
-
-	core.PuregoSafeRegister(&xMultiSorterAppend, libs, "gtk_multi_sorter_append")
-	core.PuregoSafeRegister(&xMultiSorterRemove, libs, "gtk_multi_sorter_remove")
 }

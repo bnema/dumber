@@ -182,6 +182,7 @@ type MemoryInputStream struct {
 var xMemoryInputStreamGLibType func() types.GType
 
 func MemoryInputStreamGLibType() types.GType {
+	core.LazyRegister(&xMemoryInputStreamGLibType, "GIO", "g_memory_input_stream_get_type", false)
 	return xMemoryInputStreamGLibType()
 }
 
@@ -195,6 +196,7 @@ var xNewMemoryInputStream func() uintptr
 
 // Creates a new empty #GMemoryInputStream.
 func NewMemoryInputStream() *MemoryInputStream {
+	core.LazyRegister(&xNewMemoryInputStream, "GIO", "g_memory_input_stream_new", false)
 	var cls *MemoryInputStream
 
 	cret := xNewMemoryInputStream()
@@ -211,6 +213,7 @@ var xNewMemoryInputStreamFromBytes func(*glib.Bytes) uintptr
 
 // Creates a new #GMemoryInputStream with data from the given @bytes.
 func NewMemoryInputStreamFromBytes(BytesVar *glib.Bytes) *MemoryInputStream {
+	core.LazyRegister(&xNewMemoryInputStreamFromBytes, "GIO", "g_memory_input_stream_new_from_bytes", false)
 	var cls *MemoryInputStream
 
 	cret := xNewMemoryInputStreamFromBytes(BytesVar)
@@ -227,6 +230,7 @@ var xNewMemoryInputStreamFromData func([]byte, int, uintptr) uintptr
 
 // Creates a new #GMemoryInputStream with data in memory of a given size.
 func NewMemoryInputStreamFromData(DataVar []byte, LenVar int, DestroyVar *glib.DestroyNotify) *MemoryInputStream {
+	core.LazyRegister(&xNewMemoryInputStreamFromData, "GIO", "g_memory_input_stream_new_from_data", false)
 	var cls *MemoryInputStream
 
 	cret := xNewMemoryInputStreamFromData(DataVar, LenVar, glib.NewCallbackNullable(DestroyVar))
@@ -243,6 +247,8 @@ var xMemoryInputStreamAddBytes func(uintptr, *glib.Bytes)
 
 // Appends @bytes to data that can be read from the input stream.
 func (x *MemoryInputStream) AddBytes(BytesVar *glib.Bytes) {
+	core.LazyRegister(&xMemoryInputStreamAddBytes, "GIO", "g_memory_input_stream_add_bytes", false)
+
 	xMemoryInputStreamAddBytes(x.GoPointer(), BytesVar)
 }
 
@@ -250,6 +256,8 @@ var xMemoryInputStreamAddData func(uintptr, []byte, int, uintptr)
 
 // Appends @data to data that can be read from the input stream
 func (x *MemoryInputStream) AddData(DataVar []byte, LenVar int, DestroyVar *glib.DestroyNotify) {
+	core.LazyRegister(&xMemoryInputStreamAddData, "GIO", "g_memory_input_stream_add_data", false)
+
 	xMemoryInputStreamAddData(x.GoPointer(), DataVar, LenVar, glib.NewCallbackNullable(DestroyVar))
 }
 
@@ -400,21 +408,4 @@ func (x *MemoryInputStream) Truncate(OffsetVar int64, CancellableVar *Cancellabl
 func init() {
 	core.SetPackageName("GIO", "gio-2.0")
 	core.SetSharedLibraries("GIO", []string{"libgio-2.0.so.0", "libgio-2.0.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GIO") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xMemoryInputStreamGLibType, libs, "g_memory_input_stream_get_type")
-
-	core.PuregoSafeRegister(&xNewMemoryInputStream, libs, "g_memory_input_stream_new")
-	core.PuregoSafeRegister(&xNewMemoryInputStreamFromBytes, libs, "g_memory_input_stream_new_from_bytes")
-	core.PuregoSafeRegister(&xNewMemoryInputStreamFromData, libs, "g_memory_input_stream_new_from_data")
-
-	core.PuregoSafeRegister(&xMemoryInputStreamAddBytes, libs, "g_memory_input_stream_add_bytes")
-	core.PuregoSafeRegister(&xMemoryInputStreamAddData, libs, "g_memory_input_stream_add_data")
 }

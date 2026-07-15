@@ -2,7 +2,6 @@
 package gtk
 
 import (
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -28,6 +27,7 @@ type CellRendererCombo struct {
 var xCellRendererComboGLibType func() types.GType
 
 func CellRendererComboGLibType() types.GType {
+	core.LazyRegister(&xCellRendererComboGLibType, "GTK", "gtk_cell_renderer_combo_get_type", false)
 	return xCellRendererComboGLibType()
 }
 
@@ -47,6 +47,7 @@ var xNewCellRendererCombo func() uintptr
 // on the cell renderer to a string value in the model, thus rendering
 // a different string in each row of the `GtkTreeView`.
 func NewCellRendererCombo() *CellRendererCombo {
+	core.LazyRegister(&xNewCellRendererCombo, "GTK", "gtk_cell_renderer_combo_new", false)
 	var cls *CellRendererCombo
 
 	cret := xNewCellRendererCombo()
@@ -159,16 +160,4 @@ func (x *CellRendererCombo) ConnectChanged(cb *func(CellRendererCombo, string, u
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GTK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xCellRendererComboGLibType, libs, "gtk_cell_renderer_combo_get_type")
-
-	core.PuregoSafeRegister(&xNewCellRendererCombo, libs, "gtk_cell_renderer_combo_new")
 }

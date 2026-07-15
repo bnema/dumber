@@ -4,7 +4,6 @@ package pango
 import (
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 )
@@ -18,6 +17,7 @@ var xMarkupParserFinish func(*glib.MarkupParseContext, **AttrList, *string, *uin
 // markup. This function will not free @context, use [method@GLib.MarkupParseContext.free]
 // to do so.
 func MarkupParserFinish(ContextVar *glib.MarkupParseContext, AttrListVar **AttrList, TextVar *string, AccelCharVar *uint32) (bool, error) {
+	core.LazyRegister(&xMarkupParserFinish, "PANGO", "pango_markup_parser_finish", false)
 	var cerr *glib.Error
 
 	cret := xMarkupParserFinish(ContextVar, AttrListVar, TextVar, AccelCharVar, &cerr)
@@ -52,6 +52,8 @@ var xMarkupParserNew func(uint32) uintptr
 // from streams. To simply parse a string containing Pango markup,
 // the [func@Pango.parse_markup] API is recommended instead.
 func MarkupParserNew(AccelMarkerVar uint32) *glib.MarkupParseContext {
+	core.LazyRegister(&xMarkupParserNew, "PANGO", "pango_markup_parser_new", false)
+
 	cret := xMarkupParserNew(AccelMarkerVar)
 	if cret == 0 {
 		return nil
@@ -79,6 +81,7 @@ var xParseMarkup func(string, int, uint32, **AttrList, *string, *uint32, **glib.
 // If any error happens, none of the output arguments are touched except
 // for @error.
 func ParseMarkup(MarkupTextVar string, LengthVar int, AccelMarkerVar uint32, AttrListVar **AttrList, TextVar *string, AccelCharVar *uint32) (bool, error) {
+	core.LazyRegister(&xParseMarkup, "PANGO", "pango_parse_markup", false)
 	var cerr *glib.Error
 
 	cret := xParseMarkup(MarkupTextVar, LengthVar, AccelMarkerVar, AttrListVar, TextVar, AccelCharVar, &cerr)
@@ -91,16 +94,4 @@ func ParseMarkup(MarkupTextVar string, LengthVar int, AccelMarkerVar uint32, Att
 func init() {
 	core.SetPackageName("PANGO", "pango")
 	core.SetSharedLibraries("PANGO", []string{"libpango-1.0.so.0", "libpango-1.0.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("PANGO") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xMarkupParserFinish, libs, "pango_markup_parser_finish")
-	core.PuregoSafeRegister(&xMarkupParserNew, libs, "pango_markup_parser_new")
-	core.PuregoSafeRegister(&xParseMarkup, libs, "pango_parse_markup")
 }

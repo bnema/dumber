@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/cairo"
 	"github.com/bnema/puregotk/v4/glib"
@@ -70,6 +69,8 @@ var xSerializationErrorQuark func() glib.Quark
 
 // Registers an error quark for [class@Gsk.RenderNode] errors.
 func SerializationErrorQuark() glib.Quark {
+	core.LazyRegister(&xSerializationErrorQuark, "GSK", "gsk_serialization_error_quark", false)
+
 	cret := xSerializationErrorQuark()
 	return cret
 }
@@ -79,6 +80,7 @@ var xValueDupRenderNode func(*gobject.Value) uintptr
 // Retrieves the render node stored inside a `GValue`,
 // and acquires a reference to it.
 func ValueDupRenderNode(ValueVar *gobject.Value) *RenderNode {
+	core.LazyRegister(&xValueDupRenderNode, "GSK", "gsk_value_dup_render_node", false)
 	var cls *RenderNode
 
 	cret := xValueDupRenderNode(ValueVar)
@@ -95,6 +97,7 @@ var xValueGetRenderNode func(*gobject.Value) uintptr
 
 // Retrieves the render node stored inside a `GValue`.
 func ValueGetRenderNode(ValueVar *gobject.Value) *RenderNode {
+	core.LazyRegister(&xValueGetRenderNode, "GSK", "gsk_value_get_render_node", false)
 	var cls *RenderNode
 
 	cret := xValueGetRenderNode(ValueVar)
@@ -115,6 +118,8 @@ var xValueSetRenderNode func(*gobject.Value, uintptr)
 // The [struct@GObject.Value] will acquire a reference
 // to the render node.
 func ValueSetRenderNode(ValueVar *gobject.Value, NodeVar *RenderNode) {
+	core.LazyRegister(&xValueSetRenderNode, "GSK", "gsk_value_set_render_node", false)
+
 	xValueSetRenderNode(ValueVar, NodeVar.GoPointer())
 }
 
@@ -125,6 +130,8 @@ var xValueTakeRenderNode func(*gobject.Value, uintptr)
 // This function transfers the ownership of the
 // render node to the `GValue`.
 func ValueTakeRenderNode(ValueVar *gobject.Value, NodeVar *RenderNode) {
+	core.LazyRegister(&xValueTakeRenderNode, "GSK", "gsk_value_take_render_node", false)
+
 	xValueTakeRenderNode(ValueVar, NodeVar.GoPointer())
 }
 
@@ -147,6 +154,7 @@ type RenderNode struct {
 var xRenderNodeGLibType func() types.GType
 
 func RenderNodeGLibType() types.GType {
+	core.LazyRegister(&xRenderNodeGLibType, "GSK", "gsk_render_node_get_type", false)
 	return xRenderNodeGLibType()
 }
 
@@ -167,6 +175,8 @@ var xRenderNodeDraw func(uintptr, *cairo.Context)
 // For advanced nodes that cannot be supported using Cairo, in particular
 // for nodes doing 3D operations, this function may fail.
 func (x *RenderNode) Draw(CrVar *cairo.Context) {
+	core.LazyRegister(&xRenderNodeDraw, "GSK", "gsk_render_node_draw", false)
+
 	xRenderNodeDraw(x.GoPointer(), CrVar)
 }
 
@@ -176,6 +186,8 @@ var xRenderNodeGetBounds func(uintptr, *graphene.Rect)
 //
 // The node will not draw outside of its boundaries.
 func (x *RenderNode) GetBounds(BoundsVar *graphene.Rect) {
+	core.LazyRegister(&xRenderNodeGetBounds, "GSK", "gsk_render_node_get_bounds", false)
+
 	xRenderNodeGetBounds(x.GoPointer(), BoundsVar)
 }
 
@@ -187,6 +199,8 @@ var xRenderNodeGetChildren func(uintptr, *uint) uintptr
 // semantics, like the mask vs the source of a mask node. If you care about
 // thse semantics, don't use this function, use the specific getters instead.
 func (x *RenderNode) GetChildren(NChildrenVar *uint) uintptr {
+	core.LazyRegister(&xRenderNodeGetChildren, "GSK", "gsk_render_node_get_children", false)
+
 	cret := xRenderNodeGetChildren(x.GoPointer(), NChildrenVar)
 	return cret
 }
@@ -195,6 +209,8 @@ var xRenderNodeGetNodeType func(uintptr) RenderNodeType
 
 // Returns the type of the render node.
 func (x *RenderNode) GetNodeType() RenderNodeType {
+	core.LazyRegister(&xRenderNodeGetNodeType, "GSK", "gsk_render_node_get_node_type", false)
+
 	cret := xRenderNodeGetNodeType(x.GoPointer())
 	return cret
 }
@@ -210,6 +226,8 @@ var xRenderNodeGetOpaqueRect func(uintptr, *graphene.Rect) bool
 //
 // The rectangle will be fully contained in the bounds of the node.
 func (x *RenderNode) GetOpaqueRect(OutOpaqueVar *graphene.Rect) bool {
+	core.LazyRegister(&xRenderNodeGetOpaqueRect, "GSK", "gsk_render_node_get_opaque_rect", false)
+
 	cret := xRenderNodeGetOpaqueRect(x.GoPointer(), OutOpaqueVar)
 	return cret
 }
@@ -218,6 +236,7 @@ var xRenderNodeRef func(uintptr) uintptr
 
 // Acquires a reference on the given `GskRenderNode`.
 func (x *RenderNode) Ref() *RenderNode {
+	core.LazyRegister(&xRenderNodeRef, "GSK", "gsk_render_node_ref", false)
 	var cls *RenderNode
 
 	cret := xRenderNodeRef(x.GoPointer())
@@ -242,6 +261,8 @@ var xRenderNodeSerialize func(uintptr) uintptr
 // The intended use of this functions is testing, benchmarking and debugging.
 // The format is not meant as a permanent storage format.
 func (x *RenderNode) Serialize() *glib.Bytes {
+	core.LazyRegister(&xRenderNodeSerialize, "GSK", "gsk_render_node_serialize", false)
+
 	cret := xRenderNodeSerialize(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -256,6 +277,8 @@ var xRenderNodeUnref func(uintptr)
 // If the reference was the last, the resources associated to the @node are
 // freed.
 func (x *RenderNode) Unref() {
+	core.LazyRegister(&xRenderNodeUnref, "GSK", "gsk_render_node_unref", false)
+
 	xRenderNodeUnref(x.GoPointer())
 }
 
@@ -269,6 +292,7 @@ var xRenderNodeWriteToFile func(uintptr, string, **glib.Error) bool
 // It is mostly intended for use inside a debugger to quickly dump a render
 // node to a file for later inspection.
 func (x *RenderNode) WriteToFile(FilenameVar string) (bool, error) {
+	core.LazyRegister(&xRenderNodeWriteToFile, "GSK", "gsk_render_node_write_to_file", false)
 	var cerr *glib.Error
 
 	cret := xRenderNodeWriteToFile(x.GoPointer(), FilenameVar, &cerr)
@@ -295,6 +319,7 @@ var xRenderNodeDeserialize func(*glib.Bytes, uintptr, uintptr) uintptr
 //
 // For a discussion of the supported format, see that function.
 func RenderNodeDeserialize(BytesVar *glib.Bytes, ErrorFuncVar *ParseErrorFunc, UserDataVar uintptr) *RenderNode {
+	core.LazyRegister(&xRenderNodeDeserialize, "GSK", "gsk_render_node_deserialize", false)
 	var cls *RenderNode
 
 	cret := xRenderNodeDeserialize(BytesVar, glib.NewCallbackNullable(ErrorFuncVar), UserDataVar)
@@ -310,32 +335,4 @@ func RenderNodeDeserialize(BytesVar *glib.Bytes, ErrorFuncVar *ParseErrorFunc, U
 func init() {
 	core.SetPackageName("GSK", "gtk4")
 	core.SetSharedLibraries("GSK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GSK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xSerializationErrorQuark, libs, "gsk_serialization_error_quark")
-	core.PuregoSafeRegister(&xValueDupRenderNode, libs, "gsk_value_dup_render_node")
-	core.PuregoSafeRegister(&xValueGetRenderNode, libs, "gsk_value_get_render_node")
-	core.PuregoSafeRegister(&xValueSetRenderNode, libs, "gsk_value_set_render_node")
-	core.PuregoSafeRegister(&xValueTakeRenderNode, libs, "gsk_value_take_render_node")
-
-	core.PuregoSafeRegister(&xRenderNodeGLibType, libs, "gsk_render_node_get_type")
-
-	core.PuregoSafeRegister(&xRenderNodeDraw, libs, "gsk_render_node_draw")
-	core.PuregoSafeRegister(&xRenderNodeGetBounds, libs, "gsk_render_node_get_bounds")
-	core.PuregoSafeRegister(&xRenderNodeGetChildren, libs, "gsk_render_node_get_children")
-	core.PuregoSafeRegister(&xRenderNodeGetNodeType, libs, "gsk_render_node_get_node_type")
-	core.PuregoSafeRegister(&xRenderNodeGetOpaqueRect, libs, "gsk_render_node_get_opaque_rect")
-	core.PuregoSafeRegister(&xRenderNodeRef, libs, "gsk_render_node_ref")
-	core.PuregoSafeRegister(&xRenderNodeSerialize, libs, "gsk_render_node_serialize")
-	core.PuregoSafeRegister(&xRenderNodeUnref, libs, "gsk_render_node_unref")
-	core.PuregoSafeRegister(&xRenderNodeWriteToFile, libs, "gsk_render_node_write_to_file")
-
-	core.PuregoSafeRegister(&xRenderNodeDeserialize, libs, "gsk_render_node_deserialize")
 }

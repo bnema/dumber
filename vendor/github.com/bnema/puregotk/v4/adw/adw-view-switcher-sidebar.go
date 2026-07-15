@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -85,6 +84,7 @@ type ViewSwitcherSidebar struct {
 var xViewSwitcherSidebarGLibType func() types.GType
 
 func ViewSwitcherSidebarGLibType() types.GType {
+	core.LazyRegister(&xViewSwitcherSidebarGLibType, "ADW", "adw_view_switcher_sidebar_get_type", false)
 	return xViewSwitcherSidebarGLibType()
 }
 
@@ -98,6 +98,7 @@ var xNewViewSwitcherSidebar func() uintptr
 
 // Creates a new `AdwViewSwitcherSidebar`.
 func NewViewSwitcherSidebar() *ViewSwitcherSidebar {
+	core.LazyRegister(&xNewViewSwitcherSidebar, "ADW", "adw_view_switcher_sidebar_new", false)
 	var cls *ViewSwitcherSidebar
 
 	cret := xNewViewSwitcherSidebar()
@@ -115,6 +116,7 @@ var xViewSwitcherSidebarGetFilter func(uintptr) uintptr
 
 // Gets the item filter for @self.
 func (x *ViewSwitcherSidebar) GetFilter() *gtk.Filter {
+	core.LazyRegister(&xViewSwitcherSidebarGetFilter, "ADW", "adw_view_switcher_sidebar_get_filter", false)
 	var cls *gtk.Filter
 
 	cret := xViewSwitcherSidebarGetFilter(x.GoPointer())
@@ -134,6 +136,8 @@ var xViewSwitcherSidebarGetMode func(uintptr) SidebarMode
 //
 // See [method@Sidebar.get_mode].
 func (x *ViewSwitcherSidebar) GetMode() SidebarMode {
+	core.LazyRegister(&xViewSwitcherSidebarGetMode, "ADW", "adw_view_switcher_sidebar_get_mode", false)
+
 	cret := xViewSwitcherSidebarGetMode(x.GoPointer())
 	return cret
 }
@@ -142,6 +146,7 @@ var xViewSwitcherSidebarGetPlaceholder func(uintptr) uintptr
 
 // Gets the placeholder widget for @self.
 func (x *ViewSwitcherSidebar) GetPlaceholder() *gtk.Widget {
+	core.LazyRegister(&xViewSwitcherSidebarGetPlaceholder, "ADW", "adw_view_switcher_sidebar_get_placeholder", false)
 	var cls *gtk.Widget
 
 	cret := xViewSwitcherSidebarGetPlaceholder(x.GoPointer())
@@ -159,6 +164,7 @@ var xViewSwitcherSidebarGetStack func(uintptr) uintptr
 
 // Gets the stack @self controls.
 func (x *ViewSwitcherSidebar) GetStack() *ViewStack {
+	core.LazyRegister(&xViewSwitcherSidebarGetStack, "ADW", "adw_view_switcher_sidebar_get_stack", false)
 	var cls *ViewStack
 
 	cret := xViewSwitcherSidebarGetStack(x.GoPointer())
@@ -182,6 +188,8 @@ var xViewSwitcherSidebarSetFilter func(uintptr, uintptr)
 //
 // See [method@Sidebar.set_filter].
 func (x *ViewSwitcherSidebar) SetFilter(FilterVar *gtk.Filter) {
+	core.LazyRegister(&xViewSwitcherSidebarSetFilter, "ADW", "adw_view_switcher_sidebar_set_filter", false)
+
 	xViewSwitcherSidebarSetFilter(x.GoPointer(), FilterVar.GoPointer())
 }
 
@@ -211,6 +219,8 @@ var xViewSwitcherSidebarSetMode func(uintptr, SidebarMode)
 //
 // See [method@Sidebar.set_mode].
 func (x *ViewSwitcherSidebar) SetMode(ModeVar SidebarMode) {
+	core.LazyRegister(&xViewSwitcherSidebarSetMode, "ADW", "adw_view_switcher_sidebar_set_mode", false)
+
 	xViewSwitcherSidebarSetMode(x.GoPointer(), ModeVar)
 }
 
@@ -223,6 +233,8 @@ var xViewSwitcherSidebarSetPlaceholder func(uintptr, uintptr)
 //
 // See [method@Sidebar.set_placeholder].
 func (x *ViewSwitcherSidebar) SetPlaceholder(PlaceholderVar *gtk.Widget) {
+	core.LazyRegister(&xViewSwitcherSidebarSetPlaceholder, "ADW", "adw_view_switcher_sidebar_set_placeholder", false)
+
 	xViewSwitcherSidebarSetPlaceholder(x.GoPointer(), PlaceholderVar.GoPointer())
 }
 
@@ -230,6 +242,8 @@ var xViewSwitcherSidebarSetStack func(uintptr, uintptr)
 
 // Sets the stack to control.
 func (x *ViewSwitcherSidebar) SetStack(StackVar *ViewStack) {
+	core.LazyRegister(&xViewSwitcherSidebarSetStack, "ADW", "adw_view_switcher_sidebar_set_stack", false)
+
 	xViewSwitcherSidebarSetStack(x.GoPointer(), StackVar.GoPointer())
 }
 
@@ -530,25 +544,4 @@ func (x *ViewSwitcherSidebar) GetBuildableId() string {
 func init() {
 	core.SetPackageName("ADW", "libadwaita-1")
 	core.SetSharedLibraries("ADW", []string{"libadwaita-1.so.0", "libadwaita-1.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("ADW") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xViewSwitcherSidebarGLibType, libs, "adw_view_switcher_sidebar_get_type")
-
-	core.PuregoSafeRegister(&xNewViewSwitcherSidebar, libs, "adw_view_switcher_sidebar_new")
-
-	core.PuregoSafeRegister(&xViewSwitcherSidebarGetFilter, libs, "adw_view_switcher_sidebar_get_filter")
-	core.PuregoSafeRegister(&xViewSwitcherSidebarGetMode, libs, "adw_view_switcher_sidebar_get_mode")
-	core.PuregoSafeRegister(&xViewSwitcherSidebarGetPlaceholder, libs, "adw_view_switcher_sidebar_get_placeholder")
-	core.PuregoSafeRegister(&xViewSwitcherSidebarGetStack, libs, "adw_view_switcher_sidebar_get_stack")
-	core.PuregoSafeRegister(&xViewSwitcherSidebarSetFilter, libs, "adw_view_switcher_sidebar_set_filter")
-	core.PuregoSafeRegister(&xViewSwitcherSidebarSetMode, libs, "adw_view_switcher_sidebar_set_mode")
-	core.PuregoSafeRegister(&xViewSwitcherSidebarSetPlaceholder, libs, "adw_view_switcher_sidebar_set_placeholder")
-	core.PuregoSafeRegister(&xViewSwitcherSidebarSetStack, libs, "adw_view_switcher_sidebar_set_stack")
 }

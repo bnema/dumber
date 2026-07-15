@@ -2,7 +2,6 @@
 package glib
 
 import (
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject/types"
 )
@@ -25,6 +24,7 @@ type NormalizeMode int
 var xNormalizeModeGLibType func() types.GType
 
 func NormalizeModeGLibType() types.GType {
+	core.LazyRegister(&xNormalizeModeGLibType, "GLIB", "g_normalize_mode_get_type", false)
 	return xNormalizeModeGLibType()
 }
 
@@ -66,6 +66,7 @@ type UnicodeBreakType int
 var xUnicodeBreakTypeGLibType func() types.GType
 
 func UnicodeBreakTypeGLibType() types.GType {
+	core.LazyRegister(&xUnicodeBreakTypeGLibType, "GLIB", "g_unicode_break_type_get_type", false)
 	return xUnicodeBreakTypeGLibType()
 }
 
@@ -186,6 +187,7 @@ type UnicodeScript int
 var xUnicodeScriptGLibType func() types.GType
 
 func UnicodeScriptGLibType() types.GType {
+	core.LazyRegister(&xUnicodeScriptGLibType, "GLIB", "g_unicode_script_get_type", false)
 	return xUnicodeScriptGLibType()
 }
 
@@ -556,6 +558,7 @@ type UnicodeType int
 var xUnicodeTypeGLibType func() types.GType
 
 func UnicodeTypeGLibType() types.GType {
+	core.LazyRegister(&xUnicodeTypeGLibType, "GLIB", "g_unicode_type_get_type", false)
 	return xUnicodeTypeGLibType()
 }
 
@@ -629,6 +632,7 @@ var xUcs4ToUtf16 func([]uint32, int, *int, *int, **Error) uint16
 //
 // A nul character (U+0000) will be added to the result after the converted text.
 func Ucs4ToUtf16(StrVar []uint32, LenVar int, ItemsReadVar *int, ItemsWrittenVar *int) (uint16, error) {
+	core.LazyRegister(&xUcs4ToUtf16, "GLIB", "g_ucs4_to_utf16", false)
 	var cerr *Error
 
 	cret := xUcs4ToUtf16(StrVar, LenVar, ItemsReadVar, ItemsWrittenVar, &cerr)
@@ -645,6 +649,7 @@ var xUcs4ToUtf8 func([]uint32, int, *int, *int, **Error) string
 //
 // The result will be terminated with a nul byte.
 func Ucs4ToUtf8(StrVar []uint32, LenVar int, ItemsReadVar *int, ItemsWrittenVar *int) (string, error) {
+	core.LazyRegister(&xUcs4ToUtf8, "GLIB", "g_ucs4_to_utf8", false)
 	var cerr *Error
 
 	cret := xUcs4ToUtf8(StrVar, LenVar, ItemsReadVar, ItemsWrittenVar, &cerr)
@@ -663,6 +668,8 @@ var xUnicharBreakType func(uint32) UnicodeBreakType
 // resolution algorithms and normally you would use a function such
 // as pango_break() instead of caring about break types yourself.
 func UnicharBreakType(CVar uint32) UnicodeBreakType {
+	core.LazyRegister(&xUnicharBreakType, "GLIB", "g_unichar_break_type", false)
+
 	cret := xUnicharBreakType(CVar)
 	return cret
 }
@@ -671,6 +678,8 @@ var xUnicharCombiningClass func(uint32) int
 
 // Determines the canonical combining class of a Unicode character.
 func UnicharCombiningClass(UcVar uint32) int {
+	core.LazyRegister(&xUnicharCombiningClass, "GLIB", "g_unichar_combining_class", false)
+
 	cret := xUnicharCombiningClass(UcVar)
 	return cret
 }
@@ -694,6 +703,8 @@ var xUnicharCompose func(uint32, uint32, *uint32) bool
 // [UAX#15](http://unicode.org/reports/tr15/)
 // for details.
 func UnicharCompose(AVar uint32, BVar uint32, ChVar *uint32) bool {
+	core.LazyRegister(&xUnicharCompose, "GLIB", "g_unichar_compose", false)
+
 	cret := xUnicharCompose(AVar, BVar, ChVar)
 	return cret
 }
@@ -724,6 +735,8 @@ var xUnicharDecompose func(uint32, *uint32, *uint32) bool
 // [UAX#15](http://unicode.org/reports/tr15/)
 // for details.
 func UnicharDecompose(ChVar uint32, AVar *uint32, BVar *uint32) bool {
+	core.LazyRegister(&xUnicharDecompose, "GLIB", "g_unichar_decompose", false)
+
 	cret := xUnicharDecompose(ChVar, AVar, BVar)
 	return cret
 }
@@ -733,6 +746,8 @@ var xUnicharDigitValue func(uint32) int
 // Determines the numeric value of a character as a decimal
 // digit.
 func UnicharDigitValue(CVar uint32) int {
+	core.LazyRegister(&xUnicharDigitValue, "GLIB", "g_unichar_digit_value", false)
+
 	cret := xUnicharDigitValue(CVar)
 	return cret
 }
@@ -759,6 +774,8 @@ var xUnicharFullyDecompose func(uint32, bool, *uint32, uint) uint
 // [UAX#15](http://unicode.org/reports/tr15/)
 // for details.
 func UnicharFullyDecompose(ChVar uint32, CompatVar bool, ResultVar *uint32, ResultLenVar uint) uint {
+	core.LazyRegister(&xUnicharFullyDecompose, "GLIB", "g_unichar_fully_decompose", false)
+
 	cret := xUnicharFullyDecompose(ChVar, CompatVar, ResultVar, ResultLenVar)
 	return cret
 }
@@ -775,6 +792,8 @@ var xUnicharGetMirrorChar func(uint32, *uint32) bool
 // glyph and @mirrored_ch is set, it puts that character in the address
 // pointed to by @mirrored_ch.  Otherwise the original character is put.
 func UnicharGetMirrorChar(ChVar uint32, MirroredChVar *uint32) bool {
+	core.LazyRegister(&xUnicharGetMirrorChar, "GLIB", "g_unichar_get_mirror_char", false)
+
 	cret := xUnicharGetMirrorChar(ChVar, MirroredChVar)
 	return cret
 }
@@ -789,6 +808,8 @@ var xUnicharGetScript func(uint32) UnicodeScript
 // This function is equivalent to pango_script_for_unichar() and the
 // two are interchangeable.
 func UnicharGetScript(ChVar uint32) UnicodeScript {
+	core.LazyRegister(&xUnicharGetScript, "GLIB", "g_unichar_get_script", false)
+
 	cret := xUnicharGetScript(ChVar)
 	return cret
 }
@@ -799,6 +820,8 @@ var xUnicharIsalnum func(uint32) bool
 // Given some UTF-8 text, obtain a character value
 // with g_utf8_get_char().
 func UnicharIsalnum(CVar uint32) bool {
+	core.LazyRegister(&xUnicharIsalnum, "GLIB", "g_unichar_isalnum", false)
+
 	cret := xUnicharIsalnum(CVar)
 	return cret
 }
@@ -809,6 +832,8 @@ var xUnicharIsalpha func(uint32) bool
 // Given some UTF-8 text, obtain a character value with
 // g_utf8_get_char().
 func UnicharIsalpha(CVar uint32) bool {
+	core.LazyRegister(&xUnicharIsalpha, "GLIB", "g_unichar_isalpha", false)
+
 	cret := xUnicharIsalpha(CVar)
 	return cret
 }
@@ -819,6 +844,8 @@ var xUnicharIscntrl func(uint32) bool
 // Given some UTF-8 text, obtain a character value with
 // g_utf8_get_char().
 func UnicharIscntrl(CVar uint32) bool {
+	core.LazyRegister(&xUnicharIscntrl, "GLIB", "g_unichar_iscntrl", false)
+
 	cret := xUnicharIscntrl(CVar)
 	return cret
 }
@@ -828,6 +855,8 @@ var xUnicharIsdefined func(uint32) bool
 // Determines if a given character is assigned in the Unicode
 // standard.
 func UnicharIsdefined(CVar uint32) bool {
+	core.LazyRegister(&xUnicharIsdefined, "GLIB", "g_unichar_isdefined", false)
+
 	cret := xUnicharIsdefined(CVar)
 	return cret
 }
@@ -838,6 +867,8 @@ var xUnicharIsdigit func(uint32) bool
 // covers ASCII 0-9 and also digits in other languages/scripts.  Given
 // some UTF-8 text, obtain a character value with g_utf8_get_char().
 func UnicharIsdigit(CVar uint32) bool {
+	core.LazyRegister(&xUnicharIsdigit, "GLIB", "g_unichar_isdigit", false)
+
 	cret := xUnicharIsdigit(CVar)
 	return cret
 }
@@ -850,6 +881,8 @@ var xUnicharIsgraph func(uint32) bool
 // spaces. Given some UTF-8 text, obtain a character value with
 // g_utf8_get_char().
 func UnicharIsgraph(CVar uint32) bool {
+	core.LazyRegister(&xUnicharIsgraph, "GLIB", "g_unichar_isgraph", false)
+
 	cret := xUnicharIsgraph(CVar)
 	return cret
 }
@@ -860,6 +893,8 @@ var xUnicharIslower func(uint32) bool
 // Given some UTF-8 text, obtain a character value with
 // g_utf8_get_char().
 func UnicharIslower(CVar uint32) bool {
+	core.LazyRegister(&xUnicharIslower, "GLIB", "g_unichar_islower", false)
+
 	cret := xUnicharIslower(CVar)
 	return cret
 }
@@ -876,6 +911,8 @@ var xUnicharIsmark func(uint32) bool
 // for writing most European languages as well as many non-Latin
 // scripts.
 func UnicharIsmark(CVar uint32) bool {
+	core.LazyRegister(&xUnicharIsmark, "GLIB", "g_unichar_ismark", false)
+
 	cret := xUnicharIsmark(CVar)
 	return cret
 }
@@ -887,6 +924,8 @@ var xUnicharIsprint func(uint32) bool
 // Given some UTF-8 text, obtain a character value with
 // g_utf8_get_char().
 func UnicharIsprint(CVar uint32) bool {
+	core.LazyRegister(&xUnicharIsprint, "GLIB", "g_unichar_isprint", false)
+
 	cret := xUnicharIsprint(CVar)
 	return cret
 }
@@ -897,6 +936,8 @@ var xUnicharIspunct func(uint32) bool
 // Given some UTF-8 text, obtain a character value with
 // g_utf8_get_char().
 func UnicharIspunct(CVar uint32) bool {
+	core.LazyRegister(&xUnicharIspunct, "GLIB", "g_unichar_ispunct", false)
+
 	cret := xUnicharIspunct(CVar)
 	return cret
 }
@@ -911,6 +952,8 @@ var xUnicharIsspace func(uint32) bool
 // Pango or equivalent to get word breaking right, the algorithm
 // is fairly complex.)
 func UnicharIsspace(CVar uint32) bool {
+	core.LazyRegister(&xUnicharIsspace, "GLIB", "g_unichar_isspace", false)
+
 	cret := xUnicharIsspace(CVar)
 	return cret
 }
@@ -924,6 +967,8 @@ var xUnicharIstitle func(uint32) bool
 // first letter is capitalized. The titlecase form of the DZ
 // digraph is U+01F2 LATIN CAPITAL LETTTER D WITH SMALL LETTER Z.
 func UnicharIstitle(CVar uint32) bool {
+	core.LazyRegister(&xUnicharIstitle, "GLIB", "g_unichar_istitle", false)
+
 	cret := xUnicharIstitle(CVar)
 	return cret
 }
@@ -932,6 +977,8 @@ var xUnicharIsupper func(uint32) bool
 
 // Determines if a character is uppercase.
 func UnicharIsupper(CVar uint32) bool {
+	core.LazyRegister(&xUnicharIsupper, "GLIB", "g_unichar_isupper", false)
+
 	cret := xUnicharIsupper(CVar)
 	return cret
 }
@@ -941,6 +988,8 @@ var xUnicharIswide func(uint32) bool
 // Determines if a character is typically rendered in a double-width
 // cell.
 func UnicharIswide(CVar uint32) bool {
+	core.LazyRegister(&xUnicharIswide, "GLIB", "g_unichar_iswide", false)
+
 	cret := xUnicharIswide(CVar)
 	return cret
 }
@@ -958,6 +1007,8 @@ var xUnicharIswideCjk func(uint32) bool
 // this test, but not the other way around.  Note that some characters may
 // pass both this test and g_unichar_iszerowidth().
 func UnicharIswideCjk(CVar uint32) bool {
+	core.LazyRegister(&xUnicharIswideCjk, "GLIB", "g_unichar_iswide_cjk", false)
+
 	cret := xUnicharIswideCjk(CVar)
 	return cret
 }
@@ -966,6 +1017,8 @@ var xUnicharIsxdigit func(uint32) bool
 
 // Determines if a character is a hexadecimal digit.
 func UnicharIsxdigit(CVar uint32) bool {
+	core.LazyRegister(&xUnicharIsxdigit, "GLIB", "g_unichar_isxdigit", false)
+
 	cret := xUnicharIsxdigit(CVar)
 	return cret
 }
@@ -982,6 +1035,8 @@ var xUnicharIszerowidth func(uint32) bool
 // when displayed on a grid display (terminals).  However, note that not all
 // terminals support zero-width rendering of zero-width marks.
 func UnicharIszerowidth(CVar uint32) bool {
+	core.LazyRegister(&xUnicharIszerowidth, "GLIB", "g_unichar_iszerowidth", false)
+
 	cret := xUnicharIszerowidth(CVar)
 	return cret
 }
@@ -990,6 +1045,8 @@ var xUnicharToUtf8 func(uint32, *string) int
 
 // Converts a single character to UTF-8.
 func UnicharToUtf8(CVar uint32, OutbufVar *string) int {
+	core.LazyRegister(&xUnicharToUtf8, "GLIB", "g_unichar_to_utf8", false)
+
 	cret := xUnicharToUtf8(CVar, OutbufVar)
 	return cret
 }
@@ -998,6 +1055,8 @@ var xUnicharTolower func(uint32) uint32
 
 // Converts a character to lower case.
 func UnicharTolower(CVar uint32) uint32 {
+	core.LazyRegister(&xUnicharTolower, "GLIB", "g_unichar_tolower", false)
+
 	cret := xUnicharTolower(CVar)
 	return cret
 }
@@ -1006,6 +1065,8 @@ var xUnicharTotitle func(uint32) uint32
 
 // Converts a character to the titlecase.
 func UnicharTotitle(CVar uint32) uint32 {
+	core.LazyRegister(&xUnicharTotitle, "GLIB", "g_unichar_totitle", false)
+
 	cret := xUnicharTotitle(CVar)
 	return cret
 }
@@ -1014,6 +1075,8 @@ var xUnicharToupper func(uint32) uint32
 
 // Converts a character to uppercase.
 func UnicharToupper(CVar uint32) uint32 {
+	core.LazyRegister(&xUnicharToupper, "GLIB", "g_unichar_toupper", false)
+
 	cret := xUnicharToupper(CVar)
 	return cret
 }
@@ -1022,6 +1085,8 @@ var xUnicharType func(uint32) UnicodeType
 
 // Classifies a Unicode character by type.
 func UnicharType(CVar uint32) UnicodeType {
+	core.LazyRegister(&xUnicharType, "GLIB", "g_unichar_type", false)
+
 	cret := xUnicharType(CVar)
 	return cret
 }
@@ -1033,6 +1098,8 @@ var xUnicharValidate func(uint32) bool
 // Some possible integer values of @ch will not be valid. U+0000 is considered a
 // valid character, though it’s normally a string terminator.
 func UnicharValidate(ChVar uint32) bool {
+	core.LazyRegister(&xUnicharValidate, "GLIB", "g_unichar_validate", false)
+
 	cret := xUnicharValidate(ChVar)
 	return cret
 }
@@ -1042,6 +1109,8 @@ var xUnicharXdigitValue func(uint32) int
 // Determines the numeric value of a character as a hexadecimal
 // digit.
 func UnicharXdigitValue(CVar uint32) int {
+	core.LazyRegister(&xUnicharXdigitValue, "GLIB", "g_unichar_xdigit_value", false)
+
 	cret := xUnicharXdigitValue(CVar)
 	return cret
 }
@@ -1050,6 +1119,8 @@ var xUnicodeCanonicalDecomposition func(uint32, uint) uint32
 
 // Computes the canonical decomposition of a Unicode character.
 func UnicodeCanonicalDecomposition(ChVar uint32, ResultLenVar uint) uint32 {
+	core.LazyRegister(&xUnicodeCanonicalDecomposition, "GLIB", "g_unicode_canonical_decomposition", false)
+
 	cret := xUnicodeCanonicalDecomposition(ChVar, ResultLenVar)
 	return cret
 }
@@ -1061,6 +1132,8 @@ var xUnicodeCanonicalOrdering func([]uint32, uint)
 // according to their combining classes.  See the Unicode
 // manual for more information.
 func UnicodeCanonicalOrdering(StringVar []uint32, LenVar uint) {
+	core.LazyRegister(&xUnicodeCanonicalOrdering, "GLIB", "g_unicode_canonical_ordering", false)
+
 	xUnicodeCanonicalOrdering(StringVar, LenVar)
 }
 
@@ -1076,6 +1149,8 @@ var xUnicodeScriptFromIso15924 func(uint32) UnicodeScript
 // [Codes for the representation of names of scripts](http://unicode.org/iso15924/codelists.html)
 // for details.
 func UnicodeScriptFromIso15924(Iso15924Var uint32) UnicodeScript {
+	core.LazyRegister(&xUnicodeScriptFromIso15924, "GLIB", "g_unicode_script_from_iso15924", false)
+
 	cret := xUnicodeScriptFromIso15924(Iso15924Var)
 	return cret
 }
@@ -1092,6 +1167,8 @@ var xUnicodeScriptToIso15924 func(UnicodeScript) uint32
 // [Codes for the representation of names of scripts](http://unicode.org/iso15924/codelists.html)
 // for details.
 func UnicodeScriptToIso15924(ScriptVar UnicodeScript) uint32 {
+	core.LazyRegister(&xUnicodeScriptToIso15924, "GLIB", "g_unicode_script_to_iso15924", false)
+
 	cret := xUnicodeScriptToIso15924(ScriptVar)
 	return cret
 }
@@ -1102,6 +1179,7 @@ var xUtf16ToUcs4 func([]uint16, int, *int, *int, **Error) uint32
 //
 // The result will be nul-terminated.
 func Utf16ToUcs4(StrVar []uint16, LenVar int, ItemsReadVar *int, ItemsWrittenVar *int) (uint32, error) {
+	core.LazyRegister(&xUtf16ToUcs4, "GLIB", "g_utf16_to_ucs4", false)
 	var cerr *Error
 
 	cret := xUtf16ToUcs4(StrVar, LenVar, ItemsReadVar, ItemsWrittenVar, &cerr)
@@ -1128,6 +1206,7 @@ var xUtf16ToUtf8 func([]uint16, int, *int, *int, **Error) string
 // be correctly interpreted as UTF-16, i.e. it doesn’t contain
 // unpaired surrogates or partial character sequences.
 func Utf16ToUtf8(StrVar []uint16, LenVar int, ItemsReadVar *int, ItemsWrittenVar *int) (string, error) {
+	core.LazyRegister(&xUtf16ToUtf8, "GLIB", "g_utf16_to_utf8", false)
 	var cerr *Error
 
 	cret := xUtf16ToUtf8(StrVar, LenVar, ItemsReadVar, ItemsWrittenVar, &cerr)
@@ -1151,6 +1230,8 @@ var xUtf8Casefold func(string, int) string
 // takes case sensitivity into account. GLib does not currently
 // provide such a function.
 func Utf8Casefold(StrVar string, LenVar int) string {
+	core.LazyRegister(&xUtf8Casefold, "GLIB", "g_utf8_casefold", false)
+
 	cret := xUtf8Casefold(StrVar, LenVar)
 	return cret
 }
@@ -1168,6 +1249,8 @@ var xUtf8Collate func(string, string) int
 // sequences, the result is undefined. This can happen if the strings are in
 // different language scripts, for example.
 func Utf8Collate(Str1Var string, Str2Var string) int {
+	core.LazyRegister(&xUtf8Collate, "GLIB", "g_utf8_collate", false)
+
 	cret := xUtf8Collate(Str1Var, Str2Var)
 	return cret
 }
@@ -1188,6 +1271,8 @@ var xUtf8CollateKey func(string, int) string
 // encoding, especially UTF-8. The returned value is meant to be
 // used only for comparisons.
 func Utf8CollateKey(StrVar string, LenVar int) string {
+	core.LazyRegister(&xUtf8CollateKey, "GLIB", "g_utf8_collate_key", false)
+
 	cret := xUtf8CollateKey(StrVar, LenVar)
 	return cret
 }
@@ -1210,6 +1295,8 @@ var xUtf8CollateKeyForFilename func(string, int) string
 // encoding, especially UTF-8. The returned value is meant to be
 // used only for comparisons.
 func Utf8CollateKeyForFilename(StrVar string, LenVar int) string {
+	core.LazyRegister(&xUtf8CollateKeyForFilename, "GLIB", "g_utf8_collate_key_for_filename", false)
+
 	cret := xUtf8CollateKeyForFilename(StrVar, LenVar)
 	return cret
 }
@@ -1227,6 +1314,8 @@ var xUtf8FindNextChar func(string, uintptr) string
 // @end is non-`NULL`, the return value will be `NULL` if the end of the string
 // is reached.
 func Utf8FindNextChar(PVar string, EndVar *string) string {
+	core.LazyRegister(&xUtf8FindNextChar, "GLIB", "g_utf8_find_next_char", false)
+
 	EndVarPtr := core.GStrdupNullable(EndVar)
 	defer core.GFreeNullable(EndVarPtr)
 
@@ -1244,6 +1333,8 @@ var xUtf8FindPrevChar func(string, string) string
 // is made to see if the character found is actually valid other than
 // it starts with an appropriate byte.
 func Utf8FindPrevChar(StrVar string, PVar string) string {
+	core.LazyRegister(&xUtf8FindPrevChar, "GLIB", "g_utf8_find_prev_char", false)
+
 	cret := xUtf8FindPrevChar(StrVar, PVar)
 	return cret
 }
@@ -1257,6 +1348,8 @@ var xUtf8GetChar func(string) uint32
 // valid Unicode characters, you should use [func@GLib.utf8_get_char_validated]
 // instead.
 func Utf8GetChar(PVar string) uint32 {
+	core.LazyRegister(&xUtf8GetChar, "GLIB", "g_utf8_get_char", false)
+
 	cret := xUtf8GetChar(PVar)
 	return cret
 }
@@ -1273,6 +1366,8 @@ var xUtf8GetCharValidated func(string, int) uint32
 // @max_len is positive and any of the bytes in the first UTF-8 character
 // sequence are nul.
 func Utf8GetCharValidated(PVar string, MaxLenVar int) uint32 {
+	core.LazyRegister(&xUtf8GetCharValidated, "GLIB", "g_utf8_get_char_validated", false)
+
 	cret := xUtf8GetCharValidated(PVar, MaxLenVar)
 	return cret
 }
@@ -1289,6 +1384,8 @@ var xUtf8MakeValid func(string, int) string
 // assumption that it is close enough to ASCII or UTF-8 to be mostly
 // readable as-is.
 func Utf8MakeValid(StrVar string, LenVar int) string {
+	core.LazyRegister(&xUtf8MakeValid, "GLIB", "g_utf8_make_valid", false)
+
 	cret := xUtf8MakeValid(StrVar, LenVar)
 	return cret
 }
@@ -1321,6 +1418,8 @@ var xUtf8Normalize func(string, int, NormalizeMode) string
 // a legacy encoding or pass it to a system with
 // less capable Unicode handling.
 func Utf8Normalize(StrVar string, LenVar int, ModeVar NormalizeMode) string {
+	core.LazyRegister(&xUtf8Normalize, "GLIB", "g_utf8_normalize", false)
+
 	cret := xUtf8Normalize(StrVar, LenVar, ModeVar)
 	return cret
 }
@@ -1341,6 +1440,8 @@ var xUtf8OffsetToPointer func(string, int) string
 // This limitation exists as this function is called frequently during
 // text rendering and therefore has to be as fast as possible.
 func Utf8OffsetToPointer(StrVar string, OffsetVar int) string {
+	core.LazyRegister(&xUtf8OffsetToPointer, "GLIB", "g_utf8_offset_to_pointer", false)
+
 	cret := xUtf8OffsetToPointer(StrVar, OffsetVar)
 	return cret
 }
@@ -1353,6 +1454,8 @@ var xUtf8PointerToOffset func(string, string) int
 // Since 2.10, this function allows @pos to be before @str, and returns
 // a negative offset in this case.
 func Utf8PointerToOffset(StrVar string, PosVar string) int {
+	core.LazyRegister(&xUtf8PointerToOffset, "GLIB", "g_utf8_pointer_to_offset", false)
+
 	cret := xUtf8PointerToOffset(StrVar, PosVar)
 	return cret
 }
@@ -1367,6 +1470,8 @@ var xUtf8PrevChar func(string) string
 // character of the string, you must use [func@GLib.utf8_find_prev_char]
 // instead.
 func Utf8PrevChar(PVar string) string {
+	core.LazyRegister(&xUtf8PrevChar, "GLIB", "g_utf8_prev_char", false)
+
 	cret := xUtf8PrevChar(PVar)
 	return cret
 }
@@ -1378,6 +1483,8 @@ var xUtf8Strchr func(string, int, uint32) string
 //
 // If @len is `-1`, allow unbounded search.
 func Utf8Strchr(PVar string, LenVar int, CVar uint32) string {
+	core.LazyRegister(&xUtf8Strchr, "GLIB", "g_utf8_strchr", false)
+
 	cret := xUtf8Strchr(PVar, LenVar, CVar)
 	return cret
 }
@@ -1389,6 +1496,8 @@ var xUtf8Strdown func(string, int) string
 // on the current locale, and may result in the number of
 // characters in the string changing.
 func Utf8Strdown(StrVar string, LenVar int) string {
+	core.LazyRegister(&xUtf8Strdown, "GLIB", "g_utf8_strdown", false)
+
 	cret := xUtf8Strdown(StrVar, LenVar)
 	return cret
 }
@@ -1399,6 +1508,8 @@ var xUtf8Strlen func(string, int) int
 // the terminating nul character. If the @max’th byte falls in the
 // middle of a character, the last (partial) character is not counted.
 func Utf8Strlen(PVar string, MaxVar int) int {
+	core.LazyRegister(&xUtf8Strlen, "GLIB", "g_utf8_strlen", false)
+
 	cret := xUtf8Strlen(PVar, MaxVar)
 	return cret
 }
@@ -1415,6 +1526,8 @@ var xUtf8Strncpy func(string, string, uint) string
 // Note you must ensure @dest is at least 4 * @n + 1 to fit the
 // largest possible UTF-8 characters
 func Utf8Strncpy(DestVar string, SrcVar string, NVar uint) string {
+	core.LazyRegister(&xUtf8Strncpy, "GLIB", "g_utf8_strncpy", false)
+
 	cret := xUtf8Strncpy(DestVar, SrcVar, NVar)
 	return cret
 }
@@ -1426,6 +1539,8 @@ var xUtf8Strrchr func(string, int, uint32) string
 //
 // If @len is `-1`, allow unbounded search.
 func Utf8Strrchr(PVar string, LenVar int, CVar uint32) string {
+	core.LazyRegister(&xUtf8Strrchr, "GLIB", "g_utf8_strrchr", false)
+
 	cret := xUtf8Strrchr(PVar, LenVar, CVar)
 	return cret
 }
@@ -1447,6 +1562,8 @@ var xUtf8Strreverse func(string, int) string
 // newly-allocated memory, which should be freed with [func@GLib.free] when
 // no longer needed.
 func Utf8Strreverse(StrVar string, LenVar int) string {
+	core.LazyRegister(&xUtf8Strreverse, "GLIB", "g_utf8_strreverse", false)
+
 	cret := xUtf8Strreverse(StrVar, LenVar)
 	return cret
 }
@@ -1459,6 +1576,8 @@ var xUtf8Strup func(string, int) string
 // characters in the string increasing. (For instance, the
 // German ess-zet will be changed to SS.)
 func Utf8Strup(StrVar string, LenVar int) string {
+	core.LazyRegister(&xUtf8Strup, "GLIB", "g_utf8_strup", false)
+
 	cret := xUtf8Strup(StrVar, LenVar)
 	return cret
 }
@@ -1471,6 +1590,8 @@ var xUtf8Substring func(string, int, int) string
 // Since GLib 2.72, `-1` can be passed to @end_pos to indicate the
 // end of the string.
 func Utf8Substring(StrVar string, StartPosVar int, EndPosVar int) string {
+	core.LazyRegister(&xUtf8Substring, "GLIB", "g_utf8_substring", false)
+
 	cret := xUtf8Substring(StrVar, StartPosVar, EndPosVar)
 	return cret
 }
@@ -1482,6 +1603,7 @@ var xUtf8ToUcs4 func(string, int, *int, *int, **Error) uint32
 // A trailing nul character (U+0000) will be added to the string after the
 // converted text.
 func Utf8ToUcs4(StrVar string, LenVar int, ItemsReadVar *int, ItemsWrittenVar *int) (uint32, error) {
+	core.LazyRegister(&xUtf8ToUcs4, "GLIB", "g_utf8_to_ucs4", false)
 	var cerr *Error
 
 	cret := xUtf8ToUcs4(StrVar, LenVar, ItemsReadVar, ItemsWrittenVar, &cerr)
@@ -1500,6 +1622,8 @@ var xUtf8ToUcs4Fast func(string, int, *int) uint32
 // but does no error checking on the input. A trailing nul character (U+0000)
 // will be added to the string after the converted text.
 func Utf8ToUcs4Fast(StrVar string, LenVar int, ItemsWrittenVar *int) uint32 {
+	core.LazyRegister(&xUtf8ToUcs4Fast, "GLIB", "g_utf8_to_ucs4_fast", false)
+
 	cret := xUtf8ToUcs4Fast(StrVar, LenVar, ItemsWrittenVar)
 	return cret
 }
@@ -1510,6 +1634,7 @@ var xUtf8ToUtf16 func(string, int, *int, *int, **Error) uint16
 //
 // A nul character (U+0000) will be added to the result after the converted text.
 func Utf8ToUtf16(StrVar string, LenVar int, ItemsReadVar *int, ItemsWrittenVar *int) (uint16, error) {
+	core.LazyRegister(&xUtf8ToUtf16, "GLIB", "g_utf8_to_utf16", false)
 	var cerr *Error
 
 	cret := xUtf8ToUtf16(StrVar, LenVar, ItemsReadVar, ItemsWrittenVar, &cerr)
@@ -1527,6 +1652,8 @@ var xUtf8TruncateMiddle func(string, uint) string
 // If @string is already short enough, this returns a copy of @string.
 // If @truncate_length is `0`, an empty string is returned.
 func Utf8TruncateMiddle(StringVar string, TruncateLengthVar uint) string {
+	core.LazyRegister(&xUtf8TruncateMiddle, "GLIB", "g_utf8_truncate_middle", false)
+
 	cret := xUtf8TruncateMiddle(StringVar, TruncateLengthVar)
 	return cret
 }
@@ -1551,6 +1678,8 @@ var xUtf8Validate func([]byte, int, *[]byte) bool
 // or the network should be checked with `g_utf8_validate()` before
 // doing anything else with it.
 func Utf8Validate(StrVar []byte, MaxLenVar int, EndVar *[]byte) bool {
+	core.LazyRegister(&xUtf8Validate, "GLIB", "g_utf8_validate", false)
+
 	cret := xUtf8Validate(StrVar, MaxLenVar, EndVar)
 	return cret
 }
@@ -1562,6 +1691,8 @@ var xUtf8ValidateLen func([]byte, uint, *[]byte) bool
 // As with [func@GLib.utf8_validate], but @max_len must be set, and hence this
 // function will always return `FALSE` if any of the bytes of @str are nul.
 func Utf8ValidateLen(StrVar []byte, MaxLenVar uint, EndVar *[]byte) bool {
+	core.LazyRegister(&xUtf8ValidateLen, "GLIB", "g_utf8_validate_len", false)
+
 	cret := xUtf8ValidateLen(StrVar, MaxLenVar, EndVar)
 	return cret
 }
@@ -1569,88 +1700,4 @@ func Utf8ValidateLen(StrVar []byte, MaxLenVar uint, EndVar *[]byte) bool {
 func init() {
 	core.SetPackageName("GLIB", "glib-2.0")
 	core.SetSharedLibraries("GLIB", []string{"libgobject-2.0.so.0", "libglib-2.0.so.0", "libgobject-2.0.0.dylib", "libglib-2.0.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GLIB") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xNormalizeModeGLibType, libs, "g_normalize_mode_get_type")
-
-	core.PuregoSafeRegister(&xUnicodeBreakTypeGLibType, libs, "g_unicode_break_type_get_type")
-
-	core.PuregoSafeRegister(&xUnicodeScriptGLibType, libs, "g_unicode_script_get_type")
-
-	core.PuregoSafeRegister(&xUnicodeTypeGLibType, libs, "g_unicode_type_get_type")
-
-	core.PuregoSafeRegister(&xUcs4ToUtf16, libs, "g_ucs4_to_utf16")
-	core.PuregoSafeRegister(&xUcs4ToUtf8, libs, "g_ucs4_to_utf8")
-	core.PuregoSafeRegister(&xUnicharBreakType, libs, "g_unichar_break_type")
-	core.PuregoSafeRegister(&xUnicharCombiningClass, libs, "g_unichar_combining_class")
-	core.PuregoSafeRegister(&xUnicharCompose, libs, "g_unichar_compose")
-	core.PuregoSafeRegister(&xUnicharDecompose, libs, "g_unichar_decompose")
-	core.PuregoSafeRegister(&xUnicharDigitValue, libs, "g_unichar_digit_value")
-	core.PuregoSafeRegister(&xUnicharFullyDecompose, libs, "g_unichar_fully_decompose")
-	core.PuregoSafeRegister(&xUnicharGetMirrorChar, libs, "g_unichar_get_mirror_char")
-	core.PuregoSafeRegister(&xUnicharGetScript, libs, "g_unichar_get_script")
-	core.PuregoSafeRegister(&xUnicharIsalnum, libs, "g_unichar_isalnum")
-	core.PuregoSafeRegister(&xUnicharIsalpha, libs, "g_unichar_isalpha")
-	core.PuregoSafeRegister(&xUnicharIscntrl, libs, "g_unichar_iscntrl")
-	core.PuregoSafeRegister(&xUnicharIsdefined, libs, "g_unichar_isdefined")
-	core.PuregoSafeRegister(&xUnicharIsdigit, libs, "g_unichar_isdigit")
-	core.PuregoSafeRegister(&xUnicharIsgraph, libs, "g_unichar_isgraph")
-	core.PuregoSafeRegister(&xUnicharIslower, libs, "g_unichar_islower")
-	core.PuregoSafeRegister(&xUnicharIsmark, libs, "g_unichar_ismark")
-	core.PuregoSafeRegister(&xUnicharIsprint, libs, "g_unichar_isprint")
-	core.PuregoSafeRegister(&xUnicharIspunct, libs, "g_unichar_ispunct")
-	core.PuregoSafeRegister(&xUnicharIsspace, libs, "g_unichar_isspace")
-	core.PuregoSafeRegister(&xUnicharIstitle, libs, "g_unichar_istitle")
-	core.PuregoSafeRegister(&xUnicharIsupper, libs, "g_unichar_isupper")
-	core.PuregoSafeRegister(&xUnicharIswide, libs, "g_unichar_iswide")
-	core.PuregoSafeRegister(&xUnicharIswideCjk, libs, "g_unichar_iswide_cjk")
-	core.PuregoSafeRegister(&xUnicharIsxdigit, libs, "g_unichar_isxdigit")
-	core.PuregoSafeRegister(&xUnicharIszerowidth, libs, "g_unichar_iszerowidth")
-	core.PuregoSafeRegister(&xUnicharToUtf8, libs, "g_unichar_to_utf8")
-	core.PuregoSafeRegister(&xUnicharTolower, libs, "g_unichar_tolower")
-	core.PuregoSafeRegister(&xUnicharTotitle, libs, "g_unichar_totitle")
-	core.PuregoSafeRegister(&xUnicharToupper, libs, "g_unichar_toupper")
-	core.PuregoSafeRegister(&xUnicharType, libs, "g_unichar_type")
-	core.PuregoSafeRegister(&xUnicharValidate, libs, "g_unichar_validate")
-	core.PuregoSafeRegister(&xUnicharXdigitValue, libs, "g_unichar_xdigit_value")
-	core.PuregoSafeRegister(&xUnicodeCanonicalDecomposition, libs, "g_unicode_canonical_decomposition")
-	core.PuregoSafeRegister(&xUnicodeCanonicalOrdering, libs, "g_unicode_canonical_ordering")
-	core.PuregoSafeRegister(&xUnicodeScriptFromIso15924, libs, "g_unicode_script_from_iso15924")
-	core.PuregoSafeRegister(&xUnicodeScriptToIso15924, libs, "g_unicode_script_to_iso15924")
-	core.PuregoSafeRegister(&xUtf16ToUcs4, libs, "g_utf16_to_ucs4")
-	core.PuregoSafeRegister(&xUtf16ToUtf8, libs, "g_utf16_to_utf8")
-	core.PuregoSafeRegister(&xUtf8Casefold, libs, "g_utf8_casefold")
-	core.PuregoSafeRegister(&xUtf8Collate, libs, "g_utf8_collate")
-	core.PuregoSafeRegister(&xUtf8CollateKey, libs, "g_utf8_collate_key")
-	core.PuregoSafeRegister(&xUtf8CollateKeyForFilename, libs, "g_utf8_collate_key_for_filename")
-	core.PuregoSafeRegister(&xUtf8FindNextChar, libs, "g_utf8_find_next_char")
-	core.PuregoSafeRegister(&xUtf8FindPrevChar, libs, "g_utf8_find_prev_char")
-	core.PuregoSafeRegister(&xUtf8GetChar, libs, "g_utf8_get_char")
-	core.PuregoSafeRegister(&xUtf8GetCharValidated, libs, "g_utf8_get_char_validated")
-	core.PuregoSafeRegister(&xUtf8MakeValid, libs, "g_utf8_make_valid")
-	core.PuregoSafeRegister(&xUtf8Normalize, libs, "g_utf8_normalize")
-	core.PuregoSafeRegister(&xUtf8OffsetToPointer, libs, "g_utf8_offset_to_pointer")
-	core.PuregoSafeRegister(&xUtf8PointerToOffset, libs, "g_utf8_pointer_to_offset")
-	core.PuregoSafeRegister(&xUtf8PrevChar, libs, "g_utf8_prev_char")
-	core.PuregoSafeRegister(&xUtf8Strchr, libs, "g_utf8_strchr")
-	core.PuregoSafeRegister(&xUtf8Strdown, libs, "g_utf8_strdown")
-	core.PuregoSafeRegister(&xUtf8Strlen, libs, "g_utf8_strlen")
-	core.PuregoSafeRegister(&xUtf8Strncpy, libs, "g_utf8_strncpy")
-	core.PuregoSafeRegister(&xUtf8Strrchr, libs, "g_utf8_strrchr")
-	core.PuregoSafeRegister(&xUtf8Strreverse, libs, "g_utf8_strreverse")
-	core.PuregoSafeRegister(&xUtf8Strup, libs, "g_utf8_strup")
-	core.PuregoSafeRegister(&xUtf8Substring, libs, "g_utf8_substring")
-	core.PuregoSafeRegister(&xUtf8ToUcs4, libs, "g_utf8_to_ucs4")
-	core.PuregoSafeRegister(&xUtf8ToUcs4Fast, libs, "g_utf8_to_ucs4_fast")
-	core.PuregoSafeRegister(&xUtf8ToUtf16, libs, "g_utf8_to_utf16")
-	core.PuregoSafeRegister(&xUtf8TruncateMiddle, libs, "g_utf8_truncate_middle")
-	core.PuregoSafeRegister(&xUtf8Validate, libs, "g_utf8_validate")
-	core.PuregoSafeRegister(&xUtf8ValidateLen, libs, "g_utf8_validate_len")
 }

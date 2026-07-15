@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -58,6 +57,7 @@ type SimpleActionGroup struct {
 var xSimpleActionGroupGLibType func() types.GType
 
 func SimpleActionGroupGLibType() types.GType {
+	core.LazyRegister(&xSimpleActionGroupGLibType, "GIO", "g_simple_action_group_get_type", false)
 	return xSimpleActionGroupGLibType()
 }
 
@@ -71,6 +71,7 @@ var xNewSimpleActionGroup func() uintptr
 
 // Creates a new, empty, #GSimpleActionGroup.
 func NewSimpleActionGroup() *SimpleActionGroup {
+	core.LazyRegister(&xNewSimpleActionGroup, "GIO", "g_simple_action_group_new", false)
 	var cls *SimpleActionGroup
 
 	cret := xNewSimpleActionGroup()
@@ -88,6 +89,8 @@ var xSimpleActionGroupAddEntries func(uintptr, []ActionEntry, int, uintptr)
 // A convenience function for creating multiple #GSimpleAction instances
 // and adding them to the action group.
 func (x *SimpleActionGroup) AddEntries(EntriesVar []ActionEntry, NEntriesVar int, UserDataVar uintptr) {
+	core.LazyRegister(&xSimpleActionGroupAddEntries, "GIO", "g_simple_action_group_add_entries", false)
+
 	xSimpleActionGroupAddEntries(x.GoPointer(), EntriesVar, NEntriesVar, UserDataVar)
 }
 
@@ -100,6 +103,8 @@ var xSimpleActionGroupInsert func(uintptr, uintptr)
 //
 // The action group takes its own reference on @action.
 func (x *SimpleActionGroup) Insert(ActionVar Action) {
+	core.LazyRegister(&xSimpleActionGroupInsert, "GIO", "g_simple_action_group_insert", false)
+
 	xSimpleActionGroupInsert(x.GoPointer(), ActionVar.GoPointer())
 }
 
@@ -109,6 +114,7 @@ var xSimpleActionGroupLookup func(uintptr, string) uintptr
 //
 // If no such action exists, returns %NULL.
 func (x *SimpleActionGroup) Lookup(ActionNameVar string) *ActionBase {
+	core.LazyRegister(&xSimpleActionGroupLookup, "GIO", "g_simple_action_group_lookup", false)
 	var cls *ActionBase
 
 	cret := xSimpleActionGroupLookup(x.GoPointer(), ActionNameVar)
@@ -128,6 +134,8 @@ var xSimpleActionGroupRemove func(uintptr, string)
 //
 // If no action of this name is in the group then nothing happens.
 func (x *SimpleActionGroup) Remove(ActionNameVar string) {
+	core.LazyRegister(&xSimpleActionGroupRemove, "GIO", "g_simple_action_group_remove", false)
+
 	xSimpleActionGroupRemove(x.GoPointer(), ActionNameVar)
 }
 
@@ -478,21 +486,4 @@ func (x *SimpleActionGroup) RemoveActionEntries(EntriesVar []ActionEntry, NEntri
 func init() {
 	core.SetPackageName("GIO", "gio-2.0")
 	core.SetSharedLibraries("GIO", []string{"libgio-2.0.so.0", "libgio-2.0.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GIO") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xSimpleActionGroupGLibType, libs, "g_simple_action_group_get_type")
-
-	core.PuregoSafeRegister(&xNewSimpleActionGroup, libs, "g_simple_action_group_new")
-
-	core.PuregoSafeRegister(&xSimpleActionGroupAddEntries, libs, "g_simple_action_group_add_entries")
-	core.PuregoSafeRegister(&xSimpleActionGroupInsert, libs, "g_simple_action_group_insert")
-	core.PuregoSafeRegister(&xSimpleActionGroupLookup, libs, "g_simple_action_group_lookup")
-	core.PuregoSafeRegister(&xSimpleActionGroupRemove, libs, "g_simple_action_group_remove")
 }

@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gdk"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -71,6 +70,7 @@ type SpinnerPaintable struct {
 var xSpinnerPaintableGLibType func() types.GType
 
 func SpinnerPaintableGLibType() types.GType {
+	core.LazyRegister(&xSpinnerPaintableGLibType, "ADW", "adw_spinner_paintable_get_type", false)
 	return xSpinnerPaintableGLibType()
 }
 
@@ -84,6 +84,7 @@ var xNewSpinnerPaintable func(uintptr) uintptr
 
 // Creates a new `AdwSpinnerPaintable` for @widget.
 func NewSpinnerPaintable(WidgetVar *gtk.Widget) *SpinnerPaintable {
+	core.LazyRegister(&xNewSpinnerPaintable, "ADW", "adw_spinner_paintable_new", false)
 	var cls *SpinnerPaintable
 
 	cret := xNewSpinnerPaintable(WidgetVar.GoPointer())
@@ -100,6 +101,7 @@ var xSpinnerPaintableGetWidget func(uintptr) uintptr
 
 // Gets the widget used for frame clock.
 func (x *SpinnerPaintable) GetWidget() *gtk.Widget {
+	core.LazyRegister(&xSpinnerPaintableGetWidget, "ADW", "adw_spinner_paintable_get_widget", false)
 	var cls *gtk.Widget
 
 	cret := xSpinnerPaintableGetWidget(x.GoPointer())
@@ -117,6 +119,8 @@ var xSpinnerPaintableSetWidget func(uintptr, uintptr)
 
 // Sets the widget used for frame clock.
 func (x *SpinnerPaintable) SetWidget(WidgetVar *gtk.Widget) {
+	core.LazyRegister(&xSpinnerPaintableSetWidget, "ADW", "adw_spinner_paintable_set_widget", false)
+
 	xSpinnerPaintableSetWidget(x.GoPointer(), WidgetVar.GoPointer())
 }
 
@@ -282,19 +286,4 @@ func (x *SpinnerPaintable) SnapshotWithWeight(SnapshotVar *gdk.Snapshot, WidthVa
 func init() {
 	core.SetPackageName("ADW", "libadwaita-1")
 	core.SetSharedLibraries("ADW", []string{"libadwaita-1.so.0", "libadwaita-1.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("ADW") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xSpinnerPaintableGLibType, libs, "adw_spinner_paintable_get_type")
-
-	core.PuregoSafeRegister(&xNewSpinnerPaintable, libs, "adw_spinner_paintable_new")
-
-	core.PuregoSafeRegister(&xSpinnerPaintableGetWidget, libs, "adw_spinner_paintable_get_widget")
-	core.PuregoSafeRegister(&xSpinnerPaintableSetWidget, libs, "adw_spinner_paintable_set_widget")
 }

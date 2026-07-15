@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -72,6 +71,7 @@ type UnixSocketAddress struct {
 var xUnixSocketAddressGLibType func() types.GType
 
 func UnixSocketAddressGLibType() types.GType {
+	core.LazyRegister(&xUnixSocketAddressGLibType, "GIO", "g_unix_socket_address_get_type", false)
 	return xUnixSocketAddressGLibType()
 }
 
@@ -88,6 +88,7 @@ var xNewUnixSocketAddress func(string) uintptr
 // To create abstract socket addresses, on systems that support that,
 // use g_unix_socket_address_new_abstract().
 func NewUnixSocketAddress(PathVar string) *UnixSocketAddress {
+	core.LazyRegister(&xNewUnixSocketAddress, "GIO", "g_unix_socket_address_new", false)
 	var cls *UnixSocketAddress
 
 	cret := xNewUnixSocketAddress(PathVar)
@@ -105,6 +106,7 @@ var xNewUnixSocketAddressAbstract func([]byte, int) uintptr
 // Creates a new %G_UNIX_SOCKET_ADDRESS_ABSTRACT_PADDED
 // #GUnixSocketAddress for @path.
 func NewUnixSocketAddressAbstract(PathVar []byte, PathLenVar int) *UnixSocketAddress {
+	core.LazyRegister(&xNewUnixSocketAddressAbstract, "GIO", "g_unix_socket_address_new_abstract", false)
 	var cls *UnixSocketAddress
 
 	cret := xNewUnixSocketAddressAbstract(PathVar, PathLenVar)
@@ -151,6 +153,7 @@ var xNewUnixSocketAddressWithType func([]byte, int, UnixSocketAddressType) uintp
 // use the appropriate type corresponding to how that process created
 // its listening socket.
 func NewUnixSocketAddressWithType(PathVar []byte, PathLenVar int, TypeVar UnixSocketAddressType) *UnixSocketAddress {
+	core.LazyRegister(&xNewUnixSocketAddressWithType, "GIO", "g_unix_socket_address_new_with_type", false)
 	var cls *UnixSocketAddress
 
 	cret := xNewUnixSocketAddressWithType(PathVar, PathLenVar, TypeVar)
@@ -167,6 +170,8 @@ var xUnixSocketAddressGetAddressType func(uintptr) UnixSocketAddressType
 
 // Gets @address's type.
 func (x *UnixSocketAddress) GetAddressType() UnixSocketAddressType {
+	core.LazyRegister(&xUnixSocketAddressGetAddressType, "GIO", "g_unix_socket_address_get_address_type", false)
+
 	cret := xUnixSocketAddressGetAddressType(x.GoPointer())
 	return cret
 }
@@ -175,6 +180,8 @@ var xUnixSocketAddressGetIsAbstract func(uintptr) bool
 
 // Tests if @address is abstract.
 func (x *UnixSocketAddress) GetIsAbstract() bool {
+	core.LazyRegister(&xUnixSocketAddressGetIsAbstract, "GIO", "g_unix_socket_address_get_is_abstract", false)
+
 	cret := xUnixSocketAddressGetIsAbstract(x.GoPointer())
 	return cret
 }
@@ -188,6 +195,8 @@ var xUnixSocketAddressGetPath func(uintptr) string
 // g_unix_socket_address_get_path_len() to get the true length
 // of this string.
 func (x *UnixSocketAddress) GetPath() string {
+	core.LazyRegister(&xUnixSocketAddressGetPath, "GIO", "g_unix_socket_address_get_path", false)
+
 	cret := xUnixSocketAddressGetPath(x.GoPointer())
 	return cret
 }
@@ -198,6 +207,8 @@ var xUnixSocketAddressGetPathLen func(uintptr) uint
 //
 // For details, see g_unix_socket_address_get_path().
 func (x *UnixSocketAddress) GetPathLen() uint {
+	core.LazyRegister(&xUnixSocketAddressGetPathLen, "GIO", "g_unix_socket_address_get_path_len", false)
+
 	cret := xUnixSocketAddressGetPathLen(x.GoPointer())
 	return cret
 }
@@ -318,6 +329,8 @@ var xUnixSocketAddressAbstractNamesSupported func() bool
 
 // Checks if abstract UNIX domain socket names are supported.
 func UnixSocketAddressAbstractNamesSupported() bool {
+	core.LazyRegister(&xUnixSocketAddressAbstractNamesSupported, "GIO", "g_unix_socket_address_abstract_names_supported", false)
+
 	cret := xUnixSocketAddressAbstractNamesSupported()
 	return cret
 }
@@ -325,25 +338,4 @@ func UnixSocketAddressAbstractNamesSupported() bool {
 func init() {
 	core.SetPackageName("GIO", "gio-2.0")
 	core.SetSharedLibraries("GIO", []string{"libgio-2.0.so.0", "libgio-2.0.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GIO") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xUnixSocketAddressGLibType, libs, "g_unix_socket_address_get_type")
-
-	core.PuregoSafeRegister(&xNewUnixSocketAddress, libs, "g_unix_socket_address_new")
-	core.PuregoSafeRegister(&xNewUnixSocketAddressAbstract, libs, "g_unix_socket_address_new_abstract")
-	core.PuregoSafeRegister(&xNewUnixSocketAddressWithType, libs, "g_unix_socket_address_new_with_type")
-
-	core.PuregoSafeRegister(&xUnixSocketAddressGetAddressType, libs, "g_unix_socket_address_get_address_type")
-	core.PuregoSafeRegister(&xUnixSocketAddressGetIsAbstract, libs, "g_unix_socket_address_get_is_abstract")
-	core.PuregoSafeRegister(&xUnixSocketAddressGetPath, libs, "g_unix_socket_address_get_path")
-	core.PuregoSafeRegister(&xUnixSocketAddressGetPathLen, libs, "g_unix_socket_address_get_path_len")
-
-	core.PuregoSafeRegister(&xUnixSocketAddressAbstractNamesSupported, libs, "g_unix_socket_address_abstract_names_supported")
 }

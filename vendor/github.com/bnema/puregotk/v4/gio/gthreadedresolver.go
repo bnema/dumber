@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject/types"
 )
 
@@ -35,6 +36,7 @@ type ThreadedResolver struct {
 var xThreadedResolverGLibType func() types.GType
 
 func ThreadedResolverGLibType() types.GType {
+	core.LazyRegister(&xThreadedResolverGLibType, "GIO", "g_threaded_resolver_get_type", false)
 	return xThreadedResolverGLibType()
 }
 
@@ -53,4 +55,9 @@ func (c *ThreadedResolver) GoPointer() uintptr {
 
 func (c *ThreadedResolver) SetGoPointer(ptr uintptr) {
 	c.Ptr = ptr
+}
+
+func init() {
+	core.SetPackageName("GIO", "gio-2.0")
+	core.SetSharedLibraries("GIO", []string{"libgio-2.0.so.0", "libgio-2.0.0.dylib"})
 }

@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gdk"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -56,6 +55,7 @@ type WidgetPaintable struct {
 var xWidgetPaintableGLibType func() types.GType
 
 func WidgetPaintableGLibType() types.GType {
+	core.LazyRegister(&xWidgetPaintableGLibType, "GTK", "gtk_widget_paintable_get_type", false)
 	return xWidgetPaintableGLibType()
 }
 
@@ -69,6 +69,7 @@ var xNewWidgetPaintable func(uintptr) uintptr
 
 // Creates a new widget paintable observing the given widget.
 func NewWidgetPaintable(WidgetVar *Widget) *WidgetPaintable {
+	core.LazyRegister(&xNewWidgetPaintable, "GTK", "gtk_widget_paintable_new", false)
 	var cls *WidgetPaintable
 
 	cret := xNewWidgetPaintable(WidgetVar.GoPointer())
@@ -85,6 +86,7 @@ var xWidgetPaintableGetWidget func(uintptr) uintptr
 
 // Returns the widget that is observed or %NULL if none.
 func (x *WidgetPaintable) GetWidget() *Widget {
+	core.LazyRegister(&xWidgetPaintableGetWidget, "GTK", "gtk_widget_paintable_get_widget", false)
 	var cls *Widget
 
 	cret := xWidgetPaintableGetWidget(x.GoPointer())
@@ -102,6 +104,8 @@ var xWidgetPaintableSetWidget func(uintptr, uintptr)
 
 // Sets the widget that should be observed.
 func (x *WidgetPaintable) SetWidget(WidgetVar *Widget) {
+	core.LazyRegister(&xWidgetPaintableSetWidget, "GTK", "gtk_widget_paintable_set_widget", false)
+
 	xWidgetPaintableSetWidget(x.GoPointer(), WidgetVar.GoPointer())
 }
 
@@ -251,19 +255,4 @@ func (x *WidgetPaintable) Snapshot(SnapshotVar *gdk.Snapshot, WidthVar float64, 
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GTK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xWidgetPaintableGLibType, libs, "gtk_widget_paintable_get_type")
-
-	core.PuregoSafeRegister(&xNewWidgetPaintable, libs, "gtk_widget_paintable_new")
-
-	core.PuregoSafeRegister(&xWidgetPaintableGetWidget, libs, "gtk_widget_paintable_get_widget")
-	core.PuregoSafeRegister(&xWidgetPaintableSetWidget, libs, "gtk_widget_paintable_set_widget")
 }

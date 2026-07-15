@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject/types"
 )
@@ -41,6 +40,7 @@ type BinLayout struct {
 var xBinLayoutGLibType func() types.GType
 
 func BinLayoutGLibType() types.GType {
+	core.LazyRegister(&xBinLayoutGLibType, "GTK", "gtk_bin_layout_get_type", false)
 	return xBinLayoutGLibType()
 }
 
@@ -54,6 +54,7 @@ var xNewBinLayout func() uintptr
 
 // Creates a new `GtkBinLayout` instance.
 func NewBinLayout() *BinLayout {
+	core.LazyRegister(&xNewBinLayout, "GTK", "gtk_bin_layout_new", false)
 	var cls *BinLayout
 
 	cret := xNewBinLayout()
@@ -80,16 +81,4 @@ func (c *BinLayout) SetGoPointer(ptr uintptr) {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GTK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xBinLayoutGLibType, libs, "gtk_bin_layout_get_type")
-
-	core.PuregoSafeRegister(&xNewBinLayout, libs, "gtk_bin_layout_new")
 }

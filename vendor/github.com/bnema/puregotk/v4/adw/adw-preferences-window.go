@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gdk"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -57,6 +56,7 @@ type PreferencesWindow struct {
 var xPreferencesWindowGLibType func() types.GType
 
 func PreferencesWindowGLibType() types.GType {
+	core.LazyRegister(&xPreferencesWindowGLibType, "ADW", "adw_preferences_window_get_type", false)
 	return xPreferencesWindowGLibType()
 }
 
@@ -70,6 +70,7 @@ var xNewPreferencesWindow func() uintptr
 
 // Creates a new `AdwPreferencesWindow`.
 func NewPreferencesWindow() *PreferencesWindow {
+	core.LazyRegister(&xNewPreferencesWindow, "ADW", "adw_preferences_window_new", false)
 	var cls *PreferencesWindow
 
 	cret := xNewPreferencesWindow()
@@ -87,6 +88,8 @@ var xPreferencesWindowAdd func(uintptr, uintptr)
 
 // Adds a preferences page to @self.
 func (x *PreferencesWindow) Add(PageVar *PreferencesPage) {
+	core.LazyRegister(&xPreferencesWindowAdd, "ADW", "adw_preferences_window_add", false)
+
 	xPreferencesWindowAdd(x.GoPointer(), PageVar.GoPointer())
 }
 
@@ -96,6 +99,8 @@ var xPreferencesWindowAddToast func(uintptr, uintptr)
 //
 // See [method@ToastOverlay.add_toast].
 func (x *PreferencesWindow) AddToast(ToastVar *Toast) {
+	core.LazyRegister(&xPreferencesWindowAddToast, "ADW", "adw_preferences_window_add_toast", false)
+
 	xPreferencesWindowAddToast(x.GoPointer(), ToastVar.GoPointer())
 }
 
@@ -105,6 +110,8 @@ var xPreferencesWindowCloseSubpage func(uintptr)
 //
 // If there is no presented subpage, this does nothing.
 func (x *PreferencesWindow) CloseSubpage() {
+	core.LazyRegister(&xPreferencesWindowCloseSubpage, "ADW", "adw_preferences_window_close_subpage", false)
+
 	xPreferencesWindowCloseSubpage(x.GoPointer())
 }
 
@@ -112,6 +119,8 @@ var xPreferencesWindowGetCanNavigateBack func(uintptr) bool
 
 // Gets whether gestures and shortcuts for closing subpages are enabled.
 func (x *PreferencesWindow) GetCanNavigateBack() bool {
+	core.LazyRegister(&xPreferencesWindowGetCanNavigateBack, "ADW", "adw_preferences_window_get_can_navigate_back", false)
+
 	cret := xPreferencesWindowGetCanNavigateBack(x.GoPointer())
 	return cret
 }
@@ -120,6 +129,8 @@ var xPreferencesWindowGetSearchEnabled func(uintptr) bool
 
 // Gets whether search is enabled for @self.
 func (x *PreferencesWindow) GetSearchEnabled() bool {
+	core.LazyRegister(&xPreferencesWindowGetSearchEnabled, "ADW", "adw_preferences_window_get_search_enabled", false)
+
 	cret := xPreferencesWindowGetSearchEnabled(x.GoPointer())
 	return cret
 }
@@ -128,6 +139,7 @@ var xPreferencesWindowGetVisiblePage func(uintptr) uintptr
 
 // Gets the currently visible page of @self.
 func (x *PreferencesWindow) GetVisiblePage() *PreferencesPage {
+	core.LazyRegister(&xPreferencesWindowGetVisiblePage, "ADW", "adw_preferences_window_get_visible_page", false)
 	var cls *PreferencesPage
 
 	cret := xPreferencesWindowGetVisiblePage(x.GoPointer())
@@ -145,6 +157,8 @@ var xPreferencesWindowGetVisiblePageName func(uintptr) string
 
 // Gets the name of currently visible page of @self.
 func (x *PreferencesWindow) GetVisiblePageName() string {
+	core.LazyRegister(&xPreferencesWindowGetVisiblePageName, "ADW", "adw_preferences_window_get_visible_page_name", false)
+
 	cret := xPreferencesWindowGetVisiblePageName(x.GoPointer())
 	return cret
 }
@@ -153,6 +167,8 @@ var xPreferencesWindowPopSubpage func(uintptr) bool
 
 // Pop the visible page from the subpage stack of @self.
 func (x *PreferencesWindow) PopSubpage() bool {
+	core.LazyRegister(&xPreferencesWindowPopSubpage, "ADW", "adw_preferences_window_pop_subpage", false)
+
 	cret := xPreferencesWindowPopSubpage(x.GoPointer())
 	return cret
 }
@@ -164,6 +180,8 @@ var xPreferencesWindowPresentSubpage func(uintptr, uintptr)
 // The transition can be cancelled by the user, in which case visible child will
 // change back to the previously visible child.
 func (x *PreferencesWindow) PresentSubpage(SubpageVar *gtk.Widget) {
+	core.LazyRegister(&xPreferencesWindowPresentSubpage, "ADW", "adw_preferences_window_present_subpage", false)
+
 	xPreferencesWindowPresentSubpage(x.GoPointer(), SubpageVar.GoPointer())
 }
 
@@ -173,6 +191,8 @@ var xPreferencesWindowPushSubpage func(uintptr, uintptr)
 //
 // The page will be automatically removed when popped.
 func (x *PreferencesWindow) PushSubpage(PageVar *NavigationPage) {
+	core.LazyRegister(&xPreferencesWindowPushSubpage, "ADW", "adw_preferences_window_push_subpage", false)
+
 	xPreferencesWindowPushSubpage(x.GoPointer(), PageVar.GoPointer())
 }
 
@@ -180,6 +200,8 @@ var xPreferencesWindowRemove func(uintptr, uintptr)
 
 // Removes a page from @self.
 func (x *PreferencesWindow) Remove(PageVar *PreferencesPage) {
+	core.LazyRegister(&xPreferencesWindowRemove, "ADW", "adw_preferences_window_remove", false)
+
 	xPreferencesWindowRemove(x.GoPointer(), PageVar.GoPointer())
 }
 
@@ -200,6 +222,8 @@ var xPreferencesWindowSetCanNavigateBack func(uintptr, bool)
 //
 // Has no effect for subpages added with [method@PreferencesWindow.push_subpage].
 func (x *PreferencesWindow) SetCanNavigateBack(CanNavigateBackVar bool) {
+	core.LazyRegister(&xPreferencesWindowSetCanNavigateBack, "ADW", "adw_preferences_window_set_can_navigate_back", false)
+
 	xPreferencesWindowSetCanNavigateBack(x.GoPointer(), CanNavigateBackVar)
 }
 
@@ -207,6 +231,8 @@ var xPreferencesWindowSetSearchEnabled func(uintptr, bool)
 
 // Sets whether search is enabled for @self.
 func (x *PreferencesWindow) SetSearchEnabled(SearchEnabledVar bool) {
+	core.LazyRegister(&xPreferencesWindowSetSearchEnabled, "ADW", "adw_preferences_window_set_search_enabled", false)
+
 	xPreferencesWindowSetSearchEnabled(x.GoPointer(), SearchEnabledVar)
 }
 
@@ -214,6 +240,8 @@ var xPreferencesWindowSetVisiblePage func(uintptr, uintptr)
 
 // Makes @page the visible page of @self.
 func (x *PreferencesWindow) SetVisiblePage(PageVar *PreferencesPage) {
+	core.LazyRegister(&xPreferencesWindowSetVisiblePage, "ADW", "adw_preferences_window_set_visible_page", false)
+
 	xPreferencesWindowSetVisiblePage(x.GoPointer(), PageVar.GoPointer())
 }
 
@@ -223,6 +251,8 @@ var xPreferencesWindowSetVisiblePageName func(uintptr, string)
 //
 // See [property@PreferencesWindow:visible-page].
 func (x *PreferencesWindow) SetVisiblePageName(NameVar string) {
+	core.LazyRegister(&xPreferencesWindowSetVisiblePageName, "ADW", "adw_preferences_window_set_visible_page_name", false)
+
 	xPreferencesWindowSetVisiblePageName(x.GoPointer(), NameVar)
 }
 
@@ -682,32 +712,4 @@ func (x *PreferencesWindow) SetFocus(FocusVar *gtk.Widget) {
 func init() {
 	core.SetPackageName("ADW", "libadwaita-1")
 	core.SetSharedLibraries("ADW", []string{"libadwaita-1.so.0", "libadwaita-1.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("ADW") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xPreferencesWindowGLibType, libs, "adw_preferences_window_get_type")
-
-	core.PuregoSafeRegister(&xNewPreferencesWindow, libs, "adw_preferences_window_new")
-
-	core.PuregoSafeRegister(&xPreferencesWindowAdd, libs, "adw_preferences_window_add")
-	core.PuregoSafeRegister(&xPreferencesWindowAddToast, libs, "adw_preferences_window_add_toast")
-	core.PuregoSafeRegister(&xPreferencesWindowCloseSubpage, libs, "adw_preferences_window_close_subpage")
-	core.PuregoSafeRegister(&xPreferencesWindowGetCanNavigateBack, libs, "adw_preferences_window_get_can_navigate_back")
-	core.PuregoSafeRegister(&xPreferencesWindowGetSearchEnabled, libs, "adw_preferences_window_get_search_enabled")
-	core.PuregoSafeRegister(&xPreferencesWindowGetVisiblePage, libs, "adw_preferences_window_get_visible_page")
-	core.PuregoSafeRegister(&xPreferencesWindowGetVisiblePageName, libs, "adw_preferences_window_get_visible_page_name")
-	core.PuregoSafeRegister(&xPreferencesWindowPopSubpage, libs, "adw_preferences_window_pop_subpage")
-	core.PuregoSafeRegister(&xPreferencesWindowPresentSubpage, libs, "adw_preferences_window_present_subpage")
-	core.PuregoSafeRegister(&xPreferencesWindowPushSubpage, libs, "adw_preferences_window_push_subpage")
-	core.PuregoSafeRegister(&xPreferencesWindowRemove, libs, "adw_preferences_window_remove")
-	core.PuregoSafeRegister(&xPreferencesWindowSetCanNavigateBack, libs, "adw_preferences_window_set_can_navigate_back")
-	core.PuregoSafeRegister(&xPreferencesWindowSetSearchEnabled, libs, "adw_preferences_window_set_search_enabled")
-	core.PuregoSafeRegister(&xPreferencesWindowSetVisiblePage, libs, "adw_preferences_window_set_visible_page")
-	core.PuregoSafeRegister(&xPreferencesWindowSetVisiblePageName, libs, "adw_preferences_window_set_visible_page_name")
 }

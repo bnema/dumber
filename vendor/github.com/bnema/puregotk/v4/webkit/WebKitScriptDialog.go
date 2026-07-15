@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject/types"
 )
@@ -18,6 +17,7 @@ type ScriptDialog struct {
 var xScriptDialogGLibType func() types.GType
 
 func ScriptDialogGLibType() types.GType {
+	core.LazyRegister(&xScriptDialogGLibType, "WEBKIT", "webkit_script_dialog_get_type", false)
 	return xScriptDialogGLibType()
 }
 
@@ -42,6 +42,8 @@ var xScriptDialogClose func(uintptr)
 // that we are done with the script dialog. The dialog will be closed on destruction if this function
 // hasn't been called before.
 func (x *ScriptDialog) Close() {
+	core.LazyRegister(&xScriptDialogClose, "WEBKIT", "webkit_script_dialog_close", false)
+
 	xScriptDialogClose(x.GoPointer())
 }
 
@@ -56,6 +58,8 @@ var xScriptDialogConfirmSetConfirmed func(uintptr, bool)
 // It's an error to use this method with a #WebKitScriptDialog that is not of type
 // %WEBKIT_SCRIPT_DIALOG_CONFIRM or %WEBKIT_SCRIPT_DIALOG_BEFORE_UNLOAD_CONFIRM
 func (x *ScriptDialog) ConfirmSetConfirmed(ConfirmedVar bool) {
+	core.LazyRegister(&xScriptDialogConfirmSetConfirmed, "WEBKIT", "webkit_script_dialog_confirm_set_confirmed", false)
+
 	xScriptDialogConfirmSetConfirmed(x.GoPointer(), ConfirmedVar)
 }
 
@@ -63,6 +67,8 @@ var xScriptDialogGetDialogType func(uintptr) ScriptDialogType
 
 // Get the dialog type of a #WebKitScriptDialog.
 func (x *ScriptDialog) GetDialogType() ScriptDialogType {
+	core.LazyRegister(&xScriptDialogGetDialogType, "WEBKIT", "webkit_script_dialog_get_dialog_type", false)
+
 	cret := xScriptDialogGetDialogType(x.GoPointer())
 	return cret
 }
@@ -71,6 +77,8 @@ var xScriptDialogGetMessage func(uintptr) string
 
 // Get the message of a #WebKitScriptDialog.
 func (x *ScriptDialog) GetMessage() string {
+	core.LazyRegister(&xScriptDialogGetMessage, "WEBKIT", "webkit_script_dialog_get_message", false)
+
 	cret := xScriptDialogGetMessage(x.GoPointer())
 	return cret
 }
@@ -82,6 +90,8 @@ var xScriptDialogPromptGetDefaultText func(uintptr) string
 // It's an error to use this method with a #WebKitScriptDialog that is not of type
 // %WEBKIT_SCRIPT_DIALOG_PROMPT.
 func (x *ScriptDialog) PromptGetDefaultText() string {
+	core.LazyRegister(&xScriptDialogPromptGetDefaultText, "WEBKIT", "webkit_script_dialog_prompt_get_default_text", false)
+
 	cret := xScriptDialogPromptGetDefaultText(x.GoPointer())
 	return cret
 }
@@ -97,6 +107,8 @@ var xScriptDialogPromptSetText func(uintptr, string)
 // It's an error to use this method with a #WebKitScriptDialog that is not of type
 // %WEBKIT_SCRIPT_DIALOG_PROMPT.
 func (x *ScriptDialog) PromptSetText(TextVar string) {
+	core.LazyRegister(&xScriptDialogPromptSetText, "WEBKIT", "webkit_script_dialog_prompt_set_text", false)
+
 	xScriptDialogPromptSetText(x.GoPointer(), TextVar)
 }
 
@@ -107,6 +119,8 @@ var xScriptDialogRef func(uintptr) uintptr
 // This
 // function is MT-safe and may be called from any thread.
 func (x *ScriptDialog) Ref() *ScriptDialog {
+	core.LazyRegister(&xScriptDialogRef, "WEBKIT", "webkit_script_dialog_ref", false)
+
 	cret := xScriptDialogRef(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -123,6 +137,8 @@ var xScriptDialogUnref func(uintptr)
 // released. This function is MT-safe and may be called from any
 // thread.
 func (x *ScriptDialog) Unref() {
+	core.LazyRegister(&xScriptDialogUnref, "WEBKIT", "webkit_script_dialog_unref", false)
+
 	xScriptDialogUnref(x.GoPointer())
 }
 
@@ -132,6 +148,7 @@ type ScriptDialogType int
 var xScriptDialogTypeGLibType func() types.GType
 
 func ScriptDialogTypeGLibType() types.GType {
+	core.LazyRegister(&xScriptDialogTypeGLibType, "WEBKIT", "webkit_script_dialog_type_get_type", false)
 	return xScriptDialogTypeGLibType()
 }
 
@@ -154,25 +171,7 @@ const (
 func init() {
 	core.SetPackageName("WEBKIT", "webkitgtk-6.0")
 	core.SetSharedLibraries("WEBKIT", []string{"libwebkitgtk-6.0.so.4", "libjavascriptcoregtk-6.0.so.1", "libwebkitgtk-6.0.4.dylib", "libjavascriptcoregtk-6.0.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("WEBKIT") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
 
-	core.PuregoSafeRegister(&xScriptDialogTypeGLibType, libs, "webkit_script_dialog_type_get_type")
-
-	core.PuregoSafeRegister(&xScriptDialogGLibType, libs, "webkit_script_dialog_get_type")
-
-	core.PuregoSafeRegister(&xScriptDialogClose, libs, "webkit_script_dialog_close")
-	core.PuregoSafeRegister(&xScriptDialogConfirmSetConfirmed, libs, "webkit_script_dialog_confirm_set_confirmed")
-	core.PuregoSafeRegister(&xScriptDialogGetDialogType, libs, "webkit_script_dialog_get_dialog_type")
-	core.PuregoSafeRegister(&xScriptDialogGetMessage, libs, "webkit_script_dialog_get_message")
-	core.PuregoSafeRegister(&xScriptDialogPromptGetDefaultText, libs, "webkit_script_dialog_prompt_get_default_text")
-	core.PuregoSafeRegister(&xScriptDialogPromptSetText, libs, "webkit_script_dialog_prompt_set_text")
-	core.PuregoSafeRegister(&xScriptDialogRef, libs, "webkit_script_dialog_ref")
-	core.PuregoSafeRegister(&xScriptDialogUnref, libs, "webkit_script_dialog_unref")
+	// Manually register types since they aren't automatically registered when
+	// WebKit is loaded. See https://bugs.webkit.org/show_bug.cgi?id=175937.
 }

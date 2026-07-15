@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -40,6 +39,7 @@ type CookieJarText struct {
 var xCookieJarTextGLibType func() types.GType
 
 func CookieJarTextGLibType() types.GType {
+	core.LazyRegister(&xCookieJarTextGLibType, "SOUP", "soup_cookie_jar_text_get_type", false)
 	return xCookieJarTextGLibType()
 }
 
@@ -59,6 +59,7 @@ var xNewCookieJarText func(string, bool) uintptr
 // jar. (If @read_only is %TRUE, then the cookie jar will only be used for this
 // session, and changes made to it will be lost when the jar is destroyed.)
 func NewCookieJarText(FilenameVar string, ReadOnlyVar bool) *CookieJarText {
+	core.LazyRegister(&xNewCookieJarText, "SOUP", "soup_cookie_jar_text_new", false)
 	var cls *CookieJarText
 
 	cret := xNewCookieJarText(FilenameVar, ReadOnlyVar)
@@ -102,16 +103,4 @@ func (x *CookieJarText) GetPropertyFilename() string {
 func init() {
 	core.SetPackageName("SOUP", "libsoup-3.0")
 	core.SetSharedLibraries("SOUP", []string{"libsoup-3.0.so.0", "libsoup-3.0.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("SOUP") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xCookieJarTextGLibType, libs, "soup_cookie_jar_text_get_type")
-
-	core.PuregoSafeRegister(&xNewCookieJarText, libs, "soup_cookie_jar_text_new")
 }

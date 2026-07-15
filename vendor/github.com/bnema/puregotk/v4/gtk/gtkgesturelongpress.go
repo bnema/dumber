@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -50,6 +49,7 @@ type GestureLongPress struct {
 var xGestureLongPressGLibType func() types.GType
 
 func GestureLongPressGLibType() types.GType {
+	core.LazyRegister(&xGestureLongPressGLibType, "GTK", "gtk_gesture_long_press_get_type", false)
 	return xGestureLongPressGLibType()
 }
 
@@ -63,6 +63,7 @@ var xNewGestureLongPress func() uintptr
 
 // Returns a newly created `GtkGesture` that recognizes long presses.
 func NewGestureLongPress() *GestureLongPress {
+	core.LazyRegister(&xNewGestureLongPress, "GTK", "gtk_gesture_long_press_new", false)
 	var cls *GestureLongPress
 
 	cret := xNewGestureLongPress()
@@ -79,6 +80,8 @@ var xGestureLongPressGetDelayFactor func(uintptr) float64
 
 // Returns the delay factor.
 func (x *GestureLongPress) GetDelayFactor() float64 {
+	core.LazyRegister(&xGestureLongPressGetDelayFactor, "GTK", "gtk_gesture_long_press_get_delay_factor", false)
+
 	cret := xGestureLongPressGetDelayFactor(x.GoPointer())
 	return cret
 }
@@ -90,6 +93,8 @@ var xGestureLongPressSetDelayFactor func(uintptr, float64)
 // The default long press time will be multiplied by this value.
 // Valid values are in the range [0.5..2.0].
 func (x *GestureLongPress) SetDelayFactor(DelayFactorVar float64) {
+	core.LazyRegister(&xGestureLongPressSetDelayFactor, "GTK", "gtk_gesture_long_press_set_delay_factor", false)
+
 	xGestureLongPressSetDelayFactor(x.GoPointer(), DelayFactorVar)
 }
 
@@ -172,19 +177,4 @@ func (x *GestureLongPress) ConnectPressed(cb *func(GestureLongPress, float64, fl
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GTK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xGestureLongPressGLibType, libs, "gtk_gesture_long_press_get_type")
-
-	core.PuregoSafeRegister(&xNewGestureLongPress, libs, "gtk_gesture_long_press_new")
-
-	core.PuregoSafeRegister(&xGestureLongPressGetDelayFactor, libs, "gtk_gesture_long_press_get_delay_factor")
-	core.PuregoSafeRegister(&xGestureLongPressSetDelayFactor, libs, "gtk_gesture_long_press_set_delay_factor")
 }

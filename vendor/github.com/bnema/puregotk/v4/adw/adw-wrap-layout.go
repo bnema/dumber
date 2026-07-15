@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -38,6 +37,7 @@ type JustifyMode int
 var xJustifyModeGLibType func() types.GType
 
 func JustifyModeGLibType() types.GType {
+	core.LazyRegister(&xJustifyModeGLibType, "ADW", "adw_justify_mode_get_type", false)
 	return xJustifyModeGLibType()
 }
 
@@ -64,6 +64,7 @@ type PackDirection int
 var xPackDirectionGLibType func() types.GType
 
 func PackDirectionGLibType() types.GType {
+	core.LazyRegister(&xPackDirectionGLibType, "ADW", "adw_pack_direction_get_type", false)
 	return xPackDirectionGLibType()
 }
 
@@ -85,6 +86,7 @@ type WrapPolicy int
 var xWrapPolicyGLibType func() types.GType
 
 func WrapPolicyGLibType() types.GType {
+	core.LazyRegister(&xWrapPolicyGLibType, "ADW", "adw_wrap_policy_get_type", false)
 	return xWrapPolicyGLibType()
 }
 
@@ -158,6 +160,7 @@ type WrapLayout struct {
 var xWrapLayoutGLibType func() types.GType
 
 func WrapLayoutGLibType() types.GType {
+	core.LazyRegister(&xWrapLayoutGLibType, "ADW", "adw_wrap_layout_get_type", false)
 	return xWrapLayoutGLibType()
 }
 
@@ -171,6 +174,7 @@ var xNewWrapLayout func() uintptr
 
 // Creates a new `AdwWrapLayout`.
 func NewWrapLayout() *WrapLayout {
+	core.LazyRegister(&xNewWrapLayout, "ADW", "adw_wrap_layout_new", false)
 	var cls *WrapLayout
 
 	cret := xNewWrapLayout()
@@ -187,6 +191,8 @@ var xWrapLayoutGetAlign func(uintptr) float32
 
 // Gets the alignment of the children within each line.
 func (x *WrapLayout) GetAlign() float32 {
+	core.LazyRegister(&xWrapLayoutGetAlign, "ADW", "adw_wrap_layout_get_align", false)
+
 	cret := xWrapLayoutGetAlign(x.GoPointer())
 	return cret
 }
@@ -195,6 +201,8 @@ var xWrapLayoutGetChildSpacing func(uintptr) int
 
 // Gets spacing between widgets on the same line.
 func (x *WrapLayout) GetChildSpacing() int {
+	core.LazyRegister(&xWrapLayoutGetChildSpacing, "ADW", "adw_wrap_layout_get_child_spacing", false)
+
 	cret := xWrapLayoutGetChildSpacing(x.GoPointer())
 	return cret
 }
@@ -203,6 +211,8 @@ var xWrapLayoutGetChildSpacingUnit func(uintptr) LengthUnit
 
 // Gets the length unit for child spacing.
 func (x *WrapLayout) GetChildSpacingUnit() LengthUnit {
+	core.LazyRegister(&xWrapLayoutGetChildSpacingUnit, "ADW", "adw_wrap_layout_get_child_spacing_unit", false)
+
 	cret := xWrapLayoutGetChildSpacingUnit(x.GoPointer())
 	return cret
 }
@@ -211,6 +221,8 @@ var xWrapLayoutGetJustify func(uintptr) JustifyMode
 
 // Gets whether and how each complete line is stretched to fill the entire widget.
 func (x *WrapLayout) GetJustify() JustifyMode {
+	core.LazyRegister(&xWrapLayoutGetJustify, "ADW", "adw_wrap_layout_get_justify", false)
+
 	cret := xWrapLayoutGetJustify(x.GoPointer())
 	return cret
 }
@@ -219,6 +231,8 @@ var xWrapLayoutGetJustifyLastLine func(uintptr) bool
 
 // Gets whether the last line should be stretched to fill the entire widget.
 func (x *WrapLayout) GetJustifyLastLine() bool {
+	core.LazyRegister(&xWrapLayoutGetJustifyLastLine, "ADW", "adw_wrap_layout_get_justify_last_line", false)
+
 	cret := xWrapLayoutGetJustifyLastLine(x.GoPointer())
 	return cret
 }
@@ -227,6 +241,8 @@ var xWrapLayoutGetLineHomogeneous func(uintptr) bool
 
 // Gets whether all lines should take the same amount of space.
 func (x *WrapLayout) GetLineHomogeneous() bool {
+	core.LazyRegister(&xWrapLayoutGetLineHomogeneous, "ADW", "adw_wrap_layout_get_line_homogeneous", false)
+
 	cret := xWrapLayoutGetLineHomogeneous(x.GoPointer())
 	return cret
 }
@@ -235,6 +251,8 @@ var xWrapLayoutGetLineSpacing func(uintptr) int
 
 // Gets the spacing between lines.
 func (x *WrapLayout) GetLineSpacing() int {
+	core.LazyRegister(&xWrapLayoutGetLineSpacing, "ADW", "adw_wrap_layout_get_line_spacing", false)
+
 	cret := xWrapLayoutGetLineSpacing(x.GoPointer())
 	return cret
 }
@@ -243,6 +261,8 @@ var xWrapLayoutGetLineSpacingUnit func(uintptr) LengthUnit
 
 // Gets the length unit for line spacing.
 func (x *WrapLayout) GetLineSpacingUnit() LengthUnit {
+	core.LazyRegister(&xWrapLayoutGetLineSpacingUnit, "ADW", "adw_wrap_layout_get_line_spacing_unit", false)
+
 	cret := xWrapLayoutGetLineSpacingUnit(x.GoPointer())
 	return cret
 }
@@ -251,6 +271,8 @@ var xWrapLayoutGetNaturalLineLength func(uintptr) int
 
 // Gets the natural size for each line.
 func (x *WrapLayout) GetNaturalLineLength() int {
+	core.LazyRegister(&xWrapLayoutGetNaturalLineLength, "ADW", "adw_wrap_layout_get_natural_line_length", false)
+
 	cret := xWrapLayoutGetNaturalLineLength(x.GoPointer())
 	return cret
 }
@@ -259,6 +281,8 @@ var xWrapLayoutGetNaturalLineLengthUnit func(uintptr) LengthUnit
 
 // Gets the length unit for line spacing.
 func (x *WrapLayout) GetNaturalLineLengthUnit() LengthUnit {
+	core.LazyRegister(&xWrapLayoutGetNaturalLineLengthUnit, "ADW", "adw_wrap_layout_get_natural_line_length_unit", false)
+
 	cret := xWrapLayoutGetNaturalLineLengthUnit(x.GoPointer())
 	return cret
 }
@@ -267,6 +291,8 @@ var xWrapLayoutGetPackDirection func(uintptr) PackDirection
 
 // Gets the direction children are packed in each line.
 func (x *WrapLayout) GetPackDirection() PackDirection {
+	core.LazyRegister(&xWrapLayoutGetPackDirection, "ADW", "adw_wrap_layout_get_pack_direction", false)
+
 	cret := xWrapLayoutGetPackDirection(x.GoPointer())
 	return cret
 }
@@ -275,6 +301,8 @@ var xWrapLayoutGetWrapPolicy func(uintptr) WrapPolicy
 
 // Gets the policy for line wrapping.
 func (x *WrapLayout) GetWrapPolicy() WrapPolicy {
+	core.LazyRegister(&xWrapLayoutGetWrapPolicy, "ADW", "adw_wrap_layout_get_wrap_policy", false)
+
 	cret := xWrapLayoutGetWrapPolicy(x.GoPointer())
 	return cret
 }
@@ -283,6 +311,8 @@ var xWrapLayoutGetWrapReverse func(uintptr) bool
 
 // Gets whether wrap direction is reversed.
 func (x *WrapLayout) GetWrapReverse() bool {
+	core.LazyRegister(&xWrapLayoutGetWrapReverse, "ADW", "adw_wrap_layout_get_wrap_reverse", false)
+
 	cret := xWrapLayoutGetWrapReverse(x.GoPointer())
 	return cret
 }
@@ -299,6 +329,8 @@ var xWrapLayoutSetAlign func(uintptr, float32)
 // [enum@Adw.JustifyMode.none], or on the last line when the
 // [property@WrapLayout:justify-last-line] is `FALSE`.
 func (x *WrapLayout) SetAlign(AlignVar float32) {
+	core.LazyRegister(&xWrapLayoutSetAlign, "ADW", "adw_wrap_layout_set_align", false)
+
 	xWrapLayoutSetAlign(x.GoPointer(), AlignVar)
 }
 
@@ -308,6 +340,8 @@ var xWrapLayoutSetChildSpacing func(uintptr, int)
 //
 // See [property@WrapLayout:child-spacing-unit].
 func (x *WrapLayout) SetChildSpacing(ChildSpacingVar int) {
+	core.LazyRegister(&xWrapLayoutSetChildSpacing, "ADW", "adw_wrap_layout_set_child_spacing", false)
+
 	xWrapLayoutSetChildSpacing(x.GoPointer(), ChildSpacingVar)
 }
 
@@ -319,6 +353,8 @@ var xWrapLayoutSetChildSpacingUnit func(uintptr, LengthUnit)
 //
 // See [property@WrapLayout:child-spacing].
 func (x *WrapLayout) SetChildSpacingUnit(UnitVar LengthUnit) {
+	core.LazyRegister(&xWrapLayoutSetChildSpacingUnit, "ADW", "adw_wrap_layout_set_child_spacing_unit", false)
+
 	xWrapLayoutSetChildSpacingUnit(x.GoPointer(), UnitVar)
 }
 
@@ -343,6 +379,8 @@ var xWrapLayoutSetJustify func(uintptr, JustifyMode)
 // By default this doesn't affect the last line, as it will be incomplete. Use
 // [property@WrapLayout:justify-last-line] to justify it as well.
 func (x *WrapLayout) SetJustify(JustifyVar JustifyMode) {
+	core.LazyRegister(&xWrapLayoutSetJustify, "ADW", "adw_wrap_layout_set_justify", false)
+
 	xWrapLayoutSetJustify(x.GoPointer(), JustifyVar)
 }
 
@@ -352,6 +390,8 @@ var xWrapLayoutSetJustifyLastLine func(uintptr, bool)
 //
 // See [property@WrapLayout:justify].
 func (x *WrapLayout) SetJustifyLastLine(JustifyLastLineVar bool) {
+	core.LazyRegister(&xWrapLayoutSetJustifyLastLine, "ADW", "adw_wrap_layout_set_justify_last_line", false)
+
 	xWrapLayoutSetJustifyLastLine(x.GoPointer(), JustifyLastLineVar)
 }
 
@@ -359,6 +399,8 @@ var xWrapLayoutSetLineHomogeneous func(uintptr, bool)
 
 // Sets whether all lines should take the same amount of space.
 func (x *WrapLayout) SetLineHomogeneous(HomogeneousVar bool) {
+	core.LazyRegister(&xWrapLayoutSetLineHomogeneous, "ADW", "adw_wrap_layout_set_line_homogeneous", false)
+
 	xWrapLayoutSetLineHomogeneous(x.GoPointer(), HomogeneousVar)
 }
 
@@ -368,6 +410,8 @@ var xWrapLayoutSetLineSpacing func(uintptr, int)
 //
 // See [property@WrapLayout:line-spacing-unit].
 func (x *WrapLayout) SetLineSpacing(LineSpacingVar int) {
+	core.LazyRegister(&xWrapLayoutSetLineSpacing, "ADW", "adw_wrap_layout_set_line_spacing", false)
+
 	xWrapLayoutSetLineSpacing(x.GoPointer(), LineSpacingVar)
 }
 
@@ -379,6 +423,8 @@ var xWrapLayoutSetLineSpacingUnit func(uintptr, LengthUnit)
 //
 // See [property@WrapLayout:line-spacing].
 func (x *WrapLayout) SetLineSpacingUnit(UnitVar LengthUnit) {
+	core.LazyRegister(&xWrapLayoutSetLineSpacingUnit, "ADW", "adw_wrap_layout_set_line_spacing_unit", false)
+
 	xWrapLayoutSetLineSpacingUnit(x.GoPointer(), UnitVar)
 }
 
@@ -391,6 +437,8 @@ var xWrapLayoutSetNaturalLineLength func(uintptr, int)
 //
 // See [property@WrapLayout:natural-line-length-unit].
 func (x *WrapLayout) SetNaturalLineLength(NaturalLineLengthVar int) {
+	core.LazyRegister(&xWrapLayoutSetNaturalLineLength, "ADW", "adw_wrap_layout_set_natural_line_length", false)
+
 	xWrapLayoutSetNaturalLineLength(x.GoPointer(), NaturalLineLengthVar)
 }
 
@@ -402,6 +450,8 @@ var xWrapLayoutSetNaturalLineLengthUnit func(uintptr, LengthUnit)
 //
 // See [property@WrapLayout:natural-line-length].
 func (x *WrapLayout) SetNaturalLineLengthUnit(UnitVar LengthUnit) {
+	core.LazyRegister(&xWrapLayoutSetNaturalLineLengthUnit, "ADW", "adw_wrap_layout_set_natural_line_length_unit", false)
+
 	xWrapLayoutSetNaturalLineLengthUnit(x.GoPointer(), UnitVar)
 }
 
@@ -409,6 +459,8 @@ var xWrapLayoutSetPackDirection func(uintptr, PackDirection)
 
 // Sets the direction children are packed in each line.
 func (x *WrapLayout) SetPackDirection(PackDirectionVar PackDirection) {
+	core.LazyRegister(&xWrapLayoutSetPackDirection, "ADW", "adw_wrap_layout_set_pack_direction", false)
+
 	xWrapLayoutSetPackDirection(x.GoPointer(), PackDirectionVar)
 }
 
@@ -424,6 +476,8 @@ var xWrapLayoutSetWrapPolicy func(uintptr, WrapPolicy)
 // children into each line as possible, shrinking them down to their minimum
 // size before wrapping to the next line.
 func (x *WrapLayout) SetWrapPolicy(WrapPolicyVar WrapPolicy) {
+	core.LazyRegister(&xWrapLayoutSetWrapPolicy, "ADW", "adw_wrap_layout_set_wrap_policy", false)
+
 	xWrapLayoutSetWrapPolicy(x.GoPointer(), WrapPolicyVar)
 }
 
@@ -435,6 +489,8 @@ var xWrapLayoutSetWrapReverse func(uintptr, bool)
 // in a vertical box. If set to `TRUE`, they wrap upwards or towards the start
 // respectively.
 func (x *WrapLayout) SetWrapReverse(WrapReverseVar bool) {
+	core.LazyRegister(&xWrapLayoutSetWrapReverse, "ADW", "adw_wrap_layout_set_wrap_reverse", false)
+
 	xWrapLayoutSetWrapReverse(x.GoPointer(), WrapReverseVar)
 }
 
@@ -628,49 +684,4 @@ func (x *WrapLayout) SetOrientation(OrientationVar gtk.Orientation) {
 func init() {
 	core.SetPackageName("ADW", "libadwaita-1")
 	core.SetSharedLibraries("ADW", []string{"libadwaita-1.so.0", "libadwaita-1.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("ADW") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xJustifyModeGLibType, libs, "adw_justify_mode_get_type")
-
-	core.PuregoSafeRegister(&xPackDirectionGLibType, libs, "adw_pack_direction_get_type")
-
-	core.PuregoSafeRegister(&xWrapPolicyGLibType, libs, "adw_wrap_policy_get_type")
-
-	core.PuregoSafeRegister(&xWrapLayoutGLibType, libs, "adw_wrap_layout_get_type")
-
-	core.PuregoSafeRegister(&xNewWrapLayout, libs, "adw_wrap_layout_new")
-
-	core.PuregoSafeRegister(&xWrapLayoutGetAlign, libs, "adw_wrap_layout_get_align")
-	core.PuregoSafeRegister(&xWrapLayoutGetChildSpacing, libs, "adw_wrap_layout_get_child_spacing")
-	core.PuregoSafeRegister(&xWrapLayoutGetChildSpacingUnit, libs, "adw_wrap_layout_get_child_spacing_unit")
-	core.PuregoSafeRegister(&xWrapLayoutGetJustify, libs, "adw_wrap_layout_get_justify")
-	core.PuregoSafeRegister(&xWrapLayoutGetJustifyLastLine, libs, "adw_wrap_layout_get_justify_last_line")
-	core.PuregoSafeRegister(&xWrapLayoutGetLineHomogeneous, libs, "adw_wrap_layout_get_line_homogeneous")
-	core.PuregoSafeRegister(&xWrapLayoutGetLineSpacing, libs, "adw_wrap_layout_get_line_spacing")
-	core.PuregoSafeRegister(&xWrapLayoutGetLineSpacingUnit, libs, "adw_wrap_layout_get_line_spacing_unit")
-	core.PuregoSafeRegister(&xWrapLayoutGetNaturalLineLength, libs, "adw_wrap_layout_get_natural_line_length")
-	core.PuregoSafeRegister(&xWrapLayoutGetNaturalLineLengthUnit, libs, "adw_wrap_layout_get_natural_line_length_unit")
-	core.PuregoSafeRegister(&xWrapLayoutGetPackDirection, libs, "adw_wrap_layout_get_pack_direction")
-	core.PuregoSafeRegister(&xWrapLayoutGetWrapPolicy, libs, "adw_wrap_layout_get_wrap_policy")
-	core.PuregoSafeRegister(&xWrapLayoutGetWrapReverse, libs, "adw_wrap_layout_get_wrap_reverse")
-	core.PuregoSafeRegister(&xWrapLayoutSetAlign, libs, "adw_wrap_layout_set_align")
-	core.PuregoSafeRegister(&xWrapLayoutSetChildSpacing, libs, "adw_wrap_layout_set_child_spacing")
-	core.PuregoSafeRegister(&xWrapLayoutSetChildSpacingUnit, libs, "adw_wrap_layout_set_child_spacing_unit")
-	core.PuregoSafeRegister(&xWrapLayoutSetJustify, libs, "adw_wrap_layout_set_justify")
-	core.PuregoSafeRegister(&xWrapLayoutSetJustifyLastLine, libs, "adw_wrap_layout_set_justify_last_line")
-	core.PuregoSafeRegister(&xWrapLayoutSetLineHomogeneous, libs, "adw_wrap_layout_set_line_homogeneous")
-	core.PuregoSafeRegister(&xWrapLayoutSetLineSpacing, libs, "adw_wrap_layout_set_line_spacing")
-	core.PuregoSafeRegister(&xWrapLayoutSetLineSpacingUnit, libs, "adw_wrap_layout_set_line_spacing_unit")
-	core.PuregoSafeRegister(&xWrapLayoutSetNaturalLineLength, libs, "adw_wrap_layout_set_natural_line_length")
-	core.PuregoSafeRegister(&xWrapLayoutSetNaturalLineLengthUnit, libs, "adw_wrap_layout_set_natural_line_length_unit")
-	core.PuregoSafeRegister(&xWrapLayoutSetPackDirection, libs, "adw_wrap_layout_set_pack_direction")
-	core.PuregoSafeRegister(&xWrapLayoutSetWrapPolicy, libs, "adw_wrap_layout_set_wrap_policy")
-	core.PuregoSafeRegister(&xWrapLayoutSetWrapReverse, libs, "adw_wrap_layout_set_wrap_reverse")
 }

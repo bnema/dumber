@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -66,6 +65,7 @@ type Item struct {
 var xItemGLibType func() types.GType
 
 func ItemGLibType() types.GType {
+	core.LazyRegister(&xItemGLibType, "PANGO", "pango_item_get_type", false)
 	return xItemGLibType()
 }
 
@@ -85,6 +85,8 @@ var xNewItem func() uintptr
 
 // Creates a new `PangoItem` structure initialized to default values.
 func NewItem() *Item {
+	core.LazyRegister(&xNewItem, "PANGO", "pango_item_new", false)
+
 	cret := xNewItem()
 	if cret == 0 {
 		return nil
@@ -106,6 +108,8 @@ var xItemApplyAttrs func(uintptr, *AttrIterator)
 // in a loop over the items resulting from itemization, while passing
 // the iter to each call.
 func (x *Item) ApplyAttrs(IterVar *AttrIterator) {
+	core.LazyRegister(&xItemApplyAttrs, "PANGO", "pango_item_apply_attrs", false)
+
 	xItemApplyAttrs(x.GoPointer(), IterVar)
 }
 
@@ -113,6 +117,8 @@ var xItemCopy func(uintptr) uintptr
 
 // Copy an existing `PangoItem` structure.
 func (x *Item) Copy() *Item {
+	core.LazyRegister(&xItemCopy, "PANGO", "pango_item_copy", false)
+
 	cret := xItemCopy(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -124,6 +130,8 @@ var xItemFree func(uintptr)
 
 // Free a `PangoItem` and all associated memory.
 func (x *Item) Free() {
+	core.LazyRegister(&xItemFree, "PANGO", "pango_item_free", false)
+
 	xItemFree(x.GoPointer())
 }
 
@@ -136,6 +144,8 @@ var xItemGetCharOffset func(uintptr) int
 // machinery, then the character offset is not available. In
 // that case, this function returns -1.
 func (x *Item) GetCharOffset() int {
+	core.LazyRegister(&xItemGetCharOffset, "PANGO", "pango_item_get_char_offset", false)
+
 	cret := xItemGetCharOffset(x.GoPointer())
 	return cret
 }
@@ -155,6 +165,8 @@ var xItemSplit func(uintptr, int, int) uintptr
 // so `pango_item_split()` can't count the char length of the split items
 // itself.
 func (x *Item) Split(SplitIndexVar int, SplitOffsetVar int) *Item {
+	core.LazyRegister(&xItemSplit, "PANGO", "pango_item_split", false)
+
 	cret := xItemSplit(x.GoPointer(), SplitIndexVar, SplitOffsetVar)
 	if cret == 0 {
 		return nil
@@ -188,6 +200,8 @@ var xItemize func(uintptr, string, int, int, *AttrList, *AttrIterator) uintptr
 // @start_index + @length. (i.e. if itemizing in a loop, just keep passing
 // in the same @cached_iter).
 func Itemize(ContextVar *Context, TextVar string, StartIndexVar int, LengthVar int, AttrsVar *AttrList, CachedIterVar *AttrIterator) *glib.List {
+	core.LazyRegister(&xItemize, "PANGO", "pango_itemize", false)
+
 	cret := xItemize(ContextVar.GoPointer(), TextVar, StartIndexVar, LengthVar, AttrsVar, CachedIterVar)
 	if cret == 0 {
 		return nil
@@ -203,6 +217,8 @@ var xItemizeWithBaseDir func(uintptr, Direction, string, int, int, *AttrList, *A
 // [func@itemize] gets the base direction from the `PangoContext`
 // (see [method@Pango.Context.set_base_dir]).
 func ItemizeWithBaseDir(ContextVar *Context, BaseDirVar Direction, TextVar string, StartIndexVar int, LengthVar int, AttrsVar *AttrList, CachedIterVar *AttrIterator) *glib.List {
+	core.LazyRegister(&xItemizeWithBaseDir, "PANGO", "pango_itemize_with_base_dir", false)
+
 	cret := xItemizeWithBaseDir(ContextVar.GoPointer(), BaseDirVar, TextVar, StartIndexVar, LengthVar, AttrsVar, CachedIterVar)
 	if cret == 0 {
 		return nil
@@ -222,6 +238,8 @@ var xReorderItems func(*glib.List) uintptr
 //	It is not a particularly convenient interface, and the code
 //	is duplicated elsewhere in Pango for that reason.)
 func ReorderItems(ItemsVar *glib.List) *glib.List {
+	core.LazyRegister(&xReorderItems, "PANGO", "pango_reorder_items", false)
+
 	cret := xReorderItems(ItemsVar)
 	if cret == 0 {
 		return nil
@@ -232,26 +250,4 @@ func ReorderItems(ItemsVar *glib.List) *glib.List {
 func init() {
 	core.SetPackageName("PANGO", "pango")
 	core.SetSharedLibraries("PANGO", []string{"libpango-1.0.so.0", "libpango-1.0.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("PANGO") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xItemize, libs, "pango_itemize")
-	core.PuregoSafeRegister(&xItemizeWithBaseDir, libs, "pango_itemize_with_base_dir")
-	core.PuregoSafeRegister(&xReorderItems, libs, "pango_reorder_items")
-
-	core.PuregoSafeRegister(&xItemGLibType, libs, "pango_item_get_type")
-
-	core.PuregoSafeRegister(&xNewItem, libs, "pango_item_new")
-
-	core.PuregoSafeRegister(&xItemApplyAttrs, libs, "pango_item_apply_attrs")
-	core.PuregoSafeRegister(&xItemCopy, libs, "pango_item_copy")
-	core.PuregoSafeRegister(&xItemFree, libs, "pango_item_free")
-	core.PuregoSafeRegister(&xItemGetCharOffset, libs, "pango_item_get_char_offset")
-	core.PuregoSafeRegister(&xItemSplit, libs, "pango_item_split")
 }

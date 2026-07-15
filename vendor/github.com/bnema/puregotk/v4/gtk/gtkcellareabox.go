@@ -4,7 +4,6 @@ package gtk
 import (
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -37,6 +36,7 @@ type CellAreaBox struct {
 var xCellAreaBoxGLibType func() types.GType
 
 func CellAreaBoxGLibType() types.GType {
+	core.LazyRegister(&xCellAreaBoxGLibType, "GTK", "gtk_cell_area_box_get_type", false)
 	return xCellAreaBoxGLibType()
 }
 
@@ -50,6 +50,7 @@ var xNewCellAreaBox func() uintptr
 
 // Creates a new `GtkCellAreaBox`.
 func NewCellAreaBox() *CellAreaBox {
+	core.LazyRegister(&xNewCellAreaBox, "GTK", "gtk_cell_area_box_new", false)
 	var cls *CellAreaBox
 
 	cret := xNewCellAreaBox()
@@ -67,6 +68,8 @@ var xCellAreaBoxGetSpacing func(uintptr) int
 
 // Gets the spacing added between cell renderers.
 func (x *CellAreaBox) GetSpacing() int {
+	core.LazyRegister(&xCellAreaBoxGetSpacing, "GTK", "gtk_cell_area_box_get_spacing", false)
+
 	cret := xCellAreaBoxGetSpacing(x.GoPointer())
 	return cret
 }
@@ -78,6 +81,8 @@ var xCellAreaBoxPackEnd func(uintptr, uintptr, bool, bool, bool)
 // The @renderer is packed after (away from end of) any other
 // `GtkCellRenderer` packed with reference to the end of @box.
 func (x *CellAreaBox) PackEnd(RendererVar *CellRenderer, ExpandVar bool, AlignVar bool, FixedVar bool) {
+	core.LazyRegister(&xCellAreaBoxPackEnd, "GTK", "gtk_cell_area_box_pack_end", false)
+
 	xCellAreaBoxPackEnd(x.GoPointer(), RendererVar.GoPointer(), ExpandVar, AlignVar, FixedVar)
 }
 
@@ -88,6 +93,8 @@ var xCellAreaBoxPackStart func(uintptr, uintptr, bool, bool, bool)
 // The @renderer is packed after any other `GtkCellRenderer` packed
 // with reference to the start of @box.
 func (x *CellAreaBox) PackStart(RendererVar *CellRenderer, ExpandVar bool, AlignVar bool, FixedVar bool) {
+	core.LazyRegister(&xCellAreaBoxPackStart, "GTK", "gtk_cell_area_box_pack_start", false)
+
 	xCellAreaBoxPackStart(x.GoPointer(), RendererVar.GoPointer(), ExpandVar, AlignVar, FixedVar)
 }
 
@@ -95,6 +102,8 @@ var xCellAreaBoxSetSpacing func(uintptr, int)
 
 // Sets the spacing to add between cell renderers in @box.
 func (x *CellAreaBox) SetSpacing(SpacingVar int) {
+	core.LazyRegister(&xCellAreaBoxSetSpacing, "GTK", "gtk_cell_area_box_set_spacing", false)
+
 	xCellAreaBoxSetSpacing(x.GoPointer(), SpacingVar)
 }
 
@@ -229,21 +238,4 @@ func (x *CellAreaBox) SetOrientation(OrientationVar Orientation) {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GTK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xCellAreaBoxGLibType, libs, "gtk_cell_area_box_get_type")
-
-	core.PuregoSafeRegister(&xNewCellAreaBox, libs, "gtk_cell_area_box_new")
-
-	core.PuregoSafeRegister(&xCellAreaBoxGetSpacing, libs, "gtk_cell_area_box_get_spacing")
-	core.PuregoSafeRegister(&xCellAreaBoxPackEnd, libs, "gtk_cell_area_box_pack_end")
-	core.PuregoSafeRegister(&xCellAreaBoxPackStart, libs, "gtk_cell_area_box_pack_start")
-	core.PuregoSafeRegister(&xCellAreaBoxSetSpacing, libs, "gtk_cell_area_box_set_spacing")
 }

@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -103,6 +102,7 @@ type ViewSwitcherBar struct {
 var xViewSwitcherBarGLibType func() types.GType
 
 func ViewSwitcherBarGLibType() types.GType {
+	core.LazyRegister(&xViewSwitcherBarGLibType, "ADW", "adw_view_switcher_bar_get_type", false)
 	return xViewSwitcherBarGLibType()
 }
 
@@ -116,6 +116,7 @@ var xNewViewSwitcherBar func() uintptr
 
 // Creates a new `AdwViewSwitcherBar`.
 func NewViewSwitcherBar() *ViewSwitcherBar {
+	core.LazyRegister(&xNewViewSwitcherBar, "ADW", "adw_view_switcher_bar_new", false)
 	var cls *ViewSwitcherBar
 
 	cret := xNewViewSwitcherBar()
@@ -133,6 +134,8 @@ var xViewSwitcherBarGetReveal func(uintptr) bool
 
 // Gets whether @self should be revealed or hidden.
 func (x *ViewSwitcherBar) GetReveal() bool {
+	core.LazyRegister(&xViewSwitcherBarGetReveal, "ADW", "adw_view_switcher_bar_get_reveal", false)
+
 	cret := xViewSwitcherBarGetReveal(x.GoPointer())
 	return cret
 }
@@ -141,6 +144,7 @@ var xViewSwitcherBarGetStack func(uintptr) uintptr
 
 // Gets the stack controlled by @self.
 func (x *ViewSwitcherBar) GetStack() *ViewStack {
+	core.LazyRegister(&xViewSwitcherBarGetStack, "ADW", "adw_view_switcher_bar_get_stack", false)
 	var cls *ViewStack
 
 	cret := xViewSwitcherBarGetStack(x.GoPointer())
@@ -158,6 +162,8 @@ var xViewSwitcherBarSetReveal func(uintptr, bool)
 
 // Sets whether @self should be revealed or hidden.
 func (x *ViewSwitcherBar) SetReveal(RevealVar bool) {
+	core.LazyRegister(&xViewSwitcherBarSetReveal, "ADW", "adw_view_switcher_bar_set_reveal", false)
+
 	xViewSwitcherBarSetReveal(x.GoPointer(), RevealVar)
 }
 
@@ -165,6 +171,8 @@ var xViewSwitcherBarSetStack func(uintptr, uintptr)
 
 // Sets the stack controlled by @self.
 func (x *ViewSwitcherBar) SetStack(StackVar *ViewStack) {
+	core.LazyRegister(&xViewSwitcherBarSetStack, "ADW", "adw_view_switcher_bar_set_stack", false)
+
 	xViewSwitcherBarSetStack(x.GoPointer(), StackVar.GoPointer())
 }
 
@@ -459,21 +467,4 @@ func (x *ViewSwitcherBar) GetBuildableId() string {
 func init() {
 	core.SetPackageName("ADW", "libadwaita-1")
 	core.SetSharedLibraries("ADW", []string{"libadwaita-1.so.0", "libadwaita-1.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("ADW") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xViewSwitcherBarGLibType, libs, "adw_view_switcher_bar_get_type")
-
-	core.PuregoSafeRegister(&xNewViewSwitcherBar, libs, "adw_view_switcher_bar_new")
-
-	core.PuregoSafeRegister(&xViewSwitcherBarGetReveal, libs, "adw_view_switcher_bar_get_reveal")
-	core.PuregoSafeRegister(&xViewSwitcherBarGetStack, libs, "adw_view_switcher_bar_get_stack")
-	core.PuregoSafeRegister(&xViewSwitcherBarSetReveal, libs, "adw_view_switcher_bar_set_reveal")
-	core.PuregoSafeRegister(&xViewSwitcherBarSetStack, libs, "adw_view_switcher_bar_set_stack")
 }

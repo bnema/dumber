@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -44,6 +43,7 @@ type ShadowNode struct {
 var xShadowNodeGLibType func() types.GType
 
 func ShadowNodeGLibType() types.GType {
+	core.LazyRegister(&xShadowNodeGLibType, "GSK", "gsk_shadow_node_get_type", false)
 	return xShadowNodeGLibType()
 }
 
@@ -58,6 +58,7 @@ var xNewShadowNode func(uintptr, []Shadow, uint) uintptr
 // Creates a `GskRenderNode` that will draw a @child with the given
 // @shadows below it.
 func NewShadowNode(ChildVar *RenderNode, ShadowsVar []Shadow, NShadowsVar uint) *ShadowNode {
+	core.LazyRegister(&xNewShadowNode, "GSK", "gsk_shadow_node_new", false)
 	var cls *ShadowNode
 
 	cret := xNewShadowNode(ChildVar.GoPointer(), ShadowsVar, NShadowsVar)
@@ -74,6 +75,7 @@ var xShadowNodeGetChild func(uintptr) uintptr
 
 // Retrieves the child `GskRenderNode` of the shadow @node.
 func (x *ShadowNode) GetChild() *RenderNode {
+	core.LazyRegister(&xShadowNodeGetChild, "GSK", "gsk_shadow_node_get_child", false)
 	var cls *RenderNode
 
 	cret := xShadowNodeGetChild(x.GoPointer())
@@ -91,6 +93,8 @@ var xShadowNodeGetNShadows func(uintptr) uint
 
 // Retrieves the number of shadows in the @node.
 func (x *ShadowNode) GetNShadows() uint {
+	core.LazyRegister(&xShadowNodeGetNShadows, "GSK", "gsk_shadow_node_get_n_shadows", false)
+
 	cret := xShadowNodeGetNShadows(x.GoPointer())
 	return cret
 }
@@ -99,6 +103,8 @@ var xShadowNodeGetShadow func(uintptr, uint) uintptr
 
 // Retrieves the shadow data at the given index @i.
 func (x *ShadowNode) GetShadow(IVar uint) *Shadow {
+	core.LazyRegister(&xShadowNodeGetShadow, "GSK", "gsk_shadow_node_get_shadow", false)
+
 	cret := xShadowNodeGetShadow(x.GoPointer(), IVar)
 	if cret == 0 {
 		return nil
@@ -120,20 +126,4 @@ func (c *ShadowNode) SetGoPointer(ptr uintptr) {
 func init() {
 	core.SetPackageName("GSK", "gtk4")
 	core.SetSharedLibraries("GSK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GSK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xShadowNodeGLibType, libs, "gsk_shadow_node_get_type")
-
-	core.PuregoSafeRegister(&xNewShadowNode, libs, "gsk_shadow_node_new")
-
-	core.PuregoSafeRegister(&xShadowNodeGetChild, libs, "gsk_shadow_node_get_child")
-	core.PuregoSafeRegister(&xShadowNodeGetNShadows, libs, "gsk_shadow_node_get_n_shadows")
-	core.PuregoSafeRegister(&xShadowNodeGetShadow, libs, "gsk_shadow_node_get_shadow")
 }

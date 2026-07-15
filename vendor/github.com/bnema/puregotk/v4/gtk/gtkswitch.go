@@ -4,7 +4,6 @@ package gtk
 import (
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -65,6 +64,7 @@ type Switch struct {
 var xSwitchGLibType func() types.GType
 
 func SwitchGLibType() types.GType {
+	core.LazyRegister(&xSwitchGLibType, "GTK", "gtk_switch_get_type", false)
 	return xSwitchGLibType()
 }
 
@@ -78,6 +78,7 @@ var xNewSwitch func() uintptr
 
 // Creates a new `GtkSwitch` widget.
 func NewSwitch() *Switch {
+	core.LazyRegister(&xNewSwitch, "GTK", "gtk_switch_new", false)
 	var cls *Switch
 
 	cret := xNewSwitch()
@@ -95,6 +96,8 @@ var xSwitchGetActive func(uintptr) bool
 
 // Gets whether the `GtkSwitch` is in its “on” or “off” state.
 func (x *Switch) GetActive() bool {
+	core.LazyRegister(&xSwitchGetActive, "GTK", "gtk_switch_get_active", false)
+
 	cret := xSwitchGetActive(x.GoPointer())
 	return cret
 }
@@ -103,6 +106,8 @@ var xSwitchGetState func(uintptr) bool
 
 // Gets the underlying state of the `GtkSwitch`.
 func (x *Switch) GetState() bool {
+	core.LazyRegister(&xSwitchGetState, "GTK", "gtk_switch_get_state", false)
+
 	cret := xSwitchGetState(x.GoPointer())
 	return cret
 }
@@ -111,6 +116,8 @@ var xSwitchSetActive func(uintptr, bool)
 
 // Changes the state of @self to the desired one.
 func (x *Switch) SetActive(IsActiveVar bool) {
+	core.LazyRegister(&xSwitchSetActive, "GTK", "gtk_switch_set_active", false)
+
 	xSwitchSetActive(x.GoPointer(), IsActiveVar)
 }
 
@@ -123,6 +130,8 @@ var xSwitchSetState func(uintptr, bool)
 //
 // See [signal@Gtk.Switch::state-set] for details.
 func (x *Switch) SetState(StateVar bool) {
+	core.LazyRegister(&xSwitchSetState, "GTK", "gtk_switch_set_state", false)
+
 	xSwitchSetState(x.GoPointer(), StateVar)
 }
 
@@ -586,21 +595,4 @@ func (x *Switch) GetBuildableId() string {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GTK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xSwitchGLibType, libs, "gtk_switch_get_type")
-
-	core.PuregoSafeRegister(&xNewSwitch, libs, "gtk_switch_new")
-
-	core.PuregoSafeRegister(&xSwitchGetActive, libs, "gtk_switch_get_active")
-	core.PuregoSafeRegister(&xSwitchGetState, libs, "gtk_switch_get_state")
-	core.PuregoSafeRegister(&xSwitchSetActive, libs, "gtk_switch_set_active")
-	core.PuregoSafeRegister(&xSwitchSetState, libs, "gtk_switch_set_state")
 }

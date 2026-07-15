@@ -183,6 +183,7 @@ type DBusInterface interface {
 var xDBusInterfaceGLibType func() types.GType
 
 func DBusInterfaceGLibType() types.GType {
+	core.LazyRegister(&xDBusInterfaceGLibType, "GIO", "g_dbus_interface_get_type", false)
 	return xDBusInterfaceGLibType()
 }
 
@@ -256,29 +257,35 @@ func (x *DBusInterfaceBase) SetObject(ObjectVar DBusObject) {
 	XGDbusInterfaceSetObject(x.GoPointer(), ObjectVar.GoPointer())
 }
 
+var XGDbusInterfaceDupObject func(uintptr) uintptr = func(instance uintptr) uintptr {
+	core.LazyRegister(&xXGDbusInterfaceDupObject, "GIO", "g_dbus_interface_dup_object", false)
+	return xXGDbusInterfaceDupObject(instance)
+}
+
 var (
-	XGDbusInterfaceDupObject func(uintptr) uintptr
-	XGDbusInterfaceGetInfo   func(uintptr) uintptr
-	XGDbusInterfaceGetObject func(uintptr) uintptr
-	XGDbusInterfaceSetObject func(uintptr, uintptr)
+	xXGDbusInterfaceDupObject func(uintptr) uintptr
+	XGDbusInterfaceGetInfo    func(uintptr) uintptr = func(instance uintptr) uintptr {
+		core.LazyRegister(&xXGDbusInterfaceGetInfo, "GIO", "g_dbus_interface_get_info", false)
+		return xXGDbusInterfaceGetInfo(instance)
+	}
 )
+var (
+	xXGDbusInterfaceGetInfo  func(uintptr) uintptr
+	XGDbusInterfaceGetObject func(uintptr) uintptr = func(instance uintptr) uintptr {
+		core.LazyRegister(&xXGDbusInterfaceGetObject, "GIO", "g_dbus_interface_get_object", false)
+		return xXGDbusInterfaceGetObject(instance)
+	}
+)
+var (
+	xXGDbusInterfaceGetObject func(uintptr) uintptr
+	XGDbusInterfaceSetObject  func(uintptr, uintptr) = func(instance uintptr, ObjectVarp uintptr) {
+		core.LazyRegister(&xXGDbusInterfaceSetObject, "GIO", "g_dbus_interface_set_object", false)
+		xXGDbusInterfaceSetObject(instance, ObjectVarp)
+	}
+)
+var xXGDbusInterfaceSetObject func(uintptr, uintptr)
 
 func init() {
 	core.SetPackageName("GIO", "gio-2.0")
 	core.SetSharedLibraries("GIO", []string{"libgio-2.0.so.0", "libgio-2.0.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GIO") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xDBusInterfaceGLibType, libs, "g_dbus_interface_get_type")
-
-	core.PuregoSafeRegister(&XGDbusInterfaceDupObject, libs, "g_dbus_interface_dup_object")
-	core.PuregoSafeRegister(&XGDbusInterfaceGetInfo, libs, "g_dbus_interface_get_info")
-	core.PuregoSafeRegister(&XGDbusInterfaceGetObject, libs, "g_dbus_interface_get_object")
-	core.PuregoSafeRegister(&XGDbusInterfaceSetObject, libs, "g_dbus_interface_set_object")
 }

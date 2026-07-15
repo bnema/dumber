@@ -2,7 +2,6 @@
 package gtk
 
 import (
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -16,6 +15,7 @@ type StackTransitionType int
 var xStackTransitionTypeGLibType func() types.GType
 
 func StackTransitionTypeGLibType() types.GType {
+	core.LazyRegister(&xStackTransitionTypeGLibType, "GTK", "gtk_stack_transition_type_get_type", false)
 	return xStackTransitionTypeGLibType()
 }
 
@@ -131,6 +131,7 @@ type Stack struct {
 var xStackGLibType func() types.GType
 
 func StackGLibType() types.GType {
+	core.LazyRegister(&xStackGLibType, "GTK", "gtk_stack_get_type", false)
 	return xStackGLibType()
 }
 
@@ -144,6 +145,7 @@ var xNewStack func() uintptr
 
 // Creates a new `GtkStack`.
 func NewStack() *Stack {
+	core.LazyRegister(&xNewStack, "GTK", "gtk_stack_new", false)
 	var cls *Stack
 
 	cret := xNewStack()
@@ -161,6 +163,7 @@ var xStackAddChild func(uintptr, uintptr) uintptr
 
 // Adds a child to @stack.
 func (x *Stack) AddChild(ChildVar *Widget) *StackPage {
+	core.LazyRegister(&xStackAddChild, "GTK", "gtk_stack_add_child", false)
 	var cls *StackPage
 
 	cret := xStackAddChild(x.GoPointer(), ChildVar.GoPointer())
@@ -180,6 +183,7 @@ var xStackAddNamed func(uintptr, uintptr, uintptr) uintptr
 //
 // The child is identified by the @name.
 func (x *Stack) AddNamed(ChildVar *Widget, NameVar *string) *StackPage {
+	core.LazyRegister(&xStackAddNamed, "GTK", "gtk_stack_add_named", false)
 	var cls *StackPage
 
 	NameVarPtr := core.GStrdupNullable(NameVar)
@@ -204,6 +208,7 @@ var xStackAddTitled func(uintptr, uintptr, uintptr, string) uintptr
 // will be used by `GtkStackSwitcher` to represent
 // @child in a tab bar, so it should be short.
 func (x *Stack) AddTitled(ChildVar *Widget, NameVar *string, TitleVar string) *StackPage {
+	core.LazyRegister(&xStackAddTitled, "GTK", "gtk_stack_add_titled", false)
 	var cls *StackPage
 
 	NameVarPtr := core.GStrdupNullable(NameVar)
@@ -226,6 +231,7 @@ var xStackGetChildByName func(uintptr, string) uintptr
 //
 // Returns %NULL if there is no child with this name.
 func (x *Stack) GetChildByName(NameVar string) *Widget {
+	core.LazyRegister(&xStackGetChildByName, "GTK", "gtk_stack_get_child_by_name", false)
 	var cls *Widget
 
 	cret := xStackGetChildByName(x.GoPointer(), NameVar)
@@ -243,6 +249,8 @@ var xStackGetHhomogeneous func(uintptr) bool
 
 // Gets whether @stack is horizontally homogeneous.
 func (x *Stack) GetHhomogeneous() bool {
+	core.LazyRegister(&xStackGetHhomogeneous, "GTK", "gtk_stack_get_hhomogeneous", false)
+
 	cret := xStackGetHhomogeneous(x.GoPointer())
 	return cret
 }
@@ -252,6 +260,8 @@ var xStackGetInterpolateSize func(uintptr) bool
 // Returns whether the `GtkStack` is set up to interpolate between
 // the sizes of children on page switch.
 func (x *Stack) GetInterpolateSize() bool {
+	core.LazyRegister(&xStackGetInterpolateSize, "GTK", "gtk_stack_get_interpolate_size", false)
+
 	cret := xStackGetInterpolateSize(x.GoPointer())
 	return cret
 }
@@ -260,6 +270,7 @@ var xStackGetPage func(uintptr, uintptr) uintptr
 
 // Returns the `GtkStackPage` object for @child.
 func (x *Stack) GetPage(ChildVar *Widget) *StackPage {
+	core.LazyRegister(&xStackGetPage, "GTK", "gtk_stack_get_page", false)
 	var cls *StackPage
 
 	cret := xStackGetPage(x.GoPointer(), ChildVar.GoPointer())
@@ -281,6 +292,7 @@ var xStackGetPages func(uintptr) uintptr
 // implements [iface@Gtk.SelectionModel] and can be used to track
 // and modify the visible page.
 func (x *Stack) GetPages() *SelectionModelBase {
+	core.LazyRegister(&xStackGetPages, "GTK", "gtk_stack_get_pages", false)
 	var cls *SelectionModelBase
 
 	cret := xStackGetPages(x.GoPointer())
@@ -298,6 +310,8 @@ var xStackGetTransitionDuration func(uintptr) uint
 // Returns the amount of time (in milliseconds) that
 // transitions between pages in @stack will take.
 func (x *Stack) GetTransitionDuration() uint {
+	core.LazyRegister(&xStackGetTransitionDuration, "GTK", "gtk_stack_get_transition_duration", false)
+
 	cret := xStackGetTransitionDuration(x.GoPointer())
 	return cret
 }
@@ -307,6 +321,8 @@ var xStackGetTransitionRunning func(uintptr) bool
 // Returns whether the @stack is currently in a transition from one page to
 // another.
 func (x *Stack) GetTransitionRunning() bool {
+	core.LazyRegister(&xStackGetTransitionRunning, "GTK", "gtk_stack_get_transition_running", false)
+
 	cret := xStackGetTransitionRunning(x.GoPointer())
 	return cret
 }
@@ -316,6 +332,8 @@ var xStackGetTransitionType func(uintptr) StackTransitionType
 // Gets the type of animation that will be used
 // for transitions between pages in @stack.
 func (x *Stack) GetTransitionType() StackTransitionType {
+	core.LazyRegister(&xStackGetTransitionType, "GTK", "gtk_stack_get_transition_type", false)
+
 	cret := xStackGetTransitionType(x.GoPointer())
 	return cret
 }
@@ -324,6 +342,8 @@ var xStackGetVhomogeneous func(uintptr) bool
 
 // Gets whether @stack is vertically homogeneous.
 func (x *Stack) GetVhomogeneous() bool {
+	core.LazyRegister(&xStackGetVhomogeneous, "GTK", "gtk_stack_get_vhomogeneous", false)
+
 	cret := xStackGetVhomogeneous(x.GoPointer())
 	return cret
 }
@@ -334,6 +354,7 @@ var xStackGetVisibleChild func(uintptr) uintptr
 //
 // Returns %NULL if there are no visible children.
 func (x *Stack) GetVisibleChild() *Widget {
+	core.LazyRegister(&xStackGetVisibleChild, "GTK", "gtk_stack_get_visible_child", false)
 	var cls *Widget
 
 	cret := xStackGetVisibleChild(x.GoPointer())
@@ -353,6 +374,8 @@ var xStackGetVisibleChildName func(uintptr) string
 //
 // Returns %NULL if there is no visible child.
 func (x *Stack) GetVisibleChildName() string {
+	core.LazyRegister(&xStackGetVisibleChildName, "GTK", "gtk_stack_get_visible_child_name", false)
+
 	cret := xStackGetVisibleChildName(x.GoPointer())
 	return cret
 }
@@ -361,6 +384,8 @@ var xStackRemove func(uintptr, uintptr)
 
 // Removes a child widget from @stack.
 func (x *Stack) Remove(ChildVar *Widget) {
+	core.LazyRegister(&xStackRemove, "GTK", "gtk_stack_remove", false)
+
 	xStackRemove(x.GoPointer(), ChildVar.GoPointer())
 }
 
@@ -372,6 +397,8 @@ var xStackSetHhomogeneous func(uintptr, bool)
 // width for all its children. If it isn't, the stack
 // may change width when a different child becomes visible.
 func (x *Stack) SetHhomogeneous(HhomogeneousVar bool) {
+	core.LazyRegister(&xStackSetHhomogeneous, "GTK", "gtk_stack_set_hhomogeneous", false)
+
 	xStackSetHhomogeneous(x.GoPointer(), HhomogeneousVar)
 }
 
@@ -385,6 +412,8 @@ var xStackSetInterpolateSize func(uintptr, bool)
 // one and the one it'll take after changing the visible child,
 // according to the set transition duration.
 func (x *Stack) SetInterpolateSize(InterpolateSizeVar bool) {
+	core.LazyRegister(&xStackSetInterpolateSize, "GTK", "gtk_stack_set_interpolate_size", false)
+
 	xStackSetInterpolateSize(x.GoPointer(), InterpolateSizeVar)
 }
 
@@ -393,6 +422,8 @@ var xStackSetTransitionDuration func(uintptr, uint)
 // Sets the duration that transitions between pages in @stack
 // will take.
 func (x *Stack) SetTransitionDuration(DurationVar uint) {
+	core.LazyRegister(&xStackSetTransitionDuration, "GTK", "gtk_stack_set_transition_duration", false)
+
 	xStackSetTransitionDuration(x.GoPointer(), DurationVar)
 }
 
@@ -407,6 +438,8 @@ var xStackSetTransitionType func(uintptr, StackTransitionType)
 // at runtime, so it is possible to change the animation
 // based on the page that is about to become current.
 func (x *Stack) SetTransitionType(TransitionVar StackTransitionType) {
+	core.LazyRegister(&xStackSetTransitionType, "GTK", "gtk_stack_set_transition_type", false)
+
 	xStackSetTransitionType(x.GoPointer(), TransitionVar)
 }
 
@@ -418,6 +451,8 @@ var xStackSetVhomogeneous func(uintptr, bool)
 // height for all its children. If it isn't, the stack
 // may change height when a different child becomes visible.
 func (x *Stack) SetVhomogeneous(VhomogeneousVar bool) {
+	core.LazyRegister(&xStackSetVhomogeneous, "GTK", "gtk_stack_set_vhomogeneous", false)
+
 	xStackSetVhomogeneous(x.GoPointer(), VhomogeneousVar)
 }
 
@@ -433,6 +468,8 @@ var xStackSetVisibleChild func(uintptr, uintptr)
 // (see [method@Gtk.Widget.show]) in order to become the visible
 // child of @stack.
 func (x *Stack) SetVisibleChild(ChildVar *Widget) {
+	core.LazyRegister(&xStackSetVisibleChild, "GTK", "gtk_stack_set_visible_child", false)
+
 	xStackSetVisibleChild(x.GoPointer(), ChildVar.GoPointer())
 }
 
@@ -444,6 +481,8 @@ var xStackSetVisibleChildFull func(uintptr, string, StackTransitionType)
 // (see [method@Gtk.Widget.show]) in order to become the visible
 // child of @stack.
 func (x *Stack) SetVisibleChildFull(NameVar string, TransitionVar StackTransitionType) {
+	core.LazyRegister(&xStackSetVisibleChildFull, "GTK", "gtk_stack_set_visible_child_full", false)
+
 	xStackSetVisibleChildFull(x.GoPointer(), NameVar, TransitionVar)
 }
 
@@ -459,6 +498,8 @@ var xStackSetVisibleChildName func(uintptr, string)
 // (see [method@Gtk.Widget.show]) in order to become the visible
 // child of @stack.
 func (x *Stack) SetVisibleChildName(NameVar string) {
+	core.LazyRegister(&xStackSetVisibleChildName, "GTK", "gtk_stack_set_visible_child_name", false)
+
 	xStackSetVisibleChildName(x.GoPointer(), NameVar)
 }
 
@@ -834,6 +875,7 @@ type StackPage struct {
 var xStackPageGLibType func() types.GType
 
 func StackPageGLibType() types.GType {
+	core.LazyRegister(&xStackPageGLibType, "GTK", "gtk_stack_page_get_type", false)
 	return xStackPageGLibType()
 }
 
@@ -847,6 +889,7 @@ var xStackPageGetChild func(uintptr) uintptr
 
 // Returns the stack child to which @self belongs.
 func (x *StackPage) GetChild() *Widget {
+	core.LazyRegister(&xStackPageGetChild, "GTK", "gtk_stack_page_get_child", false)
 	var cls *Widget
 
 	cret := xStackPageGetChild(x.GoPointer())
@@ -864,6 +907,8 @@ var xStackPageGetIconName func(uintptr) string
 
 // Returns the icon name of the page.
 func (x *StackPage) GetIconName() string {
+	core.LazyRegister(&xStackPageGetIconName, "GTK", "gtk_stack_page_get_icon_name", false)
+
 	cret := xStackPageGetIconName(x.GoPointer())
 	return cret
 }
@@ -872,6 +917,8 @@ var xStackPageGetName func(uintptr) string
 
 // Returns the name of the page.
 func (x *StackPage) GetName() string {
+	core.LazyRegister(&xStackPageGetName, "GTK", "gtk_stack_page_get_name", false)
+
 	cret := xStackPageGetName(x.GoPointer())
 	return cret
 }
@@ -880,6 +927,8 @@ var xStackPageGetNeedsAttention func(uintptr) bool
 
 // Returns whether the page is marked as “needs attention”.
 func (x *StackPage) GetNeedsAttention() bool {
+	core.LazyRegister(&xStackPageGetNeedsAttention, "GTK", "gtk_stack_page_get_needs_attention", false)
+
 	cret := xStackPageGetNeedsAttention(x.GoPointer())
 	return cret
 }
@@ -888,6 +937,8 @@ var xStackPageGetTitle func(uintptr) string
 
 // Gets the page title.
 func (x *StackPage) GetTitle() string {
+	core.LazyRegister(&xStackPageGetTitle, "GTK", "gtk_stack_page_get_title", false)
+
 	cret := xStackPageGetTitle(x.GoPointer())
 	return cret
 }
@@ -896,6 +947,8 @@ var xStackPageGetUseUnderline func(uintptr) bool
 
 // Gets whether underlines in the page title indicate mnemonics.
 func (x *StackPage) GetUseUnderline() bool {
+	core.LazyRegister(&xStackPageGetUseUnderline, "GTK", "gtk_stack_page_get_use_underline", false)
+
 	cret := xStackPageGetUseUnderline(x.GoPointer())
 	return cret
 }
@@ -907,6 +960,8 @@ var xStackPageGetVisible func(uintptr) bool
 // This is independent from the [property@Gtk.Widget:visible]
 // property of its widget.
 func (x *StackPage) GetVisible() bool {
+	core.LazyRegister(&xStackPageGetVisible, "GTK", "gtk_stack_page_get_visible", false)
+
 	cret := xStackPageGetVisible(x.GoPointer())
 	return cret
 }
@@ -915,6 +970,8 @@ var xStackPageSetIconName func(uintptr, string)
 
 // Sets the icon name of the page.
 func (x *StackPage) SetIconName(SettingVar string) {
+	core.LazyRegister(&xStackPageSetIconName, "GTK", "gtk_stack_page_set_icon_name", false)
+
 	xStackPageSetIconName(x.GoPointer(), SettingVar)
 }
 
@@ -922,6 +979,8 @@ var xStackPageSetName func(uintptr, string)
 
 // Sets the name of the page.
 func (x *StackPage) SetName(SettingVar string) {
+	core.LazyRegister(&xStackPageSetName, "GTK", "gtk_stack_page_set_name", false)
+
 	xStackPageSetName(x.GoPointer(), SettingVar)
 }
 
@@ -929,6 +988,8 @@ var xStackPageSetNeedsAttention func(uintptr, bool)
 
 // Sets whether the page is marked as “needs attention”.
 func (x *StackPage) SetNeedsAttention(SettingVar bool) {
+	core.LazyRegister(&xStackPageSetNeedsAttention, "GTK", "gtk_stack_page_set_needs_attention", false)
+
 	xStackPageSetNeedsAttention(x.GoPointer(), SettingVar)
 }
 
@@ -936,6 +997,8 @@ var xStackPageSetTitle func(uintptr, string)
 
 // Sets the page title.
 func (x *StackPage) SetTitle(SettingVar string) {
+	core.LazyRegister(&xStackPageSetTitle, "GTK", "gtk_stack_page_set_title", false)
+
 	xStackPageSetTitle(x.GoPointer(), SettingVar)
 }
 
@@ -943,6 +1006,8 @@ var xStackPageSetUseUnderline func(uintptr, bool)
 
 // Sets whether underlines in the page title indicate mnemonics.
 func (x *StackPage) SetUseUnderline(SettingVar bool) {
+	core.LazyRegister(&xStackPageSetUseUnderline, "GTK", "gtk_stack_page_set_use_underline", false)
+
 	xStackPageSetUseUnderline(x.GoPointer(), SettingVar)
 }
 
@@ -950,6 +1015,8 @@ var xStackPageSetVisible func(uintptr, bool)
 
 // Sets whether @page is visible in its `GtkStack`.
 func (x *StackPage) SetVisible(VisibleVar bool) {
+	core.LazyRegister(&xStackPageSetVisible, "GTK", "gtk_stack_page_set_visible", false)
+
 	xStackPageSetVisible(x.GoPointer(), VisibleVar)
 }
 
@@ -1328,58 +1395,4 @@ func (x *StackPage) UpdateStateValue(NStatesVar int, StatesVar []AccessibleState
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GTK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xStackTransitionTypeGLibType, libs, "gtk_stack_transition_type_get_type")
-
-	core.PuregoSafeRegister(&xStackGLibType, libs, "gtk_stack_get_type")
-
-	core.PuregoSafeRegister(&xNewStack, libs, "gtk_stack_new")
-
-	core.PuregoSafeRegister(&xStackAddChild, libs, "gtk_stack_add_child")
-	core.PuregoSafeRegister(&xStackAddNamed, libs, "gtk_stack_add_named")
-	core.PuregoSafeRegister(&xStackAddTitled, libs, "gtk_stack_add_titled")
-	core.PuregoSafeRegister(&xStackGetChildByName, libs, "gtk_stack_get_child_by_name")
-	core.PuregoSafeRegister(&xStackGetHhomogeneous, libs, "gtk_stack_get_hhomogeneous")
-	core.PuregoSafeRegister(&xStackGetInterpolateSize, libs, "gtk_stack_get_interpolate_size")
-	core.PuregoSafeRegister(&xStackGetPage, libs, "gtk_stack_get_page")
-	core.PuregoSafeRegister(&xStackGetPages, libs, "gtk_stack_get_pages")
-	core.PuregoSafeRegister(&xStackGetTransitionDuration, libs, "gtk_stack_get_transition_duration")
-	core.PuregoSafeRegister(&xStackGetTransitionRunning, libs, "gtk_stack_get_transition_running")
-	core.PuregoSafeRegister(&xStackGetTransitionType, libs, "gtk_stack_get_transition_type")
-	core.PuregoSafeRegister(&xStackGetVhomogeneous, libs, "gtk_stack_get_vhomogeneous")
-	core.PuregoSafeRegister(&xStackGetVisibleChild, libs, "gtk_stack_get_visible_child")
-	core.PuregoSafeRegister(&xStackGetVisibleChildName, libs, "gtk_stack_get_visible_child_name")
-	core.PuregoSafeRegister(&xStackRemove, libs, "gtk_stack_remove")
-	core.PuregoSafeRegister(&xStackSetHhomogeneous, libs, "gtk_stack_set_hhomogeneous")
-	core.PuregoSafeRegister(&xStackSetInterpolateSize, libs, "gtk_stack_set_interpolate_size")
-	core.PuregoSafeRegister(&xStackSetTransitionDuration, libs, "gtk_stack_set_transition_duration")
-	core.PuregoSafeRegister(&xStackSetTransitionType, libs, "gtk_stack_set_transition_type")
-	core.PuregoSafeRegister(&xStackSetVhomogeneous, libs, "gtk_stack_set_vhomogeneous")
-	core.PuregoSafeRegister(&xStackSetVisibleChild, libs, "gtk_stack_set_visible_child")
-	core.PuregoSafeRegister(&xStackSetVisibleChildFull, libs, "gtk_stack_set_visible_child_full")
-	core.PuregoSafeRegister(&xStackSetVisibleChildName, libs, "gtk_stack_set_visible_child_name")
-
-	core.PuregoSafeRegister(&xStackPageGLibType, libs, "gtk_stack_page_get_type")
-
-	core.PuregoSafeRegister(&xStackPageGetChild, libs, "gtk_stack_page_get_child")
-	core.PuregoSafeRegister(&xStackPageGetIconName, libs, "gtk_stack_page_get_icon_name")
-	core.PuregoSafeRegister(&xStackPageGetName, libs, "gtk_stack_page_get_name")
-	core.PuregoSafeRegister(&xStackPageGetNeedsAttention, libs, "gtk_stack_page_get_needs_attention")
-	core.PuregoSafeRegister(&xStackPageGetTitle, libs, "gtk_stack_page_get_title")
-	core.PuregoSafeRegister(&xStackPageGetUseUnderline, libs, "gtk_stack_page_get_use_underline")
-	core.PuregoSafeRegister(&xStackPageGetVisible, libs, "gtk_stack_page_get_visible")
-	core.PuregoSafeRegister(&xStackPageSetIconName, libs, "gtk_stack_page_set_icon_name")
-	core.PuregoSafeRegister(&xStackPageSetName, libs, "gtk_stack_page_set_name")
-	core.PuregoSafeRegister(&xStackPageSetNeedsAttention, libs, "gtk_stack_page_set_needs_attention")
-	core.PuregoSafeRegister(&xStackPageSetTitle, libs, "gtk_stack_page_set_title")
-	core.PuregoSafeRegister(&xStackPageSetUseUnderline, libs, "gtk_stack_page_set_use_underline")
-	core.PuregoSafeRegister(&xStackPageSetVisible, libs, "gtk_stack_page_set_visible")
 }

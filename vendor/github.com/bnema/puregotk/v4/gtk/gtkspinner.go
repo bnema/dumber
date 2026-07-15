@@ -2,7 +2,6 @@
 package gtk
 
 import (
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -39,6 +38,7 @@ type Spinner struct {
 var xSpinnerGLibType func() types.GType
 
 func SpinnerGLibType() types.GType {
+	core.LazyRegister(&xSpinnerGLibType, "GTK", "gtk_spinner_get_type", false)
 	return xSpinnerGLibType()
 }
 
@@ -52,6 +52,7 @@ var xNewSpinner func() uintptr
 
 // Returns a new spinner widget. Not yet started.
 func NewSpinner() *Spinner {
+	core.LazyRegister(&xNewSpinner, "GTK", "gtk_spinner_new", false)
 	var cls *Spinner
 
 	cret := xNewSpinner()
@@ -69,6 +70,8 @@ var xSpinnerGetSpinning func(uintptr) bool
 
 // Returns whether the spinner is spinning.
 func (x *Spinner) GetSpinning() bool {
+	core.LazyRegister(&xSpinnerGetSpinning, "GTK", "gtk_spinner_get_spinning", false)
+
 	cret := xSpinnerGetSpinning(x.GoPointer())
 	return cret
 }
@@ -77,6 +80,8 @@ var xSpinnerSetSpinning func(uintptr, bool)
 
 // Sets the activity of the spinner.
 func (x *Spinner) SetSpinning(SpinningVar bool) {
+	core.LazyRegister(&xSpinnerSetSpinning, "GTK", "gtk_spinner_set_spinning", false)
+
 	xSpinnerSetSpinning(x.GoPointer(), SpinningVar)
 }
 
@@ -84,6 +89,8 @@ var xSpinnerStart func(uintptr)
 
 // Starts the animation of the spinner.
 func (x *Spinner) Start() {
+	core.LazyRegister(&xSpinnerStart, "GTK", "gtk_spinner_start", false)
+
 	xSpinnerStart(x.GoPointer())
 }
 
@@ -91,6 +98,8 @@ var xSpinnerStop func(uintptr)
 
 // Stops the animation of the spinner.
 func (x *Spinner) Stop() {
+	core.LazyRegister(&xSpinnerStop, "GTK", "gtk_spinner_stop", false)
+
 	xSpinnerStop(x.GoPointer())
 }
 
@@ -385,21 +394,4 @@ func (x *Spinner) GetBuildableId() string {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GTK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xSpinnerGLibType, libs, "gtk_spinner_get_type")
-
-	core.PuregoSafeRegister(&xNewSpinner, libs, "gtk_spinner_new")
-
-	core.PuregoSafeRegister(&xSpinnerGetSpinning, libs, "gtk_spinner_get_spinning")
-	core.PuregoSafeRegister(&xSpinnerSetSpinning, libs, "gtk_spinner_set_spinning")
-	core.PuregoSafeRegister(&xSpinnerStart, libs, "gtk_spinner_start")
-	core.PuregoSafeRegister(&xSpinnerStop, libs, "gtk_spinner_stop")
 }

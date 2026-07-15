@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gobject/types"
 )
@@ -58,6 +59,7 @@ type ContentDecoder struct {
 var xContentDecoderGLibType func() types.GType
 
 func ContentDecoderGLibType() types.GType {
+	core.LazyRegister(&xContentDecoderGLibType, "SOUP", "soup_content_decoder_get_type", false)
 	return xContentDecoderGLibType()
 }
 
@@ -76,4 +78,9 @@ func (c *ContentDecoder) GoPointer() uintptr {
 
 func (c *ContentDecoder) SetGoPointer(ptr uintptr) {
 	c.Ptr = ptr
+}
+
+func init() {
+	core.SetPackageName("SOUP", "libsoup-3.0")
+	core.SetSharedLibraries("SOUP", []string{"libsoup-3.0.so.0", "libsoup-3.0.0.dylib"})
 }

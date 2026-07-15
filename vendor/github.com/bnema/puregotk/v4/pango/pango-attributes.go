@@ -265,6 +265,7 @@ type AttrIterator struct {
 var xAttrIteratorGLibType func() types.GType
 
 func AttrIteratorGLibType() types.GType {
+	core.LazyRegister(&xAttrIteratorGLibType, "PANGO", "pango_attr_iterator_get_type", false)
 	return xAttrIteratorGLibType()
 }
 
@@ -284,6 +285,8 @@ var xAttrIteratorCopy func(uintptr) uintptr
 
 // Copy a `PangoAttrIterator`.
 func (x *AttrIterator) Copy() *AttrIterator {
+	core.LazyRegister(&xAttrIteratorCopy, "PANGO", "pango_attr_iterator_copy", false)
+
 	cret := xAttrIteratorCopy(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -295,6 +298,8 @@ var xAttrIteratorDestroy func(uintptr)
 
 // Destroy a `PangoAttrIterator` and free all associated memory.
 func (x *AttrIterator) Destroy() {
+	core.LazyRegister(&xAttrIteratorDestroy, "PANGO", "pango_attr_iterator_destroy", false)
+
 	xAttrIteratorDestroy(x.GoPointer())
 }
 
@@ -307,6 +312,8 @@ var xAttrIteratorGet func(uintptr, AttrType) uintptr
 // the attribute whose range starts closest to the
 // current location is used.
 func (x *AttrIterator) Get(TypeVar AttrType) *Attribute {
+	core.LazyRegister(&xAttrIteratorGet, "PANGO", "pango_attr_iterator_get", false)
+
 	cret := xAttrIteratorGet(x.GoPointer(), TypeVar)
 	if cret == 0 {
 		return nil
@@ -319,6 +326,8 @@ var xAttrIteratorGetAttrs func(uintptr) uintptr
 // Gets a list of all attributes at the current position of the
 // iterator.
 func (x *AttrIterator) GetAttrs() *glib.SList {
+	core.LazyRegister(&xAttrIteratorGetAttrs, "PANGO", "pango_attr_iterator_get_attrs", false)
+
 	cret := xAttrIteratorGetAttrs(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -331,6 +340,8 @@ var xAttrIteratorGetFont func(uintptr, *FontDescription, **Language, **glib.SLis
 // Get the font and other attributes at the current
 // iterator position.
 func (x *AttrIterator) GetFont(DescVar *FontDescription, LanguageVar **Language, ExtraAttrsVar **glib.SList) {
+	core.LazyRegister(&xAttrIteratorGetFont, "PANGO", "pango_attr_iterator_get_font", false)
+
 	xAttrIteratorGetFont(x.GoPointer(), DescVar, LanguageVar, ExtraAttrsVar)
 }
 
@@ -338,6 +349,8 @@ var xAttrIteratorNext func(uintptr) bool
 
 // Advance the iterator until the next change of style.
 func (x *AttrIterator) Next() bool {
+	core.LazyRegister(&xAttrIteratorNext, "PANGO", "pango_attr_iterator_next", false)
+
 	cret := xAttrIteratorNext(x.GoPointer())
 	return cret
 }
@@ -351,6 +364,8 @@ var xAttrIteratorRange func(uintptr, *int, *int)
 // oversight, stored return values that wouldn't fit into
 // a signed integer are clamped to %G_MAXINT.
 func (x *AttrIterator) Range(StartVar *int, EndVar *int) {
+	core.LazyRegister(&xAttrIteratorRange, "PANGO", "pango_attr_iterator_range", false)
+
 	xAttrIteratorRange(x.GoPointer(), StartVar, EndVar)
 }
 
@@ -394,6 +409,7 @@ type AttrList struct {
 var xAttrListGLibType func() types.GType
 
 func AttrListGLibType() types.GType {
+	core.LazyRegister(&xAttrListGLibType, "PANGO", "pango_attr_list_get_type", false)
 	return xAttrListGLibType()
 }
 
@@ -414,6 +430,8 @@ var xNewAttrList func() uintptr
 // Create a new empty attribute list with a reference
 // count of one.
 func NewAttrList() *AttrList {
+	core.LazyRegister(&xNewAttrList, "PANGO", "pango_attr_list_new", false)
+
 	cret := xNewAttrList()
 	if cret == 0 {
 		return nil
@@ -436,6 +454,8 @@ var xAttrListChange func(uintptr, *Attribute)
 // continually changing a set of attributes since it
 // never removes or combines existing attributes.
 func (x *AttrList) Change(AttrVar *Attribute) {
+	core.LazyRegister(&xAttrListChange, "PANGO", "pango_attr_list_change", false)
+
 	xAttrListChange(x.GoPointer(), AttrVar)
 }
 
@@ -443,6 +463,8 @@ var xAttrListCopy func(uintptr) uintptr
 
 // Copy @list and return an identical new list.
 func (x *AttrList) Copy() *AttrList {
+	core.LazyRegister(&xAttrListCopy, "PANGO", "pango_attr_list_copy", false)
+
 	cret := xAttrListCopy(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -459,6 +481,8 @@ var xAttrListEqual func(uintptr, *AttrList) bool
 // Beware that this will return wrong values if any list
 // contains duplicates.
 func (x *AttrList) Equal(OtherListVar *AttrList) bool {
+	core.LazyRegister(&xAttrListEqual, "PANGO", "pango_attr_list_equal", false)
+
 	cret := xAttrListEqual(x.GoPointer(), OtherListVar)
 	return cret
 }
@@ -469,6 +493,8 @@ var xAttrListFilter func(uintptr, uintptr, uintptr) uintptr
 // any elements of @list for which @func returns %TRUE and
 // inserts them into a new list.
 func (x *AttrList) Filter(FuncVar *AttrFilterFunc, DataVar uintptr) *AttrList {
+	core.LazyRegister(&xAttrListFilter, "PANGO", "pango_attr_list_filter", false)
+
 	cret := xAttrListFilter(x.GoPointer(), glib.NewCallback(FuncVar), DataVar)
 	if cret == 0 {
 		return nil
@@ -480,6 +506,8 @@ var xAttrListGetAttributes func(uintptr) uintptr
 
 // Gets a list of all attributes in @list.
 func (x *AttrList) GetAttributes() *glib.SList {
+	core.LazyRegister(&xAttrListGetAttributes, "PANGO", "pango_attr_list_get_attributes", false)
+
 	cret := xAttrListGetAttributes(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -493,6 +521,8 @@ var xAttrListGetIterator func(uintptr) uintptr
 //
 // @list must not be modified until this iterator is freed.
 func (x *AttrList) GetIterator() *AttrIterator {
+	core.LazyRegister(&xAttrListGetIterator, "PANGO", "pango_attr_list_get_iterator", false)
+
 	cret := xAttrListGetIterator(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -507,6 +537,8 @@ var xAttrListInsert func(uintptr, *Attribute)
 // It will be inserted after all other attributes with a
 // matching @start_index.
 func (x *AttrList) Insert(AttrVar *Attribute) {
+	core.LazyRegister(&xAttrListInsert, "PANGO", "pango_attr_list_insert", false)
+
 	xAttrListInsert(x.GoPointer(), AttrVar)
 }
 
@@ -517,6 +549,8 @@ var xAttrListInsertBefore func(uintptr, *Attribute)
 // It will be inserted before all other attributes with a
 // matching @start_index.
 func (x *AttrList) InsertBefore(AttrVar *Attribute) {
+	core.LazyRegister(&xAttrListInsertBefore, "PANGO", "pango_attr_list_insert_before", false)
+
 	xAttrListInsertBefore(x.GoPointer(), AttrVar)
 }
 
@@ -525,6 +559,8 @@ var xAttrListRef func(uintptr) uintptr
 // Increase the reference count of the given attribute
 // list by one.
 func (x *AttrList) Ref() *AttrList {
+	core.LazyRegister(&xAttrListRef, "PANGO", "pango_attr_list_ref", false)
+
 	cret := xAttrListRef(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -553,6 +589,8 @@ var xAttrListSplice func(uintptr, *AttrList, int, int)
 //
 // This mode is useful for merging two lists of attributes together.
 func (x *AttrList) Splice(OtherVar *AttrList, PosVar int, LenVar int) {
+	core.LazyRegister(&xAttrListSplice, "PANGO", "pango_attr_list_splice", false)
+
 	xAttrListSplice(x.GoPointer(), OtherVar, PosVar, LenVar)
 }
 
@@ -593,6 +631,8 @@ var xAttrListToString func(uintptr) string
 //
 // Note that shape attributes can not be serialized.
 func (x *AttrList) ToString() string {
+	core.LazyRegister(&xAttrListToString, "PANGO", "pango_attr_list_to_string", false)
+
 	cret := xAttrListToString(x.GoPointer())
 	return cret
 }
@@ -605,6 +645,8 @@ var xAttrListUnref func(uintptr)
 // If the result is zero, free the attribute list
 // and the attributes it contains.
 func (x *AttrList) Unref() {
+	core.LazyRegister(&xAttrListUnref, "PANGO", "pango_attr_list_unref", false)
+
 	xAttrListUnref(x.GoPointer())
 }
 
@@ -625,6 +667,8 @@ var xAttrListUpdate func(uintptr, int, int, int)
 // Attributes start and end positions are updated if they are
 // behind @pos + @remove.
 func (x *AttrList) Update(PosVar int, RemoveVar int, AddVar int) {
+	core.LazyRegister(&xAttrListUpdate, "PANGO", "pango_attr_list_update", false)
+
 	xAttrListUpdate(x.GoPointer(), PosVar, RemoveVar, AddVar)
 }
 
@@ -725,6 +769,7 @@ type Attribute struct {
 var xAttributeGLibType func() types.GType
 
 func AttributeGLibType() types.GType {
+	core.LazyRegister(&xAttributeGLibType, "PANGO", "pango_attribute_get_type", false)
 	return xAttributeGLibType()
 }
 
@@ -746,6 +791,8 @@ var xAttributeAsColor func(uintptr) uintptr
 //
 // This is mainly useful for language bindings.
 func (x *Attribute) AsColor() *AttrColor {
+	core.LazyRegister(&xAttributeAsColor, "PANGO", "pango_attribute_as_color", false)
+
 	cret := xAttributeAsColor(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -759,6 +806,8 @@ var xAttributeAsFloat func(uintptr) uintptr
 //
 // This is mainly useful for language bindings.
 func (x *Attribute) AsFloat() *AttrFloat {
+	core.LazyRegister(&xAttributeAsFloat, "PANGO", "pango_attribute_as_float", false)
+
 	cret := xAttributeAsFloat(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -772,6 +821,8 @@ var xAttributeAsFontDesc func(uintptr) uintptr
 //
 // This is mainly useful for language bindings.
 func (x *Attribute) AsFontDesc() *AttrFontDesc {
+	core.LazyRegister(&xAttributeAsFontDesc, "PANGO", "pango_attribute_as_font_desc", false)
+
 	cret := xAttributeAsFontDesc(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -785,6 +836,8 @@ var xAttributeAsFontFeatures func(uintptr) uintptr
 //
 // This is mainly useful for language bindings.
 func (x *Attribute) AsFontFeatures() *AttrFontFeatures {
+	core.LazyRegister(&xAttributeAsFontFeatures, "PANGO", "pango_attribute_as_font_features", false)
+
 	cret := xAttributeAsFontFeatures(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -798,6 +851,8 @@ var xAttributeAsInt func(uintptr) uintptr
 //
 // This is mainly useful for language bindings.
 func (x *Attribute) AsInt() *AttrInt {
+	core.LazyRegister(&xAttributeAsInt, "PANGO", "pango_attribute_as_int", false)
+
 	cret := xAttributeAsInt(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -811,6 +866,8 @@ var xAttributeAsLanguage func(uintptr) uintptr
 //
 // This is mainly useful for language bindings.
 func (x *Attribute) AsLanguage() *AttrLanguage {
+	core.LazyRegister(&xAttributeAsLanguage, "PANGO", "pango_attribute_as_language", false)
+
 	cret := xAttributeAsLanguage(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -824,6 +881,8 @@ var xAttributeAsShape func(uintptr) uintptr
 //
 // This is mainly useful for language bindings.
 func (x *Attribute) AsShape() *AttrShape {
+	core.LazyRegister(&xAttributeAsShape, "PANGO", "pango_attribute_as_shape", false)
+
 	cret := xAttributeAsShape(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -837,6 +896,8 @@ var xAttributeAsSize func(uintptr) uintptr
 //
 // This is mainly useful for language bindings.
 func (x *Attribute) AsSize() *AttrSize {
+	core.LazyRegister(&xAttributeAsSize, "PANGO", "pango_attribute_as_size", false)
+
 	cret := xAttributeAsSize(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -850,6 +911,8 @@ var xAttributeAsString func(uintptr) uintptr
 //
 // This is mainly useful for language bindings.
 func (x *Attribute) AsString() *AttrString {
+	core.LazyRegister(&xAttributeAsString, "PANGO", "pango_attribute_as_string", false)
+
 	cret := xAttributeAsString(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -861,6 +924,8 @@ var xAttributeCopy func(uintptr) uintptr
 
 // Make a copy of an attribute.
 func (x *Attribute) Copy() *Attribute {
+	core.LazyRegister(&xAttributeCopy, "PANGO", "pango_attribute_copy", false)
+
 	cret := xAttributeCopy(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -872,6 +937,8 @@ var xAttributeDestroy func(uintptr)
 
 // Destroy a `PangoAttribute` and free all associated memory.
 func (x *Attribute) Destroy() {
+	core.LazyRegister(&xAttributeDestroy, "PANGO", "pango_attribute_destroy", false)
+
 	xAttributeDestroy(x.GoPointer())
 }
 
@@ -883,6 +950,8 @@ var xAttributeEqual func(uintptr, *Attribute) bool
 // attributes and not the ranges that the attributes
 // apply to.
 func (x *Attribute) Equal(Attr2Var *Attribute) bool {
+	core.LazyRegister(&xAttributeEqual, "PANGO", "pango_attribute_equal", false)
+
 	cret := xAttributeEqual(x.GoPointer(), Attr2Var)
 	return cret
 }
@@ -894,6 +963,8 @@ var xAttributeInit func(uintptr, *AttrClass)
 // %PANGO_ATTR_INDEX_TO_TEXT_END such that the attribute applies
 // to the entire text by default.
 func (x *Attribute) Init(KlassVar *AttrClass) {
+	core.LazyRegister(&xAttributeInit, "PANGO", "pango_attribute_init", false)
+
 	xAttributeInit(x.GoPointer(), KlassVar)
 }
 
@@ -913,6 +984,7 @@ type ShowFlags int
 var xShowFlagsGLibType func() types.GType
 
 func ShowFlagsGLibType() types.GType {
+	core.LazyRegister(&xShowFlagsGLibType, "PANGO", "pango_show_flags_get_type", false)
 	return xShowFlagsGLibType()
 }
 
@@ -940,6 +1012,7 @@ type AttrType int
 var xAttrTypeGLibType func() types.GType
 
 func AttrTypeGLibType() types.GType {
+	core.LazyRegister(&xAttrTypeGLibType, "PANGO", "pango_attr_type_get_type", false)
 	return xAttrTypeGLibType()
 }
 
@@ -1029,6 +1102,7 @@ type BaselineShift int
 var xBaselineShiftGLibType func() types.GType
 
 func BaselineShiftGLibType() types.GType {
+	core.LazyRegister(&xBaselineShiftGLibType, "PANGO", "pango_baseline_shift_get_type", false)
 	return xBaselineShiftGLibType()
 }
 
@@ -1051,6 +1125,7 @@ type FontScale int
 var xFontScaleGLibType func() types.GType
 
 func FontScaleGLibType() types.GType {
+	core.LazyRegister(&xFontScaleGLibType, "PANGO", "pango_font_scale_get_type", false)
 	return xFontScaleGLibType()
 }
 
@@ -1073,6 +1148,7 @@ type Overline int
 var xOverlineGLibType func() types.GType
 
 func OverlineGLibType() types.GType {
+	core.LazyRegister(&xOverlineGLibType, "PANGO", "pango_overline_get_type", false)
 	return xOverlineGLibType()
 }
 
@@ -1091,6 +1167,7 @@ type TextTransform int
 var xTextTransformGLibType func() types.GType
 
 func TextTransformGLibType() types.GType {
+	core.LazyRegister(&xTextTransformGLibType, "PANGO", "pango_text_transform_get_type", false)
 	return xTextTransformGLibType()
 }
 
@@ -1114,6 +1191,7 @@ type Underline int
 var xUnderlineGLibType func() types.GType
 
 func UnderlineGLibType() types.GType {
+	core.LazyRegister(&xUnderlineGLibType, "PANGO", "pango_underline_get_type", false)
 	return xUnderlineGLibType()
 }
 
@@ -1162,6 +1240,8 @@ var xAttrAllowBreaksNew func(bool) uintptr
 // If breaks are disabled, the range will be kept in a
 // single run, as far as possible.
 func AttrAllowBreaksNew(AllowBreaksVar bool) *Attribute {
+	core.LazyRegister(&xAttrAllowBreaksNew, "PANGO", "pango_attr_allow_breaks_new", false)
+
 	cret := xAttrAllowBreaksNew(AllowBreaksVar)
 	if cret == 0 {
 		return nil
@@ -1173,6 +1253,8 @@ var xAttrBackgroundAlphaNew func(uint16) uintptr
 
 // Create a new background alpha attribute.
 func AttrBackgroundAlphaNew(AlphaVar uint16) *Attribute {
+	core.LazyRegister(&xAttrBackgroundAlphaNew, "PANGO", "pango_attr_background_alpha_new", false)
+
 	cret := xAttrBackgroundAlphaNew(AlphaVar)
 	if cret == 0 {
 		return nil
@@ -1184,6 +1266,8 @@ var xAttrBackgroundNew func(uint16, uint16, uint16) uintptr
 
 // Create a new background color attribute.
 func AttrBackgroundNew(RedVar uint16, GreenVar uint16, BlueVar uint16) *Attribute {
+	core.LazyRegister(&xAttrBackgroundNew, "PANGO", "pango_attr_background_new", false)
+
 	cret := xAttrBackgroundNew(RedVar, GreenVar, BlueVar)
 	if cret == 0 {
 		return nil
@@ -1205,6 +1289,8 @@ var xAttrBaselineShiftNew func(int) uintptr
 //
 // &lt;/picture&gt;
 func AttrBaselineShiftNew(ShiftVar int) *Attribute {
+	core.LazyRegister(&xAttrBaselineShiftNew, "PANGO", "pango_attr_baseline_shift_new", false)
+
 	cret := xAttrBaselineShiftNew(ShiftVar)
 	if cret == 0 {
 		return nil
@@ -1221,6 +1307,8 @@ var xAttrFallbackNew func(bool) uintptr
 // No fallback will be done to other fonts on the system
 // that might contain the characters in the text.
 func AttrFallbackNew(EnableFallbackVar bool) *Attribute {
+	core.LazyRegister(&xAttrFallbackNew, "PANGO", "pango_attr_fallback_new", false)
+
 	cret := xAttrFallbackNew(EnableFallbackVar)
 	if cret == 0 {
 		return nil
@@ -1232,6 +1320,8 @@ var xAttrFamilyNew func(string) uintptr
 
 // Create a new font family attribute.
 func AttrFamilyNew(FamilyVar string) *Attribute {
+	core.LazyRegister(&xAttrFamilyNew, "PANGO", "pango_attr_family_new", false)
+
 	cret := xAttrFamilyNew(FamilyVar)
 	if cret == 0 {
 		return nil
@@ -1246,6 +1336,8 @@ var xAttrFontDescNew func(*FontDescription) uintptr
 // This attribute allows setting family, style, weight, variant,
 // stretch, and size simultaneously.
 func AttrFontDescNew(DescVar *FontDescription) *Attribute {
+	core.LazyRegister(&xAttrFontDescNew, "PANGO", "pango_attr_font_desc_new", false)
+
 	cret := xAttrFontDescNew(DescVar)
 	if cret == 0 {
 		return nil
@@ -1260,6 +1352,8 @@ var xAttrFontFeaturesNew func(string) uintptr
 // You can use this attribute to select OpenType font features like small-caps,
 // alternative glyphs, ligatures, etc. for fonts that support them.
 func AttrFontFeaturesNew(FeaturesVar string) *Attribute {
+	core.LazyRegister(&xAttrFontFeaturesNew, "PANGO", "pango_attr_font_features_new", false)
+
 	cret := xAttrFontFeaturesNew(FeaturesVar)
 	if cret == 0 {
 		return nil
@@ -1274,6 +1368,8 @@ var xAttrFontScaleNew func(FontScale) uintptr
 // The effect of this attribute is to change the font size of a run,
 // relative to the size of preceding run.
 func AttrFontScaleNew(ScaleVar FontScale) *Attribute {
+	core.LazyRegister(&xAttrFontScaleNew, "PANGO", "pango_attr_font_scale_new", false)
+
 	cret := xAttrFontScaleNew(ScaleVar)
 	if cret == 0 {
 		return nil
@@ -1285,6 +1381,8 @@ var xAttrForegroundAlphaNew func(uint16) uintptr
 
 // Create a new foreground alpha attribute.
 func AttrForegroundAlphaNew(AlphaVar uint16) *Attribute {
+	core.LazyRegister(&xAttrForegroundAlphaNew, "PANGO", "pango_attr_foreground_alpha_new", false)
+
 	cret := xAttrForegroundAlphaNew(AlphaVar)
 	if cret == 0 {
 		return nil
@@ -1296,6 +1394,8 @@ var xAttrForegroundNew func(uint16, uint16, uint16) uintptr
 
 // Create a new foreground color attribute.
 func AttrForegroundNew(RedVar uint16, GreenVar uint16, BlueVar uint16) *Attribute {
+	core.LazyRegister(&xAttrForegroundNew, "PANGO", "pango_attr_foreground_new", false)
+
 	cret := xAttrForegroundNew(RedVar, GreenVar, BlueVar)
 	if cret == 0 {
 		return nil
@@ -1307,6 +1407,8 @@ var xAttrGravityHintNew func(GravityHint) uintptr
 
 // Create a new gravity hint attribute.
 func AttrGravityHintNew(HintVar GravityHint) *Attribute {
+	core.LazyRegister(&xAttrGravityHintNew, "PANGO", "pango_attr_gravity_hint_new", false)
+
 	cret := xAttrGravityHintNew(HintVar)
 	if cret == 0 {
 		return nil
@@ -1318,6 +1420,8 @@ var xAttrGravityNew func(Gravity) uintptr
 
 // Create a new gravity attribute.
 func AttrGravityNew(GravityVar Gravity) *Attribute {
+	core.LazyRegister(&xAttrGravityNew, "PANGO", "pango_attr_gravity_new", false)
+
 	cret := xAttrGravityNew(GravityVar)
 	if cret == 0 {
 		return nil
@@ -1333,6 +1437,8 @@ var xAttrInsertHyphensNew func(bool) uintptr
 // the middle of a word. This attribute can be used
 // to suppress the hyphen.
 func AttrInsertHyphensNew(InsertHyphensVar bool) *Attribute {
+	core.LazyRegister(&xAttrInsertHyphensNew, "PANGO", "pango_attr_insert_hyphens_new", false)
+
 	cret := xAttrInsertHyphensNew(InsertHyphensVar)
 	if cret == 0 {
 		return nil
@@ -1344,6 +1450,8 @@ var xAttrLanguageNew func(*Language) uintptr
 
 // Create a new language tag attribute.
 func AttrLanguageNew(LanguageVar *Language) *Attribute {
+	core.LazyRegister(&xAttrLanguageNew, "PANGO", "pango_attr_language_new", false)
+
 	cret := xAttrLanguageNew(LanguageVar)
 	if cret == 0 {
 		return nil
@@ -1355,6 +1463,8 @@ var xAttrLetterSpacingNew func(int) uintptr
 
 // Create a new letter-spacing attribute.
 func AttrLetterSpacingNew(LetterSpacingVar int) *Attribute {
+	core.LazyRegister(&xAttrLetterSpacingNew, "PANGO", "pango_attr_letter_spacing_new", false)
+
 	cret := xAttrLetterSpacingNew(LetterSpacingVar)
 	if cret == 0 {
 		return nil
@@ -1371,6 +1481,8 @@ var xAttrLineHeightNew func(float64) uintptr
 // [method@Pango.LayoutLine.get_pixel_extents] and
 // [method@Pango.LayoutIter.get_line_extents].
 func AttrLineHeightNew(FactorVar float64) *Attribute {
+	core.LazyRegister(&xAttrLineHeightNew, "PANGO", "pango_attr_line_height_new", false)
+
 	cret := xAttrLineHeightNew(FactorVar)
 	if cret == 0 {
 		return nil
@@ -1387,6 +1499,8 @@ var xAttrLineHeightNewAbsolute func(int) uintptr
 // [method@Pango.LayoutLine.get_pixel_extents] and
 // [method@Pango.LayoutIter.get_line_extents].
 func AttrLineHeightNewAbsolute(HeightVar int) *Attribute {
+	core.LazyRegister(&xAttrLineHeightNewAbsolute, "PANGO", "pango_attr_line_height_new_absolute", false)
+
 	cret := xAttrLineHeightNewAbsolute(HeightVar)
 	if cret == 0 {
 		return nil
@@ -1401,6 +1515,8 @@ var xAttrListFromString func(string) uintptr
 // This is the counterpart to [method@Pango.AttrList.to_string].
 // See that functions for details about the format.
 func AttrListFromString(TextVar string) *AttrList {
+	core.LazyRegister(&xAttrListFromString, "PANGO", "pango_attr_list_from_string", false)
+
 	cret := xAttrListFromString(TextVar)
 	if cret == 0 {
 		return nil
@@ -1415,6 +1531,8 @@ var xAttrOverlineColorNew func(uint16, uint16, uint16) uintptr
 // This attribute modifies the color of overlines.
 // If not set, overlines will use the foreground color.
 func AttrOverlineColorNew(RedVar uint16, GreenVar uint16, BlueVar uint16) *Attribute {
+	core.LazyRegister(&xAttrOverlineColorNew, "PANGO", "pango_attr_overline_color_new", false)
+
 	cret := xAttrOverlineColorNew(RedVar, GreenVar, BlueVar)
 	if cret == 0 {
 		return nil
@@ -1426,6 +1544,8 @@ var xAttrOverlineNew func(Overline) uintptr
 
 // Create a new overline-style attribute.
 func AttrOverlineNew(OverlineVar Overline) *Attribute {
+	core.LazyRegister(&xAttrOverlineNew, "PANGO", "pango_attr_overline_new", false)
+
 	cret := xAttrOverlineNew(OverlineVar)
 	if cret == 0 {
 		return nil
@@ -1437,6 +1557,8 @@ var xAttrRiseNew func(int) uintptr
 
 // Create a new baseline displacement attribute.
 func AttrRiseNew(RiseVar int) *Attribute {
+	core.LazyRegister(&xAttrRiseNew, "PANGO", "pango_attr_rise_new", false)
+
 	cret := xAttrRiseNew(RiseVar)
 	if cret == 0 {
 		return nil
@@ -1451,6 +1573,8 @@ var xAttrScaleNew func(float64) uintptr
 // The base font for the affected text will have
 // its size multiplied by @scale_factor.
 func AttrScaleNew(ScaleFactorVar float64) *Attribute {
+	core.LazyRegister(&xAttrScaleNew, "PANGO", "pango_attr_scale_new", false)
+
 	cret := xAttrScaleNew(ScaleFactorVar)
 	if cret == 0 {
 		return nil
@@ -1465,6 +1589,8 @@ var xAttrSentenceNew func() uintptr
 // Note that this may require adjustments to word and
 // sentence classification around the range.
 func AttrSentenceNew() *Attribute {
+	core.LazyRegister(&xAttrSentenceNew, "PANGO", "pango_attr_sentence_new", false)
+
 	cret := xAttrSentenceNew()
 	if cret == 0 {
 		return nil
@@ -1481,6 +1607,8 @@ var xAttrShapeNew func(*Rectangle, *Rectangle) uintptr
 // This might be used, for instance, for embedding a picture
 // or a widget inside a `PangoLayout`.
 func AttrShapeNew(InkRectVar *Rectangle, LogicalRectVar *Rectangle) *Attribute {
+	core.LazyRegister(&xAttrShapeNew, "PANGO", "pango_attr_shape_new", false)
+
 	cret := xAttrShapeNew(InkRectVar, LogicalRectVar)
 	if cret == 0 {
 		return nil
@@ -1496,6 +1624,8 @@ var xAttrShapeNewWithData func(*Rectangle, *Rectangle, uintptr, uintptr, uintptr
 // is also provided; this pointer can be accessed when later
 // rendering the glyph.
 func AttrShapeNewWithData(InkRectVar *Rectangle, LogicalRectVar *Rectangle, DataVar uintptr, CopyFuncVar *AttrDataCopyFunc, DestroyFuncVar *glib.DestroyNotify) *Attribute {
+	core.LazyRegister(&xAttrShapeNewWithData, "PANGO", "pango_attr_shape_new_with_data", false)
+
 	cret := xAttrShapeNewWithData(InkRectVar, LogicalRectVar, DataVar, glib.NewCallbackNullable(CopyFuncVar), glib.NewCallbackNullable(DestroyFuncVar))
 	if cret == 0 {
 		return nil
@@ -1508,6 +1638,8 @@ var xAttrShowNew func(ShowFlags) uintptr
 // Create a new attribute that influences how invisible
 // characters are rendered.
 func AttrShowNew(FlagsVar ShowFlags) *Attribute {
+	core.LazyRegister(&xAttrShowNew, "PANGO", "pango_attr_show_new", false)
+
 	cret := xAttrShowNew(FlagsVar)
 	if cret == 0 {
 		return nil
@@ -1519,6 +1651,8 @@ var xAttrSizeNew func(int) uintptr
 
 // Create a new font-size attribute in fractional points.
 func AttrSizeNew(SizeVar int) *Attribute {
+	core.LazyRegister(&xAttrSizeNew, "PANGO", "pango_attr_size_new", false)
+
 	cret := xAttrSizeNew(SizeVar)
 	if cret == 0 {
 		return nil
@@ -1530,6 +1664,8 @@ var xAttrSizeNewAbsolute func(int) uintptr
 
 // Create a new font-size attribute in device units.
 func AttrSizeNewAbsolute(SizeVar int) *Attribute {
+	core.LazyRegister(&xAttrSizeNewAbsolute, "PANGO", "pango_attr_size_new_absolute", false)
+
 	cret := xAttrSizeNewAbsolute(SizeVar)
 	if cret == 0 {
 		return nil
@@ -1541,6 +1677,8 @@ var xAttrStretchNew func(Stretch) uintptr
 
 // Create a new font stretch attribute.
 func AttrStretchNew(StretchVar Stretch) *Attribute {
+	core.LazyRegister(&xAttrStretchNew, "PANGO", "pango_attr_stretch_new", false)
+
 	cret := xAttrStretchNew(StretchVar)
 	if cret == 0 {
 		return nil
@@ -1555,6 +1693,8 @@ var xAttrStrikethroughColorNew func(uint16, uint16, uint16) uintptr
 // This attribute modifies the color of strikethrough lines.
 // If not set, strikethrough lines will use the foreground color.
 func AttrStrikethroughColorNew(RedVar uint16, GreenVar uint16, BlueVar uint16) *Attribute {
+	core.LazyRegister(&xAttrStrikethroughColorNew, "PANGO", "pango_attr_strikethrough_color_new", false)
+
 	cret := xAttrStrikethroughColorNew(RedVar, GreenVar, BlueVar)
 	if cret == 0 {
 		return nil
@@ -1566,6 +1706,8 @@ var xAttrStrikethroughNew func(bool) uintptr
 
 // Create a new strike-through attribute.
 func AttrStrikethroughNew(StrikethroughVar bool) *Attribute {
+	core.LazyRegister(&xAttrStrikethroughNew, "PANGO", "pango_attr_strikethrough_new", false)
+
 	cret := xAttrStrikethroughNew(StrikethroughVar)
 	if cret == 0 {
 		return nil
@@ -1577,6 +1719,8 @@ var xAttrStyleNew func(Style) uintptr
 
 // Create a new font slant style attribute.
 func AttrStyleNew(StyleVar Style) *Attribute {
+	core.LazyRegister(&xAttrStyleNew, "PANGO", "pango_attr_style_new", false)
+
 	cret := xAttrStyleNew(StyleVar)
 	if cret == 0 {
 		return nil
@@ -1589,6 +1733,8 @@ var xAttrTextTransformNew func(TextTransform) uintptr
 // Create a new attribute that influences how characters
 // are transformed during shaping.
 func AttrTextTransformNew(TransformVar TextTransform) *Attribute {
+	core.LazyRegister(&xAttrTextTransformNew, "PANGO", "pango_attr_text_transform_new", false)
+
 	cret := xAttrTextTransformNew(TransformVar)
 	if cret == 0 {
 		return nil
@@ -1608,6 +1754,8 @@ var xAttrTypeGetName func(AttrType) string
 // g_intern_string() for what that means) that should
 // not be modified or freed.
 func AttrTypeGetName(TypeVar AttrType) string {
+	core.LazyRegister(&xAttrTypeGetName, "PANGO", "pango_attr_type_get_name", false)
+
 	cret := xAttrTypeGetName(TypeVar)
 	return cret
 }
@@ -1619,6 +1767,8 @@ var xAttrTypeRegister func(string) AttrType
 // The attribute type name can be accessed later
 // by using [func@Pango.AttrType.get_name].
 func AttrTypeRegister(NameVar string) AttrType {
+	core.LazyRegister(&xAttrTypeRegister, "PANGO", "pango_attr_type_register", false)
+
 	cret := xAttrTypeRegister(NameVar)
 	return cret
 }
@@ -1630,6 +1780,8 @@ var xAttrUnderlineColorNew func(uint16, uint16, uint16) uintptr
 // This attribute modifies the color of underlines.
 // If not set, underlines will use the foreground color.
 func AttrUnderlineColorNew(RedVar uint16, GreenVar uint16, BlueVar uint16) *Attribute {
+	core.LazyRegister(&xAttrUnderlineColorNew, "PANGO", "pango_attr_underline_color_new", false)
+
 	cret := xAttrUnderlineColorNew(RedVar, GreenVar, BlueVar)
 	if cret == 0 {
 		return nil
@@ -1641,6 +1793,8 @@ var xAttrUnderlineNew func(Underline) uintptr
 
 // Create a new underline-style attribute.
 func AttrUnderlineNew(UnderlineVar Underline) *Attribute {
+	core.LazyRegister(&xAttrUnderlineNew, "PANGO", "pango_attr_underline_new", false)
+
 	cret := xAttrUnderlineNew(UnderlineVar)
 	if cret == 0 {
 		return nil
@@ -1652,6 +1806,8 @@ var xAttrVariantNew func(Variant) uintptr
 
 // Create a new font variant attribute (normal or small caps).
 func AttrVariantNew(VariantVar Variant) *Attribute {
+	core.LazyRegister(&xAttrVariantNew, "PANGO", "pango_attr_variant_new", false)
+
 	cret := xAttrVariantNew(VariantVar)
 	if cret == 0 {
 		return nil
@@ -1663,6 +1819,8 @@ var xAttrWeightNew func(Weight) uintptr
 
 // Create a new font weight attribute.
 func AttrWeightNew(WeightVar Weight) *Attribute {
+	core.LazyRegister(&xAttrWeightNew, "PANGO", "pango_attr_weight_new", false)
+
 	cret := xAttrWeightNew(WeightVar)
 	if cret == 0 {
 		return nil
@@ -1677,6 +1835,8 @@ var xAttrWordNew func() uintptr
 // Note that this may require adjustments to word and
 // sentence classification around the range.
 func AttrWordNew() *Attribute {
+	core.LazyRegister(&xAttrWordNew, "PANGO", "pango_attr_word_new", false)
+
 	cret := xAttrWordNew()
 	if cret == 0 {
 		return nil
@@ -1687,112 +1847,4 @@ func AttrWordNew() *Attribute {
 func init() {
 	core.SetPackageName("PANGO", "pango")
 	core.SetSharedLibraries("PANGO", []string{"libpango-1.0.so.0", "libpango-1.0.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("PANGO") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xShowFlagsGLibType, libs, "pango_show_flags_get_type")
-
-	core.PuregoSafeRegister(&xAttrTypeGLibType, libs, "pango_attr_type_get_type")
-
-	core.PuregoSafeRegister(&xBaselineShiftGLibType, libs, "pango_baseline_shift_get_type")
-
-	core.PuregoSafeRegister(&xFontScaleGLibType, libs, "pango_font_scale_get_type")
-
-	core.PuregoSafeRegister(&xOverlineGLibType, libs, "pango_overline_get_type")
-
-	core.PuregoSafeRegister(&xTextTransformGLibType, libs, "pango_text_transform_get_type")
-
-	core.PuregoSafeRegister(&xUnderlineGLibType, libs, "pango_underline_get_type")
-
-	core.PuregoSafeRegister(&xAttrAllowBreaksNew, libs, "pango_attr_allow_breaks_new")
-	core.PuregoSafeRegister(&xAttrBackgroundAlphaNew, libs, "pango_attr_background_alpha_new")
-	core.PuregoSafeRegister(&xAttrBackgroundNew, libs, "pango_attr_background_new")
-	core.PuregoSafeRegister(&xAttrBaselineShiftNew, libs, "pango_attr_baseline_shift_new")
-	core.PuregoSafeRegister(&xAttrFallbackNew, libs, "pango_attr_fallback_new")
-	core.PuregoSafeRegister(&xAttrFamilyNew, libs, "pango_attr_family_new")
-	core.PuregoSafeRegister(&xAttrFontDescNew, libs, "pango_attr_font_desc_new")
-	core.PuregoSafeRegister(&xAttrFontFeaturesNew, libs, "pango_attr_font_features_new")
-	core.PuregoSafeRegister(&xAttrFontScaleNew, libs, "pango_attr_font_scale_new")
-	core.PuregoSafeRegister(&xAttrForegroundAlphaNew, libs, "pango_attr_foreground_alpha_new")
-	core.PuregoSafeRegister(&xAttrForegroundNew, libs, "pango_attr_foreground_new")
-	core.PuregoSafeRegister(&xAttrGravityHintNew, libs, "pango_attr_gravity_hint_new")
-	core.PuregoSafeRegister(&xAttrGravityNew, libs, "pango_attr_gravity_new")
-	core.PuregoSafeRegister(&xAttrInsertHyphensNew, libs, "pango_attr_insert_hyphens_new")
-	core.PuregoSafeRegister(&xAttrLanguageNew, libs, "pango_attr_language_new")
-	core.PuregoSafeRegister(&xAttrLetterSpacingNew, libs, "pango_attr_letter_spacing_new")
-	core.PuregoSafeRegister(&xAttrLineHeightNew, libs, "pango_attr_line_height_new")
-	core.PuregoSafeRegister(&xAttrLineHeightNewAbsolute, libs, "pango_attr_line_height_new_absolute")
-	core.PuregoSafeRegister(&xAttrListFromString, libs, "pango_attr_list_from_string")
-	core.PuregoSafeRegister(&xAttrOverlineColorNew, libs, "pango_attr_overline_color_new")
-	core.PuregoSafeRegister(&xAttrOverlineNew, libs, "pango_attr_overline_new")
-	core.PuregoSafeRegister(&xAttrRiseNew, libs, "pango_attr_rise_new")
-	core.PuregoSafeRegister(&xAttrScaleNew, libs, "pango_attr_scale_new")
-	core.PuregoSafeRegister(&xAttrSentenceNew, libs, "pango_attr_sentence_new")
-	core.PuregoSafeRegister(&xAttrShapeNew, libs, "pango_attr_shape_new")
-	core.PuregoSafeRegister(&xAttrShapeNewWithData, libs, "pango_attr_shape_new_with_data")
-	core.PuregoSafeRegister(&xAttrShowNew, libs, "pango_attr_show_new")
-	core.PuregoSafeRegister(&xAttrSizeNew, libs, "pango_attr_size_new")
-	core.PuregoSafeRegister(&xAttrSizeNewAbsolute, libs, "pango_attr_size_new_absolute")
-	core.PuregoSafeRegister(&xAttrStretchNew, libs, "pango_attr_stretch_new")
-	core.PuregoSafeRegister(&xAttrStrikethroughColorNew, libs, "pango_attr_strikethrough_color_new")
-	core.PuregoSafeRegister(&xAttrStrikethroughNew, libs, "pango_attr_strikethrough_new")
-	core.PuregoSafeRegister(&xAttrStyleNew, libs, "pango_attr_style_new")
-	core.PuregoSafeRegister(&xAttrTextTransformNew, libs, "pango_attr_text_transform_new")
-	core.PuregoSafeRegister(&xAttrTypeGetName, libs, "pango_attr_type_get_name")
-	core.PuregoSafeRegister(&xAttrTypeRegister, libs, "pango_attr_type_register")
-	core.PuregoSafeRegister(&xAttrUnderlineColorNew, libs, "pango_attr_underline_color_new")
-	core.PuregoSafeRegister(&xAttrUnderlineNew, libs, "pango_attr_underline_new")
-	core.PuregoSafeRegister(&xAttrVariantNew, libs, "pango_attr_variant_new")
-	core.PuregoSafeRegister(&xAttrWeightNew, libs, "pango_attr_weight_new")
-	core.PuregoSafeRegister(&xAttrWordNew, libs, "pango_attr_word_new")
-
-	core.PuregoSafeRegister(&xAttrIteratorGLibType, libs, "pango_attr_iterator_get_type")
-
-	core.PuregoSafeRegister(&xAttrIteratorCopy, libs, "pango_attr_iterator_copy")
-	core.PuregoSafeRegister(&xAttrIteratorDestroy, libs, "pango_attr_iterator_destroy")
-	core.PuregoSafeRegister(&xAttrIteratorGet, libs, "pango_attr_iterator_get")
-	core.PuregoSafeRegister(&xAttrIteratorGetAttrs, libs, "pango_attr_iterator_get_attrs")
-	core.PuregoSafeRegister(&xAttrIteratorGetFont, libs, "pango_attr_iterator_get_font")
-	core.PuregoSafeRegister(&xAttrIteratorNext, libs, "pango_attr_iterator_next")
-	core.PuregoSafeRegister(&xAttrIteratorRange, libs, "pango_attr_iterator_range")
-
-	core.PuregoSafeRegister(&xAttrListGLibType, libs, "pango_attr_list_get_type")
-
-	core.PuregoSafeRegister(&xNewAttrList, libs, "pango_attr_list_new")
-
-	core.PuregoSafeRegister(&xAttrListChange, libs, "pango_attr_list_change")
-	core.PuregoSafeRegister(&xAttrListCopy, libs, "pango_attr_list_copy")
-	core.PuregoSafeRegister(&xAttrListEqual, libs, "pango_attr_list_equal")
-	core.PuregoSafeRegister(&xAttrListFilter, libs, "pango_attr_list_filter")
-	core.PuregoSafeRegister(&xAttrListGetAttributes, libs, "pango_attr_list_get_attributes")
-	core.PuregoSafeRegister(&xAttrListGetIterator, libs, "pango_attr_list_get_iterator")
-	core.PuregoSafeRegister(&xAttrListInsert, libs, "pango_attr_list_insert")
-	core.PuregoSafeRegister(&xAttrListInsertBefore, libs, "pango_attr_list_insert_before")
-	core.PuregoSafeRegister(&xAttrListRef, libs, "pango_attr_list_ref")
-	core.PuregoSafeRegister(&xAttrListSplice, libs, "pango_attr_list_splice")
-	core.PuregoSafeRegister(&xAttrListToString, libs, "pango_attr_list_to_string")
-	core.PuregoSafeRegister(&xAttrListUnref, libs, "pango_attr_list_unref")
-	core.PuregoSafeRegister(&xAttrListUpdate, libs, "pango_attr_list_update")
-
-	core.PuregoSafeRegister(&xAttributeGLibType, libs, "pango_attribute_get_type")
-
-	core.PuregoSafeRegister(&xAttributeAsColor, libs, "pango_attribute_as_color")
-	core.PuregoSafeRegister(&xAttributeAsFloat, libs, "pango_attribute_as_float")
-	core.PuregoSafeRegister(&xAttributeAsFontDesc, libs, "pango_attribute_as_font_desc")
-	core.PuregoSafeRegister(&xAttributeAsFontFeatures, libs, "pango_attribute_as_font_features")
-	core.PuregoSafeRegister(&xAttributeAsInt, libs, "pango_attribute_as_int")
-	core.PuregoSafeRegister(&xAttributeAsLanguage, libs, "pango_attribute_as_language")
-	core.PuregoSafeRegister(&xAttributeAsShape, libs, "pango_attribute_as_shape")
-	core.PuregoSafeRegister(&xAttributeAsSize, libs, "pango_attribute_as_size")
-	core.PuregoSafeRegister(&xAttributeAsString, libs, "pango_attribute_as_string")
-	core.PuregoSafeRegister(&xAttributeCopy, libs, "pango_attribute_copy")
-	core.PuregoSafeRegister(&xAttributeDestroy, libs, "pango_attribute_destroy")
-	core.PuregoSafeRegister(&xAttributeEqual, libs, "pango_attribute_equal")
-	core.PuregoSafeRegister(&xAttributeInit, libs, "pango_attribute_init")
 }

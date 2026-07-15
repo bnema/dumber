@@ -4,7 +4,6 @@ package gtk
 import (
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -62,6 +61,7 @@ type LinkButton struct {
 var xLinkButtonGLibType func() types.GType
 
 func LinkButtonGLibType() types.GType {
+	core.LazyRegister(&xLinkButtonGLibType, "GTK", "gtk_link_button_get_type", false)
 	return xLinkButtonGLibType()
 }
 
@@ -75,6 +75,7 @@ var xNewLinkButton func(string) uintptr
 
 // Creates a new `GtkLinkButton` with the URI as its text.
 func NewLinkButton(UriVar string) *LinkButton {
+	core.LazyRegister(&xNewLinkButton, "GTK", "gtk_link_button_new", false)
 	var cls *LinkButton
 
 	cret := xNewLinkButton(UriVar)
@@ -92,6 +93,7 @@ var xNewLinkButtonWithLabel func(string, uintptr) uintptr
 
 // Creates a new `GtkLinkButton` containing a label.
 func NewLinkButtonWithLabel(UriVar string, LabelVar *string) *LinkButton {
+	core.LazyRegister(&xNewLinkButtonWithLabel, "GTK", "gtk_link_button_new_with_label", false)
 	var cls *LinkButton
 
 	LabelVarPtr := core.GStrdupNullable(LabelVar)
@@ -112,6 +114,8 @@ var xLinkButtonGetUri func(uintptr) string
 
 // Retrieves the URI of the `GtkLinkButton`.
 func (x *LinkButton) GetUri() string {
+	core.LazyRegister(&xLinkButtonGetUri, "GTK", "gtk_link_button_get_uri", false)
+
 	cret := xLinkButtonGetUri(x.GoPointer())
 	return cret
 }
@@ -125,6 +129,8 @@ var xLinkButtonGetVisited func(uintptr) bool
 //
 // The state may also be changed using [method@Gtk.LinkButton.set_visited].
 func (x *LinkButton) GetVisited() bool {
+	core.LazyRegister(&xLinkButtonGetVisited, "GTK", "gtk_link_button_get_visited", false)
+
 	cret := xLinkButtonGetVisited(x.GoPointer())
 	return cret
 }
@@ -135,6 +141,8 @@ var xLinkButtonSetUri func(uintptr, string)
 //
 // As a side-effect this unsets the “visited” state of the button.
 func (x *LinkButton) SetUri(UriVar string) {
+	core.LazyRegister(&xLinkButtonSetUri, "GTK", "gtk_link_button_set_uri", false)
+
 	xLinkButtonSetUri(x.GoPointer(), UriVar)
 }
 
@@ -144,6 +152,8 @@ var xLinkButtonSetVisited func(uintptr, bool)
 //
 // See [method@Gtk.LinkButton.get_visited] for more details.
 func (x *LinkButton) SetVisited(VisitedVar bool) {
+	core.LazyRegister(&xLinkButtonSetVisited, "GTK", "gtk_link_button_set_visited", false)
+
 	xLinkButtonSetVisited(x.GoPointer(), VisitedVar)
 }
 
@@ -570,22 +580,4 @@ func (x *LinkButton) GetBuildableId() string {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GTK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xLinkButtonGLibType, libs, "gtk_link_button_get_type")
-
-	core.PuregoSafeRegister(&xNewLinkButton, libs, "gtk_link_button_new")
-	core.PuregoSafeRegister(&xNewLinkButtonWithLabel, libs, "gtk_link_button_new_with_label")
-
-	core.PuregoSafeRegister(&xLinkButtonGetUri, libs, "gtk_link_button_get_uri")
-	core.PuregoSafeRegister(&xLinkButtonGetVisited, libs, "gtk_link_button_get_visited")
-	core.PuregoSafeRegister(&xLinkButtonSetUri, libs, "gtk_link_button_set_uri")
-	core.PuregoSafeRegister(&xLinkButtonSetVisited, libs, "gtk_link_button_set_visited")
 }

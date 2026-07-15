@@ -2,7 +2,6 @@
 package gtk
 
 import (
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gio"
 	"github.com/bnema/puregotk/v4/glib"
@@ -83,6 +82,7 @@ type FileChooser interface {
 var xFileChooserGLibType func() types.GType
 
 func FileChooserGLibType() types.GType {
+	core.LazyRegister(&xFileChooserGLibType, "GTK", "gtk_file_chooser_get_type", false)
 	return xFileChooserGLibType()
 }
 
@@ -469,33 +469,180 @@ func (x *FileChooserBase) GetPropertySelectMultiple() bool {
 	return v.GetBoolean()
 }
 
+var XGtkFileChooserAddChoice func(uintptr, string, string, []string, []string) = func(instance uintptr, IdVarp string, LabelVarp string, OptionsVarp []string, OptionLabelsVarp []string) {
+	core.LazyRegister(&xXGtkFileChooserAddChoice, "GTK", "gtk_file_chooser_add_choice", false)
+	xXGtkFileChooserAddChoice(instance, IdVarp, LabelVarp, OptionsVarp, OptionLabelsVarp)
+}
+
 var (
-	XGtkFileChooserAddChoice            func(uintptr, string, string, []string, []string)
-	XGtkFileChooserAddFilter            func(uintptr, uintptr)
-	XGtkFileChooserAddShortcutFolder    func(uintptr, uintptr, **glib.Error) bool
-	XGtkFileChooserGetAction            func(uintptr) FileChooserAction
-	XGtkFileChooserGetChoice            func(uintptr, string) string
-	XGtkFileChooserGetCreateFolders     func(uintptr) bool
-	XGtkFileChooserGetCurrentFolder     func(uintptr) uintptr
-	XGtkFileChooserGetCurrentName       func(uintptr) string
-	XGtkFileChooserGetFile              func(uintptr) uintptr
-	XGtkFileChooserGetFiles             func(uintptr) uintptr
-	XGtkFileChooserGetFilter            func(uintptr) uintptr
-	XGtkFileChooserGetFilters           func(uintptr) uintptr
-	XGtkFileChooserGetSelectMultiple    func(uintptr) bool
-	XGtkFileChooserGetShortcutFolders   func(uintptr) uintptr
-	XGtkFileChooserRemoveChoice         func(uintptr, string)
-	XGtkFileChooserRemoveFilter         func(uintptr, uintptr)
-	XGtkFileChooserRemoveShortcutFolder func(uintptr, uintptr, **glib.Error) bool
-	XGtkFileChooserSetAction            func(uintptr, FileChooserAction)
-	XGtkFileChooserSetChoice            func(uintptr, string, string)
-	XGtkFileChooserSetCreateFolders     func(uintptr, bool)
-	XGtkFileChooserSetCurrentFolder     func(uintptr, uintptr, **glib.Error) bool
-	XGtkFileChooserSetCurrentName       func(uintptr, string)
-	XGtkFileChooserSetFile              func(uintptr, uintptr, **glib.Error) bool
-	XGtkFileChooserSetFilter            func(uintptr, uintptr)
-	XGtkFileChooserSetSelectMultiple    func(uintptr, bool)
+	xXGtkFileChooserAddChoice func(uintptr, string, string, []string, []string)
+	XGtkFileChooserAddFilter  func(uintptr, uintptr) = func(instance uintptr, FilterVarp uintptr) {
+		core.LazyRegister(&xXGtkFileChooserAddFilter, "GTK", "gtk_file_chooser_add_filter", false)
+		xXGtkFileChooserAddFilter(instance, FilterVarp)
+	}
 )
+var (
+	xXGtkFileChooserAddFilter        func(uintptr, uintptr)
+	XGtkFileChooserAddShortcutFolder func(uintptr, uintptr, **glib.Error) bool = func(instance uintptr, FolderVarp uintptr, cerrp **glib.Error) bool {
+		core.LazyRegister(&xXGtkFileChooserAddShortcutFolder, "GTK", "gtk_file_chooser_add_shortcut_folder", false)
+		return xXGtkFileChooserAddShortcutFolder(instance, FolderVarp, cerrp)
+	}
+)
+var (
+	xXGtkFileChooserAddShortcutFolder func(uintptr, uintptr, **glib.Error) bool
+	XGtkFileChooserGetAction          func(uintptr) FileChooserAction = func(instance uintptr) FileChooserAction {
+		core.LazyRegister(&xXGtkFileChooserGetAction, "GTK", "gtk_file_chooser_get_action", false)
+		return xXGtkFileChooserGetAction(instance)
+	}
+)
+var (
+	xXGtkFileChooserGetAction func(uintptr) FileChooserAction
+	XGtkFileChooserGetChoice  func(uintptr, string) string = func(instance uintptr, IdVarp string) string {
+		core.LazyRegister(&xXGtkFileChooserGetChoice, "GTK", "gtk_file_chooser_get_choice", false)
+		return xXGtkFileChooserGetChoice(instance, IdVarp)
+	}
+)
+var (
+	xXGtkFileChooserGetChoice       func(uintptr, string) string
+	XGtkFileChooserGetCreateFolders func(uintptr) bool = func(instance uintptr) bool {
+		core.LazyRegister(&xXGtkFileChooserGetCreateFolders, "GTK", "gtk_file_chooser_get_create_folders", false)
+		return xXGtkFileChooserGetCreateFolders(instance)
+	}
+)
+var (
+	xXGtkFileChooserGetCreateFolders func(uintptr) bool
+	XGtkFileChooserGetCurrentFolder  func(uintptr) uintptr = func(instance uintptr) uintptr {
+		core.LazyRegister(&xXGtkFileChooserGetCurrentFolder, "GTK", "gtk_file_chooser_get_current_folder", false)
+		return xXGtkFileChooserGetCurrentFolder(instance)
+	}
+)
+var (
+	xXGtkFileChooserGetCurrentFolder func(uintptr) uintptr
+	XGtkFileChooserGetCurrentName    func(uintptr) string = func(instance uintptr) string {
+		core.LazyRegister(&xXGtkFileChooserGetCurrentName, "GTK", "gtk_file_chooser_get_current_name", false)
+		return xXGtkFileChooserGetCurrentName(instance)
+	}
+)
+var (
+	xXGtkFileChooserGetCurrentName func(uintptr) string
+	XGtkFileChooserGetFile         func(uintptr) uintptr = func(instance uintptr) uintptr {
+		core.LazyRegister(&xXGtkFileChooserGetFile, "GTK", "gtk_file_chooser_get_file", false)
+		return xXGtkFileChooserGetFile(instance)
+	}
+)
+var (
+	xXGtkFileChooserGetFile func(uintptr) uintptr
+	XGtkFileChooserGetFiles func(uintptr) uintptr = func(instance uintptr) uintptr {
+		core.LazyRegister(&xXGtkFileChooserGetFiles, "GTK", "gtk_file_chooser_get_files", false)
+		return xXGtkFileChooserGetFiles(instance)
+	}
+)
+var (
+	xXGtkFileChooserGetFiles func(uintptr) uintptr
+	XGtkFileChooserGetFilter func(uintptr) uintptr = func(instance uintptr) uintptr {
+		core.LazyRegister(&xXGtkFileChooserGetFilter, "GTK", "gtk_file_chooser_get_filter", false)
+		return xXGtkFileChooserGetFilter(instance)
+	}
+)
+var (
+	xXGtkFileChooserGetFilter func(uintptr) uintptr
+	XGtkFileChooserGetFilters func(uintptr) uintptr = func(instance uintptr) uintptr {
+		core.LazyRegister(&xXGtkFileChooserGetFilters, "GTK", "gtk_file_chooser_get_filters", false)
+		return xXGtkFileChooserGetFilters(instance)
+	}
+)
+var (
+	xXGtkFileChooserGetFilters       func(uintptr) uintptr
+	XGtkFileChooserGetSelectMultiple func(uintptr) bool = func(instance uintptr) bool {
+		core.LazyRegister(&xXGtkFileChooserGetSelectMultiple, "GTK", "gtk_file_chooser_get_select_multiple", false)
+		return xXGtkFileChooserGetSelectMultiple(instance)
+	}
+)
+var (
+	xXGtkFileChooserGetSelectMultiple func(uintptr) bool
+	XGtkFileChooserGetShortcutFolders func(uintptr) uintptr = func(instance uintptr) uintptr {
+		core.LazyRegister(&xXGtkFileChooserGetShortcutFolders, "GTK", "gtk_file_chooser_get_shortcut_folders", false)
+		return xXGtkFileChooserGetShortcutFolders(instance)
+	}
+)
+var (
+	xXGtkFileChooserGetShortcutFolders func(uintptr) uintptr
+	XGtkFileChooserRemoveChoice        func(uintptr, string) = func(instance uintptr, IdVarp string) {
+		core.LazyRegister(&xXGtkFileChooserRemoveChoice, "GTK", "gtk_file_chooser_remove_choice", false)
+		xXGtkFileChooserRemoveChoice(instance, IdVarp)
+	}
+)
+var (
+	xXGtkFileChooserRemoveChoice func(uintptr, string)
+	XGtkFileChooserRemoveFilter  func(uintptr, uintptr) = func(instance uintptr, FilterVarp uintptr) {
+		core.LazyRegister(&xXGtkFileChooserRemoveFilter, "GTK", "gtk_file_chooser_remove_filter", false)
+		xXGtkFileChooserRemoveFilter(instance, FilterVarp)
+	}
+)
+var (
+	xXGtkFileChooserRemoveFilter        func(uintptr, uintptr)
+	XGtkFileChooserRemoveShortcutFolder func(uintptr, uintptr, **glib.Error) bool = func(instance uintptr, FolderVarp uintptr, cerrp **glib.Error) bool {
+		core.LazyRegister(&xXGtkFileChooserRemoveShortcutFolder, "GTK", "gtk_file_chooser_remove_shortcut_folder", false)
+		return xXGtkFileChooserRemoveShortcutFolder(instance, FolderVarp, cerrp)
+	}
+)
+var (
+	xXGtkFileChooserRemoveShortcutFolder func(uintptr, uintptr, **glib.Error) bool
+	XGtkFileChooserSetAction             func(uintptr, FileChooserAction) = func(instance uintptr, ActionVarp FileChooserAction) {
+		core.LazyRegister(&xXGtkFileChooserSetAction, "GTK", "gtk_file_chooser_set_action", false)
+		xXGtkFileChooserSetAction(instance, ActionVarp)
+	}
+)
+var (
+	xXGtkFileChooserSetAction func(uintptr, FileChooserAction)
+	XGtkFileChooserSetChoice  func(uintptr, string, string) = func(instance uintptr, IdVarp string, OptionVarp string) {
+		core.LazyRegister(&xXGtkFileChooserSetChoice, "GTK", "gtk_file_chooser_set_choice", false)
+		xXGtkFileChooserSetChoice(instance, IdVarp, OptionVarp)
+	}
+)
+var (
+	xXGtkFileChooserSetChoice       func(uintptr, string, string)
+	XGtkFileChooserSetCreateFolders func(uintptr, bool) = func(instance uintptr, CreateFoldersVarp bool) {
+		core.LazyRegister(&xXGtkFileChooserSetCreateFolders, "GTK", "gtk_file_chooser_set_create_folders", false)
+		xXGtkFileChooserSetCreateFolders(instance, CreateFoldersVarp)
+	}
+)
+var (
+	xXGtkFileChooserSetCreateFolders func(uintptr, bool)
+	XGtkFileChooserSetCurrentFolder  func(uintptr, uintptr, **glib.Error) bool = func(instance uintptr, FileVarp uintptr, cerrp **glib.Error) bool {
+		core.LazyRegister(&xXGtkFileChooserSetCurrentFolder, "GTK", "gtk_file_chooser_set_current_folder", false)
+		return xXGtkFileChooserSetCurrentFolder(instance, FileVarp, cerrp)
+	}
+)
+var (
+	xXGtkFileChooserSetCurrentFolder func(uintptr, uintptr, **glib.Error) bool
+	XGtkFileChooserSetCurrentName    func(uintptr, string) = func(instance uintptr, NameVarp string) {
+		core.LazyRegister(&xXGtkFileChooserSetCurrentName, "GTK", "gtk_file_chooser_set_current_name", false)
+		xXGtkFileChooserSetCurrentName(instance, NameVarp)
+	}
+)
+var (
+	xXGtkFileChooserSetCurrentName func(uintptr, string)
+	XGtkFileChooserSetFile         func(uintptr, uintptr, **glib.Error) bool = func(instance uintptr, FileVarp uintptr, cerrp **glib.Error) bool {
+		core.LazyRegister(&xXGtkFileChooserSetFile, "GTK", "gtk_file_chooser_set_file", false)
+		return xXGtkFileChooserSetFile(instance, FileVarp, cerrp)
+	}
+)
+var (
+	xXGtkFileChooserSetFile  func(uintptr, uintptr, **glib.Error) bool
+	XGtkFileChooserSetFilter func(uintptr, uintptr) = func(instance uintptr, FilterVarp uintptr) {
+		core.LazyRegister(&xXGtkFileChooserSetFilter, "GTK", "gtk_file_chooser_set_filter", false)
+		xXGtkFileChooserSetFilter(instance, FilterVarp)
+	}
+)
+var (
+	xXGtkFileChooserSetFilter        func(uintptr, uintptr)
+	XGtkFileChooserSetSelectMultiple func(uintptr, bool) = func(instance uintptr, SelectMultipleVarp bool) {
+		core.LazyRegister(&xXGtkFileChooserSetSelectMultiple, "GTK", "gtk_file_chooser_set_select_multiple", false)
+		xXGtkFileChooserSetSelectMultiple(instance, SelectMultipleVarp)
+	}
+)
+var xXGtkFileChooserSetSelectMultiple func(uintptr, bool)
 
 // Describes whether a `GtkFileChooser` is being used to open existing files
 // or to save to a possibly new file.
@@ -504,6 +651,7 @@ type FileChooserAction int
 var xFileChooserActionGLibType func() types.GType
 
 func FileChooserActionGLibType() types.GType {
+	core.LazyRegister(&xFileChooserActionGLibType, "GTK", "gtk_file_chooser_action_get_type", false)
 	return xFileChooserActionGLibType()
 }
 
@@ -529,6 +677,7 @@ type FileChooserError int
 var xFileChooserErrorGLibType func() types.GType
 
 func FileChooserErrorGLibType() types.GType {
+	core.LazyRegister(&xFileChooserErrorGLibType, "GTK", "gtk_file_chooser_error_get_type", false)
 	return xFileChooserErrorGLibType()
 }
 
@@ -550,6 +699,8 @@ var xFileChooserErrorQuark func() glib.Quark
 
 // Registers an error quark for `GtkFileChooser` errors.
 func FileChooserErrorQuark() glib.Quark {
+	core.LazyRegister(&xFileChooserErrorQuark, "GTK", "gtk_file_chooser_error_quark", false)
+
 	cret := xFileChooserErrorQuark()
 	return cret
 }
@@ -557,46 +708,4 @@ func FileChooserErrorQuark() glib.Quark {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GTK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xFileChooserActionGLibType, libs, "gtk_file_chooser_action_get_type")
-
-	core.PuregoSafeRegister(&xFileChooserErrorGLibType, libs, "gtk_file_chooser_error_get_type")
-
-	core.PuregoSafeRegister(&xFileChooserErrorQuark, libs, "gtk_file_chooser_error_quark")
-
-	core.PuregoSafeRegister(&xFileChooserGLibType, libs, "gtk_file_chooser_get_type")
-
-	core.PuregoSafeRegister(&XGtkFileChooserAddChoice, libs, "gtk_file_chooser_add_choice")
-	core.PuregoSafeRegister(&XGtkFileChooserAddFilter, libs, "gtk_file_chooser_add_filter")
-	core.PuregoSafeRegister(&XGtkFileChooserAddShortcutFolder, libs, "gtk_file_chooser_add_shortcut_folder")
-	core.PuregoSafeRegister(&XGtkFileChooserGetAction, libs, "gtk_file_chooser_get_action")
-	core.PuregoSafeRegister(&XGtkFileChooserGetChoice, libs, "gtk_file_chooser_get_choice")
-	core.PuregoSafeRegister(&XGtkFileChooserGetCreateFolders, libs, "gtk_file_chooser_get_create_folders")
-	core.PuregoSafeRegister(&XGtkFileChooserGetCurrentFolder, libs, "gtk_file_chooser_get_current_folder")
-	core.PuregoSafeRegister(&XGtkFileChooserGetCurrentName, libs, "gtk_file_chooser_get_current_name")
-	core.PuregoSafeRegister(&XGtkFileChooserGetFile, libs, "gtk_file_chooser_get_file")
-	core.PuregoSafeRegister(&XGtkFileChooserGetFiles, libs, "gtk_file_chooser_get_files")
-	core.PuregoSafeRegister(&XGtkFileChooserGetFilter, libs, "gtk_file_chooser_get_filter")
-	core.PuregoSafeRegister(&XGtkFileChooserGetFilters, libs, "gtk_file_chooser_get_filters")
-	core.PuregoSafeRegister(&XGtkFileChooserGetSelectMultiple, libs, "gtk_file_chooser_get_select_multiple")
-	core.PuregoSafeRegister(&XGtkFileChooserGetShortcutFolders, libs, "gtk_file_chooser_get_shortcut_folders")
-	core.PuregoSafeRegister(&XGtkFileChooserRemoveChoice, libs, "gtk_file_chooser_remove_choice")
-	core.PuregoSafeRegister(&XGtkFileChooserRemoveFilter, libs, "gtk_file_chooser_remove_filter")
-	core.PuregoSafeRegister(&XGtkFileChooserRemoveShortcutFolder, libs, "gtk_file_chooser_remove_shortcut_folder")
-	core.PuregoSafeRegister(&XGtkFileChooserSetAction, libs, "gtk_file_chooser_set_action")
-	core.PuregoSafeRegister(&XGtkFileChooserSetChoice, libs, "gtk_file_chooser_set_choice")
-	core.PuregoSafeRegister(&XGtkFileChooserSetCreateFolders, libs, "gtk_file_chooser_set_create_folders")
-	core.PuregoSafeRegister(&XGtkFileChooserSetCurrentFolder, libs, "gtk_file_chooser_set_current_folder")
-	core.PuregoSafeRegister(&XGtkFileChooserSetCurrentName, libs, "gtk_file_chooser_set_current_name")
-	core.PuregoSafeRegister(&XGtkFileChooserSetFile, libs, "gtk_file_chooser_set_file")
-	core.PuregoSafeRegister(&XGtkFileChooserSetFilter, libs, "gtk_file_chooser_set_filter")
-	core.PuregoSafeRegister(&XGtkFileChooserSetSelectMultiple, libs, "gtk_file_chooser_set_select_multiple")
 }

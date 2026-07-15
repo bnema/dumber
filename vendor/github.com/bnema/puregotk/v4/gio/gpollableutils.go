@@ -4,7 +4,6 @@ package gio
 import (
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -18,6 +17,8 @@ var xPollableSourceNew func(uintptr) uintptr
 // anything on its own; use g_source_add_child_source() to add other
 // sources to it to cause it to trigger.
 func PollableSourceNew(PollableStreamVar *gobject.Object) *glib.Source {
+	core.LazyRegister(&xPollableSourceNew, "GIO", "g_pollable_source_new", false)
+
 	cret := xPollableSourceNew(PollableStreamVar.GoPointer())
 	if cret == 0 {
 		return nil
@@ -32,6 +33,8 @@ var xPollableSourceNewFull func(uintptr, *glib.Source, uintptr) uintptr
 // g_pollable_source_new(), but also attaching @child_source (with a
 // dummy callback), and @cancellable, if they are non-%NULL.
 func PollableSourceNewFull(PollableStreamVar *gobject.Object, ChildSourceVar *glib.Source, CancellableVar *Cancellable) *glib.Source {
+	core.LazyRegister(&xPollableSourceNewFull, "GIO", "g_pollable_source_new_full", false)
+
 	cret := xPollableSourceNewFull(PollableStreamVar.GoPointer(), ChildSourceVar, CancellableVar.GoPointer())
 	if cret == 0 {
 		return nil
@@ -51,6 +54,7 @@ var xPollableStreamRead func(uintptr, []byte, uint, bool, uintptr, **glib.Error)
 // returns %TRUE, or else the behavior is undefined. If @blocking is
 // %TRUE, then @stream does not need to be a #GPollableInputStream.
 func PollableStreamRead(StreamVar *InputStream, BufferVar []byte, CountVar uint, BlockingVar bool, CancellableVar *Cancellable) (int, error) {
+	core.LazyRegister(&xPollableStreamRead, "GIO", "g_pollable_stream_read", false)
 	var cerr *glib.Error
 
 	cret := xPollableStreamRead(StreamVar.GoPointer(), BufferVar, CountVar, BlockingVar, CancellableVar.GoPointer(), &cerr)
@@ -73,6 +77,7 @@ var xPollableStreamWrite func(uintptr, []byte, uint, bool, uintptr, **glib.Error
 // behavior is undefined. If @blocking is %TRUE, then @stream does not
 // need to be a #GPollableOutputStream.
 func PollableStreamWrite(StreamVar *OutputStream, BufferVar []byte, CountVar uint, BlockingVar bool, CancellableVar *Cancellable) (int, error) {
+	core.LazyRegister(&xPollableStreamWrite, "GIO", "g_pollable_stream_write", false)
 	var cerr *glib.Error
 
 	cret := xPollableStreamWrite(StreamVar.GoPointer(), BufferVar, CountVar, BlockingVar, CancellableVar.GoPointer(), &cerr)
@@ -103,6 +108,7 @@ var xPollableStreamWriteAll func(uintptr, []byte, uint, bool, *uint, uintptr, **
 // behavior is undefined. If @blocking is %TRUE, then @stream does not
 // need to be a #GPollableOutputStream.
 func PollableStreamWriteAll(StreamVar *OutputStream, BufferVar []byte, CountVar uint, BlockingVar bool, BytesWrittenVar *uint, CancellableVar *Cancellable) (bool, error) {
+	core.LazyRegister(&xPollableStreamWriteAll, "GIO", "g_pollable_stream_write_all", false)
 	var cerr *glib.Error
 
 	cret := xPollableStreamWriteAll(StreamVar.GoPointer(), BufferVar, CountVar, BlockingVar, BytesWrittenVar, CancellableVar.GoPointer(), &cerr)
@@ -115,18 +121,4 @@ func PollableStreamWriteAll(StreamVar *OutputStream, BufferVar []byte, CountVar 
 func init() {
 	core.SetPackageName("GIO", "gio-2.0")
 	core.SetSharedLibraries("GIO", []string{"libgio-2.0.so.0", "libgio-2.0.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GIO") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xPollableSourceNew, libs, "g_pollable_source_new")
-	core.PuregoSafeRegister(&xPollableSourceNewFull, libs, "g_pollable_source_new_full")
-	core.PuregoSafeRegister(&xPollableStreamRead, libs, "g_pollable_stream_read")
-	core.PuregoSafeRegister(&xPollableStreamWrite, libs, "g_pollable_stream_write")
-	core.PuregoSafeRegister(&xPollableStreamWriteAll, libs, "g_pollable_stream_write_all")
 }

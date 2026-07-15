@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -179,6 +178,7 @@ type NavigationSplitView struct {
 var xNavigationSplitViewGLibType func() types.GType
 
 func NavigationSplitViewGLibType() types.GType {
+	core.LazyRegister(&xNavigationSplitViewGLibType, "ADW", "adw_navigation_split_view_get_type", false)
 	return xNavigationSplitViewGLibType()
 }
 
@@ -192,6 +192,7 @@ var xNewNavigationSplitView func() uintptr
 
 // Creates a new `AdwNavigationSplitView`.
 func NewNavigationSplitView() *NavigationSplitView {
+	core.LazyRegister(&xNewNavigationSplitView, "ADW", "adw_navigation_split_view_new", false)
 	var cls *NavigationSplitView
 
 	cret := xNewNavigationSplitView()
@@ -209,6 +210,8 @@ var xNavigationSplitViewGetCollapsed func(uintptr) bool
 
 // Gets whether @self is collapsed.
 func (x *NavigationSplitView) GetCollapsed() bool {
+	core.LazyRegister(&xNavigationSplitViewGetCollapsed, "ADW", "adw_navigation_split_view_get_collapsed", false)
+
 	cret := xNavigationSplitViewGetCollapsed(x.GoPointer())
 	return cret
 }
@@ -217,6 +220,7 @@ var xNavigationSplitViewGetContent func(uintptr) uintptr
 
 // Sets the content widget for @self.
 func (x *NavigationSplitView) GetContent() *NavigationPage {
+	core.LazyRegister(&xNavigationSplitViewGetContent, "ADW", "adw_navigation_split_view_get_content", false)
 	var cls *NavigationPage
 
 	cret := xNavigationSplitViewGetContent(x.GoPointer())
@@ -234,6 +238,8 @@ var xNavigationSplitViewGetMaxSidebarWidth func(uintptr) float64
 
 // Gets the maximum sidebar width for @self.
 func (x *NavigationSplitView) GetMaxSidebarWidth() float64 {
+	core.LazyRegister(&xNavigationSplitViewGetMaxSidebarWidth, "ADW", "adw_navigation_split_view_get_max_sidebar_width", false)
+
 	cret := xNavigationSplitViewGetMaxSidebarWidth(x.GoPointer())
 	return cret
 }
@@ -242,6 +248,8 @@ var xNavigationSplitViewGetMinSidebarWidth func(uintptr) float64
 
 // Gets the minimum sidebar width for @self.
 func (x *NavigationSplitView) GetMinSidebarWidth() float64 {
+	core.LazyRegister(&xNavigationSplitViewGetMinSidebarWidth, "ADW", "adw_navigation_split_view_get_min_sidebar_width", false)
+
 	cret := xNavigationSplitViewGetMinSidebarWidth(x.GoPointer())
 	return cret
 }
@@ -250,6 +258,8 @@ var xNavigationSplitViewGetShowContent func(uintptr) bool
 
 // Gets which page is visible when @self is collapsed.
 func (x *NavigationSplitView) GetShowContent() bool {
+	core.LazyRegister(&xNavigationSplitViewGetShowContent, "ADW", "adw_navigation_split_view_get_show_content", false)
+
 	cret := xNavigationSplitViewGetShowContent(x.GoPointer())
 	return cret
 }
@@ -258,6 +268,7 @@ var xNavigationSplitViewGetSidebar func(uintptr) uintptr
 
 // Gets the sidebar widget for @self.
 func (x *NavigationSplitView) GetSidebar() *NavigationPage {
+	core.LazyRegister(&xNavigationSplitViewGetSidebar, "ADW", "adw_navigation_split_view_get_sidebar", false)
 	var cls *NavigationPage
 
 	cret := xNavigationSplitViewGetSidebar(x.GoPointer())
@@ -275,6 +286,8 @@ var xNavigationSplitViewGetSidebarPosition func(uintptr) gtk.PackType
 
 // Gets the sidebar position for @self.
 func (x *NavigationSplitView) GetSidebarPosition() gtk.PackType {
+	core.LazyRegister(&xNavigationSplitViewGetSidebarPosition, "ADW", "adw_navigation_split_view_get_sidebar_position", false)
+
 	cret := xNavigationSplitViewGetSidebarPosition(x.GoPointer())
 	return cret
 }
@@ -283,6 +296,8 @@ var xNavigationSplitViewGetSidebarWidthFraction func(uintptr) float64
 
 // Gets the preferred sidebar width fraction for @self.
 func (x *NavigationSplitView) GetSidebarWidthFraction() float64 {
+	core.LazyRegister(&xNavigationSplitViewGetSidebarWidthFraction, "ADW", "adw_navigation_split_view_get_sidebar_width_fraction", false)
+
 	cret := xNavigationSplitViewGetSidebarWidthFraction(x.GoPointer())
 	return cret
 }
@@ -291,6 +306,8 @@ var xNavigationSplitViewGetSidebarWidthUnit func(uintptr) LengthUnit
 
 // Gets the length unit for minimum and maximum sidebar widths.
 func (x *NavigationSplitView) GetSidebarWidthUnit() LengthUnit {
+	core.LazyRegister(&xNavigationSplitViewGetSidebarWidthUnit, "ADW", "adw_navigation_split_view_get_sidebar_width_unit", false)
+
 	cret := xNavigationSplitViewGetSidebarWidthUnit(x.GoPointer())
 	return cret
 }
@@ -305,6 +322,8 @@ var xNavigationSplitViewSetCollapsed func(uintptr, bool)
 // The [property@NavigationSplitView:show-content] controls which child is
 // visible while collapsed.
 func (x *NavigationSplitView) SetCollapsed(CollapsedVar bool) {
+	core.LazyRegister(&xNavigationSplitViewSetCollapsed, "ADW", "adw_navigation_split_view_set_collapsed", false)
+
 	xNavigationSplitViewSetCollapsed(x.GoPointer(), CollapsedVar)
 }
 
@@ -312,6 +331,8 @@ var xNavigationSplitViewSetContent func(uintptr, uintptr)
 
 // Sets the content widget for @self.
 func (x *NavigationSplitView) SetContent(ContentVar *NavigationPage) {
+	core.LazyRegister(&xNavigationSplitViewSetContent, "ADW", "adw_navigation_split_view_set_content", false)
+
 	xNavigationSplitViewSetContent(x.GoPointer(), ContentVar.GoPointer())
 }
 
@@ -325,6 +346,8 @@ var xNavigationSplitViewSetMaxSidebarWidth func(uintptr, float64)
 // The sidebar widget can still be allocated with larger width if its own
 // minimum width exceeds it.
 func (x *NavigationSplitView) SetMaxSidebarWidth(WidthVar float64) {
+	core.LazyRegister(&xNavigationSplitViewSetMaxSidebarWidth, "ADW", "adw_navigation_split_view_set_max_sidebar_width", false)
+
 	xNavigationSplitViewSetMaxSidebarWidth(x.GoPointer(), WidthVar)
 }
 
@@ -338,6 +361,8 @@ var xNavigationSplitViewSetMinSidebarWidth func(uintptr, float64)
 // The sidebar widget can still be allocated with larger width if its own
 // minimum width exceeds it.
 func (x *NavigationSplitView) SetMinSidebarWidth(WidthVar float64) {
+	core.LazyRegister(&xNavigationSplitViewSetMinSidebarWidth, "ADW", "adw_navigation_split_view_set_min_sidebar_width", false)
+
 	xNavigationSplitViewSetMinSidebarWidth(x.GoPointer(), WidthVar)
 }
 
@@ -351,6 +376,8 @@ var xNavigationSplitViewSetShowContent func(uintptr, bool)
 //
 // If the split view is already collapsed, the visible page changes immediately.
 func (x *NavigationSplitView) SetShowContent(ShowContentVar bool) {
+	core.LazyRegister(&xNavigationSplitViewSetShowContent, "ADW", "adw_navigation_split_view_set_show_content", false)
+
 	xNavigationSplitViewSetShowContent(x.GoPointer(), ShowContentVar)
 }
 
@@ -358,6 +385,8 @@ var xNavigationSplitViewSetSidebar func(uintptr, uintptr)
 
 // Sets the sidebar widget for @self.
 func (x *NavigationSplitView) SetSidebar(SidebarVar *NavigationPage) {
+	core.LazyRegister(&xNavigationSplitViewSetSidebar, "ADW", "adw_navigation_split_view_set_sidebar", false)
+
 	xNavigationSplitViewSetSidebar(x.GoPointer(), SidebarVar.GoPointer())
 }
 
@@ -371,6 +400,8 @@ var xNavigationSplitViewSetSidebarPosition func(uintptr, gtk.PackType)
 // If set to [enum@Gtk.PackType.end], the sidebar is displayed after the
 // content, and the content will be the root page.
 func (x *NavigationSplitView) SetSidebarPosition(PositionVar gtk.PackType) {
+	core.LazyRegister(&xNavigationSplitViewSetSidebarPosition, "ADW", "adw_navigation_split_view_set_sidebar_position", false)
+
 	xNavigationSplitViewSetSidebarPosition(x.GoPointer(), PositionVar)
 }
 
@@ -385,6 +416,8 @@ var xNavigationSplitViewSetSidebarWidthFraction func(uintptr, float64)
 // The sidebar widget can be allocated with larger width if its own minimum
 // width exceeds the preferred width.
 func (x *NavigationSplitView) SetSidebarWidthFraction(FractionVar float64) {
+	core.LazyRegister(&xNavigationSplitViewSetSidebarWidthFraction, "ADW", "adw_navigation_split_view_set_sidebar_width_fraction", false)
+
 	xNavigationSplitViewSetSidebarWidthFraction(x.GoPointer(), FractionVar)
 }
 
@@ -395,6 +428,8 @@ var xNavigationSplitViewSetSidebarWidthUnit func(uintptr, LengthUnit)
 // See [property@NavigationSplitView:min-sidebar-width] and
 // [property@NavigationSplitView:max-sidebar-width].
 func (x *NavigationSplitView) SetSidebarWidthUnit(UnitVar LengthUnit) {
+	core.LazyRegister(&xNavigationSplitViewSetSidebarWidthUnit, "ADW", "adw_navigation_split_view_set_sidebar_width_unit", false)
+
 	xNavigationSplitViewSetSidebarWidthUnit(x.GoPointer(), UnitVar)
 }
 
@@ -821,35 +856,4 @@ func (x *NavigationSplitView) GetBuildableId() string {
 func init() {
 	core.SetPackageName("ADW", "libadwaita-1")
 	core.SetSharedLibraries("ADW", []string{"libadwaita-1.so.0", "libadwaita-1.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("ADW") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xNavigationSplitViewGLibType, libs, "adw_navigation_split_view_get_type")
-
-	core.PuregoSafeRegister(&xNewNavigationSplitView, libs, "adw_navigation_split_view_new")
-
-	core.PuregoSafeRegister(&xNavigationSplitViewGetCollapsed, libs, "adw_navigation_split_view_get_collapsed")
-	core.PuregoSafeRegister(&xNavigationSplitViewGetContent, libs, "adw_navigation_split_view_get_content")
-	core.PuregoSafeRegister(&xNavigationSplitViewGetMaxSidebarWidth, libs, "adw_navigation_split_view_get_max_sidebar_width")
-	core.PuregoSafeRegister(&xNavigationSplitViewGetMinSidebarWidth, libs, "adw_navigation_split_view_get_min_sidebar_width")
-	core.PuregoSafeRegister(&xNavigationSplitViewGetShowContent, libs, "adw_navigation_split_view_get_show_content")
-	core.PuregoSafeRegister(&xNavigationSplitViewGetSidebar, libs, "adw_navigation_split_view_get_sidebar")
-	core.PuregoSafeRegister(&xNavigationSplitViewGetSidebarPosition, libs, "adw_navigation_split_view_get_sidebar_position")
-	core.PuregoSafeRegister(&xNavigationSplitViewGetSidebarWidthFraction, libs, "adw_navigation_split_view_get_sidebar_width_fraction")
-	core.PuregoSafeRegister(&xNavigationSplitViewGetSidebarWidthUnit, libs, "adw_navigation_split_view_get_sidebar_width_unit")
-	core.PuregoSafeRegister(&xNavigationSplitViewSetCollapsed, libs, "adw_navigation_split_view_set_collapsed")
-	core.PuregoSafeRegister(&xNavigationSplitViewSetContent, libs, "adw_navigation_split_view_set_content")
-	core.PuregoSafeRegister(&xNavigationSplitViewSetMaxSidebarWidth, libs, "adw_navigation_split_view_set_max_sidebar_width")
-	core.PuregoSafeRegister(&xNavigationSplitViewSetMinSidebarWidth, libs, "adw_navigation_split_view_set_min_sidebar_width")
-	core.PuregoSafeRegister(&xNavigationSplitViewSetShowContent, libs, "adw_navigation_split_view_set_show_content")
-	core.PuregoSafeRegister(&xNavigationSplitViewSetSidebar, libs, "adw_navigation_split_view_set_sidebar")
-	core.PuregoSafeRegister(&xNavigationSplitViewSetSidebarPosition, libs, "adw_navigation_split_view_set_sidebar_position")
-	core.PuregoSafeRegister(&xNavigationSplitViewSetSidebarWidthFraction, libs, "adw_navigation_split_view_set_sidebar_width_fraction")
-	core.PuregoSafeRegister(&xNavigationSplitViewSetSidebarWidthUnit, libs, "adw_navigation_split_view_set_sidebar_width_unit")
 }

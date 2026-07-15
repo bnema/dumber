@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -45,6 +44,7 @@ type PrintCapabilities int
 var xPrintCapabilitiesGLibType func() types.GType
 
 func PrintCapabilitiesGLibType() types.GType {
+	core.LazyRegister(&xPrintCapabilitiesGLibType, "GTK", "gtk_print_capabilities_get_type", false)
 	return xPrintCapabilitiesGLibType()
 }
 
@@ -82,6 +82,8 @@ var xEnumeratePrinters func(uintptr, uintptr, uintptr, bool)
 //
 // If @func returns true, the enumeration is stopped.
 func EnumeratePrinters(FuncVar *PrinterFunc, DataVar uintptr, DestroyVar *glib.DestroyNotify, WaitVar bool) {
+	core.LazyRegister(&xEnumeratePrinters, "GTK", "gtk_enumerate_printers", false)
+
 	xEnumeratePrinters(glib.NewCallback(FuncVar), DataVar, glib.NewCallbackNullable(DestroyVar), WaitVar)
 }
 
@@ -101,6 +103,7 @@ type Printer struct {
 var xPrinterGLibType func() types.GType
 
 func PrinterGLibType() types.GType {
+	core.LazyRegister(&xPrinterGLibType, "GTK", "gtk_printer_get_type", false)
 	return xPrinterGLibType()
 }
 
@@ -114,6 +117,7 @@ var xNewPrinter func(string, *PrintBackend, bool) uintptr
 
 // Creates a new `GtkPrinter`.
 func NewPrinter(NameVar string, BackendVar *PrintBackend, VirtualVar bool) *Printer {
+	core.LazyRegister(&xNewPrinter, "GTK", "gtk_printer_new", false)
 	var cls *Printer
 
 	cret := xNewPrinter(NameVar, BackendVar, VirtualVar)
@@ -131,6 +135,8 @@ var xPrinterAcceptsPdf func(uintptr) bool
 // Returns whether the printer accepts input in
 // PDF format.
 func (x *Printer) AcceptsPdf() bool {
+	core.LazyRegister(&xPrinterAcceptsPdf, "GTK", "gtk_printer_accepts_pdf", false)
+
 	cret := xPrinterAcceptsPdf(x.GoPointer())
 	return cret
 }
@@ -140,6 +146,8 @@ var xPrinterAcceptsPs func(uintptr) bool
 // Returns whether the printer accepts input in
 // PostScript format.
 func (x *Printer) AcceptsPs() bool {
+	core.LazyRegister(&xPrinterAcceptsPs, "GTK", "gtk_printer_accepts_ps", false)
+
 	cret := xPrinterAcceptsPs(x.GoPointer())
 	return cret
 }
@@ -148,6 +156,8 @@ var xPrinterCompare func(uintptr, uintptr) int
 
 // Compares two printers.
 func (x *Printer) Compare(BVar *Printer) int {
+	core.LazyRegister(&xPrinterCompare, "GTK", "gtk_printer_compare", false)
+
 	cret := xPrinterCompare(x.GoPointer(), BVar.GoPointer())
 	return cret
 }
@@ -156,6 +166,8 @@ var xPrinterGetBackend func(uintptr) uintptr
 
 // Returns the backend of the printer.
 func (x *Printer) GetBackend() *PrintBackend {
+	core.LazyRegister(&xPrinterGetBackend, "GTK", "gtk_printer_get_backend", false)
+
 	cret := xPrinterGetBackend(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -175,6 +187,8 @@ var xPrinterGetCapabilities func(uintptr) PrintCapabilities
 // available, see [method@Gtk.Printer.has_details] and
 // [method@Gtk.Printer.request_details].
 func (x *Printer) GetCapabilities() PrintCapabilities {
+	core.LazyRegister(&xPrinterGetCapabilities, "GTK", "gtk_printer_get_capabilities", false)
+
 	cret := xPrinterGetCapabilities(x.GoPointer())
 	return cret
 }
@@ -183,6 +197,7 @@ var xPrinterGetDefaultPageSize func(uintptr) uintptr
 
 // Returns default page size of @printer.
 func (x *Printer) GetDefaultPageSize() *PageSetup {
+	core.LazyRegister(&xPrinterGetDefaultPageSize, "GTK", "gtk_printer_get_default_page_size", false)
 	var cls *PageSetup
 
 	cret := xPrinterGetDefaultPageSize(x.GoPointer())
@@ -199,6 +214,8 @@ var xPrinterGetDescription func(uintptr) string
 
 // Gets the description of the printer.
 func (x *Printer) GetDescription() string {
+	core.LazyRegister(&xPrinterGetDescription, "GTK", "gtk_printer_get_description", false)
+
 	cret := xPrinterGetDescription(x.GoPointer())
 	return cret
 }
@@ -214,6 +231,8 @@ var xPrinterGetHardMargins func(uintptr, *float64, *float64, *float64, *float64)
 // available, see [method@Gtk.Printer.has_details] and
 // [method@Gtk.Printer.request_details].
 func (x *Printer) GetHardMargins(TopVar *float64, BottomVar *float64, LeftVar *float64, RightVar *float64) bool {
+	core.LazyRegister(&xPrinterGetHardMargins, "GTK", "gtk_printer_get_hard_margins", false)
+
 	cret := xPrinterGetHardMargins(x.GoPointer(), TopVar, BottomVar, LeftVar, RightVar)
 	return cret
 }
@@ -229,6 +248,8 @@ var xPrinterGetHardMarginsForPaperSize func(uintptr, *PaperSize, *float64, *floa
 // available, see [method@Gtk.Printer.has_details] and
 // [method@Gtk.Printer.request_details].
 func (x *Printer) GetHardMarginsForPaperSize(PaperSizeVar *PaperSize, TopVar *float64, BottomVar *float64, LeftVar *float64, RightVar *float64) bool {
+	core.LazyRegister(&xPrinterGetHardMarginsForPaperSize, "GTK", "gtk_printer_get_hard_margins_for_paper_size", false)
+
 	cret := xPrinterGetHardMarginsForPaperSize(x.GoPointer(), PaperSizeVar, TopVar, BottomVar, LeftVar, RightVar)
 	return cret
 }
@@ -237,6 +258,8 @@ var xPrinterGetIconName func(uintptr) string
 
 // Gets the name of the icon to use for the printer.
 func (x *Printer) GetIconName() string {
+	core.LazyRegister(&xPrinterGetIconName, "GTK", "gtk_printer_get_icon_name", false)
+
 	cret := xPrinterGetIconName(x.GoPointer())
 	return cret
 }
@@ -245,6 +268,8 @@ var xPrinterGetJobCount func(uintptr) int
 
 // Gets the number of jobs currently queued on the printer.
 func (x *Printer) GetJobCount() int {
+	core.LazyRegister(&xPrinterGetJobCount, "GTK", "gtk_printer_get_job_count", false)
+
 	cret := xPrinterGetJobCount(x.GoPointer())
 	return cret
 }
@@ -253,6 +278,8 @@ var xPrinterGetLocation func(uintptr) string
 
 // Returns a description of the location of the printer.
 func (x *Printer) GetLocation() string {
+	core.LazyRegister(&xPrinterGetLocation, "GTK", "gtk_printer_get_location", false)
+
 	cret := xPrinterGetLocation(x.GoPointer())
 	return cret
 }
@@ -261,6 +288,8 @@ var xPrinterGetName func(uintptr) string
 
 // Returns the name of the printer.
 func (x *Printer) GetName() string {
+	core.LazyRegister(&xPrinterGetName, "GTK", "gtk_printer_get_name", false)
+
 	cret := xPrinterGetName(x.GoPointer())
 	return cret
 }
@@ -270,6 +299,8 @@ var xPrinterGetStateMessage func(uintptr) string
 // Returns the state message describing the current state
 // of the printer.
 func (x *Printer) GetStateMessage() string {
+	core.LazyRegister(&xPrinterGetStateMessage, "GTK", "gtk_printer_get_state_message", false)
+
 	cret := xPrinterGetStateMessage(x.GoPointer())
 	return cret
 }
@@ -278,6 +309,8 @@ var xPrinterHasDetails func(uintptr) bool
 
 // Returns whether the printer details are available.
 func (x *Printer) HasDetails() bool {
+	core.LazyRegister(&xPrinterHasDetails, "GTK", "gtk_printer_has_details", false)
+
 	cret := xPrinterHasDetails(x.GoPointer())
 	return cret
 }
@@ -286,6 +319,8 @@ var xPrinterIsAcceptingJobs func(uintptr) bool
 
 // Returns whether the printer is accepting jobs
 func (x *Printer) IsAcceptingJobs() bool {
+	core.LazyRegister(&xPrinterIsAcceptingJobs, "GTK", "gtk_printer_is_accepting_jobs", false)
+
 	cret := xPrinterIsAcceptingJobs(x.GoPointer())
 	return cret
 }
@@ -295,6 +330,8 @@ var xPrinterIsActive func(uintptr) bool
 // Returns whether the printer is currently active (i.e.
 // accepts new jobs).
 func (x *Printer) IsActive() bool {
+	core.LazyRegister(&xPrinterIsActive, "GTK", "gtk_printer_is_active", false)
+
 	cret := xPrinterIsActive(x.GoPointer())
 	return cret
 }
@@ -303,6 +340,8 @@ var xPrinterIsDefault func(uintptr) bool
 
 // Returns whether the printer is the default printer.
 func (x *Printer) IsDefault() bool {
+	core.LazyRegister(&xPrinterIsDefault, "GTK", "gtk_printer_is_default", false)
+
 	cret := xPrinterIsDefault(x.GoPointer())
 	return cret
 }
@@ -314,6 +353,8 @@ var xPrinterIsPaused func(uintptr) bool
 // A paused printer still accepts jobs, but it is not
 // printing them.
 func (x *Printer) IsPaused() bool {
+	core.LazyRegister(&xPrinterIsPaused, "GTK", "gtk_printer_is_paused", false)
+
 	cret := xPrinterIsPaused(x.GoPointer())
 	return cret
 }
@@ -324,6 +365,8 @@ var xPrinterIsVirtual func(uintptr) bool
 // represent actual printer hardware, but something like
 // a CUPS class).
 func (x *Printer) IsVirtual() bool {
+	core.LazyRegister(&xPrinterIsVirtual, "GTK", "gtk_printer_is_virtual", false)
+
 	cret := xPrinterIsVirtual(x.GoPointer())
 	return cret
 }
@@ -336,6 +379,8 @@ var xPrinterListPapers func(uintptr) uintptr
 // are available, see [method@Gtk.Printer.has_details] and
 // [method@Gtk.Printer.request_details].
 func (x *Printer) ListPapers() *glib.List {
+	core.LazyRegister(&xPrinterListPapers, "GTK", "gtk_printer_list_papers", false)
+
 	cret := xPrinterListPapers(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -351,6 +396,8 @@ var xPrinterRequestDetails func(uintptr)
 // [signal@Gtk.Printer::details-acquired] signal
 // will be emitted on @printer.
 func (x *Printer) RequestDetails() {
+	core.LazyRegister(&xPrinterRequestDetails, "GTK", "gtk_printer_request_details", false)
+
 	xPrinterRequestDetails(x.GoPointer())
 }
 
@@ -514,43 +561,4 @@ func (x *Printer) ConnectDetailsAcquired(cb *func(Printer, bool)) uint {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GTK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xPrintCapabilitiesGLibType, libs, "gtk_print_capabilities_get_type")
-
-	core.PuregoSafeRegister(&xEnumeratePrinters, libs, "gtk_enumerate_printers")
-
-	core.PuregoSafeRegister(&xPrinterGLibType, libs, "gtk_printer_get_type")
-
-	core.PuregoSafeRegister(&xNewPrinter, libs, "gtk_printer_new")
-
-	core.PuregoSafeRegister(&xPrinterAcceptsPdf, libs, "gtk_printer_accepts_pdf")
-	core.PuregoSafeRegister(&xPrinterAcceptsPs, libs, "gtk_printer_accepts_ps")
-	core.PuregoSafeRegister(&xPrinterCompare, libs, "gtk_printer_compare")
-	core.PuregoSafeRegister(&xPrinterGetBackend, libs, "gtk_printer_get_backend")
-	core.PuregoSafeRegister(&xPrinterGetCapabilities, libs, "gtk_printer_get_capabilities")
-	core.PuregoSafeRegister(&xPrinterGetDefaultPageSize, libs, "gtk_printer_get_default_page_size")
-	core.PuregoSafeRegister(&xPrinterGetDescription, libs, "gtk_printer_get_description")
-	core.PuregoSafeRegister(&xPrinterGetHardMargins, libs, "gtk_printer_get_hard_margins")
-	core.PuregoSafeRegister(&xPrinterGetHardMarginsForPaperSize, libs, "gtk_printer_get_hard_margins_for_paper_size")
-	core.PuregoSafeRegister(&xPrinterGetIconName, libs, "gtk_printer_get_icon_name")
-	core.PuregoSafeRegister(&xPrinterGetJobCount, libs, "gtk_printer_get_job_count")
-	core.PuregoSafeRegister(&xPrinterGetLocation, libs, "gtk_printer_get_location")
-	core.PuregoSafeRegister(&xPrinterGetName, libs, "gtk_printer_get_name")
-	core.PuregoSafeRegister(&xPrinterGetStateMessage, libs, "gtk_printer_get_state_message")
-	core.PuregoSafeRegister(&xPrinterHasDetails, libs, "gtk_printer_has_details")
-	core.PuregoSafeRegister(&xPrinterIsAcceptingJobs, libs, "gtk_printer_is_accepting_jobs")
-	core.PuregoSafeRegister(&xPrinterIsActive, libs, "gtk_printer_is_active")
-	core.PuregoSafeRegister(&xPrinterIsDefault, libs, "gtk_printer_is_default")
-	core.PuregoSafeRegister(&xPrinterIsPaused, libs, "gtk_printer_is_paused")
-	core.PuregoSafeRegister(&xPrinterIsVirtual, libs, "gtk_printer_is_virtual")
-	core.PuregoSafeRegister(&xPrinterListPapers, libs, "gtk_printer_list_papers")
-	core.PuregoSafeRegister(&xPrinterRequestDetails, libs, "gtk_printer_request_details")
 }

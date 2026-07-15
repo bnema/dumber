@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject/types"
 )
@@ -55,6 +54,7 @@ type NativeSocketAddress struct {
 var xNativeSocketAddressGLibType func() types.GType
 
 func NativeSocketAddressGLibType() types.GType {
+	core.LazyRegister(&xNativeSocketAddressGLibType, "GIO", "g_native_socket_address_get_type", false)
 	return xNativeSocketAddressGLibType()
 }
 
@@ -68,6 +68,7 @@ var xNewNativeSocketAddress func(uintptr, uint) uintptr
 
 // Creates a new #GNativeSocketAddress for @native and @len.
 func NewNativeSocketAddress(NativeVar uintptr, LenVar uint) *NativeSocketAddress {
+	core.LazyRegister(&xNewNativeSocketAddress, "GIO", "g_native_socket_address_new", false)
 	var cls *NativeSocketAddress
 
 	cret := xNewNativeSocketAddress(NativeVar, LenVar)
@@ -140,16 +141,4 @@ func (x *NativeSocketAddress) ToString() string {
 func init() {
 	core.SetPackageName("GIO", "gio-2.0")
 	core.SetSharedLibraries("GIO", []string{"libgio-2.0.so.0", "libgio-2.0.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GIO") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xNativeSocketAddressGLibType, libs, "g_native_socket_address_get_type")
-
-	core.PuregoSafeRegister(&xNewNativeSocketAddress, libs, "g_native_socket_address_new")
 }

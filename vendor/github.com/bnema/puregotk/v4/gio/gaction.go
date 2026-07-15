@@ -328,6 +328,7 @@ type Action interface {
 var xActionGLibType func() types.GType
 
 func ActionGLibType() types.GType {
+	core.LazyRegister(&xActionGLibType, "GIO", "g_action_get_type", false)
 	return xActionGLibType()
 }
 
@@ -522,16 +523,61 @@ func (x *ActionBase) GetPropertyStateType() uintptr {
 	return v.GetPointer()
 }
 
+var XGActionActivate func(uintptr, *glib.Variant) = func(instance uintptr, ParameterVarp *glib.Variant) {
+	core.LazyRegister(&xXGActionActivate, "GIO", "g_action_activate", false)
+	xXGActionActivate(instance, ParameterVarp)
+}
+
 var (
-	XGActionActivate         func(uintptr, *glib.Variant)
-	XGActionChangeState      func(uintptr, *glib.Variant)
-	XGActionGetEnabled       func(uintptr) bool
-	XGActionGetName          func(uintptr) string
-	XGActionGetParameterType func(uintptr) uintptr
-	XGActionGetState         func(uintptr) uintptr
-	XGActionGetStateHint     func(uintptr) uintptr
-	XGActionGetStateType     func(uintptr) uintptr
+	xXGActionActivate   func(uintptr, *glib.Variant)
+	XGActionChangeState func(uintptr, *glib.Variant) = func(instance uintptr, ValueVarp *glib.Variant) {
+		core.LazyRegister(&xXGActionChangeState, "GIO", "g_action_change_state", false)
+		xXGActionChangeState(instance, ValueVarp)
+	}
 )
+var (
+	xXGActionChangeState func(uintptr, *glib.Variant)
+	XGActionGetEnabled   func(uintptr) bool = func(instance uintptr) bool {
+		core.LazyRegister(&xXGActionGetEnabled, "GIO", "g_action_get_enabled", false)
+		return xXGActionGetEnabled(instance)
+	}
+)
+var (
+	xXGActionGetEnabled func(uintptr) bool
+	XGActionGetName     func(uintptr) string = func(instance uintptr) string {
+		core.LazyRegister(&xXGActionGetName, "GIO", "g_action_get_name", false)
+		return xXGActionGetName(instance)
+	}
+)
+var (
+	xXGActionGetName         func(uintptr) string
+	XGActionGetParameterType func(uintptr) uintptr = func(instance uintptr) uintptr {
+		core.LazyRegister(&xXGActionGetParameterType, "GIO", "g_action_get_parameter_type", false)
+		return xXGActionGetParameterType(instance)
+	}
+)
+var (
+	xXGActionGetParameterType func(uintptr) uintptr
+	XGActionGetState          func(uintptr) uintptr = func(instance uintptr) uintptr {
+		core.LazyRegister(&xXGActionGetState, "GIO", "g_action_get_state", false)
+		return xXGActionGetState(instance)
+	}
+)
+var (
+	xXGActionGetState    func(uintptr) uintptr
+	XGActionGetStateHint func(uintptr) uintptr = func(instance uintptr) uintptr {
+		core.LazyRegister(&xXGActionGetStateHint, "GIO", "g_action_get_state_hint", false)
+		return xXGActionGetStateHint(instance)
+	}
+)
+var (
+	xXGActionGetStateHint func(uintptr) uintptr
+	XGActionGetStateType  func(uintptr) uintptr = func(instance uintptr) uintptr {
+		core.LazyRegister(&xXGActionGetStateType, "GIO", "g_action_get_state_type", false)
+		return xXGActionGetStateType(instance)
+	}
+)
+var xXGActionGetStateType func(uintptr) uintptr
 
 var xActionNameIsValid func(string) bool
 
@@ -543,6 +589,8 @@ var xActionNameIsValid func(string) bool
 // It is an error to call this function with a non-UTF-8 @action_name.
 // @action_name must not be `NULL`.
 func ActionNameIsValid(ActionNameVar string) bool {
+	core.LazyRegister(&xActionNameIsValid, "GIO", "g_action_name_is_valid", false)
+
 	cret := xActionNameIsValid(ActionNameVar)
 	return cret
 }
@@ -580,6 +628,7 @@ var xActionParseDetailedName func(string, *string, **glib.Variant, **glib.Error)
 //
 // If returned, the [type@GLib.Variant] in @target_value is guaranteed to not be floating.
 func ActionParseDetailedName(DetailedNameVar string, ActionNameVar *string, TargetValueVar **glib.Variant) (bool, error) {
+	core.LazyRegister(&xActionParseDetailedName, "GIO", "g_action_parse_detailed_name", false)
 	var cerr *glib.Error
 
 	cret := xActionParseDetailedName(DetailedNameVar, ActionNameVar, TargetValueVar, &cerr)
@@ -602,6 +651,8 @@ var xActionPrintDetailedName func(string, *glib.Variant) string
 // See that function for the types of strings that will be printed by
 // this function.
 func ActionPrintDetailedName(ActionNameVar string, TargetValueVar *glib.Variant) string {
+	core.LazyRegister(&xActionPrintDetailedName, "GIO", "g_action_print_detailed_name", false)
+
 	cret := xActionPrintDetailedName(ActionNameVar, TargetValueVar)
 	return cret
 }
@@ -609,27 +660,4 @@ func ActionPrintDetailedName(ActionNameVar string, TargetValueVar *glib.Variant)
 func init() {
 	core.SetPackageName("GIO", "gio-2.0")
 	core.SetSharedLibraries("GIO", []string{"libgio-2.0.so.0", "libgio-2.0.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GIO") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xActionNameIsValid, libs, "g_action_name_is_valid")
-	core.PuregoSafeRegister(&xActionParseDetailedName, libs, "g_action_parse_detailed_name")
-	core.PuregoSafeRegister(&xActionPrintDetailedName, libs, "g_action_print_detailed_name")
-
-	core.PuregoSafeRegister(&xActionGLibType, libs, "g_action_get_type")
-
-	core.PuregoSafeRegister(&XGActionActivate, libs, "g_action_activate")
-	core.PuregoSafeRegister(&XGActionChangeState, libs, "g_action_change_state")
-	core.PuregoSafeRegister(&XGActionGetEnabled, libs, "g_action_get_enabled")
-	core.PuregoSafeRegister(&XGActionGetName, libs, "g_action_get_name")
-	core.PuregoSafeRegister(&XGActionGetParameterType, libs, "g_action_get_parameter_type")
-	core.PuregoSafeRegister(&XGActionGetState, libs, "g_action_get_state")
-	core.PuregoSafeRegister(&XGActionGetStateHint, libs, "g_action_get_state_hint")
-	core.PuregoSafeRegister(&XGActionGetStateType, libs, "g_action_get_state_type")
 }

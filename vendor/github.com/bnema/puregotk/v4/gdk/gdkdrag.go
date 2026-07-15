@@ -4,7 +4,6 @@ package gdk
 import (
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -17,6 +16,7 @@ type DragCancelReason int
 var xDragCancelReasonGLibType func() types.GType
 
 func DragCancelReasonGLibType() types.GType {
+	core.LazyRegister(&xDragCancelReasonGLibType, "GDK", "gdk_drag_cancel_reason_get_type", false)
 	return xDragCancelReasonGLibType()
 }
 
@@ -38,6 +38,8 @@ var xDragActionIsUnique func(DragAction) bool
 // When @action is `GDK_ACTION_NONE` - ie no action was given, `TRUE`
 // is returned.
 func DragActionIsUnique(ActionVar DragAction) bool {
+	core.LazyRegister(&xDragActionIsUnique, "GDK", "gdk_drag_action_is_unique", false)
+
 	cret := xDragActionIsUnique(ActionVar)
 	return cret
 }
@@ -59,6 +61,7 @@ type Drag struct {
 var xDragGLibType func() types.GType
 
 func DragGLibType() types.GType {
+	core.LazyRegister(&xDragGLibType, "GDK", "gdk_drag_get_type", false)
 	return xDragGLibType()
 }
 
@@ -82,6 +85,8 @@ var xDragDropDone func(uintptr, bool)
 // call as effective, if this function is called multiple times,
 // all subsequent calls will be ignored.
 func (x *Drag) DropDone(SuccessVar bool) {
+	core.LazyRegister(&xDragDropDone, "GDK", "gdk_drag_drop_done", false)
+
 	xDragDropDone(x.GoPointer(), SuccessVar)
 }
 
@@ -89,6 +94,8 @@ var xDragGetActions func(uintptr) DragAction
 
 // Determines the bitmask of possible actions proposed by the source.
 func (x *Drag) GetActions() DragAction {
+	core.LazyRegister(&xDragGetActions, "GDK", "gdk_drag_get_actions", false)
+
 	cret := xDragGetActions(x.GoPointer())
 	return cret
 }
@@ -97,6 +104,7 @@ var xDragGetContent func(uintptr) uintptr
 
 // Returns the `GdkContentProvider` associated to the `GdkDrag` object.
 func (x *Drag) GetContent() *ContentProvider {
+	core.LazyRegister(&xDragGetContent, "GDK", "gdk_drag_get_content", false)
 	var cls *ContentProvider
 
 	cret := xDragGetContent(x.GoPointer())
@@ -114,6 +122,7 @@ var xDragGetDevice func(uintptr) uintptr
 
 // Returns the `GdkDevice` associated to the `GdkDrag` object.
 func (x *Drag) GetDevice() *Device {
+	core.LazyRegister(&xDragGetDevice, "GDK", "gdk_drag_get_device", false)
 	var cls *Device
 
 	cret := xDragGetDevice(x.GoPointer())
@@ -131,6 +140,7 @@ var xDragGetDisplay func(uintptr) uintptr
 
 // Gets the `GdkDisplay` that the drag object was created for.
 func (x *Drag) GetDisplay() *Display {
+	core.LazyRegister(&xDragGetDisplay, "GDK", "gdk_drag_get_display", false)
 	var cls *Display
 
 	cret := xDragGetDisplay(x.GoPointer())
@@ -154,6 +164,7 @@ var xDragGetDragSurface func(uintptr) uintptr
 // drag operation. The surface is owned by @drag and will be destroyed
 // when the drag operation is over.
 func (x *Drag) GetDragSurface() *Surface {
+	core.LazyRegister(&xDragGetDragSurface, "GDK", "gdk_drag_get_drag_surface", false)
 	var cls *Surface
 
 	cret := xDragGetDragSurface(x.GoPointer())
@@ -171,6 +182,8 @@ var xDragGetFormats func(uintptr) uintptr
 
 // Retrieves the formats supported by this `GdkDrag` object.
 func (x *Drag) GetFormats() *ContentFormats {
+	core.LazyRegister(&xDragGetFormats, "GDK", "gdk_drag_get_formats", false)
+
 	cret := xDragGetFormats(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -182,6 +195,8 @@ var xDragGetSelectedAction func(uintptr) DragAction
 
 // Determines the action chosen by the drag destination.
 func (x *Drag) GetSelectedAction() DragAction {
+	core.LazyRegister(&xDragGetSelectedAction, "GDK", "gdk_drag_get_selected_action", false)
+
 	cret := xDragGetSelectedAction(x.GoPointer())
 	return cret
 }
@@ -190,6 +205,7 @@ var xDragGetSurface func(uintptr) uintptr
 
 // Returns the `GdkSurface` where the drag originates.
 func (x *Drag) GetSurface() *Surface {
+	core.LazyRegister(&xDragGetSurface, "GDK", "gdk_drag_get_surface", false)
 	var cls *Surface
 
 	cret := xDragGetSurface(x.GoPointer())
@@ -210,6 +226,8 @@ var xDragSetHotspot func(uintptr, int, int)
 //
 // Initially, the hotspot is at the top left corner of the drag surface.
 func (x *Drag) SetHotspot(HotXVar int, HotYVar int) {
+	core.LazyRegister(&xDragSetHotspot, "GDK", "gdk_drag_set_hotspot", false)
+
 	xDragSetHotspot(x.GoPointer(), HotXVar, HotYVar)
 }
 
@@ -329,6 +347,7 @@ var xDragBegin func(uintptr, uintptr, uintptr, DragAction, float64, float64) uin
 // the source if [method@Gdk.Drag.get_selected_action] returns
 // %GDK_ACTION_MOVE.
 func DragBegin(SurfaceVar *Surface, DeviceVar *Device, ContentVar *ContentProvider, ActionsVar DragAction, DxVar float64, DyVar float64) *Drag {
+	core.LazyRegister(&xDragBegin, "GDK", "gdk_drag_begin", false)
 	var cls *Drag
 
 	cret := xDragBegin(SurfaceVar.GoPointer(), DeviceVar.GoPointer(), ContentVar.GoPointer(), ActionsVar, DxVar, DyVar)
@@ -344,31 +363,4 @@ func DragBegin(SurfaceVar *Surface, DeviceVar *Device, ContentVar *ContentProvid
 func init() {
 	core.SetPackageName("GDK", "gtk4")
 	core.SetSharedLibraries("GDK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GDK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xDragCancelReasonGLibType, libs, "gdk_drag_cancel_reason_get_type")
-
-	core.PuregoSafeRegister(&xDragActionIsUnique, libs, "gdk_drag_action_is_unique")
-
-	core.PuregoSafeRegister(&xDragGLibType, libs, "gdk_drag_get_type")
-
-	core.PuregoSafeRegister(&xDragDropDone, libs, "gdk_drag_drop_done")
-	core.PuregoSafeRegister(&xDragGetActions, libs, "gdk_drag_get_actions")
-	core.PuregoSafeRegister(&xDragGetContent, libs, "gdk_drag_get_content")
-	core.PuregoSafeRegister(&xDragGetDevice, libs, "gdk_drag_get_device")
-	core.PuregoSafeRegister(&xDragGetDisplay, libs, "gdk_drag_get_display")
-	core.PuregoSafeRegister(&xDragGetDragSurface, libs, "gdk_drag_get_drag_surface")
-	core.PuregoSafeRegister(&xDragGetFormats, libs, "gdk_drag_get_formats")
-	core.PuregoSafeRegister(&xDragGetSelectedAction, libs, "gdk_drag_get_selected_action")
-	core.PuregoSafeRegister(&xDragGetSurface, libs, "gdk_drag_get_surface")
-	core.PuregoSafeRegister(&xDragSetHotspot, libs, "gdk_drag_set_hotspot")
-
-	core.PuregoSafeRegister(&xDragBegin, libs, "gdk_drag_begin")
 }

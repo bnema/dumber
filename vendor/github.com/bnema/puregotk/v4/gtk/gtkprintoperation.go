@@ -397,6 +397,7 @@ type PrintError int
 var xPrintErrorGLibType func() types.GType
 
 func PrintErrorGLibType() types.GType {
+	core.LazyRegister(&xPrintErrorGLibType, "GTK", "gtk_print_error_get_type", false)
 	return xPrintErrorGLibType()
 }
 
@@ -421,6 +422,7 @@ type PrintOperationAction int
 var xPrintOperationActionGLibType func() types.GType
 
 func PrintOperationActionGLibType() types.GType {
+	core.LazyRegister(&xPrintOperationActionGLibType, "GTK", "gtk_print_operation_action_get_type", false)
 	return xPrintOperationActionGLibType()
 }
 
@@ -447,6 +449,7 @@ type PrintOperationResult int
 var xPrintOperationResultGLibType func() types.GType
 
 func PrintOperationResultGLibType() types.GType {
+	core.LazyRegister(&xPrintOperationResultGLibType, "GTK", "gtk_print_operation_result_get_type", false)
 	return xPrintOperationResultGLibType()
 }
 
@@ -471,6 +474,7 @@ type PrintStatus int
 var xPrintStatusGLibType func() types.GType
 
 func PrintStatusGLibType() types.GType {
+	core.LazyRegister(&xPrintStatusGLibType, "GTK", "gtk_print_status_get_type", false)
 	return xPrintStatusGLibType()
 }
 
@@ -506,6 +510,8 @@ var xPrintErrorQuark func() glib.Quark
 
 // Registers an error quark for `GtkPrintOperation` if necessary.
 func PrintErrorQuark() glib.Quark {
+	core.LazyRegister(&xPrintErrorQuark, "GTK", "gtk_print_error_quark", false)
+
 	cret := xPrintErrorQuark()
 	return cret
 }
@@ -522,6 +528,7 @@ var xPrintRunPageSetupDialog func(uintptr, uintptr, uintptr) uintptr
 // setup dialog. See [func@Gtk.print_run_page_setup_dialog_async] if this is
 // a problem.
 func PrintRunPageSetupDialog(ParentVar *Window, PageSetupVar *PageSetup, SettingsVar *PrintSettings) *PageSetup {
+	core.LazyRegister(&xPrintRunPageSetupDialog, "GTK", "gtk_print_run_page_setup_dialog", false)
 	var cls *PageSetup
 
 	cret := xPrintRunPageSetupDialog(ParentVar.GoPointer(), PageSetupVar.GoPointer(), SettingsVar.GoPointer())
@@ -542,6 +549,8 @@ var xPrintRunPageSetupDialogAsync func(uintptr, uintptr, uintptr, uintptr, uintp
 // after showing the page setup dialog on platforms that support this, and calls
 // @done_cb from a signal handler for the ::response signal of the dialog.
 func PrintRunPageSetupDialogAsync(ParentVar *Window, PageSetupVar *PageSetup, SettingsVar *PrintSettings, DoneCbVar *PageSetupDoneFunc, DataVar uintptr) {
+	core.LazyRegister(&xPrintRunPageSetupDialogAsync, "GTK", "gtk_print_run_page_setup_dialog_async", false)
+
 	xPrintRunPageSetupDialogAsync(ParentVar.GoPointer(), PageSetupVar.GoPointer(), SettingsVar.GoPointer(), glib.NewCallback(DoneCbVar), DataVar)
 }
 
@@ -616,6 +625,7 @@ type PrintOperation struct {
 var xPrintOperationGLibType func() types.GType
 
 func PrintOperationGLibType() types.GType {
+	core.LazyRegister(&xPrintOperationGLibType, "GTK", "gtk_print_operation_get_type", false)
 	return xPrintOperationGLibType()
 }
 
@@ -629,6 +639,7 @@ var xNewPrintOperation func() uintptr
 
 // Creates a new `GtkPrintOperation`.
 func NewPrintOperation() *PrintOperation {
+	core.LazyRegister(&xNewPrintOperation, "GTK", "gtk_print_operation_new", false)
 	var cls *PrintOperation
 
 	cret := xNewPrintOperation()
@@ -649,6 +660,8 @@ var xPrintOperationCancel func(uintptr)
 // [signal@Gtk.PrintOperation::paginate] or [signal@Gtk.PrintOperation::draw-page]
 // signal handler to stop the currently running print operation.
 func (x *PrintOperation) Cancel() {
+	core.LazyRegister(&xPrintOperationCancel, "GTK", "gtk_print_operation_cancel", false)
+
 	xPrintOperationCancel(x.GoPointer())
 }
 
@@ -661,6 +674,8 @@ var xPrintOperationDrawPageFinish func(uintptr)
 // was called before, then this function has to be called by application.
 // Otherwise it is called by GTK itself.
 func (x *PrintOperation) DrawPageFinish() {
+	core.LazyRegister(&xPrintOperationDrawPageFinish, "GTK", "gtk_print_operation_draw_page_finish", false)
+
 	xPrintOperationDrawPageFinish(x.GoPointer())
 }
 
@@ -668,6 +683,7 @@ var xPrintOperationGetDefaultPageSetup func(uintptr) uintptr
 
 // Returns the default page setup.
 func (x *PrintOperation) GetDefaultPageSetup() *PageSetup {
+	core.LazyRegister(&xPrintOperationGetDefaultPageSetup, "GTK", "gtk_print_operation_get_default_page_setup", false)
 	var cls *PageSetup
 
 	cret := xPrintOperationGetDefaultPageSetup(x.GoPointer())
@@ -685,6 +701,8 @@ var xPrintOperationGetEmbedPageSetup func(uintptr) bool
 
 // Gets whether page setup selection combos are embedded
 func (x *PrintOperation) GetEmbedPageSetup() bool {
+	core.LazyRegister(&xPrintOperationGetEmbedPageSetup, "GTK", "gtk_print_operation_get_embed_page_setup", false)
+
 	cret := xPrintOperationGetEmbedPageSetup(x.GoPointer())
 	return cret
 }
@@ -700,6 +718,7 @@ var xPrintOperationGetError func(uintptr, **glib.Error)
 //
 // The returned `GError` will contain more details on what went wrong.
 func (x *PrintOperation) GetError() error {
+	core.LazyRegister(&xPrintOperationGetError, "GTK", "gtk_print_operation_get_error", false)
 	var cerr *glib.Error
 
 	xPrintOperationGetError(x.GoPointer(), &cerr)
@@ -713,6 +732,8 @@ var xPrintOperationGetHasSelection func(uintptr) bool
 
 // Gets whether there is a selection.
 func (x *PrintOperation) GetHasSelection() bool {
+	core.LazyRegister(&xPrintOperationGetHasSelection, "GTK", "gtk_print_operation_get_has_selection", false)
+
 	cret := xPrintOperationGetHasSelection(x.GoPointer())
 	return cret
 }
@@ -730,6 +751,8 @@ var xPrintOperationGetNPagesToPrint func(uintptr) int
 //
 // This is typically used to track the progress of print operation.
 func (x *PrintOperation) GetNPagesToPrint() int {
+	core.LazyRegister(&xPrintOperationGetNPagesToPrint, "GTK", "gtk_print_operation_get_n_pages_to_print", false)
+
 	cret := xPrintOperationGetNPagesToPrint(x.GoPointer())
 	return cret
 }
@@ -742,6 +765,7 @@ var xPrintOperationGetPrintSettings func(uintptr) uintptr
 // [method@Gtk.PrintOperation.set_print_settings] or
 // [method@Gtk.PrintOperation.run] have been called.
 func (x *PrintOperation) GetPrintSettings() *PrintSettings {
+	core.LazyRegister(&xPrintOperationGetPrintSettings, "GTK", "gtk_print_operation_get_print_settings", false)
 	var cls *PrintSettings
 
 	cret := xPrintOperationGetPrintSettings(x.GoPointer())
@@ -761,6 +785,8 @@ var xPrintOperationGetStatus func(uintptr) PrintStatus
 //
 // Also see [method@Gtk.PrintOperation.get_status_string].
 func (x *PrintOperation) GetStatus() PrintStatus {
+	core.LazyRegister(&xPrintOperationGetStatus, "GTK", "gtk_print_operation_get_status", false)
+
 	cret := xPrintOperationGetStatus(x.GoPointer())
 	return cret
 }
@@ -776,6 +802,8 @@ var xPrintOperationGetStatusString func(uintptr) string
 // Use [method@Gtk.PrintOperation.get_status] to obtain
 // a status value that is suitable for programmatic use.
 func (x *PrintOperation) GetStatusString() string {
+	core.LazyRegister(&xPrintOperationGetStatusString, "GTK", "gtk_print_operation_get_status_string", false)
+
 	cret := xPrintOperationGetStatusString(x.GoPointer())
 	return cret
 }
@@ -784,6 +812,8 @@ var xPrintOperationGetSupportSelection func(uintptr) bool
 
 // Gets whether the application supports print of selection
 func (x *PrintOperation) GetSupportSelection() bool {
+	core.LazyRegister(&xPrintOperationGetSupportSelection, "GTK", "gtk_print_operation_get_support_selection", false)
+
 	cret := xPrintOperationGetSupportSelection(x.GoPointer())
 	return cret
 }
@@ -800,6 +830,8 @@ var xPrintOperationIsFinished func(uintptr) bool
 // can be in a non-finished state even after done has been called, as
 // the operation status then tracks the print job status on the printer.
 func (x *PrintOperation) IsFinished() bool {
+	core.LazyRegister(&xPrintOperationIsFinished, "GTK", "gtk_print_operation_is_finished", false)
+
 	cret := xPrintOperationIsFinished(x.GoPointer())
 	return cret
 }
@@ -874,6 +906,7 @@ var xPrintOperationRun func(uintptr, PrintOperationAction, uintptr, **glib.Error
 // Note that gtk_print_operation_run() can only be called once on a
 // given `GtkPrintOperation`.
 func (x *PrintOperation) Run(ActionVar PrintOperationAction, ParentVar *Window) (PrintOperationResult, error) {
+	core.LazyRegister(&xPrintOperationRun, "GTK", "gtk_print_operation_run", false)
 	var cerr *glib.Error
 
 	cret := xPrintOperationRun(x.GoPointer(), ActionVar, ParentVar.GoPointer(), &cerr)
@@ -891,6 +924,8 @@ var xPrintOperationSetAllowAsync func(uintptr, bool)
 // Note that some platforms may not allow asynchronous
 // operation.
 func (x *PrintOperation) SetAllowAsync(AllowAsyncVar bool) {
+	core.LazyRegister(&xPrintOperationSetAllowAsync, "GTK", "gtk_print_operation_set_allow_async", false)
+
 	xPrintOperationSetAllowAsync(x.GoPointer(), AllowAsyncVar)
 }
 
@@ -903,6 +938,8 @@ var xPrintOperationSetCurrentPage func(uintptr, int)
 //
 // Note that this only makes sense for pre-paginated documents.
 func (x *PrintOperation) SetCurrentPage(CurrentPageVar int) {
+	core.LazyRegister(&xPrintOperationSetCurrentPage, "GTK", "gtk_print_operation_set_current_page", false)
+
 	xPrintOperationSetCurrentPage(x.GoPointer(), CurrentPageVar)
 }
 
@@ -910,6 +947,8 @@ var xPrintOperationSetCustomTabLabel func(uintptr, uintptr)
 
 // Sets the label for the tab holding custom widgets.
 func (x *PrintOperation) SetCustomTabLabel(LabelVar *string) {
+	core.LazyRegister(&xPrintOperationSetCustomTabLabel, "GTK", "gtk_print_operation_set_custom_tab_label", false)
+
 	LabelVarPtr := core.GStrdupNullable(LabelVar)
 	defer core.GFreeNullable(LabelVarPtr)
 
@@ -924,6 +963,8 @@ var xPrintOperationSetDefaultPageSetup func(uintptr, uintptr)
 // but it can be overridden on a per-page basis by connecting
 // to the [signal@Gtk.PrintOperation::request-page-setup] signal.
 func (x *PrintOperation) SetDefaultPageSetup(DefaultPageSetupVar *PageSetup) {
+	core.LazyRegister(&xPrintOperationSetDefaultPageSetup, "GTK", "gtk_print_operation_set_default_page_setup", false)
+
 	xPrintOperationSetDefaultPageSetup(x.GoPointer(), DefaultPageSetupVar.GoPointer())
 }
 
@@ -937,6 +978,8 @@ var xPrintOperationSetDeferDrawing func(uintptr)
 // This function must be called in the callback of the
 // [signal@Gtk.PrintOperation::draw-page] signal.
 func (x *PrintOperation) SetDeferDrawing() {
+	core.LazyRegister(&xPrintOperationSetDeferDrawing, "GTK", "gtk_print_operation_set_defer_drawing", false)
+
 	xPrintOperationSetDeferDrawing(x.GoPointer())
 }
 
@@ -946,6 +989,8 @@ var xPrintOperationSetEmbedPageSetup func(uintptr, bool)
 //
 // Selected page setup is stored as default page setup in `GtkPrintOperation`.
 func (x *PrintOperation) SetEmbedPageSetup(EmbedVar bool) {
+	core.LazyRegister(&xPrintOperationSetEmbedPageSetup, "GTK", "gtk_print_operation_set_embed_page_setup", false)
+
 	xPrintOperationSetEmbedPageSetup(x.GoPointer(), EmbedVar)
 }
 
@@ -962,6 +1007,8 @@ var xPrintOperationSetExportFilename func(uintptr, string)
 // by letting the user pick the “Print to PDF” item from the list
 // of printers in the print dialog.
 func (x *PrintOperation) SetExportFilename(FilenameVar string) {
+	core.LazyRegister(&xPrintOperationSetExportFilename, "GTK", "gtk_print_operation_set_export_filename", false)
+
 	xPrintOperationSetExportFilename(x.GoPointer(), FilenameVar)
 }
 
@@ -973,6 +1020,8 @@ var xPrintOperationSetHasSelection func(uintptr, bool)
 // will draw by [method@Gtk.PrintOperation.set_n_pages] in a handler
 // for the [signal@Gtk.PrintOperation::begin-print] signal.
 func (x *PrintOperation) SetHasSelection(HasSelectionVar bool) {
+	core.LazyRegister(&xPrintOperationSetHasSelection, "GTK", "gtk_print_operation_set_has_selection", false)
+
 	xPrintOperationSetHasSelection(x.GoPointer(), HasSelectionVar)
 }
 
@@ -986,6 +1035,8 @@ var xPrintOperationSetJobName func(uintptr, string)
 // If you don’t set a job name, GTK picks a default one by
 // numbering successive print jobs.
 func (x *PrintOperation) SetJobName(JobNameVar string) {
+	core.LazyRegister(&xPrintOperationSetJobName, "GTK", "gtk_print_operation_set_job_name", false)
+
 	xPrintOperationSetJobName(x.GoPointer(), JobNameVar)
 }
 
@@ -1003,6 +1054,8 @@ var xPrintOperationSetNPages func(uintptr, int)
 // if the user chooses to print all pages, the last ::draw-page signal
 // will be for page @n_pages - 1.
 func (x *PrintOperation) SetNPages(NPagesVar int) {
+	core.LazyRegister(&xPrintOperationSetNPages, "GTK", "gtk_print_operation_set_n_pages", false)
+
 	xPrintOperationSetNPages(x.GoPointer(), NPagesVar)
 }
 
@@ -1013,6 +1066,8 @@ var xPrintOperationSetPrintSettings func(uintptr, uintptr)
 // This is typically used to re-establish print settings
 // from a previous print operation, see [method@Gtk.PrintOperation.run].
 func (x *PrintOperation) SetPrintSettings(PrintSettingsVar *PrintSettings) {
+	core.LazyRegister(&xPrintOperationSetPrintSettings, "GTK", "gtk_print_operation_set_print_settings", false)
+
 	xPrintOperationSetPrintSettings(x.GoPointer(), PrintSettingsVar.GoPointer())
 }
 
@@ -1021,6 +1076,8 @@ var xPrintOperationSetShowProgress func(uintptr, bool)
 // If @show_progress is %TRUE, the print operation will show
 // a progress dialog during the print operation.
 func (x *PrintOperation) SetShowProgress(ShowProgressVar bool) {
+	core.LazyRegister(&xPrintOperationSetShowProgress, "GTK", "gtk_print_operation_set_show_progress", false)
+
 	xPrintOperationSetShowProgress(x.GoPointer(), ShowProgressVar)
 }
 
@@ -1028,6 +1085,8 @@ var xPrintOperationSetSupportSelection func(uintptr, bool)
 
 // Sets whether selection is supported by `GtkPrintOperation`.
 func (x *PrintOperation) SetSupportSelection(SupportSelectionVar bool) {
+	core.LazyRegister(&xPrintOperationSetSupportSelection, "GTK", "gtk_print_operation_set_support_selection", false)
+
 	xPrintOperationSetSupportSelection(x.GoPointer(), SupportSelectionVar)
 }
 
@@ -1042,6 +1101,8 @@ var xPrintOperationSetTrackPrintStatus func(uintptr, bool)
 // This function is often implemented using some form of polling,
 // so it should not be enabled unless needed.
 func (x *PrintOperation) SetTrackPrintStatus(TrackStatusVar bool) {
+	core.LazyRegister(&xPrintOperationSetTrackPrintStatus, "GTK", "gtk_print_operation_set_track_print_status", false)
+
 	xPrintOperationSetTrackPrintStatus(x.GoPointer(), TrackStatusVar)
 }
 
@@ -1051,6 +1112,8 @@ var xPrintOperationSetUnit func(uintptr, Unit)
 // `GtkPrintContext` in such a way that distances are measured in
 // units of @unit.
 func (x *PrintOperation) SetUnit(UnitVar Unit) {
+	core.LazyRegister(&xPrintOperationSetUnit, "GTK", "gtk_print_operation_set_unit", false)
+
 	xPrintOperationSetUnit(x.GoPointer(), UnitVar)
 }
 
@@ -1064,6 +1127,8 @@ var xPrintOperationSetUseFullPage func(uintptr, bool)
 // orientation and the number of pages per sheet). Otherwise, the origin
 // is at the top left corner of the imageable area (i.e. inside the margins).
 func (x *PrintOperation) SetUseFullPage(FullPageVar bool) {
+	core.LazyRegister(&xPrintOperationSetUseFullPage, "GTK", "gtk_print_operation_set_use_full_page", false)
+
 	xPrintOperationSetUseFullPage(x.GoPointer(), FullPageVar)
 }
 
@@ -1853,58 +1918,4 @@ func (x *PrintOperation) RenderPage(PageNrVar int) {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GTK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xPrintErrorGLibType, libs, "gtk_print_error_get_type")
-
-	core.PuregoSafeRegister(&xPrintOperationActionGLibType, libs, "gtk_print_operation_action_get_type")
-
-	core.PuregoSafeRegister(&xPrintOperationResultGLibType, libs, "gtk_print_operation_result_get_type")
-
-	core.PuregoSafeRegister(&xPrintStatusGLibType, libs, "gtk_print_status_get_type")
-
-	core.PuregoSafeRegister(&xPrintErrorQuark, libs, "gtk_print_error_quark")
-	core.PuregoSafeRegister(&xPrintRunPageSetupDialog, libs, "gtk_print_run_page_setup_dialog")
-	core.PuregoSafeRegister(&xPrintRunPageSetupDialogAsync, libs, "gtk_print_run_page_setup_dialog_async")
-
-	core.PuregoSafeRegister(&xPrintOperationGLibType, libs, "gtk_print_operation_get_type")
-
-	core.PuregoSafeRegister(&xNewPrintOperation, libs, "gtk_print_operation_new")
-
-	core.PuregoSafeRegister(&xPrintOperationCancel, libs, "gtk_print_operation_cancel")
-	core.PuregoSafeRegister(&xPrintOperationDrawPageFinish, libs, "gtk_print_operation_draw_page_finish")
-	core.PuregoSafeRegister(&xPrintOperationGetDefaultPageSetup, libs, "gtk_print_operation_get_default_page_setup")
-	core.PuregoSafeRegister(&xPrintOperationGetEmbedPageSetup, libs, "gtk_print_operation_get_embed_page_setup")
-	core.PuregoSafeRegister(&xPrintOperationGetError, libs, "gtk_print_operation_get_error")
-	core.PuregoSafeRegister(&xPrintOperationGetHasSelection, libs, "gtk_print_operation_get_has_selection")
-	core.PuregoSafeRegister(&xPrintOperationGetNPagesToPrint, libs, "gtk_print_operation_get_n_pages_to_print")
-	core.PuregoSafeRegister(&xPrintOperationGetPrintSettings, libs, "gtk_print_operation_get_print_settings")
-	core.PuregoSafeRegister(&xPrintOperationGetStatus, libs, "gtk_print_operation_get_status")
-	core.PuregoSafeRegister(&xPrintOperationGetStatusString, libs, "gtk_print_operation_get_status_string")
-	core.PuregoSafeRegister(&xPrintOperationGetSupportSelection, libs, "gtk_print_operation_get_support_selection")
-	core.PuregoSafeRegister(&xPrintOperationIsFinished, libs, "gtk_print_operation_is_finished")
-	core.PuregoSafeRegister(&xPrintOperationRun, libs, "gtk_print_operation_run")
-	core.PuregoSafeRegister(&xPrintOperationSetAllowAsync, libs, "gtk_print_operation_set_allow_async")
-	core.PuregoSafeRegister(&xPrintOperationSetCurrentPage, libs, "gtk_print_operation_set_current_page")
-	core.PuregoSafeRegister(&xPrintOperationSetCustomTabLabel, libs, "gtk_print_operation_set_custom_tab_label")
-	core.PuregoSafeRegister(&xPrintOperationSetDefaultPageSetup, libs, "gtk_print_operation_set_default_page_setup")
-	core.PuregoSafeRegister(&xPrintOperationSetDeferDrawing, libs, "gtk_print_operation_set_defer_drawing")
-	core.PuregoSafeRegister(&xPrintOperationSetEmbedPageSetup, libs, "gtk_print_operation_set_embed_page_setup")
-	core.PuregoSafeRegister(&xPrintOperationSetExportFilename, libs, "gtk_print_operation_set_export_filename")
-	core.PuregoSafeRegister(&xPrintOperationSetHasSelection, libs, "gtk_print_operation_set_has_selection")
-	core.PuregoSafeRegister(&xPrintOperationSetJobName, libs, "gtk_print_operation_set_job_name")
-	core.PuregoSafeRegister(&xPrintOperationSetNPages, libs, "gtk_print_operation_set_n_pages")
-	core.PuregoSafeRegister(&xPrintOperationSetPrintSettings, libs, "gtk_print_operation_set_print_settings")
-	core.PuregoSafeRegister(&xPrintOperationSetShowProgress, libs, "gtk_print_operation_set_show_progress")
-	core.PuregoSafeRegister(&xPrintOperationSetSupportSelection, libs, "gtk_print_operation_set_support_selection")
-	core.PuregoSafeRegister(&xPrintOperationSetTrackPrintStatus, libs, "gtk_print_operation_set_track_print_status")
-	core.PuregoSafeRegister(&xPrintOperationSetUnit, libs, "gtk_print_operation_set_unit")
-	core.PuregoSafeRegister(&xPrintOperationSetUseFullPage, libs, "gtk_print_operation_set_use_full_page")
 }

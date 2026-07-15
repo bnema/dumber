@@ -115,6 +115,7 @@ type FilterInputStream struct {
 var xFilterInputStreamGLibType func() types.GType
 
 func FilterInputStreamGLibType() types.GType {
+	core.LazyRegister(&xFilterInputStreamGLibType, "GIO", "g_filter_input_stream_get_type", false)
 	return xFilterInputStreamGLibType()
 }
 
@@ -128,6 +129,7 @@ var xFilterInputStreamGetBaseStream func(uintptr) uintptr
 
 // Gets the base stream for the filter stream.
 func (x *FilterInputStream) GetBaseStream() *InputStream {
+	core.LazyRegister(&xFilterInputStreamGetBaseStream, "GIO", "g_filter_input_stream_get_base_stream", false)
 	var cls *InputStream
 
 	cret := xFilterInputStreamGetBaseStream(x.GoPointer())
@@ -146,6 +148,8 @@ var xFilterInputStreamGetCloseBaseStream func(uintptr) bool
 // Returns whether the base stream will be closed when @stream is
 // closed.
 func (x *FilterInputStream) GetCloseBaseStream() bool {
+	core.LazyRegister(&xFilterInputStreamGetCloseBaseStream, "GIO", "g_filter_input_stream_get_close_base_stream", false)
+
 	cret := xFilterInputStreamGetCloseBaseStream(x.GoPointer())
 	return cret
 }
@@ -154,6 +158,8 @@ var xFilterInputStreamSetCloseBaseStream func(uintptr, bool)
 
 // Sets whether the base stream will be closed when @stream is closed.
 func (x *FilterInputStream) SetCloseBaseStream(CloseBaseVar bool) {
+	core.LazyRegister(&xFilterInputStreamSetCloseBaseStream, "GIO", "g_filter_input_stream_set_close_base_stream", false)
+
 	xFilterInputStreamSetCloseBaseStream(x.GoPointer(), CloseBaseVar)
 }
 
@@ -188,18 +194,4 @@ func (x *FilterInputStream) GetPropertyCloseBaseStream() bool {
 func init() {
 	core.SetPackageName("GIO", "gio-2.0")
 	core.SetSharedLibraries("GIO", []string{"libgio-2.0.so.0", "libgio-2.0.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GIO") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xFilterInputStreamGLibType, libs, "g_filter_input_stream_get_type")
-
-	core.PuregoSafeRegister(&xFilterInputStreamGetBaseStream, libs, "g_filter_input_stream_get_base_stream")
-	core.PuregoSafeRegister(&xFilterInputStreamGetCloseBaseStream, libs, "g_filter_input_stream_get_close_base_stream")
-	core.PuregoSafeRegister(&xFilterInputStreamSetCloseBaseStream, libs, "g_filter_input_stream_set_close_base_stream")
 }

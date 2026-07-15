@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -43,6 +42,7 @@ type CustomFilter struct {
 var xCustomFilterGLibType func() types.GType
 
 func CustomFilterGLibType() types.GType {
+	core.LazyRegister(&xCustomFilterGLibType, "GTK", "gtk_custom_filter_get_type", false)
 	return xCustomFilterGLibType()
 }
 
@@ -61,6 +61,7 @@ var xNewCustomFilter func(uintptr, uintptr, uintptr) uintptr
 // If the filter func changes its filtering behavior,
 // [method@Gtk.Filter.changed] needs to be called.
 func NewCustomFilter(MatchFuncVar *CustomFilterFunc, UserDataVar uintptr, UserDestroyVar *glib.DestroyNotify) *CustomFilter {
+	core.LazyRegister(&xNewCustomFilter, "GTK", "gtk_custom_filter_new", false)
 	var cls *CustomFilter
 
 	cret := xNewCustomFilter(glib.NewCallbackNullable(MatchFuncVar), UserDataVar, glib.NewCallbackNullable(UserDestroyVar))
@@ -85,6 +86,8 @@ var xCustomFilterSetFilterFunc func(uintptr, uintptr, uintptr, uintptr)
 // If a previous function was set, its @user_destroy
 // will be called.
 func (x *CustomFilter) SetFilterFunc(MatchFuncVar *CustomFilterFunc, UserDataVar uintptr, UserDestroyVar *glib.DestroyNotify) {
+	core.LazyRegister(&xCustomFilterSetFilterFunc, "GTK", "gtk_custom_filter_set_filter_func", false)
+
 	xCustomFilterSetFilterFunc(x.GoPointer(), glib.NewCallbackNullable(MatchFuncVar), UserDataVar, glib.NewCallbackNullable(UserDestroyVar))
 }
 
@@ -102,18 +105,4 @@ func (c *CustomFilter) SetGoPointer(ptr uintptr) {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GTK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xCustomFilterGLibType, libs, "gtk_custom_filter_get_type")
-
-	core.PuregoSafeRegister(&xNewCustomFilter, libs, "gtk_custom_filter_new")
-
-	core.PuregoSafeRegister(&xCustomFilterSetFilterFunc, libs, "gtk_custom_filter_set_filter_func")
 }

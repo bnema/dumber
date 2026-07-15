@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject/types"
 )
@@ -23,6 +22,7 @@ type OptionMenuItem struct {
 var xOptionMenuItemGLibType func() types.GType
 
 func OptionMenuItemGLibType() types.GType {
+	core.LazyRegister(&xOptionMenuItemGLibType, "WEBKIT", "webkit_option_menu_item_get_type", false)
 	return xOptionMenuItemGLibType()
 }
 
@@ -42,6 +42,8 @@ var xOptionMenuItemCopy func(uintptr) uintptr
 
 // Make a copy of the #WebKitOptionMenuItem.
 func (x *OptionMenuItem) Copy() *OptionMenuItem {
+	core.LazyRegister(&xOptionMenuItemCopy, "WEBKIT", "webkit_option_menu_item_copy", false)
+
 	cret := xOptionMenuItemCopy(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -53,6 +55,8 @@ var xOptionMenuItemFree func(uintptr)
 
 // Free the #WebKitOptionMenuItem.
 func (x *OptionMenuItem) Free() {
+	core.LazyRegister(&xOptionMenuItemFree, "WEBKIT", "webkit_option_menu_item_free", false)
+
 	xOptionMenuItemFree(x.GoPointer())
 }
 
@@ -60,6 +64,8 @@ var xOptionMenuItemGetLabel func(uintptr) string
 
 // Get the label of a #WebKitOptionMenuItem.
 func (x *OptionMenuItem) GetLabel() string {
+	core.LazyRegister(&xOptionMenuItemGetLabel, "WEBKIT", "webkit_option_menu_item_get_label", false)
+
 	cret := xOptionMenuItemGetLabel(x.GoPointer())
 	return cret
 }
@@ -68,6 +74,8 @@ var xOptionMenuItemGetTooltip func(uintptr) string
 
 // Get the tooltip of a #WebKitOptionMenuItem.
 func (x *OptionMenuItem) GetTooltip() string {
+	core.LazyRegister(&xOptionMenuItemGetTooltip, "WEBKIT", "webkit_option_menu_item_get_tooltip", false)
+
 	cret := xOptionMenuItemGetTooltip(x.GoPointer())
 	return cret
 }
@@ -76,6 +84,8 @@ var xOptionMenuItemIsEnabled func(uintptr) bool
 
 // Whether a #WebKitOptionMenuItem is enabled.
 func (x *OptionMenuItem) IsEnabled() bool {
+	core.LazyRegister(&xOptionMenuItemIsEnabled, "WEBKIT", "webkit_option_menu_item_is_enabled", false)
+
 	cret := xOptionMenuItemIsEnabled(x.GoPointer())
 	return cret
 }
@@ -84,6 +94,8 @@ var xOptionMenuItemIsGroupChild func(uintptr) bool
 
 // Whether a #WebKitOptionMenuItem is a group child.
 func (x *OptionMenuItem) IsGroupChild() bool {
+	core.LazyRegister(&xOptionMenuItemIsGroupChild, "WEBKIT", "webkit_option_menu_item_is_group_child", false)
+
 	cret := xOptionMenuItemIsGroupChild(x.GoPointer())
 	return cret
 }
@@ -92,6 +104,8 @@ var xOptionMenuItemIsGroupLabel func(uintptr) bool
 
 // Whether a #WebKitOptionMenuItem is a group label.
 func (x *OptionMenuItem) IsGroupLabel() bool {
+	core.LazyRegister(&xOptionMenuItemIsGroupLabel, "WEBKIT", "webkit_option_menu_item_is_group_label", false)
+
 	cret := xOptionMenuItemIsGroupLabel(x.GoPointer())
 	return cret
 }
@@ -100,6 +114,8 @@ var xOptionMenuItemIsSelected func(uintptr) bool
 
 // Whether a #WebKitOptionMenuItem is the currently selected one.
 func (x *OptionMenuItem) IsSelected() bool {
+	core.LazyRegister(&xOptionMenuItemIsSelected, "WEBKIT", "webkit_option_menu_item_is_selected", false)
+
 	cret := xOptionMenuItemIsSelected(x.GoPointer())
 	return cret
 }
@@ -107,23 +123,7 @@ func (x *OptionMenuItem) IsSelected() bool {
 func init() {
 	core.SetPackageName("WEBKIT", "webkitgtk-6.0")
 	core.SetSharedLibraries("WEBKIT", []string{"libwebkitgtk-6.0.so.4", "libjavascriptcoregtk-6.0.so.1", "libwebkitgtk-6.0.4.dylib", "libjavascriptcoregtk-6.0.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("WEBKIT") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
 
-	core.PuregoSafeRegister(&xOptionMenuItemGLibType, libs, "webkit_option_menu_item_get_type")
-
-	core.PuregoSafeRegister(&xOptionMenuItemCopy, libs, "webkit_option_menu_item_copy")
-	core.PuregoSafeRegister(&xOptionMenuItemFree, libs, "webkit_option_menu_item_free")
-	core.PuregoSafeRegister(&xOptionMenuItemGetLabel, libs, "webkit_option_menu_item_get_label")
-	core.PuregoSafeRegister(&xOptionMenuItemGetTooltip, libs, "webkit_option_menu_item_get_tooltip")
-	core.PuregoSafeRegister(&xOptionMenuItemIsEnabled, libs, "webkit_option_menu_item_is_enabled")
-	core.PuregoSafeRegister(&xOptionMenuItemIsGroupChild, libs, "webkit_option_menu_item_is_group_child")
-	core.PuregoSafeRegister(&xOptionMenuItemIsGroupLabel, libs, "webkit_option_menu_item_is_group_label")
-	core.PuregoSafeRegister(&xOptionMenuItemIsSelected, libs, "webkit_option_menu_item_is_selected")
+	// Manually register types since they aren't automatically registered when
+	// WebKit is loaded. See https://bugs.webkit.org/show_bug.cgi?id=175937.
 }

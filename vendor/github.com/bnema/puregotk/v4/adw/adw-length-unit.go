@@ -2,7 +2,6 @@
 package adw
 
 import (
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject/types"
 	"github.com/bnema/puregotk/v4/gtk"
@@ -22,6 +21,7 @@ type LengthUnit int
 var xLengthUnitGLibType func() types.GType
 
 func LengthUnitGLibType() types.GType {
+	core.LazyRegister(&xLengthUnitGLibType, "ADW", "adw_length_unit_get_type", false)
 	return xLengthUnitGLibType()
 }
 
@@ -39,6 +39,8 @@ var xLengthUnitFromPx func(LengthUnit, float64, uintptr) float64
 
 // Converts @value from pixels to @unit.
 func LengthUnitFromPx(UnitVar LengthUnit, ValueVar float64, SettingsVar *gtk.Settings) float64 {
+	core.LazyRegister(&xLengthUnitFromPx, "ADW", "adw_length_unit_from_px", false)
+
 	cret := xLengthUnitFromPx(UnitVar, ValueVar, SettingsVar.GoPointer())
 	return cret
 }
@@ -47,6 +49,8 @@ var xLengthUnitToPx func(LengthUnit, float64, uintptr) float64
 
 // Converts @value from @unit to pixels.
 func LengthUnitToPx(UnitVar LengthUnit, ValueVar float64, SettingsVar *gtk.Settings) float64 {
+	core.LazyRegister(&xLengthUnitToPx, "ADW", "adw_length_unit_to_px", false)
+
 	cret := xLengthUnitToPx(UnitVar, ValueVar, SettingsVar.GoPointer())
 	return cret
 }
@@ -54,17 +58,4 @@ func LengthUnitToPx(UnitVar LengthUnit, ValueVar float64, SettingsVar *gtk.Setti
 func init() {
 	core.SetPackageName("ADW", "libadwaita-1")
 	core.SetSharedLibraries("ADW", []string{"libadwaita-1.so.0", "libadwaita-1.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("ADW") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xLengthUnitGLibType, libs, "adw_length_unit_get_type")
-
-	core.PuregoSafeRegister(&xLengthUnitFromPx, libs, "adw_length_unit_from_px")
-	core.PuregoSafeRegister(&xLengthUnitToPx, libs, "adw_length_unit_to_px")
 }

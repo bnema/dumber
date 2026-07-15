@@ -2,7 +2,6 @@
 package gsk
 
 import (
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -16,6 +15,7 @@ type MaskNode struct {
 var xMaskNodeGLibType func() types.GType
 
 func MaskNodeGLibType() types.GType {
+	core.LazyRegister(&xMaskNodeGLibType, "GSK", "gsk_mask_node_get_type", false)
 	return xMaskNodeGLibType()
 }
 
@@ -33,6 +33,7 @@ var xNewMaskNode func(uintptr, uintptr, MaskMode) uintptr
 // the colors of the @mask. Applying the mask consists of multiplying
 // the 'mask value' with the alpha of the source.
 func NewMaskNode(SourceVar *RenderNode, MaskVar *RenderNode, MaskModeVar MaskMode) *MaskNode {
+	core.LazyRegister(&xNewMaskNode, "GSK", "gsk_mask_node_new", false)
 	var cls *MaskNode
 
 	cret := xNewMaskNode(SourceVar.GoPointer(), MaskVar.GoPointer(), MaskModeVar)
@@ -49,6 +50,7 @@ var xMaskNodeGetMask func(uintptr) uintptr
 
 // Retrieves the mask `GskRenderNode` child of the @node.
 func (x *MaskNode) GetMask() *RenderNode {
+	core.LazyRegister(&xMaskNodeGetMask, "GSK", "gsk_mask_node_get_mask", false)
 	var cls *RenderNode
 
 	cret := xMaskNodeGetMask(x.GoPointer())
@@ -66,6 +68,8 @@ var xMaskNodeGetMaskMode func(uintptr) MaskMode
 
 // Retrieves the mask mode used by @node.
 func (x *MaskNode) GetMaskMode() MaskMode {
+	core.LazyRegister(&xMaskNodeGetMaskMode, "GSK", "gsk_mask_node_get_mask_mode", false)
+
 	cret := xMaskNodeGetMaskMode(x.GoPointer())
 	return cret
 }
@@ -74,6 +78,7 @@ var xMaskNodeGetSource func(uintptr) uintptr
 
 // Retrieves the source `GskRenderNode` child of the @node.
 func (x *MaskNode) GetSource() *RenderNode {
+	core.LazyRegister(&xMaskNodeGetSource, "GSK", "gsk_mask_node_get_source", false)
 	var cls *RenderNode
 
 	cret := xMaskNodeGetSource(x.GoPointer())
@@ -101,20 +106,4 @@ func (c *MaskNode) SetGoPointer(ptr uintptr) {
 func init() {
 	core.SetPackageName("GSK", "gtk4")
 	core.SetSharedLibraries("GSK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GSK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xMaskNodeGLibType, libs, "gsk_mask_node_get_type")
-
-	core.PuregoSafeRegister(&xNewMaskNode, libs, "gsk_mask_node_new")
-
-	core.PuregoSafeRegister(&xMaskNodeGetMask, libs, "gsk_mask_node_get_mask")
-	core.PuregoSafeRegister(&xMaskNodeGetMaskMode, libs, "gsk_mask_node_get_mask_mode")
-	core.PuregoSafeRegister(&xMaskNodeGetSource, libs, "gsk_mask_node_get_source")
 }

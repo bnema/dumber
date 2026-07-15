@@ -337,6 +337,7 @@ type AccessibleText interface {
 var xAccessibleTextGLibType func() types.GType
 
 func AccessibleTextGLibType() types.GType {
+	core.LazyRegister(&xAccessibleTextGLibType, "GTK", "gtk_accessible_text_get_type", false)
 	return xAccessibleTextGLibType()
 }
 
@@ -386,11 +387,26 @@ func (x *AccessibleTextBase) UpdateSelectionBound() {
 	XGtkAccessibleTextUpdateSelectionBound(x.GoPointer())
 }
 
+var XGtkAccessibleTextUpdateCaretPosition func(uintptr) = func(instance uintptr) {
+	core.LazyRegister(&xXGtkAccessibleTextUpdateCaretPosition, "GTK", "gtk_accessible_text_update_caret_position", false)
+	xXGtkAccessibleTextUpdateCaretPosition(instance)
+}
+
 var (
-	XGtkAccessibleTextUpdateCaretPosition  func(uintptr)
-	XGtkAccessibleTextUpdateContents       func(uintptr, AccessibleTextContentChange, uint, uint)
-	XGtkAccessibleTextUpdateSelectionBound func(uintptr)
+	xXGtkAccessibleTextUpdateCaretPosition func(uintptr)
+	XGtkAccessibleTextUpdateContents       func(uintptr, AccessibleTextContentChange, uint, uint) = func(instance uintptr, ChangeVarp AccessibleTextContentChange, StartVarp uint, EndVarp uint) {
+		core.LazyRegister(&xXGtkAccessibleTextUpdateContents, "GTK", "gtk_accessible_text_update_contents", false)
+		xXGtkAccessibleTextUpdateContents(instance, ChangeVarp, StartVarp, EndVarp)
+	}
 )
+var (
+	xXGtkAccessibleTextUpdateContents      func(uintptr, AccessibleTextContentChange, uint, uint)
+	XGtkAccessibleTextUpdateSelectionBound func(uintptr) = func(instance uintptr) {
+		core.LazyRegister(&xXGtkAccessibleTextUpdateSelectionBound, "GTK", "gtk_accessible_text_update_selection_bound", false)
+		xXGtkAccessibleTextUpdateSelectionBound(instance)
+	}
+)
+var xXGtkAccessibleTextUpdateSelectionBound func(uintptr)
 
 const (
 	// An attribute for the background color, expressed as an RGB value
@@ -509,6 +525,7 @@ type AccessibleTextContentChange int
 var xAccessibleTextContentChangeGLibType func() types.GType
 
 func AccessibleTextContentChangeGLibType() types.GType {
+	core.LazyRegister(&xAccessibleTextContentChangeGLibType, "GTK", "gtk_accessible_text_content_change_get_type", false)
 	return xAccessibleTextContentChangeGLibType()
 }
 
@@ -529,6 +546,7 @@ type AccessibleTextGranularity int
 var xAccessibleTextGranularityGLibType func() types.GType
 
 func AccessibleTextGranularityGLibType() types.GType {
+	core.LazyRegister(&xAccessibleTextGranularityGLibType, "GTK", "gtk_accessible_text_granularity_get_type", false)
 	return xAccessibleTextGranularityGLibType()
 }
 
@@ -558,22 +576,4 @@ const (
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GTK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xAccessibleTextContentChangeGLibType, libs, "gtk_accessible_text_content_change_get_type")
-
-	core.PuregoSafeRegister(&xAccessibleTextGranularityGLibType, libs, "gtk_accessible_text_granularity_get_type")
-
-	core.PuregoSafeRegister(&xAccessibleTextGLibType, libs, "gtk_accessible_text_get_type")
-
-	core.PuregoSafeRegister(&XGtkAccessibleTextUpdateCaretPosition, libs, "gtk_accessible_text_update_caret_position")
-	core.PuregoSafeRegister(&XGtkAccessibleTextUpdateContents, libs, "gtk_accessible_text_update_contents")
-	core.PuregoSafeRegister(&XGtkAccessibleTextUpdateSelectionBound, libs, "gtk_accessible_text_update_selection_bound")
 }

@@ -4,7 +4,6 @@ package gsk
 import (
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -19,6 +18,7 @@ type FillNode struct {
 var xFillNodeGLibType func() types.GType
 
 func FillNodeGLibType() types.GType {
+	core.LazyRegister(&xFillNodeGLibType, "GSK", "gsk_fill_node_get_type", false)
 	return xFillNodeGLibType()
 }
 
@@ -33,6 +33,7 @@ var xNewFillNode func(uintptr, *Path, FillRule) uintptr
 // Creates a `GskRenderNode` that will fill the @child in the area
 // given by @path and @fill_rule.
 func NewFillNode(ChildVar *RenderNode, PathVar *Path, FillRuleVar FillRule) *FillNode {
+	core.LazyRegister(&xNewFillNode, "GSK", "gsk_fill_node_new", false)
 	var cls *FillNode
 
 	cret := xNewFillNode(ChildVar.GoPointer(), PathVar, FillRuleVar)
@@ -50,6 +51,7 @@ var xFillNodeGetChild func(uintptr) uintptr
 
 // Gets the child node that is getting drawn by the given @node.
 func (x *FillNode) GetChild() *RenderNode {
+	core.LazyRegister(&xFillNodeGetChild, "GSK", "gsk_fill_node_get_child", false)
 	var cls *RenderNode
 
 	cret := xFillNodeGetChild(x.GoPointer())
@@ -67,6 +69,8 @@ var xFillNodeGetFillRule func(uintptr) FillRule
 
 // Retrieves the fill rule used to determine how the path is filled.
 func (x *FillNode) GetFillRule() FillRule {
+	core.LazyRegister(&xFillNodeGetFillRule, "GSK", "gsk_fill_node_get_fill_rule", false)
+
 	cret := xFillNodeGetFillRule(x.GoPointer())
 	return cret
 }
@@ -76,6 +80,8 @@ var xFillNodeGetPath func(uintptr) uintptr
 // Retrieves the path used to describe the area filled with the contents of
 // the @node.
 func (x *FillNode) GetPath() *Path {
+	core.LazyRegister(&xFillNodeGetPath, "GSK", "gsk_fill_node_get_path", false)
+
 	cret := xFillNodeGetPath(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -97,20 +103,4 @@ func (c *FillNode) SetGoPointer(ptr uintptr) {
 func init() {
 	core.SetPackageName("GSK", "gtk4")
 	core.SetSharedLibraries("GSK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GSK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xFillNodeGLibType, libs, "gsk_fill_node_get_type")
-
-	core.PuregoSafeRegister(&xNewFillNode, libs, "gsk_fill_node_new")
-
-	core.PuregoSafeRegister(&xFillNodeGetChild, libs, "gsk_fill_node_get_child")
-	core.PuregoSafeRegister(&xFillNodeGetFillRule, libs, "gsk_fill_node_get_fill_rule")
-	core.PuregoSafeRegister(&xFillNodeGetPath, libs, "gsk_fill_node_get_path")
 }

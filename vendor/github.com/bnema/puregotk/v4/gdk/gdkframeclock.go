@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -52,6 +51,7 @@ type FrameClockPhase int
 var xFrameClockPhaseGLibType func() types.GType
 
 func FrameClockPhaseGLibType() types.GType {
+	core.LazyRegister(&xFrameClockPhaseGLibType, "GDK", "gdk_frame_clock_phase_get_type", false)
 	return xFrameClockPhaseGLibType()
 }
 
@@ -114,6 +114,7 @@ type FrameClock struct {
 var xFrameClockGLibType func() types.GType
 
 func FrameClockGLibType() types.GType {
+	core.LazyRegister(&xFrameClockGLibType, "GDK", "gdk_frame_clock_get_type", false)
 	return xFrameClockGLibType()
 }
 
@@ -133,6 +134,8 @@ var xFrameClockBeginUpdating func(uintptr)
 // times and frames will be requested until gdk_frame_clock_end_updating()
 // is called the same number of times.
 func (x *FrameClock) BeginUpdating() {
+	core.LazyRegister(&xFrameClockBeginUpdating, "GDK", "gdk_frame_clock_begin_updating", false)
+
 	xFrameClockBeginUpdating(x.GoPointer())
 }
 
@@ -142,6 +145,8 @@ var xFrameClockEndUpdating func(uintptr)
 //
 // See the documentation for [method@Gdk.FrameClock.begin_updating].
 func (x *FrameClock) EndUpdating() {
+	core.LazyRegister(&xFrameClockEndUpdating, "GDK", "gdk_frame_clock_end_updating", false)
+
 	xFrameClockEndUpdating(x.GoPointer())
 }
 
@@ -149,6 +154,8 @@ var xFrameClockGetCurrentTimings func(uintptr) uintptr
 
 // Gets the frame timings for the current frame.
 func (x *FrameClock) GetCurrentTimings() *FrameTimings {
+	core.LazyRegister(&xFrameClockGetCurrentTimings, "GDK", "gdk_frame_clock_get_current_timings", false)
+
 	cret := xFrameClockGetCurrentTimings(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -161,6 +168,8 @@ var xFrameClockGetFps func(uintptr) float64
 // Calculates the current frames-per-second, based on the
 // frame timings of @frame_clock.
 func (x *FrameClock) GetFps() float64 {
+	core.LazyRegister(&xFrameClockGetFps, "GDK", "gdk_frame_clock_get_fps", false)
+
 	cret := xFrameClockGetFps(x.GoPointer())
 	return cret
 }
@@ -170,6 +179,8 @@ var xFrameClockGetFrameCounter func(uintptr) int64
 // `GdkFrameClock` maintains a 64-bit counter that increments for
 // each frame drawn.
 func (x *FrameClock) GetFrameCounter() int64 {
+	core.LazyRegister(&xFrameClockGetFrameCounter, "GDK", "gdk_frame_clock_get_frame_counter", false)
+
 	cret := xFrameClockGetFrameCounter(x.GoPointer())
 	return cret
 }
@@ -184,6 +195,8 @@ var xFrameClockGetFrameTime func(uintptr) int64
 // the actual previous frame time, or if that’s too old, an updated
 // time.
 func (x *FrameClock) GetFrameTime() int64 {
+	core.LazyRegister(&xFrameClockGetFrameTime, "GDK", "gdk_frame_clock_get_frame_time", false)
+
 	cret := xFrameClockGetFrameTime(x.GoPointer())
 	return cret
 }
@@ -199,6 +212,8 @@ var xFrameClockGetHistoryStart func(uintptr) int64
 // [method@Gdk.FrameClock.get_history_start] and
 // [method@Gdk.FrameClock.get_frame_counter], inclusive.
 func (x *FrameClock) GetHistoryStart() int64 {
+	core.LazyRegister(&xFrameClockGetHistoryStart, "GDK", "gdk_frame_clock_get_history_start", false)
+
 	cret := xFrameClockGetHistoryStart(x.GoPointer())
 	return cret
 }
@@ -213,6 +228,8 @@ var xFrameClockGetRefreshInfo func(uintptr, int64, *int64, *int64)
 // predicts a presentation time that is a multiple of the refresh
 // interval after the last presentation time, and later than @base_time.
 func (x *FrameClock) GetRefreshInfo(BaseTimeVar int64, RefreshIntervalReturnVar *int64, PresentationTimeReturnVar *int64) {
+	core.LazyRegister(&xFrameClockGetRefreshInfo, "GDK", "gdk_frame_clock_get_refresh_info", false)
+
 	xFrameClockGetRefreshInfo(x.GoPointer(), BaseTimeVar, RefreshIntervalReturnVar, PresentationTimeReturnVar)
 }
 
@@ -225,6 +242,8 @@ var xFrameClockGetTimings func(uintptr, int64) uintptr
 // [method@Gdk.FrameTimings.get_complete] and
 // [method@Gdk.FrameClock.get_history_start].
 func (x *FrameClock) GetTimings(FrameCounterVar int64) *FrameTimings {
+	core.LazyRegister(&xFrameClockGetTimings, "GDK", "gdk_frame_clock_get_timings", false)
+
 	cret := xFrameClockGetTimings(x.GoPointer(), FrameCounterVar)
 	if cret == 0 {
 		return nil
@@ -246,6 +265,8 @@ var xFrameClockRequestPhase func(uintptr, FrameClockPhase)
 // since this allows GTK to adjust system parameters to get maximally
 // smooth animations.
 func (x *FrameClock) RequestPhase(PhaseVar FrameClockPhase) {
+	core.LazyRegister(&xFrameClockRequestPhase, "GDK", "gdk_frame_clock_request_phase", false)
+
 	xFrameClockRequestPhase(x.GoPointer(), PhaseVar)
 }
 
@@ -450,27 +471,4 @@ func (x *FrameClock) ConnectUpdate(cb *func(FrameClock)) uint {
 func init() {
 	core.SetPackageName("GDK", "gtk4")
 	core.SetSharedLibraries("GDK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GDK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xFrameClockPhaseGLibType, libs, "gdk_frame_clock_phase_get_type")
-
-	core.PuregoSafeRegister(&xFrameClockGLibType, libs, "gdk_frame_clock_get_type")
-
-	core.PuregoSafeRegister(&xFrameClockBeginUpdating, libs, "gdk_frame_clock_begin_updating")
-	core.PuregoSafeRegister(&xFrameClockEndUpdating, libs, "gdk_frame_clock_end_updating")
-	core.PuregoSafeRegister(&xFrameClockGetCurrentTimings, libs, "gdk_frame_clock_get_current_timings")
-	core.PuregoSafeRegister(&xFrameClockGetFps, libs, "gdk_frame_clock_get_fps")
-	core.PuregoSafeRegister(&xFrameClockGetFrameCounter, libs, "gdk_frame_clock_get_frame_counter")
-	core.PuregoSafeRegister(&xFrameClockGetFrameTime, libs, "gdk_frame_clock_get_frame_time")
-	core.PuregoSafeRegister(&xFrameClockGetHistoryStart, libs, "gdk_frame_clock_get_history_start")
-	core.PuregoSafeRegister(&xFrameClockGetRefreshInfo, libs, "gdk_frame_clock_get_refresh_info")
-	core.PuregoSafeRegister(&xFrameClockGetTimings, libs, "gdk_frame_clock_get_timings")
-	core.PuregoSafeRegister(&xFrameClockRequestPhase, libs, "gdk_frame_clock_request_phase")
 }

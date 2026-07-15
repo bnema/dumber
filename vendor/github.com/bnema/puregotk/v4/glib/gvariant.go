@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject/types"
 )
@@ -261,6 +260,7 @@ type Variant struct {
 var xVariantGLibType func() types.GType
 
 func VariantGLibType() types.GType {
+	core.LazyRegister(&xVariantGLibType, "GLIB", "intern", false)
 	return xVariantGLibType()
 }
 
@@ -309,6 +309,8 @@ var xNewVariant func(string, ...interface{}) uintptr
 //
 // ]|
 func NewVariant(FormatStringVar string, varArgs ...interface{}) *Variant {
+	core.LazyRegister(&xNewVariant, "GLIB", "g_variant_new", false)
+
 	cret := xNewVariant(FormatStringVar, varArgs...)
 	if cret == 0 {
 		return nil
@@ -334,6 +336,8 @@ var xNewVariantArray func(*VariantType, uintptr, uint) uintptr
 // If the @children are floating references (see g_variant_ref_sink()), the
 // new instance takes ownership of them as if via g_variant_ref_sink().
 func NewVariantArray(ChildTypeVar *VariantType, ChildrenVar uintptr, NChildrenVar uint) *Variant {
+	core.LazyRegister(&xNewVariantArray, "GLIB", "g_variant_new_array", false)
+
 	cret := xNewVariantArray(ChildTypeVar, ChildrenVar, NChildrenVar)
 	if cret == 0 {
 		return nil
@@ -345,6 +349,8 @@ var xNewVariantBoolean func(bool) uintptr
 
 // Creates a new boolean #GVariant instance -- either %TRUE or %FALSE.
 func NewVariantBoolean(ValueVar bool) *Variant {
+	core.LazyRegister(&xNewVariantBoolean, "GLIB", "g_variant_new_boolean", false)
+
 	cret := xNewVariantBoolean(ValueVar)
 	if cret == 0 {
 		return nil
@@ -356,6 +362,8 @@ var xNewVariantByte func(byte) uintptr
 
 // Creates a new byte #GVariant instance.
 func NewVariantByte(ValueVar byte) *Variant {
+	core.LazyRegister(&xNewVariantByte, "GLIB", "g_variant_new_byte", false)
+
 	cret := xNewVariantByte(ValueVar)
 	if cret == 0 {
 		return nil
@@ -372,6 +380,8 @@ var xNewVariantBytestring func([]byte) uintptr
 // The nul terminator character at the end of the string is stored in
 // the array.
 func NewVariantBytestring(StringVar []byte) *Variant {
+	core.LazyRegister(&xNewVariantBytestring, "GLIB", "g_variant_new_bytestring", false)
+
 	cret := xNewVariantBytestring(StringVar)
 	if cret == 0 {
 		return nil
@@ -386,6 +396,8 @@ var xNewVariantBytestringArray func([]string, int) uintptr
 //
 // If @length is -1 then @strv is %NULL-terminated.
 func NewVariantBytestringArray(StrvVar []string, LengthVar int) *Variant {
+	core.LazyRegister(&xNewVariantBytestringArray, "GLIB", "g_variant_new_bytestring_array", false)
+
 	cret := xNewVariantBytestringArray(StrvVar, LengthVar)
 	if cret == 0 {
 		return nil
@@ -401,6 +413,8 @@ var xNewVariantDictEntry func(*Variant, *Variant) uintptr
 // If the @key or @value are floating references (see g_variant_ref_sink()),
 // the new instance takes ownership of them as if via g_variant_ref_sink().
 func NewVariantDictEntry(KeyVar *Variant, ValueVar *Variant) *Variant {
+	core.LazyRegister(&xNewVariantDictEntry, "GLIB", "g_variant_new_dict_entry", false)
+
 	cret := xNewVariantDictEntry(KeyVar, ValueVar)
 	if cret == 0 {
 		return nil
@@ -412,6 +426,8 @@ var xNewVariantDouble func(float64) uintptr
 
 // Creates a new double #GVariant instance.
 func NewVariantDouble(ValueVar float64) *Variant {
+	core.LazyRegister(&xNewVariantDouble, "GLIB", "g_variant_new_double", false)
+
 	cret := xNewVariantDouble(ValueVar)
 	if cret == 0 {
 		return nil
@@ -435,6 +451,8 @@ var xNewVariantFixedArray func(*VariantType, uintptr, uint, uint) uintptr
 //
 // @n_elements must be the length of the @elements array.
 func NewVariantFixedArray(ElementTypeVar *VariantType, ElementsVar uintptr, NElementsVar uint, ElementSizeVar uint) *Variant {
+	core.LazyRegister(&xNewVariantFixedArray, "GLIB", "g_variant_new_fixed_array", false)
+
 	cret := xNewVariantFixedArray(ElementTypeVar, ElementsVar, NElementsVar, ElementSizeVar)
 	if cret == 0 {
 		return nil
@@ -454,6 +472,8 @@ var xNewVariantFromBytes func(*VariantType, *Bytes, bool) uintptr
 // Otherwise this function will internally create a copy of the memory (since
 // GLib 2.60) or (in older versions) fail and exit the process.
 func NewVariantFromBytes(TypeVar *VariantType, BytesVar *Bytes, TrustedVar bool) *Variant {
+	core.LazyRegister(&xNewVariantFromBytes, "GLIB", "g_variant_new_from_bytes", false)
+
 	cret := xNewVariantFromBytes(TypeVar, BytesVar, TrustedVar)
 	if cret == 0 {
 		return nil
@@ -493,6 +513,8 @@ var xNewVariantFromData func(*VariantType, []byte, uint, bool, uintptr, uintptr)
 // the memory (since GLib 2.60) or (in older versions) fail and exit the
 // process.
 func NewVariantFromData(TypeVar *VariantType, DataVar []byte, SizeVar uint, TrustedVar bool, NotifyVar *DestroyNotify, UserDataVar uintptr) *Variant {
+	core.LazyRegister(&xNewVariantFromData, "GLIB", "g_variant_new_from_data", false)
+
 	cret := xNewVariantFromData(TypeVar, DataVar, SizeVar, TrustedVar, NewCallbackNullable(NotifyVar), UserDataVar)
 	if cret == 0 {
 		return nil
@@ -508,6 +530,8 @@ var xNewVariantHandle func(int32) uintptr
 // that are sent alongside a D-Bus message.  If you're not interacting
 // with D-Bus, you probably don't need them.
 func NewVariantHandle(ValueVar int32) *Variant {
+	core.LazyRegister(&xNewVariantHandle, "GLIB", "g_variant_new_handle", false)
+
 	cret := xNewVariantHandle(ValueVar)
 	if cret == 0 {
 		return nil
@@ -519,6 +543,8 @@ var xNewVariantInt16 func(int16) uintptr
 
 // Creates a new int16 #GVariant instance.
 func NewVariantInt16(ValueVar int16) *Variant {
+	core.LazyRegister(&xNewVariantInt16, "GLIB", "g_variant_new_int16", false)
+
 	cret := xNewVariantInt16(ValueVar)
 	if cret == 0 {
 		return nil
@@ -530,6 +556,8 @@ var xNewVariantInt32 func(int32) uintptr
 
 // Creates a new int32 #GVariant instance.
 func NewVariantInt32(ValueVar int32) *Variant {
+	core.LazyRegister(&xNewVariantInt32, "GLIB", "g_variant_new_int32", false)
+
 	cret := xNewVariantInt32(ValueVar)
 	if cret == 0 {
 		return nil
@@ -541,6 +569,8 @@ var xNewVariantInt64 func(int64) uintptr
 
 // Creates a new int64 #GVariant instance.
 func NewVariantInt64(ValueVar int64) *Variant {
+	core.LazyRegister(&xNewVariantInt64, "GLIB", "g_variant_new_int64", false)
+
 	cret := xNewVariantInt64(ValueVar)
 	if cret == 0 {
 		return nil
@@ -561,6 +591,8 @@ var xNewVariantMaybe func(*VariantType, *Variant) uintptr
 // If @child is a floating reference (see g_variant_ref_sink()), the new
 // instance takes ownership of @child.
 func NewVariantMaybe(ChildTypeVar *VariantType, ChildVar *Variant) *Variant {
+	core.LazyRegister(&xNewVariantMaybe, "GLIB", "g_variant_new_maybe", false)
+
 	cret := xNewVariantMaybe(ChildTypeVar, ChildVar)
 	if cret == 0 {
 		return nil
@@ -574,6 +606,8 @@ var xNewVariantObjectPath func(string) uintptr
 // @object_path must be a valid D-Bus object path.  Use
 // g_variant_is_object_path() if you're not sure.
 func NewVariantObjectPath(ObjectPathVar string) *Variant {
+	core.LazyRegister(&xNewVariantObjectPath, "GLIB", "g_variant_new_object_path", false)
+
 	cret := xNewVariantObjectPath(ObjectPathVar)
 	if cret == 0 {
 		return nil
@@ -591,6 +625,8 @@ var xNewVariantObjv func([]string, int) uintptr
 //
 // If @length is -1 then @strv is %NULL-terminated.
 func NewVariantObjv(StrvVar []string, LengthVar int) *Variant {
+	core.LazyRegister(&xNewVariantObjv, "GLIB", "g_variant_new_objv", false)
+
 	cret := xNewVariantObjv(StrvVar, LengthVar)
 	if cret == 0 {
 		return nil
@@ -635,6 +671,8 @@ var xNewVariantParsed func(string, ...interface{}) uintptr
 // be anything along the lines of "%*", "%?", "\%r", or anything starting
 // with "%@".
 func NewVariantParsed(FormatVar string, varArgs ...interface{}) *Variant {
+	core.LazyRegister(&xNewVariantParsed, "GLIB", "g_variant_new_parsed", false)
+
 	cret := xNewVariantParsed(FormatVar, varArgs...)
 	if cret == 0 {
 		return nil
@@ -666,6 +704,8 @@ var xNewVariantParsedVa func(string, []interface{}) uintptr
 // result.  This can also be done by adding the result to a container,
 // or by passing it to another g_variant_new() call.
 func NewVariantParsedVa(FormatVar string, AppVar []interface{}) *Variant {
+	core.LazyRegister(&xNewVariantParsedVa, "GLIB", "g_variant_new_parsed_va", false)
+
 	cret := xNewVariantParsedVa(FormatVar, AppVar)
 	if cret == 0 {
 		return nil
@@ -681,6 +721,8 @@ var xNewVariantPrintf func(string, ...interface{}) uintptr
 // g_variant_new_string() but it saves a temporary variable and an
 // unnecessary copy.
 func NewVariantPrintf(FormatStringVar string, varArgs ...interface{}) *Variant {
+	core.LazyRegister(&xNewVariantPrintf, "GLIB", "g_variant_new_printf", false)
+
 	cret := xNewVariantPrintf(FormatStringVar, varArgs...)
 	if cret == 0 {
 		return nil
@@ -694,6 +736,8 @@ var xNewVariantSignature func(string) uintptr
 // @string.  @string must be a valid D-Bus type signature.  Use
 // g_variant_is_signature() if you're not sure.
 func NewVariantSignature(SignatureVar string) *Variant {
+	core.LazyRegister(&xNewVariantSignature, "GLIB", "g_variant_new_signature", false)
+
 	cret := xNewVariantSignature(SignatureVar)
 	if cret == 0 {
 		return nil
@@ -709,6 +753,8 @@ var xNewVariantString func(string) uintptr
 // potentially-%NULL strings, use g_variant_new() with `ms` as the
 // [format string](gvariant-format-strings.html#maybe-types).
 func NewVariantString(StringVar string) *Variant {
+	core.LazyRegister(&xNewVariantString, "GLIB", "g_variant_new_string", false)
+
 	cret := xNewVariantString(StringVar)
 	if cret == 0 {
 		return nil
@@ -723,6 +769,8 @@ var xNewVariantStrv func([]string, int) uintptr
 //
 // If @length is -1 then @strv is %NULL-terminated.
 func NewVariantStrv(StrvVar []string, LengthVar int) *Variant {
+	core.LazyRegister(&xNewVariantStrv, "GLIB", "g_variant_new_strv", false)
+
 	cret := xNewVariantStrv(StrvVar, LengthVar)
 	if cret == 0 {
 		return nil
@@ -745,6 +793,8 @@ var xNewVariantTakeString func(string) uintptr
 // it to this function.  It is even possible that @string is immediately
 // freed.
 func NewVariantTakeString(StringVar string) *Variant {
+	core.LazyRegister(&xNewVariantTakeString, "GLIB", "g_variant_new_take_string", false)
+
 	cret := xNewVariantTakeString(StringVar)
 	if cret == 0 {
 		return nil
@@ -763,6 +813,8 @@ var xNewVariantTuple func(uintptr, uint) uintptr
 // If the @children are floating references (see g_variant_ref_sink()), the
 // new instance takes ownership of them as if via g_variant_ref_sink().
 func NewVariantTuple(ChildrenVar uintptr, NChildrenVar uint) *Variant {
+	core.LazyRegister(&xNewVariantTuple, "GLIB", "g_variant_new_tuple", false)
+
 	cret := xNewVariantTuple(ChildrenVar, NChildrenVar)
 	if cret == 0 {
 		return nil
@@ -774,6 +826,8 @@ var xNewVariantUint16 func(uint16) uintptr
 
 // Creates a new uint16 #GVariant instance.
 func NewVariantUint16(ValueVar uint16) *Variant {
+	core.LazyRegister(&xNewVariantUint16, "GLIB", "g_variant_new_uint16", false)
+
 	cret := xNewVariantUint16(ValueVar)
 	if cret == 0 {
 		return nil
@@ -785,6 +839,8 @@ var xNewVariantUint32 func(uint32) uintptr
 
 // Creates a new uint32 #GVariant instance.
 func NewVariantUint32(ValueVar uint32) *Variant {
+	core.LazyRegister(&xNewVariantUint32, "GLIB", "g_variant_new_uint32", false)
+
 	cret := xNewVariantUint32(ValueVar)
 	if cret == 0 {
 		return nil
@@ -796,6 +852,8 @@ var xNewVariantUint64 func(uint64) uintptr
 
 // Creates a new uint64 #GVariant instance.
 func NewVariantUint64(ValueVar uint64) *Variant {
+	core.LazyRegister(&xNewVariantUint64, "GLIB", "g_variant_new_uint64", false)
+
 	cret := xNewVariantUint64(ValueVar)
 	if cret == 0 {
 		return nil
@@ -842,6 +900,8 @@ var xNewVariantVa func(string, uintptr, []interface{}) uintptr
 // result.  This can also be done by adding the result to a container,
 // or by passing it to another g_variant_new() call.
 func NewVariantVa(FormatStringVar string, EndptrVar *string, AppVar []interface{}) *Variant {
+	core.LazyRegister(&xNewVariantVa, "GLIB", "g_variant_new_va", false)
+
 	EndptrVarPtr := core.GStrdupNullable(EndptrVar)
 	defer core.GFreeNullable(EndptrVarPtr)
 
@@ -860,6 +920,8 @@ var xNewVariantVariant func(*Variant) uintptr
 // If @child is a floating reference (see g_variant_ref_sink()), the new
 // instance takes ownership of @child.
 func NewVariantVariant(ValueVar *Variant) *Variant {
+	core.LazyRegister(&xNewVariantVariant, "GLIB", "g_variant_new_variant", false)
+
 	cret := xNewVariantVariant(ValueVar)
 	if cret == 0 {
 		return nil
@@ -887,6 +949,8 @@ var xVariantByteswap func(uintptr) uintptr
 // The returned value is always in normal form and is marked as trusted.
 // A full, not floating, reference is returned.
 func (x *Variant) Byteswap() *Variant {
+	core.LazyRegister(&xVariantByteswap, "GLIB", "g_variant_byteswap", false)
+
 	cret := xVariantByteswap(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -911,6 +975,8 @@ var xVariantCheckFormatString func(uintptr, string, bool) bool
 // varargs accessors to #GVariant values of uncertain values (eg:
 // g_variant_lookup() or g_menu_model_get_item_attribute()).
 func (x *Variant) CheckFormatString(FormatStringVar string, CopyOnlyVar bool) bool {
+	core.LazyRegister(&xVariantCheckFormatString, "GLIB", "g_variant_check_format_string", false)
+
 	cret := xVariantCheckFormatString(x.GoPointer(), FormatStringVar, CopyOnlyVar)
 	return cret
 }
@@ -919,6 +985,8 @@ var xVariantClassify func(uintptr) VariantClass
 
 // Classifies @value according to its top-level type.
 func (x *Variant) Classify() VariantClass {
+	core.LazyRegister(&xVariantClassify, "GLIB", "g_variant_classify", false)
+
 	cret := xVariantClassify(x.GoPointer())
 	return cret
 }
@@ -945,6 +1013,8 @@ var xVariantCompare func(uintptr, uintptr) int
 // If you only require an equality comparison, g_variant_equal() is more
 // general.
 func (x *Variant) Compare(TwoVar uintptr) int {
+	core.LazyRegister(&xVariantCompare, "GLIB", "g_variant_compare", false)
+
 	cret := xVariantCompare(x.GoPointer(), TwoVar)
 	return cret
 }
@@ -956,6 +1026,8 @@ var xVariantDupBytestring func(uintptr, *uint) uintptr
 //
 // The return value must be freed using g_free().
 func (x *Variant) DupBytestring(LengthVar *uint) uintptr {
+	core.LazyRegister(&xVariantDupBytestring, "GLIB", "g_variant_dup_bytestring", false)
+
 	cret := xVariantDupBytestring(x.GoPointer(), LengthVar)
 	return cret
 }
@@ -973,6 +1045,8 @@ var xVariantDupBytestringArray func(uintptr, *uint) []string
 // For an empty array, @length will be set to 0 and a pointer to a
 // %NULL pointer will be returned.
 func (x *Variant) DupBytestringArray(LengthVar *uint) []string {
+	core.LazyRegister(&xVariantDupBytestringArray, "GLIB", "g_variant_dup_bytestring_array", false)
+
 	cret := xVariantDupBytestringArray(x.GoPointer(), LengthVar)
 	return cret
 }
@@ -990,6 +1064,8 @@ var xVariantDupObjv func(uintptr, *uint) []string
 // For an empty array, @length will be set to 0 and a pointer to a
 // %NULL pointer will be returned.
 func (x *Variant) DupObjv(LengthVar *uint) []string {
+	core.LazyRegister(&xVariantDupObjv, "GLIB", "g_variant_dup_objv", false)
+
 	cret := xVariantDupObjv(x.GoPointer(), LengthVar)
 	return cret
 }
@@ -1003,6 +1079,8 @@ var xVariantDupString func(uintptr, *uint) string
 //
 // The return value must be freed using g_free().
 func (x *Variant) DupString(LengthVar *uint) string {
+	core.LazyRegister(&xVariantDupString, "GLIB", "g_variant_dup_string", false)
+
 	cret := xVariantDupString(x.GoPointer(), LengthVar)
 	return cret
 }
@@ -1020,6 +1098,8 @@ var xVariantDupStrv func(uintptr, *uint) []string
 // For an empty array, @length will be set to 0 and a pointer to a
 // %NULL pointer will be returned.
 func (x *Variant) DupStrv(LengthVar *uint) []string {
+	core.LazyRegister(&xVariantDupStrv, "GLIB", "g_variant_dup_strv", false)
+
 	cret := xVariantDupStrv(x.GoPointer(), LengthVar)
 	return cret
 }
@@ -1031,6 +1111,8 @@ var xVariantEqual func(uintptr, uintptr) bool
 // The types of @one and @two are #gconstpointer only to allow use of
 // this function with #GHashTable.  They must each be a #GVariant.
 func (x *Variant) Equal(TwoVar uintptr) bool {
+	core.LazyRegister(&xVariantEqual, "GLIB", "g_variant_equal", false)
+
 	cret := xVariantEqual(x.GoPointer(), TwoVar)
 	return cret
 }
@@ -1054,6 +1136,8 @@ var xVariantGet func(uintptr, string, ...interface{})
 // see the section on
 // [`GVariant` format strings](gvariant-format-strings.html#pointers).
 func (x *Variant) Get(FormatStringVar string, varArgs ...interface{}) {
+	core.LazyRegister(&xVariantGet, "GLIB", "g_variant_get", false)
+
 	xVariantGet(x.GoPointer(), FormatStringVar, varArgs...)
 }
 
@@ -1064,6 +1148,8 @@ var xVariantGetBoolean func(uintptr) bool
 // It is an error to call this function with a @value of any type
 // other than %G_VARIANT_TYPE_BOOLEAN.
 func (x *Variant) GetBoolean() bool {
+	core.LazyRegister(&xVariantGetBoolean, "GLIB", "g_variant_get_boolean", false)
+
 	cret := xVariantGetBoolean(x.GoPointer())
 	return cret
 }
@@ -1075,6 +1161,8 @@ var xVariantGetByte func(uintptr) byte
 // It is an error to call this function with a @value of any type
 // other than %G_VARIANT_TYPE_BYTE.
 func (x *Variant) GetByte() byte {
+	core.LazyRegister(&xVariantGetByte, "GLIB", "g_variant_get_byte", false)
+
 	cret := xVariantGetByte(x.GoPointer())
 	return cret
 }
@@ -1100,6 +1188,8 @@ var xVariantGetBytestring func(uintptr) uintptr
 //
 // The return value remains valid as long as @value exists.
 func (x *Variant) GetBytestring() uintptr {
+	core.LazyRegister(&xVariantGetBytestring, "GLIB", "g_variant_get_bytestring", false)
+
 	cret := xVariantGetBytestring(x.GoPointer())
 	return cret
 }
@@ -1117,6 +1207,8 @@ var xVariantGetBytestringArray func(uintptr, *uint) []string
 // For an empty array, @length will be set to 0 and a pointer to a
 // %NULL pointer will be returned.
 func (x *Variant) GetBytestringArray(LengthVar *uint) []string {
+	core.LazyRegister(&xVariantGetBytestringArray, "GLIB", "g_variant_get_bytestring_array", false)
+
 	cret := xVariantGetBytestringArray(x.GoPointer(), LengthVar)
 	return cret
 }
@@ -1133,6 +1225,8 @@ var xVariantGetChild func(uintptr, uint, string, ...interface{})
 // see the section on
 // [`GVariant` format strings](gvariant-format-strings.html#pointers).
 func (x *Variant) GetChild(IndexVar uint, FormatStringVar string, varArgs ...interface{}) {
+	core.LazyRegister(&xVariantGetChild, "GLIB", "g_variant_get_child", false)
+
 	xVariantGetChild(x.GoPointer(), IndexVar, FormatStringVar, varArgs...)
 }
 
@@ -1162,6 +1256,8 @@ var xVariantGetChildValue func(uintptr, uint) uintptr
 //
 // This function is O(1).
 func (x *Variant) GetChildValue(IndexVar uint) *Variant {
+	core.LazyRegister(&xVariantGetChildValue, "GLIB", "g_variant_get_child_value", false)
+
 	cret := xVariantGetChildValue(x.GoPointer(), IndexVar)
 	if cret == 0 {
 		return nil
@@ -1197,6 +1293,8 @@ var xVariantGetData func(uintptr) uintptr
 // explicitly (by storing the type and/or endianness in addition to the
 // serialized data).
 func (x *Variant) GetData() uintptr {
+	core.LazyRegister(&xVariantGetData, "GLIB", "g_variant_get_data", false)
+
 	cret := xVariantGetData(x.GoPointer())
 	return cret
 }
@@ -1208,6 +1306,8 @@ var xVariantGetDataAsBytes func(uintptr) uintptr
 // g_variant_get_data(), except that the returned #GBytes holds
 // a reference to the variant data.
 func (x *Variant) GetDataAsBytes() *Bytes {
+	core.LazyRegister(&xVariantGetDataAsBytes, "GLIB", "g_variant_get_data_as_bytes", false)
+
 	cret := xVariantGetDataAsBytes(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -1222,6 +1322,8 @@ var xVariantGetDouble func(uintptr) float64
 // It is an error to call this function with a @value of any type
 // other than %G_VARIANT_TYPE_DOUBLE.
 func (x *Variant) GetDouble() float64 {
+	core.LazyRegister(&xVariantGetDouble, "GLIB", "g_variant_get_double", false)
+
 	cret := xVariantGetDouble(x.GoPointer())
 	return cret
 }
@@ -1255,6 +1357,8 @@ var xVariantGetFixedArray func(uintptr, *uint, uint) uintptr
 // @n_elements, which must be non-%NULL, is set equal to the number of
 // items in the array.
 func (x *Variant) GetFixedArray(NElementsVar *uint, ElementSizeVar uint) uintptr {
+	core.LazyRegister(&xVariantGetFixedArray, "GLIB", "g_variant_get_fixed_array", false)
+
 	cret := xVariantGetFixedArray(x.GoPointer(), NElementsVar, ElementSizeVar)
 	return cret
 }
@@ -1270,6 +1374,8 @@ var xVariantGetHandle func(uintptr) int32
 // that are sent alongside a D-Bus message.  If you're not interacting
 // with D-Bus, you probably don't need them.
 func (x *Variant) GetHandle() int32 {
+	core.LazyRegister(&xVariantGetHandle, "GLIB", "g_variant_get_handle", false)
+
 	cret := xVariantGetHandle(x.GoPointer())
 	return cret
 }
@@ -1281,6 +1387,8 @@ var xVariantGetInt16 func(uintptr) int16
 // It is an error to call this function with a @value of any type
 // other than %G_VARIANT_TYPE_INT16.
 func (x *Variant) GetInt16() int16 {
+	core.LazyRegister(&xVariantGetInt16, "GLIB", "g_variant_get_int16", false)
+
 	cret := xVariantGetInt16(x.GoPointer())
 	return cret
 }
@@ -1292,6 +1400,8 @@ var xVariantGetInt32 func(uintptr) int32
 // It is an error to call this function with a @value of any type
 // other than %G_VARIANT_TYPE_INT32.
 func (x *Variant) GetInt32() int32 {
+	core.LazyRegister(&xVariantGetInt32, "GLIB", "g_variant_get_int32", false)
+
 	cret := xVariantGetInt32(x.GoPointer())
 	return cret
 }
@@ -1303,6 +1413,8 @@ var xVariantGetInt64 func(uintptr) int64
 // It is an error to call this function with a @value of any type
 // other than %G_VARIANT_TYPE_INT64.
 func (x *Variant) GetInt64() int64 {
+	core.LazyRegister(&xVariantGetInt64, "GLIB", "g_variant_get_int64", false)
+
 	cret := xVariantGetInt64(x.GoPointer())
 	return cret
 }
@@ -1312,6 +1424,8 @@ var xVariantGetMaybe func(uintptr) uintptr
 // Given a maybe-typed #GVariant instance, extract its value.  If the
 // value is Nothing, then this function returns %NULL.
 func (x *Variant) GetMaybe() *Variant {
+	core.LazyRegister(&xVariantGetMaybe, "GLIB", "g_variant_get_maybe", false)
+
 	cret := xVariantGetMaybe(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -1347,6 +1461,8 @@ var xVariantGetNormalForm func(uintptr) uintptr
 // value from this function to guarantee ownership of a single non-floating
 // reference to it.
 func (x *Variant) GetNormalForm() *Variant {
+	core.LazyRegister(&xVariantGetNormalForm, "GLIB", "g_variant_get_normal_form", false)
+
 	cret := xVariantGetNormalForm(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -1367,6 +1483,8 @@ var xVariantGetObjv func(uintptr, *uint) []string
 // For an empty array, @length will be set to 0 and a pointer to a
 // %NULL pointer will be returned.
 func (x *Variant) GetObjv(LengthVar *uint) []string {
+	core.LazyRegister(&xVariantGetObjv, "GLIB", "g_variant_get_objv", false)
+
 	cret := xVariantGetObjv(x.GoPointer(), LengthVar)
 	return cret
 }
@@ -1385,6 +1503,8 @@ var xVariantGetSize func(uintptr) uint
 // operation which is approximately O(n) in the number of values
 // involved.
 func (x *Variant) GetSize() uint {
+	core.LazyRegister(&xVariantGetSize, "GLIB", "g_variant_get_size", false)
+
 	cret := xVariantGetSize(x.GoPointer())
 	return cret
 }
@@ -1410,6 +1530,8 @@ var xVariantGetString func(uintptr, *uint) string
 //
 // The return value remains valid as long as @value exists.
 func (x *Variant) GetString(LengthVar *uint) string {
+	core.LazyRegister(&xVariantGetString, "GLIB", "g_variant_get_string", false)
+
 	cret := xVariantGetString(x.GoPointer(), LengthVar)
 	return cret
 }
@@ -1427,6 +1549,8 @@ var xVariantGetStrv func(uintptr, *uint) []string
 // For an empty array, @length will be set to 0 and a pointer to a
 // %NULL pointer will be returned.
 func (x *Variant) GetStrv(LengthVar *uint) []string {
+	core.LazyRegister(&xVariantGetStrv, "GLIB", "g_variant_get_strv", false)
+
 	cret := xVariantGetStrv(x.GoPointer(), LengthVar)
 	return cret
 }
@@ -1438,6 +1562,8 @@ var xVariantGetType func(uintptr) uintptr
 // The return value is valid for the lifetime of @value and must not
 // be freed.
 func (x *Variant) GetType() *VariantType {
+	core.LazyRegister(&xVariantGetType, "GLIB", "g_variant_get_type", false)
+
 	cret := xVariantGetType(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -1451,6 +1577,8 @@ var xVariantGetTypeString func(uintptr) string
 // g_variant_type_peek_string(), this string is nul-terminated.  This
 // string belongs to #GVariant and must not be freed.
 func (x *Variant) GetTypeString() string {
+	core.LazyRegister(&xVariantGetTypeString, "GLIB", "g_variant_get_type_string", false)
+
 	cret := xVariantGetTypeString(x.GoPointer())
 	return cret
 }
@@ -1462,6 +1590,8 @@ var xVariantGetUint16 func(uintptr) uint16
 // It is an error to call this function with a @value of any type
 // other than %G_VARIANT_TYPE_UINT16.
 func (x *Variant) GetUint16() uint16 {
+	core.LazyRegister(&xVariantGetUint16, "GLIB", "g_variant_get_uint16", false)
+
 	cret := xVariantGetUint16(x.GoPointer())
 	return cret
 }
@@ -1473,6 +1603,8 @@ var xVariantGetUint32 func(uintptr) uint32
 // It is an error to call this function with a @value of any type
 // other than %G_VARIANT_TYPE_UINT32.
 func (x *Variant) GetUint32() uint32 {
+	core.LazyRegister(&xVariantGetUint32, "GLIB", "g_variant_get_uint32", false)
+
 	cret := xVariantGetUint32(x.GoPointer())
 	return cret
 }
@@ -1484,6 +1616,8 @@ var xVariantGetUint64 func(uintptr) uint64
 // It is an error to call this function with a @value of any type
 // other than %G_VARIANT_TYPE_UINT64.
 func (x *Variant) GetUint64() uint64 {
+	core.LazyRegister(&xVariantGetUint64, "GLIB", "g_variant_get_uint64", false)
+
 	cret := xVariantGetUint64(x.GoPointer())
 	return cret
 }
@@ -1515,6 +1649,8 @@ var xVariantGetVa func(uintptr, string, uintptr, []interface{})
 // see the section on
 // [`GVariant` format strings](gvariant-format-strings.html#pointers).
 func (x *Variant) GetVa(FormatStringVar string, EndptrVar *string, AppVar []interface{}) {
+	core.LazyRegister(&xVariantGetVa, "GLIB", "g_variant_get_va", false)
+
 	EndptrVarPtr := core.GStrdupNullable(EndptrVar)
 	defer core.GFreeNullable(EndptrVarPtr)
 
@@ -1526,6 +1662,8 @@ var xVariantGetVariant func(uintptr) uintptr
 // Unboxes @value.  The result is the #GVariant instance that was
 // contained in @value.
 func (x *Variant) GetVariant() *Variant {
+	core.LazyRegister(&xVariantGetVariant, "GLIB", "g_variant_get_variant", false)
+
 	cret := xVariantGetVariant(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -1545,6 +1683,8 @@ var xVariantHash func(uintptr) uint
 // The type of @value is #gconstpointer only to allow use of this
 // function with #GHashTable.  @value must be a #GVariant.
 func (x *Variant) Hash() uint {
+	core.LazyRegister(&xVariantHash, "GLIB", "g_variant_hash", false)
+
 	cret := xVariantHash(x.GoPointer())
 	return cret
 }
@@ -1553,6 +1693,8 @@ var xVariantIsContainer func(uintptr) bool
 
 // Checks if @value is a container.
 func (x *Variant) IsContainer() bool {
+	core.LazyRegister(&xVariantIsContainer, "GLIB", "g_variant_is_container", false)
+
 	cret := xVariantIsContainer(x.GoPointer())
 	return cret
 }
@@ -1569,6 +1711,8 @@ var xVariantIsFloating func(uintptr) bool
 // See g_variant_ref_sink() for more information about floating reference
 // counts.
 func (x *Variant) IsFloating() bool {
+	core.LazyRegister(&xVariantIsFloating, "GLIB", "g_variant_is_floating", false)
+
 	cret := xVariantIsFloating(x.GoPointer())
 	return cret
 }
@@ -1589,6 +1733,8 @@ var xVariantIsNormalForm func(uintptr) bool
 // There may be implementation specific restrictions on deeply nested values.
 // GVariant is guaranteed to handle nesting up to at least 64 levels.
 func (x *Variant) IsNormalForm() bool {
+	core.LazyRegister(&xVariantIsNormalForm, "GLIB", "g_variant_is_normal_form", false)
+
 	cret := xVariantIsNormalForm(x.GoPointer())
 	return cret
 }
@@ -1597,6 +1743,8 @@ var xVariantIsOfType func(uintptr, *VariantType) bool
 
 // Checks if a value has a type matching the provided type.
 func (x *Variant) IsOfType(TypeVar *VariantType) bool {
+	core.LazyRegister(&xVariantIsOfType, "GLIB", "g_variant_is_of_type", false)
+
 	cret := xVariantIsOfType(x.GoPointer(), TypeVar)
 	return cret
 }
@@ -1612,6 +1760,8 @@ var xVariantIterNew func(uintptr) uintptr
 // A reference is taken to @value and will be released only when
 // g_variant_iter_free() is called.
 func (x *Variant) IterNew() *VariantIter {
+	core.LazyRegister(&xVariantIterNew, "GLIB", "g_variant_iter_new", false)
+
 	cret := xVariantIterNew(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -1636,6 +1786,8 @@ var xVariantLookup func(uintptr, string, string, ...interface{}) bool
 // This function is currently implemented with a linear scan.  If you
 // plan to do many lookups then #GVariantDict may be more efficient.
 func (x *Variant) Lookup(KeyVar string, FormatStringVar string, varArgs ...interface{}) bool {
+	core.LazyRegister(&xVariantLookup, "GLIB", "g_variant_lookup", false)
+
 	cret := xVariantLookup(x.GoPointer(), KeyVar, FormatStringVar, varArgs...)
 	return cret
 }
@@ -1664,6 +1816,8 @@ var xVariantLookupValue func(uintptr, string, *VariantType) uintptr
 // This function is currently implemented with a linear scan.  If you
 // plan to do many lookups then [struct@VariantDict] may be more efficient.
 func (x *Variant) LookupValue(KeyVar string, ExpectedTypeVar *VariantType) *Variant {
+	core.LazyRegister(&xVariantLookupValue, "GLIB", "g_variant_lookup_value", false)
+
 	cret := xVariantLookupValue(x.GoPointer(), KeyVar, ExpectedTypeVar)
 	if cret == 0 {
 		return nil
@@ -1685,6 +1839,8 @@ var xVariantNChildren func(uintptr) uint
 //
 // This function is O(1).
 func (x *Variant) NChildren() uint {
+	core.LazyRegister(&xVariantNChildren, "GLIB", "g_variant_n_children", false)
+
 	cret := xVariantNChildren(x.GoPointer())
 	return cret
 }
@@ -1698,6 +1854,8 @@ var xVariantPrint func(uintptr, bool) string
 // If @type_annotate is %TRUE, then type information is included in
 // the output.
 func (x *Variant) Print(TypeAnnotateVar bool) string {
+	core.LazyRegister(&xVariantPrint, "GLIB", "g_variant_print", false)
+
 	cret := xVariantPrint(x.GoPointer(), TypeAnnotateVar)
 	return cret
 }
@@ -1709,6 +1867,8 @@ var xVariantPrintString func(uintptr, *String, bool) uintptr
 // If @string is non-%NULL then it is appended to and returned.  Else,
 // a new empty #GString is allocated and it is returned.
 func (x *Variant) PrintString(StringVar *String, TypeAnnotateVar bool) *String {
+	core.LazyRegister(&xVariantPrintString, "GLIB", "g_variant_print_string", false)
+
 	cret := xVariantPrintString(x.GoPointer(), StringVar, TypeAnnotateVar)
 	if cret == 0 {
 		return nil
@@ -1720,6 +1880,8 @@ var xVariantRef func(uintptr) uintptr
 
 // Increases the reference count of @value.
 func (x *Variant) Ref() *Variant {
+	core.LazyRegister(&xVariantRef, "GLIB", "g_variant_ref", false)
+
 	cret := xVariantRef(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -1752,6 +1914,8 @@ var xVariantRefSink func(uintptr) uintptr
 // maintaining normal refcounting semantics in situations where values
 // are not floating.
 func (x *Variant) RefSink() *Variant {
+	core.LazyRegister(&xVariantRefSink, "GLIB", "g_variant_ref_sink", false)
+
 	cret := xVariantRefSink(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -1774,6 +1938,8 @@ var xVariantStore func(uintptr, uintptr)
 //
 // This function is approximately O(n) in the size of @data.
 func (x *Variant) Store(DataVar uintptr) {
+	core.LazyRegister(&xVariantStore, "GLIB", "g_variant_store", false)
+
 	xVariantStore(x.GoPointer(), DataVar)
 }
 
@@ -1812,6 +1978,8 @@ var xVariantTakeRef func(uintptr) uintptr
 // an additional reference on top of that one is added.  It is best to
 // avoid this situation.
 func (x *Variant) TakeRef() *Variant {
+	core.LazyRegister(&xVariantTakeRef, "GLIB", "g_variant_take_ref", false)
+
 	cret := xVariantTakeRef(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -1824,6 +1992,8 @@ var xVariantUnref func(uintptr)
 // Decreases the reference count of @value.  When its reference count
 // drops to 0, the memory used by the variant is freed.
 func (x *Variant) Unref() {
+	core.LazyRegister(&xVariantUnref, "GLIB", "g_variant_unref", false)
+
 	xVariantUnref(x.GoPointer())
 }
 
@@ -1841,6 +2011,7 @@ type VariantBuilder struct {
 var xVariantBuilderGLibType func() types.GType
 
 func VariantBuilderGLibType() types.GType {
+	core.LazyRegister(&xVariantBuilderGLibType, "GLIB", "g_variant_builder_get_type", false)
 	return xVariantBuilderGLibType()
 }
 
@@ -1868,6 +2039,8 @@ var xNewVariantBuilder func(*VariantType) uintptr
 // the stack of the calling function and initialise it with
 // g_variant_builder_init_static().
 func NewVariantBuilder(TypeVar *VariantType) *VariantBuilder {
+	core.LazyRegister(&xNewVariantBuilder, "GLIB", "g_variant_builder_new", false)
+
 	cret := xNewVariantBuilder(TypeVar)
 	if cret == 0 {
 		return nil
@@ -1910,6 +2083,8 @@ var xVariantBuilderAdd func(uintptr, string, ...interface{})
 //
 // ]|
 func (x *VariantBuilder) Add(FormatStringVar string, varArgs ...interface{}) {
+	core.LazyRegister(&xVariantBuilderAdd, "GLIB", "g_variant_builder_add", false)
+
 	xVariantBuilderAdd(x.GoPointer(), FormatStringVar, varArgs...)
 }
 
@@ -1944,6 +2119,8 @@ var xVariantBuilderAddParsed func(uintptr, string, ...interface{})
 //
 // ]|
 func (x *VariantBuilder) AddParsed(FormatVar string, varArgs ...interface{}) {
+	core.LazyRegister(&xVariantBuilderAddParsed, "GLIB", "g_variant_builder_add_parsed", false)
+
 	xVariantBuilderAddParsed(x.GoPointer(), FormatVar, varArgs...)
 }
 
@@ -1960,6 +2137,8 @@ var xVariantBuilderAddValue func(uintptr, *Variant)
 // If @value is a floating reference (see g_variant_ref_sink()),
 // the @builder instance takes ownership of @value.
 func (x *VariantBuilder) AddValue(ValueVar *Variant) {
+	core.LazyRegister(&xVariantBuilderAddValue, "GLIB", "g_variant_builder_add_value", false)
+
 	xVariantBuilderAddValue(x.GoPointer(), ValueVar)
 }
 
@@ -1980,6 +2159,8 @@ var xVariantBuilderClear func(uintptr)
 // #GVariantBuilder or one that is set to all-zeros but it is not valid
 // to call this function on uninitialised memory.
 func (x *VariantBuilder) Clear() {
+	core.LazyRegister(&xVariantBuilderClear, "GLIB", "g_variant_builder_clear", false)
+
 	xVariantBuilderClear(x.GoPointer())
 }
 
@@ -1992,6 +2173,8 @@ var xVariantBuilderClose func(uintptr)
 // inconsistent value to be constructed (ie: too few values added to the
 // subcontainer).
 func (x *VariantBuilder) Close() {
+	core.LazyRegister(&xVariantBuilderClose, "GLIB", "g_variant_builder_close", false)
+
 	xVariantBuilderClose(x.GoPointer())
 }
 
@@ -2015,6 +2198,8 @@ var xVariantBuilderEnd func(uintptr) uintptr
 // have been added; in this case it is impossible to infer the type of
 // the empty array.
 func (x *VariantBuilder) End() *Variant {
+	core.LazyRegister(&xVariantBuilderEnd, "GLIB", "g_variant_builder_end", false)
+
 	cret := xVariantBuilderEnd(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -2058,6 +2243,8 @@ var xVariantBuilderInit func(uintptr, *VariantType)
 // reference counting; you should use g_variant_builder_new() instead of
 // this function.
 func (x *VariantBuilder) Init(TypeVar *VariantType) {
+	core.LazyRegister(&xVariantBuilderInit, "GLIB", "g_variant_builder_init", false)
+
 	xVariantBuilderInit(x.GoPointer(), TypeVar)
 }
 
@@ -2070,6 +2257,8 @@ var xVariantBuilderInitStatic func(uintptr, *VariantType)
 // lifetime of @builder. This is always true of type constants like
 // `G_VARIANT_TYPE_*` or `G_VARIANT_TYPE ("(ii)")`.
 func (x *VariantBuilder) InitStatic(TypeVar *VariantType) {
+	core.LazyRegister(&xVariantBuilderInitStatic, "GLIB", "g_variant_builder_init_static", false)
+
 	xVariantBuilderInitStatic(x.GoPointer(), TypeVar)
 }
 
@@ -2113,6 +2302,8 @@ var xVariantBuilderOpen func(uintptr, *VariantType)
 // output = g_variant_builder_end (&amp;builder);
 // ]|
 func (x *VariantBuilder) Open(TypeVar *VariantType) {
+	core.LazyRegister(&xVariantBuilderOpen, "GLIB", "g_variant_builder_open", false)
+
 	xVariantBuilderOpen(x.GoPointer(), TypeVar)
 }
 
@@ -2123,6 +2314,8 @@ var xVariantBuilderRef func(uintptr) uintptr
 // Don't call this on stack-allocated #GVariantBuilder instances or bad
 // things will happen.
 func (x *VariantBuilder) Ref() *VariantBuilder {
+	core.LazyRegister(&xVariantBuilderRef, "GLIB", "g_variant_builder_ref", false)
+
 	cret := xVariantBuilderRef(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -2140,6 +2333,8 @@ var xVariantBuilderUnref func(uintptr)
 // Don't call this on stack-allocated #GVariantBuilder instances or bad
 // things will happen.
 func (x *VariantBuilder) Unref() {
+	core.LazyRegister(&xVariantBuilderUnref, "GLIB", "g_variant_builder_unref", false)
+
 	xVariantBuilderUnref(x.GoPointer())
 }
 
@@ -2243,6 +2438,7 @@ type VariantDict struct {
 var xVariantDictGLibType func() types.GType
 
 func VariantDictGLibType() types.GType {
+	core.LazyRegister(&xVariantDictGLibType, "GLIB", "g_variant_dict_get_type", false)
 	return xVariantDictGLibType()
 }
 
@@ -2271,6 +2467,8 @@ var xNewVariantDict func(*Variant) uintptr
 // g_variant_dict_init().  This is particularly useful when you are
 // using #GVariantDict to construct a #GVariant.
 func NewVariantDict(FromAsvVar *Variant) *VariantDict {
+	core.LazyRegister(&xNewVariantDict, "GLIB", "g_variant_dict_new", false)
+
 	cret := xNewVariantDict(FromAsvVar)
 	if cret == 0 {
 		return nil
@@ -2295,6 +2493,8 @@ var xVariantDictClear func(uintptr)
 // to g_variant_dict_clear() but it is not valid to call this function
 // on uninitialised memory.
 func (x *VariantDict) Clear() {
+	core.LazyRegister(&xVariantDictClear, "GLIB", "g_variant_dict_clear", false)
+
 	xVariantDictClear(x.GoPointer())
 }
 
@@ -2302,6 +2502,8 @@ var xVariantDictContains func(uintptr, string) bool
 
 // Checks if @key exists in @dict.
 func (x *VariantDict) Contains(KeyVar string) bool {
+	core.LazyRegister(&xVariantDictContains, "GLIB", "g_variant_dict_contains", false)
+
 	cret := xVariantDictContains(x.GoPointer(), KeyVar)
 	return cret
 }
@@ -2316,6 +2518,8 @@ var xVariantDictEnd func(uintptr) uintptr
 // #GVariantDict) or by reinitialising it with g_variant_dict_init() (in
 // the case of stack-allocated).
 func (x *VariantDict) End() *Variant {
+	core.LazyRegister(&xVariantDictEnd, "GLIB", "g_variant_dict_end", false)
+
 	cret := xVariantDictEnd(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -2342,6 +2546,8 @@ var xVariantDictInit func(uintptr, *Variant)
 // reference may try to use reference counting; you should use
 // g_variant_dict_new() instead of this function.
 func (x *VariantDict) Init(FromAsvVar *Variant) {
+	core.LazyRegister(&xVariantDictInit, "GLIB", "g_variant_dict_init", false)
+
 	xVariantDictInit(x.GoPointer(), FromAsvVar)
 }
 
@@ -2352,6 +2558,8 @@ var xVariantDictInsert func(uintptr, string, string, ...interface{})
 // This call is a convenience wrapper that is exactly equivalent to
 // calling g_variant_new() followed by g_variant_dict_insert_value().
 func (x *VariantDict) Insert(KeyVar string, FormatStringVar string, varArgs ...interface{}) {
+	core.LazyRegister(&xVariantDictInsert, "GLIB", "g_variant_dict_insert", false)
+
 	xVariantDictInsert(x.GoPointer(), KeyVar, FormatStringVar, varArgs...)
 }
 
@@ -2361,6 +2569,8 @@ var xVariantDictInsertValue func(uintptr, string, *Variant)
 //
 // @value is consumed if it is floating.
 func (x *VariantDict) InsertValue(KeyVar string, ValueVar *Variant) {
+	core.LazyRegister(&xVariantDictInsertValue, "GLIB", "g_variant_dict_insert_value", false)
+
 	xVariantDictInsertValue(x.GoPointer(), KeyVar, ValueVar)
 }
 
@@ -2378,6 +2588,8 @@ var xVariantDictLookup func(uintptr, string, string, ...interface{}) bool
 // values and also determines if the values are copied or borrowed, see the
 // section on [`GVariant` format strings](gvariant-format-strings.html#pointers).
 func (x *VariantDict) Lookup(KeyVar string, FormatStringVar string, varArgs ...interface{}) bool {
+	core.LazyRegister(&xVariantDictLookup, "GLIB", "g_variant_dict_lookup", false)
+
 	cret := xVariantDictLookup(x.GoPointer(), KeyVar, FormatStringVar, varArgs...)
 	return cret
 }
@@ -2396,6 +2608,8 @@ var xVariantDictLookupValue func(uintptr, string, *VariantType) uintptr
 // returned.  If @expected_type was specified then any non-%NULL return
 // value will have this type.
 func (x *VariantDict) LookupValue(KeyVar string, ExpectedTypeVar *VariantType) *Variant {
+	core.LazyRegister(&xVariantDictLookupValue, "GLIB", "g_variant_dict_lookup_value", false)
+
 	cret := xVariantDictLookupValue(x.GoPointer(), KeyVar, ExpectedTypeVar)
 	if cret == 0 {
 		return nil
@@ -2410,6 +2624,8 @@ var xVariantDictRef func(uintptr) uintptr
 // Don't call this on stack-allocated #GVariantDict instances or bad
 // things will happen.
 func (x *VariantDict) Ref() *VariantDict {
+	core.LazyRegister(&xVariantDictRef, "GLIB", "g_variant_dict_ref", false)
+
 	cret := xVariantDictRef(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -2421,6 +2637,8 @@ var xVariantDictRemove func(uintptr, string) bool
 
 // Removes a key and its associated value from a #GVariantDict.
 func (x *VariantDict) Remove(KeyVar string) bool {
+	core.LazyRegister(&xVariantDictRemove, "GLIB", "g_variant_dict_remove", false)
+
 	cret := xVariantDictRemove(x.GoPointer(), KeyVar)
 	return cret
 }
@@ -2435,6 +2653,8 @@ var xVariantDictUnref func(uintptr)
 // Don't call this on stack-allocated #GVariantDict instances or bad
 // things will happen.
 func (x *VariantDict) Unref() {
+	core.LazyRegister(&xVariantDictUnref, "GLIB", "g_variant_dict_unref", false)
+
 	xVariantDictUnref(x.GoPointer())
 }
 
@@ -2471,6 +2691,8 @@ var xVariantIterCopy func(uintptr) uintptr
 // A reference is taken to the container that @iter is iterating over
 // and will be related only when g_variant_iter_free() is called.
 func (x *VariantIter) Copy() *VariantIter {
+	core.LazyRegister(&xVariantIterCopy, "GLIB", "g_variant_iter_copy", false)
+
 	cret := xVariantIterCopy(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -2484,6 +2706,8 @@ var xVariantIterFree func(uintptr)
 // iterators that were returned by g_variant_iter_new() or
 // g_variant_iter_copy().
 func (x *VariantIter) Free() {
+	core.LazyRegister(&xVariantIterFree, "GLIB", "g_variant_iter_free", false)
+
 	xVariantIterFree(x.GoPointer())
 }
 
@@ -2496,6 +2720,8 @@ var xVariantIterInit func(uintptr, *Variant) uint
 // The iterator remains valid for as long as @value exists, and need not
 // be freed in any way.
 func (x *VariantIter) Init(ValueVar *Variant) uint {
+	core.LazyRegister(&xVariantIterInit, "GLIB", "g_variant_iter_init", false)
+
 	cret := xVariantIterInit(x.GoPointer(), ValueVar)
 	return cret
 }
@@ -2567,6 +2793,8 @@ var xVariantIterLoop func(uintptr, string, ...interface{}) bool
 // See the section on
 // [`GVariant` format strings](gvariant-format-strings.html#pointers).
 func (x *VariantIter) Loop(FormatStringVar string, varArgs ...interface{}) bool {
+	core.LazyRegister(&xVariantIterLoop, "GLIB", "g_variant_iter_loop", false)
+
 	cret := xVariantIterLoop(x.GoPointer(), FormatStringVar, varArgs...)
 	return cret
 }
@@ -2579,6 +2807,8 @@ var xVariantIterNChildren func(uintptr) uint
 //
 // This function might be useful for preallocation of arrays.
 func (x *VariantIter) NChildren() uint {
+	core.LazyRegister(&xVariantIterNChildren, "GLIB", "g_variant_iter_n_children", false)
+
 	cret := xVariantIterNChildren(x.GoPointer())
 	return cret
 }
@@ -2629,6 +2859,8 @@ var xVariantIterNext func(uintptr, string, ...interface{}) bool
 // See the section on
 // [`GVariant` format strings](gvariant-format-strings.html#pointers).
 func (x *VariantIter) Next(FormatStringVar string, varArgs ...interface{}) bool {
+	core.LazyRegister(&xVariantIterNext, "GLIB", "g_variant_iter_next", false)
+
 	cret := xVariantIterNext(x.GoPointer(), FormatStringVar, varArgs...)
 	return cret
 }
@@ -2665,6 +2897,8 @@ var xVariantIterNextValue func(uintptr) uintptr
 //
 // ]|
 func (x *VariantIter) NextValue() *Variant {
+	core.LazyRegister(&xVariantIterNextValue, "GLIB", "g_variant_iter_next_value", false)
+
 	cret := xVariantIterNextValue(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -2773,6 +3007,8 @@ var xVariantIsObjectPath func(string) bool
 // must contain only the characters `[A-Z][a-z][0-9]_`.  No sequence
 // (including the one following the final `/` character) may be empty.
 func VariantIsObjectPath(StringVar string) bool {
+	core.LazyRegister(&xVariantIsObjectPath, "GLIB", "g_variant_is_object_path", false)
+
 	cret := xVariantIsObjectPath(StringVar)
 	return cret
 }
@@ -2786,6 +3022,8 @@ var xVariantIsSignature func(string) bool
 // D-Bus type signatures consist of zero or more definite #GVariantType
 // strings in sequence.
 func VariantIsSignature(StringVar string) bool {
+	core.LazyRegister(&xVariantIsSignature, "GLIB", "g_variant_is_signature", false)
+
 	cret := xVariantIsSignature(StringVar)
 	return cret
 }
@@ -2829,6 +3067,7 @@ var xVariantParse func(*VariantType, string, uintptr, uintptr, **Error) uintptr
 // which would result in a %G_VARIANT_PARSE_ERROR_RECURSION error. #GVariant is
 // guaranteed to handle nesting up to at least 64 levels.
 func VariantParse(TypeVar *VariantType, TextVar string, LimitVar *string, EndptrVar *string) (*Variant, error) {
+	core.LazyRegister(&xVariantParse, "GLIB", "g_variant_parse", false)
 	var cerr *Error
 
 	LimitVarPtr := core.GStrdupNullable(LimitVar)
@@ -2883,6 +3122,8 @@ var xVariantParseErrorPrintContext func(*Error, string) string
 // g_variant_parse() then you must add nul termination before using this
 // function.
 func VariantParseErrorPrintContext(ErrorVar *Error, SourceStrVar string) string {
+	core.LazyRegister(&xVariantParseErrorPrintContext, "GLIB", "g_variant_parse_error_print_context", false)
+
 	cret := xVariantParseErrorPrintContext(ErrorVar, SourceStrVar)
 	return cret
 }
@@ -2890,146 +3131,4 @@ func VariantParseErrorPrintContext(ErrorVar *Error, SourceStrVar string) string 
 func init() {
 	core.SetPackageName("GLIB", "glib-2.0")
 	core.SetSharedLibraries("GLIB", []string{"libgobject-2.0.so.0", "libglib-2.0.so.0", "libgobject-2.0.0.dylib", "libglib-2.0.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GLIB") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xVariantIsObjectPath, libs, "g_variant_is_object_path")
-	core.PuregoSafeRegister(&xVariantIsSignature, libs, "g_variant_is_signature")
-	core.PuregoSafeRegister(&xVariantParse, libs, "g_variant_parse")
-	core.PuregoSafeRegister(&xVariantParseErrorPrintContext, libs, "g_variant_parse_error_print_context")
-
-	core.PuregoSafeRegister(&xVariantGLibType, libs, "intern")
-
-	core.PuregoSafeRegister(&xNewVariant, libs, "g_variant_new")
-	core.PuregoSafeRegister(&xNewVariantArray, libs, "g_variant_new_array")
-	core.PuregoSafeRegister(&xNewVariantBoolean, libs, "g_variant_new_boolean")
-	core.PuregoSafeRegister(&xNewVariantByte, libs, "g_variant_new_byte")
-	core.PuregoSafeRegister(&xNewVariantBytestring, libs, "g_variant_new_bytestring")
-	core.PuregoSafeRegister(&xNewVariantBytestringArray, libs, "g_variant_new_bytestring_array")
-	core.PuregoSafeRegister(&xNewVariantDictEntry, libs, "g_variant_new_dict_entry")
-	core.PuregoSafeRegister(&xNewVariantDouble, libs, "g_variant_new_double")
-	core.PuregoSafeRegister(&xNewVariantFixedArray, libs, "g_variant_new_fixed_array")
-	core.PuregoSafeRegister(&xNewVariantFromBytes, libs, "g_variant_new_from_bytes")
-	core.PuregoSafeRegister(&xNewVariantFromData, libs, "g_variant_new_from_data")
-	core.PuregoSafeRegister(&xNewVariantHandle, libs, "g_variant_new_handle")
-	core.PuregoSafeRegister(&xNewVariantInt16, libs, "g_variant_new_int16")
-	core.PuregoSafeRegister(&xNewVariantInt32, libs, "g_variant_new_int32")
-	core.PuregoSafeRegister(&xNewVariantInt64, libs, "g_variant_new_int64")
-	core.PuregoSafeRegister(&xNewVariantMaybe, libs, "g_variant_new_maybe")
-	core.PuregoSafeRegister(&xNewVariantObjectPath, libs, "g_variant_new_object_path")
-	core.PuregoSafeRegister(&xNewVariantObjv, libs, "g_variant_new_objv")
-	core.PuregoSafeRegister(&xNewVariantParsed, libs, "g_variant_new_parsed")
-	core.PuregoSafeRegister(&xNewVariantParsedVa, libs, "g_variant_new_parsed_va")
-	core.PuregoSafeRegister(&xNewVariantPrintf, libs, "g_variant_new_printf")
-	core.PuregoSafeRegister(&xNewVariantSignature, libs, "g_variant_new_signature")
-	core.PuregoSafeRegister(&xNewVariantString, libs, "g_variant_new_string")
-	core.PuregoSafeRegister(&xNewVariantStrv, libs, "g_variant_new_strv")
-	core.PuregoSafeRegister(&xNewVariantTakeString, libs, "g_variant_new_take_string")
-	core.PuregoSafeRegister(&xNewVariantTuple, libs, "g_variant_new_tuple")
-	core.PuregoSafeRegister(&xNewVariantUint16, libs, "g_variant_new_uint16")
-	core.PuregoSafeRegister(&xNewVariantUint32, libs, "g_variant_new_uint32")
-	core.PuregoSafeRegister(&xNewVariantUint64, libs, "g_variant_new_uint64")
-	core.PuregoSafeRegister(&xNewVariantVa, libs, "g_variant_new_va")
-	core.PuregoSafeRegister(&xNewVariantVariant, libs, "g_variant_new_variant")
-
-	core.PuregoSafeRegister(&xVariantByteswap, libs, "g_variant_byteswap")
-	core.PuregoSafeRegister(&xVariantCheckFormatString, libs, "g_variant_check_format_string")
-	core.PuregoSafeRegister(&xVariantClassify, libs, "g_variant_classify")
-	core.PuregoSafeRegister(&xVariantCompare, libs, "g_variant_compare")
-	core.PuregoSafeRegister(&xVariantDupBytestring, libs, "g_variant_dup_bytestring")
-	core.PuregoSafeRegister(&xVariantDupBytestringArray, libs, "g_variant_dup_bytestring_array")
-	core.PuregoSafeRegister(&xVariantDupObjv, libs, "g_variant_dup_objv")
-	core.PuregoSafeRegister(&xVariantDupString, libs, "g_variant_dup_string")
-	core.PuregoSafeRegister(&xVariantDupStrv, libs, "g_variant_dup_strv")
-	core.PuregoSafeRegister(&xVariantEqual, libs, "g_variant_equal")
-	core.PuregoSafeRegister(&xVariantGet, libs, "g_variant_get")
-	core.PuregoSafeRegister(&xVariantGetBoolean, libs, "g_variant_get_boolean")
-	core.PuregoSafeRegister(&xVariantGetByte, libs, "g_variant_get_byte")
-	core.PuregoSafeRegister(&xVariantGetBytestring, libs, "g_variant_get_bytestring")
-	core.PuregoSafeRegister(&xVariantGetBytestringArray, libs, "g_variant_get_bytestring_array")
-	core.PuregoSafeRegister(&xVariantGetChild, libs, "g_variant_get_child")
-	core.PuregoSafeRegister(&xVariantGetChildValue, libs, "g_variant_get_child_value")
-	core.PuregoSafeRegister(&xVariantGetData, libs, "g_variant_get_data")
-	core.PuregoSafeRegister(&xVariantGetDataAsBytes, libs, "g_variant_get_data_as_bytes")
-	core.PuregoSafeRegister(&xVariantGetDouble, libs, "g_variant_get_double")
-	core.PuregoSafeRegister(&xVariantGetFixedArray, libs, "g_variant_get_fixed_array")
-	core.PuregoSafeRegister(&xVariantGetHandle, libs, "g_variant_get_handle")
-	core.PuregoSafeRegister(&xVariantGetInt16, libs, "g_variant_get_int16")
-	core.PuregoSafeRegister(&xVariantGetInt32, libs, "g_variant_get_int32")
-	core.PuregoSafeRegister(&xVariantGetInt64, libs, "g_variant_get_int64")
-	core.PuregoSafeRegister(&xVariantGetMaybe, libs, "g_variant_get_maybe")
-	core.PuregoSafeRegister(&xVariantGetNormalForm, libs, "g_variant_get_normal_form")
-	core.PuregoSafeRegister(&xVariantGetObjv, libs, "g_variant_get_objv")
-	core.PuregoSafeRegister(&xVariantGetSize, libs, "g_variant_get_size")
-	core.PuregoSafeRegister(&xVariantGetString, libs, "g_variant_get_string")
-	core.PuregoSafeRegister(&xVariantGetStrv, libs, "g_variant_get_strv")
-	core.PuregoSafeRegister(&xVariantGetType, libs, "g_variant_get_type")
-	core.PuregoSafeRegister(&xVariantGetTypeString, libs, "g_variant_get_type_string")
-	core.PuregoSafeRegister(&xVariantGetUint16, libs, "g_variant_get_uint16")
-	core.PuregoSafeRegister(&xVariantGetUint32, libs, "g_variant_get_uint32")
-	core.PuregoSafeRegister(&xVariantGetUint64, libs, "g_variant_get_uint64")
-	core.PuregoSafeRegister(&xVariantGetVa, libs, "g_variant_get_va")
-	core.PuregoSafeRegister(&xVariantGetVariant, libs, "g_variant_get_variant")
-	core.PuregoSafeRegister(&xVariantHash, libs, "g_variant_hash")
-	core.PuregoSafeRegister(&xVariantIsContainer, libs, "g_variant_is_container")
-	core.PuregoSafeRegister(&xVariantIsFloating, libs, "g_variant_is_floating")
-	core.PuregoSafeRegister(&xVariantIsNormalForm, libs, "g_variant_is_normal_form")
-	core.PuregoSafeRegister(&xVariantIsOfType, libs, "g_variant_is_of_type")
-	core.PuregoSafeRegister(&xVariantIterNew, libs, "g_variant_iter_new")
-	core.PuregoSafeRegister(&xVariantLookup, libs, "g_variant_lookup")
-	core.PuregoSafeRegister(&xVariantLookupValue, libs, "g_variant_lookup_value")
-	core.PuregoSafeRegister(&xVariantNChildren, libs, "g_variant_n_children")
-	core.PuregoSafeRegister(&xVariantPrint, libs, "g_variant_print")
-	core.PuregoSafeRegister(&xVariantPrintString, libs, "g_variant_print_string")
-	core.PuregoSafeRegister(&xVariantRef, libs, "g_variant_ref")
-	core.PuregoSafeRegister(&xVariantRefSink, libs, "g_variant_ref_sink")
-	core.PuregoSafeRegister(&xVariantStore, libs, "g_variant_store")
-	core.PuregoSafeRegister(&xVariantTakeRef, libs, "g_variant_take_ref")
-	core.PuregoSafeRegister(&xVariantUnref, libs, "g_variant_unref")
-
-	core.PuregoSafeRegister(&xVariantBuilderGLibType, libs, "g_variant_builder_get_type")
-
-	core.PuregoSafeRegister(&xNewVariantBuilder, libs, "g_variant_builder_new")
-
-	core.PuregoSafeRegister(&xVariantBuilderAdd, libs, "g_variant_builder_add")
-	core.PuregoSafeRegister(&xVariantBuilderAddParsed, libs, "g_variant_builder_add_parsed")
-	core.PuregoSafeRegister(&xVariantBuilderAddValue, libs, "g_variant_builder_add_value")
-	core.PuregoSafeRegister(&xVariantBuilderClear, libs, "g_variant_builder_clear")
-	core.PuregoSafeRegister(&xVariantBuilderClose, libs, "g_variant_builder_close")
-	core.PuregoSafeRegister(&xVariantBuilderEnd, libs, "g_variant_builder_end")
-	core.PuregoSafeRegister(&xVariantBuilderInit, libs, "g_variant_builder_init")
-	core.PuregoSafeRegister(&xVariantBuilderInitStatic, libs, "g_variant_builder_init_static")
-	core.PuregoSafeRegister(&xVariantBuilderOpen, libs, "g_variant_builder_open")
-	core.PuregoSafeRegister(&xVariantBuilderRef, libs, "g_variant_builder_ref")
-	core.PuregoSafeRegister(&xVariantBuilderUnref, libs, "g_variant_builder_unref")
-
-	core.PuregoSafeRegister(&xVariantDictGLibType, libs, "g_variant_dict_get_type")
-
-	core.PuregoSafeRegister(&xNewVariantDict, libs, "g_variant_dict_new")
-
-	core.PuregoSafeRegister(&xVariantDictClear, libs, "g_variant_dict_clear")
-	core.PuregoSafeRegister(&xVariantDictContains, libs, "g_variant_dict_contains")
-	core.PuregoSafeRegister(&xVariantDictEnd, libs, "g_variant_dict_end")
-	core.PuregoSafeRegister(&xVariantDictInit, libs, "g_variant_dict_init")
-	core.PuregoSafeRegister(&xVariantDictInsert, libs, "g_variant_dict_insert")
-	core.PuregoSafeRegister(&xVariantDictInsertValue, libs, "g_variant_dict_insert_value")
-	core.PuregoSafeRegister(&xVariantDictLookup, libs, "g_variant_dict_lookup")
-	core.PuregoSafeRegister(&xVariantDictLookupValue, libs, "g_variant_dict_lookup_value")
-	core.PuregoSafeRegister(&xVariantDictRef, libs, "g_variant_dict_ref")
-	core.PuregoSafeRegister(&xVariantDictRemove, libs, "g_variant_dict_remove")
-	core.PuregoSafeRegister(&xVariantDictUnref, libs, "g_variant_dict_unref")
-
-	core.PuregoSafeRegister(&xVariantIterCopy, libs, "g_variant_iter_copy")
-	core.PuregoSafeRegister(&xVariantIterFree, libs, "g_variant_iter_free")
-	core.PuregoSafeRegister(&xVariantIterInit, libs, "g_variant_iter_init")
-	core.PuregoSafeRegister(&xVariantIterLoop, libs, "g_variant_iter_loop")
-	core.PuregoSafeRegister(&xVariantIterNChildren, libs, "g_variant_iter_n_children")
-	core.PuregoSafeRegister(&xVariantIterNext, libs, "g_variant_iter_next")
-	core.PuregoSafeRegister(&xVariantIterNextValue, libs, "g_variant_iter_next_value")
 }

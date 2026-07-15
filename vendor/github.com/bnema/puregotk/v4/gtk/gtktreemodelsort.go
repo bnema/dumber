@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gdk"
 	"github.com/bnema/puregotk/v4/glib"
@@ -156,6 +155,7 @@ type TreeModelSort struct {
 var xTreeModelSortGLibType func() types.GType
 
 func TreeModelSortGLibType() types.GType {
+	core.LazyRegister(&xTreeModelSortGLibType, "GTK", "gtk_tree_model_sort_get_type", false)
 	return xTreeModelSortGLibType()
 }
 
@@ -169,6 +169,7 @@ var xNewTreeModelSortWithModel func(uintptr) uintptr
 
 // Creates a new `GtkTreeModelSort`, with @child_model as the child model.
 func NewTreeModelSortWithModel(ChildModelVar TreeModel) *TreeModelSort {
+	core.LazyRegister(&xNewTreeModelSortWithModel, "GTK", "gtk_tree_model_sort_new_with_model", false)
 	var cls *TreeModelSort
 
 	cret := xNewTreeModelSortWithModel(ChildModelVar.GoPointer())
@@ -190,6 +191,8 @@ var xTreeModelSortClearCache func(uintptr)
 // unreffed access to nodes.  As a side effect of this function, all unreffed
 // iters will be invalid.
 func (x *TreeModelSort) ClearCache() {
+	core.LazyRegister(&xTreeModelSortClearCache, "GTK", "gtk_tree_model_sort_clear_cache", false)
+
 	xTreeModelSortClearCache(x.GoPointer())
 }
 
@@ -199,6 +202,8 @@ var xTreeModelSortConvertChildIterToIter func(uintptr, *TreeIter, *TreeIter) boo
 // the row pointed at by @child_iter.  If @sort_iter was not set, %FALSE
 // is returned.  Note: a boolean is only returned since 2.14.
 func (x *TreeModelSort) ConvertChildIterToIter(SortIterVar *TreeIter, ChildIterVar *TreeIter) bool {
+	core.LazyRegister(&xTreeModelSortConvertChildIterToIter, "GTK", "gtk_tree_model_sort_convert_child_iter_to_iter", false)
+
 	cret := xTreeModelSortConvertChildIterToIter(x.GoPointer(), SortIterVar, ChildIterVar)
 	return cret
 }
@@ -210,6 +215,8 @@ var xTreeModelSortConvertChildPathToPath func(uintptr, *TreePath) uintptr
 // point to the same row in the sorted model.  If @child_path isn’t a valid
 // path on the child model, then %NULL is returned.
 func (x *TreeModelSort) ConvertChildPathToPath(ChildPathVar *TreePath) *TreePath {
+	core.LazyRegister(&xTreeModelSortConvertChildPathToPath, "GTK", "gtk_tree_model_sort_convert_child_path_to_path", false)
+
 	cret := xTreeModelSortConvertChildPathToPath(x.GoPointer(), ChildPathVar)
 	if cret == 0 {
 		return nil
@@ -221,6 +228,8 @@ var xTreeModelSortConvertIterToChildIter func(uintptr, *TreeIter, *TreeIter)
 
 // Sets @child_iter to point to the row pointed to by @sorted_iter.
 func (x *TreeModelSort) ConvertIterToChildIter(ChildIterVar *TreeIter, SortedIterVar *TreeIter) {
+	core.LazyRegister(&xTreeModelSortConvertIterToChildIter, "GTK", "gtk_tree_model_sort_convert_iter_to_child_iter", false)
+
 	xTreeModelSortConvertIterToChildIter(x.GoPointer(), ChildIterVar, SortedIterVar)
 }
 
@@ -232,6 +241,8 @@ var xTreeModelSortConvertPathToChildPath func(uintptr, *TreePath) uintptr
 // sorted.  If @sorted_path does not point to a location in the child model,
 // %NULL is returned.
 func (x *TreeModelSort) ConvertPathToChildPath(SortedPathVar *TreePath) *TreePath {
+	core.LazyRegister(&xTreeModelSortConvertPathToChildPath, "GTK", "gtk_tree_model_sort_convert_path_to_child_path", false)
+
 	cret := xTreeModelSortConvertPathToChildPath(x.GoPointer(), SortedPathVar)
 	if cret == 0 {
 		return nil
@@ -243,6 +254,7 @@ var xTreeModelSortGetModel func(uintptr) uintptr
 
 // Returns the model the `GtkTreeModelSort` is sorting.
 func (x *TreeModelSort) GetModel() *TreeModelBase {
+	core.LazyRegister(&xTreeModelSortGetModel, "GTK", "gtk_tree_model_sort_get_model", false)
 	var cls *TreeModelBase
 
 	cret := xTreeModelSortGetModel(x.GoPointer())
@@ -263,6 +275,8 @@ var xTreeModelSortIterIsValid func(uintptr, *TreeIter) bool
 //
 // Checks if the given iter is a valid iter for this `GtkTreeModelSort`.
 func (x *TreeModelSort) IterIsValid(IterVar *TreeIter) bool {
+	core.LazyRegister(&xTreeModelSortIterIsValid, "GTK", "gtk_tree_model_sort_iter_is_valid", false)
+
 	cret := xTreeModelSortIterIsValid(x.GoPointer(), IterVar)
 	return cret
 }
@@ -274,6 +288,8 @@ var xTreeModelSortResetDefaultSortFunc func(uintptr)
 // to be in the same order as the child model only if the `GtkTreeModelSort`
 // is in “unsorted” state.
 func (x *TreeModelSort) ResetDefaultSortFunc() {
+	core.LazyRegister(&xTreeModelSortResetDefaultSortFunc, "GTK", "gtk_tree_model_sort_reset_default_sort_func", false)
+
 	xTreeModelSortResetDefaultSortFunc(x.GoPointer())
 }
 
@@ -669,25 +685,4 @@ func (x *TreeModelSort) SortColumnChanged() {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GTK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xTreeModelSortGLibType, libs, "gtk_tree_model_sort_get_type")
-
-	core.PuregoSafeRegister(&xNewTreeModelSortWithModel, libs, "gtk_tree_model_sort_new_with_model")
-
-	core.PuregoSafeRegister(&xTreeModelSortClearCache, libs, "gtk_tree_model_sort_clear_cache")
-	core.PuregoSafeRegister(&xTreeModelSortConvertChildIterToIter, libs, "gtk_tree_model_sort_convert_child_iter_to_iter")
-	core.PuregoSafeRegister(&xTreeModelSortConvertChildPathToPath, libs, "gtk_tree_model_sort_convert_child_path_to_path")
-	core.PuregoSafeRegister(&xTreeModelSortConvertIterToChildIter, libs, "gtk_tree_model_sort_convert_iter_to_child_iter")
-	core.PuregoSafeRegister(&xTreeModelSortConvertPathToChildPath, libs, "gtk_tree_model_sort_convert_path_to_child_path")
-	core.PuregoSafeRegister(&xTreeModelSortGetModel, libs, "gtk_tree_model_sort_get_model")
-	core.PuregoSafeRegister(&xTreeModelSortIterIsValid, libs, "gtk_tree_model_sort_iter_is_valid")
-	core.PuregoSafeRegister(&xTreeModelSortResetDefaultSortFunc, libs, "gtk_tree_model_sort_reset_default_sort_func")
 }

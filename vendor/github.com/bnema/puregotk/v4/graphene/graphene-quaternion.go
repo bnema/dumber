@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject/types"
 )
@@ -29,6 +28,7 @@ type Quaternion struct {
 var xQuaternionGLibType func() types.GType
 
 func QuaternionGLibType() types.GType {
+	core.LazyRegister(&xQuaternionGLibType, "GRAPHENE", "graphene_quaternion_get_type", false)
 	return xQuaternionGLibType()
 }
 
@@ -50,6 +50,8 @@ var xQuaternionAlloc func() uintptr
 //
 // The contents of the returned value are undefined.
 func QuaternionAlloc() *Quaternion {
+	core.LazyRegister(&xQuaternionAlloc, "GRAPHENE", "graphene_quaternion_alloc", false)
+
 	cret := xQuaternionAlloc()
 	if cret == 0 {
 		return nil
@@ -61,6 +63,8 @@ var xQuaternionAdd func(uintptr, *Quaternion, *Quaternion)
 
 // Adds two #graphene_quaternion_t @a and @b.
 func (x *Quaternion) Add(BVar *Quaternion, ResVar *Quaternion) {
+	core.LazyRegister(&xQuaternionAdd, "GRAPHENE", "graphene_quaternion_add", false)
+
 	xQuaternionAdd(x.GoPointer(), BVar, ResVar)
 }
 
@@ -68,6 +72,8 @@ var xQuaternionDot func(uintptr, *Quaternion) float32
 
 // Computes the dot product of two #graphene_quaternion_t.
 func (x *Quaternion) Dot(BVar *Quaternion) float32 {
+	core.LazyRegister(&xQuaternionDot, "GRAPHENE", "graphene_quaternion_dot", false)
+
 	cret := xQuaternionDot(x.GoPointer(), BVar)
 	return cret
 }
@@ -76,6 +82,8 @@ var xQuaternionEqual func(uintptr, *Quaternion) bool
 
 // Checks whether the given quaternions are equal.
 func (x *Quaternion) Equal(BVar *Quaternion) bool {
+	core.LazyRegister(&xQuaternionEqual, "GRAPHENE", "graphene_quaternion_equal", false)
+
 	cret := xQuaternionEqual(x.GoPointer(), BVar)
 	return cret
 }
@@ -84,6 +92,8 @@ var xQuaternionFree func(uintptr)
 
 // Releases the resources allocated by graphene_quaternion_alloc().
 func (x *Quaternion) Free() {
+	core.LazyRegister(&xQuaternionFree, "GRAPHENE", "graphene_quaternion_free", false)
+
 	xQuaternionFree(x.GoPointer())
 }
 
@@ -91,6 +101,8 @@ var xQuaternionInit func(uintptr, float32, float32, float32, float32) uintptr
 
 // Initializes a #graphene_quaternion_t using the given four values.
 func (x *Quaternion) Init(XVar float32, YVar float32, ZVar float32, WVar float32) *Quaternion {
+	core.LazyRegister(&xQuaternionInit, "GRAPHENE", "graphene_quaternion_init", false)
+
 	cret := xQuaternionInit(x.GoPointer(), XVar, YVar, ZVar, WVar)
 	if cret == 0 {
 		return nil
@@ -103,6 +115,8 @@ var xQuaternionInitFromAngleVec3 func(uintptr, float32, *Vec3) uintptr
 // Initializes a #graphene_quaternion_t using an @angle on a
 // specific @axis.
 func (x *Quaternion) InitFromAngleVec3(AngleVar float32, AxisVar *Vec3) *Quaternion {
+	core.LazyRegister(&xQuaternionInitFromAngleVec3, "GRAPHENE", "graphene_quaternion_init_from_angle_vec3", false)
+
 	cret := xQuaternionInitFromAngleVec3(x.GoPointer(), AngleVar, AxisVar)
 	if cret == 0 {
 		return nil
@@ -118,6 +132,8 @@ var xQuaternionInitFromAngles func(uintptr, float32, float32, float32) uintptr
 //
 // See also: graphene_quaternion_init_from_euler()
 func (x *Quaternion) InitFromAngles(DegXVar float32, DegYVar float32, DegZVar float32) *Quaternion {
+	core.LazyRegister(&xQuaternionInitFromAngles, "GRAPHENE", "graphene_quaternion_init_from_angles", false)
+
 	cret := xQuaternionInitFromAngles(x.GoPointer(), DegXVar, DegYVar, DegZVar)
 	if cret == 0 {
 		return nil
@@ -129,6 +145,8 @@ var xQuaternionInitFromEuler func(uintptr, *Euler) uintptr
 
 // Initializes a #graphene_quaternion_t using the given #graphene_euler_t.
 func (x *Quaternion) InitFromEuler(EVar *Euler) *Quaternion {
+	core.LazyRegister(&xQuaternionInitFromEuler, "GRAPHENE", "graphene_quaternion_init_from_euler", false)
+
 	cret := xQuaternionInitFromEuler(x.GoPointer(), EVar)
 	if cret == 0 {
 		return nil
@@ -141,6 +159,8 @@ var xQuaternionInitFromMatrix func(uintptr, *Matrix) uintptr
 // Initializes a #graphene_quaternion_t using the rotation components
 // of a transformation matrix.
 func (x *Quaternion) InitFromMatrix(MVar *Matrix) *Quaternion {
+	core.LazyRegister(&xQuaternionInitFromMatrix, "GRAPHENE", "graphene_quaternion_init_from_matrix", false)
+
 	cret := xQuaternionInitFromMatrix(x.GoPointer(), MVar)
 	if cret == 0 {
 		return nil
@@ -152,6 +172,8 @@ var xQuaternionInitFromQuaternion func(uintptr, *Quaternion) uintptr
 
 // Initializes a #graphene_quaternion_t with the values from @src.
 func (x *Quaternion) InitFromQuaternion(SrcVar *Quaternion) *Quaternion {
+	core.LazyRegister(&xQuaternionInitFromQuaternion, "GRAPHENE", "graphene_quaternion_init_from_quaternion", false)
+
 	cret := xQuaternionInitFromQuaternion(x.GoPointer(), SrcVar)
 	if cret == 0 {
 		return nil
@@ -167,6 +189,8 @@ var xQuaternionInitFromRadians func(uintptr, float32, float32, float32) uintptr
 //
 // See also: graphene_quaternion_init_from_euler()
 func (x *Quaternion) InitFromRadians(RadXVar float32, RadYVar float32, RadZVar float32) *Quaternion {
+	core.LazyRegister(&xQuaternionInitFromRadians, "GRAPHENE", "graphene_quaternion_init_from_radians", false)
+
 	cret := xQuaternionInitFromRadians(x.GoPointer(), RadXVar, RadYVar, RadZVar)
 	if cret == 0 {
 		return nil
@@ -178,6 +202,8 @@ var xQuaternionInitFromVec4 func(uintptr, *Vec4) uintptr
 
 // Initializes a #graphene_quaternion_t with the values from @src.
 func (x *Quaternion) InitFromVec4(SrcVar *Vec4) *Quaternion {
+	core.LazyRegister(&xQuaternionInitFromVec4, "GRAPHENE", "graphene_quaternion_init_from_vec4", false)
+
 	cret := xQuaternionInitFromVec4(x.GoPointer(), SrcVar)
 	if cret == 0 {
 		return nil
@@ -190,6 +216,8 @@ var xQuaternionInitIdentity func(uintptr) uintptr
 // Initializes a #graphene_quaternion_t using the identity
 // transformation.
 func (x *Quaternion) InitIdentity() *Quaternion {
+	core.LazyRegister(&xQuaternionInitIdentity, "GRAPHENE", "graphene_quaternion_init_identity", false)
+
 	cret := xQuaternionInitIdentity(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -202,6 +230,8 @@ var xQuaternionInvert func(uintptr, *Quaternion)
 // Inverts a #graphene_quaternion_t, and returns the conjugate
 // quaternion of @q.
 func (x *Quaternion) Invert(ResVar *Quaternion) {
+	core.LazyRegister(&xQuaternionInvert, "GRAPHENE", "graphene_quaternion_invert", false)
+
 	xQuaternionInvert(x.GoPointer(), ResVar)
 }
 
@@ -209,6 +239,8 @@ var xQuaternionMultiply func(uintptr, *Quaternion, *Quaternion)
 
 // Multiplies two #graphene_quaternion_t @a and @b.
 func (x *Quaternion) Multiply(BVar *Quaternion, ResVar *Quaternion) {
+	core.LazyRegister(&xQuaternionMultiply, "GRAPHENE", "graphene_quaternion_multiply", false)
+
 	xQuaternionMultiply(x.GoPointer(), BVar, ResVar)
 }
 
@@ -216,6 +248,8 @@ var xQuaternionNormalize func(uintptr, *Quaternion)
 
 // Normalizes a #graphene_quaternion_t.
 func (x *Quaternion) Normalize(ResVar *Quaternion) {
+	core.LazyRegister(&xQuaternionNormalize, "GRAPHENE", "graphene_quaternion_normalize", false)
+
 	xQuaternionNormalize(x.GoPointer(), ResVar)
 }
 
@@ -224,6 +258,8 @@ var xQuaternionScale func(uintptr, float32, *Quaternion)
 // Scales all the elements of a #graphene_quaternion_t @q using
 // the given scalar factor.
 func (x *Quaternion) Scale(FactorVar float32, ResVar *Quaternion) {
+	core.LazyRegister(&xQuaternionScale, "GRAPHENE", "graphene_quaternion_scale", false)
+
 	xQuaternionScale(x.GoPointer(), FactorVar, ResVar)
 }
 
@@ -233,6 +269,8 @@ var xQuaternionSlerp func(uintptr, *Quaternion, float32, *Quaternion)
 // linear interpolation, or [SLERP](http://en.wikipedia.org/wiki/Slerp),
 // using the given interpolation @factor.
 func (x *Quaternion) Slerp(BVar *Quaternion, FactorVar float32, ResVar *Quaternion) {
+	core.LazyRegister(&xQuaternionSlerp, "GRAPHENE", "graphene_quaternion_slerp", false)
+
 	xQuaternionSlerp(x.GoPointer(), BVar, FactorVar, ResVar)
 }
 
@@ -240,6 +278,8 @@ var xQuaternionToAngleVec3 func(uintptr, *float32, *Vec3)
 
 // Converts a quaternion into an @angle, @axis pair.
 func (x *Quaternion) ToAngleVec3(AngleVar *float32, AxisVar *Vec3) {
+	core.LazyRegister(&xQuaternionToAngleVec3, "GRAPHENE", "graphene_quaternion_to_angle_vec3", false)
+
 	xQuaternionToAngleVec3(x.GoPointer(), AngleVar, AxisVar)
 }
 
@@ -249,6 +289,8 @@ var xQuaternionToAngles func(uintptr, *float32, *float32, *float32)
 // on the [Euler angles](http://en.wikipedia.org/wiki/Euler_angles)
 // on each axis.
 func (x *Quaternion) ToAngles(DegXVar *float32, DegYVar *float32, DegZVar *float32) {
+	core.LazyRegister(&xQuaternionToAngles, "GRAPHENE", "graphene_quaternion_to_angles", false)
+
 	xQuaternionToAngles(x.GoPointer(), DegXVar, DegYVar, DegZVar)
 }
 
@@ -257,6 +299,8 @@ var xQuaternionToMatrix func(uintptr, *Matrix)
 // Converts a quaternion into a transformation matrix expressing
 // the rotation defined by the #graphene_quaternion_t.
 func (x *Quaternion) ToMatrix(MVar *Matrix) {
+	core.LazyRegister(&xQuaternionToMatrix, "GRAPHENE", "graphene_quaternion_to_matrix", false)
+
 	xQuaternionToMatrix(x.GoPointer(), MVar)
 }
 
@@ -266,6 +310,8 @@ var xQuaternionToRadians func(uintptr, *float32, *float32, *float32)
 // on the [Euler angles](http://en.wikipedia.org/wiki/Euler_angles)
 // on each axis.
 func (x *Quaternion) ToRadians(RadXVar *float32, RadYVar *float32, RadZVar *float32) {
+	core.LazyRegister(&xQuaternionToRadians, "GRAPHENE", "graphene_quaternion_to_radians", false)
+
 	xQuaternionToRadians(x.GoPointer(), RadXVar, RadYVar, RadZVar)
 }
 
@@ -274,46 +320,12 @@ var xQuaternionToVec4 func(uintptr, *Vec4)
 // Copies the components of a #graphene_quaternion_t into a
 // #graphene_vec4_t.
 func (x *Quaternion) ToVec4(ResVar *Vec4) {
+	core.LazyRegister(&xQuaternionToVec4, "GRAPHENE", "graphene_quaternion_to_vec4", false)
+
 	xQuaternionToVec4(x.GoPointer(), ResVar)
 }
 
 func init() {
 	core.SetPackageName("GRAPHENE", "graphene-gobject-1.0")
 	core.SetSharedLibraries("GRAPHENE", []string{"libgraphene-1.0.so.0", "libgraphene-1.0.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GRAPHENE") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xQuaternionGLibType, libs, "graphene_quaternion_get_type")
-
-	core.PuregoSafeRegister(&xQuaternionAlloc, libs, "graphene_quaternion_alloc")
-
-	core.PuregoSafeRegister(&xQuaternionAdd, libs, "graphene_quaternion_add")
-	core.PuregoSafeRegister(&xQuaternionDot, libs, "graphene_quaternion_dot")
-	core.PuregoSafeRegister(&xQuaternionEqual, libs, "graphene_quaternion_equal")
-	core.PuregoSafeRegister(&xQuaternionFree, libs, "graphene_quaternion_free")
-	core.PuregoSafeRegister(&xQuaternionInit, libs, "graphene_quaternion_init")
-	core.PuregoSafeRegister(&xQuaternionInitFromAngleVec3, libs, "graphene_quaternion_init_from_angle_vec3")
-	core.PuregoSafeRegister(&xQuaternionInitFromAngles, libs, "graphene_quaternion_init_from_angles")
-	core.PuregoSafeRegister(&xQuaternionInitFromEuler, libs, "graphene_quaternion_init_from_euler")
-	core.PuregoSafeRegister(&xQuaternionInitFromMatrix, libs, "graphene_quaternion_init_from_matrix")
-	core.PuregoSafeRegister(&xQuaternionInitFromQuaternion, libs, "graphene_quaternion_init_from_quaternion")
-	core.PuregoSafeRegister(&xQuaternionInitFromRadians, libs, "graphene_quaternion_init_from_radians")
-	core.PuregoSafeRegister(&xQuaternionInitFromVec4, libs, "graphene_quaternion_init_from_vec4")
-	core.PuregoSafeRegister(&xQuaternionInitIdentity, libs, "graphene_quaternion_init_identity")
-	core.PuregoSafeRegister(&xQuaternionInvert, libs, "graphene_quaternion_invert")
-	core.PuregoSafeRegister(&xQuaternionMultiply, libs, "graphene_quaternion_multiply")
-	core.PuregoSafeRegister(&xQuaternionNormalize, libs, "graphene_quaternion_normalize")
-	core.PuregoSafeRegister(&xQuaternionScale, libs, "graphene_quaternion_scale")
-	core.PuregoSafeRegister(&xQuaternionSlerp, libs, "graphene_quaternion_slerp")
-	core.PuregoSafeRegister(&xQuaternionToAngleVec3, libs, "graphene_quaternion_to_angle_vec3")
-	core.PuregoSafeRegister(&xQuaternionToAngles, libs, "graphene_quaternion_to_angles")
-	core.PuregoSafeRegister(&xQuaternionToMatrix, libs, "graphene_quaternion_to_matrix")
-	core.PuregoSafeRegister(&xQuaternionToRadians, libs, "graphene_quaternion_to_radians")
-	core.PuregoSafeRegister(&xQuaternionToVec4, libs, "graphene_quaternion_to_vec4")
 }

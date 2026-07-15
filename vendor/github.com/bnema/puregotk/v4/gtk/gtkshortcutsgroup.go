@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -50,6 +49,7 @@ type ShortcutsGroup struct {
 var xShortcutsGroupGLibType func() types.GType
 
 func ShortcutsGroupGLibType() types.GType {
+	core.LazyRegister(&xShortcutsGroupGLibType, "GTK", "gtk_shortcuts_group_get_type", false)
 	return xShortcutsGroupGLibType()
 }
 
@@ -67,6 +67,8 @@ var xShortcutsGroupAddShortcut func(uintptr, uintptr)
 // `&lt;child&gt;` tag to add the child. Adding children with other API is not
 // appropriate as `GtkShortcutsGroup` manages its children internally.
 func (x *ShortcutsGroup) AddShortcut(ShortcutVar *ShortcutsShortcut) {
+	core.LazyRegister(&xShortcutsGroupAddShortcut, "GTK", "gtk_shortcuts_group_add_shortcut", false)
+
 	xShortcutsGroupAddShortcut(x.GoPointer(), ShortcutVar.GoPointer())
 }
 
@@ -409,16 +411,4 @@ func (x *ShortcutsGroup) SetOrientation(OrientationVar Orientation) {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GTK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xShortcutsGroupGLibType, libs, "gtk_shortcuts_group_get_type")
-
-	core.PuregoSafeRegister(&xShortcutsGroupAddShortcut, libs, "gtk_shortcuts_group_add_shortcut")
 }

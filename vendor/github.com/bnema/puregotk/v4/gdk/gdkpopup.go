@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -49,6 +48,7 @@ type Popup interface {
 var xPopupGLibType func() types.GType
 
 func PopupGLibType() types.GType {
+	core.LazyRegister(&xPopupGLibType, "GDK", "gdk_popup_get_type", false)
 	return xPopupGLibType()
 }
 
@@ -159,35 +159,56 @@ func (x *PopupBase) GetPropertyAutohide() bool {
 	return v.GetBoolean()
 }
 
+var XGdkPopupGetAutohide func(uintptr) bool = func(instance uintptr) bool {
+	core.LazyRegister(&xXGdkPopupGetAutohide, "GDK", "gdk_popup_get_autohide", false)
+	return xXGdkPopupGetAutohide(instance)
+}
+
 var (
-	XGdkPopupGetAutohide      func(uintptr) bool
-	XGdkPopupGetParent        func(uintptr) uintptr
-	XGdkPopupGetPositionX     func(uintptr) int
-	XGdkPopupGetPositionY     func(uintptr) int
-	XGdkPopupGetRectAnchor    func(uintptr) Gravity
-	XGdkPopupGetSurfaceAnchor func(uintptr) Gravity
-	XGdkPopupPresent          func(uintptr, int, int, *PopupLayout) bool
+	xXGdkPopupGetAutohide func(uintptr) bool
+	XGdkPopupGetParent    func(uintptr) uintptr = func(instance uintptr) uintptr {
+		core.LazyRegister(&xXGdkPopupGetParent, "GDK", "gdk_popup_get_parent", false)
+		return xXGdkPopupGetParent(instance)
+	}
 )
+var (
+	xXGdkPopupGetParent   func(uintptr) uintptr
+	XGdkPopupGetPositionX func(uintptr) int = func(instance uintptr) int {
+		core.LazyRegister(&xXGdkPopupGetPositionX, "GDK", "gdk_popup_get_position_x", false)
+		return xXGdkPopupGetPositionX(instance)
+	}
+)
+var (
+	xXGdkPopupGetPositionX func(uintptr) int
+	XGdkPopupGetPositionY  func(uintptr) int = func(instance uintptr) int {
+		core.LazyRegister(&xXGdkPopupGetPositionY, "GDK", "gdk_popup_get_position_y", false)
+		return xXGdkPopupGetPositionY(instance)
+	}
+)
+var (
+	xXGdkPopupGetPositionY func(uintptr) int
+	XGdkPopupGetRectAnchor func(uintptr) Gravity = func(instance uintptr) Gravity {
+		core.LazyRegister(&xXGdkPopupGetRectAnchor, "GDK", "gdk_popup_get_rect_anchor", false)
+		return xXGdkPopupGetRectAnchor(instance)
+	}
+)
+var (
+	xXGdkPopupGetRectAnchor   func(uintptr) Gravity
+	XGdkPopupGetSurfaceAnchor func(uintptr) Gravity = func(instance uintptr) Gravity {
+		core.LazyRegister(&xXGdkPopupGetSurfaceAnchor, "GDK", "gdk_popup_get_surface_anchor", false)
+		return xXGdkPopupGetSurfaceAnchor(instance)
+	}
+)
+var (
+	xXGdkPopupGetSurfaceAnchor func(uintptr) Gravity
+	XGdkPopupPresent           func(uintptr, int, int, *PopupLayout) bool = func(instance uintptr, WidthVarp int, HeightVarp int, LayoutVarp *PopupLayout) bool {
+		core.LazyRegister(&xXGdkPopupPresent, "GDK", "gdk_popup_present", false)
+		return xXGdkPopupPresent(instance, WidthVarp, HeightVarp, LayoutVarp)
+	}
+)
+var xXGdkPopupPresent func(uintptr, int, int, *PopupLayout) bool
 
 func init() {
 	core.SetPackageName("GDK", "gtk4")
 	core.SetSharedLibraries("GDK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GDK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xPopupGLibType, libs, "gdk_popup_get_type")
-
-	core.PuregoSafeRegister(&XGdkPopupGetAutohide, libs, "gdk_popup_get_autohide")
-	core.PuregoSafeRegister(&XGdkPopupGetParent, libs, "gdk_popup_get_parent")
-	core.PuregoSafeRegister(&XGdkPopupGetPositionX, libs, "gdk_popup_get_position_x")
-	core.PuregoSafeRegister(&XGdkPopupGetPositionY, libs, "gdk_popup_get_position_y")
-	core.PuregoSafeRegister(&XGdkPopupGetRectAnchor, libs, "gdk_popup_get_rect_anchor")
-	core.PuregoSafeRegister(&XGdkPopupGetSurfaceAnchor, libs, "gdk_popup_get_surface_anchor")
-	core.PuregoSafeRegister(&XGdkPopupPresent, libs, "gdk_popup_present")
 }

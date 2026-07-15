@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -42,6 +41,7 @@ type Cookie struct {
 var xCookieGLibType func() types.GType
 
 func CookieGLibType() types.GType {
+	core.LazyRegister(&xCookieGLibType, "SOUP", "soup_cookie_get_type", false)
 	return xCookieGLibType()
 }
 
@@ -81,6 +81,8 @@ var xNewCookie func(string, string, string, string, int) uintptr
 // As of version 3.4.0 the default value of a cookie's same-site-policy
 // is %SOUP_SAME_SITE_POLICY_LAX.
 func NewCookie(NameVar string, ValueVar string, DomainVar string, PathVar string, MaxAgeVar int) *Cookie {
+	core.LazyRegister(&xNewCookie, "SOUP", "soup_cookie_new", false)
+
 	cret := xNewCookie(NameVar, ValueVar, DomainVar, PathVar, MaxAgeVar)
 	if cret == 0 {
 		return nil
@@ -96,6 +98,8 @@ var xCookieAppliesToUri func(uintptr, *glib.Uri) bool
 // @uri, because it assumes that the caller has already done that.
 // But don't rely on that; it may change in the future.)
 func (x *Cookie) AppliesToUri(UriVar *glib.Uri) bool {
+	core.LazyRegister(&xCookieAppliesToUri, "SOUP", "soup_cookie_applies_to_uri", false)
+
 	cret := xCookieAppliesToUri(x.GoPointer(), UriVar)
 	return cret
 }
@@ -104,6 +108,8 @@ var xCookieCopy func(uintptr) uintptr
 
 // Copies @cookie.
 func (x *Cookie) Copy() *Cookie {
+	core.LazyRegister(&xCookieCopy, "SOUP", "soup_cookie_copy", false)
+
 	cret := xCookieCopy(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -118,6 +124,8 @@ var xCookieDomainMatches func(uintptr, string) bool
 // The domains match if @cookie should be sent when making a request to @host,
 // or that @cookie should be accepted when receiving a response from @host.
 func (x *Cookie) DomainMatches(HostVar string) bool {
+	core.LazyRegister(&xCookieDomainMatches, "SOUP", "soup_cookie_domain_matches", false)
+
 	cret := xCookieDomainMatches(x.GoPointer(), HostVar)
 	return cret
 }
@@ -129,6 +137,8 @@ var xCookieEqual func(uintptr, *Cookie) bool
 // Note that currently, this does not check that the cookie domains
 // match. This may change in the future.
 func (x *Cookie) Equal(Cookie2Var *Cookie) bool {
+	core.LazyRegister(&xCookieEqual, "SOUP", "soup_cookie_equal", false)
+
 	cret := xCookieEqual(x.GoPointer(), Cookie2Var)
 	return cret
 }
@@ -137,6 +147,8 @@ var xCookieFree func(uintptr)
 
 // Frees @cookie.
 func (x *Cookie) Free() {
+	core.LazyRegister(&xCookieFree, "SOUP", "soup_cookie_free", false)
+
 	xCookieFree(x.GoPointer())
 }
 
@@ -144,6 +156,8 @@ var xCookieGetDomain func(uintptr) string
 
 // Gets @cookie's domain.
 func (x *Cookie) GetDomain() string {
+	core.LazyRegister(&xCookieGetDomain, "SOUP", "soup_cookie_get_domain", false)
+
 	cret := xCookieGetDomain(x.GoPointer())
 	return cret
 }
@@ -152,6 +166,8 @@ var xCookieGetExpires func(uintptr) uintptr
 
 // Gets @cookie's expiration time.
 func (x *Cookie) GetExpires() *glib.DateTime {
+	core.LazyRegister(&xCookieGetExpires, "SOUP", "soup_cookie_get_expires", false)
+
 	cret := xCookieGetExpires(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -163,6 +179,8 @@ var xCookieGetHttpOnly func(uintptr) bool
 
 // Gets @cookie's HttpOnly attribute.
 func (x *Cookie) GetHttpOnly() bool {
+	core.LazyRegister(&xCookieGetHttpOnly, "SOUP", "soup_cookie_get_http_only", false)
+
 	cret := xCookieGetHttpOnly(x.GoPointer())
 	return cret
 }
@@ -171,6 +189,8 @@ var xCookieGetName func(uintptr) string
 
 // Gets @cookie's name.
 func (x *Cookie) GetName() string {
+	core.LazyRegister(&xCookieGetName, "SOUP", "soup_cookie_get_name", false)
+
 	cret := xCookieGetName(x.GoPointer())
 	return cret
 }
@@ -179,6 +199,8 @@ var xCookieGetPath func(uintptr) string
 
 // Gets @cookie's path.
 func (x *Cookie) GetPath() string {
+	core.LazyRegister(&xCookieGetPath, "SOUP", "soup_cookie_get_path", false)
+
 	cret := xCookieGetPath(x.GoPointer())
 	return cret
 }
@@ -187,6 +209,8 @@ var xCookieGetSameSitePolicy func(uintptr) SameSitePolicy
 
 // Returns the same-site policy for this cookie.
 func (x *Cookie) GetSameSitePolicy() SameSitePolicy {
+	core.LazyRegister(&xCookieGetSameSitePolicy, "SOUP", "soup_cookie_get_same_site_policy", false)
+
 	cret := xCookieGetSameSitePolicy(x.GoPointer())
 	return cret
 }
@@ -195,6 +219,8 @@ var xCookieGetSecure func(uintptr) bool
 
 // Gets @cookie's secure attribute.
 func (x *Cookie) GetSecure() bool {
+	core.LazyRegister(&xCookieGetSecure, "SOUP", "soup_cookie_get_secure", false)
+
 	cret := xCookieGetSecure(x.GoPointer())
 	return cret
 }
@@ -203,6 +229,8 @@ var xCookieGetValue func(uintptr) string
 
 // Gets @cookie's value.
 func (x *Cookie) GetValue() string {
+	core.LazyRegister(&xCookieGetValue, "SOUP", "soup_cookie_get_value", false)
+
 	cret := xCookieGetValue(x.GoPointer())
 	return cret
 }
@@ -211,6 +239,8 @@ var xCookieSetDomain func(uintptr, string)
 
 // Sets @cookie's domain to @domain.
 func (x *Cookie) SetDomain(DomainVar string) {
+	core.LazyRegister(&xCookieSetDomain, "SOUP", "soup_cookie_set_domain", false)
+
 	xCookieSetDomain(x.GoPointer(), DomainVar)
 }
 
@@ -223,6 +253,8 @@ var xCookieSetExpires func(uintptr, *glib.DateTime)
 //
 // (This sets the same property as [method@Cookie.set_max_age].)
 func (x *Cookie) SetExpires(ExpiresVar *glib.DateTime) {
+	core.LazyRegister(&xCookieSetExpires, "SOUP", "soup_cookie_set_expires", false)
+
 	xCookieSetExpires(x.GoPointer(), ExpiresVar)
 }
 
@@ -233,6 +265,8 @@ var xCookieSetHttpOnly func(uintptr, bool)
 // If %TRUE, @cookie will be marked as "http only", meaning it should not be
 // exposed to web page scripts or other untrusted code.
 func (x *Cookie) SetHttpOnly(HttpOnlyVar bool) {
+	core.LazyRegister(&xCookieSetHttpOnly, "SOUP", "soup_cookie_set_http_only", false)
+
 	xCookieSetHttpOnly(x.GoPointer(), HttpOnlyVar)
 }
 
@@ -250,6 +284,8 @@ var xCookieSetMaxAge func(uintptr, int)
 //
 // This sets the same property as [method@Cookie.set_expires].
 func (x *Cookie) SetMaxAge(MaxAgeVar int) {
+	core.LazyRegister(&xCookieSetMaxAge, "SOUP", "soup_cookie_set_max_age", false)
+
 	xCookieSetMaxAge(x.GoPointer(), MaxAgeVar)
 }
 
@@ -257,6 +293,8 @@ var xCookieSetName func(uintptr, string)
 
 // Sets @cookie's name to @name.
 func (x *Cookie) SetName(NameVar string) {
+	core.LazyRegister(&xCookieSetName, "SOUP", "soup_cookie_set_name", false)
+
 	xCookieSetName(x.GoPointer(), NameVar)
 }
 
@@ -264,6 +302,8 @@ var xCookieSetPath func(uintptr, string)
 
 // Sets @cookie's path to @path.
 func (x *Cookie) SetPath(PathVar string) {
+	core.LazyRegister(&xCookieSetPath, "SOUP", "soup_cookie_set_path", false)
+
 	xCookieSetPath(x.GoPointer(), PathVar)
 }
 
@@ -273,6 +313,8 @@ var xCookieSetSameSitePolicy func(uintptr, SameSitePolicy)
 // [method@CookieJar.get_cookie_list_with_same_site_info] this sets the policy
 // of when this cookie should be exposed.
 func (x *Cookie) SetSameSitePolicy(PolicyVar SameSitePolicy) {
+	core.LazyRegister(&xCookieSetSameSitePolicy, "SOUP", "soup_cookie_set_same_site_policy", false)
+
 	xCookieSetSameSitePolicy(x.GoPointer(), PolicyVar)
 }
 
@@ -283,6 +325,8 @@ var xCookieSetSecure func(uintptr, bool)
 // If %TRUE, @cookie will only be transmitted from the client to the server over
 // secure (https) connections.
 func (x *Cookie) SetSecure(SecureVar bool) {
+	core.LazyRegister(&xCookieSetSecure, "SOUP", "soup_cookie_set_secure", false)
+
 	xCookieSetSecure(x.GoPointer(), SecureVar)
 }
 
@@ -290,6 +334,8 @@ var xCookieSetValue func(uintptr, string)
 
 // Sets @cookie's value to @value.
 func (x *Cookie) SetValue(ValueVar string) {
+	core.LazyRegister(&xCookieSetValue, "SOUP", "soup_cookie_set_value", false)
+
 	xCookieSetValue(x.GoPointer(), ValueVar)
 }
 
@@ -298,6 +344,8 @@ var xCookieToCookieHeader func(uintptr) string
 // Serializes @cookie in the format used by the Cookie header (ie, for
 // returning a cookie from a [class@Session] to a server).
 func (x *Cookie) ToCookieHeader() string {
+	core.LazyRegister(&xCookieToCookieHeader, "SOUP", "soup_cookie_to_cookie_header", false)
+
 	cret := xCookieToCookieHeader(x.GoPointer())
 	return cret
 }
@@ -308,6 +356,8 @@ var xCookieToSetCookieHeader func(uintptr) string
 //
 // i.e. for sending a cookie from a [class@Server] to a client.
 func (x *Cookie) ToSetCookieHeader() string {
+	core.LazyRegister(&xCookieToSetCookieHeader, "SOUP", "soup_cookie_to_set_cookie_header", false)
+
 	cret := xCookieToSetCookieHeader(x.GoPointer())
 	return cret
 }
@@ -336,6 +386,7 @@ type HSTSPolicy struct {
 var xHSTSPolicyGLibType func() types.GType
 
 func HSTSPolicyGLibType() types.GType {
+	core.LazyRegister(&xHSTSPolicyGLibType, "SOUP", "soup_hsts_policy_get_type", false)
 	return xHSTSPolicyGLibType()
 }
 
@@ -365,6 +416,8 @@ var xNewHSTSPolicy func(string, uint, bool) uintptr
 // If @include_subdomains is %TRUE, the strict transport security policy
 // must also be enforced on all subdomains of @domain.
 func NewHSTSPolicy(DomainVar string, MaxAgeVar uint, IncludeSubdomainsVar bool) *HSTSPolicy {
+	core.LazyRegister(&xNewHSTSPolicy, "SOUP", "soup_hsts_policy_new", false)
+
 	cret := xNewHSTSPolicy(DomainVar, MaxAgeVar, IncludeSubdomainsVar)
 	if cret == 0 {
 		return nil
@@ -377,6 +430,8 @@ var xNewHSTSPolicyFromResponse func(uintptr) uintptr
 // Parses @msg's first "Strict-Transport-Security" response header and
 // returns a [struct@HSTSPolicy].
 func NewHSTSPolicyFromResponse(MsgVar *Message) *HSTSPolicy {
+	core.LazyRegister(&xNewHSTSPolicyFromResponse, "SOUP", "soup_hsts_policy_new_from_response", false)
+
 	cret := xNewHSTSPolicyFromResponse(MsgVar.GoPointer())
 	if cret == 0 {
 		return nil
@@ -391,6 +446,8 @@ var xNewHSTSPolicyFull func(string, uint, *glib.DateTime, bool) uintptr
 //
 // See [ctor@HSTSPolicy.new] for details.
 func NewHSTSPolicyFull(DomainVar string, MaxAgeVar uint, ExpiresVar *glib.DateTime, IncludeSubdomainsVar bool) *HSTSPolicy {
+	core.LazyRegister(&xNewHSTSPolicyFull, "SOUP", "soup_hsts_policy_new_full", false)
+
 	cret := xNewHSTSPolicyFull(DomainVar, MaxAgeVar, ExpiresVar, IncludeSubdomainsVar)
 	if cret == 0 {
 		return nil
@@ -414,6 +471,8 @@ var xNewHSTSPolicySessionPolicy func(string, bool) uintptr
 // If @include_subdomains is %TRUE, the strict transport security policy
 // must also be enforced on all subdomains of @domain.
 func NewHSTSPolicySessionPolicy(DomainVar string, IncludeSubdomainsVar bool) *HSTSPolicy {
+	core.LazyRegister(&xNewHSTSPolicySessionPolicy, "SOUP", "soup_hsts_policy_new_session_policy", false)
+
 	cret := xNewHSTSPolicySessionPolicy(DomainVar, IncludeSubdomainsVar)
 	if cret == 0 {
 		return nil
@@ -425,6 +484,8 @@ var xHSTSPolicyCopy func(uintptr) uintptr
 
 // Copies @policy.
 func (x *HSTSPolicy) Copy() *HSTSPolicy {
+	core.LazyRegister(&xHSTSPolicyCopy, "SOUP", "soup_hsts_policy_copy", false)
+
 	cret := xHSTSPolicyCopy(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -436,6 +497,8 @@ var xHSTSPolicyEqual func(uintptr, *HSTSPolicy) bool
 
 // Tests if @policy1 and @policy2 are equal.
 func (x *HSTSPolicy) Equal(Policy2Var *HSTSPolicy) bool {
+	core.LazyRegister(&xHSTSPolicyEqual, "SOUP", "soup_hsts_policy_equal", false)
+
 	cret := xHSTSPolicyEqual(x.GoPointer(), Policy2Var)
 	return cret
 }
@@ -444,6 +507,8 @@ var xHSTSPolicyFree func(uintptr)
 
 // Frees @policy.
 func (x *HSTSPolicy) Free() {
+	core.LazyRegister(&xHSTSPolicyFree, "SOUP", "soup_hsts_policy_free", false)
+
 	xHSTSPolicyFree(x.GoPointer())
 }
 
@@ -451,6 +516,8 @@ var xHSTSPolicyGetDomain func(uintptr) string
 
 // Gets @policy's domain.
 func (x *HSTSPolicy) GetDomain() string {
+	core.LazyRegister(&xHSTSPolicyGetDomain, "SOUP", "soup_hsts_policy_get_domain", false)
+
 	cret := xHSTSPolicyGetDomain(x.GoPointer())
 	return cret
 }
@@ -459,6 +526,8 @@ var xHSTSPolicyGetExpires func(uintptr) uintptr
 
 // Returns the expiration date for @policy.
 func (x *HSTSPolicy) GetExpires() *glib.DateTime {
+	core.LazyRegister(&xHSTSPolicyGetExpires, "SOUP", "soup_hsts_policy_get_expires", false)
+
 	cret := xHSTSPolicyGetExpires(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -470,6 +539,8 @@ var xHSTSPolicyGetMaxAge func(uintptr) uint
 
 // Returns the max age for @policy.
 func (x *HSTSPolicy) GetMaxAge() uint {
+	core.LazyRegister(&xHSTSPolicyGetMaxAge, "SOUP", "soup_hsts_policy_get_max_age", false)
+
 	cret := xHSTSPolicyGetMaxAge(x.GoPointer())
 	return cret
 }
@@ -478,6 +549,8 @@ var xHSTSPolicyIncludesSubdomains func(uintptr) bool
 
 // Gets whether @policy include its subdomains.
 func (x *HSTSPolicy) IncludesSubdomains() bool {
+	core.LazyRegister(&xHSTSPolicyIncludesSubdomains, "SOUP", "soup_hsts_policy_includes_subdomains", false)
+
 	cret := xHSTSPolicyIncludesSubdomains(x.GoPointer())
 	return cret
 }
@@ -488,6 +561,8 @@ var xHSTSPolicyIsExpired func(uintptr) bool
 //
 // Permanent policies never expire.
 func (x *HSTSPolicy) IsExpired() bool {
+	core.LazyRegister(&xHSTSPolicyIsExpired, "SOUP", "soup_hsts_policy_is_expired", false)
+
 	cret := xHSTSPolicyIsExpired(x.GoPointer())
 	return cret
 }
@@ -498,6 +573,8 @@ var xHSTSPolicyIsSessionPolicy func(uintptr) bool
 //
 // See [ctor@HSTSPolicy.new_session_policy] for details.
 func (x *HSTSPolicy) IsSessionPolicy() bool {
+	core.LazyRegister(&xHSTSPolicyIsSessionPolicy, "SOUP", "soup_hsts_policy_is_session_policy", false)
+
 	cret := xHSTSPolicyIsSessionPolicy(x.GoPointer())
 	return cret
 }
@@ -523,6 +600,7 @@ type MessageMetrics struct {
 var xMessageMetricsGLibType func() types.GType
 
 func MessageMetricsGLibType() types.GType {
+	core.LazyRegister(&xMessageMetricsGLibType, "SOUP", "soup_message_metrics_get_type", false)
 	return xMessageMetricsGLibType()
 }
 
@@ -542,6 +620,8 @@ var xMessageMetricsCopy func(uintptr) uintptr
 
 // Copies @metrics.
 func (x *MessageMetrics) Copy() *MessageMetrics {
+	core.LazyRegister(&xMessageMetricsCopy, "SOUP", "soup_message_metrics_copy", false)
+
 	cret := xMessageMetricsCopy(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -553,6 +633,8 @@ var xMessageMetricsFree func(uintptr)
 
 // Frees @metrics.
 func (x *MessageMetrics) Free() {
+	core.LazyRegister(&xMessageMetricsFree, "SOUP", "soup_message_metrics_free", false)
+
 	xMessageMetricsFree(x.GoPointer())
 }
 
@@ -566,6 +648,8 @@ var xMessageMetricsGetConnectEnd func(uintptr) uint64
 // persistent connection was used or resource was loaded from the local disk
 // cache).
 func (x *MessageMetrics) GetConnectEnd() uint64 {
+	core.LazyRegister(&xMessageMetricsGetConnectEnd, "SOUP", "soup_message_metrics_get_connect_end", false)
+
 	cret := xMessageMetricsGetConnectEnd(x.GoPointer())
 	return cret
 }
@@ -579,6 +663,8 @@ var xMessageMetricsGetConnectStart func(uintptr) uint64
 // persistent connection was used or resource was loaded from the local disk
 // cache).
 func (x *MessageMetrics) GetConnectStart() uint64 {
+	core.LazyRegister(&xMessageMetricsGetConnectStart, "SOUP", "soup_message_metrics_get_connect_start", false)
+
 	cret := xMessageMetricsGetConnectStart(x.GoPointer())
 	return cret
 }
@@ -592,6 +678,8 @@ var xMessageMetricsGetDnsEnd func(uintptr) uint64
 // persistent connection was used or resource was loaded from the local disk
 // cache).
 func (x *MessageMetrics) GetDnsEnd() uint64 {
+	core.LazyRegister(&xMessageMetricsGetDnsEnd, "SOUP", "soup_message_metrics_get_dns_end", false)
+
 	cret := xMessageMetricsGetDnsEnd(x.GoPointer())
 	return cret
 }
@@ -605,6 +693,8 @@ var xMessageMetricsGetDnsStart func(uintptr) uint64
 // persistent connection was used or resource was loaded from the local disk
 // cache).
 func (x *MessageMetrics) GetDnsStart() uint64 {
+	core.LazyRegister(&xMessageMetricsGetDnsStart, "SOUP", "soup_message_metrics_get_dns_start", false)
+
 	cret := xMessageMetricsGetDnsStart(x.GoPointer())
 	return cret
 }
@@ -614,6 +704,8 @@ var xMessageMetricsGetFetchStart func(uintptr) uint64
 // Get the time immediately before the [class@Message] started to
 // fetch a resource either from a remote server or local disk cache.
 func (x *MessageMetrics) GetFetchStart() uint64 {
+	core.LazyRegister(&xMessageMetricsGetFetchStart, "SOUP", "soup_message_metrics_get_fetch_start", false)
+
 	cret := xMessageMetricsGetFetchStart(x.GoPointer())
 	return cret
 }
@@ -628,6 +720,8 @@ var xMessageMetricsGetRequestBodyBytesSent func(uintptr) uint64
 // before [signal@Message::wrote-body] signal is emitted, but you might get an
 // intermediate value if called before.
 func (x *MessageMetrics) GetRequestBodyBytesSent() uint64 {
+	core.LazyRegister(&xMessageMetricsGetRequestBodyBytesSent, "SOUP", "soup_message_metrics_get_request_body_bytes_sent", false)
+
 	cret := xMessageMetricsGetRequestBodyBytesSent(x.GoPointer())
 	return cret
 }
@@ -640,6 +734,8 @@ var xMessageMetricsGetRequestBodySize func(uintptr) uint64
 // This value is available right before [signal@Message::wrote-body] signal is
 // emitted, but you might get an intermediate value if called before.
 func (x *MessageMetrics) GetRequestBodySize() uint64 {
+	core.LazyRegister(&xMessageMetricsGetRequestBodySize, "SOUP", "soup_message_metrics_get_request_body_size", false)
+
 	cret := xMessageMetricsGetRequestBodySize(x.GoPointer())
 	return cret
 }
@@ -651,6 +747,8 @@ var xMessageMetricsGetRequestHeaderBytesSent func(uintptr) uint64
 // This value is available right before [signal@Message::wrote-headers] signal
 // is emitted, but you might get an intermediate value if called before.
 func (x *MessageMetrics) GetRequestHeaderBytesSent() uint64 {
+	core.LazyRegister(&xMessageMetricsGetRequestHeaderBytesSent, "SOUP", "soup_message_metrics_get_request_header_bytes_sent", false)
+
 	cret := xMessageMetricsGetRequestHeaderBytesSent(x.GoPointer())
 	return cret
 }
@@ -660,6 +758,8 @@ var xMessageMetricsGetRequestStart func(uintptr) uint64
 // Get the time immediately before the [class@Message] started the
 // request of the resource from the server or the local disk cache.
 func (x *MessageMetrics) GetRequestStart() uint64 {
+	core.LazyRegister(&xMessageMetricsGetRequestStart, "SOUP", "soup_message_metrics_get_request_start", false)
+
 	cret := xMessageMetricsGetRequestStart(x.GoPointer())
 	return cret
 }
@@ -672,6 +772,8 @@ var xMessageMetricsGetResponseBodyBytesReceived func(uintptr) uint64
 // emitted, but you might get an intermediate value if called before. For
 // resources loaded from the disk cache this value is always 0.
 func (x *MessageMetrics) GetResponseBodyBytesReceived() uint64 {
+	core.LazyRegister(&xMessageMetricsGetResponseBodyBytesReceived, "SOUP", "soup_message_metrics_get_response_body_bytes_received", false)
+
 	cret := xMessageMetricsGetResponseBodyBytesReceived(x.GoPointer())
 	return cret
 }
@@ -686,6 +788,8 @@ var xMessageMetricsGetResponseBodySize func(uintptr) uint64
 // available right before [signal@Message::got-body] signal is emitted, but you
 // might get an intermediate value if called before.
 func (x *MessageMetrics) GetResponseBodySize() uint64 {
+	core.LazyRegister(&xMessageMetricsGetResponseBodySize, "SOUP", "soup_message_metrics_get_response_body_size", false)
+
 	cret := xMessageMetricsGetResponseBodySize(x.GoPointer())
 	return cret
 }
@@ -698,6 +802,8 @@ var xMessageMetricsGetResponseEnd func(uintptr) uint64
 // In case of load failure, this returns the time immediately before the
 // fetch is aborted.
 func (x *MessageMetrics) GetResponseEnd() uint64 {
+	core.LazyRegister(&xMessageMetricsGetResponseEnd, "SOUP", "soup_message_metrics_get_response_end", false)
+
 	cret := xMessageMetricsGetResponseEnd(x.GoPointer())
 	return cret
 }
@@ -710,6 +816,8 @@ var xMessageMetricsGetResponseHeaderBytesReceived func(uintptr) uint64
 // is emitted, but you might get an intermediate value if called before.
 // For resources loaded from the disk cache this value is always 0.
 func (x *MessageMetrics) GetResponseHeaderBytesReceived() uint64 {
+	core.LazyRegister(&xMessageMetricsGetResponseHeaderBytesReceived, "SOUP", "soup_message_metrics_get_response_header_bytes_received", false)
+
 	cret := xMessageMetricsGetResponseHeaderBytesReceived(x.GoPointer())
 	return cret
 }
@@ -719,6 +827,8 @@ var xMessageMetricsGetResponseStart func(uintptr) uint64
 // Get the time immediately after the [class@Message] received the first
 // bytes of the response from the server or the local disk cache.
 func (x *MessageMetrics) GetResponseStart() uint64 {
+	core.LazyRegister(&xMessageMetricsGetResponseStart, "SOUP", "soup_message_metrics_get_response_start", false)
+
 	cret := xMessageMetricsGetResponseStart(x.GoPointer())
 	return cret
 }
@@ -732,6 +842,8 @@ var xMessageMetricsGetTlsStart func(uintptr) uint64
 // (connection was not secure, a persistent connection was used or resource was
 // loaded from the local disk cache).
 func (x *MessageMetrics) GetTlsStart() uint64 {
+	core.LazyRegister(&xMessageMetricsGetTlsStart, "SOUP", "soup_message_metrics_get_tls_start", false)
+
 	cret := xMessageMetricsGetTlsStart(x.GoPointer())
 	return cret
 }
@@ -739,78 +851,4 @@ func (x *MessageMetrics) GetTlsStart() uint64 {
 func init() {
 	core.SetPackageName("SOUP", "libsoup-3.0")
 	core.SetSharedLibraries("SOUP", []string{"libsoup-3.0.so.0", "libsoup-3.0.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("SOUP") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xCookieGLibType, libs, "soup_cookie_get_type")
-
-	core.PuregoSafeRegister(&xNewCookie, libs, "soup_cookie_new")
-
-	core.PuregoSafeRegister(&xCookieAppliesToUri, libs, "soup_cookie_applies_to_uri")
-	core.PuregoSafeRegister(&xCookieCopy, libs, "soup_cookie_copy")
-	core.PuregoSafeRegister(&xCookieDomainMatches, libs, "soup_cookie_domain_matches")
-	core.PuregoSafeRegister(&xCookieEqual, libs, "soup_cookie_equal")
-	core.PuregoSafeRegister(&xCookieFree, libs, "soup_cookie_free")
-	core.PuregoSafeRegister(&xCookieGetDomain, libs, "soup_cookie_get_domain")
-	core.PuregoSafeRegister(&xCookieGetExpires, libs, "soup_cookie_get_expires")
-	core.PuregoSafeRegister(&xCookieGetHttpOnly, libs, "soup_cookie_get_http_only")
-	core.PuregoSafeRegister(&xCookieGetName, libs, "soup_cookie_get_name")
-	core.PuregoSafeRegister(&xCookieGetPath, libs, "soup_cookie_get_path")
-	core.PuregoSafeRegister(&xCookieGetSameSitePolicy, libs, "soup_cookie_get_same_site_policy")
-	core.PuregoSafeRegister(&xCookieGetSecure, libs, "soup_cookie_get_secure")
-	core.PuregoSafeRegister(&xCookieGetValue, libs, "soup_cookie_get_value")
-	core.PuregoSafeRegister(&xCookieSetDomain, libs, "soup_cookie_set_domain")
-	core.PuregoSafeRegister(&xCookieSetExpires, libs, "soup_cookie_set_expires")
-	core.PuregoSafeRegister(&xCookieSetHttpOnly, libs, "soup_cookie_set_http_only")
-	core.PuregoSafeRegister(&xCookieSetMaxAge, libs, "soup_cookie_set_max_age")
-	core.PuregoSafeRegister(&xCookieSetName, libs, "soup_cookie_set_name")
-	core.PuregoSafeRegister(&xCookieSetPath, libs, "soup_cookie_set_path")
-	core.PuregoSafeRegister(&xCookieSetSameSitePolicy, libs, "soup_cookie_set_same_site_policy")
-	core.PuregoSafeRegister(&xCookieSetSecure, libs, "soup_cookie_set_secure")
-	core.PuregoSafeRegister(&xCookieSetValue, libs, "soup_cookie_set_value")
-	core.PuregoSafeRegister(&xCookieToCookieHeader, libs, "soup_cookie_to_cookie_header")
-	core.PuregoSafeRegister(&xCookieToSetCookieHeader, libs, "soup_cookie_to_set_cookie_header")
-
-	core.PuregoSafeRegister(&xHSTSPolicyGLibType, libs, "soup_hsts_policy_get_type")
-
-	core.PuregoSafeRegister(&xNewHSTSPolicy, libs, "soup_hsts_policy_new")
-	core.PuregoSafeRegister(&xNewHSTSPolicyFromResponse, libs, "soup_hsts_policy_new_from_response")
-	core.PuregoSafeRegister(&xNewHSTSPolicyFull, libs, "soup_hsts_policy_new_full")
-	core.PuregoSafeRegister(&xNewHSTSPolicySessionPolicy, libs, "soup_hsts_policy_new_session_policy")
-
-	core.PuregoSafeRegister(&xHSTSPolicyCopy, libs, "soup_hsts_policy_copy")
-	core.PuregoSafeRegister(&xHSTSPolicyEqual, libs, "soup_hsts_policy_equal")
-	core.PuregoSafeRegister(&xHSTSPolicyFree, libs, "soup_hsts_policy_free")
-	core.PuregoSafeRegister(&xHSTSPolicyGetDomain, libs, "soup_hsts_policy_get_domain")
-	core.PuregoSafeRegister(&xHSTSPolicyGetExpires, libs, "soup_hsts_policy_get_expires")
-	core.PuregoSafeRegister(&xHSTSPolicyGetMaxAge, libs, "soup_hsts_policy_get_max_age")
-	core.PuregoSafeRegister(&xHSTSPolicyIncludesSubdomains, libs, "soup_hsts_policy_includes_subdomains")
-	core.PuregoSafeRegister(&xHSTSPolicyIsExpired, libs, "soup_hsts_policy_is_expired")
-	core.PuregoSafeRegister(&xHSTSPolicyIsSessionPolicy, libs, "soup_hsts_policy_is_session_policy")
-
-	core.PuregoSafeRegister(&xMessageMetricsGLibType, libs, "soup_message_metrics_get_type")
-
-	core.PuregoSafeRegister(&xMessageMetricsCopy, libs, "soup_message_metrics_copy")
-	core.PuregoSafeRegister(&xMessageMetricsFree, libs, "soup_message_metrics_free")
-	core.PuregoSafeRegister(&xMessageMetricsGetConnectEnd, libs, "soup_message_metrics_get_connect_end")
-	core.PuregoSafeRegister(&xMessageMetricsGetConnectStart, libs, "soup_message_metrics_get_connect_start")
-	core.PuregoSafeRegister(&xMessageMetricsGetDnsEnd, libs, "soup_message_metrics_get_dns_end")
-	core.PuregoSafeRegister(&xMessageMetricsGetDnsStart, libs, "soup_message_metrics_get_dns_start")
-	core.PuregoSafeRegister(&xMessageMetricsGetFetchStart, libs, "soup_message_metrics_get_fetch_start")
-	core.PuregoSafeRegister(&xMessageMetricsGetRequestBodyBytesSent, libs, "soup_message_metrics_get_request_body_bytes_sent")
-	core.PuregoSafeRegister(&xMessageMetricsGetRequestBodySize, libs, "soup_message_metrics_get_request_body_size")
-	core.PuregoSafeRegister(&xMessageMetricsGetRequestHeaderBytesSent, libs, "soup_message_metrics_get_request_header_bytes_sent")
-	core.PuregoSafeRegister(&xMessageMetricsGetRequestStart, libs, "soup_message_metrics_get_request_start")
-	core.PuregoSafeRegister(&xMessageMetricsGetResponseBodyBytesReceived, libs, "soup_message_metrics_get_response_body_bytes_received")
-	core.PuregoSafeRegister(&xMessageMetricsGetResponseBodySize, libs, "soup_message_metrics_get_response_body_size")
-	core.PuregoSafeRegister(&xMessageMetricsGetResponseEnd, libs, "soup_message_metrics_get_response_end")
-	core.PuregoSafeRegister(&xMessageMetricsGetResponseHeaderBytesReceived, libs, "soup_message_metrics_get_response_header_bytes_received")
-	core.PuregoSafeRegister(&xMessageMetricsGetResponseStart, libs, "soup_message_metrics_get_response_start")
-	core.PuregoSafeRegister(&xMessageMetricsGetTlsStart, libs, "soup_message_metrics_get_tls_start")
 }

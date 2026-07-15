@@ -154,6 +154,7 @@ type AuthDomain struct {
 var xAuthDomainGLibType func() types.GType
 
 func AuthDomainGLibType() types.GType {
+	core.LazyRegister(&xAuthDomainGLibType, "SOUP", "soup_auth_domain_get_type", false)
 	return xAuthDomainGLibType()
 }
 
@@ -174,6 +175,8 @@ var xAuthDomainAccepts func(uintptr, uintptr) string
 // This is used by [class@Server] internally and is probably of no use to
 // anyone else.
 func (x *AuthDomain) Accepts(MsgVar *ServerMessage) string {
+	core.LazyRegister(&xAuthDomainAccepts, "SOUP", "soup_auth_domain_accepts", false)
+
 	cret := xAuthDomainAccepts(x.GoPointer(), MsgVar.GoPointer())
 	return cret
 }
@@ -186,6 +189,8 @@ var xAuthDomainAddPath func(uintptr, string)
 // overridden by [method@AuthDomain.remove_path] or
 // [method@AuthDomain.set_filter]).
 func (x *AuthDomain) AddPath(PathVar string) {
+	core.LazyRegister(&xAuthDomainAddPath, "SOUP", "soup_auth_domain_add_path", false)
+
 	xAuthDomainAddPath(x.GoPointer(), PathVar)
 }
 
@@ -198,6 +203,8 @@ var xAuthDomainChallenge func(uintptr, uintptr)
 // This is used by [class@Server] internally and is probably of no use to
 // anyone else.
 func (x *AuthDomain) Challenge(MsgVar *ServerMessage) {
+	core.LazyRegister(&xAuthDomainChallenge, "SOUP", "soup_auth_domain_challenge", false)
+
 	xAuthDomainChallenge(x.GoPointer(), MsgVar.GoPointer())
 }
 
@@ -209,6 +216,8 @@ var xAuthDomainCheckPassword func(uintptr, uintptr, string, string) bool
 // This would normally be called from a
 // [callback@AuthDomainGenericAuthCallback].
 func (x *AuthDomain) CheckPassword(MsgVar *ServerMessage, UsernameVar string, PasswordVar string) bool {
+	core.LazyRegister(&xAuthDomainCheckPassword, "SOUP", "soup_auth_domain_check_password", false)
+
 	cret := xAuthDomainCheckPassword(x.GoPointer(), MsgVar.GoPointer(), UsernameVar, PasswordVar)
 	return cret
 }
@@ -224,6 +233,8 @@ var xAuthDomainCovers func(uintptr, uintptr) bool
 // This is used by [class@Server] internally and is probably of no use to
 // anyone else.
 func (x *AuthDomain) Covers(MsgVar *ServerMessage) bool {
+	core.LazyRegister(&xAuthDomainCovers, "SOUP", "soup_auth_domain_covers", false)
+
 	cret := xAuthDomainCovers(x.GoPointer(), MsgVar.GoPointer())
 	return cret
 }
@@ -232,6 +243,8 @@ var xAuthDomainGetRealm func(uintptr) string
 
 // Gets the realm name associated with @domain.
 func (x *AuthDomain) GetRealm() string {
+	core.LazyRegister(&xAuthDomainGetRealm, "SOUP", "soup_auth_domain_get_realm", false)
+
 	cret := xAuthDomainGetRealm(x.GoPointer())
 	return cret
 }
@@ -251,6 +264,8 @@ var xAuthDomainRemovePath func(uintptr, string)
 // would otherwise be required, not require it where it would
 // otherwise be unnecessary.
 func (x *AuthDomain) RemovePath(PathVar string) {
+	core.LazyRegister(&xAuthDomainRemovePath, "SOUP", "soup_auth_domain_remove_path", false)
+
 	xAuthDomainRemovePath(x.GoPointer(), PathVar)
 }
 
@@ -282,6 +297,8 @@ var xAuthDomainSetFilter func(uintptr, uintptr, uintptr, uintptr)
 // and [property@AuthDomain:filter-data properties], which can also be
 // used to set the filter at construct time.
 func (x *AuthDomain) SetFilter(FilterVar *AuthDomainFilter, FilterDataVar uintptr, DnotifyVar *glib.DestroyNotify) {
+	core.LazyRegister(&xAuthDomainSetFilter, "SOUP", "soup_auth_domain_set_filter", false)
+
 	xAuthDomainSetFilter(x.GoPointer(), glib.NewCallback(FilterVar), FilterDataVar, glib.NewCallbackNullable(DnotifyVar))
 }
 
@@ -295,6 +312,8 @@ var xAuthDomainSetGenericAuthCallback func(uintptr, uintptr, uintptr, uintptr)
 // [callback@AuthDomainGenericAuthCallback] for information on what the callback
 // should do.
 func (x *AuthDomain) SetGenericAuthCallback(AuthCallbackVar *AuthDomainGenericAuthCallback, AuthDataVar uintptr, DnotifyVar *glib.DestroyNotify) {
+	core.LazyRegister(&xAuthDomainSetGenericAuthCallback, "SOUP", "soup_auth_domain_set_generic_auth_callback", false)
+
 	xAuthDomainSetGenericAuthCallback(x.GoPointer(), glib.NewCallback(AuthCallbackVar), AuthDataVar, glib.NewCallbackNullable(DnotifyVar))
 }
 
@@ -380,24 +399,4 @@ func (x *AuthDomain) GetPropertyRealm() string {
 func init() {
 	core.SetPackageName("SOUP", "libsoup-3.0")
 	core.SetSharedLibraries("SOUP", []string{"libsoup-3.0.so.0", "libsoup-3.0.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("SOUP") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xAuthDomainGLibType, libs, "soup_auth_domain_get_type")
-
-	core.PuregoSafeRegister(&xAuthDomainAccepts, libs, "soup_auth_domain_accepts")
-	core.PuregoSafeRegister(&xAuthDomainAddPath, libs, "soup_auth_domain_add_path")
-	core.PuregoSafeRegister(&xAuthDomainChallenge, libs, "soup_auth_domain_challenge")
-	core.PuregoSafeRegister(&xAuthDomainCheckPassword, libs, "soup_auth_domain_check_password")
-	core.PuregoSafeRegister(&xAuthDomainCovers, libs, "soup_auth_domain_covers")
-	core.PuregoSafeRegister(&xAuthDomainGetRealm, libs, "soup_auth_domain_get_realm")
-	core.PuregoSafeRegister(&xAuthDomainRemovePath, libs, "soup_auth_domain_remove_path")
-	core.PuregoSafeRegister(&xAuthDomainSetFilter, libs, "soup_auth_domain_set_filter")
-	core.PuregoSafeRegister(&xAuthDomainSetGenericAuthCallback, libs, "soup_auth_domain_set_generic_auth_callback")
 }

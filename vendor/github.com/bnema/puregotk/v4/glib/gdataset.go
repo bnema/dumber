@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 )
 
@@ -52,6 +51,8 @@ var xDatalistClear func(**Data)
 // The data elements' destroy functions are called
 // if they have been set.
 func DatalistClear(DatalistVar **Data) {
+	core.LazyRegister(&xDatalistClear, "GLIB", "g_datalist_clear", false)
+
 	xDatalistClear(DatalistVar)
 }
 
@@ -68,6 +69,8 @@ var xDatalistForeach func(**Data, uintptr, uintptr)
 // reflect changes made during the g_datalist_foreach() call, other
 // than skipping over elements that are removed.
 func DatalistForeach(DatalistVar **Data, FuncVar *DataForeachFunc, UserDataVar uintptr) {
+	core.LazyRegister(&xDatalistForeach, "GLIB", "g_datalist_foreach", false)
+
 	xDatalistForeach(DatalistVar, NewCallback(FuncVar), UserDataVar)
 }
 
@@ -76,6 +79,8 @@ var xDatalistGetData func(**Data, string) uintptr
 // Gets a data element, using its string identifier. This is slower than
 // g_datalist_id_get_data() because it compares strings.
 func DatalistGetData(DatalistVar **Data, KeyVar string) uintptr {
+	core.LazyRegister(&xDatalistGetData, "GLIB", "g_datalist_get_data", false)
+
 	cret := xDatalistGetData(DatalistVar, KeyVar)
 	return cret
 }
@@ -85,6 +90,8 @@ var xDatalistGetFlags func(**Data) uint
 // Gets flags values packed in together with the datalist.
 // See g_datalist_set_flags().
 func DatalistGetFlags(DatalistVar **Data) uint {
+	core.LazyRegister(&xDatalistGetFlags, "GLIB", "g_datalist_get_flags", false)
+
 	cret := xDatalistGetFlags(DatalistVar)
 	return cret
 }
@@ -105,6 +112,8 @@ var xDatalistIdDupData func(**Data, Quark, uintptr, uintptr) uintptr
 // This function can be useful to avoid races when multiple
 // threads are using the same datalist and the same key.
 func DatalistIdDupData(DatalistVar **Data, KeyIdVar Quark, DupFuncVar *DuplicateFunc, UserDataVar uintptr) uintptr {
+	core.LazyRegister(&xDatalistIdDupData, "GLIB", "g_datalist_id_dup_data", false)
+
 	cret := xDatalistIdDupData(DatalistVar, KeyIdVar, NewCallbackNullable(DupFuncVar), UserDataVar)
 	return cret
 }
@@ -113,6 +122,8 @@ var xDatalistIdGetData func(**Data, Quark) uintptr
 
 // Retrieves the data element corresponding to @key_id.
 func DatalistIdGetData(DatalistVar **Data, KeyIdVar Quark) uintptr {
+	core.LazyRegister(&xDatalistIdGetData, "GLIB", "g_datalist_id_get_data", false)
+
 	cret := xDatalistIdGetData(DatalistVar, KeyIdVar)
 	return cret
 }
@@ -127,6 +138,8 @@ var xDatalistIdRemoveMultiple func(**Data, []Quark, uint)
 // Before 2.80, @n_keys had to be not larger than 16.
 // Since 2.84, performance is improved for larger number of keys.
 func DatalistIdRemoveMultiple(DatalistVar **Data, KeysVar []Quark, NKeysVar uint) {
+	core.LazyRegister(&xDatalistIdRemoveMultiple, "GLIB", "g_datalist_id_remove_multiple", false)
+
 	xDatalistIdRemoveMultiple(DatalistVar, KeysVar, NKeysVar)
 }
 
@@ -135,6 +148,8 @@ var xDatalistIdRemoveNoNotify func(**Data, Quark) uintptr
 // Removes an element, without calling its destroy notification
 // function.
 func DatalistIdRemoveNoNotify(DatalistVar **Data, KeyIdVar Quark) uintptr {
+	core.LazyRegister(&xDatalistIdRemoveNoNotify, "GLIB", "g_datalist_id_remove_no_notify", false)
+
 	cret := xDatalistIdRemoveNoNotify(DatalistVar, KeyIdVar)
 	return cret
 }
@@ -155,6 +170,8 @@ var xDatalistIdReplaceData func(**Data, Quark, uintptr, uintptr, uintptr, *Destr
 // or may not include using @old_destroy as sometimes replacement
 // should not destroy the object in the normal way.
 func DatalistIdReplaceData(DatalistVar **Data, KeyIdVar Quark, OldvalVar uintptr, NewvalVar uintptr, DestroyVar *DestroyNotify, OldDestroyVar *DestroyNotify) bool {
+	core.LazyRegister(&xDatalistIdReplaceData, "GLIB", "g_datalist_id_replace_data", false)
+
 	cret := xDatalistIdReplaceData(DatalistVar, KeyIdVar, OldvalVar, NewvalVar, NewCallbackNullable(DestroyVar), OldDestroyVar)
 	return cret
 }
@@ -166,6 +183,8 @@ var xDatalistIdSetDataFull func(**Data, Quark, uintptr, uintptr)
 // Any previous data with the same key is removed, and its destroy
 // function is called.
 func DatalistIdSetDataFull(DatalistVar **Data, KeyIdVar Quark, DataVar uintptr, DestroyFuncVar *DestroyNotify) {
+	core.LazyRegister(&xDatalistIdSetDataFull, "GLIB", "g_datalist_id_set_data_full", false)
+
 	xDatalistIdSetDataFull(DatalistVar, KeyIdVar, DataVar, NewCallbackNullable(DestroyFuncVar))
 }
 
@@ -174,6 +193,8 @@ var xDatalistInit func(**Data)
 // Resets the datalist to %NULL. It does not free any memory or call
 // any destroy functions.
 func DatalistInit(DatalistVar **Data) {
+	core.LazyRegister(&xDatalistInit, "GLIB", "g_datalist_init", false)
+
 	xDatalistInit(DatalistVar)
 }
 
@@ -186,6 +207,8 @@ var xDatalistSetFlags func(**Data, uint)
 // is very tight. (It is used in the base #GObject type, for
 // example.)
 func DatalistSetFlags(DatalistVar **Data, FlagsVar uint) {
+	core.LazyRegister(&xDatalistSetFlags, "GLIB", "g_datalist_set_flags", false)
+
 	xDatalistSetFlags(DatalistVar, FlagsVar)
 }
 
@@ -193,6 +216,8 @@ var xDatalistUnsetFlags func(**Data, uint)
 
 // Turns off flag values for a data list. See g_datalist_unset_flags()
 func DatalistUnsetFlags(DatalistVar **Data, FlagsVar uint) {
+	core.LazyRegister(&xDatalistUnsetFlags, "GLIB", "g_datalist_unset_flags", false)
+
 	xDatalistUnsetFlags(DatalistVar, FlagsVar)
 }
 
@@ -201,6 +226,8 @@ var xDatasetDestroy func(uintptr)
 // Destroys the dataset, freeing all memory allocated, and calling any
 // destroy functions set for data elements.
 func DatasetDestroy(DatasetLocationVar uintptr) {
+	core.LazyRegister(&xDatasetDestroy, "GLIB", "g_dataset_destroy", false)
+
 	xDatasetDestroy(DatasetLocationVar)
 }
 
@@ -215,6 +242,8 @@ var xDatasetForeach func(uintptr, uintptr, uintptr)
 // reflect changes made during the g_dataset_foreach() call, other
 // than skipping over elements that are removed.
 func DatasetForeach(DatasetLocationVar uintptr, FuncVar *DataForeachFunc, UserDataVar uintptr) {
+	core.LazyRegister(&xDatasetForeach, "GLIB", "g_dataset_foreach", false)
+
 	xDatasetForeach(DatasetLocationVar, NewCallback(FuncVar), UserDataVar)
 }
 
@@ -222,6 +251,8 @@ var xDatasetIdGetData func(uintptr, Quark) uintptr
 
 // Gets the data element corresponding to a #GQuark.
 func DatasetIdGetData(DatasetLocationVar uintptr, KeyIdVar Quark) uintptr {
+	core.LazyRegister(&xDatasetIdGetData, "GLIB", "g_dataset_id_get_data", false)
+
 	cret := xDatasetIdGetData(DatasetLocationVar, KeyIdVar)
 	return cret
 }
@@ -231,6 +262,8 @@ var xDatasetIdRemoveNoNotify func(uintptr, Quark) uintptr
 // Removes an element, without calling its destroy notification
 // function.
 func DatasetIdRemoveNoNotify(DatasetLocationVar uintptr, KeyIdVar Quark) uintptr {
+	core.LazyRegister(&xDatasetIdRemoveNoNotify, "GLIB", "g_dataset_id_remove_no_notify", false)
+
 	cret := xDatasetIdRemoveNoNotify(DatasetLocationVar, KeyIdVar)
 	return cret
 }
@@ -242,37 +275,12 @@ var xDatasetIdSetDataFull func(uintptr, Quark, uintptr, uintptr)
 // previous data with the same key is removed, and its destroy function
 // is called.
 func DatasetIdSetDataFull(DatasetLocationVar uintptr, KeyIdVar Quark, DataVar uintptr, DestroyFuncVar *DestroyNotify) {
+	core.LazyRegister(&xDatasetIdSetDataFull, "GLIB", "g_dataset_id_set_data_full", false)
+
 	xDatasetIdSetDataFull(DatasetLocationVar, KeyIdVar, DataVar, NewCallbackNullable(DestroyFuncVar))
 }
 
 func init() {
 	core.SetPackageName("GLIB", "glib-2.0")
 	core.SetSharedLibraries("GLIB", []string{"libgobject-2.0.so.0", "libglib-2.0.so.0", "libgobject-2.0.0.dylib", "libglib-2.0.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GLIB") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xDatalistClear, libs, "g_datalist_clear")
-	core.PuregoSafeRegister(&xDatalistForeach, libs, "g_datalist_foreach")
-	core.PuregoSafeRegister(&xDatalistGetData, libs, "g_datalist_get_data")
-	core.PuregoSafeRegister(&xDatalistGetFlags, libs, "g_datalist_get_flags")
-	core.PuregoSafeRegister(&xDatalistIdDupData, libs, "g_datalist_id_dup_data")
-	core.PuregoSafeRegister(&xDatalistIdGetData, libs, "g_datalist_id_get_data")
-	core.PuregoSafeRegister(&xDatalistIdRemoveMultiple, libs, "g_datalist_id_remove_multiple")
-	core.PuregoSafeRegister(&xDatalistIdRemoveNoNotify, libs, "g_datalist_id_remove_no_notify")
-	core.PuregoSafeRegister(&xDatalistIdReplaceData, libs, "g_datalist_id_replace_data")
-	core.PuregoSafeRegister(&xDatalistIdSetDataFull, libs, "g_datalist_id_set_data_full")
-	core.PuregoSafeRegister(&xDatalistInit, libs, "g_datalist_init")
-	core.PuregoSafeRegister(&xDatalistSetFlags, libs, "g_datalist_set_flags")
-	core.PuregoSafeRegister(&xDatalistUnsetFlags, libs, "g_datalist_unset_flags")
-	core.PuregoSafeRegister(&xDatasetDestroy, libs, "g_dataset_destroy")
-	core.PuregoSafeRegister(&xDatasetForeach, libs, "g_dataset_foreach")
-	core.PuregoSafeRegister(&xDatasetIdGetData, libs, "g_dataset_id_get_data")
-	core.PuregoSafeRegister(&xDatasetIdRemoveNoNotify, libs, "g_dataset_id_remove_no_notify")
-	core.PuregoSafeRegister(&xDatasetIdSetDataFull, libs, "g_dataset_id_set_data_full")
 }

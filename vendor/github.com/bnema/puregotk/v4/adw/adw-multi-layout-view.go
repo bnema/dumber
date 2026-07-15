@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -119,6 +118,7 @@ type MultiLayoutView struct {
 var xMultiLayoutViewGLibType func() types.GType
 
 func MultiLayoutViewGLibType() types.GType {
+	core.LazyRegister(&xMultiLayoutViewGLibType, "ADW", "adw_multi_layout_view_get_type", false)
 	return xMultiLayoutViewGLibType()
 }
 
@@ -132,6 +132,7 @@ var xNewMultiLayoutView func() uintptr
 
 // Creates a new `AdwMultiLayoutView`.
 func NewMultiLayoutView() *MultiLayoutView {
+	core.LazyRegister(&xNewMultiLayoutView, "ADW", "adw_multi_layout_view_new", false)
 	var cls *MultiLayoutView
 
 	cret := xNewMultiLayoutView()
@@ -149,6 +150,8 @@ var xMultiLayoutViewAddLayout func(uintptr, uintptr)
 
 // Adds @layout to @self.
 func (x *MultiLayoutView) AddLayout(LayoutVar *Layout) {
+	core.LazyRegister(&xMultiLayoutViewAddLayout, "ADW", "adw_multi_layout_view_add_layout", false)
+
 	xMultiLayoutViewAddLayout(x.GoPointer(), LayoutVar.GoPointer())
 }
 
@@ -156,6 +159,7 @@ var xMultiLayoutViewGetChild func(uintptr, string) uintptr
 
 // Gets the child for @id to @self.
 func (x *MultiLayoutView) GetChild(IdVar string) *gtk.Widget {
+	core.LazyRegister(&xMultiLayoutViewGetChild, "ADW", "adw_multi_layout_view_get_child", false)
 	var cls *gtk.Widget
 
 	cret := xMultiLayoutViewGetChild(x.GoPointer(), IdVar)
@@ -173,6 +177,7 @@ var xMultiLayoutViewGetLayout func(uintptr) uintptr
 
 // Gets the currently used layout of @self.
 func (x *MultiLayoutView) GetLayout() *Layout {
+	core.LazyRegister(&xMultiLayoutViewGetLayout, "ADW", "adw_multi_layout_view_get_layout", false)
 	var cls *Layout
 
 	cret := xMultiLayoutViewGetLayout(x.GoPointer())
@@ -192,6 +197,7 @@ var xMultiLayoutViewGetLayoutByName func(uintptr, string) uintptr
 //
 // See [property@Layout:name].
 func (x *MultiLayoutView) GetLayoutByName(NameVar string) *Layout {
+	core.LazyRegister(&xMultiLayoutViewGetLayoutByName, "ADW", "adw_multi_layout_view_get_layout_by_name", false)
 	var cls *Layout
 
 	cret := xMultiLayoutViewGetLayoutByName(x.GoPointer(), NameVar)
@@ -209,6 +215,8 @@ var xMultiLayoutViewGetLayoutName func(uintptr) string
 
 // Returns the name of the currently used layout of @self.
 func (x *MultiLayoutView) GetLayoutName() string {
+	core.LazyRegister(&xMultiLayoutViewGetLayoutName, "ADW", "adw_multi_layout_view_get_layout_name", false)
+
 	cret := xMultiLayoutViewGetLayoutName(x.GoPointer())
 	return cret
 }
@@ -217,6 +225,8 @@ var xMultiLayoutViewRemoveLayout func(uintptr, uintptr)
 
 // Removes @layout from @self.
 func (x *MultiLayoutView) RemoveLayout(LayoutVar *Layout) {
+	core.LazyRegister(&xMultiLayoutViewRemoveLayout, "ADW", "adw_multi_layout_view_remove_layout", false)
+
 	xMultiLayoutViewRemoveLayout(x.GoPointer(), LayoutVar.GoPointer())
 }
 
@@ -226,6 +236,8 @@ var xMultiLayoutViewSetChild func(uintptr, string, uintptr)
 //
 // When changing layouts, it will be inserted into the slot with @id.
 func (x *MultiLayoutView) SetChild(IdVar string, ChildVar *gtk.Widget) {
+	core.LazyRegister(&xMultiLayoutViewSetChild, "ADW", "adw_multi_layout_view_set_child", false)
+
 	xMultiLayoutViewSetChild(x.GoPointer(), IdVar, ChildVar.GoPointer())
 }
 
@@ -233,6 +245,8 @@ var xMultiLayoutViewSetLayout func(uintptr, uintptr)
 
 // Makes @layout the current layout of @self.
 func (x *MultiLayoutView) SetLayout(LayoutVar *Layout) {
+	core.LazyRegister(&xMultiLayoutViewSetLayout, "ADW", "adw_multi_layout_view_set_layout", false)
+
 	xMultiLayoutViewSetLayout(x.GoPointer(), LayoutVar.GoPointer())
 }
 
@@ -242,6 +256,8 @@ var xMultiLayoutViewSetLayoutName func(uintptr, string)
 //
 // See [property@Layout:name].
 func (x *MultiLayoutView) SetLayoutName(NameVar string) {
+	core.LazyRegister(&xMultiLayoutViewSetLayoutName, "ADW", "adw_multi_layout_view_set_layout_name", false)
+
 	xMultiLayoutViewSetLayoutName(x.GoPointer(), NameVar)
 }
 
@@ -540,26 +556,4 @@ func (x *MultiLayoutView) GetBuildableId() string {
 func init() {
 	core.SetPackageName("ADW", "libadwaita-1")
 	core.SetSharedLibraries("ADW", []string{"libadwaita-1.so.0", "libadwaita-1.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("ADW") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xMultiLayoutViewGLibType, libs, "adw_multi_layout_view_get_type")
-
-	core.PuregoSafeRegister(&xNewMultiLayoutView, libs, "adw_multi_layout_view_new")
-
-	core.PuregoSafeRegister(&xMultiLayoutViewAddLayout, libs, "adw_multi_layout_view_add_layout")
-	core.PuregoSafeRegister(&xMultiLayoutViewGetChild, libs, "adw_multi_layout_view_get_child")
-	core.PuregoSafeRegister(&xMultiLayoutViewGetLayout, libs, "adw_multi_layout_view_get_layout")
-	core.PuregoSafeRegister(&xMultiLayoutViewGetLayoutByName, libs, "adw_multi_layout_view_get_layout_by_name")
-	core.PuregoSafeRegister(&xMultiLayoutViewGetLayoutName, libs, "adw_multi_layout_view_get_layout_name")
-	core.PuregoSafeRegister(&xMultiLayoutViewRemoveLayout, libs, "adw_multi_layout_view_remove_layout")
-	core.PuregoSafeRegister(&xMultiLayoutViewSetChild, libs, "adw_multi_layout_view_set_child")
-	core.PuregoSafeRegister(&xMultiLayoutViewSetLayout, libs, "adw_multi_layout_view_set_layout")
-	core.PuregoSafeRegister(&xMultiLayoutViewSetLayoutName, libs, "adw_multi_layout_view_set_layout_name")
 }

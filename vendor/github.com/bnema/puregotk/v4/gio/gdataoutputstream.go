@@ -179,6 +179,7 @@ type DataOutputStream struct {
 var xDataOutputStreamGLibType func() types.GType
 
 func DataOutputStreamGLibType() types.GType {
+	core.LazyRegister(&xDataOutputStreamGLibType, "GIO", "g_data_output_stream_get_type", false)
 	return xDataOutputStreamGLibType()
 }
 
@@ -192,6 +193,7 @@ var xNewDataOutputStream func(uintptr) uintptr
 
 // Creates a new data output stream for @base_stream.
 func NewDataOutputStream(BaseStreamVar *OutputStream) *DataOutputStream {
+	core.LazyRegister(&xNewDataOutputStream, "GIO", "g_data_output_stream_new", false)
 	var cls *DataOutputStream
 
 	cret := xNewDataOutputStream(BaseStreamVar.GoPointer())
@@ -208,6 +210,8 @@ var xDataOutputStreamGetByteOrder func(uintptr) DataStreamByteOrder
 
 // Gets the byte order for the stream.
 func (x *DataOutputStream) GetByteOrder() DataStreamByteOrder {
+	core.LazyRegister(&xDataOutputStreamGetByteOrder, "GIO", "g_data_output_stream_get_byte_order", false)
+
 	cret := xDataOutputStreamGetByteOrder(x.GoPointer())
 	return cret
 }
@@ -216,6 +220,7 @@ var xDataOutputStreamPutByte func(uintptr, byte, uintptr, **glib.Error) bool
 
 // Puts a byte into the output stream.
 func (x *DataOutputStream) PutByte(DataVar byte, CancellableVar *Cancellable) (bool, error) {
+	core.LazyRegister(&xDataOutputStreamPutByte, "GIO", "g_data_output_stream_put_byte", false)
 	var cerr *glib.Error
 
 	cret := xDataOutputStreamPutByte(x.GoPointer(), DataVar, CancellableVar.GoPointer(), &cerr)
@@ -229,6 +234,7 @@ var xDataOutputStreamPutInt16 func(uintptr, int16, uintptr, **glib.Error) bool
 
 // Puts a signed 16-bit integer into the output stream.
 func (x *DataOutputStream) PutInt16(DataVar int16, CancellableVar *Cancellable) (bool, error) {
+	core.LazyRegister(&xDataOutputStreamPutInt16, "GIO", "g_data_output_stream_put_int16", false)
 	var cerr *glib.Error
 
 	cret := xDataOutputStreamPutInt16(x.GoPointer(), DataVar, CancellableVar.GoPointer(), &cerr)
@@ -242,6 +248,7 @@ var xDataOutputStreamPutInt32 func(uintptr, int32, uintptr, **glib.Error) bool
 
 // Puts a signed 32-bit integer into the output stream.
 func (x *DataOutputStream) PutInt32(DataVar int32, CancellableVar *Cancellable) (bool, error) {
+	core.LazyRegister(&xDataOutputStreamPutInt32, "GIO", "g_data_output_stream_put_int32", false)
 	var cerr *glib.Error
 
 	cret := xDataOutputStreamPutInt32(x.GoPointer(), DataVar, CancellableVar.GoPointer(), &cerr)
@@ -255,6 +262,7 @@ var xDataOutputStreamPutInt64 func(uintptr, int64, uintptr, **glib.Error) bool
 
 // Puts a signed 64-bit integer into the stream.
 func (x *DataOutputStream) PutInt64(DataVar int64, CancellableVar *Cancellable) (bool, error) {
+	core.LazyRegister(&xDataOutputStreamPutInt64, "GIO", "g_data_output_stream_put_int64", false)
 	var cerr *glib.Error
 
 	cret := xDataOutputStreamPutInt64(x.GoPointer(), DataVar, CancellableVar.GoPointer(), &cerr)
@@ -268,6 +276,7 @@ var xDataOutputStreamPutString func(uintptr, string, uintptr, **glib.Error) bool
 
 // Puts a string into the output stream.
 func (x *DataOutputStream) PutString(StrVar string, CancellableVar *Cancellable) (bool, error) {
+	core.LazyRegister(&xDataOutputStreamPutString, "GIO", "g_data_output_stream_put_string", false)
 	var cerr *glib.Error
 
 	cret := xDataOutputStreamPutString(x.GoPointer(), StrVar, CancellableVar.GoPointer(), &cerr)
@@ -281,6 +290,7 @@ var xDataOutputStreamPutUint16 func(uintptr, uint16, uintptr, **glib.Error) bool
 
 // Puts an unsigned 16-bit integer into the output stream.
 func (x *DataOutputStream) PutUint16(DataVar uint16, CancellableVar *Cancellable) (bool, error) {
+	core.LazyRegister(&xDataOutputStreamPutUint16, "GIO", "g_data_output_stream_put_uint16", false)
 	var cerr *glib.Error
 
 	cret := xDataOutputStreamPutUint16(x.GoPointer(), DataVar, CancellableVar.GoPointer(), &cerr)
@@ -294,6 +304,7 @@ var xDataOutputStreamPutUint32 func(uintptr, uint32, uintptr, **glib.Error) bool
 
 // Puts an unsigned 32-bit integer into the stream.
 func (x *DataOutputStream) PutUint32(DataVar uint32, CancellableVar *Cancellable) (bool, error) {
+	core.LazyRegister(&xDataOutputStreamPutUint32, "GIO", "g_data_output_stream_put_uint32", false)
 	var cerr *glib.Error
 
 	cret := xDataOutputStreamPutUint32(x.GoPointer(), DataVar, CancellableVar.GoPointer(), &cerr)
@@ -307,6 +318,7 @@ var xDataOutputStreamPutUint64 func(uintptr, uint64, uintptr, **glib.Error) bool
 
 // Puts an unsigned 64-bit integer into the stream.
 func (x *DataOutputStream) PutUint64(DataVar uint64, CancellableVar *Cancellable) (bool, error) {
+	core.LazyRegister(&xDataOutputStreamPutUint64, "GIO", "g_data_output_stream_put_uint64", false)
 	var cerr *glib.Error
 
 	cret := xDataOutputStreamPutUint64(x.GoPointer(), DataVar, CancellableVar.GoPointer(), &cerr)
@@ -320,6 +332,8 @@ var xDataOutputStreamSetByteOrder func(uintptr, DataStreamByteOrder)
 
 // Sets the byte order of the data output stream to @order.
 func (x *DataOutputStream) SetByteOrder(OrderVar DataStreamByteOrder) {
+	core.LazyRegister(&xDataOutputStreamSetByteOrder, "GIO", "g_data_output_stream_set_byte_order", false)
+
 	xDataOutputStreamSetByteOrder(x.GoPointer(), OrderVar)
 }
 
@@ -399,27 +413,4 @@ func (x *DataOutputStream) Truncate(OffsetVar int64, CancellableVar *Cancellable
 func init() {
 	core.SetPackageName("GIO", "gio-2.0")
 	core.SetSharedLibraries("GIO", []string{"libgio-2.0.so.0", "libgio-2.0.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GIO") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xDataOutputStreamGLibType, libs, "g_data_output_stream_get_type")
-
-	core.PuregoSafeRegister(&xNewDataOutputStream, libs, "g_data_output_stream_new")
-
-	core.PuregoSafeRegister(&xDataOutputStreamGetByteOrder, libs, "g_data_output_stream_get_byte_order")
-	core.PuregoSafeRegister(&xDataOutputStreamPutByte, libs, "g_data_output_stream_put_byte")
-	core.PuregoSafeRegister(&xDataOutputStreamPutInt16, libs, "g_data_output_stream_put_int16")
-	core.PuregoSafeRegister(&xDataOutputStreamPutInt32, libs, "g_data_output_stream_put_int32")
-	core.PuregoSafeRegister(&xDataOutputStreamPutInt64, libs, "g_data_output_stream_put_int64")
-	core.PuregoSafeRegister(&xDataOutputStreamPutString, libs, "g_data_output_stream_put_string")
-	core.PuregoSafeRegister(&xDataOutputStreamPutUint16, libs, "g_data_output_stream_put_uint16")
-	core.PuregoSafeRegister(&xDataOutputStreamPutUint32, libs, "g_data_output_stream_put_uint32")
-	core.PuregoSafeRegister(&xDataOutputStreamPutUint64, libs, "g_data_output_stream_put_uint64")
-	core.PuregoSafeRegister(&xDataOutputStreamSetByteOrder, libs, "g_data_output_stream_set_byte_order")
 }

@@ -2,7 +2,6 @@
 package gdk
 
 import (
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/cairo"
 	"github.com/bnema/puregotk/v4/gdkpixbuf"
@@ -18,6 +17,7 @@ var xPixbufGetFromSurface func(*cairo.Surface, int, int, int, int) uintptr
 // This function will create an RGB pixbuf with 8 bits per channel.
 // The pixbuf will contain an alpha channel if the @surface contains one.
 func PixbufGetFromSurface(SurfaceVar *cairo.Surface, SrcXVar int, SrcYVar int, WidthVar int, HeightVar int) *gdkpixbuf.Pixbuf {
+	core.LazyRegister(&xPixbufGetFromSurface, "GDK", "gdk_pixbuf_get_from_surface", false)
 	var cls *gdkpixbuf.Pixbuf
 
 	cret := xPixbufGetFromSurface(SurfaceVar, SrcXVar, SrcYVar, WidthVar, HeightVar)
@@ -38,6 +38,7 @@ var xPixbufGetFromTexture func(uintptr) uintptr
 // stages will almost certainly convert the pixbuf back into a texture
 // to draw it on screen.
 func PixbufGetFromTexture(TextureVar *Texture) *gdkpixbuf.Pixbuf {
+	core.LazyRegister(&xPixbufGetFromTexture, "GDK", "gdk_pixbuf_get_from_texture", false)
 	var cls *gdkpixbuf.Pixbuf
 
 	cret := xPixbufGetFromTexture(TextureVar.GoPointer())
@@ -53,15 +54,4 @@ func PixbufGetFromTexture(TextureVar *Texture) *gdkpixbuf.Pixbuf {
 func init() {
 	core.SetPackageName("GDK", "gtk4")
 	core.SetSharedLibraries("GDK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GDK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xPixbufGetFromSurface, libs, "gdk_pixbuf_get_from_surface")
-	core.PuregoSafeRegister(&xPixbufGetFromTexture, libs, "gdk_pixbuf_get_from_texture")
 }

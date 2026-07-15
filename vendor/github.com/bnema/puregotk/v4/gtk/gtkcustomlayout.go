@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -51,6 +50,7 @@ type CustomLayout struct {
 var xCustomLayoutGLibType func() types.GType
 
 func CustomLayoutGLibType() types.GType {
+	core.LazyRegister(&xCustomLayoutGLibType, "GTK", "gtk_custom_layout_get_type", false)
 	return xCustomLayoutGLibType()
 }
 
@@ -68,6 +68,7 @@ var xNewCustomLayout func(uintptr, uintptr, uintptr) uintptr
 // virtual functions, and are meant to be used during the transition
 // from layout containers to layout manager delegates.
 func NewCustomLayout(RequestModeVar *CustomRequestModeFunc, MeasureVar *CustomMeasureFunc, AllocateVar *CustomAllocateFunc) *CustomLayout {
+	core.LazyRegister(&xNewCustomLayout, "GTK", "gtk_custom_layout_new", false)
 	var cls *CustomLayout
 
 	cret := xNewCustomLayout(glib.NewCallbackNullable(RequestModeVar), glib.NewCallback(MeasureVar), glib.NewCallback(AllocateVar))
@@ -94,16 +95,4 @@ func (c *CustomLayout) SetGoPointer(ptr uintptr) {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GTK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xCustomLayoutGLibType, libs, "gtk_custom_layout_get_type")
-
-	core.PuregoSafeRegister(&xNewCustomLayout, libs, "gtk_custom_layout_new")
 }

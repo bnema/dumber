@@ -4,7 +4,6 @@ package gdk
 import (
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gio"
 	"github.com/bnema/puregotk/v4/glib"
@@ -26,6 +25,8 @@ var xContentDeserializeAsync func(uintptr, string, types.GType, int, uintptr, ui
 // The default I/O priority is `G_PRIORITY_DEFAULT` (i.e. 0), and lower numbers
 // indicate a higher priority.
 func ContentDeserializeAsync(StreamVar *gio.InputStream, MimeTypeVar string, TypeVar types.GType, IoPriorityVar int, CancellableVar *gio.Cancellable, CallbackVar *gio.AsyncReadyCallback, UserDataVar uintptr) {
+	core.LazyRegister(&xContentDeserializeAsync, "GDK", "gdk_content_deserialize_async", false)
+
 	xContentDeserializeAsync(StreamVar.GoPointer(), MimeTypeVar, TypeVar, IoPriorityVar, CancellableVar.GoPointer(), glib.NewCallbackNullable(CallbackVar), UserDataVar)
 }
 
@@ -33,6 +34,7 @@ var xContentDeserializeFinish func(uintptr, *gobject.Value, **glib.Error) bool
 
 // Finishes a content deserialization operation.
 func ContentDeserializeFinish(ResultVar gio.AsyncResult, ValueVar *gobject.Value) (bool, error) {
+	core.LazyRegister(&xContentDeserializeFinish, "GDK", "gdk_content_deserialize_finish", false)
 	var cerr *glib.Error
 
 	cret := xContentDeserializeFinish(ResultVar.GoPointer(), ValueVar, &cerr)
@@ -50,6 +52,8 @@ var xContentRegisterDeserializer func(string, types.GType, uintptr, uintptr, uin
 // use the last registered deserializer for a given mime type,
 // so applications can override the built-in deserializers.
 func ContentRegisterDeserializer(MimeTypeVar string, TypeVar types.GType, DeserializeVar *ContentDeserializeFunc, DataVar uintptr, NotifyVar *glib.DestroyNotify) {
+	core.LazyRegister(&xContentRegisterDeserializer, "GDK", "gdk_content_register_deserializer", false)
+
 	xContentRegisterDeserializer(MimeTypeVar, TypeVar, glib.NewCallback(DeserializeVar), DataVar, glib.NewCallbackNullable(NotifyVar))
 }
 
@@ -70,6 +74,7 @@ type ContentDeserializer struct {
 var xContentDeserializerGLibType func() types.GType
 
 func ContentDeserializerGLibType() types.GType {
+	core.LazyRegister(&xContentDeserializerGLibType, "GDK", "gdk_content_deserializer_get_type", false)
 	return xContentDeserializerGLibType()
 }
 
@@ -85,6 +90,7 @@ var xContentDeserializerGetCancellable func(uintptr) uintptr
 //
 // This is the `GCancellable` that was passed to [func@Gdk.content_deserialize_async].
 func (x *ContentDeserializer) GetCancellable() *gio.Cancellable {
+	core.LazyRegister(&xContentDeserializerGetCancellable, "GDK", "gdk_content_deserializer_get_cancellable", false)
 	var cls *gio.Cancellable
 
 	cret := xContentDeserializerGetCancellable(x.GoPointer())
@@ -102,6 +108,8 @@ var xContentDeserializerGetGtype func(uintptr) types.GType
 
 // Gets the `GType` to create an instance of.
 func (x *ContentDeserializer) GetGtype() types.GType {
+	core.LazyRegister(&xContentDeserializerGetGtype, "GDK", "gdk_content_deserializer_get_gtype", false)
+
 	cret := xContentDeserializerGetGtype(x.GoPointer())
 	return cret
 }
@@ -112,6 +120,7 @@ var xContentDeserializerGetInputStream func(uintptr) uintptr
 //
 // This is the stream that was passed to [func@Gdk.content_deserialize_async].
 func (x *ContentDeserializer) GetInputStream() *gio.InputStream {
+	core.LazyRegister(&xContentDeserializerGetInputStream, "GDK", "gdk_content_deserializer_get_input_stream", false)
 	var cls *gio.InputStream
 
 	cret := xContentDeserializerGetInputStream(x.GoPointer())
@@ -129,6 +138,8 @@ var xContentDeserializerGetMimeType func(uintptr) string
 
 // Gets the mime type to deserialize from.
 func (x *ContentDeserializer) GetMimeType() string {
+	core.LazyRegister(&xContentDeserializerGetMimeType, "GDK", "gdk_content_deserializer_get_mime_type", false)
+
 	cret := xContentDeserializerGetMimeType(x.GoPointer())
 	return cret
 }
@@ -139,6 +150,8 @@ var xContentDeserializerGetPriority func(uintptr) int
 //
 // This is the priority that was passed to [func@Gdk.content_deserialize_async].
 func (x *ContentDeserializer) GetPriority() int {
+	core.LazyRegister(&xContentDeserializerGetPriority, "GDK", "gdk_content_deserializer_get_priority", false)
+
 	cret := xContentDeserializerGetPriority(x.GoPointer())
 	return cret
 }
@@ -149,6 +162,8 @@ var xContentDeserializerGetTaskData func(uintptr) uintptr
 //
 // See [method@Gdk.ContentDeserializer.set_task_data].
 func (x *ContentDeserializer) GetTaskData() uintptr {
+	core.LazyRegister(&xContentDeserializerGetTaskData, "GDK", "gdk_content_deserializer_get_task_data", false)
+
 	cret := xContentDeserializerGetTaskData(x.GoPointer())
 	return cret
 }
@@ -157,6 +172,8 @@ var xContentDeserializerGetUserData func(uintptr) uintptr
 
 // Gets the user data that was passed when the deserializer was registered.
 func (x *ContentDeserializer) GetUserData() uintptr {
+	core.LazyRegister(&xContentDeserializerGetUserData, "GDK", "gdk_content_deserializer_get_user_data", false)
+
 	cret := xContentDeserializerGetUserData(x.GoPointer())
 	return cret
 }
@@ -165,6 +182,8 @@ var xContentDeserializerGetValue func(uintptr) uintptr
 
 // Gets the `GValue` to store the deserialized object in.
 func (x *ContentDeserializer) GetValue() *gobject.Value {
+	core.LazyRegister(&xContentDeserializerGetValue, "GDK", "gdk_content_deserializer_get_value", false)
+
 	cret := xContentDeserializerGetValue(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -178,6 +197,8 @@ var xContentDeserializerReturnError func(uintptr, *glib.Error)
 //
 // This function consumes @error.
 func (x *ContentDeserializer) ReturnError(ErrorVar *glib.Error) {
+	core.LazyRegister(&xContentDeserializerReturnError, "GDK", "gdk_content_deserializer_return_error", false)
+
 	xContentDeserializerReturnError(x.GoPointer(), ErrorVar)
 }
 
@@ -185,6 +206,8 @@ var xContentDeserializerReturnSuccess func(uintptr)
 
 // Indicate that the deserialization has been successfully completed.
 func (x *ContentDeserializer) ReturnSuccess() {
+	core.LazyRegister(&xContentDeserializerReturnSuccess, "GDK", "gdk_content_deserializer_return_success", false)
+
 	xContentDeserializerReturnSuccess(x.GoPointer())
 }
 
@@ -192,6 +215,8 @@ var xContentDeserializerSetTaskData func(uintptr, uintptr, uintptr)
 
 // Associate data with the current deserialization operation.
 func (x *ContentDeserializer) SetTaskData(DataVar uintptr, NotifyVar *glib.DestroyNotify) {
+	core.LazyRegister(&xContentDeserializerSetTaskData, "GDK", "gdk_content_deserializer_set_task_data", false)
+
 	xContentDeserializerSetTaskData(x.GoPointer(), DataVar, glib.NewCallbackNullable(NotifyVar))
 }
 
@@ -250,30 +275,4 @@ func (x *ContentDeserializer) LegacyPropagateError() (bool, error) {
 func init() {
 	core.SetPackageName("GDK", "gtk4")
 	core.SetSharedLibraries("GDK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GDK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xContentDeserializeAsync, libs, "gdk_content_deserialize_async")
-	core.PuregoSafeRegister(&xContentDeserializeFinish, libs, "gdk_content_deserialize_finish")
-	core.PuregoSafeRegister(&xContentRegisterDeserializer, libs, "gdk_content_register_deserializer")
-
-	core.PuregoSafeRegister(&xContentDeserializerGLibType, libs, "gdk_content_deserializer_get_type")
-
-	core.PuregoSafeRegister(&xContentDeserializerGetCancellable, libs, "gdk_content_deserializer_get_cancellable")
-	core.PuregoSafeRegister(&xContentDeserializerGetGtype, libs, "gdk_content_deserializer_get_gtype")
-	core.PuregoSafeRegister(&xContentDeserializerGetInputStream, libs, "gdk_content_deserializer_get_input_stream")
-	core.PuregoSafeRegister(&xContentDeserializerGetMimeType, libs, "gdk_content_deserializer_get_mime_type")
-	core.PuregoSafeRegister(&xContentDeserializerGetPriority, libs, "gdk_content_deserializer_get_priority")
-	core.PuregoSafeRegister(&xContentDeserializerGetTaskData, libs, "gdk_content_deserializer_get_task_data")
-	core.PuregoSafeRegister(&xContentDeserializerGetUserData, libs, "gdk_content_deserializer_get_user_data")
-	core.PuregoSafeRegister(&xContentDeserializerGetValue, libs, "gdk_content_deserializer_get_value")
-	core.PuregoSafeRegister(&xContentDeserializerReturnError, libs, "gdk_content_deserializer_return_error")
-	core.PuregoSafeRegister(&xContentDeserializerReturnSuccess, libs, "gdk_content_deserializer_return_success")
-	core.PuregoSafeRegister(&xContentDeserializerSetTaskData, libs, "gdk_content_deserializer_set_task_data")
 }

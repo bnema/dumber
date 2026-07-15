@@ -11,7 +11,7 @@ require (
 	github.com/bnema/purego-pipewire v0.1.5-0.20260714124450-6504b9cdf02a
 	github.com/bnema/purego-sqlite v0.1.4-0.20260714131321-3614fe683b9c
 	github.com/bnema/purego-webp v0.2.1-0.20260714152238-7bc9c402fdf6
-	github.com/bnema/puregotk v0.7.0
+	github.com/bnema/puregotk v0.7.1-0.20260714200603-7370c78950ef
 	github.com/charmbracelet/bubbles v1.0.0
 	github.com/charmbracelet/bubbletea v1.3.10
 	github.com/charmbracelet/lipgloss v1.1.0
@@ -47,6 +47,7 @@ require (
 	github.com/erikgeiser/coninput v0.0.0-20211004153227-1c3628e74d0f // indirect
 	github.com/fatih/color v1.19.0 // indirect
 	github.com/go-viper/mapstructure/v2 v2.5.0 // indirect
+	github.com/google/go-cmp v0.7.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/lucasb-eyer/go-colorful v1.4.0 // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect
@@ -80,6 +81,7 @@ require (
 	golang.org/x/text v0.40.0 // indirect
 	golang.org/x/tools v0.47.0 // indirect
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
+	mvdan.cc/gofumpt v0.9.2 // indirect
 )
 
 tool github.com/a-h/templ/cmd/templ

@@ -4,7 +4,6 @@ package gdk
 import (
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/cairo"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -27,6 +26,7 @@ type DrawContext struct {
 var xDrawContextGLibType func() types.GType
 
 func DrawContextGLibType() types.GType {
+	core.LazyRegister(&xDrawContextGLibType, "GDK", "gdk_draw_context_get_type", false)
 	return xDrawContextGLibType()
 }
 
@@ -63,6 +63,8 @@ var xDrawContextBeginFrame func(uintptr, *cairo.Region)
 // use of [GskRenderer](../gsk4/class.Renderer.html)s, so application code
 // does not need to call these functions explicitly.
 func (x *DrawContext) BeginFrame(RegionVar *cairo.Region) {
+	core.LazyRegister(&xDrawContextBeginFrame, "GDK", "gdk_draw_context_begin_frame", false)
+
 	xDrawContextBeginFrame(x.GoPointer(), RegionVar)
 }
 
@@ -77,6 +79,8 @@ var xDrawContextEndFrame func(uintptr)
 // implicitly before returning; it is not recommended to call `glFlush()`
 // explicitly before calling this function.
 func (x *DrawContext) EndFrame() {
+	core.LazyRegister(&xDrawContextEndFrame, "GDK", "gdk_draw_context_end_frame", false)
+
 	xDrawContextEndFrame(x.GoPointer())
 }
 
@@ -84,6 +88,7 @@ var xDrawContextGetDisplay func(uintptr) uintptr
 
 // Retrieves the `GdkDisplay` the @context is created for
 func (x *DrawContext) GetDisplay() *Display {
+	core.LazyRegister(&xDrawContextGetDisplay, "GDK", "gdk_draw_context_get_display", false)
 	var cls *Display
 
 	cret := xDrawContextGetDisplay(x.GoPointer())
@@ -108,6 +113,8 @@ var xDrawContextGetFrameRegion func(uintptr) uintptr
 // If @context is not in between calls to [method@Gdk.DrawContext.begin_frame]
 // and [method@Gdk.DrawContext.end_frame], %NULL will be returned.
 func (x *DrawContext) GetFrameRegion() *cairo.Region {
+	core.LazyRegister(&xDrawContextGetFrameRegion, "GDK", "gdk_draw_context_get_frame_region", false)
+
 	cret := xDrawContextGetFrameRegion(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -119,6 +126,7 @@ var xDrawContextGetSurface func(uintptr) uintptr
 
 // Retrieves the surface that @context is bound to.
 func (x *DrawContext) GetSurface() *Surface {
+	core.LazyRegister(&xDrawContextGetSurface, "GDK", "gdk_draw_context_get_surface", false)
 	var cls *Surface
 
 	cret := xDrawContextGetSurface(x.GoPointer())
@@ -140,6 +148,8 @@ var xDrawContextIsInFrame func(uintptr) bool
 // and [method@Gdk.DrawContext.end_frame]. In this situation, drawing commands
 // may be effecting the contents of the @context's surface.
 func (x *DrawContext) IsInFrame() bool {
+	core.LazyRegister(&xDrawContextIsInFrame, "GDK", "gdk_draw_context_is_in_frame", false)
+
 	cret := xDrawContextIsInFrame(x.GoPointer())
 	return cret
 }
@@ -158,21 +168,4 @@ func (c *DrawContext) SetGoPointer(ptr uintptr) {
 func init() {
 	core.SetPackageName("GDK", "gtk4")
 	core.SetSharedLibraries("GDK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GDK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xDrawContextGLibType, libs, "gdk_draw_context_get_type")
-
-	core.PuregoSafeRegister(&xDrawContextBeginFrame, libs, "gdk_draw_context_begin_frame")
-	core.PuregoSafeRegister(&xDrawContextEndFrame, libs, "gdk_draw_context_end_frame")
-	core.PuregoSafeRegister(&xDrawContextGetDisplay, libs, "gdk_draw_context_get_display")
-	core.PuregoSafeRegister(&xDrawContextGetFrameRegion, libs, "gdk_draw_context_get_frame_region")
-	core.PuregoSafeRegister(&xDrawContextGetSurface, libs, "gdk_draw_context_get_surface")
-	core.PuregoSafeRegister(&xDrawContextIsInFrame, libs, "gdk_draw_context_is_in_frame")
 }

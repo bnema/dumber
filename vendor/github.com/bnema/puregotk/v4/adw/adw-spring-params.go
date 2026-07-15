@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject/types"
 )
@@ -47,6 +46,7 @@ type SpringParams struct {
 var xSpringParamsGLibType func() types.GType
 
 func SpringParamsGLibType() types.GType {
+	core.LazyRegister(&xSpringParamsGLibType, "ADW", "adw_spring_params_get_type", false)
 	return xSpringParamsGLibType()
 }
 
@@ -80,6 +80,8 @@ var xNewSpringParams func(float64, float64, float64) uintptr
 //
 // [ctor@SpringParams.new_full] allows to pass a raw damping value instead.
 func NewSpringParams(DampingRatioVar float64, MassVar float64, StiffnessVar float64) *SpringParams {
+	core.LazyRegister(&xNewSpringParams, "ADW", "adw_spring_params_new", false)
+
 	cret := xNewSpringParams(DampingRatioVar, MassVar, StiffnessVar)
 	if cret == 0 {
 		return nil
@@ -94,6 +96,8 @@ var xNewSpringParamsFull func(float64, float64, float64) uintptr
 // See [ctor@SpringParams.new] for a simplified constructor using damping ratio
 // instead of @damping.
 func NewSpringParamsFull(DampingVar float64, MassVar float64, StiffnessVar float64) *SpringParams {
+	core.LazyRegister(&xNewSpringParamsFull, "ADW", "adw_spring_params_new_full", false)
+
 	cret := xNewSpringParamsFull(DampingVar, MassVar, StiffnessVar)
 	if cret == 0 {
 		return nil
@@ -105,6 +109,8 @@ var xSpringParamsGetDamping func(uintptr) float64
 
 // Gets the damping of @self.
 func (x *SpringParams) GetDamping() float64 {
+	core.LazyRegister(&xSpringParamsGetDamping, "ADW", "adw_spring_params_get_damping", false)
+
 	cret := xSpringParamsGetDamping(x.GoPointer())
 	return cret
 }
@@ -113,6 +119,8 @@ var xSpringParamsGetDampingRatio func(uintptr) float64
 
 // Gets the damping ratio of @self.
 func (x *SpringParams) GetDampingRatio() float64 {
+	core.LazyRegister(&xSpringParamsGetDampingRatio, "ADW", "adw_spring_params_get_damping_ratio", false)
+
 	cret := xSpringParamsGetDampingRatio(x.GoPointer())
 	return cret
 }
@@ -121,6 +129,8 @@ var xSpringParamsGetMass func(uintptr) float64
 
 // Gets the mass of @self.
 func (x *SpringParams) GetMass() float64 {
+	core.LazyRegister(&xSpringParamsGetMass, "ADW", "adw_spring_params_get_mass", false)
+
 	cret := xSpringParamsGetMass(x.GoPointer())
 	return cret
 }
@@ -129,6 +139,8 @@ var xSpringParamsGetStiffness func(uintptr) float64
 
 // Gets the stiffness of @self.
 func (x *SpringParams) GetStiffness() float64 {
+	core.LazyRegister(&xSpringParamsGetStiffness, "ADW", "adw_spring_params_get_stiffness", false)
+
 	cret := xSpringParamsGetStiffness(x.GoPointer())
 	return cret
 }
@@ -137,6 +149,8 @@ var xSpringParamsRef func(uintptr) uintptr
 
 // Increases the reference count of @self.
 func (x *SpringParams) Ref() *SpringParams {
+	core.LazyRegister(&xSpringParamsRef, "ADW", "adw_spring_params_ref", false)
+
 	cret := xSpringParamsRef(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -150,30 +164,12 @@ var xSpringParamsUnref func(uintptr)
 //
 // If the last reference is dropped, the structure is freed.
 func (x *SpringParams) Unref() {
+	core.LazyRegister(&xSpringParamsUnref, "ADW", "adw_spring_params_unref", false)
+
 	xSpringParamsUnref(x.GoPointer())
 }
 
 func init() {
 	core.SetPackageName("ADW", "libadwaita-1")
 	core.SetSharedLibraries("ADW", []string{"libadwaita-1.so.0", "libadwaita-1.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("ADW") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xSpringParamsGLibType, libs, "adw_spring_params_get_type")
-
-	core.PuregoSafeRegister(&xNewSpringParams, libs, "adw_spring_params_new")
-	core.PuregoSafeRegister(&xNewSpringParamsFull, libs, "adw_spring_params_new_full")
-
-	core.PuregoSafeRegister(&xSpringParamsGetDamping, libs, "adw_spring_params_get_damping")
-	core.PuregoSafeRegister(&xSpringParamsGetDampingRatio, libs, "adw_spring_params_get_damping_ratio")
-	core.PuregoSafeRegister(&xSpringParamsGetMass, libs, "adw_spring_params_get_mass")
-	core.PuregoSafeRegister(&xSpringParamsGetStiffness, libs, "adw_spring_params_get_stiffness")
-	core.PuregoSafeRegister(&xSpringParamsRef, libs, "adw_spring_params_ref")
-	core.PuregoSafeRegister(&xSpringParamsUnref, libs, "adw_spring_params_unref")
 }

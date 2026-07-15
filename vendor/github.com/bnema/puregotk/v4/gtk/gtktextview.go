@@ -477,6 +477,7 @@ type TextExtendSelection int
 var xTextExtendSelectionGLibType func() types.GType
 
 func TextExtendSelectionGLibType() types.GType {
+	core.LazyRegister(&xTextExtendSelectionGLibType, "GTK", "gtk_text_extend_selection_get_type", false)
 	return xTextExtendSelectionGLibType()
 }
 
@@ -497,6 +498,7 @@ type TextViewLayer int
 var xTextViewLayerGLibType func() types.GType
 
 func TextViewLayerGLibType() types.GType {
+	core.LazyRegister(&xTextViewLayerGLibType, "GTK", "gtk_text_view_layer_get_type", false)
 	return xTextViewLayerGLibType()
 }
 
@@ -514,6 +516,7 @@ type TextWindowType int
 var xTextWindowTypeGLibType func() types.GType
 
 func TextWindowTypeGLibType() types.GType {
+	core.LazyRegister(&xTextWindowTypeGLibType, "GTK", "gtk_text_window_type_get_type", false)
 	return xTextWindowTypeGLibType()
 }
 
@@ -618,6 +621,7 @@ type TextView struct {
 var xTextViewGLibType func() types.GType
 
 func TextViewGLibType() types.GType {
+	core.LazyRegister(&xTextViewGLibType, "GTK", "gtk_text_view_get_type", false)
 	return xTextViewGLibType()
 }
 
@@ -636,6 +640,7 @@ var xNewTextView func() uintptr
 // buffer with [method@Gtk.TextView.get_buffer]. If you want to specify
 // your own buffer, consider [ctor@Gtk.TextView.new_with_buffer].
 func NewTextView() *TextView {
+	core.LazyRegister(&xNewTextView, "GTK", "gtk_text_view_new", false)
 	var cls *TextView
 
 	cret := xNewTextView()
@@ -658,6 +663,7 @@ var xNewTextViewWithBuffer func(uintptr) uintptr
 // to [ctor@Gtk.TextView.new]. The text view adds its own reference count
 // to the buffer; it does not take over an existing reference.
 func NewTextViewWithBuffer(BufferVar *TextBuffer) *TextView {
+	core.LazyRegister(&xNewTextViewWithBuffer, "GTK", "gtk_text_view_new_with_buffer", false)
 	var cls *TextView
 
 	cret := xNewTextViewWithBuffer(BufferVar.GoPointer())
@@ -675,6 +681,8 @@ var xTextViewAddChildAtAnchor func(uintptr, uintptr, uintptr)
 
 // Adds a child widget in the text buffer, at the given @anchor.
 func (x *TextView) AddChildAtAnchor(ChildVar *Widget, AnchorVar *TextChildAnchor) {
+	core.LazyRegister(&xTextViewAddChildAtAnchor, "GTK", "gtk_text_view_add_child_at_anchor", false)
+
 	xTextViewAddChildAtAnchor(x.GoPointer(), ChildVar.GoPointer(), AnchorVar.GoPointer())
 }
 
@@ -691,6 +699,8 @@ var xTextViewAddOverlay func(uintptr, uintptr, int, int)
 // If instead you want a widget that will not move with the
 // `GtkTextView` contents see `GtkOverlay`.
 func (x *TextView) AddOverlay(ChildVar *Widget, XposVar int, YposVar int) {
+	core.LazyRegister(&xTextViewAddOverlay, "GTK", "gtk_text_view_add_overlay", false)
+
 	xTextViewAddOverlay(x.GoPointer(), ChildVar.GoPointer(), XposVar, YposVar)
 }
 
@@ -706,6 +716,8 @@ var xTextViewBackwardDisplayLine func(uintptr, *TextIter) bool
 // they depend on the view’s width; paragraphs are the same in all
 // views, since they depend on the contents of the `GtkTextBuffer`.
 func (x *TextView) BackwardDisplayLine(IterVar *TextIter) bool {
+	core.LazyRegister(&xTextViewBackwardDisplayLine, "GTK", "gtk_text_view_backward_display_line", false)
+
 	cret := xTextViewBackwardDisplayLine(x.GoPointer(), IterVar)
 	return cret
 }
@@ -722,6 +734,8 @@ var xTextViewBackwardDisplayLineStart func(uintptr, *TextIter) bool
 // they depend on the view’s width; paragraphs are the same in all
 // views, since they depend on the contents of the `GtkTextBuffer`.
 func (x *TextView) BackwardDisplayLineStart(IterVar *TextIter) bool {
+	core.LazyRegister(&xTextViewBackwardDisplayLineStart, "GTK", "gtk_text_view_backward_display_line_start", false)
+
 	cret := xTextViewBackwardDisplayLineStart(x.GoPointer(), IterVar)
 	return cret
 }
@@ -730,6 +744,8 @@ var xTextViewBufferToWindowCoords func(uintptr, TextWindowType, int, int, *int, 
 
 // Converts buffer coordinates to window coordinates.
 func (x *TextView) BufferToWindowCoords(WinVar TextWindowType, BufferXVar int, BufferYVar int, WindowXVar *int, WindowYVar *int) {
+	core.LazyRegister(&xTextViewBufferToWindowCoords, "GTK", "gtk_text_view_buffer_to_window_coords", false)
+
 	xTextViewBufferToWindowCoords(x.GoPointer(), WinVar, BufferXVar, BufferYVar, WindowXVar, WindowYVar)
 }
 
@@ -745,6 +761,8 @@ var xTextViewForwardDisplayLine func(uintptr, *TextIter) bool
 // they depend on the view’s width; paragraphs are the same in all
 // views, since they depend on the contents of the `GtkTextBuffer`.
 func (x *TextView) ForwardDisplayLine(IterVar *TextIter) bool {
+	core.LazyRegister(&xTextViewForwardDisplayLine, "GTK", "gtk_text_view_forward_display_line", false)
+
 	cret := xTextViewForwardDisplayLine(x.GoPointer(), IterVar)
 	return cret
 }
@@ -761,6 +779,8 @@ var xTextViewForwardDisplayLineEnd func(uintptr, *TextIter) bool
 // they depend on the view’s width; paragraphs are the same in all
 // views, since they depend on the contents of the `GtkTextBuffer`.
 func (x *TextView) ForwardDisplayLineEnd(IterVar *TextIter) bool {
+	core.LazyRegister(&xTextViewForwardDisplayLineEnd, "GTK", "gtk_text_view_forward_display_line_end", false)
+
 	cret := xTextViewForwardDisplayLineEnd(x.GoPointer(), IterVar)
 	return cret
 }
@@ -771,6 +791,8 @@ var xTextViewGetAcceptsTab func(uintptr) bool
 //
 // See [method@Gtk.TextView.set_accepts_tab].
 func (x *TextView) GetAcceptsTab() bool {
+	core.LazyRegister(&xTextViewGetAcceptsTab, "GTK", "gtk_text_view_get_accepts_tab", false)
+
 	cret := xTextViewGetAcceptsTab(x.GoPointer())
 	return cret
 }
@@ -779,6 +801,8 @@ var xTextViewGetBottomMargin func(uintptr) int
 
 // Gets the bottom margin for text in the @text_view.
 func (x *TextView) GetBottomMargin() int {
+	core.LazyRegister(&xTextViewGetBottomMargin, "GTK", "gtk_text_view_get_bottom_margin", false)
+
 	cret := xTextViewGetBottomMargin(x.GoPointer())
 	return cret
 }
@@ -790,6 +814,7 @@ var xTextViewGetBuffer func(uintptr) uintptr
 // The reference count on the buffer is not incremented; the caller
 // of this function won’t own a new reference.
 func (x *TextView) GetBuffer() *TextBuffer {
+	core.LazyRegister(&xTextViewGetBuffer, "GTK", "gtk_text_view_get_buffer", false)
 	var cls *TextBuffer
 
 	cret := xTextViewGetBuffer(x.GoPointer())
@@ -826,6 +851,8 @@ var xTextViewGetCursorLocations func(uintptr, *TextIter, *gdk.Rectangle, *gdk.Re
 // [method@Gtk.TextView.buffer_to_window_coords] to convert these
 // coordinates to coordinates for one of the windows in the text view.
 func (x *TextView) GetCursorLocations(IterVar *TextIter, StrongVar *gdk.Rectangle, WeakVar *gdk.Rectangle) {
+	core.LazyRegister(&xTextViewGetCursorLocations, "GTK", "gtk_text_view_get_cursor_locations", false)
+
 	xTextViewGetCursorLocations(x.GoPointer(), IterVar, StrongVar, WeakVar)
 }
 
@@ -833,6 +860,8 @@ var xTextViewGetCursorVisible func(uintptr) bool
 
 // Find out whether the cursor should be displayed.
 func (x *TextView) GetCursorVisible() bool {
+	core.LazyRegister(&xTextViewGetCursorVisible, "GTK", "gtk_text_view_get_cursor_visible", false)
+
 	cret := xTextViewGetCursorVisible(x.GoPointer())
 	return cret
 }
@@ -843,6 +872,8 @@ var xTextViewGetEditable func(uintptr) bool
 //
 // Tags in the buffer may override this setting for some ranges of text.
 func (x *TextView) GetEditable() bool {
+	core.LazyRegister(&xTextViewGetEditable, "GTK", "gtk_text_view_get_editable", false)
+
 	cret := xTextViewGetEditable(x.GoPointer())
 	return cret
 }
@@ -852,6 +883,7 @@ var xTextViewGetExtraMenu func(uintptr) uintptr
 // Gets the menu model that gets added to the context menu
 // or %NULL if none has been set.
 func (x *TextView) GetExtraMenu() *gio.MenuModel {
+	core.LazyRegister(&xTextViewGetExtraMenu, "GTK", "gtk_text_view_get_extra_menu", false)
 	var cls *gio.MenuModel
 
 	cret := xTextViewGetExtraMenu(x.GoPointer())
@@ -874,6 +906,7 @@ var xTextViewGetGutter func(uintptr, TextWindowType) uintptr
 // @win must be one of %GTK_TEXT_WINDOW_LEFT, %GTK_TEXT_WINDOW_RIGHT,
 // %GTK_TEXT_WINDOW_TOP, or %GTK_TEXT_WINDOW_BOTTOM.
 func (x *TextView) GetGutter(WinVar TextWindowType) *Widget {
+	core.LazyRegister(&xTextViewGetGutter, "GTK", "gtk_text_view_get_gutter", false)
 	var cls *Widget
 
 	cret := xTextViewGetGutter(x.GoPointer(), WinVar)
@@ -894,6 +927,8 @@ var xTextViewGetIndent func(uintptr) int
 // Tags in the view’s buffer may override the default.
 // The indentation may be negative.
 func (x *TextView) GetIndent() int {
+	core.LazyRegister(&xTextViewGetIndent, "GTK", "gtk_text_view_get_indent", false)
+
 	cret := xTextViewGetIndent(x.GoPointer())
 	return cret
 }
@@ -902,6 +937,8 @@ var xTextViewGetInputHints func(uintptr) InputHints
 
 // Gets the `input-hints` of the `GtkTextView`.
 func (x *TextView) GetInputHints() InputHints {
+	core.LazyRegister(&xTextViewGetInputHints, "GTK", "gtk_text_view_get_input_hints", false)
+
 	cret := xTextViewGetInputHints(x.GoPointer())
 	return cret
 }
@@ -910,6 +947,8 @@ var xTextViewGetInputPurpose func(uintptr) InputPurpose
 
 // Gets the `input-purpose` of the `GtkTextView`.
 func (x *TextView) GetInputPurpose() InputPurpose {
+	core.LazyRegister(&xTextViewGetInputPurpose, "GTK", "gtk_text_view_get_input_purpose", false)
+
 	cret := xTextViewGetInputPurpose(x.GoPointer())
 	return cret
 }
@@ -923,6 +962,8 @@ var xTextViewGetIterAtLocation func(uintptr, *TextIter, int, int) bool
 // event, you have to convert those to buffer coordinates with
 // [method@Gtk.TextView.window_to_buffer_coords].
 func (x *TextView) GetIterAtLocation(IterVar *TextIter, XVar int, YVar int) bool {
+	core.LazyRegister(&xTextViewGetIterAtLocation, "GTK", "gtk_text_view_get_iter_at_location", false)
+
 	cret := xTextViewGetIterAtLocation(x.GoPointer(), IterVar, XVar, YVar)
 	return cret
 }
@@ -940,6 +981,8 @@ var xTextViewGetIterAtPosition func(uintptr, *TextIter, *int, int, int) bool
 // Note that this is different from [method@Gtk.TextView.get_iter_at_location],
 // which returns cursor locations, i.e. positions between characters.
 func (x *TextView) GetIterAtPosition(IterVar *TextIter, TrailingVar *int, XVar int, YVar int) bool {
+	core.LazyRegister(&xTextViewGetIterAtPosition, "GTK", "gtk_text_view_get_iter_at_position", false)
+
 	cret := xTextViewGetIterAtPosition(x.GoPointer(), IterVar, TrailingVar, XVar, YVar)
 	return cret
 }
@@ -952,6 +995,8 @@ var xTextViewGetIterLocation func(uintptr, *TextIter, *gdk.Rectangle)
 // [method@Gtk.TextView.buffer_to_window_coords] to convert these
 // coordinates to coordinates for one of the windows in the text view.
 func (x *TextView) GetIterLocation(IterVar *TextIter, LocationVar *gdk.Rectangle) {
+	core.LazyRegister(&xTextViewGetIterLocation, "GTK", "gtk_text_view_get_iter_location", false)
+
 	xTextViewGetIterLocation(x.GoPointer(), IterVar, LocationVar)
 }
 
@@ -961,6 +1006,8 @@ var xTextViewGetJustification func(uintptr) Justification
 //
 // Tags in the buffer may override the default.
 func (x *TextView) GetJustification() Justification {
+	core.LazyRegister(&xTextViewGetJustification, "GTK", "gtk_text_view_get_justification", false)
+
 	cret := xTextViewGetJustification(x.GoPointer())
 	return cret
 }
@@ -971,6 +1018,8 @@ var xTextViewGetLeftMargin func(uintptr) int
 //
 // Tags in the buffer may override the default.
 func (x *TextView) GetLeftMargin() int {
+	core.LazyRegister(&xTextViewGetLeftMargin, "GTK", "gtk_text_view_get_left_margin", false)
+
 	cret := xTextViewGetLeftMargin(x.GoPointer())
 	return cret
 }
@@ -985,6 +1034,8 @@ var xTextViewGetLineAtY func(uintptr, *TextIter, int, *int)
 // @line_top will be filled with the coordinate of the top edge
 // of the line.
 func (x *TextView) GetLineAtY(TargetIterVar *TextIter, YVar int, LineTopVar *int) {
+	core.LazyRegister(&xTextViewGetLineAtY, "GTK", "gtk_text_view_get_line_at_y", false)
+
 	xTextViewGetLineAtY(x.GoPointer(), TargetIterVar, YVar, LineTopVar)
 }
 
@@ -996,6 +1047,8 @@ var xTextViewGetLineYrange func(uintptr, *TextIter, *int, *int)
 // The coordinate is a buffer coordinate; convert to window
 // coordinates with [method@Gtk.TextView.buffer_to_window_coords].
 func (x *TextView) GetLineYrange(IterVar *TextIter, YVar *int, HeightVar *int) {
+	core.LazyRegister(&xTextViewGetLineYrange, "GTK", "gtk_text_view_get_line_yrange", false)
+
 	xTextViewGetLineYrange(x.GoPointer(), IterVar, YVar, HeightVar)
 }
 
@@ -1006,6 +1059,7 @@ var xTextViewGetLtrContext func(uintptr) uintptr
 //
 // The context may be replaced when CSS changes occur.
 func (x *TextView) GetLtrContext() *pango.Context {
+	core.LazyRegister(&xTextViewGetLtrContext, "GTK", "gtk_text_view_get_ltr_context", false)
 	var cls *pango.Context
 
 	cret := xTextViewGetLtrContext(x.GoPointer())
@@ -1023,6 +1077,8 @@ var xTextViewGetMonospace func(uintptr) bool
 
 // Gets whether the `GtkTextView` uses monospace styling.
 func (x *TextView) GetMonospace() bool {
+	core.LazyRegister(&xTextViewGetMonospace, "GTK", "gtk_text_view_get_monospace", false)
+
 	cret := xTextViewGetMonospace(x.GoPointer())
 	return cret
 }
@@ -1031,6 +1087,8 @@ var xTextViewGetOverwrite func(uintptr) bool
 
 // Returns whether the `GtkTextView` is in overwrite mode or not.
 func (x *TextView) GetOverwrite() bool {
+	core.LazyRegister(&xTextViewGetOverwrite, "GTK", "gtk_text_view_get_overwrite", false)
+
 	cret := xTextViewGetOverwrite(x.GoPointer())
 	return cret
 }
@@ -1042,6 +1100,8 @@ var xTextViewGetPixelsAboveLines func(uintptr) int
 // Adding this function with [method@Gtk.TextView.get_pixels_below_lines]
 // is equal to the line space between each paragraph.
 func (x *TextView) GetPixelsAboveLines() int {
+	core.LazyRegister(&xTextViewGetPixelsAboveLines, "GTK", "gtk_text_view_get_pixels_above_lines", false)
+
 	cret := xTextViewGetPixelsAboveLines(x.GoPointer())
 	return cret
 }
@@ -1053,6 +1113,8 @@ var xTextViewGetPixelsBelowLines func(uintptr) int
 // The line space is the sum of the value returned by this function and
 // the value returned by [method@Gtk.TextView.get_pixels_above_lines].
 func (x *TextView) GetPixelsBelowLines() int {
+	core.LazyRegister(&xTextViewGetPixelsBelowLines, "GTK", "gtk_text_view_get_pixels_below_lines", false)
+
 	cret := xTextViewGetPixelsBelowLines(x.GoPointer())
 	return cret
 }
@@ -1062,6 +1124,8 @@ var xTextViewGetPixelsInsideWrap func(uintptr) int
 // Gets the default number of pixels to put between wrapped lines
 // inside a paragraph.
 func (x *TextView) GetPixelsInsideWrap() int {
+	core.LazyRegister(&xTextViewGetPixelsInsideWrap, "GTK", "gtk_text_view_get_pixels_inside_wrap", false)
+
 	cret := xTextViewGetPixelsInsideWrap(x.GoPointer())
 	return cret
 }
@@ -1072,6 +1136,8 @@ var xTextViewGetRightMargin func(uintptr) int
 //
 // Tags in the buffer may override the default.
 func (x *TextView) GetRightMargin() int {
+	core.LazyRegister(&xTextViewGetRightMargin, "GTK", "gtk_text_view_get_right_margin", false)
+
 	cret := xTextViewGetRightMargin(x.GoPointer())
 	return cret
 }
@@ -1083,6 +1149,7 @@ var xTextViewGetRtlContext func(uintptr) uintptr
 //
 // The context may be replaced when CSS changes occur.
 func (x *TextView) GetRtlContext() *pango.Context {
+	core.LazyRegister(&xTextViewGetRtlContext, "GTK", "gtk_text_view_get_rtl_context", false)
 	var cls *pango.Context
 
 	cret := xTextViewGetRtlContext(x.GoPointer())
@@ -1104,6 +1171,8 @@ var xTextViewGetTabs func(uintptr) uintptr
 // will be %NULL if “standard” (8-space) tabs are used. Free the
 // return value with [method@Pango.TabArray.free].
 func (x *TextView) GetTabs() *pango.TabArray {
+	core.LazyRegister(&xTextViewGetTabs, "GTK", "gtk_text_view_get_tabs", false)
+
 	cret := xTextViewGetTabs(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -1115,6 +1184,8 @@ var xTextViewGetTopMargin func(uintptr) int
 
 // Gets the top margin for text in the @text_view.
 func (x *TextView) GetTopMargin() int {
+	core.LazyRegister(&xTextViewGetTopMargin, "GTK", "gtk_text_view_get_top_margin", false)
+
 	cret := xTextViewGetTopMargin(x.GoPointer())
 	return cret
 }
@@ -1131,6 +1202,8 @@ var xTextViewGetVisibleOffset func(uintptr, *float64, *float64)
 // You might want this when making ulterior widgets align with quantized
 // device pixels of the textview contents such as line numbers.
 func (x *TextView) GetVisibleOffset(XOffsetVar *float64, YOffsetVar *float64) {
+	core.LazyRegister(&xTextViewGetVisibleOffset, "GTK", "gtk_text_view_get_visible_offset", false)
+
 	xTextViewGetVisibleOffset(x.GoPointer(), XOffsetVar, YOffsetVar)
 }
 
@@ -1142,6 +1215,8 @@ var xTextViewGetVisibleRect func(uintptr, *gdk.Rectangle)
 // Convert to window coordinates with
 // [method@Gtk.TextView.buffer_to_window_coords].
 func (x *TextView) GetVisibleRect(VisibleRectVar *gdk.Rectangle) {
+	core.LazyRegister(&xTextViewGetVisibleRect, "GTK", "gtk_text_view_get_visible_rect", false)
+
 	xTextViewGetVisibleRect(x.GoPointer(), VisibleRectVar)
 }
 
@@ -1149,6 +1224,8 @@ var xTextViewGetWrapMode func(uintptr) WrapMode
 
 // Gets the line wrapping for the view.
 func (x *TextView) GetWrapMode() WrapMode {
+	core.LazyRegister(&xTextViewGetWrapMode, "GTK", "gtk_text_view_get_wrap_mode", false)
+
 	cret := xTextViewGetWrapMode(x.GoPointer())
 	return cret
 }
@@ -1190,6 +1267,8 @@ var xTextViewImContextFilterKeypress func(uintptr, uintptr) bool
 //
 // ```
 func (x *TextView) ImContextFilterKeypress(EventVar *gdk.Event) bool {
+	core.LazyRegister(&xTextViewImContextFilterKeypress, "GTK", "gtk_text_view_im_context_filter_keypress", false)
+
 	cret := xTextViewImContextFilterKeypress(x.GoPointer(), EventVar.GoPointer())
 	return cret
 }
@@ -1199,6 +1278,8 @@ var xTextViewMoveMarkOnscreen func(uintptr, uintptr) bool
 // Moves a mark within the buffer so that it's
 // located within the currently-visible text area.
 func (x *TextView) MoveMarkOnscreen(MarkVar *TextMark) bool {
+	core.LazyRegister(&xTextViewMoveMarkOnscreen, "GTK", "gtk_text_view_move_mark_onscreen", false)
+
 	cret := xTextViewMoveMarkOnscreen(x.GoPointer(), MarkVar.GoPointer())
 	return cret
 }
@@ -1209,6 +1290,8 @@ var xTextViewMoveOverlay func(uintptr, uintptr, int, int)
 //
 // See [method@Gtk.TextView.add_overlay].
 func (x *TextView) MoveOverlay(ChildVar *Widget, XposVar int, YposVar int) {
+	core.LazyRegister(&xTextViewMoveOverlay, "GTK", "gtk_text_view_move_overlay", false)
+
 	xTextViewMoveOverlay(x.GoPointer(), ChildVar.GoPointer(), XposVar, YposVar)
 }
 
@@ -1227,6 +1310,8 @@ var xTextViewMoveVisually func(uintptr, *TextIter, int) bool
 // of the current run, and there may be jumps when the cursor
 // is moved off of the end of a run.
 func (x *TextView) MoveVisually(IterVar *TextIter, CountVar int) bool {
+	core.LazyRegister(&xTextViewMoveVisually, "GTK", "gtk_text_view_move_visually", false)
+
 	cret := xTextViewMoveVisually(x.GoPointer(), IterVar, CountVar)
 	return cret
 }
@@ -1236,6 +1321,8 @@ var xTextViewPlaceCursorOnscreen func(uintptr) bool
 // Moves the cursor to the currently visible region of the
 // buffer.
 func (x *TextView) PlaceCursorOnscreen() bool {
+	core.LazyRegister(&xTextViewPlaceCursorOnscreen, "GTK", "gtk_text_view_place_cursor_onscreen", false)
+
 	cret := xTextViewPlaceCursorOnscreen(x.GoPointer())
 	return cret
 }
@@ -1244,6 +1331,8 @@ var xTextViewRemove func(uintptr, uintptr)
 
 // Removes a child widget from @text_view.
 func (x *TextView) Remove(ChildVar *Widget) {
+	core.LazyRegister(&xTextViewRemove, "GTK", "gtk_text_view_remove", false)
+
 	xTextViewRemove(x.GoPointer(), ChildVar.GoPointer())
 }
 
@@ -1258,6 +1347,8 @@ var xTextViewResetCursorBlink func(uintptr)
 // (e.g. from derived classes that override the textview's
 // event handlers).
 func (x *TextView) ResetCursorBlink() {
+	core.LazyRegister(&xTextViewResetCursorBlink, "GTK", "gtk_text_view_reset_cursor_blink", false)
+
 	xTextViewResetCursorBlink(x.GoPointer())
 }
 
@@ -1268,6 +1359,8 @@ var xTextViewResetImContext func(uintptr)
 // This can be necessary in the case where modifying the buffer
 // would confuse on-going input method behavior.
 func (x *TextView) ResetImContext() {
+	core.LazyRegister(&xTextViewResetImContext, "GTK", "gtk_text_view_reset_im_context", false)
+
 	xTextViewResetImContext(x.GoPointer())
 }
 
@@ -1276,6 +1369,8 @@ var xTextViewScrollMarkOnscreen func(uintptr, uintptr)
 // Scrolls @text_view the minimum distance such that @mark is contained
 // within the visible area of the widget.
 func (x *TextView) ScrollMarkOnscreen(MarkVar *TextMark) {
+	core.LazyRegister(&xTextViewScrollMarkOnscreen, "GTK", "gtk_text_view_scroll_mark_onscreen", false)
+
 	xTextViewScrollMarkOnscreen(x.GoPointer(), MarkVar.GoPointer())
 }
 
@@ -1297,6 +1392,8 @@ var xTextViewScrollToIter func(uintptr, *TextIter, float64, bool, float64, float
 // using [method@Gtk.TextView.scroll_to_mark] which saves a point to be
 // scrolled to after line validation.
 func (x *TextView) ScrollToIter(IterVar *TextIter, WithinMarginVar float64, UseAlignVar bool, XalignVar float64, YalignVar float64) bool {
+	core.LazyRegister(&xTextViewScrollToIter, "GTK", "gtk_text_view_scroll_to_iter", false)
+
 	cret := xTextViewScrollToIter(x.GoPointer(), IterVar, WithinMarginVar, UseAlignVar, XalignVar, YalignVar)
 	return cret
 }
@@ -1312,6 +1409,8 @@ var xTextViewScrollToMark func(uintptr, uintptr, float64, bool, float64, float64
 // at all. The effective screen for purposes of this function is reduced
 // by a margin of size @within_margin.
 func (x *TextView) ScrollToMark(MarkVar *TextMark, WithinMarginVar float64, UseAlignVar bool, XalignVar float64, YalignVar float64) {
+	core.LazyRegister(&xTextViewScrollToMark, "GTK", "gtk_text_view_scroll_to_mark", false)
+
 	xTextViewScrollToMark(x.GoPointer(), MarkVar.GoPointer(), WithinMarginVar, UseAlignVar, XalignVar, YalignVar)
 }
 
@@ -1325,6 +1424,8 @@ var xTextViewSetAcceptsTab func(uintptr, bool)
 //
 // Focus can always be moved using &lt;kbd&gt;Ctrl&lt;/kbd&gt;+&lt;kbd&gt;Tab&lt;/kbd&gt;.
 func (x *TextView) SetAcceptsTab(AcceptsTabVar bool) {
+	core.LazyRegister(&xTextViewSetAcceptsTab, "GTK", "gtk_text_view_set_accepts_tab", false)
+
 	xTextViewSetAcceptsTab(x.GoPointer(), AcceptsTabVar)
 }
 
@@ -1335,6 +1436,8 @@ var xTextViewSetBottomMargin func(uintptr, int)
 // Note that this function is confusingly named.
 // In CSS terms, the value set here is padding.
 func (x *TextView) SetBottomMargin(BottomMarginVar int) {
+	core.LazyRegister(&xTextViewSetBottomMargin, "GTK", "gtk_text_view_set_bottom_margin", false)
+
 	xTextViewSetBottomMargin(x.GoPointer(), BottomMarginVar)
 }
 
@@ -1347,6 +1450,8 @@ var xTextViewSetBuffer func(uintptr, uintptr)
 // before passing it to this function, you must remove that reference
 // yourself; `GtkTextView` will not “adopt” it.
 func (x *TextView) SetBuffer(BufferVar *TextBuffer) {
+	core.LazyRegister(&xTextViewSetBuffer, "GTK", "gtk_text_view_set_buffer", false)
+
 	xTextViewSetBuffer(x.GoPointer(), BufferVar.GoPointer())
 }
 
@@ -1360,6 +1465,8 @@ var xTextViewSetCursorVisible func(uintptr, bool)
 // Note that this property may be overridden by the
 // [property@Gtk.Settings:gtk-keynav-use-caret] setting.
 func (x *TextView) SetCursorVisible(SettingVar bool) {
+	core.LazyRegister(&xTextViewSetCursorVisible, "GTK", "gtk_text_view_set_cursor_visible", false)
+
 	xTextViewSetCursorVisible(x.GoPointer(), SettingVar)
 }
 
@@ -1370,6 +1477,8 @@ var xTextViewSetEditable func(uintptr, bool)
 // You can override this default setting with tags in the buffer,
 // using the “editable” attribute of tags.
 func (x *TextView) SetEditable(SettingVar bool) {
+	core.LazyRegister(&xTextViewSetEditable, "GTK", "gtk_text_view_set_editable", false)
+
 	xTextViewSetEditable(x.GoPointer(), SettingVar)
 }
 
@@ -1380,6 +1489,8 @@ var xTextViewSetExtraMenu func(uintptr, uintptr)
 //
 // You can pass %NULL to remove a previously set extra menu.
 func (x *TextView) SetExtraMenu(ModelVar *gio.MenuModel) {
+	core.LazyRegister(&xTextViewSetExtraMenu, "GTK", "gtk_text_view_set_extra_menu", false)
+
 	xTextViewSetExtraMenu(x.GoPointer(), ModelVar.GoPointer())
 }
 
@@ -1390,6 +1501,8 @@ var xTextViewSetGutter func(uintptr, TextWindowType, uintptr)
 // @win must be one of %GTK_TEXT_WINDOW_LEFT, %GTK_TEXT_WINDOW_RIGHT,
 // %GTK_TEXT_WINDOW_TOP, or %GTK_TEXT_WINDOW_BOTTOM.
 func (x *TextView) SetGutter(WinVar TextWindowType, WidgetVar *Widget) {
+	core.LazyRegister(&xTextViewSetGutter, "GTK", "gtk_text_view_set_gutter", false)
+
 	xTextViewSetGutter(x.GoPointer(), WinVar, WidgetVar.GoPointer())
 }
 
@@ -1399,6 +1512,8 @@ var xTextViewSetIndent func(uintptr, int)
 //
 // Tags in the buffer may override the default.
 func (x *TextView) SetIndent(IndentVar int) {
+	core.LazyRegister(&xTextViewSetIndent, "GTK", "gtk_text_view_set_indent", false)
+
 	xTextViewSetIndent(x.GoPointer(), IndentVar)
 }
 
@@ -1409,6 +1524,8 @@ var xTextViewSetInputHints func(uintptr, InputHints)
 // The `input-hints` allow input methods to fine-tune
 // their behaviour.
 func (x *TextView) SetInputHints(HintsVar InputHints) {
+	core.LazyRegister(&xTextViewSetInputHints, "GTK", "gtk_text_view_set_input_hints", false)
+
 	xTextViewSetInputHints(x.GoPointer(), HintsVar)
 }
 
@@ -1419,6 +1536,8 @@ var xTextViewSetInputPurpose func(uintptr, InputPurpose)
 // The `input-purpose` can be used by on-screen keyboards
 // and other input methods to adjust their behaviour.
 func (x *TextView) SetInputPurpose(PurposeVar InputPurpose) {
+	core.LazyRegister(&xTextViewSetInputPurpose, "GTK", "gtk_text_view_set_input_purpose", false)
+
 	xTextViewSetInputPurpose(x.GoPointer(), PurposeVar)
 }
 
@@ -1428,6 +1547,8 @@ var xTextViewSetJustification func(uintptr, Justification)
 //
 // Tags in the view’s buffer may override the default.
 func (x *TextView) SetJustification(JustificationVar Justification) {
+	core.LazyRegister(&xTextViewSetJustification, "GTK", "gtk_text_view_set_justification", false)
+
 	xTextViewSetJustification(x.GoPointer(), JustificationVar)
 }
 
@@ -1440,6 +1561,8 @@ var xTextViewSetLeftMargin func(uintptr, int)
 // Note that this function is confusingly named.
 // In CSS terms, the value set here is padding.
 func (x *TextView) SetLeftMargin(LeftMarginVar int) {
+	core.LazyRegister(&xTextViewSetLeftMargin, "GTK", "gtk_text_view_set_left_margin", false)
+
 	xTextViewSetLeftMargin(x.GoPointer(), LeftMarginVar)
 }
 
@@ -1448,6 +1571,8 @@ var xTextViewSetMonospace func(uintptr, bool)
 // Sets whether the `GtkTextView` should display text in
 // monospace styling.
 func (x *TextView) SetMonospace(MonospaceVar bool) {
+	core.LazyRegister(&xTextViewSetMonospace, "GTK", "gtk_text_view_set_monospace", false)
+
 	xTextViewSetMonospace(x.GoPointer(), MonospaceVar)
 }
 
@@ -1455,6 +1580,8 @@ var xTextViewSetOverwrite func(uintptr, bool)
 
 // Changes the `GtkTextView` overwrite mode.
 func (x *TextView) SetOverwrite(OverwriteVar bool) {
+	core.LazyRegister(&xTextViewSetOverwrite, "GTK", "gtk_text_view_set_overwrite", false)
+
 	xTextViewSetOverwrite(x.GoPointer(), OverwriteVar)
 }
 
@@ -1464,6 +1591,8 @@ var xTextViewSetPixelsAboveLines func(uintptr, int)
 //
 // Tags in the buffer for @text_view may override the defaults.
 func (x *TextView) SetPixelsAboveLines(PixelsAboveLinesVar int) {
+	core.LazyRegister(&xTextViewSetPixelsAboveLines, "GTK", "gtk_text_view_set_pixels_above_lines", false)
+
 	xTextViewSetPixelsAboveLines(x.GoPointer(), PixelsAboveLinesVar)
 }
 
@@ -1474,6 +1603,8 @@ var xTextViewSetPixelsBelowLines func(uintptr, int)
 //
 // May be overridden by tags applied to @text_view’s buffer.
 func (x *TextView) SetPixelsBelowLines(PixelsBelowLinesVar int) {
+	core.LazyRegister(&xTextViewSetPixelsBelowLines, "GTK", "gtk_text_view_set_pixels_below_lines", false)
+
 	xTextViewSetPixelsBelowLines(x.GoPointer(), PixelsBelowLinesVar)
 }
 
@@ -1484,6 +1615,8 @@ var xTextViewSetPixelsInsideWrap func(uintptr, int)
 //
 // May be overridden by tags in @text_view’s buffer.
 func (x *TextView) SetPixelsInsideWrap(PixelsInsideWrapVar int) {
+	core.LazyRegister(&xTextViewSetPixelsInsideWrap, "GTK", "gtk_text_view_set_pixels_inside_wrap", false)
+
 	xTextViewSetPixelsInsideWrap(x.GoPointer(), PixelsInsideWrapVar)
 }
 
@@ -1496,6 +1629,8 @@ var xTextViewSetRightMargin func(uintptr, int)
 // Note that this function is confusingly named.
 // In CSS terms, the value set here is padding.
 func (x *TextView) SetRightMargin(RightMarginVar int) {
+	core.LazyRegister(&xTextViewSetRightMargin, "GTK", "gtk_text_view_set_right_margin", false)
+
 	xTextViewSetRightMargin(x.GoPointer(), RightMarginVar)
 }
 
@@ -1505,6 +1640,8 @@ var xTextViewSetTabs func(uintptr, *pango.TabArray)
 //
 // Tags in the buffer may override the default.
 func (x *TextView) SetTabs(TabsVar *pango.TabArray) {
+	core.LazyRegister(&xTextViewSetTabs, "GTK", "gtk_text_view_set_tabs", false)
+
 	xTextViewSetTabs(x.GoPointer(), TabsVar)
 }
 
@@ -1515,6 +1652,8 @@ var xTextViewSetTopMargin func(uintptr, int)
 // Note that this function is confusingly named.
 // In CSS terms, the value set here is padding.
 func (x *TextView) SetTopMargin(TopMarginVar int) {
+	core.LazyRegister(&xTextViewSetTopMargin, "GTK", "gtk_text_view_set_top_margin", false)
+
 	xTextViewSetTopMargin(x.GoPointer(), TopMarginVar)
 }
 
@@ -1522,6 +1661,8 @@ var xTextViewSetWrapMode func(uintptr, WrapMode)
 
 // Sets the line wrapping for the view.
 func (x *TextView) SetWrapMode(WrapModeVar WrapMode) {
+	core.LazyRegister(&xTextViewSetWrapMode, "GTK", "gtk_text_view_set_wrap_mode", false)
+
 	xTextViewSetWrapMode(x.GoPointer(), WrapModeVar)
 }
 
@@ -1532,6 +1673,8 @@ var xTextViewStartsDisplayLine func(uintptr, *TextIter) bool
 // See [method@Gtk.TextView.forward_display_line] for an
 // explanation of display lines vs. paragraphs.
 func (x *TextView) StartsDisplayLine(IterVar *TextIter) bool {
+	core.LazyRegister(&xTextViewStartsDisplayLine, "GTK", "gtk_text_view_starts_display_line", false)
+
 	cret := xTextViewStartsDisplayLine(x.GoPointer(), IterVar)
 	return cret
 }
@@ -1541,6 +1684,8 @@ var xTextViewWindowToBufferCoords func(uintptr, TextWindowType, int, int, *int, 
 // Converts coordinates on the window identified by @win to buffer
 // coordinates.
 func (x *TextView) WindowToBufferCoords(WinVar TextWindowType, WindowXVar int, WindowYVar int, BufferXVar *int, BufferYVar *int) {
+	core.LazyRegister(&xTextViewWindowToBufferCoords, "GTK", "gtk_text_view_window_to_buffer_coords", false)
+
 	xTextViewWindowToBufferCoords(x.GoPointer(), WinVar, WindowXVar, WindowYVar, BufferXVar, BufferYVar)
 }
 
@@ -2707,96 +2852,4 @@ func (x *TextView) SetVscrollPolicy(PolicyVar ScrollablePolicy) {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GTK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xTextExtendSelectionGLibType, libs, "gtk_text_extend_selection_get_type")
-
-	core.PuregoSafeRegister(&xTextViewLayerGLibType, libs, "gtk_text_view_layer_get_type")
-
-	core.PuregoSafeRegister(&xTextWindowTypeGLibType, libs, "gtk_text_window_type_get_type")
-
-	core.PuregoSafeRegister(&xTextViewGLibType, libs, "gtk_text_view_get_type")
-
-	core.PuregoSafeRegister(&xNewTextView, libs, "gtk_text_view_new")
-	core.PuregoSafeRegister(&xNewTextViewWithBuffer, libs, "gtk_text_view_new_with_buffer")
-
-	core.PuregoSafeRegister(&xTextViewAddChildAtAnchor, libs, "gtk_text_view_add_child_at_anchor")
-	core.PuregoSafeRegister(&xTextViewAddOverlay, libs, "gtk_text_view_add_overlay")
-	core.PuregoSafeRegister(&xTextViewBackwardDisplayLine, libs, "gtk_text_view_backward_display_line")
-	core.PuregoSafeRegister(&xTextViewBackwardDisplayLineStart, libs, "gtk_text_view_backward_display_line_start")
-	core.PuregoSafeRegister(&xTextViewBufferToWindowCoords, libs, "gtk_text_view_buffer_to_window_coords")
-	core.PuregoSafeRegister(&xTextViewForwardDisplayLine, libs, "gtk_text_view_forward_display_line")
-	core.PuregoSafeRegister(&xTextViewForwardDisplayLineEnd, libs, "gtk_text_view_forward_display_line_end")
-	core.PuregoSafeRegister(&xTextViewGetAcceptsTab, libs, "gtk_text_view_get_accepts_tab")
-	core.PuregoSafeRegister(&xTextViewGetBottomMargin, libs, "gtk_text_view_get_bottom_margin")
-	core.PuregoSafeRegister(&xTextViewGetBuffer, libs, "gtk_text_view_get_buffer")
-	core.PuregoSafeRegister(&xTextViewGetCursorLocations, libs, "gtk_text_view_get_cursor_locations")
-	core.PuregoSafeRegister(&xTextViewGetCursorVisible, libs, "gtk_text_view_get_cursor_visible")
-	core.PuregoSafeRegister(&xTextViewGetEditable, libs, "gtk_text_view_get_editable")
-	core.PuregoSafeRegister(&xTextViewGetExtraMenu, libs, "gtk_text_view_get_extra_menu")
-	core.PuregoSafeRegister(&xTextViewGetGutter, libs, "gtk_text_view_get_gutter")
-	core.PuregoSafeRegister(&xTextViewGetIndent, libs, "gtk_text_view_get_indent")
-	core.PuregoSafeRegister(&xTextViewGetInputHints, libs, "gtk_text_view_get_input_hints")
-	core.PuregoSafeRegister(&xTextViewGetInputPurpose, libs, "gtk_text_view_get_input_purpose")
-	core.PuregoSafeRegister(&xTextViewGetIterAtLocation, libs, "gtk_text_view_get_iter_at_location")
-	core.PuregoSafeRegister(&xTextViewGetIterAtPosition, libs, "gtk_text_view_get_iter_at_position")
-	core.PuregoSafeRegister(&xTextViewGetIterLocation, libs, "gtk_text_view_get_iter_location")
-	core.PuregoSafeRegister(&xTextViewGetJustification, libs, "gtk_text_view_get_justification")
-	core.PuregoSafeRegister(&xTextViewGetLeftMargin, libs, "gtk_text_view_get_left_margin")
-	core.PuregoSafeRegister(&xTextViewGetLineAtY, libs, "gtk_text_view_get_line_at_y")
-	core.PuregoSafeRegister(&xTextViewGetLineYrange, libs, "gtk_text_view_get_line_yrange")
-	core.PuregoSafeRegister(&xTextViewGetLtrContext, libs, "gtk_text_view_get_ltr_context")
-	core.PuregoSafeRegister(&xTextViewGetMonospace, libs, "gtk_text_view_get_monospace")
-	core.PuregoSafeRegister(&xTextViewGetOverwrite, libs, "gtk_text_view_get_overwrite")
-	core.PuregoSafeRegister(&xTextViewGetPixelsAboveLines, libs, "gtk_text_view_get_pixels_above_lines")
-	core.PuregoSafeRegister(&xTextViewGetPixelsBelowLines, libs, "gtk_text_view_get_pixels_below_lines")
-	core.PuregoSafeRegister(&xTextViewGetPixelsInsideWrap, libs, "gtk_text_view_get_pixels_inside_wrap")
-	core.PuregoSafeRegister(&xTextViewGetRightMargin, libs, "gtk_text_view_get_right_margin")
-	core.PuregoSafeRegister(&xTextViewGetRtlContext, libs, "gtk_text_view_get_rtl_context")
-	core.PuregoSafeRegister(&xTextViewGetTabs, libs, "gtk_text_view_get_tabs")
-	core.PuregoSafeRegister(&xTextViewGetTopMargin, libs, "gtk_text_view_get_top_margin")
-	core.PuregoSafeRegister(&xTextViewGetVisibleOffset, libs, "gtk_text_view_get_visible_offset")
-	core.PuregoSafeRegister(&xTextViewGetVisibleRect, libs, "gtk_text_view_get_visible_rect")
-	core.PuregoSafeRegister(&xTextViewGetWrapMode, libs, "gtk_text_view_get_wrap_mode")
-	core.PuregoSafeRegister(&xTextViewImContextFilterKeypress, libs, "gtk_text_view_im_context_filter_keypress")
-	core.PuregoSafeRegister(&xTextViewMoveMarkOnscreen, libs, "gtk_text_view_move_mark_onscreen")
-	core.PuregoSafeRegister(&xTextViewMoveOverlay, libs, "gtk_text_view_move_overlay")
-	core.PuregoSafeRegister(&xTextViewMoveVisually, libs, "gtk_text_view_move_visually")
-	core.PuregoSafeRegister(&xTextViewPlaceCursorOnscreen, libs, "gtk_text_view_place_cursor_onscreen")
-	core.PuregoSafeRegister(&xTextViewRemove, libs, "gtk_text_view_remove")
-	core.PuregoSafeRegister(&xTextViewResetCursorBlink, libs, "gtk_text_view_reset_cursor_blink")
-	core.PuregoSafeRegister(&xTextViewResetImContext, libs, "gtk_text_view_reset_im_context")
-	core.PuregoSafeRegister(&xTextViewScrollMarkOnscreen, libs, "gtk_text_view_scroll_mark_onscreen")
-	core.PuregoSafeRegister(&xTextViewScrollToIter, libs, "gtk_text_view_scroll_to_iter")
-	core.PuregoSafeRegister(&xTextViewScrollToMark, libs, "gtk_text_view_scroll_to_mark")
-	core.PuregoSafeRegister(&xTextViewSetAcceptsTab, libs, "gtk_text_view_set_accepts_tab")
-	core.PuregoSafeRegister(&xTextViewSetBottomMargin, libs, "gtk_text_view_set_bottom_margin")
-	core.PuregoSafeRegister(&xTextViewSetBuffer, libs, "gtk_text_view_set_buffer")
-	core.PuregoSafeRegister(&xTextViewSetCursorVisible, libs, "gtk_text_view_set_cursor_visible")
-	core.PuregoSafeRegister(&xTextViewSetEditable, libs, "gtk_text_view_set_editable")
-	core.PuregoSafeRegister(&xTextViewSetExtraMenu, libs, "gtk_text_view_set_extra_menu")
-	core.PuregoSafeRegister(&xTextViewSetGutter, libs, "gtk_text_view_set_gutter")
-	core.PuregoSafeRegister(&xTextViewSetIndent, libs, "gtk_text_view_set_indent")
-	core.PuregoSafeRegister(&xTextViewSetInputHints, libs, "gtk_text_view_set_input_hints")
-	core.PuregoSafeRegister(&xTextViewSetInputPurpose, libs, "gtk_text_view_set_input_purpose")
-	core.PuregoSafeRegister(&xTextViewSetJustification, libs, "gtk_text_view_set_justification")
-	core.PuregoSafeRegister(&xTextViewSetLeftMargin, libs, "gtk_text_view_set_left_margin")
-	core.PuregoSafeRegister(&xTextViewSetMonospace, libs, "gtk_text_view_set_monospace")
-	core.PuregoSafeRegister(&xTextViewSetOverwrite, libs, "gtk_text_view_set_overwrite")
-	core.PuregoSafeRegister(&xTextViewSetPixelsAboveLines, libs, "gtk_text_view_set_pixels_above_lines")
-	core.PuregoSafeRegister(&xTextViewSetPixelsBelowLines, libs, "gtk_text_view_set_pixels_below_lines")
-	core.PuregoSafeRegister(&xTextViewSetPixelsInsideWrap, libs, "gtk_text_view_set_pixels_inside_wrap")
-	core.PuregoSafeRegister(&xTextViewSetRightMargin, libs, "gtk_text_view_set_right_margin")
-	core.PuregoSafeRegister(&xTextViewSetTabs, libs, "gtk_text_view_set_tabs")
-	core.PuregoSafeRegister(&xTextViewSetTopMargin, libs, "gtk_text_view_set_top_margin")
-	core.PuregoSafeRegister(&xTextViewSetWrapMode, libs, "gtk_text_view_set_wrap_mode")
-	core.PuregoSafeRegister(&xTextViewStartsDisplayLine, libs, "gtk_text_view_starts_display_line")
-	core.PuregoSafeRegister(&xTextViewWindowToBufferCoords, libs, "gtk_text_view_window_to_buffer_coords")
 }

@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -57,6 +56,7 @@ type InetSocketAddress struct {
 var xInetSocketAddressGLibType func() types.GType
 
 func InetSocketAddressGLibType() types.GType {
+	core.LazyRegister(&xInetSocketAddressGLibType, "GIO", "g_inet_socket_address_get_type", false)
 	return xInetSocketAddressGLibType()
 }
 
@@ -70,6 +70,7 @@ var xNewInetSocketAddress func(uintptr, uint16) uintptr
 
 // Creates a new #GInetSocketAddress for @address and @port.
 func NewInetSocketAddress(AddressVar *InetAddress, PortVar uint16) *InetSocketAddress {
+	core.LazyRegister(&xNewInetSocketAddress, "GIO", "g_inet_socket_address_new", false)
 	var cls *InetSocketAddress
 
 	cret := xNewInetSocketAddress(AddressVar.GoPointer(), PortVar)
@@ -90,6 +91,7 @@ var xNewInetSocketAddressFromString func(string, uint) uintptr
 // (separated from the address by a `%`). Note that currently this
 // behavior is platform specific. This may change in a future release.
 func NewInetSocketAddressFromString(AddressVar string, PortVar uint) *InetSocketAddress {
+	core.LazyRegister(&xNewInetSocketAddressFromString, "GIO", "g_inet_socket_address_new_from_string", false)
 	var cls *InetSocketAddress
 
 	cret := xNewInetSocketAddressFromString(AddressVar, PortVar)
@@ -106,6 +108,7 @@ var xInetSocketAddressGetAddress func(uintptr) uintptr
 
 // Gets @address's #GInetAddress.
 func (x *InetSocketAddress) GetAddress() *InetAddress {
+	core.LazyRegister(&xInetSocketAddressGetAddress, "GIO", "g_inet_socket_address_get_address", false)
 	var cls *InetAddress
 
 	cret := xInetSocketAddressGetAddress(x.GoPointer())
@@ -126,6 +129,8 @@ var xInetSocketAddressGetFlowinfo func(uintptr) uint32
 //
 // If not overridden this value will be inherited from [property@Gio.InetSocketAddress:address].
 func (x *InetSocketAddress) GetFlowinfo() uint32 {
+	core.LazyRegister(&xInetSocketAddressGetFlowinfo, "GIO", "g_inet_socket_address_get_flowinfo", false)
+
 	cret := xInetSocketAddressGetFlowinfo(x.GoPointer())
 	return cret
 }
@@ -134,6 +139,8 @@ var xInetSocketAddressGetPort func(uintptr) uint16
 
 // Gets @address's port.
 func (x *InetSocketAddress) GetPort() uint16 {
+	core.LazyRegister(&xInetSocketAddressGetPort, "GIO", "g_inet_socket_address_get_port", false)
+
 	cret := xInetSocketAddressGetPort(x.GoPointer())
 	return cret
 }
@@ -145,6 +152,8 @@ var xInetSocketAddressGetScopeId func(uintptr) uint32
 //
 // If not overridden this value will be inherited from [property@Gio.InetSocketAddress:address].
 func (x *InetSocketAddress) GetScopeId() uint32 {
+	core.LazyRegister(&xInetSocketAddressGetScopeId, "GIO", "g_inet_socket_address_get_scope_id", false)
+
 	cret := xInetSocketAddressGetScopeId(x.GoPointer())
 	return cret
 }
@@ -268,22 +277,4 @@ func (x *InetSocketAddress) ToString() string {
 func init() {
 	core.SetPackageName("GIO", "gio-2.0")
 	core.SetSharedLibraries("GIO", []string{"libgio-2.0.so.0", "libgio-2.0.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GIO") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xInetSocketAddressGLibType, libs, "g_inet_socket_address_get_type")
-
-	core.PuregoSafeRegister(&xNewInetSocketAddress, libs, "g_inet_socket_address_new")
-	core.PuregoSafeRegister(&xNewInetSocketAddressFromString, libs, "g_inet_socket_address_new_from_string")
-
-	core.PuregoSafeRegister(&xInetSocketAddressGetAddress, libs, "g_inet_socket_address_get_address")
-	core.PuregoSafeRegister(&xInetSocketAddressGetFlowinfo, libs, "g_inet_socket_address_get_flowinfo")
-	core.PuregoSafeRegister(&xInetSocketAddressGetPort, libs, "g_inet_socket_address_get_port")
-	core.PuregoSafeRegister(&xInetSocketAddressGetScopeId, libs, "g_inet_socket_address_get_scope_id")
 }

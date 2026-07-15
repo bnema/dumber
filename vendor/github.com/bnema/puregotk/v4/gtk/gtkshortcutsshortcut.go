@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gobject/types"
 )
@@ -33,6 +34,7 @@ type ShortcutType int
 var xShortcutTypeGLibType func() types.GType
 
 func ShortcutTypeGLibType() types.GType {
+	core.LazyRegister(&xShortcutTypeGLibType, "GTK", "gtk_shortcut_type_get_type", false)
 	return xShortcutTypeGLibType()
 }
 
@@ -73,6 +75,7 @@ type ShortcutsShortcut struct {
 var xShortcutsShortcutGLibType func() types.GType
 
 func ShortcutsShortcutGLibType() types.GType {
+	core.LazyRegister(&xShortcutsShortcutGLibType, "GTK", "gtk_shortcuts_shortcut_get_type", false)
 	return xShortcutsShortcutGLibType()
 }
 
@@ -529,4 +532,9 @@ func (x *ShortcutsShortcut) UpdateStateValue(NStatesVar int, StatesVar []Accessi
 func (x *ShortcutsShortcut) GetBuildableId() string {
 	cret := XGtkBuildableGetBuildableId(x.GoPointer())
 	return cret
+}
+
+func init() {
+	core.SetPackageName("GTK", "gtk4")
+	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
 }

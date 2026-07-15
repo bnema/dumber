@@ -443,7 +443,7 @@ func (x *DriveIface) OverrideEjectFinish(cb func(Drive, AsyncResult) bool) {
 	if cb == nil {
 		x.xEjectFinish = 0
 	} else {
-		x.xEjectFinish = purego.NewCallback(func(DriveVarp uintptr, ResultVarp uintptr) bool {
+		x.xEjectFinish = purego.NewCallback(func(DriveVarp uintptr, ResultVarp uintptr, cerrp **glib.Error) bool {
 			return cb(&DriveBase{Ptr: DriveVarp}, &AsyncResultBase{Ptr: ResultVarp})
 		})
 	}
@@ -455,10 +455,11 @@ func (x *DriveIface) GetEjectFinish() func(Drive, AsyncResult) bool {
 	if x.xEjectFinish == 0 {
 		return nil
 	}
-	var rawCallback func(DriveVarp uintptr, ResultVarp uintptr) bool
+	var rawCallback func(DriveVarp uintptr, ResultVarp uintptr, cerrp **glib.Error) bool
 	purego.RegisterFunc(&rawCallback, x.xEjectFinish)
 	return func(DriveVar Drive, ResultVar AsyncResult) bool {
-		return rawCallback(DriveVar.GoPointer(), ResultVar.GoPointer())
+		var cerr *glib.Error
+		return rawCallback(DriveVar.GoPointer(), ResultVar.GoPointer(), &cerr)
 	}
 }
 
@@ -493,7 +494,7 @@ func (x *DriveIface) OverridePollForMediaFinish(cb func(Drive, AsyncResult) bool
 	if cb == nil {
 		x.xPollForMediaFinish = 0
 	} else {
-		x.xPollForMediaFinish = purego.NewCallback(func(DriveVarp uintptr, ResultVarp uintptr) bool {
+		x.xPollForMediaFinish = purego.NewCallback(func(DriveVarp uintptr, ResultVarp uintptr, cerrp **glib.Error) bool {
 			return cb(&DriveBase{Ptr: DriveVarp}, &AsyncResultBase{Ptr: ResultVarp})
 		})
 	}
@@ -505,10 +506,11 @@ func (x *DriveIface) GetPollForMediaFinish() func(Drive, AsyncResult) bool {
 	if x.xPollForMediaFinish == 0 {
 		return nil
 	}
-	var rawCallback func(DriveVarp uintptr, ResultVarp uintptr) bool
+	var rawCallback func(DriveVarp uintptr, ResultVarp uintptr, cerrp **glib.Error) bool
 	purego.RegisterFunc(&rawCallback, x.xPollForMediaFinish)
 	return func(DriveVar Drive, ResultVar AsyncResult) bool {
-		return rawCallback(DriveVar.GoPointer(), ResultVar.GoPointer())
+		var cerr *glib.Error
+		return rawCallback(DriveVar.GoPointer(), ResultVar.GoPointer(), &cerr)
 	}
 }
 
@@ -676,7 +678,7 @@ func (x *DriveIface) OverrideStartFinish(cb func(Drive, AsyncResult) bool) {
 	if cb == nil {
 		x.xStartFinish = 0
 	} else {
-		x.xStartFinish = purego.NewCallback(func(DriveVarp uintptr, ResultVarp uintptr) bool {
+		x.xStartFinish = purego.NewCallback(func(DriveVarp uintptr, ResultVarp uintptr, cerrp **glib.Error) bool {
 			return cb(&DriveBase{Ptr: DriveVarp}, &AsyncResultBase{Ptr: ResultVarp})
 		})
 	}
@@ -688,10 +690,11 @@ func (x *DriveIface) GetStartFinish() func(Drive, AsyncResult) bool {
 	if x.xStartFinish == 0 {
 		return nil
 	}
-	var rawCallback func(DriveVarp uintptr, ResultVarp uintptr) bool
+	var rawCallback func(DriveVarp uintptr, ResultVarp uintptr, cerrp **glib.Error) bool
 	purego.RegisterFunc(&rawCallback, x.xStartFinish)
 	return func(DriveVar Drive, ResultVar AsyncResult) bool {
-		return rawCallback(DriveVar.GoPointer(), ResultVar.GoPointer())
+		var cerr *glib.Error
+		return rawCallback(DriveVar.GoPointer(), ResultVar.GoPointer(), &cerr)
 	}
 }
 
@@ -751,7 +754,7 @@ func (x *DriveIface) OverrideStopFinish(cb func(Drive, AsyncResult) bool) {
 	if cb == nil {
 		x.xStopFinish = 0
 	} else {
-		x.xStopFinish = purego.NewCallback(func(DriveVarp uintptr, ResultVarp uintptr) bool {
+		x.xStopFinish = purego.NewCallback(func(DriveVarp uintptr, ResultVarp uintptr, cerrp **glib.Error) bool {
 			return cb(&DriveBase{Ptr: DriveVarp}, &AsyncResultBase{Ptr: ResultVarp})
 		})
 	}
@@ -763,10 +766,11 @@ func (x *DriveIface) GetStopFinish() func(Drive, AsyncResult) bool {
 	if x.xStopFinish == 0 {
 		return nil
 	}
-	var rawCallback func(DriveVarp uintptr, ResultVarp uintptr) bool
+	var rawCallback func(DriveVarp uintptr, ResultVarp uintptr, cerrp **glib.Error) bool
 	purego.RegisterFunc(&rawCallback, x.xStopFinish)
 	return func(DriveVar Drive, ResultVar AsyncResult) bool {
-		return rawCallback(DriveVar.GoPointer(), ResultVar.GoPointer())
+		var cerr *glib.Error
+		return rawCallback(DriveVar.GoPointer(), ResultVar.GoPointer(), &cerr)
 	}
 }
 
@@ -826,7 +830,7 @@ func (x *DriveIface) OverrideEjectWithOperationFinish(cb func(Drive, AsyncResult
 	if cb == nil {
 		x.xEjectWithOperationFinish = 0
 	} else {
-		x.xEjectWithOperationFinish = purego.NewCallback(func(DriveVarp uintptr, ResultVarp uintptr) bool {
+		x.xEjectWithOperationFinish = purego.NewCallback(func(DriveVarp uintptr, ResultVarp uintptr, cerrp **glib.Error) bool {
 			return cb(&DriveBase{Ptr: DriveVarp}, &AsyncResultBase{Ptr: ResultVarp})
 		})
 	}
@@ -838,10 +842,11 @@ func (x *DriveIface) GetEjectWithOperationFinish() func(Drive, AsyncResult) bool
 	if x.xEjectWithOperationFinish == 0 {
 		return nil
 	}
-	var rawCallback func(DriveVarp uintptr, ResultVarp uintptr) bool
+	var rawCallback func(DriveVarp uintptr, ResultVarp uintptr, cerrp **glib.Error) bool
 	purego.RegisterFunc(&rawCallback, x.xEjectWithOperationFinish)
 	return func(DriveVar Drive, ResultVar AsyncResult) bool {
-		return rawCallback(DriveVar.GoPointer(), ResultVar.GoPointer())
+		var cerr *glib.Error
+		return rawCallback(DriveVar.GoPointer(), ResultVar.GoPointer(), &cerr)
 	}
 }
 
@@ -992,6 +997,7 @@ type Drive interface {
 var xDriveGLibType func() types.GType
 
 func DriveGLibType() types.GType {
+	core.LazyRegister(&xDriveGLibType, "GIO", "g_drive_get_type", false)
 	return xDriveGLibType()
 }
 
@@ -1246,36 +1252,201 @@ func (x *DriveBase) StopFinish(ResultVar AsyncResult) (bool, error) {
 	return cret, cerr
 }
 
+var XGDriveCanEject func(uintptr) bool = func(instance uintptr) bool {
+	core.LazyRegister(&xXGDriveCanEject, "GIO", "g_drive_can_eject", false)
+	return xXGDriveCanEject(instance)
+}
+
 var (
-	XGDriveCanEject                 func(uintptr) bool
-	XGDriveCanPollForMedia          func(uintptr) bool
-	XGDriveCanStart                 func(uintptr) bool
-	XGDriveCanStartDegraded         func(uintptr) bool
-	XGDriveCanStop                  func(uintptr) bool
-	XGDriveEject                    func(uintptr, MountUnmountFlags, uintptr, uintptr, uintptr)
-	XGDriveEjectFinish              func(uintptr, uintptr, **glib.Error) bool
-	XGDriveEjectWithOperation       func(uintptr, MountUnmountFlags, uintptr, uintptr, uintptr, uintptr)
-	XGDriveEjectWithOperationFinish func(uintptr, uintptr, **glib.Error) bool
-	XGDriveEnumerateIdentifiers     func(uintptr) []string
-	XGDriveGetIcon                  func(uintptr) uintptr
-	XGDriveGetIdentifier            func(uintptr, string) string
-	XGDriveGetName                  func(uintptr) string
-	XGDriveGetSortKey               func(uintptr) string
-	XGDriveGetStartStopType         func(uintptr) DriveStartStopType
-	XGDriveGetSymbolicIcon          func(uintptr) uintptr
-	XGDriveGetVolumes               func(uintptr) uintptr
-	XGDriveHasMedia                 func(uintptr) bool
-	XGDriveHasVolumes               func(uintptr) bool
-	XGDriveIsMediaCheckAutomatic    func(uintptr) bool
-	XGDriveIsMediaRemovable         func(uintptr) bool
-	XGDriveIsRemovable              func(uintptr) bool
-	XGDrivePollForMedia             func(uintptr, uintptr, uintptr, uintptr)
-	XGDrivePollForMediaFinish       func(uintptr, uintptr, **glib.Error) bool
-	XGDriveStart                    func(uintptr, DriveStartFlags, uintptr, uintptr, uintptr, uintptr)
-	XGDriveStartFinish              func(uintptr, uintptr, **glib.Error) bool
-	XGDriveStop                     func(uintptr, MountUnmountFlags, uintptr, uintptr, uintptr, uintptr)
-	XGDriveStopFinish               func(uintptr, uintptr, **glib.Error) bool
+	xXGDriveCanEject       func(uintptr) bool
+	XGDriveCanPollForMedia func(uintptr) bool = func(instance uintptr) bool {
+		core.LazyRegister(&xXGDriveCanPollForMedia, "GIO", "g_drive_can_poll_for_media", false)
+		return xXGDriveCanPollForMedia(instance)
+	}
 )
+var (
+	xXGDriveCanPollForMedia func(uintptr) bool
+	XGDriveCanStart         func(uintptr) bool = func(instance uintptr) bool {
+		core.LazyRegister(&xXGDriveCanStart, "GIO", "g_drive_can_start", false)
+		return xXGDriveCanStart(instance)
+	}
+)
+var (
+	xXGDriveCanStart        func(uintptr) bool
+	XGDriveCanStartDegraded func(uintptr) bool = func(instance uintptr) bool {
+		core.LazyRegister(&xXGDriveCanStartDegraded, "GIO", "g_drive_can_start_degraded", false)
+		return xXGDriveCanStartDegraded(instance)
+	}
+)
+var (
+	xXGDriveCanStartDegraded func(uintptr) bool
+	XGDriveCanStop           func(uintptr) bool = func(instance uintptr) bool {
+		core.LazyRegister(&xXGDriveCanStop, "GIO", "g_drive_can_stop", false)
+		return xXGDriveCanStop(instance)
+	}
+)
+var (
+	xXGDriveCanStop func(uintptr) bool
+	XGDriveEject    func(uintptr, MountUnmountFlags, uintptr, uintptr, uintptr) = func(instance uintptr, FlagsVarp MountUnmountFlags, CancellableVarp uintptr, CallbackVarp uintptr, UserDataVarp uintptr) {
+		core.LazyRegister(&xXGDriveEject, "GIO", "g_drive_eject", false)
+		xXGDriveEject(instance, FlagsVarp, CancellableVarp, CallbackVarp, UserDataVarp)
+	}
+)
+var (
+	xXGDriveEject      func(uintptr, MountUnmountFlags, uintptr, uintptr, uintptr)
+	XGDriveEjectFinish func(uintptr, uintptr, **glib.Error) bool = func(instance uintptr, ResultVarp uintptr, cerrp **glib.Error) bool {
+		core.LazyRegister(&xXGDriveEjectFinish, "GIO", "g_drive_eject_finish", false)
+		return xXGDriveEjectFinish(instance, ResultVarp, cerrp)
+	}
+)
+var (
+	xXGDriveEjectFinish       func(uintptr, uintptr, **glib.Error) bool
+	XGDriveEjectWithOperation func(uintptr, MountUnmountFlags, uintptr, uintptr, uintptr, uintptr) = func(instance uintptr, FlagsVarp MountUnmountFlags, MountOperationVarp uintptr, CancellableVarp uintptr, CallbackVarp uintptr, UserDataVarp uintptr) {
+		core.LazyRegister(&xXGDriveEjectWithOperation, "GIO", "g_drive_eject_with_operation", false)
+		xXGDriveEjectWithOperation(instance, FlagsVarp, MountOperationVarp, CancellableVarp, CallbackVarp, UserDataVarp)
+	}
+)
+var (
+	xXGDriveEjectWithOperation      func(uintptr, MountUnmountFlags, uintptr, uintptr, uintptr, uintptr)
+	XGDriveEjectWithOperationFinish func(uintptr, uintptr, **glib.Error) bool = func(instance uintptr, ResultVarp uintptr, cerrp **glib.Error) bool {
+		core.LazyRegister(&xXGDriveEjectWithOperationFinish, "GIO", "g_drive_eject_with_operation_finish", false)
+		return xXGDriveEjectWithOperationFinish(instance, ResultVarp, cerrp)
+	}
+)
+var (
+	xXGDriveEjectWithOperationFinish func(uintptr, uintptr, **glib.Error) bool
+	XGDriveEnumerateIdentifiers      func(uintptr) []string = func(instance uintptr) []string {
+		core.LazyRegister(&xXGDriveEnumerateIdentifiers, "GIO", "g_drive_enumerate_identifiers", false)
+		return xXGDriveEnumerateIdentifiers(instance)
+	}
+)
+var (
+	xXGDriveEnumerateIdentifiers func(uintptr) []string
+	XGDriveGetIcon               func(uintptr) uintptr = func(instance uintptr) uintptr {
+		core.LazyRegister(&xXGDriveGetIcon, "GIO", "g_drive_get_icon", false)
+		return xXGDriveGetIcon(instance)
+	}
+)
+var (
+	xXGDriveGetIcon      func(uintptr) uintptr
+	XGDriveGetIdentifier func(uintptr, string) string = func(instance uintptr, KindVarp string) string {
+		core.LazyRegister(&xXGDriveGetIdentifier, "GIO", "g_drive_get_identifier", false)
+		return xXGDriveGetIdentifier(instance, KindVarp)
+	}
+)
+var (
+	xXGDriveGetIdentifier func(uintptr, string) string
+	XGDriveGetName        func(uintptr) string = func(instance uintptr) string {
+		core.LazyRegister(&xXGDriveGetName, "GIO", "g_drive_get_name", false)
+		return xXGDriveGetName(instance)
+	}
+)
+var (
+	xXGDriveGetName   func(uintptr) string
+	XGDriveGetSortKey func(uintptr) string = func(instance uintptr) string {
+		core.LazyRegister(&xXGDriveGetSortKey, "GIO", "g_drive_get_sort_key", false)
+		return xXGDriveGetSortKey(instance)
+	}
+)
+var (
+	xXGDriveGetSortKey      func(uintptr) string
+	XGDriveGetStartStopType func(uintptr) DriveStartStopType = func(instance uintptr) DriveStartStopType {
+		core.LazyRegister(&xXGDriveGetStartStopType, "GIO", "g_drive_get_start_stop_type", false)
+		return xXGDriveGetStartStopType(instance)
+	}
+)
+var (
+	xXGDriveGetStartStopType func(uintptr) DriveStartStopType
+	XGDriveGetSymbolicIcon   func(uintptr) uintptr = func(instance uintptr) uintptr {
+		core.LazyRegister(&xXGDriveGetSymbolicIcon, "GIO", "g_drive_get_symbolic_icon", false)
+		return xXGDriveGetSymbolicIcon(instance)
+	}
+)
+var (
+	xXGDriveGetSymbolicIcon func(uintptr) uintptr
+	XGDriveGetVolumes       func(uintptr) uintptr = func(instance uintptr) uintptr {
+		core.LazyRegister(&xXGDriveGetVolumes, "GIO", "g_drive_get_volumes", false)
+		return xXGDriveGetVolumes(instance)
+	}
+)
+var (
+	xXGDriveGetVolumes func(uintptr) uintptr
+	XGDriveHasMedia    func(uintptr) bool = func(instance uintptr) bool {
+		core.LazyRegister(&xXGDriveHasMedia, "GIO", "g_drive_has_media", false)
+		return xXGDriveHasMedia(instance)
+	}
+)
+var (
+	xXGDriveHasMedia  func(uintptr) bool
+	XGDriveHasVolumes func(uintptr) bool = func(instance uintptr) bool {
+		core.LazyRegister(&xXGDriveHasVolumes, "GIO", "g_drive_has_volumes", false)
+		return xXGDriveHasVolumes(instance)
+	}
+)
+var (
+	xXGDriveHasVolumes           func(uintptr) bool
+	XGDriveIsMediaCheckAutomatic func(uintptr) bool = func(instance uintptr) bool {
+		core.LazyRegister(&xXGDriveIsMediaCheckAutomatic, "GIO", "g_drive_is_media_check_automatic", false)
+		return xXGDriveIsMediaCheckAutomatic(instance)
+	}
+)
+var (
+	xXGDriveIsMediaCheckAutomatic func(uintptr) bool
+	XGDriveIsMediaRemovable       func(uintptr) bool = func(instance uintptr) bool {
+		core.LazyRegister(&xXGDriveIsMediaRemovable, "GIO", "g_drive_is_media_removable", false)
+		return xXGDriveIsMediaRemovable(instance)
+	}
+)
+var (
+	xXGDriveIsMediaRemovable func(uintptr) bool
+	XGDriveIsRemovable       func(uintptr) bool = func(instance uintptr) bool {
+		core.LazyRegister(&xXGDriveIsRemovable, "GIO", "g_drive_is_removable", false)
+		return xXGDriveIsRemovable(instance)
+	}
+)
+var (
+	xXGDriveIsRemovable func(uintptr) bool
+	XGDrivePollForMedia func(uintptr, uintptr, uintptr, uintptr) = func(instance uintptr, CancellableVarp uintptr, CallbackVarp uintptr, UserDataVarp uintptr) {
+		core.LazyRegister(&xXGDrivePollForMedia, "GIO", "g_drive_poll_for_media", false)
+		xXGDrivePollForMedia(instance, CancellableVarp, CallbackVarp, UserDataVarp)
+	}
+)
+var (
+	xXGDrivePollForMedia      func(uintptr, uintptr, uintptr, uintptr)
+	XGDrivePollForMediaFinish func(uintptr, uintptr, **glib.Error) bool = func(instance uintptr, ResultVarp uintptr, cerrp **glib.Error) bool {
+		core.LazyRegister(&xXGDrivePollForMediaFinish, "GIO", "g_drive_poll_for_media_finish", false)
+		return xXGDrivePollForMediaFinish(instance, ResultVarp, cerrp)
+	}
+)
+var (
+	xXGDrivePollForMediaFinish func(uintptr, uintptr, **glib.Error) bool
+	XGDriveStart               func(uintptr, DriveStartFlags, uintptr, uintptr, uintptr, uintptr) = func(instance uintptr, FlagsVarp DriveStartFlags, MountOperationVarp uintptr, CancellableVarp uintptr, CallbackVarp uintptr, UserDataVarp uintptr) {
+		core.LazyRegister(&xXGDriveStart, "GIO", "g_drive_start", false)
+		xXGDriveStart(instance, FlagsVarp, MountOperationVarp, CancellableVarp, CallbackVarp, UserDataVarp)
+	}
+)
+var (
+	xXGDriveStart      func(uintptr, DriveStartFlags, uintptr, uintptr, uintptr, uintptr)
+	XGDriveStartFinish func(uintptr, uintptr, **glib.Error) bool = func(instance uintptr, ResultVarp uintptr, cerrp **glib.Error) bool {
+		core.LazyRegister(&xXGDriveStartFinish, "GIO", "g_drive_start_finish", false)
+		return xXGDriveStartFinish(instance, ResultVarp, cerrp)
+	}
+)
+var (
+	xXGDriveStartFinish func(uintptr, uintptr, **glib.Error) bool
+	XGDriveStop         func(uintptr, MountUnmountFlags, uintptr, uintptr, uintptr, uintptr) = func(instance uintptr, FlagsVarp MountUnmountFlags, MountOperationVarp uintptr, CancellableVarp uintptr, CallbackVarp uintptr, UserDataVarp uintptr) {
+		core.LazyRegister(&xXGDriveStop, "GIO", "g_drive_stop", false)
+		xXGDriveStop(instance, FlagsVarp, MountOperationVarp, CancellableVarp, CallbackVarp, UserDataVarp)
+	}
+)
+var (
+	xXGDriveStop      func(uintptr, MountUnmountFlags, uintptr, uintptr, uintptr, uintptr)
+	XGDriveStopFinish func(uintptr, uintptr, **glib.Error) bool = func(instance uintptr, ResultVarp uintptr, cerrp **glib.Error) bool {
+		core.LazyRegister(&xXGDriveStopFinish, "GIO", "g_drive_stop_finish", false)
+		return xXGDriveStopFinish(instance, ResultVarp, cerrp)
+	}
+)
+var xXGDriveStopFinish func(uintptr, uintptr, **glib.Error) bool
 
 const (
 	// The string used to obtain a Unix device path with g_drive_get_identifier().
@@ -1285,43 +1456,4 @@ const (
 func init() {
 	core.SetPackageName("GIO", "gio-2.0")
 	core.SetSharedLibraries("GIO", []string{"libgio-2.0.so.0", "libgio-2.0.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GIO") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xDriveGLibType, libs, "g_drive_get_type")
-
-	core.PuregoSafeRegister(&XGDriveCanEject, libs, "g_drive_can_eject")
-	core.PuregoSafeRegister(&XGDriveCanPollForMedia, libs, "g_drive_can_poll_for_media")
-	core.PuregoSafeRegister(&XGDriveCanStart, libs, "g_drive_can_start")
-	core.PuregoSafeRegister(&XGDriveCanStartDegraded, libs, "g_drive_can_start_degraded")
-	core.PuregoSafeRegister(&XGDriveCanStop, libs, "g_drive_can_stop")
-	core.PuregoSafeRegister(&XGDriveEject, libs, "g_drive_eject")
-	core.PuregoSafeRegister(&XGDriveEjectFinish, libs, "g_drive_eject_finish")
-	core.PuregoSafeRegister(&XGDriveEjectWithOperation, libs, "g_drive_eject_with_operation")
-	core.PuregoSafeRegister(&XGDriveEjectWithOperationFinish, libs, "g_drive_eject_with_operation_finish")
-	core.PuregoSafeRegister(&XGDriveEnumerateIdentifiers, libs, "g_drive_enumerate_identifiers")
-	core.PuregoSafeRegister(&XGDriveGetIcon, libs, "g_drive_get_icon")
-	core.PuregoSafeRegister(&XGDriveGetIdentifier, libs, "g_drive_get_identifier")
-	core.PuregoSafeRegister(&XGDriveGetName, libs, "g_drive_get_name")
-	core.PuregoSafeRegister(&XGDriveGetSortKey, libs, "g_drive_get_sort_key")
-	core.PuregoSafeRegister(&XGDriveGetStartStopType, libs, "g_drive_get_start_stop_type")
-	core.PuregoSafeRegister(&XGDriveGetSymbolicIcon, libs, "g_drive_get_symbolic_icon")
-	core.PuregoSafeRegister(&XGDriveGetVolumes, libs, "g_drive_get_volumes")
-	core.PuregoSafeRegister(&XGDriveHasMedia, libs, "g_drive_has_media")
-	core.PuregoSafeRegister(&XGDriveHasVolumes, libs, "g_drive_has_volumes")
-	core.PuregoSafeRegister(&XGDriveIsMediaCheckAutomatic, libs, "g_drive_is_media_check_automatic")
-	core.PuregoSafeRegister(&XGDriveIsMediaRemovable, libs, "g_drive_is_media_removable")
-	core.PuregoSafeRegister(&XGDriveIsRemovable, libs, "g_drive_is_removable")
-	core.PuregoSafeRegister(&XGDrivePollForMedia, libs, "g_drive_poll_for_media")
-	core.PuregoSafeRegister(&XGDrivePollForMediaFinish, libs, "g_drive_poll_for_media_finish")
-	core.PuregoSafeRegister(&XGDriveStart, libs, "g_drive_start")
-	core.PuregoSafeRegister(&XGDriveStartFinish, libs, "g_drive_start_finish")
-	core.PuregoSafeRegister(&XGDriveStop, libs, "g_drive_stop")
-	core.PuregoSafeRegister(&XGDriveStopFinish, libs, "g_drive_stop_finish")
 }

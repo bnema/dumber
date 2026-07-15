@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -35,6 +34,7 @@ type AutoplayPolicy int
 var xAutoplayPolicyGLibType func() types.GType
 
 func AutoplayPolicyGLibType() types.GType {
+	core.LazyRegister(&xAutoplayPolicyGLibType, "WEBKIT", "webkit_autoplay_policy_get_type", false)
 	return xAutoplayPolicyGLibType()
 }
 
@@ -60,6 +60,7 @@ type WebsitePolicies struct {
 var xWebsitePoliciesGLibType func() types.GType
 
 func WebsitePoliciesGLibType() types.GType {
+	core.LazyRegister(&xWebsitePoliciesGLibType, "WEBKIT", "webkit_website_policies_get_type", false)
 	return xWebsitePoliciesGLibType()
 }
 
@@ -73,6 +74,7 @@ var xNewWebsitePolicies func() uintptr
 
 // Create a new #WebKitWebsitePolicies.
 func NewWebsitePolicies() *WebsitePolicies {
+	core.LazyRegister(&xNewWebsitePolicies, "WEBKIT", "webkit_website_policies_new", false)
 	var cls *WebsitePolicies
 
 	cret := xNewWebsitePolicies()
@@ -92,6 +94,7 @@ var xNewWebsitePoliciesWithPolicies func(string, ...interface{}) uintptr
 // Create a new #WebKitWebsitePolicies with policies given as variadic
 // arguments.
 func NewWebsitePoliciesWithPolicies(FirstPolicyNameVar string, varArgs ...interface{}) *WebsitePolicies {
+	core.LazyRegister(&xNewWebsitePoliciesWithPolicies, "WEBKIT", "webkit_website_policies_new_with_policies", false)
 	var cls *WebsitePolicies
 
 	cret := xNewWebsitePoliciesWithPolicies(FirstPolicyNameVar, varArgs...)
@@ -108,6 +111,8 @@ var xWebsitePoliciesGetAutoplayPolicy func(uintptr) AutoplayPolicy
 
 // Get the #WebKitWebsitePolicies:autoplay property.
 func (x *WebsitePolicies) GetAutoplayPolicy() AutoplayPolicy {
+	core.LazyRegister(&xWebsitePoliciesGetAutoplayPolicy, "WEBKIT", "webkit_website_policies_get_autoplay_policy", false)
+
 	cret := xWebsitePoliciesGetAutoplayPolicy(x.GoPointer())
 	return cret
 }
@@ -126,26 +131,8 @@ func (c *WebsitePolicies) SetGoPointer(ptr uintptr) {
 func init() {
 	core.SetPackageName("WEBKIT", "webkitgtk-6.0")
 	core.SetSharedLibraries("WEBKIT", []string{"libwebkitgtk-6.0.so.4", "libjavascriptcoregtk-6.0.so.1", "libwebkitgtk-6.0.4.dylib", "libjavascriptcoregtk-6.0.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("WEBKIT") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
 
-	core.PuregoSafeRegister(&xAutoplayPolicyGLibType, libs, "webkit_autoplay_policy_get_type")
-
-	core.PuregoSafeRegister(&xWebsitePoliciesGLibType, libs, "webkit_website_policies_get_type")
-
-	core.PuregoSafeRegister(&xNewWebsitePolicies, libs, "webkit_website_policies_new")
-	core.PuregoSafeRegister(&xNewWebsitePoliciesWithPolicies, libs, "webkit_website_policies_new_with_policies")
-
-	core.PuregoSafeRegister(&xWebsitePoliciesGetAutoplayPolicy, libs, "webkit_website_policies_get_autoplay_policy")
-
-	// Manually register types since they aren't being automatically registered when
-	// the library is loaded
-	// See https://bugs.webkit.org/show_bug.cgi?id=175937
+	// Manually register types since they aren't automatically registered when
+	// WebKit is loaded. See https://bugs.webkit.org/show_bug.cgi?id=175937.
 	WebsitePoliciesGLibType()
 }

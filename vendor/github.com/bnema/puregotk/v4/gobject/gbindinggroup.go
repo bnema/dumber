@@ -2,7 +2,6 @@
 package gobject
 
 import (
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -22,6 +21,7 @@ type BindingGroup struct {
 var xBindingGroupGLibType func() types.GType
 
 func BindingGroupGLibType() types.GType {
+	core.LazyRegister(&xBindingGroupGLibType, "GOBJECT", "g_binding_group_get_type", false)
 	return xBindingGroupGLibType()
 }
 
@@ -35,6 +35,7 @@ var xNewBindingGroup func() uintptr
 
 // Creates a new #GBindingGroup.
 func NewBindingGroup() *BindingGroup {
+	core.LazyRegister(&xNewBindingGroup, "GOBJECT", "g_binding_group_new", false)
 	var cls *BindingGroup
 
 	cret := xNewBindingGroup()
@@ -56,6 +57,8 @@ var xBindingGroupBind func(uintptr, string, uintptr, string, BindingFlags)
 //
 // See g_object_bind_property() for more information.
 func (x *BindingGroup) Bind(SourcePropertyVar string, TargetVar *Object, TargetPropertyVar string, FlagsVar BindingFlags) {
+	core.LazyRegister(&xBindingGroupBind, "GOBJECT", "g_binding_group_bind", false)
+
 	xBindingGroupBind(x.GoPointer(), SourcePropertyVar, TargetVar.GoPointer(), TargetPropertyVar, FlagsVar)
 }
 
@@ -68,6 +71,8 @@ var xBindingGroupBindFull func(uintptr, string, uintptr, string, BindingFlags, u
 //
 // See g_object_bind_property_full() for more information.
 func (x *BindingGroup) BindFull(SourcePropertyVar string, TargetVar *Object, TargetPropertyVar string, FlagsVar BindingFlags, TransformToVar *BindingTransformFunc, TransformFromVar *BindingTransformFunc, UserDataVar uintptr, UserDataDestroyVar *glib.DestroyNotify) {
+	core.LazyRegister(&xBindingGroupBindFull, "GOBJECT", "g_binding_group_bind_full", false)
+
 	xBindingGroupBindFull(x.GoPointer(), SourcePropertyVar, TargetVar.GoPointer(), TargetPropertyVar, FlagsVar, glib.NewCallbackNullable(TransformToVar), glib.NewCallbackNullable(TransformFromVar), UserDataVar, glib.NewCallbackNullable(UserDataDestroyVar))
 }
 
@@ -84,6 +89,8 @@ var xBindingGroupBindWithClosures func(uintptr, string, uintptr, string, Binding
 //
 // See g_object_bind_property_with_closures() for more information.
 func (x *BindingGroup) BindWithClosures(SourcePropertyVar string, TargetVar *Object, TargetPropertyVar string, FlagsVar BindingFlags, TransformToVar *Closure, TransformFromVar *Closure) {
+	core.LazyRegister(&xBindingGroupBindWithClosures, "GOBJECT", "g_binding_group_bind_with_closures", false)
+
 	xBindingGroupBindWithClosures(x.GoPointer(), SourcePropertyVar, TargetVar.GoPointer(), TargetPropertyVar, FlagsVar, TransformToVar, TransformFromVar)
 }
 
@@ -91,6 +98,7 @@ var xBindingGroupDupSource func(uintptr) uintptr
 
 // Gets the source object used for binding properties.
 func (x *BindingGroup) DupSource() *Object {
+	core.LazyRegister(&xBindingGroupDupSource, "GOBJECT", "g_binding_group_dup_source", false)
 	var cls *Object
 
 	cret := xBindingGroupDupSource(x.GoPointer())
@@ -112,6 +120,8 @@ var xBindingGroupSetSource func(uintptr, uintptr)
 //
 // Note that all properties that have been bound must exist on @source.
 func (x *BindingGroup) SetSource(SourceVar *Object) {
+	core.LazyRegister(&xBindingGroupSetSource, "GOBJECT", "g_binding_group_set_source", false)
+
 	xBindingGroupSetSource(x.GoPointer(), SourceVar.GoPointer())
 }
 
@@ -129,22 +139,4 @@ func (c *BindingGroup) SetGoPointer(ptr uintptr) {
 func init() {
 	core.SetPackageName("GOBJECT", "gobject-2.0")
 	core.SetSharedLibraries("GOBJECT", []string{"libgobject-2.0.so.0", "libgobject-2.0.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GOBJECT") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xBindingGroupGLibType, libs, "g_binding_group_get_type")
-
-	core.PuregoSafeRegister(&xNewBindingGroup, libs, "g_binding_group_new")
-
-	core.PuregoSafeRegister(&xBindingGroupBind, libs, "g_binding_group_bind")
-	core.PuregoSafeRegister(&xBindingGroupBindFull, libs, "g_binding_group_bind_full")
-	core.PuregoSafeRegister(&xBindingGroupBindWithClosures, libs, "g_binding_group_bind_with_closures")
-	core.PuregoSafeRegister(&xBindingGroupDupSource, libs, "g_binding_group_dup_source")
-	core.PuregoSafeRegister(&xBindingGroupSetSource, libs, "g_binding_group_set_source")
 }

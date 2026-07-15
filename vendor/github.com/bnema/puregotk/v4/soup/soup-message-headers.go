@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -22,6 +21,7 @@ type MessageHeaders struct {
 var xMessageHeadersGLibType func() types.GType
 
 func MessageHeadersGLibType() types.GType {
+	core.LazyRegister(&xMessageHeadersGLibType, "SOUP", "soup_message_headers_get_type", false)
 	return xMessageHeadersGLibType()
 }
 
@@ -45,6 +45,8 @@ var xNewMessageHeaders func(MessageHeadersType) uintptr
 // need to use this method if you are manually parsing or generating message
 // headers.)
 func NewMessageHeaders(TypeVar MessageHeadersType) *MessageHeaders {
+	core.LazyRegister(&xNewMessageHeaders, "SOUP", "soup_message_headers_new", false)
+
 	cret := xNewMessageHeaders(TypeVar)
 	if cret == 0 {
 		return nil
@@ -63,6 +65,8 @@ var xMessageHeadersAppend func(uintptr, string, string)
 // The caller is expected to make sure that @name and @value are
 // syntactically correct.
 func (x *MessageHeaders) Append(NameVar string, ValueVar string) {
+	core.LazyRegister(&xMessageHeadersAppend, "SOUP", "soup_message_headers_append", false)
+
 	xMessageHeadersAppend(x.GoPointer(), NameVar, ValueVar)
 }
 
@@ -70,6 +74,8 @@ var xMessageHeadersCleanConnectionHeaders func(uintptr)
 
 // Removes all the headers listed in the Connection header.
 func (x *MessageHeaders) CleanConnectionHeaders() {
+	core.LazyRegister(&xMessageHeadersCleanConnectionHeaders, "SOUP", "soup_message_headers_clean_connection_headers", false)
+
 	xMessageHeadersCleanConnectionHeaders(x.GoPointer())
 }
 
@@ -77,6 +83,8 @@ var xMessageHeadersClear func(uintptr)
 
 // Clears @hdrs.
 func (x *MessageHeaders) Clear() {
+	core.LazyRegister(&xMessageHeadersClear, "SOUP", "soup_message_headers_clear", false)
+
 	xMessageHeadersClear(x.GoPointer())
 }
 
@@ -95,6 +103,8 @@ var xMessageHeadersForeach func(uintptr, uintptr, uintptr)
 //
 // You may not modify the headers from @func.
 func (x *MessageHeaders) Foreach(FuncVar *MessageHeadersForeachFunc, UserDataVar uintptr) {
+	core.LazyRegister(&xMessageHeadersForeach, "SOUP", "soup_message_headers_foreach", false)
+
 	xMessageHeadersForeach(x.GoPointer(), glib.NewCallback(FuncVar), UserDataVar)
 }
 
@@ -102,6 +112,8 @@ var xMessageHeadersFreeRanges func(uintptr, *Range)
 
 // Frees the array of ranges returned from [method@MessageHeaders.get_ranges].
 func (x *MessageHeaders) FreeRanges(RangesVar *Range) {
+	core.LazyRegister(&xMessageHeadersFreeRanges, "SOUP", "soup_message_headers_free_ranges", false)
+
 	xMessageHeadersFreeRanges(x.GoPointer(), RangesVar)
 }
 
@@ -125,6 +137,8 @@ var xMessageHeadersGetContentDisposition func(uintptr, *string, **glib.HashTable
 // this is handled automatically by [struct@Multipart] and the associated
 // form methods.
 func (x *MessageHeaders) GetContentDisposition(DispositionVar *string, ParamsVar **glib.HashTable) bool {
+	core.LazyRegister(&xMessageHeadersGetContentDisposition, "SOUP", "soup_message_headers_get_content_disposition", false)
+
 	cret := xMessageHeadersGetContentDisposition(x.GoPointer(), DispositionVar, ParamsVar)
 	return cret
 }
@@ -136,6 +150,8 @@ var xMessageHeadersGetContentLength func(uintptr) int64
 // This will only be non-0 if [method@MessageHeaders.get_encoding] returns
 // %SOUP_ENCODING_CONTENT_LENGTH.
 func (x *MessageHeaders) GetContentLength() int64 {
+	core.LazyRegister(&xMessageHeadersGetContentLength, "SOUP", "soup_message_headers_get_content_length", false)
+
 	cret := xMessageHeadersGetContentLength(x.GoPointer())
 	return cret
 }
@@ -146,6 +162,8 @@ var xMessageHeadersGetContentRange func(uintptr, *int64, *int64, *int64) bool
 // @end, and @total_length. If the total length field in the header
 // was specified as "*", then @total_length will be set to -1.
 func (x *MessageHeaders) GetContentRange(StartVar *int64, EndVar *int64, TotalLengthVar *int64) bool {
+	core.LazyRegister(&xMessageHeadersGetContentRange, "SOUP", "soup_message_headers_get_content_range", false)
+
 	cret := xMessageHeadersGetContentRange(x.GoPointer(), StartVar, EndVar, TotalLengthVar)
 	return cret
 }
@@ -157,6 +175,8 @@ var xMessageHeadersGetContentType func(uintptr, **glib.HashTable) string
 //
 // @params can be %NULL if you are only interested in the content type itself.
 func (x *MessageHeaders) GetContentType(ParamsVar **glib.HashTable) string {
+	core.LazyRegister(&xMessageHeadersGetContentType, "SOUP", "soup_message_headers_get_content_type", false)
+
 	cret := xMessageHeadersGetContentType(x.GoPointer(), ParamsVar)
 	return cret
 }
@@ -169,6 +189,8 @@ var xMessageHeadersGetEncoding func(uintptr) Encoding
 // response may declare a Content-Length or Transfer-Encoding, but it will never
 // actually include a body.
 func (x *MessageHeaders) GetEncoding() Encoding {
+	core.LazyRegister(&xMessageHeadersGetEncoding, "SOUP", "soup_message_headers_get_encoding", false)
+
 	cret := xMessageHeadersGetEncoding(x.GoPointer())
 	return cret
 }
@@ -180,6 +202,8 @@ var xMessageHeadersGetExpectations func(uintptr) Expectation
 // Currently this will either be %SOUP_EXPECTATION_CONTINUE or
 // %SOUP_EXPECTATION_UNRECOGNIZED.
 func (x *MessageHeaders) GetExpectations() Expectation {
+	core.LazyRegister(&xMessageHeadersGetExpectations, "SOUP", "soup_message_headers_get_expectations", false)
+
 	cret := xMessageHeadersGetExpectations(x.GoPointer())
 	return cret
 }
@@ -188,6 +212,8 @@ var xMessageHeadersGetHeadersType func(uintptr) MessageHeadersType
 
 // Gets the type of headers.
 func (x *MessageHeaders) GetHeadersType() MessageHeadersType {
+	core.LazyRegister(&xMessageHeadersGetHeadersType, "SOUP", "soup_message_headers_get_headers_type", false)
+
 	cret := xMessageHeadersGetHeadersType(x.GoPointer())
 	return cret
 }
@@ -208,6 +234,8 @@ var xMessageHeadersGetList func(uintptr, string) string
 // transformation is allowed, and so an upstream proxy could do the
 // same thing.
 func (x *MessageHeaders) GetList(NameVar string) string {
+	core.LazyRegister(&xMessageHeadersGetList, "SOUP", "soup_message_headers_get_list", false)
+
 	cret := xMessageHeadersGetList(x.GoPointer(), NameVar)
 	return cret
 }
@@ -225,6 +253,8 @@ var xMessageHeadersGetOne func(uintptr, string) string
 // whichever one makes libsoup most compatible with other HTTP
 // implementations.)
 func (x *MessageHeaders) GetOne(NameVar string) string {
+	core.LazyRegister(&xMessageHeadersGetOne, "SOUP", "soup_message_headers_get_one", false)
+
 	cret := xMessageHeadersGetOne(x.GoPointer(), NameVar)
 	return cret
 }
@@ -260,6 +290,8 @@ var xMessageHeadersGetRanges func(uintptr, int64, *uintptr, *int) bool
 // body available, and only want to generate the parts that were
 // actually requested by the client.
 func (x *MessageHeaders) GetRanges(TotalLengthVar int64, RangesVar *uintptr, LengthVar *int) bool {
+	core.LazyRegister(&xMessageHeadersGetRanges, "SOUP", "soup_message_headers_get_ranges", false)
+
 	cret := xMessageHeadersGetRanges(x.GoPointer(), TotalLengthVar, RangesVar, LengthVar)
 	return cret
 }
@@ -272,6 +304,8 @@ var xMessageHeadersHeaderContains func(uintptr, string, string) bool
 // (If @name is present in @hdrs, then this is equivalent to calling
 // [func@header_contains] on its value.)
 func (x *MessageHeaders) HeaderContains(NameVar string, TokenVar string) bool {
+	core.LazyRegister(&xMessageHeadersHeaderContains, "SOUP", "soup_message_headers_header_contains", false)
+
 	cret := xMessageHeadersHeaderContains(x.GoPointer(), NameVar, TokenVar)
 	return cret
 }
@@ -281,6 +315,8 @@ var xMessageHeadersHeaderEquals func(uintptr, string, string) bool
 // Checks whether the header @name is present in @hdrs and is
 // (case-insensitively) equal to @value.
 func (x *MessageHeaders) HeaderEquals(NameVar string, ValueVar string) bool {
+	core.LazyRegister(&xMessageHeadersHeaderEquals, "SOUP", "soup_message_headers_header_equals", false)
+
 	cret := xMessageHeadersHeaderEquals(x.GoPointer(), NameVar, ValueVar)
 	return cret
 }
@@ -289,6 +325,8 @@ var xMessageHeadersRef func(uintptr) uintptr
 
 // Atomically increments the reference count of @hdrs by one.
 func (x *MessageHeaders) Ref() *MessageHeaders {
+	core.LazyRegister(&xMessageHeadersRef, "SOUP", "soup_message_headers_ref", false)
+
 	cret := xMessageHeadersRef(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -302,6 +340,8 @@ var xMessageHeadersRemove func(uintptr, string)
 //
 // If there are multiple values for @name, they are all removed.
 func (x *MessageHeaders) Remove(NameVar string) {
+	core.LazyRegister(&xMessageHeadersRemove, "SOUP", "soup_message_headers_remove", false)
+
 	xMessageHeadersRemove(x.GoPointer(), NameVar)
 }
 
@@ -314,6 +354,8 @@ var xMessageHeadersReplace func(uintptr, string, string)
 // The caller is expected to make sure that @name and @value are
 // syntactically correct.
 func (x *MessageHeaders) Replace(NameVar string, ValueVar string) {
+	core.LazyRegister(&xMessageHeadersReplace, "SOUP", "soup_message_headers_replace", false)
+
 	xMessageHeadersReplace(x.GoPointer(), NameVar, ValueVar)
 }
 
@@ -325,6 +367,8 @@ var xMessageHeadersSetContentDisposition func(uintptr, string, *glib.HashTable)
 // See [method@MessageHeaders.get_content_disposition] for a discussion
 // of how Content-Disposition is used in HTTP.
 func (x *MessageHeaders) SetContentDisposition(DispositionVar string, ParamsVar *glib.HashTable) {
+	core.LazyRegister(&xMessageHeadersSetContentDisposition, "SOUP", "soup_message_headers_set_content_disposition", false)
+
 	xMessageHeadersSetContentDisposition(x.GoPointer(), DispositionVar, ParamsVar)
 }
 
@@ -342,6 +386,8 @@ var xMessageHeadersSetContentLength func(uintptr, int64)
 // correct content length into the response without needing to waste
 // memory by filling in a response body which won't actually be sent.
 func (x *MessageHeaders) SetContentLength(ContentLengthVar int64) {
+	core.LazyRegister(&xMessageHeadersSetContentLength, "SOUP", "soup_message_headers_set_content_length", false)
+
 	xMessageHeadersSetContentLength(x.GoPointer(), ContentLengthVar)
 }
 
@@ -356,6 +402,8 @@ var xMessageHeadersSetContentRange func(uintptr, int64, int64, int64)
 // not normally need to call this function youself. See
 // [method@MessageHeaders.get_ranges] for more details.
 func (x *MessageHeaders) SetContentRange(StartVar int64, EndVar int64, TotalLengthVar int64) {
+	core.LazyRegister(&xMessageHeadersSetContentRange, "SOUP", "soup_message_headers_set_content_range", false)
+
 	xMessageHeadersSetContentRange(x.GoPointer(), StartVar, EndVar, TotalLengthVar)
 }
 
@@ -365,6 +413,8 @@ var xMessageHeadersSetContentType func(uintptr, string, *glib.HashTable)
 //
 // Accepts additional parameters specified in @params.
 func (x *MessageHeaders) SetContentType(ContentTypeVar string, ParamsVar *glib.HashTable) {
+	core.LazyRegister(&xMessageHeadersSetContentType, "SOUP", "soup_message_headers_set_content_type", false)
+
 	xMessageHeadersSetContentType(x.GoPointer(), ContentTypeVar, ParamsVar)
 }
 
@@ -375,6 +425,8 @@ var xMessageHeadersSetEncoding func(uintptr, Encoding)
 // In particular, you should use this if you are going to send a request or
 // response in chunked encoding.
 func (x *MessageHeaders) SetEncoding(EncodingVar Encoding) {
+	core.LazyRegister(&xMessageHeadersSetEncoding, "SOUP", "soup_message_headers_set_encoding", false)
+
 	xMessageHeadersSetEncoding(x.GoPointer(), EncodingVar)
 }
 
@@ -391,6 +443,8 @@ var xMessageHeadersSetExpectations func(uintptr, Expectation)
 // saves you from having to transmit the large request body when the
 // server is just going to ignore it anyway.
 func (x *MessageHeaders) SetExpectations(ExpectationsVar Expectation) {
+	core.LazyRegister(&xMessageHeadersSetExpectations, "SOUP", "soup_message_headers_set_expectations", false)
+
 	xMessageHeadersSetExpectations(x.GoPointer(), ExpectationsVar)
 }
 
@@ -403,6 +457,8 @@ var xMessageHeadersSetRange func(uintptr, int64, int64)
 // If you need to request multiple ranges, use
 // [method@MessageHeaders.set_ranges].
 func (x *MessageHeaders) SetRange(StartVar int64, EndVar int64) {
+	core.LazyRegister(&xMessageHeadersSetRange, "SOUP", "soup_message_headers_set_range", false)
+
 	xMessageHeadersSetRange(x.GoPointer(), StartVar, EndVar)
 }
 
@@ -413,6 +469,8 @@ var xMessageHeadersSetRanges func(uintptr, *Range, int)
 // If you only want to request a single range, you can use
 // [method@MessageHeaders.set_range].
 func (x *MessageHeaders) SetRanges(RangesVar *Range, LengthVar int) {
+	core.LazyRegister(&xMessageHeadersSetRanges, "SOUP", "soup_message_headers_set_ranges", false)
+
 	xMessageHeadersSetRanges(x.GoPointer(), RangesVar, LengthVar)
 }
 
@@ -423,6 +481,8 @@ var xMessageHeadersUnref func(uintptr)
 // When the reference count reaches zero, the resources allocated by
 // @hdrs are freed
 func (x *MessageHeaders) Unref() {
+	core.LazyRegister(&xMessageHeadersUnref, "SOUP", "soup_message_headers_unref", false)
+
 	xMessageHeadersUnref(x.GoPointer())
 }
 
@@ -490,6 +550,7 @@ type Expectation int
 var xExpectationGLibType func() types.GType
 
 func ExpectationGLibType() types.GType {
+	core.LazyRegister(&xExpectationGLibType, "SOUP", "soup_expectation_get_type", false)
 	return xExpectationGLibType()
 }
 
@@ -507,6 +568,7 @@ type Encoding int
 var xEncodingGLibType func() types.GType
 
 func EncodingGLibType() types.GType {
+	core.LazyRegister(&xEncodingGLibType, "SOUP", "soup_encoding_get_type", false)
 	return xEncodingGLibType()
 }
 
@@ -536,6 +598,7 @@ type MessageHeadersType int
 var xMessageHeadersTypeGLibType func() types.GType
 
 func MessageHeadersTypeGLibType() types.GType {
+	core.LazyRegister(&xMessageHeadersTypeGLibType, "SOUP", "soup_message_headers_type_get_type", false)
 	return xMessageHeadersTypeGLibType()
 }
 
@@ -553,6 +616,8 @@ var xMessageHeadersIterInit func(*MessageHeadersIter, *MessageHeaders)
 
 // Initializes @iter for iterating @hdrs.
 func MessageHeadersIterInit(IterVar *MessageHeadersIter, HdrsVar *MessageHeaders) {
+	core.LazyRegister(&xMessageHeadersIterInit, "SOUP", "soup_message_headers_iter_init", false)
+
 	xMessageHeadersIterInit(IterVar, HdrsVar)
 }
 
@@ -565,6 +630,8 @@ var xMessageHeadersIterNext func(*MessageHeadersIter, *string, *string) bool
 // [func@MessageHeadersIter.next] will return %FALSE and @name and @value
 // will be unchanged.
 func MessageHeadersIterNext(IterVar *MessageHeadersIter, NameVar *string, ValueVar *string) bool {
+	core.LazyRegister(&xMessageHeadersIterNext, "SOUP", "soup_message_headers_iter_next", false)
+
 	cret := xMessageHeadersIterNext(IterVar, NameVar, ValueVar)
 	return cret
 }
@@ -572,55 +639,4 @@ func MessageHeadersIterNext(IterVar *MessageHeadersIter, NameVar *string, ValueV
 func init() {
 	core.SetPackageName("SOUP", "libsoup-3.0")
 	core.SetSharedLibraries("SOUP", []string{"libsoup-3.0.so.0", "libsoup-3.0.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("SOUP") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xExpectationGLibType, libs, "soup_expectation_get_type")
-
-	core.PuregoSafeRegister(&xEncodingGLibType, libs, "soup_encoding_get_type")
-
-	core.PuregoSafeRegister(&xMessageHeadersTypeGLibType, libs, "soup_message_headers_type_get_type")
-
-	core.PuregoSafeRegister(&xMessageHeadersIterInit, libs, "soup_message_headers_iter_init")
-	core.PuregoSafeRegister(&xMessageHeadersIterNext, libs, "soup_message_headers_iter_next")
-
-	core.PuregoSafeRegister(&xMessageHeadersGLibType, libs, "soup_message_headers_get_type")
-
-	core.PuregoSafeRegister(&xNewMessageHeaders, libs, "soup_message_headers_new")
-
-	core.PuregoSafeRegister(&xMessageHeadersAppend, libs, "soup_message_headers_append")
-	core.PuregoSafeRegister(&xMessageHeadersCleanConnectionHeaders, libs, "soup_message_headers_clean_connection_headers")
-	core.PuregoSafeRegister(&xMessageHeadersClear, libs, "soup_message_headers_clear")
-	core.PuregoSafeRegister(&xMessageHeadersForeach, libs, "soup_message_headers_foreach")
-	core.PuregoSafeRegister(&xMessageHeadersFreeRanges, libs, "soup_message_headers_free_ranges")
-	core.PuregoSafeRegister(&xMessageHeadersGetContentDisposition, libs, "soup_message_headers_get_content_disposition")
-	core.PuregoSafeRegister(&xMessageHeadersGetContentLength, libs, "soup_message_headers_get_content_length")
-	core.PuregoSafeRegister(&xMessageHeadersGetContentRange, libs, "soup_message_headers_get_content_range")
-	core.PuregoSafeRegister(&xMessageHeadersGetContentType, libs, "soup_message_headers_get_content_type")
-	core.PuregoSafeRegister(&xMessageHeadersGetEncoding, libs, "soup_message_headers_get_encoding")
-	core.PuregoSafeRegister(&xMessageHeadersGetExpectations, libs, "soup_message_headers_get_expectations")
-	core.PuregoSafeRegister(&xMessageHeadersGetHeadersType, libs, "soup_message_headers_get_headers_type")
-	core.PuregoSafeRegister(&xMessageHeadersGetList, libs, "soup_message_headers_get_list")
-	core.PuregoSafeRegister(&xMessageHeadersGetOne, libs, "soup_message_headers_get_one")
-	core.PuregoSafeRegister(&xMessageHeadersGetRanges, libs, "soup_message_headers_get_ranges")
-	core.PuregoSafeRegister(&xMessageHeadersHeaderContains, libs, "soup_message_headers_header_contains")
-	core.PuregoSafeRegister(&xMessageHeadersHeaderEquals, libs, "soup_message_headers_header_equals")
-	core.PuregoSafeRegister(&xMessageHeadersRef, libs, "soup_message_headers_ref")
-	core.PuregoSafeRegister(&xMessageHeadersRemove, libs, "soup_message_headers_remove")
-	core.PuregoSafeRegister(&xMessageHeadersReplace, libs, "soup_message_headers_replace")
-	core.PuregoSafeRegister(&xMessageHeadersSetContentDisposition, libs, "soup_message_headers_set_content_disposition")
-	core.PuregoSafeRegister(&xMessageHeadersSetContentLength, libs, "soup_message_headers_set_content_length")
-	core.PuregoSafeRegister(&xMessageHeadersSetContentRange, libs, "soup_message_headers_set_content_range")
-	core.PuregoSafeRegister(&xMessageHeadersSetContentType, libs, "soup_message_headers_set_content_type")
-	core.PuregoSafeRegister(&xMessageHeadersSetEncoding, libs, "soup_message_headers_set_encoding")
-	core.PuregoSafeRegister(&xMessageHeadersSetExpectations, libs, "soup_message_headers_set_expectations")
-	core.PuregoSafeRegister(&xMessageHeadersSetRange, libs, "soup_message_headers_set_range")
-	core.PuregoSafeRegister(&xMessageHeadersSetRanges, libs, "soup_message_headers_set_ranges")
-	core.PuregoSafeRegister(&xMessageHeadersUnref, libs, "soup_message_headers_unref")
 }

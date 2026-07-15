@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -90,6 +89,7 @@ type ButtonContent struct {
 var xButtonContentGLibType func() types.GType
 
 func ButtonContentGLibType() types.GType {
+	core.LazyRegister(&xButtonContentGLibType, "ADW", "adw_button_content_get_type", false)
 	return xButtonContentGLibType()
 }
 
@@ -103,6 +103,7 @@ var xNewButtonContent func() uintptr
 
 // Creates a new `AdwButtonContent`.
 func NewButtonContent() *ButtonContent {
+	core.LazyRegister(&xNewButtonContent, "ADW", "adw_button_content_new", false)
 	var cls *ButtonContent
 
 	cret := xNewButtonContent()
@@ -120,6 +121,8 @@ var xButtonContentGetCanShrink func(uintptr) bool
 
 // gets whether the button can be smaller than the natural size of its contents.
 func (x *ButtonContent) GetCanShrink() bool {
+	core.LazyRegister(&xButtonContentGetCanShrink, "ADW", "adw_button_content_get_can_shrink", false)
+
 	cret := xButtonContentGetCanShrink(x.GoPointer())
 	return cret
 }
@@ -128,6 +131,8 @@ var xButtonContentGetIconName func(uintptr) string
 
 // Gets the name of the displayed icon.
 func (x *ButtonContent) GetIconName() string {
+	core.LazyRegister(&xButtonContentGetIconName, "ADW", "adw_button_content_get_icon_name", false)
+
 	cret := xButtonContentGetIconName(x.GoPointer())
 	return cret
 }
@@ -136,6 +141,8 @@ var xButtonContentGetLabel func(uintptr) string
 
 // Gets the displayed label.
 func (x *ButtonContent) GetLabel() string {
+	core.LazyRegister(&xButtonContentGetLabel, "ADW", "adw_button_content_get_label", false)
+
 	cret := xButtonContentGetLabel(x.GoPointer())
 	return cret
 }
@@ -144,6 +151,8 @@ var xButtonContentGetUseUnderline func(uintptr) bool
 
 // Gets whether an underline in the text indicates a mnemonic.
 func (x *ButtonContent) GetUseUnderline() bool {
+	core.LazyRegister(&xButtonContentGetUseUnderline, "ADW", "adw_button_content_get_use_underline", false)
+
 	cret := xButtonContentGetUseUnderline(x.GoPointer())
 	return cret
 }
@@ -156,6 +165,8 @@ var xButtonContentSetCanShrink func(uintptr, bool)
 //
 // See [method@Gtk.Button.set_can_shrink].
 func (x *ButtonContent) SetCanShrink(CanShrinkVar bool) {
+	core.LazyRegister(&xButtonContentSetCanShrink, "ADW", "adw_button_content_set_can_shrink", false)
+
 	xButtonContentSetCanShrink(x.GoPointer(), CanShrinkVar)
 }
 
@@ -165,6 +176,8 @@ var xButtonContentSetIconName func(uintptr, string)
 //
 // If empty, the icon is not shown.
 func (x *ButtonContent) SetIconName(IconNameVar string) {
+	core.LazyRegister(&xButtonContentSetIconName, "ADW", "adw_button_content_set_icon_name", false)
+
 	xButtonContentSetIconName(x.GoPointer(), IconNameVar)
 }
 
@@ -172,6 +185,8 @@ var xButtonContentSetLabel func(uintptr, string)
 
 // Sets the displayed label.
 func (x *ButtonContent) SetLabel(LabelVar string) {
+	core.LazyRegister(&xButtonContentSetLabel, "ADW", "adw_button_content_set_label", false)
+
 	xButtonContentSetLabel(x.GoPointer(), LabelVar)
 }
 
@@ -183,6 +198,8 @@ var xButtonContentSetUseUnderline func(uintptr, bool)
 //
 // See [property@ButtonContent:label].
 func (x *ButtonContent) SetUseUnderline(UseUnderlineVar bool) {
+	core.LazyRegister(&xButtonContentSetUseUnderline, "ADW", "adw_button_content_set_use_underline", false)
+
 	xButtonContentSetUseUnderline(x.GoPointer(), UseUnderlineVar)
 }
 
@@ -548,25 +565,4 @@ func (x *ButtonContent) GetBuildableId() string {
 func init() {
 	core.SetPackageName("ADW", "libadwaita-1")
 	core.SetSharedLibraries("ADW", []string{"libadwaita-1.so.0", "libadwaita-1.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("ADW") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xButtonContentGLibType, libs, "adw_button_content_get_type")
-
-	core.PuregoSafeRegister(&xNewButtonContent, libs, "adw_button_content_new")
-
-	core.PuregoSafeRegister(&xButtonContentGetCanShrink, libs, "adw_button_content_get_can_shrink")
-	core.PuregoSafeRegister(&xButtonContentGetIconName, libs, "adw_button_content_get_icon_name")
-	core.PuregoSafeRegister(&xButtonContentGetLabel, libs, "adw_button_content_get_label")
-	core.PuregoSafeRegister(&xButtonContentGetUseUnderline, libs, "adw_button_content_get_use_underline")
-	core.PuregoSafeRegister(&xButtonContentSetCanShrink, libs, "adw_button_content_set_can_shrink")
-	core.PuregoSafeRegister(&xButtonContentSetIconName, libs, "adw_button_content_set_icon_name")
-	core.PuregoSafeRegister(&xButtonContentSetLabel, libs, "adw_button_content_set_label")
-	core.PuregoSafeRegister(&xButtonContentSetUseUnderline, libs, "adw_button_content_set_use_underline")
 }

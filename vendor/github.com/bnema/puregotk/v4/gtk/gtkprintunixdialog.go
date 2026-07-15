@@ -2,7 +2,6 @@
 package gtk
 
 import (
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gdk"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -80,6 +79,7 @@ type PrintUnixDialog struct {
 var xPrintUnixDialogGLibType func() types.GType
 
 func PrintUnixDialogGLibType() types.GType {
+	core.LazyRegister(&xPrintUnixDialogGLibType, "GTK", "gtk_print_unix_dialog_get_type", false)
 	return xPrintUnixDialogGLibType()
 }
 
@@ -93,6 +93,7 @@ var xNewPrintUnixDialog func(uintptr, uintptr) uintptr
 
 // Creates a new `GtkPrintUnixDialog`.
 func NewPrintUnixDialog(TitleVar *string, ParentVar *Window) *PrintUnixDialog {
+	core.LazyRegister(&xNewPrintUnixDialog, "GTK", "gtk_print_unix_dialog_new", false)
 	var cls *PrintUnixDialog
 
 	TitleVarPtr := core.GStrdupNullable(TitleVar)
@@ -113,6 +114,8 @@ var xPrintUnixDialogAddCustomTab func(uintptr, uintptr, uintptr)
 
 // Adds a custom tab to the print dialog.
 func (x *PrintUnixDialog) AddCustomTab(ChildVar *Widget, TabLabelVar *Widget) {
+	core.LazyRegister(&xPrintUnixDialogAddCustomTab, "GTK", "gtk_print_unix_dialog_add_custom_tab", false)
+
 	xPrintUnixDialogAddCustomTab(x.GoPointer(), ChildVar.GoPointer(), TabLabelVar.GoPointer())
 }
 
@@ -120,6 +123,8 @@ var xPrintUnixDialogGetCurrentPage func(uintptr) int
 
 // Gets the current page of the `GtkPrintUnixDialog`.
 func (x *PrintUnixDialog) GetCurrentPage() int {
+	core.LazyRegister(&xPrintUnixDialogGetCurrentPage, "GTK", "gtk_print_unix_dialog_get_current_page", false)
+
 	cret := xPrintUnixDialogGetCurrentPage(x.GoPointer())
 	return cret
 }
@@ -128,6 +133,8 @@ var xPrintUnixDialogGetEmbedPageSetup func(uintptr) bool
 
 // Gets whether to embed the page setup.
 func (x *PrintUnixDialog) GetEmbedPageSetup() bool {
+	core.LazyRegister(&xPrintUnixDialogGetEmbedPageSetup, "GTK", "gtk_print_unix_dialog_get_embed_page_setup", false)
+
 	cret := xPrintUnixDialogGetEmbedPageSetup(x.GoPointer())
 	return cret
 }
@@ -136,6 +143,8 @@ var xPrintUnixDialogGetHasSelection func(uintptr) bool
 
 // Gets whether there is a selection.
 func (x *PrintUnixDialog) GetHasSelection() bool {
+	core.LazyRegister(&xPrintUnixDialogGetHasSelection, "GTK", "gtk_print_unix_dialog_get_has_selection", false)
+
 	cret := xPrintUnixDialogGetHasSelection(x.GoPointer())
 	return cret
 }
@@ -144,6 +153,8 @@ var xPrintUnixDialogGetManualCapabilities func(uintptr) PrintCapabilities
 
 // Gets the capabilities that have been set on this `GtkPrintUnixDialog`.
 func (x *PrintUnixDialog) GetManualCapabilities() PrintCapabilities {
+	core.LazyRegister(&xPrintUnixDialogGetManualCapabilities, "GTK", "gtk_print_unix_dialog_get_manual_capabilities", false)
+
 	cret := xPrintUnixDialogGetManualCapabilities(x.GoPointer())
 	return cret
 }
@@ -152,6 +163,7 @@ var xPrintUnixDialogGetPageSetup func(uintptr) uintptr
 
 // Gets the page setup that is used by the `GtkPrintUnixDialog`.
 func (x *PrintUnixDialog) GetPageSetup() *PageSetup {
+	core.LazyRegister(&xPrintUnixDialogGetPageSetup, "GTK", "gtk_print_unix_dialog_get_page_setup", false)
 	var cls *PageSetup
 
 	cret := xPrintUnixDialogGetPageSetup(x.GoPointer())
@@ -169,6 +181,8 @@ var xPrintUnixDialogGetPageSetupSet func(uintptr) bool
 
 // Gets whether a page setup was set by the user.
 func (x *PrintUnixDialog) GetPageSetupSet() bool {
+	core.LazyRegister(&xPrintUnixDialogGetPageSetupSet, "GTK", "gtk_print_unix_dialog_get_page_setup_set", false)
+
 	cret := xPrintUnixDialogGetPageSetupSet(x.GoPointer())
 	return cret
 }
@@ -177,6 +191,7 @@ var xPrintUnixDialogGetSelectedPrinter func(uintptr) uintptr
 
 // Gets the currently selected printer.
 func (x *PrintUnixDialog) GetSelectedPrinter() *Printer {
+	core.LazyRegister(&xPrintUnixDialogGetSelectedPrinter, "GTK", "gtk_print_unix_dialog_get_selected_printer", false)
 	var cls *Printer
 
 	cret := xPrintUnixDialogGetSelectedPrinter(x.GoPointer())
@@ -198,6 +213,7 @@ var xPrintUnixDialogGetSettings func(uintptr) uintptr
 // Note that this creates a new object, and you need to unref
 // it if don’t want to keep it.
 func (x *PrintUnixDialog) GetSettings() *PrintSettings {
+	core.LazyRegister(&xPrintUnixDialogGetSettings, "GTK", "gtk_print_unix_dialog_get_settings", false)
 	var cls *PrintSettings
 
 	cret := xPrintUnixDialogGetSettings(x.GoPointer())
@@ -214,6 +230,8 @@ var xPrintUnixDialogGetSupportSelection func(uintptr) bool
 
 // Gets whether the print dialog allows user to print a selection.
 func (x *PrintUnixDialog) GetSupportSelection() bool {
+	core.LazyRegister(&xPrintUnixDialogGetSupportSelection, "GTK", "gtk_print_unix_dialog_get_support_selection", false)
+
 	cret := xPrintUnixDialogGetSupportSelection(x.GoPointer())
 	return cret
 }
@@ -225,6 +243,8 @@ var xPrintUnixDialogSetCurrentPage func(uintptr, int)
 // If @current_page is not -1, this enables the current page choice
 // for the range of pages to print.
 func (x *PrintUnixDialog) SetCurrentPage(CurrentPageVar int) {
+	core.LazyRegister(&xPrintUnixDialogSetCurrentPage, "GTK", "gtk_print_unix_dialog_set_current_page", false)
+
 	xPrintUnixDialogSetCurrentPage(x.GoPointer(), CurrentPageVar)
 }
 
@@ -232,6 +252,8 @@ var xPrintUnixDialogSetEmbedPageSetup func(uintptr, bool)
 
 // Embed page size combo box and orientation combo box into page setup page.
 func (x *PrintUnixDialog) SetEmbedPageSetup(EmbedVar bool) {
+	core.LazyRegister(&xPrintUnixDialogSetEmbedPageSetup, "GTK", "gtk_print_unix_dialog_set_embed_page_setup", false)
+
 	xPrintUnixDialogSetEmbedPageSetup(x.GoPointer(), EmbedVar)
 }
 
@@ -239,6 +261,8 @@ var xPrintUnixDialogSetHasSelection func(uintptr, bool)
 
 // Sets whether a selection exists.
 func (x *PrintUnixDialog) SetHasSelection(HasSelectionVar bool) {
+	core.LazyRegister(&xPrintUnixDialogSetHasSelection, "GTK", "gtk_print_unix_dialog_set_has_selection", false)
+
 	xPrintUnixDialogSetHasSelection(x.GoPointer(), HasSelectionVar)
 }
 
@@ -252,6 +276,8 @@ var xPrintUnixDialogSetManualCapabilities func(uintptr, PrintCapabilities)
 // will only let you select the scale if the printing system automatically
 // handles scaling.
 func (x *PrintUnixDialog) SetManualCapabilities(CapabilitiesVar PrintCapabilities) {
+	core.LazyRegister(&xPrintUnixDialogSetManualCapabilities, "GTK", "gtk_print_unix_dialog_set_manual_capabilities", false)
+
 	xPrintUnixDialogSetManualCapabilities(x.GoPointer(), CapabilitiesVar)
 }
 
@@ -259,6 +285,8 @@ var xPrintUnixDialogSetPageSetup func(uintptr, uintptr)
 
 // Sets the page setup of the `GtkPrintUnixDialog`.
 func (x *PrintUnixDialog) SetPageSetup(PageSetupVar *PageSetup) {
+	core.LazyRegister(&xPrintUnixDialogSetPageSetup, "GTK", "gtk_print_unix_dialog_set_page_setup", false)
+
 	xPrintUnixDialogSetPageSetup(x.GoPointer(), PageSetupVar.GoPointer())
 }
 
@@ -270,6 +298,8 @@ var xPrintUnixDialogSetSettings func(uintptr, uintptr)
 // from a previous print operation before the print dialog
 // is shown.
 func (x *PrintUnixDialog) SetSettings(SettingsVar *PrintSettings) {
+	core.LazyRegister(&xPrintUnixDialogSetSettings, "GTK", "gtk_print_unix_dialog_set_settings", false)
+
 	xPrintUnixDialogSetSettings(x.GoPointer(), SettingsVar.GoPointer())
 }
 
@@ -277,6 +307,8 @@ var xPrintUnixDialogSetSupportSelection func(uintptr, bool)
 
 // Sets whether the print dialog allows user to print a selection.
 func (x *PrintUnixDialog) SetSupportSelection(SupportSelectionVar bool) {
+	core.LazyRegister(&xPrintUnixDialogSetSupportSelection, "GTK", "gtk_print_unix_dialog_set_support_selection", false)
+
 	xPrintUnixDialogSetSupportSelection(x.GoPointer(), SupportSelectionVar)
 }
 
@@ -721,34 +753,4 @@ func (x *PrintUnixDialog) SetFocus(FocusVar *Widget) {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GTK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xPrintUnixDialogGLibType, libs, "gtk_print_unix_dialog_get_type")
-
-	core.PuregoSafeRegister(&xNewPrintUnixDialog, libs, "gtk_print_unix_dialog_new")
-
-	core.PuregoSafeRegister(&xPrintUnixDialogAddCustomTab, libs, "gtk_print_unix_dialog_add_custom_tab")
-	core.PuregoSafeRegister(&xPrintUnixDialogGetCurrentPage, libs, "gtk_print_unix_dialog_get_current_page")
-	core.PuregoSafeRegister(&xPrintUnixDialogGetEmbedPageSetup, libs, "gtk_print_unix_dialog_get_embed_page_setup")
-	core.PuregoSafeRegister(&xPrintUnixDialogGetHasSelection, libs, "gtk_print_unix_dialog_get_has_selection")
-	core.PuregoSafeRegister(&xPrintUnixDialogGetManualCapabilities, libs, "gtk_print_unix_dialog_get_manual_capabilities")
-	core.PuregoSafeRegister(&xPrintUnixDialogGetPageSetup, libs, "gtk_print_unix_dialog_get_page_setup")
-	core.PuregoSafeRegister(&xPrintUnixDialogGetPageSetupSet, libs, "gtk_print_unix_dialog_get_page_setup_set")
-	core.PuregoSafeRegister(&xPrintUnixDialogGetSelectedPrinter, libs, "gtk_print_unix_dialog_get_selected_printer")
-	core.PuregoSafeRegister(&xPrintUnixDialogGetSettings, libs, "gtk_print_unix_dialog_get_settings")
-	core.PuregoSafeRegister(&xPrintUnixDialogGetSupportSelection, libs, "gtk_print_unix_dialog_get_support_selection")
-	core.PuregoSafeRegister(&xPrintUnixDialogSetCurrentPage, libs, "gtk_print_unix_dialog_set_current_page")
-	core.PuregoSafeRegister(&xPrintUnixDialogSetEmbedPageSetup, libs, "gtk_print_unix_dialog_set_embed_page_setup")
-	core.PuregoSafeRegister(&xPrintUnixDialogSetHasSelection, libs, "gtk_print_unix_dialog_set_has_selection")
-	core.PuregoSafeRegister(&xPrintUnixDialogSetManualCapabilities, libs, "gtk_print_unix_dialog_set_manual_capabilities")
-	core.PuregoSafeRegister(&xPrintUnixDialogSetPageSetup, libs, "gtk_print_unix_dialog_set_page_setup")
-	core.PuregoSafeRegister(&xPrintUnixDialogSetSettings, libs, "gtk_print_unix_dialog_set_settings")
-	core.PuregoSafeRegister(&xPrintUnixDialogSetSupportSelection, libs, "gtk_print_unix_dialog_set_support_selection")
 }

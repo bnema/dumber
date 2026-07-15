@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -33,6 +32,8 @@ var xUserMediaPermissionIsForAudioDevice func(uintptr) bool
 
 // Check whether the permission request is for an audio device.
 func UserMediaPermissionIsForAudioDevice(RequestVar *UserMediaPermissionRequest) bool {
+	core.LazyRegister(&xUserMediaPermissionIsForAudioDevice, "WEBKIT", "webkit_user_media_permission_is_for_audio_device", false)
+
 	cret := xUserMediaPermissionIsForAudioDevice(RequestVar.GoPointer())
 	return cret
 }
@@ -41,6 +42,8 @@ var xUserMediaPermissionIsForDisplayDevice func(uintptr) bool
 
 // Check whether the permission request is for a display device.
 func UserMediaPermissionIsForDisplayDevice(RequestVar *UserMediaPermissionRequest) bool {
+	core.LazyRegister(&xUserMediaPermissionIsForDisplayDevice, "WEBKIT", "webkit_user_media_permission_is_for_display_device", false)
+
 	cret := xUserMediaPermissionIsForDisplayDevice(RequestVar.GoPointer())
 	return cret
 }
@@ -49,6 +52,8 @@ var xUserMediaPermissionIsForVideoDevice func(uintptr) bool
 
 // Check whether the permission request is for a video device.
 func UserMediaPermissionIsForVideoDevice(RequestVar *UserMediaPermissionRequest) bool {
+	core.LazyRegister(&xUserMediaPermissionIsForVideoDevice, "WEBKIT", "webkit_user_media_permission_is_for_video_device", false)
+
 	cret := xUserMediaPermissionIsForVideoDevice(RequestVar.GoPointer())
 	return cret
 }
@@ -68,6 +73,7 @@ type UserMediaPermissionRequest struct {
 var xUserMediaPermissionRequestGLibType func() types.GType
 
 func UserMediaPermissionRequestGLibType() types.GType {
+	core.LazyRegister(&xUserMediaPermissionRequestGLibType, "WEBKIT", "webkit_user_media_permission_request_get_type", false)
 	return xUserMediaPermissionRequestGLibType()
 }
 
@@ -117,23 +123,8 @@ func (x *UserMediaPermissionRequest) Deny() {
 func init() {
 	core.SetPackageName("WEBKIT", "webkitgtk-6.0")
 	core.SetSharedLibraries("WEBKIT", []string{"libwebkitgtk-6.0.so.4", "libjavascriptcoregtk-6.0.so.1", "libwebkitgtk-6.0.4.dylib", "libjavascriptcoregtk-6.0.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("WEBKIT") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
 
-	core.PuregoSafeRegister(&xUserMediaPermissionIsForAudioDevice, libs, "webkit_user_media_permission_is_for_audio_device")
-	core.PuregoSafeRegister(&xUserMediaPermissionIsForDisplayDevice, libs, "webkit_user_media_permission_is_for_display_device")
-	core.PuregoSafeRegister(&xUserMediaPermissionIsForVideoDevice, libs, "webkit_user_media_permission_is_for_video_device")
-
-	core.PuregoSafeRegister(&xUserMediaPermissionRequestGLibType, libs, "webkit_user_media_permission_request_get_type")
-
-	// Manually register types since they aren't being automatically registered when
-	// the library is loaded
-	// See https://bugs.webkit.org/show_bug.cgi?id=175937
+	// Manually register types since they aren't automatically registered when
+	// WebKit is loaded. See https://bugs.webkit.org/show_bug.cgi?id=175937.
 	UserMediaPermissionRequestGLibType()
 }

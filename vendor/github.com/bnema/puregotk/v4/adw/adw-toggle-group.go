@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -60,6 +59,7 @@ type Toggle struct {
 var xToggleGLibType func() types.GType
 
 func ToggleGLibType() types.GType {
+	core.LazyRegister(&xToggleGLibType, "ADW", "adw_toggle_get_type", false)
 	return xToggleGLibType()
 }
 
@@ -73,6 +73,7 @@ var xNewToggle func() uintptr
 
 // Creates a new `AdwToggle`.
 func NewToggle() *Toggle {
+	core.LazyRegister(&xNewToggle, "ADW", "adw_toggle_new", false)
 	var cls *Toggle
 
 	cret := xNewToggle()
@@ -89,6 +90,7 @@ var xToggleGetChild func(uintptr) uintptr
 
 // Gets the child widget of @self.
 func (x *Toggle) GetChild() *gtk.Widget {
+	core.LazyRegister(&xToggleGetChild, "ADW", "adw_toggle_get_child", false)
 	var cls *gtk.Widget
 
 	cret := xToggleGetChild(x.GoPointer())
@@ -106,6 +108,8 @@ var xToggleGetDescription func(uintptr) string
 
 // Gets the description of @self.
 func (x *Toggle) GetDescription() string {
+	core.LazyRegister(&xToggleGetDescription, "ADW", "adw_toggle_get_description", false)
+
 	cret := xToggleGetDescription(x.GoPointer())
 	return cret
 }
@@ -114,6 +118,8 @@ var xToggleGetEnabled func(uintptr) bool
 
 // Gets whether @self is enabled.
 func (x *Toggle) GetEnabled() bool {
+	core.LazyRegister(&xToggleGetEnabled, "ADW", "adw_toggle_get_enabled", false)
+
 	cret := xToggleGetEnabled(x.GoPointer())
 	return cret
 }
@@ -122,6 +128,8 @@ var xToggleGetIconName func(uintptr) string
 
 // Gets the icon name of @self.
 func (x *Toggle) GetIconName() string {
+	core.LazyRegister(&xToggleGetIconName, "ADW", "adw_toggle_get_icon_name", false)
+
 	cret := xToggleGetIconName(x.GoPointer())
 	return cret
 }
@@ -130,6 +138,8 @@ var xToggleGetIndex func(uintptr) uint
 
 // Gets the index of @self within its toggle group.
 func (x *Toggle) GetIndex() uint {
+	core.LazyRegister(&xToggleGetIndex, "ADW", "adw_toggle_get_index", false)
+
 	cret := xToggleGetIndex(x.GoPointer())
 	return cret
 }
@@ -138,6 +148,8 @@ var xToggleGetLabel func(uintptr) string
 
 // Gets the label of @self.
 func (x *Toggle) GetLabel() string {
+	core.LazyRegister(&xToggleGetLabel, "ADW", "adw_toggle_get_label", false)
+
 	cret := xToggleGetLabel(x.GoPointer())
 	return cret
 }
@@ -146,6 +158,8 @@ var xToggleGetName func(uintptr) string
 
 // Gets the name of @self.
 func (x *Toggle) GetName() string {
+	core.LazyRegister(&xToggleGetName, "ADW", "adw_toggle_get_name", false)
+
 	cret := xToggleGetName(x.GoPointer())
 	return cret
 }
@@ -154,6 +168,8 @@ var xToggleGetTooltip func(uintptr) string
 
 // Gets the tooltip of @self.
 func (x *Toggle) GetTooltip() string {
+	core.LazyRegister(&xToggleGetTooltip, "ADW", "adw_toggle_get_tooltip", false)
+
 	cret := xToggleGetTooltip(x.GoPointer())
 	return cret
 }
@@ -162,6 +178,8 @@ var xToggleGetUseUnderline func(uintptr) bool
 
 // Gets whether @self uses underlines.
 func (x *Toggle) GetUseUnderline() bool {
+	core.LazyRegister(&xToggleGetUseUnderline, "ADW", "adw_toggle_get_use_underline", false)
+
 	cret := xToggleGetUseUnderline(x.GoPointer())
 	return cret
 }
@@ -175,6 +193,8 @@ var xToggleSetChild func(uintptr, uintptr)
 // It's recommended to still set the label, as it can still be used by the
 // screen reader.
 func (x *Toggle) SetChild(ChildVar *gtk.Widget) {
+	core.LazyRegister(&xToggleSetChild, "ADW", "adw_toggle_set_child", false)
+
 	xToggleSetChild(x.GoPointer(), ChildVar.GoPointer())
 }
 
@@ -187,6 +207,8 @@ var xToggleSetDescription func(uintptr, string)
 //
 // See [enum@Gtk.AccessibleProperty.description].
 func (x *Toggle) SetDescription(DescriptionVar string) {
+	core.LazyRegister(&xToggleSetDescription, "ADW", "adw_toggle_set_description", false)
+
 	xToggleSetDescription(x.GoPointer(), DescriptionVar)
 }
 
@@ -194,6 +216,8 @@ var xToggleSetEnabled func(uintptr, bool)
 
 // Sets whether @self is enabled.
 func (x *Toggle) SetEnabled(EnabledVar bool) {
+	core.LazyRegister(&xToggleSetEnabled, "ADW", "adw_toggle_set_enabled", false)
+
 	xToggleSetEnabled(x.GoPointer(), EnabledVar)
 }
 
@@ -204,6 +228,8 @@ var xToggleSetIconName func(uintptr, uintptr)
 // The icon will be displayed alone or next to the label, unless
 // [property@Toggle:child] is set.
 func (x *Toggle) SetIconName(IconNameVar *string) {
+	core.LazyRegister(&xToggleSetIconName, "ADW", "adw_toggle_set_icon_name", false)
+
 	IconNameVarPtr := core.GStrdupNullable(IconNameVar)
 	defer core.GFreeNullable(IconNameVarPtr)
 
@@ -218,6 +244,8 @@ var xToggleSetLabel func(uintptr, uintptr)
 // [property@Toggle:child] is set, but will still be read out by the screen
 // reader.
 func (x *Toggle) SetLabel(LabelVar *string) {
+	core.LazyRegister(&xToggleSetLabel, "ADW", "adw_toggle_set_label", false)
+
 	LabelVarPtr := core.GStrdupNullable(LabelVar)
 	defer core.GFreeNullable(LabelVarPtr)
 
@@ -232,6 +260,8 @@ var xToggleSetName func(uintptr, uintptr)
 //
 // See [property@ToggleGroup:active-name].
 func (x *Toggle) SetName(NameVar *string) {
+	core.LazyRegister(&xToggleSetName, "ADW", "adw_toggle_set_name", false)
+
 	NameVarPtr := core.GStrdupNullable(NameVar)
 	defer core.GFreeNullable(NameVarPtr)
 
@@ -247,6 +277,8 @@ var xToggleSetTooltip func(uintptr, string)
 // Tooltip text will also be used as accessible description. Use
 // [property@Toggle:description] to set it separately.
 func (x *Toggle) SetTooltip(TooltipVar string) {
+	core.LazyRegister(&xToggleSetTooltip, "ADW", "adw_toggle_set_tooltip", false)
+
 	xToggleSetTooltip(x.GoPointer(), TooltipVar)
 }
 
@@ -256,6 +288,8 @@ var xToggleSetUseUnderline func(uintptr, bool)
 //
 // See [property@Toggle:label].
 func (x *Toggle) SetUseUnderline(UseUnderlineVar bool) {
+	core.LazyRegister(&xToggleSetUseUnderline, "ADW", "adw_toggle_set_use_underline", false)
+
 	xToggleSetUseUnderline(x.GoPointer(), UseUnderlineVar)
 }
 
@@ -548,6 +582,7 @@ type ToggleGroup struct {
 var xToggleGroupGLibType func() types.GType
 
 func ToggleGroupGLibType() types.GType {
+	core.LazyRegister(&xToggleGroupGLibType, "ADW", "adw_toggle_group_get_type", false)
 	return xToggleGroupGLibType()
 }
 
@@ -561,6 +596,7 @@ var xNewToggleGroup func() uintptr
 
 // Creates a new `AdwToggleGroup`.
 func NewToggleGroup() *ToggleGroup {
+	core.LazyRegister(&xNewToggleGroup, "ADW", "adw_toggle_group_new", false)
 	var cls *ToggleGroup
 
 	cret := xNewToggleGroup()
@@ -578,6 +614,8 @@ var xToggleGroupAdd func(uintptr, uintptr)
 
 // Adds a toggle to @self.
 func (x *ToggleGroup) Add(ToggleVar *Toggle) {
+	core.LazyRegister(&xToggleGroupAdd, "ADW", "adw_toggle_group_add", false)
+
 	xToggleGroupAdd(x.GoPointer(), ToggleVar.GoPointer())
 }
 
@@ -587,6 +625,8 @@ var xToggleGroupGetActive func(uintptr) uint
 //
 // Returns [const@Gtk.INVALID_LIST_POSITION] if no toggle is active.
 func (x *ToggleGroup) GetActive() uint {
+	core.LazyRegister(&xToggleGroupGetActive, "ADW", "adw_toggle_group_get_active", false)
+
 	cret := xToggleGroupGetActive(x.GoPointer())
 	return cret
 }
@@ -599,6 +639,8 @@ var xToggleGroupGetActiveName func(uintptr) string
 //
 // See [property@Toggle:name].
 func (x *ToggleGroup) GetActiveName() string {
+	core.LazyRegister(&xToggleGroupGetActiveName, "ADW", "adw_toggle_group_get_active_name", false)
+
 	cret := xToggleGroupGetActiveName(x.GoPointer())
 	return cret
 }
@@ -608,6 +650,8 @@ var xToggleGroupGetCanShrink func(uintptr) bool
 // Gets whether the toggles can be smaller than the natural size of their
 // contents.
 func (x *ToggleGroup) GetCanShrink() bool {
+	core.LazyRegister(&xToggleGroupGetCanShrink, "ADW", "adw_toggle_group_get_can_shrink", false)
+
 	cret := xToggleGroupGetCanShrink(x.GoPointer())
 	return cret
 }
@@ -616,6 +660,8 @@ var xToggleGroupGetHomogeneous func(uintptr) bool
 
 // Gets whether all toggles take the same size.
 func (x *ToggleGroup) GetHomogeneous() bool {
+	core.LazyRegister(&xToggleGroupGetHomogeneous, "ADW", "adw_toggle_group_get_homogeneous", false)
+
 	cret := xToggleGroupGetHomogeneous(x.GoPointer())
 	return cret
 }
@@ -624,6 +670,8 @@ var xToggleGroupGetNToggles func(uintptr) uint
 
 // Gets the number of toggles within @self.
 func (x *ToggleGroup) GetNToggles() uint {
+	core.LazyRegister(&xToggleGroupGetNToggles, "ADW", "adw_toggle_group_get_n_toggles", false)
+
 	cret := xToggleGroupGetNToggles(x.GoPointer())
 	return cret
 }
@@ -632,6 +680,7 @@ var xToggleGroupGetToggle func(uintptr, uint) uintptr
 
 // Gets the toggle with @index from @self.
 func (x *ToggleGroup) GetToggle(IndexVar uint) *Toggle {
+	core.LazyRegister(&xToggleGroupGetToggle, "ADW", "adw_toggle_group_get_toggle", false)
 	var cls *Toggle
 
 	cret := xToggleGroupGetToggle(x.GoPointer(), IndexVar)
@@ -649,6 +698,7 @@ var xToggleGroupGetToggleByName func(uintptr, string) uintptr
 
 // Gets the toggle with the name @name from @self.
 func (x *ToggleGroup) GetToggleByName(NameVar string) *Toggle {
+	core.LazyRegister(&xToggleGroupGetToggleByName, "ADW", "adw_toggle_group_get_toggle_by_name", false)
 	var cls *Toggle
 
 	cret := xToggleGroupGetToggleByName(x.GoPointer(), NameVar)
@@ -670,6 +720,7 @@ var xToggleGroupGetToggles func(uintptr) uintptr
 // [iface@Gtk.SelectionModel] and can be used to track and change the active
 // toggle.
 func (x *ToggleGroup) GetToggles() *gtk.SelectionModelBase {
+	core.LazyRegister(&xToggleGroupGetToggles, "ADW", "adw_toggle_group_get_toggles", false)
 	var cls *gtk.SelectionModelBase
 
 	cret := xToggleGroupGetToggles(x.GoPointer())
@@ -686,6 +737,8 @@ var xToggleGroupRemove func(uintptr, uintptr)
 
 // Removes @toggle from @self.
 func (x *ToggleGroup) Remove(ToggleVar *Toggle) {
+	core.LazyRegister(&xToggleGroupRemove, "ADW", "adw_toggle_group_remove", false)
+
 	xToggleGroupRemove(x.GoPointer(), ToggleVar.GoPointer())
 }
 
@@ -693,6 +746,8 @@ var xToggleGroupRemoveAll func(uintptr)
 
 // Removes all toggles from @self.
 func (x *ToggleGroup) RemoveAll() {
+	core.LazyRegister(&xToggleGroupRemoveAll, "ADW", "adw_toggle_group_remove_all", false)
+
 	xToggleGroupRemoveAll(x.GoPointer())
 }
 
@@ -703,6 +758,8 @@ var xToggleGroupSetActive func(uintptr, uint)
 // If the index is larger than the number of toggles in @self, unsets the
 // current active toggle.
 func (x *ToggleGroup) SetActive(ActiveVar uint) {
+	core.LazyRegister(&xToggleGroupSetActive, "ADW", "adw_toggle_group_set_active", false)
+
 	xToggleGroupSetActive(x.GoPointer(), ActiveVar)
 }
 
@@ -714,6 +771,8 @@ var xToggleGroupSetActiveName func(uintptr, uintptr)
 //
 // If @name is `NULL`, unset the current active toggle instead.
 func (x *ToggleGroup) SetActiveName(NameVar *string) {
+	core.LazyRegister(&xToggleGroupSetActiveName, "ADW", "adw_toggle_group_set_active_name", false)
+
 	NameVarPtr := core.GStrdupNullable(NameVar)
 	defer core.GFreeNullable(NameVarPtr)
 
@@ -729,6 +788,8 @@ var xToggleGroupSetCanShrink func(uintptr, bool)
 //
 // See [property@Gtk.Button:can-shrink].
 func (x *ToggleGroup) SetCanShrink(CanShrinkVar bool) {
+	core.LazyRegister(&xToggleGroupSetCanShrink, "ADW", "adw_toggle_group_set_can_shrink", false)
+
 	xToggleGroupSetCanShrink(x.GoPointer(), CanShrinkVar)
 }
 
@@ -736,6 +797,8 @@ var xToggleGroupSetHomogeneous func(uintptr, bool)
 
 // Sets whether all toggles take the same size.
 func (x *ToggleGroup) SetHomogeneous(HomogeneousVar bool) {
+	core.LazyRegister(&xToggleGroupSetHomogeneous, "ADW", "adw_toggle_group_set_homogeneous", false)
+
 	xToggleGroupSetHomogeneous(x.GoPointer(), HomogeneousVar)
 }
 
@@ -1130,54 +1193,4 @@ func (x *ToggleGroup) SetOrientation(OrientationVar gtk.Orientation) {
 func init() {
 	core.SetPackageName("ADW", "libadwaita-1")
 	core.SetSharedLibraries("ADW", []string{"libadwaita-1.so.0", "libadwaita-1.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("ADW") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xToggleGLibType, libs, "adw_toggle_get_type")
-
-	core.PuregoSafeRegister(&xNewToggle, libs, "adw_toggle_new")
-
-	core.PuregoSafeRegister(&xToggleGetChild, libs, "adw_toggle_get_child")
-	core.PuregoSafeRegister(&xToggleGetDescription, libs, "adw_toggle_get_description")
-	core.PuregoSafeRegister(&xToggleGetEnabled, libs, "adw_toggle_get_enabled")
-	core.PuregoSafeRegister(&xToggleGetIconName, libs, "adw_toggle_get_icon_name")
-	core.PuregoSafeRegister(&xToggleGetIndex, libs, "adw_toggle_get_index")
-	core.PuregoSafeRegister(&xToggleGetLabel, libs, "adw_toggle_get_label")
-	core.PuregoSafeRegister(&xToggleGetName, libs, "adw_toggle_get_name")
-	core.PuregoSafeRegister(&xToggleGetTooltip, libs, "adw_toggle_get_tooltip")
-	core.PuregoSafeRegister(&xToggleGetUseUnderline, libs, "adw_toggle_get_use_underline")
-	core.PuregoSafeRegister(&xToggleSetChild, libs, "adw_toggle_set_child")
-	core.PuregoSafeRegister(&xToggleSetDescription, libs, "adw_toggle_set_description")
-	core.PuregoSafeRegister(&xToggleSetEnabled, libs, "adw_toggle_set_enabled")
-	core.PuregoSafeRegister(&xToggleSetIconName, libs, "adw_toggle_set_icon_name")
-	core.PuregoSafeRegister(&xToggleSetLabel, libs, "adw_toggle_set_label")
-	core.PuregoSafeRegister(&xToggleSetName, libs, "adw_toggle_set_name")
-	core.PuregoSafeRegister(&xToggleSetTooltip, libs, "adw_toggle_set_tooltip")
-	core.PuregoSafeRegister(&xToggleSetUseUnderline, libs, "adw_toggle_set_use_underline")
-
-	core.PuregoSafeRegister(&xToggleGroupGLibType, libs, "adw_toggle_group_get_type")
-
-	core.PuregoSafeRegister(&xNewToggleGroup, libs, "adw_toggle_group_new")
-
-	core.PuregoSafeRegister(&xToggleGroupAdd, libs, "adw_toggle_group_add")
-	core.PuregoSafeRegister(&xToggleGroupGetActive, libs, "adw_toggle_group_get_active")
-	core.PuregoSafeRegister(&xToggleGroupGetActiveName, libs, "adw_toggle_group_get_active_name")
-	core.PuregoSafeRegister(&xToggleGroupGetCanShrink, libs, "adw_toggle_group_get_can_shrink")
-	core.PuregoSafeRegister(&xToggleGroupGetHomogeneous, libs, "adw_toggle_group_get_homogeneous")
-	core.PuregoSafeRegister(&xToggleGroupGetNToggles, libs, "adw_toggle_group_get_n_toggles")
-	core.PuregoSafeRegister(&xToggleGroupGetToggle, libs, "adw_toggle_group_get_toggle")
-	core.PuregoSafeRegister(&xToggleGroupGetToggleByName, libs, "adw_toggle_group_get_toggle_by_name")
-	core.PuregoSafeRegister(&xToggleGroupGetToggles, libs, "adw_toggle_group_get_toggles")
-	core.PuregoSafeRegister(&xToggleGroupRemove, libs, "adw_toggle_group_remove")
-	core.PuregoSafeRegister(&xToggleGroupRemoveAll, libs, "adw_toggle_group_remove_all")
-	core.PuregoSafeRegister(&xToggleGroupSetActive, libs, "adw_toggle_group_set_active")
-	core.PuregoSafeRegister(&xToggleGroupSetActiveName, libs, "adw_toggle_group_set_active_name")
-	core.PuregoSafeRegister(&xToggleGroupSetCanShrink, libs, "adw_toggle_group_set_can_shrink")
-	core.PuregoSafeRegister(&xToggleGroupSetHomogeneous, libs, "adw_toggle_group_set_homogeneous")
 }

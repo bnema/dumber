@@ -225,6 +225,7 @@ type AsyncResult interface {
 var xAsyncResultGLibType func() types.GType
 
 func AsyncResultGLibType() types.GType {
+	core.LazyRegister(&xAsyncResultGLibType, "GIO", "g_async_result_get_type", false)
 	return xAsyncResultGLibType()
 }
 
@@ -290,29 +291,35 @@ func (x *AsyncResultBase) LegacyPropagateError() (bool, error) {
 	return cret, cerr
 }
 
+var XGAsyncResultGetSourceObject func(uintptr) uintptr = func(instance uintptr) uintptr {
+	core.LazyRegister(&xXGAsyncResultGetSourceObject, "GIO", "g_async_result_get_source_object", false)
+	return xXGAsyncResultGetSourceObject(instance)
+}
+
 var (
-	XGAsyncResultGetSourceObject      func(uintptr) uintptr
-	XGAsyncResultGetUserData          func(uintptr) uintptr
-	XGAsyncResultIsTagged             func(uintptr, uintptr) bool
-	XGAsyncResultLegacyPropagateError func(uintptr, **glib.Error) bool
+	xXGAsyncResultGetSourceObject func(uintptr) uintptr
+	XGAsyncResultGetUserData      func(uintptr) uintptr = func(instance uintptr) uintptr {
+		core.LazyRegister(&xXGAsyncResultGetUserData, "GIO", "g_async_result_get_user_data", false)
+		return xXGAsyncResultGetUserData(instance)
+	}
 )
+var (
+	xXGAsyncResultGetUserData func(uintptr) uintptr
+	XGAsyncResultIsTagged     func(uintptr, uintptr) bool = func(instance uintptr, SourceTagVarp uintptr) bool {
+		core.LazyRegister(&xXGAsyncResultIsTagged, "GIO", "g_async_result_is_tagged", false)
+		return xXGAsyncResultIsTagged(instance, SourceTagVarp)
+	}
+)
+var (
+	xXGAsyncResultIsTagged            func(uintptr, uintptr) bool
+	XGAsyncResultLegacyPropagateError func(uintptr, **glib.Error) bool = func(instance uintptr, cerrp **glib.Error) bool {
+		core.LazyRegister(&xXGAsyncResultLegacyPropagateError, "GIO", "g_async_result_legacy_propagate_error", false)
+		return xXGAsyncResultLegacyPropagateError(instance, cerrp)
+	}
+)
+var xXGAsyncResultLegacyPropagateError func(uintptr, **glib.Error) bool
 
 func init() {
 	core.SetPackageName("GIO", "gio-2.0")
 	core.SetSharedLibraries("GIO", []string{"libgio-2.0.so.0", "libgio-2.0.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GIO") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xAsyncResultGLibType, libs, "g_async_result_get_type")
-
-	core.PuregoSafeRegister(&XGAsyncResultGetSourceObject, libs, "g_async_result_get_source_object")
-	core.PuregoSafeRegister(&XGAsyncResultGetUserData, libs, "g_async_result_get_user_data")
-	core.PuregoSafeRegister(&XGAsyncResultIsTagged, libs, "g_async_result_is_tagged")
-	core.PuregoSafeRegister(&XGAsyncResultLegacyPropagateError, libs, "g_async_result_legacy_propagate_error")
 }

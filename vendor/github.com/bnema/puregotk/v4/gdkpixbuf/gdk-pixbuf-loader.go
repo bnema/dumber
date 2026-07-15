@@ -182,6 +182,7 @@ type PixbufLoader struct {
 var xPixbufLoaderGLibType func() types.GType
 
 func PixbufLoaderGLibType() types.GType {
+	core.LazyRegister(&xPixbufLoaderGLibType, "GDKPIXBUF", "gdk_pixbuf_loader_get_type", false)
 	return xPixbufLoaderGLibType()
 }
 
@@ -195,6 +196,7 @@ var xNewPixbufLoader func() uintptr
 
 // Creates a new pixbuf loader object.
 func NewPixbufLoader() *PixbufLoader {
+	core.LazyRegister(&xNewPixbufLoader, "GDKPIXBUF", "gdk_pixbuf_loader_new", false)
 	var cls *PixbufLoader
 
 	cret := xNewPixbufLoader()
@@ -225,6 +227,7 @@ var xNewPixbufLoaderWithMimeType func(string, **glib.Error) uintptr
 // gdk_pixbuf_format_get_mime_types() on each of the #GdkPixbufFormat
 // structs returned by gdk_pixbuf_get_formats().
 func NewPixbufLoaderWithMimeType(MimeTypeVar string) (*PixbufLoader, error) {
+	core.LazyRegister(&xNewPixbufLoaderWithMimeType, "GDKPIXBUF", "gdk_pixbuf_loader_new_with_mime_type", false)
 	var cls *PixbufLoader
 	var cerr *glib.Error
 
@@ -258,6 +261,7 @@ var xNewPixbufLoaderWithType func(string, **glib.Error) uintptr
 // supported image formats, call gdk_pixbuf_format_get_name() on each
 // of the #GdkPixbufFormat structs returned by gdk_pixbuf_get_formats().
 func NewPixbufLoaderWithType(ImageTypeVar string) (*PixbufLoader, error) {
+	core.LazyRegister(&xNewPixbufLoaderWithType, "GDKPIXBUF", "gdk_pixbuf_loader_new_with_type", false)
 	var cls *PixbufLoader
 	var cerr *glib.Error
 
@@ -292,6 +296,7 @@ var xPixbufLoaderClose func(uintptr, **glib.Error) bool
 // Remember that this function does not release a reference on the loader, so
 // you will need to explicitly release any reference you hold.
 func (x *PixbufLoader) Close() (bool, error) {
+	core.LazyRegister(&xPixbufLoaderClose, "GDKPIXBUF", "gdk_pixbuf_loader_close", false)
 	var cerr *glib.Error
 
 	cret := xPixbufLoaderClose(x.GoPointer(), &cerr)
@@ -312,6 +317,7 @@ var xPixbufLoaderGetAnimation func(uintptr) uintptr
 // If the loader doesn't have enough bytes yet, and hasn't emitted the `area-prepared`
 // signal, this function will return `NULL`.
 func (x *PixbufLoader) GetAnimation() *PixbufAnimation {
+	core.LazyRegister(&xPixbufLoaderGetAnimation, "GDKPIXBUF", "gdk_pixbuf_loader_get_animation", false)
 	var cls *PixbufAnimation
 
 	cret := xPixbufLoaderGetAnimation(x.GoPointer())
@@ -330,6 +336,8 @@ var xPixbufLoaderGetFormat func(uintptr) uintptr
 // Obtains the available information about the format of the
 // currently loading image file.
 func (x *PixbufLoader) GetFormat() *PixbufFormat {
+	core.LazyRegister(&xPixbufLoaderGetFormat, "GDKPIXBUF", "gdk_pixbuf_loader_get_format", false)
+
 	cret := xPixbufLoaderGetFormat(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -355,6 +363,7 @@ var xPixbufLoaderGetPixbuf func(uintptr) uintptr
 // Additionally, if the loader is an animation, it will return the "static
 // image" of the animation (see gdk_pixbuf_animation_get_static_image()).
 func (x *PixbufLoader) GetPixbuf() *Pixbuf {
+	core.LazyRegister(&xPixbufLoaderGetPixbuf, "GDKPIXBUF", "gdk_pixbuf_loader_get_pixbuf", false)
 	var cls *Pixbuf
 
 	cret := xPixbufLoaderGetPixbuf(x.GoPointer())
@@ -379,6 +388,8 @@ var xPixbufLoaderSetSize func(uintptr, int, int)
 // Attempts to set the desired image size  are ignored after the
 // emission of the ::size-prepared signal.
 func (x *PixbufLoader) SetSize(WidthVar int, HeightVar int) {
+	core.LazyRegister(&xPixbufLoaderSetSize, "GDKPIXBUF", "gdk_pixbuf_loader_set_size", false)
+
 	xPixbufLoaderSetSize(x.GoPointer(), WidthVar, HeightVar)
 }
 
@@ -386,6 +397,7 @@ var xPixbufLoaderWrite func(uintptr, []byte, uint, **glib.Error) bool
 
 // Parses the next `count` bytes in the given image buffer.
 func (x *PixbufLoader) Write(BufVar []byte, CountVar uint) (bool, error) {
+	core.LazyRegister(&xPixbufLoaderWrite, "GDKPIXBUF", "gdk_pixbuf_loader_write", false)
 	var cerr *glib.Error
 
 	cret := xPixbufLoaderWrite(x.GoPointer(), BufVar, CountVar, &cerr)
@@ -399,6 +411,7 @@ var xPixbufLoaderWriteBytes func(uintptr, *glib.Bytes, **glib.Error) bool
 
 // Parses the next contents of the given image buffer.
 func (x *PixbufLoader) WriteBytes(BufferVar *glib.Bytes) (bool, error) {
+	core.LazyRegister(&xPixbufLoaderWriteBytes, "GDKPIXBUF", "gdk_pixbuf_loader_write_bytes", false)
 	var cerr *glib.Error
 
 	cret := xPixbufLoaderWriteBytes(x.GoPointer(), BufferVar, &cerr)
@@ -536,26 +549,4 @@ func (x *PixbufLoader) ConnectSizePrepared(cb *func(PixbufLoader, int, int)) uin
 func init() {
 	core.SetPackageName("GDKPIXBUF", "gdk-pixbuf-2.0")
 	core.SetSharedLibraries("GDKPIXBUF", []string{"libgdk_pixbuf-2.0.so.0", "libgdk_pixbuf-2.0.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GDKPIXBUF") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xPixbufLoaderGLibType, libs, "gdk_pixbuf_loader_get_type")
-
-	core.PuregoSafeRegister(&xNewPixbufLoader, libs, "gdk_pixbuf_loader_new")
-	core.PuregoSafeRegister(&xNewPixbufLoaderWithMimeType, libs, "gdk_pixbuf_loader_new_with_mime_type")
-	core.PuregoSafeRegister(&xNewPixbufLoaderWithType, libs, "gdk_pixbuf_loader_new_with_type")
-
-	core.PuregoSafeRegister(&xPixbufLoaderClose, libs, "gdk_pixbuf_loader_close")
-	core.PuregoSafeRegister(&xPixbufLoaderGetAnimation, libs, "gdk_pixbuf_loader_get_animation")
-	core.PuregoSafeRegister(&xPixbufLoaderGetFormat, libs, "gdk_pixbuf_loader_get_format")
-	core.PuregoSafeRegister(&xPixbufLoaderGetPixbuf, libs, "gdk_pixbuf_loader_get_pixbuf")
-	core.PuregoSafeRegister(&xPixbufLoaderSetSize, libs, "gdk_pixbuf_loader_set_size")
-	core.PuregoSafeRegister(&xPixbufLoaderWrite, libs, "gdk_pixbuf_loader_write")
-	core.PuregoSafeRegister(&xPixbufLoaderWriteBytes, libs, "gdk_pixbuf_loader_write_bytes")
 }

@@ -2,7 +2,6 @@
 package gtk
 
 import (
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -73,6 +72,7 @@ type SearchEntry struct {
 var xSearchEntryGLibType func() types.GType
 
 func SearchEntryGLibType() types.GType {
+	core.LazyRegister(&xSearchEntryGLibType, "GTK", "gtk_search_entry_get_type", false)
 	return xSearchEntryGLibType()
 }
 
@@ -86,6 +86,7 @@ var xNewSearchEntry func() uintptr
 
 // Creates a `GtkSearchEntry`.
 func NewSearchEntry() *SearchEntry {
+	core.LazyRegister(&xNewSearchEntry, "GTK", "gtk_search_entry_new", false)
 	var cls *SearchEntry
 
 	cret := xNewSearchEntry()
@@ -103,6 +104,8 @@ var xSearchEntryGetInputHints func(uintptr) InputHints
 
 // Gets the input purpose for @entry.
 func (x *SearchEntry) GetInputHints() InputHints {
+	core.LazyRegister(&xSearchEntryGetInputHints, "GTK", "gtk_search_entry_get_input_hints", false)
+
 	cret := xSearchEntryGetInputHints(x.GoPointer())
 	return cret
 }
@@ -111,6 +114,8 @@ var xSearchEntryGetInputPurpose func(uintptr) InputPurpose
 
 // Gets the input purpose of @entry.
 func (x *SearchEntry) GetInputPurpose() InputPurpose {
+	core.LazyRegister(&xSearchEntryGetInputPurpose, "GTK", "gtk_search_entry_get_input_purpose", false)
+
 	cret := xSearchEntryGetInputPurpose(x.GoPointer())
 	return cret
 }
@@ -119,6 +124,7 @@ var xSearchEntryGetKeyCaptureWidget func(uintptr) uintptr
 
 // Gets the widget that @entry is capturing key events from.
 func (x *SearchEntry) GetKeyCaptureWidget() *Widget {
+	core.LazyRegister(&xSearchEntryGetKeyCaptureWidget, "GTK", "gtk_search_entry_get_key_capture_widget", false)
 	var cls *Widget
 
 	cret := xSearchEntryGetKeyCaptureWidget(x.GoPointer())
@@ -136,6 +142,8 @@ var xSearchEntryGetPlaceholderText func(uintptr) string
 
 // Gets the placeholder text associated with @entry.
 func (x *SearchEntry) GetPlaceholderText() string {
+	core.LazyRegister(&xSearchEntryGetPlaceholderText, "GTK", "gtk_search_entry_get_placeholder_text", false)
+
 	cret := xSearchEntryGetPlaceholderText(x.GoPointer())
 	return cret
 }
@@ -145,6 +153,8 @@ var xSearchEntryGetSearchDelay func(uintptr) uint
 // Get the delay to be used between the last keypress and the
 // [signal@Gtk.SearchEntry::search-changed] signal being emitted.
 func (x *SearchEntry) GetSearchDelay() uint {
+	core.LazyRegister(&xSearchEntryGetSearchDelay, "GTK", "gtk_search_entry_get_search_delay", false)
+
 	cret := xSearchEntryGetSearchDelay(x.GoPointer())
 	return cret
 }
@@ -153,6 +163,8 @@ var xSearchEntrySetInputHints func(uintptr, InputHints)
 
 // Sets the input hints for @entry.
 func (x *SearchEntry) SetInputHints(HintsVar InputHints) {
+	core.LazyRegister(&xSearchEntrySetInputHints, "GTK", "gtk_search_entry_set_input_hints", false)
+
 	xSearchEntrySetInputHints(x.GoPointer(), HintsVar)
 }
 
@@ -160,6 +172,8 @@ var xSearchEntrySetInputPurpose func(uintptr, InputPurpose)
 
 // Sets the input purpose of @entry.
 func (x *SearchEntry) SetInputPurpose(PurposeVar InputPurpose) {
+	core.LazyRegister(&xSearchEntrySetInputPurpose, "GTK", "gtk_search_entry_set_input_purpose", false)
+
 	xSearchEntrySetInputPurpose(x.GoPointer(), PurposeVar)
 }
 
@@ -183,6 +197,8 @@ var xSearchEntrySetKeyCaptureWidget func(uintptr, uintptr)
 // capture and forward the events yourself with
 // [method@Gtk.EventControllerKey.forward].
 func (x *SearchEntry) SetKeyCaptureWidget(WidgetVar *Widget) {
+	core.LazyRegister(&xSearchEntrySetKeyCaptureWidget, "GTK", "gtk_search_entry_set_key_capture_widget", false)
+
 	xSearchEntrySetKeyCaptureWidget(x.GoPointer(), WidgetVar.GoPointer())
 }
 
@@ -190,6 +206,8 @@ var xSearchEntrySetPlaceholderText func(uintptr, uintptr)
 
 // Sets the placeholder text associated with @entry.
 func (x *SearchEntry) SetPlaceholderText(TextVar *string) {
+	core.LazyRegister(&xSearchEntrySetPlaceholderText, "GTK", "gtk_search_entry_set_placeholder_text", false)
+
 	TextVarPtr := core.GStrdupNullable(TextVar)
 	defer core.GFreeNullable(TextVarPtr)
 
@@ -201,6 +219,8 @@ var xSearchEntrySetSearchDelay func(uintptr, uint)
 // Set the delay to be used between the last keypress and the
 // [signal@Gtk.SearchEntry::search-changed] signal being emitted.
 func (x *SearchEntry) SetSearchDelay(DelayVar uint) {
+	core.LazyRegister(&xSearchEntrySetSearchDelay, "GTK", "gtk_search_entry_set_search_delay", false)
+
 	xSearchEntrySetSearchDelay(x.GoPointer(), DelayVar)
 }
 
@@ -947,27 +967,4 @@ func (x *SearchEntry) SetWidthChars(NCharsVar int) {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GTK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xSearchEntryGLibType, libs, "gtk_search_entry_get_type")
-
-	core.PuregoSafeRegister(&xNewSearchEntry, libs, "gtk_search_entry_new")
-
-	core.PuregoSafeRegister(&xSearchEntryGetInputHints, libs, "gtk_search_entry_get_input_hints")
-	core.PuregoSafeRegister(&xSearchEntryGetInputPurpose, libs, "gtk_search_entry_get_input_purpose")
-	core.PuregoSafeRegister(&xSearchEntryGetKeyCaptureWidget, libs, "gtk_search_entry_get_key_capture_widget")
-	core.PuregoSafeRegister(&xSearchEntryGetPlaceholderText, libs, "gtk_search_entry_get_placeholder_text")
-	core.PuregoSafeRegister(&xSearchEntryGetSearchDelay, libs, "gtk_search_entry_get_search_delay")
-	core.PuregoSafeRegister(&xSearchEntrySetInputHints, libs, "gtk_search_entry_set_input_hints")
-	core.PuregoSafeRegister(&xSearchEntrySetInputPurpose, libs, "gtk_search_entry_set_input_purpose")
-	core.PuregoSafeRegister(&xSearchEntrySetKeyCaptureWidget, libs, "gtk_search_entry_set_key_capture_widget")
-	core.PuregoSafeRegister(&xSearchEntrySetPlaceholderText, libs, "gtk_search_entry_set_placeholder_text")
-	core.PuregoSafeRegister(&xSearchEntrySetSearchDelay, libs, "gtk_search_entry_set_search_delay")
 }

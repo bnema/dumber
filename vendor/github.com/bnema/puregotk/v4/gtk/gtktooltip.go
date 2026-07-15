@@ -2,7 +2,6 @@
 package gtk
 
 import (
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gdk"
 	"github.com/bnema/puregotk/v4/gio"
@@ -44,6 +43,7 @@ type Tooltip struct {
 var xTooltipGLibType func() types.GType
 
 func TooltipGLibType() types.GType {
+	core.LazyRegister(&xTooltipGLibType, "GTK", "gtk_tooltip_get_type", false)
 	return xTooltipGLibType()
 }
 
@@ -62,6 +62,8 @@ var xTooltipSetCustom func(uintptr, uintptr)
 // the tooltip, which can be configured using gtk_tooltip_set_markup()
 // and gtk_tooltip_set_icon().
 func (x *Tooltip) SetCustom(CustomWidgetVar *Widget) {
+	core.LazyRegister(&xTooltipSetCustom, "GTK", "gtk_tooltip_set_custom", false)
+
 	xTooltipSetCustom(x.GoPointer(), CustomWidgetVar.GoPointer())
 }
 
@@ -70,6 +72,8 @@ var xTooltipSetIcon func(uintptr, uintptr)
 // Sets the icon of the tooltip (which is in front of the text) to be
 // @paintable.  If @paintable is %NULL, the image will be hidden.
 func (x *Tooltip) SetIcon(PaintableVar gdk.Paintable) {
+	core.LazyRegister(&xTooltipSetIcon, "GTK", "gtk_tooltip_set_icon", false)
+
 	xTooltipSetIcon(x.GoPointer(), PaintableVar.GoPointer())
 }
 
@@ -79,6 +83,8 @@ var xTooltipSetIconFromGicon func(uintptr, uintptr)
 // to be the icon indicated by @gicon with the size indicated
 // by @size. If @gicon is %NULL, the image will be hidden.
 func (x *Tooltip) SetIconFromGicon(GiconVar gio.Icon) {
+	core.LazyRegister(&xTooltipSetIconFromGicon, "GTK", "gtk_tooltip_set_icon_from_gicon", false)
+
 	xTooltipSetIconFromGicon(x.GoPointer(), GiconVar.GoPointer())
 }
 
@@ -88,6 +94,8 @@ var xTooltipSetIconFromIconName func(uintptr, uintptr)
 // the icon indicated by @icon_name with the size indicated
 // by @size.  If @icon_name is %NULL, the image will be hidden.
 func (x *Tooltip) SetIconFromIconName(IconNameVar *string) {
+	core.LazyRegister(&xTooltipSetIconFromIconName, "GTK", "gtk_tooltip_set_icon_from_icon_name", false)
+
 	IconNameVarPtr := core.GStrdupNullable(IconNameVar)
 	defer core.GFreeNullable(IconNameVarPtr)
 
@@ -101,6 +109,8 @@ var xTooltipSetMarkup func(uintptr, uintptr)
 // The string must be marked up with Pango markup.
 // If @markup is %NULL, the label will be hidden.
 func (x *Tooltip) SetMarkup(MarkupVar *string) {
+	core.LazyRegister(&xTooltipSetMarkup, "GTK", "gtk_tooltip_set_markup", false)
+
 	MarkupVarPtr := core.GStrdupNullable(MarkupVar)
 	defer core.GFreeNullable(MarkupVarPtr)
 
@@ -114,6 +124,8 @@ var xTooltipSetText func(uintptr, uintptr)
 // If @text is %NULL, the label will be hidden.
 // See also [method@Gtk.Tooltip.set_markup].
 func (x *Tooltip) SetText(TextVar *string) {
+	core.LazyRegister(&xTooltipSetText, "GTK", "gtk_tooltip_set_text", false)
+
 	TextVarPtr := core.GStrdupNullable(TextVar)
 	defer core.GFreeNullable(TextVarPtr)
 
@@ -131,6 +143,8 @@ var xTooltipSetTipArea func(uintptr, *gdk.Rectangle)
 // functions for this: gtk_tree_view_set_tooltip_row() and
 // gtk_tree_view_set_tooltip_cell().
 func (x *Tooltip) SetTipArea(RectVar *gdk.Rectangle) {
+	core.LazyRegister(&xTooltipSetTipArea, "GTK", "gtk_tooltip_set_tip_area", false)
+
 	xTooltipSetTipArea(x.GoPointer(), RectVar)
 }
 
@@ -148,22 +162,4 @@ func (c *Tooltip) SetGoPointer(ptr uintptr) {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GTK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xTooltipGLibType, libs, "gtk_tooltip_get_type")
-
-	core.PuregoSafeRegister(&xTooltipSetCustom, libs, "gtk_tooltip_set_custom")
-	core.PuregoSafeRegister(&xTooltipSetIcon, libs, "gtk_tooltip_set_icon")
-	core.PuregoSafeRegister(&xTooltipSetIconFromGicon, libs, "gtk_tooltip_set_icon_from_gicon")
-	core.PuregoSafeRegister(&xTooltipSetIconFromIconName, libs, "gtk_tooltip_set_icon_from_icon_name")
-	core.PuregoSafeRegister(&xTooltipSetMarkup, libs, "gtk_tooltip_set_markup")
-	core.PuregoSafeRegister(&xTooltipSetText, libs, "gtk_tooltip_set_text")
-	core.PuregoSafeRegister(&xTooltipSetTipArea, libs, "gtk_tooltip_set_tip_area")
 }

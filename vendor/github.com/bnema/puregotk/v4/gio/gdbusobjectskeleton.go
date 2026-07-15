@@ -88,6 +88,7 @@ type DBusObjectSkeleton struct {
 var xDBusObjectSkeletonGLibType func() types.GType
 
 func DBusObjectSkeletonGLibType() types.GType {
+	core.LazyRegister(&xDBusObjectSkeletonGLibType, "GIO", "g_dbus_object_skeleton_get_type", false)
 	return xDBusObjectSkeletonGLibType()
 }
 
@@ -101,6 +102,7 @@ var xNewDBusObjectSkeleton func(string) uintptr
 
 // Creates a new #GDBusObjectSkeleton.
 func NewDBusObjectSkeleton(ObjectPathVar string) *DBusObjectSkeleton {
+	core.LazyRegister(&xNewDBusObjectSkeleton, "GIO", "g_dbus_object_skeleton_new", false)
 	var cls *DBusObjectSkeleton
 
 	cret := xNewDBusObjectSkeleton(ObjectPathVar)
@@ -123,6 +125,8 @@ var xDBusObjectSkeletonAddInterface func(uintptr, uintptr)
 // Note that @object takes its own reference on @interface_ and holds
 // it until removed.
 func (x *DBusObjectSkeleton) AddInterface(InterfaceVar *DBusInterfaceSkeleton) {
+	core.LazyRegister(&xDBusObjectSkeletonAddInterface, "GIO", "g_dbus_object_skeleton_add_interface", false)
+
 	xDBusObjectSkeletonAddInterface(x.GoPointer(), InterfaceVar.GoPointer())
 }
 
@@ -132,6 +136,8 @@ var xDBusObjectSkeletonFlush func(uintptr)
 // interfaces belonging to @object. See that method for when flushing
 // is useful.
 func (x *DBusObjectSkeleton) Flush() {
+	core.LazyRegister(&xDBusObjectSkeletonFlush, "GIO", "g_dbus_object_skeleton_flush", false)
+
 	xDBusObjectSkeletonFlush(x.GoPointer())
 }
 
@@ -139,6 +145,8 @@ var xDBusObjectSkeletonRemoveInterface func(uintptr, uintptr)
 
 // Removes @interface_ from @object.
 func (x *DBusObjectSkeleton) RemoveInterface(InterfaceVar *DBusInterfaceSkeleton) {
+	core.LazyRegister(&xDBusObjectSkeletonRemoveInterface, "GIO", "g_dbus_object_skeleton_remove_interface", false)
+
 	xDBusObjectSkeletonRemoveInterface(x.GoPointer(), InterfaceVar.GoPointer())
 }
 
@@ -149,6 +157,8 @@ var xDBusObjectSkeletonRemoveInterfaceByName func(uintptr, string)
 // If no D-Bus interface of the given interface exists, this function
 // does nothing.
 func (x *DBusObjectSkeleton) RemoveInterfaceByName(InterfaceNameVar string) {
+	core.LazyRegister(&xDBusObjectSkeletonRemoveInterfaceByName, "GIO", "g_dbus_object_skeleton_remove_interface_by_name", false)
+
 	xDBusObjectSkeletonRemoveInterfaceByName(x.GoPointer(), InterfaceNameVar)
 }
 
@@ -156,6 +166,8 @@ var xDBusObjectSkeletonSetObjectPath func(uintptr, string)
 
 // Sets the object path for @object.
 func (x *DBusObjectSkeleton) SetObjectPath(ObjectPathVar string) {
+	core.LazyRegister(&xDBusObjectSkeletonSetObjectPath, "GIO", "g_dbus_object_skeleton_set_object_path", false)
+
 	xDBusObjectSkeletonSetObjectPath(x.GoPointer(), ObjectPathVar)
 }
 
@@ -252,22 +264,4 @@ func (x *DBusObjectSkeleton) GetObjectPath() string {
 func init() {
 	core.SetPackageName("GIO", "gio-2.0")
 	core.SetSharedLibraries("GIO", []string{"libgio-2.0.so.0", "libgio-2.0.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GIO") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xDBusObjectSkeletonGLibType, libs, "g_dbus_object_skeleton_get_type")
-
-	core.PuregoSafeRegister(&xNewDBusObjectSkeleton, libs, "g_dbus_object_skeleton_new")
-
-	core.PuregoSafeRegister(&xDBusObjectSkeletonAddInterface, libs, "g_dbus_object_skeleton_add_interface")
-	core.PuregoSafeRegister(&xDBusObjectSkeletonFlush, libs, "g_dbus_object_skeleton_flush")
-	core.PuregoSafeRegister(&xDBusObjectSkeletonRemoveInterface, libs, "g_dbus_object_skeleton_remove_interface")
-	core.PuregoSafeRegister(&xDBusObjectSkeletonRemoveInterfaceByName, libs, "g_dbus_object_skeleton_remove_interface_by_name")
-	core.PuregoSafeRegister(&xDBusObjectSkeletonSetObjectPath, libs, "g_dbus_object_skeleton_set_object_path")
 }

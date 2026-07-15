@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject/types"
 )
@@ -36,6 +35,7 @@ type BroadwayRenderer struct {
 var xBroadwayRendererGLibType func() types.GType
 
 func BroadwayRendererGLibType() types.GType {
+	core.LazyRegister(&xBroadwayRendererGLibType, "GSK", "gsk_broadway_renderer_get_type", false)
 	return xBroadwayRendererGLibType()
 }
 
@@ -56,6 +56,7 @@ var xNewBroadwayRenderer func() uintptr
 // This function is only available when GTK was compiled with Broadway
 // support.
 func NewBroadwayRenderer() *BroadwayRenderer {
+	core.LazyRegister(&xNewBroadwayRenderer, "GSK", "gsk_broadway_renderer_new", false)
 	var cls *BroadwayRenderer
 
 	cret := xNewBroadwayRenderer()
@@ -82,16 +83,4 @@ func (c *BroadwayRenderer) SetGoPointer(ptr uintptr) {
 func init() {
 	core.SetPackageName("GSK", "gtk4")
 	core.SetSharedLibraries("GSK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GSK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xBroadwayRendererGLibType, libs, "gsk_broadway_renderer_get_type")
-
-	core.PuregoSafeRegister(&xNewBroadwayRenderer, libs, "gsk_broadway_renderer_new")
 }

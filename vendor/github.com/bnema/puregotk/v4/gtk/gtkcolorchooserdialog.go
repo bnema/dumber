@@ -2,7 +2,6 @@
 package gtk
 
 import (
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gdk"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -41,6 +40,7 @@ type ColorChooserDialog struct {
 var xColorChooserDialogGLibType func() types.GType
 
 func ColorChooserDialogGLibType() types.GType {
+	core.LazyRegister(&xColorChooserDialogGLibType, "GTK", "gtk_color_chooser_dialog_get_type", false)
 	return xColorChooserDialogGLibType()
 }
 
@@ -54,6 +54,7 @@ var xNewColorChooserDialog func(uintptr, uintptr) uintptr
 
 // Creates a new `GtkColorChooserDialog`.
 func NewColorChooserDialog(TitleVar *string, ParentVar *Window) *ColorChooserDialog {
+	core.LazyRegister(&xNewColorChooserDialog, "GTK", "gtk_color_chooser_dialog_new", false)
 	var cls *ColorChooserDialog
 
 	TitleVarPtr := core.GStrdupNullable(TitleVar)
@@ -506,16 +507,4 @@ func (x *ColorChooserDialog) SetFocus(FocusVar *Widget) {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GTK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xColorChooserDialogGLibType, libs, "gtk_color_chooser_dialog_get_type")
-
-	core.PuregoSafeRegister(&xNewColorChooserDialog, libs, "gtk_color_chooser_dialog_new")
 }

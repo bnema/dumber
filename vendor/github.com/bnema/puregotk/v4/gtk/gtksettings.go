@@ -2,7 +2,6 @@
 package gtk
 
 import (
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gdk"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -45,6 +44,7 @@ type Settings struct {
 var xSettingsGLibType func() types.GType
 
 func SettingsGLibType() types.GType {
+	core.LazyRegister(&xSettingsGLibType, "GTK", "gtk_settings_get_type", false)
 	return xSettingsGLibType()
 }
 
@@ -62,6 +62,8 @@ var xSettingsResetProperty func(uintptr, string)
 // After this call, the setting will again follow the session-wide
 // value for this setting.
 func (x *Settings) ResetProperty(NameVar string) {
+	core.LazyRegister(&xSettingsResetProperty, "GTK", "gtk_settings_reset_property", false)
+
 	xSettingsResetProperty(x.GoPointer(), NameVar)
 }
 
@@ -1292,6 +1294,7 @@ var xSettingsGetDefault func() uintptr
 //
 // See [func@Gtk.Settings.get_for_display].
 func SettingsGetDefault() *Settings {
+	core.LazyRegister(&xSettingsGetDefault, "GTK", "gtk_settings_get_default", false)
 	var cls *Settings
 
 	cret := xSettingsGetDefault()
@@ -1309,6 +1312,7 @@ var xSettingsGetForDisplay func(uintptr) uintptr
 
 // Gets the `GtkSettings` object for @display, creating it if necessary.
 func SettingsGetForDisplay(DisplayVar *gdk.Display) *Settings {
+	core.LazyRegister(&xSettingsGetForDisplay, "GTK", "gtk_settings_get_for_display", false)
 	var cls *Settings
 
 	cret := xSettingsGetForDisplay(DisplayVar.GoPointer())
@@ -1325,19 +1329,4 @@ func SettingsGetForDisplay(DisplayVar *gdk.Display) *Settings {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GTK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xSettingsGLibType, libs, "gtk_settings_get_type")
-
-	core.PuregoSafeRegister(&xSettingsResetProperty, libs, "gtk_settings_reset_property")
-
-	core.PuregoSafeRegister(&xSettingsGetDefault, libs, "gtk_settings_get_default")
-	core.PuregoSafeRegister(&xSettingsGetForDisplay, libs, "gtk_settings_get_for_display")
 }

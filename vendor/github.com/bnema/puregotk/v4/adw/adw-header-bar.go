@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -36,6 +35,7 @@ type CenteringPolicy int
 var xCenteringPolicyGLibType func() types.GType
 
 func CenteringPolicyGLibType() types.GType {
+	core.LazyRegister(&xCenteringPolicyGLibType, "ADW", "adw_centering_policy_get_type", false)
 	return xCenteringPolicyGLibType()
 }
 
@@ -152,6 +152,7 @@ type HeaderBar struct {
 var xHeaderBarGLibType func() types.GType
 
 func HeaderBarGLibType() types.GType {
+	core.LazyRegister(&xHeaderBarGLibType, "ADW", "adw_header_bar_get_type", false)
 	return xHeaderBarGLibType()
 }
 
@@ -165,6 +166,7 @@ var xNewHeaderBar func() uintptr
 
 // Creates a new `AdwHeaderBar`.
 func NewHeaderBar() *HeaderBar {
+	core.LazyRegister(&xNewHeaderBar, "ADW", "adw_header_bar_new", false)
 	var cls *HeaderBar
 
 	cret := xNewHeaderBar()
@@ -182,6 +184,8 @@ var xHeaderBarGetCenteringPolicy func(uintptr) CenteringPolicy
 
 // Gets the policy for aligning the center widget.
 func (x *HeaderBar) GetCenteringPolicy() CenteringPolicy {
+	core.LazyRegister(&xHeaderBarGetCenteringPolicy, "ADW", "adw_header_bar_get_centering_policy", false)
+
 	cret := xHeaderBarGetCenteringPolicy(x.GoPointer())
 	return cret
 }
@@ -190,6 +194,8 @@ var xHeaderBarGetDecorationLayout func(uintptr) string
 
 // Gets the decoration layout for @self.
 func (x *HeaderBar) GetDecorationLayout() string {
+	core.LazyRegister(&xHeaderBarGetDecorationLayout, "ADW", "adw_header_bar_get_decoration_layout", false)
+
 	cret := xHeaderBarGetDecorationLayout(x.GoPointer())
 	return cret
 }
@@ -198,6 +204,8 @@ var xHeaderBarGetShowBackButton func(uintptr) bool
 
 // Gets whether @self can show the back button.
 func (x *HeaderBar) GetShowBackButton() bool {
+	core.LazyRegister(&xHeaderBarGetShowBackButton, "ADW", "adw_header_bar_get_show_back_button", false)
+
 	cret := xHeaderBarGetShowBackButton(x.GoPointer())
 	return cret
 }
@@ -206,6 +214,8 @@ var xHeaderBarGetShowEndTitleButtons func(uintptr) bool
 
 // Gets whether to show title buttons at the end of @self.
 func (x *HeaderBar) GetShowEndTitleButtons() bool {
+	core.LazyRegister(&xHeaderBarGetShowEndTitleButtons, "ADW", "adw_header_bar_get_show_end_title_buttons", false)
+
 	cret := xHeaderBarGetShowEndTitleButtons(x.GoPointer())
 	return cret
 }
@@ -214,6 +224,8 @@ var xHeaderBarGetShowStartTitleButtons func(uintptr) bool
 
 // Gets whether to show title buttons at the start of @self.
 func (x *HeaderBar) GetShowStartTitleButtons() bool {
+	core.LazyRegister(&xHeaderBarGetShowStartTitleButtons, "ADW", "adw_header_bar_get_show_start_title_buttons", false)
+
 	cret := xHeaderBarGetShowStartTitleButtons(x.GoPointer())
 	return cret
 }
@@ -222,6 +234,8 @@ var xHeaderBarGetShowTitle func(uintptr) bool
 
 // Gets whether the title widget should be shown.
 func (x *HeaderBar) GetShowTitle() bool {
+	core.LazyRegister(&xHeaderBarGetShowTitle, "ADW", "adw_header_bar_get_show_title", false)
+
 	cret := xHeaderBarGetShowTitle(x.GoPointer())
 	return cret
 }
@@ -230,6 +244,7 @@ var xHeaderBarGetTitleWidget func(uintptr) uintptr
 
 // Gets the title widget widget of @self.
 func (x *HeaderBar) GetTitleWidget() *gtk.Widget {
+	core.LazyRegister(&xHeaderBarGetTitleWidget, "ADW", "adw_header_bar_get_title_widget", false)
 	var cls *gtk.Widget
 
 	cret := xHeaderBarGetTitleWidget(x.GoPointer())
@@ -247,6 +262,8 @@ var xHeaderBarPackEnd func(uintptr, uintptr)
 
 // Adds @child to @self, packed with reference to the end of @self.
 func (x *HeaderBar) PackEnd(ChildVar *gtk.Widget) {
+	core.LazyRegister(&xHeaderBarPackEnd, "ADW", "adw_header_bar_pack_end", false)
+
 	xHeaderBarPackEnd(x.GoPointer(), ChildVar.GoPointer())
 }
 
@@ -254,6 +271,8 @@ var xHeaderBarPackStart func(uintptr, uintptr)
 
 // Adds @child to @self, packed with reference to the start of the @self.
 func (x *HeaderBar) PackStart(ChildVar *gtk.Widget) {
+	core.LazyRegister(&xHeaderBarPackStart, "ADW", "adw_header_bar_pack_start", false)
+
 	xHeaderBarPackStart(x.GoPointer(), ChildVar.GoPointer())
 }
 
@@ -264,6 +283,8 @@ var xHeaderBarRemove func(uintptr, uintptr)
 // The child must have been added with [method@HeaderBar.pack_start],
 // [method@HeaderBar.pack_end] or [property@HeaderBar:title-widget].
 func (x *HeaderBar) Remove(ChildVar *gtk.Widget) {
+	core.LazyRegister(&xHeaderBarRemove, "ADW", "adw_header_bar_remove", false)
+
 	xHeaderBarRemove(x.GoPointer(), ChildVar.GoPointer())
 }
 
@@ -271,6 +292,8 @@ var xHeaderBarSetCenteringPolicy func(uintptr, CenteringPolicy)
 
 // Sets the policy for aligning the center widget.
 func (x *HeaderBar) SetCenteringPolicy(CenteringPolicyVar CenteringPolicy) {
+	core.LazyRegister(&xHeaderBarSetCenteringPolicy, "ADW", "adw_header_bar_set_centering_policy", false)
+
 	xHeaderBarSetCenteringPolicy(x.GoPointer(), CenteringPolicyVar)
 }
 
@@ -289,6 +312,8 @@ var xHeaderBarSetDecorationLayout func(uintptr, uintptr)
 // For example, “icon:minimize,maximize,close” specifies an icon at the start,
 // and minimize, maximize and close buttons at the end.
 func (x *HeaderBar) SetDecorationLayout(LayoutVar *string) {
+	core.LazyRegister(&xHeaderBarSetDecorationLayout, "ADW", "adw_header_bar_set_decoration_layout", false)
+
 	LayoutVarPtr := core.GStrdupNullable(LayoutVar)
 	defer core.GFreeNullable(LayoutVarPtr)
 
@@ -302,6 +327,8 @@ var xHeaderBarSetShowBackButton func(uintptr, bool)
 // The back button will never be shown unless the header bar is placed inside an
 // [class@NavigationView]. Usually, there is no reason to set it to `FALSE`.
 func (x *HeaderBar) SetShowBackButton(ShowBackButtonVar bool) {
+	core.LazyRegister(&xHeaderBarSetShowBackButton, "ADW", "adw_header_bar_set_show_back_button", false)
+
 	xHeaderBarSetShowBackButton(x.GoPointer(), ShowBackButtonVar)
 }
 
@@ -315,6 +342,8 @@ var xHeaderBarSetShowEndTitleButtons func(uintptr, bool)
 // [property@HeaderBar:decoration-layout] property, and by the state of the
 // window (e.g. a close button will not be shown if the window can't be closed).
 func (x *HeaderBar) SetShowEndTitleButtons(SettingVar bool) {
+	core.LazyRegister(&xHeaderBarSetShowEndTitleButtons, "ADW", "adw_header_bar_set_show_end_title_buttons", false)
+
 	xHeaderBarSetShowEndTitleButtons(x.GoPointer(), SettingVar)
 }
 
@@ -328,6 +357,8 @@ var xHeaderBarSetShowStartTitleButtons func(uintptr, bool)
 // [property@HeaderBar:decoration-layout] property, and by the state of the
 // window (e.g. a close button will not be shown if the window can't be closed).
 func (x *HeaderBar) SetShowStartTitleButtons(SettingVar bool) {
+	core.LazyRegister(&xHeaderBarSetShowStartTitleButtons, "ADW", "adw_header_bar_set_show_start_title_buttons", false)
+
 	xHeaderBarSetShowStartTitleButtons(x.GoPointer(), SettingVar)
 }
 
@@ -335,6 +366,8 @@ var xHeaderBarSetShowTitle func(uintptr, bool)
 
 // Sets whether the title widget should be shown.
 func (x *HeaderBar) SetShowTitle(ShowTitleVar bool) {
+	core.LazyRegister(&xHeaderBarSetShowTitle, "ADW", "adw_header_bar_set_show_title", false)
+
 	xHeaderBarSetShowTitle(x.GoPointer(), ShowTitleVar)
 }
 
@@ -359,6 +392,8 @@ var xHeaderBarSetTitleWidget func(uintptr, uintptr)
 // &lt;/object&gt;
 // ```
 func (x *HeaderBar) SetTitleWidget(TitleWidgetVar *gtk.Widget) {
+	core.LazyRegister(&xHeaderBarSetTitleWidget, "ADW", "adw_header_bar_set_title_widget", false)
+
 	xHeaderBarSetTitleWidget(x.GoPointer(), TitleWidgetVar.GoPointer())
 }
 
@@ -777,36 +812,4 @@ func (x *HeaderBar) GetBuildableId() string {
 func init() {
 	core.SetPackageName("ADW", "libadwaita-1")
 	core.SetSharedLibraries("ADW", []string{"libadwaita-1.so.0", "libadwaita-1.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("ADW") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xCenteringPolicyGLibType, libs, "adw_centering_policy_get_type")
-
-	core.PuregoSafeRegister(&xHeaderBarGLibType, libs, "adw_header_bar_get_type")
-
-	core.PuregoSafeRegister(&xNewHeaderBar, libs, "adw_header_bar_new")
-
-	core.PuregoSafeRegister(&xHeaderBarGetCenteringPolicy, libs, "adw_header_bar_get_centering_policy")
-	core.PuregoSafeRegister(&xHeaderBarGetDecorationLayout, libs, "adw_header_bar_get_decoration_layout")
-	core.PuregoSafeRegister(&xHeaderBarGetShowBackButton, libs, "adw_header_bar_get_show_back_button")
-	core.PuregoSafeRegister(&xHeaderBarGetShowEndTitleButtons, libs, "adw_header_bar_get_show_end_title_buttons")
-	core.PuregoSafeRegister(&xHeaderBarGetShowStartTitleButtons, libs, "adw_header_bar_get_show_start_title_buttons")
-	core.PuregoSafeRegister(&xHeaderBarGetShowTitle, libs, "adw_header_bar_get_show_title")
-	core.PuregoSafeRegister(&xHeaderBarGetTitleWidget, libs, "adw_header_bar_get_title_widget")
-	core.PuregoSafeRegister(&xHeaderBarPackEnd, libs, "adw_header_bar_pack_end")
-	core.PuregoSafeRegister(&xHeaderBarPackStart, libs, "adw_header_bar_pack_start")
-	core.PuregoSafeRegister(&xHeaderBarRemove, libs, "adw_header_bar_remove")
-	core.PuregoSafeRegister(&xHeaderBarSetCenteringPolicy, libs, "adw_header_bar_set_centering_policy")
-	core.PuregoSafeRegister(&xHeaderBarSetDecorationLayout, libs, "adw_header_bar_set_decoration_layout")
-	core.PuregoSafeRegister(&xHeaderBarSetShowBackButton, libs, "adw_header_bar_set_show_back_button")
-	core.PuregoSafeRegister(&xHeaderBarSetShowEndTitleButtons, libs, "adw_header_bar_set_show_end_title_buttons")
-	core.PuregoSafeRegister(&xHeaderBarSetShowStartTitleButtons, libs, "adw_header_bar_set_show_start_title_buttons")
-	core.PuregoSafeRegister(&xHeaderBarSetShowTitle, libs, "adw_header_bar_set_show_title")
-	core.PuregoSafeRegister(&xHeaderBarSetTitleWidget, libs, "adw_header_bar_set_title_widget")
 }

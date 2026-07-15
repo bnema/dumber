@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject/types"
 )
@@ -18,6 +17,7 @@ type ApplicationInfo struct {
 var xApplicationInfoGLibType func() types.GType
 
 func ApplicationInfoGLibType() types.GType {
+	core.LazyRegister(&xApplicationInfoGLibType, "WEBKIT", "webkit_application_info_get_type", false)
 	return xApplicationInfoGLibType()
 }
 
@@ -37,6 +37,8 @@ var xNewApplicationInfo func() uintptr
 
 // Creates a new #WebKitApplicationInfo
 func NewApplicationInfo() *ApplicationInfo {
+	core.LazyRegister(&xNewApplicationInfo, "WEBKIT", "webkit_application_info_new", false)
+
 	cret := xNewApplicationInfo()
 	if cret == 0 {
 		return nil
@@ -51,6 +53,8 @@ var xApplicationInfoGetName func(uintptr) string
 // If webkit_application_info_set_name() hasn't been
 // called with a valid name, this returns g_get_prgname().
 func (x *ApplicationInfo) GetName() string {
+	core.LazyRegister(&xApplicationInfoGetName, "WEBKIT", "webkit_application_info_get_name", false)
+
 	cret := xApplicationInfoGetName(x.GoPointer())
 	return cret
 }
@@ -59,6 +63,8 @@ var xApplicationInfoGetVersion func(uintptr, *uint64, *uint64, *uint64)
 
 // Get the application version previously set with webkit_application_info_set_version().
 func (x *ApplicationInfo) GetVersion(MajorVar *uint64, MinorVar *uint64, MicroVar *uint64) {
+	core.LazyRegister(&xApplicationInfoGetVersion, "WEBKIT", "webkit_application_info_get_version", false)
+
 	xApplicationInfoGetVersion(x.GoPointer(), MajorVar, MinorVar, MicroVar)
 }
 
@@ -69,6 +75,8 @@ var xApplicationInfoRef func(uintptr) uintptr
 // This
 // function is MT-safe and may be called from any thread.
 func (x *ApplicationInfo) Ref() *ApplicationInfo {
+	core.LazyRegister(&xApplicationInfoRef, "WEBKIT", "webkit_application_info_ref", false)
+
 	cret := xApplicationInfoRef(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -83,6 +91,8 @@ var xApplicationInfoSetName func(uintptr, string)
 // If not provided, or %NULL is passed,
 // g_get_prgname() will be used.
 func (x *ApplicationInfo) SetName(NameVar string) {
+	core.LazyRegister(&xApplicationInfoSetName, "WEBKIT", "webkit_application_info_set_name", false)
+
 	xApplicationInfoSetName(x.GoPointer(), NameVar)
 }
 
@@ -95,6 +105,8 @@ var xApplicationInfoSetVersion func(uintptr, uint64, uint64, uint64)
 // 0 as both micro and minor to use only major number. Any other format must
 // be converted to major.minor.micro so that it can be used in version comparisons.
 func (x *ApplicationInfo) SetVersion(MajorVar uint64, MinorVar uint64, MicroVar uint64) {
+	core.LazyRegister(&xApplicationInfoSetVersion, "WEBKIT", "webkit_application_info_set_version", false)
+
 	xApplicationInfoSetVersion(x.GoPointer(), MajorVar, MinorVar, MicroVar)
 }
 
@@ -107,29 +119,15 @@ var xApplicationInfoUnref func(uintptr)
 // released. This function is MT-safe and may be called from any
 // thread.
 func (x *ApplicationInfo) Unref() {
+	core.LazyRegister(&xApplicationInfoUnref, "WEBKIT", "webkit_application_info_unref", false)
+
 	xApplicationInfoUnref(x.GoPointer())
 }
 
 func init() {
 	core.SetPackageName("WEBKIT", "webkitgtk-6.0")
 	core.SetSharedLibraries("WEBKIT", []string{"libwebkitgtk-6.0.so.4", "libjavascriptcoregtk-6.0.so.1", "libwebkitgtk-6.0.4.dylib", "libjavascriptcoregtk-6.0.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("WEBKIT") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
 
-	core.PuregoSafeRegister(&xApplicationInfoGLibType, libs, "webkit_application_info_get_type")
-
-	core.PuregoSafeRegister(&xNewApplicationInfo, libs, "webkit_application_info_new")
-
-	core.PuregoSafeRegister(&xApplicationInfoGetName, libs, "webkit_application_info_get_name")
-	core.PuregoSafeRegister(&xApplicationInfoGetVersion, libs, "webkit_application_info_get_version")
-	core.PuregoSafeRegister(&xApplicationInfoRef, libs, "webkit_application_info_ref")
-	core.PuregoSafeRegister(&xApplicationInfoSetName, libs, "webkit_application_info_set_name")
-	core.PuregoSafeRegister(&xApplicationInfoSetVersion, libs, "webkit_application_info_set_version")
-	core.PuregoSafeRegister(&xApplicationInfoUnref, libs, "webkit_application_info_unref")
+	// Manually register types since they aren't automatically registered when
+	// WebKit is loaded. See https://bugs.webkit.org/show_bug.cgi?id=175937.
 }

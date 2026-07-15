@@ -4,7 +4,6 @@ package gdk
 import (
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -47,6 +46,8 @@ var xSetAllowedBackends func(string)
 // as [func@Gdk.Display.open], `gtk_init()`, or `gtk_init_check()`
 // in order to take effect.
 func SetAllowedBackends(BackendsVar string) {
+	core.LazyRegister(&xSetAllowedBackends, "GDK", "gdk_set_allowed_backends", false)
+
 	xSetAllowedBackends(BackendsVar)
 }
 
@@ -106,6 +107,7 @@ type DisplayManager struct {
 var xDisplayManagerGLibType func() types.GType
 
 func DisplayManagerGLibType() types.GType {
+	core.LazyRegister(&xDisplayManagerGLibType, "GDK", "gdk_display_manager_get_type", false)
 	return xDisplayManagerGLibType()
 }
 
@@ -119,6 +121,7 @@ var xDisplayManagerGetDefaultDisplay func(uintptr) uintptr
 
 // Gets the default `GdkDisplay`.
 func (x *DisplayManager) GetDefaultDisplay() *Display {
+	core.LazyRegister(&xDisplayManagerGetDefaultDisplay, "GDK", "gdk_display_manager_get_default_display", false)
 	var cls *Display
 
 	cret := xDisplayManagerGetDefaultDisplay(x.GoPointer())
@@ -136,6 +139,8 @@ var xDisplayManagerListDisplays func(uintptr) uintptr
 
 // List all currently open displays.
 func (x *DisplayManager) ListDisplays() *glib.SList {
+	core.LazyRegister(&xDisplayManagerListDisplays, "GDK", "gdk_display_manager_list_displays", false)
+
 	cret := xDisplayManagerListDisplays(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -147,6 +152,7 @@ var xDisplayManagerOpenDisplay func(uintptr, uintptr) uintptr
 
 // Opens a display.
 func (x *DisplayManager) OpenDisplay(NameVar *string) *Display {
+	core.LazyRegister(&xDisplayManagerOpenDisplay, "GDK", "gdk_display_manager_open_display", false)
 	var cls *Display
 
 	NameVarPtr := core.GStrdupNullable(NameVar)
@@ -167,6 +173,8 @@ var xDisplayManagerSetDefaultDisplay func(uintptr, uintptr)
 
 // Sets @display as the default display.
 func (x *DisplayManager) SetDefaultDisplay(DisplayVar *Display) {
+	core.LazyRegister(&xDisplayManagerSetDefaultDisplay, "GDK", "gdk_display_manager_set_default_display", false)
+
 	xDisplayManagerSetDefaultDisplay(x.GoPointer(), DisplayVar.GoPointer())
 }
 
@@ -216,6 +224,7 @@ var xDisplayManagerGet func() uintptr
 // Applications can use [func@set_allowed_backends] to limit what
 // backends will be used.
 func DisplayManagerGet() *DisplayManager {
+	core.LazyRegister(&xDisplayManagerGet, "GDK", "gdk_display_manager_get", false)
 	var cls *DisplayManager
 
 	cret := xDisplayManagerGet()
@@ -232,23 +241,4 @@ func DisplayManagerGet() *DisplayManager {
 func init() {
 	core.SetPackageName("GDK", "gtk4")
 	core.SetSharedLibraries("GDK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GDK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xSetAllowedBackends, libs, "gdk_set_allowed_backends")
-
-	core.PuregoSafeRegister(&xDisplayManagerGLibType, libs, "gdk_display_manager_get_type")
-
-	core.PuregoSafeRegister(&xDisplayManagerGetDefaultDisplay, libs, "gdk_display_manager_get_default_display")
-	core.PuregoSafeRegister(&xDisplayManagerListDisplays, libs, "gdk_display_manager_list_displays")
-	core.PuregoSafeRegister(&xDisplayManagerOpenDisplay, libs, "gdk_display_manager_open_display")
-	core.PuregoSafeRegister(&xDisplayManagerSetDefaultDisplay, libs, "gdk_display_manager_set_default_display")
-
-	core.PuregoSafeRegister(&xDisplayManagerGet, libs, "gdk_display_manager_get")
 }
