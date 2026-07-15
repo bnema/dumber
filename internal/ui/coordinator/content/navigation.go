@@ -255,8 +255,7 @@ func (c *Coordinator) markPendingReveal(paneID entity.PaneID, identity webViewId
 		return
 	}
 	c.ensureRevealMapsLocked()
-	c.pendingReveal[paneID] = true
-	c.pendingRevealIdentity[paneID] = identity
+	c.pendingReveal[paneID] = identity
 }
 
 func (c *Coordinator) clearPendingReveal(paneID entity.PaneID, identity webViewIdentity) {
@@ -264,11 +263,11 @@ func (c *Coordinator) clearPendingReveal(paneID entity.PaneID, identity webViewI
 	c.revealMu.Lock()
 	defer c.revealMu.Unlock()
 	defer c.webViewsMu.RUnlock()
-	if c.pendingRevealIdentity[paneID] != identity {
+	pendingIdentity, pending := c.pendingReveal[paneID]
+	if !pending || pendingIdentity != identity {
 		return
 	}
 	delete(c.pendingReveal, paneID)
-	delete(c.pendingRevealIdentity, paneID)
 }
 
 // WebViewRevealed reports whether this pane's current WebView has completed a
@@ -293,7 +292,8 @@ func (c *Coordinator) webViewRevealed(paneID entity.PaneID, expected port.WebVie
 			return false
 		}
 	}
-	return c.revealedWebViews[paneID] && c.revealedWebViewIdentity[paneID] == identity
+	revealedIdentity, revealed := c.revealedWebViews[paneID]
+	return revealed && revealedIdentity == identity
 }
 
 func (c *Coordinator) markWebViewRevealed(paneID entity.PaneID, identity webViewIdentity) bool {
@@ -306,8 +306,7 @@ func (c *Coordinator) markWebViewRevealed(paneID entity.PaneID, identity webView
 		return false
 	}
 	c.ensureRevealMapsLocked()
-	c.revealedWebViews[paneID] = true
-	c.revealedWebViewIdentity[paneID] = identity
+	c.revealedWebViews[paneID] = identity
 	return true
 }
 
@@ -321,7 +320,8 @@ func (c *Coordinator) revealIfPending(
 
 	c.webViewsMu.RLock()
 	c.revealMu.Lock()
-	if c.pendingRevealIdentity[paneID] != identity || !c.pendingReveal[paneID] {
+	pendingIdentity, pending := c.pendingReveal[paneID]
+	if !pending || pendingIdentity != identity {
 		c.revealMu.Unlock()
 		c.webViewsMu.RUnlock()
 		c.revealMutationMu.Unlock()
@@ -335,7 +335,6 @@ func (c *Coordinator) revealIfPending(
 		return
 	}
 	delete(c.pendingReveal, paneID)
-	delete(c.pendingRevealIdentity, paneID)
 	c.revealMu.Unlock()
 	c.webViewsMu.RUnlock()
 

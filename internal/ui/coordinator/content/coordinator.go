@@ -80,11 +80,9 @@ type Coordinator struct {
 
 	// revealMu is always acquired after webViewsMu. Reveal state is keyed by the
 	// WebView identity (ID plus pool-reuse generation), never by pane alone.
-	revealMu                sync.Mutex
-	pendingReveal           map[entity.PaneID]bool
-	revealedWebViews        map[entity.PaneID]bool
-	revealedWebViewIdentity map[entity.PaneID]webViewIdentity
-	pendingRevealIdentity   map[entity.PaneID]webViewIdentity
+	revealMu         sync.Mutex
+	pendingReveal    map[entity.PaneID]webViewIdentity
+	revealedWebViews map[entity.PaneID]webViewIdentity
 
 	appearanceMu          sync.Mutex
 	pendingScriptRefresh  map[entity.PaneID]bool
@@ -149,25 +147,23 @@ func NewCoordinator(
 	log.Debug().Msg("creating content coordinator")
 
 	return &Coordinator{
-		logger:                  log.With().Str("component", "content-coordinator").Logger(),
-		pool:                    pool,
-		injector:                injector,
-		widgetFactory:           widgetFactory,
-		faviconAdapter:          faviconAdapter,
-		zoomUC:                  zoomUC,
-		permissionUC:            permissionUC,
-		webViews:                make(map[entity.PaneID]port.WebView),
-		webViewPaneIDs:          make(map[port.WebViewID]entity.PaneID),
-		paneTitles:              make(map[entity.PaneID]string),
-		navOrigins:              make(map[entity.PaneID]string),
-		pendingReveal:           make(map[entity.PaneID]bool),
-		revealedWebViews:        make(map[entity.PaneID]bool),
-		revealedWebViewIdentity: make(map[entity.PaneID]webViewIdentity),
-		pendingRevealIdentity:   make(map[entity.PaneID]webViewIdentity),
-		pendingScriptRefresh:    make(map[entity.PaneID]bool),
-		pendingThemePanes:       make(map[entity.PaneID]bool),
-		getActiveWS:             getActiveWS,
-		popups:                  newPopupManager(),
+		logger:               log.With().Str("component", "content-coordinator").Logger(),
+		pool:                 pool,
+		injector:             injector,
+		widgetFactory:        widgetFactory,
+		faviconAdapter:       faviconAdapter,
+		zoomUC:               zoomUC,
+		permissionUC:         permissionUC,
+		webViews:             make(map[entity.PaneID]port.WebView),
+		webViewPaneIDs:       make(map[port.WebViewID]entity.PaneID),
+		paneTitles:           make(map[entity.PaneID]string),
+		navOrigins:           make(map[entity.PaneID]string),
+		pendingReveal:        make(map[entity.PaneID]webViewIdentity),
+		revealedWebViews:     make(map[entity.PaneID]webViewIdentity),
+		pendingScriptRefresh: make(map[entity.PaneID]bool),
+		pendingThemePanes:    make(map[entity.PaneID]bool),
+		getActiveWS:          getActiveWS,
+		popups:               newPopupManager(),
 	}
 }
 
@@ -334,16 +330,10 @@ func identityForWebView(wv port.WebView) (webViewIdentity, bool) {
 
 func (c *Coordinator) ensureRevealMapsLocked() {
 	if c.pendingReveal == nil {
-		c.pendingReveal = make(map[entity.PaneID]bool)
+		c.pendingReveal = make(map[entity.PaneID]webViewIdentity)
 	}
 	if c.revealedWebViews == nil {
-		c.revealedWebViews = make(map[entity.PaneID]bool)
-	}
-	if c.revealedWebViewIdentity == nil {
-		c.revealedWebViewIdentity = make(map[entity.PaneID]webViewIdentity)
-	}
-	if c.pendingRevealIdentity == nil {
-		c.pendingRevealIdentity = make(map[entity.PaneID]webViewIdentity)
+		c.revealedWebViews = make(map[entity.PaneID]webViewIdentity)
 	}
 }
 
@@ -368,9 +358,7 @@ func (c *Coordinator) setWebViewLocked(paneID entity.PaneID, wv port.WebView) {
 	}
 	c.ensureRevealMapsLocked()
 	delete(c.pendingReveal, paneID)
-	delete(c.pendingRevealIdentity, paneID)
 	delete(c.revealedWebViews, paneID)
-	delete(c.revealedWebViewIdentity, paneID)
 }
 
 // deleteWebViewLocked removes both the mapping and any presentation state,
@@ -389,9 +377,7 @@ func (c *Coordinator) deleteWebViewLocked(paneID entity.PaneID) port.WebView {
 	}
 	c.ensureRevealMapsLocked()
 	delete(c.pendingReveal, paneID)
-	delete(c.pendingRevealIdentity, paneID)
 	delete(c.revealedWebViews, paneID)
-	delete(c.revealedWebViewIdentity, paneID)
 	return wv
 }
 
