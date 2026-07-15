@@ -39,9 +39,8 @@ func (c *Coordinator) EnsureWebView(ctx context.Context, paneID entity.PaneID) (
 	}
 	logging.Trace().Mark("webview_acquired")
 
-	// A pooled widget may have been previously revealed for another pane. Its
-	// presentation lifecycle starts unrevealed for this pane until a new reveal.
-	c.clearWebViewRevealed(paneID)
+	// setWebViewLocked atomically resets presentation state for the acquired
+	// WebView, including a pooled instance previously revealed in another pane.
 	c.setWebViewLocked(paneID, wv)
 	c.setupWebViewCallbacks(ctx, paneID, wv)
 
@@ -56,6 +55,8 @@ func (c *Coordinator) EnsureWebView(ctx context.Context, paneID entity.PaneID) (
 func (c *Coordinator) ReleaseWebView(ctx context.Context, paneID entity.PaneID) {
 	log := logging.FromContext(ctx)
 
+	// deleteWebViewLocked clears reveal state before returning, even when a
+	// previous cleanup already removed this pane's mapping.
 	wv := c.deleteWebViewLocked(paneID)
 	if wv == nil {
 		return
@@ -63,7 +64,6 @@ func (c *Coordinator) ReleaseWebView(ctx context.Context, paneID entity.PaneID) 
 	c.ensurePopupManager().clearReusableNamedPopupByPaneID(paneID)
 	c.ensurePopupManager().clearReusableNamedPopupByWebViewID(wv.ID())
 	c.clearPendingAppearance(paneID)
-	c.clearWebViewRevealed(paneID)
 
 	// CRITICAL: If this webview was inhibiting idle (fullscreen or audio playing),
 	// we must release the inhibition before destroying the webview.

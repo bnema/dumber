@@ -2,7 +2,6 @@ package content
 
 import (
 	"context"
-	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -10,217 +9,89 @@ import (
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/application/port/mocks"
 	"github.com/bnema/dumber/internal/domain/entity"
-	"github.com/bnema/dumber/internal/ui/component"
 )
 
-// TestPendingReveal tests the pending reveal state management.
-// These are internal package tests that verify the state transitions
-// without needing to mock WebKit dependencies.
+func newRevealTestCoordinator() *Coordinator {
+	return &Coordinator{
+		webViews:       make(map[entity.PaneID]port.WebView),
+		webViewPaneIDs: make(map[port.WebViewID]entity.PaneID),
+		paneTitles:     make(map[entity.PaneID]string),
+		navOrigins:     make(map[entity.PaneID]string),
+	}
+}
 
-func TestWebViewRevealed_PersistsUntilWebViewRelease(t *testing.T) {
+func revealTestWebView(t *testing.T, id port.WebViewID, generation uint64) *mocks.MockWebView {
+	t.Helper()
+	wv := mocks.NewMockWebView(t)
+	wv.EXPECT().ID().Return(id).Maybe()
+	wv.EXPECT().Generation().Return(generation).Maybe()
+	return wv
+}
+
+func TestRevealState_IsBoundToCurrentWebViewAcrossReplacementPaths(t *testing.T) {
 	paneID := entity.PaneID("pane-1")
-	c := &Coordinator{}
+	first := revealTestWebView(t, 101, 1)
+	// The pool may reuse the same native WebView ID; its reuse generation is
+	// part of the presentation identity.
+	directReplacement := revealTestWebView(t, 101, 2)
+	popupReplacement := revealTestWebView(t, 103, 1)
+	c := newRevealTestCoordinator()
 
-	assert.False(t, c.WebViewRevealed(paneID))
-
-	c.markWebViewRevealed(paneID)
+	c.setWebViewLocked(paneID, first)
+	c.markWebViewRevealed(paneID, first)
 	assert.True(t, c.WebViewRevealed(paneID))
 
-	c.clearWebViewRevealed(paneID)
+	// A direct replacement for the same pane must show the fresh loading state.
+	c.setWebViewLocked(paneID, directReplacement)
+	assert.False(t, c.WebViewRevealed(paneID))
+
+	c.markWebViewRevealed(paneID, directReplacement)
+	c.RegisterPopupWebView(paneID, popupReplacement)
+	assert.False(t, c.WebViewRevealed(paneID), "popup registration must not inherit a prior WebView reveal")
+}
+
+func TestRevealState_ReleaseClearsStateWithoutWebViewMapping(t *testing.T) {
+	paneID := entity.PaneID("pane-1")
+	wv := revealTestWebView(t, 101, 1)
+	c := newRevealTestCoordinator()
+	c.setWebViewLocked(paneID, wv)
+	c.markWebViewRevealed(paneID, wv)
+
+	// Model an earlier partial cleanup that lost the WebView mapping. Release
+	// remains responsible for clearing presentation state on its early return.
+	c.webViewsMu.Lock()
+	delete(c.webViews, paneID)
+	c.webViewsMu.Unlock()
+	c.ReleaseWebView(context.Background(), paneID)
+
+	c.revealMu.Lock()
+	_, retained := c.revealedWebViews[paneID]
+	c.revealMu.Unlock()
+	assert.False(t, retained)
+}
+
+func TestRevealState_StaleCallbackCannotRevealReplacement(t *testing.T) {
+	paneID := entity.PaneID("pane-1")
+	oldWV := revealTestWebView(t, 101, 1)
+	newWV := revealTestWebView(t, 102, 1)
+	oldWV.EXPECT().IsDestroyed().Return(false).Maybe()
+	c := newRevealTestCoordinator()
+	c.setWebViewLocked(paneID, oldWV)
+	c.markPendingReveal(paneID, oldWV)
+	c.setWebViewLocked(paneID, newWV)
+
+	c.revealIfPending(context.Background(), paneID, oldWV, "", "stale")
 	assert.False(t, c.WebViewRevealed(paneID))
 }
 
-func TestMarkPendingReveal_SetsState(t *testing.T) {
-	c := &Coordinator{
-		pendingReveal: make(map[entity.PaneID]bool),
-	}
+func TestRevealState_RevealedCurrentWebViewPersistsForWorkspaceRebuild(t *testing.T) {
 	paneID := entity.PaneID("pane-1")
+	wv := revealTestWebView(t, 101, 1)
+	c := newRevealTestCoordinator()
+	c.setWebViewLocked(paneID, wv)
+	c.markWebViewRevealed(paneID, wv)
 
-	c.markPendingReveal(paneID)
-
-	c.revealMu.Lock()
-	defer c.revealMu.Unlock()
-	assert.True(t, c.pendingReveal[paneID])
-}
-
-func TestClearPendingReveal_RemovesState(t *testing.T) {
-	c := &Coordinator{
-		pendingReveal: make(map[entity.PaneID]bool),
-	}
-	paneID := entity.PaneID("pane-1")
-
-	// First mark as pending
-	c.markPendingReveal(paneID)
-
-	// Then clear
-	c.clearPendingReveal(paneID)
-
-	c.revealMu.Lock()
-	defer c.revealMu.Unlock()
-	assert.False(t, c.pendingReveal[paneID])
-}
-
-func TestRevealIfPending_NotPending_DoesNothing(t *testing.T) {
-	callbackCalled := false
-	c := &Coordinator{
-		pendingReveal: make(map[entity.PaneID]bool),
-		webViews:      make(map[entity.PaneID]port.WebView),
-		onWebViewShown: func(paneID entity.PaneID) {
-			callbackCalled = true
-		},
-	}
-	paneID := entity.PaneID("pane-1")
-
-	// Call reveal without marking pending first
-	c.revealIfPending(context.Background(), paneID, "http://example.com", "test")
-
-	assert.False(t, callbackCalled, "callback should not be called when not pending")
-}
-
-func TestRevealIfPending_ClearsStateOnReveal(t *testing.T) {
-	c := &Coordinator{
-		pendingReveal: make(map[entity.PaneID]bool),
-		webViews:      make(map[entity.PaneID]port.WebView),
-	}
-	paneID := entity.PaneID("pane-1")
-
-	// Mark as pending
-	c.markPendingReveal(paneID)
-
-	// Reveal (will return early since webview is nil, but should still clear state)
-	c.revealIfPending(context.Background(), paneID, "http://example.com", "test")
-
-	c.revealMu.Lock()
-	defer c.revealMu.Unlock()
-	assert.False(t, c.pendingReveal[paneID], "pending state should be cleared after reveal attempt")
-}
-
-func TestRevealIfPending_OnlyRevealsOnce(t *testing.T) {
-	revealCount := 0
-	c := &Coordinator{
-		pendingReveal: make(map[entity.PaneID]bool),
-		webViews:      make(map[entity.PaneID]port.WebView),
-		onWebViewShown: func(paneID entity.PaneID) {
-			revealCount++
-		},
-	}
-	paneID := entity.PaneID("pane-1")
-
-	// Mark as pending
-	c.markPendingReveal(paneID)
-
-	// Call reveal multiple times
-	c.revealIfPending(context.Background(), paneID, "", "first")
-	c.revealIfPending(context.Background(), paneID, "", "second")
-	c.revealIfPending(context.Background(), paneID, "", "third")
-
-	// Callback should not be called since webview is nil, but state should be cleared
-	assert.Equal(t, 0, revealCount, "callback not called when webview is nil")
-
-	// Verify state is cleared
-	c.revealMu.Lock()
-	defer c.revealMu.Unlock()
-	assert.False(t, c.pendingReveal[paneID])
-}
-
-func TestOnLoadCommitted_RevealsPendingWebViewForCommittedPage(t *testing.T) {
-	paneID := entity.PaneID("pane-1")
-	shownCount := 0
-	var shownPane entity.PaneID
-
-	wv := mocks.NewMockWebView(t)
-	wv.EXPECT().URI().Return("https://example.com")
-	wv.EXPECT().ResetBackgroundToDefault()
-	wv.EXPECT().Title().Return("")
-	wv.EXPECT().IsDestroyed().Return(false).Maybe()
-
-	c := &Coordinator{
-		pendingReveal: make(map[entity.PaneID]bool),
-		webViews: map[entity.PaneID]port.WebView{
-			paneID: wv,
-		},
-		paneTitles:  make(map[entity.PaneID]string),
-		navOrigins:  make(map[entity.PaneID]string),
-		getActiveWS: func() (*entity.Workspace, *component.WorkspaceView) { return nil, nil },
-		onWebViewShown: func(id entity.PaneID) {
-			shownCount++
-			shownPane = id
-		},
-	}
-	c.pendingReveal[paneID] = true
-
-	c.onLoadCommitted(context.Background(), paneID, wv)
-
-	assert.Equal(t, 1, shownCount)
-	assert.Equal(t, paneID, shownPane)
-}
-
-func TestPendingReveal_ConcurrentAccess(t *testing.T) {
-	c := &Coordinator{
-		pendingReveal: make(map[entity.PaneID]bool),
-		webViews:      make(map[entity.PaneID]port.WebView),
-	}
-
-	var wg sync.WaitGroup
-	paneIDs := []entity.PaneID{"pane-1", "pane-2", "pane-3", "pane-4", "pane-5"}
-
-	// Concurrently mark and clear panes
-	for range 100 {
-		for _, paneID := range paneIDs {
-			wg.Add(3)
-
-			go func(id entity.PaneID) {
-				defer wg.Done()
-				c.markPendingReveal(id)
-			}(paneID)
-
-			go func(id entity.PaneID) {
-				defer wg.Done()
-				c.clearPendingReveal(id)
-			}(paneID)
-
-			go func(id entity.PaneID) {
-				defer wg.Done()
-				c.revealIfPending(context.Background(), id, "", "concurrent")
-			}(paneID)
-		}
-	}
-
-	wg.Wait()
-	// Test passes if no race conditions occur
-}
-
-func TestMarkPendingReveal_MultiplePanes(t *testing.T) {
-	c := &Coordinator{
-		pendingReveal: make(map[entity.PaneID]bool),
-	}
-
-	pane1 := entity.PaneID("pane-1")
-	pane2 := entity.PaneID("pane-2")
-
-	c.markPendingReveal(pane1)
-	c.markPendingReveal(pane2)
-
-	c.revealMu.Lock()
-	defer c.revealMu.Unlock()
-	assert.True(t, c.pendingReveal[pane1])
-	assert.True(t, c.pendingReveal[pane2])
-}
-
-func TestClearPendingReveal_OnlyAffectsTargetPane(t *testing.T) {
-	c := &Coordinator{
-		pendingReveal: make(map[entity.PaneID]bool),
-	}
-
-	pane1 := entity.PaneID("pane-1")
-	pane2 := entity.PaneID("pane-2")
-
-	c.markPendingReveal(pane1)
-	c.markPendingReveal(pane2)
-	c.clearPendingReveal(pane1)
-
-	c.revealMu.Lock()
-	defer c.revealMu.Unlock()
-	assert.False(t, c.pendingReveal[pane1], "pane1 should be cleared")
-	assert.True(t, c.pendingReveal[pane2], "pane2 should still be pending")
+	// AttachToWorkspace asks this identity-aware query when rebuilding a pane,
+	// so the replacement PaneView hides its skeleton for this same WebView.
+	assert.True(t, c.WebViewRevealed(paneID))
 }

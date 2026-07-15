@@ -118,6 +118,7 @@ func TestPaneView_AttachWebViewWidget_UsesExplicitRevealStateAfterCleanup(t *tes
 		widget.EXPECT().GetParent().Return(nil).Once()
 		widget.EXPECT().IsVisible().Return(true).Once()
 		overlay.EXPECT().SetChild(widget).Once()
+		loadingContainer.EXPECT().SetVisible(true).Once()
 
 		pv := &PaneView{
 			overlay: overlay,
@@ -125,4 +126,27 @@ func TestPaneView_AttachWebViewWidget_UsesExplicitRevealStateAfterCleanup(t *tes
 		}
 		pv.AttachWebViewWidget(widget, false)
 	})
+}
+
+func TestPaneView_AttachWebViewWidget_UnrevealedReplacementRestartsLoadingSkeleton(t *testing.T) {
+	overlay := mocks.NewMockOverlayWidget(t)
+	widget := mocks.NewMockWidget(t)
+	loadingContainer := mocks.NewMockBoxWidget(t)
+	spinner := mocks.NewMockSpinnerWidget(t)
+
+	overlay.EXPECT().GetAllocatedWidth().Return(0).Twice()
+	overlay.EXPECT().GetAllocatedHeight().Return(0).Twice()
+	widget.EXPECT().GetAllocatedWidth().Return(0).Twice()
+	widget.EXPECT().GetAllocatedHeight().Return(0).Twice()
+	widget.EXPECT().GetParent().Return(nil).Once()
+	widget.EXPECT().IsVisible().Return(true).Once()
+	overlay.EXPECT().SetChild(widget).Once()
+	loadingContainer.EXPECT().SetVisible(true).Once()
+	spinner.EXPECT().Start().Once()
+
+	pv := &PaneView{
+		overlay: overlay,
+		loading: &LoadingSkeleton{container: loadingContainer, spinner: spinner},
+	}
+	pv.AttachWebViewWidget(widget, false)
 }

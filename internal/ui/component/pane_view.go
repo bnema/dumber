@@ -177,8 +177,11 @@ func (pv *PaneView) AttachWebViewWidget(widget layout.Widget, revealed bool) {
 	if hadParent && wasVisible {
 		widget.SetVisible(true)
 	}
-	if revealed && pv.loading != nil {
-		pv.loading.SetVisible(false)
+	// A replacement can follow an already-revealed WebView in the same pane.
+	// Apply both states explicitly: an unrevealed current WebView must restart
+	// the skeleton rather than inheriting the previous view's hidden overlay.
+	if pv.loading != nil {
+		pv.loading.SetVisible(!revealed)
 	}
 
 	ctx := pv.ctx

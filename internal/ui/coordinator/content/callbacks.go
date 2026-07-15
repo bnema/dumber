@@ -79,7 +79,7 @@ func (c *Coordinator) setupWebViewCallbacks(ctx context.Context, paneID entity.P
 			}
 		},
 		OnProgressChanged: func(progress float64) {
-			c.onProgressChanged(paneID, progress)
+			c.onProgressChanged(paneID, wv, progress)
 		},
 		OnURIChanged: func(uri string) {
 			c.handleURIChanged(ctx, paneID, wv, uri)
