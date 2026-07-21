@@ -239,6 +239,18 @@ type WebView struct {
 	backgroundColor     uint32
 	inputConfig         RuntimeInputConfig
 
+	// Background flash guard: a theme-colored CSS provider painted behind the
+	// render widget until the first CEF frame is presented. It replaces the
+	// former dark BrowserSettings.BackgroundColor anti-white-flash, whose canvas
+	// is now always opaque white. State is guarded by bgGuardMu; firstFramePainted
+	// gates the one-shot teardown and resets naturally when a fresh WebView is
+	// created after a browser recreation.
+	firstFramePainted atomic.Bool
+	bgGuardMu         sync.Mutex
+	bgGuardProvider   *gtk.CssProvider
+	bgGuardWidget     *gtk.Widget
+	bgGuardClass      string
+
 	// Touchpad input diagnostics are debounced to avoid flooding logs while
 	// debugging continuous scroll streams.
 	touchpadNavigation *touchpadNavigationRecognizer
@@ -992,7 +1004,7 @@ func (wv *WebView) prepareNativePopup(
 		prep.parent.trackPendingNativePopup(popupID, wv)
 	}
 
-	configureNativePopupWindow(windowInfo, settings, prep.frameRate, prep.backgroundColor)
+	configureNativePopupWindow(windowInfo, settings, prep.frameRate)
 	clientSlot.Set(client)
 	return true
 }
@@ -1007,9 +1019,8 @@ func (wv *WebView) nativePopupPreparationSnapshot() (nativePopupPreparation, boo
 		return nativePopupPreparation{}, false
 	}
 	return nativePopupPreparation{
-		parent:          wv.nativePopupParent,
-		frameRate:       wv.windowlessFrameRate,
-		backgroundColor: wv.backgroundColor,
+		parent:    wv.nativePopupParent,
+		frameRate: wv.windowlessFrameRate,
 	}, true
 }
 
@@ -1045,7 +1056,6 @@ func configureNativePopupWindow(
 	windowInfo *purecef.WindowInfo,
 	settings *purecef.BrowserSettings,
 	frameRate int32,
-	backgroundColor uint32,
 ) {
 	cef2gtk.ConfigureWindowInfo(windowInfo, cef2gtk.WindowInfoOptions{})
 	if externalBeginFrameEnabled() {
@@ -1056,15 +1066,13 @@ func configureNativePopupWindow(
 	}
 	cef2gtk.ConfigureBrowserSettings(settings, cef2gtk.BrowserSettingsOptions{WindowlessFrameRate: frameRate})
 	settings.LocalStorage = 1
-	if backgroundColor != 0 {
-		settings.BackgroundColor = backgroundColor
-	}
+	// Always opaque white; the popup shell WebView carries the theme flash guard.
+	settings.BackgroundColor = opaqueWhiteBackground
 }
 
 type nativePopupPreparation struct {
-	parent          *WebView
-	frameRate       int32
-	backgroundColor uint32
+	parent    *WebView
+	frameRate int32
 }
 
 func (wv *WebView) handleNativePopupAborted() {
@@ -1244,6 +1252,7 @@ func (wv *WebView) destroyViewBridgeOnGTKThread() {
 	if wv == nil || wv.viewBridge == nil {
 		return
 	}
+	wv.removeBackgroundFlashGuard()
 	if wv.removeSizeObserver != nil {
 		wv.removeSizeObserver()
 		wv.removeSizeObserver = nil

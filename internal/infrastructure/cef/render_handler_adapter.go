@@ -51,6 +51,15 @@ func newDumberRenderHandler(wv *WebView) purecef.RenderHandler {
 
 	var unsupportedPaintOnce sync.Once
 	hooks := startupPresentationHooks(activeStartupTrace())
+	// Tear down the theme background flash guard once the first frame is
+	// presented, without dropping the startup trace mark the bridge already set.
+	firstAcceleratedPaint := hooks.OnFirstAcceleratedPaint
+	hooks.OnFirstAcceleratedPaint = func() {
+		if firstAcceleratedPaint != nil {
+			firstAcceleratedPaint()
+		}
+		wv.markFirstFramePainted()
+	}
 	hooks.OnUnsupportedPaint = func() {
 		unsupportedPaintOnce.Do(func() {
 			if wv.ctx != nil {
