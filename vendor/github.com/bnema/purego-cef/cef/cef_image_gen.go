@@ -221,8 +221,21 @@ func wrapImage(ptr unsafe.Pointer) Image {
 	return impl
 }
 
+// takeImage adopts a CEF Image pointer whose reference is already owned by
+// the caller (as returned by a global factory function). Unlike wrapImage it
+// does NOT call AddRef, because the C API already transferred one reference to us.
+func takeImage(ptr unsafe.Pointer) Image {
+	if ptr == nil {
+		return nil
+	}
+	r := (*capi.CEFImageT)(ptr)
+	impl := &imageImpl{rawPtr: r}
+	runtime.SetFinalizer(impl, (*imageImpl).Release)
+	return impl
+}
+
 // ImageCreate Create a new cef_image_t. It will initially be NULL. Use the Add*() functions to add representations at different scale factors.
 func ImageCreate() Image {
 	ret := capi.CEFImageCreate()
-	return wrapImage(ret)
+	return takeImage(ret)
 }

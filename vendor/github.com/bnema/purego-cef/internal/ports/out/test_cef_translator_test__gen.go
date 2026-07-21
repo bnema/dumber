@@ -44,14 +44,14 @@ type TranslatorTest interface {
 	SetRefPtrLibraryAndReturn(val uintptr) uintptr
 	SetChildRefPtrLibrary(val uintptr) uintptr
 	SetChildRefPtrLibraryAndReturnParent(val uintptr) uintptr
-	SetRefPtrLibraryList(val uintptr, val1 uintptr, val2 uintptr) uintptr
+	SetRefPtrLibraryList(valcount uintptr, val uintptr, val1 uintptr, val2 uintptr) uintptr
 	GetRefPtrLibraryListByRef(valcount uintptr, val uintptr, val1 uintptr, val2 uintptr) uintptr
 	GetRefPtrLibraryListSize() uintptr
 	SetRefPtrClient(val uintptr) uintptr
 	SetRefPtrClientAndReturn(val uintptr) uintptr
 	SetChildRefPtrClient(val uintptr) uintptr
 	SetChildRefPtrClientAndReturnParent(val uintptr) uintptr
-	SetRefPtrClientList(val uintptr, val1 uintptr, val2 uintptr) uintptr
+	SetRefPtrClientList(valcount uintptr, val uintptr, val1 uintptr, val2 uintptr) uintptr
 	GetRefPtrClientListByRef(valcount uintptr, val uintptr, val1 uintptr, val2 uintptr) uintptr
 	GetRefPtrClientListSize() uintptr
 	GetOwnPtrLibrary(val uintptr) uintptr
@@ -65,10 +65,10 @@ type TranslatorTest interface {
 	SetChildOwnPtrClientAndReturnParent(val uintptr) uintptr
 	SetRawPtrLibrary(val uintptr) uintptr
 	SetChildRawPtrLibrary(val uintptr) uintptr
-	SetRawPtrLibraryList(val uintptr, val1 uintptr, val2 uintptr) uintptr
+	SetRawPtrLibraryList(valcount uintptr, val uintptr, val1 uintptr, val2 uintptr) uintptr
 	SetRawPtrClient(val uintptr) uintptr
 	SetChildRawPtrClient(val uintptr) uintptr
-	SetRawPtrClientList(val uintptr, val1 uintptr, val2 uintptr) uintptr
+	SetRawPtrClientList(valcount uintptr, val uintptr, val1 uintptr, val2 uintptr) uintptr
 }
 
 // TranslatorTestRefPtrLibrary defines the outbound port for CEFTranslatorTestRefPtrLibraryT.

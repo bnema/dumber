@@ -263,8 +263,21 @@ func wrapPrintSettings(ptr unsafe.Pointer) PrintSettings {
 	return impl
 }
 
+// takePrintSettings adopts a CEF PrintSettings pointer whose reference is already owned by
+// the caller (as returned by a global factory function). Unlike wrapPrintSettings it
+// does NOT call AddRef, because the C API already transferred one reference to us.
+func takePrintSettings(ptr unsafe.Pointer) PrintSettings {
+	if ptr == nil {
+		return nil
+	}
+	r := (*capi.CEFPrintSettingsT)(ptr)
+	impl := &printSettingsImpl{rawPtr: r}
+	runtime.SetFinalizer(impl, (*printSettingsImpl).Release)
+	return impl
+}
+
 // PrintSettingsCreate Create a new cef_print_settings_t object.
 func PrintSettingsCreate() PrintSettings {
 	ret := capi.CEFPrintSettingsCreate()
-	return wrapPrintSettings(ret)
+	return takePrintSettings(ret)
 }

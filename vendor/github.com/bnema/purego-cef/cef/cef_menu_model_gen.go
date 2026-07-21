@@ -587,8 +587,21 @@ func wrapMenuModel(ptr unsafe.Pointer) MenuModel {
 	return impl
 }
 
+// takeMenuModel adopts a CEF MenuModel pointer whose reference is already owned by
+// the caller (as returned by a global factory function). Unlike wrapMenuModel it
+// does NOT call AddRef, because the C API already transferred one reference to us.
+func takeMenuModel(ptr unsafe.Pointer) MenuModel {
+	if ptr == nil {
+		return nil
+	}
+	r := (*capi.CEFMenuModelT)(ptr)
+	impl := &menuModelImpl{rawPtr: r}
+	runtime.SetFinalizer(impl, (*menuModelImpl).Release)
+	return impl
+}
+
 // MenuModelCreate Create a new MenuModel with the specified |delegate|.
 func MenuModelCreate(delegate MenuModelDelegate) MenuModel {
 	ret := capi.CEFMenuModelCreate(extractOrWrapRawPointer(delegate, func() any { return NewMenuModelDelegate(delegate) }))
-	return wrapMenuModel(ret)
+	return takeMenuModel(ret)
 }

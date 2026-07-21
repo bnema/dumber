@@ -94,16 +94,29 @@ func wrapBrowserView(ptr unsafe.Pointer) BrowserView {
 	return impl
 }
 
+// takeBrowserView adopts a CEF BrowserView pointer whose reference is already owned by
+// the caller (as returned by a global factory function). Unlike wrapBrowserView it
+// does NOT call AddRef, because the C API already transferred one reference to us.
+func takeBrowserView(ptr unsafe.Pointer) BrowserView {
+	if ptr == nil {
+		return nil
+	}
+	r := (*capi.CEFBrowserViewT)(ptr)
+	impl := &browserViewImpl{rawPtr: r}
+	runtime.SetFinalizer(impl, (*browserViewImpl).Release)
+	return impl
+}
+
 // BrowserViewCreate Create a new BrowserView. The underlying cef_browser_t will not be created until this view is added to the views hierarchy. The optional |extra_info| parameter provides an opportunity to specify extra information specific to the created browser that will be passed to cef_render_process_handler_t::on_browser_created() in the render process.
 func BrowserViewCreate(client RawClient, uRL string, settings *BrowserSettings, extraInfo DictionaryValue, requestContext RequestContext, delegate BrowserViewDelegate) BrowserView {
 	uRLStr := cefString(uRL)
 	defer freeCefString(&uRLStr)
 	ret := capi.CEFBrowserViewCreate(extractOrWrapRawPointer(client, func() any { return NewRawClient(client) }), unsafe.Pointer(&uRLStr), unsafe.Pointer(settings), extractRawPointer(extraInfo), extractRawPointer(requestContext), extractOrWrapRawPointer(delegate, func() any { return NewBrowserViewDelegate(delegate) }))
-	return wrapBrowserView(ret)
+	return takeBrowserView(ret)
 }
 
 // BrowserViewGetForBrowser Returns the BrowserView associated with |browser|.
 func BrowserViewGetForBrowser(browser Browser) BrowserView {
 	ret := capi.CEFBrowserViewGetForBrowser(extractRawPointer(browser))
-	return wrapBrowserView(ret)
+	return takeBrowserView(ret)
 }

@@ -270,6 +270,19 @@ func wrapRequest(ptr unsafe.Pointer) Request {
 	return impl
 }
 
+// takeRequest adopts a CEF Request pointer whose reference is already owned by
+// the caller (as returned by a global factory function). Unlike wrapRequest it
+// does NOT call AddRef, because the C API already transferred one reference to us.
+func takeRequest(ptr unsafe.Pointer) Request {
+	if ptr == nil {
+		return nil
+	}
+	r := (*capi.CEFRequestT)(ptr)
+	impl := &requestImpl{rawPtr: r}
+	runtime.SetFinalizer(impl, (*requestImpl).Release)
+	return impl
+}
+
 // PostData Structure used to represent post data for a web request. The functions of this structure may be called on any thread.
 type PostData = portin.PostData
 
@@ -400,6 +413,19 @@ func wrapPostData(ptr unsafe.Pointer) PostData {
 	return impl
 }
 
+// takePostData adopts a CEF PostData pointer whose reference is already owned by
+// the caller (as returned by a global factory function). Unlike wrapPostData it
+// does NOT call AddRef, because the C API already transferred one reference to us.
+func takePostData(ptr unsafe.Pointer) PostData {
+	if ptr == nil {
+		return nil
+	}
+	r := (*capi.CEFPostDataT)(ptr)
+	impl := &postDataImpl{rawPtr: r}
+	runtime.SetFinalizer(impl, (*postDataImpl).Release)
+	return impl
+}
+
 // PostDataElement Structure used to represent a single element in the request post data. The functions of this structure may be called on any thread.
 type PostDataElement = portin.PostDataElement
 
@@ -518,20 +544,33 @@ func wrapPostDataElement(ptr unsafe.Pointer) PostDataElement {
 	return impl
 }
 
+// takePostDataElement adopts a CEF PostDataElement pointer whose reference is already owned by
+// the caller (as returned by a global factory function). Unlike wrapPostDataElement it
+// does NOT call AddRef, because the C API already transferred one reference to us.
+func takePostDataElement(ptr unsafe.Pointer) PostDataElement {
+	if ptr == nil {
+		return nil
+	}
+	r := (*capi.CEFPostDataElementT)(ptr)
+	impl := &postDataElementImpl{rawPtr: r}
+	runtime.SetFinalizer(impl, (*postDataElementImpl).Release)
+	return impl
+}
+
 // RequestCreate Create a new cef_request_t object.
 func RequestCreate() Request {
 	ret := capi.CEFRequestCreate()
-	return wrapRequest(ret)
+	return takeRequest(ret)
 }
 
 // PostDataCreate Create a new cef_post_data_t object.
 func PostDataCreate() PostData {
 	ret := capi.CEFPostDataCreate()
-	return wrapPostData(ret)
+	return takePostData(ret)
 }
 
 // PostDataElementCreate Create a new cef_post_data_element_t object.
 func PostDataElementCreate() PostDataElement {
 	ret := capi.CEFPostDataElementCreate()
-	return wrapPostDataElement(ret)
+	return takePostDataElement(ret)
 }

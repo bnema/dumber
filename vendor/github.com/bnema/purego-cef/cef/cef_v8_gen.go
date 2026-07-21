@@ -156,6 +156,19 @@ func wrapV8Context(ptr unsafe.Pointer) V8Context {
 	return impl
 }
 
+// takeV8Context adopts a CEF V8Context pointer whose reference is already owned by
+// the caller (as returned by a global factory function). Unlike wrapV8Context it
+// does NOT call AddRef, because the C API already transferred one reference to us.
+func takeV8Context(ptr unsafe.Pointer) V8Context {
+	if ptr == nil {
+		return nil
+	}
+	r := (*capi.CEFV8ContextT)(ptr)
+	impl := &v8ContextImpl{rawPtr: r}
+	runtime.SetFinalizer(impl, (*v8ContextImpl).Release)
+	return impl
+}
+
 // V8Handler Structure that should be implemented to handle V8 function calls. The functions of this structure will be called on the thread associated with the V8 function.
 type V8Handler = portin.V8Handler
 
@@ -818,6 +831,93 @@ func wrapV8ArrayBufferReleaseCallback(ptr unsafe.Pointer) V8ArrayBufferReleaseCa
 	return impl
 }
 
+// V8BackingStore Structure representing a V8 ArrayBuffer backing store. The backing store holds the memory that backs an ArrayBuffer. It must be created on a thread with a valid V8 isolate (renderer main thread or WebWorker thread). Once created, the data() pointer can be safely read/written from any thread. This allows expensive operations like memcpy to be performed on a background thread before creating the ArrayBuffer on the V8 thread. The backing store is consumed when passed to cef_v8_value_t::cef_v8_value_create_array_buffer_from_backing_store(), after which is_valid() returns false (0).
+type V8BackingStore = portin.V8BackingStore
+
+// v8BackingStoreImpl is a reverse wrapper for a CEF-owned V8BackingStore pointer.
+// Release is idempotent, but callers must externally synchronize Release with
+// concurrent method calls and must not use the wrapper after Release returns.
+type v8BackingStoreImpl struct {
+	rawPtr      *capi.CEFV8BackingStoreT
+	releaseOnce sync.Once
+}
+
+func (obj *v8BackingStoreImpl) Data() uintptr {
+	if obj == nil || obj.rawPtr == nil {
+		return 0
+	}
+	rawPtr := obj.rawPtr
+	ret := rawPtr.CallData()
+	return uintptr(ret)
+}
+
+func (obj *v8BackingStoreImpl) ByteLength() int {
+	if obj == nil || obj.rawPtr == nil {
+		return 0
+	}
+	rawPtr := obj.rawPtr
+	ret := rawPtr.CallByteLength()
+	return int(ret)
+}
+
+func (obj *v8BackingStoreImpl) IsValid() bool {
+	if obj == nil || obj.rawPtr == nil {
+		return false
+	}
+	rawPtr := obj.rawPtr
+	ret := rawPtr.CallIsValid()
+	return ret != 0
+}
+
+func (obj *v8BackingStoreImpl) RawPointer() unsafe.Pointer {
+	if obj == nil || obj.rawPtr == nil {
+		return nil
+	}
+	return unsafe.Pointer(obj.rawPtr)
+}
+
+// Release releases the underlying CEF object.
+func (obj *v8BackingStoreImpl) Release() {
+	if obj == nil {
+		return
+	}
+	obj.releaseOnce.Do(func() {
+		if obj.rawPtr == nil {
+			return
+		}
+		rawPtr := obj.rawPtr
+		obj.rawPtr = nil
+		runtime.SetFinalizer(obj, nil)
+		base := (*capi.CEFBaseRefCountedT)(unsafe.Pointer(rawPtr))
+		base.CallRelease()
+	})
+}
+
+func wrapV8BackingStore(ptr unsafe.Pointer) V8BackingStore {
+	if ptr == nil {
+		return nil
+	}
+	r := (*capi.CEFV8BackingStoreT)(ptr)
+	base := (*capi.CEFBaseRefCountedT)(ptr)
+	base.CallAddRef()
+	impl := &v8BackingStoreImpl{rawPtr: r}
+	runtime.SetFinalizer(impl, (*v8BackingStoreImpl).Release)
+	return impl
+}
+
+// takeV8BackingStore adopts a CEF V8BackingStore pointer whose reference is already owned by
+// the caller (as returned by a global factory function). Unlike wrapV8BackingStore it
+// does NOT call AddRef, because the C API already transferred one reference to us.
+func takeV8BackingStore(ptr unsafe.Pointer) V8BackingStore {
+	if ptr == nil {
+		return nil
+	}
+	r := (*capi.CEFV8BackingStoreT)(ptr)
+	impl := &v8BackingStoreImpl{rawPtr: r}
+	runtime.SetFinalizer(impl, (*v8BackingStoreImpl).Release)
+	return impl
+}
+
 // V8Value Structure representing a V8 value handle. V8 handles can only be accessed from the thread on which they are created. Valid threads for creating a V8 handle include the render process main thread (TID_RENDERER) and WebWorker threads. A task runner for posting tasks on the associated thread can be retrieved via the cef_v8_context_t::get_task_runner() function.
 type V8Value = portin.V8Value
 
@@ -1249,13 +1349,13 @@ func (obj *v8ValueImpl) GetArrayBufferByteLength() int {
 	return int(ret)
 }
 
-func (obj *v8ValueImpl) GetArrayBufferData() unsafe.Pointer {
+func (obj *v8ValueImpl) GetArrayBufferData() uintptr {
 	if obj == nil || obj.rawPtr == nil {
-		return nil
+		return 0
 	}
 	rawPtr := obj.rawPtr
 	ret := rawPtr.CallGetArrayBufferData()
-	return unsafe.Pointer(ret)
+	return uintptr(ret)
 }
 
 func (obj *v8ValueImpl) GetFunctionName() string {
@@ -1368,6 +1468,19 @@ func wrapV8Value(ptr unsafe.Pointer) V8Value {
 	return impl
 }
 
+// takeV8Value adopts a CEF V8Value pointer whose reference is already owned by
+// the caller (as returned by a global factory function). Unlike wrapV8Value it
+// does NOT call AddRef, because the C API already transferred one reference to us.
+func takeV8Value(ptr unsafe.Pointer) V8Value {
+	if ptr == nil {
+		return nil
+	}
+	r := (*capi.CEFV8ValueT)(ptr)
+	impl := &v8ValueImpl{rawPtr: r}
+	runtime.SetFinalizer(impl, (*v8ValueImpl).Release)
+	return impl
+}
+
 // V8StackTrace Structure representing a V8 stack trace handle. V8 handles can only be accessed from the thread on which they are created. Valid threads for creating a V8 handle include the render process main thread (TID_RENDERER) and WebWorker threads. A task runner for posting tasks on the associated thread can be retrieved via the cef_v8_context_t::get_task_runner() function.
 type V8StackTrace = portin.V8StackTrace
 
@@ -1437,6 +1550,19 @@ func wrapV8StackTrace(ptr unsafe.Pointer) V8StackTrace {
 	r := (*capi.CEFV8StackTraceT)(ptr)
 	base := (*capi.CEFBaseRefCountedT)(ptr)
 	base.CallAddRef()
+	impl := &v8StackTraceImpl{rawPtr: r}
+	runtime.SetFinalizer(impl, (*v8StackTraceImpl).Release)
+	return impl
+}
+
+// takeV8StackTrace adopts a CEF V8StackTrace pointer whose reference is already owned by
+// the caller (as returned by a global factory function). Unlike wrapV8StackTrace it
+// does NOT call AddRef, because the C API already transferred one reference to us.
+func takeV8StackTrace(ptr unsafe.Pointer) V8StackTrace {
+	if ptr == nil {
+		return nil
+	}
+	r := (*capi.CEFV8StackTraceT)(ptr)
 	impl := &v8StackTraceImpl{rawPtr: r}
 	runtime.SetFinalizer(impl, (*v8StackTraceImpl).Release)
 	return impl
@@ -1564,13 +1690,13 @@ func wrapV8StackFrame(ptr unsafe.Pointer) V8StackFrame {
 // V8ContextGetCurrentContext Returns the current (top) context object in the V8 context stack.
 func V8ContextGetCurrentContext() V8Context {
 	ret := capi.CEFV8ContextGetCurrentContext()
-	return wrapV8Context(ret)
+	return takeV8Context(ret)
 }
 
 // V8ContextGetEnteredContext Returns the entered (bottom) context object in the V8 context stack.
 func V8ContextGetEnteredContext() V8Context {
 	ret := capi.CEFV8ContextGetEnteredContext()
-	return wrapV8Context(ret)
+	return takeV8Context(ret)
 }
 
 // V8ContextInContext Returns true (1) if V8 is currently inside a context.
@@ -1579,40 +1705,49 @@ func V8ContextInContext() int32 {
 	return int32(ret)
 }
 
+// V8BackingStoreCreate Create a new backing store with allocated memory of |byte_length| bytes. The memory is uninitialized. This function must be called on a thread with a valid V8 isolate. The returned object can safely be passed to other threads. Returns nullptr on failure.
+func V8BackingStoreCreate(byteLength int) V8BackingStore {
+	if byteLength < 0 {
+		return nil
+	}
+	ret := capi.CEFV8BackingStoreCreate(uintptr(byteLength))
+	return takeV8BackingStore(ret)
+}
+
 // V8ValueCreateUndefined Create a new cef_v8_value_t object of type undefined.
 func V8ValueCreateUndefined() V8Value {
 	ret := capi.CEFV8ValueCreateUndefined()
-	return wrapV8Value(ret)
+	return takeV8Value(ret)
 }
 
 // V8ValueCreateNull Create a new cef_v8_value_t object of type null.
 func V8ValueCreateNull() V8Value {
 	ret := capi.CEFV8ValueCreateNull()
-	return wrapV8Value(ret)
+	return takeV8Value(ret)
 }
 
 // V8ValueCreateBool Create a new cef_v8_value_t object of type bool.
 func V8ValueCreateBool(value int32) V8Value {
 	ret := capi.CEFV8ValueCreateBool(value)
-	return wrapV8Value(ret)
+	return takeV8Value(ret)
 }
 
 // V8ValueCreateInt Create a new cef_v8_value_t object of type int.
 func V8ValueCreateInt(value int32) V8Value {
 	ret := capi.CEFV8ValueCreateInt(value)
-	return wrapV8Value(ret)
+	return takeV8Value(ret)
 }
 
 // V8ValueCreateUint Create a new cef_v8_value_t object of type unsigned int.
 func V8ValueCreateUint(value uint32) V8Value {
 	ret := capi.CEFV8ValueCreateUint(value)
-	return wrapV8Value(ret)
+	return takeV8Value(ret)
 }
 
 // V8ValueCreateDouble Create a new cef_v8_value_t object of type double.
 func V8ValueCreateDouble(value float64) V8Value {
 	ret := capi.CEFV8ValueCreateDouble(value)
-	return wrapV8Value(ret)
+	return takeV8Value(ret)
 }
 
 // V8ValueCreateString Create a new cef_v8_value_t object of type string.
@@ -1620,31 +1755,43 @@ func V8ValueCreateString(value string) V8Value {
 	valueStr := cefString(value)
 	defer freeCefString(&valueStr)
 	ret := capi.CEFV8ValueCreateString(unsafe.Pointer(&valueStr))
-	return wrapV8Value(ret)
+	return takeV8Value(ret)
 }
 
 // V8ValueCreateObject wraps the CEF CEFV8ValueCreateObject function.
 func V8ValueCreateObject(accessor V8Accessor, interceptor V8Interceptor) V8Value {
 	ret := capi.CEFV8ValueCreateObject(extractOrWrapRawPointer(accessor, func() any { return NewV8Accessor(accessor) }), extractOrWrapRawPointer(interceptor, func() any { return NewV8Interceptor(interceptor) }))
-	return wrapV8Value(ret)
+	return takeV8Value(ret)
 }
 
 // V8ValueCreateArray Create a new cef_v8_value_t object of type array with the specified |length|. If |length| is negative the returned array will have length 0. This function should only be called from within the scope of a cef_render_process_handler_t, cef_v8_handler_t or cef_v8_accessor_t callback, or in combination with calling enter() and exit() on a stored cef_v8_context_t reference.
 func V8ValueCreateArray(length int32) V8Value {
 	ret := capi.CEFV8ValueCreateArray(length)
-	return wrapV8Value(ret)
+	return takeV8Value(ret)
 }
 
 // V8ValueCreateArrayBuffer Create a new cef_v8_value_t object of type ArrayBuffer which wraps the provided |buffer| of size |length| bytes. The ArrayBuffer is externalized, meaning that it does not own |buffer|. The caller is responsible for freeing |buffer| when requested via a call to cef_v8_array_buffer_release_callback_t::ReleaseBuffer. This function should only be called from within the scope of a cef_render_process_handler_t, cef_v8_handler_t or cef_v8_accessor_t callback, or in combination with calling enter() and exit() on a stored cef_v8_context_t reference. NOTE: Always returns nullptr when V8 sandbox is enabled.
 func V8ValueCreateArrayBuffer(buffer unsafe.Pointer, length int, releaseCallback V8ArrayBufferReleaseCallback) V8Value {
+	if length < 0 {
+		return nil
+	}
 	ret := capi.CEFV8ValueCreateArrayBuffer(buffer, uintptr(length), extractOrWrapRawPointer(releaseCallback, func() any { return NewV8ArrayBufferReleaseCallback(releaseCallback) }))
-	return wrapV8Value(ret)
+	return takeV8Value(ret)
 }
 
 // V8ValueCreateArrayBufferWithCopy Create a new cef_v8_value_t object of type ArrayBuffer which copies the provided |buffer| of size |length| bytes. This function should only be called from within the scope of a cef_render_process_handler_t, cef_v8_handler_t or cef_v8_accessor_t callback, or in combination with calling enter() and exit() on a stored cef_v8_context_t reference.
 func V8ValueCreateArrayBufferWithCopy(buffer unsafe.Pointer, length int) V8Value {
+	if length < 0 {
+		return nil
+	}
 	ret := capi.CEFV8ValueCreateArrayBufferWithCopy(buffer, uintptr(length))
-	return wrapV8Value(ret)
+	return takeV8Value(ret)
+}
+
+// V8ValueCreateArrayBufferFromBackingStore wraps the CEF CEFV8ValueCreateArrayBufferFromBackingStore function.
+func V8ValueCreateArrayBufferFromBackingStore(backingStore V8BackingStore) V8Value {
+	ret := capi.CEFV8ValueCreateArrayBufferFromBackingStore(extractRawPointer(backingStore))
+	return takeV8Value(ret)
 }
 
 // V8ValueCreateFunction Create a new cef_v8_value_t object of type function. This function should only be called from within the scope of a cef_render_process_handler_t, cef_v8_handler_t or cef_v8_accessor_t callback, or in combination with calling enter() and exit() on a stored cef_v8_context_t reference.
@@ -1652,19 +1799,19 @@ func V8ValueCreateFunction(name string, handler V8Handler) V8Value {
 	nameStr := cefString(name)
 	defer freeCefString(&nameStr)
 	ret := capi.CEFV8ValueCreateFunction(unsafe.Pointer(&nameStr), extractOrWrapRawPointer(handler, func() any { return NewV8Handler(handler) }))
-	return wrapV8Value(ret)
+	return takeV8Value(ret)
 }
 
 // V8ValueCreatePromise Create a new cef_v8_value_t object of type Promise. This function should only be called from within the scope of a cef_render_process_handler_t, cef_v8_handler_t or cef_v8_accessor_t callback, or in combination with calling enter() and exit() on a stored cef_v8_context_t reference.
 func V8ValueCreatePromise() V8Value {
 	ret := capi.CEFV8ValueCreatePromise()
-	return wrapV8Value(ret)
+	return takeV8Value(ret)
 }
 
 // V8StackTraceGetCurrent Returns the stack trace for the currently active context. |frame_limit| is the maximum number of frames that will be captured.
 func V8StackTraceGetCurrent(frameLimit int32) V8StackTrace {
 	ret := capi.CEFV8StackTraceGetCurrent(frameLimit)
-	return wrapV8StackTrace(ret)
+	return takeV8StackTrace(ret)
 }
 
 // RegisterExtension Register a new V8 extension with the specified JavaScript extension code and handler. Functions implemented by the handler are prototyped using the keyword 'native'. The calling of a native function is restricted to the scope in which the prototype of the native function is defined. This function may only be called on the render process main thread. Example JavaScript extension code: <pre>   // create the 'example' global object if it doesn't already exist.   if (!example)     example = {};   // create the 'example.test' global object if it doesn't already exist.   if (!example.test)     example.test = {};   (function() {     // Define the function 'example.test.myfunction'.     example.test.myfunction = function() {       // Call CefV8Handler::Execute() with the function name 'MyFunction'       // and no arguments.       native function MyFunction();       return MyFunction();     };     // Define the getter function for parameter 'example.test.myparam'.     example.test.__defineGetter__('myparam', function() {       // Call CefV8Handler::Execute() with the function name 'GetMyParam'       // and no arguments.       native function GetMyParam();       return GetMyParam();     });     // Define the setter function for parameter 'example.test.myparam'.     example.test.__defineSetter__('myparam', function(b) {       // Call CefV8Handler::Execute() with the function name 'SetMyParam'       // and a single argument.       native function SetMyParam();       if(b) SetMyParam(b);     });     // Extension definitions can also contain normal JavaScript variables     // and functions.     var myint = 0;     example.test.increment = function() {       myint += 1;       return myint;     };   })(); </pre> Example usage in the page: <pre>   // Call the function.   example.test.myfunction();   // Set the parameter.   example.test.myparam = value;   // Get the parameter.   value = example.test.myparam;   // Call another function.   example.test.increment(); </pre>

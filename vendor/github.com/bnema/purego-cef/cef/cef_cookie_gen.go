@@ -112,6 +112,19 @@ func wrapCookieManager(ptr unsafe.Pointer) CookieManager {
 	return impl
 }
 
+// takeCookieManager adopts a CEF CookieManager pointer whose reference is already owned by
+// the caller (as returned by a global factory function). Unlike wrapCookieManager it
+// does NOT call AddRef, because the C API already transferred one reference to us.
+func takeCookieManager(ptr unsafe.Pointer) CookieManager {
+	if ptr == nil {
+		return nil
+	}
+	r := (*capi.CEFCookieManagerT)(ptr)
+	impl := &cookieManagerImpl{rawPtr: r}
+	runtime.SetFinalizer(impl, (*cookieManagerImpl).Release)
+	return impl
+}
+
 // CookieVisitor Structure to implement for visiting cookie values. The functions of this structure will always be called on the UI thread.
 type CookieVisitor = portin.CookieVisitor
 
@@ -413,5 +426,5 @@ func wrapDeleteCookiesCallback(ptr unsafe.Pointer) DeleteCookiesCallback {
 // CookieManagerGetGlobalManager Returns the global cookie manager. By default data will be stored at cef_settings_t.cache_path if specified or in memory otherwise. If |callback| is non-NULL it will be executed asnychronously on the UI thread after the manager's storage has been initialized. Using this function is equivalent to calling cef_request_context_t::cef_request_context_get_global_context()- >GetDefaultCookieManager().
 func CookieManagerGetGlobalManager(callback CompletionCallback) CookieManager {
 	ret := capi.CEFCookieManagerGetGlobalManager(extractOrWrapRawPointer(callback, func() any { return NewCompletionCallback(callback) }))
-	return wrapCookieManager(ret)
+	return takeCookieManager(ret)
 }

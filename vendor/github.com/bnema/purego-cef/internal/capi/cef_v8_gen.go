@@ -314,6 +314,44 @@ func (v *CEFV8ArrayBufferReleaseCallbackT) CallReleaseBuffer(args ...uintptr) ui
 	return r1
 }
 
+type CEFV8BackingStoreT struct {
+	_          structs.HostLayout
+	Base       CEFBaseRefCountedT
+	Data       uintptr
+	ByteLength uintptr
+	IsValid    uintptr
+}
+
+func (v *CEFV8BackingStoreT) OverrideData(fn uintptr) { v.Data = fn }
+
+func (v *CEFV8BackingStoreT) CallData(args ...uintptr) uintptr {
+	if v.Data == 0 {
+		return 0
+	}
+	r1, _, _ := purego.SyscallN(v.Data, append([]uintptr{uintptr(unsafe.Pointer(v))}, args...)...)
+	return r1
+}
+
+func (v *CEFV8BackingStoreT) OverrideByteLength(fn uintptr) { v.ByteLength = fn }
+
+func (v *CEFV8BackingStoreT) CallByteLength(args ...uintptr) uintptr {
+	if v.ByteLength == 0 {
+		return 0
+	}
+	r1, _, _ := purego.SyscallN(v.ByteLength, append([]uintptr{uintptr(unsafe.Pointer(v))}, args...)...)
+	return r1
+}
+
+func (v *CEFV8BackingStoreT) OverrideIsValid(fn uintptr) { v.IsValid = fn }
+
+func (v *CEFV8BackingStoreT) CallIsValid(args ...uintptr) uintptr {
+	if v.IsValid == 0 {
+		return 0
+	}
+	r1, _, _ := purego.SyscallN(v.IsValid, append([]uintptr{uintptr(unsafe.Pointer(v))}, args...)...)
+	return r1
+}
+
 type CEFV8ValueT struct {
 	_                               structs.HostLayout
 	Base                            CEFBaseRefCountedT
@@ -1038,6 +1076,8 @@ var CEFV8ContextGetEnteredContext func() unsafe.Pointer
 
 var CEFV8ContextInContext func() int32
 
+var CEFV8BackingStoreCreate func(ByteLength uintptr) unsafe.Pointer
+
 var CEFV8ValueCreateUndefined func() unsafe.Pointer
 
 var CEFV8ValueCreateNull func() unsafe.Pointer
@@ -1062,6 +1102,8 @@ var CEFV8ValueCreateArrayBuffer func(Buffer unsafe.Pointer, Length uintptr, Rele
 
 var CEFV8ValueCreateArrayBufferWithCopy func(Buffer unsafe.Pointer, Length uintptr) unsafe.Pointer
 
+var CEFV8ValueCreateArrayBufferFromBackingStore func(BackingStore unsafe.Pointer) unsafe.Pointer
+
 var CEFV8ValueCreateFunction func(Name unsafe.Pointer, Handler unsafe.Pointer) unsafe.Pointer
 
 var CEFV8ValueCreatePromise func() unsafe.Pointer
@@ -1074,6 +1116,7 @@ func RegisterV8(handle uintptr) {
 	tryRegisterLibFunc(&CEFV8ContextGetCurrentContext, handle, "cef_v8_context_get_current_context")
 	tryRegisterLibFunc(&CEFV8ContextGetEnteredContext, handle, "cef_v8_context_get_entered_context")
 	tryRegisterLibFunc(&CEFV8ContextInContext, handle, "cef_v8_context_in_context")
+	tryRegisterLibFunc(&CEFV8BackingStoreCreate, handle, "cef_v8_backing_store_create")
 	tryRegisterLibFunc(&CEFV8ValueCreateUndefined, handle, "cef_v8_value_create_undefined")
 	tryRegisterLibFunc(&CEFV8ValueCreateNull, handle, "cef_v8_value_create_null")
 	tryRegisterLibFunc(&CEFV8ValueCreateBool, handle, "cef_v8_value_create_bool")
@@ -1086,6 +1129,7 @@ func RegisterV8(handle uintptr) {
 	tryRegisterLibFunc(&CEFV8ValueCreateArray, handle, "cef_v8_value_create_array")
 	tryRegisterLibFunc(&CEFV8ValueCreateArrayBuffer, handle, "cef_v8_value_create_array_buffer")
 	tryRegisterLibFunc(&CEFV8ValueCreateArrayBufferWithCopy, handle, "cef_v8_value_create_array_buffer_with_copy")
+	tryRegisterLibFunc(&CEFV8ValueCreateArrayBufferFromBackingStore, handle, "cef_v8_value_create_array_buffer_from_backing_store")
 	tryRegisterLibFunc(&CEFV8ValueCreateFunction, handle, "cef_v8_value_create_function")
 	tryRegisterLibFunc(&CEFV8ValueCreatePromise, handle, "cef_v8_value_create_promise")
 	tryRegisterLibFunc(&CEFV8StackTraceGetCurrent, handle, "cef_v8_stack_trace_get_current")

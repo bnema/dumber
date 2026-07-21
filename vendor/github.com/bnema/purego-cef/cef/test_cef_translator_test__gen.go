@@ -377,21 +377,12 @@ func (obj *translatorTestImpl) SetChildRefPtrLibraryAndReturnParent(val Translat
 	return wrapTranslatorTestRefPtrLibrary(unsafe.Pointer(ret))
 }
 
-func (obj *translatorTestImpl) SetRefPtrLibraryList(val []TranslatorTestRefPtrLibrary, val1 int32, val2 int32) int32 {
+func (obj *translatorTestImpl) SetRefPtrLibraryList(valcount int, val unsafe.Pointer, val1 int32, val2 int32) int32 {
 	if obj == nil || obj.rawPtr == nil {
 		return 0
 	}
 	rawPtr := obj.rawPtr
-	var valRaw []uintptr
-	var valPtr unsafe.Pointer
-	if len(val) > 0 {
-		valRaw = make([]uintptr, len(val))
-		for i, elem := range val {
-			valRaw[i] = uintptr(extractRawPointer(elem))
-		}
-		valPtr = unsafe.Pointer(&valRaw[0])
-	}
-	ret := rawPtr.CallSetRefPtrLibraryList(uintptr(len(val)), uintptr(valPtr), uintptr(val1), uintptr(val2))
+	ret := rawPtr.CallSetRefPtrLibraryList(uintptr(valcount), uintptr(val), uintptr(val1), uintptr(val2))
 	return int32(ret)
 }
 
@@ -471,21 +462,12 @@ func (obj *translatorTestImpl) SetChildRefPtrClientAndReturnParent(val Translato
 	return wrapTranslatorTestRefPtrClient(unsafe.Pointer(ret))
 }
 
-func (obj *translatorTestImpl) SetRefPtrClientList(val []TranslatorTestRefPtrClient, val1 int32, val2 int32) int32 {
+func (obj *translatorTestImpl) SetRefPtrClientList(valcount int, val unsafe.Pointer, val1 int32, val2 int32) int32 {
 	if obj == nil || obj.rawPtr == nil {
 		return 0
 	}
 	rawPtr := obj.rawPtr
-	var valRaw []uintptr
-	var valPtr unsafe.Pointer
-	if len(val) > 0 {
-		valRaw = make([]uintptr, len(val))
-		for i, elem := range val {
-			valRaw[i] = uintptr(extractRawPointer(elem))
-		}
-		valPtr = unsafe.Pointer(&valRaw[0])
-	}
-	ret := rawPtr.CallSetRefPtrClientList(uintptr(len(val)), uintptr(valPtr), uintptr(val1), uintptr(val2))
+	ret := rawPtr.CallSetRefPtrClientList(uintptr(valcount), uintptr(val), uintptr(val1), uintptr(val2))
 	return int32(ret)
 }
 
@@ -628,21 +610,12 @@ func (obj *translatorTestImpl) SetChildRawPtrLibrary(val TranslatorTestScopedLib
 	return int32(ret)
 }
 
-func (obj *translatorTestImpl) SetRawPtrLibraryList(val []TranslatorTestScopedLibrary, val1 int32, val2 int32) int32 {
+func (obj *translatorTestImpl) SetRawPtrLibraryList(valcount int, val unsafe.Pointer, val1 int32, val2 int32) int32 {
 	if obj == nil || obj.rawPtr == nil {
 		return 0
 	}
 	rawPtr := obj.rawPtr
-	var valRaw []uintptr
-	var valPtr unsafe.Pointer
-	if len(val) > 0 {
-		valRaw = make([]uintptr, len(val))
-		for i, elem := range val {
-			valRaw[i] = uintptr(extractRawPointer(elem))
-		}
-		valPtr = unsafe.Pointer(&valRaw[0])
-	}
-	ret := rawPtr.CallSetRawPtrLibraryList(uintptr(len(val)), uintptr(valPtr), uintptr(val1), uintptr(val2))
+	ret := rawPtr.CallSetRawPtrLibraryList(uintptr(valcount), uintptr(val), uintptr(val1), uintptr(val2))
 	return int32(ret)
 }
 
@@ -664,21 +637,12 @@ func (obj *translatorTestImpl) SetChildRawPtrClient(val TranslatorTestScopedClie
 	return int32(ret)
 }
 
-func (obj *translatorTestImpl) SetRawPtrClientList(val []TranslatorTestScopedClient, val1 int32, val2 int32) int32 {
+func (obj *translatorTestImpl) SetRawPtrClientList(valcount int, val unsafe.Pointer, val1 int32, val2 int32) int32 {
 	if obj == nil || obj.rawPtr == nil {
 		return 0
 	}
 	rawPtr := obj.rawPtr
-	var valRaw []uintptr
-	var valPtr unsafe.Pointer
-	if len(val) > 0 {
-		valRaw = make([]uintptr, len(val))
-		for i, elem := range val {
-			valRaw[i] = uintptr(extractRawPointer(elem))
-		}
-		valPtr = unsafe.Pointer(&valRaw[0])
-	}
-	ret := rawPtr.CallSetRawPtrClientList(uintptr(len(val)), uintptr(valPtr), uintptr(val1), uintptr(val2))
+	ret := rawPtr.CallSetRawPtrClientList(uintptr(valcount), uintptr(val), uintptr(val1), uintptr(val2))
 	return int32(ret)
 }
 
@@ -713,6 +677,19 @@ func wrapTranslatorTest(ptr unsafe.Pointer) TranslatorTest {
 	r := (*capi.CEFTranslatorTestT)(ptr)
 	base := (*capi.CEFBaseRefCountedT)(ptr)
 	base.CallAddRef()
+	impl := &translatorTestImpl{rawPtr: r}
+	runtime.SetFinalizer(impl, (*translatorTestImpl).Release)
+	return impl
+}
+
+// takeTranslatorTest adopts a CEF TranslatorTest pointer whose reference is already owned by
+// the caller (as returned by a global factory function). Unlike wrapTranslatorTest it
+// does NOT call AddRef, because the C API already transferred one reference to us.
+func takeTranslatorTest(ptr unsafe.Pointer) TranslatorTest {
+	if ptr == nil {
+		return nil
+	}
+	r := (*capi.CEFTranslatorTestT)(ptr)
 	impl := &translatorTestImpl{rawPtr: r}
 	runtime.SetFinalizer(impl, (*translatorTestImpl).Release)
 	return impl
@@ -782,6 +759,19 @@ func wrapTranslatorTestRefPtrLibrary(ptr unsafe.Pointer) TranslatorTestRefPtrLib
 	return impl
 }
 
+// takeTranslatorTestRefPtrLibrary adopts a CEF TranslatorTestRefPtrLibrary pointer whose reference is already owned by
+// the caller (as returned by a global factory function). Unlike wrapTranslatorTestRefPtrLibrary it
+// does NOT call AddRef, because the C API already transferred one reference to us.
+func takeTranslatorTestRefPtrLibrary(ptr unsafe.Pointer) TranslatorTestRefPtrLibrary {
+	if ptr == nil {
+		return nil
+	}
+	r := (*capi.CEFTranslatorTestRefPtrLibraryT)(ptr)
+	impl := &translatorTestRefPtrLibraryImpl{rawPtr: r}
+	runtime.SetFinalizer(impl, (*translatorTestRefPtrLibraryImpl).Release)
+	return impl
+}
+
 // TranslatorTestRefPtrLibraryChild Library-side child test object for RefPtr.
 type TranslatorTestRefPtrLibraryChild = portin.TranslatorTestRefPtrLibraryChild
 
@@ -846,6 +836,19 @@ func wrapTranslatorTestRefPtrLibraryChild(ptr unsafe.Pointer) TranslatorTestRefP
 	return impl
 }
 
+// takeTranslatorTestRefPtrLibraryChild adopts a CEF TranslatorTestRefPtrLibraryChild pointer whose reference is already owned by
+// the caller (as returned by a global factory function). Unlike wrapTranslatorTestRefPtrLibraryChild it
+// does NOT call AddRef, because the C API already transferred one reference to us.
+func takeTranslatorTestRefPtrLibraryChild(ptr unsafe.Pointer) TranslatorTestRefPtrLibraryChild {
+	if ptr == nil {
+		return nil
+	}
+	r := (*capi.CEFTranslatorTestRefPtrLibraryChildT)(ptr)
+	impl := &translatorTestRefPtrLibraryChildImpl{rawPtr: r}
+	runtime.SetFinalizer(impl, (*translatorTestRefPtrLibraryChildImpl).Release)
+	return impl
+}
+
 // TranslatorTestRefPtrLibraryChildChild Another library-side child test object for RefPtr.
 type TranslatorTestRefPtrLibraryChildChild = portin.TranslatorTestRefPtrLibraryChildChild
 
@@ -905,6 +908,19 @@ func wrapTranslatorTestRefPtrLibraryChildChild(ptr unsafe.Pointer) TranslatorTes
 	r := (*capi.CEFTranslatorTestRefPtrLibraryChildChildT)(ptr)
 	base := (*capi.CEFBaseRefCountedT)(ptr)
 	base.CallAddRef()
+	impl := &translatorTestRefPtrLibraryChildChildImpl{rawPtr: r}
+	runtime.SetFinalizer(impl, (*translatorTestRefPtrLibraryChildChildImpl).Release)
+	return impl
+}
+
+// takeTranslatorTestRefPtrLibraryChildChild adopts a CEF TranslatorTestRefPtrLibraryChildChild pointer whose reference is already owned by
+// the caller (as returned by a global factory function). Unlike wrapTranslatorTestRefPtrLibraryChildChild it
+// does NOT call AddRef, because the C API already transferred one reference to us.
+func takeTranslatorTestRefPtrLibraryChildChild(ptr unsafe.Pointer) TranslatorTestRefPtrLibraryChildChild {
+	if ptr == nil {
+		return nil
+	}
+	r := (*capi.CEFTranslatorTestRefPtrLibraryChildChildT)(ptr)
 	impl := &translatorTestRefPtrLibraryChildChildImpl{rawPtr: r}
 	runtime.SetFinalizer(impl, (*translatorTestRefPtrLibraryChildChildImpl).Release)
 	return impl
@@ -1212,6 +1228,19 @@ func wrapTranslatorTestScopedLibraryChild(ptr unsafe.Pointer) TranslatorTestScop
 	return impl
 }
 
+// takeTranslatorTestScopedLibraryChild adopts a CEF TranslatorTestScopedLibraryChild pointer whose reference is already owned by
+// the caller (as returned by a global factory function). Unlike wrapTranslatorTestScopedLibraryChild it
+// does NOT call AddRef, because the C API already transferred one reference to us.
+func takeTranslatorTestScopedLibraryChild(ptr unsafe.Pointer) TranslatorTestScopedLibraryChild {
+	if ptr == nil {
+		return nil
+	}
+	r := (*capi.CEFTranslatorTestScopedLibraryChildT)(ptr)
+	impl := &translatorTestScopedLibraryChildImpl{rawPtr: r}
+	runtime.SetFinalizer(impl, (*translatorTestScopedLibraryChildImpl).Release)
+	return impl
+}
+
 // TranslatorTestScopedLibraryChildChild Another library-side child test object for OwnPtr/RawPtr.
 type TranslatorTestScopedLibraryChildChild = portin.TranslatorTestScopedLibraryChildChild
 
@@ -1271,6 +1300,19 @@ func wrapTranslatorTestScopedLibraryChildChild(ptr unsafe.Pointer) TranslatorTes
 	r := (*capi.CEFTranslatorTestScopedLibraryChildChildT)(ptr)
 	base := (*capi.CEFBaseRefCountedT)(ptr)
 	base.CallAddRef()
+	impl := &translatorTestScopedLibraryChildChildImpl{rawPtr: r}
+	runtime.SetFinalizer(impl, (*translatorTestScopedLibraryChildChildImpl).Release)
+	return impl
+}
+
+// takeTranslatorTestScopedLibraryChildChild adopts a CEF TranslatorTestScopedLibraryChildChild pointer whose reference is already owned by
+// the caller (as returned by a global factory function). Unlike wrapTranslatorTestScopedLibraryChildChild it
+// does NOT call AddRef, because the C API already transferred one reference to us.
+func takeTranslatorTestScopedLibraryChildChild(ptr unsafe.Pointer) TranslatorTestScopedLibraryChildChild {
+	if ptr == nil {
+		return nil
+	}
+	r := (*capi.CEFTranslatorTestScopedLibraryChildChildT)(ptr)
 	impl := &translatorTestScopedLibraryChildChildImpl{rawPtr: r}
 	runtime.SetFinalizer(impl, (*translatorTestScopedLibraryChildChildImpl).Release)
 	return impl
@@ -1452,25 +1494,25 @@ func wrapTranslatorTestScopedClientChild(ptr unsafe.Pointer) TranslatorTestScope
 // TranslatorTestCreate Create the test object.
 func TranslatorTestCreate() TranslatorTest {
 	ret := capi.CEFTranslatorTestCreate()
-	return wrapTranslatorTest(ret)
+	return takeTranslatorTest(ret)
 }
 
 // TranslatorTestRefPtrLibraryCreate Create the test object.
 func TranslatorTestRefPtrLibraryCreate(value int32) TranslatorTestRefPtrLibrary {
 	ret := capi.CEFTranslatorTestRefPtrLibraryCreate(value)
-	return wrapTranslatorTestRefPtrLibrary(ret)
+	return takeTranslatorTestRefPtrLibrary(ret)
 }
 
 // TranslatorTestRefPtrLibraryChildCreate Create the test object.
 func TranslatorTestRefPtrLibraryChildCreate(value int32, otherValue int32) TranslatorTestRefPtrLibraryChild {
 	ret := capi.CEFTranslatorTestRefPtrLibraryChildCreate(value, otherValue)
-	return wrapTranslatorTestRefPtrLibraryChild(ret)
+	return takeTranslatorTestRefPtrLibraryChild(ret)
 }
 
 // TranslatorTestRefPtrLibraryChildChildCreate Create the test object.
 func TranslatorTestRefPtrLibraryChildChildCreate(value int32, otherValue int32, otherOtherValue int32) TranslatorTestRefPtrLibraryChildChild {
 	ret := capi.CEFTranslatorTestRefPtrLibraryChildChildCreate(value, otherValue, otherOtherValue)
-	return wrapTranslatorTestRefPtrLibraryChildChild(ret)
+	return takeTranslatorTestRefPtrLibraryChildChild(ret)
 }
 
 // TranslatorTestScopedLibraryCreate Create the test object.
@@ -1482,11 +1524,11 @@ func TranslatorTestScopedLibraryCreate(value int32) TranslatorTestScopedLibrary 
 // TranslatorTestScopedLibraryChildCreate Create the test object.
 func TranslatorTestScopedLibraryChildCreate(value int32, otherValue int32) TranslatorTestScopedLibraryChild {
 	ret := capi.CEFTranslatorTestScopedLibraryChildCreate(value, otherValue)
-	return wrapTranslatorTestScopedLibraryChild(ret)
+	return takeTranslatorTestScopedLibraryChild(ret)
 }
 
 // TranslatorTestScopedLibraryChildChildCreate Create the test object.
 func TranslatorTestScopedLibraryChildChildCreate(value int32, otherValue int32, otherOtherValue int32) TranslatorTestScopedLibraryChildChild {
 	ret := capi.CEFTranslatorTestScopedLibraryChildChildCreate(value, otherValue, otherOtherValue)
-	return wrapTranslatorTestScopedLibraryChildChild(ret)
+	return takeTranslatorTestScopedLibraryChildChild(ret)
 }

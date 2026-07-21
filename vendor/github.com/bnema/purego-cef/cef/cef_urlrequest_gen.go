@@ -121,6 +121,19 @@ func wrapUrlrequest(ptr unsafe.Pointer) Urlrequest {
 	return impl
 }
 
+// takeUrlrequest adopts a CEF Urlrequest pointer whose reference is already owned by
+// the caller (as returned by a global factory function). Unlike wrapUrlrequest it
+// does NOT call AddRef, because the C API already transferred one reference to us.
+func takeUrlrequest(ptr unsafe.Pointer) Urlrequest {
+	if ptr == nil {
+		return nil
+	}
+	r := (*capi.CEFUrlrequestT)(ptr)
+	impl := &urlrequestImpl{rawPtr: r}
+	runtime.SetFinalizer(impl, (*urlrequestImpl).Release)
+	return impl
+}
+
 // UrlrequestClient Structure that should be implemented by the cef_urlrequest_t client. The functions of this structure will be called on the same thread that created the request unless otherwise documented.
 type UrlrequestClient = portin.UrlrequestClient
 
@@ -346,5 +359,5 @@ func wrapUrlrequestClient(ptr unsafe.Pointer) UrlrequestClient {
 // UrlrequestCreate Create a new URL request that is not associated with a specific browser or frame. Use cef_frame_t::CreateURLRequest instead if you want the request to have this association, in which case it may be handled differently (see documentation on that function). A request created with this function may only originate from the browser process, and will behave as follows:   - It may be intercepted by the client via CefResourceRequestHandler or     CefSchemeHandlerFactory.   - POST data may only contain only a single element of type PDE_TYPE_FILE     or PDE_TYPE_BYTES.   - If |request_context| is empty the global request context will be used. The |request| object will be marked as read-only after calling this function.
 func UrlrequestCreate(request Request, client UrlrequestClient, requestContext RequestContext) Urlrequest {
 	ret := capi.CEFUrlrequestCreate(extractRawPointer(request), extractOrWrapRawPointer(client, func() any { return NewUrlrequestClient(client) }), extractRawPointer(requestContext))
-	return wrapUrlrequest(ret)
+	return takeUrlrequest(ret)
 }

@@ -76,6 +76,19 @@ func wrapTestServer(ptr unsafe.Pointer) TestServer {
 	return impl
 }
 
+// takeTestServer adopts a CEF TestServer pointer whose reference is already owned by
+// the caller (as returned by a global factory function). Unlike wrapTestServer it
+// does NOT call AddRef, because the C API already transferred one reference to us.
+func takeTestServer(ptr unsafe.Pointer) TestServer {
+	if ptr == nil {
+		return nil
+	}
+	r := (*capi.CEFTestServerT)(ptr)
+	impl := &testServerImpl{rawPtr: r}
+	runtime.SetFinalizer(impl, (*testServerImpl).Release)
+	return impl
+}
+
 // TestServerHandler Implement this structure to handle test server requests. A new thread will be created for each cef_test_server_t::CreateAndStart call (the "dedicated server thread"), and the functions of this structure will be called on that thread. See related documentation on cef_test_server_t::CreateAndStart.
 type TestServerHandler = portin.TestServerHandler
 
@@ -265,5 +278,5 @@ func wrapTestServerConnection(ptr unsafe.Pointer) TestServerConnection {
 // TestServerCreateAndStart Create and start a new test server that binds to |port|. If |port| is 0 an available port number will be selected. If |https_server| is true (1) the server will be HTTPS, otherwise it will be HTTP. When |https_server| is true (1) the |https_cert_type| value is used to configure the certificate type. Returns the newly created server object on success, or nullptr if the server cannot be started. A new thread will be created for each CreateAndStart call (the "dedicated server thread"). It is therefore recommended to use a different cef_test_server_handler_t instance for each CreateAndStart call to avoid thread safety issues in the cef_test_server_handler_t implementation. On success, this function will block until the dedicated server thread has started. The server will continue running until Stop is called.
 func TestServerCreateAndStart(port uint16, httpsServer int32, httpsCertType TestCertType, handler TestServerHandler) TestServer {
 	ret := capi.CEFTestServerCreateAndStart(port, httpsServer, capi.CEFTestCertTypeT(httpsCertType), extractOrWrapRawPointer(handler, func() any { return NewTestServerHandler(handler) }))
-	return wrapTestServer(ret)
+	return takeTestServer(ret)
 }

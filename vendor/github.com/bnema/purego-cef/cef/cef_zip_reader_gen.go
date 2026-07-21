@@ -181,8 +181,21 @@ func wrapZipReader(ptr unsafe.Pointer) ZipReader {
 	return impl
 }
 
+// takeZipReader adopts a CEF ZipReader pointer whose reference is already owned by
+// the caller (as returned by a global factory function). Unlike wrapZipReader it
+// does NOT call AddRef, because the C API already transferred one reference to us.
+func takeZipReader(ptr unsafe.Pointer) ZipReader {
+	if ptr == nil {
+		return nil
+	}
+	r := (*capi.CEFZipReaderT)(ptr)
+	impl := &zipReaderImpl{rawPtr: r}
+	runtime.SetFinalizer(impl, (*zipReaderImpl).Release)
+	return impl
+}
+
 // ZipReaderCreate Create a new cef_zip_reader_t object. The returned object's functions can only be called from the thread that created the object.
 func ZipReaderCreate(stream StreamReader) ZipReader {
 	ret := capi.CEFZipReaderCreate(extractRawPointer(stream))
-	return wrapZipReader(ret)
+	return takeZipReader(ret)
 }

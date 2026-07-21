@@ -56,11 +56,12 @@ github.com/bnema/purego/internal/cgo
 github.com/bnema/purego/internal/fakecgo
 github.com/bnema/purego/internal/strings
 github.com/bnema/purego/internal/xreflect
-# github.com/bnema/purego-cef v0.13.4
+# github.com/bnema/purego-cef v0.14.1
 ## explicit; go 1.26
 github.com/bnema/purego-cef/cef
 github.com/bnema/purego-cef/cef/mocks
 github.com/bnema/purego-cef/internal/capi
+github.com/bnema/purego-cef/internal/cefapi
 github.com/bnema/purego-cef/internal/core
 github.com/bnema/purego-cef/internal/loader
 github.com/bnema/purego-cef/internal/ports/in

@@ -32,6 +32,13 @@ type V8Exception interface {
 	GetEndColumn() uintptr
 }
 
+// V8BackingStore defines the outbound port for CEFV8BackingStoreT.
+type V8BackingStore interface {
+	Data() uintptr
+	ByteLength() uintptr
+	IsValid() uintptr
+}
+
 // V8Value defines the outbound port for CEFV8ValueT.
 type V8Value interface {
 	IsValid() uintptr
@@ -112,6 +119,7 @@ type V8Functions interface {
 	V8ContextGetCurrentContext() unsafe.Pointer
 	V8ContextGetEnteredContext() unsafe.Pointer
 	V8ContextInContext() int32
+	V8BackingStoreCreate(byteLength uintptr) unsafe.Pointer
 	V8ValueCreateUndefined() unsafe.Pointer
 	V8ValueCreateNull() unsafe.Pointer
 	V8ValueCreateBool(value unsafe.Pointer) unsafe.Pointer
@@ -122,8 +130,9 @@ type V8Functions interface {
 	V8ValueCreateString(value unsafe.Pointer) unsafe.Pointer
 	V8ValueCreateObject(accessor unsafe.Pointer, interceptor unsafe.Pointer) unsafe.Pointer
 	V8ValueCreateArray(length unsafe.Pointer) unsafe.Pointer
-	V8ValueCreateArrayBuffer(buffer unsafe.Pointer, length unsafe.Pointer, releaseCallback unsafe.Pointer) unsafe.Pointer
-	V8ValueCreateArrayBufferWithCopy(buffer unsafe.Pointer, length unsafe.Pointer) unsafe.Pointer
+	V8ValueCreateArrayBuffer(buffer unsafe.Pointer, length uintptr, releaseCallback unsafe.Pointer) unsafe.Pointer
+	V8ValueCreateArrayBufferWithCopy(buffer unsafe.Pointer, length uintptr) unsafe.Pointer
+	V8ValueCreateArrayBufferFromBackingStore(backingStore unsafe.Pointer) unsafe.Pointer
 	V8ValueCreateFunction(name unsafe.Pointer, handler unsafe.Pointer) unsafe.Pointer
 	V8ValueCreatePromise() unsafe.Pointer
 	V8StackTraceGetCurrent(frameLimit unsafe.Pointer) unsafe.Pointer

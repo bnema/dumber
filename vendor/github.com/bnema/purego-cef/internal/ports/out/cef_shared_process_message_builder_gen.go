@@ -17,5 +17,5 @@ type SharedProcessMessageBuilder interface {
 
 // SharedProcessMessageBuilderFunctions defines the outbound port for SharedProcessMessageBuilder free functions.
 type SharedProcessMessageBuilderFunctions interface {
-	SharedProcessMessageBuilderCreate(name unsafe.Pointer, byteSize unsafe.Pointer) unsafe.Pointer
+	SharedProcessMessageBuilderCreate(name unsafe.Pointer, byteSize uintptr) unsafe.Pointer
 }

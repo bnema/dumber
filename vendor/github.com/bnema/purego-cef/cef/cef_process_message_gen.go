@@ -113,10 +113,23 @@ func wrapProcessMessage(ptr unsafe.Pointer) ProcessMessage {
 	return impl
 }
 
+// takeProcessMessage adopts a CEF ProcessMessage pointer whose reference is already owned by
+// the caller (as returned by a global factory function). Unlike wrapProcessMessage it
+// does NOT call AddRef, because the C API already transferred one reference to us.
+func takeProcessMessage(ptr unsafe.Pointer) ProcessMessage {
+	if ptr == nil {
+		return nil
+	}
+	r := (*capi.CEFProcessMessageT)(ptr)
+	impl := &processMessageImpl{rawPtr: r}
+	runtime.SetFinalizer(impl, (*processMessageImpl).Release)
+	return impl
+}
+
 // ProcessMessageCreate Create a new cef_process_message_t object with the specified name.
 func ProcessMessageCreate(name string) ProcessMessage {
 	nameStr := cefString(name)
 	defer freeCefString(&nameStr)
 	ret := capi.CEFProcessMessageCreate(unsafe.Pointer(&nameStr))
-	return wrapProcessMessage(ret)
+	return takeProcessMessage(ret)
 }

@@ -225,6 +225,7 @@ type CEFSettingsT struct {
 	ChromePolicyID                   CEFStringT
 	ChromeAppIconID                  int32
 	DisableSignalHandlers            int32
+	UseViewsDefaultPopup             int32
 }
 
 type CEFRequestContextSettingsT struct {
@@ -263,7 +264,6 @@ type CEFBrowserSettingsT struct {
 	TabToLinks                 int32
 	LocalStorage               int32
 	DatabasesDeprecated        int32
-	Databases                  int32
 	Webgl                      int32
 	BackgroundColor            CEFColorT
 	ChromeStatusBubble         int32

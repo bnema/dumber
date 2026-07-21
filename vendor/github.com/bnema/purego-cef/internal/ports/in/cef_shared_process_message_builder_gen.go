@@ -2,14 +2,10 @@
 
 package in
 
-import (
-	"unsafe"
-)
-
 // SharedProcessMessageBuilder defines the inbound port interface.
 type SharedProcessMessageBuilder interface {
 	IsValid() bool
 	Size() int
-	Memory() unsafe.Pointer
+	Memory() uintptr
 	Build() ProcessMessage
 }

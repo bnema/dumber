@@ -217,8 +217,21 @@ func wrapResponse(ptr unsafe.Pointer) Response {
 	return impl
 }
 
+// takeResponse adopts a CEF Response pointer whose reference is already owned by
+// the caller (as returned by a global factory function). Unlike wrapResponse it
+// does NOT call AddRef, because the C API already transferred one reference to us.
+func takeResponse(ptr unsafe.Pointer) Response {
+	if ptr == nil {
+		return nil
+	}
+	r := (*capi.CEFResponseT)(ptr)
+	impl := &responseImpl{rawPtr: r}
+	runtime.SetFinalizer(impl, (*responseImpl).Release)
+	return impl
+}
+
 // ResponseCreate Create a new cef_response_t object.
 func ResponseCreate() Response {
 	ret := capi.CEFResponseCreate()
-	return wrapResponse(ret)
+	return takeResponse(ret)
 }

@@ -256,14 +256,27 @@ func wrapCommandLine(ptr unsafe.Pointer) CommandLine {
 	return impl
 }
 
+// takeCommandLine adopts a CEF CommandLine pointer whose reference is already owned by
+// the caller (as returned by a global factory function). Unlike wrapCommandLine it
+// does NOT call AddRef, because the C API already transferred one reference to us.
+func takeCommandLine(ptr unsafe.Pointer) CommandLine {
+	if ptr == nil {
+		return nil
+	}
+	r := (*capi.CEFCommandLineT)(ptr)
+	impl := &commandLineImpl{rawPtr: r}
+	runtime.SetFinalizer(impl, (*commandLineImpl).Release)
+	return impl
+}
+
 // CommandLineCreate Create a new cef_command_line_t instance.
 func CommandLineCreate() CommandLine {
 	ret := capi.CEFCommandLineCreate()
-	return wrapCommandLine(ret)
+	return takeCommandLine(ret)
 }
 
 // CommandLineGetGlobal Returns the singleton global cef_command_line_t object. The returned object will be read-only.
 func CommandLineGetGlobal() CommandLine {
 	ret := capi.CEFCommandLineGetGlobal()
-	return wrapCommandLine(ret)
+	return takeCommandLine(ret)
 }

@@ -10,39 +10,39 @@ import (
 )
 
 type CEFTextfieldT struct {
-	_                           structs.HostLayout
-	Base                        CEFViewT
-	SetPasswordInput            uintptr
-	IsPasswordInput             uintptr
-	SetReadOnly                 uintptr
-	IsReadOnly                  uintptr
-	GetText                     uintptr
-	SetText                     uintptr
-	AppendText                  uintptr
-	InsertOrReplaceText         uintptr
-	HasSelection                uintptr
-	GetSelectedText             uintptr
-	SelectAll                   uintptr
-	ClearSelection              uintptr
-	GetSelectedRange            uintptr
-	SelectRange                 uintptr
-	GetCursorPosition           uintptr
-	SetTextColor                uintptr
-	GetTextColor                uintptr
-	SetSelectionTextColor       uintptr
-	GetSelectionTextColor       uintptr
-	SetSelectionBackgroundColor uintptr
-	GetSelectionBackgroundColor uintptr
-	SetFontList                 uintptr
-	ApplyTextColor              uintptr
-	ApplyTextStyle              uintptr
-	IsCommandEnabled            uintptr
-	ExecuteCommand              uintptr
-	ClearEditHistory            uintptr
-	SetPlaceholderText          uintptr
-	GetPlaceholderText          uintptr
-	SetPlaceholderTextColor     uintptr
-	SetAccessibleName           uintptr
+	_                                  structs.HostLayout
+	Base                               CEFViewT
+	SetPasswordInput                   uintptr
+	IsPasswordInput                    uintptr
+	SetReadOnly                        uintptr
+	IsReadOnly                         uintptr
+	GetText                            uintptr
+	SetText                            uintptr
+	AppendText                         uintptr
+	InsertOrReplaceText                uintptr
+	HasSelection                       uintptr
+	GetSelectedText                    uintptr
+	SelectAll                          uintptr
+	ClearSelection                     uintptr
+	GetSelectedRange                   uintptr
+	SelectRange                        uintptr
+	GetCursorPosition                  uintptr
+	SetTextColorRemoved                uintptr
+	GetTextColorRemoved                uintptr
+	SetSelectionTextColorRemoved       uintptr
+	GetSelectionTextColorRemoved       uintptr
+	SetSelectionBackgroundColorRemoved uintptr
+	GetSelectionBackgroundColorRemoved uintptr
+	SetFontList                        uintptr
+	ApplyTextColor                     uintptr
+	ApplyTextStyle                     uintptr
+	IsCommandEnabled                   uintptr
+	ExecuteCommand                     uintptr
+	ClearEditHistory                   uintptr
+	SetPlaceholderText                 uintptr
+	GetPlaceholderText                 uintptr
+	SetPlaceholderTextColorRemoved     uintptr
+	SetAccessibleName                  uintptr
 }
 
 func (v *CEFTextfieldT) OverrideSetPasswordInput(fn uintptr) { v.SetPasswordInput = fn }
@@ -195,70 +195,6 @@ func (v *CEFTextfieldT) CallGetCursorPosition(args ...uintptr) uintptr {
 	return r1
 }
 
-func (v *CEFTextfieldT) OverrideSetTextColor(fn uintptr) { v.SetTextColor = fn }
-
-func (v *CEFTextfieldT) CallSetTextColor(args ...uintptr) uintptr {
-	if v.SetTextColor == 0 {
-		return 0
-	}
-	r1, _, _ := purego.SyscallN(v.SetTextColor, append([]uintptr{uintptr(unsafe.Pointer(v))}, args...)...)
-	return r1
-}
-
-func (v *CEFTextfieldT) OverrideGetTextColor(fn uintptr) { v.GetTextColor = fn }
-
-func (v *CEFTextfieldT) CallGetTextColor(args ...uintptr) uintptr {
-	if v.GetTextColor == 0 {
-		return 0
-	}
-	r1, _, _ := purego.SyscallN(v.GetTextColor, append([]uintptr{uintptr(unsafe.Pointer(v))}, args...)...)
-	return r1
-}
-
-func (v *CEFTextfieldT) OverrideSetSelectionTextColor(fn uintptr) { v.SetSelectionTextColor = fn }
-
-func (v *CEFTextfieldT) CallSetSelectionTextColor(args ...uintptr) uintptr {
-	if v.SetSelectionTextColor == 0 {
-		return 0
-	}
-	r1, _, _ := purego.SyscallN(v.SetSelectionTextColor, append([]uintptr{uintptr(unsafe.Pointer(v))}, args...)...)
-	return r1
-}
-
-func (v *CEFTextfieldT) OverrideGetSelectionTextColor(fn uintptr) { v.GetSelectionTextColor = fn }
-
-func (v *CEFTextfieldT) CallGetSelectionTextColor(args ...uintptr) uintptr {
-	if v.GetSelectionTextColor == 0 {
-		return 0
-	}
-	r1, _, _ := purego.SyscallN(v.GetSelectionTextColor, append([]uintptr{uintptr(unsafe.Pointer(v))}, args...)...)
-	return r1
-}
-
-func (v *CEFTextfieldT) OverrideSetSelectionBackgroundColor(fn uintptr) {
-	v.SetSelectionBackgroundColor = fn
-}
-
-func (v *CEFTextfieldT) CallSetSelectionBackgroundColor(args ...uintptr) uintptr {
-	if v.SetSelectionBackgroundColor == 0 {
-		return 0
-	}
-	r1, _, _ := purego.SyscallN(v.SetSelectionBackgroundColor, append([]uintptr{uintptr(unsafe.Pointer(v))}, args...)...)
-	return r1
-}
-
-func (v *CEFTextfieldT) OverrideGetSelectionBackgroundColor(fn uintptr) {
-	v.GetSelectionBackgroundColor = fn
-}
-
-func (v *CEFTextfieldT) CallGetSelectionBackgroundColor(args ...uintptr) uintptr {
-	if v.GetSelectionBackgroundColor == 0 {
-		return 0
-	}
-	r1, _, _ := purego.SyscallN(v.GetSelectionBackgroundColor, append([]uintptr{uintptr(unsafe.Pointer(v))}, args...)...)
-	return r1
-}
-
 func (v *CEFTextfieldT) OverrideSetFontList(fn uintptr) { v.SetFontList = fn }
 
 func (v *CEFTextfieldT) CallSetFontList(args ...uintptr) uintptr {
@@ -336,16 +272,6 @@ func (v *CEFTextfieldT) CallGetPlaceholderText(args ...uintptr) uintptr {
 		return 0
 	}
 	r1, _, _ := purego.SyscallN(v.GetPlaceholderText, append([]uintptr{uintptr(unsafe.Pointer(v))}, args...)...)
-	return r1
-}
-
-func (v *CEFTextfieldT) OverrideSetPlaceholderTextColor(fn uintptr) { v.SetPlaceholderTextColor = fn }
-
-func (v *CEFTextfieldT) CallSetPlaceholderTextColor(args ...uintptr) uintptr {
-	if v.SetPlaceholderTextColor == 0 {
-		return 0
-	}
-	r1, _, _ := purego.SyscallN(v.SetPlaceholderTextColor, append([]uintptr{uintptr(unsafe.Pointer(v))}, args...)...)
 	return r1
 }
 

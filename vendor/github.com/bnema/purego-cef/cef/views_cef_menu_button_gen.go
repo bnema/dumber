@@ -75,10 +75,23 @@ func wrapMenuButton(ptr unsafe.Pointer) MenuButton {
 	return impl
 }
 
+// takeMenuButton adopts a CEF MenuButton pointer whose reference is already owned by
+// the caller (as returned by a global factory function). Unlike wrapMenuButton it
+// does NOT call AddRef, because the C API already transferred one reference to us.
+func takeMenuButton(ptr unsafe.Pointer) MenuButton {
+	if ptr == nil {
+		return nil
+	}
+	r := (*capi.CEFMenuButtonT)(ptr)
+	impl := &menuButtonImpl{rawPtr: r}
+	runtime.SetFinalizer(impl, (*menuButtonImpl).Release)
+	return impl
+}
+
 // MenuButtonCreate Create a new MenuButton. A |delegate| must be provided to call show_menu() when the button is clicked. |text| will be shown on the MenuButton and used as the default accessible name. If |with_frame| is true (1) the button will have a visible frame at all times, center alignment, additional padding and a default minimum size of 70x33 DIP. If |with_frame| is false (0) the button will only have a visible frame on hover/press, left alignment, less padding and no default minimum size.
 func MenuButtonCreate(delegate MenuButtonDelegate, text string) MenuButton {
 	textStr := cefString(text)
 	defer freeCefString(&textStr)
 	ret := capi.CEFMenuButtonCreate(extractOrWrapRawPointer(delegate, func() any { return NewMenuButtonDelegate(delegate) }), unsafe.Pointer(&textStr))
-	return wrapMenuButton(ret)
+	return takeMenuButton(ret)
 }

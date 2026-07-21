@@ -24,7 +24,7 @@ type PreferenceManager interface {
 
 // PreferenceFunctions defines the outbound port for Preference free functions.
 type PreferenceFunctions interface {
-	PreferenceManagerGetChromeVariationsAsSwitches(switches unsafe.Pointer)
-	PreferenceManagerGetChromeVariationsAsStrings(strings unsafe.Pointer)
+	PreferenceManagerGetChromeVariationsAsSwitches(switches uintptr)
+	PreferenceManagerGetChromeVariationsAsStrings(strings uintptr)
 	PreferenceManagerGetGlobal() unsafe.Pointer
 }

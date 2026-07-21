@@ -19,12 +19,6 @@ type Textfield interface {
 	GetSelectedRange() uintptr
 	SelectRange(range_ *Range)
 	GetCursorPosition() int
-	SetTextColor(color uintptr)
-	GetTextColor() uintptr
-	SetSelectionTextColor(color uintptr)
-	GetSelectionTextColor() uintptr
-	SetSelectionBackgroundColor(color uintptr)
-	GetSelectionBackgroundColor() uintptr
 	SetFontList(fontList string)
 	ApplyTextColor(color uintptr, range_ *Range)
 	ApplyTextStyle(style TextStyle, add int32, range_ *Range)
@@ -33,6 +27,5 @@ type Textfield interface {
 	ClearEditHistory()
 	SetPlaceholderText(text string)
 	GetPlaceholderText() string
-	SetPlaceholderTextColor(color uintptr)
 	SetAccessibleName(name string)
 }

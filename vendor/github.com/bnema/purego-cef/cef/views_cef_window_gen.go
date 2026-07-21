@@ -416,8 +416,21 @@ func wrapWindow(ptr unsafe.Pointer) Window {
 	return impl
 }
 
+// takeWindow adopts a CEF Window pointer whose reference is already owned by
+// the caller (as returned by a global factory function). Unlike wrapWindow it
+// does NOT call AddRef, because the C API already transferred one reference to us.
+func takeWindow(ptr unsafe.Pointer) Window {
+	if ptr == nil {
+		return nil
+	}
+	r := (*capi.CEFWindowT)(ptr)
+	impl := &windowImpl{rawPtr: r}
+	runtime.SetFinalizer(impl, (*windowImpl).Release)
+	return impl
+}
+
 // WindowCreateTopLevel Create a new Window.
 func WindowCreateTopLevel(delegate WindowDelegate) Window {
 	ret := capi.CEFWindowCreateTopLevel(extractOrWrapRawPointer(delegate, func() any { return NewWindowDelegate(delegate) }))
-	return wrapWindow(ret)
+	return takeWindow(ret)
 }

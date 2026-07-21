@@ -14,14 +14,12 @@ type ApiVersionTest interface {
 	SetRefPtrLibraryAndReturn(val uintptr) uintptr
 	SetChildRefPtrLibrary(val uintptr) uintptr
 	SetChildRefPtrLibraryAndReturnParent(val uintptr) uintptr
-	SetRefPtrLibraryList(val uintptr, val1 uintptr, val2 uintptr) uintptr
+	SetRefPtrLibraryList(valcount uintptr, val uintptr, val1 uintptr, val2 uintptr) uintptr
 	GetRefPtrLibraryListByRef(valcount uintptr, val uintptr, val1 uintptr, val2 uintptr) uintptr
 	GetRefPtrLibraryListSize() uintptr
 	SetRefPtrClient(val uintptr) uintptr
 	SetRefPtrClientAndReturn(val uintptr) uintptr
-	SetChildRefPtrClient(val uintptr) uintptr
-	SetChildRefPtrClientAndReturnParent(val uintptr) uintptr
-	SetRefPtrClientList(val uintptr, val1 uintptr, val2 uintptr) uintptr
+	SetRefPtrClientList(valcount uintptr, val uintptr, val1 uintptr, val2 uintptr) uintptr
 	GetRefPtrClientListByRef(valcount uintptr, val uintptr, val1 uintptr, val2 uintptr) uintptr
 	GetRefPtrClientListSize() uintptr
 	GetOwnPtrLibrary(val uintptr) uintptr
@@ -31,14 +29,11 @@ type ApiVersionTest interface {
 	SetChildOwnPtrLibraryAndReturnParent(val uintptr) uintptr
 	SetOwnPtrClient(val uintptr) uintptr
 	SetOwnPtrClientAndReturn(val uintptr) uintptr
-	SetChildOwnPtrClient(val uintptr) uintptr
-	SetChildOwnPtrClientAndReturnParent(val uintptr) uintptr
 	SetRawPtrLibrary(val uintptr) uintptr
 	SetChildRawPtrLibrary(val uintptr) uintptr
-	SetRawPtrLibraryList(val uintptr, val1 uintptr, val2 uintptr) uintptr
+	SetRawPtrLibraryList(valcount uintptr, val uintptr, val1 uintptr, val2 uintptr) uintptr
 	SetRawPtrClient(val uintptr) uintptr
-	SetChildRawPtrClient(val uintptr) uintptr
-	SetRawPtrClientList(val uintptr, val1 uintptr, val2 uintptr) uintptr
+	SetRawPtrClientList(valcount uintptr, val uintptr, val1 uintptr, val2 uintptr) uintptr
 	SetChildRefPtrClientV2(val uintptr) uintptr
 	SetChildRefPtrClientAndReturnParentV2(val uintptr) uintptr
 	SetChildOwnPtrClientV2(val uintptr) uintptr
@@ -50,32 +45,14 @@ type ApiVersionTest interface {
 type ApiVersionTestRefPtrLibrary interface {
 	GetValueLegacy() uintptr
 	SetValueLegacy(value uintptr)
-	GetValue() uintptr
-	SetValue(value uintptr)
-	GetValueV1() uintptr
-	SetValueV1(value uintptr)
 	GetValueV2() uintptr
 	SetValueV2(value uintptr)
-	GetValueExp() uintptr
-	SetValueExp(value uintptr)
 }
 
 // ApiVersionTestRefPtrLibraryChild defines the outbound port for CEFApiVersionTestRefPtrLibraryChildT.
 type ApiVersionTestRefPtrLibraryChild interface {
 	GetOtherValue() uintptr
 	SetOtherValue(value uintptr)
-}
-
-// ApiVersionTestRefPtrLibraryChildChild defines the outbound port for CEFApiVersionTestRefPtrLibraryChildChildT.
-type ApiVersionTestRefPtrLibraryChildChild interface {
-	GetOtherOtherValue() uintptr
-	SetOtherOtherValue(value uintptr)
-}
-
-// ApiVersionTestRefPtrLibraryChildChildV1 defines the outbound port for CEFApiVersionTestRefPtrLibraryChildChildV1T.
-type ApiVersionTestRefPtrLibraryChildChildV1 interface {
-	GetOtherOtherValue() uintptr
-	SetOtherOtherValue(value uintptr)
 }
 
 // ApiVersionTestRefPtrLibraryChildChildV2 defines the outbound port for CEFApiVersionTestRefPtrLibraryChildChildV2T.
@@ -88,32 +65,14 @@ type ApiVersionTestRefPtrLibraryChildChildV2 interface {
 type ApiVersionTestScopedLibrary interface {
 	GetValueLegacy() uintptr
 	SetValueLegacy(value uintptr)
-	GetValue() uintptr
-	SetValue(value uintptr)
-	GetValueV1() uintptr
-	SetValueV1(value uintptr)
 	GetValueV2() uintptr
 	SetValueV2(value uintptr)
-	GetValueExp() uintptr
-	SetValueExp(value uintptr)
 }
 
 // ApiVersionTestScopedLibraryChild defines the outbound port for CEFApiVersionTestScopedLibraryChildT.
 type ApiVersionTestScopedLibraryChild interface {
 	GetOtherValue() uintptr
 	SetOtherValue(value uintptr)
-}
-
-// ApiVersionTestScopedLibraryChildChild defines the outbound port for CEFApiVersionTestScopedLibraryChildChildT.
-type ApiVersionTestScopedLibraryChildChild interface {
-	GetOtherOtherValue() uintptr
-	SetOtherOtherValue(value uintptr)
-}
-
-// ApiVersionTestScopedLibraryChildChildV1 defines the outbound port for CEFApiVersionTestScopedLibraryChildChildV1T.
-type ApiVersionTestScopedLibraryChildChildV1 interface {
-	GetOtherOtherValue() uintptr
-	SetOtherOtherValue(value uintptr)
 }
 
 // ApiVersionTestScopedLibraryChildChildV2 defines the outbound port for CEFApiVersionTestScopedLibraryChildChildV2T.
@@ -129,18 +88,12 @@ type ApiVersionTestFunctions interface {
 	ApiVersionTestRefPtrLibraryCreateWithDefault(value unsafe.Pointer) unsafe.Pointer
 	ApiVersionTestRefPtrLibraryChildCreate() unsafe.Pointer
 	ApiVersionTestRefPtrLibraryChildCreateWithDefault(value unsafe.Pointer, otherValue unsafe.Pointer) unsafe.Pointer
-	ApiVersionTestRefPtrLibraryChildChildCreate() unsafe.Pointer
-	ApiVersionTestRefPtrLibraryChildChildV1Create() unsafe.Pointer
-	ApiVersionTestRefPtrLibraryChildChildV1CreateWithDefault(value unsafe.Pointer, otherValue unsafe.Pointer, otherOtherValue unsafe.Pointer) unsafe.Pointer
 	ApiVersionTestRefPtrLibraryChildChildV2Create() unsafe.Pointer
 	ApiVersionTestRefPtrLibraryChildChildV2CreateWithDefault(value unsafe.Pointer, otherValue unsafe.Pointer, otherOtherValue unsafe.Pointer) unsafe.Pointer
 	ApiVersionTestScopedLibraryCreate() unsafe.Pointer
 	ApiVersionTestScopedLibraryCreateWithDefault(value unsafe.Pointer) unsafe.Pointer
 	ApiVersionTestScopedLibraryChildCreate() unsafe.Pointer
 	ApiVersionTestScopedLibraryChildCreateWithDefault(value unsafe.Pointer, otherValue unsafe.Pointer) unsafe.Pointer
-	ApiVersionTestScopedLibraryChildChildCreate() unsafe.Pointer
-	ApiVersionTestScopedLibraryChildChildV1Create() unsafe.Pointer
-	ApiVersionTestScopedLibraryChildChildV1CreateWithDefault(value unsafe.Pointer, otherValue unsafe.Pointer, otherOtherValue unsafe.Pointer) unsafe.Pointer
 	ApiVersionTestScopedLibraryChildChildV2Create() unsafe.Pointer
 	ApiVersionTestScopedLibraryChildChildV2CreateWithDefault(value unsafe.Pointer, otherValue unsafe.Pointer, otherOtherValue unsafe.Pointer) unsafe.Pointer
 }
