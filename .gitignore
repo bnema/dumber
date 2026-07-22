@@ -16,8 +16,8 @@ dumber.exe
 # Output of the go coverage tool
 *.out
 
-# Dependency directories (remove the comment below to include it)
-# vendor/
+# Dependency directories
+vendor/
 
 # Go workspace file
 go.work
@@ -94,7 +94,6 @@ templates/
 .serena/
 config.yaml
 .dev/
-vendor/
 
 # WebKit runtime data
 serviceworkers/
@@ -119,6 +118,7 @@ aur/*/LICENSE
 aur/*/dev.bnema.Dumber.desktop
 aur/*/logo-512.png
 
-# Planning/runbook notes stored outside product docs
+# Planning/runbook notes and generated roadmap evidence stored outside the repository
 docs/reference/stability-performance-multi-agent-runbook-*.md
+/phase1/
 perf.data

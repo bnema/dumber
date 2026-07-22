@@ -21,8 +21,11 @@ type SplitView struct {
 	logger      zerolog.Logger
 
 	onRatioChanged      func(ratio float64)
-	pendingNotifyRatio  float64
+	idleAdd             func(*glib.SourceFunc, uintptr) uint
 	notifyDebounceTimer *time.Timer
+	notifyGeneration    uint64
+	tickCallbackID      uint
+	cleanedUp           bool
 
 	hasAppliedRatio     bool
 	suppressNotifyUntil time.Time
@@ -109,6 +112,7 @@ func NewSplitView(
 		endChild:    endChild,
 		ratio:       clampRatio(ratio),
 		logger:      log.With().Str("component", "split-view").Logger(),
+		idleAdd:     glib.IdleAdd,
 	}
 
 	// Set children
@@ -151,25 +155,40 @@ func NewSplitView(
 		ratio := clampRatio(float64(position) / float64(totalSize))
 
 		sv.mu.Lock()
+		if sv.cleanedUp {
+			sv.mu.Unlock()
+			return
+		}
 		sv.ratio = ratio
-		sv.pendingNotifyRatio = ratio
-		onRatioChanged := sv.onRatioChanged
+		sv.notifyGeneration++
+		generation := sv.notifyGeneration
 
 		if sv.notifyDebounceTimer != nil {
 			sv.notifyDebounceTimer.Stop()
 		}
 		sv.notifyDebounceTimer = time.AfterFunc(notifyPositionDebounceDelay, func() {
-			if onRatioChanged == nil {
+			sv.mu.RLock()
+			valid := !sv.cleanedUp && generation == sv.notifyGeneration
+			sv.mu.RUnlock()
+			if !valid {
 				return
 			}
+
 			cb := glib.SourceFunc(func(_ uintptr) bool {
 				sv.mu.RLock()
-				pending := sv.pendingNotifyRatio
+				if sv.cleanedUp || generation != sv.notifyGeneration {
+					sv.mu.RUnlock()
+					return false
+				}
+				onRatioChanged := sv.onRatioChanged
 				sv.mu.RUnlock()
-				onRatioChanged(pending)
+
+				if onRatioChanged != nil {
+					onRatioChanged(ratio)
+				}
 				return false
 			})
-			glib.IdleAdd(&cb, 0)
+			sv.idleAdd(&cb, 0)
 		})
 
 		sv.mu.Unlock()
@@ -188,7 +207,7 @@ func NewSplitView(
 	// Add tick callback to retry applying ratio every frame until successful.
 	// This handles cases where allocation isn't ready even after Map signal.
 	frames := 0
-	paned.AddTickCallback(func() bool {
+	sv.tickCallbackID = paned.AddTickCallback(func() bool {
 		frames++
 		if sv.ApplyRatio() {
 			sv.logger.Debug().
@@ -213,6 +232,30 @@ func NewSplitView(
 // The ratio is clamped to the range [0.0, 1.0].
 // Note: This sets the position based on ratio; actual pixel position
 // depends on the allocated size of the paned widget.
+// Cleanup releases callbacks owned by this split. It is idempotent because
+// tree rebuild and GTK teardown can both reach the same view.
+func (sv *SplitView) Cleanup() {
+	sv.mu.Lock()
+	if sv.cleanedUp {
+		sv.mu.Unlock()
+		return
+	}
+	sv.cleanedUp = true
+	sv.notifyGeneration++
+	sv.onRatioChanged = nil
+	if sv.notifyDebounceTimer != nil {
+		sv.notifyDebounceTimer.Stop()
+		sv.notifyDebounceTimer = nil
+	}
+	tickCallbackID := sv.tickCallbackID
+	sv.tickCallbackID = 0
+	sv.mu.Unlock()
+
+	if tickCallbackID != 0 {
+		sv.paned.RemoveTickCallback(tickCallbackID)
+	}
+}
+
 func (sv *SplitView) SetRatio(ratio float64) {
 	sv.mu.Lock()
 	defer sv.mu.Unlock()

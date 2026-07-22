@@ -1,13 +1,14 @@
 pkgbase = dumber-browser-bin
 	pkgdesc = A minimal keyboard-driven browser for tiling WMs
 	pkgver = 0.23.2
-	pkgrel = 2
+	pkgrel = 3
 	url = https://github.com/bnema/dumber
 	arch = x86_64
 	license = MIT
 	depends = gtk4
 	depends = cef
 	depends = webkitgtk-6.0
+	depends = libwebp
 	optdepends = gst-plugins-base: Base media codecs
 	optdepends = gst-plugins-good: Additional media codecs
 	optdepends = gst-plugins-bad: Extended media codecs

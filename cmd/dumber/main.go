@@ -10,6 +10,7 @@ import (
 	"runtime"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/application/usecase"
@@ -140,7 +141,17 @@ func configureBrowserLaunchRelay(cfg *config.Config) {
 	browserLaunchRelay = relay
 }
 
+type startupTiming struct {
+	processEntry   time.Time
+	configComplete time.Time
+}
+
 func main() {
+	// CEF is not known until configuration is complete. Keep these neutral
+	// timestamps so a CEF GUI trace can be seeded truthfully without creating
+	// one for WebKit, the standalone omnibox, CLI, or CEF helper processes.
+	timing := startupTiming{processEntry: time.Now()}
+
 	// CEF subprocess handling: when CEF re-launches this binary with
 	// --type=renderer/gpu/etc, we must call ExecuteProcess before anything
 	// else (Cobra, config, arg stripping). We only treat a leading Chromium
@@ -170,6 +181,7 @@ func main() {
 	// Run GUI mode for browse command
 	if mode == launchModeBrowse {
 		cfg := initConfig()
+		timing.configComplete = time.Now()
 		configureBrowserLaunchRelay(cfg)
 		startupURL := domainurl.ResolveBrowserStartupURL(browseURL)
 		if forwarded, err := tryForwardBrowseURLToRunningInstance(context.Background(), browserLaunchRelay, startupURL); err != nil {
@@ -186,7 +198,7 @@ func main() {
 		initialURL = startupURL
 		restoreSessionID = os.Getenv("DUMBER_RESTORE_SESSION")
 		os.Args = os.Args[:1]
-		os.Exit(runGUI(cfg))
+		os.Exit(runGUI(cfg, timing))
 		return
 	}
 
@@ -207,7 +219,7 @@ func main() {
 	cmd.Execute()
 }
 
-func runGUI(cfg *config.Config) int {
+func runGUI(cfg *config.Config, timing startupTiming) int {
 	bootstrap.ApplyGTKIMModuleFallbackDefault(os.Stderr)
 
 	runtime.LockOSThread()
@@ -216,11 +228,13 @@ func runGUI(cfg *config.Config) int {
 
 	if cfg == nil {
 		cfg = initConfig()
+		timing.configComplete = time.Now()
 		configureBrowserLaunchRelay(cfg)
 	}
 	timer.Mark("config")
 
-	ctx := initStartupContextWithTrace(cfg)
+	ctx := initStartupContext(cfg)
+	activateCEFStartupTraceForGUI(cfg, timing, logging.FromContext(ctx), infracef.ActivateStartupTrace)
 	applyCEFRenderStackDefault(ctx, cfg)
 	timer.Mark("logger")
 	bootstrapLog := logging.FromContext(ctx)
@@ -253,7 +267,6 @@ func runGUI(cfg *config.Config) int {
 	timer.Mark("session")
 
 	log := logging.FromContext(ctx)
-	logging.Trace().UpdateLogger(log)
 	logCoreDumpLimits(ctx)
 
 	engine.SetHandlerContext(ctx)
@@ -297,7 +310,7 @@ func runStandaloneOmnibox() int {
 
 	cfg := initConfig()
 	configureBrowserLaunchRelay(cfg)
-	ctx := initStartupContextWithTrace(cfg)
+	ctx := initStartupContext(cfg)
 	applyCEFRenderStackDefault(ctx, cfg)
 
 	initResult, err := runParallelInitPhase(ctx, cfg)
@@ -412,21 +425,19 @@ func resolveCurrentExecutable(executable func() (string, error)) (string, error)
 	return executable()
 }
 
-func initStartupContextWithTrace(cfg *config.Config) context.Context {
-	logging.InitStartupTrace(cfg.Logging.Level)
-	logging.Trace().Mark("config_loaded")
-
-	ctx := initStartupContext(cfg)
-	bootstrapLog := logging.FromContext(ctx)
-
-	logging.Trace().SetLogger(bootstrapLog)
-	logging.Trace().Mark("logger_init")
-
-	return ctx
+func activateCEFStartupTraceForGUI(
+	cfg *config.Config,
+	timing startupTiming,
+	logger *zerolog.Logger,
+	activate func(time.Time, time.Time, *zerolog.Logger),
+) {
+	if cfg == nil || cfg.Engine.ResolveEngineType() != config.EngineTypeCEF {
+		return
+	}
+	activate(timing.processEntry, timing.configComplete, logger)
 }
 
 func runParallelInitPhase(ctx context.Context, cfg *config.Config) (*bootstrap.ParallelInitResult, error) {
-	logging.Trace().Mark("parallel_start")
 	initResult, err := bootstrap.RunParallelInit(bootstrap.ParallelInitInput{
 		Ctx:    ctx,
 		Config: cfg,
@@ -435,7 +446,6 @@ func runParallelInitPhase(ctx context.Context, cfg *config.Config) (*bootstrap.P
 		handleParallelInitError(ctx, err)
 		return nil, err
 	}
-	logging.Trace().Mark("parallel_done")
 	return initResult, nil
 }
 

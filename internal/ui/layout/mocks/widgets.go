@@ -2425,6 +2425,46 @@ func (_c *MockPanedWidget_RemoveCssClass_Call) RunAndReturn(run func(cssClass st
 	return _c
 }
 
+// RemoveTickCallback provides a mock function for the type MockPanedWidget
+func (_mock *MockPanedWidget) RemoveTickCallback(id uint) {
+	_mock.Called(id)
+	return
+}
+
+// MockPanedWidget_RemoveTickCallback_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'RemoveTickCallback'
+type MockPanedWidget_RemoveTickCallback_Call struct {
+	*mock.Call
+}
+
+// RemoveTickCallback is a helper method to define mock.On call
+//   - id uint
+func (_e *MockPanedWidget_Expecter) RemoveTickCallback(id any) *MockPanedWidget_RemoveTickCallback_Call {
+	return &MockPanedWidget_RemoveTickCallback_Call{Call: _e.mock.On("RemoveTickCallback", id)}
+}
+
+func (_c *MockPanedWidget_RemoveTickCallback_Call) Run(run func(id uint)) *MockPanedWidget_RemoveTickCallback_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 uint
+		if args[0] != nil {
+			arg0 = args[0].(uint)
+		}
+		run(
+			arg0,
+		)
+	})
+	return _c
+}
+
+func (_c *MockPanedWidget_RemoveTickCallback_Call) Return() *MockPanedWidget_RemoveTickCallback_Call {
+	_c.Call.Return()
+	return _c
+}
+
+func (_c *MockPanedWidget_RemoveTickCallback_Call) RunAndReturn(run func(id uint)) *MockPanedWidget_RemoveTickCallback_Call {
+	_c.Run(run)
+	return _c
+}
+
 // SetCanFocus provides a mock function for the type MockPanedWidget
 func (_mock *MockPanedWidget) SetCanFocus(canFocus bool) {
 	_mock.Called(canFocus)

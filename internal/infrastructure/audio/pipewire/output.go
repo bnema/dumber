@@ -15,7 +15,6 @@ import (
 	"github.com/bnema/dumber/internal/logging"
 )
 
-// Compile-time interface checks.
 var (
 	_ port.AudioOutputFactory = (*Factory)(nil)
 	_ port.AudioOutputStream  = (*playerStreamAdapter)(nil)
@@ -26,6 +25,8 @@ var ErrInvalidFormat = errors.New("invalid audio stream format")
 
 // ErrStreamClosed is returned when writing to a closed stream.
 var ErrStreamClosed = errors.New("audio stream closed")
+
+const packetQueueCapacity = 4
 
 // playerCreator is a function type that creates a Player from config and callbacks.
 // This exists to allow dependency injection in tests.
@@ -38,24 +39,15 @@ type Factory struct {
 }
 
 // NewFactory creates a new PipeWire audio factory.
-// The factory is stateless; players are created per-stream.
 func NewFactory() (*Factory, error) {
-	return &Factory{
-		createPlayer: pwpipewire.NewPlayer,
-	}, nil
+	return &Factory{createPlayer: pwpipewire.NewPlayer}, nil
 }
 
-// NewStream creates a new audio output stream with the given format.
-// It validates the Dumber format, creates a purego-pipewire Player configured
-// from the format, and returns a push-to-pull adapter that bridges Write()
-// calls into the Player's Fill callback.
+// NewStream creates a push-to-pull adapter for a PipeWire player.
 func (f *Factory) NewStream(ctx context.Context, format port.AudioStreamFormat) (port.AudioOutputStream, error) {
-	// Check context cancellation
 	if ctx.Err() != nil {
 		return nil, ctx.Err()
 	}
-
-	// Validate format
 	if err := validateFormat(format); err != nil {
 		return nil, err
 	}
@@ -67,182 +59,195 @@ func (f *Factory) NewStream(ctx context.Context, format port.AudioStreamFormat) 
 		Int("frames_per_buffer", format.FramesPerBuffer).
 		Msg("pipewire: creating player")
 
-	// Create the adapter with its ring buffer before creating the player,
-	// because the Fill callback captures the adapter.
-	adapter := &playerStreamAdapter{
-		ctx:    ctx,
-		buf:    make(chan [][]float32, 4), // small buffer for push→pull bridging
-		closed: make(chan struct{}),
-	}
-
+	// Every slot owns storage sized from the negotiated CEF format. Write copies
+	// directly into an available slot; Fill copies that same slot into PipeWire.
+	// Callback slices are therefore never queued or retained.
+	adapter := newPlayerStreamAdapter(ctx, format.ChannelCount, format.FramesPerBuffer)
 	config := pwpipewire.PlayerConfig{
-		SampleRate:      format.SampleRate,
-		Channels:        format.ChannelCount,
-		FramesPerBuffer: format.FramesPerBuffer,
-		SampleFormat:    pwpipewire.SampleFormatF32,
-		UnderrunPolicy:  pwpipewire.UnderrunFillSilence,
+		SampleRate: format.SampleRate, Channels: format.ChannelCount, FramesPerBuffer: format.FramesPerBuffer,
+		SampleFormat: pwpipewire.SampleFormatF32, UnderrunPolicy: pwpipewire.UnderrunFillSilence,
 	}
-
-	callbacks := pwpipewire.PlayerCallbacks{
-		Fill: adapter.fill,
-	}
-
-	player, err := f.createPlayer(config, callbacks)
+	player, err := f.createPlayer(config, pwpipewire.PlayerCallbacks{Fill: adapter.fill})
 	if err != nil {
 		log.Warn().Err(err).Msg("pipewire: failed to create player")
 		return nil, fmt.Errorf("failed to create pipewire player: %w", err)
 	}
 	adapter.player = player
-
-	// Start the player so the Fill callback begins being called.
 	if err := player.Start(); err != nil {
 		_ = player.Close()
 		log.Warn().Err(err).Msg("pipewire: failed to start player")
 		return nil, fmt.Errorf("failed to start pipewire player: %w", err)
 	}
-
 	log.Info().Msg("pipewire: player started successfully")
-
 	return adapter, nil
 }
 
-// validateFormat checks if the audio format parameters are valid.
 func validateFormat(format port.AudioStreamFormat) error {
-	// Sample rate must be reasonable (8kHz to 384kHz)
 	if format.SampleRate < 8000 || format.SampleRate > 384000 {
-		return fmt.Errorf("%w: sample rate %d Hz out of range [8000, 384000]",
-			ErrInvalidFormat, format.SampleRate)
+		return fmt.Errorf("%w: sample rate %d Hz out of range [8000, 384kHz]", ErrInvalidFormat, format.SampleRate)
 	}
-
-	// Channel count must be 1 to 1024 (reasonable upper limit)
 	if format.ChannelCount < 1 || format.ChannelCount > 1024 {
-		return fmt.Errorf("%w: channel count %d out of range [1, 1024]",
-			ErrInvalidFormat, format.ChannelCount)
+		return fmt.Errorf("%w: channel count %d out of range [1, 1024]", ErrInvalidFormat, format.ChannelCount)
 	}
-
-	// Frames per buffer must be positive and reasonable
 	if format.FramesPerBuffer < 1 || format.FramesPerBuffer > 8192 {
-		return fmt.Errorf("%w: frames per buffer %d out of range [1, 8192]",
-			ErrInvalidFormat, format.FramesPerBuffer)
+		return fmt.Errorf("%w: frames per buffer %d out of range [1, 8192]", ErrInvalidFormat, format.FramesPerBuffer)
 	}
-
 	return nil
 }
 
-// playerStreamAdapter bridges Dumber's push-style Write(samples) interface
-// to purego-pipewire's pull-style Fill callback.
-//
-// Write() sends sample buffers into a channel. The Fill callback drains them
-// into the PCMBuffer that purego-pipewire passes in. If no data is available,
-// the player's UnderrunFillSilence policy handles it.
+// audioPacket is a reusable, adapter-owned packet slot. Its backing arrays are
+// allocated only when the stream is created and never alias CEF callback data.
+type audioPacket struct {
+	samples  [][]float32
+	channels int
+	frames   int
+}
+
+// playerStreamAdapter bridges callback-owned CEF audio to PipeWire's Fill
+// callback. available and ready form a bounded reusable packet ring.
 type playerStreamAdapter struct {
 	player pwpipewire.Player
 	ctx    context.Context
-	buf    chan [][]float32 // push→pull handoff channel
+
+	available chan *audioPacket
+	ready     chan *audioPacket
+	// TryLock serializes only simultaneous producers. The CEF callback never
+	// waits: contention and saturation both drop the packet. Fill never takes it.
+	writeMu sync.Mutex
+	closed  atomic.Bool
 
 	closeOnce sync.Once
-	closed    chan struct{} // closed when Close is called
 
-	// Diagnostic counters (atomic, no mutex needed).
-	fillCount     atomic.Uint64 // total Fill callbacks
-	underrunCount atomic.Uint64 // Fill callbacks with no data available
-	dropCount     atomic.Uint64 // Write calls that dropped data (buffer full)
+	fillCount     atomic.Uint64
+	underrunCount atomic.Uint64
+	dropCount     atomic.Uint64
 }
 
-// Write sends audio samples to the PipeWire output.
-// Samples are provided as [channel][frame]float32 matching CEF's planar format.
-// If the internal buffer is full the packet is dropped silently so the caller
-// (CEF audio callback thread) is never blocked.
-// Safe for concurrent use with Close.
-func (a *playerStreamAdapter) Write(samples [][]float32) error {
-	// Fast path: already closed.
-	select {
-	case <-a.closed:
-		return ErrStreamClosed
-	default:
+func newPlayerStreamAdapter(ctx context.Context, channels, frames int) *playerStreamAdapter {
+	a := &playerStreamAdapter{
+		ctx: ctx, available: make(chan *audioPacket, packetQueueCapacity), ready: make(chan *audioPacket, packetQueueCapacity),
 	}
-	// Non-blocking send: drop packet when buffer is full.
-	select {
-	case a.buf <- samples:
-		return nil
-	case <-a.closed:
-		return ErrStreamClosed
-	default:
-		// Buffer full — drop to avoid blocking the CEF audio thread.
-		n := a.dropCount.Add(1)
-		if n == 1 || n&(n-1) == 0 { // first drop, then powers of two
-			if a.ctx != nil {
-				logging.FromContext(a.ctx).Warn().
-					Uint64("total_drops", n).
-					Msg("pipewire: dropped audio packet (buffer full)")
-			}
+	for range packetQueueCapacity {
+		packet := &audioPacket{samples: make([][]float32, channels)}
+		for ch := range packet.samples {
+			packet.samples[ch] = make([]float32, frames)
 		}
+		a.available <- packet
+	}
+	return a
+}
+
+// Write makes exactly one owned copy for each accepted packet. It never blocks:
+// full queues or another producer cause a silent drop, preserving CEF timing.
+// The supplied slices are callback-owned and are not retained after return.
+func (a *playerStreamAdapter) Write(samples [][]float32) error {
+	if a.closed.Load() {
+		return ErrStreamClosed
+	}
+	if !a.writeMu.TryLock() {
+		a.recordDrop()
+		return nil
+	}
+	defer a.writeMu.Unlock()
+	if a.closed.Load() {
+		return ErrStreamClosed
+	}
+
+	select {
+	case packet := <-a.available:
+		copyPacket(packet, samples)
+		// A close racing after the first check must not publish a packet to a
+		// stopped player. Returning the slot keeps the ring bounded.
+		if a.closed.Load() {
+			a.available <- packet
+			return ErrStreamClosed
+		}
+		select {
+		case a.ready <- packet:
+			return nil
+		default:
+			// This cannot occur while ring invariants hold, but keep Write
+			// non-blocking if an implementation change violates them.
+			a.available <- packet
+			a.recordDrop()
+			return nil
+		}
+	default:
+		a.recordDrop()
 		return nil
 	}
 }
 
-// fill is the PlayerCallbacks.Fill function called by purego-pipewire
-// when it needs audio data. It pulls from the internal buffer channel.
+func copyPacket(packet *audioPacket, samples [][]float32) {
+	packet.channels = min(len(packet.samples), len(samples))
+	packet.frames = 0
+	if packet.channels == 0 {
+		return
+	}
+	frames := len(packet.samples[0])
+	for ch := 0; ch < packet.channels; ch++ {
+		n := min(len(packet.samples[ch]), len(samples[ch]))
+		if n < frames {
+			frames = n
+		}
+	}
+	packet.frames = frames
+	for ch := 0; ch < packet.channels; ch++ {
+		copy(packet.samples[ch][:frames], samples[ch][:frames])
+	}
+}
+
+func (a *playerStreamAdapter) recordDrop() {
+	// Write runs on CEF's real-time callback thread. Diagnostics must stay
+	// allocation-free and must not synchronously emit logs from that path.
+	a.dropCount.Add(1)
+}
+
+// fill is the PlayerCallbacks.Fill function. It performs the only post-handoff
+// full-packet copy, directly into PipeWire's destination buffer.
 func (a *playerStreamAdapter) fill(pcm *pwpipewire.PCMBuffer) (int, error) {
 	select {
-	case samples := <-a.buf:
+	case packet := <-a.ready:
 		fillNum := a.fillCount.Add(1)
 		if fillNum == 1 && a.ctx != nil {
-			logging.FromContext(a.ctx).Info().
-				Msg("pipewire: first Fill callback with data")
+			logging.FromContext(a.ctx).Info().Msg("pipewire: first Fill callback with data")
 		}
-		// Copy available samples into the PCM buffer
-		copied := copyToPCM(pcm, samples)
+		copied := copyToPCM(pcm, packet.samples[:packet.channels], packet.frames)
+		a.available <- packet
 		return copied, nil
 	default:
-		// No data available — return 0 frames, let underrun policy handle it
 		underruns := a.underrunCount.Add(1)
 		if underruns == 1 && a.ctx != nil {
-			logging.FromContext(a.ctx).Debug().
-				Msg("pipewire: first Fill underrun (no data available)")
+			logging.FromContext(a.ctx).Debug().Msg("pipewire: first Fill underrun (no data available)")
 		}
 		return 0, nil
 	}
 }
 
-// copyToPCM copies planar samples into the PCMBuffer.
-// Returns the number of frames actually copied.
-func copyToPCM(pcm *pwpipewire.PCMBuffer, samples [][]float32) int {
-	if pcm == nil || len(samples) == 0 {
+func copyToPCM(pcm *pwpipewire.PCMBuffer, samples [][]float32, packetFrames int) int {
+	if pcm == nil || len(samples) == 0 || packetFrames == 0 {
 		return 0
 	}
-
-	frames := pcm.Frames
 	channels := min(min(len(samples), pcm.Channels), len(pcm.Samples))
 	if channels == 0 {
 		return 0
 	}
-
-	minFrames := frames
-
-	for ch := 0; ch < channels && ch < len(samples); ch++ {
-		dst := pcm.Samples[ch]
-		src := samples[ch]
-		if len(dst) == 0 || len(src) == 0 {
-			minFrames = 0
-			continue
-		}
-		srcFrames := len(src)
-		n := min(len(dst), min(srcFrames, frames))
-		if n < minFrames {
-			minFrames = n
-		}
-		copy(dst[:n], src[:n])
+	frames := min(pcm.Frames, packetFrames)
+	for ch := 0; ch < channels; ch++ {
+		frames = min(frames, min(len(pcm.Samples[ch]), len(samples[ch])))
 	}
-
-	return minFrames
+	for ch := 0; ch < channels; ch++ {
+		copy(pcm.Samples[ch][:frames], samples[ch][:frames])
+	}
+	return frames
 }
 
-// Close stops the player and releases resources.
-// Safe to call multiple times.
+// Close stops the player. It is safe with Write: Write observes closed before
+// publishing, and no channel is closed while a callback may be selecting on it.
 func (a *playerStreamAdapter) Close() error {
 	var err error
 	a.closeOnce.Do(func() {
+		a.closed.Store(true)
 		if a.ctx != nil {
 			logging.FromContext(a.ctx).Info().
 				Uint64("fills", a.fillCount.Load()).
@@ -250,12 +255,7 @@ func (a *playerStreamAdapter) Close() error {
 				Uint64("drops", a.dropCount.Load()).
 				Msg("pipewire: closing player")
 		}
-
-		// Signal writers to stop
-		close(a.closed)
-
 		if a.player != nil {
-			// Stop playback then close the player
 			if stopErr := a.player.Stop(); stopErr != nil {
 				err = stopErr
 			}

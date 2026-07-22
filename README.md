@@ -134,7 +134,7 @@ Dumber uses Chromium Embedded Framework by default. WebKitGTK is available as a 
 On Arch Linux, install the CEF runtime with:
 
 ```bash
-sudo pacman -S cef
+sudo pacman -S cef libwebp
 ```
 
 For hardware video decoding, `cef-vaapi` is also available from the AUR as an optional CEF build.
@@ -179,7 +179,7 @@ CEF OSR frame rate adapts to the active Wayland monitor refresh rate when both `
 **Arch Linux:**
 
 ```bash
-sudo pacman -S cef webkitgtk-6.0 gtk4 gst-plugins-base gst-plugins-good gst-plugins-bad gst-plugin-va
+sudo pacman -S cef webkitgtk-6.0 gtk4 libwebp gst-plugins-base gst-plugins-good gst-plugins-bad gst-plugin-va
 ```
 
 **Debian/Ubuntu:**
@@ -213,6 +213,7 @@ Set `ENV=dev` to use `.dev/dumber/` for config and data instead of XDG paths.
 - CEF runtime (default backend)
 - WebKitGTK 6.0 development/runtime packages (fallback backend and runtime checks)
 - Brotli for compressed systemviews assets
+- libwebp runtime for WebP favicon decoding (for example `libwebp` on Arch)
 
 Systemviews assets are generated with `go tool templ` and Go's `js/wasm` toolchain; no root Node toolchain is required.
 

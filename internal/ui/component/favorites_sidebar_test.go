@@ -486,6 +486,8 @@ func TestFavoritesSidebarAddShortcutFailureClosesFormAfterCreate(t *testing.T) {
 	uc := &fakeFavoritesSidebarUC{errOnSetShortcut: errors.New("shortcut failed")}
 	fs := newFavoritesSidebarHarness(nil, nil)
 	fs.favoritesUC = uc
+	loaded := make(chan glib.SourceFunc, 1)
+	fs.idleScheduler = func(cb glib.SourceFunc) { loaded <- cb }
 	fs.formURL = "https://add.test"
 	fs.formTitle = "Added"
 	fs.formShortcut = "3"
@@ -493,6 +495,12 @@ func TestFavoritesSidebarAddShortcutFailureClosesFormAfterCreate(t *testing.T) {
 
 	assert.True(t, fs.submitForm())
 	require.Len(t, uc.addInputs, 1)
+	select {
+	case cb := <-loaded:
+		cb(0)
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for favorites reload")
+	}
 	assert.Equal(t, favoritesSidebarModeNone, fs.mode)
 	assert.Contains(t, fs.notice, "failed to set shortcut")
 }

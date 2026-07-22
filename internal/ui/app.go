@@ -57,7 +57,10 @@ func gtkApplicationFlags() gio.ApplicationFlags {
 	return gio.GApplicationNonUniqueValue
 }
 
-var adwaitaInitOnce sync.Once
+var (
+	adwaitaInitOnce   sync.Once
+	unrefTickCallback = glib.UnrefCallback
+)
 
 // EnsureAdwaitaInitialized initializes libadwaita and GTK exactly once.
 func EnsureAdwaitaInitialized() {
@@ -167,9 +170,12 @@ type floatingWorkspaceSession struct {
 	omnibox             *component.Omnibox
 	omniboxWidget       layout.Widget
 	resizeWatcherActive bool
-	resizeTickID        uint
-	appliedWidth        int
-	appliedHeight       int
+	// resizeTickCallback keeps the purego callback live until its GTK source is
+	// removed. It is cleared exactly once with resizeTickID.
+	resizeTickCallback *gtk.TickCallback
+	resizeTickID       uint
+	appliedWidth       int
+	appliedHeight      int
 }
 
 type floatingSessionKey struct {
@@ -289,7 +295,6 @@ func (a *App) Run(ctx context.Context, args []string) int {
 	// Initialize libadwaita once (required before using StyleManager).
 	// This also initializes GTK implicitly.
 	EnsureAdwaitaInitialized()
-	logging.Trace().Mark("gtk_init")
 
 	// Mark adwaita detector as available now that adw.Init() is complete.
 	// This enables the highest-priority color scheme detector.
@@ -311,7 +316,6 @@ func (a *App) Run(ctx context.Context, args []string) int {
 		return 1
 	}
 	defer a.gtkApp.Unref()
-	logging.Trace().Mark("gtk_app_created")
 	a.dispatchOnMainThread = a.runOnMainThread
 
 	// Connect activate signal
@@ -347,7 +351,6 @@ func (a *App) onActivate(ctx context.Context) {
 		log.Error().Err(err).Msg("failed to create main window")
 		return
 	}
-	logging.Trace().Mark("window_created")
 
 	a.installCrashReportNotifier(ctx)
 	a.initFocusManager()
@@ -356,7 +359,6 @@ func (a *App) onActivate(ctx context.Context) {
 
 	a.initCoordinators(ctx)
 	a.wireWebRTCPermissionIndicator()
-	logging.Trace().Mark("coordinators_init")
 	a.initKeyboardHandler(ctx)
 	a.initOmniboxConfig(ctx)
 	a.initFindBarConfig(ctx)
@@ -4594,22 +4596,22 @@ func (a *App) startFloatingResizeWatcher(session *floatingWorkspaceSession) {
 
 	session.resizeWatcherActive = true
 	paneID := session.paneID
-	tickCallback := gtk.TickCallback(func(_ uintptr, _ uintptr, _ uintptr) bool {
+	callback := new(gtk.TickCallback)
+	*callback = func(_ uintptr, _ uintptr, _ uintptr) bool {
 		liveSession := a.floatingSessionByPaneID(paneID)
 		if liveSession == nil {
-			session.resizeWatcherActive = false
-			session.resizeTickID = 0
+			session.releaseResizeTickCallback()
 			return false
 		}
 
 		keepRunning := a.handleFloatingViewportTick(liveSession)
 		if !keepRunning {
-			liveSession.resizeWatcherActive = false
-			liveSession.resizeTickID = 0
+			liveSession.releaseResizeTickCallback()
 		}
 		return keepRunning
-	})
-	session.resizeTickID = overlayWidget.AddTickCallback(&tickCallback, 0, nil)
+	}
+	session.resizeTickCallback = callback
+	session.resizeTickID = overlayWidget.AddTickCallback(callback, 0, nil)
 }
 
 func (a *App) stopFloatingResizeWatcher(session *floatingWorkspaceSession) {
@@ -4617,13 +4619,30 @@ func (a *App) stopFloatingResizeWatcher(session *floatingWorkspaceSession) {
 		return
 	}
 
-	if session.resizeTickID != 0 && session.overlay != nil {
+	tickID := session.resizeTickID
+	session.releaseResizeTickCallback()
+	if tickID != 0 && session.overlay != nil {
 		if overlayWidget := session.overlay.GtkWidget(); overlayWidget != nil {
-			overlayWidget.RemoveTickCallback(session.resizeTickID)
+			overlayWidget.RemoveTickCallback(tickID)
 		}
 	}
+}
+
+// releaseResizeTickCallback releases the raw purego callback slot. It is safe
+// to call after GTK has already removed a callback that returned false.
+func (session *floatingWorkspaceSession) releaseResizeTickCallback() {
+	if session == nil {
+		return
+	}
+	callback := session.resizeTickCallback
 	session.resizeTickID = 0
+	session.resizeTickCallback = nil
 	session.resizeWatcherActive = false
+	if callback != nil {
+		// AddTickCallback creates a purego function-pointer slot. Clearing the Go
+		// pointer alone cannot return that finite runtime slot to the ledger.
+		_ = unrefTickCallback(callback)
+	}
 }
 
 func (a *App) hideFloatingSession(ctx context.Context, session *floatingWorkspaceSession) {

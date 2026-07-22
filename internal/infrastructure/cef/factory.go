@@ -27,7 +27,7 @@ type WebViewFactory struct {
 	windowlessFrameRate         int32
 	windowlessFrameRateMax      int32
 	inputConfig                 RuntimeInputConfig
-	bgColor                     atomic.Uint32 // packed ARGB for BrowserSettings.BackgroundColor
+	bgColor                     atomic.Uint32 // packed ARGB theme color for the presentation-layer flash guard
 	audioOutputFactory          port.AudioOutputFactory
 }
 
@@ -69,7 +69,9 @@ func newWebViewFactory(engine *Engine, opts webViewFactoryOptions) *WebViewFacto
 	}
 }
 
-// setDefaultBackgroundColor stores a packed ARGB color for new browser creation.
+// setDefaultBackgroundColor stores the packed ARGB theme color used by the
+// presentation-layer flash guard on newly-created WebViews. It no longer feeds
+// BrowserSettings.BackgroundColor, which is always opaque white.
 func (f *WebViewFactory) setDefaultBackgroundColor(r, g, b, a float64) {
 	const s = colorScale
 	argb := uint32(a*s)<<24 | uint32(r*s)<<16 | uint32(g*s)<<8 | uint32(b*s)
@@ -96,9 +98,9 @@ func (f *WebViewFactory) Create(ctx context.Context) (port.WebView, error) {
 	settings := purecef.NewBrowserSettings()
 	cef2gtk.ConfigureBrowserSettings(&settings, cef2gtk.BrowserSettingsOptions{WindowlessFrameRate: f.windowlessFrameRate})
 	settings.LocalStorage = 1 // CEF_STATE_ENABLED
-	if bg := f.bgColor.Load(); bg != 0 {
-		settings.BackgroundColor = bg
-	}
+	// Always opaque white: Chromium's standard canvas fallback. The theme
+	// background is applied at the presentation layer as a flash guard instead.
+	settings.BackgroundColor = opaqueWhiteBackground
 
 	// Defer browser creation until the bridge view has a non-zero size.
 	// CEF requires GetViewRect to return a non-empty rect, but the GL area
@@ -142,6 +144,8 @@ func (f *WebViewFactory) newWebView(ctx context.Context) (*WebView, error) {
 				wv.nativeWidget = popupRoot
 			}
 		}
+		// Guard the render widget with the theme background until the first frame.
+		wv.applyBackgroundFlashGuard(nativeWidget)
 	})
 	if !result.Completed() {
 		wv.destroyViewBridgeOnGTKAsync()
@@ -278,6 +282,8 @@ func (f *WebViewFactory) postPendingBrowserCreate(ctx context.Context, wv *WebVi
 		// renderer without an initial paint. We replay pending navigation from
 		// OnAfterCreated once the host is fully wired.
 		initialURL := "about:blank"
+		// This is the request boundary, not the later OnAfterCreated callback.
+		activeStartupTrace().Mark("browser_create_requested")
 		result := cefBrowserHostCreateBrowser(
 			pc.windowInfo,
 			pc.client,
@@ -381,9 +387,9 @@ func (f *WebViewFactory) CreateRelated(ctx context.Context, parentID port.WebVie
 	settings := purecef.NewBrowserSettings()
 	cef2gtk.ConfigureBrowserSettings(&settings, cef2gtk.BrowserSettingsOptions{WindowlessFrameRate: f.windowlessFrameRate})
 	settings.LocalStorage = 1 // CEF_STATE_ENABLED
-	if bg := f.bgColor.Load(); bg != 0 {
-		settings.BackgroundColor = bg
-	}
+	// Always opaque white: the theme background is applied as a presentation-layer
+	// flash guard, not baked into Chromium's canvas.
+	settings.BackgroundColor = opaqueWhiteBackground
 
 	if err := f.configureInitialBrowserCreation(ctx, popupWV, popupWV.client, &windowInfo, &settings, func(w, h int32) {
 		f.handlePopupShellInitialResize(ctx, popupWV, func(w, h int32) {

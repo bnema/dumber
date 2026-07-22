@@ -239,13 +239,13 @@ flatpak-deps: ## Install Flatpak build dependencies (Arch)
 
 flatpak-build: ## Build Flatpak bundle locally
 	@echo "Building Flatpak bundle..."
-	flatpak-builder --force-clean --user --repo=flatpak-repo flatpak-build dev.bnema.Dumber.yml
+	flatpak-builder --force-clean --user --repo=flatpak-repo flatpak-build flatpak/dev.bnema.Dumber.yml
 	flatpak build-bundle flatpak-repo dumber.flatpak dev.bnema.Dumber
 	@echo "Flatpak bundle created: dumber.flatpak"
 
 flatpak-install: ## Install Flatpak locally for testing
 	@echo "Installing Flatpak locally..."
-	flatpak-builder --force-clean --user --install flatpak-build dev.bnema.Dumber.yml
+	flatpak-builder --force-clean --user --install flatpak-build flatpak/dev.bnema.Dumber.yml
 	@echo "Flatpak installed! Run with: make flatpak-run"
 
 flatpak-run: ## Run the installed Flatpak

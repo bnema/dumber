@@ -70,8 +70,19 @@ type Coordinator struct {
 	// Callback when the WebView becomes visible (first real commit)
 	onWebViewShown func(paneID entity.PaneID)
 
-	revealMu      sync.Mutex
-	pendingReveal map[entity.PaneID]bool
+	// setWebViewVisible is test-only injection for deterministic lifecycle
+	// serialization tests. Production uses the native widget provider directly.
+	setWebViewVisible func(port.WebView)
+
+	// revealMutationMu serializes mapping replacement/release with the native
+	// visibility transition. It is acquired before webViewsMu and revealMu.
+	revealMutationMu sync.Mutex
+
+	// revealMu is always acquired after webViewsMu. Reveal state is keyed by the
+	// WebView identity (ID plus pool-reuse generation), never by pane alone.
+	revealMu         sync.Mutex
+	pendingReveal    map[entity.PaneID]webViewIdentity
+	revealedWebViews map[entity.PaneID]webViewIdentity
 
 	appearanceMu          sync.Mutex
 	pendingScriptRefresh  map[entity.PaneID]bool
@@ -147,7 +158,8 @@ func NewCoordinator(
 		webViewPaneIDs:       make(map[port.WebViewID]entity.PaneID),
 		paneTitles:           make(map[entity.PaneID]string),
 		navOrigins:           make(map[entity.PaneID]string),
-		pendingReveal:        make(map[entity.PaneID]bool),
+		pendingReveal:        make(map[entity.PaneID]webViewIdentity),
+		revealedWebViews:     make(map[entity.PaneID]webViewIdentity),
 		pendingScriptRefresh: make(map[entity.PaneID]bool),
 		pendingThemePanes:    make(map[entity.PaneID]bool),
 		getActiveWS:          getActiveWS,
@@ -298,20 +310,42 @@ func (c *Coordinator) activePaneOverrideID() (entity.PaneID, bool) {
 	return c.activePaneOverride, true
 }
 
-func (c *Coordinator) webViewCount() int {
-	c.webViewsMu.RLock()
-	defer c.webViewsMu.RUnlock()
-	return len(c.webViews)
-}
-
 func (c *Coordinator) getWebViewLocked(paneID entity.PaneID) port.WebView {
 	c.webViewsMu.RLock()
 	defer c.webViewsMu.RUnlock()
 	return c.webViews[paneID]
 }
 
+type webViewIdentity struct {
+	id         port.WebViewID
+	generation uint64
+}
+
+func identityForWebView(wv port.WebView) (webViewIdentity, bool) {
+	if wv == nil {
+		return webViewIdentity{}, false
+	}
+	return webViewIdentity{id: wv.ID(), generation: wv.Generation()}, true
+}
+
+func (c *Coordinator) ensureRevealMapsLocked() {
+	if c.pendingReveal == nil {
+		c.pendingReveal = make(map[entity.PaneID]webViewIdentity)
+	}
+	if c.revealedWebViews == nil {
+		c.revealedWebViews = make(map[entity.PaneID]webViewIdentity)
+	}
+}
+
+// setWebViewLocked replaces the pane mapping and resets all reveal state in
+// one critical section. It is used by normal acquisition and popup paths.
 func (c *Coordinator) setWebViewLocked(paneID entity.PaneID, wv port.WebView) {
+	c.revealMutationMu.Lock()
+	defer c.revealMutationMu.Unlock()
 	c.webViewsMu.Lock()
+	c.revealMu.Lock()
+	defer c.revealMu.Unlock()
+	defer c.webViewsMu.Unlock()
 	if c.webViews == nil {
 		c.webViews = make(map[entity.PaneID]port.WebView)
 	}
@@ -322,17 +356,28 @@ func (c *Coordinator) setWebViewLocked(paneID entity.PaneID, wv port.WebView) {
 	if wv != nil && c.webViewPaneIDs != nil {
 		c.webViewPaneIDs[wv.ID()] = paneID
 	}
-	c.webViewsMu.Unlock()
+	c.ensureRevealMapsLocked()
+	delete(c.pendingReveal, paneID)
+	delete(c.revealedWebViews, paneID)
 }
 
+// deleteWebViewLocked removes both the mapping and any presentation state,
+// including callers which release after another path already removed the map.
 func (c *Coordinator) deleteWebViewLocked(paneID entity.PaneID) port.WebView {
+	c.revealMutationMu.Lock()
+	defer c.revealMutationMu.Unlock()
 	c.webViewsMu.Lock()
+	c.revealMu.Lock()
+	defer c.revealMu.Unlock()
 	defer c.webViewsMu.Unlock()
 	wv := c.webViews[paneID]
 	delete(c.webViews, paneID)
 	if wv != nil && c.webViewPaneIDs != nil {
 		delete(c.webViewPaneIDs, wv.ID())
 	}
+	c.ensureRevealMapsLocked()
+	delete(c.pendingReveal, paneID)
+	delete(c.revealedWebViews, paneID)
 	return wv
 }
 

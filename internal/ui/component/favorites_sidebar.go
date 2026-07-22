@@ -55,6 +55,7 @@ type FavoritesSidebar struct {
 	displayRows     []favoriteSidebarDisplayRow
 	currentQuery    string
 	notice          string
+	noticeLoadGen   uint64
 	loadGen         uint64
 	destroyed       bool
 	visible         bool
@@ -263,6 +264,7 @@ func (fs *FavoritesSidebar) startLoad() {
 	ctx := fs.ctx
 	visible := fs.visible
 	fs.notice = "Loading favorites..."
+	fs.noticeLoadGen = gen
 	fs.mu.Unlock()
 	if visible {
 		fs.scheduleIdle(glib.SourceFunc(func(uintptr) bool {
@@ -311,10 +313,13 @@ func (fs *FavoritesSidebar) applyLoadedData(favorites []*entity.Favorite, tags [
 	}
 	fs.allFavorites = favorites
 	fs.allTags = tags
-	if err != nil {
-		fs.notice = err.Error()
-	} else {
-		fs.notice = ""
+	if fs.noticeLoadGen == gen {
+		fs.noticeLoadGen = 0
+		if err != nil {
+			fs.notice = err.Error()
+		} else {
+			fs.notice = ""
+		}
 	}
 	fs.rebuildDisplayRowsLocked()
 	fs.mu.Unlock()
@@ -361,6 +366,12 @@ func (fs *FavoritesSidebar) rebuildDisplayRowsLocked() {
 	}
 	filtered := usecase.FilterFavoritesForSidebar(fs.allFavorites, query)
 	fs.displayRows = buildFavoriteSidebarDisplayRows(filtered)
+}
+
+// setNoticeLocked records a notice not owned by an in-flight load. fs.mu must be held.
+func (fs *FavoritesSidebar) setNoticeLocked(notice string) {
+	fs.notice = notice
+	fs.noticeLoadGen = 0
 }
 
 func (fs *FavoritesSidebar) scheduleIdle(cb glib.SourceFunc) {

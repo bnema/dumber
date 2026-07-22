@@ -1,12 +1,12 @@
 # Maintainer: bnema <b at bnema dot dev>
 pkgname=dumber-browser-bin
 pkgver=0.23.2
-pkgrel=2
+pkgrel=3
 pkgdesc="A minimal keyboard-driven browser for tiling WMs"
 arch=('x86_64')
 url="https://github.com/bnema/dumber"
 license=('MIT')
-depends=('gtk4' 'cef' 'webkitgtk-6.0')
+depends=('gtk4' 'cef' 'webkitgtk-6.0' 'libwebp')
 optdepends=(
     'gst-plugins-base: Base media codecs'
     'gst-plugins-good: Additional media codecs'

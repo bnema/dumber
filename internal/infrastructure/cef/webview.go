@@ -39,6 +39,10 @@ var (
 // errDestroyed is returned when an operation is attempted on a destroyed WebView.
 var errDestroyed = errors.New("cef: webview is destroyed")
 
+// unrefTickCallback is the canonical puregotk/purego callback-slot release.
+// It remains injectable so lifecycle tests can prove exactly-once ownership.
+var unrefTickCallback = glib.UnrefCallback
+
 // errNoBrowser is returned when the browser has not been created yet.
 var errNoBrowser = errors.New("cef: browser not yet created")
 
@@ -107,11 +111,19 @@ type WebView struct {
 	viewportSyncReason      string
 	viewportMapFunc         func(gtk.Widget)
 	viewportShowFunc        func(gtk.Widget)
+	viewportHideFunc        func(gtk.Widget)
+	viewportUnmapFunc       func(gtk.Widget)
 	viewportRealizeFunc     func(gtk.Widget)
 	viewportMapSignalID     uint
 	viewportShowSignalID    uint
+	viewportHideSignalID    uint
+	viewportUnmapSignalID   uint
 	viewportRealizeSignalID uint
 	viewportResizePulseSeq  atomic.Uint64
+	// effectiveVisibility records the last CEF WasHidden state dispatched. It
+	// is guarded by mu because GTK and CEF UI work cross threads.
+	effectiveVisibilityKnown bool
+	effectiveVisible         bool
 
 	adaptiveWindowlessFrameRate bool
 	windowlessFrameRateMax      int32
@@ -227,6 +239,18 @@ type WebView struct {
 	backgroundColor     uint32
 	inputConfig         RuntimeInputConfig
 
+	// Background flash guard: a theme-colored CSS provider painted behind the
+	// render widget until the first CEF frame is presented. It replaces the
+	// former dark BrowserSettings.BackgroundColor anti-white-flash, whose canvas
+	// is now always opaque white. State is guarded by bgGuardMu; firstFramePainted
+	// gates the one-shot teardown and resets naturally when a fresh WebView is
+	// created after a browser recreation.
+	firstFramePainted atomic.Bool
+	bgGuardMu         sync.Mutex
+	bgGuardProvider   *gtk.CssProvider
+	bgGuardWidget     *gtk.Widget
+	bgGuardClass      string
+
 	// Touchpad input diagnostics are debounced to avoid flooding logs while
 	// debugging continuous scroll streams.
 	touchpadNavigation *touchpadNavigationRecognizer
@@ -238,14 +262,23 @@ type WebView struct {
 	inputDiagDeltaXSum int64
 	inputDiagDeltaYSum int64
 
-	// Audio output factory and active stream.
-	audioOutputFactory port.AudioOutputFactory
-	audioStreamMu      sync.Mutex
-	activeAudioStream  port.AudioOutputStream
+	// Audio output lifecycle. Packet callbacks load audioStream directly: its
+	// immutable handle is atomically published and never requires a mutex.
+	audioOutputFactory    port.AudioOutputFactory
+	audioStreamMu         sync.Mutex
+	audioStreamGeneration atomic.Uint64
+	audioStream           atomic.Pointer[audioStreamHandle]
 
 	// Audio instrumentation counters (diagnostic only).
 	audioPacketCount atomic.Uint64 // total OnAudioStreamPacket calls
 	audioWriteCount  atomic.Uint64 // successful Write calls to stream
+}
+
+// audioStreamHandle is immutable after publication so packet callbacks can
+// safely snapshot it without coordinating with lifecycle operations.
+type audioStreamHandle struct {
+	stream     port.AudioOutputStream
+	generation uint64
 }
 
 // pendingBrowserCreate holds the parameters needed to create a CEF browser,
@@ -971,7 +1004,7 @@ func (wv *WebView) prepareNativePopup(
 		prep.parent.trackPendingNativePopup(popupID, wv)
 	}
 
-	configureNativePopupWindow(windowInfo, settings, prep.frameRate, prep.backgroundColor)
+	configureNativePopupWindow(windowInfo, settings, prep.frameRate)
 	clientSlot.Set(client)
 	return true
 }
@@ -986,9 +1019,8 @@ func (wv *WebView) nativePopupPreparationSnapshot() (nativePopupPreparation, boo
 		return nativePopupPreparation{}, false
 	}
 	return nativePopupPreparation{
-		parent:          wv.nativePopupParent,
-		frameRate:       wv.windowlessFrameRate,
-		backgroundColor: wv.backgroundColor,
+		parent:    wv.nativePopupParent,
+		frameRate: wv.windowlessFrameRate,
 	}, true
 }
 
@@ -1024,7 +1056,6 @@ func configureNativePopupWindow(
 	windowInfo *purecef.WindowInfo,
 	settings *purecef.BrowserSettings,
 	frameRate int32,
-	backgroundColor uint32,
 ) {
 	cef2gtk.ConfigureWindowInfo(windowInfo, cef2gtk.WindowInfoOptions{})
 	if externalBeginFrameEnabled() {
@@ -1035,15 +1066,13 @@ func configureNativePopupWindow(
 	}
 	cef2gtk.ConfigureBrowserSettings(settings, cef2gtk.BrowserSettingsOptions{WindowlessFrameRate: frameRate})
 	settings.LocalStorage = 1
-	if backgroundColor != 0 {
-		settings.BackgroundColor = backgroundColor
-	}
+	// Always opaque white; the popup shell WebView carries the theme flash guard.
+	settings.BackgroundColor = opaqueWhiteBackground
 }
 
 type nativePopupPreparation struct {
-	parent          *WebView
-	frameRate       int32
-	backgroundColor uint32
+	parent    *WebView
+	frameRate int32
 }
 
 func (wv *WebView) handleNativePopupAborted() {
@@ -1223,6 +1252,7 @@ func (wv *WebView) destroyViewBridgeOnGTKThread() {
 	if wv == nil || wv.viewBridge == nil {
 		return
 	}
+	wv.removeBackgroundFlashGuard()
 	if wv.removeSizeObserver != nil {
 		wv.removeSizeObserver()
 		wv.removeSizeObserver = nil
@@ -2067,12 +2097,14 @@ func (wv *WebView) startBeginFrameLoop() {
 	cb := new(gtk.TickCallback)
 	*cb = func(_, _, _ uintptr) bool {
 		if wv.destroyed.Load() {
+			wv.releaseBeginFrameTickCallback()
 			return false
 		}
 		wv.mu.RLock()
 		host := wv.host
 		wv.mu.RUnlock()
 		if host == nil {
+			wv.releaseBeginFrameTickCallback()
 			return false
 		}
 		host.SendExternalBeginFrame()
@@ -2095,19 +2127,34 @@ func (wv *WebView) startBeginFrameLoop() {
 }
 
 func (wv *WebView) stopBeginFrameLoop() {
-	if wv.viewBridge == nil || wv.viewBridge.Widget() == nil {
-		return
-	}
-
 	wv.mu.Lock()
 	tickID := wv.beginFrameTickID
+	callback := wv.beginFrameTick
 	wv.beginFrameTickID = 0
 	wv.beginFrameTick = nil
-	widget := wv.viewBridge.Widget()
+	bridge := wv.viewBridge
 	wv.mu.Unlock()
 
-	if tickID != 0 {
-		widget.RemoveTickCallback(tickID)
+	if tickID != 0 && bridge != nil {
+		if widget := bridge.Widget(); widget != nil {
+			widget.RemoveTickCallback(tickID)
+		}
+	}
+	if callback != nil {
+		_ = unrefTickCallback(callback)
+	}
+}
+
+// releaseBeginFrameTickCallback releases the purego callback slot after GTK
+// removes a source because its callback returned false.
+func (wv *WebView) releaseBeginFrameTickCallback() {
+	wv.mu.Lock()
+	callback := wv.beginFrameTick
+	wv.beginFrameTickID = 0
+	wv.beginFrameTick = nil
+	wv.mu.Unlock()
+	if callback != nil {
+		_ = unrefTickCallback(callback)
 	}
 }
 
@@ -2302,20 +2349,51 @@ func (wv *WebView) takePendingCreate() *pendingBrowserCreate {
 	return pc
 }
 
-// closeAudioStream closes and clears the active audio output stream.
-// This is safe to call even if no stream is active.
-func (wv *WebView) closeAudioStream() {
+// beginAudioStreamStart invalidates any prior stream before creating a new
+// one. A stream created for the returned generation may only be published if
+// that generation is still current.
+func (wv *WebView) beginAudioStreamStart() (uint64, *audioStreamHandle, bool) {
 	wv.audioStreamMu.Lock()
 	defer wv.audioStreamMu.Unlock()
+	if wv.destroyed.Load() {
+		return 0, nil, false
+	}
+	generation := wv.audioStreamGeneration.Add(1)
+	previous := wv.audioStream.Swap(nil)
+	wv.audioPlaying.Store(false)
+	return generation, previous, true
+}
 
-	if wv.activeAudioStream != nil {
-		if err := wv.activeAudioStream.Close(); err != nil {
-			if wv.ctx != nil {
-				logging.FromContext(wv.ctx).Debug().
-					Err(err).
-					Msg("cef: error closing audio stream")
-			}
+// publishAudioStream publishes stream only if no Stop, Destroy, or newer Start
+// invalidated its creation generation. A rejected stream is owned by the
+// caller and must be closed by it.
+func (wv *WebView) publishAudioStream(generation uint64, stream port.AudioOutputStream) (*audioStreamHandle, bool) {
+	wv.audioStreamMu.Lock()
+	defer wv.audioStreamMu.Unlock()
+	if wv.destroyed.Load() || wv.audioStreamGeneration.Load() != generation {
+		return nil, false
+	}
+	previous := wv.audioStream.Swap(&audioStreamHandle{stream: stream, generation: generation})
+	wv.audioPlaying.Store(true)
+	return previous, true
+}
+
+// closeAudioStream invalidates creation in progress, atomically detaches the
+// published handle, then closes it outside the lifecycle mutex. The port
+// contract permits Close concurrently with a packet Write.
+func (wv *WebView) closeAudioStream() {
+	wv.audioStreamMu.Lock()
+	wv.audioStreamGeneration.Add(1)
+	stream := wv.audioStream.Swap(nil)
+	wv.audioPlaying.Store(false)
+	wv.audioStreamMu.Unlock()
+	wv.closeDetachedAudioStream(stream)
+}
+
+func (wv *WebView) closeDetachedAudioStream(handle *audioStreamHandle) {
+	if handle != nil && handle.stream != nil {
+		if err := handle.stream.Close(); err != nil && wv.ctx != nil {
+			logging.FromContext(wv.ctx).Debug().Err(err).Msg("cef: error closing audio stream")
 		}
-		wv.activeAudioStream = nil
 	}
 }

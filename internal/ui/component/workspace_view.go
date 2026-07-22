@@ -192,6 +192,14 @@ func (wv *WorkspaceView) SetWorkspace(ctx context.Context, ws *entity.Workspace)
 	wv.mu.Lock()
 	defer wv.mu.Unlock()
 
+	// Release previous views before dropping their ownership. This also detaches
+	// hover controllers and callback closures before their widgets are rebuilt.
+	for _, pv := range wv.paneViews {
+		if pv != nil {
+			pv.Cleanup()
+		}
+	}
+
 	// Clear previous state
 	wv.workspace = ws
 	wv.paneViews = make(map[entity.PaneID]*PaneView)
@@ -474,8 +482,16 @@ func (wv *WorkspaceView) DeactivatePane(paneID entity.PaneID) {
 	}
 }
 
-// SetWebViewWidget attaches a WebView widget to a specific pane.
+// SetWebViewWidget attaches a not-yet-revealed WebView widget to a specific pane.
+// Call AttachWebViewWidget when the content coordinator has explicit reveal state.
 func (wv *WorkspaceView) SetWebViewWidget(paneID entity.PaneID, widget layout.Widget) error {
+	return wv.AttachWebViewWidget(paneID, widget, false)
+}
+
+// AttachWebViewWidget attaches a WebView widget with the content coordinator's
+// explicit reveal state. A WorkspaceView rebuild can unparent a live widget, so
+// widget parentage cannot determine whether its loading skeleton is still needed.
+func (wv *WorkspaceView) AttachWebViewWidget(paneID entity.PaneID, widget layout.Widget, revealed bool) error {
 	wv.mu.RLock()
 	pv, ok := wv.paneViews[paneID]
 	callback := wv.onWebViewAttached
@@ -485,7 +501,7 @@ func (wv *WorkspaceView) SetWebViewWidget(paneID entity.PaneID, widget layout.Wi
 		return ErrPaneNotFound
 	}
 
-	pv.SetWebViewWidget(widget)
+	pv.AttachWebViewWidget(widget, revealed)
 	if widget != nil && callback != nil {
 		callback(paneID)
 	}
