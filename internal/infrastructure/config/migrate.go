@@ -58,10 +58,14 @@ func (m *Migrator) CheckMigration() (*port.MigrationResult, error) {
 		return nil, nil
 	}
 
-	// Get user-defined keys from the TOML file
-	userKeys, err := m.getUserConfigKeys(configFile)
+	userKeysWithValues, err := m.getUserConfigKeysWithValues(configFile)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse user config: %w", err)
+	}
+
+	userKeys := make(map[string]bool, len(userKeysWithValues))
+	for key := range userKeysWithValues {
+		userKeys[key] = true
 	}
 
 	// Get all default keys
@@ -69,6 +73,7 @@ func (m *Migrator) CheckMigration() (*port.MigrationResult, error) {
 
 	// Find missing keys (in defaults but not in user config)
 	missingKeys := m.findMissingKeys(defaultKeys, userKeys)
+	missingKeys = appendUniqueKeys(missingKeys, m.detectMissingDefaultActions(userKeysWithValues))
 
 	if len(missingKeys) == 0 {
 		return nil, nil
@@ -851,11 +856,17 @@ func (m *Migrator) detectMissingDefaultActions(userKeysWithValues map[string]any
 		}
 
 		for actionName := range actionMap.actions {
-			if _, exists := userActions[actionName]; exists {
+			if actionValue, exists := userActions[actionName]; exists {
+				if m.isObsoleteDefaultAction(actionMap.key, actionName, actionValue) {
+					missing = append(missing, actionMap.key+"."+actionName)
+				}
 				continue
 			}
 			legacyActionName := strings.ReplaceAll(actionName, "-", "_")
-			if _, exists := userActions[legacyActionName]; exists {
+			if actionValue, exists := userActions[legacyActionName]; exists {
+				if m.isObsoleteDefaultAction(actionMap.key, actionName, actionValue) {
+					missing = append(missing, actionMap.key+"."+actionName)
+				}
 				continue
 			}
 			missing = append(missing, actionMap.key+"."+actionName)
@@ -880,17 +891,101 @@ func (m *Migrator) mergeMissingDefaultActions(rawConfig map[string]any) {
 		}
 
 		for actionName, defaultAction := range actionMap.actions {
-			if _, exists := userActions[actionName]; exists {
+			if actionValue, exists := userActions[actionName]; exists {
+				if m.isObsoleteDefaultAction(actionMap.key, actionName, actionValue) {
+					userActions[actionName] = defaultAction
+				}
 				continue
 			}
 			legacyActionName := strings.ReplaceAll(actionName, "-", "_")
-			if _, exists := userActions[legacyActionName]; exists {
+			if actionValue, exists := userActions[legacyActionName]; exists {
+				if m.isObsoleteDefaultAction(actionMap.key, actionName, actionValue) {
+					delete(userActions, legacyActionName)
+					userActions[actionName] = defaultAction
+				}
 				continue
 			}
 			userActions[actionName] = defaultAction
 		}
 
 		m.setNestedValue(rawConfig, actionMap.key, userActions)
+	}
+}
+
+func (m *Migrator) isObsoleteDefaultAction(actionMapKey, actionName string, actionValue any) bool {
+	if actionMapKey != "workspace.shortcuts.actions" || actionName != "toggle-favorites-systemview" {
+		return false
+	}
+	binding, ok := m.actionBindingFromAny(actionValue)
+	if !ok {
+		return false
+	}
+	return len(binding.Keys) == 0 && strings.TrimSpace(binding.Desc) == "Toggle Favorites in right split"
+}
+
+func (m *Migrator) actionBindingFromAny(value any) (entity.ActionBinding, bool) {
+	switch v := value.(type) {
+	case entity.ActionBinding:
+		return v, true
+	case map[string]any:
+		return actionBindingFromMap(v)
+	default:
+		mapping, ok := m.toStringAnyMap(value)
+		if !ok {
+			return entity.ActionBinding{}, false
+		}
+		return actionBindingFromMap(mapping)
+	}
+}
+
+func actionBindingFromMap(m map[string]any) (entity.ActionBinding, bool) {
+	var binding entity.ActionBinding
+	if keysValue, exists := m["keys"]; exists {
+		keys, ok := stringSliceFromAny(keysValue)
+		if !ok {
+			return entity.ActionBinding{}, false
+		}
+		binding.Keys = keys
+	}
+	if descValue, exists := m["desc"]; exists {
+		desc, ok := descValue.(string)
+		if !ok {
+			return entity.ActionBinding{}, false
+		}
+		binding.Desc = desc
+	}
+	return binding, true
+}
+
+func stringSliceFromAny(value any) ([]string, bool) {
+	switch v := value.(type) {
+	case []string:
+		return append([]string(nil), v...), true
+	case []any:
+		out := make([]string, 0, len(v))
+		for _, item := range v {
+			s, ok := item.(string)
+			if !ok {
+				return nil, false
+			}
+			out = append(out, s)
+		}
+		return out, true
+	default:
+		rv := reflect.ValueOf(value)
+		if rv.Kind() != reflect.Slice {
+			return nil, false
+		}
+		out := make([]string, 0, rv.Len())
+		for i := 0; i < rv.Len(); i++ {
+			item := rv.Index(i).Interface()
+			s, ok := item.(string)
+			if !ok {
+				return nil, false
+			}
+			out = append(out, s)
+		}
+		return out, true
 	}
 }
 

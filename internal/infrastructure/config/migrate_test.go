@@ -1282,3 +1282,65 @@ section:
 		assert.InDelta(t, 42.0, section["number"].(float64), 0.001)
 	})
 }
+
+func TestMigrator_ReportsAndMigratesObsoleteFavoritesShortcutDefault(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, ".config"))
+	t.Setenv("XDG_DATA_HOME", filepath.Join(home, ".local", "share"))
+	t.Setenv("XDG_STATE_HOME", filepath.Join(home, ".local", "state"))
+	t.Setenv("XDG_CACHE_HOME", filepath.Join(home, ".cache"))
+
+	configFile, err := GetConfigFile()
+	require.NoError(t, err)
+	require.NoError(t, os.MkdirAll(filepath.Dir(configFile), 0o755))
+	require.NoError(t, os.WriteFile(configFile, []byte(`
+[workspace.shortcuts.actions.toggle-favorites-systemview]
+keys = []
+desc = "Toggle Favorites in right split"
+`), 0o644))
+
+	migrator := NewMigrator()
+	result, err := migrator.CheckMigration()
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	assert.Contains(t, result.MissingKeys, "workspace.shortcuts.actions.toggle-favorites-systemview")
+	assert.Contains(t, result.MissingKeys, "workspace.shortcuts.actions.toggle-current-page-favorite")
+
+	changes, err := migrator.DetectChanges()
+	require.NoError(t, err)
+	assertContainsChange(t, changes, port.KeyChangeAdded, "", "workspace.shortcuts.actions.toggle-favorites-systemview")
+	assertContainsChange(t, changes, port.KeyChangeAdded, "", "workspace.shortcuts.actions.toggle-current-page-favorite")
+
+	applied, err := migrator.Migrate()
+	require.NoError(t, err)
+	assert.Contains(t, applied, "workspace.shortcuts.actions.toggle-favorites-systemview")
+	assert.Contains(t, applied, "workspace.shortcuts.actions.toggle-current-page-favorite")
+
+	raw, err := migrator.readRawConfig(configFile)
+	require.NoError(t, err)
+	workspace, ok := raw["workspace"].(map[string]any)
+	require.True(t, ok)
+	shortcuts, ok := workspace["shortcuts"].(map[string]any)
+	require.True(t, ok)
+	actions, ok := shortcuts["actions"].(map[string]any)
+	require.True(t, ok)
+
+	expectedActions := DefaultConfig().Workspace.Shortcuts.Actions
+	favorites, ok := actions["toggle-favorites-systemview"].(map[string]any)
+	require.True(t, ok)
+	assert.Equal(t, []any{"ctrl+b"}, favorites["keys"])
+	assert.Equal(t, expectedActions["toggle-favorites-systemview"].Desc, favorites["desc"])
+	currentPage, ok := actions["toggle-current-page-favorite"].(map[string]any)
+	require.True(t, ok)
+	assert.Equal(t, []any{"ctrl+d"}, currentPage["keys"])
+	assert.Equal(t, expectedActions["toggle-current-page-favorite"].Desc, currentPage["desc"])
+
+	mgr, err := NewManager()
+	require.NoError(t, err)
+	require.NoError(t, mgr.Load())
+	cfg := mgr.Get()
+	require.NotNil(t, cfg)
+	assert.Equal(t, []string{"ctrl+b"}, cfg.Workspace.Shortcuts.Actions["toggle-favorites-systemview"].Keys)
+	assert.Equal(t, []string{"ctrl+d"}, cfg.Workspace.Shortcuts.Actions["toggle-current-page-favorite"].Keys)
+}
