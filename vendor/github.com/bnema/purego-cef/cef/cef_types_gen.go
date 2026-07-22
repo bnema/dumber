@@ -163,7 +163,8 @@ const (
 	ResultcodeResultCodeSystemResourceExhausted                 Resultcode = 37
 	ResultcodeResultCodeNormalExitAutoDeElevated                Resultcode = 38
 	ResultcodeResultCodeTerminatedByOtherProcessOnCommitFailure Resultcode = 39
-	ResultcodeResultCodeChromeLast                              Resultcode = 40
+	ResultcodeResultCodeInvalidIsolatedBrowserProcess           Resultcode = 40
+	ResultcodeResultCodeChromeLast                              Resultcode = 41
 	ResultcodeResultCodeSandboxFatalFirst                       Resultcode = 7006
 	ResultcodeResultCodeSandboxFatalIntegrity                   Resultcode = 7006
 	ResultcodeResultCodeSandboxFatalDroptoken                   Resultcode = 7007
@@ -194,7 +195,8 @@ const (
 	WindowOpenDispositionWodIgnoreAction        WindowOpenDisposition = 9
 	WindowOpenDispositionWodSwitchToTab         WindowOpenDisposition = 10
 	WindowOpenDispositionWodNewPictureInPicture WindowOpenDisposition = 11
-	WindowOpenDispositionWodNumValues           WindowOpenDisposition = 12
+	WindowOpenDispositionWodNewSplitView        WindowOpenDisposition = 12
+	WindowOpenDispositionWodNumValues           WindowOpenDisposition = 13
 )
 
 // DragOperationsMask is a CEF enum type.
@@ -245,7 +247,6 @@ const (
 	PostdataelementTypePdeTypeBytes     PostdataelementType = 1
 	PostdataelementTypePdeTypeFile      PostdataelementType = 2
 	PostdataelementTypePdeTypeNumValues PostdataelementType = 3
-	PostdataelementTypePdfTypeNumValues PostdataelementType = 4
 )
 
 // ResourceType is a CEF enum type.
@@ -1106,7 +1107,9 @@ const (
 	ChannelLayout514Downmix           ChannelLayout = 33
 	ChannelLayout11                   ChannelLayout = 34
 	ChannelLayout31Back               ChannelLayout = 35
-	ChannelLayoutChannelNumValues     ChannelLayout = 36
+	ChannelLayout514                  ChannelLayout = 36
+	ChannelLayout714                  ChannelLayout = 37
+	ChannelLayoutChannelNumValues     ChannelLayout = 38
 )
 
 // MediaRouteCreateResult is a CEF enum type.
@@ -1227,7 +1230,15 @@ const (
 	ChromePageActionIconTypeCpaitReadingMode               ChromePageActionIconType = 36
 	ChromePageActionIconTypeCpaitContextualSidePanel       ChromePageActionIconType = 37
 	ChromePageActionIconTypeCpaitJsOptimizations           ChromePageActionIconType = 38
-	ChromePageActionIconTypeCpaitNumValues                 ChromePageActionIconType = 39
+	ChromePageActionIconTypeCpaitRecordReplay              ChromePageActionIconType = 39
+	ChromePageActionIconTypeCpaitIndigo                    ChromePageActionIconType = 40
+	ChromePageActionIconTypeCpaitFederation                ChromePageActionIconType = 41
+	ChromePageActionIconTypeCpaitGlic                      ChromePageActionIconType = 42
+	ChromePageActionIconTypeCpaitAnchoredContextualCue     ChromePageActionIconType = 43
+	ChromePageActionIconTypeCpaitWebAuthnAmbientSignin     ChromePageActionIconType = 44
+	ChromePageActionIconTypeCpaitAutofillPayment           ChromePageActionIconType = 45
+	ChromePageActionIconTypeCpaitMultistepFilter           ChromePageActionIconType = 46
+	ChromePageActionIconTypeCpaitNumValues                 ChromePageActionIconType = 47
 )
 
 // ChromeToolbarButtonType is a CEF enum type.
@@ -1235,18 +1246,14 @@ type ChromeToolbarButtonType = int32
 
 const (
 	ChromeToolbarButtonTypeCtbtCastDeprecated          ChromeToolbarButtonType = 0
-	ChromeToolbarButtonTypeCtbtCast                    ChromeToolbarButtonType = 1
-	ChromeToolbarButtonTypeCtbtDownloadDeprecated      ChromeToolbarButtonType = 2
-	ChromeToolbarButtonTypeCtbtSendTabToSelfDeprecated ChromeToolbarButtonType = 3
-	ChromeToolbarButtonTypeCtbtDownload                ChromeToolbarButtonType = 4
-	ChromeToolbarButtonTypeCtbtSendTabToSelf           ChromeToolbarButtonType = 5
-	ChromeToolbarButtonTypeCtbtSidePanelDeprecated     ChromeToolbarButtonType = 6
-	ChromeToolbarButtonTypeCtbtMedia                   ChromeToolbarButtonType = 7
-	ChromeToolbarButtonTypeCtbtTabSearch               ChromeToolbarButtonType = 8
-	ChromeToolbarButtonTypeCtbtBatterySaver            ChromeToolbarButtonType = 9
-	ChromeToolbarButtonTypeCtbtAvatar                  ChromeToolbarButtonType = 10
-	ChromeToolbarButtonTypeCtbtSidePanel               ChromeToolbarButtonType = 11
-	ChromeToolbarButtonTypeCtbtNumValues               ChromeToolbarButtonType = 12
+	ChromeToolbarButtonTypeCtbtDownloadDeprecated      ChromeToolbarButtonType = 1
+	ChromeToolbarButtonTypeCtbtSendTabToSelfDeprecated ChromeToolbarButtonType = 2
+	ChromeToolbarButtonTypeCtbtSidePanelDeprecated     ChromeToolbarButtonType = 3
+	ChromeToolbarButtonTypeCtbtMedia                   ChromeToolbarButtonType = 4
+	ChromeToolbarButtonTypeCtbtTabSearch               ChromeToolbarButtonType = 5
+	ChromeToolbarButtonTypeCtbtBatterySaver            ChromeToolbarButtonType = 6
+	ChromeToolbarButtonTypeCtbtAvatar                  ChromeToolbarButtonType = 7
+	ChromeToolbarButtonTypeCtbtNumValues               ChromeToolbarButtonType = 8
 )
 
 // DockingMode is a CEF enum type.
@@ -1299,35 +1306,36 @@ const (
 type PermissionRequestTypes = int32
 
 const (
-	PermissionRequestTypesPermissionTypeNone                     PermissionRequestTypes = 0
-	PermissionRequestTypesPermissionTypeArSession                PermissionRequestTypes = 1 << 0
-	PermissionRequestTypesPermissionTypeCameraPanTiltZoom        PermissionRequestTypes = 1 << 1
-	PermissionRequestTypesPermissionTypeCameraStream             PermissionRequestTypes = 1 << 2
-	PermissionRequestTypesPermissionTypeCapturedSurfaceControl   PermissionRequestTypes = 1 << 3
-	PermissionRequestTypesPermissionTypeClipboard                PermissionRequestTypes = 1 << 4
-	PermissionRequestTypesPermissionTypeTopLevelStorageAccess    PermissionRequestTypes = 1 << 5
-	PermissionRequestTypesPermissionTypeDiskQuota                PermissionRequestTypes = 1 << 6
-	PermissionRequestTypesPermissionTypeLocalFonts               PermissionRequestTypes = 1 << 7
-	PermissionRequestTypesPermissionTypeGeolocation              PermissionRequestTypes = 1 << 8
-	PermissionRequestTypesPermissionTypeHandTracking             PermissionRequestTypes = 1 << 9
-	PermissionRequestTypesPermissionTypeIdentityProvider         PermissionRequestTypes = 1 << 10
-	PermissionRequestTypesPermissionTypeIdleDetection            PermissionRequestTypes = 1 << 11
-	PermissionRequestTypesPermissionTypeMicStream                PermissionRequestTypes = 1 << 12
-	PermissionRequestTypesPermissionTypeMidiSysex                PermissionRequestTypes = 1 << 13
-	PermissionRequestTypesPermissionTypeMultipleDownloads        PermissionRequestTypes = 1 << 14
-	PermissionRequestTypesPermissionTypeNotifications            PermissionRequestTypes = 1 << 15
-	PermissionRequestTypesPermissionTypeKeyboardLock             PermissionRequestTypes = 1 << 16
-	PermissionRequestTypesPermissionTypePointerLock              PermissionRequestTypes = 1 << 17
-	PermissionRequestTypesPermissionTypeProtectedMediaIdentifier PermissionRequestTypes = 1 << 18
-	PermissionRequestTypesPermissionTypeRegisterProtocolHandler  PermissionRequestTypes = 1 << 19
-	PermissionRequestTypesPermissionTypeStorageAccess            PermissionRequestTypes = 1 << 20
-	PermissionRequestTypesPermissionTypeVrSession                PermissionRequestTypes = 1 << 21
-	PermissionRequestTypesPermissionTypeWebAppInstallation       PermissionRequestTypes = 1 << 22
-	PermissionRequestTypesPermissionTypeWindowManagement         PermissionRequestTypes = 1 << 23
-	PermissionRequestTypesPermissionTypeFileSystemAccess         PermissionRequestTypes = 1 << 24
-	PermissionRequestTypesPermissionTypeLocalNetworkAccess       PermissionRequestTypes = 1 << 25
-	PermissionRequestTypesPermissionTypeLocalNetwork             PermissionRequestTypes = 1 << 26
-	PermissionRequestTypesPermissionTypeLoopbackNetwork          PermissionRequestTypes = 1 << 27
+	PermissionRequestTypesPermissionTypeNone                         PermissionRequestTypes = 0
+	PermissionRequestTypesPermissionTypeArSession                    PermissionRequestTypes = 1 << 0
+	PermissionRequestTypesPermissionTypeCameraPanTiltZoom            PermissionRequestTypes = 1 << 1
+	PermissionRequestTypesPermissionTypeCameraStream                 PermissionRequestTypes = 1 << 2
+	PermissionRequestTypesPermissionTypeCapturedSurfaceControl       PermissionRequestTypes = 1 << 3
+	PermissionRequestTypesPermissionTypeClipboard                    PermissionRequestTypes = 1 << 4
+	PermissionRequestTypesPermissionTypeTopLevelStorageAccess        PermissionRequestTypes = 1 << 5
+	PermissionRequestTypesPermissionTypeDiskQuota                    PermissionRequestTypes = 1 << 6
+	PermissionRequestTypesPermissionTypeLocalFonts                   PermissionRequestTypes = 1 << 7
+	PermissionRequestTypesPermissionTypeGeolocation                  PermissionRequestTypes = 1 << 8
+	PermissionRequestTypesPermissionTypeHandTracking                 PermissionRequestTypes = 1 << 9
+	PermissionRequestTypesPermissionTypeIdentityProvider             PermissionRequestTypes = 1 << 10
+	PermissionRequestTypesPermissionTypeIdleDetection                PermissionRequestTypes = 1 << 11
+	PermissionRequestTypesPermissionTypeMicStream                    PermissionRequestTypes = 1 << 12
+	PermissionRequestTypesPermissionTypeMidiSysex                    PermissionRequestTypes = 1 << 13
+	PermissionRequestTypesPermissionTypeMultipleDownloads            PermissionRequestTypes = 1 << 14
+	PermissionRequestTypesPermissionTypeNotifications                PermissionRequestTypes = 1 << 15
+	PermissionRequestTypesPermissionTypeKeyboardLock                 PermissionRequestTypes = 1 << 16
+	PermissionRequestTypesPermissionTypePointerLock                  PermissionRequestTypes = 1 << 17
+	PermissionRequestTypesPermissionTypeProtectedMediaIdentifier     PermissionRequestTypes = 1 << 18
+	PermissionRequestTypesPermissionTypeRegisterProtocolHandler      PermissionRequestTypes = 1 << 19
+	PermissionRequestTypesPermissionTypeStorageAccess                PermissionRequestTypes = 1 << 20
+	PermissionRequestTypesPermissionTypeVrSession                    PermissionRequestTypes = 1 << 21
+	PermissionRequestTypesPermissionTypeWebAppInstallation           PermissionRequestTypes = 1 << 22
+	PermissionRequestTypesPermissionTypeWindowManagement             PermissionRequestTypes = 1 << 23
+	PermissionRequestTypesPermissionTypeFileSystemAccess             PermissionRequestTypes = 1 << 24
+	PermissionRequestTypesPermissionTypeLocalNetworkAccessDeprecated PermissionRequestTypes = 1 << 25
+	PermissionRequestTypesPermissionTypeLocalNetwork                 PermissionRequestTypes = 1 << 26
+	PermissionRequestTypesPermissionTypeLoopbackNetwork              PermissionRequestTypes = 1 << 27
+	PermissionRequestTypesPermissionTypeSensors                      PermissionRequestTypes = 1 << 28
 )
 
 // PermissionRequestResult is a CEF enum type.
@@ -1440,12 +1448,11 @@ const (
 	TaskTypeExtension        TaskType = 6
 	TaskTypeGuest            TaskType = 7
 	TaskTypePluginDeprecated TaskType = 8
-	TaskTypePlugin           TaskType = 9
-	TaskTypeSandboxHelper    TaskType = 10
-	TaskTypeDedicatedWorker  TaskType = 11
-	TaskTypeSharedWorker     TaskType = 12
-	TaskTypeServiceWorker    TaskType = 13
-	TaskTypeNumValues        TaskType = 14
+	TaskTypeSandboxHelper    TaskType = 9
+	TaskTypeDedicatedWorker  TaskType = 10
+	TaskTypeSharedWorker     TaskType = 11
+	TaskTypeServiceWorker    TaskType = 12
+	TaskTypeNumValues        TaskType = 13
 )
 
 // RawSettings Initialization settings. Specify NULL or 0 to get the recommended default values. Many of these and other settings can also configured using command- line switches.

@@ -55,6 +55,13 @@ type V8ArrayBufferReleaseCallback interface {
 	ReleaseBuffer(buffer unsafe.Pointer)
 }
 
+// V8BackingStore defines the inbound port interface.
+type V8BackingStore interface {
+	Data() uintptr
+	ByteLength() int
+	IsValid() bool
+}
+
 // V8Value defines the inbound port interface.
 type V8Value interface {
 	IsValid() bool
@@ -102,7 +109,7 @@ type V8Value interface {
 	GetArrayBufferReleaseCallback() V8ArrayBufferReleaseCallback
 	NeuterArrayBuffer() int32
 	GetArrayBufferByteLength() int
-	GetArrayBufferData() unsafe.Pointer
+	GetArrayBufferData() uintptr
 	GetFunctionName() string
 	GetFunctionHandler() V8Handler
 	ExecuteFunction(object V8Value, arguments []V8Value) V8Value

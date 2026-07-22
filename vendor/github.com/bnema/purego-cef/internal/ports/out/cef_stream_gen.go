@@ -28,7 +28,7 @@ type StreamWriter interface {
 // StreamFunctions defines the outbound port for Stream free functions.
 type StreamFunctions interface {
 	StreamReaderCreateForFile(filename unsafe.Pointer) unsafe.Pointer
-	StreamReaderCreateForData(data unsafe.Pointer, size unsafe.Pointer) unsafe.Pointer
+	StreamReaderCreateForData(data unsafe.Pointer, size uintptr) unsafe.Pointer
 	StreamReaderCreateForHandler(handler unsafe.Pointer) unsafe.Pointer
 	StreamWriterCreateForFile(filename unsafe.Pointer) unsafe.Pointer
 	StreamWriterCreateForHandler(handler unsafe.Pointer) unsafe.Pointer

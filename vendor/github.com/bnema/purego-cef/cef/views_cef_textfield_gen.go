@@ -156,57 +156,6 @@ func (obj *textfieldImpl) GetCursorPosition() int {
 	return int(ret)
 }
 
-func (obj *textfieldImpl) SetTextColor(color uintptr) {
-	if obj == nil || obj.rawPtr == nil {
-		return
-	}
-	rawPtr := obj.rawPtr
-	rawPtr.CallSetTextColor(color)
-}
-
-func (obj *textfieldImpl) GetTextColor() uintptr {
-	if obj == nil || obj.rawPtr == nil {
-		return 0
-	}
-	rawPtr := obj.rawPtr
-	ret := rawPtr.CallGetTextColor()
-	return uintptr(ret)
-}
-
-func (obj *textfieldImpl) SetSelectionTextColor(color uintptr) {
-	if obj == nil || obj.rawPtr == nil {
-		return
-	}
-	rawPtr := obj.rawPtr
-	rawPtr.CallSetSelectionTextColor(color)
-}
-
-func (obj *textfieldImpl) GetSelectionTextColor() uintptr {
-	if obj == nil || obj.rawPtr == nil {
-		return 0
-	}
-	rawPtr := obj.rawPtr
-	ret := rawPtr.CallGetSelectionTextColor()
-	return uintptr(ret)
-}
-
-func (obj *textfieldImpl) SetSelectionBackgroundColor(color uintptr) {
-	if obj == nil || obj.rawPtr == nil {
-		return
-	}
-	rawPtr := obj.rawPtr
-	rawPtr.CallSetSelectionBackgroundColor(color)
-}
-
-func (obj *textfieldImpl) GetSelectionBackgroundColor() uintptr {
-	if obj == nil || obj.rawPtr == nil {
-		return 0
-	}
-	rawPtr := obj.rawPtr
-	ret := rawPtr.CallGetSelectionBackgroundColor()
-	return uintptr(ret)
-}
-
 func (obj *textfieldImpl) SetFontList(fontList string) {
 	if obj == nil || obj.rawPtr == nil {
 		return
@@ -277,14 +226,6 @@ func (obj *textfieldImpl) GetPlaceholderText() string {
 	return goStringUserfree(unsafe.Pointer(ret))
 }
 
-func (obj *textfieldImpl) SetPlaceholderTextColor(color uintptr) {
-	if obj == nil || obj.rawPtr == nil {
-		return
-	}
-	rawPtr := obj.rawPtr
-	rawPtr.CallSetPlaceholderTextColor(color)
-}
-
 func (obj *textfieldImpl) SetAccessibleName(name string) {
 	if obj == nil || obj.rawPtr == nil {
 		return
@@ -331,8 +272,21 @@ func wrapTextfield(ptr unsafe.Pointer) Textfield {
 	return impl
 }
 
+// takeTextfield adopts a CEF Textfield pointer whose reference is already owned by
+// the caller (as returned by a global factory function). Unlike wrapTextfield it
+// does NOT call AddRef, because the C API already transferred one reference to us.
+func takeTextfield(ptr unsafe.Pointer) Textfield {
+	if ptr == nil {
+		return nil
+	}
+	r := (*capi.CEFTextfieldT)(ptr)
+	impl := &textfieldImpl{rawPtr: r}
+	runtime.SetFinalizer(impl, (*textfieldImpl).Release)
+	return impl
+}
+
 // TextfieldCreate Create a new Textfield.
 func TextfieldCreate(delegate TextfieldDelegate) Textfield {
 	ret := capi.CEFTextfieldCreate(extractOrWrapRawPointer(delegate, func() any { return NewTextfieldDelegate(delegate) }))
-	return wrapTextfield(ret)
+	return takeTextfield(ret)
 }

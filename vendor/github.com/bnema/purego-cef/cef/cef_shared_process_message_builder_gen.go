@@ -41,13 +41,13 @@ func (obj *sharedProcessMessageBuilderImpl) Size() int {
 	return int(ret)
 }
 
-func (obj *sharedProcessMessageBuilderImpl) Memory() unsafe.Pointer {
+func (obj *sharedProcessMessageBuilderImpl) Memory() uintptr {
 	if obj == nil || obj.rawPtr == nil {
-		return nil
+		return 0
 	}
 	rawPtr := obj.rawPtr
 	ret := rawPtr.CallMemory()
-	return unsafe.Pointer(ret)
+	return uintptr(ret)
 }
 
 func (obj *sharedProcessMessageBuilderImpl) Build() ProcessMessage {
@@ -95,10 +95,26 @@ func wrapSharedProcessMessageBuilder(ptr unsafe.Pointer) SharedProcessMessageBui
 	return impl
 }
 
+// takeSharedProcessMessageBuilder adopts a CEF SharedProcessMessageBuilder pointer whose reference is already owned by
+// the caller (as returned by a global factory function). Unlike wrapSharedProcessMessageBuilder it
+// does NOT call AddRef, because the C API already transferred one reference to us.
+func takeSharedProcessMessageBuilder(ptr unsafe.Pointer) SharedProcessMessageBuilder {
+	if ptr == nil {
+		return nil
+	}
+	r := (*capi.CEFSharedProcessMessageBuilderT)(ptr)
+	impl := &sharedProcessMessageBuilderImpl{rawPtr: r}
+	runtime.SetFinalizer(impl, (*sharedProcessMessageBuilderImpl).Release)
+	return impl
+}
+
 // SharedProcessMessageBuilderCreate Creates a new cef_shared_process_message_builder_t with the specified |name| and shared memory region of specified |byte_size|.
 func SharedProcessMessageBuilderCreate(name string, byteSize int) SharedProcessMessageBuilder {
+	if byteSize < 0 {
+		return nil
+	}
 	nameStr := cefString(name)
 	defer freeCefString(&nameStr)
 	ret := capi.CEFSharedProcessMessageBuilderCreate(unsafe.Pointer(&nameStr), uintptr(byteSize))
-	return wrapSharedProcessMessageBuilder(ret)
+	return takeSharedProcessMessageBuilder(ret)
 }

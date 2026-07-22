@@ -161,8 +161,21 @@ func wrapPanel(ptr unsafe.Pointer) Panel {
 	return impl
 }
 
+// takePanel adopts a CEF Panel pointer whose reference is already owned by
+// the caller (as returned by a global factory function). Unlike wrapPanel it
+// does NOT call AddRef, because the C API already transferred one reference to us.
+func takePanel(ptr unsafe.Pointer) Panel {
+	if ptr == nil {
+		return nil
+	}
+	r := (*capi.CEFPanelT)(ptr)
+	impl := &panelImpl{rawPtr: r}
+	runtime.SetFinalizer(impl, (*panelImpl).Release)
+	return impl
+}
+
 // PanelCreate Create a new Panel.
 func PanelCreate(delegate PanelDelegate) Panel {
 	ret := capi.CEFPanelCreate(extractOrWrapRawPointer(delegate, func() any { return NewPanelDelegate(delegate) }))
-	return wrapPanel(ret)
+	return takePanel(ret)
 }

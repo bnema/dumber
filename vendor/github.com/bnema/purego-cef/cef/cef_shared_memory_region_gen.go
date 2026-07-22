@@ -41,13 +41,13 @@ func (obj *sharedMemoryRegionImpl) Size() int {
 	return int(ret)
 }
 
-func (obj *sharedMemoryRegionImpl) Memory() unsafe.Pointer {
+func (obj *sharedMemoryRegionImpl) Memory() uintptr {
 	if obj == nil || obj.rawPtr == nil {
-		return nil
+		return 0
 	}
 	rawPtr := obj.rawPtr
 	ret := rawPtr.CallMemory()
-	return unsafe.Pointer(ret)
+	return uintptr(ret)
 }
 
 func (obj *sharedMemoryRegionImpl) RawPointer() unsafe.Pointer {

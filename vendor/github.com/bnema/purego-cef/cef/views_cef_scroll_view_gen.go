@@ -121,8 +121,21 @@ func wrapScrollView(ptr unsafe.Pointer) ScrollView {
 	return impl
 }
 
+// takeScrollView adopts a CEF ScrollView pointer whose reference is already owned by
+// the caller (as returned by a global factory function). Unlike wrapScrollView it
+// does NOT call AddRef, because the C API already transferred one reference to us.
+func takeScrollView(ptr unsafe.Pointer) ScrollView {
+	if ptr == nil {
+		return nil
+	}
+	r := (*capi.CEFScrollViewT)(ptr)
+	impl := &scrollViewImpl{rawPtr: r}
+	runtime.SetFinalizer(impl, (*scrollViewImpl).Release)
+	return impl
+}
+
 // ScrollViewCreate Create a new ScrollView.
 func ScrollViewCreate(delegate ViewDelegate) ScrollView {
 	ret := capi.CEFScrollViewCreate(extractOrWrapRawPointer(delegate, func() any { return NewViewDelegate(delegate) }))
-	return wrapScrollView(ret)
+	return takeScrollView(ret)
 }

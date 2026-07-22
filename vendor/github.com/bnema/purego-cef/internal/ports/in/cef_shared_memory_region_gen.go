@@ -2,13 +2,9 @@
 
 package in
 
-import (
-	"unsafe"
-)
-
 // SharedMemoryRegion defines the inbound port interface.
 type SharedMemoryRegion interface {
 	IsValid() bool
 	Size() int
-	Memory() unsafe.Pointer
+	Memory() uintptr
 }

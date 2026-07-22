@@ -57,6 +57,9 @@ func GetExtensionsForMimeType(mimeType string, extensions StringList) {
 
 // Base64Encode Encodes |data| as a base64 string.
 func Base64Encode(data unsafe.Pointer, dataSize int) string {
+	if dataSize < 0 {
+		return ""
+	}
 	ret := capi.CEFBase64Encode(data, uintptr(dataSize))
 	return goStringUserfree(unsafe.Pointer(ret))
 }
@@ -66,7 +69,7 @@ func Base64Decode(data string) BinaryValue {
 	dataStr := cefString(data)
 	defer freeCefString(&dataStr)
 	ret := capi.CEFBase64Decode(unsafe.Pointer(&dataStr))
-	return wrapBinaryValue(ret)
+	return takeBinaryValue(ret)
 }
 
 // Uriencode Escapes characters in |text| which are unsuitable for use as a query parameter value. Everything except alphanumerics and -_.!~*'() will be converted to "%XX". If |use_plus| is true (1) spaces will change to "+". The result is basically the same as encodeURIComponent in Javacript.
@@ -90,13 +93,16 @@ func ParseJson(jsonString string, options JsonParserOptions) Value {
 	jsonStringStr := cefString(jsonString)
 	defer freeCefString(&jsonStringStr)
 	ret := capi.CEFParseJson(unsafe.Pointer(&jsonStringStr), capi.CEFJsonParserOptionsT(options))
-	return wrapValue(ret)
+	return takeValue(ret)
 }
 
 // ParseJsonBuffer Parses the specified UTF8-encoded |json| buffer of size |json_size| and returns a dictionary or list representation. If JSON parsing fails this function returns NULL.
 func ParseJsonBuffer(json unsafe.Pointer, jsonSize int, options JsonParserOptions) Value {
+	if jsonSize < 0 {
+		return nil
+	}
 	ret := capi.CEFParseJsonBuffer(json, uintptr(jsonSize), capi.CEFJsonParserOptionsT(options))
-	return wrapValue(ret)
+	return takeValue(ret)
 }
 
 // ParseJsonandReturnError Parses the specified |json_string| and returns a dictionary or list representation. If JSON parsing fails this function returns NULL and populates |error_msg_out| with a formatted error message.
@@ -104,7 +110,7 @@ func ParseJsonandReturnError(jsonString string, options JsonParserOptions, error
 	jsonStringStr := cefString(jsonString)
 	defer freeCefString(&jsonStringStr)
 	ret := capi.CEFParseJsonandReturnError(unsafe.Pointer(&jsonStringStr), capi.CEFJsonParserOptionsT(options), unsafe.Pointer(errorMsgOut))
-	return wrapValue(ret)
+	return takeValue(ret)
 }
 
 // WriteJson Generates a JSON string from the specified root |node| which should be a dictionary or list value. Returns an NULL string on failure. This function requires exclusive access to |node| including any underlying data.

@@ -309,8 +309,21 @@ func wrapDragData(ptr unsafe.Pointer) DragData {
 	return impl
 }
 
+// takeDragData adopts a CEF DragData pointer whose reference is already owned by
+// the caller (as returned by a global factory function). Unlike wrapDragData it
+// does NOT call AddRef, because the C API already transferred one reference to us.
+func takeDragData(ptr unsafe.Pointer) DragData {
+	if ptr == nil {
+		return nil
+	}
+	r := (*capi.CEFDragDataT)(ptr)
+	impl := &dragDataImpl{rawPtr: r}
+	runtime.SetFinalizer(impl, (*dragDataImpl).Release)
+	return impl
+}
+
 // DragDataCreate Create a new cef_drag_data_t object.
 func DragDataCreate() DragData {
 	ret := capi.CEFDragDataCreate()
-	return wrapDragData(ret)
+	return takeDragData(ret)
 }

@@ -323,6 +323,19 @@ func wrapStreamReader(ptr unsafe.Pointer) StreamReader {
 	return impl
 }
 
+// takeStreamReader adopts a CEF StreamReader pointer whose reference is already owned by
+// the caller (as returned by a global factory function). Unlike wrapStreamReader it
+// does NOT call AddRef, because the C API already transferred one reference to us.
+func takeStreamReader(ptr unsafe.Pointer) StreamReader {
+	if ptr == nil {
+		return nil
+	}
+	r := (*capi.CEFStreamReaderT)(ptr)
+	impl := &streamReaderImpl{rawPtr: r}
+	runtime.SetFinalizer(impl, (*streamReaderImpl).Release)
+	return impl
+}
+
 // WriteHandler Structure the client can implement to provide a custom stream writer. The functions of this structure may be called on any thread.
 type WriteHandler = portin.WriteHandler
 
@@ -634,24 +647,40 @@ func wrapStreamWriter(ptr unsafe.Pointer) StreamWriter {
 	return impl
 }
 
+// takeStreamWriter adopts a CEF StreamWriter pointer whose reference is already owned by
+// the caller (as returned by a global factory function). Unlike wrapStreamWriter it
+// does NOT call AddRef, because the C API already transferred one reference to us.
+func takeStreamWriter(ptr unsafe.Pointer) StreamWriter {
+	if ptr == nil {
+		return nil
+	}
+	r := (*capi.CEFStreamWriterT)(ptr)
+	impl := &streamWriterImpl{rawPtr: r}
+	runtime.SetFinalizer(impl, (*streamWriterImpl).Release)
+	return impl
+}
+
 // StreamReaderCreateForFile Create a new cef_stream_reader_t object from a file.
 func StreamReaderCreateForFile(filename string) StreamReader {
 	filenameStr := cefString(filename)
 	defer freeCefString(&filenameStr)
 	ret := capi.CEFStreamReaderCreateForFile(unsafe.Pointer(&filenameStr))
-	return wrapStreamReader(ret)
+	return takeStreamReader(ret)
 }
 
 // StreamReaderCreateForData Create a new cef_stream_reader_t object from data.
 func StreamReaderCreateForData(data unsafe.Pointer, size int) StreamReader {
+	if size < 0 {
+		return nil
+	}
 	ret := capi.CEFStreamReaderCreateForData(data, uintptr(size))
-	return wrapStreamReader(ret)
+	return takeStreamReader(ret)
 }
 
 // StreamReaderCreateForHandler Create a new cef_stream_reader_t object from a custom handler.
 func StreamReaderCreateForHandler(handler ReadHandler) StreamReader {
 	ret := capi.CEFStreamReaderCreateForHandler(extractOrWrapRawPointer(handler, func() any { return NewReadHandler(handler) }))
-	return wrapStreamReader(ret)
+	return takeStreamReader(ret)
 }
 
 // StreamWriterCreateForFile Create a new cef_stream_writer_t object for a file.
@@ -659,11 +688,11 @@ func StreamWriterCreateForFile(filename string) StreamWriter {
 	filenameStr := cefString(filename)
 	defer freeCefString(&filenameStr)
 	ret := capi.CEFStreamWriterCreateForFile(unsafe.Pointer(&filenameStr))
-	return wrapStreamWriter(ret)
+	return takeStreamWriter(ret)
 }
 
 // StreamWriterCreateForHandler Create a new cef_stream_writer_t object for a custom handler.
 func StreamWriterCreateForHandler(handler WriteHandler) StreamWriter {
 	ret := capi.CEFStreamWriterCreateForHandler(extractOrWrapRawPointer(handler, func() any { return NewWriteHandler(handler) }))
-	return wrapStreamWriter(ret)
+	return takeStreamWriter(ret)
 }

@@ -269,6 +269,19 @@ func wrapValue(ptr unsafe.Pointer) Value {
 	return impl
 }
 
+// takeValue adopts a CEF Value pointer whose reference is already owned by
+// the caller (as returned by a global factory function). Unlike wrapValue it
+// does NOT call AddRef, because the C API already transferred one reference to us.
+func takeValue(ptr unsafe.Pointer) Value {
+	if ptr == nil {
+		return nil
+	}
+	r := (*capi.CEFValueT)(ptr)
+	impl := &valueImpl{rawPtr: r}
+	runtime.SetFinalizer(impl, (*valueImpl).Release)
+	return impl
+}
+
 // BinaryValue Structure representing a binary value. Can be used on any process and thread.
 type BinaryValue = portin.BinaryValue
 
@@ -325,13 +338,13 @@ func (obj *binaryValueImpl) Copy() BinaryValue {
 	return wrapBinaryValue(unsafe.Pointer(ret))
 }
 
-func (obj *binaryValueImpl) GetRawData() unsafe.Pointer {
+func (obj *binaryValueImpl) GetRawData() uintptr {
 	if obj == nil || obj.rawPtr == nil {
-		return nil
+		return 0
 	}
 	rawPtr := obj.rawPtr
 	ret := rawPtr.CallGetRawData()
-	return unsafe.Pointer(ret)
+	return uintptr(ret)
 }
 
 func (obj *binaryValueImpl) GetSize() int {
@@ -383,6 +396,19 @@ func wrapBinaryValue(ptr unsafe.Pointer) BinaryValue {
 	r := (*capi.CEFBinaryValueT)(ptr)
 	base := (*capi.CEFBaseRefCountedT)(ptr)
 	base.CallAddRef()
+	impl := &binaryValueImpl{rawPtr: r}
+	runtime.SetFinalizer(impl, (*binaryValueImpl).Release)
+	return impl
+}
+
+// takeBinaryValue adopts a CEF BinaryValue pointer whose reference is already owned by
+// the caller (as returned by a global factory function). Unlike wrapBinaryValue it
+// does NOT call AddRef, because the C API already transferred one reference to us.
+func takeBinaryValue(ptr unsafe.Pointer) BinaryValue {
+	if ptr == nil {
+		return nil
+	}
+	r := (*capi.CEFBinaryValueT)(ptr)
 	impl := &binaryValueImpl{rawPtr: r}
 	runtime.SetFinalizer(impl, (*binaryValueImpl).Release)
 	return impl
@@ -748,6 +774,19 @@ func wrapDictionaryValue(ptr unsafe.Pointer) DictionaryValue {
 	return impl
 }
 
+// takeDictionaryValue adopts a CEF DictionaryValue pointer whose reference is already owned by
+// the caller (as returned by a global factory function). Unlike wrapDictionaryValue it
+// does NOT call AddRef, because the C API already transferred one reference to us.
+func takeDictionaryValue(ptr unsafe.Pointer) DictionaryValue {
+	if ptr == nil {
+		return nil
+	}
+	r := (*capi.CEFDictionaryValueT)(ptr)
+	impl := &dictionaryValueImpl{rawPtr: r}
+	runtime.SetFinalizer(impl, (*dictionaryValueImpl).Release)
+	return impl
+}
+
 // ListValue Structure representing a list value. Can be used on any process and thread.
 type ListValue = portin.ListValue
 
@@ -1059,26 +1098,42 @@ func wrapListValue(ptr unsafe.Pointer) ListValue {
 	return impl
 }
 
+// takeListValue adopts a CEF ListValue pointer whose reference is already owned by
+// the caller (as returned by a global factory function). Unlike wrapListValue it
+// does NOT call AddRef, because the C API already transferred one reference to us.
+func takeListValue(ptr unsafe.Pointer) ListValue {
+	if ptr == nil {
+		return nil
+	}
+	r := (*capi.CEFListValueT)(ptr)
+	impl := &listValueImpl{rawPtr: r}
+	runtime.SetFinalizer(impl, (*listValueImpl).Release)
+	return impl
+}
+
 // ValueCreate Creates a new object.
 func ValueCreate() Value {
 	ret := capi.CEFValueCreate()
-	return wrapValue(ret)
+	return takeValue(ret)
 }
 
 // BinaryValueCreate Creates a new object that is not owned by any other object. The specified |data| will be copied.
 func BinaryValueCreate(data unsafe.Pointer, dataSize int) BinaryValue {
+	if dataSize < 0 {
+		return nil
+	}
 	ret := capi.CEFBinaryValueCreate(data, uintptr(dataSize))
-	return wrapBinaryValue(ret)
+	return takeBinaryValue(ret)
 }
 
 // DictionaryValueCreate Creates a new object that is not owned by any other object.
 func DictionaryValueCreate() DictionaryValue {
 	ret := capi.CEFDictionaryValueCreate()
-	return wrapDictionaryValue(ret)
+	return takeDictionaryValue(ret)
 }
 
 // ListValueCreate Creates a new object that is not owned by any other object.
 func ListValueCreate() ListValue {
 	ret := capi.CEFListValueCreate()
-	return wrapListValue(ret)
+	return takeListValue(ret)
 }

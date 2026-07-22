@@ -113,7 +113,7 @@ type ListValue interface {
 // ValuesFunctions defines the outbound port for Values free functions.
 type ValuesFunctions interface {
 	ValueCreate() unsafe.Pointer
-	BinaryValueCreate(data unsafe.Pointer, dataSize unsafe.Pointer) unsafe.Pointer
+	BinaryValueCreate(data unsafe.Pointer, dataSize uintptr) unsafe.Pointer
 	DictionaryValueCreate() unsafe.Pointer
 	ListValueCreate() unsafe.Pointer
 }

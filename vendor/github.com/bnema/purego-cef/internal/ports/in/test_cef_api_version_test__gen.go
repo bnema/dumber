@@ -2,6 +2,10 @@
 
 package in
 
+import (
+	"unsafe"
+)
+
 // ApiVersionTest defines the inbound port interface.
 type ApiVersionTest interface {
 	GetRefPtrLibrary(val int32) ApiVersionTestRefPtrLibrary
@@ -9,14 +13,12 @@ type ApiVersionTest interface {
 	SetRefPtrLibraryAndReturn(val ApiVersionTestRefPtrLibrary) ApiVersionTestRefPtrLibrary
 	SetChildRefPtrLibrary(val ApiVersionTestRefPtrLibraryChild) int32
 	SetChildRefPtrLibraryAndReturnParent(val ApiVersionTestRefPtrLibraryChild) ApiVersionTestRefPtrLibrary
-	SetRefPtrLibraryList(val []ApiVersionTestRefPtrLibrary, val1 int32, val2 int32) int32
+	SetRefPtrLibraryList(valcount int, val unsafe.Pointer, val1 int32, val2 int32) int32
 	GetRefPtrLibraryListByRef(valcount *int, val []ApiVersionTestRefPtrLibrary, val1 int32, val2 int32) int32
 	GetRefPtrLibraryListSize() int
 	SetRefPtrClient(val ApiVersionTestRefPtrClient) int32
 	SetRefPtrClientAndReturn(val ApiVersionTestRefPtrClient) ApiVersionTestRefPtrClient
-	SetChildRefPtrClient(val ApiVersionTestRefPtrClientChild) int32
-	SetChildRefPtrClientAndReturnParent(val ApiVersionTestRefPtrClientChild) ApiVersionTestRefPtrClient
-	SetRefPtrClientList(val []ApiVersionTestRefPtrClient, val1 int32, val2 int32) int32
+	SetRefPtrClientList(valcount int, val unsafe.Pointer, val1 int32, val2 int32) int32
 	GetRefPtrClientListByRef(valcount *int, val []ApiVersionTestRefPtrClient, val1 ApiVersionTestRefPtrClient, val2 ApiVersionTestRefPtrClient) int32
 	GetRefPtrClientListSize() int
 	GetOwnPtrLibrary(val int32) ApiVersionTestScopedLibrary
@@ -26,14 +28,11 @@ type ApiVersionTest interface {
 	SetChildOwnPtrLibraryAndReturnParent(val ApiVersionTestScopedLibraryChild) ApiVersionTestScopedLibrary
 	SetOwnPtrClient(val ApiVersionTestScopedClient) int32
 	SetOwnPtrClientAndReturn(val ApiVersionTestScopedClient) ApiVersionTestScopedClient
-	SetChildOwnPtrClient(val ApiVersionTestScopedClientChild) int32
-	SetChildOwnPtrClientAndReturnParent(val ApiVersionTestScopedClientChild) ApiVersionTestScopedClient
 	SetRawPtrLibrary(val ApiVersionTestScopedLibrary) int32
 	SetChildRawPtrLibrary(val ApiVersionTestScopedLibraryChild) int32
-	SetRawPtrLibraryList(val []ApiVersionTestScopedLibrary, val1 int32, val2 int32) int32
+	SetRawPtrLibraryList(valcount int, val unsafe.Pointer, val1 int32, val2 int32) int32
 	SetRawPtrClient(val ApiVersionTestScopedClient) int32
-	SetChildRawPtrClient(val ApiVersionTestScopedClientChild) int32
-	SetRawPtrClientList(val []ApiVersionTestScopedClient, val1 int32, val2 int32) int32
+	SetRawPtrClientList(valcount int, val unsafe.Pointer, val1 int32, val2 int32) int32
 	SetChildRefPtrClientV2(val ApiVersionTestRefPtrClientChildV2) int32
 	SetChildRefPtrClientAndReturnParentV2(val ApiVersionTestRefPtrClientChildV2) ApiVersionTestRefPtrClient
 	SetChildOwnPtrClientV2(val ApiVersionTestScopedClientChildV2) int32
@@ -45,32 +44,14 @@ type ApiVersionTest interface {
 type ApiVersionTestRefPtrLibrary interface {
 	GetValueLegacy() int32
 	SetValueLegacy(value int32)
-	GetValue() int32
-	SetValue(value int32)
-	GetValueV1() int32
-	SetValueV1(value int32)
 	GetValueV2() int32
 	SetValueV2(value int32)
-	GetValueExp() int32
-	SetValueExp(value int32)
 }
 
 // ApiVersionTestRefPtrLibraryChild defines the inbound port interface.
 type ApiVersionTestRefPtrLibraryChild interface {
 	GetOtherValue() int32
 	SetOtherValue(value int32)
-}
-
-// ApiVersionTestRefPtrLibraryChildChild defines the inbound port interface.
-type ApiVersionTestRefPtrLibraryChildChild interface {
-	GetOtherOtherValue() int32
-	SetOtherOtherValue(value int32)
-}
-
-// ApiVersionTestRefPtrLibraryChildChildV1 defines the inbound port interface.
-type ApiVersionTestRefPtrLibraryChildChildV1 interface {
-	GetOtherOtherValue() int32
-	SetOtherOtherValue(value int32)
 }
 
 // ApiVersionTestRefPtrLibraryChildChildV2 defines the inbound port interface.
@@ -82,16 +63,7 @@ type ApiVersionTestRefPtrLibraryChildChildV2 interface {
 // ApiVersionTestRefPtrClient defines the inbound port interface.
 type ApiVersionTestRefPtrClient interface {
 	GetValueLegacy() int32
-	GetValue() int32
-	GetValueV1() int32
 	GetValueV2() int32
-	GetValueExp() int32
-}
-
-// ApiVersionTestRefPtrClientChild defines the inbound port interface.
-type ApiVersionTestRefPtrClientChild interface {
-	GetOtherValue() int32
-	GetOtherValueV1() int32
 }
 
 // ApiVersionTestRefPtrClientChildV2 defines the inbound port interface.
@@ -104,32 +76,14 @@ type ApiVersionTestRefPtrClientChildV2 interface {
 type ApiVersionTestScopedLibrary interface {
 	GetValueLegacy() int32
 	SetValueLegacy(value int32)
-	GetValue() int32
-	SetValue(value int32)
-	GetValueV1() int32
-	SetValueV1(value int32)
 	GetValueV2() int32
 	SetValueV2(value int32)
-	GetValueExp() int32
-	SetValueExp(value int32)
 }
 
 // ApiVersionTestScopedLibraryChild defines the inbound port interface.
 type ApiVersionTestScopedLibraryChild interface {
 	GetOtherValue() int32
 	SetOtherValue(value int32)
-}
-
-// ApiVersionTestScopedLibraryChildChild defines the inbound port interface.
-type ApiVersionTestScopedLibraryChildChild interface {
-	GetOtherOtherValue() int32
-	SetOtherOtherValue(value int32)
-}
-
-// ApiVersionTestScopedLibraryChildChildV1 defines the inbound port interface.
-type ApiVersionTestScopedLibraryChildChildV1 interface {
-	GetOtherOtherValue() int32
-	SetOtherOtherValue(value int32)
 }
 
 // ApiVersionTestScopedLibraryChildChildV2 defines the inbound port interface.
@@ -141,16 +95,7 @@ type ApiVersionTestScopedLibraryChildChildV2 interface {
 // ApiVersionTestScopedClient defines the inbound port interface.
 type ApiVersionTestScopedClient interface {
 	GetValueLegacy() int32
-	GetValue() int32
-	GetValueV1() int32
 	GetValueV2() int32
-	GetValueExp() int32
-}
-
-// ApiVersionTestScopedClientChild defines the inbound port interface.
-type ApiVersionTestScopedClientChild interface {
-	GetOtherValue() int32
-	GetOtherValueV1() int32
 }
 
 // ApiVersionTestScopedClientChildV2 defines the inbound port interface.

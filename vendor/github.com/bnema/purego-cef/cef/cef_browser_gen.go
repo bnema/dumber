@@ -245,6 +245,19 @@ func wrapBrowser(ptr unsafe.Pointer) Browser {
 	return impl
 }
 
+// takeBrowser adopts a CEF Browser pointer whose reference is already owned by
+// the caller (as returned by a global factory function). Unlike wrapBrowser it
+// does NOT call AddRef, because the C API already transferred one reference to us.
+func takeBrowser(ptr unsafe.Pointer) Browser {
+	if ptr == nil {
+		return nil
+	}
+	r := (*capi.CEFBrowserT)(ptr)
+	impl := &browserImpl{rawPtr: r}
+	runtime.SetFinalizer(impl, (*browserImpl).Release)
+	return impl
+}
+
 // RunFileDialogCallback Callback structure for cef_browser_host_t::RunFileDialog. The functions of this structure will be called on the browser process UI thread.
 type RunFileDialogCallback = portin.RunFileDialogCallback
 
@@ -1317,11 +1330,11 @@ func BrowserHostCreateBrowserSync(windowinfo *WindowInfo, client RawClient, uRL 
 	uRLStr := cefString(uRL)
 	defer freeCefString(&uRLStr)
 	ret := capi.CEFBrowserHostCreateBrowserSync(unsafe.Pointer(windowinfo), extractOrWrapRawPointer(client, func() any { return NewRawClient(client) }), unsafe.Pointer(&uRLStr), unsafe.Pointer(settings), extractRawPointer(extraInfo), extractRawPointer(requestContext))
-	return wrapBrowser(ret)
+	return takeBrowser(ret)
 }
 
 // BrowserHostGetBrowserByIdentifier Returns the browser (if any) with the specified identifier.
 func BrowserHostGetBrowserByIdentifier(browserID int32) Browser {
 	ret := capi.CEFBrowserHostGetBrowserByIdentifier(browserID)
-	return wrapBrowser(ret)
+	return takeBrowser(ret)
 }

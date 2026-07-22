@@ -380,14 +380,14 @@ func TestConfigureNativePopupWindow_UsesSharedTextureWindowlessDefaults(t *testi
 	windowInfo := purecef.NewWindowInfo()
 	settings := purecef.NewBrowserSettings()
 
-	configureNativePopupWindow(&windowInfo, &settings, 72, 0xFF112233)
+	configureNativePopupWindow(&windowInfo, &settings, 72)
 
 	require.Equal(t, purecef.WindowHandle(0), windowInfo.ParentWindow)
 	require.Equal(t, int32(1), windowInfo.WindowlessRenderingEnabled)
 	require.Equal(t, int32(1), windowInfo.SharedTextureEnabled)
 	require.Equal(t, int32(72), settings.WindowlessFrameRate)
 	require.Equal(t, int32(1), settings.LocalStorage)
-	require.Equal(t, uint32(0xFF112233), settings.BackgroundColor)
+	require.Equal(t, opaqueWhiteBackground, settings.BackgroundColor)
 }
 
 func TestOnLoadStartFiresCommittedAndUpdatesURI(t *testing.T) {

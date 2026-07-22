@@ -39,7 +39,7 @@ type BinaryValue interface {
 	IsSame(that BinaryValue) bool
 	IsEqual(that BinaryValue) bool
 	Copy() BinaryValue
-	GetRawData() unsafe.Pointer
+	GetRawData() uintptr
 	GetSize() int
 	GetData(buffer unsafe.Pointer, bufferSize int, dataOffset int) int
 }

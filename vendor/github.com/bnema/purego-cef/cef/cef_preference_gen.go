@@ -259,6 +259,19 @@ func wrapPreferenceManager(ptr unsafe.Pointer) PreferenceManager {
 	return impl
 }
 
+// takePreferenceManager adopts a CEF PreferenceManager pointer whose reference is already owned by
+// the caller (as returned by a global factory function). Unlike wrapPreferenceManager it
+// does NOT call AddRef, because the C API already transferred one reference to us.
+func takePreferenceManager(ptr unsafe.Pointer) PreferenceManager {
+	if ptr == nil {
+		return nil
+	}
+	r := (*capi.CEFPreferenceManagerT)(ptr)
+	impl := &preferenceManagerImpl{rawPtr: r}
+	runtime.SetFinalizer(impl, (*preferenceManagerImpl).Release)
+	return impl
+}
+
 // PreferenceManagerGetChromeVariationsAsSwitches Returns the current Chrome Variations configuration (combination of field trials and chrome://flags) as equivalent command-line switches (`--[enable|disable]-features=XXXX`, etc). These switches can be used to apply the same configuration when launching a CEF-based application. See https://developer.chrome.com/docs/web-platform/chrome-variations for background and details. Note that field trial tests are disabled by default in Official CEF builds (via the `disable_fieldtrial_testing_config=true (1)` GN flag). This function must be called on the browser process UI thread.
 func PreferenceManagerGetChromeVariationsAsSwitches(switches StringList) {
 	capi.CEFPreferenceManagerGetChromeVariationsAsSwitches(uintptr(switches))
@@ -272,5 +285,5 @@ func PreferenceManagerGetChromeVariationsAsStrings(strings StringList) {
 // PreferenceManagerGetGlobal Returns the global preference manager object.
 func PreferenceManagerGetGlobal() PreferenceManager {
 	ret := capi.CEFPreferenceManagerGetGlobal()
-	return wrapPreferenceManager(ret)
+	return takePreferenceManager(ret)
 }

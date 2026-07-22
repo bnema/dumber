@@ -106,8 +106,21 @@ func wrapWaitableEvent(ptr unsafe.Pointer) WaitableEvent {
 	return impl
 }
 
+// takeWaitableEvent adopts a CEF WaitableEvent pointer whose reference is already owned by
+// the caller (as returned by a global factory function). Unlike wrapWaitableEvent it
+// does NOT call AddRef, because the C API already transferred one reference to us.
+func takeWaitableEvent(ptr unsafe.Pointer) WaitableEvent {
+	if ptr == nil {
+		return nil
+	}
+	r := (*capi.CEFWaitableEventT)(ptr)
+	impl := &waitableEventImpl{rawPtr: r}
+	runtime.SetFinalizer(impl, (*waitableEventImpl).Release)
+	return impl
+}
+
 // WaitableEventCreate Create a new waitable event. If |automatic_reset| is true (1) then the event state is automatically reset to un-signaled after a single waiting thread has been released; otherwise, the state remains signaled until reset() is called manually. If |initially_signaled| is true (1) then the event will start in the signaled state.
 func WaitableEventCreate(automaticReset int32, initiallySignaled int32) WaitableEvent {
 	ret := capi.CEFWaitableEventCreate(automaticReset, initiallySignaled)
-	return wrapWaitableEvent(ret)
+	return takeWaitableEvent(ret)
 }

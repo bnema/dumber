@@ -130,8 +130,21 @@ func wrapTaskManager(ptr unsafe.Pointer) TaskManager {
 	return impl
 }
 
+// takeTaskManager adopts a CEF TaskManager pointer whose reference is already owned by
+// the caller (as returned by a global factory function). Unlike wrapTaskManager it
+// does NOT call AddRef, because the C API already transferred one reference to us.
+func takeTaskManager(ptr unsafe.Pointer) TaskManager {
+	if ptr == nil {
+		return nil
+	}
+	r := (*capi.CEFTaskManagerT)(ptr)
+	impl := &taskManagerImpl{rawPtr: r}
+	runtime.SetFinalizer(impl, (*taskManagerImpl).Release)
+	return impl
+}
+
 // TaskManagerGet Returns the global task manager object. Returns nullptr if the function was called from the incorrect thread.
 func TaskManagerGet() TaskManager {
 	ret := capi.CEFTaskManagerGet()
-	return wrapTaskManager(ret)
+	return takeTaskManager(ret)
 }

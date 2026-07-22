@@ -332,10 +332,23 @@ func wrapXmlReader(ptr unsafe.Pointer) XmlReader {
 	return impl
 }
 
+// takeXmlReader adopts a CEF XmlReader pointer whose reference is already owned by
+// the caller (as returned by a global factory function). Unlike wrapXmlReader it
+// does NOT call AddRef, because the C API already transferred one reference to us.
+func takeXmlReader(ptr unsafe.Pointer) XmlReader {
+	if ptr == nil {
+		return nil
+	}
+	r := (*capi.CEFXmlReaderT)(ptr)
+	impl := &xmlReaderImpl{rawPtr: r}
+	runtime.SetFinalizer(impl, (*xmlReaderImpl).Release)
+	return impl
+}
+
 // XmlReaderCreate Create a new cef_xml_reader_t object. The returned object's functions can only be called from the thread that created the object.
 func XmlReaderCreate(stream StreamReader, encodingtype XmlEncodingType, uri string) XmlReader {
 	uriStr := cefString(uri)
 	defer freeCefString(&uriStr)
 	ret := capi.CEFXmlReaderCreate(extractRawPointer(stream), capi.CEFXmlEncodingTypeT(encodingtype), unsafe.Pointer(&uriStr))
-	return wrapXmlReader(ret)
+	return takeXmlReader(ret)
 }

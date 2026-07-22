@@ -6,13 +6,16 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strconv"
+	"unsafe"
 
 	"github.com/bnema/purego"
+	"github.com/bnema/purego-cef/internal/cefapi"
 )
 
-const defaultCEFVersion = 147
+const defaultCEFVersion = cefapi.MinimumMajor
 const cefVersionInfoChromeMajor = 4
+const cefAPIVersion = cefapi.Version
+const cefAPILinuxHash = cefapi.LinuxHash
 
 var (
 	userHomeDir         = os.UserHomeDir
@@ -72,18 +75,8 @@ func defaultPathExists(path string) bool {
 	return !errors.Is(err, os.ErrNotExist)
 }
 
-func targetMajor() int32 {
-	if raw := os.Getenv("CEF_VERSION"); raw != "" {
-		if n, err := strconv.ParseInt(raw, 10, 32); err == nil && n >= 0 {
-			return int32(n)
-		}
-	}
-	return defaultCEFVersion
-}
-
-// configureAPIVersion calls cef_api_hash to configure the API version.
-// CEF 133+ requires this before cef_initialize — without it,
-// cef_api_version() returns -1 and every versioned CToCpp wrapper FATALs.
+// configureAPIVersion configures the generated API contract and verifies the
+// platform ABI hash returned by libcef before any C API symbols are used.
 func configureAPIVersion(handle uintptr) error {
 	sym, err := purego.Dlsym(handle, "cef_api_hash")
 	if err != nil {
@@ -91,9 +84,21 @@ func configureAPIVersion(handle uintptr) error {
 	}
 	var apiHash func(int32, int32) uintptr
 	purego.RegisterFunc(&apiHash, sym)
-	// 999999 = CEF_API_VERSION_EXPERIMENTAL (use all available API).
-	// entry 0 = CEF_API_HASH_PLATFORM; return value ignored.
-	apiHash(999999, 0)
+	// entry 0 is CEF_API_HASH_PLATFORM.
+	return validateAPIHashPointer(apiHash(cefAPIVersion, 0))
+}
+
+func validateAPIHashPointer(value uintptr) error {
+	if value == 0 {
+		return fmt.Errorf("CEF API %d returned a nil Linux platform hash", cefAPIVersion)
+	}
+	return validateAPIHash(unsafe.String((*byte)(unsafe.Pointer(value)), len(cefAPILinuxHash)))
+}
+
+func validateAPIHash(got string) error {
+	if got != cefAPILinuxHash {
+		return fmt.Errorf("CEF API %d Linux platform hash mismatch: got %q want %q", cefAPIVersion, got, cefAPILinuxHash)
+	}
 	return nil
 }
 
@@ -104,7 +109,7 @@ func validateVersion(handle uintptr) error {
 	}
 	var versionInfo func(int32) int32
 	purego.RegisterFunc(&versionInfo, sym)
-	return ensureMinimumVersion(versionInfo(cefVersionInfoChromeMajor), targetMajor())
+	return ensureMinimumVersion(versionInfo(cefVersionInfoChromeMajor), defaultCEFVersion)
 }
 
 func ensureMinimumVersion(got, minimum int32) error {

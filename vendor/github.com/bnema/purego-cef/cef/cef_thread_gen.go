@@ -94,10 +94,23 @@ func wrapThread(ptr unsafe.Pointer) Thread {
 	return impl
 }
 
+// takeThread adopts a CEF Thread pointer whose reference is already owned by
+// the caller (as returned by a global factory function). Unlike wrapThread it
+// does NOT call AddRef, because the C API already transferred one reference to us.
+func takeThread(ptr unsafe.Pointer) Thread {
+	if ptr == nil {
+		return nil
+	}
+	r := (*capi.CEFThreadT)(ptr)
+	impl := &threadImpl{rawPtr: r}
+	runtime.SetFinalizer(impl, (*threadImpl).Release)
+	return impl
+}
+
 // ThreadCreate wraps the CEF CEFThreadCreate function.
 func ThreadCreate(displayName string, priority ThreadPriority, messageLoopType MessageLoopType, stoppable int32, comInitMode ComInitMode) Thread {
 	displayNameStr := cefString(displayName)
 	defer freeCefString(&displayNameStr)
 	ret := capi.CEFThreadCreate(unsafe.Pointer(&displayNameStr), capi.CEFThreadPriorityT(priority), capi.CEFMessageLoopTypeT(messageLoopType), stoppable, capi.CEFComInitModeT(comInitMode))
-	return wrapThread(ret)
+	return takeThread(ret)
 }

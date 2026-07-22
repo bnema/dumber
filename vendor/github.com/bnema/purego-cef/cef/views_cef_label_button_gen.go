@@ -154,10 +154,23 @@ func wrapLabelButton(ptr unsafe.Pointer) LabelButton {
 	return impl
 }
 
+// takeLabelButton adopts a CEF LabelButton pointer whose reference is already owned by
+// the caller (as returned by a global factory function). Unlike wrapLabelButton it
+// does NOT call AddRef, because the C API already transferred one reference to us.
+func takeLabelButton(ptr unsafe.Pointer) LabelButton {
+	if ptr == nil {
+		return nil
+	}
+	r := (*capi.CEFLabelButtonT)(ptr)
+	impl := &labelButtonImpl{rawPtr: r}
+	runtime.SetFinalizer(impl, (*labelButtonImpl).Release)
+	return impl
+}
+
 // LabelButtonCreate Create a new LabelButton. A |delegate| must be provided to handle the button click. |text| will be shown on the LabelButton and used as the default accessible name.
 func LabelButtonCreate(delegate ButtonDelegate, text string) LabelButton {
 	textStr := cefString(text)
 	defer freeCefString(&textStr)
 	ret := capi.CEFLabelButtonCreate(extractOrWrapRawPointer(delegate, func() any { return NewButtonDelegate(delegate) }), unsafe.Pointer(&textStr))
-	return wrapLabelButton(ret)
+	return takeLabelButton(ret)
 }
