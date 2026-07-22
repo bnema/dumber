@@ -30,8 +30,12 @@ func TestConverterWebPConvertsAlphaFixture(t *testing.T) {
 	if got := color.NRGBAModel.Convert(img.At(0, 0)).(color.NRGBA); got.A != 64 || got.R != 255 {
 		t.Fatalf("alpha pixel = %#v, want red alpha 64", got)
 	}
-	if sized, err := png.Decode(bytes.NewReader(out.SizedPNG[32])); err != nil || sized.Bounds() != image.Rect(0, 0, 32, 32) {
-		t.Fatalf("sized WebP = %v, %v", sized.Bounds(), err)
+	sized, err := png.Decode(bytes.NewReader(out.SizedPNG[32]))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if sized.Bounds() != image.Rect(0, 0, 32, 32) {
+		t.Fatalf("sized WebP bounds = %v, want 32x32", sized.Bounds())
 	}
 }
 
