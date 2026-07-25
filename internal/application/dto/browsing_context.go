@@ -147,7 +147,8 @@ const (
 
 // HostDecision represents the output of browsing-context policy.
 type HostDecision struct {
-	Kind HostDecisionKind
+	Kind       HostDecisionKind
+	SourceHost SourceHostKind
 
 	ReuseContextName    string
 	BrowsingContextName string

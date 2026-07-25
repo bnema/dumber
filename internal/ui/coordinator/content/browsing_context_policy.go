@@ -12,6 +12,7 @@ type browsingContextPolicy struct{}
 
 func (browsingContextPolicy) Decide(req dto.NewBrowsingContextRequest, namedContextExists bool) dto.HostDecision {
 	decision := dto.HostDecision{
+		SourceHost:                req.SourceHost,
 		RequestContextDisposition: req.RequestContextDisposition,
 		RequiresNativeOpener:      req.RequiresNativeOpener,
 	}

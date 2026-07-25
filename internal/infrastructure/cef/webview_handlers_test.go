@@ -1,7 +1,9 @@
 package cef
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -9,6 +11,7 @@ import (
 
 	purecef "github.com/bnema/purego-cef/cef"
 	cefmocks "github.com/bnema/purego-cef/cef/mocks"
+	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -16,6 +19,7 @@ import (
 	"github.com/bnema/dumber/internal/application/dto"
 	"github.com/bnema/dumber/internal/application/port"
 	portmocks "github.com/bnema/dumber/internal/application/port/mocks"
+	"github.com/bnema/dumber/internal/logging"
 )
 
 type clipboardOrchestratorRecorder struct {
@@ -394,11 +398,14 @@ func TestOnBeforePopup_NativeArmFailurePreparesEligibleFallbackBeforeAbort(t *te
 }
 
 func TestOnBeforePopup_OpenerRequiredNativeArmFailureDeniesWithoutFallback(t *testing.T) {
-	parentWV := &WebView{ctx: context.Background(), id: 19}
+	var output bytes.Buffer
+	logger := zerolog.New(&output).Level(zerolog.WarnLevel)
+	ctx := logging.WithContext(context.Background(), logger)
+	parentWV := &WebView{ctx: ctx, id: 19}
 	popupWV := &WebView{ctx: context.Background(), id: 27, pendingCreate: &pendingBrowserCreate{}}
 	popupWV.markNativePopupCandidate(parentWV)
 	popupWV.SetBrowsingContextHostDecision(dto.HostDecision{
-		Kind: dto.HostDecisionCreateNativePopup, RequiresNativeOpener: true,
+		Kind: dto.HostDecisionCreateNativePopup, SourceHost: dto.SourceHostFloating, RequiresNativeOpener: true,
 	})
 	abortCalls := 0
 	popupWV.SetNativePopupHostAbort(func() {
@@ -417,6 +424,13 @@ func TestOnBeforePopup_OpenerRequiredNativeArmFailureDeniesWithoutFallback(t *te
 	require.False(t, popupWV.nativePopupFallbackStarted)
 	require.Nil(t, popupWV.popupOpenerBridgeParent)
 	require.True(t, popupWV.IsDestroyed())
+	var record map[string]any
+	require.NoError(t, json.Unmarshal(output.Bytes(), &record))
+	assert.Equal(t, "cef", record["engine"])
+	assert.Equal(t, "floating", record["source_host"])
+	assert.Equal(t, "create-native-popup", record["decision"])
+	assert.Equal(t, "new-popup", record["target_disposition"])
+	assert.Equal(t, "native-arm-failed", record["reason_code"])
 }
 
 func TestOnBeforePopup_AuthNativeArmFailureDeniesWithoutFallback(t *testing.T) {

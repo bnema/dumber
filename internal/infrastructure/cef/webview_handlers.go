@@ -730,6 +730,11 @@ func (h *handlerSet) OnBeforePopup(
 			cefPopup.Destroy()
 		}
 		logging.FromContext(h.currentContext()).Warn().
+			Str("engine", string(dto.BrowserEngineCEF)).
+			Str("source_host", string(decision.SourceHost)).
+			Str("decision", string(decision.Kind)).
+			Str("target_disposition", string(mapCEFWindowDisposition(targetDisposition))).
+			Str("reason_code", string(dto.BrowsingContextFailureNativeArm)).
 			Int32("popup_id", popupID).
 			Str("target_url", logging.TruncateURL(targetURL, logging.PermissionLogURLMaxLen)).
 			Bool("fallback_eligible", fallbackEligible).

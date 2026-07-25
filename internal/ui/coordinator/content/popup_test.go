@@ -1298,6 +1298,82 @@ func TestPopupDeferredFeaturedDetachesBeforeNativeHost(t *testing.T) {
 	popup.ready()
 }
 
+func TestPopupDeferredNamedReuseDestroysNewlyStagedWebViewExactlyOnce(t *testing.T) {
+	ctx := context.Background()
+	parentPaneID := entity.PaneID("floating")
+	existingPaneID := entity.PaneID("existing")
+	parent := mocks.NewMockWebView(t)
+	parent.EXPECT().ID().Return(port.WebViewID(101)).Once()
+	staged := &deferredPopupWebViewStub{MockWebView: mocks.NewMockWebView(t), features: dto.PopupFeatures{State: dto.PopupFeaturesNone}}
+	staged.EXPECT().ID().Return(port.WebViewID(205)).Maybe()
+	staged.EXPECT().Destroy().Once()
+	existing := mocks.NewMockWebView(t)
+	existing.EXPECT().ID().Return(port.WebViewID(301)).Times(3)
+	existing.EXPECT().IsDestroyed().Return(false).Twice()
+	existing.EXPECT().LoadURI(mock.Anything, "https://example.com/reused").Return(nil).Once()
+	factory := mocks.NewMockWebViewFactory(t)
+	factory.EXPECT().CreateRelated(mock.Anything, port.WebViewID(101)).Return(staged, nil).Once()
+	staging := &popupStagingHostStub{}
+	c := &Coordinator{webViews: make(map[entity.PaneID]port.WebView), popups: newPopupManager()}
+	c.SetPopupConfig(factory, &entity.BrowsingContextConfig{OpenInNewPane: false}, nil)
+	c.SetPopupSourceHostResolver(func(entity.PaneID) dto.SourceHostKind { return dto.SourceHostFloating })
+	c.SetPopupWindowIDResolver(func(paneID entity.PaneID) (string, bool) {
+		windowByPane := map[entity.PaneID]string{parentPaneID: "owner", existingPaneID: "host"}
+		windowID, ok := windowByPane[paneID]
+		return windowID, ok
+	})
+	c.SetOnStagePopup(func(context.Context, StagePopupInput) (PopupStagingHost, error) { return staging, nil })
+
+	require.Same(t, staged, c.handlePopupCreate(ctx, parentPaneID, parent, port.PopupRequest{
+		Engine: dto.BrowserEngineWebKit, TargetURI: "https://example.com/reused", FrameName: "shared",
+		PopupFeatures: dto.PopupFeatures{State: dto.PopupFeaturesUnknown},
+	}))
+	c.RegisterPopupWebView(existingPaneID, existing)
+	c.popups.namedContexts.Register("owner", "host", "shared", existingPaneID, port.WebViewID(301))
+	staged.ready()
+	staged.ready()
+
+	assert.True(t, staging.detached)
+	assert.Equal(t, 1, staging.destroyCalls)
+}
+
+func TestPopupDeferredNativeAbortWithoutFallbackLogsStructuredFailure(t *testing.T) {
+	var output bytes.Buffer
+	logger := zerolog.New(&output).Level(zerolog.WarnLevel)
+	ctx := logging.WithContext(context.Background(), logger)
+	parent := mocks.NewMockWebView(t)
+	parent.EXPECT().ID().Return(port.WebViewID(101)).Once()
+	popup := &deferredPopupWebViewStub{MockWebView: mocks.NewMockWebView(t), features: dto.PopupFeatures{State: dto.PopupFeaturesSpecified, Width: 640, WidthSet: true}}
+	popup.EXPECT().ID().Return(port.WebViewID(206)).Maybe()
+	popup.EXPECT().Destroy().Once()
+	factory := mocks.NewMockWebViewFactory(t)
+	factory.EXPECT().CreateRelated(mock.Anything, port.WebViewID(101)).Return(popup, nil).Once()
+	c := &Coordinator{popups: newPopupManager()}
+	c.SetPopupConfig(factory, &entity.BrowsingContextConfig{OpenInNewPane: false}, nil)
+	c.SetPopupSourceHostResolver(func(entity.PaneID) dto.SourceHostKind { return dto.SourceHostFloating })
+	c.SetOnStagePopup(func(context.Context, StagePopupInput) (PopupStagingHost, error) { return &popupStagingHostStub{}, nil })
+	c.SetOnOpenNativePopup(func(abortCtx context.Context, input NativePopupInput) error {
+		assert.False(t, input.AllowBrowserWindowFallback)
+		if !input.OnNativeHostAbort(abortCtx, input.PopupWebView) {
+			input.PopupWebView.Destroy()
+		}
+		return nil
+	})
+
+	require.Same(t, popup, c.handlePopupCreate(ctx, "floating", parent, port.PopupRequest{
+		Engine: dto.BrowserEngineWebKit, TargetURI: "https://example.com/visual", TargetDisposition: dto.WindowDispositionNewPopup,
+		PopupFeatures: dto.PopupFeatures{State: dto.PopupFeaturesUnknown},
+	}))
+	popup.ready()
+
+	record := decodeBrowsingContextLog(t, output.Bytes())
+	assert.Equal(t, "webkit", record["engine"])
+	assert.Equal(t, "floating", record["source_host"])
+	assert.Equal(t, "create-native-popup", record["decision"])
+	assert.Equal(t, "new-popup", record["target_disposition"])
+	assert.Equal(t, "native-arm-failed", record["reason_code"])
+}
+
 func TestPopupDeferredBrowserHostFailureCleansUpExactlyOnce(t *testing.T) {
 	parent := mocks.NewMockWebView(t)
 	parent.EXPECT().ID().Return(port.WebViewID(101)).Once()
