@@ -1,10 +1,13 @@
 package content
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"sync"
 	"testing"
+
+	"github.com/rs/zerolog"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -15,6 +18,7 @@ import (
 	"github.com/bnema/dumber/internal/application/port/mocks"
 	"github.com/bnema/dumber/internal/domain/entity"
 	domainerrors "github.com/bnema/dumber/internal/domain/errors"
+	"github.com/bnema/dumber/internal/logging"
 )
 
 // ---------------------------------------------------------------------------
@@ -674,6 +678,35 @@ func TestPopupNativeAbortFallsBackOnceForNoOpenerVisualPopup(t *testing.T) {
 	assert.Equal(t, 1, browserCalls)
 }
 
+func TestPopupNativeAbortFallsBackForOpenerCapableVisualPopup(t *testing.T) {
+	ctx := context.Background()
+	popupWV := &popupOpenerWebViewStub{popupNavigationWebViewStub: &popupNavigationWebViewStub{MockWebView: mocks.NewMockWebView(t)}}
+	popupWV.EXPECT().ID().Return(port.WebViewID(703)).Once()
+	factory := mocks.NewMockWebViewFactory(t)
+	factory.EXPECT().CreateRelated(mock.Anything, port.WebViewID(101)).Return(popupWV, nil).Once()
+
+	pm := newPopupManager()
+	pm.setConfig(factory, nil, nil)
+	browserCalls := 0
+	pm.setOnOpenBrowserWindow(func(_ context.Context, input BrowserWindowInput) (BrowserWindowResult, error) {
+		browserCalls++
+		assert.Same(t, popupWV, input.PopupWebView)
+		return BrowserWindowResult{WindowID: "fallback-window"}, nil
+	})
+	pm.setOnOpenNativePopup(func(ctx context.Context, input NativePopupInput) error {
+		assert.True(t, input.AllowBrowserWindowFallback)
+		assert.True(t, input.OnNativeHostAbort(ctx, input.PopupWebView))
+		return nil
+	})
+
+	got := pm.openNativePopup(ctx, popupCoordinatorHooks{}, "floating", 101, "", port.PopupRequest{
+		TargetURI: "https://example.com/visual", NoJavaScriptAccess: false,
+	}, dto.HostDecision{Kind: dto.HostDecisionCreateNativePopup})
+
+	require.Same(t, popupWV, got)
+	assert.Equal(t, 1, browserCalls)
+}
+
 func TestPopupNativeAbortDoesNotFallbackForAuthOrRequiredOpener(t *testing.T) {
 	for _, tc := range []struct {
 		name     string
@@ -711,6 +744,9 @@ func TestPopupNativeAbortDoesNotFallbackForAuthOrRequiredOpener(t *testing.T) {
 }
 
 func TestPopupNativeFallbackFailureLeavesDestructionToNativeHost(t *testing.T) {
+	var output bytes.Buffer
+	logger := zerolog.New(&output)
+	ctx := logging.WithContext(context.Background(), logger)
 	popupWV := &popupNavigationWebViewStub{MockWebView: mocks.NewMockWebView(t)}
 	popupWV.EXPECT().ID().Return(port.WebViewID(702)).Once()
 	popupWV.EXPECT().Destroy().Once()
@@ -718,6 +754,7 @@ func TestPopupNativeFallbackFailureLeavesDestructionToNativeHost(t *testing.T) {
 	factory.EXPECT().CreateRelated(mock.Anything, port.WebViewID(101)).Return(popupWV, nil).Once()
 	pm := newPopupManager()
 	pm.setConfig(factory, nil, nil)
+	pm.setSourceHostResolver(func(entity.PaneID) dto.SourceHostKind { return dto.SourceHostFloating })
 	pm.setOnOpenBrowserWindow(func(context.Context, BrowserWindowInput) (BrowserWindowResult, error) {
 		return BrowserWindowResult{}, errors.New("fallback failed")
 	})
@@ -728,10 +765,17 @@ func TestPopupNativeFallbackFailureLeavesDestructionToNativeHost(t *testing.T) {
 		return nil
 	})
 
-	got := pm.openNativePopup(context.Background(), popupCoordinatorHooks{}, "floating", 101, "", port.PopupRequest{
-		TargetURI: "https://example.com/visual", NoJavaScriptAccess: true,
+	got := pm.openNativePopup(ctx, popupCoordinatorHooks{}, "floating", 101, "", port.PopupRequest{
+		Engine: dto.BrowserEngineCEF, TargetURI: "https://example.com/visual", NoJavaScriptAccess: true,
+		TargetDisposition: dto.WindowDispositionNewPopup,
 	}, dto.HostDecision{Kind: dto.HostDecisionCreateNativePopup})
 	require.Same(t, popupWV, got)
+	record := decodeBrowsingContextLog(t, output.Bytes())
+	assert.Equal(t, "cef", record["engine"])
+	assert.Equal(t, "floating", record["source_host"])
+	assert.Equal(t, "create-native-popup", record["decision"])
+	assert.Equal(t, "new-popup", record["target_disposition"])
+	assert.Equal(t, "fallback-failed", record["reason_code"])
 }
 
 func TestPopupNativeSetupFailureDestroysCoordinatorOwnedWebViewOnce(t *testing.T) {
@@ -1053,6 +1097,15 @@ func TestUpdatePopupConfig_CopiesLatestValue(t *testing.T) {
 	assert.True(t, initial.OpenInNewPane)
 	assert.False(t, initial.OAuthAutoClose)
 }
+
+type popupOpenerWebViewStub struct {
+	*popupNavigationWebViewStub
+}
+
+func (*popupOpenerWebViewStub) EnablePopupOpenerBridge(port.WebView, bool) {}
+func (*popupOpenerWebViewStub) AddOpenerMessageCallback(func())            {}
+func (*popupOpenerWebViewStub) AddOpenerNavigationCallback(func(string))   {}
+func (*popupOpenerWebViewStub) HasActivePopupOpenerBridge() bool           { return true }
 
 type popupNavigationWebViewStub struct {
 	*mocks.MockWebView
