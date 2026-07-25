@@ -2956,6 +2956,9 @@ func (a *App) onShutdown(ctx context.Context) {
 	for _, tabID := range tabIDs {
 		a.releaseFloatingSessionsForTab(ctx, tabID)
 	}
+	if a.contentCoord != nil {
+		a.contentCoord.ShutdownPopups()
+	}
 	if len(a.nativePopupWindows) > 0 {
 		popupIDs := make([]port.WebViewID, 0, len(a.nativePopupWindows))
 		for popupID := range a.nativePopupWindows {

@@ -1417,6 +1417,52 @@ func TestPopupDeferredStagingFailureDestroysCallerOwnedWebViewOnce(t *testing.T)
 	assert.Nil(t, c.handlePopupCreate(context.Background(), "floating", parent, port.PopupRequest{Engine: dto.BrowserEngineWebKit, TargetURI: "https://example.com/open", PopupFeatures: dto.PopupFeatures{State: dto.PopupFeaturesUnknown}}))
 }
 
+func TestPopupDeferredExplicitTeardownCleansUpWithoutLifecycleSignals(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		prepare func(*Coordinator)
+		trigger func(*Coordinator)
+	}{
+		{name: "parent release", trigger: func(c *Coordinator) { c.ReleaseWebView(context.Background(), "floating") }},
+		{name: "owner window teardown", prepare: func(c *Coordinator) {
+			c.SetPopupWindowIDResolver(func(entity.PaneID) (string, bool) { return "owner", true })
+		}, trigger: func(c *Coordinator) { c.ClearPopupNamedContextsForWindow("owner") }},
+		{name: "coordinator shutdown", trigger: func(c *Coordinator) { c.ShutdownPopups() }},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			parent := mocks.NewMockWebView(t)
+			parent.EXPECT().ID().Return(port.WebViewID(101)).Once()
+			popup := &deferredPopupWebViewStub{MockWebView: mocks.NewMockWebView(t), features: dto.PopupFeatures{State: dto.PopupFeaturesNone}}
+			popup.EXPECT().ID().Return(port.WebViewID(207)).Maybe()
+			popup.EXPECT().Destroy().Once()
+			factory := mocks.NewMockWebViewFactory(t)
+			factory.EXPECT().CreateRelated(mock.Anything, port.WebViewID(101)).Return(popup, nil).Once()
+			staging := &popupStagingHostStub{}
+			c := &Coordinator{popups: newPopupManager()}
+			c.SetPopupConfig(factory, &entity.BrowsingContextConfig{OpenInNewPane: false}, nil)
+			c.SetPopupSourceHostResolver(func(entity.PaneID) dto.SourceHostKind { return dto.SourceHostFloating })
+			c.SetOnStagePopup(func(context.Context, StagePopupInput) (PopupStagingHost, error) { return staging, nil })
+			if tc.prepare != nil {
+				tc.prepare(c)
+			}
+
+			require.Same(t, popup, c.handlePopupCreate(context.Background(), "floating", parent, port.PopupRequest{
+				Engine: dto.BrowserEngineWebKit, TargetURI: "https://example.com/open",
+				PopupFeatures: dto.PopupFeatures{State: dto.PopupFeaturesUnknown},
+			}))
+			require.Len(t, c.popups.deferredPopups, 1)
+			tc.trigger(c)
+			tc.trigger(c)
+
+			assert.Empty(t, c.popups.deferredPopups)
+			assert.Empty(t, c.popups.pendingPopups)
+			assert.Equal(t, 1, staging.destroyCalls)
+			assert.Nil(t, popup.onReady)
+			assert.Nil(t, popup.onClose)
+		})
+	}
+}
+
 func TestPopupDeferredUnknownAndCloseCleanupExactlyOnce(t *testing.T) {
 	for _, tc := range []struct {
 		name  string

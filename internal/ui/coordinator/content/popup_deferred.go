@@ -43,13 +43,17 @@ func (pm *popupManager) awaitPopupFeatures(
 	}
 	pm.setBrowsingContextDecision(popupWV, decision)
 	paneID, _ := pm.createPopupPane(popupWV.ID(), parentPaneID, req.TargetURI)
+	ownerWindowID := ""
+	if pm.windowIDForPane != nil {
+		ownerWindowID, _ = pm.windowIDForPane(parentPaneID)
+	}
 	pending := &deferredPendingPopup{
 		PendingPopup: &PendingPopup{
 			PaneID: paneID, WebView: popupWV, ParentPaneID: parentPaneID,
 			ParentWebViewID: parentWebViewID, TargetURI: req.TargetURI, FrameName: req.FrameName,
 			IsUserGesture: req.IsUserGesture, PopupType: DetectPopupType(req.FrameName), CreatedAt: time.Now(),
 		},
-		Request: req, Decision: decision, StagingHost: staging,
+		Request: req, Decision: decision, StagingHost: staging, OwnerWindowID: ownerWindowID,
 	}
 	pm.storeDeferredPopup(popupWV.ID(), pending)
 	callbackCtx := logging.WithContext(context.Background(), *log)
@@ -67,6 +71,10 @@ func (pm *popupManager) cleanupDeferredPending(pending *deferredPendingPopup) {
 		return
 	}
 	pending.cleanupOnce.Do(func() {
+		if lifecycle, ok := pending.WebView.(port.PopupLifecycleCapable); ok {
+			lifecycle.SetOnReadyToShow(nil)
+			lifecycle.SetOnClose(nil)
+		}
 		if pending.StagingHost != nil {
 			pending.StagingHost.Destroy()
 		}
@@ -74,6 +82,45 @@ func (pm *popupManager) cleanupDeferredPending(pending *deferredPendingPopup) {
 			pending.WebView.Destroy()
 		}
 	})
+}
+
+func (pm *popupManager) cancelDeferredPopupsMatching(match func(*deferredPendingPopup) bool) {
+	if pm == nil || match == nil {
+		return
+	}
+	pm.mu.Lock()
+	cancelled := make([]*deferredPendingPopup, 0)
+	for popupID, pending := range pm.deferredPopups {
+		if pending == nil || !match(pending) {
+			continue
+		}
+		delete(pm.deferredPopups, popupID)
+		delete(pm.pendingPopups, popupID)
+		cancelled = append(cancelled, pending)
+	}
+	pm.mu.Unlock()
+	for _, pending := range cancelled {
+		pm.cleanupDeferredPending(pending)
+	}
+}
+
+func (pm *popupManager) cancelDeferredPopupsForParent(parentPaneID entity.PaneID) {
+	pm.cancelDeferredPopupsMatching(func(pending *deferredPendingPopup) bool {
+		return pending.ParentPaneID == parentPaneID
+	})
+}
+
+func (pm *popupManager) cancelDeferredPopupsForWindow(windowID string) {
+	if pm == nil || windowID == "" {
+		return
+	}
+	pm.cancelDeferredPopupsMatching(func(pending *deferredPendingPopup) bool {
+		return pending.OwnerWindowID == windowID
+	})
+}
+
+func (pm *popupManager) cancelAllDeferredPopups() {
+	pm.cancelDeferredPopupsMatching(func(*deferredPendingPopup) bool { return true })
 }
 
 func (pm *popupManager) failPendingPopup(

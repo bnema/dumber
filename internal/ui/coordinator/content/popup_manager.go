@@ -39,10 +39,11 @@ type popupManager struct {
 
 type deferredPendingPopup struct {
 	*PendingPopup
-	Request     port.PopupRequest
-	Decision    dto.HostDecision
-	StagingHost PopupStagingHost
-	cleanupOnce sync.Once
+	Request       port.PopupRequest
+	Decision      dto.HostDecision
+	StagingHost   PopupStagingHost
+	OwnerWindowID string
+	cleanupOnce   sync.Once
 }
 
 type popupOAuthState struct {

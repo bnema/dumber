@@ -202,7 +202,14 @@ func (c *Coordinator) SetOnStagePopup(fn func(context.Context, StagePopupInput) 
 }
 
 func (c *Coordinator) ClearPopupNamedContextsForWindow(windowID string) {
-	c.ensurePopupManager().clearReusableNamedPopupsForWindow(windowID)
+	pm := c.ensurePopupManager()
+	pm.cancelDeferredPopupsForWindow(windowID)
+	pm.clearReusableNamedPopupsForWindow(windowID)
+}
+
+// ShutdownPopups releases unresolved staged popups before the browser engine exits.
+func (c *Coordinator) ShutdownPopups() {
+	c.ensurePopupManager().cancelAllDeferredPopups()
 }
 
 // SetOnInsertPopup sets the callback to insert popups into the workspace.
