@@ -33,6 +33,9 @@ func newPopupAdoptionApp(t *testing.T, attach func(context.Context, entity.TabID
 		delete(app.workspaceViews, tab.ID)
 		app.tabs.Remove(tab.ID)
 	})
+	app.tabCoord.SetOnCurrentWindowEmpty(func(context.Context, coordinator.TabTarget) {
+		app.cleanupEjectTargetWindow(bw)
+	})
 	return app, bw
 }
 
@@ -66,7 +69,12 @@ func TestOpenPopupBrowserWindowAdoptsProvidedWebView(t *testing.T) {
 	assert.Same(t, bw, app.windowForTab["adopted-tab"])
 }
 
-func TestOpenPopupBrowserWindowWaitsForReadySignalWhenNotReady(t *testing.T) {
+func TestOpenPopupBrowserWindowWaitsForReadySignalAndShowsExactlyOnce(t *testing.T) {
+	previousShow := showPopupBrowserWindow
+	showCalls := 0
+	showPopupBrowserWindow = func(*browserWindow) { showCalls++ }
+	t.Cleanup(func() { showPopupBrowserWindow = previousShow })
+
 	wv := &popupLifecycleWebView{MockWebView: portmocks.NewMockWebView(t)}
 	app, _ := newPopupAdoptionApp(t, func(context.Context, entity.TabID, *entity.Pane, port.WebView) error { return nil })
 
@@ -77,9 +85,18 @@ func TestOpenPopupBrowserWindowWaitsForReadySignalWhenNotReady(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, wv.onReady)
 	assert.NotNil(t, wv.onClose)
+	assert.Zero(t, showCalls)
+	wv.onReady()
+	wv.onReady()
+	assert.Equal(t, 1, showCalls)
 }
 
-func TestOpenPopupBrowserWindowDoesNotWaitForReadyWhenAlreadyReady(t *testing.T) {
+func TestOpenPopupBrowserWindowShowsImmediatelyWhenAlreadyReady(t *testing.T) {
+	previousShow := showPopupBrowserWindow
+	showCalls := 0
+	showPopupBrowserWindow = func(*browserWindow) { showCalls++ }
+	t.Cleanup(func() { showPopupBrowserWindow = previousShow })
+
 	wv := &popupLifecycleWebView{MockWebView: portmocks.NewMockWebView(t)}
 	app, _ := newPopupAdoptionApp(t, func(context.Context, entity.TabID, *entity.Pane, port.WebView) error { return nil })
 
@@ -90,6 +107,36 @@ func TestOpenPopupBrowserWindowDoesNotWaitForReadyWhenAlreadyReady(t *testing.T)
 	require.NoError(t, err)
 	assert.Nil(t, wv.onReady)
 	assert.NotNil(t, wv.onClose)
+	assert.Equal(t, 1, showCalls)
+}
+
+func TestOpenPopupBrowserWindowTransferredWebViewIsNotDestroyed(t *testing.T) {
+	wv := &recordingWebView{id: 99}
+	app, _ := newPopupAdoptionApp(t, func(context.Context, entity.TabID, *entity.Pane, port.WebView) error { return nil })
+
+	_, err := app.openPopupBrowserWindow(context.Background(), content.BrowserWindowInput{
+		PopupPane: entity.NewPane("popup-pane"), PopupWebView: wv, Ready: true,
+	})
+
+	require.NoError(t, err)
+	assert.Zero(t, wv.destroyCalls)
+}
+
+func TestOpenPopupBrowserWindowCloseRequestClosesAdoptedLastTabAndWindow(t *testing.T) {
+	wv := &popupLifecycleWebView{MockWebView: portmocks.NewMockWebView(t)}
+	app, bw := newPopupAdoptionApp(t, func(context.Context, entity.TabID, *entity.Pane, port.WebView) error { return nil })
+
+	_, err := app.openPopupBrowserWindow(context.Background(), content.BrowserWindowInput{
+		PopupPane: entity.NewPane("popup-pane"), PopupWebView: wv, Ready: true,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, wv.onClose)
+
+	wv.onClose()
+
+	assert.Zero(t, bw.tabs.Count())
+	assert.False(t, app.hasBrowserWindow(bw))
+	assert.Empty(t, app.windowForTab)
 }
 
 func TestOpenPopupBrowserWindowRollsBackShellWhenCreateWithPaneFails(t *testing.T) {

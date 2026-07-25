@@ -230,6 +230,121 @@ func TestPopupWorkspaceBlankRemainsBlockedWhenWorkspacePopupsDisabled(t *testing
 	assert.Nil(t, got)
 }
 
+func TestPopupWorkspaceMiddleClickRemainsBlockedWhenWorkspacePopupsDisabled(t *testing.T) {
+	c := &Coordinator{popups: newPopupManager()}
+	c.SetPopupConfig(mocks.NewMockWebViewFactory(t), &entity.BrowsingContextConfig{OpenInNewPane: false}, nil)
+	c.SetPopupSourceHostResolver(func(entity.PaneID) dto.SourceHostKind { return dto.SourceHostWorkspace })
+
+	assert.False(t, c.handleLinkMiddleClick(context.Background(), "workspace", "https://example.com/middle"))
+}
+
+func TestPopupFloatingNamedContextReusesDetachedWindow(t *testing.T) {
+	ctx := context.Background()
+	parentPaneID := entity.PaneID("floating")
+	parentWV := mocks.NewMockWebView(t)
+	parentWV.EXPECT().ID().Return(port.WebViewID(101)).Twice()
+	popupWV := mocks.NewMockWebView(t)
+	popupWV.EXPECT().ID().Return(port.WebViewID(201)).Maybe()
+	popupWV.EXPECT().Generation().Return(uint64(1)).Maybe()
+	popupWV.EXPECT().SetCallbacks(mock.Anything).Once()
+	popupWV.EXPECT().IsDestroyed().Return(false).Twice()
+	popupWV.EXPECT().LoadURI(mock.Anything, "https://example.com/second").Return(nil).Once()
+
+	factory := mocks.NewMockWebViewFactory(t)
+	factory.EXPECT().CreateRelated(mock.Anything, port.WebViewID(101)).Return(popupWV, nil).Once()
+	c := &Coordinator{webViews: make(map[entity.PaneID]port.WebView), popups: newPopupManager()}
+	c.SetPopupConfig(factory, &entity.BrowsingContextConfig{OpenInNewPane: false}, func() string { return "detached-pane" })
+	c.SetPopupSourceHostResolver(func(entity.PaneID) dto.SourceHostKind { return dto.SourceHostFloating })
+	windowByPane := map[entity.PaneID]string{parentPaneID: "owner-window"}
+	c.SetPopupWindowIDResolver(func(paneID entity.PaneID) (string, bool) {
+		windowID, ok := windowByPane[paneID]
+		return windowID, ok
+	})
+	hostCalls := 0
+	c.SetOnOpenBrowserWindow(func(_ context.Context, input BrowserWindowInput) (BrowserWindowResult, error) {
+		hostCalls++
+		windowByPane[input.PopupPane.ID] = "detached-window"
+		c.RegisterPopupWebView(input.PopupPane.ID, input.PopupWebView)
+		return BrowserWindowResult{WindowID: "detached-window"}, nil
+	})
+
+	first := c.handlePopupCreate(ctx, parentPaneID, parentWV, port.PopupRequest{
+		Engine: dto.BrowserEngineCEF, TargetURI: "https://example.com/first", FrameName: "shared",
+		TargetDisposition: dto.WindowDispositionNewPopup, PopupFeatures: dto.PopupFeatures{State: dto.PopupFeaturesNone},
+	})
+	second := c.handlePopupCreate(ctx, parentPaneID, parentWV, port.PopupRequest{
+		Engine: dto.BrowserEngineCEF, TargetURI: "https://example.com/second", FrameName: "shared",
+		TargetDisposition: dto.WindowDispositionNewPopup, PopupFeatures: dto.PopupFeatures{State: dto.PopupFeaturesNone},
+	})
+
+	assert.Same(t, popupWV, first)
+	assert.Same(t, popupWV, second)
+	assert.Equal(t, 1, hostCalls)
+}
+
+func TestPopupFloatingNoopenerDoesNotReuseDetachedNamedContext(t *testing.T) {
+	ctx := context.Background()
+	parentPaneID := entity.PaneID("floating")
+	parentWV := mocks.NewMockWebView(t)
+	parentWV.EXPECT().ID().Return(port.WebViewID(101)).Twice()
+	firstWV := mocks.NewMockWebView(t)
+	firstWV.EXPECT().ID().Return(port.WebViewID(201)).Maybe()
+	firstWV.EXPECT().Generation().Return(uint64(1)).Maybe()
+	firstWV.EXPECT().SetCallbacks(mock.Anything).Once()
+	secondWV := mocks.NewMockWebView(t)
+	secondWV.EXPECT().ID().Return(port.WebViewID(202)).Maybe()
+	secondWV.EXPECT().Generation().Return(uint64(1)).Maybe()
+	secondWV.EXPECT().SetCallbacks(mock.Anything).Once()
+	factory := mocks.NewMockWebViewFactory(t)
+	factory.EXPECT().CreateRelated(mock.Anything, port.WebViewID(101)).Return(firstWV, nil).Once()
+	factory.EXPECT().CreateRelated(mock.Anything, port.WebViewID(101)).Return(secondWV, nil).Once()
+	c := &Coordinator{popups: newPopupManager()}
+	c.SetPopupConfig(factory, &entity.BrowsingContextConfig{OpenInNewPane: false}, func() string { return "detached-pane" })
+	c.SetPopupSourceHostResolver(func(entity.PaneID) dto.SourceHostKind { return dto.SourceHostFloating })
+	hostCalls := 0
+	c.SetOnOpenBrowserWindow(func(_ context.Context, _ BrowserWindowInput) (BrowserWindowResult, error) {
+		hostCalls++
+		return BrowserWindowResult{WindowID: "detached-window"}, nil
+	})
+	req := port.PopupRequest{
+		Engine: dto.BrowserEngineCEF, FrameName: "shared", NoJavaScriptAccess: true,
+		TargetDisposition: dto.WindowDispositionNewPopup, PopupFeatures: dto.PopupFeatures{State: dto.PopupFeaturesNone},
+	}
+	req.TargetURI = "https://example.com/first"
+	first := c.handlePopupCreate(ctx, parentPaneID, parentWV, req)
+	req.TargetURI = "https://example.com/second"
+	second := c.handlePopupCreate(ctx, parentPaneID, parentWV, req)
+
+	assert.Same(t, firstWV, first)
+	assert.Same(t, secondWV, second)
+	assert.Equal(t, 2, hostCalls)
+}
+
+func TestPopupFloatingBrowserHostFailureDestroysWebViewExactlyOnce(t *testing.T) {
+	parentWV := mocks.NewMockWebView(t)
+	parentWV.EXPECT().ID().Return(port.WebViewID(101)).Once()
+	popupWV := mocks.NewMockWebView(t)
+	popupWV.EXPECT().ID().Return(port.WebViewID(201)).Maybe()
+	popupWV.EXPECT().Generation().Return(uint64(1)).Maybe()
+	popupWV.EXPECT().SetCallbacks(mock.Anything).Once()
+	popupWV.EXPECT().Destroy().Once()
+	factory := mocks.NewMockWebViewFactory(t)
+	factory.EXPECT().CreateRelated(mock.Anything, port.WebViewID(101)).Return(popupWV, nil).Once()
+	c := &Coordinator{popups: newPopupManager()}
+	c.SetPopupConfig(factory, &entity.BrowsingContextConfig{OpenInNewPane: false}, func() string { return "detached-pane" })
+	c.SetPopupSourceHostResolver(func(entity.PaneID) dto.SourceHostKind { return dto.SourceHostFloating })
+	c.SetOnOpenBrowserWindow(func(context.Context, BrowserWindowInput) (BrowserWindowResult, error) {
+		return BrowserWindowResult{}, errors.New("host failed")
+	})
+
+	got := c.handlePopupCreate(context.Background(), "floating", parentWV, port.PopupRequest{
+		Engine: dto.BrowserEngineCEF, TargetURI: "https://example.com/new", FrameName: "_blank",
+		TargetDisposition: dto.WindowDispositionNewTab, PopupFeatures: dto.PopupFeatures{State: dto.PopupFeaturesNone},
+	})
+
+	assert.Nil(t, got)
+}
+
 func TestHandlePopupCreate_PrimesPopupNavigationCapability(t *testing.T) {
 	ctx := context.Background()
 	parentPaneID := entity.PaneID("parent-pane")

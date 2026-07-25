@@ -3,11 +3,18 @@ package ui
 import (
 	"context"
 	"fmt"
+	"sync"
 
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/ui/coordinator/content"
 )
+
+var showPopupBrowserWindow = func(bw *browserWindow) {
+	if bw != nil && bw.mainWindow != nil {
+		bw.mainWindow.Show()
+	}
+}
 
 // openPopupBrowserWindow adopts the exact related WebView created for a
 // browsing-context request into a complete Dumber browser window.
@@ -33,10 +40,9 @@ func (a *App) openPopupBrowserWindow(ctx context.Context, input content.BrowserW
 	a.setBrowserWindowForTab(tab.ID, bw)
 	a.activateBrowserWindow(bw)
 
+	var showOnce sync.Once
 	show := func() {
-		if bw.mainWindow != nil {
-			bw.mainWindow.Show()
-		}
+		showOnce.Do(func() { showPopupBrowserWindow(bw) })
 	}
 	if lifecycle, ok := input.PopupWebView.(port.PopupLifecycleCapable); ok {
 		lifecycle.SetOnClose(func() { a.closeAdoptedPopupTab(context.Background(), bw, tab.ID) })
