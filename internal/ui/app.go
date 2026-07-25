@@ -615,16 +615,16 @@ func (a *App) ownerOrLastFocusedBrowserWindow(tabID entity.TabID, paneID entity.
 	return a.lastFocusedBrowserWindow()
 }
 
-func (a *App) openPopupNativeWindow(ctx context.Context, input content.NativePopupInput) error {
-	if err := a.openNativePopupWindow(ctx, input); err != nil {
+func (a *App) openPopupNativeWindow(ctx context.Context, popupInput content.NativePopupInput) error {
+	if err := a.openNativePopupWindow(ctx, popupInput); err != nil {
 		return err
 	}
 	// Deferred WebKit classification runs from ready-to-show. The native host
 	// is attached after that signal, so it must be revealed immediately rather
 	// than waiting for an already-delivered lifecycle callback.
-	if input.Request.Engine == dto.BrowserEngineWebKit &&
-		input.Request.PopupFeatures.State == dto.PopupFeaturesSpecified {
-		a.showNativePopupWindow(input.PopupWebView.ID())
+	if popupInput.Request.Engine == dto.BrowserEngineWebKit &&
+		popupInput.Request.PopupFeatures.State == dto.PopupFeaturesSpecified {
+		a.showNativePopupWindow(popupInput.PopupWebView.ID())
 	}
 	return nil
 }

@@ -89,17 +89,17 @@ func (pm *popupManager) cancelDeferredPopupsMatching(match func(*deferredPending
 		return
 	}
 	pm.mu.Lock()
-	cancelled := make([]*deferredPendingPopup, 0)
+	canceled := make([]*deferredPendingPopup, 0)
 	for popupID, pending := range pm.deferredPopups {
 		if pending == nil || !match(pending) {
 			continue
 		}
 		delete(pm.deferredPopups, popupID)
 		delete(pm.pendingPopups, popupID)
-		cancelled = append(cancelled, pending)
+		canceled = append(canceled, pending)
 	}
 	pm.mu.Unlock()
-	for _, pending := range cancelled {
+	for _, pending := range canceled {
 		pm.cleanupDeferredPending(pending)
 	}
 }
@@ -181,9 +181,15 @@ func (pm *popupManager) resolvePendingPopupFeatures(
 	transferred := false
 	switch decision.Kind {
 	case dto.HostDecisionCreateBrowserWindow:
-		transferred = pm.openExistingPopupInBrowserWindow(ctx, hooks, pending.ParentPaneID, pending.ParentWebViewID, pending.WebView, request, decision, true)
+		transferred = pm.openExistingPopupInBrowserWindow(
+			ctx, hooks, pending.ParentPaneID, pending.ParentWebViewID,
+			pending.WebView, request, decision, true,
+		)
 	case dto.HostDecisionCreateNativePopup:
-		transferred = pm.openExistingPopupInNativePopup(ctx, hooks, pending.ParentPaneID, pending.ParentWebViewID, parentURIAtOpen, pending.WebView, request, decision)
+		transferred = pm.openExistingPopupInNativePopup(
+			ctx, hooks, pending.ParentPaneID, pending.ParentWebViewID,
+			parentURIAtOpen, pending.WebView, request, decision,
+		)
 	case dto.HostDecisionReuseNamedPane:
 		// Reuse transfers no ownership: the existing context is navigated while
 		// the newly staged WebView remains ours and must be discarded below.
