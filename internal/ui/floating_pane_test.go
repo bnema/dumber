@@ -7,6 +7,7 @@ import (
 
 	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/ui/component"
+	contentcoord "github.com/bnema/dumber/internal/ui/coordinator/content"
 	layoutmocks "github.com/bnema/dumber/internal/ui/layout/mocks"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -310,6 +311,35 @@ func TestFloatingPane_CloseActiveFloatingSession(t *testing.T) {
 
 	handled = app.closeAndReleaseActiveFloatingPane(context.Background())
 	assert.False(t, handled)
+}
+
+func TestFloatingPane_HideAndCloseLeaveDetachedBrowserWindowAlive(t *testing.T) {
+	ctx := context.Background()
+	app, tabID, session := newFloatingPaneTestApp(t)
+	pool := &recordingWebViewPool{}
+	contentCoord := contentcoord.NewCoordinator(ctx, pool, nil, nil, nil, nil, nil, nil)
+	sourceWebView := &recordingWebView{id: 301}
+	detachedWebView := &recordingWebView{id: 302}
+	detachedPaneID := entity.PaneID("detached-pane")
+	contentCoord.RegisterPopupWebView(session.paneID, sourceWebView)
+	contentCoord.RegisterPopupWebView(detachedPaneID, detachedWebView)
+	app.contentCoord = contentCoord
+	detachedWindow := &browserWindow{id: "detached-window", tabs: entity.NewTabList()}
+	app.browserWindows[detachedWindow.id] = detachedWindow
+
+	require.NoError(t, session.pane.ShowURL(ctx, "https://example.com/source"))
+	app.hideFloatingSession(ctx, session)
+	assert.Same(t, detachedWebView, contentCoord.GetWebView(detachedPaneID))
+	assert.Same(t, detachedWindow, app.browserWindows[detachedWindow.id])
+
+	key := floatingSessionKey{tabID: tabID, sessionID: floatingSessionIDDefault}
+	app.releaseFloatingSession(ctx, key, session)
+
+	assert.Same(t, detachedWebView, contentCoord.GetWebView(detachedPaneID))
+	assert.Same(t, detachedWindow, app.browserWindows[detachedWindow.id])
+	assert.Zero(t, detachedWebView.destroyCalls)
+	require.Len(t, pool.released, 1)
+	assert.Same(t, sourceWebView, pool.released[0])
 }
 
 func TestFloatingPane_HandleGlobalEscape_HidesVisibleFloatingPane(t *testing.T) {

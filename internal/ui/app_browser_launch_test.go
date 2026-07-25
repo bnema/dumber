@@ -1313,6 +1313,24 @@ func TestApp_RestoreSessionWiresStackedPaneTitleBarCallbacks(t *testing.T) {
 	}
 }
 
+func TestApp_PopupOwnerWindowIDForFloatingPaneUsesSourceTabWindow(t *testing.T) {
+	tabID := entity.TabID("source-tab")
+	owner := &browserWindow{id: "owner-window", tabs: entity.NewTabList()}
+	paneID := entity.PaneID("floating-pane")
+	app := &App{
+		browserWindows: map[string]*browserWindow{owner.id: owner},
+		windowForTab:   map[entity.TabID]*browserWindow{tabID: owner},
+		floatingSessions: map[floatingSessionKey]*floatingWorkspaceSession{
+			{tabID: tabID, sessionID: "profile"}: {paneID: paneID},
+		},
+	}
+
+	windowID, ok := app.popupOwnerWindowIDForPane(paneID)
+
+	require.True(t, ok)
+	require.Equal(t, owner.id, windowID)
+}
+
 func TestApp_RemoveBrowserWindowRebindsPromotedTabCoordinatorWindow(t *testing.T) {
 	oldWindow := &browserWindow{id: "window-1", mainWindow: &window.MainWindow{}}
 	newWindow := &browserWindow{id: "window-2", mainWindow: &window.MainWindow{}}

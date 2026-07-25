@@ -8,6 +8,7 @@ import (
 	"unsafe"
 
 	"github.com/bnema/dumber/internal/application/port"
+	portmocks "github.com/bnema/dumber/internal/application/port/mocks"
 	"github.com/bnema/dumber/internal/application/usecase"
 	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/infrastructure/config"
@@ -272,6 +273,31 @@ func TestBrowserWindow_RemoveBrowserWindowReleasesOwnedTabWorkspaceWebViews(t *t
 	assert.Same(t, ownedWV, pool.released[0])
 	assert.Nil(t, contentCoord.GetWebView(ownedTab.Workspace.ActivePaneID))
 	assert.Same(t, otherWV, contentCoord.GetWebView(otherTab.Workspace.ActivePaneID))
+}
+
+func TestBrowserWindow_RemoveBrowserWindowReleasesOnlyRelatedNativePopups(t *testing.T) {
+	closedWebView := portmocks.NewMockWebView(t)
+	closedWebView.EXPECT().IsDestroyed().Return(false).Once()
+	closedWebView.EXPECT().Destroy().Once()
+	unrelatedWebView := portmocks.NewMockWebView(t)
+	closedShell := &popupDestroySpy{}
+	unrelatedShell := &popupDestroySpy{}
+	removed := &browserWindow{id: "owner-window", tabs: entity.NewTabList()}
+	remaining := &browserWindow{id: "other-window", tabs: entity.NewTabList()}
+	app := &App{
+		browserWindows: map[string]*browserWindow{removed.id: removed, remaining.id: remaining},
+		nativePopupWindows: map[port.WebViewID]*nativePopupWindow{
+			1: {popupID: 1, parentWindowID: removed.id, webView: closedWebView, popupWindow: closedShell},
+			2: {popupID: 2, parentWindowID: remaining.id, webView: unrelatedWebView, popupWindow: unrelatedShell},
+		},
+	}
+
+	app.removeBrowserWindow(removed.id)
+
+	assert.NotContains(t, app.nativePopupWindows, port.WebViewID(1))
+	assert.Contains(t, app.nativePopupWindows, port.WebViewID(2))
+	assert.Equal(t, 1, closedShell.destroyed)
+	assert.Zero(t, unrelatedShell.destroyed)
 }
 
 func TestBrowserWindow_RemoveBrowserWindowCleansOwnedTabState(t *testing.T) {
