@@ -151,6 +151,85 @@ func newPopupCreateCoordinatorForTest(t *testing.T, popupID port.WebViewID) (con
 	return ctx, parentPaneID, parentWV, popupWV, c
 }
 
+func TestPopupFloatingBlankOpensBrowserWindowWhenWorkspacePopupsDisabled(t *testing.T) {
+	ctx := context.Background()
+	parentPaneID := entity.PaneID("floating")
+	parentWV := mocks.NewMockWebView(t)
+	parentWV.EXPECT().ID().Return(port.WebViewID(101)).Once()
+	popupWV := mocks.NewMockWebView(t)
+	popupWV.EXPECT().ID().Return(port.WebViewID(201)).Maybe()
+	popupWV.EXPECT().Generation().Return(uint64(1)).Maybe()
+	popupWV.EXPECT().SetCallbacks(mock.Anything).Once()
+
+	factory := mocks.NewMockWebViewFactory(t)
+	factory.EXPECT().CreateRelated(mock.Anything, port.WebViewID(101)).Return(popupWV, nil).Once()
+	c := &Coordinator{popups: newPopupManager()}
+	c.SetPopupConfig(factory, &entity.BrowsingContextConfig{OpenInNewPane: false}, func() string { return "detached-pane" })
+	c.SetPopupSourceHostResolver(func(entity.PaneID) dto.SourceHostKind { return dto.SourceHostFloating })
+	c.SetOnInsertPopup(func(context.Context, InsertPopupInput) error {
+		t.Fatal("floating request must not use workspace insertion")
+		return nil
+	})
+	called := false
+	c.SetOnOpenBrowserWindow(func(_ context.Context, input BrowserWindowInput) (BrowserWindowResult, error) {
+		called = true
+		assert.Equal(t, parentPaneID, input.ParentPaneID)
+		assert.Same(t, popupWV, input.PopupWebView)
+		assert.Equal(t, "https://example.com/new", input.TargetURI)
+		return BrowserWindowResult{WindowID: "detached-window"}, nil
+	})
+
+	got := c.handlePopupCreate(ctx, parentPaneID, parentWV, port.PopupRequest{
+		Engine:            dto.BrowserEngineCEF,
+		TargetURI:         "https://example.com/new",
+		FrameName:         "_blank",
+		TargetDisposition: dto.WindowDispositionNewTab,
+		PopupFeatures:     dto.PopupFeatures{State: dto.PopupFeaturesNone},
+	})
+
+	assert.Same(t, popupWV, got)
+	assert.True(t, called)
+}
+
+func TestPopupFloatingMiddleClickOpensBrowserWindowWhenWorkspacePopupsDisabled(t *testing.T) {
+	ctx := context.Background()
+	parentPaneID := entity.PaneID("floating")
+	parentWV := mocks.NewMockWebView(t)
+	parentWV.EXPECT().ID().Return(port.WebViewID(101)).Maybe()
+	popupWV := mocks.NewMockWebView(t)
+	popupWV.EXPECT().ID().Return(port.WebViewID(202)).Maybe()
+	popupWV.EXPECT().Generation().Return(uint64(1)).Maybe()
+	popupWV.EXPECT().SetCallbacks(mock.Anything).Once()
+	popupWV.EXPECT().LoadURI(mock.Anything, "https://example.com/middle").Return(nil).Once()
+	factory := mocks.NewMockWebViewFactory(t)
+	factory.EXPECT().CreateRelated(mock.Anything, port.WebViewID(101)).Return(popupWV, nil).Once()
+	c := &Coordinator{webViews: map[entity.PaneID]port.WebView{parentPaneID: parentWV}, popups: newPopupManager()}
+	c.SetPopupConfig(factory, &entity.BrowsingContextConfig{OpenInNewPane: false}, func() string { return "detached-pane" })
+	c.SetPopupSourceHostResolver(func(entity.PaneID) dto.SourceHostKind { return dto.SourceHostFloating })
+	c.SetOnInsertPopup(func(context.Context, InsertPopupInput) error {
+		t.Fatal("floating middle-click must not use workspace insertion")
+		return nil
+	})
+	c.SetOnOpenBrowserWindow(func(_ context.Context, input BrowserWindowInput) (BrowserWindowResult, error) {
+		assert.Same(t, popupWV, input.PopupWebView)
+		return BrowserWindowResult{WindowID: "detached-window"}, nil
+	})
+
+	assert.True(t, c.handleLinkMiddleClick(ctx, parentPaneID, "https://example.com/middle"))
+}
+
+func TestPopupWorkspaceBlankRemainsBlockedWhenWorkspacePopupsDisabled(t *testing.T) {
+	parentWV := mocks.NewMockWebView(t)
+	factory := mocks.NewMockWebViewFactory(t)
+	c := &Coordinator{popups: newPopupManager()}
+	c.SetPopupConfig(factory, &entity.BrowsingContextConfig{OpenInNewPane: false}, nil)
+	c.SetPopupSourceHostResolver(func(entity.PaneID) dto.SourceHostKind { return dto.SourceHostWorkspace })
+
+	got := c.handlePopupCreate(context.Background(), "workspace", parentWV, port.PopupRequest{TargetURI: "https://example.com/new"})
+
+	assert.Nil(t, got)
+}
+
 func TestHandlePopupCreate_PrimesPopupNavigationCapability(t *testing.T) {
 	ctx := context.Background()
 	parentPaneID := entity.PaneID("parent-pane")
@@ -591,7 +670,7 @@ func TestHandlePopupCreate_FallsBackToNewPaneWhenNamedReuseBecomesUnavailable(t 
 	}
 	c.SetPopupConfig(factory, nil, nil)
 	c.SetPopupWindowIDResolver(func(entity.PaneID) (string, bool) { return "window-1", true })
-	c.popups.namedContexts.Register("window-1", "shared-pane", stalePaneID, port.WebViewID(202))
+	c.popups.namedContexts.Register("window-1", "window-1", "shared-pane", stalePaneID, port.WebViewID(202))
 	c.SetOnInsertPopup(func(context.Context, InsertPopupInput) error {
 		insertCalls++
 		return nil

@@ -17,20 +17,23 @@ import (
 // adapter layer so popup pane bookkeeping and workspace orchestration do not
 // leak into the application/usecase or domain layers.
 type popupManager struct {
-	factory           port.WebViewFactory
-	popupConfig       entity.BrowsingContextConfig
-	hasPopupConfig    bool
-	onInsertPopup     func(ctx context.Context, input InsertPopupInput) error
-	onOpenNativePopup func(ctx context.Context, input NativePopupInput) error
-	onClosePane       func(ctx context.Context, paneID entity.PaneID) error
-	generatePaneID    func() string
-	windowIDForPane   func(entity.PaneID) (string, bool)
-	policy            browsingContextPolicy
-	namedContexts     *namedBrowsingContextRegistry
-	pendingPopups     map[port.WebViewID]*PendingPopup
-	popupOAuth        map[port.WebViewID]*popupOAuthState
-	popupRefresh      map[entity.PaneID]*time.Timer
-	mu                sync.RWMutex
+	factory             port.WebViewFactory
+	popupConfig         entity.BrowsingContextConfig
+	hasPopupConfig      bool
+	onInsertPopup       func(ctx context.Context, input InsertPopupInput) error
+	onOpenBrowserWindow func(ctx context.Context, input BrowserWindowInput) (BrowserWindowResult, error)
+	onOpenNativePopup   func(ctx context.Context, input NativePopupInput) error
+	onStagePopup        func(ctx context.Context, input StagePopupInput) (PopupStagingHost, error)
+	onClosePane         func(ctx context.Context, paneID entity.PaneID) error
+	generatePaneID      func() string
+	windowIDForPane     func(entity.PaneID) (string, bool)
+	sourceHostForPane   func(entity.PaneID) dto.SourceHostKind
+	policy              browsingContextPolicy
+	namedContexts       *namedBrowsingContextRegistry
+	pendingPopups       map[port.WebViewID]*PendingPopup
+	popupOAuth          map[port.WebViewID]*popupOAuthState
+	popupRefresh        map[entity.PaneID]*time.Timer
+	mu                  sync.RWMutex
 }
 
 type popupOAuthState struct {
@@ -143,6 +146,50 @@ func (pm *popupManager) setWindowIDResolver(fn func(entity.PaneID) (string, bool
 	pm.windowIDForPane = fn
 }
 
+func (pm *popupManager) setSourceHostResolver(fn func(entity.PaneID) dto.SourceHostKind) {
+	if pm != nil {
+		pm.sourceHostForPane = fn
+	}
+}
+
+func (pm *popupManager) resolveSourceHost(paneID entity.PaneID) dto.SourceHostKind {
+	if pm != nil && pm.sourceHostForPane != nil {
+		if kind := pm.sourceHostForPane(paneID); kind != "" {
+			return kind
+		}
+	}
+	return dto.SourceHostWorkspace
+}
+
+func (pm *popupManager) setOnOpenBrowserWindow(fn func(context.Context, BrowserWindowInput) (BrowserWindowResult, error)) {
+	if pm != nil {
+		pm.onOpenBrowserWindow = fn
+	}
+}
+
+func (pm *popupManager) setOnStagePopup(fn func(context.Context, StagePopupInput) (PopupStagingHost, error)) {
+	if pm != nil {
+		pm.onStagePopup = fn
+	}
+}
+
+func (pm *popupManager) browsingContextRoutingConfig(
+	ctx context.Context,
+	parentPaneID entity.PaneID,
+) (*entity.BrowsingContextConfig, dto.SourceHostKind, bool) {
+	cfg := pm.currentPopupConfig()
+	sourceHost := pm.resolveSourceHost(parentPaneID)
+	if sourceHost == dto.SourceHostWorkspace && cfg != nil && !cfg.OpenInNewPane {
+		logging.FromContext(ctx).Debug().Msg("workspace browsing contexts disabled by config")
+		return cfg, sourceHost, false
+	}
+	if pm.factory == nil {
+		logging.FromContext(ctx).Warn().Msg("no webview factory, cannot create browsing context")
+		return cfg, sourceHost, false
+	}
+	return cfg, sourceHost, true
+}
+
 func popupTabInsertionConfig(cfg *entity.BrowsingContextConfig) (entity.PopupBehavior, string) {
 	behavior := GetBehavior(PopupTypeTab, cfg)
 	placement := "right"
@@ -227,18 +274,32 @@ func (pm *popupManager) lookupReusableNamedPopup(
 }
 
 func (pm *popupManager) storeReusableNamedPopup(parentPaneID entity.PaneID, frameName string, paneID entity.PaneID, wv port.WebView) {
-	if pm == nil || pm.namedContexts == nil || wv == nil {
+	if pm == nil || pm.windowIDForPane == nil {
+		return
+	}
+	hostWindowID, ok := pm.windowIDForPane(paneID)
+	if !ok {
+		return
+	}
+	pm.storeReusableNamedPopupWithHost(parentPaneID, frameName, paneID, wv, hostWindowID)
+}
+
+func (pm *popupManager) storeReusableNamedPopupWithHost(
+	parentPaneID entity.PaneID,
+	frameName string,
+	paneID entity.PaneID,
+	wv port.WebView,
+	hostWindowID string,
+) {
+	if pm == nil || pm.namedContexts == nil || wv == nil || pm.windowIDForPane == nil {
 		return
 	}
 	name := reusableBrowsingContextName(frameName)
-	if name == "" || pm.windowIDForPane == nil {
+	ownerWindowID, ok := pm.windowIDForPane(parentPaneID)
+	if name == "" || !ok || ownerWindowID == "" || hostWindowID == "" {
 		return
 	}
-	windowID, ok := pm.windowIDForPane(parentPaneID)
-	if !ok || windowID == "" {
-		return
-	}
-	pm.namedContexts.Register(windowID, name, paneID, wv.ID())
+	pm.namedContexts.Register(ownerWindowID, hostWindowID, name, paneID, wv.ID())
 }
 
 func (pm *popupManager) updatePendingPopupTarget(popupID port.WebViewID, targetURI string) {
@@ -451,6 +512,59 @@ func (pm *popupManager) popupParentURIAtOpen(
 	return parentURIAtOpen
 }
 
+func (pm *popupManager) openBrowserWindow(
+	ctx context.Context,
+	hooks popupCoordinatorHooks,
+	parentPaneID entity.PaneID,
+	parentWebViewID port.WebViewID,
+	req port.PopupRequest,
+	decision dto.HostDecision,
+	ready bool,
+) port.WebView {
+	log := logging.FromContext(ctx)
+	normalized := buildPopupBrowsingContextRequest(req)
+	normalized.SourceHost = pm.resolveSourceHost(parentPaneID)
+	if pm.onOpenBrowserWindow == nil {
+		logBrowsingContextFailure(*log, normalized, decision, dto.BrowsingContextFailureHostUnavailable, nil)
+		return nil
+	}
+	popupWV, err := pm.createPopupWebView(ctx, parentWebViewID, req.TargetURI, true)
+	if err != nil {
+		logBrowsingContextFailure(*log, normalized, decision, dto.BrowsingContextFailureHostFailed, err)
+		return nil
+	}
+	pm.setBrowsingContextDecision(popupWV, decision)
+	paneID, popupPane := pm.createPopupPane(popupWV.ID(), parentPaneID, req.TargetURI)
+	if hooks.setupWebViewCallbacks != nil {
+		hooks.setupWebViewCallbacks(ctx, paneID, popupWV)
+	}
+	result, err := pm.onOpenBrowserWindow(ctx, BrowserWindowInput{
+		ParentPaneID: parentPaneID, ParentWebViewID: parentWebViewID, PopupPane: popupPane,
+		PopupWebView: popupWV, TargetURI: req.TargetURI, Request: req, Ready: ready,
+	})
+	if err != nil || result.WindowID == "" {
+		if err == nil {
+			err = fmt.Errorf("browser window host returned an empty window ID")
+		}
+		logBrowsingContextFailure(*log, normalized, decision, dto.BrowsingContextFailureHostFailed, err)
+		popupWV.Destroy()
+		return nil
+	}
+	if !req.NoJavaScriptAccess {
+		pm.storeReusableNamedPopupWithHost(parentPaneID, req.FrameName, paneID, popupWV, result.WindowID)
+	}
+	if lifecycle, ok := popupWV.(port.PopupLifecycleCapable); ok {
+		lifecycle.PrimePopupNavigation(req.TargetURI)
+	}
+	return popupWV
+}
+
+func (pm *popupManager) readyOnCreate(engine dto.BrowserEngineKind) bool {
+	// Deferred WebKit requests are staged and routed by a later phase. Every
+	// immediate route must be visible without depending on another signal.
+	return true
+}
+
 func (pm *popupManager) openNativePopup(
 	ctx context.Context,
 	parentPaneID entity.PaneID,
@@ -499,21 +613,8 @@ func (pm *popupManager) handlePopupCreate(
 ) port.WebView {
 	log := logging.FromContext(ctx)
 
-	log.Debug().
-		Str("parent_pane", string(parentPaneID)).
-		Str("target_uri", logging.TruncateURL(req.TargetURI, logURLMaxLen)).
-		Str("frame_name", req.FrameName).
-		Bool("user_gesture", req.IsUserGesture).
-		Bool("no_javascript_access", req.NoJavaScriptAccess).
-		Msg("popup create request")
-
-	cfg := pm.currentPopupConfig()
-	if cfg != nil && !cfg.OpenInNewPane {
-		log.Debug().Msg("popups disabled by config, blocking")
-		return nil
-	}
-	if pm.factory == nil {
-		log.Warn().Msg("no webview factory, cannot create popup")
+	cfg, sourceHost, routingEnabled := pm.browsingContextRoutingConfig(ctx, parentPaneID)
+	if !routingEnabled {
 		return nil
 	}
 
@@ -521,16 +622,13 @@ func (pm *popupManager) handlePopupCreate(
 	parentURIAtOpen := pm.popupParentURIAtOpen(parentPaneID, parentWV, hooks, req.TargetURI)
 
 	request := buildPopupBrowsingContextRequest(req)
+	request.SourceHost = sourceHost
 	namedContextExists := false
 	if !req.NoJavaScriptAccess {
 		_, namedContextExists = pm.lookupReusableNamedPopup(parentPaneID, req.FrameName, hooks)
 	}
 	decision := pm.policy.Decide(request, namedContextExists)
-	log.Debug().
-		Str("decision", string(decision.Kind)).
-		Str("reason", decision.Reason).
-		Str("context_name", decision.BrowsingContextName).
-		Msg("browsing context host decision")
+	logBrowsingContextDecision(*log, request, decision)
 
 	switch decision.Kind {
 	case dto.HostDecisionDeny:
@@ -549,8 +647,13 @@ func (pm *popupManager) handlePopupCreate(
 		decision.Kind = dto.HostDecisionCreatePane
 		decision.ReuseContextName = ""
 		decision.Reason = "named browsing context unavailable; creating replacement pane"
+	case dto.HostDecisionCreateBrowserWindow:
+		return pm.openBrowserWindow(ctx, hooks, parentPaneID, parentID, req, decision, pm.readyOnCreate(req.Engine))
 	case dto.HostDecisionCreateNativePopup:
 		return pm.openNativePopup(ctx, parentPaneID, parentID, parentURIAtOpen, req, decision)
+	case dto.HostDecisionAwaitPopupFeatures:
+		logBrowsingContextFailure(*log, request, decision, dto.BrowsingContextFailureHostUnavailable, nil)
+		return nil
 	case dto.HostDecisionCreatePane:
 		// Continue below.
 		break
@@ -812,6 +915,32 @@ func (pm *popupManager) handlePopupClose(ctx context.Context, hooks popupCoordin
 	log.Info().Str("pane_id", string(paneID)).Msg("popup closed")
 }
 
+func (pm *popupManager) openMiddleClickBrowserWindow(
+	ctx context.Context,
+	hooks popupCoordinatorHooks,
+	parentPaneID entity.PaneID,
+	parentWV port.WebView,
+	uri string,
+	decision dto.HostDecision,
+) bool {
+	req := port.PopupRequest{
+		TargetURI:         uri,
+		FrameName:         "_blank",
+		TargetDisposition: dto.WindowDispositionNewTab,
+		PopupFeatures:     dto.PopupFeatures{State: dto.PopupFeaturesNone},
+	}
+	newWV := pm.openBrowserWindow(ctx, hooks, parentPaneID, parentWV.ID(), req, decision, true)
+	if newWV == nil {
+		return false
+	}
+	if err := newWV.LoadURI(ctx, uri); err != nil {
+		logging.FromContext(ctx).Error().Err(err).
+			Str("uri", logging.TruncateURL(uri, logURLMaxLen)).
+			Msg("failed to load URI in detached window")
+	}
+	return true
+}
+
 func (pm *popupManager) handleLinkMiddleClick(
 	ctx context.Context,
 	hooks popupCoordinatorHooks,
@@ -825,13 +954,8 @@ func (pm *popupManager) handleLinkMiddleClick(
 		Str("uri", logging.TruncateURL(uri, logURLMaxLen)).
 		Msg("middle-click/ctrl+click on link")
 
-	cfg := pm.currentPopupConfig()
-	if cfg != nil && !cfg.OpenInNewPane {
-		log.Debug().Msg("popups disabled by config, ignoring middle-click")
-		return false
-	}
-	if pm.factory == nil {
-		log.Warn().Msg("no webview factory, cannot handle middle-click")
+	_, sourceHost, routingEnabled := pm.browsingContextRoutingConfig(ctx, parentPaneID)
+	if !routingEnabled {
 		return false
 	}
 	if hooks.getWebView == nil {
@@ -844,11 +968,17 @@ func (pm *popupManager) handleLinkMiddleClick(
 		return false
 	}
 
-	decision := pm.policy.Decide(buildLinkBrowsingContextRequest(parentWV.ID(), uri), false)
+	request := buildLinkBrowsingContextRequest(parentWV.ID(), uri)
+	request.SourceHost = sourceHost
+	decision := pm.policy.Decide(request, false)
+	logBrowsingContextDecision(*log, request, decision)
 	log.Debug().
 		Str("decision", string(decision.Kind)).
 		Str("reason", decision.Reason).
 		Msg("middle-click browsing context host decision")
+	if decision.Kind == dto.HostDecisionCreateBrowserWindow {
+		return pm.openMiddleClickBrowserWindow(ctx, hooks, parentPaneID, parentWV, uri, decision)
+	}
 	if decision.Kind != dto.HostDecisionCreatePane {
 		log.Info().Str("decision", string(decision.Kind)).Msg("middle-click browsing context not pane-hosted")
 		return false

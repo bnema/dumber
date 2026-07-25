@@ -223,7 +223,7 @@ func TestLifecycle_ReleaseWebView_ClearsNamedBrowsingContextRegistration(t *test
 		return "", false
 	})
 	c.webViews[paneID] = wv
-	c.popups.namedContexts.Register(windowID, "named-popup", paneID, wv.ID())
+	c.popups.namedContexts.Register(windowID, windowID, "named-popup", paneID, wv.ID())
 
 	_, _, okBefore := c.popups.namedContexts.Lookup(windowID, "named-popup", c.getWebViewLocked, c.popups.windowIDForPane)
 	require.True(t, okBefore)

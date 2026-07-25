@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/bnema/dumber/internal/application/dto"
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/logging"
@@ -105,6 +106,33 @@ type InsertPopupInput struct {
 
 // NativePopupInput contains the data needed to host a native-required popup in
 // a dedicated top-level GTK window instead of the workspace.
+// BrowserWindowInput contains an engine-created related WebView to adopt into
+// a complete Dumber browser window. A successful callback transfers ownership.
+type BrowserWindowInput struct {
+	ParentPaneID    entity.PaneID
+	ParentWebViewID port.WebViewID
+	PopupPane       *entity.Pane
+	PopupWebView    port.WebView
+	TargetURI       string
+	Request         port.PopupRequest
+	Ready           bool
+}
+
+type BrowserWindowResult struct {
+	WindowID string
+}
+
+// PopupStagingHost temporarily owns a popup widget while late engine metadata
+// is unavailable. Detach transfers the widget without destroying it.
+type PopupStagingHost interface {
+	Detach() error
+	Destroy()
+}
+
+type StagePopupInput struct {
+	PopupWebView port.WebView
+}
+
 type NativePopupInput struct {
 	ParentPaneID          entity.PaneID
 	ParentWebViewID       port.WebViewID
@@ -157,6 +185,18 @@ func (c *Coordinator) UpdatePopupConfig(popupConfig entity.BrowsingContextConfig
 
 func (c *Coordinator) SetPopupWindowIDResolver(fn func(entity.PaneID) (string, bool)) {
 	c.ensurePopupManager().setWindowIDResolver(fn)
+}
+
+func (c *Coordinator) SetPopupSourceHostResolver(fn func(entity.PaneID) dto.SourceHostKind) {
+	c.ensurePopupManager().setSourceHostResolver(fn)
+}
+
+func (c *Coordinator) SetOnOpenBrowserWindow(fn func(context.Context, BrowserWindowInput) (BrowserWindowResult, error)) {
+	c.ensurePopupManager().setOnOpenBrowserWindow(fn)
+}
+
+func (c *Coordinator) SetOnStagePopup(fn func(context.Context, StagePopupInput) (PopupStagingHost, error)) {
+	c.ensurePopupManager().setOnStagePopup(fn)
 }
 
 func (c *Coordinator) ClearPopupNamedContextsForWindow(windowID string) {

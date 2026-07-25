@@ -35,8 +35,8 @@ type TabCoordinator struct {
 	onTabClosed          func(ctx context.Context, target TabTarget, tab *entity.Tab)
 	onQuit               func()
 	onCurrentWindowEmpty func(ctx context.Context, target TabTarget)
-	onAttachPopupToTab   func(ctx context.Context, tabID entity.TabID, pane *entity.Pane, wv port.WebView) // For popup tabs
-	onStateChanged       func()                                                                            // For session snapshots
+	onAttachPopupToTab   func(ctx context.Context, tabID entity.TabID, pane *entity.Pane, wv port.WebView) error // For popup tabs
+	onStateChanged       func()                                                                                  // For session snapshots
 }
 
 // TabCoordinatorConfig holds configuration for TabCoordinator.
@@ -132,7 +132,7 @@ func (c *TabCoordinator) SetMainWindow(mainWindow *window.MainWindow) {
 }
 
 // SetOnAttachPopupToTab sets the callback for attaching popup WebViews to tabs.
-func (c *TabCoordinator) SetOnAttachPopupToTab(fn func(ctx context.Context, tabID entity.TabID, pane *entity.Pane, wv port.WebView)) {
+func (c *TabCoordinator) SetOnAttachPopupToTab(fn func(ctx context.Context, tabID entity.TabID, pane *entity.Pane, wv port.WebView) error) {
 	c.onAttachPopupToTab = fn
 }
 
@@ -540,9 +540,19 @@ func (c *TabCoordinator) CreateWithPane(
 	// Update tab bar visibility
 	c.UpdateBarVisibility(ctx, target)
 
-	// Attach the popup WebView to the new tab's workspace
+	// Attach the popup WebView to the new tab's workspace. The caller retains
+	// WebView ownership until this succeeds.
 	if c.onAttachPopupToTab != nil {
-		c.onAttachPopupToTab(ctx, output.Tab.ID, pane, wv)
+		if err := c.onAttachPopupToTab(ctx, output.Tab.ID, pane, wv); err != nil {
+			target.Tabs.Remove(output.Tab.ID)
+			if target.MainWindow != nil && target.MainWindow.TabBar() != nil {
+				target.MainWindow.TabBar().RemoveTab(output.Tab.ID)
+			}
+			if c.onTabClosed != nil {
+				c.onTabClosed(ctx, target, output.Tab)
+			}
+			return nil, fmt.Errorf("attach popup webview: %w", err)
+		}
 	}
 
 	// Switch to the new tab's workspace view

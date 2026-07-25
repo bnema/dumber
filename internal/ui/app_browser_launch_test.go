@@ -2279,6 +2279,7 @@ func TestApp_CreatePopupTabUsesParentPaneOwnerWhenFocusIsStale(t *testing.T) {
 		mainWindow:          first.mainWindow,
 	}
 	app.initTabCoordinator(ctx)
+	app.tabCoord.SetOnAttachPopupToTab(func(context.Context, entity.TabID, *entity.Pane, port.WebView) error { return nil })
 
 	err := app.createPopupTab(ctx, contentcoord.InsertPopupInput{
 		ParentPaneID: secondTab.Workspace.ActivePaneID,
@@ -2538,28 +2539,28 @@ func (f *recordingWebView) IsPlayingAudio() bool                      { return f
 func (f *recordingWebView) IsDestroyed() bool                         { return f.destroyCalls > 0 }
 func (f *recordingWebView) Destroy()                                  { f.destroyCalls++ }
 
-func TestApp_AttachPopupToTabDestroysPopupWhenWorkspaceViewMissing(t *testing.T) {
+func TestApp_AttachPopupToTabLeavesPopupOwnedByCallerWhenWorkspaceViewMissing(t *testing.T) {
 	ctx := context.Background()
 	popupWV := &recordingWebView{id: 1}
 	app := &App{workspaceViews: map[entity.TabID]*component.WorkspaceView{}}
 
-	app.attachPopupToTab(ctx, entity.TabID("missing-tab"), entity.NewPane(entity.PaneID("popup-pane")), popupWV)
+	err := app.attachPopupToTab(ctx, entity.TabID("missing-tab"), entity.NewPane(entity.PaneID("popup-pane")), popupWV)
 
-	if popupWV.destroyCalls != 1 {
-		t.Fatalf("popup webview destroy calls = %d, want 1", popupWV.destroyCalls)
+	if err == nil || popupWV.destroyCalls != 0 {
+		t.Fatalf("error = %v, popup webview destroy calls = %d, want error and 0", err, popupWV.destroyCalls)
 	}
 }
 
-func TestApp_AttachPopupToTabDestroysPopupWhenPaneNil(t *testing.T) {
+func TestApp_AttachPopupToTabLeavesPopupOwnedByCallerWhenPaneNil(t *testing.T) {
 	ctx := context.Background()
 	popupWV := &recordingWebView{id: 1}
 	tabID := entity.TabID("tab-1")
 	app := &App{workspaceViews: map[entity.TabID]*component.WorkspaceView{tabID: &component.WorkspaceView{}}}
 
-	app.attachPopupToTab(ctx, tabID, nil, popupWV)
+	err := app.attachPopupToTab(ctx, tabID, nil, popupWV)
 
-	if popupWV.destroyCalls != 1 {
-		t.Fatalf("popup webview destroy calls = %d, want 1", popupWV.destroyCalls)
+	if err == nil || popupWV.destroyCalls != 0 {
+		t.Fatalf("error = %v, popup webview destroy calls = %d, want error and 0", err, popupWV.destroyCalls)
 	}
 }
 
@@ -2576,13 +2577,13 @@ func TestApp_AttachPopupToTabSkipsRegistrationWhenPaneViewMissing(t *testing.T) 
 	}
 
 	popupWV := &recordingWebView{id: 1}
-	app.attachPopupToTab(ctx, tabID, pane, popupWV)
+	err := app.attachPopupToTab(ctx, tabID, pane, popupWV)
 
 	if got := contentCoord.GetWebView(pane.ID); got != nil {
 		t.Fatalf("popup webview was registered for missing pane view: %v", got)
 	}
-	if popupWV.destroyCalls != 1 {
-		t.Fatalf("popup webview destroy calls = %d, want 1", popupWV.destroyCalls)
+	if err == nil || popupWV.destroyCalls != 0 {
+		t.Fatalf("error = %v, popup webview destroy calls = %d, want error and 0", err, popupWV.destroyCalls)
 	}
 }
 
@@ -2617,13 +2618,13 @@ func TestApp_AttachPopupToTabReleasesRegistrationWhenWrapFails(t *testing.T) {
 	}
 	popupWV := &recordingWebView{id: 1}
 
-	app.attachPopupToTab(ctx, tabID, pane, popupWV)
+	err := app.attachPopupToTab(ctx, tabID, pane, popupWV)
 
 	if got := contentCoord.GetWebView(pane.ID); got != nil {
 		t.Fatalf("popup webview registration remained after wrap failure: %v", got)
 	}
-	if popupWV.destroyCalls != 1 {
-		t.Fatalf("popup webview destroy calls = %d, want 1", popupWV.destroyCalls)
+	if err == nil || popupWV.destroyCalls != 0 {
+		t.Fatalf("error = %v, popup webview destroy calls = %d, want error and 0", err, popupWV.destroyCalls)
 	}
 }
 

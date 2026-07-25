@@ -8,13 +8,14 @@ import (
 )
 
 type namedBrowsingContextKey struct {
-	WindowID string
-	Name     string
+	OwnerWindowID string
+	Name          string
 }
 
 type namedBrowsingContextState struct {
-	PaneID    entity.PaneID
-	WebViewID port.WebViewID
+	PaneID       entity.PaneID
+	WebViewID    port.WebViewID
+	HostWindowID string
 }
 
 type namedBrowsingContextRegistry struct {
@@ -28,14 +29,13 @@ func newNamedBrowsingContextRegistry() *namedBrowsingContextRegistry {
 	}
 }
 
-func (r *namedBrowsingContextRegistry) Register(windowID, name string, paneID entity.PaneID, webViewID port.WebViewID) {
-	if r == nil || windowID == "" || name == "" || paneID == "" || webViewID == 0 {
+func (r *namedBrowsingContextRegistry) Register(ownerWindowID, hostWindowID, name string, paneID entity.PaneID, webViewID port.WebViewID) {
+	if r == nil || ownerWindowID == "" || hostWindowID == "" || name == "" || paneID == "" || webViewID == 0 {
 		return
 	}
 	r.mu.Lock()
-	r.contexts[namedBrowsingContextKey{WindowID: windowID, Name: name}] = namedBrowsingContextState{
-		PaneID:    paneID,
-		WebViewID: webViewID,
+	r.contexts[namedBrowsingContextKey{OwnerWindowID: ownerWindowID, Name: name}] = namedBrowsingContextState{
+		PaneID: paneID, WebViewID: webViewID, HostWindowID: hostWindowID,
 	}
 	r.mu.Unlock()
 }
@@ -49,7 +49,7 @@ func (r *namedBrowsingContextRegistry) Lookup(
 		return namedBrowsingContextState{}, nil, false
 	}
 
-	key := namedBrowsingContextKey{WindowID: windowID, Name: name}
+	key := namedBrowsingContextKey{OwnerWindowID: windowID, Name: name}
 	r.mu.RLock()
 	state, ok := r.contexts[key]
 	r.mu.RUnlock()
@@ -58,7 +58,7 @@ func (r *namedBrowsingContextRegistry) Lookup(
 	}
 
 	currentWindowID, ok := resolveWindowID(state.PaneID)
-	if !ok || currentWindowID != windowID {
+	if !ok || currentWindowID != state.HostWindowID {
 		r.deleteIfStateMatches(key, state)
 		return namedBrowsingContextState{}, nil, false
 	}
@@ -114,8 +114,8 @@ func (r *namedBrowsingContextRegistry) UnregisterWindow(windowID string) {
 		return
 	}
 	r.mu.Lock()
-	for key := range r.contexts {
-		if key.WindowID == windowID {
+	for key, state := range r.contexts {
+		if key.OwnerWindowID == windowID || state.HostWindowID == windowID {
 			delete(r.contexts, key)
 		}
 	}
