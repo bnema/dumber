@@ -5,6 +5,7 @@ import (
 
 	"github.com/bnema/dumber/internal/application/dto"
 	"github.com/bnema/dumber/internal/application/port"
+	"github.com/rs/zerolog"
 )
 
 type browsingContextPolicy struct{}
@@ -18,46 +19,73 @@ func (browsingContextPolicy) Decide(req dto.NewBrowsingContextRequest, namedCont
 		decision.RequestContextDisposition = dto.RequestContextInheritParent
 	}
 
-	if strings.TrimSpace(req.TargetURI) == "" {
-		decision.Kind = dto.HostDecisionDeny
-		decision.Reason = "empty target URI"
-		return decision
-	}
-
-	if req.AuthIntent {
-		decision.Kind = dto.HostDecisionCreateNativeWin
-		decision.Reason = "auth intent requires native window"
-		return decision
-	}
-	if req.RequiresNativeOpener {
-		decision.Kind = dto.HostDecisionCreateNativeWin
-		decision.Reason = "native opener required"
-		return decision
-	}
-	if isAmbiguousNativeBrowsingContext(req) {
-		decision.Kind = dto.HostDecisionCreateNativeWin
-		decision.Reason = "ambiguous opener-coupled request prefers native window"
-		return decision
+	switch {
+	case strings.TrimSpace(req.TargetURI) == "":
+		return completeHostDecision(decision, dto.HostDecisionDeny, dto.HostDecisionReasonEmptyTarget, "empty target URI")
+	case req.AuthIntent:
+		return completeHostDecision(decision, dto.HostDecisionCreateNativePopup, dto.HostDecisionReasonAuthNativePopup, "authentication intent requires a related native popup")
+	case req.RequiresNativeOpener:
+		return completeHostDecision(decision, dto.HostDecisionCreateNativePopup, dto.HostDecisionReasonNativeOpenerRequired, "native opener relationship is required")
+	case isAmbiguousNativeBrowsingContext(req):
+		return completeHostDecision(decision, dto.HostDecisionCreateNativePopup, dto.HostDecisionReasonAmbiguousOpenerNative, "ambiguous opener-coupled request prefers a related native popup")
 	}
 
 	name := reusableBrowsingContextName(req.TargetFrameName)
-	if namedContextExists && name != "" {
-		decision.Kind = dto.HostDecisionReuseNamedPane
+	if namedContextExists && name != "" && !req.NoJavaScriptAccess {
 		decision.ReuseContextName = name
 		decision.BrowsingContextName = name
-		decision.Reason = "reuse named browsing context in current window"
-		return decision
+		return completeHostDecision(decision, dto.HostDecisionReuseNamedPane, dto.HostDecisionReasonNamedContextReuse, "reuse live named browsing context")
 	}
-
-	decision.Kind = dto.HostDecisionCreatePane
 	decision.BrowsingContextName = name
-	decision.Reason = "pane-hosted browsing context"
+
+	if req.SourceHost == dto.SourceHostFloating {
+		return decideFloatingHost(decision, req)
+	}
+	return completeHostDecision(decision, dto.HostDecisionCreatePane, dto.HostDecisionReasonWorkspacePane, "workspace request uses pane hosting")
+}
+
+func decideFloatingHost(decision dto.HostDecision, req dto.NewBrowsingContextRequest) dto.HostDecision {
+	switch {
+	case req.PopupFeatures.State == dto.PopupFeaturesUnknown && req.TriggerKind != dto.TriggerLinkNewPage:
+		return completeHostDecision(decision, dto.HostDecisionAwaitPopupFeatures, dto.HostDecisionReasonFloatingFeaturesPending, "popup features unavailable until ready-to-show")
+	case req.PopupFeatures.RequestsPopupHost():
+		return completeHostDecision(decision, dto.HostDecisionCreateNativePopup, dto.HostDecisionReasonFloatingPopupFeatures, "explicit popup features requested")
+	default:
+		return completeHostDecision(decision, dto.HostDecisionCreateBrowserWindow, dto.HostDecisionReasonFloatingBrowserWindow, "floating request opens a detached browser window")
+	}
+}
+
+func completeHostDecision(decision dto.HostDecision, kind dto.HostDecisionKind, code dto.HostDecisionReasonCode, reason string) dto.HostDecision {
+	decision.Kind = kind
+	decision.ReasonCode = code
+	decision.Reason = reason
 	return decision
+}
+
+func logBrowsingContextDecision(logger zerolog.Logger, req dto.NewBrowsingContextRequest, decision dto.HostDecision) {
+	logger.Debug().
+		Str("engine", string(req.Engine)).
+		Str("source_host", string(req.SourceHost)).
+		Str("decision", string(decision.Kind)).
+		Str("target_disposition", string(req.TargetDisposition)).
+		Str("reason_code", string(decision.ReasonCode)).
+		Msg("browsing context host decided")
+}
+
+func logBrowsingContextFailure(logger zerolog.Logger, req dto.NewBrowsingContextRequest, decision dto.HostDecision, code dto.BrowsingContextFailureCode, err error) {
+	logger.Error().Err(err).
+		Str("engine", string(req.Engine)).
+		Str("source_host", string(req.SourceHost)).
+		Str("decision", string(decision.Kind)).
+		Str("target_disposition", string(req.TargetDisposition)).
+		Str("reason_code", string(code)).
+		Msg("browsing context hosting failed")
 }
 
 func buildPopupBrowsingContextRequest(req port.PopupRequest) dto.NewBrowsingContextRequest {
 	return dto.NewBrowsingContextRequest{
 		ParentWebViewID:           uint64(req.ParentViewID),
+		Engine:                    req.Engine,
 		SourceBrowserID:           req.SourceBrowserID,
 		SourceFrameID:             req.SourceFrameID,
 		SourceFrameURL:            req.SourceFrameURL,
@@ -66,7 +94,7 @@ func buildPopupBrowsingContextRequest(req port.PopupRequest) dto.NewBrowsingCont
 		TargetDisposition:         inferPopupWindowDisposition(req),
 		IsUserGesture:             req.IsUserGesture,
 		NoJavaScriptAccess:        req.NoJavaScriptAccess,
-		WindowFeatures:            req.WindowFeatures,
+		PopupFeatures:             req.PopupFeatures,
 		TriggerKind:               inferPopupTriggerKind(req),
 		AuthIntent:                IsOAuthURL(req.TargetURI),
 		RequiresNativeOpener:      false,

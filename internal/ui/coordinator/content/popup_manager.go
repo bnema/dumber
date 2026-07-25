@@ -549,7 +549,7 @@ func (pm *popupManager) handlePopupCreate(
 		decision.Kind = dto.HostDecisionCreatePane
 		decision.ReuseContextName = ""
 		decision.Reason = "named browsing context unavailable; creating replacement pane"
-	case dto.HostDecisionCreateNativeWin:
+	case dto.HostDecisionCreateNativePopup:
 		return pm.openNativePopup(ctx, parentPaneID, parentID, parentURIAtOpen, req, decision)
 	case dto.HostDecisionCreatePane:
 		// Continue below.

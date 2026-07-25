@@ -359,7 +359,7 @@ func TestOnBeforePopup_NativeDecisionAbortsHostWhenArmingFails(t *testing.T) {
 	parentWV := &WebView{ctx: context.Background(), id: 51}
 	popupWV := &WebView{ctx: context.Background(), id: 52}
 	popupWV.markNativePopupCandidate(parentWV)
-	popupWV.SetBrowsingContextHostDecision(dto.HostDecision{Kind: dto.HostDecisionCreateNativeWin})
+	popupWV.SetBrowsingContextHostDecision(dto.HostDecision{Kind: dto.HostDecisionCreateNativePopup})
 	aborted := false
 	popupWV.SetNativePopupHostAbort(func() { aborted = true })
 	parentWV.SetCallbacks(&port.WebViewCallbacks{

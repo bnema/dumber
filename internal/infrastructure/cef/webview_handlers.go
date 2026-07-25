@@ -684,7 +684,7 @@ func (h *handlerSet) OnBeforePopup(
 
 	cefPopup.setPopupNoJavaScriptAccess(requestNoJavaScriptAccess)
 	switch decision.Kind {
-	case dto.HostDecisionCreateNativeWin:
+	case dto.HostDecisionCreateNativePopup:
 		if cefPopup.prepareNativePopup(popupID, targetURL, windowInfo, clientSlot, settings) {
 			logging.FromContext(h.currentContext()).Debug().
 				Int32("popup_id", popupID).

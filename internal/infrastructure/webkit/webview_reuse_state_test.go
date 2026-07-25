@@ -11,7 +11,7 @@ func TestResetForPoolReuse_ClearsBrowsingContextHostState(t *testing.T) {
 	wv := &WebView{}
 	abortCalled := false
 
-	wv.SetBrowsingContextHostDecision(dto.HostDecision{Kind: dto.HostDecisionCreateNativeWin})
+	wv.SetBrowsingContextHostDecision(dto.HostDecision{Kind: dto.HostDecisionCreateNativePopup})
 	wv.SetNativePopupHostAbort(func() { abortCalled = true })
 
 	wv.ResetForPoolReuse()
