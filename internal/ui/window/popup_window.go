@@ -61,6 +61,18 @@ func (pw *PopupWindow) SetContent(widget *gtk.Widget) {
 	pw.currentContent = widget
 }
 
+// DetachContent removes and returns the hosted widget without destroying it.
+// Callers must detach before reparenting the widget into another GTK host.
+func (pw *PopupWindow) DetachContent() *gtk.Widget {
+	if pw == nil || pw.content == nil || pw.currentContent == nil {
+		return nil
+	}
+	widget := pw.currentContent
+	pw.content.Remove(widget)
+	pw.currentContent = nil
+	return widget
+}
+
 func (pw *PopupWindow) Show() {
 	if pw == nil || pw.window == nil {
 		return

@@ -644,6 +644,111 @@ func TestHandlePopupCreate_NativePopupDoesNotForceOAuthObservationWhenDisabled(t
 	assert.Equal(t, 0, insertCalls)
 }
 
+func TestPopupNativeAbortFallsBackOnceForNoOpenerVisualPopup(t *testing.T) {
+	ctx := context.Background()
+	popupWV := &popupNavigationWebViewStub{MockWebView: mocks.NewMockWebView(t)}
+	popupWV.EXPECT().ID().Return(port.WebViewID(701)).Once()
+	factory := mocks.NewMockWebViewFactory(t)
+	factory.EXPECT().CreateRelated(mock.Anything, port.WebViewID(101)).Return(popupWV, nil).Once()
+
+	pm := newPopupManager()
+	pm.setConfig(factory, nil, nil)
+	browserCalls := 0
+	pm.setOnOpenBrowserWindow(func(_ context.Context, input BrowserWindowInput) (BrowserWindowResult, error) {
+		browserCalls++
+		assert.Same(t, popupWV, input.PopupWebView)
+		assert.True(t, input.Ready)
+		return BrowserWindowResult{WindowID: "fallback-window"}, nil
+	})
+	pm.setOnOpenNativePopup(func(ctx context.Context, input NativePopupInput) error {
+		assert.True(t, input.AllowBrowserWindowFallback)
+		assert.True(t, input.OnNativeHostAbort(ctx, input.PopupWebView))
+		assert.True(t, input.OnNativeHostAbort(ctx, input.PopupWebView))
+		return nil
+	})
+
+	got := pm.openNativePopup(ctx, popupCoordinatorHooks{}, "floating", 101, "", port.PopupRequest{
+		TargetURI: "https://example.com/visual", NoJavaScriptAccess: true,
+	}, dto.HostDecision{Kind: dto.HostDecisionCreateNativePopup})
+	require.Same(t, popupWV, got)
+	assert.Equal(t, 1, browserCalls)
+}
+
+func TestPopupNativeAbortDoesNotFallbackForAuthOrRequiredOpener(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		target   string
+		decision dto.HostDecision
+	}{
+		{name: "auth", target: "https://accounts.google.com/o/oauth2/auth", decision: dto.HostDecision{Kind: dto.HostDecisionCreateNativePopup}},
+		{name: "required opener", target: "https://example.com/opener", decision: dto.HostDecision{Kind: dto.HostDecisionCreateNativePopup, RequiresNativeOpener: true}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			popupWV := &popupNavigationWebViewStub{MockWebView: mocks.NewMockWebView(t)}
+			popupWV.EXPECT().Destroy().Once()
+			factory := mocks.NewMockWebViewFactory(t)
+			factory.EXPECT().CreateRelated(mock.Anything, port.WebViewID(101)).Return(popupWV, nil).Once()
+			pm := newPopupManager()
+			pm.setConfig(factory, nil, nil)
+			pm.setOnOpenBrowserWindow(func(context.Context, BrowserWindowInput) (BrowserWindowResult, error) {
+				t.Fatal("auth/opener-required popup must not degrade to browser fallback")
+				return BrowserWindowResult{}, nil
+			})
+			pm.setOnOpenNativePopup(func(ctx context.Context, input NativePopupInput) error {
+				assert.False(t, input.AllowBrowserWindowFallback)
+				if !input.OnNativeHostAbort(ctx, input.PopupWebView) {
+					input.PopupWebView.Destroy()
+				}
+				return nil
+			})
+
+			got := pm.openNativePopup(context.Background(), popupCoordinatorHooks{}, "floating", 101, "", port.PopupRequest{
+				TargetURI: tc.target, NoJavaScriptAccess: true,
+			}, tc.decision)
+			require.Same(t, popupWV, got)
+		})
+	}
+}
+
+func TestPopupNativeFallbackFailureLeavesDestructionToNativeHost(t *testing.T) {
+	popupWV := &popupNavigationWebViewStub{MockWebView: mocks.NewMockWebView(t)}
+	popupWV.EXPECT().ID().Return(port.WebViewID(702)).Once()
+	popupWV.EXPECT().Destroy().Once()
+	factory := mocks.NewMockWebViewFactory(t)
+	factory.EXPECT().CreateRelated(mock.Anything, port.WebViewID(101)).Return(popupWV, nil).Once()
+	pm := newPopupManager()
+	pm.setConfig(factory, nil, nil)
+	pm.setOnOpenBrowserWindow(func(context.Context, BrowserWindowInput) (BrowserWindowResult, error) {
+		return BrowserWindowResult{}, errors.New("fallback failed")
+	})
+	pm.setOnOpenNativePopup(func(ctx context.Context, input NativePopupInput) error {
+		if !input.OnNativeHostAbort(ctx, input.PopupWebView) {
+			input.PopupWebView.Destroy()
+		}
+		return nil
+	})
+
+	got := pm.openNativePopup(context.Background(), popupCoordinatorHooks{}, "floating", 101, "", port.PopupRequest{
+		TargetURI: "https://example.com/visual", NoJavaScriptAccess: true,
+	}, dto.HostDecision{Kind: dto.HostDecisionCreateNativePopup})
+	require.Same(t, popupWV, got)
+}
+
+func TestPopupNativeSetupFailureDestroysCoordinatorOwnedWebViewOnce(t *testing.T) {
+	popupWV := &popupNavigationWebViewStub{MockWebView: mocks.NewMockWebView(t)}
+	popupWV.EXPECT().Destroy().Once()
+	factory := mocks.NewMockWebViewFactory(t)
+	factory.EXPECT().CreateRelated(mock.Anything, port.WebViewID(101)).Return(popupWV, nil).Once()
+	pm := newPopupManager()
+	pm.setConfig(factory, nil, nil)
+	pm.setOnOpenNativePopup(func(context.Context, NativePopupInput) error { return errors.New("setup failed") })
+
+	got := pm.openNativePopup(context.Background(), popupCoordinatorHooks{}, "floating", 101, "", port.PopupRequest{
+		TargetURI: "https://example.com/visual", NoJavaScriptAccess: true,
+	}, dto.HostDecision{Kind: dto.HostDecisionCreateNativePopup})
+	assert.Nil(t, got)
+}
+
 func TestHandlePopupCreate_DoesNotReuseNamedPopupWhenNoJavaScriptAccess(t *testing.T) {
 	ctx := context.Background()
 	parentPaneID := entity.PaneID("parent-pane")

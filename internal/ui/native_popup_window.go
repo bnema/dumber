@@ -14,25 +14,32 @@ import (
 	"github.com/bnema/puregotk/v4/gtk"
 )
 
+type nativePopupShell interface {
+	DetachContent() *gtk.Widget
+	Destroy()
+	Close()
+	Show()
+}
+
 type nativePopupWindow struct {
 	popupID        port.WebViewID
 	parentPaneID   entity.PaneID
 	parentWindowID string
-	popupWindow    *window.PopupWindow
+	popupWindow    nativePopupShell
 	webView        port.WebView
 	closeOnce      sync.Once
 }
 
-type nativePopupDestroyer interface {
-	Destroy()
-}
+type nativePopupReleaseMode int
+
+const (
+	nativePopupReleaseDestroy nativePopupReleaseMode = iota
+	nativePopupReleaseDetach
+)
 
 var newPopupWindow = window.NewPopup
 
-func destroyFailedNativePopupSetup(popupShell nativePopupDestroyer, wv port.WebView) {
-	if wv != nil && !wv.IsDestroyed() {
-		wv.Destroy()
-	}
+func destroyFailedNativePopupSetup(popupShell nativePopupShell) {
 	if popupShell != nil {
 		popupShell.Destroy()
 	}
@@ -67,17 +74,16 @@ func (a *App) openNativePopupWindow(ctx context.Context, input content.NativePop
 
 	popupShell, err := newPopupWindow(ctx, a.gtkApp)
 	if err != nil {
-		destroyFailedNativePopupSetup(nil, input.PopupWebView)
 		return err
 	}
 	if a.contentCoord == nil {
-		destroyFailedNativePopupSetup(popupShell, input.PopupWebView)
+		destroyFailedNativePopupSetup(popupShell)
 		return fmt.Errorf("content coordinator not available for native popup")
 	}
 	widget := a.contentCoord.WrapWidget(ctx, input.PopupWebView)
 	gtkWidget, err := prepareNativePopupContentWidget(widget)
 	if err != nil {
-		destroyFailedNativePopupSetup(popupShell, input.PopupWebView)
+		destroyFailedNativePopupSetup(popupShell)
 		return err
 	}
 	popupShell.SetContent(gtkWidget)
@@ -102,7 +108,7 @@ func (a *App) openNativePopupWindow(ctx context.Context, input content.NativePop
 
 	if popupShell.Window() != nil {
 		closeRequestCb := func(_ gtk.Window) bool {
-			a.releaseNativePopupWindow(popupID, false, false)
+			a.releaseNativePopupWindow(popupID, nativePopupReleaseDestroy)
 			return false
 		}
 		popupShell.Window().ConnectCloseRequest(&closeRequestCb)
@@ -111,7 +117,7 @@ func (a *App) openNativePopupWindow(ctx context.Context, input content.NativePop
 	if aborter, ok := input.PopupWebView.(port.NativePopupHostAbortCapable); ok {
 		aborter.SetNativePopupHostAbort(func() {
 			a.dispatchNativePopupLifecycle("ui.native_popup.abort", popupID, func() {
-				a.releaseNativePopupWindow(popupID, true, false)
+				a.abortNativePopupWindow(ctx, popupID, input)
 			})
 		})
 	}
@@ -123,7 +129,7 @@ func (a *App) openNativePopupWindow(ctx context.Context, input content.NativePop
 		})
 		lifecycle.SetOnClose(func() {
 			a.dispatchNativePopupLifecycle("ui.native_popup.close", popupID, func() {
-				a.releaseNativePopupWindow(popupID, true, false)
+				a.releaseNativePopupWindow(popupID, nativePopupReleaseDestroy)
 			})
 		})
 	} else {
@@ -132,7 +138,7 @@ func (a *App) openNativePopupWindow(ctx context.Context, input content.NativePop
 	if oauthWV, ok := input.PopupWebView.(port.OAuthCallbackCapable); ok {
 		oauthWV.AddCloseCallback(func() {
 			a.dispatchNativePopupLifecycle("ui.native_popup.oauth_close", popupID, func() {
-				a.releaseNativePopupWindow(popupID, true, false)
+				a.releaseNativePopupWindow(popupID, nativePopupReleaseDestroy)
 			})
 		})
 	}
@@ -146,6 +152,22 @@ func (a *App) openNativePopupWindow(ctx context.Context, input content.NativePop
 		Str("parent_pane_id", string(input.ParentPaneID)).
 		Msg("native popup host created")
 	return nil
+}
+
+func (a *App) abortNativePopupWindow(ctx context.Context, popupID port.WebViewID, input content.NativePopupInput) {
+	wv := a.releaseNativePopupWindow(popupID, nativePopupReleaseDetach)
+	if wv == nil {
+		return
+	}
+	transferred := false
+	if input.AllowBrowserWindowFallback && input.OnNativeHostAbort != nil {
+		transferred = input.OnNativeHostAbort(ctx, wv)
+	} else if input.OnNativeHostAbort != nil {
+		input.OnNativeHostAbort(ctx, wv)
+	}
+	if !transferred && !wv.IsDestroyed() {
+		wv.Destroy()
+	}
 }
 
 func (a *App) dispatchNativePopupLifecycle(label string, popupID port.WebViewID, fn func()) {
@@ -181,26 +203,29 @@ func (a *App) showNativePopupWindow(popupID port.WebViewID) {
 	}
 }
 
-func (a *App) releaseNativePopupWindow(popupID port.WebViewID, closeWindow, destroyWindow bool) {
+func (a *App) releaseNativePopupWindow(popupID port.WebViewID, mode nativePopupReleaseMode) port.WebView {
 	if a == nil || a.nativePopupWindows == nil {
-		return
+		return nil
 	}
 	state := a.nativePopupWindows[popupID]
 	if state == nil {
-		return
+		return nil
 	}
+	var detached port.WebView
 	state.closeOnce.Do(func() {
 		delete(a.nativePopupWindows, popupID)
-		if state.webView != nil && !state.webView.IsDestroyed() {
+		if mode == nativePopupReleaseDetach {
+			if state.popupWindow != nil && state.popupWindow.DetachContent() != nil {
+				detached = state.webView
+			} else if state.webView != nil && !state.webView.IsDestroyed() {
+				state.webView.Destroy()
+			}
+		} else if state.webView != nil && !state.webView.IsDestroyed() {
 			state.webView.Destroy()
 		}
 		if state.popupWindow != nil {
-			switch {
-			case destroyWindow:
-				state.popupWindow.Destroy()
-			case closeWindow:
-				state.popupWindow.Close()
-			}
+			state.popupWindow.Destroy()
 		}
 	})
+	return detached
 }

@@ -134,13 +134,15 @@ type StagePopupInput struct {
 }
 
 type NativePopupInput struct {
-	ParentPaneID          entity.PaneID
-	ParentWebViewID       port.WebViewID
-	ParentURIAtOpen       string
-	PopupWebView          port.WebView
-	TargetURI             string
-	Request               port.PopupRequest
-	ObserveOAuthAutoClose bool
+	ParentPaneID               entity.PaneID
+	ParentWebViewID            port.WebViewID
+	ParentURIAtOpen            string
+	PopupWebView               port.WebView
+	TargetURI                  string
+	Request                    port.PopupRequest
+	ObserveOAuthAutoClose      bool
+	AllowBrowserWindowFallback bool
+	OnNativeHostAbort          func(context.Context, port.WebView) bool
 }
 
 // GetBehavior returns the appropriate behavior based on popup type and config.

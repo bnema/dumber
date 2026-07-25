@@ -59,6 +59,47 @@ func (pm *popupManager) openBrowserWindow(
 	return popupWV
 }
 
+// openExistingPopupInBrowserWindow attempts to transfer an already-created
+// WebView. On failure ownership remains with the caller.
+func (pm *popupManager) openExistingPopupInBrowserWindow(
+	ctx context.Context,
+	hooks popupCoordinatorHooks,
+	parentPaneID entity.PaneID,
+	parentWebViewID port.WebViewID,
+	popupWV port.WebView,
+	req port.PopupRequest,
+	decision dto.HostDecision,
+	ready bool,
+) bool {
+	log := logging.FromContext(ctx)
+	normalized := buildPopupBrowsingContextRequest(req)
+	normalized.SourceHost = pm.resolveSourceHost(parentPaneID)
+	if popupWV == nil || pm.onOpenBrowserWindow == nil {
+		logBrowsingContextFailure(*log, normalized, decision, dto.BrowsingContextFailureFallback, nil)
+		return false
+	}
+
+	paneID, popupPane := pm.createPopupPane(popupWV.ID(), parentPaneID, req.TargetURI)
+	if hooks.setupWebViewCallbacks != nil {
+		hooks.setupWebViewCallbacks(ctx, paneID, popupWV)
+	}
+	result, err := pm.onOpenBrowserWindow(ctx, BrowserWindowInput{
+		ParentPaneID: parentPaneID, ParentWebViewID: parentWebViewID, PopupPane: popupPane,
+		PopupWebView: popupWV, TargetURI: req.TargetURI, Request: req, Ready: ready,
+	})
+	if err != nil || result.WindowID == "" {
+		if err == nil {
+			err = fmt.Errorf("browser window fallback returned an empty window ID")
+		}
+		logBrowsingContextFailure(*log, normalized, decision, dto.BrowsingContextFailureFallback, err)
+		return false
+	}
+	if !req.NoJavaScriptAccess {
+		pm.storeReusableNamedPopupWithHost(parentPaneID, req.FrameName, paneID, popupWV, result.WindowID)
+	}
+	return true
+}
+
 func (*popupManager) readyOnCreate(dto.BrowserEngineKind) bool {
 	// Deferred WebKit requests are staged and routed by a later phase. Every
 	// immediate route must be visible without depending on another signal.

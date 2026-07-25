@@ -514,6 +514,7 @@ func (pm *popupManager) popupParentURIAtOpen(
 
 func (pm *popupManager) openNativePopup(
 	ctx context.Context,
+	hooks popupCoordinatorHooks,
 	parentPaneID entity.PaneID,
 	parentID port.WebViewID,
 	parentURIAtOpen string,
@@ -521,27 +522,46 @@ func (pm *popupManager) openNativePopup(
 	decision dto.HostDecision,
 ) port.WebView {
 	log := logging.FromContext(ctx)
+	normalized := buildPopupBrowsingContextRequest(req)
+	normalized.SourceHost = pm.resolveSourceHost(parentPaneID)
 	if pm.onOpenNativePopup == nil {
-		log.Warn().Msg("native popup host callback not configured")
+		logBrowsingContextFailure(*log, normalized, decision, dto.BrowsingContextFailureHostUnavailable, nil)
 		return nil
 	}
 	popupWV, err := pm.createPopupWebView(ctx, parentID, req.TargetURI, false)
 	if err != nil {
-		log.Error().Err(err).Msg("failed to create webview for native popup")
+		logBrowsingContextFailure(*log, normalized, decision, dto.BrowsingContextFailureHostFailed, err)
 		return nil
 	}
 	cfg := pm.currentPopupConfig()
 	pm.setBrowsingContextDecision(popupWV, decision)
+	allowFallback := !normalized.AuthIntent && !decision.RequiresNativeOpener && req.NoJavaScriptAccess
+	var abortOnce sync.Once
+	abortResult := false
+	onAbort := func(abortCtx context.Context, abortedWV port.WebView) bool {
+		abortOnce.Do(func() {
+			if !allowFallback {
+				logBrowsingContextFailure(*log, normalized, decision, dto.BrowsingContextFailureNativeArm, nil)
+				return
+			}
+			abortResult = pm.openExistingPopupInBrowserWindow(
+				abortCtx, hooks, parentPaneID, parentID, abortedWV, req, decision, true,
+			)
+		})
+		return abortResult
+	}
 	if err := pm.onOpenNativePopup(ctx, NativePopupInput{
-		ParentPaneID:          parentPaneID,
-		ParentWebViewID:       parentID,
-		ParentURIAtOpen:       parentURIAtOpen,
-		PopupWebView:          popupWV,
-		TargetURI:             req.TargetURI,
-		Request:               req,
-		ObserveOAuthAutoClose: cfg != nil && cfg.OAuthAutoClose && IsOAuthURL(req.TargetURI),
+		ParentPaneID:               parentPaneID,
+		ParentWebViewID:            parentID,
+		ParentURIAtOpen:            parentURIAtOpen,
+		PopupWebView:               popupWV,
+		TargetURI:                  req.TargetURI,
+		Request:                    req,
+		ObserveOAuthAutoClose:      cfg != nil && cfg.OAuthAutoClose && IsOAuthURL(req.TargetURI),
+		AllowBrowserWindowFallback: allowFallback,
+		OnNativeHostAbort:          onAbort,
 	}); err != nil {
-		log.Error().Err(err).Msg("failed to open native popup host")
+		logBrowsingContextFailure(*log, normalized, decision, dto.BrowsingContextFailureNativeArm, err)
 		popupWV.Destroy()
 		return nil
 	}
@@ -597,7 +617,7 @@ func (pm *popupManager) handlePopupCreate(
 	case dto.HostDecisionCreateBrowserWindow:
 		return pm.openBrowserWindow(ctx, hooks, parentPaneID, parentID, req, decision, pm.readyOnCreate(req.Engine))
 	case dto.HostDecisionCreateNativePopup:
-		return pm.openNativePopup(ctx, parentPaneID, parentID, parentURIAtOpen, req, decision)
+		return pm.openNativePopup(ctx, hooks, parentPaneID, parentID, parentURIAtOpen, req, decision)
 	case dto.HostDecisionAwaitPopupFeatures:
 		logBrowsingContextFailure(*log, request, decision, dto.BrowsingContextFailureHostUnavailable, nil)
 		return nil

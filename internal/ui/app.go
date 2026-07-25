@@ -2948,7 +2948,7 @@ func (a *App) onShutdown(ctx context.Context) {
 			popupIDs = append(popupIDs, popupID)
 		}
 		for _, popupID := range popupIDs {
-			a.releaseNativePopupWindow(popupID, false, true)
+			a.releaseNativePopupWindow(popupID, nativePopupReleaseDestroy)
 		}
 	}
 	if a.engine != nil {
