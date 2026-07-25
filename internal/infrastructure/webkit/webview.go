@@ -155,6 +155,7 @@ type WebView struct {
 	OnProgressChanged          func(float64)
 	OnFaviconChanged           func(*gdk.Texture) // Called when page favicon changes
 	OnClose                    func()
+	popupLifecycleClose        func()
 	OnCreate                   func(PopupRequest) *WebView // Return new WebView or nil to block popup
 	OnReadyToShow              func()                      // Called when popup is ready to display
 	OnLinkMiddleClick          func(uri string) bool       // Return true if handled (blocks navigation)
@@ -515,9 +516,7 @@ func (wv *WebView) connectWebProcessResponsiveSignal() {
 
 func (wv *WebView) connectCloseSignal() {
 	closeCb := func(_ webkit.WebView) {
-		if wv.OnClose != nil {
-			wv.OnClose()
-		}
+		wv.runCloseCallbacks()
 	}
 	sigID := wv.inner.ConnectClose(&closeCb)
 	wv.signalIDs = append(wv.signalIDs, uintptr(sigID))
@@ -633,9 +632,7 @@ func (wv *WebView) connectCreateSignal() {
 
 func (wv *WebView) connectReadyToShowSignal() {
 	readyToShowCb := func(_ webkit.WebView) {
-		if wv.OnReadyToShow != nil {
-			wv.OnReadyToShow()
-		}
+		wv.fireReadyToShow()
 	}
 	sigID := wv.inner.ConnectReadyToShow(&readyToShowCb)
 	wv.signalIDs = append(wv.signalIDs, uintptr(sigID))
@@ -1663,24 +1660,51 @@ func (*WebView) PrimePopupNavigation(string) {}
 // SetOnReadyToShow sets the callback invoked when the popup WebView is ready to display.
 // It implements port.PopupLifecycleCapable.
 func (wv *WebView) SetOnReadyToShow(fn func()) {
+	if wv == nil {
+		return
+	}
+	wv.mu.Lock()
 	wv.OnReadyToShow = fn
+	wv.mu.Unlock()
 }
 
-// SetOnClose composes fn with any existing OnClose handler so multiple callers
-// can each register a close callback without overwriting one another.
-// It implements port.PopupLifecycleCapable.
+// SetOnClose replaces the coordinator-owned popup lifecycle callback without
+// disturbing WebView callbacks or additive OAuth close callbacks.
 func (wv *WebView) SetOnClose(fn func()) {
-	existing := wv.OnClose
-	if existing == nil {
-		wv.OnClose = fn
+	if wv == nil {
 		return
 	}
-	if fn == nil {
+	wv.mu.Lock()
+	wv.popupLifecycleClose = fn
+	wv.mu.Unlock()
+}
+
+func (wv *WebView) fireReadyToShow() {
+	if wv == nil {
 		return
 	}
-	wv.OnClose = func() {
-		existing()
+	wv.mu.RLock()
+	fn := wv.OnReadyToShow
+	wv.mu.RUnlock()
+	if fn != nil {
 		fn()
+	}
+}
+
+func (wv *WebView) runCloseCallbacks() {
+	if wv == nil {
+		return
+	}
+	wv.mu.Lock()
+	base := wv.OnClose
+	lifecycle := wv.popupLifecycleClose
+	wv.popupLifecycleClose = nil
+	wv.mu.Unlock()
+	if base != nil {
+		base()
+	}
+	if lifecycle != nil {
+		lifecycle()
 	}
 }
 
@@ -1842,9 +1866,7 @@ func (wv *WebView) Close() {
 	if wv.destroyed.Load() {
 		return
 	}
-	if wv.OnClose != nil {
-		wv.OnClose()
-	}
+	wv.runCloseCallbacks()
 }
 
 // AddCloseCallback implements port.OAuthCallbackCapable.
@@ -1980,6 +2002,7 @@ func (wv *WebView) DestroyWithPolicy(policy string) {
 	wv.browsingContextDecision = dto.HostDecision{}
 	wv.hasBrowsingContextDecision = false
 	wv.nativePopupHostAbort = nil
+	wv.popupLifecycleClose = nil
 	wv.mu.Unlock()
 
 	// 4. Unparent from GTK hierarchy (must happen before process termination)
@@ -2050,6 +2073,7 @@ func (wv *WebView) ResetForPoolReuse() {
 	wv.browsingContextDecision = dto.HostDecision{}
 	wv.hasBrowsingContextDecision = false
 	wv.nativePopupHostAbort = nil
+	wv.popupLifecycleClose = nil
 	wv.lastProgressUpdate.Store(0)
 	wv.mu.Unlock()
 
