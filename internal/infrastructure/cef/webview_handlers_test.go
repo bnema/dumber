@@ -229,6 +229,8 @@ func TestNativePopupActivationDoesNotLetInitialBlankLoadClearPendingNavigationBe
 	rawClient, ok := wv.activateNativePopup(55, "https://example.com/oauth")
 	require.True(t, ok)
 	require.NotNil(t, rawClient)
+	require.Equal(t, int32(55), wv.nativePopupID)
+	require.Same(t, parent, wv.nativePopupParent)
 	require.Equal(t, "https://example.com/oauth", wv.pendingNavigationURI())
 
 	wv.updateURI("about:blank")
@@ -260,6 +262,249 @@ func TestHandleNativePopupAborted_PreservesPrimedNavigationForFallback(t *testin
 	require.Same(t, parent, wv.nativePopupParent)
 	require.Equal(t, int32(0), wv.nativePopupID)
 	require.True(t, wv.isLoading)
+}
+
+func TestMapCEFPopupFeatures(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		in   *purecef.PopupFeatures
+		want dto.PopupFeatures
+	}{
+		{
+			name: "nil is known featureless",
+			want: dto.PopupFeatures{State: dto.PopupFeaturesNone},
+		},
+		{
+			name: "positive width is popup-like",
+			in:   &purecef.PopupFeatures{Width: 640, Widthset: 1},
+			want: dto.PopupFeatures{
+				State: dto.PopupFeaturesSpecified, Width: 640, WidthSet: true, IsPopupSet: true,
+			},
+		},
+		{
+			name: "geometry and flags are normalized",
+			in: &purecef.PopupFeatures{
+				X: 10, Xset: 1, Y: 20, Yset: 1,
+				Width: 800, Widthset: 1, Height: 600, Heightset: 1,
+			},
+			want: dto.PopupFeatures{
+				State: dto.PopupFeaturesSpecified,
+				X:     10, XSet: true, Y: 20, YSet: true,
+				Width: 800, WidthSet: true, Height: 600, HeightSet: true,
+				IsPopupSet: true,
+			},
+		},
+		{
+			name: "is popup flag survives without inventing geometry",
+			in:   &purecef.PopupFeatures{Ispopup: 1},
+			want: dto.PopupFeatures{
+				State: dto.PopupFeaturesSpecified, IsPopup: true, IsPopupSet: true,
+			},
+		},
+		{
+			name: "allocated defaults are known featureless",
+			in:   &purecef.PopupFeatures{},
+			want: dto.PopupFeatures{State: dto.PopupFeaturesNone, IsPopupSet: true},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := mapCEFPopupFeatures(tt.in)
+			assert.Equal(t, tt.want, got)
+			assert.Equal(t, tt.want.RequestsPopupHost(), got.RequestsPopupHost())
+		})
+	}
+}
+
+func TestOnBeforePopup_PropagatesCEFEngineFeaturesGestureAndNoJavaScriptAccess(t *testing.T) {
+	parentWV := &WebView{ctx: context.Background(), id: 16}
+	popupWV := &WebView{ctx: context.Background(), id: 24, pendingCreate: &pendingBrowserCreate{}}
+	popupWV.markNativePopupCandidate(parentWV)
+	popupWV.SetBrowsingContextHostDecision(dto.HostDecision{Kind: dto.HostDecisionCreateBrowserWindow})
+	noJavaScriptAccess := true
+	parentWV.SetCallbacks(&port.WebViewCallbacks{OnCreate: func(req port.PopupRequest) port.WebView {
+		assert.Equal(t, dto.BrowserEngineCEF, req.Engine)
+		assert.Equal(t, dto.PopupFeatures{
+			State: dto.PopupFeaturesSpecified, X: 10, XSet: true, Width: 640, WidthSet: true,
+			IsPopup: true, IsPopupSet: true,
+		}, req.PopupFeatures)
+		assert.Equal(t, dto.WindowDispositionNewPopup, req.TargetDisposition)
+		assert.True(t, req.IsUserGesture)
+		assert.True(t, req.NoJavaScriptAccess)
+		return popupWV
+	}})
+
+	blocked := (&handlerSet{wv: parentWV}).OnBeforePopup(
+		nil, nil, 90, "https://example.com/popup", "named-popup",
+		purecef.WindowOpenDispositionWodNewPopup, 1,
+		&purecef.PopupFeatures{X: 10, Xset: 1, Width: 640, Widthset: 1, Ispopup: 1},
+		nil, nil, nil, nil, &noJavaScriptAccess,
+	)
+
+	require.True(t, blocked)
+	require.True(t, popupWV.nativePopupFallbackStarted)
+	require.Nil(t, popupWV.popupOpenerBridgeParent, "noopener must not install the synthetic opener bridge")
+}
+
+func TestOnBeforePopup_BrowserWindowDecisionPreservesSyntheticOpenerBridge(t *testing.T) {
+	parentWV := &WebView{ctx: context.Background(), id: 17}
+	parentWV.updateURI("https://example.com/opener")
+	popupWV := &WebView{ctx: context.Background(), id: 25, pendingCreate: &pendingBrowserCreate{}}
+	popupWV.markNativePopupCandidate(parentWV)
+	popupWV.SetBrowsingContextHostDecision(dto.HostDecision{Kind: dto.HostDecisionCreateBrowserWindow})
+	parentWV.SetCallbacks(&port.WebViewCallbacks{OnCreate: func(port.PopupRequest) port.WebView { return popupWV }})
+
+	blocked := (&handlerSet{wv: parentWV}).OnBeforePopup(
+		nil, nil, 91, "https://example.com/child", "child",
+		purecef.WindowOpenDispositionWodNewPopup, 1, nil, nil, nil, nil, nil, nil,
+	)
+
+	require.True(t, blocked)
+	require.True(t, popupWV.nativePopupFallbackStarted)
+	require.Same(t, parentWV, popupWV.popupOpenerBridgeParent)
+	require.Equal(t, "https://example.com/opener", popupWV.popupOpenerBridgeParentURI)
+}
+
+func TestOnBeforePopup_NativeArmFailurePreparesEligibleFallbackBeforeAbort(t *testing.T) {
+	parentWV := &WebView{ctx: context.Background(), id: 18}
+	parentWV.updateURI("https://example.com/opener")
+	popupWV := &WebView{ctx: context.Background(), id: 26, pendingCreate: &pendingBrowserCreate{}}
+	popupWV.markNativePopupCandidate(parentWV)
+	popupWV.SetBrowsingContextHostDecision(dto.HostDecision{Kind: dto.HostDecisionCreateNativePopup})
+	abortCalls := 0
+	popupWV.SetNativePopupHostAbort(func() {
+		abortCalls++
+		assert.True(t, popupWV.nativePopupFallbackStarted)
+		assert.Same(t, parentWV, popupWV.popupOpenerBridgeParent)
+	})
+	parentWV.SetCallbacks(&port.WebViewCallbacks{OnCreate: func(port.PopupRequest) port.WebView { return popupWV }})
+
+	blocked := (&handlerSet{wv: parentWV}).OnBeforePopup(
+		nil, nil, 92, "https://example.com/visual", "visual",
+		purecef.WindowOpenDispositionWodNewPopup, 1,
+		&purecef.PopupFeatures{Width: 640, Widthset: 1}, nil, nil, nil, nil, nil,
+	)
+
+	require.True(t, blocked)
+	require.Equal(t, 1, abortCalls)
+	require.False(t, popupWV.IsDestroyed())
+}
+
+func TestOnBeforePopup_OpenerRequiredNativeArmFailureDeniesWithoutFallback(t *testing.T) {
+	parentWV := &WebView{ctx: context.Background(), id: 19}
+	popupWV := &WebView{ctx: context.Background(), id: 27, pendingCreate: &pendingBrowserCreate{}}
+	popupWV.markNativePopupCandidate(parentWV)
+	popupWV.SetBrowsingContextHostDecision(dto.HostDecision{
+		Kind: dto.HostDecisionCreateNativePopup, RequiresNativeOpener: true,
+	})
+	abortCalls := 0
+	popupWV.SetNativePopupHostAbort(func() {
+		abortCalls++
+		popupWV.Destroy()
+	})
+	parentWV.SetCallbacks(&port.WebViewCallbacks{OnCreate: func(port.PopupRequest) port.WebView { return popupWV }})
+
+	blocked := (&handlerSet{wv: parentWV}).OnBeforePopup(
+		nil, nil, 93, "https://example.com/opener-required", "required",
+		purecef.WindowOpenDispositionWodNewPopup, 1, nil, nil, nil, nil, nil, nil,
+	)
+
+	require.True(t, blocked)
+	require.Equal(t, 1, abortCalls)
+	require.False(t, popupWV.nativePopupFallbackStarted)
+	require.Nil(t, popupWV.popupOpenerBridgeParent)
+	require.True(t, popupWV.IsDestroyed())
+}
+
+func TestOnBeforePopup_AuthNativeArmFailureDeniesWithoutFallback(t *testing.T) {
+	parentWV := &WebView{ctx: context.Background(), id: 20}
+	popupWV := &WebView{ctx: context.Background(), id: 28, pendingCreate: &pendingBrowserCreate{}}
+	popupWV.markNativePopupCandidate(parentWV)
+	popupWV.SetBrowsingContextHostDecision(dto.HostDecision{
+		Kind: dto.HostDecisionCreateNativePopup, ReasonCode: dto.HostDecisionReasonAuthNativePopup,
+	})
+	popupWV.SetNativePopupHostAbort(func() { popupWV.Destroy() })
+	parentWV.SetCallbacks(&port.WebViewCallbacks{OnCreate: func(port.PopupRequest) port.WebView { return popupWV }})
+
+	blocked := (&handlerSet{wv: parentWV}).OnBeforePopup(
+		nil, nil, 94, "https://accounts.example.test/oauth", "oauth",
+		purecef.WindowOpenDispositionWodNewPopup, 1, nil, nil, nil, nil, nil, nil,
+	)
+
+	require.True(t, blocked)
+	require.False(t, popupWV.nativePopupFallbackStarted)
+	require.True(t, popupWV.IsDestroyed())
+}
+
+func TestOnBeforePopup_IsPopupFlagCanSelectNativePopup(t *testing.T) {
+	parentWV := &WebView{ctx: context.Background(), id: 22}
+	popupWV := &WebView{ctx: context.Background(), id: 30, pendingCreate: &pendingBrowserCreate{}}
+	popupWV.markNativePopupCandidate(parentWV)
+	abortCalls := 0
+	popupWV.SetNativePopupHostAbort(func() { abortCalls++ })
+	parentWV.SetCallbacks(&port.WebViewCallbacks{OnCreate: func(req port.PopupRequest) port.WebView {
+		require.True(t, req.PopupFeatures.RequestsPopupHost())
+		popupWV.SetBrowsingContextHostDecision(dto.HostDecision{Kind: dto.HostDecisionCreateNativePopup})
+		return popupWV
+	}})
+
+	blocked := (&handlerSet{wv: parentWV}).OnBeforePopup(
+		nil, nil, 96, "https://example.com/chrome-restricted", "restricted",
+		purecef.WindowOpenDispositionWodNewPopup, 1,
+		&purecef.PopupFeatures{Ispopup: 1}, nil, nil, nil, nil, nil,
+	)
+
+	require.True(t, blocked)
+	require.Equal(t, 1, abortCalls)
+}
+
+func TestOnBeforePopup_ReuseNamedPaneBlocksNativePopup(t *testing.T) {
+	parentWV := &WebView{ctx: context.Background(), id: 23}
+	popupWV := &WebView{ctx: context.Background(), id: 31, pendingCreate: &pendingBrowserCreate{}}
+	popupWV.markNativePopupCandidate(parentWV)
+	popupWV.SetBrowsingContextHostDecision(dto.HostDecision{Kind: dto.HostDecisionReuseNamedPane})
+	parentWV.SetCallbacks(&port.WebViewCallbacks{OnCreate: func(port.PopupRequest) port.WebView { return popupWV }})
+
+	blocked := (&handlerSet{wv: parentWV}).OnBeforePopup(
+		nil, nil, 97, "https://example.com/named", "shared",
+		purecef.WindowOpenDispositionWodNewPopup, 1, nil, nil, nil, nil, nil, nil,
+	)
+
+	require.True(t, blocked)
+	require.True(t, popupWV.nativePopupFallbackStarted)
+}
+
+func TestOnBeforePopup_DenyCleansUp(t *testing.T) {
+	parentWV := &WebView{ctx: context.Background(), id: 24}
+	popupWV := &WebView{ctx: context.Background(), id: 32}
+	popupWV.SetBrowsingContextHostDecision(dto.HostDecision{Kind: dto.HostDecisionDeny})
+	parentWV.SetCallbacks(&port.WebViewCallbacks{OnCreate: func(port.PopupRequest) port.WebView { return popupWV }})
+
+	blocked := (&handlerSet{wv: parentWV}).OnBeforePopup(
+		nil, nil, 98, "https://example.com/denied", "denied",
+		purecef.WindowOpenDispositionWodNewPopup, 1, nil, nil, nil, nil, nil, nil,
+	)
+
+	require.True(t, blocked)
+	require.True(t, popupWV.IsDestroyed())
+}
+
+func TestOnBeforePopup_AwaitFeaturesIsImpossibleAndCleansUp(t *testing.T) {
+	parentWV := &WebView{ctx: context.Background(), id: 21}
+	popupWV := &WebView{ctx: context.Background(), id: 29}
+	popupWV.SetBrowsingContextHostDecision(dto.HostDecision{Kind: dto.HostDecisionAwaitPopupFeatures})
+	parentWV.SetCallbacks(&port.WebViewCallbacks{OnCreate: func(port.PopupRequest) port.WebView { return popupWV }})
+
+	blocked := (&handlerSet{wv: parentWV}).OnBeforePopup(
+		nil, nil, 95, "https://example.com/impossible", "impossible",
+		purecef.WindowOpenDispositionWodNewPopup, 1, nil, nil, nil, nil, nil, nil,
+	)
+
+	require.True(t, blocked)
+	require.True(t, popupWV.IsDestroyed())
 }
 
 func TestOnBeforePopup_TimesOutGTKDispatchAndBlocksPopup(t *testing.T) {

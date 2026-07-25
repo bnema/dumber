@@ -32,6 +32,7 @@ var _ port.WebView = (*WebView)(nil)
 var _ port.DevToolsOpener = (*WebView)(nil)
 var _ port.Printer = (*WebView)(nil)
 var _ port.PopupLifecycleCapable = (*WebView)(nil)
+var _ port.PopupFeatureResolver = (*WebView)(nil)
 var _ port.OAuthCallbackCapable = (*WebView)(nil)
 
 // WebViewID is an alias to port.WebViewID for clean architecture compliance.
@@ -520,6 +521,44 @@ func (wv *WebView) connectCloseSignal() {
 	}
 	sigID := wv.inner.ConnectClose(&closeCb)
 	wv.signalIDs = append(wv.signalIDs, uintptr(sigID))
+}
+
+func popupFeaturesFromWindowProperties(
+	x, y, width, height int,
+	toolbarVisible, locationbarVisible, resizable bool,
+) dto.PopupFeatures {
+	chromeRestricted := !toolbarVisible || !locationbarVisible || !resizable
+	features := dto.PopupFeatures{
+		X: x, Y: y, Width: width, Height: height,
+		XSet: x != 0, YSet: y != 0, WidthSet: width > 0, HeightSet: height > 0,
+		ToolbarVisible: toolbarVisible, LocationbarVisible: locationbarVisible,
+		ToolbarVisibilitySet: true, LocationbarVisibilitySet: true,
+		Resizable: resizable, ResizableSet: true,
+		IsPopup: chromeRestricted, IsPopupSet: true,
+		State: dto.PopupFeaturesNone,
+	}
+	if width > 0 || height > 0 || chromeRestricted {
+		features.State = dto.PopupFeaturesSpecified
+	}
+	return features
+}
+
+// ResolvePopupFeatures reads WebKit's late window metadata. WebKit documents
+// these properties as reliable when ready-to-show is emitted.
+func (wv *WebView) ResolvePopupFeatures() dto.PopupFeatures {
+	if wv == nil || wv.inner == nil || wv.destroyed.Load() {
+		return dto.PopupFeatures{State: dto.PopupFeaturesUnknown}
+	}
+	props := wv.inner.GetWindowProperties()
+	if props == nil {
+		return dto.PopupFeatures{State: dto.PopupFeaturesUnknown}
+	}
+	geometry := &gdk.Rectangle{}
+	props.GetGeometry(geometry)
+	return popupFeaturesFromWindowProperties(
+		geometry.X, geometry.Y, geometry.Width, geometry.Height,
+		props.GetToolbarVisible(), props.GetLocationbarVisible(), props.GetResizable(),
+	)
 }
 
 func (wv *WebView) SetBrowsingContextHostDecision(decision dto.HostDecision) {
@@ -1658,6 +1697,22 @@ func (wv *WebView) State() port.WebViewState {
 	}
 }
 
+func mapPopupRequest(req PopupRequest) port.PopupRequest {
+	mapped := port.PopupRequest{
+		Engine:        dto.BrowserEngineWebKit,
+		TargetURI:     req.TargetURI,
+		FrameName:     req.FrameName,
+		IsUserGesture: req.IsUserGesture,
+		ParentViewID:  req.ParentID,
+		PopupFeatures: dto.PopupFeatures{State: dto.PopupFeaturesUnknown},
+	}
+	if strings.EqualFold(strings.TrimSpace(req.FrameName), "_blank") {
+		mapped.TargetDisposition = dto.WindowDispositionNewTab
+		mapped.PopupFeatures.State = dto.PopupFeaturesNone
+	}
+	return mapped
+}
+
 // SetCallbacks registers callback handlers for WebView events.
 // Pass nil to clear all callbacks.
 func (wv *WebView) SetCallbacks(callbacks *port.WebViewCallbacks) {
@@ -1696,13 +1751,7 @@ func (wv *WebView) SetCallbacks(callbacks *port.WebViewCallbacks) {
 	wv.OnClose = callbacks.OnClose
 	if callbacks.OnCreate != nil {
 		wv.OnCreate = func(req PopupRequest) *WebView {
-			portReq := port.PopupRequest{
-				TargetURI:     req.TargetURI,
-				FrameName:     req.FrameName,
-				IsUserGesture: req.IsUserGesture,
-				ParentViewID:  req.ParentID,
-			}
-			result := callbacks.OnCreate(portReq)
+			result := callbacks.OnCreate(mapPopupRequest(req))
 			if result == nil {
 				return nil
 			}

@@ -615,6 +615,20 @@ func (a *App) ownerOrLastFocusedBrowserWindow(tabID entity.TabID, paneID entity.
 	return a.lastFocusedBrowserWindow()
 }
 
+func (a *App) openPopupNativeWindow(ctx context.Context, input content.NativePopupInput) error {
+	if err := a.openNativePopupWindow(ctx, input); err != nil {
+		return err
+	}
+	// Deferred WebKit classification runs from ready-to-show. The native host
+	// is attached after that signal, so it must be revealed immediately rather
+	// than waiting for an already-delivered lifecycle callback.
+	if input.Request.Engine == dto.BrowserEngineWebKit &&
+		input.Request.PopupFeatures.State == dto.PopupFeaturesSpecified {
+		a.showNativePopupWindow(input.PopupWebView.ID())
+	}
+	return nil
+}
+
 func (a *App) createPopupTab(ctx context.Context, popupInput content.InsertPopupInput) error {
 	bw := a.browserWindowForAnyPane(popupInput.ParentPaneID)
 	if bw == nil {
@@ -3164,6 +3178,7 @@ func (a *App) initCoordinators(ctx context.Context) {
 	})
 	a.contentCoord.SetPopupWindowIDResolver(a.popupOwnerWindowIDForPane)
 	a.contentCoord.SetOnOpenBrowserWindow(a.openPopupBrowserWindow)
+	a.contentCoord.SetOnStagePopup(a.stagePopup)
 	a.contentCoord.SetOnInsertPopup(func(ctx context.Context, input content.InsertPopupInput) error {
 		if bw := a.browserWindowForAnyPane(input.ParentPaneID); bw != nil {
 			a.activateBrowserWindow(bw)
@@ -3176,7 +3191,7 @@ func (a *App) initCoordinators(ctx context.Context) {
 		}
 		return a.wsCoord.ClosePaneByID(ctx, paneID)
 	})
-	a.contentCoord.SetOnOpenNativePopup(a.openNativePopupWindow)
+	a.contentCoord.SetOnOpenNativePopup(a.openPopupNativeWindow)
 	// Wire tabbed popup behavior to create new tabs in the originating window.
 	a.wsCoord.SetOnCreatePopupTab(a.createPopupTab)
 

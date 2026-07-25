@@ -31,9 +31,18 @@ type popupManager struct {
 	policy              browsingContextPolicy
 	namedContexts       *namedBrowsingContextRegistry
 	pendingPopups       map[port.WebViewID]*PendingPopup
+	deferredPopups      map[port.WebViewID]*deferredPendingPopup
 	popupOAuth          map[port.WebViewID]*popupOAuthState
 	popupRefresh        map[entity.PaneID]*time.Timer
 	mu                  sync.RWMutex
+}
+
+type deferredPendingPopup struct {
+	*PendingPopup
+	Request     port.PopupRequest
+	Decision    dto.HostDecision
+	StagingHost PopupStagingHost
+	cleanupOnce sync.Once
 }
 
 type popupOAuthState struct {
@@ -85,6 +94,9 @@ func (pm *popupManager) ensureInitialized() {
 	defer pm.mu.Unlock()
 	if pm.pendingPopups == nil {
 		pm.pendingPopups = make(map[port.WebViewID]*PendingPopup)
+	}
+	if pm.deferredPopups == nil {
+		pm.deferredPopups = make(map[port.WebViewID]*deferredPendingPopup)
 	}
 	if pm.namedContexts == nil {
 		pm.namedContexts = newNamedBrowsingContextRegistry()
@@ -356,6 +368,28 @@ func (pm *popupManager) takePendingPopup(popupID port.WebViewID) (*PendingPopup,
 	return pending, ok
 }
 
+func (pm *popupManager) storeDeferredPopup(popupID port.WebViewID, pending *deferredPendingPopup) {
+	if pm == nil || pending == nil {
+		return
+	}
+	pm.mu.Lock()
+	pm.deferredPopups[popupID] = pending
+	pm.mu.Unlock()
+}
+
+func (pm *popupManager) takeDeferredPopup(popupID port.WebViewID) (*deferredPendingPopup, bool) {
+	if pm == nil {
+		return nil, false
+	}
+	pm.mu.Lock()
+	defer pm.mu.Unlock()
+	pending, ok := pm.deferredPopups[popupID]
+	if ok {
+		delete(pm.deferredPopups, popupID)
+	}
+	return pending, ok
+}
+
 func (pm *popupManager) trackOAuthPopup(popupID port.WebViewID, parentPaneID entity.PaneID, parentURIAtOpen string) {
 	if pm == nil {
 		return
@@ -560,8 +594,7 @@ func (pm *popupManager) handlePopupCreate(
 	case dto.HostDecisionCreateNativePopup:
 		return pm.openNativePopup(ctx, hooks, parentPaneID, parentID, parentURIAtOpen, req, decision)
 	case dto.HostDecisionAwaitPopupFeatures:
-		logBrowsingContextFailure(*log, request, decision, dto.BrowsingContextFailureHostUnavailable, nil)
-		return nil
+		return pm.awaitPopupFeatures(ctx, hooks, parentPaneID, parentID, parentURIAtOpen, req, decision)
 	case dto.HostDecisionCreatePane:
 		// Continue below.
 		break
@@ -597,6 +630,188 @@ func (pm *popupManager) handlePopupCreate(
 		Placement:       placement,
 		Request:         req,
 	})
+}
+
+func (pm *popupManager) awaitPopupFeatures(
+	ctx context.Context,
+	hooks popupCoordinatorHooks,
+	parentPaneID entity.PaneID,
+	parentWebViewID port.WebViewID,
+	parentURIAtOpen string,
+	req port.PopupRequest,
+	decision dto.HostDecision,
+) port.WebView {
+	log := logging.FromContext(ctx)
+	normalized := buildPopupBrowsingContextRequest(req)
+	normalized.SourceHost = pm.resolveSourceHost(parentPaneID)
+	popupWV, err := pm.createPopupWebView(ctx, parentWebViewID, req.TargetURI, false)
+	if err != nil {
+		logBrowsingContextFailure(*log, normalized, decision, dto.BrowsingContextFailureHostFailed, err)
+		return nil
+	}
+	resolver, resolverOK := popupWV.(port.PopupFeatureResolver)
+	lifecycle, lifecycleOK := popupWV.(port.PopupLifecycleCapable)
+	if !resolverOK || !lifecycleOK || pm.onStagePopup == nil {
+		logBrowsingContextFailure(*log, normalized, decision, dto.BrowsingContextFailureHostUnavailable, nil)
+		popupWV.Destroy()
+		return nil
+	}
+	staging, err := pm.onStagePopup(ctx, StagePopupInput{PopupWebView: popupWV})
+	if err != nil || staging == nil {
+		logBrowsingContextFailure(*log, normalized, decision, dto.BrowsingContextFailureHostFailed, err)
+		popupWV.Destroy()
+		return nil
+	}
+	pm.setBrowsingContextDecision(popupWV, decision)
+	paneID, _ := pm.createPopupPane(popupWV.ID(), parentPaneID, req.TargetURI)
+	pending := &deferredPendingPopup{
+		PendingPopup: &PendingPopup{
+			PaneID: paneID, WebView: popupWV, ParentPaneID: parentPaneID,
+			ParentWebViewID: parentWebViewID, TargetURI: req.TargetURI, FrameName: req.FrameName,
+			IsUserGesture: req.IsUserGesture, PopupType: DetectPopupType(req.FrameName), CreatedAt: time.Now(),
+		},
+		Request: req, Decision: decision, StagingHost: staging,
+	}
+	pm.storeDeferredPopup(popupWV.ID(), pending)
+	lifecycle.SetOnReadyToShow(func() {
+		pm.resolvePendingPopupFeatures(context.Background(), hooks, popupWV.ID(), parentURIAtOpen, resolver)
+	})
+	lifecycle.SetOnClose(func() {
+		pm.failPendingPopup(context.Background(), popupWV.ID(), dto.BrowsingContextFailureHostFailed, nil)
+	})
+	return popupWV
+}
+
+func (pm *popupManager) cleanupDeferredPending(pending *deferredPendingPopup) {
+	if pending == nil {
+		return
+	}
+	pending.cleanupOnce.Do(func() {
+		if pending.StagingHost != nil {
+			pending.StagingHost.Destroy()
+		}
+		if pending.WebView != nil {
+			pending.WebView.Destroy()
+		}
+	})
+}
+
+func (pm *popupManager) failPendingPopup(
+	ctx context.Context,
+	popupID port.WebViewID,
+	code dto.BrowsingContextFailureCode,
+	err error,
+) {
+	pending, ok := pm.takeDeferredPopup(popupID)
+	if !ok || pending == nil {
+		return
+	}
+	req := buildPopupBrowsingContextRequest(pending.Request)
+	req.SourceHost = pm.resolveSourceHost(pending.ParentPaneID)
+	logBrowsingContextFailure(*logging.FromContext(ctx), req, pending.Decision, code, err)
+	pm.cleanupDeferredPending(pending)
+}
+
+func (pm *popupManager) resolvePendingPopupFeatures(
+	ctx context.Context,
+	hooks popupCoordinatorHooks,
+	popupID port.WebViewID,
+	parentURIAtOpen string,
+	resolver port.PopupFeatureResolver,
+) {
+	pending, ok := pm.takeDeferredPopup(popupID)
+	if !ok || pending == nil {
+		return
+	}
+	resolved := resolver.ResolvePopupFeatures()
+	if resolved.State == dto.PopupFeaturesUnknown {
+		req := buildPopupBrowsingContextRequest(pending.Request)
+		req.SourceHost = pm.resolveSourceHost(pending.ParentPaneID)
+		logBrowsingContextFailure(*logging.FromContext(ctx), req, pending.Decision, dto.BrowsingContextFailureFeatureResolution, nil)
+		pm.cleanupDeferredPending(pending)
+		return
+	}
+	if err := pending.StagingHost.Detach(); err != nil {
+		req := buildPopupBrowsingContextRequest(pending.Request)
+		req.SourceHost = pm.resolveSourceHost(pending.ParentPaneID)
+		logBrowsingContextFailure(*logging.FromContext(ctx), req, pending.Decision, dto.BrowsingContextFailureStagingDetach, err)
+		pm.cleanupDeferredPending(pending)
+		return
+	}
+
+	request := pending.Request
+	request.PopupFeatures = resolved
+	normalized := buildPopupBrowsingContextRequest(request)
+	normalized.SourceHost = pm.resolveSourceHost(pending.ParentPaneID)
+	namedContextExists := false
+	if !request.NoJavaScriptAccess {
+		_, namedContextExists = pm.lookupReusableNamedPopup(pending.ParentPaneID, request.FrameName, hooks)
+	}
+	decision := pm.policy.Decide(normalized, namedContextExists)
+	logBrowsingContextDecision(*logging.FromContext(ctx), normalized, decision)
+	pm.setBrowsingContextDecision(pending.WebView, decision)
+
+	transferred := false
+	switch decision.Kind {
+	case dto.HostDecisionCreateBrowserWindow:
+		transferred = pm.openExistingPopupInBrowserWindow(ctx, hooks, pending.ParentPaneID, pending.ParentWebViewID, pending.WebView, request, decision, true)
+	case dto.HostDecisionCreateNativePopup:
+		transferred = pm.openExistingPopupInNativePopup(ctx, hooks, pending.ParentPaneID, pending.ParentWebViewID, parentURIAtOpen, pending.WebView, request, decision)
+	case dto.HostDecisionReuseNamedPane:
+		_, transferred = pm.reuseNamedPopup(ctx, hooks, pending.ParentPaneID, request.FrameName, request.TargetURI)
+	default:
+		logBrowsingContextFailure(*logging.FromContext(ctx), normalized, decision, dto.BrowsingContextFailureFeatureResolution, nil)
+	}
+	if !transferred {
+		pm.cleanupDeferredPending(pending)
+	}
+}
+
+func (pm *popupManager) openExistingPopupInNativePopup(
+	ctx context.Context,
+	hooks popupCoordinatorHooks,
+	parentPaneID entity.PaneID,
+	parentWebViewID port.WebViewID,
+	parentURIAtOpen string,
+	popupWV port.WebView,
+	req port.PopupRequest,
+	decision dto.HostDecision,
+) bool {
+	log := logging.FromContext(ctx)
+	normalized := buildPopupBrowsingContextRequest(req)
+	normalized.SourceHost = pm.resolveSourceHost(parentPaneID)
+	if popupWV == nil || pm.onOpenNativePopup == nil {
+		logBrowsingContextFailure(*log, normalized, decision, dto.BrowsingContextFailureHostUnavailable, nil)
+		return false
+	}
+	cfg := pm.currentPopupConfig()
+	allowFallback := !normalized.AuthIntent && !decision.RequiresNativeOpener &&
+		(req.NoJavaScriptAccess || popupSupportsOpenerBridge(popupWV))
+	var abortOnce sync.Once
+	abortResult := false
+	onAbort := func(abortCtx context.Context, abortedWV port.WebView) bool {
+		abortOnce.Do(func() {
+			if allowFallback {
+				abortResult = pm.openExistingPopupInBrowserWindow(
+					abortCtx, hooks, parentPaneID, parentWebViewID, abortedWV, req, decision, true,
+				)
+			}
+		})
+		return abortResult
+	}
+	if err := pm.onOpenNativePopup(ctx, NativePopupInput{
+		ParentPaneID: parentPaneID, ParentWebViewID: parentWebViewID, ParentURIAtOpen: parentURIAtOpen,
+		PopupWebView: popupWV, TargetURI: req.TargetURI, Request: req,
+		ObserveOAuthAutoClose:      cfg != nil && cfg.OAuthAutoClose && IsOAuthURL(req.TargetURI),
+		AllowBrowserWindowFallback: allowFallback, OnNativeHostAbort: onAbort,
+	}); err != nil {
+		logBrowsingContextFailure(*log, normalized, decision, dto.BrowsingContextFailureHostFailed, err)
+		return false
+	}
+	if lifecycle, ok := popupWV.(port.PopupLifecycleCapable); ok {
+		lifecycle.PrimePopupNavigation(req.TargetURI)
+	}
+	return true
 }
 
 func (pm *popupManager) finishPopupCreate(

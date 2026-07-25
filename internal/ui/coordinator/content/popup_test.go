@@ -1232,3 +1232,174 @@ func TestPendingPopups_ConcurrentDeleteAndRead(t *testing.T) {
 	defer c.popups.mu.RUnlock()
 	assert.Empty(t, c.popups.pendingPopups, "all preloaded popups should have been deleted")
 }
+
+func TestPopupDeferredFeaturelessDetachesBeforeBrowserHost(t *testing.T) {
+	ctx := context.Background()
+	parent := mocks.NewMockWebView(t)
+	parent.EXPECT().ID().Return(port.WebViewID(101)).Once()
+	popup := &deferredPopupWebViewStub{MockWebView: mocks.NewMockWebView(t), features: dto.PopupFeatures{State: dto.PopupFeaturesNone}}
+	popup.EXPECT().ID().Return(port.WebViewID(201)).Maybe()
+	popup.EXPECT().Generation().Return(uint64(1)).Maybe()
+	popup.EXPECT().SetCallbacks(mock.Anything).Once()
+	factory := mocks.NewMockWebViewFactory(t)
+	factory.EXPECT().CreateRelated(mock.Anything, port.WebViewID(101)).Return(popup, nil).Once()
+	staging := &popupStagingHostStub{}
+	c := &Coordinator{popups: newPopupManager()}
+	c.SetPopupConfig(factory, &entity.BrowsingContextConfig{OpenInNewPane: false}, func() string { return "deferred" })
+	c.SetPopupSourceHostResolver(func(entity.PaneID) dto.SourceHostKind { return dto.SourceHostFloating })
+	c.SetOnStagePopup(func(context.Context, StagePopupInput) (PopupStagingHost, error) {
+		staging.attached = true
+		return staging, nil
+	})
+	c.SetOnOpenBrowserWindow(func(_ context.Context, input BrowserWindowInput) (BrowserWindowResult, error) {
+		assert.True(t, staging.detached, "staging must detach before final host")
+		assert.True(t, input.Ready)
+		assert.Same(t, popup, input.PopupWebView)
+		return BrowserWindowResult{WindowID: "browser"}, nil
+	})
+	c.SetOnOpenNativePopup(func(context.Context, NativePopupInput) error {
+		t.Fatal("featureless popup must not use native host")
+		return nil
+	})
+
+	got := c.handlePopupCreate(ctx, "floating", parent, port.PopupRequest{Engine: dto.BrowserEngineWebKit, TargetURI: "https://example.com/open", PopupFeatures: dto.PopupFeatures{State: dto.PopupFeaturesUnknown}})
+	require.Same(t, popup, got)
+	assert.True(t, staging.attached)
+	assert.False(t, staging.detached)
+	popup.ready()
+	assert.True(t, staging.detached)
+	assert.Zero(t, staging.destroyCalls)
+}
+
+func TestPopupDeferredFeaturedDetachesBeforeNativeHost(t *testing.T) {
+	ctx := context.Background()
+	parent := mocks.NewMockWebView(t)
+	parent.EXPECT().ID().Return(port.WebViewID(101)).Once()
+	popup := &deferredPopupWebViewStub{MockWebView: mocks.NewMockWebView(t), features: dto.PopupFeatures{State: dto.PopupFeaturesSpecified, Width: 640, WidthSet: true}}
+	popup.EXPECT().ID().Return(port.WebViewID(202)).Maybe()
+	factory := mocks.NewMockWebViewFactory(t)
+	factory.EXPECT().CreateRelated(mock.Anything, port.WebViewID(101)).Return(popup, nil).Once()
+	staging := &popupStagingHostStub{}
+	c := &Coordinator{popups: newPopupManager()}
+	c.SetPopupConfig(factory, &entity.BrowsingContextConfig{OpenInNewPane: false}, func() string { return "deferred" })
+	c.SetPopupSourceHostResolver(func(entity.PaneID) dto.SourceHostKind { return dto.SourceHostFloating })
+	c.SetOnStagePopup(func(context.Context, StagePopupInput) (PopupStagingHost, error) {
+		staging.attached = true
+		return staging, nil
+	})
+	c.SetOnOpenNativePopup(func(_ context.Context, input NativePopupInput) error {
+		assert.True(t, staging.detached)
+		assert.Equal(t, dto.PopupFeaturesSpecified, input.Request.PopupFeatures.State)
+		assert.Same(t, popup, input.PopupWebView)
+		return nil
+	})
+
+	require.Same(t, popup, c.handlePopupCreate(ctx, "floating", parent, port.PopupRequest{Engine: dto.BrowserEngineWebKit, TargetURI: "https://example.com/open", PopupFeatures: dto.PopupFeatures{State: dto.PopupFeaturesUnknown}}))
+	popup.ready()
+}
+
+func TestPopupDeferredBrowserHostFailureCleansUpExactlyOnce(t *testing.T) {
+	parent := mocks.NewMockWebView(t)
+	parent.EXPECT().ID().Return(port.WebViewID(101)).Once()
+	popup := &deferredPopupWebViewStub{MockWebView: mocks.NewMockWebView(t), features: dto.PopupFeatures{State: dto.PopupFeaturesNone}}
+	popup.EXPECT().ID().Return(port.WebViewID(204)).Maybe()
+	popup.EXPECT().Generation().Return(uint64(1)).Maybe()
+	popup.EXPECT().SetCallbacks(mock.Anything).Once()
+	popup.EXPECT().Destroy().Once()
+	factory := mocks.NewMockWebViewFactory(t)
+	factory.EXPECT().CreateRelated(mock.Anything, port.WebViewID(101)).Return(popup, nil).Once()
+	staging := &popupStagingHostStub{}
+	c := &Coordinator{popups: newPopupManager()}
+	c.SetPopupConfig(factory, &entity.BrowsingContextConfig{OpenInNewPane: false}, nil)
+	c.SetPopupSourceHostResolver(func(entity.PaneID) dto.SourceHostKind { return dto.SourceHostFloating })
+	c.SetOnStagePopup(func(context.Context, StagePopupInput) (PopupStagingHost, error) { return staging, nil })
+	c.SetOnOpenBrowserWindow(func(context.Context, BrowserWindowInput) (BrowserWindowResult, error) {
+		return BrowserWindowResult{}, errors.New("host failed")
+	})
+
+	require.Same(t, popup, c.handlePopupCreate(context.Background(), "floating", parent, port.PopupRequest{Engine: dto.BrowserEngineWebKit, TargetURI: "https://example.com/open", PopupFeatures: dto.PopupFeatures{State: dto.PopupFeaturesUnknown}}))
+	popup.ready()
+	popup.ready()
+	assert.True(t, staging.detached)
+	assert.Equal(t, 1, staging.destroyCalls)
+}
+
+func TestPopupDeferredStagingFailureDestroysCallerOwnedWebViewOnce(t *testing.T) {
+	parent := mocks.NewMockWebView(t)
+	parent.EXPECT().ID().Return(port.WebViewID(101)).Once()
+	popup := &deferredPopupWebViewStub{MockWebView: mocks.NewMockWebView(t)}
+	popup.EXPECT().Destroy().Once()
+	factory := mocks.NewMockWebViewFactory(t)
+	factory.EXPECT().CreateRelated(mock.Anything, port.WebViewID(101)).Return(popup, nil).Once()
+	c := &Coordinator{popups: newPopupManager()}
+	c.SetPopupConfig(factory, &entity.BrowsingContextConfig{OpenInNewPane: false}, nil)
+	c.SetPopupSourceHostResolver(func(entity.PaneID) dto.SourceHostKind { return dto.SourceHostFloating })
+	c.SetOnStagePopup(func(context.Context, StagePopupInput) (PopupStagingHost, error) {
+		return nil, errors.New("stage failed")
+	})
+
+	assert.Nil(t, c.handlePopupCreate(context.Background(), "floating", parent, port.PopupRequest{Engine: dto.BrowserEngineWebKit, TargetURI: "https://example.com/open", PopupFeatures: dto.PopupFeatures{State: dto.PopupFeaturesUnknown}}))
+}
+
+func TestPopupDeferredUnknownAndCloseCleanupExactlyOnce(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		close bool
+	}{{name: "unknown at ready"}, {name: "close before ready", close: true}} {
+		t.Run(tc.name, func(t *testing.T) {
+			parent := mocks.NewMockWebView(t)
+			parent.EXPECT().ID().Return(port.WebViewID(101)).Once()
+			popup := &deferredPopupWebViewStub{MockWebView: mocks.NewMockWebView(t), features: dto.PopupFeatures{State: dto.PopupFeaturesUnknown}}
+			popup.EXPECT().ID().Return(port.WebViewID(203)).Maybe()
+			popup.EXPECT().Destroy().Once()
+			factory := mocks.NewMockWebViewFactory(t)
+			factory.EXPECT().CreateRelated(mock.Anything, port.WebViewID(101)).Return(popup, nil).Once()
+			staging := &popupStagingHostStub{}
+			c := &Coordinator{popups: newPopupManager()}
+			c.SetPopupConfig(factory, &entity.BrowsingContextConfig{OpenInNewPane: false}, nil)
+			c.SetPopupSourceHostResolver(func(entity.PaneID) dto.SourceHostKind { return dto.SourceHostFloating })
+			c.SetOnStagePopup(func(context.Context, StagePopupInput) (PopupStagingHost, error) { return staging, nil })
+			require.Same(t, popup, c.handlePopupCreate(context.Background(), "floating", parent, port.PopupRequest{Engine: dto.BrowserEngineWebKit, TargetURI: "https://example.com/open", PopupFeatures: dto.PopupFeatures{State: dto.PopupFeaturesUnknown}}))
+			if tc.close {
+				popup.close()
+				popup.close()
+			} else {
+				popup.ready()
+				popup.ready()
+			}
+			assert.Equal(t, 1, staging.destroyCalls)
+		})
+	}
+}
+
+// deferredPopupWebViewStub exposes the optional late-feature and lifecycle ports.
+type deferredPopupWebViewStub struct {
+	*mocks.MockWebView
+	features dto.PopupFeatures
+	onReady  func()
+	onClose  func()
+}
+
+func (s *deferredPopupWebViewStub) ResolvePopupFeatures() dto.PopupFeatures { return s.features }
+func (s *deferredPopupWebViewStub) PrimePopupNavigation(string)             {}
+func (s *deferredPopupWebViewStub) SetOnReadyToShow(fn func())              { s.onReady = fn }
+func (s *deferredPopupWebViewStub) SetOnClose(fn func())                    { s.onClose = fn }
+func (s *deferredPopupWebViewStub) Show()                                   {}
+func (s *deferredPopupWebViewStub) ready() {
+	if s.onReady != nil {
+		s.onReady()
+	}
+}
+func (s *deferredPopupWebViewStub) close() {
+	if s.onClose != nil {
+		s.onClose()
+	}
+}
+
+type popupStagingHostStub struct {
+	attached, detached bool
+	destroyCalls       int
+}
+
+func (s *popupStagingHostStub) Detach() error { s.detached = true; return nil }
+func (s *popupStagingHostStub) Destroy()      { s.destroyCalls++ }

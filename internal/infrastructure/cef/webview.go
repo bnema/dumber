@@ -823,15 +823,23 @@ func (wv *WebView) SetNativePopupHostAbort(fn func()) {
 }
 
 func (wv *WebView) AbortNativePopupHost() {
+	wv.abortNativePopupHost()
+}
+
+// abortNativePopupHost reports whether an installed host callback took
+// responsibility for either transferring or destroying the popup WebView.
+func (wv *WebView) abortNativePopupHost() bool {
 	if wv == nil {
-		return
+		return false
 	}
 	wv.mu.RLock()
 	fn := wv.nativePopupHostAbort
 	wv.mu.RUnlock()
-	if fn != nil {
-		fn()
+	if fn == nil {
+		return false
 	}
+	fn()
+	return true
 }
 
 func (wv *WebView) awaitsNativePopupAttachment() bool {
