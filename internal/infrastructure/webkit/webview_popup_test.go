@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/bnema/dumber/internal/application/dto"
+	purewebkit "github.com/bnema/puregotk/v4/webkit"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -41,16 +42,27 @@ func TestResolvePopupFeatures(t *testing.T) {
 	}
 }
 
-func TestMapPopupRequestClassifiesBlankAndDefersAmbiguousScript(t *testing.T) {
+func TestMapPopupRequestClassifiesLinkBlankAsFeatureless(t *testing.T) {
 	t.Parallel()
 
-	blank := mapPopupRequest(PopupRequest{TargetURI: "https://example.com/new", FrameName: " _BLANK ", ParentID: 7})
+	blank := mapPopupRequest(PopupRequest{
+		TargetURI: "https://example.com/new", FrameName: " _BLANK ", ParentID: 7,
+		NavigationType: purewebkit.NavigationTypeLinkClickedValue,
+	})
 	assert.Equal(t, dto.BrowserEngineWebKit, blank.Engine)
 	assert.Equal(t, dto.WindowDispositionNewTab, blank.TargetDisposition)
 	assert.Equal(t, dto.PopupFeaturesNone, blank.PopupFeatures.State)
+}
 
-	script := mapPopupRequest(PopupRequest{TargetURI: "https://example.com/popup", FrameName: "oauth", ParentID: 7})
+func TestMapPopupRequestDefersScriptBlankFeatures(t *testing.T) {
+	t.Parallel()
+
+	script := mapPopupRequest(PopupRequest{
+		TargetURI: "https://example.com/popup", FrameName: "_blank", ParentID: 7,
+		NavigationType: purewebkit.NavigationTypeOtherValue,
+	})
 	assert.Equal(t, dto.BrowserEngineWebKit, script.Engine)
+	assert.Equal(t, dto.WindowDispositionNewPopup, script.TargetDisposition)
 	assert.Equal(t, dto.PopupFeaturesUnknown, script.PopupFeatures.State)
 }
 

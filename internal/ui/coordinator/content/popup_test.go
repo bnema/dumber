@@ -155,15 +155,14 @@ func newPopupCreateCoordinatorForTest(t *testing.T, popupID port.WebViewID) (con
 	return ctx, parentPaneID, parentWV, popupWV, c
 }
 
-func TestPopupFloatingBlankOpensBrowserWindowWhenWorkspacePopupsDisabled(t *testing.T) {
+func TestPopupFloatingWebKitLinkBlankNavigatesSourceAndDestroysCandidateExactlyOnce(t *testing.T) {
 	ctx := context.Background()
 	parentPaneID := entity.PaneID("floating")
 	parentWV := mocks.NewMockWebView(t)
 	parentWV.EXPECT().ID().Return(port.WebViewID(101)).Once()
-	popupWV := mocks.NewMockWebView(t)
-	popupWV.EXPECT().ID().Return(port.WebViewID(201)).Maybe()
-	popupWV.EXPECT().Generation().Return(uint64(1)).Maybe()
-	popupWV.EXPECT().SetCallbacks(mock.Anything).Once()
+	parentWV.EXPECT().LoadURI(mock.Anything, "https://example.com/new").Return(nil).Once()
+	popupWV := &popupNavigationWebViewStub{MockWebView: mocks.NewMockWebView(t)}
+	popupWV.EXPECT().Destroy().Once()
 
 	factory := mocks.NewMockWebViewFactory(t)
 	factory.EXPECT().CreateRelated(mock.Anything, port.WebViewID(101)).Return(popupWV, nil).Once()
@@ -174,39 +173,32 @@ func TestPopupFloatingBlankOpensBrowserWindowWhenWorkspacePopupsDisabled(t *test
 		t.Fatal("floating request must not use workspace insertion")
 		return nil
 	})
-	called := false
-	c.SetOnOpenBrowserWindow(func(_ context.Context, input BrowserWindowInput) (BrowserWindowResult, error) {
-		called = true
-		assert.Equal(t, parentPaneID, input.ParentPaneID)
-		assert.Same(t, popupWV, input.PopupWebView)
-		assert.Equal(t, "https://example.com/new", input.TargetURI)
-		return BrowserWindowResult{WindowID: "detached-window"}, nil
+	c.SetOnOpenBrowserWindow(func(context.Context, BrowserWindowInput) (BrowserWindowResult, error) {
+		t.Fatal("featureless _blank must not open a browser window")
+		return BrowserWindowResult{}, nil
 	})
 
 	got := c.handlePopupCreate(ctx, parentPaneID, parentWV, port.PopupRequest{
-		Engine:            dto.BrowserEngineCEF,
+		Engine:            dto.BrowserEngineWebKit,
 		TargetURI:         "https://example.com/new",
 		FrameName:         "_blank",
 		TargetDisposition: dto.WindowDispositionNewTab,
 		PopupFeatures:     dto.PopupFeatures{State: dto.PopupFeaturesNone},
 	})
 
-	assert.Same(t, popupWV, got)
-	assert.True(t, called)
+	assert.Nil(t, got, "featureless link popup must be discarded after source navigation")
+	decision, ok := popupWV.BrowsingContextHostDecision()
+	require.True(t, ok)
+	assert.Equal(t, dto.HostDecisionNavigateSource, decision.Kind)
 }
 
-func TestPopupFloatingMiddleClickOpensBrowserWindowWhenWorkspacePopupsDisabled(t *testing.T) {
+func TestPopupFloatingMiddleClickNavigatesSourceWhenWorkspacePopupsDisabled(t *testing.T) {
 	ctx := context.Background()
 	parentPaneID := entity.PaneID("floating")
 	parentWV := mocks.NewMockWebView(t)
-	parentWV.EXPECT().ID().Return(port.WebViewID(101)).Maybe()
-	popupWV := mocks.NewMockWebView(t)
-	popupWV.EXPECT().ID().Return(port.WebViewID(202)).Maybe()
-	popupWV.EXPECT().Generation().Return(uint64(1)).Maybe()
-	popupWV.EXPECT().SetCallbacks(mock.Anything).Once()
-	popupWV.EXPECT().LoadURI(mock.Anything, "https://example.com/middle").Return(nil).Once()
+	parentWV.EXPECT().ID().Return(port.WebViewID(101)).Once()
+	parentWV.EXPECT().LoadURI(mock.Anything, "https://example.com/middle").Return(nil).Once()
 	factory := mocks.NewMockWebViewFactory(t)
-	factory.EXPECT().CreateRelated(mock.Anything, port.WebViewID(101)).Return(popupWV, nil).Once()
 	c := &Coordinator{webViews: map[entity.PaneID]port.WebView{parentPaneID: parentWV}, popups: newPopupManager()}
 	c.SetPopupConfig(factory, &entity.BrowsingContextConfig{OpenInNewPane: false}, func() string { return "detached-pane" })
 	c.SetPopupSourceHostResolver(func(entity.PaneID) dto.SourceHostKind { return dto.SourceHostFloating })
@@ -214,9 +206,9 @@ func TestPopupFloatingMiddleClickOpensBrowserWindowWhenWorkspacePopupsDisabled(t
 		t.Fatal("floating middle-click must not use workspace insertion")
 		return nil
 	})
-	c.SetOnOpenBrowserWindow(func(_ context.Context, input BrowserWindowInput) (BrowserWindowResult, error) {
-		assert.Same(t, popupWV, input.PopupWebView)
-		return BrowserWindowResult{WindowID: "detached-window"}, nil
+	c.SetOnOpenBrowserWindow(func(context.Context, BrowserWindowInput) (BrowserWindowResult, error) {
+		t.Fatal("floating middle-click must not open a browser window")
+		return BrowserWindowResult{}, nil
 	})
 
 	assert.True(t, c.handleLinkMiddleClick(ctx, parentPaneID, "https://example.com/middle"))
@@ -342,8 +334,8 @@ func TestPopupFloatingBrowserHostFailureDestroysWebViewExactlyOnce(t *testing.T)
 	})
 
 	got := c.handlePopupCreate(context.Background(), "floating", parentWV, port.PopupRequest{
-		Engine: dto.BrowserEngineCEF, TargetURI: "https://example.com/new", FrameName: "_blank",
-		TargetDisposition: dto.WindowDispositionNewTab, PopupFeatures: dto.PopupFeatures{State: dto.PopupFeaturesNone},
+		Engine: dto.BrowserEngineCEF, TargetURI: "https://example.com/new", FrameName: "shared",
+		TargetDisposition: dto.WindowDispositionNewPopup, PopupFeatures: dto.PopupFeatures{State: dto.PopupFeaturesNone},
 	})
 
 	assert.Nil(t, got)
@@ -1233,14 +1225,14 @@ func TestPendingPopups_ConcurrentDeleteAndRead(t *testing.T) {
 	assert.Empty(t, c.popups.pendingPopups, "all preloaded popups should have been deleted")
 }
 
-func TestPopupDeferredFeaturelessDetachesBeforeBrowserHost(t *testing.T) {
+func TestPopupDeferredFeaturelessBlankNavigatesSourceAndCleansStagingExactlyOnce(t *testing.T) {
 	ctx := context.Background()
 	parent := mocks.NewMockWebView(t)
 	parent.EXPECT().ID().Return(port.WebViewID(101)).Once()
+	parent.EXPECT().LoadURI(mock.Anything, "https://example.com/open").Return(nil).Once()
 	popup := &deferredPopupWebViewStub{MockWebView: mocks.NewMockWebView(t), features: dto.PopupFeatures{State: dto.PopupFeaturesNone}}
 	popup.EXPECT().ID().Return(port.WebViewID(201)).Maybe()
-	popup.EXPECT().Generation().Return(uint64(1)).Maybe()
-	popup.EXPECT().SetCallbacks(mock.Anything).Once()
+	popup.EXPECT().Destroy().Once()
 	factory := mocks.NewMockWebViewFactory(t)
 	factory.EXPECT().CreateRelated(mock.Anything, port.WebViewID(101)).Return(popup, nil).Once()
 	staging := &popupStagingHostStub{}
@@ -1251,24 +1243,26 @@ func TestPopupDeferredFeaturelessDetachesBeforeBrowserHost(t *testing.T) {
 		staging.attached = true
 		return staging, nil
 	})
-	c.SetOnOpenBrowserWindow(func(_ context.Context, input BrowserWindowInput) (BrowserWindowResult, error) {
-		assert.True(t, staging.detached, "staging must detach before final host")
-		assert.True(t, input.Ready)
-		assert.Same(t, popup, input.PopupWebView)
-		return BrowserWindowResult{WindowID: "browser"}, nil
+	c.SetOnOpenBrowserWindow(func(context.Context, BrowserWindowInput) (BrowserWindowResult, error) {
+		t.Fatal("featureless _blank must not open a browser window")
+		return BrowserWindowResult{}, nil
 	})
 	c.SetOnOpenNativePopup(func(context.Context, NativePopupInput) error {
-		t.Fatal("featureless popup must not use native host")
+		t.Fatal("featureless _blank must not use native host")
 		return nil
 	})
 
-	got := c.handlePopupCreate(ctx, "floating", parent, port.PopupRequest{Engine: dto.BrowserEngineWebKit, TargetURI: "https://example.com/open", PopupFeatures: dto.PopupFeatures{State: dto.PopupFeaturesUnknown}})
+	got := c.handlePopupCreate(ctx, "floating", parent, port.PopupRequest{
+		Engine: dto.BrowserEngineWebKit, TargetURI: "https://example.com/open", FrameName: "_blank",
+		TargetDisposition: dto.WindowDispositionNewPopup, PopupFeatures: dto.PopupFeatures{State: dto.PopupFeaturesUnknown},
+	})
 	require.Same(t, popup, got)
 	assert.True(t, staging.attached)
 	assert.False(t, staging.detached)
 	popup.ready()
+	popup.ready()
 	assert.True(t, staging.detached)
-	assert.Zero(t, staging.destroyCalls)
+	assert.Equal(t, 1, staging.destroyCalls)
 }
 
 func TestPopupDeferredFeaturedDetachesBeforeNativeHost(t *testing.T) {
@@ -1294,8 +1288,14 @@ func TestPopupDeferredFeaturedDetachesBeforeNativeHost(t *testing.T) {
 		return nil
 	})
 
-	require.Same(t, popup, c.handlePopupCreate(ctx, "floating", parent, port.PopupRequest{Engine: dto.BrowserEngineWebKit, TargetURI: "https://example.com/open", PopupFeatures: dto.PopupFeatures{State: dto.PopupFeaturesUnknown}}))
+	require.Same(t, popup, c.handlePopupCreate(ctx, "floating", parent, port.PopupRequest{
+		Engine: dto.BrowserEngineWebKit, TargetURI: "https://example.com/open", FrameName: "_blank",
+		TargetDisposition: dto.WindowDispositionNewPopup, PopupFeatures: dto.PopupFeatures{State: dto.PopupFeaturesUnknown},
+	}))
 	popup.ready()
+	decision, ok := popup.BrowsingContextHostDecision()
+	require.True(t, ok)
+	assert.Equal(t, dto.HostDecisionCreateNativePopup, decision.Kind)
 }
 
 func TestPopupDeferredNamedReuseDestroysNewlyStagedWebViewExactlyOnce(t *testing.T) {
@@ -1393,7 +1393,10 @@ func TestPopupDeferredBrowserHostFailureCleansUpExactlyOnce(t *testing.T) {
 		return BrowserWindowResult{}, errors.New("host failed")
 	})
 
-	require.Same(t, popup, c.handlePopupCreate(context.Background(), "floating", parent, port.PopupRequest{Engine: dto.BrowserEngineWebKit, TargetURI: "https://example.com/open", PopupFeatures: dto.PopupFeatures{State: dto.PopupFeaturesUnknown}}))
+	require.Same(t, popup, c.handlePopupCreate(context.Background(), "floating", parent, port.PopupRequest{
+		Engine: dto.BrowserEngineWebKit, TargetURI: "https://example.com/open", FrameName: "shared",
+		TargetDisposition: dto.WindowDispositionNewPopup, PopupFeatures: dto.PopupFeatures{State: dto.PopupFeaturesUnknown},
+	}))
 	popup.ready()
 	popup.ready()
 	assert.True(t, staging.detached)
@@ -1497,9 +1500,11 @@ func TestPopupDeferredUnknownAndCloseCleanupExactlyOnce(t *testing.T) {
 // deferredPopupWebViewStub exposes the optional late-feature and lifecycle ports.
 type deferredPopupWebViewStub struct {
 	*mocks.MockWebView
-	features dto.PopupFeatures
-	onReady  func()
-	onClose  func()
+	features                   dto.PopupFeatures
+	onReady                    func()
+	onClose                    func()
+	browsingContextDecision    dto.HostDecision
+	hasBrowsingContextDecision bool
 }
 
 func (s *deferredPopupWebViewStub) ResolvePopupFeatures() dto.PopupFeatures { return s.features }
@@ -1507,6 +1512,13 @@ func (s *deferredPopupWebViewStub) PrimePopupNavigation(string)             {}
 func (s *deferredPopupWebViewStub) SetOnReadyToShow(fn func())              { s.onReady = fn }
 func (s *deferredPopupWebViewStub) SetOnClose(fn func())                    { s.onClose = fn }
 func (s *deferredPopupWebViewStub) Show()                                   {}
+func (s *deferredPopupWebViewStub) SetBrowsingContextHostDecision(decision dto.HostDecision) {
+	s.browsingContextDecision = decision
+	s.hasBrowsingContextDecision = true
+}
+func (s *deferredPopupWebViewStub) BrowsingContextHostDecision() (dto.HostDecision, bool) {
+	return s.browsingContextDecision, s.hasBrowsingContextDecision
+}
 func (s *deferredPopupWebViewStub) ready() {
 	if s.onReady != nil {
 		s.onReady()

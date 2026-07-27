@@ -111,6 +111,7 @@ type HostDecisionKind string
 
 const (
 	HostDecisionReuseNamedPane      HostDecisionKind = "reuse-named-pane"
+	HostDecisionNavigateSource      HostDecisionKind = "navigate-source"
 	HostDecisionCreatePane          HostDecisionKind = "create-pane"
 	HostDecisionCreateBrowserWindow HostDecisionKind = "create-browser-window"
 	HostDecisionCreateNativePopup   HostDecisionKind = "create-native-popup"
@@ -122,15 +123,16 @@ const (
 type HostDecisionReasonCode string
 
 const (
-	HostDecisionReasonEmptyTarget             HostDecisionReasonCode = "empty-target"
-	HostDecisionReasonAuthNativePopup         HostDecisionReasonCode = "auth-native-popup"
-	HostDecisionReasonNativeOpenerRequired    HostDecisionReasonCode = "native-opener-required"
-	HostDecisionReasonAmbiguousOpenerNative   HostDecisionReasonCode = "ambiguous-opener-native"
-	HostDecisionReasonNamedContextReuse       HostDecisionReasonCode = "named-context-reuse"
-	HostDecisionReasonFloatingFeaturesPending HostDecisionReasonCode = "floating-features-pending"
-	HostDecisionReasonFloatingPopupFeatures   HostDecisionReasonCode = "floating-popup-features"
-	HostDecisionReasonFloatingBrowserWindow   HostDecisionReasonCode = "floating-browser-window"
-	HostDecisionReasonWorkspacePane           HostDecisionReasonCode = "workspace-pane"
+	HostDecisionReasonEmptyTarget              HostDecisionReasonCode = "empty-target"
+	HostDecisionReasonAuthNativePopup          HostDecisionReasonCode = "auth-native-popup"
+	HostDecisionReasonNativeOpenerRequired     HostDecisionReasonCode = "native-opener-required"
+	HostDecisionReasonAmbiguousOpenerNative    HostDecisionReasonCode = "ambiguous-opener-native"
+	HostDecisionReasonNamedContextReuse        HostDecisionReasonCode = "named-context-reuse"
+	HostDecisionReasonFloatingFeaturesPending  HostDecisionReasonCode = "floating-features-pending"
+	HostDecisionReasonFloatingPopupFeatures    HostDecisionReasonCode = "floating-popup-features"
+	HostDecisionReasonFloatingFeaturelessBlank HostDecisionReasonCode = "floating-featureless-blank"
+	HostDecisionReasonFloatingBrowserWindow    HostDecisionReasonCode = "floating-browser-window"
+	HostDecisionReasonWorkspacePane            HostDecisionReasonCode = "workspace-pane"
 )
 
 // BrowsingContextFailureCode is a stable machine-readable operational failure.

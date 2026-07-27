@@ -72,6 +72,11 @@ func decideFloatingHost(decision dto.HostDecision, req dto.NewBrowsingContextReq
 			decision, dto.HostDecisionCreateNativePopup, dto.HostDecisionReasonFloatingPopupFeatures,
 			"explicit popup features requested",
 		)
+	case reusableBrowsingContextName(req.TargetFrameName) == "":
+		return completeHostDecision(
+			decision, dto.HostDecisionNavigateSource, dto.HostDecisionReasonFloatingFeaturelessBlank,
+			"featureless blank request navigates the source floating pane",
+		)
 	default:
 		return completeHostDecision(
 			decision, dto.HostDecisionCreateBrowserWindow, dto.HostDecisionReasonFloatingBrowserWindow,

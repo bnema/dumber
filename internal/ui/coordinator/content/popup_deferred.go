@@ -16,6 +16,7 @@ func (pm *popupManager) awaitPopupFeatures(
 	hooks popupCoordinatorHooks,
 	parentPaneID entity.PaneID,
 	parentWebViewID port.WebViewID,
+	parentWebView port.WebView,
 	parentURIAtOpen string,
 	req port.PopupRequest,
 	decision dto.HostDecision,
@@ -54,6 +55,7 @@ func (pm *popupManager) awaitPopupFeatures(
 			IsUserGesture: req.IsUserGesture, PopupType: DetectPopupType(req.FrameName), CreatedAt: time.Now(),
 		},
 		Request: req, Decision: decision, StagingHost: staging, OwnerWindowID: ownerWindowID,
+		ParentWebView: parentWebView,
 	}
 	pm.storeDeferredPopup(popupWV.ID(), pending)
 	callbackCtx := logging.WithContext(context.Background(), *log)
@@ -180,6 +182,14 @@ func (pm *popupManager) resolvePendingPopupFeatures(
 
 	transferred := false
 	switch decision.Kind {
+	case dto.HostDecisionNavigateSource:
+		if pending.ParentWebView == nil {
+			logBrowsingContextFailure(*logging.FromContext(ctx), normalized, decision, dto.BrowsingContextFailureHostUnavailable, nil)
+			break
+		}
+		if err := pending.ParentWebView.LoadURI(ctx, request.TargetURI); err != nil {
+			logBrowsingContextFailure(*logging.FromContext(ctx), normalized, decision, dto.BrowsingContextFailureHostFailed, err)
+		}
 	case dto.HostDecisionCreateBrowserWindow:
 		transferred = pm.openExistingPopupInBrowserWindow(
 			ctx, hooks, pending.ParentPaneID, pending.ParentWebViewID,

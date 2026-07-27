@@ -43,6 +43,7 @@ type deferredPendingPopup struct {
 	Decision      dto.HostDecision
 	StagingHost   PopupStagingHost
 	OwnerWindowID string
+	ParentWebView port.WebView
 	cleanupOnce   sync.Once
 }
 
@@ -590,12 +591,24 @@ func (pm *popupManager) handlePopupCreate(
 		decision.Kind = dto.HostDecisionCreatePane
 		decision.ReuseContextName = ""
 		decision.Reason = "named browsing context unavailable; creating replacement pane"
+	case dto.HostDecisionNavigateSource:
+		popupWV, err := pm.createPopupWebView(ctx, parentID, req.TargetURI, false)
+		if err != nil {
+			logBrowsingContextFailure(*log, request, decision, dto.BrowsingContextFailureHostFailed, err)
+			return nil
+		}
+		pm.setBrowsingContextDecision(popupWV, decision)
+		popupWV.Destroy()
+		if err := parentWV.LoadURI(ctx, req.TargetURI); err != nil {
+			logBrowsingContextFailure(*log, request, decision, dto.BrowsingContextFailureHostFailed, err)
+		}
+		return nil
 	case dto.HostDecisionCreateBrowserWindow:
 		return pm.openBrowserWindow(ctx, hooks, parentPaneID, parentID, req, decision, pm.readyOnCreate(req.Engine))
 	case dto.HostDecisionCreateNativePopup:
 		return pm.openNativePopup(ctx, hooks, parentPaneID, parentID, parentURIAtOpen, req, decision)
 	case dto.HostDecisionAwaitPopupFeatures:
-		return pm.awaitPopupFeatures(ctx, hooks, parentPaneID, parentID, parentURIAtOpen, req, decision)
+		return pm.awaitPopupFeatures(ctx, hooks, parentPaneID, parentID, parentWV, parentURIAtOpen, req, decision)
 	case dto.HostDecisionCreatePane:
 		// Continue below.
 		break
@@ -918,6 +931,15 @@ func (pm *popupManager) handleLinkMiddleClick(
 		Str("decision", string(decision.Kind)).
 		Str("reason", decision.Reason).
 		Msg("middle-click browsing context host decision")
+	if decision.Kind == dto.HostDecisionNavigateSource {
+		if err := parentWV.LoadURI(ctx, uri); err != nil {
+			log.Error().Err(err).
+				Str("uri", logging.TruncateURL(uri, logURLMaxLen)).
+				Msg("failed to load URI in source floating pane")
+			return false
+		}
+		return true
+	}
 	if decision.Kind == dto.HostDecisionCreateBrowserWindow {
 		return pm.openMiddleClickBrowserWindow(ctx, hooks, parentPaneID, parentWV, uri, decision)
 	}

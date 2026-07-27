@@ -51,10 +51,11 @@ const (
 
 // PopupRequest contains information about a popup window request from the create signal.
 type PopupRequest struct {
-	TargetURI     string
-	FrameName     string // e.g., "_blank", custom name, or empty
-	IsUserGesture bool
-	ParentID      WebViewID
+	TargetURI      string
+	FrameName      string // e.g., "_blank", custom name, or empty
+	NavigationType webkit.NavigationType
+	IsUserGesture  bool
+	ParentID       WebViewID
 }
 
 // webViewRegistry tracks all active WebViews.
@@ -606,10 +607,11 @@ func (wv *WebView) connectCreateSignal() {
 		}
 
 		popupReq := PopupRequest{
-			TargetURI:     targetURI,
-			FrameName:     navAction.GetFrameName(),
-			IsUserGesture: navAction.IsUserGesture(),
-			ParentID:      wv.id,
+			TargetURI:      targetURI,
+			FrameName:      navAction.GetFrameName(),
+			NavigationType: navAction.GetNavigationType(),
+			IsUserGesture:  navAction.IsUserGesture(),
+			ParentID:       wv.id,
 		}
 
 		wv.logger.Debug().Msg("create signal: invoking OnCreate handler")
@@ -1731,8 +1733,12 @@ func mapPopupRequest(req PopupRequest) port.PopupRequest {
 		PopupFeatures: dto.PopupFeatures{State: dto.PopupFeaturesUnknown},
 	}
 	if strings.EqualFold(strings.TrimSpace(req.FrameName), "_blank") {
-		mapped.TargetDisposition = dto.WindowDispositionNewTab
-		mapped.PopupFeatures.State = dto.PopupFeaturesNone
+		if req.NavigationType == webkit.NavigationTypeLinkClickedValue {
+			mapped.TargetDisposition = dto.WindowDispositionNewTab
+			mapped.PopupFeatures.State = dto.PopupFeaturesNone
+		} else {
+			mapped.TargetDisposition = dto.WindowDispositionNewPopup
+		}
 	}
 	return mapped
 }

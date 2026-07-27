@@ -18,9 +18,9 @@ The floating pane is an overlay workspace pane for quick-access pages like searc
 
 ### Links and popups
 
-New-page links, middle-clicks, and featureless `window.open()` calls from a floating pane open in a new Dumber window. OAuth flows and scripts that request popup dimensions or restricted browser chrome open in a related popup window so authentication and opener messaging continue to work.
+New-page links, middle-clicks, and featureless `_blank` `window.open()` calls from a floating pane navigate that floating pane's current page. They do not open a separate Dumber window.
 
-Detached Dumber windows remain open when the source floating pane is hidden or closed.
+OAuth flows and scripts that request popup dimensions or restricted browser chrome open in a related popup window so authentication and opener messaging continue to work. Named browsing contexts continue to reuse an existing live context when one is available.
 
 ## Configuration
 
