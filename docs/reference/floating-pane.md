@@ -16,6 +16,12 @@ The floating pane is an overlay workspace pane for quick-access pages like searc
 - `Ctrl+W` on an active floating pane is a full close. It releases that floating session and its WebView.
 - After a floating pane is closed with `Ctrl+W`, opening it again starts from a fresh state.
 
+### Links and popups
+
+New-page links, middle-clicks, and featureless `_blank` `window.open()` calls from a floating pane navigate that floating pane's current page. They do not open a separate Dumber window.
+
+OAuth flows and scripts that request popup dimensions or restricted browser chrome open in a related popup window so authentication and opener messaging continue to work. Named browsing contexts continue to reuse an existing live context when one is available.
+
 ## Configuration
 
 | Key | Type | Default | Description |

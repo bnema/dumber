@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/bnema/dumber/internal/application/dto"
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/logging"
@@ -105,14 +106,45 @@ type InsertPopupInput struct {
 
 // NativePopupInput contains the data needed to host a native-required popup in
 // a dedicated top-level GTK window instead of the workspace.
+// BrowserWindowInput contains an engine-created related WebView to adopt into
+// a complete Dumber browser window. A successful callback transfers ownership.
+type BrowserWindowInput struct {
+	ParentPaneID    entity.PaneID
+	ParentWebViewID port.WebViewID
+	PopupPane       *entity.Pane
+	PopupWebView    port.WebView
+	TargetURI       string
+	Request         port.PopupRequest
+	Ready           bool
+}
+
+type BrowserWindowResult struct {
+	WindowID string
+}
+
+// PopupStagingHost temporarily owns a popup widget while late engine metadata
+// is unavailable. Detach transfers the widget without destroying it.
+type PopupStagingHost interface {
+	Detach() error
+	Destroy()
+}
+
+type StagePopupInput struct {
+	PopupWebView port.WebView
+}
+
 type NativePopupInput struct {
-	ParentPaneID          entity.PaneID
-	ParentWebViewID       port.WebViewID
-	ParentURIAtOpen       string
-	PopupWebView          port.WebView
-	TargetURI             string
-	Request               port.PopupRequest
-	ObserveOAuthAutoClose bool
+	ParentPaneID               entity.PaneID
+	ParentWebViewID            port.WebViewID
+	ParentURIAtOpen            string
+	PopupWebView               port.WebView
+	TargetURI                  string
+	Request                    port.PopupRequest
+	ObserveOAuthAutoClose      bool
+	AllowBrowserWindowFallback bool
+	// OnNativeHostAbort returns true when fallback adopted the WebView. A false
+	// result leaves destruction responsibility with the native host.
+	OnNativeHostAbort func(context.Context, port.WebView) bool
 }
 
 // GetBehavior returns the appropriate behavior based on popup type and config.
@@ -159,8 +191,27 @@ func (c *Coordinator) SetPopupWindowIDResolver(fn func(entity.PaneID) (string, b
 	c.ensurePopupManager().setWindowIDResolver(fn)
 }
 
+func (c *Coordinator) SetPopupSourceHostResolver(fn func(entity.PaneID) dto.SourceHostKind) {
+	c.ensurePopupManager().setSourceHostResolver(fn)
+}
+
+func (c *Coordinator) SetOnOpenBrowserWindow(fn func(context.Context, BrowserWindowInput) (BrowserWindowResult, error)) {
+	c.ensurePopupManager().setOnOpenBrowserWindow(fn)
+}
+
+func (c *Coordinator) SetOnStagePopup(fn func(context.Context, StagePopupInput) (PopupStagingHost, error)) {
+	c.ensurePopupManager().setOnStagePopup(fn)
+}
+
 func (c *Coordinator) ClearPopupNamedContextsForWindow(windowID string) {
-	c.ensurePopupManager().clearReusableNamedPopupsForWindow(windowID)
+	pm := c.ensurePopupManager()
+	pm.cancelDeferredPopupsForWindow(windowID)
+	pm.clearReusableNamedPopupsForWindow(windowID)
+}
+
+// ShutdownPopups releases unresolved staged popups before the browser engine exits.
+func (c *Coordinator) ShutdownPopups() {
+	c.ensurePopupManager().cancelAllDeferredPopups()
 }
 
 // SetOnInsertPopup sets the callback to insert popups into the workspace.

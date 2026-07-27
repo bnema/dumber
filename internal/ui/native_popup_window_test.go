@@ -18,12 +18,16 @@ import (
 )
 
 type popupDestroySpy struct {
-	destroyed bool
+	destroyed int
+	detached  int
+	closed    int
+	shown     int
 }
 
-func (p *popupDestroySpy) Destroy() {
-	p.destroyed = true
-}
+func (p *popupDestroySpy) Destroy()                   { p.destroyed++ }
+func (p *popupDestroySpy) DetachContent() *gtk.Widget { p.detached++; return &gtk.Widget{} }
+func (p *popupDestroySpy) Close()                     { p.closed++ }
+func (p *popupDestroySpy) Show()                      { p.shown++ }
 
 func TestPrepareNativePopupContentWidget_ExpandsWrappedWidget(t *testing.T) {
 	widget := layoutmocks.NewMockWidget(t)
@@ -46,7 +50,7 @@ func TestPrepareNativePopupContentWidget_ErrorsWhenWrappedGTKWidgetMissing(t *te
 	assert.Nil(t, got)
 }
 
-func TestOpenNativePopupWindow_DestroysWebViewWhenPopupShellCreationFails(t *testing.T) {
+func TestOpenNativePopupWindowLeavesWebViewOwnedByCallerOnSetupFailure(t *testing.T) {
 	oldNewPopupWindow := newPopupWindow
 	t.Cleanup(func() {
 		newPopupWindow = oldNewPopupWindow
@@ -58,23 +62,15 @@ func TestOpenNativePopupWindow_DestroysWebViewWhenPopupShellCreationFails(t *tes
 	}
 
 	wv := portmocks.NewMockWebView(t)
-	wv.EXPECT().IsDestroyed().Return(false).Once()
-	wv.EXPECT().Destroy().Once()
-
 	app := &App{gtkApp: &gtk.Application{}}
 	err := app.openNativePopupWindow(context.Background(), content.NativePopupInput{PopupWebView: wv})
 	require.ErrorIs(t, err, expectedErr)
 }
 
-func TestDestroyFailedNativePopupSetup_DestroysWebViewAndShell(t *testing.T) {
-	wv := portmocks.NewMockWebView(t)
-	wv.EXPECT().IsDestroyed().Return(false).Once()
-	wv.EXPECT().Destroy().Once()
-
+func TestDestroyFailedNativePopupSetupDestroysOnlyShell(t *testing.T) {
 	shell := &popupDestroySpy{}
-	destroyFailedNativePopupSetup(shell, wv)
-
-	assert.True(t, shell.destroyed)
+	destroyFailedNativePopupSetup(shell)
+	assert.Equal(t, 1, shell.destroyed)
 }
 
 func TestDispatchNativePopupLifecycleSkipsWorkWhenDispatchTimesOutBeforeStart(t *testing.T) {
@@ -104,19 +100,67 @@ func TestDispatchNativePopupLifecycleTreatsCompletedAfterTimeoutAsCompleted(t *t
 	assert.True(t, ran)
 }
 
-func TestReleaseNativePopupWindow_DestroysWebViewAndRemovesState(t *testing.T) {
+func TestDetachNativePopupWindowRemovesWidgetWithoutDestroyingWebView(t *testing.T) {
+	wv := portmocks.NewMockWebView(t)
+	shell := &popupDestroySpy{}
+	app := &App{nativePopupWindows: map[port.WebViewID]*nativePopupWindow{
+		1: {popupID: 1, webView: wv, popupWindow: shell},
+	}}
+
+	detached := app.releaseNativePopupWindow(1, nativePopupReleaseDetach)
+	assert.Same(t, wv, detached)
+	assert.Equal(t, 1, shell.detached)
+	assert.Equal(t, 1, shell.destroyed)
+}
+
+func TestNativePopupAbortTransfersEligibleWebViewToBrowserFallback(t *testing.T) {
+	wv := portmocks.NewMockWebView(t)
+	shell := &popupDestroySpy{}
+	app := &App{nativePopupWindows: map[port.WebViewID]*nativePopupWindow{
+		1: {popupID: 1, webView: wv, popupWindow: shell},
+	}}
+	callbackCalls := 0
+	app.abortNativePopupWindow(context.Background(), 1, content.NativePopupInput{
+		AllowBrowserWindowFallback: true,
+		OnNativeHostAbort: func(_ context.Context, got port.WebView) bool {
+			callbackCalls++
+			assert.Same(t, wv, got)
+			assert.Equal(t, 1, shell.detached, "widget must detach before fallback adoption")
+			return true
+		},
+	})
+
+	assert.Equal(t, 1, callbackCalls)
+	assert.Equal(t, 1, shell.destroyed)
+}
+
+func TestNativePopupAbortDestroysOpenerRequiredWebView(t *testing.T) {
 	wv := portmocks.NewMockWebView(t)
 	wv.EXPECT().IsDestroyed().Return(false).Once()
 	wv.EXPECT().Destroy().Once()
-
+	shell := &popupDestroySpy{}
 	app := &App{nativePopupWindows: map[port.WebViewID]*nativePopupWindow{
-		port.WebViewID(1): {
-			popupID: port.WebViewID(1),
-			webView: wv,
-		},
+		1: {popupID: 1, webView: wv, popupWindow: shell},
+	}}
+	app.abortNativePopupWindow(context.Background(), 1, content.NativePopupInput{
+		AllowBrowserWindowFallback: false,
+		OnNativeHostAbort:          func(context.Context, port.WebView) bool { return false },
+	})
+	assert.Equal(t, 1, shell.detached)
+}
+
+func TestReleaseNativePopupWindowDestroysOnlyOnce(t *testing.T) {
+	wv := portmocks.NewMockWebView(t)
+	wv.EXPECT().IsDestroyed().Return(false).Once()
+	wv.EXPECT().Destroy().Once()
+	shell := &popupDestroySpy{}
+	app := &App{nativePopupWindows: map[port.WebViewID]*nativePopupWindow{
+		1: {popupID: 1, webView: wv, popupWindow: shell},
 	}}
 
-	app.releaseNativePopupWindow(port.WebViewID(1), false, false)
-	_, ok := app.nativePopupWindows[port.WebViewID(1)]
+	app.releaseNativePopupWindow(1, nativePopupReleaseDestroy)
+	app.releaseNativePopupWindow(1, nativePopupReleaseDestroy)
+	_, ok := app.nativePopupWindows[1]
 	assert.False(t, ok)
+	assert.Equal(t, 1, shell.destroyed)
 }

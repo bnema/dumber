@@ -15,7 +15,7 @@ func TestNamedBrowsingContextRegistry_LookupReusesWithinSameWindow(t *testing.T)
 	reg := newNamedBrowsingContextRegistry()
 	paneID := entity.PaneID("pane-1")
 	webViewID := port.WebViewID(41)
-	reg.Register("window-1", "shared-pane", paneID, webViewID)
+	reg.Register("window-1", "window-1", "shared-pane", paneID, webViewID)
 
 	wv := mocks.NewMockWebView(t)
 	wv.EXPECT().IsDestroyed().Return(false).Once()
@@ -39,11 +39,41 @@ func TestNamedBrowsingContextRegistry_LookupReusesWithinSameWindow(t *testing.T)
 	assert.Same(t, wv, gotWV)
 }
 
+func TestNamedBrowsingContextRegistry_LookupUsesOwnerScopeAndDetachedHostLiveness(t *testing.T) {
+	t.Parallel()
+	reg := newNamedBrowsingContextRegistry()
+	paneID := entity.PaneID("detached-pane")
+	webViewID := port.WebViewID(51)
+	reg.Register("owner-window", "host-window", "named", paneID, webViewID)
+	wv := mocks.NewMockWebView(t)
+	wv.EXPECT().IsDestroyed().Return(false).Once()
+	wv.EXPECT().ID().Return(webViewID).Once()
+
+	state, got, ok := reg.Lookup("owner-window", "named", func(entity.PaneID) port.WebView { return wv }, func(entity.PaneID) (string, bool) {
+		return "host-window", true
+	})
+
+	assert.True(t, ok)
+	assert.Equal(t, "host-window", state.HostWindowID)
+	assert.Same(t, wv, got)
+}
+
+func TestNamedBrowsingContextRegistry_UnregisterWindowRemovesOwnerAndHostEntries(t *testing.T) {
+	t.Parallel()
+	for _, closedWindow := range []string{"owner-window", "host-window"} {
+		reg := newNamedBrowsingContextRegistry()
+		reg.Register("owner-window", "host-window", "named", "detached-pane", 51)
+		reg.UnregisterWindow(closedWindow)
+		_, _, ok := reg.Lookup("owner-window", "named", func(entity.PaneID) port.WebView { return nil }, func(entity.PaneID) (string, bool) { return "host-window", true })
+		assert.False(t, ok, "closing %s must unregister context", closedWindow)
+	}
+}
+
 func TestNamedBrowsingContextRegistry_LookupIsolatedAcrossWindows(t *testing.T) {
 	t.Parallel()
 
 	reg := newNamedBrowsingContextRegistry()
-	reg.Register("window-1", "shared-pane", entity.PaneID("pane-1"), port.WebViewID(41))
+	reg.Register("window-1", "window-1", "shared-pane", entity.PaneID("pane-1"), port.WebViewID(41))
 
 	_, _, ok := reg.Lookup(
 		"window-2",
@@ -60,7 +90,7 @@ func TestNamedBrowsingContextRegistry_DropsStaleWindowOwnershipOnLookup(t *testi
 
 	reg := newNamedBrowsingContextRegistry()
 	paneID := entity.PaneID("pane-1")
-	reg.Register("window-1", "shared-pane", paneID, port.WebViewID(41))
+	reg.Register("window-1", "window-1", "shared-pane", paneID, port.WebViewID(41))
 
 	_, _, ok := reg.Lookup(
 		"window-1",
@@ -86,7 +116,7 @@ func TestNamedBrowsingContextRegistry_LookupDoesNotDeleteReRegisteredEntryAfterW
 	oldPaneID := entity.PaneID("pane-old")
 	newPaneID := entity.PaneID("pane-new")
 	newWebViewID := port.WebViewID(42)
-	reg.Register("window-1", "shared-pane", oldPaneID, port.WebViewID(41))
+	reg.Register("window-1", "window-1", "shared-pane", oldPaneID, port.WebViewID(41))
 
 	_, _, ok := reg.Lookup(
 		"window-1",
@@ -94,7 +124,7 @@ func TestNamedBrowsingContextRegistry_LookupDoesNotDeleteReRegisteredEntryAfterW
 		func(entity.PaneID) port.WebView { return nil },
 		func(gotPaneID entity.PaneID) (string, bool) {
 			assert.Equal(t, oldPaneID, gotPaneID)
-			reg.Register("window-1", "shared-pane", newPaneID, newWebViewID)
+			reg.Register("window-1", "window-1", "shared-pane", newPaneID, newWebViewID)
 			return "window-2", true
 		},
 	)
@@ -128,14 +158,14 @@ func TestNamedBrowsingContextRegistry_LookupDoesNotDeleteReRegisteredEntryAfterS
 	oldPaneID := entity.PaneID("pane-old")
 	newPaneID := entity.PaneID("pane-new")
 	newWebViewID := port.WebViewID(42)
-	reg.Register("window-1", "shared-pane", oldPaneID, port.WebViewID(41))
+	reg.Register("window-1", "window-1", "shared-pane", oldPaneID, port.WebViewID(41))
 
 	_, _, ok := reg.Lookup(
 		"window-1",
 		"shared-pane",
 		func(gotPaneID entity.PaneID) port.WebView {
 			assert.Equal(t, oldPaneID, gotPaneID)
-			reg.Register("window-1", "shared-pane", newPaneID, newWebViewID)
+			reg.Register("window-1", "window-1", "shared-pane", newPaneID, newWebViewID)
 			return nil
 		},
 		func(gotPaneID entity.PaneID) (string, bool) {

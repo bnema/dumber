@@ -3,7 +3,6 @@ package cef
 import (
 	"context"
 	"sync"
-	"sync/atomic"
 	"testing"
 	"time"
 
@@ -229,6 +228,8 @@ func TestNativePopupActivationDoesNotLetInitialBlankLoadClearPendingNavigationBe
 	rawClient, ok := wv.activateNativePopup(55, "https://example.com/oauth")
 	require.True(t, ok)
 	require.NotNil(t, rawClient)
+	require.Equal(t, int32(55), wv.nativePopupID)
+	require.Same(t, parent, wv.nativePopupParent)
 	require.Equal(t, "https://example.com/oauth", wv.pendingNavigationURI())
 
 	wv.updateURI("about:blank")
@@ -260,120 +261,6 @@ func TestHandleNativePopupAborted_PreservesPrimedNavigationForFallback(t *testin
 	require.Same(t, parent, wv.nativePopupParent)
 	require.Equal(t, int32(0), wv.nativePopupID)
 	require.True(t, wv.isLoading)
-}
-
-func TestOnBeforePopup_TimesOutGTKDispatchAndBlocksPopup(t *testing.T) {
-	delayed := make(chan func(), 1)
-	parentWV := &WebView{
-		ctx:            context.Background(),
-		id:             16,
-		gtkSyncTimeout: 5 * time.Millisecond,
-		gtkSyncIsOwner: func() bool { return false },
-		gtkSyncDispatch: func(fn func()) {
-			delayed <- fn
-		},
-	}
-	var createCalls atomic.Int32
-	parentWV.SetCallbacks(&port.WebViewCallbacks{
-		OnCreate: func(_ port.PopupRequest) port.WebView {
-			createCalls.Add(1)
-			return &WebView{ctx: context.Background(), id: 24}
-		},
-	})
-
-	h := &handlerSet{wv: parentWV}
-	blocked := h.OnBeforePopup(nil, nil, 90, "https://example.com/slow-popup", "slow-popup", 0, 1, nil, nil, nil, nil, nil, nil)
-
-	require.True(t, blocked)
-	require.Zero(t, createCalls.Load())
-
-	select {
-	case fn := <-delayed:
-		fn()
-	case <-time.After(time.Second):
-		t.Fatal("timed out waiting for delayed popup dispatch")
-	}
-	require.Zero(t, createCalls.Load())
-}
-
-func TestOnBeforePopup_PrimesPopupNavigationWhenCEFPopupBlocksNativeCreation(t *testing.T) {
-	parentWV := &WebView{ctx: context.Background(), id: 17}
-	popupWV := &WebView{ctx: context.Background(), id: 23}
-	parentWV.SetCallbacks(&port.WebViewCallbacks{
-		OnCreate: func(req port.PopupRequest) port.WebView {
-			require.Equal(t, "https://example.com/popup", req.TargetURI)
-			require.Equal(t, "auth-popup", req.FrameName)
-			require.True(t, req.IsUserGesture)
-			popupWV.PrimePopupNavigation(req.TargetURI)
-			return popupWV
-		},
-	})
-
-	h := &handlerSet{wv: parentWV}
-	blocked := h.OnBeforePopup(nil, nil, 91, "https://example.com/popup", "auth-popup", 0, 1, nil, nil, nil, nil, nil, nil)
-
-	require.True(t, blocked)
-	require.Equal(t, "https://example.com/popup", popupWV.pendingNavigationURI())
-}
-
-func TestOnBeforePopup_PrimesPopupShellWhenNativePopupCannotBeArmed(t *testing.T) {
-	parentWV := &WebView{ctx: context.Background(), id: 31}
-	popupWV := &WebView{ctx: context.Background(), id: 32}
-	popupWV.markNativePopupCandidate(parentWV)
-	parentWV.SetCallbacks(&port.WebViewCallbacks{
-		OnCreate: func(req port.PopupRequest) port.WebView {
-			require.Equal(t, "https://example.com/login", req.TargetURI)
-			popupWV.PrimePopupNavigation(req.TargetURI)
-			return popupWV
-		},
-	})
-
-	h := &handlerSet{wv: parentWV}
-	blocked := h.OnBeforePopup(nil, nil, 77, "https://example.com/login", "Google login", 0, 1, nil, nil, nil, nil, nil, nil)
-
-	require.True(t, blocked)
-	require.False(t, popupWV.isNativePopupCandidate())
-	require.Equal(t, "https://example.com/login", popupWV.pendingNavigationURI())
-}
-
-func TestOnBeforePopup_PaneDecisionBlocksNativePopupAndKeepsPanePath(t *testing.T) {
-	parentWV := &WebView{ctx: context.Background(), id: 41}
-	popupWV := &WebView{ctx: context.Background(), id: 42}
-	popupWV.SetBrowsingContextHostDecision(dto.HostDecision{Kind: dto.HostDecisionCreatePane})
-	parentWV.SetCallbacks(&port.WebViewCallbacks{
-		OnCreate: func(req port.PopupRequest) port.WebView {
-			popupWV.PreparePaneHostedBrowsingContext()
-			popupWV.PrimePopupNavigation(req.TargetURI)
-			return popupWV
-		},
-	})
-
-	h := &handlerSet{wv: parentWV}
-	blocked := h.OnBeforePopup(nil, nil, 81, "https://example.com/pane", "_blank", 0, 1, nil, nil, nil, nil, nil, nil)
-
-	require.True(t, blocked)
-	require.Equal(t, "https://example.com/pane", popupWV.pendingNavigationURI())
-}
-
-func TestOnBeforePopup_NativeDecisionAbortsHostWhenArmingFails(t *testing.T) {
-	parentWV := &WebView{ctx: context.Background(), id: 51}
-	popupWV := &WebView{ctx: context.Background(), id: 52}
-	popupWV.markNativePopupCandidate(parentWV)
-	popupWV.SetBrowsingContextHostDecision(dto.HostDecision{Kind: dto.HostDecisionCreateNativeWin})
-	aborted := false
-	popupWV.SetNativePopupHostAbort(func() { aborted = true })
-	parentWV.SetCallbacks(&port.WebViewCallbacks{
-		OnCreate: func(req port.PopupRequest) port.WebView {
-			popupWV.PrimePopupNavigation(req.TargetURI)
-			return popupWV
-		},
-	})
-
-	h := &handlerSet{wv: parentWV}
-	blocked := h.OnBeforePopup(nil, nil, 82, "https://accounts.google.com/o/oauth2/v2/auth", "oauth", 0, 1, nil, nil, nil, nil, nil, nil)
-
-	require.True(t, blocked)
-	require.True(t, aborted)
 }
 
 func TestConfigureNativePopupWindow_UsesSharedTextureWindowlessDefaults(t *testing.T) {

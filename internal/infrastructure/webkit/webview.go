@@ -32,6 +32,7 @@ var _ port.WebView = (*WebView)(nil)
 var _ port.DevToolsOpener = (*WebView)(nil)
 var _ port.Printer = (*WebView)(nil)
 var _ port.PopupLifecycleCapable = (*WebView)(nil)
+var _ port.PopupFeatureResolver = (*WebView)(nil)
 var _ port.OAuthCallbackCapable = (*WebView)(nil)
 
 // WebViewID is an alias to port.WebViewID for clean architecture compliance.
@@ -50,10 +51,11 @@ const (
 
 // PopupRequest contains information about a popup window request from the create signal.
 type PopupRequest struct {
-	TargetURI     string
-	FrameName     string // e.g., "_blank", custom name, or empty
-	IsUserGesture bool
-	ParentID      WebViewID
+	TargetURI      string
+	FrameName      string // e.g., "_blank", custom name, or empty
+	NavigationType webkit.NavigationType
+	IsUserGesture  bool
+	ParentID       WebViewID
 }
 
 // webViewRegistry tracks all active WebViews.
@@ -154,6 +156,7 @@ type WebView struct {
 	OnProgressChanged          func(float64)
 	OnFaviconChanged           func(*gdk.Texture) // Called when page favicon changes
 	OnClose                    func()
+	popupLifecycleClose        func()
 	OnCreate                   func(PopupRequest) *WebView // Return new WebView or nil to block popup
 	OnReadyToShow              func()                      // Called when popup is ready to display
 	OnLinkMiddleClick          func(uri string) bool       // Return true if handled (blocks navigation)
@@ -514,12 +517,48 @@ func (wv *WebView) connectWebProcessResponsiveSignal() {
 
 func (wv *WebView) connectCloseSignal() {
 	closeCb := func(_ webkit.WebView) {
-		if wv.OnClose != nil {
-			wv.OnClose()
-		}
+		wv.runCloseCallbacks()
 	}
 	sigID := wv.inner.ConnectClose(&closeCb)
 	wv.signalIDs = append(wv.signalIDs, uintptr(sigID))
+}
+
+func popupFeaturesFromWindowProperties(
+	x, y, width, height int,
+	toolbarVisible, locationbarVisible, resizable bool,
+) dto.PopupFeatures {
+	chromeRestricted := !toolbarVisible || !locationbarVisible || !resizable
+	features := dto.PopupFeatures{
+		X: x, Y: y, Width: width, Height: height,
+		XSet: x != 0, YSet: y != 0, WidthSet: width > 0, HeightSet: height > 0,
+		ToolbarVisible: toolbarVisible, LocationbarVisible: locationbarVisible,
+		ToolbarVisibilitySet: true, LocationbarVisibilitySet: true,
+		Resizable: resizable, ResizableSet: true,
+		IsPopup: chromeRestricted, IsPopupSet: true,
+		State: dto.PopupFeaturesNone,
+	}
+	if width > 0 || height > 0 || chromeRestricted {
+		features.State = dto.PopupFeaturesSpecified
+	}
+	return features
+}
+
+// ResolvePopupFeatures reads WebKit's late window metadata. WebKit documents
+// these properties as reliable when ready-to-show is emitted.
+func (wv *WebView) ResolvePopupFeatures() dto.PopupFeatures {
+	if wv == nil || wv.inner == nil || wv.destroyed.Load() {
+		return dto.PopupFeatures{State: dto.PopupFeaturesUnknown}
+	}
+	props := wv.inner.GetWindowProperties()
+	if props == nil {
+		return dto.PopupFeatures{State: dto.PopupFeaturesUnknown}
+	}
+	geometry := &gdk.Rectangle{}
+	props.GetGeometry(geometry)
+	return popupFeaturesFromWindowProperties(
+		geometry.X, geometry.Y, geometry.Width, geometry.Height,
+		props.GetToolbarVisible(), props.GetLocationbarVisible(), props.GetResizable(),
+	)
 }
 
 func (wv *WebView) SetBrowsingContextHostDecision(decision dto.HostDecision) {
@@ -568,10 +607,11 @@ func (wv *WebView) connectCreateSignal() {
 		}
 
 		popupReq := PopupRequest{
-			TargetURI:     targetURI,
-			FrameName:     navAction.GetFrameName(),
-			IsUserGesture: navAction.IsUserGesture(),
-			ParentID:      wv.id,
+			TargetURI:      targetURI,
+			FrameName:      navAction.GetFrameName(),
+			NavigationType: navAction.GetNavigationType(),
+			IsUserGesture:  navAction.IsUserGesture(),
+			ParentID:       wv.id,
 		}
 
 		wv.logger.Debug().Msg("create signal: invoking OnCreate handler")
@@ -594,9 +634,7 @@ func (wv *WebView) connectCreateSignal() {
 
 func (wv *WebView) connectReadyToShowSignal() {
 	readyToShowCb := func(_ webkit.WebView) {
-		if wv.OnReadyToShow != nil {
-			wv.OnReadyToShow()
-		}
+		wv.fireReadyToShow()
 	}
 	sigID := wv.inner.ConnectReadyToShow(&readyToShowCb)
 	wv.signalIDs = append(wv.signalIDs, uintptr(sigID))
@@ -1624,24 +1662,52 @@ func (*WebView) PrimePopupNavigation(string) {}
 // SetOnReadyToShow sets the callback invoked when the popup WebView is ready to display.
 // It implements port.PopupLifecycleCapable.
 func (wv *WebView) SetOnReadyToShow(fn func()) {
+	if wv == nil {
+		return
+	}
+	wv.mu.Lock()
 	wv.OnReadyToShow = fn
+	wv.mu.Unlock()
 }
 
-// SetOnClose composes fn with any existing OnClose handler so multiple callers
-// can each register a close callback without overwriting one another.
-// It implements port.PopupLifecycleCapable.
+// SetOnClose replaces the coordinator-owned popup lifecycle callback without
+// disturbing WebView callbacks or additive OAuth close callbacks.
 func (wv *WebView) SetOnClose(fn func()) {
-	existing := wv.OnClose
-	if existing == nil {
-		wv.OnClose = fn
+	if wv == nil {
 		return
 	}
-	if fn == nil {
+	wv.mu.Lock()
+	wv.popupLifecycleClose = fn
+	wv.mu.Unlock()
+}
+
+func (wv *WebView) fireReadyToShow() {
+	if wv == nil {
 		return
 	}
-	wv.OnClose = func() {
-		existing()
+	wv.mu.RLock()
+	fn := wv.OnReadyToShow
+	wv.mu.RUnlock()
+	if fn != nil {
 		fn()
+	}
+}
+
+func (wv *WebView) runCloseCallbacks() {
+	if wv == nil {
+		return
+	}
+	wv.mu.Lock()
+	base := wv.OnClose
+	lifecycle := wv.popupLifecycleClose
+	wv.OnClose = nil
+	wv.popupLifecycleClose = nil
+	wv.mu.Unlock()
+	if base != nil {
+		base()
+	}
+	if lifecycle != nil {
+		lifecycle()
 	}
 }
 
@@ -1656,6 +1722,26 @@ func (wv *WebView) State() port.WebViewState {
 		CanGoFwd:  wv.canGoFwd,
 		ZoomLevel: wv.GetZoomLevel(),
 	}
+}
+
+func mapPopupRequest(req PopupRequest) port.PopupRequest {
+	mapped := port.PopupRequest{
+		Engine:        dto.BrowserEngineWebKit,
+		TargetURI:     req.TargetURI,
+		FrameName:     req.FrameName,
+		IsUserGesture: req.IsUserGesture,
+		ParentViewID:  req.ParentID,
+		PopupFeatures: dto.PopupFeatures{State: dto.PopupFeaturesUnknown},
+	}
+	if strings.EqualFold(strings.TrimSpace(req.FrameName), "_blank") {
+		if req.NavigationType == webkit.NavigationTypeLinkClickedValue {
+			mapped.TargetDisposition = dto.WindowDispositionNewTab
+			mapped.PopupFeatures.State = dto.PopupFeaturesNone
+		} else {
+			mapped.TargetDisposition = dto.WindowDispositionNewPopup
+		}
+	}
+	return mapped
 }
 
 // SetCallbacks registers callback handlers for WebView events.
@@ -1696,13 +1782,7 @@ func (wv *WebView) SetCallbacks(callbacks *port.WebViewCallbacks) {
 	wv.OnClose = callbacks.OnClose
 	if callbacks.OnCreate != nil {
 		wv.OnCreate = func(req PopupRequest) *WebView {
-			portReq := port.PopupRequest{
-				TargetURI:     req.TargetURI,
-				FrameName:     req.FrameName,
-				IsUserGesture: req.IsUserGesture,
-				ParentViewID:  req.ParentID,
-			}
-			result := callbacks.OnCreate(portReq)
+			result := callbacks.OnCreate(mapPopupRequest(req))
 			if result == nil {
 				return nil
 			}
@@ -1793,9 +1873,7 @@ func (wv *WebView) Close() {
 	if wv.destroyed.Load() {
 		return
 	}
-	if wv.OnClose != nil {
-		wv.OnClose()
-	}
+	wv.runCloseCallbacks()
 }
 
 // AddCloseCallback implements port.OAuthCallbackCapable.
@@ -1931,6 +2009,7 @@ func (wv *WebView) DestroyWithPolicy(policy string) {
 	wv.browsingContextDecision = dto.HostDecision{}
 	wv.hasBrowsingContextDecision = false
 	wv.nativePopupHostAbort = nil
+	wv.popupLifecycleClose = nil
 	wv.mu.Unlock()
 
 	// 4. Unparent from GTK hierarchy (must happen before process termination)
@@ -2001,6 +2080,7 @@ func (wv *WebView) ResetForPoolReuse() {
 	wv.browsingContextDecision = dto.HostDecision{}
 	wv.hasBrowsingContextDecision = false
 	wv.nativePopupHostAbort = nil
+	wv.popupLifecycleClose = nil
 	wv.lastProgressUpdate.Store(0)
 	wv.mu.Unlock()
 

@@ -366,6 +366,7 @@ func (a *App) removeBrowserWindow(id string) {
 	wasMainWindow := removed != nil && removed.mainWindow == a.mainWindow
 
 	a.removeBrowserWindowOrder(id)
+	a.releaseNativePopupsForBrowserWindow(id)
 	a.releaseBrowserWindowTabs(context.Background(), id, removed)
 	if removed != nil {
 		removed.teardownForDestroy()
@@ -379,6 +380,14 @@ func (a *App) removeBrowserWindow(id string) {
 	a.updateLastFocusedWindowAfterRemoval(id, fallback)
 	if wasMainWindow {
 		a.clearMainBrowserWindowAfterRemoval(fallback)
+	}
+}
+
+func (a *App) releaseNativePopupsForBrowserWindow(windowID string) {
+	for popupID, popup := range a.nativePopupWindows {
+		if popup != nil && popup.parentWindowID == windowID {
+			a.releaseNativePopupWindow(popupID, nativePopupReleaseDestroy)
+		}
 	}
 }
 

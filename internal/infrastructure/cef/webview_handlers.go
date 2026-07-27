@@ -587,6 +587,30 @@ func (h *handlerSet) OnLoadError(_ purecef.Browser, frame purecef.Frame, errorCo
 	}
 }
 
+func mapCEFPopupFeatures(in *purecef.PopupFeatures) dto.PopupFeatures {
+	if in == nil {
+		return dto.PopupFeatures{State: dto.PopupFeaturesNone}
+	}
+
+	state := dto.PopupFeaturesNone
+	if in.Xset != 0 || in.Yset != 0 || in.Widthset != 0 || in.Heightset != 0 || in.Ispopup != 0 {
+		state = dto.PopupFeaturesSpecified
+	}
+	return dto.PopupFeatures{
+		State:      state,
+		X:          int(in.X),
+		Y:          int(in.Y),
+		Width:      int(in.Width),
+		Height:     int(in.Height),
+		XSet:       in.Xset != 0,
+		YSet:       in.Yset != 0,
+		WidthSet:   in.Widthset != 0,
+		HeightSet:  in.Heightset != 0,
+		IsPopup:    in.Ispopup != 0,
+		IsPopupSet: true,
+	}
+}
+
 func mapCEFWindowDisposition(disposition purecef.WindowOpenDisposition) dto.WindowDisposition {
 	switch disposition {
 	case purecef.WindowOpenDispositionWodCurrentTab:
@@ -616,7 +640,7 @@ func mapCEFWindowDisposition(disposition purecef.WindowOpenDisposition) dto.Wind
 // pane handle the navigation.
 func (h *handlerSet) OnBeforePopup(
 	browser purecef.Browser, frame purecef.Frame, popupID int32, targetURL, targetFrameName string,
-	targetDisposition purecef.WindowOpenDisposition, userGesture int32, _ *purecef.PopupFeatures,
+	targetDisposition purecef.WindowOpenDisposition, userGesture int32, popupFeatures *purecef.PopupFeatures,
 	windowInfo *purecef.WindowInfo, clientSlot *purecef.RawClientWriteSlot, settings *purecef.BrowserSettings,
 	_ *purecef.DictionaryValue, noJavaScriptAccess *bool,
 ) bool {
@@ -649,6 +673,8 @@ func (h *handlerSet) OnBeforePopup(
 
 	dispatchResult := h.wv.runOnGTKSyncLabel("cef.on_before_popup", func() {
 		popup = cb.OnCreate(port.PopupRequest{
+			Engine:             dto.BrowserEngineCEF,
+			PopupFeatures:      mapCEFPopupFeatures(popupFeatures),
 			TargetURI:          targetURL,
 			FrameName:          targetFrameName,
 			IsUserGesture:      userGesture != 0,
@@ -682,9 +708,33 @@ func (h *handlerSet) OnBeforePopup(
 		}
 	}
 
+	return h.handlePopupHostDecision(
+		cefPopup,
+		decision,
+		requestNoJavaScriptAccess,
+		popupID,
+		targetURL,
+		targetDisposition,
+		windowInfo,
+		clientSlot,
+		settings,
+	)
+}
+
+func (h *handlerSet) handlePopupHostDecision(
+	cefPopup *WebView,
+	decision dto.HostDecision,
+	requestNoJavaScriptAccess bool,
+	popupID int32,
+	targetURL string,
+	targetDisposition purecef.WindowOpenDisposition,
+	windowInfo *purecef.WindowInfo,
+	clientSlot *purecef.RawClientWriteSlot,
+	settings *purecef.BrowserSettings,
+) bool {
 	cefPopup.setPopupNoJavaScriptAccess(requestNoJavaScriptAccess)
 	switch decision.Kind {
-	case dto.HostDecisionCreateNativeWin:
+	case dto.HostDecisionCreateNativePopup:
 		if cefPopup.prepareNativePopup(popupID, targetURL, windowInfo, clientSlot, settings) {
 			logging.FromContext(h.currentContext()).Debug().
 				Int32("popup_id", popupID).
@@ -692,32 +742,65 @@ func (h *handlerSet) OnBeforePopup(
 				Msg("cef: native popup armed")
 			return false
 		}
-		if aborter, ok := popup.(port.NativePopupHostAbortCapable); ok {
-			aborter.AbortNativePopupHost()
+
+		fallbackEligible := !decision.RequiresNativeOpener && decision.ReasonCode != dto.HostDecisionReasonAuthNativePopup
+		if fallbackEligible {
+			// The Phase 3 abort callback may synchronously detach and adopt this
+			// shell. Arm direct creation first so the adopted shell can create a
+			// browser and retain the synthetic opener bridge when allowed.
+			cefPopup.preparePopupShellDirectBrowserCreation()
 		}
-		cefPopup.discardNativePopupCandidate()
+		abortInvoked := cefPopup.abortNativePopupHost()
+		if !abortInvoked {
+			cefPopup.Destroy()
+		}
 		logging.FromContext(h.currentContext()).Warn().
+			Str("engine", string(dto.BrowserEngineCEF)).
+			Str("source_host", string(decision.SourceHost)).
+			Str("decision", string(decision.Kind)).
+			Str("target_disposition", string(mapCEFWindowDisposition(targetDisposition))).
+			Str("reason_code", string(dto.BrowsingContextFailureNativeArm)).
 			Int32("popup_id", popupID).
 			Str("target_url", logging.TruncateURL(targetURL, logging.PermissionLogURLMaxLen)).
-			Msg("cef: native popup arming failed, denying without fallback")
+			Bool("fallback_eligible", fallbackEligible).
+			Bool("host_abort_invoked", abortInvoked).
+			Msg("cef: native popup arming failed")
 		return true
-	case dto.HostDecisionCreatePane, dto.HostDecisionReuseNamedPane:
+	case dto.HostDecisionCreateBrowserWindow,
+		dto.HostDecisionCreatePane,
+		dto.HostDecisionReuseNamedPane:
+		// CEF's native popup is blocked. A related shell adopted by a Dumber
+		// host must create its browser directly; noopener controls whether the
+		// synthetic opener/postMessage bridge is installed.
+		directCreationPrepared := cefPopup.preparePopupShellDirectBrowserCreation()
+		if !directCreationPrepared && cefPopup.isNativePopupCandidate() {
+			// Clear only a still-unprepared candidate; an already-started fallback
+			// owns its opener state and must remain intact.
+			cefPopup.discardNativePopupCandidate()
+		}
 		logging.FromContext(h.currentContext()).Debug().
 			Int32("popup_id", popupID).
 			Str("target_url", logging.TruncateURL(targetURL, logging.PermissionLogURLMaxLen)).
 			Str("decision", string(decision.Kind)).
-			Msg("cef: pane-hosted browsing context, blocking native popup and using related shell browser creation")
+			Bool("direct_creation_prepared", directCreationPrepared).
+			Msg("cef: blocking native popup for related shell browser creation")
+		return true
+	case dto.HostDecisionAwaitPopupFeatures, dto.HostDecisionDeny:
+		cefPopup.Destroy()
+		logging.FromContext(h.currentContext()).Warn().
+			Int32("popup_id", popupID).
+			Str("target_url", logging.TruncateURL(targetURL, logging.PermissionLogURLMaxLen)).
+			Str("decision", string(decision.Kind)).
+			Msg("cef: denied popup host decision")
 		return true
 	default:
-		if cefPopup.prepareNativePopup(popupID, targetURL, windowInfo, clientSlot, settings) {
-			return false
+		if !cefPopup.preparePopupShellDirectBrowserCreation() {
+			cefPopup.discardNativePopupCandidate()
 		}
-
-		cefPopup.discardNativePopupCandidate()
 		logging.FromContext(h.currentContext()).Debug().
 			Int32("popup_id", popupID).
 			Str("target_url", logging.TruncateURL(targetURL, logging.PermissionLogURLMaxLen)).
-			Msg("cef: native popup bridge unavailable, blocking CEF popup and using popup shell browser creation")
+			Msg("cef: missing host decision, blocking native popup and using popup shell browser creation")
 		return true
 	}
 }

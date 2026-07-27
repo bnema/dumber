@@ -13,6 +13,7 @@ import (
 	"time"
 	"unsafe"
 
+	"github.com/bnema/dumber/internal/application/dto"
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/application/usecase"
 	"github.com/bnema/dumber/internal/domain/entity"
@@ -612,6 +613,20 @@ func (a *App) ownerOrLastFocusedBrowserWindow(tabID entity.TabID, paneID entity.
 		}
 	}
 	return a.lastFocusedBrowserWindow()
+}
+
+func (a *App) openPopupNativeWindow(ctx context.Context, popupInput content.NativePopupInput) error {
+	if err := a.openNativePopupWindow(ctx, popupInput); err != nil {
+		return err
+	}
+	// Deferred WebKit classification runs from ready-to-show. The native host
+	// is attached after that signal, so it must be revealed immediately rather
+	// than waiting for an already-delivered lifecycle callback.
+	if popupInput.Request.Engine == dto.BrowserEngineWebKit &&
+		popupInput.Request.PopupFeatures.State == dto.PopupFeaturesSpecified {
+		a.showNativePopupWindow(popupInput.PopupWebView.ID())
+	}
+	return nil
 }
 
 func (a *App) createPopupTab(ctx context.Context, popupInput content.InsertPopupInput) error {
@@ -2941,13 +2956,16 @@ func (a *App) onShutdown(ctx context.Context) {
 	for _, tabID := range tabIDs {
 		a.releaseFloatingSessionsForTab(ctx, tabID)
 	}
+	if a.contentCoord != nil {
+		a.contentCoord.ShutdownPopups()
+	}
 	if len(a.nativePopupWindows) > 0 {
 		popupIDs := make([]port.WebViewID, 0, len(a.nativePopupWindows))
 		for popupID := range a.nativePopupWindows {
 			popupIDs = append(popupIDs, popupID)
 		}
 		for _, popupID := range popupIDs {
-			a.releaseNativePopupWindow(popupID, false, true)
+			a.releaseNativePopupWindow(popupID, nativePopupReleaseDestroy)
 		}
 	}
 	if a.engine != nil {
@@ -3077,9 +3095,7 @@ func (a *App) initTabCoordinator(ctx context.Context) {
 		}
 	})
 	// Wire popup tab WebView attachment
-	a.tabCoord.SetOnAttachPopupToTab(func(ctx context.Context, tabID entity.TabID, pane *entity.Pane, wv port.WebView) {
-		a.attachPopupToTab(ctx, tabID, pane, wv)
-	})
+	a.tabCoord.SetOnAttachPopupToTab(a.attachPopupToTab)
 
 	for _, bw := range a.browserWindows {
 		a.wireBrowserWindowTabBar(ctx, bw)
@@ -3157,13 +3173,15 @@ func (a *App) initCoordinators(ctx context.Context) {
 		&runtimeCfg.Workspace.BrowsingContexts,
 		a.generateID,
 	)
-	a.contentCoord.SetPopupWindowIDResolver(func(paneID entity.PaneID) (string, bool) {
-		bw := a.browserWindowForAnyPane(paneID)
-		if bw == nil {
-			return "", false
+	a.contentCoord.SetPopupSourceHostResolver(func(paneID entity.PaneID) dto.SourceHostKind {
+		if a.floatingSessionByPaneID(paneID) != nil {
+			return dto.SourceHostFloating
 		}
-		return bw.id, true
+		return dto.SourceHostWorkspace
 	})
+	a.contentCoord.SetPopupWindowIDResolver(a.popupOwnerWindowIDForPane)
+	a.contentCoord.SetOnOpenBrowserWindow(a.openPopupBrowserWindow)
+	a.contentCoord.SetOnStagePopup(a.stagePopup)
 	a.contentCoord.SetOnInsertPopup(func(ctx context.Context, input content.InsertPopupInput) error {
 		if bw := a.browserWindowForAnyPane(input.ParentPaneID); bw != nil {
 			a.activateBrowserWindow(bw)
@@ -3176,7 +3194,7 @@ func (a *App) initCoordinators(ctx context.Context) {
 		}
 		return a.wsCoord.ClosePaneByID(ctx, paneID)
 	})
-	a.contentCoord.SetOnOpenNativePopup(a.openNativePopupWindow)
+	a.contentCoord.SetOnOpenNativePopup(a.openPopupNativeWindow)
 	// Wire tabbed popup behavior to create new tabs in the originating window.
 	a.wsCoord.SetOnCreatePopupTab(a.createPopupTab)
 
@@ -3930,55 +3948,43 @@ func (a *App) getActiveWebViewTarget() port.TextInputTarget {
 
 // attachPopupToTab attaches a popup WebView to a newly created tab.
 // This is called when a popup uses tabbed behavior.
-func (a *App) attachPopupToTab(ctx context.Context, tabID entity.TabID, pane *entity.Pane, wv port.WebView) {
+func (a *App) attachPopupToTab(ctx context.Context, tabID entity.TabID, pane *entity.Pane, wv port.WebView) error {
 	log := logging.FromContext(ctx)
-	cleanupUnattachedPopup := func() {
-		if wv != nil {
-			wv.Destroy()
-		}
-	}
-
 	wsView := a.workspaceViews[tabID]
 	if wsView == nil {
-		cleanupUnattachedPopup()
 		log.Warn().Str("tab_id", string(tabID)).Msg("workspace view not found for popup tab")
-		return
+		return fmt.Errorf("workspace view not found for popup tab %q", tabID)
 	}
 	if pane == nil {
-		cleanupUnattachedPopup()
 		log.Warn().Str("tab_id", string(tabID)).Msg("popup pane is nil")
-		return
+		return fmt.Errorf("popup pane is nil")
 	}
 	if wsView.GetPaneView(pane.ID) == nil {
-		cleanupUnattachedPopup()
 		log.Warn().Str("pane_id", string(pane.ID)).Msg("pane view not found for popup")
-		return
+		return fmt.Errorf("pane view not found for popup %q", pane.ID)
 	}
 	if a.contentCoord == nil {
-		cleanupUnattachedPopup()
 		log.Warn().Str("pane_id", string(pane.ID)).Msg("content coordinator not configured for popup")
-		return
+		return fmt.Errorf("content coordinator not configured for popup")
 	}
 
-	// Register WebView with content coordinator.
-	a.contentCoord.RegisterPopupWebView(pane.ID, wv)
-
-	// Wrap and attach widget.
+	// Wrap and attach before registration so a failed attachment leaves the
+	// caller-owned WebView untouched and unregistered.
 	widget := a.contentCoord.WrapWidget(ctx, wv)
 	if widget == nil {
-		a.contentCoord.ReleaseWebView(ctx, pane.ID)
 		log.Warn().Str("pane_id", string(pane.ID)).Msg("failed to wrap popup webview")
-		return
+		return fmt.Errorf("wrap popup webview")
 	}
 	if err := wsView.SetWebViewWidget(pane.ID, widget); err != nil {
-		a.contentCoord.ReleaseWebView(ctx, pane.ID)
 		log.Warn().Err(err).Str("pane_id", string(pane.ID)).Msg("pane view not found for popup")
-		return
+		return fmt.Errorf("set popup webview widget: %w", err)
 	}
+	a.contentCoord.RegisterPopupWebView(pane.ID, wv)
 	log.Debug().
 		Str("tab_id", string(tabID)).
 		Str("pane_id", string(pane.ID)).
 		Msg("popup webview attached to tab")
+	return nil
 }
 
 // switchWorkspaceView swaps the displayed workspace view for a tab.
@@ -4582,6 +4588,24 @@ func (a *App) floatingSessionByPaneID(paneID entity.PaneID) *floatingWorkspaceSe
 		return session
 	}
 	return nil
+}
+
+// popupOwnerWindowIDForPane scopes named contexts to the top-level owner. A
+// floating pane is mapped through its session's tab, never by parsing PaneID.
+func (a *App) popupOwnerWindowIDForPane(paneID entity.PaneID) (string, bool) {
+	for key, session := range a.floatingSessions {
+		if session == nil || session.paneID != paneID {
+			continue
+		}
+		if bw := a.browserWindowForTab(key.tabID); bw != nil {
+			return bw.id, true
+		}
+		return "", false
+	}
+	if bw := a.browserWindowForAnyPane(paneID); bw != nil {
+		return bw.id, true
+	}
+	return "", false
 }
 
 func (a *App) startFloatingResizeWatcher(session *floatingWorkspaceSession) {

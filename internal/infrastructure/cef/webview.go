@@ -172,6 +172,7 @@ type WebView struct {
 	// Programmatic popup lifecycle callbacks used for OAuth auto-close and
 	// synthetic window.open() proxy support on CEF.
 	closeCallbacks            []func()
+	popupLifecycleClose       func()
 	navigationCallbacks       []func(string)
 	openerMessageCallbacks    []func()
 	openerNavigationCallbacks []func(string)
@@ -653,9 +654,15 @@ func (wv *WebView) SetOnReadyToShow(fn func()) {
 	}
 }
 
-// SetOnClose implements port.PopupLifecycleCapable.
+// SetOnClose replaces the coordinator-owned popup lifecycle callback without
+// disturbing OAuth and other additive close callbacks.
 func (wv *WebView) SetOnClose(fn func()) {
-	wv.AddCloseCallback(fn)
+	if wv == nil {
+		return
+	}
+	wv.mu.Lock()
+	wv.popupLifecycleClose = fn
+	wv.mu.Unlock()
 }
 
 // Show implements port.PopupLifecycleCapable.
@@ -823,15 +830,23 @@ func (wv *WebView) SetNativePopupHostAbort(fn func()) {
 }
 
 func (wv *WebView) AbortNativePopupHost() {
+	wv.abortNativePopupHost()
+}
+
+// abortNativePopupHost reports whether an installed host callback took
+// responsibility for either transferring or destroying the popup WebView.
+func (wv *WebView) abortNativePopupHost() bool {
 	if wv == nil {
-		return
+		return false
 	}
 	wv.mu.RLock()
 	fn := wv.nativePopupHostAbort
 	wv.mu.RUnlock()
-	if fn != nil {
-		fn()
+	if fn == nil {
+		return false
 	}
+	fn()
+	return true
 }
 
 func (wv *WebView) awaitsNativePopupAttachment() bool {
@@ -2291,6 +2306,10 @@ func (wv *WebView) runCloseCallbacks() {
 	wv.mu.Lock()
 	callbacks := append([]func(){}, wv.closeCallbacks...)
 	wv.closeCallbacks = nil
+	if wv.popupLifecycleClose != nil {
+		callbacks = append(callbacks, wv.popupLifecycleClose)
+		wv.popupLifecycleClose = nil
+	}
 	wv.mu.Unlock()
 	if len(callbacks) == 0 {
 		return

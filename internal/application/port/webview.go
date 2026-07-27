@@ -77,8 +77,9 @@ type PopupRequest struct {
 	SourceFrameID   string
 	SourceFrameURL  string
 
+	Engine            dto.BrowserEngineKind
 	TargetDisposition dto.WindowDisposition
-	WindowFeatures    string
+	PopupFeatures     dto.PopupFeatures
 }
 
 // Texture represents a graphics texture returned by the engine.
@@ -340,6 +341,12 @@ type PopupLifecycleCapable interface {
 	SetOnClose(fn func())
 	Show()
 	PrimePopupNavigation(uri string)
+}
+
+// PopupFeatureResolver is implemented by engines that can only resolve popup
+// window properties after the related WebView reaches ready-to-show.
+type PopupFeatureResolver interface {
+	ResolvePopupFeatures() dto.PopupFeatures
 }
 
 // PopupOpenerCapable is implemented by popup WebViews that can emulate opener

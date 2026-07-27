@@ -48,6 +48,7 @@ func (c *Coordinator) EnsureWebView(ctx context.Context, paneID entity.PaneID) (
 // ReleaseWebView returns the WebView for a pane to the pool.
 func (c *Coordinator) ReleaseWebView(ctx context.Context, paneID entity.PaneID) {
 	log := logging.FromContext(ctx)
+	c.ensurePopupManager().cancelDeferredPopupsForParent(paneID)
 
 	// deleteWebViewLocked clears reveal state before returning, even when a
 	// previous cleanup already removed this pane's mapping.

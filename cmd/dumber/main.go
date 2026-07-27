@@ -147,6 +147,15 @@ type startupTiming struct {
 }
 
 func main() {
+	// purego callbacks cross foreign CEF/GTK stacks. Go stack shrinking can
+	// invalidate frames retained across those boundaries and make the GC abort
+	// with "traceback did not unwind completely". Re-exec once so the runtime
+	// sees the safety setting before it creates any goroutine or CEF subprocess.
+	if err := ensureRuntimeSafety(); err != nil {
+		_, _ = fmt.Fprintf(os.Stderr, "dumber: %v\n", err)
+		os.Exit(1)
+	}
+
 	// CEF is not known until configuration is complete. Keep these neutral
 	// timestamps so a CEF GUI trace can be seeded truthfully without creating
 	// one for WebKit, the standalone omnibox, CLI, or CEF helper processes.

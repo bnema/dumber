@@ -118,6 +118,9 @@ func TestFirstPresentationCollectorSanitizesMachineLocalValues(t *testing.T) {
 	binary := filepath.Join(temp, "dumber")
 	require.NoError(t, os.WriteFile(binary, collectorTestBinary(validFirstPresentationLog), 0o755))
 
+	const upstreamVersion = "v0.8.5-0.20300102030405-bbd397409ebe"
+	const upstreamRevision = "bbd397409ebed75a5979c1e4566a2ef319f6a484"
+	goBin := collectorProvenanceGo(t, temp, upstreamVersion, upstreamRevision, "")
 	output := filepath.Join(temp, "artifacts")
 	cmd := exec.Command(filepath.Join(repoRoot, "scripts", "collect_first_presentation.sh"))
 	cmd.Dir = repoRoot
@@ -129,6 +132,7 @@ func TestFirstPresentationCollectorSanitizesMachineLocalValues(t *testing.T) {
 		"DUMBER_FIRST_PRESENTATION_OUTPUT="+output,
 		"DUMBER_FIRST_PRESENTATION_TIMEOUT_SECONDS=1",
 		"DUMBER_MACHINE_GPU_PROFILE=integrated-gpu",
+		"PATH="+filepath.Dir(goBin)+":"+os.Getenv("PATH"),
 	)
 	result, err := cmd.CombinedOutput()
 	require.NoErrorf(t, err, "collector failed: %s", result)
@@ -144,9 +148,9 @@ func TestFirstPresentationCollectorSanitizesMachineLocalValues(t *testing.T) {
 	}
 	for _, required := range []string{
 		`"measured_source_revision"`,
-		`"version": "v0.8.5"`,
+		`"version": "` + upstreamVersion + `"`,
 		`"tag": "v0.8.5"`,
-		`"revision": "b9fb46ef5c04ca0993943c5ca4b6f0fe83583304"`,
+		`"revision": "` + upstreamRevision + `"`,
 	} {
 		require.Contains(t, artifacts.String(), required)
 	}
