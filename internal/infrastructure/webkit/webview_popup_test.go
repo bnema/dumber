@@ -4,8 +4,10 @@ import (
 	"testing"
 
 	"github.com/bnema/dumber/internal/application/dto"
+	"github.com/bnema/dumber/internal/application/port"
 	purewebkit "github.com/bnema/puregotk/v4/webkit"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestResolvePopupFeatures(t *testing.T) {
@@ -31,7 +33,6 @@ func TestResolvePopupFeatures(t *testing.T) {
 			t.Parallel()
 			got := popupFeaturesFromWindowProperties(tt.x, tt.y, tt.width, tt.height, tt.toolbar, tt.location, tt.resizable)
 			assert.Equal(t, tt.wantState, got.State)
-			assert.Equal(t, tt.wantPopup, got.RequestsPopupHost())
 			assert.Equal(t, tt.width > 0, got.WidthSet)
 			assert.Equal(t, tt.height > 0, got.HeightSet)
 			assert.True(t, got.ToolbarVisibilitySet)
@@ -64,6 +65,22 @@ func TestMapPopupRequestDefersScriptBlankFeatures(t *testing.T) {
 	assert.Equal(t, dto.BrowserEngineWebKit, script.Engine)
 	assert.Equal(t, dto.WindowDispositionNewPopup, script.TargetDisposition)
 	assert.Equal(t, dto.PopupFeaturesUnknown, script.PopupFeatures.State)
+}
+
+func TestPopupCreateCallbackPreservesNilNamedReuseResult(t *testing.T) {
+	wv := &WebView{}
+	wv.SetCallbacks(&port.WebViewCallbacks{OnCreate: func(req port.PopupRequest) port.WebView {
+		require.Equal(t, dto.BrowserEngineWebKit, req.Engine)
+		require.Equal(t, "shared", req.FrameName)
+		return nil // Existing named context was navigated; block WebKit creation.
+	}})
+
+	result := wv.OnCreate(PopupRequest{
+		TargetURI: "https://example.com/reused", FrameName: "shared", ParentID: 7,
+		NavigationType: purewebkit.NavigationTypeOtherValue,
+	})
+
+	require.Nil(t, result)
 }
 
 func TestResolvePopupFeaturesNilWebViewIsUnknown(t *testing.T) {

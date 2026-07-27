@@ -35,6 +35,60 @@ func (pm *popupManager) openBrowserWindow(
 		return nil
 	}
 	pm.setBrowsingContextDecision(popupWV, decision)
+	if !pm.adoptPopupInBrowserWindow(
+		ctx, hooks, parentPaneID, parentWebViewID, popupWV, req, decision, ready,
+		dto.BrowsingContextFailureHostUnavailable, dto.BrowsingContextFailureHostFailed,
+		"browser window host returned an empty window ID",
+	) {
+		popupWV.Destroy()
+		return nil
+	}
+	if lifecycle, ok := popupWV.(port.PopupLifecycleCapable); ok {
+		lifecycle.PrimePopupNavigation(req.TargetURI)
+	}
+	return popupWV
+}
+
+// openExistingPopupInBrowserWindow attempts to transfer an already-created
+// WebView. On failure ownership remains with the caller.
+func (pm *popupManager) openExistingPopupInBrowserWindow(
+	ctx context.Context,
+	hooks popupCoordinatorHooks,
+	parentPaneID entity.PaneID,
+	parentWebViewID port.WebViewID,
+	popupWV port.WebView,
+	req port.PopupRequest,
+	decision dto.HostDecision,
+	ready bool,
+) bool {
+	return pm.adoptPopupInBrowserWindow(
+		ctx, hooks, parentPaneID, parentWebViewID, popupWV, req, decision, ready,
+		dto.BrowsingContextFailureFallback, dto.BrowsingContextFailureFallback,
+		"browser window fallback returned an empty window ID",
+	)
+}
+
+func (pm *popupManager) adoptPopupInBrowserWindow(
+	ctx context.Context,
+	hooks popupCoordinatorHooks,
+	parentPaneID entity.PaneID,
+	parentWebViewID port.WebViewID,
+	popupWV port.WebView,
+	req port.PopupRequest,
+	decision dto.HostDecision,
+	ready bool,
+	unavailableCode dto.BrowsingContextFailureCode,
+	failureCode dto.BrowsingContextFailureCode,
+	emptyWindowError string,
+) bool {
+	log := logging.FromContext(ctx)
+	normalized := buildPopupBrowsingContextRequest(req)
+	normalized.SourceHost = pm.resolveSourceHost(parentPaneID)
+	if popupWV == nil || pm.onOpenBrowserWindow == nil {
+		logBrowsingContextFailure(*log, normalized, decision, unavailableCode, nil)
+		return false
+	}
+
 	paneID, popupPane := pm.createPopupPane(popupWV.ID(), parentPaneID, req.TargetURI)
 	if hooks.setupWebViewCallbacks != nil {
 		hooks.setupWebViewCallbacks(ctx, paneID, popupWV)
@@ -45,19 +99,15 @@ func (pm *popupManager) openBrowserWindow(
 	})
 	if err != nil || result.WindowID == "" {
 		if err == nil {
-			err = fmt.Errorf("browser window host returned an empty window ID")
+			err = fmt.Errorf("%s", emptyWindowError)
 		}
-		logBrowsingContextFailure(*log, normalized, decision, dto.BrowsingContextFailureHostFailed, err)
-		popupWV.Destroy()
-		return nil
+		logBrowsingContextFailure(*log, normalized, decision, failureCode, err)
+		return false
 	}
 	if !req.NoJavaScriptAccess {
 		pm.storeReusableNamedPopupWithHost(parentPaneID, req.FrameName, paneID, popupWV, result.WindowID)
 	}
-	if lifecycle, ok := popupWV.(port.PopupLifecycleCapable); ok {
-		lifecycle.PrimePopupNavigation(req.TargetURI)
-	}
-	return popupWV
+	return true
 }
 
 func (pm *popupManager) navigatePopupSource(
@@ -117,8 +167,54 @@ func (pm *popupManager) openNativePopup(
 		logBrowsingContextFailure(*log, normalized, decision, dto.BrowsingContextFailureHostFailed, err)
 		return nil
 	}
-	cfg := pm.currentPopupConfig()
 	pm.setBrowsingContextDecision(popupWV, decision)
+	if !pm.adoptPopupInNativePopup(
+		ctx, hooks, parentPaneID, parentID, parentURIAtOpen, popupWV, req, decision,
+		dto.BrowsingContextFailureNativeArm,
+	) {
+		popupWV.Destroy()
+		return nil
+	}
+	return popupWV
+}
+
+// openExistingPopupInNativePopup attempts to transfer an already-created
+// WebView. On failure ownership remains with the caller.
+func (pm *popupManager) openExistingPopupInNativePopup(
+	ctx context.Context,
+	hooks popupCoordinatorHooks,
+	parentPaneID entity.PaneID,
+	parentWebViewID port.WebViewID,
+	parentURIAtOpen string,
+	popupWV port.WebView,
+	req port.PopupRequest,
+	decision dto.HostDecision,
+) bool {
+	return pm.adoptPopupInNativePopup(
+		ctx, hooks, parentPaneID, parentWebViewID, parentURIAtOpen, popupWV, req, decision,
+		dto.BrowsingContextFailureHostFailed,
+	)
+}
+
+func (pm *popupManager) adoptPopupInNativePopup(
+	ctx context.Context,
+	hooks popupCoordinatorHooks,
+	parentPaneID entity.PaneID,
+	parentWebViewID port.WebViewID,
+	parentURIAtOpen string,
+	popupWV port.WebView,
+	req port.PopupRequest,
+	decision dto.HostDecision,
+	failureCode dto.BrowsingContextFailureCode,
+) bool {
+	log := logging.FromContext(ctx)
+	normalized := buildPopupBrowsingContextRequest(req)
+	normalized.SourceHost = pm.resolveSourceHost(parentPaneID)
+	if popupWV == nil || pm.onOpenNativePopup == nil {
+		logBrowsingContextFailure(*log, normalized, decision, dto.BrowsingContextFailureHostUnavailable, nil)
+		return false
+	}
+	cfg := pm.currentPopupConfig()
 	allowFallback := !normalized.AuthIntent && !decision.RequiresNativeOpener &&
 		(req.NoJavaScriptAccess || popupSupportsOpenerBridge(popupWV))
 	var abortOnce sync.Once
@@ -130,69 +226,22 @@ func (pm *popupManager) openNativePopup(
 				return
 			}
 			abortResult = pm.openExistingPopupInBrowserWindow(
-				abortCtx, hooks, parentPaneID, parentID, abortedWV, req, decision, true,
+				abortCtx, hooks, parentPaneID, parentWebViewID, abortedWV, req, decision, true,
 			)
 		})
 		return abortResult
 	}
 	if err := pm.onOpenNativePopup(ctx, NativePopupInput{
-		ParentPaneID:               parentPaneID,
-		ParentWebViewID:            parentID,
-		ParentURIAtOpen:            parentURIAtOpen,
-		PopupWebView:               popupWV,
-		TargetURI:                  req.TargetURI,
-		Request:                    req,
+		ParentPaneID: parentPaneID, ParentWebViewID: parentWebViewID, ParentURIAtOpen: parentURIAtOpen,
+		PopupWebView: popupWV, TargetURI: req.TargetURI, Request: req,
 		ObserveOAuthAutoClose:      cfg != nil && cfg.OAuthAutoClose && IsOAuthURL(req.TargetURI),
-		AllowBrowserWindowFallback: allowFallback,
-		OnNativeHostAbort:          onAbort,
+		AllowBrowserWindowFallback: allowFallback, OnNativeHostAbort: onAbort,
 	}); err != nil {
-		logBrowsingContextFailure(*log, normalized, decision, dto.BrowsingContextFailureNativeArm, err)
-		popupWV.Destroy()
-		return nil
+		logBrowsingContextFailure(*log, normalized, decision, failureCode, err)
+		return false
 	}
 	if lifecycle, ok := popupWV.(port.PopupLifecycleCapable); ok {
 		lifecycle.PrimePopupNavigation(req.TargetURI)
-	}
-	return popupWV
-}
-
-// openExistingPopupInBrowserWindow attempts to transfer an already-created
-// WebView. On failure ownership remains with the caller.
-func (pm *popupManager) openExistingPopupInBrowserWindow(
-	ctx context.Context,
-	hooks popupCoordinatorHooks,
-	parentPaneID entity.PaneID,
-	parentWebViewID port.WebViewID,
-	popupWV port.WebView,
-	req port.PopupRequest,
-	decision dto.HostDecision,
-	ready bool,
-) bool {
-	log := logging.FromContext(ctx)
-	normalized := buildPopupBrowsingContextRequest(req)
-	normalized.SourceHost = pm.resolveSourceHost(parentPaneID)
-	if popupWV == nil || pm.onOpenBrowserWindow == nil {
-		logBrowsingContextFailure(*log, normalized, decision, dto.BrowsingContextFailureFallback, nil)
-		return false
-	}
-
-	paneID, popupPane := pm.createPopupPane(popupWV.ID(), parentPaneID, req.TargetURI)
-	if hooks.setupWebViewCallbacks != nil {
-		hooks.setupWebViewCallbacks(ctx, paneID, popupWV)
-	}
-	result, err := pm.onOpenBrowserWindow(ctx, BrowserWindowInput{
-		ParentPaneID: parentPaneID, ParentWebViewID: parentWebViewID, PopupPane: popupPane,
-		PopupWebView: popupWV, TargetURI: req.TargetURI, Request: req, Ready: ready,
-	})
-	if err != nil || result.WindowID == "" {
-		if err == nil {
-			err = fmt.Errorf("browser window fallback returned an empty window ID")
-		}
-		logBrowsingContextFailure(*log, normalized, decision, dto.BrowsingContextFailureFallback, err)
-		return false
-	}
-	if !req.NoJavaScriptAccess {
-		pm.storeReusableNamedPopupWithHost(parentPaneID, req.FrameName, paneID, popupWV, result.WindowID)
 	}
 	return true
 }

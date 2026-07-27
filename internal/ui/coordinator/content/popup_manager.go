@@ -9,6 +9,7 @@ import (
 
 	"github.com/bnema/dumber/internal/application/dto"
 	"github.com/bnema/dumber/internal/application/port"
+	"github.com/bnema/dumber/internal/application/usecase"
 	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/logging"
 )
@@ -28,7 +29,7 @@ type popupManager struct {
 	generatePaneID      func() string
 	windowIDForPane     func(entity.PaneID) (string, bool)
 	sourceHostForPane   func(entity.PaneID) dto.SourceHostKind
-	policy              browsingContextPolicy
+	policy              usecase.BrowsingContextPolicy
 	namedContexts       *namedBrowsingContextRegistry
 	pendingPopups       map[port.WebViewID]*PendingPopup
 	deferredPopups      map[port.WebViewID]*deferredPendingPopup
@@ -270,7 +271,7 @@ func (pm *popupManager) lookupReusableNamedPopup(
 		return nil, false
 	}
 
-	name := reusableBrowsingContextName(frameName)
+	name := usecase.ReusableBrowsingContextName(frameName)
 	if name == "" || pm.windowIDForPane == nil || hooks.getWebView == nil {
 		return nil, false
 	}
@@ -308,7 +309,7 @@ func (pm *popupManager) storeReusableNamedPopupWithHost(
 	if pm == nil || pm.namedContexts == nil || wv == nil || pm.windowIDForPane == nil {
 		return
 	}
-	name := reusableBrowsingContextName(frameName)
+	name := usecase.ReusableBrowsingContextName(frameName)
 	ownerWindowID, ok := pm.windowIDForPane(parentPaneID)
 	if name == "" || !ok || ownerWindowID == "" || hostWindowID == "" {
 		return
@@ -585,7 +586,10 @@ func (pm *popupManager) handlePopupCreate(
 		reused, ok := pm.reuseNamedPopup(ctx, hooks, parentPaneID, req.FrameName, req.TargetURI)
 		if ok {
 			pm.setBrowsingContextDecision(reused, decision)
-			return reused
+			// The existing browsing context already owns its engine view. Returning
+			// it would ask CEF/WebKit to create a second native popup around an
+			// already-hosted view, so block engine creation after navigation.
+			return nil
 		}
 		log.Warn().Str("frame_name", req.FrameName).Msg("named browsing context reuse requested but target was unavailable")
 		decision.Kind = dto.HostDecisionCreatePane

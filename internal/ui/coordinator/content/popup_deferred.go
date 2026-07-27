@@ -2,7 +2,6 @@ package content
 
 import (
 	"context"
-	"sync"
 	"time"
 
 	"github.com/bnema/dumber/internal/application/dto"
@@ -210,53 +209,4 @@ func (pm *popupManager) resolvePendingPopupFeatures(
 	if !transferred {
 		pm.cleanupDeferredPending(pending)
 	}
-}
-
-func (pm *popupManager) openExistingPopupInNativePopup(
-	ctx context.Context,
-	hooks popupCoordinatorHooks,
-	parentPaneID entity.PaneID,
-	parentWebViewID port.WebViewID,
-	parentURIAtOpen string,
-	popupWV port.WebView,
-	req port.PopupRequest,
-	decision dto.HostDecision,
-) bool {
-	log := logging.FromContext(ctx)
-	normalized := buildPopupBrowsingContextRequest(req)
-	normalized.SourceHost = pm.resolveSourceHost(parentPaneID)
-	if popupWV == nil || pm.onOpenNativePopup == nil {
-		logBrowsingContextFailure(*log, normalized, decision, dto.BrowsingContextFailureHostUnavailable, nil)
-		return false
-	}
-	cfg := pm.currentPopupConfig()
-	allowFallback := !normalized.AuthIntent && !decision.RequiresNativeOpener &&
-		(req.NoJavaScriptAccess || popupSupportsOpenerBridge(popupWV))
-	var abortOnce sync.Once
-	abortResult := false
-	onAbort := func(abortCtx context.Context, abortedWV port.WebView) bool {
-		abortOnce.Do(func() {
-			if !allowFallback {
-				logBrowsingContextFailure(*log, normalized, decision, dto.BrowsingContextFailureNativeArm, nil)
-				return
-			}
-			abortResult = pm.openExistingPopupInBrowserWindow(
-				abortCtx, hooks, parentPaneID, parentWebViewID, abortedWV, req, decision, true,
-			)
-		})
-		return abortResult
-	}
-	if err := pm.onOpenNativePopup(ctx, NativePopupInput{
-		ParentPaneID: parentPaneID, ParentWebViewID: parentWebViewID, ParentURIAtOpen: parentURIAtOpen,
-		PopupWebView: popupWV, TargetURI: req.TargetURI, Request: req,
-		ObserveOAuthAutoClose:      cfg != nil && cfg.OAuthAutoClose && IsOAuthURL(req.TargetURI),
-		AllowBrowserWindowFallback: allowFallback, OnNativeHostAbort: onAbort,
-	}); err != nil {
-		logBrowsingContextFailure(*log, normalized, decision, dto.BrowsingContextFailureHostFailed, err)
-		return false
-	}
-	if lifecycle, ok := popupWV.(port.PopupLifecycleCapable); ok {
-		lifecycle.PrimePopupNavigation(req.TargetURI)
-	}
-	return true
 }

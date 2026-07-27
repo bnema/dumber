@@ -41,17 +41,6 @@ type PopupFeatures struct {
 	IsPopup, IsPopupSet                bool
 }
 
-// RequestsPopupHost reports whether explicit features require a constrained native popup.
-func (f PopupFeatures) RequestsPopupHost() bool {
-	return f.State == PopupFeaturesSpecified &&
-		((f.WidthSet && f.Width > 0) ||
-			(f.HeightSet && f.Height > 0) ||
-			(f.ToolbarVisibilitySet && !f.ToolbarVisible) ||
-			(f.LocationbarVisibilitySet && !f.LocationbarVisible) ||
-			(f.ResizableSet && !f.Resizable) ||
-			(f.IsPopupSet && f.IsPopup))
-}
-
 // WindowDisposition describes how the browsing context should be presented.
 type WindowDisposition string
 
