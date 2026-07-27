@@ -60,6 +60,37 @@ func (pm *popupManager) openBrowserWindow(
 	return popupWV
 }
 
+func (pm *popupManager) navigatePopupSource(
+	ctx context.Context,
+	parentID port.WebViewID,
+	parentWV port.WebView,
+	req port.PopupRequest,
+	request dto.NewBrowsingContextRequest,
+	decision dto.HostDecision,
+) {
+	log := logging.FromContext(ctx)
+	popupWV, err := pm.createPopupWebView(ctx, parentID, req.TargetURI, false)
+	if err != nil {
+		logBrowsingContextFailure(*log, request, decision, dto.BrowsingContextFailureHostFailed, err)
+		return
+	}
+	pm.setBrowsingContextDecision(popupWV, decision)
+	popupWV.Destroy()
+	if err := parentWV.LoadURI(ctx, req.TargetURI); err != nil {
+		logBrowsingContextFailure(*log, request, decision, dto.BrowsingContextFailureHostFailed, err)
+	}
+}
+
+func (*popupManager) navigateSource(ctx context.Context, parentWV port.WebView, uri string) bool {
+	if err := parentWV.LoadURI(ctx, uri); err != nil {
+		logging.FromContext(ctx).Error().Err(err).
+			Str("uri", logging.TruncateURL(uri, logURLMaxLen)).
+			Msg("failed to load URI in source floating pane")
+		return false
+	}
+	return true
+}
+
 func popupSupportsOpenerBridge(wv port.WebView) bool {
 	_, ok := wv.(port.PopupOpenerCapable)
 	return ok

@@ -592,16 +592,7 @@ func (pm *popupManager) handlePopupCreate(
 		decision.ReuseContextName = ""
 		decision.Reason = "named browsing context unavailable; creating replacement pane"
 	case dto.HostDecisionNavigateSource:
-		popupWV, err := pm.createPopupWebView(ctx, parentID, req.TargetURI, false)
-		if err != nil {
-			logBrowsingContextFailure(*log, request, decision, dto.BrowsingContextFailureHostFailed, err)
-			return nil
-		}
-		pm.setBrowsingContextDecision(popupWV, decision)
-		popupWV.Destroy()
-		if err := parentWV.LoadURI(ctx, req.TargetURI); err != nil {
-			logBrowsingContextFailure(*log, request, decision, dto.BrowsingContextFailureHostFailed, err)
-		}
+		pm.navigatePopupSource(ctx, parentID, parentWV, req, request, decision)
 		return nil
 	case dto.HostDecisionCreateBrowserWindow:
 		return pm.openBrowserWindow(ctx, hooks, parentPaneID, parentID, req, decision, pm.readyOnCreate(req.Engine))
@@ -932,13 +923,7 @@ func (pm *popupManager) handleLinkMiddleClick(
 		Str("reason", decision.Reason).
 		Msg("middle-click browsing context host decision")
 	if decision.Kind == dto.HostDecisionNavigateSource {
-		if err := parentWV.LoadURI(ctx, uri); err != nil {
-			log.Error().Err(err).
-				Str("uri", logging.TruncateURL(uri, logURLMaxLen)).
-				Msg("failed to load URI in source floating pane")
-			return false
-		}
-		return true
+		return pm.navigateSource(ctx, parentWV, uri)
 	}
 	if decision.Kind == dto.HostDecisionCreateBrowserWindow {
 		return pm.openMiddleClickBrowserWindow(ctx, hooks, parentPaneID, parentWV, uri, decision)
