@@ -245,9 +245,3 @@ func (pm *popupManager) adoptPopupInNativePopup(
 	}
 	return true
 }
-
-func (*popupManager) readyOnCreate(dto.BrowserEngineKind) bool {
-	// Deferred WebKit requests are staged and routed by a later phase. Every
-	// immediate route must be visible without depending on another signal.
-	return true
-}

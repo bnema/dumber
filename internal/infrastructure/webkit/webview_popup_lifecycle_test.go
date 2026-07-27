@@ -6,6 +6,20 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func TestPopupCloseCallbacksRunExactlyOnce(t *testing.T) {
+	wv := &WebView{}
+	baseCalls := 0
+	lifecycleCalls := 0
+	wv.AddCloseCallback(func() { baseCalls++ })
+	wv.SetOnClose(func() { lifecycleCalls++ })
+
+	wv.runCloseCallbacks()
+	wv.runCloseCallbacks()
+
+	assert.Equal(t, 1, baseCalls)
+	assert.Equal(t, 1, lifecycleCalls)
+}
+
 func TestPopupLifecycleCallbacksCanBeDisarmed(t *testing.T) {
 	wv := &WebView{}
 	readyCalls := 0

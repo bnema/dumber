@@ -592,14 +592,14 @@ func (pm *popupManager) handlePopupCreate(
 			return nil
 		}
 		log.Warn().Str("frame_name", req.FrameName).Msg("named browsing context reuse requested but target was unavailable")
-		decision.Kind = dto.HostDecisionCreatePane
-		decision.ReuseContextName = ""
-		decision.Reason = "named browsing context unavailable; creating replacement pane"
+		// Lookup removes the stale registry entry. Re-enter policy once so the
+		// replacement host remains source-aware instead of forcing a workspace pane.
+		return pm.handlePopupCreate(ctx, hooks, parentPaneID, parentWV, req)
 	case dto.HostDecisionNavigateSource:
 		pm.navigatePopupSource(ctx, parentID, parentWV, req, request, decision)
 		return nil
 	case dto.HostDecisionCreateBrowserWindow:
-		return pm.openBrowserWindow(ctx, hooks, parentPaneID, parentID, req, decision, pm.readyOnCreate(req.Engine))
+		return pm.openBrowserWindow(ctx, hooks, parentPaneID, parentID, req, decision, true)
 	case dto.HostDecisionCreateNativePopup:
 		return pm.openNativePopup(ctx, hooks, parentPaneID, parentID, parentURIAtOpen, req, decision)
 	case dto.HostDecisionAwaitPopupFeatures:
@@ -922,10 +922,6 @@ func (pm *popupManager) handleLinkMiddleClick(
 	request.SourceHost = sourceHost
 	decision := pm.policy.Decide(request, false)
 	logBrowsingContextDecision(*log, request, decision)
-	log.Debug().
-		Str("decision", string(decision.Kind)).
-		Str("reason", decision.Reason).
-		Msg("middle-click browsing context host decision")
 	if decision.Kind == dto.HostDecisionNavigateSource {
 		return pm.navigateSource(ctx, parentWV, uri)
 	}

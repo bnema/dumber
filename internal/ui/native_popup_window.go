@@ -117,7 +117,7 @@ func (a *App) openNativePopupWindow(ctx context.Context, input content.NativePop
 	if aborter, ok := input.PopupWebView.(port.NativePopupHostAbortCapable); ok {
 		aborter.SetNativePopupHostAbort(func() {
 			a.dispatchNativePopupLifecycle("ui.native_popup.abort", popupID, func() {
-				a.abortNativePopupWindow(ctx, popupID, input)
+				a.abortNativePopupWindow(context.Background(), popupID, input)
 			})
 		})
 	}

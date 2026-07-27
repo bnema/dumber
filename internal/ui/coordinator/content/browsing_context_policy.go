@@ -80,26 +80,15 @@ func inferPopupWindowDisposition(req port.PopupRequest) dto.WindowDisposition {
 }
 
 func inferPopupTriggerKind(req port.PopupRequest) dto.TriggerKind {
+	if usecase.ReusableBrowsingContextName(req.FrameName) != "" {
+		return dto.TriggerNamedTargetNavigation
+	}
 	switch inferPopupWindowDisposition(req) {
-	case dto.WindowDispositionCurrentTab:
-		if usecase.ReusableBrowsingContextName(req.FrameName) != "" {
-			return dto.TriggerNamedTargetNavigation
-		}
-		return dto.TriggerLinkNewPage
-	case dto.WindowDispositionNewTab:
-		if usecase.ReusableBrowsingContextName(req.FrameName) != "" {
-			return dto.TriggerNamedTargetNavigation
-		}
+	case dto.WindowDispositionCurrentTab, dto.WindowDispositionNewTab:
 		return dto.TriggerLinkNewPage
 	case dto.WindowDispositionNewPopup, dto.WindowDispositionNewWindow:
-		if usecase.ReusableBrowsingContextName(req.FrameName) != "" {
-			return dto.TriggerNamedTargetNavigation
-		}
 		return dto.TriggerScriptWindowOpen
 	default:
-		if usecase.ReusableBrowsingContextName(req.FrameName) != "" {
-			return dto.TriggerNamedTargetNavigation
-		}
 		return dto.TriggerUnknown
 	}
 }

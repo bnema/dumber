@@ -1700,6 +1700,7 @@ func (wv *WebView) runCloseCallbacks() {
 	wv.mu.Lock()
 	base := wv.OnClose
 	lifecycle := wv.popupLifecycleClose
+	wv.OnClose = nil
 	wv.popupLifecycleClose = nil
 	wv.mu.Unlock()
 	if base != nil {

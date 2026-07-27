@@ -142,7 +142,9 @@ type NativePopupInput struct {
 	Request                    port.PopupRequest
 	ObserveOAuthAutoClose      bool
 	AllowBrowserWindowFallback bool
-	OnNativeHostAbort          func(context.Context, port.WebView) bool
+	// OnNativeHostAbort returns true when fallback adopted the WebView. A false
+	// result leaves destruction responsibility with the native host.
+	OnNativeHostAbort func(context.Context, port.WebView) bool
 }
 
 // GetBehavior returns the appropriate behavior based on popup type and config.

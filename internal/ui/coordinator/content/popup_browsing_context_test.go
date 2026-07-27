@@ -796,7 +796,7 @@ func TestHandlePopupCreate_FallsBackToNewPaneWhenNamedReuseBecomesUnavailable(t 
 	parentPaneID := entity.PaneID("parent-pane")
 	stalePaneID := entity.PaneID("stale-pane")
 	parentWV := mocks.NewMockWebView(t)
-	parentWV.EXPECT().ID().Return(port.WebViewID(101)).Once()
+	parentWV.EXPECT().ID().Return(port.WebViewID(101)).Twice()
 
 	staleWV := mocks.NewMockWebView(t)
 	staleWV.EXPECT().IsDestroyed().Return(false).Once()
