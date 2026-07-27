@@ -638,8 +638,6 @@ func mapCEFWindowDisposition(disposition purecef.WindowOpenDisposition) dto.Wind
 // client back to CEF and allow native popup creation so opener semantics are
 // preserved. Otherwise we keep blocking and let the coordinator's fallback
 // pane handle the navigation.
-//
-//nolint:funlen // Popup ownership transitions stay linear to keep CEF callback semantics auditable.
 func (h *handlerSet) OnBeforePopup(
 	browser purecef.Browser, frame purecef.Frame, popupID int32, targetURL, targetFrameName string,
 	targetDisposition purecef.WindowOpenDisposition, userGesture int32, popupFeatures *purecef.PopupFeatures,
@@ -710,6 +708,30 @@ func (h *handlerSet) OnBeforePopup(
 		}
 	}
 
+	return h.handlePopupHostDecision(
+		cefPopup,
+		decision,
+		requestNoJavaScriptAccess,
+		popupID,
+		targetURL,
+		targetDisposition,
+		windowInfo,
+		clientSlot,
+		settings,
+	)
+}
+
+func (h *handlerSet) handlePopupHostDecision(
+	cefPopup *WebView,
+	decision dto.HostDecision,
+	requestNoJavaScriptAccess bool,
+	popupID int32,
+	targetURL string,
+	targetDisposition purecef.WindowOpenDisposition,
+	windowInfo *purecef.WindowInfo,
+	clientSlot *purecef.RawClientWriteSlot,
+	settings *purecef.BrowserSettings,
+) bool {
 	cefPopup.setPopupNoJavaScriptAccess(requestNoJavaScriptAccess)
 	switch decision.Kind {
 	case dto.HostDecisionCreateNativePopup:

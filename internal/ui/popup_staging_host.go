@@ -27,6 +27,8 @@ var newPopupStagingWindow = func(ctx context.Context, app *gtk.Application) (pop
 	return window.NewPopup(ctx, app)
 }
 
+var preparePopupStagingContentWidget = prepareNativePopupContentWidget
+
 func (h *popupStagingHost) cleanup() {
 	if h == nil {
 		return
@@ -68,10 +70,10 @@ func (a *App) stagePopup(ctx context.Context, input content.StagePopupInput) (co
 		return nil, err
 	}
 	widget := a.contentCoord.WrapWidget(ctx, input.PopupWebView)
-	gtkWidget, err := prepareNativePopupContentWidget(widget)
+	gtkWidget, err := preparePopupStagingContentWidget(widget)
 	if err != nil {
 		shell.Destroy()
-		return nil, fmt.Errorf("failed to wrap popup staging webview widget")
+		return nil, fmt.Errorf("prepare popup staging webview widget: %w", err)
 	}
 	shell.SetContent(gtkWidget)
 	return &popupStagingHost{shell: shell, attached: gtkWidget}, nil

@@ -933,6 +933,18 @@ func (pm *popupManager) handleLinkMiddleClick(
 		return false
 	}
 
+	return pm.openMiddleClickPane(ctx, hooks, parentPaneID, parentWV, uri, decision)
+}
+
+func (pm *popupManager) openMiddleClickPane(
+	ctx context.Context,
+	hooks popupCoordinatorHooks,
+	parentPaneID entity.PaneID,
+	parentWV port.WebView,
+	uri string,
+	decision dto.HostDecision,
+) bool {
+	log := logging.FromContext(ctx)
 	newWV, err := pm.createPopupWebView(ctx, parentWV.ID(), uri, true)
 	if err != nil {
 		log.Error().Err(err).Msg("failed to create webview for middle-click")

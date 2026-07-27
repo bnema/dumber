@@ -63,6 +63,7 @@ func ensureRuntimeSafety() error {
 	if err != nil {
 		return fmt.Errorf("resolve executable for runtime safety re-exec: %w", err)
 	}
+	//nolint:gosec // G702: os.Executable and the current process argv are required for self-re-exec.
 	if err := syscall.Exec(executable, os.Args, environ); err != nil {
 		return fmt.Errorf("runtime safety re-exec: %w", err)
 	}
