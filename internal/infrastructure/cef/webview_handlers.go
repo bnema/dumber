@@ -728,7 +728,8 @@ func (h *handlerSet) OnBeforePopup(
 			// browser and retain the synthetic opener bridge when allowed.
 			cefPopup.preparePopupShellDirectBrowserCreation()
 		}
-		if !cefPopup.abortNativePopupHost() {
+		abortInvoked := cefPopup.abortNativePopupHost()
+		if !abortInvoked {
 			cefPopup.Destroy()
 		}
 		logging.FromContext(h.currentContext()).Warn().
@@ -740,7 +741,8 @@ func (h *handlerSet) OnBeforePopup(
 			Int32("popup_id", popupID).
 			Str("target_url", logging.TruncateURL(targetURL, logging.PermissionLogURLMaxLen)).
 			Bool("fallback_eligible", fallbackEligible).
-			Msg("cef: native popup arming failed and host abort was invoked")
+			Bool("host_abort_invoked", abortInvoked).
+			Msg("cef: native popup arming failed")
 		return true
 	case dto.HostDecisionCreateBrowserWindow,
 		dto.HostDecisionCreatePane,
@@ -748,12 +750,18 @@ func (h *handlerSet) OnBeforePopup(
 		// CEF's native popup is blocked. A related shell adopted by a Dumber
 		// host must create its browser directly; noopener controls whether the
 		// synthetic opener/postMessage bridge is installed.
-		cefPopup.preparePopupShellDirectBrowserCreation()
+		directCreationPrepared := cefPopup.preparePopupShellDirectBrowserCreation()
+		if !directCreationPrepared && cefPopup.isNativePopupCandidate() {
+			// Clear only a still-unprepared candidate; an already-started fallback
+			// owns its opener state and must remain intact.
+			cefPopup.discardNativePopupCandidate()
+		}
 		logging.FromContext(h.currentContext()).Debug().
 			Int32("popup_id", popupID).
 			Str("target_url", logging.TruncateURL(targetURL, logging.PermissionLogURLMaxLen)).
 			Str("decision", string(decision.Kind)).
-			Msg("cef: blocking native popup and using related shell browser creation")
+			Bool("direct_creation_prepared", directCreationPrepared).
+			Msg("cef: blocking native popup for related shell browser creation")
 		return true
 	case dto.HostDecisionAwaitPopupFeatures, dto.HostDecisionDeny:
 		cefPopup.Destroy()

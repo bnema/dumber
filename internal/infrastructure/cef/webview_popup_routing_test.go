@@ -212,6 +212,33 @@ func TestOnBeforePopup_OpenerRequiredNativeArmFailureDeniesWithoutFallback(t *te
 	assert.Equal(t, "create-native-popup", record["decision"])
 	assert.Equal(t, "new-popup", record["target_disposition"])
 	assert.Equal(t, "native-arm-failed", record["reason_code"])
+	assert.Equal(t, true, record["host_abort_invoked"])
+	assert.Equal(t, "cef: native popup arming failed", record["message"])
+}
+
+func TestOnBeforePopup_NativeArmFailureWithoutHostAbortLogsDirectCleanup(t *testing.T) {
+	var output bytes.Buffer
+	logger := zerolog.New(&output).Level(zerolog.WarnLevel)
+	ctx := logging.WithContext(context.Background(), logger)
+	parentWV := &WebView{ctx: ctx, id: 20}
+	popupWV := &WebView{ctx: context.Background(), id: 28, pendingCreate: &pendingBrowserCreate{}}
+	popupWV.markNativePopupCandidate(parentWV)
+	popupWV.SetBrowsingContextHostDecision(dto.HostDecision{
+		Kind: dto.HostDecisionCreateNativePopup, RequiresNativeOpener: true,
+	})
+	parentWV.SetCallbacks(&port.WebViewCallbacks{OnCreate: func(port.PopupRequest) port.WebView { return popupWV }})
+
+	blocked := (&handlerSet{wv: parentWV}).OnBeforePopup(
+		nil, nil, 94, "https://example.com/opener-required", "required",
+		purecef.WindowOpenDispositionWodNewPopup, 1, nil, nil, nil, nil, nil, nil,
+	)
+
+	require.True(t, blocked)
+	require.True(t, popupWV.IsDestroyed())
+	var record map[string]any
+	require.NoError(t, json.Unmarshal(output.Bytes(), &record))
+	assert.Equal(t, false, record["host_abort_invoked"])
+	assert.Equal(t, "cef: native popup arming failed", record["message"])
 }
 
 func TestOnBeforePopup_AuthNativeArmFailureDeniesWithoutFallback(t *testing.T) {
@@ -272,6 +299,43 @@ func TestOnBeforePopup_ReuseNamedPaneBlocksNativePopup(t *testing.T) {
 
 	require.True(t, blocked)
 	require.True(t, popupWV.nativePopupFallbackStarted)
+}
+
+func TestOnBeforePopup_HostedDecisionDiscardsUnpreparedNativeCandidate(t *testing.T) {
+	parentWV := &WebView{ctx: context.Background(), id: 24}
+	popupWV := &WebView{ctx: context.Background(), id: 32}
+	popupWV.markNativePopupCandidate(parentWV)
+	popupWV.SetBrowsingContextHostDecision(dto.HostDecision{Kind: dto.HostDecisionCreateBrowserWindow})
+	parentWV.SetCallbacks(&port.WebViewCallbacks{OnCreate: func(port.PopupRequest) port.WebView { return popupWV }})
+
+	blocked := (&handlerSet{wv: parentWV}).OnBeforePopup(
+		nil, nil, 98, "https://example.com/window", "window",
+		purecef.WindowOpenDispositionWodNewPopup, 1, nil, nil, nil, nil, nil, nil,
+	)
+
+	require.True(t, blocked)
+	require.False(t, popupWV.isNativePopupCandidate())
+	require.False(t, popupWV.nativePopupFallbackStarted)
+}
+
+func TestOnBeforePopup_HostedDecisionPreservesAlreadyPreparedFallbackOpener(t *testing.T) {
+	parentWV := &WebView{ctx: context.Background(), id: 25}
+	parentWV.updateURI("https://example.com/opener")
+	popupWV := &WebView{ctx: context.Background(), id: 33, pendingCreate: &pendingBrowserCreate{}}
+	popupWV.markNativePopupCandidate(parentWV)
+	require.True(t, popupWV.preparePopupShellDirectBrowserCreation())
+	popupWV.SetBrowsingContextHostDecision(dto.HostDecision{Kind: dto.HostDecisionCreateBrowserWindow})
+	parentWV.SetCallbacks(&port.WebViewCallbacks{OnCreate: func(port.PopupRequest) port.WebView { return popupWV }})
+
+	blocked := (&handlerSet{wv: parentWV}).OnBeforePopup(
+		nil, nil, 99, "https://example.com/window", "window",
+		purecef.WindowOpenDispositionWodNewPopup, 1, nil, nil, nil, nil, nil, nil,
+	)
+
+	require.True(t, blocked)
+	require.True(t, popupWV.nativePopupFallbackStarted)
+	require.Same(t, parentWV, popupWV.popupOpenerBridgeParent)
+	require.Equal(t, "https://example.com/opener", popupWV.popupOpenerBridgeParentURI)
 }
 
 func TestOnBeforePopup_DenyCleansUp(t *testing.T) {

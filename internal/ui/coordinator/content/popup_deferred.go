@@ -202,7 +202,9 @@ func (pm *popupManager) resolvePendingPopupFeatures(
 	case dto.HostDecisionReuseNamedPane:
 		// Reuse transfers no ownership: the existing context is navigated while
 		// the newly staged WebView remains ours and must be discarded below.
-		_, _ = pm.reuseNamedPopup(ctx, hooks, pending.ParentPaneID, request.FrameName, request.TargetURI)
+		if _, ok := pm.reuseNamedPopup(ctx, hooks, pending.ParentPaneID, request.FrameName, request.TargetURI); !ok {
+			logBrowsingContextFailure(*logging.FromContext(ctx), normalized, decision, dto.BrowsingContextFailureHostUnavailable, nil)
+		}
 	default:
 		logBrowsingContextFailure(*logging.FromContext(ctx), normalized, decision, dto.BrowsingContextFailureFeatureResolution, nil)
 	}

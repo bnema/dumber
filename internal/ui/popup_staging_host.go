@@ -68,13 +68,11 @@ func (a *App) stagePopup(ctx context.Context, input content.StagePopupInput) (co
 		return nil, err
 	}
 	widget := a.contentCoord.WrapWidget(ctx, input.PopupWebView)
-	if widget == nil || widget.GtkWidget() == nil {
+	gtkWidget, err := prepareNativePopupContentWidget(widget)
+	if err != nil {
 		shell.Destroy()
 		return nil, fmt.Errorf("failed to wrap popup staging webview widget")
 	}
-	gtkWidget := widget.GtkWidget()
-	widget.SetHexpand(true)
-	widget.SetVexpand(true)
 	shell.SetContent(gtkWidget)
 	return &popupStagingHost{shell: shell, attached: gtkWidget}, nil
 }

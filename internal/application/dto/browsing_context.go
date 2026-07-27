@@ -20,6 +20,8 @@ const (
 )
 
 // PopupFeatureState describes whether popup metadata is available and explicit.
+// Host policy treats its zero value as featureless, not PopupFeaturesUnknown;
+// popup producers must set State explicitly when resolution must be deferred.
 type PopupFeatureState string
 
 const (

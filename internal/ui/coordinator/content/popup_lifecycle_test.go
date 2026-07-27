@@ -410,6 +410,52 @@ func TestPopupDeferredNamedReuseDestroysNewlyStagedWebViewExactlyOnce(t *testing
 	assert.Equal(t, 1, staging.destroyCalls)
 }
 
+func TestPopupDeferredNamedReuseRaceLogsHostUnavailableAndCleansStagingExactlyOnce(t *testing.T) {
+	var output bytes.Buffer
+	logger := zerolog.New(&output).Level(zerolog.WarnLevel)
+	ctx := logging.WithContext(context.Background(), logger)
+	parentPaneID := entity.PaneID("floating")
+	existingPaneID := entity.PaneID("existing")
+	parent := mocks.NewMockWebView(t)
+	parent.EXPECT().ID().Return(port.WebViewID(101)).Once()
+	staged := &deferredPopupWebViewStub{MockWebView: mocks.NewMockWebView(t), features: dto.PopupFeatures{State: dto.PopupFeaturesNone}}
+	staged.EXPECT().ID().Return(port.WebViewID(208)).Maybe()
+	staged.EXPECT().Destroy().Once()
+	existing := mocks.NewMockWebView(t)
+	destroyedChecks := 0
+	existing.EXPECT().IsDestroyed().RunAndReturn(func() bool {
+		destroyedChecks++
+		return destroyedChecks > 1
+	}).Twice()
+	existing.EXPECT().ID().Return(port.WebViewID(301)).Once()
+	factory := mocks.NewMockWebViewFactory(t)
+	factory.EXPECT().CreateRelated(mock.Anything, port.WebViewID(101)).Return(staged, nil).Once()
+	staging := &popupStagingHostStub{}
+	c := &Coordinator{webViews: make(map[entity.PaneID]port.WebView), popups: newPopupManager()}
+	c.SetPopupConfig(factory, &entity.BrowsingContextConfig{OpenInNewPane: false}, nil)
+	c.SetPopupSourceHostResolver(func(entity.PaneID) dto.SourceHostKind { return dto.SourceHostFloating })
+	c.SetPopupWindowIDResolver(func(paneID entity.PaneID) (string, bool) {
+		windowByPane := map[entity.PaneID]string{parentPaneID: "owner", existingPaneID: "host"}
+		windowID, ok := windowByPane[paneID]
+		return windowID, ok
+	})
+	c.SetOnStagePopup(func(context.Context, StagePopupInput) (PopupStagingHost, error) { return staging, nil })
+
+	require.Same(t, staged, c.handlePopupCreate(ctx, parentPaneID, parent, port.PopupRequest{
+		Engine: dto.BrowserEngineWebKit, TargetURI: "https://example.com/reused", FrameName: "shared",
+		PopupFeatures: dto.PopupFeatures{State: dto.PopupFeaturesUnknown},
+	}))
+	c.RegisterPopupWebView(existingPaneID, existing)
+	c.popups.namedContexts.Register("owner", "host", "shared", existingPaneID, port.WebViewID(301))
+	staged.ready()
+	staged.ready()
+
+	assert.Equal(t, 2, destroyedChecks)
+	assert.Equal(t, 1, staging.destroyCalls)
+	record := decodeBrowsingContextLog(t, output.Bytes())
+	assert.Equal(t, "host-unavailable", record["reason_code"])
+}
+
 func TestPopupDeferredNativeAbortWithoutFallbackLogsStructuredFailure(t *testing.T) {
 	var output bytes.Buffer
 	logger := zerolog.New(&output).Level(zerolog.WarnLevel)
@@ -472,6 +518,31 @@ func TestPopupDeferredBrowserHostFailureCleansUpExactlyOnce(t *testing.T) {
 	}))
 	popup.ready()
 	popup.ready()
+	assert.True(t, staging.detached)
+	assert.Equal(t, 1, staging.destroyCalls)
+}
+
+func TestPopupDeferredStagingDetachFailureCleansUpExactlyOnce(t *testing.T) {
+	parent := mocks.NewMockWebView(t)
+	parent.EXPECT().ID().Return(port.WebViewID(101)).Once()
+	popup := &deferredPopupWebViewStub{MockWebView: mocks.NewMockWebView(t), features: dto.PopupFeatures{State: dto.PopupFeaturesNone}}
+	popup.EXPECT().ID().Return(port.WebViewID(209)).Maybe()
+	popup.EXPECT().Destroy().Once()
+	factory := mocks.NewMockWebViewFactory(t)
+	factory.EXPECT().CreateRelated(mock.Anything, port.WebViewID(101)).Return(popup, nil).Once()
+	staging := &popupStagingHostStub{detachErr: errors.New("detach failed")}
+	c := &Coordinator{popups: newPopupManager()}
+	c.SetPopupConfig(factory, &entity.BrowsingContextConfig{OpenInNewPane: false}, nil)
+	c.SetPopupSourceHostResolver(func(entity.PaneID) dto.SourceHostKind { return dto.SourceHostFloating })
+	c.SetOnStagePopup(func(context.Context, StagePopupInput) (PopupStagingHost, error) { return staging, nil })
+
+	require.Same(t, popup, c.handlePopupCreate(context.Background(), "floating", parent, port.PopupRequest{
+		Engine: dto.BrowserEngineWebKit, TargetURI: "https://example.com/open",
+		PopupFeatures: dto.PopupFeatures{State: dto.PopupFeaturesUnknown},
+	}))
+	popup.ready()
+	popup.ready()
+
 	assert.True(t, staging.detached)
 	assert.Equal(t, 1, staging.destroyCalls)
 }
@@ -606,7 +677,8 @@ func (s *deferredPopupWebViewStub) close() {
 type popupStagingHostStub struct {
 	attached, detached bool
 	destroyCalls       int
+	detachErr          error
 }
 
-func (s *popupStagingHostStub) Detach() error { s.detached = true; return nil }
+func (s *popupStagingHostStub) Detach() error { s.detached = true; return s.detachErr }
 func (s *popupStagingHostStub) Destroy()      { s.destroyCalls++ }
