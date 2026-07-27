@@ -548,6 +548,7 @@ func (c *TabCoordinator) CreateWithPane(
 			if target.MainWindow != nil && target.MainWindow.TabBar() != nil {
 				target.MainWindow.TabBar().RemoveTab(output.Tab.ID)
 			}
+			c.UpdateBarVisibility(ctx, target)
 			if c.onTabClosed != nil {
 				c.onTabClosed(ctx, target, output.Tab)
 			}

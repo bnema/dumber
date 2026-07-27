@@ -2,7 +2,7 @@ package content
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"sync"
 
 	"github.com/bnema/dumber/internal/application/dto"
@@ -99,7 +99,7 @@ func (pm *popupManager) adoptPopupInBrowserWindow(
 	})
 	if err != nil || result.WindowID == "" {
 		if err == nil {
-			err = fmt.Errorf("%s", emptyWindowError)
+			err = errors.New(emptyWindowError)
 		}
 		logBrowsingContextFailure(*log, normalized, decision, failureCode, err)
 		return false
