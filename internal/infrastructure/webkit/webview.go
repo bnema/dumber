@@ -2,6 +2,8 @@ package webkit
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
 	"net/url"
 	"os"
@@ -16,6 +18,7 @@ import (
 	"github.com/bnema/dumber/internal/domain/entity"
 	urlutil "github.com/bnema/dumber/internal/domain/url"
 	"github.com/bnema/dumber/internal/infrastructure/desktop"
+	"github.com/bnema/dumber/internal/infrastructure/webutil"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/puregotk/v4/gdk"
 	"github.com/bnema/puregotk/v4/gio"
@@ -34,6 +37,12 @@ var _ port.Printer = (*WebView)(nil)
 var _ port.PopupLifecycleCapable = (*WebView)(nil)
 var _ port.PopupFeatureResolver = (*WebView)(nil)
 var _ port.OAuthCallbackCapable = (*WebView)(nil)
+var _ port.PageScrollable = (*WebView)(nil)
+
+var buildPageScrollFallbackJS = webutil.BuildScrollByJS
+var runPageScrollFallbackJS = func(wv *WebView, ctx context.Context, script string) {
+	wv.RunJavaScript(ctx, script)
+}
 
 // WebViewID is an alias to port.WebViewID for clean architecture compliance.
 // Infrastructure layer uses the type defined in the application port.
@@ -163,6 +172,7 @@ type WebView struct {
 	OnEnterFullscreen          func() bool                 // Return true to prevent fullscreen
 	OnLeaveFullscreen          func() bool                 // Return true to prevent leaving fullscreen
 	OnAudioStateChanged        func(playing bool)          // Called when audio playback starts/stops
+	OnEditableFocusChanged     func(editable bool)         // Called when page editable focus changes
 	OnLinkHover                func(uri string)            // Called when hovering over a link/image/media (empty string when leaving)
 	OnWebProcessTerminated     func(reason webkit.WebProcessTerminationReason, reasonLabel string, uri string)
 	browsingContextDecision    dto.HostDecision
@@ -179,8 +189,9 @@ type WebView struct {
 	logger zerolog.Logger
 	mu     sync.RWMutex
 
-	frontendAttached atomic.Bool
-	navigationActive atomic.Bool
+	frontendAttached         atomic.Bool
+	navigationActive         atomic.Bool
+	editableFocusBridgeToken string
 
 	// asyncCallbacks keeps references to async JS callbacks to prevent GC
 	asyncCallbacks []any
@@ -212,7 +223,17 @@ const (
 	runJSNonFatalLogInterval = 30 * time.Second
 	runJSAggregateLogEvery   = 20
 	runJSUnknown             = "unknown"
+
+	editableFocusBridgeTokenBytes = 16
 )
+
+func newEditableFocusBridgeToken() string {
+	buf := make([]byte, editableFocusBridgeTokenBytes)
+	if _, err := rand.Read(buf); err != nil {
+		return fmt.Sprintf("editable-focus-%d", time.Now().UnixNano())
+	}
+	return hex.EncodeToString(buf)
+}
 
 type findControllerAdapter struct {
 	fc *webkit.FindController
@@ -346,11 +367,12 @@ func NewWebView(ctx context.Context, wkCtx *WebKitContext, settings *SettingsMan
 	}
 
 	wv := &WebView{
-		inner:           inner,
-		ucm:             inner.GetUserContentManager(),
-		logger:          log.With().Str("component", "webview").Logger(),
-		signalIDs:       make([]uintptr, 0, 4),
-		runJSErrorStats: make(map[string]runJSErrorStat),
+		inner:                    inner,
+		ucm:                      inner.GetUserContentManager(),
+		logger:                   log.With().Str("component", "webview").Logger(),
+		signalIDs:                make([]uintptr, 0, 4),
+		runJSErrorStats:          make(map[string]runJSErrorStat),
+		editableFocusBridgeToken: newEditableFocusBridgeToken(),
 	}
 
 	// Register in global registry
@@ -396,12 +418,13 @@ func NewWebViewWithRelated(ctx context.Context, parent *WebView, settings *Setti
 		Msg("related webview created, checking pointers")
 
 	wv := &WebView{
-		inner:           inner,
-		isRelated:       true, // Shares web process with parent - must not terminate process on destroy
-		ucm:             inner.GetUserContentManager(),
-		logger:          log.With().Str("component", "webview-popup").Logger(),
-		signalIDs:       make([]uintptr, 0, 6),
-		runJSErrorStats: make(map[string]runJSErrorStat),
+		inner:                    inner,
+		isRelated:                true, // Shares web process with parent - must not terminate process on destroy
+		ucm:                      inner.GetUserContentManager(),
+		logger:                   log.With().Str("component", "webview-popup").Logger(),
+		signalIDs:                make([]uintptr, 0, 6),
+		runJSErrorStats:          make(map[string]runJSErrorStat),
+		editableFocusBridgeToken: newEditableFocusBridgeToken(),
 	}
 
 	wv.id = globalRegistry.register(wv)
@@ -461,6 +484,7 @@ func (wv *WebView) connectLoadChangedSignal() {
 			wv.navigationActive.Store(true)
 			wv.isLoading = true
 			wv.logger.Debug().Str("uri", uri).Msg("load started")
+			wv.dispatchEditableFocusChanged(false)
 		case webkit.LoadRedirectedValue:
 			wv.logger.Debug().Str("uri", uri).Msg("load redirected")
 		case webkit.LoadCommittedValue:
@@ -1762,6 +1786,7 @@ func (wv *WebView) SetCallbacks(callbacks *port.WebViewCallbacks) {
 		wv.OnEnterFullscreen = nil
 		wv.OnLeaveFullscreen = nil
 		wv.OnAudioStateChanged = nil
+		wv.OnEditableFocusChanged = nil
 		return
 	}
 
@@ -1807,6 +1832,16 @@ func (wv *WebView) SetCallbacks(callbacks *port.WebViewCallbacks) {
 	wv.OnEnterFullscreen = callbacks.OnEnterFullscreen
 	wv.OnLeaveFullscreen = callbacks.OnLeaveFullscreen
 	wv.OnAudioStateChanged = callbacks.OnAudioStateChanged
+	wv.OnEditableFocusChanged = callbacks.OnEditableFocusChanged
+}
+
+func (wv *WebView) dispatchEditableFocusChanged(editable bool) {
+	if wv == nil || wv.destroyed.Load() {
+		return
+	}
+	if wv.OnEditableFocusChanged != nil {
+		wv.OnEditableFocusChanged(editable)
+	}
 }
 
 // ShowDevTools opens the WebKit inspector/developer tools.
@@ -1999,6 +2034,7 @@ func (wv *WebView) DestroyWithPolicy(policy string) {
 	wv.OnEnterFullscreen = nil
 	wv.OnLeaveFullscreen = nil
 	wv.OnAudioStateChanged = nil
+	wv.OnEditableFocusChanged = nil
 	wv.OnLinkHover = nil
 	wv.OnWebProcessTerminated = nil
 	wv.OnPermissionRequest = nil
@@ -2047,6 +2083,7 @@ func (wv *WebView) ResetForPoolReuse() {
 		return
 	}
 	wv.generation.Add(1)
+	wv.editableFocusBridgeToken = newEditableFocusBridgeToken()
 
 	// Disconnect GLib signals to prevent stale callbacks from firing on reused WebView.
 	// They will be reconnected when the WebView is re-acquired from the pool.
@@ -2064,6 +2101,7 @@ func (wv *WebView) ResetForPoolReuse() {
 	wv.OnEnterFullscreen = nil
 	wv.OnLeaveFullscreen = nil
 	wv.OnAudioStateChanged = nil
+	wv.OnEditableFocusChanged = nil
 	wv.OnLinkHover = nil
 	wv.OnWebProcessTerminated = nil
 	wv.OnPermissionRequest = nil
@@ -2374,5 +2412,17 @@ func (wv *WebView) AttachFrontend(ctx context.Context, injector *ContentInjector
 	}
 
 	log.Debug().Msg("frontend assets attached to webview")
+	return nil
+}
+
+// ScrollPage scrolls the page using a semantic page-scroll request.
+// Currently uses the JS fallback with request fallback deltas.
+// Implements port.PageScrollable.
+func (wv *WebView) ScrollPage(ctx context.Context, request port.PageScrollRequest) error {
+	if wv.destroyed.Load() {
+		return fmt.Errorf("webview %d is destroyed", wv.id)
+	}
+	js := buildPageScrollFallbackJS(request.FallbackDX, request.FallbackDY)
+	runPageScrollFallbackJS(wv, ctx, js)
 	return nil
 }

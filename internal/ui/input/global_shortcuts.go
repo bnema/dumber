@@ -113,10 +113,16 @@ func NewGlobalShortcutHandler(
 			}
 		}
 
-		// Register all app-reserved shortcuts (mode activations, Ctrl+L, Ctrl+F, etc.)
+		// Register app-reserved shortcuts (Ctrl+L, Ctrl+F, other mode activations, etc.)
 		// so they work even when WebView has focus.
+		// Page mode activation is intentionally excluded here: it must flow through
+		// the normal KeyboardHandler path so editable page contexts can pass Ctrl+Y
+		// through instead of having a global shortcut controller consume it first.
 		shortcuts := NewShortcutSet(ctx, workspace, session)
 		for binding, action := range shortcuts.Global {
+			if !shouldRegisterGTKGlobalShortcut(action) {
+				continue
+			}
 			if _, exists := h.registered[binding]; exists {
 				continue
 			}
@@ -292,6 +298,14 @@ func (h *GlobalShortcutHandler) dispatchGlobalShortcut(actionToDispatch Action, 
 			Msg("inactive window global shortcut callback ignored")
 		return false
 	}
+	if h.kbHandler != nil && shouldIgnoreGlobalShortcutInMode(h.kbHandler.Mode(), actionToDispatch) {
+		log.Trace().
+			Str("action", string(actionToDispatch)).
+			Str("shortcut", formatBinding(bindingForLog)).
+			Str("mode", h.kbHandler.Mode().String()).
+			Msg("global shortcut ignored in current modal mode")
+		return true
+	}
 	eventInfo := h.inspectCurrentShortcutEvent()
 	if !shouldDispatchGlobalShortcutEvent(eventInfo) {
 		appendGlobalShortcutEventFields(log.Trace(), bindingForLog, actionToDispatch, eventInfo).
@@ -318,8 +332,7 @@ func (h *GlobalShortcutHandler) dispatchGlobalShortcut(actionToDispatch Action, 
 	// Mode-enter/exit actions go through KeyboardHandler for modal state.
 	if isModeAction(actionToDispatch) {
 		if h.kbHandler != nil {
-			h.kbHandler.DispatchAction(actionToDispatch)
-			return true
+			return h.kbHandler.DispatchAction(actionToDispatch)
 		}
 		log.Warn().
 			Str("action", string(actionToDispatch)).
@@ -481,6 +494,14 @@ func appendGlobalShortcutEventFields(evt *zerolog.Event, binding KeyBinding, act
 	return evt
 }
 
+func shouldRegisterGTKGlobalShortcut(action Action) bool {
+	return action != ActionEnterPageMode
+}
+
+func shouldIgnoreGlobalShortcutInMode(mode Mode, action Action) bool {
+	return mode == ModePage && action != ActionEnterPageMode
+}
+
 func globalShortcutActionMap() map[string]Action {
 	return map[string]Action{
 		"toggle_floating_pane":         ActionToggleFloatingPane,
@@ -563,6 +584,9 @@ func (h *GlobalShortcutHandler) ReloadShortcuts(ctx context.Context, workspace *
 
 		shortcuts := NewShortcutSet(ctx, workspace, session)
 		for binding, action := range shortcuts.Global {
+			if !shouldRegisterGTKGlobalShortcut(action) {
+				continue
+			}
 			if _, exists := h.registered[binding]; exists {
 				continue
 			}
@@ -816,7 +840,7 @@ func formatEventType(eventType gdk.EventType) string {
 
 func isModeAction(action Action) bool {
 	switch action {
-	case ActionEnterTabMode, ActionEnterPaneMode, ActionEnterSessionMode, ActionEnterResizeMode, ActionExitMode:
+	case ActionEnterTabMode, ActionEnterPaneMode, ActionEnterSessionMode, ActionEnterResizeMode, ActionEnterPageMode, ActionExitMode:
 		return true
 	default:
 		return false

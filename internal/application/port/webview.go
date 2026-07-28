@@ -142,6 +142,10 @@ type WebViewCallbacks struct {
 	// OnTouchpadNavigationGesture is called while a two-finger touchpad history
 	// navigation gesture is progressing or finishing.
 	OnTouchpadNavigationGesture func(gesture entity.TouchpadNavigationGesture)
+
+	// OnEditableFocusChanged is called when the page focus enters or leaves an
+	// editable target such as input, textarea, or contenteditable content.
+	OnEditableFocusChanged func(editable bool)
 }
 
 // FindOptions configures search behavior.
@@ -389,4 +393,37 @@ type OAuthCallbackCapable interface {
 // text input method integration.
 type TextInputTargetProvider interface {
 	TextInputTarget() TextInputTarget
+}
+
+// PageScrollCommand identifies a semantic page-scroll request at the
+// application boundary without depending on usecase package enums.
+type PageScrollCommand int
+
+const (
+	PageScrollCommandLeft PageScrollCommand = iota
+	PageScrollCommandRight
+	PageScrollCommandUp
+	PageScrollCommandDown
+	PageScrollCommandUpFast
+	PageScrollCommandDownFast
+)
+
+// PageScrollRequest carries a semantic page-scroll command identity and its
+// fallback pixel deltas. Engines own the execution strategy and may use the
+// fallback delta when no native mechanism exists for the command.
+type PageScrollRequest struct {
+	Command    PageScrollCommand
+	FallbackDX int
+	FallbackDY int
+}
+
+// PageScrollable is an optional capability for WebViews that support semantic
+// page scrolling. Page scrolling is used by keyboard-driven navigation modes
+// such as Page mode.
+//
+// Engines own the execution strategy. When a native mechanism exists for the
+// requested command, the engine may ignore the fallback delta. Otherwise it
+// should use the fallback delta as a JavaScript-driven scroll amount.
+type PageScrollable interface {
+	ScrollPage(ctx context.Context, request PageScrollRequest) error
 }

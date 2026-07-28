@@ -52,6 +52,9 @@ type browserWindow struct {
 	historySidebarReloader historySidebarReloader
 	sidebarVisible         bool
 	activeSidebarKind      nativeSidebarKind
+
+	// pageModePaneID tracks this window's pane-local Page Mode accent/pulse owner.
+	pageModePaneID entity.PaneID
 }
 
 func (bw *browserWindow) detachInputForDestroy() {
@@ -108,6 +111,7 @@ func (bw *browserWindow) clearShellState() {
 	bw.favoritesSidebar = nil
 	bw.historySidebarReloader = nil
 	bw.activeSidebarKind = nativeSidebarNone
+	bw.pageModePaneID = ""
 }
 
 func (bw *browserWindow) initChrome(ctx context.Context, a *App) {

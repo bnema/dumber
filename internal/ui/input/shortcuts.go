@@ -202,6 +202,15 @@ const (
 
 	// Application
 	ActionQuit Action = "quit"
+
+	// Page mode actions
+	ActionEnterPageMode      Action = "enter_page_mode"
+	ActionPageScrollLeft     Action = "page_scroll_left"
+	ActionPageScrollDown     Action = "page_scroll_down"
+	ActionPageScrollUp       Action = "page_scroll_up"
+	ActionPageScrollRight    Action = "page_scroll_right"
+	ActionPageScrollDownFast Action = "page_scroll_down_fast"
+	ActionPageScrollUpFast   Action = "page_scroll_up_fast"
 )
 
 const floatingProfileActionPrefix = "open_floating_profile:"
@@ -222,6 +231,8 @@ type ShortcutSet struct {
 	SessionMode ShortcutTable
 	// ResizeMode shortcuts are only active in resize mode.
 	ResizeMode ShortcutTable
+	// PageMode shortcuts are only active in page mode.
+	PageMode ShortcutTable
 }
 
 // NewShortcutSet creates a ShortcutSet from workspace and session configuration.
@@ -235,6 +246,7 @@ func NewShortcutSet(ctx context.Context, workspace *entity.WorkspaceConfig, sess
 		PaneMode:    make(ShortcutTable),
 		SessionMode: make(ShortcutTable),
 		ResizeMode:  make(ShortcutTable),
+		PageMode:    make(ShortcutTable),
 	}
 
 	set.buildGlobalShortcutsFromParts(ctx, workspace, session)
@@ -242,6 +254,7 @@ func NewShortcutSet(ctx context.Context, workspace *entity.WorkspaceConfig, sess
 		set.buildTabModeShortcuts(ctx, workspace)
 		set.buildPaneModeShortcuts(ctx, workspace)
 		set.buildResizeModeShortcuts(ctx, workspace)
+		set.buildPageModeShortcuts(ctx, workspace)
 	}
 	if session != nil {
 		set.buildSessionModeShortcuts(ctx, session)
@@ -253,6 +266,7 @@ func NewShortcutSet(ctx context.Context, workspace *entity.WorkspaceConfig, sess
 		Int("pane", len(set.PaneMode)).
 		Int("resize", len(set.ResizeMode)).
 		Int("session", len(set.SessionMode)).
+		Int("page", len(set.PageMode)).
 		Msg("shortcuts registered")
 
 	return set
@@ -288,6 +302,22 @@ func (s *ShortcutSet) buildResizeModeShortcuts(ctx context.Context, cfg *entity.
 	s.buildModeShortcuts(ctx, cfg.ResizeMode.GetKeyBindings(), s.ResizeMode, "resize")
 }
 
+// buildPageModeShortcuts populates page mode shortcuts from config.
+func (s *ShortcutSet) buildPageModeShortcuts(ctx context.Context, cfg *entity.WorkspaceConfig) {
+	log := logging.FromContext(ctx)
+	s.buildModeShortcuts(ctx, cfg.PageMode.GetKeyBindings(), s.PageMode, "page")
+	if binding, ok := ParseKeyString(cfg.PageMode.ActivationShortcut); ok {
+		s.PageMode[binding] = ActionEnterPageMode
+		log.Trace().
+			Str("shortcut", cfg.PageMode.ActivationShortcut).
+			Uint("keyval", binding.Keyval).
+			Uint("mod", uint(binding.Modifiers)).
+			Msg("page mode toggle registered in page mode table")
+	} else {
+		log.Warn().Str("shortcut", cfg.PageMode.ActivationShortcut).Msg("failed to parse page mode activation shortcut for page mode table")
+	}
+}
+
 func (s *ShortcutSet) registerActivationShortcutsFromParts(
 	ctx context.Context, workspace *entity.WorkspaceConfig, session *entity.SessionConfig,
 ) {
@@ -307,6 +337,16 @@ func (s *ShortcutSet) registerActivationShortcutsFromParts(
 			}
 		}
 		return
+	}
+	if binding, ok := ParseKeyString(workspace.PageMode.ActivationShortcut); ok {
+		s.Global[binding] = ActionEnterPageMode
+		log.Trace().
+			Str("shortcut", workspace.PageMode.ActivationShortcut).
+			Uint("keyval", binding.Keyval).
+			Uint("mod", uint(binding.Modifiers)).
+			Msg("page mode activation registered")
+	} else {
+		log.Warn().Str("shortcut", workspace.PageMode.ActivationShortcut).Msg("failed to parse page mode activation shortcut")
 	}
 	if binding, ok := ParseKeyString(workspace.TabMode.ActivationShortcut); ok {
 		s.Global[binding] = ActionEnterTabMode
@@ -642,6 +682,20 @@ var configActionToAction = map[string]Action{
 
 	// Session actions
 	"session-manager": ActionOpenSessionManager,
+
+	// Page mode scroll actions
+	"page_scroll_left":      ActionPageScrollLeft,
+	"page-scroll-left":      ActionPageScrollLeft,
+	"page_scroll_down":      ActionPageScrollDown,
+	"page-scroll-down":      ActionPageScrollDown,
+	"page_scroll_up":        ActionPageScrollUp,
+	"page-scroll-up":        ActionPageScrollUp,
+	"page_scroll_right":     ActionPageScrollRight,
+	"page-scroll-right":     ActionPageScrollRight,
+	"page_scroll_down_fast": ActionPageScrollDownFast,
+	"page-scroll-down-fast": ActionPageScrollDownFast,
+	"page_scroll_up_fast":   ActionPageScrollUpFast,
+	"page-scroll-up-fast":   ActionPageScrollUpFast,
 }
 
 // FloatingProfileTarget carries the session identity and URL for a floating profile action.
@@ -791,7 +845,9 @@ func stringToKeyval(s string) (uint, bool) {
 }
 
 // Lookup finds an action for the given key binding in the appropriate table.
-// It first checks the mode-specific table, then falls back to global.
+// It first checks the mode-specific table, then falls back to global unless
+// the current mode is Page Mode. Page Mode intentionally stays self-contained
+// so app-global shortcuts do not interrupt held page scrolling.
 func (s *ShortcutSet) Lookup(binding KeyBinding, mode Mode) (Action, bool) {
 	// Normalize the binding modifiers
 	binding.Modifiers &= modifierMask
@@ -807,11 +863,16 @@ func (s *ShortcutSet) Lookup(binding KeyBinding, mode Mode) (Action, bool) {
 		modeTable = s.ResizeMode
 	case ModeSession:
 		modeTable = s.SessionMode
+	case ModePage:
+		modeTable = s.PageMode
 	}
 
 	if modeTable != nil {
 		if action, ok := modeTable[binding]; ok {
 			return action, true
+		}
+		if mode == ModePage {
+			return "", false
 		}
 	}
 

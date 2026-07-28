@@ -681,3 +681,142 @@ func setupPaneViewMocksNoWebView(
 	mockOverlay.EXPECT().SetClipOverlay(mockBorderBox, false).Once()
 	mockOverlay.EXPECT().SetMeasureOverlay(mockBorderBox, false).Once()
 }
+
+func TestSetPageMode_TrueAddsPaneAccentWithoutCreatingLabel(t *testing.T) {
+	mockFactory := mocks.NewMockWidgetFactory(t)
+	mockOverlay := mocks.NewMockOverlayWidget(t)
+	mockBorderBox := mocks.NewMockBoxWidget(t)
+	mockWebView := mocks.NewMockWidget(t)
+	setupPaneViewMocks(t, mockFactory, mockOverlay, mockBorderBox, mockWebView)
+	pv := component.NewPaneView(context.Background(), mockFactory, entity.PaneID("pane-1"), mockWebView)
+
+	mockOverlay.EXPECT().AddCssClass("page-mode-active").Once()
+	pv.SetPageMode(true)
+
+	require.True(t, pv.IsPageMode())
+}
+
+func TestSetPageMode_FalseRemovesPaneAccent(t *testing.T) {
+	mockFactory := mocks.NewMockWidgetFactory(t)
+	mockOverlay := mocks.NewMockOverlayWidget(t)
+	mockBorderBox := mocks.NewMockBoxWidget(t)
+	mockWebView := mocks.NewMockWidget(t)
+	setupPaneViewMocks(t, mockFactory, mockOverlay, mockBorderBox, mockWebView)
+	pv := component.NewPaneView(context.Background(), mockFactory, entity.PaneID("pane-1"), mockWebView)
+
+	mockOverlay.EXPECT().AddCssClass("page-mode-active").Once()
+	pv.SetPageMode(true)
+	mockOverlay.EXPECT().RemoveCssClass("page-mode-active").Once()
+	pv.SetPageMode(false)
+
+	require.False(t, pv.IsPageMode())
+}
+
+func TestSetPageMode_NoChangeWhenSameState(t *testing.T) {
+	mockFactory := mocks.NewMockWidgetFactory(t)
+	mockOverlay := mocks.NewMockOverlayWidget(t)
+	mockBorderBox := mocks.NewMockBoxWidget(t)
+	mockWebView := mocks.NewMockWidget(t)
+	setupPaneViewMocks(t, mockFactory, mockOverlay, mockBorderBox, mockWebView)
+	pv := component.NewPaneView(context.Background(), mockFactory, entity.PaneID("pane-1"), mockWebView)
+
+	pv.SetPageMode(false)
+
+	require.False(t, pv.IsPageMode())
+}
+
+func TestSetPageMode_TrueThenTrueIsIdempotent(t *testing.T) {
+	mockFactory := mocks.NewMockWidgetFactory(t)
+	mockOverlay := mocks.NewMockOverlayWidget(t)
+	mockBorderBox := mocks.NewMockBoxWidget(t)
+	mockWebView := mocks.NewMockWidget(t)
+	setupPaneViewMocks(t, mockFactory, mockOverlay, mockBorderBox, mockWebView)
+	pv := component.NewPaneView(context.Background(), mockFactory, entity.PaneID("pane-1"), mockWebView)
+
+	mockOverlay.EXPECT().AddCssClass("page-mode-active").Once()
+	pv.SetPageMode(true)
+	pv.SetPageMode(true)
+
+	require.True(t, pv.IsPageMode())
+}
+
+func expectPageModeOverlayPulse(overlay *mocks.MockOverlayWidget, fast bool, cycle string) {
+	overlay.EXPECT().RemoveCssClass("page-mode-pulse").Once()
+	overlay.EXPECT().RemoveCssClass("page-mode-pulse-fast").Once()
+	overlay.EXPECT().RemoveCssClass("page-mode-pulse-cycle-a").Once()
+	overlay.EXPECT().RemoveCssClass("page-mode-pulse-cycle-b").Once()
+	if fast {
+		overlay.EXPECT().AddCssClass("page-mode-pulse-fast").Once()
+	} else {
+		overlay.EXPECT().AddCssClass("page-mode-pulse").Once()
+	}
+	overlay.EXPECT().AddCssClass(cycle).Once()
+}
+
+func TestTriggerPageModePulse_PulsesOnlyOverlay(t *testing.T) {
+	mockFactory := mocks.NewMockWidgetFactory(t)
+	mockOverlay := mocks.NewMockOverlayWidget(t)
+	mockBorderBox := mocks.NewMockBoxWidget(t)
+	mockWebView := mocks.NewMockWidget(t)
+	setupPaneViewMocks(t, mockFactory, mockOverlay, mockBorderBox, mockWebView)
+	pv := component.NewPaneView(context.Background(), mockFactory, entity.PaneID("pane-1"), mockWebView)
+
+	expectPageModeOverlayPulse(mockOverlay, false, "page-mode-pulse-cycle-a")
+	pv.TriggerPageModePulse()
+}
+
+func TestTriggerPageModePulseFast_PulsesOnlyOverlay(t *testing.T) {
+	mockFactory := mocks.NewMockWidgetFactory(t)
+	mockOverlay := mocks.NewMockOverlayWidget(t)
+	mockBorderBox := mocks.NewMockBoxWidget(t)
+	mockWebView := mocks.NewMockWidget(t)
+	setupPaneViewMocks(t, mockFactory, mockOverlay, mockBorderBox, mockWebView)
+	pv := component.NewPaneView(context.Background(), mockFactory, entity.PaneID("pane-1"), mockWebView)
+
+	expectPageModeOverlayPulse(mockOverlay, true, "page-mode-pulse-cycle-a")
+	pv.TriggerPageModePulseFast()
+}
+
+func TestTriggerPageModePulse_RepeatedCallsReTriggerOverlayAnimation(t *testing.T) {
+	mockFactory := mocks.NewMockWidgetFactory(t)
+	mockOverlay := mocks.NewMockOverlayWidget(t)
+	mockBorderBox := mocks.NewMockBoxWidget(t)
+	mockWebView := mocks.NewMockWidget(t)
+	setupPaneViewMocks(t, mockFactory, mockOverlay, mockBorderBox, mockWebView)
+	pv := component.NewPaneView(context.Background(), mockFactory, entity.PaneID("pane-1"), mockWebView)
+
+	expectPageModeOverlayPulse(mockOverlay, false, "page-mode-pulse-cycle-a")
+	pv.TriggerPageModePulse()
+	expectPageModeOverlayPulse(mockOverlay, true, "page-mode-pulse-cycle-b")
+	pv.TriggerPageModePulseFast()
+	expectPageModeOverlayPulse(mockOverlay, false, "page-mode-pulse-cycle-a")
+	pv.TriggerPageModePulse()
+}
+
+func TestPageMode_CleanupHasNoIndicatorOverlay(t *testing.T) {
+	mockFactory := mocks.NewMockWidgetFactory(t)
+	mockOverlay := mocks.NewMockOverlayWidget(t)
+	mockBorderBox := mocks.NewMockBoxWidget(t)
+	mockWebView := mocks.NewMockWidget(t)
+	setupPaneViewMocks(t, mockFactory, mockOverlay, mockBorderBox, mockWebView)
+	pv := component.NewPaneView(context.Background(), mockFactory, entity.PaneID("pane-1"), mockWebView)
+
+	mockOverlay.EXPECT().AddCssClass("page-mode-active").Once()
+	pv.SetPageMode(true)
+	mockOverlay.EXPECT().RemoveOverlay(mock.Anything).Once()
+	mockOverlay.EXPECT().SetChild(nil).Once()
+
+	pv.Cleanup()
+}
+
+func TestPageMode_NewPaneViewInactiveByDefault(t *testing.T) {
+	mockFactory := mocks.NewMockWidgetFactory(t)
+	mockOverlay := mocks.NewMockOverlayWidget(t)
+	mockBorderBox := mocks.NewMockBoxWidget(t)
+	mockWebView := mocks.NewMockWidget(t)
+	setupPaneViewMocks(t, mockFactory, mockOverlay, mockBorderBox, mockWebView)
+
+	pv := component.NewPaneView(context.Background(), mockFactory, entity.PaneID("pane-1"), mockWebView)
+
+	require.False(t, pv.IsPageMode())
+}

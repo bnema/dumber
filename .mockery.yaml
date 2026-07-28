@@ -59,6 +59,7 @@ packages:
       SessionSpawner: {}
       WindowStateProvider: {}
       WebView: {}
+      PageScrollable: {}
       WebViewFactory: {}
       WebViewPool: {}
       MemoryPressureApplier: {}

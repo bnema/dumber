@@ -1,11 +1,15 @@
 package webkit
 
 import (
+	"context"
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
+	"github.com/bnema/dumber/internal/application/port"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestClassifyRunJSEvaluateError(t *testing.T) {
@@ -86,4 +90,100 @@ func TestShouldLogRunJSError_FatalAlwaysLogs(t *testing.T) {
 	shouldLog, count = wv.shouldLogRunJSError("example.com", "fatal-sig", false, base)
 	assert.True(t, shouldLog)
 	assert.Equal(t, uint64(2), count)
+}
+
+func TestScrollPage_Destroyed_ReturnsError(t *testing.T) {
+	wv := &WebView{}
+	wv.destroyed.Store(true)
+
+	err := wv.ScrollPage(context.Background(), port.PageScrollRequest{
+		Command:    port.PageScrollCommandDown,
+		FallbackDX: 0,
+		FallbackDY: 80,
+	})
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "destroyed")
+}
+
+func TestScrollPage_UsesFallbackDeltasAndRunsJavaScript(t *testing.T) {
+	oldBuilder := buildPageScrollFallbackJS
+	oldRunner := runPageScrollFallbackJS
+	defer func() {
+		buildPageScrollFallbackJS = oldBuilder
+		runPageScrollFallbackJS = oldRunner
+	}()
+
+	var gotDX, gotDY int
+	var gotScript string
+	var runCount int
+	buildPageScrollFallbackJS = func(dx, dy int) string {
+		gotDX, gotDY = dx, dy
+		return fmt.Sprintf("scroll(%d,%d)", dx, dy)
+	}
+	runPageScrollFallbackJS = func(_ *WebView, _ context.Context, script string) {
+		runCount++
+		gotScript = script
+	}
+
+	wv := &WebView{
+		uri:             "https://example.com",
+		runJSErrorStats: make(map[string]runJSErrorStat),
+	}
+
+	err := wv.ScrollPage(context.Background(), port.PageScrollRequest{
+		Command:    port.PageScrollCommand(99),
+		FallbackDX: -12,
+		FallbackDY: 80,
+	})
+
+	require.NoError(t, err)
+	assert.Equal(t, -12, gotDX)
+	assert.Equal(t, 80, gotDY)
+	assert.Equal(t, "scroll(-12,80)", gotScript)
+	assert.Equal(t, 1, runCount)
+}
+
+func TestScrollPage_VariousRequestsForwardFallbackDeltas(t *testing.T) {
+	oldBuilder := buildPageScrollFallbackJS
+	oldRunner := runPageScrollFallbackJS
+	defer func() {
+		buildPageScrollFallbackJS = oldBuilder
+		runPageScrollFallbackJS = oldRunner
+	}()
+
+	tests := []struct {
+		name string
+		req  port.PageScrollRequest
+	}{
+		{"zero request", port.PageScrollRequest{}},
+		{"down", port.PageScrollRequest{Command: port.PageScrollCommandDown, FallbackDY: 80}},
+		{"up", port.PageScrollRequest{Command: port.PageScrollCommandUp, FallbackDY: -80}},
+		{"left", port.PageScrollRequest{Command: port.PageScrollCommandLeft, FallbackDX: -80}},
+		{"right", port.PageScrollRequest{Command: port.PageScrollCommandRight, FallbackDX: 80}},
+		{"up fast", port.PageScrollRequest{Command: port.PageScrollCommandUpFast, FallbackDY: -320}},
+		{"down fast", port.PageScrollRequest{Command: port.PageScrollCommandDownFast, FallbackDY: 320}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var gotDX, gotDY int
+			buildPageScrollFallbackJS = func(dx, dy int) string {
+				gotDX, gotDY = dx, dy
+				return "ok"
+			}
+			runPageScrollFallbackJS = func(_ *WebView, _ context.Context, script string) {
+				assert.Equal(t, "ok", script)
+			}
+
+			wv := &WebView{
+				uri:             "https://example.com",
+				runJSErrorStats: make(map[string]runJSErrorStat),
+			}
+			err := wv.ScrollPage(context.Background(), tt.req)
+			require.NoError(t, err)
+			assert.Equal(t, tt.req.FallbackDX, gotDX)
+			assert.Equal(t, tt.req.FallbackDY, gotDY)
+		})
+	}
 }

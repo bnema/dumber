@@ -36,6 +36,13 @@ import (
 // Return an error if the action fails.
 type ActionHandler func(ctx context.Context, action Action) error
 
+const (
+	// pageScrollRepeatInterval is the fallback cadence when the handler is not
+	// attached to a GTK widget. Attached handlers use GTK tick callbacks instead,
+	// which run at the output device's frame rate.
+	pageScrollRepeatInterval = time.Second / 60
+)
+
 // AccentHandler handles long-press accent detection.
 // Called for character keys that may have accent variants.
 type AccentHandler interface {
@@ -68,6 +75,9 @@ type KeyboardHandler struct {
 	accentHandler AccentHandler
 	// Optional escape hook for app-level overlays
 	onEscape func(ctx context.Context) bool
+	// Optional hook that blocks Page mode activation and lets the original key
+	// event pass through to the focused widget/page instead.
+	pageModeActivationPassthrough func() bool
 
 	// GTK controller (nil until attached)
 	controller *gtk.EventControllerKey
@@ -82,6 +92,15 @@ type KeyboardHandler struct {
 	activePressedActions map[Action]uint
 	ctx                  context.Context
 	mu                   sync.RWMutex
+
+	pageScrollRepeatAction       Action
+	pageScrollRepeatKeyval       uint
+	pageScrollRepeatTimer        uint
+	pageScrollRepeatCb           glib.SourceFunc
+	pageScrollRepeatTickCb       gtk.TickCallback
+	pageScrollRepeatAdd          func(intervalMS uint, cb *glib.SourceFunc) uint
+	pageScrollRepeatRemove       func(id uint) bool
+	pageScrollRepeatActiveRemove func(id uint) bool
 }
 
 // NewKeyboardHandler creates a new keyboard handler.
@@ -97,7 +116,12 @@ func NewKeyboardHandler(ctx context.Context, workspace *entity.WorkspaceConfig, 
 		session:              session,
 		activePressedActions: make(map[Action]uint),
 		ctx:                  ctx,
+		pageScrollRepeatAdd: func(intervalMS uint, cb *glib.SourceFunc) uint {
+			return glib.TimeoutAdd(intervalMS, cb, 0)
+		},
+		pageScrollRepeatRemove: glib.SourceRemove,
 	}
+	h.SetOnModeChange(nil)
 
 	return h
 }
@@ -109,9 +133,18 @@ func (h *KeyboardHandler) SetOnAction(fn ActionHandler) {
 	h.onAction = fn
 }
 
+// SetPageModeActivationPassthrough sets the callback that can block Page mode
+// activation and let the original key event propagate instead.
+func (h *KeyboardHandler) SetPageModeActivationPassthrough(fn func() bool) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.pageModeActivationPassthrough = fn
+}
+
 // ReloadShortcuts rebuilds the shortcut set from new config values.
 // This enables hot-reloading of keybindings without restarting.
 func (h *KeyboardHandler) ReloadShortcuts(ctx context.Context, workspace *entity.WorkspaceConfig, session *entity.SessionConfig) {
+	h.stopPageScrollRepeat()
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
@@ -133,6 +166,9 @@ func (h *KeyboardHandler) SetOnModeChange(fn func(from, to Mode)) {
 			h.setControllerPhase(gtk.PhaseBubbleValue)
 		} else if from == ModeNormal {
 			h.setControllerPhase(gtk.PhaseCaptureValue)
+		}
+		if to != ModePage {
+			h.stopPageScrollRepeat()
 		}
 		// Forward to app-level callback
 		if fn != nil {
@@ -258,7 +294,6 @@ func (h *KeyboardHandler) DetachForDestroy() {
 
 func (h *KeyboardHandler) detach(removeController bool) {
 	h.mu.Lock()
-	defer h.mu.Unlock()
 	if h.controller != nil && h.keyPressedHandlerID != 0 {
 		h.controller.DisconnectSignal(h.keyPressedHandlerID)
 	}
@@ -275,6 +310,21 @@ func (h *KeyboardHandler) detach(removeController bool) {
 	h.keyPressedHandlerID = 0
 	h.keyReleasedHandlerID = 0
 	h.activePressedActions = nil
+	timerID := h.pageScrollRepeatTimer
+	remove := h.pageScrollRepeatRemove
+	h.pageScrollRepeatAction = ""
+	h.pageScrollRepeatKeyval = 0
+	h.pageScrollRepeatTimer = 0
+	h.pageScrollRepeatCb = nil
+	h.pageScrollRepeatTickCb = nil
+	if h.pageScrollRepeatActiveRemove != nil {
+		remove = h.pageScrollRepeatActiveRemove
+	}
+	h.pageScrollRepeatActiveRemove = nil
+	h.mu.Unlock()
+	if timerID != 0 && remove != nil {
+		remove(timerID)
+	}
 }
 
 // handleKeyPress processes a key press event.
@@ -294,17 +344,31 @@ func (h *KeyboardHandler) handleKeyPress(keyval, keycode uint, state gdk.Modifie
 	}
 
 	modifiers := Modifier(state) & modifierMask
+	mode := h.modal.Mode()
 
 	// Escape in normal mode: check app-level escape hook first
-	if h.modal.Mode() == ModeNormal && keyval == uint(gdk.KEY_Escape) && modifiers == 0 {
+	if mode == ModeNormal && keyval == uint(gdk.KEY_Escape) && modifiers == 0 {
 		if onEscape != nil && onEscape(h.ctx) {
+			return true
+		}
+	}
+
+	// Escape / Enter should always leave modal modes even if the current config
+	// omits explicit confirm/cancel bindings.
+	if mode != ModeNormal && modifiers == 0 {
+		switch keyval {
+		case uint(gdk.KEY_Escape), uint(gdk.KEY_Return), uint(gdk.KEY_KP_Enter):
+			if mode == ModePage {
+				h.stopPageScrollRepeat()
+			}
+			h.modal.ExitMode(h.ctx)
 			return true
 		}
 	}
 
 	// Determine routing for this key event
 	route := RouteHandleShortcuts // default: process through shortcut system
-	if routeKey != nil && h.modal.Mode() == ModeNormal {
+	if routeKey != nil && mode == ModeNormal {
 		route = routeKey(KeyContext{
 			Keyval:    keyval,
 			Keycode:   keycode,
@@ -338,11 +402,30 @@ func (h *KeyboardHandler) handleKeyPress(keyval, keycode uint, state gdk.Modifie
 	keyval = normalizeKeyval(keyval)
 
 	binding := KeyBinding{Keyval: keyval, Modifiers: modifiers}
-	mode := h.modal.Mode()
 	action, found := h.lookupAction(log, binding, mode, modifiers, keycode)
+	return h.handleShortcutLookupResult(log, action, found, mode, keyval, modifiers)
+}
 
+func (h *KeyboardHandler) handleShortcutLookupResult(
+	log *zerolog.Logger,
+	action Action,
+	found bool,
+	mode Mode,
+	keyval uint,
+	modifiers Modifier,
+) bool {
 	if !found {
+		if shouldPassthroughNativePageModeNavigation(mode, keyval, modifiers) {
+			log.Trace().Uint("keyval", keyval).Msg("routing native page navigation key to focused widget in page mode")
+			return false
+		}
 		return mode != ModeNormal // Consume unrecognized keys in modal mode
+	}
+	if h.shouldPassthroughPageModeActivation(action, mode) {
+		return false
+	}
+	if mode == ModePage && isPageScrollAction(action) {
+		return h.handlePageScrollAction(log, action, mode, keyval)
 	}
 	if h.suppressHeldAction(action, keyval) {
 		log.Trace().
@@ -350,8 +433,99 @@ func (h *KeyboardHandler) handleKeyPress(keyval, keycode uint, state gdk.Modifie
 			Msg("held keyboard action repeat suppressed")
 		return true
 	}
-
 	return h.dispatchAction(action, mode)
+}
+
+func (h *KeyboardHandler) handlePageScrollAction(log *zerolog.Logger, action Action, mode Mode, keyval uint) bool {
+	h.mu.Lock()
+	repeatAction := h.pageScrollRepeatAction
+	repeatKeyval := h.pageScrollRepeatKeyval
+	repeatTimer := h.pageScrollRepeatTimer
+	h.mu.Unlock()
+
+	if repeatAction == action && repeatKeyval == keyval {
+		if repeatTimer != 0 {
+			log.Trace().Str("action", string(action)).Msg("page scroll key repeat handled by smooth repeater")
+			return true
+		}
+		if h.dispatchAction(action, mode) {
+			h.startPageScrollRepeat(action, keyval)
+			return true
+		}
+		return false
+	}
+
+	h.stopPageScrollRepeat()
+	h.mu.Lock()
+	h.pageScrollRepeatAction = action
+	h.pageScrollRepeatKeyval = keyval
+	h.mu.Unlock()
+	return h.dispatchAction(action, mode)
+}
+
+func (h *KeyboardHandler) startPageScrollRepeat(action Action, keyval uint) {
+	h.mu.Lock()
+	if h.pageScrollRepeatAction != action || h.pageScrollRepeatKeyval != keyval || h.pageScrollRepeatTimer != 0 {
+		h.mu.Unlock()
+		return
+	}
+	if h.window != nil {
+		window := h.window
+		cb := gtk.TickCallback(func(_, _, _ uintptr) bool {
+			return h.pageScrollRepeatTick(action, keyval)
+		})
+		h.pageScrollRepeatTickCb = cb
+		h.pageScrollRepeatActiveRemove = func(id uint) bool {
+			window.RemoveTickCallback(id)
+			return true
+		}
+		h.pageScrollRepeatTimer = window.AddTickCallback(&h.pageScrollRepeatTickCb, 0, nil)
+		h.mu.Unlock()
+		return
+	}
+
+	add := h.pageScrollRepeatAdd
+	if add == nil {
+		h.mu.Unlock()
+		return
+	}
+	cb := glib.SourceFunc(func(_ uintptr) bool {
+		return h.pageScrollRepeatTick(action, keyval)
+	})
+	h.pageScrollRepeatCb = cb
+	h.pageScrollRepeatTimer = add(uint(pageScrollRepeatInterval/time.Millisecond), &h.pageScrollRepeatCb)
+	h.mu.Unlock()
+}
+
+func (h *KeyboardHandler) pageScrollRepeatTick(action Action, keyval uint) bool {
+	h.mu.RLock()
+	active := h.pageScrollRepeatAction == action && h.pageScrollRepeatKeyval == keyval && h.pageScrollRepeatTimer != 0
+	h.mu.RUnlock()
+	if !active || h.modal.Mode() != ModePage {
+		h.stopPageScrollRepeat()
+		return false
+	}
+	h.dispatchAction(action, ModePage)
+	return true
+}
+
+func (h *KeyboardHandler) stopPageScrollRepeat() {
+	h.mu.Lock()
+	timerID := h.pageScrollRepeatTimer
+	remove := h.pageScrollRepeatRemove
+	h.pageScrollRepeatAction = ""
+	h.pageScrollRepeatKeyval = 0
+	h.pageScrollRepeatTimer = 0
+	h.pageScrollRepeatCb = nil
+	h.pageScrollRepeatTickCb = nil
+	if h.pageScrollRepeatActiveRemove != nil {
+		remove = h.pageScrollRepeatActiveRemove
+	}
+	h.pageScrollRepeatActiveRemove = nil
+	h.mu.Unlock()
+	if timerID != 0 && remove != nil {
+		remove(timerID)
+	}
 }
 
 // tryAccentDetection starts long-press detection for accent-eligible keys.
@@ -382,6 +556,18 @@ func normalizeKeyval(keyval uint) uint {
 	return keyval
 }
 
+func shouldPassthroughNativePageModeNavigation(mode Mode, keyval uint, modifiers Modifier) bool {
+	if mode != ModePage || modifiers != ModNone {
+		return false
+	}
+	switch keyval {
+	case uint(gdk.KEY_Left), uint(gdk.KEY_Right), uint(gdk.KEY_Up), uint(gdk.KEY_Down):
+		return true
+	default:
+		return false
+	}
+}
+
 // dispatchAction dispatches the action and handles mode-related logic.
 func (h *KeyboardHandler) dispatchAction(action Action, mode Mode) bool {
 	if h.handleModeAction(action) {
@@ -400,6 +586,9 @@ func (h *KeyboardHandler) dispatchAction(action Action, mode Mode) bool {
 	}
 
 	if mode == ModeResize && isResizeAction(action) {
+		h.modal.ResetTimeout(h.ctx)
+	}
+	if mode == ModePage && isPageScrollAction(action) {
 		h.modal.ResetTimeout(h.ctx)
 	}
 
@@ -436,6 +625,7 @@ func isRepeatedKeyboardActionSuppressed(action Action) bool {
 		ActionEnterPaneMode,
 		ActionEnterSessionMode,
 		ActionEnterResizeMode,
+		ActionEnterPageMode,
 		ActionNewTab,
 		ActionRenameTab,
 		ActionSplitRight,
@@ -512,6 +702,20 @@ func isResizeAction(action Action) bool {
 	}
 }
 
+func isPageScrollAction(action Action) bool {
+	switch action {
+	case ActionPageScrollLeft,
+		ActionPageScrollDown,
+		ActionPageScrollUp,
+		ActionPageScrollRight,
+		ActionPageScrollDownFast,
+		ActionPageScrollUpFast:
+		return true
+	default:
+		return false
+	}
+}
+
 func (h *KeyboardHandler) handleModeAction(action Action) bool {
 	h.mu.RLock()
 	workspace := h.workspace
@@ -551,7 +755,22 @@ func (h *KeyboardHandler) handleModeAction(action Action) bool {
 		}
 		h.modal.EnterResizeMode(h.ctx, time.Duration(ms)*time.Millisecond)
 		return true
+	case ActionEnterPageMode:
+		if h.modal.Mode() == ModePage {
+			h.stopPageScrollRepeat()
+			h.modal.ExitMode(h.ctx)
+			return true
+		}
+		var pgms int
+		if workspace != nil {
+			pgms = workspace.PageMode.TimeoutMilliseconds
+		}
+		h.modal.EnterPageMode(h.ctx, time.Duration(pgms)*time.Millisecond)
+		return true
 	case ActionExitMode:
+		if h.modal.Mode() == ModePage {
+			h.stopPageScrollRepeat()
+		}
 		h.modal.ExitMode(h.ctx)
 		return true
 	default:
@@ -598,33 +817,64 @@ func (h *KeyboardHandler) EnterSessionMode() {
 	h.modal.EnterSessionMode(h.ctx, time.Duration(ms)*time.Millisecond)
 }
 
+// EnterPageMode programmatically enters page scrolling mode.
+// Useful for testing or programmatic mode changes.
+func (h *KeyboardHandler) EnterPageMode() {
+	h.mu.RLock()
+	workspace := h.workspace
+	h.mu.RUnlock()
+	var ms int
+	if workspace != nil {
+		ms = workspace.PageMode.TimeoutMilliseconds
+	}
+	h.modal.EnterPageMode(h.ctx, time.Duration(ms)*time.Millisecond)
+}
+
 // ExitMode programmatically exits modal mode.
 // Useful for testing or programmatic mode changes.
 func (h *KeyboardHandler) ExitMode() {
 	h.modal.ExitMode(h.ctx)
 }
 
+func (h *KeyboardHandler) shouldPassthroughPageModeActivation(action Action, mode Mode) bool {
+	if action != ActionEnterPageMode || mode != ModeNormal {
+		return false
+	}
+	h.mu.RLock()
+	passthrough := h.pageModeActivationPassthrough
+	h.mu.RUnlock()
+	return passthrough != nil && passthrough()
+}
+
 // DispatchAction processes an action externally triggered (e.g., by a global
 // shortcut). Mode-enter actions update modal state; other actions are forwarded
-// to the registered action handler.
-func (h *KeyboardHandler) DispatchAction(action Action) {
+// to the registered action handler. It returns whether the action was consumed.
+func (h *KeyboardHandler) DispatchAction(action Action) bool {
 	mode := h.modal.Mode()
+	if h.shouldPassthroughPageModeActivation(action, mode) {
+		return false
+	}
 	h.dispatchAction(action, mode)
+	return true
 }
 
 // handleKeyRelease processes a key release event for accent detection.
 func (h *KeyboardHandler) handleKeyRelease(keyval uint) {
+	keyval = normalizeKeyval(keyval)
 	h.mu.Lock()
 	accentHandler := h.accentHandler
 	if len(h.activePressedActions) > 0 {
-		keyval = normalizeKeyval(keyval)
 		for action, pressedKeyval := range h.activePressedActions {
 			if pressedKeyval == keyval {
 				delete(h.activePressedActions, action)
 			}
 		}
 	}
+	stopPageScroll := h.pageScrollRepeatKeyval == keyval
 	h.mu.Unlock()
+	if stopPageScroll {
+		h.stopPageScrollRepeat()
+	}
 
 	if accentHandler == nil {
 		return

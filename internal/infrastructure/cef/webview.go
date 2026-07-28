@@ -21,6 +21,7 @@ import (
 	"github.com/bnema/dumber/internal/application/dto"
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/domain/entity"
+	"github.com/bnema/dumber/internal/infrastructure/webutil"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/dumber/internal/shared/syncdispatch"
 )
@@ -34,6 +35,7 @@ var (
 	_ port.PopupOpenerCapable    = (*WebView)(nil)
 	_ port.ViewportSyncCapable   = (*WebView)(nil)
 	_ port.OAuthCallbackCapable  = (*WebView)(nil)
+	_ port.PageScrollable        = (*WebView)(nil)
 )
 
 // errDestroyed is returned when an operation is attempted on a destroyed WebView.
@@ -1423,22 +1425,27 @@ func (wv *WebView) setEditableFocus(editable bool) {
 	wv.mu.Lock()
 	previous := wv.focusedEditable
 	wv.focusedEditable = editable
+	cb := wv.callbacks
+	var timer stoppableTimer
 	if editable {
 		wv.selectionDebounceSeq++
-		timer := wv.selectionDebounceTimer
+		timer = wv.selectionDebounceTimer
 		wv.selectionDebounceTimer = nil
-		wv.mu.Unlock()
-		if timer != nil {
-			timer.Stop()
-		}
-		if previous != editable && wv.ctx != nil {
-			logging.FromContext(wv.ctx).Debug().Bool("editable", editable).Msg("cef: editable focus changed")
-		}
-		return
 	}
 	wv.mu.Unlock()
-	if previous != editable && wv.ctx != nil {
+	if timer != nil {
+		timer.Stop()
+	}
+	if previous == editable {
+		return
+	}
+	if wv.ctx != nil {
 		logging.FromContext(wv.ctx).Debug().Bool("editable", editable).Msg("cef: editable focus changed")
+	}
+	if cb != nil && cb.OnEditableFocusChanged != nil {
+		wv.runOnGTK(func() {
+			cb.OnEditableFocusChanged(editable)
+		})
 	}
 }
 
@@ -2366,6 +2373,56 @@ func (wv *WebView) takePendingCreate() *pendingBrowserCreate {
 	pc := wv.pendingCreate
 	wv.pendingCreate = nil
 	return pc
+}
+
+// pageScrollWheelEvent builds the CEF mouse wheel event used for keyboard-driven
+// Page Mode scrolling. It targets the center of the current OSR view so the
+// scroll goes through Chromium's compositor/input pipeline instead of a series
+// of synthetic key taps.
+func (wv *WebView) pageScrollWheelEvent() purecef.MouseEvent {
+	width, height := int32(1), int32(1)
+	if wv != nil && wv.viewBridge != nil {
+		width, height = wv.viewBridge.Size()
+	}
+	scale := normalizeScale(wv.osrBackingScaleFactor())
+	return purecef.MouseEvent{
+		X:         int32(math.Floor(float64(width) * scale / 2)),
+		Y:         int32(math.Floor(float64(height) * scale / 2)),
+		Modifiers: uint32(purecef.EventFlagsEventflagPrecisionScrollingDelta),
+	}
+}
+
+func pageScrollWheelDeltas(request port.PageScrollRequest) (deltaX, deltaY int32) {
+	return int32(-request.FallbackDX), int32(-request.FallbackDY)
+}
+
+// ScrollPage resolves a DOM scroll target when the browser is ready so an
+// exhausted nested scroller can hand off automatically to its ancestor or the
+// document. Native precision-wheel input remains the pre-frame fallback.
+func (wv *WebView) ScrollPage(ctx context.Context, request port.PageScrollRequest) error {
+	if wv.destroyed.Load() {
+		return errDestroyed
+	}
+
+	wv.mu.RLock()
+	host := wv.host
+	browser := wv.browser
+	wv.mu.RUnlock()
+	if browser != nil {
+		wv.RunJavaScript(ctx, webutil.BuildScrollAtViewportCenterByJS(request.FallbackDX, request.FallbackDY))
+		return nil
+	}
+	if host != nil {
+		deltaX, deltaY := pageScrollWheelDeltas(request)
+		if deltaX != 0 || deltaY != 0 {
+			event := wv.pageScrollWheelEvent()
+			host.SendMouseWheelEvent(&event, deltaX, deltaY)
+		}
+		return nil
+	}
+
+	wv.RunJavaScript(ctx, webutil.BuildScrollByJS(request.FallbackDX, request.FallbackDY))
+	return nil
 }
 
 // beginAudioStreamStart invalidates any prior stream before creating a new
