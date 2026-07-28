@@ -2415,8 +2415,9 @@ func (wv *WebView) AttachFrontend(ctx context.Context, injector *ContentInjector
 	return nil
 }
 
-// ScrollPage scrolls the page using a semantic page-scroll request.
-// Currently uses the JS fallback with request fallback deltas.
+// ScrollPage scrolls from the viewport center, handing exhausted nested
+// scrollers off to their ancestors and then the document. CEF uses the same
+// shared directional DOM-target resolution once its browser is ready.
 // Implements port.PageScrollable.
 func (wv *WebView) ScrollPage(ctx context.Context, request port.PageScrollRequest) error {
 	if wv.destroyed.Load() {

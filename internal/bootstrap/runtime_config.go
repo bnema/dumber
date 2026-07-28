@@ -140,6 +140,7 @@ func cloneRuntimeSearchShortcuts(in map[string]entity.RuntimeSearchShortcut) map
 func cloneWorkspaceConfig(in entity.WorkspaceConfig) entity.WorkspaceConfig {
 	in.PaneMode.Actions = cloneActionBindings(in.PaneMode.Actions)
 	in.TabMode.Actions = cloneActionBindings(in.TabMode.Actions)
+	in.PageMode.Actions = cloneActionBindings(in.PageMode.Actions)
 	in.ResizeMode.Actions = cloneActionBindings(in.ResizeMode.Actions)
 	in.Shortcuts.Actions = cloneActionBindings(in.Shortcuts.Actions)
 	in.FloatingPane.Profiles = cloneFloatingPaneProfiles(in.FloatingPane.Profiles)

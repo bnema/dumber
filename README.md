@@ -169,13 +169,13 @@ type = "webkit"
 
 ### Page scroll execution
 
-Page Mode scroll commands are routed through `port.PageScrollable`, and each
-engine owns its execution strategy:
-- **CEF** sends synthetic native key events (arrow keys, Page Up/Down) through
-the Chromium browser host for the best compatibility with SPA scroll containers.
-- **WebKit** falls back to JavaScript scroll delta injection using the shared
-`BuildScrollByJS` helper, which coalesces rapid held-key repeats via
-`requestAnimationFrame` and resolves the nearest scrollable ancestor.
+Page Mode scroll commands are routed through `port.PageScrollable`. CEF and
+WebKit use the shared `BuildScrollByJS` target resolver when the page is ready:
+it starts under the viewport center, walks through ancestors that can move in
+the requested direction, and hands scrolling to the document when a nested
+container reaches its boundary. The application repeater owns held-key cadence;
+each engine executes one immediate scroll step per tick. Cross-origin frame
+contents remain best-effort.
 
 ### Rendering notes
 

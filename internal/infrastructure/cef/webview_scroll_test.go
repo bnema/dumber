@@ -248,6 +248,204 @@ func TestScrollPage_NativePath_FallbackToJSWhenHostIsNil(t *testing.T) {
 	}
 }
 
+func TestScrollPage_CoalescesHeldLoadIntoOneBoundedCEFTask(t *testing.T) {
+	oldNewTask, oldPostTask := cefNewTask, cefPostTask
+	defer func() { cefNewTask, cefPostTask = oldNewTask, oldPostTask }()
+	cefNewTask = func(task purecef.Task) purecef.Task { return task }
+	var scheduled purecef.Task
+	posts := 0
+	cefPostTask = func(threadID purecef.ThreadID, task purecef.Task) int32 {
+		if threadID != purecef.ThreadIDTidUi {
+			t.Fatalf("thread=%v, want CEF UI", threadID)
+		}
+		posts++
+		scheduled = task
+		return 1
+	}
+
+	browser := cefmocks.NewMockBrowser(t)
+	frame := cefmocks.NewMockFrame(t)
+	browser.EXPECT().GetMainFrame().Return(frame).Once()
+	frame.EXPECT().ExecuteJavaScript(mock.MatchedBy(func(script string) bool {
+		return strings.Contains(script, "var dx=0,dy=3200")
+	}), "", int32(0)).Once()
+	wv := &WebView{engine: &Engine{}, browser: browser}
+
+	for range 10_000 {
+		if err := wv.ScrollPage(context.Background(), port.PageScrollRequest{FallbackDY: 80, Continuous: true}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if posts != 1 {
+		t.Fatalf("CEF flush posts=%d, want exactly 1 under load", posts)
+	}
+	if scheduled == nil {
+		t.Fatal("missing scheduled flush")
+	}
+	scheduled.Execute()
+	if posts != 1 {
+		t.Fatalf("unexpected replay after drain: posts=%d", posts)
+	}
+}
+
+func TestCancelPageScroll_DropsHeldDeltaButPreservesTap(t *testing.T) {
+	oldNewTask, oldPostTask := cefNewTask, cefPostTask
+	defer func() { cefNewTask, cefPostTask = oldNewTask, oldPostTask }()
+	cefNewTask = func(task purecef.Task) purecef.Task { return task }
+	var scheduled purecef.Task
+	posts := 0
+	cefPostTask = func(_ purecef.ThreadID, task purecef.Task) int32 {
+		posts++
+		scheduled = task
+		return 1
+	}
+
+	browser := cefmocks.NewMockBrowser(t)
+	frame := cefmocks.NewMockFrame(t)
+	browser.EXPECT().GetMainFrame().Return(frame).Once()
+	frame.EXPECT().ExecuteJavaScript(mock.MatchedBy(func(script string) bool {
+		return strings.Contains(script, "var dx=0,dy=80") && !strings.Contains(script, "requestAnimationFrame")
+	}), "", int32(0)).Once()
+	wv := &WebView{engine: &Engine{}, browser: browser}
+
+	if err := wv.ScrollPage(context.Background(), port.PageScrollRequest{FallbackDY: 80}); err != nil {
+		t.Fatal(err)
+	}
+	for range 50 {
+		if err := wv.ScrollPage(context.Background(), port.PageScrollRequest{FallbackDY: 80, Continuous: true}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	wv.CancelPageScroll(context.Background())
+	if posts != 1 {
+		t.Fatalf("posts before release=%d, want 1", posts)
+	}
+	scheduled.Execute()
+	if posts != 1 {
+		t.Fatalf("release must not schedule a trailing replay: posts=%d", posts)
+	}
+}
+
+func TestCancelPageScroll_AfterDrainDropsOldHeldAndPreservesTapAndNextGesture(t *testing.T) {
+	oldNewTask, oldPostTask := cefNewTask, cefPostTask
+	defer func() { cefNewTask, cefPostTask = oldNewTask, oldPostTask }()
+	cefNewTask = func(task purecef.Task) purecef.Task { return task }
+	var scheduled []purecef.Task
+	cefPostTask = func(_ purecef.ThreadID, task purecef.Task) int32 {
+		scheduled = append(scheduled, task)
+		return 1
+	}
+
+	drained := make(chan struct{})
+	resume := make(chan struct{})
+	var pauseOnce sync.Once
+	beforeExecute := func() {
+		pauseOnce.Do(func() {
+			close(drained)
+			<-resume
+		})
+	}
+
+	browser := cefmocks.NewMockBrowser(t)
+	frame := cefmocks.NewMockFrame(t)
+	browser.EXPECT().GetMainFrame().Return(frame).Twice()
+	var scripts []string
+	frame.EXPECT().ExecuteJavaScript(mock.Anything, "", int32(0)).Run(func(script, _ string, _ int32) {
+		scripts = append(scripts, script)
+	}).Twice()
+	wv := &WebView{engine: &Engine{}, browser: browser}
+	wv.pageScrollQueue.beforeExecute = beforeExecute
+
+	if err := wv.ScrollPage(context.Background(), port.PageScrollRequest{FallbackDY: 80}); err != nil {
+		t.Fatal(err)
+	}
+	if err := wv.ScrollPage(context.Background(), port.PageScrollRequest{FallbackDY: 80, Continuous: true}); err != nil {
+		t.Fatal(err)
+	}
+	if len(scheduled) != 1 {
+		t.Fatalf("initial pending tasks=%d, want 1", len(scheduled))
+	}
+
+	flushDone := make(chan struct{})
+	go func() {
+		defer close(flushDone)
+		scheduled[0].Execute()
+	}()
+	<-drained
+
+	// Cancel returns while the old batch is drained but has not committed to
+	// ExecuteJavaScript. Its held component must therefore be invalidated.
+	wv.CancelPageScroll(context.Background())
+	if err := wv.ScrollPage(context.Background(), port.PageScrollRequest{FallbackDX: 80}); err != nil {
+		t.Fatal(err)
+	}
+	if err := wv.ScrollPage(context.Background(), port.PageScrollRequest{FallbackDX: 80, Continuous: true}); err != nil {
+		t.Fatal(err)
+	}
+	if len(scheduled) != 1 {
+		t.Fatalf("tasks while old flush is paused=%d, want 1", len(scheduled))
+	}
+
+	close(resume)
+	<-flushDone
+	if len(scripts) != 1 || !strings.Contains(scripts[0], "var dx=0,dy=80") {
+		t.Fatalf("old generation scripts=%v, want the preserved 80px tap without held delta", scripts)
+	}
+	if len(scheduled) != 2 {
+		t.Fatalf("tasks after old flush=%d, want one successor for the new gesture", len(scheduled))
+	}
+	scheduled[1].Execute()
+	if len(scripts) != 2 || !strings.Contains(scripts[1], "var dx=160,dy=0") {
+		t.Fatalf("scripts after new gesture=%v, want a fresh 160px horizontal batch", scripts)
+	}
+	if len(scheduled) != 2 {
+		t.Fatalf("trailing tasks=%d, want 2 total", len(scheduled))
+	}
+}
+
+func TestScrollPage_AllowsAtMostOneSuccessorAfterInFlightFlush(t *testing.T) {
+	oldNewTask, oldPostTask := cefNewTask, cefPostTask
+	defer func() { cefNewTask, cefPostTask = oldNewTask, oldPostTask }()
+	cefNewTask = func(task purecef.Task) purecef.Task { return task }
+	var scheduled []purecef.Task
+	cefPostTask = func(_ purecef.ThreadID, task purecef.Task) int32 {
+		scheduled = append(scheduled, task)
+		return 1
+	}
+
+	browser := cefmocks.NewMockBrowser(t)
+	frame := cefmocks.NewMockFrame(t)
+	browser.EXPECT().GetMainFrame().Return(frame).Twice()
+	var wv *WebView
+	frame.EXPECT().ExecuteJavaScript(mock.Anything, "", int32(0)).Run(func(string, string, int32) {
+		for range 100 {
+			if err := wv.ScrollPage(context.Background(), port.PageScrollRequest{FallbackDY: 80, Continuous: true}); err != nil {
+				t.Fatal(err)
+			}
+		}
+		if len(scheduled) != 1 {
+			t.Fatalf("tasks while flush in flight=%d, want 1", len(scheduled))
+		}
+	}).Once()
+	frame.EXPECT().ExecuteJavaScript(mock.Anything, "", int32(0)).Once()
+	wv = &WebView{engine: &Engine{}, browser: browser}
+	if err := wv.ScrollPage(context.Background(), port.PageScrollRequest{FallbackDY: 80, Continuous: true}); err != nil {
+		t.Fatal(err)
+	}
+	if len(scheduled) != 1 {
+		t.Fatalf("initial pending tasks=%d, want 1", len(scheduled))
+	}
+
+	scheduled[0].Execute()
+	if len(scheduled) != 2 {
+		t.Fatalf("successor tasks=%d, want one successor", len(scheduled))
+	}
+	scheduled[1].Execute()
+	if len(scheduled) != 2 {
+		t.Fatalf("prolonged replay tasks=%d, want 2 total", len(scheduled))
+	}
+}
+
 func TestScrollPage_Destroyed_ReturnsError(t *testing.T) {
 	wv := &WebView{}
 	wv.destroyed.Store(true)

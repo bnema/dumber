@@ -415,6 +415,9 @@ type PageScrollRequest struct {
 	Command    PageScrollCommand
 	FallbackDX int
 	FallbackDY int
+	// Continuous distinguishes autonomous held-key steps from the guaranteed
+	// tap step so adapters can cancel queued held work without dropping taps.
+	Continuous bool
 }
 
 // PageScrollable is an optional capability for WebViews that support semantic
@@ -426,4 +429,11 @@ type PageScrollRequest struct {
 // should use the fallback delta as a JavaScript-driven scroll amount.
 type PageScrollable interface {
 	ScrollPage(ctx context.Context, request PageScrollRequest) error
+}
+
+// PageScrollCanceler is an optional capability for adapters that queue held
+// page-scroll work. Implementations discard unconsumed continuous deltas while
+// preserving any guaranteed tap already accepted.
+type PageScrollCanceler interface {
+	CancelPageScroll(ctx context.Context)
 }

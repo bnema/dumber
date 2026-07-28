@@ -36,6 +36,7 @@ var (
 	_ port.ViewportSyncCapable   = (*WebView)(nil)
 	_ port.OAuthCallbackCapable  = (*WebView)(nil)
 	_ port.PageScrollable        = (*WebView)(nil)
+	_ port.PageScrollCanceler    = (*WebView)(nil)
 )
 
 // errDestroyed is returned when an operation is attempted on a destroyed WebView.
@@ -71,7 +72,23 @@ var cefLoadWatchdogDelays = []time.Duration{
 const (
 	cefGTKSyncDispatchTimeout       = 2 * time.Second
 	cefGTKSyncDispatchSlowThreshold = 250 * time.Millisecond
+	maxPendingPageScroll            = 3200
 )
+
+type pageScrollQueue struct {
+	mu           sync.Mutex
+	commitMu     sync.Mutex
+	tapDX        int
+	tapDY        int
+	heldDX       int
+	heldDY       int
+	flushPending bool
+	generation   uint64
+
+	// beforeExecute is a deterministic test seam for the drain-to-commit
+	// boundary. Production leaves it nil.
+	beforeExecute func()
+}
 
 var (
 	cefNewTask          = purecef.NewTask
@@ -132,6 +149,8 @@ type WebView struct {
 	adaptiveFrameRatePoll       *glib.SourceFunc
 	adaptiveFrameRatePollID     uint
 	lastAdaptiveFrameRate       int32
+
+	pageScrollQueue pageScrollQueue
 
 	// beginFrameTick drives CEF external BeginFrame requests while the GTK
 	// widget is visible. Access is guarded by mu.
@@ -1203,6 +1222,7 @@ func (wv *WebView) Destroy() {
 	if !wv.destroyed.CompareAndSwap(false, true) {
 		return
 	}
+	wv.resetPageScrollQueue()
 	wv.syntheticPopupMu.Lock()
 	wv.syntheticPopups = nil
 	wv.syntheticPopupMu.Unlock()
@@ -2409,7 +2429,7 @@ func (wv *WebView) ScrollPage(ctx context.Context, request port.PageScrollReques
 	browser := wv.browser
 	wv.mu.RUnlock()
 	if browser != nil {
-		wv.RunJavaScript(ctx, webutil.BuildScrollAtViewportCenterByJS(request.FallbackDX, request.FallbackDY))
+		wv.enqueuePageScroll(request)
 		return nil
 	}
 	if host != nil {
@@ -2423,6 +2443,112 @@ func (wv *WebView) ScrollPage(ctx context.Context, request port.PageScrollReques
 
 	wv.RunJavaScript(ctx, webutil.BuildScrollByJS(request.FallbackDX, request.FallbackDY))
 	return nil
+}
+
+func (wv *WebView) enqueuePageScroll(request port.PageScrollRequest) {
+	q := &wv.pageScrollQueue
+	q.mu.Lock()
+	if request.Continuous {
+		q.heldDX = saturatingPageScrollAdd(q.heldDX, request.FallbackDX)
+		q.heldDY = saturatingPageScrollAdd(q.heldDY, request.FallbackDY)
+	} else {
+		q.tapDX = saturatingPageScrollAdd(q.tapDX, request.FallbackDX)
+		q.tapDY = saturatingPageScrollAdd(q.tapDY, request.FallbackDY)
+	}
+	q.mu.Unlock()
+	wv.ensurePageScrollFlush()
+}
+
+func (wv *WebView) ensurePageScrollFlush() {
+	q := &wv.pageScrollQueue
+	q.mu.Lock()
+	if q.flushPending || (q.tapDX == 0 && q.tapDY == 0 && q.heldDX == 0 && q.heldDY == 0) {
+		q.mu.Unlock()
+		return
+	}
+	q.flushPending = true
+	q.mu.Unlock()
+
+	if wv.engine == nil {
+		wv.flushPageScroll()
+		return
+	}
+	task := cefNewTask(cefTaskFunc(wv.flushPageScroll))
+	if task == nil || cefPostTask(purecef.ThreadIDTidUi, task) != 1 {
+		q.mu.Lock()
+		q.flushPending = false
+		q.heldDX = 0
+		q.heldDY = 0
+		q.mu.Unlock()
+	}
+}
+
+func (wv *WebView) flushPageScroll() {
+	q := &wv.pageScrollQueue
+	q.mu.Lock()
+	tapDX, tapDY := q.tapDX, q.tapDY
+	heldDX, heldDY := q.heldDX, q.heldDY
+	heldGeneration := q.generation
+	beforeExecute := q.beforeExecute
+	q.tapDX, q.tapDY, q.heldDX, q.heldDY = 0, 0, 0, 0
+	q.mu.Unlock()
+
+	if beforeExecute != nil {
+		beforeExecute()
+	}
+
+	// commitMu makes the generation check and the start of ExecuteJavaScript
+	// linearizable with CancelPageScroll. The queue mutex is released before
+	// taking it and before CEF execution, so JavaScript callbacks may enqueue a
+	// successor without deadlocking; flushPending still bounds that to one task.
+	q.commitMu.Lock()
+	q.mu.Lock()
+	if heldGeneration != q.generation {
+		heldDX, heldDY = 0, 0
+	}
+	q.mu.Unlock()
+	if dx, dy := tapDX+heldDX, tapDY+heldDY; (dx != 0 || dy != 0) && !wv.destroyed.Load() {
+		wv.executeJavaScriptNow(webutil.BuildScrollByJS(dx, dy))
+	}
+	q.commitMu.Unlock()
+
+	q.mu.Lock()
+	q.flushPending = false
+	q.mu.Unlock()
+	wv.ensurePageScrollFlush()
+}
+
+// CancelPageScroll invalidates all accepted but unconsumed held-key deltas.
+// Tap deltas remain queued so a quick press always retains its 80/320 px step.
+// Returning is also a barrier: an old held batch cannot start afterward.
+func (wv *WebView) CancelPageScroll(_ context.Context) {
+	q := &wv.pageScrollQueue
+	q.commitMu.Lock()
+	q.mu.Lock()
+	q.generation++
+	q.heldDX = 0
+	q.heldDY = 0
+	q.mu.Unlock()
+	q.commitMu.Unlock()
+}
+
+func (wv *WebView) resetPageScrollQueue() {
+	q := &wv.pageScrollQueue
+	q.mu.Lock()
+	q.generation++
+	q.tapDX, q.tapDY, q.heldDX, q.heldDY = 0, 0, 0, 0
+	q.mu.Unlock()
+}
+
+func saturatingPageScrollAdd(current, delta int) int {
+	result := current + delta
+	if result > maxPendingPageScroll {
+		return maxPendingPageScroll
+	}
+	if result < -maxPendingPageScroll {
+		return -maxPendingPageScroll
+	}
+	return result
 }
 
 // beginAudioStreamStart invalidates any prior stream before creating a new

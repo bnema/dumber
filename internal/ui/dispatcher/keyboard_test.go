@@ -211,6 +211,15 @@ type mockScrollableWebView struct {
 	*mocks.MockPageScrollable
 }
 
+type lifecycleScrollableWebView struct {
+	*mockScrollableWebView
+	cancelCalls int
+}
+
+func (wv *lifecycleScrollableWebView) CancelPageScroll(context.Context) {
+	wv.cancelCalls++
+}
+
 func TestKeyboardDispatcher_PageModeActionsRouteToCorrectScrollCommand(t *testing.T) {
 	ctx := context.Background()
 
@@ -257,6 +266,25 @@ func TestKeyboardDispatcher_PageModeActionsRouteToCorrectScrollCommand(t *testin
 			require.NoError(t, err)
 		})
 	}
+}
+
+func TestKeyboardDispatcher_PageScrollLifecycleRoutesContinuousAndStop(t *testing.T) {
+	ctx := context.Background()
+	base := mocks.NewMockWebView(t)
+	scroller := mocks.NewMockPageScrollable(t)
+	wv := &lifecycleScrollableWebView{mockScrollableWebView: &mockScrollableWebView{MockWebView: base, MockPageScrollable: scroller}}
+	navCoord := &coordinator.NavigationCoordinator{}
+	navCoord.SetPageScrollUseCase(usecase.NewPageScrollUseCase())
+	d := NewKeyboardDispatcher(ctx, &coordinator.WorkspaceCoordinator{}, navCoord, nil, nil, KeyboardActions{
+		ActiveWebView: func(context.Context) port.WebView { return wv },
+	}, func(context.Context) entity.PaneID { return "" })
+
+	scroller.EXPECT().ScrollPage(ctx, port.PageScrollRequest{
+		Command: port.PageScrollCommandDown, FallbackDY: 80, Continuous: true,
+	}).Return(nil).Once()
+	require.NoError(t, d.DispatchPageScrollLifecycle(ctx, input.ActionPageScrollDown, input.PageScrollContinuous))
+	require.NoError(t, d.DispatchPageScrollLifecycle(ctx, input.ActionPageScrollDown, input.PageScrollStop))
+	assert.Equal(t, 1, wv.cancelCalls)
 }
 
 func TestKeyboardDispatcher_PageModeNoopWhenNoActiveWebView(t *testing.T) {

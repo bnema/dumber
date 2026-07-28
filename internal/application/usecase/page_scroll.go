@@ -44,7 +44,30 @@ func NewPageScrollUseCase() *PageScrollUseCase {
 // Scroll applies a semantic scroll command to a WebView.
 // It returns an error if the WebView does not support semantic page scrolling
 // (i.e., does not implement port.PageScrollable).
-func (*PageScrollUseCase) Scroll(ctx context.Context, wv port.WebView, cmd PageScrollCommand) error {
+func (uc *PageScrollUseCase) Scroll(ctx context.Context, wv port.WebView, cmd PageScrollCommand) error {
+	return uc.scroll(ctx, wv, cmd, false)
+}
+
+// ScrollContinuous applies one autonomous held-key step. The pixel policy is
+// identical to Scroll; only lifecycle metadata differs for adapter coalescing.
+func (uc *PageScrollUseCase) ScrollContinuous(ctx context.Context, wv port.WebView, cmd PageScrollCommand) error {
+	return uc.scroll(ctx, wv, cmd, true)
+}
+
+// Stop cancels queued continuous work when the adapter supports cancellation.
+// Adapters such as WebKit that execute each step immediately need no special
+// capability and therefore treat this as a no-op.
+func (*PageScrollUseCase) Stop(ctx context.Context, wv port.WebView) error {
+	if wv == nil {
+		return errors.New("page scroll: nil webview")
+	}
+	if canceler, ok := wv.(port.PageScrollCanceler); ok {
+		canceler.CancelPageScroll(ctx)
+	}
+	return nil
+}
+
+func (*PageScrollUseCase) scroll(ctx context.Context, wv port.WebView, cmd PageScrollCommand, continuous bool) error {
 	if wv == nil {
 		return errors.New("page scroll: nil webview")
 	}
@@ -59,6 +82,7 @@ func (*PageScrollUseCase) Scroll(ctx context.Context, wv port.WebView, cmd PageS
 		Command:    toPortPageScrollCommand(cmd),
 		FallbackDX: dx,
 		FallbackDY: dy,
+		Continuous: continuous,
 	}
 	if err := scroller.ScrollPage(ctx, req); err != nil {
 		return fmt.Errorf("page scroll: %w", err)

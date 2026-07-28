@@ -138,6 +138,59 @@ func TestPageScroll_PropagatesScrollError(t *testing.T) {
 	}
 }
 
+func TestPageScroll_TapDistancesRemainFixed(t *testing.T) {
+	tests := []struct {
+		name string
+		cmd  PageScrollCommand
+		dx   int
+		dy   int
+	}{
+		{"left 80 px", PageScrollLeft, -80, 0},
+		{"right 80 px", PageScrollRight, 80, 0},
+		{"up 80 px", PageScrollUp, 0, -80},
+		{"down 80 px", PageScrollDown, 0, 80},
+		{"up fast 320 px", PageScrollUpFast, 0, -320},
+		{"down fast 320 px", PageScrollDownFast, 0, 320},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			wv := newScrollableStub(nil)
+			if err := NewPageScrollUseCase().Scroll(context.Background(), wv, tt.cmd); err != nil {
+				t.Fatal(err)
+			}
+			if wv.lastRequest.FallbackDX != tt.dx || wv.lastRequest.FallbackDY != tt.dy {
+				t.Fatalf("tap delta=(%d,%d), want (%d,%d)", wv.lastRequest.FallbackDX, wv.lastRequest.FallbackDY, tt.dx, tt.dy)
+			}
+			if wv.lastRequest.Continuous {
+				t.Fatal("tap request must not be marked continuous")
+			}
+		})
+	}
+}
+
+func TestPageScroll_ScrollContinuousMarksRequest(t *testing.T) {
+	wv := newScrollableStub(nil)
+	if err := NewPageScrollUseCase().ScrollContinuous(context.Background(), wv, PageScrollDown); err != nil {
+		t.Fatal(err)
+	}
+	if !wv.lastRequest.Continuous || wv.lastRequest.FallbackDY != 80 {
+		t.Fatalf("continuous request = %+v, want continuous 80 px", wv.lastRequest)
+	}
+}
+
+func TestPageScroll_StopCancelsOptionalCapability(t *testing.T) {
+	wv := &cancelableScrollableStub{scrollableStub: newScrollableStub(nil)}
+	if err := NewPageScrollUseCase().Stop(context.Background(), wv); err != nil {
+		t.Fatal(err)
+	}
+	if wv.cancelCalls != 1 {
+		t.Fatalf("cancel calls=%d, want 1", wv.cancelCalls)
+	}
+	if err := NewPageScrollUseCase().Stop(context.Background(), newScrollableStub(nil)); err != nil {
+		t.Fatalf("non-cancelable WebKit-style adapter should be a no-op: %v", err)
+	}
+}
+
 func TestPageScroll_DeltaMethod(t *testing.T) {
 	tests := []struct {
 		cmd      PageScrollCommand
@@ -210,6 +263,15 @@ type scrollableStub struct {
 	*nonScrollableStub
 	lastRequest port.PageScrollRequest
 	scrollErr   error
+}
+
+type cancelableScrollableStub struct {
+	*scrollableStub
+	cancelCalls int
+}
+
+func (s *cancelableScrollableStub) CancelPageScroll(context.Context) {
+	s.cancelCalls++
 }
 
 func newScrollableStub(scrollErr error) *scrollableStub {

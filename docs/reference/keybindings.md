@@ -57,9 +57,7 @@ Keybinding tables use uppercase letters as visual labels for unshifted letter ke
 
 Page Mode is an explicit page-scrolling mode for the active pane only. It shows a local `PAGE` indicator on the owning pane, uses `workspace.styling.pane_mode_color` for the local accent, and exits automatically when focus moves into the omnibox, find bar, overlays, or an editable element inside the page. The default `timeout_ms` is `0`, so Page Mode does not auto-time out unless you configure one. Arrow keys continue to flow through the browser engine's native page-navigation path while Page Mode is active, while other app-level shortcuts stay suspended until you leave the mode.
 
-Scroll execution depends on the active browser engine:
-- **CEF**: Page Mode scroll commands (`h/j/k/l`, `Shift+J/K`) are translated to native Chromium key events (arrow keys, Page Up/Down) for reliable behaviour with SPA scroll containers.
-- **WebKit**: Falls back to JavaScript-driven scroll delta injection handled by `BuildScrollByJS`, which resolves the nearest scrollable ancestor and coalesces held-key repeats via `requestAnimationFrame`.
+CEF and WebKit execute Page Mode scroll commands (`h/j/k/l`, `Shift+J/K`) with the shared `BuildScrollByJS` resolver. Each step starts under the viewport center, walks up through ancestors that can move in the requested direction, and hands scrolling to the document when a nested container reaches its boundary. Cross-origin frame contents remain best-effort.
 
 | Action | Keys |
 |--------|------|

@@ -418,14 +418,16 @@ func TestHandleKeyPress_PageModeStaysActiveAfterScroll(t *testing.T) {
 	}
 
 	var repeatTick glib.SourceFunc
+	repeatNow := time.Unix(2_000, 0)
+	h.pageScrollNow = func() time.Time { return repeatNow }
 	h.pageScrollRepeatAdd = func(_ uint, cb *glib.SourceFunc) uint {
 		repeatTick = *cb
 		return 1
 	}
 	h.pageScrollRepeatRemove = func(uint) bool { return true }
 
-	// Repeated scroll actions should stay in page mode and transition onto the
-	// smooth repeater instead of depending on every physical key repeat.
+	// Scroll actions stay in page mode; the first press arms the smooth
+	// repeater and later physical auto-repeat events are ignored.
 	for i := 0; i < 2; i++ {
 		scrolled := h.handleKeyPress(uint('j'), 0, 0)
 		if !scrolled {
@@ -438,6 +440,7 @@ func TestHandleKeyPress_PageModeStaysActiveAfterScroll(t *testing.T) {
 	if repeatTick == nil {
 		t.Fatal("expected held page scroll to register smooth repeater")
 	}
+	repeatNow = repeatNow.Add(pageScrollHoldDelay)
 	for i := 0; i < 3; i++ {
 		if !repeatTick(0) {
 			t.Fatalf("repeat tick %d stopped unexpectedly", i)
@@ -455,8 +458,8 @@ func TestHandleKeyPress_PageModeStaysActiveAfterScroll(t *testing.T) {
 	}
 
 	// Ensure scroll actions were dispatched
-	if actionCalls != 6 {
-		t.Fatalf("action calls = %d, want 6 (5 down + 1 up)", actionCalls)
+	if actionCalls != 5 {
+		t.Fatalf("action calls = %d, want 5 (4 down + 1 up)", actionCalls)
 	}
 }
 
@@ -855,33 +858,10 @@ func TestHandleKeyPress_PageModeBlocksGlobalShortcutFallback(t *testing.T) {
 	}
 }
 
-func TestHandleKeyPress_PageModeSmoothRepeaterStartsAfterHeldRepeat(t *testing.T) {
-	ctx := context.Background()
-	workspace := newTestWorkspace()
-	workspace.PageMode = entity.PageModeConfig{
-		ActivationShortcut: "ctrl+y",
-		Actions: map[string]entity.ActionBinding{
-			"page-scroll-down": {Keys: []string{"j"}},
-		},
-	}
-
-	h := NewKeyboardHandler(ctx, workspace, newTestSession())
-	var repeatTick glib.SourceFunc
-	var removedTimer uint
-	h.pageScrollRepeatAdd = func(intervalMS uint, cb *glib.SourceFunc) uint {
-		if intervalMS != uint(pageScrollRepeatInterval/time.Millisecond) {
-			t.Fatalf("repeat interval = %dms, want %dms", intervalMS, uint(pageScrollRepeatInterval/time.Millisecond))
-		}
-		repeatTick = *cb
-		return 99
-	}
-	h.pageScrollRepeatRemove = func(id uint) bool {
-		removedTimer = id
-		return true
-	}
-
+func TestPageScrollRepeat_FirstKeyDownDispatchesTapAndArmsHold(t *testing.T) {
+	h, now, tick := newPageScrollRepeatTestHandler(t)
 	actionCalls := 0
-	h.SetOnAction(func(ctx context.Context, action Action) error {
+	h.SetOnAction(func(_ context.Context, action Action) error {
 		actionCalls++
 		if action != ActionPageScrollDown {
 			t.Fatalf("action = %s, want %s", action, ActionPageScrollDown)
@@ -889,57 +869,144 @@ func TestHandleKeyPress_PageModeSmoothRepeaterStartsAfterHeldRepeat(t *testing.T
 		return nil
 	})
 
-	if !h.handleKeyPress(uint('y'), 0, gdk.ControlMaskValue) {
-		t.Fatal("Ctrl+Y should be consumed")
-	}
 	if !h.handleKeyPress(uint('j'), 0, 0) {
 		t.Fatal("first J press should be consumed")
 	}
 	if actionCalls != 1 {
-		t.Fatalf("actionCalls after first press = %d, want 1", actionCalls)
+		t.Fatalf("tap dispatches = %d, want 1", actionCalls)
 	}
-	if h.pageScrollRepeatTimer != 0 {
-		t.Fatal("smooth repeater should not start before the first held repeat arrives")
-	}
-
-	if !h.handleKeyPress(uint('j'), 0, 0) {
-		t.Fatal("held J repeat should be consumed")
-	}
-	if actionCalls != 2 {
-		t.Fatalf("actionCalls after held repeat = %d, want 2", actionCalls)
-	}
-	if h.pageScrollRepeatTimer != 99 {
-		t.Fatalf("pageScrollRepeatTimer = %d, want 99", h.pageScrollRepeatTimer)
-	}
-	if repeatTick == nil {
-		t.Fatal("smooth repeater callback should be registered")
+	if *tick == nil {
+		t.Fatal("first keydown must arm the hold source without an OS repeat")
 	}
 
-	if !repeatTick(0) {
-		t.Fatal("smooth repeater tick should continue while key remains held")
+	*now = now.Add(pageScrollHoldDelay - time.Millisecond)
+	if !(*tick)(0) {
+		t.Fatal("hold source should remain armed before the delay")
 	}
-	if actionCalls != 3 {
-		t.Fatalf("actionCalls after smooth repeater tick = %d, want 3", actionCalls)
+	if actionCalls != 1 {
+		t.Fatalf("dispatches before hold delay = %d, want 1 tap", actionCalls)
+	}
+}
+
+func TestPageScrollRepeat_HoldStartsWithoutOSRepeat(t *testing.T) {
+	h, now, tick := newPageScrollRepeatTestHandler(t)
+	continuous := 0
+	h.SetOnAction(func(context.Context, Action) error { return nil })
+	h.SetOnPageScrollLifecycle(func(_ context.Context, action Action, phase PageScrollPhase) error {
+		if action != ActionPageScrollDown || phase != PageScrollContinuous {
+			t.Fatalf("lifecycle = (%s, %v), want (%s, continuous)", action, phase, ActionPageScrollDown)
+		}
+		continuous++
+		return nil
+	})
+
+	h.handleKeyPress(uint('j'), 0, 0)
+	*now = now.Add(pageScrollHoldDelay)
+	if !(*tick)(0) {
+		t.Fatal("hold source stopped at the delay")
+	}
+	if continuous != 1 {
+		t.Fatalf("continuous dispatches = %d, want 1 without a second keydown", continuous)
+	}
+}
+
+func TestPageScrollRepeat_FixedCadenceIgnoresDisplayAndOSRepeatRates(t *testing.T) {
+	const simulatedHold = time.Second
+	simulate := func(t *testing.T, externalHz int) int {
+		t.Helper()
+		h, now, tick := newPageScrollRepeatTestHandler(t)
+		tapDistance := 0
+		continuousDistance := 0
+		h.SetOnAction(func(context.Context, Action) error {
+			tapDistance += 80
+			return nil
+		})
+		h.SetOnPageScrollLifecycle(func(_ context.Context, _ Action, phase PageScrollPhase) error {
+			if phase == PageScrollContinuous {
+				continuousDistance += 80
+			}
+			return nil
+		})
+		h.handleKeyPress(uint('j'), 0, 0)
+
+		start := *now
+		nextExternal := time.Second / time.Duration(externalHz)
+		for elapsed := pageScrollCadence; elapsed <= simulatedHold; elapsed += pageScrollCadence {
+			*now = start.Add(elapsed)
+			for elapsed >= nextExternal {
+				h.handleKeyPress(uint('j'), 0, 0) // ignored OS auto-repeat
+				nextExternal += time.Second / time.Duration(externalHz)
+			}
+			if !(*tick)(0) {
+				t.Fatalf("source stopped at %s", elapsed)
+			}
+		}
+		return tapDistance + continuousDistance
 	}
 
-	if !h.handleKeyPress(uint('j'), 0, 0) {
-		t.Fatal("subsequent physical repeats should remain consumed")
+	distance60 := simulate(t, 60)
+	distance144 := simulate(t, 144)
+	t.Logf("simulated one-second distances: 60 Hz=%d px, 144 Hz=%d px; tolerance=80 px", distance60, distance144)
+	// A fixed 16 ms source makes the results exact in this deterministic model;
+	// the documented runtime tolerance is one 80 px cadence step at timer edges.
+	if diff := distance60 - distance144; diff < -80 || diff > 80 {
+		t.Fatalf("60 Hz distance=%d, 144 Hz distance=%d; tolerance=80 px", distance60, distance144)
 	}
-	if actionCalls != 3 {
-		t.Fatalf("physical repeats should defer to smooth repeater; got %d calls", actionCalls)
-	}
+}
 
-	h.handleKeyRelease(uint('j'))
-	if removedTimer != 99 {
-		t.Fatalf("removed timer id = %d, want 99", removedTimer)
+func TestPageScrollRepeat_ReleaseAndEscapeStopImmediately(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		stop func(*KeyboardHandler)
+	}{
+		{name: "release", stop: func(h *KeyboardHandler) { h.handleKeyRelease(uint('j')) }},
+		{name: "escape", stop: func(h *KeyboardHandler) { h.handleKeyPress(uint(gdk.KEY_Escape), 0, 0) }},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			h, now, tick := newPageScrollRepeatTestHandler(t)
+			removed := 0
+			stops := 0
+			h.pageScrollRepeatRemove = func(uint) bool { removed++; return true }
+			h.SetOnAction(func(context.Context, Action) error { return nil })
+			h.SetOnPageScrollLifecycle(func(_ context.Context, _ Action, phase PageScrollPhase) error {
+				if phase == PageScrollStop {
+					stops++
+				}
+				return nil
+			})
+			h.handleKeyPress(uint('j'), 0, 0)
+			*now = now.Add(pageScrollHoldDelay)
+			(*tick)(0)
+
+			tc.stop(h)
+			if removed != 1 || stops != 1 {
+				t.Fatalf("removed=%d stops=%d, want 1/1", removed, stops)
+			}
+			if (*tick)(0) {
+				t.Fatal("retained callback must stop immediately")
+			}
+		})
 	}
-	if h.pageScrollRepeatTimer != 0 {
-		t.Fatal("smooth repeater should stop on key release")
+}
+
+func newPageScrollRepeatTestHandler(t *testing.T) (*KeyboardHandler, *time.Time, *glib.SourceFunc) {
+	t.Helper()
+	workspace := newTestWorkspace()
+	workspace.PageMode = entity.PageModeConfig{
+		Actions: map[string]entity.ActionBinding{"page-scroll-down": {Keys: []string{"j"}}},
 	}
-	if repeatTick(0) {
-		t.Fatal("smooth repeater tick should stop after key release")
+	h := NewKeyboardHandler(context.Background(), workspace, newTestSession())
+	h.EnterPageMode()
+	now := time.Unix(1_000, 0)
+	var tick glib.SourceFunc
+	h.pageScrollNow = func() time.Time { return now }
+	h.pageScrollRepeatAdd = func(intervalMS uint, cb *glib.SourceFunc) uint {
+		if intervalMS != uint(pageScrollCadence/time.Millisecond) {
+			t.Fatalf("cadence = %dms, want %dms", intervalMS, pageScrollCadence/time.Millisecond)
+		}
+		tick = *cb
+		return 99
 	}
-	if actionCalls != 3 {
-		t.Fatalf("no extra actions expected after release, got %d", actionCalls)
-	}
+	h.pageScrollRepeatRemove = func(uint) bool { return true }
+	return h, &now, &tick
 }

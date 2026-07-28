@@ -2,39 +2,16 @@ package webutil
 
 import "fmt"
 
-// BuildScrollByJS returns a JavaScript string that scrolls a web page by the
-// given CSS-pixel delta.
+// BuildScrollByJS returns one immediate JavaScript scroll step for the given
+// CSS-pixel delta. It resolves the initial target under the viewport center,
+// walks toward scrollable ancestors that can move in the requested direction,
+// and hands off to the document when a nested scroller reaches its boundary.
+// Cross-origin frame contents remain best-effort because elementFromPoint can
+// only return the accessible frame element from the top-level document.
 //
-// THIS IS A FALLBACK IMPLEMENTATION. The primary page-scroll abstraction is
-// port.PageScrollable.ScrollPage. Engines should attempt native scrolling
-// first and call this function only when no native mechanism exists for the
-// requested command.
-//
-// Semantics (frontend scroll-target resolution):
-//  1. Start from document.activeElement.
-//  2. Walk up the DOM tree to find the nearest scrollable ancestor that can
-//     still scroll in the requested direction.
-//  3. Fall back to document.scrollingElement (or documentElement).
-//  4. Fall back to window scrolling.
-//
-// The app-level Page Mode repeater now owns held-key cadence. This helper
-// performs one immediate fallback scroll step for each semantic Page Mode tick
-// instead of maintaining its own RAF-based repeat loop.
+// The app-level Page Mode repeater owns held-key cadence; this helper performs
+// no requestAnimationFrame loop of its own.
 func BuildScrollByJS(dx, dy int) string {
-	return buildScrollByJS(dx, dy, "doc.activeElement")
-}
-
-// BuildScrollAtViewportCenterByJS returns one immediate scroll step whose DOM
-// target starts under the viewport center. It is used by keyboard-driven CEF
-// scrolling to preserve the native wheel path's hit-test location while
-// allowing exhausted nested scrollers to hand off to the document.
-func BuildScrollAtViewportCenterByJS(dx, dy int) string {
-	startNode := "(typeof doc.elementFromPoint==='function'?" +
-		"doc.elementFromPoint(window.innerWidth/2,window.innerHeight/2):null)||doc.activeElement"
-	return buildScrollByJS(dx, dy, startNode)
-}
-
-func buildScrollByJS(dx, dy int, startNode string) string {
 	return fmt.Sprintf(`(function(){
 var dx=%d,dy=%d,doc=document;
 function hasScrollableOverflow(value){
@@ -71,7 +48,8 @@ function scrollElement(el){
   return el.scrollLeft!==beforeLeft||el.scrollTop!==beforeTop;
 }
 try{
-  var node=%s;
+  var node=typeof doc.elementFromPoint==='function'?
+    doc.elementFromPoint(window.innerWidth/2,window.innerHeight/2):null;
   while(node&&node!==doc.body&&node!==doc.documentElement){
     if(canScroll(node)&&scrollElement(node))return;
     node=node.parentElement;
@@ -86,5 +64,5 @@ try{
     window.scrollTo(window.scrollX+dx,window.scrollY+dy);
   }
 }catch(e){}
-})()`, dx, dy, startNode)
+})()`, dx, dy)
 }

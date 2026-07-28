@@ -258,6 +258,9 @@ func runtimeConfigWithNestedMutableFields() *config.Config {
 	cfg.Workspace.TabMode.Actions = map[string]entity.ActionBinding{
 		"next-tab": {Keys: []string{"l"}, Desc: "Next tab"},
 	}
+	cfg.Workspace.PageMode.Actions = map[string]entity.ActionBinding{
+		"page-scroll-down": {Keys: []string{"j"}, Desc: "Scroll down"},
+	}
 	cfg.Workspace.ResizeMode.Actions = map[string]entity.ActionBinding{
 		"grow-right": {Keys: []string{"right"}, Desc: "Grow right"},
 	}
@@ -279,6 +282,9 @@ func mutateNestedRuntimeConfigSnapshot(snapshot entity.RuntimeConfigSnapshot) {
 
 	mutateActionBinding(snapshot.UI.Workspace.TabMode.Actions, "next-tab", "mutated-tab")
 	snapshot.UI.Workspace.TabMode.Actions["added-tab"] = entity.ActionBinding{Keys: []string{"added"}}
+
+	mutateActionBinding(snapshot.UI.Workspace.PageMode.Actions, "page-scroll-down", "mutated-page")
+	snapshot.UI.Workspace.PageMode.Actions["added-page"] = entity.ActionBinding{Keys: []string{"added"}}
 
 	mutateActionBinding(snapshot.UI.Workspace.ResizeMode.Actions, "grow-right", "mutated-resize")
 	snapshot.UI.Workspace.ResizeMode.Actions["added-resize"] = entity.ActionBinding{Keys: []string{"added"}}
@@ -309,6 +315,9 @@ func assertNestedRuntimeConfigSnapshotUnchanged(t *testing.T, snapshot entity.Ru
 
 	assertActionBinding(t, snapshot.UI.Workspace.TabMode.Actions, "next-tab", "l")
 	assertMapEntryAbsent(t, snapshot.UI.Workspace.TabMode.Actions, "added-tab")
+
+	assertActionBinding(t, snapshot.UI.Workspace.PageMode.Actions, "page-scroll-down", "j")
+	assertMapEntryAbsent(t, snapshot.UI.Workspace.PageMode.Actions, "added-page")
 
 	assertActionBinding(t, snapshot.UI.Workspace.ResizeMode.Actions, "grow-right", "right")
 	assertMapEntryAbsent(t, snapshot.UI.Workspace.ResizeMode.Actions, "added-resize")
@@ -356,6 +365,9 @@ func assertNestedSourceConfigUnchanged(t *testing.T, cfg *config.Config) {
 
 	assertActionBinding(t, cfg.Workspace.TabMode.Actions, "next-tab", "l")
 	assertMapEntryAbsent(t, cfg.Workspace.TabMode.Actions, "added-tab")
+
+	assertActionBinding(t, cfg.Workspace.PageMode.Actions, "page-scroll-down", "j")
+	assertMapEntryAbsent(t, cfg.Workspace.PageMode.Actions, "added-page")
 
 	assertActionBinding(t, cfg.Workspace.ResizeMode.Actions, "grow-right", "right")
 	assertMapEntryAbsent(t, cfg.Workspace.ResizeMode.Actions, "added-resize")

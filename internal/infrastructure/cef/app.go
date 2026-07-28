@@ -280,16 +280,16 @@ type dumberApp struct {
 func newDumberApp(engine *Engine) purecef.App {
 	app := &dumberApp{engine: engine}
 	app.bph = &dumberBPH{engine: engine}
-	app.rph = newPopupOpenerRenderProcessHandler()
+	app.rph = newComposedRenderProcessHandler()
 	return app
 }
 
 // NewSubprocessApp returns a lightweight raw App implementation for CEF
-// subprocesses re-executed from the main dumber binary. Keep the legacy
-// renderer bridge disabled, but allow the minimal popup-opener render handler
-// needed to install synthetic opener state before page scripts run.
+// subprocesses re-executed from the main dumber binary. Keep the legacy V8
+// renderer bridge disabled while composing editable-focus reporting with the
+// popup-opener callbacks needed before page scripts run.
 func NewSubprocessApp() purecef.App {
-	return &subprocessApp{rph: newPopupOpenerRenderProcessHandler()}
+	return &subprocessApp{rph: newComposedRenderProcessHandler()}
 }
 
 // maxCmdLineLogLen limits logged command line length to avoid leaking sensitive paths.

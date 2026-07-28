@@ -36,11 +36,22 @@ import (
 // Return an error if the action fails.
 type ActionHandler func(ctx context.Context, action Action) error
 
+// PageScrollPhase identifies held-scroll lifecycle events. It is internal input
+// state, not a configurable action or shortcut.
+type PageScrollPhase uint8
+
 const (
-	// pageScrollRepeatInterval is the fallback cadence when the handler is not
-	// attached to a GTK widget. Attached handlers use GTK tick callbacks instead,
-	// which run at the output device's frame rate.
-	pageScrollRepeatInterval = time.Second / 60
+	PageScrollContinuous PageScrollPhase = iota
+	PageScrollStop
+)
+
+// PageScrollLifecycleHandler receives autonomous held-scroll ticks and the
+// matching stop event without changing the normal configurable action API.
+type PageScrollLifecycleHandler func(ctx context.Context, action Action, phase PageScrollPhase) error
+
+const (
+	pageScrollHoldDelay = 250 * time.Millisecond
+	pageScrollCadence   = 16 * time.Millisecond
 )
 
 // AccentHandler handles long-press accent detection.
@@ -65,8 +76,9 @@ type KeyboardHandler struct {
 	workspace *entity.WorkspaceConfig
 	session   *entity.SessionConfig
 
-	// Action handler callback
-	onAction ActionHandler
+	// Action handler callbacks.
+	onAction              ActionHandler
+	onPageScrollLifecycle PageScrollLifecycleHandler
 	// Optional routing callback that determines how a key should be handled.
 	// Returns RouteHandleShortcuts (default), RoutePassToWidget (let focused
 	// widget handle it), or RouteAccentDetection (long-press accent for GTK entries).
@@ -93,14 +105,15 @@ type KeyboardHandler struct {
 	ctx                  context.Context
 	mu                   sync.RWMutex
 
-	pageScrollRepeatAction       Action
-	pageScrollRepeatKeyval       uint
-	pageScrollRepeatTimer        uint
-	pageScrollRepeatCb           glib.SourceFunc
-	pageScrollRepeatTickCb       gtk.TickCallback
-	pageScrollRepeatAdd          func(intervalMS uint, cb *glib.SourceFunc) uint
-	pageScrollRepeatRemove       func(id uint) bool
-	pageScrollRepeatActiveRemove func(id uint) bool
+	pageScrollRepeatAction     Action
+	pageScrollRepeatKeyval     uint
+	pageScrollRepeatTimer      uint
+	pageScrollRepeatGeneration uint64
+	pageScrollRepeatPressedAt  time.Time
+	pageScrollRepeatCb         glib.SourceFunc
+	pageScrollRepeatAdd        func(intervalMS uint, cb *glib.SourceFunc) uint
+	pageScrollRepeatRemove     func(id uint) bool
+	pageScrollNow              func() time.Time
 }
 
 // NewKeyboardHandler creates a new keyboard handler.
@@ -120,6 +133,7 @@ func NewKeyboardHandler(ctx context.Context, workspace *entity.WorkspaceConfig, 
 			return glib.TimeoutAdd(intervalMS, cb, 0)
 		},
 		pageScrollRepeatRemove: glib.SourceRemove,
+		pageScrollNow:          time.Now,
 	}
 	h.SetOnModeChange(nil)
 
@@ -131,6 +145,14 @@ func (h *KeyboardHandler) SetOnAction(fn ActionHandler) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	h.onAction = fn
+}
+
+// SetOnPageScrollLifecycle sets the callback for autonomous held-scroll ticks
+// and stop notification. Tap actions continue through SetOnAction.
+func (h *KeyboardHandler) SetOnPageScrollLifecycle(fn PageScrollLifecycleHandler) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.onPageScrollLifecycle = fn
 }
 
 // SetPageModeActivationPassthrough sets the callback that can block Page mode
@@ -293,6 +315,7 @@ func (h *KeyboardHandler) DetachForDestroy() {
 }
 
 func (h *KeyboardHandler) detach(removeController bool) {
+	h.stopPageScrollRepeat()
 	h.mu.Lock()
 	if h.controller != nil && h.keyPressedHandlerID != 0 {
 		h.controller.DisconnectSignal(h.keyPressedHandlerID)
@@ -310,21 +333,7 @@ func (h *KeyboardHandler) detach(removeController bool) {
 	h.keyPressedHandlerID = 0
 	h.keyReleasedHandlerID = 0
 	h.activePressedActions = nil
-	timerID := h.pageScrollRepeatTimer
-	remove := h.pageScrollRepeatRemove
-	h.pageScrollRepeatAction = ""
-	h.pageScrollRepeatKeyval = 0
-	h.pageScrollRepeatTimer = 0
-	h.pageScrollRepeatCb = nil
-	h.pageScrollRepeatTickCb = nil
-	if h.pageScrollRepeatActiveRemove != nil {
-		remove = h.pageScrollRepeatActiveRemove
-	}
-	h.pageScrollRepeatActiveRemove = nil
 	h.mu.Unlock()
-	if timerID != 0 && remove != nil {
-		remove(timerID)
-	}
 }
 
 // handleKeyPress processes a key press event.
@@ -437,94 +446,102 @@ func (h *KeyboardHandler) handleShortcutLookupResult(
 }
 
 func (h *KeyboardHandler) handlePageScrollAction(log *zerolog.Logger, action Action, mode Mode, keyval uint) bool {
-	h.mu.Lock()
-	repeatAction := h.pageScrollRepeatAction
-	repeatKeyval := h.pageScrollRepeatKeyval
-	repeatTimer := h.pageScrollRepeatTimer
-	h.mu.Unlock()
-
-	if repeatAction == action && repeatKeyval == keyval {
-		if repeatTimer != 0 {
-			log.Trace().Str("action", string(action)).Msg("page scroll key repeat handled by smooth repeater")
-			return true
-		}
-		if h.dispatchAction(action, mode) {
-			h.startPageScrollRepeat(action, keyval)
-			return true
-		}
-		return false
+	h.mu.RLock()
+	sameHeldKey := h.pageScrollRepeatAction == action &&
+		h.pageScrollRepeatKeyval == keyval && h.pageScrollRepeatTimer != 0
+	h.mu.RUnlock()
+	if sameHeldKey {
+		log.Trace().Str("action", string(action)).Msg("page scroll OS repeat suppressed")
+		return true
 	}
 
 	h.stopPageScrollRepeat()
-	h.mu.Lock()
-	h.pageScrollRepeatAction = action
-	h.pageScrollRepeatKeyval = keyval
-	h.mu.Unlock()
-	return h.dispatchAction(action, mode)
+	if !h.dispatchAction(action, mode) {
+		return false
+	}
+	h.startPageScrollRepeat(action, keyval)
+	return true
 }
 
 func (h *KeyboardHandler) startPageScrollRepeat(action Action, keyval uint) {
 	h.mu.Lock()
-	if h.pageScrollRepeatAction != action || h.pageScrollRepeatKeyval != keyval || h.pageScrollRepeatTimer != 0 {
+	if h.pageScrollRepeatTimer != 0 || h.pageScrollRepeatAdd == nil {
 		h.mu.Unlock()
 		return
 	}
-	if h.window != nil {
-		window := h.window
-		cb := gtk.TickCallback(func(_, _, _ uintptr) bool {
-			return h.pageScrollRepeatTick(action, keyval)
-		})
-		h.pageScrollRepeatTickCb = cb
-		h.pageScrollRepeatActiveRemove = func(id uint) bool {
-			window.RemoveTickCallback(id)
-			return true
-		}
-		h.pageScrollRepeatTimer = window.AddTickCallback(&h.pageScrollRepeatTickCb, 0, nil)
-		h.mu.Unlock()
-		return
-	}
-
-	add := h.pageScrollRepeatAdd
-	if add == nil {
-		h.mu.Unlock()
-		return
-	}
+	h.pageScrollRepeatGeneration++
+	generation := h.pageScrollRepeatGeneration
+	h.pageScrollRepeatAction = action
+	h.pageScrollRepeatKeyval = keyval
+	h.pageScrollRepeatPressedAt = h.pageScrollNow()
 	cb := glib.SourceFunc(func(_ uintptr) bool {
-		return h.pageScrollRepeatTick(action, keyval)
+		return h.pageScrollRepeatTick(action, keyval, generation)
 	})
 	h.pageScrollRepeatCb = cb
-	h.pageScrollRepeatTimer = add(uint(pageScrollRepeatInterval/time.Millisecond), &h.pageScrollRepeatCb)
+	add := h.pageScrollRepeatAdd
+	id := add(uint(pageScrollCadence/time.Millisecond), &h.pageScrollRepeatCb)
+	if id == 0 {
+		h.clearPageScrollRepeatLocked()
+		h.mu.Unlock()
+		return
+	}
+	h.pageScrollRepeatTimer = id
 	h.mu.Unlock()
 }
 
-func (h *KeyboardHandler) pageScrollRepeatTick(action Action, keyval uint) bool {
+func (h *KeyboardHandler) pageScrollRepeatTick(action Action, keyval uint, generation uint64) bool {
 	h.mu.RLock()
-	active := h.pageScrollRepeatAction == action && h.pageScrollRepeatKeyval == keyval && h.pageScrollRepeatTimer != 0
+	active := h.pageScrollRepeatAction == action && h.pageScrollRepeatKeyval == keyval &&
+		h.pageScrollRepeatTimer != 0 && h.pageScrollRepeatGeneration == generation
+	pressedAt := h.pageScrollRepeatPressedAt
+	now := h.pageScrollNow
 	h.mu.RUnlock()
 	if !active || h.modal.Mode() != ModePage {
-		h.stopPageScrollRepeat()
 		return false
 	}
-	h.dispatchAction(action, ModePage)
+	if now().Sub(pressedAt) < pageScrollHoldDelay {
+		return true
+	}
+	h.dispatchPageScrollLifecycle(action, PageScrollContinuous)
 	return true
 }
 
 func (h *KeyboardHandler) stopPageScrollRepeat() {
 	h.mu.Lock()
+	action := h.pageScrollRepeatAction
 	timerID := h.pageScrollRepeatTimer
 	remove := h.pageScrollRepeatRemove
-	h.pageScrollRepeatAction = ""
-	h.pageScrollRepeatKeyval = 0
-	h.pageScrollRepeatTimer = 0
-	h.pageScrollRepeatCb = nil
-	h.pageScrollRepeatTickCb = nil
-	if h.pageScrollRepeatActiveRemove != nil {
-		remove = h.pageScrollRepeatActiveRemove
-	}
-	h.pageScrollRepeatActiveRemove = nil
+	h.clearPageScrollRepeatLocked()
 	h.mu.Unlock()
 	if timerID != 0 && remove != nil {
 		remove(timerID)
+	}
+	if action != "" {
+		h.dispatchPageScrollLifecycle(action, PageScrollStop)
+	}
+}
+
+func (h *KeyboardHandler) clearPageScrollRepeatLocked() {
+	h.pageScrollRepeatGeneration++
+	h.pageScrollRepeatAction = ""
+	h.pageScrollRepeatKeyval = 0
+	h.pageScrollRepeatTimer = 0
+	h.pageScrollRepeatPressedAt = time.Time{}
+	h.pageScrollRepeatCb = nil
+}
+
+func (h *KeyboardHandler) dispatchPageScrollLifecycle(action Action, phase PageScrollPhase) {
+	h.mu.RLock()
+	handler := h.onPageScrollLifecycle
+	h.mu.RUnlock()
+	if handler == nil {
+		if phase == PageScrollContinuous {
+			h.dispatchAction(action, ModePage)
+		}
+		return
+	}
+	if err := handler(h.ctx, action, phase); err != nil {
+		logging.FromContext(h.ctx).Error().Err(err).Str("action", string(action)).Msg("page scroll lifecycle handler error")
 	}
 }
 

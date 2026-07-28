@@ -372,6 +372,41 @@ func (d *KeyboardDispatcher) initActionHandlers() {
 	}
 }
 
+// DispatchPageScrollLifecycle routes autonomous held-key page scroll events.
+// Stop deliberately avoids the normal action map so it emits neither another
+// scroll tap nor visual pulse.
+func (d *KeyboardDispatcher) DispatchPageScrollLifecycle(ctx context.Context, action input.Action, phase input.PageScrollPhase) error {
+	cmd, ok := pageScrollCommand(action)
+	if !ok {
+		return nil
+	}
+	return d.withActiveWebView(ctx, "page scroll lifecycle", func(wv port.WebView) error {
+		if phase == input.PageScrollStop {
+			return d.navCoord.StopPageScroll(ctx, wv)
+		}
+		return d.navCoord.ScrollWebViewContinuous(ctx, wv, cmd)
+	})
+}
+
+func pageScrollCommand(action input.Action) (usecase.PageScrollCommand, bool) {
+	switch action {
+	case input.ActionPageScrollLeft:
+		return usecase.PageScrollLeft, true
+	case input.ActionPageScrollRight:
+		return usecase.PageScrollRight, true
+	case input.ActionPageScrollUp:
+		return usecase.PageScrollUp, true
+	case input.ActionPageScrollDown:
+		return usecase.PageScrollDown, true
+	case input.ActionPageScrollUpFast:
+		return usecase.PageScrollUpFast, true
+	case input.ActionPageScrollDownFast:
+		return usecase.PageScrollDownFast, true
+	default:
+		return 0, false
+	}
+}
+
 // Dispatch routes a keyboard action to the appropriate coordinator.
 func (d *KeyboardDispatcher) Dispatch(ctx context.Context, action input.Action) error {
 	log := logging.FromContext(ctx)

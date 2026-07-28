@@ -5,6 +5,17 @@ import (
 	"testing"
 )
 
+func TestBuildScrollByJS_TargetsViewportCenterInsteadOfActiveElement(t *testing.T) {
+	js := BuildScrollByJS(0, 80)
+
+	if !strings.Contains(js, "doc.elementFromPoint(window.innerWidth/2,window.innerHeight/2)") {
+		t.Fatalf("page scroll must resolve its initial target from the viewport center, got: %s", js)
+	}
+	if strings.Contains(js, "activeElement") {
+		t.Fatalf("page scroll must not use the legacy active-element target, got: %s", js)
+	}
+}
+
 func TestBuildScrollByJS_ContainsRequiredOperations(t *testing.T) {
 	tests := []struct {
 		name string
@@ -22,7 +33,7 @@ func TestBuildScrollByJS_ContainsRequiredOperations(t *testing.T) {
 		message  string
 		snippets []string
 	}{
-		{"JS must reference document.activeElement", []string{"activeElement"}},
+		{"JS must resolve the viewport-center element", []string{"elementFromPoint", "window.innerWidth/2", "window.innerHeight/2"}},
 		{"JS must walk parentElement in a loop", []string{"parentElement"}},
 		{"JS must reference document.scrollingElement", []string{"scrollingElement"}},
 		{"JS must fall back to window.scrollBy", []string{"window.scrollBy"}},

@@ -1088,6 +1088,10 @@ func (a *App) initBrowserWindowInput(ctx context.Context, bw *browserWindow) {
 		}
 		return a.dispatchBrowserWindowAction(actionCtx, bw, action)
 	})
+	bw.keyboardHandler.SetOnPageScrollLifecycle(func(scrollCtx context.Context, action input.Action, phase input.PageScrollPhase) error {
+		a.activateBrowserWindow(bw)
+		return a.kbDispatcher.DispatchPageScrollLifecycle(scrollCtx, action, phase)
+	})
 	bw.keyboardHandler.SetOnEscape(func(escapeCtx context.Context) bool {
 		a.activateBrowserWindow(bw)
 		return a.handleGlobalEscape(escapeCtx)

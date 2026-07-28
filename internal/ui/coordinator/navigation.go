@@ -304,6 +304,28 @@ func (c *NavigationCoordinator) ScrollWebView(ctx context.Context, wv port.WebVi
 	return c.pageScrollUC.Scroll(ctx, wv, cmd)
 }
 
+// ScrollWebViewContinuous applies one autonomous held-key page-scroll step.
+func (c *NavigationCoordinator) ScrollWebViewContinuous(ctx context.Context, wv port.WebView, cmd usecase.PageScrollCommand) error {
+	if err := requireWebView(wv); err != nil {
+		return err
+	}
+	if c.pageScrollUC == nil {
+		return fmt.Errorf("page scroll usecase not set")
+	}
+	return c.pageScrollUC.ScrollContinuous(ctx, wv, cmd)
+}
+
+// StopPageScroll discards queued continuous deltas for adapters that support it.
+func (c *NavigationCoordinator) StopPageScroll(ctx context.Context, wv port.WebView) error {
+	if err := requireWebView(wv); err != nil {
+		return err
+	}
+	if c.pageScrollUC == nil {
+		return fmt.Errorf("page scroll usecase not set")
+	}
+	return c.pageScrollUC.Stop(ctx, wv)
+}
+
 // NotifyZoomChanged updates the omnibox zoom indicator.
 func (c *NavigationCoordinator) NotifyZoomChanged(ctx context.Context, factor float64) {
 	if c.omniboxProvider != nil {
