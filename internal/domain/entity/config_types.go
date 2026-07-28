@@ -44,9 +44,10 @@ type ActionBinding struct {
 
 // PaneModeConfig holds pane mode shortcut configuration.
 type PaneModeConfig struct {
-	ActivationShortcut  string                   `mapstructure:"activation_shortcut" yaml:"activation_shortcut" toml:"activation_shortcut" json:"activation_shortcut"` //nolint:lll // struct tags must stay on one line
-	TimeoutMilliseconds int                      `mapstructure:"timeout_ms" yaml:"timeout_ms" toml:"timeout_ms" json:"timeout_ms"`
-	Actions             map[string]ActionBinding `mapstructure:"actions" yaml:"actions" toml:"actions" json:"actions"`
+	ActivationShortcut          string                   `mapstructure:"activation_shortcut" yaml:"activation_shortcut" toml:"activation_shortcut" json:"activation_shortcut"` //nolint:lll // struct tags must stay on one line
+	TimeoutMilliseconds         int                      `mapstructure:"timeout_ms" yaml:"timeout_ms" toml:"timeout_ms" json:"timeout_ms"`
+	SequenceTimeoutMilliseconds int                      `mapstructure:"sequence_timeout_ms" yaml:"sequence_timeout_ms" toml:"sequence_timeout_ms" json:"sequence_timeout_ms"` //nolint:lll // struct tags must stay on one line
+	Actions                     map[string]ActionBinding `mapstructure:"actions" yaml:"actions" toml:"actions" json:"actions"`
 }
 
 // keyBindingsFromActions converts an action binding map to a key→action map.

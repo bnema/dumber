@@ -708,6 +708,7 @@ func (m *Manager) setWorkspaceDefaults(defaults *Config) {
 	m.viper.SetDefault("workspace.tab_mode.actions", defaults.Workspace.TabMode.Actions)
 	m.viper.SetDefault("workspace.vim_mode.activation_shortcut", defaults.Workspace.VimMode.ActivationShortcut)
 	m.viper.SetDefault("workspace.vim_mode.timeout_ms", defaults.Workspace.VimMode.TimeoutMilliseconds)
+	m.viper.SetDefault("workspace.vim_mode.sequence_timeout_ms", defaults.Workspace.VimMode.SequenceTimeoutMilliseconds)
 	m.viper.SetDefault("workspace.vim_mode.actions", defaults.Workspace.VimMode.Actions)
 	m.viper.SetDefault("workspace.resize_mode.activation_shortcut", defaults.Workspace.ResizeMode.ActivationShortcut)
 	m.viper.SetDefault("workspace.resize_mode.timeout_ms", defaults.Workspace.ResizeMode.TimeoutMilliseconds)

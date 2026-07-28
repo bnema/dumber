@@ -489,6 +489,14 @@ func (*SchemaProvider) getWorkspaceKeys(defaults *Config) []entity.ConfigKeyInfo
 			Section:     SectionWorkspace,
 		},
 		{
+			Key:         "workspace.vim_mode.sequence_timeout_ms",
+			Type:        "int",
+			Default:     fmt.Sprintf("%d", defaults.Workspace.VimMode.SequenceTimeoutMilliseconds),
+			Description: "Vim mode multi-key sequence timeout in milliseconds (0 = no timeout)",
+			Range:       ">=0",
+			Section:     SectionWorkspace,
+		},
+		{
 			Key:         "workspace.vim_mode.actions.<action>",
 			Type:        "object",
 			Default:     "(see defaults)",

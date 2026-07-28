@@ -11,6 +11,7 @@ import (
 
 	domainurl "github.com/bnema/dumber/internal/domain/url"
 	domainvalidation "github.com/bnema/dumber/internal/domain/validation"
+	"github.com/bnema/dumber/internal/domain/vimkeys"
 )
 
 const cefLogSeverityDisabled = 99
@@ -243,12 +244,31 @@ func validateTabMode(config *Config) []string {
 }
 
 func validateVimMode(config *Config) []string {
-	return validateModalModeActions("vim_mode", config.Workspace.VimMode.TimeoutMilliseconds, config.Workspace.VimMode.Actions)
+	var validationErrors []string
+	if config.Workspace.VimMode.SequenceTimeoutMilliseconds < 0 {
+		validationErrors = append(validationErrors, "workspace.vim_mode.sequence_timeout_ms must be non-negative")
+	}
+	validationErrors = append(validationErrors, validateModalModeActionsWithKeyCanon(
+		"vim_mode",
+		config.Workspace.VimMode.TimeoutMilliseconds,
+		config.Workspace.VimMode.Actions,
+		canonicalizeVimModeSequenceKey,
+	)...)
+	return validationErrors
 }
 
 // validateModalModeActions shared timeout/empty-actions/duplicate-key checks for
 // pane, tab, and page modal modes. Messages stay path-exact via modePath.
 func validateModalModeActions(modePath string, timeoutMS int, actions map[string]ActionBinding) []string {
+	return validateModalModeActionsWithKeyCanon(modePath, timeoutMS, actions, nil)
+}
+
+func validateModalModeActionsWithKeyCanon(
+	modePath string,
+	timeoutMS int,
+	actions map[string]ActionBinding,
+	keyCanon func(string) (string, error),
+) []string {
 	var validationErrors []string
 	if timeoutMS < 0 {
 		validationErrors = append(validationErrors, fmt.Sprintf("workspace.%s.timeout_ms must be non-negative", modePath))
@@ -257,25 +277,77 @@ func validateModalModeActions(modePath string, timeoutMS int, actions map[string
 		validationErrors = append(validationErrors, fmt.Sprintf("workspace.%s.actions cannot be empty", modePath))
 	}
 
-	seenKeys := make(map[string]string)
-	for action, binding := range actions {
+	if keyCanon == nil {
+		seenKeys := make(map[string]string)
+		for action, binding := range actions {
+			if len(binding.Keys) == 0 {
+				validationErrors = append(validationErrors, fmt.Sprintf("workspace.%s.actions.%s must have at least one key binding", modePath, action))
+			}
+			for _, key := range binding.Keys {
+				if existingAction, exists := seenKeys[key]; exists {
+					validationErrors = append(validationErrors, fmt.Sprintf(
+						"duplicate key binding '%s' found in %s actions '%s' and '%s'", key, modePath, existingAction, action,
+					))
+				}
+				seenKeys[key] = action
+			}
+		}
+		return validationErrors
+	}
+
+	actionNames := make([]string, 0, len(actions))
+	for action := range actions {
+		actionNames = append(actionNames, action)
+	}
+	sort.Strings(actionNames)
+
+	seenSequence := make(map[string]string)
+	for _, action := range actionNames {
+		binding := actions[action]
 		if len(binding.Keys) == 0 {
 			validationErrors = append(validationErrors, fmt.Sprintf("workspace.%s.actions.%s must have at least one key binding", modePath, action))
+			continue
 		}
-		for _, key := range binding.Keys {
-			if existingAction, exists := seenKeys[key]; exists {
+		keys := append([]string(nil), binding.Keys...)
+		sort.Strings(keys)
+		for _, key := range keys {
+			canonical, err := keyCanon(key)
+			if err != nil {
+				validationErrors = append(validationErrors, fmt.Sprintf("workspace.%s.actions.%s has invalid key binding '%s': %v", modePath, action, key, err))
+				continue
+			}
+			if existingAction, exists := seenSequence[canonical]; exists {
 				validationErrors = append(validationErrors, fmt.Sprintf(
 					"duplicate key binding '%s' found in %s actions '%s' and '%s'",
-					key,
+					canonical,
 					modePath,
 					existingAction,
 					action,
 				))
 			}
-			seenKeys[key] = action
+			seenSequence[canonical] = action
 		}
 	}
 	return validationErrors
+}
+
+func canonicalizeVimModeBinding(key string) string {
+	switch strings.ToLower(strings.TrimSpace(key)) {
+	case "enter":
+		return "<Return>"
+	case "escape":
+		return "<Escape>"
+	default:
+		return key
+	}
+}
+
+func canonicalizeVimModeSequenceKey(key string) (string, error) {
+	seq, err := vimkeys.ParseBinding(canonicalizeVimModeBinding(key))
+	if err != nil {
+		return "", err
+	}
+	return seq.String(), nil
 }
 
 func validateFloatingPane(config *Config) []string {
