@@ -19,6 +19,8 @@ func TestKeyString(t *testing.T) {
 		{name: "special Esc", key: Key{Sym: "Esc"}, want: "<Escape>"},
 		{name: "special Space", key: Key{Sym: "Space"}, want: "<Space>"},
 		{name: "literal lt", key: Key{Sym: "<"}, want: "<lt>"},
+		{name: "alt only", key: Key{Sym: "b", Mods: ModAlt}, want: "<A-b>"},
+		{name: "ctrl alt", key: Key{Sym: "c", Mods: ModCtrl | ModAlt}, want: "<C-A-c>"},
 		{name: "ctrl shift", key: Key{Sym: "a", Mods: ModCtrl | ModShift}, want: "<C-S-a>"},
 	}
 	for _, tt := range tests {
@@ -46,6 +48,27 @@ func TestSequenceString(t *testing.T) {
 				t.Errorf("Sequence.String() = %q, want %q", got, tt.want)
 			}
 		})
+	}
+}
+
+func TestSequenceEqual(t *testing.T) {
+	a := Sequence{{Sym: "j"}, {Sym: "k"}}
+	b := Sequence{{Sym: "j"}, {Sym: "k"}}
+	c := Sequence{{Sym: "j"}}
+	if !a.Equal(b) {
+		t.Fatal("equal sequences reported unequal")
+	}
+	if a.Equal(c) {
+		t.Fatal("unequal length sequences reported equal")
+	}
+	if a.Equal(Sequence{{Sym: "j"}, {Sym: "x"}}) {
+		t.Fatal("different keys reported equal")
+	}
+}
+
+func TestKeyStringEmpty(t *testing.T) {
+	if got := (Key{}).String(); got != "" {
+		t.Fatalf("empty Key.String() = %q, want empty", got)
 	}
 }
 

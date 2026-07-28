@@ -113,6 +113,129 @@ func TestParseBinding_CanonicalString(t *testing.T) {
 	}
 }
 
+func TestParseBinding_LegacyChords(t *testing.T) {
+	tests := []struct {
+		input string
+		want  Sequence
+	}{
+		{input: "ctrl+d", want: Sequence{{Sym: "d", Mods: ModCtrl}}},
+		{input: "control+j", want: Sequence{{Sym: "j", Mods: ModCtrl}}},
+		{input: "alt+k", want: Sequence{{Sym: "k", Mods: ModAlt}}},
+		{input: "ctrl+J", want: Sequence{{Sym: "j", Mods: ModCtrl | ModShift}}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			got, err := ParseBinding(tt.input)
+			if err != nil {
+				t.Fatalf("ParseBinding(%q) error = %v", tt.input, err)
+			}
+			if !got.Equal(tt.want) {
+				t.Fatalf("ParseBinding(%q) = %v, want %v", tt.input, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestParseBinding_MoreMalformed(t *testing.T) {
+	tests := []string{
+		"ctrl+shift+j+k",
+		"<C->",
+		"<C--d>",
+		"<Bad>",
+		"ctrl+",
+	}
+	for _, input := range tests {
+		t.Run(input, func(t *testing.T) {
+			_, err := ParseBinding(input)
+			if err == nil {
+				t.Fatalf("ParseBinding(%q) expected error", input)
+			}
+			if !errors.Is(err, ErrBadBinding) {
+				t.Fatalf("ParseBinding(%q) error = %v, want %v", input, err, ErrBadBinding)
+			}
+		})
+	}
+}
+
+func TestParseBinding_PlusAlone(t *testing.T) {
+	got, err := ParseBinding("+")
+	if err != nil {
+		t.Fatalf("ParseBinding error = %v", err)
+	}
+	want := Sequence{{Sym: "+"}}
+	if !got.Equal(want) {
+		t.Fatalf("ParseBinding = %v, want %v", got, want)
+	}
+}
+
+func TestParseBinding_LooksLikeChordButRaw(t *testing.T) {
+	got, err := ParseBinding("]c")
+	if err != nil {
+		t.Fatalf("ParseBinding error = %v", err)
+	}
+	want := Sequence{{Sym: "]"}, {Sym: "c"}}
+	if !got.Equal(want) {
+		t.Fatalf("ParseBinding = %v, want %v", got, want)
+	}
+}
+
+func TestParseBinding_CanonicalInlineModifiers(t *testing.T) {
+	tests := []struct {
+		input string
+		want  Sequence
+	}{
+		{input: "C-d", want: Sequence{{Sym: "d", Mods: ModCtrl}}},
+		{input: "S-j", want: Sequence{{Sym: "j", Mods: ModShift}}},
+		{input: "A-k", want: Sequence{{Sym: "k", Mods: ModAlt}}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			got, err := ParseBinding(tt.input)
+			if err != nil {
+				t.Fatalf("ParseBinding(%q) error = %v", tt.input, err)
+			}
+			if !got.Equal(tt.want) {
+				t.Fatalf("ParseBinding(%q) = %v, want %v", tt.input, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestParseBinding_SpecialNamesInSequence(t *testing.T) {
+	tests := []struct {
+		input string
+		want  Sequence
+	}{
+		{input: "jEsc", want: Sequence{{Sym: "j"}, {Sym: "Esc"}}},
+		{input: "Spacej", want: Sequence{{Sym: "Space"}, {Sym: "j"}}},
+		{input: "CRj", want: Sequence{{Sym: "CR"}, {Sym: "j"}}},
+		{input: "ltj", want: Sequence{{Sym: "<"}, {Sym: "j"}}},
+		{input: "Plusj", want: Sequence{{Sym: "+"}, {Sym: "j"}}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			got, err := ParseBinding(tt.input)
+			if err != nil {
+				t.Fatalf("ParseBinding(%q) error = %v", tt.input, err)
+			}
+			if !got.Equal(tt.want) {
+				t.Fatalf("ParseBinding(%q) = %v, want %v", tt.input, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestParseBinding_PrintableGlyphs(t *testing.T) {
+	got, err := ParseBinding("!@#")
+	if err != nil {
+		t.Fatalf("ParseBinding error = %v", err)
+	}
+	want := Sequence{{Sym: "!"}, {Sym: "@"}, {Sym: "#"}}
+	if !got.Equal(want) {
+		t.Fatalf("ParseBinding = %v, want %v", got, want)
+	}
+}
+
 func TestParseBinding_RoundTrip(t *testing.T) {
 	inputs := []string{
 		"j",
