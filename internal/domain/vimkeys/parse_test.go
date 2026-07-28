@@ -236,6 +236,58 @@ func TestParseBinding_PrintableGlyphs(t *testing.T) {
 	}
 }
 
+func TestParseBinding_MixedAngleSequences(t *testing.T) {
+	tests := []struct {
+		input string
+		want  Sequence
+	}{
+		{
+			input: "<C-d>j",
+			want:  Sequence{{Sym: "d", Mods: ModCtrl}, {Sym: "j"}},
+		},
+		{
+			input: "<Escape>j",
+			want:  Sequence{{Sym: "Esc"}, {Sym: "j"}},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			got, err := ParseBinding(tt.input)
+			if err != nil {
+				t.Fatalf("ParseBinding(%q) error = %v", tt.input, err)
+			}
+			if !got.Equal(tt.want) {
+				t.Fatalf("ParseBinding(%q) = %v, want %v", tt.input, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestParseBinding_MultiModifierRoundTrip(t *testing.T) {
+	input := "<C-S-a>"
+	first, err := ParseBinding(input)
+	if err != nil {
+		t.Fatalf("ParseBinding(%q) error = %v", input, err)
+	}
+	want := Sequence{{Sym: "a", Mods: ModCtrl | ModShift}}
+	if !first.Equal(want) {
+		t.Fatalf("ParseBinding(%q) = %v, want %v", input, first, want)
+	}
+
+	canonical := first.String()
+	if canonical != "<C-S-a>" {
+		t.Fatalf("String() = %q, want %q", canonical, "<C-S-a>")
+	}
+
+	second, err := ParseBinding(canonical)
+	if err != nil {
+		t.Fatalf("ParseBinding(%q) error = %v", canonical, err)
+	}
+	if !first.Equal(second) {
+		t.Fatalf("round trip %q -> %q -> %v, want %v", input, canonical, second, first)
+	}
+}
+
 func TestParseBinding_RoundTrip(t *testing.T) {
 	inputs := []string{
 		"j",
@@ -249,6 +301,9 @@ func TestParseBinding_RoundTrip(t *testing.T) {
 		"<Esc>",
 		"<Space>",
 		"<lt>",
+		"<C-d>j",
+		"<Escape>j",
+		"<C-S-a>",
 	}
 	for _, input := range inputs {
 		t.Run(input, func(t *testing.T) {

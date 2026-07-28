@@ -108,10 +108,10 @@ func (m *Matcher) feedSequenceKey(key Key) Result {
 
 	exact := m.node.hasAction
 	children := len(m.node.children) > 0
+	m.ambiguous = exact && children
 
 	switch {
-	case exact && children:
-		m.ambiguous = true
+	case m.ambiguous:
 		return Result{Kind: ResultPending, Count: normalizedCount(m.count), Pending: m.Pending()}
 	case exact:
 		result := Result{

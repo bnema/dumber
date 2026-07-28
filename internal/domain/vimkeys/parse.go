@@ -22,9 +22,6 @@ func ParseBinding(s string) (Sequence, error) {
 		return nil, ErrEmptyBinding
 	}
 
-	if strings.HasPrefix(s, "<") {
-		return parseAngleBinding(s)
-	}
 	if looksLikeChordAttempt(s) {
 		if !isLegacyChord(s) {
 			return nil, ErrBadBinding
@@ -138,45 +135,34 @@ func parseLegacyChord(s string) (Key, error) {
 	return Key{Sym: sym, Mods: mods}, nil
 }
 
-func parseAngleBinding(s string) (Sequence, error) {
-	if !strings.HasPrefix(s, "<") || !strings.HasSuffix(s, ">") || len(s) < 3 {
-		return nil, ErrBadBinding
-	}
-	inner := s[1 : len(s)-1]
-	if inner == "" {
-		return nil, ErrBadBinding
-	}
-
-	key, err := parseAngleToken(inner)
-	if err != nil {
-		return nil, err
-	}
-	return Sequence{key}, nil
-}
-
 func parseAngleToken(inner string) (Key, error) {
 	if strings.Contains(inner, "-") {
 		parts := strings.Split(inner, "-")
-		if len(parts) != 2 {
+		if len(parts) < 2 {
 			return Key{}, ErrBadBinding
 		}
-		modPart := strings.TrimSpace(parts[0])
-		symPart := strings.TrimSpace(parts[1])
-		if modPart == "" || symPart == "" {
+		symPart := strings.TrimSpace(parts[len(parts)-1])
+		if symPart == "" {
 			return Key{}, ErrBadBinding
 		}
 
 		var mods Mods
-		for _, ch := range modPart {
-			switch ch {
-			case 'C', 'c':
-				mods |= ModCtrl
-			case 'S', 's':
-				mods |= ModShift
-			case 'A', 'a':
-				mods |= ModAlt
-			default:
+		for _, modPart := range parts[:len(parts)-1] {
+			modPart = strings.TrimSpace(modPart)
+			if modPart == "" {
 				return Key{}, ErrBadBinding
+			}
+			for _, ch := range modPart {
+				switch ch {
+				case 'C', 'c':
+					mods |= ModCtrl
+				case 'S', 's':
+					mods |= ModShift
+				case 'A', 'a':
+					mods |= ModAlt
+				default:
+					return Key{}, ErrBadBinding
+				}
 			}
 		}
 
@@ -199,6 +185,15 @@ var sequenceSpecialNames = []string{"Space", "Esc", "CR", "lt", "Plus"}
 func parseRawSequence(s string) (Sequence, error) {
 	seq := make(Sequence, 0, len(s))
 	for i := 0; i < len(s); {
+		if s[i] == '<' {
+			key, width, err := parseAngleAt(s, i)
+			if err != nil {
+				return nil, err
+			}
+			seq = append(seq, key)
+			i += width
+			continue
+		}
 		if key, width, ok := tryParseSpecialAt(s, i); ok {
 			seq = append(seq, key)
 			i += width
@@ -219,6 +214,26 @@ func parseRawSequence(s string) (Sequence, error) {
 		i += width
 	}
 	return seq, nil
+}
+
+func parseAngleAt(s string, i int) (Key, int, error) {
+	if i >= len(s) || s[i] != '<' {
+		return Key{}, 0, ErrBadBinding
+	}
+	closeIdx := strings.IndexByte(s[i+1:], '>')
+	if closeIdx < 0 {
+		return Key{}, 0, ErrBadBinding
+	}
+	closeIdx += i + 1
+	inner := s[i+1 : closeIdx]
+	if inner == "" {
+		return Key{}, 0, ErrBadBinding
+	}
+	key, err := parseAngleToken(inner)
+	if err != nil {
+		return Key{}, 0, err
+	}
+	return key, closeIdx - i + 1, nil
 }
 
 func tryParseSpecialAt(s string, i int) (Key, int, bool) {
@@ -248,25 +263,16 @@ func tryParseCanonicalAt(s string, i int) (Key, int, bool) {
 		return Key{}, 0, false
 	}
 
-	end := i
-	for end < len(s) {
-		nextDash := strings.IndexByte(s[end:], '-')
-		if nextDash < 0 {
-			end = len(s)
-			break
+	end := len(s)
+	nextDash := strings.IndexByte(s[i:], '-')
+	if nextDash >= 0 {
+		nextDash += i
+		if nextDash+1 < len(s) {
+			switch s[nextDash+1] {
+			case 'C', 'S', 'A':
+				end = nextDash
+			}
 		}
-		nextDash += end
-		if nextDash+1 >= len(s) {
-			end = len(s)
-			break
-		}
-		switch s[nextDash+1] {
-		case 'C', 'S', 'A':
-			end = nextDash
-		default:
-			end = len(s)
-		}
-		break
 	}
 
 	token := s[i:end]

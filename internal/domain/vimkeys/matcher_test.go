@@ -235,6 +235,40 @@ func TestMatcher_AutomaticReset(t *testing.T) {
 	}
 }
 
+func TestMatcher_AmbiguityClearsOnTransition(t *testing.T) {
+	trie := NewTrie()
+	for _, binding := range []struct {
+		seq    Sequence
+		action string
+	}{
+		{seq: Sequence{{Sym: "]"}}, action: "single-bracket"},
+		{seq: Sequence{{Sym: "]"}, {Sym: "]"}, {Sym: "x"}}, action: "triple-bracket"},
+	} {
+		if err := trie.Insert(binding.seq, binding.action); err != nil {
+			t.Fatalf("Insert(%v) error = %v", binding.seq, err)
+		}
+	}
+
+	m := NewMatcher(trie)
+	m.Reset()
+
+	result := m.Feed(Key{Sym: "]"})
+	if result.Kind != ResultPending {
+		t.Fatalf("after ] Feed kind = %v, want %v", result.Kind, ResultPending)
+	}
+	if !m.Ambiguous() {
+		t.Fatal("Ambiguous() after ] = false, want true")
+	}
+
+	result = m.Feed(Key{Sym: "]"})
+	if result.Kind != ResultPending {
+		t.Fatalf("after ]] Feed kind = %v, want %v", result.Kind, ResultPending)
+	}
+	if m.Ambiguous() {
+		t.Fatal("Ambiguous() after ]] = true, want false")
+	}
+}
+
 func TestMatcher_AmbiguousShortLong(t *testing.T) {
 	m := NewMatcher(testTrie(t))
 
