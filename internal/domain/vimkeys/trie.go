@@ -36,7 +36,11 @@ func newTrieNode() *trieNode {
 }
 
 // Insert adds a binding for seq. Duplicate sequences return ErrConflict.
+// Nil or empty sequences return ErrEmptyBinding.
 func (t *Trie) Insert(seq Sequence, action string) error {
+	if len(seq) == 0 {
+		return ErrEmptyBinding
+	}
 	node := t.root
 	for _, key := range seq {
 		child, ok := node.children[key]

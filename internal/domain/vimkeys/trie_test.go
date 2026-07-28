@@ -70,13 +70,37 @@ func TestTrie_InsertDuplicateReturnsConflict(t *testing.T) {
 	}
 }
 
+func TestTrie_InsertEmptySequenceReturnsErrEmptyBinding(t *testing.T) {
+	trie := NewTrie()
+	for _, seq := range []Sequence{nil, {}} {
+		err := trie.Insert(seq, "root-action")
+		if !errors.Is(err, ErrEmptyBinding) {
+			t.Fatalf("Insert(%v) error = %v, want %v", seq, err, ErrEmptyBinding)
+		}
+	}
+	node, ok := trie.Walk(nil)
+	if !ok {
+		t.Fatal("Walk(nil) ok = false, want true for empty path")
+	}
+	if node.Exact || node.Action != "" {
+		t.Fatalf("Walk(nil) after rejected empty Insert = %+v, want no root action", node)
+	}
+	if trie.MaxDepth() != 0 {
+		t.Fatalf("MaxDepth() = %d after rejected empty Insert, want 0", trie.MaxDepth())
+	}
+}
+
 func TestTrie_MaxDepth(t *testing.T) {
 	trie := NewTrie()
 	if got := trie.MaxDepth(); got != 0 {
 		t.Fatalf("empty MaxDepth() = %d, want 0", got)
 	}
-	_ = trie.Insert(Sequence{{Sym: "y"}, {Sym: "a"}, {Sym: "h"}}, "yah")
-	_ = trie.Insert(Sequence{{Sym: "]"}, {Sym: "]"}}, "brackets")
+	if err := trie.Insert(Sequence{{Sym: "y"}, {Sym: "a"}, {Sym: "h"}}, "yah"); err != nil {
+		t.Fatalf("Insert(yah) error = %v", err)
+	}
+	if err := trie.Insert(Sequence{{Sym: "]"}, {Sym: "]"}}, "brackets"); err != nil {
+		t.Fatalf("Insert(]]) error = %v", err)
+	}
 	if got := trie.MaxDepth(); got != 3 {
 		t.Fatalf("MaxDepth() = %d, want 3", got)
 	}
@@ -84,7 +108,9 @@ func TestTrie_MaxDepth(t *testing.T) {
 
 func TestTrie_WalkMissingPath(t *testing.T) {
 	trie := NewTrie()
-	_ = trie.Insert(Sequence{{Sym: "j"}}, "down")
+	if err := trie.Insert(Sequence{{Sym: "j"}}, "down"); err != nil {
+		t.Fatalf("Insert(j) error = %v", err)
+	}
 	_, ok := trie.Walk(Sequence{{Sym: "k"}})
 	if ok {
 		t.Fatal("Walk missing path ok = true, want false")

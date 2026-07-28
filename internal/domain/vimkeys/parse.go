@@ -6,27 +6,13 @@ import (
 	"unicode/utf8"
 )
 
-var specialAliases = map[string]string{
-	"cr":     "CR",
-	"return": "CR",
-	"esc":    "Esc",
-	"escape": "Esc",
-	"space":  "Space",
-	"lt":     "<",
-	"plus":   "+",
-}
-
 func ParseBinding(s string) (Sequence, error) {
 	s = strings.TrimSpace(s)
 	if s == "" {
 		return nil, ErrEmptyBinding
 	}
 
-	if looksLikeChordAttempt(s) {
-		if !isLegacyChord(s) {
-			return nil, ErrBadBinding
-		}
-		key, err := parseLegacyChord(s)
+	if key, ok, err := tryParseAsLegacyChord(s); ok {
 		if err != nil {
 			return nil, err
 		}
@@ -35,46 +21,15 @@ func ParseBinding(s string) (Sequence, error) {
 	return parseRawSequence(s)
 }
 
-func looksLikeChordAttempt(s string) bool {
-	if s == "+" {
-		return true
-	}
-	if strings.HasSuffix(s, "++") {
-		return true
-	}
-	for _, part := range strings.Split(s, "+") {
-		if isModifierName(part) {
-			return true
-		}
-	}
-	return false
-}
-
-func isLegacyChord(s string) bool {
-	if s == "+" {
-		return true
-	}
-	if !strings.Contains(s, "+") {
-		return false
-	}
-	if strings.HasSuffix(s, "++") {
-		return true
-	}
+func legacyChordParts(s string) []string {
 	parts := strings.Split(s, "+")
-	for i, part := range parts {
-		part = strings.TrimSpace(part)
-		if part == "" {
-			continue
+	tokens := make([]string, 0, len(parts))
+	for _, part := range parts {
+		if part = strings.TrimSpace(part); part != "" {
+			tokens = append(tokens, part)
 		}
-		if isModifierName(part) {
-			continue
-		}
-		if i == len(parts)-1 {
-			return true
-		}
-		return false
 	}
-	return false
+	return tokens
 }
 
 func isModifierName(part string) bool {
@@ -86,48 +41,103 @@ func isModifierName(part string) bool {
 	}
 }
 
-func parseLegacyChord(s string) (Key, error) {
+func tryParseAsLegacyChord(s string) (Key, bool, error) {
 	if s == "+" {
-		return Key{Sym: "+"}, nil
+		return Key{Sym: "+"}, true, nil
 	}
 
-	parts := strings.Split(s, "+")
-	var mods Mods
-	var keyPart string
+	parts := legacyChordParts(s)
+	if !legacyChordLooksLikeAttempt(s, parts) {
+		return Key{}, false, nil
+	}
 
+	key, err := buildLegacyChordKey(s, parts)
+	return key, true, err
+}
+
+func legacyChordLooksLikeAttempt(s string, parts []string) bool {
+	if strings.HasSuffix(s, "++") {
+		return true
+	}
 	for _, part := range parts {
-		part = strings.TrimSpace(part)
-		if part == "" {
+		if isModifierName(part) {
+			return true
+		}
+	}
+	return false
+}
+
+func validateLegacyChordLayout(s string, parts []string) error {
+	if !strings.Contains(s, "+") {
+		return ErrBadBinding
+	}
+	if strings.HasSuffix(s, "++") {
+		return nil
+	}
+	for i, part := range parts {
+		if isModifierName(part) {
 			continue
 		}
-		lower := strings.ToLower(part)
-		switch lower {
-		case "ctrl", "control":
-			mods |= ModCtrl
-		case "shift":
-			mods |= ModShift
-		case "alt":
-			mods |= ModAlt
-		default:
-			if keyPart != "" {
-				return Key{}, ErrBadBinding
-			}
-			keyPart = part
+		if i != len(parts)-1 {
+			return ErrBadBinding
 		}
+	}
+	return nil
+}
+
+func modsFromLegacyPart(part string) (Mods, bool) {
+	switch strings.ToLower(part) {
+	case "ctrl", "control":
+		return ModCtrl, true
+	case "shift":
+		return ModShift, true
+	case "alt":
+		return ModAlt, true
+	default:
+		return 0, false
+	}
+}
+
+func collectLegacyChordModsAndKey(s string, parts []string) (Mods, string, error) {
+	if err := validateLegacyChordLayout(s, parts); err != nil {
+		return 0, "", err
+	}
+
+	var mods Mods
+	keyPart := ""
+	for _, part := range parts {
+		if mod, ok := modsFromLegacyPart(part); ok {
+			mods |= mod
+			continue
+		}
+		if keyPart != "" {
+			return 0, "", ErrBadBinding
+		}
+		keyPart = part
 	}
 
 	if keyPart == "" && strings.HasSuffix(s, "++") {
 		keyPart = "+"
 	}
 	if keyPart == "" {
-		return Key{}, ErrBadBinding
+		return 0, "", ErrBadBinding
 	}
+	return mods, keyPart, nil
+}
 
+func legacyKeyPartWithShift(keyPart string, mods Mods) (string, Mods) {
 	if len(keyPart) == 1 && keyPart[0] >= 'A' && keyPart[0] <= 'Z' {
-		mods |= ModShift
-		keyPart = strings.ToLower(keyPart)
+		return strings.ToLower(keyPart), mods | ModShift
 	}
+	return keyPart, mods
+}
 
+func buildLegacyChordKey(s string, parts []string) (Key, error) {
+	mods, keyPart, err := collectLegacyChordModsAndKey(s, parts)
+	if err != nil {
+		return Key{}, err
+	}
+	keyPart, mods = legacyKeyPartWithShift(keyPart, mods)
 	sym, err := symFromToken(keyPart, false)
 	if err != nil {
 		return Key{}, err
@@ -152,18 +162,11 @@ func parseAngleToken(inner string) (Key, error) {
 			if modPart == "" {
 				return Key{}, ErrBadBinding
 			}
-			for _, ch := range modPart {
-				switch ch {
-				case 'C', 'c':
-					mods |= ModCtrl
-				case 'S', 's':
-					mods |= ModShift
-				case 'A', 'a':
-					mods |= ModAlt
-				default:
-					return Key{}, ErrBadBinding
-				}
+			partMods, err := modsFromCompactModString(modPart)
+			if err != nil {
+				return Key{}, err
 			}
+			mods |= partMods
 		}
 
 		sym, err := symFromToken(symPart, true)
@@ -180,7 +183,22 @@ func parseAngleToken(inner string) (Key, error) {
 	return Key{Sym: sym}, nil
 }
 
-var sequenceSpecialNames = []string{"Space", "Esc", "CR", "lt", "Plus"}
+func modsFromCompactModString(modPart string) (Mods, error) {
+	var mods Mods
+	for _, ch := range modPart {
+		switch ch {
+		case 'C', 'c':
+			mods |= ModCtrl
+		case 'S', 's':
+			mods |= ModShift
+		case 'A', 'a':
+			mods |= ModAlt
+		default:
+			return 0, ErrBadBinding
+		}
+	}
+	return mods, nil
+}
 
 func parseRawSequence(s string) (Sequence, error) {
 	seq := make(Sequence, 0, len(s))
@@ -237,17 +255,24 @@ func parseAngleAt(s string, i int) (Key, int, error) {
 }
 
 func tryParseSpecialAt(s string, i int) (Key, int, bool) {
-	for _, name := range sequenceSpecialNames {
-		if !strings.HasPrefix(s[i:], name) {
-			continue
-		}
-		sym, err := symFromAlias(name)
-		if err != nil {
-			continue
-		}
-		return Key{Sym: sym}, len(name), true
+	if i >= len(s) {
+		return Key{}, 0, false
 	}
-	return Key{}, 0, false
+	rest := s[i:]
+	switch {
+	case strings.HasPrefix(rest, "Space"):
+		return Key{Sym: "Space"}, len("Space"), true
+	case strings.HasPrefix(rest, "Plus"):
+		return Key{Sym: "+"}, len("Plus"), true
+	case strings.HasPrefix(rest, "Esc"):
+		return Key{Sym: "Esc"}, len("Esc"), true
+	case strings.HasPrefix(rest, "CR"):
+		return Key{Sym: "CR"}, len("CR"), true
+	case strings.HasPrefix(rest, "lt"):
+		return Key{Sym: "<"}, len("lt"), true
+	default:
+		return Key{}, 0, false
+	}
 }
 
 func tryParseCanonicalAt(s string, i int) (Key, int, bool) {
@@ -336,8 +361,25 @@ func shiftedGlyphForRune(r rune) (string, bool) {
 	}
 }
 
+func symFromSpecialAlias(token string) (string, bool) {
+	switch strings.ToLower(token) {
+	case "cr", "return":
+		return "CR", true
+	case "esc", "escape":
+		return "Esc", true
+	case "space":
+		return "Space", true
+	case "lt":
+		return "<", true
+	case "plus":
+		return "+", true
+	default:
+		return "", false
+	}
+}
+
 func symFromToken(token string, allowSingleLetter bool) (string, error) {
-	if sym, ok := specialAliases[strings.ToLower(token)]; ok {
+	if sym, ok := symFromSpecialAlias(token); ok {
 		return sym, nil
 	}
 	if allowSingleLetter && len(token) == 1 {
@@ -356,7 +398,7 @@ func symFromToken(token string, allowSingleLetter bool) (string, error) {
 }
 
 func symFromAlias(token string) (string, error) {
-	if sym, ok := specialAliases[strings.ToLower(token)]; ok {
+	if sym, ok := symFromSpecialAlias(token); ok {
 		return sym, nil
 	}
 	return "", ErrBadBinding
