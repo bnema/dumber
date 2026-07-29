@@ -725,6 +725,12 @@ func TestParseBinding_DeterministicRoundTripProperty(t *testing.T) {
 			{Sym: "-"},
 			{Sym: "d"},
 		},
+		// Representative multi-byte printable runes (accented BMP + emoji).
+		{{Sym: "é"}},
+		{{Sym: "é", Mods: ModCtrl}},
+		{{Sym: "ñ", Mods: ModAlt}},
+		{{Sym: "😀"}},
+		{{Sym: "😀", Mods: ModCtrl}},
 	}
 	for _, seq := range corpus {
 		canonical := seq.String()
@@ -952,6 +958,73 @@ func TestParseBinding_OneCharAngleLiteral(t *testing.T) {
 	}
 	if _, err := ParseBinding("<Nope>"); !errors.Is(err, ErrBadBinding) {
 		t.Fatalf("ParseBinding(<Nope>) error = %v, want %v", err, ErrBadBinding)
+	}
+}
+
+// TestParseBinding_CtrlEAcuteRoundTrip covers the runtime Unicode canonical
+// invariant: ctrl+é / <C-é> parse to Key{Sym:"é", ModCtrl} and String
+// re-parses identically.
+func TestParseBinding_CtrlEAcuteRoundTrip(t *testing.T) {
+	want := Sequence{{Sym: "é", Mods: ModCtrl}}
+	for _, input := range []string{"ctrl+é", "<C-é>"} {
+		t.Run(input, func(t *testing.T) {
+			got, err := ParseBinding(input)
+			if err != nil {
+				t.Fatalf("ParseBinding(%q) error = %v", input, err)
+			}
+			if !got.Equal(want) {
+				t.Fatalf("ParseBinding(%q) = %v, want %v", input, got, want)
+			}
+			canonical := got.String()
+			if canonical != "<C-é>" {
+				t.Fatalf("String() = %q, want %q", canonical, "<C-é>")
+			}
+			again, err := ParseBinding(canonical)
+			if err != nil {
+				t.Fatalf("ParseBinding(%q) error = %v", canonical, err)
+			}
+			if !again.Equal(want) {
+				t.Fatalf("round trip %q -> %q -> %v, want %v", input, canonical, again, want)
+			}
+		})
+	}
+}
+
+// TestParseBinding_ReplacementCharRoundTrip ensures valid printable U+FFFD is not
+// rejected by the single-rune token path (r == utf8.RuneError is U+FFFD itself).
+func TestParseBinding_ReplacementCharRoundTrip(t *testing.T) {
+	const repl = "\uFFFD"
+	want := Sequence{{Sym: repl, Mods: ModCtrl}}
+	for _, input := range []string{"ctrl+" + repl, "<C-" + repl + ">"} {
+		t.Run(input, func(t *testing.T) {
+			got, err := ParseBinding(input)
+			if err != nil {
+				t.Fatalf("ParseBinding(%q) error = %v", input, err)
+			}
+			if !got.Equal(want) {
+				t.Fatalf("ParseBinding(%q) = %v, want %v", input, got, want)
+			}
+			canonical := got.String()
+			wantCanonical := "<C-" + repl + ">"
+			if canonical != wantCanonical {
+				t.Fatalf("String() = %q, want %q", canonical, wantCanonical)
+			}
+			again, err := ParseBinding(canonical)
+			if err != nil {
+				t.Fatalf("ParseBinding(%q) error = %v", canonical, err)
+			}
+			if !again.Equal(want) {
+				t.Fatalf("round trip %q -> %q -> %v, want %v", input, canonical, again, want)
+			}
+		})
+	}
+	modifiedWant := Sequence{{Sym: repl}}
+	got, err := ParseBinding("<" + repl + ">")
+	if err != nil {
+		t.Fatalf("ParseBinding angle literal error = %v", err)
+	}
+	if !got.Equal(modifiedWant) {
+		t.Fatalf("ParseBinding(<U+FFFD>) = %v, want %v", got, modifiedWant)
 	}
 }
 

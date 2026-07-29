@@ -355,17 +355,13 @@ func symFromToken(token string, allowSingleLetter bool) (string, error) {
 	if sym, ok := symFromSpecialAlias(token); ok {
 		return sym, nil
 	}
-	if allowSingleLetter && len(token) == 1 {
-		ch := token[0]
-		if ch >= 'A' && ch <= 'Z' {
-			return strings.ToLower(token), nil
-		}
-		if ch >= 'a' && ch <= 'z' {
-			return token, nil
+	if allowSingleLetter {
+		if sym, ok := asciiLetterSym(token); ok {
+			return sym, nil
 		}
 	}
-	if len(token) == 1 && unicode.IsPrint(rune(token[0])) {
-		return token, nil
+	if sym, ok := singlePrintableRuneSym(token); ok {
+		return sym, nil
 	}
 	return "", ErrBadBinding
 }
@@ -374,16 +370,43 @@ func symFromAlias(token string) (string, error) {
 	if sym, ok := symFromSpecialAlias(token); ok {
 		return sym, nil
 	}
-	// One-character literal angle tokens (<e>) disambiguate legacy-atom collisions.
-	// Multi-character unknowns such as <Nope> remain invalid.
-	if len(token) == 1 {
-		ch := token[0]
-		if ch >= 'a' && ch <= 'z' {
-			return token, nil
-		}
-		if ch >= 'A' && ch <= 'Z' {
-			return strings.ToLower(token), nil
-		}
+	// One-character / one-rune literal angle tokens (<e>, <é>) disambiguate
+	// legacy-atom collisions. Multi-rune unknowns such as <Nope> remain invalid.
+	if sym, ok := asciiLetterSym(token); ok {
+		return sym, nil
+	}
+	if sym, ok := singlePrintableRuneSym(token); ok {
+		return sym, nil
 	}
 	return "", ErrBadBinding
+}
+
+// asciiLetterSym normalizes a single ASCII letter token (A-Z -> a-z).
+func asciiLetterSym(token string) (string, bool) {
+	if len(token) != 1 {
+		return "", false
+	}
+	ch := token[0]
+	if ch >= 'A' && ch <= 'Z' {
+		return strings.ToLower(token), true
+	}
+	if ch >= 'a' && ch <= 'z' {
+		return token, true
+	}
+	return "", false
+}
+
+// singlePrintableRuneSym accepts exactly one valid UTF-8 printable rune.
+func singlePrintableRuneSym(token string) (string, bool) {
+	if token == "" || !utf8.ValidString(token) {
+		return "", false
+	}
+	r, size := utf8.DecodeRuneInString(token)
+	if size != len(token) {
+		return "", false
+	}
+	if !unicode.IsPrint(r) {
+		return "", false
+	}
+	return token, true
 }

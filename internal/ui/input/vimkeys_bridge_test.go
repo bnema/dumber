@@ -156,6 +156,13 @@ func TestKeyvalToVimKey(t *testing.T) {
 			wantOk: true,
 		},
 		{
+			name:   "ctrl+eacute Latin-1 keyval round-trips through parser",
+			keyval: uint(gdk.KEY_eacute),
+			state:  gdk.ControlMaskValue,
+			want:   vimkeys.Key{Sym: "é", Mods: vimkeys.ModCtrl},
+			wantOk: true,
+		},
+		{
 			name:   "non-printable rejected",
 			keyval: 0,
 			state:  gdk.NoModifierMaskValue,

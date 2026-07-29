@@ -83,8 +83,11 @@ func vimModsFromState(state gdk.ModifierType) vimkeys.Mods {
 // keyvalToUnicode mirrors gdk_keyval_to_unicode for Latin-1 graphic keysyms
 // (identity mapping) and falls back to GDK for the remaining keyvals.
 func keyvalToUnicode(keyval uint) uint32 {
-	// ASCII graphic Latin-1 keysyms share their Unicode code points.
+	// ASCII graphic and Latin-1 supplement keysyms share Unicode code points.
 	if keyval >= 0x20 && keyval <= 0x7e {
+		return uint32(keyval)
+	}
+	if keyval >= 0xa0 && keyval <= 0xff {
 		return uint32(keyval)
 	}
 	return gdk.KeyvalToUnicode(keyval)
