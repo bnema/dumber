@@ -152,6 +152,10 @@ type WebView struct {
 
 	pageScrollQueue pageScrollQueue
 
+	// a11yWorker receives serialized accessibility payloads off the CEF UI
+	// thread. Production leaves it nil unless DUMBER_A11Y_CAPTURE=1.
+	a11yWorker accessibilityPayloadSink
+
 	// beginFrameTick drives CEF external BeginFrame requests while the GTK
 	// widget is visible. Access is guarded by mu.
 	beginFrameTick   *gtk.TickCallback
