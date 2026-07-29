@@ -122,6 +122,76 @@ func TestValidatePageMode_EmptyActionKeysFail(t *testing.T) {
 	assert.Contains(t, err.Error(), "workspace.page_mode.actions.page-scroll-left must have at least one key binding")
 }
 
+func TestValidateModalModeActions_RegressionTable(t *testing.T) {
+	tests := []struct {
+		name     string
+		modePath string
+		timeout  int
+		actions  map[string]ActionBinding
+		want     string
+	}{
+		{
+			name:     "page negative timeout",
+			modePath: "page_mode",
+			timeout:  -1,
+			actions:  map[string]ActionBinding{"page-scroll-left": {Keys: []string{"h"}}},
+			want:     "workspace.page_mode.timeout_ms must be non-negative",
+		},
+		{
+			name:     "pane empty actions",
+			modePath: "pane_mode",
+			timeout:  0,
+			actions:  nil,
+			want:     "workspace.pane_mode.actions cannot be empty",
+		},
+		{
+			name:     "tab empty keys",
+			modePath: "tab_mode",
+			timeout:  0,
+			actions:  map[string]ActionBinding{"new-tab": {Keys: []string{}}},
+			want:     "workspace.tab_mode.actions.new-tab must have at least one key binding",
+		},
+		{
+			name:     "page duplicate vim binding",
+			modePath: "page_mode",
+			timeout:  0,
+			actions: map[string]ActionBinding{
+				"page-scroll-left":  {Keys: []string{"h"}},
+				"page-scroll-right": {Keys: []string{"h"}},
+			},
+			want: "duplicate key binding 'h' found in page_mode actions",
+		},
+		{
+			name:     "page canonical vim set ok",
+			modePath: "page_mode",
+			timeout:  0,
+			actions: map[string]ActionBinding{
+				"page-scroll-left":      {Keys: []string{"h"}},
+				"page-scroll-down":      {Keys: []string{"j"}},
+				"page-scroll-up":        {Keys: []string{"k"}},
+				"page-scroll-right":     {Keys: []string{"l"}},
+				"page-scroll-down-fast": {Keys: []string{"shift+j"}},
+				"page-scroll-up-fast":   {Keys: []string{"shift+k"}},
+				"confirm":               {Keys: []string{"enter"}},
+				"cancel":                {Keys: []string{"escape"}},
+			},
+			want: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			errs := validateModalModeActions(tt.modePath, tt.timeout, tt.actions)
+			if tt.want == "" {
+				assert.Empty(t, errs)
+				return
+			}
+			require.NotEmpty(t, errs)
+			assert.Contains(t, errs[0], tt.want)
+		})
+	}
+}
+
 func TestSchemaProvider_PageModeKeys(t *testing.T) {
 	provider := &SchemaProvider{}
 	schema := provider.GetSchema()
