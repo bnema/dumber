@@ -30,9 +30,9 @@ func ParseBinding(s string) (Sequence, error) {
 func tryParseLegacyAtom(s string) (Key, bool) {
 	switch strings.ToLower(s) {
 	case "enter", "return":
-		return Key{Sym: "CR"}, true
+		return Key{Sym: symCR}, true
 	case "escape", "esc":
-		return Key{Sym: "Esc"}, true
+		return Key{Sym: symEsc}, true
 	default:
 		return Key{}, false
 	}
@@ -306,9 +306,9 @@ func symFromSpecialAlias(token string) (string, bool) {
 	lower := strings.ToLower(token)
 	switch lower {
 	case "cr", "return":
-		return "CR", true
+		return symCR, true
 	case "esc", "escape":
-		return "Esc", true
+		return symEsc, true
 	case "space":
 		return "Space", true
 	case "lt":
@@ -373,6 +373,17 @@ func symFromToken(token string, allowSingleLetter bool) (string, error) {
 func symFromAlias(token string) (string, error) {
 	if sym, ok := symFromSpecialAlias(token); ok {
 		return sym, nil
+	}
+	// One-character literal angle tokens (<e>) disambiguate legacy-atom collisions.
+	// Multi-character unknowns such as <Nope> remain invalid.
+	if len(token) == 1 {
+		ch := token[0]
+		if ch >= 'a' && ch <= 'z' {
+			return token, nil
+		}
+		if ch >= 'A' && ch <= 'Z' {
+			return strings.ToLower(token), nil
+		}
 	}
 	return "", ErrBadBinding
 }

@@ -14,6 +14,11 @@ const (
 	ModAlt
 )
 
+const (
+	symCR  = "CR"
+	symEsc = "Esc"
+)
+
 // Key is a single key event with symbol and modifiers.
 type Key struct {
 	Sym  string
@@ -41,6 +46,9 @@ func (k Key) String() string {
 	}
 
 	if k.Mods == 0 {
+		if k.Sym == "+" {
+			return "<Plus>"
+		}
 		if alias := angleAliasForSym(k.Sym); alias != "" {
 			return "<" + alias + ">"
 		}
@@ -51,12 +59,53 @@ func (k Key) String() string {
 }
 
 // String renders the full binding sequence in canonical form.
+// When the naive concatenation would case-insensitively equal an exact legacy
+// atom (enter/return/escape/esc), the first key is forced to an angle literal
+// so ParseBinding cannot reabsorb the sequence as that atom.
 func (s Sequence) String() string {
+	rendered := s.render(false)
+	if collidesWithLegacyAtom(rendered) {
+		return s.render(true)
+	}
+	return rendered
+}
+
+func (s Sequence) render(forceAngleFirst bool) string {
 	var b strings.Builder
-	for _, key := range s {
+	for i, key := range s {
+		if forceAngleFirst && i == 0 {
+			b.WriteString(key.angleLiteralString())
+			continue
+		}
 		b.WriteString(key.String())
 	}
 	return b.String()
+}
+
+func collidesWithLegacyAtom(s string) bool {
+	switch strings.ToLower(s) {
+	case "enter", "return", "escape", "esc":
+		return true
+	default:
+		return false
+	}
+}
+
+// angleLiteralString forces angle-bracket form for keys that Key.String would
+// otherwise emit as bare or shifted letters (e.g. "e" / "E").
+func (k Key) angleLiteralString() string {
+	if len(k.Sym) == 1 {
+		c := k.Sym[0]
+		if c >= 'a' && c <= 'z' {
+			switch k.Mods {
+			case 0:
+				return "<" + k.Sym + ">"
+			case ModShift:
+				return formatAngleKey(k)
+			}
+		}
+	}
+	return k.String()
 }
 
 // Equal reports whether two sequences contain the same keys.
@@ -74,9 +123,9 @@ func (s Sequence) Equal(other Sequence) bool {
 
 func angleAliasForSym(sym string) string {
 	switch sym {
-	case "CR":
+	case symCR:
 		return "Return"
-	case "Esc":
+	case symEsc:
 		return "Escape"
 	case "Space", "Tab", "BackSpace", "Delete",
 		"Left", "Right", "Up", "Down",

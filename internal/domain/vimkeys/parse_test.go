@@ -2,6 +2,7 @@ package vimkeys
 
 import (
 	"errors"
+	"strings"
 	"testing"
 )
 
@@ -116,6 +117,8 @@ func TestParseBinding_CanonicalString(t *testing.T) {
 		{input: "ctrl+-", want: "<C-->"},
 		{input: "<C-->", want: "<C-->"},
 		{input: "<C-d>", want: "<C-d>"},
+		{input: "<Plus>", want: "<Plus>"},
+		{input: "+", want: "<Plus>"},
 		{input: "<CR>", want: "<Return>"},
 		{input: "<Return>", want: "<Return>"},
 		{input: "<Esc>", want: "<Escape>"},
@@ -499,6 +502,61 @@ func TestParseBinding_CtrlHyphenRoundTrip(t *testing.T) {
 	}
 }
 
+func TestParseBinding_CtrlPlusRoundTrip(t *testing.T) {
+	tests := []struct {
+		input      string
+		want       Sequence
+		wantString string
+	}{
+		{
+			input:      "ctrl++",
+			want:       Sequence{{Sym: "+", Mods: ModCtrl}},
+			wantString: "<C-+>",
+		},
+		{
+			input:      "<C-+>",
+			want:       Sequence{{Sym: "+", Mods: ModCtrl}},
+			wantString: "<C-+>",
+		},
+		{
+			input:      "<C-S-+>",
+			want:       Sequence{{Sym: "+", Mods: ModCtrl | ModShift}},
+			wantString: "<C-S-+>",
+		},
+		{
+			input:      "<C-A-+>",
+			want:       Sequence{{Sym: "+", Mods: ModCtrl | ModAlt}},
+			wantString: "<C-A-+>",
+		},
+		{
+			input:      "<C-S-A-+>",
+			want:       Sequence{{Sym: "+", Mods: ModCtrl | ModShift | ModAlt}},
+			wantString: "<C-S-A-+>",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			first, err := ParseBinding(tt.input)
+			if err != nil {
+				t.Fatalf("ParseBinding(%q) error = %v", tt.input, err)
+			}
+			if !first.Equal(tt.want) {
+				t.Fatalf("ParseBinding(%q) = %v, want %v", tt.input, first, tt.want)
+			}
+			if got := first.String(); got != tt.wantString {
+				t.Fatalf("ParseBinding(%q).String() = %q, want %q", tt.input, got, tt.wantString)
+			}
+			second, err := ParseBinding(first.String())
+			if err != nil {
+				t.Fatalf("ParseBinding(%q) from canonical %q error = %v", tt.input, first.String(), err)
+			}
+			if !first.Equal(second) {
+				t.Fatalf("round trip %q -> %q -> %v, want %v", tt.input, first.String(), second, first)
+			}
+		})
+	}
+}
+
 func TestParseBinding_MultiModifierRoundTrip(t *testing.T) {
 	input := "<C-S-a>"
 	first, err := ParseBinding(input)
@@ -629,6 +687,8 @@ func TestParseBinding_DeterministicRoundTripProperty(t *testing.T) {
 		{{Sym: ">"}},
 		{{Sym: ">", Mods: ModCtrl}},
 		{{Sym: "+"}},
+		{{Sym: "+", Mods: ModCtrl}},
+		{{Sym: "+", Mods: ModCtrl | ModShift}},
 		{{Sym: "-", Mods: ModCtrl}},
 		{{Sym: "-", Mods: ModCtrl | ModShift}},
 		{{Sym: "-", Mods: ModCtrl | ModAlt}},
@@ -669,6 +729,341 @@ func TestParseBinding_DeterministicRoundTripProperty(t *testing.T) {
 	for _, seq := range corpus {
 		canonical := seq.String()
 		t.Run(canonical, func(t *testing.T) {
+			got, err := ParseBinding(canonical)
+			if err != nil {
+				t.Fatalf("ParseBinding(%q) error = %v", canonical, err)
+			}
+			if !got.Equal(seq) {
+				t.Fatalf("ParseBinding(%q) = %v, want %v", canonical, got, seq)
+			}
+		})
+	}
+}
+
+// TestParseBinding_LegacyAtomCollisionRoundTrip ensures rune sequences whose
+// naive Key.String concatenation would equal a legacy atom are emitted with
+// enough angle-literal tokens to round-trip without becoming CR/Esc.
+func TestParseBinding_LegacyAtomCollisionRoundTrip(t *testing.T) {
+	tests := []struct {
+		name       string
+		seq        Sequence
+		wantString string
+	}{
+		{
+			name: "Shift+e n t e r",
+			seq: Sequence{
+				{Sym: "e", Mods: ModShift},
+				{Sym: "n"}, {Sym: "t"}, {Sym: "e"}, {Sym: "r"},
+			},
+			wantString: "<S-e>nter",
+		},
+		{
+			name: "e n t e r",
+			seq: Sequence{
+				{Sym: "e"}, {Sym: "n"}, {Sym: "t"}, {Sym: "e"}, {Sym: "r"},
+			},
+			wantString: "<e>nter",
+		},
+		{
+			name: "Shift+r e t u r n",
+			seq: Sequence{
+				{Sym: "r", Mods: ModShift},
+				{Sym: "e"}, {Sym: "t"}, {Sym: "u"}, {Sym: "r"}, {Sym: "n"},
+			},
+			wantString: "<S-r>eturn",
+		},
+		{
+			name: "r e t u r n",
+			seq: Sequence{
+				{Sym: "r"}, {Sym: "e"}, {Sym: "t"}, {Sym: "u"}, {Sym: "r"}, {Sym: "n"},
+			},
+			wantString: "<r>eturn",
+		},
+		{
+			name: "Shift+e s c",
+			seq: Sequence{
+				{Sym: "e", Mods: ModShift},
+				{Sym: "s"}, {Sym: "c"},
+			},
+			wantString: "<S-e>sc",
+		},
+		{
+			name:       "e s c",
+			seq:        Sequence{{Sym: "e"}, {Sym: "s"}, {Sym: "c"}},
+			wantString: "<e>sc",
+		},
+		{
+			name: "Shift+e s c a p e",
+			seq: Sequence{
+				{Sym: "e", Mods: ModShift},
+				{Sym: "s"}, {Sym: "c"}, {Sym: "a"}, {Sym: "p"}, {Sym: "e"},
+			},
+			wantString: "<S-e>scape",
+		},
+		{
+			name: "e s c a p e",
+			seq: Sequence{
+				{Sym: "e"}, {Sym: "s"}, {Sym: "c"}, {Sym: "a"}, {Sym: "p"}, {Sym: "e"},
+			},
+			wantString: "<e>scape",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.seq.String(); got != tt.wantString {
+				t.Fatalf("Sequence.String() = %q, want %q", got, tt.wantString)
+			}
+			got, err := ParseBinding(tt.wantString)
+			if err != nil {
+				t.Fatalf("ParseBinding(%q) error = %v", tt.wantString, err)
+			}
+			if !got.Equal(tt.seq) {
+				t.Fatalf("ParseBinding(%q) = %v, want %v", tt.wantString, got, tt.seq)
+			}
+			if again := got.String(); again != tt.wantString {
+				t.Fatalf("canonical unstable %q -> %q", tt.wantString, again)
+			}
+		})
+	}
+}
+
+// TestParseBinding_LegacyChordCollisionRoundTrip ensures a rune sequence that
+// would spell a legacy chord via a literal '+' is emitted with <Plus> so it
+// cannot reparse as that chord.
+func TestParseBinding_LegacyChordCollisionRoundTrip(t *testing.T) {
+	tests := []struct {
+		name       string
+		seq        Sequence
+		wantString string
+	}{
+		{
+			name: "ctrl + d runes",
+			seq: Sequence{
+				{Sym: "c"}, {Sym: "t"}, {Sym: "r"}, {Sym: "l"},
+				{Sym: "+"},
+				{Sym: "d"},
+			},
+			wantString: "ctrl<Plus>d",
+		},
+		{
+			name: "Ctrl + d mixed case start",
+			seq: Sequence{
+				{Sym: "c", Mods: ModShift},
+				{Sym: "t"}, {Sym: "r"}, {Sym: "l"},
+				{Sym: "+"},
+				{Sym: "d"},
+			},
+			wantString: "Ctrl<Plus>d",
+		},
+		{
+			name: "control + j runes",
+			seq: Sequence{
+				{Sym: "c"}, {Sym: "o"}, {Sym: "n"}, {Sym: "t"}, {Sym: "r"}, {Sym: "o"}, {Sym: "l"},
+				{Sym: "+"},
+				{Sym: "j"},
+			},
+			wantString: "control<Plus>j",
+		},
+		{
+			name: "shift + j runes",
+			seq: Sequence{
+				{Sym: "s"}, {Sym: "h"}, {Sym: "i"}, {Sym: "f"}, {Sym: "t"},
+				{Sym: "+"},
+				{Sym: "j"},
+			},
+			wantString: "shift<Plus>j",
+		},
+		{
+			name: "alt + k runes",
+			seq: Sequence{
+				{Sym: "a"}, {Sym: "l"}, {Sym: "t"},
+				{Sym: "+"},
+				{Sym: "k"},
+			},
+			wantString: "alt<Plus>k",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.seq.String(); got != tt.wantString {
+				t.Fatalf("Sequence.String() = %q, want %q", got, tt.wantString)
+			}
+			got, err := ParseBinding(tt.wantString)
+			if err != nil {
+				t.Fatalf("ParseBinding(%q) error = %v", tt.wantString, err)
+			}
+			if !got.Equal(tt.seq) {
+				t.Fatalf("ParseBinding(%q) = %v, want %v", tt.wantString, got, tt.seq)
+			}
+		})
+	}
+}
+
+// TestParseBinding_LegacyAtomsAndChordsStillAccepted preserves exact raw
+// legacy config inputs as named atoms / chords.
+func TestParseBinding_LegacyAtomsAndChordsStillAccepted(t *testing.T) {
+	tests := []struct {
+		input string
+		want  Sequence
+	}{
+		{input: "enter", want: Sequence{{Sym: "CR"}}},
+		{input: "return", want: Sequence{{Sym: "CR"}}},
+		{input: "Enter", want: Sequence{{Sym: "CR"}}},
+		{input: "Return", want: Sequence{{Sym: "CR"}}},
+		{input: "ENTER", want: Sequence{{Sym: "CR"}}},
+		{input: "escape", want: Sequence{{Sym: "Esc"}}},
+		{input: "esc", want: Sequence{{Sym: "Esc"}}},
+		{input: "Escape", want: Sequence{{Sym: "Esc"}}},
+		{input: "Esc", want: Sequence{{Sym: "Esc"}}},
+		{input: "ESC", want: Sequence{{Sym: "Esc"}}},
+		{input: "ctrl+d", want: Sequence{{Sym: "d", Mods: ModCtrl}}},
+		{input: "control+j", want: Sequence{{Sym: "j", Mods: ModCtrl}}},
+		{input: "shift+j", want: Sequence{{Sym: "j", Mods: ModShift}}},
+		{input: "alt+k", want: Sequence{{Sym: "k", Mods: ModAlt}}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			got, err := ParseBinding(tt.input)
+			if err != nil {
+				t.Fatalf("ParseBinding(%q) error = %v", tt.input, err)
+			}
+			if !got.Equal(tt.want) {
+				t.Fatalf("ParseBinding(%q) = %v, want %v", tt.input, got, tt.want)
+			}
+		})
+	}
+}
+
+// TestParseBinding_OneCharAngleLiteral accepts <e>/<S-e> while rejecting <Nope>.
+func TestParseBinding_OneCharAngleLiteral(t *testing.T) {
+	got, err := ParseBinding("<e>")
+	if err != nil {
+		t.Fatalf("ParseBinding(<e>) error = %v", err)
+	}
+	if want := (Sequence{{Sym: "e"}}); !got.Equal(want) {
+		t.Fatalf("ParseBinding(<e>) = %v, want %v", got, want)
+	}
+	got, err = ParseBinding("<S-e>")
+	if err != nil {
+		t.Fatalf("ParseBinding(<S-e>) error = %v", err)
+	}
+	if want := (Sequence{{Sym: "e", Mods: ModShift}}); !got.Equal(want) {
+		t.Fatalf("ParseBinding(<S-e>) = %v, want %v", got, want)
+	}
+	if _, err := ParseBinding("<Nope>"); !errors.Is(err, ErrBadBinding) {
+		t.Fatalf("ParseBinding(<Nope>) error = %v, want %v", err, ErrBadBinding)
+	}
+}
+
+// TestParseBinding_LegacyCollisionModel systematically covers every exact
+// legacy atom alias, modifier+plus chord spellings, case variants, and
+// adjacent non-colliding sequences while retaining round-trip.
+func TestParseBinding_LegacyCollisionModel(t *testing.T) {
+	type atomCase struct {
+		alias string
+		seq   Sequence
+	}
+	atoms := []atomCase{
+		{alias: "enter", seq: Sequence{{Sym: "e"}, {Sym: "n"}, {Sym: "t"}, {Sym: "e"}, {Sym: "r"}}},
+		{alias: "Enter", seq: Sequence{{Sym: "e", Mods: ModShift}, {Sym: "n"}, {Sym: "t"}, {Sym: "e"}, {Sym: "r"}}},
+		{alias: "ENTER", seq: Sequence{
+			{Sym: "e", Mods: ModShift}, {Sym: "n", Mods: ModShift}, {Sym: "t", Mods: ModShift},
+			{Sym: "e", Mods: ModShift}, {Sym: "r", Mods: ModShift},
+		}},
+		{alias: "return", seq: Sequence{{Sym: "r"}, {Sym: "e"}, {Sym: "t"}, {Sym: "u"}, {Sym: "r"}, {Sym: "n"}}},
+		{alias: "Return", seq: Sequence{{Sym: "r", Mods: ModShift}, {Sym: "e"}, {Sym: "t"}, {Sym: "u"}, {Sym: "r"}, {Sym: "n"}}},
+		{alias: "escape", seq: Sequence{{Sym: "e"}, {Sym: "s"}, {Sym: "c"}, {Sym: "a"}, {Sym: "p"}, {Sym: "e"}}},
+		{alias: "Escape", seq: Sequence{{Sym: "e", Mods: ModShift}, {Sym: "s"}, {Sym: "c"}, {Sym: "a"}, {Sym: "p"}, {Sym: "e"}}},
+		{alias: "esc", seq: Sequence{{Sym: "e"}, {Sym: "s"}, {Sym: "c"}}},
+		{alias: "Esc", seq: Sequence{{Sym: "e", Mods: ModShift}, {Sym: "s"}, {Sym: "c"}}},
+		{alias: "ESC", seq: Sequence{{Sym: "e", Mods: ModShift}, {Sym: "s", Mods: ModShift}, {Sym: "c", Mods: ModShift}}},
+	}
+	for _, tt := range atoms {
+		t.Run("atom/"+tt.alias, func(t *testing.T) {
+			canonical := tt.seq.String()
+			if strings.EqualFold(canonical, tt.alias) {
+				t.Fatalf("Sequence.String() still collides with legacy atom %q", tt.alias)
+			}
+			got, err := ParseBinding(canonical)
+			if err != nil {
+				t.Fatalf("ParseBinding(%q) error = %v", canonical, err)
+			}
+			if !got.Equal(tt.seq) {
+				t.Fatalf("ParseBinding(%q) = %v, want %v", canonical, got, tt.seq)
+			}
+			raw, err := ParseBinding(tt.alias)
+			if err != nil {
+				t.Fatalf("ParseBinding(%q) error = %v", tt.alias, err)
+			}
+			if raw.Equal(tt.seq) {
+				t.Fatalf("legacy atom %q must not equal rune sequence", tt.alias)
+			}
+		})
+	}
+
+	chordSpellings := []struct {
+		legacy string
+		seq    Sequence
+	}{
+		{
+			legacy: "ctrl+d",
+			seq: Sequence{
+				{Sym: "c"}, {Sym: "t"}, {Sym: "r"}, {Sym: "l"}, {Sym: "+"}, {Sym: "d"},
+			},
+		},
+		{
+			legacy: "control+j",
+			seq: Sequence{
+				{Sym: "c"}, {Sym: "o"}, {Sym: "n"}, {Sym: "t"}, {Sym: "r"}, {Sym: "o"}, {Sym: "l"},
+				{Sym: "+"}, {Sym: "j"},
+			},
+		},
+		{
+			legacy: "shift+a",
+			seq: Sequence{
+				{Sym: "s"}, {Sym: "h"}, {Sym: "i"}, {Sym: "f"}, {Sym: "t"},
+				{Sym: "+"}, {Sym: "a"},
+			},
+		},
+		{
+			legacy: "alt+b",
+			seq: Sequence{
+				{Sym: "a"}, {Sym: "l"}, {Sym: "t"}, {Sym: "+"}, {Sym: "b"},
+			},
+		},
+	}
+	for _, tt := range chordSpellings {
+		t.Run("chord/"+tt.legacy, func(t *testing.T) {
+			canonical := tt.seq.String()
+			if canonical == tt.legacy {
+				t.Fatalf("Sequence.String() still equals legacy chord %q", tt.legacy)
+			}
+			got, err := ParseBinding(canonical)
+			if err != nil {
+				t.Fatalf("ParseBinding(%q) error = %v", canonical, err)
+			}
+			if !got.Equal(tt.seq) {
+				t.Fatalf("ParseBinding(%q) = %v, want %v", canonical, got, tt.seq)
+			}
+			chord, err := ParseBinding(tt.legacy)
+			if err != nil {
+				t.Fatalf("ParseBinding(%q) error = %v", tt.legacy, err)
+			}
+			if chord.Equal(tt.seq) {
+				t.Fatalf("legacy chord %q must not equal rune sequence", tt.legacy)
+			}
+		})
+	}
+
+	// Adjacent sequences that share prefixes but are not exact atoms.
+	adjacent := []Sequence{
+		{{Sym: "e"}, {Sym: "n"}, {Sym: "t"}, {Sym: "e"}, {Sym: "r"}, {Sym: "j"}},
+		{{Sym: "e", Mods: ModShift}, {Sym: "s"}, {Sym: "c"}, {Sym: "j"}},
+		{{Sym: "c"}, {Sym: "t"}, {Sym: "r"}, {Sym: "l"}, {Sym: "+"}, {Sym: "d"}, {Sym: "j"}},
+	}
+	for _, seq := range adjacent {
+		canonical := seq.String()
+		t.Run("adjacent/"+canonical, func(t *testing.T) {
 			got, err := ParseBinding(canonical)
 			if err != nil {
 				t.Fatalf("ParseBinding(%q) error = %v", canonical, err)
@@ -727,8 +1122,8 @@ func TestParseBinding_ExhaustiveCanonicalModelRoundTrip(t *testing.T) {
 		}
 	}
 
-	// Representative adjacent pairs that can spell modifier/named prefixes.
-	// Trailing letters avoid exact legacy atom collisions (enter/escape/…).
+	// Representative adjacent pairs that can spell modifier/named prefixes,
+	// including exact legacy atom/chord collision spellings.
 	adjacentPairs := []Sequence{
 		{{Sym: "c", Mods: ModShift}, {Sym: "-"}, {Sym: "d"}},
 		{{Sym: "s", Mods: ModShift}, {Sym: "-"}, {Sym: "j"}},
@@ -738,6 +1133,12 @@ func TestParseBinding_ExhaustiveCanonicalModelRoundTrip(t *testing.T) {
 		{{Sym: "e", Mods: ModShift}, {Sym: "s"}, {Sym: "c"}, {Sym: "j"}},
 		{{Sym: "t", Mods: ModShift}, {Sym: "a"}, {Sym: "b"}, {Sym: "x"}},
 		{{Sym: "r", Mods: ModShift}, {Sym: "e"}, {Sym: "t"}, {Sym: "u"}, {Sym: "r"}, {Sym: "n"}, {Sym: "x"}},
+		{{Sym: "e"}, {Sym: "n"}, {Sym: "t"}, {Sym: "e"}, {Sym: "r"}},
+		{{Sym: "e", Mods: ModShift}, {Sym: "n"}, {Sym: "t"}, {Sym: "e"}, {Sym: "r"}},
+		{{Sym: "e"}, {Sym: "s"}, {Sym: "c"}},
+		{{Sym: "e", Mods: ModShift}, {Sym: "s"}, {Sym: "c"}, {Sym: "a"}, {Sym: "p"}, {Sym: "e"}},
+		{{Sym: "r"}, {Sym: "e"}, {Sym: "t"}, {Sym: "u"}, {Sym: "r"}, {Sym: "n"}},
+		{{Sym: "c"}, {Sym: "t"}, {Sym: "r"}, {Sym: "l"}, {Sym: "+"}, {Sym: "d"}},
 		{{Sym: "d", Mods: ModCtrl}, {Sym: "j"}},
 		{{Sym: ">"}, {Sym: "j"}},
 		{{Sym: "<"}, {Sym: "j"}},

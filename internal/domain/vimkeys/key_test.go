@@ -14,6 +14,7 @@ func TestKeyString(t *testing.T) {
 		{name: "shift letter", key: Key{Sym: "j", Mods: ModShift}, want: "J"},
 		{name: "ctrl letter", key: Key{Sym: "d", Mods: ModCtrl}, want: "<C-d>"},
 		{name: "ctrl plus", key: Key{Sym: "+", Mods: ModCtrl}, want: "<C-+>"},
+		{name: "bare plus", key: Key{Sym: "+"}, want: "<Plus>"},
 		{name: "shift glyph", key: Key{Sym: "!"}, want: "!"},
 		{name: "special CR", key: Key{Sym: "CR"}, want: "<Return>"},
 		{name: "special Esc", key: Key{Sym: "Esc"}, want: "<Escape>"},
