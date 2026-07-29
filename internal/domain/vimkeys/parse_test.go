@@ -13,6 +13,7 @@ func TestParseBinding_SingleKeys(t *testing.T) {
 		{input: "j", want: Sequence{{Sym: "j"}}},
 		{input: "shift+j", want: Sequence{{Sym: "j", Mods: ModShift}}},
 		{input: "ctrl++", want: Sequence{{Sym: "+", Mods: ModCtrl}}},
+		{input: "ctrl+-", want: Sequence{{Sym: "-", Mods: ModCtrl}}},
 		{input: "<C-d>", want: Sequence{{Sym: "d", Mods: ModCtrl}}},
 		{input: "<CR>", want: Sequence{{Sym: "CR"}}},
 		{input: "<Return>", want: Sequence{{Sym: "CR"}}},
@@ -110,6 +111,8 @@ func TestParseBinding_CanonicalString(t *testing.T) {
 		{input: "j", want: "j"},
 		{input: "shift+j", want: "J"},
 		{input: "ctrl++", want: "<C-+>"},
+		{input: "ctrl+-", want: "<C-->"},
+		{input: "<C-->", want: "<C-->"},
 		{input: "<C-d>", want: "<C-d>"},
 		{input: "<CR>", want: "<Return>"},
 		{input: "<Return>", want: "<Return>"},
@@ -322,6 +325,61 @@ func TestParseBinding_MixedAngleSequences(t *testing.T) {
 	}
 }
 
+func TestParseBinding_CtrlHyphenRoundTrip(t *testing.T) {
+	tests := []struct {
+		input      string
+		want       Sequence
+		wantString string
+	}{
+		{
+			input:      "ctrl+-",
+			want:       Sequence{{Sym: "-", Mods: ModCtrl}},
+			wantString: "<C-->",
+		},
+		{
+			input:      "<C-->",
+			want:       Sequence{{Sym: "-", Mods: ModCtrl}},
+			wantString: "<C-->",
+		},
+		{
+			input:      "<C-S-->",
+			want:       Sequence{{Sym: "-", Mods: ModCtrl | ModShift}},
+			wantString: "<C-S-->",
+		},
+		{
+			input:      "<C-A-->",
+			want:       Sequence{{Sym: "-", Mods: ModCtrl | ModAlt}},
+			wantString: "<C-A-->",
+		},
+		{
+			input:      "<C-S-A-->",
+			want:       Sequence{{Sym: "-", Mods: ModCtrl | ModShift | ModAlt}},
+			wantString: "<C-S-A-->",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			first, err := ParseBinding(tt.input)
+			if err != nil {
+				t.Fatalf("ParseBinding(%q) error = %v", tt.input, err)
+			}
+			if !first.Equal(tt.want) {
+				t.Fatalf("ParseBinding(%q) = %v, want %v", tt.input, first, tt.want)
+			}
+			if got := first.String(); got != tt.wantString {
+				t.Fatalf("ParseBinding(%q).String() = %q, want %q", tt.input, got, tt.wantString)
+			}
+			second, err := ParseBinding(first.String())
+			if err != nil {
+				t.Fatalf("ParseBinding(%q) from canonical %q error = %v", tt.input, first.String(), err)
+			}
+			if !first.Equal(second) {
+				t.Fatalf("round trip %q -> %q -> %v, want %v", tt.input, first.String(), second, first)
+			}
+		})
+	}
+}
+
 func TestParseBinding_MultiModifierRoundTrip(t *testing.T) {
 	input := "<C-S-a>"
 	first, err := ParseBinding(input)
@@ -352,6 +410,10 @@ func TestParseBinding_RoundTrip(t *testing.T) {
 		"j",
 		"shift+j",
 		"ctrl++",
+		"ctrl+-",
+		"<C-->",
+		"<C-S-->",
+		"<C-A-->",
 		"]]",
 		"yah",
 		"gO",
@@ -438,6 +500,9 @@ func TestParseBinding_DeterministicRoundTripProperty(t *testing.T) {
 		{{Sym: "Delete", Mods: ModAlt}},
 		{{Sym: "<"}},
 		{{Sym: "+"}},
+		{{Sym: "-", Mods: ModCtrl}},
+		{{Sym: "-", Mods: ModCtrl | ModShift}},
+		{{Sym: "-", Mods: ModCtrl | ModAlt}},
 		{{Sym: "!"}},
 		{{Sym: "@"}},
 		{{Sym: "#"}},

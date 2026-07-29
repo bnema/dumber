@@ -163,41 +163,56 @@ func buildLegacyChordKey(s string, parts []string) (Key, error) {
 }
 
 func parseAngleToken(inner string) (Key, error) {
-	if strings.Contains(inner, "-") {
-		parts := strings.Split(inner, "-")
-		if len(parts) < 2 {
-			return Key{}, ErrBadBinding
-		}
-		symPart := strings.TrimSpace(parts[len(parts)-1])
-		if symPart == "" {
-			return Key{}, ErrBadBinding
-		}
-
-		var mods Mods
-		for _, modPart := range parts[:len(parts)-1] {
-			modPart = strings.TrimSpace(modPart)
-			if modPart == "" {
-				return Key{}, ErrBadBinding
-			}
-			partMods, err := modsFromCompactModString(modPart)
-			if err != nil {
-				return Key{}, err
-			}
-			mods |= partMods
-		}
-
-		sym, err := symFromToken(symPart, true)
+	if !strings.Contains(inner, "-") {
+		sym, err := symFromAlias(inner)
 		if err != nil {
 			return Key{}, err
 		}
-		return Key{Sym: sym, Mods: mods}, nil
+		return Key{Sym: sym}, nil
 	}
 
-	sym, err := symFromAlias(inner)
+	mods, symPart, err := splitAngleModsAndSym(inner)
 	if err != nil {
 		return Key{}, err
 	}
-	return Key{Sym: sym}, nil
+
+	sym, err := symFromToken(symPart, true)
+	if err != nil {
+		return Key{}, err
+	}
+	return Key{Sym: sym, Mods: mods}, nil
+}
+
+func splitAngleModsAndSym(inner string) (Mods, string, error) {
+	var modInner, symPart string
+	if strings.HasSuffix(inner, "--") {
+		modInner = inner[:len(inner)-2]
+		symPart = "-"
+	} else {
+		lastDash := strings.LastIndexByte(inner, '-')
+		if lastDash < 0 {
+			return 0, "", ErrBadBinding
+		}
+		modInner = inner[:lastDash]
+		symPart = inner[lastDash+1:]
+	}
+	if symPart == "" || modInner == "" {
+		return 0, "", ErrBadBinding
+	}
+
+	var mods Mods
+	for _, modPart := range strings.Split(modInner, "-") {
+		modPart = strings.TrimSpace(modPart)
+		if modPart == "" {
+			return 0, "", ErrBadBinding
+		}
+		partMods, err := modsFromCompactModString(modPart)
+		if err != nil {
+			return 0, "", err
+		}
+		mods |= partMods
+	}
+	return mods, symPart, nil
 }
 
 func modsFromCompactModString(modPart string) (Mods, error) {
