@@ -241,11 +241,13 @@ func TestParseBinding_SpecialNamesInSequence(t *testing.T) {
 		input string
 		want  Sequence
 	}{
-		{input: "jEsc", want: Sequence{{Sym: "j"}, {Sym: "Esc"}}},
-		{input: "Spacej", want: Sequence{{Sym: "Space"}, {Sym: "j"}}},
-		{input: "CRj", want: Sequence{{Sym: "CR"}, {Sym: "j"}}},
-		{input: "ltj", want: Sequence{{Sym: "<"}, {Sym: "j"}}},
-		{input: "Plusj", want: Sequence{{Sym: "+"}, {Sym: "j"}}},
+		{input: "j<Esc>", want: Sequence{{Sym: "j"}, {Sym: "Esc"}}},
+		{input: "<Space>j", want: Sequence{{Sym: "Space"}, {Sym: "j"}}},
+		{input: "<CR>j", want: Sequence{{Sym: "CR"}, {Sym: "j"}}},
+		{input: "<lt>j", want: Sequence{{Sym: "<"}, {Sym: "j"}}},
+		{input: "<Plus>j", want: Sequence{{Sym: "+"}, {Sym: "j"}}},
+		{input: "j<Tab>", want: Sequence{{Sym: "j"}, {Sym: "Tab"}}},
+		{input: "<BackSpace>j", want: Sequence{{Sym: "BackSpace"}, {Sym: "j"}}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.input, func(t *testing.T) {
@@ -257,6 +259,28 @@ func TestParseBinding_SpecialNamesInSequence(t *testing.T) {
 				t.Fatalf("ParseBinding(%q) = %v, want %v", tt.input, got, tt.want)
 			}
 		})
+	}
+}
+
+func TestParseBinding_BareNamedPrefixIsLiteral(t *testing.T) {
+	// Named keys are canonical only in <...>; bare "Spacej" is Shift+s + p + a + c + e + j.
+	seq := Sequence{
+		{Sym: "s", Mods: ModShift},
+		{Sym: "p"},
+		{Sym: "a"},
+		{Sym: "c"},
+		{Sym: "e"},
+		{Sym: "j"},
+	}
+	if got := seq.String(); got != "Spacej" {
+		t.Fatalf("seq.String() = %q, want %q", got, "Spacej")
+	}
+	got, err := ParseBinding("Spacej")
+	if err != nil {
+		t.Fatalf("ParseBinding(%q) error = %v", "Spacej", err)
+	}
+	if !got.Equal(seq) {
+		t.Fatalf("ParseBinding(%q) = %v, want %v", "Spacej", got, seq)
 	}
 }
 
@@ -356,6 +380,13 @@ func TestParseBinding_RoundTrip(t *testing.T) {
 		"<C-d>j",
 		"<Escape>j",
 		"<C-S-a>",
+		"Spacej",
+		"Escj",
+		"Tabx",
+		"enter",
+		"escape",
+		"return",
+		"esc",
 	}
 	for _, input := range inputs {
 		t.Run(input, func(t *testing.T) {
@@ -370,6 +401,80 @@ func TestParseBinding_RoundTrip(t *testing.T) {
 			}
 			if !first.Equal(second) {
 				t.Fatalf("round trip %q -> %q -> %v, want %v", input, canonical, second, first)
+			}
+		})
+	}
+}
+
+// TestParseBinding_DeterministicRoundTripProperty asserts ParseBinding(seq.String()) == seq
+// over a fixed representative set of printable, named, and modifier sequences.
+// The corpus is deterministic (no flaky randomness).
+func TestParseBinding_DeterministicRoundTripProperty(t *testing.T) {
+	corpus := []Sequence{
+		{{Sym: "j"}},
+		{{Sym: "j", Mods: ModShift}},
+		{{Sym: "]"}, {Sym: "]"}},
+		{{Sym: "y"}, {Sym: "a"}, {Sym: "h"}},
+		{{Sym: "g"}, {Sym: "o", Mods: ModShift}},
+		{{Sym: "d", Mods: ModCtrl}},
+		{{Sym: "a", Mods: ModCtrl | ModShift}},
+		{{Sym: "k", Mods: ModAlt}},
+		{{Sym: "CR"}},
+		{{Sym: "Esc"}},
+		{{Sym: "Space"}},
+		{{Sym: "Tab"}},
+		{{Sym: "BackSpace"}},
+		{{Sym: "Delete"}},
+		{{Sym: "Left"}},
+		{{Sym: "Right"}},
+		{{Sym: "Up"}},
+		{{Sym: "Down"}},
+		{{Sym: "Home"}},
+		{{Sym: "End"}},
+		{{Sym: "PageUp"}},
+		{{Sym: "PageDown"}},
+		{{Sym: "Tab", Mods: ModCtrl}},
+		{{Sym: "BackSpace", Mods: ModShift}},
+		{{Sym: "Delete", Mods: ModAlt}},
+		{{Sym: "<"}},
+		{{Sym: "+"}},
+		{{Sym: "!"}},
+		{{Sym: "@"}},
+		{{Sym: "#"}},
+		{{Sym: "Space"}, {Sym: "j"}},
+		{{Sym: "d", Mods: ModCtrl}, {Sym: "j"}},
+		{{Sym: "Esc"}, {Sym: "j"}},
+		// Literal printable run that formerly collided with greedy "Space" recognition.
+		{
+			{Sym: "s", Mods: ModShift},
+			{Sym: "p"},
+			{Sym: "a"},
+			{Sym: "c"},
+			{Sym: "e"},
+			{Sym: "j"},
+		},
+		{
+			{Sym: "e", Mods: ModShift},
+			{Sym: "s"},
+			{Sym: "c"},
+			{Sym: "j"},
+		},
+		{
+			{Sym: "t", Mods: ModShift},
+			{Sym: "a"},
+			{Sym: "b"},
+			{Sym: "x"},
+		},
+	}
+	for _, seq := range corpus {
+		canonical := seq.String()
+		t.Run(canonical, func(t *testing.T) {
+			got, err := ParseBinding(canonical)
+			if err != nil {
+				t.Fatalf("ParseBinding(%q) error = %v", canonical, err)
+			}
+			if !got.Equal(seq) {
+				t.Fatalf("ParseBinding(%q) = %v, want %v", canonical, got, seq)
 			}
 		})
 	}

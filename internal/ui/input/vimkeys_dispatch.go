@@ -5,6 +5,7 @@ import (
 
 	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/domain/vimkeys"
+	"github.com/rs/zerolog/log"
 )
 
 // trieOwnsBinding reports whether a raw config binding belongs to the Vim
@@ -26,7 +27,7 @@ func trieOwnsBinding(raw string) (vimkeys.Sequence, bool) {
 
 // buildVimModeTrie inserts trie-owned Vim mode bindings. Action names are
 // sorted so the first sorted name wins on Insert conflicts (validation already
-// rejects duplicates).
+// rejects duplicates). Ownership is marked only after a successful Insert.
 func buildVimModeTrie(cfg *entity.VimModeConfig) (*vimkeys.Trie, map[string]bool) {
 	trie := vimkeys.NewTrie()
 	owned := make(map[string]bool)
@@ -49,10 +50,15 @@ func buildVimModeTrie(cfg *entity.VimModeConfig) (*vimkeys.Trie, map[string]bool
 			if !ok {
 				continue
 			}
-			owned[key] = true
 			if err := trie.Insert(seq, action); err != nil {
+				log.Debug().
+					Err(err).
+					Str("key", key).
+					Str("action", action).
+					Msg("page mode trie insert skipped")
 				continue
 			}
+			owned[key] = true
 		}
 	}
 	return trie, owned

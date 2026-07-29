@@ -121,6 +121,35 @@ func TestBuildPageModeTrie(t *testing.T) {
 	}
 }
 
+func TestBuildPageModeTrie_ConflictKeepsFirstSortedWinner(t *testing.T) {
+	// Same sequence under two raw aliases; first sorted action wins Insert.
+	// Losing raw key must not be marked owned (insert failed).
+	cfg := &entity.PageModeConfig{
+		Actions: map[string]entity.ActionBinding{
+			"zzz-later":        {Keys: []string{"C-d"}},
+			"aaa-first":        {Keys: []string{"<C-d>"}},
+			"page-scroll-down": {Keys: []string{"j"}},
+		},
+	}
+
+	trie, owned := buildPageModeTrie(cfg)
+	if !owned["<C-d>"] {
+		t.Fatal("winning raw key <C-d> should be owned after successful Insert")
+	}
+	if owned["C-d"] {
+		t.Fatal("conflicting raw key C-d must not be marked owned when Insert fails")
+	}
+
+	seq, err := vimkeys.ParseBinding("<C-d>")
+	if err != nil {
+		t.Fatalf("ParseBinding(<C-d>) error = %v", err)
+	}
+	node, ok := trie.Walk(seq)
+	if !ok || !node.Exact || node.Action != "aaa-first" {
+		t.Fatalf("Walk(<C-d>) = (%#v, %v), want exact aaa-first", node, ok)
+	}
+}
+
 func pageModeSequencesOwnershipFixture(t *testing.T) *ShortcutSet {
 	t.Helper()
 

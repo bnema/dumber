@@ -229,11 +229,9 @@ func parseRawSequence(s string) (Sequence, error) {
 			i += width
 			continue
 		}
-		if key, width, ok := tryParseSpecialAt(s, i); ok {
-			seq = append(seq, key)
-			i += width
-			continue
-		}
+		// Named keys (Space, Esc, Tab, …) are canonical only inside <...>.
+		// Bare prefixes must not be greedily consumed so printable runs like
+		// "Spacej" (Shift+s,p,a,c,e,j) round-trip via Sequence.String().
 		if key, width, ok := tryParseCanonicalAt(s, i); ok {
 			seq = append(seq, key)
 			i += width
@@ -269,60 +267,6 @@ func parseAngleAt(s string, i int) (Key, int, error) {
 		return Key{}, 0, err
 	}
 	return key, closeIdx - i + 1, nil
-}
-
-func tryParseSpecialAt(s string, i int) (Key, int, bool) {
-	if i >= len(s) {
-		return Key{}, 0, false
-	}
-	rest := s[i:]
-	if key, width, ok := tryParseNamedSpecialAt(rest); ok {
-		return key, width, true
-	}
-	switch {
-	case strings.HasPrefix(rest, "Space"):
-		return Key{Sym: "Space"}, len("Space"), true
-	case strings.HasPrefix(rest, "Plus"):
-		return Key{Sym: "+"}, len("Plus"), true
-	case strings.HasPrefix(rest, "Esc"):
-		return Key{Sym: "Esc"}, len("Esc"), true
-	case strings.HasPrefix(rest, "CR"):
-		return Key{Sym: "CR"}, len("CR"), true
-	case strings.HasPrefix(rest, "lt"):
-		return Key{Sym: "<"}, len("lt"), true
-	default:
-		return Key{}, 0, false
-	}
-}
-
-// tryParseNamedSpecialAt matches longer canonical named keys before letter runs.
-func tryParseNamedSpecialAt(rest string) (Key, int, bool) {
-	switch {
-	case strings.HasPrefix(rest, "BackSpace"):
-		return Key{Sym: "BackSpace"}, len("BackSpace"), true
-	case strings.HasPrefix(rest, "PageDown"):
-		return Key{Sym: "PageDown"}, len("PageDown"), true
-	case strings.HasPrefix(rest, "PageUp"):
-		return Key{Sym: "PageUp"}, len("PageUp"), true
-	case strings.HasPrefix(rest, "Delete"):
-		return Key{Sym: "Delete"}, len("Delete"), true
-	case strings.HasPrefix(rest, "Right"):
-		return Key{Sym: "Right"}, len("Right"), true
-	case strings.HasPrefix(rest, "Left"):
-		return Key{Sym: "Left"}, len("Left"), true
-	case strings.HasPrefix(rest, "Home"):
-		return Key{Sym: "Home"}, len("Home"), true
-	case strings.HasPrefix(rest, "Down"):
-		return Key{Sym: "Down"}, len("Down"), true
-	case strings.HasPrefix(rest, "Tab"):
-		return Key{Sym: "Tab"}, len("Tab"), true
-	case strings.HasPrefix(rest, "End"):
-		return Key{Sym: "End"}, len("End"), true
-	case strings.HasPrefix(rest, "Up"):
-		return Key{Sym: "Up"}, len("Up"), true
-	default:
-		return Key{}, 0, false
-	}
 }
 
 func tryParseCanonicalAt(s string, i int) (Key, int, bool) {
