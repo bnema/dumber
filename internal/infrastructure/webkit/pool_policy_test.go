@@ -16,3 +16,8 @@ func TestResolveReusePolicy(t *testing.T) {
 	t.Setenv("DUMBER_WEBVIEW_REUSE_POLICY", "safe")
 	assert.Equal(t, reusePolicySafe, resolveReusePolicy(""))
 }
+
+func TestNeedsFrontendReinjectionOnAcquire(t *testing.T) {
+	assert.False(t, needsFrontendReinjectionOnAcquire(false), "first AttachFrontend must not double-inject")
+	assert.True(t, needsFrontendReinjectionOnAcquire(true), "already-attached reuse must reinject")
+}

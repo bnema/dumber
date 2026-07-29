@@ -196,6 +196,7 @@ func buildAccentDetectionScript(token string) string {
     let pressedKey = null;
 
     function postEditableFocus(editable) {
+        if (!editableFocusToken) return;
         if (!(window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.dumber)) return;
         window.webkit.messageHandlers.dumber.postMessage({
             type: 'editable_focus_changed',
@@ -487,8 +488,10 @@ func (ci *ContentInjector) InjectScripts(ctx context.Context, ucm *webkit.UserCo
 	// 8. Inject accent key detection for all pages and all frames (unconditional).
 	// JS only reports keydown/keyup events; Go handles timing and picker display.
 	accentScript := accentDetectionScript
-	if wv := LookupWebView(webviewID); wv != nil && wv.editableFocusBridgeToken != "" {
-		accentScript = buildAccentDetectionScript(wv.editableFocusBridgeToken)
+	if wv := LookupWebView(webviewID); wv != nil {
+		if token := wv.EditableFocusBridgeToken(); token != "" {
+			accentScript = buildAccentDetectionScript(token)
+		}
 	}
 	addScript(
 		webkit.NewUserScript(

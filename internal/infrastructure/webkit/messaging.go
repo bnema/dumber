@@ -311,7 +311,7 @@ func (r *MessageRouter) handleAllowlistedBridgeMessage(senderWV *WebView, msg Me
 			return true
 		}
 	}
-	if payload.Token == "" || payload.Token != senderWV.editableFocusBridgeToken {
+	if payload.Token == "" || !senderWV.matchesEditableFocusBridgeToken(payload.Token) {
 		logging.FromContext(r.baseCtx).Warn().Str("type", msg.Type).Msg("rejecting allowlisted bridge message with invalid token")
 		return true
 	}

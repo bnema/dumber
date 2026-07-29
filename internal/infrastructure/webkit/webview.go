@@ -3,6 +3,7 @@ package webkit
 import (
 	"context"
 	"crypto/rand"
+	"crypto/subtle"
 	"encoding/hex"
 	"fmt"
 	"net/url"
@@ -40,8 +41,22 @@ var _ port.OAuthCallbackCapable = (*WebView)(nil)
 var _ port.PageScrollable = (*WebView)(nil)
 
 var buildPageScrollFallbackJS = webutil.BuildScrollByJS
-var runPageScrollFallbackJS = func(wv *WebView, ctx context.Context, script string) {
+var runPageScrollFallbackJS = func(ctx context.Context, wv *WebView, script string) {
 	wv.RunJavaScript(ctx, script)
+}
+
+// editableFocusTokenRand is the injectable CSPRNG seam for bridge tokens.
+// Tests may override it; production uses crypto/rand.Read.
+var editableFocusTokenRand = rand.Read
+
+const editableFocusBridgeTokenBytes = 16
+
+func newEditableFocusBridgeToken() string {
+	buf := make([]byte, editableFocusBridgeTokenBytes)
+	if _, err := editableFocusTokenRand(buf); err != nil {
+		return ""
+	}
+	return hex.EncodeToString(buf)
 }
 
 // WebViewID is an alias to port.WebViewID for clean architecture compliance.
@@ -223,17 +238,7 @@ const (
 	runJSNonFatalLogInterval = 30 * time.Second
 	runJSAggregateLogEvery   = 20
 	runJSUnknown             = "unknown"
-
-	editableFocusBridgeTokenBytes = 16
 )
-
-func newEditableFocusBridgeToken() string {
-	buf := make([]byte, editableFocusBridgeTokenBytes)
-	if _, err := rand.Read(buf); err != nil {
-		return fmt.Sprintf("editable-focus-%d", time.Now().UnixNano())
-	}
-	return hex.EncodeToString(buf)
-}
 
 type findControllerAdapter struct {
 	fc *webkit.FindController
@@ -471,36 +476,47 @@ func (wv *WebView) connectLoadChangedSignal() {
 	loadChangedCb := func(inner webkit.WebView, event webkit.LoadEvent) {
 		uri := inner.GetUri()
 		title := inner.GetTitle()
-
-		wv.mu.Lock()
-		wv.uri = uri
-		wv.title = title
-		// Note: canGoBack/canGoFwd are updated via back-forward-list::changed signal
-		// which fires for both traditional navigation and SPA history.pushState()
-		wv.progress = inner.GetEstimatedLoadProgress()
-
-		switch event {
-		case webkit.LoadStartedValue:
-			wv.navigationActive.Store(true)
-			wv.isLoading = true
-			wv.logger.Debug().Str("uri", uri).Msg("load started")
-			wv.dispatchEditableFocusChanged(false)
-		case webkit.LoadRedirectedValue:
-			wv.logger.Debug().Str("uri", uri).Msg("load redirected")
-		case webkit.LoadCommittedValue:
-			wv.logger.Debug().Str("uri", uri).Msg("load committed")
-		case webkit.LoadFinishedValue:
-			wv.isLoading = false
-			wv.logger.Debug().Str("uri", uri).Str("title", title).Msg("load finished")
-		}
-		wv.mu.Unlock()
-
-		if wv.OnLoadChanged != nil {
-			wv.OnLoadChanged(LoadEvent(event))
-		}
+		progress := inner.GetEstimatedLoadProgress()
+		wv.handleLoadChanged(LoadEvent(event), uri, title, progress)
 	}
 	sigID := wv.inner.ConnectLoadChanged(&loadChangedCb)
 	wv.signalIDs = append(wv.signalIDs, uintptr(sigID))
+}
+
+// handleLoadChanged updates load state then notifies outside wv.mu so callbacks
+// may re-enter URI()/State() without deadlocking.
+func (wv *WebView) handleLoadChanged(event LoadEvent, uri, title string, progress float64) {
+	wv.mu.Lock()
+	wv.uri = uri
+	wv.title = title
+	// Note: canGoBack/canGoFwd are updated via back-forward-list::changed signal
+	// which fires for both traditional navigation and SPA history.pushState()
+	wv.progress = progress
+
+	notifyEditableBlur := false
+	switch event {
+	case LoadStarted:
+		wv.navigationActive.Store(true)
+		wv.isLoading = true
+		wv.logger.Debug().Str("uri", uri).Msg("load started")
+		notifyEditableBlur = true
+	case LoadRedirected:
+		wv.logger.Debug().Str("uri", uri).Msg("load redirected")
+	case LoadCommitted:
+		wv.logger.Debug().Str("uri", uri).Msg("load committed")
+	case LoadFinished:
+		wv.isLoading = false
+		wv.logger.Debug().Str("uri", uri).Str("title", title).Msg("load finished")
+	}
+	wv.mu.Unlock()
+
+	if notifyEditableBlur {
+		wv.dispatchEditableFocusChanged(false)
+	}
+
+	if wv.OnLoadChanged != nil {
+		wv.OnLoadChanged(event)
+	}
 }
 
 func (wv *WebView) connectLoadFailedSignal() {
@@ -2083,7 +2099,7 @@ func (wv *WebView) ResetForPoolReuse() {
 		return
 	}
 	wv.generation.Add(1)
-	wv.editableFocusBridgeToken = newEditableFocusBridgeToken()
+	wv.setEditableFocusBridgeToken(newEditableFocusBridgeToken())
 
 	// Disconnect GLib signals to prevent stale callbacks from firing on reused WebView.
 	// They will be reconnected when the WebView is re-acquired from the pool.
@@ -2424,6 +2440,42 @@ func (wv *WebView) ScrollPage(ctx context.Context, request port.PageScrollReques
 		return fmt.Errorf("webview %d is destroyed", wv.id)
 	}
 	js := buildPageScrollFallbackJS(request.FallbackDX, request.FallbackDY)
-	runPageScrollFallbackJS(wv, ctx, js)
+	runPageScrollFallbackJS(ctx, wv, js)
 	return nil
+}
+
+// FrontendAttached reports whether AttachFrontend has already wired scripts/router.
+func (wv *WebView) FrontendAttached() bool {
+	return wv != nil && wv.frontendAttached.Load()
+}
+
+// EditableFocusBridgeToken returns the current allowlisted bridge auth token.
+func (wv *WebView) EditableFocusBridgeToken() string {
+	if wv == nil {
+		return ""
+	}
+	wv.mu.RLock()
+	defer wv.mu.RUnlock()
+	return wv.editableFocusBridgeToken
+}
+
+func (wv *WebView) setEditableFocusBridgeToken(token string) {
+	if wv == nil {
+		return
+	}
+	wv.mu.Lock()
+	wv.editableFocusBridgeToken = token
+	wv.mu.Unlock()
+}
+
+// matchesEditableFocusBridgeToken compares a candidate token in constant time.
+func (wv *WebView) matchesEditableFocusBridgeToken(candidate string) bool {
+	if wv == nil || candidate == "" {
+		return false
+	}
+	token := wv.EditableFocusBridgeToken()
+	if token == "" {
+		return false
+	}
+	return subtle.ConstantTimeCompare([]byte(candidate), []byte(token)) == 1
 }

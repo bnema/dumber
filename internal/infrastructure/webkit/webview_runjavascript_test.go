@@ -121,7 +121,7 @@ func TestScrollPage_UsesFallbackDeltasAndRunsJavaScript(t *testing.T) {
 		gotDX, gotDY = dx, dy
 		return fmt.Sprintf("scroll(%d,%d)", dx, dy)
 	}
-	runPageScrollFallbackJS = func(_ *WebView, _ context.Context, script string) {
+	runPageScrollFallbackJS = func(_ context.Context, _ *WebView, script string) {
 		runCount++
 		gotScript = script
 	}
@@ -172,7 +172,7 @@ func TestScrollPage_VariousRequestsForwardFallbackDeltas(t *testing.T) {
 				gotDX, gotDY = dx, dy
 				return "ok"
 			}
-			runPageScrollFallbackJS = func(_ *WebView, _ context.Context, script string) {
+			runPageScrollFallbackJS = func(_ context.Context, _ *WebView, script string) {
 				assert.Equal(t, "ok", script)
 			}
 

@@ -60,13 +60,15 @@ func TestHandleAllowlistedEditableFocusMessage_AllowsUntrustedPage(t *testing.T)
 func TestHandleAllowlistedEditableFocusMessage_IsNoopAfterPoolReuse(t *testing.T) {
 	router := NewMessageRouter(context.Background())
 	wv := &WebView{uri: "https://example.com", editableFocusBridgeToken: "secret-token"}
+	wv.ResetForPoolReuse()
+
+	// Re-register after reset so a stale token is the only reason handling is a noop.
 	called := false
 	wv.SetCallbacks(&port.WebViewCallbacks{
 		OnEditableFocusChanged: func(bool) {
 			called = true
 		},
 	})
-	wv.ResetForPoolReuse()
 
 	handled := router.handleAllowlistedBridgeMessage(wv, Message{
 		Type:    "editable_focus_changed",
@@ -82,8 +84,8 @@ func TestResetForPoolReuse_RotatesEditableFocusBridgeToken(t *testing.T) {
 
 	wv.ResetForPoolReuse()
 
-	require.NotEmpty(t, wv.editableFocusBridgeToken)
-	require.NotEqual(t, "secret-token", wv.editableFocusBridgeToken)
+	require.NotEmpty(t, wv.EditableFocusBridgeToken())
+	require.NotEqual(t, "secret-token", wv.EditableFocusBridgeToken())
 }
 
 func TestIsTrustedBridgeURI(t *testing.T) {

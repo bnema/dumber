@@ -45,6 +45,16 @@ func TestAccentDetectionScriptPostsEditableFocusChangedMessages(t *testing.T) {
 	assert.Contains(t, accentDetectionScript, `window.__dumber_lastEditableEl = document.activeElement`)
 }
 
+func TestBuildAccentDetectionScript_EmptyTokenReturnsBeforeHandlerLookup(t *testing.T) {
+	empty := buildAccentDetectionScript("")
+	assert.Contains(t, empty, "if (!editableFocusToken) return;")
+	nonEmpty := buildAccentDetectionScript("abc123")
+	assert.Contains(t, nonEmpty, `const editableFocusToken = "abc123";`)
+	assert.Contains(t, nonEmpty, "if (!editableFocusToken) return;")
+	assert.Contains(t, nonEmpty, `postEditableFocus(true)`)
+	assert.Contains(t, nonEmpty, "window.webkit.messageHandlers.dumber.postMessage")
+}
+
 func TestExplicitCopyScriptCapturesClipboardOperations(t *testing.T) {
 	script := buildExplicitCopyScript()
 
