@@ -90,16 +90,90 @@ func TestAccessibilityCapture_NeverOverwritesExistingNumberedFile(t *testing.T) 
 
 	capture, err := newAccessibilityCapture(dir)
 	require.NoError(t, err)
-	require.Error(t, capture.Write(accessibilityPayload{Kind: accessibilityCaptureKindTree, JSON: `{"overwrite":true}`}))
+	require.NoError(t, capture.Write(accessibilityPayload{Kind: accessibilityCaptureKindTree, JSON: `{"append":true}`}))
 
 	got, err := os.ReadFile(preexisting)
 	require.NoError(t, err)
 	assert.Equal(t, original, string(got))
 
+	appended, err := os.ReadFile(filepath.Join(dir, "000002-tree.json"))
+	require.NoError(t, err)
+	assert.JSONEq(t, `{"append":true}`, string(appended))
+
 	entries, err := os.ReadDir(dir)
 	require.NoError(t, err)
-	require.Len(t, entries, 1)
-	assert.Equal(t, "000001-tree.json", entries[0].Name())
+	require.Len(t, entries, 2)
+}
+
+func TestAccessibilityCapture_ReusedDirInitializesMaxSequence(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "000001-tree.json"), []byte(`{"a":1}`), 0o600))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "000003-location.json"), []byte(`{"b":2}`), 0o600))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "readme.txt"), []byte("ignore"), 0o600))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "000002-other.json"), []byte(`{}`), 0o600))
+
+	capture, err := newAccessibilityCapture(dir)
+	require.NoError(t, err)
+	require.Equal(t, uint64(3), capture.seq)
+	require.Equal(t, 2, capture.fileCount)
+	require.Equal(t, int64(len(`{"a":1}`)+len(`{"b":2}`)), capture.totalBytes)
+
+	require.NoError(t, capture.Write(accessibilityPayload{Kind: accessibilityCaptureKindTree, JSON: `{"c":3}`}))
+	_, err = os.Stat(filepath.Join(dir, "000004-tree.json"))
+	require.NoError(t, err)
+	_, err = os.Stat(filepath.Join(dir, "000002-tree.json"))
+	require.Error(t, err)
+}
+
+func TestAccessibilityCapture_BudgetsIncludeExistingAndRejectBeforeCreate(t *testing.T) {
+	dir := t.TempDir()
+	existing := []byte(`{"keep":true}`)
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "000001-tree.json"), existing, 0o600))
+
+	capture, err := newAccessibilityCapture(dir)
+	require.NoError(t, err)
+	capture.maxFiles = 2
+	capture.maxBytes = int64(len(existing) + 8)
+
+	require.NoError(t, capture.Write(accessibilityPayload{Kind: accessibilityCaptureKindLocation, JSON: `{"ok":1}`}))
+	require.Equal(t, 2, capture.fileCount)
+	require.FileExists(t, filepath.Join(dir, "000002-location.json"))
+
+	before, err := os.ReadDir(dir)
+	require.NoError(t, err)
+	require.Len(t, before, 2)
+
+	require.Error(t, capture.Write(accessibilityPayload{Kind: accessibilityCaptureKindTree, JSON: `x`}))
+	afterFiles, err := os.ReadDir(dir)
+	require.NoError(t, err)
+	require.Len(t, afterFiles, 2, "file-budget reject must not create a file")
+	require.Equal(t, uint64(2), capture.seq, "file-budget reject must not advance sequence")
+
+	capture.maxFiles = 10
+	require.Error(t, capture.Write(accessibilityPayload{Kind: accessibilityCaptureKindTree, JSON: `too-large`}))
+	afterBytes, err := os.ReadDir(dir)
+	require.NoError(t, err)
+	require.Len(t, afterBytes, 2, "byte-budget reject must not create a file")
+	require.Equal(t, uint64(2), capture.seq, "byte-budget reject must not advance sequence")
+}
+
+func TestAccessibilityCapture_ScanIgnoresSymlinkAndNonRegular(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "000001-tree.json"), []byte(`{"ok":1}`), 0o600))
+	require.NoError(t, os.Symlink(filepath.Join(dir, "000001-tree.json"), filepath.Join(dir, "000009-tree.json")))
+	require.NoError(t, os.Mkdir(filepath.Join(dir, "000008-location.json"), 0o700))
+
+	capture, err := newAccessibilityCapture(dir)
+	require.NoError(t, err)
+	require.Equal(t, uint64(1), capture.seq)
+	require.Equal(t, 1, capture.fileCount)
+	require.Equal(t, int64(len(`{"ok":1}`)), capture.totalBytes)
+
+	require.NoError(t, capture.Write(accessibilityPayload{Kind: accessibilityCaptureKindLocation, JSON: `{"n":2}`}))
+	require.FileExists(t, filepath.Join(dir, "000002-location.json"))
+	info, err := os.Lstat(filepath.Join(dir, "000009-tree.json"))
+	require.NoError(t, err)
+	assert.NotZero(t, info.Mode()&os.ModeSymlink)
 }
 
 func TestAccessibilityCapture_Namespace0700AndChmodExisting(t *testing.T) {
