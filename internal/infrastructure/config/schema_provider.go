@@ -492,7 +492,7 @@ func (*SchemaProvider) getWorkspaceKeys(defaults *Config) []entity.ConfigKeyInfo
 			Key:         "workspace.vim_mode.sequence_timeout_ms",
 			Type:        "int",
 			Default:     fmt.Sprintf("%d", defaults.Workspace.VimMode.SequenceTimeoutMilliseconds),
-			Description: "Vim mode multi-key sequence timeout in milliseconds (0 = no timeout)",
+			Description: "Vim mode multi-key sequence timeout in milliseconds (0 = immediate ambiguity resolution)",
 			Range:       ">=0",
 			Section:     SectionWorkspace,
 		},
