@@ -40,9 +40,12 @@ Page Mode stays local to the active pane and automatically leaves the mode when 
 6. Press `Escape` or `Enter` to leave the mode
 7. If a page input or editor is already focused, `Ctrl+Y` is passed through instead of stealing the keypress
 
-> **Engine behavior**: CEF sends native arrow key and Page Up/Down events for
-> scroll execution, matching Chromium's built-in scroll behaviour. WebKit uses
-> JavaScript scroll delta injection as a fallback.
+> **Engine behavior**: CEF and WebKit execute Page Mode scroll steps with the
+> shared `BuildScrollByJS` resolver (viewport-center start, nested-scroller
+> handoff, document fallback). The application repeater owns held-key cadence;
+> each engine runs one immediate step per tick. Cross-origin frames are
+> best-effort. CEF may use native precision-wheel input only before the browser
+> frame is ready.
 
 ## Omnibox
 

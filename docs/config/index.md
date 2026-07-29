@@ -448,7 +448,7 @@ Notes:
 - Arrow keys still use the browser engine's native page-navigation path while Page Mode is active.
 - Other app-level shortcuts stay suspended until Page Mode exits, except for the Page Mode toggle itself.
 - `workspace.styling.pane_mode_color`, `workspace.styling.transition_duration`, and `workspace.styling.mode_indicator_toaster_enabled` control the pane-local Page Mode visuals.
-- Scroll execution depends on the engine: CEF uses native Chromium key events (arrow keys, Page Up/Down) for all six scroll commands; WebKit falls back to JavaScript scroll delta injection.
+- Scroll execution: CEF and WebKit both use the shared `BuildScrollByJS` resolver when the page is ready. Each step starts under the viewport center, walks up through ancestors that can move in the requested direction, and hands scrolling to the document when a nested container reaches its boundary. The application repeater owns held-key cadence; each engine executes one immediate scroll step per tick. Cross-origin frame contents remain best-effort. CEF may use native precision-wheel input only as a pre-frame fallback before the browser/main frame is ready.
 
 ### Resize Mode
 
@@ -585,10 +585,11 @@ desc = "Open floating pane on GitHub"
 | `workspace.styling.tab_mode_color` | string | `"#FFA500"` | Tab mode color (orange) - used for border and toaster |
 | `workspace.styling.session_mode_color` | string | `"#9B59B6"` | Session mode color (purple) - used for border and toaster |
 | `workspace.styling.resize_mode_color` | string | `"#00D4AA"` | Resize mode color (teal) - used for border and toaster |
-| `workspace.styling.mode_indicator_toaster_enabled` | bool | `true` | Show toaster notification when modal modes are active; Page mode uses it only as brief secondary feedback |
+| `workspace.styling.mode_indicator_toaster_enabled` | bool | `true` | Show bottom-left mode toaster when modal modes are active; Page Mode keeps a persistent `PAGE MODE` indicator until exit or toggle off |
 | `workspace.styling.transition_duration` | int | `120` | Border and pulse transition duration (ms) |
 
 **Example:**
+
 ```toml
 [workspace.styling]
 border_width = 1
