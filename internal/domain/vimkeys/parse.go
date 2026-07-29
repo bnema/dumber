@@ -12,6 +12,10 @@ func ParseBinding(s string) (Sequence, error) {
 		return nil, ErrEmptyBinding
 	}
 
+	if key, ok := tryParseLegacyAtom(s); ok {
+		return Sequence{key}, nil
+	}
+
 	if key, ok, err := tryParseAsLegacyChord(s); ok {
 		if err != nil {
 			return nil, err
@@ -19,6 +23,19 @@ func ParseBinding(s string) (Sequence, error) {
 		return Sequence{key}, nil
 	}
 	return parseRawSequence(s)
+}
+
+// tryParseLegacyAtom treats raw UI key names enter/escape (and aliases) as single
+// keys so they remain compatible with the GTK shortcut table contract.
+func tryParseLegacyAtom(s string) (Key, bool) {
+	switch strings.ToLower(s) {
+	case "enter", "return":
+		return Key{Sym: "CR"}, true
+	case "escape", "esc":
+		return Key{Sym: "Esc"}, true
+	default:
+		return Key{}, false
+	}
 }
 
 func legacyChordParts(s string) []string {
@@ -259,6 +276,9 @@ func tryParseSpecialAt(s string, i int) (Key, int, bool) {
 		return Key{}, 0, false
 	}
 	rest := s[i:]
+	if key, width, ok := tryParseNamedSpecialAt(rest); ok {
+		return key, width, true
+	}
 	switch {
 	case strings.HasPrefix(rest, "Space"):
 		return Key{Sym: "Space"}, len("Space"), true
@@ -270,6 +290,36 @@ func tryParseSpecialAt(s string, i int) (Key, int, bool) {
 		return Key{Sym: "CR"}, len("CR"), true
 	case strings.HasPrefix(rest, "lt"):
 		return Key{Sym: "<"}, len("lt"), true
+	default:
+		return Key{}, 0, false
+	}
+}
+
+// tryParseNamedSpecialAt matches longer canonical named keys before letter runs.
+func tryParseNamedSpecialAt(rest string) (Key, int, bool) {
+	switch {
+	case strings.HasPrefix(rest, "BackSpace"):
+		return Key{Sym: "BackSpace"}, len("BackSpace"), true
+	case strings.HasPrefix(rest, "PageDown"):
+		return Key{Sym: "PageDown"}, len("PageDown"), true
+	case strings.HasPrefix(rest, "PageUp"):
+		return Key{Sym: "PageUp"}, len("PageUp"), true
+	case strings.HasPrefix(rest, "Delete"):
+		return Key{Sym: "Delete"}, len("Delete"), true
+	case strings.HasPrefix(rest, "Right"):
+		return Key{Sym: "Right"}, len("Right"), true
+	case strings.HasPrefix(rest, "Left"):
+		return Key{Sym: "Left"}, len("Left"), true
+	case strings.HasPrefix(rest, "Home"):
+		return Key{Sym: "Home"}, len("Home"), true
+	case strings.HasPrefix(rest, "Down"):
+		return Key{Sym: "Down"}, len("Down"), true
+	case strings.HasPrefix(rest, "Tab"):
+		return Key{Sym: "Tab"}, len("Tab"), true
+	case strings.HasPrefix(rest, "End"):
+		return Key{Sym: "End"}, len("End"), true
+	case strings.HasPrefix(rest, "Up"):
+		return Key{Sym: "Up"}, len("Up"), true
 	default:
 		return Key{}, 0, false
 	}
@@ -362,7 +412,8 @@ func shiftedGlyphForRune(r rune) (string, bool) {
 }
 
 func symFromSpecialAlias(token string) (string, bool) {
-	switch strings.ToLower(token) {
+	lower := strings.ToLower(token)
+	switch lower {
 	case "cr", "return":
 		return "CR", true
 	case "esc", "escape":
@@ -373,6 +424,35 @@ func symFromSpecialAlias(token string) (string, bool) {
 		return "<", true
 	case "plus":
 		return "+", true
+	default:
+		return namedSymFromAlias(lower)
+	}
+}
+
+func namedSymFromAlias(lower string) (string, bool) {
+	switch lower {
+	case "tab":
+		return "Tab", true
+	case "backspace":
+		return "BackSpace", true
+	case "delete":
+		return "Delete", true
+	case "left":
+		return "Left", true
+	case "right":
+		return "Right", true
+	case "up":
+		return "Up", true
+	case "down":
+		return "Down", true
+	case "home":
+		return "Home", true
+	case "end":
+		return "End", true
+	case "pageup":
+		return "PageUp", true
+	case "pagedown":
+		return "PageDown", true
 	default:
 		return "", false
 	}

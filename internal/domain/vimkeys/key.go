@@ -78,8 +78,10 @@ func angleAliasForSym(sym string) string {
 		return "Return"
 	case "Esc":
 		return "Escape"
-	case "Space":
-		return "Space"
+	case "Space", "Tab", "BackSpace", "Delete",
+		"Left", "Right", "Up", "Down",
+		"Home", "End", "PageUp", "PageDown":
+		return sym
 	case "<":
 		return "lt"
 	default:
