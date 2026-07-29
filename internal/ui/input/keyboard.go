@@ -345,6 +345,9 @@ func (h *KeyboardHandler) DetachForDestroy() {
 
 func (h *KeyboardHandler) detach(removeController bool) {
 	h.stopVimScrollRepeat()
+	// Sequence teardown uses seq.mu only; keep it outside h.mu to preserve
+	// the existing h.mu → (never seq) / seq.mu standalone lock order.
+	h.teardownSequenceState()
 	h.mu.Lock()
 	if h.controller != nil && h.keyPressedHandlerID != 0 {
 		h.controller.DisconnectSignal(h.keyPressedHandlerID)

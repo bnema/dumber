@@ -180,6 +180,23 @@ func (h *KeyboardHandler) resetPendingSequence(notify bool) {
 	}
 }
 
+// teardownSequenceState linearizably cancels sequence timing and clears
+// UI-retaining callbacks without notifying. Used by Detach/DetachForDestroy.
+// Lock order: call without holding h.mu (same as resetPendingSequence).
+func (h *KeyboardHandler) teardownSequenceState() {
+	h.seq.mu.Lock()
+	defer h.seq.mu.Unlock()
+	h.stopSequenceTimerLocked()
+	h.seq.generation++
+	if h.seq.matcher != nil {
+		h.seq.matcher.Reset()
+	}
+	h.seq.onPending = nil
+	h.seq.onAction = nil
+	h.seq.scheduleOnMainThread = nil
+	log.Debug().Msg("page mode sequence state torn down without notify")
+}
+
 // InvalidateSequenceMatcher stops timing, bumps generation, and replaces the
 // matcher from the current VimModeSequences trie (hot reload).
 func (h *KeyboardHandler) InvalidateSequenceMatcher() {
