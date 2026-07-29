@@ -502,6 +502,8 @@ func (h *KeyboardHandler) pageScrollRepeatTick(action Action, keyval uint, gener
 	if now().Sub(pressedAt) < pageScrollHoldDelay {
 		return true
 	}
+	// Continuous dispatch bypasses dispatchAction, so refresh Page Mode timeout here.
+	h.modal.ResetTimeout(h.ctx)
 	h.dispatchPageScrollLifecycle(action, PageScrollContinuous)
 	return true
 }

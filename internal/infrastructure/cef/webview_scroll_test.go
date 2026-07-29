@@ -446,6 +446,44 @@ func TestScrollPage_AllowsAtMostOneSuccessorAfterInFlightFlush(t *testing.T) {
 	}
 }
 
+func TestEnsurePageScrollFlush_PostTaskFailureDrainsTapAndDropsHeld(t *testing.T) {
+	oldNewTask, oldPostTask := cefNewTask, cefPostTask
+	defer func() { cefNewTask, cefPostTask = oldNewTask, oldPostTask }()
+	cefNewTask = func(task purecef.Task) purecef.Task { return task }
+	cefPostTask = func(_ purecef.ThreadID, _ purecef.Task) int32 { return 0 }
+
+	browser := cefmocks.NewMockBrowser(t)
+	frame := cefmocks.NewMockFrame(t)
+	browser.EXPECT().GetMainFrame().Return(frame).Once()
+	frame.EXPECT().ExecuteJavaScript(mock.MatchedBy(func(script string) bool {
+		return strings.Contains(script, "var dx=0,dy=80") && !strings.Contains(script, "dy=160")
+	}), "", int32(0)).Once()
+	wv := &WebView{engine: &Engine{}, browser: browser}
+
+	if err := wv.ScrollPage(context.Background(), port.PageScrollRequest{FallbackDY: 80}); err != nil {
+		t.Fatal(err)
+	}
+	if err := wv.ScrollPage(context.Background(), port.PageScrollRequest{FallbackDY: 80, Continuous: true}); err != nil {
+		t.Fatal(err)
+	}
+
+	q := &wv.pageScrollQueue
+	q.mu.Lock()
+	tapDX, tapDY := q.tapDX, q.tapDY
+	heldDX, heldDY := q.heldDX, q.heldDY
+	pending := q.flushPending
+	q.mu.Unlock()
+	if tapDX != 0 || tapDY != 0 {
+		t.Fatalf("tap deltas stranded after PostTask failure: tap=(%d,%d)", tapDX, tapDY)
+	}
+	if heldDX != 0 || heldDY != 0 {
+		t.Fatalf("held deltas must keep cancel-on-schedule-failure semantics: held=(%d,%d)", heldDX, heldDY)
+	}
+	if pending {
+		t.Fatal("flushPending must clear after PostTask failure drain")
+	}
+}
+
 func TestScrollPage_Destroyed_ReturnsError(t *testing.T) {
 	wv := &WebView{}
 	wv.destroyed.Store(true)

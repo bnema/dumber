@@ -329,3 +329,58 @@ func TestKeyboardDispatcher_PageModeNoopWhenActiveWebViewReturnsNil(t *testing.T
 	err := d.Dispatch(ctx, input.ActionPageScrollDown)
 	require.NoError(t, err)
 }
+
+func TestPageScrollSpec_IsSingleSourceForCommandAndPulse(t *testing.T) {
+	tests := []struct {
+		action input.Action
+		cmd    usecase.PageScrollCommand
+		fast   bool
+	}{
+		{input.ActionPageScrollLeft, usecase.PageScrollLeft, false},
+		{input.ActionPageScrollRight, usecase.PageScrollRight, false},
+		{input.ActionPageScrollUp, usecase.PageScrollUp, false},
+		{input.ActionPageScrollDown, usecase.PageScrollDown, false},
+		{input.ActionPageScrollUpFast, usecase.PageScrollUpFast, true},
+		{input.ActionPageScrollDownFast, usecase.PageScrollDownFast, true},
+	}
+	for _, tc := range tests {
+		spec, ok := pageScrollSpec(tc.action)
+		require.True(t, ok, string(tc.action))
+		assert.Equal(t, tc.cmd, spec.cmd)
+		assert.Equal(t, tc.fast, spec.fast)
+		cmd, ok := pageScrollCommand(tc.action)
+		require.True(t, ok)
+		assert.Equal(t, tc.cmd, cmd)
+	}
+	_, ok := pageScrollSpec(input.ActionQuit)
+	assert.False(t, ok)
+}
+
+func TestKeyboardDispatcher_PageScrollTapUsesSharedSpecPulse(t *testing.T) {
+	ctx := context.Background()
+	base := mocks.NewMockWebView(t)
+	scroller := mocks.NewMockPageScrollable(t)
+	wv := &mockScrollableWebView{MockWebView: base, MockPageScrollable: scroller}
+	navCoord := &coordinator.NavigationCoordinator{}
+	navCoord.SetPageScrollUseCase(usecase.NewPageScrollUseCase())
+	d := NewKeyboardDispatcher(ctx, &coordinator.WorkspaceCoordinator{}, navCoord, nil, nil, KeyboardActions{
+		ActiveWebView: func(context.Context) port.WebView { return wv },
+	}, func(context.Context) entity.PaneID { return "" })
+
+	var pulses []bool
+	d.SetOnPageModePulse(func(_ context.Context, fast bool) {
+		pulses = append(pulses, fast)
+	})
+
+	base.EXPECT().ID().Return(port.WebViewID(7)).Twice()
+	scroller.EXPECT().ScrollPage(ctx, port.PageScrollRequest{
+		Command: port.PageScrollCommandDown, FallbackDY: 80,
+	}).Return(nil).Once()
+	scroller.EXPECT().ScrollPage(ctx, port.PageScrollRequest{
+		Command: port.PageScrollCommandDownFast, FallbackDY: 320,
+	}).Return(nil).Once()
+
+	require.NoError(t, d.Dispatch(ctx, input.ActionPageScrollDown))
+	require.NoError(t, d.Dispatch(ctx, input.ActionPageScrollDownFast))
+	assert.Equal(t, []bool{false, true}, pulses)
+}

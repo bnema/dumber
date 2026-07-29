@@ -505,6 +505,69 @@ func TestHandleKeyPress_PageModeTimeoutReset(t *testing.T) {
 	}
 }
 
+func TestPageScrollRepeatTick_RefreshesConfiguredPageModeTimeout(t *testing.T) {
+	ctx := context.Background()
+	workspace := newTestWorkspace()
+	workspace.PageMode = entity.PageModeConfig{
+		ActivationShortcut:  "ctrl+y",
+		TimeoutMilliseconds: 100,
+		Actions: map[string]entity.ActionBinding{
+			"page-scroll-down": {Keys: []string{"j"}},
+		},
+	}
+
+	h := NewKeyboardHandler(ctx, workspace, newTestSession())
+	timerStarts := 0
+	h.modal.afterFunc = func(time.Duration, func()) modalTimer {
+		timerStarts++
+		return &fakeModalTimer{}
+	}
+	var continuous int
+	h.SetOnPageScrollLifecycle(func(_ context.Context, _ Action, phase PageScrollPhase) error {
+		if phase == PageScrollContinuous {
+			continuous++
+		}
+		return nil
+	})
+
+	var repeatTick glib.SourceFunc
+	repeatNow := time.Unix(3_000, 0)
+	h.pageScrollNow = func() time.Time { return repeatNow }
+	h.pageScrollRepeatAdd = func(_ uint, cb *glib.SourceFunc) uint {
+		repeatTick = *cb
+		return 1
+	}
+	h.pageScrollRepeatRemove = func(uint) bool { return true }
+
+	h.handleKeyPress(uint('y'), 0, gdk.ControlMaskValue)
+	if h.Mode() != ModePage {
+		t.Fatal("failed to enter page mode")
+	}
+	enterStarts := timerStarts
+	h.handleKeyPress(uint('j'), 0, 0)
+	if repeatTick == nil {
+		t.Fatal("expected repeater registration")
+	}
+	afterTap := timerStarts
+	if afterTap <= enterStarts {
+		t.Fatalf("tap should refresh timeout: enter=%d afterTap=%d", enterStarts, afterTap)
+	}
+
+	repeatNow = repeatNow.Add(pageScrollHoldDelay)
+	if !repeatTick(0) {
+		t.Fatal("continuous tick stopped unexpectedly")
+	}
+	if continuous != 1 {
+		t.Fatalf("continuous dispatches=%d, want 1", continuous)
+	}
+	if timerStarts <= afterTap {
+		t.Fatalf("continuous tick must refresh page-mode timeout: afterTap=%d afterTick=%d", afterTap, timerStarts)
+	}
+	if h.Mode() != ModePage {
+		t.Fatalf("mode after continuous tick = %v, want ModePage", h.Mode())
+	}
+}
+
 func TestHandleKeyPress_PageModeEscapeExits(t *testing.T) {
 	ctx := context.Background()
 	workspace := newTestWorkspace()

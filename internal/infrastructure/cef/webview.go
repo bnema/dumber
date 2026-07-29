@@ -2475,11 +2475,13 @@ func (wv *WebView) ensurePageScrollFlush() {
 	}
 	task := cefNewTask(cefTaskFunc(wv.flushPageScroll))
 	if task == nil || cefPostTask(purecef.ThreadIDTidUi, task) != 1 {
+		// Schedule failed: drop held (cancel semantics) and synchronously drain
+		// any queued tap so it cannot remain stranded with flushPending cleared.
 		q.mu.Lock()
-		q.flushPending = false
 		q.heldDX = 0
 		q.heldDY = 0
 		q.mu.Unlock()
+		wv.flushPageScroll()
 	}
 }
 
