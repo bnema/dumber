@@ -37,6 +37,7 @@ var (
 	_ port.OAuthCallbackCapable  = (*WebView)(nil)
 	_ port.PageScrollable        = (*WebView)(nil)
 	_ port.PageScrollCanceler    = (*WebView)(nil)
+	_ port.AccessibilityEnabler  = (*WebView)(nil)
 )
 
 // errDestroyed is returned when an operation is attempted on a destroyed WebView.
@@ -157,6 +158,7 @@ type WebView struct {
 	a11yWorker  *accessibilityCaptureWorker
 	a11yCapture *accessibilityCapture
 	a11yStats   accessibilityStats
+	a11yEnabled atomic.Bool
 
 	// beginFrameTick drives CEF external BeginFrame requests while the GTK
 	// widget is visible. Access is guarded by mu.
@@ -2539,6 +2541,26 @@ func (wv *WebView) CancelPageScroll(_ context.Context) {
 	q.heldDY = 0
 	q.mu.Unlock()
 	q.commitMu.Unlock()
+}
+
+// EnableAccessibility turns on CEF accessibility for this WebView exactly once.
+// Calls before the browser host exists are no-ops so UI can safely retry.
+func (wv *WebView) EnableAccessibility() {
+	if wv == nil || wv.destroyed.Load() || wv.a11yEnabled.Load() {
+		return
+	}
+	wv.mu.RLock()
+	host := wv.host
+	wv.mu.RUnlock()
+	if host == nil || !wv.a11yEnabled.CompareAndSwap(false, true) {
+		return
+	}
+	host.SetAccessibilityState(purecef.StateStateEnabled)
+	if wv.ctx != nil {
+		logging.FromContext(wv.ctx).Debug().
+			Uint64("webview_id", uint64(wv.id)).
+			Msg("cef: accessibility enabled")
+	}
 }
 
 func (wv *WebView) resetPageScrollQueue() {

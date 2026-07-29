@@ -477,7 +477,7 @@ func (*SchemaProvider) getWorkspaceKeys(defaults *Config) []entity.ConfigKeyInfo
 			Key:         "workspace.vim_mode.activation_shortcut",
 			Type:        "string",
 			Default:     defaults.Workspace.VimMode.ActivationShortcut,
-			Description: "Shortcut to enter vim scroll mode",
+			Description: "Shortcut to enter page scroll mode",
 			Section:     SectionWorkspace,
 		},
 		{
@@ -494,6 +494,13 @@ func (*SchemaProvider) getWorkspaceKeys(defaults *Config) []entity.ConfigKeyInfo
 			Default:     fmt.Sprintf("%d", defaults.Workspace.VimMode.SequenceTimeoutMilliseconds),
 			Description: "Vim mode multi-key sequence timeout in milliseconds (0 = immediate ambiguity resolution)",
 			Range:       ">=0",
+			Section:     SectionWorkspace,
+		},
+		{
+			Key:         "workspace.vim_mode.preload_accessibility",
+			Type:        "bool",
+			Default:     fmt.Sprintf("%t", defaults.Workspace.VimMode.PreloadAccessibility),
+			Description: "Pre-enable browser accessibility when a WebView is shown (default false; enable on Page Mode enter otherwise)",
 			Section:     SectionWorkspace,
 		},
 		{
@@ -570,23 +577,6 @@ func (*SchemaProvider) getWorkspaceKeys(defaults *Config) []entity.ConfigKeyInfo
 			Type:        "object",
 			Default:     "(empty)",
 			Description: "Named floating pane URL profiles with keys, url, and optional desc",
-			Section:     SectionWorkspace,
-		},
-		// External links
-		{
-			Key:         "workspace.external_links.behavior",
-			Type:        "string",
-			Default:     string(defaults.Workspace.ExternalLinks.Behavior),
-			Description: "How URLs opened from external applications are placed",
-			Values:      []string{"windowed", "tabbed", "split", "stacked"},
-			Section:     SectionWorkspace,
-		},
-		{
-			Key:         "workspace.external_links.placement",
-			Type:        "string",
-			Default:     string(defaults.Workspace.ExternalLinks.Placement),
-			Description: "Placement direction for split external links",
-			Values:      []string{"right", "left", "top", "bottom"},
 			Section:     SectionWorkspace,
 		},
 		// Browsing contexts

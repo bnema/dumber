@@ -34,7 +34,8 @@ func TestConfigurationReferenceCoversSchemaKeys(t *testing.T) {
 // schemaKeysPendingProductDocs lists SchemaProvider keys intentionally omitted from
 // product docs until a dedicated docs task lands them.
 var schemaKeysPendingProductDocs = map[string]struct{}{
-	"workspace.page_mode.sequence_timeout_ms": {},
+	"workspace.page_mode.sequence_timeout_ms":   {},
+	"workspace.page_mode.preload_accessibility": {},
 }
 
 func configurationReferenceKeys(t *testing.T) map[string]struct{} {
