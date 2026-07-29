@@ -287,16 +287,10 @@ func (h *KeyboardHandler) AttachTo(window *gtk.ApplicationWindow) {
 	// so app shortcuts still work.
 	h.controller.SetPropagationPhase(gtk.PhaseBubbleValue)
 
-	// Wire GTK main thread scheduler for modal timeouts. Timer goroutines
-	// must dispatch ExitMode to the GTK thread because onModeChange may
-	// call setControllerPhase (a GTK operation).
-	h.modal.SetMainThreadScheduler(func(fn func()) {
-		cb := glib.SourceFunc(func(_ uintptr) bool {
-			fn()
-			return false
-		})
-		glib.IdleAdd(&cb, 0)
-	})
+	// Wire GTK main thread schedulers for modal and sequence ambiguity timeouts.
+	// Timer goroutines must dispatch back to the GTK thread because callbacks
+	// may touch GTK widgets / EventController phase.
+	h.installGTKMainThreadSchedulers()
 
 	// Connect key pressed handler (retain callback to prevent GC).
 	// The callback receives: keyval (translated key), keycode (hardware key position), state (modifiers)
@@ -316,6 +310,24 @@ func (h *KeyboardHandler) AttachTo(window *gtk.ApplicationWindow) {
 	window.AddController(&h.controller.EventController)
 
 	log.Debug().Msg("keyboard handler attached to window")
+}
+
+// installGTKMainThreadSchedulers routes modal and sequence timer callbacks
+// through glib.IdleAdd so they run on the GTK main thread.
+func (h *KeyboardHandler) installGTKMainThreadSchedulers() {
+	if h == nil {
+		return
+	}
+	schedule := func(fn func()) {
+		cb := glib.SourceFunc(func(_ uintptr) bool {
+			fn()
+			return false
+		})
+		glib.IdleAdd(&cb, 0)
+	}
+	h.modal.SetMainThreadScheduler(schedule)
+	h.SetSequenceMainThreadScheduler(schedule)
+	logging.FromContext(h.ctx).Debug().Msg("gtk main-thread schedulers installed for modal and page-mode sequences")
 }
 
 // Detach removes the keyboard handler from a live GTK window and releases its
