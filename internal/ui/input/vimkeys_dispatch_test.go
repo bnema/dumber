@@ -3,11 +3,69 @@ package input
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/domain/vimkeys"
 	"github.com/bnema/puregotk/v4/gdk"
 )
+
+type stubSequenceTimer struct {
+	onStop func()
+}
+
+func (s stubSequenceTimer) Stop() bool {
+	if s.onStop != nil {
+		s.onStop()
+	}
+	return true
+}
+
+func vimModeSequenceWorkspace(actions map[string]entity.ActionBinding) *entity.WorkspaceConfig {
+	ws := newTestWorkspace()
+	ws.VimMode = entity.VimModeConfig{
+		ActivationShortcut:          "ctrl+y",
+		TimeoutMilliseconds:         0,
+		SequenceTimeoutMilliseconds: 500,
+		Actions:                     actions,
+	}
+	return ws
+}
+
+func enterVimMode(t *testing.T, h *KeyboardHandler) {
+	t.Helper()
+	if !h.handleKeyPress(uint('y'), 0, gdk.ControlMaskValue) {
+		t.Fatal("ctrl+y should enter vim mode")
+	}
+	if h.Mode() != ModeVim {
+		t.Fatalf("mode = %v, want ModeVim", h.Mode())
+	}
+}
+
+func capturePending(h *KeyboardHandler) *[]string {
+	pending := &[]string{}
+	h.SetOnPendingSequenceChange(func(p string) {
+		*pending = append(*pending, p)
+	})
+	return pending
+}
+
+func captureSequenceActions(h *KeyboardHandler) *[]struct {
+	action string
+	count  int
+} {
+	actions := &[]struct {
+		action string
+		count  int
+	}{}
+	h.SetOnSequenceAction(func(action string, count int) {
+		*actions = append(*actions, struct {
+			action string
+			count  int
+		}{action: action, count: count})
+	})
+	return actions
+}
 
 func TestTrieOwnsBinding(t *testing.T) {
 	cases := map[string]bool{
@@ -76,8 +134,8 @@ func TestTrieOwnsBinding_CrossContractAtoms(t *testing.T) {
 	}
 }
 
-func TestBuildPageModeTrie(t *testing.T) {
-	cfg := &entity.PageModeConfig{
+func TestBuildVimModeTrie(t *testing.T) {
+	cfg := &entity.VimModeConfig{
 		Actions: map[string]entity.ActionBinding{
 			"page-scroll-down": {Keys: []string{"j"}},
 			"heading-next":     {Keys: []string{"]]"}},
@@ -89,9 +147,9 @@ func TestBuildPageModeTrie(t *testing.T) {
 		},
 	}
 
-	trie, owned := buildPageModeTrie(cfg)
+	trie, owned := buildVimModeTrie(cfg)
 	if trie == nil {
-		t.Fatal("buildPageModeTrie returned nil trie")
+		t.Fatal("buildVimModeTrie returned nil trie")
 	}
 
 	wantOwned := map[string]bool{
@@ -121,10 +179,10 @@ func TestBuildPageModeTrie(t *testing.T) {
 	}
 }
 
-func TestBuildPageModeTrie_ConflictKeepsFirstSortedWinner(t *testing.T) {
+func TestBuildVimModeTrie_ConflictKeepsFirstSortedWinner(t *testing.T) {
 	// Same sequence under two raw aliases; first sorted action wins Insert.
 	// Losing raw key must not be marked owned (insert failed).
-	cfg := &entity.PageModeConfig{
+	cfg := &entity.VimModeConfig{
 		Actions: map[string]entity.ActionBinding{
 			"zzz-later":        {Keys: []string{"<c-d>"}},
 			"aaa-first":        {Keys: []string{"<C-d>"}},
@@ -132,7 +190,7 @@ func TestBuildPageModeTrie_ConflictKeepsFirstSortedWinner(t *testing.T) {
 		},
 	}
 
-	trie, owned := buildPageModeTrie(cfg)
+	trie, owned := buildVimModeTrie(cfg)
 	if !owned["<C-d>"] {
 		t.Fatal("winning raw key <C-d> should be owned after successful Insert")
 	}
@@ -150,11 +208,11 @@ func TestBuildPageModeTrie_ConflictKeepsFirstSortedWinner(t *testing.T) {
 	}
 }
 
-func pageModeSequencesOwnershipFixture(t *testing.T) *ShortcutSet {
+func vimModeSequencesOwnershipFixture(t *testing.T) *ShortcutSet {
 	t.Helper()
 
 	workspace := &entity.WorkspaceConfig{
-		PageMode: entity.PageModeConfig{
+		VimMode: entity.VimModeConfig{
 			ActivationShortcut: "ctrl+y",
 			Actions: map[string]entity.ActionBinding{
 				"page-scroll-down":      {Keys: []string{"j"}},
@@ -170,69 +228,469 @@ func pageModeSequencesOwnershipFixture(t *testing.T) *ShortcutSet {
 	}
 
 	set := NewShortcutSet(context.Background(), workspace, nil)
-	if set.PageModeSequences() == nil {
-		t.Fatal("PageModeSequences() is nil")
+	if set.VimModeSequences() == nil {
+		t.Fatal("VimModeSequences() is nil")
 	}
 	return set
 }
 
-func assertLegacyPageModeBindings(t *testing.T, set *ShortcutSet) {
+func assertLegacyVimModeBindings(t *testing.T, set *ShortcutSet) {
 	t.Helper()
 
 	jBinding, jOK := ParseKeyString("j")
 	if !jOK {
 		t.Fatal("ParseKeyString(j) failed")
 	}
-	if action, found := set.PageMode[jBinding]; !found || action != ActionPageScrollDown {
-		t.Fatalf("legacy j missing from PageMode: found=%v action=%q", found, action)
+	if action, found := set.VimMode[jBinding]; !found || action != ActionVimScrollDown {
+		t.Fatalf("legacy j missing from VimMode: found=%v action=%q", found, action)
 	}
 
 	enterBinding := KeyBinding{Keyval: uint(gdk.KEY_Return), Modifiers: ModNone}
-	if action, found := set.PageMode[enterBinding]; !found || action != ActionExitMode {
-		t.Fatalf("legacy enter missing from PageMode: found=%v action=%q", found, action)
+	if action, found := set.VimMode[enterBinding]; !found || action != ActionExitMode {
+		t.Fatalf("legacy enter missing from VimMode: found=%v action=%q", found, action)
 	}
 
 	escapeBinding := KeyBinding{Keyval: uint(gdk.KEY_Escape), Modifiers: ModNone}
-	if action, found := set.PageMode[escapeBinding]; !found || action != ActionExitMode {
-		t.Fatalf("legacy escape missing from PageMode: found=%v action=%q", found, action)
+	if action, found := set.VimMode[escapeBinding]; !found || action != ActionExitMode {
+		t.Fatalf("legacy escape missing from VimMode: found=%v action=%q", found, action)
 	}
 }
 
-func assertOwnedBindingsAbsentFromPageMode(t *testing.T, set *ShortcutSet) {
+func assertOwnedBindingsAbsentFromVimMode(t *testing.T, set *ShortcutSet) {
 	t.Helper()
 
 	for _, key := range []string{"]]", "yah", "gO", "<C-d>"} {
 		if binding, parsed := ParseKeyString(key); parsed {
-			if action, found := set.PageMode[binding]; found {
-				t.Fatalf("owned binding %q leaked into PageMode as %q", key, action)
+			if action, found := set.VimMode[binding]; found {
+				t.Fatalf("owned binding %q leaked into VimMode as %q", key, action)
 			}
 		}
 	}
 }
 
-func assertPageModeTrieYankSection(t *testing.T, set *ShortcutSet) {
+func assertVimModeTrieYankSection(t *testing.T, set *ShortcutSet) {
 	t.Helper()
 
 	seq, err := vimkeys.ParseBinding("yah")
 	if err != nil {
 		t.Fatalf("ParseBinding(yah) error = %v", err)
 	}
-	node, walked := set.PageModeSequences().Walk(seq)
+	node, walked := set.VimModeSequences().Walk(seq)
 	if !walked || !node.Exact || node.Action != "yank-section" {
-		t.Fatalf("PageModeSequences Walk(yah) = (%#v, %v), want exact yank-section", node, walked)
+		t.Fatalf("VimModeSequences Walk(yah) = (%#v, %v), want exact yank-section", node, walked)
 	}
 }
 
-func TestShortcutSet_PageModeSequencesOwnership(t *testing.T) {
-	set := pageModeSequencesOwnershipFixture(t)
+func TestShortcutSet_VimModeSequencesOwnership(t *testing.T) {
+	set := vimModeSequencesOwnershipFixture(t)
 
 	t.Run("legacy bindings", func(t *testing.T) {
-		assertLegacyPageModeBindings(t, set)
+		assertLegacyVimModeBindings(t, set)
 	})
 	t.Run("owned bindings absent from legacy table", func(t *testing.T) {
-		assertOwnedBindingsAbsentFromPageMode(t, set)
+		assertOwnedBindingsAbsentFromVimMode(t, set)
 	})
 	t.Run("trie resolves owned sequence", func(t *testing.T) {
-		assertPageModeTrieYankSection(t, set)
+		assertVimModeTrieYankSection(t, set)
 	})
+}
+
+func TestFeedVimModeSequence_CompleteDoubleBracket(t *testing.T) {
+	ctx := context.Background()
+	ws := vimModeSequenceWorkspace(map[string]entity.ActionBinding{
+		"heading-next":     {Keys: []string{"]]"}},
+		"page-scroll-down": {Keys: []string{"j"}},
+		"cancel":           {Keys: []string{"escape"}},
+	})
+	h := NewKeyboardHandler(ctx, ws, newTestSession())
+	pending := capturePending(h)
+	actions := captureSequenceActions(h)
+	enterVimMode(t, h)
+
+	if !h.handleKeyPress(uint(']'), 0, 0) {
+		t.Fatal("] prefix should be consumed")
+	}
+	if h.PendingSequence() != "]" {
+		t.Fatalf("PendingSequence() = %q, want %q", h.PendingSequence(), "]")
+	}
+	if len(*pending) != 1 || (*pending)[0] != "]" {
+		t.Fatalf("pending notifications = %#v, want [\"]\"]", *pending)
+	}
+
+	if !h.handleKeyPress(uint(']'), 0, 0) {
+		t.Fatal("]] should be consumed")
+	}
+	if h.PendingSequence() != "" {
+		t.Fatalf("PendingSequence after complete = %q, want empty", h.PendingSequence())
+	}
+	if len(*actions) != 1 || (*actions)[0].action != "heading-next" || (*actions)[0].count != 0 {
+		t.Fatalf("actions = %#v, want heading-next count 0", *actions)
+	}
+	if len(*pending) < 2 || (*pending)[len(*pending)-1] != "" {
+		t.Fatalf("pending after complete = %#v, want trailing clear", *pending)
+	}
+}
+
+func TestFeedVimModeSequence_PendingYankNotifications(t *testing.T) {
+	ctx := context.Background()
+	ws := vimModeSequenceWorkspace(map[string]entity.ActionBinding{
+		"yank-section":     {Keys: []string{"yah"}},
+		"page-scroll-down": {Keys: []string{"j"}},
+	})
+	h := NewKeyboardHandler(ctx, ws, newTestSession())
+	pending := capturePending(h)
+	actions := captureSequenceActions(h)
+	enterVimMode(t, h)
+
+	for _, step := range []struct {
+		key  uint
+		want string
+	}{
+		{uint('y'), "y"},
+		{uint('a'), "ya"},
+		{uint('h'), ""},
+	} {
+		if !h.handleKeyPress(step.key, 0, 0) {
+			t.Fatalf("key %c should be consumed", step.key)
+		}
+		if got := h.PendingSequence(); got != step.want {
+			t.Fatalf("after %c PendingSequence() = %q, want %q", step.key, got, step.want)
+		}
+	}
+	if len(*actions) != 1 || (*actions)[0].action != "yank-section" {
+		t.Fatalf("actions = %#v, want yank-section", *actions)
+	}
+	if len(*pending) < 3 || (*pending)[0] != "y" || (*pending)[1] != "ya" {
+		t.Fatalf("pending = %#v, want y then ya", *pending)
+	}
+}
+
+func TestFeedVimModeSequence_UnknownFallsThrough(t *testing.T) {
+	ctx := context.Background()
+	ws := vimModeSequenceWorkspace(map[string]entity.ActionBinding{
+		"heading-next":     {Keys: []string{"]]"}},
+		"page-scroll-down": {Keys: []string{"j"}},
+	})
+	h := NewKeyboardHandler(ctx, ws, newTestSession())
+	var scrollCalls int
+	h.SetOnAction(func(_ context.Context, action Action) error {
+		if action == ActionVimScrollDown {
+			scrollCalls++
+		}
+		return nil
+	})
+	enterVimMode(t, h)
+
+	// Unknown sequence key falls through; legacy j still works.
+	if !h.handleKeyPress(uint('j'), 0, 0) {
+		t.Fatal("legacy j should be handled")
+	}
+	if scrollCalls != 1 {
+		t.Fatalf("scrollCalls = %d, want 1", scrollCalls)
+	}
+	if h.PendingSequence() != "" {
+		t.Fatalf("PendingSequence = %q, want empty", h.PendingSequence())
+	}
+}
+
+func TestFeedVimModeSequence_IgnoresOutsideVimMode(t *testing.T) {
+	ctx := context.Background()
+	ws := vimModeSequenceWorkspace(map[string]entity.ActionBinding{
+		"heading-next": {Keys: []string{"]]"}},
+	})
+	h := NewKeyboardHandler(ctx, ws, newTestSession())
+	pending := capturePending(h)
+
+	if h.feedVimModeSequence(uint(']'), 0) {
+		t.Fatal("feed outside vim mode should return false")
+	}
+	if len(*pending) != 0 {
+		t.Fatalf("pending = %#v, want none", *pending)
+	}
+}
+
+func TestFeedVimModeSequence_ModeExitResetsSilently(t *testing.T) {
+	ctx := context.Background()
+	ws := vimModeSequenceWorkspace(map[string]entity.ActionBinding{
+		"yank-section": {Keys: []string{"yah"}},
+		"cancel":       {Keys: []string{"escape"}},
+	})
+	h := NewKeyboardHandler(ctx, ws, newTestSession())
+	pending := capturePending(h)
+	enterVimMode(t, h)
+
+	if !h.handleKeyPress(uint('y'), 0, 0) {
+		t.Fatal("y should be consumed")
+	}
+	before := len(*pending)
+
+	if !h.handleKeyPress(uint(gdk.KEY_Escape), 0, 0) {
+		t.Fatal("escape should exit")
+	}
+	if h.Mode() != ModeNormal {
+		t.Fatalf("mode = %v, want ModeNormal", h.Mode())
+	}
+	if h.PendingSequence() != "" {
+		t.Fatalf("PendingSequence after exit = %q, want empty", h.PendingSequence())
+	}
+	if len(*pending) != before {
+		t.Fatalf("silent exit must not notify pending clear: before=%d after=%d (%#v)", before, len(*pending), *pending)
+	}
+}
+
+func TestFeedVimModeSequence_CountPrefix(t *testing.T) {
+	ctx := context.Background()
+	ws := vimModeSequenceWorkspace(map[string]entity.ActionBinding{
+		"heading-next": {Keys: []string{"]]"}},
+	})
+	h := NewKeyboardHandler(ctx, ws, newTestSession())
+	actions := captureSequenceActions(h)
+	enterVimMode(t, h)
+
+	if !h.handleKeyPress(uint('2'), 0, 0) {
+		t.Fatal("count digit should be consumed")
+	}
+	if h.PendingSequence() != "2" {
+		t.Fatalf("PendingSequence = %q, want 2", h.PendingSequence())
+	}
+	if !h.handleKeyPress(uint(']'), 0, 0) {
+		t.Fatal("first ] after count should be consumed")
+	}
+	if !h.handleKeyPress(uint(']'), 0, 0) {
+		t.Fatal("2]] should complete")
+	}
+	if len(*actions) != 1 || (*actions)[0].action != "heading-next" || (*actions)[0].count != 2 {
+		t.Fatalf("actions = %#v, want heading-next count 2", *actions)
+	}
+}
+
+func TestFeedVimModeSequence_AmbiguityTimeout(t *testing.T) {
+	ctx := context.Background()
+	ws := vimModeSequenceWorkspace(map[string]entity.ActionBinding{
+		"bracket-c":  {Keys: []string{"]c"}},
+		"bracket-cc": {Keys: []string{"]cc"}},
+	})
+	h := NewKeyboardHandler(ctx, ws, newTestSession())
+	actions := captureSequenceActions(h)
+
+	var fired func()
+	var stops int
+	h.seq.afterFunc = func(d time.Duration, fn func()) sequenceTimer {
+		if d != 500*time.Millisecond {
+			t.Fatalf("ambiguity timeout = %v, want 500ms", d)
+		}
+		fired = fn
+		return stubSequenceTimer{onStop: func() { stops++ }}
+	}
+	var queued []func()
+	h.SetSequenceMainThreadScheduler(func(fn func()) {
+		queued = append(queued, fn)
+	})
+
+	enterVimMode(t, h)
+	if !h.handleKeyPress(uint(']'), 0, 0) || !h.handleKeyPress(uint('c'), 0, 0) {
+		t.Fatal("]c prefix should be consumed")
+	}
+	if !h.seq.matcher.Ambiguous() {
+		t.Fatal("]c should be ambiguous against ]cc")
+	}
+	if fired == nil {
+		t.Fatal("expected ambiguity timer arm")
+	}
+
+	fired() // timer expiry queues resolve on scheduler
+	if len(queued) != 1 {
+		t.Fatalf("queued resolves = %d, want 1", len(queued))
+	}
+	queued[0]()
+	if len(*actions) != 1 || (*actions)[0].action != "bracket-c" {
+		t.Fatalf("actions = %#v, want bracket-c", *actions)
+	}
+	if h.PendingSequence() != "" {
+		t.Fatalf("PendingSequence after resolve = %q, want empty", h.PendingSequence())
+	}
+	_ = stops
+}
+
+func TestFeedVimModeSequence_TimeoutZeroResolvesImmediately(t *testing.T) {
+	ctx := context.Background()
+	ws := vimModeSequenceWorkspace(map[string]entity.ActionBinding{
+		"bracket-c":  {Keys: []string{"]c"}},
+		"bracket-cc": {Keys: []string{"]cc"}},
+	})
+	ws.VimMode.SequenceTimeoutMilliseconds = 0
+	h := NewKeyboardHandler(ctx, ws, newTestSession())
+	actions := captureSequenceActions(h)
+
+	var armed time.Duration = -1
+	h.seq.afterFunc = func(d time.Duration, fn func()) sequenceTimer {
+		armed = d
+		fn() // AfterFunc(0) runs promptly; stub runs inline before schedule wrap
+		return stubSequenceTimer{}
+	}
+	var queued []func()
+	h.SetSequenceMainThreadScheduler(func(fn func()) {
+		queued = append(queued, fn)
+	})
+
+	enterVimMode(t, h)
+	if !h.handleKeyPress(uint(']'), 0, 0) || !h.handleKeyPress(uint('c'), 0, 0) {
+		t.Fatal("]c should be consumed")
+	}
+	if armed != 0 {
+		t.Fatalf("armed timeout = %v, want 0", armed)
+	}
+	if len(queued) != 1 {
+		t.Fatalf("queued = %d, want 1", len(queued))
+	}
+	queued[0]()
+	if len(*actions) != 1 || (*actions)[0].action != "bracket-c" {
+		t.Fatalf("actions = %#v, want bracket-c", *actions)
+	}
+}
+
+func TestFeedVimModeSequence_NextKeyStopsTimer(t *testing.T) {
+	ctx := context.Background()
+	ws := vimModeSequenceWorkspace(map[string]entity.ActionBinding{
+		"bracket-c":  {Keys: []string{"]c"}},
+		"bracket-cc": {Keys: []string{"]cc"}},
+	})
+	h := NewKeyboardHandler(ctx, ws, newTestSession())
+	actions := captureSequenceActions(h)
+
+	var fired func()
+	var stops int
+	h.seq.afterFunc = func(_ time.Duration, fn func()) sequenceTimer {
+		fired = fn
+		return stubSequenceTimer{onStop: func() { stops++ }}
+	}
+	h.SetSequenceMainThreadScheduler(func(fn func()) { fn() })
+
+	enterVimMode(t, h)
+	if !h.handleKeyPress(uint(']'), 0, 0) || !h.handleKeyPress(uint('c'), 0, 0) {
+		t.Fatal("]c should be consumed")
+	}
+	if fired == nil {
+		t.Fatal("expected timer")
+	}
+	if !h.handleKeyPress(uint('c'), 0, 0) {
+		t.Fatal("]cc should complete")
+	}
+	if stops == 0 {
+		t.Fatal("next key must Stop ambiguity timer")
+	}
+	if len(*actions) != 1 || (*actions)[0].action != "bracket-cc" {
+		t.Fatalf("actions = %#v, want bracket-cc", *actions)
+	}
+	// Stale timer must no-op.
+	fired()
+	if len(*actions) != 1 {
+		t.Fatalf("stale timer mutated actions: %#v", *actions)
+	}
+}
+
+func TestFeedVimModeSequence_StaleQueuedTimeoutNoOp(t *testing.T) {
+	ctx := context.Background()
+	ws := vimModeSequenceWorkspace(map[string]entity.ActionBinding{
+		"bracket-c":    {Keys: []string{"]c"}},
+		"bracket-cc":   {Keys: []string{"]cc"}},
+		"yank-section": {Keys: []string{"yah"}},
+	})
+	h := NewKeyboardHandler(ctx, ws, newTestSession())
+	actions := captureSequenceActions(h)
+	pending := capturePending(h)
+
+	var fired func()
+	h.seq.afterFunc = func(_ time.Duration, fn func()) sequenceTimer {
+		fired = fn
+		return stubSequenceTimer{}
+	}
+	var queued []func()
+	h.SetSequenceMainThreadScheduler(func(fn func()) {
+		queued = append(queued, fn)
+	})
+
+	enterVimMode(t, h)
+	if !h.handleKeyPress(uint(']'), 0, 0) || !h.handleKeyPress(uint('c'), 0, 0) {
+		t.Fatal("]c should be consumed")
+	}
+	fired() // enqueue stale resolve
+	if len(queued) != 1 {
+		t.Fatalf("queued = %d, want 1", len(queued))
+	}
+	stale := queued[0]
+	queued = nil
+
+	// Interleave: feed/reset/reload before stale closure runs.
+	h.ResetPendingSequence()
+	if len(*pending) == 0 || (*pending)[len(*pending)-1] != "" {
+		t.Fatalf("ResetPendingSequence should notify clear: %#v", *pending)
+	}
+	stale()
+	if len(*actions) != 0 {
+		t.Fatalf("stale resolve after reset must no-op, actions=%#v", *actions)
+	}
+
+	// Reload path also invalidates queued resolve.
+	fired = nil
+	queued = nil
+	if !h.handleKeyPress(uint(']'), 0, 0) || !h.handleKeyPress(uint('c'), 0, 0) {
+		t.Fatal("]c again")
+	}
+	fired()
+	stale = queued[0]
+	h.ReloadShortcuts(ctx, ws, newTestSession())
+	stale()
+	if len(*actions) != 0 {
+		t.Fatalf("stale resolve after reload must no-op, actions=%#v", *actions)
+	}
+}
+
+func TestFeedVimModeSequence_ReloadReplacesMatcher(t *testing.T) {
+	ctx := context.Background()
+	wsA := vimModeSequenceWorkspace(map[string]entity.ActionBinding{
+		"action-a":         {Keys: []string{"yah"}},
+		"page-scroll-down": {Keys: []string{"j"}},
+	})
+	h := NewKeyboardHandler(ctx, wsA, newTestSession())
+	actions := captureSequenceActions(h)
+	enterVimMode(t, h)
+
+	if !h.handleKeyPress(uint('y'), 0, 0) {
+		t.Fatal("y should pending under trie A")
+	}
+	if h.PendingSequence() != "y" {
+		t.Fatalf("PendingSequence = %q, want y", h.PendingSequence())
+	}
+
+	wsB := vimModeSequenceWorkspace(map[string]entity.ActionBinding{
+		"action-b":         {Keys: []string{"gO"}},
+		"page-scroll-down": {Keys: []string{"j"}},
+	})
+	h.ReloadShortcuts(ctx, wsB, newTestSession())
+	if h.PendingSequence() != "" {
+		t.Fatalf("PendingSequence after reload = %q, want empty", h.PendingSequence())
+	}
+
+	// Old A sequence must not complete; fall through / invalid.
+	if h.feedVimModeSequence(uint('a'), 0) {
+		t.Fatal("stale A continuation must not be consumed after reload")
+	}
+	if len(*actions) != 0 {
+		t.Fatalf("no A action after reload, got %#v", *actions)
+	}
+
+	// New B sequence works.
+	if !h.handleKeyPress(uint('g'), 0, 0) {
+		t.Fatal("g should pending under trie B")
+	}
+	if h.PendingSequence() != "g" {
+		t.Fatalf("PendingSequence = %q, want g", h.PendingSequence())
+	}
+	if !h.handleKeyPress(uint('O'), 0, gdk.ShiftMaskValue) {
+		t.Fatal("gO should complete under trie B")
+	}
+	if len(*actions) != 1 || (*actions)[0].action != "action-b" {
+		t.Fatalf("actions = %#v, want action-b", *actions)
+	}
 }
