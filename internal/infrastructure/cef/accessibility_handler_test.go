@@ -120,11 +120,11 @@ func TestAccessibilityHandler_TreeAndLocationWriteJSONOnce(t *testing.T) {
 
 	require.Len(t, writeCalls, 2)
 	require.Len(t, got, 2)
-	assert.Equal(t, "tree", got[0].Kind)
+	assert.Equal(t, accessibilityCaptureKindTree, got[0].Kind)
 	assert.Equal(t, `{"ok":true}`, got[0].JSON)
 	assert.Equal(t, len(`{"ok":true}`), got[0].Bytes)
 	assert.GreaterOrEqual(t, got[0].SerializeNanos, int64(0))
-	assert.Equal(t, "location", got[1].Kind)
+	assert.Equal(t, accessibilityCaptureKindLocation, got[1].Kind)
 	assert.Equal(t, `{"ok":true}`, got[1].JSON)
 	assert.Equal(t, len(`{"ok":true}`), got[1].Bytes)
 	assert.GreaterOrEqual(t, got[1].SerializeNanos, int64(0))

@@ -154,7 +154,9 @@ type WebView struct {
 
 	// a11yWorker receives serialized accessibility payloads off the CEF UI
 	// thread. Production leaves it nil unless DUMBER_A11Y_CAPTURE=1.
-	a11yWorker accessibilityPayloadSink
+	a11yWorker  *accessibilityCaptureWorker
+	a11yCapture *accessibilityCapture
+	a11yStats   accessibilityStats
 
 	// beginFrameTick drives CEF external BeginFrame requests while the GTK
 	// widget is visible. Access is guarded by mu.
@@ -1226,6 +1228,7 @@ func (wv *WebView) Destroy() {
 	if !wv.destroyed.CompareAndSwap(false, true) {
 		return
 	}
+	wv.shutdownAccessibilityCapture()
 	wv.resetPageScrollQueue()
 	wv.syntheticPopupMu.Lock()
 	wv.syntheticPopups = nil

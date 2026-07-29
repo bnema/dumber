@@ -15,12 +15,6 @@ type accessibilityPayload struct {
 	SerializeNanos int64
 }
 
-// accessibilityPayloadSink is the optional capture worker seam. Production
-// leaves WebView.a11yWorker nil unless DUMBER_A11Y_CAPTURE=1.
-type accessibilityPayloadSink interface {
-	Submit(accessibilityPayload) bool
-}
-
 type accessibilityHandler struct {
 	sink      func(accessibilityPayload) bool
 	writeJSON func(purecef.Value, purecef.JsonWriterOptions) string
@@ -36,11 +30,11 @@ func newAccessibilityHandler(sink func(accessibilityPayload) bool) purecef.Acces
 }
 
 func (h *accessibilityHandler) OnAccessibilityTreeChange(value purecef.Value) {
-	h.emit("tree", value)
+	h.emit(accessibilityCaptureKindTree, value)
 }
 
 func (h *accessibilityHandler) OnAccessibilityLocationChange(value purecef.Value) {
-	h.emit("location", value)
+	h.emit(accessibilityCaptureKindLocation, value)
 }
 
 func (h *accessibilityHandler) emit(kind string, value purecef.Value) {
