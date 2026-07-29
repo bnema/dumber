@@ -13,6 +13,7 @@ import (
 
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/logging"
+	"github.com/bnema/dumber/internal/shared/syncdispatch"
 	purecef "github.com/bnema/purego-cef/cef"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
@@ -397,7 +398,12 @@ func TestAccessibilityCapture_DestroyEmitsSummary(t *testing.T) {
 		return wv.a11yStats.Snapshot().Count == 1
 	}, 2*time.Second, 10*time.Millisecond)
 
+	worker := wv.a11yWorker
 	wv.shutdownAccessibilityCapture()
+
+	require.True(t, wv.a11yCaptureFinalized.Load())
+	require.Same(t, worker, wv.a11yWorker)
+	require.NotNil(t, wv.a11yCapture)
 
 	var found bool
 	dec := json.NewDecoder(bytes.NewReader(output.Bytes()))
@@ -414,4 +420,156 @@ func TestAccessibilityCapture_DestroyEmitsSummary(t *testing.T) {
 	}
 	assert.True(t, found)
 	require.False(t, wv.enqueueAccessibilityPayload(accessibilityPayload{Kind: accessibilityCaptureKindTree, JSON: `{}`}))
+}
+
+func TestInstallNewWebViewViewportHooksAfterCapture_FailureClosesWorkerOnce(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("XDG_STATE_HOME", filepath.Join(home, ".local", "state"))
+	t.Setenv("DUMBER_A11Y_CAPTURE", "1")
+
+	prev := newWebViewInstallViewportSyncHooks
+	t.Cleanup(func() { newWebViewInstallViewportSyncHooks = prev })
+	newWebViewInstallViewportSyncHooks = func(*WebView) syncdispatch.SyncDispatchResult {
+		return syncdispatch.SyncDispatchResult{
+			Label:  "cef.install_viewport_sync_hooks",
+			Status: syncdispatch.SyncDispatchTimedOut,
+		}
+	}
+
+	var output bytes.Buffer
+	logger := zerolog.New(&output).Level(zerolog.InfoLevel)
+	ctx := logging.WithContext(context.Background(), logger)
+
+	wv := &WebView{
+		ctx: ctx,
+		id:  port.WebViewID(99),
+		gtkSyncDispatch: func(fn func()) {
+			if fn != nil {
+				fn()
+			}
+		},
+		gtkSyncIsOwner: func() bool { return true },
+		viewBridge:     &Cef2gtkAdapter{},
+	}
+	require.NoError(t, wv.enableAccessibilityCaptureIfRequested())
+	worker := wv.a11yWorker
+	require.NotNil(t, worker)
+
+	err := wv.installNewWebViewViewportHooksAfterCapture()
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "install CEF viewport sync hooks")
+	require.True(t, wv.a11yCaptureFinalized.Load())
+	require.Same(t, worker, wv.a11yWorker, "published worker pointer must stay immutable")
+	require.NotNil(t, wv.a11yCapture, "published capture pointer must stay immutable")
+	require.True(t, worker.closed)
+	require.False(t, worker.Submit(accessibilityPayload{Kind: accessibilityCaptureKindTree, JSON: `{}`}))
+	require.False(t, wv.enqueueAccessibilityPayload(accessibilityPayload{Kind: accessibilityCaptureKindTree, JSON: `{}`}))
+
+	wv.shutdownAccessibilityCapture()
+	wv.Destroy()
+
+	summaryCount := 0
+	dec := json.NewDecoder(bytes.NewReader(output.Bytes()))
+	for dec.More() {
+		var rec map[string]any
+		require.NoError(t, dec.Decode(&rec))
+		if rec["message"] == "cef: accessibility summary" {
+			summaryCount++
+		}
+	}
+	assert.Equal(t, 0, summaryCount, "failed init must not emit Destroy summary")
+}
+
+func TestShutdownAccessibilityCapture_IdempotentAfterAbort(t *testing.T) {
+	dir := t.TempDir()
+	capture, err := newAccessibilityCapture(dir)
+	require.NoError(t, err)
+
+	var output bytes.Buffer
+	logger := zerolog.New(&output).Level(zerolog.InfoLevel)
+	ctx := logging.WithContext(context.Background(), logger)
+
+	wv := &WebView{ctx: ctx, id: port.WebViewID(7), a11yCapture: capture}
+	wv.a11yWorker = newAccessibilityCaptureWorker(2, wv.consumeAccessibilityPayload)
+
+	wv.abortAccessibilityCaptureSetup()
+	require.True(t, wv.a11yCaptureFinalized.Load())
+	require.NotNil(t, wv.a11yWorker)
+	require.True(t, wv.a11yWorker.closed)
+	require.NotNil(t, wv.a11yCapture)
+	wv.shutdownAccessibilityCapture()
+	wv.shutdownAccessibilityCapture()
+
+	summaryCount := 0
+	dec := json.NewDecoder(bytes.NewReader(output.Bytes()))
+	for dec.More() {
+		var rec map[string]any
+		require.NoError(t, dec.Decode(&rec))
+		if rec["message"] == "cef: accessibility summary" {
+			summaryCount++
+		}
+	}
+	assert.Equal(t, 0, summaryCount)
+}
+
+func TestEnqueueAccessibilityPayload_ConcurrentWithShutdownRaceFree(t *testing.T) {
+	dir := t.TempDir()
+	capture, err := newAccessibilityCapture(dir)
+	require.NoError(t, err)
+
+	var output bytes.Buffer
+	logger := zerolog.New(&output).Level(zerolog.InfoLevel)
+	ctx := logging.WithContext(context.Background(), logger)
+
+	wv := &WebView{ctx: ctx, id: port.WebViewID(11), a11yCapture: capture}
+	wv.a11yWorker = newAccessibilityCaptureWorker(64, wv.consumeAccessibilityPayload)
+	worker := wv.a11yWorker
+
+	const producers = 8
+	const perProducer = 200
+	var wg sync.WaitGroup
+	start := make(chan struct{})
+	for range producers {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			<-start
+			for range perProducer {
+				_ = wv.enqueueAccessibilityPayload(accessibilityPayload{
+					Kind: accessibilityCaptureKindTree, JSON: `{}`, Bytes: 2, SerializeNanos: 1,
+				})
+			}
+		}()
+	}
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		<-start
+		wv.shutdownAccessibilityCapture()
+	}()
+	close(start)
+	wg.Wait()
+
+	require.True(t, wv.a11yCaptureFinalized.Load())
+	require.Same(t, worker, wv.a11yWorker)
+	require.NotNil(t, wv.a11yCapture)
+	require.True(t, worker.closed)
+	assert.False(t, wv.enqueueAccessibilityPayload(accessibilityPayload{
+		Kind: accessibilityCaptureKindTree, JSON: `{}`,
+	}))
+
+	wv.shutdownAccessibilityCapture()
+	wv.abortAccessibilityCaptureSetup()
+
+	summaryCount := 0
+	dec := json.NewDecoder(bytes.NewReader(output.Bytes()))
+	for dec.More() {
+		var rec map[string]any
+		require.NoError(t, dec.Decode(&rec))
+		if rec["message"] == "cef: accessibility summary" {
+			summaryCount++
+		}
+	}
+	assert.Equal(t, 1, summaryCount, "successful shutdown must emit exactly one summary")
 }

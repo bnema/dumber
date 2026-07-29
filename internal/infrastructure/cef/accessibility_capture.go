@@ -12,6 +12,7 @@ import (
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/infrastructure/config"
 	"github.com/bnema/dumber/internal/logging"
+	"github.com/bnema/dumber/internal/shared/syncdispatch"
 )
 
 const (
@@ -283,11 +284,61 @@ func (wv *WebView) consumeAccessibilityPayload(p accessibilityPayload) {
 	}
 }
 
+// abortAccessibilityCaptureSetup closes a capture worker started during
+// newWebView without emitting Destroy's summary. Safe to call when unset.
+func (wv *WebView) abortAccessibilityCaptureSetup() {
+	wv.finalizeAccessibilityCapture(false)
+}
+
+// failNewWebViewAfterAccessibilityCapture centralizes cleanup for every
+// newWebView error return after enableAccessibilityCaptureIfRequested may have
+// started the worker. Closes the worker exactly once without Destroy summary.
+func (wv *WebView) failNewWebViewAfterAccessibilityCapture(
+	operation string,
+	result syncdispatch.SyncDispatchResult,
+) error {
+	wv.abortAccessibilityCaptureSetup()
+	wv.destroyViewBridgeOnGTKAsync()
+	return errGTKSyncDispatchIncomplete(operation, result)
+}
+
+// newWebViewInstallViewportSyncHooks is the viewport-hook install used by
+// newWebView. Tests replace it to force incomplete GTK dispatch after capture
+// init without a live display.
+var newWebViewInstallViewportSyncHooks = func(wv *WebView) syncdispatch.SyncDispatchResult {
+	return wv.installViewportSyncHooks()
+}
+
+// installNewWebViewViewportHooksAfterCapture installs viewport sync hooks and
+// aborts capture setup if GTK dispatch does not complete.
+func (wv *WebView) installNewWebViewViewportHooksAfterCapture() error {
+	result := newWebViewInstallViewportSyncHooks(wv)
+	if result.Completed() {
+		return nil
+	}
+	return wv.failNewWebViewAfterAccessibilityCapture("install CEF viewport sync hooks", result)
+}
+
 func (wv *WebView) shutdownAccessibilityCapture() {
-	if wv == nil || wv.a11yWorker == nil {
+	wv.finalizeAccessibilityCapture(true)
+}
+
+// finalizeAccessibilityCapture claims one-shot ownership of worker close.
+// Pointers stay published so concurrent enqueueAccessibilityPayload reads are
+// race-free; Submit observes the closed worker and returns false.
+func (wv *WebView) finalizeAccessibilityCapture(emitSummary bool) {
+	if wv == nil {
+		return
+	}
+	if !wv.a11yCaptureFinalized.CompareAndSwap(false, true) {
 		return
 	}
 	worker := wv.a11yWorker
+	if worker == nil {
+		return
+	}
 	worker.Close()
-	logAccessibilitySummary(wv.ctx, wv.id, wv.a11yStats.Snapshot(), worker.Dropped())
+	if emitSummary {
+		logAccessibilitySummary(wv.ctx, wv.id, wv.a11yStats.Snapshot(), worker.Dropped())
+	}
 }

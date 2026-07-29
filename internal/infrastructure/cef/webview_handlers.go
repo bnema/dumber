@@ -955,6 +955,7 @@ func (h *handlerSet) finishAfterCreated(
 	}
 	h.wv.scheduleStartAdaptiveFrameRatePolling()
 	h.wv.scheduleStartBeginFrameLoop()
+	h.wv.applyAccessibilityIfReady()
 	h.wv.fireReadyToShow()
 }
 

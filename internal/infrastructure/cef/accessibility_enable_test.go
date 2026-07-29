@@ -1,6 +1,7 @@
 package cef
 
 import (
+	"context"
 	"sync"
 	"testing"
 
@@ -41,10 +42,12 @@ func TestWebView_EnableAccessibility_NoOpWhenDestroyedOrHostNil(t *testing.T) {
 	destroyed.host = host
 	destroyed.EnableAccessibility()
 	assert.Empty(t, host.recordedStates())
+	assert.False(t, destroyed.a11yRequested.Load())
 
 	noHost := &WebView{}
 	noHost.EnableAccessibility()
 	assert.False(t, noHost.a11yEnabled.Load())
+	assert.True(t, noHost.a11yRequested.Load(), "early request must persist while host is nil")
 }
 
 func TestWebView_EnableAccessibility_IdempotentOncePerWebView(t *testing.T) {
@@ -81,20 +84,88 @@ func TestWebView_EnableAccessibility_IndependentPerWebView(t *testing.T) {
 	assert.Equal(t, purecef.StateStateEnabled, hostB.recordedStates()[0])
 }
 
-func TestWebView_EnableAccessibility_RetriesWhenHostBecomesReady(t *testing.T) {
+func TestWebView_EnableAccessibility_PersistsUntilHostAttachment(t *testing.T) {
 	t.Parallel()
 
 	wv := &WebView{}
+	wv.EnableAccessibility()
+	assert.True(t, wv.a11yRequested.Load())
+	assert.False(t, wv.a11yEnabled.Load())
+
+	host := &accessibilityStateHost{}
+	wv.host = host
+	wv.applyAccessibilityIfReady()
+
+	require.Len(t, host.recordedStates(), 1)
+	assert.Equal(t, purecef.StateStateEnabled, host.recordedStates()[0])
+	assert.True(t, wv.a11yEnabled.Load())
+}
+
+func TestWebView_EnableAccessibility_ConcurrentCallsEnableOnce(t *testing.T) {
+	t.Parallel()
+
+	host := &accessibilityStateHost{}
+	wv := &WebView{host: host}
+
+	var wg sync.WaitGroup
+	for range 32 {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			wv.EnableAccessibility()
+		}()
+	}
+	wg.Wait()
+
+	require.Len(t, host.recordedStates(), 1)
+	assert.Equal(t, purecef.StateStateEnabled, host.recordedStates()[0])
+}
+
+func TestWebView_EnableAccessibility_RequestThenDestroyBeforeAttachmentNeverEnables(t *testing.T) {
+	t.Parallel()
+
+	wv := &WebView{}
+	wv.EnableAccessibility()
+	assert.True(t, wv.a11yRequested.Load())
+
+	wv.Destroy()
+
+	host := &accessibilityStateHost{}
+	wv.host = host
+	wv.applyAccessibilityIfReady()
+	wv.EnableAccessibility()
+
+	assert.Empty(t, host.recordedStates())
+	assert.False(t, wv.a11yEnabled.Load())
+}
+
+func TestFinishAfterCreated_AppliesPendingAccessibilityOnce(t *testing.T) {
+	t.Parallel()
+
+	wv := &WebView{ctx: context.Background()}
 	wv.EnableAccessibility()
 	assert.False(t, wv.a11yEnabled.Load())
 
 	host := &accessibilityStateHost{}
 	wv.host = host
-	wv.EnableAccessibility()
+	h := &handlerSet{wv: wv}
+	h.finishAfterCreated(nil, host, afterCreatedState{})
+	h.finishAfterCreated(nil, host, afterCreatedState{})
 
 	require.Len(t, host.recordedStates(), 1)
 	assert.Equal(t, purecef.StateStateEnabled, host.recordedStates()[0])
-	assert.True(t, wv.a11yEnabled.Load())
+}
+
+func TestFinishAfterCreated_SkipsWhenNoPendingRequest(t *testing.T) {
+	t.Parallel()
+
+	host := &accessibilityStateHost{}
+	wv := &WebView{ctx: context.Background(), host: host}
+	h := &handlerSet{wv: wv}
+	h.finishAfterCreated(nil, host, afterCreatedState{})
+
+	assert.Empty(t, host.recordedStates())
+	assert.False(t, wv.a11yEnabled.Load())
 }
 
 func TestWebView_ImplementsAccessibilityEnabler(t *testing.T) {
