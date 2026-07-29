@@ -267,3 +267,98 @@ func TestRendererBridgeProcessHandler_OnFocusedNodeChanged_ReportsEditableState(
 
 	(&rendererBridgeProcessHandler{}).OnFocusedNodeChanged(nil, frame, stubEditableDomnode{editable: true})
 }
+
+type runtimeEditableDomnode struct {
+	stubEditableDomnode
+	tagName string
+}
+
+func (n runtimeEditableDomnode) GetElementTagName() string { return n.tagName }
+
+func TestRuntimeRenderProcessHandlers_ReportEditableFocusedNodes(t *testing.T) {
+	oldFactory := newRendererBridgeProcessMessage
+	t.Cleanup(func() { newRendererBridgeProcessMessage = oldFactory })
+	newRendererBridgeProcessMessage = func(name string) purecef.ProcessMessage {
+		return newTestBridgeProcessMessage(name, true)
+	}
+
+	apps := []struct {
+		name string
+		new  func() purecef.App
+	}{
+		{name: "main process", new: func() purecef.App { return newDumberApp(&Engine{}) }},
+		{name: "subprocess", new: NewSubprocessApp},
+	}
+	nodes := []struct {
+		name string
+		node purecef.Domnode
+	}{
+		{name: "input", node: runtimeEditableDomnode{stubEditableDomnode: stubEditableDomnode{editable: true}, tagName: "INPUT"}},
+		{name: "textarea", node: runtimeEditableDomnode{stubEditableDomnode: stubEditableDomnode{editable: true}, tagName: "TEXTAREA"}},
+		{name: "contenteditable", node: runtimeEditableDomnode{stubEditableDomnode: stubEditableDomnode{editable: true}, tagName: "DIV"}},
+	}
+
+	for _, appCase := range apps {
+		t.Run(appCase.name, func(t *testing.T) {
+			for _, nodeCase := range nodes {
+				t.Run(nodeCase.name, func(t *testing.T) {
+					frame := cefmocks.NewMockFrame(t)
+					frame.EXPECT().SendProcessMessage(purecef.ProcessIDPidBrowser, mock.Anything).
+						Run(func(_ purecef.ProcessID, message purecef.ProcessMessage) {
+							action, editable, ok := decodeRendererBridgeProcessMessage(message)
+							require.True(t, ok)
+							require.Equal(t, rendererBridgeActionEditableFocusChanged, action)
+							require.Equal(t, "1", editable)
+						}).Once()
+
+					handler := appCase.new().GetRenderProcessHandler()
+					require.NotNil(t, handler)
+					handler.OnFocusedNodeChanged(nil, frame, nodeCase.node)
+				})
+			}
+		})
+	}
+}
+
+func TestRuntimeRenderProcessHandlers_PreservePopupOpenerCallbacks(t *testing.T) {
+	apps := []struct {
+		name string
+		new  func() purecef.App
+	}{
+		{name: "main process", new: func() purecef.App { return newDumberApp(&Engine{}) }},
+		{name: "subprocess", new: NewSubprocessApp},
+	}
+
+	for _, appCase := range apps {
+		t.Run(appCase.name, func(t *testing.T) {
+			browser := cefmocks.NewMockBrowser(t)
+			browser.EXPECT().GetIdentifier().Return(int32(42)).Times(4)
+			ctx := &testPopupOpenerV8Context{valid: true}
+			handler := appCase.new().GetRenderProcessHandler()
+			require.NotNil(t, handler)
+			require.Nil(t, handler.GetLoadHandler())
+
+			handler.OnBrowserCreated(browser, testPopupOpenerDictionaryValue{
+				strings: map[string]string{
+					popupOpenerExtraInfoParentURIKey:   "https://example.com/login",
+					popupOpenerExtraInfoBridgeNonceKey: "bridge-nonce",
+				},
+				bools: map[string]int32{popupOpenerExtraInfoEnabledKey: 1},
+			})
+			handler.OnContextCreated(browser, stubFrame{main: true, url: "https://example.com/popup"}, ctx)
+
+			require.Equal(t, 1, ctx.enterCalls)
+			require.Equal(t, 1, ctx.exitCalls)
+			require.Contains(t, ctx.evalCode, "popup-opener-navigate")
+			require.Contains(t, ctx.evalCode, "popup-opener-post-message")
+			require.Equal(t, popupOpenerRenderScriptURL, ctx.evalURL)
+			require.Zero(t, handler.OnProcessMessageReceived(nil, nil, purecef.ProcessIDPidBrowser, nil))
+
+			handler.OnBrowserDestroyed(browser)
+			releasedCtx := &testPopupOpenerV8Context{valid: true}
+			handler.OnContextCreated(browser, stubFrame{main: true, url: "https://example.com/popup"}, releasedCtx)
+			require.Zero(t, releasedCtx.enterCalls)
+			require.Empty(t, releasedCtx.evalCode)
+		})
+	}
+}

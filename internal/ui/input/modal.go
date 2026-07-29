@@ -8,6 +8,10 @@ import (
 	"github.com/bnema/dumber/internal/logging"
 )
 
+type modalTimer interface {
+	Stop() bool
+}
+
 // Mode represents the current input mode.
 type Mode int
 
@@ -22,6 +26,8 @@ const (
 	ModeSession
 	// ModeResize is the modal pane resizing mode.
 	ModeResize
+	// ModePage is the modal page scrolling mode.
+	ModePage
 )
 
 // String returns a human-readable mode name.
@@ -37,6 +43,8 @@ func (m Mode) String() string {
 		return "session"
 	case ModeResize:
 		return "resize"
+	case ModePage:
+		return "page"
 	default:
 		return "unknown"
 	}
@@ -53,6 +61,8 @@ func (m Mode) DisplayName() string {
 		return "SESSION MODE"
 	case ModeResize:
 		return "RESIZE MODE"
+	case ModePage:
+		return "PAGE MODE"
 	default:
 		return ""
 	}
@@ -62,8 +72,10 @@ func (m Mode) DisplayName() string {
 type ModalState struct {
 	mode     Mode
 	timeout  time.Duration
-	timer    *time.Timer
+	timer    modalTimer
 	timerGen int64 // incremented each time a timer is started; used to ignore stale callbacks
+
+	afterFunc func(time.Duration, func()) modalTimer
 
 	// Callback for mode changes (called synchronously under lock).
 	onModeChange func(from, to Mode)
@@ -84,8 +96,14 @@ func NewModalState(ctx context.Context) *ModalState {
 	log.Debug().Msg("creating modal state")
 	return &ModalState{
 		mode:                 ModeNormal,
+		afterFunc:            func(d time.Duration, fn func()) modalTimer { return time.AfterFunc(d, fn) },
 		scheduleOnMainThread: func(fn func()) { fn() },
 	}
+}
+
+// EnterPageMode switches to page scrolling mode with an optional timeout.
+func (m *ModalState) EnterPageMode(ctx context.Context, timeout time.Duration) {
+	m.enterMode(ctx, ModePage, timeout)
 }
 
 // SetMainThreadScheduler sets the function used to dispatch timer callbacks
@@ -223,7 +241,7 @@ func (m *ModalState) startTimeoutLocked(ctx context.Context, timeout time.Durati
 	m.timerGen++
 	gen := m.timerGen
 	schedule := m.scheduleOnMainThread
-	m.timer = time.AfterFunc(timeout, func() {
+	m.timer = m.afterFunc(timeout, func() {
 		schedule(func() {
 			// Ignore stale callback: time.Timer.Stop can race with the
 			// timer firing, so a canceled timer's callback may still run.

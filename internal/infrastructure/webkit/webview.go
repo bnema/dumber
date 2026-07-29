@@ -2,6 +2,9 @@ package webkit
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/subtle"
+	"encoding/hex"
 	"fmt"
 	"net/url"
 	"os"
@@ -16,6 +19,7 @@ import (
 	"github.com/bnema/dumber/internal/domain/entity"
 	urlutil "github.com/bnema/dumber/internal/domain/url"
 	"github.com/bnema/dumber/internal/infrastructure/desktop"
+	"github.com/bnema/dumber/internal/infrastructure/webutil"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/puregotk/v4/gdk"
 	"github.com/bnema/puregotk/v4/gio"
@@ -34,6 +38,26 @@ var _ port.Printer = (*WebView)(nil)
 var _ port.PopupLifecycleCapable = (*WebView)(nil)
 var _ port.PopupFeatureResolver = (*WebView)(nil)
 var _ port.OAuthCallbackCapable = (*WebView)(nil)
+var _ port.PageScrollable = (*WebView)(nil)
+
+var buildPageScrollFallbackJS = webutil.BuildScrollByJS
+var runPageScrollFallbackJS = func(ctx context.Context, wv *WebView, script string) {
+	wv.RunJavaScript(ctx, script)
+}
+
+// editableFocusTokenRand is the injectable CSPRNG seam for bridge tokens.
+// Tests may override it; production uses crypto/rand.Read.
+var editableFocusTokenRand = rand.Read
+
+const editableFocusBridgeTokenBytes = 16
+
+func newEditableFocusBridgeToken() string {
+	buf := make([]byte, editableFocusBridgeTokenBytes)
+	if _, err := editableFocusTokenRand(buf); err != nil {
+		return ""
+	}
+	return hex.EncodeToString(buf)
+}
 
 // WebViewID is an alias to port.WebViewID for clean architecture compliance.
 // Infrastructure layer uses the type defined in the application port.
@@ -163,6 +187,7 @@ type WebView struct {
 	OnEnterFullscreen          func() bool                 // Return true to prevent fullscreen
 	OnLeaveFullscreen          func() bool                 // Return true to prevent leaving fullscreen
 	OnAudioStateChanged        func(playing bool)          // Called when audio playback starts/stops
+	OnEditableFocusChanged     func(editable bool)         // Called when page editable focus changes
 	OnLinkHover                func(uri string)            // Called when hovering over a link/image/media (empty string when leaving)
 	OnWebProcessTerminated     func(reason webkit.WebProcessTerminationReason, reasonLabel string, uri string)
 	browsingContextDecision    dto.HostDecision
@@ -179,8 +204,9 @@ type WebView struct {
 	logger zerolog.Logger
 	mu     sync.RWMutex
 
-	frontendAttached atomic.Bool
-	navigationActive atomic.Bool
+	frontendAttached         atomic.Bool
+	navigationActive         atomic.Bool
+	editableFocusBridgeToken string
 
 	// asyncCallbacks keeps references to async JS callbacks to prevent GC
 	asyncCallbacks []any
@@ -346,11 +372,12 @@ func NewWebView(ctx context.Context, wkCtx *WebKitContext, settings *SettingsMan
 	}
 
 	wv := &WebView{
-		inner:           inner,
-		ucm:             inner.GetUserContentManager(),
-		logger:          log.With().Str("component", "webview").Logger(),
-		signalIDs:       make([]uintptr, 0, 4),
-		runJSErrorStats: make(map[string]runJSErrorStat),
+		inner:                    inner,
+		ucm:                      inner.GetUserContentManager(),
+		logger:                   log.With().Str("component", "webview").Logger(),
+		signalIDs:                make([]uintptr, 0, 4),
+		runJSErrorStats:          make(map[string]runJSErrorStat),
+		editableFocusBridgeToken: newEditableFocusBridgeToken(),
 	}
 
 	// Register in global registry
@@ -396,12 +423,13 @@ func NewWebViewWithRelated(ctx context.Context, parent *WebView, settings *Setti
 		Msg("related webview created, checking pointers")
 
 	wv := &WebView{
-		inner:           inner,
-		isRelated:       true, // Shares web process with parent - must not terminate process on destroy
-		ucm:             inner.GetUserContentManager(),
-		logger:          log.With().Str("component", "webview-popup").Logger(),
-		signalIDs:       make([]uintptr, 0, 6),
-		runJSErrorStats: make(map[string]runJSErrorStat),
+		inner:                    inner,
+		isRelated:                true, // Shares web process with parent - must not terminate process on destroy
+		ucm:                      inner.GetUserContentManager(),
+		logger:                   log.With().Str("component", "webview-popup").Logger(),
+		signalIDs:                make([]uintptr, 0, 6),
+		runJSErrorStats:          make(map[string]runJSErrorStat),
+		editableFocusBridgeToken: newEditableFocusBridgeToken(),
 	}
 
 	wv.id = globalRegistry.register(wv)
@@ -448,35 +476,47 @@ func (wv *WebView) connectLoadChangedSignal() {
 	loadChangedCb := func(inner webkit.WebView, event webkit.LoadEvent) {
 		uri := inner.GetUri()
 		title := inner.GetTitle()
-
-		wv.mu.Lock()
-		wv.uri = uri
-		wv.title = title
-		// Note: canGoBack/canGoFwd are updated via back-forward-list::changed signal
-		// which fires for both traditional navigation and SPA history.pushState()
-		wv.progress = inner.GetEstimatedLoadProgress()
-
-		switch event {
-		case webkit.LoadStartedValue:
-			wv.navigationActive.Store(true)
-			wv.isLoading = true
-			wv.logger.Debug().Str("uri", uri).Msg("load started")
-		case webkit.LoadRedirectedValue:
-			wv.logger.Debug().Str("uri", uri).Msg("load redirected")
-		case webkit.LoadCommittedValue:
-			wv.logger.Debug().Str("uri", uri).Msg("load committed")
-		case webkit.LoadFinishedValue:
-			wv.isLoading = false
-			wv.logger.Debug().Str("uri", uri).Str("title", title).Msg("load finished")
-		}
-		wv.mu.Unlock()
-
-		if wv.OnLoadChanged != nil {
-			wv.OnLoadChanged(LoadEvent(event))
-		}
+		progress := inner.GetEstimatedLoadProgress()
+		wv.handleLoadChanged(LoadEvent(event), uri, title, progress)
 	}
 	sigID := wv.inner.ConnectLoadChanged(&loadChangedCb)
 	wv.signalIDs = append(wv.signalIDs, uintptr(sigID))
+}
+
+// handleLoadChanged updates load state then notifies outside wv.mu so callbacks
+// may re-enter URI()/State() without deadlocking.
+func (wv *WebView) handleLoadChanged(event LoadEvent, uri, title string, progress float64) {
+	wv.mu.Lock()
+	wv.uri = uri
+	wv.title = title
+	// Note: canGoBack/canGoFwd are updated via back-forward-list::changed signal
+	// which fires for both traditional navigation and SPA history.pushState()
+	wv.progress = progress
+
+	notifyEditableBlur := false
+	switch event {
+	case LoadStarted:
+		wv.navigationActive.Store(true)
+		wv.isLoading = true
+		wv.logger.Debug().Str("uri", uri).Msg("load started")
+		notifyEditableBlur = true
+	case LoadRedirected:
+		wv.logger.Debug().Str("uri", uri).Msg("load redirected")
+	case LoadCommitted:
+		wv.logger.Debug().Str("uri", uri).Msg("load committed")
+	case LoadFinished:
+		wv.isLoading = false
+		wv.logger.Debug().Str("uri", uri).Str("title", title).Msg("load finished")
+	}
+	wv.mu.Unlock()
+
+	if notifyEditableBlur {
+		wv.dispatchEditableFocusChanged(false)
+	}
+
+	if wv.OnLoadChanged != nil {
+		wv.OnLoadChanged(event)
+	}
 }
 
 func (wv *WebView) connectLoadFailedSignal() {
@@ -1762,6 +1802,7 @@ func (wv *WebView) SetCallbacks(callbacks *port.WebViewCallbacks) {
 		wv.OnEnterFullscreen = nil
 		wv.OnLeaveFullscreen = nil
 		wv.OnAudioStateChanged = nil
+		wv.OnEditableFocusChanged = nil
 		return
 	}
 
@@ -1807,6 +1848,16 @@ func (wv *WebView) SetCallbacks(callbacks *port.WebViewCallbacks) {
 	wv.OnEnterFullscreen = callbacks.OnEnterFullscreen
 	wv.OnLeaveFullscreen = callbacks.OnLeaveFullscreen
 	wv.OnAudioStateChanged = callbacks.OnAudioStateChanged
+	wv.OnEditableFocusChanged = callbacks.OnEditableFocusChanged
+}
+
+func (wv *WebView) dispatchEditableFocusChanged(editable bool) {
+	if wv == nil || wv.destroyed.Load() {
+		return
+	}
+	if wv.OnEditableFocusChanged != nil {
+		wv.OnEditableFocusChanged(editable)
+	}
 }
 
 // ShowDevTools opens the WebKit inspector/developer tools.
@@ -1999,6 +2050,7 @@ func (wv *WebView) DestroyWithPolicy(policy string) {
 	wv.OnEnterFullscreen = nil
 	wv.OnLeaveFullscreen = nil
 	wv.OnAudioStateChanged = nil
+	wv.OnEditableFocusChanged = nil
 	wv.OnLinkHover = nil
 	wv.OnWebProcessTerminated = nil
 	wv.OnPermissionRequest = nil
@@ -2047,6 +2099,7 @@ func (wv *WebView) ResetForPoolReuse() {
 		return
 	}
 	wv.generation.Add(1)
+	wv.setEditableFocusBridgeToken(newEditableFocusBridgeToken())
 
 	// Disconnect GLib signals to prevent stale callbacks from firing on reused WebView.
 	// They will be reconnected when the WebView is re-acquired from the pool.
@@ -2064,6 +2117,7 @@ func (wv *WebView) ResetForPoolReuse() {
 	wv.OnEnterFullscreen = nil
 	wv.OnLeaveFullscreen = nil
 	wv.OnAudioStateChanged = nil
+	wv.OnEditableFocusChanged = nil
 	wv.OnLinkHover = nil
 	wv.OnWebProcessTerminated = nil
 	wv.OnPermissionRequest = nil
@@ -2375,4 +2429,53 @@ func (wv *WebView) AttachFrontend(ctx context.Context, injector *ContentInjector
 
 	log.Debug().Msg("frontend assets attached to webview")
 	return nil
+}
+
+// ScrollPage scrolls from the viewport center, handing exhausted nested
+// scrollers off to their ancestors and then the document. CEF uses the same
+// shared directional DOM-target resolution once its browser is ready.
+// Implements port.PageScrollable.
+func (wv *WebView) ScrollPage(ctx context.Context, request port.PageScrollRequest) error {
+	if wv.destroyed.Load() {
+		return fmt.Errorf("webview %d is destroyed", wv.id)
+	}
+	js := buildPageScrollFallbackJS(request.FallbackDX, request.FallbackDY)
+	runPageScrollFallbackJS(ctx, wv, js)
+	return nil
+}
+
+// FrontendAttached reports whether AttachFrontend has already wired scripts/router.
+func (wv *WebView) FrontendAttached() bool {
+	return wv != nil && wv.frontendAttached.Load()
+}
+
+// EditableFocusBridgeToken returns the current allowlisted bridge auth token.
+func (wv *WebView) EditableFocusBridgeToken() string {
+	if wv == nil {
+		return ""
+	}
+	wv.mu.RLock()
+	defer wv.mu.RUnlock()
+	return wv.editableFocusBridgeToken
+}
+
+func (wv *WebView) setEditableFocusBridgeToken(token string) {
+	if wv == nil {
+		return
+	}
+	wv.mu.Lock()
+	wv.editableFocusBridgeToken = token
+	wv.mu.Unlock()
+}
+
+// matchesEditableFocusBridgeToken compares a candidate token in constant time.
+func (wv *WebView) matchesEditableFocusBridgeToken(candidate string) bool {
+	if wv == nil || candidate == "" {
+		return false
+	}
+	token := wv.EditableFocusBridgeToken()
+	if token == "" {
+		return false
+	}
+	return subtle.ConstantTimeCompare([]byte(candidate), []byte(token)) == 1
 }

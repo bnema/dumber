@@ -14,6 +14,27 @@ import (
 const (
 	// CSS class applied to active pane's border overlay
 	activePaneClass = "pane-active"
+
+	// pageModeActiveClass is added to the pane overlay when Page mode is active.
+	// It produces a subtle local border accent using the pane mode color.
+	pageModeActiveClass = "page-mode-active"
+
+	// pageModePulseClass triggers a normal scroll pulse on the pane overlay.
+	// Repeated calls must remove-then-add to restart the CSS animation.
+	pageModePulseClass = "page-mode-pulse"
+
+	// pageModeFastPulseClass triggers a fast/stronger scroll pulse.
+	pageModeFastPulseClass = "page-mode-pulse-fast"
+
+	// Alternate equivalent animations so repeated scrolls reliably restart
+	// the GTK CSS animation.
+	pageModePulseCycleClassA = "page-mode-pulse-cycle-a"
+	pageModePulseCycleClassB = "page-mode-pulse-cycle-b"
+
+	// Exported aliases for tests and external inspection.
+	PageModeActiveClass    = pageModeActiveClass
+	PageModePulseClass     = pageModePulseClass
+	PageModeFastPulseClass = pageModeFastPulseClass
 )
 
 // PaneView is a container for a single WebView with active state indication.
@@ -30,6 +51,10 @@ type PaneView struct {
 	loading       *LoadingSkeleton   // Placeholder shown until WebView paints
 	paneID        entity.PaneID
 	isActive      bool
+
+	// Page Mode pane-local visual state.
+	pageMode   bool
+	pulseCycle bool
 
 	onFocusIn     func(paneID entity.PaneID)
 	onFocusOut    func(paneID entity.PaneID)
@@ -92,6 +117,7 @@ func NewPaneView(ctx context.Context, factory layout.WidgetFactory, paneID entit
 		loading:       loading,
 		paneID:        paneID,
 		isActive:      false,
+		pageMode:      false,
 	}
 }
 
@@ -518,6 +544,66 @@ func (pv *PaneView) HideLinkStatus() {
 	if ls != nil {
 		ls.Hide()
 	}
+}
+
+// SetPageMode activates or deactivates the pane-local Page Mode accent.
+func (pv *PaneView) SetPageMode(active bool) {
+	pv.mu.Lock()
+	defer pv.mu.Unlock()
+
+	if pv.pageMode == active {
+		return
+	}
+
+	pv.pageMode = active
+
+	if active {
+		pv.overlay.AddCssClass(pageModeActiveClass)
+	} else {
+		pv.overlay.RemoveCssClass(pageModeActiveClass)
+	}
+}
+
+// IsPageMode returns whether Page mode is currently active on this pane.
+func (pv *PaneView) IsPageMode() bool {
+	pv.mu.RLock()
+	defer pv.mu.RUnlock()
+
+	return pv.pageMode
+}
+
+// TriggerPageModePulse triggers a normal scroll pulse on the pane overlay.
+func (pv *PaneView) TriggerPageModePulse() {
+	pv.triggerOverlayPulse(false)
+}
+
+// TriggerPageModePulseFast triggers a stronger, longer pane-overlay pulse.
+func (pv *PaneView) TriggerPageModePulseFast() {
+	pv.triggerOverlayPulse(true)
+}
+
+// triggerOverlayPulse adds a transient pulse CSS class to the pane overlay.
+// fast=true uses the stronger/longer pulse animation. Both pulse classes are
+// removed first to reliably re-trigger the animation.
+func (pv *PaneView) triggerOverlayPulse(fast bool) {
+	pv.mu.Lock()
+	defer pv.mu.Unlock()
+
+	pv.overlay.RemoveCssClass(pageModePulseClass)
+	pv.overlay.RemoveCssClass(pageModeFastPulseClass)
+	pv.overlay.RemoveCssClass(pageModePulseCycleClassA)
+	pv.overlay.RemoveCssClass(pageModePulseCycleClassB)
+	if fast {
+		pv.overlay.AddCssClass(pageModeFastPulseClass)
+	} else {
+		pv.overlay.AddCssClass(pageModePulseClass)
+	}
+	cycle := pageModePulseCycleClassA
+	if pv.pulseCycle {
+		cycle = pageModePulseCycleClassB
+	}
+	pv.pulseCycle = !pv.pulseCycle
+	pv.overlay.AddCssClass(cycle)
 }
 
 // Cleanup removes the WebView widget from the overlay and clears references.

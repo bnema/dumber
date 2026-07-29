@@ -98,6 +98,9 @@
 | `workspace.tab_mode.activation_shortcut` | string | `ctrl+t` | |
 | `workspace.tab_mode.timeout_ms` | int | `3000` | |
 | `workspace.tab_mode.actions.<action>` | []string | see defaults | tab mode key mappings |
+| `workspace.page_mode.activation_shortcut` | string | `ctrl+y` | |
+| `workspace.page_mode.timeout_ms` | int | `0` | >= 0 |
+| `workspace.page_mode.actions.<action>` | []string | see defaults | page mode key mappings |
 | `workspace.resize_mode.activation_shortcut` | string | `ctrl+n` | |
 | `workspace.resize_mode.timeout_ms` | int | `3000` | |
 | `workspace.resize_mode.actions.<action>` | []string | see defaults | resize mode key mappings |

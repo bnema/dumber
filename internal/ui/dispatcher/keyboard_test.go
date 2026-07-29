@@ -5,6 +5,9 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/bnema/dumber/internal/application/port"
+	"github.com/bnema/dumber/internal/application/port/mocks"
+	"github.com/bnema/dumber/internal/application/usecase"
 	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/ui/coordinator"
 	"github.com/bnema/dumber/internal/ui/input"
@@ -201,4 +204,183 @@ func TestKeyboardDispatcher_PassesActivePaneIDToShellCallbacks(t *testing.T) {
 			assert.Equal(t, activePaneID, gotPaneID)
 		})
 	}
+}
+
+type mockScrollableWebView struct {
+	*mocks.MockWebView
+	*mocks.MockPageScrollable
+}
+
+type lifecycleScrollableWebView struct {
+	*mockScrollableWebView
+	cancelCalls int
+}
+
+func (wv *lifecycleScrollableWebView) CancelPageScroll(context.Context) {
+	wv.cancelCalls++
+}
+
+func TestKeyboardDispatcher_PageModeActionsRouteToCorrectScrollCommand(t *testing.T) {
+	ctx := context.Background()
+
+	tests := []struct {
+		action     input.Action
+		cmd        usecase.PageScrollCommand
+		expectedDx int
+		expectedDy int
+	}{
+		{input.ActionPageScrollLeft, usecase.PageScrollLeft, -80, 0},
+		{input.ActionPageScrollRight, usecase.PageScrollRight, 80, 0},
+		{input.ActionPageScrollUp, usecase.PageScrollUp, 0, -80},
+		{input.ActionPageScrollDown, usecase.PageScrollDown, 0, 80},
+		{input.ActionPageScrollUpFast, usecase.PageScrollUpFast, 0, -320},
+		{input.ActionPageScrollDownFast, usecase.PageScrollDownFast, 0, 320},
+	}
+
+	for _, tc := range tests {
+		t.Run(string(tc.action), func(t *testing.T) {
+			base := mocks.NewMockWebView(t)
+			scroller := mocks.NewMockPageScrollable(t)
+			wv := &mockScrollableWebView{MockWebView: base, MockPageScrollable: scroller}
+
+			navCoord := &coordinator.NavigationCoordinator{}
+			navCoord.SetPageScrollUseCase(usecase.NewPageScrollUseCase())
+
+			d := NewKeyboardDispatcher(
+				ctx,
+				&coordinator.WorkspaceCoordinator{},
+				navCoord,
+				nil,
+				nil,
+				KeyboardActions{
+					ActiveWebView: func(context.Context) port.WebView { return wv },
+				},
+				func(context.Context) entity.PaneID { return "" },
+			)
+
+			base.EXPECT().ID().Return(port.WebViewID(42)).Once()
+			req := port.PageScrollRequest{Command: port.PageScrollCommand(tc.cmd), FallbackDX: tc.expectedDx, FallbackDY: tc.expectedDy}
+			scroller.EXPECT().ScrollPage(ctx, req).Return(nil).Once()
+
+			err := d.Dispatch(ctx, tc.action)
+			require.NoError(t, err)
+		})
+	}
+}
+
+func TestKeyboardDispatcher_PageScrollLifecycleRoutesContinuousAndStop(t *testing.T) {
+	ctx := context.Background()
+	base := mocks.NewMockWebView(t)
+	scroller := mocks.NewMockPageScrollable(t)
+	wv := &lifecycleScrollableWebView{mockScrollableWebView: &mockScrollableWebView{MockWebView: base, MockPageScrollable: scroller}}
+	navCoord := &coordinator.NavigationCoordinator{}
+	navCoord.SetPageScrollUseCase(usecase.NewPageScrollUseCase())
+	d := NewKeyboardDispatcher(ctx, &coordinator.WorkspaceCoordinator{}, navCoord, nil, nil, KeyboardActions{
+		ActiveWebView: func(context.Context) port.WebView { return wv },
+	}, func(context.Context) entity.PaneID { return "" })
+
+	scroller.EXPECT().ScrollPage(ctx, port.PageScrollRequest{
+		Command: port.PageScrollCommandDown, FallbackDY: 80, Continuous: true,
+	}).Return(nil).Once()
+	require.NoError(t, d.DispatchPageScrollLifecycle(ctx, input.ActionPageScrollDown, input.PageScrollContinuous))
+	require.NoError(t, d.DispatchPageScrollLifecycle(ctx, input.ActionPageScrollDown, input.PageScrollStop))
+	assert.Equal(t, 1, wv.cancelCalls)
+}
+
+func TestKeyboardDispatcher_PageModeNoopWhenNoActiveWebView(t *testing.T) {
+	ctx := context.Background()
+
+	navCoord := &coordinator.NavigationCoordinator{}
+	navCoord.SetPageScrollUseCase(usecase.NewPageScrollUseCase())
+
+	d := NewKeyboardDispatcher(
+		ctx,
+		&coordinator.WorkspaceCoordinator{},
+		navCoord,
+		nil,
+		nil,
+		KeyboardActions{},
+		func(context.Context) entity.PaneID { return "" },
+	)
+
+	// No ActiveWebView set — dispatcher should no-op cleanly
+	err := d.Dispatch(ctx, input.ActionPageScrollDown)
+	require.NoError(t, err)
+}
+
+func TestKeyboardDispatcher_PageModeNoopWhenActiveWebViewReturnsNil(t *testing.T) {
+	ctx := context.Background()
+
+	navCoord := &coordinator.NavigationCoordinator{}
+	navCoord.SetPageScrollUseCase(usecase.NewPageScrollUseCase())
+
+	d := NewKeyboardDispatcher(
+		ctx,
+		&coordinator.WorkspaceCoordinator{},
+		navCoord,
+		nil,
+		nil,
+		KeyboardActions{
+			ActiveWebView: func(context.Context) port.WebView { return nil },
+		},
+		func(context.Context) entity.PaneID { return "" },
+	)
+
+	err := d.Dispatch(ctx, input.ActionPageScrollDown)
+	require.NoError(t, err)
+}
+
+func TestPageScrollSpec_IsSingleSourceForCommandAndPulse(t *testing.T) {
+	tests := []struct {
+		action input.Action
+		cmd    usecase.PageScrollCommand
+		fast   bool
+	}{
+		{input.ActionPageScrollLeft, usecase.PageScrollLeft, false},
+		{input.ActionPageScrollRight, usecase.PageScrollRight, false},
+		{input.ActionPageScrollUp, usecase.PageScrollUp, false},
+		{input.ActionPageScrollDown, usecase.PageScrollDown, false},
+		{input.ActionPageScrollUpFast, usecase.PageScrollUpFast, true},
+		{input.ActionPageScrollDownFast, usecase.PageScrollDownFast, true},
+	}
+	for _, tc := range tests {
+		spec, ok := pageScrollSpec(tc.action)
+		require.True(t, ok, string(tc.action))
+		assert.Equal(t, tc.cmd, spec.cmd)
+		assert.Equal(t, tc.fast, spec.fast)
+		cmd, ok := pageScrollCommand(tc.action)
+		require.True(t, ok)
+		assert.Equal(t, tc.cmd, cmd)
+	}
+	_, ok := pageScrollSpec(input.ActionQuit)
+	assert.False(t, ok)
+}
+
+func TestKeyboardDispatcher_PageScrollTapUsesSharedSpecPulse(t *testing.T) {
+	ctx := context.Background()
+	base := mocks.NewMockWebView(t)
+	scroller := mocks.NewMockPageScrollable(t)
+	wv := &mockScrollableWebView{MockWebView: base, MockPageScrollable: scroller}
+	navCoord := &coordinator.NavigationCoordinator{}
+	navCoord.SetPageScrollUseCase(usecase.NewPageScrollUseCase())
+	d := NewKeyboardDispatcher(ctx, &coordinator.WorkspaceCoordinator{}, navCoord, nil, nil, KeyboardActions{
+		ActiveWebView: func(context.Context) port.WebView { return wv },
+	}, func(context.Context) entity.PaneID { return "" })
+
+	var pulses []bool
+	d.SetOnPageModePulse(func(_ context.Context, fast bool) {
+		pulses = append(pulses, fast)
+	})
+
+	base.EXPECT().ID().Return(port.WebViewID(7)).Twice()
+	scroller.EXPECT().ScrollPage(ctx, port.PageScrollRequest{
+		Command: port.PageScrollCommandDown, FallbackDY: 80,
+	}).Return(nil).Once()
+	scroller.EXPECT().ScrollPage(ctx, port.PageScrollRequest{
+		Command: port.PageScrollCommandDownFast, FallbackDY: 320,
+	}).Return(nil).Once()
+
+	require.NoError(t, d.Dispatch(ctx, input.ActionPageScrollDown))
+	require.NoError(t, d.Dispatch(ctx, input.ActionPageScrollDownFast))
+	assert.Equal(t, []bool{false, true}, pulses)
 }

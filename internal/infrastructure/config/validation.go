@@ -28,6 +28,7 @@ func validateConfig(config *Config) error {
 	validationErrors = append(validationErrors, validatePaneMode(config)...)
 	validationErrors = append(validationErrors, validateTabBar(config)...)
 	validationErrors = append(validationErrors, validateTabMode(config)...)
+	validationErrors = append(validationErrors, validatePageMode(config)...)
 	validationErrors = append(validationErrors, validateFloatingPane(config)...)
 	validationErrors = append(validationErrors, validateLogging(config)...)
 	validationErrors = append(validationErrors, validateWorkspaceNewPaneURL(config)...)
@@ -202,32 +203,7 @@ func validateWorkspaceStyling(config *Config) []string {
 }
 
 func validatePaneMode(config *Config) []string {
-	var validationErrors []string
-	if config.Workspace.PaneMode.TimeoutMilliseconds < 0 {
-		validationErrors = append(validationErrors, "workspace.pane_mode.timeout_ms must be non-negative")
-	}
-	if len(config.Workspace.PaneMode.Actions) == 0 {
-		validationErrors = append(validationErrors, "workspace.pane_mode.actions cannot be empty")
-	}
-
-	seenKeys := make(map[string]string)
-	for action, binding := range config.Workspace.PaneMode.Actions {
-		if len(binding.Keys) == 0 {
-			validationErrors = append(validationErrors, fmt.Sprintf("workspace.pane_mode.actions.%s must have at least one key binding", action))
-		}
-		for _, key := range binding.Keys {
-			if existingAction, exists := seenKeys[key]; exists {
-				validationErrors = append(validationErrors, fmt.Sprintf(
-					"duplicate key binding '%s' found in pane_mode actions '%s' and '%s'",
-					key,
-					existingAction,
-					action,
-				))
-			}
-			seenKeys[key] = action
-		}
-	}
-	return validationErrors
+	return validateModalModeActions("pane_mode", config.Workspace.PaneMode.TimeoutMilliseconds, config.Workspace.PaneMode.Actions)
 }
 
 func validateTabBar(config *Config) []string {
@@ -240,29 +216,40 @@ func validateTabBar(config *Config) []string {
 }
 
 func validateTabMode(config *Config) []string {
+	return validateModalModeActions("tab_mode", config.Workspace.TabMode.TimeoutMilliseconds, config.Workspace.TabMode.Actions)
+}
+
+func validatePageMode(config *Config) []string {
+	return validateModalModeActions("page_mode", config.Workspace.PageMode.TimeoutMilliseconds, config.Workspace.PageMode.Actions)
+}
+
+// validateModalModeActions shared timeout/empty-actions/duplicate-key checks for
+// pane, tab, and page modal modes. Messages stay path-exact via modePath.
+func validateModalModeActions(modePath string, timeoutMS int, actions map[string]ActionBinding) []string {
 	var validationErrors []string
-	if config.Workspace.TabMode.TimeoutMilliseconds < 0 {
-		validationErrors = append(validationErrors, "workspace.tab_mode.timeout_ms must be non-negative")
+	if timeoutMS < 0 {
+		validationErrors = append(validationErrors, fmt.Sprintf("workspace.%s.timeout_ms must be non-negative", modePath))
 	}
-	if len(config.Workspace.TabMode.Actions) == 0 {
-		validationErrors = append(validationErrors, "workspace.tab_mode.actions cannot be empty")
+	if len(actions) == 0 {
+		validationErrors = append(validationErrors, fmt.Sprintf("workspace.%s.actions cannot be empty", modePath))
 	}
 
-	tabSeenKeys := make(map[string]string)
-	for action, binding := range config.Workspace.TabMode.Actions {
+	seenKeys := make(map[string]string)
+	for action, binding := range actions {
 		if len(binding.Keys) == 0 {
-			validationErrors = append(validationErrors, fmt.Sprintf("workspace.tab_mode.actions.%s must have at least one key binding", action))
+			validationErrors = append(validationErrors, fmt.Sprintf("workspace.%s.actions.%s must have at least one key binding", modePath, action))
 		}
 		for _, key := range binding.Keys {
-			if existingAction, exists := tabSeenKeys[key]; exists {
+			if existingAction, exists := seenKeys[key]; exists {
 				validationErrors = append(validationErrors, fmt.Sprintf(
-					"duplicate key binding '%s' found in tab_mode actions '%s' and '%s'",
+					"duplicate key binding '%s' found in %s actions '%s' and '%s'",
 					key,
+					modePath,
 					existingAction,
 					action,
 				))
 			}
-			tabSeenKeys[key] = action
+			seenKeys[key] = action
 		}
 	}
 	return validationErrors

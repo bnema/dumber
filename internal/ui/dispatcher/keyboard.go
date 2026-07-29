@@ -52,6 +52,7 @@ type KeyboardDispatcher struct {
 	onMovePaneToTab          func(ctx context.Context, paneID entity.PaneID) error
 	onMovePaneToNext         func(ctx context.Context, paneID entity.PaneID) error
 	onEjectPaneToWindow      func(ctx context.Context, paneID entity.PaneID) error
+	onPageModePulse          func(ctx context.Context, fast bool)
 	onToggleHistorySidebar   func(ctx context.Context) error
 	onToggleFavoritesSidebar func(ctx context.Context) error
 	onToggleCurrentFavorite  func(ctx context.Context) error
@@ -156,6 +157,22 @@ func (d *KeyboardDispatcher) SetOnOpenFloatingTarget(fn func(ctx context.Context
 	d.onOpenFloating = fn
 }
 
+// SetOnPageModePulse registers a callback for pane-local Page mode pulse
+// visual feedback triggered after a page scroll action.
+// The cb receives a bool indicating whether the pulse should be "fast"
+// (stronger/longer for up-fast/down-fast).
+// If nil, pulse callbacks are no-ops.
+func (d *KeyboardDispatcher) SetOnPageModePulse(cb func(ctx context.Context, fast bool)) {
+	d.onPageModePulse = cb
+}
+
+// triggerPulse calls the registered pulse callback if set, or no-ops otherwise.
+func (d *KeyboardDispatcher) triggerPulse(ctx context.Context, fast bool) {
+	if d.onPageModePulse != nil {
+		d.onPageModePulse(ctx, fast)
+	}
+}
+
 func (d *KeyboardDispatcher) initActionHandlers() {
 	const (
 		firstTabIndex   = 0
@@ -249,6 +266,13 @@ func (d *KeyboardDispatcher) initActionHandlers() {
 		input.ActionZoomIn:    func(ctx context.Context) error { return d.handleZoom(ctx, "in") },
 		input.ActionZoomOut:   func(ctx context.Context) error { return d.handleZoom(ctx, "out") },
 		input.ActionZoomReset: func(ctx context.Context) error { return d.handleZoom(ctx, "reset") },
+		// Page mode scroll actions — single mapping drives tap pulse + command.
+		input.ActionPageScrollLeft:     d.pageScrollTapHandler(input.ActionPageScrollLeft),
+		input.ActionPageScrollRight:    d.pageScrollTapHandler(input.ActionPageScrollRight),
+		input.ActionPageScrollUp:       d.pageScrollTapHandler(input.ActionPageScrollUp),
+		input.ActionPageScrollDown:     d.pageScrollTapHandler(input.ActionPageScrollDown),
+		input.ActionPageScrollUpFast:   d.pageScrollTapHandler(input.ActionPageScrollUpFast),
+		input.ActionPageScrollDownFast: d.pageScrollTapHandler(input.ActionPageScrollDownFast),
 		// UI
 		input.ActionOpenOmnibox:  d.navCoord.OpenOmnibox,
 		input.ActionOpenFind:     d.handleFindOpen,
@@ -296,6 +320,73 @@ func (d *KeyboardDispatcher) initActionHandlers() {
 		// Application
 		input.ActionQuit: d.handleQuit,
 	}
+}
+
+// DispatchPageScrollLifecycle routes autonomous held-key page scroll events.
+// Stop deliberately avoids the normal action map so it emits neither another
+// scroll tap nor visual pulse.
+func (d *KeyboardDispatcher) DispatchPageScrollLifecycle(ctx context.Context, action input.Action, phase input.PageScrollPhase) error {
+	spec, ok := pageScrollSpec(action)
+	if !ok {
+		return nil
+	}
+	return d.withActiveWebView(ctx, "page scroll lifecycle", func(wv port.WebView) error {
+		if phase == input.PageScrollStop {
+			return d.navCoord.StopPageScroll(ctx, wv)
+		}
+		return d.navCoord.ScrollWebViewContinuous(ctx, wv, spec.cmd)
+	})
+}
+
+type pageScrollActionSpec struct {
+	cmd  usecase.PageScrollCommand
+	fast bool
+}
+
+// pageScrollSpec is the single source of truth for Page Mode action→command
+// and fast/slow pulse used by tap handlers and held lifecycle routing.
+func pageScrollSpec(action input.Action) (pageScrollActionSpec, bool) {
+	switch action {
+	case input.ActionPageScrollLeft:
+		return pageScrollActionSpec{cmd: usecase.PageScrollLeft, fast: false}, true
+	case input.ActionPageScrollRight:
+		return pageScrollActionSpec{cmd: usecase.PageScrollRight, fast: false}, true
+	case input.ActionPageScrollUp:
+		return pageScrollActionSpec{cmd: usecase.PageScrollUp, fast: false}, true
+	case input.ActionPageScrollDown:
+		return pageScrollActionSpec{cmd: usecase.PageScrollDown, fast: false}, true
+	case input.ActionPageScrollUpFast:
+		return pageScrollActionSpec{cmd: usecase.PageScrollUpFast, fast: true}, true
+	case input.ActionPageScrollDownFast:
+		return pageScrollActionSpec{cmd: usecase.PageScrollDownFast, fast: true}, true
+	default:
+		return pageScrollActionSpec{}, false
+	}
+}
+
+func (d *KeyboardDispatcher) pageScrollTapHandler(action input.Action) func(context.Context) error {
+	spec, ok := pageScrollSpec(action)
+	if !ok {
+		return func(context.Context) error { return nil }
+	}
+	label := "page scroll " + string(action)
+	return func(ctx context.Context) error {
+		return d.withActiveWebView(ctx, label, func(wv port.WebView) error {
+			if err := d.navCoord.ScrollWebView(ctx, wv, spec.cmd); err != nil {
+				return err
+			}
+			d.triggerPulse(ctx, spec.fast)
+			return nil
+		})
+	}
+}
+
+func pageScrollCommand(action input.Action) (usecase.PageScrollCommand, bool) {
+	spec, ok := pageScrollSpec(action)
+	if !ok {
+		return 0, false
+	}
+	return spec.cmd, true
 }
 
 // Dispatch routes a keyboard action to the appropriate coordinator.

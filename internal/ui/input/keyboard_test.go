@@ -3,9 +3,11 @@ package input
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/puregotk/v4/gdk"
+	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gtk"
 	"github.com/stretchr/testify/assert"
 )
@@ -26,6 +28,10 @@ func newTestSession() *entity.SessionConfig {
 		SessionMode: entity.SessionModeConfig{ActivationShortcut: "ctrl+s"},
 	}
 }
+
+type fakeModalTimer struct{}
+
+func (*fakeModalTimer) Stop() bool { return true }
 
 // stubAccentHandler is a test stub for the AccentHandler interface.
 type stubAccentHandler struct {
@@ -361,4 +367,709 @@ func TestIsRepeatedKeyboardActionSuppressed_AllowsResizeStepRepeats(t *testing.T
 	if isRepeatedKeyboardActionSuppressed(ActionResizeIncreaseLeft) {
 		t.Fatal("ActionResizeIncreaseLeft should not be suppressed")
 	}
+}
+
+func TestHandleKeyPress_EnterPageMode(t *testing.T) {
+	ctx := context.Background()
+	workspace := newTestWorkspace()
+	workspace.PageMode = entity.PageModeConfig{
+		ActivationShortcut: "ctrl+y",
+	}
+
+	h := NewKeyboardHandler(ctx, workspace, newTestSession())
+
+	h.SetOnAction(func(ctx context.Context, action Action) error {
+		return nil
+	})
+
+	// Ctrl+Y should enter page mode
+	result := h.handleKeyPress(uint('y'), 0, gdk.ControlMaskValue)
+	if !result {
+		t.Fatal("Ctrl+Y should be consumed")
+	}
+	if h.Mode() != ModePage {
+		t.Fatalf("mode = %v, want ModePage", h.Mode())
+	}
+}
+
+func TestHandleKeyPress_PageModeStaysActiveAfterScroll(t *testing.T) {
+	ctx := context.Background()
+	workspace := newTestWorkspace()
+	workspace.PageMode = entity.PageModeConfig{
+		ActivationShortcut: "ctrl+y",
+		Actions: map[string]entity.ActionBinding{
+			"page-scroll-down": {Keys: []string{"j"}},
+			"page-scroll-up":   {Keys: []string{"k"}},
+			"cancel":           {Keys: []string{"escape"}},
+		},
+	}
+
+	h := NewKeyboardHandler(ctx, workspace, newTestSession())
+	actionCalls := 0
+	h.SetOnAction(func(ctx context.Context, action Action) error {
+		actionCalls++
+		return nil
+	})
+
+	// Enter page mode
+	result := h.handleKeyPress(uint('y'), 0, gdk.ControlMaskValue)
+	if !result || h.Mode() != ModePage {
+		t.Fatal("failed to enter page mode")
+	}
+
+	var repeatTick glib.SourceFunc
+	repeatNow := time.Unix(2_000, 0)
+	h.pageScrollNow = func() time.Time { return repeatNow }
+	h.pageScrollRepeatAdd = func(_ uint, cb *glib.SourceFunc) uint {
+		repeatTick = *cb
+		return 1
+	}
+	h.pageScrollRepeatRemove = func(uint) bool { return true }
+
+	// Scroll actions stay in page mode; the first press arms the smooth
+	// repeater and later physical auto-repeat events are ignored.
+	for i := 0; i < 2; i++ {
+		scrolled := h.handleKeyPress(uint('j'), 0, 0)
+		if !scrolled {
+			t.Fatalf("scroll down iteration %d: key not consumed", i)
+		}
+		if h.Mode() != ModePage {
+			t.Fatalf("scroll down iteration %d: mode = %v, want ModePage", i, h.Mode())
+		}
+	}
+	if repeatTick == nil {
+		t.Fatal("expected held page scroll to register smooth repeater")
+	}
+	repeatNow = repeatNow.Add(pageScrollHoldDelay)
+	for i := 0; i < 3; i++ {
+		if !repeatTick(0) {
+			t.Fatalf("repeat tick %d stopped unexpectedly", i)
+		}
+		if h.Mode() != ModePage {
+			t.Fatalf("repeat tick %d: mode = %v, want ModePage", i, h.Mode())
+		}
+	}
+	h.handleKeyRelease(uint('j'))
+
+	// Scroll up also stays in page mode
+	result = h.handleKeyPress(uint('k'), 0, 0)
+	if !result || h.Mode() != ModePage {
+		t.Fatal("scroll up should stay in page mode")
+	}
+
+	// Ensure scroll actions were dispatched
+	if actionCalls != 5 {
+		t.Fatalf("action calls = %d, want 5 (4 down + 1 up)", actionCalls)
+	}
+}
+
+func TestHandleKeyPress_PageModeTimeoutReset(t *testing.T) {
+	ctx := context.Background()
+	workspace := newTestWorkspace()
+	workspace.PageMode = entity.PageModeConfig{
+		ActivationShortcut:  "ctrl+y",
+		TimeoutMilliseconds: 100,
+		Actions: map[string]entity.ActionBinding{
+			"page-scroll-down": {Keys: []string{"j"}},
+			"cancel":           {Keys: []string{"escape"}},
+		},
+	}
+
+	h := NewKeyboardHandler(ctx, workspace, newTestSession())
+	timerStarts := 0
+	h.modal.afterFunc = func(d time.Duration, fn func()) modalTimer {
+		timerStarts++
+		return &fakeModalTimer{}
+	}
+	h.SetOnAction(func(ctx context.Context, action Action) error {
+		return nil
+	})
+
+	// Enter page mode with timeout.
+	h.handleKeyPress(uint('y'), 0, gdk.ControlMaskValue)
+	if h.Mode() != ModePage {
+		t.Fatal("failed to enter page mode")
+	}
+	if timerStarts != 1 {
+		t.Fatalf("timer starts after entering page mode = %d, want 1", timerStarts)
+	}
+
+	// Scroll action should reset the timeout by starting a replacement timer.
+	h.handleKeyPress(uint('j'), 0, 0)
+
+	if h.Mode() != ModePage {
+		t.Fatalf("mode after scroll = %v, want ModePage", h.Mode())
+	}
+	if timerStarts != 2 {
+		t.Fatalf("timer starts after scroll reset = %d, want 2", timerStarts)
+	}
+}
+
+func TestPageScrollRepeatTick_RefreshesConfiguredPageModeTimeout(t *testing.T) {
+	ctx := context.Background()
+	workspace := newTestWorkspace()
+	workspace.PageMode = entity.PageModeConfig{
+		ActivationShortcut:  "ctrl+y",
+		TimeoutMilliseconds: 100,
+		Actions: map[string]entity.ActionBinding{
+			"page-scroll-down": {Keys: []string{"j"}},
+		},
+	}
+
+	h := NewKeyboardHandler(ctx, workspace, newTestSession())
+	timerStarts := 0
+	h.modal.afterFunc = func(time.Duration, func()) modalTimer {
+		timerStarts++
+		return &fakeModalTimer{}
+	}
+	var continuous int
+	h.SetOnPageScrollLifecycle(func(_ context.Context, _ Action, phase PageScrollPhase) error {
+		if phase == PageScrollContinuous {
+			continuous++
+		}
+		return nil
+	})
+
+	var repeatTick glib.SourceFunc
+	repeatNow := time.Unix(3_000, 0)
+	h.pageScrollNow = func() time.Time { return repeatNow }
+	h.pageScrollRepeatAdd = func(_ uint, cb *glib.SourceFunc) uint {
+		repeatTick = *cb
+		return 1
+	}
+	h.pageScrollRepeatRemove = func(uint) bool { return true }
+
+	h.handleKeyPress(uint('y'), 0, gdk.ControlMaskValue)
+	if h.Mode() != ModePage {
+		t.Fatal("failed to enter page mode")
+	}
+	enterStarts := timerStarts
+	h.handleKeyPress(uint('j'), 0, 0)
+	if repeatTick == nil {
+		t.Fatal("expected repeater registration")
+	}
+	afterTap := timerStarts
+	if afterTap <= enterStarts {
+		t.Fatalf("tap should refresh timeout: enter=%d afterTap=%d", enterStarts, afterTap)
+	}
+
+	repeatNow = repeatNow.Add(pageScrollHoldDelay)
+	if !repeatTick(0) {
+		t.Fatal("continuous tick stopped unexpectedly")
+	}
+	if continuous != 1 {
+		t.Fatalf("continuous dispatches=%d, want 1", continuous)
+	}
+	if timerStarts <= afterTap {
+		t.Fatalf("continuous tick must refresh page-mode timeout: afterTap=%d afterTick=%d", afterTap, timerStarts)
+	}
+	if h.Mode() != ModePage {
+		t.Fatalf("mode after continuous tick = %v, want ModePage", h.Mode())
+	}
+}
+
+func TestHandleKeyPress_PageModeEscapeExits(t *testing.T) {
+	ctx := context.Background()
+	workspace := newTestWorkspace()
+	workspace.PageMode = entity.PageModeConfig{
+		ActivationShortcut: "ctrl+y",
+		Actions: map[string]entity.ActionBinding{
+			"page-scroll-down": {Keys: []string{"j"}},
+			"cancel":           {Keys: []string{"escape"}},
+		},
+	}
+
+	h := NewKeyboardHandler(ctx, workspace, newTestSession())
+	h.SetOnAction(func(ctx context.Context, action Action) error {
+		return nil
+	})
+
+	// Enter page mode
+	h.handleKeyPress(uint('y'), 0, gdk.ControlMaskValue)
+	if h.Mode() != ModePage {
+		t.Fatal("failed to enter page mode")
+	}
+
+	// Escape should exit page mode
+	result := h.handleKeyPress(uint(gdk.KEY_Escape), 0, 0)
+	if !result {
+		t.Fatal("Escape should be consumed")
+	}
+	if h.Mode() != ModeNormal {
+		t.Fatalf("mode after Escape = %v, want ModeNormal", h.Mode())
+	}
+}
+
+func TestHandleKeyPress_PageModeEnterExits(t *testing.T) {
+	ctx := context.Background()
+	workspace := newTestWorkspace()
+	workspace.PageMode = entity.PageModeConfig{
+		ActivationShortcut: "ctrl+y",
+		Actions: map[string]entity.ActionBinding{
+			"confirm": {Keys: []string{"enter"}},
+		},
+	}
+
+	h := NewKeyboardHandler(ctx, workspace, newTestSession())
+	h.SetOnAction(func(ctx context.Context, action Action) error {
+		return nil
+	})
+
+	// Enter page mode
+	h.handleKeyPress(uint('y'), 0, gdk.ControlMaskValue)
+	if h.Mode() != ModePage {
+		t.Fatal("failed to enter page mode")
+	}
+
+	// Enter should exit page mode
+	result := h.handleKeyPress(uint(gdk.KEY_Return), 0, 0)
+	if !result {
+		t.Fatal("Enter should be consumed")
+	}
+	if h.Mode() != ModeNormal {
+		t.Fatalf("mode after Enter = %v, want ModeNormal", h.Mode())
+	}
+}
+
+func TestHandleKeyPress_PageModeActivationTogglesOff(t *testing.T) {
+	ctx := context.Background()
+	workspace := newTestWorkspace()
+	workspace.PageMode = entity.PageModeConfig{
+		ActivationShortcut: "ctrl+y",
+	}
+
+	h := NewKeyboardHandler(ctx, workspace, newTestSession())
+
+	if !h.handleKeyPress(uint('y'), 0, gdk.ControlMaskValue) {
+		t.Fatal("first Ctrl+Y should be consumed")
+	}
+	if h.Mode() != ModePage {
+		t.Fatalf("mode after first Ctrl+Y = %v, want ModePage", h.Mode())
+	}
+
+	h.handleKeyRelease(uint('y'))
+	if !h.handleKeyPress(uint('y'), 0, gdk.ControlMaskValue) {
+		t.Fatal("second Ctrl+Y should be consumed")
+	}
+	if h.Mode() != ModeNormal {
+		t.Fatalf("mode after second Ctrl+Y = %v, want ModeNormal", h.Mode())
+	}
+}
+
+func TestHandleKeyPress_PageModeEscapeExitsWithoutCancelBinding(t *testing.T) {
+	ctx := context.Background()
+	workspace := newTestWorkspace()
+	workspace.PageMode = entity.PageModeConfig{
+		ActivationShortcut: "ctrl+y",
+		Actions: map[string]entity.ActionBinding{
+			"page-scroll-down": {Keys: []string{"j"}},
+		},
+	}
+
+	h := NewKeyboardHandler(ctx, workspace, newTestSession())
+	if !h.handleKeyPress(uint('y'), 0, gdk.ControlMaskValue) {
+		t.Fatal("Ctrl+Y should be consumed")
+	}
+	if h.Mode() != ModePage {
+		t.Fatal("failed to enter page mode")
+	}
+
+	if !h.handleKeyPress(uint(gdk.KEY_Escape), 0, 0) {
+		t.Fatal("Escape should still be consumed without explicit cancel binding")
+	}
+	if h.Mode() != ModeNormal {
+		t.Fatalf("mode after Escape fallback = %v, want ModeNormal", h.Mode())
+	}
+}
+
+func TestHandleKeyPress_PageModeActivationNotInPassThrough(t *testing.T) {
+	ctx := context.Background()
+	workspace := newTestWorkspace()
+	workspace.PageMode = entity.PageModeConfig{
+		ActivationShortcut: "ctrl+y",
+	}
+
+	h := NewKeyboardHandler(ctx, workspace, newTestSession())
+
+	// Route ALL keys to widget (editable pass-through context)
+	h.SetRouteKey(func(kc KeyContext) KeyRoute {
+		return RoutePassToWidget
+	})
+
+	// Ctrl+Y should NOT activate page mode because route says pass to widget
+	result := h.handleKeyPress(uint('y'), 0, gdk.ControlMaskValue)
+	if result {
+		t.Fatal("Ctrl+Y should NOT be consumed when routed to widget")
+	}
+	if h.Mode() != ModeNormal {
+		t.Fatalf("mode = %v, want ModeNormal (should not enter page mode)", h.Mode())
+	}
+}
+
+func TestHandleKeyPress_PageModeActivationPassesThroughWhenBlocked(t *testing.T) {
+	ctx := context.Background()
+	workspace := newTestWorkspace()
+	workspace.PageMode = entity.PageModeConfig{
+		ActivationShortcut: "ctrl+y",
+	}
+
+	h := NewKeyboardHandler(ctx, workspace, newTestSession())
+	h.SetPageModeActivationPassthrough(func() bool { return true })
+
+	result := h.handleKeyPress(uint('y'), 0, gdk.ControlMaskValue)
+	if result {
+		t.Fatal("Ctrl+Y should pass through when page mode activation is blocked")
+	}
+	if h.Mode() != ModeNormal {
+		t.Fatalf("mode = %v, want ModeNormal", h.Mode())
+	}
+}
+
+func TestDispatchAction_PageModeActivationPassesThroughWhenBlocked(t *testing.T) {
+	ctx := context.Background()
+	workspace := newTestWorkspace()
+	workspace.PageMode = entity.PageModeConfig{
+		ActivationShortcut: "ctrl+y",
+	}
+
+	h := NewKeyboardHandler(ctx, workspace, newTestSession())
+	h.SetPageModeActivationPassthrough(func() bool { return true })
+
+	consumed := h.DispatchAction(ActionEnterPageMode)
+	if consumed {
+		t.Fatal("DispatchAction should not consume blocked page mode activation")
+	}
+	if h.Mode() != ModeNormal {
+		t.Fatalf("mode = %v, want ModeNormal", h.Mode())
+	}
+}
+
+func TestHandleKeyPress_PageModeFastScrollLookup(t *testing.T) {
+	tests := []struct {
+		name         string
+		configAction string
+		key          uint
+		expected     Action
+	}{
+		{
+			name:         "scroll down fast",
+			configAction: "page-scroll-down-fast",
+			key:          uint('d'),
+			expected:     ActionPageScrollDownFast,
+		},
+		{
+			name:         "scroll up fast",
+			configAction: "page-scroll-up-fast",
+			key:          uint('u'),
+			expected:     ActionPageScrollUpFast,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := context.Background()
+			workspace := newTestWorkspace()
+			workspace.PageMode = entity.PageModeConfig{
+				ActivationShortcut: "ctrl+y",
+				Actions: map[string]entity.ActionBinding{
+					tt.configAction: {Keys: []string{"ctrl+" + string(rune(tt.key))}},
+				},
+			}
+
+			h := NewKeyboardHandler(ctx, workspace, newTestSession())
+			actionCalls := 0
+			var lastAction Action
+			h.SetOnAction(func(ctx context.Context, action Action) error {
+				actionCalls++
+				lastAction = action
+				return nil
+			})
+
+			// Enter page mode.
+			h.handleKeyPress(uint('y'), 0, gdk.ControlMaskValue)
+			if h.Mode() != ModePage {
+				t.Fatal("failed to enter page mode")
+			}
+
+			// Fast-scroll shortcut in page mode should dispatch the expected action.
+			result := h.handleKeyPress(tt.key, 0, gdk.ControlMaskValue)
+			if !result {
+				t.Fatal("fast scroll shortcut in page mode should be consumed")
+			}
+			if actionCalls != 1 || lastAction != tt.expected {
+				t.Fatalf("expected %s, got action=%s calls=%d", tt.expected, lastAction, actionCalls)
+			}
+			if h.Mode() != ModePage {
+				t.Fatal("should stay in page mode after scroll action")
+			}
+		})
+	}
+}
+
+func TestHandleKeyPress_PageModeNoAutoExitForScrollActions(t *testing.T) {
+	ctx := context.Background()
+	workspace := newTestWorkspace()
+	workspace.PageMode = entity.PageModeConfig{
+		ActivationShortcut: "ctrl+y",
+		Actions: map[string]entity.ActionBinding{
+			"page-scroll-left":  {Keys: []string{"h"}},
+			"page-scroll-right": {Keys: []string{"l"}},
+		},
+	}
+
+	h := NewKeyboardHandler(ctx, workspace, newTestSession())
+	actionCalls := 0
+	h.SetOnAction(func(ctx context.Context, action Action) error {
+		actionCalls++
+		return nil
+	})
+
+	// Enter page mode
+	h.handleKeyPress(uint('y'), 0, gdk.ControlMaskValue)
+	if h.Mode() != ModePage {
+		t.Fatal("failed to enter page mode")
+	}
+
+	// Scroll left should not auto-exit
+	h.handleKeyPress(uint('h'), 0, 0)
+	if h.Mode() != ModePage {
+		t.Fatal("scroll left should not exit page mode")
+	}
+
+	// Scroll right should not auto-exit
+	h.handleKeyPress(uint('l'), 0, 0)
+	if h.Mode() != ModePage {
+		t.Fatal("scroll right should not exit page mode")
+	}
+
+	if actionCalls != 2 {
+		t.Fatalf("action calls = %d, want 2", actionCalls)
+	}
+}
+
+func TestHandleKeyPress_PageModeArrowKeysPassThroughNatively(t *testing.T) {
+	ctx := context.Background()
+	workspace := newTestWorkspace()
+	workspace.PageMode = entity.PageModeConfig{
+		ActivationShortcut: "ctrl+y",
+		Actions: map[string]entity.ActionBinding{
+			"page-scroll-down": {Keys: []string{"j"}},
+		},
+	}
+
+	h := NewKeyboardHandler(ctx, workspace, newTestSession())
+	actionCalls := 0
+	h.SetOnAction(func(ctx context.Context, action Action) error {
+		actionCalls++
+		return nil
+	})
+
+	h.handleKeyPress(uint('y'), 0, gdk.ControlMaskValue)
+	if h.Mode() != ModePage {
+		t.Fatal("failed to enter page mode")
+	}
+
+	for _, keyval := range []uint{uint(gdk.KEY_Left), uint(gdk.KEY_Right), uint(gdk.KEY_Up), uint(gdk.KEY_Down)} {
+		consumed := h.handleKeyPress(keyval, 0, 0)
+		if consumed {
+			t.Fatalf("arrow key %d should pass through to native page handling in page mode", keyval)
+		}
+		if h.Mode() != ModePage {
+			t.Fatalf("arrow key %d should keep page mode active", keyval)
+		}
+	}
+
+	if actionCalls != 0 {
+		t.Fatalf("arrow key passthrough should not dispatch page-mode action, got %d calls", actionCalls)
+	}
+}
+
+func TestHandleKeyPress_PageModeBlocksGlobalShortcutFallback(t *testing.T) {
+	ctx := context.Background()
+	workspace := newTestWorkspace()
+	workspace.PageMode = entity.PageModeConfig{
+		ActivationShortcut: "ctrl+y",
+		Actions: map[string]entity.ActionBinding{
+			"page-scroll-down": {Keys: []string{"j"}},
+		},
+	}
+
+	h := NewKeyboardHandler(ctx, workspace, newTestSession())
+	actionCalls := 0
+	var lastAction Action
+	h.SetOnAction(func(ctx context.Context, action Action) error {
+		actionCalls++
+		lastAction = action
+		return nil
+	})
+
+	if !h.handleKeyPress(uint('y'), 0, gdk.ControlMaskValue) {
+		t.Fatal("Ctrl+Y should be consumed")
+	}
+	if h.Mode() != ModePage {
+		t.Fatal("failed to enter page mode")
+	}
+
+	if !h.handleKeyPress(uint('l'), 0, gdk.ControlMaskValue) {
+		t.Fatal("Ctrl+L should be consumed inside page mode")
+	}
+	if actionCalls != 0 {
+		t.Fatalf("Ctrl+L should not dispatch a global action in page mode, got %d calls (%s)", actionCalls, lastAction)
+	}
+	if h.Mode() != ModePage {
+		t.Fatalf("mode after blocked Ctrl+L = %v, want ModePage", h.Mode())
+	}
+}
+
+func TestPageScrollRepeat_FirstKeyDownDispatchesTapAndArmsHold(t *testing.T) {
+	h, now, tick := newPageScrollRepeatTestHandler(t)
+	actionCalls := 0
+	h.SetOnAction(func(_ context.Context, action Action) error {
+		actionCalls++
+		if action != ActionPageScrollDown {
+			t.Fatalf("action = %s, want %s", action, ActionPageScrollDown)
+		}
+		return nil
+	})
+
+	if !h.handleKeyPress(uint('j'), 0, 0) {
+		t.Fatal("first J press should be consumed")
+	}
+	if actionCalls != 1 {
+		t.Fatalf("tap dispatches = %d, want 1", actionCalls)
+	}
+	if *tick == nil {
+		t.Fatal("first keydown must arm the hold source without an OS repeat")
+	}
+
+	*now = now.Add(pageScrollHoldDelay - time.Millisecond)
+	if !(*tick)(0) {
+		t.Fatal("hold source should remain armed before the delay")
+	}
+	if actionCalls != 1 {
+		t.Fatalf("dispatches before hold delay = %d, want 1 tap", actionCalls)
+	}
+}
+
+func TestPageScrollRepeat_HoldStartsWithoutOSRepeat(t *testing.T) {
+	h, now, tick := newPageScrollRepeatTestHandler(t)
+	continuous := 0
+	h.SetOnAction(func(context.Context, Action) error { return nil })
+	h.SetOnPageScrollLifecycle(func(_ context.Context, action Action, phase PageScrollPhase) error {
+		if action != ActionPageScrollDown || phase != PageScrollContinuous {
+			t.Fatalf("lifecycle = (%s, %v), want (%s, continuous)", action, phase, ActionPageScrollDown)
+		}
+		continuous++
+		return nil
+	})
+
+	h.handleKeyPress(uint('j'), 0, 0)
+	*now = now.Add(pageScrollHoldDelay)
+	if !(*tick)(0) {
+		t.Fatal("hold source stopped at the delay")
+	}
+	if continuous != 1 {
+		t.Fatalf("continuous dispatches = %d, want 1 without a second keydown", continuous)
+	}
+}
+
+func TestPageScrollRepeat_FixedCadenceIgnoresDisplayAndOSRepeatRates(t *testing.T) {
+	const simulatedHold = time.Second
+	simulate := func(t *testing.T, externalHz int) int {
+		t.Helper()
+		h, now, tick := newPageScrollRepeatTestHandler(t)
+		tapDistance := 0
+		continuousDistance := 0
+		h.SetOnAction(func(context.Context, Action) error {
+			tapDistance += 80
+			return nil
+		})
+		h.SetOnPageScrollLifecycle(func(_ context.Context, _ Action, phase PageScrollPhase) error {
+			if phase == PageScrollContinuous {
+				continuousDistance += 80
+			}
+			return nil
+		})
+		h.handleKeyPress(uint('j'), 0, 0)
+
+		start := *now
+		nextExternal := time.Second / time.Duration(externalHz)
+		for elapsed := pageScrollCadence; elapsed <= simulatedHold; elapsed += pageScrollCadence {
+			*now = start.Add(elapsed)
+			for elapsed >= nextExternal {
+				h.handleKeyPress(uint('j'), 0, 0) // ignored OS auto-repeat
+				nextExternal += time.Second / time.Duration(externalHz)
+			}
+			if !(*tick)(0) {
+				t.Fatalf("source stopped at %s", elapsed)
+			}
+		}
+		return tapDistance + continuousDistance
+	}
+
+	distance60 := simulate(t, 60)
+	distance144 := simulate(t, 144)
+	t.Logf("simulated one-second distances: 60 Hz=%d px, 144 Hz=%d px; tolerance=80 px", distance60, distance144)
+	// A fixed 16 ms source makes the results exact in this deterministic model;
+	// the documented runtime tolerance is one 80 px cadence step at timer edges.
+	if diff := distance60 - distance144; diff < -80 || diff > 80 {
+		t.Fatalf("60 Hz distance=%d, 144 Hz distance=%d; tolerance=80 px", distance60, distance144)
+	}
+}
+
+func TestPageScrollRepeat_ReleaseAndEscapeStopImmediately(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		stop func(*KeyboardHandler)
+	}{
+		{name: "release", stop: func(h *KeyboardHandler) { h.handleKeyRelease(uint('j')) }},
+		{name: "escape", stop: func(h *KeyboardHandler) { h.handleKeyPress(uint(gdk.KEY_Escape), 0, 0) }},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			h, now, tick := newPageScrollRepeatTestHandler(t)
+			removed := 0
+			stops := 0
+			h.pageScrollRepeatRemove = func(uint) bool { removed++; return true }
+			h.SetOnAction(func(context.Context, Action) error { return nil })
+			h.SetOnPageScrollLifecycle(func(_ context.Context, _ Action, phase PageScrollPhase) error {
+				if phase == PageScrollStop {
+					stops++
+				}
+				return nil
+			})
+			h.handleKeyPress(uint('j'), 0, 0)
+			*now = now.Add(pageScrollHoldDelay)
+			(*tick)(0)
+
+			tc.stop(h)
+			if removed != 1 || stops != 1 {
+				t.Fatalf("removed=%d stops=%d, want 1/1", removed, stops)
+			}
+			if (*tick)(0) {
+				t.Fatal("retained callback must stop immediately")
+			}
+		})
+	}
+}
+
+func newPageScrollRepeatTestHandler(t *testing.T) (*KeyboardHandler, *time.Time, *glib.SourceFunc) {
+	t.Helper()
+	workspace := newTestWorkspace()
+	workspace.PageMode = entity.PageModeConfig{
+		Actions: map[string]entity.ActionBinding{"page-scroll-down": {Keys: []string{"j"}}},
+	}
+	h := NewKeyboardHandler(context.Background(), workspace, newTestSession())
+	h.EnterPageMode()
+	now := time.Unix(1_000, 0)
+	var tick glib.SourceFunc
+	h.pageScrollNow = func() time.Time { return now }
+	h.pageScrollRepeatAdd = func(intervalMS uint, cb *glib.SourceFunc) uint {
+		if intervalMS != uint(pageScrollCadence/time.Millisecond) {
+			t.Fatalf("cadence = %dms, want %dms", intervalMS, pageScrollCadence/time.Millisecond)
+		}
+		tick = *cb
+		return 99
+	}
+	h.pageScrollRepeatRemove = func(uint) bool { return true }
+	return h, &now, &tick
 }

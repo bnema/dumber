@@ -78,6 +78,18 @@ func (t *TabModeConfig) GetKeyBindings() map[string]string {
 	return keyBindingsFromActions(t.Actions)
 }
 
+// PageModeConfig holds page scroll mode shortcut configuration.
+type PageModeConfig struct {
+	ActivationShortcut  string                   `mapstructure:"activation_shortcut" yaml:"activation_shortcut" toml:"activation_shortcut" json:"activation_shortcut"` //nolint:lll // struct tags must stay on one line
+	TimeoutMilliseconds int                      `mapstructure:"timeout_ms" yaml:"timeout_ms" toml:"timeout_ms" json:"timeout_ms"`
+	Actions             map[string]ActionBinding `mapstructure:"actions" yaml:"actions" toml:"actions" json:"actions"`
+}
+
+// GetKeyBindings returns a map from key string to action name.
+func (p *PageModeConfig) GetKeyBindings() map[string]string {
+	return keyBindingsFromActions(p.Actions)
+}
+
 // ResizeModeConfig holds resize mode shortcut configuration.
 type ResizeModeConfig struct {
 	ActivationShortcut  string                   `mapstructure:"activation_shortcut" yaml:"activation_shortcut" toml:"activation_shortcut" json:"activation_shortcut"` //nolint:lll // struct tags must stay on one line
@@ -202,6 +214,7 @@ type WorkspaceConfig struct {
 	NewPaneURL   string                `mapstructure:"new_pane_url" yaml:"new_pane_url" toml:"new_pane_url" json:"new_pane_url"`
 	PaneMode     PaneModeConfig        `mapstructure:"pane_mode" yaml:"pane_mode" toml:"pane_mode" json:"pane_mode"`
 	TabMode      TabModeConfig         `mapstructure:"tab_mode" yaml:"tab_mode" toml:"tab_mode" json:"tab_mode"`
+	PageMode     PageModeConfig        `mapstructure:"page_mode" yaml:"page_mode" toml:"page_mode" json:"page_mode"`
 	ResizeMode   ResizeModeConfig      `mapstructure:"resize_mode" yaml:"resize_mode" toml:"resize_mode" json:"resize_mode"`
 	Shortcuts    GlobalShortcutsConfig `mapstructure:"shortcuts" yaml:"shortcuts" toml:"shortcuts" json:"shortcuts"`
 	FloatingPane FloatingPaneConfig    `mapstructure:"floating_pane" yaml:"floating_pane" toml:"floating_pane" json:"floating_pane"`
