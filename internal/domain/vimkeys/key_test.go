@@ -34,6 +34,8 @@ func TestKeyString(t *testing.T) {
 		{name: "alt Delete", key: Key{Sym: "Delete", Mods: ModAlt}, want: "<A-Delete>"},
 		{name: "ctrl Left", key: Key{Sym: "Left", Mods: ModCtrl}, want: "<C-Left>"},
 		{name: "literal lt", key: Key{Sym: "<"}, want: "<lt>"},
+		{name: "literal gt", key: Key{Sym: ">"}, want: "<gt>"},
+		{name: "ctrl gt", key: Key{Sym: ">", Mods: ModCtrl}, want: "<C-gt>"},
 		{name: "alt only", key: Key{Sym: "b", Mods: ModAlt}, want: "<A-b>"},
 		{name: "ctrl alt", key: Key{Sym: "c", Mods: ModCtrl | ModAlt}, want: "<C-A-c>"},
 		{name: "ctrl shift", key: Key{Sym: "a", Mods: ModCtrl | ModShift}, want: "<C-S-a>"},

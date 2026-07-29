@@ -244,15 +244,8 @@ func parseRawSequence(s string) (Sequence, error) {
 			i += width
 			continue
 		}
-		// Named keys (Space, Esc, Tab, …) are canonical only inside <...>.
-		// Bare prefixes must not be greedily consumed so printable runs like
-		// "Spacej" (Shift+s,p,a,c,e,j) round-trip via Sequence.String().
-		if key, width, ok := tryParseCanonicalAt(s, i); ok {
-			seq = append(seq, key)
-			i += width
-			continue
-		}
-
+		// Raw text is runes plus <...> tokens (and whole-string legacy atoms/chords
+		// handled above). Bare C-/S-/A- must not steal printable runs like "C-d".
 		r, width := utf8.DecodeRuneInString(s[i:])
 		key, err := keyFromRune(r)
 		if err != nil {
@@ -282,67 +275,6 @@ func parseAngleAt(s string, i int) (Key, int, error) {
 		return Key{}, 0, err
 	}
 	return key, closeIdx - i + 1, nil
-}
-
-func tryParseCanonicalAt(s string, i int) (Key, int, bool) {
-	if i >= len(s) {
-		return Key{}, 0, false
-	}
-	switch s[i] {
-	case 'C', 'S', 'A':
-	default:
-		return Key{}, 0, false
-	}
-	if i+1 >= len(s) || s[i+1] != '-' {
-		return Key{}, 0, false
-	}
-
-	end := len(s)
-	nextDash := strings.IndexByte(s[i:], '-')
-	if nextDash >= 0 {
-		nextDash += i
-		if nextDash+1 < len(s) {
-			switch s[nextDash+1] {
-			case 'C', 'S', 'A':
-				end = nextDash
-			}
-		}
-	}
-
-	token := s[i:end]
-	key, err := parseCanonicalToken(token)
-	if err != nil {
-		return Key{}, 0, false
-	}
-	return key, end - i, true
-}
-
-func parseCanonicalToken(token string) (Key, error) {
-	parts := strings.Split(token, "-")
-	if len(parts) < 2 {
-		return Key{}, ErrBadBinding
-	}
-
-	var mods Mods
-	for i := 0; i < len(parts)-1; i++ {
-		switch parts[i] {
-		case "C":
-			mods |= ModCtrl
-		case "S":
-			mods |= ModShift
-		case "A":
-			mods |= ModAlt
-		default:
-			return Key{}, ErrBadBinding
-		}
-	}
-
-	symPart := parts[len(parts)-1]
-	sym, err := symFromToken(symPart, true)
-	if err != nil {
-		return Key{}, err
-	}
-	return Key{Sym: sym, Mods: mods}, nil
 }
 
 func keyFromRune(r rune) (Key, error) {
@@ -381,6 +313,8 @@ func symFromSpecialAlias(token string) (string, bool) {
 		return "Space", true
 	case "lt":
 		return "<", true
+	case "gt":
+		return ">", true
 	case "plus":
 		return "+", true
 	default:

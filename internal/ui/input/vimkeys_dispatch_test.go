@@ -126,7 +126,7 @@ func TestBuildPageModeTrie_ConflictKeepsFirstSortedWinner(t *testing.T) {
 	// Losing raw key must not be marked owned (insert failed).
 	cfg := &entity.PageModeConfig{
 		Actions: map[string]entity.ActionBinding{
-			"zzz-later":        {Keys: []string{"C-d"}},
+			"zzz-later":        {Keys: []string{"<c-d>"}},
 			"aaa-first":        {Keys: []string{"<C-d>"}},
 			"page-scroll-down": {Keys: []string{"j"}},
 		},
@@ -136,8 +136,8 @@ func TestBuildPageModeTrie_ConflictKeepsFirstSortedWinner(t *testing.T) {
 	if !owned["<C-d>"] {
 		t.Fatal("winning raw key <C-d> should be owned after successful Insert")
 	}
-	if owned["C-d"] {
-		t.Fatal("conflicting raw key C-d must not be marked owned when Insert fails")
+	if owned["<c-d>"] {
+		t.Fatal("conflicting raw key <c-d> must not be marked owned when Insert fails")
 	}
 
 	seq, err := vimkeys.ParseBinding("<C-d>")

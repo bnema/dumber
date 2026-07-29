@@ -36,6 +36,8 @@ func TestParseBinding_SingleKeys(t *testing.T) {
 		{input: "<A-Delete>", want: Sequence{{Sym: "Delete", Mods: ModAlt}}},
 		{input: "<C-Left>", want: Sequence{{Sym: "Left", Mods: ModCtrl}}},
 		{input: "<lt>", want: Sequence{{Sym: "<"}}},
+		{input: "<gt>", want: Sequence{{Sym: ">"}}},
+		{input: "<C-gt>", want: Sequence{{Sym: ">", Mods: ModCtrl}}},
 		{input: "<Plus>", want: Sequence{{Sym: "+"}}},
 		{input: "enter", want: Sequence{{Sym: "CR"}}},
 		{input: "escape", want: Sequence{{Sym: "Esc"}}},
@@ -136,6 +138,10 @@ func TestParseBinding_CanonicalString(t *testing.T) {
 		{input: "<C-Home>", want: "<C-Home>"},
 		{input: "<A-PageDown>", want: "<A-PageDown>"},
 		{input: "<lt>", want: "<lt>"},
+		{input: "<gt>", want: "<gt>"},
+		{input: ">", want: "<gt>"},
+		{input: "ctrl+>", want: "<C-gt>"},
+		{input: "<C-gt>", want: "<C-gt>"},
 		{input: "gO", want: "gO"},
 	}
 	for _, tt := range tests {
@@ -217,14 +223,36 @@ func TestParseBinding_LooksLikeChordButRaw(t *testing.T) {
 	}
 }
 
-func TestParseBinding_CanonicalInlineModifiers(t *testing.T) {
+func TestParseBinding_BareModifierLikeIsLiteral(t *testing.T) {
+	// Modifiers are canonical only inside <...>; bare "C-d" is Shift+c, '-', d.
 	tests := []struct {
 		input string
 		want  Sequence
 	}{
-		{input: "C-d", want: Sequence{{Sym: "d", Mods: ModCtrl}}},
-		{input: "S-j", want: Sequence{{Sym: "j", Mods: ModShift}}},
-		{input: "A-k", want: Sequence{{Sym: "k", Mods: ModAlt}}},
+		{
+			input: "C-d",
+			want: Sequence{
+				{Sym: "c", Mods: ModShift},
+				{Sym: "-"},
+				{Sym: "d"},
+			},
+		},
+		{
+			input: "S-j",
+			want: Sequence{
+				{Sym: "s", Mods: ModShift},
+				{Sym: "-"},
+				{Sym: "j"},
+			},
+		},
+		{
+			input: "A-k",
+			want: Sequence{
+				{Sym: "a", Mods: ModShift},
+				{Sym: "-"},
+				{Sym: "k"},
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.input, func(t *testing.T) {
@@ -235,7 +263,97 @@ func TestParseBinding_CanonicalInlineModifiers(t *testing.T) {
 			if !got.Equal(tt.want) {
 				t.Fatalf("ParseBinding(%q) = %v, want %v", tt.input, got, tt.want)
 			}
+			if got := got.String(); got != tt.input {
+				t.Fatalf("ParseBinding(%q).String() = %q, want %q", tt.input, got, tt.input)
+			}
 		})
+	}
+}
+
+func TestParseBinding_CtrlGtRoundTrip(t *testing.T) {
+	tests := []struct {
+		input      string
+		want       Sequence
+		wantString string
+	}{
+		{
+			input:      "ctrl+>",
+			want:       Sequence{{Sym: ">", Mods: ModCtrl}},
+			wantString: "<C-gt>",
+		},
+		{
+			input:      "<C-gt>",
+			want:       Sequence{{Sym: ">", Mods: ModCtrl}},
+			wantString: "<C-gt>",
+		},
+		{
+			input:      "<S-gt>",
+			want:       Sequence{{Sym: ">", Mods: ModShift}},
+			wantString: "<S-gt>",
+		},
+		{
+			input:      "<A-gt>",
+			want:       Sequence{{Sym: ">", Mods: ModAlt}},
+			wantString: "<A-gt>",
+		},
+		{
+			input:      ">",
+			want:       Sequence{{Sym: ">"}},
+			wantString: "<gt>",
+		},
+		{
+			input:      "<gt>",
+			want:       Sequence{{Sym: ">"}},
+			wantString: "<gt>",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			first, err := ParseBinding(tt.input)
+			if err != nil {
+				t.Fatalf("ParseBinding(%q) error = %v", tt.input, err)
+			}
+			if !first.Equal(tt.want) {
+				t.Fatalf("ParseBinding(%q) = %v, want %v", tt.input, first, tt.want)
+			}
+			if got := first.String(); got != tt.wantString {
+				t.Fatalf("ParseBinding(%q).String() = %q, want %q", tt.input, got, tt.wantString)
+			}
+			second, err := ParseBinding(first.String())
+			if err != nil {
+				t.Fatalf("ParseBinding(%q) from canonical %q error = %v", tt.input, first.String(), err)
+			}
+			if !first.Equal(second) {
+				t.Fatalf("round trip %q -> %q -> %v, want %v", tt.input, first.String(), second, first)
+			}
+		})
+	}
+}
+
+func TestParseBinding_ShiftCHyphenDRoundTrip(t *testing.T) {
+	input := "<S-c>-d"
+	want := Sequence{
+		{Sym: "c", Mods: ModShift},
+		{Sym: "-"},
+		{Sym: "d"},
+	}
+	first, err := ParseBinding(input)
+	if err != nil {
+		t.Fatalf("ParseBinding(%q) error = %v", input, err)
+	}
+	if !first.Equal(want) {
+		t.Fatalf("ParseBinding(%q) = %v, want %v", input, first, want)
+	}
+	canonical := first.String()
+	if canonical != "C-d" {
+		t.Fatalf("String() = %q, want %q", canonical, "C-d")
+	}
+	second, err := ParseBinding(canonical)
+	if err != nil {
+		t.Fatalf("ParseBinding(%q) error = %v", canonical, err)
+	}
+	if !first.Equal(second) {
+		t.Fatalf("round trip %q -> %q -> %v, want %v", input, canonical, second, first)
 	}
 }
 
@@ -248,6 +366,7 @@ func TestParseBinding_SpecialNamesInSequence(t *testing.T) {
 		{input: "<Space>j", want: Sequence{{Sym: "Space"}, {Sym: "j"}}},
 		{input: "<CR>j", want: Sequence{{Sym: "CR"}, {Sym: "j"}}},
 		{input: "<lt>j", want: Sequence{{Sym: "<"}, {Sym: "j"}}},
+		{input: "<gt>j", want: Sequence{{Sym: ">"}, {Sym: "j"}}},
 		{input: "<Plus>j", want: Sequence{{Sym: "+"}, {Sym: "j"}}},
 		{input: "j<Tab>", want: Sequence{{Sym: "j"}, {Sym: "Tab"}}},
 		{input: "<BackSpace>j", want: Sequence{{Sym: "BackSpace"}, {Sym: "j"}}},
@@ -439,9 +558,17 @@ func TestParseBinding_RoundTrip(t *testing.T) {
 		"<S-Home>",
 		"<A-PageUp>",
 		"<lt>",
+		"<gt>",
+		">",
+		"ctrl+>",
+		"<C-gt>",
 		"<C-d>j",
 		"<Escape>j",
 		"<C-S-a>",
+		"<S-c>-d",
+		"C-d",
+		"S-j",
+		"A-k",
 		"Spacej",
 		"Escj",
 		"Tabx",
@@ -499,6 +626,8 @@ func TestParseBinding_DeterministicRoundTripProperty(t *testing.T) {
 		{{Sym: "BackSpace", Mods: ModShift}},
 		{{Sym: "Delete", Mods: ModAlt}},
 		{{Sym: "<"}},
+		{{Sym: ">"}},
+		{{Sym: ">", Mods: ModCtrl}},
 		{{Sym: "+"}},
 		{{Sym: "-", Mods: ModCtrl}},
 		{{Sym: "-", Mods: ModCtrl | ModShift}},
@@ -530,6 +659,12 @@ func TestParseBinding_DeterministicRoundTripProperty(t *testing.T) {
 			{Sym: "b"},
 			{Sym: "x"},
 		},
+		// Bare modifier-like text must stay literal (no C-/S-/A- stealing).
+		{
+			{Sym: "c", Mods: ModShift},
+			{Sym: "-"},
+			{Sym: "d"},
+		},
 	}
 	for _, seq := range corpus {
 		canonical := seq.String()
@@ -540,6 +675,94 @@ func TestParseBinding_DeterministicRoundTripProperty(t *testing.T) {
 			}
 			if !got.Equal(seq) {
 				t.Fatalf("ParseBinding(%q) = %v, want %v", canonical, got, seq)
+			}
+		})
+	}
+}
+
+// TestParseBinding_ExhaustiveCanonicalModelRoundTrip covers the full legal Key
+// surface that Sequence.String can emit: letters × modifier combos, printable
+// ASCII punctuation in runtime-canonical modifier states, named symbols ×
+// modifier combos, and adjacent pairs that can spell modifier/named prefixes.
+func TestParseBinding_ExhaustiveCanonicalModelRoundTrip(t *testing.T) {
+	allMods := []Mods{
+		0,
+		ModCtrl,
+		ModShift,
+		ModAlt,
+		ModCtrl | ModShift,
+		ModCtrl | ModAlt,
+		ModShift | ModAlt,
+		ModCtrl | ModShift | ModAlt,
+	}
+
+	var corpus []Sequence
+
+	for c := 'a'; c <= 'z'; c++ {
+		sym := string(c)
+		for _, mods := range allMods {
+			corpus = append(corpus, Sequence{{Sym: sym, Mods: mods}})
+		}
+	}
+
+	punctuation := []string{
+		"!", `"`, "#", "$", "%", "&", "'", "(", ")", "*", "+", ",", "-", ".", "/",
+		":", ";", "<", "=", ">", "?", "@", "[", `\`, "]", "^", "_", "`", "{", "|", "}", "~",
+	}
+	for _, sym := range punctuation {
+		for _, mods := range allMods {
+			// Unmodified punctuation is always legal; modified forms are emitted
+			// as angle keys and must round-trip.
+			corpus = append(corpus, Sequence{{Sym: sym, Mods: mods}})
+		}
+	}
+
+	named := []string{
+		"CR", "Esc", "Space", "Tab", "BackSpace", "Delete",
+		"Left", "Right", "Up", "Down", "Home", "End", "PageUp", "PageDown",
+	}
+	for _, sym := range named {
+		for _, mods := range allMods {
+			corpus = append(corpus, Sequence{{Sym: sym, Mods: mods}})
+		}
+	}
+
+	// Representative adjacent pairs that can spell modifier/named prefixes.
+	// Trailing letters avoid exact legacy atom collisions (enter/escape/…).
+	adjacentPairs := []Sequence{
+		{{Sym: "c", Mods: ModShift}, {Sym: "-"}, {Sym: "d"}},
+		{{Sym: "s", Mods: ModShift}, {Sym: "-"}, {Sym: "j"}},
+		{{Sym: "a", Mods: ModShift}, {Sym: "-"}, {Sym: "k"}},
+		{{Sym: "c", Mods: ModShift}, {Sym: "-"}, {Sym: "s", Mods: ModShift}, {Sym: "-"}, {Sym: "a"}},
+		{{Sym: "s", Mods: ModShift}, {Sym: "p"}, {Sym: "a"}, {Sym: "c"}, {Sym: "e"}, {Sym: "j"}},
+		{{Sym: "e", Mods: ModShift}, {Sym: "s"}, {Sym: "c"}, {Sym: "j"}},
+		{{Sym: "t", Mods: ModShift}, {Sym: "a"}, {Sym: "b"}, {Sym: "x"}},
+		{{Sym: "r", Mods: ModShift}, {Sym: "e"}, {Sym: "t"}, {Sym: "u"}, {Sym: "r"}, {Sym: "n"}, {Sym: "x"}},
+		{{Sym: "d", Mods: ModCtrl}, {Sym: "j"}},
+		{{Sym: ">"}, {Sym: "j"}},
+		{{Sym: "<"}, {Sym: "j"}},
+		{{Sym: "g"}, {Sym: "o", Mods: ModShift}},
+		{{Sym: "]"}, {Sym: "]"}},
+	}
+	corpus = append(corpus, adjacentPairs...)
+
+	seen := make(map[string]struct{}, len(corpus))
+	for _, seq := range corpus {
+		canonical := seq.String()
+		if _, ok := seen[canonical]; ok {
+			continue
+		}
+		seen[canonical] = struct{}{}
+		t.Run(canonical, func(t *testing.T) {
+			got, err := ParseBinding(canonical)
+			if err != nil {
+				t.Fatalf("ParseBinding(%q) error = %v", canonical, err)
+			}
+			if !got.Equal(seq) {
+				t.Fatalf("ParseBinding(%q) = %v, want %v", canonical, got, seq)
+			}
+			if again := got.String(); again != canonical {
+				t.Fatalf("canonical unstable %q -> %q", canonical, again)
 			}
 		})
 	}

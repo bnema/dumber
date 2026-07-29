@@ -84,6 +84,8 @@ func angleAliasForSym(sym string) string {
 		return sym
 	case "<":
 		return "lt"
+	case ">":
+		return "gt"
 	default:
 		return ""
 	}
