@@ -122,19 +122,19 @@ func TestKeyboardDispatcher_ToggleFavoritesSidebarCallsCallbackAndPropagatesErro
 	ctx := context.Background()
 	d := NewKeyboardDispatcher(ctx, &coordinator.WorkspaceCoordinator{}, &coordinator.NavigationCoordinator{}, nil, nil, KeyboardActions{}, func(context.Context) entity.PaneID { return "" })
 
-	missingErr := d.Dispatch(ctx, input.ActionToggleFavoritesSystemView)
+	missingErr := d.Dispatch(ctx, input.ActionToggleFavoritesSidebar)
 	require.Error(t, missingErr)
 	require.ErrorContains(t, missingErr, "favorites sidebar unavailable")
 
 	wantErr := fmt.Errorf("favorites failed")
 	d.SetOnToggleFavoritesSidebar(func(context.Context) error { return wantErr })
-	err := d.Dispatch(ctx, input.ActionToggleFavoritesSystemView)
+	err := d.Dispatch(ctx, input.ActionToggleFavoritesSidebar)
 	require.Error(t, err)
 	require.ErrorIs(t, err, wantErr)
 
 	var called bool
 	d.SetOnToggleFavoritesSidebar(func(context.Context) error { called = true; return nil })
-	require.NoError(t, d.Dispatch(ctx, input.ActionToggleFavoritesSystemView))
+	require.NoError(t, d.Dispatch(ctx, input.ActionToggleFavoritesSidebar))
 	assert.True(t, called)
 }
 

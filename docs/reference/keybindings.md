@@ -168,7 +168,7 @@ keys = ["alt+f"]
 [workspace.shortcuts.actions.toggle-history-systemview]
 keys = ["ctrl+h"]
 
-[workspace.shortcuts.actions.toggle-favorites-systemview]
+[workspace.shortcuts.actions.toggle-favorites-sidebar]
 keys = ["ctrl+b"]
 
 [workspace.shortcuts.actions.toggle-current-page-favorite]

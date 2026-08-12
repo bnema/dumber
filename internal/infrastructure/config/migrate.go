@@ -25,11 +25,6 @@ type Migrator struct {
 	defaultConfig *Config
 }
 
-// configMigrator reuses the default-action metadata needed during config load.
-// It is immutable after initialization; per-command migration still constructs
-// explicit Migrator instances when callers need independent state.
-var configMigrator = NewMigrator()
-
 // NewMigrator creates a new Migrator instance.
 func NewMigrator() *Migrator {
 	v := viper.New()
@@ -58,10 +53,14 @@ func (m *Migrator) CheckMigration() (*port.MigrationResult, error) {
 		return nil, nil
 	}
 
-	// Get user-defined keys from the TOML file
-	userKeys, err := m.getUserConfigKeys(configFile)
+	userKeysWithValues, err := m.getUserConfigKeysWithValues(configFile)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse user config: %w", err)
+	}
+
+	userKeys := make(map[string]bool, len(userKeysWithValues))
+	for key := range userKeysWithValues {
+		userKeys[key] = true
 	}
 
 	// Get all default keys
@@ -69,6 +68,7 @@ func (m *Migrator) CheckMigration() (*port.MigrationResult, error) {
 
 	// Find missing keys (in defaults but not in user config)
 	missingKeys := m.findMissingKeys(defaultKeys, userKeys)
+	missingKeys = appendUniqueKeys(missingKeys, m.detectMissingDefaultActions(userKeysWithValues))
 
 	if len(missingKeys) == 0 {
 		return nil, nil
@@ -119,13 +119,16 @@ func (m *Migrator) DetectChanges() ([]port.KeyChange, error) {
 		userKeySet[k] = true
 	}
 
-	legacyBrowsingContextRenames := m.detectLegacyBrowsingContextRenames(rawUserKeysWithValues)
+	legacyRenames := append(
+		m.detectLegacyBrowsingContextRenames(rawUserKeysWithValues),
+		m.detectLegacyFavoritesSidebarRename(userKeysWithValues)...,
+	)
 	var changes []port.KeyChange
-	changes = append(changes, legacyBrowsingContextRenames...)
+	changes = append(changes, legacyRenames...)
 
-	handledLegacyDeprecatedKeys := make(map[string]bool, len(legacyBrowsingContextRenames))
-	handledLegacyMissingKeys := make(map[string]bool, len(legacyBrowsingContextRenames))
-	for _, change := range legacyBrowsingContextRenames {
+	handledLegacyDeprecatedKeys := make(map[string]bool, len(legacyRenames))
+	handledLegacyMissingKeys := make(map[string]bool, len(legacyRenames))
+	for _, change := range legacyRenames {
 		handledLegacyDeprecatedKeys[change.OldKey] = true
 		handledLegacyMissingKeys[change.NewKey] = true
 	}
@@ -444,10 +447,11 @@ func (m *Migrator) Migrate() ([]string, error) {
 		}
 	}
 
-	// Remove deprecated and renamed keys from the raw config
+	// Remove deprecated and renamed keys from the raw config.
 	for key := range keysToRemove {
 		m.deleteNestedKey(rawConfig, key)
 	}
+	m.upgradeLegacyFavoritesSidebarDefault(rawConfig)
 	m.mergeMissingDefaultActions(rawConfig)
 
 	// Create a new Viper instance with defaults for added keys
@@ -723,6 +727,31 @@ func (m *Migrator) getRawUserConfigKeysWithValues(configFile string) (map[string
 	return result, nil
 }
 
+func (m *Migrator) detectLegacyFavoritesSidebarRename(userKeys map[string]any) []port.KeyChange {
+	const (
+		actionsKey = "workspace.shortcuts.actions"
+		legacyName = "toggle-favorites-systemview"
+		newName    = "toggle-favorites-sidebar"
+	)
+
+	actionsValue, ok := userKeys[actionsKey]
+	if !ok {
+		return nil
+	}
+	actions, ok := m.toStringAnyMap(actionsValue)
+	if !ok || actions[legacyName] == nil || actions[newName] != nil {
+		return nil
+	}
+
+	return []port.KeyChange{{
+		Type:     port.KeyChangeRenamed,
+		OldKey:   actionsKey + "." + legacyName,
+		NewKey:   actionsKey + "." + newName,
+		OldValue: m.formatValue(actions[legacyName]),
+		NewValue: m.formatValue(m.defaultConfig.Workspace.Shortcuts.Actions[newName]),
+	}}
+}
+
 func (m *Migrator) detectLegacyBrowsingContextRenames(rawUserKeys map[string]any) []port.KeyChange {
 	type renamePair struct {
 		oldKey string
@@ -892,6 +921,91 @@ func (m *Migrator) mergeMissingDefaultActions(rawConfig map[string]any) {
 		}
 
 		m.setNestedValue(rawConfig, actionMap.key, userActions)
+	}
+}
+
+func (m *Migrator) upgradeLegacyFavoritesSidebarDefault(rawConfig map[string]any) {
+	const (
+		actionsKey = "workspace.shortcuts.actions"
+		actionName = "toggle-favorites-sidebar"
+	)
+
+	actionsValue := m.getNestedValue(rawConfig, actionsKey)
+	actions, ok := m.toStringAnyMap(actionsValue)
+	if !ok {
+		return
+	}
+	binding, ok := m.actionBindingFromAny(actions[actionName])
+	if !ok || !reflect.DeepEqual(binding, entity.ActionBinding{Keys: []string{}, Desc: "Toggle Favorites in right split"}) {
+		return
+	}
+	actions[actionName] = m.defaultConfig.Workspace.Shortcuts.Actions[actionName]
+	m.setNestedValue(rawConfig, actionsKey, actions)
+}
+
+func (m *Migrator) actionBindingFromAny(value any) (entity.ActionBinding, bool) {
+	switch v := value.(type) {
+	case entity.ActionBinding:
+		return v, true
+	case map[string]any:
+		return actionBindingFromMap(v)
+	default:
+		mapping, ok := m.toStringAnyMap(value)
+		if !ok {
+			return entity.ActionBinding{}, false
+		}
+		return actionBindingFromMap(mapping)
+	}
+}
+
+func actionBindingFromMap(m map[string]any) (entity.ActionBinding, bool) {
+	var binding entity.ActionBinding
+	if keysValue, exists := m["keys"]; exists {
+		keys, ok := stringSliceFromAny(keysValue)
+		if !ok {
+			return entity.ActionBinding{}, false
+		}
+		binding.Keys = keys
+	}
+	if descValue, exists := m["desc"]; exists {
+		desc, ok := descValue.(string)
+		if !ok {
+			return entity.ActionBinding{}, false
+		}
+		binding.Desc = desc
+	}
+	return binding, true
+}
+
+func stringSliceFromAny(value any) ([]string, bool) {
+	switch v := value.(type) {
+	case []string:
+		return append([]string(nil), v...), true
+	case []any:
+		out := make([]string, 0, len(v))
+		for _, item := range v {
+			s, ok := item.(string)
+			if !ok {
+				return nil, false
+			}
+			out = append(out, s)
+		}
+		return out, true
+	default:
+		rv := reflect.ValueOf(value)
+		if rv.Kind() != reflect.Slice {
+			return nil, false
+		}
+		out := make([]string, 0, rv.Len())
+		for i := 0; i < rv.Len(); i++ {
+			item := rv.Index(i).Interface()
+			s, ok := item.(string)
+			if !ok {
+				return nil, false
+			}
+			out = append(out, s)
+		}
+		return out, true
 	}
 }
 

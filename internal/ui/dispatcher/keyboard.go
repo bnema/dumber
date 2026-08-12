@@ -295,7 +295,7 @@ func (d *KeyboardDispatcher) initActionHandlers() {
 			}
 			return d.onToggleHistorySidebar(ctx)
 		},
-		input.ActionToggleFavoritesSystemView: func(ctx context.Context) error {
+		input.ActionToggleFavoritesSidebar: func(ctx context.Context) error {
 			if d.onToggleFavoritesSidebar == nil {
 				return fmt.Errorf("favorites sidebar unavailable: toggle handler not wired")
 			}

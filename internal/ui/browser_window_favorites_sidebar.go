@@ -119,7 +119,8 @@ func (a *App) toggleCurrentPageFavoriteAction(ctx context.Context) error {
 	if a == nil || a.deps == nil || a.deps.FavoritesUC == nil {
 		return fmt.Errorf("favorites unavailable: usecase not configured")
 	}
-	_, wv := a.activeWebViewForBrowserWindow(a.lastFocusedBrowserWindow())
+	bw := a.lastFocusedBrowserWindow()
+	_, wv := a.activeWebViewForBrowserWindow(bw)
 	if wv == nil {
 		return fmt.Errorf("favorites unavailable: no active webview")
 	}
@@ -127,9 +128,15 @@ func (a *App) toggleCurrentPageFavoriteAction(ctx context.Context) error {
 	if uri == "" {
 		return fmt.Errorf("favorites unavailable: active page has no URI")
 	}
-	_, err := a.deps.FavoritesUC.Toggle(ctx, uri, wv.Title())
+	result, err := a.deps.FavoritesUC.Toggle(ctx, uri, wv.Title())
 	if err != nil {
 		return err
+	}
+	if result != nil && strings.TrimSpace(result.Message) != "" {
+		a.showToastOnBrowserWindow(ctx, bw, result.Message, component.ToastSuccess,
+			component.WithDuration(component.ToastBriefDurationMs),
+			component.WithPosition(component.ToastPositionBottomRight),
+		)
 	}
 	a.reloadVisibleFavoritesSidebars("current-page-favorite-toggle")
 	return nil

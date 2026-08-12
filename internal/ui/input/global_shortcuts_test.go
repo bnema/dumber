@@ -251,7 +251,7 @@ func TestGlobalShortcutHandlerSuppressesRepeatedAdditionalOneShotUIActions(t *te
 		ActionFindPrev,
 		ActionOpenDevTools,
 		ActionToggleFloatingPane,
-		ActionToggleFavoritesSystemView,
+		ActionToggleFavoritesSidebar,
 		ActionToggleCurrentPageFavorite,
 		ActionToggleConfigSystemView,
 		ActionCopyURL,
