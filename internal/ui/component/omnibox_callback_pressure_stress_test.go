@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/bnema/purego"
+	"github.com/bnema/puregotk/v4/gdk"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gtk"
@@ -32,6 +33,11 @@ func runGTKCallbackLifecycleStress(t *testing.T) {
 	if !gtk.InitCheck() {
 		t.Skip("GTK native display prerequisite unavailable (gtk.InitCheck returned false)")
 	}
+	display := gdk.DisplayGetDefault()
+	if display == nil {
+		t.Skip("GTK native display prerequisite unavailable (no default GDK display)")
+	}
+	display.Unref()
 
 	mainContext := glib.MainContextDefault()
 	require.NotNil(t, mainContext)
