@@ -13,7 +13,7 @@ func TestGenerateFavoritesSidebarCSS_ContainsCompactControlStyles(t *testing.T) 
 	for _, selector := range []string{
 		".favorites-sidebar-tags",
 		".favorites-sidebar-tag-filter",
-		".favorites-sidebar-tag-filter.suggested-action",
+		".favorites-sidebar-tag-filter-active",
 		".favorites-sidebar-tag-add",
 		".favorites-sidebar-tag-prompt",
 		".favorites-sidebar-tag-binding",
@@ -25,6 +25,8 @@ func TestGenerateFavoritesSidebarCSS_ContainsCompactControlStyles(t *testing.T) 
 	} {
 		assert.Contains(t, css, selector+" {")
 	}
+	assert.Contains(t, css, ".favorites-sidebar-tag-filter-active {", "active filters use sidebar-owned styling")
+	assert.NotContains(t, css, ".suggested-action", "native suggested-action geometry must not affect tag filters")
 	assert.Contains(t, css, "font-size: 0.66em;", "tags and shortcut badges stay compact")
 	assert.Contains(t, css, "border-bottom: 0.0625em solid var(--border);", "filters are separated from the list")
 	assert.Contains(t, css, "border-top: 0.0625em solid var(--border);", "the form is separated from the list")

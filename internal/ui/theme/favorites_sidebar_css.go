@@ -28,7 +28,7 @@ func generateFavoritesSidebarCSS(_ Palette) string {
 	background-color: alpha(var(--accent), 0.10);
 }
 
-.favorites-sidebar-tag-filter.suggested-action {
+.favorites-sidebar-tag-filter-active {
 	color: var(--accent);
 	background-color: alpha(var(--accent), 0.16);
 	border-color: alpha(var(--accent), 0.5);

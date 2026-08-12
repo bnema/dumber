@@ -433,15 +433,26 @@ func TestFavoritesSidebarFormTagSelectionAndEditSynchronization(t *testing.T) {
 	assert.Equal(t, dev.ID, uc.untagged[0].tagID)
 }
 
-func TestFavoritesSidebarDirectionalFocusSkipsTagControls(t *testing.T) {
-	fs := newFavoritesSidebarHarness(nil, nil)
-	fs.displayRows = []favoriteSidebarDisplayRow{{FavoriteID: 1, Favorite: &entity.Favorite{ID: 1}, Selectable: true}}
+func TestFavoritesSidebarDirectionalFocusMovesDirectlyBetweenSearchAndFirstFavorite(t *testing.T) {
+	fav := &entity.Favorite{ID: 1, URL: "https://go.dev"}
+	fs := newFavoritesSidebarHarness([]*entity.Favorite{fav}, nil)
+	fs.displayRows = []favoriteSidebarDisplayRow{{FavoriteID: fav.ID, Favorite: fav, URL: fav.URL, Selectable: true}}
 	fs.focusZone = favoritesSidebarFocusSearch
 
 	assert.True(t, fs.routeDirectionalFocus(uint(gdk.KEY_Down)))
 	assert.Equal(t, favoritesSidebarFocusList, fs.focusZone)
 	assert.True(t, fs.routeDirectionalFocus(uint(gdk.KEY_Up)))
 	assert.Equal(t, favoritesSidebarFocusSearch, fs.focusZone)
+}
+
+func TestFavoritesSidebarDirectionalFocusConsumesArrowsOnTagControls(t *testing.T) {
+	fs := newFavoritesSidebarHarness(nil, nil)
+	fs.focusZone = favoritesSidebarFocusTags
+
+	assert.True(t, fs.routeDirectionalFocus(uint(gdk.KEY_Down)))
+	assert.Equal(t, favoritesSidebarFocusTags, fs.focusZone)
+	assert.True(t, fs.routeDirectionalFocus(uint(gdk.KEY_Up)))
+	assert.Equal(t, favoritesSidebarFocusTags, fs.focusZone)
 }
 
 func TestFavoritesSidebarEnterConfirmsDelete(t *testing.T) {

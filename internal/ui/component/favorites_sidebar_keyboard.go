@@ -17,10 +17,10 @@ func (fs *FavoritesSidebar) setupKeyboardNavigation() {
 	if keyController == nil {
 		return
 	}
-	// Let focused child widgets process their own keys before sidebar commands.
-	// In particular, GtkEntry consumes printable text during the target phase, so
-	// its content cannot reach the global command switch below.
-	keyController.SetPropagationPhase(gtk.PhaseBubbleValue)
+	// Directional controls must run before GtkSearchEntry and GtkListBox consume
+	// arrows. Explicit text-input focus tracking below still defers printable
+	// keys to their focused entry.
+	keyController.SetPropagationPhase(gtk.PhaseCaptureValue)
 	keyPressedCb := func(_ gtk.EventControllerKey, keyval uint, _ uint, state gdk.ModifierType) bool {
 		fs.mu.RLock()
 		if fs.destroyed {

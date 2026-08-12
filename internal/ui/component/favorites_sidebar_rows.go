@@ -126,7 +126,7 @@ func (fs *FavoritesSidebar) appendTagFilter(
 	}
 	button.AddCssClass("favorites-sidebar-tag-filter")
 	if selected {
-		button.AddCssClass("suggested-action")
+		button.AddCssClass("favorites-sidebar-tag-filter-active")
 	}
 	callback := func(_ gtk.Button) { action() }
 	*callbacks = append(*callbacks, callback)

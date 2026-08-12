@@ -12,13 +12,14 @@ func generateSidebarCSS(_ Palette) string {
 }
 
 .sidebar-search-box {
-	padding: 0.375em 0.5em;
+	padding: 0.5em 0.5em 0.375em;
 	border-bottom: 0.0625em solid var(--border);
 	background-color: var(--surface);
 }
 
 .sidebar-search {
-	padding: 0.125em 0.375em;
+	min-height: 0;
+	padding: 0.0625em 0.375em;
 	font-size: 0.85em;
 }
 

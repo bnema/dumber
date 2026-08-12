@@ -116,6 +116,13 @@ func TestGenerateSidebarCSS_CustomPaletteValuesInterpolated(t *testing.T) {
 	assert.Contains(t, css, ".sidebar-empty {")
 }
 
+func TestGenerateSidebarCSS_UsesCompactBalancedSearchChrome(t *testing.T) {
+	css := generateSidebarCSS(DefaultDarkPalette())
+
+	assert.Contains(t, css, ".sidebar-search-box {\n\tpadding: 0.5em 0.5em 0.375em;")
+	assert.Contains(t, css, ".sidebar-search {\n\tmin-height: 0;\n\tpadding: 0.0625em 0.375em;")
+}
+
 func TestGenerateSidebarCSS_ContainsTransition(t *testing.T) {
 	css := generateSidebarCSS(DefaultDarkPalette())
 
