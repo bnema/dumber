@@ -75,12 +75,16 @@ func (fs *FavoritesSidebar) renderForm(fav *entity.Favorite) {
 		return
 	}
 	clearBoxChildren(fs.formBox)
+	fs.formCallbacks = nil
+	fs.formTagMatchCallbacks = nil
 	fs.formURLEntry = gtk.NewSearchEntry()
 	fs.formTitleEntry = gtk.NewSearchEntry()
 	fs.formTagSearch = gtk.NewSearchEntry()
 	fs.formTagMatches = gtk.NewBox(gtk.OrientationHorizontalValue, 3)
 	fs.formShortcutEntry = gtk.NewSearchEntry()
+	fs.mu.Lock()
 	fs.formTagIDs = tagIDSet(favoriteTags(fav))
+	fs.mu.Unlock()
 	entries := []struct {
 		entry *gtk.SearchEntry
 		label string
@@ -96,7 +100,7 @@ func (fs *FavoritesSidebar) renderForm(fav *entity.Favorite) {
 		}
 		placeholder := item.label
 		item.entry.SetPlaceholderText(&placeholder)
-		fs.trackTextInputFocus(&item.entry.Widget)
+		fs.trackTextInputFocus(&item.entry.Widget, &fs.formCallbacks)
 		fs.formBox.Append(&item.entry.Widget)
 	}
 	if fs.formTagMatches != nil {
@@ -109,7 +113,7 @@ func (fs *FavoritesSidebar) renderForm(fav *entity.Favorite) {
 		cb := func(_ gtk.Button) {
 			fs.submitForm()
 		}
-		fs.retainedCallbacks = append(fs.retainedCallbacks, cb)
+		fs.formCallbacks = append(fs.formCallbacks, cb)
 		fs.formSaveButton.ConnectClicked(&cb)
 		fs.formBox.Append(&fs.formSaveButton.Widget)
 	}
@@ -179,12 +183,11 @@ func (fs *FavoritesSidebar) cancelManagement() bool {
 	if fs.formBox != nil {
 		fs.formBox.SetVisible(false)
 		clearBoxChildren(fs.formBox)
+		fs.formCallbacks = nil
+		fs.formTagMatchCallbacks = nil
 	}
 	if fs.tagPromptBox != nil {
-		fs.clearTagPromptContent()
-		fs.tagPromptBox.SetVisible(false)
-		fs.tagNameEntry = nil
-		fs.tagPromptSaveBtn = nil
+		fs.hideTagPrompt()
 	}
 	fs.rebuildList()
 	return active

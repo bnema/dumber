@@ -72,6 +72,7 @@ type FavoritesSidebar struct {
 	retainedCallbacks     []any
 	tagCallbacks          []any
 	tagPromptCallbacks    []any
+	formCallbacks         []any
 	formTagMatchCallbacks []any
 	ctx                   context.Context
 	cancel                context.CancelFunc
@@ -232,7 +233,7 @@ func (fs *FavoritesSidebar) createOuterAndSearch() error {
 	}
 	fs.searchEntry.AddCssClass("sidebar-search")
 	fs.searchEntry.AddCssClass("favorites-sidebar-search")
-	fs.trackTextInputFocus(&fs.searchEntry.Widget)
+	fs.trackTextInputFocus(&fs.searchEntry.Widget, &fs.retainedCallbacks)
 	fs.searchEntry.SetHexpand(true)
 	placeholder := "Search favorites..."
 	fs.searchEntry.SetPlaceholderText(&placeholder)
@@ -259,8 +260,8 @@ func (fs *FavoritesSidebar) createTagControls() error {
 	return nil
 }
 
-func (fs *FavoritesSidebar) trackTextInputFocus(widget *gtk.Widget) {
-	if fs == nil || widget == nil {
+func (fs *FavoritesSidebar) trackTextInputFocus(widget *gtk.Widget, callbacks *[]any) {
+	if fs == nil || widget == nil || callbacks == nil {
 		return
 	}
 	controller := gtk.NewEventControllerFocus()
@@ -269,7 +270,7 @@ func (fs *FavoritesSidebar) trackTextInputFocus(widget *gtk.Widget) {
 	}
 	entered := func(gtk.EventControllerFocus) { fs.setTextInputFocused(widget) }
 	left := func(gtk.EventControllerFocus) { fs.clearTextInputFocus(widget) }
-	fs.retainedCallbacks = append(fs.retainedCallbacks, entered, left)
+	*callbacks = append(*callbacks, entered, left)
 	controller.ConnectEnter(&entered)
 	controller.ConnectLeave(&left)
 	widget.AddController(&controller.EventController)

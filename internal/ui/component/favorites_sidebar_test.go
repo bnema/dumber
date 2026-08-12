@@ -41,6 +41,9 @@ type fakeFavoritesSidebarUC struct {
 	}
 	err              error
 	errOnSetShortcut error
+	errOnTag         map[entity.TagID]error
+	errOnUntag       map[entity.TagID]error
+	failUntagOnCall  int
 	getAllCalled     chan struct{}
 }
 
@@ -99,6 +102,9 @@ func (f *fakeFavoritesSidebarUC) TagFavorite(_ context.Context, favID entity.Fav
 		favID entity.FavoriteID
 		tagID entity.TagID
 	}{favID: favID, tagID: tagID})
+	if err := f.errOnTag[tagID]; err != nil {
+		return err
+	}
 	return f.err
 }
 func (f *fakeFavoritesSidebarUC) UntagFavorite(_ context.Context, favID entity.FavoriteID, tagID entity.TagID) error {
@@ -106,6 +112,12 @@ func (f *fakeFavoritesSidebarUC) UntagFavorite(_ context.Context, favID entity.F
 		favID entity.FavoriteID
 		tagID entity.TagID
 	}{favID: favID, tagID: tagID})
+	if err := f.errOnUntag[tagID]; err != nil {
+		return err
+	}
+	if f.failUntagOnCall > 0 && len(f.untagged) == f.failUntagOnCall {
+		return errors.New("untag failed")
+	}
 	return f.err
 }
 
@@ -412,6 +424,22 @@ func TestFormTagCandidatesMatchesNamesAndKeepsSelectedTagsVisible(t *testing.T) 
 	assert.Equal(t, []*entity.Tag{reading}, formTagCandidates([]*entity.Tag{dev, news, reading}, selected, "read"))
 }
 
+func TestFavoritesSidebarReloadsAfterPartiallyApplyingTagChanges(t *testing.T) {
+	first := entity.Tag{ID: 10, Name: "first"}
+	second := entity.Tag{ID: 11, Name: "second"}
+	fav := &entity.Favorite{ID: 5, URL: "https://go.dev", Tags: []entity.Tag{first, second}}
+	fs := newFavoritesSidebarHarness([]*entity.Favorite{fav}, nil)
+	uc := fs.favoritesUC.(*fakeFavoritesSidebarUC)
+	uc.failUntagOnCall = 2
+	fs.allFavorites = []*entity.Favorite{fav}
+	fs.loadGen = 4
+
+	assert.False(t, fs.updateFavoriteTags(fav.ID, nil))
+	assert.Len(t, uc.untagged, 2)
+	assert.Equal(t, uint64(5), fs.loadGen, "a partial tag mutation must refresh stale favorites")
+	assert.Equal(t, "untag failed", fs.notice)
+}
+
 func TestFavoritesSidebarFormTagSelectionAndEditSynchronization(t *testing.T) {
 	dev := entity.Tag{ID: 10, Name: "dev"}
 	news := entity.Tag{ID: 11, Name: "news"}
@@ -426,21 +454,34 @@ func TestFavoritesSidebarFormTagSelectionAndEditSynchronization(t *testing.T) {
 	assert.True(t, fs.updateFavoriteTags(fav.ID, fs.formTagIDsSnapshot()))
 	require.Len(t, uc.tagged, 1)
 	assert.Equal(t, news.ID, uc.tagged[0].tagID)
+	fav.Tags = []entity.Tag{dev, news}
 
 	fs.toggleFormTag(dev.ID)
 	assert.True(t, fs.updateFavoriteTags(fav.ID, fs.formTagIDsSnapshot()))
 	require.Len(t, uc.untagged, 1)
 	assert.Equal(t, dev.ID, uc.untagged[0].tagID)
+	assert.Len(t, uc.tagged, 1, "the synchronized persisted tags must not be added again")
 }
 
 func TestFavoritesSidebarDirectionalFocusMovesDirectlyBetweenSearchAndFirstFavorite(t *testing.T) {
 	fav := &entity.Favorite{ID: 1, URL: "https://go.dev"}
 	fs := newFavoritesSidebarHarness([]*entity.Favorite{fav}, nil)
+	if !gtk.InitCheck() {
+		t.Skip("GTK native display prerequisite unavailable (gtk.InitCheck returned false)")
+	}
+	listBox := gtk.NewListBox()
+	require.NotNil(t, listBox)
+	row := gtk.NewListBoxRow()
+	require.NotNil(t, row)
+	row.SetSelectable(true)
+	listBox.Append(&row.Widget)
+	fs.listBox = listBox
 	fs.displayRows = []favoriteSidebarDisplayRow{{FavoriteID: fav.ID, Favorite: fav, URL: fav.URL, Selectable: true}}
 	fs.focusZone = favoritesSidebarFocusSearch
 
 	assert.True(t, fs.routeDirectionalFocus(uint(gdk.KEY_Down)))
 	assert.Equal(t, favoritesSidebarFocusList, fs.focusZone)
+	assert.Equal(t, row, fs.listBox.GetSelectedRow())
 	assert.True(t, fs.routeDirectionalFocus(uint(gdk.KEY_Up)))
 	assert.Equal(t, favoritesSidebarFocusSearch, fs.focusZone)
 }
@@ -549,6 +590,10 @@ func TestFavoritesSidebarExplicitTextInputFocusControlsKeyboardRouting(t *testin
 	fs.setTextInputFocused(input)
 	assert.True(t, fs.inTextEditContext())
 	assert.True(t, shouldDeferToTextInput(fs.inTextEditContext(), uint(gdk.KEY_e)))
+	assert.False(t, fs.handleSingleKeyCommand(uint(gdk.KEY_e), 0))
+	fs.mode = favoritesSidebarModeAdd
+	assert.True(t, fs.cancelManagement())
+	assert.Equal(t, favoritesSidebarModeNone, fs.mode)
 
 	fs.clearTextInputFocus(input)
 	assert.False(t, fs.inTextEditContext())
@@ -565,13 +610,13 @@ func TestFavoritesSidebarTextInputDefersSidebarCommands(t *testing.T) {
 		uint(gdk.KEY_t),
 		uint(gdk.KEY_plus),
 		uint(gdk.KEY_Up),
-		uint(gdk.KEY_Escape),
 		uint(gdk.KEY_Return),
 	} {
 		assert.Truef(t, shouldDeferToTextInput(true, key), "key %d must reach the text input", key)
 	}
 	assert.False(t, shouldDeferToTextInput(true, uint(gdk.KEY_Tab)))
 	assert.False(t, shouldDeferToTextInput(true, uint(gdk.KEY_ISO_Left_Tab)))
+	assert.False(t, shouldDeferToTextInput(true, uint(gdk.KEY_Escape)))
 	assert.False(t, shouldDeferToTextInput(false, uint(gdk.KEY_e)))
 }
 

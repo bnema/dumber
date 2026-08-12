@@ -307,9 +307,10 @@ func shouldFocusSearchForSlash(searchFocused bool) bool { return !searchFocused 
 
 // shouldDeferToTextInput keeps the sidebar controller from treating text typed
 // into a descendant entry as a global sidebar command.
-// Tab remains the one sidebar command that deliberately traverses focus.
+// Tab traverses focus and Escape cancels sidebar management while text is focused.
 func shouldDeferToTextInput(textEditing bool, keyval uint) bool {
-	return textEditing && keyval != uint(gdk.KEY_Tab) && keyval != uint(gdk.KEY_ISO_Left_Tab)
+	return textEditing && keyval != uint(gdk.KEY_Tab) &&
+		keyval != uint(gdk.KEY_ISO_Left_Tab) && keyval != uint(gdk.KEY_Escape)
 }
 
 func (fs *FavoritesSidebar) routeDirectionalFocus(keyval uint) bool {

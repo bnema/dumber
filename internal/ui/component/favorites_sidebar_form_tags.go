@@ -28,7 +28,7 @@ func (fs *FavoritesSidebar) setupFormTagSearch() {
 		return
 	}
 	changed := func(_ gtk.SearchEntry) { fs.renderFormTagMatches(fs.formTagSearch.GetText()) }
-	fs.retainedCallbacks = append(fs.retainedCallbacks, changed)
+	fs.formCallbacks = append(fs.formCallbacks, changed)
 	fs.formTagSearch.ConnectSearchChanged(&changed)
 }
 
@@ -149,23 +149,32 @@ func (fs *FavoritesSidebar) updateFavoriteTags(favoriteID entity.FavoriteID, wan
 		wantedSet[id] = struct{}{}
 	}
 	currentSet := tagIDSet(current)
+	mutated := false
 	for id := range currentSet {
 		if _, ok := wantedSet[id]; ok {
 			continue
 		}
 		if err := uc.UntagFavorite(ctx, favoriteID, id); err != nil {
+			if mutated {
+				fs.startLoad()
+			}
 			fs.setNotice(err.Error())
 			return false
 		}
+		mutated = true
 	}
 	for id := range wantedSet {
 		if _, ok := currentSet[id]; ok {
 			continue
 		}
 		if err := uc.TagFavorite(ctx, favoriteID, id); err != nil {
+			if mutated {
+				fs.startLoad()
+			}
 			fs.setNotice(err.Error())
 			return false
 		}
+		mutated = true
 	}
 	return true
 }

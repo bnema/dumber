@@ -12,7 +12,7 @@ func (fs *FavoritesSidebar) showCreateTagPrompt() {
 	if fs == nil || fs.tagPromptBox == nil {
 		return
 	}
-	fs.clearTagPromptContent()
+	fs.hideTagPrompt()
 	entry := gtk.NewEntry()
 	if entry == nil {
 		return
@@ -20,15 +20,17 @@ func (fs *FavoritesSidebar) showCreateTagPrompt() {
 	placeholder := "New tag name"
 	entry.SetPlaceholderText(&placeholder)
 	entry.AddCssClass("favorites-sidebar-tag-name")
-	fs.trackTextInputFocus(&entry.Widget)
+	callbacks := make([]any, 0, 4)
+	fs.trackTextInputFocus(&entry.Widget, &callbacks)
 	entry.SetHexpand(true)
-	callbacks := make([]any, 0, 2)
 	activateCb := func(gtk.Entry) { fs.submitTagName(entry.GetText()) }
 	callbacks = append(callbacks, activateCb)
 	entry.ConnectActivate(&activateCb)
+	fs.storeTagPromptCallbacks(callbacks)
 
 	save := gtk.NewButtonWithLabel("Create")
 	if save == nil {
+		fs.hideTagPrompt()
 		return
 	}
 	save.AddCssClass("favorites-sidebar-tag-create")
@@ -201,22 +203,32 @@ func favoriteHasTag(fav *entity.Favorite, tagID entity.TagID) bool {
 }
 
 func (fs *FavoritesSidebar) focusTagControl(index int) {
-	if fs == nil || index < 0 || index >= len(fs.tagControls) || fs.tagControls[index] == nil {
+	if fs == nil || index < 0 {
 		return
 	}
+	fs.mu.RLock()
+	controls := append([]*gtk.Button(nil), fs.tagControls...)
+	fs.mu.RUnlock()
+	if index >= len(controls) || controls[index] == nil {
+		return
+	}
+	control := controls[index]
 	fs.mu.Lock()
 	if !fs.destroyed {
 		fs.focusZone = favoritesSidebarFocusTags
 	}
 	fs.mu.Unlock()
-	fs.tagControls[index].GrabFocus()
+	control.GrabFocus()
 }
 
 func (fs *FavoritesSidebar) focusedTagControlIndex() int {
 	if fs == nil {
 		return -1
 	}
-	for index, control := range fs.tagControls {
+	fs.mu.RLock()
+	controls := append([]*gtk.Button(nil), fs.tagControls...)
+	fs.mu.RUnlock()
+	for index, control := range controls {
 		if control != nil && control.HasFocus() {
 			return index
 		}
