@@ -11,6 +11,7 @@ import (
 type FavoritesSidebarFavorites interface {
 	GetAll(ctx context.Context) ([]*entity.Favorite, error)
 	GetAllTags(ctx context.Context) ([]*entity.Tag, error)
+	AddTag(ctx context.Context, name, color string) (*entity.Tag, error)
 	AddFavorite(ctx context.Context, input dto.FavoriteCreateInput) (*entity.Favorite, error)
 	UpdateFavorite(ctx context.Context, input dto.FavoriteUpdateInput) (*entity.Favorite, error)
 	DeleteFavorite(ctx context.Context, id entity.FavoriteID) error

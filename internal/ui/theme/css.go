@@ -159,10 +159,18 @@ func GenerateCSSFullWithTiming(p Palette, _ float64, fonts FontConfig, modeColor
 	sb.WriteString(generateAccentPickerCSS(p))
 	sb.WriteString("\n")
 
-	// History sidebar styling
-	sb.WriteString(generateHistorySidebarCSS(p))
+	appendNativeSidebarCSS(&sb, p)
 
 	return sb.String()
+}
+
+func appendNativeSidebarCSS(sb *strings.Builder, p Palette) {
+	// Native sidebar styling
+	sb.WriteString(generateSidebarCSS(p))
+	sb.WriteString("\n")
+	sb.WriteString(generateHistorySidebarCSS(p))
+	sb.WriteString("\n")
+	sb.WriteString(generateFavoritesSidebarCSS(p))
 }
 
 // generateTabBarCSS creates tab bar styles.
