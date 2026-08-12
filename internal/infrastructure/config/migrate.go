@@ -25,11 +25,6 @@ type Migrator struct {
 	defaultConfig *Config
 }
 
-// configMigrator reuses the default-action metadata needed during config load.
-// It is immutable after initialization; per-command migration still constructs
-// explicit Migrator instances when callers need independent state.
-var configMigrator = NewMigrator()
-
 // NewMigrator creates a new Migrator instance.
 func NewMigrator() *Migrator {
 	v := viper.New()
@@ -124,13 +119,16 @@ func (m *Migrator) DetectChanges() ([]port.KeyChange, error) {
 		userKeySet[k] = true
 	}
 
-	legacyBrowsingContextRenames := m.detectLegacyBrowsingContextRenames(rawUserKeysWithValues)
+	legacyRenames := append(
+		m.detectLegacyBrowsingContextRenames(rawUserKeysWithValues),
+		m.detectLegacyFavoritesSidebarRename(userKeysWithValues)...,
+	)
 	var changes []port.KeyChange
-	changes = append(changes, legacyBrowsingContextRenames...)
+	changes = append(changes, legacyRenames...)
 
-	handledLegacyDeprecatedKeys := make(map[string]bool, len(legacyBrowsingContextRenames))
-	handledLegacyMissingKeys := make(map[string]bool, len(legacyBrowsingContextRenames))
-	for _, change := range legacyBrowsingContextRenames {
+	handledLegacyDeprecatedKeys := make(map[string]bool, len(legacyRenames))
+	handledLegacyMissingKeys := make(map[string]bool, len(legacyRenames))
+	for _, change := range legacyRenames {
 		handledLegacyDeprecatedKeys[change.OldKey] = true
 		handledLegacyMissingKeys[change.NewKey] = true
 	}
@@ -451,10 +449,11 @@ func (m *Migrator) Migrate() ([]string, error) {
 		}
 	}
 
-	// Remove deprecated and renamed keys from the raw config
+	// Remove deprecated and renamed keys from the raw config.
 	for key := range keysToRemove {
 		m.deleteNestedKey(rawConfig, key)
 	}
+	m.upgradeLegacyFavoritesSidebarDefault(rawConfig)
 	m.mergeMissingDefaultActions(rawConfig)
 
 	// Create a new Viper instance with defaults for added keys
@@ -730,6 +729,31 @@ func (m *Migrator) getRawUserConfigKeysWithValues(configFile string) (map[string
 	return result, nil
 }
 
+func (m *Migrator) detectLegacyFavoritesSidebarRename(userKeys map[string]any) []port.KeyChange {
+	const (
+		actionsKey = "workspace.shortcuts.actions"
+		legacyName = "toggle-favorites-systemview"
+		newName    = "toggle-favorites-sidebar"
+	)
+
+	actionsValue, ok := userKeys[actionsKey]
+	if !ok {
+		return nil
+	}
+	actions, ok := m.toStringAnyMap(actionsValue)
+	if !ok || actions[legacyName] == nil || actions[newName] != nil {
+		return nil
+	}
+
+	return []port.KeyChange{{
+		Type:     port.KeyChangeRenamed,
+		OldKey:   actionsKey + "." + legacyName,
+		NewKey:   actionsKey + "." + newName,
+		OldValue: m.formatValue(actions[legacyName]),
+		NewValue: m.formatValue(m.defaultConfig.Workspace.Shortcuts.Actions[newName]),
+	}}
+}
+
 func (m *Migrator) detectLegacyBrowsingContextRenames(rawUserKeys map[string]any) []port.KeyChange {
 	type renamePair struct {
 		oldKey string
@@ -859,17 +883,11 @@ func (m *Migrator) detectMissingDefaultActions(userKeysWithValues map[string]any
 		}
 
 		for actionName := range actionMap.actions {
-			if actionValue, exists := userActions[actionName]; exists {
-				if m.isObsoleteDefaultAction(actionMap.key, actionName, actionValue) {
-					missing = append(missing, actionMap.key+"."+actionName)
-				}
+			if _, exists := userActions[actionName]; exists {
 				continue
 			}
 			legacyActionName := strings.ReplaceAll(actionName, "-", "_")
-			if actionValue, exists := userActions[legacyActionName]; exists {
-				if m.isObsoleteDefaultAction(actionMap.key, actionName, actionValue) {
-					missing = append(missing, actionMap.key+"."+actionName)
-				}
+			if _, exists := userActions[legacyActionName]; exists {
 				continue
 			}
 			missing = append(missing, actionMap.key+"."+actionName)
@@ -894,18 +912,11 @@ func (m *Migrator) mergeMissingDefaultActions(rawConfig map[string]any) {
 		}
 
 		for actionName, defaultAction := range actionMap.actions {
-			if actionValue, exists := userActions[actionName]; exists {
-				if m.isObsoleteDefaultAction(actionMap.key, actionName, actionValue) {
-					userActions[actionName] = defaultAction
-				}
+			if _, exists := userActions[actionName]; exists {
 				continue
 			}
 			legacyActionName := strings.ReplaceAll(actionName, "-", "_")
-			if actionValue, exists := userActions[legacyActionName]; exists {
-				if m.isObsoleteDefaultAction(actionMap.key, actionName, actionValue) {
-					delete(userActions, legacyActionName)
-					userActions[actionName] = defaultAction
-				}
+			if _, exists := userActions[legacyActionName]; exists {
 				continue
 			}
 			userActions[actionName] = defaultAction
@@ -915,15 +926,23 @@ func (m *Migrator) mergeMissingDefaultActions(rawConfig map[string]any) {
 	}
 }
 
-func (m *Migrator) isObsoleteDefaultAction(actionMapKey, actionName string, actionValue any) bool {
-	if actionMapKey != "workspace.shortcuts.actions" || actionName != "toggle-favorites-systemview" {
-		return false
-	}
-	binding, ok := m.actionBindingFromAny(actionValue)
+func (m *Migrator) upgradeLegacyFavoritesSidebarDefault(rawConfig map[string]any) {
+	const (
+		actionsKey = "workspace.shortcuts.actions"
+		actionName = "toggle-favorites-sidebar"
+	)
+
+	actionsValue := m.getNestedValue(rawConfig, actionsKey)
+	actions, ok := m.toStringAnyMap(actionsValue)
 	if !ok {
-		return false
+		return
 	}
-	return len(binding.Keys) == 0 && strings.TrimSpace(binding.Desc) == "Toggle Favorites in right split"
+	binding, ok := m.actionBindingFromAny(actions[actionName])
+	if !ok || !reflect.DeepEqual(binding, entity.ActionBinding{Keys: []string{}, Desc: "Toggle Favorites in right split"}) {
+		return
+	}
+	actions[actionName] = m.defaultConfig.Workspace.Shortcuts.Actions[actionName]
+	m.setNestedValue(rawConfig, actionsKey, actions)
 }
 
 func (m *Migrator) actionBindingFromAny(value any) (entity.ActionBinding, bool) {

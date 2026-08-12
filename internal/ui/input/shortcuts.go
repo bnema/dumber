@@ -189,7 +189,7 @@ const (
 	ActionToggleFullscreen          Action = "toggle_fullscreen"
 	ActionToggleFloatingPane        Action = "toggle_floating_pane"
 	ActionToggleHistorySystemView   Action = "toggle_history_systemview"
-	ActionToggleFavoritesSystemView Action = "toggle_favorites_systemview"
+	ActionToggleFavoritesSidebar    Action = "toggle_favorites_sidebar"
 	ActionToggleCurrentPageFavorite Action = "toggle_current_page_favorite"
 	ActionToggleConfigSystemView    Action = "toggle_config_systemview"
 
@@ -569,8 +569,8 @@ var configActionToAction = map[string]Action{
 	"toggle-floating-pane":         ActionToggleFloatingPane,
 	"toggle_history_systemview":    ActionToggleHistorySystemView,
 	"toggle-history-systemview":    ActionToggleHistorySystemView,
-	"toggle_favorites_systemview":  ActionToggleFavoritesSystemView,
-	"toggle-favorites-systemview":  ActionToggleFavoritesSystemView,
+	"toggle_favorites_sidebar":     ActionToggleFavoritesSidebar,
+	"toggle-favorites-sidebar":     ActionToggleFavoritesSidebar,
 	"toggle_current_page_favorite": ActionToggleCurrentPageFavorite,
 	"toggle-current-page-favorite": ActionToggleCurrentPageFavorite,
 	"toggle_config_systemview":     ActionToggleConfigSystemView,

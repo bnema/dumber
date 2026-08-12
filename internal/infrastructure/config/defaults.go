@@ -324,7 +324,7 @@ func DefaultConfig() *Config {
 				Actions: map[string]ActionBinding{
 					"toggle-floating-pane":         {Keys: []string{"alt+f"}, Desc: "Toggle floating pane"},
 					"toggle-history-systemview":    {Keys: []string{"ctrl+h"}, Desc: "Toggle History in right split"},
-					"toggle-favorites-systemview":  {Keys: []string{"ctrl+b"}, Desc: "Toggle Favorites sidebar"},
+					"toggle-favorites-sidebar":     {Keys: []string{"ctrl+b"}, Desc: "Toggle Favorites sidebar"},
 					"toggle-current-page-favorite": {Keys: []string{"ctrl+d"}, Desc: "Add/remove current page favorite"},
 					"toggle-config-systemview":     {Keys: []string{}, Desc: "Toggle Config in right split"},
 					"close-pane":                   {Keys: []string{"ctrl+w"}, Desc: "Close active pane"},
