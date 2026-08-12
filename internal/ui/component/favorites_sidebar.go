@@ -13,8 +13,6 @@ import (
 	"github.com/bnema/dumber/internal/domain/entity"
 )
 
-const favoritesSidebarOuterSpacing = 6
-
 // FavoritesSidebarConfig holds configuration for creating a FavoritesSidebar.
 type FavoritesSidebarConfig struct {
 	FavoritesUC        port.FavoritesSidebarFavorites
@@ -26,22 +24,27 @@ type FavoritesSidebarConfig struct {
 
 // FavoritesSidebar is a read-only GTK sidebar component for browsing favorites.
 type FavoritesSidebar struct {
-	outerBox    *gtk.Box
-	searchEntry *gtk.SearchEntry
-	tagBox      *gtk.Box
-	scrolledWin *gtk.ScrolledWindow
-	listBox     *gtk.ListBox
-	formBox     *gtk.Box
+	outerBox         *gtk.Box
+	searchEntry      *gtk.SearchEntry
+	tagBox           *gtk.Box
+	tagControls      []*gtk.Button
+	tagPromptBox     *gtk.Box
+	tagNameEntry     *gtk.Entry
+	tagPromptSaveBtn *gtk.Button
+	scrolledWin      *gtk.ScrolledWindow
+	listBox          *gtk.ListBox
+	formBox          *gtk.Box
 
 	formURLEntry      *gtk.SearchEntry
 	formTitleEntry    *gtk.SearchEntry
-	formTagsEntry     *gtk.SearchEntry
+	formTagSearch     *gtk.SearchEntry
+	formTagMatches    *gtk.Box
 	formShortcutEntry *gtk.SearchEntry
 	formSaveButton    *gtk.Button
 	formURL           string
 	formTitle         string
-	formTags          string
 	formShortcut      string
+	formTagIDs        map[entity.TagID]struct{}
 
 	favoritesUC        port.FavoritesSidebarFavorites
 	onNavigate         func(ctx context.Context, url string) error
@@ -60,16 +63,20 @@ type FavoritesSidebar struct {
 	destroyed       bool
 	visible         bool
 	focusZone       favoritesSidebarFocusZone
+	textInputWidget *gtk.Widget
 	mode            favoritesSidebarMode
 	editingID       entity.FavoriteID
 	confirmDelete   bool
 	confirmDeleteID entity.FavoriteID
 
-	retainedCallbacks []any
-	tagCallbacks      []any
-	ctx               context.Context
-	cancel            context.CancelFunc
-	mu                sync.RWMutex
+	retainedCallbacks     []any
+	tagCallbacks          []any
+	tagPromptCallbacks    []any
+	formCallbacks         []any
+	formTagMatchCallbacks []any
+	ctx                   context.Context
+	cancel                context.CancelFunc
+	mu                    sync.RWMutex
 
 	idleScheduler func(glib.SourceFunc)
 }
@@ -157,33 +164,12 @@ func (fs *FavoritesSidebar) Destroy() {
 }
 
 func (fs *FavoritesSidebar) createWidgets() error {
-	fs.outerBox = gtk.NewBox(gtk.OrientationVerticalValue, favoritesSidebarOuterSpacing)
-	if fs.outerBox == nil {
-		return fmt.Errorf("favorites sidebar: outer box creation failed")
+	if err := fs.createOuterAndSearch(); err != nil {
+		return err
 	}
-	fs.outerBox.AddCssClass("favorites-sidebar-outer")
-	fs.outerBox.SetSizeRequest(sidebarMinWidth, -1)
-	fs.outerBox.SetHexpand(false)
-	fs.outerBox.SetVexpand(true)
-	fs.outerBox.SetVisible(false)
-
-	fs.searchEntry = gtk.NewSearchEntry()
-	if fs.searchEntry == nil {
-		return fmt.Errorf("favorites sidebar: search entry creation failed")
+	if err := fs.createTagControls(); err != nil {
+		return err
 	}
-	fs.searchEntry.AddCssClass("favorites-sidebar-search")
-	fs.searchEntry.SetHexpand(true)
-	placeholder := "Search favorites"
-	fs.searchEntry.SetPlaceholderText(&placeholder)
-	fs.outerBox.Append(&fs.searchEntry.Widget)
-
-	fs.tagBox = gtk.NewBox(gtk.OrientationHorizontalValue, 4)
-	if fs.tagBox == nil {
-		return fmt.Errorf("favorites sidebar: tag box creation failed")
-	}
-	fs.tagBox.AddCssClass("favorites-sidebar-tags")
-	fs.tagBox.SetHexpand(true)
-	fs.outerBox.Append(&fs.tagBox.Widget)
 
 	fs.scrolledWin = gtk.NewScrolledWindow()
 	if fs.scrolledWin == nil {
@@ -192,12 +178,15 @@ func (fs *FavoritesSidebar) createWidgets() error {
 	fs.scrolledWin.SetVexpand(true)
 	fs.scrolledWin.SetHexpand(true)
 	fs.scrolledWin.SetPolicy(gtk.PolicyNeverValue, gtk.PolicyAutomaticValue)
+	fs.scrolledWin.AddCssClass("sidebar-list")
 
 	fs.listBox = gtk.NewListBox()
 	if fs.listBox == nil {
 		return fmt.Errorf("favorites sidebar: list box creation failed")
 	}
+	fs.listBox.AddCssClass("sidebar-list")
 	fs.listBox.AddCssClass("favorites-sidebar-list")
+	fs.trackListFocus(&fs.listBox.Widget)
 	fs.listBox.SetActivateOnSingleClick(true)
 	fs.listBox.SetSelectionMode(gtk.SelectionSingleValue)
 	rowActivatedCb := func(_ gtk.ListBox, rowPtr uintptr) {
@@ -218,6 +207,125 @@ func (fs *FavoritesSidebar) createWidgets() error {
 	fs.formBox.SetVisible(false)
 	fs.outerBox.Append(&fs.formBox.Widget)
 	return nil
+}
+
+func (fs *FavoritesSidebar) createOuterAndSearch() error {
+	fs.outerBox = gtk.NewBox(gtk.OrientationVerticalValue, 0)
+	if fs.outerBox == nil {
+		return fmt.Errorf("favorites sidebar: outer box creation failed")
+	}
+	fs.outerBox.AddCssClass("sidebar-outer")
+	fs.outerBox.AddCssClass("favorites-sidebar-outer")
+	fs.outerBox.SetSizeRequest(sidebarMinWidth, -1)
+	fs.outerBox.SetHexpand(false)
+	fs.outerBox.SetVexpand(true)
+	fs.outerBox.SetVisible(false)
+
+	searchBox := gtk.NewBox(gtk.OrientationHorizontalValue, 4)
+	if searchBox == nil {
+		return fmt.Errorf("favorites sidebar: search box creation failed")
+	}
+	searchBox.AddCssClass("sidebar-search-box")
+	searchBox.SetHexpand(true)
+	fs.searchEntry = gtk.NewSearchEntry()
+	if fs.searchEntry == nil {
+		return fmt.Errorf("favorites sidebar: search entry creation failed")
+	}
+	fs.searchEntry.AddCssClass("sidebar-search")
+	fs.searchEntry.AddCssClass("favorites-sidebar-search")
+	fs.trackTextInputFocus(&fs.searchEntry.Widget, &fs.retainedCallbacks)
+	fs.searchEntry.SetHexpand(true)
+	placeholder := "Search favorites..."
+	fs.searchEntry.SetPlaceholderText(&placeholder)
+	searchBox.Append(&fs.searchEntry.Widget)
+	fs.outerBox.Append(&searchBox.Widget)
+	return nil
+}
+
+func (fs *FavoritesSidebar) createTagControls() error {
+	fs.tagBox = gtk.NewBox(gtk.OrientationHorizontalValue, 4)
+	if fs.tagBox == nil {
+		return fmt.Errorf("favorites sidebar: tag box creation failed")
+	}
+	fs.tagBox.AddCssClass("favorites-sidebar-tags")
+	fs.tagBox.SetHexpand(true)
+	fs.outerBox.Append(&fs.tagBox.Widget)
+	fs.tagPromptBox = gtk.NewBox(gtk.OrientationHorizontalValue, 4)
+	if fs.tagPromptBox == nil {
+		return fmt.Errorf("favorites sidebar: tag prompt creation failed")
+	}
+	fs.tagPromptBox.AddCssClass("favorites-sidebar-tag-prompt")
+	fs.tagPromptBox.SetVisible(false)
+	fs.outerBox.Append(&fs.tagPromptBox.Widget)
+	return nil
+}
+
+func (fs *FavoritesSidebar) trackTextInputFocus(widget *gtk.Widget, callbacks *[]any) {
+	if fs == nil || widget == nil || callbacks == nil {
+		return
+	}
+	controller := gtk.NewEventControllerFocus()
+	if controller == nil {
+		return
+	}
+	entered := func(gtk.EventControllerFocus) { fs.setTextInputFocused(widget) }
+	left := func(gtk.EventControllerFocus) { fs.clearTextInputFocus(widget) }
+	*callbacks = append(*callbacks, entered, left)
+	controller.ConnectEnter(&entered)
+	controller.ConnectLeave(&left)
+	widget.AddController(&controller.EventController)
+}
+
+func (fs *FavoritesSidebar) setTextInputFocused(widget *gtk.Widget) {
+	if fs == nil || widget == nil {
+		return
+	}
+	fs.mu.Lock()
+	if !fs.destroyed {
+		fs.textInputWidget = widget
+		if fs.searchEntry != nil && widget == &fs.searchEntry.Widget {
+			fs.focusZone = favoritesSidebarFocusSearch
+		} else {
+			fs.focusZone = favoritesSidebarFocusForm
+		}
+	}
+	fs.mu.Unlock()
+}
+
+func (fs *FavoritesSidebar) trackListFocus(widget *gtk.Widget) {
+	if fs == nil || widget == nil {
+		return
+	}
+	controller := gtk.NewEventControllerFocus()
+	if controller == nil {
+		return
+	}
+	entered := func(gtk.EventControllerFocus) { fs.setFocusZone(favoritesSidebarFocusList) }
+	fs.retainedCallbacks = append(fs.retainedCallbacks, entered)
+	controller.ConnectEnter(&entered)
+	widget.AddController(&controller.EventController)
+}
+
+func (fs *FavoritesSidebar) setFocusZone(zone favoritesSidebarFocusZone) {
+	if fs == nil {
+		return
+	}
+	fs.mu.Lock()
+	if !fs.destroyed {
+		fs.focusZone = zone
+	}
+	fs.mu.Unlock()
+}
+
+func (fs *FavoritesSidebar) clearTextInputFocus(widget *gtk.Widget) {
+	if fs == nil || widget == nil {
+		return
+	}
+	fs.mu.Lock()
+	if !fs.destroyed && fs.textInputWidget == widget {
+		fs.textInputWidget = nil
+	}
+	fs.mu.Unlock()
 }
 
 func (fs *FavoritesSidebar) focusSearch() {
