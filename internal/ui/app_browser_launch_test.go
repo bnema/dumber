@@ -35,7 +35,9 @@ import (
 	"github.com/bnema/dumber/internal/ui/window"
 	"github.com/bnema/puregotk/v4/gdk"
 	"github.com/bnema/puregotk/v4/gio"
+	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gtk"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
@@ -979,7 +981,9 @@ func newTestShellToaster(t *testing.T) (*component.Toaster, *layoutmocks.MockBox
 	label.EXPECT().SetCanTarget(false).Once()
 	label.EXPECT().SetCanFocus(false).Once()
 
-	return component.NewToaster(factory), box, label
+	toaster := component.NewToaster(factory)
+	t.Cleanup(toaster.CancelAutoDismiss)
+	return toaster, box, label
 }
 
 func TestApp_ShowFilterStatusUsesLastFocusedBrowserWindowToaster(t *testing.T) {
@@ -995,6 +999,24 @@ func TestApp_ShowFilterStatusUsesLastFocusedBrowserWindowToaster(t *testing.T) {
 	}
 
 	app.showFilterStatus(ctx, port.FilterStatus{State: port.FilterStateLoading, Message: "Ad blocker loading"})
+}
+
+func TestTestShellToasterCleanupCancelsAutoDismiss(t *testing.T) {
+	toaster, box, label := newTestShellToaster(t)
+	box.EXPECT().SetVisible(true).Once()
+	label.EXPECT().SetText("will not outlive this test").Once()
+	toaster.Show(context.Background(), "will not outlive this test", component.ToastInfo)
+	toaster.CancelAutoDismiss()
+
+	mainContext := glib.MainContextDefault()
+	deadline := time.Now().Add(component.ToastBriefDurationMs + 100*time.Millisecond)
+	for time.Now().Before(deadline) {
+		for mainContext.Pending() {
+			mainContext.Iteration(false)
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	assert.True(t, toaster.IsVisible(), "canceling must prevent the deferred hide callback")
 }
 
 func TestApp_CheckConfigMigrationUsesLastFocusedBrowserWindowToaster(t *testing.T) {
