@@ -19,7 +19,7 @@ func generateSidebarCSS(_ Palette) string {
 
 .sidebar-search {
 	min-height: 0;
-	padding: 0.0625em 0.375em;
+	padding: 0.125em 0.375em;
 	font-size: 0.85em;
 }
 
