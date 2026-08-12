@@ -507,7 +507,12 @@ func (fs *FavoritesSidebar) cycleTagControlFocus(reverse bool) bool {
 	}
 	index := fs.focusedTagControlIndex()
 	if index < 0 {
-		index = 0
+		if reverse {
+			fs.focusTagControl(len(controls) - 1)
+		} else {
+			fs.focusTagControl(0)
+		}
+		return true
 	}
 	if reverse {
 		if index > 0 {

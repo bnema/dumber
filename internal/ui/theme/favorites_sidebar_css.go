@@ -6,7 +6,6 @@ func generateFavoritesSidebarCSS(_ Palette) string {
 
 .favorites-sidebar-tags {
 	padding: 0.25em 0.5em 0.375em;
-	spacing: 0.25em;
 	border-bottom: 0.0625em solid var(--border);
 	background-color: var(--surface-variant);
 }
@@ -42,7 +41,6 @@ func generateFavoritesSidebarCSS(_ Palette) string {
 
 .favorites-sidebar-tag-prompt {
 	padding: 0.375em 0.5em;
-	spacing: 0.375em;
 	border-bottom: 0.0625em solid var(--border);
 	background-color: var(--surface-variant);
 }
@@ -83,7 +81,6 @@ func generateFavoritesSidebarCSS(_ Palette) string {
 
 .favorites-sidebar-form {
 	padding: 0.5em;
-	spacing: 0.375em;
 	border-top: 0.0625em solid var(--border);
 	background-color: var(--surface-variant);
 }
@@ -96,7 +93,6 @@ func generateFavoritesSidebarCSS(_ Palette) string {
 }
 
 .favorites-sidebar-form-tag-matches {
-	spacing: 0.25em;
 	padding: 0.125em 0;
 }
 

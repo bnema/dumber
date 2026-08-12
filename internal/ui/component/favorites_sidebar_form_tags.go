@@ -65,6 +65,7 @@ func (fs *FavoritesSidebar) renderFormTagMatches(query string) {
 	fs.mu.RUnlock()
 
 	clearBoxChildren(fs.formTagMatches)
+	callbacks := make([]any, 0)
 	for _, tag := range formTagCandidates(tags, selected, query) {
 		t := *tag
 		label := t.Name
@@ -77,10 +78,15 @@ func (fs *FavoritesSidebar) renderFormTagMatches(query string) {
 		}
 		button.AddCssClass("favorites-sidebar-form-tag-match")
 		callback := func(_ gtk.Button) { fs.toggleFormTag(t.ID) }
-		fs.retainedCallbacks = append(fs.retainedCallbacks, callback)
+		callbacks = append(callbacks, callback)
 		button.ConnectClicked(&callback)
 		fs.formTagMatches.Append(&button.Widget)
 	}
+	fs.mu.Lock()
+	if !fs.destroyed {
+		fs.formTagMatchCallbacks = callbacks
+	}
+	fs.mu.Unlock()
 }
 
 func (fs *FavoritesSidebar) toggleFormTag(tagID entity.TagID) {

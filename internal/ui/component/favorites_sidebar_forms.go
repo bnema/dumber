@@ -181,7 +181,7 @@ func (fs *FavoritesSidebar) cancelManagement() bool {
 		clearBoxChildren(fs.formBox)
 	}
 	if fs.tagPromptBox != nil {
-		clearBoxChildren(fs.tagPromptBox)
+		fs.clearTagPromptContent()
 		fs.tagPromptBox.SetVisible(false)
 		fs.tagNameEntry = nil
 		fs.tagPromptSaveBtn = nil

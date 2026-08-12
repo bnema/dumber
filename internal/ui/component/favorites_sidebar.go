@@ -69,11 +69,13 @@ type FavoritesSidebar struct {
 	confirmDelete   bool
 	confirmDeleteID entity.FavoriteID
 
-	retainedCallbacks []any
-	tagCallbacks      []any
-	ctx               context.Context
-	cancel            context.CancelFunc
-	mu                sync.RWMutex
+	retainedCallbacks     []any
+	tagCallbacks          []any
+	tagPromptCallbacks    []any
+	formTagMatchCallbacks []any
+	ctx                   context.Context
+	cancel                context.CancelFunc
+	mu                    sync.RWMutex
 
 	idleScheduler func(glib.SourceFunc)
 }
