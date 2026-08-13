@@ -1100,7 +1100,7 @@ func (a *App) initBrowserWindowInput(ctx context.Context, bw *browserWindow) {
 		a.activateBrowserWindow(bw)
 		a.handleModeChange(ctx, bw, from, to)
 	})
-	a.bindPageModeSequenceToaster(ctx, bw)
+	a.bindVimModeSequenceToaster(ctx, bw)
 	bw.keyboardHandler.SetRouteKey(func(kc input.KeyContext) input.KeyRoute {
 		if bw.sessionManager != nil && bw.sessionManager.IsVisible() {
 			return input.RoutePassToWidget
@@ -4055,9 +4055,9 @@ func (a *App) updateModeIndicatorToaster(ctx context.Context, bw *browserWindow,
 	)
 }
 
-// bindPageModeSequenceToaster wires pending Vim-sequence text onto this
+// bindVimModeSequenceToaster wires pending Vim-sequence text onto this
 // window's modeToaster only (never appToaster / pane toasters).
-func (a *App) bindPageModeSequenceToaster(ctx context.Context, bw *browserWindow) {
+func (a *App) bindVimModeSequenceToaster(ctx context.Context, bw *browserWindow) {
 	if a == nil || bw == nil || bw.keyboardHandler == nil {
 		return
 	}
@@ -4066,7 +4066,7 @@ func (a *App) bindPageModeSequenceToaster(ctx context.Context, bw *browserWindow
 	})
 	logging.FromContext(ctx).Debug().
 		Str("window_id", bw.id).
-		Msg("page mode pending sequence toaster bound")
+		Msg("vim mode pending sequence toaster bound")
 }
 
 // showPendingSequence shows "PAGE MODE · pending" on the per-window modeToaster
@@ -4080,24 +4080,24 @@ func (a *App) showPendingSequence(ctx context.Context, bw *browserWindow, pendin
 	log := logging.FromContext(ctx)
 	if !a.runtimeConfigSnapshot().UI.Workspace.Styling.ModeIndicatorToasterEnabled {
 		bw.modeToaster.Hide()
-		log.Debug().Str("window_id", bw.id).Msg("page mode pending toaster hidden (disabled)")
+		log.Debug().Str("window_id", bw.id).Msg("vim mode pending toaster hidden (disabled)")
 		return
 	}
 
-	text := input.ModePage.DisplayName()
+	text := input.ModeVim.DisplayName()
 	if pending != "" {
 		text = text + " · " + pending
 	}
 	bw.modeToaster.Show(ctx, text, component.ToastInfo,
 		component.WithDuration(0),
 		component.WithPosition(component.ToastPositionBottomLeft),
-		component.WithModeClass(getModeToastClass(input.ModePage)),
+		component.WithModeClass(getModeToastClass(input.ModeVim)),
 	)
 	log.Debug().
 		Str("window_id", bw.id).
 		Str("pending", pending).
 		Str("toast_text", text).
-		Msg("page mode pending toaster updated")
+		Msg("vim mode pending toaster updated")
 }
 
 // getModeToastClass returns the CSS class for the given mode's toast styling.
