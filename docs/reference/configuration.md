@@ -1,5 +1,7 @@
 # Configuration Reference
 
+`workspace.external_links` controls URLs opened from another application. Non-`windowed` modes target the last-focused window in the current Dumber profile and engine; if that destination is unavailable, Dumber falls back to opening a new window. `placement` applies only to `split`.
+
 | Key | Type | Default | Valid Values |
 |-----|------|---------|--------------|
 | `database.path` | string | `~/.local/share/dumber/dumber.db` | |
@@ -123,9 +125,6 @@
 | `workspace.browsing_contexts.blank_target_behavior` | string | `stacked` | `split`, `stacked`, `tabbed` |
 | `workspace.browsing_contexts.enable_smart_detection` | bool | `true` | |
 | `workspace.browsing_contexts.oauth_auto_close` | bool | `true` | |
-
-`workspace.external_links` controls URLs opened from another application. Non-`windowed` modes target the last-focused window in the current Dumber profile and engine; if that destination is unavailable, Dumber falls back to opening a new window. `placement` applies only to `split`.
-
 | `workspace.styling.border_width` | int | `1` | |
 | `workspace.styling.border_color` | string | `@theme_selected_bg_color` | |
 | `workspace.styling.mode_border_width` | int | `4` | |

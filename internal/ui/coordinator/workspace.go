@@ -1490,6 +1490,7 @@ func (c *WorkspaceCoordinator) StackPaneWithURL(ctx context.Context, initialURL 
 	addErr := c.stackedPaneMgr.AddPaneToStack(ctx, stackCtx.wsView, stackCtx.activePaneID, newPaneView, defaultPaneTitle)
 	if addErr != nil {
 		log.Error().Err(addErr).Msg("failed to add pane to stack")
+		c.rollbackStackPane(ctx, stackCtx, newPaneID)
 		return addErr
 	}
 
@@ -1506,21 +1507,24 @@ func (c *WorkspaceCoordinator) StackPaneWithURL(ctx context.Context, initialURL 
 	}
 	widget := c.contentCoord.WrapWidget(ctx, wv)
 	if widget == nil {
-		return fmt.Errorf("wrap webview for stacked pane")
+		err := fmt.Errorf("wrap webview for stacked pane")
+		c.rollbackStackPane(ctx, stackCtx, newPaneID)
+		return err
 	}
 	if err := stackCtx.wsView.SetWebViewWidget(newPaneID, widget); err != nil {
 		log.Warn().Err(err).Str("pane_id", string(newPaneID)).Msg("failed to attach webview widget for stacked pane")
+		c.rollbackStackPane(ctx, stackCtx, newPaneID)
 		return err
 	}
-	// Load initial page for the new pane.
+	// Loading failures leave the attached pane available for a later navigation.
 	if err := wv.LoadURI(ctx, newPane.URI); err != nil {
 		log.Warn().Err(err).Str("uri_host", logging.SafeURLHost(newPane.URI)).Msg("failed to load initial page")
-		return err
 	}
 
 	// Update workspace view
 	if err := stackCtx.wsView.SetActivePaneID(newPaneID); err != nil {
 		log.Warn().Err(err).Msg("failed to set active pane")
+		c.rollbackStackPane(ctx, stackCtx, newPaneID)
 		return err
 	}
 	stackCtx.wsView.FocusPane(newPaneID)
@@ -1552,6 +1556,15 @@ func (c *WorkspaceCoordinator) StackPaneWithURL(ctx context.Context, initialURL 
 		Msg("stacked new pane")
 
 	return nil
+}
+
+func (c *WorkspaceCoordinator) rollbackStackPane(ctx context.Context, stackCtx *stackPaneContext, paneID entity.PaneID) {
+	if err := c.ClosePaneByID(ctx, paneID); err != nil {
+		logging.FromContext(ctx).Warn().Err(err).Str("pane_id", string(paneID)).
+			Msg("failed to roll back stacked pane")
+	}
+	stackCtx.ws.ActivePaneID = stackCtx.activePaneID
+	c.notifyStateChanged()
 }
 
 func (c *WorkspaceCoordinator) createOrAddStackPane(

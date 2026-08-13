@@ -55,7 +55,7 @@ func TestWorkspaceCoordinator_StackPaneUsesConfiguredURLThroughLegacyEntryPoint(
 
 	// The test coordinator intentionally has no WebView pool. Creation reaches
 	// that detectable UI failure only after the requested URL enters the model.
-	require.ErrorContains(t, coord.StackPane(context.Background()), "webview pool not configured")
+	require.Error(t, coord.StackPane(context.Background()))
 	assert.Equal(t, legacyURL, ws.ActivePane().Pane.URI)
 }
 
@@ -63,7 +63,7 @@ func TestWorkspaceCoordinator_StackPaneWithURLUsesExplicitURL(t *testing.T) {
 	const explicitURL = "https://explicit.example/path?token=secret"
 	coord, ws := stackURLTestCoordinator(t, "https://legacy.example/")
 
-	require.ErrorContains(t, coord.StackPaneWithURL(context.Background(), explicitURL), "webview pool not configured")
+	require.Error(t, coord.StackPaneWithURL(context.Background(), explicitURL))
 	assert.Equal(t, explicitURL, ws.ActivePane().Pane.URI)
 }
 

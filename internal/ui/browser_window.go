@@ -634,7 +634,6 @@ func (a *App) openExternalURLInFocusedWindow(ctx context.Context, url string, cf
 		return err
 	}
 
-	a.activateBrowserWindow(target)
 	switch cfg.Behavior {
 	case entity.ExternalLinkBehaviorTabbed:
 		if err := a.createExternalURLTab(ctx, target, url); err != nil {
@@ -710,7 +709,11 @@ func (a *App) placeExternalURLInPane(ctx context.Context, ws *entity.Workspace, 
 }
 
 func (a *App) rollbackExternalPaneCreation(ctx context.Context, ws *entity.Workspace, previous entity.PaneID) {
-	if a.panesUC == nil || ws == nil || ws.ActivePaneID == "" || ws.ActivePaneID == previous {
+	if a.panesUC == nil {
+		logging.FromContext(ctx).Warn().Msg("ui: cannot roll back external URL pane; panes use case is unavailable")
+		return
+	}
+	if ws == nil || ws.ActivePaneID == "" || ws.ActivePaneID == previous {
 		return
 	}
 	created := ws.ActivePane()

@@ -17,6 +17,7 @@ import (
 
 func TestExternalLinkSplitDirectionPlacements(t *testing.T) {
 	tests := map[entity.ExternalLinkPlacement]usecase.SplitDirection{
+		"":                                 usecase.SplitRight,
 		entity.ExternalLinkPlacementLeft:   usecase.SplitLeft,
 		entity.ExternalLinkPlacementRight:  usecase.SplitRight,
 		entity.ExternalLinkPlacementTop:    usecase.SplitUp,

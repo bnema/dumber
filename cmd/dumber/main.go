@@ -298,7 +298,7 @@ func runGUI(cfg *config.Config, timing startupTiming) int {
 	if relaunchSetter, ok := engine.(port.AlreadyRunningAppRelaunchHandlerSetter); ok {
 		relaunchSetter.SetAlreadyRunningAppRelaunchHandler(func(url string) {
 			if err := app.OpenExternalURL(ctx, url); err != nil {
-				log.Warn().Err(err).Str("url", url).Msg("failed to open relaunch browser window")
+				log.Warn().Err(err).Str("url", url).Msg("failed to open relaunch external URL")
 			}
 		})
 	}
