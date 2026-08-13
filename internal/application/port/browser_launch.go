@@ -5,12 +5,13 @@ import (
 	"io"
 )
 
-// BrowserWindowOpener opens an external URL.
+// BrowserWindowOpener opens browser URLs received through the launch relay.
 type BrowserWindowOpener interface {
 	OpenExternalURL(ctx context.Context, url string) error
+	OpenFreshWindow(ctx context.Context, url string) error
 }
 
-// BrowserLaunchRelay delivers external URL launch requests.
+// BrowserLaunchRelay delivers browser URL launch requests.
 type BrowserLaunchRelay interface {
 	// DeliverOpenExternalURL attempts to deliver a request to open an external URL.
 	// The bool reports whether the relay accepted the request; false means the
@@ -18,6 +19,9 @@ type BrowserLaunchRelay interface {
 	// An error may still be returned with delivered=true when the relay accepted
 	// the request but could not confirm completion before the caller timed out.
 	DeliverOpenExternalURL(ctx context.Context, url string) (bool, error)
+	// DeliverOpenFreshWindow attempts to deliver a request that must open in a
+	// new browser window, independently of external-link workspace settings.
+	DeliverOpenFreshWindow(ctx context.Context, url string) (bool, error)
 	Listen(ctx context.Context, opener BrowserWindowOpener) (io.Closer, error)
 }
 

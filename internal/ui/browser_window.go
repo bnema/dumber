@@ -610,6 +610,67 @@ func (a *App) OpenExternalURL(ctx context.Context, url string) error {
 	return nil
 }
 
+func (a *App) OpenFreshWindow(ctx context.Context, url string) error {
+	log := logging.FromContext(ctx)
+	log.Debug().
+		Str("url_host", logging.SafeURLHost(url)).
+		Msg("ui: open fresh window dispatch requested")
+
+	dispatch := a.dispatchOnMainThread
+	if dispatch == nil {
+		dispatch = func(label string, fn func()) syncdispatch.SyncDispatchResult {
+			if fn != nil {
+				fn()
+			}
+			return syncdispatch.SyncDispatchResult{Label: label, Status: syncdispatch.SyncDispatchInline}
+		}
+	}
+
+	var openErr error
+	var windowCountBefore int
+	var windowCountAfter int
+	var hasTabCoord bool
+	var hasTabsUC bool
+	result := dispatch("ui.open_fresh_window", func() {
+		windowCountBefore = len(a.browserWindows)
+		hasTabCoord = a.tabCoord != nil
+		hasTabsUC = a.tabsUC != nil
+		log.Debug().
+			Str("url_host", logging.SafeURLHost(url)).
+			Int("window_count_before", windowCountBefore).
+			Bool("has_tab_coord", hasTabCoord).
+			Bool("has_tabs_uc", hasTabsUC).
+			Msg("ui: open fresh window main-thread work started")
+		openErr = a.openFreshWindow(ctx, url)
+		windowCountAfter = len(a.browserWindows)
+	})
+	if !result.Completed() {
+		log.Warn().
+			Str("url_host", logging.SafeURLHost(url)).
+			Dur("elapsed", result.Elapsed).
+			Str("dispatch_status", string(result.Status)).
+			Msg("ui: open fresh window skipped after main-thread dispatch did not complete")
+		return fmt.Errorf("main thread dispatch did not complete: %s", result.Status)
+	}
+	if openErr != nil {
+		log.Warn().Err(openErr).
+			Str("url_host", logging.SafeURLHost(url)).
+			Dur("elapsed", result.Elapsed).
+			Str("dispatch_status", string(result.Status)).
+			Int("window_count_after", windowCountAfter).
+			Msg("ui: open fresh window failed")
+		return openErr
+	}
+
+	log.Debug().
+		Str("url_host", logging.SafeURLHost(url)).
+		Dur("elapsed", result.Elapsed).
+		Str("dispatch_status", string(result.Status)).
+		Int("window_count_after", windowCountAfter).
+		Msg("ui: open fresh window completed")
+	return nil
+}
+
 func (a *App) openExternalURLOnMainThread(ctx context.Context, url string, cfg entity.RuntimeConfigSnapshot) error {
 	externalLinks := cfg.UI.Workspace.ExternalLinks
 	if externalLinks.Behavior == entity.ExternalLinkBehaviorWindowed || externalLinks.Behavior == "" {

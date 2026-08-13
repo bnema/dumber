@@ -256,6 +256,20 @@ func TestTryForwardBrowseURLToRunningInstance_ReturnsTrueOnRelayHit(t *testing.T
 	}
 }
 
+func TestTryForwardFreshWindowURLToRunningInstance_UsesFreshWindowRelayAction(t *testing.T) {
+	relay := mocks.NewMockBrowserLaunchRelay(t)
+	relay.EXPECT().DeliverOpenFreshWindow(context.Background(), "https://example.com").Return(true, nil)
+
+	forwarded, err := tryForwardFreshWindowURLToRunningInstance(context.Background(), relay, "https://example.com")
+
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if !forwarded {
+		t.Fatal("expected fresh-window relay delivery to be forwarded")
+	}
+}
+
 func TestTryForwardBrowseURLToRunningInstance_ReturnsFalseOnRelayMiss(t *testing.T) {
 	relay := mocks.NewMockBrowserLaunchRelay(t)
 	relay.EXPECT().DeliverOpenExternalURL(context.Background(), "https://example.com").Return(false, nil)
