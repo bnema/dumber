@@ -282,7 +282,7 @@ func decodeScriptMessage(valuePtr uintptr, log zerolog.Logger) (Message, bool) {
 
 	var msg Message
 	if err := json.Unmarshal([]byte(rawJSON), &msg); err != nil {
-		log.Warn().Err(err).Str("json", rawJSON).Msg("failed to unmarshal script message")
+		log.Warn().Err(err).Int("json_len", len(rawJSON)).Msg("failed to unmarshal script message")
 		return Message{}, false
 	}
 	return msg, true
@@ -305,14 +305,15 @@ func (r *MessageRouter) handleAllowlistedBridgeMessage(senderWV *WebView, msg Me
 		Editable bool   `json:"editable"`
 		Token    string `json:"token"`
 	}
+	log := logging.FromContext(r.baseContext())
 	if len(msg.Payload) != 0 {
 		if err := json.Unmarshal(msg.Payload, &payload); err != nil {
-			logging.FromContext(r.baseCtx).Warn().Err(err).Str("type", msg.Type).Msg("failed to decode allowlisted bridge payload")
+			log.Warn().Err(err).Str("type", msg.Type).Msg("failed to decode allowlisted bridge payload")
 			return true
 		}
 	}
 	if payload.Token == "" || !senderWV.matchesEditableFocusBridgeToken(payload.Token) {
-		logging.FromContext(r.baseCtx).Warn().Str("type", msg.Type).Msg("rejecting allowlisted bridge message with invalid token")
+		log.Warn().Str("type", msg.Type).Msg("rejecting allowlisted bridge message with invalid token")
 		return true
 	}
 	senderWV.dispatchEditableFocusChanged(payload.Editable)

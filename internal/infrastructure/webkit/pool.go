@@ -179,7 +179,9 @@ func (p *WebViewPool) Acquire(ctx context.Context) (*WebView, error) {
 
 			// Ensure frontend is attached even if this WebView was pooled before injection was configured.
 			alreadyAttached := wv.FrontendAttached()
-			_ = wv.AttachFrontend(ctx, p.injector, p.router)
+			if err := wv.AttachFrontend(ctx, p.injector, p.router); err != nil {
+				log.Warn().Err(err).Uint64("id", uint64(wv.ID())).Msg("failed to attach frontend to pooled webview")
+			}
 			// Reinjection is only for already-attached reuse after ResetForPoolReuse.
 			// First AttachFrontend already injected; avoid an immediate double inject.
 			if needsFrontendReinjectionOnAcquire(alreadyAttached) && p.injector != nil && wv.ucm != nil {

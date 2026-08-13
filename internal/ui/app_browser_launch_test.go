@@ -1009,7 +1009,7 @@ func TestTestShellToasterCleanupCancelsAutoDismiss(t *testing.T) {
 	toaster.CancelAutoDismiss()
 
 	mainContext := glib.MainContextDefault()
-	deadline := time.Now().Add(component.ToastBriefDurationMs + 100*time.Millisecond)
+	deadline := time.Now().Add(component.ToastBriefDurationMs + 600*time.Millisecond)
 	for time.Now().Before(deadline) {
 		for mainContext.Pending() {
 			mainContext.Iteration(false)
