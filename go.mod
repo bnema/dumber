@@ -7,11 +7,11 @@ require (
 	github.com/andybalholm/brotli v1.2.2
 	github.com/bnema/purego v0.11.0-bnema.4
 	github.com/bnema/purego-cef v0.14.2
-	github.com/bnema/purego-cef2gtk v0.9.2
+	github.com/bnema/purego-cef2gtk v0.9.3
 	github.com/bnema/purego-pipewire v0.1.6
 	github.com/bnema/purego-sqlite v0.1.5
 	github.com/bnema/purego-webp v0.2.1
-	github.com/bnema/puregotk v0.7.1
+	github.com/bnema/puregotk v0.7.2
 	github.com/charmbracelet/bubbles v1.0.0
 	github.com/charmbracelet/bubbletea v1.3.10
 	github.com/charmbracelet/lipgloss v1.1.0
