@@ -9,6 +9,7 @@ import (
 	"github.com/bnema/dumber/internal/ui/component"
 	contentcoord "github.com/bnema/dumber/internal/ui/coordinator/content"
 	"github.com/bnema/dumber/internal/ui/layout"
+	"github.com/bnema/puregotk/v4/gdk"
 	"github.com/bnema/puregotk/v4/gtk"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -68,7 +69,7 @@ func TestWorkspaceCoordinator_StackPaneWithURLUsesExplicitURL(t *testing.T) {
 
 func stackURLTestCoordinator(t *testing.T, legacyURL string) (*WorkspaceCoordinator, *entity.Workspace) {
 	t.Helper()
-	if !gtk.InitCheck() {
+	if !gtk.InitCheck() || gdk.DisplayGetDefault() == nil {
 		t.Skip("GTK native display prerequisite unavailable")
 	}
 	ctx := context.Background()

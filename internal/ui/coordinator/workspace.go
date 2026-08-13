@@ -198,7 +198,10 @@ func (c *WorkspaceCoordinator) splitWithInitialURL(ctx context.Context, directio
 
 	// Update the workspace view
 	if splitCtx.wsView != nil {
-		if err := c.applySplitToView(ctx, splitCtx.wsView, splitCtx.ws, output, direction, splitCtx.existingWidget, splitCtx.isStackSplit, oldActivePaneID); err != nil {
+		if err := c.applySplitToView(
+			ctx, splitCtx.wsView, splitCtx.ws, output, direction,
+			splitCtx.existingWidget, splitCtx.isStackSplit, oldActivePaneID,
+		); err != nil {
 			return err
 		}
 		splitCtx.wsView.NotifyNewPaneCreated(ctx)
@@ -1472,64 +1475,11 @@ func (c *WorkspaceCoordinator) StackPaneWithURL(ctx context.Context, initialURL 
 		return err
 	}
 
-	// Determine if we need to create a new stack or add to existing.
-	var stackNode *entity.PaneNode
-	var newPane *entity.Pane
-	var newPaneID entity.PaneID
-	var needsFirstPaneTitleUpdate bool
-
-	if stackCtx.activeNode.Parent != nil && stackCtx.activeNode.Parent.IsStacked {
-		// Already in a stack - use AddToStack use case
-		stackNode = stackCtx.activeNode.Parent
-		output, err := c.panesUC.AddToStack(ctx, stackCtx.ws, stackNode, nil, initialURL)
-		if err != nil {
-			log.Error().Err(err).Msg("failed to add pane to stack via use case")
-			return err
-		}
-		newPane = output.NewPaneNode.Pane
-		newPaneID = newPane.ID
-		newPane.Title = defaultPaneTitle
-		log.Debug().
-			Int("stack_size", len(stackNode.Children)).
-			Int("insert_index", output.StackIndex).
-			Msg("added to existing stack via use case")
-	} else if stackCtx.activeNode.IsStacked {
-		// Active node is already a stack container - add to it
-		stackNode = stackCtx.activeNode
-		output, err := c.panesUC.AddToStack(ctx, stackCtx.ws, stackNode, nil, initialURL)
-		if err != nil {
-			log.Error().Err(err).Msg("failed to add pane to stack via use case")
-			return err
-		}
-		newPane = output.NewPaneNode.Pane
-		newPaneID = newPane.ID
-		newPane.Title = defaultPaneTitle
-		log.Debug().
-			Int("stack_size", len(stackNode.Children)).
-			Int("insert_index", output.StackIndex).
-			Msg("added to stack container via use case")
-	} else {
-		// Need to create a new stack - use CreateStack use case.
-		output, err := c.panesUC.CreateStack(ctx, stackCtx.ws, stackCtx.activeNode, initialURL)
-		if err != nil {
-			log.Error().Err(err).Msg("failed to create stack via use case")
-			return err
-		}
-		stackNode = output.StackNode
-		newPane = output.NewPane
-		newPaneID = newPane.ID
-		newPane.Title = defaultPaneTitle
-		needsFirstPaneTitleUpdate = true
-
-		// Update the original pane's title in the domain
-		if output.OriginalNode != nil && output.OriginalNode.Pane != nil {
-			output.OriginalNode.Pane.Title = stackCtx.originalTitle
-		}
-
-		log.Debug().
-			Int("stack_size", len(stackNode.Children)).
-			Msg("created new stack via use case")
+	stackNode, newPane, needsFirstPaneTitleUpdate, err := c.createOrAddStackPane(ctx, stackCtx, initialURL)
+	if err != nil {
+		return err
 	}
+	newPaneID := newPane.ID
 
 	// Create PaneView for the new pane
 	newPaneView := component.NewPaneView(ctx, c.widgetFactory, newPaneID, nil)
@@ -1537,9 +1487,10 @@ func (c *WorkspaceCoordinator) StackPaneWithURL(ctx context.Context, initialURL 
 	stackCtx.wsView.RegisterPaneView(newPaneID, newPaneView)
 
 	// Add to the UI StackedView
-	if err := c.stackedPaneMgr.AddPaneToStack(ctx, stackCtx.wsView, stackCtx.activePaneID, newPaneView, defaultPaneTitle); err != nil {
-		log.Error().Err(err).Msg("failed to add pane to stack")
-		return err
+	addErr := c.stackedPaneMgr.AddPaneToStack(ctx, stackCtx.wsView, stackCtx.activePaneID, newPaneView, defaultPaneTitle)
+	if addErr != nil {
+		log.Error().Err(addErr).Msg("failed to add pane to stack")
+		return addErr
 	}
 
 	// Update the first pane's title if we just converted from leaf to stacked
@@ -1601,6 +1552,42 @@ func (c *WorkspaceCoordinator) StackPaneWithURL(ctx context.Context, initialURL 
 		Msg("stacked new pane")
 
 	return nil
+}
+
+func (c *WorkspaceCoordinator) createOrAddStackPane(
+	ctx context.Context,
+	stackCtx *stackPaneContext,
+	initialURL string,
+) (*entity.PaneNode, *entity.Pane, bool, error) {
+	log := logging.FromContext(ctx)
+	stackNode := stackCtx.activeNode
+	if stackNode.Parent != nil && stackNode.Parent.IsStacked {
+		stackNode = stackNode.Parent
+	}
+	if stackNode.IsStacked {
+		output, err := c.panesUC.AddToStack(ctx, stackCtx.ws, stackNode, nil, initialURL)
+		if err != nil {
+			log.Error().Err(err).Msg("failed to add pane to stack via use case")
+			return nil, nil, false, err
+		}
+		newPane := output.NewPaneNode.Pane
+		newPane.Title = defaultPaneTitle
+		log.Debug().Int("stack_size", len(stackNode.Children)).Int("insert_index", output.StackIndex).
+			Msg("added to stack via use case")
+		return stackNode, newPane, false, nil
+	}
+
+	output, err := c.panesUC.CreateStack(ctx, stackCtx.ws, stackCtx.activeNode, initialURL)
+	if err != nil {
+		log.Error().Err(err).Msg("failed to create stack via use case")
+		return nil, nil, false, err
+	}
+	output.NewPane.Title = defaultPaneTitle
+	if output.OriginalNode != nil && output.OriginalNode.Pane != nil {
+		output.OriginalNode.Pane.Title = stackCtx.originalTitle
+	}
+	log.Debug().Int("stack_size", len(output.StackNode.Children)).Msg("created new stack via use case")
+	return output.StackNode, output.NewPane, true, nil
 }
 
 func (c *WorkspaceCoordinator) prepareStackPane(

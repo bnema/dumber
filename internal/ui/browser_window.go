@@ -629,31 +629,16 @@ func (a *App) openExternalURLOnMainThread(ctx context.Context, url string, cfg e
 }
 
 func (a *App) openExternalURLInFocusedWindow(ctx context.Context, url string, cfg entity.ExternalLinksConfig) error {
-	target := a.lastFocusedBrowserWindow()
-	if target == nil || target.id == "" || a.browserWindows[target.id] != target {
-		return fmt.Errorf("last-focused browser window is missing or stale")
-	}
-	activeTab := a.activeTabForBrowserWindow(target)
-	if activeTab == nil || activeTab.Workspace == nil || activeTab.Workspace.ActivePane() == nil {
-		return fmt.Errorf("last-focused browser window has no active tab and pane")
+	target, activeTab, err := a.externalURLTarget()
+	if err != nil {
+		return err
 	}
 
 	a.activateBrowserWindow(target)
 	switch cfg.Behavior {
 	case entity.ExternalLinkBehaviorTabbed:
-		if a.tabCoord == nil {
-			return fmt.Errorf("tab coordinator not available")
-		}
-		created, err := a.tabCoord.Create(ctx, a.tabTargetForBrowserWindow(target), url)
-		if err != nil {
-			a.rollbackExternalTabCreation(ctx, target, created)
+		if err := a.createExternalURLTab(ctx, target, url); err != nil {
 			return err
-		}
-		if created == nil || created.Workspace == nil || created.Workspace.ActivePane() == nil ||
-			created.Workspace.ActivePane().Pane == nil || created.Workspace.ActivePane().Pane.URI != url ||
-			a.activeTabForBrowserWindow(target) != created || a.workspaceViews[created.ID] == nil {
-			a.rollbackExternalTabCreation(ctx, target, created)
-			return fmt.Errorf("created tab did not become an active UI target")
 		}
 	case entity.ExternalLinkBehaviorSplit:
 		if err := a.placeExternalURLInPane(ctx, activeTab.Workspace, url, func(ctx context.Context) error {
@@ -675,6 +660,36 @@ func (a *App) openExternalURLInFocusedWindow(ctx context.Context, url string, cf
 		target.mainWindow.Show()
 	}
 	a.activateBrowserWindow(target)
+	return nil
+}
+
+func (a *App) externalURLTarget() (*browserWindow, *entity.Tab, error) {
+	target := a.lastFocusedBrowserWindow()
+	if target == nil || target.id == "" || a.browserWindows[target.id] != target {
+		return nil, nil, fmt.Errorf("last-focused browser window is missing or stale")
+	}
+	activeTab := a.activeTabForBrowserWindow(target)
+	if activeTab == nil || activeTab.Workspace == nil || activeTab.Workspace.ActivePane() == nil {
+		return nil, nil, fmt.Errorf("last-focused browser window has no active tab and pane")
+	}
+	return target, activeTab, nil
+}
+
+func (a *App) createExternalURLTab(ctx context.Context, target *browserWindow, url string) error {
+	if a.tabCoord == nil {
+		return fmt.Errorf("tab coordinator not available")
+	}
+	created, err := a.tabCoord.Create(ctx, a.tabTargetForBrowserWindow(target), url)
+	if err != nil {
+		a.rollbackExternalTabCreation(ctx, target, created)
+		return err
+	}
+	if created == nil || created.Workspace == nil || created.Workspace.ActivePane() == nil ||
+		created.Workspace.ActivePane().Pane == nil || created.Workspace.ActivePane().Pane.URI != url ||
+		a.activeTabForBrowserWindow(target) != created || a.workspaceViews[created.ID] == nil {
+		a.rollbackExternalTabCreation(ctx, target, created)
+		return fmt.Errorf("created tab did not become an active UI target")
+	}
 	return nil
 }
 
