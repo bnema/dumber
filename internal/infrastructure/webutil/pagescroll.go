@@ -2,16 +2,16 @@ package webutil
 
 import "fmt"
 
-// BuildScrollByJS returns one immediate JavaScript scroll step for the given
+// BuildPageScrollByJS returns one immediate JavaScript scroll step for the given
 // CSS-pixel delta. It resolves the initial target under the viewport center,
 // walks toward scrollable ancestors that can move in the requested direction,
 // and hands off to the document when a nested scroller reaches its boundary.
 // Cross-origin frame contents remain best-effort because elementFromPoint can
 // only return the accessible frame element from the top-level document.
 //
-// The app-level Page Mode repeater owns held-key cadence; this helper performs
+// The app-level Vim Mode repeater owns held-key cadence; this helper performs
 // no requestAnimationFrame loop of its own.
-func BuildScrollByJS(dx, dy int) string {
+func BuildPageScrollByJS(dx, dy int) string {
 	return fmt.Sprintf(`(function(){
 var dx=%d,dy=%d,doc=document;
 function hasScrollableOverflow(value){

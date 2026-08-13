@@ -21,7 +21,7 @@ Dumber uses three layout levels:
 - **Workspaces** hold a layout of panes.
 - **Panes** display web pages and can be split, stacked, moved, resized, or closed.
 
-Most browser-management actions are exposed through modal keybindings. Enter a mode, run one or more commands, then leave the mode. The default modes cover pane management, tabs, page scrolling, resizing, and session commands.
+Most browser-management actions are exposed through modal keybindings. Enter a mode, run one or more commands, then leave the mode. The default modes cover pane management, tabs, Vim-style scrolling, resizing, and session commands.
 
 The browser chrome stays out of the way by default. Open the omnibox when you want to navigate; otherwise the pane is just the page or web app you are using. This makes Dumber work well as a side pane next to an editor, terminal, or another desktop application.
 

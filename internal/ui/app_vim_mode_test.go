@@ -23,7 +23,7 @@ import (
 // ---------------------------------------------------------------------------
 // Mock-based PaneView and WorkspaceView creation helpers
 //
-// These are used by pageModeTestFixture to build a minimal test environment
+// These are used by vimModeTestFixture to build a minimal test environment
 // without any GTK infrastructure.
 // ---------------------------------------------------------------------------
 
@@ -99,7 +99,7 @@ func newLoadingSkeletonMocks(
 }
 
 // createTestPaneView builds a mock-backed PaneView.  Returns the PaneView and
-// its overlay mock so subsequent page-mode indicator / pulse expectations can
+// its overlay mock so subsequent vim-mode indicator / pulse expectations can
 // be set up by the caller.
 func createTestPaneView(
 	t *testing.T,
@@ -138,20 +138,20 @@ func createTestPaneView(
 	return pv, overlay
 }
 
-// enterPageMode marks the owning pane with the pane-local visual accent.
-func enterPageMode(
+// enterVimMode marks the owning pane with the pane-local visual accent.
+func enterVimMode(
 	t *testing.T,
 	app *App,
 	overlay *mocks.MockOverlayWidget,
 	bw *browserWindow,
 ) {
 	t.Helper()
-	overlay.EXPECT().AddCssClass("page-mode-active").Once()
-	app.handlePageModeOwnership(context.Background(), bw, input.ModePage, input.ModeNormal)
+	overlay.EXPECT().AddCssClass("vim-mode-active").Once()
+	app.handleVimModeOwnership(context.Background(), bw, input.ModeVim, input.ModeNormal)
 }
 
-func expectPageModeAccentHidden(overlay *mocks.MockOverlayWidget) {
-	overlay.EXPECT().RemoveCssClass("page-mode-active").Once()
+func expectVimModeAccentHidden(overlay *mocks.MockOverlayWidget) {
+	overlay.EXPECT().RemoveCssClass("vim-mode-active").Once()
 }
 
 // setupWorkspaceViewMocks creates a mock-backed WorkspaceView.
@@ -181,22 +181,22 @@ func setupWorkspaceViewMocks(
 	return wv
 }
 
-// newKeyboardHandlerInPageMode creates a KeyboardHandler whose Mode() returns
-// ModePage — no GTK widgets required.
-func newKeyboardHandlerInPageMode(t *testing.T) *input.KeyboardHandler {
+// newKeyboardHandlerInVimMode creates a KeyboardHandler whose Mode() returns
+// ModeVim — no GTK widgets required.
+func newKeyboardHandlerInVimMode(t *testing.T) *input.KeyboardHandler {
 	t.Helper()
 	kh := input.NewKeyboardHandler(
 		context.Background(),
 		&entity.WorkspaceConfig{},
 		&entity.SessionConfig{},
 	)
-	kh.EnterPageMode()
+	kh.EnterVimMode()
 	return kh
 }
 
-func bindPageModeKeyboardHandler(t *testing.T, app *App, bw *browserWindow) *input.KeyboardHandler {
+func bindVimModeKeyboardHandler(t *testing.T, app *App, bw *browserWindow) *input.KeyboardHandler {
 	t.Helper()
-	kh := newKeyboardHandlerInPageMode(t)
+	kh := newKeyboardHandlerInVimMode(t)
 	kh.SetOnModeChange(func(from, to input.Mode) {
 		app.handleModeChange(context.Background(), bw, from, to)
 	})
@@ -205,13 +205,13 @@ func bindPageModeKeyboardHandler(t *testing.T, app *App, bw *browserWindow) *inp
 }
 
 // ---------------------------------------------------------------------------
-// pageModeTestFixture — complete, minimal App + workspace environment
+// vimModeTestFixture — complete, minimal App + workspace environment
 //
 // Provides two browser windows, each with a two-pane workspace.  The active
 // pane on both workspaces starts at "pane-a".
 // ---------------------------------------------------------------------------
 
-type pageModeTestFixture struct {
+type vimModeTestFixture struct {
 	app  *App
 	bw1  *browserWindow
 	bw2  *browserWindow
@@ -227,7 +227,7 @@ type pageModeTestFixture struct {
 	overlay2B *mocks.MockOverlayWidget
 }
 
-func newPageModeTestFixture(t *testing.T) *pageModeTestFixture {
+func newVimModeTestFixture(t *testing.T) *vimModeTestFixture {
 	t.Helper()
 	factory := mocks.NewMockWidgetFactory(t)
 
@@ -297,7 +297,7 @@ func newPageModeTestFixture(t *testing.T) *pageModeTestFixture {
 		lastFocusedWindowID: "win-1",
 	}
 
-	return &pageModeTestFixture{
+	return &vimModeTestFixture{
 		app: app, bw1: bw1, bw2: bw2,
 		pv1A: pv1A, pv1B: pv1B, pv2A: pv2A, pv2B: pv2B,
 		factory:   factory,
@@ -306,9 +306,9 @@ func newPageModeTestFixture(t *testing.T) *pageModeTestFixture {
 	}
 }
 
-func newSingleWindowPageModeFixture(t *testing.T) *pageModeTestFixture {
+func newSingleWindowVimModeFixture(t *testing.T) *vimModeTestFixture {
 	t.Helper()
-	f := newPageModeTestFixture(t)
+	f := newVimModeTestFixture(t)
 	delete(f.app.browserWindows, "win-2")
 	delete(f.app.workspaceViews, entity.TabID("tab-2"))
 	f.bw2 = nil
@@ -320,127 +320,127 @@ func newSingleWindowPageModeFixture(t *testing.T) *pageModeTestFixture {
 }
 
 // ============================================================================
-// 1. Entering Page mode marks only the active pane
+// 1. Entering Vim mode marks only the active pane
 // ============================================================================
 
-func TestPageMode_Enter_SetsOwnershipOnActivePane(t *testing.T) {
-	f := newPageModeTestFixture(t)
+func TestVimMode_Enter_SetsOwnershipOnActivePane(t *testing.T) {
+	f := newVimModeTestFixture(t)
 
-	enterPageMode(t, f.app, f.overlay1A, f.bw1)
+	enterVimMode(t, f.app, f.overlay1A, f.bw1)
 
-	assert.Equal(t, entity.PaneID("pane-a"), f.bw1.pageModePaneID,
-		"entering page mode sets ownership on the active pane")
-	assert.True(t, f.pv1A.IsPageMode(),
-		"the active pane view enters page mode")
-	assert.False(t, f.pv1B.IsPageMode(),
-		"the inactive pane is NOT in page mode")
-	assert.Empty(t, f.bw2.pageModePaneID,
+	assert.Equal(t, entity.PaneID("pane-a"), f.bw1.vimModePaneID,
+		"entering vim mode sets ownership on the active pane")
+	assert.True(t, f.pv1A.IsVimMode(),
+		"the active pane view enters vim mode")
+	assert.False(t, f.pv1B.IsVimMode(),
+		"the inactive pane is NOT in vim mode")
+	assert.Empty(t, f.bw2.vimModePaneID,
 		"second window is untouched")
-	assert.False(t, f.pv2A.IsPageMode(),
-		"second window active pane is NOT in page mode")
+	assert.False(t, f.pv2A.IsVimMode(),
+		"second window active pane is NOT in vim mode")
 }
 
-func TestPageMode_Enter_MarksCorrectWindow(t *testing.T) {
-	f := newPageModeTestFixture(t)
+func TestVimMode_Enter_MarksCorrectWindow(t *testing.T) {
+	f := newVimModeTestFixture(t)
 
-	enterPageMode(t, f.app, f.overlay2A, f.bw2)
+	enterVimMode(t, f.app, f.overlay2A, f.bw2)
 
-	assert.Equal(t, entity.PaneID("pane-a"), f.bw2.pageModePaneID)
-	assert.True(t, f.pv2A.IsPageMode())
-	assert.Empty(t, f.bw1.pageModePaneID)
-	assert.False(t, f.pv1A.IsPageMode())
+	assert.Equal(t, entity.PaneID("pane-a"), f.bw2.vimModePaneID)
+	assert.True(t, f.pv2A.IsVimMode())
+	assert.Empty(t, f.bw1.vimModePaneID)
+	assert.False(t, f.pv1A.IsVimMode())
 }
 
 // ============================================================================
-// 2. Leaving Page mode clears ownership
+// 2. Leaving Vim mode clears ownership
 // ============================================================================
 
-func TestPageMode_Leave_ClearsOwnershipFromOwningPane(t *testing.T) {
-	f := newPageModeTestFixture(t)
+func TestVimMode_Leave_ClearsOwnershipFromOwningPane(t *testing.T) {
+	f := newVimModeTestFixture(t)
 
 	// Enter first
-	enterPageMode(t, f.app, f.overlay1A, f.bw1)
-	require.Equal(t, entity.PaneID("pane-a"), f.bw1.pageModePaneID)
+	enterVimMode(t, f.app, f.overlay1A, f.bw1)
+	require.Equal(t, entity.PaneID("pane-a"), f.bw1.vimModePaneID)
 
-	// Leave — SetPageMode(false) hides indicator and removes the CSS class
-	expectPageModeAccentHidden(f.overlay1A)
-	f.app.handlePageModeOwnership(context.Background(), f.bw1, input.ModeNormal, input.ModePage)
+	// Leave — SetVimMode(false) hides indicator and removes the CSS class
+	expectVimModeAccentHidden(f.overlay1A)
+	f.app.handleVimModeOwnership(context.Background(), f.bw1, input.ModeNormal, input.ModeVim)
 
-	assert.Empty(t, f.bw1.pageModePaneID,
-		"leaving page mode clears ownership field")
-	assert.False(t, f.pv1A.IsPageMode(),
-		"the previously owning pane exits page mode")
+	assert.Empty(t, f.bw1.vimModePaneID,
+		"leaving vim mode clears ownership field")
+	assert.False(t, f.pv1A.IsVimMode(),
+		"the previously owning pane exits vim mode")
 }
 
 // ============================================================================
 // 3. Transfer within the same window
 // ============================================================================
 
-func TestPageMode_Transfer_MovesOwnershipToNewPane(t *testing.T) {
-	f := newPageModeTestFixture(t)
+func TestVimMode_Transfer_MovesOwnershipToNewPane(t *testing.T) {
+	f := newVimModeTestFixture(t)
 
-	// Enter page mode on bw1 pane-a — save label for hide expectation
-	enterPageMode(t, f.app, f.overlay1A, f.bw1)
-	require.Equal(t, entity.PaneID("pane-a"), f.bw1.pageModePaneID)
+	// Enter vim mode on bw1 pane-a — save label for hide expectation
+	enterVimMode(t, f.app, f.overlay1A, f.bw1)
+	require.Equal(t, entity.PaneID("pane-a"), f.bw1.vimModePaneID)
 
-	// Give bw1 a keyboard handler in page mode so transfer performs the switch
-	f.bw1.keyboardHandler = newKeyboardHandlerInPageMode(t)
+	// Give bw1 a keyboard handler in vim mode so transfer performs the switch
+	f.bw1.keyboardHandler = newKeyboardHandlerInVimMode(t)
 
-	// transferPageModeOwnershipToPane calls SetPageMode(false) on the old
-	// pane before SetPageMode(true) on the new pane.  Set up both.
-	expectPageModeAccentHidden(f.overlay1A)
+	// transferVimModeOwnershipToPane calls SetVimMode(false) on the old
+	// pane before SetVimMode(true) on the new pane.  Set up both.
+	expectVimModeAccentHidden(f.overlay1A)
 
 	// Set up the pane-local accent for pane-b.
-	f.overlay1B.EXPECT().AddCssClass("page-mode-active").Once()
+	f.overlay1B.EXPECT().AddCssClass("vim-mode-active").Once()
 
 	// Transfer ownership to pane-b
-	f.app.transferPageModeOwnershipToPane(context.Background(), f.bw1, entity.PaneID("pane-b"))
+	f.app.transferVimModeOwnershipToPane(context.Background(), f.bw1, entity.PaneID("pane-b"))
 
-	assert.Equal(t, entity.PaneID("pane-b"), f.bw1.pageModePaneID,
+	assert.Equal(t, entity.PaneID("pane-b"), f.bw1.vimModePaneID,
 		"ownership transferred to new pane")
-	assert.False(t, f.pv1A.IsPageMode(),
+	assert.False(t, f.pv1A.IsVimMode(),
 		"previous owning pane deactivated")
-	assert.True(t, f.pv1B.IsPageMode(),
-		"new pane is now in page mode")
+	assert.True(t, f.pv1B.IsVimMode(),
+		"new pane is now in vim mode")
 }
 
-func TestPageMode_Transfer_NoPageModeClearsStale(t *testing.T) {
-	f := newPageModeTestFixture(t)
+func TestVimMode_Transfer_NoVimModeClearsStale(t *testing.T) {
+	f := newVimModeTestFixture(t)
 
-	f.bw1.pageModePaneID = entity.PaneID("pane-a")
+	f.bw1.vimModePaneID = entity.PaneID("pane-a")
 	f.bw1.keyboardHandler = input.NewKeyboardHandler(
 		context.Background(),
 		&entity.WorkspaceConfig{},
 		&entity.SessionConfig{},
 	)
-	// No EnterPageMode — handler stays in ModeNormal.
+	// No EnterVimMode — handler stays in ModeNormal.
 
-	f.app.transferPageModeOwnershipToPane(context.Background(), f.bw1, entity.PaneID("pane-b"))
+	f.app.transferVimModeOwnershipToPane(context.Background(), f.bw1, entity.PaneID("pane-b"))
 
-	assert.Empty(t, f.bw1.pageModePaneID,
-		"stale ownership cleared when window is not in page mode")
-	assert.False(t, f.pv1A.IsPageMode())
-	assert.False(t, f.pv1B.IsPageMode())
+	assert.Empty(t, f.bw1.vimModePaneID,
+		"stale ownership cleared when window is not in vim mode")
+	assert.False(t, f.pv1A.IsVimMode())
+	assert.False(t, f.pv1B.IsVimMode())
 }
 
-func TestPageMode_Transfer_NilBwDoesNotCrash(t *testing.T) {
+func TestVimMode_Transfer_NilBwDoesNotCrash(t *testing.T) {
 	app := &App{}
-	app.transferPageModeOwnershipToPane(context.Background(), nil, entity.PaneID("pane-1"))
+	app.transferVimModeOwnershipToPane(context.Background(), nil, entity.PaneID("pane-1"))
 }
 
-func TestPageMode_Transfer_SamePaneIsNoop(t *testing.T) {
+func TestVimMode_Transfer_SamePaneIsNoop(t *testing.T) {
 	app := &App{}
 	paneID := entity.PaneID("pane-a")
-	bw := &browserWindow{pageModePaneID: paneID}
-	app.transferPageModeOwnershipToPane(context.Background(), bw, paneID)
-	assert.Equal(t, paneID, bw.pageModePaneID)
+	bw := &browserWindow{vimModePaneID: paneID}
+	app.transferVimModeOwnershipToPane(context.Background(), bw, paneID)
+	assert.Equal(t, paneID, bw.vimModePaneID)
 }
 
-func TestPageMode_Transfer_EmptyOwnershipIsNoop(t *testing.T) {
+func TestVimMode_Transfer_EmptyOwnershipIsNoop(t *testing.T) {
 	app := &App{}
 	bw := &browserWindow{}
-	app.transferPageModeOwnershipToPane(context.Background(), bw, entity.PaneID("pane-a"))
-	assert.Empty(t, bw.pageModePaneID)
+	app.transferVimModeOwnershipToPane(context.Background(), bw, entity.PaneID("pane-a"))
+	assert.Empty(t, bw.vimModePaneID)
 }
 
 // ============================================================================
@@ -448,52 +448,52 @@ func TestPageMode_Transfer_EmptyOwnershipIsNoop(t *testing.T) {
 // ============================================================================
 
 func setUpNormalPulse(overlay *mocks.MockOverlayWidget) {
-	overlay.EXPECT().RemoveCssClass("page-mode-pulse").Once()
-	overlay.EXPECT().RemoveCssClass("page-mode-pulse-fast").Once()
-	overlay.EXPECT().RemoveCssClass("page-mode-pulse-cycle-a").Once()
-	overlay.EXPECT().RemoveCssClass("page-mode-pulse-cycle-b").Once()
-	overlay.EXPECT().AddCssClass("page-mode-pulse").Once()
-	overlay.EXPECT().AddCssClass("page-mode-pulse-cycle-a").Once()
+	overlay.EXPECT().RemoveCssClass("vim-mode-pulse").Once()
+	overlay.EXPECT().RemoveCssClass("vim-mode-pulse-fast").Once()
+	overlay.EXPECT().RemoveCssClass("vim-mode-pulse-cycle-a").Once()
+	overlay.EXPECT().RemoveCssClass("vim-mode-pulse-cycle-b").Once()
+	overlay.EXPECT().AddCssClass("vim-mode-pulse").Once()
+	overlay.EXPECT().AddCssClass("vim-mode-pulse-cycle-a").Once()
 }
 
 func setUpFastPulse(overlay *mocks.MockOverlayWidget) {
-	overlay.EXPECT().RemoveCssClass("page-mode-pulse").Once()
-	overlay.EXPECT().RemoveCssClass("page-mode-pulse-fast").Once()
-	overlay.EXPECT().RemoveCssClass("page-mode-pulse-cycle-a").Once()
-	overlay.EXPECT().RemoveCssClass("page-mode-pulse-cycle-b").Once()
-	overlay.EXPECT().AddCssClass("page-mode-pulse-fast").Once()
-	overlay.EXPECT().AddCssClass("page-mode-pulse-cycle-a").Once()
+	overlay.EXPECT().RemoveCssClass("vim-mode-pulse").Once()
+	overlay.EXPECT().RemoveCssClass("vim-mode-pulse-fast").Once()
+	overlay.EXPECT().RemoveCssClass("vim-mode-pulse-cycle-a").Once()
+	overlay.EXPECT().RemoveCssClass("vim-mode-pulse-cycle-b").Once()
+	overlay.EXPECT().AddCssClass("vim-mode-pulse-fast").Once()
+	overlay.EXPECT().AddCssClass("vim-mode-pulse-cycle-a").Once()
 }
 
-func TestPageMode_Pulse_NormalTriggersOnOwningPane(t *testing.T) {
-	f := newPageModeTestFixture(t)
+func TestVimMode_Pulse_NormalTriggersOnOwningPane(t *testing.T) {
+	f := newVimModeTestFixture(t)
 
-	enterPageMode(t, f.app, f.overlay1A, f.bw1)
-	require.Equal(t, entity.PaneID("pane-a"), f.bw1.pageModePaneID)
+	enterVimMode(t, f.app, f.overlay1A, f.bw1)
+	require.Equal(t, entity.PaneID("pane-a"), f.bw1.vimModePaneID)
 
 	// Pulse needs the indicator to exist — it was created lazily during
-	// enterPageMode, but we also need to set up pulse expectations.
-	// (enterPageMode created it, so we just set up pulse mocks.)
+	// enterVimMode, but we also need to set up pulse expectations.
+	// (enterVimMode created it, so we just set up pulse mocks.)
 	setUpNormalPulse(f.overlay1A)
 
-	f.app.triggerPageModePulse(context.Background(), false)
+	f.app.triggerVimModePulse(context.Background(), false)
 }
 
-func TestPageMode_Pulse_FastTriggersOnOwningPane(t *testing.T) {
-	f := newPageModeTestFixture(t)
+func TestVimMode_Pulse_FastTriggersOnOwningPane(t *testing.T) {
+	f := newVimModeTestFixture(t)
 
-	enterPageMode(t, f.app, f.overlay1A, f.bw1)
-	require.Equal(t, entity.PaneID("pane-a"), f.bw1.pageModePaneID)
+	enterVimMode(t, f.app, f.overlay1A, f.bw1)
+	require.Equal(t, entity.PaneID("pane-a"), f.bw1.vimModePaneID)
 
 	setUpFastPulse(f.overlay1A)
 
-	f.app.triggerPageModePulse(context.Background(), true)
+	f.app.triggerVimModePulse(context.Background(), true)
 }
 
-func TestPageMode_Pulse_NoOwnerIsNoop(t *testing.T) {
-	f := newPageModeTestFixture(t)
-	f.app.triggerPageModePulse(context.Background(), false)
-	f.app.triggerPageModePulse(context.Background(), true)
+func TestVimMode_Pulse_NoOwnerIsNoop(t *testing.T) {
+	f := newVimModeTestFixture(t)
+	f.app.triggerVimModePulse(context.Background(), false)
+	f.app.triggerVimModePulse(context.Background(), true)
 	// No pane has ownership — no pulse expectations needed.
 }
 
@@ -501,141 +501,141 @@ func TestPageMode_Pulse_NoOwnerIsNoop(t *testing.T) {
 // 5. Multi-window isolation
 // ============================================================================
 
-func TestPageMode_MultiWindow_TwoWindowsEnterLeave(t *testing.T) {
-	f := newPageModeTestFixture(t)
+func TestVimMode_MultiWindow_TwoWindowsEnterLeave(t *testing.T) {
+	f := newVimModeTestFixture(t)
 
-	enterPageMode(t, f.app, f.overlay1A, f.bw1)
-	enterPageMode(t, f.app, f.overlay2A, f.bw2)
+	enterVimMode(t, f.app, f.overlay1A, f.bw1)
+	enterVimMode(t, f.app, f.overlay2A, f.bw2)
 
-	assert.Equal(t, entity.PaneID("pane-a"), f.bw1.pageModePaneID)
-	assert.Equal(t, entity.PaneID("pane-a"), f.bw2.pageModePaneID)
+	assert.Equal(t, entity.PaneID("pane-a"), f.bw1.vimModePaneID)
+	assert.Equal(t, entity.PaneID("pane-a"), f.bw2.vimModePaneID)
 
 	// Leave bw1 only
-	expectPageModeAccentHidden(f.overlay1A)
-	f.app.handlePageModeOwnership(context.Background(), f.bw1, input.ModeNormal, input.ModePage)
+	expectVimModeAccentHidden(f.overlay1A)
+	f.app.handleVimModeOwnership(context.Background(), f.bw1, input.ModeNormal, input.ModeVim)
 
-	assert.Empty(t, f.bw1.pageModePaneID)
-	assert.False(t, f.pv1A.IsPageMode())
+	assert.Empty(t, f.bw1.vimModePaneID)
+	assert.False(t, f.pv1A.IsVimMode())
 
 	// bw2 unchanged
-	assert.Equal(t, entity.PaneID("pane-a"), f.bw2.pageModePaneID)
-	assert.True(t, f.pv2A.IsPageMode())
+	assert.Equal(t, entity.PaneID("pane-a"), f.bw2.vimModePaneID)
+	assert.True(t, f.pv2A.IsVimMode())
 }
 
-func TestPageMode_MultiWindow_TransferIsolated(t *testing.T) {
-	f := newPageModeTestFixture(t)
+func TestVimMode_MultiWindow_TransferIsolated(t *testing.T) {
+	f := newVimModeTestFixture(t)
 
-	enterPageMode(t, f.app, f.overlay1A, f.bw1)
-	enterPageMode(t, f.app, f.overlay2A, f.bw2)
+	enterVimMode(t, f.app, f.overlay1A, f.bw1)
+	enterVimMode(t, f.app, f.overlay2A, f.bw2)
 
-	f.bw1.keyboardHandler = newKeyboardHandlerInPageMode(t)
+	f.bw1.keyboardHandler = newKeyboardHandlerInVimMode(t)
 
-	// transferPageModeOwnershipToPane calls SetPageMode(false) on old pane first
-	expectPageModeAccentHidden(f.overlay1A)
+	// transferVimModeOwnershipToPane calls SetVimMode(false) on old pane first
+	expectVimModeAccentHidden(f.overlay1A)
 
 	// Transfer bw1 to pane-b.
-	f.overlay1B.EXPECT().AddCssClass("page-mode-active").Once()
-	f.app.transferPageModeOwnershipToPane(context.Background(), f.bw1, entity.PaneID("pane-b"))
+	f.overlay1B.EXPECT().AddCssClass("vim-mode-active").Once()
+	f.app.transferVimModeOwnershipToPane(context.Background(), f.bw1, entity.PaneID("pane-b"))
 
-	assert.Equal(t, entity.PaneID("pane-b"), f.bw1.pageModePaneID)
-	assert.True(t, f.pv1B.IsPageMode())
-	assert.False(t, f.pv1A.IsPageMode())
+	assert.Equal(t, entity.PaneID("pane-b"), f.bw1.vimModePaneID)
+	assert.True(t, f.pv1B.IsVimMode())
+	assert.False(t, f.pv1A.IsVimMode())
 
 	// bw2 unchanged
-	assert.Equal(t, entity.PaneID("pane-a"), f.bw2.pageModePaneID)
-	assert.True(t, f.pv2A.IsPageMode())
+	assert.Equal(t, entity.PaneID("pane-a"), f.bw2.vimModePaneID)
+	assert.True(t, f.pv2A.IsVimMode())
 }
 
-func TestPageMode_MultiWindow_PulseIsolated(t *testing.T) {
-	f := newPageModeTestFixture(t)
+func TestVimMode_MultiWindow_PulseIsolated(t *testing.T) {
+	f := newVimModeTestFixture(t)
 
-	enterPageMode(t, f.app, f.overlay1A, f.bw1)
-	enterPageMode(t, f.app, f.overlay2A, f.bw2)
+	enterVimMode(t, f.app, f.overlay1A, f.bw1)
+	enterVimMode(t, f.app, f.overlay2A, f.bw2)
 
 	// Pulse on bw1 (lastFocusedWindowID = "win-1")
 	setUpNormalPulse(f.overlay1A)
-	f.app.triggerPageModePulse(context.Background(), false)
+	f.app.triggerVimModePulse(context.Background(), false)
 
-	// bw2 pane still in page mode
-	assert.True(t, f.pv2A.IsPageMode())
+	// bw2 pane still in vim mode
+	assert.True(t, f.pv2A.IsVimMode())
 }
 
 // ============================================================================
 // Edge cases — nil / no-workspace / startup guards
 // ============================================================================
 
-func TestPageMode_Enter_NoWorkspaceIsNoop(t *testing.T) {
+func TestVimMode_Enter_NoWorkspaceIsNoop(t *testing.T) {
 	app := &App{}
 	bw := &browserWindow{id: "win-1"}
-	app.handlePageModeOwnership(context.Background(), bw, input.ModePage, input.ModeNormal)
-	assert.Empty(t, bw.pageModePaneID)
+	app.handleVimModeOwnership(context.Background(), bw, input.ModeVim, input.ModeNormal)
+	assert.Empty(t, bw.vimModePaneID)
 }
 
-func TestPageMode_Clear_NilBwDoesNotCrash(t *testing.T) {
-	(&App{}).clearPageModeOwnership(context.Background(), nil)
+func TestVimMode_Clear_NilBwDoesNotCrash(t *testing.T) {
+	(&App{}).clearVimModeOwnership(context.Background(), nil)
 }
 
-func TestPageMode_Clear_NoPaneID(t *testing.T) {
+func TestVimMode_Clear_NoPaneID(t *testing.T) {
 	app := &App{}
 	bw := &browserWindow{id: "test-win"}
-	app.clearPageModeOwnership(context.Background(), bw)
-	assert.Empty(t, bw.pageModePaneID)
+	app.clearVimModeOwnership(context.Background(), bw)
+	assert.Empty(t, bw.vimModePaneID)
 }
 
-func TestPageMode_Clear_StalePaneWithoutWorkspace(t *testing.T) {
+func TestVimMode_Clear_StalePaneWithoutWorkspace(t *testing.T) {
 	app := &App{}
-	bw := &browserWindow{id: "test-win", pageModePaneID: entity.PaneID("stale-pane")}
-	app.clearPageModeOwnership(context.Background(), bw)
-	assert.Empty(t, bw.pageModePaneID)
+	bw := &browserWindow{id: "test-win", vimModePaneID: entity.PaneID("stale-pane")}
+	app.clearVimModeOwnership(context.Background(), bw)
+	assert.Empty(t, bw.vimModePaneID)
 }
 
-func TestPageMode_HandleModeChange_NilBwDoesNotCrash(t *testing.T) {
-	(&App{}).handleModeChange(context.Background(), nil, input.ModeNormal, input.ModePage)
+func TestVimMode_HandleModeChange_NilBwDoesNotCrash(t *testing.T) {
+	(&App{}).handleModeChange(context.Background(), nil, input.ModeNormal, input.ModeVim)
 }
 
-func TestPageMode_EditableFocusOnActivePaneExitsPageMode(t *testing.T) {
-	f := newSingleWindowPageModeFixture(t)
-	enterPageMode(t, f.app, f.overlay1A, f.bw1)
-	kh := bindPageModeKeyboardHandler(t, f.app, f.bw1)
+func TestVimMode_EditableFocusOnActivePaneExitsVimMode(t *testing.T) {
+	f := newSingleWindowVimModeFixture(t)
+	enterVimMode(t, f.app, f.overlay1A, f.bw1)
+	kh := bindVimModeKeyboardHandler(t, f.app, f.bw1)
 
-	expectPageModeAccentHidden(f.overlay1A)
+	expectVimModeAccentHidden(f.overlay1A)
 	f.app.handlePageEditableFocusChanged(context.Background(), entity.PaneID("pane-a"), true)
 
 	assert.Equal(t, input.ModeNormal, kh.Mode())
-	assert.Empty(t, f.bw1.pageModePaneID)
-	assert.False(t, f.pv1A.IsPageMode())
+	assert.Empty(t, f.bw1.vimModePaneID)
+	assert.False(t, f.pv1A.IsVimMode())
 }
 
-func TestPageMode_EditableFocusOnInactivePaneDoesNotExitPageMode(t *testing.T) {
-	f := newSingleWindowPageModeFixture(t)
-	enterPageMode(t, f.app, f.overlay1A, f.bw1)
-	kh := bindPageModeKeyboardHandler(t, f.app, f.bw1)
+func TestVimMode_EditableFocusOnInactivePaneDoesNotExitVimMode(t *testing.T) {
+	f := newSingleWindowVimModeFixture(t)
+	enterVimMode(t, f.app, f.overlay1A, f.bw1)
+	kh := bindVimModeKeyboardHandler(t, f.app, f.bw1)
 
 	f.app.handlePageEditableFocusChanged(context.Background(), entity.PaneID("pane-b"), true)
 
-	assert.Equal(t, input.ModePage, kh.Mode())
-	assert.Equal(t, entity.PaneID("pane-a"), f.bw1.pageModePaneID)
-	assert.True(t, f.pv1A.IsPageMode())
+	assert.Equal(t, input.ModeVim, kh.Mode())
+	assert.Equal(t, entity.PaneID("pane-a"), f.bw1.vimModePaneID)
+	assert.True(t, f.pv1A.IsVimMode())
 }
 
-func TestPageMode_PaneSwitchToEditablePaneExitsPageMode(t *testing.T) {
-	f := newSingleWindowPageModeFixture(t)
-	enterPageMode(t, f.app, f.overlay1A, f.bw1)
-	kh := bindPageModeKeyboardHandler(t, f.app, f.bw1)
+func TestVimMode_PaneSwitchToEditablePaneExitsVimMode(t *testing.T) {
+	f := newSingleWindowVimModeFixture(t)
+	enterVimMode(t, f.app, f.overlay1A, f.bw1)
+	kh := bindVimModeKeyboardHandler(t, f.app, f.bw1)
 	f.app.pageEditableFocusByPane = map[entity.PaneID]bool{
 		"pane-b": true,
 	}
 
-	expectPageModeAccentHidden(f.overlay1A)
-	f.app.transferPageModeOwnershipToPane(context.Background(), f.bw1, entity.PaneID("pane-b"))
+	expectVimModeAccentHidden(f.overlay1A)
+	f.app.transferVimModeOwnershipToPane(context.Background(), f.bw1, entity.PaneID("pane-b"))
 
 	assert.Equal(t, input.ModeNormal, kh.Mode())
-	assert.Empty(t, f.bw1.pageModePaneID)
-	assert.False(t, f.pv1A.IsPageMode())
-	assert.False(t, f.pv1B.IsPageMode())
+	assert.Empty(t, f.bw1.vimModePaneID)
+	assert.False(t, f.pv1A.IsVimMode())
+	assert.False(t, f.pv1B.IsVimMode())
 }
 
-func TestPageMode_BackgroundWindowEditableFocusDoesNotExitFocusedWindowPageMode(t *testing.T) {
+func TestVimMode_BackgroundWindowEditableFocusDoesNotExitFocusedWindowVimMode(t *testing.T) {
 	factory := mocks.NewMockWidgetFactory(t)
 	pv1, overlay1 := createTestPaneView(t, factory, "pane-a")
 	pv2, _ := createTestPaneView(t, factory, "pane-x")
@@ -661,44 +661,44 @@ func TestPageMode_BackgroundWindowEditableFocusDoesNotExitFocusedWindowPageMode(
 		lastFocusedWindowID: "win-1",
 	}
 
-	enterPageMode(t, app, overlay1, bw1)
-	kh := bindPageModeKeyboardHandler(t, app, bw1)
+	enterVimMode(t, app, overlay1, bw1)
+	kh := bindVimModeKeyboardHandler(t, app, bw1)
 
 	app.handlePageEditableFocusChanged(context.Background(), entity.PaneID("pane-x"), true)
 
-	assert.Equal(t, input.ModePage, kh.Mode())
-	assert.Equal(t, entity.PaneID("pane-a"), bw1.pageModePaneID)
-	assert.True(t, pv1.IsPageMode())
+	assert.Equal(t, input.ModeVim, kh.Mode())
+	assert.Equal(t, entity.PaneID("pane-a"), bw1.vimModePaneID)
+	assert.True(t, pv1.IsVimMode())
 }
 
-func TestPageMode_OmniboxFocusExitsPageMode(t *testing.T) {
-	f := newSingleWindowPageModeFixture(t)
-	enterPageMode(t, f.app, f.overlay1A, f.bw1)
-	kh := bindPageModeKeyboardHandler(t, f.app, f.bw1)
+func TestVimMode_OmniboxFocusExitsVimMode(t *testing.T) {
+	f := newSingleWindowVimModeFixture(t)
+	enterVimMode(t, f.app, f.overlay1A, f.bw1)
+	kh := bindVimModeKeyboardHandler(t, f.app, f.bw1)
 
-	expectPageModeAccentHidden(f.overlay1A)
-	f.app.handlePageModeFocusTrigger(context.Background(), f.bw1, usecase.PageModePolicyTriggerOmniboxFocus)
+	expectVimModeAccentHidden(f.overlay1A)
+	f.app.handleVimModeFocusTrigger(context.Background(), f.bw1, usecase.VimModePolicyTriggerOmniboxFocus)
 
 	assert.Equal(t, input.ModeNormal, kh.Mode())
-	assert.Empty(t, f.bw1.pageModePaneID)
+	assert.Empty(t, f.bw1.vimModePaneID)
 }
 
-func TestPageMode_FindBarFocusExitsPageMode(t *testing.T) {
-	f := newSingleWindowPageModeFixture(t)
-	enterPageMode(t, f.app, f.overlay1A, f.bw1)
-	kh := bindPageModeKeyboardHandler(t, f.app, f.bw1)
+func TestVimMode_FindBarFocusExitsVimMode(t *testing.T) {
+	f := newSingleWindowVimModeFixture(t)
+	enterVimMode(t, f.app, f.overlay1A, f.bw1)
+	kh := bindVimModeKeyboardHandler(t, f.app, f.bw1)
 
-	expectPageModeAccentHidden(f.overlay1A)
-	f.app.handlePageModeFocusTrigger(context.Background(), f.bw1, usecase.PageModePolicyTriggerFindBarFocus)
+	expectVimModeAccentHidden(f.overlay1A)
+	f.app.handleVimModeFocusTrigger(context.Background(), f.bw1, usecase.VimModePolicyTriggerFindBarFocus)
 
 	assert.Equal(t, input.ModeNormal, kh.Mode())
-	assert.Empty(t, f.bw1.pageModePaneID)
+	assert.Empty(t, f.bw1.vimModePaneID)
 }
 
-func TestPageMode_TabSwitchExitsAndClearsOldAccent(t *testing.T) {
-	f := newSingleWindowPageModeFixture(t)
-	enterPageMode(t, f.app, f.overlay1A, f.bw1)
-	kh := bindPageModeKeyboardHandler(t, f.app, f.bw1)
+func TestVimMode_TabSwitchExitsAndClearsOldAccent(t *testing.T) {
+	f := newSingleWindowVimModeFixture(t)
+	enterVimMode(t, f.app, f.overlay1A, f.bw1)
+	kh := bindVimModeKeyboardHandler(t, f.app, f.bw1)
 
 	tab2 := &entity.Tab{ID: "tab-2b", Workspace: &entity.Workspace{
 		ID:           "ws-2b",
@@ -709,57 +709,57 @@ func TestPageMode_TabSwitchExitsAndClearsOldAccent(t *testing.T) {
 	f.bw1.tabs.SetActive(tab2.ID)
 	f.app.workspaceViews[tab2.ID] = setupWorkspaceViewMocks(t, f.factory)
 
-	expectPageModeAccentHidden(f.overlay1A)
-	f.app.handlePageModeTabSwitch(context.Background(), f.bw1)
+	expectVimModeAccentHidden(f.overlay1A)
+	f.app.handleVimModeTabSwitch(context.Background(), f.bw1)
 
 	assert.Equal(t, input.ModeNormal, kh.Mode())
-	assert.Empty(t, f.bw1.pageModePaneID)
-	assert.False(t, f.pv1A.IsPageMode())
+	assert.Empty(t, f.bw1.vimModePaneID)
+	assert.False(t, f.pv1A.IsVimMode())
 }
 
-func TestPageMode_ActivationBypassWhenActivePageIsEditable(t *testing.T) {
-	f := newSingleWindowPageModeFixture(t)
+func TestVimMode_ActivationBypassWhenActivePageIsEditable(t *testing.T) {
+	f := newSingleWindowVimModeFixture(t)
 	f.app.pageEditableFocusByPane = map[entity.PaneID]bool{
 		"pane-a": true,
 	}
 
-	assert.True(t, f.app.shouldBypassPageModeActivation(f.bw1))
+	assert.True(t, f.app.shouldBypassVimModeActivation(f.bw1))
 }
 
-func TestPageMode_ActivationBypassClearsWhenEditableFocusLeaves(t *testing.T) {
-	f := newSingleWindowPageModeFixture(t)
+func TestVimMode_ActivationBypassClearsWhenEditableFocusLeaves(t *testing.T) {
+	f := newSingleWindowVimModeFixture(t)
 
 	f.app.handlePageEditableFocusChanged(context.Background(), entity.PaneID("pane-a"), true)
-	assert.True(t, f.app.shouldBypassPageModeActivation(f.bw1))
+	assert.True(t, f.app.shouldBypassVimModeActivation(f.bw1))
 
 	f.app.handlePageEditableFocusChanged(context.Background(), entity.PaneID("pane-a"), false)
-	assert.False(t, f.app.shouldBypassPageModeActivation(f.bw1))
+	assert.False(t, f.app.shouldBypassVimModeActivation(f.bw1))
 }
 
-func TestPageMode_ClearEditableFocusStateRemovesStoredBypass(t *testing.T) {
-	f := newSingleWindowPageModeFixture(t)
+func TestVimMode_ClearEditableFocusStateRemovesStoredBypass(t *testing.T) {
+	f := newSingleWindowVimModeFixture(t)
 	f.app.pageEditableFocusByPane = map[entity.PaneID]bool{"pane-a": true}
 
 	f.app.clearPageEditableFocusState(entity.PaneID("pane-a"))
 
-	assert.False(t, f.app.shouldBypassPageModeActivation(f.bw1))
+	assert.False(t, f.app.shouldBypassVimModeActivation(f.bw1))
 }
 
 // ============================================================================
 // CSS class constants
 // ============================================================================
 
-func TestPageMode_CSSClassConstants(t *testing.T) {
-	assert.Equal(t, "page-mode-active", component.PageModeActiveClass)
-	assert.Equal(t, "page-mode-pulse", component.PageModePulseClass)
-	assert.Equal(t, "page-mode-pulse-fast", component.PageModeFastPulseClass)
+func TestVimMode_CSSClassConstants(t *testing.T) {
+	assert.Equal(t, "vim-mode-active", component.VimModeActiveClass)
+	assert.Equal(t, "vim-mode-pulse", component.VimModePulseClass)
+	assert.Equal(t, "vim-mode-pulse-fast", component.VimModeFastPulseClass)
 }
 
 // ============================================================================
 // Mode toaster
 // ============================================================================
 
-func newModeToasterForPageModeTest(t *testing.T, factory *mocks.MockWidgetFactory) (*component.Toaster, *mocks.MockBoxWidget, *mocks.MockLabelWidget) {
+func newModeToasterForVimModeTest(t *testing.T, factory *mocks.MockWidgetFactory) (*component.Toaster, *mocks.MockBoxWidget, *mocks.MockLabelWidget) {
 	t.Helper()
 
 	container := mocks.NewMockBoxWidget(t)
@@ -782,21 +782,21 @@ func newModeToasterForPageModeTest(t *testing.T, factory *mocks.MockWidgetFactor
 	return component.NewToaster(factory), container, label
 }
 
-func expectPageModeToastShown(container *mocks.MockBoxWidget, label *mocks.MockLabelWidget) {
+func expectVimModeToastShown(container *mocks.MockBoxWidget, label *mocks.MockLabelWidget) {
 	container.EXPECT().RemoveCssClass("toast-info").Once()
-	container.EXPECT().AddCssClass("toast-pane-mode").Once()
+	container.EXPECT().AddCssClass("toast-vim-mode").Once()
 	container.EXPECT().SetHalign(mock.Anything).Once()
 	container.EXPECT().SetValign(mock.Anything).Once()
-	label.EXPECT().SetText("PAGE MODE").Once()
+	label.EXPECT().SetText("VIM MODE").Once()
 	container.EXPECT().SetVisible(true).Once()
 }
 
-func TestPageMode_ToasterRemainsVisibleUntilModeExit(t *testing.T) {
+func TestVimMode_ToasterRemainsVisibleUntilModeExit(t *testing.T) {
 	factory := mocks.NewMockWidgetFactory(t)
-	toaster, container, label := newModeToasterForPageModeTest(t, factory)
-	expectPageModeToastShown(container, label)
+	toaster, container, label := newModeToasterForVimModeTest(t, factory)
+	expectVimModeToastShown(container, label)
 	// These optional calls are made only by the old brief auto-dismiss path.
-	container.EXPECT().RemoveCssClass("toast-pane-mode").Maybe()
+	container.EXPECT().RemoveCssClass("toast-vim-mode").Maybe()
 	container.EXPECT().SetVisible(false).Maybe()
 
 	app := &App{runtimeConfig: runtimeConfigStateFromSnapshotForTest(entity.RuntimeConfigSnapshot{
@@ -808,7 +808,7 @@ func TestPageMode_ToasterRemainsVisibleUntilModeExit(t *testing.T) {
 	app.browserWindows = map[string]*browserWindow{bw.id: bw}
 	app.lastFocusedWindowID = bw.id
 
-	app.updateModeIndicatorToaster(context.Background(), bw, input.ModePage)
+	app.updateModeIndicatorToaster(context.Background(), bw, input.ModeVim)
 	require.True(t, toaster.IsVisible())
 
 	deadline := time.Now().Add(time.Duration(component.ToastBriefDurationMs+100) * time.Millisecond)
@@ -820,15 +820,15 @@ func TestPageMode_ToasterRemainsVisibleUntilModeExit(t *testing.T) {
 		}
 	}
 
-	assert.True(t, toaster.IsVisible(), "Page Mode toast must remain visible until mode exit")
+	assert.True(t, toaster.IsVisible(), "Vim Mode toast must remain visible until mode exit")
 }
 
-func TestPageMode_ModeExitHidesToaster(t *testing.T) {
+func TestVimMode_ModeExitHidesToaster(t *testing.T) {
 	factory := mocks.NewMockWidgetFactory(t)
-	toaster, container, label := newModeToasterForPageModeTest(t, factory)
-	expectPageModeToastShown(container, label)
+	toaster, container, label := newModeToasterForVimModeTest(t, factory)
+	expectVimModeToastShown(container, label)
 	container.EXPECT().RemoveCssClass("toast-custom").Once()
-	container.EXPECT().RemoveCssClass("toast-pane-mode").Once()
+	container.EXPECT().RemoveCssClass("toast-vim-mode").Once()
 	container.EXPECT().SetVisible(false).Once()
 
 	app := &App{runtimeConfig: runtimeConfigStateFromSnapshotForTest(entity.RuntimeConfigSnapshot{
@@ -838,32 +838,32 @@ func TestPageMode_ModeExitHidesToaster(t *testing.T) {
 	})}
 	bw := &browserWindow{id: "win-1", modeToaster: toaster}
 
-	app.updateModeIndicatorToaster(context.Background(), bw, input.ModePage)
+	app.updateModeIndicatorToaster(context.Background(), bw, input.ModeVim)
 	require.True(t, toaster.IsVisible())
 	app.updateModeIndicatorToaster(context.Background(), bw, input.ModeNormal)
 
-	assert.False(t, toaster.IsVisible(), "leaving Page Mode must hide its persistent toast")
+	assert.False(t, toaster.IsVisible(), "leaving Vim Mode must hide its persistent toast")
 }
 
-func TestPageMode_DisabledModeIndicatorPreferenceSuppressesToaster(t *testing.T) {
+func TestVimMode_DisabledModeIndicatorPreferenceSuppressesToaster(t *testing.T) {
 	factory := mocks.NewMockWidgetFactory(t)
-	toaster, _, _ := newModeToasterForPageModeTest(t, factory)
+	toaster, _, _ := newModeToasterForVimModeTest(t, factory)
 	app := &App{runtimeConfig: runtimeConfigStateFromSnapshotForTest(entity.RuntimeConfigSnapshot{})}
 	bw := &browserWindow{id: "win-1", modeToaster: toaster}
 
-	app.updateModeIndicatorToaster(context.Background(), bw, input.ModePage)
+	app.updateModeIndicatorToaster(context.Background(), bw, input.ModeVim)
 
 	assert.False(t, toaster.IsVisible())
 }
 
-func TestPageMode_MultiWindowToastersExitIndependently(t *testing.T) {
+func TestVimMode_MultiWindowToastersExitIndependently(t *testing.T) {
 	factory := mocks.NewMockWidgetFactory(t)
-	toaster1, container1, label1 := newModeToasterForPageModeTest(t, factory)
-	toaster2, container2, label2 := newModeToasterForPageModeTest(t, factory)
-	expectPageModeToastShown(container1, label1)
-	expectPageModeToastShown(container2, label2)
+	toaster1, container1, label1 := newModeToasterForVimModeTest(t, factory)
+	toaster2, container2, label2 := newModeToasterForVimModeTest(t, factory)
+	expectVimModeToastShown(container1, label1)
+	expectVimModeToastShown(container2, label2)
 	container1.EXPECT().RemoveCssClass("toast-custom").Once()
-	container1.EXPECT().RemoveCssClass("toast-pane-mode").Once()
+	container1.EXPECT().RemoveCssClass("toast-vim-mode").Once()
 	container1.EXPECT().SetVisible(false).Once()
 
 	app := &App{runtimeConfig: runtimeConfigStateFromSnapshotForTest(entity.RuntimeConfigSnapshot{
@@ -874,20 +874,20 @@ func TestPageMode_MultiWindowToastersExitIndependently(t *testing.T) {
 	bw1 := &browserWindow{id: "win-1", modeToaster: toaster1}
 	bw2 := &browserWindow{id: "win-2", modeToaster: toaster2}
 
-	app.updateModeIndicatorToaster(context.Background(), bw1, input.ModePage)
-	app.updateModeIndicatorToaster(context.Background(), bw2, input.ModePage)
+	app.updateModeIndicatorToaster(context.Background(), bw1, input.ModeVim)
+	app.updateModeIndicatorToaster(context.Background(), bw2, input.ModeVim)
 	app.updateModeIndicatorToaster(context.Background(), bw1, input.ModeNormal)
 
 	assert.False(t, toaster1.IsVisible())
-	assert.True(t, toaster2.IsVisible(), "exiting one window must not hide another window's Page Mode toast")
+	assert.True(t, toaster2.IsVisible(), "exiting one window must not hide another window's Vim Mode toast")
 }
 
-func TestPageMode_RuntimePreferenceDisableHidesPersistentToaster(t *testing.T) {
+func TestVimMode_RuntimePreferenceDisableHidesPersistentToaster(t *testing.T) {
 	factory := mocks.NewMockWidgetFactory(t)
-	toaster, container, label := newModeToasterForPageModeTest(t, factory)
-	expectPageModeToastShown(container, label)
+	toaster, container, label := newModeToasterForVimModeTest(t, factory)
+	expectVimModeToastShown(container, label)
 	container.EXPECT().RemoveCssClass("toast-custom").Once()
-	container.EXPECT().RemoveCssClass("toast-pane-mode").Once()
+	container.EXPECT().RemoveCssClass("toast-vim-mode").Once()
 	container.EXPECT().SetVisible(false).Once()
 
 	enabled := entity.RuntimeConfigSnapshot{
@@ -895,26 +895,26 @@ func TestPageMode_RuntimePreferenceDisableHidesPersistentToaster(t *testing.T) {
 			ModeIndicatorToasterEnabled: true,
 		}}},
 	}
-	keyboardHandler := newKeyboardHandlerInPageMode(t)
+	keyboardHandler := newKeyboardHandlerInVimMode(t)
 	bw := &browserWindow{id: "win-1", modeToaster: toaster, keyboardHandler: keyboardHandler}
 	app := &App{
 		runtimeConfig:  runtimeConfigStateFromSnapshotForTest(enabled),
 		browserWindows: map[string]*browserWindow{bw.id: bw},
 	}
 
-	app.updateModeIndicatorToaster(context.Background(), bw, input.ModePage)
+	app.updateModeIndicatorToaster(context.Background(), bw, input.ModeVim)
 	require.True(t, toaster.IsVisible())
 	app.applyRuntimeConfigChange(context.Background(), entity.RuntimeConfigSnapshot{})
 
 	assert.False(t, toaster.IsVisible(), "runtime preference disable must reconcile an existing persistent toast")
 }
 
-func TestPageMode_RuntimePreferenceEnableShowsPersistentToaster(t *testing.T) {
+func TestVimMode_RuntimePreferenceEnableShowsPersistentToaster(t *testing.T) {
 	factory := mocks.NewMockWidgetFactory(t)
-	toaster, container, label := newModeToasterForPageModeTest(t, factory)
-	expectPageModeToastShown(container, label)
+	toaster, container, label := newModeToasterForVimModeTest(t, factory)
+	expectVimModeToastShown(container, label)
 
-	keyboardHandler := newKeyboardHandlerInPageMode(t)
+	keyboardHandler := newKeyboardHandlerInVimMode(t)
 	bw := &browserWindow{id: "win-1", modeToaster: toaster, keyboardHandler: keyboardHandler}
 	app := &App{
 		runtimeConfig:  runtimeConfigStateFromSnapshotForTest(entity.RuntimeConfigSnapshot{}),
@@ -928,14 +928,14 @@ func TestPageMode_RuntimePreferenceEnableShowsPersistentToaster(t *testing.T) {
 
 	app.applyRuntimeConfigChange(context.Background(), enabled)
 
-	assert.True(t, toaster.IsVisible(), "runtime preference enable must reconcile active Page Mode")
+	assert.True(t, toaster.IsVisible(), "runtime preference enable must reconcile active Vim Mode")
 }
 
 // ============================================================================
-// BorderManager — Page mode must NOT use the global border overlay
+// BorderManager — Vim mode must NOT use the global border overlay
 // ============================================================================
 
-func TestPageMode_GlobalBorderOverlayStaysOff(t *testing.T) {
+func TestVimMode_GlobalBorderOverlayStaysOff(t *testing.T) {
 	mockFactory := mocks.NewMockWidgetFactory(t)
 	mockBox := mocks.NewMockBoxWidget(t)
 
@@ -949,113 +949,113 @@ func TestPageMode_GlobalBorderOverlayStaysOff(t *testing.T) {
 	bm := focus.NewBorderManager(mockFactory)
 
 	mockBox.EXPECT().SetVisible(false).Once()
-	bm.OnModeChange(context.Background(), input.ModeNormal, input.ModePage)
+	bm.OnModeChange(context.Background(), input.ModeNormal, input.ModeVim)
 
 	mockBox.EXPECT().SetVisible(false).Once()
-	bm.OnModeChange(context.Background(), input.ModePage, input.ModeNormal)
+	bm.OnModeChange(context.Background(), input.ModeVim, input.ModeNormal)
 }
 
 // ============================================================================
 // Pulse Debounce
 // ============================================================================
 
-func TestPageMode_Pulse_DebounceSkipsRapidConsecutiveCalls(t *testing.T) {
-	f := newSingleWindowPageModeFixture(t)
-	enterPageMode(t, f.app, f.overlay1A, f.bw1)
+func TestVimMode_Pulse_DebounceSkipsRapidConsecutiveCalls(t *testing.T) {
+	f := newSingleWindowVimModeFixture(t)
+	enterVimMode(t, f.app, f.overlay1A, f.bw1)
 
 	// Set up expectations for exactly ONE normal pulse.
 	setUpNormalPulse(f.overlay1A)
 
 	// First call fires the pulse (debounce timer is zero).
-	f.app.triggerPageModePulse(context.Background(), false)
+	f.app.triggerVimModePulse(context.Background(), false)
 
 	// Second call within the same frame should be debounced — no
 	// mock expectations set up for it, so the test fails if it fires.
-	f.app.triggerPageModePulse(context.Background(), false)
+	f.app.triggerVimModePulse(context.Background(), false)
 }
 
-func TestPageMode_Pulse_DebounceAllowsSpacedCalls(t *testing.T) {
+func TestVimMode_Pulse_DebounceAllowsSpacedCalls(t *testing.T) {
 	// Verify that the debounce timer starts at zero on a fresh App,
-	// so the first pulse after entering page mode always fires.
+	// so the first pulse after entering vim mode always fires.
 	// The exit-and-re-enter path is covered by the
-	// TestPageMode_Pulse_DebounceResetOnClearOwnership test below.
+	// TestVimMode_Pulse_DebounceResetOnClearOwnership test below.
 
-	f := newSingleWindowPageModeFixture(t)
+	f := newSingleWindowVimModeFixture(t)
 
 	// Fresh app: debounce timer is zero.
-	assert.True(t, f.app.pageModePulseLastTime.IsZero(),
+	assert.True(t, f.app.vimModePulseLastTime.IsZero(),
 		"fresh app should have zero pulse timer")
 
-	enterPageMode(t, f.app, f.overlay1A, f.bw1)
+	enterVimMode(t, f.app, f.overlay1A, f.bw1)
 
 	// Pulse #1 fires because timer is zero (time.Since(zero) is huge).
 	setUpNormalPulse(f.overlay1A)
-	f.app.triggerPageModePulse(context.Background(), false)
+	f.app.triggerVimModePulse(context.Background(), false)
 
 	// Timer is now set, proving the first pulse registered.
-	assert.False(t, f.app.pageModePulseLastTime.IsZero(),
+	assert.False(t, f.app.vimModePulseLastTime.IsZero(),
 		"pulse timer should be non-zero after first pulse")
 }
 
-func TestPageMode_Pulse_DebounceResetOnClearOwnership(t *testing.T) {
-	// Verify that clearPageModeOwnership resets the debounce timer
-	// so a subsequent pulse in a new page mode session is not skipped.
+func TestVimMode_Pulse_DebounceResetOnClearOwnership(t *testing.T) {
+	// Verify that clearVimModeOwnership resets the debounce timer
+	// so a subsequent pulse in a new vim mode session is not skipped.
 	// We check the timer state directly rather than triggering a second
 	// pulse (which would need pulse-cycle alternation handling).
 
-	f := newSingleWindowPageModeFixture(t)
-	enterPageMode(t, f.app, f.overlay1A, f.bw1)
+	f := newSingleWindowVimModeFixture(t)
+	enterVimMode(t, f.app, f.overlay1A, f.bw1)
 
 	// Pulse #1 fires and sets the timer.
 	setUpNormalPulse(f.overlay1A)
-	f.app.triggerPageModePulse(context.Background(), false)
-	assert.False(t, f.app.pageModePulseLastTime.IsZero(),
+	f.app.triggerVimModePulse(context.Background(), false)
+	assert.False(t, f.app.vimModePulseLastTime.IsZero(),
 		"pulse timer should be non-zero after first pulse")
 
 	// Clear ownership — this resets the debounce timer.
-	expectPageModeAccentHidden(f.overlay1A)
-	f.app.clearPageModeOwnership(context.Background(), f.bw1)
-	assert.Empty(t, f.bw1.pageModePaneID)
+	expectVimModeAccentHidden(f.overlay1A)
+	f.app.clearVimModeOwnership(context.Background(), f.bw1)
+	assert.Empty(t, f.bw1.vimModePaneID)
 
 	// Debounce timer should now be back to zero.
-	assert.True(t, f.app.pageModePulseLastTime.IsZero(),
-		"pulse timer should be reset after clearPageModeOwnership")
+	assert.True(t, f.app.vimModePulseLastTime.IsZero(),
+		"pulse timer should be reset after clearVimModeOwnership")
 }
 
-func TestPageMode_Pulse_DebounceFirstPulseAlwaysFires(t *testing.T) {
-	// Even if triggerPageModePulse is called rapidly on a fresh
-	// App (e.g., first keystroke after page mode entry), the first
+func TestVimMode_Pulse_DebounceFirstPulseAlwaysFires(t *testing.T) {
+	// Even if triggerVimModePulse is called rapidly on a fresh
+	// App (e.g., first keystroke after vim mode entry), the first
 	// call must always fire. This is guaranteed by the zero value
 	// of time.Time producing a time.Since result much larger than
 	// the debounce interval.
-	f := newSingleWindowPageModeFixture(t)
-	enterPageMode(t, f.app, f.overlay1A, f.bw1)
+	f := newSingleWindowVimModeFixture(t)
+	enterVimMode(t, f.app, f.overlay1A, f.bw1)
 
 	// Rapid double pulse — only first should fire regardless of order.
 	// Set up just one set of expectations.
 	setUpNormalPulse(f.overlay1A)
-	f.app.triggerPageModePulse(context.Background(), false)
-	f.app.triggerPageModePulse(context.Background(), false)
+	f.app.triggerVimModePulse(context.Background(), false)
+	f.app.triggerVimModePulse(context.Background(), false)
 }
 
 // ============================================================================
-// UI Scale: Page mode CSS uses relative (em) units
+// UI Scale: Vim mode CSS uses relative (em) units
 // ============================================================================
 
-func TestPageMode_CSSUsesEms(t *testing.T) {
+func TestVimMode_CSSUsesEms(t *testing.T) {
 	css := theme.GenerateCSS(theme.DefaultDarkPalette())
 
 	assert.Contains(t, css, "box-shadow: inset 0 0 0 0.125em",
-		"page mode overlay box-shadow should use em for scaling")
+		"vim mode overlay box-shadow should use em for scaling")
 	assert.Contains(t, css, "0.2em",
-		"page mode overlay pulse glow radius uses em")
+		"vim mode overlay pulse glow radius uses em")
 	assert.Contains(t, css, "0.26em",
-		"page mode overlay fast-pulse glow radius uses em")
-	assert.NotContains(t, css, "page-mode-indicator",
+		"vim mode overlay fast-pulse glow radius uses em")
+	assert.NotContains(t, css, "vim-mode-indicator",
 		"removed PAGE label styling must not remain")
 }
 
-func TestPageMode_CSSPulseTimingUsesDefaultTransitionDuration(t *testing.T) {
+func TestVimMode_CSSPulseTimingUsesDefaultTransitionDuration(t *testing.T) {
 	// The pulse animation durations should be derived from the
 	// default transition duration (normal = 3x, fast = 6x).
 	// Default = 120ms → normal = 360ms, fast = 720ms.
@@ -1067,7 +1067,7 @@ func TestPageMode_CSSPulseTimingUsesDefaultTransitionDuration(t *testing.T) {
 		"fast pulse duration should be 6x transition duration (720ms for 120ms base)")
 }
 
-func TestPageMode_CSSWithCustomTransitionDuration(t *testing.T) {
+func TestVimMode_CSSWithCustomTransitionDuration(t *testing.T) {
 	// Custom transition duration (e.g., 200ms) should produce
 	// adjusted pulse timings: normal = 600ms, fast = 1200ms.
 	css := theme.GenerateCSSFullWithTiming(

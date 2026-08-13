@@ -53,11 +53,11 @@ const (
 	floatingSessionIDDefault      = "default"
 	floatingPaneVisibleClass      = "floating-pane-visible"
 
-	// pageModePulseInterval is the minimum interval between page mode pulses.
-	// Held Page Mode scrolling now runs on its own smooth repeater, so the pulse
+	// vimModePulseInterval is the minimum interval between vim mode pulses.
+	// Held Vim Mode scrolling now runs on its own smooth repeater, so the pulse
 	// is intentionally throttled well below scroll cadence to avoid GTK CSS churn
 	// becoming part of the perceived scroll jank.
-	pageModePulseInterval = 120 * time.Millisecond
+	vimModePulseInterval = 120 * time.Millisecond
 )
 
 func gtkApplicationFlags() gio.ApplicationFlags {
@@ -123,7 +123,7 @@ type App struct {
 	// Focus tracking stays app-global.
 	focusMgr *focus.Manager
 
-	pageModePolicyUC        *usecase.PageModePolicyUseCase
+	vimModePolicyUC         *usecase.VimModePolicyUseCase
 	pageEditableFocusByPane map[entity.PaneID]bool
 
 	resizeModeBorderTarget layout.Widget
@@ -159,11 +159,11 @@ type App struct {
 	// Accent picker for dead keys support
 	accentFocusProvider port.FocusedInputProvider
 
-	// Page mode pulse debounce - tracks last pulse time to skip rapid
-	// repeats during held-key scroll actions. Reset on page mode exit
+	// Vim mode pulse debounce - tracks last pulse time to skip rapid
+	// repeats during held-key scroll actions. Reset on vim mode exit
 	// via handleModeChange.
-	pageModePulseLastTime time.Time
-	pageModePulseMu       sync.Mutex
+	vimModePulseLastTime time.Time
+	vimModePulseMu       sync.Mutex
 
 	// Deferred initialization - runs after first load_started to avoid blocking initial navigation
 	deferredInitOnce sync.Once
@@ -216,7 +216,7 @@ func New(deps *Dependencies) (*App, error) {
 		windowForTab:            make(map[entity.TabID]*browserWindow),
 		floatingSessions:        make(map[floatingSessionKey]*floatingWorkspaceSession),
 		browserWindows:          make(map[string]*browserWindow),
-		pageModePolicyUC:        usecase.NewPageModePolicyUseCase(),
+		vimModePolicyUC:         usecase.NewVimModePolicyUseCase(),
 		pageEditableFocusByPane: make(map[entity.PaneID]bool),
 		dispatchOnMainThread: func(label string, fn func()) syncdispatch.SyncDispatchResult {
 			if fn != nil {
@@ -835,7 +835,7 @@ func (a *App) wireSessionManagerShortcut() {
 		}
 		bw.sessionManager.Toggle(ctx)
 		if bw.sessionManager.IsVisible() {
-			a.handlePageModeFocusTrigger(ctx, bw, usecase.PageModePolicyTriggerOverlayFocus)
+			a.handleVimModeFocusTrigger(ctx, bw, usecase.VimModePolicyTriggerOverlayFocus)
 		}
 		return nil
 	})
@@ -1088,9 +1088,9 @@ func (a *App) initBrowserWindowInput(ctx context.Context, bw *browserWindow) {
 		}
 		return a.dispatchBrowserWindowAction(actionCtx, bw, action)
 	})
-	bw.keyboardHandler.SetOnPageScrollLifecycle(func(scrollCtx context.Context, action input.Action, phase input.PageScrollPhase) error {
+	bw.keyboardHandler.SetOnVimScrollLifecycle(func(scrollCtx context.Context, action input.Action, phase input.VimScrollPhase) error {
 		a.activateBrowserWindow(bw)
-		return a.kbDispatcher.DispatchPageScrollLifecycle(scrollCtx, action, phase)
+		return a.kbDispatcher.DispatchVimScrollLifecycle(scrollCtx, action, phase)
 	})
 	bw.keyboardHandler.SetOnEscape(func(escapeCtx context.Context) bool {
 		a.activateBrowserWindow(bw)
@@ -1126,8 +1126,8 @@ func (a *App) initBrowserWindowInput(ctx context.Context, bw *browserWindow) {
 
 		return input.RouteHandleShortcuts
 	})
-	bw.keyboardHandler.SetPageModeActivationPassthrough(func() bool {
-		return a.shouldBypassPageModeActivation(bw)
+	bw.keyboardHandler.SetVimModeActivationPassthrough(func() bool {
+		return a.shouldBypassVimModeActivation(bw)
 	})
 	bw.keyboardHandler.SetAccentHandler(a)
 	bw.keyboardHandler.AttachTo(bw.mainWindow.Window())
@@ -1369,7 +1369,7 @@ func (a *App) initOmniboxConfig(ctx context.Context) {
 					a.accentFocusProvider.SetFocusedInput(a.deps.NewGTKEntryTarget(entry))
 				}
 			}
-			a.handlePageModeFocusTrigger(ctx, a.lastFocusedBrowserWindow(), usecase.PageModePolicyTriggerOmniboxFocus)
+			a.handleVimModeFocusTrigger(ctx, a.lastFocusedBrowserWindow(), usecase.VimModePolicyTriggerOmniboxFocus)
 		},
 		OnFocusOut: func() {
 			// When omnibox loses focus, set WebView as the focused input
@@ -1408,7 +1408,7 @@ func (a *App) initFindBarConfig(ctx context.Context) {
 					a.accentFocusProvider.SetFocusedInput(a.deps.NewGTKEntryTarget(entry))
 				}
 			}
-			a.handlePageModeFocusTrigger(ctx, a.lastFocusedBrowserWindow(), usecase.PageModePolicyTriggerFindBarFocus)
+			a.handleVimModeFocusTrigger(ctx, a.lastFocusedBrowserWindow(), usecase.VimModePolicyTriggerFindBarFocus)
 		},
 		OnFocusOut: func() {
 			// When find bar loses focus, set WebView as the focused input
@@ -1433,7 +1433,7 @@ func (a *App) ToggleSessionManager(ctx context.Context) {
 	}
 	bw.sessionManager.Toggle(ctx)
 	if bw.sessionManager.IsVisible() {
-		a.handlePageModeFocusTrigger(ctx, bw, usecase.PageModePolicyTriggerOverlayFocus)
+		a.handleVimModeFocusTrigger(ctx, bw, usecase.VimModePolicyTriggerOverlayFocus)
 	}
 }
 
@@ -1533,7 +1533,7 @@ func (a *App) HandleMovePaneToTab(ctx context.Context) error {
 
 	a.attachTabPickerToActivePane()
 	bw.tabPicker.Show(ctx, items)
-	a.handlePageModeFocusTrigger(ctx, bw, usecase.PageModePolicyTriggerOverlayFocus)
+	a.handleVimModeFocusTrigger(ctx, bw, usecase.VimModePolicyTriggerOverlayFocus)
 	return nil
 }
 
@@ -3108,7 +3108,7 @@ func (a *App) initTabCoordinator(ctx context.Context) {
 		// tracks ActiveTabID and PreviousActiveTabID on bw.tabs. No manual bw state needed.
 		if bw := a.browserWindowForTabTarget(target); bw != nil {
 			a.activateBrowserWindow(bw)
-			a.handlePageModeTabSwitch(ctx, bw)
+			a.handleVimModeTabSwitch(ctx, bw)
 		}
 		a.switchWorkspaceView(ctx, tab.ID)
 	})
@@ -3393,8 +3393,8 @@ func (a *App) withFocusedTabTarget(ctx context.Context, action string, ensure bo
 
 func (a *App) wireKeyboardActions() {
 	a.kbDispatcher.SetOnQuit(a.Quit)
-	a.kbDispatcher.SetOnPageModePulse(func(ctx context.Context, fast bool) {
-		a.triggerPageModePulse(ctx, fast)
+	a.kbDispatcher.SetOnVimModePulse(func(ctx context.Context, fast bool) {
+		a.triggerVimModePulse(ctx, fast)
 	})
 	a.kbDispatcher.SetOnFindOpen(func(ctx context.Context) error {
 		a.ToggleFindBar(ctx)
@@ -3727,14 +3727,14 @@ func (a *App) updateWindowTitleFromActivePane(tabID entity.TabID) {
 	a.updateWindowTitle(title, a.ownerOrLastFocusedBrowserWindow(tabID, ""))
 }
 
-func (a *App) pageModePolicy() *usecase.PageModePolicyUseCase {
+func (a *App) vimModePolicy() *usecase.VimModePolicyUseCase {
 	if a == nil {
-		return usecase.NewPageModePolicyUseCase()
+		return usecase.NewVimModePolicyUseCase()
 	}
-	if a.pageModePolicyUC == nil {
-		a.pageModePolicyUC = usecase.NewPageModePolicyUseCase()
+	if a.vimModePolicyUC == nil {
+		a.vimModePolicyUC = usecase.NewVimModePolicyUseCase()
 	}
-	return a.pageModePolicyUC
+	return a.vimModePolicyUC
 }
 
 func (a *App) ensurePageEditableFocusMap() {
@@ -3766,51 +3766,51 @@ func (a *App) clearPageEditableFocusState(paneID entity.PaneID) {
 	a.setPageEditableFocused(paneID, false)
 }
 
-func (a *App) pageModeActiveForBrowserWindow(bw *browserWindow) bool {
-	return bw != nil && bw.keyboardHandler != nil && bw.keyboardHandler.Mode() == input.ModePage
+func (a *App) vimModeActiveForBrowserWindow(bw *browserWindow) bool {
+	return bw != nil && bw.keyboardHandler != nil && bw.keyboardHandler.Mode() == input.ModeVim
 }
 
-func (a *App) applyPageModePolicyTransition(_ context.Context, bw *browserWindow, transition usecase.PageModePolicyTransition) {
-	if transition != usecase.PageModePolicyTransitionExit || bw == nil || bw.keyboardHandler == nil {
+func (a *App) applyVimModePolicyTransition(_ context.Context, bw *browserWindow, transition usecase.VimModePolicyTransition) {
+	if transition != usecase.VimModePolicyTransitionExit || bw == nil || bw.keyboardHandler == nil {
 		return
 	}
-	if bw.keyboardHandler.Mode() != input.ModePage {
+	if bw.keyboardHandler.Mode() != input.ModeVim {
 		return
 	}
 	bw.keyboardHandler.ExitMode()
 }
 
-func (a *App) handlePageModeFocusTrigger(ctx context.Context, bw *browserWindow, trigger usecase.PageModePolicyTrigger) {
+func (a *App) handleVimModeFocusTrigger(ctx context.Context, bw *browserWindow, trigger usecase.VimModePolicyTrigger) {
 	if bw == nil {
 		return
 	}
-	transition := a.pageModePolicy().Evaluate(usecase.PageModePolicyInput{
-		Trigger:        trigger,
-		PageModeActive: a.pageModeActiveForBrowserWindow(bw),
+	transition := a.vimModePolicy().Evaluate(usecase.VimModePolicyInput{
+		Trigger:       trigger,
+		VimModeActive: a.vimModeActiveForBrowserWindow(bw),
 	})
-	a.applyPageModePolicyTransition(ctx, bw, transition)
+	a.applyVimModePolicyTransition(ctx, bw, transition)
 }
 
-func (a *App) handlePageModeTabSwitch(_ context.Context, bw *browserWindow) {
-	if bw == nil || bw.tabs == nil || !a.pageModeActiveForBrowserWindow(bw) {
+func (a *App) handleVimModeTabSwitch(_ context.Context, bw *browserWindow) {
+	if bw == nil || bw.tabs == nil || !a.vimModeActiveForBrowserWindow(bw) {
 		return
 	}
-	transition := a.pageModePolicy().Evaluate(usecase.PageModePolicyInput{
-		Trigger:                 usecase.PageModePolicyTriggerContextChanged,
-		PageModeActive:          true,
+	transition := a.vimModePolicy().Evaluate(usecase.VimModePolicyInput{
+		Trigger:                 usecase.VimModePolicyTriggerContextChanged,
+		VimModeActive:           true,
 		PreserveOnContextChange: false,
 	})
-	if transition != usecase.PageModePolicyTransitionExit {
+	if transition != usecase.VimModePolicyTransitionExit {
 		return
 	}
 	if prevTabID := bw.tabs.PreviousActiveTabID; prevTabID != "" {
 		if prevView := a.workspaceViews[prevTabID]; prevView != nil {
-			if pv := prevView.GetPaneView(bw.pageModePaneID); pv != nil {
-				pv.SetPageMode(false)
+			if pv := prevView.GetPaneView(bw.vimModePaneID); pv != nil {
+				pv.SetVimMode(false)
 			}
 		}
 	}
-	bw.pageModePaneID = ""
+	bw.vimModePaneID = ""
 	bw.keyboardHandler.ExitMode()
 }
 
@@ -3826,25 +3826,25 @@ func (a *App) handlePageEditableFocusChanged(ctx context.Context, paneID entity.
 	}
 	ws := a.activeWorkspaceForBrowserWindow(bw)
 	activeContext := ws != nil && ws.ActivePaneID == paneID && a.lastFocusedBrowserWindow() == bw
-	transition := a.pageModePolicy().Evaluate(usecase.PageModePolicyInput{
-		Trigger:              usecase.PageModePolicyTriggerPageEditableFocusChanged,
-		PageModeActive:       a.pageModeActiveForBrowserWindow(bw),
+	transition := a.vimModePolicy().Evaluate(usecase.VimModePolicyInput{
+		Trigger:              usecase.VimModePolicyTriggerPageEditableFocusChanged,
+		VimModeActive:        a.vimModeActiveForBrowserWindow(bw),
 		PageEditableFocused:  editable,
 		EventInActiveContext: activeContext,
 	})
-	a.applyPageModePolicyTransition(ctx, bw, transition)
+	a.applyVimModePolicyTransition(ctx, bw, transition)
 }
 
-func (a *App) shouldBypassPageModeActivation(bw *browserWindow) bool {
+func (a *App) shouldBypassVimModeActivation(bw *browserWindow) bool {
 	ws := a.activeWorkspaceForBrowserWindow(bw)
 	if ws == nil {
 		return false
 	}
-	transition := a.pageModePolicy().Evaluate(usecase.PageModePolicyInput{
-		Trigger:             usecase.PageModePolicyTriggerActivationAttempt,
+	transition := a.vimModePolicy().Evaluate(usecase.VimModePolicyInput{
+		Trigger:             usecase.VimModePolicyTriggerActivationAttempt,
 		PageEditableFocused: a.pageEditableFocused(ws.ActivePaneID),
 	})
-	return transition == usecase.PageModePolicyTransitionBlockActivation
+	return transition == usecase.VimModePolicyTransitionBlockActivation
 }
 
 // handleModeChange is called when the input mode changes for a specific browser window.
@@ -3860,13 +3860,13 @@ func (a *App) handleModeChange(ctx context.Context, bw *browserWindow, from, to 
 		a.applyResizeModeBorder(ctx, a.activeWorkspace())
 	}
 
-	// Handle pane-local Page Mode visual ownership.
-	// Entering Page Mode accents the active pane; leaving removes the accent.
-	a.handlePageModeOwnership(ctx, bw, to, from)
+	// Handle pane-local Vim Mode visual ownership.
+	// Entering Vim Mode accents the active pane; leaving removes the accent.
+	a.handleVimModeOwnership(ctx, bw, to, from)
 
 	// Update global border overlay visibility based on mode.
 	// Note: resize mode border is handled per-pane (stack container), not via global overlay.
-	// Page mode explicitly skips the global border overlay.
+	// Vim mode explicitly skips the global border overlay.
 	if bw != nil && bw.borderMgr != nil {
 		bw.borderMgr.OnModeChange(ctx, from, to)
 	}
@@ -3875,23 +3875,23 @@ func (a *App) handleModeChange(ctx context.Context, bw *browserWindow, from, to 
 	a.updateModeIndicatorToaster(ctx, bw, to)
 }
 
-// transferPageModeOwnershipToPane transfers the pane-local Page Mode accent
+// transferVimModeOwnershipToPane transfers the pane-local Vim Mode accent
 // from the current owning pane to another pane in the same browser window.
-// The transfer only happens while that window is in Page Mode.
-func (a *App) transferPageModeOwnershipToPane(ctx context.Context, bw *browserWindow, newPaneID entity.PaneID) {
+// The transfer only happens while that window is in Vim Mode.
+func (a *App) transferVimModeOwnershipToPane(ctx context.Context, bw *browserWindow, newPaneID entity.PaneID) {
 	if bw == nil {
 		return
 	}
 
-	// Only transfer if page mode is currently active and the owner is changing.
-	if bw.pageModePaneID == "" || bw.pageModePaneID == newPaneID {
+	// Only transfer if vim mode is currently active and the owner is changing.
+	if bw.vimModePaneID == "" || bw.vimModePaneID == newPaneID {
 		return
 	}
 
-	// Check if this window is actually in page mode.
-	if bw.keyboardHandler == nil || bw.keyboardHandler.Mode() != input.ModePage {
-		// Page mode not active on this window; just clear stale ownership.
-		bw.pageModePaneID = ""
+	// Check if this window is actually in vim mode.
+	if bw.keyboardHandler == nil || bw.keyboardHandler.Mode() != input.ModeVim {
+		// Vim mode not active on this window; just clear stale ownership.
+		bw.vimModePaneID = ""
 		return
 	}
 
@@ -3900,39 +3900,39 @@ func (a *App) transferPageModeOwnershipToPane(ctx context.Context, bw *browserWi
 		return
 	}
 
-	transition := a.pageModePolicy().Evaluate(usecase.PageModePolicyInput{
-		Trigger:                 usecase.PageModePolicyTriggerContextChanged,
-		PageModeActive:          true,
+	transition := a.vimModePolicy().Evaluate(usecase.VimModePolicyInput{
+		Trigger:                 usecase.VimModePolicyTriggerContextChanged,
+		VimModeActive:           true,
 		PreserveOnContextChange: !a.pageEditableFocused(newPaneID),
 	})
-	if transition == usecase.PageModePolicyTransitionExit {
-		a.applyPageModePolicyTransition(ctx, bw, transition)
+	if transition == usecase.VimModePolicyTransitionExit {
+		a.applyVimModePolicyTransition(ctx, bw, transition)
 		return
 	}
 
-	oldPaneID := bw.pageModePaneID
+	oldPaneID := bw.vimModePaneID
 
 	// Deactivate the old owning pane.
 	if oldPV := wsView.GetPaneView(oldPaneID); oldPV != nil {
-		oldPV.SetPageMode(false)
+		oldPV.SetVimMode(false)
 	}
 
 	// Activate the new pane.
 	if newPV := wsView.GetPaneView(newPaneID); newPV != nil {
-		newPV.SetPageMode(true)
+		newPV.SetVimMode(true)
 	}
-	bw.pageModePaneID = newPaneID
+	bw.vimModePaneID = newPaneID
 
 	logging.FromContext(ctx).Debug().
 		Str("window_id", bw.id).
 		Str("old_pane_id", string(oldPaneID)).
 		Str("new_pane_id", string(newPaneID)).
-		Msg("page mode ownership transferred")
+		Msg("vim mode ownership transferred")
 }
 
-// handlePageModeOwnership manages the pane-local Page Mode accent and pulse
+// handleVimModeOwnership manages the pane-local Vim Mode accent and pulse
 // owner for a specific browser window when input modes change.
-func (a *App) handlePageModeOwnership(ctx context.Context, bw *browserWindow, to, from input.Mode) {
+func (a *App) handleVimModeOwnership(ctx context.Context, bw *browserWindow, to, from input.Mode) {
 	if bw == nil {
 		return
 	}
@@ -3941,96 +3941,96 @@ func (a *App) handlePageModeOwnership(ctx context.Context, bw *browserWindow, to
 	wsView := a.activeWorkspaceViewForBrowserWindow(bw)
 	if ws == nil || wsView == nil {
 		// If there's no workspace yet (startup), just track the intent.
-		if to != input.ModePage && from == input.ModePage {
-			bw.pageModePaneID = ""
+		if to != input.ModeVim && from == input.ModeVim {
+			bw.vimModePaneID = ""
 		}
 		return
 	}
 
-	if to == input.ModePage && from != input.ModePage {
-		// Entering page mode: activate on the current active pane of this window.
+	if to == input.ModeVim && from != input.ModeVim {
+		// Entering vim mode: activate on the current active pane of this window.
 		paneID := ws.ActivePaneID
 		if pv := wsView.GetPaneView(paneID); pv != nil {
-			pv.SetPageMode(true)
-			bw.pageModePaneID = paneID
+			pv.SetVimMode(true)
+			bw.vimModePaneID = paneID
 			logging.FromContext(ctx).Debug().
 				Str("window_id", bw.id).
 				Str("pane_id", string(paneID)).
-				Msg("page mode activated on pane")
+				Msg("vim mode activated on pane")
 		}
-	} else if from == input.ModePage && to != input.ModePage {
-		// Leaving Page Mode: deactivate the pane that owns the visual accent.
-		a.clearPageModeOwnership(ctx, bw)
+	} else if from == input.ModeVim && to != input.ModeVim {
+		// Leaving Vim Mode: deactivate the pane that owns the visual accent.
+		a.clearVimModeOwnership(ctx, bw)
 	}
 }
 
-// triggerPageModePulse triggers a pane-local page mode pulse on the
+// triggerVimModePulse triggers a pane-local vim mode pulse on the
 // last-focused browser window's owning pane. This is called by the
 // keyboard dispatcher after a page scroll action. The bw used is the
 // window that was active when the action was dispatched (via
 // dispatchBrowserWindowAction which calls activateBrowserWindow first).
-// If no pane is currently in page mode, the pulse is a no-op.
+// If no pane is currently in vim mode, the pulse is a no-op.
 //
-// Pulses are debounced at pageModePulseInterval to prevent excessive GTK CSS
+// Pulses are debounced at vimModePulseInterval to prevent excessive GTK CSS
 // class churn during held-key repeats. Smooth scroll cadence is owned by the
-// Page Mode repeater and backend scroll path; pulse feedback is deliberately
+// Vim Mode repeater and backend scroll path; pulse feedback is deliberately
 // slower so indicator/overlay animation work does not become part of the
 // scrolling critical path.
-func (a *App) triggerPageModePulse(_ context.Context, fast bool) {
+func (a *App) triggerVimModePulse(_ context.Context, fast bool) {
 	// Debounce: skip if called again too soon during a continuous hold.
 	// We still serialize the timestamp update so repeated dispatcher calls do
 	// not restart CSS animations at scroll cadence.
-	a.pageModePulseMu.Lock()
-	since := time.Since(a.pageModePulseLastTime)
-	if since < pageModePulseInterval {
-		a.pageModePulseMu.Unlock()
+	a.vimModePulseMu.Lock()
+	since := time.Since(a.vimModePulseLastTime)
+	if since < vimModePulseInterval {
+		a.vimModePulseMu.Unlock()
 		return
 	}
-	a.pageModePulseLastTime = time.Now()
-	a.pageModePulseMu.Unlock()
+	a.vimModePulseLastTime = time.Now()
+	a.vimModePulseMu.Unlock()
 
 	bw := a.lastFocusedBrowserWindow()
-	if bw == nil || bw.pageModePaneID == "" {
+	if bw == nil || bw.vimModePaneID == "" {
 		return
 	}
 	wsView := a.activeWorkspaceViewForBrowserWindow(bw)
 	if wsView == nil {
 		return
 	}
-	if pv := wsView.GetPaneView(bw.pageModePaneID); pv != nil {
+	if pv := wsView.GetPaneView(bw.vimModePaneID); pv != nil {
 		if fast {
-			pv.TriggerPageModePulseFast()
+			pv.TriggerVimModePulseFast()
 		} else {
-			pv.TriggerPageModePulse()
+			pv.TriggerVimModePulse()
 		}
 	}
 }
 
-// clearPageModeOwnership deactivates page mode on the owning pane for a
+// clearVimModeOwnership deactivates vim mode on the owning pane for a
 // specific browser window and resets its tracked pane ID.
 // Also resets the pulse debounce timer so the first pulse on re-entry
 // is never skipped.
-func (a *App) clearPageModeOwnership(ctx context.Context, bw *browserWindow) {
-	if bw == nil || bw.pageModePaneID == "" {
+func (a *App) clearVimModeOwnership(ctx context.Context, bw *browserWindow) {
+	if bw == nil || bw.vimModePaneID == "" {
 		return
 	}
 
 	wsView := a.activeWorkspaceViewForBrowserWindow(bw)
 	if wsView != nil {
-		if pv := wsView.GetPaneView(bw.pageModePaneID); pv != nil {
-			pv.SetPageMode(false)
+		if pv := wsView.GetPaneView(bw.vimModePaneID); pv != nil {
+			pv.SetVimMode(false)
 			logging.FromContext(ctx).Debug().
 				Str("window_id", bw.id).
-				Str("pane_id", string(bw.pageModePaneID)).
-				Msg("page mode deactivated on pane")
+				Str("pane_id", string(bw.vimModePaneID)).
+				Msg("vim mode deactivated on pane")
 		}
 	}
-	bw.pageModePaneID = ""
+	bw.vimModePaneID = ""
 
 	// Reset debounce timer so re-entry pulses are never mis-skipped.
-	a.pageModePulseMu.Lock()
-	a.pageModePulseLastTime = time.Time{}
-	a.pageModePulseMu.Unlock()
+	a.vimModePulseMu.Lock()
+	a.vimModePulseLastTime = time.Time{}
+	a.vimModePulseMu.Unlock()
 }
 
 // updateModeIndicatorToaster reconciles one window's mode toaster with its
@@ -4057,8 +4057,10 @@ func (a *App) updateModeIndicatorToaster(ctx context.Context, bw *browserWindow,
 // getModeToastClass returns the CSS class for the given mode's toast styling.
 func getModeToastClass(mode input.Mode) string {
 	switch mode {
-	case input.ModePane, input.ModePage:
+	case input.ModePane:
 		return "toast-pane-mode"
+	case input.ModeVim:
+		return "toast-vim-mode"
 	case input.ModeTab:
 		return "toast-tab-mode"
 	case input.ModeSession:
@@ -4169,7 +4171,7 @@ func (a *App) createWorkspaceViewWithoutAttach(ctx context.Context, tab *entity.
 		wsView.SetOnActivePaneChanged(func(paneID entity.PaneID) {
 			a.contentCoord.SyncWebViewViewport(syncCtx, paneID, "workspace-pane-activated")
 			if bw := a.browserWindowForTab(tab.ID); bw != nil {
-				a.transferPageModeOwnershipToPane(ctx, bw, paneID)
+				a.transferVimModeOwnershipToPane(ctx, bw, paneID)
 			}
 		})
 	}

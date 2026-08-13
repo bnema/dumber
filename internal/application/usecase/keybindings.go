@@ -18,6 +18,7 @@ var validModes = map[string]bool{
 	"global":  true,
 	"pane":    true,
 	"tab":     true,
+	"vim":     true,
 	"resize":  true,
 	"session": true,
 }

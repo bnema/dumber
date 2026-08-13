@@ -2396,7 +2396,7 @@ func (wv *WebView) takePendingCreate() *pendingBrowserCreate {
 }
 
 // pageScrollWheelEvent builds the CEF mouse wheel event used for keyboard-driven
-// Page Mode scrolling. It targets the center of the current OSR view so the
+// Vim Mode scrolling. It targets the center of the current OSR view so the
 // scroll goes through Chromium's compositor/input pipeline instead of a series
 // of synthetic key taps.
 func (wv *WebView) pageScrollWheelEvent() purecef.MouseEvent {
@@ -2441,7 +2441,7 @@ func (wv *WebView) ScrollPage(ctx context.Context, request port.PageScrollReques
 		return nil
 	}
 
-	wv.RunJavaScript(ctx, webutil.BuildScrollByJS(request.FallbackDX, request.FallbackDY))
+	wv.RunJavaScript(ctx, webutil.BuildPageScrollByJS(request.FallbackDX, request.FallbackDY))
 	return nil
 }
 
@@ -2510,7 +2510,7 @@ func (wv *WebView) flushPageScroll() {
 	}
 	q.mu.Unlock()
 	if dx, dy := tapDX+heldDX, tapDY+heldDY; (dx != 0 || dy != 0) && !wv.destroyed.Load() {
-		wv.executeJavaScriptNow(webutil.BuildScrollByJS(dx, dy))
+		wv.executeJavaScriptNow(webutil.BuildPageScrollByJS(dx, dy))
 	}
 	q.commitMu.Unlock()
 

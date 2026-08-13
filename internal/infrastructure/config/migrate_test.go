@@ -1175,6 +1175,81 @@ func TestMigrator_Migrate_AppliesLegacyBrowsingContextsRename(t *testing.T) {
 	assert.NotContains(t, string(migrated), "[workspace.popups]")
 }
 
+func TestMigrator_Migrate_RenamesLegacyPageModeToVimMode(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, ".config"))
+	t.Setenv("XDG_DATA_HOME", filepath.Join(home, ".local", "share"))
+	t.Setenv("XDG_STATE_HOME", filepath.Join(home, ".local", "state"))
+	t.Setenv("XDG_CACHE_HOME", filepath.Join(home, ".cache"))
+
+	configFile, err := GetConfigFile()
+	require.NoError(t, err)
+	require.NoError(t, os.MkdirAll(filepath.Dir(configFile), 0o755))
+	require.NoError(t, os.WriteFile(configFile, []byte(`
+[workspace.page_mode]
+activation_shortcut = "ctrl+alt+y"
+timeout_ms = 250
+
+[workspace.page_mode.actions.page-scroll-down]
+keys = ["n"]
+desc = "Scroll down"
+
+[workspace.page_mode.actions.page_scroll_up]
+keys = ["u"]
+desc = "Scroll up"
+`), 0o644))
+
+	migrator := NewMigrator()
+	applied, err := migrator.Migrate()
+	require.NoError(t, err)
+	assert.Contains(t, applied, "workspace.page_mode.activation_shortcut -> workspace.vim_mode.activation_shortcut")
+	assert.Contains(t, applied, "workspace.page_mode.timeout_ms -> workspace.vim_mode.timeout_ms")
+	assert.Contains(t, applied, "workspace.page_mode.actions -> workspace.vim_mode.actions")
+
+	migrated, err := os.ReadFile(configFile)
+	require.NoError(t, err)
+	assert.Contains(t, string(migrated), "[workspace.vim_mode]")
+	assert.Contains(t, string(migrated), "activation_shortcut = 'ctrl+alt+y'")
+	assert.Contains(t, string(migrated), "[workspace.vim_mode.actions.vim-scroll-down]")
+	assert.Contains(t, string(migrated), "[workspace.vim_mode.actions.vim-scroll-up]")
+	assert.Contains(t, string(migrated), "keys = ['u']")
+	assert.NotContains(t, string(migrated), "page_mode")
+	assert.NotContains(t, string(migrated), "page-scroll-down")
+}
+
+func TestMigrator_Migrate_MergesLegacyPageModeActionsIntoExistingVimMode(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, ".config"))
+	t.Setenv("XDG_DATA_HOME", filepath.Join(home, ".local", "share"))
+	t.Setenv("XDG_STATE_HOME", filepath.Join(home, ".local", "state"))
+	t.Setenv("XDG_CACHE_HOME", filepath.Join(home, ".cache"))
+
+	configFile, err := GetConfigFile()
+	require.NoError(t, err)
+	require.NoError(t, os.MkdirAll(filepath.Dir(configFile), 0o755))
+	require.NoError(t, os.WriteFile(configFile, []byte(`
+[workspace.page_mode.actions.page-scroll-down]
+keys = ["n"]
+
+[workspace.page_mode.actions.page-scroll-up]
+keys = ["u"]
+
+[workspace.vim_mode.actions.vim-scroll-down]
+keys = ["j"]
+`), 0o644))
+
+	_, err = NewMigrator().Migrate()
+	require.NoError(t, err)
+
+	migrated, err := os.ReadFile(configFile)
+	require.NoError(t, err)
+	assert.Contains(t, string(migrated), "[workspace.vim_mode.actions.vim-scroll-down]\n        keys = ['j']")
+	assert.Contains(t, string(migrated), "[workspace.vim_mode.actions.vim-scroll-up]\n        keys = ['u']")
+	assert.NotContains(t, string(migrated), "page_mode")
+}
+
 func TestMigrator_DetectChanges_MixedBrowsingContextsDoesNotDoubleReportLegacyRename(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)

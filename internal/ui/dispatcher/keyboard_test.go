@@ -220,7 +220,7 @@ func (wv *lifecycleScrollableWebView) CancelPageScroll(context.Context) {
 	wv.cancelCalls++
 }
 
-func TestKeyboardDispatcher_PageModeActionsRouteToCorrectScrollCommand(t *testing.T) {
+func TestKeyboardDispatcher_VimModeActionsRouteToCorrectScrollCommand(t *testing.T) {
 	ctx := context.Background()
 
 	tests := []struct {
@@ -229,12 +229,12 @@ func TestKeyboardDispatcher_PageModeActionsRouteToCorrectScrollCommand(t *testin
 		expectedDx int
 		expectedDy int
 	}{
-		{input.ActionPageScrollLeft, usecase.PageScrollLeft, -80, 0},
-		{input.ActionPageScrollRight, usecase.PageScrollRight, 80, 0},
-		{input.ActionPageScrollUp, usecase.PageScrollUp, 0, -80},
-		{input.ActionPageScrollDown, usecase.PageScrollDown, 0, 80},
-		{input.ActionPageScrollUpFast, usecase.PageScrollUpFast, 0, -320},
-		{input.ActionPageScrollDownFast, usecase.PageScrollDownFast, 0, 320},
+		{input.ActionVimScrollLeft, usecase.PageScrollLeft, -80, 0},
+		{input.ActionVimScrollRight, usecase.PageScrollRight, 80, 0},
+		{input.ActionVimScrollUp, usecase.PageScrollUp, 0, -80},
+		{input.ActionVimScrollDown, usecase.PageScrollDown, 0, 80},
+		{input.ActionVimScrollUpFast, usecase.PageScrollUpFast, 0, -320},
+		{input.ActionVimScrollDownFast, usecase.PageScrollDownFast, 0, 320},
 	}
 
 	for _, tc := range tests {
@@ -268,7 +268,7 @@ func TestKeyboardDispatcher_PageModeActionsRouteToCorrectScrollCommand(t *testin
 	}
 }
 
-func TestKeyboardDispatcher_PageScrollLifecycleRoutesContinuousAndStop(t *testing.T) {
+func TestKeyboardDispatcher_VimScrollLifecycleRoutesContinuousAndStop(t *testing.T) {
 	ctx := context.Background()
 	base := mocks.NewMockWebView(t)
 	scroller := mocks.NewMockPageScrollable(t)
@@ -282,12 +282,12 @@ func TestKeyboardDispatcher_PageScrollLifecycleRoutesContinuousAndStop(t *testin
 	scroller.EXPECT().ScrollPage(ctx, port.PageScrollRequest{
 		Command: port.PageScrollCommandDown, FallbackDY: 80, Continuous: true,
 	}).Return(nil).Once()
-	require.NoError(t, d.DispatchPageScrollLifecycle(ctx, input.ActionPageScrollDown, input.PageScrollContinuous))
-	require.NoError(t, d.DispatchPageScrollLifecycle(ctx, input.ActionPageScrollDown, input.PageScrollStop))
+	require.NoError(t, d.DispatchVimScrollLifecycle(ctx, input.ActionVimScrollDown, input.VimScrollContinuous))
+	require.NoError(t, d.DispatchVimScrollLifecycle(ctx, input.ActionVimScrollDown, input.VimScrollStop))
 	assert.Equal(t, 1, wv.cancelCalls)
 }
 
-func TestKeyboardDispatcher_PageModeNoopWhenNoActiveWebView(t *testing.T) {
+func TestKeyboardDispatcher_VimModeNoopWhenNoActiveWebView(t *testing.T) {
 	ctx := context.Background()
 
 	navCoord := &coordinator.NavigationCoordinator{}
@@ -304,11 +304,11 @@ func TestKeyboardDispatcher_PageModeNoopWhenNoActiveWebView(t *testing.T) {
 	)
 
 	// No ActiveWebView set — dispatcher should no-op cleanly
-	err := d.Dispatch(ctx, input.ActionPageScrollDown)
+	err := d.Dispatch(ctx, input.ActionVimScrollDown)
 	require.NoError(t, err)
 }
 
-func TestKeyboardDispatcher_PageModeNoopWhenActiveWebViewReturnsNil(t *testing.T) {
+func TestKeyboardDispatcher_VimModeNoopWhenActiveWebViewReturnsNil(t *testing.T) {
 	ctx := context.Background()
 
 	navCoord := &coordinator.NavigationCoordinator{}
@@ -326,37 +326,37 @@ func TestKeyboardDispatcher_PageModeNoopWhenActiveWebViewReturnsNil(t *testing.T
 		func(context.Context) entity.PaneID { return "" },
 	)
 
-	err := d.Dispatch(ctx, input.ActionPageScrollDown)
+	err := d.Dispatch(ctx, input.ActionVimScrollDown)
 	require.NoError(t, err)
 }
 
-func TestPageScrollSpec_IsSingleSourceForCommandAndPulse(t *testing.T) {
+func TestVimScrollSpec_IsSingleSourceForCommandAndPulse(t *testing.T) {
 	tests := []struct {
 		action input.Action
 		cmd    usecase.PageScrollCommand
 		fast   bool
 	}{
-		{input.ActionPageScrollLeft, usecase.PageScrollLeft, false},
-		{input.ActionPageScrollRight, usecase.PageScrollRight, false},
-		{input.ActionPageScrollUp, usecase.PageScrollUp, false},
-		{input.ActionPageScrollDown, usecase.PageScrollDown, false},
-		{input.ActionPageScrollUpFast, usecase.PageScrollUpFast, true},
-		{input.ActionPageScrollDownFast, usecase.PageScrollDownFast, true},
+		{input.ActionVimScrollLeft, usecase.PageScrollLeft, false},
+		{input.ActionVimScrollRight, usecase.PageScrollRight, false},
+		{input.ActionVimScrollUp, usecase.PageScrollUp, false},
+		{input.ActionVimScrollDown, usecase.PageScrollDown, false},
+		{input.ActionVimScrollUpFast, usecase.PageScrollUpFast, true},
+		{input.ActionVimScrollDownFast, usecase.PageScrollDownFast, true},
 	}
 	for _, tc := range tests {
-		spec, ok := pageScrollSpec(tc.action)
+		spec, ok := vimScrollSpec(tc.action)
 		require.True(t, ok, string(tc.action))
 		assert.Equal(t, tc.cmd, spec.cmd)
 		assert.Equal(t, tc.fast, spec.fast)
-		cmd, ok := pageScrollCommand(tc.action)
+		cmd, ok := vimScrollCommand(tc.action)
 		require.True(t, ok)
 		assert.Equal(t, tc.cmd, cmd)
 	}
-	_, ok := pageScrollSpec(input.ActionQuit)
+	_, ok := vimScrollSpec(input.ActionQuit)
 	assert.False(t, ok)
 }
 
-func TestKeyboardDispatcher_PageScrollTapUsesSharedSpecPulse(t *testing.T) {
+func TestKeyboardDispatcher_VimScrollTapUsesSharedSpecPulse(t *testing.T) {
 	ctx := context.Background()
 	base := mocks.NewMockWebView(t)
 	scroller := mocks.NewMockPageScrollable(t)
@@ -368,7 +368,7 @@ func TestKeyboardDispatcher_PageScrollTapUsesSharedSpecPulse(t *testing.T) {
 	}, func(context.Context) entity.PaneID { return "" })
 
 	var pulses []bool
-	d.SetOnPageModePulse(func(_ context.Context, fast bool) {
+	d.SetOnVimModePulse(func(_ context.Context, fast bool) {
 		pulses = append(pulses, fast)
 	})
 
@@ -380,7 +380,7 @@ func TestKeyboardDispatcher_PageScrollTapUsesSharedSpecPulse(t *testing.T) {
 		Command: port.PageScrollCommandDownFast, FallbackDY: 320,
 	}).Return(nil).Once()
 
-	require.NoError(t, d.Dispatch(ctx, input.ActionPageScrollDown))
-	require.NoError(t, d.Dispatch(ctx, input.ActionPageScrollDownFast))
+	require.NoError(t, d.Dispatch(ctx, input.ActionVimScrollDown))
+	require.NoError(t, d.Dispatch(ctx, input.ActionVimScrollDownFast))
 	assert.Equal(t, []bool{false, true}, pulses)
 }

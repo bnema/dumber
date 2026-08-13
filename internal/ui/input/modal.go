@@ -26,8 +26,8 @@ const (
 	ModeSession
 	// ModeResize is the modal pane resizing mode.
 	ModeResize
-	// ModePage is the modal page scrolling mode.
-	ModePage
+	// ModeVim is the modal Vim-style scrolling mode.
+	ModeVim
 )
 
 // String returns a human-readable mode name.
@@ -43,8 +43,8 @@ func (m Mode) String() string {
 		return "session"
 	case ModeResize:
 		return "resize"
-	case ModePage:
-		return "page"
+	case ModeVim:
+		return "vim"
 	default:
 		return "unknown"
 	}
@@ -61,8 +61,8 @@ func (m Mode) DisplayName() string {
 		return "SESSION MODE"
 	case ModeResize:
 		return "RESIZE MODE"
-	case ModePage:
-		return "PAGE MODE"
+	case ModeVim:
+		return "VIM MODE"
 	default:
 		return ""
 	}
@@ -101,9 +101,9 @@ func NewModalState(ctx context.Context) *ModalState {
 	}
 }
 
-// EnterPageMode switches to page scrolling mode with an optional timeout.
-func (m *ModalState) EnterPageMode(ctx context.Context, timeout time.Duration) {
-	m.enterMode(ctx, ModePage, timeout)
+// EnterVimMode switches to Vim-style scrolling mode with an optional timeout.
+func (m *ModalState) EnterVimMode(ctx context.Context, timeout time.Duration) {
+	m.enterMode(ctx, ModeVim, timeout)
 }
 
 // SetMainThreadScheduler sets the function used to dispatch timer callbacks

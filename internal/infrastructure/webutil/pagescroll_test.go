@@ -5,8 +5,8 @@ import (
 	"testing"
 )
 
-func TestBuildScrollByJS_TargetsViewportCenterInsteadOfActiveElement(t *testing.T) {
-	js := BuildScrollByJS(0, 80)
+func TestBuildPageScrollByJS_TargetsViewportCenterInsteadOfActiveElement(t *testing.T) {
+	js := BuildPageScrollByJS(0, 80)
 
 	if !strings.Contains(js, "doc.elementFromPoint(window.innerWidth/2,window.innerHeight/2)") {
 		t.Fatalf("page scroll must resolve its initial target from the viewport center, got: %s", js)
@@ -16,7 +16,7 @@ func TestBuildScrollByJS_TargetsViewportCenterInsteadOfActiveElement(t *testing.
 	}
 }
 
-func TestBuildScrollByJS_ContainsRequiredOperations(t *testing.T) {
+func TestBuildPageScrollByJS_ContainsRequiredOperations(t *testing.T) {
 	tests := []struct {
 		name string
 		dx   int
@@ -50,7 +50,7 @@ func TestBuildScrollByJS_ContainsRequiredOperations(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			js := BuildScrollByJS(tt.dx, tt.dy)
+			js := BuildPageScrollByJS(tt.dx, tt.dy)
 			for _, check := range required {
 				for _, snippet := range check.snippets {
 					if !strings.Contains(js, snippet) {
@@ -66,8 +66,8 @@ func TestBuildScrollByJS_ContainsRequiredOperations(t *testing.T) {
 	}
 }
 
-func TestBuildScrollByJS_SpecificDelta(t *testing.T) {
-	js := BuildScrollByJS(0, 80)
+func TestBuildPageScrollByJS_SpecificDelta(t *testing.T) {
+	js := BuildPageScrollByJS(0, 80)
 	if !strings.Contains(js, "var dx=0,dy=80") {
 		t.Errorf("expected dy=80 in JS variables, got: %s", js)
 	}
@@ -75,38 +75,38 @@ func TestBuildScrollByJS_SpecificDelta(t *testing.T) {
 		t.Errorf("expected immediate fallback scroll step without requestAnimationFrame, got: %s", js)
 	}
 
-	js = BuildScrollByJS(-80, 0)
+	js = BuildPageScrollByJS(-80, 0)
 	if !strings.Contains(js, "var dx=-80,dy=0") {
 		t.Errorf("expected dx=-80 in JS variables, got: %s", js)
 	}
 }
 
-func TestBuildScrollByJS_HorizontalAxisCheck(t *testing.T) {
-	js := BuildScrollByJS(-80, 0)
+func TestBuildPageScrollByJS_HorizontalAxisCheck(t *testing.T) {
+	js := BuildPageScrollByJS(-80, 0)
 	if !strings.Contains(js, "clientWidth") || !strings.Contains(js, "scrollWidth") {
 		t.Error("horizontal scroll must check scrollWidth/clientWidth")
 	}
 }
 
-func TestBuildScrollByJS_VerticalAxisCheck(t *testing.T) {
-	js := BuildScrollByJS(0, 80)
+func TestBuildPageScrollByJS_VerticalAxisCheck(t *testing.T) {
+	js := BuildPageScrollByJS(0, 80)
 	if !strings.Contains(js, "clientHeight") || !strings.Contains(js, "scrollHeight") {
 		t.Error("vertical scroll must check scrollHeight/clientHeight")
 	}
 }
 
-func TestBuildScrollByJS_NegativeDeltaMagnitude(t *testing.T) {
-	js := BuildScrollByJS(0, -320)
+func TestBuildPageScrollByJS_NegativeDeltaMagnitude(t *testing.T) {
+	js := BuildPageScrollByJS(0, -320)
 	if !strings.Contains(js, "var dx=0,dy=-320") {
 		t.Errorf("expected dy=-320 in JS variables, got: %s", js)
 	}
 }
 
-func TestBuildScrollByJS_SyntacticallyValid(t *testing.T) {
+func TestBuildPageScrollByJS_SyntacticallyValid(t *testing.T) {
 	tests := []struct{ dx, dy int }{{0, 80}, {0, -320}, {-80, 0}, {80, 0}, {0, 0}}
 
 	for _, tt := range tests {
-		js := BuildScrollByJS(tt.dx, tt.dy)
+		js := BuildPageScrollByJS(tt.dx, tt.dy)
 
 		depth := 0
 		for _, ch := range js {
@@ -136,8 +136,8 @@ func TestBuildScrollByJS_SyntacticallyValid(t *testing.T) {
 	}
 }
 
-func TestBuildScrollByJS_ZeroDeltaSafe(t *testing.T) {
-	js := BuildScrollByJS(0, 0)
+func TestBuildPageScrollByJS_ZeroDeltaSafe(t *testing.T) {
+	js := BuildPageScrollByJS(0, 0)
 	if !strings.Contains(js, "var dx=0,dy=0") {
 		t.Errorf("expected zero deltas in JS variables, got: %s", js)
 	}

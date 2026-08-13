@@ -465,11 +465,11 @@ func TestGlobalShortcutActionMap_ConsumeOrExpelHyphenAliases(t *testing.T) {
 	}
 }
 
-func TestNewShortcutSet_PageModeActivationShortcut(t *testing.T) {
+func TestNewShortcutSet_VimModeActivationShortcut(t *testing.T) {
 	workspace := &entity.WorkspaceConfig{
 		TabMode:  entity.TabModeConfig{ActivationShortcut: "ctrl+t"},
 		PaneMode: entity.PaneModeConfig{ActivationShortcut: "ctrl+p"},
-		PageMode: entity.PageModeConfig{ActivationShortcut: "ctrl+y"},
+		VimMode:  entity.VimModeConfig{ActivationShortcut: "ctrl+y"},
 	}
 
 	set := NewShortcutSet(context.Background(), workspace, nil)
@@ -481,26 +481,26 @@ func TestNewShortcutSet_PageModeActivationShortcut(t *testing.T) {
 
 	action, found := set.Global[binding]
 	if !found {
-		t.Fatal("page mode activation shortcut not found in Global")
+		t.Fatal("vim mode activation shortcut not found in Global")
 	}
-	if action != ActionEnterPageMode {
-		t.Fatalf("Global shortcut action = %s, want %s", action, ActionEnterPageMode)
+	if action != ActionEnterVimMode {
+		t.Fatalf("Global shortcut action = %s, want %s", action, ActionEnterVimMode)
 	}
 }
 
-func TestShortcutSet_Lookup_PageMode(t *testing.T) {
+func TestShortcutSet_Lookup_VimMode(t *testing.T) {
 	set := &ShortcutSet{
 		Global: ShortcutTable{
 			{uint(gdk.KEY_q), ModCtrl}: ActionQuit,
 		},
-		PageMode: ShortcutTable{
-			{uint('h'), ModNone}:            ActionPageScrollLeft,
-			{uint('j'), ModNone}:            ActionPageScrollDown,
-			{uint('k'), ModNone}:            ActionPageScrollUp,
-			{uint('l'), ModNone}:            ActionPageScrollRight,
+		VimMode: ShortcutTable{
+			{uint('h'), ModNone}:            ActionVimScrollLeft,
+			{uint('j'), ModNone}:            ActionVimScrollDown,
+			{uint('k'), ModNone}:            ActionVimScrollUp,
+			{uint('l'), ModNone}:            ActionVimScrollRight,
 			{uint(gdk.KEY_Escape), ModNone}: ActionExitMode,
 			{uint(gdk.KEY_Return), ModNone}: ActionExitMode,
-			{uint('y'), ModCtrl}:            ActionEnterPageMode,
+			{uint('y'), ModCtrl}:            ActionEnterVimMode,
 		},
 	}
 
@@ -513,47 +513,47 @@ func TestShortcutSet_Lookup_PageMode(t *testing.T) {
 		{
 			name:    "scroll left",
 			binding: KeyBinding{uint('h'), ModNone},
-			want:    ActionPageScrollLeft,
+			want:    ActionVimScrollLeft,
 			wantOk:  true,
 		},
 		{
 			name:    "scroll down",
 			binding: KeyBinding{uint('j'), ModNone},
-			want:    ActionPageScrollDown,
+			want:    ActionVimScrollDown,
 			wantOk:  true,
 		},
 		{
 			name:    "scroll up",
 			binding: KeyBinding{uint('k'), ModNone},
-			want:    ActionPageScrollUp,
+			want:    ActionVimScrollUp,
 			wantOk:  true,
 		},
 		{
 			name:    "scroll right",
 			binding: KeyBinding{uint('l'), ModNone},
-			want:    ActionPageScrollRight,
+			want:    ActionVimScrollRight,
 			wantOk:  true,
 		},
 		{
-			name:    "escape exits page mode",
+			name:    "escape exits vim mode",
 			binding: KeyBinding{uint(gdk.KEY_Escape), ModNone},
 			want:    ActionExitMode,
 			wantOk:  true,
 		},
 		{
-			name:    "enter exits page mode",
+			name:    "enter exits vim mode",
 			binding: KeyBinding{uint(gdk.KEY_Return), ModNone},
 			want:    ActionExitMode,
 			wantOk:  true,
 		},
 		{
-			name:    "activation shortcut still toggles page mode",
+			name:    "activation shortcut still toggles vim mode",
 			binding: KeyBinding{uint('y'), ModCtrl},
-			want:    ActionEnterPageMode,
+			want:    ActionEnterVimMode,
 			wantOk:  true,
 		},
 		{
-			name:    "global shortcut does not fire inside page mode",
+			name:    "global shortcut does not fire inside vim mode",
 			binding: KeyBinding{uint(gdk.KEY_q), ModCtrl},
 			want:    "",
 			wantOk:  false,
@@ -562,7 +562,7 @@ func TestShortcutSet_Lookup_PageMode(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, ok := set.Lookup(tt.binding, ModePage)
+			got, ok := set.Lookup(tt.binding, ModeVim)
 			if ok != tt.wantOk {
 				t.Errorf("Lookup() ok = %v, want %v", ok, tt.wantOk)
 				return
@@ -574,24 +574,24 @@ func TestShortcutSet_Lookup_PageMode(t *testing.T) {
 	}
 }
 
-func TestMapConfigAction_PageScrollActions(t *testing.T) {
+func TestMapConfigAction_VimScrollActions(t *testing.T) {
 	tests := []struct {
 		name     string
 		config   string
 		expected Action
 	}{
-		{name: "page_scroll_left", config: "page_scroll_left", expected: ActionPageScrollLeft},
-		{name: "page-scroll-left", config: "page-scroll-left", expected: ActionPageScrollLeft},
-		{name: "page_scroll_down", config: "page_scroll_down", expected: ActionPageScrollDown},
-		{name: "page-scroll-down", config: "page-scroll-down", expected: ActionPageScrollDown},
-		{name: "page_scroll_up", config: "page_scroll_up", expected: ActionPageScrollUp},
-		{name: "page-scroll-up", config: "page-scroll-up", expected: ActionPageScrollUp},
-		{name: "page_scroll_right", config: "page_scroll_right", expected: ActionPageScrollRight},
-		{name: "page-scroll-right", config: "page-scroll-right", expected: ActionPageScrollRight},
-		{name: "page_scroll_down_fast", config: "page_scroll_down_fast", expected: ActionPageScrollDownFast},
-		{name: "page-scroll-down-fast", config: "page-scroll-down-fast", expected: ActionPageScrollDownFast},
-		{name: "page_scroll_up_fast", config: "page_scroll_up_fast", expected: ActionPageScrollUpFast},
-		{name: "page-scroll-up-fast", config: "page-scroll-up-fast", expected: ActionPageScrollUpFast},
+		{name: "vim_scroll_left", config: "vim_scroll_left", expected: ActionVimScrollLeft},
+		{name: "vim-scroll-left", config: "vim-scroll-left", expected: ActionVimScrollLeft},
+		{name: "vim_scroll_down", config: "vim_scroll_down", expected: ActionVimScrollDown},
+		{name: "vim-scroll-down", config: "vim-scroll-down", expected: ActionVimScrollDown},
+		{name: "vim_scroll_up", config: "vim_scroll_up", expected: ActionVimScrollUp},
+		{name: "vim-scroll-up", config: "vim-scroll-up", expected: ActionVimScrollUp},
+		{name: "vim_scroll_right", config: "vim_scroll_right", expected: ActionVimScrollRight},
+		{name: "vim-scroll-right", config: "vim-scroll-right", expected: ActionVimScrollRight},
+		{name: "vim_scroll_down_fast", config: "vim_scroll_down_fast", expected: ActionVimScrollDownFast},
+		{name: "vim-scroll-down-fast", config: "vim-scroll-down-fast", expected: ActionVimScrollDownFast},
+		{name: "vim_scroll_up_fast", config: "vim_scroll_up_fast", expected: ActionVimScrollUpFast},
+		{name: "vim-scroll-up-fast", config: "vim-scroll-up-fast", expected: ActionVimScrollUpFast},
 	}
 
 	for _, tt := range tests {

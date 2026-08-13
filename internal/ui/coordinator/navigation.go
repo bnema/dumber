@@ -304,7 +304,7 @@ func (c *NavigationCoordinator) ScrollWebView(ctx context.Context, wv port.WebVi
 	return c.pageScrollUC.Scroll(ctx, wv, cmd)
 }
 
-// ScrollWebViewContinuous applies one autonomous held-key page-scroll step.
+// ScrollWebViewContinuous applies one autonomous held-key vim-scroll step.
 func (c *NavigationCoordinator) ScrollWebViewContinuous(ctx context.Context, wv port.WebView, cmd usecase.PageScrollCommand) error {
 	if err := requireWebView(wv); err != nil {
 		return err

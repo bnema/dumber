@@ -682,7 +682,7 @@ func setupPaneViewMocksNoWebView(
 	mockOverlay.EXPECT().SetMeasureOverlay(mockBorderBox, false).Once()
 }
 
-func TestSetPageMode_TrueAddsPaneAccentWithoutCreatingLabel(t *testing.T) {
+func TestSetVimMode_TrueAddsPaneAccentWithoutCreatingLabel(t *testing.T) {
 	mockFactory := mocks.NewMockWidgetFactory(t)
 	mockOverlay := mocks.NewMockOverlayWidget(t)
 	mockBorderBox := mocks.NewMockBoxWidget(t)
@@ -690,13 +690,13 @@ func TestSetPageMode_TrueAddsPaneAccentWithoutCreatingLabel(t *testing.T) {
 	setupPaneViewMocks(t, mockFactory, mockOverlay, mockBorderBox, mockWebView)
 	pv := component.NewPaneView(context.Background(), mockFactory, entity.PaneID("pane-1"), mockWebView)
 
-	mockOverlay.EXPECT().AddCssClass("page-mode-active").Once()
-	pv.SetPageMode(true)
+	mockOverlay.EXPECT().AddCssClass("vim-mode-active").Once()
+	pv.SetVimMode(true)
 
-	require.True(t, pv.IsPageMode())
+	require.True(t, pv.IsVimMode())
 }
 
-func TestSetPageMode_FalseRemovesPaneAccent(t *testing.T) {
+func TestSetVimMode_FalseRemovesPaneAccent(t *testing.T) {
 	mockFactory := mocks.NewMockWidgetFactory(t)
 	mockOverlay := mocks.NewMockOverlayWidget(t)
 	mockBorderBox := mocks.NewMockBoxWidget(t)
@@ -704,15 +704,15 @@ func TestSetPageMode_FalseRemovesPaneAccent(t *testing.T) {
 	setupPaneViewMocks(t, mockFactory, mockOverlay, mockBorderBox, mockWebView)
 	pv := component.NewPaneView(context.Background(), mockFactory, entity.PaneID("pane-1"), mockWebView)
 
-	mockOverlay.EXPECT().AddCssClass("page-mode-active").Once()
-	pv.SetPageMode(true)
-	mockOverlay.EXPECT().RemoveCssClass("page-mode-active").Once()
-	pv.SetPageMode(false)
+	mockOverlay.EXPECT().AddCssClass("vim-mode-active").Once()
+	pv.SetVimMode(true)
+	mockOverlay.EXPECT().RemoveCssClass("vim-mode-active").Once()
+	pv.SetVimMode(false)
 
-	require.False(t, pv.IsPageMode())
+	require.False(t, pv.IsVimMode())
 }
 
-func TestSetPageMode_NoChangeWhenSameState(t *testing.T) {
+func TestSetVimMode_NoChangeWhenSameState(t *testing.T) {
 	mockFactory := mocks.NewMockWidgetFactory(t)
 	mockOverlay := mocks.NewMockOverlayWidget(t)
 	mockBorderBox := mocks.NewMockBoxWidget(t)
@@ -720,12 +720,12 @@ func TestSetPageMode_NoChangeWhenSameState(t *testing.T) {
 	setupPaneViewMocks(t, mockFactory, mockOverlay, mockBorderBox, mockWebView)
 	pv := component.NewPaneView(context.Background(), mockFactory, entity.PaneID("pane-1"), mockWebView)
 
-	pv.SetPageMode(false)
+	pv.SetVimMode(false)
 
-	require.False(t, pv.IsPageMode())
+	require.False(t, pv.IsVimMode())
 }
 
-func TestSetPageMode_TrueThenTrueIsIdempotent(t *testing.T) {
+func TestSetVimMode_TrueThenTrueIsIdempotent(t *testing.T) {
 	mockFactory := mocks.NewMockWidgetFactory(t)
 	mockOverlay := mocks.NewMockOverlayWidget(t)
 	mockBorderBox := mocks.NewMockBoxWidget(t)
@@ -733,27 +733,27 @@ func TestSetPageMode_TrueThenTrueIsIdempotent(t *testing.T) {
 	setupPaneViewMocks(t, mockFactory, mockOverlay, mockBorderBox, mockWebView)
 	pv := component.NewPaneView(context.Background(), mockFactory, entity.PaneID("pane-1"), mockWebView)
 
-	mockOverlay.EXPECT().AddCssClass("page-mode-active").Once()
-	pv.SetPageMode(true)
-	pv.SetPageMode(true)
+	mockOverlay.EXPECT().AddCssClass("vim-mode-active").Once()
+	pv.SetVimMode(true)
+	pv.SetVimMode(true)
 
-	require.True(t, pv.IsPageMode())
+	require.True(t, pv.IsVimMode())
 }
 
-func expectPageModeOverlayPulse(overlay *mocks.MockOverlayWidget, fast bool, cycle string) {
-	overlay.EXPECT().RemoveCssClass("page-mode-pulse").Once()
-	overlay.EXPECT().RemoveCssClass("page-mode-pulse-fast").Once()
-	overlay.EXPECT().RemoveCssClass("page-mode-pulse-cycle-a").Once()
-	overlay.EXPECT().RemoveCssClass("page-mode-pulse-cycle-b").Once()
+func expectVimModeOverlayPulse(overlay *mocks.MockOverlayWidget, fast bool, cycle string) {
+	overlay.EXPECT().RemoveCssClass("vim-mode-pulse").Once()
+	overlay.EXPECT().RemoveCssClass("vim-mode-pulse-fast").Once()
+	overlay.EXPECT().RemoveCssClass("vim-mode-pulse-cycle-a").Once()
+	overlay.EXPECT().RemoveCssClass("vim-mode-pulse-cycle-b").Once()
 	if fast {
-		overlay.EXPECT().AddCssClass("page-mode-pulse-fast").Once()
+		overlay.EXPECT().AddCssClass("vim-mode-pulse-fast").Once()
 	} else {
-		overlay.EXPECT().AddCssClass("page-mode-pulse").Once()
+		overlay.EXPECT().AddCssClass("vim-mode-pulse").Once()
 	}
 	overlay.EXPECT().AddCssClass(cycle).Once()
 }
 
-func TestTriggerPageModePulse_PulsesOnlyOverlay(t *testing.T) {
+func TestTriggerVimModePulse_PulsesOnlyOverlay(t *testing.T) {
 	mockFactory := mocks.NewMockWidgetFactory(t)
 	mockOverlay := mocks.NewMockOverlayWidget(t)
 	mockBorderBox := mocks.NewMockBoxWidget(t)
@@ -761,11 +761,11 @@ func TestTriggerPageModePulse_PulsesOnlyOverlay(t *testing.T) {
 	setupPaneViewMocks(t, mockFactory, mockOverlay, mockBorderBox, mockWebView)
 	pv := component.NewPaneView(context.Background(), mockFactory, entity.PaneID("pane-1"), mockWebView)
 
-	expectPageModeOverlayPulse(mockOverlay, false, "page-mode-pulse-cycle-a")
-	pv.TriggerPageModePulse()
+	expectVimModeOverlayPulse(mockOverlay, false, "vim-mode-pulse-cycle-a")
+	pv.TriggerVimModePulse()
 }
 
-func TestTriggerPageModePulseFast_PulsesOnlyOverlay(t *testing.T) {
+func TestTriggerVimModePulseFast_PulsesOnlyOverlay(t *testing.T) {
 	mockFactory := mocks.NewMockWidgetFactory(t)
 	mockOverlay := mocks.NewMockOverlayWidget(t)
 	mockBorderBox := mocks.NewMockBoxWidget(t)
@@ -773,11 +773,11 @@ func TestTriggerPageModePulseFast_PulsesOnlyOverlay(t *testing.T) {
 	setupPaneViewMocks(t, mockFactory, mockOverlay, mockBorderBox, mockWebView)
 	pv := component.NewPaneView(context.Background(), mockFactory, entity.PaneID("pane-1"), mockWebView)
 
-	expectPageModeOverlayPulse(mockOverlay, true, "page-mode-pulse-cycle-a")
-	pv.TriggerPageModePulseFast()
+	expectVimModeOverlayPulse(mockOverlay, true, "vim-mode-pulse-cycle-a")
+	pv.TriggerVimModePulseFast()
 }
 
-func TestTriggerPageModePulse_RepeatedCallsReTriggerOverlayAnimation(t *testing.T) {
+func TestTriggerVimModePulse_RepeatedCallsReTriggerOverlayAnimation(t *testing.T) {
 	mockFactory := mocks.NewMockWidgetFactory(t)
 	mockOverlay := mocks.NewMockOverlayWidget(t)
 	mockBorderBox := mocks.NewMockBoxWidget(t)
@@ -785,15 +785,15 @@ func TestTriggerPageModePulse_RepeatedCallsReTriggerOverlayAnimation(t *testing.
 	setupPaneViewMocks(t, mockFactory, mockOverlay, mockBorderBox, mockWebView)
 	pv := component.NewPaneView(context.Background(), mockFactory, entity.PaneID("pane-1"), mockWebView)
 
-	expectPageModeOverlayPulse(mockOverlay, false, "page-mode-pulse-cycle-a")
-	pv.TriggerPageModePulse()
-	expectPageModeOverlayPulse(mockOverlay, true, "page-mode-pulse-cycle-b")
-	pv.TriggerPageModePulseFast()
-	expectPageModeOverlayPulse(mockOverlay, false, "page-mode-pulse-cycle-a")
-	pv.TriggerPageModePulse()
+	expectVimModeOverlayPulse(mockOverlay, false, "vim-mode-pulse-cycle-a")
+	pv.TriggerVimModePulse()
+	expectVimModeOverlayPulse(mockOverlay, true, "vim-mode-pulse-cycle-b")
+	pv.TriggerVimModePulseFast()
+	expectVimModeOverlayPulse(mockOverlay, false, "vim-mode-pulse-cycle-a")
+	pv.TriggerVimModePulse()
 }
 
-func TestPageMode_CleanupHasNoIndicatorOverlay(t *testing.T) {
+func TestVimMode_CleanupHasNoIndicatorOverlay(t *testing.T) {
 	mockFactory := mocks.NewMockWidgetFactory(t)
 	mockOverlay := mocks.NewMockOverlayWidget(t)
 	mockBorderBox := mocks.NewMockBoxWidget(t)
@@ -801,15 +801,15 @@ func TestPageMode_CleanupHasNoIndicatorOverlay(t *testing.T) {
 	setupPaneViewMocks(t, mockFactory, mockOverlay, mockBorderBox, mockWebView)
 	pv := component.NewPaneView(context.Background(), mockFactory, entity.PaneID("pane-1"), mockWebView)
 
-	mockOverlay.EXPECT().AddCssClass("page-mode-active").Once()
-	pv.SetPageMode(true)
+	mockOverlay.EXPECT().AddCssClass("vim-mode-active").Once()
+	pv.SetVimMode(true)
 	mockOverlay.EXPECT().RemoveOverlay(mock.Anything).Once()
 	mockOverlay.EXPECT().SetChild(nil).Once()
 
 	pv.Cleanup()
 }
 
-func TestPageMode_NewPaneViewInactiveByDefault(t *testing.T) {
+func TestVimMode_NewPaneViewInactiveByDefault(t *testing.T) {
 	mockFactory := mocks.NewMockWidgetFactory(t)
 	mockOverlay := mocks.NewMockOverlayWidget(t)
 	mockBorderBox := mocks.NewMockBoxWidget(t)
@@ -818,5 +818,5 @@ func TestPageMode_NewPaneViewInactiveByDefault(t *testing.T) {
 
 	pv := component.NewPaneView(context.Background(), mockFactory, entity.PaneID("pane-1"), mockWebView)
 
-	require.False(t, pv.IsPageMode())
+	require.False(t, pv.IsVimMode())
 }

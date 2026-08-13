@@ -398,56 +398,56 @@ cancel = ["escape"]
 
 > **Note:** Actions are inverted to key→action map in memory for O(1) lookup performance during navigation.
 
-### Page Mode
+### Vim Mode
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| `workspace.page_mode.activation_shortcut` | string | `"ctrl+y"` | Page mode activation key |
-| `workspace.page_mode.timeout_ms` | int | `0` | Page mode timeout in milliseconds (`0` disables auto-timeout) |
-| `workspace.page_mode.actions` | map | See below | Action→binding mappings |
+| `workspace.vim_mode.activation_shortcut` | string | `"ctrl+y"` | Vim mode activation key |
+| `workspace.vim_mode.timeout_ms` | int | `0` | Vim mode timeout in milliseconds (`0` disables auto-timeout) |
+| `workspace.vim_mode.actions` | map | See below | Action→binding mappings |
 
-**Default page mode actions:**
+**Default vim mode actions:**
 
 ```toml
-[workspace.page_mode.actions.page-scroll-left]
+[workspace.vim_mode.actions.vim-scroll-left]
 keys = ["h"]
 desc = "Scroll page left"
 
-[workspace.page_mode.actions.page-scroll-down]
+[workspace.vim_mode.actions.vim-scroll-down]
 keys = ["j"]
 desc = "Scroll page down"
 
-[workspace.page_mode.actions.page-scroll-up]
+[workspace.vim_mode.actions.vim-scroll-up]
 keys = ["k"]
 desc = "Scroll page up"
 
-[workspace.page_mode.actions.page-scroll-right]
+[workspace.vim_mode.actions.vim-scroll-right]
 keys = ["l"]
 desc = "Scroll page right"
 
-[workspace.page_mode.actions.page-scroll-down-fast]
+[workspace.vim_mode.actions.vim-scroll-down-fast]
 keys = ["shift+j"]
 desc = "Scroll page down fast"
 
-[workspace.page_mode.actions.page-scroll-up-fast]
+[workspace.vim_mode.actions.vim-scroll-up-fast]
 keys = ["shift+k"]
 desc = "Scroll page up fast"
 
-[workspace.page_mode.actions.confirm]
+[workspace.vim_mode.actions.confirm]
 keys = ["enter"]
 desc = "Confirm action"
 
-[workspace.page_mode.actions.cancel]
+[workspace.vim_mode.actions.cancel]
 keys = ["escape"]
 desc = "Cancel/exit mode"
 ```
 
 Notes:
-- Page Mode scrolls the active webpage inside the active pane only.
-- The default `timeout_ms = 0` means Page Mode stays active until you exit it or focus moves into an editable/browser UI context.
-- Arrow keys still use the browser engine's native page-navigation path while Page Mode is active.
-- Other app-level shortcuts stay suspended until Page Mode exits, except for the Page Mode toggle itself.
-- `workspace.styling.pane_mode_color`, `workspace.styling.transition_duration`, and `workspace.styling.mode_indicator_toaster_enabled` control the pane-local Page Mode visuals.
+- Vim Mode scrolls the active webpage inside the active pane only.
+- The default `timeout_ms = 0` means Vim Mode stays active until you exit it or focus moves into an editable/browser UI context.
+- Arrow keys still use the browser engine's native page-navigation path while Vim Mode is active.
+- Other app-level shortcuts stay suspended until Vim Mode exits, except for the Vim Mode toggle itself.
+- `workspace.styling.pane_mode_color`, `workspace.styling.transition_duration`, and `workspace.styling.mode_indicator_toaster_enabled` control the pane-local Vim Mode visuals.
 - Scroll execution: CEF and WebKit both use the shared `BuildScrollByJS` resolver when the page is ready. Each step starts under the viewport center, walks up through ancestors that can move in the requested direction, and hands scrolling to the document when a nested container reaches its boundary. The application repeater owns held-key cadence; each engine executes one immediate scroll step per tick. Cross-origin frame contents remain best-effort. CEF may use native precision-wheel input only as a pre-frame fallback before the browser/main frame is ready.
 
 ### Resize Mode
@@ -581,11 +581,11 @@ desc = "Open floating pane on GitHub"
 | `workspace.styling.border_width` | int | `1` | Active pane border width (px) - overlay |
 | `workspace.styling.border_color` | string | `"@theme_selected_bg_color"` | Active pane border color |
 | `workspace.styling.mode_border_width` | int | `4` | Modal mode border width (px) - applies to all modes |
-| `workspace.styling.pane_mode_color` | string | `"#4A90E2"` | Pane mode color (blue); also reused for Page mode pane-local accent, indicator, and pulse |
+| `workspace.styling.pane_mode_color` | string | `"#4A90E2"` | Pane mode color (blue); also reused for Vim mode pane-local accent, indicator, and pulse |
 | `workspace.styling.tab_mode_color` | string | `"#FFA500"` | Tab mode color (orange) - used for border and toaster |
 | `workspace.styling.session_mode_color` | string | `"#9B59B6"` | Session mode color (purple) - used for border and toaster |
 | `workspace.styling.resize_mode_color` | string | `"#00D4AA"` | Resize mode color (teal) - used for border and toaster |
-| `workspace.styling.mode_indicator_toaster_enabled` | bool | `true` | Show bottom-left mode toaster when modal modes are active; Page Mode keeps a persistent `PAGE MODE` indicator until exit or toggle off |
+| `workspace.styling.mode_indicator_toaster_enabled` | bool | `true` | Show bottom-left mode toaster when modal modes are active; Vim Mode keeps a persistent `VIM MODE` indicator until exit or toggle off |
 | `workspace.styling.transition_duration` | int | `120` | Border and pulse transition duration (ms) |
 
 **Example:**
@@ -595,7 +595,7 @@ desc = "Open floating pane on GitHub"
 border_width = 1
 border_color = "@theme_selected_bg_color"
 mode_border_width = 4
-pane_mode_color = "#4A90E2"      # Blue for pane mode and Page mode local accent
+pane_mode_color = "#4A90E2"      # Blue for pane mode and Vim mode local accent
 tab_mode_color = "#FFA500"       # Orange for tab mode
 session_mode_color = "#9B59B6"   # Purple for session mode
 resize_mode_color = "#00D4AA"    # Teal for resize mode

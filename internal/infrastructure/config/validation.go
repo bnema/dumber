@@ -29,7 +29,7 @@ func validateConfig(config *Config) error {
 	validationErrors = append(validationErrors, validatePaneMode(config)...)
 	validationErrors = append(validationErrors, validateTabBar(config)...)
 	validationErrors = append(validationErrors, validateTabMode(config)...)
-	validationErrors = append(validationErrors, validatePageMode(config)...)
+	validationErrors = append(validationErrors, validateVimMode(config)...)
 	validationErrors = append(validationErrors, validateFloatingPane(config)...)
 	validationErrors = append(validationErrors, validateLogging(config)...)
 	validationErrors = append(validationErrors, validateWorkspaceNewPaneURL(config)...)
@@ -242,8 +242,8 @@ func validateTabMode(config *Config) []string {
 	return validateModalModeActions("tab_mode", config.Workspace.TabMode.TimeoutMilliseconds, config.Workspace.TabMode.Actions)
 }
 
-func validatePageMode(config *Config) []string {
-	return validateModalModeActions("page_mode", config.Workspace.PageMode.TimeoutMilliseconds, config.Workspace.PageMode.Actions)
+func validateVimMode(config *Config) []string {
+	return validateModalModeActions("vim_mode", config.Workspace.VimMode.TimeoutMilliseconds, config.Workspace.VimMode.Actions)
 }
 
 // validateModalModeActions shared timeout/empty-actions/duplicate-key checks for
