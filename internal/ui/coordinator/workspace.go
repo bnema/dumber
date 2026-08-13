@@ -163,15 +163,25 @@ func setupPaneViewHover(ctx context.Context, pv *component.PaneView, wsView *com
 
 // Split splits the active pane in the given direction.
 func (c *WorkspaceCoordinator) Split(ctx context.Context, direction usecase.SplitDirection) error {
-	return c.splitWithInitialURL(ctx, direction, c.newPaneURL)
+	return c.splitWithInitialURL(ctx, direction, c.newPaneURL, true)
 }
 
 // SplitWithURL splits the active pane in the given direction and loads initialURL.
 func (c *WorkspaceCoordinator) SplitWithURL(ctx context.Context, direction usecase.SplitDirection, initialURL string) error {
-	return c.splitWithInitialURL(ctx, direction, initialURL)
+	return c.splitWithInitialURL(ctx, direction, initialURL, true)
 }
 
-func (c *WorkspaceCoordinator) splitWithInitialURL(ctx context.Context, direction usecase.SplitDirection, initialURL string) error {
+// SplitWithURLWithoutOmnibox splits the active pane without opening the omnibox.
+func (c *WorkspaceCoordinator) SplitWithURLWithoutOmnibox(ctx context.Context, direction usecase.SplitDirection, initialURL string) error {
+	return c.splitWithInitialURL(ctx, direction, initialURL, false)
+}
+
+func (c *WorkspaceCoordinator) splitWithInitialURL(
+	ctx context.Context,
+	direction usecase.SplitDirection,
+	initialURL string,
+	notifyNewPane bool,
+) error {
 	log := logging.FromContext(ctx)
 
 	splitCtx, err := c.prepareSplit(ctx, direction)
@@ -204,7 +214,9 @@ func (c *WorkspaceCoordinator) splitWithInitialURL(ctx context.Context, directio
 		); err != nil {
 			return err
 		}
-		splitCtx.wsView.NotifyNewPaneCreated(ctx)
+		if notifyNewPane {
+			splitCtx.wsView.NotifyNewPaneCreated(ctx)
+		}
 	}
 
 	// Notify state change for session snapshots
@@ -1463,11 +1475,20 @@ func (c *WorkspaceCoordinator) syncStackedViewActive(ctx context.Context, wsView
 // StackPane adds a new pane stacked on top of the active pane.
 // Uses CreateStack use case for new stacks, AddToStack for existing stacks.
 func (c *WorkspaceCoordinator) StackPane(ctx context.Context) error {
-	return c.StackPaneWithURL(ctx, c.newPaneURL)
+	return c.stackPaneWithURL(ctx, c.newPaneURL, true)
 }
 
 // StackPaneWithURL adds a new pane containing initialURL to the active stack.
 func (c *WorkspaceCoordinator) StackPaneWithURL(ctx context.Context, initialURL string) error {
+	return c.stackPaneWithURL(ctx, initialURL, true)
+}
+
+// StackPaneWithURLWithoutOmnibox adds a stacked pane without opening the omnibox.
+func (c *WorkspaceCoordinator) StackPaneWithURLWithoutOmnibox(ctx context.Context, initialURL string) error {
+	return c.stackPaneWithURL(ctx, initialURL, false)
+}
+
+func (c *WorkspaceCoordinator) stackPaneWithURL(ctx context.Context, initialURL string, notifyNewPane bool) error {
 	log := logging.FromContext(ctx)
 
 	stackCtx, err := c.prepareStackPane(ctx)
@@ -1529,7 +1550,9 @@ func (c *WorkspaceCoordinator) StackPaneWithURL(ctx context.Context, initialURL 
 	}
 	stackCtx.wsView.FocusPane(newPaneID)
 
-	stackCtx.wsView.NotifyNewPaneCreated(ctx)
+	if notifyNewPane {
+		stackCtx.wsView.NotifyNewPaneCreated(ctx)
+	}
 
 	// Set up title bar click and close callbacks
 	tr := stackCtx.wsView.TreeRenderer()

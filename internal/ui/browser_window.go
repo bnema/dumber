@@ -641,13 +641,13 @@ func (a *App) openExternalURLInFocusedWindow(ctx context.Context, url string, cf
 		}
 	case entity.ExternalLinkBehaviorSplit:
 		if err := a.placeExternalURLInPane(ctx, activeTab.Workspace, url, func(ctx context.Context) error {
-			return a.wsCoord.SplitWithURL(ctx, externalLinkSplitDirection(cfg.Placement), url)
+			return a.wsCoord.SplitWithURLWithoutOmnibox(ctx, externalLinkSplitDirection(cfg.Placement), url)
 		}); err != nil {
 			return err
 		}
 	case entity.ExternalLinkBehaviorStacked:
 		if err := a.placeExternalURLInPane(ctx, activeTab.Workspace, url, func(ctx context.Context) error {
-			return a.wsCoord.StackPaneWithURL(ctx, url)
+			return a.wsCoord.StackPaneWithURLWithoutOmnibox(ctx, url)
 		}); err != nil {
 			return err
 		}
