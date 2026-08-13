@@ -47,7 +47,7 @@ type testBrowserLaunchRelay struct {
 	closer      *testCloser
 }
 
-func (r *testBrowserLaunchRelay) DeliverOpenFreshWindow(context.Context, string) (bool, error) {
+func (r *testBrowserLaunchRelay) DeliverOpenExternalURL(context.Context, string) (bool, error) {
 	return false, nil
 }
 
@@ -1083,7 +1083,7 @@ func TestApp_GetWindowSnapshotStateReturnsUnavailableWhenMainThreadDispatchTimes
 	require.Equal(t, -1, activeWindowIndex)
 }
 
-func TestApp_OpenFreshWindowReportsMainThreadDispatchTimeout(t *testing.T) {
+func TestApp_OpenExternalURLReportsMainThreadDispatchTimeout(t *testing.T) {
 	var factoryCalls int
 	app := &App{
 		dispatchOnMainThread: func(label string, fn func()) syncdispatch.SyncDispatchResult {
@@ -1095,20 +1095,20 @@ func TestApp_OpenFreshWindowReportsMainThreadDispatchTimeout(t *testing.T) {
 		},
 	}
 
-	err := app.OpenFreshWindow(context.Background(), "https://example.com")
+	err := app.OpenExternalURL(context.Background(), "https://example.com")
 
 	if err == nil {
-		t.Fatal("OpenFreshWindow returned nil error, want dispatch timeout")
+		t.Fatal("OpenExternalURL returned nil error, want dispatch timeout")
 	}
 	if !strings.Contains(err.Error(), "main thread dispatch did not complete") {
-		t.Fatalf("OpenFreshWindow error = %q, want dispatch timeout", err.Error())
+		t.Fatalf("OpenExternalURL error = %q, want dispatch timeout", err.Error())
 	}
 	if factoryCalls != 0 {
 		t.Fatalf("browserWindowFactory calls = %d, want 0", factoryCalls)
 	}
 }
 
-func TestApp_OpenFreshWindowRecordsTabOwnership(t *testing.T) {
+func TestApp_OpenExternalURLRecordsTabOwnership(t *testing.T) {
 	existingTab := entity.NewTab(entity.TabID("existing-tab"), entity.WorkspaceID("existing-workspace"), entity.NewPane(entity.PaneID("existing-pane")))
 	existingTabs := entity.NewTabList()
 	existingTabs.Add(existingTab)
@@ -1126,8 +1126,8 @@ func TestApp_OpenFreshWindowRecordsTabOwnership(t *testing.T) {
 		},
 	}
 
-	if err := app.OpenFreshWindow(context.Background(), "https://example.com"); err != nil {
-		t.Fatalf("OpenFreshWindow returned error: %v", err)
+	if err := app.OpenExternalURL(context.Background(), "https://example.com"); err != nil {
+		t.Fatalf("OpenExternalURL returned error: %v", err)
 	}
 	if got := windowForTabCount(t, app); got != 2 {
 		t.Fatalf("windowForTab length = %d, want 2 (existing + new tab)", got)
@@ -1375,7 +1375,7 @@ func TestApp_RemoveBrowserWindowRebindsPromotedTabCoordinatorWindow(t *testing.T
 	}
 }
 
-func TestApp_OpenFreshWindowRollsBackOnTabCreationFailure(t *testing.T) {
+func TestApp_OpenExternalURLRollsBackOnTabCreationFailure(t *testing.T) {
 	created := &browserWindow{id: "window-1", tabs: entity.NewTabList()}
 	originalWindow := &window.MainWindow{}
 	tabBar := &component.TabBar{}
@@ -1406,8 +1406,8 @@ func TestApp_OpenFreshWindowRollsBackOnTabCreationFailure(t *testing.T) {
 		MainWindow: &window.MainWindow{},
 	})
 
-	if err := app.OpenFreshWindow(context.Background(), "https://example.com/fail"); err == nil {
-		t.Fatalf("OpenFreshWindow = nil error, want failure")
+	if err := app.OpenExternalURL(context.Background(), "https://example.com/fail"); err == nil {
+		t.Fatalf("OpenExternalURL = nil error, want failure")
 	}
 	if got := len(app.browserWindows); got != 1 {
 		t.Fatalf("browserWindows length = %d, want 1 (existing window only)", got)
@@ -1426,7 +1426,7 @@ func TestApp_OpenFreshWindowRollsBackOnTabCreationFailure(t *testing.T) {
 	}
 }
 
-func TestApp_OpenFreshWindowTargetsNewWindowTabBar(t *testing.T) {
+func TestApp_OpenExternalURLTargetsNewWindowTabBar(t *testing.T) {
 	existingTabID := entity.TabID("existing-tab")
 	createdTabID := entity.TabID("id-1")
 	oldWindow := &window.MainWindow{}
@@ -1463,8 +1463,8 @@ func TestApp_OpenFreshWindowTargetsNewWindowTabBar(t *testing.T) {
 		app.workspaceViews[tab.ID] = &component.WorkspaceView{}
 	})
 
-	if err := app.OpenFreshWindow(context.Background(), "https://example.com"); err != nil {
-		t.Fatalf("OpenFreshWindow returned error: %v", err)
+	if err := app.OpenExternalURL(context.Background(), "https://example.com"); err != nil {
+		t.Fatalf("OpenExternalURL returned error: %v", err)
 	}
 
 	gotCreatedTabID := app.tabs.ActiveTabID

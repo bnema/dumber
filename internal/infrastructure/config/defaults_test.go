@@ -13,6 +13,8 @@ func TestDefaultConfig_CoreDefaults(t *testing.T) {
 	assert.Equal(t, defaultMaxLogFiles, cfg.Logging.MaxFiles)
 	assert.False(t, cfg.Logging.CaptureGTKLogs)
 	assert.False(t, cfg.Media.ShowDiagnosticsOnStartup)
+	assert.Equal(t, ExternalLinkBehaviorWindowed, cfg.Workspace.ExternalLinks.Behavior)
+	assert.Equal(t, ExternalLinkPlacementRight, cfg.Workspace.ExternalLinks.Placement)
 
 	// Engine defaults (replaces old Performance/Privacy sections)
 	assert.Equal(t, EngineTypeCEF, cfg.Engine.Type)

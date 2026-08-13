@@ -209,15 +209,42 @@ type BrowsingContextConfig struct {
 // Deprecated: PopupBehaviorConfig is a compatibility alias for BrowsingContextConfig.
 type PopupBehaviorConfig = BrowsingContextConfig
 
+// ExternalLinkBehavior defines how externally opened URLs are placed in the workspace.
+type ExternalLinkBehavior string
+
+const (
+	ExternalLinkBehaviorWindowed ExternalLinkBehavior = "windowed"
+	ExternalLinkBehaviorTabbed   ExternalLinkBehavior = "tabbed"
+	ExternalLinkBehaviorSplit    ExternalLinkBehavior = "split"
+	ExternalLinkBehaviorStacked  ExternalLinkBehavior = "stacked"
+)
+
+// ExternalLinkPlacement defines the direction used when splitting for an external URL.
+type ExternalLinkPlacement string
+
+const (
+	ExternalLinkPlacementRight  ExternalLinkPlacement = "right"
+	ExternalLinkPlacementLeft   ExternalLinkPlacement = "left"
+	ExternalLinkPlacementTop    ExternalLinkPlacement = "top"
+	ExternalLinkPlacementBottom ExternalLinkPlacement = "bottom"
+)
+
+// ExternalLinksConfig controls how externally opened URLs are placed in the workspace.
+type ExternalLinksConfig struct {
+	Behavior  ExternalLinkBehavior  `mapstructure:"behavior" yaml:"behavior" toml:"behavior" json:"behavior"`
+	Placement ExternalLinkPlacement `mapstructure:"placement" yaml:"placement" toml:"placement" json:"placement"`
+}
+
 // WorkspaceConfig holds all workspace layout and behavior settings.
 type WorkspaceConfig struct {
-	NewPaneURL   string                `mapstructure:"new_pane_url" yaml:"new_pane_url" toml:"new_pane_url" json:"new_pane_url"`
-	PaneMode     PaneModeConfig        `mapstructure:"pane_mode" yaml:"pane_mode" toml:"pane_mode" json:"pane_mode"`
-	TabMode      TabModeConfig         `mapstructure:"tab_mode" yaml:"tab_mode" toml:"tab_mode" json:"tab_mode"`
-	PageMode     PageModeConfig        `mapstructure:"page_mode" yaml:"page_mode" toml:"page_mode" json:"page_mode"`
-	ResizeMode   ResizeModeConfig      `mapstructure:"resize_mode" yaml:"resize_mode" toml:"resize_mode" json:"resize_mode"`
-	Shortcuts    GlobalShortcutsConfig `mapstructure:"shortcuts" yaml:"shortcuts" toml:"shortcuts" json:"shortcuts"`
-	FloatingPane FloatingPaneConfig    `mapstructure:"floating_pane" yaml:"floating_pane" toml:"floating_pane" json:"floating_pane"`
+	NewPaneURL    string                `mapstructure:"new_pane_url" yaml:"new_pane_url" toml:"new_pane_url" json:"new_pane_url"`
+	PaneMode      PaneModeConfig        `mapstructure:"pane_mode" yaml:"pane_mode" toml:"pane_mode" json:"pane_mode"`
+	TabMode       TabModeConfig         `mapstructure:"tab_mode" yaml:"tab_mode" toml:"tab_mode" json:"tab_mode"`
+	PageMode      PageModeConfig        `mapstructure:"page_mode" yaml:"page_mode" toml:"page_mode" json:"page_mode"`
+	ResizeMode    ResizeModeConfig      `mapstructure:"resize_mode" yaml:"resize_mode" toml:"resize_mode" json:"resize_mode"`
+	Shortcuts     GlobalShortcutsConfig `mapstructure:"shortcuts" yaml:"shortcuts" toml:"shortcuts" json:"shortcuts"`
+	FloatingPane  FloatingPaneConfig    `mapstructure:"floating_pane" yaml:"floating_pane" toml:"floating_pane" json:"floating_pane"`
+	ExternalLinks ExternalLinksConfig   `mapstructure:"external_links" yaml:"external_links" toml:"external_links" json:"external_links"`
 
 	TabBarPosition          string `mapstructure:"tab_bar_position" yaml:"tab_bar_position" toml:"tab_bar_position" json:"tab_bar_position"`
 	HideTabBarWhenSingleTab bool   `mapstructure:"hide_tab_bar_when_single_tab" yaml:"hide_tab_bar_when_single_tab" toml:"hide_tab_bar_when_single_tab" json:"hide_tab_bar_when_single_tab"` //nolint:lll // struct tags must stay on one line

@@ -17,7 +17,7 @@ import (
 
 type browserWindowOpenerFunc func(context.Context, string) error
 
-func (f browserWindowOpenerFunc) OpenFreshWindow(ctx context.Context, url string) error {
+func (f browserWindowOpenerFunc) OpenExternalURL(ctx context.Context, url string) error {
 	return f(ctx, url)
 }
 
@@ -112,10 +112,10 @@ func overrideBrowserLaunchRequestID(t *testing.T, id string) func() {
 	return func() { newBrowserLaunchRequestID = previous }
 }
 
-func TestBrowserLaunchRelay_DeliverOpenFreshWindow_MissingListenerReturnsFalseNil(t *testing.T) {
+func TestBrowserLaunchRelay_DeliverOpenExternalURL_MissingListenerReturnsFalseNil(t *testing.T) {
 	relay := NewBrowserLaunchRelay(testIPC(shortTempDir(t)))
 
-	delivered, err := relay.DeliverOpenFreshWindow(context.Background(), "https://example.com")
+	delivered, err := relay.DeliverOpenExternalURL(context.Background(), "https://example.com")
 
 	require.NoError(t, err)
 	assert.False(t, delivered)
@@ -138,7 +138,7 @@ func TestBrowserLaunchRelay_SameProfileAndEngine_UsesSameSocket(t *testing.T) {
 
 	waitForSocket(t, ipc.BrowserLaunchSocket)
 
-	delivered, err := clientRelay.DeliverOpenFreshWindow(context.Background(), "https://example.com/same-namespace")
+	delivered, err := clientRelay.DeliverOpenExternalURL(context.Background(), "https://example.com/same-namespace")
 	require.NoError(t, err)
 	require.True(t, delivered)
 	require.Equal(t, "https://example.com/same-namespace", <-received)
@@ -151,7 +151,7 @@ func TestBrowserLaunchRelay_DevCEFAndDevWebKit_UseDifferentSockets(t *testing.T)
 	require.NotEqual(t, cefIPC.BrowserLaunchSocket, wkIPC.BrowserLaunchSocket)
 }
 
-func TestBrowserLaunchRelay_DeliverOpenFreshWindow_SendsRequestIDAndAcceptsMatchingResponse(t *testing.T) {
+func TestBrowserLaunchRelay_DeliverOpenExternalURL_SendsRequestIDAndAcceptsMatchingResponse(t *testing.T) {
 	ipc := testIPC(shortTempDir(t))
 	relay := NewBrowserLaunchRelay(ipc)
 	restore := overrideBrowserLaunchRequestID(t, "request-test-1")
@@ -180,7 +180,7 @@ func TestBrowserLaunchRelay_DeliverOpenFreshWindow_SendsRequestIDAndAcceptsMatch
 		_ = json.NewEncoder(conn).Encode(browserLaunchResponse{RequestID: request.RequestID, Accepted: true})
 	}()
 
-	delivered, err := relay.DeliverOpenFreshWindow(context.Background(), "https://example.com/request-id")
+	delivered, err := relay.DeliverOpenExternalURL(context.Background(), "https://example.com/request-id")
 
 	require.NoError(t, err)
 	require.True(t, delivered)
@@ -189,7 +189,7 @@ func TestBrowserLaunchRelay_DeliverOpenFreshWindow_SendsRequestIDAndAcceptsMatch
 	require.Equal(t, "https://example.com/request-id", request.URL)
 }
 
-func TestBrowserLaunchRelay_DeliverOpenFreshWindow_RejectsMismatchedResponseRequestID(t *testing.T) {
+func TestBrowserLaunchRelay_DeliverOpenExternalURL_RejectsMismatchedResponseRequestID(t *testing.T) {
 	ipc := testIPC(shortTempDir(t))
 	relay := NewBrowserLaunchRelay(ipc)
 	restore := overrideBrowserLaunchRequestID(t, "request-test-2")
@@ -216,14 +216,14 @@ func TestBrowserLaunchRelay_DeliverOpenFreshWindow_RejectsMismatchedResponseRequ
 		_ = json.NewEncoder(conn).Encode(browserLaunchResponse{RequestID: "different-request", Accepted: true})
 	}()
 
-	delivered, err := relay.DeliverOpenFreshWindow(context.Background(), "https://example.com/request-id-mismatch")
+	delivered, err := relay.DeliverOpenExternalURL(context.Background(), "https://example.com/request-id-mismatch")
 
 	require.Error(t, err)
 	require.True(t, delivered)
 	require.Contains(t, err.Error(), "mismatched browser launch relay response")
 }
 
-func TestBrowserLaunchRelay_DeliverOpenFreshWindow_RoundTrip(t *testing.T) {
+func TestBrowserLaunchRelay_DeliverOpenExternalURL_RoundTrip(t *testing.T) {
 	ipc := testIPC(shortTempDir(t))
 	relay := NewBrowserLaunchRelay(ipc)
 
@@ -239,7 +239,7 @@ func TestBrowserLaunchRelay_DeliverOpenFreshWindow_RoundTrip(t *testing.T) {
 
 	waitForSocket(t, ipc.BrowserLaunchSocket)
 
-	delivered, err := relay.DeliverOpenFreshWindow(context.Background(), "https://example.com/new")
+	delivered, err := relay.DeliverOpenExternalURL(context.Background(), "https://example.com/new")
 
 	require.NoError(t, err)
 	assert.True(t, delivered)
@@ -279,7 +279,7 @@ func TestBrowserLaunchRelay_SecondListenWhileLiveFailsWithoutReplacingListener(t
 	_, err = relay.Listen(ctx, browserWindowOpenerFunc(func(context.Context, string) error { return nil }))
 	require.Error(t, err)
 
-	delivered, err := relay.DeliverOpenFreshWindow(context.Background(), "https://example.com/live")
+	delivered, err := relay.DeliverOpenExternalURL(context.Background(), "https://example.com/live")
 	require.NoError(t, err)
 	require.True(t, delivered)
 
@@ -310,7 +310,7 @@ func TestBrowserLaunchRelay_RebindsStaleSocketPath(t *testing.T) {
 
 	waitForSocket(t, ipc.BrowserLaunchSocket)
 
-	delivered, err := relay.DeliverOpenFreshWindow(context.Background(), "https://example.com/stale")
+	delivered, err := relay.DeliverOpenExternalURL(context.Background(), "https://example.com/stale")
 	require.NoError(t, err)
 	require.True(t, delivered)
 
@@ -345,7 +345,7 @@ func TestBrowserLaunchRelay_RejectsMalformedPayloads(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, conn.Close())
 
-	delivered, err := relay.DeliverOpenFreshWindow(context.Background(), "https://example.com/still-works")
+	delivered, err := relay.DeliverOpenExternalURL(context.Background(), "https://example.com/still-works")
 
 	require.NoError(t, err)
 	assert.True(t, delivered)
@@ -387,12 +387,12 @@ func TestBrowserLaunchRelay_ContextCancelStopsServing(t *testing.T) {
 	waitForSocketGone(t, ipc.BrowserLaunchSocket)
 	require.NoError(t, closer.Close())
 
-	delivered, err := relay.DeliverOpenFreshWindow(context.Background(), "https://example.com/after-cancel")
+	delivered, err := relay.DeliverOpenExternalURL(context.Background(), "https://example.com/after-cancel")
 	require.NoError(t, err)
 	assert.False(t, delivered)
 }
 
-func TestBrowserLaunchRelay_DeliverOpenFreshWindow_RespectsResponseReadTimeout(t *testing.T) {
+func TestBrowserLaunchRelay_DeliverOpenExternalURL_RespectsResponseReadTimeout(t *testing.T) {
 	ipc := testIPC(shortTempDir(t))
 	require.NoError(t, os.MkdirAll(ipc.RuntimeDir, 0o700))
 
@@ -419,13 +419,13 @@ func TestBrowserLaunchRelay_DeliverOpenFreshWindow_RespectsResponseReadTimeout(t
 	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 	defer cancel()
 
-	delivered, err := relay.DeliverOpenFreshWindow(ctx, "https://example.com/slow")
+	delivered, err := relay.DeliverOpenExternalURL(ctx, "https://example.com/slow")
 	require.Error(t, err)
 	require.ErrorIs(t, err, context.DeadlineExceeded)
 	assert.False(t, delivered)
 }
 
-func TestBrowserLaunchRelay_DeliverOpenFreshWindow_ReturnsUnconfirmedErrorOnNoDeadlineTimeout(t *testing.T) {
+func TestBrowserLaunchRelay_DeliverOpenExternalURL_ReturnsUnconfirmedErrorOnNoDeadlineTimeout(t *testing.T) {
 	ipc := testIPC(shortTempDir(t))
 	require.NoError(t, os.MkdirAll(ipc.RuntimeDir, 0o700))
 
@@ -459,7 +459,7 @@ func TestBrowserLaunchRelay_DeliverOpenFreshWindow_ReturnsUnconfirmedErrorOnNoDe
 	result := make(chan deliverResult, 1)
 	go func() {
 		close(started)
-		delivered, err := relay.DeliverOpenFreshWindow(context.Background(), "https://example.com/slow")
+		delivered, err := relay.DeliverOpenExternalURL(context.Background(), "https://example.com/slow")
 		result <- deliverResult{delivered: delivered, err: err}
 	}()
 	<-started
@@ -470,7 +470,7 @@ func TestBrowserLaunchRelay_DeliverOpenFreshWindow_ReturnsUnconfirmedErrorOnNoDe
 		require.Error(t, got.err)
 		require.ErrorIs(t, got.err, ErrBrowserLaunchRelayUnconfirmed)
 	case <-time.After(browserLaunchIOTimeout * 3):
-		t.Fatal("DeliverOpenFreshWindow blocked without a caller deadline")
+		t.Fatal("DeliverOpenExternalURL blocked without a caller deadline")
 	}
 }
 
@@ -574,7 +574,7 @@ func TestBrowserLaunchRelay_SilentClientDoesNotStallListener(t *testing.T) {
 	}
 	result := make(chan deliverResult, 1)
 	go func() {
-		delivered, err := relay.DeliverOpenFreshWindow(context.Background(), "https://example.com/recovered")
+		delivered, err := relay.DeliverOpenExternalURL(context.Background(), "https://example.com/recovered")
 		result <- deliverResult{delivered: delivered, err: err}
 	}()
 

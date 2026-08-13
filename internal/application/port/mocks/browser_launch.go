@@ -39,12 +39,12 @@ func (_m *MockBrowserWindowOpener) EXPECT() *MockBrowserWindowOpener_Expecter {
 	return &MockBrowserWindowOpener_Expecter{mock: &_m.Mock}
 }
 
-// OpenFreshWindow provides a mock function for the type MockBrowserWindowOpener
-func (_mock *MockBrowserWindowOpener) OpenFreshWindow(ctx context.Context, url string) error {
+// OpenExternalURL provides a mock function for the type MockBrowserWindowOpener
+func (_mock *MockBrowserWindowOpener) OpenExternalURL(ctx context.Context, url string) error {
 	ret := _mock.Called(ctx, url)
 
 	if len(ret) == 0 {
-		panic("no return value specified for OpenFreshWindow")
+		panic("no return value specified for OpenExternalURL")
 	}
 
 	var r0 error
@@ -56,19 +56,19 @@ func (_mock *MockBrowserWindowOpener) OpenFreshWindow(ctx context.Context, url s
 	return r0
 }
 
-// MockBrowserWindowOpener_OpenFreshWindow_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'OpenFreshWindow'
-type MockBrowserWindowOpener_OpenFreshWindow_Call struct {
+// MockBrowserWindowOpener_OpenExternalURL_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'OpenExternalURL'
+type MockBrowserWindowOpener_OpenExternalURL_Call struct {
 	*mock.Call
 }
 
-// OpenFreshWindow is a helper method to define mock.On call
+// OpenExternalURL is a helper method to define mock.On call
 //   - ctx context.Context
 //   - url string
-func (_e *MockBrowserWindowOpener_Expecter) OpenFreshWindow(ctx any, url any) *MockBrowserWindowOpener_OpenFreshWindow_Call {
-	return &MockBrowserWindowOpener_OpenFreshWindow_Call{Call: _e.mock.On("OpenFreshWindow", ctx, url)}
+func (_e *MockBrowserWindowOpener_Expecter) OpenExternalURL(ctx any, url any) *MockBrowserWindowOpener_OpenExternalURL_Call {
+	return &MockBrowserWindowOpener_OpenExternalURL_Call{Call: _e.mock.On("OpenExternalURL", ctx, url)}
 }
 
-func (_c *MockBrowserWindowOpener_OpenFreshWindow_Call) Run(run func(ctx context.Context, url string)) *MockBrowserWindowOpener_OpenFreshWindow_Call {
+func (_c *MockBrowserWindowOpener_OpenExternalURL_Call) Run(run func(ctx context.Context, url string)) *MockBrowserWindowOpener_OpenExternalURL_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
@@ -86,12 +86,12 @@ func (_c *MockBrowserWindowOpener_OpenFreshWindow_Call) Run(run func(ctx context
 	return _c
 }
 
-func (_c *MockBrowserWindowOpener_OpenFreshWindow_Call) Return(err error) *MockBrowserWindowOpener_OpenFreshWindow_Call {
+func (_c *MockBrowserWindowOpener_OpenExternalURL_Call) Return(err error) *MockBrowserWindowOpener_OpenExternalURL_Call {
 	_c.Call.Return(err)
 	return _c
 }
 
-func (_c *MockBrowserWindowOpener_OpenFreshWindow_Call) RunAndReturn(run func(ctx context.Context, url string) error) *MockBrowserWindowOpener_OpenFreshWindow_Call {
+func (_c *MockBrowserWindowOpener_OpenExternalURL_Call) RunAndReturn(run func(ctx context.Context, url string) error) *MockBrowserWindowOpener_OpenExternalURL_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -123,12 +123,12 @@ func (_m *MockBrowserLaunchRelay) EXPECT() *MockBrowserLaunchRelay_Expecter {
 	return &MockBrowserLaunchRelay_Expecter{mock: &_m.Mock}
 }
 
-// DeliverOpenFreshWindow provides a mock function for the type MockBrowserLaunchRelay
-func (_mock *MockBrowserLaunchRelay) DeliverOpenFreshWindow(ctx context.Context, url string) (bool, error) {
+// DeliverOpenExternalURL provides a mock function for the type MockBrowserLaunchRelay
+func (_mock *MockBrowserLaunchRelay) DeliverOpenExternalURL(ctx context.Context, url string) (bool, error) {
 	ret := _mock.Called(ctx, url)
 
 	if len(ret) == 0 {
-		panic("no return value specified for DeliverOpenFreshWindow")
+		panic("no return value specified for DeliverOpenExternalURL")
 	}
 
 	var r0 bool
@@ -149,19 +149,19 @@ func (_mock *MockBrowserLaunchRelay) DeliverOpenFreshWindow(ctx context.Context,
 	return r0, r1
 }
 
-// MockBrowserLaunchRelay_DeliverOpenFreshWindow_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'DeliverOpenFreshWindow'
-type MockBrowserLaunchRelay_DeliverOpenFreshWindow_Call struct {
+// MockBrowserLaunchRelay_DeliverOpenExternalURL_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'DeliverOpenExternalURL'
+type MockBrowserLaunchRelay_DeliverOpenExternalURL_Call struct {
 	*mock.Call
 }
 
-// DeliverOpenFreshWindow is a helper method to define mock.On call
+// DeliverOpenExternalURL is a helper method to define mock.On call
 //   - ctx context.Context
 //   - url string
-func (_e *MockBrowserLaunchRelay_Expecter) DeliverOpenFreshWindow(ctx any, url any) *MockBrowserLaunchRelay_DeliverOpenFreshWindow_Call {
-	return &MockBrowserLaunchRelay_DeliverOpenFreshWindow_Call{Call: _e.mock.On("DeliverOpenFreshWindow", ctx, url)}
+func (_e *MockBrowserLaunchRelay_Expecter) DeliverOpenExternalURL(ctx any, url any) *MockBrowserLaunchRelay_DeliverOpenExternalURL_Call {
+	return &MockBrowserLaunchRelay_DeliverOpenExternalURL_Call{Call: _e.mock.On("DeliverOpenExternalURL", ctx, url)}
 }
 
-func (_c *MockBrowserLaunchRelay_DeliverOpenFreshWindow_Call) Run(run func(ctx context.Context, url string)) *MockBrowserLaunchRelay_DeliverOpenFreshWindow_Call {
+func (_c *MockBrowserLaunchRelay_DeliverOpenExternalURL_Call) Run(run func(ctx context.Context, url string)) *MockBrowserLaunchRelay_DeliverOpenExternalURL_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
@@ -179,12 +179,12 @@ func (_c *MockBrowserLaunchRelay_DeliverOpenFreshWindow_Call) Run(run func(ctx c
 	return _c
 }
 
-func (_c *MockBrowserLaunchRelay_DeliverOpenFreshWindow_Call) Return(b bool, err error) *MockBrowserLaunchRelay_DeliverOpenFreshWindow_Call {
+func (_c *MockBrowserLaunchRelay_DeliverOpenExternalURL_Call) Return(b bool, err error) *MockBrowserLaunchRelay_DeliverOpenExternalURL_Call {
 	_c.Call.Return(b, err)
 	return _c
 }
 
-func (_c *MockBrowserLaunchRelay_DeliverOpenFreshWindow_Call) RunAndReturn(run func(ctx context.Context, url string) (bool, error)) *MockBrowserLaunchRelay_DeliverOpenFreshWindow_Call {
+func (_c *MockBrowserLaunchRelay_DeliverOpenExternalURL_Call) RunAndReturn(run func(ctx context.Context, url string) (bool, error)) *MockBrowserLaunchRelay_DeliverOpenExternalURL_Call {
 	_c.Call.Return(run)
 	return _c
 }

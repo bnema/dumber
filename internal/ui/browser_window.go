@@ -548,11 +548,11 @@ func (a *App) deterministicBrowserWindowFallback() *browserWindow {
 	return a.browserWindows[ids[0]]
 }
 
-func (a *App) OpenFreshWindow(ctx context.Context, url string) error {
+func (a *App) OpenExternalURL(ctx context.Context, url string) error {
 	log := logging.FromContext(ctx)
 	log.Debug().
 		Str("url_host", logging.SafeURLHost(url)).
-		Msg("ui: open fresh window dispatch requested")
+		Msg("ui: open external URL dispatch requested")
 
 	dispatch := a.dispatchOnMainThread
 	if dispatch == nil {
@@ -569,17 +569,18 @@ func (a *App) OpenFreshWindow(ctx context.Context, url string) error {
 	var windowCountAfter int
 	var hasTabCoord bool
 	var hasTabsUC bool
-	result := dispatch("ui.open_fresh_window", func() {
+	result := dispatch("ui.open_external_url", func() {
 		windowCountBefore = len(a.browserWindows)
 		hasTabCoord = a.tabCoord != nil
 		hasTabsUC = a.tabsUC != nil
+		cfg := a.runtimeConfigSnapshot()
 		log.Debug().
 			Str("url_host", logging.SafeURLHost(url)).
 			Int("window_count_before", windowCountBefore).
 			Bool("has_tab_coord", hasTabCoord).
 			Bool("has_tabs_uc", hasTabsUC).
-			Msg("ui: open fresh window main-thread work started")
-		openErr = a.openFreshWindow(ctx, url)
+			Msg("ui: open external URL main-thread work started")
+		openErr = a.openExternalURLOnMainThread(ctx, url, cfg)
 		windowCountAfter = len(a.browserWindows)
 	})
 	if !result.Completed() {
@@ -587,7 +588,7 @@ func (a *App) OpenFreshWindow(ctx context.Context, url string) error {
 			Str("url_host", logging.SafeURLHost(url)).
 			Dur("elapsed", result.Elapsed).
 			Str("dispatch_status", string(result.Status)).
-			Msg("ui: open fresh window skipped after main-thread dispatch did not complete")
+			Msg("ui: open external URL skipped after main-thread dispatch did not complete")
 		return fmt.Errorf("main thread dispatch did not complete: %s", result.Status)
 	}
 	if openErr != nil {
@@ -596,7 +597,7 @@ func (a *App) OpenFreshWindow(ctx context.Context, url string) error {
 			Dur("elapsed", result.Elapsed).
 			Str("dispatch_status", string(result.Status)).
 			Int("window_count_after", windowCountAfter).
-			Msg("ui: open fresh window failed")
+			Msg("ui: open external URL failed")
 		return openErr
 	}
 
@@ -605,6 +606,178 @@ func (a *App) OpenFreshWindow(ctx context.Context, url string) error {
 		Dur("elapsed", result.Elapsed).
 		Str("dispatch_status", string(result.Status)).
 		Int("window_count_after", windowCountAfter).
-		Msg("ui: open fresh window completed")
+		Msg("ui: open external URL completed")
+	return nil
+}
+
+func (a *App) openExternalURLOnMainThread(ctx context.Context, url string, cfg entity.RuntimeConfigSnapshot) error {
+	externalLinks := cfg.UI.Workspace.ExternalLinks
+	if externalLinks.Behavior == entity.ExternalLinkBehaviorWindowed || externalLinks.Behavior == "" {
+		return a.openFreshWindow(ctx, url)
+	}
+
+	err := a.openExternalURLInFocusedWindow(ctx, url, externalLinks)
+	if err == nil {
+		return nil
+	}
+	logging.FromContext(ctx).Warn().
+		Err(err).
+		Str("url_host", logging.SafeURLHost(url)).
+		Str("behavior", string(externalLinks.Behavior)).
+		Msg("ui: external URL placement failed; opening fresh window")
+	return a.openFreshWindow(ctx, url)
+}
+
+func (a *App) openExternalURLInFocusedWindow(ctx context.Context, url string, cfg entity.ExternalLinksConfig) error {
+	target, activeTab, err := a.externalURLTarget()
+	if err != nil {
+		return err
+	}
+
+	switch cfg.Behavior {
+	case entity.ExternalLinkBehaviorTabbed:
+		if err := a.createExternalURLTab(ctx, target, url); err != nil {
+			return err
+		}
+	case entity.ExternalLinkBehaviorSplit:
+		if err := a.placeExternalURLInPane(ctx, activeTab.Workspace, url, func(ctx context.Context) error {
+			return a.wsCoord.SplitWithURLWithoutOmnibox(ctx, externalLinkSplitDirection(cfg.Placement), url)
+		}); err != nil {
+			return err
+		}
+	case entity.ExternalLinkBehaviorStacked:
+		if err := a.placeExternalURLInPane(ctx, activeTab.Workspace, url, func(ctx context.Context) error {
+			return a.wsCoord.StackPaneWithURLWithoutOmnibox(ctx, url)
+		}); err != nil {
+			return err
+		}
+	default:
+		return fmt.Errorf("unsupported external URL behavior %q", cfg.Behavior)
+	}
+
+	if target.mainWindow != nil {
+		target.mainWindow.Show()
+	}
+	a.activateBrowserWindow(target)
+	return nil
+}
+
+func (a *App) externalURLTarget() (*browserWindow, *entity.Tab, error) {
+	target := a.lastFocusedBrowserWindow()
+	if target == nil || target.id == "" || a.browserWindows[target.id] != target {
+		return nil, nil, fmt.Errorf("last-focused browser window is missing or stale")
+	}
+	activeTab := a.activeTabForBrowserWindow(target)
+	if activeTab == nil || activeTab.Workspace == nil || activeTab.Workspace.ActivePane() == nil {
+		return nil, nil, fmt.Errorf("last-focused browser window has no active tab and pane")
+	}
+	return target, activeTab, nil
+}
+
+func (a *App) createExternalURLTab(ctx context.Context, target *browserWindow, url string) error {
+	if a.tabCoord == nil {
+		return fmt.Errorf("tab coordinator not available")
+	}
+	created, err := a.tabCoord.Create(ctx, a.tabTargetForBrowserWindow(target), url)
+	if err != nil {
+		a.rollbackExternalTabCreation(ctx, target, created)
+		return err
+	}
+	if created == nil || created.Workspace == nil || created.Workspace.ActivePane() == nil ||
+		created.Workspace.ActivePane().Pane == nil || created.Workspace.ActivePane().Pane.URI != url ||
+		a.activeTabForBrowserWindow(target) != created || a.workspaceViews[created.ID] == nil {
+		a.rollbackExternalTabCreation(ctx, target, created)
+		return fmt.Errorf("created tab did not become an active UI target")
+	}
+	return nil
+}
+
+func (a *App) placeExternalURLInPane(ctx context.Context, ws *entity.Workspace, url string, place func(context.Context) error) error {
+	if a.wsCoord == nil {
+		return fmt.Errorf("workspace coordinator not available")
+	}
+	before := ws.ActivePaneID
+	if err := place(ctx); err != nil {
+		a.rollbackExternalPaneCreation(ctx, ws, before)
+		return err
+	}
+	if err := verifyExternalPaneCreation(ws, before, url); err != nil {
+		a.rollbackExternalPaneCreation(ctx, ws, before)
+		return err
+	}
+	return nil
+}
+
+func (a *App) rollbackExternalPaneCreation(ctx context.Context, ws *entity.Workspace, previous entity.PaneID) {
+	if a.panesUC == nil {
+		logging.FromContext(ctx).Warn().Msg("ui: cannot roll back external URL pane; panes use case is unavailable")
+		return
+	}
+	if ws == nil || ws.ActivePaneID == "" || ws.ActivePaneID == previous {
+		return
+	}
+	created := ws.ActivePane()
+	if created == nil || created.Pane == nil {
+		return
+	}
+	createdID := created.Pane.ID
+	if _, err := a.panesUC.Close(ctx, ws, created); err != nil {
+		logging.FromContext(ctx).Warn().Err(err).Msg("ui: failed to roll back external URL pane")
+		return
+	}
+	ws.ActivePaneID = previous
+	if a.contentCoord != nil {
+		a.contentCoord.ReleaseWebView(ctx, createdID)
+	}
+	for tabID, view := range a.workspaceViews {
+		owner := a.browserWindowForTab(tabID)
+		if owner == nil || owner.tabs == nil || view == nil {
+			continue
+		}
+		tab := owner.tabs.Find(tabID)
+		if tab == nil || tab.Workspace == nil || tab.Workspace.ID != ws.ID {
+			continue
+		}
+		if err := view.Rebuild(ctx); err != nil {
+			logging.FromContext(ctx).Warn().Err(err).Msg("ui: failed to rebuild after external URL pane rollback")
+		}
+		break
+	}
+}
+
+func (a *App) rollbackExternalTabCreation(ctx context.Context, target *browserWindow, created *entity.Tab) {
+	if target == nil || created == nil {
+		return
+	}
+	if tabs := a.tabListForBrowserWindow(target); tabs != nil {
+		tabs.Remove(created.ID)
+	}
+	if target.mainWindow != nil && target.mainWindow.TabBar() != nil {
+		target.mainWindow.TabBar().RemoveTab(created.ID)
+	}
+	a.releaseTabWorkspace(ctx, created)
+}
+
+func externalLinkSplitDirection(placement entity.ExternalLinkPlacement) usecase.SplitDirection {
+	switch placement {
+	case entity.ExternalLinkPlacementLeft:
+		return usecase.SplitLeft
+	case entity.ExternalLinkPlacementTop:
+		return usecase.SplitUp
+	case entity.ExternalLinkPlacementBottom:
+		return usecase.SplitDown
+	default:
+		return usecase.SplitRight
+	}
+}
+
+func verifyExternalPaneCreation(ws *entity.Workspace, previous entity.PaneID, url string) error {
+	if ws == nil || ws.ActivePaneID == "" || ws.ActivePaneID == previous {
+		return fmt.Errorf("external URL pane was not activated")
+	}
+	active := ws.ActivePane()
+	if active == nil || active.Pane == nil || active.Pane.URI != url {
+		return fmt.Errorf("external URL pane was not created with the requested URL")
+	}
 	return nil
 }

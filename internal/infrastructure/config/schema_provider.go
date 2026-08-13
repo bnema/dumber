@@ -564,6 +564,23 @@ func (*SchemaProvider) getWorkspaceKeys(defaults *Config) []entity.ConfigKeyInfo
 			Description: "Named floating pane URL profiles with keys, url, and optional desc",
 			Section:     SectionWorkspace,
 		},
+		// External links
+		{
+			Key:         "workspace.external_links.behavior",
+			Type:        "string",
+			Default:     string(defaults.Workspace.ExternalLinks.Behavior),
+			Description: "How URLs opened from external applications are placed",
+			Values:      []string{"windowed", "tabbed", "split", "stacked"},
+			Section:     SectionWorkspace,
+		},
+		{
+			Key:         "workspace.external_links.placement",
+			Type:        "string",
+			Default:     string(defaults.Workspace.ExternalLinks.Placement),
+			Description: "Placement direction for split external links",
+			Values:      []string{"right", "left", "top", "bottom"},
+			Section:     SectionWorkspace,
+		},
 		// Browsing contexts
 		{
 			Key:         "workspace.browsing_contexts.behavior",

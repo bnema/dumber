@@ -24,6 +24,7 @@ func validateConfig(config *Config) error {
 	validationErrors = append(validationErrors, validateAppearance(config)...)
 	validationErrors = append(validationErrors, validateSearchEngine(config)...)
 	validationErrors = append(validationErrors, validatePopups(config)...)
+	validationErrors = append(validationErrors, validateExternalLinks(config)...)
 	validationErrors = append(validationErrors, validateWorkspaceStyling(config)...)
 	validationErrors = append(validationErrors, validatePaneMode(config)...)
 	validationErrors = append(validationErrors, validateTabBar(config)...)
@@ -183,6 +184,28 @@ func validatePopups(config *Config) []string {
 		validationErrors = append(validationErrors, fmt.Sprintf(
 			"workspace.browsing_contexts.blank_target_behavior must be one of: split, stacked, tabbed (got: %s)",
 			config.Workspace.BrowsingContexts.BlankTargetBehavior,
+		))
+	}
+	return validationErrors
+}
+
+func validateExternalLinks(config *Config) []string {
+	var validationErrors []string
+	switch config.Workspace.ExternalLinks.Behavior {
+	case ExternalLinkBehaviorWindowed, ExternalLinkBehaviorTabbed, ExternalLinkBehaviorSplit, ExternalLinkBehaviorStacked:
+	default:
+		validationErrors = append(validationErrors, fmt.Sprintf(
+			"workspace.external_links.behavior must be one of: windowed, tabbed, split, stacked (got: %s)",
+			config.Workspace.ExternalLinks.Behavior,
+		))
+	}
+
+	switch config.Workspace.ExternalLinks.Placement {
+	case ExternalLinkPlacementRight, ExternalLinkPlacementLeft, ExternalLinkPlacementTop, ExternalLinkPlacementBottom:
+	default:
+		validationErrors = append(validationErrors, fmt.Sprintf(
+			"workspace.external_links.placement must be one of: right, left, top, bottom (got: %s)",
+			config.Workspace.ExternalLinks.Placement,
 		))
 	}
 	return validationErrors

@@ -68,7 +68,7 @@ func NewBrowserLaunchRelay(ipc runtimeprofile.IPCPaths) port.BrowserLaunchRelay 
 	return &browserLaunchRelay{ipc: ipc}
 }
 
-func (r *browserLaunchRelay) DeliverOpenFreshWindow(ctx context.Context, url string) (bool, error) {
+func (r *browserLaunchRelay) DeliverOpenExternalURL(ctx context.Context, url string) (bool, error) {
 	socketPath, err := r.socketPath()
 	if err != nil {
 		return false, err
@@ -353,20 +353,20 @@ func (*browserLaunchRelayListener) handleConnection(ctx context.Context, conn *n
 		log.Debug().
 			Str("request_id", requestID).
 			Str("url_host", safeURLHost(request.URL)).
-			Msg("browser launch relay calling browser window opener")
-		if err := opener.OpenFreshWindow(ctx, request.URL); err != nil {
+			Msg("browser launch relay calling external URL opener")
+		if err := opener.OpenExternalURL(ctx, request.URL); err != nil {
 			log.Warn().Err(err).
 				Str("request_id", requestID).
 				Str("url_host", safeURLHost(request.URL)).
 				Dur("elapsed", time.Since(started)).
-				Msg("browser launch relay opener failed")
+				Msg("browser launch relay external URL opener failed")
 			return
 		}
 		log.Debug().
 			Str("request_id", requestID).
 			Str("url_host", safeURLHost(request.URL)).
 			Dur("elapsed", time.Since(started)).
-			Msg("browser launch relay opener returned success")
+			Msg("browser launch relay external URL opener returned success")
 	}()
 }
 
