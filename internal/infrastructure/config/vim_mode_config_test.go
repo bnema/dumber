@@ -212,7 +212,7 @@ func TestSchemaProvider_VimModeKeys(t *testing.T) {
 			assert.Equal(t, SectionWorkspace, key.Section)
 		case "workspace.vim_mode.actions.<action>":
 			foundActions = true
-			assert.Equal(t, "[]string", key.Type)
+			assert.Equal(t, "object", key.Type)
 			assert.Equal(t, SectionWorkspace, key.Section)
 		}
 	}

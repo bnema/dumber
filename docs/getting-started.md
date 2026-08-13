@@ -41,7 +41,7 @@ Vim Mode stays local to the active pane and automatically leaves the mode when f
 7. If a page input or editor is already focused, `Ctrl+Y` is passed through instead of stealing the keypress
 
 > **Engine behavior**: CEF and WebKit execute Vim Mode scroll steps with the
-> shared `BuildScrollByJS` resolver (viewport-center start, nested-scroller
+> shared `BuildPageScrollByJS` resolver (viewport-center start, nested-scroller
 > handoff, document fallback). The application repeater owns held-key cadence;
 > each engine runs one immediate step per tick. Cross-origin frames are
 > best-effort. CEF may use native precision-wheel input only before the browser

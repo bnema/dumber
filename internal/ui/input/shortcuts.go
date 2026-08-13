@@ -266,7 +266,7 @@ func NewShortcutSet(ctx context.Context, workspace *entity.WorkspaceConfig, sess
 		Int("pane", len(set.PaneMode)).
 		Int("resize", len(set.ResizeMode)).
 		Int("session", len(set.SessionMode)).
-		Int("page", len(set.VimMode)).
+		Int("vim", len(set.VimMode)).
 		Msg("shortcuts registered")
 
 	return set
@@ -305,7 +305,7 @@ func (s *ShortcutSet) buildResizeModeShortcuts(ctx context.Context, cfg *entity.
 // buildVimModeShortcuts populates vim mode shortcuts from config.
 func (s *ShortcutSet) buildVimModeShortcuts(ctx context.Context, cfg *entity.WorkspaceConfig) {
 	log := logging.FromContext(ctx)
-	s.buildModeShortcuts(ctx, cfg.VimMode.GetKeyBindings(), s.VimMode, "page")
+	s.buildModeShortcuts(ctx, cfg.VimMode.GetKeyBindings(), s.VimMode, "vim")
 	if binding, ok := ParseKeyString(cfg.VimMode.ActivationShortcut); ok {
 		s.VimMode[binding] = ActionEnterVimMode
 		log.Trace().

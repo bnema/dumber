@@ -490,9 +490,9 @@ func (*SchemaProvider) getWorkspaceKeys(defaults *Config) []entity.ConfigKeyInfo
 		},
 		{
 			Key:         "workspace.vim_mode.actions.<action>",
-			Type:        "[]string",
+			Type:        "object",
 			Default:     "(see defaults)",
-			Description: "Key bindings for vim mode actions",
+			Description: "Vim mode action object with keys ([]string) and desc (string)",
 			Section:     SectionWorkspace,
 		},
 		// Resize mode

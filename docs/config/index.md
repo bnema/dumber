@@ -448,7 +448,7 @@ Notes:
 - Arrow keys still use the browser engine's native page-navigation path while Vim Mode is active.
 - Other app-level shortcuts stay suspended until Vim Mode exits, except for the Vim Mode toggle itself.
 - `workspace.styling.pane_mode_color`, `workspace.styling.transition_duration`, and `workspace.styling.mode_indicator_toaster_enabled` control the pane-local Vim Mode visuals.
-- Scroll execution: CEF and WebKit both use the shared `BuildScrollByJS` resolver when the page is ready. Each step starts under the viewport center, walks up through ancestors that can move in the requested direction, and hands scrolling to the document when a nested container reaches its boundary. The application repeater owns held-key cadence; each engine executes one immediate scroll step per tick. Cross-origin frame contents remain best-effort. CEF may use native precision-wheel input only as a pre-frame fallback before the browser/main frame is ready.
+- Scroll execution: CEF and WebKit both use the shared `BuildPageScrollByJS` resolver when the page is ready. Each step starts under the viewport center, walks up through ancestors that can move in the requested direction, and hands scrolling to the document when a nested container reaches its boundary. The application repeater owns held-key cadence; each engine executes one immediate scroll step per tick. Cross-origin frame contents remain best-effort. CEF may use native precision-wheel input only as a pre-frame fallback before the browser/main frame is ready.
 
 ### Resize Mode
 

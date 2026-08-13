@@ -791,15 +791,12 @@ func (m *Migrator) detectLegacyBrowsingContextRenames(rawUserKeys map[string]any
 }
 
 func (m *Migrator) detectLegacyVimModeRenames(rawUserKeys map[string]any) []port.KeyChange {
-	const oldPrefix = "workspace.page_mode"
-	const newPrefix = "workspace.vim_mode"
-
 	changes := make([]port.KeyChange, 0, 3)
 	for oldKey, oldValue := range rawUserKeys {
-		if !strings.HasPrefix(oldKey, oldPrefix+".") {
+		newKey, ok := legacyVimModeKey(oldKey)
+		if !ok {
 			continue
 		}
-		newKey := newPrefix + strings.TrimPrefix(oldKey, oldPrefix)
 		if _, hasNew := rawUserKeys[newKey]; hasNew {
 			continue
 		}
@@ -843,7 +840,11 @@ func (*Migrator) migrateLegacyVimMode(rawConfig map[string]any) {
 		vimMode["actions"] = vimActions
 	}
 	for oldAction, value := range legacyActions {
-		newAction := legacyVimActionName(oldAction)
+		newKey, ok := legacyVimModeKey("workspace.page_mode.actions." + oldAction)
+		if !ok {
+			continue
+		}
+		newAction := strings.TrimPrefix(newKey, "workspace.vim_mode.actions.")
 		if _, exists := vimActions[newAction]; !exists {
 			vimActions[newAction] = value
 		}
@@ -851,10 +852,27 @@ func (*Migrator) migrateLegacyVimMode(rawConfig map[string]any) {
 	delete(workspace, "page_mode")
 }
 
+// legacyVimModeKey converts one legacy Page Mode config key to its canonical
+// Vim Mode key, including action-name normalization.
+func legacyVimModeKey(oldKey string) (string, bool) {
+	const oldPrefix = "workspace.page_mode"
+	const newPrefix = "workspace.vim_mode"
+
+	if !strings.HasPrefix(oldKey, oldPrefix+".") {
+		return "", false
+	}
+	newKey := newPrefix + strings.TrimPrefix(oldKey, oldPrefix)
+	const actionsPrefix = newPrefix + ".actions."
+	if strings.HasPrefix(newKey, actionsPrefix) {
+		return actionsPrefix + legacyVimActionName(strings.TrimPrefix(newKey, actionsPrefix)), true
+	}
+	return newKey, true
+}
+
 func legacyVimActionName(action string) string {
 	for _, prefix := range []string{"page-scroll-", "page_scroll_"} {
 		if strings.HasPrefix(action, prefix) {
-			return "vim-scroll-" + strings.TrimPrefix(action, prefix)
+			return "vim-scroll-" + strings.ReplaceAll(strings.TrimPrefix(action, prefix), "_", "-")
 		}
 	}
 	return action

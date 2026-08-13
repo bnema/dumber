@@ -1198,6 +1198,10 @@ desc = "Scroll down"
 [workspace.page_mode.actions.page_scroll_up]
 keys = ["u"]
 desc = "Scroll up"
+
+[workspace.page_mode.actions.page_scroll_down_fast]
+keys = ["d"]
+desc = "Scroll down fast"
 `), 0o644))
 
 	migrator := NewMigrator()
@@ -1213,9 +1217,42 @@ desc = "Scroll up"
 	assert.Contains(t, string(migrated), "activation_shortcut = 'ctrl+alt+y'")
 	assert.Contains(t, string(migrated), "[workspace.vim_mode.actions.vim-scroll-down]")
 	assert.Contains(t, string(migrated), "[workspace.vim_mode.actions.vim-scroll-up]")
+	assert.Contains(t, string(migrated), "[workspace.vim_mode.actions.vim-scroll-down-fast]")
 	assert.Contains(t, string(migrated), "keys = ['u']")
 	assert.NotContains(t, string(migrated), "page_mode")
 	assert.NotContains(t, string(migrated), "page-scroll-down")
+}
+
+func TestMigrator_DetectChanges_CanonicalizesLegacyVimActionNames(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, ".config"))
+	t.Setenv("XDG_DATA_HOME", filepath.Join(home, ".local", "share"))
+	t.Setenv("XDG_STATE_HOME", filepath.Join(home, ".local", "state"))
+	t.Setenv("XDG_CACHE_HOME", filepath.Join(home, ".cache"))
+
+	configFile, err := GetConfigFile()
+	require.NoError(t, err)
+	require.NoError(t, os.MkdirAll(filepath.Dir(configFile), 0o755))
+	require.NoError(t, os.WriteFile(configFile, []byte(`
+[workspace.page_mode.actions.page_scroll_down_fast]
+keys = ["d"]
+desc = "Scroll down fast"
+`), 0o644))
+
+	changes, err := NewMigrator().DetectChanges()
+	require.NoError(t, err)
+
+	foundRename := false
+	for _, change := range changes {
+		if change.Type == port.KeyChangeRenamed &&
+			change.OldKey == "workspace.page_mode.actions" &&
+			change.NewKey == "workspace.vim_mode.actions" {
+			foundRename = true
+		}
+	}
+	assert.True(t, foundRename, "DetectChanges must report the canonical Vim Mode actions key")
+	assert.Equal(t, "vim-scroll-down-fast", legacyVimActionName("page_scroll_down_fast"))
 }
 
 func TestMigrator_Migrate_MergesLegacyPageModeActionsIntoExistingVimMode(t *testing.T) {
