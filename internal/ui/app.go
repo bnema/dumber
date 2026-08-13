@@ -4069,8 +4069,8 @@ func (a *App) bindVimModeSequenceToaster(ctx context.Context, bw *browserWindow)
 		Msg("vim mode pending sequence toaster bound")
 }
 
-// showPendingSequence shows "PAGE MODE · pending" on the per-window modeToaster
-// while a sequence is incomplete, and restores stable "PAGE MODE" when pending
+// showPendingSequence shows "VIM MODE · pending" on the per-window modeToaster
+// while a sequence is incomplete, and restores stable "VIM MODE" when pending
 // clears. Mode exit/hide is handled by handleModeChange/updateModeIndicatorToaster;
 // silent reset under ModalState avoids stale pending callbacks.
 func (a *App) showPendingSequence(ctx context.Context, bw *browserWindow, pending string) {

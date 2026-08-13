@@ -12,7 +12,7 @@ import (
 )
 
 // trieOwnsBinding reports whether a raw config binding belongs to the Vim
-// sequence trie rather than the legacy single-chord Page Mode table.
+// sequence trie rather than the legacy single-chord Vim Mode table.
 // Multi-key sequences and Vim-only chords that ParseKeyString cannot read are owned.
 func trieOwnsBinding(raw string) (vimkeys.Sequence, bool) {
 	seq, err := vimkeys.ParseBinding(raw)
@@ -194,7 +194,7 @@ func (h *KeyboardHandler) teardownSequenceState() {
 	h.seq.onPending = nil
 	h.seq.onAction = nil
 	h.seq.scheduleOnMainThread = nil
-	log.Debug().Msg("page mode sequence state torn down without notify")
+	log.Debug().Msg("vim mode sequence state torn down without notify")
 }
 
 // InvalidateSequenceMatcher stops timing, bumps generation, and replaces the

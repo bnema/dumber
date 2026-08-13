@@ -38,23 +38,23 @@ const (
 	defaultOmniboxAutoOpenOnNewPane = false
 
 	// Workspace defaults
-	defaultPaneActivationShortcut    = "ctrl+p"
-	defaultPaneTimeoutMilliseconds   = 3000
-	defaultTabActivationShortcut     = "ctrl+t"
-	defaultTabTimeoutMilliseconds    = 3000
-	defaultResizeActivationShortcut  = "ctrl+n"
-	defaultResizeTimeoutMilliseconds = 3000
+	defaultPaneActivationShortcut          = "ctrl+p"
+	defaultPaneTimeoutMilliseconds         = 3000
+	defaultTabActivationShortcut           = "ctrl+t"
+	defaultTabTimeoutMilliseconds          = 3000
+	defaultResizeActivationShortcut        = "ctrl+n"
+	defaultResizeTimeoutMilliseconds       = 3000
 	defaultPageActivationShortcut          = "ctrl+y"
 	defaultPageTimeoutMilliseconds         = 0
 	defaultPageSequenceTimeoutMilliseconds = 500
-	defaultResizeStepPercent         = 5.0
-	defaultResizeMinPanePercent      = 10.0
-	defaultTabBarPosition            = "bottom"
-	defaultPopupPlacement            = "right"
-	defaultExternalLinkBehavior      = ExternalLinkBehaviorWindowed
-	defaultExternalLinkPlacement     = ExternalLinkPlacementRight
-	defaultFloatingPaneWidthPct      = 0.82
-	defaultFloatingPaneHeightPct     = 0.72
+	defaultResizeStepPercent               = 5.0
+	defaultResizeMinPanePercent            = 10.0
+	defaultTabBarPosition                  = "bottom"
+	defaultPopupPlacement                  = "right"
+	defaultExternalLinkBehavior            = ExternalLinkBehaviorWindowed
+	defaultExternalLinkPlacement           = ExternalLinkPlacementRight
+	defaultFloatingPaneWidthPct            = 0.82
+	defaultFloatingPaneHeightPct           = 0.72
 
 	// Session defaults
 	defaultSessionActivationShortcut  = "ctrl+o"
@@ -318,17 +318,17 @@ func DefaultConfig() *Config {
 					"vim-scroll-up-fast":   {Keys: []string{"shift+k"}, Desc: "Scroll page up fast"},
 					"confirm":              {Keys: []string{"enter"}, Desc: "Confirm action"},
 					"cancel":               {Keys: []string{"escape"}, Desc: "Cancel/exit mode"},
-					"heading-next":          {Keys: []string{"]]"}, Desc: "Jump to next heading"},
-					"heading-prev":          {Keys: []string{"[["}, Desc: "Jump to previous heading"},
-					"code-next":             {Keys: []string{"]c"}, Desc: "Jump to next code block"},
-					"code-prev":             {Keys: []string{"[c"}, Desc: "Jump to previous code block"},
-					"table-next":            {Keys: []string{"]t"}, Desc: "Jump to next table"},
-					"image-next":            {Keys: []string{"]i"}, Desc: "Jump to next image"},
-					"list-next":             {Keys: []string{"]l"}, Desc: "Jump to next list"},
-					"outline":               {Keys: []string{"gO"}, Desc: "Show page outline"},
-					"yank-section":          {Keys: []string{"yah"}, Desc: "Yank current section"},
-					"half-page-down":        {Keys: []string{"<C-d>"}, Desc: "Scroll half page down"},
-					"half-page-up":          {Keys: []string{"<C-u>"}, Desc: "Scroll half page up"},
+					"heading-next":         {Keys: []string{"]]"}, Desc: "Jump to next heading"},
+					"heading-prev":         {Keys: []string{"[["}, Desc: "Jump to previous heading"},
+					"code-next":            {Keys: []string{"]c"}, Desc: "Jump to next code block"},
+					"code-prev":            {Keys: []string{"[c"}, Desc: "Jump to previous code block"},
+					"table-next":           {Keys: []string{"]t"}, Desc: "Jump to next table"},
+					"image-next":           {Keys: []string{"]i"}, Desc: "Jump to next image"},
+					"list-next":            {Keys: []string{"]l"}, Desc: "Jump to next list"},
+					"outline":              {Keys: []string{"gO"}, Desc: "Show page outline"},
+					"yank-section":         {Keys: []string{"yah"}, Desc: "Yank current section"},
+					"half-page-down":       {Keys: []string{"<C-d>"}, Desc: "Scroll half page down"},
+					"half-page-up":         {Keys: []string{"<C-u>"}, Desc: "Scroll half page up"},
 				},
 			},
 			ResizeMode: ResizeModeConfig{

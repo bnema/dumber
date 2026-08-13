@@ -137,13 +137,13 @@ func TestTrieOwnsBinding_CrossContractAtoms(t *testing.T) {
 func TestBuildVimModeTrie(t *testing.T) {
 	cfg := &entity.VimModeConfig{
 		Actions: map[string]entity.ActionBinding{
-			"page-scroll-down": {Keys: []string{"j"}},
-			"heading-next":     {Keys: []string{"]]"}},
-			"yank-section":     {Keys: []string{"yah"}},
-			"outline":          {Keys: []string{"gO"}},
-			"half-page-down":   {Keys: []string{"<C-d>"}},
-			"confirm":          {Keys: []string{"enter"}},
-			"cancel":           {Keys: []string{"escape"}},
+			"vim-scroll-down": {Keys: []string{"j"}},
+			"heading-next":    {Keys: []string{"]]"}},
+			"yank-section":    {Keys: []string{"yah"}},
+			"outline":         {Keys: []string{"gO"}},
+			"half-page-down":  {Keys: []string{"<C-d>"}},
+			"confirm":         {Keys: []string{"enter"}},
+			"cancel":          {Keys: []string{"escape"}},
 		},
 	}
 
@@ -184,9 +184,9 @@ func TestBuildVimModeTrie_ConflictKeepsFirstSortedWinner(t *testing.T) {
 	// Losing raw key must not be marked owned (insert failed).
 	cfg := &entity.VimModeConfig{
 		Actions: map[string]entity.ActionBinding{
-			"zzz-later":        {Keys: []string{"<c-d>"}},
-			"aaa-first":        {Keys: []string{"<C-d>"}},
-			"page-scroll-down": {Keys: []string{"j"}},
+			"zzz-later":       {Keys: []string{"<c-d>"}},
+			"aaa-first":       {Keys: []string{"<C-d>"}},
+			"vim-scroll-down": {Keys: []string{"j"}},
 		},
 	}
 
@@ -215,14 +215,14 @@ func vimModeSequencesOwnershipFixture(t *testing.T) *ShortcutSet {
 		VimMode: entity.VimModeConfig{
 			ActivationShortcut: "ctrl+y",
 			Actions: map[string]entity.ActionBinding{
-				"page-scroll-down":      {Keys: []string{"j"}},
-				"page-scroll-down-fast": {Keys: []string{"shift+j"}},
-				"confirm":               {Keys: []string{"enter"}},
-				"cancel":                {Keys: []string{"escape"}},
-				"heading-next":          {Keys: []string{"]]"}},
-				"yank-section":          {Keys: []string{"yah"}},
-				"outline":               {Keys: []string{"gO"}},
-				"half-page-down":        {Keys: []string{"<C-d>"}},
+				"vim-scroll-down":      {Keys: []string{"j"}},
+				"vim-scroll-down-fast": {Keys: []string{"shift+j"}},
+				"confirm":              {Keys: []string{"enter"}},
+				"cancel":               {Keys: []string{"escape"}},
+				"heading-next":         {Keys: []string{"]]"}},
+				"yank-section":         {Keys: []string{"yah"}},
+				"outline":              {Keys: []string{"gO"}},
+				"half-page-down":       {Keys: []string{"<C-d>"}},
 			},
 		},
 	}
@@ -298,9 +298,9 @@ func TestShortcutSet_VimModeSequencesOwnership(t *testing.T) {
 func TestFeedVimModeSequence_CompleteDoubleBracket(t *testing.T) {
 	ctx := context.Background()
 	ws := vimModeSequenceWorkspace(map[string]entity.ActionBinding{
-		"heading-next":     {Keys: []string{"]]"}},
-		"page-scroll-down": {Keys: []string{"j"}},
-		"cancel":           {Keys: []string{"escape"}},
+		"heading-next":    {Keys: []string{"]]"}},
+		"vim-scroll-down": {Keys: []string{"j"}},
+		"cancel":          {Keys: []string{"escape"}},
 	})
 	h := NewKeyboardHandler(ctx, ws, newTestSession())
 	pending := capturePending(h)
@@ -334,8 +334,8 @@ func TestFeedVimModeSequence_CompleteDoubleBracket(t *testing.T) {
 func TestFeedVimModeSequence_PendingYankNotifications(t *testing.T) {
 	ctx := context.Background()
 	ws := vimModeSequenceWorkspace(map[string]entity.ActionBinding{
-		"yank-section":     {Keys: []string{"yah"}},
-		"page-scroll-down": {Keys: []string{"j"}},
+		"yank-section":    {Keys: []string{"yah"}},
+		"vim-scroll-down": {Keys: []string{"j"}},
 	})
 	h := NewKeyboardHandler(ctx, ws, newTestSession())
 	pending := capturePending(h)
@@ -368,8 +368,8 @@ func TestFeedVimModeSequence_PendingYankNotifications(t *testing.T) {
 func TestFeedVimModeSequence_UnknownFallsThrough(t *testing.T) {
 	ctx := context.Background()
 	ws := vimModeSequenceWorkspace(map[string]entity.ActionBinding{
-		"heading-next":     {Keys: []string{"]]"}},
-		"page-scroll-down": {Keys: []string{"j"}},
+		"heading-next":    {Keys: []string{"]]"}},
+		"vim-scroll-down": {Keys: []string{"j"}},
 	})
 	h := NewKeyboardHandler(ctx, ws, newTestSession())
 	var scrollCalls int
@@ -649,8 +649,8 @@ func TestFeedVimModeSequence_StaleQueuedTimeoutNoOp(t *testing.T) {
 func TestFeedVimModeSequence_ReloadReplacesMatcher(t *testing.T) {
 	ctx := context.Background()
 	wsA := vimModeSequenceWorkspace(map[string]entity.ActionBinding{
-		"action-a":         {Keys: []string{"yah"}},
-		"page-scroll-down": {Keys: []string{"j"}},
+		"action-a":        {Keys: []string{"yah"}},
+		"vim-scroll-down": {Keys: []string{"j"}},
 	})
 	h := NewKeyboardHandler(ctx, wsA, newTestSession())
 	actions := captureSequenceActions(h)
@@ -664,8 +664,8 @@ func TestFeedVimModeSequence_ReloadReplacesMatcher(t *testing.T) {
 	}
 
 	wsB := vimModeSequenceWorkspace(map[string]entity.ActionBinding{
-		"action-b":         {Keys: []string{"gO"}},
-		"page-scroll-down": {Keys: []string{"j"}},
+		"action-b":        {Keys: []string{"gO"}},
+		"vim-scroll-down": {Keys: []string{"j"}},
 	})
 	h.ReloadShortcuts(ctx, wsB, newTestSession())
 	if h.PendingSequence() != "" {

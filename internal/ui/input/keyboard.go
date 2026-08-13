@@ -141,7 +141,7 @@ func NewKeyboardHandler(ctx context.Context, workspace *entity.WorkspaceConfig, 
 		},
 		vimScrollRepeatRemove: glib.SourceRemove,
 		vimScrollNow:          time.Now,
-		seq:                    newVimModeSequenceState(shortcuts.VimModeSequences(), seqTimeout),
+		seq:                   newVimModeSequenceState(shortcuts.VimModeSequences(), seqTimeout),
 	}
 	h.SetOnModeChange(nil)
 
@@ -327,7 +327,7 @@ func (h *KeyboardHandler) installGTKMainThreadSchedulers() {
 	}
 	h.modal.SetMainThreadScheduler(schedule)
 	h.SetSequenceMainThreadScheduler(schedule)
-	logging.FromContext(h.ctx).Debug().Msg("gtk main-thread schedulers installed for modal and page-mode sequences")
+	logging.FromContext(h.ctx).Debug().Msg("gtk main-thread schedulers installed for modal and vim-mode sequences")
 }
 
 // Detach removes the keyboard handler from a live GTK window and releases its
@@ -437,7 +437,7 @@ func (h *KeyboardHandler) handleKeyPress(keyval, keycode uint, state gdk.Modifie
 		// Fall through to shortcut processing below
 	}
 
-	// Page-mode multi-key sequences run before legacy single-chord lookup.
+	// Vim-mode multi-key sequences run before legacy single-chord lookup.
 	if h.feedVimModeSequence(keyval, state) {
 		return true
 	}
