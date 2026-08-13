@@ -40,4 +40,4 @@ Run before committing:
 ## Misc
 
 - vendor dir is gitignored
-
+- Ignore Chromium's `--ozone-platform=wayland is not compatible with Vulkan` log message. It is a deprecated warning: Dumber's CEF Wayland + ANGLE/Vulkan stack is compatible and functional. Do not cite this message as evidence of a rendering incompatibility or use it as a root-cause hypothesis.
