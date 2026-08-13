@@ -616,15 +616,15 @@ func (a *App) openExternalURLOnMainThread(ctx context.Context, url string, cfg e
 		return a.openFreshWindow(ctx, url)
 	}
 
-	if err := a.openExternalURLInFocusedWindow(ctx, url, externalLinks); err == nil {
+	err := a.openExternalURLInFocusedWindow(ctx, url, externalLinks)
+	if err == nil {
 		return nil
-	} else {
-		logging.FromContext(ctx).Warn().
-			Err(err).
-			Str("url_host", logging.SafeURLHost(url)).
-			Str("behavior", string(externalLinks.Behavior)).
-			Msg("ui: external URL placement failed; opening fresh window")
 	}
+	logging.FromContext(ctx).Warn().
+		Err(err).
+		Str("url_host", logging.SafeURLHost(url)).
+		Str("behavior", string(externalLinks.Behavior)).
+		Msg("ui: external URL placement failed; opening fresh window")
 	return a.openFreshWindow(ctx, url)
 }
 
@@ -656,29 +656,15 @@ func (a *App) openExternalURLInFocusedWindow(ctx context.Context, url string, cf
 			return fmt.Errorf("created tab did not become an active UI target")
 		}
 	case entity.ExternalLinkBehaviorSplit:
-		if a.wsCoord == nil {
-			return fmt.Errorf("workspace coordinator not available")
-		}
-		before := activeTab.Workspace.ActivePaneID
-		if err := a.wsCoord.SplitWithURL(ctx, externalLinkSplitDirection(cfg.Placement), url); err != nil {
-			a.rollbackExternalPaneCreation(ctx, activeTab.Workspace, before)
-			return err
-		}
-		if err := verifyExternalPaneCreation(activeTab.Workspace, before, url); err != nil {
-			a.rollbackExternalPaneCreation(ctx, activeTab.Workspace, before)
+		if err := a.placeExternalURLInPane(ctx, activeTab.Workspace, url, func(ctx context.Context) error {
+			return a.wsCoord.SplitWithURL(ctx, externalLinkSplitDirection(cfg.Placement), url)
+		}); err != nil {
 			return err
 		}
 	case entity.ExternalLinkBehaviorStacked:
-		if a.wsCoord == nil {
-			return fmt.Errorf("workspace coordinator not available")
-		}
-		before := activeTab.Workspace.ActivePaneID
-		if err := a.wsCoord.StackPaneWithURL(ctx, url); err != nil {
-			a.rollbackExternalPaneCreation(ctx, activeTab.Workspace, before)
-			return err
-		}
-		if err := verifyExternalPaneCreation(activeTab.Workspace, before, url); err != nil {
-			a.rollbackExternalPaneCreation(ctx, activeTab.Workspace, before)
+		if err := a.placeExternalURLInPane(ctx, activeTab.Workspace, url, func(ctx context.Context) error {
+			return a.wsCoord.StackPaneWithURL(ctx, url)
+		}); err != nil {
 			return err
 		}
 	default:
@@ -689,6 +675,22 @@ func (a *App) openExternalURLInFocusedWindow(ctx context.Context, url string, cf
 		target.mainWindow.Show()
 	}
 	a.activateBrowserWindow(target)
+	return nil
+}
+
+func (a *App) placeExternalURLInPane(ctx context.Context, ws *entity.Workspace, url string, place func(context.Context) error) error {
+	if a.wsCoord == nil {
+		return fmt.Errorf("workspace coordinator not available")
+	}
+	before := ws.ActivePaneID
+	if err := place(ctx); err != nil {
+		a.rollbackExternalPaneCreation(ctx, ws, before)
+		return err
+	}
+	if err := verifyExternalPaneCreation(ws, before, url); err != nil {
+		a.rollbackExternalPaneCreation(ctx, ws, before)
+		return err
+	}
 	return nil
 }
 
