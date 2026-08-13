@@ -13,7 +13,7 @@ import (
 
 func TestBrowserLauncher_LaunchURL_ReturnsWithoutSpawningWhenRelayDelivers(t *testing.T) {
 	relay := mocks.NewMockBrowserLaunchRelay(t)
-	relay.EXPECT().DeliverOpenFreshWindow(context.Background(), "https://example.com").Return(true, nil)
+	relay.EXPECT().DeliverOpenExternalURL(context.Background(), "https://example.com").Return(true, nil)
 
 	launcher := NewBrowserLauncher(relay)
 	spawned := false
@@ -34,7 +34,7 @@ func TestBrowserLauncher_LaunchURL_ReturnsWithoutSpawningWhenRelayDelivers(t *te
 
 func TestBrowserLauncher_LaunchURL_FallsBackToSpawnWhenRelayMisses(t *testing.T) {
 	relay := mocks.NewMockBrowserLaunchRelay(t)
-	relay.EXPECT().DeliverOpenFreshWindow(context.Background(), "https://example.com").Return(false, nil)
+	relay.EXPECT().DeliverOpenExternalURL(context.Background(), "https://example.com").Return(false, nil)
 
 	launcher := NewBrowserLauncher(relay)
 	launcher.resolveExecutablePath = func() (string, error) {
@@ -57,7 +57,7 @@ func TestBrowserLauncher_LaunchURL_FallsBackToSpawnWhenRelayMisses(t *testing.T)
 
 func TestBrowserLauncher_LaunchURL_ReturnsUnconfirmedErrorWhenRelayDeliveryIsAmbiguous(t *testing.T) {
 	relay := mocks.NewMockBrowserLaunchRelay(t)
-	relay.EXPECT().DeliverOpenFreshWindow(context.Background(), "https://example.com").Return(true, ErrBrowserLaunchRelayUnconfirmed)
+	relay.EXPECT().DeliverOpenExternalURL(context.Background(), "https://example.com").Return(true, ErrBrowserLaunchRelayUnconfirmed)
 
 	launcher := NewBrowserLauncher(relay)
 	launcher.resolveExecutablePath = func() (string, error) {
@@ -78,7 +78,7 @@ func TestBrowserLauncher_LaunchURL_ReturnsUnconfirmedErrorWhenRelayDeliveryIsAmb
 func TestBrowserLauncher_LaunchURL_PropagatesRelayError(t *testing.T) {
 	relay := mocks.NewMockBrowserLaunchRelay(t)
 	wantErr := errors.New("relay exploded")
-	relay.EXPECT().DeliverOpenFreshWindow(context.Background(), "https://example.com").Return(false, wantErr)
+	relay.EXPECT().DeliverOpenExternalURL(context.Background(), "https://example.com").Return(false, wantErr)
 
 	launcher := NewBrowserLauncher(relay)
 	launcher.resolveExecutablePath = func() (string, error) {

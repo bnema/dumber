@@ -39,6 +39,17 @@ func TestSetEngineDefaults(t *testing.T) {
 	assert.Empty(t, mgr.viper.GetString("runtime.prefix"))
 }
 
+func TestNormalizeExternalLinks(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.Workspace.ExternalLinks.Behavior = "invalid"
+	cfg.Workspace.ExternalLinks.Placement = "invalid"
+
+	normalizeConfig(cfg)
+
+	assert.Equal(t, ExternalLinkBehaviorWindowed, cfg.Workspace.ExternalLinks.Behavior)
+	assert.Equal(t, ExternalLinkPlacementRight, cfg.Workspace.ExternalLinks.Placement)
+}
+
 func TestNormalizeConfig_EngineCookiePolicy(t *testing.T) {
 	cfg := DefaultConfig()
 	cfg.Engine.CookiePolicy = CookiePolicy("INVALID")

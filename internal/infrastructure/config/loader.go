@@ -374,6 +374,7 @@ func ensureDatabasePath(config *Config) error {
 }
 
 func normalizeConfig(config *Config) {
+	normalizeExternalLinks(config)
 	normalizeAppearance(config)
 	normalizeMedia(config)
 	normalizeEngineConfig(config)
@@ -384,6 +385,20 @@ func normalizeConfig(config *Config) {
 // for runtime compatibility. Existing code can keep reading config.Workspace.Popups.
 func normalizeBrowsingContexts(config *Config) {
 	config.Workspace.Popups = config.Workspace.BrowsingContexts
+}
+
+func normalizeExternalLinks(config *Config) {
+	switch config.Workspace.ExternalLinks.Behavior {
+	case ExternalLinkBehaviorWindowed, ExternalLinkBehaviorTabbed, ExternalLinkBehaviorSplit, ExternalLinkBehaviorStacked:
+	default:
+		config.Workspace.ExternalLinks.Behavior = defaultExternalLinkBehavior
+	}
+
+	switch config.Workspace.ExternalLinks.Placement {
+	case ExternalLinkPlacementRight, ExternalLinkPlacementLeft, ExternalLinkPlacementTop, ExternalLinkPlacementBottom:
+	default:
+		config.Workspace.ExternalLinks.Placement = defaultExternalLinkPlacement
+	}
 }
 
 func normalizeEngineConfig(config *Config) {
@@ -703,6 +718,8 @@ func (m *Manager) setWorkspaceDefaults(defaults *Config) {
 	m.viper.SetDefault("workspace.floating_pane.width_pct", defaults.Workspace.FloatingPane.WidthPct)
 	m.viper.SetDefault("workspace.floating_pane.height_pct", defaults.Workspace.FloatingPane.HeightPct)
 	m.viper.SetDefault("workspace.floating_pane.profiles", defaults.Workspace.FloatingPane.Profiles)
+	m.viper.SetDefault("workspace.external_links.behavior", string(defaults.Workspace.ExternalLinks.Behavior))
+	m.viper.SetDefault("workspace.external_links.placement", string(defaults.Workspace.ExternalLinks.Placement))
 	m.viper.SetDefault("workspace.tab_bar_position", defaults.Workspace.TabBarPosition)
 	m.viper.SetDefault("workspace.hide_tab_bar_when_single_tab", defaults.Workspace.HideTabBarWhenSingleTab)
 	m.viper.SetDefault("workspace.switch_to_tab_on_move", defaults.Workspace.SwitchToTabOnMove)

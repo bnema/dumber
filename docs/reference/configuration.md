@@ -114,6 +114,8 @@
 | `workspace.floating_pane.profiles.<name>.keys` | []string | | at least one key |
 | `workspace.floating_pane.profiles.<name>.url` | string | | required URL |
 | `workspace.floating_pane.profiles.<name>.desc` | string | | |
+| `workspace.external_links.behavior` | string | `windowed` | `windowed`, `tabbed`, `split`, `stacked` |
+| `workspace.external_links.placement` | string | `right` | `right`, `left`, `top`, `bottom` (used only with `split`) |
 | `workspace.browsing_contexts.behavior` | string | `split` | `split`, `stacked`, `tabbed`, `windowed` |
 | `workspace.browsing_contexts.placement` | string | `right` | `right`, `left`, `top`, `bottom` |
 | `workspace.browsing_contexts.open_in_new_pane` | bool | `true` | |
@@ -121,6 +123,9 @@
 | `workspace.browsing_contexts.blank_target_behavior` | string | `stacked` | `split`, `stacked`, `tabbed` |
 | `workspace.browsing_contexts.enable_smart_detection` | bool | `true` | |
 | `workspace.browsing_contexts.oauth_auto_close` | bool | `true` | |
+
+`workspace.external_links` controls URLs opened from another application. Non-`windowed` modes target the last-focused window in the current Dumber profile and engine; if that destination is unavailable, Dumber falls back to opening a new window. `placement` applies only to `split`.
+
 | `workspace.styling.border_width` | int | `1` | |
 | `workspace.styling.border_color` | string | `@theme_selected_bg_color` | |
 | `workspace.styling.mode_border_width` | int | `4` | |

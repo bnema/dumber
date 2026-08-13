@@ -36,7 +36,7 @@ func (l *BrowserLauncher) LaunchURL(ctx context.Context, url string) error {
 	}
 
 	if l.relay != nil {
-		delivered, err := l.relay.DeliverOpenFreshWindow(ctx, url)
+		delivered, err := l.relay.DeliverOpenExternalURL(ctx, url)
 		if err != nil {
 			if delivered && errors.Is(err, ErrBrowserLaunchRelayUnconfirmed) {
 				return ErrBrowserLaunchUnconfirmed

@@ -100,7 +100,7 @@ func tryForwardBrowseURLToRunningInstance(ctx context.Context, relay port.Browse
 		return false, nil
 	}
 
-	delivered, err := relay.DeliverOpenFreshWindow(ctx, browseURL)
+	delivered, err := relay.DeliverOpenExternalURL(ctx, browseURL)
 	if err != nil {
 		if delivered && errors.Is(err, desktop.ErrBrowserLaunchRelayUnconfirmed) {
 			return true, nil
@@ -297,7 +297,7 @@ func runGUI(cfg *config.Config, timing startupTiming) int {
 	}
 	if relaunchSetter, ok := engine.(port.AlreadyRunningAppRelaunchHandlerSetter); ok {
 		relaunchSetter.SetAlreadyRunningAppRelaunchHandler(func(url string) {
-			if err := app.OpenFreshWindow(ctx, url); err != nil {
+			if err := app.OpenExternalURL(ctx, url); err != nil {
 				log.Warn().Err(err).Str("url", url).Msg("failed to open relaunch browser window")
 			}
 		})

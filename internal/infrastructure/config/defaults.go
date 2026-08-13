@@ -50,6 +50,8 @@ const (
 	defaultResizeMinPanePercent      = 10.0
 	defaultTabBarPosition            = "bottom"
 	defaultPopupPlacement            = "right"
+	defaultExternalLinkBehavior      = ExternalLinkBehaviorWindowed
+	defaultExternalLinkPlacement     = ExternalLinkPlacementRight
 	defaultFloatingPaneWidthPct      = 0.82
 	defaultFloatingPaneHeightPct     = 0.72
 
@@ -356,6 +358,10 @@ func DefaultConfig() *Config {
 				WidthPct:  defaultFloatingPaneWidthPct,
 				HeightPct: defaultFloatingPaneHeightPct,
 				Profiles:  map[string]FloatingPaneProfile{},
+			},
+			ExternalLinks: ExternalLinksConfig{
+				Behavior:  defaultExternalLinkBehavior,
+				Placement: defaultExternalLinkPlacement,
 			},
 			TabBarPosition:          defaultTabBarPosition,
 			HideTabBarWhenSingleTab: true,

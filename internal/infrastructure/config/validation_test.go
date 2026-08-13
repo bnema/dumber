@@ -294,6 +294,38 @@ func TestValidateConfig_CEFConfig(t *testing.T) {
 	}
 }
 
+func TestValidateConfig_ExternalLinksAcceptsSupportedValues(t *testing.T) {
+	for _, behavior := range []ExternalLinkBehavior{
+		ExternalLinkBehaviorWindowed,
+		ExternalLinkBehaviorTabbed,
+		ExternalLinkBehaviorSplit,
+		ExternalLinkBehaviorStacked,
+	} {
+		for _, placement := range []ExternalLinkPlacement{
+			ExternalLinkPlacementRight,
+			ExternalLinkPlacementLeft,
+			ExternalLinkPlacementTop,
+			ExternalLinkPlacementBottom,
+		} {
+			cfg := DefaultConfig()
+			cfg.Workspace.ExternalLinks.Behavior = behavior
+			cfg.Workspace.ExternalLinks.Placement = placement
+			require.NoError(t, validateConfig(cfg))
+		}
+	}
+}
+
+func TestValidateConfig_ExternalLinksRejectsUnsupportedValues(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.Workspace.ExternalLinks.Behavior = "invalid"
+	cfg.Workspace.ExternalLinks.Placement = "invalid"
+
+	err := validateConfig(cfg)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "workspace.external_links.behavior")
+	assert.Contains(t, err.Error(), "workspace.external_links.placement")
+}
+
 func TestValidateConfig_WorkspaceNewPaneURLAllowsExistingAbsoluteLocalPath(t *testing.T) {
 	tmpDir := t.TempDir()
 	path := filepath.Join(tmpDir, "page.html")
