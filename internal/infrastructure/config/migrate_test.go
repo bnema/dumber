@@ -816,6 +816,41 @@ func TestMigrator_MergeMissingDefaultActions_PaneMode(t *testing.T) {
 	assert.Equal(t, "Custom move pane", move["desc"])
 }
 
+func TestMigrator_MergeMissingDefaultActions_VimMode(t *testing.T) {
+	m := NewMigrator()
+
+	rawConfig := map[string]any{
+		"workspace": map[string]any{
+			"vim_mode": map[string]any{
+				"actions": map[string]any{
+					"heading-next": map[string]any{
+						"keys": []string{"]]"},
+						"desc": "Custom next heading",
+					},
+				},
+			},
+		},
+	}
+
+	m.mergeMissingDefaultActions(rawConfig)
+
+	actionsAny := m.getNestedValue(rawConfig, "workspace.vim_mode.actions")
+	actions, ok := actionsAny.(map[string]any)
+	require.True(t, ok)
+
+	focusAny, hasFocus := actions["focus-input"]
+	require.True(t, hasFocus)
+	focus, ok := focusAny.(ActionBinding)
+	require.True(t, ok)
+	assert.Equal(t, []string{"gi"}, focus.Keys)
+
+	headingAny, hasHeading := actions["heading-next"]
+	require.True(t, hasHeading)
+	heading, ok := headingAny.(map[string]any)
+	require.True(t, ok)
+	assert.Equal(t, "Custom next heading", heading["desc"])
+}
+
 func TestMigrator_DefaultValueForKey_WorkspaceShortcutAction(t *testing.T) {
 	m := NewMigrator()
 
