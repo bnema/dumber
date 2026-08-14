@@ -23,6 +23,8 @@ const (
 	BlockKindTable BlockKind = "table"
 	// BlockKindImage marks a structural image block for Vim Mode block-kind motions.
 	BlockKindImage BlockKind = "image"
+	// BlockKindList marks a structural list block for Vim Mode list motions.
+	BlockKindList BlockKind = "list"
 
 	// MinHeadingLevel is the lowest valid heading level.
 	MinHeadingLevel = 1
