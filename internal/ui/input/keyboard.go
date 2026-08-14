@@ -613,12 +613,16 @@ func normalizeKeyval(keyval uint) uint {
 }
 
 func shouldPassthroughNativeVimModeNavigation(mode Mode, keyval uint, modifiers Modifier) bool {
-	if mode != ModeVim || modifiers != ModNone {
+	if mode != ModeVim {
 		return false
 	}
 	switch keyval {
 	case uint(gdk.KEY_Left), uint(gdk.KEY_Right), uint(gdk.KEY_Up), uint(gdk.KEY_Down):
-		return true
+		return modifiers == ModNone
+	case uint(gdk.KEY_Tab):
+		return modifiers == ModNone || modifiers == ModShift
+	case uint(gdk.KEY_ISO_Left_Tab):
+		return modifiers == ModNone || modifiers == ModShift
 	default:
 		return false
 	}

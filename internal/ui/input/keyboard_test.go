@@ -884,6 +884,38 @@ func TestHandleKeyPress_VimModeArrowKeysPassThroughNatively(t *testing.T) {
 	}
 }
 
+func TestHandleKeyPress_VimModeTabKeysPassThroughNatively(t *testing.T) {
+	ctx := context.Background()
+	workspace := newTestWorkspace()
+	workspace.VimMode = entity.VimModeConfig{ActivationShortcut: "ctrl+y"}
+
+	h := NewKeyboardHandler(ctx, workspace, newTestSession())
+	h.handleKeyPress(uint('y'), 0, gdk.ControlMaskValue)
+	if h.Mode() != ModeVim {
+		t.Fatal("failed to enter vim mode")
+	}
+
+	for _, test := range []struct {
+		name      string
+		keyval    uint
+		modifiers gdk.ModifierType
+	}{
+		{name: "tab", keyval: uint(gdk.KEY_Tab)},
+		{name: "shift tab", keyval: uint(gdk.KEY_Tab), modifiers: gdk.ShiftMaskValue},
+		{name: "iso left tab", keyval: uint(gdk.KEY_ISO_Left_Tab), modifiers: gdk.ShiftMaskValue},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			consumed := h.handleKeyPress(test.keyval, 0, test.modifiers)
+			if consumed {
+				t.Fatal("tab key should pass through to native page focus navigation in vim mode")
+			}
+			if h.Mode() != ModeVim {
+				t.Fatal("tab key should keep vim mode active")
+			}
+		})
+	}
+}
+
 func TestHandleKeyPress_VimModeBlocksGlobalShortcutFallback(t *testing.T) {
 	ctx := context.Background()
 	workspace := newTestWorkspace()
