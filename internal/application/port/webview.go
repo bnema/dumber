@@ -395,7 +395,7 @@ type TextInputTargetProvider interface {
 	TextInputTarget() TextInputTarget
 }
 
-// PageScrollCommand identifies a semantic page-scroll request at the
+// PageScrollCommand identifies a semantic vim-scroll request at the
 // application boundary without depending on usecase package enums.
 type PageScrollCommand int
 
@@ -408,7 +408,7 @@ const (
 	PageScrollCommandDownFast
 )
 
-// PageScrollRequest carries a semantic page-scroll command identity and its
+// PageScrollRequest carries a semantic vim-scroll command identity and its
 // fallback pixel deltas. Engines own the execution strategy and may use the
 // fallback delta when no native mechanism exists for the command.
 type PageScrollRequest struct {
@@ -422,7 +422,7 @@ type PageScrollRequest struct {
 
 // PageScrollable is an optional capability for WebViews that support semantic
 // page scrolling. Page scrolling is used by keyboard-driven navigation modes
-// such as Page mode.
+// such as Vim mode.
 //
 // Engines own the execution strategy. When a native mechanism exists for the
 // requested command, the engine may ignore the fallback delta. Otherwise it
@@ -432,7 +432,7 @@ type PageScrollable interface {
 }
 
 // PageScrollCanceler is an optional capability for adapters that queue held
-// page-scroll work. Implementations discard unconsumed continuous deltas while
+// vim-scroll work. Implementations discard unconsumed continuous deltas while
 // preserving any guaranteed tap already accepted.
 type PageScrollCanceler interface {
 	CancelPageScroll(ctx context.Context)

@@ -8,12 +8,12 @@ Dumber uses modal keybindings inspired by Zellij. Press a mode activation key, t
 |------|-----|---------|
 | Pane Mode | `Ctrl+P` | Split, close, focus panes |
 | Tab Mode | `Ctrl+T` | Create, close, switch tabs |
-| Page Mode | `Ctrl+Y` | Scroll the active webpage with `h/j/k/l` and `Shift+J/K`; arrow keys stay native and other app shortcuts wait until exit |
+| Vim Mode | `Ctrl+Y` | Scroll the active webpage with `h/j/k/l` and `Shift+J/K`; arrow keys stay native and other app shortcuts wait until exit |
 | Resize Mode | `Ctrl+N` | Resize pane splits |
 | Session Mode | `Ctrl+O` | Session management |
 
 Press `Escape` or `Enter` to exit any mode.
-Page Mode activation is passed through when the focused webpage element is already editable, so browser-page editors keep their own `Ctrl+Y` behavior.
+Vim Mode activation is passed through when the focused webpage element is already editable, so browser-page editors keep their own `Ctrl+Y` behavior.
 
 Keybinding tables use uppercase letters as visual labels for unshifted letter keys. In config, use lowercase (for example, `["w"]` for Pane Mode eject). Shifted keys are shown with an explicit `Shift+` prefix.
 
@@ -53,11 +53,11 @@ Keybinding tables use uppercase letters as visual labels for unshifted letter ke
 | Confirm | `Enter` |
 | Cancel | `Escape` |
 
-## Page Mode (`Ctrl+Y`)
+## Vim Mode (`Ctrl+Y`)
 
-Page Mode is an explicit page-scrolling mode for the active pane only. It applies a pane-local accent from `workspace.styling.pane_mode_color`, and when `workspace.styling.mode_indicator_toaster_enabled` is true, shows a persistent bottom-left `PAGE MODE` toaster while the mode is active; the toaster hides on exit, when the mode is toggled off, or when the toaster is disabled in config. The mode exits automatically when focus moves into the omnibox, find bar, overlays, or an editable element inside the page. The default `timeout_ms` is `0`, so Page Mode does not auto-time out unless you configure one. Arrow keys continue to flow through the browser engine's native page-navigation path while Page Mode is active, while other app-level shortcuts stay suspended until you leave the mode.
+Vim Mode is an explicit Vim-style scrolling mode for the active pane only. It applies a pane-local accent from `workspace.styling.pane_mode_color`, and when `workspace.styling.mode_indicator_toaster_enabled` is true, shows a persistent bottom-left `VIM MODE` toaster while the mode is active; the toaster hides on exit, when the mode is toggled off, or when the toaster is disabled in config. The mode exits automatically when focus moves into the omnibox, find bar, overlays, or an editable element inside the page. The default `timeout_ms` is `0`, so Vim Mode does not auto-time out unless you configure one. Arrow keys continue to flow through the browser engine's native page-navigation path while Vim Mode is active, while other app-level shortcuts stay suspended until you leave the mode.
 
-CEF and WebKit execute Page Mode scroll commands (`h/j/k/l`, `Shift+J/K`) with the shared `BuildScrollByJS` resolver. Each step starts under the viewport center, walks up through ancestors that can move in the requested direction, and hands scrolling to the document when a nested container reaches its boundary. Cross-origin frame contents remain best-effort.
+CEF and WebKit execute Vim Mode scroll commands (`h/j/k/l`, `Shift+J/K`) with the shared `BuildPageScrollByJS` resolver. Each step starts under the viewport center, walks up through ancestors that can move in the requested direction, and hands scrolling to the document when a nested container reaches its boundary. Cross-origin frame contents remain best-effort.
 
 | Action | Keys |
 |--------|------|
@@ -137,26 +137,26 @@ All keybindings can be customized in `~/.config/dumber/config.toml`:
 split-right = ["arrowright", "r"]
 close-pane = ["x", "q"]
 
-[workspace.page_mode]
+[workspace.vim_mode]
 activation_shortcut = "ctrl+y"
 timeout_ms = 0
 
-[workspace.page_mode.actions.page-scroll-left]
+[workspace.vim_mode.actions.vim-scroll-left]
 keys = ["h"]
 
-[workspace.page_mode.actions.page-scroll-down]
+[workspace.vim_mode.actions.vim-scroll-down]
 keys = ["j"]
 
-[workspace.page_mode.actions.page-scroll-up]
+[workspace.vim_mode.actions.vim-scroll-up]
 keys = ["k"]
 
-[workspace.page_mode.actions.page-scroll-right]
+[workspace.vim_mode.actions.vim-scroll-right]
 keys = ["l"]
 
-[workspace.page_mode.actions.page-scroll-down-fast]
+[workspace.vim_mode.actions.vim-scroll-down-fast]
 keys = ["shift+j"]
 
-[workspace.page_mode.actions.page-scroll-up-fast]
+[workspace.vim_mode.actions.vim-scroll-up-fast]
 keys = ["shift+k"]
 
 [workspace.shortcuts.actions.close-pane]

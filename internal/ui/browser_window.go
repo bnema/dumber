@@ -53,8 +53,8 @@ type browserWindow struct {
 	sidebarVisible         bool
 	activeSidebarKind      nativeSidebarKind
 
-	// pageModePaneID tracks this window's pane-local Page Mode accent/pulse owner.
-	pageModePaneID entity.PaneID
+	// vimModePaneID tracks this window's pane-local Vim Mode accent/pulse owner.
+	vimModePaneID entity.PaneID
 }
 
 func (bw *browserWindow) detachInputForDestroy() {
@@ -111,7 +111,7 @@ func (bw *browserWindow) clearShellState() {
 	bw.favoritesSidebar = nil
 	bw.historySidebarReloader = nil
 	bw.activeSidebarKind = nativeSidebarNone
-	bw.pageModePaneID = ""
+	bw.vimModePaneID = ""
 }
 
 func (bw *browserWindow) initChrome(ctx context.Context, a *App) {

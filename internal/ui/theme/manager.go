@@ -65,7 +65,7 @@ func (m *Manager) applyResolvedTheme(resolved entity.ResolvedTheme) {
 }
 
 // SetTransitionDuration sets the CSS transition duration used for theme-driven
-// animations such as Page mode pulse timing.
+// animations such as Vim mode pulse timing.
 func (m *Manager) SetTransitionDuration(ms int) {
 	if ms < 0 {
 		ms = defaultTransitionDurationMs

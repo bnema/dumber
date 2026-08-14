@@ -42,7 +42,7 @@ func TestPageScrollWheelDeltas_UseFallbackDeltasWithCEFSign(t *testing.T) {
 }
 
 // scrollRecorderHost wraps purecef.BrowserHost and records mouse wheel events,
-// allowing tests to verify that Page Mode uses Chromium's native scroll path.
+// allowing tests to verify that Vim Mode uses Chromium's native scroll path.
 type scrollRecorderHost struct {
 	purecef.BrowserHost // embedded nil — only SendMouseWheelEvent is called in these tests
 
@@ -174,7 +174,7 @@ func TestScrollPage_ReadyBrowser_HorizontalDirectionsUseDOMSigns(t *testing.T) {
 func TestScrollPage_ReadyBrowser_NestedBoundaryHandsOffToDocument(t *testing.T) {
 	node, err := exec.LookPath("node")
 	if err != nil {
-		t.Skip("node is required to execute the generated page-scroll helper")
+		t.Skip("node is required to execute the generated vim-scroll helper")
 	}
 
 	host := &scrollRecorderHost{}
@@ -211,7 +211,7 @@ process.stdout.write(inner.scrollTop+','+root.scrollTop);
 `, pageScrollScript)
 	output, err := exec.Command(node, "-e", harness).CombinedOutput()
 	if err != nil {
-		t.Fatalf("execute generated page-scroll helper: %v\n%s", err, output)
+		t.Fatalf("execute generated vim-scroll helper: %v\n%s", err, output)
 	}
 	if got := strings.TrimSpace(string(output)); got != "200,80" {
 		t.Fatalf("nested/document scroll offsets = %s, want 200,80", got)

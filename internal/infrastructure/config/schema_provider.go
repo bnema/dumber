@@ -472,27 +472,27 @@ func (*SchemaProvider) getWorkspaceKeys(defaults *Config) []entity.ConfigKeyInfo
 			Description: "Key bindings for tab mode actions",
 			Section:     SectionWorkspace,
 		},
-		// Page mode
+		// Vim mode
 		{
-			Key:         "workspace.page_mode.activation_shortcut",
+			Key:         "workspace.vim_mode.activation_shortcut",
 			Type:        "string",
-			Default:     defaults.Workspace.PageMode.ActivationShortcut,
-			Description: "Shortcut to enter page scroll mode",
+			Default:     defaults.Workspace.VimMode.ActivationShortcut,
+			Description: "Shortcut to enter vim scroll mode",
 			Section:     SectionWorkspace,
 		},
 		{
-			Key:         "workspace.page_mode.timeout_ms",
+			Key:         "workspace.vim_mode.timeout_ms",
 			Type:        "int",
-			Default:     fmt.Sprintf("%d", defaults.Workspace.PageMode.TimeoutMilliseconds),
-			Description: "Page mode timeout in milliseconds (0 = no timeout)",
+			Default:     fmt.Sprintf("%d", defaults.Workspace.VimMode.TimeoutMilliseconds),
+			Description: "Vim mode timeout in milliseconds (0 = no timeout)",
 			Range:       ">=0",
 			Section:     SectionWorkspace,
 		},
 		{
-			Key:         "workspace.page_mode.actions.<action>",
-			Type:        "[]string",
+			Key:         "workspace.vim_mode.actions.<action>",
+			Type:        "object",
 			Default:     "(see defaults)",
-			Description: "Key bindings for page mode actions",
+			Description: "Vim mode action object with keys ([]string) and desc (string)",
 			Section:     SectionWorkspace,
 		},
 		// Resize mode

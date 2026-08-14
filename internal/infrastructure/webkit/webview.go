@@ -40,7 +40,7 @@ var _ port.PopupFeatureResolver = (*WebView)(nil)
 var _ port.OAuthCallbackCapable = (*WebView)(nil)
 var _ port.PageScrollable = (*WebView)(nil)
 
-var buildPageScrollFallbackJS = webutil.BuildScrollByJS
+var buildPageScrollFallbackJS = webutil.BuildPageScrollByJS
 var runPageScrollFallbackJS = func(ctx context.Context, wv *WebView, script string) {
 	wv.RunJavaScript(ctx, script)
 }

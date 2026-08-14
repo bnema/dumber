@@ -114,7 +114,7 @@ func NewGlobalShortcutHandler(
 
 		// Register app-reserved shortcuts (Ctrl+L, Ctrl+F, other mode activations, etc.)
 		// so they work even when WebView has focus.
-		// Page mode activation is intentionally excluded here: it must flow through
+		// Vim mode activation is intentionally excluded here: it must flow through
 		// the normal KeyboardHandler path so editable page contexts can pass Ctrl+Y
 		// through instead of having a global shortcut controller consume it first.
 		shortcuts := NewShortcutSet(ctx, workspace, session)
@@ -496,11 +496,11 @@ func appendGlobalShortcutEventFields(evt *zerolog.Event, binding KeyBinding, act
 }
 
 func shouldRegisterGTKGlobalShortcut(action Action) bool {
-	return action != ActionEnterPageMode
+	return action != ActionEnterVimMode
 }
 
 func shouldIgnoreGlobalShortcutInMode(mode Mode, action Action) bool {
-	return mode == ModePage && action != ActionEnterPageMode
+	return mode == ModeVim && action != ActionEnterVimMode
 }
 
 func globalShortcutActionMap() map[string]Action {
@@ -840,7 +840,7 @@ func formatEventType(eventType gdk.EventType) string {
 
 func isModeAction(action Action) bool {
 	switch action {
-	case ActionEnterTabMode, ActionEnterPaneMode, ActionEnterSessionMode, ActionEnterResizeMode, ActionEnterPageMode, ActionExitMode:
+	case ActionEnterTabMode, ActionEnterPaneMode, ActionEnterSessionMode, ActionEnterResizeMode, ActionEnterVimMode, ActionExitMode:
 		return true
 	default:
 		return false

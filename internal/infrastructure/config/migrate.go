@@ -123,6 +123,7 @@ func (m *Migrator) DetectChanges() ([]port.KeyChange, error) {
 		m.detectLegacyBrowsingContextRenames(rawUserKeysWithValues),
 		m.detectLegacyFavoritesSidebarRename(userKeysWithValues)...,
 	)
+	legacyRenames = append(legacyRenames, m.detectLegacyVimModeRenames(rawUserKeysWithValues)...)
 	var changes []port.KeyChange
 	changes = append(changes, legacyRenames...)
 
@@ -302,7 +303,7 @@ func (m *Migrator) defaultActionMaps() []defaultActionMap {
 		{key: "workspace.shortcuts.actions", actions: m.defaultConfig.Workspace.Shortcuts.Actions},
 		{key: "workspace.pane_mode.actions", actions: m.defaultConfig.Workspace.PaneMode.Actions},
 		{key: "workspace.tab_mode.actions", actions: m.defaultConfig.Workspace.TabMode.Actions},
-		{key: "workspace.page_mode.actions", actions: m.defaultConfig.Workspace.PageMode.Actions},
+		{key: "workspace.vim_mode.actions", actions: m.defaultConfig.Workspace.VimMode.Actions},
 		{key: "workspace.resize_mode.actions", actions: m.defaultConfig.Workspace.ResizeMode.Actions},
 		{key: "session.session_mode.actions", actions: m.defaultConfig.Session.SessionMode.Actions},
 	}
@@ -420,6 +421,7 @@ func (m *Migrator) Migrate() ([]string, error) {
 	transformer.TransformLegacyActions(rawConfig)
 	transformer.TransformLegacyEngineConfig(rawConfig)
 	transformer.TransformLegacyPopupsToBrowsingContexts(rawConfig)
+	m.migrateLegacyVimMode(rawConfig)
 
 	// Build sets of keys to remove and renames to apply
 	keysToRemove := make(map[string]bool)
@@ -786,6 +788,94 @@ func (m *Migrator) detectLegacyBrowsingContextRenames(rawUserKeys map[string]any
 		})
 	}
 	return changes
+}
+
+func (m *Migrator) detectLegacyVimModeRenames(rawUserKeys map[string]any) []port.KeyChange {
+	changes := make([]port.KeyChange, 0, 3)
+	for oldKey, oldValue := range rawUserKeys {
+		newKey, ok := legacyVimModeKey(oldKey)
+		if !ok {
+			continue
+		}
+		if _, hasNew := rawUserKeys[newKey]; hasNew {
+			continue
+		}
+		changes = append(changes, port.KeyChange{
+			Type:     port.KeyChangeRenamed,
+			OldKey:   oldKey,
+			NewKey:   newKey,
+			OldValue: m.formatValue(oldValue),
+			NewValue: m.formatValue(m.defaultValueForKey(newKey)),
+		})
+	}
+	return changes
+}
+
+func (*Migrator) migrateLegacyVimMode(rawConfig map[string]any) {
+	workspace, ok := rawConfig["workspace"].(map[string]any)
+	if !ok {
+		return
+	}
+	legacyMode, ok := workspace["page_mode"].(map[string]any)
+	if !ok {
+		return
+	}
+	vimMode, ok := workspace["vim_mode"].(map[string]any)
+	if !ok {
+		vimMode = make(map[string]any)
+		workspace["vim_mode"] = vimMode
+	}
+	for key, value := range legacyMode {
+		if key == "actions" {
+			continue
+		}
+		if _, exists := vimMode[key]; !exists {
+			vimMode[key] = value
+		}
+	}
+	legacyActions, _ := legacyMode["actions"].(map[string]any)
+	vimActions, _ := vimMode["actions"].(map[string]any)
+	if vimActions == nil {
+		vimActions = make(map[string]any)
+		vimMode["actions"] = vimActions
+	}
+	for oldAction, value := range legacyActions {
+		newKey, ok := legacyVimModeKey("workspace.page_mode.actions." + oldAction)
+		if !ok {
+			continue
+		}
+		newAction := strings.TrimPrefix(newKey, "workspace.vim_mode.actions.")
+		if _, exists := vimActions[newAction]; !exists {
+			vimActions[newAction] = value
+		}
+	}
+	delete(workspace, "page_mode")
+}
+
+// legacyVimModeKey converts one legacy Page Mode config key to its canonical
+// Vim Mode key, including action-name normalization.
+func legacyVimModeKey(oldKey string) (string, bool) {
+	const oldPrefix = "workspace.page_mode"
+	const newPrefix = "workspace.vim_mode"
+
+	if !strings.HasPrefix(oldKey, oldPrefix+".") {
+		return "", false
+	}
+	newKey := newPrefix + strings.TrimPrefix(oldKey, oldPrefix)
+	const actionsPrefix = newPrefix + ".actions."
+	if strings.HasPrefix(newKey, actionsPrefix) {
+		return actionsPrefix + legacyVimActionName(strings.TrimPrefix(newKey, actionsPrefix)), true
+	}
+	return newKey, true
+}
+
+func legacyVimActionName(action string) string {
+	for _, prefix := range []string{"page-scroll-", "page_scroll_"} {
+		if strings.HasPrefix(action, prefix) {
+			return "vim-scroll-" + strings.ReplaceAll(strings.TrimPrefix(action, prefix), "_", "-")
+		}
+	}
+	return action
 }
 
 // flattenMapWithValues recursively flattens a nested map to dot-notation keys with values.

@@ -146,7 +146,7 @@ func TestSchemaProviderCoversViperDefaults(t *testing.T) {
 		"search_shortcuts":                 "search_shortcuts.<key>",
 		"workspace.pane_mode.actions":      "workspace.pane_mode.actions.<action>",
 		"workspace.tab_mode.actions":       "workspace.tab_mode.actions.<action>",
-		"workspace.page_mode.actions":      "workspace.page_mode.actions.<action>",
+		"workspace.vim_mode.actions":       "workspace.vim_mode.actions.<action>",
 		"workspace.resize_mode.actions":    "workspace.resize_mode.actions.<action>",
 		"workspace.floating_pane.profiles": "workspace.floating_pane.profiles.<name>",
 		"session.session_mode.actions":     "session.session_mode.actions.<action>",

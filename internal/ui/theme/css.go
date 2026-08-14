@@ -111,8 +111,8 @@ func GenerateCSSFullWithTiming(p Palette, _ float64, fonts FontConfig, modeColor
 	sb.WriteString(generateStackedPaneCSS(p))
 	sb.WriteString("\n")
 
-	// Page mode styling
-	sb.WriteString(generatePageModeCSS(transitionDurationMs))
+	// Vim mode styling
+	sb.WriteString(generateVimModeCSS(transitionDurationMs))
 	sb.WriteString("\n")
 
 	// Progress bar styling
@@ -593,65 +593,65 @@ entry.find-bar-entry:focus-visible {
 
 // generatePaneCSS creates pane border styles.
 // Uses em units for scalable UI.
-// generatePageModeCSS creates the pane-local Page Mode accent and pulse styling.
+// generateVimModeCSS creates the pane-local Vim Mode accent and pulse styling.
 // It reuses --pane-mode-color (from workspace.styling.pane_mode_color).
-func generatePageModeCSS(transitionDurationMs int) string {
+func generateVimModeCSS(transitionDurationMs int) string {
 	if transitionDurationMs < 0 {
 		transitionDurationMs = defaultTransitionDurationMs
 	}
 	normalPulseMs := transitionDurationMs * 3
 	fastPulseMs := transitionDurationMs * 6
-	return fmt.Sprintf(`/* ===== Page Mode Styling ===== */
+	return fmt.Sprintf(`/* ===== Vim Mode Styling ===== */
 
-/* Page mode active — subtle local border accent on the pane overlay.
+/* Vim mode active — subtle local border accent on the pane overlay.
    Uses the existing pane mode color token via CSS variable.
    This is independent of the workspace-level pane-mode border overlay. */
-.page-mode-active {
+.vim-mode-active {
 	box-shadow: inset 0 0 0 0.125em alpha(var(--pane-mode-color), 0.35);
 	border-radius: 0;
 }
 
 /* Pane overlay pulse keyframes — start/end at the active accent state so the
-   pane keeps its Page mode border while briefly flaring brighter. */
-@keyframes page-mode-overlay-pulse-anim-a {
+   pane keeps its Vim mode border while briefly flaring brighter. */
+@keyframes vim-mode-overlay-pulse-anim-a {
 	0%%   { box-shadow: inset 0 0 0 0.125em alpha(var(--pane-mode-color), 0.35); }
 	35%%  { box-shadow: inset 0 0 0 0.2em alpha(var(--pane-mode-color), 0.78); }
 	100%% { box-shadow: inset 0 0 0 0.125em alpha(var(--pane-mode-color), 0.35); }
 }
 
-@keyframes page-mode-overlay-pulse-anim-b {
+@keyframes vim-mode-overlay-pulse-anim-b {
 	0%%   { box-shadow: inset 0 0 0 0.125em alpha(var(--pane-mode-color), 0.35); }
 	35%%  { box-shadow: inset 0 0 0 0.2em alpha(var(--pane-mode-color), 0.78); }
 	100%% { box-shadow: inset 0 0 0 0.125em alpha(var(--pane-mode-color), 0.35); }
 }
 
-@keyframes page-mode-overlay-pulse-fast-anim-a {
+@keyframes vim-mode-overlay-pulse-fast-anim-a {
 	0%%   { box-shadow: inset 0 0 0 0.125em alpha(var(--pane-mode-color), 0.35); }
 	25%%  { box-shadow: inset 0 0 0 0.26em alpha(var(--pane-mode-color), 0.95); }
 	100%% { box-shadow: inset 0 0 0 0.125em alpha(var(--pane-mode-color), 0.35); }
 }
 
-@keyframes page-mode-overlay-pulse-fast-anim-b {
+@keyframes vim-mode-overlay-pulse-fast-anim-b {
 	0%%   { box-shadow: inset 0 0 0 0.125em alpha(var(--pane-mode-color), 0.35); }
 	25%%  { box-shadow: inset 0 0 0 0.26em alpha(var(--pane-mode-color), 0.95); }
 	100%% { box-shadow: inset 0 0 0 0.125em alpha(var(--pane-mode-color), 0.35); }
 }
 
 /* Pane overlay scroll pulse — derived from transition_duration. */
-.page-mode-pulse.page-mode-pulse-cycle-a {
-	animation: page-mode-overlay-pulse-anim-a %dms ease-in-out;
+.vim-mode-pulse.vim-mode-pulse-cycle-a {
+	animation: vim-mode-overlay-pulse-anim-a %dms ease-in-out;
 }
 
-.page-mode-pulse.page-mode-pulse-cycle-b {
-	animation: page-mode-overlay-pulse-anim-b %dms ease-in-out;
+.vim-mode-pulse.vim-mode-pulse-cycle-b {
+	animation: vim-mode-overlay-pulse-anim-b %dms ease-in-out;
 }
 
-.page-mode-pulse-fast.page-mode-pulse-cycle-a {
-	animation: page-mode-overlay-pulse-fast-anim-a %dms ease-in-out;
+.vim-mode-pulse-fast.vim-mode-pulse-cycle-a {
+	animation: vim-mode-overlay-pulse-fast-anim-a %dms ease-in-out;
 }
 
-.page-mode-pulse-fast.page-mode-pulse-cycle-b {
-	animation: page-mode-overlay-pulse-fast-anim-b %dms ease-in-out;
+.vim-mode-pulse-fast.vim-mode-pulse-cycle-b {
+	animation: vim-mode-overlay-pulse-fast-anim-b %dms ease-in-out;
 }
 `, normalPulseMs, normalPulseMs, fastPulseMs, fastPulseMs)
 }
@@ -1210,6 +1210,11 @@ func generateToasterCSS(p Palette) string {
 
 /* Mode-specific toast colors */
 .toast-pane-mode {
+	background-color: var(--pane-mode-color);
+	color: #ffffff;
+}
+
+.toast-vim-mode {
 	background-color: var(--pane-mode-color);
 	color: #ffffff;
 }

@@ -15,26 +15,26 @@ const (
 	// CSS class applied to active pane's border overlay
 	activePaneClass = "pane-active"
 
-	// pageModeActiveClass is added to the pane overlay when Page mode is active.
+	// vimModeActiveClass is added to the pane overlay when Vim mode is active.
 	// It produces a subtle local border accent using the pane mode color.
-	pageModeActiveClass = "page-mode-active"
+	vimModeActiveClass = "vim-mode-active"
 
-	// pageModePulseClass triggers a normal scroll pulse on the pane overlay.
+	// vimModePulseClass triggers a normal scroll pulse on the pane overlay.
 	// Repeated calls must remove-then-add to restart the CSS animation.
-	pageModePulseClass = "page-mode-pulse"
+	vimModePulseClass = "vim-mode-pulse"
 
-	// pageModeFastPulseClass triggers a fast/stronger scroll pulse.
-	pageModeFastPulseClass = "page-mode-pulse-fast"
+	// vimModeFastPulseClass triggers a fast/stronger scroll pulse.
+	vimModeFastPulseClass = "vim-mode-pulse-fast"
 
 	// Alternate equivalent animations so repeated scrolls reliably restart
 	// the GTK CSS animation.
-	pageModePulseCycleClassA = "page-mode-pulse-cycle-a"
-	pageModePulseCycleClassB = "page-mode-pulse-cycle-b"
+	vimModePulseCycleClassA = "vim-mode-pulse-cycle-a"
+	vimModePulseCycleClassB = "vim-mode-pulse-cycle-b"
 
 	// Exported aliases for tests and external inspection.
-	PageModeActiveClass    = pageModeActiveClass
-	PageModePulseClass     = pageModePulseClass
-	PageModeFastPulseClass = pageModeFastPulseClass
+	VimModeActiveClass    = vimModeActiveClass
+	VimModePulseClass     = vimModePulseClass
+	VimModeFastPulseClass = vimModeFastPulseClass
 )
 
 // PaneView is a container for a single WebView with active state indication.
@@ -52,8 +52,8 @@ type PaneView struct {
 	paneID        entity.PaneID
 	isActive      bool
 
-	// Page Mode pane-local visual state.
-	pageMode   bool
+	// Vim Mode pane-local visual state.
+	vimMode    bool
 	pulseCycle bool
 
 	onFocusIn     func(paneID entity.PaneID)
@@ -117,7 +117,7 @@ func NewPaneView(ctx context.Context, factory layout.WidgetFactory, paneID entit
 		loading:       loading,
 		paneID:        paneID,
 		isActive:      false,
-		pageMode:      false,
+		vimMode:       false,
 	}
 }
 
@@ -546,39 +546,39 @@ func (pv *PaneView) HideLinkStatus() {
 	}
 }
 
-// SetPageMode activates or deactivates the pane-local Page Mode accent.
-func (pv *PaneView) SetPageMode(active bool) {
+// SetVimMode activates or deactivates the pane-local Vim Mode accent.
+func (pv *PaneView) SetVimMode(active bool) {
 	pv.mu.Lock()
 	defer pv.mu.Unlock()
 
-	if pv.pageMode == active {
+	if pv.vimMode == active {
 		return
 	}
 
-	pv.pageMode = active
+	pv.vimMode = active
 
 	if active {
-		pv.overlay.AddCssClass(pageModeActiveClass)
+		pv.overlay.AddCssClass(vimModeActiveClass)
 	} else {
-		pv.overlay.RemoveCssClass(pageModeActiveClass)
+		pv.overlay.RemoveCssClass(vimModeActiveClass)
 	}
 }
 
-// IsPageMode returns whether Page mode is currently active on this pane.
-func (pv *PaneView) IsPageMode() bool {
+// IsVimMode returns whether Vim mode is currently active on this pane.
+func (pv *PaneView) IsVimMode() bool {
 	pv.mu.RLock()
 	defer pv.mu.RUnlock()
 
-	return pv.pageMode
+	return pv.vimMode
 }
 
-// TriggerPageModePulse triggers a normal scroll pulse on the pane overlay.
-func (pv *PaneView) TriggerPageModePulse() {
+// TriggerVimModePulse triggers a normal scroll pulse on the pane overlay.
+func (pv *PaneView) TriggerVimModePulse() {
 	pv.triggerOverlayPulse(false)
 }
 
-// TriggerPageModePulseFast triggers a stronger, longer pane-overlay pulse.
-func (pv *PaneView) TriggerPageModePulseFast() {
+// TriggerVimModePulseFast triggers a stronger, longer pane-overlay pulse.
+func (pv *PaneView) TriggerVimModePulseFast() {
 	pv.triggerOverlayPulse(true)
 }
 
@@ -589,18 +589,18 @@ func (pv *PaneView) triggerOverlayPulse(fast bool) {
 	pv.mu.Lock()
 	defer pv.mu.Unlock()
 
-	pv.overlay.RemoveCssClass(pageModePulseClass)
-	pv.overlay.RemoveCssClass(pageModeFastPulseClass)
-	pv.overlay.RemoveCssClass(pageModePulseCycleClassA)
-	pv.overlay.RemoveCssClass(pageModePulseCycleClassB)
+	pv.overlay.RemoveCssClass(vimModePulseClass)
+	pv.overlay.RemoveCssClass(vimModeFastPulseClass)
+	pv.overlay.RemoveCssClass(vimModePulseCycleClassA)
+	pv.overlay.RemoveCssClass(vimModePulseCycleClassB)
 	if fast {
-		pv.overlay.AddCssClass(pageModeFastPulseClass)
+		pv.overlay.AddCssClass(vimModeFastPulseClass)
 	} else {
-		pv.overlay.AddCssClass(pageModePulseClass)
+		pv.overlay.AddCssClass(vimModePulseClass)
 	}
-	cycle := pageModePulseCycleClassA
+	cycle := vimModePulseCycleClassA
 	if pv.pulseCycle {
-		cycle = pageModePulseCycleClassB
+		cycle = vimModePulseCycleClassB
 	}
 	pv.pulseCycle = !pv.pulseCycle
 	pv.overlay.AddCssClass(cycle)
