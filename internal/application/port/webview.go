@@ -476,3 +476,10 @@ type SemanticNavigationRequest struct {
 type SemanticNavigable interface {
 	NavigateSemantic(ctx context.Context, request SemanticNavigationRequest) error
 }
+
+// PageInputFocuser is an optional WebView capability for focusing the first
+// eligible page input from Vim Mode. Unsupported engines safely leave it
+// unimplemented.
+type PageInputFocuser interface {
+	FocusFirstInput()
+}

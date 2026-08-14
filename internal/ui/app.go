@@ -2164,6 +2164,14 @@ func (a *App) activeWebViewForBrowserWindow(bw *browserWindow) (entity.PaneID, p
 }
 
 func (a *App) navigateVimSequenceAction(ctx context.Context, bw *browserWindow, action string, count int) {
+	if action == "focus-input" {
+		_, wv := a.activeWebViewForBrowserWindow(bw)
+		if focuser, ok := wv.(port.PageInputFocuser); ok {
+			focuser.FocusFirstInput()
+		}
+		return
+	}
+
 	var request port.SemanticNavigationRequest
 	switch action {
 	case "heading-next":

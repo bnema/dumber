@@ -190,6 +190,22 @@ func (wv *semanticNavigatingWebView) NavigateSemantic(_ context.Context, request
 	return nil
 }
 
+type inputFocusingWebView struct {
+	*portmocks.MockWebView
+	focusFirstInputCalls int
+}
+
+func newInputFocusingWebView(t *testing.T, id port.WebViewID) *inputFocusingWebView {
+	t.Helper()
+	wv := portmocks.NewMockWebView(t)
+	wv.EXPECT().ID().Return(id).Once()
+	return &inputFocusingWebView{MockWebView: wv}
+}
+
+func (wv *inputFocusingWebView) FocusFirstInput() {
+	wv.focusFirstInputCalls++
+}
+
 func newVimModeAccessibilityFixture(t *testing.T) (*App, *browserWindow, entity.PaneID) {
 	t.Helper()
 	paneID := entity.PaneID("pane-a")
@@ -460,6 +476,16 @@ func TestVimMode_SequenceActionNavigatesActiveWebViewHeading(t *testing.T) {
 	}, wv.requests)
 }
 
+func TestVimMode_SequenceActionFocusesFirstInput(t *testing.T) {
+	app, bw, paneID := newVimModeAccessibilityFixture(t)
+	wv := newInputFocusingWebView(t, 6)
+	app.contentCoord.RegisterPopupWebView(paneID, wv)
+
+	app.navigateVimSequenceAction(context.Background(), bw, "focus-input", 1)
+
+	assert.Equal(t, 1, wv.focusFirstInputCalls)
+}
+
 func TestVimMode_SequenceActionNoopsForUnsupportedActiveWebView(t *testing.T) {
 	app, bw, paneID := newVimModeAccessibilityFixture(t)
 	wv := portmocks.NewMockWebView(t)
@@ -467,6 +493,7 @@ func TestVimMode_SequenceActionNoopsForUnsupportedActiveWebView(t *testing.T) {
 	app.contentCoord.RegisterPopupWebView(paneID, wv)
 
 	app.navigateVimSequenceAction(context.Background(), bw, "heading-next", 1)
+	app.navigateVimSequenceAction(context.Background(), bw, "focus-input", 1)
 }
 
 func TestVimMode_AccessibilityOnlyEnabledOnEnteringVimMode(t *testing.T) {

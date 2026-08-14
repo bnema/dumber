@@ -87,6 +87,7 @@ func TestNewVimModeSequenceState_NilTrie(t *testing.T) {
 func TestTrieOwnsBinding(t *testing.T) {
 	cases := map[string]bool{
 		"]]":      true,
+		"gi":      true,
 		"yah":     true,
 		"gO":      true,
 		"<C-d>":   true,
@@ -156,6 +157,7 @@ func TestBuildVimModeTrie(t *testing.T) {
 		Actions: map[string]entity.ActionBinding{
 			"vim-scroll-down": {Keys: []string{"j"}},
 			"heading-next":    {Keys: []string{"]]"}},
+			"focus-input":     {Keys: []string{"gi"}},
 			"yank-section":    {Keys: []string{"yah"}},
 			"outline":         {Keys: []string{"gO"}},
 			"half-page-down":  {Keys: []string{"<C-d>"}},
@@ -171,6 +173,7 @@ func TestBuildVimModeTrie(t *testing.T) {
 
 	wantOwned := map[string]bool{
 		"]]":    true,
+		"gi":    true,
 		"yah":   true,
 		"gO":    true,
 		"<C-d>": true,
@@ -193,6 +196,15 @@ func TestBuildVimModeTrie(t *testing.T) {
 	node, ok := trie.Walk(seq)
 	if !ok || !node.Exact || node.Action != "heading-next" {
 		t.Fatalf("Walk(]]) = (%#v, %v), want exact heading-next", node, ok)
+	}
+
+	seq, err = vimkeys.ParseBinding("gi")
+	if err != nil {
+		t.Fatalf("ParseBinding(gi) error = %v", err)
+	}
+	node, ok = trie.Walk(seq)
+	if !ok || !node.Exact || node.Action != "focus-input" {
+		t.Fatalf("Walk(gi) = (%#v, %v), want exact focus-input", node, ok)
 	}
 }
 
