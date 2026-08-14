@@ -200,7 +200,7 @@ sudo apt install libwebkitgtk-6.0-4 libgtk-4-1 gstreamer1.0-plugins-base gstream
 
 Dumber uses pure-Go bindings. The GUI uses GTK4, runs on CEF by default, and can use WebKitGTK as a fallback backend.
 
-Set `ENV=dev` to use `.dev/dumber/` for config and data instead of XDG paths.
+Set `ENV=dev` to isolate the development process under `.dev/dumber/`. Dumber sets `HOME` plus `XDG_CONFIG_HOME`, `XDG_DATA_HOME`, `XDG_STATE_HOME`, and `XDG_CACHE_HOME` there before GTK or the browser engine starts, so development runs do not use production profiles, cookies, caches, or logs.
 
 ### Build from source
 

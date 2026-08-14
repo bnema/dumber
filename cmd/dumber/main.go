@@ -164,6 +164,11 @@ type startupTiming struct {
 }
 
 func main() {
+	if err := bootstrap.ApplyDevelopmentEnvironment(); err != nil {
+		_, _ = fmt.Fprintf(os.Stderr, "dumber: %v\n", err)
+		os.Exit(1)
+	}
+
 	// purego callbacks cross foreign CEF/GTK stacks. Go stack shrinking can
 	// invalidate frames retained across those boundaries and make the GC abort
 	// with "traceback did not unwind completely". Re-exec once so the runtime
