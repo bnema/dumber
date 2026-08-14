@@ -31,7 +31,6 @@ type GlobalShortcutHandler struct {
 	shortcutRefs          map[string]globalShortcutRegistration
 	lastDispatchAt        map[Action]time.Time
 	heldShortcuts         map[globalShortcutHoldKey]struct{}
-	shortcutAction        *gtk.NamedAction
 	globalAction          *gio.SimpleAction
 	globalActionCb        func(gio.SimpleAction, uintptr)
 	globalActionHandlerID uint
@@ -145,7 +144,6 @@ func (h *GlobalShortcutHandler) configureGlobalControllers() {
 	// Set global scope - this is the key to making shortcuts work
 	// even when WebView has focus.
 	h.controller.SetScope(gtk.ShortcutScopeGlobalValue)
-	h.shortcutAction = gtk.NewNamedAction(globalShortcutActionFullName)
 	h.globalAction = gio.NewSimpleAction(globalShortcutActionName, glib.NewVariantType("s"))
 	if h.globalAction != nil {
 		h.globalActionCb = func(_ gio.SimpleAction, parameter uintptr) {
@@ -218,13 +216,6 @@ func (h *GlobalShortcutHandler) registerShortcut(keyval uint, modifiers gdk.Modi
 		return false
 	}
 
-	if h.shortcutAction == nil {
-		logging.FromContext(h.ctx).Error().
-			Uint("keyval", keyval).
-			Msg("global shortcut action is unavailable")
-		return false
-	}
-
 	// Create trigger for this key combination.
 	trigger := gtk.NewKeyvalTrigger(keyval, modifiers)
 	if trigger == nil {
@@ -234,7 +225,17 @@ func (h *GlobalShortcutHandler) registerShortcut(keyval uint, modifiers gdk.Modi
 		return false
 	}
 
-	shortcut := gtk.NewShortcut(&trigger.ShortcutTrigger, &h.shortcutAction.ShortcutAction)
+	// GtkShortcut takes ownership of its action. Each shortcut needs its own
+	// named action even though they all dispatch through the same window action.
+	shortcutAction := gtk.NewNamedAction(globalShortcutActionFullName)
+	if shortcutAction == nil {
+		logging.FromContext(h.ctx).Error().
+			Uint("keyval", keyval).
+			Msg("failed to create global shortcut action")
+		return false
+	}
+
+	shortcut := gtk.NewShortcut(&trigger.ShortcutTrigger, &shortcutAction.ShortcutAction)
 	if shortcut == nil {
 		logging.FromContext(h.ctx).Error().
 			Uint("keyval", keyval).
@@ -634,7 +635,6 @@ func (h *GlobalShortcutHandler) detach(removeFromWindow bool) {
 	}
 	h.controller = nil
 	h.releaseController = nil
-	h.shortcutAction = nil
 	h.globalAction = nil
 	h.globalActionCb = nil
 	h.globalActionHandlerID = 0
