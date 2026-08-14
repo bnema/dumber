@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/bnema/dumber/internal/application/port"
+	"github.com/bnema/dumber/internal/application/dto"
 	portmocks "github.com/bnema/dumber/internal/application/port/mocks"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -14,7 +14,7 @@ type vimNavigationWebView struct {
 	*portmocks.MockWebView
 	focusNextInputCalls int
 	pageFocusBackward   []bool
-	semanticRequests    []port.SemanticNavigationRequest
+	semanticRequests    []dto.SemanticNavigationRequest
 }
 
 func (wv *vimNavigationWebView) FocusNextInput() {
@@ -25,7 +25,7 @@ func (wv *vimNavigationWebView) NavigatePageFocus(backward bool) {
 	wv.pageFocusBackward = append(wv.pageFocusBackward, backward)
 }
 
-func (wv *vimNavigationWebView) NavigateSemantic(_ context.Context, request port.SemanticNavigationRequest) error {
+func (wv *vimNavigationWebView) NavigateSemantic(_ context.Context, request dto.SemanticNavigationRequest) error {
 	wv.semanticRequests = append(wv.semanticRequests, request)
 	return nil
 }
@@ -39,9 +39,9 @@ func TestVimNavigationUseCaseExecuteDispatchesConfiguredActions(t *testing.T) {
 
 	assert.Equal(t, 1, wv.focusNextInputCalls)
 	require.Len(t, wv.semanticRequests, 1)
-	assert.Equal(t, port.SemanticNavigationRequest{
-		Target:         port.SemanticNavigationTargetHeading,
-		Direction:      port.SemanticNavigationBackward,
+	assert.Equal(t, dto.SemanticNavigationRequest{
+		Target:         dto.SemanticNavigationTargetHeading,
+		Direction:      dto.SemanticNavigationBackward,
 		Count:          3,
 		HighlightColor: "#aabbcc",
 	}, wv.semanticRequests[0])

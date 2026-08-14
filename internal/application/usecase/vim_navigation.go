@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 
+	"github.com/bnema/dumber/internal/application/dto"
 	"github.com/bnema/dumber/internal/application/port"
 )
 
@@ -34,19 +35,19 @@ func (*VimNavigationUseCase) Execute(ctx context.Context, wv port.WebView, actio
 		return nil
 	}
 
-	var request port.SemanticNavigationRequest
+	var request dto.SemanticNavigationRequest
 	switch action {
 	case "heading-next":
-		request = port.SemanticNavigationRequest{
-			Target:         port.SemanticNavigationTargetHeading,
-			Direction:      port.SemanticNavigationForward,
+		request = dto.SemanticNavigationRequest{
+			Target:         dto.SemanticNavigationTargetHeading,
+			Direction:      dto.SemanticNavigationForward,
 			Count:          count,
 			HighlightColor: highlightColor,
 		}
 	case "heading-prev":
-		request = port.SemanticNavigationRequest{
-			Target:         port.SemanticNavigationTargetHeading,
-			Direction:      port.SemanticNavigationBackward,
+		request = dto.SemanticNavigationRequest{
+			Target:         dto.SemanticNavigationTargetHeading,
+			Direction:      dto.SemanticNavigationBackward,
 			Count:          count,
 			HighlightColor: highlightColor,
 		}

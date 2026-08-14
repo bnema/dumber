@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/bnema/dumber/internal/application/dto"
 	"github.com/bnema/dumber/internal/application/port"
 	portmocks "github.com/bnema/dumber/internal/application/port/mocks"
 	"github.com/bnema/dumber/internal/application/usecase"
@@ -175,7 +176,7 @@ func (wv *accessibilityEnablingWebView) EnableAccessibility() {
 
 type semanticNavigatingWebView struct {
 	*portmocks.MockWebView
-	requests []port.SemanticNavigationRequest
+	requests []dto.SemanticNavigationRequest
 }
 
 func newSemanticNavigatingWebView(t *testing.T, id port.WebViewID) *semanticNavigatingWebView {
@@ -185,7 +186,7 @@ func newSemanticNavigatingWebView(t *testing.T, id port.WebViewID) *semanticNavi
 	return &semanticNavigatingWebView{MockWebView: wv}
 }
 
-func (wv *semanticNavigatingWebView) NavigateSemantic(_ context.Context, request port.SemanticNavigationRequest) error {
+func (wv *semanticNavigatingWebView) NavigateSemantic(_ context.Context, request dto.SemanticNavigationRequest) error {
 	wv.requests = append(wv.requests, request)
 	return nil
 }
@@ -500,9 +501,9 @@ func TestVimMode_SequenceActionNavigatesActiveWebViewHeading(t *testing.T) {
 	app.navigateVimSequenceAction(context.Background(), bw, "heading-prev", 0)
 	app.navigateVimSequenceAction(context.Background(), bw, "code-next", 1)
 
-	assert.Equal(t, []port.SemanticNavigationRequest{
-		{Target: port.SemanticNavigationTargetHeading, Direction: port.SemanticNavigationForward, Count: 3},
-		{Target: port.SemanticNavigationTargetHeading, Direction: port.SemanticNavigationBackward, Count: 0},
+	assert.Equal(t, []dto.SemanticNavigationRequest{
+		{Target: dto.SemanticNavigationTargetHeading, Direction: dto.SemanticNavigationForward, Count: 3},
+		{Target: dto.SemanticNavigationTargetHeading, Direction: dto.SemanticNavigationBackward, Count: 0},
 	}, wv.requests)
 }
 

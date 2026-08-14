@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/bnema/dumber/internal/application/port"
+	"github.com/bnema/dumber/internal/application/dto"
 )
 
 func TestWebViewNavigateSemantic_HeadingExecutesStrictNavigationScript(t *testing.T) {
@@ -18,6 +18,8 @@ func TestWebViewNavigateSemantic_HeadingExecutesStrictNavigationScript(t *testin
 	browser.EXPECT().GetMainFrame().Return(frame).Once()
 	frame.EXPECT().ExecuteJavaScript(mock.MatchedBy(mockStringContaining(t,
 		"document.querySelectorAll(\"h1,h2,h3,h4,h5,h6\")",
+		"heading.closest(\"[hidden],[inert],[aria-hidden=\\\"true\\\"]\")",
+		"window.getComputedStyle(heading)",
 		"firstAtOrAfterViewportTop",
 		"if (next < 0 || next >= headings.length) return;",
 		"previous && previous !== target",
@@ -30,9 +32,9 @@ func TestWebViewNavigateSemantic_HeadingExecutesStrictNavigationScript(t *testin
 	)), "", int32(0)).Once()
 
 	wv := &WebView{browser: browser}
-	err := wv.NavigateSemantic(context.Background(), port.SemanticNavigationRequest{
-		Target:         port.SemanticNavigationTargetHeading,
-		Direction:      port.SemanticNavigationForward,
+	err := wv.NavigateSemantic(context.Background(), dto.SemanticNavigationRequest{
+		Target:         dto.SemanticNavigationTargetHeading,
+		Direction:      dto.SemanticNavigationForward,
 		Count:          3,
 		HighlightColor: "#22c55e",
 	})
@@ -50,21 +52,21 @@ func TestWebViewNavigateSemantic_NormalizesCountAndRejectsUnsupportedRequests(t 
 	assert.Contains(t, backward, "const highlightColor = \"#4ade80\"")
 
 	wv := &WebView{}
-	err := wv.NavigateSemantic(context.Background(), port.SemanticNavigationRequest{
-		Target:    port.SemanticNavigationTargetHeading,
-		Direction: port.SemanticNavigationForward,
+	err := wv.NavigateSemantic(context.Background(), dto.SemanticNavigationRequest{
+		Target:    dto.SemanticNavigationTargetHeading,
+		Direction: dto.SemanticNavigationForward,
 		Count:     0,
 	})
 	require.NoError(t, err)
 
-	err = wv.NavigateSemantic(context.Background(), port.SemanticNavigationRequest{
-		Target:    port.SemanticNavigationTargetHeading + 1,
-		Direction: port.SemanticNavigationForward,
+	err = wv.NavigateSemantic(context.Background(), dto.SemanticNavigationRequest{
+		Target:    dto.SemanticNavigationTargetHeading + 1,
+		Direction: dto.SemanticNavigationForward,
 	})
 	require.Error(t, err)
 
-	err = wv.NavigateSemantic(context.Background(), port.SemanticNavigationRequest{
-		Target:    port.SemanticNavigationTargetHeading,
+	err = wv.NavigateSemantic(context.Background(), dto.SemanticNavigationRequest{
+		Target:    dto.SemanticNavigationTargetHeading,
 		Direction: 0,
 	})
 	require.Error(t, err)

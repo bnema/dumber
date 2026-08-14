@@ -5,20 +5,20 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/bnema/dumber/internal/application/port"
+	"github.com/bnema/dumber/internal/application/dto"
 )
 
 // NavigateSemantic performs the initial live Vim structural navigation path.
 // It deliberately uses only stable HTML semantics and a static script: CEF's
 // raw accessibility payload is not yet a documented application contract.
-func (wv *WebView) NavigateSemantic(ctx context.Context, request port.SemanticNavigationRequest) error {
+func (wv *WebView) NavigateSemantic(ctx context.Context, request dto.SemanticNavigationRequest) error {
 	if wv == nil || wv.destroyed.Load() {
 		return errDestroyed
 	}
-	if request.Target != port.SemanticNavigationTargetHeading {
+	if request.Target != dto.SemanticNavigationTargetHeading {
 		return fmt.Errorf("unsupported semantic navigation target: %d", request.Target)
 	}
-	if request.Direction != port.SemanticNavigationForward && request.Direction != port.SemanticNavigationBackward {
+	if request.Direction != dto.SemanticNavigationForward && request.Direction != dto.SemanticNavigationBackward {
 		return fmt.Errorf("unsupported semantic navigation direction: %d", request.Direction)
 	}
 
@@ -39,7 +39,12 @@ func headingNavigationScript(direction, count int, highlightColor string) string
   const className = "dumber-vim-heading-target";
   const highlightColor = ` + strconv.Quote(highlightColor) + `;
   const headings = Array.from(document.querySelectorAll("h1,h2,h3,h4,h5,h6"))
-    .filter((heading) => heading.getClientRects().length > 0);
+    .filter((heading) => {
+      if (heading.getClientRects().length === 0) return false;
+      if (heading.closest("[hidden],[inert],[aria-hidden=\"true\"]")) return false;
+      const style = window.getComputedStyle(heading);
+      return style.visibility !== "hidden" && style.visibility !== "collapse";
+    });
   if (headings.length === 0) return;
 
   const prior = window[stateKey];
