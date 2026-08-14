@@ -90,7 +90,9 @@ func (d Document) Len() int {
 
 // Blocks returns a copy of the blocks in document order.
 func (d Document) Blocks() []Block {
-	return append([]Block(nil), d.blocks...)
+	blocks := make([]Block, len(d.blocks))
+	copy(blocks, d.blocks)
+	return blocks
 }
 
 // BlockByID returns the block with id when present.
