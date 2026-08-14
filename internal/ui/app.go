@@ -2168,15 +2168,17 @@ func (a *App) navigateVimSequenceAction(ctx context.Context, bw *browserWindow, 
 	switch action {
 	case "heading-next":
 		request = port.SemanticNavigationRequest{
-			Target:    port.SemanticNavigationTargetHeading,
-			Direction: port.SemanticNavigationForward,
-			Count:     count,
+			Target:         port.SemanticNavigationTargetHeading,
+			Direction:      port.SemanticNavigationForward,
+			Count:          count,
+			HighlightColor: a.vimNavigationHighlightColor(),
 		}
 	case "heading-prev":
 		request = port.SemanticNavigationRequest{
-			Target:    port.SemanticNavigationTargetHeading,
-			Direction: port.SemanticNavigationBackward,
-			Count:     count,
+			Target:         port.SemanticNavigationTargetHeading,
+			Direction:      port.SemanticNavigationBackward,
+			Count:          count,
+			HighlightColor: a.vimNavigationHighlightColor(),
 		}
 	default:
 		return
@@ -2194,6 +2196,13 @@ func (a *App) navigateVimSequenceAction(ctx context.Context, bw *browserWindow, 
 			Str("pane_id", string(paneID)).
 			Msg("vim semantic navigation unavailable")
 	}
+}
+
+func (a *App) vimNavigationHighlightColor() string {
+	if a == nil || a.deps == nil || a.deps.Theme == nil {
+		return ""
+	}
+	return a.deps.Theme.GetCurrentPalette().Accent
 }
 
 func (a *App) enableAccessibilityForVimMode(ctx context.Context, bw *browserWindow) {

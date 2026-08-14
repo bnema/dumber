@@ -26,14 +26,18 @@ func (wv *WebView) NavigateSemantic(ctx context.Context, request port.SemanticNa
 	if count < 1 {
 		count = 1
 	}
-	wv.RunJavaScript(ctx, headingNavigationScript(int(request.Direction), count))
+	wv.RunJavaScript(ctx, headingNavigationScript(int(request.Direction), count, request.HighlightColor))
 	return nil
 }
 
-func headingNavigationScript(direction, count int) string {
+func headingNavigationScript(direction, count int, highlightColor string) string {
+	if highlightColor == "" {
+		highlightColor = "#fbbf24"
+	}
 	return `(() => {
   const stateKey = "__dumberVimHeadingTarget";
   const className = "dumber-vim-heading-target";
+  const highlightColor = ` + strconv.Quote(highlightColor) + `;
   const headings = Array.from(document.querySelectorAll("h1,h2,h3,h4,h5,h6"))
     .filter((heading) => heading.getClientRects().length > 0);
   if (headings.length === 0) return;
@@ -57,14 +61,17 @@ func headingNavigationScript(direction, count int) string {
 
   const previous = document.querySelector("." + className);
   if (previous && previous !== target) previous.classList.remove(className);
-  if (!document.getElementById("dumber-vim-heading-target-style")) {
+  let style = document.getElementById("dumber-vim-heading-target-style");
+  if (!style) {
     // This visual cue is best-effort: strict page CSP can reject a DOM style
     // element, but target selection and scrolling must stay independent of it.
-    const style = document.createElement("style");
+    style = document.createElement("style");
     style.id = "dumber-vim-heading-target-style";
-    style.textContent = "." + className + " { outline: 3px solid #fbbf24 !important; outline-offset: 5px !important; border-radius: 3px !important; }";
     document.documentElement.appendChild(style);
   }
+  // Refresh the outline on every navigation so an in-session accent change is
+  // reflected even when the target style element already exists.
+  style.textContent = "." + className + " { outline: 3px solid " + highlightColor + " !important; outline-offset: 5px !important; border-radius: 3px !important; }";
   window[stateKey] = target;
   target.classList.add(className);
   target.scrollIntoView({ block: "center", inline: "nearest", behavior: "smooth" });

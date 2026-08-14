@@ -433,6 +433,18 @@ func TestVimMode_Enter_AccessibilityNoopsWhenActiveWebViewMissing(t *testing.T) 
 	app.handleModeChange(context.Background(), bw, input.ModeNormal, input.ModeVim)
 }
 
+func TestVimNavigationHighlightColorUsesCurrentThemeAccent(t *testing.T) {
+	resolved := entity.ResolvedTheme{
+		PrefersDark: true,
+		DarkPalette: entity.ColorPalette{
+			Accent: "#22c55e",
+		},
+	}
+	app := &App{deps: &Dependencies{Theme: theme.NewManager(context.Background(), resolved)}}
+
+	assert.Equal(t, "#22c55e", app.vimNavigationHighlightColor())
+}
+
 func TestVimMode_SequenceActionNavigatesActiveWebViewHeading(t *testing.T) {
 	app, bw, paneID := newVimModeAccessibilityFixture(t)
 	wv := newSemanticNavigatingWebView(t, 4)

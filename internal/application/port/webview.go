@@ -465,9 +465,10 @@ const (
 // SemanticNavigationRequest describes one Vim structural movement. Count uses
 // Vim semantics: adapters treat values less than one as one.
 type SemanticNavigationRequest struct {
-	Target    SemanticNavigationTarget
-	Direction SemanticNavigationDirection
-	Count     int
+	Target         SemanticNavigationTarget
+	Direction      SemanticNavigationDirection
+	Count          int
+	HighlightColor string
 }
 
 // SemanticNavigable is an optional WebView capability for visible structural
