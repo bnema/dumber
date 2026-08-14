@@ -454,6 +454,31 @@ func TestVimMode_Enter_AccessibilityNoopsWhenActiveWebViewMissing(t *testing.T) 
 	app.handleModeChange(context.Background(), bw, input.ModeNormal, input.ModeVim)
 }
 
+func TestVimMode_PreloadAccessibilityEnablesShownWebViewWhenConfigured(t *testing.T) {
+	app, _, paneID := newVimModeAccessibilityFixture(t)
+	wv := newAccessibilityEnablingWebView(t, 4)
+	app.contentCoord.RegisterPopupWebView(paneID, wv)
+	app.runtimeConfig = runtimeConfigStateFromSnapshotForTest(entity.RuntimeConfigSnapshot{
+		UI: entity.RuntimeUIConfig{Workspace: entity.WorkspaceConfig{
+			VimMode: entity.VimModeConfig{PreloadAccessibility: true},
+		}},
+	})
+
+	app.preloadAccessibilityForShownPane(paneID)
+
+	assert.Equal(t, 1, wv.enableAccessibilityCalls)
+}
+
+func TestVimMode_PreloadAccessibilityNoopsWhenDisabled(t *testing.T) {
+	app, _, paneID := newVimModeAccessibilityFixture(t)
+	wv := newAccessibilityEnablingWebView(t, 5)
+	app.contentCoord.RegisterPopupWebView(paneID, wv)
+
+	app.preloadAccessibilityForShownPane(paneID)
+
+	assert.Equal(t, 0, wv.enableAccessibilityCalls)
+}
+
 func TestVimNavigationHighlightColorUsesCurrentThemeAccent(t *testing.T) {
 	resolved := entity.ResolvedTheme{
 		PrefersDark: true,

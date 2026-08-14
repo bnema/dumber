@@ -59,7 +59,7 @@ Vim Mode is an explicit Vim-style navigation mode for the active pane only. It a
 
 CEF and WebKit execute Vim Mode scroll commands (`h/j/k/l`, `Shift+J/K`) with the shared `BuildPageScrollByJS` resolver. Each step starts under the viewport center, walks up through ancestors that can move in the requested direction, and hands scrolling to the document when a nested container reaches its boundary. Cross-origin frame contents remain best-effort.
 
-`gi` focuses the next visible, editable page input. With no eligible input focused it starts at the first one; repeated `gi` commands cycle through the inputs. `]]` and `[[` move through visible `h1`–`h6` headings and outline the selected heading with the current Dumber theme accent. When a page input is focused, `Tab` and `Shift+Tab` keep focus traversal inside the page; traversal stops safely at the page boundaries instead of moving into the host window.
+`gi` focuses the next visible, editable page input. With no eligible input focused it starts at the first one; repeated `gi` commands cycle through the inputs. `]]` and `[[` move through visible `h1`–`h6` headings and outline the selected heading with the current Dumber theme accent. When a page input is focused, `Tab` and `Shift+Tab` keep focus traversal inside the page; traversal stops safely at the page boundaries instead of moving into the host window. These live input, heading, and page-focus motions currently use the CEF engine path; the WebKit fallback supports Vim scrolling but not these semantic motions yet.
 
 | Action | Keys |
 |--------|------|

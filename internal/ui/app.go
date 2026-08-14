@@ -124,6 +124,7 @@ type App struct {
 	focusMgr *focus.Manager
 
 	vimModePolicyUC         *usecase.VimModePolicyUseCase
+	vimNavigationUC         *usecase.VimNavigationUseCase
 	pageEditableFocusByPane map[entity.PaneID]bool
 
 	resizeModeBorderTarget layout.Widget
@@ -217,6 +218,7 @@ func New(deps *Dependencies) (*App, error) {
 		floatingSessions:        make(map[floatingSessionKey]*floatingWorkspaceSession),
 		browserWindows:          make(map[string]*browserWindow),
 		vimModePolicyUC:         usecase.NewVimModePolicyUseCase(),
+		vimNavigationUC:         usecase.NewVimNavigationUseCase(),
 		pageEditableFocusByPane: make(map[entity.PaneID]bool),
 		dispatchOnMainThread: func(label string, fn func()) syncdispatch.SyncDispatchResult {
 			if fn != nil {
@@ -2171,54 +2173,34 @@ func (a *App) navigatePageFocus(_ context.Context, bw *browserWindow, backward b
 	if paneID == "" || !a.pageEditableFocused(paneID) {
 		return false
 	}
-	navigator, ok := wv.(port.PageFocusNavigator)
-	if !ok {
+	navigationUC := a.vimNavigationUseCase()
+	if navigationUC == nil {
 		return false
 	}
-	navigator.NavigatePageFocus(backward)
-	return true
+	return navigationUC.NavigatePageFocus(wv, backward)
+}
+
+func (a *App) vimNavigationUseCase() *usecase.VimNavigationUseCase {
+	if a == nil {
+		return nil
+	}
+	if a.vimNavigationUC == nil {
+		a.vimNavigationUC = usecase.NewVimNavigationUseCase()
+	}
+	return a.vimNavigationUC
 }
 
 func (a *App) navigateVimSequenceAction(ctx context.Context, bw *browserWindow, action string, count int) {
-	if action == "focus-input" {
-		_, wv := a.activeWebViewForBrowserWindow(bw)
-		if focuser, ok := wv.(port.PageInputFocuser); ok {
-			focuser.FocusNextInput()
-		}
+	_, wv := a.activeWebViewForBrowserWindow(bw)
+	navigationUC := a.vimNavigationUseCase()
+	if navigationUC == nil {
 		return
 	}
-
-	var request port.SemanticNavigationRequest
-	switch action {
-	case "heading-next":
-		request = port.SemanticNavigationRequest{
-			Target:         port.SemanticNavigationTargetHeading,
-			Direction:      port.SemanticNavigationForward,
-			Count:          count,
-			HighlightColor: a.vimNavigationHighlightColor(),
-		}
-	case "heading-prev":
-		request = port.SemanticNavigationRequest{
-			Target:         port.SemanticNavigationTargetHeading,
-			Direction:      port.SemanticNavigationBackward,
-			Count:          count,
-			HighlightColor: a.vimNavigationHighlightColor(),
-		}
-	default:
-		return
-	}
-
-	paneID, wv := a.activeWebViewForBrowserWindow(bw)
-	navigator, ok := wv.(port.SemanticNavigable)
-	if !ok {
-		return
-	}
-	if err := navigator.NavigateSemantic(ctx, request); err != nil {
+	if err := navigationUC.Execute(ctx, wv, action, count, a.vimNavigationHighlightColor()); err != nil {
 		logging.FromContext(ctx).Debug().
 			Err(err).
 			Str("action", action).
-			Str("pane_id", string(paneID)).
-			Msg("vim semantic navigation unavailable")
+			Msg("vim navigation unavailable")
 	}
 }
 
@@ -2247,6 +2229,18 @@ func (a *App) enableAccessibilityForVimMode(ctx context.Context, bw *browserWind
 		Str("window_id", windowID).
 		Str("pane_id", string(paneID)).
 		Msg("webview accessibility enabled for vim mode")
+}
+
+func (a *App) preloadAccessibilityForShownPane(paneID entity.PaneID) {
+	if a == nil || paneID == "" || !a.runtimeConfigSnapshot().UI.Workspace.VimMode.PreloadAccessibility || a.contentCoord == nil {
+		return
+	}
+	wv := a.contentCoord.GetWebView(paneID)
+	enabler, ok := wv.(port.AccessibilityEnabler)
+	if !ok {
+		return
+	}
+	enabler.EnableAccessibility()
 }
 
 // omniboxNavigateForBrowserWindow returns an omnibox OnNavigate callback that routes
@@ -3389,6 +3383,7 @@ func (a *App) initCoordinators(ctx context.Context) {
 				a.deps.OnFirstWebViewShown(ctx)
 			})
 		}
+		a.preloadAccessibilityForShownPane(paneID)
 
 		// This only updates focus when the shown pane belongs to the last-focused
 		// window's active workspace. activeWorkspace() delegates to

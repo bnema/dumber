@@ -404,6 +404,8 @@ cancel = ["escape"]
 |-----|------|---------|-------------|
 | `workspace.vim_mode.activation_shortcut` | string | `"ctrl+y"` | Vim mode activation key |
 | `workspace.vim_mode.timeout_ms` | int | `0` | Vim mode timeout in milliseconds (`0` disables auto-timeout) |
+| `workspace.vim_mode.sequence_timeout_ms` | int | `500` | Timeout for ambiguous multi-key Vim sequences |
+| `workspace.vim_mode.preload_accessibility` | bool | `false` | Pre-enable browser accessibility when a WebView is shown |
 | `workspace.vim_mode.actions` | map | See below | Action→binding mappings |
 
 **Default vim mode actions:**
@@ -461,6 +463,7 @@ Notes:
 - The default `timeout_ms = 0` means Vim Mode stays active until you exit it or focus moves into an editable/browser UI context. `Ctrl+Y` can still activate it when a page input is already focused.
 - Arrow keys still use the browser engine's native page-navigation path while Vim Mode is active.
 - `Tab` and `Shift+Tab` keep focus traversal inside the page while a page input is focused.
+- Live input, heading, and page-focus navigation currently use the CEF engine path; WebKit fallback supports the Vim scroll commands while equivalent semantic navigation is pending.
 - Other app-level shortcuts stay suspended until Vim Mode exits, except for the Vim Mode toggle itself.
 - `workspace.styling.pane_mode_color`, `workspace.styling.transition_duration`, and `workspace.styling.mode_indicator_toaster_enabled` control the pane-local Vim Mode visuals.
 - Scroll execution: CEF and WebKit both use the shared `BuildPageScrollByJS` resolver when the page is ready. Each step starts under the viewport center, walks up through ancestors that can move in the requested direction, and hands scrolling to the document when a nested container reaches its boundary. The application repeater owns held-key cadence; each engine executes one immediate scroll step per tick. Cross-origin frame contents remain best-effort. CEF may use native precision-wheel input only as a pre-frame fallback before the browser/main frame is ready.

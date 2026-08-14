@@ -194,8 +194,11 @@ func buildAccentDetectionScript(token string) string {
     const accentKeys = new Set([%s]);
     const editableFocusToken = %q;
     let pressedKey = null;
+    let lastEditableFocusState = null;
 
     function postEditableFocus(editable) {
+        if (lastEditableFocusState === editable) return;
+        lastEditableFocusState = editable;
         if (!editableFocusToken) return;
         if (!(window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.dumber)) return;
         window.webkit.messageHandlers.dumber.postMessage({

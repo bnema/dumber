@@ -102,6 +102,8 @@
 | `workspace.tab_mode.actions.<action>` | []string | see defaults | tab mode key mappings |
 | `workspace.vim_mode.activation_shortcut` | string | `ctrl+y` | |
 | `workspace.vim_mode.timeout_ms` | int | `0` | >= 0 |
+| `workspace.vim_mode.sequence_timeout_ms` | int | `500` | >= 0; timeout for ambiguous multi-key Vim sequences |
+| `workspace.vim_mode.preload_accessibility` | bool | `false` | Pre-enable browser accessibility when a WebView is shown |
 | `workspace.vim_mode.actions.<action>` | object | see defaults | vim mode action object with `keys` ([]string) and `desc` (string) |
 | `workspace.resize_mode.activation_shortcut` | string | `ctrl+n` | |
 | `workspace.resize_mode.timeout_ms` | int | `3000` | |
