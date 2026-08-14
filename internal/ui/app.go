@@ -2160,6 +2160,26 @@ func (a *App) activeWebViewForBrowserWindow(bw *browserWindow) (entity.PaneID, p
 	return paneID, a.contentCoord.GetWebView(paneID)
 }
 
+func (a *App) enableAccessibilityForVimMode(ctx context.Context, bw *browserWindow) {
+	paneID, wv := a.activeWebViewForBrowserWindow(bw)
+	if wv == nil {
+		return
+	}
+	enabler, ok := wv.(port.AccessibilityEnabler)
+	if !ok {
+		return
+	}
+	enabler.EnableAccessibility()
+	windowID := ""
+	if bw != nil {
+		windowID = bw.id
+	}
+	logging.FromContext(ctx).Debug().
+		Str("window_id", windowID).
+		Str("pane_id", string(paneID)).
+		Msg("webview accessibility enabled for vim mode")
+}
+
 // omniboxNavigateForBrowserWindow returns an omnibox OnNavigate callback that routes
 // navigation through navigate for the supplied browser window. The closure captures
 // bw at creation time, so navigation targets the owning window even when another
@@ -3859,6 +3879,10 @@ func (a *App) handleModeChange(ctx context.Context, bw *browserWindow, from, to 
 	if to == input.ModeResize {
 		// Resize mode targets the last-focused browser window's active workspace.
 		a.applyResizeModeBorder(ctx, a.activeWorkspace())
+	}
+
+	if to == input.ModeVim && from != input.ModeVim {
+		a.enableAccessibilityForVimMode(ctx, bw)
 	}
 
 	// Handle pane-local Vim Mode visual ownership.
