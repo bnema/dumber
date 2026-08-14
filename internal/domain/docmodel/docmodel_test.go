@@ -362,13 +362,13 @@ func headingMotionDocument(t *testing.T) Document {
 	t.Helper()
 
 	return mustDocument(t, []Block{
-		{ID: "p0", Kind: BlockKind("paragraph")},
+		{ID: "p0", Kind: BlockKindParagraph},
 		{ID: "h1", Kind: BlockKindHeading, HeadingLevel: 1},
-		{ID: "p1", Kind: BlockKind("paragraph")},
+		{ID: "p1", Kind: BlockKindParagraph},
 		{ID: "h2", Kind: BlockKindHeading, HeadingLevel: 2},
 		{ID: "h3", Kind: BlockKindHeading, HeadingLevel: 3},
 		{ID: "h2b", Kind: BlockKindHeading, HeadingLevel: 2},
-		{ID: "p2", Kind: BlockKind("paragraph")},
+		{ID: "p2", Kind: BlockKindParagraph},
 		{ID: "h1b", Kind: BlockKindHeading, HeadingLevel: 1},
 	})
 }
