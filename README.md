@@ -196,14 +196,6 @@ sudo apt install libwebkitgtk-6.0-4 libgtk-4-1 gstreamer1.0-plugins-base gstream
 
 > Ubuntu 24.04 ships GLib 2.80, but Dumber requires GLib 2.84+. Use Arch, Fedora 41+, or the Flatpak.
 
-## Status
-
-Dumber is usable for regular web browsing on Wayland compositors, with the main focus on panes, keyboard control, floating workflows, and desktop integration.
-
-It is not a drop-in replacement for every mainstream browser workflow. Extension compatibility, engine behavior, and media support depend on the selected backend and system libraries.
-
-Bug reports and reproducible Wayland/backend issues are welcome.
-
 ## Development
 
 Dumber uses pure-Go bindings. The GUI uses GTK4, runs on CEF by default, and can use WebKitGTK as a fallback backend.
