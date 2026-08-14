@@ -59,6 +59,13 @@ type Cursor struct {
 	BlockID BlockID
 }
 
+// BlockRange identifies a half-open span of blocks in document order. A zero
+// EndExclusive cursor represents the end of the document.
+type BlockRange struct {
+	StartInclusive Cursor
+	EndExclusive   Cursor
+}
+
 // Document is an immutable, order-preserving collection of blocks.
 type Document struct {
 	blocks    []Block
