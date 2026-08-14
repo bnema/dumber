@@ -16,7 +16,7 @@ Dumber uses modal keybindings inspired by Zellij:
 |------|------------|---------|
 | Pane Mode | `Ctrl+P` | Split, close, focus panes |
 | Tab Mode | `Ctrl+T` | Create, close, switch tabs |
-| Vim Mode | `Ctrl+Y` | Scroll the active webpage with `h/j/k/l` and `Shift+J/K`; arrow keys stay native and other app shortcuts wait until exit |
+| Vim Mode | `Ctrl+Y` | Scroll, navigate headings, and focus page inputs with Vim-style commands; arrow keys stay native and page focus stays inside the page while other app shortcuts wait until exit |
 | Resize Mode | `Ctrl+N` | Resize pane splits |
 | Session Mode | `Ctrl+O` | Session management |
 
@@ -36,9 +36,11 @@ Vim Mode stays local to the active pane and automatically leaves the mode when f
 2. Use `h`, `j`, `k`, `l` to scroll left, down, up, or right
 3. Use `Shift+J` / `Shift+K` for faster vertical jumps
 4. Arrow keys continue to use the browser engine's native page navigation while Vim Mode is active
-5. Other app-level shortcuts stay suspended until you leave Vim Mode
-6. Press `Escape` or `Enter` to leave the mode
-7. If a page input or editor is already focused, `Ctrl+Y` is passed through instead of stealing the keypress
+5. Use `gi` to cycle through visible page inputs; use `]]` and `[[` to move through headings
+6. `Tab` and `Shift+Tab` traverse focusable page controls while a page input is focused
+7. Other app-level shortcuts stay suspended until you leave Vim Mode
+8. Press `Escape` or `Enter` to leave the mode
+9. `Ctrl+Y` can activate Vim Mode even when a page input or editor is already focused
 
 > **Engine behavior**: CEF and WebKit execute Vim Mode scroll steps with the
 > shared `BuildPageScrollByJS` resolver (viewport-center start, nested-scroller

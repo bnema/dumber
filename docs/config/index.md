@@ -433,6 +433,18 @@ desc = "Scroll page down fast"
 keys = ["shift+k"]
 desc = "Scroll page up fast"
 
+[workspace.vim_mode.actions.focus-input]
+keys = ["gi"]
+desc = "Focus next page input"
+
+[workspace.vim_mode.actions.heading-next]
+keys = ["]]"]
+desc = "Jump to next heading"
+
+[workspace.vim_mode.actions.heading-prev]
+keys = ["[["]
+desc = "Jump to previous heading"
+
 [workspace.vim_mode.actions.confirm]
 keys = ["enter"]
 desc = "Confirm action"
@@ -443,9 +455,12 @@ desc = "Cancel/exit mode"
 ```
 
 Notes:
-- Vim Mode scrolls the active webpage inside the active pane only.
-- The default `timeout_ms = 0` means Vim Mode stays active until you exit it or focus moves into an editable/browser UI context.
+- Vim Mode scrolls and navigates the active webpage inside the active pane only.
+- `gi` focuses the next visible editable page input, starting at the first when no input is active and wrapping after the last.
+- `]]` and `[[` move through visible `h1`–`h6` headings and use the current Dumber theme accent for the selected-heading outline.
+- The default `timeout_ms = 0` means Vim Mode stays active until you exit it or focus moves into an editable/browser UI context. `Ctrl+Y` can still activate it when a page input is already focused.
 - Arrow keys still use the browser engine's native page-navigation path while Vim Mode is active.
+- `Tab` and `Shift+Tab` keep focus traversal inside the page while a page input is focused.
 - Other app-level shortcuts stay suspended until Vim Mode exits, except for the Vim Mode toggle itself.
 - `workspace.styling.pane_mode_color`, `workspace.styling.transition_duration`, and `workspace.styling.mode_indicator_toaster_enabled` control the pane-local Vim Mode visuals.
 - Scroll execution: CEF and WebKit both use the shared `BuildPageScrollByJS` resolver when the page is ready. Each step starts under the viewport center, walks up through ancestors that can move in the requested direction, and hands scrolling to the document when a nested container reaches its boundary. The application repeater owns held-key cadence; each engine executes one immediate scroll step per tick. Cross-origin frame contents remain best-effort. CEF may use native precision-wheel input only as a pre-frame fallback before the browser/main frame is ready.
