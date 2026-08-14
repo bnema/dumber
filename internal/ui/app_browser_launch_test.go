@@ -51,6 +51,10 @@ func (r *testBrowserLaunchRelay) DeliverOpenExternalURL(context.Context, string)
 	return false, nil
 }
 
+func (r *testBrowserLaunchRelay) DeliverOpenFreshWindow(context.Context, string) (bool, error) {
+	return false, nil
+}
+
 func (r *testBrowserLaunchRelay) Listen(_ context.Context, opener port.BrowserWindowOpener) (io.Closer, error) {
 	r.listenCalls++
 	_ = opener

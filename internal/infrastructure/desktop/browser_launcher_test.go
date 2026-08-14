@@ -11,9 +11,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestBrowserLauncher_LaunchURL_ReturnsWithoutSpawningWhenRelayDelivers(t *testing.T) {
+func TestBrowserLauncher_LaunchFreshWindowURL_ReturnsWithoutSpawningWhenRelayDelivers(t *testing.T) {
 	relay := mocks.NewMockBrowserLaunchRelay(t)
-	relay.EXPECT().DeliverOpenExternalURL(context.Background(), "https://example.com").Return(true, nil)
+	relay.EXPECT().DeliverOpenFreshWindow(context.Background(), "https://example.com").Return(true, nil)
 
 	launcher := NewBrowserLauncher(relay)
 	spawned := false
@@ -26,15 +26,15 @@ func TestBrowserLauncher_LaunchURL_ReturnsWithoutSpawningWhenRelayDelivers(t *te
 		return nil
 	}
 
-	err := launcher.LaunchURL(context.Background(), "https://example.com")
+	err := launcher.LaunchFreshWindowURL(context.Background(), "https://example.com")
 
 	require.NoError(t, err)
 	assert.False(t, spawned)
 }
 
-func TestBrowserLauncher_LaunchURL_FallsBackToSpawnWhenRelayMisses(t *testing.T) {
+func TestBrowserLauncher_LaunchFreshWindowURL_FallsBackToSpawnWhenRelayMisses(t *testing.T) {
 	relay := mocks.NewMockBrowserLaunchRelay(t)
-	relay.EXPECT().DeliverOpenExternalURL(context.Background(), "https://example.com").Return(false, nil)
+	relay.EXPECT().DeliverOpenFreshWindow(context.Background(), "https://example.com").Return(false, nil)
 
 	launcher := NewBrowserLauncher(relay)
 	launcher.resolveExecutablePath = func() (string, error) {
@@ -47,17 +47,18 @@ func TestBrowserLauncher_LaunchURL_FallsBackToSpawnWhenRelayMisses(t *testing.T)
 		return nil
 	}
 
-	err := launcher.LaunchURL(context.Background(), "https://example.com")
+	err := launcher.LaunchFreshWindowURL(context.Background(), "https://example.com")
 
 	require.NoError(t, err)
 	require.NotNil(t, gotCmd)
 	assert.Equal(t, "/usr/bin/dumber", gotCmd.Path)
 	assert.Equal(t, []string{"/usr/bin/dumber", "browse", "https://example.com"}, gotCmd.Args)
+	assert.Contains(t, gotCmd.Env, FreshWindowLaunchEnvVar+"=1")
 }
 
-func TestBrowserLauncher_LaunchURL_ReturnsUnconfirmedErrorWhenRelayDeliveryIsAmbiguous(t *testing.T) {
+func TestBrowserLauncher_LaunchFreshWindowURL_ReturnsUnconfirmedErrorWhenRelayDeliveryIsAmbiguous(t *testing.T) {
 	relay := mocks.NewMockBrowserLaunchRelay(t)
-	relay.EXPECT().DeliverOpenExternalURL(context.Background(), "https://example.com").Return(true, ErrBrowserLaunchRelayUnconfirmed)
+	relay.EXPECT().DeliverOpenFreshWindow(context.Background(), "https://example.com").Return(true, ErrBrowserLaunchRelayUnconfirmed)
 
 	launcher := NewBrowserLauncher(relay)
 	launcher.resolveExecutablePath = func() (string, error) {
@@ -69,16 +70,16 @@ func TestBrowserLauncher_LaunchURL_ReturnsUnconfirmedErrorWhenRelayDeliveryIsAmb
 		return nil
 	}
 
-	err := launcher.LaunchURL(context.Background(), "https://example.com")
+	err := launcher.LaunchFreshWindowURL(context.Background(), "https://example.com")
 
 	require.Error(t, err)
 	assert.ErrorIs(t, err, ErrBrowserLaunchUnconfirmed)
 }
 
-func TestBrowserLauncher_LaunchURL_PropagatesRelayError(t *testing.T) {
+func TestBrowserLauncher_LaunchFreshWindowURL_PropagatesRelayError(t *testing.T) {
 	relay := mocks.NewMockBrowserLaunchRelay(t)
 	wantErr := errors.New("relay exploded")
-	relay.EXPECT().DeliverOpenExternalURL(context.Background(), "https://example.com").Return(false, wantErr)
+	relay.EXPECT().DeliverOpenFreshWindow(context.Background(), "https://example.com").Return(false, wantErr)
 
 	launcher := NewBrowserLauncher(relay)
 	launcher.resolveExecutablePath = func() (string, error) {
@@ -90,17 +91,17 @@ func TestBrowserLauncher_LaunchURL_PropagatesRelayError(t *testing.T) {
 		return nil
 	}
 
-	err := launcher.LaunchURL(context.Background(), "https://example.com")
+	err := launcher.LaunchFreshWindowURL(context.Background(), "https://example.com")
 
 	require.Error(t, err)
 	require.ErrorIs(t, err, wantErr)
 	assert.NotContains(t, err.Error(), "https://example.com")
 }
 
-func TestBrowserLauncher_LaunchURL_NilLauncherReturnsError(t *testing.T) {
+func TestBrowserLauncher_LaunchFreshWindowURL_NilLauncherReturnsError(t *testing.T) {
 	var launcher *BrowserLauncher
 
-	err := launcher.LaunchURL(context.Background(), "https://example.com")
+	err := launcher.LaunchFreshWindowURL(context.Background(), "https://example.com")
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "unavailable")

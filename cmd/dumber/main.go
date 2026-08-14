@@ -96,11 +96,28 @@ func launchModeFromArgs(args []string) (launchMode, string) {
 }
 
 func tryForwardBrowseURLToRunningInstance(ctx context.Context, relay port.BrowserLaunchRelay, browseURL string) (bool, error) {
+	return tryForwardBrowserURLToRunningInstance(ctx, relay, browseURL, func(ctx context.Context, url string) (bool, error) {
+		return relay.DeliverOpenExternalURL(ctx, url)
+	})
+}
+
+func tryForwardFreshWindowURLToRunningInstance(ctx context.Context, relay port.BrowserLaunchRelay, browseURL string) (bool, error) {
+	return tryForwardBrowserURLToRunningInstance(ctx, relay, browseURL, func(ctx context.Context, url string) (bool, error) {
+		return relay.DeliverOpenFreshWindow(ctx, url)
+	})
+}
+
+func tryForwardBrowserURLToRunningInstance(
+	ctx context.Context,
+	relay port.BrowserLaunchRelay,
+	browseURL string,
+	deliver func(context.Context, string) (bool, error),
+) (bool, error) {
 	if relay == nil {
 		return false, nil
 	}
 
-	delivered, err := relay.DeliverOpenExternalURL(ctx, browseURL)
+	delivered, err := deliver(ctx, browseURL)
 	if err != nil {
 		if delivered && errors.Is(err, desktop.ErrBrowserLaunchRelayUnconfirmed) {
 			return true, nil
@@ -193,7 +210,15 @@ func main() {
 		timing.configComplete = time.Now()
 		configureBrowserLaunchRelay(cfg)
 		startupURL := domainurl.ResolveBrowserStartupURL(browseURL)
-		if forwarded, err := tryForwardBrowseURLToRunningInstance(context.Background(), browserLaunchRelay, startupURL); err != nil {
+		freshWindow := os.Getenv(desktop.FreshWindowLaunchEnvVar) == "1"
+		if freshWindow {
+			_ = os.Unsetenv(desktop.FreshWindowLaunchEnvVar)
+		}
+		forward := tryForwardBrowseURLToRunningInstance
+		if freshWindow {
+			forward = tryForwardFreshWindowURLToRunningInstance
+		}
+		if forwarded, err := forward(context.Background(), browserLaunchRelay, startupURL); err != nil {
 			fmt.Fprintf(
 				os.Stderr,
 				"warning: failed to forward browse URL %q to a running instance, falling back to a new process: %v\n",
@@ -961,7 +986,7 @@ func buildUIDependencies(
 		},
 		LaunchExternalURL: desktop.LaunchExternalURL,
 		LaunchBrowserURL: func(navCtx context.Context, uri string) error {
-			return launchStandaloneBrowserURL(navCtx, browserLauncher.LaunchURL, uri)
+			return launchStandaloneBrowserURL(navCtx, browserLauncher.LaunchFreshWindowURL, uri)
 		},
 		BrowserLaunchRelay: browserLaunchRelay,
 		MigrationChecker:   config.NewMigrator(),

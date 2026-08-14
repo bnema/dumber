@@ -21,6 +21,23 @@ func (f browserWindowOpenerFunc) OpenExternalURL(ctx context.Context, url string
 	return f(ctx, url)
 }
 
+func (f browserWindowOpenerFunc) OpenFreshWindow(ctx context.Context, url string) error {
+	return f(ctx, url)
+}
+
+type browserWindowOpener struct {
+	openExternalURL func(context.Context, string) error
+	openFreshWindow func(context.Context, string) error
+}
+
+func (o browserWindowOpener) OpenExternalURL(ctx context.Context, url string) error {
+	return o.openExternalURL(ctx, url)
+}
+
+func (o browserWindowOpener) OpenFreshWindow(ctx context.Context, url string) error {
+	return o.openFreshWindow(ctx, url)
+}
+
 func waitForSocket(t *testing.T, path string) {
 	t.Helper()
 
@@ -230,10 +247,16 @@ func TestBrowserLaunchRelay_DeliverOpenExternalURL_RoundTrip(t *testing.T) {
 	received := make(chan string, 1)
 	ctx := t.Context()
 
-	closer, err := relay.Listen(ctx, browserWindowOpenerFunc(func(_ context.Context, url string) error {
-		received <- url
-		return nil
-	}))
+	closer, err := relay.Listen(ctx, browserWindowOpener{
+		openExternalURL: func(_ context.Context, url string) error {
+			received <- url
+			return nil
+		},
+		openFreshWindow: func(context.Context, string) error {
+			t.Fatal("external URL relay request must preserve configured placement")
+			return nil
+		},
+	})
 	require.NoError(t, err)
 	defer closer.Close()
 
@@ -249,6 +272,38 @@ func TestBrowserLaunchRelay_DeliverOpenExternalURL_RoundTrip(t *testing.T) {
 		assert.Equal(t, "https://example.com/new", got)
 	case <-time.After(time.Second):
 		t.Fatal("expected opener to receive the URL")
+	}
+}
+
+func TestBrowserLaunchRelay_DeliverOpenFreshWindow_RoundTrip(t *testing.T) {
+	ipc := testIPC(shortTempDir(t))
+	relay := NewBrowserLaunchRelay(ipc)
+
+	freshWindows := make(chan string, 1)
+	ctx := t.Context()
+	closer, err := relay.Listen(ctx, browserWindowOpener{
+		openExternalURL: func(context.Context, string) error {
+			t.Fatal("external-link placement must not handle standalone omnibox navigation")
+			return nil
+		},
+		openFreshWindow: func(_ context.Context, url string) error {
+			freshWindows <- url
+			return nil
+		},
+	})
+	require.NoError(t, err)
+	defer closer.Close()
+
+	waitForSocket(t, ipc.BrowserLaunchSocket)
+	delivered, err := relay.DeliverOpenFreshWindow(context.Background(), "https://example.com/omnibox")
+
+	require.NoError(t, err)
+	require.True(t, delivered)
+	select {
+	case got := <-freshWindows:
+		assert.Equal(t, "https://example.com/omnibox", got)
+	case <-time.After(time.Second):
+		t.Fatal("expected fresh-window opener to receive the URL")
 	}
 }
 
