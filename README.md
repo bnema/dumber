@@ -7,7 +7,7 @@
   <a href="https://github.com/bnema/dumber/stargazers"><img src="https://badgen.net/github/stars/bnema/dumber?icon=github" alt="GitHub stars"></a>
 </p>
 
-<p align="center">A keyboard-driven, pane-based web browser for Linux Wayland.</p>
+<p align="center">Keyboard-driven web browser for tiling WMs, inspired by Zellij, built in Go.</p>
 
 <p align="center"><a href="https://bnema.dev/dumber">Website</a> · <a href="https://bnema.dev/dumber/docs">Documentation</a> · <a href="https://bnema.dev/dumber/docs/reference/keybindings">Keybindings</a></p>
 
@@ -17,11 +17,7 @@ Tabs contain workspaces. Workspaces contain panes. Panes can be split, stacked, 
 
 The layout model is inspired by terminal multiplexers such as Zellij and tmux, but applied to web browsing this is particularly suited for Wayland compositors such as Niri or Hyprland.
 
-## Demo
-
 https://github.com/user-attachments/assets/232822af-08e4-4a74-9416-87f79c96b118
-
-The demo shows split panes, stacked panes, modal navigation, and workspace switching.
 
 ## Overview
 
