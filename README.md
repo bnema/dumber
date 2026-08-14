@@ -1,14 +1,21 @@
-# Dumber
+<h1 align="center">Dumber</h1>
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT) [![Go Report Card](https://goreportcard.com/badge/github.com/bnema/dumber)](https://goreportcard.com/report/github.com/bnema/dumber)
+<p align="center">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="License: MIT"></a>
+  <a href="https://github.com/bnema/dumber/releases"><img src="https://img.shields.io/badge/platform-Linux%20Wayland%20only-blue?style=flat-square" alt="Platform: Linux Wayland only"></a>
+  <a href="https://github.com/bnema/dumber/commits/main"><img src="https://badgen.net/github/last-commit/bnema/dumber/main?icon=github" alt="Last commit"></a>
+  <a href="https://github.com/bnema/dumber/stargazers"><img src="https://badgen.net/github/stars/bnema/dumber?icon=github" alt="GitHub stars"></a>
+</p>
+
+<p align="center">A keyboard-driven, pane-based web browser for Linux Wayland.</p>
+
+<p align="center"><a href="https://bnema.dev/dumber">Website</a> · <a href="https://bnema.dev/dumber/docs">Documentation</a> · <a href="https://bnema.dev/dumber/docs/reference/keybindings">Keybindings</a></p>
 
 Dumber is a keyboard-driven web browser, built around panes, workspaces, and modal controls.
 
 Tabs contain workspaces. Workspaces contain panes. Panes can be split, stacked, moved, resized, and closed from the keyboard.
 
 The layout model is inspired by terminal multiplexers such as Zellij and tmux, but applied to web browsing this is particularly suited for Wayland compositors such as Niri or Hyprland.
-
-[Website](https://dumber.bnema.dev) · [Documentation](https://dumber.bnema.dev/docs) · [Keybindings](https://dumber.bnema.dev/docs/reference/keybindings)
 
 ## Demo
 
@@ -70,7 +77,7 @@ The browser chrome stays out of the way by default. Open the omnibox when you wa
 ### Install script
 
 ```bash
-curl -fsSL https://dumber.bnema.dev/install | sh
+curl -fsSL https://raw.githubusercontent.com/bnema/dumber/main/install.sh | sh
 dumber browse
 ```
 
@@ -89,7 +96,7 @@ flatpak install --user dumber.flatpak
 flatpak run dev.bnema.Dumber browse
 ```
 
-For dependencies, distribution notes, and troubleshooting, see the [installation documentation](https://dumber.bnema.dev/docs).
+For dependencies, distribution notes, and troubleshooting, see the [installation documentation](https://bnema.dev/dumber/docs).
 
 ## Keyboard modes
 
@@ -112,7 +119,7 @@ The floating pane is a temporary browser pane that can be toggled without changi
 - Profile shortcuts such as `Alt+G` are optional and configured under `workspace.floating_pane.profiles`.
 - Some `Alt+<key>` bindings may conflict with browser-engine shortcuts or desktop-level handlers.
 
-See the [floating pane reference](https://dumber.bnema.dev/docs/reference/floating-pane) for setup and behavior details.
+See the [floating pane reference](https://bnema.dev/dumber/docs/reference/floating-pane) for setup and behavior details.
 
 ## Configuration
 
@@ -126,7 +133,7 @@ type = "cef"
 enabled = true
 ```
 
-The config reloads while Dumber is running. See the [configuration documentation](https://dumber.bnema.dev/docs) for all options.
+The config reloads while Dumber is running. See the [configuration documentation](https://bnema.dev/dumber/docs) for all options.
 
 ## Browser engine
 
