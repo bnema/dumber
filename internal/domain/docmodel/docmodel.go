@@ -15,6 +15,8 @@ type BlockKind string
 const (
 	// BlockKindHeading marks blocks that participate in heading motions.
 	BlockKindHeading BlockKind = "heading"
+	// BlockKindParagraph marks a paragraph block for Vim Mode paragraph motions.
+	BlockKindParagraph BlockKind = "paragraph"
 	// BlockKindCode marks a structural code block for Vim Mode block-kind motions.
 	BlockKindCode BlockKind = "code"
 	// BlockKindTable marks a structural table block for Vim Mode block-kind motions.
