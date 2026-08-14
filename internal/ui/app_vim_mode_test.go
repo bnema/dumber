@@ -879,20 +879,20 @@ func TestVimMode_TabSwitchExitsAndClearsOldAccent(t *testing.T) {
 	assert.False(t, f.pv1A.IsVimMode())
 }
 
-func TestVimMode_ActivationBypassWhenActivePageIsEditable(t *testing.T) {
+func TestVimMode_ActivationRemainsAvailableWhenPageIsEditable(t *testing.T) {
 	f := newSingleWindowVimModeFixture(t)
 	f.app.pageEditableFocusByPane = map[entity.PaneID]bool{
 		"pane-a": true,
 	}
 
-	assert.True(t, f.app.shouldBypassVimModeActivation(f.bw1))
+	assert.False(t, f.app.shouldBypassVimModeActivation(f.bw1))
 }
 
-func TestVimMode_ActivationBypassClearsWhenEditableFocusLeaves(t *testing.T) {
+func TestVimMode_ActivationAvailabilityDoesNotDependOnEditableFocus(t *testing.T) {
 	f := newSingleWindowVimModeFixture(t)
 
 	f.app.handlePageEditableFocusChanged(context.Background(), entity.PaneID("pane-a"), true)
-	assert.True(t, f.app.shouldBypassVimModeActivation(f.bw1))
+	assert.False(t, f.app.shouldBypassVimModeActivation(f.bw1))
 
 	f.app.handlePageEditableFocusChanged(context.Background(), entity.PaneID("pane-a"), false)
 	assert.False(t, f.app.shouldBypassVimModeActivation(f.bw1))

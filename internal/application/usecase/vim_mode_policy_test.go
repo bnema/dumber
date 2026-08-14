@@ -13,12 +13,12 @@ func TestVimModePolicyEvaluate(t *testing.T) {
 		want  VimModePolicyTransition
 	}{
 		{
-			name: "activation blocked while page editable focused",
+			name: "activation stays allowed while page editable focused",
 			input: VimModePolicyInput{
 				Trigger:             VimModePolicyTriggerActivationAttempt,
 				PageEditableFocused: true,
 			},
-			want: VimModePolicyTransitionBlockActivation,
+			want: VimModePolicyTransitionStay,
 		},
 		{
 			name: "activation stays allowed when page is not editable",

@@ -407,6 +407,13 @@ func (h *KeyboardHandler) handleKeyPress(keyval, keycode uint, state gdk.Modifie
 		}
 	}
 
+	// Page focus traversal remains native in normal mode. Keep Tab and
+	// Shift+Tab out of the shortcut lookup so a focused CEF page control can
+	// handle both directions consistently.
+	if shouldPassthroughNativePageFocusNavigation(mode, keyval, modifiers) {
+		return false
+	}
+
 	// Determine routing for this key event
 	route := RouteHandleShortcuts // default: process through shortcut system
 	if routeKey != nil && mode == ModeNormal {
@@ -612,6 +619,18 @@ func normalizeKeyval(keyval uint) uint {
 	return keyval
 }
 
+func shouldPassthroughNativePageFocusNavigation(mode Mode, keyval uint, modifiers Modifier) bool {
+	if mode != ModeNormal {
+		return false
+	}
+	switch keyval {
+	case uint(gdk.KEY_Tab), uint(gdk.KEY_ISO_Left_Tab):
+		return modifiers == ModNone || modifiers == ModShift
+	default:
+		return false
+	}
+}
+
 func shouldPassthroughNativeVimModeNavigation(mode Mode, keyval uint, modifiers Modifier) bool {
 	if mode != ModeVim {
 		return false
@@ -619,9 +638,7 @@ func shouldPassthroughNativeVimModeNavigation(mode Mode, keyval uint, modifiers 
 	switch keyval {
 	case uint(gdk.KEY_Left), uint(gdk.KEY_Right), uint(gdk.KEY_Up), uint(gdk.KEY_Down):
 		return modifiers == ModNone
-	case uint(gdk.KEY_Tab):
-		return modifiers == ModNone || modifiers == ModShift
-	case uint(gdk.KEY_ISO_Left_Tab):
+	case uint(gdk.KEY_Tab), uint(gdk.KEY_ISO_Left_Tab):
 		return modifiers == ModNone || modifiers == ModShift
 	default:
 		return false

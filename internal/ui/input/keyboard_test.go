@@ -916,6 +916,32 @@ func TestHandleKeyPress_VimModeTabKeysPassThroughNatively(t *testing.T) {
 	}
 }
 
+func TestHandleKeyPress_NormalModeTabKeysPassThroughNatively(t *testing.T) {
+	ctx := context.Background()
+	workspace := newTestWorkspace()
+
+	h := NewKeyboardHandler(ctx, workspace, newTestSession())
+	for _, test := range []struct {
+		name      string
+		keyval    uint
+		modifiers gdk.ModifierType
+	}{
+		{name: "tab", keyval: uint(gdk.KEY_Tab)},
+		{name: "shift tab", keyval: uint(gdk.KEY_Tab), modifiers: gdk.ShiftMaskValue},
+		{name: "iso left tab", keyval: uint(gdk.KEY_ISO_Left_Tab), modifiers: gdk.ShiftMaskValue},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			consumed := h.handleKeyPress(test.keyval, 0, test.modifiers)
+			if consumed {
+				t.Fatal("tab key should pass through to native page focus navigation in normal mode")
+			}
+			if h.Mode() != ModeNormal {
+				t.Fatal("tab key should keep normal mode active")
+			}
+		})
+	}
+}
+
 func TestHandleKeyPress_VimModeBlocksGlobalShortcutFallback(t *testing.T) {
 	ctx := context.Background()
 	workspace := newTestWorkspace()
