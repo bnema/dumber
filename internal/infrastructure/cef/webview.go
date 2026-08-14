@@ -37,6 +37,7 @@ var (
 	_ port.OAuthCallbackCapable  = (*WebView)(nil)
 	_ port.PageScrollable        = (*WebView)(nil)
 	_ port.PageScrollCanceler    = (*WebView)(nil)
+	_ port.AccessibilityEnabler  = (*WebView)(nil)
 )
 
 // errDestroyed is returned when an operation is attempted on a destroyed WebView.
@@ -151,6 +152,19 @@ type WebView struct {
 	lastAdaptiveFrameRate       int32
 
 	pageScrollQueue pageScrollQueue
+
+	// a11yWorker receives serialized accessibility payloads off the CEF UI
+	// thread. Production leaves it nil unless DUMBER_A11Y_CAPTURE=1.
+	// After publication, a11yWorker/a11yCapture stay immutable; teardown uses
+	// a11yCaptureFinalized so abort/shutdown close the worker once without
+	// racing CEF callback sinks that still read these pointers.
+	a11yWorker           *accessibilityCaptureWorker
+	a11yCapture          *accessibilityCapture
+	a11yCaptureFinalized atomic.Bool
+	a11yStats            accessibilityStats
+	// a11yRequested records EnableAccessibility before the browser host exists.
+	a11yRequested atomic.Bool
+	a11yEnabled   atomic.Bool
 
 	// beginFrameTick drives CEF external BeginFrame requests while the GTK
 	// widget is visible. Access is guarded by mu.
@@ -1222,6 +1236,7 @@ func (wv *WebView) Destroy() {
 	if !wv.destroyed.CompareAndSwap(false, true) {
 		return
 	}
+	wv.shutdownAccessibilityCapture()
 	wv.resetPageScrollQueue()
 	wv.syntheticPopupMu.Lock()
 	wv.syntheticPopups = nil
@@ -2532,6 +2547,37 @@ func (wv *WebView) CancelPageScroll(_ context.Context) {
 	q.heldDY = 0
 	q.mu.Unlock()
 	q.commitMu.Unlock()
+}
+
+// EnableAccessibility records a request to enable CEF accessibility and applies
+// it once the browser host exists. Destroyed views never enable. Calls before
+// host attachment remain pending until OnAfterCreated applies them.
+func (wv *WebView) EnableAccessibility() {
+	if wv == nil || wv.destroyed.Load() {
+		return
+	}
+	wv.a11yRequested.Store(true)
+	wv.applyAccessibilityIfReady()
+}
+
+// applyAccessibilityIfReady performs exactly one SetAccessibilityState after a
+// pending request and a live host are both present.
+func (wv *WebView) applyAccessibilityIfReady() {
+	if wv == nil || wv.destroyed.Load() || !wv.a11yRequested.Load() || wv.a11yEnabled.Load() {
+		return
+	}
+	wv.mu.RLock()
+	host := wv.host
+	wv.mu.RUnlock()
+	if host == nil || !wv.a11yEnabled.CompareAndSwap(false, true) {
+		return
+	}
+	host.SetAccessibilityState(purecef.StateStateEnabled)
+	if wv.ctx != nil {
+		logging.FromContext(wv.ctx).Debug().
+			Uint64("webview_id", uint64(wv.id)).
+			Msg("cef: accessibility enabled")
+	}
 }
 
 func (wv *WebView) resetPageScrollQueue() {

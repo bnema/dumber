@@ -963,6 +963,10 @@ func stackedViewOnActivateIsNil(t *testing.T, sv *layout.StackedView) bool {
 	return reflect.NewAt(fv.Type(), unsafe.Pointer(fv.UnsafeAddr())).Elem().IsNil()
 }
 
+// newTestShellToaster builds a Toaster backed by testify mocks.
+// Callers that Show() must Hide() (or otherwise cancel the dismiss timer)
+// before the test returns — default Show arms a GLib TimeoutAdd that can
+// fire during a later test's MainContext.Iteration and panic on dead mocks.
 func newTestShellToaster(t *testing.T) (*component.Toaster, *layoutmocks.MockBoxWidget, *layoutmocks.MockLabelWidget) {
 	t.Helper()
 
@@ -995,6 +999,9 @@ func TestApp_ShowFilterStatusUsesLastFocusedBrowserWindowToaster(t *testing.T) {
 	toaster, box, label := newTestShellToaster(t)
 	box.EXPECT().SetVisible(true).Once()
 	label.EXPECT().SetText("Ad blocker loading").Once()
+	// Cancel the auto-dismiss GLib timer before mock teardown so a later test
+	// iterating the main context cannot fire hide() on a completed test's mocks.
+	box.EXPECT().SetVisible(false).Once()
 
 	bw := &browserWindow{id: "window-1", appToaster: toaster}
 	app := &App{
@@ -1003,17 +1010,23 @@ func TestApp_ShowFilterStatusUsesLastFocusedBrowserWindowToaster(t *testing.T) {
 	}
 
 	app.showFilterStatus(ctx, port.FilterStatus{State: port.FilterStateLoading, Message: "Ad blocker loading"})
+	toaster.Hide()
 }
 
 func TestTestShellToasterCleanupCancelsAutoDismiss(t *testing.T) {
 	toaster, box, label := newTestShellToaster(t)
 	box.EXPECT().SetVisible(true).Once()
 	label.EXPECT().SetText("will not outlive this test").Once()
-	toaster.Show(context.Background(), "will not outlive this test", component.ToastInfo)
+	toaster.Show(
+		context.Background(),
+		"will not outlive this test",
+		component.ToastInfo,
+		component.WithDuration(component.ToastBriefDurationMs),
+	)
 	toaster.CancelAutoDismiss()
 
 	mainContext := glib.MainContextDefault()
-	deadline := time.Now().Add(component.ToastBriefDurationMs + 600*time.Millisecond)
+	deadline := time.Now().Add(component.ToastBriefDurationMs*time.Millisecond + 600*time.Millisecond)
 	for time.Now().Before(deadline) {
 		for mainContext.Pending() {
 			mainContext.Iteration(false)
@@ -1028,6 +1041,9 @@ func TestApp_CheckConfigMigrationUsesLastFocusedBrowserWindowToaster(t *testing.
 	toaster, box, label := newTestShellToaster(t)
 	box.EXPECT().SetVisible(true).Once()
 	label.EXPECT().SetText("Config has 1 new settings. Run 'dumber config migrate'").Once()
+	// Cancel the auto-dismiss GLib timer before mock teardown so a later test
+	// iterating the main context cannot fire hide() on a completed test's mocks.
+	box.EXPECT().SetVisible(false).Once()
 
 	migrator := portmocks.NewMockConfigMigrator(t)
 	migrator.EXPECT().CheckMigration().Return(&port.MigrationResult{MissingKeys: []string{"update.notify_on_new_settings"}}, nil).Once()
@@ -1046,6 +1062,7 @@ func TestApp_CheckConfigMigrationUsesLastFocusedBrowserWindowToaster(t *testing.
 	}
 
 	app.checkConfigMigration(ctx)
+	toaster.Hide()
 }
 
 func TestApp_FinalizeActivationStartsBrowserLaunchRelayOnceAndClosesOnShutdown(t *testing.T) {

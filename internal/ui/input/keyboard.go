@@ -114,6 +114,8 @@ type KeyboardHandler struct {
 	vimScrollRepeatAdd        func(intervalMS uint, cb *glib.SourceFunc) uint
 	vimScrollRepeatRemove     func(id uint) bool
 	vimScrollNow              func() time.Time
+
+	seq vimModeSequenceState
 }
 
 // NewKeyboardHandler creates a new keyboard handler.
@@ -122,8 +124,13 @@ func NewKeyboardHandler(ctx context.Context, workspace *entity.WorkspaceConfig, 
 
 	log.Debug().Msg("creating keyboard handler")
 
+	shortcuts := NewShortcutSet(ctx, workspace, session)
+	seqTimeout := time.Duration(0)
+	if workspace != nil {
+		seqTimeout = time.Duration(workspace.VimMode.SequenceTimeoutMilliseconds) * time.Millisecond
+	}
 	h := &KeyboardHandler{
-		shortcuts:            NewShortcutSet(ctx, workspace, session),
+		shortcuts:            shortcuts,
 		modal:                NewModalState(ctx),
 		workspace:            workspace,
 		session:              session,
@@ -134,6 +141,7 @@ func NewKeyboardHandler(ctx context.Context, workspace *entity.WorkspaceConfig, 
 		},
 		vimScrollRepeatRemove: glib.SourceRemove,
 		vimScrollNow:          time.Now,
+		seq:                   newVimModeSequenceState(shortcuts.VimModeSequences(), seqTimeout),
 	}
 	h.SetOnModeChange(nil)
 
@@ -168,7 +176,6 @@ func (h *KeyboardHandler) SetVimModeActivationPassthrough(fn func() bool) {
 func (h *KeyboardHandler) ReloadShortcuts(ctx context.Context, workspace *entity.WorkspaceConfig, session *entity.SessionConfig) {
 	h.stopVimScrollRepeat()
 	h.mu.Lock()
-	defer h.mu.Unlock()
 
 	log := logging.FromContext(ctx)
 	log.Debug().Msg("reloading shortcuts from config")
@@ -176,6 +183,14 @@ func (h *KeyboardHandler) ReloadShortcuts(ctx context.Context, workspace *entity
 	h.shortcuts = NewShortcutSet(ctx, workspace, session)
 	h.workspace = workspace
 	h.session = session
+	seqTimeout := time.Duration(0)
+	if workspace != nil {
+		seqTimeout = time.Duration(workspace.VimMode.SequenceTimeoutMilliseconds) * time.Millisecond
+	}
+	h.mu.Unlock()
+
+	h.InvalidateSequenceMatcher()
+	h.SetSequenceTimeout(seqTimeout)
 }
 
 // SetOnModeChange sets the callback for mode changes (for UI updates).
@@ -191,6 +206,8 @@ func (h *KeyboardHandler) SetOnModeChange(fn func(from, to Mode)) {
 		}
 		if to != ModeVim {
 			h.stopVimScrollRepeat()
+			// Silent reset under ModalState lock: no pending callback (avoids Mode() re-entry).
+			h.resetPendingSequence(false)
 		}
 		// Forward to app-level callback
 		if fn != nil {
@@ -270,16 +287,10 @@ func (h *KeyboardHandler) AttachTo(window *gtk.ApplicationWindow) {
 	// so app shortcuts still work.
 	h.controller.SetPropagationPhase(gtk.PhaseBubbleValue)
 
-	// Wire GTK main thread scheduler for modal timeouts. Timer goroutines
-	// must dispatch ExitMode to the GTK thread because onModeChange may
-	// call setControllerPhase (a GTK operation).
-	h.modal.SetMainThreadScheduler(func(fn func()) {
-		cb := glib.SourceFunc(func(_ uintptr) bool {
-			fn()
-			return false
-		})
-		glib.IdleAdd(&cb, 0)
-	})
+	// Wire GTK main thread schedulers for modal and sequence ambiguity timeouts.
+	// Timer goroutines must dispatch back to the GTK thread because callbacks
+	// may touch GTK widgets / EventController phase.
+	h.installGTKMainThreadSchedulers()
 
 	// Connect key pressed handler (retain callback to prevent GC).
 	// The callback receives: keyval (translated key), keycode (hardware key position), state (modifiers)
@@ -301,6 +312,24 @@ func (h *KeyboardHandler) AttachTo(window *gtk.ApplicationWindow) {
 	log.Debug().Msg("keyboard handler attached to window")
 }
 
+// installGTKMainThreadSchedulers routes modal and sequence timer callbacks
+// through glib.IdleAdd so they run on the GTK main thread.
+func (h *KeyboardHandler) installGTKMainThreadSchedulers() {
+	if h == nil {
+		return
+	}
+	schedule := func(fn func()) {
+		cb := glib.SourceFunc(func(_ uintptr) bool {
+			fn()
+			return false
+		})
+		glib.IdleAdd(&cb, 0)
+	}
+	h.modal.SetMainThreadScheduler(schedule)
+	h.SetSequenceMainThreadScheduler(schedule)
+	logging.FromContext(h.ctx).Debug().Msg("gtk main-thread schedulers installed for modal and vim-mode sequences")
+}
+
 // Detach removes the keyboard handler from a live GTK window and releases its
 // retained GTK signal callbacks.
 func (h *KeyboardHandler) Detach() {
@@ -316,6 +345,9 @@ func (h *KeyboardHandler) DetachForDestroy() {
 
 func (h *KeyboardHandler) detach(removeController bool) {
 	h.stopVimScrollRepeat()
+	// Sequence teardown uses seq.mu only; keep it outside h.mu to preserve
+	// the existing h.mu → (never seq) / seq.mu standalone lock order.
+	h.teardownSequenceState()
 	h.mu.Lock()
 	if h.controller != nil && h.keyPressedHandlerID != 0 {
 		h.controller.DisconnectSignal(h.keyPressedHandlerID)
@@ -403,6 +435,11 @@ func (h *KeyboardHandler) handleKeyPress(keyval, keycode uint, state gdk.Modifie
 
 	case RouteHandleShortcuts:
 		// Fall through to shortcut processing below
+	}
+
+	// Vim-mode multi-key sequences run before legacy single-chord lookup.
+	if h.feedVimModeSequence(keyval, state) {
+		return true
 	}
 
 	// --- Shortcut processing path ---

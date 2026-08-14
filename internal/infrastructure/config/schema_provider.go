@@ -489,6 +489,21 @@ func (*SchemaProvider) getWorkspaceKeys(defaults *Config) []entity.ConfigKeyInfo
 			Section:     SectionWorkspace,
 		},
 		{
+			Key:         "workspace.vim_mode.sequence_timeout_ms",
+			Type:        "int",
+			Default:     fmt.Sprintf("%d", defaults.Workspace.VimMode.SequenceTimeoutMilliseconds),
+			Description: "Vim mode multi-key sequence timeout in milliseconds (0 = immediate ambiguity resolution)",
+			Range:       ">=0",
+			Section:     SectionWorkspace,
+		},
+		{
+			Key:         "workspace.vim_mode.preload_accessibility",
+			Type:        "bool",
+			Default:     fmt.Sprintf("%t", defaults.Workspace.VimMode.PreloadAccessibility),
+			Description: "Pre-enable browser accessibility when a WebView is shown (default false; enable on Vim Mode enter otherwise)",
+			Section:     SectionWorkspace,
+		},
+		{
 			Key:         "workspace.vim_mode.actions.<action>",
 			Type:        "object",
 			Default:     "(see defaults)",

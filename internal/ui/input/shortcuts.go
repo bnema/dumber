@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/bnema/dumber/internal/domain/entity"
+	"github.com/bnema/dumber/internal/domain/vimkeys"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/puregotk/v4/gdk"
 )
@@ -233,6 +234,8 @@ type ShortcutSet struct {
 	ResizeMode ShortcutTable
 	// VimMode shortcuts are only active in vim mode.
 	VimMode ShortcutTable
+	// vimModeSequences holds multi-key Vim mode bindings.
+	vimModeSequences *vimkeys.Trie
 }
 
 // NewShortcutSet creates a ShortcutSet from workspace and session configuration.
@@ -302,10 +305,18 @@ func (s *ShortcutSet) buildResizeModeShortcuts(ctx context.Context, cfg *entity.
 	s.buildModeShortcuts(ctx, cfg.ResizeMode.GetKeyBindings(), s.ResizeMode, "resize")
 }
 
-// buildVimModeShortcuts populates vim mode shortcuts from config.
+// buildVimModeShortcuts populates Vim mode shortcuts from config.
+// Trie-owned multi-key bindings are excluded from the legacy table.
 func (s *ShortcutSet) buildVimModeShortcuts(ctx context.Context, cfg *entity.WorkspaceConfig) {
 	log := logging.FromContext(ctx)
-	s.buildModeShortcuts(ctx, cfg.VimMode.GetKeyBindings(), s.VimMode, "vim")
+	trie, owned := buildVimModeTrie(&cfg.VimMode)
+	s.vimModeSequences = trie
+	legacy := filterLegacyVimModeBindings(cfg.VimMode.GetKeyBindings(), owned)
+	log.Debug().
+		Int("owned", len(owned)).
+		Int("legacy", len(legacy)).
+		Msg("vim mode sequence trie built")
+	s.buildModeShortcuts(ctx, legacy, s.VimMode, "vim")
 	if binding, ok := ParseKeyString(cfg.VimMode.ActivationShortcut); ok {
 		s.VimMode[binding] = ActionEnterVimMode
 		log.Trace().

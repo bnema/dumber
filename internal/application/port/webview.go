@@ -437,3 +437,10 @@ type PageScrollable interface {
 type PageScrollCanceler interface {
 	CancelPageScroll(ctx context.Context)
 }
+
+// AccessibilityEnabler is an optional capability for adapters that can enable
+// browser accessibility tooling once per WebView. Engines that do not support
+// accessibility leave this unimplemented so callers can type-assert safely.
+type AccessibilityEnabler interface {
+	EnableAccessibility()
+}
