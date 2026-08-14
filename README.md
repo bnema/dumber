@@ -125,9 +125,17 @@ enabled = true
 
 The config reloads while Dumber is running. See the [configuration documentation](https://bnema.dev/dumber/docs) for all options.
 
+## Extensions and ad blocking
+
+CEF does not expose the Extensions API, so browser extensions are not supported. While WebKitGTK can use
+injected filter lists, this approach is not available with CEF.
+
+For consistent ad and tracker blocking across applications and devices, use network-level DNS filtering such as
+[AdGuard](https://adguard.com/) or [Pi-hole](https://pi-hole.net/). DNS filtering is more reliable than treating ad blocking as a browser extension, and it protects every device that uses your network.
+
 ## Browser engine
 
-Dumber uses Chromium Embedded Framework by default. WebKitGTK is available as a fallback backend.
+Dumber uses Chromium Embedded Framework by default. WebKitGTK is available as a second option but I don't use it daily so it is more prone to bugs.
 
 On Arch Linux, install the CEF runtime with:
 
@@ -164,17 +172,7 @@ WebKit can be selected explicitly:
 type = "webkit"
 ```
 
-### Page scroll execution
-
-Page Mode scroll commands are routed through `port.PageScrollable`. CEF and
-WebKit use the shared `BuildScrollByJS` target resolver when the page is ready:
-it starts under the viewport center, walks through ancestors that can move in
-the requested direction, and hands scrolling to the document when a nested
-container reaches its boundary. The application repeater owns held-key cadence;
-each engine executes one immediate scroll step per tick. Cross-origin frame
-contents remain best-effort.
-
-### Rendering notes
+### Rendering
 
 CEF uses Dumber's GPU-first Wayland render stack by default: GDK DMABUF presentation with ANGLE/GSK Vulkan. For driver compatibility, switch to the EGL/OpenGL stack with `engine.cef.render_stack = "egl"`; the default is `"vulkan"`.
 
