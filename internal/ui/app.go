@@ -1101,6 +1101,9 @@ func (a *App) initBrowserWindowInput(ctx context.Context, bw *browserWindow) {
 		a.handleModeChange(ctx, bw, from, to)
 	})
 	a.bindVimModeSequenceToaster(ctx, bw)
+	bw.keyboardHandler.SetOnSequenceAction(func(action string, count int) {
+		a.navigateVimSequenceAction(ctx, bw, action, count)
+	})
 	bw.keyboardHandler.SetRouteKey(func(kc input.KeyContext) input.KeyRoute {
 		if bw.sessionManager != nil && bw.sessionManager.IsVisible() {
 			return input.RoutePassToWidget
@@ -2158,6 +2161,39 @@ func (a *App) activeWebViewForBrowserWindow(bw *browserWindow) (entity.PaneID, p
 		return paneID, nil
 	}
 	return paneID, a.contentCoord.GetWebView(paneID)
+}
+
+func (a *App) navigateVimSequenceAction(ctx context.Context, bw *browserWindow, action string, count int) {
+	var request port.SemanticNavigationRequest
+	switch action {
+	case "heading-next":
+		request = port.SemanticNavigationRequest{
+			Target:    port.SemanticNavigationTargetHeading,
+			Direction: port.SemanticNavigationForward,
+			Count:     count,
+		}
+	case "heading-prev":
+		request = port.SemanticNavigationRequest{
+			Target:    port.SemanticNavigationTargetHeading,
+			Direction: port.SemanticNavigationBackward,
+			Count:     count,
+		}
+	default:
+		return
+	}
+
+	paneID, wv := a.activeWebViewForBrowserWindow(bw)
+	navigator, ok := wv.(port.SemanticNavigable)
+	if !ok {
+		return
+	}
+	if err := navigator.NavigateSemantic(ctx, request); err != nil {
+		logging.FromContext(ctx).Debug().
+			Err(err).
+			Str("action", action).
+			Str("pane_id", string(paneID)).
+			Msg("vim semantic navigation unavailable")
+	}
 }
 
 func (a *App) enableAccessibilityForVimMode(ctx context.Context, bw *browserWindow) {

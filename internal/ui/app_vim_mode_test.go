@@ -173,6 +173,23 @@ func (wv *accessibilityEnablingWebView) EnableAccessibility() {
 	wv.enableAccessibilityCalls++
 }
 
+type semanticNavigatingWebView struct {
+	*portmocks.MockWebView
+	requests []port.SemanticNavigationRequest
+}
+
+func newSemanticNavigatingWebView(t *testing.T, id port.WebViewID) *semanticNavigatingWebView {
+	t.Helper()
+	wv := portmocks.NewMockWebView(t)
+	wv.EXPECT().ID().Return(id).Once()
+	return &semanticNavigatingWebView{MockWebView: wv}
+}
+
+func (wv *semanticNavigatingWebView) NavigateSemantic(_ context.Context, request port.SemanticNavigationRequest) error {
+	wv.requests = append(wv.requests, request)
+	return nil
+}
+
 func newVimModeAccessibilityFixture(t *testing.T) (*App, *browserWindow, entity.PaneID) {
 	t.Helper()
 	paneID := entity.PaneID("pane-a")
@@ -414,6 +431,30 @@ func TestVimMode_Enter_AccessibilityNoopsWhenActiveWebViewMissing(t *testing.T) 
 	app, bw, _ := newVimModeAccessibilityFixture(t)
 
 	app.handleModeChange(context.Background(), bw, input.ModeNormal, input.ModeVim)
+}
+
+func TestVimMode_SequenceActionNavigatesActiveWebViewHeading(t *testing.T) {
+	app, bw, paneID := newVimModeAccessibilityFixture(t)
+	wv := newSemanticNavigatingWebView(t, 4)
+	app.contentCoord.RegisterPopupWebView(paneID, wv)
+
+	app.navigateVimSequenceAction(context.Background(), bw, "heading-next", 3)
+	app.navigateVimSequenceAction(context.Background(), bw, "heading-prev", 0)
+	app.navigateVimSequenceAction(context.Background(), bw, "code-next", 1)
+
+	assert.Equal(t, []port.SemanticNavigationRequest{
+		{Target: port.SemanticNavigationTargetHeading, Direction: port.SemanticNavigationForward, Count: 3},
+		{Target: port.SemanticNavigationTargetHeading, Direction: port.SemanticNavigationBackward, Count: 0},
+	}, wv.requests)
+}
+
+func TestVimMode_SequenceActionNoopsForUnsupportedActiveWebView(t *testing.T) {
+	app, bw, paneID := newVimModeAccessibilityFixture(t)
+	wv := portmocks.NewMockWebView(t)
+	wv.EXPECT().ID().Return(port.WebViewID(5)).Once()
+	app.contentCoord.RegisterPopupWebView(paneID, wv)
+
+	app.navigateVimSequenceAction(context.Background(), bw, "heading-next", 1)
 }
 
 func TestVimMode_AccessibilityOnlyEnabledOnEnteringVimMode(t *testing.T) {
