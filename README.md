@@ -2,12 +2,12 @@
 
 <p align="center">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="License: MIT"></a>
-  <a href="https://github.com/bnema/dumber/releases"><img src="https://img.shields.io/badge/platform-Linux%20Wayland%20only-blue?style=flat-square" alt="Platform: Linux Wayland only"></a>
+  <a href="https://github.com/bnema/dumber/releases"><img src="https://img.shields.io/badge/platform-Linux%20Wayland%20only-blue?style=flat-square" alt="Platform: Linux Wayland"></a>
   <a href="https://github.com/bnema/dumber/commits/main"><img src="https://badgen.net/github/last-commit/bnema/dumber/main?icon=github" alt="Last commit"></a>
   <a href="https://github.com/bnema/dumber/stargazers"><img src="https://badgen.net/github/stars/bnema/dumber?icon=github" alt="GitHub stars"></a>
 </p>
 
-<p align="center">Keyboard-driven web browser for tiling WMs, inspired by Zellij, built in Go.</p>
+<p align="center">Minimal Keyboard-driven web browser for tiling WMs, inspired by Zellij, built in Go.</p>
 
 <p align="center"><a href="https://bnema.dev/dumber">Website</a> · <a href="https://bnema.dev/dumber/docs">Documentation</a> · <a href="https://bnema.dev/dumber/docs/reference/keybindings">Keybindings</a></p>
 
