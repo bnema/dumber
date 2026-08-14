@@ -1104,6 +1104,9 @@ func (a *App) initBrowserWindowInput(ctx context.Context, bw *browserWindow) {
 	bw.keyboardHandler.SetOnSequenceAction(func(action string, count int) {
 		a.navigateVimSequenceAction(ctx, bw, action, count)
 	})
+	bw.keyboardHandler.SetOnPageFocusNavigation(func(navigationCtx context.Context, backward bool) bool {
+		return a.navigatePageFocus(navigationCtx, bw, backward)
+	})
 	bw.keyboardHandler.SetRouteKey(func(kc input.KeyContext) input.KeyRoute {
 		if bw.sessionManager != nil && bw.sessionManager.IsVisible() {
 			return input.RoutePassToWidget
@@ -2163,11 +2166,24 @@ func (a *App) activeWebViewForBrowserWindow(bw *browserWindow) (entity.PaneID, p
 	return paneID, a.contentCoord.GetWebView(paneID)
 }
 
+func (a *App) navigatePageFocus(_ context.Context, bw *browserWindow, backward bool) bool {
+	paneID, wv := a.activeWebViewForBrowserWindow(bw)
+	if paneID == "" || !a.pageEditableFocused(paneID) {
+		return false
+	}
+	navigator, ok := wv.(port.PageFocusNavigator)
+	if !ok {
+		return false
+	}
+	navigator.NavigatePageFocus(backward)
+	return true
+}
+
 func (a *App) navigateVimSequenceAction(ctx context.Context, bw *browserWindow, action string, count int) {
 	if action == "focus-input" {
 		_, wv := a.activeWebViewForBrowserWindow(bw)
 		if focuser, ok := wv.(port.PageInputFocuser); ok {
-			focuser.FocusFirstInput()
+			focuser.FocusNextInput()
 		}
 		return
 	}

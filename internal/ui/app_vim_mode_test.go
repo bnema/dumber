@@ -192,7 +192,8 @@ func (wv *semanticNavigatingWebView) NavigateSemantic(_ context.Context, request
 
 type inputFocusingWebView struct {
 	*portmocks.MockWebView
-	focusFirstInputCalls int
+	focusNextInputCalls      int
+	pageFocusNavigationCalls []bool
 }
 
 func newInputFocusingWebView(t *testing.T, id port.WebViewID) *inputFocusingWebView {
@@ -202,8 +203,12 @@ func newInputFocusingWebView(t *testing.T, id port.WebViewID) *inputFocusingWebV
 	return &inputFocusingWebView{MockWebView: wv}
 }
 
-func (wv *inputFocusingWebView) FocusFirstInput() {
-	wv.focusFirstInputCalls++
+func (wv *inputFocusingWebView) FocusNextInput() {
+	wv.focusNextInputCalls++
+}
+
+func (wv *inputFocusingWebView) NavigatePageFocus(backward bool) {
+	wv.pageFocusNavigationCalls = append(wv.pageFocusNavigationCalls, backward)
 }
 
 func newVimModeAccessibilityFixture(t *testing.T) (*App, *browserWindow, entity.PaneID) {
@@ -476,14 +481,24 @@ func TestVimMode_SequenceActionNavigatesActiveWebViewHeading(t *testing.T) {
 	}, wv.requests)
 }
 
-func TestVimMode_SequenceActionFocusesFirstInput(t *testing.T) {
+func TestVimMode_SequenceActionFocusesNextInput(t *testing.T) {
 	app, bw, paneID := newVimModeAccessibilityFixture(t)
 	wv := newInputFocusingWebView(t, 6)
 	app.contentCoord.RegisterPopupWebView(paneID, wv)
 
 	app.navigateVimSequenceAction(context.Background(), bw, "focus-input", 1)
 
-	assert.Equal(t, 1, wv.focusFirstInputCalls)
+	assert.Equal(t, 1, wv.focusNextInputCalls)
+}
+
+func TestVimMode_NativePageFocusNavigationUsesActiveEditableWebView(t *testing.T) {
+	app, bw, paneID := newVimModeAccessibilityFixture(t)
+	wv := newInputFocusingWebView(t, 7)
+	app.contentCoord.RegisterPopupWebView(paneID, wv)
+	app.pageEditableFocusByPane = map[entity.PaneID]bool{paneID: true}
+
+	assert.True(t, app.navigatePageFocus(context.Background(), bw, true))
+	assert.Equal(t, []bool{true}, wv.pageFocusNavigationCalls)
 }
 
 func TestVimMode_SequenceActionNoopsForUnsupportedActiveWebView(t *testing.T) {

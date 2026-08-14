@@ -942,6 +942,24 @@ func TestHandleKeyPress_NormalModeTabKeysPassThroughNatively(t *testing.T) {
 	}
 }
 
+func TestHandleKeyPress_PageFocusNavigationHandlerConsumesReverseTab(t *testing.T) {
+	ctx := context.Background()
+	workspace := newTestWorkspace()
+	h := NewKeyboardHandler(ctx, workspace, newTestSession())
+	var gotBackward bool
+	h.SetOnPageFocusNavigation(func(_ context.Context, backward bool) bool {
+		gotBackward = backward
+		return true
+	})
+
+	if !h.handleKeyPress(uint(gdk.KEY_ISO_Left_Tab), 0, gdk.ShiftMaskValue) {
+		t.Fatal("handled page focus navigation should consume reverse tab")
+	}
+	if !gotBackward {
+		t.Fatal("reverse tab should call page focus navigation backward")
+	}
+}
+
 func TestHandleKeyPress_VimModeBlocksGlobalShortcutFallback(t *testing.T) {
 	ctx := context.Background()
 	workspace := newTestWorkspace()

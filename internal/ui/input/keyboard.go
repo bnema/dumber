@@ -49,6 +49,10 @@ const (
 // matching stop event without changing the normal configurable action API.
 type VimScrollLifecycleHandler func(ctx context.Context, action Action, phase VimScrollPhase) error
 
+// PageFocusNavigationHandler handles native-like focus traversal inside the
+// focused page. It returns true when the event was handled by the page.
+type PageFocusNavigationHandler func(ctx context.Context, backward bool) bool
+
 const (
 	vimScrollHoldDelay = 250 * time.Millisecond
 	vimScrollCadence   = 16 * time.Millisecond
@@ -77,8 +81,9 @@ type KeyboardHandler struct {
 	session   *entity.SessionConfig
 
 	// Action handler callbacks.
-	onAction             ActionHandler
-	onVimScrollLifecycle VimScrollLifecycleHandler
+	onAction              ActionHandler
+	onVimScrollLifecycle  VimScrollLifecycleHandler
+	onPageFocusNavigation PageFocusNavigationHandler
 	// Optional routing callback that determines how a key should be handled.
 	// Returns RouteHandleShortcuts (default), RoutePassToWidget (let focused
 	// widget handle it), or RouteAccentDetection (long-press accent for GTK entries).
@@ -161,6 +166,14 @@ func (h *KeyboardHandler) SetOnVimScrollLifecycle(fn VimScrollLifecycleHandler) 
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	h.onVimScrollLifecycle = fn
+}
+
+// SetOnPageFocusNavigation sets the optional callback for keeping page focus
+// traversal inside the active WebView.
+func (h *KeyboardHandler) SetOnPageFocusNavigation(fn PageFocusNavigationHandler) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.onPageFocusNavigation = fn
 }
 
 // SetVimModeActivationPassthrough sets the callback that can block Vim mode
@@ -407,11 +420,11 @@ func (h *KeyboardHandler) handleKeyPress(keyval, keycode uint, state gdk.Modifie
 		}
 	}
 
-	// Page focus traversal remains native in normal mode. Keep Tab and
-	// Shift+Tab out of the shortcut lookup so a focused CEF page control can
-	// handle both directions consistently.
+	// Page focus traversal must stay out of shortcut lookup. The callback keeps
+	// traversal inside CEF when the active page control needs it; otherwise the
+	// event passes through to the native widget.
 	if shouldPassthroughNativePageFocusNavigation(mode, keyval, modifiers) {
-		return false
+		return h.handlePageFocusNavigation(keyval, modifiers)
 	}
 
 	// Determine routing for this key event
@@ -619,8 +632,19 @@ func normalizeKeyval(keyval uint) uint {
 	return keyval
 }
 
+func (h *KeyboardHandler) handlePageFocusNavigation(keyval uint, modifiers Modifier) bool {
+	h.mu.RLock()
+	handler := h.onPageFocusNavigation
+	h.mu.RUnlock()
+	if handler == nil {
+		return false
+	}
+	backward := keyval == uint(gdk.KEY_ISO_Left_Tab) || modifiers == ModShift
+	return handler(h.ctx, backward)
+}
+
 func shouldPassthroughNativePageFocusNavigation(mode Mode, keyval uint, modifiers Modifier) bool {
-	if mode != ModeNormal {
+	if mode != ModeNormal && mode != ModeVim {
 		return false
 	}
 	switch keyval {
