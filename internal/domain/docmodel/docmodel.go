@@ -15,6 +15,12 @@ type BlockKind string
 const (
 	// BlockKindHeading marks blocks that participate in heading motions.
 	BlockKindHeading BlockKind = "heading"
+	// BlockKindCode marks a structural code block for Vim Mode block-kind motions.
+	BlockKindCode BlockKind = "code"
+	// BlockKindTable marks a structural table block for Vim Mode block-kind motions.
+	BlockKindTable BlockKind = "table"
+	// BlockKindImage marks a structural image block for Vim Mode block-kind motions.
+	BlockKindImage BlockKind = "image"
 
 	// MinHeadingLevel is the lowest valid heading level.
 	MinHeadingLevel = 1

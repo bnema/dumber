@@ -16,6 +16,20 @@ func (d Document) PreviousHeading(from Cursor, count int, levels ...int) (Cursor
 	return d.headingMotion(from, count, -1, levels)
 }
 
+// NextBlockOfKind returns the cursor for the count-th block of kind after from.
+// Motions are strict: a block at from is not considered a match. A count less
+// than or equal to zero is treated as one. Empty kinds never match.
+func (d Document) NextBlockOfKind(from Cursor, kind BlockKind, count int) (Cursor, bool) {
+	return d.blockKindMotion(from, kind, count, 1)
+}
+
+// PreviousBlockOfKind returns the cursor for the count-th block of kind before
+// from. Motions are strict: a block at from is not considered a match. A count
+// less than or equal to zero is treated as one. Empty kinds never match.
+func (d Document) PreviousBlockOfKind(from Cursor, kind BlockKind, count int) (Cursor, bool) {
+	return d.blockKindMotion(from, kind, count, -1)
+}
+
 func (d Document) headingMotion(from Cursor, count, direction int, levels []int) (Cursor, bool) {
 	start, ok := d.indexByID[from.BlockID]
 	if !ok {
@@ -30,6 +44,36 @@ func (d Document) headingMotion(from Cursor, count, direction int, levels []int)
 	for i := start + direction; i >= 0 && i < len(d.blocks); i += direction {
 		block := d.blocks[i]
 		if !block.IsHeading() || !headingLevelMatches(block.HeadingLevel, levels) {
+			continue
+		}
+
+		remaining--
+		if remaining == 0 {
+			return Cursor{BlockID: block.ID}, true
+		}
+	}
+
+	return Cursor{}, false
+}
+
+func (d Document) blockKindMotion(from Cursor, kind BlockKind, count, direction int) (Cursor, bool) {
+	if kind == "" {
+		return Cursor{}, false
+	}
+
+	start, ok := d.indexByID[from.BlockID]
+	if !ok {
+		return Cursor{}, false
+	}
+
+	if count <= 0 {
+		count = 1
+	}
+
+	remaining := count
+	for i := start + direction; i >= 0 && i < len(d.blocks); i += direction {
+		block := d.blocks[i]
+		if block.Kind != kind {
 			continue
 		}
 
