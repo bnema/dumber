@@ -335,6 +335,40 @@ func TestMatcher_ResolveAmbiguityInvalid(t *testing.T) {
 	}
 }
 
+func TestMatcher_NilTriePendingEmpty(t *testing.T) {
+	m := NewMatcher(nil)
+	if got := m.Pending(); got != "" {
+		t.Fatalf("Pending() = %q, want empty", got)
+	}
+}
+
+func TestMatcher_NilTrieAmbiguousFalse(t *testing.T) {
+	m := NewMatcher(nil)
+	if m.Ambiguous() {
+		t.Fatal("Ambiguous() = true, want false")
+	}
+}
+
+func TestMatcher_NilTrieFeedInvalid(t *testing.T) {
+	m := NewMatcher(nil)
+
+	for _, key := range []Key{{Sym: "x"}, {Sym: "2"}} {
+		result := m.Feed(key)
+		if result.Kind != ResultInvalid {
+			t.Fatalf("Feed(%v) kind = %v, want %v", key, result.Kind, ResultInvalid)
+		}
+		if result.Pending != "" {
+			t.Fatalf("Feed(%v) pending = %q, want empty", key, result.Pending)
+		}
+		if got := m.Pending(); got != "" {
+			t.Fatalf("after Feed(%v) Pending() = %q, want empty", key, got)
+		}
+		if m.Ambiguous() {
+			t.Fatalf("after Feed(%v) Ambiguous() = true, want false", key)
+		}
+	}
+}
+
 func TestMatcher_InvalidDeadEnd(t *testing.T) {
 	trie := NewTrie()
 	trie.root.children[Key{Sym: "x"}] = newTrieNode()

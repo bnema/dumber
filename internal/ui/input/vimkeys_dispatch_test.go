@@ -67,6 +67,23 @@ func captureSequenceActions(h *KeyboardHandler) *[]struct {
 	return actions
 }
 
+func TestNewVimModeSequenceState_NilTrie(t *testing.T) {
+	state := newVimModeSequenceState(nil, 0)
+	if state.matcher == nil {
+		t.Fatal("matcher is nil")
+	}
+	if got := state.matcher.Pending(); got != "" {
+		t.Fatalf("Pending() = %q, want empty", got)
+	}
+	if state.matcher.Ambiguous() {
+		t.Fatal("Ambiguous() = true, want false")
+	}
+	result := state.matcher.Feed(vimkeys.Key{Sym: "x"})
+	if result.Kind != vimkeys.ResultInvalid {
+		t.Fatalf("Feed kind = %v, want %v", result.Kind, vimkeys.ResultInvalid)
+	}
+}
+
 func TestTrieOwnsBinding(t *testing.T) {
 	cases := map[string]bool{
 		"]]":      true,

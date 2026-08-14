@@ -36,6 +36,9 @@ func NewMatcher(trie *Trie) *Matcher {
 
 // Reset clears matcher state.
 func (m *Matcher) Reset() {
+	if m == nil {
+		return
+	}
 	m.node = nil
 	m.pending = nil
 	m.count = 0
@@ -45,16 +48,24 @@ func (m *Matcher) Reset() {
 
 // Pending returns the count prefix and keys matched so far.
 func (m *Matcher) Pending() string {
+	if !m.hasTrie() {
+		return ""
+	}
 	return formatPending(m.count, m.pending)
 }
 
 // Ambiguous reports whether the current prefix is both exact and extendable.
 func (m *Matcher) Ambiguous() bool {
-	return m.ambiguous
+	return m.hasTrie() && m.ambiguous
 }
 
 // Feed consumes one key and returns the current match state.
 func (m *Matcher) Feed(key Key) Result {
+	if !m.hasTrie() {
+		m.Reset()
+		return Result{Kind: ResultInvalid}
+	}
+
 	if m.node == nil && len(m.pending) == 0 && m.count == 0 && !m.inCount {
 		m.beginSequence()
 	}
@@ -71,7 +82,15 @@ func (m *Matcher) Feed(key Key) Result {
 	return m.feedSequenceKey(key)
 }
 
+func (m *Matcher) hasTrie() bool {
+	return m != nil && m.trie != nil && m.trie.root != nil
+}
+
 func (m *Matcher) beginSequence() {
+	if !m.hasTrie() {
+		m.Reset()
+		return
+	}
 	m.node = m.trie.root
 	m.pending = nil
 	m.count = 0
@@ -96,6 +115,12 @@ func (m *Matcher) feedCountDigit(key Key) Result {
 }
 
 func (m *Matcher) feedSequenceKey(key Key) Result {
+	if m.node == nil {
+		result := Result{Kind: ResultInvalid, Count: normalizedCount(m.count)}
+		m.Reset()
+		return result
+	}
+
 	child, ok := m.node.children[key]
 	if !ok {
 		result := Result{Kind: ResultInvalid, Count: normalizedCount(m.count)}
@@ -132,7 +157,7 @@ func (m *Matcher) feedSequenceKey(key Key) Result {
 
 // ResolveAmbiguity completes the current short exact binding.
 func (m *Matcher) ResolveAmbiguity() (Result, bool) {
-	if !m.ambiguous || m.node == nil || !m.node.hasAction {
+	if !m.hasTrie() || !m.ambiguous || m.node == nil || !m.node.hasAction {
 		return Result{}, false
 	}
 

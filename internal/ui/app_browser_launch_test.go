@@ -1013,11 +1013,16 @@ func TestTestShellToasterCleanupCancelsAutoDismiss(t *testing.T) {
 	toaster, box, label := newTestShellToaster(t)
 	box.EXPECT().SetVisible(true).Once()
 	label.EXPECT().SetText("will not outlive this test").Once()
-	toaster.Show(context.Background(), "will not outlive this test", component.ToastInfo)
+	toaster.Show(
+		context.Background(),
+		"will not outlive this test",
+		component.ToastInfo,
+		component.WithDuration(component.ToastBriefDurationMs),
+	)
 	toaster.CancelAutoDismiss()
 
 	mainContext := glib.MainContextDefault()
-	deadline := time.Now().Add(component.ToastBriefDurationMs + 600*time.Millisecond)
+	deadline := time.Now().Add(component.ToastBriefDurationMs*time.Millisecond + 600*time.Millisecond)
 	for time.Now().Before(deadline) {
 		for mainContext.Pending() {
 			mainContext.Iteration(false)

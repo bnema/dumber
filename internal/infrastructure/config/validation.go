@@ -313,7 +313,13 @@ func validateModalModeActionsWithKeyCanon(
 		for _, key := range keys {
 			canonical, err := keyCanon(key)
 			if err != nil {
-				validationErrors = append(validationErrors, fmt.Sprintf("workspace.%s.actions.%s has invalid key binding '%s': %v", modePath, action, key, err))
+				validationErrors = append(validationErrors, fmt.Sprintf(
+					"workspace.%s.actions.%s has invalid key binding '%s': %v",
+					modePath,
+					action,
+					key,
+					err,
+				))
 				continue
 			}
 			if existingAction, exists := seenSequence[canonical]; exists {
