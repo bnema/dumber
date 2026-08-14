@@ -11,12 +11,6 @@
 
 <p align="center"><a href="https://bnema.dev/dumber">Website</a> · <a href="https://bnema.dev/dumber/docs">Documentation</a> · <a href="https://bnema.dev/dumber/docs/reference/keybindings">Keybindings</a></p>
 
-Dumber is a keyboard-driven web browser, built around panes, workspaces, and modal controls.
-
-Tabs contain workspaces. Workspaces contain panes. Panes can be split, stacked, moved, resized, and closed from the keyboard.
-
-The layout model is inspired by terminal multiplexers such as Zellij and tmux, but applied to web browsing this is particularly suited for Wayland compositors such as Niri or Hyprland.
-
 https://github.com/user-attachments/assets/232822af-08e4-4a74-9416-87f79c96b118
 
 ## Overview
