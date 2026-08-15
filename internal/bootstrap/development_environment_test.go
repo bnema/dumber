@@ -39,6 +39,22 @@ func TestApplyDevelopmentEnvironment_DevIsolatesHomeAndXDGDirectories(t *testing
 	require.Equal(t, "/run/user/1000", os.Getenv("XDG_RUNTIME_DIR"))
 }
 
+func TestApplyDevelopmentEnvironment_DevTightensExistingDevDirectoryPermissions(t *testing.T) {
+	worktree := t.TempDir()
+	t.Chdir(worktree)
+	t.Setenv("ENV", developmentEnvironmentName)
+
+	devDir := filepath.Join(worktree, ".dev")
+	require.NoError(t, os.Mkdir(devDir, 0o777))
+	require.NoError(t, os.Chmod(devDir, 0o777))
+
+	require.NoError(t, ApplyDevelopmentEnvironment())
+
+	info, err := os.Stat(devDir)
+	require.NoError(t, err)
+	require.Equal(t, os.FileMode(0o700), info.Mode().Perm())
+}
+
 func TestApplyDevelopmentEnvironment_DevRejectsSandboxSymlink(t *testing.T) {
 	worktree := t.TempDir()
 	t.Chdir(worktree)

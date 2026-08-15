@@ -25,7 +25,7 @@ func ApplyDevelopmentEnvironment() error {
 	}
 
 	devDir := filepath.Join(cwd, ".dev")
-	if err := ensureDevelopmentDirectory(devDir, false); err != nil {
+	if err := ensureDevelopmentDirectory(devDir, true); err != nil {
 		return err
 	}
 
