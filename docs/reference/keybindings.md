@@ -8,12 +8,12 @@ Dumber uses modal keybindings inspired by Zellij. Press a mode activation key, t
 |------|-----|---------|
 | Pane Mode | `Ctrl+P` | Split, close, focus panes |
 | Tab Mode | `Ctrl+T` | Create, close, switch tabs |
-| Vim Mode | `Ctrl+Y` | Scroll the active webpage with `h/j/k/l` and `Shift+J/K`; arrow keys stay native and other app shortcuts wait until exit |
+| Vim Mode | `Ctrl+Y` | Scroll, navigate headings, and focus page inputs with Vim-style commands; arrow keys stay native and page focus stays inside the page while other app shortcuts wait until exit |
 | Resize Mode | `Ctrl+N` | Resize pane splits |
 | Session Mode | `Ctrl+O` | Session management |
 
 Press `Escape` or `Enter` to exit any mode.
-Vim Mode activation is passed through when the focused webpage element is already editable, so browser-page editors keep their own `Ctrl+Y` behavior.
+`Ctrl+Y` can activate Vim Mode even when a page input is already focused, so you can use Vim commands without first moving focus away from the editor.
 
 Keybinding tables use uppercase letters as visual labels for unshifted letter keys. In config, use lowercase (for example, `["w"]` for Pane Mode eject). Shifted keys are shown with an explicit `Shift+` prefix.
 
@@ -55,9 +55,11 @@ Keybinding tables use uppercase letters as visual labels for unshifted letter ke
 
 ## Vim Mode (`Ctrl+Y`)
 
-Vim Mode is an explicit Vim-style scrolling mode for the active pane only. It applies a pane-local accent from `workspace.styling.pane_mode_color`, and when `workspace.styling.mode_indicator_toaster_enabled` is true, shows a persistent bottom-left `VIM MODE` toaster while the mode is active; the toaster hides on exit, when the mode is toggled off, or when the toaster is disabled in config. The mode exits automatically when focus moves into the omnibox, find bar, overlays, or an editable element inside the page. The default `timeout_ms` is `0`, so Vim Mode does not auto-time out unless you configure one. Arrow keys continue to flow through the browser engine's native page-navigation path while Vim Mode is active, while other app-level shortcuts stay suspended until you leave the mode.
+Vim Mode is an explicit Vim-style navigation mode for the active pane only. It applies a pane-local accent from `workspace.styling.pane_mode_color`, and when `workspace.styling.mode_indicator_toaster_enabled` is true, shows a persistent bottom-left `VIM MODE` toaster while the mode is active; the toaster hides on exit, when the mode is toggled off, or when the toaster is disabled in config. The mode exits automatically when focus moves into the omnibox, find bar, overlays, or an editable element inside the page. The default `timeout_ms` is `0`, so Vim Mode does not auto-time out unless you configure one. Arrow keys continue to flow through the browser engine's native page-navigation path while Vim Mode is active, while other app-level shortcuts stay suspended until you leave the mode. `Ctrl+Y` remains available when an editable page control is already focused.
 
 CEF and WebKit execute Vim Mode scroll commands (`h/j/k/l`, `Shift+J/K`) with the shared `BuildPageScrollByJS` resolver. Each step starts under the viewport center, walks up through ancestors that can move in the requested direction, and hands scrolling to the document when a nested container reaches its boundary. Cross-origin frame contents remain best-effort.
+
+`gi` focuses the next visible, editable page input. With no eligible input focused it starts at the first one; repeated `gi` commands cycle through the inputs. `]]` and `[[` move through visible `h1`–`h6` headings and outline the selected heading with the current Dumber theme accent. When a page input is focused, `Tab` and `Shift+Tab` keep focus traversal inside the page; traversal stops safely at the page boundaries instead of moving into the host window. These live input, heading, and page-focus motions currently use the CEF engine path; the WebKit fallback supports Vim scrolling but not these semantic motions yet.
 
 | Action | Keys |
 |--------|------|
@@ -67,6 +69,10 @@ CEF and WebKit execute Vim Mode scroll commands (`h/j/k/l`, `Shift+J/K`) with th
 | Scroll right | `L` |
 | Scroll down fast | `Shift+J` |
 | Scroll up fast | `Shift+K` |
+| Focus next page input | `gi` |
+| Next heading | `]]` |
+| Previous heading | `[[` |
+| Page focus traversal | `Tab`, `Shift+Tab` |
 | Confirm | `Enter` |
 | Cancel | `Escape` |
 
@@ -158,6 +164,15 @@ keys = ["shift+j"]
 
 [workspace.vim_mode.actions.vim-scroll-up-fast]
 keys = ["shift+k"]
+
+[workspace.vim_mode.actions.focus-input]
+keys = ["gi"]
+
+[workspace.vim_mode.actions.heading-next]
+keys = ["]]"]
+
+[workspace.vim_mode.actions.heading-prev]
+keys = ["[["]
 
 [workspace.shortcuts.actions.close-pane]
 keys = ["ctrl+w"]

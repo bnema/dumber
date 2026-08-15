@@ -320,6 +320,7 @@ func DefaultConfig() *Config {
 					"cancel":               {Keys: []string{"escape"}, Desc: "Cancel/exit mode"},
 					"heading-next":         {Keys: []string{"]]"}, Desc: "Jump to next heading"},
 					"heading-prev":         {Keys: []string{"[["}, Desc: "Jump to previous heading"},
+					"focus-input":          {Keys: []string{"gi"}, Desc: "Focus next page input"},
 					"code-next":            {Keys: []string{"]c"}, Desc: "Jump to next code block"},
 					"code-prev":            {Keys: []string{"[c"}, Desc: "Jump to previous code block"},
 					"table-next":           {Keys: []string{"]t"}, Desc: "Jump to next table"},

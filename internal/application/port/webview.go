@@ -444,3 +444,24 @@ type PageScrollCanceler interface {
 type AccessibilityEnabler interface {
 	EnableAccessibility()
 }
+
+// SemanticNavigable is an optional WebView capability for visible structural
+// navigation. Unsupported engines safely leave it unimplemented.
+type SemanticNavigable interface {
+	NavigateSemantic(ctx context.Context, request dto.SemanticNavigationRequest) error
+}
+
+// PageInputFocuser is an optional WebView capability for moving Vim Mode
+// input focus to the next eligible page input. With no active eligible input,
+// implementations focus the first one. Unsupported engines safely leave it
+// unimplemented.
+type PageInputFocuser interface {
+	FocusNextInput()
+}
+
+// PageFocusNavigator is an optional WebView capability for keeping native-like
+// focus traversal inside the active page when the host window would otherwise
+// move focus outside the WebView.
+type PageFocusNavigator interface {
+	NavigatePageFocus(backward bool)
+}

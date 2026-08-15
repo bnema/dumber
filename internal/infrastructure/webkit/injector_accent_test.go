@@ -38,6 +38,8 @@ func TestAccentDetectionScriptPostsEditableFocusChangedMessages(t *testing.T) {
 	assert.Contains(t, accentDetectionScript, "document.addEventListener('focusout'")
 	assert.Contains(t, accentDetectionScript, `const editableFocusToken = "";`)
 	assert.Contains(t, accentDetectionScript, `payload: { editable: editable, token: editableFocusToken }`)
+	assert.Contains(t, accentDetectionScript, "let lastEditableFocusState = null;")
+	assert.Contains(t, accentDetectionScript, "if (lastEditableFocusState === editable) return;")
 	assert.Contains(t, accentDetectionScript, `postEditableFocus(true)`)
 	assert.Contains(t, accentDetectionScript, `postEditableFocus(false)`)
 	assert.Contains(t, accentDetectionScript, `e && e.isTrusted === false`)

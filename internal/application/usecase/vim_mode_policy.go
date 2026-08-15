@@ -46,9 +46,9 @@ func NewVimModePolicyUseCase() *VimModePolicyUseCase {
 func (*VimModePolicyUseCase) Evaluate(input VimModePolicyInput) VimModePolicyTransition {
 	switch input.Trigger {
 	case VimModePolicyTriggerActivationAttempt:
-		if input.PageEditableFocused {
-			return VimModePolicyTransitionBlockActivation
-		}
+		// Ctrl+Y is the explicit Vim Mode activation command. It must remain
+		// available while a page input is focused so users can leave typing mode
+		// without first moving focus elsewhere.
 		return VimModePolicyTransitionStay
 	case VimModePolicyTriggerOmniboxFocus,
 		VimModePolicyTriggerFindBarFocus,

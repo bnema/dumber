@@ -124,6 +124,7 @@ type App struct {
 	focusMgr *focus.Manager
 
 	vimModePolicyUC         *usecase.VimModePolicyUseCase
+	vimNavigationUC         *usecase.VimNavigationUseCase
 	pageEditableFocusByPane map[entity.PaneID]bool
 
 	resizeModeBorderTarget layout.Widget
@@ -217,6 +218,7 @@ func New(deps *Dependencies) (*App, error) {
 		floatingSessions:        make(map[floatingSessionKey]*floatingWorkspaceSession),
 		browserWindows:          make(map[string]*browserWindow),
 		vimModePolicyUC:         usecase.NewVimModePolicyUseCase(),
+		vimNavigationUC:         usecase.NewVimNavigationUseCase(),
 		pageEditableFocusByPane: make(map[entity.PaneID]bool),
 		dispatchOnMainThread: func(label string, fn func()) syncdispatch.SyncDispatchResult {
 			if fn != nil {
@@ -1101,6 +1103,12 @@ func (a *App) initBrowserWindowInput(ctx context.Context, bw *browserWindow) {
 		a.handleModeChange(ctx, bw, from, to)
 	})
 	a.bindVimModeSequenceToaster(ctx, bw)
+	bw.keyboardHandler.SetOnSequenceAction(func(action string, count int) {
+		a.navigateVimSequenceAction(ctx, bw, action, count)
+	})
+	bw.keyboardHandler.SetOnPageFocusNavigation(func(navigationCtx context.Context, backward bool) bool {
+		return a.navigatePageFocus(navigationCtx, bw, backward)
+	})
 	bw.keyboardHandler.SetRouteKey(func(kc input.KeyContext) input.KeyRoute {
 		if bw.sessionManager != nil && bw.sessionManager.IsVisible() {
 			return input.RoutePassToWidget
@@ -2158,6 +2166,81 @@ func (a *App) activeWebViewForBrowserWindow(bw *browserWindow) (entity.PaneID, p
 		return paneID, nil
 	}
 	return paneID, a.contentCoord.GetWebView(paneID)
+}
+
+func (a *App) navigatePageFocus(_ context.Context, bw *browserWindow, backward bool) bool {
+	paneID, wv := a.activeWebViewForBrowserWindow(bw)
+	if paneID == "" || !a.pageEditableFocused(paneID) {
+		return false
+	}
+	navigationUC := a.vimNavigationUseCase()
+	if navigationUC == nil {
+		return false
+	}
+	return navigationUC.NavigatePageFocus(wv, backward)
+}
+
+func (a *App) vimNavigationUseCase() *usecase.VimNavigationUseCase {
+	if a == nil {
+		return nil
+	}
+	if a.vimNavigationUC == nil {
+		a.vimNavigationUC = usecase.NewVimNavigationUseCase()
+	}
+	return a.vimNavigationUC
+}
+
+func (a *App) navigateVimSequenceAction(ctx context.Context, bw *browserWindow, action string, count int) {
+	_, wv := a.activeWebViewForBrowserWindow(bw)
+	navigationUC := a.vimNavigationUseCase()
+	if navigationUC == nil {
+		return
+	}
+	if err := navigationUC.Execute(ctx, wv, action, count, a.vimNavigationHighlightColor()); err != nil {
+		logging.FromContext(ctx).Debug().
+			Err(err).
+			Str("action", action).
+			Msg("vim navigation unavailable")
+	}
+}
+
+func (a *App) vimNavigationHighlightColor() string {
+	if a == nil || a.deps == nil || a.deps.Theme == nil {
+		return ""
+	}
+	return a.deps.Theme.GetCurrentPalette().Accent
+}
+
+func (a *App) enableAccessibilityForVimMode(ctx context.Context, bw *browserWindow) {
+	paneID, wv := a.activeWebViewForBrowserWindow(bw)
+	if wv == nil {
+		return
+	}
+	enabler, ok := wv.(port.AccessibilityEnabler)
+	if !ok {
+		return
+	}
+	enabler.EnableAccessibility()
+	windowID := ""
+	if bw != nil {
+		windowID = bw.id
+	}
+	logging.FromContext(ctx).Debug().
+		Str("window_id", windowID).
+		Str("pane_id", string(paneID)).
+		Msg("webview accessibility enabled for vim mode")
+}
+
+func (a *App) preloadAccessibilityForShownPane(paneID entity.PaneID) {
+	if a == nil || paneID == "" || !a.runtimeConfigSnapshot().UI.Workspace.VimMode.PreloadAccessibility || a.contentCoord == nil {
+		return
+	}
+	wv := a.contentCoord.GetWebView(paneID)
+	enabler, ok := wv.(port.AccessibilityEnabler)
+	if !ok {
+		return
+	}
+	enabler.EnableAccessibility()
 }
 
 // omniboxNavigateForBrowserWindow returns an omnibox OnNavigate callback that routes
@@ -3300,6 +3383,7 @@ func (a *App) initCoordinators(ctx context.Context) {
 				a.deps.OnFirstWebViewShown(ctx)
 			})
 		}
+		a.preloadAccessibilityForShownPane(paneID)
 
 		// This only updates focus when the shown pane belongs to the last-focused
 		// window's active workspace. activeWorkspace() delegates to
@@ -3859,6 +3943,10 @@ func (a *App) handleModeChange(ctx context.Context, bw *browserWindow, from, to 
 	if to == input.ModeResize {
 		// Resize mode targets the last-focused browser window's active workspace.
 		a.applyResizeModeBorder(ctx, a.activeWorkspace())
+	}
+
+	if to == input.ModeVim && from != input.ModeVim {
+		a.enableAccessibilityForVimMode(ctx, bw)
 	}
 
 	// Handle pane-local Vim Mode visual ownership.

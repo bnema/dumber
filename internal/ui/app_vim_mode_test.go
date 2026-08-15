@@ -10,9 +10,13 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/bnema/dumber/internal/application/dto"
+	"github.com/bnema/dumber/internal/application/port"
+	portmocks "github.com/bnema/dumber/internal/application/port/mocks"
 	"github.com/bnema/dumber/internal/application/usecase"
 	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/ui/component"
+	contentcoord "github.com/bnema/dumber/internal/ui/coordinator/content"
 	"github.com/bnema/dumber/internal/ui/focus"
 	"github.com/bnema/dumber/internal/ui/input"
 	"github.com/bnema/dumber/internal/ui/layout"
@@ -152,6 +156,81 @@ func enterVimMode(
 
 func expectVimModeAccentHidden(overlay *mocks.MockOverlayWidget) {
 	overlay.EXPECT().RemoveCssClass("vim-mode-active").Once()
+}
+
+type accessibilityEnablingWebView struct {
+	*portmocks.MockWebView
+	enableAccessibilityCalls int
+}
+
+func newAccessibilityEnablingWebView(t *testing.T, id port.WebViewID) *accessibilityEnablingWebView {
+	t.Helper()
+	wv := portmocks.NewMockWebView(t)
+	wv.EXPECT().ID().Return(id).Once()
+	return &accessibilityEnablingWebView{MockWebView: wv}
+}
+
+func (wv *accessibilityEnablingWebView) EnableAccessibility() {
+	wv.enableAccessibilityCalls++
+}
+
+type semanticNavigatingWebView struct {
+	*portmocks.MockWebView
+	requests []dto.SemanticNavigationRequest
+}
+
+func newSemanticNavigatingWebView(t *testing.T, id port.WebViewID) *semanticNavigatingWebView {
+	t.Helper()
+	wv := portmocks.NewMockWebView(t)
+	wv.EXPECT().ID().Return(id).Once()
+	return &semanticNavigatingWebView{MockWebView: wv}
+}
+
+func (wv *semanticNavigatingWebView) NavigateSemantic(_ context.Context, request dto.SemanticNavigationRequest) error {
+	wv.requests = append(wv.requests, request)
+	return nil
+}
+
+type inputFocusingWebView struct {
+	*portmocks.MockWebView
+	focusNextInputCalls      int
+	pageFocusNavigationCalls []bool
+}
+
+func newInputFocusingWebView(t *testing.T, id port.WebViewID) *inputFocusingWebView {
+	t.Helper()
+	wv := portmocks.NewMockWebView(t)
+	wv.EXPECT().ID().Return(id).Once()
+	return &inputFocusingWebView{MockWebView: wv}
+}
+
+func (wv *inputFocusingWebView) FocusNextInput() {
+	wv.focusNextInputCalls++
+}
+
+func (wv *inputFocusingWebView) NavigatePageFocus(backward bool) {
+	wv.pageFocusNavigationCalls = append(wv.pageFocusNavigationCalls, backward)
+}
+
+func newVimModeAccessibilityFixture(t *testing.T) (*App, *browserWindow, entity.PaneID) {
+	t.Helper()
+	paneID := entity.PaneID("pane-a")
+	ws := &entity.Workspace{
+		ID:           "ws-1",
+		ActivePaneID: paneID,
+		Root: &entity.PaneNode{
+			ID:   "ws-1-root",
+			Pane: entity.NewPane(paneID),
+		},
+	}
+	tab := &entity.Tab{ID: "tab-1", Workspace: ws}
+	tabs := entity.NewTabList()
+	tabs.Add(tab)
+	tabs.SetActive(tab.ID)
+	bw := &browserWindow{id: "win-1", tabs: tabs}
+	return &App{
+		contentCoord: contentcoord.NewCoordinator(context.Background(), nil, nil, nil, nil, nil, nil, nil),
+	}, bw, paneID
 }
 
 // setupWorkspaceViewMocks creates a mock-backed WorkspaceView.
@@ -349,6 +428,130 @@ func TestVimMode_Enter_MarksCorrectWindow(t *testing.T) {
 	assert.True(t, f.pv2A.IsVimMode())
 	assert.Empty(t, f.bw1.vimModePaneID)
 	assert.False(t, f.pv1A.IsVimMode())
+}
+
+func TestVimMode_Enter_EnablesAccessibilityForSupportedActiveWebView(t *testing.T) {
+	app, bw, paneID := newVimModeAccessibilityFixture(t)
+	wv := newAccessibilityEnablingWebView(t, 1)
+	app.contentCoord.RegisterPopupWebView(paneID, wv)
+
+	app.handleModeChange(context.Background(), bw, input.ModeNormal, input.ModeVim)
+
+	assert.Equal(t, 1, wv.enableAccessibilityCalls)
+}
+
+func TestVimMode_Enter_AccessibilityNoopsForUnsupportedActiveWebView(t *testing.T) {
+	app, bw, paneID := newVimModeAccessibilityFixture(t)
+	wv := portmocks.NewMockWebView(t)
+	wv.EXPECT().ID().Return(port.WebViewID(2)).Once()
+	app.contentCoord.RegisterPopupWebView(paneID, wv)
+
+	app.handleModeChange(context.Background(), bw, input.ModeNormal, input.ModeVim)
+}
+
+func TestVimMode_Enter_AccessibilityNoopsWhenActiveWebViewMissing(t *testing.T) {
+	app, bw, _ := newVimModeAccessibilityFixture(t)
+
+	app.handleModeChange(context.Background(), bw, input.ModeNormal, input.ModeVim)
+}
+
+func TestVimMode_PreloadAccessibilityEnablesShownWebViewWhenConfigured(t *testing.T) {
+	app, _, paneID := newVimModeAccessibilityFixture(t)
+	wv := newAccessibilityEnablingWebView(t, 4)
+	app.contentCoord.RegisterPopupWebView(paneID, wv)
+	app.runtimeConfig = runtimeConfigStateFromSnapshotForTest(entity.RuntimeConfigSnapshot{
+		UI: entity.RuntimeUIConfig{Workspace: entity.WorkspaceConfig{
+			VimMode: entity.VimModeConfig{PreloadAccessibility: true},
+		}},
+	})
+
+	app.preloadAccessibilityForShownPane(paneID)
+
+	assert.Equal(t, 1, wv.enableAccessibilityCalls)
+}
+
+func TestVimMode_PreloadAccessibilityNoopsWhenDisabled(t *testing.T) {
+	app, _, paneID := newVimModeAccessibilityFixture(t)
+	wv := newAccessibilityEnablingWebView(t, 5)
+	app.contentCoord.RegisterPopupWebView(paneID, wv)
+
+	app.preloadAccessibilityForShownPane(paneID)
+
+	assert.Equal(t, 0, wv.enableAccessibilityCalls)
+}
+
+func TestVimNavigationHighlightColorUsesCurrentThemeAccent(t *testing.T) {
+	resolved := entity.ResolvedTheme{
+		PrefersDark: true,
+		DarkPalette: entity.ColorPalette{
+			Accent: "#22c55e",
+		},
+	}
+	app := &App{deps: &Dependencies{Theme: theme.NewManager(context.Background(), resolved)}}
+
+	assert.Equal(t, "#22c55e", app.vimNavigationHighlightColor())
+}
+
+func TestVimMode_SequenceActionNavigatesActiveWebViewHeading(t *testing.T) {
+	app, bw, paneID := newVimModeAccessibilityFixture(t)
+	wv := newSemanticNavigatingWebView(t, 4)
+	app.contentCoord.RegisterPopupWebView(paneID, wv)
+
+	app.navigateVimSequenceAction(context.Background(), bw, "heading-next", 3)
+	app.navigateVimSequenceAction(context.Background(), bw, "heading-prev", 0)
+	app.navigateVimSequenceAction(context.Background(), bw, "code-next", 1)
+
+	assert.Equal(t, []dto.SemanticNavigationRequest{
+		{Target: dto.SemanticNavigationTargetHeading, Direction: dto.SemanticNavigationForward, Count: 3},
+		{Target: dto.SemanticNavigationTargetHeading, Direction: dto.SemanticNavigationBackward, Count: 0},
+	}, wv.requests)
+}
+
+func TestVimMode_SequenceActionFocusesNextInput(t *testing.T) {
+	app, bw, paneID := newVimModeAccessibilityFixture(t)
+	wv := newInputFocusingWebView(t, 6)
+	app.contentCoord.RegisterPopupWebView(paneID, wv)
+
+	app.navigateVimSequenceAction(context.Background(), bw, "focus-input", 1)
+
+	assert.Equal(t, 1, wv.focusNextInputCalls)
+}
+
+func TestVimMode_NativePageFocusNavigationUsesActiveEditableWebView(t *testing.T) {
+	app, bw, paneID := newVimModeAccessibilityFixture(t)
+	wv := newInputFocusingWebView(t, 7)
+	app.contentCoord.RegisterPopupWebView(paneID, wv)
+	app.pageEditableFocusByPane = map[entity.PaneID]bool{paneID: true}
+
+	assert.True(t, app.navigatePageFocus(context.Background(), bw, true))
+	assert.Equal(t, []bool{true}, wv.pageFocusNavigationCalls)
+}
+
+func TestVimMode_SequenceActionNoopsForUnsupportedActiveWebView(t *testing.T) {
+	app, bw, paneID := newVimModeAccessibilityFixture(t)
+	wv := portmocks.NewMockWebView(t)
+	wv.EXPECT().ID().Return(port.WebViewID(5)).Once()
+	app.contentCoord.RegisterPopupWebView(paneID, wv)
+
+	app.navigateVimSequenceAction(context.Background(), bw, "heading-next", 1)
+	app.navigateVimSequenceAction(context.Background(), bw, "focus-input", 1)
+}
+
+func TestVimMode_AccessibilityOnlyEnabledOnEnteringVimMode(t *testing.T) {
+	app, bw, paneID := newVimModeAccessibilityFixture(t)
+	wv := newAccessibilityEnablingWebView(t, 3)
+	app.contentCoord.RegisterPopupWebView(paneID, wv)
+
+	app.handleModeChange(context.Background(), bw, input.ModeNormal, input.ModeTab)
+	app.handleModeChange(context.Background(), bw, input.ModeVim, input.ModeNormal)
+	app.handleModeChange(context.Background(), bw, input.ModeVim, input.ModeVim)
+	assert.Equal(t, 0, wv.enableAccessibilityCalls)
+
+	app.handleModeChange(context.Background(), bw, input.ModeNormal, input.ModeVim)
+	assert.Equal(t, 1, wv.enableAccessibilityCalls)
+
+	app.handleModeChange(context.Background(), bw, input.ModePane, input.ModeVim)
+	assert.Equal(t, 2, wv.enableAccessibilityCalls)
 }
 
 // ============================================================================
@@ -717,20 +920,20 @@ func TestVimMode_TabSwitchExitsAndClearsOldAccent(t *testing.T) {
 	assert.False(t, f.pv1A.IsVimMode())
 }
 
-func TestVimMode_ActivationBypassWhenActivePageIsEditable(t *testing.T) {
+func TestVimMode_ActivationRemainsAvailableWhenPageIsEditable(t *testing.T) {
 	f := newSingleWindowVimModeFixture(t)
 	f.app.pageEditableFocusByPane = map[entity.PaneID]bool{
 		"pane-a": true,
 	}
 
-	assert.True(t, f.app.shouldBypassVimModeActivation(f.bw1))
+	assert.False(t, f.app.shouldBypassVimModeActivation(f.bw1))
 }
 
-func TestVimMode_ActivationBypassClearsWhenEditableFocusLeaves(t *testing.T) {
+func TestVimMode_ActivationAvailabilityDoesNotDependOnEditableFocus(t *testing.T) {
 	f := newSingleWindowVimModeFixture(t)
 
 	f.app.handlePageEditableFocusChanged(context.Background(), entity.PaneID("pane-a"), true)
-	assert.True(t, f.app.shouldBypassVimModeActivation(f.bw1))
+	assert.False(t, f.app.shouldBypassVimModeActivation(f.bw1))
 
 	f.app.handlePageEditableFocusChanged(context.Background(), entity.PaneID("pane-a"), false)
 	assert.False(t, f.app.shouldBypassVimModeActivation(f.bw1))
