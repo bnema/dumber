@@ -6,7 +6,10 @@ import (
 	"path/filepath"
 )
 
-const developmentEnvironmentName = "dev"
+const (
+	developmentEnvironmentName             = "dev"
+	developmentPrivateMode     os.FileMode = 0o700
+)
 
 // ApplyDevelopmentEnvironment isolates the process from the user's XDG and
 // home directories when ENV=dev. It must run before GTK, CEF, or any adapter
@@ -82,7 +85,7 @@ func developmentPrivateDirectories(root string, paths map[string]string) []strin
 }
 
 func ensureDevelopmentDirectory(path string, private bool) error {
-	if err := os.MkdirAll(path, 0o700); err != nil {
+	if err := os.MkdirAll(path, developmentPrivateMode); err != nil {
 		return fmt.Errorf("create development environment directory %q: %w", path, err)
 	}
 
@@ -96,14 +99,14 @@ func ensureDevelopmentDirectory(path string, private bool) error {
 	if !private {
 		return nil
 	}
-	if err := os.Chmod(path, 0o700); err != nil {
+	if err = os.Chmod(path, developmentPrivateMode); err != nil {
 		return fmt.Errorf("restrict development environment directory %q: %w", path, err)
 	}
 	info, err = os.Stat(path)
 	if err != nil {
 		return fmt.Errorf("verify development environment directory %q: %w", path, err)
 	}
-	if info.Mode().Perm() != 0o700 {
+	if info.Mode().Perm() != developmentPrivateMode.Perm() {
 		return fmt.Errorf("development environment directory %q permissions are %04o, want 0700", path, info.Mode().Perm())
 	}
 	return nil

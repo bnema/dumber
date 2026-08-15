@@ -76,7 +76,9 @@ func headingNavigationScript(direction, count int, highlightColor string) string
   }
   // Refresh the outline on every navigation so an in-session accent change is
   // reflected even when the target style element already exists.
-  style.textContent = "." + className + " { outline: 3px solid " + highlightColor + " !important; outline-offset: 5px !important; border-radius: 3px !important; }";
+  style.textContent = "." + className +
+    " { outline: 3px solid " + highlightColor +
+    " !important; outline-offset: 5px !important; border-radius: 3px !important; }";
   window[stateKey] = target;
   target.classList.add(className);
   target.scrollIntoView({ block: "center", inline: "nearest", behavior: "smooth" });
