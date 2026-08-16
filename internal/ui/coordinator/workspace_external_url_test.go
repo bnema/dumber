@@ -49,22 +49,22 @@ func TestWorkspaceCoordinator_SplitReturnsErrorWhenCreationTargetMissing(t *test
 	require.Error(t, coord.SplitWithURL(context.Background(), usecase.SplitRight, "https://example.com"))
 }
 
-func TestWorkspaceCoordinator_StackPaneUsesConfiguredURLThroughLegacyEntryPoint(t *testing.T) {
-	const legacyURL = "https://legacy.example/"
-	coord, ws := stackURLTestCoordinator(t, legacyURL)
-
-	// The test coordinator intentionally has no WebView pool. Creation reaches
-	// that detectable UI failure only after the requested URL enters the model.
-	require.Error(t, coord.StackPane(context.Background()))
-	assert.Equal(t, legacyURL, ws.ActivePane().Pane.URI)
-}
-
-func TestWorkspaceCoordinator_StackPaneWithURLUsesExplicitURL(t *testing.T) {
-	const explicitURL = "https://explicit.example/path?token=secret"
+func TestWorkspaceCoordinator_StackPaneRollsBackAfterWebViewFailure(t *testing.T) {
 	coord, ws := stackURLTestCoordinator(t, "https://legacy.example/")
 
-	require.Error(t, coord.StackPaneWithURL(context.Background(), explicitURL))
-	assert.Equal(t, explicitURL, ws.ActivePane().Pane.URI)
+	require.Error(t, coord.StackPane(context.Background()))
+	assert.Equal(t, entity.PaneID("pane-1"), ws.ActivePaneID)
+	assert.Equal(t, 1, ws.PaneCount())
+	assert.Empty(t, ws.ActivePane().Pane.URI)
+}
+
+func TestWorkspaceCoordinator_StackPaneWithURLWithoutOmniboxRollsBackAfterWebViewFailure(t *testing.T) {
+	coord, ws := stackURLTestCoordinator(t, "https://legacy.example/")
+
+	require.Error(t, coord.StackPaneWithURLWithoutOmnibox(context.Background(), "https://explicit.example/path?token=secret"))
+	assert.Equal(t, entity.PaneID("pane-1"), ws.ActivePaneID)
+	assert.Equal(t, 1, ws.PaneCount())
+	assert.Empty(t, ws.ActivePane().Pane.URI)
 }
 
 func stackURLTestCoordinator(t *testing.T, legacyURL string) (*WorkspaceCoordinator, *entity.Workspace) {

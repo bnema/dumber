@@ -45,6 +45,7 @@ func TestWebViewNavigateSemantic_NormalizesCountAndRejectsUnsupportedRequests(t 
 	forward := headingNavigationScript(1, 1, "")
 	backward := headingNavigationScript(-1, 1, "#4ade80")
 	assert.Contains(t, forward, "index = firstAtOrAfterViewportTop - 1")
+	assert.Contains(t, forward, "if (index < -1) index = -1;")
 	assert.Contains(t, backward, "index = firstAtOrAfterViewportTop >= 0 ? firstAtOrAfterViewportTop : headings.length")
 	assert.Contains(t, backward, "-1 * 1")
 	assert.NotContains(t, backward, "window.innerHeight")

@@ -8,7 +8,10 @@ import (
 	"github.com/bnema/dumber/internal/application/port"
 )
 
-var errUnsupportedVimNavigationAction = errors.New("vim navigation: unsupported action")
+var (
+	errUnsupportedVimNavigationAction = errors.New("vim navigation: unsupported action")
+	errUnsupportedVimNavigationEngine = errors.New("vim navigation: unsupported webview capability")
+)
 
 // VimNavigationUseCase maps configured Vim Mode navigation actions to optional
 // WebView capabilities. The UI layer supplies the active WebView and remains
@@ -29,7 +32,7 @@ func (*VimNavigationUseCase) Execute(ctx context.Context, wv port.WebView, actio
 	if action == "focus-input" {
 		focuser, ok := wv.(port.PageInputFocuser)
 		if !ok {
-			return nil
+			return errUnsupportedVimNavigationEngine
 		}
 		focuser.FocusNextInput()
 		return nil
@@ -57,7 +60,7 @@ func (*VimNavigationUseCase) Execute(ctx context.Context, wv port.WebView, actio
 
 	navigator, ok := wv.(port.SemanticNavigable)
 	if !ok {
-		return nil
+		return errUnsupportedVimNavigationEngine
 	}
 	return navigator.NavigateSemantic(ctx, request)
 }

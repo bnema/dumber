@@ -11,6 +11,10 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+func isCountStartKey(key vimkeys.Key) bool {
+	return key.Mods == 0 && len(key.Sym) == 1 && key.Sym[0] >= '1' && key.Sym[0] <= '9'
+}
+
 // trieOwnsBinding reports whether a raw config binding belongs to the Vim
 // sequence trie rather than the legacy single-chord Vim Mode table.
 // Multi-key sequences and Vim-only chords that ParseKeyString cannot read are owned.
@@ -20,6 +24,9 @@ func trieOwnsBinding(raw string) (vimkeys.Sequence, bool) {
 		return nil, false
 	}
 	if len(seq) >= 2 {
+		if isCountStartKey(seq[0]) {
+			return nil, false
+		}
 		return seq, true
 	}
 	if _, ok := ParseKeyString(raw); !ok {

@@ -30,7 +30,7 @@ func generateSidebarCSS(_ Palette) string {
 .sidebar-row {
 	padding: 0.1875em 0.625em;
 	min-height: 0;
-	border-bottom: 0.0625em solid alpha(var(--border), 0.4);
+	border-bottom: 0.0625em solid color-mix(in srgb, var(--border) 40%, transparent);
 	background-color: var(--surface);
 	transition: background-color 100ms ease;
 }
@@ -45,6 +45,8 @@ func generateSidebarCSS(_ Palette) string {
 
 .sidebar-row:focus {
 	background-color: alpha(var(--accent), 0.18);
+	outline: 0.0625em solid var(--accent);
+	outline-offset: -0.0625em;
 }
 
 .sidebar-row-title {

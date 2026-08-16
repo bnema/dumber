@@ -32,7 +32,7 @@ func TestWebViewNavigatePageFocusExecutesDirectionalScript(t *testing.T) {
 	frame.EXPECT().ExecuteJavaScript(mock.MatchedBy(mockStringContaining(t,
 		"const direction = -1;",
 		"a[href]",
-		"textarea:not([disabled])",
+		"textarea:not(:disabled)",
 		"document.activeElement",
 		"targetIndex",
 		"candidates[targetIndex].focus()",
@@ -47,7 +47,7 @@ func TestFocusNextInputScriptWrapsAndNoOpsWithoutEligibleTarget(t *testing.T) {
 	require.Contains(t, script, "const eligible = candidates.filter(isEligible);")
 	require.Contains(t, script, "if (eligible.length === 0) return;")
 	require.Contains(t, script, "const target = eligible[(activeIndex + 1 + eligible.length) % eligible.length];")
-	require.Contains(t, script, "!element.disabled && !element.readOnly")
+	require.Contains(t, script, "!element.matches(\":disabled\") && !element.readOnly")
 	require.Contains(t, script, `hiddenInputTypes.has(element.type.toLowerCase())`)
 }
 

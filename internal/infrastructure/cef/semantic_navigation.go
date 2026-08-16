@@ -55,6 +55,7 @@ func headingNavigationScript(direction, count int, highlightColor string) string
     );
     if (` + strconv.Itoa(direction) + ` > 0) {
       index = firstAtOrAfterViewportTop - 1;
+      if (index < -1) index = -1;
     } else {
       index = firstAtOrAfterViewportTop >= 0 ? firstAtOrAfterViewportTop : headings.length;
     }

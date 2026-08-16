@@ -811,19 +811,29 @@ func (m *Migrator) detectLegacyVimModeRenames(rawUserKeys map[string]any) []port
 	return changes
 }
 
-func (*Migrator) migrateLegacyVimMode(rawConfig map[string]any) {
-	workspace, ok := rawConfig["workspace"].(map[string]any)
+func (m *Migrator) migrateLegacyVimMode(rawConfig map[string]any) {
+	workspace, ok := m.toStringAnyMap(rawConfig["workspace"])
 	if !ok {
 		return
 	}
-	legacyMode, ok := workspace["page_mode"].(map[string]any)
+	rawConfig["workspace"] = workspace
+	legacyMode, ok := m.toStringAnyMap(workspace["page_mode"])
 	if !ok {
 		return
 	}
-	vimMode, ok := workspace["vim_mode"].(map[string]any)
+	workspace["page_mode"] = legacyMode
+	vimMode, ok := m.toStringAnyMap(workspace["vim_mode"])
 	if !ok {
 		vimMode = make(map[string]any)
 		workspace["vim_mode"] = vimMode
+	} else {
+		workspace["vim_mode"] = vimMode
+	}
+	if legacyActions, ok := m.toStringAnyMap(legacyMode["actions"]); ok {
+		legacyMode["actions"] = legacyActions
+	}
+	if vimActions, ok := m.toStringAnyMap(vimMode["actions"]); ok {
+		vimMode["actions"] = vimActions
 	}
 	for key, value := range legacyMode {
 		if key == "actions" {
@@ -833,8 +843,8 @@ func (*Migrator) migrateLegacyVimMode(rawConfig map[string]any) {
 			vimMode[key] = value
 		}
 	}
-	legacyActions, _ := legacyMode["actions"].(map[string]any)
-	vimActions, _ := vimMode["actions"].(map[string]any)
+	legacyActions, _ := m.toStringAnyMap(legacyMode["actions"])
+	vimActions, _ := m.toStringAnyMap(vimMode["actions"])
 	if vimActions == nil {
 		vimActions = make(map[string]any)
 		vimMode["actions"] = vimActions

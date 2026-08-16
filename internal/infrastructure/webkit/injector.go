@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/bnema/dumber/internal/application/port"
@@ -179,9 +180,8 @@ const explicitCopyScript = `(function() {
   }
 })();`
 
-// accentDetectionScript is built at init from entity.AccentMap so the JS
+// accentDetectionScriptKeys is built at init from entity.AccentMap so the JS
 // filter stays in sync with the Go-side accent table.
-var accentDetectionScript string
 var accentDetectionScriptKeys string
 
 func buildExplicitCopyScript() string {
@@ -198,9 +198,9 @@ func buildAccentDetectionScript(token string) string {
 
     function postEditableFocus(editable) {
         if (lastEditableFocusState === editable) return;
-        lastEditableFocusState = editable;
         if (!editableFocusToken) return;
         if (!(window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.dumber)) return;
+        lastEditableFocusState = editable;
         window.webkit.messageHandlers.dumber.postMessage({
             type: 'editable_focus_changed',
             payload: { editable: editable, token: editableFocusToken }
@@ -213,10 +213,13 @@ func buildAccentDetectionScript(token string) string {
         if (el.isContentEditable) return true;
         const editableAncestor = el.closest('[contenteditable]');
         if (editableAncestor && editableAncestor.isContentEditable) return true;
-        if (el.closest('textarea')) return true;
+        const textarea = el.closest('textarea');
+        if (textarea) return !textarea.matches(':disabled') && !textarea.readOnly;
         const input = el.closest('input');
         if (!input) return false;
-        return !/^(button|checkbox|color|file|hidden|image|radio|range|reset|submit)$/i.test(input.type);
+        const disabled = input.matches(':disabled');
+        const unsupported = /^(button|checkbox|color|file|hidden|image|radio|range|reset|submit)$/i.test(input.type);
+        return !disabled && !input.readOnly && !unsupported;
     }
 
     document.addEventListener('keydown', function(e) {
@@ -243,6 +246,11 @@ func buildAccentDetectionScript(token string) string {
         }
     }, true);
 
+    function canReportNegativeFocus(target) {
+        if (window.top === window) return true;
+        return lastEditableFocusState === true && window.__dumber_lastEditableEl === target;
+    }
+
     document.addEventListener('focusin', function(e) {
         if (e && e.isTrusted === false) return;
         if (isEditableTarget(e.target)) {
@@ -250,14 +258,16 @@ func buildAccentDetectionScript(token string) string {
             postEditableFocus(true);
             return;
         }
-        postEditableFocus(false);
+        if (canReportNegativeFocus(window.__dumber_lastEditableEl)) {
+            postEditableFocus(false);
+        }
     }, true);
 
     document.addEventListener('focusout', function(e) {
         if (e && e.isTrusted === false) return;
         if (!isEditableTarget(e.target)) return;
         setTimeout(function() {
-            if (!isEditableTarget(document.activeElement)) {
+            if (!isEditableTarget(document.activeElement) && canReportNegativeFocus(e.target)) {
                 postEditableFocus(false);
             }
         }, 0);
@@ -266,7 +276,7 @@ func buildAccentDetectionScript(token string) string {
     if (isEditableTarget(document.activeElement)) {
         window.__dumber_lastEditableEl = document.activeElement;
         postEditableFocus(true);
-    } else {
+    } else if (window.top === window) {
         postEditableFocus(false);
     }
 })();`, accentDetectionScriptKeys, token)
@@ -280,7 +290,6 @@ func init() {
 	}
 	sort.Strings(keys)
 	accentDetectionScriptKeys = strings.Join(keys, ",")
-	accentDetectionScript = buildAccentDetectionScript("")
 }
 
 // accentDetectionInjectionMode controls which frames receive the accent detection script.
@@ -490,12 +499,14 @@ func (ci *ContentInjector) InjectScripts(ctx context.Context, ucm *webkit.UserCo
 
 	// 8. Inject accent key detection for all pages and all frames (unconditional).
 	// JS only reports keydown/keyup events; Go handles timing and picker display.
-	accentScript := accentDetectionScript
-	if wv := LookupWebView(webviewID); wv != nil {
-		if token := wv.EditableFocusBridgeToken(); token != "" {
-			accentScript = buildAccentDetectionScript(token)
-		}
+	wv := LookupWebView(webviewID)
+	if wv == nil || wv.EditableFocusBridgeToken() == "" {
+		log.Error().
+			Str("webview_id", strconv.FormatUint(uint64(webviewID), 10)).
+			Msg("skipping accent detection script without editable-focus bridge token")
+		return
 	}
+	accentScript := buildAccentDetectionScript(wv.EditableFocusBridgeToken())
 	addScript(
 		webkit.NewUserScript(
 			accentScript,

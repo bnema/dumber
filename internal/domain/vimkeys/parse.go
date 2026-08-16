@@ -7,6 +7,9 @@ import (
 )
 
 func ParseBinding(s string) (Sequence, error) {
+	if !utf8.ValidString(s) {
+		return nil, ErrBadBinding
+	}
 	s = strings.TrimSpace(s)
 	if s == "" {
 		return nil, ErrEmptyBinding

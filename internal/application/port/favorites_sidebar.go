@@ -18,4 +18,5 @@ type FavoritesSidebarFavorites interface {
 	SetShortcut(ctx context.Context, id entity.FavoriteID, key *int) error
 	TagFavorite(ctx context.Context, favID entity.FavoriteID, tagID entity.TagID) error
 	UntagFavorite(ctx context.Context, favID entity.FavoriteID, tagID entity.TagID) error
+	UpdateFavoriteTags(ctx context.Context, favID entity.FavoriteID, tagIDs []entity.TagID) error
 }

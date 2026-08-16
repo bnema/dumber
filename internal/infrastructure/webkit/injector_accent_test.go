@@ -19,32 +19,34 @@ func TestAccentDetectionScriptInjectionMode(t *testing.T) {
 }
 
 func TestAccentDetectionScriptTracksLastFocusedEditableElement(t *testing.T) {
+	script := buildAccentDetectionScript("")
 	assert.Contains(t,
-		accentDetectionScript,
+		script,
 		"window.__dumber_lastEditableEl = e.target",
 		"accent detection script must track the last focused editable element",
 	)
 	assert.Contains(t,
-		accentDetectionScript,
+		script,
 		"document.addEventListener('focusin'",
 		"accent detection script must register a focusin listener",
 	)
-	assert.Contains(t, accentDetectionScript, "el.isContentEditable")
-	assert.Contains(t, accentDetectionScript, "closest('[contenteditable]')")
+	assert.Contains(t, script, "el.isContentEditable")
+	assert.Contains(t, script, "closest('[contenteditable]')")
 }
 
 func TestAccentDetectionScriptPostsEditableFocusChangedMessages(t *testing.T) {
-	assert.Contains(t, accentDetectionScript, "editable_focus_changed")
-	assert.Contains(t, accentDetectionScript, "document.addEventListener('focusout'")
-	assert.Contains(t, accentDetectionScript, `const editableFocusToken = "";`)
-	assert.Contains(t, accentDetectionScript, `payload: { editable: editable, token: editableFocusToken }`)
-	assert.Contains(t, accentDetectionScript, "let lastEditableFocusState = null;")
-	assert.Contains(t, accentDetectionScript, "if (lastEditableFocusState === editable) return;")
-	assert.Contains(t, accentDetectionScript, `postEditableFocus(true)`)
-	assert.Contains(t, accentDetectionScript, `postEditableFocus(false)`)
-	assert.Contains(t, accentDetectionScript, `e && e.isTrusted === false`)
-	assert.Contains(t, accentDetectionScript, `document.activeElement`)
-	assert.Contains(t, accentDetectionScript, `window.__dumber_lastEditableEl = document.activeElement`)
+	script := buildAccentDetectionScript("")
+	assert.Contains(t, script, "editable_focus_changed")
+	assert.Contains(t, script, "document.addEventListener('focusout'")
+	assert.Contains(t, script, `const editableFocusToken = "";`)
+	assert.Contains(t, script, `payload: { editable: editable, token: editableFocusToken }`)
+	assert.Contains(t, script, "let lastEditableFocusState = null;")
+	assert.Contains(t, script, "if (lastEditableFocusState === editable) return;")
+	assert.Contains(t, script, `postEditableFocus(true)`)
+	assert.Contains(t, script, `postEditableFocus(false)`)
+	assert.Contains(t, script, `e && e.isTrusted === false`)
+	assert.Contains(t, script, `document.activeElement`)
+	assert.Contains(t, script, `window.__dumber_lastEditableEl = document.activeElement`)
 }
 
 func TestBuildAccentDetectionScript_EmptyTokenReturnsBeforeHandlerLookup(t *testing.T) {

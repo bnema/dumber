@@ -212,6 +212,11 @@ func (c *WorkspaceCoordinator) splitWithInitialURL(
 			ctx, splitCtx.wsView, splitCtx.ws, output, direction,
 			splitCtx.existingWidget, splitCtx.isStackSplit, oldActivePaneID,
 		); err != nil {
+			if rollbackErr := c.ClosePaneByID(ctx, output.NewPaneNode.Pane.ID); rollbackErr != nil {
+				log.Warn().Err(rollbackErr).Str("pane_id", string(output.NewPaneNode.Pane.ID)).Msg("failed to roll back split pane")
+			}
+			splitCtx.ws.ActivePaneID = oldActivePaneID
+			c.notifyStateChanged()
 			return err
 		}
 		if notifyNewPane {
@@ -604,6 +609,13 @@ func (c *WorkspaceCoordinator) doIncrementalStackSplit(
 	wv, err := c.contentCoord.EnsureWebView(ctx, output.NewPaneNode.Pane.ID)
 	if err != nil {
 		log.Warn().Err(err).Str("pane_id", string(output.NewPaneNode.Pane.ID)).Msg("failed to ensure webview for new pane")
+		if rollbackErr := c.ClosePaneByID(ctx, output.NewPaneNode.Pane.ID); rollbackErr != nil {
+			log.Warn().Err(rollbackErr).Str("pane_id", string(output.NewPaneNode.Pane.ID)).Msg("failed to roll back stack split pane")
+		}
+		if ws := wsView.Workspace(); ws != nil {
+			ws.ActivePaneID = oldActivePaneID
+		}
+		c.notifyStateChanged()
 		return err
 	}
 
@@ -744,6 +756,11 @@ func (c *WorkspaceCoordinator) doIncrementalSplit(
 	wv, err := c.contentCoord.EnsureWebView(ctx, output.NewPaneNode.Pane.ID)
 	if err != nil {
 		log.Warn().Err(err).Str("pane_id", string(output.NewPaneNode.Pane.ID)).Msg("failed to ensure webview for new pane")
+		if rollbackErr := c.ClosePaneByID(ctx, output.NewPaneNode.Pane.ID); rollbackErr != nil {
+			log.Warn().Err(rollbackErr).Str("pane_id", string(output.NewPaneNode.Pane.ID)).Msg("failed to roll back incremental split pane")
+		}
+		ws.ActivePaneID = oldActivePaneID
+		c.notifyStateChanged()
 		return err
 	}
 
@@ -1523,7 +1540,7 @@ func (c *WorkspaceCoordinator) stackPaneWithURL(ctx context.Context, initialURL 
 	// Get WebView and attach
 	wv, err := c.contentCoord.EnsureWebView(ctx, newPaneID)
 	if err != nil {
-		log.Warn().Err(err).Msg("failed to get webview for new pane")
+		c.rollbackStackPane(ctx, stackCtx, newPaneID)
 		return err
 	}
 	widget := c.contentCoord.WrapWidget(ctx, wv)
@@ -1999,6 +2016,11 @@ func (c *WorkspaceCoordinator) insertPopupSplit(ctx context.Context, input conte
 	// Update UI
 	if wsView != nil {
 		if err := c.applySplitToView(ctx, wsView, ws, output, direction, existingWidget, isStackSplit, input.ParentPaneID); err != nil {
+			if rollbackErr := c.ClosePaneByID(ctx, input.PopupPane.ID); rollbackErr != nil {
+				log.Warn().Err(rollbackErr).Str("pane_id", string(input.PopupPane.ID)).Msg("failed to roll back popup split pane")
+			}
+			ws.ActivePaneID = input.ParentPaneID
+			c.notifyStateChanged()
 			return err
 		}
 		c.attachPopupWebView(ctx, wsView, input)
@@ -2115,6 +2137,7 @@ func (c *WorkspaceCoordinator) insertPopupStacked(ctx context.Context, input con
 
 		// Revert stack conversion if we created a new stack
 		conversionInfo.revert()
+		c.notifyStateChanged()
 
 		return err
 	}

@@ -43,7 +43,7 @@ The browser chrome stays out of the way by default. Open the omnibox when you wa
 
 ### Keyboard workflow
 
-- Pane, tab, page, resize, and session modes
+- Pane, tab, Vim, resize, and session modes
 - Vim/Zellij-style navigation patterns
 - Search bangs such as `!g`, `!gi`, and `!ddg`
 - Launcher integration for `rofi`, `fuzzel`, and `dmenu`
@@ -67,7 +67,7 @@ The browser chrome stays out of the way by default. Open the omnibox when you wa
 ### Install script
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/bnema/dumber/main/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/bnema/dumber/v0.31.0/install.sh | DUMBER_VERSION=v0.31.0 bash
 dumber browse
 ```
 
@@ -96,7 +96,7 @@ Dumber uses modal keybindings for browser management.
 |------|-------------|----------|
 | Pane | `Ctrl+P` | Split, stack, close, and move panes |
 | Tab | `Ctrl+T` | Create, close, switch, and rename tabs |
-| Page | `Ctrl+Y` | Scroll the active webpage with `h/j/k/l` and `Shift+J/K`; arrow keys stay native and other app shortcuts wait until exit |
+| Vim Mode | `Ctrl+Y` | Navigate the active webpage with configurable Vim-style sequences; arrow keys stay native and other app shortcuts wait until exit |
 | Resize | `Ctrl+N` | Resize panes with `hjkl` or arrow keys |
 | Session | `Ctrl+O` | Snapshot, restore, and browse sessions |
 

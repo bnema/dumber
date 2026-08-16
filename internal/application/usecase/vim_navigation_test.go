@@ -59,6 +59,6 @@ func TestVimNavigationUseCaseNavigatePageFocus(t *testing.T) {
 func TestVimNavigationUseCaseIgnoresUnsupportedCapability(t *testing.T) {
 	wv := portmocks.NewMockWebView(t)
 
-	require.NoError(t, NewVimNavigationUseCase().Execute(context.Background(), wv, "focus-input", 1, ""))
+	require.ErrorIs(t, NewVimNavigationUseCase().Execute(context.Background(), wv, "focus-input", 1, ""), errUnsupportedVimNavigationEngine)
 	assert.False(t, NewVimNavigationUseCase().NavigatePageFocus(wv, true))
 }

@@ -2,7 +2,6 @@ package config
 
 import (
 	"context"
-	"os"
 	"path/filepath"
 	"sync"
 	"testing"
@@ -118,13 +117,11 @@ func TestKeybindingsGateway_VimModeSetKeybindingUpdatesFile(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	// Verify the file was written with the updated keybinding.
-	configFile := mgr.GetConfigFile()
-	data, err := os.ReadFile(configFile)
-	require.NoError(t, err)
-	content := string(data)
-	assert.Contains(t, content, `keys = ['a']`)
-	assert.NotContains(t, content, `keys = ['h']`)
+	// Reload and assert on the parsed Vim-mode configuration rather than raw TOML text.
+	reloaded, reloadErr := NewManager()
+	require.NoError(t, reloadErr)
+	require.NoError(t, reloaded.Load())
+	assert.Equal(t, []string{"a"}, reloaded.Get().Workspace.VimMode.Actions["vim-scroll-left"].Keys)
 }
 
 func TestKeybindingsGateway_VimModeResetKeybinding(t *testing.T) {
@@ -145,13 +142,11 @@ func TestKeybindingsGateway_VimModeResetKeybinding(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	// Verify the file was updated back to default.
-	configFile := mgr.GetConfigFile()
-	data, err := os.ReadFile(configFile)
-	require.NoError(t, err)
-	content := string(data)
-	assert.Contains(t, content, `keys = ['h']`)
-	assert.NotContains(t, content, `keys = ['a']`)
+	// Reload and assert on the parsed default binding.
+	reloaded, reloadErr := NewManager()
+	require.NoError(t, reloadErr)
+	require.NoError(t, reloaded.Load())
+	assert.Equal(t, []string{"h"}, reloaded.Get().Workspace.VimMode.Actions["vim-scroll-left"].Keys)
 }
 
 func TestKeybindingsGateway_VimModeIsPartOfResetAll(t *testing.T) {
@@ -176,15 +171,12 @@ func TestKeybindingsGateway_VimModeIsPartOfResetAll(t *testing.T) {
 	err := gw.ResetAllKeybindings(context.Background())
 	require.NoError(t, err)
 
-	// Verify file has defaults.
-	configFile := mgr.GetConfigFile()
-	data, err := os.ReadFile(configFile)
-	require.NoError(t, err)
-	content := string(data)
-	assert.Contains(t, content, `keys = ['h']`, "vim-scroll-left should be restored to default")
-	assert.Contains(t, content, `keys = ['j']`, "vim-scroll-down should be restored to default")
-	assert.NotContains(t, content, "keys = ['a']")
-	assert.NotContains(t, content, "keys = ['b']")
+	// Reload and assert on the parsed default bindings.
+	reloaded, reloadErr := NewManager()
+	require.NoError(t, reloadErr)
+	require.NoError(t, reloaded.Load())
+	assert.Equal(t, []string{"h"}, reloaded.Get().Workspace.VimMode.Actions["vim-scroll-left"].Keys, "vim-scroll-left should be restored to default")
+	assert.Equal(t, []string{"j"}, reloaded.Get().Workspace.VimMode.Actions["vim-scroll-down"].Keys, "vim-scroll-down should be restored to default")
 }
 
 func TestKeybindingsGateway_VimModeConflictsWithinSelf(t *testing.T) {

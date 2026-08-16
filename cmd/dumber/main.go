@@ -118,13 +118,13 @@ func tryForwardBrowserURLToRunningInstance(
 	}
 
 	delivered, err := deliver(ctx, browseURL)
+	if delivered {
+		return true, nil
+	}
 	if err != nil {
-		if delivered && errors.Is(err, desktop.ErrBrowserLaunchRelayUnconfirmed) {
-			return true, nil
-		}
 		return false, err
 	}
-	return delivered, nil
+	return false, nil
 }
 
 func launchStandaloneBrowserURL(ctx context.Context, launch func(context.Context, string) error, uri string) error {

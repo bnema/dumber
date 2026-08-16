@@ -46,10 +46,10 @@ func focusNextInputScript() string {
   const isEligible = (element) => {
     if (!isVisible(element)) return false;
     if (element instanceof HTMLInputElement) {
-      return !element.disabled && !element.readOnly && !hiddenInputTypes.has(element.type.toLowerCase());
+      return !element.matches(":disabled") && !element.readOnly && !hiddenInputTypes.has(element.type.toLowerCase());
     }
     if (element instanceof HTMLTextAreaElement) {
-      return !element.disabled && !element.readOnly;
+      return !element.matches(":disabled") && !element.readOnly;
     }
     return element.isContentEditable && element.getAttribute("contenteditable") !== "false";
   };
@@ -70,9 +70,9 @@ func pageFocusNavigationScript(backward bool) string {
 	return `(() => {
   const direction = ` + direction + `;
   const selector = [
-    "a[href]", "area[href]", "button:not([disabled])",
-    "input:not([disabled]):not([type=\"hidden\"])", "select:not([disabled])",
-    "textarea:not([disabled])", "[contenteditable]:not([contenteditable=\"false\"])",
+    "a[href]", "area[href]", "button:not(:disabled)",
+    "input:not(:disabled):not([type=\"hidden\"])", "select:not(:disabled)",
+    "textarea:not(:disabled)", "[contenteditable]:not([contenteditable=\"false\"])",
     "[tabindex]:not([tabindex=\"-1\"])"
   ].join(",");
   const isVisible = (element) => {
@@ -83,7 +83,7 @@ func pageFocusNavigationScript(backward bool) string {
     return style.display !== "none" && style.visibility !== "hidden" && style.visibility !== "collapse";
   };
   const candidates = Array.from(document.querySelectorAll(selector)).filter((element) => {
-    return isVisible(element) && !element.disabled && element.tabIndex >= 0;
+    return isVisible(element) && !element.matches(":disabled") && element.tabIndex >= 0;
   });
   if (candidates.length === 0) return;
   const active = document.activeElement;

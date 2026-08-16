@@ -138,12 +138,6 @@ func TestMatcher_Counts(t *testing.T) {
 			action: "down",
 		},
 		{
-			name:   "03j",
-			keys:   []Key{{Sym: "0"}, {Sym: "3"}, {Sym: "j"}},
-			count:  3,
-			action: "down",
-		},
-		{
 			name:   "0 binding",
 			keys:   []Key{{Sym: "0"}},
 			count:  0,
@@ -167,6 +161,25 @@ func TestMatcher_Counts(t *testing.T) {
 				t.Fatalf("Action = %q, want %q", result.Action, tt.action)
 			}
 		})
+	}
+}
+
+func TestMatcher_ZeroThenCount(t *testing.T) {
+	m := NewMatcher(testTrie(t))
+
+	zero := m.Feed(Key{Sym: "0"})
+	if zero.Kind != ResultComplete || zero.Action != "zero" || zero.Count != 0 {
+		t.Fatalf("first zero result = %#v, want complete zero binding", zero)
+	}
+
+	count := m.Feed(Key{Sym: "3"})
+	if count.Kind != ResultPending || count.Pending != "3" || count.Count != 3 {
+		t.Fatalf("count prefix result = %#v, want pending count 3", count)
+	}
+
+	complete := m.Feed(Key{Sym: "j"})
+	if complete.Kind != ResultComplete || complete.Action != "down" || complete.Count != 3 {
+		t.Fatalf("counted action result = %#v, want complete down count 3", complete)
 	}
 }
 

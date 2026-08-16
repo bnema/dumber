@@ -298,14 +298,15 @@ func (r *MessageRouter) handleAllowlistedBridgeMessage(senderWV *WebView, msg Me
 	if msg.Type != "editable_focus_changed" {
 		return false
 	}
+	log := logging.FromContext(r.baseContext())
 	if senderWV == nil {
+		log.Warn().Str("type", msg.Type).Msg("dropping allowlisted bridge message without sender WebView")
 		return true
 	}
 	var payload struct {
 		Editable bool   `json:"editable"`
 		Token    string `json:"token"`
 	}
-	log := logging.FromContext(r.baseContext())
 	if len(msg.Payload) != 0 {
 		if err := json.Unmarshal(msg.Payload, &payload); err != nil {
 			log.Warn().Err(err).Str("type", msg.Type).Msg("failed to decode allowlisted bridge payload")

@@ -2436,6 +2436,15 @@ func (wv *WebView) AttachFrontend(ctx context.Context, injector *ContentInjector
 // shared directional DOM-target resolution once its browser is ready.
 // Implements port.PageScrollable.
 func (wv *WebView) ScrollPage(ctx context.Context, request port.PageScrollRequest) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	if wv == nil {
+		return fmt.Errorf("webkit: webview is nil")
+	}
+	if err := request.Validate(); err != nil {
+		return err
+	}
 	if wv.destroyed.Load() {
 		return fmt.Errorf("webview %d is destroyed", wv.id)
 	}

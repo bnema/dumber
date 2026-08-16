@@ -2435,6 +2435,15 @@ func pageScrollWheelDeltas(request port.PageScrollRequest) (deltaX, deltaY int32
 // exhausted nested scroller can hand off automatically to its ancestor or the
 // document. Native precision-wheel input remains the pre-frame fallback.
 func (wv *WebView) ScrollPage(ctx context.Context, request port.PageScrollRequest) error {
+	if wv == nil {
+		return errors.New("cef: webview is nil")
+	}
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	if err := request.Validate(); err != nil {
+		return err
+	}
 	if wv.destroyed.Load() {
 		return errDestroyed
 	}
@@ -2485,7 +2494,7 @@ func (wv *WebView) ensurePageScrollFlush() {
 	q.mu.Unlock()
 
 	if wv.engine == nil {
-		wv.flushPageScroll()
+		wv.drainPageScrollSynchronously()
 		return
 	}
 	task := cefNewTask(cefTaskFunc(wv.flushPageScroll))
@@ -2496,17 +2505,43 @@ func (wv *WebView) ensurePageScrollFlush() {
 		q.heldDX = 0
 		q.heldDY = 0
 		q.mu.Unlock()
-		wv.flushPageScroll()
+		wv.drainPageScrollSynchronously()
 	}
 }
 
+func (wv *WebView) drainPageScrollSynchronously() {
+	for wv.drainPageScrollOnce() {
+	}
+	q := &wv.pageScrollQueue
+	q.mu.Lock()
+	q.flushPending = false
+	q.mu.Unlock()
+}
+
 func (wv *WebView) flushPageScroll() {
+	wv.drainPageScrollOnce()
+
+	q := &wv.pageScrollQueue
+	q.mu.Lock()
+	q.flushPending = false
+	hasWork := q.tapDX != 0 || q.tapDY != 0 || q.heldDX != 0 || q.heldDY != 0
+	q.mu.Unlock()
+	if hasWork {
+		wv.ensurePageScrollFlush()
+	}
+}
+
+func (wv *WebView) drainPageScrollOnce() bool {
 	q := &wv.pageScrollQueue
 	q.mu.Lock()
 	tapDX, tapDY := q.tapDX, q.tapDY
 	heldDX, heldDY := q.heldDX, q.heldDY
 	heldGeneration := q.generation
 	beforeExecute := q.beforeExecute
+	if tapDX == 0 && tapDY == 0 && heldDX == 0 && heldDY == 0 {
+		q.mu.Unlock()
+		return false
+	}
 	q.tapDX, q.tapDY, q.heldDX, q.heldDY = 0, 0, 0, 0
 	q.mu.Unlock()
 
@@ -2528,11 +2563,7 @@ func (wv *WebView) flushPageScroll() {
 		wv.executeJavaScriptNow(webutil.BuildPageScrollByJS(dx, dy))
 	}
 	q.commitMu.Unlock()
-
-	q.mu.Lock()
-	q.flushPending = false
-	q.mu.Unlock()
-	wv.ensurePageScrollFlush()
+	return true
 }
 
 // CancelPageScroll invalidates all accepted but unconsumed held-key deltas.

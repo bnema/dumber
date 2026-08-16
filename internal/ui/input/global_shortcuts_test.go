@@ -63,8 +63,6 @@ func TestGlobalShortcutHandlerUsesDistinctNamedActionsAcrossReloads(t *testing.T
 	if display == nil {
 		t.Skip("GTK native display prerequisite unavailable (no default GDK display)")
 	}
-	display.Unref()
-
 	appID := "com.dumber.GlobalShortcutHandlerTest"
 	app := gtk.NewApplication(&appID, gio.GApplicationNonUniqueValue)
 	if app == nil {
@@ -105,7 +103,6 @@ func TestGlobalShortcutHandlerUsesDistinctNamedActionsAcrossReloads(t *testing.T
 				t.Fatalf("shortcut %d action was nil", index)
 			}
 			actions[action.GoPointer()] = struct{}{}
-			action.Unref()
 			shortcut.Unref()
 		}
 		if got := uint(len(actions)); got != shortcutCount {

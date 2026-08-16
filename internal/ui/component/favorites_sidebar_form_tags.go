@@ -133,48 +133,14 @@ func (fs *FavoritesSidebar) updateFavoriteTags(favoriteID entity.FavoriteID, wan
 	}
 	fs.mu.RLock()
 	uc, ctx := fs.favoritesUC, fs.ctx
-	var current []entity.Tag
-	for _, fav := range fs.allFavorites {
-		if fav != nil && fav.ID == favoriteID {
-			current = append(current, fav.Tags...)
-			break
-		}
-	}
 	fs.mu.RUnlock()
 	if uc == nil {
 		return false
 	}
-	wantedSet := make(map[entity.TagID]struct{}, len(wanted))
-	for _, id := range wanted {
-		wantedSet[id] = struct{}{}
-	}
-	currentSet := tagIDSet(current)
-	mutated := false
-	for id := range currentSet {
-		if _, ok := wantedSet[id]; ok {
-			continue
-		}
-		if err := uc.UntagFavorite(ctx, favoriteID, id); err != nil {
-			if mutated {
-				fs.startLoad()
-			}
-			fs.setNotice(err.Error())
-			return false
-		}
-		mutated = true
-	}
-	for id := range wantedSet {
-		if _, ok := currentSet[id]; ok {
-			continue
-		}
-		if err := uc.TagFavorite(ctx, favoriteID, id); err != nil {
-			if mutated {
-				fs.startLoad()
-			}
-			fs.setNotice(err.Error())
-			return false
-		}
-		mutated = true
+	if err := uc.UpdateFavoriteTags(ctx, favoriteID, wanted); err != nil {
+		fs.startLoad()
+		fs.setNotice(err.Error())
+		return false
 	}
 	return true
 }

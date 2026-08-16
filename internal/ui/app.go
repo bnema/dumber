@@ -3920,16 +3920,8 @@ func (a *App) handlePageEditableFocusChanged(ctx context.Context, paneID entity.
 	a.applyVimModePolicyTransition(ctx, bw, transition)
 }
 
-func (a *App) shouldBypassVimModeActivation(bw *browserWindow) bool {
-	ws := a.activeWorkspaceForBrowserWindow(bw)
-	if ws == nil {
-		return false
-	}
-	transition := a.vimModePolicy().Evaluate(usecase.VimModePolicyInput{
-		Trigger:             usecase.VimModePolicyTriggerActivationAttempt,
-		PageEditableFocused: a.pageEditableFocused(ws.ActivePaneID),
-	})
-	return transition == usecase.VimModePolicyTransitionBlockActivation
+func (*App) shouldBypassVimModeActivation(_ *browserWindow) bool {
+	return false
 }
 
 // handleModeChange is called when the input mode changes for a specific browser window.

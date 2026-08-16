@@ -46,7 +46,10 @@ type browserLaunchRequest struct {
 
 type browserLaunchAction string
 
-const browserLaunchActionOpenFreshWindow browserLaunchAction = "open-fresh-window"
+const (
+	browserLaunchActionOpenExternalURL browserLaunchAction = "open-external-url"
+	browserLaunchActionOpenFreshWindow browserLaunchAction = "open-fresh-window"
+)
 
 type browserLaunchResponse struct {
 	RequestID string `json:"request_id,omitempty"`
@@ -369,10 +372,17 @@ func (*browserLaunchRelayListener) handleConnection(ctx context.Context, conn *n
 			Msg("browser launch relay calling browser URL opener")
 		var err error
 		switch request.Action {
+		case "", browserLaunchActionOpenExternalURL:
+			err = opener.OpenExternalURL(ctx, request.URL)
 		case browserLaunchActionOpenFreshWindow:
 			err = opener.OpenFreshWindow(ctx, request.URL)
 		default:
-			err = opener.OpenExternalURL(ctx, request.URL)
+			log.Warn().
+				Str("request_id", requestID).
+				Str("url_host", safeURLHost(request.URL)).
+				Str("action", string(request.Action)).
+				Msg("browser launch relay rejected unknown action")
+			return
 		}
 		if err != nil {
 			log.Warn().Err(err).

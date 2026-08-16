@@ -5,6 +5,7 @@ package port
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/bnema/dumber/internal/application/dto"
 	"github.com/bnema/dumber/internal/domain/entity"
@@ -418,6 +419,19 @@ type PageScrollRequest struct {
 	// Continuous distinguishes autonomous held-key steps from the guaranteed
 	// tap step so adapters can cancel queued held work without dropping taps.
 	Continuous bool
+}
+
+// IsValid reports whether c is a supported semantic page-scroll command.
+func (c PageScrollCommand) IsValid() bool {
+	return c >= PageScrollCommandLeft && c <= PageScrollCommandDownFast
+}
+
+// Validate checks the command identity carried by a page-scroll request.
+func (r PageScrollRequest) Validate() error {
+	if !r.Command.IsValid() {
+		return fmt.Errorf("unsupported page scroll command %d", r.Command)
+	}
+	return nil
 }
 
 // PageScrollable is an optional capability for WebViews that support semantic

@@ -37,8 +37,6 @@ func runGTKCallbackLifecycleStress(t *testing.T) {
 	if display == nil {
 		t.Skip("GTK native display prerequisite unavailable (no default GDK display)")
 	}
-	display.Unref()
-
 	mainContext := glib.MainContextDefault()
 	require.NotNil(t, mainContext)
 	done := make(chan struct{})

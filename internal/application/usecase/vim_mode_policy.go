@@ -5,9 +5,8 @@ package usecase
 type VimModePolicyTransition string
 
 const (
-	VimModePolicyTransitionStay            VimModePolicyTransition = "stay"
-	VimModePolicyTransitionExit            VimModePolicyTransition = "exit"
-	VimModePolicyTransitionBlockActivation VimModePolicyTransition = "block_activation"
+	VimModePolicyTransitionStay VimModePolicyTransition = "stay"
+	VimModePolicyTransitionExit VimModePolicyTransition = "exit"
 )
 
 // VimModePolicyTrigger identifies the focus or activation event being

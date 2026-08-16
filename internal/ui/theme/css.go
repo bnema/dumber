@@ -596,7 +596,7 @@ entry.find-bar-entry:focus-visible {
 // generateVimModeCSS creates the pane-local Vim Mode accent and pulse styling.
 // It reuses --pane-mode-color (from workspace.styling.pane_mode_color).
 func generateVimModeCSS(transitionDurationMs int) string {
-	if transitionDurationMs < 0 {
+	if transitionDurationMs <= 0 {
 		transitionDurationMs = defaultTransitionDurationMs
 	}
 	normalPulseMs := transitionDurationMs * 3
@@ -612,7 +612,8 @@ func generateVimModeCSS(transitionDurationMs int) string {
 }
 
 /* Pane overlay pulse keyframes — start/end at the active accent state so the
-   pane keeps its Vim mode border while briefly flaring brighter. */
+   pane keeps its Vim mode border while briefly flaring brighter. The separate
+   -anim-a and -anim-b pairs are required to restart repeated pulse animations. */
 @keyframes vim-mode-overlay-pulse-anim-a {
 	0%%   { box-shadow: inset 0 0 0 0.125em alpha(var(--pane-mode-color), 0.35); }
 	35%%  { box-shadow: inset 0 0 0 0.2em alpha(var(--pane-mode-color), 0.78); }

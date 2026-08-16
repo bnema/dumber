@@ -120,6 +120,37 @@ func (f *fakeFavoritesSidebarUC) UntagFavorite(_ context.Context, favID entity.F
 	}
 	return f.err
 }
+func (f *fakeFavoritesSidebarUC) UpdateFavoriteTags(ctx context.Context, favID entity.FavoriteID, wanted []entity.TagID) error {
+	wantedSet := make(map[entity.TagID]struct{}, len(wanted))
+	for _, id := range wanted {
+		wantedSet[id] = struct{}{}
+	}
+	var current []entity.Tag
+	for _, favorite := range f.favorites {
+		if favorite != nil && favorite.ID == favID {
+			current = favorite.Tags
+			break
+		}
+	}
+	currentSet := make(map[entity.TagID]struct{}, len(current))
+	for _, tag := range current {
+		currentSet[tag.ID] = struct{}{}
+		if _, keep := wantedSet[tag.ID]; !keep {
+			if err := f.UntagFavorite(ctx, favID, tag.ID); err != nil {
+				return err
+			}
+		}
+	}
+	for _, id := range wanted {
+		if _, exists := currentSet[id]; exists {
+			continue
+		}
+		if err := f.TagFavorite(ctx, favID, id); err != nil {
+			return err
+		}
+	}
+	return nil
+}
 
 func newFavoritesSidebarHarness(favorites []*entity.Favorite, tags []*entity.Tag) *FavoritesSidebar {
 	fs := &FavoritesSidebar{

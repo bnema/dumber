@@ -225,16 +225,16 @@ func TestKeyboardDispatcher_VimModeActionsRouteToCorrectScrollCommand(t *testing
 
 	tests := []struct {
 		action     input.Action
-		cmd        usecase.PageScrollCommand
+		command    port.PageScrollCommand
 		expectedDx int
 		expectedDy int
 	}{
-		{input.ActionVimScrollLeft, usecase.PageScrollLeft, -80, 0},
-		{input.ActionVimScrollRight, usecase.PageScrollRight, 80, 0},
-		{input.ActionVimScrollUp, usecase.PageScrollUp, 0, -80},
-		{input.ActionVimScrollDown, usecase.PageScrollDown, 0, 80},
-		{input.ActionVimScrollUpFast, usecase.PageScrollUpFast, 0, -320},
-		{input.ActionVimScrollDownFast, usecase.PageScrollDownFast, 0, 320},
+		{input.ActionVimScrollLeft, port.PageScrollCommandLeft, -80, 0},
+		{input.ActionVimScrollRight, port.PageScrollCommandRight, 80, 0},
+		{input.ActionVimScrollUp, port.PageScrollCommandUp, 0, -80},
+		{input.ActionVimScrollDown, port.PageScrollCommandDown, 0, 80},
+		{input.ActionVimScrollUpFast, port.PageScrollCommandUpFast, 0, -320},
+		{input.ActionVimScrollDownFast, port.PageScrollCommandDownFast, 0, 320},
 	}
 
 	for _, tc := range tests {
@@ -259,7 +259,7 @@ func TestKeyboardDispatcher_VimModeActionsRouteToCorrectScrollCommand(t *testing
 			)
 
 			base.EXPECT().ID().Return(port.WebViewID(42)).Once()
-			req := port.PageScrollRequest{Command: port.PageScrollCommand(tc.cmd), FallbackDX: tc.expectedDx, FallbackDY: tc.expectedDy}
+			req := port.PageScrollRequest{Command: tc.command, FallbackDX: tc.expectedDx, FallbackDY: tc.expectedDy}
 			scroller.EXPECT().ScrollPage(ctx, req).Return(nil).Once()
 
 			err := d.Dispatch(ctx, tc.action)

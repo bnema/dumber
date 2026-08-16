@@ -31,7 +31,7 @@ type Manager struct {
 func NewManager(ctx context.Context, resolved entity.ResolvedTheme) *Manager {
 	log := logging.FromContext(ctx)
 
-	m := &Manager{}
+	m := &Manager{transitionDurationMs: defaultTransitionDurationMs}
 	m.applyResolvedTheme(resolved)
 
 	log.Debug().
@@ -59,9 +59,6 @@ func (m *Manager) applyResolvedTheme(resolved entity.ResolvedTheme) {
 	}
 	m.gtkFont = m.fonts.GtkFont
 	m.modeColors = ModeColorsFromEntity(resolved.ModeColors)
-	if m.transitionDurationMs <= 0 {
-		m.transitionDurationMs = defaultTransitionDurationMs
-	}
 }
 
 // SetTransitionDuration sets the CSS transition duration used for theme-driven

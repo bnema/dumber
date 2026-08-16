@@ -278,21 +278,7 @@ func validateModalModeActionsWithKeyCanon(
 	}
 
 	if keyCanon == nil {
-		seenKeys := make(map[string]string)
-		for action, binding := range actions {
-			if len(binding.Keys) == 0 {
-				validationErrors = append(validationErrors, fmt.Sprintf("workspace.%s.actions.%s must have at least one key binding", modePath, action))
-			}
-			for _, key := range binding.Keys {
-				if existingAction, exists := seenKeys[key]; exists {
-					validationErrors = append(validationErrors, fmt.Sprintf(
-						"duplicate key binding '%s' found in %s actions '%s' and '%s'", key, modePath, existingAction, action,
-					))
-				}
-				seenKeys[key] = action
-			}
-		}
-		return validationErrors
+		keyCanon = func(key string) (string, error) { return key, nil }
 	}
 
 	actionNames := make([]string, 0, len(actions))
@@ -322,6 +308,32 @@ func validateModalModeActionsWithKeyCanon(
 				))
 				continue
 			}
+			if modePath == "vim_mode" {
+				sequence, parseErr := vimkeys.ParseBinding(canonical)
+				if parseErr == nil {
+					if len(sequence) > 0 && isVimCountStartKey(sequence[0]) {
+						validationErrors = append(validationErrors, fmt.Sprintf(
+							"workspace.%s.actions.%s cannot start with a count digit (1-9): '%s'",
+							modePath,
+							action,
+							canonical,
+						))
+					}
+					legacyExit := action == "confirm" || action == "cancel"
+					if !legacyExit {
+						for _, key := range sequence {
+							if key.Mods == 0 && (key.Sym == "CR" || key.Sym == "Esc") {
+								validationErrors = append(validationErrors, fmt.Sprintf(
+									"workspace.%s.actions.%s cannot bind Enter or Escape outside the modal fallback actions",
+									modePath,
+									action,
+								))
+								break
+							}
+						}
+					}
+				}
+			}
 			if existingAction, exists := seenSequence[canonical]; exists {
 				validationErrors = append(validationErrors, fmt.Sprintf(
 					"duplicate key binding '%s' found in %s actions '%s' and '%s'",
@@ -335,6 +347,10 @@ func validateModalModeActionsWithKeyCanon(
 		}
 	}
 	return validationErrors
+}
+
+func isVimCountStartKey(key vimkeys.Key) bool {
+	return key.Mods == 0 && len(key.Sym) == 1 && key.Sym[0] >= '1' && key.Sym[0] <= '9'
 }
 
 func canonicalizeVimModeBinding(key string) string {

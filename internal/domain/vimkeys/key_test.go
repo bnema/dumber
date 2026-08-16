@@ -59,6 +59,8 @@ func TestSequenceString(t *testing.T) {
 		{name: "yah", seq: Sequence{{Sym: "y"}, {Sym: "a"}, {Sym: "h"}}, want: "yah"},
 		{name: "double bracket", seq: Sequence{{Sym: "]"}, {Sym: "]"}}, want: "]]"},
 		{name: "gO", seq: Sequence{{Sym: "g"}, {Sym: "o", Mods: ModShift}}, want: "gO"},
+		{name: "esc collision", seq: Sequence{{Sym: "e"}, {Sym: "s"}, {Sym: "c"}}, want: "<e>sc"},
+		{name: "enter collision", seq: Sequence{{Sym: "e"}, {Sym: "n"}, {Sym: "t"}, {Sym: "e"}, {Sym: "r"}}, want: "<e>nter"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

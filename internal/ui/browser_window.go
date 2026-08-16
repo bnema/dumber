@@ -9,6 +9,7 @@ import (
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/application/usecase"
 	"github.com/bnema/dumber/internal/domain/entity"
+	domainurl "github.com/bnema/dumber/internal/domain/url"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/dumber/internal/shared/syncdispatch"
 	"github.com/bnema/dumber/internal/ui/component"
@@ -548,11 +549,9 @@ func (a *App) deterministicBrowserWindowFallback() *browserWindow {
 	return a.browserWindows[ids[0]]
 }
 
-func (a *App) OpenExternalURL(ctx context.Context, url string) error {
+func (a *App) dispatchWindowURLWork(ctx context.Context, label, url string, work func(context.Context) error) error {
 	log := logging.FromContext(ctx)
-	log.Debug().
-		Str("url_host", logging.SafeURLHost(url)).
-		Msg("ui: open external URL dispatch requested")
+	log.Debug().Str("url_host", logging.SafeURLHost(url)).Str("dispatch_label", label).Msg("ui: window URL dispatch requested")
 
 	dispatch := a.dispatchOnMainThread
 	if dispatch == nil {
@@ -564,111 +563,64 @@ func (a *App) OpenExternalURL(ctx context.Context, url string) error {
 		}
 	}
 
-	var openErr error
-	var windowCountBefore int
-	var windowCountAfter int
-	var hasTabCoord bool
-	var hasTabsUC bool
-	result := dispatch("ui.open_external_url", func() {
+	var workErr error
+	var windowCountBefore, windowCountAfter int
+	var hasTabCoord, hasTabsUC bool
+	result := dispatch(label, func() {
 		windowCountBefore = len(a.browserWindows)
 		hasTabCoord = a.tabCoord != nil
 		hasTabsUC = a.tabsUC != nil
-		cfg := a.runtimeConfigSnapshot()
 		log.Debug().
 			Str("url_host", logging.SafeURLHost(url)).
+			Str("dispatch_label", label).
 			Int("window_count_before", windowCountBefore).
 			Bool("has_tab_coord", hasTabCoord).
 			Bool("has_tabs_uc", hasTabsUC).
-			Msg("ui: open external URL main-thread work started")
-		openErr = a.openExternalURLOnMainThread(ctx, url, cfg)
+			Msg("ui: window URL main-thread work started")
+		workErr = work(ctx)
 		windowCountAfter = len(a.browserWindows)
 	})
 	if !result.Completed() {
 		log.Warn().
 			Str("url_host", logging.SafeURLHost(url)).
+			Str("dispatch_label", label).
 			Dur("elapsed", result.Elapsed).
 			Str("dispatch_status", string(result.Status)).
-			Msg("ui: open external URL skipped after main-thread dispatch did not complete")
+			Msg("ui: window URL skipped after main-thread dispatch did not complete")
 		return fmt.Errorf("main thread dispatch did not complete: %s", result.Status)
 	}
-	if openErr != nil {
-		log.Warn().Err(openErr).
+	if workErr != nil {
+		log.Warn().Err(workErr).
 			Str("url_host", logging.SafeURLHost(url)).
+			Str("dispatch_label", label).
 			Dur("elapsed", result.Elapsed).
 			Str("dispatch_status", string(result.Status)).
 			Int("window_count_after", windowCountAfter).
-			Msg("ui: open external URL failed")
-		return openErr
+			Msg("ui: window URL operation failed")
+		return workErr
 	}
-
 	log.Debug().
 		Str("url_host", logging.SafeURLHost(url)).
+		Str("dispatch_label", label).
 		Dur("elapsed", result.Elapsed).
 		Str("dispatch_status", string(result.Status)).
 		Int("window_count_after", windowCountAfter).
-		Msg("ui: open external URL completed")
+		Msg("ui: window URL operation completed")
 	return nil
 }
 
-func (a *App) OpenFreshWindow(ctx context.Context, url string) error {
-	log := logging.FromContext(ctx)
-	log.Debug().
-		Str("url_host", logging.SafeURLHost(url)).
-		Msg("ui: open fresh window dispatch requested")
-
-	dispatch := a.dispatchOnMainThread
-	if dispatch == nil {
-		dispatch = func(label string, fn func()) syncdispatch.SyncDispatchResult {
-			if fn != nil {
-				fn()
-			}
-			return syncdispatch.SyncDispatchResult{Label: label, Status: syncdispatch.SyncDispatchInline}
-		}
-	}
-
-	var openErr error
-	var windowCountBefore int
-	var windowCountAfter int
-	var hasTabCoord bool
-	var hasTabsUC bool
-	result := dispatch("ui.open_fresh_window", func() {
-		windowCountBefore = len(a.browserWindows)
-		hasTabCoord = a.tabCoord != nil
-		hasTabsUC = a.tabsUC != nil
-		log.Debug().
-			Str("url_host", logging.SafeURLHost(url)).
-			Int("window_count_before", windowCountBefore).
-			Bool("has_tab_coord", hasTabCoord).
-			Bool("has_tabs_uc", hasTabsUC).
-			Msg("ui: open fresh window main-thread work started")
-		openErr = a.openFreshWindow(ctx, url)
-		windowCountAfter = len(a.browserWindows)
+func (a *App) OpenExternalURL(ctx context.Context, url string) error {
+	url = domainurl.Normalize(url)
+	return a.dispatchWindowURLWork(ctx, "ui.open_external_url", url, func(ctx context.Context) error {
+		return a.openExternalURLOnMainThread(ctx, url, a.runtimeConfigSnapshot())
 	})
-	if !result.Completed() {
-		log.Warn().
-			Str("url_host", logging.SafeURLHost(url)).
-			Dur("elapsed", result.Elapsed).
-			Str("dispatch_status", string(result.Status)).
-			Msg("ui: open fresh window skipped after main-thread dispatch did not complete")
-		return fmt.Errorf("main thread dispatch did not complete: %s", result.Status)
-	}
-	if openErr != nil {
-		log.Warn().Err(openErr).
-			Str("url_host", logging.SafeURLHost(url)).
-			Dur("elapsed", result.Elapsed).
-			Str("dispatch_status", string(result.Status)).
-			Int("window_count_after", windowCountAfter).
-			Msg("ui: open fresh window failed")
-		return openErr
-	}
+}
 
-	log.Debug().
-		Str("url_host", logging.SafeURLHost(url)).
-		Dur("elapsed", result.Elapsed).
-		Str("dispatch_status", string(result.Status)).
-		Int("window_count_after", windowCountAfter).
-		Msg("ui: open fresh window completed")
-	return nil
+func (a *App) OpenFreshWindow(ctx context.Context, url string) error {
+	url = domainurl.Normalize(url)
+	return a.dispatchWindowURLWork(ctx, "ui.open_fresh_window", url, func(ctx context.Context) error {
+		return a.openFreshWindow(ctx, url)
+	})
 }
 
 func (a *App) openExternalURLOnMainThread(ctx context.Context, url string, cfg entity.RuntimeConfigSnapshot) error {
@@ -837,7 +789,7 @@ func verifyExternalPaneCreation(ws *entity.Workspace, previous entity.PaneID, ur
 		return fmt.Errorf("external URL pane was not activated")
 	}
 	active := ws.ActivePane()
-	if active == nil || active.Pane == nil || active.Pane.URI != url {
+	if active == nil || active.Pane == nil || domainurl.Normalize(active.Pane.URI) != domainurl.Normalize(url) {
 		return fmt.Errorf("external URL pane was not created with the requested URL")
 	}
 	return nil

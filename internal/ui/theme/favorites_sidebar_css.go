@@ -28,6 +28,12 @@ func generateFavoritesSidebarCSS(_ Palette) string {
 	background-color: alpha(var(--accent), 0.10);
 }
 
+.favorites-sidebar-tag-filter:focus {
+	color: var(--text);
+	border-color: var(--accent);
+	box-shadow: inset 0 0 0 0.0625em var(--accent);
+}
+
 .favorites-sidebar-tag-filter-active {
 	color: var(--accent);
 	background-color: alpha(var(--accent), 0.16);
@@ -111,6 +117,12 @@ func generateFavoritesSidebarCSS(_ Palette) string {
 .favorites-sidebar-form-tag-match:hover {
 	color: var(--text);
 	background-color: alpha(var(--accent), 0.12);
+}
+
+.favorites-sidebar-form-tag-match:focus {
+	color: var(--text);
+	border-color: var(--accent);
+	box-shadow: inset 0 0 0 0.0625em var(--accent);
 }
 
 .favorites-sidebar-form button {

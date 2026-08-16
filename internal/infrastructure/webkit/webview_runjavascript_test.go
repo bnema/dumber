@@ -132,7 +132,7 @@ func TestScrollPage_UsesFallbackDeltasAndRunsJavaScript(t *testing.T) {
 	}
 
 	err := wv.ScrollPage(context.Background(), port.PageScrollRequest{
-		Command:    port.PageScrollCommand(99),
+		Command:    port.PageScrollCommandLeft,
 		FallbackDX: -12,
 		FallbackDY: 80,
 	})
@@ -168,11 +168,14 @@ func TestScrollPage_VariousRequestsForwardFallbackDeltas(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			var gotDX, gotDY int
+			buildCalls, runCalls := 0, 0
 			buildPageScrollFallbackJS = func(dx, dy int) string {
+				buildCalls++
 				gotDX, gotDY = dx, dy
 				return "ok"
 			}
 			runPageScrollFallbackJS = func(_ context.Context, _ *WebView, script string) {
+				runCalls++
 				assert.Equal(t, "ok", script)
 			}
 
@@ -182,6 +185,8 @@ func TestScrollPage_VariousRequestsForwardFallbackDeltas(t *testing.T) {
 			}
 			err := wv.ScrollPage(context.Background(), tt.req)
 			require.NoError(t, err)
+			assert.Equal(t, 1, buildCalls)
+			assert.Equal(t, 1, runCalls)
 			assert.Equal(t, tt.req.FallbackDX, gotDX)
 			assert.Equal(t, tt.req.FallbackDY, gotDY)
 		})

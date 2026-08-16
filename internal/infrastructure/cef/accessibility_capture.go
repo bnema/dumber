@@ -326,8 +326,8 @@ func (c *accessibilityCapture) Write(p accessibilityPayload) error {
 	}
 	c.seq = next
 	c.fileCount++
-	c.totalBytes += payloadBytes
-	_, writeErr := file.WriteString(p.JSON)
+	written, writeErr := file.WriteString(p.JSON)
+	c.totalBytes += int64(written)
 	chmodErr := file.Chmod(accessibilityCaptureFilePerm)
 	closeErr := file.Close()
 	if writeErr != nil {
