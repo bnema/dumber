@@ -326,6 +326,37 @@ func TestCancelPageScroll_DropsHeldDeltaButPreservesTap(t *testing.T) {
 	}
 }
 
+func TestDrainPageScrollSynchronously_DrainsTapEnqueuedDuringExecution(t *testing.T) {
+	browser := cefmocks.NewMockBrowser(t)
+	frame := cefmocks.NewMockFrame(t)
+	browser.EXPECT().GetMainFrame().Return(frame).Twice()
+
+	wv := &WebView{browser: browser}
+	calls := 0
+	frame.EXPECT().ExecuteJavaScript(mock.Anything, "", int32(0)).Run(func(_, _ string, _ int32) {
+		calls++
+		if calls == 1 {
+			if err := wv.ScrollPage(context.Background(), port.PageScrollRequest{FallbackDY: 80}); err != nil {
+				t.Errorf("enqueue tap during execution: %v", err)
+			}
+		}
+	}).Twice()
+
+	if err := wv.ScrollPage(context.Background(), port.PageScrollRequest{FallbackDY: 80}); err != nil {
+		t.Fatal(err)
+	}
+	if calls != 2 {
+		t.Fatalf("ExecuteJavaScript calls=%d, want 2", calls)
+	}
+
+	q := &wv.pageScrollQueue
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	if q.flushPending || q.tapDX != 0 || q.tapDY != 0 || q.heldDX != 0 || q.heldDY != 0 {
+		t.Fatalf("queue not drained: pending=%t tap=(%d,%d) held=(%d,%d)", q.flushPending, q.tapDX, q.tapDY, q.heldDX, q.heldDY)
+	}
+}
+
 func TestCancelPageScroll_AfterDrainDropsOldHeldAndPreservesTapAndNextGesture(t *testing.T) {
 	oldNewTask, oldPostTask := cefNewTask, cefPostTask
 	defer func() { cefNewTask, cefPostTask = oldNewTask, oldPostTask }()

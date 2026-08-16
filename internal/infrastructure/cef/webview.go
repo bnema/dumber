@@ -2510,12 +2510,18 @@ func (wv *WebView) ensurePageScrollFlush() {
 }
 
 func (wv *WebView) drainPageScrollSynchronously() {
-	for wv.drainPageScrollOnce() {
-	}
 	q := &wv.pageScrollQueue
-	q.mu.Lock()
-	q.flushPending = false
-	q.mu.Unlock()
+	for {
+		wv.drainPageScrollOnce()
+		q.mu.Lock()
+		hasWork := q.tapDX != 0 || q.tapDY != 0 || q.heldDX != 0 || q.heldDY != 0
+		if !hasWork {
+			q.flushPending = false
+			q.mu.Unlock()
+			return
+		}
+		q.mu.Unlock()
+	}
 }
 
 func (wv *WebView) flushPageScroll() {
@@ -2531,7 +2537,7 @@ func (wv *WebView) flushPageScroll() {
 	}
 }
 
-func (wv *WebView) drainPageScrollOnce() bool {
+func (wv *WebView) drainPageScrollOnce() {
 	q := &wv.pageScrollQueue
 	q.mu.Lock()
 	tapDX, tapDY := q.tapDX, q.tapDY
@@ -2540,7 +2546,7 @@ func (wv *WebView) drainPageScrollOnce() bool {
 	beforeExecute := q.beforeExecute
 	if tapDX == 0 && tapDY == 0 && heldDX == 0 && heldDY == 0 {
 		q.mu.Unlock()
-		return false
+		return
 	}
 	q.tapDX, q.tapDY, q.heldDX, q.heldDY = 0, 0, 0, 0
 	q.mu.Unlock()
@@ -2563,7 +2569,6 @@ func (wv *WebView) drainPageScrollOnce() bool {
 		wv.executeJavaScriptNow(webutil.BuildPageScrollByJS(dx, dy))
 	}
 	q.commitMu.Unlock()
-	return true
 }
 
 // CancelPageScroll invalidates all accepted but unconsumed held-key deltas.
