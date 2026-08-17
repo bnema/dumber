@@ -2201,7 +2201,29 @@ func (a *App) navigateVimSequenceAction(ctx context.Context, bw *browserWindow, 
 			Err(err).
 			Str("action", action).
 			Msg("vim navigation unavailable")
+		return
 	}
+	if bw != nil && (action == "heading-next" || action == "heading-prev") {
+		if _, ok := wv.(port.SemanticNavigable); ok {
+			bw.vimNavigationHighlightedWebViews = append(bw.vimNavigationHighlightedWebViews, wv)
+		}
+	}
+}
+
+func (a *App) clearVimNavigationHighlight(ctx context.Context, bw *browserWindow) {
+	if bw == nil {
+		return
+	}
+	navigationUC := a.vimNavigationUseCase()
+	if navigationUC == nil {
+		return
+	}
+	for _, wv := range bw.vimNavigationHighlightedWebViews {
+		if err := navigationUC.ClearSemanticNavigationHighlight(ctx, wv); err != nil {
+			logging.FromContext(ctx).Debug().Err(err).Msg("failed to clear vim navigation highlight")
+		}
+	}
+	bw.vimNavigationHighlightedWebViews = nil
 }
 
 func (a *App) vimNavigationHighlightColor() string {
@@ -3939,6 +3961,9 @@ func (a *App) handleModeChange(ctx context.Context, bw *browserWindow, from, to 
 
 	if to == input.ModeVim && from != input.ModeVim {
 		a.enableAccessibilityForVimMode(ctx, bw)
+	}
+	if from == input.ModeVim && to != input.ModeVim {
+		a.clearVimNavigationHighlight(ctx, bw)
 	}
 
 	// Handle pane-local Vim Mode visual ownership.

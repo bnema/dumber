@@ -65,6 +65,19 @@ func (*VimNavigationUseCase) Execute(ctx context.Context, wv port.WebView, actio
 	return navigator.NavigateSemantic(ctx, request)
 }
 
+// ClearSemanticNavigationHighlight removes the visual target left by semantic
+// navigation when the active Vim Mode session ends.
+func (*VimNavigationUseCase) ClearSemanticNavigationHighlight(ctx context.Context, wv port.WebView) error {
+	if wv == nil {
+		return nil
+	}
+	clearer, ok := wv.(port.SemanticNavigationHighlightClearer)
+	if !ok {
+		return nil
+	}
+	return clearer.ClearSemanticNavigationHighlight(ctx)
+}
+
 // NavigatePageFocus keeps focus traversal inside a page when the active page
 // control would otherwise hand the host window a Tab event.
 func (*VimNavigationUseCase) NavigatePageFocus(wv port.WebView, backward bool) bool {

@@ -12,9 +12,10 @@ import (
 
 type vimNavigationWebView struct {
 	*portmocks.MockWebView
-	focusNextInputCalls int
-	pageFocusBackward   []bool
-	semanticRequests    []dto.SemanticNavigationRequest
+	focusNextInputCalls           int
+	pageFocusBackward             []bool
+	semanticRequests              []dto.SemanticNavigationRequest
+	clearNavigationHighlightCalls int
 }
 
 func (wv *vimNavigationWebView) FocusNextInput() {
@@ -27,6 +28,11 @@ func (wv *vimNavigationWebView) NavigatePageFocus(backward bool) {
 
 func (wv *vimNavigationWebView) NavigateSemantic(_ context.Context, request dto.SemanticNavigationRequest) error {
 	wv.semanticRequests = append(wv.semanticRequests, request)
+	return nil
+}
+
+func (wv *vimNavigationWebView) ClearSemanticNavigationHighlight(context.Context) error {
+	wv.clearNavigationHighlightCalls++
 	return nil
 }
 
@@ -45,6 +51,13 @@ func TestVimNavigationUseCaseExecuteDispatchesConfiguredActions(t *testing.T) {
 		Count:          3,
 		HighlightColor: "#aabbcc",
 	}, wv.semanticRequests[0])
+}
+
+func TestVimNavigationUseCaseClearSemanticNavigationHighlight(t *testing.T) {
+	wv := &vimNavigationWebView{MockWebView: portmocks.NewMockWebView(t)}
+
+	require.NoError(t, NewVimNavigationUseCase().ClearSemanticNavigationHighlight(context.Background(), wv))
+	assert.Equal(t, 1, wv.clearNavigationHighlightCalls)
 }
 
 func TestVimNavigationUseCaseNavigatePageFocus(t *testing.T) {

@@ -176,7 +176,8 @@ func (wv *accessibilityEnablingWebView) EnableAccessibility() {
 
 type semanticNavigatingWebView struct {
 	*portmocks.MockWebView
-	requests []dto.SemanticNavigationRequest
+	requests                      []dto.SemanticNavigationRequest
+	clearNavigationHighlightCalls int
 }
 
 func newSemanticNavigatingWebView(t *testing.T, id port.WebViewID) *semanticNavigatingWebView {
@@ -188,6 +189,11 @@ func newSemanticNavigatingWebView(t *testing.T, id port.WebViewID) *semanticNavi
 
 func (wv *semanticNavigatingWebView) NavigateSemantic(_ context.Context, request dto.SemanticNavigationRequest) error {
 	wv.requests = append(wv.requests, request)
+	return nil
+}
+
+func (wv *semanticNavigatingWebView) ClearSemanticNavigationHighlight(context.Context) error {
+	wv.clearNavigationHighlightCalls++
 	return nil
 }
 
@@ -515,6 +521,50 @@ func TestVimMode_SequenceActionFocusesNextInput(t *testing.T) {
 	app.navigateVimSequenceAction(context.Background(), bw, "focus-input", 1)
 
 	assert.Equal(t, 1, wv.focusNextInputCalls)
+}
+
+func TestVimMode_Leave_ClearsNavigationHighlight(t *testing.T) {
+	app, bw, paneID := newVimModeAccessibilityFixture(t)
+	wv := newSemanticNavigatingWebView(t, 8)
+	app.contentCoord.RegisterPopupWebView(paneID, wv)
+	app.navigateVimSequenceAction(context.Background(), bw, "heading-next", 1)
+
+	app.handleModeChange(context.Background(), bw, input.ModeVim, input.ModeNormal)
+
+	assert.Equal(t, 1, wv.clearNavigationHighlightCalls)
+	assert.Empty(t, bw.vimNavigationHighlightedWebViews)
+}
+
+func TestVimMode_Leave_ClearsNavigationHighlightAfterPaneSwitch(t *testing.T) {
+	f := newSingleWindowVimModeFixture(t)
+	f.app.contentCoord = contentcoord.NewCoordinator(context.Background(), nil, nil, nil, nil, nil, nil, nil)
+	oldWebView := newSemanticNavigatingWebView(t, 9)
+	newWebView := newSemanticNavigatingWebView(t, 10)
+	f.app.contentCoord.RegisterPopupWebView("pane-a", oldWebView)
+	f.app.contentCoord.RegisterPopupWebView("pane-b", newWebView)
+
+	f.app.navigateVimSequenceAction(context.Background(), f.bw1, "heading-next", 1)
+	f.bw1.tabs.ActiveTab().Workspace.ActivePaneID = "pane-b"
+	f.app.handleModeChange(context.Background(), f.bw1, input.ModeVim, input.ModeNormal)
+
+	assert.Equal(t, 1, oldWebView.clearNavigationHighlightCalls)
+	assert.Equal(t, 0, newWebView.clearNavigationHighlightCalls)
+}
+
+func TestVimMode_Leave_ClearsNavigationHighlightAfterTabSwitch(t *testing.T) {
+	app, bw, paneID := newVimModeAccessibilityFixture(t)
+	oldWebView := newSemanticNavigatingWebView(t, 11)
+	app.contentCoord.RegisterPopupWebView(paneID, oldWebView)
+	otherPaneID := entity.PaneID("pane-b")
+	otherTab := entity.NewTab("tab-2", "ws-2", entity.NewPane(otherPaneID))
+	bw.tabs.Add(otherTab)
+	bw.tabs.SetActive("tab-1")
+
+	app.navigateVimSequenceAction(context.Background(), bw, "heading-next", 1)
+	bw.tabs.SetActive(otherTab.ID)
+	app.handleModeChange(context.Background(), bw, input.ModeVim, input.ModeNormal)
+
+	assert.Equal(t, 1, oldWebView.clearNavigationHighlightCalls)
 }
 
 func TestVimMode_NativePageFocusNavigationUsesActiveEditableWebView(t *testing.T) {

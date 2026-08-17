@@ -56,6 +56,9 @@ type browserWindow struct {
 
 	// vimModePaneID tracks this window's pane-local Vim Mode accent/pulse owner.
 	vimModePaneID entity.PaneID
+	// vimNavigationHighlightedWebViews holds every WebView with a semantic Vim
+	// navigation target that must be cleared when this window leaves Vim Mode.
+	vimNavigationHighlightedWebViews []port.WebView
 }
 
 func (bw *browserWindow) detachInputForDestroy() {
@@ -113,6 +116,7 @@ func (bw *browserWindow) clearShellState() {
 	bw.historySidebarReloader = nil
 	bw.activeSidebarKind = nativeSidebarNone
 	bw.vimModePaneID = ""
+	bw.vimNavigationHighlightedWebViews = nil
 }
 
 func (bw *browserWindow) initChrome(ctx context.Context, a *App) {

@@ -465,6 +465,12 @@ type SemanticNavigable interface {
 	NavigateSemantic(ctx context.Context, request dto.SemanticNavigationRequest) error
 }
 
+// SemanticNavigationHighlightClearer is an optional WebView capability for
+// removing the visual target left by semantic navigation.
+type SemanticNavigationHighlightClearer interface {
+	ClearSemanticNavigationHighlight(ctx context.Context) error
+}
+
 // PageInputFocuser is an optional WebView capability for moving Vim Mode
 // input focus to the next eligible page input. With no active eligible input,
 // implementations focus the first one. Unsupported engines safely leave it

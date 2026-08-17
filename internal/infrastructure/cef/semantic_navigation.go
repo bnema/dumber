@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"strconv"
 
+	purecef "github.com/bnema/purego-cef/cef"
+
 	"github.com/bnema/dumber/internal/application/dto"
 )
 
@@ -26,17 +28,64 @@ func (wv *WebView) NavigateSemantic(ctx context.Context, request dto.SemanticNav
 	if count < 1 {
 		count = 1
 	}
-	wv.RunJavaScript(ctx, headingNavigationScript(int(request.Direction), count, request.HighlightColor))
+	wv.RunJavaScript(ctx, headingNavigationScript(int(request.Direction), count, request.HighlightColor, wv.vimHeadingHighlightNamespace()))
 	return nil
 }
 
-func headingNavigationScript(direction, count int, highlightColor string) string {
+// ClearSemanticNavigationHighlight removes the visual target left by the most
+// recent Vim semantic navigation in this WebView.
+func (wv *WebView) ClearSemanticNavigationHighlight(_ context.Context) error {
+	if wv == nil || wv.destroyed.Load() {
+		return errDestroyed
+	}
+	return wv.scheduleJavaScript(clearHeadingNavigationHighlightScript(wv.vimHeadingHighlightNamespace()))
+}
+
+func (wv *WebView) vimHeadingHighlightNamespace() string {
+	return fmt.Sprintf("dumber-vim-heading-%p", wv)
+}
+
+// scheduleJavaScript makes CEF UI-thread scheduling failures observable to
+// callers that need to guarantee a transient UI state is cleared.
+func (wv *WebView) scheduleJavaScript(script string) error {
+	if wv == nil || wv.destroyed.Load() {
+		return errDestroyed
+	}
+	wv.mu.RLock()
+	browser := wv.browser
+	wv.mu.RUnlock()
+	if browser == nil {
+		return fmt.Errorf("schedule JavaScript: browser unavailable")
+	}
+	if wv.engine == nil {
+		frame := browser.GetMainFrame()
+		if frame == nil {
+			return fmt.Errorf("schedule JavaScript: main frame unavailable")
+		}
+		frame.ExecuteJavaScript(script, "", 0)
+		return nil
+	}
+
+	task := cefNewTask(cefTaskFunc(func() {
+		wv.executeJavaScriptNow(script)
+	}))
+	if task == nil {
+		return fmt.Errorf("schedule JavaScript: create CEF task")
+	}
+	if result := cefPostTask(purecef.ThreadIDTidUi, task); result != 1 {
+		return fmt.Errorf("schedule JavaScript: post CEF task: result %d", result)
+	}
+	return nil
+}
+
+func headingNavigationScript(direction, count int, highlightColor, namespace string) string {
 	if highlightColor == "" {
 		highlightColor = "#fbbf24"
 	}
 	return `(() => {
-  const stateKey = "__dumberVimHeadingTarget";
-  const className = "dumber-vim-heading-target";
+  const stateKey = ` + strconv.Quote("__"+namespace+"Target") + `;
+  const targetAttribute = ` + strconv.Quote("data-"+namespace+"-target") + `;
+  const styleAttribute = ` + strconv.Quote("data-"+namespace+"-style") + `;
   const highlightColor = ` + strconv.Quote(highlightColor) + `;
   const headings = Array.from(document.querySelectorAll("h1,h2,h3,h4,h5,h6"))
     .filter((heading) => {
@@ -65,23 +114,38 @@ func headingNavigationScript(direction, count int, highlightColor string) string
   if (next < 0 || next >= headings.length) return;
   const target = headings[next];
 
-  const previous = document.querySelector("." + className);
-  if (previous && previous !== target) previous.classList.remove(className);
-  let style = document.getElementById("dumber-vim-heading-target-style");
+  const previous = document.querySelector("[" + targetAttribute + "]");
+  if (previous && previous !== target) previous.removeAttribute(targetAttribute);
+  let style = document.querySelector("style[" + styleAttribute + "]");
   if (!style) {
     // This visual cue is best-effort: strict page CSP can reject a DOM style
     // element, but target selection and scrolling must stay independent of it.
     style = document.createElement("style");
-    style.id = "dumber-vim-heading-target-style";
+    style.setAttribute(styleAttribute, "");
     document.documentElement.appendChild(style);
   }
   // Refresh the outline on every navigation so an in-session accent change is
   // reflected even when the target style element already exists.
-  style.textContent = "." + className +
+  style.textContent = "[" + targetAttribute + "]" +
     " { outline: 3px solid " + highlightColor +
     " !important; outline-offset: 5px !important; border-radius: 3px !important; }";
   window[stateKey] = target;
-  target.classList.add(className);
+  target.setAttribute(targetAttribute, "");
   target.scrollIntoView({ block: "center", inline: "nearest", behavior: "smooth" });
+})();`
+}
+
+func clearHeadingNavigationHighlightScript(namespace string) string {
+	return `(() => {
+  const stateKey = ` + strconv.Quote("__"+namespace+"Target") + `;
+  const targetAttribute = ` + strconv.Quote("data-"+namespace+"-target") + `;
+  const styleAttribute = ` + strconv.Quote("data-"+namespace+"-style") + `;
+  document.querySelectorAll("[" + targetAttribute + "]").forEach((target) => {
+    target.removeAttribute(targetAttribute);
+  });
+  document.querySelectorAll("style[" + styleAttribute + "]").forEach((style) => {
+    style.remove();
+  });
+  delete window[stateKey];
 })();`
 }

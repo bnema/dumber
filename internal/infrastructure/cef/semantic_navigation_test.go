@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	purecef "github.com/bnema/purego-cef/cef"
 	cefmocks "github.com/bnema/purego-cef/cef/mocks"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -26,8 +27,9 @@ func TestWebViewNavigateSemantic_HeadingExecutesStrictNavigationScript(t *testin
 		"scrollIntoView",
 		"window[stateKey] = target",
 		"const highlightColor = \"#22c55e\"",
-		"let style = document.getElementById(\"dumber-vim-heading-target-style\")",
-		"style.textContent = \".\" + className",
+		"const targetAttribute = \"data-dumber-vim-heading-",
+		"let style = document.querySelector(\"style[\" + styleAttribute + \"]\")",
+		"style.textContent = \"[\" + targetAttribute + \"]\"",
 		"1 * 3",
 	)), "", int32(0)).Once()
 
@@ -41,9 +43,35 @@ func TestWebViewNavigateSemantic_HeadingExecutesStrictNavigationScript(t *testin
 	require.NoError(t, err)
 }
 
+func TestWebViewClearSemanticNavigationHighlightRemovesTargetArtifacts(t *testing.T) {
+	browser := cefmocks.NewMockBrowser(t)
+	frame := cefmocks.NewMockFrame(t)
+	browser.EXPECT().GetMainFrame().Return(frame).Once()
+	frame.EXPECT().ExecuteJavaScript(mock.MatchedBy(mockStringContaining(t,
+		"const targetAttribute = \"data-dumber-vim-heading-",
+		"document.querySelectorAll(\"[\" + targetAttribute + \"]\")",
+		"target.removeAttribute(targetAttribute)",
+		"style[\" + styleAttribute + \"]",
+		"delete window[stateKey]",
+	)), "", int32(0)).Once()
+
+	wv := &WebView{browser: browser}
+	require.NoError(t, wv.ClearSemanticNavigationHighlight(context.Background()))
+}
+
+func TestWebViewClearSemanticNavigationHighlightReportsSchedulingFailure(t *testing.T) {
+	oldNewTask, oldPostTask := cefNewTask, cefPostTask
+	defer func() { cefNewTask, cefPostTask = oldNewTask, oldPostTask }()
+	cefNewTask = func(task purecef.Task) purecef.Task { return task }
+	cefPostTask = func(purecef.ThreadID, purecef.Task) int32 { return 0 }
+
+	wv := &WebView{engine: &Engine{}, browser: cefmocks.NewMockBrowser(t)}
+	require.Error(t, wv.ClearSemanticNavigationHighlight(context.Background()))
+}
+
 func TestWebViewNavigateSemantic_NormalizesCountAndRejectsUnsupportedRequests(t *testing.T) {
-	forward := headingNavigationScript(1, 1, "")
-	backward := headingNavigationScript(-1, 1, "#4ade80")
+	forward := headingNavigationScript(1, 1, "", "test")
+	backward := headingNavigationScript(-1, 1, "#4ade80", "test")
 	assert.Contains(t, forward, "index = firstAtOrAfterViewportTop - 1")
 	assert.Contains(t, forward, "if (index < -1) index = -1;")
 	assert.Contains(t, backward, "index = firstAtOrAfterViewportTop >= 0 ? firstAtOrAfterViewportTop : headings.length")
