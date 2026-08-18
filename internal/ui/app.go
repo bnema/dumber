@@ -2205,7 +2205,14 @@ func (a *App) navigateVimSequenceAction(ctx context.Context, bw *browserWindow, 
 	}
 	if bw != nil && (action == "heading-next" || action == "heading-prev") {
 		if _, ok := wv.(port.SemanticNavigable); ok {
-			bw.vimNavigationHighlightedWebViews = append(bw.vimNavigationHighlightedWebViews, wv)
+			if bw.vimNavigationHighlightedWebViewIDs == nil {
+				bw.vimNavigationHighlightedWebViewIDs = make(map[port.WebViewID]struct{})
+			}
+			id := wv.ID()
+			if _, exists := bw.vimNavigationHighlightedWebViewIDs[id]; !exists {
+				bw.vimNavigationHighlightedWebViewIDs[id] = struct{}{}
+				bw.vimNavigationHighlightedWebViews = append(bw.vimNavigationHighlightedWebViews, wv)
+			}
 		}
 	}
 }
@@ -2224,6 +2231,7 @@ func (a *App) clearVimNavigationHighlight(ctx context.Context, bw *browserWindow
 		}
 	}
 	bw.vimNavigationHighlightedWebViews = nil
+	bw.vimNavigationHighlightedWebViewIDs = nil
 }
 
 func (a *App) vimNavigationHighlightColor() string {

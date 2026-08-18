@@ -183,7 +183,7 @@ type semanticNavigatingWebView struct {
 func newSemanticNavigatingWebView(t *testing.T, id port.WebViewID) *semanticNavigatingWebView {
 	t.Helper()
 	wv := portmocks.NewMockWebView(t)
-	wv.EXPECT().ID().Return(id).Once()
+	wv.EXPECT().ID().Return(id)
 	return &semanticNavigatingWebView{MockWebView: wv}
 }
 
@@ -528,11 +528,13 @@ func TestVimMode_Leave_ClearsNavigationHighlight(t *testing.T) {
 	wv := newSemanticNavigatingWebView(t, 8)
 	app.contentCoord.RegisterPopupWebView(paneID, wv)
 	app.navigateVimSequenceAction(context.Background(), bw, "heading-next", 1)
+	app.navigateVimSequenceAction(context.Background(), bw, "heading-next", 1)
 
 	app.handleModeChange(context.Background(), bw, input.ModeVim, input.ModeNormal)
 
 	assert.Equal(t, 1, wv.clearNavigationHighlightCalls)
 	assert.Empty(t, bw.vimNavigationHighlightedWebViews)
+	assert.Empty(t, bw.vimNavigationHighlightedWebViewIDs)
 }
 
 func TestVimMode_Leave_ClearsNavigationHighlightAfterPaneSwitch(t *testing.T) {

@@ -58,7 +58,8 @@ type browserWindow struct {
 	vimModePaneID entity.PaneID
 	// vimNavigationHighlightedWebViews holds every WebView with a semantic Vim
 	// navigation target that must be cleared when this window leaves Vim Mode.
-	vimNavigationHighlightedWebViews []port.WebView
+	vimNavigationHighlightedWebViews   []port.WebView
+	vimNavigationHighlightedWebViewIDs map[port.WebViewID]struct{}
 }
 
 func (bw *browserWindow) detachInputForDestroy() {
@@ -117,6 +118,7 @@ func (bw *browserWindow) clearShellState() {
 	bw.activeSidebarKind = nativeSidebarNone
 	bw.vimModePaneID = ""
 	bw.vimNavigationHighlightedWebViews = nil
+	bw.vimNavigationHighlightedWebViewIDs = nil
 }
 
 func (bw *browserWindow) initChrome(ctx context.Context, a *App) {
