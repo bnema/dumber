@@ -51,6 +51,8 @@ window, tooltip, popover {
 `
 }
 
+const defaultTransitionDurationMs = 120
+
 // GenerateCSSWithScaleAndFonts creates GTK4 CSS using the provided palette, UI scale factor and fonts.
 // Scale affects widget sizing that uses relative units; text scaling is handled via GtkSettings.
 // Uses default mode colors.
@@ -58,9 +60,16 @@ func GenerateCSSWithScaleAndFonts(p Palette, scale float64, fonts FontConfig) st
 	return GenerateCSSFull(p, scale, fonts, DefaultModeColors())
 }
 
-// GenerateCSSFull creates GTK4 CSS using all provided configuration.
+// GenerateCSSFull creates GTK4 CSS using all provided configuration with the
+// default transition duration.
 // Text scaling is handled via GtkSettings; CSS here stays scale-independent.
 func GenerateCSSFull(p Palette, _ float64, fonts FontConfig, modeColors ModeColors) string {
+	return GenerateCSSFullWithTiming(p, 1.0, fonts, modeColors, defaultTransitionDurationMs)
+}
+
+// GenerateCSSFullWithTiming creates GTK4 CSS using all provided configuration
+// and an explicit transition duration from workspace styling config.
+func GenerateCSSFullWithTiming(p Palette, _ float64, fonts FontConfig, modeColors ModeColors, transitionDurationMs int) string {
 	defaults := DefaultFontConfig()
 	fonts = FontConfig{
 		SansFont:      Coalesce(fonts.SansFont, defaults.SansFont),
@@ -100,6 +109,10 @@ func GenerateCSSFull(p Palette, _ float64, fonts FontConfig, modeColors ModeColo
 
 	// Stacked pane styling
 	sb.WriteString(generateStackedPaneCSS(p))
+	sb.WriteString("\n")
+
+	// Vim mode styling
+	sb.WriteString(generateVimModeCSS(transitionDurationMs))
 	sb.WriteString("\n")
 
 	// Progress bar styling
@@ -146,10 +159,18 @@ func GenerateCSSFull(p Palette, _ float64, fonts FontConfig, modeColors ModeColo
 	sb.WriteString(generateAccentPickerCSS(p))
 	sb.WriteString("\n")
 
-	// History sidebar styling
-	sb.WriteString(generateHistorySidebarCSS(p))
+	appendNativeSidebarCSS(&sb, p)
 
 	return sb.String()
+}
+
+func appendNativeSidebarCSS(sb *strings.Builder, p Palette) {
+	// Native sidebar styling
+	sb.WriteString(generateSidebarCSS(p))
+	sb.WriteString("\n")
+	sb.WriteString(generateHistorySidebarCSS(p))
+	sb.WriteString("\n")
+	sb.WriteString(generateFavoritesSidebarCSS(p))
 }
 
 // generateTabBarCSS creates tab bar styles.
@@ -572,6 +593,70 @@ entry.find-bar-entry:focus-visible {
 
 // generatePaneCSS creates pane border styles.
 // Uses em units for scalable UI.
+// generateVimModeCSS creates the pane-local Vim Mode accent and pulse styling.
+// It reuses --pane-mode-color (from workspace.styling.pane_mode_color).
+func generateVimModeCSS(transitionDurationMs int) string {
+	if transitionDurationMs <= 0 {
+		transitionDurationMs = defaultTransitionDurationMs
+	}
+	normalPulseMs := transitionDurationMs * 3
+	fastPulseMs := transitionDurationMs * 6
+	return fmt.Sprintf(`/* ===== Vim Mode Styling ===== */
+
+/* Vim mode active — subtle local border accent on the pane overlay.
+   Uses the existing pane mode color token via CSS variable.
+   This is independent of the workspace-level pane-mode border overlay. */
+.vim-mode-active {
+	box-shadow: inset 0 0 0 0.125em alpha(var(--pane-mode-color), 0.35);
+	border-radius: 0;
+}
+
+/* Pane overlay pulse keyframes — start/end at the active accent state so the
+   pane keeps its Vim mode border while briefly flaring brighter. The separate
+   -anim-a and -anim-b pairs are required to restart repeated pulse animations. */
+@keyframes vim-mode-overlay-pulse-anim-a {
+	0%%   { box-shadow: inset 0 0 0 0.125em alpha(var(--pane-mode-color), 0.35); }
+	35%%  { box-shadow: inset 0 0 0 0.2em alpha(var(--pane-mode-color), 0.78); }
+	100%% { box-shadow: inset 0 0 0 0.125em alpha(var(--pane-mode-color), 0.35); }
+}
+
+@keyframes vim-mode-overlay-pulse-anim-b {
+	0%%   { box-shadow: inset 0 0 0 0.125em alpha(var(--pane-mode-color), 0.35); }
+	35%%  { box-shadow: inset 0 0 0 0.2em alpha(var(--pane-mode-color), 0.78); }
+	100%% { box-shadow: inset 0 0 0 0.125em alpha(var(--pane-mode-color), 0.35); }
+}
+
+@keyframes vim-mode-overlay-pulse-fast-anim-a {
+	0%%   { box-shadow: inset 0 0 0 0.125em alpha(var(--pane-mode-color), 0.35); }
+	25%%  { box-shadow: inset 0 0 0 0.26em alpha(var(--pane-mode-color), 0.95); }
+	100%% { box-shadow: inset 0 0 0 0.125em alpha(var(--pane-mode-color), 0.35); }
+}
+
+@keyframes vim-mode-overlay-pulse-fast-anim-b {
+	0%%   { box-shadow: inset 0 0 0 0.125em alpha(var(--pane-mode-color), 0.35); }
+	25%%  { box-shadow: inset 0 0 0 0.26em alpha(var(--pane-mode-color), 0.95); }
+	100%% { box-shadow: inset 0 0 0 0.125em alpha(var(--pane-mode-color), 0.35); }
+}
+
+/* Pane overlay scroll pulse — derived from transition_duration. */
+.vim-mode-pulse.vim-mode-pulse-cycle-a {
+	animation: vim-mode-overlay-pulse-anim-a %dms ease-in-out;
+}
+
+.vim-mode-pulse.vim-mode-pulse-cycle-b {
+	animation: vim-mode-overlay-pulse-anim-b %dms ease-in-out;
+}
+
+.vim-mode-pulse-fast.vim-mode-pulse-cycle-a {
+	animation: vim-mode-overlay-pulse-fast-anim-a %dms ease-in-out;
+}
+
+.vim-mode-pulse-fast.vim-mode-pulse-cycle-b {
+	animation: vim-mode-overlay-pulse-fast-anim-b %dms ease-in-out;
+}
+`, normalPulseMs, normalPulseMs, fastPulseMs, fastPulseMs)
+}
+
 func generatePaneCSS(p Palette) string {
 	return `/* ===== Pane Styling ===== */
 
@@ -1126,6 +1211,11 @@ func generateToasterCSS(p Palette) string {
 
 /* Mode-specific toast colors */
 .toast-pane-mode {
+	background-color: var(--pane-mode-color);
+	color: #ffffff;
+}
+
+.toast-vim-mode {
 	background-color: var(--pane-mode-color);
 	color: #ffffff;
 }

@@ -28,6 +28,7 @@ func (hs *HistorySidebar) initOuterBox() error {
 	if hs.outerBox == nil {
 		return fmt.Errorf("history sidebar: outer box creation failed")
 	}
+	hs.outerBox.AddCssClass("sidebar-outer")
 	hs.outerBox.AddCssClass("history-sidebar-outer")
 	hs.outerBox.SetSizeRequest(sidebarMinWidth, -1)
 	hs.outerBox.SetHexpand(false)
@@ -41,6 +42,7 @@ func (hs *HistorySidebar) initSearchBox() error {
 	if hs.searchBox == nil {
 		return fmt.Errorf("history sidebar: search box creation failed")
 	}
+	hs.searchBox.AddCssClass("sidebar-search-box")
 	hs.searchBox.AddCssClass("history-sidebar-search-box")
 	hs.searchBox.SetHexpand(true)
 
@@ -48,6 +50,7 @@ func (hs *HistorySidebar) initSearchBox() error {
 	if hs.searchEntry == nil {
 		return fmt.Errorf("history sidebar: search entry creation failed")
 	}
+	hs.searchEntry.AddCssClass("sidebar-search")
 	hs.searchEntry.AddCssClass("history-sidebar-search")
 	hs.searchEntry.SetHexpand(true)
 	placeholder := "Search history..."
@@ -66,12 +69,14 @@ func (hs *HistorySidebar) initListArea() error {
 	hs.scrolledWin.SetVexpand(true)
 	hs.scrolledWin.SetHexpand(true)
 	hs.scrolledWin.SetPolicy(gtk.PolicyNeverValue, gtk.PolicyAutomaticValue)
+	hs.scrolledWin.AddCssClass("sidebar-list")
 	hs.scrolledWin.AddCssClass("history-sidebar-groups")
 
 	hs.listBox = gtk.NewListBox()
 	if hs.listBox == nil {
 		return fmt.Errorf("history sidebar: list box creation failed")
 	}
+	hs.listBox.AddCssClass("sidebar-list")
 	hs.listBox.AddCssClass("history-sidebar-groups")
 	hs.listBox.SetActivateOnSingleClick(true)
 	hs.listBox.SetSelectionMode(gtk.SelectionSingleValue)

@@ -31,7 +31,6 @@ type GlobalShortcutHandler struct {
 	shortcutRefs          map[string]globalShortcutRegistration
 	lastDispatchAt        map[Action]time.Time
 	heldShortcuts         map[globalShortcutHoldKey]struct{}
-	shortcutAction        *gtk.NamedAction
 	globalAction          *gio.SimpleAction
 	globalActionCb        func(gio.SimpleAction, uintptr)
 	globalActionHandlerID uint
@@ -113,10 +112,16 @@ func NewGlobalShortcutHandler(
 			}
 		}
 
-		// Register all app-reserved shortcuts (mode activations, Ctrl+L, Ctrl+F, etc.)
+		// Register app-reserved shortcuts (Ctrl+L, Ctrl+F, other mode activations, etc.)
 		// so they work even when WebView has focus.
+		// Vim mode activation is intentionally excluded here: it must flow through
+		// the normal KeyboardHandler path so editable page contexts can pass Ctrl+Y
+		// through instead of having a global shortcut controller consume it first.
 		shortcuts := NewShortcutSet(ctx, workspace, session)
 		for binding, action := range shortcuts.Global {
+			if !shouldRegisterGTKGlobalShortcut(action) {
+				continue
+			}
 			if _, exists := h.registered[binding]; exists {
 				continue
 			}
@@ -139,7 +144,6 @@ func (h *GlobalShortcutHandler) configureGlobalControllers() {
 	// Set global scope - this is the key to making shortcuts work
 	// even when WebView has focus.
 	h.controller.SetScope(gtk.ShortcutScopeGlobalValue)
-	h.shortcutAction = gtk.NewNamedAction(globalShortcutActionFullName)
 	h.globalAction = gio.NewSimpleAction(globalShortcutActionName, glib.NewVariantType("s"))
 	if h.globalAction != nil {
 		h.globalActionCb = func(_ gio.SimpleAction, parameter uintptr) {
@@ -212,13 +216,6 @@ func (h *GlobalShortcutHandler) registerShortcut(keyval uint, modifiers gdk.Modi
 		return false
 	}
 
-	if h.shortcutAction == nil {
-		logging.FromContext(h.ctx).Error().
-			Uint("keyval", keyval).
-			Msg("global shortcut action is unavailable")
-		return false
-	}
-
 	// Create trigger for this key combination.
 	trigger := gtk.NewKeyvalTrigger(keyval, modifiers)
 	if trigger == nil {
@@ -228,7 +225,17 @@ func (h *GlobalShortcutHandler) registerShortcut(keyval uint, modifiers gdk.Modi
 		return false
 	}
 
-	shortcut := gtk.NewShortcut(&trigger.ShortcutTrigger, &h.shortcutAction.ShortcutAction)
+	// GtkShortcut takes ownership of its action. Each shortcut needs its own
+	// named action even though they all dispatch through the same window action.
+	shortcutAction := gtk.NewNamedAction(globalShortcutActionFullName)
+	if shortcutAction == nil {
+		logging.FromContext(h.ctx).Error().
+			Uint("keyval", keyval).
+			Msg("failed to create global shortcut action")
+		return false
+	}
+
+	shortcut := gtk.NewShortcut(&trigger.ShortcutTrigger, &shortcutAction.ShortcutAction)
 	if shortcut == nil {
 		logging.FromContext(h.ctx).Error().
 			Uint("keyval", keyval).
@@ -292,6 +299,14 @@ func (h *GlobalShortcutHandler) dispatchGlobalShortcut(actionToDispatch Action, 
 			Msg("inactive window global shortcut callback ignored")
 		return false
 	}
+	if h.kbHandler != nil && shouldIgnoreGlobalShortcutInMode(h.kbHandler.Mode(), actionToDispatch) {
+		log.Trace().
+			Str("action", string(actionToDispatch)).
+			Str("shortcut", formatBinding(bindingForLog)).
+			Str("mode", h.kbHandler.Mode().String()).
+			Msg("global shortcut ignored in current modal mode")
+		return true
+	}
 	eventInfo := h.inspectCurrentShortcutEvent()
 	if !shouldDispatchGlobalShortcutEvent(eventInfo) {
 		appendGlobalShortcutEventFields(log.Trace(), bindingForLog, actionToDispatch, eventInfo).
@@ -318,8 +333,7 @@ func (h *GlobalShortcutHandler) dispatchGlobalShortcut(actionToDispatch Action, 
 	// Mode-enter/exit actions go through KeyboardHandler for modal state.
 	if isModeAction(actionToDispatch) {
 		if h.kbHandler != nil {
-			h.kbHandler.DispatchAction(actionToDispatch)
-			return true
+			return h.kbHandler.DispatchAction(actionToDispatch)
 		}
 		log.Warn().
 			Str("action", string(actionToDispatch)).
@@ -481,6 +495,14 @@ func appendGlobalShortcutEventFields(evt *zerolog.Event, binding KeyBinding, act
 	return evt
 }
 
+func shouldRegisterGTKGlobalShortcut(action Action) bool {
+	return action != ActionEnterVimMode
+}
+
+func shouldIgnoreGlobalShortcutInMode(mode Mode, action Action) bool {
+	return mode == ModeVim && action != ActionEnterVimMode
+}
+
 func globalShortcutActionMap() map[string]Action {
 	return map[string]Action{
 		"toggle_floating_pane":         ActionToggleFloatingPane,
@@ -495,8 +517,8 @@ func globalShortcutActionMap() map[string]Action {
 		"consume-or-expel-down":        ActionConsumeOrExpelDown,
 		"toggle_history_systemview":    ActionToggleHistorySystemView,
 		"toggle-history-systemview":    ActionToggleHistorySystemView,
-		"toggle_favorites_systemview":  ActionToggleFavoritesSystemView,
-		"toggle-favorites-systemview":  ActionToggleFavoritesSystemView,
+		"toggle_favorites_sidebar":     ActionToggleFavoritesSidebar,
+		"toggle-favorites-sidebar":     ActionToggleFavoritesSidebar,
 		"toggle_current_page_favorite": ActionToggleCurrentPageFavorite,
 		"toggle-current-page-favorite": ActionToggleCurrentPageFavorite,
 		"toggle_config_systemview":     ActionToggleConfigSystemView,
@@ -563,6 +585,9 @@ func (h *GlobalShortcutHandler) ReloadShortcuts(ctx context.Context, workspace *
 
 		shortcuts := NewShortcutSet(ctx, workspace, session)
 		for binding, action := range shortcuts.Global {
+			if !shouldRegisterGTKGlobalShortcut(action) {
+				continue
+			}
 			if _, exists := h.registered[binding]; exists {
 				continue
 			}
@@ -610,7 +635,6 @@ func (h *GlobalShortcutHandler) detach(removeFromWindow bool) {
 	}
 	h.controller = nil
 	h.releaseController = nil
-	h.shortcutAction = nil
 	h.globalAction = nil
 	h.globalActionCb = nil
 	h.globalActionHandlerID = 0
@@ -709,7 +733,7 @@ func isRepeatedGlobalShortcutSuppressed(action Action) bool {
 		ActionToggleFullscreen,
 		ActionToggleFloatingPane,
 		ActionToggleHistorySystemView,
-		ActionToggleFavoritesSystemView,
+		ActionToggleFavoritesSidebar,
 		ActionToggleCurrentPageFavorite,
 		ActionToggleConfigSystemView,
 		ActionCopyURL,
@@ -816,7 +840,7 @@ func formatEventType(eventType gdk.EventType) string {
 
 func isModeAction(action Action) bool {
 	switch action {
-	case ActionEnterTabMode, ActionEnterPaneMode, ActionEnterSessionMode, ActionEnterResizeMode, ActionExitMode:
+	case ActionEnterTabMode, ActionEnterPaneMode, ActionEnterSessionMode, ActionEnterResizeMode, ActionEnterVimMode, ActionExitMode:
 		return true
 	default:
 		return false

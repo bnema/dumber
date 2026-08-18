@@ -163,20 +163,30 @@ func setupPaneViewHover(ctx context.Context, pv *component.PaneView, wsView *com
 
 // Split splits the active pane in the given direction.
 func (c *WorkspaceCoordinator) Split(ctx context.Context, direction usecase.SplitDirection) error {
-	return c.splitWithInitialURL(ctx, direction, c.newPaneURL)
+	return c.splitWithInitialURL(ctx, direction, c.newPaneURL, true)
 }
 
 // SplitWithURL splits the active pane in the given direction and loads initialURL.
 func (c *WorkspaceCoordinator) SplitWithURL(ctx context.Context, direction usecase.SplitDirection, initialURL string) error {
-	return c.splitWithInitialURL(ctx, direction, initialURL)
+	return c.splitWithInitialURL(ctx, direction, initialURL, true)
 }
 
-func (c *WorkspaceCoordinator) splitWithInitialURL(ctx context.Context, direction usecase.SplitDirection, initialURL string) error {
+// SplitWithURLWithoutOmnibox splits the active pane without opening the omnibox.
+func (c *WorkspaceCoordinator) SplitWithURLWithoutOmnibox(ctx context.Context, direction usecase.SplitDirection, initialURL string) error {
+	return c.splitWithInitialURL(ctx, direction, initialURL, false)
+}
+
+func (c *WorkspaceCoordinator) splitWithInitialURL(
+	ctx context.Context,
+	direction usecase.SplitDirection,
+	initialURL string,
+	notifyNewPane bool,
+) error {
 	log := logging.FromContext(ctx)
 
-	splitCtx, ok := c.prepareSplit(ctx, direction)
-	if !ok {
-		return nil
+	splitCtx, err := c.prepareSplit(ctx, direction)
+	if err != nil {
+		return err
 	}
 
 	output, err := c.panesUC.Split(ctx, usecase.SplitPaneInput{
@@ -198,11 +208,20 @@ func (c *WorkspaceCoordinator) splitWithInitialURL(ctx context.Context, directio
 
 	// Update the workspace view
 	if splitCtx.wsView != nil {
-		c.applySplitToView(ctx, splitCtx.wsView, splitCtx.ws, output, direction, splitCtx.existingWidget, splitCtx.isStackSplit, oldActivePaneID)
-	}
-
-	if splitCtx.wsView != nil {
-		splitCtx.wsView.NotifyNewPaneCreated(ctx)
+		if err := c.applySplitToView(
+			ctx, splitCtx.wsView, splitCtx.ws, output, direction,
+			splitCtx.existingWidget, splitCtx.isStackSplit, oldActivePaneID,
+		); err != nil {
+			if rollbackErr := c.ClosePaneByID(ctx, output.NewPaneNode.Pane.ID); rollbackErr != nil {
+				log.Warn().Err(rollbackErr).Str("pane_id", string(output.NewPaneNode.Pane.ID)).Msg("failed to roll back split pane")
+			}
+			splitCtx.ws.ActivePaneID = oldActivePaneID
+			c.notifyStateChanged()
+			return err
+		}
+		if notifyNewPane {
+			splitCtx.wsView.NotifyNewPaneCreated(ctx)
+		}
 	}
 
 	// Notify state change for session snapshots
@@ -332,23 +351,27 @@ func setActiveStackIndexForChild(parent, child *entity.PaneNode) {
 func (c *WorkspaceCoordinator) prepareSplit(
 	ctx context.Context,
 	direction usecase.SplitDirection,
-) (*splitContext, bool) {
+) (*splitContext, error) {
 	log := logging.FromContext(ctx)
 	if c.panesUC == nil {
 		log.Warn().Msg("panes use case not available")
-		return nil, false
+		return nil, fmt.Errorf("panes use case not available")
+	}
+	if c.getActiveWS == nil {
+		log.Warn().Msg("active workspace provider not configured")
+		return nil, fmt.Errorf("active workspace provider not configured")
 	}
 
 	ws, wsView := c.getActiveWS()
 	if ws == nil {
 		log.Warn().Msg("no active workspace")
-		return nil, false
+		return nil, fmt.Errorf("no active workspace")
 	}
 
 	activePane := ws.ActivePane()
-	if activePane == nil {
+	if activePane == nil || activePane.Pane == nil {
 		log.Warn().Msg("no active pane to split")
-		return nil, false
+		return nil, fmt.Errorf("no active pane to split")
 	}
 
 	// Check if active pane is inside a stack
@@ -367,7 +390,7 @@ func (c *WorkspaceCoordinator) prepareSplit(
 		activePane:     activePane,
 		existingWidget: existingWidget,
 		isStackSplit:   isStackSplit,
-	}, true
+	}, nil
 }
 
 func (c *WorkspaceCoordinator) resolveSplitWidget(
@@ -407,7 +430,7 @@ func (c *WorkspaceCoordinator) applySplitToView(
 	existingWidget layout.Widget,
 	isStackSplit bool,
 	oldActivePaneID entity.PaneID,
-) {
+) error {
 	log := logging.FromContext(ctx)
 	needsAttach := false
 
@@ -423,12 +446,14 @@ func (c *WorkspaceCoordinator) applySplitToView(
 			log.Warn().Err(splitErr).Msg("incremental split failed, falling back to rebuild")
 			if err := wsView.Rebuild(ctx); err != nil {
 				log.Error().Err(err).Msg("failed to rebuild workspace view")
+				return fmt.Errorf("rebuild workspace view after split: %w", err)
 			}
 			needsAttach = true
 		}
 	} else {
 		if err := wsView.Rebuild(ctx); err != nil {
 			log.Error().Err(err).Msg("failed to rebuild workspace view")
+			return fmt.Errorf("rebuild workspace view after split: %w", err)
 		}
 		needsAttach = true
 	}
@@ -439,8 +464,10 @@ func (c *WorkspaceCoordinator) applySplitToView(
 	}
 	if err := wsView.SetActivePaneID(ws.ActivePaneID); err != nil {
 		log.Warn().Err(err).Msg("failed to set active pane in workspace view")
+		return fmt.Errorf("activate split pane: %w", err)
 	}
 	wsView.FocusPane(ws.ActivePaneID)
+	return nil
 }
 
 // doIncrementalStackSplit performs an incremental split around an existing stacked pane.
@@ -582,6 +609,13 @@ func (c *WorkspaceCoordinator) doIncrementalStackSplit(
 	wv, err := c.contentCoord.EnsureWebView(ctx, output.NewPaneNode.Pane.ID)
 	if err != nil {
 		log.Warn().Err(err).Str("pane_id", string(output.NewPaneNode.Pane.ID)).Msg("failed to ensure webview for new pane")
+		if rollbackErr := c.ClosePaneByID(ctx, output.NewPaneNode.Pane.ID); rollbackErr != nil {
+			log.Warn().Err(rollbackErr).Str("pane_id", string(output.NewPaneNode.Pane.ID)).Msg("failed to roll back stack split pane")
+		}
+		if ws := wsView.Workspace(); ws != nil {
+			ws.ActivePaneID = oldActivePaneID
+		}
+		c.notifyStateChanged()
 		return err
 	}
 
@@ -722,6 +756,11 @@ func (c *WorkspaceCoordinator) doIncrementalSplit(
 	wv, err := c.contentCoord.EnsureWebView(ctx, output.NewPaneNode.Pane.ID)
 	if err != nil {
 		log.Warn().Err(err).Str("pane_id", string(output.NewPaneNode.Pane.ID)).Msg("failed to ensure webview for new pane")
+		if rollbackErr := c.ClosePaneByID(ctx, output.NewPaneNode.Pane.ID); rollbackErr != nil {
+			log.Warn().Err(rollbackErr).Str("pane_id", string(output.NewPaneNode.Pane.ID)).Msg("failed to roll back incremental split pane")
+		}
+		ws.ActivePaneID = oldActivePaneID
+		c.notifyStateChanged()
 		return err
 	}
 
@@ -1453,71 +1492,32 @@ func (c *WorkspaceCoordinator) syncStackedViewActive(ctx context.Context, wsView
 // StackPane adds a new pane stacked on top of the active pane.
 // Uses CreateStack use case for new stacks, AddToStack for existing stacks.
 func (c *WorkspaceCoordinator) StackPane(ctx context.Context) error {
+	return c.stackPaneWithURL(ctx, c.newPaneURL, true)
+}
+
+// StackPaneWithURL adds a new pane containing initialURL to the active stack.
+func (c *WorkspaceCoordinator) StackPaneWithURL(ctx context.Context, initialURL string) error {
+	return c.stackPaneWithURL(ctx, initialURL, true)
+}
+
+// StackPaneWithURLWithoutOmnibox adds a stacked pane without opening the omnibox.
+func (c *WorkspaceCoordinator) StackPaneWithURLWithoutOmnibox(ctx context.Context, initialURL string) error {
+	return c.stackPaneWithURL(ctx, initialURL, false)
+}
+
+func (c *WorkspaceCoordinator) stackPaneWithURL(ctx context.Context, initialURL string, notifyNewPane bool) error {
 	log := logging.FromContext(ctx)
 
-	stackCtx, ok := c.prepareStackPane(ctx)
-	if !ok {
-		return nil
+	stackCtx, err := c.prepareStackPane(ctx)
+	if err != nil {
+		return err
 	}
 
-	// Determine if we need to create a new stack or add to existing.
-	var stackNode *entity.PaneNode
-	var newPane *entity.Pane
-	var newPaneID entity.PaneID
-	var needsFirstPaneTitleUpdate bool
-
-	if stackCtx.activeNode.Parent != nil && stackCtx.activeNode.Parent.IsStacked {
-		// Already in a stack - use AddToStack use case
-		stackNode = stackCtx.activeNode.Parent
-		output, err := c.panesUC.AddToStack(ctx, stackCtx.ws, stackNode, nil, c.newPaneURL)
-		if err != nil {
-			log.Error().Err(err).Msg("failed to add pane to stack via use case")
-			return err
-		}
-		newPane = output.NewPaneNode.Pane
-		newPaneID = newPane.ID
-		newPane.Title = defaultPaneTitle
-		log.Debug().
-			Int("stack_size", len(stackNode.Children)).
-			Int("insert_index", output.StackIndex).
-			Msg("added to existing stack via use case")
-	} else if stackCtx.activeNode.IsStacked {
-		// Active node is already a stack container - add to it
-		stackNode = stackCtx.activeNode
-		output, err := c.panesUC.AddToStack(ctx, stackCtx.ws, stackNode, nil, c.newPaneURL)
-		if err != nil {
-			log.Error().Err(err).Msg("failed to add pane to stack via use case")
-			return err
-		}
-		newPane = output.NewPaneNode.Pane
-		newPaneID = newPane.ID
-		newPane.Title = defaultPaneTitle
-		log.Debug().
-			Int("stack_size", len(stackNode.Children)).
-			Int("insert_index", output.StackIndex).
-			Msg("added to stack container via use case")
-	} else {
-		// Need to create a new stack - use CreateStack use case.
-		output, err := c.panesUC.CreateStack(ctx, stackCtx.ws, stackCtx.activeNode, c.newPaneURL)
-		if err != nil {
-			log.Error().Err(err).Msg("failed to create stack via use case")
-			return err
-		}
-		stackNode = output.StackNode
-		newPane = output.NewPane
-		newPaneID = newPane.ID
-		newPane.Title = defaultPaneTitle
-		needsFirstPaneTitleUpdate = true
-
-		// Update the original pane's title in the domain
-		if output.OriginalNode != nil && output.OriginalNode.Pane != nil {
-			output.OriginalNode.Pane.Title = stackCtx.originalTitle
-		}
-
-		log.Debug().
-			Int("stack_size", len(stackNode.Children)).
-			Msg("created new stack via use case")
+	stackNode, newPane, needsFirstPaneTitleUpdate, err := c.createOrAddStackPane(ctx, stackCtx, initialURL)
+	if err != nil {
+		return err
 	}
+	newPaneID := newPane.ID
 
 	// Create PaneView for the new pane
 	newPaneView := component.NewPaneView(ctx, c.widgetFactory, newPaneID, nil)
@@ -1525,9 +1525,11 @@ func (c *WorkspaceCoordinator) StackPane(ctx context.Context) error {
 	stackCtx.wsView.RegisterPaneView(newPaneID, newPaneView)
 
 	// Add to the UI StackedView
-	if err := c.stackedPaneMgr.AddPaneToStack(ctx, stackCtx.wsView, stackCtx.activePaneID, newPaneView, defaultPaneTitle); err != nil {
-		log.Error().Err(err).Msg("failed to add pane to stack")
-		return err
+	addErr := c.stackedPaneMgr.AddPaneToStack(ctx, stackCtx.wsView, stackCtx.activePaneID, newPaneView, defaultPaneTitle)
+	if addErr != nil {
+		log.Error().Err(addErr).Msg("failed to add pane to stack")
+		c.rollbackStackPane(ctx, stackCtx, newPaneID)
+		return addErr
 	}
 
 	// Update the first pane's title if we just converted from leaf to stacked
@@ -1538,26 +1540,36 @@ func (c *WorkspaceCoordinator) StackPane(ctx context.Context) error {
 	// Get WebView and attach
 	wv, err := c.contentCoord.EnsureWebView(ctx, newPaneID)
 	if err != nil {
-		log.Warn().Err(err).Msg("failed to get webview for new pane")
-	} else {
-		widget := c.contentCoord.WrapWidget(ctx, wv)
-		if widget != nil {
-			if err := stackCtx.wsView.SetWebViewWidget(newPaneID, widget); err != nil {
-				log.Warn().Err(err).Str("pane_id", string(newPaneID)).Msg("failed to attach webview widget for stacked pane")
-			}
-		}
-		// Load initial page for the new pane
-		if err := wv.LoadURI(ctx, newPane.URI); err != nil {
-			log.Warn().Err(err).Str("uri", newPane.URI).Msg("failed to load initial page")
-		}
+		c.rollbackStackPane(ctx, stackCtx, newPaneID)
+		return err
+	}
+	widget := c.contentCoord.WrapWidget(ctx, wv)
+	if widget == nil {
+		err := fmt.Errorf("wrap webview for stacked pane")
+		c.rollbackStackPane(ctx, stackCtx, newPaneID)
+		return err
+	}
+	if err := stackCtx.wsView.SetWebViewWidget(newPaneID, widget); err != nil {
+		log.Warn().Err(err).Str("pane_id", string(newPaneID)).Msg("failed to attach webview widget for stacked pane")
+		c.rollbackStackPane(ctx, stackCtx, newPaneID)
+		return err
+	}
+	// Loading failures leave the attached pane available for a later navigation.
+	if err := wv.LoadURI(ctx, newPane.URI); err != nil {
+		log.Warn().Err(err).Str("uri_host", logging.SafeURLHost(newPane.URI)).Msg("failed to load initial page")
 	}
 
 	// Update workspace view
 	if err := stackCtx.wsView.SetActivePaneID(newPaneID); err != nil {
 		log.Warn().Err(err).Msg("failed to set active pane")
+		c.rollbackStackPane(ctx, stackCtx, newPaneID)
+		return err
 	}
+	stackCtx.wsView.FocusPane(newPaneID)
 
-	stackCtx.wsView.NotifyNewPaneCreated(ctx)
+	if notifyNewPane {
+		stackCtx.wsView.NotifyNewPaneCreated(ctx)
+	}
 
 	// Set up title bar click and close callbacks
 	tr := stackCtx.wsView.TreeRenderer()
@@ -1586,30 +1598,91 @@ func (c *WorkspaceCoordinator) StackPane(ctx context.Context) error {
 	return nil
 }
 
+func (c *WorkspaceCoordinator) rollbackStackPane(ctx context.Context, stackCtx *stackPaneContext, paneID entity.PaneID) {
+	if err := c.ClosePaneByID(ctx, paneID); err != nil {
+		logging.FromContext(ctx).Warn().Err(err).Str("pane_id", string(paneID)).
+			Msg("failed to roll back stacked pane")
+	}
+	stackCtx.ws.ActivePaneID = stackCtx.activePaneID
+	c.notifyStateChanged()
+}
+
+func (c *WorkspaceCoordinator) createOrAddStackPane(
+	ctx context.Context,
+	stackCtx *stackPaneContext,
+	initialURL string,
+) (*entity.PaneNode, *entity.Pane, bool, error) {
+	log := logging.FromContext(ctx)
+	stackNode := stackCtx.activeNode
+	if stackNode.Parent != nil && stackNode.Parent.IsStacked {
+		stackNode = stackNode.Parent
+	}
+	if stackNode.IsStacked {
+		output, err := c.panesUC.AddToStack(ctx, stackCtx.ws, stackNode, nil, initialURL)
+		if err != nil {
+			log.Error().Err(err).Msg("failed to add pane to stack via use case")
+			return nil, nil, false, err
+		}
+		newPane := output.NewPaneNode.Pane
+		newPane.Title = defaultPaneTitle
+		log.Debug().Int("stack_size", len(stackNode.Children)).Int("insert_index", output.StackIndex).
+			Msg("added to stack via use case")
+		return stackNode, newPane, false, nil
+	}
+
+	output, err := c.panesUC.CreateStack(ctx, stackCtx.ws, stackCtx.activeNode, initialURL)
+	if err != nil {
+		log.Error().Err(err).Msg("failed to create stack via use case")
+		return nil, nil, false, err
+	}
+	output.NewPane.Title = defaultPaneTitle
+	if output.OriginalNode != nil && output.OriginalNode.Pane != nil {
+		output.OriginalNode.Pane.Title = stackCtx.originalTitle
+	}
+	log.Debug().Int("stack_size", len(output.StackNode.Children)).Msg("created new stack via use case")
+	return output.StackNode, output.NewPane, true, nil
+}
+
 func (c *WorkspaceCoordinator) prepareStackPane(
 	ctx context.Context,
-) (*stackPaneContext, bool) {
+) (*stackPaneContext, error) {
 	log := logging.FromContext(ctx)
 	if c.stackedPaneMgr == nil {
 		log.Warn().Msg("stacked pane manager not available")
-		return nil, false
+		return nil, fmt.Errorf("stacked pane manager not available")
+	}
+	if c.panesUC == nil {
+		log.Warn().Msg("panes use case not available")
+		return nil, fmt.Errorf("panes use case not available")
+	}
+	if c.contentCoord == nil {
+		log.Warn().Msg("content coordinator not available")
+		return nil, fmt.Errorf("content coordinator not available")
+	}
+	if c.widgetFactory == nil {
+		log.Warn().Msg("widget factory not available")
+		return nil, fmt.Errorf("widget factory not available")
+	}
+	if c.getActiveWS == nil {
+		log.Warn().Msg("active workspace provider not configured")
+		return nil, fmt.Errorf("active workspace provider not configured")
 	}
 
 	ws, wsView := c.getActiveWS()
 	if ws == nil {
 		log.Warn().Msg("no active workspace")
-		return nil, false
+		return nil, fmt.Errorf("no active workspace")
 	}
 
 	activeNode := ws.ActivePane()
 	if activeNode == nil || activeNode.Pane == nil {
 		log.Warn().Msg("no active pane")
-		return nil, false
+		return nil, fmt.Errorf("no active pane")
 	}
 
 	if wsView == nil {
 		log.Warn().Msg("no workspace view")
-		return nil, false
+		return nil, fmt.Errorf("no workspace view")
 	}
 
 	activePaneID := activeNode.Pane.ID
@@ -1627,7 +1700,7 @@ func (c *WorkspaceCoordinator) prepareStackPane(
 		activeNode:    activeNode,
 		activePaneID:  activePaneID,
 		originalTitle: originalTitle,
-	}, true
+	}, nil
 }
 
 func (c *WorkspaceCoordinator) updateFirstStackTitle(
@@ -1942,7 +2015,14 @@ func (c *WorkspaceCoordinator) insertPopupSplit(ctx context.Context, input conte
 
 	// Update UI
 	if wsView != nil {
-		c.applySplitToView(ctx, wsView, ws, output, direction, existingWidget, isStackSplit, input.ParentPaneID)
+		if err := c.applySplitToView(ctx, wsView, ws, output, direction, existingWidget, isStackSplit, input.ParentPaneID); err != nil {
+			if rollbackErr := c.ClosePaneByID(ctx, input.PopupPane.ID); rollbackErr != nil {
+				log.Warn().Err(rollbackErr).Str("pane_id", string(input.PopupPane.ID)).Msg("failed to roll back popup split pane")
+			}
+			ws.ActivePaneID = input.ParentPaneID
+			c.notifyStateChanged()
+			return err
+		}
 		c.attachPopupWebView(ctx, wsView, input)
 	}
 
@@ -2057,6 +2137,7 @@ func (c *WorkspaceCoordinator) insertPopupStacked(ctx context.Context, input con
 
 		// Revert stack conversion if we created a new stack
 		conversionInfo.revert()
+		c.notifyStateChanged()
 
 		return err
 	}

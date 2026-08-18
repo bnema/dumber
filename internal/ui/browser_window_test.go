@@ -447,15 +447,15 @@ func TestBrowserWindow_RemovePromotedWindowClearsResizeModeBorderTarget(t *testi
 	}
 }
 
-func TestOpenFreshWindow_DispatchesAndTracksBrowserWindow(t *testing.T) {
+func TestOpenExternalURL_DispatchesAndTracksBrowserWindow(t *testing.T) {
 	app := &App{browserWindows: make(map[string]*browserWindow)}
 
 	dispatched := false
 	createdURL := ""
 	app.dispatchOnMainThread = func(label string, fn func()) syncdispatch.SyncDispatchResult {
 		dispatched = true
-		if label != "ui.open_fresh_window" {
-			t.Fatalf("dispatch label = %q, want ui.open_fresh_window", label)
+		if label != "ui.open_external_url" {
+			t.Fatalf("dispatch label = %q, want ui.open_external_url", label)
 		}
 		fn()
 		return syncdispatch.SyncDispatchResult{Label: label, Status: syncdispatch.SyncDispatchCompleted}
@@ -465,11 +465,11 @@ func TestOpenFreshWindow_DispatchesAndTracksBrowserWindow(t *testing.T) {
 		return &browserWindow{id: "window-1", initialURL: url}, nil
 	}
 
-	if err := app.OpenFreshWindow(context.Background(), "https://example.com"); err != nil {
-		t.Fatalf("OpenFreshWindow returned error: %v", err)
+	if err := app.OpenExternalURL(context.Background(), "https://example.com"); err != nil {
+		t.Fatalf("OpenExternalURL returned error: %v", err)
 	}
 	if !dispatched {
-		t.Fatalf("OpenFreshWindow did not use the main-thread dispatcher")
+		t.Fatalf("OpenExternalURL did not use the main-thread dispatcher")
 	}
 	if createdURL != "https://example.com" {
 		t.Fatalf("browser window factory URL = %q, want %q", createdURL, "https://example.com")
@@ -515,7 +515,7 @@ func TestOpenInitialBrowserWindowShellRegistersWithoutCreatingTab(t *testing.T) 
 	require.Equal(t, "https://example.com", app.browserWindows["window-1"].initialURL)
 }
 
-func TestOpenFreshWindow_FirstWindowWithRequestedURLCreatesTabInAppAndWindow(t *testing.T) {
+func TestOpenExternalURL_FirstWindowWithRequestedURLCreatesTabInAppAndWindow(t *testing.T) {
 	app := &App{
 		tabs:           entity.NewTabList(),
 		tabsUC:         usecase.NewManageTabsUseCase(counterIDGen(), nil),
@@ -535,8 +535,8 @@ func TestOpenFreshWindow_FirstWindowWithRequestedURLCreatesTabInAppAndWindow(t *
 		return true
 	}
 
-	if err := app.OpenFreshWindow(context.Background(), "https://example.com"); err != nil {
-		t.Fatalf("OpenFreshWindow returned error: %v", err)
+	if err := app.OpenExternalURL(context.Background(), "https://example.com"); err != nil {
+		t.Fatalf("OpenExternalURL returned error: %v", err)
 	}
 
 	windowTabs := app.browserWindows["window-1"].tabs
@@ -553,7 +553,7 @@ func TestOpenFreshWindow_FirstWindowWithRequestedURLCreatesTabInAppAndWindow(t *
 	require.Same(t, app.browserWindows["window-1"], app.browserWindowForTab(tab.ID))
 }
 
-func TestOpenFreshWindow_PropagatesFactoryError(t *testing.T) {
+func TestOpenExternalURL_PropagatesFactoryError(t *testing.T) {
 	app := &App{browserWindows: make(map[string]*browserWindow)}
 	app.dispatchOnMainThread = func(label string, fn func()) syncdispatch.SyncDispatchResult {
 		fn()
@@ -564,7 +564,7 @@ func TestOpenFreshWindow_PropagatesFactoryError(t *testing.T) {
 		return nil, wantErr
 	}
 
-	err := app.OpenFreshWindow(context.Background(), "https://example.com")
+	err := app.OpenExternalURL(context.Background(), "https://example.com")
 
 	if !errors.Is(err, wantErr) {
 		t.Fatalf("expected error %v, got %v", wantErr, err)

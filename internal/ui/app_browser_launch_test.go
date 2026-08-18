@@ -35,7 +35,9 @@ import (
 	"github.com/bnema/dumber/internal/ui/window"
 	"github.com/bnema/puregotk/v4/gdk"
 	"github.com/bnema/puregotk/v4/gio"
+	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gtk"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
@@ -43,6 +45,10 @@ import (
 type testBrowserLaunchRelay struct {
 	listenCalls int
 	closer      *testCloser
+}
+
+func (r *testBrowserLaunchRelay) DeliverOpenExternalURL(context.Context, string) (bool, error) {
+	return false, nil
 }
 
 func (r *testBrowserLaunchRelay) DeliverOpenFreshWindow(context.Context, string) (bool, error) {
@@ -957,6 +963,10 @@ func stackedViewOnActivateIsNil(t *testing.T, sv *layout.StackedView) bool {
 	return reflect.NewAt(fv.Type(), unsafe.Pointer(fv.UnsafeAddr())).Elem().IsNil()
 }
 
+// newTestShellToaster builds a Toaster backed by testify mocks.
+// Callers that Show() must Hide() (or otherwise cancel the dismiss timer)
+// before the test returns — default Show arms a GLib TimeoutAdd that can
+// fire during a later test's MainContext.Iteration and panic on dead mocks.
 func newTestShellToaster(t *testing.T) (*component.Toaster, *layoutmocks.MockBoxWidget, *layoutmocks.MockLabelWidget) {
 	t.Helper()
 
@@ -979,7 +989,9 @@ func newTestShellToaster(t *testing.T) (*component.Toaster, *layoutmocks.MockBox
 	label.EXPECT().SetCanTarget(false).Once()
 	label.EXPECT().SetCanFocus(false).Once()
 
-	return component.NewToaster(factory), box, label
+	toaster := component.NewToaster(factory)
+	t.Cleanup(toaster.CancelAutoDismiss)
+	return toaster, box, label
 }
 
 func TestApp_ShowFilterStatusUsesLastFocusedBrowserWindowToaster(t *testing.T) {
@@ -987,6 +999,9 @@ func TestApp_ShowFilterStatusUsesLastFocusedBrowserWindowToaster(t *testing.T) {
 	toaster, box, label := newTestShellToaster(t)
 	box.EXPECT().SetVisible(true).Once()
 	label.EXPECT().SetText("Ad blocker loading").Once()
+	// Cancel the auto-dismiss GLib timer before mock teardown so a later test
+	// iterating the main context cannot fire hide() on a completed test's mocks.
+	box.EXPECT().SetVisible(false).Once()
 
 	bw := &browserWindow{id: "window-1", appToaster: toaster}
 	app := &App{
@@ -995,6 +1010,30 @@ func TestApp_ShowFilterStatusUsesLastFocusedBrowserWindowToaster(t *testing.T) {
 	}
 
 	app.showFilterStatus(ctx, port.FilterStatus{State: port.FilterStateLoading, Message: "Ad blocker loading"})
+	toaster.Hide()
+}
+
+func TestTestShellToasterCleanupCancelsAutoDismiss(t *testing.T) {
+	toaster, box, label := newTestShellToaster(t)
+	box.EXPECT().SetVisible(true).Once()
+	label.EXPECT().SetText("will not outlive this test").Once()
+	toaster.Show(
+		context.Background(),
+		"will not outlive this test",
+		component.ToastInfo,
+		component.WithDuration(component.ToastBriefDurationMs),
+	)
+	toaster.CancelAutoDismiss()
+
+	mainContext := glib.MainContextDefault()
+	deadline := time.Now().Add(component.ToastBriefDurationMs*time.Millisecond + 600*time.Millisecond)
+	for time.Now().Before(deadline) {
+		for mainContext.Pending() {
+			mainContext.Iteration(false)
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	assert.True(t, toaster.IsVisible(), "canceling must prevent the deferred hide callback")
 }
 
 func TestApp_CheckConfigMigrationUsesLastFocusedBrowserWindowToaster(t *testing.T) {
@@ -1002,6 +1041,9 @@ func TestApp_CheckConfigMigrationUsesLastFocusedBrowserWindowToaster(t *testing.
 	toaster, box, label := newTestShellToaster(t)
 	box.EXPECT().SetVisible(true).Once()
 	label.EXPECT().SetText("Config has 1 new settings. Run 'dumber config migrate'").Once()
+	// Cancel the auto-dismiss GLib timer before mock teardown so a later test
+	// iterating the main context cannot fire hide() on a completed test's mocks.
+	box.EXPECT().SetVisible(false).Once()
 
 	migrator := portmocks.NewMockConfigMigrator(t)
 	migrator.EXPECT().CheckMigration().Return(&port.MigrationResult{MissingKeys: []string{"update.notify_on_new_settings"}}, nil).Once()
@@ -1020,6 +1062,7 @@ func TestApp_CheckConfigMigrationUsesLastFocusedBrowserWindowToaster(t *testing.
 	}
 
 	app.checkConfigMigration(ctx)
+	toaster.Hide()
 }
 
 func TestApp_FinalizeActivationStartsBrowserLaunchRelayOnceAndClosesOnShutdown(t *testing.T) {
@@ -1061,7 +1104,7 @@ func TestApp_GetWindowSnapshotStateReturnsUnavailableWhenMainThreadDispatchTimes
 	require.Equal(t, -1, activeWindowIndex)
 }
 
-func TestApp_OpenFreshWindowReportsMainThreadDispatchTimeout(t *testing.T) {
+func TestApp_OpenExternalURLReportsMainThreadDispatchTimeout(t *testing.T) {
 	var factoryCalls int
 	app := &App{
 		dispatchOnMainThread: func(label string, fn func()) syncdispatch.SyncDispatchResult {
@@ -1073,20 +1116,20 @@ func TestApp_OpenFreshWindowReportsMainThreadDispatchTimeout(t *testing.T) {
 		},
 	}
 
-	err := app.OpenFreshWindow(context.Background(), "https://example.com")
+	err := app.OpenExternalURL(context.Background(), "https://example.com")
 
 	if err == nil {
-		t.Fatal("OpenFreshWindow returned nil error, want dispatch timeout")
+		t.Fatal("OpenExternalURL returned nil error, want dispatch timeout")
 	}
 	if !strings.Contains(err.Error(), "main thread dispatch did not complete") {
-		t.Fatalf("OpenFreshWindow error = %q, want dispatch timeout", err.Error())
+		t.Fatalf("OpenExternalURL error = %q, want dispatch timeout", err.Error())
 	}
 	if factoryCalls != 0 {
 		t.Fatalf("browserWindowFactory calls = %d, want 0", factoryCalls)
 	}
 }
 
-func TestApp_OpenFreshWindowRecordsTabOwnership(t *testing.T) {
+func TestApp_OpenExternalURLRecordsTabOwnership(t *testing.T) {
 	existingTab := entity.NewTab(entity.TabID("existing-tab"), entity.WorkspaceID("existing-workspace"), entity.NewPane(entity.PaneID("existing-pane")))
 	existingTabs := entity.NewTabList()
 	existingTabs.Add(existingTab)
@@ -1104,8 +1147,8 @@ func TestApp_OpenFreshWindowRecordsTabOwnership(t *testing.T) {
 		},
 	}
 
-	if err := app.OpenFreshWindow(context.Background(), "https://example.com"); err != nil {
-		t.Fatalf("OpenFreshWindow returned error: %v", err)
+	if err := app.OpenExternalURL(context.Background(), "https://example.com"); err != nil {
+		t.Fatalf("OpenExternalURL returned error: %v", err)
 	}
 	if got := windowForTabCount(t, app); got != 2 {
 		t.Fatalf("windowForTab length = %d, want 2 (existing + new tab)", got)
@@ -1353,7 +1396,7 @@ func TestApp_RemoveBrowserWindowRebindsPromotedTabCoordinatorWindow(t *testing.T
 	}
 }
 
-func TestApp_OpenFreshWindowRollsBackOnTabCreationFailure(t *testing.T) {
+func TestApp_OpenExternalURLRollsBackOnTabCreationFailure(t *testing.T) {
 	created := &browserWindow{id: "window-1", tabs: entity.NewTabList()}
 	originalWindow := &window.MainWindow{}
 	tabBar := &component.TabBar{}
@@ -1384,8 +1427,8 @@ func TestApp_OpenFreshWindowRollsBackOnTabCreationFailure(t *testing.T) {
 		MainWindow: &window.MainWindow{},
 	})
 
-	if err := app.OpenFreshWindow(context.Background(), "https://example.com/fail"); err == nil {
-		t.Fatalf("OpenFreshWindow = nil error, want failure")
+	if err := app.OpenExternalURL(context.Background(), "https://example.com/fail"); err == nil {
+		t.Fatalf("OpenExternalURL = nil error, want failure")
 	}
 	if got := len(app.browserWindows); got != 1 {
 		t.Fatalf("browserWindows length = %d, want 1 (existing window only)", got)
@@ -1404,7 +1447,7 @@ func TestApp_OpenFreshWindowRollsBackOnTabCreationFailure(t *testing.T) {
 	}
 }
 
-func TestApp_OpenFreshWindowTargetsNewWindowTabBar(t *testing.T) {
+func TestApp_OpenExternalURLTargetsNewWindowTabBar(t *testing.T) {
 	existingTabID := entity.TabID("existing-tab")
 	createdTabID := entity.TabID("id-1")
 	oldWindow := &window.MainWindow{}
@@ -1441,8 +1484,8 @@ func TestApp_OpenFreshWindowTargetsNewWindowTabBar(t *testing.T) {
 		app.workspaceViews[tab.ID] = &component.WorkspaceView{}
 	})
 
-	if err := app.OpenFreshWindow(context.Background(), "https://example.com"); err != nil {
-		t.Fatalf("OpenFreshWindow returned error: %v", err)
+	if err := app.OpenExternalURL(context.Background(), "https://example.com"); err != nil {
+		t.Fatalf("OpenExternalURL returned error: %v", err)
 	}
 
 	gotCreatedTabID := app.tabs.ActiveTabID

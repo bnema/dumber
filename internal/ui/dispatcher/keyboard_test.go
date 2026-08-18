@@ -5,6 +5,9 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/bnema/dumber/internal/application/port"
+	"github.com/bnema/dumber/internal/application/port/mocks"
+	"github.com/bnema/dumber/internal/application/usecase"
 	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/ui/coordinator"
 	"github.com/bnema/dumber/internal/ui/input"
@@ -119,19 +122,19 @@ func TestKeyboardDispatcher_ToggleFavoritesSidebarCallsCallbackAndPropagatesErro
 	ctx := context.Background()
 	d := NewKeyboardDispatcher(ctx, &coordinator.WorkspaceCoordinator{}, &coordinator.NavigationCoordinator{}, nil, nil, KeyboardActions{}, func(context.Context) entity.PaneID { return "" })
 
-	missingErr := d.Dispatch(ctx, input.ActionToggleFavoritesSystemView)
+	missingErr := d.Dispatch(ctx, input.ActionToggleFavoritesSidebar)
 	require.Error(t, missingErr)
 	require.ErrorContains(t, missingErr, "favorites sidebar unavailable")
 
 	wantErr := fmt.Errorf("favorites failed")
 	d.SetOnToggleFavoritesSidebar(func(context.Context) error { return wantErr })
-	err := d.Dispatch(ctx, input.ActionToggleFavoritesSystemView)
+	err := d.Dispatch(ctx, input.ActionToggleFavoritesSidebar)
 	require.Error(t, err)
 	require.ErrorIs(t, err, wantErr)
 
 	var called bool
 	d.SetOnToggleFavoritesSidebar(func(context.Context) error { called = true; return nil })
-	require.NoError(t, d.Dispatch(ctx, input.ActionToggleFavoritesSystemView))
+	require.NoError(t, d.Dispatch(ctx, input.ActionToggleFavoritesSidebar))
 	assert.True(t, called)
 }
 
@@ -201,4 +204,183 @@ func TestKeyboardDispatcher_PassesActivePaneIDToShellCallbacks(t *testing.T) {
 			assert.Equal(t, activePaneID, gotPaneID)
 		})
 	}
+}
+
+type mockScrollableWebView struct {
+	*mocks.MockWebView
+	*mocks.MockPageScrollable
+}
+
+type lifecycleScrollableWebView struct {
+	*mockScrollableWebView
+	cancelCalls int
+}
+
+func (wv *lifecycleScrollableWebView) CancelPageScroll(context.Context) {
+	wv.cancelCalls++
+}
+
+func TestKeyboardDispatcher_VimModeActionsRouteToCorrectScrollCommand(t *testing.T) {
+	ctx := context.Background()
+
+	tests := []struct {
+		action     input.Action
+		command    port.PageScrollCommand
+		expectedDx int
+		expectedDy int
+	}{
+		{input.ActionVimScrollLeft, port.PageScrollCommandLeft, -80, 0},
+		{input.ActionVimScrollRight, port.PageScrollCommandRight, 80, 0},
+		{input.ActionVimScrollUp, port.PageScrollCommandUp, 0, -80},
+		{input.ActionVimScrollDown, port.PageScrollCommandDown, 0, 80},
+		{input.ActionVimScrollUpFast, port.PageScrollCommandUpFast, 0, -320},
+		{input.ActionVimScrollDownFast, port.PageScrollCommandDownFast, 0, 320},
+	}
+
+	for _, tc := range tests {
+		t.Run(string(tc.action), func(t *testing.T) {
+			base := mocks.NewMockWebView(t)
+			scroller := mocks.NewMockPageScrollable(t)
+			wv := &mockScrollableWebView{MockWebView: base, MockPageScrollable: scroller}
+
+			navCoord := &coordinator.NavigationCoordinator{}
+			navCoord.SetPageScrollUseCase(usecase.NewPageScrollUseCase())
+
+			d := NewKeyboardDispatcher(
+				ctx,
+				&coordinator.WorkspaceCoordinator{},
+				navCoord,
+				nil,
+				nil,
+				KeyboardActions{
+					ActiveWebView: func(context.Context) port.WebView { return wv },
+				},
+				func(context.Context) entity.PaneID { return "" },
+			)
+
+			base.EXPECT().ID().Return(port.WebViewID(42)).Once()
+			req := port.PageScrollRequest{Command: tc.command, FallbackDX: tc.expectedDx, FallbackDY: tc.expectedDy}
+			scroller.EXPECT().ScrollPage(ctx, req).Return(nil).Once()
+
+			err := d.Dispatch(ctx, tc.action)
+			require.NoError(t, err)
+		})
+	}
+}
+
+func TestKeyboardDispatcher_VimScrollLifecycleRoutesContinuousAndStop(t *testing.T) {
+	ctx := context.Background()
+	base := mocks.NewMockWebView(t)
+	scroller := mocks.NewMockPageScrollable(t)
+	wv := &lifecycleScrollableWebView{mockScrollableWebView: &mockScrollableWebView{MockWebView: base, MockPageScrollable: scroller}}
+	navCoord := &coordinator.NavigationCoordinator{}
+	navCoord.SetPageScrollUseCase(usecase.NewPageScrollUseCase())
+	d := NewKeyboardDispatcher(ctx, &coordinator.WorkspaceCoordinator{}, navCoord, nil, nil, KeyboardActions{
+		ActiveWebView: func(context.Context) port.WebView { return wv },
+	}, func(context.Context) entity.PaneID { return "" })
+
+	scroller.EXPECT().ScrollPage(ctx, port.PageScrollRequest{
+		Command: port.PageScrollCommandDown, FallbackDY: 80, Continuous: true,
+	}).Return(nil).Once()
+	require.NoError(t, d.DispatchVimScrollLifecycle(ctx, input.ActionVimScrollDown, input.VimScrollContinuous))
+	require.NoError(t, d.DispatchVimScrollLifecycle(ctx, input.ActionVimScrollDown, input.VimScrollStop))
+	assert.Equal(t, 1, wv.cancelCalls)
+}
+
+func TestKeyboardDispatcher_VimModeNoopWhenNoActiveWebView(t *testing.T) {
+	ctx := context.Background()
+
+	navCoord := &coordinator.NavigationCoordinator{}
+	navCoord.SetPageScrollUseCase(usecase.NewPageScrollUseCase())
+
+	d := NewKeyboardDispatcher(
+		ctx,
+		&coordinator.WorkspaceCoordinator{},
+		navCoord,
+		nil,
+		nil,
+		KeyboardActions{},
+		func(context.Context) entity.PaneID { return "" },
+	)
+
+	// No ActiveWebView set — dispatcher should no-op cleanly
+	err := d.Dispatch(ctx, input.ActionVimScrollDown)
+	require.NoError(t, err)
+}
+
+func TestKeyboardDispatcher_VimModeNoopWhenActiveWebViewReturnsNil(t *testing.T) {
+	ctx := context.Background()
+
+	navCoord := &coordinator.NavigationCoordinator{}
+	navCoord.SetPageScrollUseCase(usecase.NewPageScrollUseCase())
+
+	d := NewKeyboardDispatcher(
+		ctx,
+		&coordinator.WorkspaceCoordinator{},
+		navCoord,
+		nil,
+		nil,
+		KeyboardActions{
+			ActiveWebView: func(context.Context) port.WebView { return nil },
+		},
+		func(context.Context) entity.PaneID { return "" },
+	)
+
+	err := d.Dispatch(ctx, input.ActionVimScrollDown)
+	require.NoError(t, err)
+}
+
+func TestVimScrollSpec_IsSingleSourceForCommandAndPulse(t *testing.T) {
+	tests := []struct {
+		action input.Action
+		cmd    usecase.PageScrollCommand
+		fast   bool
+	}{
+		{input.ActionVimScrollLeft, usecase.PageScrollLeft, false},
+		{input.ActionVimScrollRight, usecase.PageScrollRight, false},
+		{input.ActionVimScrollUp, usecase.PageScrollUp, false},
+		{input.ActionVimScrollDown, usecase.PageScrollDown, false},
+		{input.ActionVimScrollUpFast, usecase.PageScrollUpFast, true},
+		{input.ActionVimScrollDownFast, usecase.PageScrollDownFast, true},
+	}
+	for _, tc := range tests {
+		spec, ok := vimScrollSpec(tc.action)
+		require.True(t, ok, string(tc.action))
+		assert.Equal(t, tc.cmd, spec.cmd)
+		assert.Equal(t, tc.fast, spec.fast)
+		cmd, ok := vimScrollCommand(tc.action)
+		require.True(t, ok)
+		assert.Equal(t, tc.cmd, cmd)
+	}
+	_, ok := vimScrollSpec(input.ActionQuit)
+	assert.False(t, ok)
+}
+
+func TestKeyboardDispatcher_VimScrollTapUsesSharedSpecPulse(t *testing.T) {
+	ctx := context.Background()
+	base := mocks.NewMockWebView(t)
+	scroller := mocks.NewMockPageScrollable(t)
+	wv := &mockScrollableWebView{MockWebView: base, MockPageScrollable: scroller}
+	navCoord := &coordinator.NavigationCoordinator{}
+	navCoord.SetPageScrollUseCase(usecase.NewPageScrollUseCase())
+	d := NewKeyboardDispatcher(ctx, &coordinator.WorkspaceCoordinator{}, navCoord, nil, nil, KeyboardActions{
+		ActiveWebView: func(context.Context) port.WebView { return wv },
+	}, func(context.Context) entity.PaneID { return "" })
+
+	var pulses []bool
+	d.SetOnVimModePulse(func(_ context.Context, fast bool) {
+		pulses = append(pulses, fast)
+	})
+
+	base.EXPECT().ID().Return(port.WebViewID(7)).Twice()
+	scroller.EXPECT().ScrollPage(ctx, port.PageScrollRequest{
+		Command: port.PageScrollCommandDown, FallbackDY: 80,
+	}).Return(nil).Once()
+	scroller.EXPECT().ScrollPage(ctx, port.PageScrollRequest{
+		Command: port.PageScrollCommandDownFast, FallbackDY: 320,
+	}).Return(nil).Once()
+
+	require.NoError(t, d.Dispatch(ctx, input.ActionVimScrollDown))
+	require.NoError(t, d.Dispatch(ctx, input.ActionVimScrollDownFast))
+	assert.Equal(t, []bool{false, true}, pulses)
 }

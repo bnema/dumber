@@ -103,6 +103,7 @@ func (hs *HistorySidebar) showEmptyState(listBox *gtk.ListBox, query string) {
 	if label == nil {
 		return
 	}
+	label.AddCssClass("sidebar-empty")
 	label.AddCssClass("history-sidebar-empty")
 
 	if query != "" {
@@ -163,6 +164,7 @@ func (hs *HistorySidebar) appendEntryRow(listBox *gtk.ListBox, entry *entity.His
 	if titleLabel == nil {
 		return
 	}
+	titleLabel.AddCssClass("sidebar-row-title")
 	titleLabel.AddCssClass("history-sidebar-row-title")
 	titleLabel.SetText(safeSidebarString(entry.Title, entry.URL))
 	titleLabel.SetXalign(0.0)
@@ -180,6 +182,7 @@ func (hs *HistorySidebar) appendEntryRow(listBox *gtk.ListBox, entry *entity.His
 	if urlLabel == nil {
 		return
 	}
+	urlLabel.AddCssClass("sidebar-row-subtitle")
 	urlLabel.AddCssClass("history-sidebar-row-subtitle")
 	urlLabel.SetText(readableURL(entry.URL))
 	urlLabel.SetXalign(0.0)
@@ -205,6 +208,7 @@ func (hs *HistorySidebar) appendEntryRow(listBox *gtk.ListBox, entry *entity.His
 	if row == nil {
 		return
 	}
+	row.AddCssClass("sidebar-row")
 	row.AddCssClass("history-sidebar-row")
 	row.SetSelectable(true)
 	row.SetActivatable(true)

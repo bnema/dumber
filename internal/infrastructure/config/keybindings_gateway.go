@@ -32,6 +32,7 @@ func (g *KeybindingsGateway) GetKeybindings(ctx context.Context) (port.Keybindin
 		g.buildGlobalGroup(cfg, defaults),
 		g.buildPaneModeGroup(cfg, defaults),
 		g.buildTabModeGroup(cfg, defaults),
+		g.buildVimModeGroup(cfg, defaults),
 		g.buildResizeModeGroup(cfg, defaults),
 		g.buildSessionModeGroup(cfg, defaults),
 	}
@@ -48,6 +49,7 @@ func (g *KeybindingsGateway) GetDefaultKeybindings(ctx context.Context) (port.Ke
 		g.buildGlobalGroup(defaults, defaults),
 		g.buildPaneModeGroup(defaults, defaults),
 		g.buildTabModeGroup(defaults, defaults),
+		g.buildVimModeGroup(defaults, defaults),
 		g.buildResizeModeGroup(defaults, defaults),
 		g.buildSessionModeGroup(defaults, defaults),
 	}
@@ -108,6 +110,7 @@ func (g *KeybindingsGateway) ResetAllKeybindings(ctx context.Context) error {
 
 	cfg.Workspace.PaneMode.Actions = defaults.Workspace.PaneMode.Actions
 	cfg.Workspace.TabMode.Actions = defaults.Workspace.TabMode.Actions
+	cfg.Workspace.VimMode.Actions = defaults.Workspace.VimMode.Actions
 	cfg.Workspace.ResizeMode.Actions = defaults.Workspace.ResizeMode.Actions
 	cfg.Workspace.Shortcuts = defaults.Workspace.Shortcuts
 	cfg.Session.SessionMode.Actions = defaults.Session.SessionMode.Actions
@@ -141,6 +144,16 @@ func (g *KeybindingsGateway) buildTabModeGroup(cfg, defaults *Config) port.Keybi
 		DisplayName: "Tab Mode",
 		Bindings:    g.buildModeBindings(cfg.Workspace.TabMode.Actions, defaults.Workspace.TabMode.Actions),
 		Activation:  cfg.Workspace.TabMode.ActivationShortcut,
+	}
+}
+
+// buildVimModeGroup builds the vim mode group.
+func (g *KeybindingsGateway) buildVimModeGroup(cfg, defaults *Config) port.KeybindingGroup {
+	return port.KeybindingGroup{
+		Mode:        "vim",
+		DisplayName: "Vim Mode",
+		Bindings:    g.buildModeBindings(cfg.Workspace.VimMode.Actions, defaults.Workspace.VimMode.Actions),
+		Activation:  cfg.Workspace.VimMode.ActivationShortcut,
 	}
 }
 
@@ -208,6 +221,11 @@ func (*KeybindingsGateway) updateKeybinding(cfg *Config, req port.SetKeybindingR
 			existing.Keys = req.Keys
 			cfg.Workspace.TabMode.Actions[req.Action] = existing
 		}
+	case "vim":
+		if existing, ok := cfg.Workspace.VimMode.Actions[req.Action]; ok {
+			existing.Keys = req.Keys
+			cfg.Workspace.VimMode.Actions[req.Action] = existing
+		}
 	case "resize":
 		if existing, ok := cfg.Workspace.ResizeMode.Actions[req.Action]; ok {
 			existing.Keys = req.Keys
@@ -234,6 +252,10 @@ func (*KeybindingsGateway) getDefaultKeys(defaults *Config, mode, action string)
 		}
 	case "tab":
 		if binding, ok := defaults.Workspace.TabMode.Actions[action]; ok {
+			return binding.Keys
+		}
+	case "vim":
+		if binding, ok := defaults.Workspace.VimMode.Actions[action]; ok {
 			return binding.Keys
 		}
 	case "resize":
@@ -269,6 +291,7 @@ func (*KeybindingsGateway) checkConflicts(cfg *Config, targetMode, targetAction 
 	addBindings(modeGlobal, cfg.Workspace.Shortcuts.Actions)
 	addBindings("pane", cfg.Workspace.PaneMode.Actions)
 	addBindings("tab", cfg.Workspace.TabMode.Actions)
+	addBindings("vim", cfg.Workspace.VimMode.Actions)
 	addBindings("resize", cfg.Workspace.ResizeMode.Actions)
 	addBindings("session", cfg.Session.SessionMode.Actions)
 

@@ -472,6 +472,7 @@ func (h *handlerSet) OnLoadStart(_ purecef.Browser, frame purecef.Frame, _ purec
 			Str("url", logging.TruncateURL(frame.GetURL(), logging.PermissionLogURLMaxLen)).
 			Msg("cef: OnLoadStart")
 	}
+	h.wv.setEditableFocus(false)
 	h.wv.updateURI(frame.GetURL())
 	h.wv.mu.RLock()
 	cb := h.wv.callbacks
@@ -954,6 +955,7 @@ func (h *handlerSet) finishAfterCreated(
 	}
 	h.wv.scheduleStartAdaptiveFrameRatePolling()
 	h.wv.scheduleStartBeginFrameLoop()
+	h.wv.applyAccessibilityIfReady()
 	h.wv.fireReadyToShow()
 }
 

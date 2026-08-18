@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/bnema/dumber/internal/domain/entity"
+	"github.com/bnema/dumber/internal/domain/vimkeys"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/puregotk/v4/gdk"
 )
@@ -190,7 +191,7 @@ const (
 	ActionToggleFullscreen          Action = "toggle_fullscreen"
 	ActionToggleFloatingPane        Action = "toggle_floating_pane"
 	ActionToggleHistorySystemView   Action = "toggle_history_systemview"
-	ActionToggleFavoritesSystemView Action = "toggle_favorites_systemview"
+	ActionToggleFavoritesSidebar    Action = "toggle_favorites_sidebar"
 	ActionToggleCurrentPageFavorite Action = "toggle_current_page_favorite"
 	ActionToggleConfigSystemView    Action = "toggle_config_systemview"
 
@@ -202,6 +203,15 @@ const (
 
 	// Application
 	ActionQuit Action = "quit"
+
+	// Vim mode actions
+	ActionEnterVimMode      Action = "enter_vim_mode"
+	ActionVimScrollLeft     Action = "vim_scroll_left"
+	ActionVimScrollDown     Action = "vim_scroll_down"
+	ActionVimScrollUp       Action = "vim_scroll_up"
+	ActionVimScrollRight    Action = "vim_scroll_right"
+	ActionVimScrollDownFast Action = "vim_scroll_down_fast"
+	ActionVimScrollUpFast   Action = "vim_scroll_up_fast"
 )
 
 const floatingProfileActionPrefix = "open_floating_profile:"
@@ -222,6 +232,10 @@ type ShortcutSet struct {
 	SessionMode ShortcutTable
 	// ResizeMode shortcuts are only active in resize mode.
 	ResizeMode ShortcutTable
+	// VimMode shortcuts are only active in vim mode.
+	VimMode ShortcutTable
+	// vimModeSequences holds multi-key Vim mode bindings.
+	vimModeSequences *vimkeys.Trie
 }
 
 // NewShortcutSet creates a ShortcutSet from workspace and session configuration.
@@ -235,6 +249,7 @@ func NewShortcutSet(ctx context.Context, workspace *entity.WorkspaceConfig, sess
 		PaneMode:    make(ShortcutTable),
 		SessionMode: make(ShortcutTable),
 		ResizeMode:  make(ShortcutTable),
+		VimMode:     make(ShortcutTable),
 	}
 
 	set.buildGlobalShortcutsFromParts(ctx, workspace, session)
@@ -242,6 +257,7 @@ func NewShortcutSet(ctx context.Context, workspace *entity.WorkspaceConfig, sess
 		set.buildTabModeShortcuts(ctx, workspace)
 		set.buildPaneModeShortcuts(ctx, workspace)
 		set.buildResizeModeShortcuts(ctx, workspace)
+		set.buildVimModeShortcuts(ctx, workspace)
 	}
 	if session != nil {
 		set.buildSessionModeShortcuts(ctx, session)
@@ -253,6 +269,7 @@ func NewShortcutSet(ctx context.Context, workspace *entity.WorkspaceConfig, sess
 		Int("pane", len(set.PaneMode)).
 		Int("resize", len(set.ResizeMode)).
 		Int("session", len(set.SessionMode)).
+		Int("vim", len(set.VimMode)).
 		Msg("shortcuts registered")
 
 	return set
@@ -288,6 +305,30 @@ func (s *ShortcutSet) buildResizeModeShortcuts(ctx context.Context, cfg *entity.
 	s.buildModeShortcuts(ctx, cfg.ResizeMode.GetKeyBindings(), s.ResizeMode, "resize")
 }
 
+// buildVimModeShortcuts populates Vim mode shortcuts from config.
+// Trie-owned multi-key bindings are excluded from the legacy table.
+func (s *ShortcutSet) buildVimModeShortcuts(ctx context.Context, cfg *entity.WorkspaceConfig) {
+	log := logging.FromContext(ctx)
+	trie, owned := buildVimModeTrie(&cfg.VimMode)
+	s.vimModeSequences = trie
+	legacy := filterLegacyVimModeBindings(cfg.VimMode.GetKeyBindings(), owned)
+	log.Debug().
+		Int("owned", len(owned)).
+		Int("legacy", len(legacy)).
+		Msg("vim mode sequence trie built")
+	s.buildModeShortcuts(ctx, legacy, s.VimMode, "vim")
+	if binding, ok := ParseKeyString(cfg.VimMode.ActivationShortcut); ok {
+		s.VimMode[binding] = ActionEnterVimMode
+		log.Trace().
+			Str("shortcut", cfg.VimMode.ActivationShortcut).
+			Uint("keyval", binding.Keyval).
+			Uint("mod", uint(binding.Modifiers)).
+			Msg("vim mode toggle registered in vim mode table")
+	} else {
+		log.Warn().Str("shortcut", cfg.VimMode.ActivationShortcut).Msg("failed to parse vim mode activation shortcut for vim mode table")
+	}
+}
+
 func (s *ShortcutSet) registerActivationShortcutsFromParts(
 	ctx context.Context, workspace *entity.WorkspaceConfig, session *entity.SessionConfig,
 ) {
@@ -307,6 +348,16 @@ func (s *ShortcutSet) registerActivationShortcutsFromParts(
 			}
 		}
 		return
+	}
+	if binding, ok := ParseKeyString(workspace.VimMode.ActivationShortcut); ok {
+		s.Global[binding] = ActionEnterVimMode
+		log.Trace().
+			Str("shortcut", workspace.VimMode.ActivationShortcut).
+			Uint("keyval", binding.Keyval).
+			Uint("mod", uint(binding.Modifiers)).
+			Msg("vim mode activation registered")
+	} else {
+		log.Warn().Str("shortcut", workspace.VimMode.ActivationShortcut).Msg("failed to parse vim mode activation shortcut")
 	}
 	if binding, ok := ParseKeyString(workspace.TabMode.ActivationShortcut); ok {
 		s.Global[binding] = ActionEnterTabMode
@@ -568,8 +619,8 @@ var configActionToAction = map[string]Action{
 	"toggle-floating-pane":         ActionToggleFloatingPane,
 	"toggle_history_systemview":    ActionToggleHistorySystemView,
 	"toggle-history-systemview":    ActionToggleHistorySystemView,
-	"toggle_favorites_systemview":  ActionToggleFavoritesSystemView,
-	"toggle-favorites-systemview":  ActionToggleFavoritesSystemView,
+	"toggle_favorites_sidebar":     ActionToggleFavoritesSidebar,
+	"toggle-favorites-sidebar":     ActionToggleFavoritesSidebar,
 	"toggle_current_page_favorite": ActionToggleCurrentPageFavorite,
 	"toggle-current-page-favorite": ActionToggleCurrentPageFavorite,
 	"toggle_config_systemview":     ActionToggleConfigSystemView,
@@ -642,6 +693,20 @@ var configActionToAction = map[string]Action{
 
 	// Session actions
 	"session-manager": ActionOpenSessionManager,
+
+	// Vim mode scroll actions
+	"vim_scroll_left":      ActionVimScrollLeft,
+	"vim-scroll-left":      ActionVimScrollLeft,
+	"vim_scroll_down":      ActionVimScrollDown,
+	"vim-scroll-down":      ActionVimScrollDown,
+	"vim_scroll_up":        ActionVimScrollUp,
+	"vim-scroll-up":        ActionVimScrollUp,
+	"vim_scroll_right":     ActionVimScrollRight,
+	"vim-scroll-right":     ActionVimScrollRight,
+	"vim_scroll_down_fast": ActionVimScrollDownFast,
+	"vim-scroll-down-fast": ActionVimScrollDownFast,
+	"vim_scroll_up_fast":   ActionVimScrollUpFast,
+	"vim-scroll-up-fast":   ActionVimScrollUpFast,
 }
 
 // FloatingProfileTarget carries the session identity and URL for a floating profile action.
@@ -791,7 +856,9 @@ func stringToKeyval(s string) (uint, bool) {
 }
 
 // Lookup finds an action for the given key binding in the appropriate table.
-// It first checks the mode-specific table, then falls back to global.
+// It first checks the mode-specific table, then falls back to global unless
+// the current mode is Vim Mode. Vim Mode intentionally stays self-contained
+// so app-global shortcuts do not interrupt held Vim-style scrolling.
 func (s *ShortcutSet) Lookup(binding KeyBinding, mode Mode) (Action, bool) {
 	// Normalize the binding modifiers
 	binding.Modifiers &= modifierMask
@@ -807,11 +874,16 @@ func (s *ShortcutSet) Lookup(binding KeyBinding, mode Mode) (Action, bool) {
 		modeTable = s.ResizeMode
 	case ModeSession:
 		modeTable = s.SessionMode
+	case ModeVim:
+		modeTable = s.VimMode
 	}
 
 	if modeTable != nil {
 		if action, ok := modeTable[binding]; ok {
 			return action, true
+		}
+		if mode == ModeVim {
+			return "", false
 		}
 	}
 

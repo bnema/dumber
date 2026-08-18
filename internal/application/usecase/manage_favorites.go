@@ -599,6 +599,83 @@ func (uc *ManageFavoritesUseCase) UntagFavorite(ctx context.Context, favID entit
 	return nil
 }
 
+// UpdateFavoriteTags reconciles a favorite's tag assignments with the requested state.
+// Failed mutations are rolled back in reverse order when the repository cannot
+// provide a transaction boundary.
+func (uc *ManageFavoritesUseCase) UpdateFavoriteTags(ctx context.Context, favID entity.FavoriteID, tagIDs []entity.TagID) error {
+	currentTags, err := uc.tagRepo.GetForFavorite(ctx, favID)
+	if err != nil {
+		return fmt.Errorf("failed to load tags for favorite %d: %w", favID, err)
+	}
+
+	current := make(map[entity.TagID]struct{}, len(currentTags))
+	for _, tag := range currentTags {
+		if tag != nil {
+			current[tag.ID] = struct{}{}
+		}
+	}
+	wanted := make(map[entity.TagID]struct{}, len(tagIDs))
+	for _, id := range tagIDs {
+		wanted[id] = struct{}{}
+	}
+
+	toRemove := make([]entity.TagID, 0, len(current))
+	for id := range current {
+		if _, ok := wanted[id]; !ok {
+			toRemove = append(toRemove, id)
+		}
+	}
+	toAdd := make([]entity.TagID, 0, len(wanted))
+	for id := range wanted {
+		if _, ok := current[id]; !ok {
+			toAdd = append(toAdd, id)
+		}
+	}
+	sort.Slice(toRemove, func(i, j int) bool { return toRemove[i] < toRemove[j] })
+	sort.Slice(toAdd, func(i, j int) bool { return toAdd[i] < toAdd[j] })
+
+	type mutation struct {
+		tagID entity.TagID
+		added bool
+	}
+	applied := make([]mutation, 0, len(toRemove)+len(toAdd))
+	rollbackLog := logging.FromContext(ctx)
+	rollback := func() {
+		for i := len(applied) - 1; i >= 0; i-- {
+			change := applied[i]
+			var rollbackErr error
+			if change.added {
+				rollbackErr = uc.UntagFavorite(ctx, favID, change.tagID)
+			} else {
+				rollbackErr = uc.TagFavorite(ctx, favID, change.tagID)
+			}
+			if rollbackErr != nil {
+				rollbackLog.Warn().
+					Err(rollbackErr).
+					Int64("favorite_id", int64(favID)).
+					Int64("tag_id", int64(change.tagID)).
+					Msg("failed to roll back favorite tag mutation")
+			}
+		}
+	}
+
+	for _, id := range toRemove {
+		if err := uc.UntagFavorite(ctx, favID, id); err != nil {
+			rollback()
+			return fmt.Errorf("failed to remove tag %d from favorite %d: %w", id, favID, err)
+		}
+		applied = append(applied, mutation{tagID: id})
+	}
+	for _, id := range toAdd {
+		if err := uc.TagFavorite(ctx, favID, id); err != nil {
+			rollback()
+			return fmt.Errorf("failed to add tag %d to favorite %d: %w", id, favID, err)
+		}
+		applied = append(applied, mutation{tagID: id, added: true})
+	}
+	return nil
+}
+
 // GetTagsForFavorite retrieves all tags for a favorite.
 func (uc *ManageFavoritesUseCase) GetTagsForFavorite(ctx context.Context, favID entity.FavoriteID) ([]*entity.Tag, error) {
 	log := logging.FromContext(ctx)

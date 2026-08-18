@@ -73,7 +73,7 @@ func TestEffectiveSearchQuery(t *testing.T) {
 		hasGhost  bool
 		want      string
 	}{
-		{name: "uses typed input when ghost visible", entryText: "dumber.bnema.dev", realInput: "dumb", hasGhost: true, want: "dumb"},
+		{name: "uses typed input when ghost visible", entryText: "bnema.dev/dumber", realInput: "dumb", hasGhost: true, want: "dumb"},
 		{name: "falls back to entry when no ghost", entryText: "dumb", realInput: "dumb", hasGhost: false, want: "dumb"},
 		{name: "uses entry when real input unavailable", entryText: "dumb", realInput: "", hasGhost: true, want: "dumb"},
 	}
@@ -136,8 +136,8 @@ func TestResolveTargetURLForSelection(t *testing.T) {
 		{URL: "https://github.com/bnema/dumber/issues"},
 	}
 	favorites := []Favorite{
-		{URL: "https://dumber.bnema.dev"},
-		{URL: "https://docs.dumber.bnema.dev"},
+		{URL: "https://bnema.dev/dumber"},
+		{URL: "https://bnema.dev/dumber/docs"},
 	}
 
 	tests := []struct {
@@ -148,7 +148,7 @@ func TestResolveTargetURLForSelection(t *testing.T) {
 		wantURL string
 	}{
 		{name: "history index", mode: ViewModeHistory, index: 1, limit: 10, wantURL: "https://github.com/bnema/dumber/pulls"},
-		{name: "favorites index", mode: ViewModeFavorites, index: 0, limit: 10, wantURL: "https://dumber.bnema.dev"},
+		{name: "favorites index", mode: ViewModeFavorites, index: 0, limit: 10, wantURL: "https://bnema.dev/dumber"},
 		{name: "invalid index", mode: ViewModeHistory, index: 99, limit: 10, wantURL: ""},
 		{name: "history index beyond visible limit is hidden", mode: ViewModeHistory, index: 2, limit: 2, wantURL: ""},
 		{name: "favorites index beyond visible limit is hidden", mode: ViewModeFavorites, index: 1, limit: 1, wantURL: ""},
@@ -170,8 +170,8 @@ func TestSelectedTargetURL(t *testing.T) {
 		{URL: "https://github.com/bnema/dumber/pulls"},
 	}
 	favorites := []Favorite{
-		{URL: "https://dumber.bnema.dev"},
-		{URL: "https://docs.dumber.bnema.dev"},
+		{URL: "https://bnema.dev/dumber"},
+		{URL: "https://bnema.dev/dumber/docs"},
 	}
 
 	tests := []struct {
@@ -184,7 +184,7 @@ func TestSelectedTargetURL(t *testing.T) {
 	}{
 		{name: "negative index is not explicit selection", mode: ViewModeHistory, index: -1, limit: 10, wantURL: "", wantBool: false},
 		{name: "history selection is explicit", mode: ViewModeHistory, index: 0, limit: 10, wantURL: "https://github.com/bnema/dumber", wantBool: true},
-		{name: "favorites selection is explicit", mode: ViewModeFavorites, index: 0, limit: 10, wantURL: "https://dumber.bnema.dev", wantBool: true},
+		{name: "favorites selection is explicit", mode: ViewModeFavorites, index: 0, limit: 10, wantURL: "https://bnema.dev/dumber", wantBool: true},
 		{name: "hidden history selection is ignored", mode: ViewModeHistory, index: 1, limit: 1, wantURL: "", wantBool: true},
 		{name: "hidden favorites selection is ignored", mode: ViewModeFavorites, index: 1, limit: 1, wantURL: "", wantBool: true},
 	}

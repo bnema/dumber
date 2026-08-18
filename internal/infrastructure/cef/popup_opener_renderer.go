@@ -50,6 +50,31 @@ func decodePopupOpenerRenderMetadata(extraInfo purecef.DictionaryValue) (popupOp
 	return metadata, true
 }
 
+// composedRenderProcessHandler keeps the popup-opener handler as the primary
+// CEF renderer handler and adds only editable-focus reporting from the legacy
+// renderer bridge. Embedding preserves every popup callback without enabling
+// the bridge's V8 extension in OnWebKitInitialized.
+type composedRenderProcessHandler struct {
+	*popupOpenerRenderProcessHandler
+	editableFocusHandler *rendererBridgeProcessHandler
+}
+
+func newComposedRenderProcessHandler() *composedRenderProcessHandler {
+	return &composedRenderProcessHandler{
+		popupOpenerRenderProcessHandler: newPopupOpenerRenderProcessHandler(),
+		editableFocusHandler:            &rendererBridgeProcessHandler{},
+	}
+}
+
+func (h *composedRenderProcessHandler) OnFocusedNodeChanged(
+	browser purecef.Browser,
+	frame purecef.Frame,
+	node purecef.Domnode,
+) {
+	h.popupOpenerRenderProcessHandler.OnFocusedNodeChanged(browser, frame, node)
+	h.editableFocusHandler.OnFocusedNodeChanged(browser, frame, node)
+}
+
 type popupOpenerRenderProcessHandler struct {
 	mu          sync.RWMutex
 	byBrowserID map[int32]popupOpenerRenderMetadata

@@ -19,6 +19,7 @@ type dumberRenderHandler struct {
 	main         purecef.RenderHandler
 	popup        purecef.RenderHandler
 	popupSurface popupSurface
+	a11y         purecef.AccessibilityHandler
 }
 
 var _ purecef.RenderHandler = (*dumberRenderHandler)(nil)
@@ -48,6 +49,14 @@ func newDumberRenderHandler(wv *WebView) purecef.RenderHandler {
 		return nil
 	}
 	h := &dumberRenderHandler{wv: wv}
+	// Install a non-nil AccessibilityHandler before CEF wraps the render
+	// handler. Outside capture the sink is truly nil so callbacks return before
+	// WriteJson; capture workers (Task 2) wire enqueueAccessibilityPayload.
+	var sink func(accessibilityPayload) bool
+	if wv.a11yWorker != nil {
+		sink = wv.enqueueAccessibilityPayload
+	}
+	h.a11y = newAccessibilityHandler(sink)
 
 	var unsupportedPaintOnce sync.Once
 	hooks := startupPresentationHooks(activeStartupTrace())
@@ -110,10 +119,10 @@ func (h *dumberRenderHandler) renderTargetForPaint(elementType purecef.PaintElem
 }
 
 func (h *dumberRenderHandler) GetAccessibilityHandler() purecef.AccessibilityHandler {
-	if h == nil || h.main == nil {
+	if h == nil {
 		return nil
 	}
-	return h.main.GetAccessibilityHandler()
+	return h.a11y
 }
 
 func (h *dumberRenderHandler) GetRootScreenRect(browser purecef.Browser, rect *purecef.Rect) int32 {

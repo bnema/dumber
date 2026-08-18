@@ -178,7 +178,17 @@ func (p *WebViewPool) Acquire(ctx context.Context) (*WebView, error) {
 			}
 
 			// Ensure frontend is attached even if this WebView was pooled before injection was configured.
-			_ = wv.AttachFrontend(ctx, p.injector, p.router)
+			alreadyAttached := wv.FrontendAttached()
+			if err := wv.AttachFrontend(ctx, p.injector, p.router); err != nil {
+				log.Warn().Err(err).Uint64("id", uint64(wv.ID())).Msg("failed to attach frontend to pooled webview")
+			}
+			// Reinjection is only for already-attached reuse after ResetForPoolReuse.
+			// First AttachFrontend already injected; avoid an immediate double inject.
+			if needsFrontendReinjectionOnAcquire(alreadyAttached) && p.injector != nil && wv.ucm != nil {
+				wv.ucm.RemoveAllScripts()
+				wv.ucm.RemoveAllStyleSheets()
+				p.injector.InjectScripts(ctx, wv.ucm, wv.ID())
+			}
 			// Apply filters if available (may not have been applied during prewarm)
 			if p.filterApplier != nil {
 				p.filterApplier.ApplyTo(ctx, wv.ucm)
@@ -238,6 +248,13 @@ func (p *WebViewPool) Acquire(ctx context.Context) (*WebView, error) {
 
 func needsExplicitContextMenuSignalOnAcquire(wv *WebView, pipeline *contextMenuPipeline) bool {
 	return wv != nil && pipeline != nil && len(wv.signalIDs) > 0
+}
+
+// needsFrontendReinjectionOnAcquire is true when AttachFrontend already succeeded
+// earlier, so pool acquire must wipe and reinject after reuse. First-time attach
+// injects inside AttachFrontend and must not immediately reinject.
+func needsFrontendReinjectionOnAcquire(alreadyAttached bool) bool {
+	return alreadyAttached
 }
 
 func shouldReapplySettingsOnAcquire(settings *SettingsManager, wv *WebView) bool {

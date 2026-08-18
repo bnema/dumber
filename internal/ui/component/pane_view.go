@@ -14,6 +14,27 @@ import (
 const (
 	// CSS class applied to active pane's border overlay
 	activePaneClass = "pane-active"
+
+	// vimModeActiveClass is added to the pane overlay when Vim mode is active.
+	// It produces a subtle local border accent using the pane mode color.
+	vimModeActiveClass = "vim-mode-active"
+
+	// vimModePulseClass triggers a normal scroll pulse on the pane overlay.
+	// Repeated calls must remove-then-add to restart the CSS animation.
+	vimModePulseClass = "vim-mode-pulse"
+
+	// vimModeFastPulseClass triggers a fast/stronger scroll pulse.
+	vimModeFastPulseClass = "vim-mode-pulse-fast"
+
+	// Alternate equivalent animations so repeated scrolls reliably restart
+	// the GTK CSS animation.
+	vimModePulseCycleClassA = "vim-mode-pulse-cycle-a"
+	vimModePulseCycleClassB = "vim-mode-pulse-cycle-b"
+
+	// Exported aliases for tests and external inspection.
+	VimModeActiveClass    = vimModeActiveClass
+	VimModePulseClass     = vimModePulseClass
+	VimModeFastPulseClass = vimModeFastPulseClass
 )
 
 // PaneView is a container for a single WebView with active state indication.
@@ -30,6 +51,10 @@ type PaneView struct {
 	loading       *LoadingSkeleton   // Placeholder shown until WebView paints
 	paneID        entity.PaneID
 	isActive      bool
+
+	// Vim Mode pane-local visual state.
+	vimMode    bool
+	pulseCycle bool
 
 	onFocusIn     func(paneID entity.PaneID)
 	onFocusOut    func(paneID entity.PaneID)
@@ -92,6 +117,7 @@ func NewPaneView(ctx context.Context, factory layout.WidgetFactory, paneID entit
 		loading:       loading,
 		paneID:        paneID,
 		isActive:      false,
+		vimMode:       false,
 	}
 }
 
@@ -518,6 +544,66 @@ func (pv *PaneView) HideLinkStatus() {
 	if ls != nil {
 		ls.Hide()
 	}
+}
+
+// SetVimMode activates or deactivates the pane-local Vim Mode accent.
+func (pv *PaneView) SetVimMode(active bool) {
+	pv.mu.Lock()
+	defer pv.mu.Unlock()
+
+	if pv.vimMode == active {
+		return
+	}
+
+	pv.vimMode = active
+
+	if active {
+		pv.overlay.AddCssClass(vimModeActiveClass)
+	} else {
+		pv.overlay.RemoveCssClass(vimModeActiveClass)
+	}
+}
+
+// IsVimMode returns whether Vim mode is currently active on this pane.
+func (pv *PaneView) IsVimMode() bool {
+	pv.mu.RLock()
+	defer pv.mu.RUnlock()
+
+	return pv.vimMode
+}
+
+// TriggerVimModePulse triggers a normal scroll pulse on the pane overlay.
+func (pv *PaneView) TriggerVimModePulse() {
+	pv.triggerOverlayPulse(false)
+}
+
+// TriggerVimModePulseFast triggers a stronger, longer pane-overlay pulse.
+func (pv *PaneView) TriggerVimModePulseFast() {
+	pv.triggerOverlayPulse(true)
+}
+
+// triggerOverlayPulse adds a transient pulse CSS class to the pane overlay.
+// fast=true uses the stronger/longer pulse animation. Both pulse classes are
+// removed first to reliably re-trigger the animation.
+func (pv *PaneView) triggerOverlayPulse(fast bool) {
+	pv.mu.Lock()
+	defer pv.mu.Unlock()
+
+	pv.overlay.RemoveCssClass(vimModePulseClass)
+	pv.overlay.RemoveCssClass(vimModeFastPulseClass)
+	pv.overlay.RemoveCssClass(vimModePulseCycleClassA)
+	pv.overlay.RemoveCssClass(vimModePulseCycleClassB)
+	if fast {
+		pv.overlay.AddCssClass(vimModeFastPulseClass)
+	} else {
+		pv.overlay.AddCssClass(vimModePulseClass)
+	}
+	cycle := vimModePulseCycleClassA
+	if pv.pulseCycle {
+		cycle = vimModePulseCycleClassB
+	}
+	pv.pulseCycle = !pv.pulseCycle
+	pv.overlay.AddCssClass(cycle)
 }
 
 // Cleanup removes the WebView widget from the overlay and clears references.

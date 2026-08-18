@@ -1,20 +1,17 @@
-# Dumber
+<h1 align="center">Dumber</h1>
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT) [![Go Report Card](https://goreportcard.com/badge/github.com/bnema/dumber)](https://goreportcard.com/report/github.com/bnema/dumber)
+<p align="center">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="License: MIT"></a>
+  <a href="https://github.com/bnema/dumber/releases"><img src="https://img.shields.io/badge/platform-Linux%20Wayland%20only-blue?style=flat-square" alt="Platform: Linux Wayland"></a>
+  <a href="https://github.com/bnema/dumber/commits/main"><img src="https://badgen.net/github/last-commit/bnema/dumber/main?icon=github" alt="Last commit"></a>
+  <a href="https://github.com/bnema/dumber/stargazers"><img src="https://badgen.net/github/stars/bnema/dumber?icon=github" alt="GitHub stars"></a>
+</p>
 
-Dumber is a keyboard-driven web browser, built around panes, workspaces, and modal controls.
+<p align="center">Minimal Keyboard-driven web browser for tiling WMs, inspired by Zellij, built in Go.</p>
 
-Tabs contain workspaces. Workspaces contain panes. Panes can be split, stacked, moved, resized, and closed from the keyboard.
-
-The layout model is inspired by terminal multiplexers such as Zellij and tmux, but applied to web browsing this is particularly suited for Wayland compositors such as Niri or Hyprland.
-
-[Website](https://dumber.bnema.dev) · [Documentation](https://dumber.bnema.dev/docs) · [Keybindings](https://dumber.bnema.dev/docs/reference/keybindings)
-
-## Demo
+<p align="center"><a href="https://bnema.dev/dumber">Website</a> · <a href="https://bnema.dev/dumber/docs">Documentation</a> · <a href="https://bnema.dev/dumber/docs/reference/keybindings">Keybindings</a></p>
 
 https://github.com/user-attachments/assets/232822af-08e4-4a74-9416-87f79c96b118
-
-The demo shows split panes, stacked panes, modal navigation, and workspace switching.
 
 ## Overview
 
@@ -24,7 +21,7 @@ Dumber uses three layout levels:
 - **Workspaces** hold a layout of panes.
 - **Panes** display web pages and can be split, stacked, moved, resized, or closed.
 
-Most browser-management actions are exposed through modal keybindings. Enter a mode, run one or more commands, then leave the mode. The default modes cover pane management, tabs, resizing, and session commands.
+Most browser-management actions are exposed through modal keybindings. Enter a mode, run one or more commands, then leave the mode. The default modes cover pane management, tabs, Vim-style scrolling, resizing, and session commands.
 
 The browser chrome stays out of the way by default. Open the omnibox when you want to navigate; otherwise the pane is just the page or web app you are using. This makes Dumber work well as a side pane next to an editor, terminal, or another desktop application.
 
@@ -46,7 +43,7 @@ The browser chrome stays out of the way by default. Open the omnibox when you wa
 
 ### Keyboard workflow
 
-- Pane, tab, resize, and session modes
+- Pane, tab, Vim, resize, and session modes
 - Vim/Zellij-style navigation patterns
 - Search bangs such as `!g`, `!gi`, and `!ddg`
 - Launcher integration for `rofi`, `fuzzel`, and `dmenu`
@@ -70,7 +67,7 @@ The browser chrome stays out of the way by default. Open the omnibox when you wa
 ### Install script
 
 ```bash
-curl -fsSL https://dumber.bnema.dev/install | sh
+curl -fsSL https://raw.githubusercontent.com/bnema/dumber/v0.31.0/install.sh | DUMBER_VERSION=v0.31.0 bash
 dumber browse
 ```
 
@@ -89,7 +86,7 @@ flatpak install --user dumber.flatpak
 flatpak run dev.bnema.Dumber browse
 ```
 
-For dependencies, distribution notes, and troubleshooting, see the [installation documentation](https://dumber.bnema.dev/docs).
+For dependencies, distribution notes, and troubleshooting, see the [installation documentation](https://bnema.dev/dumber/docs).
 
 ## Keyboard modes
 
@@ -99,6 +96,7 @@ Dumber uses modal keybindings for browser management.
 |------|-------------|----------|
 | Pane | `Ctrl+P` | Split, stack, close, and move panes |
 | Tab | `Ctrl+T` | Create, close, switch, and rename tabs |
+| Vim Mode | `Ctrl+Y` | Navigate the active webpage with configurable Vim-style sequences; arrow keys stay native and other app shortcuts wait until exit |
 | Resize | `Ctrl+N` | Resize panes with `hjkl` or arrow keys |
 | Session | `Ctrl+O` | Snapshot, restore, and browse sessions |
 
@@ -111,7 +109,7 @@ The floating pane is a temporary browser pane that can be toggled without changi
 - Profile shortcuts such as `Alt+G` are optional and configured under `workspace.floating_pane.profiles`.
 - Some `Alt+<key>` bindings may conflict with browser-engine shortcuts or desktop-level handlers.
 
-See the [floating pane reference](https://dumber.bnema.dev/docs/reference/floating-pane) for setup and behavior details.
+See the [floating pane reference](https://bnema.dev/dumber/docs/reference/floating-pane) for setup and behavior details.
 
 ## Configuration
 
@@ -125,11 +123,19 @@ type = "cef"
 enabled = true
 ```
 
-The config reloads while Dumber is running. See the [configuration documentation](https://dumber.bnema.dev/docs) for all options.
+The config reloads while Dumber is running. See the [configuration documentation](https://bnema.dev/dumber/docs) for all options.
+
+## Extensions and ad blocking
+
+CEF does not expose the Extensions API, so browser extensions are not supported. While WebKitGTK can use
+injected filter lists, this approach is not available with CEF.
+
+For consistent ad and tracker blocking across applications and devices, use network-level DNS filtering such as
+[AdGuard](https://adguard.com/) or [Pi-hole](https://pi-hole.net/). DNS filtering is more reliable than treating ad blocking as a browser extension, and it protects every device that uses your network.
 
 ## Browser engine
 
-Dumber uses Chromium Embedded Framework by default. WebKitGTK is available as a fallback backend.
+Dumber uses Chromium Embedded Framework by default. WebKitGTK is available as a second option but I don't use it daily so it is more prone to bugs.
 
 On Arch Linux, install the CEF runtime with:
 
@@ -166,7 +172,7 @@ WebKit can be selected explicitly:
 type = "webkit"
 ```
 
-### Rendering notes
+### Rendering
 
 CEF uses Dumber's GPU-first Wayland render stack by default: GDK DMABUF presentation with ANGLE/GSK Vulkan. For driver compatibility, switch to the EGL/OpenGL stack with `engine.cef.render_stack = "egl"`; the default is `"vulkan"`.
 
@@ -190,19 +196,11 @@ sudo apt install libwebkitgtk-6.0-4 libgtk-4-1 gstreamer1.0-plugins-base gstream
 
 > Ubuntu 24.04 ships GLib 2.80, but Dumber requires GLib 2.84+. Use Arch, Fedora 41+, or the Flatpak.
 
-## Status
-
-Dumber is usable for regular web browsing on Wayland compositors, with the main focus on panes, keyboard control, floating workflows, and desktop integration.
-
-It is not a drop-in replacement for every mainstream browser workflow. Extension compatibility, engine behavior, and media support depend on the selected backend and system libraries.
-
-Bug reports and reproducible Wayland/backend issues are welcome.
-
 ## Development
 
 Dumber uses pure-Go bindings. The GUI uses GTK4, runs on CEF by default, and can use WebKitGTK as a fallback backend.
 
-Set `ENV=dev` to use `.dev/dumber/` for config and data instead of XDG paths.
+Set `ENV=dev` to isolate the development process under `.dev/dumber/`. Dumber sets `HOME` plus `XDG_CONFIG_HOME`, `XDG_DATA_HOME`, `XDG_STATE_HOME`, and `XDG_CACHE_HOME` there before GTK or the browser engine starts, so development runs do not use production profiles, cookies, caches, or logs.
 
 ### Build from source
 

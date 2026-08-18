@@ -1,5 +1,7 @@
 # Configuration Reference
 
+`workspace.external_links` controls URLs opened from another application. Non-`windowed` modes target the last-focused window in the current Dumber profile and engine; if that destination is unavailable, Dumber falls back to opening a new window. `placement` applies only to `split`.
+
 | Key | Type | Default | Valid Values |
 |-----|------|---------|--------------|
 | `database.path` | string | `~/.local/share/dumber/dumber.db` | |
@@ -98,6 +100,11 @@
 | `workspace.tab_mode.activation_shortcut` | string | `ctrl+t` | |
 | `workspace.tab_mode.timeout_ms` | int | `3000` | |
 | `workspace.tab_mode.actions.<action>` | []string | see defaults | tab mode key mappings |
+| `workspace.vim_mode.activation_shortcut` | string | `ctrl+y` | |
+| `workspace.vim_mode.timeout_ms` | int | `0` | >= 0 |
+| `workspace.vim_mode.sequence_timeout_ms` | int | `500` | >= 0; timeout for ambiguous multi-key Vim sequences |
+| `workspace.vim_mode.preload_accessibility` | bool | `false` | Pre-enable browser accessibility when a WebView is shown |
+| `workspace.vim_mode.actions.<action>` | object | see defaults | vim mode action object with `keys` ([]string) and `desc` (string) |
 | `workspace.resize_mode.activation_shortcut` | string | `ctrl+n` | |
 | `workspace.resize_mode.timeout_ms` | int | `3000` | |
 | `workspace.resize_mode.actions.<action>` | []string | see defaults | resize mode key mappings |
@@ -111,6 +118,8 @@
 | `workspace.floating_pane.profiles.<name>.keys` | []string | | at least one key |
 | `workspace.floating_pane.profiles.<name>.url` | string | | required URL |
 | `workspace.floating_pane.profiles.<name>.desc` | string | | |
+| `workspace.external_links.behavior` | string | `windowed` | `windowed`, `tabbed`, `split`, `stacked` |
+| `workspace.external_links.placement` | string | `right` | `right`, `left`, `top`, `bottom` (used only with `split`) |
 | `workspace.browsing_contexts.behavior` | string | `split` | `split`, `stacked`, `tabbed`, `windowed` |
 | `workspace.browsing_contexts.placement` | string | `right` | `right`, `left`, `top`, `bottom` |
 | `workspace.browsing_contexts.open_in_new_pane` | bool | `true` | |

@@ -52,6 +52,7 @@ type KeyboardDispatcher struct {
 	onMovePaneToTab          func(ctx context.Context, paneID entity.PaneID) error
 	onMovePaneToNext         func(ctx context.Context, paneID entity.PaneID) error
 	onEjectPaneToWindow      func(ctx context.Context, paneID entity.PaneID) error
+	onVimModePulse           func(ctx context.Context, fast bool)
 	onToggleHistorySidebar   func(ctx context.Context) error
 	onToggleFavoritesSidebar func(ctx context.Context) error
 	onToggleCurrentFavorite  func(ctx context.Context) error
@@ -156,6 +157,22 @@ func (d *KeyboardDispatcher) SetOnOpenFloatingTarget(fn func(ctx context.Context
 	d.onOpenFloating = fn
 }
 
+// SetOnVimModePulse registers a callback for pane-local Vim mode pulse
+// visual feedback triggered after a page scroll action.
+// The cb receives a bool indicating whether the pulse should be "fast"
+// (stronger/longer for up-fast/down-fast).
+// If nil, pulse callbacks are no-ops.
+func (d *KeyboardDispatcher) SetOnVimModePulse(cb func(ctx context.Context, fast bool)) {
+	d.onVimModePulse = cb
+}
+
+// triggerPulse calls the registered pulse callback if set, or no-ops otherwise.
+func (d *KeyboardDispatcher) triggerPulse(ctx context.Context, fast bool) {
+	if d.onVimModePulse != nil {
+		d.onVimModePulse(ctx, fast)
+	}
+}
+
 func (d *KeyboardDispatcher) initActionHandlers() {
 	const (
 		firstTabIndex   = 0
@@ -249,6 +266,13 @@ func (d *KeyboardDispatcher) initActionHandlers() {
 		input.ActionZoomIn:    func(ctx context.Context) error { return d.handleZoom(ctx, "in") },
 		input.ActionZoomOut:   func(ctx context.Context) error { return d.handleZoom(ctx, "out") },
 		input.ActionZoomReset: func(ctx context.Context) error { return d.handleZoom(ctx, "reset") },
+		// Vim mode scroll actions — single mapping drives tap pulse + command.
+		input.ActionVimScrollLeft:     d.vimScrollTapHandler(input.ActionVimScrollLeft),
+		input.ActionVimScrollRight:    d.vimScrollTapHandler(input.ActionVimScrollRight),
+		input.ActionVimScrollUp:       d.vimScrollTapHandler(input.ActionVimScrollUp),
+		input.ActionVimScrollDown:     d.vimScrollTapHandler(input.ActionVimScrollDown),
+		input.ActionVimScrollUpFast:   d.vimScrollTapHandler(input.ActionVimScrollUpFast),
+		input.ActionVimScrollDownFast: d.vimScrollTapHandler(input.ActionVimScrollDownFast),
 		// UI
 		input.ActionOpenOmnibox:  d.navCoord.OpenOmnibox,
 		input.ActionOpenFind:     d.handleFindOpen,
@@ -271,7 +295,7 @@ func (d *KeyboardDispatcher) initActionHandlers() {
 			}
 			return d.onToggleHistorySidebar(ctx)
 		},
-		input.ActionToggleFavoritesSystemView: func(ctx context.Context) error {
+		input.ActionToggleFavoritesSidebar: func(ctx context.Context) error {
 			if d.onToggleFavoritesSidebar == nil {
 				return fmt.Errorf("favorites sidebar unavailable: toggle handler not wired")
 			}
@@ -296,6 +320,73 @@ func (d *KeyboardDispatcher) initActionHandlers() {
 		// Application
 		input.ActionQuit: d.handleQuit,
 	}
+}
+
+// DispatchVimScrollLifecycle routes autonomous held-key page scroll events.
+// Stop deliberately avoids the normal action map so it emits neither another
+// scroll tap nor visual pulse.
+func (d *KeyboardDispatcher) DispatchVimScrollLifecycle(ctx context.Context, action input.Action, phase input.VimScrollPhase) error {
+	spec, ok := vimScrollSpec(action)
+	if !ok {
+		return nil
+	}
+	return d.withActiveWebView(ctx, "page scroll lifecycle", func(wv port.WebView) error {
+		if phase == input.VimScrollStop {
+			return d.navCoord.StopPageScroll(ctx, wv)
+		}
+		return d.navCoord.ScrollWebViewContinuous(ctx, wv, spec.cmd)
+	})
+}
+
+type vimScrollActionSpec struct {
+	cmd  usecase.PageScrollCommand
+	fast bool
+}
+
+// vimScrollSpec is the single source of truth for Vim Mode action→command
+// and fast/slow pulse used by tap handlers and held lifecycle routing.
+func vimScrollSpec(action input.Action) (vimScrollActionSpec, bool) {
+	switch action {
+	case input.ActionVimScrollLeft:
+		return vimScrollActionSpec{cmd: usecase.PageScrollLeft, fast: false}, true
+	case input.ActionVimScrollRight:
+		return vimScrollActionSpec{cmd: usecase.PageScrollRight, fast: false}, true
+	case input.ActionVimScrollUp:
+		return vimScrollActionSpec{cmd: usecase.PageScrollUp, fast: false}, true
+	case input.ActionVimScrollDown:
+		return vimScrollActionSpec{cmd: usecase.PageScrollDown, fast: false}, true
+	case input.ActionVimScrollUpFast:
+		return vimScrollActionSpec{cmd: usecase.PageScrollUpFast, fast: true}, true
+	case input.ActionVimScrollDownFast:
+		return vimScrollActionSpec{cmd: usecase.PageScrollDownFast, fast: true}, true
+	default:
+		return vimScrollActionSpec{}, false
+	}
+}
+
+func (d *KeyboardDispatcher) vimScrollTapHandler(action input.Action) func(context.Context) error {
+	spec, ok := vimScrollSpec(action)
+	if !ok {
+		return func(context.Context) error { return nil }
+	}
+	label := "page scroll " + string(action)
+	return func(ctx context.Context) error {
+		return d.withActiveWebView(ctx, label, func(wv port.WebView) error {
+			if err := d.navCoord.ScrollWebView(ctx, wv, spec.cmd); err != nil {
+				return err
+			}
+			d.triggerPulse(ctx, spec.fast)
+			return nil
+		})
+	}
+}
+
+func vimScrollCommand(action input.Action) (usecase.PageScrollCommand, bool) {
+	spec, ok := vimScrollSpec(action)
+	if !ok {
+		return 0, false
+	}
+	return spec.cmd, true
 }
 
 // Dispatch routes a keyboard action to the appropriate coordinator.

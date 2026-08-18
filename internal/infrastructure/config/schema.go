@@ -24,6 +24,9 @@ type TabModeConfig = entity.TabModeConfig
 // ResizeModeConfig defines modal behavior for resizing panes (Zellij-style).
 type ResizeModeConfig = entity.ResizeModeConfig
 
+// VimModeConfig defines modal behavior for Vim-style scrolling.
+type VimModeConfig = entity.VimModeConfig
+
 // SessionModeConfig defines modal behavior for session management.
 type SessionModeConfig = entity.SessionModeConfig
 
@@ -41,6 +44,29 @@ type FloatingPaneConfig = entity.FloatingPaneConfig
 
 // WorkspaceStylingConfig defines visual styling for workspace panes.
 type WorkspaceStylingConfig = entity.WorkspaceStylingConfig
+
+// ExternalLinkBehavior defines how externally opened URLs are placed in the workspace.
+type ExternalLinkBehavior = entity.ExternalLinkBehavior
+
+const (
+	ExternalLinkBehaviorWindowed = entity.ExternalLinkBehaviorWindowed
+	ExternalLinkBehaviorTabbed   = entity.ExternalLinkBehaviorTabbed
+	ExternalLinkBehaviorSplit    = entity.ExternalLinkBehaviorSplit
+	ExternalLinkBehaviorStacked  = entity.ExternalLinkBehaviorStacked
+)
+
+// ExternalLinkPlacement defines the direction used when splitting for an external URL.
+type ExternalLinkPlacement = entity.ExternalLinkPlacement
+
+const (
+	ExternalLinkPlacementRight  = entity.ExternalLinkPlacementRight
+	ExternalLinkPlacementLeft   = entity.ExternalLinkPlacementLeft
+	ExternalLinkPlacementTop    = entity.ExternalLinkPlacementTop
+	ExternalLinkPlacementBottom = entity.ExternalLinkPlacementBottom
+)
+
+// ExternalLinksConfig controls how externally opened URLs are placed in the workspace.
+type ExternalLinksConfig = entity.ExternalLinksConfig
 
 // PopupBehavior defines how popup windows should be opened.
 type PopupBehavior = entity.PopupBehavior

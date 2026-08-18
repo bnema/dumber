@@ -38,18 +38,23 @@ const (
 	defaultOmniboxAutoOpenOnNewPane = false
 
 	// Workspace defaults
-	defaultPaneActivationShortcut    = "ctrl+p"
-	defaultPaneTimeoutMilliseconds   = 3000
-	defaultTabActivationShortcut     = "ctrl+t"
-	defaultTabTimeoutMilliseconds    = 3000
-	defaultResizeActivationShortcut  = "ctrl+n"
-	defaultResizeTimeoutMilliseconds = 3000
-	defaultResizeStepPercent         = 5.0
-	defaultResizeMinPanePercent      = 10.0
-	defaultTabBarPosition            = "bottom"
-	defaultPopupPlacement            = "right"
-	defaultFloatingPaneWidthPct      = 0.82
-	defaultFloatingPaneHeightPct     = 0.72
+	defaultPaneActivationShortcut          = "ctrl+p"
+	defaultPaneTimeoutMilliseconds         = 3000
+	defaultTabActivationShortcut           = "ctrl+t"
+	defaultTabTimeoutMilliseconds          = 3000
+	defaultResizeActivationShortcut        = "ctrl+n"
+	defaultResizeTimeoutMilliseconds       = 3000
+	defaultPageActivationShortcut          = "ctrl+y"
+	defaultPageTimeoutMilliseconds         = 0
+	defaultPageSequenceTimeoutMilliseconds = 500
+	defaultResizeStepPercent               = 5.0
+	defaultResizeMinPanePercent            = 10.0
+	defaultTabBarPosition                  = "bottom"
+	defaultPopupPlacement                  = "right"
+	defaultExternalLinkBehavior            = ExternalLinkBehaviorWindowed
+	defaultExternalLinkPlacement           = ExternalLinkPlacementRight
+	defaultFloatingPaneWidthPct            = 0.82
+	defaultFloatingPaneHeightPct           = 0.72
 
 	// Session defaults
 	defaultSessionActivationShortcut  = "ctrl+o"
@@ -300,6 +305,33 @@ func DefaultConfig() *Config {
 					"cancel":       {Keys: []string{"escape"}, Desc: "Cancel/exit mode"},
 				},
 			},
+			VimMode: VimModeConfig{
+				ActivationShortcut:          defaultPageActivationShortcut,
+				TimeoutMilliseconds:         defaultPageTimeoutMilliseconds,
+				SequenceTimeoutMilliseconds: defaultPageSequenceTimeoutMilliseconds,
+				Actions: map[string]ActionBinding{
+					"vim-scroll-left":      {Keys: []string{"h"}, Desc: "Scroll page left"},
+					"vim-scroll-down":      {Keys: []string{"j"}, Desc: "Scroll page down"},
+					"vim-scroll-up":        {Keys: []string{"k"}, Desc: "Scroll page up"},
+					"vim-scroll-right":     {Keys: []string{"l"}, Desc: "Scroll page right"},
+					"vim-scroll-down-fast": {Keys: []string{"shift+j"}, Desc: "Scroll page down fast"},
+					"vim-scroll-up-fast":   {Keys: []string{"shift+k"}, Desc: "Scroll page up fast"},
+					"confirm":              {Keys: []string{"enter"}, Desc: "Confirm action"},
+					"cancel":               {Keys: []string{"escape"}, Desc: "Cancel/exit mode"},
+					"heading-next":         {Keys: []string{"]]"}, Desc: "Jump to next heading"},
+					"heading-prev":         {Keys: []string{"[["}, Desc: "Jump to previous heading"},
+					"focus-input":          {Keys: []string{"gi"}, Desc: "Focus next page input"},
+					"code-next":            {Keys: []string{"]c"}, Desc: "Jump to next code block"},
+					"code-prev":            {Keys: []string{"[c"}, Desc: "Jump to previous code block"},
+					"table-next":           {Keys: []string{"]t"}, Desc: "Jump to next table"},
+					"image-next":           {Keys: []string{"]i"}, Desc: "Jump to next image"},
+					"list-next":            {Keys: []string{"]l"}, Desc: "Jump to next list"},
+					"outline":              {Keys: []string{"gO"}, Desc: "Show page outline"},
+					"yank-section":         {Keys: []string{"yah"}, Desc: "Yank current section"},
+					"half-page-down":       {Keys: []string{"<C-d>"}, Desc: "Scroll half page down"},
+					"half-page-up":         {Keys: []string{"<C-u>"}, Desc: "Scroll half page up"},
+				},
+			},
 			ResizeMode: ResizeModeConfig{
 				ActivationShortcut:  defaultResizeActivationShortcut,
 				TimeoutMilliseconds: defaultResizeTimeoutMilliseconds,
@@ -324,7 +356,7 @@ func DefaultConfig() *Config {
 				Actions: map[string]ActionBinding{
 					"toggle-floating-pane":         {Keys: []string{"alt+f"}, Desc: "Toggle floating pane"},
 					"toggle-history-systemview":    {Keys: []string{"ctrl+h"}, Desc: "Toggle History in right split"},
-					"toggle-favorites-systemview":  {Keys: []string{"ctrl+b"}, Desc: "Toggle Favorites sidebar"},
+					"toggle-favorites-sidebar":     {Keys: []string{"ctrl+b"}, Desc: "Toggle Favorites sidebar"},
 					"toggle-current-page-favorite": {Keys: []string{"ctrl+d"}, Desc: "Add/remove current page favorite"},
 					"toggle-config-systemview":     {Keys: []string{}, Desc: "Toggle Config in right split"},
 					"close-pane":                   {Keys: []string{"ctrl+w"}, Desc: "Close active pane"},
@@ -340,6 +372,10 @@ func DefaultConfig() *Config {
 				WidthPct:  defaultFloatingPaneWidthPct,
 				HeightPct: defaultFloatingPaneHeightPct,
 				Profiles:  map[string]FloatingPaneProfile{},
+			},
+			ExternalLinks: ExternalLinksConfig{
+				Behavior:  defaultExternalLinkBehavior,
+				Placement: defaultExternalLinkPlacement,
 			},
 			TabBarPosition:          defaultTabBarPosition,
 			HideTabBarWhenSingleTab: true,

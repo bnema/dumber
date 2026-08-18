@@ -36,6 +36,28 @@ import (
 // Return an error if the action fails.
 type ActionHandler func(ctx context.Context, action Action) error
 
+// VimScrollPhase identifies held-scroll lifecycle events. It is internal input
+// state, not a configurable action or shortcut.
+type VimScrollPhase uint8
+
+const (
+	VimScrollContinuous VimScrollPhase = iota
+	VimScrollStop
+)
+
+// VimScrollLifecycleHandler receives autonomous held-scroll ticks and the
+// matching stop event without changing the normal configurable action API.
+type VimScrollLifecycleHandler func(ctx context.Context, action Action, phase VimScrollPhase) error
+
+// PageFocusNavigationHandler handles native-like focus traversal inside the
+// focused page. It returns true when the event was handled by the page.
+type PageFocusNavigationHandler func(ctx context.Context, backward bool) bool
+
+const (
+	vimScrollHoldDelay = 250 * time.Millisecond
+	vimScrollCadence   = 16 * time.Millisecond
+)
+
 // AccentHandler handles long-press accent detection.
 // Called for character keys that may have accent variants.
 type AccentHandler interface {
@@ -58,8 +80,10 @@ type KeyboardHandler struct {
 	workspace *entity.WorkspaceConfig
 	session   *entity.SessionConfig
 
-	// Action handler callback
-	onAction ActionHandler
+	// Action handler callbacks.
+	onAction              ActionHandler
+	onVimScrollLifecycle  VimScrollLifecycleHandler
+	onPageFocusNavigation PageFocusNavigationHandler
 	// Optional routing callback that determines how a key should be handled.
 	// Returns RouteHandleShortcuts (default), RoutePassToWidget (let focused
 	// widget handle it), or RouteAccentDetection (long-press accent for GTK entries).
@@ -68,6 +92,9 @@ type KeyboardHandler struct {
 	accentHandler AccentHandler
 	// Optional escape hook for app-level overlays
 	onEscape func(ctx context.Context) bool
+	// Optional hook that blocks Vim mode activation and lets the original key
+	// event pass through to the focused widget/page instead.
+	vimModeActivationPassthrough func() bool
 
 	// GTK controller (nil until attached)
 	controller *gtk.EventControllerKey
@@ -82,6 +109,18 @@ type KeyboardHandler struct {
 	activePressedActions map[Action]uint
 	ctx                  context.Context
 	mu                   sync.RWMutex
+
+	vimScrollRepeatAction     Action
+	vimScrollRepeatKeyval     uint
+	vimScrollRepeatTimer      uint
+	vimScrollRepeatGeneration uint64
+	vimScrollRepeatPressedAt  time.Time
+	vimScrollRepeatCb         glib.SourceFunc
+	vimScrollRepeatAdd        func(intervalMS uint, cb *glib.SourceFunc) uint
+	vimScrollRepeatRemove     func(id uint) bool
+	vimScrollNow              func() time.Time
+
+	seq vimModeSequenceState
 }
 
 // NewKeyboardHandler creates a new keyboard handler.
@@ -90,14 +129,26 @@ func NewKeyboardHandler(ctx context.Context, workspace *entity.WorkspaceConfig, 
 
 	log.Debug().Msg("creating keyboard handler")
 
+	shortcuts := NewShortcutSet(ctx, workspace, session)
+	seqTimeout := time.Duration(0)
+	if workspace != nil {
+		seqTimeout = time.Duration(workspace.VimMode.SequenceTimeoutMilliseconds) * time.Millisecond
+	}
 	h := &KeyboardHandler{
-		shortcuts:            NewShortcutSet(ctx, workspace, session),
+		shortcuts:            shortcuts,
 		modal:                NewModalState(ctx),
 		workspace:            workspace,
 		session:              session,
 		activePressedActions: make(map[Action]uint),
 		ctx:                  ctx,
+		vimScrollRepeatAdd: func(intervalMS uint, cb *glib.SourceFunc) uint {
+			return glib.TimeoutAdd(intervalMS, cb, 0)
+		},
+		vimScrollRepeatRemove: glib.SourceRemove,
+		vimScrollNow:          time.Now,
+		seq:                   newVimModeSequenceState(shortcuts.VimModeSequences(), seqTimeout),
 	}
+	h.SetOnModeChange(nil)
 
 	return h
 }
@@ -109,11 +160,35 @@ func (h *KeyboardHandler) SetOnAction(fn ActionHandler) {
 	h.onAction = fn
 }
 
+// SetOnVimScrollLifecycle sets the callback for autonomous held-scroll ticks
+// and stop notification. Tap actions continue through SetOnAction.
+func (h *KeyboardHandler) SetOnVimScrollLifecycle(fn VimScrollLifecycleHandler) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.onVimScrollLifecycle = fn
+}
+
+// SetOnPageFocusNavigation sets the optional callback for keeping page focus
+// traversal inside the active WebView.
+func (h *KeyboardHandler) SetOnPageFocusNavigation(fn PageFocusNavigationHandler) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.onPageFocusNavigation = fn
+}
+
+// SetVimModeActivationPassthrough sets the callback that can block Vim mode
+// activation and let the original key event propagate instead.
+func (h *KeyboardHandler) SetVimModeActivationPassthrough(fn func() bool) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.vimModeActivationPassthrough = fn
+}
+
 // ReloadShortcuts rebuilds the shortcut set from new config values.
 // This enables hot-reloading of keybindings without restarting.
 func (h *KeyboardHandler) ReloadShortcuts(ctx context.Context, workspace *entity.WorkspaceConfig, session *entity.SessionConfig) {
+	h.stopVimScrollRepeat()
 	h.mu.Lock()
-	defer h.mu.Unlock()
 
 	log := logging.FromContext(ctx)
 	log.Debug().Msg("reloading shortcuts from config")
@@ -121,6 +196,14 @@ func (h *KeyboardHandler) ReloadShortcuts(ctx context.Context, workspace *entity
 	h.shortcuts = NewShortcutSet(ctx, workspace, session)
 	h.workspace = workspace
 	h.session = session
+	seqTimeout := time.Duration(0)
+	if workspace != nil {
+		seqTimeout = time.Duration(workspace.VimMode.SequenceTimeoutMilliseconds) * time.Millisecond
+	}
+	h.mu.Unlock()
+
+	h.InvalidateSequenceMatcher()
+	h.SetSequenceTimeout(seqTimeout)
 }
 
 // SetOnModeChange sets the callback for mode changes (for UI updates).
@@ -133,6 +216,11 @@ func (h *KeyboardHandler) SetOnModeChange(fn func(from, to Mode)) {
 			h.setControllerPhase(gtk.PhaseBubbleValue)
 		} else if from == ModeNormal {
 			h.setControllerPhase(gtk.PhaseCaptureValue)
+		}
+		if to != ModeVim {
+			h.stopVimScrollRepeat()
+			// Silent reset under ModalState lock: no pending callback (avoids Mode() re-entry).
+			h.resetPendingSequence(false)
 		}
 		// Forward to app-level callback
 		if fn != nil {
@@ -212,16 +300,10 @@ func (h *KeyboardHandler) AttachTo(window *gtk.ApplicationWindow) {
 	// so app shortcuts still work.
 	h.controller.SetPropagationPhase(gtk.PhaseBubbleValue)
 
-	// Wire GTK main thread scheduler for modal timeouts. Timer goroutines
-	// must dispatch ExitMode to the GTK thread because onModeChange may
-	// call setControllerPhase (a GTK operation).
-	h.modal.SetMainThreadScheduler(func(fn func()) {
-		cb := glib.SourceFunc(func(_ uintptr) bool {
-			fn()
-			return false
-		})
-		glib.IdleAdd(&cb, 0)
-	})
+	// Wire GTK main thread schedulers for modal and sequence ambiguity timeouts.
+	// Timer goroutines must dispatch back to the GTK thread because callbacks
+	// may touch GTK widgets / EventController phase.
+	h.installGTKMainThreadSchedulers()
 
 	// Connect key pressed handler (retain callback to prevent GC).
 	// The callback receives: keyval (translated key), keycode (hardware key position), state (modifiers)
@@ -243,6 +325,24 @@ func (h *KeyboardHandler) AttachTo(window *gtk.ApplicationWindow) {
 	log.Debug().Msg("keyboard handler attached to window")
 }
 
+// installGTKMainThreadSchedulers routes modal and sequence timer callbacks
+// through glib.IdleAdd so they run on the GTK main thread.
+func (h *KeyboardHandler) installGTKMainThreadSchedulers() {
+	if h == nil {
+		return
+	}
+	schedule := func(fn func()) {
+		cb := glib.SourceFunc(func(_ uintptr) bool {
+			fn()
+			return false
+		})
+		glib.IdleAdd(&cb, 0)
+	}
+	h.modal.SetMainThreadScheduler(schedule)
+	h.SetSequenceMainThreadScheduler(schedule)
+	logging.FromContext(h.ctx).Debug().Msg("gtk main-thread schedulers installed for modal and vim-mode sequences")
+}
+
 // Detach removes the keyboard handler from a live GTK window and releases its
 // retained GTK signal callbacks.
 func (h *KeyboardHandler) Detach() {
@@ -257,8 +357,11 @@ func (h *KeyboardHandler) DetachForDestroy() {
 }
 
 func (h *KeyboardHandler) detach(removeController bool) {
+	h.stopVimScrollRepeat()
+	// Sequence teardown uses seq.mu only; keep it outside h.mu to preserve
+	// the existing h.mu → (never seq) / seq.mu standalone lock order.
+	h.teardownSequenceState()
 	h.mu.Lock()
-	defer h.mu.Unlock()
 	if h.controller != nil && h.keyPressedHandlerID != 0 {
 		h.controller.DisconnectSignal(h.keyPressedHandlerID)
 	}
@@ -275,6 +378,7 @@ func (h *KeyboardHandler) detach(removeController bool) {
 	h.keyPressedHandlerID = 0
 	h.keyReleasedHandlerID = 0
 	h.activePressedActions = nil
+	h.mu.Unlock()
 }
 
 // handleKeyPress processes a key press event.
@@ -294,17 +398,38 @@ func (h *KeyboardHandler) handleKeyPress(keyval, keycode uint, state gdk.Modifie
 	}
 
 	modifiers := Modifier(state) & modifierMask
+	mode := h.modal.Mode()
 
 	// Escape in normal mode: check app-level escape hook first
-	if h.modal.Mode() == ModeNormal && keyval == uint(gdk.KEY_Escape) && modifiers == 0 {
+	if mode == ModeNormal && keyval == uint(gdk.KEY_Escape) && modifiers == 0 {
 		if onEscape != nil && onEscape(h.ctx) {
 			return true
 		}
 	}
 
+	// Escape / Enter should always leave modal modes even if the current config
+	// omits explicit confirm/cancel bindings.
+	if mode != ModeNormal && modifiers == 0 {
+		switch keyval {
+		case uint(gdk.KEY_Escape), uint(gdk.KEY_Return), uint(gdk.KEY_KP_Enter):
+			if mode == ModeVim {
+				h.stopVimScrollRepeat()
+			}
+			h.modal.ExitMode(h.ctx)
+			return true
+		}
+	}
+
+	// Page focus traversal must stay out of shortcut lookup. The callback keeps
+	// traversal inside CEF when the active page control needs it; otherwise the
+	// event passes through to the native widget.
+	if shouldPassthroughNativePageFocusNavigation(mode, keyval, modifiers) {
+		return h.handlePageFocusNavigation(keyval, modifiers)
+	}
+
 	// Determine routing for this key event
 	route := RouteHandleShortcuts // default: process through shortcut system
-	if routeKey != nil && h.modal.Mode() == ModeNormal {
+	if routeKey != nil && mode == ModeNormal {
 		route = routeKey(KeyContext{
 			Keyval:    keyval,
 			Keycode:   keycode,
@@ -332,17 +457,41 @@ func (h *KeyboardHandler) handleKeyPress(keyval, keycode uint, state gdk.Modifie
 		// Fall through to shortcut processing below
 	}
 
+	// Vim-mode multi-key sequences run before legacy single-chord lookup.
+	if h.feedVimModeSequence(keyval, state) {
+		return true
+	}
+
 	// --- Shortcut processing path ---
 
 	// Normalize uppercase letters for consistent binding lookup
 	keyval = normalizeKeyval(keyval)
 
 	binding := KeyBinding{Keyval: keyval, Modifiers: modifiers}
-	mode := h.modal.Mode()
 	action, found := h.lookupAction(log, binding, mode, modifiers, keycode)
+	return h.handleShortcutLookupResult(log, action, found, mode, keyval, modifiers)
+}
 
+func (h *KeyboardHandler) handleShortcutLookupResult(
+	log *zerolog.Logger,
+	action Action,
+	found bool,
+	mode Mode,
+	keyval uint,
+	modifiers Modifier,
+) bool {
 	if !found {
+		if shouldPassthroughNativeVimModeNavigation(mode, keyval, modifiers) {
+			log.Trace().Uint("keyval", keyval).Msg("routing native page navigation key to focused widget in vim mode")
+			return false
+		}
 		return mode != ModeNormal // Consume unrecognized keys in modal mode
+	}
+	if h.shouldPassthroughVimModeActivation(action, mode) {
+		return false
+	}
+	if mode == ModeVim && isVimScrollAction(action) {
+		return h.handleVimScrollAction(log, action, mode, keyval)
 	}
 	if h.suppressHeldAction(action, keyval) {
 		log.Trace().
@@ -350,8 +499,109 @@ func (h *KeyboardHandler) handleKeyPress(keyval, keycode uint, state gdk.Modifie
 			Msg("held keyboard action repeat suppressed")
 		return true
 	}
-
 	return h.dispatchAction(action, mode)
+}
+
+func (h *KeyboardHandler) handleVimScrollAction(log *zerolog.Logger, action Action, mode Mode, keyval uint) bool {
+	h.mu.RLock()
+	sameHeldKey := h.vimScrollRepeatAction == action &&
+		h.vimScrollRepeatKeyval == keyval && h.vimScrollRepeatTimer != 0
+	h.mu.RUnlock()
+	if sameHeldKey {
+		log.Trace().Str("action", string(action)).Msg("vim scroll OS repeat suppressed")
+		return true
+	}
+
+	h.stopVimScrollRepeat()
+	if !h.dispatchAction(action, mode) {
+		return false
+	}
+	h.startVimScrollRepeat(action, keyval)
+	return true
+}
+
+func (h *KeyboardHandler) startVimScrollRepeat(action Action, keyval uint) {
+	h.mu.Lock()
+	if h.vimScrollRepeatTimer != 0 || h.vimScrollRepeatAdd == nil {
+		h.mu.Unlock()
+		return
+	}
+	h.vimScrollRepeatGeneration++
+	generation := h.vimScrollRepeatGeneration
+	h.vimScrollRepeatAction = action
+	h.vimScrollRepeatKeyval = keyval
+	h.vimScrollRepeatPressedAt = h.vimScrollNow()
+	cb := glib.SourceFunc(func(_ uintptr) bool {
+		return h.vimScrollRepeatTick(action, keyval, generation)
+	})
+	h.vimScrollRepeatCb = cb
+	add := h.vimScrollRepeatAdd
+	id := add(uint(vimScrollCadence/time.Millisecond), &h.vimScrollRepeatCb)
+	if id == 0 {
+		h.clearVimScrollRepeatLocked()
+		h.mu.Unlock()
+		return
+	}
+	h.vimScrollRepeatTimer = id
+	h.mu.Unlock()
+}
+
+func (h *KeyboardHandler) vimScrollRepeatTick(action Action, keyval uint, generation uint64) bool {
+	h.mu.RLock()
+	active := h.vimScrollRepeatAction == action && h.vimScrollRepeatKeyval == keyval &&
+		h.vimScrollRepeatTimer != 0 && h.vimScrollRepeatGeneration == generation
+	pressedAt := h.vimScrollRepeatPressedAt
+	now := h.vimScrollNow
+	h.mu.RUnlock()
+	if !active || h.modal.Mode() != ModeVim {
+		return false
+	}
+	if now().Sub(pressedAt) < vimScrollHoldDelay {
+		return true
+	}
+	// Continuous dispatch bypasses dispatchAction, so refresh Vim Mode timeout here.
+	h.modal.ResetTimeout(h.ctx)
+	h.dispatchVimScrollLifecycle(action, VimScrollContinuous)
+	return true
+}
+
+func (h *KeyboardHandler) stopVimScrollRepeat() {
+	h.mu.Lock()
+	action := h.vimScrollRepeatAction
+	timerID := h.vimScrollRepeatTimer
+	remove := h.vimScrollRepeatRemove
+	h.clearVimScrollRepeatLocked()
+	h.mu.Unlock()
+	if timerID != 0 && remove != nil {
+		remove(timerID)
+	}
+	if action != "" {
+		h.dispatchVimScrollLifecycle(action, VimScrollStop)
+	}
+}
+
+func (h *KeyboardHandler) clearVimScrollRepeatLocked() {
+	h.vimScrollRepeatGeneration++
+	h.vimScrollRepeatAction = ""
+	h.vimScrollRepeatKeyval = 0
+	h.vimScrollRepeatTimer = 0
+	h.vimScrollRepeatPressedAt = time.Time{}
+	h.vimScrollRepeatCb = nil
+}
+
+func (h *KeyboardHandler) dispatchVimScrollLifecycle(action Action, phase VimScrollPhase) {
+	h.mu.RLock()
+	handler := h.onVimScrollLifecycle
+	h.mu.RUnlock()
+	if handler == nil {
+		if phase == VimScrollContinuous {
+			h.dispatchAction(action, ModeVim)
+		}
+		return
+	}
+	if err := handler(h.ctx, action, phase); err != nil {
+		logging.FromContext(h.ctx).Error().Err(err).Str("action", string(action)).Msg("vim scroll lifecycle handler error")
+	}
 }
 
 // tryAccentDetection starts long-press detection for accent-eligible keys.
@@ -382,6 +632,43 @@ func normalizeKeyval(keyval uint) uint {
 	return keyval
 }
 
+func (h *KeyboardHandler) handlePageFocusNavigation(keyval uint, modifiers Modifier) bool {
+	h.mu.RLock()
+	handler := h.onPageFocusNavigation
+	h.mu.RUnlock()
+	if handler == nil {
+		return false
+	}
+	backward := keyval == uint(gdk.KEY_ISO_Left_Tab) || modifiers == ModShift
+	return handler(h.ctx, backward)
+}
+
+func shouldPassthroughNativePageFocusNavigation(mode Mode, keyval uint, modifiers Modifier) bool {
+	if mode != ModeNormal && mode != ModeVim {
+		return false
+	}
+	switch keyval {
+	case uint(gdk.KEY_Tab), uint(gdk.KEY_ISO_Left_Tab):
+		return modifiers == ModNone || modifiers == ModShift
+	default:
+		return false
+	}
+}
+
+func shouldPassthroughNativeVimModeNavigation(mode Mode, keyval uint, modifiers Modifier) bool {
+	if mode != ModeVim {
+		return false
+	}
+	switch keyval {
+	case uint(gdk.KEY_Left), uint(gdk.KEY_Right), uint(gdk.KEY_Up), uint(gdk.KEY_Down):
+		return modifiers == ModNone
+	case uint(gdk.KEY_Tab), uint(gdk.KEY_ISO_Left_Tab):
+		return modifiers == ModNone || modifiers == ModShift
+	default:
+		return false
+	}
+}
+
 // dispatchAction dispatches the action and handles mode-related logic.
 func (h *KeyboardHandler) dispatchAction(action Action, mode Mode) bool {
 	if h.handleModeAction(action) {
@@ -400,6 +687,9 @@ func (h *KeyboardHandler) dispatchAction(action Action, mode Mode) bool {
 	}
 
 	if mode == ModeResize && isResizeAction(action) {
+		h.modal.ResetTimeout(h.ctx)
+	}
+	if mode == ModeVim && isVimScrollAction(action) {
 		h.modal.ResetTimeout(h.ctx)
 	}
 
@@ -436,6 +726,7 @@ func isRepeatedKeyboardActionSuppressed(action Action) bool {
 		ActionEnterPaneMode,
 		ActionEnterSessionMode,
 		ActionEnterResizeMode,
+		ActionEnterVimMode,
 		ActionNewTab,
 		ActionRenameTab,
 		ActionSplitRight,
@@ -512,6 +803,20 @@ func isResizeAction(action Action) bool {
 	}
 }
 
+func isVimScrollAction(action Action) bool {
+	switch action {
+	case ActionVimScrollLeft,
+		ActionVimScrollDown,
+		ActionVimScrollUp,
+		ActionVimScrollRight,
+		ActionVimScrollDownFast,
+		ActionVimScrollUpFast:
+		return true
+	default:
+		return false
+	}
+}
+
 func (h *KeyboardHandler) handleModeAction(action Action) bool {
 	h.mu.RLock()
 	workspace := h.workspace
@@ -551,7 +856,22 @@ func (h *KeyboardHandler) handleModeAction(action Action) bool {
 		}
 		h.modal.EnterResizeMode(h.ctx, time.Duration(ms)*time.Millisecond)
 		return true
+	case ActionEnterVimMode:
+		if h.modal.Mode() == ModeVim {
+			h.stopVimScrollRepeat()
+			h.modal.ExitMode(h.ctx)
+			return true
+		}
+		var pgms int
+		if workspace != nil {
+			pgms = workspace.VimMode.TimeoutMilliseconds
+		}
+		h.modal.EnterVimMode(h.ctx, time.Duration(pgms)*time.Millisecond)
+		return true
 	case ActionExitMode:
+		if h.modal.Mode() == ModeVim {
+			h.stopVimScrollRepeat()
+		}
 		h.modal.ExitMode(h.ctx)
 		return true
 	default:
@@ -598,33 +918,64 @@ func (h *KeyboardHandler) EnterSessionMode() {
 	h.modal.EnterSessionMode(h.ctx, time.Duration(ms)*time.Millisecond)
 }
 
+// EnterVimMode programmatically enters Vim-style scrolling mode.
+// Useful for testing or programmatic mode changes.
+func (h *KeyboardHandler) EnterVimMode() {
+	h.mu.RLock()
+	workspace := h.workspace
+	h.mu.RUnlock()
+	var ms int
+	if workspace != nil {
+		ms = workspace.VimMode.TimeoutMilliseconds
+	}
+	h.modal.EnterVimMode(h.ctx, time.Duration(ms)*time.Millisecond)
+}
+
 // ExitMode programmatically exits modal mode.
 // Useful for testing or programmatic mode changes.
 func (h *KeyboardHandler) ExitMode() {
 	h.modal.ExitMode(h.ctx)
 }
 
+func (h *KeyboardHandler) shouldPassthroughVimModeActivation(action Action, mode Mode) bool {
+	if action != ActionEnterVimMode || mode != ModeNormal {
+		return false
+	}
+	h.mu.RLock()
+	passthrough := h.vimModeActivationPassthrough
+	h.mu.RUnlock()
+	return passthrough != nil && passthrough()
+}
+
 // DispatchAction processes an action externally triggered (e.g., by a global
 // shortcut). Mode-enter actions update modal state; other actions are forwarded
-// to the registered action handler.
-func (h *KeyboardHandler) DispatchAction(action Action) {
+// to the registered action handler. It returns whether the action was consumed.
+func (h *KeyboardHandler) DispatchAction(action Action) bool {
 	mode := h.modal.Mode()
+	if h.shouldPassthroughVimModeActivation(action, mode) {
+		return false
+	}
 	h.dispatchAction(action, mode)
+	return true
 }
 
 // handleKeyRelease processes a key release event for accent detection.
 func (h *KeyboardHandler) handleKeyRelease(keyval uint) {
+	keyval = normalizeKeyval(keyval)
 	h.mu.Lock()
 	accentHandler := h.accentHandler
 	if len(h.activePressedActions) > 0 {
-		keyval = normalizeKeyval(keyval)
 		for action, pressedKeyval := range h.activePressedActions {
 			if pressedKeyval == keyval {
 				delete(h.activePressedActions, action)
 			}
 		}
 	}
+	stopVimScroll := h.vimScrollRepeatKeyval == keyval
 	h.mu.Unlock()
+	if stopVimScroll {
+		h.stopVimScrollRepeat()
+	}
 
 	if accentHandler == nil {
 		return

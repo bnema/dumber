@@ -13,6 +13,8 @@ func TestDefaultConfig_CoreDefaults(t *testing.T) {
 	assert.Equal(t, defaultMaxLogFiles, cfg.Logging.MaxFiles)
 	assert.False(t, cfg.Logging.CaptureGTKLogs)
 	assert.False(t, cfg.Media.ShowDiagnosticsOnStartup)
+	assert.Equal(t, ExternalLinkBehaviorWindowed, cfg.Workspace.ExternalLinks.Behavior)
+	assert.Equal(t, ExternalLinkPlacementRight, cfg.Workspace.ExternalLinks.Placement)
 
 	// Engine defaults (replaces old Performance/Privacy sections)
 	assert.Equal(t, EngineTypeCEF, cfg.Engine.Type)
@@ -41,7 +43,7 @@ func TestDefaultConfig_CoreDefaults(t *testing.T) {
 
 	// System view shortcuts are first-class global actions.
 	requireActionBinding(t, cfg.Workspace.Shortcuts.Actions, "toggle-history-systemview", []string{"ctrl+h"})
-	requireActionBinding(t, cfg.Workspace.Shortcuts.Actions, "toggle-favorites-systemview", []string{"ctrl+b"})
+	requireActionBinding(t, cfg.Workspace.Shortcuts.Actions, "toggle-favorites-sidebar", []string{"ctrl+b"})
 	requireActionBinding(t, cfg.Workspace.Shortcuts.Actions, "toggle-current-page-favorite", []string{"ctrl+d"})
 	requireActionBinding(t, cfg.Workspace.Shortcuts.Actions, "toggle-config-systemview", []string{})
 

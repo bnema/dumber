@@ -12,19 +12,8 @@ func TestGenerateHistorySidebarCSS_ContainsExpectedSelectors(t *testing.T) {
 	css := generateHistorySidebarCSS(DefaultDarkPalette())
 
 	selectors := []string{
-		".history-sidebar-outer",
-		".history-sidebar-search-box",
-		".history-sidebar-search",
-		".history-sidebar-groups",
 		".history-sidebar-group-header",
-		".history-sidebar-row",
-		".history-sidebar-row:hover",
-		".history-sidebar-row:selected",
-		".history-sidebar-row:focus",
-		".history-sidebar-row-title",
-		".history-sidebar-row-subtitle",
 		".history-sidebar-row-time",
-		".history-sidebar-empty",
 		".history-sidebar-loading",
 	}
 
@@ -34,8 +23,8 @@ func TestGenerateHistorySidebarCSS_ContainsExpectedSelectors(t *testing.T) {
 	}
 }
 
-func TestGenerateHistorySidebarCSS_AccentAlphaInterpolation(t *testing.T) {
-	css := generateHistorySidebarCSS(DefaultDarkPalette())
+func TestGenerateSidebarCSS_AccentAlphaInterpolation(t *testing.T) {
+	css := generateSidebarCSS(DefaultDarkPalette())
 
 	expectedAlpha := "alpha(var(--accent), 0.18)"
 	assert.Contains(t, css, expectedAlpha,
@@ -60,9 +49,9 @@ func TestGenerateHistorySidebarCSS_DeterministicOutput(t *testing.T) {
 	assert.Equal(t, hash1, hash2, "CSS output must be deterministic for the same palette")
 }
 
-func TestGenerateHistorySidebarCSS_UsesPaletteVariablesInsteadOfInliningColors(t *testing.T) {
-	darkCSS := generateHistorySidebarCSS(DefaultDarkPalette())
-	lightCSS := generateHistorySidebarCSS(DefaultLightPalette())
+func TestGenerateSidebarCSS_UsesPaletteVariablesInsteadOfInliningColors(t *testing.T) {
+	darkCSS := generateSidebarCSS(DefaultDarkPalette())
+	lightCSS := generateSidebarCSS(DefaultLightPalette())
 
 	assert.Equal(t, darkCSS, lightCSS,
 		"history sidebar fragment should be palette-independent when it relies on CSS variables")
@@ -73,12 +62,12 @@ func TestGenerateHistorySidebarCSS_UsesPaletteVariablesInsteadOfInliningColors(t
 func TestGenerateHistorySidebarCSS_ThroughGenerateCSS(t *testing.T) {
 	fullCSS := GenerateCSS(DefaultDarkPalette())
 
-	assert.Contains(t, fullCSS, ".history-sidebar-outer {",
-		"full CSS must contain history sidebar selectors")
+	assert.Contains(t, fullCSS, ".sidebar-outer {",
+		"full CSS must contain shared sidebar selectors")
 	assert.Contains(t, fullCSS, ".history-sidebar-group-header {",
 		"full CSS must contain group header selector")
-	assert.Contains(t, fullCSS, ".history-sidebar-row-title {",
-		"full CSS must contain row title selector")
+	assert.Contains(t, fullCSS, ".sidebar-row-title {",
+		"full CSS must contain shared row title selector")
 	assert.Contains(t, fullCSS, "History Sidebar Styling",
 		"full CSS must contain the history sidebar comment marker")
 }
@@ -100,7 +89,7 @@ func TestGenerateHistorySidebarCSS_NoEmptyCSSBlocks(t *testing.T) {
 	}
 }
 
-func TestGenerateHistorySidebarCSS_CustomPaletteValuesInterpolated(t *testing.T) {
+func TestGenerateSidebarCSS_CustomPaletteValuesInterpolated(t *testing.T) {
 	customPalette := Palette{
 		Background:     "#111111",
 		Surface:        "#222222",
@@ -114,22 +103,28 @@ func TestGenerateHistorySidebarCSS_CustomPaletteValuesInterpolated(t *testing.T)
 		Destructive:    "#cc2222",
 	}
 
-	css := generateHistorySidebarCSS(customPalette)
+	css := generateSidebarCSS(customPalette)
 
 	assert.Contains(t, css, "alpha(var(--accent), 0.18)",
 		"sidebar CSS should use the shared accent variable")
 	assert.NotContains(t, css, "#ff6600",
 		"sidebar fragment should not inline palette-specific accent values")
 
-	assert.Contains(t, css, ".history-sidebar-outer {")
-	assert.Contains(t, css, ".history-sidebar-row-title {")
-	assert.Contains(t, css, ".history-sidebar-row-subtitle {")
-	assert.Contains(t, css, ".history-sidebar-row-time {")
-	assert.Contains(t, css, ".history-sidebar-empty {")
+	assert.Contains(t, css, ".sidebar-outer {")
+	assert.Contains(t, css, ".sidebar-row-title {")
+	assert.Contains(t, css, ".sidebar-row-subtitle {")
+	assert.Contains(t, css, ".sidebar-empty {")
 }
 
-func TestGenerateHistorySidebarCSS_ContainsTransition(t *testing.T) {
-	css := generateHistorySidebarCSS(DefaultDarkPalette())
+func TestGenerateSidebarCSS_UsesCompactBalancedSearchChrome(t *testing.T) {
+	css := generateSidebarCSS(DefaultDarkPalette())
+
+	assert.Contains(t, css, ".sidebar-search-box {\n\tpadding: 0.5em 0.5em 0.375em;")
+	assert.Contains(t, css, ".sidebar-search {\n\tmin-height: 0;\n\tpadding: 0.125em 0.375em;")
+}
+
+func TestGenerateSidebarCSS_ContainsTransition(t *testing.T) {
+	css := generateSidebarCSS(DefaultDarkPalette())
 
 	assert.Contains(t, css, "transition:",
 		"CSS should include transition property for smooth hover effects")
@@ -149,27 +144,27 @@ func TestGenerateHistorySidebarCSS_ContainsUppercaseGroupHeader(t *testing.T) {
 func TestGenerateHistorySidebarCSS_InGenerateCSSFull_DarkPalette(t *testing.T) {
 	fullCSS := GenerateCSSFull(DefaultDarkPalette(), 1.0, DefaultFontConfig(), DefaultModeColors())
 
-	assert.Contains(t, fullCSS, ".history-sidebar-outer {",
-		"GenerateCSSFull must include history sidebar outer selector for dark palette")
-	assert.Contains(t, fullCSS, ".history-sidebar-row-title {",
-		"GenerateCSSFull must include history sidebar row title selector for dark palette")
-	assert.Contains(t, fullCSS, ".history-sidebar-search {",
-		"GenerateCSSFull must include history sidebar search selector for dark palette")
-	assert.Contains(t, fullCSS, ".history-sidebar-empty {",
-		"GenerateCSSFull must include history sidebar empty selector for dark palette")
+	assert.Contains(t, fullCSS, ".sidebar-outer {",
+		"GenerateCSSFull must include shared sidebar outer selector for dark palette")
+	assert.Contains(t, fullCSS, ".sidebar-row-title {",
+		"GenerateCSSFull must include shared sidebar row title selector for dark palette")
+	assert.Contains(t, fullCSS, ".sidebar-search {",
+		"GenerateCSSFull must include shared sidebar search selector for dark palette")
+	assert.Contains(t, fullCSS, ".sidebar-empty {",
+		"GenerateCSSFull must include shared sidebar empty selector for dark palette")
 }
 
 func TestGenerateHistorySidebarCSS_InGenerateCSSFull_LightPalette(t *testing.T) {
 	fullCSS := GenerateCSSFull(DefaultLightPalette(), 1.0, DefaultFontConfig(), DefaultModeColors())
 
-	assert.Contains(t, fullCSS, ".history-sidebar-outer {",
-		"GenerateCSSFull must include history sidebar outer selector for light palette")
-	assert.Contains(t, fullCSS, ".history-sidebar-row-title {",
-		"GenerateCSSFull must include history sidebar row title selector for light palette")
-	assert.Contains(t, fullCSS, ".history-sidebar-search {",
-		"GenerateCSSFull must include history sidebar search selector for light palette")
-	assert.Contains(t, fullCSS, ".history-sidebar-empty {",
-		"GenerateCSSFull must include history sidebar empty selector for light palette")
+	assert.Contains(t, fullCSS, ".sidebar-outer {",
+		"GenerateCSSFull must include shared sidebar outer selector for light palette")
+	assert.Contains(t, fullCSS, ".sidebar-row-title {",
+		"GenerateCSSFull must include shared sidebar row title selector for light palette")
+	assert.Contains(t, fullCSS, ".sidebar-search {",
+		"GenerateCSSFull must include shared sidebar search selector for light palette")
+	assert.Contains(t, fullCSS, ".sidebar-empty {",
+		"GenerateCSSFull must include shared sidebar empty selector for light palette")
 }
 
 func TestGenerateHistorySidebarCSS_LiveReloadSeamIncludesUpdatedCSS(t *testing.T) {
@@ -181,8 +176,8 @@ func TestGenerateHistorySidebarCSS_LiveReloadSeamIncludesUpdatedCSS(t *testing.T
 	lightCSS := GenerateCSSFull(DefaultLightPalette(), 1.0, DefaultFontConfig(), DefaultModeColors())
 
 	// Both must contain history sidebar selectors.
-	assert.Contains(t, darkCSS, ".history-sidebar-outer {", "dark CSS must have sidebar styles")
-	assert.Contains(t, lightCSS, ".history-sidebar-outer {", "light CSS must have sidebar styles")
+	assert.Contains(t, darkCSS, ".sidebar-outer {", "dark CSS must have shared sidebar styles")
+	assert.Contains(t, lightCSS, ".sidebar-outer {", "light CSS must have shared sidebar styles")
 
 	// The CSS must differ between palettes (different color values).
 	if darkCSS == lightCSS {
@@ -211,14 +206,14 @@ func TestGenerateHistorySidebarCSS_InGenerateCSSFull_WithCustomScaleAndFonts(t *
 
 	fullCSS := GenerateCSSFull(DefaultDarkPalette(), 2.0, customFonts, customModeColors)
 
-	assert.Contains(t, fullCSS, ".history-sidebar-outer {",
-		"GenerateCSSFull with custom scale/fonts must include history sidebar selectors")
-	assert.Contains(t, fullCSS, ".history-sidebar-row:hover {",
-		"GenerateCSSFull must include hover state for history rows")
-	assert.Contains(t, fullCSS, ".history-sidebar-row:selected {",
-		"GenerateCSSFull must include selected state for history rows")
-	assert.Contains(t, fullCSS, ".history-sidebar-row:focus {",
-		"GenerateCSSFull must include focus state for history rows")
+	assert.Contains(t, fullCSS, ".sidebar-outer {",
+		"GenerateCSSFull with custom scale/fonts must include shared sidebar selectors")
+	assert.Contains(t, fullCSS, ".sidebar-row:hover {",
+		"GenerateCSSFull must include hover state for shared sidebar rows")
+	assert.Contains(t, fullCSS, ".sidebar-row:selected {",
+		"GenerateCSSFull must include selected state for shared sidebar rows")
+	assert.Contains(t, fullCSS, ".sidebar-row:focus {",
+		"GenerateCSSFull must include focus state for shared sidebar rows")
 }
 
 // TestGenerateHistorySidebarCSS_LiveReloadFullPath verifies that the
@@ -247,21 +242,21 @@ func TestGenerateHistorySidebarCSS_LiveReloadFullPath(t *testing.T) {
 	lightCSS := GenerateCSSFull(lightPalette, 1.0, DefaultFontConfig(), DefaultModeColors())
 	customCSS := GenerateCSSFull(customPalette, 1.0, DefaultFontConfig(), DefaultModeColors())
 
-	// All three must contain the full set of history sidebar selectors.
+	// All three must contain the shared foundation and history-specific rules.
 	sidebarSelectors := []string{
-		".history-sidebar-outer",
-		".history-sidebar-search-box",
-		".history-sidebar-search",
-		".history-sidebar-groups",
+		".sidebar-outer",
+		".sidebar-search-box",
+		".sidebar-search",
+		".sidebar-list",
+		".sidebar-row",
+		".sidebar-row:hover",
+		".sidebar-row:selected",
+		".sidebar-row:focus",
+		".sidebar-row-title",
+		".sidebar-row-subtitle",
+		".sidebar-empty",
 		".history-sidebar-group-header",
-		".history-sidebar-row",
-		".history-sidebar-row:hover",
-		".history-sidebar-row:selected",
-		".history-sidebar-row:focus",
-		".history-sidebar-row-title",
-		".history-sidebar-row-subtitle",
 		".history-sidebar-row-time",
-		".history-sidebar-empty",
 		".history-sidebar-loading",
 	}
 
@@ -324,9 +319,9 @@ func TestGenerateHistorySidebarCSS_LiveReloadPaletteSwitch(t *testing.T) {
 		assert.NotContains(t, cssAfter, "\n  --accent: "+darkAccent+";\n")
 	}
 
-	// History sidebar selectors must be present in both.
-	assert.Contains(t, cssBefore, ".history-sidebar-row:selected {")
-	assert.Contains(t, cssAfter, ".history-sidebar-row:selected {")
+	// Shared sidebar selectors must be present in both.
+	assert.Contains(t, cssBefore, ".sidebar-row:selected {")
+	assert.Contains(t, cssAfter, ".sidebar-row:selected {")
 
 	// The before and after CSS must be different (palette changed).
 	assert.NotEqual(t, cssBefore, cssAfter, "CSS must change when palette switches")

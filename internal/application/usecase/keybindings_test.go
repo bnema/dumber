@@ -72,6 +72,17 @@ func TestGetKeybindingsUseCase_Execute(t *testing.T) {
 }
 
 func TestSetKeybindingUseCase_Execute(t *testing.T) {
+	t.Run("accepts vim mode", func(t *testing.T) {
+		mockProvider := mocks.NewMockKeybindingsProvider(t)
+		mockSaver := mocks.NewMockKeybindingsSaver(t)
+		req := port.SetKeybindingRequest{Mode: "vim", Action: "vim-scroll-down", Keys: []string{"j"}}
+		mockProvider.EXPECT().CheckConflicts(mock.Anything, req.Mode, req.Action, req.Keys).Return(nil, nil)
+		mockSaver.EXPECT().SetKeybinding(mock.Anything, req).Return(nil)
+
+		_, err := usecase.NewSetKeybindingUseCase(mockProvider, mockSaver).Execute(context.Background(), req)
+		require.NoError(t, err)
+	})
+
 	t.Run("successfully sets keybinding", func(t *testing.T) {
 		// Arrange
 		mockProvider := mocks.NewMockKeybindingsProvider(t)

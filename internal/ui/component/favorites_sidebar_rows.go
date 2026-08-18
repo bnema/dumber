@@ -72,70 +72,90 @@ func nextSelectableIndex(rows []favoriteSidebarDisplayRow, current, direction in
 }
 
 func (fs *FavoritesSidebar) renderTags() {
-	if fs == nil || fs.tagBox == nil {
+	tagBox, tags, selectedTagIDs, ok := fs.tagRenderState()
+	if !ok {
 		return
 	}
-	fs.mu.RLock()
-	if fs.destroyed {
-		fs.mu.RUnlock()
-		return
-	}
-	tags := append([]*entity.Tag(nil), fs.allTags...)
-	selectedTagIDs := make(map[entity.TagID]struct{}, len(fs.selectedTagIDs))
-	for id := range fs.selectedTagIDs {
-		selectedTagIDs[id] = struct{}{}
-	}
-	tagBox := fs.tagBox
-	fs.mu.RUnlock()
-
 	clearBoxChildren(tagBox)
-	callbacks := make([]any, 0, len(tags)+1)
+	callbacks := make([]any, 0, len(tags)+2)
+	controls := make([]*gtk.Button, 0, len(tags)+2)
 
-	allButton := gtk.NewButtonWithLabel("All")
-	if allButton != nil {
-		if len(selectedTagIDs) == 0 {
-			allButton.AddCssClass("suggested-action")
-		}
-		cb := func(_ gtk.Button) {
-			fs.mu.Lock()
-			if fs.destroyed {
-				fs.mu.Unlock()
-				return
-			}
-			fs.selectedTagIDs = make(map[entity.TagID]struct{})
-			fs.rebuildDisplayRowsLocked()
-			fs.mu.Unlock()
-			fs.renderTags()
-			fs.rebuildList()
-		}
-		callbacks = append(callbacks, cb)
-		allButton.ConnectClicked(&cb)
-		tagBox.Append(&allButton.Widget)
-	}
-
+	fs.appendTagFilter(tagBox, "All", len(selectedTagIDs) == 0, fs.clearTagFilters, &callbacks, &controls)
 	for _, tag := range tags {
 		if tag == nil {
 			continue
 		}
 		t := tag
-		button := gtk.NewButtonWithLabel(t.Name)
-		if button == nil {
-			continue
-		}
-		if _, ok := selectedTagIDs[t.ID]; ok {
-			button.AddCssClass("suggested-action")
-		}
-		cb := func(_ gtk.Button) {
-			fs.toggleTag(t.ID)
-		}
-		callbacks = append(callbacks, cb)
-		button.ConnectClicked(&cb)
-		tagBox.Append(&button.Widget)
+		_, selected := selectedTagIDs[t.ID]
+		fs.appendTagFilter(tagBox, t.Name, selected, func() { fs.toggleTag(t.ID) }, &callbacks, &controls)
 	}
+	fs.appendTagFilter(tagBox, "+", false, fs.showCreateTagPrompt, &callbacks, &controls)
+	if len(controls) > 0 {
+		controls[len(controls)-1].AddCssClass("favorites-sidebar-tag-add")
+	}
+	fs.storeTagControls(callbacks, controls)
+}
 
+func (fs *FavoritesSidebar) tagRenderState() (*gtk.Box, []*entity.Tag, map[entity.TagID]struct{}, bool) {
+	if fs == nil || fs.tagBox == nil {
+		return nil, nil, nil, false
+	}
+	fs.mu.RLock()
+	defer fs.mu.RUnlock()
+	if fs.destroyed {
+		return nil, nil, nil, false
+	}
+	selected := make(map[entity.TagID]struct{}, len(fs.selectedTagIDs))
+	for id := range fs.selectedTagIDs {
+		selected[id] = struct{}{}
+	}
+	return fs.tagBox, append([]*entity.Tag(nil), fs.allTags...), selected, true
+}
+
+func (fs *FavoritesSidebar) appendTagFilter(
+	box *gtk.Box,
+	label string,
+	selected bool,
+	action func(),
+	callbacks *[]any,
+	controls *[]*gtk.Button,
+) {
+	button := gtk.NewButtonWithLabel(label)
+	if button == nil {
+		return
+	}
+	button.AddCssClass("favorites-sidebar-tag-filter")
+	if selected {
+		button.AddCssClass("favorites-sidebar-tag-filter-active")
+	}
+	callback := func(_ gtk.Button) { action() }
+	*callbacks = append(*callbacks, callback)
+	button.ConnectClicked(&callback)
+	box.Append(&button.Widget)
+	*controls = append(*controls, button)
+}
+
+func (fs *FavoritesSidebar) clearTagFilters() {
+	if fs == nil {
+		return
+	}
+	fs.mu.Lock()
+	if fs.destroyed {
+		fs.mu.Unlock()
+		return
+	}
+	fs.selectedTagIDs = make(map[entity.TagID]struct{})
+	fs.rebuildDisplayRowsLocked()
+	fs.mu.Unlock()
+	fs.renderTags()
+	fs.rebuildList()
+}
+
+func (fs *FavoritesSidebar) storeTagControls(callbacks []any, controls []*gtk.Button) {
 	fs.mu.Lock()
 	if !fs.destroyed {
 		fs.tagCallbacks = callbacks
+		fs.tagControls = controls
 	}
 	fs.mu.Unlock()
 }
@@ -212,6 +232,7 @@ func (fs *FavoritesSidebar) appendNoticeRow(listBox *gtk.ListBox, text string) {
 	if label == nil {
 		return
 	}
+	label.AddCssClass("sidebar-empty")
 	label.AddCssClass("favorites-sidebar-empty")
 	label.SetXalign(0.0)
 	row := gtk.NewListBoxRow()
@@ -243,6 +264,7 @@ func (fs *FavoritesSidebar) appendFavoriteRow(listBox *gtk.ListBox, displayRow f
 	if row == nil {
 		return
 	}
+	row.AddCssClass("sidebar-row")
 	row.AddCssClass("favorites-sidebar-row")
 	row.SetSelectable(displayRow.Selectable)
 	row.SetActivatable(displayRow.Selectable)
@@ -257,6 +279,7 @@ func appendFavoriteRowTitle(rowBox *gtk.Box, fav *entity.Favorite) {
 	if title == nil {
 		return
 	}
+	title.AddCssClass("sidebar-row-title")
 	title.AddCssClass("favorites-sidebar-row-title")
 	title.SetText(safeSidebarString(fav.Title, fav.URL))
 	title.SetXalign(0.0)
@@ -273,6 +296,7 @@ func appendFavoriteRowSubtitle(rowBox *gtk.Box, fav *entity.Favorite) {
 	sub.SetHexpand(true)
 	url := gtk.NewLabel(nil)
 	if url != nil {
+		url.AddCssClass("sidebar-row-subtitle")
 		url.AddCssClass("favorites-sidebar-row-subtitle")
 		url.SetText(readableURL(fav.URL))
 		url.SetXalign(0.0)
@@ -299,6 +323,7 @@ func appendFavoriteRowTags(rowBox *gtk.Box, favoriteTags []entity.Tag) {
 	if tags == nil {
 		return
 	}
+	tags.AddCssClass("favorites-sidebar-row-tags")
 	for _, tag := range favoriteTags {
 		name := tag.Name
 		label := gtk.NewLabel(&name)

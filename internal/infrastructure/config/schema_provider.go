@@ -472,6 +472,44 @@ func (*SchemaProvider) getWorkspaceKeys(defaults *Config) []entity.ConfigKeyInfo
 			Description: "Key bindings for tab mode actions",
 			Section:     SectionWorkspace,
 		},
+		// Vim mode
+		{
+			Key:         "workspace.vim_mode.activation_shortcut",
+			Type:        "string",
+			Default:     defaults.Workspace.VimMode.ActivationShortcut,
+			Description: "Shortcut to enter vim scroll mode",
+			Section:     SectionWorkspace,
+		},
+		{
+			Key:         "workspace.vim_mode.timeout_ms",
+			Type:        "int",
+			Default:     fmt.Sprintf("%d", defaults.Workspace.VimMode.TimeoutMilliseconds),
+			Description: "Vim mode timeout in milliseconds (0 = no timeout)",
+			Range:       ">=0",
+			Section:     SectionWorkspace,
+		},
+		{
+			Key:         "workspace.vim_mode.sequence_timeout_ms",
+			Type:        "int",
+			Default:     fmt.Sprintf("%d", defaults.Workspace.VimMode.SequenceTimeoutMilliseconds),
+			Description: "Vim mode multi-key sequence timeout in milliseconds (0 = immediate ambiguity resolution)",
+			Range:       ">=0",
+			Section:     SectionWorkspace,
+		},
+		{
+			Key:         "workspace.vim_mode.preload_accessibility",
+			Type:        "bool",
+			Default:     fmt.Sprintf("%t", defaults.Workspace.VimMode.PreloadAccessibility),
+			Description: "Pre-enable browser accessibility when a WebView is shown (default false; enable on Vim Mode enter otherwise)",
+			Section:     SectionWorkspace,
+		},
+		{
+			Key:         "workspace.vim_mode.actions.<action>",
+			Type:        "object",
+			Default:     "(see defaults)",
+			Description: "Vim mode action object with keys ([]string) and desc (string)",
+			Section:     SectionWorkspace,
+		},
 		// Resize mode
 		{
 			Key:         "workspace.resize_mode.activation_shortcut",
@@ -539,6 +577,23 @@ func (*SchemaProvider) getWorkspaceKeys(defaults *Config) []entity.ConfigKeyInfo
 			Type:        "object",
 			Default:     "(empty)",
 			Description: "Named floating pane URL profiles with keys, url, and optional desc",
+			Section:     SectionWorkspace,
+		},
+		// External links
+		{
+			Key:         "workspace.external_links.behavior",
+			Type:        "string",
+			Default:     string(defaults.Workspace.ExternalLinks.Behavior),
+			Description: "How URLs opened from external applications are placed",
+			Values:      []string{"windowed", "tabbed", "split", "stacked"},
+			Section:     SectionWorkspace,
+		},
+		{
+			Key:         "workspace.external_links.placement",
+			Type:        "string",
+			Default:     string(defaults.Workspace.ExternalLinks.Placement),
+			Description: "Placement direction for split external links",
+			Values:      []string{"right", "left", "top", "bottom"},
 			Section:     SectionWorkspace,
 		},
 		// Browsing contexts

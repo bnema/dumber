@@ -34,6 +34,16 @@ func TestGenerateCSS_StandaloneOmniboxWindowUsesTransparentBackground(t *testing
 	}
 }
 
+func TestGenerateCSSFullWithTiming_VimModePulseUsesConfiguredTransitionDuration(t *testing.T) {
+	// Vim Mode overlay pulse timings scale from the base transition duration:
+	// normal pulse = 3× (150ms -> 450ms), fast pulse = 6× (150ms -> 900ms).
+	css := GenerateCSSFullWithTiming(DefaultDarkPalette(), 1.0, DefaultFontConfig(), DefaultModeColors(), 150)
+
+	assert.Contains(t, css, "animation: vim-mode-overlay-pulse-anim-a 450ms ease-in-out;")
+	assert.Contains(t, css, "animation: vim-mode-overlay-pulse-fast-anim-a 900ms ease-in-out;")
+	assert.NotContains(t, css, "vim-mode-indicator")
+}
+
 func TestGenerateCSS_OmniboxHeaderIsOpaque(t *testing.T) {
 	css := GenerateCSS(DefaultDarkPalette())
 

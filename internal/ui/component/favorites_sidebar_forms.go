@@ -18,7 +18,8 @@ const (
 	favoritesSidebarModeNone favoritesSidebarMode = iota
 	favoritesSidebarModeAdd
 	favoritesSidebarModeEdit
-	favoritesSidebarModeTag
+	favoritesSidebarModeCreateTag
+	favoritesSidebarModeBindTag
 	favoritesSidebarModeShortcut
 )
 
@@ -42,7 +43,7 @@ func (fs *FavoritesSidebar) beginAddForm() {
 	fs.editingID = 0
 	fs.confirmDelete = false
 	fs.confirmDeleteID = 0
-	fs.setNoticeLocked("Add favorite: URL, title, comma-separated tag IDs, shortcut 1-9. Press Ctrl+Enter or Save.")
+	fs.setNoticeLocked("Add favorite: URL, title, tags, shortcut 1-9. Press Ctrl+Enter or Save.")
 	fs.mu.Unlock()
 	fs.renderForm(nil)
 	fs.rebuildList()
@@ -63,7 +64,7 @@ func (fs *FavoritesSidebar) beginEditForm() {
 	fs.editingID = fav.ID
 	fs.confirmDelete = false
 	fs.confirmDeleteID = 0
-	fs.setNoticeLocked("Edit favorite: URL is read-only; use tag mode for tags. Press Ctrl+Enter or Save.")
+	fs.setNoticeLocked("Edit favorite: URL is read-only; use + on the selected favorite to manage tags. Press Ctrl+Enter or Save.")
 	fs.mu.Unlock()
 	fs.renderForm(fav)
 	fs.rebuildList()
@@ -74,20 +75,23 @@ func (fs *FavoritesSidebar) renderForm(fav *entity.Favorite) {
 		return
 	}
 	clearBoxChildren(fs.formBox)
+	fs.formCallbacks = nil
+	fs.formTagMatchCallbacks = nil
 	fs.formURLEntry = gtk.NewSearchEntry()
 	fs.formTitleEntry = gtk.NewSearchEntry()
-	fs.formTagsEntry = nil
-	if fav == nil {
-		fs.formTagsEntry = gtk.NewSearchEntry()
-	}
+	fs.formTagSearch = gtk.NewSearchEntry()
+	fs.formTagMatches = gtk.NewBox(gtk.OrientationHorizontalValue, 3)
 	fs.formShortcutEntry = gtk.NewSearchEntry()
+	fs.mu.Lock()
+	fs.formTagIDs = tagIDSet(favoriteTags(fav))
+	fs.mu.Unlock()
 	entries := []struct {
 		entry *gtk.SearchEntry
 		label string
 	}{
 		{entry: fs.formURLEntry, label: "URL"},
 		{entry: fs.formTitleEntry, label: "Title"},
-		{entry: fs.formTagsEntry, label: "Tag IDs"},
+		{entry: fs.formTagSearch, label: "Add tags..."},
 		{entry: fs.formShortcutEntry, label: "Shortcut"},
 	}
 	for _, item := range entries {
@@ -96,21 +100,26 @@ func (fs *FavoritesSidebar) renderForm(fav *entity.Favorite) {
 		}
 		placeholder := item.label
 		item.entry.SetPlaceholderText(&placeholder)
+		fs.trackTextInputFocus(&item.entry.Widget, &fs.formCallbacks)
 		fs.formBox.Append(&item.entry.Widget)
 	}
+	if fs.formTagMatches != nil {
+		fs.formTagMatches.AddCssClass("favorites-sidebar-form-tag-matches")
+		fs.formBox.Append(&fs.formTagMatches.Widget)
+	}
+	fs.setupFormTagSearch()
 	fs.formSaveButton = gtk.NewButtonWithLabel("Save")
 	if fs.formSaveButton != nil {
 		cb := func(_ gtk.Button) {
 			fs.submitForm()
 		}
-		fs.retainedCallbacks = append(fs.retainedCallbacks, cb)
+		fs.formCallbacks = append(fs.formCallbacks, cb)
 		fs.formSaveButton.ConnectClicked(&cb)
 		fs.formBox.Append(&fs.formSaveButton.Widget)
 	}
 	if fav != nil {
 		fs.formURL = fav.URL
 		fs.formTitle = fav.Title
-		fs.formTags = joinFavoriteTagIDs(fav.Tags)
 		fs.formShortcut = ""
 		if fav.ShortcutKey != nil {
 			fs.formShortcut = strconv.Itoa(*fav.ShortcutKey)
@@ -122,15 +131,13 @@ func (fs *FavoritesSidebar) renderForm(fav *entity.Favorite) {
 		if fs.formTitleEntry != nil {
 			fs.formTitleEntry.SetText(fs.formTitle)
 		}
-		if fs.formTagsEntry != nil {
-			fs.formTagsEntry.SetText(fs.formTags)
-		}
 		if fs.formShortcutEntry != nil {
 			fs.formShortcutEntry.SetText(fs.formShortcut)
 		}
 	} else {
-		fs.formURL, fs.formTitle, fs.formTags, fs.formShortcut = "", "", "", ""
+		fs.formURL, fs.formTitle, fs.formShortcut = "", "", ""
 	}
+	fs.renderFormTagMatches("")
 	fs.formBox.SetVisible(true)
 	fs.focusForm()
 }
@@ -176,6 +183,11 @@ func (fs *FavoritesSidebar) cancelManagement() bool {
 	if fs.formBox != nil {
 		fs.formBox.SetVisible(false)
 		clearBoxChildren(fs.formBox)
+		fs.formCallbacks = nil
+		fs.formTagMatchCallbacks = nil
+	}
+	if fs.tagPromptBox != nil {
+		fs.hideTagPrompt()
 	}
 	fs.rebuildList()
 	return active
@@ -194,13 +206,9 @@ func (fs *FavoritesSidebar) submitForm() bool {
 	if uc == nil || (mode != favoritesSidebarModeAdd && mode != favoritesSidebarModeEdit) {
 		return false
 	}
-	url, title, tagsText, shortcutText := fs.formValues()
+	url, title, shortcutText := fs.formValues()
+	tags := fs.formTagIDsSnapshot()
 	if mode == favoritesSidebarModeAdd {
-		tags, err := parseTagIDs(tagsText)
-		if err != nil {
-			fs.setNotice(err.Error())
-			return true
-		}
 		key, err := parseShortcut(shortcutText)
 		if err != nil {
 			fs.setNotice(err.Error())
@@ -231,15 +239,15 @@ func (fs *FavoritesSidebar) submitForm() bool {
 			fs.setNotice(err.Error())
 			return true
 		}
+		if !fs.updateFavoriteTags(id, tags) {
+			return true
+		}
 	}
 	fs.cancelManagement()
 	fs.startLoad()
 	return true
 }
 
-func (fs *FavoritesSidebar) enterTagMode() {
-	fs.setModeNotice(favoritesSidebarModeTag, "Tag mode: press 1-9 to toggle visible tag for selected favorite")
-}
 func (fs *FavoritesSidebar) enterShortcutMode() {
 	fs.setModeNotice(favoritesSidebarModeShortcut, "Shortcut mode: press 1-9 to assign, Backspace/Delete to clear")
 }
@@ -254,43 +262,6 @@ func (fs *FavoritesSidebar) setModeNotice(mode favoritesSidebarMode, notice stri
 	}
 	fs.mu.Unlock()
 	fs.rebuildList()
-}
-
-func (fs *FavoritesSidebar) toggleFavoriteTagByOrdinal(ord int) bool {
-	fav := fs.selectedFavorite()
-	if fav == nil || ord < 1 {
-		fs.setNotice("Select a favorite and tag 1-9")
-		return true
-	}
-	fs.mu.RLock()
-	if ord > len(fs.allTags) || fs.favoritesUC == nil {
-		fs.mu.RUnlock()
-		fs.setNotice("No tag for key")
-		return true
-	}
-	tagID := fs.allTags[ord-1].ID
-	uc := fs.favoritesUC
-	ctx := fs.ctx
-	fs.mu.RUnlock()
-	has := false
-	for _, tag := range fav.Tags {
-		if tag.ID == tagID {
-			has = true
-			break
-		}
-	}
-	var err error
-	if has {
-		err = uc.UntagFavorite(ctx, fav.ID, tagID)
-	} else {
-		err = uc.TagFavorite(ctx, fav.ID, tagID)
-	}
-	if err != nil {
-		fs.setNotice(err.Error())
-		return true
-	}
-	fs.startLoad()
-	return true
 }
 
 func (fs *FavoritesSidebar) setShortcutKey(key *int) bool {
@@ -402,41 +373,18 @@ func (fs *FavoritesSidebar) setNotice(notice string) {
 	fs.rebuildList()
 }
 
-func (fs *FavoritesSidebar) formValues() (string, string, string, string) {
-	url, title, tagsText, shortcut := fs.formURL, fs.formTitle, fs.formTags, fs.formShortcut
+func (fs *FavoritesSidebar) formValues() (string, string, string) {
+	url, title, shortcut := fs.formURL, fs.formTitle, fs.formShortcut
 	if fs.formURLEntry != nil {
 		url = fs.formURLEntry.GetText()
 	}
 	if fs.formTitleEntry != nil {
 		title = fs.formTitleEntry.GetText()
 	}
-	if fs.formTagsEntry != nil {
-		tagsText = fs.formTagsEntry.GetText()
-	}
 	if fs.formShortcutEntry != nil {
 		shortcut = fs.formShortcutEntry.GetText()
 	}
-	return strings.TrimSpace(url), strings.TrimSpace(title), strings.TrimSpace(tagsText), strings.TrimSpace(shortcut)
-}
-
-func parseTagIDs(text string) ([]entity.TagID, error) {
-	if text == "" {
-		return nil, nil
-	}
-	parts := strings.Split(text, ",")
-	ids := make([]entity.TagID, 0, len(parts))
-	for _, part := range parts {
-		trimmed := strings.TrimSpace(part)
-		if trimmed == "" {
-			return nil, fmt.Errorf("invalid tag ID %q", part)
-		}
-		v, err := strconv.Atoi(trimmed)
-		if err != nil || v <= 0 {
-			return nil, fmt.Errorf("invalid tag ID %q", trimmed)
-		}
-		ids = append(ids, entity.TagID(v))
-	}
-	return ids, nil
+	return strings.TrimSpace(url), strings.TrimSpace(title), strings.TrimSpace(shortcut)
 }
 
 func parseShortcut(text string) (*int, error) {
@@ -449,12 +397,4 @@ func parseShortcut(text string) (*int, error) {
 		return nil, fmt.Errorf("invalid shortcut %q (use 1-9)", text)
 	}
 	return &v, nil
-}
-
-func joinFavoriteTagIDs(tags []entity.Tag) string {
-	parts := make([]string, 0, len(tags))
-	for _, tag := range tags {
-		parts = append(parts, fmt.Sprint(tag.ID))
-	}
-	return strings.Join(parts, ",")
 }

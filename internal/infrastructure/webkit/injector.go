@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/bnema/dumber/internal/application/port"
@@ -179,35 +180,46 @@ const explicitCopyScript = `(function() {
   }
 })();`
 
-// accentDetectionScript is built at init from entity.AccentMap so the JS
+// accentDetectionScriptKeys is built at init from entity.AccentMap so the JS
 // filter stays in sync with the Go-side accent table.
-var accentDetectionScript string
+var accentDetectionScriptKeys string
 
 func buildExplicitCopyScript() string {
 	return explicitCopyScript
 }
 
-func init() {
-	// Build JS Set literal from AccentMap keys: "new Set(['a','c','e',...])"
-	keys := make([]string, 0, len(entity.AccentMap))
-	for k := range entity.AccentMap {
-		keys = append(keys, fmt.Sprintf("'%c'", k))
-	}
-	sort.Strings(keys)
-
-	accentDetectionScript = fmt.Sprintf(`(function() {
+func buildAccentDetectionScript(token string) string {
+	return fmt.Sprintf(`(function() {
     'use strict';
     const accentKeys = new Set([%s]);
+    const editableFocusToken = %q;
     let pressedKey = null;
+    let lastEditableFocusState = null;
+
+    function postEditableFocus(editable) {
+        if (lastEditableFocusState === editable) return;
+        if (!editableFocusToken) return;
+        if (!(window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.dumber)) return;
+        lastEditableFocusState = editable;
+        window.webkit.messageHandlers.dumber.postMessage({
+            type: 'editable_focus_changed',
+            payload: { editable: editable, token: editableFocusToken }
+        });
+    }
 
     function isEditableTarget(target) {
         const el = target instanceof Element ? target : null;
         if (!el) return false;
-        if (el.closest('[contenteditable=""], [contenteditable="true"]')) return true;
-        if (el.closest('textarea')) return true;
+        if (el.isContentEditable) return true;
+        const editableAncestor = el.closest('[contenteditable]');
+        if (editableAncestor && editableAncestor.isContentEditable) return true;
+        const textarea = el.closest('textarea');
+        if (textarea) return !textarea.matches(':disabled') && !textarea.readOnly;
         const input = el.closest('input');
         if (!input) return false;
-        return !/^(button|checkbox|color|file|hidden|image|radio|range|reset|submit)$/i.test(input.type);
+        const disabled = input.matches(':disabled');
+        const unsupported = /^(button|checkbox|color|file|hidden|image|radio|range|reset|submit)$/i.test(input.type);
+        return !disabled && !input.readOnly && !unsupported;
     }
 
     document.addEventListener('keydown', function(e) {
@@ -234,12 +246,50 @@ func init() {
         }
     }, true);
 
-	    document.addEventListener('focusin', function(e) {
-	        if (isEditableTarget(e.target)) {
-	            window.__dumber_lastEditableEl = e.target;
-	        }
-	    }, true);
-})();`, strings.Join(keys, ","))
+    function canReportNegativeFocus(target) {
+        if (window.top === window) return true;
+        return lastEditableFocusState === true && window.__dumber_lastEditableEl === target;
+    }
+
+    document.addEventListener('focusin', function(e) {
+        if (e && e.isTrusted === false) return;
+        if (isEditableTarget(e.target)) {
+            window.__dumber_lastEditableEl = e.target;
+            postEditableFocus(true);
+            return;
+        }
+        if (canReportNegativeFocus(window.__dumber_lastEditableEl)) {
+            postEditableFocus(false);
+        }
+    }, true);
+
+    document.addEventListener('focusout', function(e) {
+        if (e && e.isTrusted === false) return;
+        if (!isEditableTarget(e.target)) return;
+        setTimeout(function() {
+            if (!isEditableTarget(document.activeElement) && canReportNegativeFocus(e.target)) {
+                postEditableFocus(false);
+            }
+        }, 0);
+    }, true);
+
+    if (isEditableTarget(document.activeElement)) {
+        window.__dumber_lastEditableEl = document.activeElement;
+        postEditableFocus(true);
+    } else if (window.top === window) {
+        postEditableFocus(false);
+    }
+})();`, accentDetectionScriptKeys, token)
+}
+
+func init() {
+	// Build JS Set literal from AccentMap keys: "new Set(['a','c','e',...])"
+	keys := make([]string, 0, len(entity.AccentMap))
+	for k := range entity.AccentMap {
+		keys = append(keys, fmt.Sprintf("'%c'", k))
+	}
+	sort.Strings(keys)
+	accentDetectionScriptKeys = strings.Join(keys, ",")
 }
 
 // accentDetectionInjectionMode controls which frames receive the accent detection script.
@@ -449,9 +499,17 @@ func (ci *ContentInjector) InjectScripts(ctx context.Context, ucm *webkit.UserCo
 
 	// 8. Inject accent key detection for all pages and all frames (unconditional).
 	// JS only reports keydown/keyup events; Go handles timing and picker display.
+	wv := LookupWebView(webviewID)
+	if wv == nil || wv.EditableFocusBridgeToken() == "" {
+		log.Error().
+			Str("webview_id", strconv.FormatUint(uint64(webviewID), 10)).
+			Msg("skipping accent detection script without editable-focus bridge token")
+		return
+	}
+	accentScript := buildAccentDetectionScript(wv.EditableFocusBridgeToken())
 	addScript(
 		webkit.NewUserScript(
-			accentDetectionScript,
+			accentScript,
 			accentDetectionInjectionMode,
 			webkit.UserScriptInjectAtDocumentEndValue,
 			nil, // all pages

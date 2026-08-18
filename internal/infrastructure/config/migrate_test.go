@@ -816,6 +816,41 @@ func TestMigrator_MergeMissingDefaultActions_PaneMode(t *testing.T) {
 	assert.Equal(t, "Custom move pane", move["desc"])
 }
 
+func TestMigrator_MergeMissingDefaultActions_VimMode(t *testing.T) {
+	m := NewMigrator()
+
+	rawConfig := map[string]any{
+		"workspace": map[string]any{
+			"vim_mode": map[string]any{
+				"actions": map[string]any{
+					"heading-next": map[string]any{
+						"keys": []string{"]]"},
+						"desc": "Custom next heading",
+					},
+				},
+			},
+		},
+	}
+
+	m.mergeMissingDefaultActions(rawConfig)
+
+	actionsAny := m.getNestedValue(rawConfig, "workspace.vim_mode.actions")
+	actions, ok := actionsAny.(map[string]any)
+	require.True(t, ok)
+
+	focusAny, hasFocus := actions["focus-input"]
+	require.True(t, hasFocus)
+	focus, ok := focusAny.(ActionBinding)
+	require.True(t, ok)
+	assert.Equal(t, []string{"gi"}, focus.Keys)
+
+	headingAny, hasHeading := actions["heading-next"]
+	require.True(t, hasHeading)
+	heading, ok := headingAny.(map[string]any)
+	require.True(t, ok)
+	assert.Equal(t, "Custom next heading", heading["desc"])
+}
+
 func TestMigrator_DefaultValueForKey_WorkspaceShortcutAction(t *testing.T) {
 	m := NewMigrator()
 
@@ -1175,6 +1210,118 @@ func TestMigrator_Migrate_AppliesLegacyBrowsingContextsRename(t *testing.T) {
 	assert.NotContains(t, string(migrated), "[workspace.popups]")
 }
 
+func TestMigrator_Migrate_RenamesLegacyPageModeToVimMode(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, ".config"))
+	t.Setenv("XDG_DATA_HOME", filepath.Join(home, ".local", "share"))
+	t.Setenv("XDG_STATE_HOME", filepath.Join(home, ".local", "state"))
+	t.Setenv("XDG_CACHE_HOME", filepath.Join(home, ".cache"))
+
+	configFile, err := GetConfigFile()
+	require.NoError(t, err)
+	require.NoError(t, os.MkdirAll(filepath.Dir(configFile), 0o755))
+	require.NoError(t, os.WriteFile(configFile, []byte(`
+[workspace.page_mode]
+activation_shortcut = "ctrl+alt+y"
+timeout_ms = 250
+
+[workspace.page_mode.actions.page-scroll-down]
+keys = ["n"]
+desc = "Scroll down"
+
+[workspace.page_mode.actions.page_scroll_up]
+keys = ["u"]
+desc = "Scroll up"
+
+[workspace.page_mode.actions.page_scroll_down_fast]
+keys = ["d"]
+desc = "Scroll down fast"
+`), 0o644))
+
+	migrator := NewMigrator()
+	applied, err := migrator.Migrate()
+	require.NoError(t, err)
+	assert.Contains(t, applied, "workspace.page_mode.activation_shortcut -> workspace.vim_mode.activation_shortcut")
+	assert.Contains(t, applied, "workspace.page_mode.timeout_ms -> workspace.vim_mode.timeout_ms")
+	assert.Contains(t, applied, "workspace.page_mode.actions -> workspace.vim_mode.actions")
+
+	migrated, err := os.ReadFile(configFile)
+	require.NoError(t, err)
+	assert.Contains(t, string(migrated), "[workspace.vim_mode]")
+	assert.Contains(t, string(migrated), "activation_shortcut = 'ctrl+alt+y'")
+	assert.Contains(t, string(migrated), "[workspace.vim_mode.actions.vim-scroll-down]")
+	assert.Contains(t, string(migrated), "[workspace.vim_mode.actions.vim-scroll-up]")
+	assert.Contains(t, string(migrated), "[workspace.vim_mode.actions.vim-scroll-down-fast]")
+	assert.Contains(t, string(migrated), "keys = ['u']")
+	assert.NotContains(t, string(migrated), "page_mode")
+	assert.NotContains(t, string(migrated), "page-scroll-down")
+}
+
+func TestMigrator_DetectChanges_CanonicalizesLegacyVimActionNames(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, ".config"))
+	t.Setenv("XDG_DATA_HOME", filepath.Join(home, ".local", "share"))
+	t.Setenv("XDG_STATE_HOME", filepath.Join(home, ".local", "state"))
+	t.Setenv("XDG_CACHE_HOME", filepath.Join(home, ".cache"))
+
+	configFile, err := GetConfigFile()
+	require.NoError(t, err)
+	require.NoError(t, os.MkdirAll(filepath.Dir(configFile), 0o755))
+	require.NoError(t, os.WriteFile(configFile, []byte(`
+[workspace.page_mode.actions.page_scroll_down_fast]
+keys = ["d"]
+desc = "Scroll down fast"
+`), 0o644))
+
+	changes, err := NewMigrator().DetectChanges()
+	require.NoError(t, err)
+
+	foundRename := false
+	for _, change := range changes {
+		if change.Type == port.KeyChangeRenamed &&
+			change.OldKey == "workspace.page_mode.actions" &&
+			change.NewKey == "workspace.vim_mode.actions" {
+			foundRename = true
+		}
+	}
+	assert.True(t, foundRename, "DetectChanges must report the canonical Vim Mode actions key")
+	assert.Equal(t, "vim-scroll-down-fast", legacyVimActionName("page_scroll_down_fast"))
+}
+
+func TestMigrator_Migrate_MergesLegacyPageModeActionsIntoExistingVimMode(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, ".config"))
+	t.Setenv("XDG_DATA_HOME", filepath.Join(home, ".local", "share"))
+	t.Setenv("XDG_STATE_HOME", filepath.Join(home, ".local", "state"))
+	t.Setenv("XDG_CACHE_HOME", filepath.Join(home, ".cache"))
+
+	configFile, err := GetConfigFile()
+	require.NoError(t, err)
+	require.NoError(t, os.MkdirAll(filepath.Dir(configFile), 0o755))
+	require.NoError(t, os.WriteFile(configFile, []byte(`
+[workspace.page_mode.actions.page-scroll-down]
+keys = ["n"]
+
+[workspace.page_mode.actions.page-scroll-up]
+keys = ["u"]
+
+[workspace.vim_mode.actions.vim-scroll-down]
+keys = ["j"]
+`), 0o644))
+
+	_, err = NewMigrator().Migrate()
+	require.NoError(t, err)
+
+	migrated, err := os.ReadFile(configFile)
+	require.NoError(t, err)
+	assert.Contains(t, string(migrated), "[workspace.vim_mode.actions.vim-scroll-down]\n        keys = ['j']")
+	assert.Contains(t, string(migrated), "[workspace.vim_mode.actions.vim-scroll-up]\n        keys = ['u']")
+	assert.NotContains(t, string(migrated), "page_mode")
+}
+
 func TestMigrator_DetectChanges_MixedBrowsingContextsDoesNotDoubleReportLegacyRename(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
@@ -1281,4 +1428,115 @@ section:
 		// JSON numbers are float64
 		assert.InDelta(t, 42.0, section["number"].(float64), 0.001)
 	})
+}
+
+func TestMigrator_Migrate_RenamesCustomFavoritesSidebarShortcut(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, ".config"))
+	t.Setenv("XDG_DATA_HOME", filepath.Join(home, ".local", "share"))
+	t.Setenv("XDG_STATE_HOME", filepath.Join(home, ".local", "state"))
+	t.Setenv("XDG_CACHE_HOME", filepath.Join(home, ".cache"))
+
+	configFile, err := GetConfigFile()
+	require.NoError(t, err)
+	require.NoError(t, os.MkdirAll(filepath.Dir(configFile), 0o755))
+	require.NoError(t, os.WriteFile(configFile, []byte(`
+[workspace.shortcuts.actions.toggle-favorites-systemview]
+keys = []
+desc = "Custom favorites shortcut"
+`), 0o644))
+
+	migrator := NewMigrator()
+	result, err := migrator.CheckMigration()
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	assert.Contains(t, result.MissingKeys, "workspace.shortcuts.actions.toggle-favorites-sidebar")
+
+	changes, err := migrator.DetectChanges()
+	require.NoError(t, err)
+	assertContainsChange(t, changes, port.KeyChangeRenamed,
+		"workspace.shortcuts.actions.toggle-favorites-systemview",
+		"workspace.shortcuts.actions.toggle-favorites-sidebar")
+
+	applied, err := migrator.Migrate()
+	require.NoError(t, err)
+	assert.Contains(t, applied, "workspace.shortcuts.actions.toggle-favorites-systemview -> workspace.shortcuts.actions.toggle-favorites-sidebar")
+
+	mgr, err := NewManager()
+	require.NoError(t, err)
+	require.NoError(t, mgr.Load())
+	_, ok := mgr.Get().Workspace.Shortcuts.Actions["toggle-favorites-systemview"]
+	assert.False(t, ok)
+	favorites := mgr.Get().Workspace.Shortcuts.Actions["toggle-favorites-sidebar"]
+	assert.Empty(t, favorites.Keys)
+	assert.Equal(t, "Custom favorites shortcut", favorites.Desc)
+}
+
+func TestMigrator_Migrate_UpgradesLegacyFavoritesSidebarDefault(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, ".config"))
+	t.Setenv("XDG_DATA_HOME", filepath.Join(home, ".local", "share"))
+	t.Setenv("XDG_STATE_HOME", filepath.Join(home, ".local", "state"))
+	t.Setenv("XDG_CACHE_HOME", filepath.Join(home, ".cache"))
+
+	configFile, err := GetConfigFile()
+	require.NoError(t, err)
+	require.NoError(t, os.MkdirAll(filepath.Dir(configFile), 0o755))
+	require.NoError(t, os.WriteFile(configFile, []byte(`
+[workspace.shortcuts.actions.toggle-favorites-systemview]
+keys = []
+desc = "Toggle Favorites in right split"
+`), 0o644))
+
+	migrator := NewMigrator()
+	result, err := migrator.CheckMigration()
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	assert.Contains(t, result.MissingKeys, "workspace.shortcuts.actions.toggle-favorites-sidebar")
+	assert.Contains(t, result.MissingKeys, "workspace.shortcuts.actions.toggle-current-page-favorite")
+
+	changes, err := migrator.DetectChanges()
+	require.NoError(t, err)
+	assertContainsChange(t, changes, port.KeyChangeRenamed,
+		"workspace.shortcuts.actions.toggle-favorites-systemview",
+		"workspace.shortcuts.actions.toggle-favorites-sidebar")
+	assertContainsChange(t, changes, port.KeyChangeAdded, "", "workspace.shortcuts.actions.toggle-current-page-favorite")
+
+	applied, err := migrator.Migrate()
+	require.NoError(t, err)
+	assert.Contains(t, applied, "workspace.shortcuts.actions.toggle-favorites-systemview -> workspace.shortcuts.actions.toggle-favorites-sidebar")
+	assert.Contains(t, applied, "workspace.shortcuts.actions.toggle-current-page-favorite")
+
+	raw, err := migrator.readRawConfig(configFile)
+	require.NoError(t, err)
+	workspace, ok := raw["workspace"].(map[string]any)
+	require.True(t, ok)
+	shortcuts, ok := workspace["shortcuts"].(map[string]any)
+	require.True(t, ok)
+	actions, ok := shortcuts["actions"].(map[string]any)
+	require.True(t, ok)
+
+	expectedActions := DefaultConfig().Workspace.Shortcuts.Actions
+	_, ok = actions["toggle-favorites-systemview"]
+	assert.False(t, ok)
+	favorites, ok := actions["toggle-favorites-sidebar"].(map[string]any)
+	require.True(t, ok)
+	assert.Equal(t, []any{"ctrl+b"}, favorites["keys"])
+	assert.Equal(t, expectedActions["toggle-favorites-sidebar"].Desc, favorites["desc"])
+	currentPage, ok := actions["toggle-current-page-favorite"].(map[string]any)
+	require.True(t, ok)
+	assert.Equal(t, []any{"ctrl+d"}, currentPage["keys"])
+	assert.Equal(t, expectedActions["toggle-current-page-favorite"].Desc, currentPage["desc"])
+
+	mgr, err := NewManager()
+	require.NoError(t, err)
+	require.NoError(t, mgr.Load())
+	cfg := mgr.Get()
+	require.NotNil(t, cfg)
+	_, ok = cfg.Workspace.Shortcuts.Actions["toggle-favorites-systemview"]
+	assert.False(t, ok)
+	assert.Equal(t, []string{"ctrl+b"}, cfg.Workspace.Shortcuts.Actions["toggle-favorites-sidebar"].Keys)
+	assert.Equal(t, []string{"ctrl+d"}, cfg.Workspace.Shortcuts.Actions["toggle-current-page-favorite"].Keys)
 }

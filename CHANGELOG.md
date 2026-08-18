@@ -4,6 +4,32 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- **Vim mode for keyboard-driven page navigation**: Added configurable multi-key sequences for page scrolling, fast scrolling, page-input focus, and live heading navigation. CEF accessibility data also provides the foundation for navigating structured page content such as headings, lists, paragraphs, and sections.
+- **Native favorites sidebar**: Added a keyboard-driven GTK sidebar toggled with `Ctrl+B`, including search, tag filtering, tag creation, favorite editing, shortcut assignment, deletion, and opening favorites in the current pane or a new split.
+- **WebP favicon decoding**: Added safe WebP decoding for sites that publish WebP favicons.
+
+### Changed
+
+- **Favorites organization**: Favorites now use a tags-first model. Existing folder assignments are migrated into deterministic tags, with collision handling and folded-name uniqueness preserved during migration.
+- **Page mode configuration**: Page Mode is now called Vim Mode and uses the `workspace.vim_mode` configuration namespace for activation, timeouts, and action sequences. Existing page-mode bindings are migrated by the configuration loader.
+- **Browsing-context routing**: External links, floating panes, popups, and standalone omnibox launches now use explicit browsing-context ownership so they open in the appropriate pane or browser window.
+- **CEF presentation and lifecycle**: Browser visibility, first-frame presentation, accessibility enablement, browser recreation, and PipeWire audio handoff now follow stricter lifecycle ownership and synchronization.
+- **Dependencies and packaging**: Updated the CEF/GTK bridge and PureGo dependencies, refreshed vendored build inputs, and synchronized CI, Flatpak, AUR, and release workflow metadata.
+
+### Fixed
+
+- **Popup and floating-pane stability**: Hardened deferred popup cleanup, failed popup creation, opener-capable fallback behavior, and pane/window rollback paths.
+- **WebView resource cleanup**: Fixed stale callback, timer, tick, split, hover-controller, and rebuilt-WebView ownership paths that could leak resources or act on detached views.
+- **CEF rendering and input**: Improved OSR input and clipboard handling, effective visibility transitions, canvas presentation, repeated GPU relaunch recovery, and runtime propagation to helper processes.
+- **Omnibox and link handling**: Fixed standalone links opening in the wrong context, stale entry-buffer reconciliation, external-pane chrome, and global shortcut ownership.
+- **Vim input handling**: Fixed ambiguous and modified-key sequence parsing, legacy binding collisions, detach cancellation, editable-focus transitions, and repeat/scroll scheduling.
+
+### Security
+
+- **WebView bridge hardening**: Tightened reviewed WebKit bridge paths and runtime/development boundary handling.
+
 ## [0.30.0] - 2026-06-27
 
 ### Added

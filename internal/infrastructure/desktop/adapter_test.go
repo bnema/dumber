@@ -220,6 +220,21 @@ func TestLaunchBrowserBrowseURL_SpawnErrorDoesNotLeakURL(t *testing.T) {
 	}
 }
 
+func TestLaunchBrowserBrowseURL_ClearsFreshWindowMarker(t *testing.T) {
+	t.Setenv(FreshWindowLaunchEnvVar, "1")
+
+	err := launchBrowserBrowseURL(
+		"https://example.com",
+		func() (string, error) { return "/usr/bin/dumber", nil },
+		func(cmd *exec.Cmd) error {
+			assert.NotContains(t, cmd.Env, FreshWindowLaunchEnvVar+"=1")
+			return nil
+		},
+	)
+
+	require.NoError(t, err)
+}
+
 func TestSetAsDefaultBrowserAlsoUpdatesMimeHandlers(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	t.Setenv("XDG_DATA_HOME", filepath.Join(os.Getenv("HOME"), ".local", "share"))

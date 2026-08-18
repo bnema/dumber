@@ -73,6 +73,16 @@ type WorkspaceView struct {
 	mu sync.RWMutex
 }
 
+// SetPaneViewsForTest injects pane views into the workspace view for testing.
+// This is a narrow testability seam; production code populates pane views via
+// SetWorkspace and the tree renderer. The workspace field must be set
+// separately on the entity if the tests exercise code paths that read it.
+func (wv *WorkspaceView) SetPaneViewsForTest(paneViews map[entity.PaneID]*PaneView) {
+	wv.mu.Lock()
+	defer wv.mu.Unlock()
+	wv.paneViews = paneViews
+}
+
 // paneViewFactoryAdapter adapts WorkspaceView to the PaneViewFactory interface
 // so TreeRenderer can create PaneViews.
 type paneViewFactoryAdapter struct {

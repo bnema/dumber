@@ -1,6 +1,7 @@
 package input
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -8,6 +9,27 @@ import (
 	"github.com/bnema/puregotk/v4/gio"
 	"github.com/bnema/puregotk/v4/gtk"
 )
+
+func TestShouldRegisterGTKGlobalShortcut_ExcludesVimModeActivation(t *testing.T) {
+	if shouldRegisterGTKGlobalShortcut(ActionEnterVimMode) {
+		t.Fatal("ActionEnterVimMode should stay off the GTK global shortcut controller")
+	}
+	if !shouldRegisterGTKGlobalShortcut(ActionOpenOmnibox) {
+		t.Fatal("non-vim-mode global shortcuts should remain registerable")
+	}
+}
+
+func TestShouldIgnoreGlobalShortcutInMode_VimModeBlocksNonToggleActions(t *testing.T) {
+	if !shouldIgnoreGlobalShortcutInMode(ModeVim, ActionOpenOmnibox) {
+		t.Fatal("Vim mode should ignore app-global shortcuts like omnibox")
+	}
+	if shouldIgnoreGlobalShortcutInMode(ModeNormal, ActionOpenOmnibox) {
+		t.Fatal("normal mode should not ignore app-global shortcuts")
+	}
+	if shouldIgnoreGlobalShortcutInMode(ModeVim, ActionEnterVimMode) {
+		t.Fatal("vim mode toggle should not be blocked by the mode guard")
+	}
+}
 
 func TestGlobalShortcutHandlerCallbackBudgetIsIndependentOfShortcutCount(t *testing.T) {
 	h := &GlobalShortcutHandler{
@@ -31,6 +53,68 @@ func TestGlobalShortcutHandlerCallbackBudgetIsIndependentOfShortcutCount(t *test
 	if got := h.estimatedPuregoCallbackBudget(); got != 2 {
 		t.Fatalf("callback budget with 57 shortcuts = %d, want 2", got)
 	}
+}
+
+func TestGlobalShortcutHandlerUsesDistinctNamedActionsAcrossReloads(t *testing.T) {
+	if !gtk.InitCheck() {
+		t.Skip("GTK native display prerequisite unavailable (gtk.InitCheck returned false)")
+	}
+	display := gdk.DisplayGetDefault()
+	if display == nil {
+		t.Skip("GTK native display prerequisite unavailable (no default GDK display)")
+	}
+	appID := "com.dumber.GlobalShortcutHandlerTest"
+	app := gtk.NewApplication(&appID, gio.GApplicationNonUniqueValue)
+	if app == nil {
+		t.Fatal("gtk application creation failed")
+	}
+	registered, err := app.Register(nil)
+	if err != nil || !registered {
+		t.Fatalf("gtk application registration failed: registered=%t err=%v", registered, err)
+	}
+	window := gtk.NewApplicationWindow(app)
+	if window == nil {
+		t.Fatal("gtk application window creation failed")
+	}
+	h := NewGlobalShortcutHandler(context.Background(), window, nil, nil, nil, nil)
+	if h == nil {
+		t.Fatal("global shortcut handler creation failed")
+	}
+	t.Cleanup(func() {
+		h.Detach()
+		window.Destroy()
+		app.Unref()
+	})
+
+	assertDistinctShortcutActions := func() {
+		t.Helper()
+		shortcutCount := h.controller.GetNItems()
+		if shortcutCount < 2 {
+			t.Fatalf("shortcut count = %d, want at least 2", shortcutCount)
+		}
+		actions := make(map[uintptr]struct{}, shortcutCount)
+		for index := uint(0); index < shortcutCount; index++ {
+			shortcut := gtk.ShortcutNewFromInternalPtr(h.controller.GetItem(index))
+			if shortcut == nil {
+				t.Fatalf("shortcut %d was nil", index)
+			}
+			action := shortcut.GetAction()
+			if action == nil {
+				t.Fatalf("shortcut %d action was nil", index)
+			}
+			actions[action.GoPointer()] = struct{}{}
+			shortcut.Unref()
+		}
+		if got := uint(len(actions)); got != shortcutCount {
+			t.Fatalf("distinct shortcut actions = %d, want %d", got, shortcutCount)
+		}
+	}
+
+	assertDistinctShortcutActions()
+	h.ReloadShortcuts(context.Background(), nil, nil)
+	assertDistinctShortcutActions()
+	h.ReloadShortcuts(context.Background(), nil, nil)
+	assertDistinctShortcutActions()
 }
 
 func TestGlobalShortcutIDIncludesBinding(t *testing.T) {
@@ -153,9 +237,6 @@ func TestGlobalShortcutHandlerDetachForDestroyClearsRetainedState(t *testing.T) 
 	if h.releaseController != nil {
 		t.Fatal("releaseController should be cleared during destroy detach")
 	}
-	if h.shortcutAction != nil {
-		t.Fatal("shortcutAction should be cleared during destroy detach")
-	}
 	if h.globalAction != nil {
 		t.Fatal("globalAction should be cleared during destroy detach")
 	}
@@ -230,7 +311,7 @@ func TestGlobalShortcutHandlerSuppressesRepeatedAdditionalOneShotUIActions(t *te
 		ActionFindPrev,
 		ActionOpenDevTools,
 		ActionToggleFloatingPane,
-		ActionToggleFavoritesSystemView,
+		ActionToggleFavoritesSidebar,
 		ActionToggleCurrentPageFavorite,
 		ActionToggleConfigSystemView,
 		ActionCopyURL,

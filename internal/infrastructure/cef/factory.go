@@ -156,6 +156,14 @@ func (f *WebViewFactory) newWebView(ctx context.Context) (*WebView, error) {
 	wv.handlers = handlers
 	wv.findCtrl = newFindController()
 
+	// Capture worker must exist before NewClient so the lazily wrapped render
+	// handler can install a real sink when DUMBER_A11Y_CAPTURE=1.
+	if err := wv.enableAccessibilityCaptureIfRequested(); err != nil {
+		logging.FromContext(ctx).Warn().Err(err).
+			Uint64("webview_id", uint64(id)).
+			Msg("cef: accessibility capture setup failed")
+	}
+
 	// Build a CEF client backed by our handlerSet.
 	// Store on WebView to prevent GC collection before CEF AddRef's it.
 	wv.client = purecef.NewClient(wv.handlers)
@@ -164,10 +172,8 @@ func (f *WebViewFactory) newWebView(ctx context.Context) (*WebView, error) {
 			logging.FromContext(ctx).Warn().Err(err).Uint64("webview_id", uint64(id)).Msg("cef2gtk: failed to enable profiling")
 		}
 	}
-	viewportHooksResult := wv.installViewportSyncHooks()
-	if !viewportHooksResult.Completed() {
-		wv.destroyViewBridgeOnGTKAsync()
-		return nil, errGTKSyncDispatchIncomplete("install CEF viewport sync hooks", viewportHooksResult)
+	if err := wv.installNewWebViewViewportHooksAfterCapture(); err != nil {
+		return nil, err
 	}
 	wv.startRenderStallWatchdog()
 	return wv, nil

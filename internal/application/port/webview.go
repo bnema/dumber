@@ -5,6 +5,7 @@ package port
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/bnema/dumber/internal/application/dto"
 	"github.com/bnema/dumber/internal/domain/entity"
@@ -142,6 +143,10 @@ type WebViewCallbacks struct {
 	// OnTouchpadNavigationGesture is called while a two-finger touchpad history
 	// navigation gesture is progressing or finishing.
 	OnTouchpadNavigationGesture func(gesture entity.TouchpadNavigationGesture)
+
+	// OnEditableFocusChanged is called when the page focus enters or leaves an
+	// editable target such as input, textarea, or contenteditable content.
+	OnEditableFocusChanged func(editable bool)
 }
 
 // FindOptions configures search behavior.
@@ -389,4 +394,94 @@ type OAuthCallbackCapable interface {
 // text input method integration.
 type TextInputTargetProvider interface {
 	TextInputTarget() TextInputTarget
+}
+
+// PageScrollCommand identifies a semantic vim-scroll request at the
+// application boundary without depending on usecase package enums.
+type PageScrollCommand int
+
+const (
+	PageScrollCommandLeft PageScrollCommand = iota
+	PageScrollCommandRight
+	PageScrollCommandUp
+	PageScrollCommandDown
+	PageScrollCommandUpFast
+	PageScrollCommandDownFast
+)
+
+// PageScrollRequest carries a semantic vim-scroll command identity and its
+// fallback pixel deltas. Engines own the execution strategy and may use the
+// fallback delta when no native mechanism exists for the command.
+type PageScrollRequest struct {
+	Command    PageScrollCommand
+	FallbackDX int
+	FallbackDY int
+	// Continuous distinguishes autonomous held-key steps from the guaranteed
+	// tap step so adapters can cancel queued held work without dropping taps.
+	Continuous bool
+}
+
+// IsValid reports whether c is a supported semantic page-scroll command.
+func (c PageScrollCommand) IsValid() bool {
+	return c >= PageScrollCommandLeft && c <= PageScrollCommandDownFast
+}
+
+// Validate checks the command identity carried by a page-scroll request.
+func (r PageScrollRequest) Validate() error {
+	if !r.Command.IsValid() {
+		return fmt.Errorf("unsupported page scroll command %d", r.Command)
+	}
+	return nil
+}
+
+// PageScrollable is an optional capability for WebViews that support semantic
+// page scrolling. Page scrolling is used by keyboard-driven navigation modes
+// such as Vim mode.
+//
+// Engines own the execution strategy. When a native mechanism exists for the
+// requested command, the engine may ignore the fallback delta. Otherwise it
+// should use the fallback delta as a JavaScript-driven scroll amount.
+type PageScrollable interface {
+	ScrollPage(ctx context.Context, request PageScrollRequest) error
+}
+
+// PageScrollCanceler is an optional capability for adapters that queue held
+// vim-scroll work. Implementations discard unconsumed continuous deltas while
+// preserving any guaranteed tap already accepted.
+type PageScrollCanceler interface {
+	CancelPageScroll(ctx context.Context)
+}
+
+// AccessibilityEnabler is an optional capability for adapters that can enable
+// browser accessibility tooling once per WebView. Engines that do not support
+// accessibility leave this unimplemented so callers can type-assert safely.
+type AccessibilityEnabler interface {
+	EnableAccessibility()
+}
+
+// SemanticNavigable is an optional WebView capability for visible structural
+// navigation. Unsupported engines safely leave it unimplemented.
+type SemanticNavigable interface {
+	NavigateSemantic(ctx context.Context, request dto.SemanticNavigationRequest) error
+}
+
+// SemanticNavigationHighlightClearer is an optional WebView capability for
+// removing the visual target left by semantic navigation.
+type SemanticNavigationHighlightClearer interface {
+	ClearSemanticNavigationHighlight(ctx context.Context) error
+}
+
+// PageInputFocuser is an optional WebView capability for moving Vim Mode
+// input focus to the next eligible page input. With no active eligible input,
+// implementations focus the first one. Unsupported engines safely leave it
+// unimplemented.
+type PageInputFocuser interface {
+	FocusNextInput()
+}
+
+// PageFocusNavigator is an optional WebView capability for keeping native-like
+// focus traversal inside the active page when the host window would otherwise
+// move focus outside the WebView.
+type PageFocusNavigator interface {
+	NavigatePageFocus(backward bool)
 }

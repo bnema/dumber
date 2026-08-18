@@ -1,0 +1,415 @@
+package vimkeys
+
+import (
+	"strings"
+	"unicode"
+	"unicode/utf8"
+)
+
+func ParseBinding(s string) (Sequence, error) {
+	if !utf8.ValidString(s) {
+		return nil, ErrBadBinding
+	}
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return nil, ErrEmptyBinding
+	}
+
+	if key, ok := tryParseLegacyAtom(s); ok {
+		return Sequence{key}, nil
+	}
+
+	if key, ok, err := tryParseAsLegacyChord(s); ok {
+		if err != nil {
+			return nil, err
+		}
+		return Sequence{key}, nil
+	}
+	return parseRawSequence(s)
+}
+
+// tryParseLegacyAtom treats raw UI key names enter/escape (and aliases) as single
+// keys so they remain compatible with the GTK shortcut table contract.
+func tryParseLegacyAtom(s string) (Key, bool) {
+	switch strings.ToLower(s) {
+	case "enter", "return":
+		return Key{Sym: symCR}, true
+	case "escape", "esc":
+		return Key{Sym: symEsc}, true
+	default:
+		return Key{}, false
+	}
+}
+
+func legacyChordParts(s string) []string {
+	parts := strings.Split(s, "+")
+	tokens := make([]string, 0, len(parts))
+	for _, part := range parts {
+		if part = strings.TrimSpace(part); part != "" {
+			tokens = append(tokens, part)
+		}
+	}
+	return tokens
+}
+
+func isModifierName(part string) bool {
+	switch strings.ToLower(part) {
+	case "ctrl", "control", "shift", "alt":
+		return true
+	default:
+		return false
+	}
+}
+
+func tryParseAsLegacyChord(s string) (Key, bool, error) {
+	if s == "+" {
+		return Key{Sym: "+"}, true, nil
+	}
+
+	parts := legacyChordParts(s)
+	if !legacyChordLooksLikeAttempt(s, parts) {
+		return Key{}, false, nil
+	}
+
+	key, err := buildLegacyChordKey(s, parts)
+	return key, true, err
+}
+
+func legacyChordLooksLikeAttempt(s string, parts []string) bool {
+	if strings.HasSuffix(s, "++") {
+		return true
+	}
+	for _, part := range parts {
+		if isModifierName(part) {
+			return true
+		}
+	}
+	return false
+}
+
+func validateLegacyChordLayout(s string, parts []string) error {
+	if !strings.Contains(s, "+") {
+		return ErrBadBinding
+	}
+	if strings.HasSuffix(s, "++") {
+		return nil
+	}
+	for i, part := range parts {
+		if isModifierName(part) {
+			continue
+		}
+		if i != len(parts)-1 {
+			return ErrBadBinding
+		}
+	}
+	return nil
+}
+
+func modsFromLegacyPart(part string) (Mods, bool) {
+	switch strings.ToLower(part) {
+	case "ctrl", "control":
+		return ModCtrl, true
+	case "shift":
+		return ModShift, true
+	case "alt":
+		return ModAlt, true
+	default:
+		return 0, false
+	}
+}
+
+func collectLegacyChordModsAndKey(s string, parts []string) (Mods, string, error) {
+	if err := validateLegacyChordLayout(s, parts); err != nil {
+		return 0, "", err
+	}
+
+	var mods Mods
+	keyPart := ""
+	for _, part := range parts {
+		if mod, ok := modsFromLegacyPart(part); ok {
+			mods |= mod
+			continue
+		}
+		if keyPart != "" {
+			return 0, "", ErrBadBinding
+		}
+		keyPart = part
+	}
+
+	if keyPart == "" && strings.HasSuffix(s, "++") {
+		keyPart = "+"
+	}
+	if keyPart == "" {
+		return 0, "", ErrBadBinding
+	}
+	return mods, keyPart, nil
+}
+
+func legacyKeyPartWithShift(keyPart string, mods Mods) (string, Mods) {
+	if len(keyPart) == 1 && keyPart[0] >= 'A' && keyPart[0] <= 'Z' {
+		return strings.ToLower(keyPart), mods | ModShift
+	}
+	return keyPart, mods
+}
+
+func buildLegacyChordKey(s string, parts []string) (Key, error) {
+	mods, keyPart, err := collectLegacyChordModsAndKey(s, parts)
+	if err != nil {
+		return Key{}, err
+	}
+	keyPart, mods = legacyKeyPartWithShift(keyPart, mods)
+	sym, err := symFromToken(keyPart, false)
+	if err != nil {
+		return Key{}, err
+	}
+	return Key{Sym: sym, Mods: mods}, nil
+}
+
+func parseAngleToken(inner string) (Key, error) {
+	if !strings.Contains(inner, "-") {
+		sym, err := symFromAlias(inner)
+		if err != nil {
+			return Key{}, err
+		}
+		return Key{Sym: sym}, nil
+	}
+
+	mods, symPart, err := splitAngleModsAndSym(inner)
+	if err != nil {
+		return Key{}, err
+	}
+
+	sym, err := symFromToken(symPart, true)
+	if err != nil {
+		return Key{}, err
+	}
+	return Key{Sym: sym, Mods: mods}, nil
+}
+
+func splitAngleModsAndSym(inner string) (Mods, string, error) {
+	var modInner, symPart string
+	if strings.HasSuffix(inner, "--") {
+		modInner = inner[:len(inner)-2]
+		symPart = "-"
+	} else {
+		lastDash := strings.LastIndexByte(inner, '-')
+		if lastDash < 0 {
+			return 0, "", ErrBadBinding
+		}
+		modInner = inner[:lastDash]
+		symPart = inner[lastDash+1:]
+	}
+	if symPart == "" || modInner == "" {
+		return 0, "", ErrBadBinding
+	}
+
+	var mods Mods
+	for _, modPart := range strings.Split(modInner, "-") {
+		modPart = strings.TrimSpace(modPart)
+		if modPart == "" {
+			return 0, "", ErrBadBinding
+		}
+		partMods, err := modsFromCompactModString(modPart)
+		if err != nil {
+			return 0, "", err
+		}
+		mods |= partMods
+	}
+	return mods, symPart, nil
+}
+
+func modsFromCompactModString(modPart string) (Mods, error) {
+	var mods Mods
+	for _, ch := range modPart {
+		switch ch {
+		case 'C', 'c':
+			mods |= ModCtrl
+		case 'S', 's':
+			mods |= ModShift
+		case 'A', 'a':
+			mods |= ModAlt
+		default:
+			return 0, ErrBadBinding
+		}
+	}
+	return mods, nil
+}
+
+func parseRawSequence(s string) (Sequence, error) {
+	seq := make(Sequence, 0, len(s))
+	for i := 0; i < len(s); {
+		if s[i] == '<' {
+			key, width, err := parseAngleAt(s, i)
+			if err != nil {
+				return nil, err
+			}
+			seq = append(seq, key)
+			i += width
+			continue
+		}
+		// Raw text is runes plus <...> tokens (and whole-string legacy atoms/chords
+		// handled above). Bare C-/S-/A- must not steal printable runs like "C-d".
+		r, width := utf8.DecodeRuneInString(s[i:])
+		key, err := keyFromRune(r)
+		if err != nil {
+			return nil, err
+		}
+		seq = append(seq, key)
+		i += width
+	}
+	return seq, nil
+}
+
+func parseAngleAt(s string, i int) (Key, int, error) {
+	if i >= len(s) || s[i] != '<' {
+		return Key{}, 0, ErrBadBinding
+	}
+	closeIdx := strings.IndexByte(s[i+1:], '>')
+	if closeIdx < 0 {
+		return Key{}, 0, ErrBadBinding
+	}
+	closeIdx += i + 1
+	inner := s[i+1 : closeIdx]
+	if inner == "" {
+		return Key{}, 0, ErrBadBinding
+	}
+	key, err := parseAngleToken(inner)
+	if err != nil {
+		return Key{}, 0, err
+	}
+	return key, closeIdx - i + 1, nil
+}
+
+func keyFromRune(r rune) (Key, error) {
+	if r >= 'A' && r <= 'Z' {
+		return Key{Sym: strings.ToLower(string(r)), Mods: ModShift}, nil
+	}
+	if shiftedGlyph, ok := shiftedGlyphForRune(r); ok {
+		return Key{Sym: shiftedGlyph}, nil
+	}
+	if r >= 'a' && r <= 'z' {
+		return Key{Sym: string(r)}, nil
+	}
+	if unicode.IsPrint(r) {
+		return Key{Sym: string(r)}, nil
+	}
+	return Key{}, ErrBadBinding
+}
+
+func shiftedGlyphForRune(r rune) (string, bool) {
+	switch r {
+	case '!', '@', '#', '$', '%', '^', '&', '*', '(', ')', '_', '+', '{', '}', '|', ':', '"', '~', '<', '>', '?':
+		return string(r), true
+	default:
+		return "", false
+	}
+}
+
+func symFromSpecialAlias(token string) (string, bool) {
+	lower := strings.ToLower(token)
+	switch lower {
+	case "cr", "return":
+		return symCR, true
+	case "esc", "escape":
+		return symEsc, true
+	case "space":
+		return "Space", true
+	case "lt":
+		return "<", true
+	case "gt":
+		return ">", true
+	case "plus":
+		return "+", true
+	default:
+		return namedSymFromAlias(lower)
+	}
+}
+
+func namedSymFromAlias(lower string) (string, bool) {
+	switch lower {
+	case "tab":
+		return "Tab", true
+	case "backspace":
+		return "BackSpace", true
+	case "delete":
+		return "Delete", true
+	case "left":
+		return "Left", true
+	case "right":
+		return "Right", true
+	case "up":
+		return "Up", true
+	case "down":
+		return "Down", true
+	case "home":
+		return "Home", true
+	case "end":
+		return "End", true
+	case "pageup":
+		return "PageUp", true
+	case "pagedown":
+		return "PageDown", true
+	default:
+		return "", false
+	}
+}
+
+func symFromToken(token string, allowSingleLetter bool) (string, error) {
+	if sym, ok := symFromSpecialAlias(token); ok {
+		return sym, nil
+	}
+	if allowSingleLetter {
+		if sym, ok := asciiLetterSym(token); ok {
+			return sym, nil
+		}
+	}
+	if sym, ok := singlePrintableRuneSym(token); ok {
+		return sym, nil
+	}
+	return "", ErrBadBinding
+}
+
+func symFromAlias(token string) (string, error) {
+	if sym, ok := symFromSpecialAlias(token); ok {
+		return sym, nil
+	}
+	// One-character / one-rune literal angle tokens (<e>, <é>) disambiguate
+	// legacy-atom collisions. Multi-rune unknowns such as <Nope> remain invalid.
+	if sym, ok := asciiLetterSym(token); ok {
+		return sym, nil
+	}
+	if sym, ok := singlePrintableRuneSym(token); ok {
+		return sym, nil
+	}
+	return "", ErrBadBinding
+}
+
+// asciiLetterSym normalizes a single ASCII letter token (A-Z -> a-z).
+func asciiLetterSym(token string) (string, bool) {
+	if len(token) != 1 {
+		return "", false
+	}
+	ch := token[0]
+	if ch >= 'A' && ch <= 'Z' {
+		return strings.ToLower(token), true
+	}
+	if ch >= 'a' && ch <= 'z' {
+		return token, true
+	}
+	return "", false
+}
+
+// singlePrintableRuneSym accepts exactly one valid UTF-8 printable rune.
+func singlePrintableRuneSym(token string) (string, bool) {
+	if token == "" || !utf8.ValidString(token) {
+		return "", false
+	}
+	r, size := utf8.DecodeRuneInString(token)
+	if size != len(token) {
+		return "", false
+	}
+	if !unicode.IsPrint(r) {
+		return "", false
+	}
+	return token, true
+}

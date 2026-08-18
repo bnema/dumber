@@ -39,9 +39,17 @@ type browserLaunchRelay struct {
 }
 
 type browserLaunchRequest struct {
-	RequestID string `json:"request_id,omitempty"`
-	URL       string `json:"url"`
+	RequestID string              `json:"request_id,omitempty"`
+	URL       string              `json:"url"`
+	Action    browserLaunchAction `json:"action,omitempty"`
 }
+
+type browserLaunchAction string
+
+const (
+	browserLaunchActionOpenExternalURL browserLaunchAction = "open-external-url"
+	browserLaunchActionOpenFreshWindow browserLaunchAction = "open-fresh-window"
+)
 
 type browserLaunchResponse struct {
 	RequestID string `json:"request_id,omitempty"`
@@ -68,7 +76,15 @@ func NewBrowserLaunchRelay(ipc runtimeprofile.IPCPaths) port.BrowserLaunchRelay 
 	return &browserLaunchRelay{ipc: ipc}
 }
 
+func (r *browserLaunchRelay) DeliverOpenExternalURL(ctx context.Context, url string) (bool, error) {
+	return r.deliver(ctx, url, "")
+}
+
 func (r *browserLaunchRelay) DeliverOpenFreshWindow(ctx context.Context, url string) (bool, error) {
+	return r.deliver(ctx, url, browserLaunchActionOpenFreshWindow)
+}
+
+func (r *browserLaunchRelay) deliver(ctx context.Context, url string, action browserLaunchAction) (bool, error) {
 	socketPath, err := r.socketPath()
 	if err != nil {
 		return false, err
@@ -93,7 +109,7 @@ func (r *browserLaunchRelay) DeliverOpenFreshWindow(ctx context.Context, url str
 	if err := setBrowserLaunchConnDeadline(ctx, conn); err != nil {
 		return false, err
 	}
-	if err := json.NewEncoder(conn).Encode(browserLaunchRequest{RequestID: requestID, URL: url}); err != nil {
+	if err := json.NewEncoder(conn).Encode(browserLaunchRequest{RequestID: requestID, URL: url, Action: action}); err != nil {
 		return false, err
 	}
 
@@ -353,20 +369,34 @@ func (*browserLaunchRelayListener) handleConnection(ctx context.Context, conn *n
 		log.Debug().
 			Str("request_id", requestID).
 			Str("url_host", safeURLHost(request.URL)).
-			Msg("browser launch relay calling browser window opener")
-		if err := opener.OpenFreshWindow(ctx, request.URL); err != nil {
+			Msg("browser launch relay calling browser URL opener")
+		var err error
+		switch request.Action {
+		case "", browserLaunchActionOpenExternalURL:
+			err = opener.OpenExternalURL(ctx, request.URL)
+		case browserLaunchActionOpenFreshWindow:
+			err = opener.OpenFreshWindow(ctx, request.URL)
+		default:
+			log.Warn().
+				Str("request_id", requestID).
+				Str("url_host", safeURLHost(request.URL)).
+				Str("action", string(request.Action)).
+				Msg("browser launch relay rejected unknown action")
+			return
+		}
+		if err != nil {
 			log.Warn().Err(err).
 				Str("request_id", requestID).
 				Str("url_host", safeURLHost(request.URL)).
 				Dur("elapsed", time.Since(started)).
-				Msg("browser launch relay opener failed")
+				Msg("browser launch relay browser URL opener failed")
 			return
 		}
 		log.Debug().
 			Str("request_id", requestID).
 			Str("url_host", safeURLHost(request.URL)).
 			Dur("elapsed", time.Since(started)).
-			Msg("browser launch relay opener returned success")
+			Msg("browser launch relay browser URL opener returned success")
 	}()
 }
 

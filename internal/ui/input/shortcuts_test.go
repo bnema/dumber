@@ -1,8 +1,10 @@
 package input
 
 import (
+	"context"
 	"testing"
 
+	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/puregotk/v4/gdk"
 )
 
@@ -401,7 +403,7 @@ func TestMapConfigAction_ToggleSystemViews(t *testing.T) {
 		want Action
 	}{
 		{name: "toggle_history_systemview", want: ActionToggleHistorySystemView},
-		{name: "toggle_favorites_systemview", want: ActionToggleFavoritesSystemView},
+		{name: "toggle_favorites_sidebar", want: ActionToggleFavoritesSidebar},
 		{name: "toggle_current_page_favorite", want: ActionToggleCurrentPageFavorite},
 		{name: "toggle_config_systemview", want: ActionToggleConfigSystemView},
 	}
@@ -421,7 +423,7 @@ func TestMapConfigAction_ToggleSystemViewsHyphenAlias(t *testing.T) {
 		want Action
 	}{
 		{name: "toggle-history-systemview", want: ActionToggleHistorySystemView},
-		{name: "toggle-favorites-systemview", want: ActionToggleFavoritesSystemView},
+		{name: "toggle-favorites-sidebar", want: ActionToggleFavoritesSidebar},
 		{name: "toggle-current-page-favorite", want: ActionToggleCurrentPageFavorite},
 		{name: "toggle-config-systemview", want: ActionToggleConfigSystemView},
 	}
@@ -458,6 +460,145 @@ func TestGlobalShortcutActionMap_ConsumeOrExpelHyphenAliases(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := actions[tt.name]; got != tt.want {
 				t.Fatalf("globalShortcutActionMap()[%s] = %s, want %s", tt.name, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestNewShortcutSet_VimModeActivationShortcut(t *testing.T) {
+	workspace := &entity.WorkspaceConfig{
+		TabMode:  entity.TabModeConfig{ActivationShortcut: "ctrl+t"},
+		PaneMode: entity.PaneModeConfig{ActivationShortcut: "ctrl+p"},
+		VimMode:  entity.VimModeConfig{ActivationShortcut: "ctrl+y"},
+	}
+
+	set := NewShortcutSet(context.Background(), workspace, nil)
+
+	binding, ok := ParseKeyString("ctrl+y")
+	if !ok {
+		t.Fatal("failed to parse ctrl+y")
+	}
+
+	action, found := set.Global[binding]
+	if !found {
+		t.Fatal("vim mode activation shortcut not found in Global")
+	}
+	if action != ActionEnterVimMode {
+		t.Fatalf("Global shortcut action = %s, want %s", action, ActionEnterVimMode)
+	}
+}
+
+func TestShortcutSet_Lookup_VimMode(t *testing.T) {
+	set := &ShortcutSet{
+		Global: ShortcutTable{
+			{uint(gdk.KEY_q), ModCtrl}: ActionQuit,
+		},
+		VimMode: ShortcutTable{
+			{uint('h'), ModNone}:            ActionVimScrollLeft,
+			{uint('j'), ModNone}:            ActionVimScrollDown,
+			{uint('k'), ModNone}:            ActionVimScrollUp,
+			{uint('l'), ModNone}:            ActionVimScrollRight,
+			{uint(gdk.KEY_Escape), ModNone}: ActionExitMode,
+			{uint(gdk.KEY_Return), ModNone}: ActionExitMode,
+			{uint('y'), ModCtrl}:            ActionEnterVimMode,
+		},
+	}
+
+	tests := []struct {
+		name    string
+		binding KeyBinding
+		want    Action
+		wantOk  bool
+	}{
+		{
+			name:    "scroll left",
+			binding: KeyBinding{uint('h'), ModNone},
+			want:    ActionVimScrollLeft,
+			wantOk:  true,
+		},
+		{
+			name:    "scroll down",
+			binding: KeyBinding{uint('j'), ModNone},
+			want:    ActionVimScrollDown,
+			wantOk:  true,
+		},
+		{
+			name:    "scroll up",
+			binding: KeyBinding{uint('k'), ModNone},
+			want:    ActionVimScrollUp,
+			wantOk:  true,
+		},
+		{
+			name:    "scroll right",
+			binding: KeyBinding{uint('l'), ModNone},
+			want:    ActionVimScrollRight,
+			wantOk:  true,
+		},
+		{
+			name:    "escape exits vim mode",
+			binding: KeyBinding{uint(gdk.KEY_Escape), ModNone},
+			want:    ActionExitMode,
+			wantOk:  true,
+		},
+		{
+			name:    "enter exits vim mode",
+			binding: KeyBinding{uint(gdk.KEY_Return), ModNone},
+			want:    ActionExitMode,
+			wantOk:  true,
+		},
+		{
+			name:    "activation shortcut still toggles vim mode",
+			binding: KeyBinding{uint('y'), ModCtrl},
+			want:    ActionEnterVimMode,
+			wantOk:  true,
+		},
+		{
+			name:    "global shortcut does not fire inside vim mode",
+			binding: KeyBinding{uint(gdk.KEY_q), ModCtrl},
+			want:    "",
+			wantOk:  false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, ok := set.Lookup(tt.binding, ModeVim)
+			if ok != tt.wantOk {
+				t.Errorf("Lookup() ok = %v, want %v", ok, tt.wantOk)
+				return
+			}
+			if got != tt.want {
+				t.Errorf("Lookup() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestMapConfigAction_VimScrollActions(t *testing.T) {
+	tests := []struct {
+		name     string
+		config   string
+		expected Action
+	}{
+		{name: "vim_scroll_left", config: "vim_scroll_left", expected: ActionVimScrollLeft},
+		{name: "vim-scroll-left", config: "vim-scroll-left", expected: ActionVimScrollLeft},
+		{name: "vim_scroll_down", config: "vim_scroll_down", expected: ActionVimScrollDown},
+		{name: "vim-scroll-down", config: "vim-scroll-down", expected: ActionVimScrollDown},
+		{name: "vim_scroll_up", config: "vim_scroll_up", expected: ActionVimScrollUp},
+		{name: "vim-scroll-up", config: "vim-scroll-up", expected: ActionVimScrollUp},
+		{name: "vim_scroll_right", config: "vim_scroll_right", expected: ActionVimScrollRight},
+		{name: "vim-scroll-right", config: "vim-scroll-right", expected: ActionVimScrollRight},
+		{name: "vim_scroll_down_fast", config: "vim_scroll_down_fast", expected: ActionVimScrollDownFast},
+		{name: "vim-scroll-down-fast", config: "vim-scroll-down-fast", expected: ActionVimScrollDownFast},
+		{name: "vim_scroll_up_fast", config: "vim_scroll_up_fast", expected: ActionVimScrollUpFast},
+		{name: "vim-scroll-up-fast", config: "vim-scroll-up-fast", expected: ActionVimScrollUpFast},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := mapConfigAction(tt.config)
+			if got != tt.expected {
+				t.Fatalf("mapConfigAction(%s) = %s, want %s", tt.config, got, tt.expected)
 			}
 		})
 	}

@@ -276,6 +276,18 @@ func (t *Toaster) Hide() {
 	t.hide()
 }
 
+// CancelAutoDismiss removes a pending auto-dismiss source without changing the
+// toast's visibility. It is useful when the owner is being torn down.
+func (t *Toaster) CancelAutoDismiss() {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	if t.dismissTimer != 0 {
+		glib.SourceRemove(t.dismissTimer)
+		t.dismissTimer = 0
+	}
+}
+
 // hide performs the actual hide operation (must be called with lock held).
 func (t *Toaster) hide() {
 	if !t.visible {

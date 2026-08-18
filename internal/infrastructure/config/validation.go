@@ -11,6 +11,7 @@ import (
 
 	domainurl "github.com/bnema/dumber/internal/domain/url"
 	domainvalidation "github.com/bnema/dumber/internal/domain/validation"
+	"github.com/bnema/dumber/internal/domain/vimkeys"
 )
 
 const cefLogSeverityDisabled = 99
@@ -24,10 +25,12 @@ func validateConfig(config *Config) error {
 	validationErrors = append(validationErrors, validateAppearance(config)...)
 	validationErrors = append(validationErrors, validateSearchEngine(config)...)
 	validationErrors = append(validationErrors, validatePopups(config)...)
+	validationErrors = append(validationErrors, validateExternalLinks(config)...)
 	validationErrors = append(validationErrors, validateWorkspaceStyling(config)...)
 	validationErrors = append(validationErrors, validatePaneMode(config)...)
 	validationErrors = append(validationErrors, validateTabBar(config)...)
 	validationErrors = append(validationErrors, validateTabMode(config)...)
+	validationErrors = append(validationErrors, validateVimMode(config)...)
 	validationErrors = append(validationErrors, validateFloatingPane(config)...)
 	validationErrors = append(validationErrors, validateLogging(config)...)
 	validationErrors = append(validationErrors, validateWorkspaceNewPaneURL(config)...)
@@ -187,6 +190,28 @@ func validatePopups(config *Config) []string {
 	return validationErrors
 }
 
+func validateExternalLinks(config *Config) []string {
+	var validationErrors []string
+	switch config.Workspace.ExternalLinks.Behavior {
+	case ExternalLinkBehaviorWindowed, ExternalLinkBehaviorTabbed, ExternalLinkBehaviorSplit, ExternalLinkBehaviorStacked:
+	default:
+		validationErrors = append(validationErrors, fmt.Sprintf(
+			"workspace.external_links.behavior must be one of: windowed, tabbed, split, stacked (got: %s)",
+			config.Workspace.ExternalLinks.Behavior,
+		))
+	}
+
+	switch config.Workspace.ExternalLinks.Placement {
+	case ExternalLinkPlacementRight, ExternalLinkPlacementLeft, ExternalLinkPlacementTop, ExternalLinkPlacementBottom:
+	default:
+		validationErrors = append(validationErrors, fmt.Sprintf(
+			"workspace.external_links.placement must be one of: right, left, top, bottom (got: %s)",
+			config.Workspace.ExternalLinks.Placement,
+		))
+	}
+	return validationErrors
+}
+
 func validateWorkspaceStyling(config *Config) []string {
 	var validationErrors []string
 	if config.Workspace.Styling.BorderWidth < 0 {
@@ -202,32 +227,7 @@ func validateWorkspaceStyling(config *Config) []string {
 }
 
 func validatePaneMode(config *Config) []string {
-	var validationErrors []string
-	if config.Workspace.PaneMode.TimeoutMilliseconds < 0 {
-		validationErrors = append(validationErrors, "workspace.pane_mode.timeout_ms must be non-negative")
-	}
-	if len(config.Workspace.PaneMode.Actions) == 0 {
-		validationErrors = append(validationErrors, "workspace.pane_mode.actions cannot be empty")
-	}
-
-	seenKeys := make(map[string]string)
-	for action, binding := range config.Workspace.PaneMode.Actions {
-		if len(binding.Keys) == 0 {
-			validationErrors = append(validationErrors, fmt.Sprintf("workspace.pane_mode.actions.%s must have at least one key binding", action))
-		}
-		for _, key := range binding.Keys {
-			if existingAction, exists := seenKeys[key]; exists {
-				validationErrors = append(validationErrors, fmt.Sprintf(
-					"duplicate key binding '%s' found in pane_mode actions '%s' and '%s'",
-					key,
-					existingAction,
-					action,
-				))
-			}
-			seenKeys[key] = action
-		}
-	}
-	return validationErrors
+	return validateModalModeActions("pane_mode", config.Workspace.PaneMode.TimeoutMilliseconds, config.Workspace.PaneMode.Actions)
 }
 
 func validateTabBar(config *Config) []string {
@@ -240,32 +240,136 @@ func validateTabBar(config *Config) []string {
 }
 
 func validateTabMode(config *Config) []string {
+	return validateModalModeActions("tab_mode", config.Workspace.TabMode.TimeoutMilliseconds, config.Workspace.TabMode.Actions)
+}
+
+func validateVimMode(config *Config) []string {
 	var validationErrors []string
-	if config.Workspace.TabMode.TimeoutMilliseconds < 0 {
-		validationErrors = append(validationErrors, "workspace.tab_mode.timeout_ms must be non-negative")
+	if config.Workspace.VimMode.SequenceTimeoutMilliseconds < 0 {
+		validationErrors = append(validationErrors, "workspace.vim_mode.sequence_timeout_ms must be non-negative")
 	}
-	if len(config.Workspace.TabMode.Actions) == 0 {
-		validationErrors = append(validationErrors, "workspace.tab_mode.actions cannot be empty")
+	validationErrors = append(validationErrors, validateModalModeActionsWithKeyCanon(
+		"vim_mode",
+		config.Workspace.VimMode.TimeoutMilliseconds,
+		config.Workspace.VimMode.Actions,
+		canonicalizeVimModeSequenceKey,
+	)...)
+	return validationErrors
+}
+
+// validateModalModeActions shared timeout/empty-actions/duplicate-key checks for
+// pane, tab, and page modal modes. Messages stay path-exact via modePath.
+func validateModalModeActions(modePath string, timeoutMS int, actions map[string]ActionBinding) []string {
+	return validateModalModeActionsWithKeyCanon(modePath, timeoutMS, actions, nil)
+}
+
+func validateModalModeActionsWithKeyCanon(
+	modePath string,
+	timeoutMS int,
+	actions map[string]ActionBinding,
+	keyCanon func(string) (string, error),
+) []string {
+	var validationErrors []string
+	if timeoutMS < 0 {
+		validationErrors = append(validationErrors, fmt.Sprintf("workspace.%s.timeout_ms must be non-negative", modePath))
+	}
+	if len(actions) == 0 {
+		validationErrors = append(validationErrors, fmt.Sprintf("workspace.%s.actions cannot be empty", modePath))
 	}
 
-	tabSeenKeys := make(map[string]string)
-	for action, binding := range config.Workspace.TabMode.Actions {
+	if keyCanon == nil {
+		keyCanon = func(key string) (string, error) { return key, nil }
+	}
+
+	actionNames := make([]string, 0, len(actions))
+	for action := range actions {
+		actionNames = append(actionNames, action)
+	}
+	sort.Strings(actionNames)
+
+	seenSequence := make(map[string]string)
+	for _, action := range actionNames {
+		binding := actions[action]
 		if len(binding.Keys) == 0 {
-			validationErrors = append(validationErrors, fmt.Sprintf("workspace.tab_mode.actions.%s must have at least one key binding", action))
+			validationErrors = append(validationErrors, fmt.Sprintf("workspace.%s.actions.%s must have at least one key binding", modePath, action))
+			continue
 		}
-		for _, key := range binding.Keys {
-			if existingAction, exists := tabSeenKeys[key]; exists {
+		keys := append([]string(nil), binding.Keys...)
+		sort.Strings(keys)
+		for _, key := range keys {
+			canonical, err := keyCanon(key)
+			if err != nil {
 				validationErrors = append(validationErrors, fmt.Sprintf(
-					"duplicate key binding '%s' found in tab_mode actions '%s' and '%s'",
+					"workspace.%s.actions.%s has invalid key binding '%s': %v",
+					modePath,
+					action,
 					key,
+					err,
+				))
+				continue
+			}
+			if modePath == "vim_mode" {
+				sequence, parseErr := vimkeys.ParseBinding(canonical)
+				if parseErr == nil {
+					if len(sequence) > 0 && isVimCountStartKey(sequence[0]) {
+						validationErrors = append(validationErrors, fmt.Sprintf(
+							"workspace.%s.actions.%s cannot start with a count digit (1-9): '%s'",
+							modePath,
+							action,
+							canonical,
+						))
+					}
+					legacyExit := action == "confirm" || action == "cancel"
+					if !legacyExit {
+						for _, key := range sequence {
+							if key.Mods == 0 && (key.Sym == "CR" || key.Sym == "Esc") {
+								validationErrors = append(validationErrors, fmt.Sprintf(
+									"workspace.%s.actions.%s cannot bind Enter or Escape outside the modal fallback actions",
+									modePath,
+									action,
+								))
+								break
+							}
+						}
+					}
+				}
+			}
+			if existingAction, exists := seenSequence[canonical]; exists {
+				validationErrors = append(validationErrors, fmt.Sprintf(
+					"duplicate key binding '%s' found in %s actions '%s' and '%s'",
+					canonical,
+					modePath,
 					existingAction,
 					action,
 				))
 			}
-			tabSeenKeys[key] = action
+			seenSequence[canonical] = action
 		}
 	}
 	return validationErrors
+}
+
+func isVimCountStartKey(key vimkeys.Key) bool {
+	return key.Mods == 0 && len(key.Sym) == 1 && key.Sym[0] >= '1' && key.Sym[0] <= '9'
+}
+
+func canonicalizeVimModeBinding(key string) string {
+	switch strings.ToLower(strings.TrimSpace(key)) {
+	case "enter":
+		return "<Return>"
+	case "escape":
+		return "<Escape>"
+	default:
+		return key
+	}
+}
+
+func canonicalizeVimModeSequenceKey(key string) (string, error) {
+	seq, err := vimkeys.ParseBinding(canonicalizeVimModeBinding(key))
+	if err != nil {
+		return "", err
+	}
+	return seq.String(), nil
 }
 
 func validateFloatingPane(config *Config) []string {

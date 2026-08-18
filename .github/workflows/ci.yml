@@ -54,8 +54,15 @@ jobs:
     steps:
       - name: Install dependencies
         run: |
-          pacman -Syu --noconfirm
-          pacman -S --noconfirm git go webkitgtk-6.0 gtk4 gtk4-layer-shell gobject-introspection base-devel brotli
+          for attempt in 1 2 3; do
+            if pacman -Syu --noconfirm && pacman -S --noconfirm git go webkitgtk-6.0 gtk4 gtk4-layer-shell gobject-introspection base-devel brotli; then
+              exit 0
+            fi
+            if [ "$attempt" -eq 3 ]; then
+              exit 1
+            fi
+            sleep 5
+          done
       - uses: actions/checkout@v7.0.1
       - name: Allow git commands in container checkout
         run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
@@ -98,8 +105,15 @@ jobs:
     steps:
       - name: Install dependencies
         run: |
-          pacman -Syu --noconfirm
-          pacman -S --noconfirm git go webkitgtk-6.0 gtk4 gtk4-layer-shell libadwaita gobject-introspection base-devel brotli dbus
+          for attempt in 1 2 3; do
+            if pacman -Syu --noconfirm && pacman -S --noconfirm git go webkitgtk-6.0 gtk4 gtk4-layer-shell libadwaita gobject-introspection base-devel brotli dbus; then
+              exit 0
+            fi
+            if [ "$attempt" -eq 3 ]; then
+              exit 1
+            fi
+            sleep 5
+          done
       - uses: actions/checkout@v7.0.1
       - name: Set up pinned Go toolchain
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e

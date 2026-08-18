@@ -2,8 +2,8 @@
 set -e
 
 # Dumber installer script
-# Usage: curl -fsSL https://dumber.bnema.dev/install | sh
-# Usage with pre-release: curl -fsSL https://dumber.bnema.dev/install | DUMBER_PRERELEASE=1 sh
+# Usage: curl -fsSL https://raw.githubusercontent.com/bnema/dumber/main/install.sh | sh
+# Usage with pre-release: curl -fsSL https://raw.githubusercontent.com/bnema/dumber/main/install.sh | DUMBER_PRERELEASE=1 sh
 
 REPO="bnema/dumber"
 VERSION="${DUMBER_VERSION:-latest}"

@@ -230,7 +230,7 @@ func TestPreInitializeAdwaitaForCEF_SkipsNonCEF(t *testing.T) {
 
 func TestTryForwardBrowseURLToRunningInstance_ForwardsDefaultStartupURL(t *testing.T) {
 	relay := mocks.NewMockBrowserLaunchRelay(t)
-	relay.EXPECT().DeliverOpenFreshWindow(context.Background(), "dumb://history").Return(true, nil)
+	relay.EXPECT().DeliverOpenExternalURL(context.Background(), "dumb://history").Return(true, nil)
 
 	forwarded, err := tryForwardBrowseURLToRunningInstance(context.Background(), relay, "dumb://history")
 
@@ -244,7 +244,7 @@ func TestTryForwardBrowseURLToRunningInstance_ForwardsDefaultStartupURL(t *testi
 
 func TestTryForwardBrowseURLToRunningInstance_ReturnsTrueOnRelayHit(t *testing.T) {
 	relay := mocks.NewMockBrowserLaunchRelay(t)
-	relay.EXPECT().DeliverOpenFreshWindow(context.Background(), "https://example.com").Return(true, nil)
+	relay.EXPECT().DeliverOpenExternalURL(context.Background(), "https://example.com").Return(true, nil)
 
 	forwarded, err := tryForwardBrowseURLToRunningInstance(context.Background(), relay, "https://example.com")
 
@@ -256,9 +256,23 @@ func TestTryForwardBrowseURLToRunningInstance_ReturnsTrueOnRelayHit(t *testing.T
 	}
 }
 
+func TestTryForwardFreshWindowURLToRunningInstance_UsesFreshWindowRelayAction(t *testing.T) {
+	relay := mocks.NewMockBrowserLaunchRelay(t)
+	relay.EXPECT().DeliverOpenFreshWindow(context.Background(), "https://example.com").Return(true, nil)
+
+	forwarded, err := tryForwardFreshWindowURLToRunningInstance(context.Background(), relay, "https://example.com")
+
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if !forwarded {
+		t.Fatal("expected fresh-window relay delivery to be forwarded")
+	}
+}
+
 func TestTryForwardBrowseURLToRunningInstance_ReturnsFalseOnRelayMiss(t *testing.T) {
 	relay := mocks.NewMockBrowserLaunchRelay(t)
-	relay.EXPECT().DeliverOpenFreshWindow(context.Background(), "https://example.com").Return(false, nil)
+	relay.EXPECT().DeliverOpenExternalURL(context.Background(), "https://example.com").Return(false, nil)
 
 	forwarded, err := tryForwardBrowseURLToRunningInstance(context.Background(), relay, "https://example.com")
 
@@ -272,7 +286,7 @@ func TestTryForwardBrowseURLToRunningInstance_ReturnsFalseOnRelayMiss(t *testing
 
 func TestTryForwardBrowseURLToRunningInstance_ReturnsTrueOnUnconfirmedRelayDelivery(t *testing.T) {
 	relay := mocks.NewMockBrowserLaunchRelay(t)
-	relay.EXPECT().DeliverOpenFreshWindow(context.Background(), "https://example.com").Return(true, desktop.ErrBrowserLaunchRelayUnconfirmed)
+	relay.EXPECT().DeliverOpenExternalURL(context.Background(), "https://example.com").Return(true, desktop.ErrBrowserLaunchRelayUnconfirmed)
 
 	forwarded, err := tryForwardBrowseURLToRunningInstance(context.Background(), relay, "https://example.com")
 
@@ -309,7 +323,7 @@ func TestLaunchStandaloneBrowserURL_PropagatesOtherErrors(t *testing.T) {
 func TestTryForwardBrowseURLToRunningInstance_PropagatesError(t *testing.T) {
 	relay := mocks.NewMockBrowserLaunchRelay(t)
 	wantErr := errors.New("relay error")
-	relay.EXPECT().DeliverOpenFreshWindow(context.Background(), "https://example.com").Return(false, wantErr)
+	relay.EXPECT().DeliverOpenExternalURL(context.Background(), "https://example.com").Return(false, wantErr)
 
 	forwarded, err := tryForwardBrowseURLToRunningInstance(context.Background(), relay, "https://example.com")
 

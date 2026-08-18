@@ -446,6 +446,10 @@ func NewSessionSpawner(ctx context.Context, spawnEnv port.SessionSpawnEnvironmen
 // RestoreSessionEnvVar is the environment variable used to pass session ID for restoration.
 const RestoreSessionEnvVar = "DUMBER_RESTORE_SESSION"
 
+// FreshWindowLaunchEnvVar marks a browse child that must open a fresh window
+// instead of applying external-link workspace placement.
+const FreshWindowLaunchEnvVar = "DUMBER_BROWSER_FRESH_WINDOW"
+
 const layerShellPreloadToken = "libgtk4" + "-layer-shell"
 
 // LaunchExternalURL opens a URL with the system's default handler (xdg-open on Linux).
@@ -466,6 +470,23 @@ func LaunchBrowserURL(uri string) {
 }
 
 func launchBrowserBrowseURL(uri string, resolveExecutablePath func() (string, error), spawnDetachedProcess func(*exec.Cmd) error) error {
+	return launchBrowserURL(uri, false, resolveExecutablePath, spawnDetachedProcess)
+}
+
+func launchBrowserFreshWindowURL(
+	uri string,
+	resolveExecutablePath func() (string, error),
+	spawnDetachedProcess func(*exec.Cmd) error,
+) error {
+	return launchBrowserURL(uri, true, resolveExecutablePath, spawnDetachedProcess)
+}
+
+func launchBrowserURL(
+	uri string,
+	freshWindow bool,
+	resolveExecutablePath func() (string, error),
+	spawnDetachedProcess func(*exec.Cmd) error,
+) error {
 	if resolveExecutablePath == nil {
 		resolveExecutablePath = getExecutablePath
 	}
@@ -479,7 +500,10 @@ func launchBrowserBrowseURL(uri string, resolveExecutablePath func() (string, er
 	}
 
 	cmd := exec.Command(execPath, "browse", uri)
-	cmd.Env = sanitizedChildEnv(os.Environ())
+	cmd.Env = withoutEnvKeys(sanitizedChildEnv(os.Environ()), FreshWindowLaunchEnvVar)
+	if freshWindow {
+		cmd.Env = append(cmd.Env, FreshWindowLaunchEnvVar+"=1")
+	}
 	if err := spawnDetachedProcess(cmd); err != nil {
 		return fmt.Errorf("failed to launch dumber browse for requested URL: %w", err)
 	}

@@ -2,9 +2,11 @@ package webkit
 
 import (
 	"context"
+	"encoding/json"
 	"sync"
 	"testing"
 
+	"github.com/bnema/dumber/internal/application/port"
 	"github.com/stretchr/testify/require"
 )
 
@@ -33,6 +35,57 @@ func TestMessageRouterBaseContextConcurrentUpdate(t *testing.T) {
 	}()
 
 	wg.Wait()
+}
+
+func TestHandleAllowlistedEditableFocusMessage_AllowsUntrustedPage(t *testing.T) {
+	router := NewMessageRouter(context.Background())
+	wv := &WebView{uri: "https://example.com", editableFocusBridgeToken: "secret-token"}
+
+	var states []bool
+	wv.SetCallbacks(&port.WebViewCallbacks{
+		OnEditableFocusChanged: func(editable bool) {
+			states = append(states, editable)
+		},
+	})
+
+	handled := router.handleAllowlistedBridgeMessage(wv, Message{
+		Type:    "editable_focus_changed",
+		Payload: json.RawMessage(`{"editable":true,"token":"secret-token"}`),
+	})
+
+	require.True(t, handled)
+	require.Equal(t, []bool{true}, states)
+}
+
+func TestHandleAllowlistedEditableFocusMessage_IsNoopAfterPoolReuse(t *testing.T) {
+	router := NewMessageRouter(context.Background())
+	wv := &WebView{uri: "https://example.com", editableFocusBridgeToken: "secret-token"}
+	wv.ResetForPoolReuse()
+
+	// Re-register after reset so a stale token is the only reason handling is a noop.
+	called := false
+	wv.SetCallbacks(&port.WebViewCallbacks{
+		OnEditableFocusChanged: func(bool) {
+			called = true
+		},
+	})
+
+	handled := router.handleAllowlistedBridgeMessage(wv, Message{
+		Type:    "editable_focus_changed",
+		Payload: json.RawMessage(`{"editable":true,"token":"secret-token"}`),
+	})
+
+	require.True(t, handled)
+	require.False(t, called)
+}
+
+func TestResetForPoolReuse_RotatesEditableFocusBridgeToken(t *testing.T) {
+	wv := &WebView{editableFocusBridgeToken: "secret-token"}
+
+	wv.ResetForPoolReuse()
+
+	require.NotEmpty(t, wv.EditableFocusBridgeToken())
+	require.NotEqual(t, "secret-token", wv.EditableFocusBridgeToken())
 }
 
 func TestIsTrustedBridgeURI(t *testing.T) {

@@ -13,7 +13,7 @@ import (
 // received the request, but the caller could not confirm that in time.
 var ErrBrowserLaunchUnconfirmed = errors.New("browser launch could not be confirmed")
 
-// BrowserLauncher opens URLs in a relay-first dumber browser instance.
+// BrowserLauncher opens standalone-omnibox URLs in a relay-first dumber browser instance.
 type BrowserLauncher struct {
 	relay                 port.BrowserLaunchRelay
 	resolveExecutablePath func() (string, error)
@@ -29,8 +29,10 @@ func NewBrowserLauncher(relay port.BrowserLaunchRelay) *BrowserLauncher {
 	}
 }
 
-// LaunchURL forwards the URL to a running instance when possible, otherwise spawns a new one.
-func (l *BrowserLauncher) LaunchURL(ctx context.Context, url string) error {
+// LaunchFreshWindowURL forwards the URL to a running instance when possible,
+// always requesting a new browser window. This keeps standalone omnibox
+// navigation independent from external-link workspace placement settings.
+func (l *BrowserLauncher) LaunchFreshWindowURL(ctx context.Context, url string) error {
 	if l == nil {
 		return errors.New("browser launcher is unavailable")
 	}
@@ -48,7 +50,7 @@ func (l *BrowserLauncher) LaunchURL(ctx context.Context, url string) error {
 		}
 	}
 
-	if err := launchBrowserBrowseURL(url, l.resolveExecutablePath, l.startDetachedProcess); err != nil {
+	if err := launchBrowserFreshWindowURL(url, l.resolveExecutablePath, l.startDetachedProcess); err != nil {
 		return fmt.Errorf("launch dumber browse: %w", err)
 	}
 	return nil

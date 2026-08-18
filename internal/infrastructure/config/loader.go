@@ -175,10 +175,6 @@ func (m *Manager) transformLegacyConfig() {
 		transformer.TransformLegacyPopupsToBrowsingContexts(rawConfig)
 	}
 
-	// Merge newly added default actions into in-memory config so existing persisted
-	// action maps keep working before the user writes a migrated config to disk.
-	configMigrator.mergeMissingDefaultActions(rawConfig)
-
 	// Apply transformed config back to viper
 	for key, value := range rawConfig {
 		m.viper.Set(key, value)
@@ -378,6 +374,7 @@ func ensureDatabasePath(config *Config) error {
 }
 
 func normalizeConfig(config *Config) {
+	normalizeExternalLinks(config)
 	normalizeAppearance(config)
 	normalizeMedia(config)
 	normalizeEngineConfig(config)
@@ -388,6 +385,20 @@ func normalizeConfig(config *Config) {
 // for runtime compatibility. Existing code can keep reading config.Workspace.Popups.
 func normalizeBrowsingContexts(config *Config) {
 	config.Workspace.Popups = config.Workspace.BrowsingContexts
+}
+
+func normalizeExternalLinks(config *Config) {
+	switch config.Workspace.ExternalLinks.Behavior {
+	case ExternalLinkBehaviorWindowed, ExternalLinkBehaviorTabbed, ExternalLinkBehaviorSplit, ExternalLinkBehaviorStacked:
+	default:
+		config.Workspace.ExternalLinks.Behavior = defaultExternalLinkBehavior
+	}
+
+	switch config.Workspace.ExternalLinks.Placement {
+	case ExternalLinkPlacementRight, ExternalLinkPlacementLeft, ExternalLinkPlacementTop, ExternalLinkPlacementBottom:
+	default:
+		config.Workspace.ExternalLinks.Placement = defaultExternalLinkPlacement
+	}
 }
 
 func normalizeEngineConfig(config *Config) {
@@ -695,6 +706,11 @@ func (m *Manager) setWorkspaceDefaults(defaults *Config) {
 	m.viper.SetDefault("workspace.tab_mode.activation_shortcut", defaults.Workspace.TabMode.ActivationShortcut)
 	m.viper.SetDefault("workspace.tab_mode.timeout_ms", defaults.Workspace.TabMode.TimeoutMilliseconds)
 	m.viper.SetDefault("workspace.tab_mode.actions", defaults.Workspace.TabMode.Actions)
+	m.viper.SetDefault("workspace.vim_mode.activation_shortcut", defaults.Workspace.VimMode.ActivationShortcut)
+	m.viper.SetDefault("workspace.vim_mode.timeout_ms", defaults.Workspace.VimMode.TimeoutMilliseconds)
+	m.viper.SetDefault("workspace.vim_mode.sequence_timeout_ms", defaults.Workspace.VimMode.SequenceTimeoutMilliseconds)
+	m.viper.SetDefault("workspace.vim_mode.preload_accessibility", defaults.Workspace.VimMode.PreloadAccessibility)
+	m.viper.SetDefault("workspace.vim_mode.actions", defaults.Workspace.VimMode.Actions)
 	m.viper.SetDefault("workspace.resize_mode.activation_shortcut", defaults.Workspace.ResizeMode.ActivationShortcut)
 	m.viper.SetDefault("workspace.resize_mode.timeout_ms", defaults.Workspace.ResizeMode.TimeoutMilliseconds)
 	m.viper.SetDefault("workspace.resize_mode.step_percent", defaults.Workspace.ResizeMode.StepPercent)
@@ -704,6 +720,8 @@ func (m *Manager) setWorkspaceDefaults(defaults *Config) {
 	m.viper.SetDefault("workspace.floating_pane.width_pct", defaults.Workspace.FloatingPane.WidthPct)
 	m.viper.SetDefault("workspace.floating_pane.height_pct", defaults.Workspace.FloatingPane.HeightPct)
 	m.viper.SetDefault("workspace.floating_pane.profiles", defaults.Workspace.FloatingPane.Profiles)
+	m.viper.SetDefault("workspace.external_links.behavior", string(defaults.Workspace.ExternalLinks.Behavior))
+	m.viper.SetDefault("workspace.external_links.placement", string(defaults.Workspace.ExternalLinks.Placement))
 	m.viper.SetDefault("workspace.tab_bar_position", defaults.Workspace.TabBarPosition)
 	m.viper.SetDefault("workspace.hide_tab_bar_when_single_tab", defaults.Workspace.HideTabBarWhenSingleTab)
 	m.viper.SetDefault("workspace.switch_to_tab_on_move", defaults.Workspace.SwitchToTabOnMove)

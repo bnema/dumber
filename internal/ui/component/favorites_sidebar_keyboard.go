@@ -17,6 +17,9 @@ func (fs *FavoritesSidebar) setupKeyboardNavigation() {
 	if keyController == nil {
 		return
 	}
+	// Directional controls must run before GtkSearchEntry and GtkListBox consume
+	// arrows. Explicit text-input focus tracking below still defers printable
+	// keys to their focused entry.
 	keyController.SetPropagationPhase(gtk.PhaseCaptureValue)
 	keyPressedCb := func(_ gtk.EventControllerKey, keyval uint, _ uint, state gdk.ModifierType) bool {
 		fs.mu.RLock()
@@ -29,6 +32,18 @@ func (fs *FavoritesSidebar) setupKeyboardNavigation() {
 		fs.mu.RUnlock()
 
 		textEditing := fs.inTextEditContext()
+		if fs.isTextInputFocused(fs.tagNameEntry) &&
+			(keyval == uint(gdk.KEY_Return) || keyval == uint(gdk.KEY_KP_Enter)) {
+			return fs.createTagFromFocusedEntry()
+		}
+		if keyval == uint(gdk.KEY_Up) || keyval == uint(gdk.KEY_Down) {
+			if fs.routeDirectionalFocus(keyval) {
+				return true
+			}
+		}
+		if shouldDeferToTextInput(textEditing, keyval) {
+			return false
+		}
 		switch keyval {
 		case uint(gdk.KEY_Escape):
 			if fs.cancelManagement() {
@@ -43,6 +58,12 @@ func (fs *FavoritesSidebar) setupKeyboardNavigation() {
 			}
 			return true
 		case uint(gdk.KEY_Return), uint(gdk.KEY_KP_Enter):
+			if fs.createTagFromFocusedEntry() {
+				return true
+			}
+			if fs.focusedTagControlIndex() >= 0 {
+				return false
+			}
 			return fs.handleReturnKey(state)
 		case uint(gdk.KEY_Tab), uint(gdk.KEY_ISO_Left_Tab):
 			fs.cycleFocusZone(state&gdk.ShiftMaskValue != 0)
@@ -89,6 +110,11 @@ func (fs *FavoritesSidebar) setupKeyboardNavigation() {
 			}
 			fs.selectAdjacentRow(1)
 			return true
+		case uint(gdk.KEY_plus), uint(gdk.KEY_KP_Add):
+			if !textEditing && fs.listHasFocus() {
+				return fs.showTagBindingPicker()
+			}
+			return false
 		case uint(gdk.KEY_slash):
 			if textEditing {
 				return false
@@ -279,19 +305,95 @@ func (fs *FavoritesSidebar) navigateToNewPane(url string) {
 
 func shouldFocusSearchForSlash(searchFocused bool) bool { return !searchFocused }
 
+// shouldDeferToTextInput keeps the sidebar controller from treating text typed
+// into a descendant entry as a global sidebar command.
+// Tab traverses focus and Escape cancels sidebar management while text is focused.
+func shouldDeferToTextInput(textEditing bool, keyval uint) bool {
+	return textEditing && keyval != uint(gdk.KEY_Tab) &&
+		keyval != uint(gdk.KEY_ISO_Left_Tab) && keyval != uint(gdk.KEY_Escape)
+}
+
+func (fs *FavoritesSidebar) routeDirectionalFocus(keyval uint) bool {
+	if fs == nil {
+		return false
+	}
+	fs.mu.RLock()
+	zone := fs.focusZone
+	fs.mu.RUnlock()
+	switch {
+	case zone == favoritesSidebarFocusTags:
+		// Tag filters and creation are deliberately Tab-only controls.
+		return true
+	case keyval == uint(gdk.KEY_Down) && zone == favoritesSidebarFocusSearch:
+		fs.focusListAndSelectFirst()
+		return true
+	case keyval == uint(gdk.KEY_Up) && zone == favoritesSidebarFocusList && fs.selectedRowIsFirst():
+		fs.setFocusZone(favoritesSidebarFocusSearch)
+		if fs.searchEntry != nil {
+			fs.searchEntry.GrabFocus()
+		}
+		return true
+	}
+	return false
+}
+
+func (fs *FavoritesSidebar) focusListAndSelectFirst() {
+	if fs == nil {
+		return
+	}
+	fs.setFocusZone(favoritesSidebarFocusList)
+	if fs.listBox == nil {
+		return
+	}
+	fs.listBox.GrabFocus()
+	fs.mu.RLock()
+	index := firstSelectableIndex(fs.displayRows)
+	fs.mu.RUnlock()
+	fs.selectIndex(index)
+}
+
+func (fs *FavoritesSidebar) selectedRowIsFirst() bool {
+	if fs == nil {
+		return false
+	}
+	if fs.listBox == nil {
+		return true
+	}
+	row := fs.listBox.GetSelectedRow()
+	if row == nil {
+		return true
+	}
+	fs.mu.RLock()
+	first := firstSelectableIndex(fs.displayRows)
+	fs.mu.RUnlock()
+	return row.GetIndex() == first
+}
+
+func (fs *FavoritesSidebar) listHasFocus() bool {
+	if fs == nil {
+		return false
+	}
+	fs.mu.RLock()
+	defer fs.mu.RUnlock()
+	return fs.focusZone == favoritesSidebarFocusList
+}
+
 func (fs *FavoritesSidebar) inTextEditContext() bool {
 	if fs == nil {
 		return false
 	}
-	if fs.searchEntry != nil && fs.searchEntry.HasFocus() {
-		return true
+	fs.mu.RLock()
+	defer fs.mu.RUnlock()
+	return fs.textInputWidget != nil
+}
+
+func (fs *FavoritesSidebar) isTextInputFocused(widget *gtk.Entry) bool {
+	if fs == nil || widget == nil {
+		return false
 	}
-	for _, entry := range []*gtk.SearchEntry{fs.formURLEntry, fs.formTitleEntry, fs.formTagsEntry, fs.formShortcutEntry} {
-		if entry != nil && entry.HasFocus() {
-			return true
-		}
-	}
-	return false
+	fs.mu.RLock()
+	defer fs.mu.RUnlock()
+	return fs.textInputWidget == &widget.Widget
 }
 
 func (fs *FavoritesSidebar) handleSingleKeyCommand(keyval uint, state gdk.ModifierType) bool {
@@ -303,9 +405,6 @@ func (fs *FavoritesSidebar) handleSingleKeyCommand(keyval uint, state gdk.Modifi
 	mode := fs.mode
 	confirm := fs.confirmDelete
 	fs.mu.RUnlock()
-	if mode == favoritesSidebarModeTag && keyval >= uint(gdk.KEY_1) && keyval <= uint(gdk.KEY_9) {
-		return fs.toggleFavoriteTagByOrdinal(int(keyval - uint(gdk.KEY_0)))
-	}
 	if mode == favoritesSidebarModeShortcut {
 		if keyval >= uint(gdk.KEY_1) && keyval <= uint(gdk.KEY_9) {
 			v := int(keyval - uint(gdk.KEY_0))
@@ -327,9 +426,6 @@ func (fs *FavoritesSidebar) handleSingleKeyCommand(keyval uint, state gdk.Modifi
 		return true
 	case uint(gdk.KEY_e):
 		fs.beginEditForm()
-		return true
-	case uint(gdk.KEY_t):
-		fs.enterTagMode()
 		return true
 	case uint(gdk.KEY_s):
 		fs.enterShortcutMode()
@@ -366,13 +462,21 @@ func (fs *FavoritesSidebar) cycleFocusZone(reverse bool) {
 	if fs == nil {
 		return
 	}
-	zones := fs.availableFocusZones()
-	if len(zones) == 0 {
+	if fs.cycleTagControlFocus(reverse) {
 		return
 	}
 	fs.mu.RLock()
 	current := fs.focusZone
+	tagCount := len(fs.tagControls)
 	fs.mu.RUnlock()
+	if reverse && current == favoritesSidebarFocusList && tagCount > 0 {
+		fs.focusTagControl(tagCount - 1)
+		return
+	}
+	zones := fs.availableFocusZones()
+	if len(zones) == 0 {
+		return
+	}
 	idx := -1
 	for i, zone := range zones {
 		if zone == current {
@@ -392,6 +496,37 @@ func (fs *FavoritesSidebar) cycleFocusZone(reverse bool) {
 		}
 	}
 	fs.focusZoneWidget(zones[idx])
+}
+
+func (fs *FavoritesSidebar) cycleTagControlFocus(reverse bool) bool {
+	fs.mu.RLock()
+	inTags := fs.focusZone == favoritesSidebarFocusTags
+	controls := append([]*gtk.Button(nil), fs.tagControls...)
+	fs.mu.RUnlock()
+	if !inTags || len(controls) == 0 {
+		return false
+	}
+	index := fs.focusedTagControlIndex()
+	if index < 0 {
+		if reverse {
+			fs.focusTagControl(len(controls) - 1)
+		} else {
+			fs.focusTagControl(0)
+		}
+		return true
+	}
+	if reverse {
+		if index > 0 {
+			fs.focusTagControl(index - 1)
+			return true
+		}
+		return false
+	}
+	if index < len(controls)-1 {
+		fs.focusTagControl(index + 1)
+		return true
+	}
+	return false
 }
 
 func (fs *FavoritesSidebar) availableFocusZones() []favoritesSidebarFocusZone {
@@ -428,9 +563,7 @@ func (fs *FavoritesSidebar) focusZoneWidget(zone favoritesSidebarFocusZone) {
 	case favoritesSidebarFocusSearch:
 		fs.focusSearch()
 	case favoritesSidebarFocusTags:
-		if fs.tagBox != nil {
-			fs.tagBox.GrabFocus()
-		}
+		fs.focusTagControl(0)
 	case favoritesSidebarFocusList, favoritesSidebarFocusConfirm:
 		if fs.listBox != nil {
 			fs.listBox.GrabFocus()
