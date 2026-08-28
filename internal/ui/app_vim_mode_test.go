@@ -177,6 +177,7 @@ func (wv *accessibilityEnablingWebView) EnableAccessibility() {
 type semanticNavigatingWebView struct {
 	*portmocks.MockWebView
 	requests                      []dto.SemanticNavigationRequest
+	activateNavigationTargetCalls int
 	clearNavigationHighlightCalls int
 }
 
@@ -189,6 +190,11 @@ func newSemanticNavigatingWebView(t *testing.T, id port.WebViewID) *semanticNavi
 
 func (wv *semanticNavigatingWebView) NavigateSemantic(_ context.Context, request dto.SemanticNavigationRequest) error {
 	wv.requests = append(wv.requests, request)
+	return nil
+}
+
+func (wv *semanticNavigatingWebView) ActivateSemanticNavigationTarget(context.Context) error {
+	wv.activateNavigationTargetCalls++
 	return nil
 }
 
@@ -511,6 +517,16 @@ func TestVimMode_SequenceActionNavigatesActiveWebViewHeading(t *testing.T) {
 		{Target: dto.SemanticNavigationTargetHeading, Direction: dto.SemanticNavigationForward, Count: 3},
 		{Target: dto.SemanticNavigationTargetHeading, Direction: dto.SemanticNavigationBackward, Count: 0},
 	}, wv.requests)
+}
+
+func TestVimMode_ConfirmActivatesSelectedHeadingLink(t *testing.T) {
+	app, bw, paneID := newVimModeAccessibilityFixture(t)
+	wv := newSemanticNavigatingWebView(t, 12)
+	app.contentCoord.RegisterPopupWebView(paneID, wv)
+
+	app.navigateVimSequenceAction(context.Background(), bw, "confirm", 0)
+
+	assert.Equal(t, 1, wv.activateNavigationTargetCalls)
 }
 
 func TestVimMode_SequenceActionFocusesNextInput(t *testing.T) {

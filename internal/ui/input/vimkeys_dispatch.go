@@ -272,7 +272,9 @@ func (h *KeyboardHandler) feedVimModeSequence(keyval uint, state gdk.ModifierTyp
 		if onPending != nil {
 			onPending("")
 		}
-		if onAction != nil {
+		if action == "confirm" {
+			h.confirmVimMode()
+		} else if onAction != nil {
 			onAction(action, count)
 		}
 		log.Debug().Str("action", action).Int("count", count).Msg("vim mode sequence complete")
@@ -343,7 +345,9 @@ func (h *KeyboardHandler) resolveAmbiguity(gen uint64) {
 	if onPending != nil {
 		onPending("")
 	}
-	if onAction != nil {
+	if action == "confirm" {
+		h.confirmVimMode()
+	} else if onAction != nil {
 		onAction(action, count)
 	}
 	log.Debug().Str("action", action).Int("count", count).Msg("vim mode ambiguity resolved")

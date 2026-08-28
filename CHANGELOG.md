@@ -6,7 +6,7 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
-- **Vim mode for keyboard-driven page navigation**: Added configurable multi-key sequences for page scrolling, fast scrolling, page-input focus, and live heading navigation. CEF accessibility data also provides the foundation for navigating structured page content such as headings, lists, paragraphs, and sections.
+- **Vim mode for keyboard-driven page navigation**: Added configurable multi-key sequences for page scrolling, fast scrolling, page-input focus, and live heading navigation. Pressing `Enter` on a selected CEF heading opens its associated link before leaving Vim Mode. CEF accessibility data also provides the foundation for navigating structured page content such as headings, lists, paragraphs, and sections.
 - **Native favorites sidebar**: Added a keyboard-driven GTK sidebar toggled with `Ctrl+B`, including search, tag filtering, tag creation, favorite editing, shortcut assignment, deletion, and opening favorites in the current pane or a new split.
 - **WebP favicon decoding**: Added safe WebP decoding for sites that publish WebP favicons.
 

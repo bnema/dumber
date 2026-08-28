@@ -275,8 +275,8 @@ func assertLegacyVimModeBindings(t *testing.T, set *ShortcutSet) {
 	}
 
 	enterBinding := KeyBinding{Keyval: uint(gdk.KEY_Return), Modifiers: ModNone}
-	if action, found := set.VimMode[enterBinding]; !found || action != ActionExitMode {
-		t.Fatalf("legacy enter missing from VimMode: found=%v action=%q", found, action)
+	if action, found := set.VimMode[enterBinding]; !found || action != ActionVimConfirm {
+		t.Fatalf("legacy Vim confirm missing from VimMode: found=%v action=%q", found, action)
 	}
 
 	escapeBinding := KeyBinding{Keyval: uint(gdk.KEY_Escape), Modifiers: ModNone}
@@ -357,6 +357,29 @@ func TestFeedVimModeSequence_CompleteDoubleBracket(t *testing.T) {
 	}
 	if len(*pending) < 2 || (*pending)[len(*pending)-1] != "" {
 		t.Fatalf("pending after complete = %#v, want trailing clear", *pending)
+	}
+}
+
+func TestFeedVimModeSequence_ConfiguredConfirmActivatesAndExits(t *testing.T) {
+	ctx := context.Background()
+	ws := vimModeSequenceWorkspace(map[string]entity.ActionBinding{
+		"confirm": {Keys: []string{"zz"}},
+	})
+	h := NewKeyboardHandler(ctx, ws, newTestSession())
+	actions := captureSequenceActions(h)
+	enterVimMode(t, h)
+
+	if !h.handleKeyPress(uint('z'), 0, 0) {
+		t.Fatal("configured confirm prefix should be consumed")
+	}
+	if !h.handleKeyPress(uint('z'), 0, 0) {
+		t.Fatal("configured confirm completion should be consumed")
+	}
+	if len(*actions) != 1 || (*actions)[0].action != "confirm" || (*actions)[0].count != 0 {
+		t.Fatalf("actions = %#v, want confirm count 0", *actions)
+	}
+	if h.Mode() != ModeNormal {
+		t.Fatalf("mode after configured confirm sequence = %v, want ModeNormal", h.Mode())
 	}
 }
 

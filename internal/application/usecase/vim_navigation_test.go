@@ -15,6 +15,7 @@ type vimNavigationWebView struct {
 	focusNextInputCalls           int
 	pageFocusBackward             []bool
 	semanticRequests              []dto.SemanticNavigationRequest
+	activateNavigationTargetCalls int
 	clearNavigationHighlightCalls int
 }
 
@@ -31,6 +32,11 @@ func (wv *vimNavigationWebView) NavigateSemantic(_ context.Context, request dto.
 	return nil
 }
 
+func (wv *vimNavigationWebView) ActivateSemanticNavigationTarget(context.Context) error {
+	wv.activateNavigationTargetCalls++
+	return nil
+}
+
 func (wv *vimNavigationWebView) ClearSemanticNavigationHighlight(context.Context) error {
 	wv.clearNavigationHighlightCalls++
 	return nil
@@ -42,8 +48,10 @@ func TestVimNavigationUseCaseExecuteDispatchesConfiguredActions(t *testing.T) {
 
 	require.NoError(t, uc.Execute(context.Background(), wv, "focus-input", 1, ""))
 	require.NoError(t, uc.Execute(context.Background(), wv, "heading-prev", 3, "#aabbcc"))
+	require.NoError(t, uc.Execute(context.Background(), wv, "confirm", 1, ""))
 
 	assert.Equal(t, 1, wv.focusNextInputCalls)
+	assert.Equal(t, 1, wv.activateNavigationTargetCalls)
 	require.Len(t, wv.semanticRequests, 1)
 	assert.Equal(t, dto.SemanticNavigationRequest{
 		Target:         dto.SemanticNavigationTargetHeading,

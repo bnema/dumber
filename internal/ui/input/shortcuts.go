@@ -206,6 +206,7 @@ const (
 
 	// Vim mode actions
 	ActionEnterVimMode      Action = "enter_vim_mode"
+	ActionVimConfirm        Action = "vim_confirm"
 	ActionVimScrollLeft     Action = "vim_scroll_left"
 	ActionVimScrollDown     Action = "vim_scroll_down"
 	ActionVimScrollUp       Action = "vim_scroll_up"
@@ -589,7 +590,7 @@ func (s *ShortcutSet) buildModeShortcuts(ctx context.Context, bindings map[strin
 	var registered, parseErrors, unknownActions int
 	for key, configAction := range bindings {
 		if binding, ok := ParseKeyString(key); ok {
-			if action := mapConfigAction(configAction); action != "" {
+			if action := mapModeConfigAction(configAction, mode); action != "" {
 				dest[binding] = action
 				registered++
 				log.Trace().
@@ -758,6 +759,13 @@ func ParseFloatingProfileAction(action Action) (string, bool) {
 		return "", false
 	}
 	return target.URL, true
+}
+
+func mapModeConfigAction(configAction, mode string) Action {
+	if mode == "vim" && configAction == "confirm" {
+		return ActionVimConfirm
+	}
+	return mapConfigAction(configAction)
 }
 
 // mapConfigAction maps config action names to Action constants.
