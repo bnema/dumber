@@ -43,6 +43,21 @@ func TestWebViewNavigateSemantic_HeadingExecutesStrictNavigationScript(t *testin
 	require.NoError(t, err)
 }
 
+func TestWebViewActivateSemanticNavigationTargetClicksSelectedHeadingLink(t *testing.T) {
+	browser := cefmocks.NewMockBrowser(t)
+	frame := cefmocks.NewMockFrame(t)
+	browser.EXPECT().GetMainFrame().Return(frame).Once()
+	frame.EXPECT().ExecuteJavaScript(mock.MatchedBy(mockStringContaining(t,
+		"const target = window[stateKey]",
+		"target.closest(\"a[href]\")",
+		"target.querySelector(\"a[href]\")",
+		"link.click()",
+	)), "", int32(0)).Once()
+
+	wv := &WebView{browser: browser}
+	require.NoError(t, wv.ActivateSemanticNavigationTarget(context.Background()))
+}
+
 func TestWebViewClearSemanticNavigationHighlightRemovesTargetArtifacts(t *testing.T) {
 	browser := cefmocks.NewMockBrowser(t)
 	frame := cefmocks.NewMockFrame(t)

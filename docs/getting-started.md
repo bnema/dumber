@@ -37,10 +37,11 @@ Vim Mode stays local to the active pane and automatically leaves the mode when f
 3. Use `Shift+J` / `Shift+K` for faster vertical jumps
 4. Arrow keys continue to use the browser engine's native page navigation while Vim Mode is active
 5. Use `gi` to cycle through visible page inputs; use `]]` and `[[` to move through headings
-6. `Tab` and `Shift+Tab` traverse focusable page controls while a page input is focused
-7. Other app-level shortcuts stay suspended until you leave Vim Mode
-8. Press `Escape` or `Enter` to leave the mode
-9. `Ctrl+Y` can activate Vim Mode even when a page input or editor is already focused
+6. With CEF, press `Enter` to open a link in the selected heading and leave Vim Mode; if the heading has no link, it only leaves the mode
+7. `Tab` and `Shift+Tab` traverse focusable page controls while a page input is focused
+8. Other app-level shortcuts stay suspended until you leave Vim Mode
+9. Press `Escape` to leave the mode without activating the selected heading
+10. `Ctrl+Y` can activate Vim Mode even when a page input or editor is already focused
 
 > **Engine behavior**: CEF and WebKit execute Vim Mode scroll steps with the
 > shared `BuildPageScrollByJS` resolver (viewport-center start, nested-scroller

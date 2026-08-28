@@ -465,6 +465,12 @@ type SemanticNavigable interface {
 	NavigateSemantic(ctx context.Context, request dto.SemanticNavigationRequest) error
 }
 
+// SemanticNavigationActivator is an optional WebView capability for activating
+// the link associated with the current semantic navigation target.
+type SemanticNavigationActivator interface {
+	ActivateSemanticNavigationTarget(ctx context.Context) error
+}
+
 // SemanticNavigationHighlightClearer is an optional WebView capability for
 // removing the visual target left by semantic navigation.
 type SemanticNavigationHighlightClearer interface {

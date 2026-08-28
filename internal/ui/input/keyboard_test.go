@@ -580,8 +580,11 @@ func TestHandleKeyPress_VimModeEscapeExits(t *testing.T) {
 	}
 
 	h := NewKeyboardHandler(ctx, workspace, newTestSession())
-	h.SetOnAction(func(ctx context.Context, action Action) error {
-		return nil
+	var confirmCalls int
+	h.SetOnSequenceAction(func(action string, _ int) {
+		if action == "confirm" {
+			confirmCalls++
+		}
 	})
 
 	// Enter vim mode
@@ -598,36 +601,74 @@ func TestHandleKeyPress_VimModeEscapeExits(t *testing.T) {
 	if h.Mode() != ModeNormal {
 		t.Fatalf("mode after Escape = %v, want ModeNormal", h.Mode())
 	}
+	if confirmCalls != 0 {
+		t.Fatalf("confirm calls after Escape = %d, want 0", confirmCalls)
+	}
 }
 
-func TestHandleKeyPress_VimModeEnterExits(t *testing.T) {
+func TestHandleKeyPress_VimModeEnterConfirmsAndExits(t *testing.T) {
+	for _, tt := range []struct {
+		name   string
+		keyval uint
+	}{
+		{name: "return", keyval: uint(gdk.KEY_Return)},
+		{name: "keypad enter", keyval: uint(gdk.KEY_KP_Enter)},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := context.Background()
+			workspace := newTestWorkspace()
+			workspace.VimMode = entity.VimModeConfig{
+				ActivationShortcut: "ctrl+y",
+				Actions: map[string]entity.ActionBinding{
+					"confirm": {Keys: []string{"enter"}},
+				},
+			}
+
+			h := NewKeyboardHandler(ctx, workspace, newTestSession())
+			var confirmed bool
+			h.SetOnSequenceAction(func(action string, count int) {
+				confirmed = action == "confirm" && count == 0
+			})
+			enterVimMode(t, h)
+
+			if !h.handleKeyPress(tt.keyval, 0, 0) {
+				t.Fatal("Enter should be consumed")
+			}
+			if h.Mode() != ModeNormal {
+				t.Fatalf("mode after Enter = %v, want ModeNormal", h.Mode())
+			}
+			if !confirmed {
+				t.Fatal("Enter should dispatch Vim confirm before exiting")
+			}
+		})
+	}
+}
+
+func TestHandleKeyPress_VimModeConfiguredConfirmActivatesAndExits(t *testing.T) {
 	ctx := context.Background()
 	workspace := newTestWorkspace()
 	workspace.VimMode = entity.VimModeConfig{
 		ActivationShortcut: "ctrl+y",
 		Actions: map[string]entity.ActionBinding{
-			"confirm": {Keys: []string{"enter"}},
+			"confirm": {Keys: []string{"x"}},
 		},
 	}
 
 	h := NewKeyboardHandler(ctx, workspace, newTestSession())
-	h.SetOnAction(func(ctx context.Context, action Action) error {
-		return nil
+	var confirmed bool
+	h.SetOnSequenceAction(func(action string, count int) {
+		confirmed = action == "confirm" && count == 0
 	})
+	enterVimMode(t, h)
 
-	// Enter vim mode
-	h.handleKeyPress(uint('y'), 0, gdk.ControlMaskValue)
-	if h.Mode() != ModeVim {
-		t.Fatal("failed to enter vim mode")
+	if !h.handleKeyPress(uint('x'), 0, 0) {
+		t.Fatal("configured confirm should be consumed")
 	}
-
-	// Enter should exit vim mode
-	result := h.handleKeyPress(uint(gdk.KEY_Return), 0, 0)
-	if !result {
-		t.Fatal("Enter should be consumed")
+	if !confirmed {
+		t.Fatal("configured confirm should dispatch Vim confirm")
 	}
 	if h.Mode() != ModeNormal {
-		t.Fatalf("mode after Enter = %v, want ModeNormal", h.Mode())
+		t.Fatalf("mode after configured confirm = %v, want ModeNormal", h.Mode())
 	}
 }
 

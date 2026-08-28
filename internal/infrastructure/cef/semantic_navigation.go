@@ -32,6 +32,15 @@ func (wv *WebView) NavigateSemantic(ctx context.Context, request dto.SemanticNav
 	return nil
 }
 
+// ActivateSemanticNavigationTarget follows the link associated with the most
+// recent Vim semantic navigation target, if that target has one.
+func (wv *WebView) ActivateSemanticNavigationTarget(_ context.Context) error {
+	if wv == nil || wv.destroyed.Load() {
+		return errDestroyed
+	}
+	return wv.scheduleJavaScript(activateSemanticNavigationTargetScript(wv.vimHeadingHighlightNamespace()))
+}
+
 // ClearSemanticNavigationHighlight removes the visual target left by the most
 // recent Vim semantic navigation in this WebView.
 func (wv *WebView) ClearSemanticNavigationHighlight(_ context.Context) error {
@@ -132,6 +141,19 @@ func headingNavigationScript(direction, count int, highlightColor, namespace str
   window[stateKey] = target;
   target.setAttribute(targetAttribute, "");
   target.scrollIntoView({ block: "center", inline: "nearest", behavior: "smooth" });
+})();`
+}
+
+func activateSemanticNavigationTargetScript(namespace string) string {
+	return `(() => {
+  const stateKey = ` + strconv.Quote("__"+namespace+"Target") + `;
+  const target = window[stateKey];
+  if (!(target instanceof Element) || !target.isConnected) return;
+
+  let link = target.closest("a[href]");
+  if (!link) link = target.querySelector("a[href]");
+  if (!link) return;
+  link.click();
 })();`
 }
 

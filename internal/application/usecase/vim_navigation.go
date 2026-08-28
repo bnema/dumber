@@ -29,7 +29,14 @@ func (*VimNavigationUseCase) Execute(ctx context.Context, wv port.WebView, actio
 		return errors.New("vim navigation: nil webview")
 	}
 
-	if action == "focus-input" {
+	switch action {
+	case "confirm":
+		activator, ok := wv.(port.SemanticNavigationActivator)
+		if !ok {
+			return errUnsupportedVimNavigationEngine
+		}
+		return activator.ActivateSemanticNavigationTarget(ctx)
+	case "focus-input":
 		focuser, ok := wv.(port.PageInputFocuser)
 		if !ok {
 			return errUnsupportedVimNavigationEngine

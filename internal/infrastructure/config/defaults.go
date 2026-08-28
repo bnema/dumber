@@ -316,7 +316,7 @@ func DefaultConfig() *Config {
 					"vim-scroll-right":     {Keys: []string{"l"}, Desc: "Scroll page right"},
 					"vim-scroll-down-fast": {Keys: []string{"shift+j"}, Desc: "Scroll page down fast"},
 					"vim-scroll-up-fast":   {Keys: []string{"shift+k"}, Desc: "Scroll page up fast"},
-					"confirm":              {Keys: []string{"enter"}, Desc: "Confirm action"},
+					"confirm":              {Keys: []string{"enter"}, Desc: "Open selected heading link and exit mode"},
 					"cancel":               {Keys: []string{"escape"}, Desc: "Cancel/exit mode"},
 					"heading-next":         {Keys: []string{"]]"}, Desc: "Jump to next heading"},
 					"heading-prev":         {Keys: []string{"[["}, Desc: "Jump to previous heading"},

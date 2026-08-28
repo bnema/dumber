@@ -407,17 +407,8 @@ func (h *KeyboardHandler) handleKeyPress(keyval, keycode uint, state gdk.Modifie
 		}
 	}
 
-	// Escape / Enter should always leave modal modes even if the current config
-	// omits explicit confirm/cancel bindings.
-	if mode != ModeNormal && modifiers == 0 {
-		switch keyval {
-		case uint(gdk.KEY_Escape), uint(gdk.KEY_Return), uint(gdk.KEY_KP_Enter):
-			if mode == ModeVim {
-				h.stopVimScrollRepeat()
-			}
-			h.modal.ExitMode(h.ctx)
-			return true
-		}
+	if h.handleGuaranteedModalExit(mode, keyval, modifiers) {
+		return true
 	}
 
 	// Page focus traversal must stay out of shortcut lookup. The callback keeps
@@ -470,6 +461,32 @@ func (h *KeyboardHandler) handleKeyPress(keyval, keycode uint, state gdk.Modifie
 	binding := KeyBinding{Keyval: keyval, Modifiers: modifiers}
 	action, found := h.lookupAction(log, binding, mode, modifiers, keycode)
 	return h.handleShortcutLookupResult(log, action, found, mode, keyval, modifiers)
+}
+
+// handleGuaranteedModalExit preserves Escape and Enter as modal fallbacks even
+// when the current configuration omits explicit cancel or confirm bindings.
+func (h *KeyboardHandler) handleGuaranteedModalExit(mode Mode, keyval uint, modifiers Modifier) bool {
+	if mode == ModeNormal || modifiers != 0 {
+		return false
+	}
+
+	switch keyval {
+	case uint(gdk.KEY_Escape):
+		if mode == ModeVim {
+			h.stopVimScrollRepeat()
+		}
+		h.modal.ExitMode(h.ctx)
+		return true
+	case uint(gdk.KEY_Return), uint(gdk.KEY_KP_Enter):
+		if mode == ModeVim {
+			h.confirmVimMode()
+		} else {
+			h.modal.ExitMode(h.ctx)
+		}
+		return true
+	default:
+		return false
+	}
 }
 
 func (h *KeyboardHandler) handleShortcutLookupResult(
@@ -669,6 +686,17 @@ func shouldPassthroughNativeVimModeNavigation(mode Mode, keyval uint, modifiers 
 	}
 }
 
+func (h *KeyboardHandler) confirmVimMode() {
+	h.stopVimScrollRepeat()
+	h.seq.mu.Lock()
+	onAction := h.seq.onAction
+	h.seq.mu.Unlock()
+	if onAction != nil {
+		onAction("confirm", 0)
+	}
+	h.modal.ExitMode(h.ctx)
+}
+
 // dispatchAction dispatches the action and handles mode-related logic.
 func (h *KeyboardHandler) dispatchAction(action Action, mode Mode) bool {
 	if h.handleModeAction(action) {
@@ -817,11 +845,39 @@ func isVimScrollAction(action Action) bool {
 	}
 }
 
+func (h *KeyboardHandler) handleVimModeAction(action Action, workspace *entity.WorkspaceConfig) bool {
+	switch action {
+	case ActionEnterVimMode:
+		if h.modal.Mode() == ModeVim {
+			h.stopVimScrollRepeat()
+			h.modal.ExitMode(h.ctx)
+			return true
+		}
+		var timeoutMS int
+		if workspace != nil {
+			timeoutMS = workspace.VimMode.TimeoutMilliseconds
+		}
+		h.modal.EnterVimMode(h.ctx, time.Duration(timeoutMS)*time.Millisecond)
+		return true
+	case ActionVimConfirm:
+		if h.modal.Mode() == ModeVim {
+			h.confirmVimMode()
+		}
+		return true
+	default:
+		return false
+	}
+}
+
 func (h *KeyboardHandler) handleModeAction(action Action) bool {
 	h.mu.RLock()
 	workspace := h.workspace
 	session := h.session
 	h.mu.RUnlock()
+
+	if h.handleVimModeAction(action, workspace) {
+		return true
+	}
 
 	switch action {
 	case ActionEnterTabMode:
@@ -855,18 +911,6 @@ func (h *KeyboardHandler) handleModeAction(action Action) bool {
 			ms = workspace.ResizeMode.TimeoutMilliseconds
 		}
 		h.modal.EnterResizeMode(h.ctx, time.Duration(ms)*time.Millisecond)
-		return true
-	case ActionEnterVimMode:
-		if h.modal.Mode() == ModeVim {
-			h.stopVimScrollRepeat()
-			h.modal.ExitMode(h.ctx)
-			return true
-		}
-		var pgms int
-		if workspace != nil {
-			pgms = workspace.VimMode.TimeoutMilliseconds
-		}
-		h.modal.EnterVimMode(h.ctx, time.Duration(pgms)*time.Millisecond)
 		return true
 	case ActionExitMode:
 		if h.modal.Mode() == ModeVim {
