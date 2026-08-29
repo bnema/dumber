@@ -279,7 +279,18 @@ func (p Palette) ToCSSVars() string {
 	return sb.String()
 }
 
-const minimumReadableContrast = 4.5
+const (
+	minimumReadableContrast = 4.5
+	contrastLuminanceOffset = 0.05
+	sRGBLinearThreshold     = 0.04045
+	sRGBLinearDivisor       = 12.92
+	sRGBGammaOffset         = 0.055
+	sRGBGammaScale          = 1.055
+	sRGBGammaExponent       = 2.4
+	redLuminanceWeight      = 0.2126
+	greenLuminanceWeight    = 0.7152
+	blueLuminanceWeight     = 0.0722
+)
 
 func readableTextColor(background, preferred string) string {
 	if contrastRatio(background, preferred) >= minimumReadableContrast {
@@ -297,19 +308,21 @@ func contrastRatio(first, second string) float64 {
 	if firstLuminance < secondLuminance {
 		firstLuminance, secondLuminance = secondLuminance, firstLuminance
 	}
-	return (firstLuminance + 0.05) / (secondLuminance + 0.05)
+	return (firstLuminance + contrastLuminanceOffset) / (secondLuminance + contrastLuminanceOffset)
 }
 
 func relativeLuminance(color string) float64 {
 	r, g, b, _ := HexToRGBA(color)
 	linearize := func(channel float32) float64 {
 		value := float64(channel)
-		if value <= 0.04045 {
-			return value / 12.92
+		if value <= sRGBLinearThreshold {
+			return value / sRGBLinearDivisor
 		}
-		return math.Pow((value+0.055)/1.055, 2.4)
+		return math.Pow((value+sRGBGammaOffset)/sRGBGammaScale, sRGBGammaExponent)
 	}
-	return 0.2126*linearize(r) + 0.7152*linearize(g) + 0.0722*linearize(b)
+	return redLuminanceWeight*linearize(r) +
+		greenLuminanceWeight*linearize(g) +
+		blueLuminanceWeight*linearize(b)
 }
 
 // ToWebCSSVars generates CSS custom properties for web UI (Tailwind compatibility).
