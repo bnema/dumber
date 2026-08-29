@@ -287,7 +287,7 @@ entry.omnibox-entry,
 entry.omnibox-entry > text {
 	background-color: var(--surface-variant);
 	background-image: none;
-	color: var(--text);
+	color: var(--control-text);
 	caret-color: var(--accent);
 }
 
@@ -504,7 +504,7 @@ entry.omnibox-entry.omnibox-entry-bang-active:focus-visible > text {
 /* Ghost text autocomplete overlay - positioned to align with entry text */
 .omnibox-ghost {
 	font-size: 1em;
-	color: var(--muted);
+	color: alpha(var(--control-text), 0.65);
 	margin-top: -0.0625em; /* Nudge up 1px to align with entry text baseline */
 	background-color: transparent;
 }

@@ -3,6 +3,7 @@ package theme
 
 import (
 	"fmt"
+	"math"
 	"regexp"
 	"strings"
 
@@ -267,6 +268,7 @@ func (p Palette) ToCSSVars() string {
 	sb.WriteString("  --bg: " + p.Background + ";\n")
 	sb.WriteString("  --surface: " + p.Surface + ";\n")
 	sb.WriteString("  --surface-variant: " + p.SurfaceVariant + ";\n")
+	sb.WriteString("  --control-text: " + readableTextColor(p.SurfaceVariant, p.Text) + ";\n")
 	sb.WriteString("  --text: " + p.Text + ";\n")
 	sb.WriteString("  --muted: " + p.Muted + ";\n")
 	sb.WriteString("  --accent: " + p.Accent + ";\n")
@@ -275,6 +277,39 @@ func (p Palette) ToCSSVars() string {
 	sb.WriteString("  --warning: " + p.Warning + ";\n")
 	sb.WriteString("  --destructive: " + p.Destructive + ";\n")
 	return sb.String()
+}
+
+const minimumReadableContrast = 4.5
+
+func readableTextColor(background, preferred string) string {
+	if contrastRatio(background, preferred) >= minimumReadableContrast {
+		return preferred
+	}
+	if contrastRatio(background, "#ffffff") >= contrastRatio(background, "#000000") {
+		return "#ffffff"
+	}
+	return "#000000"
+}
+
+func contrastRatio(first, second string) float64 {
+	firstLuminance := relativeLuminance(first)
+	secondLuminance := relativeLuminance(second)
+	if firstLuminance < secondLuminance {
+		firstLuminance, secondLuminance = secondLuminance, firstLuminance
+	}
+	return (firstLuminance + 0.05) / (secondLuminance + 0.05)
+}
+
+func relativeLuminance(color string) float64 {
+	r, g, b, _ := HexToRGBA(color)
+	linearize := func(channel float32) float64 {
+		value := float64(channel)
+		if value <= 0.04045 {
+			return value / 12.92
+		}
+		return math.Pow((value+0.055)/1.055, 2.4)
+	}
+	return 0.2126*linearize(r) + 0.7152*linearize(g) + 0.0722*linearize(b)
 }
 
 // ToWebCSSVars generates CSS custom properties for web UI (Tailwind compatibility).
