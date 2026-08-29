@@ -3,6 +3,7 @@ package theme
 
 import (
 	"fmt"
+	"math"
 	"regexp"
 	"strings"
 
@@ -267,6 +268,7 @@ func (p Palette) ToCSSVars() string {
 	sb.WriteString("  --bg: " + p.Background + ";\n")
 	sb.WriteString("  --surface: " + p.Surface + ";\n")
 	sb.WriteString("  --surface-variant: " + p.SurfaceVariant + ";\n")
+	sb.WriteString("  --control-text: " + readableTextColor(p.SurfaceVariant, p.Text) + ";\n")
 	sb.WriteString("  --text: " + p.Text + ";\n")
 	sb.WriteString("  --muted: " + p.Muted + ";\n")
 	sb.WriteString("  --accent: " + p.Accent + ";\n")
@@ -275,6 +277,52 @@ func (p Palette) ToCSSVars() string {
 	sb.WriteString("  --warning: " + p.Warning + ";\n")
 	sb.WriteString("  --destructive: " + p.Destructive + ";\n")
 	return sb.String()
+}
+
+const (
+	minimumReadableContrast = 4.5
+	contrastLuminanceOffset = 0.05
+	sRGBLinearThreshold     = 0.04045
+	sRGBLinearDivisor       = 12.92
+	sRGBGammaOffset         = 0.055
+	sRGBGammaScale          = 1.055
+	sRGBGammaExponent       = 2.4
+	redLuminanceWeight      = 0.2126
+	greenLuminanceWeight    = 0.7152
+	blueLuminanceWeight     = 0.0722
+)
+
+func readableTextColor(background, preferred string) string {
+	if contrastRatio(background, preferred) >= minimumReadableContrast {
+		return preferred
+	}
+	if contrastRatio(background, "#ffffff") >= contrastRatio(background, "#000000") {
+		return "#ffffff"
+	}
+	return "#000000"
+}
+
+func contrastRatio(first, second string) float64 {
+	firstLuminance := relativeLuminance(first)
+	secondLuminance := relativeLuminance(second)
+	if firstLuminance < secondLuminance {
+		firstLuminance, secondLuminance = secondLuminance, firstLuminance
+	}
+	return (firstLuminance + contrastLuminanceOffset) / (secondLuminance + contrastLuminanceOffset)
+}
+
+func relativeLuminance(color string) float64 {
+	r, g, b, _ := HexToRGBA(color)
+	linearize := func(channel float32) float64 {
+		value := float64(channel)
+		if value <= sRGBLinearThreshold {
+			return value / sRGBLinearDivisor
+		}
+		return math.Pow((value+sRGBGammaOffset)/sRGBGammaScale, sRGBGammaExponent)
+	}
+	return redLuminanceWeight*linearize(r) +
+		greenLuminanceWeight*linearize(g) +
+		blueLuminanceWeight*linearize(b)
 }
 
 // ToWebCSSVars generates CSS custom properties for web UI (Tailwind compatibility).

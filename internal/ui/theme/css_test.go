@@ -118,10 +118,13 @@ func TestGenerateCSS_OmniboxSearchEntryUsesControlSurface(t *testing.T) {
 	if !containerRe.MatchString(css) {
 		t.Fatalf("expected omnibox container to use the header surface color")
 	}
-	entryRe := regexp.MustCompile(`(?s)entry\.omnibox-entry\s*,\s*entry\.omnibox-entry\s*>\s*text\s*\{[^}]*background-color:\s*var\(--surface-variant\);[^}]*background-image:\s*none;`)
+	entryRe := regexp.MustCompile(`(?s)entry\.omnibox-entry\s*,\s*entry\.omnibox-entry\s*>\s*text\s*\{[^}]*background-color:\s*var\(--surface-variant\);[^}]*background-image:\s*none;[^}]*color:\s*var\(--control-text\);`)
 	if !entryRe.MatchString(css) {
-		t.Fatalf("expected omnibox entry and its text node to use the control surface fill")
+		t.Fatalf("expected omnibox entry and its text node to use the control surface fill and readable text")
 	}
+	ghostBlock := cssRuleBlock(t, css, ".omnibox-ghost")
+	assert.Contains(t, ghostBlock, "color: var(--control-text);")
+	assert.NotContains(t, ghostBlock, "alpha(var(--control-text)")
 	focusedEntryRe := regexp.MustCompile(`(?s)entry\.omnibox-entry:focus[^\{]*,\s*entry\.omnibox-entry:focus-within[^\{]*,\s*entry\.omnibox-entry:focus-visible[^\{]*,\s*entry\.omnibox-entry:focus\s*>\s*text[^\{]*,\s*entry\.omnibox-entry:focus-within\s*>\s*text[^\{]*,\s*entry\.omnibox-entry:focus-visible\s*>\s*text\s*\{[^}]*background-color:\s*shade\(var\(--surface-variant\),\s*1\.08\);`)
 	if !focusedEntryRe.MatchString(css) {
 		t.Fatalf("expected focused omnibox entry text node to keep a distinct control-surface fill")
