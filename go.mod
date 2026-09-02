@@ -4,7 +4,7 @@ go 1.26
 
 require (
 	github.com/a-h/templ v0.3.1020
-	github.com/andybalholm/brotli v1.2.2
+	github.com/andybalholm/brotli v1.2.3
 	github.com/bnema/purego v0.11.0-bnema.4
 	github.com/bnema/purego-cef v0.14.2
 	github.com/bnema/purego-cef2gtk v0.9.3
