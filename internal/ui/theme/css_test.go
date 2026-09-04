@@ -8,6 +8,45 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func TestGenerateCSS_StackedTitlebarUsesReadableControlText(t *testing.T) {
+	tests := []struct {
+		name       string
+		background string
+		text       string
+		want       string
+	}{
+		{"dark background", "#775f79", "#3d303f", "#ffffff"},
+		{"light background", "#f0f0f0", "#dddddd", "#000000"},
+		{"readable configured text", "#282828", "#eeeeee", "#eeeeee"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			palette := DefaultLightPalette()
+			palette.SurfaceVariant = tt.background
+			palette.Text = tt.text
+			css := GenerateCSS(palette)
+
+			assert.Contains(t, css, "--control-text: "+tt.want+";")
+			for _, selector := range []string{
+				".stacked-pane-titlebar",
+				".stacked-pane-titlebar label",
+				".stacked-pane-titlebar image",
+			} {
+				block := regexp.MustCompile(regexp.QuoteMeta(selector) + `\s*\{[^}]*\}`).FindString(css)
+				assert.Contains(t, block, "color: var(--control-text);", selector)
+			}
+
+			// Hover and active states must not invalidate the computed contrast.
+			stackedCSS := generateStackedPaneCSS(palette)
+			assert.NotContains(t, stackedCSS, "shade(var(--surface-variant)")
+			hover := regexp.MustCompile(`\.stacked-pane-titlebar\.stacked-pane-title-clickable:hover label\s*\{[^}]*\}`).FindString(css)
+			assert.Contains(t, hover, "text-decoration-line: underline;")
+			assert.NotContains(t, hover, "color:")
+			assert.Contains(t, stackedCSS, "border-left: 0.1875em solid var(--accent);")
+		})
+	}
+}
+
 func TestGenerateCSS_UsesGTKFontForNativeWidgets(t *testing.T) {
 	css := GenerateCSSWithScaleAndFonts(DefaultDarkPalette(), 1.0, FontConfig{
 		SansFont:      "Fira Sans",

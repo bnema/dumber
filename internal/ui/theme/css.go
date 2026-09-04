@@ -745,28 +745,21 @@ func generateStackedPaneCSS(p Palette) string {
 /* The title bar is now a Box with GestureClick, not wrapped in a button */
 .stacked-pane-titlebar {
 	background-color: var(--surface-variant);
+	color: var(--control-text);
 	border-bottom: 0.0625em solid var(--border);
 	padding: 0.25em 0.5em;
 	min-height: 1.5em;
 }
 
-/* Clickable title bar - hover styling */
-.stacked-pane-titlebar.stacked-pane-title-clickable {
-	transition: background-color 150ms ease-in-out;
-}
-
-.stacked-pane-titlebar.stacked-pane-title-clickable:hover {
-	background-color: shade(var(--surface-variant), 1.15);
-}
-
-/* Title bar content box */
+/* Keep the background stable so --control-text retains its contrast.
+ * Indicate hover with an underline and the active pane with an accent border. */
 .stacked-pane-titlebar.active {
-	background-color: shade(var(--surface-variant), 1.2);
 	border-left: 0.1875em solid var(--accent);
 }
 
 /* Favicon image in title bar */
 .stacked-pane-titlebar image {
+	color: var(--control-text);
 	min-width: 1em;
 	min-height: 1em;
 	margin-right: 0.375em;
@@ -774,14 +767,14 @@ func generateStackedPaneCSS(p Palette) string {
 
 /* Title text in title bar */
 .stacked-pane-titlebar label {
-	color: var(--text);
+	color: var(--control-text);
 	font-size: 0.75em;
 	font-weight: 400;
 }
 
 /* Hover effect on title bar label */
 .stacked-pane-titlebar.stacked-pane-title-clickable:hover label {
-	color: var(--accent);
+	text-decoration-line: underline;
 }
 
 /* Close button in stacked pane title bar */
