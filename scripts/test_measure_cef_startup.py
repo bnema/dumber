@@ -211,5 +211,66 @@ class FakeBinaryLifetimeTest(unittest.TestCase):
         self.assertLess(result["observation_spawn_to_summary_ms"], 15000)
 
 
+class ReopenWindowTest(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.mkdtemp()
+        self.cef_dir = os.path.join(self.temp, "cef")
+        os.makedirs(self.cef_dir)
+
+    def test_diagnostic_close_acknowledged(self):
+        import json
+        import socket
+        socket_path = os.path.join(self.temp, "test.sock")
+        listener = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        listener.bind(socket_path)
+        listener.listen(1)
+        listener.settimeout(5)
+
+        def serve_once():
+            conn, _ = listener.accept()
+            with conn:
+                conn.settimeout(5)
+                data = b""
+                while b"\n" not in data:
+                    chunk = conn.recv(4096)
+                    if not chunk:
+                        break
+                    data += chunk
+                request = json.loads(data.decode())
+                assert request["action"] == "close-all-windows"
+                conn.sendall(json.dumps({"request_id": request["request_id"],
+                                         "accepted": True}).encode() + b"\n")
+
+        thread = threading.Thread(target=serve_once)
+        thread.daemon = True
+        thread.start()
+        try:
+            self.assertTrue(harness.send_diagnostic_close(socket_path))
+        finally:
+            thread.join(timeout=5)
+            listener.close()
+
+    def test_diagnostic_close_refused_without_server(self):
+        self.assertFalse(harness.send_diagnostic_close(os.path.join(self.temp, "missing.sock"), 1.0))
+
+    def test_proc_helpers_observe_current_process(self):
+        self.assertIsInstance(harness.child_pids(os.getpid()), list)
+        rss = harness.proc_rss_kb(os.getpid())
+        self.assertIsNotNone(rss)
+        self.assertGreater(rss, 0)
+        self.assertIsNone(harness.proc_rss_kb(2 ** 30))
+
+    def test_reopen_without_owner_falls_back(self):
+        binary = os.path.join(self.temp, "fakebin")
+        with open(binary, "w") as handle:
+            handle.write("#!/bin/sh\nexit 0\n")
+        os.chmod(binary, 0o755)
+        result = harness.run_sample(binary, self.cef_dir, "reopen-window", "static", 1,
+                                    owner=None, owner_dirs=None, owner_socket=None)
+        self.assertTrue(result["fallback_spawn"])
+        self.assertFalse(result["relayed"])
+        self.assertNotIn("reopen", result)
+
+
 if __name__ == "__main__":
     unittest.main()

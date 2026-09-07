@@ -3286,14 +3286,8 @@ func (a *App) initTabCoordinator(ctx context.Context) {
 				bw.mainWindow.Destroy()
 			}
 		}
-		// Quit through residency when enabled rather than unconditionally:
-		// the last window close arms the bounded idle deadline instead.
-		// Disabled residency preserves the pre-existing unconditional Quit.
-		if len(a.browserWindows) == 0 {
-			if a.residencyShouldQuitAfterLastWindow() {
-				a.Quit()
-			}
-		}
+		// Quitting is decided inside removeBrowserWindow through residency;
+		// nothing further to do here.
 	})
 	// Wire popup tab WebView attachment
 	a.tabCoord.SetOnAttachPopupToTab(a.attachPopupToTab)

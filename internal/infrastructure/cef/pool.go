@@ -110,6 +110,19 @@ func (p *WebViewPool) Size() int {
 	return len(p.pool)
 }
 
+// pooledViewBrowserReady reports whether a pooled reserve holds a live
+// browser. Wrapper-only reserves (allocated struct, no OnAfterCreated yet)
+// are never reported browser-ready. Viewport validity and first blank frame
+// require native validation and stay outside this predicate.
+func pooledViewBrowserReady(wv *WebView) bool {
+	if wv == nil || wv.destroyed.Load() {
+		return false
+	}
+	wv.mu.RLock()
+	defer wv.mu.RUnlock()
+	return wv.browser != nil
+}
+
 // Close shuts down the pool and destroys all pooled WebViews.
 func (p *WebViewPool) Close() {
 	p.mu.Lock()
