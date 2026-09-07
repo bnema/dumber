@@ -1268,6 +1268,11 @@ func (wv *WebView) Destroy() {
 	if !wv.destroyed.CompareAndSwap(false, true) {
 		return
 	}
+	// Native close begins here: the view leaves the active set and enters
+	// GTK-teardown outstanding for the quiescence boundary.
+	if wv.engine != nil {
+		wv.engine.activity.NoteViewCloseStarted()
+	}
 	// Retire scroll motion the moment destruction begins, regardless of
 	// calling thread; GTK-only cleanup follows through the owning
 	// dispatcher without waiting for the deferred native browser close.
