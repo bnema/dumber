@@ -96,10 +96,12 @@ func TestLazyDB_CloseBeforeInit(t *testing.T) {
 	dbPath := filepath.Join(t.TempDir(), "test.db")
 	lazy := sqlite.NewLazyDB(dbPath)
 
-	// Close without ever calling DB() should not error and must not trigger
-	// initialization.
+	// Close without ever calling DB() seals the provider without triggering
+	// initialization; late callers are rejected with the closed error.
 	require.NoError(t, lazy.Close())
 	assert.False(t, lazy.IsInitialized(), "Close must not trigger initialization")
+	_, err := lazy.DB(testCtx())
+	require.ErrorIs(t, err, sqlite.ErrLazyDBClosed)
 }
 
 func TestLazyDB_Path(t *testing.T) {
@@ -146,20 +148,18 @@ func TestLazyDB_WarmupInitializesInBackground(t *testing.T) {
 
 func TestLazyDB_CloseWaitsForInflightInit(t *testing.T) {
 	ctx := testCtx()
-	// Regression test for untracked-warmup orphaning: Warmup registers its
-	// task synchronously, so an immediate Close (no scheduling delay) must
-	// settle the background initialization and release the connection
-	// instead of returning early and leaking it.
+	// Sealing and settlement: whether the warmup task is admitted or loses
+	// the admission race, an immediate Close leaves no usable connection
+	// behind and every later call fails closed.
 	dbPath := filepath.Join(t.TempDir(), "test.db")
 	lazy := sqlite.NewLazyDB(dbPath)
 
 	lazy.Warmup(ctx)
 	require.NoError(t, lazy.Close())
 
-	require.True(t, lazy.IsInitialized(), "Close must settle warmup initialization, not race its scheduling")
-	db, err := lazy.DB(ctx)
-	require.NoError(t, err)
-	require.Error(t, db.Ping(), "settled connection must be closed, not orphaned")
+	_, err := lazy.DB(ctx)
+	require.ErrorIs(t, err, sqlite.ErrLazyDBClosed)
+	require.NoError(t, lazy.Close(), "repeat Close must be idempotent")
 }
 
 func TestLazyDB_ConcurrentWarmupAccessAndClose(t *testing.T) {
