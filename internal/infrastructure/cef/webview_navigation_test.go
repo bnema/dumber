@@ -16,6 +16,7 @@ func TestWebViewReplayPendingNavigation_LoadsQueuedURIWhenMainFrameAvailable(t *
 	frame.EXPECT().GetURL().Return("").Once()
 	frame.EXPECT().LoadURL("https://github.com/bnema").Once()
 	browser.EXPECT().GetMainFrame().Return(frame).Once()
+	browser.EXPECT().GetIdentifier().Return(int32(1)).Twice()
 
 	wv := &WebView{ctx: context.Background(), browser: browser}
 	wv.setPendingNavigationLocked("https://github.com/bnema", time.Now())
@@ -104,6 +105,7 @@ func TestWebViewReplayPendingNavigation_UsesCurrentBrowserAtExecutionTime(t *tes
 	frame.EXPECT().GetURL().Return("").Once()
 	frame.EXPECT().LoadURL("https://github.com/bnema").Once()
 	activeBrowser.EXPECT().GetMainFrame().Return(frame).Once()
+	activeBrowser.EXPECT().GetIdentifier().Return(int32(2)).Twice()
 
 	oldTask := cefNewTask
 	oldPost := cefPostTask
@@ -134,6 +136,7 @@ func TestWebViewLoadURI_QueuesPendingNavigationReplayForExistingBrowser(t *testi
 	browser := cefmocks.NewMockBrowser(t)
 	frame := cefmocks.NewMockFrame(t)
 	browser.EXPECT().GetMainFrame().Return(frame).Once()
+	browser.EXPECT().GetIdentifier().Return(int32(1)).Twice()
 	frame.EXPECT().GetURL().Return("").Once()
 	frame.EXPECT().LoadURL("github.com/bnema").Once()
 
@@ -236,6 +239,7 @@ func TestWebViewReplayPendingNavigation_SubmitsOncePerIntent(t *testing.T) {
 	frame.EXPECT().GetURL().Return("about:blank")
 	frame.EXPECT().LoadURL("https://example.com/target").Once()
 	browser.EXPECT().GetMainFrame().Return(frame)
+	browser.EXPECT().GetIdentifier().Return(int32(1)).Twice()
 
 	oldTask := cefNewTask
 	oldPost := cefPostTask
@@ -270,6 +274,7 @@ func TestWebViewReplayPendingNavigation_StaleIntentDoesNotResubmit(t *testing.T)
 	frame.EXPECT().GetURL().Return("").Once()
 	frame.EXPECT().LoadURL("https://example.com/second").Once()
 	browser.EXPECT().GetMainFrame().Return(frame).Once()
+	browser.EXPECT().GetIdentifier().Return(int32(1)).Twice()
 
 	oldTask := cefNewTask
 	oldPost := cefPostTask

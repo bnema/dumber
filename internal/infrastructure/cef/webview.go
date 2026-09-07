@@ -2077,18 +2077,25 @@ func (wv *WebView) replayPendingNavigationForIntent(attempt int, intentID uint64
 		return
 	}
 	// Re-read the current browser under the state lock and claim submission
-	// only for the current unissued intent with a valid frame. Mark issued
-	// before the foreign LoadURL, outside the lock.
+	// only for the current unissued intent with a valid frame. Browsers are
+	// correlated by identifier (never interface equality); foreign calls stay
+	// outside the lock. Mark issued before the foreign LoadURL, outside lock.
+	wv.mu.RLock()
+	if wv.pendingIntentID != intentID || wv.pendingIssued || wv.browser == nil {
+		wv.mu.RUnlock()
+		return
+	}
+	currentBrowser := wv.browser
+	wv.mu.RUnlock()
+	if currentBrowser.GetIdentifier() != browser.GetIdentifier() {
+		// Browser was replaced between frame acquisition and claim; retry
+		// the same intent so the new browser is used at execution time.
+		wv.schedulePendingNavigationReplay(attempt + 1)
+		return
+	}
 	wv.mu.Lock()
 	if wv.pendingIntentID != intentID || wv.pendingIssued || wv.browser == nil {
 		wv.mu.Unlock()
-		return
-	}
-	if wv.browser != browser {
-		// Browser was replaced between frame acquisition and claim; retry
-		// the same intent so the new browser is used at execution time.
-		wv.mu.Unlock()
-		wv.schedulePendingNavigationReplay(attempt + 1)
 		return
 	}
 	wv.pendingIssued = true
