@@ -333,6 +333,11 @@ func runGUI(cfg *config.Config, timing startupTiming) int {
 		log.Error().Err(err).Msg("failed to create application")
 		return 1
 	}
+	// Latch the bounded-residency timeout once at startup. Only CEF uses
+	// it, and only when nonzero; later config changes are restart-required.
+	if cfg.Engine.ResolveEngineType() == config.EngineTypeCEF {
+		app.SetResidencyTimeout(ui.ResidencyTimeoutFromMillis(cfg.Engine.CEF.IdleRuntimeTimeoutMs))
+	}
 	if relaunchSetter, ok := engine.(port.AlreadyRunningAppRelaunchHandlerSetter); ok {
 		relaunchSetter.SetAlreadyRunningAppRelaunchHandler(func(url string) {
 			if err := app.OpenExternalURL(ctx, url); err != nil {

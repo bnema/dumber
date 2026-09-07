@@ -1118,6 +1118,14 @@ func (*SchemaProvider) getPerformanceKeys(defaults *Config) []entity.ConfigKeyIn
 			Section:     SectionPerformance,
 		},
 		{
+			Key:         "engine.cef.idle_runtime_timeout_ms",
+			Type:        "int",
+			Default:     fmt.Sprintf("%d", defaults.Engine.CEF.IdleRuntimeTimeoutMs),
+			Description: "Bounded opt-in CEF runtime residency in milliseconds after the last window closes; 0 disables, changes require restart",
+			Range:       "0..300000",
+			Section:     SectionPerformance,
+		},
+		{
 			Key:         "engine.cef.input.scroll_wheel_multiplier",
 			Type:        "float64",
 			Default:     fmt.Sprintf("%.2f", defaults.Engine.CEF.Input.ScrollWheelMultiplier),

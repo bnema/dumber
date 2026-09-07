@@ -139,6 +139,12 @@ type App struct {
 	// Engine
 	engine port.Engine
 
+	// residencyTimeout is the effective bounded-residency idle timeout
+	// latched once at process startup. Live config snapshots are replaced
+	// wholesale, so this field is never re-read from them; a changed value
+	// is reported as restart-required instead of partially hot-applied.
+	residencyTimeout time.Duration
+
 	// Web content (managed by content.Coordinator)
 	faviconAdapter *adapter.FaviconAdapter
 
