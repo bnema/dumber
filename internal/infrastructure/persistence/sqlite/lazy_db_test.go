@@ -4,6 +4,7 @@ import (
 	"path/filepath"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/bnema/dumber/internal/infrastructure/persistence/sqlite"
 	"github.com/stretchr/testify/assert"
@@ -95,9 +96,10 @@ func TestLazyDB_CloseBeforeInit(t *testing.T) {
 	dbPath := filepath.Join(t.TempDir(), "test.db")
 	lazy := sqlite.NewLazyDB(dbPath)
 
-	// Close without ever calling DB() should not error
-	err := lazy.Close()
-	assert.NoError(t, err)
+	// Close without ever calling DB() should not error and must not trigger
+	// initialization.
+	require.NoError(t, lazy.Close())
+	assert.False(t, lazy.IsInitialized(), "Close must not trigger initialization")
 }
 
 func TestLazyDB_Path(t *testing.T) {
@@ -122,4 +124,81 @@ func TestLazyDB_DBIsUsable(t *testing.T) {
 	assert.Equal(t, 1, result)
 
 	require.NoError(t, lazy.Close())
+}
+
+func TestLazyDB_WarmupInitializesInBackground(t *testing.T) {
+	ctx := testCtx()
+	dbPath := filepath.Join(t.TempDir(), "test.db")
+	lazy := sqlite.NewLazyDB(dbPath)
+
+	// Warmup returns immediately and initializes the provider concurrently.
+	lazy.Warmup(ctx)
+
+	require.Eventually(t, func() bool {
+		return lazy.IsInitialized()
+	}, 10*time.Second, 5*time.Millisecond, "warmup should initialize the provider without a direct DB call")
+
+	db, err := lazy.DB(ctx)
+	require.NoError(t, err)
+	require.NotNil(t, db)
+	require.NoError(t, lazy.Close())
+}
+
+func TestLazyDB_CloseWaitsForInflightInit(t *testing.T) {
+	ctx := testCtx()
+	// Warmup is asynchronous: Close called before the warmup goroutine runs
+	// is a legitimate no-op, so wait for initialization to be underway
+	// before asserting Close settles and releases the provider cleanly.
+	dbPath := filepath.Join(t.TempDir(), "test.db")
+	lazy := sqlite.NewLazyDB(dbPath)
+
+	lazy.Warmup(ctx)
+	require.Eventually(t, func() bool {
+		return lazy.IsInitialized()
+	}, 10*time.Second, 5*time.Millisecond, "warmup should initialize the provider")
+
+	require.NoError(t, lazy.Close())
+}
+
+func TestLazyDB_ConcurrentWarmupAccessAndClose(t *testing.T) {
+	ctx := testCtx()
+	dbPath := filepath.Join(t.TempDir(), "test.db")
+	lazy := sqlite.NewLazyDB(dbPath)
+
+	const workers = 8
+	var wg sync.WaitGroup
+	wg.Add(workers + 1)
+	for range workers {
+		go func() {
+			defer wg.Done()
+			_, _ = lazy.DB(ctx)
+		}()
+	}
+	go func() {
+		defer wg.Done()
+		lazy.Warmup(ctx)
+	}()
+	wg.Wait()
+
+	db, err := lazy.DB(ctx)
+	require.NoError(t, err)
+	require.NotNil(t, db)
+	require.NoError(t, lazy.Close())
+}
+
+func TestLazyDB_InitErrorPropagated(t *testing.T) {
+	ctx := testCtx()
+	// An empty path always fails connection setup; the error must be cached
+	// and reported to every later caller without panicking.
+	lazy := sqlite.NewLazyDB("")
+
+	_, err := lazy.DB(ctx)
+	require.Error(t, err, "initialization failure must propagate to the first caller")
+
+	_, err = lazy.DB(ctx)
+	require.Error(t, err, "initialization failure must propagate to later callers")
+
+	// Closing a failed provider must not error: there is no connection.
+	require.NoError(t, lazy.Close())
+	assert.False(t, lazy.IsInitialized())
 }

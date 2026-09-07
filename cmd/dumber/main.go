@@ -667,6 +667,20 @@ func initStackAndRepos(
 	}
 
 	log := logging.FromContext(ctx)
+
+	// Non-restore browser startup uses the same lazy provider throughout:
+	// create it before engine initialization and warm it in an owned
+	// background task so slow database initialization overlaps CEF startup
+	// instead of blocking the GTK main context on first access. The detached
+	// warmup context preserves values without letting shutdown cancellation
+	// poison the cached initialization result; Close waits for the warmup to
+	// settle before releasing the connection.
+	lazyDB, err := bootstrap.CreateLazyDatabase()
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	lazyDB.Warmup(context.WithoutCancel(ctx))
+
 	engine, err := bootstrap.BuildEngine(bootstrap.EngineInput{
 		Ctx:                 ctx,
 		Config:              cfg,
@@ -677,14 +691,12 @@ func initStackAndRepos(
 		Logger:              *log,
 	})
 	if err != nil {
+		_ = lazyDB.Close()
 		return nil, nil, nil, err
 	}
 
-	repos, dbCleanup, err := initStandaloneOmniboxRepos()
-	if err != nil {
-		return nil, nil, nil, err
-	}
-	return engine, repos, dbCleanup, nil
+	dbCleanup := func() { _ = lazyDB.Close() }
+	return engine, createLazyRepositories(lazyDB), dbCleanup, nil
 }
 
 func initStandaloneOmniboxRepos() (*repositories, func(), error) {
