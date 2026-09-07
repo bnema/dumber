@@ -45,6 +45,15 @@ NAV_RE = re.compile(r"^[0-9a-f]{16}$")
 BEACON_EVENTS = ("first-contentful-paint", "largest-contentful-paint", "fixture-load")
 DEFAULT_POST_NAV_CUTOFF_SECONDS = 5.0
 
+# Deterministic 1x1 RGBA PNG so image endpoints exercise a successful decode
+# and paint instead of the decode-failure path.
+FIXTURE_PNG = bytes.fromhex(
+    "89504e470d0a1a0a"
+    "0000000d49484452000000010000000108060000001f15c489"
+    "0000000b4944415478da6360000300000700012122db13"
+    "0000000049454e44ae426082"
+)
+
 
 def post_nav_cutoff_seconds():
     try:
@@ -164,7 +173,10 @@ class Handler(BaseHTTPRequestHandler):
             return
         if path in ("/app.css", "/pixel.png", "/cacheable.js", "/cacheable.png"):
             self._record(False)
-            body = b"/* fixture */" if path.endswith((".css", ".js")) else bytes(64)
+            if path.endswith(".png"):
+                body = FIXTURE_PNG
+            else:
+                body = b"/* fixture */"
             self.send_response(200)
             if path.endswith(".css"):
                 self.send_header("Content-Type", "text/css")

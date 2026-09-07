@@ -48,9 +48,36 @@ DUMBER_MACHINE_GPU_PROFILE=integrated-gpu \
 
 The manifest records the measured binary SHA-256, the 40-character source
 revision, and the selected `github.com/bnema/purego-cef2gtk` version plus its
-full 40-character revision. Generate it at build time; collection verifies the
-manifest against `go version -m` output for the measured binary and fails
-closed on missing or mismatched attribution.
+full 40-character revision. Generate it at build time from the same tree
+that produced the binary; collection verifies the manifest against
+`go version -m` output for the measured binary and fails closed on missing
+or mismatched attribution.
+
+```bash
+make build-manifest
+# or, equivalently:
+python3 scripts/generate_build_manifest.py --binary dist/dumber
+```
+
+Manifest schema (JSON, sorted keys):
+
+```json
+{
+  "binary_sha256": "<hex sha256 of the measured binary>",
+  "source_revision": "<40-hex git revision of the built source>",
+  "modules": {
+    "github.com/bnema/purego-cef2gtk": {
+      "version": "<exact version from go version -m>",
+      "revision": "<40-hex git hash from go mod download origin>"
+    }
+  }
+}
+```
+
+The generator refuses binaries built with a `replace` directive, non-tag
+dependency versions, and missing source revisions. The default manifest
+path is `<binary>.manifest.json`, which is also the collector default
+(`DUMBER_BUILD_MANIFEST` overrides it).
 
 The collector is for the accelerated CEF/DMABUF/GTK contract above. By default
 each collection is a fresh directory below

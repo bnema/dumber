@@ -76,6 +76,11 @@ build-quick: ## Build quickly for backend development
 	@rm -f $(DIST_DIR)/cef-helper
 	@echo "Build successful! Binary: $(DIST_DIR)/$(BINARY_NAME)"
 
+build-manifest: build-quick ## Generate the collector build manifest for dist/dumber
+	@echo "Generating build manifest..."
+	python3 scripts/generate_build_manifest.py --binary $(DIST_DIR)/$(BINARY_NAME)
+	@echo "Manifest: $(DIST_DIR)/$(BINARY_NAME).manifest.json"
+
 install-local: build-quick ## Install dumber to ~/.local/bin atomically
 	@echo "Installing $(BINARY_NAME) to $(LOCAL_BIN_DIR)..."
 	@mkdir -p $(LOCAL_BIN_DIR)

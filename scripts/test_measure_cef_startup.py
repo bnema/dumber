@@ -77,6 +77,22 @@ class BeaconTest(unittest.TestCase):
         lines = ['{"message":"startup_trace: milestone","milestone":"process_entry"}', "not json"]
         self.assertEqual(len(harness.parse_child_output(lines)), 1)
 
+    def test_image_endpoint_serves_decodable_png(self):
+        import struct
+        import zlib
+        url = "http://127.0.0.1:%d/pixel.png" % self.port
+        with urllib.request.urlopen(url, timeout=5) as response:
+            self.assertEqual(response.status, 200)
+            self.assertEqual(response.headers.get_content_type(), "image/png")
+            body = response.read()
+        self.assertEqual(body[:8], bytes.fromhex("89504e470d0a1a0a"))
+        width, height = struct.unpack(">II", body[16:24])
+        self.assertEqual((width, height), (1, 1))
+        idat_len = struct.unpack(">I", body[33:37])[0]
+        self.assertEqual(body[37:41], b"IDAT")
+        zlib.decompress(body[41:41 + idat_len])
+        self.assertEqual(body[-8:-4], b"IEND")
+
 
 class CliValidationTest(unittest.TestCase):
     def setUp(self):
