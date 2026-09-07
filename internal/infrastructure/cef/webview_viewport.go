@@ -596,6 +596,10 @@ func (wv *WebView) applyEffectiveVisibility(host viewportSyncBrowserHost, visibl
 		host.WasHidden(0)
 		return
 	}
+	// The hidden transition retires scroll motion: a re-shown page never
+	// resumes old motion, and delayed cleanup cannot cancel a newer visible
+	// session because cleanup is epoch-scoped.
+	wv.invalidateScrollMotion()
 	host.WasHidden(1)
 }
 

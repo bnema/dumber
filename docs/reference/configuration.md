@@ -71,6 +71,8 @@
 | `engine.cef.input.scroll_horizontal_multiplier` | float | `1.0` | > 0 |
 | `engine.cef.input.scroll_vertical_multiplier` | float | `1.0` | > 0 |
 | `engine.cef.input.scroll_max_delta` | int32 | `0` | >= 0 |
+| `engine.cef.input.scroll_touchpad_inertia` | bool | `true` | |
+| `engine.cef.input.scroll_wheel_smoothing` | bool | `true` | |
 | `engine.cef.input.touchpad_navigation_enabled` | bool | `true` | |
 | `engine.cef.input.touchpad_navigation_min_delta` | float | `320.0` | > 0 |
 | `engine.cef.input.touchpad_navigation_max_vertical_ratio` | float | `0.5` | > 0 |

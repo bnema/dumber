@@ -99,6 +99,8 @@ func BuildEngine(input EngineInput) (port.Engine, error) {
 				ScrollHorizontalMultiplier:         cfg.Engine.CEF.Input.ScrollHorizontalMultiplier,
 				ScrollVerticalMultiplier:           cfg.Engine.CEF.Input.ScrollVerticalMultiplier,
 				ScrollMaxDelta:                     cfg.Engine.CEF.Input.ScrollMaxDelta,
+				ScrollTouchpadInertia:              cfg.Engine.CEF.Input.ScrollTouchpadInertia,
+				ScrollWheelSmoothing:               cfg.Engine.CEF.Input.ScrollWheelSmoothing,
 				TouchpadNavigationEnabled:          cfg.Engine.CEF.Input.TouchpadNavigationEnabled,
 				TouchpadNavigationMinDelta:         cfg.Engine.CEF.Input.TouchpadNavigationMinDelta,
 				TouchpadNavigationMaxVerticalRatio: cfg.Engine.CEF.Input.TouchpadNavigationMaxVerticalRatio,

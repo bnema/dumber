@@ -23,6 +23,8 @@ func TestWebViewBridgeInputOptions_LeavesTargetSelectionToAdapter(t *testing.T) 
 			ScrollHorizontalMultiplier:         0.75,
 			ScrollVerticalMultiplier:           1.5,
 			ScrollMaxDelta:                     120,
+			ScrollTouchpadInertia:              true,
+			ScrollWheelSmoothing:               true,
 			TouchpadNavigationEnabled:          true,
 			TouchpadNavigationMinDelta:         80,
 			TouchpadNavigationMaxVerticalRatio: 0.5,
@@ -37,6 +39,8 @@ func TestWebViewBridgeInputOptions_LeavesTargetSelectionToAdapter(t *testing.T) 
 	require.InDelta(t, 0.75, opts.Scroll.HorizontalMultiplier, 0.001)
 	require.InDelta(t, 1.5, opts.Scroll.VerticalMultiplier, 0.001)
 	require.Equal(t, int32(120), opts.Scroll.MaxDelta)
+	require.True(t, opts.Scroll.TouchpadInertia)
+	require.True(t, opts.Scroll.WheelSmoothing)
 	require.NotNil(t, opts.OnMiddleClick)
 	require.NotNil(t, opts.OnScroll)
 	require.False(t, opts.NavigationSwipe.Enabled)

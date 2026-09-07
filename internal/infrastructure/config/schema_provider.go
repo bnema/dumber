@@ -1158,6 +1158,20 @@ func (*SchemaProvider) getPerformanceKeys(defaults *Config) []entity.ConfigKeyIn
 			Section:     SectionPerformance,
 		},
 		{
+			Key:         "engine.cef.input.scroll_touchpad_inertia",
+			Type:        "bool",
+			Default:     fmt.Sprintf("%t", defaults.Engine.CEF.Input.ScrollTouchpadInertia),
+			Description: "Enable direct touchpad tracking with exponential release decay for CEF views",
+			Section:     SectionPerformance,
+		},
+		{
+			Key:         "engine.cef.input.scroll_wheel_smoothing",
+			Type:        "bool",
+			Default:     fmt.Sprintf("%t", defaults.Engine.CEF.Input.ScrollWheelSmoothing),
+			Description: "Interpolate accepted CEF wheel impulses across frames without a long coast",
+			Section:     SectionPerformance,
+		},
+		{
 			Key:         "engine.cef.input.touchpad_navigation_enabled",
 			Type:        "bool",
 			Default:     fmt.Sprintf("%t", defaults.Engine.CEF.Input.TouchpadNavigationEnabled),
