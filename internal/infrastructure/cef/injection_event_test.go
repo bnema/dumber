@@ -21,6 +21,11 @@ type injectionHarness struct {
 
 func newInjectionHarness(t *testing.T, uri string) *injectionHarness {
 	t.Helper()
+	return newInjectionHarnessWithID(t, uri, 7)
+}
+
+func newInjectionHarnessWithID(t *testing.T, uri string, browserID int32) *injectionHarness {
+	t.Helper()
 	h := &injectionHarness{}
 	frame := cefmocks.NewMockFrame(t)
 	frame.EXPECT().ExecuteJavaScript(mock.Anything, "", int32(0)).Run(func(script string, _ string, _ int32) {
@@ -30,6 +35,7 @@ func newInjectionHarness(t *testing.T, uri string) *injectionHarness {
 	}).Maybe()
 	h.browser = cefmocks.NewMockBrowser(t)
 	h.browser.EXPECT().GetMainFrame().Return(frame).Maybe()
+	h.browser.EXPECT().GetIdentifier().Return(browserID).Maybe()
 	h.wv = &WebView{ctx: context.Background(), browser: h.browser}
 	h.wv.uri = uri
 	return h
@@ -78,10 +84,11 @@ func TestInjectionEvent_InternalPageScriptSet(t *testing.T) {
 // TestInjectionEvent_StaleBrowserSkipped reproduces an old main frame firing
 // during process swap: the GTK-dispatched callback must install nothing.
 func TestInjectionEvent_StaleBrowserSkipped(t *testing.T) {
-	h := newInjectionHarness(t, "https://example.com/a")
+	h := newInjectionHarnessWithID(t, "https://example.com/a", 7)
 	event := h.wv.captureInjectionEvent()
 
 	replacement := cefmocks.NewMockBrowser(t)
+	replacement.EXPECT().GetIdentifier().Return(int32(8)).Maybe()
 	h.wv.mu.Lock()
 	h.wv.browser = replacement
 	h.wv.mu.Unlock()
@@ -120,11 +127,33 @@ func TestInjectionEvent_CurrentInstalls(t *testing.T) {
 	require.Equal(t, 2*first, h.scriptCount(), "repeated same-document events reinstall idempotent scripts")
 }
 
-// TestInjectionEvent_NilCaptureFallsBackToLegacy verifies the conservative
-// fallback: a capture without a browser cannot prove staleness and installs
-// as before.
-func TestInjectionEvent_NilCaptureFallsBackToLegacy(t *testing.T) {
+// TestInjectionEvent_NilCaptureSkips verifies the conservative fallback: a
+// capture taken while no browser was attached cannot prove identity, so it
+// installs nothing; the current browser gets its own load-end installation.
+func TestInjectionEvent_NilCaptureSkips(t *testing.T) {
 	h := newInjectionHarness(t, "https://example.com/a")
-	testInjector().onLoadEndForEvent(h.wv, injectionEvent{})
-	require.Positive(t, h.scriptCount())
+	h.wv.mu.Lock()
+	h.wv.browser = nil
+	h.wv.mu.Unlock()
+	event := h.wv.captureInjectionEvent()
+	require.Equal(t, noBrowserID, event.browserID)
+
+	h.wv.mu.Lock()
+	h.wv.browser = h.browser
+	h.wv.mu.Unlock()
+	testInjector().onLoadEndForEvent(h.wv, event)
+	require.Zero(t, h.scriptCount(), "identity-less capture must not install blind")
+}
+
+// TestInjectionEvent_NilCurrentBrowserSkips verifies dispatch against a
+// destroyed browser installs nothing instead of dereferencing it.
+func TestInjectionEvent_NilCurrentBrowserSkips(t *testing.T) {
+	h := newInjectionHarness(t, "https://example.com/a")
+	event := h.wv.captureInjectionEvent()
+
+	h.wv.mu.Lock()
+	h.wv.browser = nil
+	h.wv.mu.Unlock()
+	testInjector().onLoadEndForEvent(h.wv, event)
+	require.Zero(t, h.scriptCount())
 }

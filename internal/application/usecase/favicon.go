@@ -331,11 +331,7 @@ func (uc *FaviconUseCase) RefreshFromIconURLs(ctx context.Context, pageURL strin
 	if uc.cachedMiss(key) {
 		return ErrFaviconMiss
 	}
-	// Explicit refresh advances the invalidation epoch so older in-flight
-	// completions cannot repopulate entries this refresh supersedes.
-	uc.bumpEpoch()
-	startEpoch := uc.epochValue()
-	return uc.joinRefreshOp(ctx, key, func(opCtx context.Context) error {
+	return uc.joinRefreshOp(ctx, key, func(opCtx context.Context, startEpoch uint64) error {
 		var lastMiss error
 		for _, iconURL := range candidates {
 			if err := opCtx.Err(); err != nil {
@@ -343,10 +339,7 @@ func (uc *FaviconUseCase) RefreshFromIconURLs(ctx context.Context, pageURL strin
 			}
 			fetched, err := uc.fetcher.Fetch(opCtx, appport.FaviconFetchRequest{PageURL: pageURL, IconURL: iconURL})
 			if err != nil {
-				if status, classified := appport.FetchStatusCode(err); classified {
-					if status == 404 || status == 410 {
-						uc.noteMiss(key, err)
-					}
+				if _, classified := appport.FetchStatusCode(err); classified {
 					lastMiss = err
 					continue
 				}
@@ -364,9 +357,18 @@ func (uc *FaviconUseCase) RefreshFromIconURLs(ctx context.Context, pageURL strin
 				lastMiss = err
 				continue
 			}
+			if err == nil {
+				// Success contradicts any earlier absence record for
+				// this request: drop it instead of letting it linger.
+				uc.clearMiss(key)
+			}
 			return err
 		}
 		if lastMiss != nil {
+			// Only a fully missed request populates the negative cache:
+			// recording per candidate would poison later candidates
+			// that were never tried.
+			uc.noteMiss(key, lastMiss)
 			return lastMiss
 		}
 		if uc.epochValue() != startEpoch {
@@ -408,7 +410,7 @@ func (uc *FaviconUseCase) refreshKey(ctx context.Context, key favicon.Key, pageU
 	if !ok {
 		return ErrFaviconMiss
 	}
-	return uc.joinRefreshOp(ctx, discoveryKey, func(opCtx context.Context) error {
+	return uc.joinRefreshOp(ctx, discoveryKey, func(opCtx context.Context, _ uint64) error {
 		return uc.fetchAndObserve(opCtx, pageURL)
 	})
 }
@@ -522,11 +524,16 @@ func (uc *FaviconUseCase) scheduleRefresh(key favicon.Key, pageURL string) bool 
 }
 
 // Close aborts owned background refresh work and drains shared in-flight
-// operations. It is safe to call on a nil receiver and more than once.
+// operations. Admission is sealed first so no refresh can start after the
+// drain observes zero active operations. It is safe to call on a nil
+// receiver and more than once.
 func (uc *FaviconUseCase) Close() {
 	if uc == nil {
 		return
 	}
+	uc.shared.mu.Lock()
+	uc.shared.closed = true
+	uc.shared.mu.Unlock()
 	if uc.bgCancel != nil {
 		uc.bgCancel()
 	}

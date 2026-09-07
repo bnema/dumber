@@ -96,12 +96,17 @@ func isDefaultPort(scheme, port string) bool {
 // refreshCall is one shared in-flight refresh operation. Waiters join by
 // request key; the first waiter executes while the rest observe. One
 // canceled waiter never cancels the others; the operation is canceled only
-// when the last waiter leaves.
+// when the last waiter leaves, decided atomically under the coordinator
+// lock so no joiner can observe a half-canceled call.
 type refreshCall struct {
 	done    chan struct{}
 	err     error
 	waiters int
 	cancel  context.CancelFunc
+	// closing marks a call whose last waiter left: it still occupies its
+	// slot and map entry until the executor finishes, but no new waiter
+	// may join it; joiners create a fresh operation instead.
+	closing bool
 }
 
 // refreshMiss records a negatively cached genuine absence.
@@ -115,6 +120,9 @@ type refreshCoordinator struct {
 	active map[string]*refreshCall
 	slots  chan struct{}
 	epoch  uint64
+	// closed seals admission: set by Close before cancel/drain, so no
+	// refresh can start after the drain observes zero active operations.
+	closed bool
 	misses map[string]refreshMiss
 	order  []string
 }
@@ -158,6 +166,14 @@ func (uc *FaviconUseCase) cachedMiss(key string) bool {
 	return true
 }
 
+// clearMiss drops any absence record for key: a later success proves the
+// resource exists and must not stay suppressed.
+func (uc *FaviconUseCase) clearMiss(key string) {
+	uc.shared.mu.Lock()
+	defer uc.shared.mu.Unlock()
+	delete(uc.shared.misses, key)
+}
+
 // noteMiss records a genuine absence (verified 404/410) for request key.
 // Only 404/410 are cacheable: 401/403, 5xx, cancellation, DNS/transport,
 // and validation failures must never suppress a later retry.
@@ -175,6 +191,26 @@ func (uc *FaviconUseCase) noteMiss(key string, fetchErr error) {
 		uc.shared.order = append(uc.shared.order, key)
 	}
 	uc.shared.misses[key] = refreshMiss{expiresAt: uc.now().Add(faviconMissTTL)}
+	// Expired names linger in order until evicted; compact before the
+	// backlog can grow without bound.
+	if len(uc.shared.order) > 4*maxMissEntries {
+		uc.compactMissOrderLocked()
+	}
+}
+
+// compactMissOrderLocked drops order names with no live entry, bounding
+// the backlog. Caller must hold refresh.mu.
+func (uc *FaviconUseCase) compactMissOrderLocked() {
+	kept := uc.shared.order[:0]
+	for _, key := range uc.shared.order {
+		if _, ok := uc.shared.misses[key]; ok {
+			kept = append(kept, key)
+		}
+	}
+	for i := len(kept); i < len(uc.shared.order); i++ {
+		uc.shared.order[i] = ""
+	}
+	uc.shared.order = kept
 }
 
 // evictMissLocked removes one entry: expired first, oldest otherwise.
@@ -203,13 +239,21 @@ func (uc *FaviconUseCase) evictMissLocked() {
 
 // joinRefreshOp shares equivalent in-flight work identified by key. The
 // first waiter executes exec under a whole-operation deadline derived from
-// the owned background context; joiners observe the result. A canceled
-// waiter leaves without affecting others; the operation is canceled when
-// the last waiter is gone. When the admission budget is exhausted, direct
-// callers receive ErrFaviconBusy (never false success).
-func (uc *FaviconUseCase) joinRefreshOp(ctx context.Context, key string, exec func(opCtx context.Context) error) error {
+// the owned background context; joiners observe the result. The creating
+// waiter also advances the invalidation epoch, so concurrent joiners never
+// invalidate the operation they joined. A canceled waiter leaves without
+// affecting others; the operation is canceled atomically when the last
+// waiter leaves, and late joiners start a fresh operation instead of
+// observing a dying call. When the admission budget is exhausted, or the
+// coordinator is closed, direct callers receive ErrFaviconBusy or
+// ErrFaviconShutdown respectively (never false success).
+func (uc *FaviconUseCase) joinRefreshOp(ctx context.Context, key string, exec func(opCtx context.Context, startEpoch uint64) error) error {
 	uc.shared.mu.Lock()
-	if call, ok := uc.shared.active[key]; ok {
+	if uc.shared.closed {
+		uc.shared.mu.Unlock()
+		return appport.ErrFaviconShutdown
+	}
+	if call, ok := uc.shared.active[key]; ok && !call.closing {
 		call.waiters++
 		uc.shared.mu.Unlock()
 		return uc.awaitRefreshCall(ctx, call)
@@ -221,17 +265,24 @@ func (uc *FaviconUseCase) joinRefreshOp(ctx context.Context, key string, exec fu
 		return appport.ErrFaviconBusy
 	}
 	opCtx, cancel := context.WithTimeout(uc.background, refreshOpTimeout)
+	// The creator advances the epoch with creation itself: older
+	// completions cannot repopulate entries this operation supersedes,
+	// and joiners share the creator's epoch instead of invalidating it.
+	uc.shared.epoch++
+	startEpoch := uc.shared.epoch
 	call := &refreshCall{done: make(chan struct{}), waiters: 1, cancel: cancel}
 	uc.shared.active[key] = call
 	uc.shared.mu.Unlock()
 
 	go func() {
-		err := exec(opCtx)
+		err := exec(opCtx, startEpoch)
 		<-uc.shared.slots
 		cancel()
 		uc.shared.mu.Lock()
 		call.err = err
-		delete(uc.shared.active, key)
+		if uc.shared.active[key] == call {
+			delete(uc.shared.active, key)
+		}
 		uc.shared.mu.Unlock()
 		close(call.done)
 	}()
@@ -240,7 +291,10 @@ func (uc *FaviconUseCase) joinRefreshOp(ctx context.Context, key string, exec fu
 }
 
 // awaitRefreshCall waits for a shared operation or the waiter's own
-// cancellation, releasing the waiter slot exactly once.
+// cancellation, releasing the waiter slot exactly once. The last waiter to
+// leave marks the call closing and cancels it atomically under the lock:
+// context cancellation only signals, so invoking it while holding the
+// coordinator mutex cannot block.
 func (uc *FaviconUseCase) awaitRefreshCall(ctx context.Context, call *refreshCall) error {
 	select {
 	case <-call.done:
@@ -251,11 +305,11 @@ func (uc *FaviconUseCase) awaitRefreshCall(ctx context.Context, call *refreshCal
 	case <-ctx.Done():
 		uc.shared.mu.Lock()
 		call.waiters--
-		last := call.waiters <= 0
-		uc.shared.mu.Unlock()
-		if last {
+		if call.waiters <= 0 && !call.closing {
+			call.closing = true
 			call.cancel()
 		}
+		uc.shared.mu.Unlock()
 		return ctx.Err()
 	}
 }

@@ -2195,22 +2195,34 @@ func (wv *WebView) claimPendingNavigationSubmission(intentID uint64, browserID i
 // injectionEvent captures the navigation identity observed at main-frame
 // load-end so the GTK-dispatched installation can drop stale events: an
 // old main frame firing during process swap, or a queued callback outlived
-// by a newer navigation. Browser instance and intent ID are both required;
-// the current URL alone never proves document identity.
+// by a newer navigation. The browser is identified by its CEF identifier
+// (matching codebase convention) rather than interface identity, which is
+// neither panic-safe for arbitrary dynamic types nor proof of CEF object
+// identity. noBrowserID marks captures taken while no browser was
+// attached. The current URL alone never proves document identity.
 type injectionEvent struct {
-	browser  purecef.Browser
-	intentID uint64
+	browserID int32
+	intentID  uint64
 }
 
-// captureInjectionEvent snapshots the current browser instance and pending
-// navigation intent for a load-end event. Called on the CEF thread.
+// noBrowserID marks an injection event captured while no browser was
+// attached; such events cannot prove identity and are skipped.
+const noBrowserID = int32(-1)
+
+// captureInjectionEvent snapshots the current browser identifier and pending
+// navigation intent for a load-end event. Called on the CEF thread; the
+// identifier read is a foreign call made outside any state lock.
 func (wv *WebView) captureInjectionEvent() injectionEvent {
 	if wv == nil {
-		return injectionEvent{}
+		return injectionEvent{browserID: noBrowserID}
 	}
 	wv.mu.RLock()
-	defer wv.mu.RUnlock()
-	return injectionEvent{browser: wv.browser, intentID: wv.pendingIntentID}
+	browser, intentID := wv.browser, wv.pendingIntentID
+	wv.mu.RUnlock()
+	if browser == nil {
+		return injectionEvent{browserID: noBrowserID, intentID: intentID}
+	}
+	return injectionEvent{browserID: browser.GetIdentifier(), intentID: intentID}
 }
 
 func pendingURIEquivalent(a, b string) bool {

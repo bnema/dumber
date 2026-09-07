@@ -10,6 +10,10 @@ var ErrFaviconMiss = errors.New("favicon miss")
 // ErrFaviconMiss: overload is not a miss and must never read as success.
 var ErrFaviconBusy = errors.New("favicon refresh overloaded")
 
+// ErrFaviconShutdown is returned to refresh callers arriving after the
+// use case began closing. Like overload, it is distinct from a miss.
+var ErrFaviconShutdown = errors.New("favicon refresh shutting down")
+
 // FaviconFetchError classifies a failed fetch while preserving
 // ErrFaviconMiss matching for existing callers. StatusCode carries the
 // HTTP status for HTTP failures and is zero for validation, transport,

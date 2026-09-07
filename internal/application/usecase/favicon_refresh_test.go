@@ -479,6 +479,190 @@ func TestRefreshInvalidate_DropsStaleCompletion(t *testing.T) {
 	require.Empty(t, repo.byKey, "stale completion must not repopulate invalidated entries")
 }
 
+// TestRefreshJoinerSharesCreatorEpoch proves concurrent joiners never
+// invalidate the operation they joined: overlapping identical refreshes
+// both succeed and the fetched icon is stored.
+func TestRefreshJoinerSharesCreatorEpoch(t *testing.T) {
+	release := make(chan struct{})
+	var calls atomic.Int64
+	fetcher := refreshFetcherMock(t, func(_ context.Context, req appport.FaviconFetchRequest) (*appport.FaviconFetchedIcon, error) {
+		calls.Add(1)
+		<-release
+		return fetchedIcon(req.IconURL), nil
+	})
+	repo := newFaviconRepoState()
+	uc := NewFaviconUseCase(FaviconDeps{
+		Repository:   mockFaviconRepository(t, repo),
+		BlobStore:    mockFaviconBlobStore(t, newFaviconBlobStoreState()),
+		Converter:    mockFaviconConverter(t, &faviconConverterState{}),
+		Scheduler:    mockFaviconScheduler(t, &faviconSchedulerState{seen: map[favicon.Key]bool{}}),
+		Invalidators: mockFaviconInvalidators(t, &faviconInvalidatorsState{}),
+		Fetcher:      fetcher,
+		Now:          time.Now,
+		Background:   context.Background(),
+	})
+
+	page := "https://example.com/a"
+	candidates := []string{"https://example.com/favicon.ico"}
+	key, _, ok := refreshRequestKey(page, candidates)
+	require.True(t, ok)
+	first := make(chan error, 1)
+	go func() {
+		first <- uc.RefreshFromIconURLs(context.Background(), page, candidates)
+	}()
+	require.Eventually(t, func() bool {
+		uc.shared.mu.Lock()
+		defer uc.shared.mu.Unlock()
+		return len(uc.shared.active) == 1
+	}, 10*time.Second, 5*time.Millisecond)
+	second := make(chan error, 1)
+	go func() {
+		second <- uc.RefreshFromIconURLs(context.Background(), page, candidates)
+	}()
+	require.Eventually(t, func() bool {
+		uc.shared.mu.Lock()
+		defer uc.shared.mu.Unlock()
+		call, ok := uc.shared.active[key]
+		return ok && call.waiters == 2
+	}, 10*time.Second, 5*time.Millisecond, "joiner must share the creator operation")
+	close(release)
+	select {
+	case err := <-first:
+		require.NoError(t, err)
+	case <-time.After(10 * time.Second):
+		t.Fatal("creator did not complete")
+	}
+	select {
+	case err := <-second:
+		require.NoError(t, err)
+	case <-time.After(10 * time.Second):
+		t.Fatal("joiner did not complete")
+	}
+	require.EqualValues(t, 1, calls.Load())
+	require.NotEmpty(t, repo.byKey, "shared success must be stored, not dropped by a joiner epoch bump")
+}
+
+// TestRefreshPartialMissDoesNotPoisonLaterCandidates proves request-level
+// negative caching happens only for fully missed requests: a 404 on the
+// first candidate followed by a successful second candidate stores the
+// icon and records no miss.
+func TestRefreshPartialMissDoesNotPoisonLaterCandidates(t *testing.T) {
+	var calls atomic.Int64
+	fetcher := refreshFetcherMock(t, func(_ context.Context, req appport.FaviconFetchRequest) (*appport.FaviconFetchedIcon, error) {
+		calls.Add(1)
+		if req.IconURL == "https://example.com/gone.ico" {
+			return nil, &appport.FaviconFetchError{StatusCode: 404}
+		}
+		return fetchedIcon(req.IconURL), nil
+	})
+	repo := newFaviconRepoState()
+	uc := NewFaviconUseCase(FaviconDeps{
+		Repository:   mockFaviconRepository(t, repo),
+		BlobStore:    mockFaviconBlobStore(t, newFaviconBlobStoreState()),
+		Converter:    mockFaviconConverter(t, &faviconConverterState{}),
+		Scheduler:    mockFaviconScheduler(t, &faviconSchedulerState{seen: map[favicon.Key]bool{}}),
+		Invalidators: mockFaviconInvalidators(t, &faviconInvalidatorsState{}),
+		Fetcher:      fetcher,
+		Now:          time.Now,
+		Background:   context.Background(),
+	})
+
+	page := "https://example.com/a"
+	candidates := []string{"https://example.com/gone.ico", "https://example.com/good.ico"}
+	require.NoError(t, uc.RefreshFromIconURLs(context.Background(), page, candidates))
+	require.NotEmpty(t, repo.byKey, "successful candidate must be stored")
+	key, _, ok := refreshRequestKey(page, candidates)
+	require.True(t, ok)
+	require.False(t, uc.cachedMiss(key), "partial miss must not populate the request miss cache")
+}
+
+// TestRefreshCanceledCallNotJoined proves a waiter arriving after the last
+// waiter canceled starts a fresh operation instead of observing the dying
+// call.
+func TestRefreshCanceledCallNotJoined(t *testing.T) {
+	release := make(chan struct{})
+	var calls atomic.Int64
+	fetcher := refreshFetcherMock(t, func(ctx context.Context, req appport.FaviconFetchRequest) (*appport.FaviconFetchedIcon, error) {
+		calls.Add(1)
+		select {
+		case <-release:
+			return fetchedIcon(req.IconURL), nil
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		}
+	})
+	uc := refreshTestUC(t, fetcher, nil, nil)
+
+	page := "https://example.com/a"
+	candidates := []string{"https://example.com/favicon.ico"}
+	leaving, cancel := context.WithCancel(context.Background())
+	left := make(chan error, 1)
+	go func() {
+		left <- uc.RefreshFromIconURLs(leaving, page, candidates)
+	}()
+	require.Eventually(t, func() bool {
+		uc.shared.mu.Lock()
+		defer uc.shared.mu.Unlock()
+		return len(uc.shared.active) == 1
+	}, 10*time.Second, 5*time.Millisecond)
+	cancel()
+	select {
+	case err := <-left:
+		require.ErrorIs(t, err, context.Canceled)
+	case <-time.After(10 * time.Second):
+		t.Fatal("canceled waiter did not return")
+	}
+	// The dying call still occupies the map entry until its executor
+	// finishes; the next waiter must start fresh rather than join it.
+	fresh := make(chan error, 1)
+	go func() {
+		fresh <- uc.RefreshFromIconURLs(context.Background(), page, candidates)
+	}()
+	require.Eventually(t, func() bool {
+		return calls.Load() == 2
+	}, 10*time.Second, 5*time.Millisecond, "late joiner must start a fresh operation")
+	close(release)
+	select {
+	case err := <-fresh:
+		require.NoError(t, err)
+	case <-time.After(10 * time.Second):
+		t.Fatal("fresh operation did not complete")
+	}
+}
+
+// TestRefreshCloseSealsAdmission proves no refresh can start after Close
+// began: late callers receive a distinct shutdown error instead of racing
+// the drain.
+func TestRefreshCloseSealsAdmission(t *testing.T) {
+	uc := refreshTestUC(t, refreshFetcherMock(t, func(_ context.Context, req appport.FaviconFetchRequest) (*appport.FaviconFetchedIcon, error) {
+		return fetchedIcon(req.IconURL), nil
+	}), nil, nil)
+
+	uc.Close()
+	err := uc.RefreshFromIconURLs(context.Background(), "https://example.com/a", []string{"https://example.com/favicon.ico"})
+	require.ErrorIs(t, err, appport.ErrFaviconShutdown)
+	require.NotErrorIs(t, err, ErrFaviconMiss, "shutdown must stay distinct from a miss")
+}
+
+// TestRefreshMissOrderBounded proves the negative-cache order backlog
+// cannot grow without bound under distinct misses.
+func TestRefreshMissOrderBounded(t *testing.T) {
+	now := time.Date(2025, 6, 1, 12, 0, 0, 0, time.UTC)
+	fetcher := refreshFetcherMock(t, func(_ context.Context, _ appport.FaviconFetchRequest) (*appport.FaviconFetchedIcon, error) {
+		return nil, &appport.FaviconFetchError{StatusCode: 404}
+	})
+	uc := refreshTestUC(t, fetcher, &now, nil)
+
+	for i := range 3 * maxMissEntries {
+		icon := "https://example.com/missing-" + string(rune('a'+i%26)) + "-" + string(rune('0'+i/26%10)) + ".ico"
+		require.ErrorIs(t, uc.RefreshFromIconURLs(context.Background(), "https://example.com/a", []string{icon}), ErrFaviconMiss)
+	}
+	uc.shared.mu.Lock()
+	defer uc.shared.mu.Unlock()
+	require.LessOrEqual(t, len(uc.shared.misses), maxMissEntries)
+	require.LessOrEqual(t, len(uc.shared.order), 4*maxMissEntries, "order backlog must stay bounded")
+}
+
 // TestRefreshSharing_ScopedToUseCaseInstance proves profile isolation:
 // identical requests on different use-case instances never share fetches.
 func TestRefreshSharing_ScopedToUseCaseInstance(t *testing.T) {

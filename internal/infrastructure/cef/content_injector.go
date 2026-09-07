@@ -251,23 +251,28 @@ func (ci *contentInjector) RefreshScripts(ctx context.Context, wv port.WebView) 
 
 // onLoadEndForEvent installs scripts for a captured load-end event after
 // revalidating it on the GTK thread. Events that are provably stale are
-// skipped: a replaced browser instance (old main frame during process
+// skipped: a replaced browser identifier (old main frame during process
 // swap) or a superseded intent ID (a newer navigation committed while the
-// callback was queued). Ambiguous cases fall back to legacy installation:
-// a nil captured browser cannot prove staleness, and matching identity
-// installs exactly as before. Repeated same-document load-ends still
-// install; the injected scripts are idempotent by element ID.
+// callback was queued). Ambiguous cases fall back to skipping rather than
+// installing blind: an event captured without a browser cannot prove
+// identity, and the current browser gets its own load-end installation.
+// The single snapshot bounds the residual check-then-install window to
+// nanoseconds, and any race there can only repeat idempotent scripts.
+// Repeated same-document load-ends still install.
 func (ci *contentInjector) onLoadEndForEvent(wv *WebView, event injectionEvent) {
-	if wv == nil || ci == nil {
+	if wv == nil || ci == nil || event.browserID == noBrowserID {
 		return
 	}
 	wv.mu.RLock()
-	currentBrowser, currentIntent := wv.browser, wv.pendingIntentID
+	browser, currentIntent := wv.browser, wv.pendingIntentID
 	wv.mu.RUnlock()
-	if event.browser != nil && currentBrowser != event.browser {
+	if browser == nil {
 		return
 	}
-	if event.intentID != currentIntent {
+	if browser.GetIdentifier() != event.browserID {
+		return
+	}
+	if currentIntent != event.intentID {
 		return
 	}
 	ci.onLoadEnd(wv)
