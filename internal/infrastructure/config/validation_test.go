@@ -198,6 +198,36 @@ func TestValidateConfig_CEFConfig(t *testing.T) {
 			wantText: "engine.cef.windowless_frame_rate",
 		},
 		{
+			name: "zero idle residency timeout disables",
+			mutate: func(cfg *Config) {
+				cfg.Engine.CEF.IdleRuntimeTimeoutMs = 0
+			},
+			wantErr: false,
+		},
+		{
+			name: "maximum idle residency timeout accepted",
+			mutate: func(cfg *Config) {
+				cfg.Engine.CEF.IdleRuntimeTimeoutMs = 300000
+			},
+			wantErr: false,
+		},
+		{
+			name: "negative idle residency timeout",
+			mutate: func(cfg *Config) {
+				cfg.Engine.CEF.IdleRuntimeTimeoutMs = -1
+			},
+			wantErr:  true,
+			wantText: "engine.cef.idle_runtime_timeout_ms",
+		},
+		{
+			name: "oversized idle residency timeout",
+			mutate: func(cfg *Config) {
+				cfg.Engine.CEF.IdleRuntimeTimeoutMs = 300001
+			},
+			wantErr:  true,
+			wantText: "engine.cef.idle_runtime_timeout_ms",
+		},
+		{
 			name: "zero wheel multiplier",
 			mutate: func(cfg *Config) {
 				cfg.Engine.CEF.Input.ScrollWheelMultiplier = 0

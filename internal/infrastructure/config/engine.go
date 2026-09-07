@@ -112,6 +112,11 @@ type CEFEngineConfig struct {
 	WindowlessFrameRateMax int32 `mapstructure:"windowless_frame_rate_max" toml:"windowless_frame_rate_max" yaml:"windowless_frame_rate_max"` //nolint:lll // struct tags exceed lll limit
 	// Input controls GTK input translation before events are forwarded to CEF.
 	Input CEFInputConfig `mapstructure:"input" toml:"input" yaml:"input"`
+	// IdleRuntimeTimeoutMs bounds opt-in CEF runtime residency after the last
+	// user window closes. Integer milliseconds, default 0 (disabled),
+	// accepted range 0..300000. Read once at process startup; changes require
+	// a restart and are never partially hot-applied.
+	IdleRuntimeTimeoutMs int `mapstructure:"idle_runtime_timeout_ms" toml:"idle_runtime_timeout_ms" yaml:"idle_runtime_timeout_ms"`
 	// EnableAudioHandler opts into the experimental CEF AudioHandler bridge.
 	EnableAudioHandler bool `mapstructure:"enable_audio_handler" toml:"enable_audio_handler" yaml:"enable_audio_handler"`
 	// TraceHandlers enables purego-cef handler/refcount tracing for diagnostics.
