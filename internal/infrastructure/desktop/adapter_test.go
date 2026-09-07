@@ -292,3 +292,24 @@ func requireNoError(t *testing.T, err error) {
 		t.Fatal(err)
 	}
 }
+
+func TestLaunchBrowserBrowseURL_ChildEnvMergesRuntimeSafety(t *testing.T) {
+	t.Setenv("GODEBUG", "gctrace=1")
+
+	err := launchBrowserBrowseURL(
+		"https://example.com",
+		func() (string, error) { return "/usr/bin/dumber", nil },
+		func(cmd *exec.Cmd) error {
+			found := false
+			for _, entry := range cmd.Env {
+				if entry == "GODEBUG=gctrace=1,gcshrinkstackoff=1" {
+					found = true
+				}
+			}
+			assert.True(t, found, "child env must merge safety after sanitization: %#v", cmd.Env)
+			return nil
+		},
+	)
+
+	require.NoError(t, err)
+}

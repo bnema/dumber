@@ -334,3 +334,25 @@ func TestTryForwardBrowseURLToRunningInstance_PropagatesError(t *testing.T) {
 		t.Fatal("expected forwarded to be false on error")
 	}
 }
+
+func TestOmniboxCombinedLaunchEnvironment(t *testing.T) {
+	tests := []struct {
+		name string
+		args []string
+		want bool
+	}{
+		{name: "omnibox", args: []string{"dumber", "omnibox"}, want: true},
+		{name: "browse", args: []string{"dumber", "browse", "https://example.com"}, want: false},
+		{name: "cli", args: []string{"dumber"}, want: false},
+		{name: "cli with flags", args: []string{"dumber", "browse", "--help"}, want: false},
+		{name: "helper excluded", args: []string{"dumber", "--type=renderer"}, want: false},
+		{name: "helper with omnibox-like tail excluded", args: []string{"dumber", "--type", "renderer", "omnibox"}, want: false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := omniboxCombinedLaunchEnvironment(tt.args); got != tt.want {
+				t.Fatalf("omniboxCombinedLaunchEnvironment(%q) = %v, want %v", tt.args, got, tt.want)
+			}
+		})
+	}
+}

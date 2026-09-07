@@ -31,6 +31,7 @@ import (
 	"github.com/bnema/dumber/internal/infrastructure/filesystem"
 	"github.com/bnema/dumber/internal/infrastructure/idle"
 	"github.com/bnema/dumber/internal/infrastructure/persistence/sqlite"
+	"github.com/bnema/dumber/internal/infrastructure/process"
 	"github.com/bnema/dumber/internal/infrastructure/runtimeprofile"
 	"github.com/bnema/dumber/internal/infrastructure/snapshot"
 	"github.com/bnema/dumber/internal/infrastructure/textinput"
@@ -173,7 +174,14 @@ func main() {
 	// invalidate frames retained across those boundaries and make the GC abort
 	// with "traceback did not unwind completely". Re-exec once so the runtime
 	// sees the safety setting before it creates any goroutine or CEF subprocess.
-	if err := ensureRuntimeSafety(); err != nil {
+	// The standalone omnibox may additionally need a layer-shell preload; both
+	// changes are computed together there so they cost at most one re-exec.
+	if omniboxCombinedLaunchEnvironment(os.Args) {
+		if err := ensureOmniboxLaunchEnvironment(); err != nil {
+			_, _ = fmt.Fprintf(os.Stderr, "dumber: %v\n", err)
+			os.Exit(1)
+		}
+	} else if err := ensureRuntimeSafety(); err != nil {
 		_, _ = fmt.Fprintf(os.Stderr, "dumber: %v\n", err)
 		os.Exit(1)
 	}
@@ -430,7 +438,84 @@ func preInitializeAdwaitaForCEF(cfg *config.Config, initResult *bootstrap.Parall
 	}
 }
 
+// omniboxCombinedLaunchEnvironment reports whether argv selects the
+// standalone omnibox outside a classified CEF helper subprocess. CEF helpers
+// keep safety-only handling and the early helper routing below; they are
+// excluded from omnibox preload handling.
+func omniboxCombinedLaunchEnvironment(args []string) bool {
+	if isCEFSubprocess(args) {
+		return false
+	}
+	mode, _ := launchModeFromArgs(args)
+	return mode == launchModeStandaloneOmnibox
+}
+
+// ensureOmniboxLaunchEnvironment computes safety (GODEBUG) and layer-shell
+// preload (LD_PRELOAD) changes together and applies at most one self-exec.
+// A safety-required exec failure is fatal; a preload-only exec failure keeps
+// the existing best-effort behavior and continues without preload.
+func ensureOmniboxLaunchEnvironment() error {
+	if isCEFSubprocess(os.Args) {
+		return ensureRuntimeSafety()
+	}
+	environ, safetyChange := process.MergeRuntimeSafety(os.Environ())
+	envMap := environSliceToMap(environ)
+	preloadChange := false
+	if bootstrap.ShouldPreloadLayerShell(envMap) {
+		if libraryPath := bootstrap.LayerShellLibraryPath(); libraryPath != "" {
+			envMap = bootstrap.LayerShellPreloadEnv(envMap, libraryPath)
+			environ = environMapToSlice(envMap)
+			preloadChange = true
+		}
+	}
+	if !safetyChange && !preloadChange {
+		return nil
+	}
+	execPath, err := resolveCurrentExecutable(os.Executable)
+	if err != nil {
+		if safetyChange {
+			return fmt.Errorf("resolve executable for launch environment re-exec: %w", err)
+		}
+		_, _ = fmt.Fprintf(os.Stderr, "Failed to resolve standalone omnibox executable path: %v\n", err)
+		return nil
+	}
+	// #nosec G702 -- execPath comes from os.Executable(), not user input.
+	if err := syscall.Exec(execPath, os.Args, environ); err != nil {
+		if safetyChange {
+			return fmt.Errorf("launch environment re-exec: %w", err)
+		}
+		_, _ = fmt.Fprintf(os.Stderr, "Failed to re-exec standalone omnibox with layer-shell preload: %v\n", err)
+		return nil
+	}
+	return nil
+}
+
+func environSliceToMap(environ []string) map[string]string {
+	env := make(map[string]string, len(environ))
+	for _, entry := range environ {
+		key, value, ok := strings.Cut(entry, "=")
+		if !ok {
+			continue
+		}
+		env[key] = value
+	}
+	return env
+}
+
+func environMapToSlice(env map[string]string) []string {
+	envSlice := make([]string, 0, len(env))
+	for key, value := range env {
+		envSlice = append(envSlice, key+"="+value)
+	}
+	return envSlice
+}
+
 func maybeReexecStandaloneOmniboxWithLayerShell() {
+	// Classified CEF helpers never take the omnibox preload path; early
+	// helper routing in main owns those processes.
+	if isCEFSubprocess(os.Args) {
+		return
+	}
 	env := bootstrap.CurrentEnvMap()
 	if !bootstrap.ShouldPreloadLayerShell(env) {
 		return

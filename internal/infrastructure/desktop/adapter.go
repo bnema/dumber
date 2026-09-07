@@ -11,6 +11,7 @@ import (
 
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/domain/entity"
+	"github.com/bnema/dumber/internal/infrastructure/process"
 	"github.com/bnema/dumber/internal/logging"
 )
 
@@ -500,7 +501,10 @@ func launchBrowserURL(
 	}
 
 	cmd := exec.Command(execPath, "browse", uri)
-	cmd.Env = withoutEnvKeys(sanitizedChildEnv(os.Environ()), FreshWindowLaunchEnvVar)
+	// Prepare the child environment with the shared safety merge after
+	// sanitization so application-spawned browser processes start safe.
+	childEnv, _ := process.MergeRuntimeSafety(sanitizedChildEnv(os.Environ()))
+	cmd.Env = withoutEnvKeys(childEnv, FreshWindowLaunchEnvVar)
 	if freshWindow {
 		cmd.Env = append(cmd.Env, FreshWindowLaunchEnvVar+"=1")
 	}
@@ -599,7 +603,8 @@ func (s *SessionSpawner) SpawnWithSession(sessionID entity.SessionID) error {
 	// Start dumber browse with session ID in environment
 	cmd := exec.Command(execPath, "browse")
 
-	sanitizedEnv := withoutEnvKeys(sanitizedChildEnv(os.Environ()), RestoreSessionEnvVar)
+	sanitizedEnv, _ := process.MergeRuntimeSafety(sanitizedChildEnv(os.Environ()))
+	sanitizedEnv = withoutEnvKeys(sanitizedEnv, RestoreSessionEnvVar)
 	overrides := []string{RestoreSessionEnvVar + "=" + string(sessionID)}
 	if s.spawnEnv != nil {
 		sanitizedEnv = withoutEnvKeys(sanitizedEnv, s.spawnEnv.RootCacheEnvVar())
