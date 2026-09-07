@@ -144,6 +144,9 @@ type App struct {
 	// wholesale, so this field is never re-read from them; a changed value
 	// is reported as restart-required instead of partially hot-applied.
 	residencyTimeout time.Duration
+	// residency owns the opt-in idle hold and deadline. Always non-nil
+	// after Run starts; nil beforehand (e.g. in tests without Run).
+	residency *ResidencyController
 
 	// Web content (managed by content.Coordinator)
 	faviconAdapter *adapter.FaviconAdapter
@@ -347,6 +350,15 @@ func (a *App) Run(ctx context.Context, args []string) int {
 	defer a.gtkApp.Unref()
 	a.dispatchOnMainThread = a.runOnMainThread
 
+	// Bounded opt-in residency owns exactly one application hold, taken
+	// only when enabled and released once on every Run exit (including
+	// activation failure before the shutdown signal).
+	a.residency = NewResidencyController(a.residencyTimeout, time.Now, nil, nil, a.Quit)
+	a.residency.schedule = a.residency.scheduleGLibTimeout
+	a.residency.cancel = a.residency.cancelGLibTimeout
+	a.residency.AcquireHold(a.gtkApp)
+	defer a.residency.ReleaseHold(a.gtkApp)
+
 	// Connect activate signal
 	activateCb := func(_ gio.Application) {
 		a.onActivate(ctx)
@@ -378,6 +390,12 @@ func (a *App) onActivate(ctx context.Context) {
 
 	if err := a.openInitialBrowserWindowShell(ctx, a.initialWindowURL()); err != nil {
 		log.Error().Err(err).Msg("failed to create main window")
+		// Reach bounded idle or orderly shutdown instead of lingering on
+		// the residency hold with no windows: disabled residency quits here
+		// exactly as before (GTK auto-exits holderless), enabled arms.
+		if a.residencyShouldQuitAfterLastWindow() {
+			a.Quit()
+		}
 		return
 	}
 
@@ -3246,9 +3264,13 @@ func (a *App) initTabCoordinator(ctx context.Context) {
 				bw.mainWindow.Destroy()
 			}
 		}
-		// Quit the app only when all browser windows are gone.
+		// Quit through residency when enabled rather than unconditionally:
+		// the last window close arms the bounded idle deadline instead.
+		// Disabled residency preserves the pre-existing unconditional Quit.
 		if len(a.browserWindows) == 0 {
-			a.Quit()
+			if a.residencyShouldQuitAfterLastWindow() {
+				a.Quit()
+			}
 		}
 	})
 	// Wire popup tab WebView attachment
@@ -3783,6 +3805,11 @@ func (a *App) MainWindow() *window.MainWindow {
 func (a *App) Quit() {
 	if a == nil || a.gtkApp == nil {
 		return
+	}
+	// Explicit quits and signals never wait for the idle deadline and must
+	// not bypass orderly cleanup: cancel any armed deadline first.
+	if a.residency != nil {
+		a.residency.NoteExplicitQuit()
 	}
 	quit := func() {
 		if a.gtkApp != nil {

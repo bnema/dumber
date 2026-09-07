@@ -808,6 +808,7 @@ func (m *Manager) setEngineDefaults(defaults *Config) {
 	m.viper.SetDefault("engine.cef.windowless_frame_rate_max", ce.CEFWindowlessFrameRateMax())
 	m.viper.SetDefault("engine.cef.enable_audio_handler", ce.EnableAudioHandler)
 	m.viper.SetDefault("engine.cef.trace_handlers", ce.TraceHandlers)
+	m.viper.SetDefault("engine.cef.idle_runtime_timeout_ms", ce.IdleRuntimeTimeoutMs)
 	m.setCEFInputDefaults(ce.Input)
 
 	wk := e.WebKit
