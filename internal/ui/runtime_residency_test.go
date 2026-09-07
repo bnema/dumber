@@ -82,7 +82,7 @@ func TestResidencyControllerDisabledPreservesQuit(t *testing.T) {
 }
 
 func TestResidencyControllerHoldMatchesReleaseOnce(t *testing.T) {
-	ctl, app, _, _ := newResidencyTestController(time.Minute)
+	ctl, app, _, quits := newResidencyTestController(time.Minute)
 	require.True(t, ctl.Enabled())
 	ctl.AcquireHold(app)
 	ctl.AcquireHold(app)
@@ -90,6 +90,7 @@ func TestResidencyControllerHoldMatchesReleaseOnce(t *testing.T) {
 	ctl.ReleaseHold(app)
 	ctl.ReleaseHold(app)
 	require.Equal(t, 1, app.releases, "exactly one release")
+	require.Equal(t, 0, *quits, "hold cycling never quits")
 }
 
 func TestResidencyControllerLastWindowArmsAndExpiryQuits(t *testing.T) {
@@ -188,7 +189,7 @@ func TestResidencyControllerDuplicateBusyIsSilent(t *testing.T) {
 }
 
 func TestResidencyControllerDispatchRoutesCallbacks(t *testing.T) {
-	ctl, _, _, _ := newResidencyTestController(time.Minute)
+	ctl, _, _, quits := newResidencyTestController(time.Minute)
 	var routed []string
 	ctl.SetDispatchToGTK(func(fn func()) {
 		routed = append(routed, "gtk")
@@ -196,4 +197,5 @@ func TestResidencyControllerDispatchRoutesCallbacks(t *testing.T) {
 	})
 	ctl.DispatchToGTK(func() { routed = append(routed, "cb") })
 	require.Equal(t, []string{"gtk", "cb"}, routed)
+	require.Equal(t, 0, *quits)
 }
