@@ -6,7 +6,7 @@ package cef
 // coasts after release, so key scrolling feels like wheel scrolling.
 //
 // Threading contract: InjectScroll hops to the GTK thread internally and is
-// safe from any thread. Key release sends nothing on purpose: cancelling
+// safe from any thread. Key release sends nothing on purpose: canceling
 // the burst would kill the coast, so CancelPageScroll only drains the
 // legacy JS queue (which stays empty while injection succeeds).
 

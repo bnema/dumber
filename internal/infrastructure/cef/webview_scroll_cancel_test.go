@@ -13,8 +13,9 @@ import (
 )
 
 // recordingScrollBridge mirrors the library retired-epoch contract: Invalidate
-// retires the live gesture and returns its epoch; epoch-scoped cleanup only
-// clears the matching live gesture, never a newer one.
+// retires the live gesture and returns its epoch while retaining it for
+// epoch-scoped cleanup; cleanup only clears the matching live gesture,
+// never a newer one, and reports whether it cleared anything.
 type recordingScrollBridge struct {
 	mu            sync.Mutex
 	current       uint64
@@ -35,9 +36,9 @@ func (f *recordingScrollBridge) InvalidateScroll() uint64 {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.invalidations++
-	retired := f.live
-	f.live = 0
-	return retired
+	// Retain the retired gesture until matching cleanup clears it, like
+	// the library session that stays stale until cleanupEpoch runs.
+	return f.live
 }
 
 func (f *recordingScrollBridge) CancelScrollEpoch(epoch uint64) bool {

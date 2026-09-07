@@ -306,12 +306,16 @@ func (a *Cef2gtkAdapter) InjectScroll(dx, dy float64) bool {
 	if a == nil || a.destroyed.Load() {
 		return false
 	}
+	// Snapshot under lock, invoke outside it: View.InjectScroll hops to
+	// the GTK thread when called off-thread, and GTK teardown waits on
+	// this same lock — holding it across the call would freeze Destroy.
 	a.viewMu.RLock()
-	defer a.viewMu.RUnlock()
-	if a.view == nil {
+	view := a.view
+	a.viewMu.RUnlock()
+	if view == nil {
 		return false
 	}
-	return a.view.InjectScroll(dx, dy)
+	return view.InjectScroll(dx, dy)
 }
 
 // InvalidateScroll immediately retires animated scroll motion from any
