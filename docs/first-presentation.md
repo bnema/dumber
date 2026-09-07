@@ -36,13 +36,21 @@ contract rather than this CEF trace.
 
 ## Reproducible collection
 
-Build the candidate, then run:
+Build the candidate and its build manifest, then run:
 
 ```bash
+DUMBER_CEF_DIR=/path/to/selected-cef-runtime \
 DUMBER_FIRST_PRESENTATION_BIN="$PWD/dist/dumber" \
+DUMBER_BUILD_MANIFEST="$PWD/dist/dumber.manifest.json" \
 DUMBER_MACHINE_GPU_PROFILE=integrated-gpu \
   scripts/collect_first_presentation.sh
 ```
+
+The manifest records the measured binary SHA-256, the 40-character source
+revision, and the selected `github.com/bnema/purego-cef2gtk` version plus its
+full 40-character revision. Generate it at build time; collection verifies the
+manifest against `go version -m` output for the measured binary and fails
+closed on missing or mismatched attribution.
 
 The collector is for the accelerated CEF/DMABUF/GTK contract above. By default
 each collection is a fresh directory below
@@ -52,8 +60,14 @@ not in the repository. `DUMBER_FIRST_PRESENTATION_OUTPUT` may override it only
 with a new absolute directory below an existing non-symlink parent. The
 collector never clears or reuses a caller-supplied path.
 
-The script requires the current display and the CEF 147 runtime at
-`~/.local/share/cef-147-runtime` (override with `DUMBER_CEF_DIR`). It performs
+The script requires the current display and an explicit `DUMBER_CEF_DIR`
+selecting the measured runtime; there is no default path or version.
+`scripts/cef_runtime_probe.py` runs in a separate bounded subprocess, opens
+only the selected `libcef.so` with standard-library ctypes, calls the
+header-verified `cef_version_info(int)` entries (0-7), and reports numeric
+version fields plus the library hash, never its path. The candidate must still
+pass its normal loader ABI/version validation; the probe never bypasses it.
+Runtimes below Chrome major 150 fail collection. It performs
 exactly five bounded launches with fresh XDG homes and CEF root cache, fixes the
 DMABUF/Vulkan renderer, and writes exactly `metadata.json`, `run-01.json`
 through `run-05.json`, and `baseline.json`. Metadata includes only coarse,
@@ -62,8 +76,12 @@ labels. Set `DUMBER_MACHINE_GPU_PROFILE` to one of `generic-gpu`,
 `integrated-gpu`, `discrete-gpu`, `hybrid-gpu`, `virtual-gpu`, or `unknown-gpu`;
 do not use a device model or other identifier. Publish only the seven reviewed
 JSON files to an external Gist. Raw logs and temporary XDG homes are removed and
-must not be published. `metadata.json` derives the selected
-`github.com/bnema/purego-cef2gtk` pseudo-version and its full immutable Git
-origin hash from Go module metadata; branch selectors or missing origin metadata
+must not be published. `metadata.json` binds the measured binary SHA-256 to
+its source revision via `go version -m` plus the build manifest, and records
+the selected `github.com/bnema/purego-cef2gtk` version, tag, and full revision
+from that same binary-bound evidence; it never derives provenance from the
+collection checkout. The child processes receive exactly the selected runtime
+via `CEF_DIR`, never a conflicting inherited override. Branch selectors,
+replacement contamination, missing manifests, or missing origin metadata
 fail collection. A missing or incomplete timeline, non-DMABUF backend, or invalid
 run also fails collection.
