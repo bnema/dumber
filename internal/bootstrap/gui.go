@@ -196,6 +196,11 @@ func LogResolvedTheme(ctx context.Context, resolved entity.ResolvedTheme) {
 	event.Msg("theme resolved")
 }
 
+// deferredInitProbeForTest, when non-nil, observes each deferred check
+// before it runs. Tests use it to prove engine selection skips checks
+// without invoking them. It must remain nil in production.
+var deferredInitProbeForTest func(kind string)
+
 // RunDeferredInit runs deferred initialization checks off the critical path.
 // Applicable checks are selected by engine: WebKit runs the pkg-config
 // runtime and GStreamer media diagnostics, while CEF skips both (they cover
@@ -219,11 +224,17 @@ func RunDeferredInit(input DeferredInitInput) DeferredInitResult {
 
 	go func() {
 		defer wg.Done()
+		if deferredInitProbeForTest != nil {
+			deferredInitProbeForTest("runtime")
+		}
 		runtimeErr = CheckRuntimeRequirements(input.Ctx, input.Config)
 	}()
 
 	go func() {
 		defer wg.Done()
+		if deferredInitProbeForTest != nil {
+			deferredInitProbeForTest("media")
+		}
 		mediaErr = CheckMediaRequirements(input.Ctx, input.Config)
 	}()
 

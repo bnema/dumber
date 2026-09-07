@@ -146,18 +146,20 @@ func TestLazyDB_WarmupInitializesInBackground(t *testing.T) {
 
 func TestLazyDB_CloseWaitsForInflightInit(t *testing.T) {
 	ctx := testCtx()
-	// Warmup is asynchronous: Close called before the warmup goroutine runs
-	// is a legitimate no-op, so wait for initialization to be underway
-	// before asserting Close settles and releases the provider cleanly.
+	// Regression test for untracked-warmup orphaning: Warmup registers its
+	// task synchronously, so an immediate Close (no scheduling delay) must
+	// settle the background initialization and release the connection
+	// instead of returning early and leaking it.
 	dbPath := filepath.Join(t.TempDir(), "test.db")
 	lazy := sqlite.NewLazyDB(dbPath)
 
 	lazy.Warmup(ctx)
-	require.Eventually(t, func() bool {
-		return lazy.IsInitialized()
-	}, 10*time.Second, 5*time.Millisecond, "warmup should initialize the provider")
-
 	require.NoError(t, lazy.Close())
+
+	require.True(t, lazy.IsInitialized(), "Close must settle warmup initialization, not race its scheduling")
+	db, err := lazy.DB(ctx)
+	require.NoError(t, err)
+	require.Error(t, db.Ping(), "settled connection must be closed, not orphaned")
 }
 
 func TestLazyDB_ConcurrentWarmupAccessAndClose(t *testing.T) {

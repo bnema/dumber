@@ -229,3 +229,36 @@ func TestEffectiveCSSIdentity_StableForUnchangedTheme(t *testing.T) {
 	other := NewManager(ctx, changed)
 	assert.NotEqual(t, cssOf(first), cssOf(other))
 }
+
+func TestManager_AppliedFontTrackedPerDisplay(t *testing.T) {
+	ctx := context.Background()
+	m := NewManager(ctx, resolvedThemeFixture(true))
+
+	const (
+		displayA = uintptr(0x1000)
+		displayB = uintptr(0x2000)
+		font     = "Adwaita Sans 14"
+	)
+
+	// No font recorded anywhere initially, including on a nil manager.
+	assert.Empty(t, m.lastAppliedFontFor(displayA))
+	assert.Empty(t, m.lastAppliedFontFor(displayB))
+	assert.Empty(t, (*Manager)(nil).lastAppliedFontFor(displayA))
+
+	// Recording for one display leaves the other untouched so its
+	// GtkSettings still get configured on first apply.
+	m.recordAppliedFontFor(displayA, font)
+	assert.Equal(t, font, m.lastAppliedFontFor(displayA))
+	assert.Empty(t, m.lastAppliedFontFor(displayB))
+
+	m.recordAppliedFontFor(displayB, font)
+	assert.Equal(t, font, m.lastAppliedFontFor(displayB))
+
+	// Updating one display does not disturb the other.
+	m.recordAppliedFontFor(displayA, "Adwaita Sans 17")
+	assert.Equal(t, "Adwaita Sans 17", m.lastAppliedFontFor(displayA))
+	assert.Equal(t, font, m.lastAppliedFontFor(displayB))
+
+	// Recording on a nil manager is a safe no-op.
+	assert.NotPanics(t, func() { (*Manager)(nil).recordAppliedFontFor(displayA, font) })
+}

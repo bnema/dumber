@@ -13,7 +13,8 @@ import (
 
 // newFavoritesSidebarComponent constructs the native favorites sidebar. It is
 // a package-level seam so headless tests can observe on-demand construction
-// without instantiating GTK widgets.
+// without instantiating GTK widgets. Mutable global: tests must restore it
+// via defer and must not use t.Parallel alongside seam users.
 var newFavoritesSidebarComponent = component.NewFavoritesSidebar
 
 // ensureFavoritesSidebar constructs the favorites sidebar on first request.

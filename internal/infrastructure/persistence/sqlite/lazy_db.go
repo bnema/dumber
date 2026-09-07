@@ -15,9 +15,14 @@ import (
 // connection and migration overhead until actually needed.
 //
 // Callers may warm the provider with Warmup while other startup work (for
-// example engine initialization) runs concurrently. Close waits for an
-// in-flight initialization to settle before closing, so cleanup never
-// orphans a connection that finishes opening after Close returns.
+// example engine initialization) runs concurrently. Warmup registers its
+// background task synchronously, so a Close that observes Warmup's return
+// always waits for the task to settle instead of racing goroutine
+// scheduling. Close waits for an in-flight initialization to settle before
+// closing, so cleanup never orphans a connection that finishes opening
+// after Close returns. Ownership contract: Warmup must return before Close
+// is called; concurrent Warmup and Close from different goroutines without
+// external sequencing is not supported.
 type LazyDB struct {
 	dbPath string
 	db     *sql.DB
@@ -29,6 +34,14 @@ type LazyDB struct {
 	// from "initialization in flight" without triggering initialization.
 	started chan struct{}
 	done    chan struct{}
+	// warmTasks tracks one completion channel per Warmup call, registered
+	// synchronously under mu. Close waits for every registered task, so a
+	// Close that observes Warmup's return settles the background task even
+	// when the once-initializer has not been scheduled yet. Each channel is
+	// closed exactly once by its own goroutine after its DB call returns,
+	// which happens after the once-initializer completes, so observing all
+	// closures implies initialization has settled.
+	warmTasks []chan struct{}
 }
 
 // Compile-time interface check.
@@ -89,18 +102,33 @@ func (l *LazyDB) DB(ctx context.Context) (*sql.DB, error) {
 // returns immediately. Initialization errors are cached and reported to
 // later DB callers; pass a detached context (for example
 // context.WithoutCancel) so shutdown cancellation cannot poison the cached
-// result.
+// result. The task is registered synchronously, so Close called after
+// Warmup returns settles it (see the ownership contract on LazyDB).
 func (l *LazyDB) Warmup(ctx context.Context) {
+	task := make(chan struct{})
+	l.mu.Lock()
+	l.warmTasks = append(l.warmTasks, task)
+	l.mu.Unlock()
 	go func() {
+		defer close(task)
 		_, _ = l.DB(ctx)
 	}()
 }
 
-// Close closes the database connection if it was initialized. When an
-// initialization is in flight, Close waits for it to settle first so the
-// resulting connection is closed rather than orphaned. Close never triggers
-// initialization: closing a provider that was never used is a no-op.
+// Close closes the database connection if it was initialized. A registered
+// Warmup task is settled first, then an in-flight initialization (for
+// example from a direct DB call) is awaited, so the resulting connection
+// is closed rather than orphaned. Close never triggers initialization:
+// closing a provider that was never used is a no-op.
 func (l *LazyDB) Close() error {
+	l.mu.RLock()
+	tasks := make([]chan struct{}, len(l.warmTasks))
+	copy(tasks, l.warmTasks)
+	l.mu.RUnlock()
+	for _, task := range tasks {
+		<-task
+	}
+
 	select {
 	case <-l.started:
 		<-l.done
