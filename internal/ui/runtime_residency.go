@@ -7,6 +7,7 @@ import (
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/application/usecase"
 	"github.com/bnema/dumber/internal/infrastructure/process"
+	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/puregotk/v4/glib"
 )
 
@@ -89,6 +90,9 @@ type ResidencyController struct {
 	pendingQuit   bool
 	quiescent     func() bool
 	dispatchToGTK func(func())
+	// seal stops new admissions before a quit commits, closing the race
+	// between the quiescence recheck and admitted work starting.
+	seal func()
 
 	timerCallback *glib.SourceFunc
 	timerTag      uint
@@ -157,6 +161,8 @@ func (c *ResidencyController) SetWindowCount(count int) usecase.ResidencyDecisio
 	for c.lastWindows < count {
 		c.lastWindows++
 		events = true
+		// A reopened window invalidates any deferred quit.
+		c.pendingQuit = false
 		decision = c.apply(c.policy.WindowOpened(now))
 	}
 	for c.lastWindows > count {
@@ -168,6 +174,10 @@ func (c *ResidencyController) SetWindowCount(count int) usecase.ResidencyDecisio
 		// No windows were ever reported (e.g. activation failure):
 		// evaluate once so the process reaches bounded idle or orderly
 		// shutdown instead of idling forever on the residency hold.
+		// An already-armed idle state stays put instead of re-arming.
+		if c.policy.IdleArmed() {
+			return usecase.ResidencyDecision{Action: usecase.ResidencyNone, Generation: c.policy.Generation()}
+		}
 		decision = c.apply(c.policy.WindowClosed(now))
 	}
 	return decision
@@ -231,7 +241,17 @@ func (c *ResidencyController) apply(decision usecase.ResidencyDecision) usecase.
 // Otherwise it defers: the next settling source rechecks via MaybeQuit.
 // Disabled residency quits unconditionally, preserving pre-existing behavior.
 func (c *ResidencyController) requestQuit() {
-	if c.enabled && c.quiescent != nil && !c.quiescent() {
+	if !c.enabled {
+		c.pendingQuit = false
+		c.doQuit()
+		return
+	}
+	// Seal admission first so no new work starts between the recheck and
+	// the quit. Draining leases then settle through MaybeQuit.
+	if c.seal != nil {
+		c.seal()
+	}
+	if c.quiescent != nil && !c.quiescent() {
 		c.pendingQuit = true
 		return
 	}
@@ -241,8 +261,14 @@ func (c *ResidencyController) requestQuit() {
 
 // MaybeQuit rechecks a deferred quit after sources settle. It is invoked
 // from settle callbacks (already dispatched to GTK) and busy transitions.
+// A reopened window invalidates the deferral: quitting then would bypass
+// the fresh idle interval.
 func (c *ResidencyController) MaybeQuit() {
 	if c == nil || !c.pendingQuit || c.quitting {
+		return
+	}
+	if c.lastWindows > 0 {
+		c.pendingQuit = false
 		return
 	}
 	if c.quiescent != nil && !c.quiescent() {
@@ -269,6 +295,16 @@ func (c *ResidencyController) SetDispatchToGTK(fn func(func())) {
 		return
 	}
 	c.dispatchToGTK = fn
+}
+
+// SetSealFunc installs the admission seal invoked before an enabled quit
+// commits, so no new relay work starts between the quiescence recheck and
+// the quit.
+func (c *ResidencyController) SetSealFunc(fn func()) {
+	if c == nil {
+		return
+	}
+	c.seal = fn
 }
 
 // DispatchToGTK runs fn on the GTK thread through the installed dispatch,
@@ -331,7 +367,12 @@ func (c *ResidencyController) scheduleGLibTimeout(d time.Duration, generation ui
 		ms = 1
 	}
 	callback := glib.SourceFunc(func(_ uintptr) bool {
+		// GLib retires this source on return; drop our tag on entry so a
+		// later cancel can never remove an expired or reused source ID.
+		// The callback stays retained through return.
+		c.timerTag = 0
 		c.OnTimerFired(generation)
+		c.timerCallback = nil
 		return false
 	})
 	c.timerCallback = &callback
@@ -500,5 +541,28 @@ func (a *App) closeRelayAdmission() {
 		if gate := provider.AdmissionGate(); gate != nil {
 			gate.Close()
 		}
+	}
+}
+
+// waitRelayAdmissionDrained settles admitted relay work before persistence
+// teardown within a short bound. Admitted dispatch may need the GTK loop,
+// so the wait never blocks shutdown forever; expiry only logs and the
+// sockets settle through their own completion paths.
+func (a *App) waitRelayAdmissionDrained(ctx context.Context) {
+	if a == nil || a.deps == nil {
+		return
+	}
+	provider, ok := a.deps.BrowserLaunchRelay.(relayAdmissionProvider)
+	if !ok || provider == nil {
+		return
+	}
+	gate := provider.AdmissionGate()
+	if gate == nil || gate.Active() == 0 {
+		return
+	}
+	drainCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 2*time.Second)
+	defer cancel()
+	if !gate.WaitDrained(drainCtx) {
+		logging.FromContext(ctx).Warn().Int("admitted", gate.Active()).Msg("relay admission did not drain before teardown")
 	}
 }

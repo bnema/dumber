@@ -37,6 +37,7 @@ type Service struct {
 
 	mu     sync.Mutex
 	timer  *time.Timer
+	timerGen uint64
 	dirty  bool
 	ready  bool // true when session is persisted to DB and snapshots can be saved
 	ctx    context.Context
@@ -104,7 +105,9 @@ func (s *Service) SetReady() {
 	}()
 }
 
-// Stop stops the service and saves final state.
+// Stop stops the service and saves final state, then joins an
+// already-running save within a bounded wait so shutdown observes the
+// drain barrier instead of racing it. The wait never blocks forever.
 func (s *Service) Stop(ctx context.Context) error {
 	s.mu.Lock()
 	if s.cancel != nil {
@@ -117,7 +120,13 @@ func (s *Service) Stop(ctx context.Context) error {
 	s.mu.Unlock()
 
 	// Final save on shutdown
-	return s.SaveNow(ctx)
+	err := s.SaveNow(ctx)
+	drainCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 10*time.Second)
+	defer cancel()
+	if waitErr := s.WaitSettled(drainCtx); waitErr != nil {
+		logging.FromContext(ctx).Warn().Err(waitErr).Msg("snapshot drain did not settle before shutdown")
+	}
+	return err
 }
 
 // MarkDirty signals that state has changed.
@@ -132,9 +141,17 @@ func (s *Service) MarkDirty() {
 	if s.timer != nil {
 		s.timer.Stop()
 	}
-
+	s.timerGen++
+	gen := s.timerGen
 	s.timer = time.AfterFunc(s.interval, func() {
 		s.mu.Lock()
+		// Retire the owning timer as it fires: a non-nil timer means
+		// debounce work is outstanding, so leaving it set would strand
+		// the drain after the save settles. The generation check keeps
+		// a superseded timer from clearing its replacement.
+		if s.timerGen == gen {
+			s.timer = nil
+		}
 		ctx := s.ctx
 		s.mu.Unlock()
 

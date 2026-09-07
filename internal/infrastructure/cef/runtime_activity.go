@@ -17,8 +17,10 @@ type downloadOwner struct {
 // RuntimeActivityTracker implements port.RuntimeActivity for the CEF engine.
 // It counts accepted creations through OnAfterCreated/failure, registered
 // live views, outstanding GTK cleanup, and unterminated downloads. All
-// methods are safe for concurrent use from CEF callbacks; subscriber
-// delivery is sequenced under the tracker lock snapshot.
+// methods are safe for concurrent use from CEF callbacks. Delivery is
+// serialized under the state lock, so the initial snapshot and every later
+// transition arrive in order; subscribers must not reenter the tracker.
+// A nil tracker is a safe no-op sink.
 type RuntimeActivityTracker struct {
 	mu          sync.Mutex
 	pending     int
@@ -48,21 +50,19 @@ func (t *RuntimeActivityTracker) Snapshot() port.RuntimeActivitySnapshot {
 }
 
 // Subscribe delivers the current snapshot synchronously, then every later
-// transition in subscription order. The returned function unsubscribes.
+// transition in subscription order. Delivery holds the state lock, so
+// callbacks must not call back into the tracker. The returned function
+// unsubscribes.
 func (t *RuntimeActivityTracker) Subscribe(fn func(port.RuntimeActivitySnapshot)) (unsubscribe func()) {
-	if fn == nil {
-		return func() {}
-	}
-	if t == nil {
+	if t == nil || fn == nil {
 		return func() {}
 	}
 	t.mu.Lock()
+	defer t.mu.Unlock()
 	id := t.nextSub
 	t.nextSub++
 	t.subscribers[id] = fn
-	snapshot := t.snapshotLocked()
-	t.mu.Unlock()
-	fn(snapshot)
+	fn(t.snapshotLocked())
 	return func() {
 		t.mu.Lock()
 		defer t.mu.Unlock()
@@ -76,11 +76,9 @@ func (t *RuntimeActivityTracker) NoteCreationAccepted() {
 		return
 	}
 	t.mu.Lock()
+	defer t.mu.Unlock()
 	t.pending++
-	snapshot := t.snapshotLocked()
-	subs := t.subscribersLocked()
-	t.mu.Unlock()
-	notifyRuntimeActivitySubscribers(subs, snapshot)
+	t.notifyLocked()
 }
 
 // NoteCreationResolved records one creation resolved through OnAfterCreated
@@ -90,13 +88,11 @@ func (t *RuntimeActivityTracker) NoteCreationResolved() {
 		return
 	}
 	t.mu.Lock()
+	defer t.mu.Unlock()
 	if t.pending > 0 {
 		t.pending--
 	}
-	snapshot := t.snapshotLocked()
-	subs := t.subscribersLocked()
-	t.mu.Unlock()
-	notifyRuntimeActivitySubscribers(subs, snapshot)
+	t.notifyLocked()
 }
 
 // NoteViewRegistered records one live view registration.
@@ -105,11 +101,9 @@ func (t *RuntimeActivityTracker) NoteViewRegistered() {
 		return
 	}
 	t.mu.Lock()
+	defer t.mu.Unlock()
 	t.active++
-	snapshot := t.snapshotLocked()
-	subs := t.subscribersLocked()
-	t.mu.Unlock()
-	notifyRuntimeActivitySubscribers(subs, snapshot)
+	t.notifyLocked()
 }
 
 // NoteViewCloseStarted records one native close: the view leaves the active
@@ -119,14 +113,12 @@ func (t *RuntimeActivityTracker) NoteViewCloseStarted() {
 		return
 	}
 	t.mu.Lock()
+	defer t.mu.Unlock()
 	if t.active > 0 {
 		t.active--
 	}
 	t.cleanup++
-	snapshot := t.snapshotLocked()
-	subs := t.subscribersLocked()
-	t.mu.Unlock()
-	notifyRuntimeActivitySubscribers(subs, snapshot)
+	t.notifyLocked()
 }
 
 // NoteCleanupCompleted records one finished GTK bridge/popup cleanup.
@@ -135,13 +127,11 @@ func (t *RuntimeActivityTracker) NoteCleanupCompleted() {
 		return
 	}
 	t.mu.Lock()
+	defer t.mu.Unlock()
 	if t.cleanup > 0 {
 		t.cleanup--
 	}
-	snapshot := t.snapshotLocked()
-	subs := t.subscribersLocked()
-	t.mu.Unlock()
-	notifyRuntimeActivitySubscribers(subs, snapshot)
+	t.notifyLocked()
 }
 
 // NoteDownloadStarted records one download start keyed by owning browser and
@@ -151,11 +141,9 @@ func (t *RuntimeActivityTracker) NoteDownloadStarted(browserID int32, downloadID
 		return
 	}
 	t.mu.Lock()
+	defer t.mu.Unlock()
 	t.downloads[downloadOwner{browserID: browserID, downloadID: downloadID}] = struct{}{}
-	snapshot := t.snapshotLocked()
-	subs := t.subscribersLocked()
-	t.mu.Unlock()
-	notifyRuntimeActivitySubscribers(subs, snapshot)
+	t.notifyLocked()
 }
 
 // NoteDownloadProgress is observed without effect: only start and terminal
@@ -170,15 +158,13 @@ func (t *RuntimeActivityTracker) NoteDownloadTerminal(downloadID uint32) {
 		return
 	}
 	t.mu.Lock()
+	defer t.mu.Unlock()
 	for owner := range t.downloads {
 		if owner.downloadID == downloadID {
 			delete(t.downloads, owner)
 		}
 	}
-	snapshot := t.snapshotLocked()
-	subs := t.subscribersLocked()
-	t.mu.Unlock()
-	notifyRuntimeActivitySubscribers(subs, snapshot)
+	t.notifyLocked()
 }
 
 // DropBrowser reconciles owner destruction through the native lifecycle:
@@ -189,6 +175,7 @@ func (t *RuntimeActivityTracker) DropBrowser(browserID int32) {
 		return
 	}
 	t.mu.Lock()
+	defer t.mu.Unlock()
 	changed := false
 	for owner := range t.downloads {
 		if owner.browserID == browserID {
@@ -196,14 +183,9 @@ func (t *RuntimeActivityTracker) DropBrowser(browserID int32) {
 			changed = true
 		}
 	}
-	if !changed {
-		t.mu.Unlock()
-		return
+	if changed {
+		t.notifyLocked()
 	}
-	snapshot := t.snapshotLocked()
-	subs := t.subscribersLocked()
-	t.mu.Unlock()
-	notifyRuntimeActivitySubscribers(subs, snapshot)
 }
 
 func (t *RuntimeActivityTracker) snapshotLocked() port.RuntimeActivitySnapshot {
@@ -215,18 +197,14 @@ func (t *RuntimeActivityTracker) snapshotLocked() port.RuntimeActivitySnapshot {
 	}
 }
 
-func (t *RuntimeActivityTracker) subscribersLocked() []func(port.RuntimeActivitySnapshot) {
-	subs := make([]func(port.RuntimeActivitySnapshot), 0, len(t.subscribers))
+// notifyLocked delivers the current snapshot to subscribers in subscription
+// order. The caller must hold t.mu and must not reenter the tracker from a
+// callback.
+func (t *RuntimeActivityTracker) notifyLocked() {
+	snapshot := t.snapshotLocked()
 	for id := uint64(0); id < t.nextSub; id++ {
 		if fn, ok := t.subscribers[id]; ok {
-			subs = append(subs, fn)
+			fn(snapshot)
 		}
-	}
-	return subs
-}
-
-func notifyRuntimeActivitySubscribers(subs []func(port.RuntimeActivitySnapshot), snapshot port.RuntimeActivitySnapshot) {
-	for _, fn := range subs {
-		fn(snapshot)
 	}
 }

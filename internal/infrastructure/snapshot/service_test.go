@@ -3,6 +3,7 @@ package snapshot
 import (
 	"context"
 	"errors"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -324,4 +325,63 @@ func TestService_SaveNowPreservesLegacySingleEmptyWindowSentinel(t *testing.T) {
 	err := svc.saveSnapshot(context.Background())
 	require.NoError(t, err)
 	assert.False(t, svc.dirty)
+}
+
+func TestService_DebounceTimerClearsOnFire(t *testing.T) {
+	repo := repomocks.NewMockSessionStateRepository(t)
+	repo.EXPECT().
+		SaveSnapshot(mock.Anything, mock.AnythingOfType("*entity.SessionState")).
+		Return(nil).Once()
+	uc := usecase.NewSnapshotSessionUseCase(repo)
+	svc := NewService(uc, newWindowStateProvider(t, "20260207_120000_fire", nil, 0), 1)
+	svc.ready = true
+	svc.ctx = context.Background()
+	svc.MarkDirty()
+	require.True(t, svc.Active())
+	// The fired timer retires itself; the save settles the drain.
+	require.Eventually(t, func() bool { return !svc.Active() }, 5*time.Second, 5*time.Millisecond)
+}
+
+func TestService_StopJoinsInFlightSave(t *testing.T) {
+	released := make(chan struct{})
+	var calls atomic.Int32
+	repo := repomocks.NewMockSessionStateRepository(t)
+	repo.EXPECT().
+		SaveSnapshot(mock.Anything, mock.AnythingOfType("*entity.SessionState")).
+		RunAndReturn(func(_ context.Context, _ *entity.SessionState) error {
+			calls.Add(1)
+			<-released
+			return nil
+		})
+	uc := usecase.NewSnapshotSessionUseCase(repo)
+	svc := NewService(uc, newWindowStateProvider(t, "20260207_120000_join", nil, 0), 1)
+	svc.ready = true
+	svc.dirty = true
+	saveDone := make(chan error, 1)
+	go func() { saveDone <- svc.saveSnapshot(context.Background()) }()
+	// The in-flight save reached the database: dirty is cleared and the
+	// provider was consumed exactly once, so Stop cannot start a second.
+	require.Eventually(t, func() bool { return calls.Load() == 1 }, 5*time.Second, 5*time.Millisecond)
+	stopDone := make(chan error, 1)
+	go func() { stopDone <- svc.Stop(context.Background()) }()
+	select {
+	case err := <-stopDone:
+		t.Fatalf("Stop returned while a save was still in flight: %v", err)
+	case <-time.After(200 * time.Millisecond):
+	}
+	close(released)
+	select {
+	case err := <-saveDone:
+		require.NoError(t, err)
+	case <-time.After(5 * time.Second):
+		t.Fatal("in-flight save never completed")
+	}
+	select {
+	case err := <-stopDone:
+		require.NoError(t, err)
+	case <-time.After(15 * time.Second):
+		t.Fatal("Stop did not join the in-flight save")
+	}
+	require.False(t, svc.Active())
+	require.Equal(t, int32(1), calls.Load(), "Stop must join, not duplicate, the save")
 }
