@@ -6,7 +6,6 @@ import (
 
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/application/usecase"
-	"github.com/bnema/dumber/internal/infrastructure/process"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/puregotk/v4/glib"
 )
@@ -93,6 +92,10 @@ type ResidencyController struct {
 	// seal stops new admissions before a quit commits, closing the race
 	// between the quiescence recheck and admitted work starting.
 	seal func()
+	// unseal reopens admission when a deferred quit is invalidated (e.g.
+	// a reopened window); without it the surviving process would stay
+	// permanently deaf to relay requests.
+	unseal func()
 
 	timerCallback *glib.SourceFunc
 	timerTag      uint
@@ -161,8 +164,14 @@ func (c *ResidencyController) SetWindowCount(count int) usecase.ResidencyDecisio
 	for c.lastWindows < count {
 		c.lastWindows++
 		events = true
-		// A reopened window invalidates any deferred quit.
-		c.pendingQuit = false
+		// A reopened window invalidates any deferred quit, and with it
+		// the admission seal: the surviving process keeps serving relay.
+		if c.pendingQuit {
+			c.pendingQuit = false
+			if c.unseal != nil {
+				c.unseal()
+			}
+		}
 		decision = c.apply(c.policy.WindowOpened(now))
 	}
 	for c.lastWindows > count {
@@ -221,7 +230,9 @@ func (c *ResidencyController) apply(decision usecase.ResidencyDecision) usecase.
 			c.cancel()
 		}
 		if c.schedule != nil {
-			delay := time.Until(decision.Deadline)
+			// Delay derives from the injected clock, never wall time, so
+			// fake clocks in tests observe the policy deadline exactly.
+			delay := decision.Deadline.Sub(c.clock())
 			if delay < 0 {
 				delay = 0
 			}
@@ -262,13 +273,16 @@ func (c *ResidencyController) requestQuit() {
 // MaybeQuit rechecks a deferred quit after sources settle. It is invoked
 // from settle callbacks (already dispatched to GTK) and busy transitions.
 // A reopened window invalidates the deferral: quitting then would bypass
-// the fresh idle interval.
+// the fresh idle interval, so admission reopens with it.
 func (c *ResidencyController) MaybeQuit() {
 	if c == nil || !c.pendingQuit || c.quitting {
 		return
 	}
 	if c.lastWindows > 0 {
 		c.pendingQuit = false
+		if c.unseal != nil {
+			c.unseal()
+		}
 		return
 	}
 	if c.quiescent != nil && !c.quiescent() {
@@ -305,6 +319,15 @@ func (c *ResidencyController) SetSealFunc(fn func()) {
 		return
 	}
 	c.seal = fn
+}
+
+// SetUnsealFunc installs the admission reopen invoked when a deferred quit
+// is invalidated by a reopened window.
+func (c *ResidencyController) SetUnsealFunc(fn func()) {
+	if c == nil {
+		return
+	}
+	c.unseal = fn
 }
 
 // DispatchToGTK runs fn on the GTK thread through the installed dispatch,
@@ -456,8 +479,9 @@ func (a *App) residencyNoteWindowsChanged() usecase.ResidencyDecision {
 
 // relayAdmissionProvider exposes a relay admission boundary without
 // extending the port interface. It matches desktop's provider structurally.
+// The boundary type keeps application code off the concrete gate.
 type relayAdmissionProvider interface {
-	AdmissionGate() *process.AdmissionGate
+	AdmissionGate() port.AdmissionBoundary
 }
 
 // residencyQuiescent composes every native quiescence input: CEF runtime
@@ -544,25 +568,31 @@ func (a *App) closeRelayAdmission() {
 	}
 }
 
-// waitRelayAdmissionDrained settles admitted relay work before persistence
-// teardown within a short bound. Admitted dispatch may need the GTK loop,
-// so the wait never blocks shutdown forever; expiry only logs and the
-// sockets settle through their own completion paths.
-func (a *App) waitRelayAdmissionDrained(ctx context.Context) {
-	if a == nil || a.deps == nil {
+// drainForShutdownOffThread settles admission leases and persistence
+// before GTK shutdown, while the loop can still service admitted work.
+// It runs only off the GTK thread (see Quit); every wait is bounded and
+// expiry only logs.
+func (a *App) drainForShutdownOffThread() {
+	if a == nil {
 		return
 	}
-	provider, ok := a.deps.BrowserLaunchRelay.(relayAdmissionProvider)
-	if !ok || provider == nil {
-		return
+	a.closeRelayAdmission()
+	if a.deps != nil {
+		if provider, ok := a.deps.BrowserLaunchRelay.(relayAdmissionProvider); ok && provider != nil {
+			if gate := provider.AdmissionGate(); gate != nil && gate.Active() > 0 {
+				drainCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+				if !gate.WaitDrained(drainCtx) {
+					logging.FromContext(context.Background()).Warn().Int("admitted", gate.Active()).Msg("relay admission did not drain before shutdown")
+				}
+				cancel()
+			}
+		}
 	}
-	gate := provider.AdmissionGate()
-	if gate == nil || gate.Active() == 0 {
-		return
-	}
-	drainCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 2*time.Second)
-	defer cancel()
-	if !gate.WaitDrained(drainCtx) {
-		logging.FromContext(ctx).Warn().Int("admitted", gate.Active()).Msg("relay admission did not drain before teardown")
+	if drain, ok := a.snapshotService.(port.PersistenceDrain); ok && drain != nil {
+		drainCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		if err := drain.WaitSettled(drainCtx); err != nil {
+			logging.FromContext(context.Background()).Warn().Err(err).Msg("persistence did not settle before shutdown")
+		}
+		cancel()
 	}
 }

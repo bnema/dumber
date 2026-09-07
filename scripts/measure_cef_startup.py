@@ -382,6 +382,37 @@ def child_pids(root_pid):
     return children
 
 
+def proc_starttime(pid):
+    """Process start time (jiffies since boot) via /proc, or None.
+    Combined with the pid it forms an independently observed identity that
+    survives Popen-handle reuse and detects pid recycling."""
+    try:
+        with open("/proc/%d/stat" % pid) as handle:
+            parts = handle.read().rsplit(")", 1)[1].split()
+            return int(parts[19])
+    except (OSError, ValueError, IndexError):
+        return None
+
+
+def wait_for_child_quiescence(owner_pid, settle_seconds=2.0, timeout_seconds=15.0):
+    """Wait until the owner's child count is stable across settle_seconds.
+    Window close is asynchronous: the relay acknowledgement only means the
+    request was accepted, so reopening must wait for an observable steady
+    state instead of a fixed sleep. Returns the stable child count."""
+    end = time.monotonic() + timeout_seconds
+    last_change = time.monotonic()
+    last_count = len(child_pids(owner_pid))
+    while time.monotonic() < end:
+        time.sleep(0.5)
+        count = len(child_pids(owner_pid))
+        if count != last_count:
+            last_count = count
+            last_change = time.monotonic()
+        elif time.monotonic() - last_change >= settle_seconds:
+            return count
+    return len(child_pids(owner_pid))
+
+
 def proc_rss_kb(pid):
     """Resident memory of pid in KiB via /proc, or None."""
     try:
@@ -433,14 +464,19 @@ def run_sample(binary, cef_dir, scenario, fixture, run_index, owner=None, owner_
         reopen = None
         if scenario == "reopen-window" and owner is not None and owner_socket:
             owner_pid = owner.pid
+            owner_start = proc_starttime(owner_pid)
             children_before = child_pids(owner_pid)
             rss_before = proc_rss_kb(owner_pid)
             acknowledged = send_diagnostic_close(owner_socket)
-            time.sleep(0.5)
+            # The acknowledgement only means accepted: wait for an
+            # observable steady state before measuring the reopen.
+            quiescent_children = wait_for_child_quiescence(owner_pid)
             reopen = {
                 "owner_pid": owner_pid,
+                "owner_starttime": owner_start,
                 "close_acknowledged": acknowledged,
                 "browser_child_count_before": len(children_before),
+                "browser_child_count_quiescent": quiescent_children,
                 "owner_rss_kb_before": rss_before,
             }
         spawn_ts = time.monotonic()
@@ -533,9 +569,18 @@ def run_sample(binary, cef_dir, scenario, fixture, run_index, owner=None, owner_
             "fallback_spawn": scenario in ("relay-window", "reopen-window") and not relayed,
         }
         if reopen is not None:
+            # Owner identity is verified independently of the Popen handle:
+            # the same pid with a different start time is a recycled pid,
+            # not the same process. Unverifiable identity counts as different.
+            start_now = proc_starttime(reopen["owner_pid"]) if owner is not None else None
             owner_alive = owner is not None and owner.poll() is None
+            same = bool(
+                owner_alive
+                and reopen["owner_starttime"] is not None
+                and start_now == reopen["owner_starttime"]
+            )
             reopen["owner_alive_after"] = owner_alive
-            reopen["same_process"] = bool(owner_alive and reopen["owner_pid"] == owner.pid)
+            reopen["same_process"] = same
             reopen["browser_child_count_after"] = len(child_pids(owner.pid)) if owner_alive else 0
             reopen["owner_rss_kb_after"] = proc_rss_kb(owner.pid) if owner_alive else None
             result["reopen"] = reopen

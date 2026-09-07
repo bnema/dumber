@@ -42,3 +42,29 @@ type PersistenceDrain interface {
 	Active() bool
 	WaitSettled(ctx context.Context) error
 }
+
+// AdmissionBoundary is the admission/work-lease contract shared by the relay
+// listener and the shutdown/residency policy. Infrastructure provides the
+// implementation; application code depends only on this boundary.
+type AdmissionBoundary interface {
+	// Acquire takes one work lease, reporting false when admission is
+	// closed. Callers send the existing error response instead of
+	// acknowledging.
+	Acquire() bool
+	// Release returns one work lease on dispatch settlement.
+	Release()
+	// Close atomically stops admission; in-flight leases drain.
+	Close()
+	// Reopen resumes admission after an invalidated seal.
+	Reopen()
+	// Closed reports whether admission is stopped.
+	Closed() bool
+	// Active reports the number of held leases.
+	Active() int
+	// OnDrained registers a callback for every transition to zero leases.
+	// Callbacks run without the gate lock and must not reenter it.
+	OnDrained(func())
+	// WaitDrained blocks until no leases are held or ctx ends, reporting
+	// false on expiry so shutdown never waits forever.
+	WaitDrained(ctx context.Context) bool
+}

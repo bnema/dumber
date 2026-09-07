@@ -61,6 +61,15 @@ func (g *AdmissionGate) Close() {
 	g.closed = true
 }
 
+// Reopen resumes admission after a seal that no longer applies: an
+// invalidated deferred quit (e.g. a reopened window) must not leave the
+// surviving process permanently deaf to relay requests.
+func (g *AdmissionGate) Reopen() {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	g.closed = false
+}
+
 // Closed reports whether admission is stopped.
 func (g *AdmissionGate) Closed() bool {
 	g.mu.Lock()

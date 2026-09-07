@@ -57,13 +57,16 @@ func TestRuntimeActivityTrackerDownloads(t *testing.T) {
 	tracker.NoteDownloadProgress(7, 999)
 	require.Equal(t, 2, tracker.Snapshot().ActiveDownloads)
 
-	// Terminal resolves every owner sharing the CEF download ID.
-	tracker.NoteDownloadTerminal(100)
+	// Terminal resolves only the exact owner sharing the CEF download ID.
+	tracker.NoteDownloadTerminal(7, 100)
+	require.Equal(t, 1, tracker.Snapshot().ActiveDownloads)
+
+	tracker.NoteDownloadTerminal(9, 100)
 	require.Equal(t, 0, tracker.Snapshot().ActiveDownloads)
 
-	// Duplicate terminals are idempotent; unknown IDs change nothing.
-	tracker.NoteDownloadTerminal(100)
-	tracker.NoteDownloadTerminal(424242)
+	// Duplicate terminals are idempotent; unknown owners change nothing.
+	tracker.NoteDownloadTerminal(9, 100)
+	tracker.NoteDownloadTerminal(7, 424242)
 	require.True(t, tracker.Snapshot().Quiescent())
 }
 
@@ -75,7 +78,7 @@ func TestRuntimeActivityTrackerDropBrowser(t *testing.T) {
 	snapshot := tracker.Snapshot()
 	require.Equal(t, 1, snapshot.ActiveDownloads)
 
-	tracker.NoteDownloadTerminal(200)
+	tracker.NoteDownloadTerminal(9, 200)
 	require.True(t, tracker.Snapshot().Quiescent())
 
 	// Dropping an unknown browser notifies nobody and changes nothing.

@@ -841,6 +841,11 @@ func (h *handlerSet) OnAfterCreated(browser purecef.Browser) {
 	host := browser.GetHost()
 	if host == nil {
 		log.Warn().Msg("cef: OnAfterCreated returned nil host")
+		if h.wv.engine != nil {
+			// No view will ever attach to this browser: resolve the
+			// pending count so quiescence cannot strand on it.
+			h.wv.engine.activity.NoteCreationResolved()
+		}
 		return
 	}
 
@@ -1091,7 +1096,7 @@ func (h *handlerSet) OnBeforeDownload(
 }
 
 func (h *handlerSet) OnDownloadUpdated(
-	_ purecef.Browser,
+	browser purecef.Browser,
 	downloadItem purecef.DownloadItem,
 	callback purecef.DownloadItemCallback,
 ) {
@@ -1099,7 +1104,7 @@ func (h *handlerSet) OnDownloadUpdated(
 	if handler == nil {
 		return
 	}
-	handler.onDownloadUpdated(h.currentContext(), downloadItem, callback)
+	handler.onDownloadUpdated(h.currentContext(), browser, downloadItem, callback)
 }
 
 func (h *handlerSet) downloadHandler() *downloadHandler {

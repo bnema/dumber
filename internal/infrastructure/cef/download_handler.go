@@ -162,12 +162,17 @@ func (h *downloadHandler) onBeforeDownload(
 
 func (h *downloadHandler) onDownloadUpdated(
 	ctx context.Context,
+	browser purecef.Browser,
 	downloadItem purecef.DownloadItem,
 	callback purecef.DownloadItemCallback,
 ) {
 	_ = callback
 	if downloadItem == nil {
 		return
+	}
+	var browserID int32
+	if browser != nil {
+		browserID = browser.GetIdentifier()
 	}
 
 	id := downloadItem.GetID()
@@ -188,13 +193,13 @@ func (h *downloadHandler) onDownloadUpdated(
 		if !h.markFinished(id) {
 			return
 		}
-		h.activity.NoteDownloadTerminal(id)
+		h.activity.NoteDownloadTerminal(browserID, id)
 		h.runtime.EmitFinished(ctx, state.filename, state.destination)
 	case downloadItem.IsCanceled() || downloadItem.IsInterrupted():
 		if !h.markFinished(id) {
 			return
 		}
-		h.activity.NoteDownloadTerminal(id)
+		h.activity.NoteDownloadTerminal(browserID, id)
 		var err error
 		if downloadItem.IsInterrupted() {
 			err = cefDownloadInterruptError{

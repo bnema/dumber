@@ -203,7 +203,9 @@ func TestResidencyControllerDispatchRoutesCallbacks(t *testing.T) {
 func TestResidencyControllerSealsBeforeCommit(t *testing.T) {
 	ctl, _, sched, quits := newResidencyTestController(time.Minute)
 	sealed := 0
+	unsealed := 0
 	ctl.SetSealFunc(func() { sealed++ })
+	ctl.SetUnsealFunc(func() { unsealed++ })
 	ctl.SetQuiescentFunc(func() bool { return true })
 	ctl.SetWindowCount(1)
 	ctl.SetWindowCount(0)
@@ -211,12 +213,15 @@ func TestResidencyControllerSealsBeforeCommit(t *testing.T) {
 	// Quiescent expiry seals admission, then commits the quit.
 	ctl.OnTimerFired(armed)
 	require.Equal(t, 1, sealed)
+	require.Equal(t, 0, unsealed)
 	require.Equal(t, 1, *quits)
 }
 
 func TestResidencyControllerReopenInvalidatesDeferredQuit(t *testing.T) {
 	ctl, _, sched, quits := newResidencyTestController(time.Minute)
 	quiescent := true
+	unsealed := 0
+	ctl.SetUnsealFunc(func() { unsealed++ })
 	ctl.SetQuiescentFunc(func() bool { return quiescent })
 	ctl.SetWindowCount(1)
 	ctl.SetWindowCount(0)
@@ -229,6 +234,7 @@ func TestResidencyControllerReopenInvalidatesDeferredQuit(t *testing.T) {
 	quiescent = true
 	ctl.MaybeQuit()
 	require.Equal(t, 0, *quits, "obsolete quit must not run after reopen")
+	require.Equal(t, 1, unsealed, "invalidation reopens admission")
 }
 
 func TestResidencyControllerDuplicateEmptyStaysArmed(t *testing.T) {

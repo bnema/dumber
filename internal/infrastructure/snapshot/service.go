@@ -35,13 +35,15 @@ type Service struct {
 	retries    int
 	retryDelay time.Duration
 
-	mu     sync.Mutex
-	timer  *time.Timer
+	mu       sync.Mutex
+	timer    *time.Timer
 	timerGen uint64
-	dirty  bool
-	ready  bool // true when session is persisted to DB and snapshots can be saved
-	ctx    context.Context
-	cancel context.CancelFunc
+	// stopped latches Stop: no new debounce work schedules afterwards.
+	stopped bool
+	dirty   bool
+	ready   bool // true when session is persisted to DB and snapshots can be saved
+	ctx     context.Context
+	cancel  context.CancelFunc
 
 	// Drain boundary for the residency quiescence contract. inflight
 	// counts an executing capture/database save; lastErr records the
@@ -108,6 +110,8 @@ func (s *Service) SetReady() {
 // Stop stops the service and saves final state, then joins an
 // already-running save within a bounded wait so shutdown observes the
 // drain barrier instead of racing it. The wait never blocks forever.
+// Latching stopped also prevents any later debounce from scheduling work
+// on the dead service.
 func (s *Service) Stop(ctx context.Context) error {
 	s.mu.Lock()
 	if s.cancel != nil {
@@ -117,6 +121,7 @@ func (s *Service) Stop(ctx context.Context) error {
 		s.timer.Stop()
 		s.timer = nil
 	}
+	s.stopped = true
 	s.mu.Unlock()
 
 	// Final save on shutdown
@@ -130,11 +135,14 @@ func (s *Service) Stop(ctx context.Context) error {
 }
 
 // MarkDirty signals that state has changed.
-// Debounces saves to avoid excessive DB writes.
+// Debounces saves to avoid excessive DB writes. It is a no-op after Stop
+// so shutdown never resurrects debounce work on the dead service.
 func (s *Service) MarkDirty() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-
+	if s.stopped {
+		return
+	}
 	s.dirty = true
 
 	// Reset or create timer
@@ -148,10 +156,17 @@ func (s *Service) MarkDirty() {
 		// Retire the owning timer as it fires: a non-nil timer means
 		// debounce work is outstanding, so leaving it set would strand
 		// the drain after the save settles. The generation check keeps
-		// a superseded timer from clearing its replacement.
-		if s.timerGen == gen {
-			s.timer = nil
+		// a superseded timer from clearing its replacement, and a
+		// superseded or stopped timer saves nothing: the replacement
+		// timer or Stop's own final save owns that work.
+		if s.timerGen != gen || s.stopped {
+			if s.timerGen == gen {
+				s.timer = nil
+			}
+			s.mu.Unlock()
+			return
 		}
+		s.timer = nil
 		ctx := s.ctx
 		s.mu.Unlock()
 
@@ -190,6 +205,13 @@ func (s *Service) saveSnapshot(ctx context.Context) error {
 		s.mu.Unlock()
 		return nil
 	}
+	// Claim the dirty work atomically: concurrent timer and SaveNow paths
+	// serialize here, so exactly one save runs and shutdown joins rather
+	// than duplicates the active save.
+	if !s.dirty {
+		s.mu.Unlock()
+		return nil
+	}
 	// Only clear dirty when we're actually going to save
 	s.dirty = false
 	s.lastErr = nil
@@ -204,7 +226,7 @@ func (s *Service) saveSnapshot(ctx context.Context) error {
 	sessionID := s.provider.GetSessionID()
 
 	if sessionID == "" {
-		s.markDirty()
+		s.MarkDirty()
 		return nil
 	}
 
@@ -212,7 +234,7 @@ func (s *Service) saveSnapshot(ctx context.Context) error {
 	// A nil window list with no active index means the snapshot is truly unavailable,
 	// not merely empty. Keep the session dirty so a later capture can retry.
 	if windows == nil && activeWindowIndex < 0 {
-		s.markDirty()
+		s.MarkDirty()
 		logging.FromContext(ctx).Warn().Msg("window snapshot unavailable; keeping session snapshot dirty")
 		return nil
 	}
@@ -246,11 +268,11 @@ func (s *Service) saveSnapshot(ctx context.Context) error {
 // later retry while lastErr records it, so the drain always terminates and
 // never loops forever merely because dirty remains set.
 func (s *Service) Active() bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if s.inflight.Load() > 0 {
 		return true
 	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
 	if s.timer != nil {
 		return true
 	}

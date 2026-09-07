@@ -278,12 +278,12 @@ type WebView struct {
 	loadDiagLastLoadStateAt time.Time
 
 	// Atomic state.
-	destroyed                     atomic.Bool
-	fullscreen                    atomic.Bool
+	destroyed  atomic.Bool
+	fullscreen atomic.Bool
 	// bridgeTeardownNoted gates quiescence accounting exactly once per
 	// view: every bridge teardown is scheduled through the Sync/Async
 	// wrappers below and completes in destroyViewBridgeOnGTKThread.
-	bridgeTeardownNoted         atomic.Bool
+	bridgeTeardownNoted           atomic.Bool
 	generation                    atomic.Uint64
 	audioPlaying                  atomic.Bool
 	zoomFactor                    atomic.Value // float64, initialized to 1.0

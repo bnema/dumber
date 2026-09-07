@@ -260,6 +260,18 @@ class ReopenWindowTest(unittest.TestCase):
         self.assertGreater(rss, 0)
         self.assertIsNone(harness.proc_rss_kb(2 ** 30))
 
+    def test_proc_starttime_identifies_current_process(self):
+        first = harness.proc_starttime(os.getpid())
+        self.assertIsNotNone(first)
+        self.assertGreaterEqual(first, 0)
+        self.assertEqual(first, harness.proc_starttime(os.getpid()))
+        self.assertIsNone(harness.proc_starttime(2 ** 30))
+
+    def test_child_quiescence_returns_stable_count(self):
+        count = harness.wait_for_child_quiescence(os.getpid(), settle_seconds=0.2, timeout_seconds=5.0)
+        self.assertIsInstance(count, int)
+        self.assertGreaterEqual(count, 0)
+
     def test_reopen_without_owner_falls_back(self):
         binary = os.path.join(self.temp, "fakebin")
         with open(binary, "w") as handle:

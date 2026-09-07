@@ -94,9 +94,9 @@ func TestCEFDownloadHandlerLifecycle(t *testing.T) {
 
 	item.complete = true
 	item.fullPath = callback.path
-	handler.onDownloadUpdated(ctx, item, nil)
+	handler.onDownloadUpdated(ctx, nil, item, nil)
 	// Repeated completion updates should not emit duplicate finished events.
-	handler.onDownloadUpdated(ctx, item, nil)
+	handler.onDownloadUpdated(ctx, nil, item, nil)
 
 	require.Len(t, events.events, 2)
 	require.Equal(t, port.DownloadEventFinished, events.events[1].Type)
@@ -166,12 +166,12 @@ func TestCEFDownloadHandlerEmitsProgressOncePerPercent(t *testing.T) {
 	item.percentComplete = 12
 	item.receivedBytes = 12
 	item.totalBytes = 100
-	handler.onDownloadUpdated(ctx, item, nil)
-	handler.onDownloadUpdated(ctx, item, nil)
+	handler.onDownloadUpdated(ctx, nil, item, nil)
+	handler.onDownloadUpdated(ctx, nil, item, nil)
 
 	item.percentComplete = 13
 	item.receivedBytes = 13
-	handler.onDownloadUpdated(ctx, item, nil)
+	handler.onDownloadUpdated(ctx, nil, item, nil)
 
 	require.Len(t, events.events, 3)
 	require.Equal(t, port.DownloadEventStarted, events.events[0].Type)
@@ -200,7 +200,7 @@ func TestCEFDownloadInterruptedErrorIncludesCodeAndReason(t *testing.T) {
 	item.fullPath = callback.path
 	item.interrupted = true
 	item.reason = purecef.DownloadInterruptReasonServerBadContent
-	handler.onDownloadUpdated(ctx, item, nil)
+	handler.onDownloadUpdated(ctx, nil, item, nil)
 
 	require.Len(t, events.events, 2)
 	require.Error(t, events.events[1].Error)
@@ -230,7 +230,7 @@ func TestDownloadHandlerTracksOwnersByBrowserAndID(t *testing.T) {
 	require.Equal(t, 2, tracker.Snapshot().ActiveDownloads)
 
 	// Terminal for one ID leaves the other owner outstanding.
-	handler.onDownloadUpdated(ctx, stubDownloadItem{id: 11, complete: true, fullPath: "/tmp/a.bin"}, nil)
+	handler.onDownloadUpdated(ctx, first, stubDownloadItem{id: 11, complete: true, fullPath: "/tmp/a.bin"}, nil)
 	require.Equal(t, 1, tracker.Snapshot().ActiveDownloads)
 
 	// Lost owners reconcile through the native lifecycle, never removal.
