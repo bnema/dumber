@@ -2076,38 +2076,64 @@ func (wv *WebView) replayPendingNavigationForIntent(attempt int, intentID uint64
 		}
 		return
 	}
-	// Re-read the current browser under the state lock and claim submission
-	// only for the current unissued intent with a valid frame. Browsers are
-	// correlated by identifier (never interface equality); foreign calls stay
-	// outside the lock. Mark issued before the foreign LoadURL, outside lock.
-	wv.mu.RLock()
-	if wv.pendingIntentID != intentID || wv.pendingIssued || wv.browser == nil {
-		wv.mu.RUnlock()
-		return
-	}
-	currentBrowser := wv.browser
-	wv.mu.RUnlock()
-	if currentBrowser.GetIdentifier() != browser.GetIdentifier() {
+	// Claim submission only for the current unissued intent with a valid
+	// frame; see claimPendingNavigationSubmission. Mark issued before the
+	// foreign LoadURL, outside the lock.
+	submitURI, claim := wv.claimPendingNavigationSubmission(intentID, browser.GetIdentifier())
+	switch claim {
+	case pendingClaimReplaced:
 		// Browser was replaced between frame acquisition and claim; retry
 		// the same intent so the new browser is used at execution time.
 		wv.schedulePendingNavigationReplay(attempt + 1)
-		return
+	case pendingClaimReady:
+		frame.LoadURL(submitURI)
 	}
-	wv.mu.Lock()
-	if wv.pendingIntentID != intentID || wv.pendingIssued || wv.browser == nil {
-		wv.mu.Unlock()
-		return
-	}
-	wv.pendingIssued = true
-	wv.markPendingNavigationStartedLocked(uri, time.Now())
-	wv.mu.Unlock()
-	frame.LoadURL(uri)
 	if wv.ctx != nil {
 		logging.FromContext(wv.ctx).Debug().
 			Int("attempt", attempt).
 			Str("uri", logging.TruncateURL(uri, logging.PermissionLogURLMaxLen)).
 			Msg("cef: replayed pending navigation")
 	}
+}
+
+type pendingClaimResult int
+
+const (
+	// pendingClaimStale means the intent changed, was issued, or was cleared:
+	// the caller must return without submitting.
+	pendingClaimStale pendingClaimResult = iota
+	// pendingClaimReplaced means the browser was replaced between frame
+	// acquisition and claim: the caller must retry the same intent.
+	pendingClaimReplaced
+	// pendingClaimReady means the intent was claimed: the caller submits uri.
+	pendingClaimReady
+)
+
+// claimPendingNavigationSubmission re-reads state and claims submission for
+// intentID only when it is still the current unissued intent. Browsers are
+// correlated by identifier, matching codebase convention; all foreign calls
+// happen outside the state lock. The issued mark is set before the caller
+// performs the foreign LoadURL.
+func (wv *WebView) claimPendingNavigationSubmission(intentID uint64, browserID int32) (string, pendingClaimResult) {
+	wv.mu.RLock()
+	if wv.pendingIntentID != intentID || wv.pendingIssued || wv.browser == nil {
+		wv.mu.RUnlock()
+		return "", pendingClaimStale
+	}
+	currentBrowser := wv.browser
+	wv.mu.RUnlock()
+	if currentBrowser.GetIdentifier() != browserID {
+		return "", pendingClaimReplaced
+	}
+	wv.mu.Lock()
+	defer wv.mu.Unlock()
+	if wv.pendingIntentID != intentID || wv.pendingIssued || wv.browser == nil {
+		return "", pendingClaimStale
+	}
+	wv.pendingIssued = true
+	uri := wv.pendingURI
+	wv.markPendingNavigationStartedLocked(uri, time.Now())
+	return uri, pendingClaimReady
 }
 
 func pendingURIEquivalent(a, b string) bool {
