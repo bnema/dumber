@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"io"
 	"net"
 	"os"
 	"path/filepath"
@@ -666,7 +665,7 @@ func (o *blockingRelayOpener) OpenFreshWindow(_ context.Context, url string) err
 	return o.OpenExternalURL(context.Background(), url)
 }
 
-func startLeaseTestListener(t *testing.T, opener *blockingRelayOpener) (*browserLaunchRelay, io.Closer) {
+func startLeaseTestListener(t *testing.T, opener *blockingRelayOpener) *browserLaunchRelay {
 	t.Helper()
 	ipc := testIPC(shortTempDir(t))
 	require.NoError(t, os.MkdirAll(ipc.RuntimeDir, 0o700))
@@ -676,7 +675,7 @@ func startLeaseTestListener(t *testing.T, opener *blockingRelayOpener) (*browser
 	closer, err := relay.Listen(ctx, opener)
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = closer.Close() })
-	return relay, closer
+	return relay
 }
 
 func waitForLeaseCount(t *testing.T, gate *process.AdmissionGate, want int) {
@@ -693,7 +692,7 @@ func waitForLeaseCount(t *testing.T, gate *process.AdmissionGate, want int) {
 
 func TestBrowserLaunchRelay_HoldsLeaseThroughDispatch(t *testing.T) {
 	opener := &blockingRelayOpener{release: make(chan struct{}), received: make(chan string, 2)}
-	relay, _ := startLeaseTestListener(t, opener)
+	relay := startLeaseTestListener(t, opener)
 	gate := relay.AdmissionGate()
 
 	delivered := make(chan error, 1)
@@ -721,7 +720,7 @@ func TestBrowserLaunchRelay_HoldsLeaseThroughDispatch(t *testing.T) {
 
 func TestBrowserLaunchRelay_SimultaneousOpensHoldLeases(t *testing.T) {
 	opener := &blockingRelayOpener{release: make(chan struct{}), received: make(chan string, 4)}
-	relay, _ := startLeaseTestListener(t, opener)
+	relay := startLeaseTestListener(t, opener)
 	gate := relay.AdmissionGate()
 
 	for range 2 {
@@ -743,7 +742,7 @@ func TestBrowserLaunchRelay_SimultaneousOpensHoldLeases(t *testing.T) {
 
 func TestBrowserLaunchRelay_ClosedAdmissionSendsErrorResponse(t *testing.T) {
 	opener := &blockingRelayOpener{release: make(chan struct{}), received: make(chan string, 1)}
-	relay, _ := startLeaseTestListener(t, opener)
+	relay := startLeaseTestListener(t, opener)
 	gate := relay.AdmissionGate()
 	close(opener.release)
 
