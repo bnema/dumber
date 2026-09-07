@@ -147,6 +147,8 @@ type App struct {
 	// residency owns the opt-in idle hold and deadline. Always non-nil
 	// after Run starts; nil beforehand (e.g. in tests without Run).
 	residency *ResidencyController
+	// residencyUnsubscribe drops native quiescence subscriptions at shutdown.
+	residencyUnsubscribe []func()
 
 	// Web content (managed by content.Coordinator)
 	faviconAdapter *adapter.FaviconAdapter
@@ -356,6 +358,14 @@ func (a *App) Run(ctx context.Context, args []string) int {
 	a.residency = NewResidencyController(a.residencyTimeout, time.Now, nil, nil, a.Quit)
 	a.residency.schedule = a.residency.scheduleGLibTimeout
 	a.residency.cancel = a.residency.cancelGLibTimeout
+	a.residency.SetDispatchToGTK(func(f func()) {
+		callback := glib.SourceFunc(func(_ uintptr) bool {
+			f()
+			return false
+		})
+		glib.IdleAdd(&callback, 0)
+	})
+	a.residency.SetQuiescentFunc(a.residencyQuiescent)
 	a.residency.AcquireHold(a.gtkApp)
 	defer a.residency.ReleaseHold(a.gtkApp)
 
@@ -412,6 +422,7 @@ func (a *App) onActivate(ctx context.Context) {
 	a.wireSessionManagerShortcut()
 	a.initSnapshotService(ctx)
 	a.initUpdateCoordinator(ctx)
+	a.subscribeResidencyQuiescence()
 	a.createInitialTab(ctx)
 	a.finalizeActivation(ctx)
 }
@@ -3089,6 +3100,17 @@ func (a *App) onShutdown(ctx context.Context) {
 	log := logging.FromContext(ctx)
 	log.Debug().Msg("GTK application shutting down")
 
+	// Stop relay admission before snapshot/update teardown so no new work
+	// starts while persistence drains. Admitted leases keep their sockets
+	// until dispatch settles; shutdown never waits on them unboundedly.
+	a.closeRelayAdmission()
+	a.unsubscribeResidencyQuiescence()
+
+	// Persistence drain barriers, in teardown order. The snapshot service
+	// owns debounced session writes (Stop performs the final synchronous
+	// save); the history recorder flushes synchronously on Close. All
+	// other persistence owners are synchronous use-case calls with no
+	// background work, so no additional drain exists.
 	// Save final session state before shutdown
 	if a.snapshotService != nil {
 		if err := a.snapshotService.Stop(ctx); err != nil {

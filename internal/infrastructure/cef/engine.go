@@ -62,6 +62,11 @@ type Engine struct {
 	browserWebViews sync.Map // map[int32]*WebView
 	activeCount     atomic.Int32
 
+	// activity tracks outstanding native runtime work for the residency
+	// quiescence boundary. Initialized by NewEngine; nil in unit-test
+	// literals, where tracker methods are safe no-ops.
+	activity *RuntimeActivityTracker
+
 	// shutdownNotify is signaled when the active webview count reaches 0
 	// during shutdown, replacing the busy-wait poll in closeActiveWebViews.
 	shutdownNotify chan struct{}
@@ -85,6 +90,16 @@ type Engine struct {
 	browserCreateLastWidth  atomic.Int32
 	browserCreateLastHeight atomic.Int32
 	browserCreateComplete   atomic.Bool
+}
+
+// RuntimeActivity exposes the engine's outstanding-work tracker through
+// the application port. UI subscribes at startup and unsubscribes at
+// shutdown; the initial snapshot is race-safe and sequenced.
+func (e *Engine) RuntimeActivity() port.RuntimeActivity {
+	if e == nil || e.activity == nil {
+		return NewRuntimeActivityTracker()
+	}
+	return e.activity
 }
 
 func (e *Engine) Factory() port.WebViewFactory {
@@ -162,6 +177,7 @@ func (e *Engine) recordGPURelaunch() {
 func (e *Engine) registerWebView(wv *WebView) {
 	e.activeWebViews.Store(wv.id, wv)
 	e.activeCount.Add(1)
+	e.activity.NoteViewRegistered()
 }
 
 func (e *Engine) lookupWebView(id port.WebViewID) *WebView {
@@ -204,6 +220,7 @@ func (e *Engine) unbindBrowserWebView(browserID int32, wv *WebView) {
 func (e *Engine) unregisterWebView(wv *WebView, browserID int32) {
 	e.activeWebViews.Delete(wv.id)
 	e.unbindBrowserWebView(browserID, wv)
+	e.activity.DropBrowser(browserID)
 	if e.activeCount.Add(-1) == 0 && e.shutdownNotify != nil {
 		select {
 		case e.shutdownNotify <- struct{}{}:
@@ -305,6 +322,7 @@ func (e *Engine) destroyClosedWebViewBridges(webViews []*WebView) {
 	for _, wv := range webViews {
 		if wv != nil && wv.destroyed.Load() {
 			wv.destroyViewBridgeOnGTKSync()
+			e.activity.NoteCleanupCompleted()
 		}
 	}
 }
@@ -340,7 +358,7 @@ func (e *Engine) ConfigureDownloads(
 		return fmt.Errorf("cef: download preparer is required")
 	}
 	e.downloadMu.Lock()
-	e.downloadHandler = newDownloadHandler(downloadPath, eventHandler, preparer)
+	e.downloadHandler = newDownloadHandler(downloadPath, eventHandler, preparer, e.activity)
 	e.downloadMu.Unlock()
 	return nil
 }
@@ -503,18 +521,21 @@ func (e *Engine) recordBrowserCreateRequest(width, height, result int32) {
 		Int32("height", height).
 		Int32("result", result).
 		Msg("cef: BrowserHostCreateBrowser returned")
-	if result != 1 {
-		logging.FromContext(e.ctx).Warn().
-			Uint64("request_count", count).
-			Int32("width", width).
-			Int32("height", height).
-			Int32("result", result).
-			Msg("cef: BrowserHostCreateBrowser returned non-success")
+	if result == 1 {
+		e.activity.NoteCreationAccepted()
+		return
 	}
+	logging.FromContext(e.ctx).Warn().
+		Uint64("request_count", count).
+		Int32("width", width).
+		Int32("height", height).
+		Int32("result", result).
+		Msg("cef: BrowserHostCreateBrowser returned non-success")
 }
 
 func (e *Engine) recordBrowserAfterCreated(browser purecef.Browser) {
 	count := e.browserAfterCreated.Add(1)
+	e.activity.NoteCreationResolved()
 	if count >= e.browserCreateRequests.Load() {
 		e.browserCreateComplete.Store(true)
 	}

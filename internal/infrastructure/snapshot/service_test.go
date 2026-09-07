@@ -27,6 +27,80 @@ func newWindowStateProvider(
 	return provider
 }
 
+func TestService_DrainSettlesAfterDebounceAndSave(t *testing.T) {
+	repo := repomocks.NewMockSessionStateRepository(t)
+	repo.EXPECT().
+		SaveSnapshot(mock.Anything, mock.AnythingOfType("*entity.SessionState")).
+		Return(nil).Once()
+	uc := usecase.NewSnapshotSessionUseCase(repo)
+	svc := NewService(uc, newWindowStateProvider(t, "20260207_120000_drain", nil, 0), 60000)
+	svc.ready = true
+	require.False(t, svc.Active())
+
+	svc.MarkDirty()
+	require.True(t, svc.Active(), "pending debounce is outstanding work")
+
+	require.NoError(t, svc.SaveNow(context.Background()))
+	require.False(t, svc.Active())
+	require.NoError(t, svc.LastError())
+}
+
+func TestService_FailedSaveIsSettledButFailed(t *testing.T) {
+	closedErr := errors.New("database is closed")
+	repo := repomocks.NewMockSessionStateRepository(t)
+	calls := 0
+	repo.EXPECT().
+		SaveSnapshot(mock.Anything, mock.AnythingOfType("*entity.SessionState")).
+		RunAndReturn(func(_ context.Context, _ *entity.SessionState) error {
+			calls++
+			return closedErr
+		})
+	uc := usecase.NewSnapshotSessionUseCase(repo)
+	svc := NewService(uc, newWindowStateProvider(t, "20260207_120000_closed", nil, 0), 60000)
+	svc.ready = true
+	svc.dirty = true
+
+	err := svc.SaveNow(context.Background())
+	require.ErrorIs(t, err, closedErr)
+	require.Equal(t, 1, calls, "no write retries after terminal database failure")
+	require.True(t, svc.dirty, "dirty preserved for reporting and later retry")
+	require.ErrorIs(t, svc.LastError(), closedErr)
+	require.False(t, svc.Active(), "terminal failure settles the drain")
+	require.NoError(t, svc.WaitSettled(context.Background()))
+}
+
+func TestService_WaitSettledExpiry(t *testing.T) {
+	repo := repomocks.NewMockSessionStateRepository(t)
+	uc := usecase.NewSnapshotSessionUseCase(repo)
+	svc := NewService(uc, mocks.NewMockWindowStateProvider(t), 60000)
+	svc.MarkDirty()
+	require.True(t, svc.Active())
+
+	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+	defer cancel()
+	require.Error(t, svc.WaitSettled(ctx), "drain must expire instead of looping forever")
+}
+
+func TestService_OnSettledFiresAfterSave(t *testing.T) {
+	repo := repomocks.NewMockSessionStateRepository(t)
+	repo.EXPECT().
+		SaveSnapshot(mock.Anything, mock.AnythingOfType("*entity.SessionState")).
+		Return(nil).Once()
+	uc := usecase.NewSnapshotSessionUseCase(repo)
+	svc := NewService(uc, newWindowStateProvider(t, "20260207_120000_settled", nil, 0), 60000)
+	svc.ready = true
+	svc.dirty = true
+	settled := make(chan struct{}, 1)
+	svc.OnSettled(func() { settled <- struct{}{} })
+
+	require.NoError(t, svc.SaveNow(context.Background()))
+	select {
+	case <-settled:
+	case <-time.After(5 * time.Second):
+		t.Fatal("settled callback must fire after save completes")
+	}
+}
+
 func TestService_SaveSnapshot_RetriesTransientFKAndSucceeds(t *testing.T) {
 	repo := repomocks.NewMockSessionStateRepository(t)
 	calls := 0

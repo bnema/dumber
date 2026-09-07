@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/bnema/dumber/internal/application/port"
+	"github.com/bnema/dumber/internal/infrastructure/process"
 	"github.com/bnema/dumber/internal/infrastructure/runtimeprofile"
 	"github.com/bnema/dumber/internal/logging"
 )
@@ -36,6 +37,11 @@ var ErrBrowserLaunchRelayUnconfirmed = errors.New("browser launch relay did not 
 
 type browserLaunchRelay struct {
 	ipc runtimeprofile.IPCPaths
+	// admission is the shared admission/work-lease boundary: a lease is
+	// acquired before sending Accepted and released when dispatch settles.
+	// Shutdown closes it so losing requests get an error response instead
+	// of an acknowledgement. Initialized eagerly; never nil.
+	admission *process.AdmissionGate
 }
 
 type browserLaunchRequest struct {
@@ -60,6 +66,7 @@ type browserLaunchResponse struct {
 type browserLaunchRelayListener struct {
 	listener   *net.UnixListener
 	socketPath string
+	admission  *process.AdmissionGate
 	once       sync.Once
 	err        error
 }
@@ -73,7 +80,21 @@ var newBrowserLaunchRequestID = func() string {
 }
 
 func NewBrowserLaunchRelay(ipc runtimeprofile.IPCPaths) port.BrowserLaunchRelay {
-	return &browserLaunchRelay{ipc: ipc}
+	return &browserLaunchRelay{ipc: ipc, admission: process.NewAdmissionGate()}
+}
+
+// AdmissionGateProvider exposes the relay's shared admission boundary
+// without extending the port interface or regenerating mocks.
+type AdmissionGateProvider interface {
+	AdmissionGate() *process.AdmissionGate
+}
+
+// AdmissionGate returns the shared admission/work-lease boundary.
+func (r *browserLaunchRelay) AdmissionGate() *process.AdmissionGate {
+	if r == nil || r.admission == nil {
+		return process.NewAdmissionGate()
+	}
+	return r.admission
 }
 
 func (r *browserLaunchRelay) DeliverOpenExternalURL(ctx context.Context, url string) (bool, error) {
@@ -269,7 +290,7 @@ func (r *browserLaunchRelay) Listen(ctx context.Context, opener port.BrowserWind
 		}
 	}
 
-	relayListener := &browserLaunchRelayListener{listener: listener, socketPath: socketPath}
+	relayListener := &browserLaunchRelayListener{listener: listener, socketPath: socketPath, admission: r.AdmissionGate()}
 	go relayListener.serve(ctx, opener)
 
 	return relayListener, nil
@@ -322,7 +343,7 @@ func (l *browserLaunchRelayListener) serve(ctx context.Context, opener port.Brow
 	}
 }
 
-func (*browserLaunchRelayListener) handleConnection(ctx context.Context, conn *net.UnixConn, opener port.BrowserWindowOpener) {
+func (l *browserLaunchRelayListener) handleConnection(ctx context.Context, conn *net.UnixConn, opener port.BrowserWindowOpener) {
 	defer func() { _ = conn.Close() }()
 	log := logging.FromContext(ctx)
 	if err := conn.SetDeadline(time.Now().Add(browserLaunchIOTimeout)); err != nil {
@@ -342,7 +363,27 @@ func (*browserLaunchRelayListener) handleConnection(ctx context.Context, conn *n
 		Str("url_host", safeURLHost(request.URL)).
 		Msg("browser launch relay request received")
 
+	// Admit before acknowledgement: losing requests receive the existing
+	// error response here, never an acknowledgement for work that will not
+	// run. Acknowledgement still precedes expensive UI dispatch below, and
+	// unconfirmed delivery keeps its no-duplicate-fallback semantics.
+	gate := l.admission
+	if gate == nil {
+		gate = process.NewAdmissionGate()
+	}
+	if !gate.Acquire() {
+		if err := conn.SetDeadline(time.Now().Add(browserLaunchIOTimeout)); err != nil {
+			return
+		}
+		_ = json.NewEncoder(conn).Encode(browserLaunchResponse{RequestID: requestID, Error: "shutting down"})
+		log.Debug().
+			Str("request_id", requestID).
+			Msg("browser launch relay refused request after admission closed")
+		return
+	}
+
 	if err := conn.SetDeadline(time.Now().Add(browserLaunchIOTimeout)); err != nil {
+		gate.Release()
 		return
 	}
 	if err := json.NewEncoder(conn).Encode(browserLaunchResponse{RequestID: requestID, Accepted: true}); err != nil {
@@ -350,6 +391,7 @@ func (*browserLaunchRelayListener) handleConnection(ctx context.Context, conn *n
 			Str("request_id", requestID).
 			Str("url_host", safeURLHost(request.URL)).
 			Msg("failed to encode browser launch response")
+		gate.Release()
 		return
 	}
 	log.Debug().
@@ -358,6 +400,11 @@ func (*browserLaunchRelayListener) handleConnection(ctx context.Context, conn *n
 		Msg("browser launch relay request accepted")
 
 	go func() {
+		// The lease spans acknowledgement through dispatch completion or
+		// definitive factory/dispatch failure. Factory/dispatch failure
+		// retains the documented existing failure semantics and never
+		// triggers duplicate fallback.
+		defer gate.Release()
 		if opener == nil {
 			log.Warn().
 				Str("request_id", requestID).

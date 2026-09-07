@@ -828,6 +828,11 @@ func (h *handlerSet) OnAfterCreated(browser purecef.Browser) {
 	log := logging.FromContext(h.wv.ctx)
 	if browser == nil {
 		log.Warn().Msg("cef: OnAfterCreated called with nil browser")
+		if h.wv.engine != nil {
+			// No browser will ever complete this creation: resolve the
+			// pending count so quiescence cannot strand on it.
+			h.wv.engine.activity.NoteCreationResolved()
+		}
 		return
 	}
 	browserID := browser.GetIdentifier()
@@ -845,6 +850,9 @@ func (h *handlerSet) OnAfterCreated(browser purecef.Browser) {
 			Int32("browser_id", browserID).
 			Int32("existing_browser_id", state.duplicateBrowserID).
 			Msg("cef: duplicate popup browser attached after shell already had a browser; closing duplicate")
+		if h.wv.engine != nil {
+			h.wv.engine.activity.NoteCreationResolved()
+		}
 		host.CloseBrowser(1)
 		return
 	}
