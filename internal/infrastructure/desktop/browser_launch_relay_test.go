@@ -4,12 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
 	"net"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
 
+	"github.com/bnema/dumber/internal/infrastructure/process"
 	"github.com/bnema/dumber/internal/infrastructure/runtimeprofile"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -647,4 +649,113 @@ func TestBrowserLaunchRelay_SilentClientDoesNotStallListener(t *testing.T) {
 	case <-time.After(time.Second):
 		t.Fatal("expected opener to receive the URL")
 	}
+}
+
+type blockingRelayOpener struct {
+	release chan struct{}
+	received chan string
+}
+
+func (o *blockingRelayOpener) OpenExternalURL(_ context.Context, url string) error {
+	o.received <- url
+	<-o.release
+	return nil
+}
+
+func (o *blockingRelayOpener) OpenFreshWindow(_ context.Context, url string) error {
+	return o.OpenExternalURL(context.Background(), url)
+}
+
+func startLeaseTestListener(t *testing.T, opener *blockingRelayOpener) (*browserLaunchRelay, io.Closer) {
+	t.Helper()
+	ipc := testIPC(shortTempDir(t))
+	require.NoError(t, os.MkdirAll(ipc.RuntimeDir, 0o700))
+	relay := NewBrowserLaunchRelay(ipc).(*browserLaunchRelay)
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+	closer, err := relay.Listen(ctx, opener)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = closer.Close() })
+	return relay, closer
+}
+
+func waitForLeaseCount(t *testing.T, gate *process.AdmissionGate, want int) {
+	t.Helper()
+	deadline := time.Now().Add(3 * time.Second)
+	for time.Now().Before(deadline) {
+		if gate.Active() == want {
+			return
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	t.Fatalf("lease count = %d, want %d", gate.Active(), want)
+}
+
+func TestBrowserLaunchRelay_HoldsLeaseThroughDispatch(t *testing.T) {
+	opener := &blockingRelayOpener{release: make(chan struct{}), received: make(chan string, 2)}
+	relay, _ := startLeaseTestListener(t, opener)
+	gate := relay.AdmissionGate()
+
+	delivered := make(chan error, 1)
+	go func() {
+		_, err := relay.DeliverOpenExternalURL(context.Background(), "https://example.com/lease")
+		delivered <- err
+	}()
+	select {
+	case url := <-opener.received:
+		require.Equal(t, "https://example.com/lease", url)
+	case <-time.After(3 * time.Second):
+		t.Fatal("opener never received the request")
+	}
+	// Acknowledged and dispatched: the lease is held until dispatch settles.
+	waitForLeaseCount(t, gate, 1)
+	select {
+	case err := <-delivered:
+		require.NoError(t, err)
+	case <-time.After(3 * time.Second):
+		t.Fatal("client never received acknowledgement")
+	}
+	close(opener.release)
+	waitForLeaseCount(t, gate, 0)
+}
+
+func TestBrowserLaunchRelay_SimultaneousOpensHoldLeases(t *testing.T) {
+	opener := &blockingRelayOpener{release: make(chan struct{}), received: make(chan string, 4)}
+	relay, _ := startLeaseTestListener(t, opener)
+	gate := relay.AdmissionGate()
+
+	for range 2 {
+		go func() {
+			_, _ = relay.DeliverOpenExternalURL(context.Background(), "https://example.com/parallel")
+		}()
+	}
+	for range 2 {
+		select {
+		case <-opener.received:
+		case <-time.After(3 * time.Second):
+			t.Fatal("opener never received a parallel request")
+		}
+	}
+	waitForLeaseCount(t, gate, 2)
+	close(opener.release)
+	waitForLeaseCount(t, gate, 0)
+}
+
+func TestBrowserLaunchRelay_ClosedAdmissionSendsErrorResponse(t *testing.T) {
+	opener := &blockingRelayOpener{release: make(chan struct{}), received: make(chan string, 1)}
+	relay, _ := startLeaseTestListener(t, opener)
+	gate := relay.AdmissionGate()
+	close(opener.release)
+
+	gate.Close()
+	delivered, err := relay.DeliverOpenExternalURL(context.Background(), "https://example.com/late")
+	require.Error(t, err, "losing request must receive the error response")
+	require.Contains(t, err.Error(), "shutting down")
+	require.Equal(t, 0, gate.Active(), "refused requests hold no lease")
+	select {
+	case url := <-opener.received:
+		t.Fatalf("refused request reached the opener: %s", url)
+	case <-time.After(300 * time.Millisecond):
+	}
+	_ = delivered
 }

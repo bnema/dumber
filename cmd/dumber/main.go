@@ -266,6 +266,16 @@ func main() {
 	cmd.Execute()
 }
 
+func setAlreadyRunningRelaunchHandler(engine port.Engine, app *ui.App, ctx context.Context, log *zerolog.Logger) {
+	if relaunchSetter, ok := engine.(port.AlreadyRunningAppRelaunchHandlerSetter); ok {
+		relaunchSetter.SetAlreadyRunningAppRelaunchHandler(func(url string) {
+			if err := app.OpenExternalURL(ctx, url); err != nil {
+				log.Warn().Err(err).Str("url", url).Msg("failed to open relaunch external URL")
+			}
+		})
+	}
+}
+
 func runGUI(cfg *config.Config, timing startupTiming) int {
 	bootstrap.ApplyGTKIMModuleFallbackDefault(os.Stderr)
 
@@ -333,18 +343,9 @@ func runGUI(cfg *config.Config, timing startupTiming) int {
 		log.Error().Err(err).Msg("failed to create application")
 		return 1
 	}
-	// Latch the bounded-residency timeout once at startup. Only CEF uses
-	// it, and only when nonzero; later config changes are restart-required.
-	if cfg.Engine.ResolveEngineType() == config.EngineTypeCEF {
-		app.SetResidencyTimeout(ui.ResidencyTimeoutFromMillis(cfg.Engine.CEF.IdleRuntimeTimeoutMs))
-	}
-	if relaunchSetter, ok := engine.(port.AlreadyRunningAppRelaunchHandlerSetter); ok {
-		relaunchSetter.SetAlreadyRunningAppRelaunchHandler(func(url string) {
-			if err := app.OpenExternalURL(ctx, url); err != nil {
-				log.Warn().Err(err).Str("url", url).Msg("failed to open relaunch external URL")
-			}
-		})
-	}
+	// Latch the bounded-residency timeout once at startup (CEF only).
+	ui.LatchResidencyTimeoutForApp(app, cfg.Engine.CEF.IdleRuntimeTimeoutMs, cfg.Engine.ResolveEngineType() == config.EngineTypeCEF)
+	setAlreadyRunningRelaunchHandler(engine, app, ctx, log)
 	timer.Mark("ui_deps")
 	timer.Log(ctx)
 

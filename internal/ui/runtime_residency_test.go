@@ -136,4 +136,64 @@ func TestResidencyControllerNilSafe(t *testing.T) {
 	ctl.OnTimerFired(7)
 	ctl.AcquireHold(nil)
 	ctl.ReleaseHold(nil)
+	ctl.SetQuiescentFunc(nil)
+	ctl.SetDispatchToGTK(nil)
+	ctl.DispatchToGTK(nil)
+	ctl.MaybeQuit()
+	require.Equal(t, usecase.ResidencyNone, ctl.SetNativeBusy("x", true).Action)
+}
+
+func TestResidencyControllerDefersQuitUntilSettled(t *testing.T) {
+	ctl, _, sched, quits := newResidencyTestController(time.Minute)
+	quiescent := true
+	ctl.SetQuiescentFunc(func() bool { return quiescent })
+	ctl.SetWindowCount(1)
+	decision := ctl.SetWindowCount(0)
+	require.Equal(t, usecase.ResidencyArm, decision.Action)
+	armed := sched.generations[len(sched.generations)-1]
+
+	quiescent = false
+	ctl.OnTimerFired(armed)
+	require.Equal(t, 0, *quits, "expiry defers while native work is outstanding")
+
+	quiescent = true
+	ctl.MaybeQuit()
+	require.Equal(t, 1, *quits, "settle recheck commits the deferred quit")
+	ctl.MaybeQuit()
+	require.Equal(t, 1, *quits, "quit commits exactly once")
+}
+
+func TestResidencyControllerNativeBusyDrivesPolicy(t *testing.T) {
+	ctl, _, sched, quits := newResidencyTestController(time.Minute)
+	ctl.SetWindowCount(1)
+
+	decision := ctl.SetNativeBusy("cef-activity", true)
+	require.Equal(t, usecase.ResidencyNone, decision.Action)
+	decision = ctl.SetWindowCount(0)
+	require.Equal(t, usecase.ResidencyNone, decision.Action, "close with native work outstanding arms nothing")
+	require.Empty(t, sched.scheduled)
+
+	decision = ctl.SetNativeBusy("cef-activity", false)
+	require.Equal(t, usecase.ResidencyArm, decision.Action, "settle re-arms idle")
+	require.NotEmpty(t, sched.scheduled)
+	require.Equal(t, 0, *quits)
+}
+
+func TestResidencyControllerDuplicateBusyIsSilent(t *testing.T) {
+	ctl, _, sched, _ := newResidencyTestController(time.Minute)
+	ctl.SetNativeBusy("downloads", true)
+	decision := ctl.SetNativeBusy("downloads", true)
+	require.Equal(t, usecase.ResidencyNone, decision.Action)
+	require.Empty(t, sched.scheduled)
+}
+
+func TestResidencyControllerDispatchRoutesCallbacks(t *testing.T) {
+	ctl, _, _, _ := newResidencyTestController(time.Minute)
+	var routed []string
+	ctl.SetDispatchToGTK(func(fn func()) {
+		routed = append(routed, "gtk")
+		fn()
+	})
+	ctl.DispatchToGTK(func() { routed = append(routed, "cb") })
+	require.Equal(t, []string{"gtk", "cb"}, routed)
 }
