@@ -80,7 +80,7 @@ func (r *RuntimeResidency) OpenFailed(now time.Time) ResidencyDecision {
 }
 
 // WorkStarted records newly accepted native work. An armed deadline is
-// cancelled: expiry must never fire while required work is outstanding.
+// canceled: expiry must never fire while required work is outstanding.
 func (r *RuntimeResidency) WorkStarted(_ time.Time) ResidencyDecision {
 	r.activeWork++
 	if r.armed {

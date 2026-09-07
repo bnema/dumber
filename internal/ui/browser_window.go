@@ -393,6 +393,7 @@ func (a *App) removeBrowserWindow(id string) {
 	if wasMainWindow {
 		a.clearMainBrowserWindowAfterRemoval(fallback)
 	}
+	a.residencyAfterWindowRemoved()
 }
 
 func (a *App) releaseNativePopupsForBrowserWindow(windowID string) {

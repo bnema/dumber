@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/infrastructure/process"
 	"github.com/bnema/dumber/internal/infrastructure/runtimeprofile"
 	"github.com/stretchr/testify/assert"
@@ -651,7 +652,7 @@ func TestBrowserLaunchRelay_SilentClientDoesNotStallListener(t *testing.T) {
 }
 
 type blockingRelayOpener struct {
-	release chan struct{}
+	release  chan struct{}
 	received chan string
 }
 
@@ -665,7 +666,7 @@ func (o *blockingRelayOpener) OpenFreshWindow(_ context.Context, url string) err
 	return o.OpenExternalURL(context.Background(), url)
 }
 
-func startLeaseTestListener(t *testing.T, opener *blockingRelayOpener) *browserLaunchRelay {
+func startLeaseTestListener(t *testing.T, opener port.BrowserWindowOpener) *browserLaunchRelay {
 	t.Helper()
 	ipc := testIPC(shortTempDir(t))
 	require.NoError(t, os.MkdirAll(ipc.RuntimeDir, 0o700))
@@ -757,4 +758,50 @@ func TestBrowserLaunchRelay_ClosedAdmissionSendsErrorResponse(t *testing.T) {
 	case <-time.After(300 * time.Millisecond):
 	}
 	_ = delivered
+}
+
+type closeTrackingOpener struct {
+	*blockingRelayOpener
+	closed chan struct{}
+}
+
+func (o *closeTrackingOpener) CloseAllWindows(_ context.Context) error {
+	close(o.closed)
+	return nil
+}
+
+func sendRelayAction(t *testing.T, socketPath, action string) browserLaunchResponse {
+	t.Helper()
+	conn, err := net.DialUnix("unix", nil, &net.UnixAddr{Name: socketPath, Net: "unix"})
+	require.NoError(t, err)
+	defer func() { _ = conn.Close() }()
+	require.NoError(t, conn.SetDeadline(time.Now().Add(3*time.Second)))
+	require.NoError(t, json.NewEncoder(conn).Encode(browserLaunchRequest{RequestID: "diag-1", Action: browserLaunchAction(action)}))
+	var response browserLaunchResponse
+	require.NoError(t, json.NewDecoder(conn).Decode(&response))
+	return response
+}
+
+func TestBrowserLaunchRelay_DiagnosticCloseRejectedWithoutOptIn(t *testing.T) {
+	opener := &blockingRelayOpener{release: make(chan struct{}), received: make(chan string, 1)}
+	close(opener.release)
+	relay := startLeaseTestListener(t, opener)
+	response := sendRelayAction(t, relay.ipc.BrowserLaunchSocket, "close-all-windows")
+	require.False(t, response.Accepted, "rejected close must not acknowledge")
+	require.Contains(t, response.Error, "diagnostic close not enabled")
+}
+
+func TestBrowserLaunchRelay_DiagnosticCloseDispatchedWithOptIn(t *testing.T) {
+	t.Setenv(diagnosticWindowCloseEnvVar, "1")
+	opener := &blockingRelayOpener{release: make(chan struct{}), received: make(chan string, 1)}
+	close(opener.release)
+	tracker := &closeTrackingOpener{blockingRelayOpener: opener, closed: make(chan struct{})}
+	relay := startLeaseTestListener(t, tracker)
+	response := sendRelayAction(t, relay.ipc.BrowserLaunchSocket, "close-all-windows")
+	require.True(t, response.Accepted)
+	select {
+	case <-tracker.closed:
+	case <-time.After(3 * time.Second):
+		t.Fatal("diagnostic close never reached the opener")
+	}
 }

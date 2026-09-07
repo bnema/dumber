@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"context"
 	"time"
 
 	"github.com/bnema/dumber/internal/application/port"
@@ -364,6 +365,43 @@ func (a *App) residencyShouldQuitAfterLastWindow() bool {
 		return true
 	}
 	return a.residency.SetWindowCount(len(a.browserWindows)).Action == usecase.ResidencyQuit
+}
+
+// residencyAfterWindowRemoved converges residency accounting after every
+// removal path (close-request, tab-empty, eject, failures) and quits when
+// the policy decides the empty state must exit. Disabled or missing
+// residency preserves unconditional Quit.
+func (a *App) residencyAfterWindowRemoved() {
+	if a == nil {
+		return
+	}
+	decision := a.residencyNoteWindowsChanged()
+	if len(a.browserWindows) == 0 && decision.Action == usecase.ResidencyQuit {
+		a.Quit()
+	}
+}
+
+// CloseAllWindows closes every user window through the standard removal
+// path, converging residency exactly like interactive closes. It runs on
+// the main thread via the window-URL dispatch.
+func (a *App) CloseAllWindows(ctx context.Context) error {
+	return a.dispatchWindowURLWork(ctx, "ui.close_all_windows", "", func(context.Context) error {
+		ids := make([]string, 0, len(a.browserWindows))
+		for id := range a.browserWindows {
+			ids = append(ids, id)
+		}
+		for _, id := range ids {
+			bw, ok := a.browserWindows[id]
+			if !ok || bw == nil {
+				continue
+			}
+			a.removeBrowserWindow(bw.id)
+			if bw.mainWindow != nil {
+				bw.mainWindow.Destroy()
+			}
+		}
+		return nil
+	})
 }
 
 // residencyNoteWindowsChanged converges residency accounting to the current
