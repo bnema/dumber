@@ -299,6 +299,21 @@ func (a *Cef2gtkAdapter) SetInputHost(host purecef.BrowserHost) error {
 	return a.view.SetInputHost(host)
 }
 
+// InjectScroll feeds a synthetic scroll impulse (keyboard scrolling) into
+// the animated wheel engine from any thread. It reports whether the
+// impulse was accepted. Destroyed or absent views report false.
+func (a *Cef2gtkAdapter) InjectScroll(dx, dy float64) bool {
+	if a == nil || a.destroyed.Load() {
+		return false
+	}
+	a.viewMu.RLock()
+	defer a.viewMu.RUnlock()
+	if a.view == nil {
+		return false
+	}
+	return a.view.InjectScroll(dx, dy)
+}
+
 // InvalidateScroll immediately retires animated scroll motion from any
 // thread, returning the retired epoch. Pass that epoch to
 // CancelScrollEpoch for GTK cleanup. Destroyed or absent views report zero.

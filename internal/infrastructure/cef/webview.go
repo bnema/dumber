@@ -193,6 +193,10 @@ type WebView struct {
 	// tests. Production leaves it nil so the live view bridge is used.
 	scrollCancelSeam scrollCancelBridge
 
+	// scrollInjectSeam overrides the adapter for scroll injection in
+	// tests. Production leaves it nil so the live view bridge is used.
+	scrollInjectSeam scrollInjectBridge
+
 	// crashCount tracks consecutive renderer crashes to prevent infinite
 	// crash → redirect → crash loops.
 	crashCount atomic.Int32
@@ -2455,7 +2459,10 @@ func pageScrollWheelDeltas(request port.PageScrollRequest) (deltaX, deltaY int32
 
 // ScrollPage resolves a DOM scroll target when the browser is ready so an
 // exhausted nested scroller can hand off automatically to its ancestor or the
-// document. Native precision-wheel input remains the pre-frame fallback.
+// document. With wheel smoothing enabled the request becomes one inertial
+// engine impulse (key repeat joins the live burst, release coasts); the
+// legacy queue stays reserved for fallback. Native precision-wheel input
+// remains the pre-frame fallback.
 func (wv *WebView) ScrollPage(ctx context.Context, request port.PageScrollRequest) error {
 	if wv == nil {
 		return errors.New("cef: webview is nil")
@@ -2468,6 +2475,11 @@ func (wv *WebView) ScrollPage(ctx context.Context, request port.PageScrollReques
 	}
 	if wv.destroyed.Load() {
 		return errDestroyed
+	}
+
+	deltaX, deltaY := pageScrollWheelDeltas(request)
+	if wv.injectPageScroll(deltaX, deltaY) {
+		return nil
 	}
 
 	wv.mu.RLock()
