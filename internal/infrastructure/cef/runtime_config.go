@@ -34,6 +34,8 @@ type RuntimeInputConfig struct {
 	ScrollHorizontalMultiplier         float64
 	ScrollVerticalMultiplier           float64
 	ScrollMaxDelta                     int32
+	ScrollTouchpadInertia              bool
+	ScrollWheelSmoothing               bool
 	TouchpadNavigationEnabled          bool
 	TouchpadNavigationMinDelta         float64
 	TouchpadNavigationMaxVerticalRatio float64

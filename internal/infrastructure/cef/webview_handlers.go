@@ -453,6 +453,11 @@ func (h *handlerSet) OnLoadStart(_ purecef.Browser, frame purecef.Frame, _ purec
 	if frame == nil || !frame.IsMain() {
 		return
 	}
+	// Post-commit fallback for navigation paths that bypass OnBeforeBrowse
+	// (same-page, error, and helper-driven commits). Main frame only.
+	if h.wv != nil {
+		h.wv.invalidateScrollMotion()
+	}
 	bridgeNonce := h.wv.ensureBridgeNonce()
 	if openerBridgeScript := h.wv.popupOpenerBridgeScript(bridgeNonce); openerBridgeScript != "" {
 		if h.wv != nil && h.wv.ctx != nil {
@@ -1025,6 +1030,12 @@ func (h *handlerSet) OnBeforeClose(browser purecef.Browser) {
 func (h *handlerSet) OnBeforeBrowse(browser purecef.Browser, frame purecef.Frame, request purecef.Request, _, _ int32) bool {
 	if frame == nil || !frame.IsMain() || request == nil {
 		return false
+	}
+	// Pre-commit invalidation for every main-frame navigation. The allow /
+	// cancel decision below is unchanged; subframe navigations never reach
+	// this point and do not cancel the main page's gesture.
+	if h.wv != nil {
+		h.wv.invalidateScrollMotion()
 	}
 
 	handler := h.downloadHandler()

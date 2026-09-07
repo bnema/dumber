@@ -299,6 +299,50 @@ func (a *Cef2gtkAdapter) SetInputHost(host purecef.BrowserHost) error {
 	return a.view.SetInputHost(host)
 }
 
+// InvalidateScroll immediately retires animated scroll motion from any
+// thread, returning the retired epoch. Pass that epoch to
+// CancelScrollEpoch for GTK cleanup. Destroyed or absent views report zero.
+func (a *Cef2gtkAdapter) InvalidateScroll() uint64 {
+	if a == nil || a.destroyed.Load() {
+		return 0
+	}
+	a.viewMu.RLock()
+	defer a.viewMu.RUnlock()
+	if a.view == nil {
+		return 0
+	}
+	return a.view.InvalidateScroll()
+}
+
+// CancelScroll synchronously invalidates and cleans up scroll motion.
+// Must be called on the GTK main thread.
+func (a *Cef2gtkAdapter) CancelScroll() {
+	if a == nil || a.destroyed.Load() {
+		return
+	}
+	a.viewMu.RLock()
+	defer a.viewMu.RUnlock()
+	if a.view == nil {
+		return
+	}
+	a.view.CancelScroll()
+}
+
+// CancelScrollEpoch performs GTK-only cleanup for a retired epoch. It never
+// clears a newer session and reports whether cleanup ran. Must be called on
+// the GTK main thread.
+func (a *Cef2gtkAdapter) CancelScrollEpoch(epoch uint64) bool {
+	if a == nil || a.destroyed.Load() {
+		return false
+	}
+	a.viewMu.RLock()
+	defer a.viewMu.RUnlock()
+	if a.view == nil {
+		return false
+	}
+	return a.view.CancelScrollEpoch(epoch)
+}
+
 // DetachInput removes GTK input controllers attached by AttachInput.
 // Must be called on the GTK main thread.
 func (a *Cef2gtkAdapter) DetachInput() error {

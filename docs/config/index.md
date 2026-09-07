@@ -276,6 +276,8 @@ CEF is the default browser engine. WebKitGTK remains available as a fallback via
 | `engine.cef.input.scroll_horizontal_multiplier` | float | `1.0` | `> 0` | Horizontal scroll sensitivity multiplier |
 | `engine.cef.input.scroll_vertical_multiplier` | float | `1.0` | `> 0` | Vertical scroll sensitivity multiplier; combines with `scroll_precise_multiplier` for touchpads |
 | `engine.cef.input.scroll_max_delta` | int32 | `0` | `>= 0` | Maximum absolute scroll delta after scaling; 0 disables clamping |
+| `engine.cef.input.scroll_touchpad_inertia` | bool | `true` | - | Direct touchpad tracking with exponential release decay |
+| `engine.cef.input.scroll_wheel_smoothing` | bool | `true` | - | Interpolate accepted wheel impulses across frames without a long coast |
 | `engine.cef.input.touchpad_navigation_enabled` | bool | `true` | - | Enable two-finger touchpad swipe back/forward navigation |
 | `engine.cef.input.touchpad_navigation_min_delta` | float | `320.0` | `> 0` | Minimum accumulated horizontal swipe delta required for navigation |
 | `engine.cef.input.touchpad_navigation_max_vertical_ratio` | float | `0.5` | `> 0` | Maximum vertical-to-horizontal delta ratio allowed for navigation swipes |

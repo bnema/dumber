@@ -5,6 +5,7 @@ import (
 
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestSetEngineDefaults(t *testing.T) {
@@ -22,6 +23,10 @@ func TestSetEngineDefaults(t *testing.T) {
 	assert.InDelta(t, defaultCEFScrollMultiplier, mgr.viper.GetFloat64("engine.cef.input.scroll_horizontal_multiplier"), 0.001)
 	assert.InDelta(t, defaultCEFScrollMultiplier, mgr.viper.GetFloat64("engine.cef.input.scroll_vertical_multiplier"), 0.001)
 	assert.Equal(t, defaultCEFScrollMaxDelta, mgr.viper.GetInt("engine.cef.input.scroll_max_delta"))
+	assert.Equal(t, defaultCEFScrollTouchpadInertia, mgr.viper.GetBool("engine.cef.input.scroll_touchpad_inertia"))
+	assert.Equal(t, defaultCEFScrollWheelSmoothing, mgr.viper.GetBool("engine.cef.input.scroll_wheel_smoothing"))
+	assert.True(t, mgr.viper.GetBool("engine.cef.input.scroll_touchpad_inertia"))
+	assert.True(t, mgr.viper.GetBool("engine.cef.input.scroll_wheel_smoothing"))
 	assert.Equal(t, defaultCEFTouchpadNavigation, mgr.viper.GetBool("engine.cef.input.touchpad_navigation_enabled"))
 	assert.InDelta(t, defaultCEFTouchpadNavigationDelta, mgr.viper.GetFloat64("engine.cef.input.touchpad_navigation_min_delta"), 0.001)
 	assert.InDelta(t, defaultCEFTouchpadNavigationRatio, mgr.viper.GetFloat64("engine.cef.input.touchpad_navigation_max_vertical_ratio"), 0.001)
@@ -37,6 +42,28 @@ func TestSetEngineDefaults(t *testing.T) {
 	assert.Empty(t, mgr.viper.GetString("rendering.mode"))
 	assert.Empty(t, mgr.viper.GetString("performance.profile"))
 	assert.Empty(t, mgr.viper.GetString("runtime.prefix"))
+}
+
+func TestScrollInertiaOptions_ExplicitFalseSurvivesUnmarshal(t *testing.T) {
+	mgr := &Manager{viper: viper.New()}
+	mgr.setDefaults()
+	mgr.viper.Set("engine.cef.input.scroll_touchpad_inertia", false)
+	mgr.viper.Set("engine.cef.input.scroll_wheel_smoothing", false)
+
+	cfg, err := mgr.unmarshalConfig()
+	require.NoError(t, err)
+	assert.False(t, cfg.Engine.CEF.Input.ScrollTouchpadInertia)
+	assert.False(t, cfg.Engine.CEF.Input.ScrollWheelSmoothing)
+}
+
+func TestScrollInertiaOptions_DefaultTrueThroughUnmarshal(t *testing.T) {
+	mgr := &Manager{viper: viper.New()}
+	mgr.setDefaults()
+
+	cfg, err := mgr.unmarshalConfig()
+	require.NoError(t, err)
+	assert.True(t, cfg.Engine.CEF.Input.ScrollTouchpadInertia)
+	assert.True(t, cfg.Engine.CEF.Input.ScrollWheelSmoothing)
 }
 
 func TestNormalizeExternalLinks(t *testing.T) {

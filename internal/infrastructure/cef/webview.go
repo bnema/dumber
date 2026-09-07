@@ -189,6 +189,10 @@ type WebView struct {
 	gtkSyncIsOwner  func() bool
 	gtkSyncTimeout  time.Duration
 
+	// scrollCancelSeam overrides the adapter for scroll cancellation in
+	// tests. Production leaves it nil so the live view bridge is used.
+	scrollCancelSeam scrollCancelBridge
+
 	// crashCount tracks consecutive renderer crashes to prevent infinite
 	// crash → redirect → crash loops.
 	crashCount atomic.Int32
@@ -354,17 +358,19 @@ func (wv *WebView) LoadURI(_ context.Context, uri string) error {
 		return errDestroyed
 	}
 	actualURI := toActualInternalURL(uri)
-	wv.mu.Lock()
-	browser := wv.browser
-	// Always remember the latest requested URI so a browser/main-frame race
-	// cannot strand startup on about:blank.
-	wv.setPendingNavigationLocked(actualURI, time.Now())
-	wv.mu.Unlock()
-	if browser == nil {
+	return wv.runNavigationWithScrollCancel("cef.load_uri", func() error {
+		wv.mu.Lock()
+		browser := wv.browser
+		// Always remember the latest requested URI so a browser/main-frame race
+		// cannot strand startup on about:blank.
+		wv.setPendingNavigationLocked(actualURI, time.Now())
+		wv.mu.Unlock()
+		if browser == nil {
+			return nil
+		}
+		wv.schedulePendingNavigationReplay(0)
 		return nil
-	}
-	wv.schedulePendingNavigationReplay(0)
-	return nil
+	})
 }
 
 // LoadHTML loads HTML content with an optional base URI (ignored in Phase 1).
@@ -378,31 +384,35 @@ func (wv *WebView) LoadHTML(ctx context.Context, content, _ string) error {
 			Int("content_len", len(content)).
 			Msg("cef: LoadHTML content exceeds 1MB, data URL may fail")
 	}
-	wv.mu.RLock()
-	browser := wv.browser
-	wv.mu.RUnlock()
-	if browser == nil {
-		return errNoBrowser
-	}
-	dataURL := "data:text/html;base64," + base64.StdEncoding.EncodeToString([]byte(content))
-	if frame := browser.GetMainFrame(); frame != nil {
-		frame.LoadURL(dataURL)
-	}
-	return nil
+	return wv.runNavigationWithScrollCancel("cef.load_html", func() error {
+		wv.mu.RLock()
+		browser := wv.browser
+		wv.mu.RUnlock()
+		if browser == nil {
+			return errNoBrowser
+		}
+		dataURL := "data:text/html;base64," + base64.StdEncoding.EncodeToString([]byte(content))
+		if frame := browser.GetMainFrame(); frame != nil {
+			frame.LoadURL(dataURL)
+		}
+		return nil
+	})
 }
 
 func (wv *WebView) Reload(_ context.Context) error {
 	if wv.destroyed.Load() {
 		return errDestroyed
 	}
-	wv.mu.RLock()
-	browser := wv.browser
-	wv.mu.RUnlock()
-	if browser == nil {
-		return errNoBrowser
-	}
-	browser.Reload()
-	return nil
+	return wv.runNavigationWithScrollCancel("cef.reload", func() error {
+		wv.mu.RLock()
+		browser := wv.browser
+		wv.mu.RUnlock()
+		if browser == nil {
+			return errNoBrowser
+		}
+		browser.Reload()
+		return nil
+	})
 }
 
 // ReloadBypassCache reloads the current page, bypassing cache.
@@ -410,14 +420,16 @@ func (wv *WebView) ReloadBypassCache(_ context.Context) error {
 	if wv.destroyed.Load() {
 		return errDestroyed
 	}
-	wv.mu.RLock()
-	browser := wv.browser
-	wv.mu.RUnlock()
-	if browser == nil {
-		return errNoBrowser
-	}
-	browser.ReloadIgnoreCache()
-	return nil
+	return wv.runNavigationWithScrollCancel("cef.reload_bypass_cache", func() error {
+		wv.mu.RLock()
+		browser := wv.browser
+		wv.mu.RUnlock()
+		if browser == nil {
+			return errNoBrowser
+		}
+		browser.ReloadIgnoreCache()
+		return nil
+	})
 }
 
 // Stop stops the current page load.
@@ -440,14 +452,16 @@ func (wv *WebView) GoBack(_ context.Context) error {
 	if wv.destroyed.Load() {
 		return errDestroyed
 	}
-	wv.mu.RLock()
-	browser := wv.browser
-	wv.mu.RUnlock()
-	if browser == nil {
-		return errNoBrowser
-	}
-	browser.GoBack()
-	return nil
+	return wv.runNavigationWithScrollCancel("cef.go_back", func() error {
+		wv.mu.RLock()
+		browser := wv.browser
+		wv.mu.RUnlock()
+		if browser == nil {
+			return errNoBrowser
+		}
+		browser.GoBack()
+		return nil
+	})
 }
 
 // GoForward navigates forward in history.
@@ -455,14 +469,16 @@ func (wv *WebView) GoForward(_ context.Context) error {
 	if wv.destroyed.Load() {
 		return errDestroyed
 	}
-	wv.mu.RLock()
-	browser := wv.browser
-	wv.mu.RUnlock()
-	if browser == nil {
-		return errNoBrowser
-	}
-	browser.GoForward()
-	return nil
+	return wv.runNavigationWithScrollCancel("cef.go_forward", func() error {
+		wv.mu.RLock()
+		browser := wv.browser
+		wv.mu.RUnlock()
+		if browser == nil {
+			return errNoBrowser
+		}
+		browser.GoForward()
+		return nil
+	})
 }
 
 // ---------------------------------------------------------------------------
@@ -1236,6 +1252,10 @@ func (wv *WebView) Destroy() {
 	if !wv.destroyed.CompareAndSwap(false, true) {
 		return
 	}
+	// Retire scroll motion the moment destruction begins, regardless of
+	// calling thread; GTK-only cleanup follows through the owning
+	// dispatcher without waiting for the deferred native browser close.
+	wv.invalidateScrollMotion()
 	wv.shutdownAccessibilityCapture()
 	wv.resetPageScrollQueue()
 	wv.syntheticPopupMu.Lock()
@@ -1591,6 +1611,8 @@ func (wv *WebView) bridgeInputOptions() cef2gtk.InputOptions {
 			HorizontalMultiplier: wv.inputConfig.ScrollHorizontalMultiplier,
 			VerticalMultiplier:   wv.inputConfig.ScrollVerticalMultiplier,
 			MaxDelta:             wv.inputConfig.ScrollMaxDelta,
+			TouchpadInertia:      wv.inputConfig.ScrollTouchpadInertia,
+			WheelSmoothing:       wv.inputConfig.ScrollWheelSmoothing,
 		},
 		OnMiddleClick: func(_, _ float64) bool {
 			return wv.handleMiddleClickFromBridge()

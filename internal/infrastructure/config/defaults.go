@@ -92,6 +92,8 @@ const (
 	defaultCEFScrollMultiplier        = 1.0
 	defaultCEFScrollPreciseMultiplier = 2.5
 	defaultCEFScrollMaxDelta          = 0
+	defaultCEFScrollTouchpadInertia   = true
+	defaultCEFScrollWheelSmoothing    = true
 	defaultCEFTouchpadNavigation      = true
 	// Require a deliberate swipe before history navigation so ordinary
 	// horizontal scrolling is unlikely to cross the commit threshold.
@@ -246,6 +248,8 @@ func DefaultConfig() *Config {
 					ScrollHorizontalMultiplier:         defaultCEFScrollMultiplier,
 					ScrollVerticalMultiplier:           defaultCEFScrollMultiplier,
 					ScrollMaxDelta:                     defaultCEFScrollMaxDelta,
+					ScrollTouchpadInertia:              defaultCEFScrollTouchpadInertia,
+					ScrollWheelSmoothing:               defaultCEFScrollWheelSmoothing,
 					TouchpadNavigationEnabled:          defaultCEFTouchpadNavigation,
 					TouchpadNavigationMinDelta:         defaultCEFTouchpadNavigationDelta,
 					TouchpadNavigationMaxVerticalRatio: defaultCEFTouchpadNavigationRatio,
