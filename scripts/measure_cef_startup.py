@@ -427,10 +427,8 @@ def run_sample(binary, cef_dir, scenario, fixture, run_index, owner=None, owner_
             observation_ms = int((beacons[-1]["arrival_monotonic"] - spawn_ts) * 1000)
         else:
             observation_ms = int((decision_ts - spawn_ts) * 1000)
-        if fixture == "redirect":
-            complete = document_count >= 1 and len(fcp) > 0
-        else:
-            complete = document_count == 1 and len(fcp) > 0
+        expected_document_requests = 2 if fixture == "redirect" else 1
+        complete = document_count == expected_document_requests and len(fcp) > 0
         if scenario == "relay-window":
             relayed = bool(owner_alive_at_start and self_exited)
         else:
@@ -493,7 +491,12 @@ def main():
         print("measure: --cef-dir must be a directory", file=sys.stderr)
         raise SystemExit(2)
     with open(args.binary, "rb") as candidate:
-        binary_sha256 = hashlib.file_digest(candidate, "sha256").hexdigest()
+        # Chunked streaming hash: hashlib.file_digest needs 3.11+, this
+        # stays compatible with older 3.x interpreters.
+        digest = hashlib.sha256()
+        for chunk in iter(lambda: candidate.read(65536), b""):
+            digest.update(chunk)
+        binary_sha256 = digest.hexdigest()
 
     os.makedirs(args.output)
     owner = None
@@ -512,9 +515,14 @@ def main():
     try:
         if args.scenario == "process-warm":
             # One unrecorded warm-up initializes the shared profile; only the
-            # recorded samples below count toward the report.
-            run_sample(args.binary, args.cef_dir, args.scenario, args.fixture,
+            # recorded samples below count toward the report. A failed
+            # warm-up aborts the scenario: later runs must never use an
+            # uninitialized profile.
+            warmup = run_sample(args.binary, args.cef_dir, args.scenario, args.fixture,
                        0, shared_root_cache=shared_root_cache)
+            if not warmup["complete"]:
+                print("measure: process-warm warm-up was incomplete", file=sys.stderr)
+                raise SystemExit(1)
             warmup_discarded = True
         for index in range(1, args.runs + 1):
             result = run_sample(
@@ -535,7 +543,9 @@ def main():
         "complete_runs": sum(1 for r in results if r["complete"]),
         "incomplete_runs": sum(1 for r in results if not r["complete"]),
         "duplicate_document_runs": sum(
-            1 for r in results if args.fixture != "redirect" and r["document_requests"] != 1
+            1
+            for r in results
+            if r["document_requests"] != (2 if args.fixture == "redirect" else 1)
         ),
         "warmup_discarded": warmup_discarded,
         "relay_owner_ready": owner is not None,

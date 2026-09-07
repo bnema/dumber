@@ -2106,8 +2106,12 @@ const (
 // claimPendingNavigationSubmission re-reads state and claims submission for
 // intentID only when it is still the current unissued intent. Browsers are
 // correlated by identifier, matching codebase convention; all foreign calls
-// happen outside the state lock. The issued mark is set before the caller
-// performs the foreign LoadURL.
+// happen outside the state lock. The final claim additionally requires the
+// attached browser to still be the instance observed before the lock: a
+// replacement between the identifier check and the claim is reported as
+// replaced so the caller retries against the current browser instead of
+// marking the intent issued and submitting to a stale frame. The issued
+// mark is set before the caller performs the foreign LoadURL.
 func (wv *WebView) claimPendingNavigationSubmission(intentID uint64, browserID int32) (string, pendingClaimResult) {
 	wv.mu.RLock()
 	if wv.pendingIntentID != intentID || wv.pendingIssued || wv.browser == nil {
@@ -2123,6 +2127,12 @@ func (wv *WebView) claimPendingNavigationSubmission(intentID uint64, browserID i
 	defer wv.mu.Unlock()
 	if wv.pendingIntentID != intentID || wv.pendingIssued || wv.browser == nil {
 		return "", pendingClaimStale
+	}
+	// Interface identity comparison is safe here: attached browsers are
+	// always the pointer wrappers delivered by CEF callbacks (mocks are
+	// pointers as well), and no foreign call happens under the lock.
+	if wv.browser != currentBrowser {
+		return "", pendingClaimReplaced
 	}
 	wv.pendingIssued = true
 	uri := wv.pendingURI

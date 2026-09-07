@@ -45,7 +45,16 @@ func ReplaceEnvironmentValue(environ []string, name, value string) []string {
 // one normalized trailing entry.
 func MergeRuntimeSafety(environ []string) ([]string, bool) {
 	updated := append([]string(nil), environ...)
-	current := EnvironmentValue(updated, "GODEBUG")
+	// Collect every GODEBUG entry: duplicates are legal in an environ
+	// slice and the first entry alone never describes the effective
+	// setting, so normalization must merge them all before deciding.
+	godebugValues := make([]string, 0, 1)
+	for _, entry := range updated {
+		if strings.HasPrefix(entry, "GODEBUG=") {
+			godebugValues = append(godebugValues, strings.TrimPrefix(entry, "GODEBUG="))
+		}
+	}
+	current := strings.Join(godebugValues, ",")
 	parts := strings.Split(current, ",")
 	kept := make([]string, 0, len(parts)+1)
 	var settingParts []string
@@ -61,10 +70,10 @@ func MergeRuntimeSafety(environ []string) ([]string, bool) {
 		}
 		kept = append(kept, part)
 	}
-	if len(settingParts) == 1 && settingParts[0] == RuntimeSafetySetting+"=1" {
-		// Exactly one effective entry: already safe in place, independent
-		// of its position among the other keys. Leave the order untouched
-		// so direct invocation performs no self-exec.
+	if len(godebugValues) == 1 && len(settingParts) == 1 && settingParts[0] == RuntimeSafetySetting+"=1" {
+		// Exactly one entry with one effective setting: already safe in
+		// place, independent of its position among the other keys. Leave
+		// the order untouched so direct invocation performs no self-exec.
 		return updated, false
 	}
 	// Zero, duplicate, conflicting, or valueless entries collapse to one

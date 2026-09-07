@@ -62,7 +62,12 @@ def main():
 
     try:
         with open(lib_name, "rb") as candidate:
-            library_sha256 = hashlib.file_digest(candidate, "sha256").hexdigest()
+            # Chunked streaming hash: hashlib.file_digest needs 3.11+,
+            # this stays compatible with older 3.x interpreters.
+            digest = hashlib.sha256()
+            for chunk in iter(lambda: candidate.read(65536), b""):
+                digest.update(chunk)
+            library_sha256 = digest.hexdigest()
     except OSError:
         fail("could not hash runtime library")
 

@@ -59,7 +59,12 @@ def fail():
     raise SystemExit("first-presentation: immutable module provenance is unavailable")
 
 with open(binary, "rb") as candidate:
-    binary_sha256 = hashlib.file_digest(candidate, "sha256").hexdigest()
+    # Chunked streaming hash: hashlib.file_digest needs 3.11+, this stays
+    # compatible with older 3.x interpreters.
+    digest = hashlib.sha256()
+    for chunk in iter(lambda: candidate.read(65536), b""):
+        digest.update(chunk)
+    binary_sha256 = digest.hexdigest()
 
 try:
     buildinfo = subprocess.check_output(["go", "version", "-m", binary], text=True, stderr=subprocess.DEVNULL)

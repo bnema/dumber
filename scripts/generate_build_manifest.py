@@ -56,7 +56,12 @@ def main():
     output = args.output or (args.binary + ".manifest.json")
 
     with open(args.binary, "rb") as candidate:
-        binary_sha256 = hashlib.file_digest(candidate, "sha256").hexdigest()
+        # Chunked streaming hash: hashlib.file_digest needs 3.11+, this
+        # stays compatible with older 3.x interpreters.
+        digest = hashlib.sha256()
+        for chunk in iter(lambda: candidate.read(65536), b""):
+            digest.update(chunk)
+        binary_sha256 = digest.hexdigest()
 
     try:
         buildinfo = run(["go", "version", "-m", args.binary], stderr=subprocess.DEVNULL)
@@ -65,10 +70,29 @@ def main():
     if "=>" in buildinfo:
         fail("binary was built with a replacement; refusing to attribute it")
     dep_version = None
+    vcs_revision = None
+    vcs_modified = None
     for line in buildinfo.splitlines():
         parts = line.split()
         if len(parts) >= 3 and parts[0] == "dep" and parts[1] == args.module:
             dep_version = parts[2]
+        # `go version -m` reports stamping as "build vcs.revision=<hex>"
+        # (two tab-separated fields, key=value form).
+        elif len(parts) >= 2 and parts[0] == "build" and parts[1].startswith("vcs."):
+            key, _, value = parts[1].partition("=")
+            if key == "vcs.revision":
+                vcs_revision = value
+            elif key == "vcs.modified":
+                vcs_modified = value
+    # The measured binary, not the ambient checkout, is the provenance
+    # source: build-manifest builds with VCS stamping enabled, so the
+    # embedded revision describes the exact built tree. Binaries without
+    # stamping (for example -buildvcs=false quick builds) or built from a
+    # dirty tree are rejected instead of inheriting the checkout HEAD.
+    if vcs_revision is None or not re.fullmatch(r"[0-9a-f]{40}", vcs_revision):
+        fail("binary lacks embedded VCS revision; rebuild with VCS stamping enabled")
+    if vcs_modified != "false":
+        fail("binary was built from a dirty checkout; refusing to attribute it")
     if dep_version is None:
         fail("dependency {} not found in build info".format(args.module))
     pseudo = re.fullmatch(VERSION_RE, dep_version)
@@ -88,14 +112,11 @@ def main():
     if pseudo and not revision.startswith(pseudo.group(2)):
         fail("dependency revision does not match its pseudo-version")
 
-    source_revision = args.source_revision
-    if source_revision is None:
-        try:
-            source_revision = run(["git", "rev-parse", "HEAD"])
-        except (OSError, subprocess.CalledProcessError):
-            fail("could not determine source revision; pass --source-revision")
+    source_revision = args.source_revision or vcs_revision
     if not re.fullmatch(r"[0-9a-f]{40}", source_revision or ""):
         fail("source revision must be a 40-hex git revision")
+    if source_revision != vcs_revision:
+        fail("source revision does not match the revision embedded in the binary")
 
     manifest = {
         "binary_sha256": binary_sha256,

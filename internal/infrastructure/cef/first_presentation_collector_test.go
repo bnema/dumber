@@ -491,6 +491,7 @@ func collectorFakeGo(t *testing.T, temp, depVersion, vcsRevision string, replace
 	}
 	buildLine := ""
 	if vcsRevision != "" {
+		// Real `go version -m` format is "build vcs.revision=<hex>".
 		buildLine = fmt.Sprintf("build\tvcs.revision=%s", vcsRevision)
 	}
 	script := fmt.Sprintf(`#!/bin/sh

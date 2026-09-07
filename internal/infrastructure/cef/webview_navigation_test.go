@@ -2,6 +2,7 @@ package cef
 
 import (
 	"context"
+	"sync"
 	"testing"
 	"time"
 
@@ -25,6 +26,61 @@ func TestWebViewReplayPendingNavigation_LoadsQueuedURIWhenMainFrameAvailable(t *
 	wv.mu.RLock()
 	defer wv.mu.RUnlock()
 	require.Equal(t, "https://github.com/bnema", wv.pendingURI)
+}
+
+// TestWebViewClaimPendingNavigationSubmission_RejectsInstanceReplacement
+// reproduces a browser swap landing between the identifier check and the
+// final claim: the replacement carries the same identifier, so only the
+// instance-identity guard can catch it. The claim must report replaced
+// without marking the intent issued, leaving the retry path able to submit
+// against the current browser.
+func TestWebViewClaimPendingNavigationSubmission_RejectsInstanceReplacement(t *testing.T) {
+	browserA := cefmocks.NewMockBrowser(t)
+	browserB := cefmocks.NewMockBrowser(t)
+	entered := make(chan struct{})
+	var enterOnce sync.Once
+	proceed := make(chan struct{})
+	browserA.EXPECT().GetIdentifier().RunAndReturn(func() int32 {
+		enterOnce.Do(func() { close(entered) })
+		<-proceed
+		return int32(7)
+	}).Once()
+
+	wv := &WebView{ctx: context.Background(), browser: browserA}
+	wv.setPendingNavigationLocked("https://example.com", time.Now())
+	intentID := wv.pendingIntentID
+	require.NotZero(t, intentID)
+
+	claimed := make(chan pendingClaimResult, 1)
+	go func() {
+		_, result := wv.claimPendingNavigationSubmission(intentID, int32(7))
+		claimed <- result
+	}()
+
+	select {
+	case <-entered:
+	case <-time.After(10 * time.Second):
+		t.Fatal("claim did not reach the identifier check")
+	}
+
+	// Swap the attached browser while the claim is past the snapshot: same
+	// identifier, different instance.
+	wv.mu.Lock()
+	wv.browser = browserB
+	wv.mu.Unlock()
+	close(proceed)
+
+	select {
+	case result := <-claimed:
+		require.Equal(t, pendingClaimReplaced, result, "instance replacement must not claim the intent")
+	case <-time.After(10 * time.Second):
+		t.Fatal("claim did not return after the swap")
+	}
+
+	wv.mu.RLock()
+	defer wv.mu.RUnlock()
+	require.False(t, wv.pendingIssued, "replaced claim must leave the intent unissued for retry")
+	require.Equal(t, intentID, wv.pendingIntentID)
 }
 
 func TestWebViewReplayPendingNavigation_RetriesWhenMainFrameUnavailable(t *testing.T) {
