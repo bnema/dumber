@@ -504,14 +504,6 @@ exit 1
 	return goBin
 }
 
-// collectorProvenanceGo is retained for compatibility with earlier test
-// revisions; it delegates to the binary-bound fake.
-func collectorProvenanceGo(t *testing.T, temp, version, revision, ref string) string {
-	t.Helper()
-	_ = ref
-	return collectorFakeGo(t, temp, version, testSourceRevision, false)
-}
-
 func collectorManifest(t *testing.T, temp, binary, sourceRevision, depVersion, depRevision string) string {
 	t.Helper()
 	contents, err := os.ReadFile(binary)

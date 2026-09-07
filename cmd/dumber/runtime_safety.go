@@ -12,10 +12,6 @@ func environmentValue(environ []string, name string) string {
 	return process.EnvironmentValue(environ, name)
 }
 
-func replaceEnvironmentValue(environ []string, name, value string) []string {
-	return process.ReplaceEnvironmentValue(environ, name, value)
-}
-
 func runtimeSafetyEnvironment(environ []string) ([]string, bool) {
 	return process.MergeRuntimeSafety(environ)
 }

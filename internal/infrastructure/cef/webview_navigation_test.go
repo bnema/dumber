@@ -245,7 +245,7 @@ func TestWebViewReplayPendingNavigation_SubmitsOncePerIntent(t *testing.T) {
 	}()
 	cefNewTask = func(task purecef.Task) purecef.Task { return task }
 	var scheduled []purecef.Task
-	cefPostTask = func(threadID purecef.ThreadID, task purecef.Task) int32 {
+	cefPostTask = func(_ purecef.ThreadID, task purecef.Task) int32 {
 		scheduled = append(scheduled, task)
 		return 1
 	}
@@ -279,7 +279,7 @@ func TestWebViewReplayPendingNavigation_StaleIntentDoesNotResubmit(t *testing.T)
 	}()
 	cefNewTask = func(task purecef.Task) purecef.Task { return task }
 	var scheduled []purecef.Task
-	cefPostTask = func(threadID purecef.ThreadID, task purecef.Task) int32 {
+	cefPostTask = func(_ purecef.ThreadID, task purecef.Task) int32 {
 		scheduled = append(scheduled, task)
 		return 1
 	}
@@ -310,11 +310,11 @@ func TestWebViewReplayPendingNavigation_RetriesSameIntentOnFailedPost(t *testing
 		cefScheduleAfter = oldAfter
 	}()
 	cefNewTask = func(task purecef.Task) purecef.Task { return task }
-	cefPostTask = func(threadID purecef.ThreadID, task purecef.Task) int32 {
+	cefPostTask = func(_ purecef.ThreadID, _ purecef.Task) int32 {
 		return 0
 	}
 	scheduledAfter := false
-	cefScheduleAfter = func(delay time.Duration, fn func()) {
+	cefScheduleAfter = func(delay time.Duration, _ func()) {
 		require.Equal(t, pendingNavigationRetryDelay, delay)
 		scheduledAfter = true
 	}
