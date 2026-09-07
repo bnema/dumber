@@ -321,8 +321,8 @@ func (e *Engine) closeActiveWebViews() {
 func (e *Engine) destroyClosedWebViewBridges(webViews []*WebView) {
 	for _, wv := range webViews {
 		if wv != nil && wv.destroyed.Load() {
+			// Completion accounting lands in destroyViewBridgeOnGTKThread.
 			wv.destroyViewBridgeOnGTKSync()
-			e.activity.NoteCleanupCompleted()
 		}
 	}
 }

@@ -199,3 +199,48 @@ func TestResidencyControllerDispatchRoutesCallbacks(t *testing.T) {
 	require.Equal(t, []string{"gtk", "cb"}, routed)
 	require.Equal(t, 0, *quits)
 }
+
+func TestResidencyControllerSealsBeforeCommit(t *testing.T) {
+	ctl, _, sched, quits := newResidencyTestController(time.Minute)
+	sealed := 0
+	ctl.SetSealFunc(func() { sealed++ })
+	ctl.SetQuiescentFunc(func() bool { return true })
+	ctl.SetWindowCount(1)
+	ctl.SetWindowCount(0)
+	armed := sched.generations[len(sched.generations)-1]
+	// Quiescent expiry seals admission, then commits the quit.
+	ctl.OnTimerFired(armed)
+	require.Equal(t, 1, sealed)
+	require.Equal(t, 1, *quits)
+}
+
+func TestResidencyControllerReopenInvalidatesDeferredQuit(t *testing.T) {
+	ctl, _, sched, quits := newResidencyTestController(time.Minute)
+	quiescent := true
+	ctl.SetQuiescentFunc(func() bool { return quiescent })
+	ctl.SetWindowCount(1)
+	ctl.SetWindowCount(0)
+	armed := sched.generations[len(sched.generations)-1]
+	quiescent = false
+	ctl.OnTimerFired(armed)
+	require.Equal(t, 0, *quits, "quit defers while unsettled")
+	// A reopened window invalidates the deferral.
+	ctl.SetWindowCount(1)
+	quiescent = true
+	ctl.MaybeQuit()
+	require.Equal(t, 0, *quits, "obsolete quit must not run after reopen")
+}
+
+func TestResidencyControllerDuplicateEmptyStaysArmed(t *testing.T) {
+	ctl, _, sched, quits := newResidencyTestController(time.Minute)
+	ctl.SetWindowCount(1)
+	first := ctl.SetWindowCount(0)
+	require.Equal(t, usecase.ResidencyArm, first.Action)
+	require.Len(t, sched.scheduled, 1)
+	// A repeated empty update (e.g. tab-empty after window removal)
+	// stays on the armed deadline instead of re-arming.
+	again := ctl.SetWindowCount(0)
+	require.Equal(t, usecase.ResidencyNone, again.Action)
+	require.Len(t, sched.scheduled, 1, "no duplicate timer")
+	require.Equal(t, 0, *quits)
+}

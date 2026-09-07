@@ -3,6 +3,7 @@ package process
 import (
 	"context"
 	"sync"
+	"time"
 )
 
 // AdmissionGate is a narrow thread-safe admission/work-lease boundary shared
@@ -11,18 +12,15 @@ import (
 // admission while admitted work drains. It never blocks the holder: waiting
 // uses WaitDrained with a caller-provided bounded context.
 type AdmissionGate struct {
-	mu       sync.Mutex
-	cond     *sync.Cond
-	closed   bool
-	active   int
+	mu        sync.Mutex
+	closed    bool
+	active    int
 	onDrained []func()
 }
 
 // NewAdmissionGate returns an open gate with no active leases.
 func NewAdmissionGate() *AdmissionGate {
-	gate := &AdmissionGate{}
-	gate.cond = sync.NewCond(&gate.mu)
-	return gate
+	return &AdmissionGate{}
 }
 
 // Acquire takes one work lease. It reports false when admission is closed;
@@ -38,8 +36,8 @@ func (g *AdmissionGate) Acquire() bool {
 	return true
 }
 
-// Release returns one work lease. The final release wakes drain waiters and
-// notifies drain subscribers.
+// Release returns one work lease. The final release notifies drain
+// subscribers.
 func (g *AdmissionGate) Release() {
 	g.mu.Lock()
 	var notify []func()
@@ -47,7 +45,6 @@ func (g *AdmissionGate) Release() {
 		g.active--
 	}
 	if g.active == 0 {
-		g.cond.Broadcast()
 		notify = append([]func(){}, g.onDrained...)
 	}
 	g.mu.Unlock()
@@ -92,24 +89,22 @@ func (g *AdmissionGate) OnDrained(fn func()) {
 }
 
 // WaitDrained blocks until no leases are held or ctx ends. It reports false
-// on context expiry so shutdown never waits forever.
+// on context expiry so shutdown never waits forever. The short poll runs
+// only on shutdown/drain paths, never on any frame or event loop.
 func (g *AdmissionGate) WaitDrained(ctx context.Context) bool {
-	done := make(chan struct{})
-	go func() {
+	ticker := time.NewTicker(10 * time.Millisecond)
+	defer ticker.Stop()
+	for {
 		g.mu.Lock()
-		for g.active > 0 {
-			g.cond.Wait()
+		drained := g.active == 0
+		g.mu.Unlock()
+		if drained {
+			return true
 		}
-		g.mu.Unlock()
-		close(done)
-	}()
-	select {
-	case <-done:
-		return true
-	case <-ctx.Done():
-		g.mu.Lock()
-		g.cond.Broadcast()
-		g.mu.Unlock()
-		return false
+		select {
+		case <-ctx.Done():
+			return false
+		case <-ticker.C:
+		}
 	}
 }

@@ -105,6 +105,11 @@ func (r *RuntimeResidency) ShutdownRequested() ResidencyDecision {
 	return ResidencyDecision{Action: ResidencyQuit, Generation: r.generation}
 }
 
+// IdleArmed reports whether an idle deadline is currently armed.
+func (r *RuntimeResidency) IdleArmed() bool {
+	return r.armed
+}
+
 // HandleExpiry processes a fired idle timer. Stale generations (superseded by
 // a later arm/cancel) are ignored. Expiry quits only when still quiescent;
 // otherwise it stands down and lets the next event re-arm.

@@ -280,6 +280,10 @@ type WebView struct {
 	// Atomic state.
 	destroyed                     atomic.Bool
 	fullscreen                    atomic.Bool
+	// bridgeTeardownNoted gates quiescence accounting exactly once per
+	// view: every bridge teardown is scheduled through the Sync/Async
+	// wrappers below and completes in destroyViewBridgeOnGTKThread.
+	bridgeTeardownNoted         atomic.Bool
 	generation                    atomic.Uint64
 	audioPlaying                  atomic.Bool
 	zoomFactor                    atomic.Value // float64, initialized to 1.0
@@ -1264,11 +1268,6 @@ func (wv *WebView) Destroy() {
 	if !wv.destroyed.CompareAndSwap(false, true) {
 		return
 	}
-	// Native close begins here: the view leaves the active set and enters
-	// GTK-teardown outstanding for the quiescence boundary.
-	if wv.engine != nil {
-		wv.engine.activity.NoteViewCloseStarted()
-	}
 	// Retire scroll motion the moment destruction begins, regardless of
 	// calling thread; GTK-only cleanup follows through the owning
 	// dispatcher without waiting for the deferred native browser close.
@@ -1323,6 +1322,7 @@ func (wv *WebView) destroyViewBridgeOnGTKSync() {
 	if wv == nil || wv.viewBridge == nil {
 		return
 	}
+	wv.noteBridgeTeardownScheduled()
 	wv.runOnGTKSyncLabelAllowLateStart("cef.destroy_view_bridge", true, func() {
 		wv.destroyViewBridgeOnGTKThread()
 	})
@@ -1332,9 +1332,27 @@ func (wv *WebView) destroyViewBridgeOnGTKAsync() {
 	if wv == nil || wv.viewBridge == nil {
 		return
 	}
+	wv.noteBridgeTeardownScheduled()
 	wv.runOnGTK(func() {
 		wv.destroyViewBridgeOnGTKThread()
 	})
+}
+
+// noteBridgeTeardownScheduled records one outstanding GTK teardown for the
+// quiescence boundary. Exactly one caller wins per view however often the
+// Sync/Async wrappers race; the matching completion lands in
+// destroyViewBridgeOnGTKThread, which runs exactly once per view because it
+// nils the bridge on completion.
+func (wv *WebView) noteBridgeTeardownScheduled() {
+	if wv == nil {
+		return
+	}
+	if !wv.bridgeTeardownNoted.CompareAndSwap(false, true) {
+		return
+	}
+	if wv.engine != nil {
+		wv.engine.activity.NoteViewCloseStarted()
+	}
 }
 
 func (wv *WebView) destroyViewBridgeOnGTKThread() {
@@ -1355,6 +1373,11 @@ func (wv *WebView) destroyViewBridgeOnGTKThread() {
 	_ = wv.viewBridge.Destroy()
 	wv.viewBridge = nil
 	wv.nativeWidget = nil
+	// The bridge actually tore down here (second arrivals return early on
+	// the nil guard above), completing the outstanding teardown exactly once.
+	if wv.engine != nil {
+		wv.engine.activity.NoteCleanupCompleted()
+	}
 }
 
 // ---------------------------------------------------------------------------

@@ -366,6 +366,7 @@ func (a *App) Run(ctx context.Context, args []string) int {
 		glib.IdleAdd(&callback, 0)
 	})
 	a.residency.SetQuiescentFunc(a.residencyQuiescent)
+	a.residency.SetSealFunc(a.closeRelayAdmission)
 	a.residency.AcquireHold(a.gtkApp)
 	defer a.residency.ReleaseHold(a.gtkApp)
 
@@ -3104,6 +3105,7 @@ func (a *App) onShutdown(ctx context.Context) {
 	// starts while persistence drains. Admitted leases keep their sockets
 	// until dispatch settles; shutdown never waits on them unboundedly.
 	a.closeRelayAdmission()
+	a.waitRelayAdmissionDrained(ctx)
 	a.unsubscribeResidencyQuiescence()
 
 	// Persistence drain barriers, in teardown order. The snapshot service
@@ -3822,12 +3824,14 @@ func (a *App) Quit() {
 	if a == nil || a.gtkApp == nil {
 		return
 	}
-	// Explicit quits and signals never wait for the idle deadline and must
-	// not bypass orderly cleanup: cancel any armed deadline first.
-	if a.residency != nil {
-		a.residency.NoteExplicitQuit()
-	}
 	quit := func() {
+		// The whole residency/GTK quit transition runs on the GTK thread:
+		// canceling the idle timer touches GLib sources, which is only
+		// safe on its owner thread. Explicit quits and signals never wait
+		// for the idle deadline and must not bypass orderly cleanup.
+		if a.residency != nil {
+			a.residency.NoteExplicitQuit()
+		}
 		if a.gtkApp != nil {
 			a.gtkApp.Quit()
 		}
