@@ -182,3 +182,50 @@ func TestShouldApplyGTKFontName(t *testing.T) {
 	assert.False(t, shouldApplyGTKFontName("Fira Sans 14", "Fira Sans 14"))
 	assert.False(t, shouldApplyGTKFontName("Fira Sans 14", ""))
 }
+
+func TestShouldSkipThemeReapply(t *testing.T) {
+	const (
+		displayA  = uintptr(0x1000)
+		displayB  = uintptr(0x2000)
+		css       = "window{background:#000;}"
+		otherCSS  = "window{background:#fff;}"
+		font      = "Adwaita Sans 14"
+		otherFont = "Adwaita Sans 17"
+	)
+
+	// Same provider, display, CSS and font: skip the reload and re-add.
+	assert.True(t, shouldSkipThemeReapply(true, displayA, displayA, css, css, font, font),
+		"repeated window creation with an unchanged theme must skip reapply")
+	// No provider yet: full apply.
+	assert.False(t, shouldSkipThemeReapply(false, 0, displayA, "", css, "", font))
+	// Different display: the provider must be added for the new display even
+	// when the CSS is unchanged. Displays are never conflated.
+	assert.False(t, shouldSkipThemeReapply(true, displayA, displayB, css, css, font, font))
+	// Changed CSS (real theme change): reload.
+	assert.False(t, shouldSkipThemeReapply(true, displayA, displayA, css, otherCSS, font, font))
+	// Changed font (scale change): reapply for the font setting.
+	assert.False(t, shouldSkipThemeReapply(true, displayA, displayA, css, css, font, otherFont))
+	// Empty font identity never skips.
+	assert.False(t, shouldSkipThemeReapply(true, displayA, displayA, css, css, "", ""))
+}
+
+func TestEffectiveCSSIdentity_StableForUnchangedTheme(t *testing.T) {
+	ctx := context.Background()
+	first := NewManager(ctx, resolvedThemeFixture(true))
+	second := NewManager(ctx, resolvedThemeFixture(true))
+
+	cssOf := func(m *Manager) string {
+		return GenerateCSSFullWithTiming(m.GetCurrentPalette(), m.uiScale, m.fonts, m.modeColors, m.transitionDurationMs)
+	}
+
+	// The dedup relies on CSS identity: identical resolved themes must
+	// produce identical CSS so repeated window creation skips the reload.
+	assert.Equal(t, cssOf(first), cssOf(second))
+	assert.NotEmpty(t, cssOf(first))
+
+	// A real theme change must change the identity so it is never skipped.
+	changed := resolvedThemeFixture(true)
+	changed.DarkPalette.Background = "#000001"
+	other := NewManager(ctx, changed)
+	assert.NotEqual(t, cssOf(first), cssOf(other))
+}
