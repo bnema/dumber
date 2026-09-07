@@ -2192,6 +2192,27 @@ func (wv *WebView) claimPendingNavigationSubmission(intentID uint64, browserID i
 	return uri, pendingClaimReady
 }
 
+// injectionEvent captures the navigation identity observed at main-frame
+// load-end so the GTK-dispatched installation can drop stale events: an
+// old main frame firing during process swap, or a queued callback outlived
+// by a newer navigation. Browser instance and intent ID are both required;
+// the current URL alone never proves document identity.
+type injectionEvent struct {
+	browser  purecef.Browser
+	intentID uint64
+}
+
+// captureInjectionEvent snapshots the current browser instance and pending
+// navigation intent for a load-end event. Called on the CEF thread.
+func (wv *WebView) captureInjectionEvent() injectionEvent {
+	if wv == nil {
+		return injectionEvent{}
+	}
+	wv.mu.RLock()
+	defer wv.mu.RUnlock()
+	return injectionEvent{browser: wv.browser, intentID: wv.pendingIntentID}
+}
+
 func pendingURIEquivalent(a, b string) bool {
 	if a == "" || b == "" {
 		return false

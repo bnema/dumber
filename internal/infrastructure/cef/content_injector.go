@@ -249,6 +249,30 @@ func (ci *contentInjector) RefreshScripts(ctx context.Context, wv port.WebView) 
 	return nil
 }
 
+// onLoadEndForEvent installs scripts for a captured load-end event after
+// revalidating it on the GTK thread. Events that are provably stale are
+// skipped: a replaced browser instance (old main frame during process
+// swap) or a superseded intent ID (a newer navigation committed while the
+// callback was queued). Ambiguous cases fall back to legacy installation:
+// a nil captured browser cannot prove staleness, and matching identity
+// installs exactly as before. Repeated same-document load-ends still
+// install; the injected scripts are idempotent by element ID.
+func (ci *contentInjector) onLoadEndForEvent(wv *WebView, event injectionEvent) {
+	if wv == nil || ci == nil {
+		return
+	}
+	wv.mu.RLock()
+	currentBrowser, currentIntent := wv.browser, wv.pendingIntentID
+	wv.mu.RUnlock()
+	if event.browser != nil && currentBrowser != event.browser {
+		return
+	}
+	if event.intentID != currentIntent {
+		return
+	}
+	ci.onLoadEnd(wv)
+}
+
 // onLoadEnd is called from the load handler after a page finishes loading.
 // It injects the appropriate scripts based on whether the page is internal.
 func (ci *contentInjector) onLoadEnd(wv *WebView) {

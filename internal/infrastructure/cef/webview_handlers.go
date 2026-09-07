@@ -532,8 +532,11 @@ func (h *handlerSet) OnLoadEnd(_ purecef.Browser, frame purecef.Frame, httpStatu
 		})
 	}
 	if h.wv.engine != nil && h.wv.engine.contentInj != nil {
+		// Capture navigation identity for the GTK hop: a process swap or a
+		// newer navigation can stale this event before it runs.
+		event := h.wv.captureInjectionEvent()
 		h.wv.runOnGTK(func() {
-			h.wv.engine.contentInj.onLoadEnd(h.wv)
+			h.wv.engine.contentInj.onLoadEndForEvent(h.wv, event)
 		})
 	}
 
