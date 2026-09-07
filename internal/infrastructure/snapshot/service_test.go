@@ -385,3 +385,36 @@ func TestService_StopJoinsInFlightSave(t *testing.T) {
 	require.False(t, svc.Active())
 	require.Equal(t, int32(1), calls.Load(), "Stop must join, not duplicate, the save")
 }
+
+func TestService_MarkDirtyNoOpAfterStop(t *testing.T) {
+	repo := repomocks.NewMockSessionStateRepository(t)
+	uc := usecase.NewSnapshotSessionUseCase(repo)
+	svc := NewService(uc, mocks.NewMockWindowStateProvider(t), 1)
+	require.NoError(t, svc.Stop(context.Background()))
+	svc.MarkDirty()
+	require.False(t, svc.Active(), "stopped service schedules nothing")
+	time.Sleep(20 * time.Millisecond)
+	require.False(t, svc.Active())
+}
+
+func TestService_SupersededTimerSavesNothing(t *testing.T) {
+	var calls atomic.Int32
+	repo := repomocks.NewMockSessionStateRepository(t)
+	repo.EXPECT().
+		SaveSnapshot(mock.Anything, mock.AnythingOfType("*entity.SessionState")).
+		RunAndReturn(func(_ context.Context, _ *entity.SessionState) error {
+			calls.Add(1)
+			return nil
+		})
+	uc := usecase.NewSnapshotSessionUseCase(repo)
+	svc := NewService(uc, newWindowStateProvider(t, "20260207_120000_superseded", nil, 0), 1)
+	svc.ready = true
+	svc.MarkDirty()
+	// Stop consumes the pending work in its own final save and retires
+	// the debounce timer; the stopped timer callback must save nothing.
+	require.NoError(t, svc.Stop(context.Background()))
+	require.Equal(t, int32(1), calls.Load())
+	time.Sleep(50 * time.Millisecond)
+	require.Equal(t, int32(1), calls.Load(), "stopped timer must not save")
+	require.False(t, svc.Active())
+}

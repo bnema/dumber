@@ -108,6 +108,9 @@ type AdmissionGateProvider interface {
 	AdmissionGate() *process.AdmissionGate
 }
 
+// Compile-time check: the shared gate implements the application boundary.
+var _ port.AdmissionBoundary = (*process.AdmissionGate)(nil)
+
 // AdmissionGate returns the shared admission/work-lease boundary.
 func (r *browserLaunchRelay) AdmissionGate() *process.AdmissionGate {
 	if r == nil || r.admission == nil {

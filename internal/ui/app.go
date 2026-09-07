@@ -367,6 +367,16 @@ func (a *App) Run(ctx context.Context, args []string) int {
 	})
 	a.residency.SetQuiescentFunc(a.residencyQuiescent)
 	a.residency.SetSealFunc(a.closeRelayAdmission)
+	a.residency.SetUnsealFunc(func() {
+		if a.deps == nil {
+			return
+		}
+		if provider, ok := a.deps.BrowserLaunchRelay.(relayAdmissionProvider); ok && provider != nil {
+			if gate := provider.AdmissionGate(); gate != nil {
+				gate.Reopen()
+			}
+		}
+	})
 	a.residency.AcquireHold(a.gtkApp)
 	defer a.residency.ReleaseHold(a.gtkApp)
 
@@ -3103,9 +3113,10 @@ func (a *App) onShutdown(ctx context.Context) {
 
 	// Stop relay admission before snapshot/update teardown so no new work
 	// starts while persistence drains. Admitted leases keep their sockets
-	// until dispatch settles; shutdown never waits on them unboundedly.
+	// until dispatch settles; off-thread quits already drained beforehand
+	// (see Quit), and on the GTK thread itself a drain wait is impossible,
+	// so teardown relies on close-then-teardown ordering here.
 	a.closeRelayAdmission()
-	a.waitRelayAdmissionDrained(ctx)
 	a.unsubscribeResidencyQuiescence()
 
 	// Persistence drain barriers, in teardown order. The snapshot service
@@ -3837,6 +3848,14 @@ func (a *App) Quit() {
 		}
 	}
 	glibCtx := glib.MainContextDefault()
+	if glibCtx == nil || !glibCtx.IsOwner() {
+		// Off-thread quits (signals, relay threads) drain admission and
+		// persistence BEFORE entering GTK shutdown, while the loop can
+		// still service admitted work. On the GTK thread itself this wait
+		// is impossible, so shutdown relies on close-then-teardown
+		// ordering instead; the dispatched closure below never blocks.
+		a.drainForShutdownOffThread()
+	}
 	if glibCtx != nil && glibCtx.IsOwner() {
 		quit()
 		return

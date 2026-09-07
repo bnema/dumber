@@ -151,19 +151,16 @@ func (t *RuntimeActivityTracker) NoteDownloadStarted(browserID int32, downloadID
 func (t *RuntimeActivityTracker) NoteDownloadProgress(_ int32, _ uint32) {}
 
 // NoteDownloadTerminal records one terminal download event (complete,
-// cancel, or failure). Duplicate terminals are idempotent; terminals for
-// unknown IDs resolve no owner and change nothing.
-func (t *RuntimeActivityTracker) NoteDownloadTerminal(downloadID uint32) {
+// cancel, or failure) for the exact owning browser. Duplicate terminals are
+// idempotent; terminals for unknown owners change nothing, so one browser
+// completing a download ID never clears another browser's same ID.
+func (t *RuntimeActivityTracker) NoteDownloadTerminal(browserID int32, downloadID uint32) {
 	if t == nil {
 		return
 	}
 	t.mu.Lock()
 	defer t.mu.Unlock()
-	for owner := range t.downloads {
-		if owner.downloadID == downloadID {
-			delete(t.downloads, owner)
-		}
-	}
+	delete(t.downloads, downloadOwner{browserID: browserID, downloadID: downloadID})
 	t.notifyLocked()
 }
 

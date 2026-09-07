@@ -84,7 +84,7 @@ func NewEngine(
 		ctxMenuRenderer:        deps.ContextMenuRenderer,
 		clipboard:              deps.Clipboard,
 		resolver:               deps.ImageDataResolver,
-		activity:              NewRuntimeActivityTracker(),
+		activity:               NewRuntimeActivityTracker(),
 	}
 
 	logger.Info().
