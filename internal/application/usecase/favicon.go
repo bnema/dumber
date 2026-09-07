@@ -78,6 +78,8 @@ type FaviconUseCase struct {
 	now          func() time.Time
 	ttl          time.Duration
 	background   context.Context
+	bgCancel     context.CancelFunc
+	shared       *refreshCoordinator
 }
 
 type FaviconDeps struct {
@@ -90,7 +92,11 @@ type FaviconDeps struct {
 	Invalidators appport.FaviconInvalidators
 	Now          func() time.Time
 	TTL          time.Duration
-	Background   context.Context
+	// Background scopes background refresh work to the application
+	// lifetime. The use case derives its own cancelable scope from it,
+	// aborted by Close; callers pass the owning context (nil defaults to
+	// context.Background with shutdown drain only).
+	Background context.Context
 }
 
 func NewFaviconUseCase(deps FaviconDeps) *FaviconUseCase {
@@ -100,9 +106,13 @@ func NewFaviconUseCase(deps FaviconDeps) *FaviconUseCase {
 	if deps.TTL == 0 {
 		deps.TTL = favicon.DefaultTTL
 	}
-	if deps.Background == nil {
-		deps.Background = context.Background()
+	background := deps.Background
+	if background == nil {
+		background = context.Background()
 	}
+	// Owned cancelable scope for background refresh: parent cancellation
+	// propagates, and Close aborts it before draining shared operations.
+	background, bgCancel := context.WithCancel(background)
 	registry := &faviconInvalidatorRegistry{}
 	if deps.Invalidators != nil {
 		registry.fallback = deps.Invalidators
@@ -117,7 +127,9 @@ func NewFaviconUseCase(deps FaviconDeps) *FaviconUseCase {
 		invalidators: registry,
 		now:          deps.Now,
 		ttl:          deps.TTL,
-		background:   deps.Background,
+		background:   background,
+		bgCancel:     bgCancel,
+		shared:       newRefreshCoordinator(),
 	}
 }
 
@@ -312,30 +324,56 @@ func (uc *FaviconUseCase) RefreshFromIconURLs(ctx context.Context, pageURL strin
 	if uc.fetcher == nil {
 		return ErrFaviconMiss
 	}
-	var lastMiss error
-	for _, iconURL := range iconURLs {
-		if err := ctx.Err(); err != nil {
+	key, candidates, ok := refreshRequestKey(pageURL, iconURLs)
+	if !ok {
+		return ErrFaviconMiss
+	}
+	if uc.cachedMiss(key) {
+		return ErrFaviconMiss
+	}
+	// Explicit refresh advances the invalidation epoch so older in-flight
+	// completions cannot repopulate entries this refresh supersedes.
+	uc.bumpEpoch()
+	startEpoch := uc.epochValue()
+	return uc.joinRefreshOp(ctx, key, func(opCtx context.Context) error {
+		var lastMiss error
+		for _, iconURL := range candidates {
+			if err := opCtx.Err(); err != nil {
+				return err
+			}
+			fetched, err := uc.fetcher.Fetch(opCtx, appport.FaviconFetchRequest{PageURL: pageURL, IconURL: iconURL})
+			if err != nil {
+				if status, classified := appport.FetchStatusCode(err); classified {
+					if status == 404 || status == 410 {
+						uc.noteMiss(key, err)
+					}
+					lastMiss = err
+					continue
+				}
+				if errors.Is(err, ErrFaviconMiss) {
+					lastMiss = err
+					continue
+				}
+				return err
+			}
+			if uc.epochValue() != startEpoch {
+				return nil
+			}
+			err = uc.observeFetched(opCtx, pageURL, fetched)
+			if errors.Is(err, ErrFaviconMiss) {
+				lastMiss = err
+				continue
+			}
 			return err
 		}
-		fetched, err := uc.fetcher.Fetch(ctx, appport.FaviconFetchRequest{PageURL: pageURL, IconURL: iconURL})
-		if errors.Is(err, ErrFaviconMiss) {
-			lastMiss = err
-			continue
+		if lastMiss != nil {
+			return lastMiss
 		}
-		if err != nil {
-			return err
+		if uc.epochValue() != startEpoch {
+			return nil
 		}
-		err = uc.observeFetched(ctx, pageURL, fetched)
-		if errors.Is(err, ErrFaviconMiss) {
-			lastMiss = err
-			continue
-		}
-		return err
-	}
-	if lastMiss != nil {
-		return lastMiss
-	}
-	return uc.RefreshIfStale(ctx, pageURL)
+		return uc.RefreshIfStale(opCtx, pageURL)
+	})
 }
 
 func (uc *FaviconUseCase) refresh(ctx context.Context, pageURL string, force bool) error {
@@ -363,7 +401,16 @@ func (uc *FaviconUseCase) refreshKey(ctx context.Context, key favicon.Key, pageU
 	if meta != nil && !favicon.ShouldRefresh(meta, uc.now(), uc.ttl) {
 		return nil
 	}
-	return uc.fetchAndObserve(ctx, pageURL)
+	// Scheduler-backed work joins the same admission budget as direct
+	// refreshes; discovery has no upfront candidates, so it shares the
+	// page-scoped discovery identity.
+	discoveryKey, _, ok := refreshRequestKey(pageURL, nil)
+	if !ok {
+		return ErrFaviconMiss
+	}
+	return uc.joinRefreshOp(ctx, discoveryKey, func(opCtx context.Context) error {
+		return uc.fetchAndObserve(opCtx, pageURL)
+	})
 }
 
 func (uc *FaviconUseCase) anyCandidateFresh(ctx context.Context, keys []favicon.Key) (bool, error) {
@@ -436,6 +483,9 @@ func (uc *FaviconUseCase) EnsureSized(ctx context.Context, key favicon.Key, size
 }
 
 func (uc *FaviconUseCase) Invalidate(ctx context.Context, key favicon.Key) error {
+	// Invalidation advances the epoch so in-flight completions that predate
+	// it cannot repopulate the cleared entries.
+	uc.bumpEpoch()
 	if uc.blobs != nil {
 		if err := uc.blobs.RemoveDerived(ctx, key); err != nil {
 			return err
@@ -469,4 +519,16 @@ func (uc *FaviconUseCase) scheduleRefresh(key favicon.Key, pageURL string) bool 
 		return false
 	}
 	return uc.scheduler.Schedule(uc.background, key, func(ctx context.Context) { _ = uc.refreshKey(ctx, key, pageURL) })
+}
+
+// Close aborts owned background refresh work and drains shared in-flight
+// operations. It is safe to call on a nil receiver and more than once.
+func (uc *FaviconUseCase) Close() {
+	if uc == nil {
+		return
+	}
+	if uc.bgCancel != nil {
+		uc.bgCancel()
+	}
+	uc.drainRefreshOps()
 }
