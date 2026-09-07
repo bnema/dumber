@@ -1,53 +1,81 @@
 #!/usr/bin/env python3
-"""Unit tests for measure_cef_startup.py (stdlib only)."""
+"""Unit tests for measure_cef_startup.py (stdlib only).
 
-import json
+Run headless: python3 -m unittest discover -s scripts -p 'test_measure_cef_startup.py'
+Set DUMBER_MEASURE_CUTOFF_SECONDS=0.2 for fast streaming tests (default 5.0).
+"""
+
 import os
 import subprocess
 import sys
 import tempfile
+import threading
 import unittest
+import urllib.error
+import urllib.request
+from http.server import ThreadingHTTPServer
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import measure_cef_startup as harness
 
 
-class ParseTest(unittest.TestCase):
-    def test_accepts_valid_fixture_event(self):
-        token = "a" * 16
-        nav = "b" * 16
-        lines = [
-            json.dumps({"message": "cef-startup-fixture", "event": "first-contentful-paint",
-                        "run_token": token, "nav_token": nav, "value_ms": 12}),
-        ]
-        _, events = harness.parse_child_output(lines, token)
-        self.assertEqual(len(events), 1)
+class BeaconTest(unittest.TestCase):
+    def setUp(self):
+        self.state = harness.FixtureState()
+        harness.Handler.state = self.state
+        harness.Handler.fixture = "static"
+        harness.Handler.run_token = "a" * 16
+        harness.Handler.nav_token = "b" * 16
+        self.server = ThreadingHTTPServer(("127.0.0.1", 0), harness.Handler)
+        self.port = self.server.server_address[1]
+        self.thread = threading.Thread(target=self.server.serve_forever, kwargs={"poll_interval": 0.05})
+        self.thread.daemon = True
+        self.thread.start()
+
+    def tearDown(self):
+        self.server.shutdown()
+        self.server.server_close()
+        self.thread.join(timeout=5)
+
+    def get(self, query):
+        url = "http://127.0.0.1:%d/__beacon?%s" % (self.port, query)
+        try:
+            with urllib.request.urlopen(url, timeout=5) as response:
+                return response.status
+        except urllib.error.HTTPError as exc:
+            exc.read()
+            return exc.code
+
+    def test_accepts_valid_beacon(self):
+        status = self.get("run=%s&nav=%s&event=%s&value=12" % ("a" * 16, "b" * 16, "first-contentful-paint"))
+        self.assertEqual(status, 204)
+        self.assertEqual(len(self.state.beacons), 1)
+        self.assertEqual(self.state.beacons[0]["value_ms"], 12)
 
     def test_rejects_wrong_token(self):
-        lines = [
-            json.dumps({"message": "cef-startup-fixture", "event": "first-contentful-paint",
-                        "run_token": "c" * 16, "nav_token": "d" * 16, "value_ms": 12}),
-        ]
-        _, events = harness.parse_child_output(lines, "a" * 16)
-        self.assertEqual(events, [])
-
-    def test_rejects_non_numeric_value(self):
-        token = "a" * 16
-        lines = [
-            json.dumps({"message": "cef-startup-fixture", "event": "first-contentful-paint",
-                        "run_token": token, "nav_token": "b" * 16, "value_ms": "12"}),
-        ]
-        _, events = harness.parse_child_output(lines, token)
-        self.assertEqual(events, [])
+        status = self.get("run=%s&nav=%s&event=%s&value=12" % ("c" * 16, "d" * 16, "first-contentful-paint"))
+        self.assertEqual(status, 400)
+        self.assertEqual(self.state.beacons, [])
 
     def test_rejects_malformed_token(self):
-        lines = [
-            json.dumps({"message": "cef-startup-fixture", "event": "first-contentful-paint",
-                        "run_token": "short", "nav_token": "b" * 16, "value_ms": 12}),
-        ]
-        _, events = harness.parse_child_output(lines, "short")
-        self.assertEqual(events, [])
+        status = self.get("run=short&nav=%s&event=%s&value=12" % ("b" * 16, "first-contentful-paint"))
+        self.assertEqual(status, 400)
+        self.assertEqual(self.state.beacons, [])
+
+    def test_rejects_non_numeric_value(self):
+        status = self.get("run=%s&nav=%s&event=%s&value=abc" % ("a" * 16, "b" * 16, "first-contentful-paint"))
+        self.assertEqual(status, 400)
+        self.assertEqual(self.state.beacons, [])
+
+    def test_rejects_unknown_event(self):
+        status = self.get("run=%s&nav=%s&event=%s&value=1" % ("a" * 16, "b" * 16, "bogus"))
+        self.assertEqual(status, 400)
+        self.assertEqual(self.state.beacons, [])
+
+    def test_milestones_still_parsed(self):
+        lines = ['{"message":"startup_trace: milestone","milestone":"process_entry"}', "not json"]
+        self.assertEqual(len(harness.parse_child_output(lines)), 1)
 
 
 class CliValidationTest(unittest.TestCase):
@@ -61,20 +89,23 @@ class CliValidationTest(unittest.TestCase):
         self.cef_dir = os.path.join(self.temp, "cef")
         os.makedirs(self.cef_dir)
 
-    def run_harness(self, *extra):
-        cmd = [sys.executable, self.script, "--binary", self.binary, "--cef-dir", self.cef_dir,
-               "--scenario", "profile-fresh", "--fixture", "static", "--runs", "1"] + list(extra)
-        return subprocess.run(cmd, capture_output=True, text=True)
-
     def test_rejects_existing_output(self):
         existing = os.path.join(self.temp, "exists")
         os.makedirs(existing)
-        result = self.run_harness("--output", existing)
+        result = subprocess.run(
+            [sys.executable, self.script, "--binary", self.binary, "--cef-dir", self.cef_dir,
+             "--scenario", "profile-fresh", "--fixture", "static",
+             "--runs", "1", "--output", existing],
+            capture_output=True, text=True)
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("fresh absolute directory", result.stderr)
 
     def test_rejects_relative_output(self):
-        result = self.run_harness("--output", "relative/path")
+        result = subprocess.run(
+            [sys.executable, self.script, "--binary", self.binary, "--cef-dir", self.cef_dir,
+             "--scenario", "profile-fresh", "--fixture", "static",
+             "--runs", "1", "--output", "relative/path"],
+            capture_output=True, text=True)
         self.assertNotEqual(result.returncode, 0)
 
     def test_rejects_missing_binary(self):
@@ -86,8 +117,6 @@ class CliValidationTest(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
 
     def test_rejects_bad_runs(self):
-        result = self.run_harness("--output", os.path.join(self.temp, "out"), "--runs", "0")
-        # argparse passes --runs twice; last wins; use explicit override instead
         result = subprocess.run(
             [sys.executable, self.script, "--binary", self.binary, "--cef-dir", self.cef_dir,
              "--scenario", "profile-fresh", "--fixture", "static",
@@ -101,40 +130,69 @@ class FakeBinaryLifetimeTest(unittest.TestCase):
         self.temp = tempfile.mkdtemp()
         self.cef_dir = os.path.join(self.temp, "cef")
         os.makedirs(self.cef_dir)
+        self.counter = 0
 
     def make_binary(self, body):
-        path = os.path.join(self.temp, "fake-%d" % len(os.listdir(self.temp)))
+        self.counter += 1
+        path = os.path.join(self.temp, "fake-%d" % self.counter)
         with open(path, "w") as handle:
             handle.write("#!/bin/sh\n" + body + "\n")
         os.chmod(path, 0o755)
         return path
 
-    def test_duplicate_documents_marked(self):
+    def make_fetch_binary(self):
+        # Fetches the fixture URL passed as argv[2] (argv: browse <url>),
+        # then exits: exercises document counting without a real browser.
+        path = os.path.join(self.temp, "fetch-%d" % self.counter)
+        self.counter += 1
+        with open(path, "w") as handle:
+            handle.write("#!/usr/bin/env python3\nimport sys, urllib.request\n"
+                         "urllib.request.urlopen(sys.argv[2], timeout=10).read()\n")
+        os.chmod(path, 0o755)
+        return path
+
+    def test_duplicate_documents_marked_incomplete(self):
         binary = self.make_binary("exit 0")
-        result = harness.run_sample(binary, self.cef_dir, "profile-fresh", "static", 1, None, None, {})
-        # No fixture events and no document requests through the real binary:
-        # the sample must report incomplete, never synthesized success.
+        result = harness.run_sample(binary, self.cef_dir, "profile-fresh", "static", 1)
         self.assertFalse(result["complete"])
         self.assertIsNone(result["target_fcp_ms"])
 
     def test_absent_fcp_is_incomplete(self):
-        binary = self.make_binary("echo '{\"message\":\"startup_trace: milestone\"}'; exit 0")
-        result = harness.run_sample(binary, self.cef_dir, "profile-fresh", "static", 1, None, None, {})
+        binary = self.make_fetch_binary()
+        result = harness.run_sample(binary, self.cef_dir, "profile-fresh", "static", 1)
+        self.assertEqual(result["document_requests"], 1)
+        self.assertIsNone(result["target_fcp_ms"])
         self.assertFalse(result["complete"])
 
-    def test_relay_fallback_recorded(self):
+    def test_relay_fallback_recorded_without_owner(self):
         binary = self.make_binary("exit 0")
-        result = harness.run_sample(binary, self.cef_dir, "relay-window", "static", 1, None, None, {})
+        result = harness.run_sample(binary, self.cef_dir, "relay-window", "static", 1)
         self.assertTrue(result["fallback_spawn"])
         self.assertFalse(result["relayed"])
 
     def test_second_window_uses_observation_not_process_summary(self):
         binary = self.make_binary("exit 0")
-        first = harness.run_sample(binary, self.cef_dir, "profile-fresh", "static", 1, None, None, {})
-        second = harness.run_sample(binary, self.cef_dir, "relay-window", "static", 2, None, None, {})
+        first = harness.run_sample(binary, self.cef_dir, "profile-fresh", "static", 1)
+        second = harness.run_sample(binary, self.cef_dir, "relay-window", "static", 2)
         self.assertIn("observation_spawn_to_summary_ms", first)
         self.assertIn("observation_spawn_to_summary_ms", second)
         self.assertNotIn("total_ms", second)
+
+    def test_run_dir_cleaned_up(self):
+        before = set(os.listdir(tempfile.gettempdir()))
+        binary = self.make_binary("exit 0")
+        harness.run_sample(binary, self.cef_dir, "profile-fresh", "static", 1)
+        after = set(os.listdir(tempfile.gettempdir()))
+        leaked = [name for name in (after - before) if name.startswith("cef-startup-run-")]
+        self.assertEqual(leaked, [])
+
+    def test_streaming_returns_without_process_exit(self):
+        # A hanging GUI must not pin the harness: with a short cutoff the
+        # sample decides from streamed output, then terminates the child.
+        binary = self.make_binary("exec sleep 30")
+        result = harness.run_sample(binary, self.cef_dir, "profile-fresh", "static", 1)
+        self.assertFalse(result["complete"])
+        self.assertLess(result["observation_spawn_to_summary_ms"], 15000)
 
 
 if __name__ == "__main__":

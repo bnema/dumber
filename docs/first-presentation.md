@@ -82,6 +82,6 @@ the selected `github.com/bnema/purego-cef2gtk` version, tag, and full revision
 from that same binary-bound evidence; it never derives provenance from the
 collection checkout. The child processes receive exactly the selected runtime
 via `CEF_DIR`, never a conflicting inherited override. Branch selectors,
-replacement contamination, missing manifests, or missing origin metadata
+replacement contamination, version/manifest mismatches, or a missing manifest
 fail collection. A missing or incomplete timeline, non-DMABUF backend, or invalid
 run also fails collection.

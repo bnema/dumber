@@ -2,19 +2,21 @@
 """Local CEF startup harness with synthetic fixtures (stdlib only).
 
 Scenarios:
-  process-warm   new process, isolated previously initialized profile
+  process-warm   one unrecorded warm-up, then new processes sharing an
+                 isolated previously initialized CEF root-cache profile
   profile-fresh  new process, new profile each sample
-  relay-window   existing browser owns relay; launch browse with
-                 DUMBER_BROWSER_FRESH_WINDOW=1 and the same isolated profile
+  relay-window   a real long-lived owner browser holds the relay; samples
+                 launch browse with DUMBER_BROWSER_FRESH_WINDOW=1 in that
+                 same isolated profile
 
 Fixtures (loopback only): static, delayed, redirect, cache.
 
-Protocol: the fixture pages embed a buffered PerformanceObserver that prints
-single-line JSON records with opaque run/navigation tokens and numeric fields
-only. The harness parses child stdout for those records plus the existing
-startup_trace milestones. External spawn-to-summary is recorded as an
-explicitly named observation duration, including output-delivery overhead; it
-is never presented as an exact child event timestamp.
+Protocol: fixture pages report PerformanceObserver results through a
+token-authenticated loopback beacon (/__beacon with run/nav/event/value
+parameters) served by the harness HTTP server. Beacon arrivals carry the
+harness monotonic timestamp. External spawn-to-arrival is recorded as an
+explicitly named observation duration, including output-delivery overhead;
+it is never presented as an exact child event timestamp.
 
 Clock domains are kept separate: child t_ms values are never subtracted from
 the harness wall clock. GTK after-paint is labeled GTK paint, never compositor
@@ -28,17 +30,28 @@ import json
 import os
 import re
 import secrets
+import shutil
+import socket
 import subprocess
 import sys
 import tempfile
 import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from urllib.parse import urlparse
+from urllib.parse import parse_qs, urlparse
 
 TOKEN_RE = re.compile(r"^[0-9a-f]{16}$")
 NAV_RE = re.compile(r"^[0-9a-f]{16}$")
-POST_NAV_CUTOFF_SECONDS = 5.0
+BEACON_EVENTS = ("first-contentful-paint", "largest-contentful-paint", "fixture-load")
+DEFAULT_POST_NAV_CUTOFF_SECONDS = 5.0
+
+
+def post_nav_cutoff_seconds():
+    try:
+        value = float(os.environ.get("DUMBER_MEASURE_CUTOFF_SECONDS", DEFAULT_POST_NAV_CUTOFF_SECONDS))
+    except ValueError:
+        return DEFAULT_POST_NAV_CUTOFF_SECONDS
+    return min(30.0, max(0.1, value))
 
 
 class FixtureState:
@@ -46,28 +59,29 @@ class FixtureState:
         self.lock = threading.Lock()
         self.document_requests = []
         self.subresource_requests = []
+        self.beacons = []
+        self.first_document_monotonic = None
 
 
 def build_fixture_html(kind, run_token, nav_token):
     observer = (
         "<script>(function(){"
-        "var buf=[];"
-        "function emit(e){console.log(JSON.stringify(e));}"
+        "function beacon(event, value){"
+        "fetch('/__beacon?run=%s&nav=%s&event='+event+'&value='+value,"
+        "{cache:'no-store'}).catch(function(){});"
+        "}"
         "try{"
         "var po=new PerformanceObserver(function(list){"
         "list.getEntries().forEach(function(en){"
-        "if(en.name==='first-contentful-paint'||en.entryType==='largest-contentful-paint'){"
-        "buf.push({message:'cef-startup-fixture',event:en.name,"
-        "run_token:'%s',nav_token:'%s',value_ms:Math.round(en.startTime)});"
+        "if(en.name==='first-contentful-paint'){beacon('first-contentful-paint',Math.round(en.startTime));}"
+        "else if(en.entryType==='largest-contentful-paint'){beacon('largest-contentful-paint',Math.round(en.startTime));}"
         "}});"
         "po.observe({type:'paint',buffered:true});"
         "po.observe({type:'largest-contentful-paint',buffered:true});"
         "}catch(e){}"
         "window.addEventListener('load',function(){"
-        "setTimeout(function(){buf.forEach(emit);"
-        "emit({message:'cef-startup-fixture',event:'fixture-load',"
-        "run_token:'%s',nav_token:'%s',value_ms:0});},100);});"
-        "})();</script>" % (run_token, nav_token, run_token, nav_token)
+        "setTimeout(function(){beacon('fixture-load',0);},100);});"
+        "})();</script>" % (run_token, nav_token)
     )
     if kind == "static":
         return (
@@ -112,15 +126,20 @@ class Handler(BaseHTTPRequestHandler):
 
     def _record(self, document):
         with self.state.lock:
-            entry = {"path": self.path, "time": time.time()}
+            entry = {"path": self.path, "time": time.monotonic()}
             if document:
                 self.state.document_requests.append(entry)
+                if self.state.first_document_monotonic is None:
+                    self.state.first_document_monotonic = entry["time"]
             else:
                 self.state.subresource_requests.append(entry)
 
     def do_GET(self):
         parsed = urlparse(self.path)
         path = parsed.path
+        if path == "/__beacon":
+            self._handle_beacon(parsed)
+            return
         if path in ("/", "/index.html", "/target"):
             self._record(True)
             if self.fixture == "delayed" and path == "/":
@@ -165,47 +184,139 @@ class Handler(BaseHTTPRequestHandler):
         self.send_response(404)
         self.end_headers()
 
+    def _handle_beacon(self, parsed):
+        query = parse_qs(parsed.query)
+        run = query.get("run", [None])[0]
+        nav = query.get("nav", [None])[0]
+        event = query.get("event", [None])[0]
+        value_raw = query.get("value", [None])[0]
+        valid = (
+            isinstance(run, str) and TOKEN_RE.fullmatch(run) and run == self.run_token
+            and isinstance(nav, str) and NAV_RE.fullmatch(nav) and nav == self.nav_token
+            and event in BEACON_EVENTS
+        )
+        try:
+            value = int(value_raw) if valid else None
+            valid = valid and value is not None and value >= 0
+        except (TypeError, ValueError):
+            valid = False
+        if not valid:
+            self.send_response(400)
+            self.end_headers()
+            return
+        with self.state.lock:
+            self.state.beacons.append({
+                "event": event,
+                "value_ms": value,
+                "arrival_monotonic": time.monotonic(),
+            })
+        self.send_response(204)
+        self.end_headers()
 
-def parse_child_output(lines, run_token):
+
+def parse_child_output(lines):
     milestones = []
-    fixture_events = []
     for line in lines:
         try:
             event = json.loads(line)
         except (json.JSONDecodeError, ValueError):
             continue
-        if not isinstance(event, dict):
-            continue
-        if event.get("message") == "cef-startup-fixture":
-            if (
-                isinstance(event.get("run_token"), str)
-                and TOKEN_RE.fullmatch(event["run_token"])
-                and isinstance(event.get("nav_token"), str)
-                and NAV_RE.fullmatch(event["nav_token"])
-                and event["run_token"] == run_token
-                and isinstance(event.get("value_ms"), int)
-                and event.get("event") in ("first-contentful-paint", "largest-contentful-paint", "fixture-load")
-            ):
-                fixture_events.append(event)
-            continue
-        if event.get("message") == "startup_trace: milestone":
+        if isinstance(event, dict) and event.get("message") == "startup_trace: milestone":
             milestones.append(event)
-    return milestones, fixture_events
+    return milestones
 
 
-def validate_tokens_unique(records):
-    seen = set()
-    for record in records:
-        key = (record.get("run_token"), record.get("nav_token"))
-        if key in seen:
-            return False
-        seen.add(key)
-    return True
+def scenario_env(cef_dir, dirs, extra=None):
+    env = {
+        "HOME": os.environ.get("HOME", ""),
+        "PATH": os.environ.get("PATH", ""),
+        "LANG": os.environ.get("LANG", "C.UTF-8"),
+        "DISPLAY": os.environ.get("DISPLAY", ""),
+        "WAYLAND_DISPLAY": os.environ.get("WAYLAND_DISPLAY", ""),
+        "XDG_CONFIG_HOME": dirs["config"],
+        "XDG_DATA_HOME": dirs["data"],
+        "XDG_STATE_HOME": dirs["state"],
+        "XDG_CACHE_HOME": dirs["cache"],
+        "XDG_RUNTIME_DIR": dirs["runtime"],
+        "CEF_DIR": cef_dir,
+        "DUMBER_CEF_DIR": cef_dir,
+        "DUMBER_CEF_ROOT_CACHE_PATH": dirs["root_cache"],
+    }
+    if extra:
+        env.update(extra)
+    for key in ("config", "data", "state", "cache", "runtime"):
+        os.makedirs(dirs[key], exist_ok=True)
+    os.makedirs(dirs["root_cache"], exist_ok=True)
+    return env
 
 
-def run_sample(binary, cef_dir, scenario, fixture, run_index, relay_proc, profile_dir, extra_env):
+def wait_for_relay_socket(runtime_dir, timeout_seconds=30.0):
+    end = time.monotonic() + timeout_seconds
+    while time.monotonic() < end:
+        for root, _, files in os.walk(runtime_dir):
+            if "browser-launch.sock" in files:
+                path = os.path.join(root, "browser-launch.sock")
+                sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+                sock.settimeout(2.0)
+                try:
+                    sock.connect(path)
+                    return path
+                except OSError:
+                    pass
+                finally:
+                    sock.close()
+        time.sleep(0.2)
+    return None
+
+
+def start_relay_owner(binary, cef_dir, scenario_dir):
+    dirs = {
+        "config": os.path.join(scenario_dir, "owner-config"),
+        "data": os.path.join(scenario_dir, "owner-data"),
+        "state": os.path.join(scenario_dir, "owner-state"),
+        "cache": os.path.join(scenario_dir, "owner-cache"),
+        "runtime": os.path.join(scenario_dir, "owner-runtime"),
+        "root_cache": os.path.join(scenario_dir, "shared-profile"),
+    }
+    env = scenario_env(cef_dir, dirs)
+    try:
+        proc = subprocess.Popen(
+            [binary, "browse", "about:blank"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            env=env,
+        )
+    except OSError:
+        return None, None
+    time.sleep(0.5)
+    if proc.poll() is not None:
+        return None, None
+    if wait_for_relay_socket(dirs["runtime"]) is None:
+        proc.terminate()
+        try:
+            proc.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+        return None, None
+    return proc, dirs
+
+
+def stop_proc(proc):
+    if proc is None or proc.poll() is not None:
+        return
+    proc.terminate()
+    try:
+        proc.wait(timeout=5)
+    except subprocess.TimeoutExpired:
+        proc.kill()
+        proc.wait(timeout=5)
+
+
+def run_sample(binary, cef_dir, scenario, fixture, run_index, owner=None, owner_dirs=None,
+               shared_root_cache=None):
     run_token = secrets.token_hex(8)
     nav_token = secrets.token_hex(8)
+    cutoff = post_nav_cutoff_seconds()
     state = FixtureState()
     Handler.state = state
     Handler.fixture = fixture
@@ -216,77 +327,103 @@ def run_sample(binary, cef_dir, scenario, fixture, run_index, relay_proc, profil
     thread = threading.Thread(target=server.serve_forever, kwargs={"poll_interval": 0.05})
     thread.daemon = True
     thread.start()
+    run_dir = tempfile.mkdtemp(prefix="cef-startup-run-%02d-" % run_index)
     try:
         if fixture == "redirect":
             url = "http://127.0.0.1:%d/redirect?run=%s&nav=%s" % (port, run_token, nav_token)
         else:
             url = "http://127.0.0.1:%d/?run=%s&nav=%s" % (port, run_token, nav_token)
-        run_dir = tempfile.mkdtemp(prefix="cef-startup-run-%02d-" % run_index)
-        config_dir = os.path.join(run_dir, "config")
-        os.makedirs(os.path.join(config_dir, "dumber"))
-        with open(os.path.join(config_dir, "dumber", "config.toml"), "w") as config:
-            config.write(
-                '[logging]\nlevel = "debug"\nformat = "json"\nenable_file_log = false\n\n'
-                '[engine.cef]\ncef_dir = "%s"\n' % cef_dir
-            )
-        env = {
-            "HOME": os.environ.get("HOME", ""),
-            "PATH": os.environ.get("PATH", ""),
-            "LANG": os.environ.get("LANG", "C.UTF-8"),
-            "DISPLAY": os.environ.get("DISPLAY", ""),
-            "WAYLAND_DISPLAY": os.environ.get("WAYLAND_DISPLAY", ""),
-            "XDG_CONFIG_HOME": config_dir,
-            "XDG_DATA_HOME": os.path.join(run_dir, "data"),
-            "XDG_STATE_HOME": os.path.join(run_dir, "state"),
-            "XDG_CACHE_HOME": os.path.join(run_dir, "cache"),
-            "CEF_DIR": cef_dir,
-            "DUMBER_CEF_DIR": cef_dir,
-            "DUMBER_CEF_ROOT_CACHE_PATH": os.path.join(run_dir, "cef-root-cache"),
-        }
-        if scenario == "relay-window":
-            env["DUMBER_BROWSER_FRESH_WINDOW"] = "1"
-        env.update(extra_env)
-        for key in ("XDG_DATA_HOME", "XDG_STATE_HOME", "XDG_CACHE_HOME"):
-            os.makedirs(env[key], exist_ok=True)
-        if scenario == "process-warm" and profile_dir is not None:
-            env["DUMBER_PROFILE_DIR"] = profile_dir
-        start = time.monotonic()
-        if scenario == "relay-window" and relay_proc is not None:
-            proc = subprocess.Popen(
-                [binary, "browse", url],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                text=True,
-                env=env,
-            )
-            relayed = relay_proc.poll() is None
+        if scenario == "relay-window" and owner_dirs is not None:
+            dirs = dict(owner_dirs)
+            extra = {"DUMBER_BROWSER_FRESH_WINDOW": "1"}
         else:
-            proc = subprocess.Popen(
-                [binary, "browse", url],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                text=True,
-                env=env,
-            )
-            relayed = False
+            dirs = {
+                "config": os.path.join(run_dir, "config"),
+                "data": os.path.join(run_dir, "data"),
+                "state": os.path.join(run_dir, "state"),
+                "cache": os.path.join(run_dir, "cache"),
+                "runtime": os.path.join(run_dir, "runtime"),
+                "root_cache": shared_root_cache or os.path.join(run_dir, "cef-root-cache"),
+            }
+            extra = {}
+        env = scenario_env(cef_dir, dirs, extra)
+        owner_alive_at_start = owner is not None and owner.poll() is None
+        spawn_ts = time.monotonic()
+        proc = subprocess.Popen(
+            [binary, "browse", url],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            bufsize=1,
+            env=env,
+        )
+        arrivals = []
+
+        def pump():
+            try:
+                for line in proc.stdout:
+                    arrivals.append((time.monotonic(), line))
+            except ValueError:
+                pass
+
+        pump_thread = threading.Thread(target=pump)
+        pump_thread.daemon = True
+        pump_thread.start()
+        hard_end = spawn_ts + cutoff + 25.0
+        while True:
+            now = time.monotonic()
+            with state.lock:
+                navigated_at = state.first_document_monotonic
+                fixture_done = any(
+                    b["event"] == "fixture-load" for b in state.beacons
+                )
+            exited = proc.poll() is not None
+            if navigated_at is not None:
+                if fixture_done and now >= navigated_at + cutoff:
+                    break
+                if now >= navigated_at + cutoff + 5.0:
+                    break
+            elif now >= spawn_ts + cutoff + 5.0 or exited:
+                break
+            if now >= hard_end:
+                break
+            time.sleep(0.05)
+        self_exited = proc.poll() is not None
+        if proc.poll() is None:
+            proc.terminate()
+            try:
+                proc.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+                proc.wait(timeout=5)
+        pump_thread.join(timeout=5)
         try:
-            stdout, _ = proc.communicate(timeout=POST_NAV_CUTOFF_SECONDS + 10)
-        except subprocess.TimeoutExpired:
-            proc.kill()
-            stdout, _ = proc.communicate()
-        observation_ms = int((time.monotonic() - start) * 1000)
-        lines = stdout.splitlines()
-        milestones, fixture_events = parse_child_output(lines, run_token)
-        fcp = [e for e in fixture_events if e["event"] == "first-contentful-paint"]
-        lcp = [e for e in fixture_events if e["event"] == "largest-contentful-paint"]
+            proc.stdout.close()
+        except (AttributeError, ValueError):
+            pass
+        decision_ts = time.monotonic()
+        milestones = parse_child_output([line for _, line in arrivals])
         with state.lock:
+            beacons = list(state.beacons)
             document_count = len(state.document_requests)
             subresource_count = len(state.subresource_requests)
+        fcp = [b for b in beacons if b["event"] == "first-contentful-paint"]
+        lcp = [b for b in beacons if b["event"] == "largest-contentful-paint"]
+        if fcp:
+            observation_ms = int((fcp[0]["arrival_monotonic"] - spawn_ts) * 1000)
+        elif beacons:
+            observation_ms = int((beacons[-1]["arrival_monotonic"] - spawn_ts) * 1000)
+        else:
+            observation_ms = int((decision_ts - spawn_ts) * 1000)
         if fixture == "redirect":
             complete = document_count >= 1 and len(fcp) > 0
         else:
             complete = document_count == 1 and len(fcp) > 0
-        result = {
+        if scenario == "relay-window":
+            relayed = bool(owner_alive_at_start and self_exited)
+        else:
+            relayed = False
+        return {
             "run": run_index,
             "scenario": scenario,
             "fixture": fixture,
@@ -297,15 +434,16 @@ def run_sample(binary, cef_dir, scenario, fixture, run_index, relay_proc, profil
             "subresource_requests": subresource_count,
             "target_fcp_ms": fcp[0]["value_ms"] if fcp else None,
             "target_lcp_through_cutoff_ms": lcp[-1]["value_ms"] if lcp else None,
+            "startup_milestones": len(milestones),
             "complete": complete,
             "relayed": relayed,
             "fallback_spawn": scenario == "relay-window" and not relayed,
         }
-        return result
     finally:
         server.shutdown()
         server.server_close()
         thread.join(timeout=5)
+        shutil.rmtree(run_dir, ignore_errors=True)
 
 
 def main():
@@ -346,37 +484,36 @@ def main():
         binary_sha256 = hashlib.file_digest(candidate, "sha256").hexdigest()
 
     os.makedirs(args.output)
-    profile_dir = None
+    owner = None
+    owner_dirs = None
+    shared_root_cache = None
+    warmup_discarded = False
     if args.scenario == "process-warm":
-        profile_dir = os.path.join(args.output, "warm-profile")
-        os.makedirs(profile_dir)
-    relay_proc = None
+        shared_root_cache = os.path.join(args.output, "warm-profile", "cef-root-cache")
+        os.makedirs(shared_root_cache)
     if args.scenario == "relay-window":
-        relay_proc = subprocess.Popen(
-            [args.binary, "--relay-owner"],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-        )
-        time.sleep(0.5)
-        if relay_proc.poll() is not None:
-            relay_proc = None
+        scenario_dir = os.path.join(args.output, "relay-scenario")
+        os.makedirs(scenario_dir)
+        owner, owner_dirs = start_relay_owner(args.binary, args.cef_dir, scenario_dir)
 
     results = []
     try:
+        if args.scenario == "process-warm":
+            # One unrecorded warm-up initializes the shared profile; only the
+            # recorded samples below count toward the report.
+            run_sample(args.binary, args.cef_dir, args.scenario, args.fixture,
+                       0, shared_root_cache=shared_root_cache)
+            warmup_discarded = True
         for index in range(1, args.runs + 1):
             result = run_sample(
-                args.binary, args.cef_dir, args.scenario, args.fixture, index, relay_proc, profile_dir, {}
+                args.binary, args.cef_dir, args.scenario, args.fixture, index,
+                owner=owner, owner_dirs=owner_dirs, shared_root_cache=shared_root_cache,
             )
             results.append(result)
             with open(os.path.join(args.output, "run-%02d.json" % index), "w") as handle:
                 json.dump(result, handle, indent=2, sort_keys=True)
     finally:
-        if relay_proc is not None and relay_proc.poll() is None:
-            relay_proc.terminate()
-            try:
-                relay_proc.wait(timeout=5)
-            except subprocess.TimeoutExpired:
-                relay_proc.kill()
+        stop_proc(owner)
 
     summary = {
         "binary_sha256": binary_sha256,
@@ -386,8 +523,10 @@ def main():
         "complete_runs": sum(1 for r in results if r["complete"]),
         "incomplete_runs": sum(1 for r in results if not r["complete"]),
         "duplicate_document_runs": sum(
-            1 for r in results if r["document_requests"] != (1 if args.fixture != "redirect" else r["document_requests"])
+            1 for r in results if args.fixture != "redirect" and r["document_requests"] != 1
         ),
+        "warmup_discarded": warmup_discarded,
+        "relay_owner_ready": owner is not None,
     }
     with open(os.path.join(args.output, "summary.json"), "w") as handle:
         json.dump(summary, handle, indent=2, sort_keys=True)

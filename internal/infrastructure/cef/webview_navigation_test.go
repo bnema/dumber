@@ -20,7 +20,7 @@ func TestWebViewReplayPendingNavigation_LoadsQueuedURIWhenMainFrameAvailable(t *
 
 	wv := &WebView{ctx: context.Background(), browser: browser}
 	wv.setPendingNavigationLocked("https://github.com/bnema", time.Now())
-	wv.replayPendingNavigation(0)
+	wv.replayPendingNavigationForIntent(0, wv.pendingIntentID)
 
 	wv.mu.RLock()
 	defer wv.mu.RUnlock()
@@ -50,7 +50,7 @@ func TestWebViewReplayPendingNavigation_RetriesWhenMainFrameUnavailable(t *testi
 
 	wv := &WebView{ctx: context.Background(), browser: browser}
 	wv.setPendingNavigationLocked("https://github.com/bnema", time.Now())
-	wv.replayPendingNavigation(0)
+	wv.replayPendingNavigationForIntent(0, wv.pendingIntentID)
 
 	require.True(t, scheduled)
 	wv.mu.RLock()
@@ -298,7 +298,7 @@ func TestWebViewReplayPendingNavigation_StaleIntentDoesNotResubmit(t *testing.T)
 	wv.setPendingNavigationLocked("https://example.com/second", time.Now())
 	stale.Execute()
 	// Current intent still unissued; a fresh replay submits it once.
-	wv.replayPendingNavigation(0)
+	wv.replayPendingNavigationForIntent(0, wv.pendingIntentID)
 }
 
 // TestWebViewReplayPendingNavigation_RetriesSameIntentOnFailedPost ensures a
@@ -352,4 +352,24 @@ func TestWebViewSetPendingNavigation_RepeatedSameURLInstallsNewIntent(t *testing
 	wv.setPendingNavigationLocked("https://example.com/page", time.Now())
 	require.NotEqual(t, first, wv.pendingIntentID)
 	require.False(t, wv.pendingIssued)
+}
+
+// TestWebViewReplayPendingNavigation_SameURLReloadSubmits verifies an
+// unissued explicit intent for the currently displayed URL proceeds to
+// LoadURL instead of being cleared as already active.
+func TestWebViewReplayPendingNavigation_SameURLReloadSubmits(t *testing.T) {
+	browser := cefmocks.NewMockBrowser(t)
+	frame := cefmocks.NewMockFrame(t)
+	frame.EXPECT().GetURL().Return("https://example.com/page").Once()
+	frame.EXPECT().LoadURL("https://example.com/page").Once()
+	browser.EXPECT().GetMainFrame().Return(frame).Once()
+	browser.EXPECT().GetIdentifier().Return(int32(1)).Twice()
+
+	wv := &WebView{ctx: context.Background(), browser: browser}
+	wv.setPendingNavigationLocked("https://example.com/page", time.Now())
+	wv.replayPendingNavigationForIntent(0, wv.pendingIntentID)
+
+	wv.mu.RLock()
+	defer wv.mu.RUnlock()
+	require.True(t, wv.pendingIssued)
 }

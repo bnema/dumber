@@ -17,6 +17,7 @@ func TestMergeRuntimeSafety(t *testing.T) {
 		{name: "preserves settings", environ: []string{"GODEBUG=gctrace=1"}, wantGODEBUG: "gctrace=1,gcshrinkstackoff=1", wantChanged: true},
 		{name: "overrides unsafe value", environ: []string{"GODEBUG=gcshrinkstackoff=0,gctrace=1"}, wantGODEBUG: "gctrace=1,gcshrinkstackoff=1", wantChanged: true},
 		{name: "already safe", environ: []string{"GODEBUG=gctrace=1,gcshrinkstackoff=1"}, wantGODEBUG: "gctrace=1,gcshrinkstackoff=1", wantChanged: false},
+		{name: "safe first keeps position without exec", environ: []string{"GODEBUG=gcshrinkstackoff=1,gctrace=1"}, wantGODEBUG: "gcshrinkstackoff=1,gctrace=1", wantChanged: false},
 		{name: "collapses duplicates", environ: []string{"GODEBUG=gcshrinkstackoff=0,gcshrinkstackoff=1"}, wantGODEBUG: "gcshrinkstackoff=1", wantChanged: true},
 		{name: "bare key without value is unsafe", environ: []string{"GODEBUG=gcshrinkstackoff"}, wantGODEBUG: "gcshrinkstackoff=1", wantChanged: true},
 		{name: "preserves other debug keys", environ: []string{"GODEBUG=tracebacklabels=0,x509sslcertoverrideplatform=0"}, wantGODEBUG: "tracebacklabels=0,x509sslcertoverrideplatform=0,gcshrinkstackoff=1", wantChanged: true},

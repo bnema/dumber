@@ -2006,19 +2006,6 @@ func (wv *WebView) schedulePendingNavigationReplay(attempt int) {
 	})
 }
 
-func (wv *WebView) replayPendingNavigation(attempt int) {
-	if wv == nil || wv.destroyed.Load() {
-		return
-	}
-	wv.mu.RLock()
-	intentID := wv.pendingIntentID
-	wv.mu.RUnlock()
-	if intentID == 0 {
-		return
-	}
-	wv.replayPendingNavigationForIntent(attempt, intentID)
-}
-
 // replayPendingNavigationForIntent submits at most one LoadURL per navigation
 // intent. Duplicate scheduled tasks for an already-issued intent return
 // without resubmitting; stale tasks for a replaced intent return as well.
@@ -2064,17 +2051,24 @@ func (wv *WebView) replayPendingNavigationForIntent(attempt int, intentID uint64
 	currentURL := frame.GetURL()
 	if pendingURIEquivalent(currentURL, uri) {
 		wv.mu.Lock()
-		if wv.pendingIntentID == intentID {
+		submitted := wv.pendingIntentID == intentID && wv.pendingIssued
+		if submitted {
 			wv.clearPendingNavigationIfEquivalentLocked(uri)
 		}
 		wv.mu.Unlock()
-		if wv.ctx != nil {
-			logging.FromContext(wv.ctx).Debug().
-				Int("attempt", attempt).
-				Str("uri", logging.TruncateURL(uri, logging.PermissionLogURLMaxLen)).
-				Msg("cef: pending navigation already active")
+		if submitted {
+			if wv.ctx != nil {
+				logging.FromContext(wv.ctx).Debug().
+					Int("attempt", attempt).
+					Str("uri", logging.TruncateURL(uri, logging.PermissionLogURLMaxLen)).
+					Msg("cef: pending navigation already active")
+			}
+			return
 		}
-		return
+		// Unissued explicit intent for the current URL (e.g. a same-URL
+		// reload): browsers always bootstrap on about:blank, so this is a
+		// fresh request that must proceed to the claim below, not be
+		// cleared as already active.
 	}
 	// Claim submission only for the current unissued intent with a valid
 	// frame; see claimPendingNavigationSubmission. Mark issued before the
