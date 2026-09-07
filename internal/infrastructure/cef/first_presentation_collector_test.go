@@ -310,6 +310,7 @@ func TestFirstPresentationCollectorDefaultsToXDGStateEvidenceDirectory(t *testin
 	binary := filepath.Join(temp, "dumber")
 	require.NoError(t, os.WriteFile(binary, collectorTestBinary(validFirstPresentationLog), 0o755))
 	stateHome := filepath.Join(temp, "state")
+	goBin := collectorProvenanceGo(t, temp, "v0.8.5-0.20300102030405-bbd397409ebe", "bbd397409ebed75a5979c1e4566a2ef319f6a484", "")
 
 	cmd := exec.Command(filepath.Join(repoRoot, "scripts", "collect_first_presentation.sh"))
 	cmd.Dir = repoRoot
@@ -321,6 +322,7 @@ func TestFirstPresentationCollectorDefaultsToXDGStateEvidenceDirectory(t *testin
 		"DUMBER_FIRST_PRESENTATION_TIMEOUT_SECONDS=1",
 		"DUMBER_MACHINE_GPU_PROFILE=integrated-gpu",
 		"XDG_STATE_HOME="+stateHome,
+		"PATH="+filepath.Dir(goBin)+":"+os.Getenv("PATH"),
 	)
 	result, err := cmd.CombinedOutput()
 	require.NoErrorf(t, err, "collector failed: %s", result)
@@ -353,7 +355,8 @@ func TestFirstPresentationCollectorReadsProvenanceWithScopedGitSafeDirectory(t *
 	require.NoError(t, os.Mkdir(runtime, 0o755))
 	binary := filepath.Join(temp, "dumber")
 	require.NoError(t, os.WriteFile(binary, collectorTestBinary(validFirstPresentationLog), 0o755))
-	gitDir := filepath.Join(temp, "bin")
+	goBin := collectorProvenanceGo(t, temp, "v0.8.5-0.20300102030405-bbd397409ebe", "bbd397409ebed75a5979c1e4566a2ef319f6a484", "")
+	gitDir := filepath.Join(temp, "gitbin")
 	require.NoError(t, os.Mkdir(gitDir, 0o755))
 	git := filepath.Join(gitDir, "git")
 	require.NoError(t, os.WriteFile(git, []byte(`#!/bin/sh
@@ -375,7 +378,7 @@ exit 128
 		"DUMBER_FIRST_PRESENTATION_OUTPUT="+output,
 		"DUMBER_FIRST_PRESENTATION_TIMEOUT_SECONDS=1",
 		"EXPECTED_SAFE_DIRECTORY="+repoRoot,
-		"PATH="+gitDir+":"+os.Getenv("PATH"),
+		"PATH="+gitDir+":"+filepath.Dir(goBin)+":"+os.Getenv("PATH"),
 	)
 	result, err := cmd.CombinedOutput()
 	require.NoErrorf(t, err, "collector failed: %s", result)
@@ -410,6 +413,7 @@ func TestFirstPresentationCollectorRejectsInconsistentTiming(t *testing.T) {
 			binary := filepath.Join(temp, "dumber")
 			log := strings.Replace(validFirstPresentationLog, test.old, test.new, 1)
 			require.NoError(t, os.WriteFile(binary, collectorTestBinary(log), 0o755))
+			goBin := collectorProvenanceGo(t, temp, "v0.8.5-0.20300102030405-bbd397409ebe", "bbd397409ebed75a5979c1e4566a2ef319f6a484", "")
 
 			cmd := exec.Command(filepath.Join(repoRoot, "scripts", "collect_first_presentation.sh"))
 			cmd.Dir = repoRoot
@@ -419,6 +423,7 @@ func TestFirstPresentationCollectorRejectsInconsistentTiming(t *testing.T) {
 				"DUMBER_FIRST_PRESENTATION_BIN="+binary,
 				"DUMBER_FIRST_PRESENTATION_OUTPUT="+filepath.Join(temp, "artifacts"),
 				"DUMBER_FIRST_PRESENTATION_TIMEOUT_SECONDS=1",
+				"PATH="+filepath.Dir(goBin)+":"+os.Getenv("PATH"),
 			)
 			result, err := cmd.CombinedOutput()
 			require.Errorf(t, err, "collector accepted malformed timing artifact: %s", result)
