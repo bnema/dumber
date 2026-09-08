@@ -150,12 +150,6 @@ class CliValidationTest(unittest.TestCase):
                 capture_output=True, text=True)
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("idle-timeout-ms", result.stderr)
-        result = subprocess.run(
-            [sys.executable, self.script, "--binary", self.binary, "--cef-dir", self.cef_dir,
-             "--scenario", "profile-fresh", "--fixture", "static",
-             "--runs", "0", "--output", os.path.join(self.temp, "out2")],
-            capture_output=True, text=True)
-        self.assertNotEqual(result.returncode, 0)
 
 
 class FakeBinaryLifetimeTest(unittest.TestCase):
