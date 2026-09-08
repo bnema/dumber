@@ -6,13 +6,24 @@ set -euo pipefail
 
 readonly runs=5
 readonly timeout_seconds="${DUMBER_FIRST_PRESENTATION_TIMEOUT_SECONDS:-45}"
-readonly runtime="${DUMBER_CEF_DIR:-$HOME/.local/share/cef-147-runtime}"
 readonly binary="${DUMBER_FIRST_PRESENTATION_BIN:-$PWD/dist/dumber}"
+readonly manifest="${DUMBER_BUILD_MANIFEST:-${binary}.manifest.json}"
 
 fail_unsafe_output() {
   echo "first-presentation: unsafe output path: $1" >&2
   exit 2
 }
+
+# The measured runtime is always explicit. Never default to a hardcoded path
+# or version: collection fails closed when the caller does not select one.
+if [[ -z "${DUMBER_CEF_DIR:-}" ]]; then
+  echo "first-presentation: DUMBER_CEF_DIR must be set to the selected CEF runtime directory" >&2
+  exit 2
+fi
+readonly runtime="${DUMBER_CEF_DIR}"
+# Never inherit a conflicting CEF_DIR override: the child environment below is
+# built with env -i and receives exactly this selected directory.
+readonly selected_cef_dir="${DUMBER_CEF_DIR}"
 
 if [[ -v DUMBER_FIRST_PRESENTATION_OUTPUT ]]; then
   output="$DUMBER_FIRST_PRESENTATION_OUTPUT"
@@ -31,85 +42,110 @@ else
 fi
 readonly output
 readonly upstream_module="github.com/bnema/purego-cef2gtk"
+readonly script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+readonly runtime_probe="$script_dir/cef_runtime_probe.py"
 
-# Resolve the version selected by this checkout, then obtain its immutable VCS
-# origin from Go's cached module metadata. Do not infer a revision from a tag,
-# a branch, or a truncated pseudo-version suffix.
-resolve_upstream_provenance() {
-  local selected_metadata selected_version downloaded_metadata
-
-  selected_metadata="$(GOFLAGS=-mod=mod go list -m -json "$upstream_module" 2>/dev/null)" || {
-    echo "first-presentation: immutable module provenance is unavailable" >&2
-    exit 2
-  }
-  selected_version="$(python3 - "$upstream_module" "$selected_metadata" <<'PY'
-import json, sys
-try:
-    metadata = json.loads(sys.argv[2])
-    if metadata.get("Path") != sys.argv[1] or not isinstance(metadata.get("Version"), str):
-        raise ValueError
-    print(metadata["Version"])
-except (AttributeError, TypeError, ValueError, json.JSONDecodeError):
-    raise SystemExit("first-presentation: immutable module provenance is unavailable")
-PY
-)" || exit $?
-  downloaded_metadata="$(go mod download -json "$upstream_module@$selected_version" 2>/dev/null)" || {
-    echo "first-presentation: immutable module provenance is unavailable" >&2
-    exit 2
-  }
-
-  python3 - "$upstream_module" "$selected_metadata" "$downloaded_metadata" <<'PY'
-import json, re, sys
-
-module, selected_raw, downloaded_raw = sys.argv[1:]
+# Resolve provenance from the measured binary, not the collection checkout.
+# Reads embedded build info via `go version -m` and requires a build manifest
+# tied to the candidate SHA-256 when VCS data is absent (including
+# buildvcs=false builds). Never queries the checkout module graph.
+resolve_binary_provenance() {
+  python3 - "$binary" "$manifest" "$upstream_module" <<'PY'
+import hashlib, json, os, re, subprocess, sys
+binary, manifest_path, module = sys.argv[1:]
 
 def fail():
-    # Do not expose Go cache locations or other machine-local values.
+    # Do not expose cache locations or other machine-local values.
     raise SystemExit("first-presentation: immutable module provenance is unavailable")
 
+with open(binary, "rb") as candidate:
+    # Chunked streaming hash: hashlib.file_digest needs 3.11+, this stays
+    # compatible with older 3.x interpreters.
+    digest = hashlib.sha256()
+    for chunk in iter(lambda: candidate.read(65536), b""):
+        digest.update(chunk)
+    binary_sha256 = digest.hexdigest()
+
 try:
-    selected = json.loads(selected_raw)
-    downloaded = json.loads(downloaded_raw)
-    version = selected["Version"]
-    if selected.get("Path") != module or downloaded.get("Path") != module:
-        fail()
-    if downloaded.get("Version") != version:
-        fail()
-    # A pseudo-version identifies an immutable commit; a released semver tag is
-    # accepted only when Go records that exact tag and its immutable hash.
-    pseudo_match = re.fullmatch(r"(v\d+\.\d+\.\d+)-0\.\d{14}-([0-9a-f]{12})", version)
-    tag_match = re.fullmatch(r"v\d+\.\d+\.\d+", version)
-    if not pseudo_match and not tag_match:
-        fail()
-    info_path = downloaded.get("Info")
-    if not isinstance(info_path, str) or not info_path:
-        fail()
-    with open(info_path, encoding="utf-8") as info_file:
-        info = json.load(info_file)
-    origin = info.get("Origin") or downloaded.get("Origin")
-    if info.get("Version") != version or not isinstance(origin, dict):
-        fail()
-    revision = origin.get("Hash")
-    if origin.get("VCS") != "git" or origin.get("URL") != "https://github.com/bnema/purego-cef2gtk":
-        fail()
-    if not isinstance(revision, str) or not re.fullmatch(r"[0-9a-f]{40}", revision):
-        fail()
-    if pseudo_match:
-        if not revision.startswith(pseudo_match.group(2)):
-            fail()
-        # A named ref can move. Only the immutable hash itself is acceptable.
-        if origin.get("Ref") not in (None, "", revision):
-            fail()
-        tag = pseudo_match.group(1)
-    else:
-        if origin.get("Ref") != "refs/tags/" + version:
-            fail()
-        tag = version
-except (AttributeError, KeyError, OSError, TypeError, ValueError, json.JSONDecodeError):
+    buildinfo = subprocess.check_output(["go", "version", "-m", binary], text=True, stderr=subprocess.DEVNULL)
+except (OSError, subprocess.CalledProcessError):
+    raise SystemExit("first-presentation: immutable module provenance is unavailable")
+if "=>" in buildinfo:
+    raise SystemExit("first-presentation: immutable module provenance is unavailable")
+
+mod_version = None
+dep_version = None
+vcs_revision = None
+for line in buildinfo.splitlines():
+    parts = line.split()
+    if len(parts) < 2:
+        continue
+    if parts[0] == "mod" and len(parts) >= 3 and parts[1] == "github.com/bnema/dumber":
+        mod_version = parts[2]
+    if parts[0] == "dep" and len(parts) >= 3 and parts[1] == module:
+        dep_version = parts[2]
+    if parts[0] == "build" and len(parts) >= 2 and parts[1].startswith("vcs.revision="):
+        vcs_revision = parts[1].split("=", 1)[1]
+if dep_version is None:
+    fail()
+pseudo_match = re.fullmatch(r"(v\d+\.\d+\.\d+)-0\.\d{14}-([0-9a-f]{12})", dep_version)
+tag_match = re.fullmatch(r"v\d+\.\d+\.\d+", dep_version)
+if not pseudo_match and not tag_match:
+    fail()
+if vcs_revision is not None and not re.fullmatch(r"[0-9a-f]{40}", vcs_revision):
     fail()
 
-print("\t".join((version, tag, revision)))
+try:
+    with open(manifest_path, encoding="utf-8") as manifest_file:
+        manifest = json.load(manifest_file)
+except (OSError, ValueError):
+    manifest = None
+
+if manifest is None:
+    # Without embedded VCS data the binary cannot be attributed; fail closed.
+    if vcs_revision is None:
+        raise SystemExit("first-presentation: build manifest is required for binaries without embedded VCS data")
+    # Embedded VCS revision attributes the binary itself, but the full
+    # upstream revision is not in build info; the manifest must still bind it.
+    raise SystemExit("first-presentation: build manifest is required to bind dependency revisions")
+
+if not isinstance(manifest, dict):
+    raise SystemExit("first-presentation: build manifest is required for binaries without embedded VCS data")
+if manifest.get("binary_sha256") != binary_sha256:
+    raise SystemExit("first-presentation: build manifest does not match the measured binary")
+source_revision = manifest.get("source_revision")
+if not isinstance(source_revision, str) or not re.fullmatch(r"[0-9a-f]{40}", source_revision):
+    raise SystemExit("first-presentation: build manifest does not match the measured binary")
+if vcs_revision is not None and vcs_revision != source_revision:
+    raise SystemExit("first-presentation: build manifest does not match the measured binary")
+modules = manifest.get("modules")
+if not isinstance(modules, dict) or module not in modules:
+    raise SystemExit("first-presentation: build manifest does not match the measured binary")
+entry = modules[module]
+if not isinstance(entry, dict) or entry.get("version") != dep_version:
+    raise SystemExit("first-presentation: build manifest does not match the measured binary")
+revision = entry.get("revision")
+if not isinstance(revision, str) or not re.fullmatch(r"[0-9a-f]{40}", revision):
+    raise SystemExit("first-presentation: build manifest does not match the measured binary")
+if pseudo_match:
+    if not revision.startswith(pseudo_match.group(2)):
+        raise SystemExit("first-presentation: build manifest does not match the measured binary")
+    tag = pseudo_match.group(1)
+else:
+    tag = dep_version
+
+print("\t".join((binary_sha256, source_revision, dep_version, tag, revision)))
 PY
+}
+
+# Probe the explicitly selected runtime in a separate bounded subprocess.
+# Reports numeric version fields plus library hash, never a path. The
+# candidate must still pass its normal loader ABI/version validation.
+probe_runtime() {
+  timeout --signal=TERM --kill-after=5s 30s python3 "$runtime_probe" --cef-dir "$selected_cef_dir" 2>/dev/null || {
+    echo "first-presentation: CEF runtime probe failed" >&2
+    exit 2
+  }
 }
 
 # The artifact destination is caller-controlled. Never empty or recursively
@@ -141,12 +177,22 @@ prepare_output() {
 
 prepare_output
 
-[[ -x "$binary" ]] || { echo "first-presentation: executable not found: $binary" >&2; exit 2; }
-[[ -d "$runtime" ]] || { echo "first-presentation: CEF runtime not found: $runtime" >&2; exit 2; }
+[[ -x "$binary" ]] || { echo "first-presentation: executable not found" >&2; exit 2; }
+[[ -d "$runtime" ]] || { echo "first-presentation: CEF runtime not found" >&2; exit 2; }
 [[ -n "${WAYLAND_DISPLAY:-}${DISPLAY:-}" ]] || { echo "first-presentation: a current Wayland/X11 display is required" >&2; exit 2; }
-upstream_provenance="$(resolve_upstream_provenance)" || exit $?
-IFS=$'\t' read -r upstream_version upstream_tag upstream_revision <<<"$upstream_provenance"
-readonly upstream_version upstream_tag upstream_revision
+binary_provenance="$(resolve_binary_provenance)" || exit $?
+IFS=$'\t' read -r binary_sha256 measured_source_revision upstream_version upstream_tag upstream_revision <<<"$binary_provenance"
+readonly binary_sha256 measured_source_revision upstream_version upstream_tag upstream_revision
+runtime_probe_json="$(probe_runtime)" || exit $?
+readonly runtime_probe_json
+# Enforce the loader minimum (CHROME_VERSION_MAJOR >= 150) at collection time.
+# This records the observed runtime; it never bypasses the candidate ABI check.
+python3 - "$runtime_probe_json" <<'PY'
+import json, sys
+probe = json.loads(sys.argv[1])
+if not isinstance(probe.get("chrome_version_major"), int) or probe["chrome_version_major"] < 150:
+    raise SystemExit("first-presentation: unsupported CEF runtime")
+PY
 
 # Raw logs and temporary XDG homes may contain machine-local paths. Keep them
 # outside the committed artifact directory and always remove them.
@@ -157,11 +203,10 @@ cleanup_work_root() {
   rm -rf -- "$work_root"
 }
 trap cleanup_work_root EXIT
-python3 - "$output/metadata.json" "$binary" "$timeout_seconds" "$upstream_module" "$upstream_version" "$upstream_tag" "$upstream_revision" <<'PY'
-import hashlib, json, os, platform, subprocess, sys
-path, binary, timeout, upstream_module, upstream_version, upstream_tag, upstream_revision = sys.argv[1:]
-with open(binary, "rb") as candidate:
-  binary_sha256 = hashlib.file_digest(candidate, "sha256").hexdigest()
+python3 - "$output/metadata.json" "$binary_sha256" "$timeout_seconds" "$upstream_module" "$upstream_version" "$upstream_tag" "$upstream_revision" "$measured_source_revision" "$runtime_probe_json" <<'PY'
+import json, os, platform, sys
+path, binary_sha256, timeout, upstream_module, upstream_version, upstream_tag, upstream_revision, measured_source_revision, probe_raw = sys.argv[1:]
+probe = json.loads(probe_raw)
 
 # These deliberately coarse labels support comparison without exposing a host,
 # device name, driver version, path, or environment dump.
@@ -175,10 +220,10 @@ if gpu_profile not in allowed_gpu_profiles:
 
 json.dump({
   "runs": 5,
-  "runtime": {"label": "cef", "version": "147"},
+  "runtime": {"label": "cef", "chrome_major": probe["chrome_version_major"], "cef_version_major": probe["cef_version_major"], "libcef_sha256": probe["libcef_sha256"]},
   "binary": {"label": "dumber", "sha256": binary_sha256},
   "timeout_seconds": int(timeout),
-  "measured_source_revision": subprocess.check_output(["git", "-c", f"safe.directory={os.getcwd()}", "rev-parse", "HEAD"], text=True).strip(),
+  "measured_source_revision": measured_source_revision,
   "upstream": {"module": upstream_module, "version": upstream_version, "tag": upstream_tag, "revision": upstream_revision},
   "comparison": {"os": os_label, "architecture": architecture, "display_protocol": display_protocol, "machine_gpu_profile": gpu_profile},
   "render_configuration": {"backend": "gdk-dmabuf", "buffer_sharing": "dmabuf", "renderer": "vulkan"}
@@ -197,16 +242,19 @@ format = "json"
 enable_file_log = false
 
 [engine.cef]
-cef_dir = "$runtime"
+cef_dir = "$selected_cef_dir"
 EOF
   # Every directory below is newly created for this one launch. Do not inherit
   # a profile, shader cache, CEF root cache, or mutable app configuration.
+  # CEF_DIR is set to exactly the selected runtime, never a conflicting
+  # inherited override.
   set +e
   env -i \
     HOME="$HOME" PATH="$PATH" LANG="${LANG:-C.UTF-8}" \
     WAYLAND_DISPLAY="${WAYLAND_DISPLAY:-}" DISPLAY="${DISPLAY:-}" XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-}" \
     DBUS_SESSION_BUS_ADDRESS="${DBUS_SESSION_BUS_ADDRESS:-}" XAUTHORITY="${XAUTHORITY:-}" \
     XDG_CONFIG_HOME="$root/config" XDG_DATA_HOME="$root/data" XDG_STATE_HOME="$root/state" XDG_CACHE_HOME="$root/cache" \
+    CEF_DIR="$selected_cef_dir" DUMBER_CEF_DIR="$selected_cef_dir" \
     DUMBER_CEF_ROOT_CACHE_PATH="$root/cef-root-cache" DUMBER_RENDER_STACK="vulkan-dmabuf" \
     PUREGO_CEF2GTK_BACKEND="gdk-dmabuf" PUREGO_CEF2GTK_ANGLE_BACKEND="vulkan" GSK_RENDERER="vulkan" \
     timeout --signal=TERM --kill-after=5s "${timeout_seconds}s" "$binary" browse about:blank >"$root/process.log" 2>&1

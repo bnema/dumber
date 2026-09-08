@@ -89,6 +89,12 @@ scripts/*
 !scripts/verify_purego_only.sh
 !scripts/stress_omnibox_callbacks.go
 !scripts/cef-gpu-diagnostics.sh
+!scripts/collect_first_presentation.sh
+!scripts/cef_runtime_probe.py
+!scripts/measure_cef_startup.py
+!scripts/test_measure_cef_startup.py
+!scripts/generate_build_manifest.py
+!scripts/test_systemview_startup.py
 specs/
 templates/
 .serena/

@@ -179,9 +179,17 @@ type WebView struct {
 	initialBrowserCreateResizeHandled bool
 
 	// pendingURI is set when LoadURI is called before the browser exists.
+	// Each explicit navigation request installs a new monotonically increasing
+	// pendingIntentID (including repeated same-URL requests); lifecycle replay
+	// never creates an intent. pendingIssued tracks whether the current intent
+	// has been submitted via LoadURL; duplicate scheduled tasks for an issued
+	// intent return without resubmitting.
 	pendingURI          string
 	pendingURISetAt     time.Time
 	pendingURIStartedAt time.Time
+	pendingIntentID     uint64
+	pendingIssued       bool
+	pendingIntentNext   uint64
 
 	// GTK sync dispatch hooks are injectable for tests. Production uses the GTK
 	// default main context through runOnGTK and isOnGTKThread.
@@ -1905,11 +1913,17 @@ func (wv *WebView) pendingNavigationURI() string {
 func (wv *WebView) setPendingNavigationLocked(uri string, at time.Time) {
 	wv.pendingURI = uri
 	wv.pendingURIStartedAt = time.Time{}
+	wv.pendingIssued = false
 	if uri == "" {
 		wv.pendingURISetAt = time.Time{}
+		wv.pendingIntentID = 0
 		return
 	}
 	wv.pendingURISetAt = at
+	// Every explicit request installs a new intent, including repeated
+	// same-URL requests; lifecycle replay never calls this.
+	wv.pendingIntentNext++
+	wv.pendingIntentID = wv.pendingIntentNext
 }
 
 func (wv *WebView) markPendingNavigationStartedLocked(uri string, at time.Time) {
@@ -1924,6 +1938,8 @@ func (wv *WebView) clearPendingNavigationLocked() string {
 	wv.pendingURI = ""
 	wv.pendingURISetAt = time.Time{}
 	wv.pendingURIStartedAt = time.Time{}
+	wv.pendingIntentID = 0
+	wv.pendingIssued = false
 	return cleared
 }
 
@@ -1949,8 +1965,16 @@ func (wv *WebView) schedulePendingNavigationReplay(attempt int) {
 	if wv == nil || wv.destroyed.Load() {
 		return
 	}
+	// Capture the intent at schedule time; a rapid replacement installs a new
+	// intent and stale tasks for the old ID must return without submitting.
+	wv.mu.RLock()
+	intentID := wv.pendingIntentID
+	wv.mu.RUnlock()
+	if intentID == 0 {
+		return
+	}
 	task := cefNewTask(cefTaskFunc(func() {
-		wv.replayPendingNavigation(attempt)
+		wv.replayPendingNavigationForIntent(attempt, intentID)
 	}))
 	if task == nil {
 		return
@@ -1982,15 +2006,26 @@ func (wv *WebView) schedulePendingNavigationReplay(attempt int) {
 	})
 }
 
-func (wv *WebView) replayPendingNavigation(attempt int) {
+// replayPendingNavigationForIntent submits at most one LoadURL per navigation
+// intent. Duplicate scheduled tasks for an already-issued intent return
+// without resubmitting; stale tasks for a replaced intent return as well.
+// Missing-frame and task-post failures retry only that same intent ID.
+func (wv *WebView) replayPendingNavigationForIntent(attempt int, intentID uint64) {
 	if wv == nil || wv.destroyed.Load() {
 		return
 	}
 	wv.mu.RLock()
 	uri := wv.pendingURI
 	browser := wv.browser
+	currentID := wv.pendingIntentID
+	issued := wv.pendingIssued
 	wv.mu.RUnlock()
-	if uri == "" || browser == nil {
+	if uri == "" || browser == nil || currentID == 0 || intentID != currentID {
+		return
+	}
+	if issued {
+		// Already submitted for this intent; a blank OnLoadEnd scheduling a
+		// second replay must not resubmit an in-flight navigation.
 		return
 	}
 	frame := browser.GetMainFrame()
@@ -2016,26 +2051,112 @@ func (wv *WebView) replayPendingNavigation(attempt int) {
 	currentURL := frame.GetURL()
 	if pendingURIEquivalent(currentURL, uri) {
 		wv.mu.Lock()
-		wv.clearPendingNavigationIfEquivalentLocked(uri)
-		wv.mu.Unlock()
-		if wv.ctx != nil {
-			logging.FromContext(wv.ctx).Debug().
-				Int("attempt", attempt).
-				Str("uri", logging.TruncateURL(uri, logging.PermissionLogURLMaxLen)).
-				Msg("cef: pending navigation already active")
+		submitted := wv.pendingIntentID == intentID && wv.pendingIssued
+		if submitted {
+			wv.clearPendingNavigationIfEquivalentLocked(uri)
 		}
-		return
+		wv.mu.Unlock()
+		if submitted {
+			if wv.ctx != nil {
+				logging.FromContext(wv.ctx).Debug().
+					Int("attempt", attempt).
+					Str("uri", logging.TruncateURL(uri, logging.PermissionLogURLMaxLen)).
+					Msg("cef: pending navigation already active")
+			}
+			return
+		}
+		// Unissued explicit intent for the current URL (e.g. a same-URL
+		// reload): browsers always bootstrap on about:blank, so this is a
+		// fresh request that must proceed to the claim below, not be
+		// cleared as already active.
 	}
-	wv.mu.Lock()
-	wv.markPendingNavigationStartedLocked(uri, time.Now())
-	wv.mu.Unlock()
-	frame.LoadURL(uri)
+	// Claim submission only for the current unissued intent with a valid
+	// frame; see claimPendingNavigationSubmission. Mark issued before the
+	// foreign LoadURL, outside the lock.
+	submitURI, claim := wv.claimPendingNavigationSubmission(intentID, browser.GetIdentifier())
+	switch claim {
+	case pendingClaimReplaced:
+		// Browser was replaced between frame acquisition and claim; retry
+		// the same intent so the new browser is used at execution time.
+		wv.schedulePendingNavigationReplay(attempt + 1)
+	case pendingClaimReady:
+		frame.LoadURL(submitURI)
+		wv.resubmitIfBrowserReplaced(attempt, intentID, browser)
+	}
 	if wv.ctx != nil {
 		logging.FromContext(wv.ctx).Debug().
 			Int("attempt", attempt).
 			Str("uri", logging.TruncateURL(uri, logging.PermissionLogURLMaxLen)).
 			Msg("cef: replayed pending navigation")
 	}
+}
+
+// resubmitIfBrowserReplaced re-checks the attached browser after the
+// claim's foreign LoadURL: a replacement in between leaves the navigation on
+// a stale frame while the intent reads issued. Clearing the issuance while
+// the intent is still current keeps it replayable, and the retry goes to
+// the current browser instead of dropping the navigation. Instance
+// comparison follows the same pointer-wrapper convention as the claim.
+func (wv *WebView) resubmitIfBrowserReplaced(attempt int, intentID uint64, submitted purecef.Browser) {
+	wv.mu.Lock()
+	replaced := wv.pendingIntentID == intentID && wv.pendingIssued && wv.browser != submitted
+	if replaced {
+		wv.pendingIssued = false
+	}
+	wv.mu.Unlock()
+	if replaced {
+		wv.schedulePendingNavigationReplay(attempt + 1)
+	}
+}
+
+type pendingClaimResult int
+
+const (
+	// pendingClaimStale means the intent changed, was issued, or was cleared:
+	// the caller must return without submitting.
+	pendingClaimStale pendingClaimResult = iota
+	// pendingClaimReplaced means the browser was replaced between frame
+	// acquisition and claim: the caller must retry the same intent.
+	pendingClaimReplaced
+	// pendingClaimReady means the intent was claimed: the caller submits uri.
+	pendingClaimReady
+)
+
+// claimPendingNavigationSubmission re-reads state and claims submission for
+// intentID only when it is still the current unissued intent. Browsers are
+// correlated by identifier, matching codebase convention; all foreign calls
+// happen outside the state lock. The final claim additionally requires the
+// attached browser to still be the instance observed before the lock: a
+// replacement between the identifier check and the claim is reported as
+// replaced so the caller retries against the current browser instead of
+// marking the intent issued and submitting to a stale frame. The issued
+// mark is set before the caller performs the foreign LoadURL.
+func (wv *WebView) claimPendingNavigationSubmission(intentID uint64, browserID int32) (string, pendingClaimResult) {
+	wv.mu.RLock()
+	if wv.pendingIntentID != intentID || wv.pendingIssued || wv.browser == nil {
+		wv.mu.RUnlock()
+		return "", pendingClaimStale
+	}
+	currentBrowser := wv.browser
+	wv.mu.RUnlock()
+	if currentBrowser.GetIdentifier() != browserID {
+		return "", pendingClaimReplaced
+	}
+	wv.mu.Lock()
+	defer wv.mu.Unlock()
+	if wv.pendingIntentID != intentID || wv.pendingIssued || wv.browser == nil {
+		return "", pendingClaimStale
+	}
+	// Interface identity comparison is safe here: attached browsers are
+	// always the pointer wrappers delivered by CEF callbacks (mocks are
+	// pointers as well), and no foreign call happens under the lock.
+	if wv.browser != currentBrowser {
+		return "", pendingClaimReplaced
+	}
+	wv.pendingIssued = true
+	uri := wv.pendingURI
+	wv.markPendingNavigationStartedLocked(uri, time.Now())
+	return uri, pendingClaimReady
 }
 
 func pendingURIEquivalent(a, b string) bool {

@@ -42,6 +42,11 @@ LDFLAGS=-ldflags "-s -w -X main.version=$(VERSION) -X main.commit=$(COMMIT) -X m
 # package boundaries. Both are required — -l alone is insufficient.
 GCFLAGS=-gcflags 'all=-N -l'
 
+# VCS stamping for measured binaries. build-quick stays unstamped for fast
+# iteration; build-manifest forces stamping so the manifest binds the exact
+# built tree instead of the ambient checkout HEAD.
+BUILDVCS?=false
+
 # Default target
 help: ## Show this help message
 	@echo "Available targets:"
@@ -72,9 +77,15 @@ build-systemviews: generate-systemviews ## Build the WASM systemviews runtime
 build-quick: ## Build quickly for backend development
 	@echo "Building $(BINARY_NAME) $(VERSION) (quick)..."
 	@mkdir -p $(DIST_DIR)
-	GOFLAGS="$(NATIVE_GOFLAGS)" CGO_ENABLED=0 go build -buildvcs=false -p $(NPROCS) $(GCFLAGS) $(LDFLAGS) -o $(DIST_DIR)/$(BINARY_NAME) $(MAIN_PATH)
+	GOFLAGS="$(NATIVE_GOFLAGS)" CGO_ENABLED=0 go build -buildvcs=$(BUILDVCS) -p $(NPROCS) $(GCFLAGS) $(LDFLAGS) -o $(DIST_DIR)/$(BINARY_NAME) $(MAIN_PATH)
 	@rm -f $(DIST_DIR)/cef-helper
 	@echo "Build successful! Binary: $(DIST_DIR)/$(BINARY_NAME)"
+
+build-manifest: ## Generate the collector build manifest for dist/dumber (VCS-stamped build)
+	@$(MAKE) build-quick BUILDVCS=true
+	@echo "Generating build manifest..."
+	python3 scripts/generate_build_manifest.py --binary $(DIST_DIR)/$(BINARY_NAME)
+	@echo "Manifest: $(DIST_DIR)/$(BINARY_NAME).manifest.json"
 
 install-local: build-quick ## Install dumber to ~/.local/bin atomically
 	@echo "Installing $(BINARY_NAME) to $(LOCAL_BIN_DIR)..."

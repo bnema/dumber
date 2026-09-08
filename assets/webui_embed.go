@@ -21,3 +21,11 @@ var LogoSVG []byte
 //
 //go:embed logo-32.png
 var LogoPNG32 []byte
+
+// LogoPNG512 contains the dumber logo as 512x512 PNG for the loading
+// placeholder. The initial pane decodes this raster asset instead of SVG to
+// avoid XML parsing and rasterization on the critical path. LogoSVG remains
+// the source for desktop icon installation.
+//
+//go:embed logo-512.png
+var LogoPNG512 []byte

@@ -2,6 +2,7 @@ package cef
 
 import (
 	"context"
+	"sync"
 	"testing"
 	"time"
 
@@ -16,13 +17,70 @@ func TestWebViewReplayPendingNavigation_LoadsQueuedURIWhenMainFrameAvailable(t *
 	frame.EXPECT().GetURL().Return("").Once()
 	frame.EXPECT().LoadURL("https://github.com/bnema").Once()
 	browser.EXPECT().GetMainFrame().Return(frame).Once()
+	browser.EXPECT().GetIdentifier().Return(int32(1)).Twice()
 
-	wv := &WebView{ctx: context.Background(), browser: browser, pendingURI: "https://github.com/bnema"}
-	wv.replayPendingNavigation(0)
+	wv := &WebView{ctx: context.Background(), browser: browser}
+	wv.setPendingNavigationLocked("https://github.com/bnema", time.Now())
+	wv.replayPendingNavigationForIntent(0, wv.pendingIntentID)
 
 	wv.mu.RLock()
 	defer wv.mu.RUnlock()
 	require.Equal(t, "https://github.com/bnema", wv.pendingURI)
+}
+
+// TestWebViewClaimPendingNavigationSubmission_RejectsInstanceReplacement
+// reproduces a browser swap landing between the identifier check and the
+// final claim: the replacement carries the same identifier, so only the
+// instance-identity guard can catch it. The claim must report replaced
+// without marking the intent issued, leaving the retry path able to submit
+// against the current browser.
+func TestWebViewClaimPendingNavigationSubmission_RejectsInstanceReplacement(t *testing.T) {
+	browserA := cefmocks.NewMockBrowser(t)
+	browserB := cefmocks.NewMockBrowser(t)
+	entered := make(chan struct{})
+	var enterOnce sync.Once
+	proceed := make(chan struct{})
+	browserA.EXPECT().GetIdentifier().RunAndReturn(func() int32 {
+		enterOnce.Do(func() { close(entered) })
+		<-proceed
+		return int32(7)
+	}).Once()
+
+	wv := &WebView{ctx: context.Background(), browser: browserA}
+	wv.setPendingNavigationLocked("https://example.com", time.Now())
+	intentID := wv.pendingIntentID
+	require.NotZero(t, intentID)
+
+	claimed := make(chan pendingClaimResult, 1)
+	go func() {
+		_, result := wv.claimPendingNavigationSubmission(intentID, int32(7))
+		claimed <- result
+	}()
+
+	select {
+	case <-entered:
+	case <-time.After(10 * time.Second):
+		t.Fatal("claim did not reach the identifier check")
+	}
+
+	// Swap the attached browser while the claim is past the snapshot: same
+	// identifier, different instance.
+	wv.mu.Lock()
+	wv.browser = browserB
+	wv.mu.Unlock()
+	close(proceed)
+
+	select {
+	case result := <-claimed:
+		require.Equal(t, pendingClaimReplaced, result, "instance replacement must not claim the intent")
+	case <-time.After(10 * time.Second):
+		t.Fatal("claim did not return after the swap")
+	}
+
+	wv.mu.RLock()
+	defer wv.mu.RUnlock()
+	require.False(t, wv.pendingIssued, "replaced claim must leave the intent unissued for retry")
+	require.Equal(t, intentID, wv.pendingIntentID)
 }
 
 func TestWebViewReplayPendingNavigation_RetriesWhenMainFrameUnavailable(t *testing.T) {
@@ -46,8 +104,9 @@ func TestWebViewReplayPendingNavigation_RetriesWhenMainFrameUnavailable(t *testi
 		return 1
 	}
 
-	wv := &WebView{ctx: context.Background(), browser: browser, pendingURI: "https://github.com/bnema"}
-	wv.replayPendingNavigation(0)
+	wv := &WebView{ctx: context.Background(), browser: browser}
+	wv.setPendingNavigationLocked("https://github.com/bnema", time.Now())
+	wv.replayPendingNavigationForIntent(0, wv.pendingIntentID)
 
 	require.True(t, scheduled)
 	wv.mu.RLock()
@@ -88,7 +147,8 @@ func TestWebViewSchedulePendingNavigationReplay_RetriesWhenTaskPostFails(t *test
 		return 1
 	}
 
-	wv := &WebView{ctx: context.Background(), browser: browser, pendingURI: "https://github.com/bnema"}
+	wv := &WebView{ctx: context.Background(), browser: browser}
+	wv.setPendingNavigationLocked("https://github.com/bnema", time.Now())
 	wv.schedulePendingNavigationReplay(0)
 
 	require.True(t, retried)
@@ -101,6 +161,7 @@ func TestWebViewReplayPendingNavigation_UsesCurrentBrowserAtExecutionTime(t *tes
 	frame.EXPECT().GetURL().Return("").Once()
 	frame.EXPECT().LoadURL("https://github.com/bnema").Once()
 	activeBrowser.EXPECT().GetMainFrame().Return(frame).Once()
+	activeBrowser.EXPECT().GetIdentifier().Return(int32(2)).Twice()
 
 	oldTask := cefNewTask
 	oldPost := cefPostTask
@@ -116,7 +177,8 @@ func TestWebViewReplayPendingNavigation_UsesCurrentBrowserAtExecutionTime(t *tes
 		return 1
 	}
 
-	wv := &WebView{ctx: context.Background(), browser: staleBrowser, pendingURI: "https://github.com/bnema"}
+	wv := &WebView{ctx: context.Background(), browser: staleBrowser}
+	wv.setPendingNavigationLocked("https://github.com/bnema", time.Now())
 	wv.schedulePendingNavigationReplay(0)
 	wv.mu.Lock()
 	wv.browser = activeBrowser
@@ -130,6 +192,7 @@ func TestWebViewLoadURI_QueuesPendingNavigationReplayForExistingBrowser(t *testi
 	browser := cefmocks.NewMockBrowser(t)
 	frame := cefmocks.NewMockFrame(t)
 	browser.EXPECT().GetMainFrame().Return(frame).Once()
+	browser.EXPECT().GetIdentifier().Return(int32(1)).Twice()
 	frame.EXPECT().GetURL().Return("").Once()
 	frame.EXPECT().LoadURL("github.com/bnema").Once()
 
@@ -220,4 +283,229 @@ func TestWebViewUpdateLoadState_KeepsPendingNavigationWhileLoading(t *testing.T)
 	wv.updateLoadState(true, true, false)
 
 	require.Equal(t, pending, wv.pendingNavigationURI())
+}
+
+// TestWebViewReplayPendingNavigation_SubmitsOncePerIntent reproduces the
+// fresh-window race: queue an intent, run OnAfterCreated replay with the
+// frame URL still blank, then deliver blank OnLoadEnd before commit. Exactly
+// one LoadURL must be issued for the intent.
+func TestWebViewReplayPendingNavigation_SubmitsOncePerIntent(t *testing.T) {
+	browser := cefmocks.NewMockBrowser(t)
+	frame := cefmocks.NewMockFrame(t)
+	frame.EXPECT().GetURL().Return("about:blank")
+	frame.EXPECT().LoadURL("https://example.com/target").Once()
+	browser.EXPECT().GetMainFrame().Return(frame)
+	browser.EXPECT().GetIdentifier().Return(int32(1)).Twice()
+
+	oldTask := cefNewTask
+	oldPost := cefPostTask
+	defer func() {
+		cefNewTask = oldTask
+		cefPostTask = oldPost
+	}()
+	cefNewTask = func(task purecef.Task) purecef.Task { return task }
+	var scheduled []purecef.Task
+	cefPostTask = func(_ purecef.ThreadID, task purecef.Task) int32 {
+		scheduled = append(scheduled, task)
+		return 1
+	}
+
+	wv := &WebView{ctx: context.Background(), browser: browser}
+	wv.setPendingNavigationLocked("https://example.com/target", time.Now())
+	// OnAfterCreated schedules replay...
+	wv.schedulePendingNavigationReplay(0)
+	// ...and blank OnLoadEnd schedules a second replay before commit.
+	wv.schedulePendingNavigationReplay(0)
+	require.Len(t, scheduled, 2)
+	for _, task := range scheduled {
+		task.Execute()
+	}
+}
+
+// TestWebViewReplayPendingNavigation_StaleIntentDoesNotResubmit verifies a
+// rapid replacement URL invalidates the previously scheduled task.
+func TestWebViewReplayPendingNavigation_StaleIntentDoesNotResubmit(t *testing.T) {
+	browser := cefmocks.NewMockBrowser(t)
+	frame := cefmocks.NewMockFrame(t)
+	frame.EXPECT().GetURL().Return("").Once()
+	frame.EXPECT().LoadURL("https://example.com/second").Once()
+	browser.EXPECT().GetMainFrame().Return(frame).Once()
+	browser.EXPECT().GetIdentifier().Return(int32(1)).Twice()
+
+	oldTask := cefNewTask
+	oldPost := cefPostTask
+	defer func() {
+		cefNewTask = oldTask
+		cefPostTask = oldPost
+	}()
+	cefNewTask = func(task purecef.Task) purecef.Task { return task }
+	var scheduled []purecef.Task
+	cefPostTask = func(_ purecef.ThreadID, task purecef.Task) int32 {
+		scheduled = append(scheduled, task)
+		return 1
+	}
+
+	wv := &WebView{ctx: context.Background(), browser: browser}
+	wv.setPendingNavigationLocked("https://example.com/first", time.Now())
+	wv.schedulePendingNavigationReplay(0)
+	require.Len(t, scheduled, 1)
+	stale := scheduled[0]
+	// Replacement installs a new intent; the stale task must not submit.
+	wv.setPendingNavigationLocked("https://example.com/second", time.Now())
+	stale.Execute()
+	// Current intent still unissued; a fresh replay submits it once.
+	wv.replayPendingNavigationForIntent(0, wv.pendingIntentID)
+}
+
+// TestWebViewReplayPendingNavigation_RetriesSameIntentOnFailedPost ensures a
+// failed task post retries without consuming or duplicating the intent.
+func TestWebViewReplayPendingNavigation_RetriesSameIntentOnFailedPost(t *testing.T) {
+	browser := cefmocks.NewMockBrowser(t)
+
+	oldTask := cefNewTask
+	oldPost := cefPostTask
+	oldAfter := cefScheduleAfter
+	defer func() {
+		cefNewTask = oldTask
+		cefPostTask = oldPost
+		cefScheduleAfter = oldAfter
+	}()
+	cefNewTask = func(task purecef.Task) purecef.Task { return task }
+	cefPostTask = func(_ purecef.ThreadID, _ purecef.Task) int32 {
+		return 0
+	}
+	scheduledAfter := false
+	cefScheduleAfter = func(delay time.Duration, _ func()) {
+		require.Equal(t, pendingNavigationRetryDelay, delay)
+		scheduledAfter = true
+	}
+
+	wv := &WebView{ctx: context.Background(), browser: browser}
+	wv.setPendingNavigationLocked("https://example.com/target", time.Now())
+	wv.mu.RLock()
+	intent := wv.pendingIntentID
+	wv.mu.RUnlock()
+	wv.schedulePendingNavigationReplay(0)
+	require.True(t, scheduledAfter)
+	wv.mu.RLock()
+	defer wv.mu.RUnlock()
+	require.Equal(t, intent, wv.pendingIntentID)
+	require.False(t, wv.pendingIssued)
+	require.Equal(t, "https://example.com/target", wv.pendingURI)
+}
+
+// TestWebViewSetPendingNavigation_RepeatedSameURLInstallsNewIntent ensures
+// explicit reloads and repeated navigations still work: each request is a
+// new intent even for an identical URL.
+func TestWebViewSetPendingNavigation_RepeatedSameURLInstallsNewIntent(t *testing.T) {
+	wv := &WebView{ctx: context.Background()}
+	wv.setPendingNavigationLocked("https://example.com/page", time.Now())
+	first := wv.pendingIntentID
+	require.NotZero(t, first)
+	wv.mu.Lock()
+	wv.pendingIssued = true
+	wv.mu.Unlock()
+	wv.setPendingNavigationLocked("https://example.com/page", time.Now())
+	require.NotEqual(t, first, wv.pendingIntentID)
+	require.False(t, wv.pendingIssued)
+}
+
+// TestWebViewReplayPendingNavigation_SameURLReloadSubmits verifies an
+// unissued explicit intent for the currently displayed URL proceeds to
+// LoadURL instead of being cleared as already active.
+func TestWebViewReplayPendingNavigation_SameURLReloadSubmits(t *testing.T) {
+	browser := cefmocks.NewMockBrowser(t)
+	frame := cefmocks.NewMockFrame(t)
+	frame.EXPECT().GetURL().Return("https://example.com/page").Once()
+	frame.EXPECT().LoadURL("https://example.com/page").Once()
+	browser.EXPECT().GetMainFrame().Return(frame).Once()
+	browser.EXPECT().GetIdentifier().Return(int32(1)).Twice()
+
+	wv := &WebView{ctx: context.Background(), browser: browser}
+	wv.setPendingNavigationLocked("https://example.com/page", time.Now())
+	wv.replayPendingNavigationForIntent(0, wv.pendingIntentID)
+
+	wv.mu.RLock()
+	defer wv.mu.RUnlock()
+	require.True(t, wv.pendingIssued)
+}
+
+func TestWebViewReplayPendingNavigation_ClearsIssuanceWhenBrowserReplacedAfterClaim(t *testing.T) {
+	const uri = "https://example.com/replaced-after-claim"
+	browserA := cefmocks.NewMockBrowser(t)
+	browserB := cefmocks.NewMockBrowser(t)
+	frameA := cefmocks.NewMockFrame(t)
+	frameB := cefmocks.NewMockFrame(t)
+
+	browserA.EXPECT().GetIdentifier().Return(int32(7)).Twice()
+	browserA.EXPECT().GetMainFrame().Return(frameA).Once()
+	frameA.EXPECT().GetURL().Return("").Once()
+	entered := make(chan struct{})
+	var enterOnce sync.Once
+	proceed := make(chan struct{})
+	frameA.EXPECT().LoadURL(uri).RunAndReturn(func(string) {
+		enterOnce.Do(func() { close(entered) })
+		<-proceed
+	}).Once()
+
+	browserB.EXPECT().GetIdentifier().Return(int32(7)).Twice()
+	browserB.EXPECT().GetMainFrame().Return(frameB).Once()
+	frameB.EXPECT().GetURL().Return("").Once()
+	frameB.EXPECT().LoadURL(uri).Once()
+
+	oldTask := cefNewTask
+	oldDelayed := cefPostDelayedTask
+	defer func() {
+		cefNewTask = oldTask
+		cefPostDelayedTask = oldDelayed
+	}()
+	cefNewTask = func(task purecef.Task) purecef.Task { return task }
+	var scheduled purecef.Task
+	// The post-claim retry schedules with attempt+1, which takes the
+	// delayed-task path; capture it to drive the retry synchronously.
+	cefPostDelayedTask = func(_ purecef.ThreadID, task purecef.Task, _ int64) int32 {
+		scheduled = task
+		return 1
+	}
+
+	wv := &WebView{ctx: context.Background(), browser: browserA}
+	wv.setPendingNavigationLocked(uri, time.Now())
+	intentID := wv.pendingIntentID
+
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		wv.replayPendingNavigationForIntent(0, intentID)
+	}()
+
+	select {
+	case <-entered:
+	case <-time.After(10 * time.Second):
+		t.Fatal("replay did not reach LoadURL")
+	}
+
+	// Replace the attached browser while LoadURL is in flight on the stale
+	// frame: the claim already marked the intent issued.
+	wv.mu.Lock()
+	wv.browser = browserB
+	wv.mu.Unlock()
+	close(proceed)
+
+	select {
+	case <-done:
+	case <-time.After(10 * time.Second):
+		t.Fatal("replay did not return after LoadURL")
+	}
+
+	wv.mu.RLock()
+	require.False(t, wv.pendingIssued, "post-claim replacement must reopen the issuance for retry")
+	require.Equal(t, intentID, wv.pendingIntentID, "the intent itself must survive the replacement")
+	wv.mu.RUnlock()
+	require.NotNil(t, scheduled, "a retry against the current browser must be scheduled")
+
+	// Driving the retry submits the surviving intent to the new browser.
+	scheduled.Execute()
+	wv.mu.RLock()
+	defer wv.mu.RUnlock()
+	require.True(t, wv.pendingIssued, "retry must issue the intent on the current browser")
 }
