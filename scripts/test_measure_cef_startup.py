@@ -360,6 +360,188 @@ class ResidencyContractTest(unittest.TestCase):
         self.assertIsNone(result["owner_cef_init_count"])
 
 
+class DocumentTokenTest(unittest.TestCase):
+    # Document routes must only record and serve correlated requests;
+    # beacons already validate tokens, subresources stay ungated.
+    def setUp(self):
+        self.state = harness.FixtureState()
+        cls = harness.make_sample_handler(self.state, "static", "a" * 16, "b" * 16)
+        self.server = ThreadingHTTPServer(("127.0.0.1", 0), cls)
+        self.port = self.server.server_address[1]
+        self.thread = threading.Thread(target=self.server.serve_forever, kwargs={"poll_interval": 0.05})
+        self.thread.daemon = True
+        self.thread.start()
+
+    def tearDown(self):
+        self.server.shutdown()
+        self.server.server_close()
+        self.thread.join(timeout=5)
+
+    def get(self, path):
+        url = "http://127.0.0.1:%d%s" % (self.port, path)
+        try:
+            with urllib.request.urlopen(url, timeout=5) as response:
+                return response.status, response.read()
+        except urllib.error.HTTPError as exc:
+            exc.read()
+            return exc.code, b""
+
+    def test_correlated_document_recorded_and_served(self):
+        status, body = self.get("/?run=%s&nav=%s" % ("a" * 16, "b" * 16))
+        self.assertEqual(status, 200)
+        self.assertIn(b"static", body)
+        self.assertEqual(len(self.state.document_requests), 1)
+        self.assertIsNotNone(self.state.first_document_monotonic)
+
+    def test_wrong_tokens_rejected_without_recording(self):
+        status, _ = self.get("/?run=%s&nav=%s" % ("c" * 16, "d" * 16))
+        self.assertEqual(status, 404)
+        self.assertEqual(self.state.document_requests, [])
+        self.assertIsNone(self.state.first_document_monotonic)
+
+    def test_missing_tokens_rejected_without_recording(self):
+        status, _ = self.get("/")
+        self.assertEqual(status, 404)
+        self.assertEqual(self.state.document_requests, [])
+
+    def test_redirect_with_bad_tokens_rejected(self):
+        status, _ = self.get("/redirect?run=%s&nav=%s" % ("c" * 16, "d" * 16))
+        self.assertEqual(status, 404)
+        self.assertEqual(self.state.document_requests, [])
+
+    def test_redirect_with_tokens_redirects_once(self):
+        opener = urllib.request.build_opener(NoRedirect())
+        url = "http://127.0.0.1:%d/redirect?run=%s&nav=%s" % (self.port, "a" * 16, "b" * 16)
+        try:
+            opener.open(url, timeout=5)
+            self.fail("expected redirect")
+        except Redirected as exc:
+            self.assertEqual(exc.code, 302)
+            self.assertIn("/target?run=%s" % ("a" * 16), exc.headers["Location"])
+        self.assertEqual(len(self.state.document_requests), 1)
+
+    def test_handler_state_is_per_sample(self):
+        other_state = harness.FixtureState()
+        other_cls = harness.make_sample_handler(other_state, "static", "c" * 16, "d" * 16)
+        self.assertIsNot(other_cls.state, self.state)
+        self.assertNotEqual(other_cls.run_token, "a" * 16)
+
+
+class NoRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        raise Redirected(code, headers)
+
+
+class Redirected(Exception):
+    def __init__(self, code, headers):
+        super().__init__(code)
+        self.code = code
+        self.headers = headers
+
+
+class ResidencyValidityTest(unittest.TestCase):
+    def base_result(self):
+        return {"relayed": True, "fallback_spawn": False, "launcher_returncode": 0,
+                "owner_cef_init_count": 1, "launcher_cef_init_count": 0}
+
+    def test_non_resident_scenario_is_none(self):
+        self.assertIsNone(harness.is_residency_valid(self.base_result(), "profile-fresh"))
+
+    def test_valid_relay(self):
+        self.assertTrue(harness.is_residency_valid(self.base_result(), "relay-window"))
+
+    def test_fallback_is_invalid(self):
+        result = self.base_result()
+        result.update({"relayed": False, "fallback_spawn": True})
+        self.assertFalse(harness.is_residency_valid(result, "relay-window"))
+
+    def test_launcher_failure_is_invalid(self):
+        result = self.base_result()
+        result["launcher_returncode"] = 1
+        self.assertFalse(harness.is_residency_valid(result, "relay-window"))
+
+    def test_launcher_cold_start_is_invalid(self):
+        result = self.base_result()
+        result["launcher_cef_init_count"] = 1
+        self.assertFalse(harness.is_residency_valid(result, "relay-window"))
+
+    def test_missing_owner_init_is_invalid(self):
+        result = self.base_result()
+        result["owner_cef_init_count"] = None
+        self.assertFalse(harness.is_residency_valid(result, "relay-window"))
+
+    def test_reopen_requires_settled_close_and_same_process(self):
+        valid = self.base_result()
+        valid["reopen"] = {"close_acknowledged": True, "quiescence_settled": True,
+                             "same_process": True, "owner_alive_after": True}
+        self.assertTrue(harness.is_residency_valid(valid, "reopen-window"))
+        for key in ("close_acknowledged", "quiescence_settled", "same_process", "owner_alive_after"):
+            broken = self.base_result()
+            reopen = {"close_acknowledged": True, "quiescence_settled": True,
+                      "same_process": True, "owner_alive_after": True}
+            reopen[key] = False
+            broken["reopen"] = reopen
+            self.assertFalse(harness.is_residency_valid(broken, "reopen-window"), key)
+        self.assertFalse(harness.is_residency_valid(self.base_result(), "reopen-window"))
+
+    def test_toml_escaping_round_trips(self):
+        try:
+            import tomllib
+        except ImportError:
+            self.skipTest("tomllib unavailable")
+        nasty = "C:\\we\"ird\npath\twith\x01controls\x7f"
+        escaped = harness._escape_toml_basic(nasty)
+        parsed = tomllib.loads('key = "%s"' % escaped)
+        self.assertEqual(parsed["key"], nasty)
+
+
+class LateOwnerRequestTest(unittest.TestCase):
+    # Finding 2: a relay launcher may exit right after forwarding while
+    # the owner requests the document later. Collection must survive the
+    # launcher exit until the bounded navigation deadline.
+    def setUp(self):
+        self.temp = tempfile.mkdtemp()
+        self.cef_dir = os.path.join(self.temp, "cef")
+        os.makedirs(self.cef_dir)
+        self.saved = {key: os.environ.get(key) for key in
+                      ("DUMBER_MEASURE_CUTOFF_SECONDS", "DUMBER_MEASURE_NAV_DEADLINE_SECONDS")}
+        os.environ["DUMBER_MEASURE_CUTOFF_SECONDS"] = "0.2"
+        os.environ["DUMBER_MEASURE_NAV_DEADLINE_SECONDS"] = "4"
+        self.owner = subprocess.Popen(["sleep", "30"])
+        self.addCleanup(self.owner.kill)
+
+    def tearDown(self):
+        for key, value in self.saved.items():
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
+        try:
+            self.owner.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            pass
+
+    def test_late_document_survives_launcher_exit(self):
+        binary = os.path.join(self.temp, "late-launcher")
+        with open(binary, "w") as handle:
+            handle.write("#!/bin/sh\n"
+                         'url="$2"\n'
+                         '(sleep 1; python3 -c "import sys,urllib.request;'
+                         ' urllib.request.urlopen(sys.argv[1], timeout=10).read()" "$url") >/dev/null 2>&1 &\n'
+                         "exit 0\n")
+        os.chmod(binary, 0o755)
+        owner_dirs = {key: os.path.join(self.temp, key)
+                      for key in ("config", "data", "state", "cache", "runtime", "root_cache")}
+        owner_dirs["owner_log"] = os.path.join(self.temp, "owner.log")
+        with open(owner_dirs["owner_log"], "w") as handle:
+            handle.write('{"message":"startup_trace: milestone","milestone":"cef_initialized"}\n')
+        result = harness.run_sample(binary, self.cef_dir, "relay-window", "static", 1,
+                                    owner=self.owner, owner_dirs=owner_dirs, owner_socket=None)
+        self.assertEqual(result["document_requests"], 1)
+        self.assertIsNotNone(result["first_document_observation_ms"])
+        self.assertGreaterEqual(result["first_document_observation_ms"], 900)
+
+
 class ReopenWindowTest(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.mkdtemp()
@@ -417,9 +599,16 @@ class ReopenWindowTest(unittest.TestCase):
         self.assertIsNone(harness.proc_starttime(2 ** 30))
 
     def test_child_quiescence_returns_stable_count(self):
-        count = harness.wait_for_child_quiescence(os.getpid(), settle_seconds=0.2, timeout_seconds=5.0)
+        count, settled = harness.wait_for_child_quiescence(os.getpid(), settle_seconds=0.2, timeout_seconds=5.0)
         self.assertIsInstance(count, int)
         self.assertGreaterEqual(count, 0)
+        self.assertTrue(settled)
+
+    def test_child_quiescence_timeout_reports_unsettled(self):
+        count, settled = harness.wait_for_child_quiescence(
+            os.getpid(), settle_seconds=60.0, timeout_seconds=0.0)
+        self.assertIsInstance(count, int)
+        self.assertFalse(settled)
 
     def test_reopen_without_owner_falls_back(self):
         binary = os.path.join(self.temp, "fakebin")

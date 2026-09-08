@@ -79,6 +79,46 @@ def post_nav_cutoff_seconds():
     return min(30.0, max(0.1, value))
 
 
+def navigation_deadline_seconds():
+    # Bounded wait for the correlated document after spawn when no
+    # document has arrived yet. Overridable for fast unit tests.
+    try:
+        value = float(os.environ.get("DUMBER_MEASURE_NAV_DEADLINE_SECONDS", ""))
+        if value > 0:
+            return min(60.0, value)
+    except ValueError:
+        pass
+    return post_nav_cutoff_seconds() + 5.0
+
+
+def is_residency_valid(result, scenario):
+    # Fixture completeness (document count, beacons) is not residency
+    # validity. A resident sample is valid only when the launcher handed
+    # off cleanly to a live, unchanged owner that initialized CEF exactly
+    # once, the launcher itself never initialized CEF (a fallback cold
+    # start would hide in the dead owner's log), and a reopen additionally
+    # completed its close. Returns True/False, or None outside resident
+    # scenarios.
+    if scenario not in ("relay-window", "reopen-window"):
+        return None
+    if result.get("fallback_spawn") or not result.get("relayed"):
+        return False
+    if result.get("launcher_returncode") != 0:
+        return False
+    if result.get("owner_cef_init_count") != 1:
+        return False
+    if result.get("launcher_cef_init_count", 0) != 0:
+        return False
+    if scenario == "reopen-window":
+        reopen = result.get("reopen") or {}
+        if not (reopen.get("close_acknowledged")
+                and reopen.get("quiescence_settled", False)
+                and reopen.get("same_process")
+                and reopen.get("owner_alive_after")):
+            return False
+    return True
+
+
 class FixtureState:
     def __init__(self):
         self.lock = threading.Lock()
@@ -159,14 +199,37 @@ class Handler(BaseHTTPRequestHandler):
             else:
                 self.state.subresource_requests.append(entry)
 
+    def _document_tokens_valid(self, parsed):
+        # Document routes carry the sample tokens by construction; an
+        # uncorrelated request (stale tab, foreign client, port reuse)
+        # must neither establish the first-document timestamp nor be
+        # served the current sample's tokens.
+        query = parse_qs(parsed.query)
+        run = query.get("run", [None])[0]
+        nav = query.get("nav", [None])[0]
+        return (
+            isinstance(run, str) and TOKEN_RE.fullmatch(run) and run == self.run_token
+            and isinstance(nav, str) and NAV_RE.fullmatch(nav) and nav == self.nav_token
+        )
+
     def do_GET(self):
         parsed = urlparse(self.path)
         path = parsed.path
         if path == "/__beacon":
             self._handle_beacon(parsed)
             return
-        if path in ("/", "/index.html", "/target"):
+        if path in ("/", "/index.html", "/target", "/redirect"):
+            if not self._document_tokens_valid(parsed):
+                self.send_response(404)
+                self.end_headers()
+                return
             self._record(True)
+            if path == "/redirect":
+                target = "/target?run=%s&nav=%s" % (self.run_token, self.nav_token)
+                self.send_response(302)
+                self.send_header("Location", target)
+                self.end_headers()
+                return
             if self.fixture == "delayed" and path == "/":
                 time.sleep(self.delay_seconds)
             body = build_fixture_html(
@@ -179,13 +242,6 @@ class Handler(BaseHTTPRequestHandler):
             self.send_header("Content-Length", str(len(body)))
             self.end_headers()
             self.wfile.write(body)
-            return
-        if path == "/redirect":
-            self._record(True)
-            target = "/target?run=%s&nav=%s" % (self.run_token, self.nav_token)
-            self.send_response(302)
-            self.send_header("Location", target)
-            self.end_headers()
             return
         if path in ("/app.css", "/pixel.png", "/cacheable.js", "/cacheable.png"):
             self._record(False)
@@ -242,6 +298,18 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
 
 
+def make_sample_handler(state, fixture, run_token, nav_token):
+    # Per-sample handler state: the base Handler only carries defaults.
+    # Binding state on a fresh subclass per sample keeps surviving request
+    # threads of a previous sample from adopting a later sample's tokens.
+    return type("SampleHandler", (Handler,), {
+        "state": state,
+        "fixture": fixture,
+        "run_token": run_token,
+        "nav_token": nav_token,
+    })
+
+
 def parse_child_output(lines):
     milestones = []
     for line in lines:
@@ -258,7 +326,32 @@ DISPLAY_PASSTHROUGH_VARS = ("DBUS_SESSION_BUS_ADDRESS", "XAUTHORITY")
 
 
 def _escape_toml_basic(value):
-    return value.replace("\\", "\\\\").replace('"', '\\"')
+    # Full TOML basic-string escaping: backslash, quote, and every
+    # control character (raw newlines/tabs/other C0 controls are invalid
+    # in basic strings). Paths with such characters stay representable
+    # instead of producing broken configuration.
+    out = []
+    for char in value:
+        code = ord(char)
+        if char == "\\":
+            out.append("\\\\")
+        elif char == '"':
+            out.append('\\"')
+        elif char == "\n":
+            out.append("\\n")
+        elif char == "\t":
+            out.append("\\t")
+        elif char == "\r":
+            out.append("\\r")
+        elif char == "\b":
+            out.append("\\b")
+        elif char == "\f":
+            out.append("\\f")
+        elif code < 0x20 or code == 0x7F:
+            out.append("\\u%04X" % code)
+        else:
+            out.append(char)
+    return "".join(out)
 
 
 def write_child_config(config_home, cef_dir, idle_timeout_ms=0):
@@ -526,7 +619,11 @@ def wait_for_child_quiescence(owner_pid, settle_seconds=2.0, timeout_seconds=15.
     """Wait until the owner's child count is stable across settle_seconds.
     Window close is asynchronous: the relay acknowledgement only means the
     request was accepted, so reopening must wait for an observable steady
-    state instead of a fixed sleep. Returns the stable child count."""
+    state instead of a fixed sleep. Returns (stable_count, settled):
+    settled is False on timeout, and a timeout must fail the reopen, not
+    silently pass. Child counts stay diagnostics only: CEF process
+    topology does not map one-to-one to windows, so stability alone never
+    proves zero windows or resident-idle entry."""
     end = time.monotonic() + timeout_seconds
     last_change = time.monotonic()
     last_count = len(child_pids(owner_pid))
@@ -537,8 +634,8 @@ def wait_for_child_quiescence(owner_pid, settle_seconds=2.0, timeout_seconds=15.
             last_count = count
             last_change = time.monotonic()
         elif time.monotonic() - last_change >= settle_seconds:
-            return count
-    return len(child_pids(owner_pid))
+            return count, True
+    return len(child_pids(owner_pid)), False
 
 
 def proc_rss_kb(pid):
@@ -559,11 +656,8 @@ def run_sample(binary, cef_dir, scenario, fixture, run_index, owner=None, owner_
     nav_token = secrets.token_hex(8)
     cutoff = post_nav_cutoff_seconds()
     state = FixtureState()
-    Handler.state = state
-    Handler.fixture = fixture
-    Handler.run_token = run_token
-    Handler.nav_token = nav_token
-    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    server = ThreadingHTTPServer(("127.0.0.1", 0),
+                                 make_sample_handler(state, fixture, run_token, nav_token))
     port = server.server_address[1]
     thread = threading.Thread(target=server.serve_forever, kwargs={"poll_interval": 0.05})
     thread.daemon = True
@@ -598,11 +692,13 @@ def run_sample(binary, cef_dir, scenario, fixture, run_index, owner=None, owner_
             acknowledged = send_diagnostic_close(owner_socket)
             # The acknowledgement only means accepted: wait for an
             # observable steady state before measuring the reopen.
-            quiescent_children = wait_for_child_quiescence(owner_pid)
+            # An unsettled timeout fails the reopen via quiescence_settled.
+            quiescent_children, settled = wait_for_child_quiescence(owner_pid)
             reopen = {
                 "owner_pid": owner_pid,
                 "owner_starttime": owner_start,
                 "close_acknowledged": acknowledged,
+                "quiescence_settled": settled,
                 "browser_child_count_before": len(children_before),
                 "browser_child_count_quiescent": quiescent_children,
                 "owner_rss_kb_before": rss_before,
@@ -628,6 +724,13 @@ def run_sample(binary, cef_dir, scenario, fixture, run_index, owner=None, owner_
         pump_thread = threading.Thread(target=pump)
         pump_thread.daemon = True
         pump_thread.start()
+        nav_deadline = navigation_deadline_seconds()
+        # A live owner serves the navigation after the launcher exits:
+        # in that case launcher exit must not end collection before the
+        # correlated document arrives. Without a live owner the sample
+        # is its own browser and exit ends it.
+        defers_to_owner = bool(owner_alive_at_start and owner_dirs is not None
+                               and scenario in ("relay-window", "reopen-window"))
         hard_end = spawn_ts + cutoff + 25.0
         while True:
             now = time.monotonic()
@@ -642,7 +745,7 @@ def run_sample(binary, cef_dir, scenario, fixture, run_index, owner=None, owner_
                     break
                 if now >= navigated_at + cutoff + 5.0:
                     break
-            elif now >= spawn_ts + cutoff + 5.0 or exited:
+            elif now >= spawn_ts + nav_deadline or (exited and not defers_to_owner):
                 break
             if now >= hard_end:
                 break
@@ -655,6 +758,7 @@ def run_sample(binary, cef_dir, scenario, fixture, run_index, owner=None, owner_
             except subprocess.TimeoutExpired:
                 proc.kill()
                 proc.wait(timeout=5)
+        launcher_returncode = proc.returncode
         pump_thread.join(timeout=5)
         try:
             proc.stdout.close()
@@ -693,9 +797,12 @@ def run_sample(binary, cef_dir, scenario, fixture, run_index, owner=None, owner_
             "target_fcp_ms": fcp[0]["value_ms"] if fcp else None,
             "target_lcp_through_cutoff_ms": lcp[-1]["value_ms"] if lcp else None,
             "startup_milestones": len(milestones),
+            "launcher_returncode": launcher_returncode,
+            "launcher_cef_init_count": count_cef_inits([line for _, line in arrivals]),
             "first_document_observation_ms": (
                 int((first_document_at - spawn_ts) * 1000)
-                if first_document_at is not None else None
+                if first_document_at is not None and first_document_at >= spawn_ts
+                else None
             ),
             "complete": complete,
             "relayed": relayed,
@@ -726,6 +833,7 @@ def run_sample(binary, cef_dir, scenario, fixture, run_index, owner=None, owner_
             reopen["browser_child_count_after"] = len(child_pids(owner.pid)) if owner_alive else 0
             reopen["owner_rss_kb_after"] = proc_rss_kb(owner.pid) if owner_alive else None
             result["reopen"] = reopen
+        result["residency_valid"] = is_residency_valid(result, scenario)
         return result
     finally:
         server.shutdown()
@@ -861,13 +969,18 @@ def main():
         except OSError:
             summary["owner_cef_init_count"] = None
         fcp_observations = sorted(
-            r["observation_spawn_to_summary_ms"]
+            r["first_document_observation_ms"]
             for r in results
-            if r["complete"] and r["target_fcp_ms"] is not None
+            if r.get("residency_valid") and r["first_document_observation_ms"] is not None
         )
+        summary["resident_valid_runs"] = sum(1 for r in results if r.get("residency_valid"))
+        summary["resident_invalid_runs"] = sum(1 for r in results if r.get("residency_valid") is False)
         summary["second_window_complete_runs"] = len(fcp_observations)
         if fcp_observations:
-            summary["second_window_observation_ms"] = {
+            # Spawn to first document request, same harness clock. This is
+            # request arrival, not document completion or paint; for the
+            # redirect fixture it measures the initial redirect request.
+            summary["second_window_spawn_to_first_document_observation_ms"] = {
                 "min": fcp_observations[0],
                 "median": fcp_observations[len(fcp_observations) // 2],
                 "max": fcp_observations[-1],
