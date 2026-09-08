@@ -55,7 +55,7 @@ func (d denyFS) Open(name string) (fs.File, error) {
 	return nil, &fs.PathError{Op: "open", Path: name, Err: d.err}
 }
 
-func TestSystemviewBundle_DecodesOnceUnderConcurrency(t *testing.T) {
+func TestSystemviewAssetCache_DecodesOnceUnderConcurrency(t *testing.T) {
 	t.Parallel()
 
 	wasm := []byte("\x00asm-bundle-once")
@@ -84,7 +84,7 @@ func TestSystemviewBundle_DecodesOnceUnderConcurrency(t *testing.T) {
 	require.Equal(t, 1, fsys.compressedReads(), "bundle must decode exactly once")
 }
 
-func TestSystemviewBundle_CachesFailureWithoutRetryStorm(t *testing.T) {
+func TestSystemviewAssetCache_CachesFailureWithoutRetryStorm(t *testing.T) {
 	t.Parallel()
 
 	fsys := &countingFS{inner: fstest.MapFS{
@@ -101,7 +101,7 @@ func TestSystemviewBundle_CachesFailureWithoutRetryStorm(t *testing.T) {
 	require.Equal(t, firstReads, fsys.compressedReads(), "cached failure must not re-read")
 }
 
-func TestSystemviewBundle_CompressedReadErrorIsExplicit(t *testing.T) {
+func TestSystemviewAssetCache_CompressedReadErrorIsExplicit(t *testing.T) {
 	t.Parallel()
 
 	// Permission (or any non-absence) failures reading the compressed file
@@ -114,7 +114,7 @@ func TestSystemviewBundle_CompressedReadErrorIsExplicit(t *testing.T) {
 	require.NotErrorIs(t, err, fs.ErrNotExist)
 }
 
-func TestSystemviewBundle_RawFallbackOnlyOnAbsence(t *testing.T) {
+func TestSystemviewAssetCache_RawFallbackOnlyOnAbsence(t *testing.T) {
 	t.Parallel()
 
 	raw := []byte("\x00asm-raw-fallback")
@@ -127,7 +127,7 @@ func TestSystemviewBundle_RawFallbackOnlyOnAbsence(t *testing.T) {
 	require.Equal(t, raw, data)
 }
 
-func TestSystemviewBundle_RawOversizedRejected(t *testing.T) {
+func TestSystemviewAssetCache_RawOversizedRejected(t *testing.T) {
 	t.Parallel()
 
 	big := make([]byte, maxSystemviewsWASMBytes+1)
@@ -139,7 +139,7 @@ func TestSystemviewBundle_RawOversizedRejected(t *testing.T) {
 	require.Error(t, err, "raw WASM past the bound must fail like the compressed path")
 }
 
-func TestSystemviewBundle_MissingBothReportsNotExist(t *testing.T) {
+func TestSystemviewAssetCache_MissingBothReportsNotExist(t *testing.T) {
 	t.Parallel()
 
 	b := newSystemviewAssetBundle(fstest.MapFS{})
@@ -149,7 +149,7 @@ func TestSystemviewBundle_MissingBothReportsNotExist(t *testing.T) {
 	require.ErrorIs(t, err, fs.ErrNotExist)
 }
 
-func TestSystemviewBundle_NilFSFailsCleanly(t *testing.T) {
+func TestSystemviewAssetCache_NilFSFailsCleanly(t *testing.T) {
 	t.Parallel()
 
 	b := newSystemviewAssetBundle(nil)

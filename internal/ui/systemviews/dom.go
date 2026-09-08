@@ -24,6 +24,19 @@ type DOMActionBinder interface {
 	BindActions(handler DOMActionHandler) error
 }
 
+// DOMReadinessSignaler is implemented by DOM adapters that can mark the
+// loading shell ready or terminally failed. The App calls it after the
+// initial mount and action binding complete; history-data completion is a
+// separate concern and never gates readiness. Adapters without it keep
+// legacy behavior, leaving shell state to the page script.
+type DOMReadinessSignaler interface {
+	// SignalReady clears the shell loading state after mount and binding.
+	SignalReady() error
+	// SignalError clears the shell loading state with a fatal message
+	// when mount or binding fails.
+	SignalError(message string) error
+}
+
 // DOMHistoryTimelineAppender is implemented by DOM adapters that can append
 // older history windows without reparsing and remounting the whole page.
 type DOMHistoryTimelineAppender interface {
