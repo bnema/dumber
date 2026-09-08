@@ -429,3 +429,83 @@ func TestWebViewReplayPendingNavigation_SameURLReloadSubmits(t *testing.T) {
 	defer wv.mu.RUnlock()
 	require.True(t, wv.pendingIssued)
 }
+
+func TestWebViewReplayPendingNavigation_ClearsIssuanceWhenBrowserReplacedAfterClaim(t *testing.T) {
+	const uri = "https://example.com/replaced-after-claim"
+	browserA := cefmocks.NewMockBrowser(t)
+	browserB := cefmocks.NewMockBrowser(t)
+	frameA := cefmocks.NewMockFrame(t)
+	frameB := cefmocks.NewMockFrame(t)
+
+	browserA.EXPECT().GetIdentifier().Return(int32(7)).Twice()
+	browserA.EXPECT().GetMainFrame().Return(frameA).Once()
+	frameA.EXPECT().GetURL().Return("").Once()
+	entered := make(chan struct{})
+	var enterOnce sync.Once
+	proceed := make(chan struct{})
+	frameA.EXPECT().LoadURL(uri).RunAndReturn(func(string) {
+		enterOnce.Do(func() { close(entered) })
+		<-proceed
+	}).Once()
+
+	browserB.EXPECT().GetIdentifier().Return(int32(7)).Twice()
+	browserB.EXPECT().GetMainFrame().Return(frameB).Once()
+	frameB.EXPECT().GetURL().Return("").Once()
+	frameB.EXPECT().LoadURL(uri).Once()
+
+	oldTask := cefNewTask
+	oldDelayed := cefPostDelayedTask
+	defer func() {
+		cefNewTask = oldTask
+		cefPostDelayedTask = oldDelayed
+	}()
+	cefNewTask = func(task purecef.Task) purecef.Task { return task }
+	var scheduled purecef.Task
+	// The post-claim retry schedules with attempt+1, which takes the
+	// delayed-task path; capture it to drive the retry synchronously.
+	cefPostDelayedTask = func(_ purecef.ThreadID, task purecef.Task, _ int64) int32 {
+		scheduled = task
+		return 1
+	}
+
+	wv := &WebView{ctx: context.Background(), browser: browserA}
+	wv.setPendingNavigationLocked(uri, time.Now())
+	intentID := wv.pendingIntentID
+
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		wv.replayPendingNavigationForIntent(0, intentID)
+	}()
+
+	select {
+	case <-entered:
+	case <-time.After(10 * time.Second):
+		t.Fatal("replay did not reach LoadURL")
+	}
+
+	// Replace the attached browser while LoadURL is in flight on the stale
+	// frame: the claim already marked the intent issued.
+	wv.mu.Lock()
+	wv.browser = browserB
+	wv.mu.Unlock()
+	close(proceed)
+
+	select {
+	case <-done:
+	case <-time.After(10 * time.Second):
+		t.Fatal("replay did not return after LoadURL")
+	}
+
+	wv.mu.RLock()
+	require.False(t, wv.pendingIssued, "post-claim replacement must reopen the issuance for retry")
+	require.Equal(t, intentID, wv.pendingIntentID, "the intent itself must survive the replacement")
+	wv.mu.RUnlock()
+	require.NotNil(t, scheduled, "a retry against the current browser must be scheduled")
+
+	// Driving the retry submits the surviving intent to the new browser.
+	scheduled.Execute()
+	wv.mu.RLock()
+	defer wv.mu.RUnlock()
+	require.True(t, wv.pendingIssued, "retry must issue the intent on the current browser")
+}

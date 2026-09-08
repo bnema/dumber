@@ -2081,12 +2081,31 @@ func (wv *WebView) replayPendingNavigationForIntent(attempt int, intentID uint64
 		wv.schedulePendingNavigationReplay(attempt + 1)
 	case pendingClaimReady:
 		frame.LoadURL(submitURI)
+		wv.resubmitIfBrowserReplaced(attempt, intentID, browser)
 	}
 	if wv.ctx != nil {
 		logging.FromContext(wv.ctx).Debug().
 			Int("attempt", attempt).
 			Str("uri", logging.TruncateURL(uri, logging.PermissionLogURLMaxLen)).
 			Msg("cef: replayed pending navigation")
+	}
+}
+
+// resubmitIfBrowserReplaced re-checks the attached browser after the
+// claim's foreign LoadURL: a replacement in between leaves the navigation on
+// a stale frame while the intent reads issued. Clearing the issuance while
+// the intent is still current keeps it replayable, and the retry goes to
+// the current browser instead of dropping the navigation. Instance
+// comparison follows the same pointer-wrapper convention as the claim.
+func (wv *WebView) resubmitIfBrowserReplaced(attempt int, intentID uint64, submitted purecef.Browser) {
+	wv.mu.Lock()
+	replaced := wv.pendingIntentID == intentID && wv.pendingIssued && wv.browser != submitted
+	if replaced {
+		wv.pendingIssued = false
+	}
+	wv.mu.Unlock()
+	if replaced {
+		wv.schedulePendingNavigationReplay(attempt + 1)
 	}
 }
 
