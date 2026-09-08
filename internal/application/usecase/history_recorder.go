@@ -355,6 +355,14 @@ func (uc *HistoryRecorderUseCase) historyWorker() {
 	ticker := time.NewTicker(historyWorkerFlushInterval)
 	defer ticker.Stop()
 	workerCtx := uc.workerContext()
+	// queryCtx carries the worker's values (logging) but is detached from
+	// worker cancellation. Every database/sql query derives per-query child
+	// contexts from its parent; deriving those children from workerCtx while
+	// Close cancels workerCtx intermittently crashed in
+	// context.propagateCancel (concurrent map writes, #408). Shutdown
+	// coordination stays on uc.done/workerCtx.Done() in the select below,
+	// and the shutdown drain uses its own bounded timeout context.
+	queryCtx := context.WithoutCancel(workerCtx)
 
 	pending := newPendingHistoryRecords()
 	for {
@@ -362,7 +370,7 @@ func (uc *HistoryRecorderUseCase) historyWorker() {
 		case record := <-uc.historyQueue:
 			pending.add(record)
 		case <-ticker.C:
-			_ = uc.flushPendingHistory(workerCtx, pending)
+			_ = uc.flushPendingHistory(queryCtx, pending)
 		case req := <-uc.controlQueue:
 			uc.handleHistoryControl(pending, req)
 		case <-uc.done:
@@ -598,7 +606,10 @@ func (uc *HistoryRecorderUseCase) publishHistoryChange(successfulVisits, success
 		reasons = append(reasons, dto.HistoryChangeReasonTitle)
 	}
 	sink := uc.historyChangeSink()
-	sink.OnHistoryChanged(uc.workerContext(), dto.HistoryChange{
+	// Detach the notification from worker cancellation: the sink runs on
+	// another goroutine (main-thread dispatch) and must never derive from
+	// or observe a parent that Close cancels concurrently (see #408).
+	sink.OnHistoryChanged(context.WithoutCancel(uc.workerContext()), dto.HistoryChange{
 		Reasons:    reasons,
 		VisitCount: successfulVisits,
 		TitleCount: successfulTitles,

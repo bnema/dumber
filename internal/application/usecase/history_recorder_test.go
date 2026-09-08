@@ -33,6 +33,29 @@ func (s *recordingHistoryChangeSink) snapshot() []dto.HistoryChange {
 	return out
 }
 
+// ctxCapturingHistoryChangeSink records the contexts delivered with each
+// change so tests can assert detachment from worker cancellation (#408).
+type ctxCapturingHistoryChangeSink struct {
+	recordingHistoryChangeSink
+	mu   sync.Mutex
+	ctxs []context.Context
+}
+
+func (s *ctxCapturingHistoryChangeSink) OnHistoryChanged(ctx context.Context, change dto.HistoryChange) {
+	s.mu.Lock()
+	s.ctxs = append(s.ctxs, ctx)
+	s.mu.Unlock()
+	s.recordingHistoryChangeSink.OnHistoryChanged(ctx, change)
+}
+
+func (s *ctxCapturingHistoryChangeSink) snapshotCtxs() []context.Context {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out := make([]context.Context, len(s.ctxs))
+	copy(out, s.ctxs)
+	return out
+}
+
 func TestNormalizeHistoryChangeSink_TreatsTypedNilAsNoop(t *testing.T) {
 	var sink *recordingHistoryChangeSink
 
@@ -204,26 +227,29 @@ func TestHistoryRecorder_CloseDrainsPendingAndPublishes(t *testing.T) {
 	require.Equal(t, 1, changes[0].VisitCount)
 }
 
-func TestHistoryRecorder_CloseCancelsInFlightWorkerFlushAndDrains(t *testing.T) {
+func TestHistoryRecorder_PeriodicFlushUsesDetachedQueryContext(t *testing.T) {
 	ctx := context.Background()
-	sink := &recordingHistoryChangeSink{}
+	sink := &ctxCapturingHistoryChangeSink{}
 	repo := repomocks.NewMockHistoryRepository(t)
-	const historyURL = "https://example.com/cancel-close"
+	const historyURL = "https://example.com/detached-flush"
 
 	findStarted := make(chan struct{})
+	releaseFind := make(chan struct{})
 	var findOnce sync.Once
+	var captureMu sync.Mutex
+	var captured context.Context
 	repo.EXPECT().FindByURL(mock.Anything, historyURL).RunAndReturn(
 		func(ctx context.Context, _ string) (*entity.HistoryEntry, error) {
-			first := false
-			findOnce.Do(func() { first = true })
-			if first {
-				close(findStarted)
-				<-ctx.Done()
-				return nil, ctx.Err()
+			findOnce.Do(func() { close(findStarted) })
+			captureMu.Lock()
+			if captured == nil {
+				captured = ctx
 			}
+			captureMu.Unlock()
+			<-releaseFind
 			return nil, nil
 		},
-	).Twice()
+	).Once()
 	repo.EXPECT().Save(mock.Anything, mock.MatchedBy(func(entry *entity.HistoryEntry) bool {
 		return entry.URL == historyURL && entry.VisitCount == 1
 	})).Return(nil).Once()
@@ -233,20 +259,35 @@ func TestHistoryRecorder_CloseCancelsInFlightWorkerFlushAndDrains(t *testing.T) 
 
 	select {
 	case <-findStarted:
-	case <-time.After(time.Second):
+	case <-time.After(2 * time.Second):
 		t.Fatal("timed out waiting for periodic history flush to start")
 	}
 
+	// Close must not cancel the in-flight periodic flush: the flush runs to
+	// completion with a context detached from worker cancellation, and the
+	// shutdown drain then finds nothing left to persist.
 	closed := make(chan struct{})
 	go func() {
 		uc.Close()
 		close(closed)
 	}()
+	close(releaseFind)
 
 	select {
 	case <-closed:
-	case <-time.After(time.Second):
+	case <-time.After(5 * time.Second):
 		t.Fatal("timed out waiting for history recorder shutdown")
+	}
+
+	captureMu.Lock()
+	defer captureMu.Unlock()
+	require.NotNil(t, captured, "periodic flush must reach the repository")
+	require.Nil(t, captured.Done(),
+		"periodic flush query context must be detached from worker cancellation (#408)")
+	for _, sinkCtx := range sink.snapshotCtxs() {
+		require.NotNil(t, sinkCtx)
+		require.Nil(t, sinkCtx.Done(),
+			"history change notification must be detached from worker cancellation (#408)")
 	}
 
 	changes := sink.snapshot()
