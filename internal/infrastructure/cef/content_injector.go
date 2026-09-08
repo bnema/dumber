@@ -250,10 +250,11 @@ func (ci *contentInjector) RefreshScripts(ctx context.Context, wv port.WebView) 
 }
 
 // onLoadEndForEvent installs scripts for a captured load-end event after
-// revalidating it on the GTK thread. Events that are provably stale are
-// skipped: a replaced browser identifier (old main frame during process
-// swap) or a superseded intent ID (a newer navigation committed while the
-// callback was queued). Ambiguous cases fall back to skipping rather than
+// revalidating it on the GTK thread. The event identity comes from the
+// OnLoadEnd callback's browser (not mutable WebView state), so events that
+// are provably stale are skipped: a replaced browser identifier (old main
+// frame during process swap) or a superseded intent ID (a newer navigation
+// committed while the callback was queued). Ambiguous cases fall back to skipping rather than
 // installing blind: an event captured without a browser cannot prove
 // identity, and the current browser gets its own load-end installation.
 // The single snapshot bounds the residual check-then-install window to

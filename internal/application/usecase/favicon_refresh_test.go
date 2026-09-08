@@ -127,6 +127,8 @@ func TestRefreshFromIconURLs_CancelOneWaiterKeepsOthers(t *testing.T) {
 
 	page := "https://example.com/a"
 	candidates := []string{"https://example.com/favicon.ico"}
+	key, _, ok := refreshRequestKey(page, candidates)
+	require.True(t, ok, "test page and candidates must form a refresh key")
 	leaving, cancelLeaving := context.WithCancel(context.Background())
 	left := make(chan error, 1)
 	go func() {
@@ -136,7 +138,14 @@ func TestRefreshFromIconURLs_CancelOneWaiterKeepsOthers(t *testing.T) {
 	go func() {
 		staying <- uc.RefreshFromIconURLs(context.Background(), page, candidates)
 	}()
-	time.Sleep(100 * time.Millisecond)
+	// Both waiters must share one operation before either leaves: two
+	// waiters on the same call proves sharing, not two separate fetches.
+	require.Eventually(t, func() bool {
+		uc.shared.mu.Lock()
+		defer uc.shared.mu.Unlock()
+		call, ok := uc.shared.active[key]
+		return ok && !call.closing && call.waiters == 2
+	}, 10*time.Second, 5*time.Millisecond, "both waiters must join one shared operation")
 	cancelLeaving()
 	select {
 	case err := <-left:
@@ -288,7 +297,12 @@ func TestRefreshOp_WholeDeadline(t *testing.T) {
 // cancels the shared operation instead of leaking it.
 func TestRefreshLastWaiterCancelAbortsOp(t *testing.T) {
 	observedCancel := make(chan struct{}, 1)
+	entered := make(chan struct{}, 1)
 	fetcher := refreshFetcherMock(t, func(ctx context.Context, req appport.FaviconFetchRequest) (*appport.FaviconFetchedIcon, error) {
+		select {
+		case entered <- struct{}{}:
+		default:
+		}
 		select {
 		case <-ctx.Done():
 			observedCancel <- struct{}{}
@@ -304,7 +318,14 @@ func TestRefreshLastWaiterCancelAbortsOp(t *testing.T) {
 	go func() {
 		done <- uc.RefreshFromIconURLs(waiter, "https://example.com/a", []string{"https://example.com/favicon.ico"})
 	}()
-	time.Sleep(100 * time.Millisecond)
+	// Cancel only after the executor entered the fetch: len(active) == 1
+	// alone cannot prove the executor is blocked inside Fetch, and an early
+	// cancel could race operation creation instead of aborting shared work.
+	select {
+	case <-entered:
+	case <-time.After(10 * time.Second):
+		t.Fatal("executor did not enter the fetch")
+	}
 	cancel()
 	select {
 	case err := <-done:
@@ -692,4 +713,86 @@ func TestRefreshSharing_ScopedToUseCaseInstance(t *testing.T) {
 		require.NoError(t, err)
 	}
 	require.EqualValues(t, 2, calls.Load(), "sharing must not cross use-case instances")
+}
+
+// TestRefreshMixedStatusBatchNotCached proves a batch mixing a transient
+// failure with a genuine absence never populates the negative cache: the
+// last miss alone must not decide cacheability.
+func TestRefreshMixedStatusBatchNotCached(t *testing.T) {
+	var calls atomic.Int64
+	fetcher := refreshFetcherMock(t, func(_ context.Context, req appport.FaviconFetchRequest) (*appport.FaviconFetchedIcon, error) {
+		calls.Add(1)
+		if req.IconURL == "https://example.com/denied.ico" {
+			return nil, &appport.FaviconFetchError{StatusCode: 403}
+		}
+		return nil, &appport.FaviconFetchError{StatusCode: 404}
+	})
+	uc := refreshTestUC(t, fetcher, nil, nil)
+
+	page := "https://example.com/a"
+	candidates := []string{"https://example.com/denied.ico", "https://example.com/gone.ico"}
+	require.ErrorIs(t, uc.RefreshFromIconURLs(context.Background(), page, candidates), ErrFaviconMiss)
+	key, _, ok := refreshRequestKey(page, candidates)
+	require.True(t, ok)
+	require.False(t, uc.cachedMiss(key), "mixed 403+404 batch must not be negatively cached")
+	require.ErrorIs(t, uc.RefreshFromIconURLs(context.Background(), page, candidates), ErrFaviconMiss)
+	require.EqualValues(t, 4, calls.Load(), "second refresh must retry instead of reading a cached absence")
+}
+
+// TestRefreshClosedWinsOverCachedMiss proves sealed admission takes
+// precedence over a cached absence: after Close, refresh reports shutdown
+// even for a key holding a genuine 404.
+func TestRefreshClosedWinsOverCachedMiss(t *testing.T) {
+	var calls atomic.Int64
+	fetcher := refreshFetcherMock(t, func(_ context.Context, _ appport.FaviconFetchRequest) (*appport.FaviconFetchedIcon, error) {
+		calls.Add(1)
+		return nil, &appport.FaviconFetchError{StatusCode: 404}
+	})
+	uc := refreshTestUC(t, fetcher, nil, nil)
+
+	page := "https://example.com/a"
+	candidates := []string{"https://example.com/gone.ico"}
+	key, _, ok := refreshRequestKey(page, candidates)
+	require.True(t, ok)
+	uc.noteMiss(key, &appport.FaviconFetchError{StatusCode: 404})
+	require.True(t, uc.cachedMiss(key))
+	uc.Close()
+	err := uc.RefreshFromIconURLs(context.Background(), page, candidates)
+	require.ErrorIs(t, err, appport.ErrFaviconShutdown)
+	require.NotErrorIs(t, err, ErrFaviconMiss, "shutdown must stay distinct from a miss")
+	require.Zero(t, calls.Load(), "sealed refresh must not reach the fetcher")
+}
+
+// TestCompactMissOrderDedupsReinsertedKeys proves compaction collapses
+// stale duplicates: an evicted key that is reinserted keeps exactly one
+// order entry, so the backlog cannot grow across expire/reinsert cycles.
+func TestCompactMissOrderDedupsReinsertedKeys(t *testing.T) {
+	now := time.Date(2025, 6, 1, 12, 0, 0, 0, time.UTC)
+	uc := refreshTestUC(t, refreshFetcherMock(t, func(_ context.Context, _ appport.FaviconFetchRequest) (*appport.FaviconFetchedIcon, error) {
+		return nil, &appport.FaviconFetchError{StatusCode: 404}
+	}), &now, nil)
+
+	uc.shared.mu.Lock()
+	uc.shared.misses["live"] = refreshMiss{expiresAt: now.Add(faviconMissTTL)}
+	// Simulate eviction (map entry removed, order name left behind) plus
+	// reinsertion: the same key appears twice in order.
+	uc.shared.order = []string{"stale-a", "live", "stale-b", "live"}
+	uc.compactMissOrderLocked()
+	order := append([]string(nil), uc.shared.order...)
+	uc.shared.mu.Unlock()
+	require.Equal(t, []string{"live"}, order, "compaction must keep one entry per live key")
+}
+
+// TestRefreshRequestKey_IPv6DefaultPortEquivalence proves bracketed IPv6
+// hosts with an explicit default port share identity with the bare form:
+// without bracket-aware parsing the two spellings hash differently and
+// bypass in-flight sharing.
+func TestRefreshRequestKey_IPv6DefaultPortEquivalence(t *testing.T) {
+	page := "https://[2001:db8::1]/a"
+	withPort, withPortAccepted, ok := refreshRequestKey(page, []string{"https://[2001:db8::1]:443/favicon.ico"})
+	require.True(t, ok)
+	bare, bareAccepted, ok := refreshRequestKey(page, []string{"https://[2001:db8::1]/favicon.ico"})
+	require.True(t, ok)
+	require.Equal(t, bare, withPort, "explicit default port must not change the request key")
+	require.Equal(t, bareAccepted, withPortAccepted)
 }

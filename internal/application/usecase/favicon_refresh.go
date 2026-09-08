@@ -4,7 +4,9 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"net"
 	"net/url"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -49,7 +51,7 @@ func refreshRequestKey(pageURL string, iconURLs []string) (string, []string, boo
 	if err != nil || page.Hostname() == "" {
 		return "", nil, false
 	}
-	accepted := make([]string, 0, len(iconURLs))
+	accepted := make([]string, 0, min(len(iconURLs), maxRefreshCandidates))
 	for _, raw := range iconURLs {
 		raw = strings.TrimSpace(raw)
 		if raw == "" || len(raw) > maxRefreshCandidateLen {
@@ -69,7 +71,13 @@ func refreshRequestKey(pageURL string, iconURLs []string) (string, []string, boo
 		candidate.Host = strings.ToLower(candidate.Host)
 		if host, port, ok := splitHostPort(candidate.Host); ok {
 			if isDefaultPort(candidate.Scheme, port) {
-				candidate.Host = host
+				// Re-bracket IPv6 literals: SplitHostPort strips
+				// brackets, and url.URL requires them in Host.
+				if strings.Contains(host, ":") {
+					candidate.Host = "[" + host + "]"
+				} else {
+					candidate.Host = host
+				}
 			}
 		}
 		accepted = append(accepted, candidate.String())
@@ -81,9 +89,12 @@ func refreshRequestKey(pageURL string, iconURLs []string) (string, []string, boo
 	return hex.EncodeToString(sum[:]), accepted, true
 }
 
+// splitHostPort splits an explicit host:port pair. Bracketed IPv6 literals
+// (as produced by url.URL.Host) require net.SplitHostPort; a bare
+// strings.Cut on ":" misparses them. Hosts without a port report false.
 func splitHostPort(hostport string) (string, string, bool) {
-	host, port, found := strings.Cut(hostport, ":")
-	if !found {
+	host, port, err := net.SplitHostPort(hostport)
+	if err != nil {
 		return "", "", false
 	}
 	return host, port, true
@@ -119,6 +130,13 @@ type refreshCoordinator struct {
 	mu     sync.Mutex
 	active map[string]*refreshCall
 	slots  chan struct{}
+	// wg tracks every spawned executor independently of the active map:
+	// a fresh same-key operation may replace a canceled-but-still-running
+	// call in active, so the map alone cannot prove shutdown quiescence.
+	// Adds happen under mu before the goroutine starts; Done runs when the
+	// executor finishes. Sealed admission (closed) guarantees no Add can
+	// race a completed Wait.
+	wg     sync.WaitGroup
 	epoch  uint64
 	// closed seals admission: set by Close before cancel/drain, so no
 	// refresh can start after the drain observes zero active operations.
@@ -152,18 +170,31 @@ func (uc *FaviconUseCase) bumpEpoch() {
 
 // cachedMiss reports whether key holds an unexpired genuine-absence entry.
 func (uc *FaviconUseCase) cachedMiss(key string) bool {
+	_, miss := uc.sealedOrMiss(key)
+	return miss
+}
+
+// sealedOrMiss atomically reports coordinator shutdown and negative-cache
+// state under one lock acquisition, giving late refreshes a single
+// linearization point: sealed admission always wins over a cached absence,
+// so a refresh arriving after Close reports ErrFaviconShutdown even when
+// the key holds a cached 404/410.
+func (uc *FaviconUseCase) sealedOrMiss(key string) (closed, miss bool) {
 	now := uc.now()
 	uc.shared.mu.Lock()
 	defer uc.shared.mu.Unlock()
-	miss, ok := uc.shared.misses[key]
+	if uc.shared.closed {
+		return true, false
+	}
+	m, ok := uc.shared.misses[key]
 	if !ok {
-		return false
+		return false, false
 	}
-	if !now.Before(miss.expiresAt) {
+	if !now.Before(m.expiresAt) {
 		delete(uc.shared.misses, key)
-		return false
+		return false, false
 	}
-	return true
+	return false, true
 }
 
 // clearMiss drops any absence record for key: a later success proves the
@@ -198,19 +229,28 @@ func (uc *FaviconUseCase) noteMiss(key string, fetchErr error) {
 	}
 }
 
-// compactMissOrderLocked drops order names with no live entry, bounding
-// the backlog. Caller must hold refresh.mu.
+// compactMissOrderLocked drops order names with no live entry and collapses
+// duplicates to one entry per live key, keeping the newest occurrence.
+// Eviction removes entries from the map but not from order, so an evicted
+// key that is reinserted would otherwise leave a stale duplicate behind:
+// repeated cycles grow order without bound and let an old duplicate evict
+// the live entry early. Caller must hold refresh.mu.
 func (uc *FaviconUseCase) compactMissOrderLocked() {
-	kept := uc.shared.order[:0]
-	for _, key := range uc.shared.order {
+	last := make(map[string]int, len(uc.shared.misses))
+	for i, key := range uc.shared.order {
 		if _, ok := uc.shared.misses[key]; ok {
-			kept = append(kept, key)
+			last[key] = i
 		}
 	}
-	for i := len(kept); i < len(uc.shared.order); i++ {
+	ordered := make([]string, 0, len(last))
+	for key := range last {
+		ordered = append(ordered, key)
+	}
+	slices.SortFunc(ordered, func(a, b string) int { return last[a] - last[b] })
+	for i := len(ordered); i < len(uc.shared.order); i++ {
 		uc.shared.order[i] = ""
 	}
-	uc.shared.order = kept
+	uc.shared.order = append(uc.shared.order[:0], ordered...)
 }
 
 // evictMissLocked removes one entry: expired first, oldest otherwise.
@@ -272,9 +312,11 @@ func (uc *FaviconUseCase) joinRefreshOp(ctx context.Context, key string, exec fu
 	startEpoch := uc.shared.epoch
 	call := &refreshCall{done: make(chan struct{}), waiters: 1, cancel: cancel}
 	uc.shared.active[key] = call
+	uc.shared.wg.Add(1)
 	uc.shared.mu.Unlock()
 
 	go func() {
+		defer uc.shared.wg.Done()
 		err := exec(opCtx, startEpoch)
 		<-uc.shared.slots
 		cancel()
@@ -314,23 +356,24 @@ func (uc *FaviconUseCase) awaitRefreshCall(ctx context.Context, call *refreshCal
 	}
 }
 
-// drainRefreshOps waits until no shared refresh operation remains active,
-// up to a bounded multiple of the operation deadline. Callers cancel first
-// (see Close); cooperative operations observe the background cancellation
-// and finish promptly, so hitting the bound means stuck work that shutdown
+// drainRefreshOps waits until every spawned executor finished, up to a
+// bounded multiple of the operation deadline. It waits on the executor
+// wait group rather than the active map: a replaced
+// canceled-but-still-running call no longer occupies its map entry, but
+// its executor may still touch repositories. Callers cancel first (see
+// Close); cooperative operations observe the background cancellation and
+// finish promptly, so hitting the bound means stuck work that shutdown
 // must not wait out.
 func (uc *FaviconUseCase) drainRefreshOps() {
-	deadline := time.Now().Add(3 * refreshOpTimeout)
-	for {
-		uc.shared.mu.Lock()
-		remaining := len(uc.shared.active)
-		uc.shared.mu.Unlock()
-		if remaining == 0 {
-			return
-		}
-		if time.Now().After(deadline) {
-			return
-		}
-		time.Sleep(5 * time.Millisecond)
+	done := make(chan struct{})
+	go func() {
+		uc.shared.wg.Wait()
+		close(done)
+	}()
+	deadline := time.NewTimer(3 * refreshOpTimeout)
+	defer deadline.Stop()
+	select {
+	case <-done:
+	case <-deadline.C:
 	}
 }

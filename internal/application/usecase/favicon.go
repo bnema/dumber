@@ -328,22 +328,36 @@ func (uc *FaviconUseCase) RefreshFromIconURLs(ctx context.Context, pageURL strin
 	if !ok {
 		return ErrFaviconMiss
 	}
-	if uc.cachedMiss(key) {
+	// Sealed admission wins over a cached absence: one atomic check so a
+	// refresh arriving after Close reports shutdown, never a stale miss.
+	if closed, miss := uc.sealedOrMiss(key); closed {
+		return appport.ErrFaviconShutdown
+	} else if miss {
 		return ErrFaviconMiss
 	}
 	return uc.joinRefreshOp(ctx, key, func(opCtx context.Context, startEpoch uint64) error {
 		var lastMiss error
+		// allMissesCacheable tracks whether EVERY attempted candidate
+		// failed with a cacheable genuine absence (verified 404/410).
+		// A single non-cacheable miss (401/403, 5xx, validation,
+		// transport) poisons the batch: the next call must retry the
+		// transient candidate instead of reading a cached absence.
+		allMissesCacheable := true
 		for _, iconURL := range candidates {
 			if err := opCtx.Err(); err != nil {
 				return err
 			}
 			fetched, err := uc.fetcher.Fetch(opCtx, appport.FaviconFetchRequest{PageURL: pageURL, IconURL: iconURL})
 			if err != nil {
-				if _, classified := appport.FetchStatusCode(err); classified {
+				if status, classified := appport.FetchStatusCode(err); classified {
+					if status != 404 && status != 410 {
+						allMissesCacheable = false
+					}
 					lastMiss = err
 					continue
 				}
 				if errors.Is(err, ErrFaviconMiss) {
+					allMissesCacheable = false
 					lastMiss = err
 					continue
 				}
@@ -354,6 +368,7 @@ func (uc *FaviconUseCase) RefreshFromIconURLs(ctx context.Context, pageURL strin
 			}
 			err = uc.observeFetched(opCtx, pageURL, fetched)
 			if errors.Is(err, ErrFaviconMiss) {
+				allMissesCacheable = false
 				lastMiss = err
 				continue
 			}
@@ -367,8 +382,11 @@ func (uc *FaviconUseCase) RefreshFromIconURLs(ctx context.Context, pageURL strin
 		if lastMiss != nil {
 			// Only a fully missed request populates the negative cache:
 			// recording per candidate would poison later candidates
-			// that were never tried.
-			uc.noteMiss(key, lastMiss)
+			// that were never tried, and a mixed batch must never
+			// suppress retry of its transient candidates.
+			if allMissesCacheable {
+				uc.noteMiss(key, lastMiss)
+			}
 			return lastMiss
 		}
 		if uc.epochValue() != startEpoch {
@@ -485,8 +503,14 @@ func (uc *FaviconUseCase) EnsureSized(ctx context.Context, key favicon.Key, size
 }
 
 func (uc *FaviconUseCase) Invalidate(ctx context.Context, key favicon.Key) error {
-	// Invalidation advances the epoch so in-flight completions that predate
-	// it cannot repopulate the cleared entries.
+	// Invalidation advances the epoch so in-flight completions that have not
+	// yet passed their pre-commit epoch check cannot repopulate the cleared
+	// entries. This is best-effort suppression, not a transactional commit:
+	// a completion that already passed its check may still write after the
+	// clear (a transient stale icon until the next refresh), because the
+	// check and the blob/repository writes are not atomic. Closing that
+	// residual window would require versioned commits in the repository
+	// layer and is out of scope for this stack.
 	uc.bumpEpoch()
 	if uc.blobs != nil {
 		if err := uc.blobs.RemoveDerived(ctx, key); err != nil {

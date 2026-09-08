@@ -57,7 +57,7 @@ func testInjector() *contentInjector {
 // bridge shim belongs to external pages.
 func TestInjectionEvent_ExternalPageScriptSet(t *testing.T) {
 	h := newInjectionHarness(t, "https://example.com/page")
-	testInjector().onLoadEndForEvent(h.wv, h.wv.captureInjectionEvent())
+	testInjector().onLoadEndForEvent(h.wv, h.wv.captureInjectionEvent(h.browser))
 
 	require.Equal(t, 4, h.scriptCount(), "external install must stay a fixed small script set")
 	h.mu.Lock()
@@ -76,7 +76,7 @@ func TestInjectionEvent_ExternalPageScriptSet(t *testing.T) {
 // internal document, including dark-mode handling and the message bridge.
 func TestInjectionEvent_InternalPageScriptSet(t *testing.T) {
 	h := newInjectionHarness(t, "dumb://home")
-	testInjector().onLoadEndForEvent(h.wv, h.wv.captureInjectionEvent())
+	testInjector().onLoadEndForEvent(h.wv, h.wv.captureInjectionEvent(h.browser))
 
 	require.Equal(t, 7, h.scriptCount(), "internal install must stay a fixed small script set")
 }
@@ -85,7 +85,7 @@ func TestInjectionEvent_InternalPageScriptSet(t *testing.T) {
 // during process swap: the GTK-dispatched callback must install nothing.
 func TestInjectionEvent_StaleBrowserSkipped(t *testing.T) {
 	h := newInjectionHarnessWithID(t, "https://example.com/a", 7)
-	event := h.wv.captureInjectionEvent()
+	event := h.wv.captureInjectionEvent(h.browser)
 
 	replacement := cefmocks.NewMockBrowser(t)
 	replacement.EXPECT().GetIdentifier().Return(int32(8)).Maybe()
@@ -102,7 +102,7 @@ func TestInjectionEvent_StaleBrowserSkipped(t *testing.T) {
 // superseded intent.
 func TestInjectionEvent_StaleIntentSkipped(t *testing.T) {
 	h := newInjectionHarness(t, "https://example.com/a")
-	event := h.wv.captureInjectionEvent()
+	event := h.wv.captureInjectionEvent(h.browser)
 
 	h.wv.mu.Lock()
 	h.wv.pendingIntentID++
@@ -119,28 +119,22 @@ func TestInjectionEvent_CurrentInstalls(t *testing.T) {
 	h := newInjectionHarness(t, "https://example.com/a")
 	ci := testInjector()
 
-	ci.onLoadEndForEvent(h.wv, h.wv.captureInjectionEvent())
+	ci.onLoadEndForEvent(h.wv, h.wv.captureInjectionEvent(h.browser))
 	first := h.scriptCount()
 	require.Positive(t, first)
 
-	ci.onLoadEndForEvent(h.wv, h.wv.captureInjectionEvent())
+	ci.onLoadEndForEvent(h.wv, h.wv.captureInjectionEvent(h.browser))
 	require.Equal(t, 2*first, h.scriptCount(), "repeated same-document events reinstall idempotent scripts")
 }
 
 // TestInjectionEvent_NilCaptureSkips verifies the conservative fallback: a
-// capture taken while no browser was attached cannot prove identity, so it
-// installs nothing; the current browser gets its own load-end installation.
+// capture from a nil callback browser cannot prove identity, so it installs
+// nothing; the current browser gets its own load-end installation.
 func TestInjectionEvent_NilCaptureSkips(t *testing.T) {
 	h := newInjectionHarness(t, "https://example.com/a")
-	h.wv.mu.Lock()
-	h.wv.browser = nil
-	h.wv.mu.Unlock()
-	event := h.wv.captureInjectionEvent()
+	event := h.wv.captureInjectionEvent(nil)
 	require.Equal(t, noBrowserID, event.browserID)
 
-	h.wv.mu.Lock()
-	h.wv.browser = h.browser
-	h.wv.mu.Unlock()
 	testInjector().onLoadEndForEvent(h.wv, event)
 	require.Zero(t, h.scriptCount(), "identity-less capture must not install blind")
 }
@@ -149,11 +143,32 @@ func TestInjectionEvent_NilCaptureSkips(t *testing.T) {
 // destroyed browser installs nothing instead of dereferencing it.
 func TestInjectionEvent_NilCurrentBrowserSkips(t *testing.T) {
 	h := newInjectionHarness(t, "https://example.com/a")
-	event := h.wv.captureInjectionEvent()
+	event := h.wv.captureInjectionEvent(h.browser)
 
 	h.wv.mu.Lock()
 	h.wv.browser = nil
 	h.wv.mu.Unlock()
 	testInjector().onLoadEndForEvent(h.wv, event)
 	require.Zero(t, h.scriptCount())
+}
+
+// TestInjectionEvent_StaleCallbackBrowserSkipped reproduces the exact
+// reviewer scenario: WebView state advances to a replacement browser, then
+// the OLD callback browser fires. Identity must come from the callback, so
+// the event keeps the old identifier and is rejected. Stamping the current
+// wv.browser instead would bless it with the replacement identity.
+func TestInjectionEvent_StaleCallbackBrowserSkipped(t *testing.T) {
+	h := newInjectionHarnessWithID(t, "https://example.com/a", 7)
+	oldCallbackBrowser := h.browser
+
+	replacement := cefmocks.NewMockBrowser(t)
+	replacement.EXPECT().GetIdentifier().Return(int32(8)).Maybe()
+	h.wv.mu.Lock()
+	h.wv.browser = replacement
+	h.wv.mu.Unlock()
+
+	event := h.wv.captureInjectionEvent(oldCallbackBrowser)
+	require.Equal(t, int32(7), event.browserID, "callback-sourced capture must keep the old identity")
+	testInjector().onLoadEndForEvent(h.wv, event)
+	require.Zero(t, h.scriptCount(), "old-callback event must not install against the replacement browser")
 }

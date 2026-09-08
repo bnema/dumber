@@ -11,9 +11,10 @@ const (
 )
 
 // FilterRequest describes one request offered to a ContentFilter. URL is
-// the full request URL; IsMainFrame reports a main-frame document load
-// (as opposed to a subresource); IsNavigation reports a navigation versus
-// an in-page resource load.
+// the full request URL; IsMainFrame reports that the request belongs to the
+// main frame (a main-frame document load or one of its subresources), as
+// opposed to an iframe/subframe document or its resources; IsNavigation
+// reports a navigation versus an in-page resource load.
 type FilterRequest struct {
 	URL          string
 	IsMainFrame  bool

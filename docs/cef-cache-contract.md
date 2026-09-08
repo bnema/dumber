@@ -8,9 +8,11 @@ compatibility decision with data-preservation tests and approval.
 
 - `RootCachePath` is set to the resolved state root (`DUMBER_CEF_ROOT_CACHE_PATH`
   override, engine cache dir, data dir, or profile default, in that order).
-- `CachePath` is intentionally left empty: the global request context
-  derives its on-disk cache location from `RootCachePath` per CEF default
-  semantics. Locked by
+- `CachePath` is intentionally left empty: with an empty `CachePath` CEF runs
+  the global request context incognito-style, with in-memory-only storage.
+  `RootCachePath` does NOT implicitly supply `CachePath` and does not grant
+  persistent `localStorage`: HTML5 storage only persists across sessions with
+  a non-empty `CachePath`. Locked by
   `TestPrepareCEFSettings_LeavesCachePathToCEFDefault`.
 - Browsers are created with a nil request context (`factory.go`), so every
   window shares the global request context and its storage. No per-window
@@ -18,9 +20,15 @@ compatibility decision with data-preservation tests and approval.
 
 ## Observed behavior
 
-Orderly-restart tests showed HTTP asset reuse and localStorage persistence
-across restarts with this configuration. Empty `CachePath` is therefore a
-contract description, not a proven cache-loss bug.
+Orderly-restart runs once suggested HTTP asset reuse and localStorage
+persistence across restarts with this configuration, but that observation is
+unverified against CEF semantics: with an empty `CachePath` the global
+context is incognito-style and profile data (including `localStorage`) is
+expected to be memory-only, so restart persistence must NOT be assumed. The
+seed/read-only probes below are the only accepted proof; until they run
+green on a display host, treat this configuration as non-persistent.
+Setting an explicit `CachePath` under `RootCachePath` requires the P3.3
+compatibility decision with data-preservation tests and approval.
 
 ## Display-side verification (pending)
 

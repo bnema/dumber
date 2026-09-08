@@ -490,7 +490,7 @@ func (h *handlerSet) OnLoadStart(_ purecef.Browser, frame purecef.Frame, _ purec
 }
 
 // OnLoadEnd resets crash count and injects content scripts for the main frame.
-func (h *handlerSet) OnLoadEnd(_ purecef.Browser, frame purecef.Frame, httpStatusCode int32) {
+func (h *handlerSet) OnLoadEnd(browser purecef.Browser, frame purecef.Frame, httpStatusCode int32) {
 	log := logging.FromContext(h.wv.ctx)
 	log.Debug().
 		Bool("frame_nil", frame == nil).
@@ -532,9 +532,10 @@ func (h *handlerSet) OnLoadEnd(_ purecef.Browser, frame purecef.Frame, httpStatu
 		})
 	}
 	if h.wv.engine != nil && h.wv.engine.contentInj != nil {
-		// Capture navigation identity for the GTK hop: a process swap or a
-		// newer navigation can stale this event before it runs.
-		event := h.wv.captureInjectionEvent()
+		// Capture navigation identity for the GTK hop from the callback's
+		// browser: a process swap or a newer navigation can stale this
+		// event before it runs.
+		event := h.wv.captureInjectionEvent(browser)
 		h.wv.runOnGTK(func() {
 			h.wv.engine.contentInj.onLoadEndForEvent(h.wv, event)
 		})

@@ -2209,20 +2209,27 @@ type injectionEvent struct {
 // attached; such events cannot prove identity and are skipped.
 const noBrowserID = int32(-1)
 
-// captureInjectionEvent snapshots the current browser identifier and pending
-// navigation intent for a load-end event. Called on the CEF thread; the
-// identifier read is a foreign call made outside any state lock.
-func (wv *WebView) captureInjectionEvent() injectionEvent {
+// captureInjectionEvent snapshots the navigation identity for a load-end
+// event from the callback's browser, not from mutable WebView state. Called
+// on the CEF thread; the identifier read is a foreign call made outside any
+// state lock. Sourcing identity from the callback is what makes staleness
+// detection work: a queued event from a replaced browser keeps the OLD
+// identifier and fails revalidation, while stamping the current wv.browser
+// would bless it. Same-browser navigations are distinguished by the pending
+// intent generation; repeated same-document load-ends share it and still
+// install (their scripts are idempotent).
+func (wv *WebView) captureInjectionEvent(browser purecef.Browser) injectionEvent {
 	if wv == nil {
 		return injectionEvent{browserID: noBrowserID}
 	}
-	wv.mu.RLock()
-	browser, intentID := wv.browser, wv.pendingIntentID
-	wv.mu.RUnlock()
 	if browser == nil {
-		return injectionEvent{browserID: noBrowserID, intentID: intentID}
+		return injectionEvent{browserID: noBrowserID}
 	}
-	return injectionEvent{browserID: browser.GetIdentifier(), intentID: intentID}
+	browserID := browser.GetIdentifier()
+	wv.mu.RLock()
+	intentID := wv.pendingIntentID
+	wv.mu.RUnlock()
+	return injectionEvent{browserID: browserID, intentID: intentID}
 }
 
 func pendingURIEquivalent(a, b string) bool {
