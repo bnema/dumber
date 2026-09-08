@@ -24,6 +24,9 @@ type downloadHandler struct {
 	mu       sync.Mutex
 	active   map[uint32]cefDownloadState
 	finished map[uint32]struct{} // IDs that already emitted a terminal event
+	// activity tracks download starts against their terminal events for
+	// the quiescence boundary. Nil-safe: unset in unit-test literals.
+	activity *RuntimeActivityTracker
 }
 
 type cefDownloadState struct {
@@ -102,11 +105,13 @@ func newDownloadHandler(
 	downloadPath string,
 	eventHandler port.DownloadEventHandler,
 	preparer port.DownloadPreparer,
+	activity *RuntimeActivityTracker,
 ) *downloadHandler {
 	return &downloadHandler{
 		runtime:  downloadruntime.New(downloadPath, eventHandler, preparer),
 		active:   make(map[uint32]cefDownloadState),
 		finished: make(map[uint32]struct{}),
+		activity: activity,
 	}
 }
 
@@ -116,7 +121,7 @@ func (h *downloadHandler) canDownload(_ purecef.Browser, _, _ string) bool {
 
 func (h *downloadHandler) onBeforeDownload(
 	ctx context.Context,
-	_ purecef.Browser,
+	browser purecef.Browser,
 	downloadItem purecef.DownloadItem,
 	suggestedName string,
 	callback purecef.BeforeDownloadCallback,
@@ -124,6 +129,14 @@ func (h *downloadHandler) onBeforeDownload(
 	if downloadItem == nil || callback == nil {
 		return false
 	}
+	// Retain browser ownership the previous code discarded: activity is
+	// keyed by (browser identity, CEF download ID), never by filename or
+	// destination, which can collide or change mid-download.
+	var browserID int32
+	if browser != nil {
+		browserID = browser.GetIdentifier()
+	}
+	h.activity.NoteDownloadStarted(browserID, downloadItem.GetID())
 
 	log := logging.FromContext(ctx)
 	output, err := h.runtime.ResolveDestination(ctx, suggestedName, &cefDownloadResponseAdapter{item: downloadItem})
@@ -149,12 +162,17 @@ func (h *downloadHandler) onBeforeDownload(
 
 func (h *downloadHandler) onDownloadUpdated(
 	ctx context.Context,
+	browser purecef.Browser,
 	downloadItem purecef.DownloadItem,
 	callback purecef.DownloadItemCallback,
 ) {
 	_ = callback
 	if downloadItem == nil {
 		return
+	}
+	var browserID int32
+	if browser != nil {
+		browserID = browser.GetIdentifier()
 	}
 
 	id := downloadItem.GetID()
@@ -175,11 +193,13 @@ func (h *downloadHandler) onDownloadUpdated(
 		if !h.markFinished(id) {
 			return
 		}
+		h.activity.NoteDownloadTerminal(browserID, id)
 		h.runtime.EmitFinished(ctx, state.filename, state.destination)
 	case downloadItem.IsCanceled() || downloadItem.IsInterrupted():
 		if !h.markFinished(id) {
 			return
 		}
+		h.activity.NoteDownloadTerminal(browserID, id)
 		var err error
 		if downloadItem.IsInterrupted() {
 			err = cefDownloadInterruptError{

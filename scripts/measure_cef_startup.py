@@ -8,6 +8,10 @@ Scenarios:
   relay-window   a real long-lived owner browser holds the relay; samples
                  launch browse with DUMBER_BROWSER_FRESH_WINDOW=1 in that
                  same isolated profile
+  reopen-window  like relay-window, but each sample first closes all owner
+                 windows through the diagnostic relay action, then reopens
+                 through the relay; verifies the same owner process serves
+                 the reopen without a second CEF initialization
 
 Fixtures (loopback only): static, delayed, redirect, cache.
 
@@ -281,7 +285,7 @@ def wait_for_relay_socket(runtime_dir, timeout_seconds=30.0):
     return None
 
 
-def start_relay_owner(binary, cef_dir, scenario_dir):
+def start_relay_owner(binary, cef_dir, scenario_dir, diagnostic_close=False):
     dirs = {
         "config": os.path.join(scenario_dir, "owner-config"),
         "data": os.path.join(scenario_dir, "owner-data"),
@@ -291,6 +295,12 @@ def start_relay_owner(binary, cef_dir, scenario_dir):
         "root_cache": os.path.join(scenario_dir, "shared-profile"),
     }
     env = scenario_env(cef_dir, dirs)
+    if diagnostic_close:
+        # Owned window-close mechanism for the reopen scenario only: the
+        # relay honors it solely in processes carrying this variable. It is
+        # never a general unauthenticated shutdown command.
+        env = dict(env)
+        env["DUMBER_DIAGNOSTIC_WINDOW_CLOSE"] = "1"
     try:
         proc = subprocess.Popen(
             [binary, "browse", "about:blank"],
@@ -299,18 +309,19 @@ def start_relay_owner(binary, cef_dir, scenario_dir):
             env=env,
         )
     except OSError:
-        return None, None
+        return None, None, None
     time.sleep(0.5)
     if proc.poll() is not None:
-        return None, None
-    if wait_for_relay_socket(dirs["runtime"]) is None:
+        return None, None, None
+    socket_path = wait_for_relay_socket(dirs["runtime"])
+    if socket_path is None:
         proc.terminate()
         try:
             proc.wait(timeout=5)
         except subprocess.TimeoutExpired:
             proc.kill()
-        return None, None
-    return proc, dirs
+        return None, None, None
+    return proc, dirs, socket_path
 
 
 def stop_proc(proc):
@@ -324,8 +335,98 @@ def stop_proc(proc):
         proc.wait(timeout=5)
 
 
+def send_diagnostic_close(socket_path, timeout_seconds=10.0):
+    """Ask the relay owner to close all windows. Returns True only on an
+    explicit acknowledgement. Never a general shutdown command: owners
+    honor it solely with DUMBER_DIAGNOSTIC_WINDOW_CLOSE=1."""
+    request = json.dumps({"request_id": secrets.token_hex(8), "action": "close-all-windows"}) + "\n"
+    sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    sock.settimeout(timeout_seconds)
+    try:
+        sock.connect(socket_path)
+        sock.sendall(request.encode())
+        received = b""
+        while b"\n" not in received:
+            chunk = sock.recv(4096)
+            if not chunk:
+                break
+            received += chunk
+        try:
+            response = json.loads(received.decode())
+        except ValueError:
+            return False
+        return bool(response.get("accepted")) and not response.get("error")
+    except OSError:
+        return False
+    finally:
+        sock.close()
+
+
+def child_pids(root_pid):
+    """Direct child pids of root_pid via /proc (stdlib only)."""
+    children = []
+    try:
+        entries = os.listdir("/proc")
+    except OSError:
+        return children
+    for entry in entries:
+        if not entry.isdigit():
+            continue
+        try:
+            with open("/proc/%s/stat" % entry) as handle:
+                parts = handle.read().rsplit(")", 1)[1].split()
+                if int(parts[1]) == root_pid:
+                    children.append(int(entry))
+        except (OSError, ValueError, IndexError):
+            continue
+    return children
+
+
+def proc_starttime(pid):
+    """Process start time (jiffies since boot) via /proc, or None.
+    Combined with the pid it forms an independently observed identity that
+    survives Popen-handle reuse and detects pid recycling."""
+    try:
+        with open("/proc/%d/stat" % pid) as handle:
+            parts = handle.read().rsplit(")", 1)[1].split()
+            return int(parts[19])
+    except (OSError, ValueError, IndexError):
+        return None
+
+
+def wait_for_child_quiescence(owner_pid, settle_seconds=2.0, timeout_seconds=15.0):
+    """Wait until the owner's child count is stable across settle_seconds.
+    Window close is asynchronous: the relay acknowledgement only means the
+    request was accepted, so reopening must wait for an observable steady
+    state instead of a fixed sleep. Returns the stable child count."""
+    end = time.monotonic() + timeout_seconds
+    last_change = time.monotonic()
+    last_count = len(child_pids(owner_pid))
+    while time.monotonic() < end:
+        time.sleep(0.5)
+        count = len(child_pids(owner_pid))
+        if count != last_count:
+            last_count = count
+            last_change = time.monotonic()
+        elif time.monotonic() - last_change >= settle_seconds:
+            return count
+    return len(child_pids(owner_pid))
+
+
+def proc_rss_kb(pid):
+    """Resident memory of pid in KiB via /proc, or None."""
+    try:
+        with open("/proc/%d/status" % pid) as handle:
+            for line in handle:
+                if line.startswith("VmRSS:"):
+                    return int(line.split()[1])
+    except (OSError, ValueError, IndexError):
+        pass
+    return None
+
+
 def run_sample(binary, cef_dir, scenario, fixture, run_index, owner=None, owner_dirs=None,
-               shared_root_cache=None):
+               shared_root_cache=None, owner_socket=None):
     run_token = secrets.token_hex(8)
     nav_token = secrets.token_hex(8)
     cutoff = post_nav_cutoff_seconds()
@@ -345,7 +446,7 @@ def run_sample(binary, cef_dir, scenario, fixture, run_index, owner=None, owner_
             url = "http://127.0.0.1:%d/redirect?run=%s&nav=%s" % (port, run_token, nav_token)
         else:
             url = "http://127.0.0.1:%d/?run=%s&nav=%s" % (port, run_token, nav_token)
-        if scenario == "relay-window" and owner_dirs is not None:
+        if scenario in ("relay-window", "reopen-window") and owner_dirs is not None:
             dirs = dict(owner_dirs)
             extra = {"DUMBER_BROWSER_FRESH_WINDOW": "1"}
         else:
@@ -360,6 +461,24 @@ def run_sample(binary, cef_dir, scenario, fixture, run_index, owner=None, owner_
             extra = {}
         env = scenario_env(cef_dir, dirs, extra)
         owner_alive_at_start = owner is not None and owner.poll() is None
+        reopen = None
+        if scenario == "reopen-window" and owner is not None and owner_socket:
+            owner_pid = owner.pid
+            owner_start = proc_starttime(owner_pid)
+            children_before = child_pids(owner_pid)
+            rss_before = proc_rss_kb(owner_pid)
+            acknowledged = send_diagnostic_close(owner_socket)
+            # The acknowledgement only means accepted: wait for an
+            # observable steady state before measuring the reopen.
+            quiescent_children = wait_for_child_quiescence(owner_pid)
+            reopen = {
+                "owner_pid": owner_pid,
+                "owner_starttime": owner_start,
+                "close_acknowledged": acknowledged,
+                "browser_child_count_before": len(children_before),
+                "browser_child_count_quiescent": quiescent_children,
+                "owner_rss_kb_before": rss_before,
+            }
         spawn_ts = time.monotonic()
         proc = subprocess.Popen(
             [binary, "browse", url],
@@ -429,11 +548,11 @@ def run_sample(binary, cef_dir, scenario, fixture, run_index, owner=None, owner_
             observation_ms = int((decision_ts - spawn_ts) * 1000)
         expected_document_requests = 2 if fixture == "redirect" else 1
         complete = document_count == expected_document_requests and len(fcp) > 0
-        if scenario == "relay-window":
+        if scenario in ("relay-window", "reopen-window"):
             relayed = bool(owner_alive_at_start and self_exited)
         else:
             relayed = False
-        return {
+        result = {
             "run": run_index,
             "scenario": scenario,
             "fixture": fixture,
@@ -447,8 +566,25 @@ def run_sample(binary, cef_dir, scenario, fixture, run_index, owner=None, owner_
             "startup_milestones": len(milestones),
             "complete": complete,
             "relayed": relayed,
-            "fallback_spawn": scenario == "relay-window" and not relayed,
+            "fallback_spawn": scenario in ("relay-window", "reopen-window") and not relayed,
         }
+        if reopen is not None:
+            # Owner identity is verified independently of the Popen handle:
+            # the same pid with a different start time is a recycled pid,
+            # not the same process. Unverifiable identity counts as different.
+            start_now = proc_starttime(reopen["owner_pid"]) if owner is not None else None
+            owner_alive = owner is not None and owner.poll() is None
+            same = bool(
+                owner_alive
+                and reopen["owner_starttime"] is not None
+                and start_now == reopen["owner_starttime"]
+            )
+            reopen["owner_alive_after"] = owner_alive
+            reopen["same_process"] = same
+            reopen["browser_child_count_after"] = len(child_pids(owner.pid)) if owner_alive else 0
+            reopen["owner_rss_kb_after"] = proc_rss_kb(owner.pid) if owner_alive else None
+            result["reopen"] = reopen
+        return result
     finally:
         server.shutdown()
         server.server_close()
@@ -463,7 +599,7 @@ def main():
     parser.add_argument(
         "--scenario",
         required=True,
-        choices=("process-warm", "profile-fresh", "relay-window"),
+        choices=("process-warm", "profile-fresh", "relay-window", "reopen-window"),
     )
     parser.add_argument(
         "--fixture",
@@ -501,6 +637,7 @@ def main():
     os.makedirs(args.output)
     owner = None
     owner_dirs = None
+    owner_socket = None
     shared_root_cache = None
     warmup_discarded = False
     if args.scenario == "process-warm":
@@ -509,7 +646,12 @@ def main():
     if args.scenario == "relay-window":
         scenario_dir = os.path.join(args.output, "relay-scenario")
         os.makedirs(scenario_dir)
-        owner, owner_dirs = start_relay_owner(args.binary, args.cef_dir, scenario_dir)
+        owner, owner_dirs, owner_socket = start_relay_owner(args.binary, args.cef_dir, scenario_dir)
+    if args.scenario == "reopen-window":
+        scenario_dir = os.path.join(args.output, "reopen-scenario")
+        os.makedirs(scenario_dir)
+        owner, owner_dirs, owner_socket = start_relay_owner(
+            args.binary, args.cef_dir, scenario_dir, diagnostic_close=True)
 
     results = []
     try:
@@ -528,6 +670,7 @@ def main():
             result = run_sample(
                 args.binary, args.cef_dir, args.scenario, args.fixture, index,
                 owner=owner, owner_dirs=owner_dirs, shared_root_cache=shared_root_cache,
+                owner_socket=owner_socket,
             )
             results.append(result)
             with open(os.path.join(args.output, "run-%02d.json" % index), "w") as handle:

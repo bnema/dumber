@@ -501,6 +501,9 @@ func validateCEF(config *Config) []string {
 	if config.Engine.CEF.WindowlessFrameRateMax < 0 {
 		validationErrors = append(validationErrors, "engine.cef.windowless_frame_rate_max must be >= 0")
 	}
+	if config.Engine.CEF.IdleRuntimeTimeoutMs < 0 || config.Engine.CEF.IdleRuntimeTimeoutMs > 300000 {
+		validationErrors = append(validationErrors, "engine.cef.idle_runtime_timeout_ms must be within 0..300000")
+	}
 
 	input := config.Engine.CEF.Input
 	if invalidPositiveFloat(input.ScrollWheelMultiplier) {

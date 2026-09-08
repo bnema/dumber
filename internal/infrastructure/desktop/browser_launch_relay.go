@@ -17,8 +17,10 @@ import (
 	"time"
 
 	"github.com/bnema/dumber/internal/application/port"
+	"github.com/bnema/dumber/internal/infrastructure/process"
 	"github.com/bnema/dumber/internal/infrastructure/runtimeprofile"
 	"github.com/bnema/dumber/internal/logging"
+	"github.com/rs/zerolog"
 )
 
 const browserLaunchSocketName = "browser-launch.sock"
@@ -36,6 +38,11 @@ var ErrBrowserLaunchRelayUnconfirmed = errors.New("browser launch relay did not 
 
 type browserLaunchRelay struct {
 	ipc runtimeprofile.IPCPaths
+	// admission is the shared admission/work-lease boundary: a lease is
+	// acquired before sending Accepted and released when dispatch settles.
+	// Shutdown closes it so losing requests get an error response instead
+	// of an acknowledgement. Initialized eagerly; never nil.
+	admission *process.AdmissionGate
 }
 
 type browserLaunchRequest struct {
@@ -49,7 +56,25 @@ type browserLaunchAction string
 const (
 	browserLaunchActionOpenExternalURL browserLaunchAction = "open-external-url"
 	browserLaunchActionOpenFreshWindow browserLaunchAction = "open-fresh-window"
+	// browserLaunchActionCloseAllWindows is a diagnostic-only action for the
+	// residency harness: it closes every user window through the standard
+	// removal path. It is honored only when the OWNING process sets
+	// DUMBER_DIAGNOSTIC_WINDOW_CLOSE=1; otherwise it is rejected before
+	// acknowledgement. It is never a general unauthenticated shutdown
+	// command: the relay socket itself remains owner-only (0700, uid).
+	browserLaunchActionCloseAllWindows browserLaunchAction = "close-all-windows"
 )
+
+// diagnosticWindowCloseEnvVar gates the diagnostic close action on the
+// owning (server) process environment.
+const diagnosticWindowCloseEnvVar = "DUMBER_DIAGNOSTIC_WINDOW_CLOSE"
+
+// windowCloseOpener is implemented by openers that support the diagnostic
+// close action. It is matched structurally so the port interface is
+// unchanged.
+type windowCloseOpener interface {
+	CloseAllWindows(ctx context.Context) error
+}
 
 type browserLaunchResponse struct {
 	RequestID string `json:"request_id,omitempty"`
@@ -60,6 +85,7 @@ type browserLaunchResponse struct {
 type browserLaunchRelayListener struct {
 	listener   *net.UnixListener
 	socketPath string
+	admission  *process.AdmissionGate
 	once       sync.Once
 	err        error
 }
@@ -73,7 +99,24 @@ var newBrowserLaunchRequestID = func() string {
 }
 
 func NewBrowserLaunchRelay(ipc runtimeprofile.IPCPaths) port.BrowserLaunchRelay {
-	return &browserLaunchRelay{ipc: ipc}
+	return &browserLaunchRelay{ipc: ipc, admission: process.NewAdmissionGate()}
+}
+
+// AdmissionGateProvider exposes the relay's shared admission boundary
+// without extending the port interface or regenerating mocks.
+type AdmissionGateProvider interface {
+	AdmissionGate() *process.AdmissionGate
+}
+
+// Compile-time check: the shared gate implements the application boundary.
+var _ port.AdmissionBoundary = (*process.AdmissionGate)(nil)
+
+// AdmissionGate returns the shared admission/work-lease boundary.
+func (r *browserLaunchRelay) AdmissionGate() *process.AdmissionGate {
+	if r == nil || r.admission == nil {
+		return process.NewAdmissionGate()
+	}
+	return r.admission
 }
 
 func (r *browserLaunchRelay) DeliverOpenExternalURL(ctx context.Context, url string) (bool, error) {
@@ -269,7 +312,7 @@ func (r *browserLaunchRelay) Listen(ctx context.Context, opener port.BrowserWind
 		}
 	}
 
-	relayListener := &browserLaunchRelayListener{listener: listener, socketPath: socketPath}
+	relayListener := &browserLaunchRelayListener{listener: listener, socketPath: socketPath, admission: r.AdmissionGate()}
 	go relayListener.serve(ctx, opener)
 
 	return relayListener, nil
@@ -322,7 +365,48 @@ func (l *browserLaunchRelayListener) serve(ctx context.Context, opener port.Brow
 	}
 }
 
-func (*browserLaunchRelayListener) handleConnection(ctx context.Context, conn *net.UnixConn, opener port.BrowserWindowOpener) {
+// admitRelayConnection acquires one admission lease for the decoded request
+// and enforces pre-acknowledgement eligibility. It returns nil after sending
+// an error response (closed admission or unauthorized diagnostic action);
+// the caller must return without acknowledging. An admitted lease is released
+// by the caller on early failure and by dispatch completion otherwise.
+func admitRelayConnection(
+	conn *net.UnixConn,
+	configured *process.AdmissionGate,
+	request browserLaunchRequest,
+	requestID string,
+	log *zerolog.Logger,
+) *process.AdmissionGate {
+	gate := configured
+	if gate == nil {
+		gate = process.NewAdmissionGate()
+	}
+	refuse := func(errorBody string) *process.AdmissionGate {
+		if err := conn.SetDeadline(time.Now().Add(browserLaunchIOTimeout)); err != nil {
+			return nil
+		}
+		_ = json.NewEncoder(conn).Encode(browserLaunchResponse{RequestID: requestID, Error: errorBody})
+		return nil
+	}
+	if !gate.Acquire() {
+		log.Debug().
+			Str("request_id", requestID).
+			Msg("browser launch relay refused request after admission closed")
+		return refuse("shutting down")
+	}
+	// The diagnostic close action is rejected before acknowledgement
+	// unless the owning process explicitly enables it.
+	if request.Action == browserLaunchActionCloseAllWindows && os.Getenv(diagnosticWindowCloseEnvVar) != "1" {
+		gate.Release()
+		log.Warn().
+			Str("request_id", requestID).
+			Msg("browser launch relay rejected diagnostic close without owner opt-in")
+		return refuse("diagnostic close not enabled")
+	}
+	return gate
+}
+
+func (l *browserLaunchRelayListener) handleConnection(ctx context.Context, conn *net.UnixConn, opener port.BrowserWindowOpener) {
 	defer func() { _ = conn.Close() }()
 	log := logging.FromContext(ctx)
 	if err := conn.SetDeadline(time.Now().Add(browserLaunchIOTimeout)); err != nil {
@@ -342,7 +426,17 @@ func (*browserLaunchRelayListener) handleConnection(ctx context.Context, conn *n
 		Str("url_host", safeURLHost(request.URL)).
 		Msg("browser launch relay request received")
 
+	// Admit before acknowledgement: losing requests receive the existing
+	// error response here, never an acknowledgement for work that will not
+	// run. Acknowledgement still precedes expensive UI dispatch below, and
+	// unconfirmed delivery keeps its no-duplicate-fallback semantics.
+	gate := admitRelayConnection(conn, l.admission, request, requestID, log)
+	if gate == nil {
+		return
+	}
+
 	if err := conn.SetDeadline(time.Now().Add(browserLaunchIOTimeout)); err != nil {
+		gate.Release()
 		return
 	}
 	if err := json.NewEncoder(conn).Encode(browserLaunchResponse{RequestID: requestID, Accepted: true}); err != nil {
@@ -350,6 +444,7 @@ func (*browserLaunchRelayListener) handleConnection(ctx context.Context, conn *n
 			Str("request_id", requestID).
 			Str("url_host", safeURLHost(request.URL)).
 			Msg("failed to encode browser launch response")
+		gate.Release()
 		return
 	}
 	log.Debug().
@@ -358,6 +453,11 @@ func (*browserLaunchRelayListener) handleConnection(ctx context.Context, conn *n
 		Msg("browser launch relay request accepted")
 
 	go func() {
+		// The lease spans acknowledgement through dispatch completion or
+		// definitive factory/dispatch failure. Factory/dispatch failure
+		// retains the documented existing failure semantics and never
+		// triggers duplicate fallback.
+		defer gate.Release()
 		if opener == nil {
 			log.Warn().
 				Str("request_id", requestID).
@@ -376,6 +476,12 @@ func (*browserLaunchRelayListener) handleConnection(ctx context.Context, conn *n
 			err = opener.OpenExternalURL(ctx, request.URL)
 		case browserLaunchActionOpenFreshWindow:
 			err = opener.OpenFreshWindow(ctx, request.URL)
+		case browserLaunchActionCloseAllWindows:
+			if closer, ok := opener.(windowCloseOpener); ok {
+				err = closer.CloseAllWindows(ctx)
+			} else {
+				err = errors.New("browser launch relay opener does not support diagnostic close")
+			}
 		default:
 			log.Warn().
 				Str("request_id", requestID).

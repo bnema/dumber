@@ -139,6 +139,17 @@ type App struct {
 	// Engine
 	engine port.Engine
 
+	// residencyTimeout is the effective bounded-residency idle timeout
+	// latched once at process startup. Live config snapshots are replaced
+	// wholesale, so this field is never re-read from them; a changed value
+	// is reported as restart-required instead of partially hot-applied.
+	residencyTimeout time.Duration
+	// residency owns the opt-in idle hold and deadline. Always non-nil
+	// after Run starts; nil beforehand (e.g. in tests without Run).
+	residency *ResidencyController
+	// residencyUnsubscribe drops native quiescence subscriptions at shutdown.
+	residencyUnsubscribe []func()
+
 	// Web content (managed by content.Coordinator)
 	faviconAdapter *adapter.FaviconAdapter
 
@@ -341,6 +352,34 @@ func (a *App) Run(ctx context.Context, args []string) int {
 	defer a.gtkApp.Unref()
 	a.dispatchOnMainThread = a.runOnMainThread
 
+	// Bounded opt-in residency owns exactly one application hold, taken
+	// only when enabled and released once on every Run exit (including
+	// activation failure before the shutdown signal).
+	a.residency = NewResidencyController(a.residencyTimeout, time.Now, nil, nil, a.Quit)
+	a.residency.schedule = a.residency.scheduleGLibTimeout
+	a.residency.cancel = a.residency.cancelGLibTimeout
+	a.residency.SetDispatchToGTK(func(f func()) {
+		callback := glib.SourceFunc(func(_ uintptr) bool {
+			f()
+			return false
+		})
+		glib.IdleAdd(&callback, 0)
+	})
+	a.residency.SetQuiescentFunc(a.residencyQuiescent)
+	a.residency.SetSealFunc(a.closeRelayAdmission)
+	a.residency.SetUnsealFunc(func() {
+		if a.deps == nil {
+			return
+		}
+		if provider, ok := a.deps.BrowserLaunchRelay.(relayAdmissionProvider); ok && provider != nil {
+			if gate := provider.AdmissionGate(); gate != nil {
+				gate.Reopen()
+			}
+		}
+	})
+	a.residency.AcquireHold(a.gtkApp)
+	defer a.residency.ReleaseHold(a.gtkApp)
+
 	// Connect activate signal
 	activateCb := func(_ gio.Application) {
 		a.onActivate(ctx)
@@ -372,6 +411,12 @@ func (a *App) onActivate(ctx context.Context) {
 
 	if err := a.openInitialBrowserWindowShell(ctx, a.initialWindowURL()); err != nil {
 		log.Error().Err(err).Msg("failed to create main window")
+		// Reach bounded idle or orderly shutdown instead of lingering on
+		// the residency hold with no windows: disabled residency quits here
+		// exactly as before (GTK auto-exits holderless), enabled arms.
+		if a.residencyShouldQuitAfterLastWindow() {
+			a.Quit()
+		}
 		return
 	}
 
@@ -388,6 +433,7 @@ func (a *App) onActivate(ctx context.Context) {
 	a.wireSessionManagerShortcut()
 	a.initSnapshotService(ctx)
 	a.initUpdateCoordinator(ctx)
+	a.subscribeResidencyQuiescence()
 	a.createInitialTab(ctx)
 	a.finalizeActivation(ctx)
 }
@@ -3065,6 +3111,19 @@ func (a *App) onShutdown(ctx context.Context) {
 	log := logging.FromContext(ctx)
 	log.Debug().Msg("GTK application shutting down")
 
+	// Stop relay admission before snapshot/update teardown so no new work
+	// starts while persistence drains. Admitted leases keep their sockets
+	// until dispatch settles; off-thread quits already drained beforehand
+	// (see Quit), and on the GTK thread itself a drain wait is impossible,
+	// so teardown relies on close-then-teardown ordering here.
+	a.closeRelayAdmission()
+	a.unsubscribeResidencyQuiescence()
+
+	// Persistence drain barriers, in teardown order. The snapshot service
+	// owns debounced session writes (Stop performs the final synchronous
+	// save); the history recorder flushes synchronously on Close. All
+	// other persistence owners are synchronous use-case calls with no
+	// background work, so no additional drain exists.
 	// Save final session state before shutdown
 	if a.snapshotService != nil {
 		if err := a.snapshotService.Stop(ctx); err != nil {
@@ -3240,10 +3299,8 @@ func (a *App) initTabCoordinator(ctx context.Context) {
 				bw.mainWindow.Destroy()
 			}
 		}
-		// Quit the app only when all browser windows are gone.
-		if len(a.browserWindows) == 0 {
-			a.Quit()
-		}
+		// Quitting is decided inside removeBrowserWindow through residency;
+		// nothing further to do here.
 	})
 	// Wire popup tab WebView attachment
 	a.tabCoord.SetOnAttachPopupToTab(a.attachPopupToTab)
@@ -3779,11 +3836,26 @@ func (a *App) Quit() {
 		return
 	}
 	quit := func() {
+		// The whole residency/GTK quit transition runs on the GTK thread:
+		// canceling the idle timer touches GLib sources, which is only
+		// safe on its owner thread. Explicit quits and signals never wait
+		// for the idle deadline and must not bypass orderly cleanup.
+		if a.residency != nil {
+			a.residency.NoteExplicitQuit()
+		}
 		if a.gtkApp != nil {
 			a.gtkApp.Quit()
 		}
 	}
 	glibCtx := glib.MainContextDefault()
+	if glibCtx == nil || !glibCtx.IsOwner() {
+		// Off-thread quits (signals, relay threads) drain admission and
+		// persistence BEFORE entering GTK shutdown, while the loop can
+		// still service admitted work. On the GTK thread itself this wait
+		// is impossible, so shutdown relies on close-then-teardown
+		// ordering instead; the dispatched closure below never blocks.
+		a.drainForShutdownOffThread()
+	}
 	if glibCtx != nil && glibCtx.IsOwner() {
 		quit()
 		return

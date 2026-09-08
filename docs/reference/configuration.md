@@ -66,6 +66,7 @@
 | `engine.cef.adaptive_windowless_frame_rate` | bool | `true` | |
 | `engine.cef.windowless_frame_rate` | int32 | `0` | >= 0 |
 | `engine.cef.windowless_frame_rate_max` | int32 | `240` | >= 0 |
+| `engine.cef.idle_runtime_timeout_ms` | int | `0` | 0..300000, restart-required |
 | `engine.cef.input.scroll_wheel_multiplier` | float | `1.0` | > 0 |
 | `engine.cef.input.scroll_precise_multiplier` | float | `2.5` | > 0 |
 | `engine.cef.input.scroll_horizontal_multiplier` | float | `1.0` | > 0 |

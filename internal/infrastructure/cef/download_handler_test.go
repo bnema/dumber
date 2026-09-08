@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	purecef "github.com/bnema/purego-cef/cef"
+	cefmocks "github.com/bnema/purego-cef/cef/mocks"
 	"github.com/stretchr/testify/require"
 
 	"github.com/bnema/dumber/internal/application/port"
@@ -74,7 +75,7 @@ func TestCEFDownloadHandlerLifecycle(t *testing.T) {
 	preparer := usecase.NewPrepareDownloadUseCase(nil)
 	events := &captureDownloadEvents{}
 	downloadDir := t.TempDir()
-	handler := newDownloadHandler(downloadDir, events, preparer)
+	handler := newDownloadHandler(downloadDir, events, preparer, nil)
 	callback := &stubBeforeDownloadCallback{}
 
 	item := stubDownloadItem{
@@ -93,9 +94,9 @@ func TestCEFDownloadHandlerLifecycle(t *testing.T) {
 
 	item.complete = true
 	item.fullPath = callback.path
-	handler.onDownloadUpdated(ctx, item, nil)
+	handler.onDownloadUpdated(ctx, nil, item, nil)
 	// Repeated completion updates should not emit duplicate finished events.
-	handler.onDownloadUpdated(ctx, item, nil)
+	handler.onDownloadUpdated(ctx, nil, item, nil)
 
 	require.Len(t, events.events, 2)
 	require.Equal(t, port.DownloadEventFinished, events.events[1].Type)
@@ -112,7 +113,7 @@ func TestCEFDownloadHandlerLifecycle(t *testing.T) {
 
 func TestCanDownload_AllowsAllMethods(t *testing.T) {
 	preparer := usecase.NewPrepareDownloadUseCase(nil)
-	handler := newDownloadHandler("/tmp/downloads", nil, preparer)
+	handler := newDownloadHandler("/tmp/downloads", nil, preparer, nil)
 
 	require.True(t, handler.canDownload(nil, "https://example.com/file.zip", "GET"))
 	require.True(t, handler.canDownload(nil, "https://example.com/file.zip", "POST"))
@@ -122,7 +123,7 @@ func TestCanDownload_AllowsAllMethods(t *testing.T) {
 
 func TestMarkFinished_SuppressesDuplicatesAfterCleanup(t *testing.T) {
 	preparer := usecase.NewPrepareDownloadUseCase(nil)
-	handler := newDownloadHandler("/tmp/downloads", nil, preparer)
+	handler := newDownloadHandler("/tmp/downloads", nil, preparer, nil)
 
 	// Simulate a download that was tracked through onBeforeDownload.
 	handler.mu.Lock()
@@ -149,7 +150,7 @@ func TestCEFDownloadHandlerEmitsProgressOncePerPercent(t *testing.T) {
 	ctx := context.Background()
 	preparer := usecase.NewPrepareDownloadUseCase(nil)
 	events := &captureDownloadEvents{}
-	handler := newDownloadHandler("/tmp/downloads", events, preparer)
+	handler := newDownloadHandler("/tmp/downloads", events, preparer, nil)
 	callback := &stubBeforeDownloadCallback{}
 
 	item := stubDownloadItem{
@@ -165,12 +166,12 @@ func TestCEFDownloadHandlerEmitsProgressOncePerPercent(t *testing.T) {
 	item.percentComplete = 12
 	item.receivedBytes = 12
 	item.totalBytes = 100
-	handler.onDownloadUpdated(ctx, item, nil)
-	handler.onDownloadUpdated(ctx, item, nil)
+	handler.onDownloadUpdated(ctx, nil, item, nil)
+	handler.onDownloadUpdated(ctx, nil, item, nil)
 
 	item.percentComplete = 13
 	item.receivedBytes = 13
-	handler.onDownloadUpdated(ctx, item, nil)
+	handler.onDownloadUpdated(ctx, nil, item, nil)
 
 	require.Len(t, events.events, 3)
 	require.Equal(t, port.DownloadEventStarted, events.events[0].Type)
@@ -184,7 +185,7 @@ func TestCEFDownloadInterruptedErrorIncludesCodeAndReason(t *testing.T) {
 	ctx := context.Background()
 	preparer := usecase.NewPrepareDownloadUseCase(nil)
 	events := &captureDownloadEvents{}
-	handler := newDownloadHandler("/tmp/downloads", events, preparer)
+	handler := newDownloadHandler("/tmp/downloads", events, preparer, nil)
 	callback := &stubBeforeDownloadCallback{}
 
 	item := stubDownloadItem{
@@ -199,11 +200,40 @@ func TestCEFDownloadInterruptedErrorIncludesCodeAndReason(t *testing.T) {
 	item.fullPath = callback.path
 	item.interrupted = true
 	item.reason = purecef.DownloadInterruptReasonServerBadContent
-	handler.onDownloadUpdated(ctx, item, nil)
+	handler.onDownloadUpdated(ctx, nil, item, nil)
 
 	require.Len(t, events.events, 2)
 	require.Error(t, events.events[1].Error)
 	expectedCode := fmt.Sprintf("code=%d", purecef.DownloadInterruptReasonServerBadContent)
 	require.ErrorContains(t, events.events[1].Error, expectedCode)
 	require.ErrorContains(t, events.events[1].Error, "reason=server_bad_content")
+}
+
+func TestDownloadHandlerTracksOwnersByBrowserAndID(t *testing.T) {
+	ctx := context.Background()
+	preparer := usecase.NewPrepareDownloadUseCase(nil)
+	events := &captureDownloadEvents{}
+	tracker := NewRuntimeActivityTracker()
+	handler := newDownloadHandler(t.TempDir(), events, preparer, tracker)
+	callback := &stubBeforeDownloadCallback{}
+
+	first := cefmocks.NewMockBrowser(t)
+	first.EXPECT().GetIdentifier().Return(int32(7))
+	second := cefmocks.NewMockBrowser(t)
+	second.EXPECT().GetIdentifier().Return(int32(9))
+
+	// Same filename from two owners are distinct activity entries.
+	require.True(t, handler.onBeforeDownload(ctx, first,
+		stubDownloadItem{id: 11, url: "https://example.com/a.bin", suggested: "a.bin"}, "a.bin", callback))
+	require.True(t, handler.onBeforeDownload(ctx, second,
+		stubDownloadItem{id: 12, url: "https://other.example/a.bin", suggested: "a.bin"}, "a.bin", callback))
+	require.Equal(t, 2, tracker.Snapshot().ActiveDownloads)
+
+	// Terminal for one ID leaves the other owner outstanding.
+	handler.onDownloadUpdated(ctx, first, stubDownloadItem{id: 11, complete: true, fullPath: "/tmp/a.bin"}, nil)
+	require.Equal(t, 1, tracker.Snapshot().ActiveDownloads)
+
+	// Lost owners reconcile through the native lifecycle, never removal.
+	tracker.DropBrowser(9)
+	require.True(t, tracker.Snapshot().Quiescent())
 }

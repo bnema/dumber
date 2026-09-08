@@ -343,6 +343,7 @@ func (a *App) registerBrowserWindow(bw *browserWindow) {
 		return
 	}
 	a.browserWindowOrder = append(a.browserWindowOrder, bw.id)
+	a.residencyNoteWindowsChanged()
 }
 
 func (a *App) releaseTabWorkspace(ctx context.Context, tab *entity.Tab) {
@@ -392,6 +393,7 @@ func (a *App) removeBrowserWindow(id string) {
 	if wasMainWindow {
 		a.clearMainBrowserWindowAfterRemoval(fallback)
 	}
+	a.residencyAfterWindowRemoved()
 }
 
 func (a *App) releaseNativePopupsForBrowserWindow(windowID string) {

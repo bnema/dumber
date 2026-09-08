@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/bnema/dumber/internal/application/port"
@@ -23,6 +24,9 @@ const (
 // Compile-time interface check.
 var _ port.SnapshotService = (*Service)(nil)
 
+// Compile-time drain boundary check.
+var _ port.PersistenceDrain = (*Service)(nil)
+
 // Service handles debounced session state snapshots.
 type Service struct {
 	snapshotUC *usecase.SnapshotSessionUseCase
@@ -31,12 +35,24 @@ type Service struct {
 	retries    int
 	retryDelay time.Duration
 
-	mu     sync.Mutex
-	timer  *time.Timer
-	dirty  bool
-	ready  bool // true when session is persisted to DB and snapshots can be saved
-	ctx    context.Context
-	cancel context.CancelFunc
+	mu       sync.Mutex
+	timer    *time.Timer
+	timerGen uint64
+	// stopped latches Stop: no new debounce work schedules afterwards.
+	stopped bool
+	dirty   bool
+	ready   bool // true when session is persisted to DB and snapshots can be saved
+	ctx     context.Context
+	cancel  context.CancelFunc
+
+	// Drain boundary for the residency quiescence contract. inflight
+	// counts an executing capture/database save; lastErr records the
+	// terminal failure of the most recent save while dirty is preserved
+	// for reporting and later retry. Failed writes are settled-but-failed:
+	// the drain terminates instead of looping forever on dirty.
+	inflight  atomic.Int32
+	lastErr   error
+	onSettled []func()
 }
 
 // NewService creates a new snapshot service.
@@ -91,7 +107,11 @@ func (s *Service) SetReady() {
 	}()
 }
 
-// Stop stops the service and saves final state.
+// Stop stops the service and saves final state, then joins an
+// already-running save within a bounded wait so shutdown observes the
+// drain barrier instead of racing it. The wait never blocks forever.
+// Latching stopped also prevents any later debounce from scheduling work
+// on the dead service.
 func (s *Service) Stop(ctx context.Context) error {
 	s.mu.Lock()
 	if s.cancel != nil {
@@ -101,27 +121,52 @@ func (s *Service) Stop(ctx context.Context) error {
 		s.timer.Stop()
 		s.timer = nil
 	}
+	s.stopped = true
 	s.mu.Unlock()
 
 	// Final save on shutdown
-	return s.SaveNow(ctx)
+	err := s.SaveNow(ctx)
+	drainCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 10*time.Second)
+	defer cancel()
+	if waitErr := s.WaitSettled(drainCtx); waitErr != nil {
+		logging.FromContext(ctx).Warn().Err(waitErr).Msg("snapshot drain did not settle before shutdown")
+	}
+	return err
 }
 
 // MarkDirty signals that state has changed.
-// Debounces saves to avoid excessive DB writes.
+// Debounces saves to avoid excessive DB writes. It is a no-op after Stop
+// so shutdown never resurrects debounce work on the dead service.
 func (s *Service) MarkDirty() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-
+	if s.stopped {
+		return
+	}
 	s.dirty = true
 
 	// Reset or create timer
 	if s.timer != nil {
 		s.timer.Stop()
 	}
-
+	s.timerGen++
+	gen := s.timerGen
 	s.timer = time.AfterFunc(s.interval, func() {
 		s.mu.Lock()
+		// Retire the owning timer as it fires: a non-nil timer means
+		// debounce work is outstanding, so leaving it set would strand
+		// the drain after the save settles. The generation check keeps
+		// a superseded timer from clearing its replacement, and a
+		// superseded or stopped timer saves nothing: the replacement
+		// timer or Stop's own final save owns that work.
+		if s.timerGen != gen || s.stopped {
+			if s.timerGen == gen {
+				s.timer = nil
+			}
+			s.mu.Unlock()
+			return
+		}
+		s.timer = nil
 		ctx := s.ctx
 		s.mu.Unlock()
 
@@ -160,14 +205,28 @@ func (s *Service) saveSnapshot(ctx context.Context) error {
 		s.mu.Unlock()
 		return nil
 	}
+	// Claim the dirty work atomically: concurrent timer and SaveNow paths
+	// serialize here, so exactly one save runs and shutdown joins rather
+	// than duplicates the active save.
+	if !s.dirty {
+		s.mu.Unlock()
+		return nil
+	}
 	// Only clear dirty when we're actually going to save
 	s.dirty = false
+	s.lastErr = nil
+	s.inflight.Add(1)
 	s.mu.Unlock()
+
+	defer func() {
+		s.inflight.Add(-1)
+		s.notifyIfSettled()
+	}()
 
 	sessionID := s.provider.GetSessionID()
 
 	if sessionID == "" {
-		s.markDirty()
+		s.MarkDirty()
 		return nil
 	}
 
@@ -175,7 +234,7 @@ func (s *Service) saveSnapshot(ctx context.Context) error {
 	// A nil window list with no active index means the snapshot is truly unavailable,
 	// not merely empty. Keep the session dirty so a later capture can retry.
 	if windows == nil && activeWindowIndex < 0 {
-		s.markDirty()
+		s.MarkDirty()
 		logging.FromContext(ctx).Warn().Msg("window snapshot unavailable; keeping session snapshot dirty")
 		return nil
 	}
@@ -196,10 +255,88 @@ func (s *Service) saveSnapshot(ctx context.Context) error {
 
 	if err := s.executeWithRetry(ctx, input); err != nil {
 		s.markDirty()
+		s.setTerminalError(err)
 		return err
 	}
 
 	return nil
+}
+
+// Active reports whether snapshot work is outstanding: pending debounce,
+// an armed timer, or an in-flight capture/database save. A terminally
+// failed save is settled-but-failed: dirty is preserved for reporting and
+// later retry while lastErr records it, so the drain always terminates and
+// never loops forever merely because dirty remains set.
+func (s *Service) Active() bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.inflight.Load() > 0 {
+		return true
+	}
+	if s.timer != nil {
+		return true
+	}
+	if !s.dirty {
+		return false
+	}
+	return s.lastErr == nil
+}
+
+// LastError returns the terminal error of the most recent save, or nil.
+// Dirty is preserved alongside it for reporting and later retry.
+func (s *Service) LastError() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.lastErr
+}
+
+// OnSettled registers a callback invoked when the service reaches a
+// settled state after a save completes. Callbacks run on the completing
+// goroutine and must be non-blocking; the UI wraps them with GTK dispatch.
+// There is no unsubscribe; services are process-lifetime owners.
+func (s *Service) OnSettled(fn func()) {
+	if fn == nil {
+		return
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.onSettled = append(s.onSettled, fn)
+}
+
+// WaitSettled blocks until no snapshot work is outstanding or ctx ends.
+// It reports ctx.Err() on expiry so shutdown never waits forever. It must
+// never be called on the GTK thread when capture dispatches there.
+func (s *Service) WaitSettled(ctx context.Context) error {
+	ticker := time.NewTicker(10 * time.Millisecond)
+	defer ticker.Stop()
+	for {
+		if !s.Active() {
+			return nil
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-ticker.C:
+		}
+	}
+}
+
+func (s *Service) setTerminalError(err error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.lastErr = err
+}
+
+func (s *Service) notifyIfSettled() {
+	if s.Active() {
+		return
+	}
+	s.mu.Lock()
+	callbacks := append([]func(){}, s.onSettled...)
+	s.mu.Unlock()
+	for _, fn := range callbacks {
+		fn()
+	}
 }
 
 func (s *Service) executeWithRetry(ctx context.Context, input usecase.SnapshotInput) error {
