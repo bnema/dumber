@@ -55,6 +55,10 @@ type systemviewAssetBundle struct {
 	wasmMu sync.Mutex
 	loaded bool
 	data   []byte
+	// digest is the hex SHA-256 of data, computed once at load: bundle
+	// bytes are immutable, so versioned serving compares this cached
+	// value instead of re-hashing megabytes per request.
+	digest string
 	err    error
 	// manifestLoaded caches the parsed content manifest alongside the
 	// WASM: shell versioning and immutable headers always validate
@@ -79,9 +83,24 @@ func (b *systemviewAssetBundle) WASM() ([]byte, error) {
 	defer b.wasmMu.Unlock()
 	if !b.loaded {
 		b.data, b.err = loadSystemviewWASM(b.assets)
+		if b.err == nil {
+			b.digest = sha256Hex(b.data)
+		}
 		b.loaded = true
 	}
 	return b.data, b.err
+}
+
+// WASMDigest returns the hex SHA-256 of the once-loaded WASM bytes.
+// It shares the load cache with WASM, so digest comparison in the
+// versioned serving path costs a mutex, not a megabytes hash.
+func (b *systemviewAssetBundle) WASMDigest() (string, error) {
+	if _, err := b.WASM(); err != nil {
+		return "", err
+	}
+	b.wasmMu.Lock()
+	defer b.wasmMu.Unlock()
+	return b.digest, nil
 }
 
 // Manifest returns the bundle's parsed content manifest, loading it
@@ -224,12 +243,15 @@ func (rh *systemviewWASMResourceHandler) load() {
 		rh.fail()
 		return
 	}
-	// A versioned request pins exact bytes: hashing the served output
-	// (reusing the decoded cache) is what earns immutable headers, not
-	// the URL matching the manifest.
-	if rh.versioned && sha256Hex(data) != rh.wantDigest {
-		rh.fail()
-		return
+	// A versioned request pins exact bytes: the bundle digest is computed
+	// once at load over the immutable decoded cache, so this comparison
+	// costs a mutex rather than a megabytes hash per request.
+	if rh.versioned {
+		digest, derr := rh.bundle.WASMDigest()
+		if derr != nil || digest != rh.wantDigest {
+			rh.fail()
+			return
+		}
 	}
 	rh.statusCode = http.StatusOK
 	// MIME matches the synchronous asset path exactly: the bundle serves

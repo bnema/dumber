@@ -173,3 +173,41 @@ func TestRunCheckIfPresentRejectsStaleBundle(t *testing.T) {
 		t.Fatal("run(check-if-present) with stale artifact succeeded, want error")
 	}
 }
+
+func TestRunCheckIfPresentRejectsPartialBundle(t *testing.T) {
+	t.Parallel()
+
+	// Compressed-only partial bundle: serving would use the stale .br,
+	// so check-if-present must validate (and fail) instead of skipping.
+	dir := t.TempDir()
+	writeFixture(t, dir, "systemviews.wasm.br", brotliCompressForGeneratorTest(t, []byte("\x00asm-stale")))
+	if err := run(dir, false, true); err == nil {
+		t.Fatal("run(check-if-present) with .br-only bundle succeeded, want error")
+	}
+
+	// Raw-only partial bundle: same rule in the other direction.
+	dir = t.TempDir()
+	writeFixture(t, dir, "systemviews.wasm", []byte("\x00asm-raw-only"))
+	if err := run(dir, false, true); err == nil {
+		t.Fatal("run(check-if-present) with raw-only bundle succeeded, want error")
+	}
+}
+
+func TestRequireCompressedAgreementRejectsSentinelSize(t *testing.T) {
+	t.Parallel()
+
+	// Both artifacts at max+1 with agreeing bytes: the bound must reject
+	// before equality blesses what the runtime loader refuses.
+	const bound = 16
+	raw := bytes.Repeat([]byte{0x7a}, bound+1)
+	fsys := fstest.MapFS{
+		"systemviews.wasm":    {Data: raw},
+		"systemviews.wasm.br": {Data: brotliCompressForGeneratorTest(t, raw)},
+	}
+	if err := requireCompressedAgreement(fsys, raw, bound); err == nil {
+		t.Fatal("requireCompressedAgreement at max+1 succeeded, want oversize error")
+	}
+	if _, err := readBoundedManifestFile(fsys, "systemviews.wasm", bound); err == nil {
+		t.Fatal("readBoundedManifestFile at max+1 succeeded, want oversize error")
+	}
+}

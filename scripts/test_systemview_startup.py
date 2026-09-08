@@ -255,6 +255,10 @@ def main():
     cef_dir = Path(args.cef_dir)
     if not cef_dir.is_dir():
         return fail(f"CEF runtime dir missing: {cef_dir}")
+    # The child runs with cwd set to the isolated profile: resolve both
+    # paths now, while they still mean "relative to the invoker".
+    binary = binary.resolve()
+    cef_dir = cef_dir.resolve()
 
     results = [
         check_shell_single_fetch(),

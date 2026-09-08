@@ -49,7 +49,12 @@ func main() {
 func run(dir string, check, checkIfPresent bool) error {
 	manifestPath := filepath.Join(dir, assets.ManifestName)
 	if checkIfPresent {
-		if _, err := os.Stat(filepath.Join(dir, "systemviews.wasm")); os.IsNotExist(err) {
+		// Serving treats the compressed WASM as authoritative, so a
+		// stale .br without raw (or vice versa) is a partial bundle
+		// that must fail validation, never skip it.
+		_, rawErr := os.Stat(filepath.Join(dir, "systemviews.wasm"))
+		_, brErr := os.Stat(filepath.Join(dir, "systemviews.wasm.br"))
+		if os.IsNotExist(rawErr) && os.IsNotExist(brErr) {
 			fmt.Printf("no built systemviews WASM in %s; skipping manifest check\n", dir)
 			return nil
 		}
@@ -90,11 +95,11 @@ func checkTree(dir, manifestPath string) error {
 	if verr := m.Verify(fsys); verr != nil {
 		return verr
 	}
-	raw, err := fs.ReadFile(fsys, "systemviews.wasm")
+	raw, err := readBoundedManifestFile(fsys, "systemviews.wasm", maxManifestWASMBytes)
 	if err != nil {
 		return fmt.Errorf("read servable systemviews.wasm: %w", err)
 	}
-	if err := requireCompressedAgreement(fsys, raw); err != nil {
+	if err := requireCompressedAgreement(fsys, raw, maxManifestWASMBytes); err != nil {
 		return err
 	}
 	fmt.Printf("manifest %s matches %d pinned assets with agreeing compressed WASM\n", manifestPath, len(assets.ManifestFiles))
@@ -107,12 +112,12 @@ func checkTree(dir, manifestPath string) error {
 func collectManifest(fsys fs.FS) (assets.Manifest, error) {
 	files := make(map[string]assets.FileEntry, len(assets.ManifestFiles))
 	for _, name := range assets.ManifestFiles {
-		data, err := fs.ReadFile(fsys, name)
+		data, err := readBoundedManifestFile(fsys, name, maxManifestWASMBytes)
 		if err != nil {
 			return assets.Manifest{}, fmt.Errorf("read servable asset %s: %w", name, err)
 		}
 		if name == "systemviews.wasm" {
-			if err := requireCompressedAgreement(fsys, data); err != nil {
+			if err := requireCompressedAgreement(fsys, data, maxManifestWASMBytes); err != nil {
 				return assets.Manifest{}, err
 			}
 		}
@@ -122,16 +127,41 @@ func collectManifest(fsys fs.FS) (assets.Manifest, error) {
 	return assets.Manifest{Version: assets.ManifestVersion, Files: files}, nil
 }
 
+// readBoundedManifestFile reads a manifest input with the pre-allocation
+// bound the runtime loader enforces, so generation and checks cannot be
+// pushed into unbounded allocation by a corrupt or hostile artifact.
+func readBoundedManifestFile(fsys fs.FS, name string, maxBytes int) ([]byte, error) {
+	f, err := fsys.Open(name)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = f.Close() }()
+	data, err := io.ReadAll(io.LimitReader(f, int64(maxBytes)+1))
+	if err != nil {
+		return nil, fmt.Errorf("read %s: %w", name, err)
+	}
+	if len(data) > maxBytes {
+		return nil, fmt.Errorf("%s exceeds %d bytes", name, maxBytes)
+	}
+	return data, nil
+}
+
 // requireCompressedAgreement ensures the shipped .br decompresses to
-// exactly the raw bytes being pinned, bounding the read before allocation.
-func requireCompressedAgreement(fsys fs.FS, raw []byte) error {
-	compressed, err := fs.ReadFile(fsys, "systemviews.wasm.br")
+// exactly the raw bytes being pinned. Both inputs arrive bounded, and the
+// decoded output is rejected past the bound before comparison, mirroring
+// the runtime loader: without the sentinel check a max+1-byte bundle
+// would bless here what serving refuses there.
+func requireCompressedAgreement(fsys fs.FS, raw []byte, maxBytes int) error {
+	compressed, err := readBoundedManifestFile(fsys, "systemviews.wasm.br", maxBytes)
 	if err != nil {
 		return fmt.Errorf("read compressed systemviews.wasm.br: %w", err)
 	}
-	data, err := io.ReadAll(io.LimitReader(brotli.NewReader(bytes.NewReader(compressed)), maxManifestWASMBytes+1))
+	data, err := io.ReadAll(io.LimitReader(brotli.NewReader(bytes.NewReader(compressed)), int64(maxBytes)+1))
 	if err != nil {
 		return fmt.Errorf("decompress systemviews.wasm.br: %w", err)
+	}
+	if len(data) > maxBytes {
+		return fmt.Errorf("systemviews.wasm.br decompresses past %d bytes", maxBytes)
 	}
 	if !bytes.Equal(data, raw) {
 		return fmt.Errorf("systemviews.wasm.br decompresses to %d bytes, raw file has %d", len(data), len(raw))

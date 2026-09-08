@@ -205,3 +205,20 @@ func TestSystemviewAssetCache_OversizedCompressedInputRejected(t *testing.T) {
 	require.Error(t, err, "oversized compressed input must fail before allocation")
 	require.Contains(t, err.Error(), "exceeds")
 }
+
+func TestSystemviewAssetCache_DigestCachedAtLoad(t *testing.T) {
+	t.Parallel()
+
+	wasm := []byte("\x00asm-digest")
+	b := newSystemviewAssetBundle(fstest.MapFS{
+		"systemviews/systemviews.wasm.br": {Data: brotliCompressForTest(t, wasm)},
+	})
+	digest, err := b.WASMDigest()
+	require.NoError(t, err)
+	require.Equal(t, sha256Hex(wasm), digest, "cached digest must match the decoded bytes")
+
+	// A failing bundle reports the load error instead of an empty digest.
+	bad := newSystemviewAssetBundle(denyFS{err: fs.ErrPermission})
+	_, err = bad.WASMDigest()
+	require.Error(t, err)
+}
