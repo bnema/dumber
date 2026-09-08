@@ -10,6 +10,7 @@ import (
 	"context"
 	"io/fs"
 	"net/http"
+	"strings"
 	"sync"
 	"testing"
 	"testing/fstest"
@@ -19,6 +20,8 @@ import (
 	purecef "github.com/bnema/purego-cef/cef"
 	cefmocks "github.com/bnema/purego-cef/cef/mocks"
 	"github.com/stretchr/testify/require"
+
+	"github.com/bnema/dumber/assets"
 )
 
 // blockingReadFileFS blocks ReadFile of one name until release is closed,
@@ -61,6 +64,20 @@ func (c *contStubCallback) count() int {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	return c.conts
+}
+
+// testManifestBytes builds a parseable manifest fixture pinning dummy
+// digests. Serving validates presence and format, not truth: digest truth
+// is P3.3's job against real artifacts.
+func testManifestBytes(t *testing.T) []byte {
+	t.Helper()
+	data, err := assets.Manifest{Version: assets.ManifestVersion, Files: map[string]assets.FileEntry{
+		"systemviews.css":  {SHA256: strings.Repeat("a", 64), Size: 1},
+		"systemviews.wasm": {SHA256: strings.Repeat("b", 64), Size: 2},
+		"wasm_exec.js":     {SHA256: strings.Repeat("c", 64), Size: 3},
+	}}.Bytes()
+	require.NoError(t, err)
+	return data
 }
 
 func wasmURL(t *testing.T) string {
@@ -182,12 +199,13 @@ func TestAssetP2_NonWASMAssetsKeepLegacyPath(t *testing.T) {
 	stubIdentityResourceHandler(t)
 	h := newTestDumbSchemeHandler(t)
 	h.setAssets(fstest.MapFS{
-		"systemviews/index.html": {Data: []byte("<html>shell</html>")},
+		"systemviews/index.html":             {Data: []byte(`<html><script src="./wasm_exec.js"></script></html>`)},
+		"systemviews/" + assets.ManifestName: {Data: testManifestBytes(t)},
 	})
 
 	rh := staticHandlerOf(t, h.handleAsset(mustParseURL(t, "https://dumber.invalid/history")))
 	require.Equal(t, http.StatusOK, rh.statusCode)
-	require.Equal(t, []byte("<html>shell</html>"), rh.data)
+	require.Contains(t, string(rh.data), "./wasm_exec.js?v="+strings.Repeat("c", 64))
 }
 
 func TestAssetP23_BlockedDecodeLeavesUnrelatedWorkUnaffected(t *testing.T) {
@@ -195,8 +213,9 @@ func TestAssetP23_BlockedDecodeLeavesUnrelatedWorkUnaffected(t *testing.T) {
 	wasm := []byte("\x00asm-unrelated")
 	blocking := &blockingReadFileFS{
 		inner: fstest.MapFS{
-			"systemviews/systemviews.wasm.br": {Data: brotliCompressForTest(t, wasm)},
-			"systemviews/index.html":          {Data: []byte("<html>shell</html>")},
+			"systemviews/systemviews.wasm.br":    {Data: brotliCompressForTest(t, wasm)},
+			"systemviews/index.html":             {Data: []byte("<html>shell</html>")},
+			"systemviews/" + assets.ManifestName: {Data: testManifestBytes(t)},
 		},
 		blockName: "systemviews/systemviews.wasm.br",
 		entered:   make(chan struct{}),

@@ -37,6 +37,8 @@ import (
 
 	"github.com/andybalholm/brotli"
 	purecef "github.com/bnema/purego-cef/cef"
+
+	"github.com/bnema/dumber/assets"
 )
 
 // systemviewsWASMPath is the fixed bundle-relative WASM served to internal
@@ -52,6 +54,12 @@ type systemviewAssetBundle struct {
 	loaded bool
 	data   []byte
 	err    error
+	// manifestLoaded caches the parsed content manifest alongside the
+	// WASM: shell versioning and immutable headers always validate
+	// against the same captured bundle state, never a newer install.
+	manifestLoaded bool
+	manifest       assets.Manifest
+	manifestErr    error
 }
 
 // newSystemviewAssetBundle captures one immutable asset filesystem. A nil
@@ -71,6 +79,34 @@ func (b *systemviewAssetBundle) WASM() ([]byte, error) {
 		b.loaded = true
 	}
 	return b.data, b.err
+}
+
+// Manifest returns the bundle's parsed content manifest, loading it
+// exactly once. Success and failure are both cached like the WASM bytes:
+// an invalid manifest fails closed for the bundle lifetime instead of
+// flapping between error and unverified content.
+func (b *systemviewAssetBundle) Manifest() (assets.Manifest, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	if !b.manifestLoaded {
+		b.manifest, b.manifestErr = loadSystemviewManifest(b.assets)
+		b.manifestLoaded = true
+	}
+	return b.manifest, b.manifestErr
+}
+
+// loadSystemviewManifest reads and strictly validates the bundle manifest.
+// A missing, corrupt, or stale manifest is a plain error: callers serve a
+// clear noncacheable error, never unverified immutable content.
+func loadSystemviewManifest(assetsFS fs.FS) (assets.Manifest, error) {
+	if assetsFS == nil {
+		return assets.Manifest{}, errors.New("systemview assets not configured")
+	}
+	data, err := fs.ReadFile(assetsFS, "systemviews/"+assets.ManifestName)
+	if err != nil {
+		return assets.Manifest{}, fmt.Errorf("read asset manifest: %w", err)
+	}
+	return assets.ParseManifest(data)
 }
 
 // loadSystemviewWASM reads and decodes the bundle WASM with the hardened

@@ -25,6 +25,8 @@ import (
 	"github.com/bnema/dumber/internal/infrastructure/webutil"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/rs/zerolog"
+
+	"github.com/bnema/dumber/assets"
 )
 
 // Scheme path constants matching WebKit's naming.
@@ -588,10 +590,15 @@ func (h *dumbSchemeHandler) handleAsset(u *url.URL) purecef.ResourceHandler {
 
 	// The bundle WASM is served from the once-loaded immutable cache
 	// through a deferred handler: Create returns immediately and the
-	// decode runs off the CEF IO thread. Every other asset keeps the
-	// legacy synchronous per-request read path.
+	// decode runs off the CEF IO thread. The shell keeps its usable
+	// relative URLs on disk but is served with content-versioned
+	// references from the same captured bundle. Every other asset keeps
+	// the legacy synchronous per-request read path.
 	if relPath == "systemviews.wasm" {
 		return newSystemviewWASMResourceHandler(h.ctx, bundle)
+	}
+	if relPath == indexHTML {
+		return h.serveVersionedShell(assets, bundle, fullPath)
 	}
 
 	data, err := readAssetWithEncoding(assets, fullPath, relPath)
@@ -608,6 +615,46 @@ func (h *dumbSchemeHandler) handleAsset(u *url.URL) purecef.ResourceHandler {
 		Msg("serving asset")
 
 	return newStaticResourceHandler(http.StatusOK, contentType, data, nil)
+}
+
+// serveVersionedShell serves the internal shell with its known static
+// references rewritten to content-versioned URLs (?v=<sha256>) from the
+// captured bundle's manifest. The shell itself stays noncacheable; only
+// P3.3 grants immutable headers to the versioned targets. An invalid
+// manifest yields a clear noncacheable error instead of unverified
+// versioned content.
+func (h *dumbSchemeHandler) serveVersionedShell(assets fs.FS, bundle *systemviewAssetBundle, fullPath string) purecef.ResourceHandler {
+	data, err := readAssetWithEncoding(assets, fullPath, indexHTML)
+	if err != nil {
+		h.logger.Debug().Str("path", fullPath).Err(err).Msg("shell not found")
+		return h.newErrorResourceHandler(http.StatusNotFound, "Asset not found")
+	}
+	m, err := bundle.Manifest()
+	if err != nil {
+		h.logger.Error().Err(err).Msg("asset manifest invalid; refusing to version shell")
+		return newStaticResourceHandler(http.StatusInternalServerError, "text/html; charset=utf-8",
+			errorPageBody(http.StatusInternalServerError, "Asset manifest invalid"),
+			map[string]string{"Cache-Control": "no-store"})
+	}
+	return newStaticResourceHandler(http.StatusOK, getMimeType(indexHTML), versionShellRefs(data, m), nil)
+}
+
+// versionShellRefs rewrites the shell's known static references with
+// content-version query values: ./systemviews.wasm becomes
+// ./systemviews.wasm?v=<digest>, likewise for the pinned JS and CSS.
+// Only manifest-pinned files are rewritten and already-versioned
+// references pass through untouched, so the on-disk shell keeps concrete
+// usable relative URLs for alternate shells.
+func versionShellRefs(shell []byte, m assets.Manifest) []byte {
+	out := shell
+	for _, name := range assets.ManifestFiles {
+		plain := "./" + name
+		if bytes.Contains(out, []byte(plain+"?v=")) {
+			continue
+		}
+		out = bytes.ReplaceAll(out, []byte(plain), []byte(plain+"?v="+m.Files[name].SHA256))
+	}
+	return out
 }
 
 func safeSystemviewsAssetPath(assetDir, relPath string) (fullPath, cleanRelPath string, ok bool) {
