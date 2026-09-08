@@ -1,6 +1,7 @@
 package component
 
 import (
+	"math"
 	"testing"
 
 	layoutmocks "github.com/bnema/dumber/internal/ui/layout/mocks"
@@ -283,3 +284,130 @@ func TestEffectiveMaxRows_NoAdaptation(t *testing.T) {
 	got := EffectiveMaxRows(500, 72, sizeCfg, defaults)
 	assert.Equal(t, 10, got)
 }
+
+func mockParent(t *testing.T, w, h int) *layoutmocks.MockOverlayWidget {
+	t.Helper()
+	parent := layoutmocks.NewMockOverlayWidget(t)
+	parent.EXPECT().GetAllocatedWidth().Return(w).Maybe()
+	parent.EXPECT().GetAllocatedHeight().Return(h).Maybe()
+	return parent
+}
+
+func TestCalculateModalDimensionsWithScale_ScaleOneUnchanged(t *testing.T) {
+	cfg := ModalSizeConfig{
+		WidthPct:       0.8,
+		MaxWidth:       800,
+		TopMarginPct:   0.2,
+		FallbackWidth:  800,
+		FallbackHeight: 600,
+	}
+	parent := mockParent(t, 1920, 1080)
+	w, m := CalculateModalDimensionsWithScale(parent, cfg, 1)
+	wLegacy, mLegacy := CalculateModalDimensions(parent, cfg)
+	assert.Equal(t, wLegacy, w)
+	assert.Equal(t, mLegacy, m)
+	assert.Equal(t, 800, w)
+	assert.Equal(t, 216, m)
+}
+
+func TestCalculateModalDimensionsWithScale_LargeParent(t *testing.T) {
+	cfg := OmniboxSizeDefaults
+	for _, tt := range []struct {
+		scale float64
+		want  int
+	}{
+		{1.25, 1000},
+		{1.5, 1200},
+		{2.0, 1600},
+	} {
+		parent := mockParent(t, 3000, 1200)
+		w, m := CalculateModalDimensionsWithScale(parent, cfg, tt.scale)
+		assert.Equal(t, tt.want, w, "scale %v", tt.scale)
+		assert.Equal(t, 240, m, "top margin unchanged")
+	}
+}
+
+func TestCalculateModalDimensionsWithScale_SmallParentPercentageBound(t *testing.T) {
+	cfg := SessionManagerSizeDefaults // 0.6 * w, max 600
+	parent := mockParent(t, 500, 800)
+	w, m := CalculateModalDimensionsWithScale(parent, cfg, 2.0)
+	// 0.6*500=300 < 600*2 → percentage bound wins
+	assert.Equal(t, 300, w)
+	assert.Equal(t, int(float64(800)*cfg.TopMarginPct), m)
+}
+
+func TestCalculateModalDimensionsWithScale_ScaleBelowOne(t *testing.T) {
+	cfg := OmniboxSizeDefaults
+	parent := mockParent(t, 3000, 1080)
+	w, _ := CalculateModalDimensionsWithScale(parent, cfg, 0.5)
+	assert.Equal(t, 400, w)
+}
+
+func TestCalculateModalDimensionsWithScale_NormalizesBadScale(t *testing.T) {
+	cfg := OmniboxSizeDefaults
+	for _, scale := range []float64{0, -1, -0.5, nan(), inf(1), inf(-1)} {
+		parent := mockParent(t, 3000, 1080)
+		w, m := CalculateModalDimensionsWithScale(parent, cfg, scale)
+		assert.Equal(t, 800, w, "scale %v", scale)
+		assert.Equal(t, 216, m, "scale %v", scale)
+	}
+}
+
+func TestCalculateModalDimensionsWithScale_FallbackScaled(t *testing.T) {
+	cfg := OmniboxSizeDefaults
+	parent := mockParent(t, 0, 0)
+	w, m := CalculateModalDimensionsWithScale(parent, cfg, 1.5)
+	// fallback 800*1.5=1200 → pct 0.8*1200=960 vs max 1200 → 960
+	assert.Equal(t, 960, w)
+	assert.Equal(t, int(float64(600)*cfg.TopMarginPct), m)
+}
+
+func TestCalculateModalDimensionsWithScale_FixedScalesOnceBeyondAllocation(t *testing.T) {
+	cfg := ResolveModalSizeConfig(ModalSizeConfig{
+		FixedWidth:        800,
+		FixedTopMargin:    0,
+		UseFixedTopMargin: true,
+	}, OmniboxSizeDefaults)
+	// Child-sized host allocation (small) must not clamp the fixed request.
+	parent := mockParent(t, 120, 200)
+	w, m := CalculateModalDimensionsWithScale(parent, cfg, 1.5)
+	assert.Equal(t, 1200, w)
+	assert.Equal(t, 0, m)
+	// Config must not be mutated by repeated calls.
+	assert.Equal(t, 800, cfg.FixedWidth)
+	w2, _ := CalculateModalDimensionsWithScale(parent, cfg, 1.5)
+	assert.Equal(t, w, w2)
+	assert.Equal(t, 800, cfg.FixedWidth)
+	assert.Equal(t, 800, OmniboxSizeDefaults.MaxWidth)
+}
+
+func TestCalculateModalDimensionsWithScale_NoDefaultMutation(t *testing.T) {
+	before := OmniboxSizeDefaults
+	parent := mockParent(t, 3000, 1200)
+	_, _ = CalculateModalDimensionsWithScale(parent, OmniboxSizeDefaults, 2.0)
+	assert.Equal(t, before, OmniboxSizeDefaults)
+}
+
+func TestOmniboxRequestedDimensions_UsesScale(t *testing.T) {
+	cfg := ResolveModalSizeConfig(ModalSizeConfig{
+		FixedWidth:        800,
+		FixedTopMargin:    0,
+		UseFixedTopMargin: true,
+	}, OmniboxSizeDefaults)
+	o := &Omnibox{parentOverlay: mockParent(t, 120, 200), sizeCfg: cfg, uiScale: 1.5}
+	w, m := o.requestedDimensions()
+	assert.Equal(t, 1200, w)
+	assert.Equal(t, 0, m)
+}
+
+func TestSessionManagerRequestedDimensions_UsesScale(t *testing.T) {
+	sm := &SessionManager{parentOverlay: mockParent(t, 3000, 1200), uiScale: 1.5}
+	w, m := sm.requestedDimensions()
+	// 0.6*3000=1800 vs 600*1.5=900 → 900
+	assert.Equal(t, 900, w)
+	assert.Equal(t, int(float64(1200)*SessionManagerSizeDefaults.TopMarginPct), m)
+}
+
+func nan() float64 { return math.NaN() }
+
+func inf(sign int) float64 { return math.Inf(sign) }

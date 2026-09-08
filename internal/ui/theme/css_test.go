@@ -311,3 +311,10 @@ func TestGenerateCSS_DoesNotEmitUnsupportedGTKProperties(t *testing.T) {
 	assert.NotContains(t, css, "pointer-events:")
 	assert.NotContains(t, css, "text-align:")
 }
+
+func TestGenerateCSS_SessionContainerHasNoMinWidth(t *testing.T) {
+	css := GenerateCSS(DefaultDarkPalette())
+	block := cssRuleBlock(t, css, ".session-manager-container")
+	assert.NotContains(t, block, "min-width:")
+	assert.Contains(t, block, "background-color: var(--surface-variant);")
+}
