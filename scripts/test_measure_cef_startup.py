@@ -140,6 +140,23 @@ class CliValidationTest(unittest.TestCase):
             capture_output=True, text=True)
         self.assertNotEqual(result.returncode, 0)
 
+    def test_rejects_bad_idle_timeout(self):
+        for bad in ("-1", "300001"):
+            result = subprocess.run(
+                [sys.executable, self.script, "--binary", self.binary, "--cef-dir", self.cef_dir,
+                 "--scenario", "profile-fresh", "--fixture", "static",
+                 "--runs", "1", "--idle-timeout-ms", bad,
+                 "--output", os.path.join(self.temp, "out-idle-" + bad)],
+                capture_output=True, text=True)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("idle-timeout-ms", result.stderr)
+        result = subprocess.run(
+            [sys.executable, self.script, "--binary", self.binary, "--cef-dir", self.cef_dir,
+             "--scenario", "profile-fresh", "--fixture", "static",
+             "--runs", "0", "--output", os.path.join(self.temp, "out2")],
+            capture_output=True, text=True)
+        self.assertNotEqual(result.returncode, 0)
+
 
 class FakeBinaryLifetimeTest(unittest.TestCase):
     def setUp(self):
@@ -209,6 +226,129 @@ class FakeBinaryLifetimeTest(unittest.TestCase):
         result = harness.run_sample(binary, self.cef_dir, "profile-fresh", "static", 1)
         self.assertFalse(result["complete"])
         self.assertLess(result["observation_spawn_to_summary_ms"], 15000)
+
+
+class ResidencyContractTest(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.mkdtemp()
+        self.cef_dir = os.path.join(self.temp, "cef")
+        os.makedirs(self.cef_dir)
+        self.dirs = {
+            "config": os.path.join(self.temp, "config"),
+            "data": os.path.join(self.temp, "data"),
+            "state": os.path.join(self.temp, "state"),
+            "cache": os.path.join(self.temp, "cache"),
+            "runtime": os.path.join(self.temp, "runtime"),
+            "root_cache": os.path.join(self.temp, "cef-root-cache"),
+        }
+
+    def test_scenario_env_forces_json_debug_config(self):
+        env = harness.scenario_env(self.cef_dir, self.dirs, idle_timeout_ms=120000)
+        self.assertEqual(env["DUMBER_CEF_DIR"], self.cef_dir)
+        with open(os.path.join(self.dirs["config"], "dumber", "config.toml")) as handle:
+            content = handle.read()
+        self.assertIn('format = "json"', content)
+        self.assertIn('level = "debug"', content)
+        self.assertIn(self.cef_dir, content)
+        self.assertIn("idle_runtime_timeout_ms = 120000", content)
+
+    def test_scenario_env_defaults_to_no_residency(self):
+        harness.scenario_env(self.cef_dir, self.dirs)
+        with open(os.path.join(self.dirs["config"], "dumber", "config.toml")) as handle:
+            content = handle.read()
+        self.assertIn("idle_runtime_timeout_ms = 0", content)
+
+    def test_scenario_env_passes_display_vars_only(self):
+        os.environ["DUMBER_MEASURE_TEST_MARKER"] = "must-not-propagate"
+        try:
+            env = harness.scenario_env(self.cef_dir, self.dirs)
+        finally:
+            del os.environ["DUMBER_MEASURE_TEST_MARKER"]
+        self.assertNotIn("DUMBER_MEASURE_TEST_MARKER", env)
+        for name in harness.DISPLAY_PASSTHROUGH_VARS:
+            if os.environ.get(name):
+                self.assertEqual(env[name], os.environ[name])
+
+    def test_wayland_absolute_display_needs_nothing(self):
+        previous = os.environ.get("WAYLAND_DISPLAY")
+        runtime = os.environ.get("XDG_RUNTIME_DIR", "/run/user/%d" % os.getuid())
+        display = previous or "wayland-1"
+        absolute = display if "/" in display else os.path.join(runtime, os.path.basename(display))
+        env = {"WAYLAND_DISPLAY": absolute}
+        os.makedirs(self.dirs["runtime"], exist_ok=True)
+        self.assertTrue(harness.ensure_wayland_socket(self.dirs["runtime"], env))
+        self.assertEqual(env["WAYLAND_DISPLAY"], absolute)
+        self.assertEqual(os.listdir(self.dirs["runtime"]), [])
+
+    def test_wayland_relative_display_resolves_to_absolute(self):
+        import socket as stdlib_socket
+        fake_runtime = os.path.join(self.temp, "real-runtime")
+        os.makedirs(fake_runtime)
+        sock = stdlib_socket.socket(stdlib_socket.AF_UNIX, stdlib_socket.SOCK_STREAM)
+        sock.bind(os.path.join(fake_runtime, "wayland-99"))
+        previous_runtime = os.environ.get("XDG_RUNTIME_DIR")
+        os.environ["XDG_RUNTIME_DIR"] = fake_runtime
+        env = {"WAYLAND_DISPLAY": "wayland-99"}
+        try:
+            self.assertTrue(harness.ensure_wayland_socket(self.dirs["runtime"], env))
+            self.assertEqual(env["WAYLAND_DISPLAY"],
+                             os.path.join(fake_runtime, "wayland-99"))
+            # No symlink: deep isolated paths exceed the unix-socket limit.
+            self.assertNotIn("wayland-99", os.listdir(self.dirs["runtime"]))
+        finally:
+            if previous_runtime is None:
+                os.environ.pop("XDG_RUNTIME_DIR", None)
+            else:
+                os.environ["XDG_RUNTIME_DIR"] = previous_runtime
+            sock.close()
+
+    def test_wayland_missing_socket_reports_false(self):
+        previous_runtime = os.environ.get("XDG_RUNTIME_DIR")
+        os.environ["XDG_RUNTIME_DIR"] = os.path.join(self.temp, "empty-runtime")
+        env = {"WAYLAND_DISPLAY": "wayland-does-not-exist"}
+        try:
+            self.assertFalse(harness.ensure_wayland_socket(self.dirs["runtime"], env))
+        finally:
+            if previous_runtime is None:
+                os.environ.pop("XDG_RUNTIME_DIR", None)
+            else:
+                os.environ["XDG_RUNTIME_DIR"] = previous_runtime
+        self.assertEqual(env["WAYLAND_DISPLAY"], "wayland-does-not-exist")
+
+    def test_count_cef_inits(self):
+        init = '{"message":"startup_trace: milestone","milestone":"cef_initialized"}'
+        other = '{"message":"startup_trace: milestone","milestone":"process_entry"}'
+        noise = '{"message":"cef: InitWithApp returned OK"}'
+        self.assertEqual(harness.count_cef_inits([]), 0)
+        self.assertEqual(harness.count_cef_inits([other, "not json"]), 0)
+        self.assertEqual(harness.count_cef_inits([other, init]), 1)
+        self.assertEqual(harness.count_cef_inits([init, noise, init]), 2)
+
+    def test_second_window_records_owner_init_count(self):
+        binary = os.path.join(self.temp, "fakebin")
+        with open(binary, "w") as handle:
+            handle.write("#!/bin/sh\nexit 0\n")
+        os.chmod(binary, 0o755)
+        log_path = os.path.join(self.temp, "owner.log")
+        with open(log_path, "w") as handle:
+            handle.write('{"message":"startup_trace: milestone","milestone":"cef_initialized"}\n')
+        owner_dirs = dict(self.dirs)
+        owner_dirs["owner_log"] = log_path
+        result = harness.run_sample(binary, self.cef_dir, "relay-window", "static", 1,
+                                    owner=None, owner_dirs=owner_dirs, owner_socket=None)
+        self.assertTrue(result["fallback_spawn"])
+        self.assertEqual(result["owner_cef_init_count"], 1)
+
+    def test_second_window_missing_owner_log_is_none(self):
+        binary = os.path.join(self.temp, "fakebin")
+        with open(binary, "w") as handle:
+            handle.write("#!/bin/sh\nexit 0\n")
+        os.chmod(binary, 0o755)
+        owner_dirs = dict(self.dirs)
+        owner_dirs["owner_log"] = os.path.join(self.temp, "absent.log")
+        result = harness.run_sample(binary, self.cef_dir, "relay-window", "static", 1,
+                                    owner=None, owner_dirs=owner_dirs, owner_socket=None)
+        self.assertIsNone(result["owner_cef_init_count"])
 
 
 class ReopenWindowTest(unittest.TestCase):

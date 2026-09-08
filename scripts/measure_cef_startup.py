@@ -13,6 +13,15 @@ Scenarios:
                  through the relay; verifies the same owner process serves
                  the reopen without a second CEF initialization
 
+Second-window contract (relay-window, reopen-window): the owner captures
+its own log, readiness is its first presentation (never a fixed sleep),
+and every sample records owner_cef_init_count, which must stay at 1.
+Cold-process numbers (process-warm, profile-fresh) and resident-reopen
+observations are reported separately and never averaged together.
+--idle-timeout-ms forwards the product residency knob into generated
+configs (default 0 = exit with last window; reopen-window only reuses
+the same process with a nonzero timeout).
+
 Fixtures (loopback only): static, delayed, redirect, cache.
 
 Protocol: fixture pages report PerformanceObserver results through a
@@ -242,7 +251,96 @@ def parse_child_output(lines):
     return milestones
 
 
-def scenario_env(cef_dir, dirs, extra=None):
+DISPLAY_PASSTHROUGH_VARS = ("DBUS_SESSION_BUS_ADDRESS", "XAUTHORITY")
+
+
+def _escape_toml_basic(value):
+    return value.replace("\\", "\\\\").replace('"', '\\"')
+
+
+def write_child_config(config_home, cef_dir, idle_timeout_ms=0):
+    """Force JSON debug logging so milestone parsing works.
+
+    Without this, isolated XDG homes fall back to text logs and
+    parse_child_output finds zero milestones. Idempotent: relay owners
+    share one config across samples. idle_timeout_ms selects the product
+    residency knob (0 = product default, exit with last window)."""
+    config_dir = os.path.join(config_home, "dumber")
+    os.makedirs(config_dir, exist_ok=True)
+    path = os.path.join(config_dir, "config.toml")
+    content = (
+        '[logging]\nlevel = "debug"\nformat = "json"\n'
+        'enable_file_log = false\n\n[engine.cef]\ncef_dir = "%s"\n'
+        'idle_runtime_timeout_ms = %d\n'
+        % (_escape_toml_basic(cef_dir), idle_timeout_ms)
+    )
+    with open(path, "w") as handle:
+        handle.write(content)
+    return path
+
+
+def ensure_wayland_socket(runtime_dir, env):
+    """Point a relative Wayland display at the real compositor socket.
+
+    Isolating XDG_RUNTIME_DIR breaks relative WAYLAND_DISPLAY values
+    (the compositor socket lives in the real runtime dir). Symlinking the
+    socket into the isolated dir is not an option: isolated test paths
+    easily exceed the 108-byte unix-socket limit and CEF aborts with
+    "File name too long". Instead, when the display is a relative name
+    whose socket exists in the real runtime dir, override WAYLAND_DISPLAY
+    with its absolute path, which Wayland clients use as-is. The isolated
+    runtime dir stays untouched. Returns True when rendering connectivity
+    is preserved or Wayland is not in use."""
+    display = env.get("WAYLAND_DISPLAY", "")
+    if not display or "/" in display:
+        return True
+    os.makedirs(runtime_dir, exist_ok=True)
+    real_runtime = os.environ.get("XDG_RUNTIME_DIR", "/run/user/%d" % os.getuid())
+    source = os.path.join(real_runtime, display)
+    if os.path.exists(source):
+        env["WAYLAND_DISPLAY"] = source
+        return True
+    return False
+
+
+def count_cef_inits(lines):
+    """Count CEF initialization completions in child output lines.
+
+    Each process initializes CEF at most once: a resident owner serving
+    N second windows must still show exactly one cef_initialized
+    milestone. Only the milestone event counts; the InitWithApp log line
+    describes the same init and is ignored."""
+    count = 0
+    for line in lines:
+        try:
+            event = json.loads(line)
+        except (json.JSONDecodeError, ValueError):
+            continue
+        if (
+            isinstance(event, dict)
+            and event.get("message") == "startup_trace: milestone"
+            and event.get("milestone") == "cef_initialized"
+        ):
+            count += 1
+    return count
+
+
+def wait_for_owner_log_line(log_path, needle, timeout_seconds=30.0):
+    """Wait until the owner log contains needle. Bounded; False on timeout."""
+    end = time.monotonic() + timeout_seconds
+    while time.monotonic() < end:
+        try:
+            with open(log_path, errors="replace") as handle:
+                for line in handle:
+                    if needle in line:
+                        return True
+        except OSError:
+            pass
+        time.sleep(0.2)
+    return False
+
+
+def scenario_env(cef_dir, dirs, extra=None, idle_timeout_ms=0):
     env = {
         "HOME": os.environ.get("HOME", ""),
         "PATH": os.environ.get("PATH", ""),
@@ -260,16 +358,27 @@ def scenario_env(cef_dir, dirs, extra=None):
     }
     if extra:
         env.update(extra)
+    for name in DISPLAY_PASSTHROUGH_VARS:
+        value = os.environ.get(name)
+        if value:
+            env[name] = value
     for key in ("config", "data", "state", "cache", "runtime"):
         os.makedirs(dirs[key], exist_ok=True)
     os.makedirs(dirs["root_cache"], exist_ok=True)
+    write_child_config(dirs["config"], cef_dir, idle_timeout_ms)
+    ensure_wayland_socket(dirs["runtime"], env)
     return env
 
 
-def wait_for_relay_socket(runtime_dir, timeout_seconds=30.0):
+def wait_for_relay_socket(search_root, timeout_seconds=30.0):
+    # The relay socket lives under XDG_STATE_HOME
+    # (<state>/[dumber/]runtime/<engine>/browser-launch.sock), not the
+    # XDG_RUNTIME dir: walk the state tree. Keep scenario outputs shallow:
+    # unix-socket paths are limited to 108 bytes and deep evidence dirs
+    # make the relay unreachable.
     end = time.monotonic() + timeout_seconds
     while time.monotonic() < end:
-        for root, _, files in os.walk(runtime_dir):
+        for root, _, files in os.walk(search_root):
             if "browser-launch.sock" in files:
                 path = os.path.join(root, "browser-launch.sock")
                 sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
@@ -285,7 +394,8 @@ def wait_for_relay_socket(runtime_dir, timeout_seconds=30.0):
     return None
 
 
-def start_relay_owner(binary, cef_dir, scenario_dir, diagnostic_close=False):
+def start_relay_owner(binary, cef_dir, scenario_dir, diagnostic_close=False,
+                      idle_timeout_ms=0):
     dirs = {
         "config": os.path.join(scenario_dir, "owner-config"),
         "data": os.path.join(scenario_dir, "owner-data"),
@@ -293,27 +403,42 @@ def start_relay_owner(binary, cef_dir, scenario_dir, diagnostic_close=False):
         "cache": os.path.join(scenario_dir, "owner-cache"),
         "runtime": os.path.join(scenario_dir, "owner-runtime"),
         "root_cache": os.path.join(scenario_dir, "shared-profile"),
+        "owner_log": os.path.join(scenario_dir, "owner.log"),
     }
-    env = scenario_env(cef_dir, dirs)
+    # scenario_env only reads the six XDG/root-cache keys; owner_log
+    # rides along for CEF-init counting without affecting the child env.
+    env = scenario_env(cef_dir, dirs, idle_timeout_ms=idle_timeout_ms)
     if diagnostic_close:
         # Owned window-close mechanism for the reopen scenario only: the
         # relay honors it solely in processes carrying this variable. It is
         # never a general unauthenticated shutdown command.
         env = dict(env)
         env["DUMBER_DIAGNOSTIC_WINDOW_CLOSE"] = "1"
+    log_file = open(dirs["owner_log"], "w")
     try:
         proc = subprocess.Popen(
             [binary, "browse", "about:blank"],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
+            stdout=log_file,
+            stderr=subprocess.STDOUT,
+            text=True,
+            bufsize=1,
             env=env,
         )
     except OSError:
+        log_file.close()
         return None, None, None
-    time.sleep(0.5)
     if proc.poll() is not None:
+        log_file.close()
         return None, None, None
-    socket_path = wait_for_relay_socket(dirs["runtime"])
+    # Readiness is the owner's first presentation, not a fixed sleep:
+    # only then is the relay guaranteed to serve second windows.
+    ready = wait_for_owner_log_line(
+        dirs["owner_log"], "startup_trace: first presentation")
+    log_file.close()
+    if not ready or proc.poll() is not None:
+        stop_proc(proc)
+        return None, None, None
+    socket_path = wait_for_relay_socket(dirs["state"])
     if socket_path is None:
         proc.terminate()
         try:
@@ -426,7 +551,7 @@ def proc_rss_kb(pid):
 
 
 def run_sample(binary, cef_dir, scenario, fixture, run_index, owner=None, owner_dirs=None,
-               shared_root_cache=None, owner_socket=None):
+               shared_root_cache=None, owner_socket=None, idle_timeout_ms=0):
     run_token = secrets.token_hex(8)
     nav_token = secrets.token_hex(8)
     cutoff = post_nav_cutoff_seconds()
@@ -459,7 +584,7 @@ def run_sample(binary, cef_dir, scenario, fixture, run_index, owner=None, owner_
                 "root_cache": shared_root_cache or os.path.join(run_dir, "cef-root-cache"),
             }
             extra = {}
-        env = scenario_env(cef_dir, dirs, extra)
+        env = scenario_env(cef_dir, dirs, extra, idle_timeout_ms)
         owner_alive_at_start = owner is not None and owner.poll() is None
         reopen = None
         if scenario == "reopen-window" and owner is not None and owner_socket:
@@ -568,6 +693,15 @@ def run_sample(binary, cef_dir, scenario, fixture, run_index, owner=None, owner_
             "relayed": relayed,
             "fallback_spawn": scenario in ("relay-window", "reopen-window") and not relayed,
         }
+        if scenario in ("relay-window", "reopen-window") and owner_dirs is not None:
+            # Residency proof: the owner must initialize CEF exactly once
+            # no matter how many second windows it serves. A second init
+            # here means the sample paid a full cold start, not a reopen.
+            try:
+                with open(owner_dirs.get("owner_log", ""), errors="replace") as owner_log:
+                    result["owner_cef_init_count"] = count_cef_inits(owner_log)
+            except OSError:
+                result["owner_cef_init_count"] = None
         if reopen is not None:
             # Owner identity is verified independently of the Popen handle:
             # the same pid with a different start time is a recycled pid,
@@ -608,7 +742,14 @@ def main():
     )
     parser.add_argument("--runs", type=int, default=30)
     parser.add_argument("--output", required=True)
+    parser.add_argument("--idle-timeout-ms", type=int, default=0,
+                        help="resident CEF idle timeout for generated configs "
+                             "(0..300000, 0 is the product default)")
     args = parser.parse_args()
+
+    if args.idle_timeout_ms < 0 or args.idle_timeout_ms > 300000:
+        print("measure: --idle-timeout-ms must be 0..300000", file=sys.stderr)
+        raise SystemExit(2)
 
     if args.runs < 1 or args.runs > 100:
         print("measure: --runs must be 1..100", file=sys.stderr)
@@ -635,6 +776,10 @@ def main():
         binary_sha256 = digest.hexdigest()
 
     os.makedirs(args.output)
+    # Privacy: only summary.json and run-*.json are safe to share (timings,
+    # counts, hashes). owner.log and generated configs are machine-local:
+    # raw child logs and the selected --cef-dir path may contain local
+    # usernames or paths. Never publish the whole directory.
     owner = None
     owner_dirs = None
     owner_socket = None
@@ -646,12 +791,15 @@ def main():
     if args.scenario == "relay-window":
         scenario_dir = os.path.join(args.output, "relay-scenario")
         os.makedirs(scenario_dir)
-        owner, owner_dirs, owner_socket = start_relay_owner(args.binary, args.cef_dir, scenario_dir)
+        owner, owner_dirs, owner_socket = start_relay_owner(
+            args.binary, args.cef_dir, scenario_dir,
+            idle_timeout_ms=args.idle_timeout_ms)
     if args.scenario == "reopen-window":
         scenario_dir = os.path.join(args.output, "reopen-scenario")
         os.makedirs(scenario_dir)
         owner, owner_dirs, owner_socket = start_relay_owner(
-            args.binary, args.cef_dir, scenario_dir, diagnostic_close=True)
+            args.binary, args.cef_dir, scenario_dir, diagnostic_close=True,
+            idle_timeout_ms=args.idle_timeout_ms)
 
     results = []
     try:
@@ -661,7 +809,8 @@ def main():
             # warm-up aborts the scenario: later runs must never use an
             # uninitialized profile.
             warmup = run_sample(args.binary, args.cef_dir, args.scenario, args.fixture,
-                       0, shared_root_cache=shared_root_cache)
+                       0, shared_root_cache=shared_root_cache,
+                       idle_timeout_ms=args.idle_timeout_ms)
             if not warmup["complete"]:
                 print("measure: process-warm warm-up was incomplete", file=sys.stderr)
                 raise SystemExit(1)
@@ -670,7 +819,7 @@ def main():
             result = run_sample(
                 args.binary, args.cef_dir, args.scenario, args.fixture, index,
                 owner=owner, owner_dirs=owner_dirs, shared_root_cache=shared_root_cache,
-                owner_socket=owner_socket,
+                owner_socket=owner_socket, idle_timeout_ms=args.idle_timeout_ms,
             )
             results.append(result)
             with open(os.path.join(args.output, "run-%02d.json" % index), "w") as handle:
@@ -692,7 +841,29 @@ def main():
         ),
         "warmup_discarded": warmup_discarded,
         "relay_owner_ready": owner is not None,
+        "idle_timeout_ms": args.idle_timeout_ms,
     }
+    if args.scenario in ("relay-window", "reopen-window") and owner_dirs is not None:
+        # Second-window contract, kept separate from cold-process numbers:
+        # one owner CEF init total, plus the request-to-FCP distribution
+        # of resident reopens. Missing FCP stays missing, never averaged in.
+        try:
+            with open(owner_dirs.get("owner_log", ""), errors="replace") as owner_log:
+                summary["owner_cef_init_count"] = count_cef_inits(owner_log)
+        except OSError:
+            summary["owner_cef_init_count"] = None
+        fcp_observations = sorted(
+            r["observation_spawn_to_summary_ms"]
+            for r in results
+            if r["complete"] and r["target_fcp_ms"] is not None
+        )
+        summary["second_window_complete_runs"] = len(fcp_observations)
+        if fcp_observations:
+            summary["second_window_observation_ms"] = {
+                "min": fcp_observations[0],
+                "median": fcp_observations[len(fcp_observations) // 2],
+                "max": fcp_observations[-1],
+            }
     with open(os.path.join(args.output, "summary.json"), "w") as handle:
         json.dump(summary, handle, indent=2, sort_keys=True)
     print("measure artifacts: %s" % args.output)
