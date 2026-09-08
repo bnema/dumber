@@ -24,7 +24,20 @@ type Manager struct {
 	modeColors           ModeColors // Modal mode indicator colors
 	transitionDurationMs int
 	cssProvider          *gtk.CssProvider
-	appliedFont          string
+	// appliedFonts records the GTK font name last set per display, keyed by
+	// native display address. GtkSettings are per display, so the font must
+	// be applied on every display even when the theme is unchanged. Keys
+	// are plain addresses: no display reference is retained, so destroyed
+	// displays cannot leak through the manager.
+	appliedFonts map[uintptr]string
+	// appliedCSS is the effective CSS identity last loaded into cssProvider.
+	// appliedDisplayPtr is the native display address that provider was last
+	// added for. Both are plain values: no display reference is retained, so
+	// destroyed displays cannot leak through the manager. Native display
+	// addresses are unique among live displays; address reuse after a display
+	// is destroyed is pathological in single-display processes.
+	appliedCSS        string
+	appliedDisplayPtr uintptr
 }
 
 // NewManager creates a new theme manager from an already-resolved theme.
@@ -136,7 +149,38 @@ func shouldApplyGTKFontName(current, next string) bool {
 	return next != "" && next != current
 }
 
-// ApplyToDisplay loads the theme CSS into the display.
+// lastAppliedFontFor returns the GTK font name recorded for a display, or
+// "" when the manager has not applied a font there yet.
+func (m *Manager) lastAppliedFontFor(ptr uintptr) string {
+	if m == nil || m.appliedFonts == nil {
+		return ""
+	}
+	return m.appliedFonts[ptr]
+}
+
+// recordAppliedFontFor stores the GTK font name set on a display. The map
+// is created on first use so zero-value Managers stay usable.
+func (m *Manager) recordAppliedFontFor(ptr uintptr, font string) {
+	if m == nil {
+		return
+	}
+	if m.appliedFonts == nil {
+		m.appliedFonts = make(map[uintptr]string)
+	}
+	m.appliedFonts[ptr] = font
+}
+
+// shouldSkipThemeReapply reports whether a theme application can be skipped
+// entirely: the provider exists, the effective CSS and font are unchanged,
+// and the target is the display the provider was last added for.
+func shouldSkipThemeReapply(hasProvider bool, appliedPtr, ptr uintptr, appliedCSS, css, appliedFont, font string) bool {
+	return hasProvider && ptr == appliedPtr && css == appliedCSS && font != "" && font == appliedFont
+}
+
+// ApplyToDisplay loads the theme CSS into the display, skipping the reload
+// and re-add when the same provider already carries the effective CSS on the
+// same display. A different display always gets the provider added; the CSS
+// is only re-parsed when its identity changed.
 func (m *Manager) ApplyToDisplay(ctx context.Context, display *gdk.Display) {
 	log := logging.FromContext(ctx)
 
@@ -150,21 +194,31 @@ func (m *Manager) ApplyToDisplay(ctx context.Context, display *gdk.Display) {
 	palette := m.GetCurrentPalette()
 	css := GenerateCSSFullWithTiming(palette, m.uiScale, m.fonts, m.modeColors, m.transitionDurationMs)
 	fontName := formatGTKFontName(m.gtkFont, m.uiScale)
+	displayFont := m.lastAppliedFontFor(display.Ptr)
+
+	if shouldSkipThemeReapply(m.cssProvider != nil, m.appliedDisplayPtr, display.Ptr, m.appliedCSS, css, displayFont, fontName) {
+		log.Debug().
+			Bool("dark_mode", m.prefersDark).
+			Msg("theme CSS unchanged for display, skipping reapply")
+		return
+	}
 
 	settings := gtk.SettingsGetForDisplay(display)
 	if settings == nil {
 		log.Warn().Msg("cannot apply theme font scaling: settings unavailable")
-	} else if shouldApplyGTKFontName(m.appliedFont, fontName) {
+	} else if shouldApplyGTKFontName(displayFont, fontName) {
 		settings.SetPropertyGtkFontName(fontName)
-		m.appliedFont = fontName
+		m.recordAppliedFontFor(display.Ptr, fontName)
 		settings.Unref()
 	} else {
 		settings.Unref()
 	}
 
 	// Create CSS provider if needed
+	providerFresh := false
 	if m.cssProvider == nil {
 		m.cssProvider = gtk.NewCssProvider()
+		providerFresh = true
 	}
 
 	if m.cssProvider == nil {
@@ -172,13 +226,20 @@ func (m *Manager) ApplyToDisplay(ctx context.Context, display *gdk.Display) {
 		return
 	}
 
-	// Load CSS
-	m.cssProvider.LoadFromString(css)
+	// Load CSS only when its identity changed; the shared provider already
+	// carries the previous CSS for a display change with an unchanged theme.
+	// A freshly created provider always loads, even if the generated CSS is
+	// empty, so the skip identity can never mask a missing load.
+	if providerFresh || css != m.appliedCSS {
+		m.cssProvider.LoadFromString(css)
+	}
 	gtk.StyleContextAddProviderForDisplay(
 		display,
 		m.cssProvider,
 		uint(gtk.STYLE_PROVIDER_PRIORITY_APPLICATION),
 	)
+	m.appliedCSS = css
+	m.appliedDisplayPtr = display.Ptr
 
 	log.Debug().
 		Bool("dark_mode", m.prefersDark).

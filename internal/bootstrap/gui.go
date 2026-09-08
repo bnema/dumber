@@ -196,25 +196,45 @@ func LogResolvedTheme(ctx context.Context, resolved entity.ResolvedTheme) {
 	event.Msg("theme resolved")
 }
 
+// deferredInitProbeForTest, when non-nil, observes each deferred check
+// before it runs. Tests use it to prove engine selection skips checks
+// without invoking them. It must remain nil in production.
+var deferredInitProbeForTest func(kind string)
+
 // RunDeferredInit runs deferred initialization checks off the critical path.
-// This includes runtime requirements and media checks.
+// Applicable checks are selected by engine: WebKit runs the pkg-config
+// runtime and GStreamer media diagnostics, while CEF skips both (they cover
+// the WebKit stack only) and reports no error. Explicit diagnostic commands
+// (doctor, media checks) invoke the Check* functions directly and are
+// unaffected by this selection.
 func RunDeferredInit(input DeferredInitInput) DeferredInitResult {
+	start := time.Now()
+	if input.Config != nil && input.Config.Engine.ResolveEngineType() == config.EngineTypeCEF {
+		logging.FromContext(input.Ctx).Debug().Msg("skipping WebKit runtime/media diagnostics for CEF engine")
+		return DeferredInitResult{Duration: time.Since(start)}
+	}
+
 	var (
 		runtimeErr error
 		mediaErr   error
 		wg         sync.WaitGroup
 	)
 
-	start := time.Now()
 	wg.Add(2)
 
 	go func() {
 		defer wg.Done()
+		if deferredInitProbeForTest != nil {
+			deferredInitProbeForTest("runtime")
+		}
 		runtimeErr = CheckRuntimeRequirements(input.Ctx, input.Config)
 	}()
 
 	go func() {
 		defer wg.Done()
+		if deferredInitProbeForTest != nil {
+			deferredInitProbeForTest("media")
+		}
 		mediaErr = CheckMediaRequirements(input.Ctx, input.Config)
 	}()
 

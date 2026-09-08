@@ -126,14 +126,15 @@ func (bw *browserWindow) initChrome(ctx context.Context, a *App) {
 		return
 	}
 
+	// Hidden panels (history, favorites) are constructed on first request via
+	// ensureHistorySidebar/ensureFavoritesSidebar so window creation performs
+	// no hidden-panel queries or widget row rebuilds.
 	bw.initToasterOverlay(a)
 	bw.initTouchpadNavigationIndicator()
 	bw.initBorderOverlay(a)
 	bw.initAccentPicker(ctx, a)
 	bw.initSessionManager(ctx, a)
 	bw.initTabPicker(ctx, a)
-	bw.initHistorySidebar(ctx, a)
-	bw.initFavoritesSidebar(ctx, a)
 }
 
 func (bw *browserWindow) initToasterOverlay(a *App) {

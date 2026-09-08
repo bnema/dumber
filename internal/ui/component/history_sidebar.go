@@ -138,7 +138,11 @@ type HistorySidebarConfig struct {
 	OnClose func()
 }
 
-// NewHistorySidebar creates a new HistorySidebar component.
+// NewHistorySidebar creates a new HistorySidebar component. Construction
+// performs no data queries: the initial load runs on the first Show so
+// on-demand instances (see the host ensure methods) never pay for a
+// discarded constructor generation before Show schedules its own Reload.
+// Reopening reloads through Show as before.
 func NewHistorySidebar(ctx context.Context, cfg HistorySidebarConfig) *HistorySidebar {
 	ctx, cancel := context.WithCancel(ctx)
 	log := logging.FromContext(ctx).With().Str("component", "history-sidebar").Logger()
@@ -197,9 +201,6 @@ func NewHistorySidebar(ctx context.Context, cfg HistorySidebarConfig) *HistorySi
 	hs.setupKeyboardNavigation()
 
 	log.Debug().Msg("history sidebar created")
-
-	// Start loading history asynchronously (background goroutine)
-	hs.startLoadHistory()
 
 	return hs
 }

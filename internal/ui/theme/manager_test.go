@@ -182,3 +182,83 @@ func TestShouldApplyGTKFontName(t *testing.T) {
 	assert.False(t, shouldApplyGTKFontName("Fira Sans 14", "Fira Sans 14"))
 	assert.False(t, shouldApplyGTKFontName("Fira Sans 14", ""))
 }
+
+func TestShouldSkipThemeReapply(t *testing.T) {
+	const (
+		displayA  = uintptr(0x1000)
+		displayB  = uintptr(0x2000)
+		css       = "window{background:#000;}"
+		otherCSS  = "window{background:#fff;}"
+		font      = "Adwaita Sans 14"
+		otherFont = "Adwaita Sans 17"
+	)
+
+	// Same provider, display, CSS and font: skip the reload and re-add.
+	assert.True(t, shouldSkipThemeReapply(true, displayA, displayA, css, css, font, font),
+		"repeated window creation with an unchanged theme must skip reapply")
+	// No provider yet: full apply.
+	assert.False(t, shouldSkipThemeReapply(false, 0, displayA, "", css, "", font))
+	// Different display: the provider must be added for the new display even
+	// when the CSS is unchanged. Displays are never conflated.
+	assert.False(t, shouldSkipThemeReapply(true, displayA, displayB, css, css, font, font))
+	// Changed CSS (real theme change): reload.
+	assert.False(t, shouldSkipThemeReapply(true, displayA, displayA, css, otherCSS, font, font))
+	// Changed font (scale change): reapply for the font setting.
+	assert.False(t, shouldSkipThemeReapply(true, displayA, displayA, css, css, font, otherFont))
+	// Empty font identity never skips.
+	assert.False(t, shouldSkipThemeReapply(true, displayA, displayA, css, css, "", ""))
+}
+
+func TestEffectiveCSSIdentity_StableForUnchangedTheme(t *testing.T) {
+	ctx := context.Background()
+	first := NewManager(ctx, resolvedThemeFixture(true))
+	second := NewManager(ctx, resolvedThemeFixture(true))
+
+	cssOf := func(m *Manager) string {
+		return GenerateCSSFullWithTiming(m.GetCurrentPalette(), m.uiScale, m.fonts, m.modeColors, m.transitionDurationMs)
+	}
+
+	// The dedup relies on CSS identity: identical resolved themes must
+	// produce identical CSS so repeated window creation skips the reload.
+	assert.Equal(t, cssOf(first), cssOf(second))
+	assert.NotEmpty(t, cssOf(first))
+
+	// A real theme change must change the identity so it is never skipped.
+	changed := resolvedThemeFixture(true)
+	changed.DarkPalette.Background = "#000001"
+	other := NewManager(ctx, changed)
+	assert.NotEqual(t, cssOf(first), cssOf(other))
+}
+
+func TestManager_AppliedFontTrackedPerDisplay(t *testing.T) {
+	ctx := context.Background()
+	m := NewManager(ctx, resolvedThemeFixture(true))
+
+	const (
+		displayA = uintptr(0x1000)
+		displayB = uintptr(0x2000)
+		font     = "Adwaita Sans 14"
+	)
+
+	// No font recorded anywhere initially, including on a nil manager.
+	assert.Empty(t, m.lastAppliedFontFor(displayA))
+	assert.Empty(t, m.lastAppliedFontFor(displayB))
+	assert.Empty(t, (*Manager)(nil).lastAppliedFontFor(displayA))
+
+	// Recording for one display leaves the other untouched so its
+	// GtkSettings still get configured on first apply.
+	m.recordAppliedFontFor(displayA, font)
+	assert.Equal(t, font, m.lastAppliedFontFor(displayA))
+	assert.Empty(t, m.lastAppliedFontFor(displayB))
+
+	m.recordAppliedFontFor(displayB, font)
+	assert.Equal(t, font, m.lastAppliedFontFor(displayB))
+
+	// Updating one display does not disturb the other.
+	m.recordAppliedFontFor(displayA, "Adwaita Sans 17")
+	assert.Equal(t, "Adwaita Sans 17", m.lastAppliedFontFor(displayA))
+	assert.Equal(t, font, m.lastAppliedFontFor(displayB))
+
+	// Recording on a nil manager is a safe no-op.
+	assert.NotPanics(t, func() { (*Manager)(nil).recordAppliedFontFor(displayA, font) })
+}

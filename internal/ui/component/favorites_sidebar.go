@@ -81,7 +81,11 @@ type FavoritesSidebar struct {
 	idleScheduler func(glib.SourceFunc)
 }
 
-// NewFavoritesSidebar creates a native favorites sidebar and starts loading data.
+// NewFavoritesSidebar creates a native favorites sidebar without loading
+// data. The initial load runs on the first Show so on-demand instances
+// (see the host ensure methods) issue exactly one GetAll/GetAllTags batch
+// instead of a discarded constructor generation plus the Show reload.
+// Reopening reloads through Show as before.
 func NewFavoritesSidebar(ctx context.Context, cfg FavoritesSidebarConfig) *FavoritesSidebar {
 	ctx, cancel := context.WithCancel(ctx)
 	fs := &FavoritesSidebar{
@@ -100,7 +104,6 @@ func NewFavoritesSidebar(ctx context.Context, cfg FavoritesSidebarConfig) *Favor
 	}
 	fs.setupSearchHandler()
 	fs.setupKeyboardNavigation()
-	fs.startLoad()
 	return fs
 }
 

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -45,9 +46,12 @@ type fakeFavoritesSidebarUC struct {
 	errOnUntag       map[entity.TagID]error
 	failUntagOnCall  int
 	getAllCalled     chan struct{}
+	getAllCalls      atomic.Int64
+	getAllTagsCalls  atomic.Int64
 }
 
 func (f *fakeFavoritesSidebarUC) GetAll(context.Context) ([]*entity.Favorite, error) {
+	f.getAllCalls.Add(1)
 	if f.getAllCalled != nil {
 		select {
 		case f.getAllCalled <- struct{}{}:
@@ -57,6 +61,7 @@ func (f *fakeFavoritesSidebarUC) GetAll(context.Context) ([]*entity.Favorite, er
 	return f.favorites, f.err
 }
 func (f *fakeFavoritesSidebarUC) GetAllTags(context.Context) ([]*entity.Tag, error) {
+	f.getAllTagsCalls.Add(1)
 	return f.tags, f.err
 }
 func (f *fakeFavoritesSidebarUC) AddTag(_ context.Context, name, color string) (*entity.Tag, error) {
@@ -750,4 +755,37 @@ func TestFavoritesSidebarErrorsPreserveStateAndShowNotice(t *testing.T) {
 	assert.True(t, fs.submitForm())
 	assert.Equal(t, favoritesSidebarModeAdd, fs.mode)
 	assert.Equal(t, "add failed", fs.notice)
+}
+
+// TestFavoritesSidebar_FirstShowIssuesSingleQueryBatch proves the lazy-load
+// contract behind the on-demand host: a fresh instance issues zero queries
+// (construction performs no load), the first Show-equivalent load issues
+// exactly one GetAll/GetAllTags batch, and reopening reloads with one more
+// batch according to existing semantics.
+func TestFavoritesSidebar_FirstShowIssuesSingleQueryBatch(t *testing.T) {
+	fav := &entity.Favorite{ID: 1, URL: "https://example.com", Title: "Example"}
+	fs := newFavoritesSidebarHarness([]*entity.Favorite{fav}, nil)
+	uc := fs.favoritesUC.(*fakeFavoritesSidebarUC)
+	fs.ctx = context.Background()
+
+	// Fresh instance: construction must not have queried anything.
+	assert.Zero(t, uc.getAllCalls.Load())
+	assert.Zero(t, uc.getAllTagsCalls.Load())
+
+	// First Show issues exactly one batch.
+	fs.startLoad()
+	require.Eventually(t, func() bool {
+		fs.mu.RLock()
+		defer fs.mu.RUnlock()
+		return len(fs.allFavorites) == 1
+	}, 10*time.Second, 5*time.Millisecond, "first Show load must apply fetched favorites")
+	assert.EqualValues(t, 1, uc.getAllCalls.Load(), "first Show must issue exactly one GetAll batch")
+	assert.EqualValues(t, 1, uc.getAllTagsCalls.Load(), "first Show must issue exactly one GetAllTags batch")
+	assert.Equal(t, "https://example.com", fs.allFavorites[0].URL)
+
+	// Reopen reloads with one more batch.
+	fs.startLoad()
+	require.Eventually(t, func() bool {
+		return uc.getAllCalls.Load() == 2 && uc.getAllTagsCalls.Load() == 2
+	}, 10*time.Second, 5*time.Millisecond, "reopen must reload with one more batch")
 }

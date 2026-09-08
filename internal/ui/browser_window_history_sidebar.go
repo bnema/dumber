@@ -11,36 +11,49 @@ import (
 	"github.com/bnema/dumber/internal/ui/window"
 )
 
-// initHistorySidebar creates and mounts the history sidebar into the
-// browser window's sidebar container. The sidebar is hidden by default.
-func (bw *browserWindow) initHistorySidebar(ctx context.Context, a *App) {
-	if bw == nil || a == nil || bw.mainWindow == nil || a.deps == nil || a.deps.HistoryUC == nil {
-		return
+// newHistorySidebarComponent constructs the native history sidebar. It is a
+// package-level seam so headless tests can observe on-demand construction
+// without instantiating GTK widgets. Mutable global: tests must restore it
+// via defer and must not use t.Parallel alongside seam users.
+var newHistorySidebarComponent = component.NewHistorySidebar
+
+// ensureHistorySidebar constructs the history sidebar on first request.
+// Construction is separated from mounting and shared visibility mutation:
+// the caller mounts and reveals through mountNativeSidebar/showHistorySidebar.
+// The component lifetime is detached from the caller's request context via
+// context.WithoutCancel so a short-lived window-creation or shortcut context
+// cannot cancel the sidebar's in-flight loads. It returns false when the
+// window, dependencies, or native construction are unavailable.
+func (bw *browserWindow) ensureHistorySidebar(ctx context.Context, a *App) bool {
+	if bw == nil || a == nil || bw.mainWindow == nil {
+		return false
+	}
+	if bw.historySidebar != nil {
+		return true
+	}
+	if a.deps == nil || a.deps.HistoryUC == nil {
+		return false
 	}
 	log := logging.FromContext(ctx)
 
 	cfg := a.buildHistorySidebarConfig(bw)
 
-	sidebar := component.NewHistorySidebar(ctx, cfg)
+	sidebar := newHistorySidebarComponent(context.WithoutCancel(ctx), cfg)
 	if sidebar == nil {
 		log.Warn().Msg("failed to create history sidebar")
-		return
+		return false
 	}
 
 	bw.historySidebar = sidebar
 
-	// Mount into the main window's sidebar box.
-	bw.mainWindow.SetSidebarWidget(sidebar.Widget())
-	bw.historySidebar.Hide()
-	bw.mainWindow.SetSidebarVisible(false)
-	bw.sidebarVisible = false
-	bw.activeSidebarKind = nativeSidebarNone
-
 	// Apply sidebar width from config, falling back to the default 320px.
 	// The width is clamped to [280, 380] by SetSidebarWidth internally.
+	// Visibility is left untouched: the sidebar container keeps whatever
+	// panel (or none) is currently mounted until the caller reveals history.
 	bw.applySidebarWidthConfig(a)
 
 	log.Debug().Msg("history sidebar initialized")
+	return true
 }
 
 // buildHistorySidebarConfig constructs the HistorySidebarConfig for the given
@@ -164,18 +177,20 @@ func (bw *browserWindow) applySidebarWidthConfig(a *App) {
 }
 
 // toggleHistorySidebarAction is the keyboard-action handler for toggling the
-// history sidebar on the last focused browser window.
+// history sidebar on the last focused browser window. It ensures on-demand
+// construction before testing availability so shortcuts work without eager
+// window-creation work.
 func (a *App) toggleHistorySidebarAction(ctx context.Context) error {
 	bw := a.lastFocusedBrowserWindow()
 	if bw == nil {
 		return fmt.Errorf("history sidebar unavailable: no focused browser window")
 	}
-	if bw.historySidebar == nil {
-		return fmt.Errorf("history sidebar unavailable: native sidebar not initialized")
-	}
 	if bw.sidebarVisible && bw.activeSidebarKind == nativeSidebarHistory {
 		a.hideAndRestoreFocusForBrowserWindow(bw)
 		return nil
+	}
+	if !bw.ensureHistorySidebar(ctx, a) {
+		return fmt.Errorf("history sidebar unavailable: native sidebar not initialized")
 	}
 	bw.toggleHistorySidebar()
 	return nil

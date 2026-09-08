@@ -11,24 +11,42 @@ import (
 	"github.com/bnema/dumber/internal/ui/component"
 )
 
-// initFavoritesSidebar creates the native favorites sidebar when favorites are configured.
-func (bw *browserWindow) initFavoritesSidebar(ctx context.Context, a *App) {
-	if bw == nil || a == nil || bw.mainWindow == nil || a.deps == nil || a.deps.FavoritesUC == nil {
-		return
+// newFavoritesSidebarComponent constructs the native favorites sidebar. It is
+// a package-level seam so headless tests can observe on-demand construction
+// without instantiating GTK widgets. Mutable global: tests must restore it
+// via defer and must not use t.Parallel alongside seam users.
+var newFavoritesSidebarComponent = component.NewFavoritesSidebar
+
+// ensureFavoritesSidebar constructs the favorites sidebar on first request.
+// Construction is separated from mounting and shared visibility mutation:
+// the caller mounts and reveals through mountNativeSidebar/showFavoritesSidebar.
+// The component lifetime is detached from the caller's request context via
+// context.WithoutCancel so a short-lived window-creation or shortcut context
+// cannot cancel the sidebar's in-flight loads. It returns false when the
+// window, dependencies, or native construction are unavailable.
+func (bw *browserWindow) ensureFavoritesSidebar(ctx context.Context, a *App) bool {
+	if bw == nil || a == nil || bw.mainWindow == nil {
+		return false
+	}
+	if bw.favoritesSidebar != nil {
+		return true
+	}
+	if a.deps == nil || a.deps.FavoritesUC == nil {
+		return false
 	}
 	log := logging.FromContext(ctx)
 
 	cfg := a.buildFavoritesSidebarConfig(bw)
-	sidebar := component.NewFavoritesSidebar(ctx, cfg)
+	sidebar := newFavoritesSidebarComponent(context.WithoutCancel(ctx), cfg)
 	if sidebar == nil {
 		log.Warn().Msg("failed to create favorites sidebar")
-		return
+		return false
 	}
 
 	bw.favoritesSidebar = sidebar
-	bw.favoritesSidebar.Hide()
 	bw.applySidebarWidthConfig(a)
 	log.Debug().Msg("favorites sidebar initialized")
+	return true
 }
 
 //nolint:dupl // Favorites and history sidebar configs intentionally mirror each other for separate component types.
@@ -104,12 +122,12 @@ func (a *App) toggleFavoritesSidebarAction(ctx context.Context) error {
 	if bw == nil {
 		return fmt.Errorf("favorites sidebar unavailable: no focused browser window")
 	}
-	if bw.favoritesSidebar == nil {
-		return fmt.Errorf("favorites sidebar unavailable: native sidebar not initialized")
-	}
 	if bw.sidebarVisible && bw.activeSidebarKind == nativeSidebarFavorites {
 		a.hideAndRestoreFocusForBrowserWindow(bw)
 		return nil
+	}
+	if !bw.ensureFavoritesSidebar(ctx, a) {
+		return fmt.Errorf("favorites sidebar unavailable: native sidebar not initialized")
 	}
 	bw.toggleFavoritesSidebar()
 	return nil

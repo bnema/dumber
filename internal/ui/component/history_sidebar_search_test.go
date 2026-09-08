@@ -367,3 +367,57 @@ func TestFetchPage_StaleGenerationDoesNotMutateLoadingState(t *testing.T) {
 	assert.Equal(t, 0, hs.totalLoaded, "stale results must not update totalLoaded")
 	hs.mu.RUnlock()
 }
+
+// =============================================================================
+// First-Show single query batch: no constructor load, one batch per Show
+// =============================================================================
+
+// TestHistorySidebar_FirstShowIssuesSingleQueryBatch proves the lazy-load
+// contract behind the on-demand host: a fresh instance issues zero queries
+// (construction performs no load), the first Show-equivalent Reload issues
+// exactly one GetRecent batch, and reopening reloads with one more batch
+// according to existing semantics.
+func TestHistorySidebar_FirstShowIssuesSingleQueryBatch(t *testing.T) {
+	entries := []*entity.HistoryEntry{
+		{ID: 1, URL: "https://example.com", Title: "Example", LastVisited: time.Now()},
+	}
+	history := portmocks.NewMockHistorySidebarHistory(t)
+	history.EXPECT().
+		GetRecent(mock.Anything, sidebarPageSize, 0).
+		RunAndReturn(func(context.Context, int, int) ([]*entity.HistoryEntry, error) {
+			return entries, nil
+		}).
+		Times(2)
+
+	hs := newTestSidebarSearchHarness()
+	hs.historyUC = history
+	hs.ctx = t.Context()
+	hs.idleScheduler = func(cb glib.SourceFunc) { cb(0) }
+
+	// Fresh instance: construction must not have queried anything (the mock
+	// fails the test on any unexpected call at cleanup).
+	hs.mu.RLock()
+	assert.False(t, hs.loadStarted)
+	assert.False(t, hs.loadDone)
+	hs.mu.RUnlock()
+
+	waitLoaded := func(want int) {
+		t.Helper()
+		require.Eventually(t, func() bool {
+			hs.mu.RLock()
+			defer hs.mu.RUnlock()
+			return hs.loadDone && len(hs.allEntries) == want
+		}, 10*time.Second, 5*time.Millisecond, "Show load must apply fetched entries")
+	}
+
+	// First Show loads exactly one batch.
+	hs.Reload()
+	waitLoaded(1)
+	hs.mu.RLock()
+	assert.Equal(t, "https://example.com", hs.allEntries[0].URL)
+	hs.mu.RUnlock()
+
+	// Reopen reloads with one more batch (Times(2) enforces the exact count).
+	hs.Reload()
+	waitLoaded(1)
+}
