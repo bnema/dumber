@@ -20,7 +20,10 @@ Cold-process numbers (process-warm, profile-fresh) and resident-reopen
 observations are reported separately and never averaged together.
 --idle-timeout-ms forwards the product residency knob into generated
 configs (default 0 = exit with last window; reopen-window only reuses
-the same process with a nonzero timeout).
+the same process with a nonzero timeout). Second-window latency is
+first_document_observation_ms (spawn to first fixture document request
+on the harness clock); paint-level timing stays open until page
+beacons are delivered.
 
 Fixtures (loopback only): static, delayed, redirect, cache.
 
@@ -663,6 +666,7 @@ def run_sample(binary, cef_dir, scenario, fixture, run_index, owner=None, owner_
             beacons = list(state.beacons)
             document_count = len(state.document_requests)
             subresource_count = len(state.subresource_requests)
+            first_document_at = state.first_document_monotonic
         fcp = [b for b in beacons if b["event"] == "first-contentful-paint"]
         lcp = [b for b in beacons if b["event"] == "largest-contentful-paint"]
         if fcp:
@@ -689,6 +693,10 @@ def run_sample(binary, cef_dir, scenario, fixture, run_index, owner=None, owner_
             "target_fcp_ms": fcp[0]["value_ms"] if fcp else None,
             "target_lcp_through_cutoff_ms": lcp[-1]["value_ms"] if lcp else None,
             "startup_milestones": len(milestones),
+            "first_document_observation_ms": (
+                int((first_document_at - spawn_ts) * 1000)
+                if first_document_at is not None else None
+            ),
             "complete": complete,
             "relayed": relayed,
             "fallback_spawn": scenario in ("relay-window", "reopen-window") and not relayed,

@@ -196,6 +196,15 @@ class FakeBinaryLifetimeTest(unittest.TestCase):
         self.assertEqual(result["document_requests"], 1)
         self.assertIsNone(result["target_fcp_ms"])
         self.assertFalse(result["complete"])
+        # Same-clock spawn-to-request latency is still reported.
+        self.assertIsNotNone(result["first_document_observation_ms"])
+        self.assertGreaterEqual(result["first_document_observation_ms"], 0)
+
+    def test_no_navigation_means_no_document_observation(self):
+        binary = self.make_binary("exit 0")
+        result = harness.run_sample(binary, self.cef_dir, "profile-fresh", "static", 1)
+        self.assertEqual(result["document_requests"], 0)
+        self.assertIsNone(result["first_document_observation_ms"])
 
     def test_relay_fallback_recorded_without_owner(self):
         binary = self.make_binary("exit 0")
