@@ -77,12 +77,28 @@
       renderWasmError('Go WebAssembly runtime failed to load: ');
     } else {
       const go = new Go();
+      // Record the runtime exit code: wasm_exec.js routes runtime.wasmExit
+      // through go.exit, whose default only logs. Reporting the actual
+      // status beats the misleading generic suffix on unexpected exits.
+      let goExitCode = null;
+      const goExit = go.exit.bind(go);
+      go.exit = (code) => {
+        goExitCode = code;
+        goExit(code);
+      };
       instantiateWasm(go, './systemviews.wasm')
         // The runtime stays alive: a resolved go.run means main returned
         // instead of serving, which is itself a terminal failure.
         .then((result) => go.run(result.instance))
         .then(
-          () => renderWasmError('systemviews runtime exited unexpectedly: '),
+          () => {
+            // Go renders fatal mount/bind failures itself and marks
+            // data-failed: never overwrite its terminal state here.
+            const app = document.getElementById('app');
+            if (app && app.dataset && app.dataset.failed) return;
+            const code = goExitCode === null ? 'unknown' : String(goExitCode);
+            renderWasmError('systemviews runtime exited: ', new Error(`exit status ${code}`));
+          },
           (err) => renderWasmError('Failed to load systemviews WebAssembly: ', err),
         );
     }

@@ -5,6 +5,8 @@ package cef
 // on absence, raw reads bounded, failures cached.
 
 import (
+	"errors"
+	"io"
 	"io/fs"
 	"sync"
 	"testing"
@@ -41,11 +43,14 @@ func (c *countingFS) ReadFile(name string) ([]byte, error) {
 	return c.inner.ReadFile(name)
 }
 
-// compressedReads counts compressed WASM reads: the decode-once proof.
+// compressedReads counts compressed WASM reads through either entry
+// point: the loader may Open the file directly (bounded reads) or use
+// the ReadFileFS shortcut, depending on the hardened path.
 func (c *countingFS) compressedReads() int {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	return c.opens["readfile:"+systemviewsWASMPath+".br"]
+	name := systemviewsWASMPath + ".br"
+	return c.opens["readfile:"+name] + c.opens["open:"+name]
 }
 
 // denyFS fails every Open with a fixed error (e.g. permission denied).
@@ -155,4 +160,48 @@ func TestSystemviewAssetCache_NilFSFailsCleanly(t *testing.T) {
 	b := newSystemviewAssetBundle(nil)
 	_, err := b.WASM()
 	require.Error(t, err)
+}
+
+// zeroFile yields size bytes of zeros without allocating them, proving
+// input bounds without a 64 MiB fixture in memory.
+type zeroFile struct {
+	remaining int64
+}
+
+func (f *zeroFile) Read(p []byte) (int, error) {
+	if f.remaining <= 0 {
+		return 0, io.EOF
+	}
+	n := min(int64(len(p)), f.remaining)
+	clear(p[:n])
+	f.remaining -= n
+	return int(n), nil
+}
+
+func (f *zeroFile) Close() error { return nil }
+
+func (f *zeroFile) Stat() (fs.FileInfo, error) { return nil, errors.New("zeroFile has no stat") }
+
+// oversizedInputFS serves an unbounded-looking compressed file: the
+// bundle must reject it on size before allocation.
+type oversizedInputFS struct {
+	fstest.MapFS
+}
+
+func (o oversizedInputFS) Open(name string) (fs.File, error) {
+	if name == systemviewsWASMPath+".br" {
+		return &zeroFile{remaining: int64(maxSystemviewsWASMBytes) + 1}, nil
+	}
+	return o.MapFS.Open(name)
+}
+
+func TestSystemviewAssetCache_OversizedCompressedInputRejected(t *testing.T) {
+	t.Parallel()
+
+	b := newSystemviewAssetBundle(oversizedInputFS{fstest.MapFS{
+		"systemviews/systemviews.wasm": {Data: []byte("\x00asm-valid-raw")},
+	}})
+	_, err := b.WASM()
+	require.Error(t, err, "oversized compressed input must fail before allocation")
+	require.Contains(t, err.Error(), "exceeds")
 }

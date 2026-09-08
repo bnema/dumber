@@ -12,8 +12,8 @@ Without a display the live part skips cleanly; in-page branches
 panic exit, disabled JS) follow the printed display protocol, whose
 markers are asserted statically here.
 
-Exit codes: 0 everything ran green, 1 a gate failed, 2 static gates green
-with live parts skipped.
+Exit codes: 0 static gates and launch smoke green (in-page branches stay
+MANUAL), 1 a gate failed, 2 static gates green with live parts skipped.
 """
 
 import argparse
@@ -83,6 +83,9 @@ def check_shell_readiness_contract():
         return fail("shell readiness contract missing: " + ", ".join(missing))
     if shell.count("go.run(") != 1:
         return fail("runtime must execute exactly once (single go.run call site)")
+    for marker in ("go.exit =", "goExitCode", "exit status"):
+        if marker not in shell:
+            return fail(f"shell exit hook missing: {marker}")
     try:
         adapter = DOM_ADAPTER_PATH.read_text(encoding="utf-8")
     except OSError as exc:
@@ -144,16 +147,36 @@ def display_available():
     return bool(os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY"))
 
 
+def sanitized_launch_env(profile):
+    """Build the child's environment: owned XDG/HOME/CEF dirs, no dev-mode.
+
+    The fixture must not read the operator's configuration (XDG_CONFIG_HOME)
+    nor follow ENV=dev, which would redirect all profile directories under
+    the working directory instead of the isolated profile.
+    """
+    env = dict(os.environ)
+    env.pop("ENV", None)
+    env["HOME"] = str(profile / "home")
+    env["XDG_DATA_HOME"] = str(profile / "data")
+    env["XDG_STATE_HOME"] = str(profile / "state")
+    env["XDG_CACHE_HOME"] = str(profile / "cache")
+    env["XDG_CONFIG_HOME"] = str(profile / "config")
+    return env
+
+
 def run_launch_smoke(binary, cef_dir, timeout):
-    """Start the candidate with an isolated profile, watch, terminate."""
+    """Start the candidate with an isolated profile, watch, terminate.
+
+    This is a startup smoke test only: it proves the binary launches and
+    survives the window without crashes. It never navigates to a
+    systemview, so fetch counts, readiness inspection, streaming fallback
+    and failure injection stay MANUAL via the printed display protocol.
+    """
     if not display_available():
         print("systemview-startup: SKIP live launch (no DISPLAY or WAYLAND_DISPLAY)")
         return EXIT_SKIP_LIVE
     profile = Path(tempfile.mkdtemp(prefix="sv-startup-profile-"))
-    env = dict(os.environ)
-    env["XDG_DATA_HOME"] = str(profile / "data")
-    env["XDG_STATE_HOME"] = str(profile / "state")
-    env["XDG_CACHE_HOME"] = str(profile / "cache")
+    env = sanitized_launch_env(profile)
     env["DUMBER_CEF_ROOT_CACHE_PATH"] = str(profile / "cef-cache")
     env["DUMBER_CEF_DIR"] = str(cef_dir)
     print(f"systemview-startup: launching {binary} with isolated profile {profile}")
@@ -161,6 +184,7 @@ def run_launch_smoke(binary, cef_dir, timeout):
         proc = subprocess.Popen(
             [str(binary)],
             env=env,
+            cwd=profile,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,
@@ -168,37 +192,40 @@ def run_launch_smoke(binary, cef_dir, timeout):
     except OSError as exc:
         return fail(f"cannot execute binary: {exc}")
     try:
-        output, _ = proc.communicate(timeout=timeout)
-        print(f"systemview-startup: binary exited during smoke with code {proc.returncode}")
-        print(output[-4000:])
-        for pattern in CRASH_PATTERNS:
-            if pattern in output:
-                return fail(f"crash marker in startup output: {pattern}")
-        # An early clean exit is unexpected for a GUI app but not a crash;
-        # flag it distinctly without failing the gate.
-        print("systemview-startup: WARN binary exited on its own; no crash markers")
-        return EXIT_OK
-    except subprocess.TimeoutExpired:
-        pass
-    # Still alive past the window: the startup path survived; terminate
-    # gracefully, then force-kill only our own child on refusal.
-    proc.terminate()
-    try:
-        output, _ = proc.communicate(timeout=15)
-    except subprocess.TimeoutExpired:
-        proc.kill()
-        output, _ = proc.communicate(timeout=15)
-        print("systemview-startup: WARN binary ignored SIGTERM and was killed")
-    for pattern in CRASH_PATTERNS:
-        if pattern in (output or ""):
+        try:
+            output, _ = proc.communicate(timeout=timeout)
+        except subprocess.TimeoutExpired:
+            output = None
+        if output is not None:
+            # Any early exit is unexpected for the GUI binary: a crash
+            # without markers is still a failure, never a pass.
+            print(f"systemview-startup: binary exited during smoke with code {proc.returncode}")
             print((output or "")[-4000:])
-            return fail(f"crash marker in startup output: {pattern}")
-    print("systemview-startup: launch smoke survived the window with no crash markers")
-    return EXIT_OK
+            for pattern in CRASH_PATTERNS:
+                if pattern in (output or ""):
+                    return fail(f"crash marker in startup output: {pattern}")
+            return fail(f"binary exited during the smoke window (code {proc.returncode}); expected it to stay alive")
+        # Still alive past the window: the startup path survived; terminate
+        # gracefully, then force-kill only our own child on refusal.
+        proc.terminate()
+        try:
+            output, _ = proc.communicate(timeout=15)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            output, _ = proc.communicate(timeout=15)
+            print("systemview-startup: WARN binary ignored SIGTERM and was killed")
+        for pattern in CRASH_PATTERNS:
+            if pattern in (output or ""):
+                print((output or "")[-4000:])
+                return fail(f"crash marker in startup output: {pattern}")
+        print("systemview-startup: launch smoke survived the window with no crash markers")
+        return EXIT_OK
+    finally:
+        shutil.rmtree(profile, ignore_errors=True)
 
 
 DISPLAY_PROTOCOL = """\
-systemview-startup display protocol (run with a display, isolated profile):
+systemview-startup display protocol -- MANUAL STEPS (not executed by this script):
   1. Open dumb://history -> #app gains data-ready="true", aria-busy gone.
      Shell HTML references .wasm/.js/.css with ?v=<64-hex> (view-source).
   2. DevTools: exactly one systemviews.wasm request per load; reload ->
@@ -243,8 +270,10 @@ def main():
         return EXIT_FAIL
     if live == EXIT_SKIP_LIVE or any(result == EXIT_SKIP_LIVE for result in results):
         print("systemview-startup: static gates green, live parts skipped")
+        print("systemview-startup: in-page branches were NOT executed here; they are MANUAL via the protocol above")
         return EXIT_SKIP_LIVE
-    print("systemview-startup: all gates green")
+    print("systemview-startup: static gates and launch smoke green")
+    print("systemview-startup: in-page branches were NOT executed here; they are MANUAL via the protocol above")
     return EXIT_OK
 
 

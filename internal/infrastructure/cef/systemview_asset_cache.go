@@ -32,7 +32,6 @@ import (
 	"io/fs"
 	"net/http"
 	"sync"
-	"sync/atomic"
 	"unsafe"
 
 	"github.com/andybalholm/brotli"
@@ -119,7 +118,11 @@ func loadSystemviewWASM(assetsFS fs.FS) ([]byte, error) {
 	if assetsFS == nil {
 		return nil, errors.New("systemview assets not configured")
 	}
-	compressed, err := fs.ReadFile(assetsFS, systemviewsWASMPath+".br")
+	// Both the compressed input and the raw fallback are size-bounded
+	// before allocation: legitimate bundles ship a few megabytes of
+	// Brotli for up to 64 MiB of WASM, so anything larger is rejected
+	// before it can exhaust memory.
+	compressed, err := readBoundedAsset(assetsFS, systemviewsWASMPath+".br", maxSystemviewsWASMBytes)
 	if err == nil {
 		data, decodeErr := io.ReadAll(io.LimitReader(brotli.NewReader(bytes.NewReader(compressed)), maxSystemviewsWASMBytes+1))
 		if decodeErr != nil {
@@ -133,23 +136,24 @@ func loadSystemviewWASM(assetsFS fs.FS) ([]byte, error) {
 	if !errors.Is(err, fs.ErrNotExist) {
 		return nil, fmt.Errorf("read compressed systemview WASM: %w", err)
 	}
-	return readBoundedAsset(assetsFS, systemviewsWASMPath)
+	return readBoundedAsset(assetsFS, systemviewsWASMPath, maxSystemviewsWASMBytes)
 }
 
-// readBoundedAsset reads one raw asset with the same size bound as the
-// decompressed path, enforced before unbounded allocation.
-func readBoundedAsset(assetsFS fs.FS, name string) ([]byte, error) {
+// readBoundedAsset reads one raw asset with maxBytes enforced before
+// unbounded allocation. Missing files surface unwrapped so callers can
+// match fs.ErrNotExist for fallback decisions.
+func readBoundedAsset(assetsFS fs.FS, name string, maxBytes int) ([]byte, error) {
 	f, err := assetsFS.Open(name)
 	if err != nil {
 		return nil, err
 	}
 	defer func() { _ = f.Close() }()
-	data, err := io.ReadAll(io.LimitReader(f, maxSystemviewsWASMBytes+1))
+	data, err := io.ReadAll(io.LimitReader(f, int64(maxBytes)+1))
 	if err != nil {
 		return nil, fmt.Errorf("read systemview asset %s: %w", name, err)
 	}
-	if len(data) > maxSystemviewsWASMBytes {
-		return nil, fmt.Errorf("systemview asset %s exceeds %d bytes", name, maxSystemviewsWASMBytes)
+	if len(data) > maxBytes {
+		return nil, fmt.Errorf("systemview asset %s exceeds %d bytes", name, maxBytes)
 	}
 	return data, nil
 }
@@ -171,11 +175,20 @@ func readBoundedAsset(assetsFS fs.FS, name string) ([]byte, error) {
 type systemviewWASMResourceHandler struct {
 	cancel      context.CancelFunc
 	cancelOnce  sync.Once
-	canceled    atomic.Bool
+	// ctx scopes the request to the handler lifetime: engine shutdown
+	// cancels it, letting completion suppress the native continuation.
+	// It is released after the continuation decision, never by load
+	// itself, so shutdown stays observable at that point.
+	ctx         context.Context
 	bundle      *systemviewAssetBundle
 	versioned   bool
 	wantDigest  string
 	once        sync.Once
+	// settleMu arbitrates the continuation race: exactly one of
+	// request completion or cancellation wins, so a canceled waiter
+	// never resumes CEF while a completed load always does.
+	settleMu     sync.Mutex
+	settled      bool
 	done        chan struct{}
 	data        []byte
 	contentType string
@@ -189,11 +202,10 @@ func newSystemviewWASMResourceHandler(
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	reqCtx, cancel := context.WithCancel(ctx) //nolint:gosec // canceled by load completion or CEF Cancel callback
-	_ = reqCtx                                // Decode is bounded CPU work, not context-aware: request
-	// cancellation suppresses the native continuation via canceled.
+	reqCtx, cancel := context.WithCancel(ctx) //nolint:gosec // released after the continuation decision or by Cancel
 	return cefNewResourceHandler(&systemviewWASMResourceHandler{
 		cancel:     cancel,
+		ctx:        reqCtx,
 		bundle:     bundle,
 		versioned:  versioned,
 		wantDigest: wantDigest,
@@ -203,7 +215,6 @@ func newSystemviewWASMResourceHandler(
 
 func (rh *systemviewWASMResourceHandler) load() {
 	defer close(rh.done)
-	defer rh.cancelRequest()
 	if rh.bundle == nil {
 		rh.fail()
 		return
@@ -239,7 +250,12 @@ func (rh *systemviewWASMResourceHandler) start(callback purecef.Callback) {
 	rh.once.Do(func() {
 		go func() {
 			rh.load()
-			if callback != nil && !rh.canceled.Load() {
+			rh.settleMu.Lock()
+			superseded := rh.settled || rh.ctx.Err() != nil
+			rh.settled = true
+			rh.settleMu.Unlock()
+			rh.cancelRequest()
+			if !superseded && callback != nil {
 				callback.Cont()
 			}
 		}()
@@ -312,7 +328,9 @@ func (rh *systemviewWASMResourceHandler) ReadResponse(_ unsafe.Pointer, _ int32,
 }
 
 func (rh *systemviewWASMResourceHandler) Cancel() {
-	rh.canceled.Store(true)
+	rh.settleMu.Lock()
+	rh.settled = true
+	rh.settleMu.Unlock()
 	rh.cancelRequest()
 }
 

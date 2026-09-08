@@ -43,8 +43,11 @@ type Manifest struct {
 }
 
 // ParseManifest decodes and validates manifest bytes. Unknown files,
-// missing pins, empty digests, and version mismatches are all hard errors:
-// a trust root must fail closed, never serve unverified immutable content.
+// missing pins, malformed digests, and version mismatches are all hard
+// errors: a trust root must fail closed, never serve unverified immutable
+// content. Every pin must be exactly 64 lowercase hex characters: pins
+// are interpolated into shell HTML/JS, so anything else is rejected
+// before any shell use rather than escaped after it.
 func ParseManifest(data []byte) (Manifest, error) {
 	var m Manifest
 	dec := json.NewDecoder(bytes.NewReader(data))
@@ -67,11 +70,30 @@ func ParseManifest(data []byte) (Manifest, error) {
 		if !ok {
 			return Manifest{}, fmt.Errorf("asset manifest missing pin for %s", name)
 		}
-		if entry.SHA256 == "" || entry.Size < 0 {
+		if !validDigest(entry.SHA256) {
 			return Manifest{}, fmt.Errorf("asset manifest has invalid pin for %s", name)
+		}
+		if entry.Size < 0 {
+			return Manifest{}, fmt.Errorf("asset manifest has invalid size for %s", name)
 		}
 	}
 	return m, nil
+}
+
+// validDigest reports whether s is a SHA-256 hex digest: exactly 64
+// lowercase hexadecimal characters, nothing else.
+func validDigest(s string) bool {
+	if len(s) != 64 {
+		return false
+	}
+	for i := 0; i < len(s); i++ {
+		digit := s[i] >= '0' && s[i] <= '9'
+		lowerHex := s[i] >= 'a' && s[i] <= 'f'
+		if !digit && !lowerHex {
+			return false
+		}
+	}
+	return true
 }
 
 // Bytes renders the canonical manifest encoding: indented JSON with sorted

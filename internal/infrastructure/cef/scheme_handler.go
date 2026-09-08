@@ -691,18 +691,39 @@ func isVersionedAssetFile(relPath string) bool {
 // exactly-one semantics: absent reports present=false (unversioned
 // request), while duplicate or empty values report present=true with
 // valid=false (a version-gating error, never an unversioned request).
+// Malformed escape sequences are fail-closed too: u.Query silently drops
+// unparseable components, so the raw query is parsed explicitly and any
+// parse error alongside a v parameter rejects the request.
 func parseAssetVersion(u *url.URL) (v string, present, valid bool) {
 	if u == nil {
 		return "", false, false
 	}
-	vals, ok := u.Query()["v"]
-	if !ok || len(vals) == 0 {
+	vals, qerr := url.ParseQuery(u.RawQuery)
+	if qerr != nil {
+		// A malformed query carrying a v parameter is a version-gating
+		// error; without one it is an ordinary unversioned request.
+		return "", hasVersionParam(u.RawQuery), false
+	}
+	vs, ok := vals["v"]
+	if !ok || len(vs) == 0 {
 		return "", false, false
 	}
-	if len(vals) != 1 || vals[0] == "" {
+	if len(vs) != 1 || vs[0] == "" {
 		return "", true, false
 	}
-	return vals[0], true, true
+	return vs[0], true, true
+}
+
+// hasVersionParam reports whether the raw query carries a v parameter,
+// used only to classify malformed queries fail-closed.
+func hasVersionParam(rawQuery string) bool {
+	for _, part := range strings.Split(rawQuery, "&") {
+		name, _, _ := strings.Cut(part, "=")
+		if name == "v" {
+			return true
+		}
+	}
+	return false
 }
 
 // serveVersionedStatic serves one allowlisted static file with byte-bound

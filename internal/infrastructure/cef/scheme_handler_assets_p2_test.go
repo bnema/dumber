@@ -34,15 +34,20 @@ type blockingReadFileFS struct {
 	once      sync.Once
 }
 
-func (b *blockingReadFileFS) Open(name string) (fs.File, error) {
-	return b.inner.Open(name)
-}
-
-func (b *blockingReadFileFS) ReadFile(name string) ([]byte, error) {
+func (b *blockingReadFileFS) gate(name string) {
 	if name == b.blockName {
 		b.once.Do(func() { close(b.entered) })
 		<-b.release
 	}
+}
+
+func (b *blockingReadFileFS) Open(name string) (fs.File, error) {
+	b.gate(name)
+	return b.inner.Open(name)
+}
+
+func (b *blockingReadFileFS) ReadFile(name string) ([]byte, error) {
+	b.gate(name)
 	return b.inner.ReadFile(name)
 }
 
@@ -378,11 +383,13 @@ func TestAssetP23_ShutdownCompletesSafely(t *testing.T) {
 	h.setAssets(blocking)
 
 	wh := h.handleAsset(mustParseURL(t, wasmURL(t))).(*systemviewWASMResourceHandler)
-	require.Equal(t, int32(1), wh.Open(nil, nil, nil))
+	cb := &contStubCallback{}
+	require.Equal(t, int32(1), wh.Open(nil, nil, cb))
 	<-blocking.entered
 
 	// Engine shutdown mid-decode: the bounded CPU decode still finishes
-	// without hanging or panicking; nobody waits on it past milliseconds.
+	// without hanging or panicking, but the native continuation is
+	// suppressed because the request context died with the engine.
 	cancel()
 	close(blocking.release)
 	select {
@@ -392,6 +399,10 @@ func TestAssetP23_ShutdownCompletesSafely(t *testing.T) {
 	}
 	require.Equal(t, http.StatusOK, wh.statusCode)
 	require.Equal(t, wasm, wh.data)
+	// done closes before the continuation decision; give the decision a
+	// scheduling window, then prove Cont never fired.
+	require.Never(t, func() bool { return cb.count() > 0 }, 500*time.Millisecond, 10*time.Millisecond,
+		"shutdown must suppress the native continuation")
 }
 
 func TestAssetP23_WireUnversionedCarriesNoStore(t *testing.T) {

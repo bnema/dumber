@@ -65,14 +65,14 @@ func TestRunWritesReproducibleManifest(t *testing.T) {
 	t.Parallel()
 
 	dir := fixtureBundle(t, []byte("\x00asm-repro"), []byte("/* js */"), []byte("/* css */"))
-	if err := run(dir, false); err != nil {
+	if err := run(dir, false, false); err != nil {
 		t.Fatalf("run() error = %v", err)
 	}
 	first, err := os.ReadFile(filepath.Join(dir, assets.ManifestName))
 	if err != nil {
 		t.Fatalf("read manifest: %v", err)
 	}
-	if err := run(dir, false); err != nil {
+	if err := run(dir, false, false); err != nil {
 		t.Fatalf("run() again error = %v", err)
 	}
 	second, readErr := os.ReadFile(filepath.Join(dir, assets.ManifestName))
@@ -82,7 +82,7 @@ func TestRunWritesReproducibleManifest(t *testing.T) {
 	if !bytes.Equal(first, second) {
 		t.Fatal("manifest generation is not reproducible")
 	}
-	if err := run(dir, true); err != nil {
+	if err := run(dir, true, false); err != nil {
 		t.Fatalf("run(check) error = %v", err)
 	}
 }
@@ -94,7 +94,7 @@ func TestRunFailsOnMissingFile(t *testing.T) {
 	writeFixture(t, dir, "systemviews.wasm", []byte("\x00asm"))
 	writeFixture(t, dir, "systemviews.wasm.br", brotliCompressForGeneratorTest(t, []byte("\x00asm")))
 	// wasm_exec.js and systemviews.css missing: loud failure, no manifest.
-	if err := run(dir, false); err == nil {
+	if err := run(dir, false, false); err == nil {
 		t.Fatal("run() with missing files succeeded, want error")
 	}
 	if _, err := os.Stat(filepath.Join(dir, assets.ManifestName)); !os.IsNotExist(err) {
@@ -106,12 +106,12 @@ func TestRunFailsOnStaleDigest(t *testing.T) {
 	t.Parallel()
 
 	dir := fixtureBundle(t, []byte("\x00asm-v1"), []byte("/* js */"), []byte("/* css */"))
-	if err := run(dir, false); err != nil {
+	if err := run(dir, false, false); err != nil {
 		t.Fatalf("run() error = %v", err)
 	}
 	// Mutate an artifact after generation: check must fail, never bless it.
 	writeFixture(t, dir, "systemviews.css", []byte("/* css v2 */"))
-	if err := run(dir, true); err == nil {
+	if err := run(dir, true, false); err == nil {
 		t.Fatal("run(check) with mutated artifact succeeded, want error")
 	}
 }
@@ -133,7 +133,43 @@ func TestCollectManifestRejectsRawCompressedMismatch(t *testing.T) {
 func TestRunCheckFailsWithoutManifest(t *testing.T) {
 	t.Parallel()
 
-	if err := run(t.TempDir(), true); err == nil {
+	if err := run(t.TempDir(), true, false); err == nil {
 		t.Fatal("run(check) without manifest succeeded, want error")
+	}
+}
+
+func TestRunCheckRejectsCompressedOnlySwap(t *testing.T) {
+	t.Parallel()
+
+	dir := fixtureBundle(t, []byte("\x00asm-v1"), []byte("/* js */"), []byte("/* css */"))
+	if err := run(dir, false, false); err != nil {
+		t.Fatalf("run() error = %v", err)
+	}
+	// Swap only the compressed artifact for different valid bytes: raw
+	// and manifest still agree, but serving would decode the stale .br.
+	writeFixture(t, dir, "systemviews.wasm.br", brotliCompressForGeneratorTest(t, []byte("\x00asm-v2")))
+	if err := run(dir, true, false); err == nil {
+		t.Fatal("run(check) with swapped compressed WASM succeeded, want error")
+	}
+}
+
+func TestRunCheckIfPresentSkipsMissingBundle(t *testing.T) {
+	t.Parallel()
+
+	if err := run(t.TempDir(), false, true); err != nil {
+		t.Fatalf("run(check-if-present) without bundle error = %v", err)
+	}
+}
+
+func TestRunCheckIfPresentRejectsStaleBundle(t *testing.T) {
+	t.Parallel()
+
+	dir := fixtureBundle(t, []byte("\x00asm-v1"), []byte("/* js */"), []byte("/* css */"))
+	if err := run(dir, false, false); err != nil {
+		t.Fatalf("run() error = %v", err)
+	}
+	writeFixture(t, dir, "systemviews.css", []byte("/* css v2 */"))
+	if err := run(dir, false, true); err == nil {
+		t.Fatal("run(check-if-present) with stale artifact succeeded, want error")
 	}
 }

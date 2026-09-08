@@ -236,11 +236,21 @@ func TestAssetP33_DuplicateAndEmptyVersionsRejected(t *testing.T) {
 		"https://dumber.invalid/systemviews.css?v=" + digest + "&v=" + digest,
 		"https://dumber.invalid/systemviews.css?v=",
 		"https://dumber.invalid/systemviews.css?v=a&v=b",
+		// Malformed escapes fail closed instead of degrading to
+		// unversioned or single-version handling.
+		"https://dumber.invalid/systemviews.css?v=" + digest + "&v=%ZZ",
+		"https://dumber.invalid/systemviews.css?v=%ZZ",
 	} {
 		rh := staticHandlerOf(t, h.handleAsset(mustParseURL(t, raw)))
 		require.Equal(t, http.StatusNotFound, rh.statusCode, raw)
 		require.Equal(t, noStoreCacheControl, rh.headers["Cache-Control"], raw)
 	}
+
+	// A malformed escape on an unrelated parameter is not a version:
+	// the request serves unversioned and noncacheable.
+	plain := staticHandlerOf(t, h.handleAsset(mustParseURL(t, "https://dumber.invalid/systemviews.css?x=%ZZ")))
+	require.Equal(t, http.StatusOK, plain.statusCode)
+	require.Equal(t, noStoreCacheControl, plain.headers["Cache-Control"])
 }
 
 func TestAssetP33_StaleManifestRejectedNoncacheable(t *testing.T) {

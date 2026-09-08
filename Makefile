@@ -78,6 +78,7 @@ build-systemviews: generate-systemviews ## Build the WASM systemviews runtime
 build-quick: ## Build quickly for backend development
 	@echo "Building $(BINARY_NAME) $(VERSION) (quick)..."
 	@mkdir -p $(DIST_DIR)
+	go run ./cmd/systemviews-assets -check-if-present -dir assets/systemviews
 	GOFLAGS="$(NATIVE_GOFLAGS)" CGO_ENABLED=0 go build -buildvcs=$(BUILDVCS) -p $(NPROCS) $(GCFLAGS) $(LDFLAGS) -o $(DIST_DIR)/$(BINARY_NAME) $(MAIN_PATH)
 	@rm -f $(DIST_DIR)/cef-helper
 	@echo "Build successful! Binary: $(DIST_DIR)/$(BINARY_NAME)"
