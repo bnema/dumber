@@ -72,6 +72,7 @@ build-systemviews: generate-systemviews ## Build the WASM systemviews runtime
 	@cp "$$(go env GOROOT)/lib/wasm/wasm_exec.js" assets/systemviews/wasm_exec.js
 	GOFLAGS="$(WASM_GOFLAGS)" GOOS=js GOARCH=wasm go build -buildvcs=false -ldflags="-s -w" -o assets/systemviews/systemviews.wasm ./cmd/systemviews
 	brotli -f -o assets/systemviews/systemviews.wasm.br assets/systemviews/systemviews.wasm
+	go run ./cmd/systemviews-assets -dir assets/systemviews
 	@echo "Systemviews build complete"
 
 build-quick: ## Build quickly for backend development
@@ -149,7 +150,8 @@ verify-generated: ## Verify generated systemviews artifacts are committed
 
 verify-systemviews-assets: ## Verify release embeds a compressed systemviews WASM asset
 	@echo "Verifying embedded systemviews WASM asset..."
-	DUMBER_REQUIRE_SYSTEMVIEWS_WASM=1 GOFLAGS=$(GOFLAGS) go test -count=1 -run TestWebUIAssetsIncludesCompressedSystemviewsWASM ./assets
+	DUMBER_REQUIRE_SYSTEMVIEWS_WASM=1 GOFLAGS=$(GOFLAGS) go test -count=1 -run 'TestWebUIAssetsIncludesCompressedSystemviewsWASM|TestAssetManifestMatchesEmbeddedArtifacts' ./assets
+	go run ./cmd/systemviews-assets -check -dir assets/systemviews
 
 # Linting
 lint: ## Run golangci-lint
