@@ -3,11 +3,11 @@ package cef
 // P1 characterization for Plan 05 (internal systemview startup).
 //
 // These tests lock the CURRENT asset behavior before any caching work:
-// every WASM request fully re-reads and re-decompresses, and most response
-// classes carry no Cache-Control at all. They are the failing regressions
-// the P2 bundle cache and P3 versioned headers must turn green-side up
-// (decode-once, immutable-where-versioned) without changing the error,
-// traversal, or privacy semantics asserted here.
+// every WASM request fully re-reads and re-decompresses (P1.1), and the
+// response-class map (P1.2) records exactly where no-store applies.
+// Header expectations for served 200s follow the P3.3 policy (unversioned
+// successes explicitly noncacheable, immutable only for verified
+// versions); error pages keep their headerless shape throughout.
 
 import (
 	"io/fs"
@@ -203,7 +203,7 @@ func stubIdentityResourceHandler(t *testing.T) {
 // at baseline; P3 grants immutable headers only to version-validated
 // static bytes.
 
-func TestAssetP1_ShellServes200WithoutCacheHeaders(t *testing.T) {
+func TestAssetP1_ShellServes200CarriesNoStore(t *testing.T) {
 	stubIdentityResourceHandler(t)
 	h := newTestDumbSchemeHandler(t)
 	h.setAssets(assets.WebUIAssets)
@@ -212,10 +212,11 @@ func TestAssetP1_ShellServes200WithoutCacheHeaders(t *testing.T) {
 	require.Equal(t, http.StatusOK, rh.statusCode)
 	require.Equal(t, "text/html; charset=utf-8", rh.contentType)
 	require.NotEmpty(t, rh.data)
-	require.Empty(t, rh.headers, "P1 baseline: shell carries no Cache-Control; P3 versions it")
+	require.Equal(t, noStoreCacheControl, rh.headers["Cache-Control"],
+		"P3.3 policy: the unversioned shell is explicitly noncacheable; only version-verified bytes earn immutable")
 }
 
-func TestAssetP1_CSSServes200WithoutCacheHeaders(t *testing.T) {
+func TestAssetP1_CSSServes200CarriesNoStore(t *testing.T) {
 	stubIdentityResourceHandler(t)
 	h := newTestDumbSchemeHandler(t)
 	h.setAssets(assets.WebUIAssets)
@@ -223,7 +224,8 @@ func TestAssetP1_CSSServes200WithoutCacheHeaders(t *testing.T) {
 	rh := staticHandlerOf(t, h.handleAsset(mustParseURL(t, "https://dumber.invalid/systemviews.css")))
 	require.Equal(t, http.StatusOK, rh.statusCode)
 	require.Equal(t, "text/css; charset=utf-8", rh.contentType, "Go mime table carries the charset suffix")
-	require.Empty(t, rh.headers, "P1 baseline: CSS carries no Cache-Control; P3 versions it")
+	require.Equal(t, noStoreCacheControl, rh.headers["Cache-Control"],
+		"P3.3 policy: unversioned static assets are explicitly noncacheable")
 }
 
 func TestAssetP1_MissingAssetServes404WithoutCacheHeaders(t *testing.T) {

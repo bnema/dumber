@@ -208,6 +208,49 @@ func TestAssetP2_NonWASMAssetsKeepLegacyPath(t *testing.T) {
 	require.Contains(t, string(rh.data), "./wasm_exec.js?v="+strings.Repeat("c", 64))
 }
 
+func TestAssetP23_ManifestReadableDuringBlockedDecode(t *testing.T) {
+	stubIdentityResourceHandler(t)
+	wasm := []byte("\x00asm-manifest-race")
+	blocking := &blockingReadFileFS{
+		inner: fstest.MapFS{
+			"systemviews/systemviews.wasm.br":    {Data: brotliCompressForTest(t, wasm)},
+			"systemviews/index.html":             {Data: []byte(versionedShellFixture)},
+			"systemviews/" + assets.ManifestName: {Data: testManifestBytes(t)},
+		},
+		blockName: "systemviews/systemviews.wasm.br",
+		entered:   make(chan struct{}),
+		release:   make(chan struct{}),
+	}
+	h := newTestDumbSchemeHandler(t)
+	h.setAssets(blocking)
+
+	// Start a wasm decode and leave it blocked off-thread.
+	firstWH := h.handleAsset(mustParseURL(t, wasmURL(t))).(*systemviewWASMResourceHandler)
+	require.Equal(t, int32(1), firstWH.Open(nil, nil, nil))
+	<-blocking.entered
+
+	// The shell consults the manifest synchronously on the request path:
+	// it must serve promptly instead of deadlocking behind the decode.
+	served := make(chan purecef.ResourceHandler, 1)
+	go func() { served <- h.handleAsset(mustParseURL(t, "https://dumber.invalid/history")) }()
+	select {
+	case rh := <-served:
+		shell := staticHandlerOf(t, rh)
+		require.Equal(t, http.StatusOK, shell.statusCode)
+		require.Contains(t, string(shell.data), "?v=")
+	case <-time.After(10 * time.Second):
+		t.Fatal("shell deadlocked behind in-flight decode")
+	}
+
+	close(blocking.release)
+	select {
+	case <-firstWH.done:
+	case <-time.After(30 * time.Second):
+		t.Fatal("WASM load did not complete after release")
+	}
+	require.Equal(t, wasm, firstWH.data)
+}
+
 func TestAssetP23_BlockedDecodeLeavesUnrelatedWorkUnaffected(t *testing.T) {
 	stubIdentityResourceHandler(t)
 	wasm := []byte("\x00asm-unrelated")
@@ -351,7 +394,7 @@ func TestAssetP23_ShutdownCompletesSafely(t *testing.T) {
 	require.Equal(t, wasm, wh.data)
 }
 
-func TestAssetP23_WireHeadersStayUnversioned(t *testing.T) {
+func TestAssetP23_WireUnversionedCarriesNoStore(t *testing.T) {
 	stubIdentityResourceHandler(t)
 	wasm := []byte("\x00asm-wire")
 	h := newTestDumbSchemeHandler(t)
@@ -365,8 +408,9 @@ func TestAssetP23_WireHeadersStayUnversioned(t *testing.T) {
 	response.EXPECT().SetStatus(int32(http.StatusOK)).Once()
 	response.EXPECT().SetStatusText(http.StatusText(http.StatusOK)).Once()
 	response.EXPECT().SetMimeType("application/wasm").Once()
-	// No SetCharset and no SetHeaderByName expectations: any Cache-Control
-	// or charset write fails the test. P3 adds versioned immutable headers.
+	// Unversioned successes stay explicitly noncacheable; no immutable
+	// header may appear without a verified version.
+	response.EXPECT().SetHeaderByName("Cache-Control", noStoreCacheControl, int32(1)).Once()
 	var responseLength int64
 	wh.GetResponseHeaders(response, &responseLength, 0)
 	require.Equal(t, int64(len(wasm)), responseLength)
