@@ -131,7 +131,10 @@ func (f *Fetcher) fetchURL(ctx context.Context, raw, pageURL string) ([]byte, st
 	}
 	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusOK {
-		return nil, "", appport.ErrFaviconMiss
+		// Classified miss: callers keep ErrFaviconMiss matching via Is,
+		// while the use case can distinguish genuine absence (404/410)
+		// from auth/transient failures for negative caching.
+		return nil, "", &appport.FaviconFetchError{StatusCode: resp.StatusCode}
 	}
 	limit := f.maxBytes
 	if limit <= 0 {

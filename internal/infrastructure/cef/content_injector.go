@@ -249,6 +249,36 @@ func (ci *contentInjector) RefreshScripts(ctx context.Context, wv port.WebView) 
 	return nil
 }
 
+// onLoadEndForEvent installs scripts for a captured load-end event after
+// revalidating it on the GTK thread. The event identity comes from the
+// OnLoadEnd callback's browser (not mutable WebView state), so events that
+// are provably stale are skipped: a replaced browser identifier (old main
+// frame during process swap) or a superseded intent ID (a newer navigation
+// committed while the callback was queued). Ambiguous cases fall back to skipping rather than
+// installing blind: an event captured without a browser cannot prove
+// identity, and the current browser gets its own load-end installation.
+// The single snapshot bounds the residual check-then-install window to
+// nanoseconds, and any race there can only repeat idempotent scripts.
+// Repeated same-document load-ends still install.
+func (ci *contentInjector) onLoadEndForEvent(wv *WebView, event injectionEvent) {
+	if wv == nil || ci == nil || event.browserID == noBrowserID {
+		return
+	}
+	wv.mu.RLock()
+	browser, currentIntent := wv.browser, wv.pendingIntentID
+	wv.mu.RUnlock()
+	if browser == nil {
+		return
+	}
+	if browser.GetIdentifier() != event.browserID {
+		return
+	}
+	if currentIntent != event.intentID {
+		return
+	}
+	ci.onLoadEnd(wv)
+}
+
 // onLoadEnd is called from the load handler after a page finishes loading.
 // It injects the appropriate scripts based on whether the page is internal.
 func (ci *contentInjector) onLoadEnd(wv *WebView) {

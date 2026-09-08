@@ -328,7 +328,7 @@ func runGUI(cfg *config.Config, timing startupTiming) int {
 
 	engine.SetHandlerContext(ctx)
 
-	useCases := createUseCases(repos, cfg)
+	useCases := createUseCases(ctx, repos, cfg)
 	defer useCases.Close()
 	if needsEagerDB {
 		handleAutoRestore(ctx, cfg, useCases, browserSession.Session.ID)
@@ -388,7 +388,7 @@ func runStandaloneOmnibox() int {
 		defer dbCleanup()
 	}
 
-	useCases := createUseCases(repos, cfg)
+	useCases := createUseCases(ctx, repos, cfg)
 	defer useCases.Close()
 	uiDeps, err := buildUIDependencies(
 		ctx,
@@ -898,13 +898,19 @@ type useCases struct {
 }
 
 func (uc *useCases) Close() {
-	if uc == nil || uc.historyRecorder == nil {
+	if uc == nil {
+		return
+	}
+	if uc.faviconUC != nil {
+		uc.faviconUC.Close()
+	}
+	if uc.historyRecorder == nil {
 		return
 	}
 	uc.historyRecorder.Close()
 }
 
-func createUseCases(repos *repositories, cfg *config.Config) *useCases {
+func createUseCases(ctx context.Context, repos *repositories, cfg *config.Config) *useCases {
 	const idAlphabetSize = 26
 	idCounter := uint64(0)
 	idGenerator := func() string {
@@ -923,6 +929,9 @@ func createUseCases(repos *repositories, cfg *config.Config) *useCases {
 			Converter:  infrafavicon.NewImageConverter(),
 			Fetcher:    infrafavicon.NewFetcher(),
 			Scheduler:  infrafavicon.NewRefreshScheduler(),
+			// Owned lifetime: the use case derives a cancelable scope
+			// for background refresh, aborted by Close on shutdown.
+			Background: ctx,
 		})
 	}
 	xdgDirs, _ := config.GetXDGDirs()

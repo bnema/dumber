@@ -78,6 +78,8 @@ type FaviconUseCase struct {
 	now          func() time.Time
 	ttl          time.Duration
 	background   context.Context
+	bgCancel     context.CancelFunc
+	shared       *refreshCoordinator
 }
 
 type FaviconDeps struct {
@@ -90,7 +92,11 @@ type FaviconDeps struct {
 	Invalidators appport.FaviconInvalidators
 	Now          func() time.Time
 	TTL          time.Duration
-	Background   context.Context
+	// Background scopes background refresh work to the application
+	// lifetime. The use case derives its own cancelable scope from it,
+	// aborted by Close; callers pass the owning context (nil defaults to
+	// context.Background with shutdown drain only).
+	Background context.Context
 }
 
 func NewFaviconUseCase(deps FaviconDeps) *FaviconUseCase {
@@ -100,9 +106,13 @@ func NewFaviconUseCase(deps FaviconDeps) *FaviconUseCase {
 	if deps.TTL == 0 {
 		deps.TTL = favicon.DefaultTTL
 	}
-	if deps.Background == nil {
-		deps.Background = context.Background()
+	background := deps.Background
+	if background == nil {
+		background = context.Background()
 	}
+	// Owned cancelable scope for background refresh: parent cancellation
+	// propagates, and Close aborts it before draining shared operations.
+	background, bgCancel := context.WithCancel(background)
 	registry := &faviconInvalidatorRegistry{}
 	if deps.Invalidators != nil {
 		registry.fallback = deps.Invalidators
@@ -117,7 +127,9 @@ func NewFaviconUseCase(deps FaviconDeps) *FaviconUseCase {
 		invalidators: registry,
 		now:          deps.Now,
 		ttl:          deps.TTL,
-		background:   deps.Background,
+		background:   background,
+		bgCancel:     bgCancel,
+		shared:       newRefreshCoordinator(),
 	}
 }
 
@@ -312,30 +324,76 @@ func (uc *FaviconUseCase) RefreshFromIconURLs(ctx context.Context, pageURL strin
 	if uc.fetcher == nil {
 		return ErrFaviconMiss
 	}
-	var lastMiss error
-	for _, iconURL := range iconURLs {
-		if err := ctx.Err(); err != nil {
+	key, candidates, ok := refreshRequestKey(pageURL, iconURLs)
+	if !ok {
+		return ErrFaviconMiss
+	}
+	// Sealed admission wins over a cached absence: one atomic check so a
+	// refresh arriving after Close reports shutdown, never a stale miss.
+	if closed, miss := uc.sealedOrMiss(key); closed {
+		return appport.ErrFaviconShutdown
+	} else if miss {
+		return ErrFaviconMiss
+	}
+	return uc.joinRefreshOp(ctx, key, func(opCtx context.Context, startEpoch uint64) error {
+		var lastMiss error
+		// allMissesCacheable tracks whether EVERY attempted candidate
+		// failed with a cacheable genuine absence (verified 404/410).
+		// A single non-cacheable miss (401/403, 5xx, validation,
+		// transport) poisons the batch: the next call must retry the
+		// transient candidate instead of reading a cached absence.
+		allMissesCacheable := true
+		for _, iconURL := range candidates {
+			if err := opCtx.Err(); err != nil {
+				return err
+			}
+			fetched, err := uc.fetcher.Fetch(opCtx, appport.FaviconFetchRequest{PageURL: pageURL, IconURL: iconURL})
+			if err != nil {
+				if status, classified := appport.FetchStatusCode(err); classified {
+					if status != 404 && status != 410 {
+						allMissesCacheable = false
+					}
+					lastMiss = err
+					continue
+				}
+				if errors.Is(err, ErrFaviconMiss) {
+					allMissesCacheable = false
+					lastMiss = err
+					continue
+				}
+				return err
+			}
+			if uc.epochValue() != startEpoch {
+				return nil
+			}
+			err = uc.observeFetched(opCtx, pageURL, fetched)
+			if errors.Is(err, ErrFaviconMiss) {
+				allMissesCacheable = false
+				lastMiss = err
+				continue
+			}
+			if err == nil {
+				// Success contradicts any earlier absence record for
+				// this request: drop it instead of letting it linger.
+				uc.clearMiss(key)
+			}
 			return err
 		}
-		fetched, err := uc.fetcher.Fetch(ctx, appport.FaviconFetchRequest{PageURL: pageURL, IconURL: iconURL})
-		if errors.Is(err, ErrFaviconMiss) {
-			lastMiss = err
-			continue
+		if lastMiss != nil {
+			// Only a fully missed request populates the negative cache:
+			// recording per candidate would poison later candidates
+			// that were never tried, and a mixed batch must never
+			// suppress retry of its transient candidates.
+			if allMissesCacheable {
+				uc.noteMiss(key, lastMiss)
+			}
+			return lastMiss
 		}
-		if err != nil {
-			return err
+		if uc.epochValue() != startEpoch {
+			return nil
 		}
-		err = uc.observeFetched(ctx, pageURL, fetched)
-		if errors.Is(err, ErrFaviconMiss) {
-			lastMiss = err
-			continue
-		}
-		return err
-	}
-	if lastMiss != nil {
-		return lastMiss
-	}
-	return uc.RefreshIfStale(ctx, pageURL)
+		return uc.RefreshIfStale(opCtx, pageURL)
+	})
 }
 
 func (uc *FaviconUseCase) refresh(ctx context.Context, pageURL string, force bool) error {
@@ -363,7 +421,16 @@ func (uc *FaviconUseCase) refreshKey(ctx context.Context, key favicon.Key, pageU
 	if meta != nil && !favicon.ShouldRefresh(meta, uc.now(), uc.ttl) {
 		return nil
 	}
-	return uc.fetchAndObserve(ctx, pageURL)
+	// Scheduler-backed work joins the same admission budget as direct
+	// refreshes; discovery has no upfront candidates, so it shares the
+	// page-scoped discovery identity.
+	discoveryKey, _, ok := refreshRequestKey(pageURL, nil)
+	if !ok {
+		return ErrFaviconMiss
+	}
+	return uc.joinRefreshOp(ctx, discoveryKey, func(opCtx context.Context, _ uint64) error {
+		return uc.fetchAndObserve(opCtx, pageURL)
+	})
 }
 
 func (uc *FaviconUseCase) anyCandidateFresh(ctx context.Context, keys []favicon.Key) (bool, error) {
@@ -436,6 +503,15 @@ func (uc *FaviconUseCase) EnsureSized(ctx context.Context, key favicon.Key, size
 }
 
 func (uc *FaviconUseCase) Invalidate(ctx context.Context, key favicon.Key) error {
+	// Invalidation advances the epoch so in-flight completions that have not
+	// yet passed their pre-commit epoch check cannot repopulate the cleared
+	// entries. This is best-effort suppression, not a transactional commit:
+	// a completion that already passed its check may still write after the
+	// clear (a transient stale icon until the next refresh), because the
+	// check and the blob/repository writes are not atomic. Closing that
+	// residual window would require versioned commits in the repository
+	// layer and is out of scope for this stack.
+	uc.bumpEpoch()
 	if uc.blobs != nil {
 		if err := uc.blobs.RemoveDerived(ctx, key); err != nil {
 			return err
@@ -469,4 +545,21 @@ func (uc *FaviconUseCase) scheduleRefresh(key favicon.Key, pageURL string) bool 
 		return false
 	}
 	return uc.scheduler.Schedule(uc.background, key, func(ctx context.Context) { _ = uc.refreshKey(ctx, key, pageURL) })
+}
+
+// Close aborts owned background refresh work and drains shared in-flight
+// operations. Admission is sealed first so no refresh can start after the
+// drain observes zero active operations. It is safe to call on a nil
+// receiver and more than once.
+func (uc *FaviconUseCase) Close() {
+	if uc == nil {
+		return
+	}
+	uc.shared.mu.Lock()
+	uc.shared.closed = true
+	uc.shared.mu.Unlock()
+	if uc.bgCancel != nil {
+		uc.bgCancel()
+	}
+	uc.drainRefreshOps()
 }

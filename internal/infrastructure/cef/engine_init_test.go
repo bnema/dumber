@@ -62,6 +62,22 @@ func TestPrepareCEFSettings_UsesResolvedProfilePaths(t *testing.T) {
 	require.Empty(t, settings.BrowserSubprocessPath)
 }
 
+// TestPrepareCEFSettings_LeavesCachePathToCEFDefault locks the P3 cache
+// contract: only RootCachePath is configured and CachePath stays empty, so
+// the global request context runs incognito-style with in-memory storage.
+// RootCachePath does not supply CachePath and grants no persistent
+// localStorage. Setting an explicit CachePath requires the P3.3
+// compatibility decision with data-preservation tests; see
+// docs/cef-cache-contract.md.
+func TestPrepareCEFSettings_LeavesCachePathToCEFDefault(t *testing.T) {
+	logger := zerolog.Nop()
+	profile := testCEFDevProfile(t)
+	settings, err := prepareCEFSettings(port.EngineOptions{}, RuntimePaths{StateRoot: profile.CEFUserDataDir(), LogFile: profile.CEFLogFile()}, RuntimeConfig{}, &logger)
+	require.NoError(t, err)
+	require.NotEmpty(t, settings.RootCachePath)
+	require.Empty(t, settings.CachePath, "explicit CachePath needs the P3.3 decision; empty CachePath means in-memory global context")
+}
+
 func TestParseLoadedLibCEFPath(t *testing.T) {
 	maps := "7f5fd4000000-7f5fd4200000 r--p 00000000 00:00 0 /usr/lib/libvulkan.so.1\n" +
 		"7f5fe0000000-7f5fe8200000 r-xp 00000000 00:00 0 /opt/cef-vaapi-runtime/usr/lib/cef/libcef.so\n" +

@@ -1268,6 +1268,11 @@ func (wv *WebView) Destroy() {
 	if !wv.destroyed.CompareAndSwap(false, true) {
 		return
 	}
+	// Native close begins here: the view leaves the active set and enters
+	// GTK-teardown outstanding for the quiescence boundary.
+	if wv.engine != nil {
+		wv.engine.activity.NoteViewCloseStarted()
+	}
 	// Retire scroll motion the moment destruction begins, regardless of
 	// calling thread; GTK-only cleanup follows through the owning
 	// dispatcher without waiting for the deferred native browser close.
@@ -2185,6 +2190,46 @@ func (wv *WebView) claimPendingNavigationSubmission(intentID uint64, browserID i
 	uri := wv.pendingURI
 	wv.markPendingNavigationStartedLocked(uri, time.Now())
 	return uri, pendingClaimReady
+}
+
+// injectionEvent captures the navigation identity observed at main-frame
+// load-end so the GTK-dispatched installation can drop stale events: an
+// old main frame firing during process swap, or a queued callback outlived
+// by a newer navigation. The browser is identified by its CEF identifier
+// (matching codebase convention) rather than interface identity, which is
+// neither panic-safe for arbitrary dynamic types nor proof of CEF object
+// identity. noBrowserID marks captures taken while no browser was
+// attached. The current URL alone never proves document identity.
+type injectionEvent struct {
+	browserID int32
+	intentID  uint64
+}
+
+// noBrowserID marks an injection event captured while no browser was
+// attached; such events cannot prove identity and are skipped.
+const noBrowserID = int32(-1)
+
+// captureInjectionEvent snapshots the navigation identity for a load-end
+// event from the callback's browser, not from mutable WebView state. Called
+// on the CEF thread; the identifier read is a foreign call made outside any
+// state lock. Sourcing identity from the callback is what makes staleness
+// detection work: a queued event from a replaced browser keeps the OLD
+// identifier and fails revalidation, while stamping the current wv.browser
+// would bless it. Same-browser navigations are distinguished by the pending
+// intent generation; repeated same-document load-ends share it and still
+// install (their scripts are idempotent).
+func (wv *WebView) captureInjectionEvent(browser purecef.Browser) injectionEvent {
+	if wv == nil {
+		return injectionEvent{browserID: noBrowserID}
+	}
+	if browser == nil {
+		return injectionEvent{browserID: noBrowserID}
+	}
+	browserID := browser.GetIdentifier()
+	wv.mu.RLock()
+	intentID := wv.pendingIntentID
+	wv.mu.RUnlock()
+	return injectionEvent{browserID: browserID, intentID: intentID}
 }
 
 func pendingURIEquivalent(a, b string) bool {
