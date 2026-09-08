@@ -3,7 +3,6 @@ package cef
 import (
 	"bytes"
 	"context"
-	"embed"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -53,11 +52,18 @@ var cefNewResourceHandler = purecef.NewResourceHandler
 // dumbSchemeHandler serves both the conceptual dumb:// URLs and the actual
 // internal https://dumber.invalid origin used by CEF.
 type dumbSchemeHandler struct {
-	ctx                  context.Context
-	messageRouter        *MessageRouter
-	faviconResolver      port.FaviconSystemviewResolver
-	assets               embed.FS
-	assetsSet            bool
+	ctx             context.Context
+	messageRouter   *MessageRouter
+	faviconResolver port.FaviconSystemviewResolver
+	// assets is the captured immutable asset filesystem. Together with
+	// bundle it forms one replaceable bundle state: installing a different
+	// FS replaces both, and in-flight requests retain their captured pair.
+	// A replaced bundle's cached WASM stays alive until its last in-flight
+	// request finishes, so old and new bundles briefly overlap in memory;
+	// the retained cache budget is one WASM per active bundle. Production
+	// embeds are immutable; no live file watching is added.
+	assets               fs.FS
+	bundle               *systemviewAssetBundle
 	assetDir             string
 	logger               zerolog.Logger
 	currentConfigPayload func() ([]byte, error)
@@ -111,12 +117,14 @@ func newDumbSchemeHandler(
 	}, nil
 }
 
-// setAssets sets the embedded filesystem containing systemviews assets.
-func (h *dumbSchemeHandler) setAssets(assets embed.FS) {
+// setAssets installs one immutable asset filesystem and its fresh WASM
+// cache as a single bundle state. In-flight requests keep their captured
+// bundle and can never publish old bytes into the new cache.
+func (h *dumbSchemeHandler) setAssets(assets fs.FS) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	h.assets = assets
-	h.assetsSet = true
+	h.bundle = newSystemviewAssetBundle(assets)
 	h.logger.Debug().Msg("assets filesystem configured")
 }
 
@@ -555,13 +563,13 @@ func (h *dumbSchemeHandler) newRedirectResourceHandler(status int, location stri
 	})
 }
 
-// handleAsset serves static files from the embedded filesystem.
+// handleAsset serves static files from the captured asset bundle.
 func (h *dumbSchemeHandler) handleAsset(u *url.URL) purecef.ResourceHandler {
 	h.mu.RLock()
-	hasAssets := h.assetsSet
+	assets, bundle := h.assets, h.bundle
 	h.mu.RUnlock()
 
-	if !hasAssets {
+	if assets == nil || bundle == nil {
 		return h.newErrorResourceHandler(http.StatusInternalServerError, "Assets not configured")
 	}
 
@@ -578,7 +586,15 @@ func (h *dumbSchemeHandler) handleAsset(u *url.URL) purecef.ResourceHandler {
 		return h.newErrorResourceHandler(http.StatusNotFound, "Asset not found")
 	}
 
-	data, err := readAssetWithEncoding(h.assets, fullPath, relPath)
+	// The bundle WASM is served from the once-loaded immutable cache
+	// through a deferred handler: Create returns immediately and the
+	// decode runs off the CEF IO thread. Every other asset keeps the
+	// legacy synchronous per-request read path.
+	if relPath == "systemviews.wasm" {
+		return newSystemviewWASMResourceHandler(h.ctx, bundle)
+	}
+
+	data, err := readAssetWithEncoding(assets, fullPath, relPath)
 	if err != nil {
 		h.logger.Debug().Str("path", fullPath).Err(err).Msg("asset not found")
 		return h.newErrorResourceHandler(http.StatusNotFound, "Asset not found")
@@ -807,9 +823,14 @@ func (h *dumbSchemeHandler) newPrivateAPIRawResourceHandler(status int, contentT
 }
 
 func (h *dumbSchemeHandler) newErrorResourceHandler(status int, msg string) purecef.ResourceHandler {
+	return h.newRawResourceHandler(status, "text/html; charset=utf-8", errorPageBody(status, msg))
+}
+
+// errorPageBody renders the shared plain error document. Deferred handlers
+// reuse it so failures stay byte-identical to the synchronous error path.
+func errorPageBody(status int, msg string) []byte {
 	escaped := html.EscapeString(msg)
-	body := fmt.Sprintf(`<!DOCTYPE html><html><body><h1>%d</h1><p>%s</p></body></html>`, status, escaped)
-	return h.newRawResourceHandler(status, "text/html; charset=utf-8", []byte(body))
+	return []byte(fmt.Sprintf(`<!DOCTYPE html><html><body><h1>%d</h1><p>%s</p></body></html>`, status, escaped))
 }
 
 func (h *dumbSchemeHandler) newAPIJSONResourceHandler(status int, v any) purecef.ResourceHandler {

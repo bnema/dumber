@@ -5,7 +5,6 @@ package cef
 // on absence, raw reads bounded, failures cached.
 
 import (
-	"errors"
 	"io/fs"
 	"sync"
 	"testing"
@@ -42,10 +41,11 @@ func (c *countingFS) ReadFile(name string) ([]byte, error) {
 	return c.inner.ReadFile(name)
 }
 
-func (c *countingFS) count(name string) int {
+// compressedReads counts compressed WASM reads: the decode-once proof.
+func (c *countingFS) compressedReads() int {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	return c.opens[name]
+	return c.opens["readfile:"+systemviewsWASMPath+".br"]
 }
 
 // denyFS fails every Open with a fixed error (e.g. permission denied).
@@ -81,7 +81,7 @@ func TestSystemviewBundle_DecodesOnceUnderConcurrency(t *testing.T) {
 		require.Equal(t, wasm, got[i])
 		require.Same(t, &got[0][0], &got[i][0], "waiters must share one immutable buffer")
 	}
-	require.Equal(t, 1, fsys.count("readfile:systemviews/systemviews.wasm.br"), "bundle must decode exactly once")
+	require.Equal(t, 1, fsys.compressedReads(), "bundle must decode exactly once")
 }
 
 func TestSystemviewBundle_CachesFailureWithoutRetryStorm(t *testing.T) {
@@ -95,10 +95,10 @@ func TestSystemviewBundle_CachesFailureWithoutRetryStorm(t *testing.T) {
 
 	_, err := b.WASM()
 	require.Error(t, err, "corrupt compressed WASM must fail even with valid raw present")
-	firstReads := fsys.count("readfile:systemviews/systemviews.wasm.br")
+	firstReads := fsys.compressedReads()
 	_, err = b.WASM()
 	require.Error(t, err)
-	require.Equal(t, firstReads, fsys.count("readfile:systemviews/systemviews.wasm.br"), "cached failure must not re-read")
+	require.Equal(t, firstReads, fsys.compressedReads(), "cached failure must not re-read")
 }
 
 func TestSystemviewBundle_CompressedReadErrorIsExplicit(t *testing.T) {
@@ -110,8 +110,8 @@ func TestSystemviewBundle_CompressedReadErrorIsExplicit(t *testing.T) {
 
 	_, err := b.WASM()
 	require.Error(t, err)
-	require.True(t, errors.Is(err, fs.ErrPermission), "must surface the read failure, got %v", err)
-	require.False(t, errors.Is(err, fs.ErrNotExist))
+	require.ErrorIs(t, err, fs.ErrPermission, "must surface the read failure")
+	require.NotErrorIs(t, err, fs.ErrNotExist)
 }
 
 func TestSystemviewBundle_RawFallbackOnlyOnAbsence(t *testing.T) {
@@ -146,7 +146,7 @@ func TestSystemviewBundle_MissingBothReportsNotExist(t *testing.T) {
 
 	_, err := b.WASM()
 	require.Error(t, err)
-	require.True(t, errors.Is(err, fs.ErrNotExist), "got %v", err)
+	require.ErrorIs(t, err, fs.ErrNotExist)
 }
 
 func TestSystemviewBundle_NilFSFailsCleanly(t *testing.T) {

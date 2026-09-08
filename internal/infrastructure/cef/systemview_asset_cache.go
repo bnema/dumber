@@ -25,13 +25,18 @@ package cef
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"io"
 	"io/fs"
+	"net/http"
 	"sync"
+	"sync/atomic"
+	"unsafe"
 
 	"github.com/andybalholm/brotli"
+	purecef "github.com/bnema/purego-cef/cef"
 )
 
 // systemviewsWASMPath is the fixed bundle-relative WASM served to internal
@@ -76,9 +81,9 @@ func loadSystemviewWASM(assets fs.FS) ([]byte, error) {
 	}
 	compressed, err := fs.ReadFile(assets, systemviewsWASMPath+".br")
 	if err == nil {
-		data, err := io.ReadAll(io.LimitReader(brotli.NewReader(bytes.NewReader(compressed)), maxSystemviewsWASMBytes+1))
-		if err != nil {
-			return nil, fmt.Errorf("decompress systemview WASM: %w", err)
+		data, decodeErr := io.ReadAll(io.LimitReader(brotli.NewReader(bytes.NewReader(compressed)), maxSystemviewsWASMBytes+1))
+		if decodeErr != nil {
+			return nil, fmt.Errorf("decompress systemview WASM: %w", decodeErr)
 		}
 		if len(data) > maxSystemviewsWASMBytes {
 			return nil, fmt.Errorf("decompressed systemview WASM exceeds %d bytes", maxSystemviewsWASMBytes)
@@ -98,7 +103,7 @@ func readBoundedAsset(assets fs.FS, name string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	data, err := io.ReadAll(io.LimitReader(f, maxSystemviewsWASMBytes+1))
 	if err != nil {
 		return nil, fmt.Errorf("read systemview asset %s: %w", name, err)
@@ -107,4 +112,148 @@ func readBoundedAsset(assets fs.FS, name string) ([]byte, error) {
 		return nil, fmt.Errorf("systemview asset %s exceeds %d bytes", name, maxSystemviewsWASMBytes)
 	}
 	return data, nil
+}
+
+// ---------------------------------------------------------------------------
+// Deferred WASM resource handler (Plan 05 P2.3)
+// ---------------------------------------------------------------------------
+
+// systemviewWASMResourceHandler serves one WASM request from a captured
+// bundle without blocking CEF's IO thread, following the existing async
+// favicon handler pattern: Open/ProcessRequest return immediately, the
+// bundle-owned once-loading runs on a worker goroutine, and CEF is resumed
+// via the retained callback. The decode itself is bounded CPU work (at most
+// maxSystemviewsWASMBytes of brotli output), so no handler-wide lock is
+// ever held across it and shutdown never waits on it beyond milliseconds.
+// Canceling one request suppresses only its own continuation; other bundle
+// waiters share the same decoded bytes unaffected.
+type systemviewWASMResourceHandler struct {
+	cancel      context.CancelFunc
+	cancelOnce  sync.Once
+	canceled    atomic.Bool
+	bundle      *systemviewAssetBundle
+	once        sync.Once
+	done        chan struct{}
+	data        []byte
+	contentType string
+	statusCode  int
+	offset      int
+}
+
+func newSystemviewWASMResourceHandler(ctx context.Context, bundle *systemviewAssetBundle) purecef.ResourceHandler {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	reqCtx, cancel := context.WithCancel(ctx) //nolint:gosec // canceled by load completion or CEF Cancel callback
+	_ = reqCtx                                // Decode is bounded CPU work, not context-aware: request
+	// cancellation suppresses the native continuation via canceled.
+	return cefNewResourceHandler(&systemviewWASMResourceHandler{
+		cancel: cancel,
+		bundle: bundle,
+		done:   make(chan struct{}),
+	})
+}
+
+func (rh *systemviewWASMResourceHandler) load() {
+	defer close(rh.done)
+	defer rh.cancelRequest()
+	if rh.bundle == nil {
+		rh.fail()
+		return
+	}
+	data, err := rh.bundle.WASM()
+	if err != nil {
+		rh.fail()
+		return
+	}
+	rh.statusCode = http.StatusOK
+	// MIME matches the synchronous asset path exactly: the bundle serves
+	// the same validated systemviews.wasm bytes getMimeType classifies.
+	rh.contentType = getMimeType(systemviewsWASMPath)
+	rh.data = data
+}
+
+// fail serves the same 404 error document as the synchronous error path,
+// including its HTML content type.
+func (rh *systemviewWASMResourceHandler) fail() {
+	rh.statusCode = http.StatusNotFound
+	rh.contentType = "text/html; charset=utf-8"
+	rh.data = errorPageBody(http.StatusNotFound, "Asset not found")
+}
+
+func (rh *systemviewWASMResourceHandler) start(callback purecef.Callback) {
+	rh.once.Do(func() {
+		go func() {
+			rh.load()
+			if callback != nil && !rh.canceled.Load() {
+				callback.Cont()
+			}
+		}()
+	})
+}
+
+func (rh *systemviewWASMResourceHandler) Open(_ purecef.Request, handleRequest *int32, callback purecef.Callback) int32 {
+	if handleRequest != nil {
+		*handleRequest = 0
+	}
+	rh.start(callback)
+	return 1
+}
+
+func (rh *systemviewWASMResourceHandler) ProcessRequest(_ purecef.Request, callback purecef.Callback) int32 {
+	rh.start(callback)
+	return 1
+}
+
+func (rh *systemviewWASMResourceHandler) GetResponseHeaders(response purecef.Response, responseLength *int64, _ uintptr) {
+	<-rh.done
+	response.SetStatus(int32(rh.statusCode))
+	if text := http.StatusText(rh.statusCode); text != "" {
+		response.SetStatusText(text)
+	}
+	mimeType, charset := splitMimeCharset(rh.contentType)
+	response.SetMimeType(mimeType)
+	if charset != "" {
+		response.SetCharset(charset)
+	}
+	if responseLength != nil {
+		*responseLength = int64(len(rh.data))
+	}
+}
+
+func (rh *systemviewWASMResourceHandler) Skip(_ int64, _ *int64, _ purecef.ResourceSkipCallback) int32 {
+	return 0
+}
+
+func (rh *systemviewWASMResourceHandler) Read(
+	dataOut unsafe.Pointer, bytesToRead int32, bytesRead *int32, _ purecef.ResourceReadCallback,
+) int32 {
+	<-rh.done
+	if rh.offset >= len(rh.data) {
+		return 0
+	}
+	remaining := len(rh.data) - rh.offset
+	toRead := min(int(bytesToRead), remaining)
+	dst := unsafe.Slice((*byte)(dataOut), toRead)
+	copy(dst, rh.data[rh.offset:rh.offset+toRead])
+	rh.offset += toRead
+	if bytesRead != nil {
+		*bytesRead = int32(toRead)
+	}
+	return 1
+}
+
+func (rh *systemviewWASMResourceHandler) ReadResponse(_ unsafe.Pointer, _ int32, _ *int32, _ purecef.Callback) int32 {
+	return 0
+}
+
+func (rh *systemviewWASMResourceHandler) Cancel() {
+	rh.canceled.Store(true)
+	rh.cancelRequest()
+}
+
+func (rh *systemviewWASMResourceHandler) cancelRequest() {
+	if rh.cancel != nil {
+		rh.cancelOnce.Do(rh.cancel)
+	}
 }

@@ -10,7 +10,6 @@ package cef
 // traversal, or privacy semantics asserted here.
 
 import (
-	"errors"
 	"io/fs"
 	"net/http"
 	"sync"
@@ -180,7 +179,7 @@ func TestAssetP1_MissingAssetReportsNotExist(t *testing.T) {
 
 	_, err := readAssetWithEncoding(fsys, "systemviews/systemviews.wasm", "systemviews.wasm")
 	require.Error(t, err)
-	require.True(t, errors.Is(err, fs.ErrNotExist), "missing asset must surface fs.ErrNotExist, got %v", err)
+	require.ErrorIs(t, err, fs.ErrNotExist, "missing asset must surface fs.ErrNotExist")
 }
 
 // staticHandlerOf unwraps the identity-stubbed resource handler. Callers
