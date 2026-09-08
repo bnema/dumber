@@ -34,6 +34,14 @@ WASM_GOFLAGS?=$(GOFLAGS)
 # Linker flags
 LDFLAGS=-ldflags "-s -w -X main.version=$(VERSION) -X main.commit=$(COMMIT) -X main.buildDate=$(BUILD_DATE)"
 
+# Blessed toolchain for systemview artifacts, read from go.mod so there is
+# exactly one version to bump. The verify-generated CI gate rebuilds these
+# artifacts with setup-go's pinned toolchain: recipe-level GOTOOLCHAIN
+# (not ambient environment) plus GOENV=off (ignore the developer's go env
+# file — e.g. a local GOEXPERIMENT changes runtime codegen) is what makes
+# local builds byte-identical to CI's.
+SYSTEMVIEWS_GOTOOLCHAIN?=$(shell grep '^toolchain ' go.mod | awk '{print $$2}')
+
 # Disable optimizations and inlining for ALL packages. purego callbacks
 # create mixed Go/C stack frames; the Go runtime (stack growth, GC,
 # scheduler) cannot reliably traverse optimised frames across these
@@ -62,21 +70,23 @@ build: build-systemviews ## Build the application (pure Go, no CGO)
 
 generate-systemviews: ## Generate Go code from systemviews templ components
 	@echo "Generating systemviews templ components..."
-	go tool templ generate -path internal/ui/systemviews -include-version=false
+	GOTOOLCHAIN="$(SYSTEMVIEWS_GOTOOLCHAIN)" GOENV=off go tool templ generate -path internal/ui/systemviews -include-version=false
 	@echo "Systemviews templ generation complete"
 
 build-systemviews: generate-systemviews ## Build the WASM systemviews runtime
 	@echo "Building systemviews wasm assets..."
 	@command -v brotli >/dev/null 2>&1 || { echo "Error: brotli is required to build compressed systemviews assets. Install brotli and retry."; exit 1; }
 	@mkdir -p assets/systemviews
-	@cp "$$(go env GOROOT)/lib/wasm/wasm_exec.js" assets/systemviews/wasm_exec.js
-	GOFLAGS="$(WASM_GOFLAGS)" GOOS=js GOARCH=wasm go build -buildvcs=false -ldflags="-s -w" -o assets/systemviews/systemviews.wasm ./cmd/systemviews
+	@cp "$$(GOTOOLCHAIN="$(SYSTEMVIEWS_GOTOOLCHAIN)" go env GOROOT)/lib/wasm/wasm_exec.js" assets/systemviews/wasm_exec.js
+	GOFLAGS="$(WASM_GOFLAGS)" GOTOOLCHAIN="$(SYSTEMVIEWS_GOTOOLCHAIN)" GOENV=off GOOS=js GOARCH=wasm go build -trimpath -buildvcs=false -ldflags="-s -w" -o assets/systemviews/systemviews.wasm ./cmd/systemviews
 	brotli -f -o assets/systemviews/systemviews.wasm.br assets/systemviews/systemviews.wasm
+	go run ./cmd/systemviews-assets -dir assets/systemviews
 	@echo "Systemviews build complete"
 
 build-quick: ## Build quickly for backend development
 	@echo "Building $(BINARY_NAME) $(VERSION) (quick)..."
 	@mkdir -p $(DIST_DIR)
+	go run ./cmd/systemviews-assets -check-if-present -dir assets/systemviews
 	GOFLAGS="$(NATIVE_GOFLAGS)" CGO_ENABLED=0 go build -buildvcs=$(BUILDVCS) -p $(NPROCS) $(GCFLAGS) $(LDFLAGS) -o $(DIST_DIR)/$(BINARY_NAME) $(MAIN_PATH)
 	@rm -f $(DIST_DIR)/cef-helper
 	@echo "Build successful! Binary: $(DIST_DIR)/$(BINARY_NAME)"
@@ -149,7 +159,8 @@ verify-generated: ## Verify generated systemviews artifacts are committed
 
 verify-systemviews-assets: ## Verify release embeds a compressed systemviews WASM asset
 	@echo "Verifying embedded systemviews WASM asset..."
-	DUMBER_REQUIRE_SYSTEMVIEWS_WASM=1 GOFLAGS=$(GOFLAGS) go test -count=1 -run TestWebUIAssetsIncludesCompressedSystemviewsWASM ./assets
+	DUMBER_REQUIRE_SYSTEMVIEWS_WASM=1 GOFLAGS=$(GOFLAGS) go test -count=1 -run 'TestWebUIAssetsIncludesCompressedSystemviewsWASM|TestAssetManifestMatchesEmbeddedArtifacts' ./assets
+	go run ./cmd/systemviews-assets -check -dir assets/systemviews
 
 # Linting
 lint: ## Run golangci-lint

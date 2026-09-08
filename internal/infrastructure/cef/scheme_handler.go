@@ -3,8 +3,9 @@ package cef
 import (
 	"bytes"
 	"context"
-	"embed"
+	"crypto/sha256"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"html"
@@ -26,6 +27,8 @@ import (
 	"github.com/bnema/dumber/internal/infrastructure/webutil"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/rs/zerolog"
+
+	"github.com/bnema/dumber/assets"
 )
 
 // Scheme path constants matching WebKit's naming.
@@ -53,11 +56,18 @@ var cefNewResourceHandler = purecef.NewResourceHandler
 // dumbSchemeHandler serves both the conceptual dumb:// URLs and the actual
 // internal https://dumber.invalid origin used by CEF.
 type dumbSchemeHandler struct {
-	ctx                  context.Context
-	messageRouter        *MessageRouter
-	faviconResolver      port.FaviconSystemviewResolver
-	assets               embed.FS
-	assetsSet            bool
+	ctx             context.Context
+	messageRouter   *MessageRouter
+	faviconResolver port.FaviconSystemviewResolver
+	// assets is the captured immutable asset filesystem. Together with
+	// bundle it forms one replaceable bundle state: installing a different
+	// FS replaces both, and in-flight requests retain their captured pair.
+	// A replaced bundle's cached WASM stays alive until its last in-flight
+	// request finishes, so old and new bundles briefly overlap in memory;
+	// the retained cache budget is one WASM per active bundle. Production
+	// embeds are immutable; no live file watching is added.
+	assets               fs.FS
+	bundle               *systemviewAssetBundle
 	assetDir             string
 	logger               zerolog.Logger
 	currentConfigPayload func() ([]byte, error)
@@ -111,12 +121,14 @@ func newDumbSchemeHandler(
 	}, nil
 }
 
-// setAssets sets the embedded filesystem containing systemviews assets.
-func (h *dumbSchemeHandler) setAssets(assets embed.FS) {
+// setAssets installs one immutable asset filesystem and its fresh WASM
+// cache as a single bundle state. In-flight requests keep their captured
+// bundle and can never publish old bytes into the new cache.
+func (h *dumbSchemeHandler) setAssets(assetsFS fs.FS) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	h.assets = assets
-	h.assetsSet = true
+	h.assets = assetsFS
+	h.bundle = newSystemviewAssetBundle(assetsFS)
 	h.logger.Debug().Msg("assets filesystem configured")
 }
 
@@ -555,13 +567,13 @@ func (h *dumbSchemeHandler) newRedirectResourceHandler(status int, location stri
 	})
 }
 
-// handleAsset serves static files from the embedded filesystem.
+// handleAsset serves static files from the captured asset bundle.
 func (h *dumbSchemeHandler) handleAsset(u *url.URL) purecef.ResourceHandler {
 	h.mu.RLock()
-	hasAssets := h.assetsSet
+	assetsFS, bundle := h.assets, h.bundle
 	h.mu.RUnlock()
 
-	if !hasAssets {
+	if assetsFS == nil || bundle == nil {
 		return h.newErrorResourceHandler(http.StatusInternalServerError, "Assets not configured")
 	}
 
@@ -578,7 +590,21 @@ func (h *dumbSchemeHandler) handleAsset(u *url.URL) purecef.ResourceHandler {
 		return h.newErrorResourceHandler(http.StatusNotFound, "Asset not found")
 	}
 
-	data, err := readAssetWithEncoding(h.assets, fullPath, relPath)
+	// The bundle WASM is served from the once-loaded immutable cache
+	// through a deferred handler: Create returns immediately and the
+	// decode runs off the CEF IO thread. The shell keeps its usable
+	// relative URLs on disk but is served with content-versioned
+	// references from the same captured bundle. Every other asset keeps
+	// the legacy synchronous per-request read path.
+	if relPath == indexHTML {
+		return h.serveVersionedShell(assetsFS, bundle, fullPath)
+	}
+	if isVersionedAssetFile(relPath) {
+		v, present, valid := parseAssetVersion(u)
+		return h.serveVersionedStatic(assetsFS, bundle, fullPath, relPath, v, present, valid)
+	}
+
+	data, err := readAssetWithEncoding(assetsFS, fullPath, relPath)
 	if err != nil {
 		h.logger.Debug().Str("path", fullPath).Err(err).Msg("asset not found")
 		return h.newErrorResourceHandler(http.StatusNotFound, "Asset not found")
@@ -591,7 +617,202 @@ func (h *dumbSchemeHandler) handleAsset(u *url.URL) purecef.ResourceHandler {
 		Int("size", len(data)).
 		Msg("serving asset")
 
-	return newStaticResourceHandler(http.StatusOK, contentType, data, nil)
+	// Unversioned static assets are servable but explicitly noncacheable;
+	// only version-verified bytes earn immutable headers below.
+	return newStaticResourceHandler(http.StatusOK, contentType, data,
+		map[string]string{"Cache-Control": noStoreCacheControl})
+}
+
+// immutableCacheControl grants long-lived private caching to exactly one
+// verified content version. It is served only for allowlisted static
+// files whose ?v= digest matches the SHA-256 of the exact bytes served.
+const immutableCacheControl = "private, max-age=31536000, immutable"
+
+// noStoreCacheControl marks responses that must never be cached: the
+// unversioned shell and static assets, dynamic API content, and every
+// version-gating error.
+const noStoreCacheControl = "no-store"
+
+// serveVersionedShell serves the internal shell with its known static
+// references rewritten to content-versioned URLs (?v=<sha256>) from the
+// captured bundle's manifest. The shell itself is unversioned and stays
+// noncacheable; version queries on the shell are ignored because the
+// shell document is never immutable. An invalid manifest yields a clear
+// noncacheable error instead of unverified versioned content.
+func (h *dumbSchemeHandler) serveVersionedShell(assetsFS fs.FS, bundle *systemviewAssetBundle, fullPath string) purecef.ResourceHandler {
+	data, err := readAssetWithEncoding(assetsFS, fullPath, indexHTML)
+	if err != nil {
+		h.logger.Debug().Str("path", fullPath).Err(err).Msg("shell not found")
+		return h.newErrorResourceHandler(http.StatusNotFound, "Asset not found")
+	}
+	m, err := bundle.Manifest()
+	if err != nil {
+		h.logger.Error().Err(err).Msg("asset manifest invalid; refusing to version shell")
+		return newStaticResourceHandler(http.StatusInternalServerError, "text/html; charset=utf-8",
+			errorPageBody(http.StatusInternalServerError, "Asset manifest invalid"),
+			map[string]string{"Cache-Control": noStoreCacheControl})
+	}
+	return newStaticResourceHandler(http.StatusOK, getMimeType(indexHTML), versionShellRefs(data, m),
+		map[string]string{"Cache-Control": noStoreCacheControl})
+}
+
+// versionShellRefs rewrites the shell's known static references with
+// content-version query values: ./systemviews.wasm becomes
+// ./systemviews.wasm?v=<digest>, likewise for the pinned JS and CSS.
+// Only manifest-pinned files are rewritten and already-versioned
+// references pass through untouched, so the on-disk shell keeps concrete
+// usable relative URLs for alternate shells.
+func versionShellRefs(shell []byte, m assets.Manifest) []byte {
+	out := shell
+	for _, name := range assets.ManifestFiles {
+		plain := "./" + name
+		if bytes.Contains(out, []byte(plain+"?v=")) {
+			continue
+		}
+		out = bytes.ReplaceAll(out, []byte(plain), []byte(plain+"?v="+m.Files[name].SHA256))
+	}
+	return out
+}
+
+// isVersionedAssetFile reports whether relPath is a canonical allowlisted
+// static file: exactly the manifest-pinned servables. Only these may earn
+// immutable headers; everything else (including the manifest itself and
+// the shell) stays on the noncacheable path.
+func isVersionedAssetFile(relPath string) bool {
+	for _, name := range assets.ManifestFiles {
+		if relPath == name {
+			return true
+		}
+	}
+	return false
+}
+
+// parseAssetVersion extracts the content-version query value with
+// exactly-one semantics: absent reports present=false (unversioned
+// request), while duplicate or empty values report present=true with
+// valid=false (a version-gating error, never an unversioned request).
+// Malformed escape sequences are fail-closed too: u.Query silently drops
+// unparseable components, so the raw query is parsed explicitly and any
+// parse error alongside a v parameter rejects the request.
+func parseAssetVersion(u *url.URL) (v string, present, valid bool) {
+	if u == nil {
+		return "", false, false
+	}
+	vals, qerr := url.ParseQuery(u.RawQuery)
+	if qerr != nil {
+		// A malformed query carrying a v parameter is a version-gating
+		// error; without one it is an ordinary unversioned request.
+		return "", hasVersionParam(u.RawQuery), false
+	}
+	vs, ok := vals["v"]
+	if !ok || len(vs) == 0 {
+		return "", false, false
+	}
+	if len(vs) != 1 || vs[0] == "" {
+		return "", true, false
+	}
+	return vs[0], true, true
+}
+
+// hasVersionParam reports whether the raw query carries a v parameter,
+// used only to classify malformed queries fail-closed.
+func hasVersionParam(rawQuery string) bool {
+	for _, part := range strings.Split(rawQuery, "&") {
+		name, _, _ := strings.Cut(part, "=")
+		if name == "v" {
+			return true
+		}
+	}
+	return false
+}
+
+// serveVersionedStatic serves one allowlisted static file with byte-bound
+// cache policy: exactly one valid ?v= matching the SHA-256 of the exact
+// served bytes earns immutable headers. URL-to-manifest equality alone is
+// insufficient — the bytes are hashed and compared. Duplicate, malformed,
+// or mismatching versions, missing artifacts, and stale manifests all
+// return a noncacheable error; unversioned requests serve explicitly
+// noncacheable without verification.
+func (h *dumbSchemeHandler) serveVersionedStatic(
+	assetsFS fs.FS, bundle *systemviewAssetBundle, fullPath, relPath, v string, present, valid bool,
+) purecef.ResourceHandler {
+	if present && !valid {
+		return h.versionError(fullPath)
+	}
+	// Unversioned requests never consult the manifest: they serve
+	// explicitly noncacheable without verification, including on
+	// manifest-less bundles.
+	if !present {
+		return h.serveUnversionedStatic(assetsFS, bundle, fullPath, relPath)
+	}
+	m, err := bundle.Manifest()
+	if err != nil {
+		h.logger.Error().Err(err).Msg("asset manifest invalid; refusing versioned static")
+		return newStaticResourceHandler(http.StatusInternalServerError, "text/html; charset=utf-8",
+			errorPageBody(http.StatusInternalServerError, "Asset manifest invalid"),
+			map[string]string{"Cache-Control": noStoreCacheControl})
+	}
+	pin, ok := m.Files[relPath]
+	if !ok {
+		h.logger.Error().Str("path", fullPath).Msg("asset manifest missing pin; refusing versioned static")
+		return newStaticResourceHandler(http.StatusInternalServerError, "text/html; charset=utf-8",
+			errorPageBody(http.StatusInternalServerError, "Asset manifest invalid"),
+			map[string]string{"Cache-Control": noStoreCacheControl})
+	}
+	if v != pin.SHA256 {
+		return h.versionError(fullPath)
+	}
+	if relPath == "systemviews.wasm" {
+		return newSystemviewWASMResourceHandler(h.ctx, bundle, true, pin.SHA256)
+	}
+	data, err := readAssetWithEncoding(assetsFS, fullPath, relPath)
+	if err != nil {
+		return h.versionError(fullPath)
+	}
+	if sha256Hex(data) != pin.SHA256 {
+		h.logger.Debug().Str("path", fullPath).Msg("versioned asset bytes do not match manifest pin")
+		return h.versionError(fullPath)
+	}
+	h.logger.Debug().
+		Str("path", fullPath).
+		Str("content_type", getMimeType(relPath)).
+		Int("size", len(data)).
+		Msg("serving verified immutable asset")
+	return newStaticResourceHandler(http.StatusOK, getMimeType(relPath), data,
+		map[string]string{"Cache-Control": immutableCacheControl})
+}
+
+// serveUnversionedStatic serves an allowlisted file requested without a
+// version: readable, explicitly noncacheable, unverified.
+func (h *dumbSchemeHandler) serveUnversionedStatic(
+	assetsFS fs.FS, bundle *systemviewAssetBundle, fullPath, relPath string,
+) purecef.ResourceHandler {
+	if relPath == "systemviews.wasm" {
+		return newSystemviewWASMResourceHandler(h.ctx, bundle, false, "")
+	}
+	data, err := readAssetWithEncoding(assetsFS, fullPath, relPath)
+	if err != nil {
+		h.logger.Debug().Str("path", fullPath).Err(err).Msg("asset not found")
+		return h.newErrorResourceHandler(http.StatusNotFound, "Asset not found")
+	}
+	return newStaticResourceHandler(http.StatusOK, getMimeType(relPath), data,
+		map[string]string{"Cache-Control": noStoreCacheControl})
+}
+
+// versionError returns a noncacheable not-found for version-gating
+// failures: duplicates, malformed values, mismatches, and missing
+// versioned bytes all read as not found without inviting caching or
+// enumeration.
+func (h *dumbSchemeHandler) versionError(fullPath string) purecef.ResourceHandler {
+	h.logger.Debug().Str("path", fullPath).Msg("versioned asset rejected")
+	return newStaticResourceHandler(http.StatusNotFound, "text/html; charset=utf-8", errorPageBody(http.StatusNotFound, "Asset not found"),
+		map[string]string{"Cache-Control": noStoreCacheControl})
+}
+
+// sha256Hex digests exact served bytes for manifest comparison.
+func sha256Hex(data []byte) string {
+	sum := sha256.Sum256(data)
+	return hex.EncodeToString(sum[:])
 }
 
 func safeSystemviewsAssetPath(assetDir, relPath string) (fullPath, cleanRelPath string, ok bool) {
@@ -617,9 +838,9 @@ func safeSystemviewsAssetPath(assetDir, relPath string) (fullPath, cleanRelPath 
 	return fullPath, cleanRelPath, true
 }
 
-func readAssetWithEncoding(assets fs.FS, fullPath, relPath string) ([]byte, error) {
+func readAssetWithEncoding(assetsFS fs.FS, fullPath, relPath string) ([]byte, error) {
 	if strings.HasSuffix(relPath, ".wasm") {
-		if compressed, err := fs.ReadFile(assets, fullPath+".br"); err == nil {
+		if compressed, err := fs.ReadFile(assetsFS, fullPath+".br"); err == nil {
 			data, err := io.ReadAll(io.LimitReader(brotli.NewReader(bytes.NewReader(compressed)), maxSystemviewsWASMBytes+1))
 			if err != nil {
 				return nil, err
@@ -630,7 +851,7 @@ func readAssetWithEncoding(assets fs.FS, fullPath, relPath string) ([]byte, erro
 			return data, nil
 		}
 	}
-	data, err := fs.ReadFile(assets, fullPath)
+	data, err := fs.ReadFile(assetsFS, fullPath)
 	return data, err
 }
 
@@ -807,9 +1028,14 @@ func (h *dumbSchemeHandler) newPrivateAPIRawResourceHandler(status int, contentT
 }
 
 func (h *dumbSchemeHandler) newErrorResourceHandler(status int, msg string) purecef.ResourceHandler {
+	return h.newRawResourceHandler(status, "text/html; charset=utf-8", errorPageBody(status, msg))
+}
+
+// errorPageBody renders the shared plain error document. Deferred handlers
+// reuse it so failures stay byte-identical to the synchronous error path.
+func errorPageBody(status int, msg string) []byte {
 	escaped := html.EscapeString(msg)
-	body := fmt.Sprintf(`<!DOCTYPE html><html><body><h1>%d</h1><p>%s</p></body></html>`, status, escaped)
-	return h.newRawResourceHandler(status, "text/html; charset=utf-8", []byte(body))
+	return []byte(fmt.Sprintf(`<!DOCTYPE html><html><body><h1>%d</h1><p>%s</p></body></html>`, status, escaped))
 }
 
 func (h *dumbSchemeHandler) newAPIJSONResourceHandler(status int, v any) purecef.ResourceHandler {

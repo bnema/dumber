@@ -48,6 +48,44 @@ func (d *browserDOM) Mount(markup string) error {
 	return nil
 }
 
+// SignalReady marks the shell ready after mount and action binding: the
+// loading busy flag is dropped and a data-ready marker is set for
+// fixtures. Mount replaces #app content, so readiness must be signaled
+// after every mount that completes binding.
+func (d *browserDOM) SignalReady() error {
+	if d == nil || !d.target.Truthy() {
+		return fmt.Errorf("DOM readiness target #app not found")
+	}
+	d.target.Call("removeAttribute", "aria-busy")
+	d.target.Call("setAttribute", "data-ready", "true")
+	return nil
+}
+
+// SignalError clears the loading state with a fatal message when mount or
+// binding fails. textContent assignment keeps the message inert.
+func (d *browserDOM) SignalError(message string) error {
+	if d == nil || !d.target.Truthy() {
+		return fmt.Errorf("DOM readiness target #app not found")
+	}
+	if message == "" {
+		message = "systemviews failed to start"
+	}
+	d.target.Call("removeAttribute", "aria-busy")
+	d.target.Call("setAttribute", "data-failed", "true")
+	d.target.Set("innerHTML", "")
+	doc := d.document
+	if !doc.Truthy() {
+		doc = js.Global().Get("document")
+	}
+	if doc.Truthy() {
+		failure := doc.Call("createElement", "div")
+		failure.Set("className", "sv-error")
+		failure.Set("textContent", message)
+		d.target.Call("appendChild", failure)
+	}
+	return nil
+}
+
 func (d *browserDOM) AppendHistoryTimeline(markup string) error {
 	if d == nil || !d.target.Truthy() {
 		return fmt.Errorf("DOM mount target #app not found")

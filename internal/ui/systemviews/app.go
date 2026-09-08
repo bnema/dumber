@@ -114,17 +114,47 @@ func (a *App) RunWithContext(ctx context.Context) error {
 	}
 
 	if err := a.deps.DOM.Mount(a.renderedHTML); err != nil {
+		a.signalShellError(err)
 		return err
 	}
 	if binder, ok := a.deps.DOM.(DOMActionBinder); ok {
 		if err := a.bindDOMActions(ctx, binder); err != nil {
+			a.signalShellError(err)
 			return err
 		}
+	}
+	// Readiness fires after the initial mount and action binding only:
+	// async history-data completion refreshes content separately and
+	// never gates it.
+	if err := a.signalShellReady(); err != nil {
+		return err
 	}
 	if asyncInitial {
 		a.refreshCurrentRouteAsync(ctx)
 	}
 	return nil
+}
+
+// signalShellReady clears the shell loading state when the adapter
+// supports it. Adapters without a signaler keep legacy behavior.
+func (a *App) signalShellReady() error {
+	signaler, ok := a.deps.DOM.(DOMReadinessSignaler)
+	if !ok {
+		return nil
+	}
+	return signaler.SignalReady()
+}
+
+// signalShellError reports a fatal mount/bind failure to the shell when
+// the adapter supports it. The original error is always returned;
+// signaling is best-effort.
+func (a *App) signalShellError(err error) {
+	if err == nil {
+		return
+	}
+	if signaler, ok := a.deps.DOM.(DOMReadinessSignaler); ok {
+		_ = signaler.SignalError(err.Error())
+	}
 }
 
 func (a *App) shouldLoadInitialRouteAsync() bool {

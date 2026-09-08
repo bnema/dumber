@@ -2,6 +2,8 @@ module github.com/bnema/dumber
 
 go 1.26
 
+toolchain go1.26.7
+
 require (
 	github.com/a-h/templ v0.3.1020
 	github.com/andybalholm/brotli v1.2.3
