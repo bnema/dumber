@@ -90,10 +90,7 @@ type SessionManagerConfig struct {
 func NewSessionManager(ctx context.Context, cfg SessionManagerConfig) *SessionManager {
 	log := logging.FromContext(ctx)
 
-	uiScale := cfg.UIScale
-	if uiScale <= 0 {
-		uiScale = 1.0
-	}
+	uiScale := normalizeUIScale(cfg.UIScale)
 
 	sm := &SessionManager{
 		ctx:             ctx,

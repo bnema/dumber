@@ -734,6 +734,7 @@ func (wv *WorkspaceView) SetOmniboxConfig(cfg OmniboxConfig) {
 
 // SetOmniboxUIScale updates current and future omniboxes on the GTK main thread.
 func (wv *WorkspaceView) SetOmniboxUIScale(scale float64) {
+	scale = normalizeUIScale(scale)
 	wv.mu.Lock()
 	wv.omniboxCfg.UIScale = scale
 	omnibox := wv.omnibox

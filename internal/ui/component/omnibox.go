@@ -197,10 +197,7 @@ type OmniboxConfig struct {
 func NewOmnibox(ctx context.Context, cfg OmniboxConfig) *Omnibox {
 	log := logging.FromContext(ctx)
 
-	uiScale := cfg.UIScale
-	if uiScale <= 0 {
-		uiScale = 1.0
-	}
+	uiScale := normalizeUIScale(cfg.UIScale)
 
 	sizeCfg := ResolveModalSizeConfig(cfg.SizeConfig, OmniboxSizeDefaults)
 
@@ -361,7 +358,17 @@ func (o *Omnibox) SetUIScale(scale float64) {
 	width, _ := o.requestedDimensions()
 	o.mainBox.SetSizeRequest(width, -1)
 	if o.listBox != nil {
+		// Rebuilding clears the selected GTK row, which resets
+		// selectedIndex to -1 via the row-selected callback. Snapshot
+		// and restore the selection so keyboard selection and ghost
+		// completion survive a scale change with identical content.
+		o.mu.RLock()
+		selected := o.selectedIndex
+		o.mu.RUnlock()
 		o.rebuildList()
+		if selected >= 0 && o.listBox.GetRowAtIndex(selected) != nil {
+			o.selectIndex(selected)
+		}
 	}
 	o.mu.RLock()
 	count := len(o.favorites)
