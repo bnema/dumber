@@ -90,10 +90,7 @@ type SessionManagerConfig struct {
 func NewSessionManager(ctx context.Context, cfg SessionManagerConfig) *SessionManager {
 	log := logging.FromContext(ctx)
 
-	uiScale := cfg.UIScale
-	if uiScale <= 0 {
-		uiScale = 1.0
-	}
+	uiScale := normalizeUIScale(cfg.UIScale)
 
 	sm := &SessionManager{
 		ctx:             ctx,
@@ -215,12 +212,32 @@ func (sm *SessionManager) Toggle(ctx context.Context) {
 	}
 }
 
+// SetUIScale updates modal geometry on the GTK main thread.
+func (sm *SessionManager) SetUIScale(scale float64) {
+	scale = normalizeUIScale(scale)
+	if sm.uiScale == scale {
+		return
+	}
+	sm.uiScale = scale
+	sm.measuredHeights.valid = false
+	sm.resizeAndCenter()
+	if sm.IsVisible() {
+		sm.populateList()
+	}
+}
+
+// requestedDimensions returns the scale-aware modal width and top margin for
+// the current parent overlay, session size defaults, and UI scale.
+func (sm *SessionManager) requestedDimensions() (width, marginTop int) {
+	return CalculateModalDimensionsWithScale(sm.parentOverlay, SessionManagerSizeDefaults, sm.uiScale)
+}
+
 func (sm *SessionManager) resizeAndCenter() {
 	if sm.outerBox == nil || sm.mainBox == nil {
 		return
 	}
 
-	width, marginTop := CalculateModalDimensions(sm.parentOverlay, SessionManagerSizeDefaults)
+	width, marginTop := sm.requestedDimensions()
 
 	sm.mainBox.SetSizeRequest(width, -1)
 	sm.outerBox.SetMarginTop(marginTop)
@@ -477,7 +494,7 @@ func (sm *SessionManager) populateList() {
 	sm.selectBySessionIndex(selectedIdx)
 
 	// Attempt to measure actual widget heights for accurate sizing
-	width, _ := CalculateModalDimensions(sm.parentOverlay, SessionManagerSizeDefaults)
+	width, _ := sm.requestedDimensions()
 	sm.measureWidgetHeights(width)
 
 	sm.resizeForContent(state.sessionRowCount, state.dividerCount, state.treeRowCount)

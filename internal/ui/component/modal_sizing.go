@@ -1,6 +1,8 @@
 package component
 
 import (
+	"math"
+
 	"github.com/bnema/dumber/internal/ui/layout"
 	"github.com/bnema/puregotk/v4/gtk"
 )
@@ -146,6 +148,24 @@ func ResolveModalSizeConfig(cfg, defaults ModalSizeConfig) ModalSizeConfig {
 // CalculateModalDimensions computes width and top margin based on parent overlay.
 // Returns calculated width and top margin in pixels.
 func CalculateModalDimensions(parent layout.OverlayWidget, cfg ModalSizeConfig) (width, marginTop int) {
+	return CalculateModalDimensionsWithScale(parent, cfg, 1)
+}
+
+// normalizeUIScale maps nonpositive or nonfinite scale factors to 1.
+func normalizeUIScale(uiScale float64) float64 {
+	if math.IsNaN(uiScale) || math.IsInf(uiScale, 0) || uiScale <= 0 {
+		return 1.0
+	}
+	return uiScale
+}
+
+// CalculateModalDimensionsWithScale computes width and top margin based on
+// parent overlay, scaling the requested width by the UI scale factor while
+// preserving scale=1 geometry, top placement, and fallback height.
+// Returns calculated width and top margin in pixels.
+func CalculateModalDimensionsWithScale(parent layout.OverlayWidget, cfg ModalSizeConfig, uiScale float64) (width, marginTop int) {
+	scale := normalizeUIScale(uiScale)
+
 	var parentWidth, parentHeight int
 
 	if parent != nil {
@@ -156,16 +176,19 @@ func CalculateModalDimensions(parent layout.OverlayWidget, cfg ModalSizeConfig) 
 	// Use fallback if parent not allocated or too small to be useful
 	// A width < 100 is too small for any meaningful modal
 	if parentWidth < 100 {
-		parentWidth = cfg.FallbackWidth
+		parentWidth = ScaleValue(cfg.FallbackWidth, scale)
 	}
 	if parentHeight < 100 {
 		parentHeight = cfg.FallbackHeight
 	}
 
 	if cfg.FixedWidth > 0 {
-		width = cfg.FixedWidth
+		// Fixed widths (e.g. standalone omnibox) are content-sized requests:
+		// scale them directly without clamping to the host allocation, which
+		// is itself driven by the child and would prevent growth.
+		width = ScaleValue(cfg.FixedWidth, scale)
 	} else {
-		width = min(int(float64(parentWidth)*cfg.WidthPct), cfg.MaxWidth)
+		width = min(int(float64(parentWidth)*cfg.WidthPct), ScaleValue(cfg.MaxWidth, scale))
 	}
 
 	if cfg.UseFixedTopMargin {

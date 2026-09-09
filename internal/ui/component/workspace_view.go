@@ -732,6 +732,18 @@ func (wv *WorkspaceView) SetOmniboxConfig(cfg OmniboxConfig) {
 	wv.omniboxCfg = cfg
 }
 
+// SetOmniboxUIScale updates current and future omniboxes on the GTK main thread.
+func (wv *WorkspaceView) SetOmniboxUIScale(scale float64) {
+	scale = normalizeUIScale(scale)
+	wv.mu.Lock()
+	wv.omniboxCfg.UIScale = scale
+	omnibox := wv.omnibox
+	wv.mu.Unlock()
+	if omnibox != nil {
+		omnibox.SetUIScale(scale)
+	}
+}
+
 // SetFindBarConfig stores the find bar configuration for later use.
 func (wv *WorkspaceView) SetFindBarConfig(cfg FindBarConfig) {
 	wv.mu.Lock()

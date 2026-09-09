@@ -951,7 +951,8 @@ func generateSessionManagerCSS(p Palette) string {
 	border: 0.0625em solid var(--border);
 	border-radius: 0.1875em;
 	padding: 0;
-	min-width: 28em;
+	/* Width is owned by the Go sizing request so CSS must not force
+	   growth beyond the percentage viewport limit. */
 	/* Note: max-width not supported in GTK4 CSS, rely on container constraints */
 }
 

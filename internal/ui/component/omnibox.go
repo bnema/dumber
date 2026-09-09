@@ -197,10 +197,7 @@ type OmniboxConfig struct {
 func NewOmnibox(ctx context.Context, cfg OmniboxConfig) *Omnibox {
 	log := logging.FromContext(ctx)
 
-	uiScale := cfg.UIScale
-	if uiScale <= 0 {
-		uiScale = 1.0
-	}
+	uiScale := normalizeUIScale(cfg.UIScale)
 
 	sizeCfg := ResolveModalSizeConfig(cfg.SizeConfig, OmniboxSizeDefaults)
 
@@ -345,6 +342,43 @@ func (o *Omnibox) WidgetAsLayout(factory layout.WidgetFactory) layout.Widget {
 		return nil
 	}
 	return factory.WrapWidget(&o.outerBox.Widget)
+}
+
+// SetUIScale updates modal geometry on the GTK main thread.
+func (o *Omnibox) SetUIScale(scale float64) {
+	scale = normalizeUIScale(scale)
+	if o.uiScale == scale {
+		return
+	}
+	o.uiScale = scale
+	o.measuredHeights.valid = false
+	if o.mainBox == nil {
+		return
+	}
+	width, _ := o.requestedDimensions()
+	o.mainBox.SetSizeRequest(width, -1)
+	if o.listBox != nil {
+		// Rebuilding clears the selected GTK row, which resets
+		// selectedIndex to -1 via the row-selected callback. Snapshot
+		// and restore the selection so keyboard selection and ghost
+		// completion survive a scale change with identical content.
+		o.mu.RLock()
+		selected := o.selectedIndex
+		o.mu.RUnlock()
+		o.rebuildList()
+		if selected >= 0 && o.listBox.GetRowAtIndex(selected) != nil {
+			o.selectIndex(selected)
+		}
+	}
+	o.mu.RLock()
+	count := len(o.favorites)
+	if o.bangMode {
+		count = len(o.bangSuggestions)
+	} else if o.viewMode == ViewModeHistory {
+		count = len(o.suggestions)
+	}
+	o.mu.RUnlock()
+	o.resizeAndCenter(count)
 }
 
 // estimateRowHeight returns the current best estimate for a single row height.
@@ -494,6 +528,12 @@ func (o *Omnibox) effectiveMaxRows() int {
 	return EffectiveMaxRows(o.parentOverlay.GetAllocatedHeight(), o.estimateRowHeight(), o.sizeCfg, OmniboxListDefaults)
 }
 
+// requestedDimensions returns the scale-aware modal width and top margin for
+// the current parent overlay, size config, and UI scale.
+func (o *Omnibox) requestedDimensions() (width, marginTop int) {
+	return CalculateModalDimensionsWithScale(o.parentOverlay, o.sizeCfg, o.uiScale)
+}
+
 // resizeAndCenter adjusts the omnibox size based on content and centers it.
 // rowCount is the number of result rows to display (0 = no content, adapts to parent height).
 func (o *Omnibox) resizeAndCenter(rowCount int) {
@@ -508,7 +548,7 @@ func (o *Omnibox) resizeAndCenter(rowCount int) {
 
 	// Schedule measurement after GTK has laid out widgets
 	var cb glib.SourceFunc = func(uintptr) bool {
-		width, _ := CalculateModalDimensions(o.parentOverlay, o.sizeCfg)
+		width, _ := o.requestedDimensions()
 		o.measureAndResize(width, rowCount)
 		return false
 	}
@@ -1980,7 +2020,7 @@ func (o *Omnibox) rebuildList() {
 			if width <= 0 {
 				return false // Overlay not allocated yet, skip
 			}
-			forWidth, _ := CalculateModalDimensions(o.parentOverlay, o.sizeCfg)
+			forWidth, _ := o.requestedDimensions()
 			if o.measureComponentHeights(forWidth) {
 				// Re-trigger resize with accurate measurements
 				o.mu.RLock()
@@ -2784,7 +2824,7 @@ func (o *Omnibox) Show(ctx context.Context, query string) {
 		parentWidth = o.parentOverlay.GetAllocatedWidth()
 		parentHeight = o.parentOverlay.GetAllocatedHeight()
 	}
-	width, marginTop := CalculateModalDimensions(o.parentOverlay, o.sizeCfg)
+	width, marginTop := o.requestedDimensions()
 	log.Debug().
 		Int("parentWidth", parentWidth).
 		Int("parentHeight", parentHeight).

@@ -5513,9 +5513,23 @@ func (a *App) applyRuntimeConfigChange(ctx context.Context, snapshot entity.Runt
 	sessionCfg := runtimeCfg.Session
 	a.syncExternalThemeWatcher(ctx)
 	a.applyAppearanceConfig(ctx)
+	a.omniboxCfg.UIScale = runtimeCfg.DefaultUIScale
+	for _, view := range a.workspaceViews {
+		if view != nil {
+			view.SetOmniboxUIScale(runtimeCfg.DefaultUIScale)
+		}
+	}
+	for _, session := range a.floatingSessions {
+		if session != nil && session.omnibox != nil {
+			session.omnibox.SetUIScale(runtimeCfg.DefaultUIScale)
+		}
+	}
 	for _, bw := range a.browserWindows {
 		if bw == nil {
 			continue
+		}
+		if bw.sessionManager != nil {
+			bw.sessionManager.SetUIScale(runtimeCfg.DefaultUIScale)
 		}
 		// Reapply sidebar width from live config (reloads after sidebar_width
 		// changes in the config file).
