@@ -82,7 +82,12 @@ func TestGlobalShortcutHandlerUsesDistinctNamedActionsAcrossReloads(t *testing.T
 	}
 	t.Cleanup(func() {
 		h.Detach()
-		window.Destroy()
+		// The test window is never presented, so it has no Wayland surface.
+		// gtk_window_destroy on such an unrealized window segfaults on the
+		// Wayland backend (gdk_surface_get_display assertion). Release the
+		// initial reference instead, matching the unrealized-window paths in
+		// window.New/PopupWindow. Destroy remains correct for shown windows.
+		window.Unref()
 		app.Unref()
 	})
 
