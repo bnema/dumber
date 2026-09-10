@@ -6,7 +6,7 @@
 // bounded read, and writes asset-manifest.json. It fails loudly on stale
 // or missing inputs instead of writing a partial manifest.
 //
-// Check mode (-check) validates the committed manifest against the
+// Check mode (-check) validates the generated bundle manifest against the
 // artifacts on disk and exits nonzero on any mismatch, for CI and
 // release verification.
 package main
@@ -31,12 +31,12 @@ import (
 // serving bound so a manifest can never bless what serving would reject.
 const maxManifestWASMBytes = 64 * 1024 * 1024
 
-// manifestFilePerm matches committed repo asset files.
+// manifestFilePerm matches repo asset files.
 const manifestFilePerm = 0o644
 
 func main() {
 	dir := flag.String("dir", "assets/systemviews", "directory holding the built systemview assets")
-	check := flag.Bool("check", false, "verify the committed manifest against disk artifacts instead of regenerating")
+	check := flag.Bool("check", false, "verify the generated manifest against disk artifacts instead of regenerating")
 	checkIfPresent := flag.Bool("check-if-present", false, "like -check, but pass with a notice when no built WASM exists (for quick builds)")
 	flag.Parse()
 
@@ -78,7 +78,7 @@ func run(dir string, check, checkIfPresent bool) error {
 	return nil
 }
 
-// checkTree validates the committed manifest against disk artifacts:
+// checkTree validates the generated manifest against disk artifacts:
 // pins, raw bytes, and raw/compressed WASM agreement. Generation checks
 // agreement at write time, but only the check path guards a later
 // compressed-only swap, which serving would treat as authoritative.

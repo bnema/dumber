@@ -140,6 +140,7 @@ jobs:
         env:
           GDK_BACKEND: wayland
           WAYLAND_DISPLAY: wayland-0
+          DUMBER_REQUIRE_SYSTEMVIEWS_WASM: 1
         run: go test -v ./...
       - name: Verify purego-only constraints
         run: make verify-purego

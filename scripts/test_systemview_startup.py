@@ -3,7 +3,7 @@
 
 Static gates always run headless: the shell must fetch the WASM exactly
 once (clone-based fallback), carry the readiness contract markers, and
-the committed manifest must match disk artifacts.
+the generated (untracked) manifest must match disk artifacts.
 
 The live launch smoke starts the candidate binary with an isolated
 profile, watches for panics/fatal crashes, then terminates it gracefully.
@@ -97,7 +97,7 @@ def check_shell_readiness_contract():
 
 
 def check_manifest_on_disk():
-    """P3.1: committed manifest parses and matches generator schema."""
+    """P3.1: generated manifest parses and matches generator schema."""
     try:
         raw = MANIFEST_PATH.read_bytes()
     except OSError as exc:

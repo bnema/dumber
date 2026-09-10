@@ -67,6 +67,7 @@ assets/webui
 assets/systemviews/systemviews.wasm
 assets/systemviews/systemviews.wasm.br
 assets/systemviews/wasm_exec.js
+assets/systemviews/asset-manifest.json
 
 # Node/TypeScript related
 node_modules/

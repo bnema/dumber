@@ -233,7 +233,7 @@ make build
 | `make test` | Run tests |
 | `make lint` | Run the pinned golangci-lint version |
 | `make staticcheck` | Run Staticcheck with the pinned tool version |
-| `make verify-generated` | Verify generated systemviews artifacts are committed |
+| `make verify-generated` | Verify tracked generated systemviews artifacts are committed |
 | `make flatpak-build` | Build Flatpak bundle |
 
 Development tool versions are pinned in `Makefile` (`GOLANGCI_LINT_VERSION`, `STATICCHECK_VERSION`). Bump those values intentionally when refreshing lint/static analysis tooling.
