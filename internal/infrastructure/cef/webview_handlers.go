@@ -1364,6 +1364,7 @@ var cefCursorNames = map[purecef.CursorType]string{
 	purecef.CursorTypeCtGrabbing:                 "grabbing",
 	purecef.CursorTypeCtZoomin:                   "zoom-in",
 	purecef.CursorTypeCtZoomout:                  "zoom-out",
+	purecef.CursorTypeCtNone:                     "none",
 }
 
 // cefCursorToGDKName maps a CEF cursor type to a GDK/CSS cursor name.
