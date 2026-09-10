@@ -61,7 +61,7 @@ help: ## Show this help message
 	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
 # Build targets
-build: build-systemviews ## Build the application (pure Go, no CGO)
+build: build-systemviews verify-systemviews-assets ## Build the application (pure Go, no CGO)
 	@echo "Building $(BINARY_NAME) $(VERSION) using $(NPROCS) cores..."
 	@mkdir -p $(DIST_DIR)
 	GOFLAGS="$(NATIVE_GOFLAGS)" CGO_ENABLED=0 go build -buildvcs=false -p $(NPROCS) $(GCFLAGS) $(LDFLAGS) -o $(DIST_DIR)/$(BINARY_NAME) $(MAIN_PATH)
@@ -77,7 +77,7 @@ build-systemviews: generate-systemviews ## Build the WASM systemviews runtime
 	@echo "Building systemviews wasm assets..."
 	@command -v brotli >/dev/null 2>&1 || { echo "Error: brotli is required to build compressed systemviews assets. Install brotli and retry."; exit 1; }
 	@mkdir -p assets/systemviews
-	@cp "$$(GOTOOLCHAIN="$(SYSTEMVIEWS_GOTOOLCHAIN)" go env GOROOT)/lib/wasm/wasm_exec.js" assets/systemviews/wasm_exec.js
+	@cp -f "$$(GOTOOLCHAIN="$(SYSTEMVIEWS_GOTOOLCHAIN)" go env GOROOT)/lib/wasm/wasm_exec.js" assets/systemviews/wasm_exec.js
 	GOFLAGS="$(WASM_GOFLAGS)" GOTOOLCHAIN="$(SYSTEMVIEWS_GOTOOLCHAIN)" GOENV=off GOOS=js GOARCH=wasm go build -trimpath -buildvcs=false -ldflags="-s -w" -o assets/systemviews/systemviews.wasm ./cmd/systemviews
 	brotli -f -o assets/systemviews/systemviews.wasm.br assets/systemviews/systemviews.wasm
 	go run ./cmd/systemviews-assets -dir assets/systemviews
@@ -150,10 +150,10 @@ stress-omnibox-callbacks: ## Run placeholder omnibox callback stress harness
 verify-purego: ## Ensure callback path stays cgo/export free
 	bash ./scripts/verify_purego_only.sh
 
-verify-generated: ## Verify generated systemviews artifacts are committed
-	@echo "Verifying generated systemviews artifacts..."
+verify-generated: ## Verify tracked generated systemviews artifacts are committed
+	@echo "Verifying tracked generated systemviews artifacts..."
 	@git diff --exit-code -- assets/systemviews internal/ui/systemviews || { \
-		echo "Generated systemviews artifacts are out of date. Run 'make build-systemviews' and commit the result."; \
+		echo "Tracked generated systemviews artifacts are out of date. Run 'make build-systemviews' and commit the result. (The asset manifest itself is an untracked build artifact and is not compared.)"; \
 		exit 1; \
 	}
 
@@ -204,7 +204,7 @@ clean: ## Clean build artifacts
 	@echo "Cleaning build artifacts..."
 	rm -rf $(DIST_DIR)
 	rm -f $(BINARY_NAME)
-	rm -f assets/systemviews/wasm_exec.js assets/systemviews/systemviews.wasm assets/systemviews/systemviews.wasm.br
+	rm -f assets/systemviews/wasm_exec.js assets/systemviews/systemviews.wasm assets/systemviews/systemviews.wasm.br assets/systemviews/asset-manifest.json
 	rm -f coverage.out coverage.html
 	go clean -cache
 	go clean -testcache
