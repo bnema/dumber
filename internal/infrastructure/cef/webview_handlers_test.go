@@ -679,3 +679,23 @@ type selectionRenderHandlerForTest struct{ wv *WebView }
 func (h *selectionRenderHandlerForTest) OnTextSelectionChanged(_ purecef.Browser, selectedText string, _ *purecef.Range) {
 	handleRenderTextSelectionChanged(h.wv, selectedText)
 }
+
+func TestCEFCursorToGDKName(t *testing.T) {
+	tests := []struct {
+		name     string
+		cursor   purecef.CursorType
+		expected string
+	}{
+		{name: "none maps to invisible cursor", cursor: purecef.CursorTypeCtNone, expected: "none"},
+		{name: "pointer maps to default", cursor: purecef.CursorTypeCtPointer, expected: "default"},
+		{name: "hand maps to pointer", cursor: purecef.CursorTypeCtHand, expected: "pointer"},
+		{name: "ibeam maps to text", cursor: purecef.CursorTypeCtIbeam, expected: "text"},
+		{name: "unknown falls back to default", cursor: purecef.CursorType(-1), expected: "default"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			require.Equal(t, tt.expected, cefCursorToGDKName(tt.cursor))
+		})
+	}
+}
