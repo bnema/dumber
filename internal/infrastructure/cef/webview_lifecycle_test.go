@@ -9,12 +9,12 @@ import (
 
 func TestCef2gtkAdapterPageZoomCompensationDefaultsToOne(t *testing.T) {
 	var nilAdapter *Cef2gtkAdapter
-	require.Equal(t, 1.0, nilAdapter.PageZoomCompensation())
+	require.InDelta(t, 1.0, nilAdapter.PageZoomCompensation(), 1e-9)
 
 	adapter := &Cef2gtkAdapter{}
-	require.Equal(t, 1.0, adapter.PageZoomCompensation())
+	require.InDelta(t, 1.0, adapter.PageZoomCompensation(), 1e-9)
 	adapter.destroyed.Store(true)
-	require.Equal(t, 1.0, adapter.PageZoomCompensation())
+	require.InDelta(t, 1.0, adapter.PageZoomCompensation(), 1e-9)
 }
 
 func TestDestroy_WithHostDefersBridgeDestroyUntilBeforeClose(t *testing.T) {
