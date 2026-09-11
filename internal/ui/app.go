@@ -2452,7 +2452,7 @@ func (a *App) zoomBrowserWindow(ctx context.Context, bw *browserWindow, action s
 	}
 	if wsView := a.activeWorkspaceViewForBrowserWindow(bw); wsView != nil {
 		if paneView := wsView.GetPaneView(paneID); paneView != nil {
-			paneView.ShowZoomToast(ctx, int(newZoom.ZoomFactor*100))
+			paneView.ShowZoomToast(ctx, entity.ZoomPercentage(newZoom.ZoomFactor))
 		}
 	}
 	return nil

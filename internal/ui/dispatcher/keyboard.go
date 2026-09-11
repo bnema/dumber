@@ -612,7 +612,7 @@ func (d *KeyboardDispatcher) handleZoom(ctx context.Context, action string) erro
 		d.navCoord.NotifyZoomChanged(ctx, newZoom.ZoomFactor)
 
 		// Show zoom toast on the active pane
-		zoomPercent := int(newZoom.ZoomFactor * 100)
+		zoomPercent := entity.ZoomPercentage(newZoom.ZoomFactor)
 		d.wsCoord.ShowZoomToast(ctx, zoomPercent)
 
 		log.Debug().

@@ -7,6 +7,16 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestCef2gtkAdapterPageZoomCompensationDefaultsToOne(t *testing.T) {
+	var nilAdapter *Cef2gtkAdapter
+	require.Equal(t, 1.0, nilAdapter.PageZoomCompensation())
+
+	adapter := &Cef2gtkAdapter{}
+	require.Equal(t, 1.0, adapter.PageZoomCompensation())
+	adapter.destroyed.Store(true)
+	require.Equal(t, 1.0, adapter.PageZoomCompensation())
+}
+
 func TestDestroy_WithHostDefersBridgeDestroyUntilBeforeClose(t *testing.T) {
 	bridge := &Cef2gtkAdapter{}
 	host := &stubBrowserHost{}

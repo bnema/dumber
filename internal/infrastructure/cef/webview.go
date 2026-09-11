@@ -297,6 +297,7 @@ type WebView struct {
 	audioPlaying                    atomic.Bool
 	zoomFactor                      atomic.Value // float64, initialized to 1.0
 	lastAppliedZoomCompensationBits atomic.Uint64
+	zoomApplicationEpoch            atomic.Uint64
 
 	// Browser creation defaults copied from the factory so native popup shells
 	// can apply the same settings in OnBeforePopup.
@@ -629,11 +630,12 @@ func (wv *WebView) applyZoomForCompensation(host purecef.BrowserHost, pageZoom, 
 	// a new compositor frame at the new zoom level.
 	host.NotifyScreenInfoChanged()
 	wv.recordAppliedZoomCompensation(compensation)
+	epoch := wv.zoomApplicationEpoch.Add(1)
 	// Zoom is applied asynchronously in the renderer process. Request a couple
 	// of follow-up refreshes on the CEF UI thread so OSR captures the updated
 	// compositor frame after the zoom IPC has been processed.
 	wv.scheduleZoomRefresh()
-	wv.scheduleZoomReadback(pageZoom, cefLevel, compensation)
+	wv.scheduleZoomReadback(pageZoom, cefLevel, compensation, epoch)
 }
 
 // factorFromCEFZoom converts a Chromium/CEF logarithmic zoom level back to a
@@ -1387,9 +1389,11 @@ func (wv *WebView) destroyViewBridgeOnGTKThread() {
 	}
 	_ = wv.viewBridge.DetachInput()
 	_ = wv.viewBridge.Destroy()
+	wv.mu.Lock()
 	wv.viewBridge = nil
 	wv.zoomCompensation = nil
 	wv.nativeWidget = nil
+	wv.mu.Unlock()
 	// The bridge actually tore down here (second arrivals return early on
 	// the nil guard above), completing the outstanding teardown exactly once.
 	if wv.engine != nil {
@@ -1849,10 +1853,16 @@ func (wv *WebView) osrBackingScaleFactor() float64 {
 // uses CEF's normal logical OSR contract, and it must never be persisted: user
 // page zoom stays a user-facing value that survives output and density changes.
 func (wv *WebView) pageZoomCompensation() float64 {
-	if wv == nil || wv.zoomCompensation == nil {
+	if wv == nil {
 		return 1
 	}
-	return normalizeScale(wv.zoomCompensation.PageZoomCompensation())
+	wv.mu.RLock()
+	bridge := wv.zoomCompensation
+	wv.mu.RUnlock()
+	if bridge == nil {
+		return 1
+	}
+	return normalizeScale(bridge.PageZoomCompensation())
 }
 
 func (wv *WebView) recordAppliedZoomCompensation(compensation float64) {
@@ -1860,6 +1870,13 @@ func (wv *WebView) recordAppliedZoomCompensation(compensation float64) {
 		return
 	}
 	wv.lastAppliedZoomCompensationBits.Store(math.Float64bits(normalizeScale(compensation)))
+}
+
+func (wv *WebView) clearAppliedZoomCompensation() {
+	if wv == nil {
+		return
+	}
+	wv.lastAppliedZoomCompensationBits.Store(0)
 }
 
 // appliedZoomCompensation returns the compensation of the most recent zoom
@@ -2333,11 +2350,11 @@ func (wv *WebView) scheduleZoomRefresh() {
 // Both readbacks are decoded with the compensation of the application they
 // diagnose and are skipped when a newer application superseded it, so a stale
 // CEF zoom level is never relabelled with a newer compensation.
-func (wv *WebView) scheduleZoomReadback(expectedPageZoom, expectedLevel, compensation float64) {
+func (wv *WebView) scheduleZoomReadback(expectedPageZoom, expectedLevel, compensation float64, epoch uint64) {
 	compensation = normalizeScale(compensation)
 	for _, delayMs := range [...]int64{0, 64} {
 		task := cefNewTask(cefTaskFunc(func() {
-			if wv.destroyed.Load() {
+			if wv.destroyed.Load() || wv.zoomApplicationEpoch.Load() != epoch {
 				return
 			}
 			if wv.appliedZoomCompensation() != compensation {

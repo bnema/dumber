@@ -112,6 +112,10 @@ func TestPageZoomCompensationDefaultsToOneWithoutBridge(t *testing.T) {
 
 	wv.zoomCompensation = zoomCompensationStub{compensation: math.NaN()}
 	assert.InDelta(t, 1.0, wv.pageZoomCompensation(), 1e-9)
+
+	var typedNil *Cef2gtkAdapter
+	wv.zoomCompensation = typedNil
+	assert.InDelta(t, 1.0, wv.pageZoomCompensation(), 1e-9)
 }
 
 // withSynchronousCEFTasks replaces delayed task posting with a recorder so tests
@@ -148,6 +152,7 @@ func TestSetZoomLevelAppliesUserZoomThroughCompensation(t *testing.T) {
 
 	require.NoError(t, wv.SetZoomLevel(context.Background(), 1.3))
 
+	assert.Equal(t, []string{"SetZoomLevel", "NotifyScreenInfoChanged"}, host.calls)
 	assert.InDelta(t, cefZoomFromFactor(1.625), host.zoomLevel, 1e-9, "internal CEF level must include user zoom x compensation")
 	assert.InDelta(t, 1.3, wv.GetZoomLevel(), 1e-9, "user zoom must stay user-facing")
 	assert.InDelta(t, 1.25, wv.appliedZoomCompensation(), 1e-9)
@@ -176,17 +181,21 @@ func TestScheduleZoomReadbackSkipsSupersededApplication(t *testing.T) {
 	wv := &WebView{ctx: context.Background(), host: host}
 
 	wv.recordAppliedZoomCompensation(1.25)
-	wv.scheduleZoomReadback(1.3, cefZoomFromPageZoom(1.3, 1.25), 1.25)
+	firstEpoch := wv.zoomApplicationEpoch.Add(1)
+	wv.scheduleZoomReadback(1.3, cefZoomFromPageZoom(1.3, 1.25), 1.25, firstEpoch)
 	require.Len(t, *scheduled, 2)
 	stale := (*scheduled)[0]
 
 	// A newer application supersedes the pending readback: decoding the newer CEF
 	// level with the older compensation would report a wrong user zoom.
-	wv.recordAppliedZoomCompensation(2.0)
+	wv.recordAppliedZoomCompensation(1.25)
+	wv.zoomApplicationEpoch.Add(1)
 	stale.Execute()
 	assert.Zero(t, host.getZoomLevelCalls, "superseded application must not be diagnosed")
 
-	wv.scheduleZoomReadback(1.3, cefZoomFromPageZoom(1.3, 2.0), 2.0)
+	wv.recordAppliedZoomCompensation(2.0)
+	currentEpoch := wv.zoomApplicationEpoch.Add(1)
+	wv.scheduleZoomReadback(1.3, cefZoomFromPageZoom(1.3, 2.0), 2.0, currentEpoch)
 	require.Len(t, *scheduled, 4)
 	(*scheduled)[2].Execute()
 	assert.Equal(t, 1, host.getZoomLevelCalls, "current application must be diagnosed")

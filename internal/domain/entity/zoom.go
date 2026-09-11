@@ -56,11 +56,16 @@ func (z *ZoomLevel) IsDefault() bool {
 	return z.ZoomFactor == ZoomDefault
 }
 
-// Percentage returns the zoom factor as a whole percentage (e.g., 150 for 1.5).
-// Accumulated floating-point error is rounded away so a factor that equals the
-// default zoom in intent (0.9999999999999997) displays as 100, not 99.
+// ZoomPercentage returns a zoom factor as a whole percentage (e.g., 150 for
+// 1.5). Accumulated floating-point error is rounded away so a factor that equals
+// the default zoom in intent (0.9999999999999997) displays as 100, not 99.
+func ZoomPercentage(factor float64) int {
+	return int(math.Round(factor * 100))
+}
+
+// Percentage returns the zoom factor as a whole percentage.
 func (z *ZoomLevel) Percentage() int {
-	return int(math.Round(z.ZoomFactor * 100))
+	return ZoomPercentage(z.ZoomFactor)
 }
 
 // clampZoom constrains a zoom factor to the valid range.
