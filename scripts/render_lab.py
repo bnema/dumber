@@ -39,6 +39,20 @@ RUN_SCHEMA = "render-lab-run-v1"
 VARIANTS = ("baseline", "candidate")
 FPS_CHOICES = ("monitor", "60", "120", "165")
 STACKS = ("vulkan", "egl")
+# Two ways to consume the accelerated frame the bridge receives. This is the
+# comparison a human can judge; it selects the whole render stack, so it is not
+# a pacing knob.
+RENDER_PATHS = {
+    "current": (
+        "vulkan",
+        "ANGLE Vulkan, GDK-wrapped DMA-BUF handed to GSK, GSK Vulkan",
+    ),
+    "dmabuf-copy": (
+        "egl",
+        "ANGLE GL/EGL, DMA-BUF copied into an owned texture, GtkGLArea, GSK OpenGL",
+    ),
+}
+DEFAULT_RENDER_PATH = "current"
 FIXTURE_PATH = "scripts/render_lab/scroll.html"
 
 DEFAULT_OUTPUT_ROOT = Path("dist/render-lab/runs")
@@ -193,6 +207,19 @@ def dev_environment(run_root: Path, base_env: dict) -> dict:
         }
     )
     return env
+
+
+def resolve_stack(render_path: str, stack: str | None) -> str:
+    """Resolve the render path and an explicit stack without contradicting them."""
+    path_stack, _ = RENDER_PATHS[render_path]
+    if stack is None:
+        return path_stack
+    if stack != path_stack:
+        raise LabError(
+            f"--stack {stack} contradicts --render-path {render_path}, which selects "
+            f"{path_stack}; pass only one of them"
+        )
+    return stack
 
 
 def generated_config_toml(fps_mode: str, stack: str) -> str:
@@ -362,9 +389,11 @@ class LaunchPlan:
     fixture_url: str
     fixture_sha256: str
     fps_mode: str
+    render_path: str
     stack: str
     external_begin_frame: bool
     profile_enabled: bool
+    trace_geometry: bool
     profile_output: Path | None
     cef_runtime: dict
     dry_run: bool
@@ -378,9 +407,11 @@ class LaunchPlan:
             "variant": self.variant,
             "status": self.status,
             "fps": self.fps_mode,
+            "render_path": self.render_path,
             "stack": self.stack,
             "external_begin_frame": self.external_begin_frame,
             "profile": self.profile_enabled,
+            "trace_geometry": self.trace_geometry,
             "binary_sha256": self.binary_sha256,
             "manifest_sha256": self.manifest_sha256,
             "repo_head": self.repo_head,
@@ -401,12 +432,15 @@ def build_launch_plan(
     output_root: Path,
     variant: str,
     fps_mode: str,
-    stack: str,
+    render_path: str,
+    stack: str | None,
     external_begin_frame: bool,
     profile_enabled: bool,
+    trace_geometry: bool,
     base_env: dict,
     dry_run: bool,
 ) -> LaunchPlan:
+    resolved_stack = resolve_stack(render_path, stack)
     manifest = load_manifest(repo_root, variant)
     binary = resolve_binary(repo_root, manifest)
     fixture_path = repo_root / FIXTURE_PATH
@@ -424,7 +458,7 @@ def build_launch_plan(
 
     config_dir = dev_root(run_root) / "config"
     config_dir.mkdir(parents=True, exist_ok=True)
-    config_text = generated_config_toml(fps_mode, stack)
+    config_text = generated_config_toml(fps_mode, resolved_stack)
     validate_config_toml(config_text)
     config_path = config_dir / "config.toml"
     config_path.write_text(config_text, encoding="utf-8")
@@ -439,6 +473,12 @@ def build_launch_plan(
         run_env["DUMBER_CEF2GTK_PROFILE_OUTPUT"] = str(profile_output)
     if external_begin_frame:
         run_env["DUMBER_CEF_EXTERNAL_BEGIN_FRAME"] = "1"
+    if trace_geometry:
+        # Named diagnostic, not a passthrough: it prints the geometry contract
+        # the bridge computes for this run so a sizing bug can be read instead of
+        # guessed at.
+        run_env["PUREGO_CEF2GTK_TRACE_OSR"] = "1"
+        run_env["PUREGO_CEF2GTK_TRACE_SCALE"] = "1"
 
     return LaunchPlan(
         variant=variant,
@@ -457,9 +497,11 @@ def build_launch_plan(
         fixture_url="",
         fixture_sha256=sha256_file(fixture_path),
         fps_mode=fps_mode,
-        stack=stack,
+        render_path=render_path,
+        stack=resolved_stack,
         external_begin_frame=external_begin_frame,
         profile_enabled=profile_enabled,
+        trace_geometry=trace_geometry,
         profile_output=profile_output,
         cef_runtime=cef_runtime_record(base_env),
         dry_run=dry_run,
@@ -643,8 +685,12 @@ def print_run_report(plan: LaunchPlan, metadata: dict, summary: dict) -> None:
     print(f"run root:       {plan.run_root}")
     print(f"run id:         {plan.run_root.name}")
     print(f"fixture url:    {plan.fixture_url or '(dry-run: not started)'}")
+    path_detail = RENDER_PATHS[plan.render_path][1]
+    print(f"render path:    {plan.render_path} — {path_detail}")
     print(f"fps mode:       {plan.fps_mode}   stack: {plan.stack}")
     print(f"external BFr:   {plan.external_begin_frame}   profile: {plan.profile_enabled}")
+    if plan.trace_geometry:
+        print("geometry trace: on (diagnostic; see the run log)")
     if plan.dry_run:
         print("dry-run:        launch validated, no browser started")
         return
@@ -898,9 +944,25 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     )
     parser.add_argument("--variant", choices=VARIANTS, default="candidate")
     parser.add_argument("--fps", choices=FPS_CHOICES, default="monitor")
-    parser.add_argument("--stack", choices=STACKS, default="vulkan")
+    parser.add_argument(
+        "--render-path",
+        choices=tuple(RENDER_PATHS),
+        default=DEFAULT_RENDER_PATH,
+        help="how the accelerated frame is consumed (selects the render stack)",
+    )
+    parser.add_argument(
+        "--stack",
+        choices=STACKS,
+        default=None,
+        help="low-level render stack; must agree with --render-path if both are given",
+    )
     parser.add_argument("--external-begin-frame", action="store_true")
     parser.add_argument("--profile", action="store_true")
+    parser.add_argument(
+        "--trace-geometry",
+        action="store_true",
+        help="diagnostic: print the OSR geometry contract the bridge computes",
+    )
     parser.add_argument("--duration", type=float, default=None, metavar="SECONDS")
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--output-root", type=Path, default=None)
@@ -928,9 +990,11 @@ def main(argv: list[str] | None = None) -> int:
             output_root=output_root,
             variant=args.variant,
             fps_mode=args.fps,
+            render_path=args.render_path,
             stack=args.stack,
             external_begin_frame=args.external_begin_frame,
             profile_enabled=args.profile,
+            trace_geometry=args.trace_geometry,
             base_env=base_env,
             dry_run=args.dry_run,
         )

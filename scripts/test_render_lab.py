@@ -245,9 +245,11 @@ class EnvironmentTest(TimeoutTestCase):
             output_root=repo / "out",
             variant="candidate",
             fps_mode="monitor",
-            stack="vulkan",
+            render_path="current",
+            stack=None,
             external_begin_frame=False,
             profile_enabled=False,
+            trace_geometry=False,
             base_env=self._base_env(),
             dry_run=True,
         )
@@ -260,9 +262,11 @@ class EnvironmentTest(TimeoutTestCase):
             output_root=repo / "out",
             variant="candidate",
             fps_mode="monitor",
-            stack="vulkan",
+            render_path="current",
+            stack=None,
             external_begin_frame=True,
             profile_enabled=True,
+            trace_geometry=False,
             base_env=self._base_env(),
             dry_run=True,
         )
@@ -282,9 +286,11 @@ class ManifestTest(TimeoutTestCase):
             output_root=self.repo / "out",
             variant="candidate",
             fps_mode="monitor",
-            stack="vulkan",
+            render_path="current",
+            stack=None,
             external_begin_frame=False,
             profile_enabled=False,
+            trace_geometry=False,
             base_env={"PATH": "/usr/bin"},
             dry_run=True,
         )
@@ -390,9 +396,11 @@ class ExecutionTest(TimeoutTestCase):
             output_root=self.repo / "out",
             variant="candidate",
             fps_mode="monitor",
-            stack="vulkan",
+            render_path="current",
+            stack=None,
             external_begin_frame=False,
             profile_enabled=False,
+            trace_geometry=False,
             base_env=self.base_env,
             dry_run=False,
         )
@@ -497,9 +505,11 @@ class ExecutionTest(TimeoutTestCase):
             output_root=repo / "out",
             variant="candidate",
             fps_mode="monitor",
-            stack="vulkan",
+            render_path="current",
+            stack=None,
             external_begin_frame=False,
             profile_enabled=True,
+            trace_geometry=False,
             base_env=self.base_env,
             dry_run=False,
         )
@@ -576,9 +586,11 @@ class ExecutionTest(TimeoutTestCase):
             output_root=repo / "out",
             variant="baseline",
             fps_mode="monitor",
-            stack="vulkan",
+            render_path="current",
+            stack=None,
             external_begin_frame=False,
             profile_enabled=True,
+            trace_geometry=False,
             base_env=self.base_env,
             dry_run=False,
         )
@@ -689,6 +701,54 @@ class ProfileSummaryTest(TimeoutTestCase):
         self.assertAlmostEqual(summary["scroll_abs_dy_sum"], 301.5)
         self.assertEqual(summary["windows"], 3)
 
+    def test_trace_geometry_is_a_named_diagnostic(self) -> None:
+        repo = build_fake_repo(Path(tempfile.mkdtemp(prefix="lab-trace-")))
+        base_env = {"PATH": "/usr/bin", "PUREGO_CEF2GTK_TRACE_OSR": "inherited"}
+        plan = render_lab.build_launch_plan(
+            repo_root=repo,
+            output_root=repo / "out",
+            variant="candidate",
+            fps_mode="monitor",
+            render_path="current",
+            stack=None,
+            external_begin_frame=False,
+            profile_enabled=False,
+            trace_geometry=True,
+            base_env=base_env,
+            dry_run=True,
+        )
+        self.assertEqual(plan.run_env["PUREGO_CEF2GTK_TRACE_OSR"], "1")
+        self.assertEqual(plan.run_env["PUREGO_CEF2GTK_TRACE_SCALE"], "1")
+        self.assertTrue(plan.metadata()["trace_geometry"])
+
+    def test_render_path_selects_the_stack_and_rejects_conflicts(self) -> None:
+        self.assertEqual(render_lab.resolve_stack("current", None), "vulkan")
+        self.assertEqual(render_lab.resolve_stack("dmabuf-copy", None), "egl")
+        # An explicit stack that agrees is accepted.
+        self.assertEqual(render_lab.resolve_stack("dmabuf-copy", "egl"), "egl")
+        with self.assertRaises(render_lab.LabError):
+            render_lab.resolve_stack("current", "egl")
+
+    def test_render_path_reaches_the_generated_config_and_metadata(self) -> None:
+        repo = build_fake_repo(Path(tempfile.mkdtemp(prefix="lab-path-")))
+        plan = render_lab.build_launch_plan(
+            repo_root=repo,
+            output_root=repo / "out",
+            variant="candidate",
+            fps_mode="monitor",
+            render_path="dmabuf-copy",
+            stack=None,
+            external_begin_frame=False,
+            profile_enabled=False,
+            trace_geometry=False,
+            base_env={"PATH": "/usr/bin"},
+            dry_run=True,
+        )
+        self.assertEqual(plan.stack, "egl")
+        self.assertEqual(plan.metadata()["render_path"], "dmabuf-copy")
+        config = plan.config_path.read_text(encoding="utf-8")
+        self.assertIn('render_stack = "egl"', config)
+
     def test_series_without_quantiles_report_unavailable(self) -> None:
         path = self._write(
             [
@@ -738,9 +798,11 @@ class ProfileSummaryTest(TimeoutTestCase):
             output_root=repo / "out",
             variant="candidate",
             fps_mode="monitor",
-            stack="vulkan",
+            render_path="current",
+            stack=None,
             external_begin_frame=False,
             profile_enabled=False,
+            trace_geometry=False,
             base_env=dict(os.environ, FAKE_SLEEP="60"),
             dry_run=False,
         )

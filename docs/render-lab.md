@@ -25,8 +25,10 @@ is inert while profiling is off. Every run prints this explicitly under
 Comparisons that do change behaviour:
 
 - `--fps monitor` versus `--fps 60` (adaptive 120 Hz versus a fixed 60 Hz).
-- `--stack vulkan` versus `--stack egl` (ANGLE Vulkan with GDK DMA-BUF and GSK
-  Vulkan, versus ANGLE GL/EGL with GtkGLArea and GSK OpenGL).
+- `--render-path current` versus `--render-path dmabuf-copy`: the borrowed
+  DMA-BUF handed to GSK, versus copied into an owned texture presented through
+  GtkGLArea (ANGLE Vulkan with GDK DMA-BUF and GSK Vulkan, versus ANGLE GL/EGL
+  with GSK OpenGL).
 - `--external-begin-frame` on versus off.
 
 ## Building the two variants
@@ -86,14 +88,65 @@ python3 scripts/render_lab.py --variant candidate --dry-run
 | --- | --- | --- |
 | `--variant` | `baseline`, `candidate` | `candidate` |
 | `--fps` | `monitor`, `60`, `120`, `165` | `monitor` |
-| `--stack` | `vulkan`, `egl` | `vulkan` |
+| `--render-path` | `current`, `dmabuf-copy` | `current` |
+| `--stack` | `vulkan`, `egl` | derived from `--render-path` |
 | `--external-begin-frame` | flag | off |
 | `--profile` | flag | off |
+| `--trace-geometry` | flag | off |
 | `--duration SECONDS` | positive number | unbounded |
 | `--dry-run` | flag | off |
 | `--output-root PATH` | directory | `dist/render-lab/runs` |
 
 There is no shell or CEF-flag passthrough in this version.
+
+## Two DMA-BUF consumption paths
+
+The accelerated frame CEF hands over is a borrowed DMA-BUF. There are two ways
+the bridge consumes it today, and `--render-path` selects between them. This is
+the comparison a human can judge by feel.
+
+| Path | What it does | Stack it selects |
+| --- | --- | --- |
+| `current` (default) | Hands the borrowed DMA-BUF to GSK, which wraps it: ANGLE Vulkan, GDK DMA-BUF texture, GSK Vulkan. | `vulkan` |
+| `dmabuf-copy` | Copies the DMA-BUF into a texture the bridge owns and presents it through GtkGLArea: ANGLE GL/EGL, GSK OpenGL. | `egl` |
+
+```bash
+python3 scripts/render_lab.py --render-path current     --fps monitor
+python3 scripts/render_lab.py --render-path dmabuf-copy --fps monitor
+```
+
+`--stack vulkan|egl` still exists as the low-level selector. Passing both is
+allowed only when they agree; a contradiction is refused instead of silently
+picking one.
+
+What the copy path is and is not:
+
+- It never keeps the borrowed descriptor as the presented object, so the frame
+  the presenter shows is one the bridge allocated.
+- It does **not** wait for the producer to finish writing, because no completion
+  signal is available through the CEF API. It is a different consumption
+  strategy, not a verified ownership fix, and it is not certified safe.
+- It copies once per frame on the GTK thread, so expect it to cost more CPU per
+  frame, not less, and it exercises a different GSK renderer (OpenGL instead of
+  Vulkan).
+
+Keep the frame-rate mode identical between the two runs, and use the same pane
+size. Profiling is orthogonal: add `--profile` to either side when you want the
+counters.
+
+`--trace-geometry` is a named diagnostic, not a passthrough: it makes the bridge
+print the OSR geometry contract it computes, so a sizing or scale problem can be
+read from the log instead of guessed at. It prints one line per observation like:
+
+```
+cef2gtk-osr-geometry callback=view-rect backend=glarea widget_logical=1022x1726 \
+  osr_rect=1278x2158 device_scale=1.250 backing_scale_enabled=true \
+  expected_device=1278x2158
+```
+
+`osr_rect` must equal `expected_device`; if it does not, the frame CEF renders is
+not the size of the widget's framebuffer, and the presenter will leave part of
+the widget empty. Both paths print the same numbers on a given output.
 
 `--fps monitor` keeps CEF's OSR rate adapted to the active monitor refresh
 rate, capped at 240, with 60 as the fallback when the refresh rate is unknown.
