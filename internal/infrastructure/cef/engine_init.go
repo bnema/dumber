@@ -50,7 +50,7 @@ func NewEngine(
 		logger.Warn().Str("state_root", stateRoot).Msg("cef: applying next-start GPU safety recovery")
 	}
 	cleanStaleSingletonLocks(logger, stateRoot)
-	windowlessFrameRate := normalizedWindowlessFrameRate(cfg.WindowlessFrameRate)
+	windowlessFrameRate, adaptiveWindowlessFrameRate := resolveWindowlessFrameRate(cfg.WindowlessFrameRate, cfg.AdaptiveWindowlessFrameRate)
 	renderStackPlan, err := resolveCEFRenderStackPlan(cfg.RenderStack)
 	if err != nil {
 		return nil, err
@@ -89,6 +89,7 @@ func NewEngine(
 
 	logger.Info().
 		Int32("windowless_frame_rate", windowlessFrameRate).
+		Bool("windowless_frame_rate_pinned", windowlessFrameRatePinned()).
 		Str("render_stack", string(renderStackPlan.Stack)).
 		Str("render_backend", renderStackPlan.Backend.String()).
 		Str("angle_backend", renderStackPlan.ANGLEBackend).
@@ -109,7 +110,7 @@ func NewEngine(
 		ctx,
 		eng,
 		webViewFactoryOptions{
-			adaptiveWindowlessFrameRate: cfg.AdaptiveWindowlessFrameRate,
+			adaptiveWindowlessFrameRate: adaptiveWindowlessFrameRate,
 			windowlessFrameRate:         windowlessFrameRate,
 			windowlessFrameRateMax:      cfg.WindowlessFrameRateMax,
 			inputConfig:                 cfg.Input,
