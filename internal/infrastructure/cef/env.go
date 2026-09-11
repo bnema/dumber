@@ -53,6 +53,13 @@ func windowlessFrameRateOverride() (int32, bool) {
 	return int32(rate), true
 }
 
+// windowlessFrameRatePinned reports whether the environment pins the OSR frame
+// rate, which also suspends adaptive monitor-refresh polling.
+func windowlessFrameRatePinned() bool {
+	_, pinned := windowlessFrameRateOverride()
+	return pinned
+}
+
 func cefWebAuthnUnsafeEnabled() bool {
 	return envBoolEnabled(cefEnableWebAuthnUnsafeEnvVar)
 }

@@ -3,7 +3,63 @@ package cef
 import (
 	"strconv"
 	"testing"
+
+	purecef "github.com/bnema/purego-cef/cef"
 )
+
+func TestWindowlessFrameRatePinnedFollowsTheOverride(t *testing.T) {
+	cases := []struct {
+		value string
+		want  bool
+	}{
+		{value: "", want: false},
+		{value: "60", want: true},
+		{value: " 144 ", want: true},
+		{value: "0", want: false},
+		{value: "-60", want: false},
+		{value: "many", want: false},
+		{value: strconv.FormatInt(int64(1)<<40, 10), want: false},
+	}
+	for _, testCase := range cases {
+		t.Run("pin:"+testCase.value, func(t *testing.T) {
+			t.Setenv(cefWindowlessFrameRateEnvVar, testCase.value)
+			if got := windowlessFrameRatePinned(); got != testCase.want {
+				t.Fatalf("windowlessFrameRatePinned(%q) = %v, want %v", testCase.value, got, testCase.want)
+			}
+		})
+	}
+}
+
+func TestConfigureNativePopupWindowKeepsExternalBeginFrameOptIn(t *testing.T) {
+	// The pin is only worth asserting through a real call site: the inverted
+	// default shipped because only the boolean helper was covered.
+	cases := []struct {
+		value string
+		want  int32
+	}{
+		{value: "", want: 0},
+		{value: "0", want: 0},
+		{value: "false", want: 0},
+		{value: "random", want: 0},
+		{value: "1", want: 1},
+		{value: "true", want: 1},
+		{value: "on", want: 1},
+	}
+	for _, testCase := range cases {
+		t.Run("call-site:"+testCase.value, func(t *testing.T) {
+			t.Setenv(cefExternalBeginFrameEnvVar, testCase.value)
+			windowInfo := purecef.NewWindowInfo()
+			settings := purecef.NewBrowserSettings()
+
+			configureNativePopupWindow(&windowInfo, &settings, 60)
+
+			if windowInfo.ExternalBeginFrameEnabled != testCase.want {
+				t.Fatalf("ExternalBeginFrameEnabled with %q = %d, want %d",
+					testCase.value, windowInfo.ExternalBeginFrameEnabled, testCase.want)
+			}
+		})
+	}
+}
 
 func TestResolveWindowlessFrameRatePrefersAPinnedRate(t *testing.T) {
 	t.Setenv(cefWindowlessFrameRateEnvVar, "")

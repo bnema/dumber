@@ -89,6 +89,7 @@ func NewEngine(
 
 	logger.Info().
 		Int32("windowless_frame_rate", windowlessFrameRate).
+		Bool("windowless_frame_rate_pinned", windowlessFrameRatePinned()).
 		Str("render_stack", string(renderStackPlan.Stack)).
 		Str("render_backend", renderStackPlan.Backend.String()).
 		Str("angle_backend", renderStackPlan.ANGLEBackend).
