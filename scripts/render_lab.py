@@ -623,8 +623,21 @@ def write_run_artifacts(plan: LaunchPlan, metadata: dict) -> None:
         os.chmod(plan.profile_output, 0o600)
 
 
+def render_change_note(status: str) -> str:
+    """State plainly whether this build carries a rendering change."""
+    if status == "baseline":
+        return "reference build: no rendering change, no instrumentation"
+    if status == "ownership-verified-candidate":
+        return "includes a verified ownership change"
+    return (
+        "measurement only: this binary carries no rendering, ownership or pacing "
+        "change"
+    )
+
+
 def print_run_report(plan: LaunchPlan, metadata: dict, summary: dict) -> None:
     print(f"variant:        {plan.variant} ({plan.status})")
+    print(f"what changed:   {render_change_note(plan.status)}")
     print(f"binary:         {plan.binary}")
     print(f"binary sha256:  {plan.binary_sha256}")
     print(f"run root:       {plan.run_root}")

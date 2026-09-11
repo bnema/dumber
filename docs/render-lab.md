@@ -14,6 +14,21 @@ Only the second question has machine-checkable counters, and only for a build
 that carries the `gdk_pipeline` instrumentation (see *Metrics*). Everything
 else is human judgement.
 
+**The candidate is a measurement build.** Unless its manifest says
+`ownership-verified-candidate`, it contains no rendering, ownership or pacing
+change: comparing it with the baseline compares two functionally identical
+pipelines while collecting telemetry. A candidate built from the same source as
+the baseline differs only in the bridge revision carrying instrumentation, which
+is inert while profiling is off. Every run prints this explicitly under
+`what changed:`.
+
+Comparisons that do change behaviour:
+
+- `--fps monitor` versus `--fps 60` (adaptive 120 Hz versus a fixed 60 Hz).
+- `--stack vulkan` versus `--stack egl` (ANGLE Vulkan with GDK DMA-BUF and GSK
+  Vulkan, versus ANGLE GL/EGL with GtkGLArea and GSK OpenGL).
+- `--external-begin-frame` on versus off.
+
 ## Building the two variants
 
 Both variants must be built from their own checkout. The baseline is always a

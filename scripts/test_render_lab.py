@@ -516,6 +516,7 @@ class ExecutionTest(TimeoutTestCase):
         report = buffer.getvalue()
         for expected in (
             "variant:        candidate",
+            "what changed:   measurement only",
             "received_to_import_ms: samples=6",
             "p50=1.5000ms",
             "counters: received=6 replaced=2",
@@ -708,6 +709,21 @@ class ProfileSummaryTest(TimeoutTestCase):
         self.assertEqual(series["samples_total"], 0)
         self.assertIsNone(series["p50"])
         self.assertIsNone(series["p95"])
+
+    def test_render_change_note_is_explicit(self) -> None:
+        self.assertIn("no rendering change", render_lab.render_change_note("baseline"))
+        self.assertIn(
+            "no rendering, ownership or pacing",
+            render_lab.render_change_note("instrumentation-only"),
+        )
+        self.assertIn(
+            "verified ownership change",
+            render_lab.render_change_note("ownership-verified-candidate"),
+        )
+        self.assertNotIn(
+            "no rendering",
+            render_lab.render_change_note("ownership-verified-candidate"),
+        )
 
     def test_malformed_lines_are_skipped(self) -> None:
         path = Path(tempfile.mkdtemp(prefix="lab-profile-")) / "profile.jsonl"
