@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dumber render lab scroll fixture</title>
+<style>
+  :root {
+    color-scheme: dark light;
+    --line: rgba(255, 255, 255, 0.10);
+    --ink: #e8e8ea;
+    --muted: #9aa0a6;
+    --accent: #6ea8fe;
+  }
+  html { scroll-behavior: auto; }
+  body {
+    margin: 0;
+    font-family: system-ui, sans-serif;
+    font-size: 15px;
+    line-height: 1.4;
+    color: var(--ink);
+    background: #101114;
+    overflow-x: hidden;
+  }
+  #panel {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+    padding: 8px 10px;
+    background: #1b1d22;
+    border-bottom: 1px solid var(--line);
+  }
+  #panel button, #panel select {
+    font: inherit;
+    color: var(--ink);
+    background: #262a31;
+    border: 1px solid #3a3f47;
+    border-radius: 6px;
+    padding: 5px 10px;
+  }
+  #panel button:focus-visible, #panel select:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+  #mode { color: var(--muted); }
+  #mode b { color: var(--ink); }
+  #cards { margin: 0; padding: 0; list-style: none; }
+  #cards li {
+    /* Alternating backgrounds plus a thin hairline create high-contrast vertical
+       edges that make dropped or torn frames easy to spot while scrolling. */
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--line);
+    background-image: repeating-linear-gradient(
+      to bottom,
+      rgba(255, 255, 255, 0.035) 0,
+      rgba(255, 255, 255, 0.035) 1px,
+      transparent 1px,
+      transparent 4px
+    );
+  }
+  #cards li:nth-child(even) { background-color: #16181d; }
+  #cards li:nth-child(odd) { background-color: #0d0e11; }
+  #cards li span.index { color: var(--muted); font-variant-numeric: tabular-nums; }
+  #footer { padding: 24px 16px 64px; color: var(--muted); }
+</style>
+</head>
+<body>
+<main>
+  <div id="panel">
+    <button id="start" type="button">Start auto-scroll</button>
+    <button id="stop" type="button" disabled>Stop</button>
+    <button id="reset" type="button">Reset</button>
+    <label for="speed">Speed</label>
+    <select id="speed" aria-label="Auto-scroll speed">
+      <option value="600" selected>600 px/s</option>
+      <option value="1200">1200 px/s</option>
+    </select>
+    <span>mode: <b id="mode" aria-live="polite">idle</b></span>
+    <span>page rAF p50: <b id="raf">–</b> ms</span>
+  </div>
+  <ol id="cards"></ol>
+  <p id="footer">End of fixture. Page rAF numbers above are page-level requestAnimationFrame
+    intervals, not GTK presentation times.</p>
+</main>
+<script>
+(function () {
+  "use strict";
+
+  var CARD_COUNT = 400;
+  var RAF_SAMPLE_LIMIT = 512;
+  var rAFIntervals = [];
+  var rAFLast = 0;
+  var autoScrolling = false;
+  var speed = 600;
+  var lastFrameTime = 0;
+
+  // Generate cards once; no per-frame DOM churn so layout stays trivial.
+  var frag = document.createDocumentFragment();
+  for (var i = 1; i <= CARD_COUNT; i++) {
+    var li = document.createElement("li");
+    var idx = document.createElement("span");
+    idx.className = "index";
+    idx.textContent = String(i).padStart(3, "0") + " ";
+    li.appendChild(idx);
+    li.appendChild(document.createTextNode(
+      "fixture card " + i + " — hairline row for scroll clarity"
+    ));
+    frag.appendChild(li);
+  }
+  document.getElementById("cards").appendChild(frag);
+
+  var modeEl = document.getElementById("mode");
+  var rafEl = document.getElementById("raf");
+
+  function updateRAFReadout() {
+    var summary = nearestRank(rAFIntervals, 0.5);
+    rafEl.textContent = summary === null ? "–" : summary.toFixed(2);
+  }
+  var startBtn = document.getElementById("start");
+  var stopBtn = document.getElementById("stop");
+  var resetBtn = document.getElementById("reset");
+  var speedEl = document.getElementById("speed");
+
+  function reduceMotion() {
+    return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  }
+
+  function nearestRank(values, fraction) {
+    if (values.length === 0) { return null; }
+    var sorted = values.slice().sort(function (a, b) { return a - b; });
+    var rank = Math.ceil(fraction * sorted.length);
+    if (rank < 1) { rank = 1; }
+    if (rank > sorted.length) { rank = sorted.length; }
+    return sorted[rank - 1];
+  }
+
+  function setMode(text) {
+    modeEl.textContent = text;
+    updateRAFReadout();
+  }
+
+  function recordRAFInterval(delta) {
+    if (!(delta > 0)) { return; }
+    rAFIntervals.push(delta);
+    var overflow = rAFIntervals.length - RAF_SAMPLE_LIMIT;
+    if (overflow > 0) { rAFIntervals.splice(0, overflow); }
+  }
+
+  function onRAF(now) {
+    if (rAFLast > 0) { recordRAFInterval(now - rAFLast); }
+    rAFLast = now;
+    if (autoScrolling) {
+      var dt = lastFrameTime > 0 ? (now - lastFrameTime) : 0;
+      lastFrameTime = now;
+      var next = window.scrollY + (speed * dt) / 1000;
+      var max = document.documentElement.scrollHeight - window.innerHeight;
+      if (next >= max) {
+        window.scrollTo(0, max);
+        stopAutoScroll("bottom");
+        return;
+      }
+      window.scrollTo(0, next);
+      requestAnimationFrame(onRAF);
+    } else {
+      lastFrameTime = 0;
+    }
+  }
+
+  function startAutoScroll() {
+    if (autoScrolling) { return; }
+    autoScrolling = true;
+    lastFrameTime = 0;
+    rAFLast = 0;
+    startBtn.disabled = true;
+    stopBtn.disabled = false;
+    setMode("auto " + speed + " px/s");
+    requestAnimationFrame(onRAF);
+  }
+
+  function stopAutoScroll(reason) {
+    if (!autoScrolling) { return; }
+    autoScrolling = false;
+    lastFrameTime = 0;
+    startBtn.disabled = false;
+    stopBtn.disabled = true;
+    setMode("idle (" + reason + ")");
+  }
+
+  startBtn.addEventListener("click", startAutoScroll);
+  stopBtn.addEventListener("click", function () { stopAutoScroll("manual"); });
+  resetBtn.addEventListener("click", function () {
+    stopAutoScroll("reset");
+    rAFIntervals = [];
+    window.scrollTo(0, 0);
+    setMode("idle (reset)");
+  });
+  speedEl.addEventListener("change", function () {
+    speed = Number(speedEl.value) || 600;
+    if (autoScrolling) { setMode("auto " + speed + " px/s"); }
+  });
+
+  // Manual input wins: never fight the user's wheel, touch or keys.
+  ["wheel", "touchstart", "keydown"].forEach(function (name) {
+    window.addEventListener(name, function () { stopAutoScroll("manual input"); },
+      { passive: true });
+  });
+
+  document.addEventListener("visibilitychange", function () {
+    if (document.hidden) { stopAutoScroll("hidden"); }
+  });
+
+  // Bounded, inspectable summary. Page rAF is not GTK presentation.
+  window.renderLab = {
+    rafSamples: function () { return rAFIntervals.slice(); },
+    rafSummary: function () {
+      return {
+        count: rAFIntervals.length,
+        p50: nearestRank(rAFIntervals, 0.5),
+        p95: nearestRank(rAFIntervals, 0.95),
+        note: "page rAF, not GTK presentation"
+      };
+    },
+    autoScrolling: function () { return autoScrolling; }
+  };
+
+  setMode(reduceMotion() ? "idle (reduced motion: no auto-start)" : "idle");
+})();
+</script>
+</body>
+</html>

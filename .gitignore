@@ -96,6 +96,12 @@ scripts/*
 !scripts/test_measure_cef_startup.py
 !scripts/generate_build_manifest.py
 !scripts/test_systemview_startup.py
+!scripts/render_lab.py
+!scripts/render_lab_build.py
+!scripts/test_render_lab.py
+!scripts/test_render_lab_build.py
+!scripts/render_lab/
+!scripts/render_lab/scroll.html
 specs/
 templates/
 .serena/
