@@ -34,13 +34,10 @@ WASM_GOFLAGS?=$(GOFLAGS)
 # Linker flags
 LDFLAGS=-ldflags "-s -w -X main.version=$(VERSION) -X main.commit=$(COMMIT) -X main.buildDate=$(BUILD_DATE)"
 
-# Blessed toolchain for systemview artifacts, read from go.mod so there is
-# exactly one version to bump. The verify-generated CI gate rebuilds these
-# artifacts with setup-go's pinned toolchain: recipe-level GOTOOLCHAIN
-# (not ambient environment) plus GOENV=off (ignore the developer's go env
-# file — e.g. a local GOEXPERIMENT changes runtime codegen) is what makes
-# local builds byte-identical to CI's.
-SYSTEMVIEWS_GOTOOLCHAIN?=$(shell grep '^toolchain ' go.mod | awk '{print $$2}')
+# Systemview artifacts are built with the toolchain that satisfies go.mod's
+# go directive: setup-go's toolchain in CI, the local Go elsewhere. GOENV=off
+# keeps the developer's go env file out of the build (e.g. a local GOEXPERIMENT
+# changes runtime codegen), so one toolchain always yields the same WASM bytes.
 
 # Disable optimizations and inlining for ALL packages. purego callbacks
 # create mixed Go/C stack frames; the Go runtime (stack growth, GC,
@@ -70,15 +67,15 @@ build: build-systemviews verify-systemviews-assets ## Build the application (pur
 
 generate-systemviews: ## Generate Go code from systemviews templ components
 	@echo "Generating systemviews templ components..."
-	GOTOOLCHAIN="$(SYSTEMVIEWS_GOTOOLCHAIN)" GOENV=off go tool templ generate -path internal/ui/systemviews -include-version=false
+	GOENV=off go tool templ generate -path internal/ui/systemviews -include-version=false
 	@echo "Systemviews templ generation complete"
 
 build-systemviews: generate-systemviews ## Build the WASM systemviews runtime
 	@echo "Building systemviews wasm assets..."
 	@command -v brotli >/dev/null 2>&1 || { echo "Error: brotli is required to build compressed systemviews assets. Install brotli and retry."; exit 1; }
 	@mkdir -p assets/systemviews
-	@cp -f "$$(GOTOOLCHAIN="$(SYSTEMVIEWS_GOTOOLCHAIN)" go env GOROOT)/lib/wasm/wasm_exec.js" assets/systemviews/wasm_exec.js
-	GOFLAGS="$(WASM_GOFLAGS)" GOTOOLCHAIN="$(SYSTEMVIEWS_GOTOOLCHAIN)" GOENV=off GOOS=js GOARCH=wasm go build -trimpath -buildvcs=false -ldflags="-s -w" -o assets/systemviews/systemviews.wasm ./cmd/systemviews
+	@cp -f "$$(go env GOROOT)/lib/wasm/wasm_exec.js" assets/systemviews/wasm_exec.js
+	GOFLAGS="$(WASM_GOFLAGS)" GOENV=off GOOS=js GOARCH=wasm go build -trimpath -buildvcs=false -ldflags="-s -w" -o assets/systemviews/systemviews.wasm ./cmd/systemviews
 	brotli -f -o assets/systemviews/systemviews.wasm.br assets/systemviews/systemviews.wasm
 	go run ./cmd/systemviews-assets -dir assets/systemviews
 	@echo "Systemviews build complete"
