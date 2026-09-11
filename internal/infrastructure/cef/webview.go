@@ -99,6 +99,14 @@ var (
 	cefScheduleAfter    = func(delay time.Duration, fn func()) { time.AfterFunc(delay, fn) }
 )
 
+// pageZoomCompensationBridge is the narrow bridge surface Dumber reads the OSR
+// page-zoom compensation from. The compensation is owned by purego-cef2gtk's OSR
+// geometry contract, so Dumber must never derive it from GTK surface or backing
+// geometry itself.
+type pageZoomCompensationBridge interface {
+	PageZoomCompensation() float64
+}
+
 // WebView implements port.WebView using a CEF off-screen browser rendered and
 // driven through purego-cef2gtk. Dumber owns browser state and callbacks; the
 // bridge owns GTK rendering and input forwarding.
@@ -111,6 +119,7 @@ type WebView struct {
 	host                      purecef.BrowserHost
 	client                    purecef.RawClient // prevent GC from collecting the client before CEF AddRef's it
 	viewBridge                *Cef2gtkAdapter
+	zoomCompensation          pageZoomCompensationBridge
 	popupSurface              *popupBridgeSurface
 	nativeWidget              *gtk.Widget
 	handlers                  *handlerSet
@@ -283,11 +292,11 @@ type WebView struct {
 	// bridgeTeardownNoted gates quiescence accounting exactly once per
 	// view: every bridge teardown is scheduled through the Sync/Async
 	// wrappers below and completes in destroyViewBridgeOnGTKThread.
-	bridgeTeardownNoted           atomic.Bool
-	generation                    atomic.Uint64
-	audioPlaying                  atomic.Bool
-	zoomFactor                    atomic.Value // float64, initialized to 1.0
-	lastAppliedZoomScaleRatioBits atomic.Uint64
+	bridgeTeardownNoted             atomic.Bool
+	generation                      atomic.Uint64
+	audioPlaying                    atomic.Bool
+	zoomFactor                      atomic.Value // float64, initialized to 1.0
+	lastAppliedZoomCompensationBits atomic.Uint64
 
 	// Browser creation defaults copied from the factory so native popup shells
 	// can apply the same settings in OnBeforePopup.
@@ -592,23 +601,25 @@ func cefZoomFromFactor(factor float64) float64 {
 	return math.Log(factor) / math.Log(chromiumZoomBase)
 }
 
-func zoomScaleRatio(surfaceScale, backingScale float64) float64 {
-	backingScale = normalizeScale(backingScale)
-	if backingScale <= 1 {
-		return 1
-	}
-	return normalizeScale(surfaceScale) / backingScale
+// cefZoomFromPageZoom converts user page zoom to CEF's logarithmic zoom level by
+// folding in the bridge's OSR page-zoom compensation, so one CSS pixel keeps
+// matching one GTK logical pixel on every output scale.
+func cefZoomFromPageZoom(pageZoom, compensation float64) float64 {
+	return cefZoomFromFactor(normalizeScale(pageZoom) * normalizeScale(compensation))
 }
 
-func cefZoomFromPageAndScaleFactors(pageZoom, surfaceScale, backingScale float64) float64 {
-	return cefZoomFromFactor(pageZoom * zoomScaleRatio(surfaceScale, backingScale))
+// pageZoomFromCEFLevel is the inverse of cefZoomFromPageZoom: it reports the
+// user-facing page zoom for a CEF zoom level observed under compensation.
+func pageZoomFromCEFLevel(level, compensation float64) float64 {
+	return factorFromCEFZoom(level) / normalizeScale(compensation)
 }
 
-func pageZoomFromCEFAndScaleLevel(level, surfaceScale, backingScale float64) float64 {
-	return factorFromCEFZoom(level) / zoomScaleRatio(surfaceScale, backingScale)
-}
-
-func (wv *WebView) applyCEFZoomLevel(host purecef.BrowserHost, factor, cefLevel, surfaceScale, backingScale float64) {
+// applyZoomForCompensation applies one user page zoom through CEF using the
+// compensation of the OSR contract that is active in the bridge. Every zoom
+// application goes through this path so the applied compensation is recorded once.
+func (wv *WebView) applyZoomForCompensation(host purecef.BrowserHost, pageZoom, compensation float64) {
+	compensation = normalizeScale(compensation)
+	cefLevel := cefZoomFromPageZoom(pageZoom, compensation)
 	host.SetZoomLevel(cefLevel)
 	// Force CEF to produce a new frame at the new zoom level. In OSR mode,
 	// SetZoomLevel changes the Blink layout zoom but doesn't guarantee a
@@ -617,12 +628,12 @@ func (wv *WebView) applyCEFZoomLevel(host purecef.BrowserHost, factor, cefLevel,
 	// SynchronizeVisualProperties cycle, which makes the renderer produce
 	// a new compositor frame at the new zoom level.
 	host.NotifyScreenInfoChanged()
-	wv.recordAppliedZoomScaleRatio(surfaceScale, backingScale)
+	wv.recordAppliedZoomCompensation(compensation)
 	// Zoom is applied asynchronously in the renderer process. Request a couple
 	// of follow-up refreshes on the CEF UI thread so OSR captures the updated
 	// compositor frame after the zoom IPC has been processed.
 	wv.scheduleZoomRefresh()
-	wv.scheduleZoomReadback(factor, cefLevel)
+	wv.scheduleZoomReadback(pageZoom, cefLevel, compensation)
 }
 
 // factorFromCEFZoom converts a Chromium/CEF logarithmic zoom level back to a
@@ -651,15 +662,15 @@ func (wv *WebView) SetZoomLevel(_ context.Context, factor float64) error {
 		return errNoBrowser
 	}
 	surfaceScale := wv.viewBridgeScale()
-	backingScale := wv.osrBackingScaleFactor()
-	cefLevel := cefZoomFromPageAndScaleFactors(factor, surfaceScale, backingScale)
+	compensation := wv.pageZoomCompensation()
+	cefLevel := cefZoomFromPageZoom(factor, compensation)
 	logging.FromContext(wv.ctx).Debug().
 		Float64("factor", factor).
 		Float64("cef_level", cefLevel).
-		Float64("osr_backing_scale", backingScale).
+		Float64("page_zoom_compensation", compensation).
 		Float64("surface_scale", surfaceScale).
 		Msg("cef: SetZoomLevel")
-	wv.applyCEFZoomLevel(host, factor, cefLevel, surfaceScale, backingScale)
+	wv.applyZoomForCompensation(host, factor, compensation)
 	wv.zoomFactor.Store(factor)
 	return nil
 }
@@ -1377,6 +1388,7 @@ func (wv *WebView) destroyViewBridgeOnGTKThread() {
 	_ = wv.viewBridge.DetachInput()
 	_ = wv.viewBridge.Destroy()
 	wv.viewBridge = nil
+	wv.zoomCompensation = nil
 	wv.nativeWidget = nil
 	// The bridge actually tore down here (second arrivals return early on
 	// the nil guard above), completing the outstanding teardown exactly once.
@@ -1822,6 +1834,9 @@ func (wv *WebView) viewBridgeScale() float64 {
 	return normalizeScale(float64(wv.viewBridge.DeviceScaleFactor()))
 }
 
+// osrBackingScaleFactor reports the bridge's OSR backing scale used for view,
+// popup, and input geometry. It is 1 when the bridge uses CEF's normal logical
+// OSR contract.
 func (wv *WebView) osrBackingScaleFactor() float64 {
 	if wv == nil || wv.viewBridge == nil {
 		return 1
@@ -1829,23 +1844,50 @@ func (wv *WebView) osrBackingScaleFactor() float64 {
 	return normalizeScale(wv.viewBridge.OSRBackingScaleFactor())
 }
 
-func (wv *WebView) recordAppliedZoomScaleRatio(surfaceScale, backingScale float64) {
+// pageZoomCompensation reports the compensation of the OSR geometry contract
+// currently active in the render bridge. It is 1 when the bridge is missing or
+// uses CEF's normal logical OSR contract, and it must never be persisted: user
+// page zoom stays a user-facing value that survives output and density changes.
+func (wv *WebView) pageZoomCompensation() float64 {
+	if wv == nil || wv.zoomCompensation == nil {
+		return 1
+	}
+	return normalizeScale(wv.zoomCompensation.PageZoomCompensation())
+}
+
+func (wv *WebView) recordAppliedZoomCompensation(compensation float64) {
 	if wv == nil {
 		return
 	}
-	wv.lastAppliedZoomScaleRatioBits.Store(math.Float64bits(zoomScaleRatio(surfaceScale, backingScale)))
+	wv.lastAppliedZoomCompensationBits.Store(math.Float64bits(normalizeScale(compensation)))
 }
 
-func (wv *WebView) shouldReapplyZoomForScaleRatio(surfaceScale, backingScale float64) bool {
+// appliedZoomCompensation returns the compensation of the most recent zoom
+// application, or 0 when no zoom has been applied to the current host.
+func (wv *WebView) appliedZoomCompensation() float64 {
+	if wv == nil {
+		return 0
+	}
+	bits := wv.lastAppliedZoomCompensationBits.Load()
+	if bits == 0 {
+		return 0
+	}
+	return math.Float64frombits(bits)
+}
+
+// shouldReapplyZoomForCompensation reports whether page zoom must be applied
+// again for compensation. An unknown applied compensation always reapplies; an
+// unchanged one never does, so an output transition that keeps the same OSR
+// contract causes no redundant reapplication.
+func (wv *WebView) shouldReapplyZoomForCompensation(compensation float64) bool {
 	if wv == nil {
 		return false
 	}
-	ratio := zoomScaleRatio(surfaceScale, backingScale)
-	bits := wv.lastAppliedZoomScaleRatioBits.Load()
-	if bits == 0 {
+	applied := wv.appliedZoomCompensation()
+	if applied == 0 {
 		return true
 	}
-	return math.Float64frombits(bits) != ratio
+	return applied != normalizeScale(compensation)
 }
 
 func (wv *WebView) handleMiddleClickFromBridge() bool {
@@ -2287,10 +2329,18 @@ func (wv *WebView) scheduleZoomRefresh() {
 //     process the zoom IPC and reflect the new level back to the browser.
 //
 // These values are empirically tuned for CEF's async zoom application.
-func (wv *WebView) scheduleZoomReadback(expectedFactor, expectedLevel float64) {
+//
+// Both readbacks are decoded with the compensation of the application they
+// diagnose and are skipped when a newer application superseded it, so a stale
+// CEF zoom level is never relabelled with a newer compensation.
+func (wv *WebView) scheduleZoomReadback(expectedPageZoom, expectedLevel, compensation float64) {
+	compensation = normalizeScale(compensation)
 	for _, delayMs := range [...]int64{0, 64} {
 		task := cefNewTask(cefTaskFunc(func() {
 			if wv.destroyed.Load() {
+				return
+			}
+			if wv.appliedZoomCompensation() != compensation {
 				return
 			}
 			wv.mu.RLock()
@@ -2300,16 +2350,15 @@ func (wv *WebView) scheduleZoomReadback(expectedFactor, expectedLevel float64) {
 				return
 			}
 			surfaceScale := wv.viewBridgeScale()
-			backingScale := wv.osrBackingScaleFactor()
 			actualLevel := host.GetZoomLevel()
 			logging.FromContext(wv.ctx).Debug().
 				Int64("delay_ms", delayMs).
-				Float64("expected_factor", expectedFactor).
+				Float64("expected_factor", expectedPageZoom).
 				Float64("expected_cef_level", expectedLevel).
-				Float64("actual_factor", pageZoomFromCEFAndScaleLevel(actualLevel, surfaceScale, backingScale)).
+				Float64("actual_factor", pageZoomFromCEFLevel(actualLevel, compensation)).
 				Float64("actual_cef_factor", factorFromCEFZoom(actualLevel)).
 				Float64("actual_cef_level", actualLevel).
-				Float64("osr_backing_scale", backingScale).
+				Float64("page_zoom_compensation", compensation).
 				Float64("surface_scale", surfaceScale).
 				Msg("cef: zoom level readback")
 		}))
@@ -2320,6 +2369,10 @@ func (wv *WebView) scheduleZoomReadback(expectedFactor, expectedLevel float64) {
 	}
 }
 
+// reapplyCurrentZoomForBackingScale reapplies the current user page zoom after
+// the bridge reported a different OSR page-zoom compensation, so the CSS
+// viewport keeps matching the GTK logical view size. User page zoom itself is
+// never mutated by an output transition.
 func (wv *WebView) reapplyCurrentZoomForBackingScale(reason string) {
 	if wv == nil || wv.destroyed.Load() {
 		return
@@ -2330,18 +2383,15 @@ func (wv *WebView) reapplyCurrentZoomForBackingScale(reason string) {
 	if host == nil {
 		return
 	}
-	factor := wv.GetZoomLevel()
-	surfaceScale := wv.viewBridgeScale()
-	backingScale := wv.osrBackingScaleFactor()
-	cefLevel := cefZoomFromPageAndScaleFactors(factor, surfaceScale, backingScale)
-	wv.applyCEFZoomLevel(host, factor, cefLevel, surfaceScale, backingScale)
+	pageZoom := wv.GetZoomLevel()
+	compensation := wv.pageZoomCompensation()
+	wv.applyZoomForCompensation(host, pageZoom, compensation)
 	logging.FromContext(wv.ctx).Debug().
 		Str("reason", reason).
-		Float64("factor", factor).
-		Float64("cef_level", cefLevel).
-		Float64("osr_backing_scale", backingScale).
-		Float64("surface_scale", surfaceScale).
-		Msg("cef: reapplied zoom after OSR backing scale change")
+		Float64("factor", pageZoom).
+		Float64("cef_level", cefZoomFromPageZoom(pageZoom, compensation)).
+		Float64("page_zoom_compensation", compensation).
+		Msg("cef: reapplied zoom after OSR page-zoom compensation change")
 }
 
 func (wv *WebView) scheduleStartBeginFrameLoop() {

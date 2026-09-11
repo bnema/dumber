@@ -123,6 +123,23 @@ func (a *Cef2gtkAdapter) OSRBackingScaleFactor() float64 {
 	return cef2gtk.OSRBackingScaleFactorForScale(float64(a.view.DeviceScaleFactor()))
 }
 
+// PageZoomCompensation returns the factor Dumber must multiply user page zoom by
+// before applying it through CEF, so the page's CSS viewport keeps matching the
+// GTK logical view size under the bridge's active OSR geometry contract. It
+// returns 1 for a nil or destroyed adapter and whenever CEF's normal logical OSR
+// contract is in effect.
+func (a *Cef2gtkAdapter) PageZoomCompensation() float64 {
+	if a == nil || a.destroyed.Load() {
+		return 1
+	}
+	a.viewMu.RLock()
+	defer a.viewMu.RUnlock()
+	if a.view == nil {
+		return 1
+	}
+	return a.view.PageZoomCompensation()
+}
+
 // AddSizeObserver registers a positive-size change callback. Register and
 // unregister from the GTK main thread; callbacks are invoked by the bridge from
 // GTK size notifications.

@@ -94,3 +94,14 @@ func (stubMenuModel) GetColorAt(_ int32, _ purecef.MenuColorType, _ uintptr) int
 }
 func (stubMenuModel) SetFontList(_ int32, _ string) int32   { panic("unexpected call") }
 func (stubMenuModel) SetFontListAt(_ int32, _ string) int32 { panic("unexpected call") }
+
+// zoomCompensationStub supplies the OSR page-zoom compensation contract owned by
+// the render bridge, so tests can exercise zoom conversion, reapplication, and
+// diagnostics without a live GTK/CEF view.
+type zoomCompensationStub struct {
+	compensation float64
+}
+
+func (s zoomCompensationStub) PageZoomCompensation() float64 {
+	return s.compensation
+}
