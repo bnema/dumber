@@ -33,6 +33,42 @@ func TestShouldPreferTypedURLNavigation(t *testing.T) {
 	}
 }
 
+func TestPasteSubmissionStateDefersEnterUntilTextArrives(t *testing.T) {
+	state := pasteSubmissionState{}
+	state.beginPaste("")
+
+	if submit, _ := state.requestSubmit(""); submit {
+		t.Fatal("Enter must not submit while the paste buffer is still empty")
+	}
+	if !state.textChanged("https://www.youtube.com/watch?v=LXb3EKWsInQ") {
+		t.Fatal("the completed paste must consume the deferred submission")
+	}
+	if state.textChanged("later edit") {
+		t.Fatal("the deferred submission must be consumed exactly once")
+	}
+}
+
+func TestPasteSubmissionStateRecognizesPasteThatArrivesBeforeEnter(t *testing.T) {
+	state := pasteSubmissionState{}
+	state.beginPaste("old")
+
+	submit, pastedTextReady := state.requestSubmit("new")
+	if !submit || !pastedTextReady {
+		t.Fatalf("completed paste should submit immediately, got submit=%v ready=%v", submit, pastedTextReady)
+	}
+}
+
+func TestPasteSubmissionStateResetCancelsDeferredEnter(t *testing.T) {
+	state := pasteSubmissionState{}
+	state.beginPaste("")
+	state.requestSubmit("")
+	state.reset()
+
+	if state.textChanged("later edit") {
+		t.Fatal("a later edit must not consume a canceled paste submission")
+	}
+}
+
 func TestResetSearchSessionState(t *testing.T) {
 	o := &Omnibox{}
 	o.lastQuery = "github"
