@@ -30,20 +30,21 @@ func TestWindowlessFrameRatePinnedFollowsTheOverride(t *testing.T) {
 	}
 }
 
-func TestConfigureNativePopupWindowKeepsExternalBeginFrameOptIn(t *testing.T) {
-	// The pin is only worth asserting through a real call site: the inverted
-	// default shipped because only the boolean helper was covered.
+func TestConfigureNativePopupWindowEnablesExternalBeginFrameByDefault(t *testing.T) {
+	// The default is only worth asserting through a real call site: an inverted
+	// default shipped before because only the boolean helper was covered.
 	cases := []struct {
 		value string
 		want  int32
 	}{
-		{value: "", want: 0},
-		{value: "0", want: 0},
-		{value: "false", want: 0},
-		{value: "random", want: 0},
+		{value: "", want: 1},
 		{value: "1", want: 1},
 		{value: "true", want: 1},
 		{value: "on", want: 1},
+		{value: "random", want: 1},
+		{value: "0", want: 0},
+		{value: "false", want: 0},
+		{value: "off", want: 0},
 	}
 	for _, testCase := range cases {
 		t.Run("call-site:"+testCase.value, func(t *testing.T) {

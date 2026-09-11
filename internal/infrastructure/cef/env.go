@@ -31,11 +31,21 @@ func envBoolEnabled(envVar string) bool {
 }
 
 // externalBeginFrameEnabled reports whether CEF produces frames on BeginFrame
-// ticks driven by the GTK frame clock instead of its own timer. It is opt-in:
-// only an explicit true value enables it, and unset, empty or invalid values
-// leave CEF's internal cadence in place.
+// ticks driven by the GTK frame clock instead of its own timer. It is enabled by
+// default: the embedder's frame clock is the cadence the compositor samples, so
+// asking CEF for a frame on each tick aligns production with presentation. A
+// falsy value restores CEF's internal cadence.
+//
+// This is an experimental default under observation: the tick loop requests a
+// frame on every tick regardless of the configured capture rate, and no
+// frame-timing measurement yet shows an improvement over CEF's own timer.
 func externalBeginFrameEnabled() bool {
-	return envBoolEnabled(cefExternalBeginFrameEnvVar)
+	switch strings.ToLower(strings.TrimSpace(os.Getenv(cefExternalBeginFrameEnvVar))) {
+	case "0", "false", "no", "off":
+		return false
+	default:
+		return true
+	}
 }
 
 // windowlessFrameRateOverride returns an explicitly pinned OSR frame rate. A
