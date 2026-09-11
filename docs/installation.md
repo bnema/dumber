@@ -49,7 +49,7 @@ make build
 
 ### Build Dependencies
 
-- Go 1.26+
+- Go 1.27+
 - GTK4 development libraries
 - CEF runtime for the default backend
 - WebKitGTK 6.0 development/runtime libraries for the fallback backend and runtime checks

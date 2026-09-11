@@ -1,8 +1,6 @@
 module github.com/bnema/dumber
 
-go 1.26.0
-
-toolchain go1.26.7
+go 1.27
 
 require (
 	github.com/a-h/templ v0.3.1020
