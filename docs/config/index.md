@@ -299,6 +299,8 @@ CEF is the default browser engine. WebKitGTK remains available as a fallback via
 
 `engine.cef.input.scroll_precise_multiplier` controls touchpad/high-resolution wheel scroll speed, and `engine.cef.input.scroll_vertical_multiplier` applies an additional vertical-only scale. `engine.cef.input.touchpad_navigation_max_vertical_ratio` only filters horizontal back/forward swipe recognition; it does not tune vertical scroll speed.
 
+With the CEF engine, `default_ui_scale` sizes Dumber's own interface—toolbars and modals—and controls the density at which the off-screen bridge renders. It does not resize web content, so the page keeps one CSS pixel per GTK logical pixel on every output scale. Use `default_webpage_zoom` or per-site zoom to make pages larger or smaller.
+
 `engine.cef.input.touchpad_navigation_min_delta` uses raw GTK touchpad surface units for back/forward gestures. The default `320.0` matches WebKit-style commit distance to reduce accidental navigation; raise or lower it in `config.toml` to tune gesture sensitivity.
 
 ### Legacy key migration

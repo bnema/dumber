@@ -2939,10 +2939,10 @@ func (o *Omnibox) UpdateZoomIndicator(factor float64) {
 		if o.zoomLabel == nil {
 			return false
 		}
-		if factor == 1.0 {
+		percentage := entity.ZoomPercentage(factor)
+		if percentage == 100 {
 			o.zoomLabel.SetVisible(false)
 		} else {
-			percentage := int(factor * 100)
 			o.zoomLabel.SetText(fmt.Sprintf("%d%%", percentage))
 			o.zoomLabel.SetVisible(true)
 		}

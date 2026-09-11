@@ -8,12 +8,12 @@ import (
 const scaleProbeRoundFactor = 1_000_000
 
 type cefScaleProbeMetrics struct {
-	SurfaceWidth      int32
-	SurfaceHeight     int32
-	SurfaceScale      float64
-	OSRBackingScale   float64
-	UserZoom          float64
-	InternalCEFFactor float64
+	SurfaceWidth         int32
+	SurfaceHeight        int32
+	SurfaceScale         float64
+	PageZoomCompensation float64
+	UserZoom             float64
+	InternalCEFFactor    float64
 }
 
 func shouldRunCEFScaleProbe(frameURL string, httpStatusCode int32) bool {
@@ -29,20 +29,20 @@ func shouldRunCEFScaleProbe(frameURL string, httpStatusCode int32) bool {
 
 func cefScaleProbeSnapshot(wv *WebView) cefScaleProbeMetrics {
 	m := cefScaleProbeMetrics{
-		SurfaceWidth:      1,
-		SurfaceHeight:     1,
-		SurfaceScale:      1,
-		OSRBackingScale:   1,
-		UserZoom:          1,
-		InternalCEFFactor: 1,
+		SurfaceWidth:         1,
+		SurfaceHeight:        1,
+		SurfaceScale:         1,
+		PageZoomCompensation: 1,
+		UserZoom:             1,
+		InternalCEFFactor:    1,
 	}
 	if wv == nil {
 		return m
 	}
 	m.UserZoom = normalizeScale(wv.GetZoomLevel())
-	m.OSRBackingScale = normalizeScale(wv.osrBackingScaleFactor())
+	m.PageZoomCompensation = wv.pageZoomCompensation()
 	m.SurfaceScale = normalizeScale(wv.viewBridgeScale())
-	m.InternalCEFFactor = m.UserZoom * zoomScaleRatio(m.SurfaceScale, m.OSRBackingScale)
+	m.InternalCEFFactor = m.UserZoom * m.PageZoomCompensation
 	if wv.viewBridge != nil {
 		m.SurfaceWidth, m.SurfaceHeight = wv.viewBridge.Size()
 	}
@@ -51,12 +51,12 @@ func cefScaleProbeSnapshot(wv *WebView) cefScaleProbeMetrics {
 
 func (m cefScaleProbeMetrics) logFields() map[string]any {
 	return map[string]any{
-		"surface_width":       m.SurfaceWidth,
-		"surface_height":      m.SurfaceHeight,
-		"surface_scale":       roundedScale(m.SurfaceScale),
-		"osr_backing_scale":   roundedScale(m.OSRBackingScale),
-		"user_zoom":           roundedScale(m.UserZoom),
-		"internal_cef_factor": roundedScale(m.InternalCEFFactor),
+		"surface_width":          m.SurfaceWidth,
+		"surface_height":         m.SurfaceHeight,
+		"surface_scale":          roundedScale(m.SurfaceScale),
+		"page_zoom_compensation": roundedScale(m.PageZoomCompensation),
+		"user_zoom":              roundedScale(m.UserZoom),
+		"internal_cef_factor":    roundedScale(m.InternalCEFFactor),
 	}
 }
 

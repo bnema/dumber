@@ -127,6 +127,7 @@ func (f *WebViewFactory) newWebView(ctx context.Context) (*WebView, error) {
 		engine:                      f.engine,
 		factory:                     f,
 		viewBridge:                  viewBridge,
+		zoomCompensation:            viewBridge,
 		audioOutputFactory:          f.audioOutputFactory,
 		adaptiveWindowlessFrameRate: f.adaptiveWindowlessFrameRate,
 		windowlessFrameRate:         f.windowlessFrameRate,

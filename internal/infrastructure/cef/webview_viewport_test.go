@@ -11,8 +11,9 @@ import (
 
 type viewportSyncOrderHost struct {
 	purecef.BrowserHost
-	calls     []string
-	zoomLevel float64
+	calls             []string
+	zoomLevel         float64
+	getZoomLevelCalls int
 }
 
 type pendingBrowserCreateObservedSizeBridgeStub struct {
@@ -61,6 +62,7 @@ func (h *viewportSyncOrderHost) SetZoomLevel(level float64) {
 }
 
 func (h *viewportSyncOrderHost) GetZoomLevel() float64 {
+	h.getZoomLevelCalls++
 	return h.zoomLevel
 }
 
@@ -208,7 +210,7 @@ func TestSyncZoomForBackingScaleOnCEFUIThread_SkipsRedundantReapplyWhenBackingSc
 	}
 
 	host := &viewportSyncOrderHost{}
-	wv := &WebView{ctx: context.Background(), host: host}
+	wv := &WebView{ctx: context.Background(), host: host, zoomCompensation: zoomCompensationStub{compensation: 1.25}}
 
 	wv.syncZoomForBackingScaleOnCEFUIThread(host, "gtk-size-observer")
 	require.NotNil(t, scheduled)
@@ -220,6 +222,89 @@ func TestSyncZoomForBackingScaleOnCEFUIThread_SkipsRedundantReapplyWhenBackingSc
 	wv.syncZoomForBackingScaleOnCEFUIThread(host, "gtk-size-observer")
 	require.Nil(t, scheduled)
 	require.Empty(t, host.calls)
+}
+
+func TestSyncZoomForBackingScaleOnCEFUIThread_ReappliesWhenCompensationChangesWithoutTouchingUserZoom(t *testing.T) {
+	oldNewTask := cefNewTask
+	oldPostDelayedTask := cefPostDelayedTask
+	defer func() {
+		cefNewTask = oldNewTask
+		cefPostDelayedTask = oldPostDelayedTask
+	}()
+
+	cefNewTask = func(task purecef.Task) purecef.Task { return task }
+
+	var scheduled []purecef.Task
+	cefPostDelayedTask = func(threadID purecef.ThreadID, task purecef.Task, delayMs int64) int32 {
+		require.Equal(t, purecef.ThreadIDTidUi, threadID)
+		if delayMs == 0 {
+			scheduled = append(scheduled, task)
+		}
+		return 1
+	}
+
+	host := &viewportSyncOrderHost{}
+	wv := &WebView{ctx: context.Background(), host: host, zoomCompensation: zoomCompensationStub{compensation: 1.25}}
+	wv.zoomFactor.Store(1.3)
+
+	wv.syncZoomForBackingScaleOnCEFUIThread(host, "gtk-size-observer")
+	require.Len(t, scheduled, 1)
+	scheduled[0].Execute()
+	require.InDelta(t, cefZoomFromFactor(1.625), host.zoomLevel, 1e-9)
+
+	// Moving to a different output scale must reapply the same user zoom under the
+	// new compensation and must not mutate the persisted user zoom.
+	host.calls = nil
+	scheduled = nil
+	wv.zoomCompensation = zoomCompensationStub{compensation: 2.0}
+
+	wv.syncZoomForBackingScaleOnCEFUIThread(host, "gtk-size-observer")
+	require.Len(t, scheduled, 1)
+	scheduled[0].Execute()
+	require.InDelta(t, cefZoomFromFactor(2.6), host.zoomLevel, 1e-9)
+	require.InDelta(t, 1.3, wv.GetZoomLevel(), 1e-9, "user zoom must survive an output transition")
+	require.Equal(t, []string{"SetZoomLevel", "NotifyScreenInfoChanged"}, host.calls)
+}
+
+func TestSyncZoomForBackingScaleOnCEFUIThread_SkipsStaleHostAndDestroyedView(t *testing.T) {
+	oldNewTask := cefNewTask
+	oldPostDelayedTask := cefPostDelayedTask
+	defer func() {
+		cefNewTask = oldNewTask
+		cefPostDelayedTask = oldPostDelayedTask
+	}()
+
+	cefNewTask = func(task purecef.Task) purecef.Task { return task }
+
+	var scheduled []purecef.Task
+	cefPostDelayedTask = func(_ purecef.ThreadID, task purecef.Task, _ int64) int32 {
+		scheduled = append(scheduled, task)
+		return 1
+	}
+
+	capturedHost := &viewportSyncOrderHost{}
+	currentHost := &viewportSyncOrderHost{}
+	wv := &WebView{ctx: context.Background(), host: currentHost, zoomCompensation: zoomCompensationStub{compensation: 1.25}}
+
+	wv.syncZoomForBackingScaleOnCEFUIThread(capturedHost, "host-replaced")
+	require.Len(t, scheduled, 1)
+	scheduled[0].Execute()
+	require.Empty(t, capturedHost.calls)
+	require.Empty(t, currentHost.calls)
+
+	destroyed := &WebView{ctx: context.Background(), host: currentHost, zoomCompensation: zoomCompensationStub{compensation: 1.25}}
+	destroyed.destroyed.Store(true)
+	scheduled = nil
+	destroyed.syncZoomForBackingScaleOnCEFUIThread(currentHost, "destroyed")
+	require.Len(t, scheduled, 1)
+	scheduled[0].Execute()
+	require.Empty(t, currentHost.calls)
+}
+
+func TestSyncZoomForBackingScaleOnCEFUIThread_SkipsMissingHost(t *testing.T) {
+	wv := &WebView{ctx: context.Background(), zoomCompensation: zoomCompensationStub{compensation: 1.25}}
+	wv.syncZoomForBackingScaleOnCEFUIThread(nil, "missing-host")
+	require.Zero(t, wv.appliedZoomCompensation())
 }
 
 func TestNotifyViewportSyncOnCEFUIThread_SkipsStaleHost(t *testing.T) {

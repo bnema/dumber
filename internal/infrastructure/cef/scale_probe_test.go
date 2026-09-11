@@ -40,10 +40,34 @@ func TestCEFScaleProbeSnapshotNormalizesMissingBridge(t *testing.T) {
 	if s.SurfaceWidth != 1 || s.SurfaceHeight != 1 {
 		t.Fatalf("surface size = %dx%d, want 1x1", s.SurfaceWidth, s.SurfaceHeight)
 	}
-	if s.SurfaceScale != 1 || s.OSRBackingScale != 1 {
-		t.Fatalf("scales = surface %v backing %v, want 1/1", s.SurfaceScale, s.OSRBackingScale)
+	if s.SurfaceScale != 1 || s.PageZoomCompensation != 1 {
+		t.Fatalf("scales = surface %v compensation %v, want 1/1", s.SurfaceScale, s.PageZoomCompensation)
 	}
 	if s.UserZoom != 1 || s.InternalCEFFactor != 1 {
 		t.Fatalf("zoom = user %v internal %v, want 1/1", s.UserZoom, s.InternalCEFFactor)
+	}
+}
+
+func TestCEFScaleProbeSnapshotDerivesInternalFactorFromContract(t *testing.T) {
+	wv := &WebView{zoomCompensation: zoomCompensationStub{compensation: 1.75}}
+	wv.zoomFactor.Store(1.3)
+
+	s := cefScaleProbeSnapshot(wv)
+
+	if s.UserZoom != 1.3 {
+		t.Fatalf("user zoom = %v, want 1.3", s.UserZoom)
+	}
+	if s.PageZoomCompensation != 1.75 {
+		t.Fatalf("compensation = %v, want 1.75", s.PageZoomCompensation)
+	}
+	if s.InternalCEFFactor != 2.275 {
+		t.Fatalf("internal CEF factor = %v, want user zoom x compensation = 2.275", s.InternalCEFFactor)
+	}
+	fields := s.logFields()
+	if _, ok := fields["page_zoom_compensation"]; !ok {
+		t.Fatalf("probe fields %v missing page_zoom_compensation", fields)
+	}
+	if _, ok := fields["osr_backing_scale"]; ok {
+		t.Fatalf("probe fields %v must not carry a separate backing-scale formula", fields)
 	}
 }

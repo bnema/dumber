@@ -14,8 +14,12 @@ github.com/bnema/purego v0.11.0-bnema.4 h1:uQjx9QtM945rD6HkwYzPGuVN7wKr5HrFKIWE3
 github.com/bnema/purego v0.11.0-bnema.4/go.mod h1:LHW8Sb4QO18dQaLVRU8tZCGM0SjsC+agFW/3M3nCUtg=
 github.com/bnema/purego-cef v0.14.2 h1:0tKXT00gFvWUsL3A4sX4kzD+3XRmPOif0ccwO9iokqU=
 github.com/bnema/purego-cef v0.14.2/go.mod h1:r+qCMwzuI+wq3xo189x3NAWWpALWoWwjtk+8wVCK1Eg=
-github.com/bnema/purego-cef2gtk v0.10.1 h1:Zo5cyBsPEATcK90cYuDpgxfCIkAhYw0by/z2p/9PHpQ=
-github.com/bnema/purego-cef2gtk v0.10.1/go.mod h1:1tIL/HpDXXwNSIgtLVgumjApAEP7noO0DcHPhmEcgcU=
+github.com/bnema/purego-cef2gtk v0.10.2-0.20260911040156-b806b4fd912e h1:5gvWSQlaKCI3JALXP/BiDjJftZgMg63cwRew5N+y6kc=
+github.com/bnema/purego-cef2gtk v0.10.2-0.20260911040156-b806b4fd912e/go.mod h1:1tIL/HpDXXwNSIgtLVgumjApAEP7noO0DcHPhmEcgcU=
+github.com/bnema/purego-cef2gtk v0.10.2-0.20260911042054-6d0a75439db1 h1:MBsbM9JuYvGmGyGfF8YQaPsmggnrIJlKdnQDDNOck3Y=
+github.com/bnema/purego-cef2gtk v0.10.2-0.20260911042054-6d0a75439db1/go.mod h1:1tIL/HpDXXwNSIgtLVgumjApAEP7noO0DcHPhmEcgcU=
+github.com/bnema/purego-cef2gtk v0.10.2-0.20260911042437-e9e81371d3b8 h1:9BtmuhH5raXQKXwI0+owr/iD1oT0hkjCHhS/WUPUiXk=
+github.com/bnema/purego-cef2gtk v0.10.2-0.20260911042437-e9e81371d3b8/go.mod h1:1tIL/HpDXXwNSIgtLVgumjApAEP7noO0DcHPhmEcgcU=
 github.com/bnema/purego-pipewire v0.1.6 h1:olbxeiqIJZXil0pus5Uzh9psH/KTI9GovqTCuPXTquU=
 github.com/bnema/purego-pipewire v0.1.6/go.mod h1:57aFYl3Wll3XbrwblQjmX8R1k7RkcZQwfQTGQWcKbdc=
 github.com/bnema/purego-sqlite v0.1.5 h1:L4KtDQR0++TZqHVnuzCPsrw55s1ww/nXGEpdrkHsM4Y=
