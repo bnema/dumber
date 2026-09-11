@@ -90,7 +90,10 @@ python3 scripts/render_lab.py --variant candidate --dry-run
 | `--fps` | `monitor`, `60`, `120`, `165` | `monitor` |
 | `--render-path` | `current`, `dmabuf-copy` | `current` |
 | `--stack` | `vulkan`, `egl` | derived from `--render-path` |
-| `--external-begin-frame` | flag | off |
+| `--external-begin-frame` / `--no-external-begin-frame` | flag pair | applied |
+| `--no-graphics-offload` | flag | off (offload applied) |
+| `--idle-import-priority` | flag | off (priority 0) |
+| `--retired-textures N` | `1`..`16` | `2` |
 | `--profile` | flag | off |
 | `--trace-geometry` | flag | off |
 | `--duration SECONDS` | positive number | unbounded |
@@ -98,6 +101,34 @@ python3 scripts/render_lab.py --variant candidate --dry-run
 | `--output-root PATH` | directory | `dist/render-lab/runs` |
 
 There is no shell or CEF-flag passthrough in this version.
+
+## Render-path knobs
+
+A candidate built with `--candidate-status perf-experiment` carries five changes
+to the accelerated frame path, all applied by default and all revertible per run
+without rebuilding. They apply to the `vulkan` path only.
+
+```bash
+# everything applied, as built
+python3 scripts/render_lab.py --variant candidate --fps monitor
+# one knob reverted at a time
+python3 scripts/render_lab.py --variant candidate --no-graphics-offload
+python3 scripts/render_lab.py --variant candidate --idle-import-priority
+python3 scripts/render_lab.py --variant candidate --retired-textures 16
+python3 scripts/render_lab.py --variant candidate --no-external-begin-frame
+```
+
+`--fps 60`, `--fps 120` and `--fps 165` pin CEF's OSR frame rate through the
+config file and suspend adaptive monitor polling; `--fps monitor` leaves the rate
+following the output. External BeginFrame is applied by default: pass
+`--no-external-begin-frame` to compare against CEF's own timer. Every run records
+the values it applied under `render_knobs` in `run.json`, so a run can be
+attributed afterwards.
+
+A `perf-experiment` build is not a verified default configuration: it stacks
+changes that the underlying plan requires to be compared one at a time, and no
+knob here establishes buffer ownership. See the bridge's
+`docs/render-perf-experiment.md` for what each knob can and cannot do.
 
 ## Two DMA-BUF consumption paths
 

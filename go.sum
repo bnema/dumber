@@ -24,6 +24,12 @@ github.com/bnema/purego-cef2gtk v0.10.2-0.20260911051504-d8f328c4a7ee h1:kaQXhZ3
 github.com/bnema/purego-cef2gtk v0.10.2-0.20260911051504-d8f328c4a7ee/go.mod h1:1tIL/HpDXXwNSIgtLVgumjApAEP7noO0DcHPhmEcgcU=
 github.com/bnema/purego-cef2gtk v0.10.2-0.20260911061006-510df7b1496f h1:1MbvfCt3qFvn2gzGqkaHLRtr5f36a9Gr0A56ArChwr8=
 github.com/bnema/purego-cef2gtk v0.10.2-0.20260911061006-510df7b1496f/go.mod h1:1tIL/HpDXXwNSIgtLVgumjApAEP7noO0DcHPhmEcgcU=
+github.com/bnema/purego-cef2gtk v0.10.2-0.20260911061420-90a0ecaa41f7 h1:tX7HwVZg+AdURSn1S/ifYKK6u2dBTqn8nXTYUdU6Tgs=
+github.com/bnema/purego-cef2gtk v0.10.2-0.20260911061420-90a0ecaa41f7/go.mod h1:1tIL/HpDXXwNSIgtLVgumjApAEP7noO0DcHPhmEcgcU=
+github.com/bnema/purego-cef2gtk v0.10.2-0.20260911061530-2b29bdd3e758 h1:kI87Tyi4zGeCi6G9G9Qt9s40TqrYJMLwhbZaPgWMHA8=
+github.com/bnema/purego-cef2gtk v0.10.2-0.20260911061530-2b29bdd3e758/go.mod h1:1tIL/HpDXXwNSIgtLVgumjApAEP7noO0DcHPhmEcgcU=
+github.com/bnema/purego-cef2gtk v0.10.2-0.20260911063003-2f98548af39a h1:MAlVtPDiuiKbbDfSxfglWKZPzpeMX3ln3tmODjY6qJU=
+github.com/bnema/purego-cef2gtk v0.10.2-0.20260911063003-2f98548af39a/go.mod h1:1tIL/HpDXXwNSIgtLVgumjApAEP7noO0DcHPhmEcgcU=
 github.com/bnema/purego-pipewire v0.1.6 h1:olbxeiqIJZXil0pus5Uzh9psH/KTI9GovqTCuPXTquU=
 github.com/bnema/purego-pipewire v0.1.6/go.mod h1:57aFYl3Wll3XbrwblQjmX8R1k7RkcZQwfQTGQWcKbdc=
 github.com/bnema/purego-sqlite v0.1.5 h1:L4KtDQR0++TZqHVnuzCPsrw55s1ww/nXGEpdrkHsM4Y=

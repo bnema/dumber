@@ -48,7 +48,7 @@ ASSET_PATHS = (
     "assets/systemviews/wasm_exec.js",
     "assets/systemviews/asset-manifest.json",
 )
-CANDIDATE_STATUSES = ("instrumentation-only", "ownership-verified-candidate")
+CANDIDATE_STATUSES = ("instrumentation-only", "ownership-verified-candidate", "perf-experiment")
 
 
 class BuildError(Exception):

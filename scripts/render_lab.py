@@ -53,6 +53,9 @@ RENDER_PATHS = {
     ),
 }
 DEFAULT_RENDER_PATH = "current"
+DEFAULT_IMPORT_PRIORITY = "default"
+DEFAULT_RETIRED_TEXTURES = 2
+RETIRED_TEXTURES_MAX = 16
 FIXTURE_PATH = "scripts/render_lab/scroll.html"
 
 DEFAULT_OUTPUT_ROOT = Path("dist/render-lab/runs")
@@ -394,6 +397,9 @@ class LaunchPlan:
     external_begin_frame: bool
     profile_enabled: bool
     trace_geometry: bool
+    graphics_offload: bool
+    import_priority: str
+    retired_textures: int
     profile_output: Path | None
     cef_runtime: dict
     dry_run: bool
@@ -412,6 +418,11 @@ class LaunchPlan:
             "external_begin_frame": self.external_begin_frame,
             "profile": self.profile_enabled,
             "trace_geometry": self.trace_geometry,
+            "render_knobs": {
+                "graphics_offload": self.graphics_offload,
+                "import_priority": self.import_priority,
+                "retired_textures": self.retired_textures,
+            },
             "binary_sha256": self.binary_sha256,
             "manifest_sha256": self.manifest_sha256,
             "repo_head": self.repo_head,
@@ -439,6 +450,9 @@ def build_launch_plan(
     trace_geometry: bool,
     base_env: dict,
     dry_run: bool,
+    graphics_offload: bool = True,
+    import_priority: str = DEFAULT_IMPORT_PRIORITY,
+    retired_textures: int = DEFAULT_RETIRED_TEXTURES,
 ) -> LaunchPlan:
     resolved_stack = resolve_stack(render_path, stack)
     manifest = load_manifest(repo_root, variant)
@@ -471,8 +485,13 @@ def build_launch_plan(
         run_env["DUMBER_CEF2GTK_PROFILE"] = "1"
         run_env["DUMBER_CEF2GTK_PROFILE_INTERVAL"] = "1s"
         run_env["DUMBER_CEF2GTK_PROFILE_OUTPUT"] = str(profile_output)
-    if external_begin_frame:
-        run_env["DUMBER_CEF_EXTERNAL_BEGIN_FRAME"] = "1"
+    # Render-path experiment knobs are always set explicitly so a run does not
+    # depend on the caller's environment, and the recorded values are the ones
+    # the binary received.
+    run_env["PUREGO_CEF2GTK_GDK_GRAPHICS_OFFLOAD"] = "1" if graphics_offload else "0"
+    run_env["PUREGO_CEF2GTK_GDK_IMPORT_PRIORITY"] = import_priority
+    run_env["PUREGO_CEF2GTK_GDK_RETIRED_TEXTURES"] = str(retired_textures)
+    run_env["DUMBER_CEF_EXTERNAL_BEGIN_FRAME"] = "1" if external_begin_frame else "0"
     if trace_geometry:
         # Named diagnostic, not a passthrough: it prints the geometry contract
         # the bridge computes for this run so a sizing bug can be read instead of
@@ -502,6 +521,9 @@ def build_launch_plan(
         external_begin_frame=external_begin_frame,
         profile_enabled=profile_enabled,
         trace_geometry=trace_geometry,
+        graphics_offload=graphics_offload,
+        import_priority=import_priority,
+        retired_textures=retired_textures,
         profile_output=profile_output,
         cef_runtime=cef_runtime_record(base_env),
         dry_run=dry_run,
@@ -671,6 +693,12 @@ def render_change_note(status: str) -> str:
         return "reference build: no rendering change, no instrumentation"
     if status == "ownership-verified-candidate":
         return "includes a verified ownership change"
+    if status == "perf-experiment":
+        return (
+            "render-path and pacing experiment: offload, import priority, texture "
+            "retention, external BeginFrame and frame-rate pinning are applied; "
+            "unverified"
+        )
     return (
         "measurement only: this binary carries no rendering, ownership or pacing "
         "change"
@@ -689,6 +717,11 @@ def print_run_report(plan: LaunchPlan, metadata: dict, summary: dict) -> None:
     print(f"render path:    {plan.render_path} — {path_detail}")
     print(f"fps mode:       {plan.fps_mode}   stack: {plan.stack}")
     print(f"external BFr:   {plan.external_begin_frame}   profile: {plan.profile_enabled}")
+    print(
+        f"render knobs:   offload={plan.graphics_offload} "
+        f"import_priority={plan.import_priority} "
+        f"retired_textures={plan.retired_textures}"
+    )
     if plan.trace_geometry:
         print("geometry trace: on (diagnostic; see the run log)")
     if plan.dry_run:
@@ -956,7 +989,33 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         default=None,
         help="low-level render stack; must agree with --render-path if both are given",
     )
-    parser.add_argument("--external-begin-frame", action="store_true")
+    parser.add_argument(
+        "--external-begin-frame",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="drive CEF BeginFrame from the GTK frame clock (A/B knob)",
+    )
+    parser.add_argument(
+        "--no-graphics-offload",
+        dest="graphics_offload",
+        action="store_false",
+        help="A/B knob: drop the GtkGraphicsOffload presenter wrapper",
+    )
+    parser.add_argument(
+        "--idle-import-priority",
+        dest="import_priority",
+        action="store_const",
+        const="idle",
+        default=DEFAULT_IMPORT_PRIORITY,
+        help="A/B knob: schedule the GTK-thread frame import at G_PRIORITY_DEFAULT_IDLE",
+    )
+    parser.add_argument(
+        "--retired-textures",
+        type=int,
+        default=DEFAULT_RETIRED_TEXTURES,
+        metavar="N",
+        help="A/B knob: superseded textures kept referenced, 1..%d" % RETIRED_TEXTURES_MAX,
+    )
     parser.add_argument("--profile", action="store_true")
     parser.add_argument(
         "--trace-geometry",
@@ -973,6 +1032,12 @@ def main(argv: list[str] | None = None) -> int:
     args = parse_args(sys.argv[1:] if argv is None else argv)
     if args.duration is not None and args.duration <= 0:
         print("render_lab: --duration must be positive", file=sys.stderr)
+        return 1
+    if not 1 <= args.retired_textures <= RETIRED_TEXTURES_MAX:
+        print(
+            f"render_lab: --retired-textures must be between 1 and {RETIRED_TEXTURES_MAX}",
+            file=sys.stderr,
+        )
         return 1
     os.umask(0o077)
     repo_root = Path(__file__).resolve().parent.parent
@@ -995,6 +1060,9 @@ def main(argv: list[str] | None = None) -> int:
             external_begin_frame=args.external_begin_frame,
             profile_enabled=args.profile,
             trace_geometry=args.trace_geometry,
+            graphics_offload=args.graphics_offload,
+            import_priority=args.import_priority,
+            retired_textures=args.retired_textures,
             base_env=base_env,
             dry_run=args.dry_run,
         )

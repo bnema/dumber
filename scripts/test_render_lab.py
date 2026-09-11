@@ -253,7 +253,7 @@ class EnvironmentTest(TimeoutTestCase):
             base_env=self._base_env(),
             dry_run=True,
         )
-        self.assertNotIn("DUMBER_CEF_EXTERNAL_BEGIN_FRAME", plan.run_env)
+        self.assertEqual(plan.run_env["DUMBER_CEF_EXTERNAL_BEGIN_FRAME"], "0")
         self.assertNotIn("DUMBER_CEF2GTK_PROFILE", plan.run_env)
         self.assertIsNone(plan.profile_output)
 
@@ -273,6 +273,62 @@ class EnvironmentTest(TimeoutTestCase):
         self.assertEqual(plan.run_env["DUMBER_CEF_EXTERNAL_BEGIN_FRAME"], "1")
         self.assertEqual(plan.run_env["DUMBER_CEF2GTK_PROFILE"], "1")
         self.assertTrue(Path(plan.run_env["DUMBER_CEF2GTK_PROFILE_OUTPUT"]).is_relative_to(plan.run_root))
+
+    def test_render_knobs_are_applied_and_recorded(self) -> None:
+        repo = build_fake_repo(Path(tempfile.mkdtemp(prefix="lab-knobs-")))
+        plan = render_lab.build_launch_plan(
+            repo_root=repo,
+            output_root=repo / "out",
+            variant="candidate",
+            fps_mode="monitor",
+            render_path="current",
+            stack=None,
+            external_begin_frame=True,
+            profile_enabled=False,
+            trace_geometry=False,
+            base_env=self._base_env(),
+            dry_run=True,
+        )
+        self.assertEqual(plan.run_env["PUREGO_CEF2GTK_GDK_GRAPHICS_OFFLOAD"], "1")
+        self.assertEqual(plan.run_env["PUREGO_CEF2GTK_GDK_IMPORT_PRIORITY"], "default")
+        self.assertEqual(
+            plan.run_env["PUREGO_CEF2GTK_GDK_RETIRED_TEXTURES"],
+            str(render_lab.DEFAULT_RETIRED_TEXTURES),
+        )
+        metadata = plan.metadata()
+        self.assertEqual(
+            metadata["render_knobs"],
+            {"graphics_offload": True, "import_priority": "default", "retired_textures": 2},
+        )
+
+        opted_out = render_lab.build_launch_plan(
+            repo_root=repo,
+            output_root=repo / "out",
+            variant="candidate",
+            fps_mode="monitor",
+            render_path="current",
+            stack=None,
+            external_begin_frame=True,
+            profile_enabled=False,
+            trace_geometry=False,
+            base_env=self._base_env(),
+            dry_run=True,
+            graphics_offload=False,
+            import_priority="idle",
+            retired_textures=16,
+        )
+        self.assertEqual(opted_out.run_env["PUREGO_CEF2GTK_GDK_GRAPHICS_OFFLOAD"], "0")
+        self.assertEqual(opted_out.run_env["PUREGO_CEF2GTK_GDK_IMPORT_PRIORITY"], "idle")
+        self.assertEqual(opted_out.run_env["PUREGO_CEF2GTK_GDK_RETIRED_TEXTURES"], "16")
+        self.assertEqual(
+            opted_out.metadata()["render_knobs"],
+            {"graphics_offload": False, "import_priority": "idle", "retired_textures": 16},
+        )
+
+    def test_retired_textures_out_of_range_is_rejected(self) -> None:
+        for value in ("0", "17", "-1"):
+            with self.subTest(value=value):
+                self.assertEqual(render_lab.main(["--retired-textures", value, "--dry-run"]), 1)
 
 
 class ManifestTest(TimeoutTestCase):
@@ -784,6 +840,9 @@ class ProfileSummaryTest(TimeoutTestCase):
             "no rendering",
             render_lab.render_change_note("ownership-verified-candidate"),
         )
+        experiment = render_lab.render_change_note("perf-experiment")
+        self.assertIn("unverified", experiment)
+        self.assertNotIn("measurement only", experiment)
 
     def test_malformed_lines_are_skipped(self) -> None:
         path = Path(tempfile.mkdtemp(prefix="lab-profile-")) / "profile.jsonl"
