@@ -206,7 +206,7 @@ Set `ENV=dev` to isolate the development process under `.dev/dumber/`. Dumber se
 
 **Prerequisites:**
 
-- Go 1.26+
+- Go 1.27+
 - GTK4 development packages
 - CEF runtime (default backend)
 - WebKitGTK 6.0 development/runtime packages (fallback backend and runtime checks)
