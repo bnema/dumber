@@ -2,11 +2,13 @@ package cef
 
 import (
 	"os"
+	"strconv"
 	"strings"
 )
 
 const (
 	cefExternalBeginFrameEnvVar   = "DUMBER_CEF_EXTERNAL_BEGIN_FRAME"
+	cefWindowlessFrameRateEnvVar  = "DUMBER_CEF_WINDOWLESS_FRAME_RATE"
 	cefEnableWebAuthnUnsafeEnvVar = "DUMBER_CEF_ENABLE_WEBAUTHN_UNSAFE"
 	cefChromiumFlagsEnvVar        = "DUMBER_CEF_CHROMIUM_FLAGS"
 	cefEnableVAAPIEnvVar          = "DUMBER_CEF_ENABLE_VAAPI"
@@ -28,8 +30,31 @@ func envBoolEnabled(envVar string) bool {
 	}
 }
 
+// externalBeginFrameEnabled reports whether CEF produces frames on BeginFrame
+// ticks driven by the GTK frame clock instead of its own timer. It is enabled by
+// default; a falsy value restores CEF's internal cadence.
 func externalBeginFrameEnabled() bool {
-	return envBoolEnabled(cefExternalBeginFrameEnvVar)
+	switch strings.ToLower(strings.TrimSpace(os.Getenv(cefExternalBeginFrameEnvVar))) {
+	case "0", "false", "no", "off":
+		return false
+	default:
+		return true
+	}
+}
+
+// windowlessFrameRateOverride returns an explicitly pinned OSR frame rate. A
+// pinned rate takes precedence over the configured value and disables adaptive
+// monitor-refresh polling, so a run can be compared at a single cadence.
+func windowlessFrameRateOverride() (int32, bool) {
+	raw := strings.TrimSpace(os.Getenv(cefWindowlessFrameRateEnvVar))
+	if raw == "" {
+		return 0, false
+	}
+	rate, err := strconv.ParseInt(raw, 10, 32)
+	if err != nil || rate <= 0 {
+		return 0, false
+	}
+	return int32(rate), true
 }
 
 func cefWebAuthnUnsafeEnabled() bool {

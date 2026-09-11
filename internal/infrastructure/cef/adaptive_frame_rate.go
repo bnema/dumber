@@ -23,6 +23,16 @@ func adaptiveFrameRateForRefresh(refreshRateMilliHz int, fallbackFPS, maxFPS int
 	})
 }
 
+// resolveWindowlessFrameRate applies a pinned rate on top of the configured OSR
+// frame rate. A pinned rate wins over both the configured value and the adaptive
+// monitor polling, which is suspended so the pinned cadence is what CEF keeps.
+func resolveWindowlessFrameRate(configRate int32, adaptive bool) (int32, bool) {
+	if pinned, ok := windowlessFrameRateOverride(); ok {
+		return pinned, false
+	}
+	return normalizedWindowlessFrameRate(configRate), adaptive
+}
+
 func (wv *WebView) scheduleStartAdaptiveFrameRatePolling() {
 	if wv == nil || !wv.adaptiveWindowlessFrameRate {
 		return
