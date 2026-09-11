@@ -31,15 +31,11 @@ func envBoolEnabled(envVar string) bool {
 }
 
 // externalBeginFrameEnabled reports whether CEF produces frames on BeginFrame
-// ticks driven by the GTK frame clock instead of its own timer. It is enabled by
-// default; a falsy value restores CEF's internal cadence.
+// ticks driven by the GTK frame clock instead of its own timer. It is opt-in:
+// only an explicit true value enables it, and unset, empty or invalid values
+// leave CEF's internal cadence in place.
 func externalBeginFrameEnabled() bool {
-	switch strings.ToLower(strings.TrimSpace(os.Getenv(cefExternalBeginFrameEnvVar))) {
-	case "0", "false", "no", "off":
-		return false
-	default:
-		return true
-	}
+	return envBoolEnabled(cefExternalBeginFrameEnvVar)
 }
 
 // windowlessFrameRateOverride returns an explicitly pinned OSR frame rate. A

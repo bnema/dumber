@@ -26,8 +26,8 @@ func TestExternalBeginFrameEnabledIsOptIn(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Setenv(cefExternalBeginFrameEnvVar, tt.value)
 
-			if got := envBoolEnabled(cefExternalBeginFrameEnvVar); got != tt.want {
-				t.Fatalf("envBoolEnabled(%q) = %v, want %v", tt.value, got, tt.want)
+			if got := externalBeginFrameEnabled(); got != tt.want {
+				t.Fatalf("externalBeginFrameEnabled(%q) = %v, want %v", tt.value, got, tt.want)
 			}
 		})
 	}
