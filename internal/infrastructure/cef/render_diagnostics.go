@@ -102,6 +102,10 @@ func (wv *WebView) logRenderDiagnosticSnapshot(
 		Int("pending_reschedules", diag.PendingReschedules).
 		Int("pending_schedule_failures", diag.PendingScheduleFailures).
 		Int("pending_idle_callbacks", diag.PendingIdleCallbacks).
+		Bool("gdk_offload_requested", diag.OffloadRequested).
+		Bool("gdk_offload_installed", diag.OffloadInstalled).
+		Int("gdk_import_priority", diag.ImportPriority).
+		Int("gdk_retire_limit", diag.RetireLimit).
 		Int32("surface_width", width).
 		Int32("surface_height", height).
 		Float32("surface_scale", scale).
