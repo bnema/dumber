@@ -40,10 +40,25 @@ func TestPasteSubmissionStateDefersEnterUntilTextArrives(t *testing.T) {
 	if submit, _ := state.requestSubmit(""); submit {
 		t.Fatal("Enter must not submit while the paste buffer is still empty")
 	}
-	if !state.textChanged("https://www.youtube.com/watch?v=LXb3EKWsInQ") {
+	if !state.textChanged() {
 		t.Fatal("the completed paste must consume the deferred submission")
 	}
-	if state.textChanged("later edit") {
+	if state.textChanged() {
+		t.Fatal("the deferred submission must be consumed exactly once")
+	}
+}
+
+func TestPasteSubmissionStateCompletesWhenPasteKeepsTheSameText(t *testing.T) {
+	state := pasteSubmissionState{}
+	state.beginPaste("https://example.com")
+
+	if submit, _ := state.requestSubmit("https://example.com"); submit {
+		t.Fatal("Enter must be deferred while the clipboard read is still in flight")
+	}
+	if !state.textChanged() {
+		t.Fatal("an identical replacement must consume the deferred submission")
+	}
+	if state.textChanged() {
 		t.Fatal("the deferred submission must be consumed exactly once")
 	}
 }
@@ -64,7 +79,7 @@ func TestPasteSubmissionStateResetCancelsDeferredEnter(t *testing.T) {
 	state.requestSubmit("")
 	state.reset()
 
-	if state.textChanged("later edit") {
+	if state.textChanged() {
 		t.Fatal("a later edit must not consume a canceled paste submission")
 	}
 }

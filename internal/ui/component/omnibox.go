@@ -52,18 +52,25 @@ type favoriteToggleResultUpdate struct {
 	IsFavorite bool
 }
 
+// pasteSubmissionState tracks a paste whose clipboard read is still in flight so
+// that an Enter pressed in the meantime is replayed once the text lands.
 type pasteSubmissionState struct {
 	active        bool
 	initialText   string
 	deferredEnter bool
 }
 
+// beginPaste arms the state with the entry text seen when the user pressed the
+// paste shortcut.
 func (s *pasteSubmissionState) beginPaste(text string) {
 	s.active = true
 	s.initialText = text
 	s.deferredEnter = false
 }
 
+// requestSubmit reports whether Enter submits now and whether the pasted text is
+// already in the entry. Enter pressed while the entry still holds the pre-paste
+// text is deferred instead.
 func (s *pasteSubmissionState) requestSubmit(text string) (submit, pastedTextReady bool) {
 	if !s.active {
 		return true, false
@@ -76,8 +83,12 @@ func (s *pasteSubmissionState) requestSubmit(text string) (submit, pastedTextRea
 	return true, true
 }
 
-func (s *pasteSubmissionState) textChanged(text string) bool {
-	if !s.active || text == s.initialText {
+// textChanged reports whether an Enter pressed during the paste must be replayed.
+// The first entry change after a paste shortcut completes the paste operation,
+// even when the pasted text matches what the entry already contained, so
+// completion is never inferred from the text itself.
+func (s *pasteSubmissionState) textChanged() bool {
+	if !s.active {
 		return false
 	}
 	s.active = false
@@ -86,6 +97,7 @@ func (s *pasteSubmissionState) textChanged(text string) bool {
 	return deferred
 }
 
+// reset drops any paste state, discarding a deferred submission.
 func (s *pasteSubmissionState) reset() {
 	*s = pasteSubmissionState{}
 }
@@ -1189,19 +1201,22 @@ func (o *Omnibox) onEntryChanged() {
 	}
 
 	entryText := o.entry.GetText()
-	o.mu.Lock()
-	deferredSubmit := o.pasteSubmit.textChanged(entryText)
-	o.mu.Unlock()
 
 	// Detect debounced echo from our own SetText in setGhostText.
 	// search-changed is debounced by GtkSearchEntry, so it fires AFTER
-	// the isSettingGhost guard is already off.
+	// the isSettingGhost guard is already off. Such self-inflicted
+	// notifications must not consume a paste deferred while GTK is still
+	// reading the clipboard.
 	o.mu.RLock()
-	if o.ghostSuffix != "" && entryText == o.realInput+o.ghostSuffix {
-		o.mu.RUnlock()
+	ghostEcho := o.ghostSuffix != "" && entryText == o.realInput+o.ghostSuffix
+	o.mu.RUnlock()
+	if ghostEcho {
 		return
 	}
-	o.mu.RUnlock()
+
+	o.mu.Lock()
+	deferredSubmit := o.pasteSubmit.textChanged()
+	o.mu.Unlock()
 
 	log := logging.FromContext(o.ctx)
 	if trimmed := url.TrimLeadingSpacesIfURL(entryText); trimmed != entryText {
