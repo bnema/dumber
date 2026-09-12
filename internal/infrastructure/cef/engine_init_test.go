@@ -67,8 +67,7 @@ func TestPrepareCEFSettings_UsesResolvedProfilePaths(t *testing.T) {
 // the global request context runs incognito-style with in-memory storage.
 // RootCachePath does not supply CachePath and grants no persistent
 // localStorage. Setting an explicit CachePath requires the P3.3
-// compatibility decision with data-preservation tests; see
-// docs/cef-cache-contract.md.
+// compatibility decision with data-preservation tests.
 func TestPrepareCEFSettings_LeavesCachePathToCEFDefault(t *testing.T) {
 	logger := zerolog.Nop()
 	profile := testCEFDevProfile(t)
