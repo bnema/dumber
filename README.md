@@ -67,7 +67,7 @@ The browser chrome stays out of the way by default. Open the omnibox when you wa
 ### Install script
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/bnema/dumber/v0.31.0/install.sh | DUMBER_VERSION=v0.31.0 bash
+curl -fsSL https://raw.githubusercontent.com/bnema/dumber/v0.32.0/install.sh | DUMBER_VERSION=v0.32.0 bash
 dumber browse
 ```
 
