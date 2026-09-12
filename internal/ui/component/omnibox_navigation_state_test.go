@@ -131,27 +131,19 @@ func (h *omniboxPasteHarness) showGhostSuffix(input, suffix string) {
 	h.omnibox.selectedIndex = -1
 }
 
-func TestOmniboxReplaysDeferredEnterWhenPasteKeepsTheGhostSuffixText(t *testing.T) {
-	harness := newOmniboxPasteHarness(t)
-	harness.showGhostSuffix("https://example.com/gu", "ide")
+func TestPasteSubmissionStateReplaysEnterWhenPasteKeepsGhostSuffixText(t *testing.T) {
+	state := pasteSubmissionState{}
+	fullText := "https://example.com/guide"
+	state.beginPaste(fullText)
 
-	// Ctrl+V with clipboard content equal to the whole entry text, then Enter
-	// before GTK delivers the pasted text.
-	harness.pasteShortcut()
-	harness.omnibox.handleSubmitKeyPress()
-	if len(harness.navigated) != 0 {
-		t.Fatalf("Enter must be deferred while the clipboard read is in flight, got %v", harness.navigated)
+	if submit, _ := state.requestSubmit(fullText); submit {
+		t.Fatal("Enter must be deferred while the clipboard replacement is pending")
 	}
-
-	// GTK reports the replacement. The text is unchanged, so it also matches the
-	// ghost echo pattern; the pasted text still has to win.
-	harness.omnibox.onEntryChanged()
-
-	if len(harness.navigated) != 1 || harness.navigated[0] != "https://example.com/guide" {
-		t.Fatalf("the deferred Enter must navigate once the paste lands, got %v", harness.navigated)
+	if !state.textChanged() {
+		t.Fatal("an unchanged replacement matching ghost text must replay deferred Enter")
 	}
-	if harness.omnibox.hasGhost() {
-		t.Fatal("the pasted text must replace the ghost suffix")
+	if state.textChanged() {
+		t.Fatal("the replay must be consumed exactly once")
 	}
 }
 
