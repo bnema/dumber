@@ -1,9 +1,11 @@
 package component
 
 import (
+	"context"
 	"testing"
 
 	"github.com/bnema/puregotk/v4/gdk"
+	"github.com/bnema/puregotk/v4/gtk"
 )
 
 func TestShouldPreferTypedURLNavigation(t *testing.T) {
@@ -30,6 +32,146 @@ func TestShouldPreferTypedURLNavigation(t *testing.T) {
 				t.Fatalf("shouldPreferTypedURLNavigation(%q) = %v, want %v", tt.input, got, tt.want)
 			}
 		})
+	}
+}
+
+func TestPasteSubmissionStateDefersEnterUntilTextArrives(t *testing.T) {
+	state := pasteSubmissionState{}
+	state.beginPaste("")
+
+	if submit, _ := state.requestSubmit(""); submit {
+		t.Fatal("Enter must not submit while the paste buffer is still empty")
+	}
+	if !state.textChanged() {
+		t.Fatal("the completed paste must consume the deferred submission")
+	}
+	if state.textChanged() {
+		t.Fatal("the deferred submission must be consumed exactly once")
+	}
+}
+
+func TestPasteSubmissionStateCompletesWhenPasteKeepsTheSameText(t *testing.T) {
+	state := pasteSubmissionState{}
+	state.beginPaste("https://example.com")
+
+	if submit, _ := state.requestSubmit("https://example.com"); submit {
+		t.Fatal("Enter must be deferred while the clipboard read is still in flight")
+	}
+	if !state.textChanged() {
+		t.Fatal("an identical replacement must consume the deferred submission")
+	}
+	if state.textChanged() {
+		t.Fatal("the deferred submission must be consumed exactly once")
+	}
+}
+
+func TestPasteSubmissionStateRecognizesPasteThatArrivesBeforeEnter(t *testing.T) {
+	state := pasteSubmissionState{}
+	state.beginPaste("old")
+
+	submit, pastedTextReady := state.requestSubmit("new")
+	if !submit || !pastedTextReady {
+		t.Fatalf("completed paste should submit immediately, got submit=%v ready=%v", submit, pastedTextReady)
+	}
+}
+
+func TestPasteSubmissionStateResetCancelsDeferredEnter(t *testing.T) {
+	state := pasteSubmissionState{}
+	state.beginPaste("")
+	state.requestSubmit("")
+	state.reset()
+
+	if state.textChanged() {
+		t.Fatal("a later edit must not consume a canceled paste submission")
+	}
+}
+
+// omniboxPasteHarness drives the omnibox paste path against a real GTK entry.
+type omniboxPasteHarness struct {
+	omnibox   *Omnibox
+	navigated []string
+}
+
+func newOmniboxPasteHarness(t *testing.T) *omniboxPasteHarness {
+	t.Helper()
+	if !gtk.InitCheck() {
+		t.Skip("GTK native display prerequisite unavailable (gtk.InitCheck returned false)")
+	}
+	entry := gtk.NewSearchEntry()
+	if entry == nil {
+		t.Fatal("failed to create a GTK search entry")
+	}
+	harness := &omniboxPasteHarness{}
+	harness.omnibox = &Omnibox{
+		ctx:   context.Background(),
+		entry: entry,
+		onNavigate: func(_ context.Context, targetURL string) error {
+			harness.navigated = append(harness.navigated, targetURL)
+			return nil
+		},
+	}
+	return harness
+}
+
+// pasteShortcut reproduces what the capture-phase key controller does on Ctrl+V.
+func (h *omniboxPasteHarness) pasteShortcut() {
+	h.omnibox.mu.Lock()
+	defer h.omnibox.mu.Unlock()
+	h.omnibox.pasteSubmit.beginPaste(h.omnibox.entry.GetText())
+}
+
+// showGhostSuffix displays input+suffix with the suffix selected, as the ghost
+// completion does, without emitting entry notifications.
+func (h *omniboxPasteHarness) showGhostSuffix(input, suffix string) {
+	h.omnibox.entry.SetText(input + suffix)
+	h.omnibox.mu.Lock()
+	defer h.omnibox.mu.Unlock()
+	h.omnibox.realInput = input
+	h.omnibox.ghostSuffix = suffix
+	h.omnibox.selectedIndex = -1
+}
+
+func TestOmniboxReplaysDeferredEnterWhenPasteKeepsTheGhostSuffixText(t *testing.T) {
+	harness := newOmniboxPasteHarness(t)
+	harness.showGhostSuffix("https://example.com/gu", "ide")
+
+	// Ctrl+V with clipboard content equal to the whole entry text, then Enter
+	// before GTK delivers the pasted text.
+	harness.pasteShortcut()
+	harness.omnibox.handleSubmitKeyPress()
+	if len(harness.navigated) != 0 {
+		t.Fatalf("Enter must be deferred while the clipboard read is in flight, got %v", harness.navigated)
+	}
+
+	// GTK reports the replacement. The text is unchanged, so it also matches the
+	// ghost echo pattern; the pasted text still has to win.
+	harness.omnibox.onEntryChanged()
+
+	if len(harness.navigated) != 1 || harness.navigated[0] != "https://example.com/guide" {
+		t.Fatalf("the deferred Enter must navigate once the paste lands, got %v", harness.navigated)
+	}
+	if harness.omnibox.hasGhost() {
+		t.Fatal("the pasted text must replace the ghost suffix")
+	}
+}
+
+func TestOmniboxGhostEchoAloneKeepsItsBehavior(t *testing.T) {
+	harness := newOmniboxPasteHarness(t)
+	harness.showGhostSuffix("https://example.com/gu", "ide")
+
+	harness.omnibox.onEntryChanged()
+
+	if len(harness.navigated) != 0 {
+		t.Fatalf("a self-generated ghost echo must not navigate, got %v", harness.navigated)
+	}
+	harness.omnibox.mu.RLock()
+	defer harness.omnibox.mu.RUnlock()
+	if harness.omnibox.realInput != "https://example.com/gu" || harness.omnibox.ghostSuffix != "ide" {
+		t.Fatalf(
+			"a ghost echo must keep the ghost state, got input=%q suffix=%q",
+			harness.omnibox.realInput,
+			harness.omnibox.ghostSuffix,
+		)
 	}
 }
 

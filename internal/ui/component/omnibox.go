@@ -52,6 +52,56 @@ type favoriteToggleResultUpdate struct {
 	IsFavorite bool
 }
 
+// pasteSubmissionState tracks a paste whose clipboard read is still in flight so
+// that an Enter pressed in the meantime is replayed once the text lands.
+type pasteSubmissionState struct {
+	active        bool
+	initialText   string
+	deferredEnter bool
+}
+
+// beginPaste arms the state with the entry text seen when the user pressed the
+// paste shortcut.
+func (s *pasteSubmissionState) beginPaste(text string) {
+	s.active = true
+	s.initialText = text
+	s.deferredEnter = false
+}
+
+// requestSubmit reports whether Enter submits now and whether the pasted text is
+// already in the entry. Enter pressed while the entry still holds the pre-paste
+// text is deferred instead.
+func (s *pasteSubmissionState) requestSubmit(text string) (submit, pastedTextReady bool) {
+	if !s.active {
+		return true, false
+	}
+	if text == s.initialText {
+		s.deferredEnter = true
+		return false, false
+	}
+	s.active = false
+	return true, true
+}
+
+// textChanged reports whether an Enter pressed during the paste must be replayed.
+// The first entry change after a paste shortcut completes the paste operation,
+// even when the pasted text matches what the entry already contained, so
+// completion is never inferred from the text itself.
+func (s *pasteSubmissionState) textChanged() bool {
+	if !s.active {
+		return false
+	}
+	s.active = false
+	deferred := s.deferredEnter
+	s.deferredEnter = false
+	return deferred
+}
+
+// reset drops any paste state, discarding a deferred submission.
+func (s *pasteSubmissionState) reset() {
+	*s = pasteSubmissionState{}
+}
+
 // ViewMode distinguishes history search from favorites display.
 type ViewMode string
 
@@ -119,6 +169,7 @@ type Omnibox struct {
 	ghostSuffix      string // Completion suffix currently displayed
 	insertCompletion bool   // True on character insert, false on delete — gates ghost completion
 	isSettingGhost   bool   // Guard flag: skip onEntryChanged during programmatic SetText
+	pasteSubmit      pasteSubmissionState
 
 	// Dependencies
 	historyUC              *usecase.SearchHistoryUseCase
@@ -648,6 +699,16 @@ func (o *Omnibox) setupKeyboardHandling() {
 	controller.SetPropagationPhase(gtk.PhaseCaptureValue)
 
 	keyPressedCb := func(_ gtk.EventControllerKey, keyval, keycode uint, state gdk.ModifierType) bool {
+		if isPasteShortcut(keyval, state) && o.entry != nil {
+			entryText := o.entry.GetText()
+			o.mu.Lock()
+			o.pasteSubmit.beginPaste(entryText)
+			o.mu.Unlock()
+		} else if keyval != uint(gdk.KEY_Return) && keyval != uint(gdk.KEY_KP_Enter) {
+			o.mu.Lock()
+			o.pasteSubmit.reset()
+			o.mu.Unlock()
+		}
 		if o.handleKeyPress(keyval, keycode, state) {
 			return true
 		}
@@ -985,7 +1046,7 @@ func (o *Omnibox) handleKeyPress(keyval, keycode uint, state gdk.ModifierType) b
 		}
 
 	case uint(gdk.KEY_Return), uint(gdk.KEY_KP_Enter):
-		o.navigateToSelected()
+		o.handleSubmitKeyPress()
 		return true
 
 	case uint(gdk.KEY_Up):
@@ -1034,6 +1095,30 @@ func (o *Omnibox) handleKeyPress(keyval, keycode uint, state gdk.ModifierType) b
 	}
 
 	return false // Let entry handle the key
+}
+
+func (o *Omnibox) handleSubmitKeyPress() {
+	if o.entry == nil {
+		return
+	}
+	entryText := o.entry.GetText()
+	o.mu.Lock()
+	shouldSubmit, pastedTextReady := o.pasteSubmit.requestSubmit(entryText)
+	if pastedTextReady {
+		o.selectedIndex = -1
+		o.hasNavigated = false
+	}
+	o.mu.Unlock()
+	if shouldSubmit {
+		o.navigateToSelected()
+	}
+}
+
+func isPasteShortcut(keyval uint, state gdk.ModifierType) bool {
+	ctrl := state&gdk.ControlMaskValue != 0
+	shift := state&gdk.ShiftMaskValue != 0
+	return (ctrl && (keyval == uint(gdk.KEY_v) || keyval == uint(gdk.KEY_V))) ||
+		(shift && keyval == uint(gdk.KEY_Insert))
 }
 
 func isDeletionKey(keyval uint) bool {
@@ -1117,15 +1202,22 @@ func (o *Omnibox) onEntryChanged() {
 
 	entryText := o.entry.GetText()
 
+	o.mu.Lock()
+	deferredSubmit := o.pasteSubmit.textChanged()
+	o.mu.Unlock()
+
 	// Detect debounced echo from our own SetText in setGhostText.
 	// search-changed is debounced by GtkSearchEntry, so it fires AFTER
-	// the isSettingGhost guard is already off.
+	// the isSettingGhost guard is already off. A self-inflicted notification
+	// must leave the ghost state untouched, but it cannot be told apart from a
+	// paste that replaced the selected ghost suffix with the same text, so a
+	// deferred Enter always wins and the ghost state is rebuilt from the paste.
 	o.mu.RLock()
-	if o.ghostSuffix != "" && entryText == o.realInput+o.ghostSuffix {
-		o.mu.RUnlock()
+	ghostEcho := o.ghostSuffix != "" && entryText == o.realInput+o.ghostSuffix
+	o.mu.RUnlock()
+	if ghostEcho && !deferredSubmit {
 		return
 	}
-	o.mu.RUnlock()
 
 	log := logging.FromContext(o.ctx)
 	if trimmed := url.TrimLeadingSpacesIfURL(entryText); trimmed != entryText {
@@ -1145,6 +1237,11 @@ func (o *Omnibox) onEntryChanged() {
 	o.realInput = entryText
 	shouldComplete := o.insertCompletion
 	o.mu.Unlock()
+
+	if deferredSubmit {
+		o.navigateToSelected()
+		return
+	}
 
 	log.Debug().
 		Str("entryText", entryText).
@@ -2803,6 +2900,7 @@ func (o *Omnibox) Show(ctx context.Context, query string) {
 	o.ghostSuffix = ""
 
 	o.insertCompletion = false
+	o.pasteSubmit.reset()
 	o.mu.Unlock()
 
 	// Set initial query
@@ -2888,6 +2986,7 @@ func (o *Omnibox) Hide(ctx context.Context) {
 	o.mu.Lock()
 	o.realInput = ""
 	o.insertCompletion = false
+	o.pasteSubmit.reset()
 	o.mu.Unlock()
 	o.resetSearchSessionState()
 
