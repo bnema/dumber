@@ -200,12 +200,35 @@ func (h *handlerSet) OnFaviconUrlchange(browser purecef.Browser, iconURLs purece
 	}
 	h.wv.faviconEngineDocumentSeq = documentSeq
 	h.wv.mu.Unlock()
-	if len(candidates) == 0 {
-		return
-	}
 	h.wv.runOnGTK(func() {
+		if !h.faviconCallbackCurrent(cb, browser, documentSeq, pageURL) {
+			return
+		}
 		cb.OnFaviconURLChanged(pageURL, candidates)
 	})
+}
+
+// faviconCallbackCurrent reports whether a queued favicon callback still
+// belongs to the current committed document, callback owner, and browser. The
+// GTK hop outlives the state it was queued for, so callbacks revalidate before
+// handing candidates to the UI.
+func (h *handlerSet) faviconCallbackCurrent(cb *port.WebViewCallbacks, browser purecef.Browser, documentSeq uint64, pageURL string) bool {
+	if h == nil || h.wv == nil || cb == nil {
+		return false
+	}
+	h.wv.mu.RLock()
+	currentBrowser := h.wv.browser
+	current := h.wv.callbacks == cb && h.wv.documentSeq == documentSeq && h.wv.uri == pageURL
+	h.wv.mu.RUnlock()
+	if !current {
+		return false
+	}
+	if browser == nil {
+		// No captured browser identity to compare; the document checks above
+		// still bound the callback.
+		return true
+	}
+	return currentBrowser != nil && currentBrowser.GetIdentifier() == browser.GetIdentifier()
 }
 
 // OnFullscreenModeChange toggles the fullscreen atomic and fires callbacks.
@@ -415,7 +438,8 @@ func (h *handlerSet) emitDiscoveredFaviconCandidates(browser purecef.Browser, pa
 	}
 	h.wv.mu.Lock()
 	documentSeq := h.wv.documentSeq
-	if h.wv.faviconEngineDocumentSeq == documentSeq || h.wv.faviconSourcePendingToken != 0 || documentSeq == 0 {
+	if h.wv.faviconEngineDocumentSeq == documentSeq || h.wv.faviconSourceCompletedDocumentSeq == documentSeq ||
+		h.wv.faviconSourcePendingToken != 0 || documentSeq == 0 {
 		h.wv.mu.Unlock()
 		return
 	}
@@ -427,6 +451,7 @@ func (h *handlerSet) emitDiscoveredFaviconCandidates(browser purecef.Browser, pa
 		h.wv.mu.Lock()
 		if h.wv.documentSeq == documentSeq && h.wv.faviconSourcePendingToken == token {
 			h.wv.faviconSourcePendingToken = 0
+			h.wv.faviconSourceCompletedDocumentSeq = documentSeq
 		}
 		h.wv.mu.Unlock()
 	}
@@ -436,6 +461,9 @@ func (h *handlerSet) emitDiscoveredFaviconCandidates(browser purecef.Browser, pa
 			return
 		}
 		h.wv.runOnGTK(func() {
+			if !h.faviconCallbackCurrent(cb, browser, documentSeq, pageURL) {
+				return
+			}
 			cb.OnFaviconURLChanged(pageURL, candidates)
 		})
 	}
@@ -459,10 +487,13 @@ func (h *handlerSet) emitDiscoveredFaviconCandidates(browser purecef.Browser, pa
 			}
 		})
 		finish()
+		if !h.faviconCallbackCurrent(cb, browser, documentSeq, pageURL) {
+			return
+		}
 		h.wv.mu.RLock()
-		current := h.wv.documentSeq == documentSeq && h.wv.faviconEngineDocumentSeq != documentSeq
+		engineWon := h.wv.faviconEngineDocumentSeq == documentSeq
 		h.wv.mu.RUnlock()
-		if !current {
+		if engineWon {
 			return
 		}
 		candidates := DiscoverFaviconCandidates(pageURL, source)
@@ -497,6 +528,7 @@ func (h *handlerSet) OnLoadStart(_ purecef.Browser, frame purecef.Frame, _ purec
 		h.wv.mu.Lock()
 		h.wv.documentSeq++
 		h.wv.faviconSourcePendingToken = 0
+		h.wv.faviconSourceCompletedDocumentSeq = 0
 		h.wv.mu.Unlock()
 	}
 	bridgeNonce := h.wv.ensureBridgeNonce()

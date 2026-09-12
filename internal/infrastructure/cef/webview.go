@@ -282,6 +282,11 @@ type WebView struct {
 	faviconEngineDocumentSeq   uint64
 	faviconSourcePendingToken  uint64
 	faviconSourceRequestSerial uint64
+	// faviconSourceCompletedDocumentSeq records the document whose source scan
+	// already ran, so a repeated loading-finished notification does not repeat a
+	// full-document transfer. It stays separate from faviconEngineDocumentSeq so
+	// engine-provided favicons remain accepted for the current document.
+	faviconSourceCompletedDocumentSeq uint64
 
 	// Content installation is deduplicated per committed main-frame document.
 	documentSeq          uint64
@@ -1194,15 +1199,28 @@ func (wv *WebView) handleNativePopupAborted() {
 
 // RunJavaScript executes a script in the main world. Fire-and-forget.
 func (wv *WebView) RunJavaScript(_ context.Context, script string) {
+	wv.runJavaScriptForDocument(0, script)
+}
+
+// RunJavaScriptForDocument executes a script pinned to one committed
+// main-frame document. The script is dropped when a newer document has
+// committed before it reaches the CEF UI thread, so a stale load-end callback
+// cannot install its content into a replacement document. A documentSeq of 0
+// means unpinned.
+func (wv *WebView) RunJavaScriptForDocument(documentSeq uint64, script string) {
+	wv.runJavaScriptForDocument(documentSeq, script)
+}
+
+func (wv *WebView) runJavaScriptForDocument(documentSeq uint64, script string) {
 	if wv.destroyed.Load() {
 		return
 	}
 	if wv.engine == nil {
-		wv.executeJavaScriptNow(script)
+		wv.executeJavaScript(documentSeq, script)
 		return
 	}
 	task := cefNewTask(cefTaskFunc(func() {
-		wv.executeJavaScriptNow(script)
+		wv.executeJavaScript(documentSeq, script)
 	}))
 	if task == nil {
 		return
@@ -1211,13 +1229,21 @@ func (wv *WebView) RunJavaScript(_ context.Context, script string) {
 }
 
 func (wv *WebView) executeJavaScriptNow(script string) {
+	wv.executeJavaScript(0, script)
+}
+
+func (wv *WebView) executeJavaScript(documentSeq uint64, script string) {
 	if wv == nil || wv.destroyed.Load() {
 		return
 	}
 	wv.mu.RLock()
 	browser := wv.browser
+	currentDocumentSeq := wv.documentSeq
 	wv.mu.RUnlock()
 	if browser == nil {
+		return
+	}
+	if documentSeq != 0 && currentDocumentSeq != documentSeq {
 		return
 	}
 	if frame := browser.GetMainFrame(); frame != nil {

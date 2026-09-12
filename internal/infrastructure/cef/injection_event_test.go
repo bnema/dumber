@@ -5,6 +5,7 @@ import (
 	"sync"
 	"testing"
 
+	purecef "github.com/bnema/purego-cef/cef"
 	cefmocks "github.com/bnema/purego-cef/cef/mocks"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -131,6 +132,39 @@ func TestInjectionEvent_CurrentInstalls(t *testing.T) {
 	h.wv.mu.Unlock()
 	ci.onLoadEndForEvent(h.wv, h.wv.captureInjectionEvent(h.browser, h.wv.uri))
 	require.Equal(t, 2*first, h.scriptCount(), "a new committed document must receive scripts")
+}
+
+// TestInjectionEvent_ReplacedDocumentSkipsQueuedScripts reproduces a replacement
+// navigation committing between validation and the CEF UI thread: scripts
+// pinned to the validated document must be dropped instead of landing in the
+// new document.
+func TestInjectionEvent_ReplacedDocumentSkipsQueuedScripts(t *testing.T) {
+	h := newInjectionHarness(t, "https://example.com/a")
+
+	var queued []purecef.Task
+	prevNewTask, prevPostTask := cefNewTask, cefPostTask
+	cefNewTask = func(task purecef.Task) purecef.Task { return task }
+	cefPostTask = func(_ purecef.ThreadID, task purecef.Task) int32 {
+		queued = append(queued, task)
+		return 1
+	}
+	t.Cleanup(func() { cefNewTask, cefPostTask = prevNewTask, prevPostTask })
+
+	// A non-nil engine queues scripts for the CEF UI thread instead of running
+	// them inline, which is what opens the window the pin has to close.
+	h.wv.engine = &Engine{}
+	testInjector().onLoadEndForEvent(h.wv, h.wv.captureInjectionEvent(h.browser, h.wv.uri))
+	require.NotEmpty(t, queued, "a validated load-end must queue its installation")
+
+	// The replacement document commits before the queued scripts run.
+	h.wv.mu.Lock()
+	h.wv.documentSeq++
+	h.wv.mu.Unlock()
+	for _, task := range queued {
+		task.Execute()
+	}
+
+	require.Zero(t, h.scriptCount(), "scripts pinned to a replaced document must not install")
 }
 
 // TestInjectionEvent_NilCaptureSkips verifies the conservative fallback: a
