@@ -184,6 +184,10 @@ type Omnibox struct {
 	saveInitialBehaviorFn  func(context.Context, entity.OmniboxInitialBehavior) error
 	ctx                    context.Context
 
+	// scheduleSuggestionUpdate posts suggestion refreshes to the GTK main loop.
+	// Tests inject a synchronous scheduler; nil falls back to glib.IdleAdd.
+	scheduleSuggestionUpdate func(fn func())
+
 	// Callbacks
 	onNavigate         func(ctx context.Context, url string) error
 	onClose            func()
@@ -1188,6 +1192,15 @@ func (o *Omnibox) handleCtrlNumberShortcut(keyval, keycode uint, ctrl bool) bool
 	return false
 }
 
+// isGhostEcho reports whether the entry text is the debounced echo of Dumber's
+// own ghost completion: realInput plus the suffix currently displayed. A
+// matching echo must leave the ghost state untouched, but it cannot be told
+// apart from a paste that replaced the selected suffix with the same text, so a
+// deferred Enter still wins and the ghost state is rebuilt from the paste.
+func isGhostEcho(entryText, realInput, ghostSuffix string) bool {
+	return ghostSuffix != "" && entryText == realInput+ghostSuffix
+}
+
 // onEntryChanged handles text input changes with debouncing.
 // When this fires, GTK has already processed the keystroke — if ghost text was
 // selected and the user typed, the selection was replaced naturally by GTK.
@@ -1213,7 +1226,7 @@ func (o *Omnibox) onEntryChanged() {
 	// paste that replaced the selected ghost suffix with the same text, so a
 	// deferred Enter always wins and the ghost state is rebuilt from the paste.
 	o.mu.RLock()
-	ghostEcho := o.ghostSuffix != "" && entryText == o.realInput+o.ghostSuffix
+	ghostEcho := isGhostEcho(entryText, o.realInput, o.ghostSuffix)
 	o.mu.RUnlock()
 	if ghostEcho && !deferredSubmit {
 		return
@@ -3050,16 +3063,27 @@ func (o *Omnibox) UpdateZoomIndicator(factor float64) {
 	glib.IdleAdd(&cb, 0)
 }
 
-// idleAddUpdateSuggestions schedules updateSuggestions on the GTK main thread.
-func (o *Omnibox) idleAddUpdateSuggestions(suggestions []Suggestion, query string, token uint64) {
-	var cb glib.SourceFunc = func(data uintptr) bool {
-		if !o.isSearchTokenCurrent(token) {
-			return false
-		}
-		o.updateSuggestions(suggestions, query)
-		return false // One-shot callback
+// scheduleSuggestionUpdateOnGTK posts a suggestion refresh to the GTK main
+// loop as a one-shot callback.
+func scheduleSuggestionUpdateOnGTK(fn func()) {
+	var cb glib.SourceFunc = func(uintptr) bool {
+		fn()
+		return false
 	}
 	glib.IdleAdd(&cb, 0)
+}
+
+// idleAddUpdateSuggestions schedules updateSuggestions on the GTK main thread.
+func (o *Omnibox) idleAddUpdateSuggestions(suggestions []Suggestion, query string, token uint64) {
+	schedule := o.scheduleSuggestionUpdate
+	if schedule == nil {
+		schedule = scheduleSuggestionUpdateOnGTK
+	}
+	schedule(func() {
+		if o.isSearchTokenCurrent(token) {
+			o.updateSuggestions(suggestions, query)
+		}
+	})
 }
 
 // getFavoriteURLs returns a set of all favorited URLs for batch lookup.

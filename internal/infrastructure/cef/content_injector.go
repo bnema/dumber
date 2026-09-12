@@ -3,6 +3,7 @@ package cef
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync"
 
 	"github.com/bnema/dumber/internal/infrastructure/webutil"
@@ -206,7 +207,7 @@ func (ci *contentInjector) InjectThemeCSS(ctx context.Context, css string) error
 	// Broadcast to all active webviews.
 	ci.engine.activeWebViews.Range(func(_, value any) bool {
 		if wv, ok := value.(*WebView); ok {
-			ci.injectCSS(wv, "dumber-theme-vars", css)
+			ci.injectCSS(wv, 0, "dumber-theme-vars", css)
 		}
 		return true
 	})
@@ -225,7 +226,7 @@ func (ci *contentInjector) InjectFindHighlightCSS(ctx context.Context, css strin
 
 	ci.engine.activeWebViews.Range(func(_, value any) bool {
 		if wv, ok := value.(*WebView); ok {
-			ci.injectCSS(wv, "dumber-find-highlight", css)
+			ci.injectCSS(wv, 0, "dumber-find-highlight", css)
 		}
 		return true
 	})
@@ -245,7 +246,7 @@ func (ci *contentInjector) RefreshScripts(ctx context.Context, wv port.WebView) 
 		return nil
 	}
 
-	ci.onLoadEnd(cefWV)
+	ci.onLoadEnd(cefWV, 0)
 	return nil
 }
 
@@ -257,31 +258,36 @@ func (ci *contentInjector) RefreshScripts(ctx context.Context, wv port.WebView) 
 // committed while the callback was queued). Ambiguous cases fall back to skipping rather than
 // installing blind: an event captured without a browser cannot prove
 // identity, and the current browser gets its own load-end installation.
-// The single snapshot bounds the residual check-then-install window to
-// nanoseconds, and any race there can only repeat idempotent scripts.
-// Repeated same-document load-ends still install.
+// The installation is pinned to the validated document sequence, so a
+// replacement commit between validation and the CEF UI thread drops the
+// scripts instead of injecting them into the new document. Repeated
+// notifications for the same committed document are coalesced.
 func (ci *contentInjector) onLoadEndForEvent(wv *WebView, event injectionEvent) {
 	if wv == nil || ci == nil || event.browserID == noBrowserID {
 		return
 	}
 	wv.mu.RLock()
-	browser, currentIntent := wv.browser, wv.pendingIntentID
+	browser := wv.browser
 	wv.mu.RUnlock()
-	if browser == nil {
+	if browser == nil || browser.GetIdentifier() != event.browserID {
 		return
 	}
-	if browser.GetIdentifier() != event.browserID {
+	wv.mu.Lock()
+	if wv.browser != browser || wv.pendingIntentID != event.intentID || event.documentSeq == 0 ||
+		wv.documentSeq != event.documentSeq || strings.TrimSpace(wv.uri) != event.frameURL ||
+		wv.installedDocumentSeq == event.documentSeq {
+		wv.mu.Unlock()
 		return
 	}
-	if currentIntent != event.intentID {
-		return
-	}
-	ci.onLoadEnd(wv)
+	wv.installedDocumentSeq = event.documentSeq
+	wv.mu.Unlock()
+	ci.onLoadEnd(wv, event.documentSeq)
 }
 
 // onLoadEnd is called from the load handler after a page finishes loading.
 // It injects the appropriate scripts based on whether the page is internal.
-func (ci *contentInjector) onLoadEnd(wv *WebView) {
+// A documentSeq of 0 installs unconditionally (manual refresh paths).
+func (ci *contentInjector) onLoadEnd(wv *WebView, documentSeq uint64) {
 	uri := wv.URI()
 	isInternal := isConceptualInternalURL(uri) || isActualInternalURL(uri)
 
@@ -296,21 +302,21 @@ func (ci *contentInjector) onLoadEnd(wv *WebView) {
 		if ci.colorResolver != nil {
 			prefersDark = ci.colorResolver.Resolve().PrefersDark
 		}
-		ci.injectDarkModeScript(wv, prefersDark)
-		ci.injectMessageBridgeShim(wv)
+		ci.injectDarkModeScript(wv, documentSeq, prefersDark)
+		ci.injectMessageBridgeShim(wv, documentSeq)
 		if themeCSS != "" {
-			ci.injectCSS(wv, "dumber-theme-vars", themeCSS)
+			ci.injectCSS(wv, documentSeq, "dumber-theme-vars", themeCSS)
 		}
 	}
 
 	// All pages get find highlight CSS if set.
 	if findCSS != "" {
-		ci.injectCSS(wv, "dumber-find-highlight", findCSS)
+		ci.injectCSS(wv, documentSeq, "dumber-find-highlight", findCSS)
 	}
 
 	// All pages get custom scrollbar styling with auto-hide.
-	ci.injectCSS(wv, "dumber-scrollbar", scrollbarCSS)
-	wv.RunJavaScript(context.Background(), scrollbarAutoHideJS)
+	ci.injectCSS(wv, documentSeq, "dumber-scrollbar", scrollbarCSS)
+	wv.RunJavaScriptForDocument(documentSeq, scrollbarAutoHideJS)
 
 	// Clipboard copy/cut, editable focus sync, and synthetic popup proxies still
 	// need a JS bridge in OSR mode while the native renderer bridge remains disabled.
@@ -322,18 +328,20 @@ func (ci *contentInjector) onLoadEnd(wv *WebView) {
 		}
 		logging.FromContext(ctx).Warn().Msg("cef: skipped clipboard bridge injection — nonce generation failed")
 	} else {
-		wv.RunJavaScript(context.Background(), buildTrustedPageFetchBridgeJS(bridgeNonce))
+		wv.RunJavaScriptForDocument(documentSeq, buildTrustedPageFetchBridgeJS(bridgeNonce))
 	}
 
 	// Video playback diagnostic — logs video element state changes.
 	// Gated behind DUMBER_VIDEO_DIAG=1 environment variable.
 	if ci.videoDiagnosticsEnabled {
-		wv.RunJavaScript(context.Background(), videoDiagnosticJS)
+		wv.RunJavaScriptForDocument(documentSeq, videoDiagnosticJS)
 	}
 }
 
-// injectCSS injects a CSS string as a <style> element via JavaScript.
-func (ci *contentInjector) injectCSS(wv *WebView, id, css string) {
+// injectCSS injects a CSS string as a <style> element via JavaScript. The
+// style is pinned to documentSeq when the caller knows the committed document
+// sequence; 0 installs unconditionally.
+func (ci *contentInjector) injectCSS(wv *WebView, documentSeq uint64, id, css string) {
 	escapedID := webutil.EscapeForJSString(id)
 	escaped := webutil.EscapeForJSString(css)
 	script := fmt.Sprintf(`(function(){
@@ -342,19 +350,19 @@ func (ci *contentInjector) injectCSS(wv *WebView, id, css string) {
   el.textContent = '%s';
 })();`, escapedID, escapedID, escaped)
 
-	wv.RunJavaScript(context.Background(), script)
+	wv.RunJavaScriptForDocument(documentSeq, script)
 }
 
 // injectDarkModeScript sets dark/light class on <html> and patches matchMedia
 // for prefers-color-scheme queries on internal pages.
-func (ci *contentInjector) injectDarkModeScript(wv *WebView, prefersDark bool) {
-	wv.RunJavaScript(context.Background(), webutil.DarkModeScript(prefersDark, "__dumber_cef_prefers_dark"))
+func (ci *contentInjector) injectDarkModeScript(wv *WebView, documentSeq uint64, prefersDark bool) {
+	wv.RunJavaScriptForDocument(documentSeq, webutil.DarkModeScript(prefersDark, "__dumber_cef_prefers_dark"))
 }
 
 // injectMessageBridgeShim injects the window.dumber.postMessage JS client shim
 // so internal pages can communicate with Go handlers via fetch.
 // The message body is base64-encoded into the X-Dumber-Body header to work
 // around purego-cef's unexported PostData element wrapper.
-func (ci *contentInjector) injectMessageBridgeShim(wv *WebView) {
-	wv.RunJavaScript(context.Background(), MessageBridgeJS)
+func (ci *contentInjector) injectMessageBridgeShim(wv *WebView, documentSeq uint64) {
+	wv.RunJavaScriptForDocument(documentSeq, MessageBridgeJS)
 }

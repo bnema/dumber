@@ -60,11 +60,13 @@ func TestCEFOnFaviconUrlchangeForwardsOrderedCandidates(t *testing.T) {
 
 	var page string
 	var icons []string
-	wv := &WebView{ctx: context.Background(), uri: "https://example.com/docs/page", callbacks: &port.WebViewCallbacks{
+	browser := cefmocks.NewMockBrowser(t)
+	browser.EXPECT().GetIdentifier().Return(int32(7)).Maybe()
+	wv := &WebView{ctx: context.Background(), uri: "https://example.com/docs/page", browser: browser, documentSeq: 1, callbacks: &port.WebViewCallbacks{
 		OnFaviconURLChanged: func(p string, urls []string) { page, icons = p, urls },
 	}}
 
-	(&handlerSet{wv: wv}).OnFaviconUrlchange(nil, purecef.StringList(42))
+	(&handlerSet{wv: wv}).OnFaviconUrlchange(browser, purecef.StringList(42))
 
 	require.Equal(t, "https://example.com/docs/page", page)
 	require.Equal(t, []string{"https://example.com/favicon.png", "https://cdn.example.com/icon.ico"}, icons)
@@ -77,6 +79,7 @@ func TestCEFLoadingFinishedDiscoversMetadataBeforeFallback(t *testing.T) {
 
 	browser := cefmocks.NewMockBrowser(t)
 	frame := cefmocks.NewMockFrame(t)
+	browser.EXPECT().GetIdentifier().Return(int32(7)).Maybe()
 	browser.EXPECT().GetMainFrame().Return(frame)
 	frame.EXPECT().GetSource(mock.Anything).Run(func(visitor purecef.StringVisitor) {
 		visitor.Visit(`<html><head><link rel="icon" href="/meta.png"></head></html>`)
@@ -84,7 +87,7 @@ func TestCEFLoadingFinishedDiscoversMetadataBeforeFallback(t *testing.T) {
 
 	var page string
 	var icons []string
-	wv := &WebView{ctx: context.Background(), uri: "https://example.com/docs/page", callbacks: &port.WebViewCallbacks{
+	wv := &WebView{ctx: context.Background(), uri: "https://example.com/docs/page", browser: browser, documentSeq: 1, callbacks: &port.WebViewCallbacks{
 		OnFaviconURLChanged: func(p string, urls []string) { page, icons = p, urls },
 	}}
 
@@ -97,7 +100,7 @@ func TestCEFLoadingFinishedDiscoversMetadataBeforeFallback(t *testing.T) {
 func TestCEFLoadingFinishedForwardsFallbackCandidate(t *testing.T) {
 	var page string
 	var icons []string
-	wv := &WebView{ctx: context.Background(), uri: "https://example.com/docs/page", callbacks: &port.WebViewCallbacks{
+	wv := &WebView{ctx: context.Background(), uri: "https://example.com/docs/page", documentSeq: 1, callbacks: &port.WebViewCallbacks{
 		OnFaviconURLChanged: func(p string, urls []string) { page, icons = p, urls },
 	}}
 
@@ -105,4 +108,67 @@ func TestCEFLoadingFinishedForwardsFallbackCandidate(t *testing.T) {
 
 	require.Equal(t, "https://example.com/docs/page", page)
 	require.Equal(t, []string{"https://example.com/favicon.ico"}, icons)
+}
+
+func TestCEFLoadingFinishedSkipsSourceWhenEngineProvidedCandidates(t *testing.T) {
+	prevDecode := decodeCEFStringList
+	decodeCEFStringList = func(purecef.StringList) []string { return []string{"/engine.png"} }
+	defer func() { decodeCEFStringList = prevDecode }()
+
+	browser := cefmocks.NewMockBrowser(t)
+	browser.EXPECT().GetIdentifier().Return(int32(7)).Maybe()
+	calls := 0
+	wv := &WebView{ctx: context.Background(), uri: "https://example.com/page", browser: browser, documentSeq: 1, callbacks: &port.WebViewCallbacks{
+		OnFaviconURLChanged: func(string, []string) { calls++ },
+	}}
+	h := &handlerSet{wv: wv}
+	h.OnFaviconUrlchange(browser, purecef.StringList(1))
+	h.OnLoadingStateChange(browser, 0, 0, 0)
+
+	require.Equal(t, 1, calls)
+}
+
+func TestCEFLoadingFinishedCoalescesPendingSourceDiscovery(t *testing.T) {
+	prevNewStringVisitor := cefNewStringVisitor
+	cefNewStringVisitor = func(visitor purecef.StringVisitor) purecef.StringVisitor { return visitor }
+	defer func() { cefNewStringVisitor = prevNewStringVisitor }()
+
+	browser := cefmocks.NewMockBrowser(t)
+	frame := cefmocks.NewMockFrame(t)
+	browser.EXPECT().GetMainFrame().Return(frame).Once()
+	frame.EXPECT().GetSource(mock.Anything).Return().Once()
+	wv := &WebView{ctx: context.Background(), uri: "https://example.com/page", documentSeq: 1, callbacks: &port.WebViewCallbacks{
+		OnFaviconURLChanged: func(string, []string) {},
+	}}
+	h := &handlerSet{wv: wv}
+	h.OnLoadingStateChange(browser, 0, 0, 0)
+	h.OnLoadingStateChange(browser, 0, 0, 0)
+}
+
+func TestCEFLoadingFinishedDoesNotRepeatCompletedSourceDiscovery(t *testing.T) {
+	prevNewStringVisitor := cefNewStringVisitor
+	var visitor purecef.StringVisitor
+	cefNewStringVisitor = func(v purecef.StringVisitor) purecef.StringVisitor {
+		visitor = v
+		return v
+	}
+	defer func() { cefNewStringVisitor = prevNewStringVisitor }()
+
+	browser := cefmocks.NewMockBrowser(t)
+	frame := cefmocks.NewMockFrame(t)
+	browser.EXPECT().GetIdentifier().Return(int32(7)).Maybe()
+	browser.EXPECT().GetMainFrame().Return(frame).Once()
+	frame.EXPECT().GetSource(mock.Anything).Return().Once()
+	wv := &WebView{ctx: context.Background(), uri: "https://example.com/page", documentSeq: 1, callbacks: &port.WebViewCallbacks{
+		OnFaviconURLChanged: func(string, []string) {},
+	}}
+	h := &handlerSet{wv: wv}
+
+	h.OnLoadingStateChange(browser, 0, 0, 0)
+	require.NotNil(t, visitor, "loading-finished must start source discovery")
+	visitor.Visit(`<html><head><link rel="icon" href="/meta.png"></head></html>`)
+
+	// The same document finishing again must not repeat the full-document
+	// transfer; the GetMainFrame and GetSource expectations are Once.
+	h.OnLoadingStateChange(browser, 0, 0, 0)
 }

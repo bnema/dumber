@@ -153,6 +153,12 @@ func TestOmniboxToggleInitialBehaviorPreference_RefreshesEmptyHistory(t *testing
 	assert.Equal(t, 1, refreshCalls)
 }
 
+// omniboxSuggestionUpdatesInline makes suggestion refreshes run synchronously
+// on the calling goroutine instead of through the GTK main loop.
+func omniboxSuggestionUpdatesInline(o *Omnibox) {
+	o.scheduleSuggestionUpdate = func(fn func()) { fn() }
+}
+
 func TestOmniboxLoadInitialHistory_UsesCapturedInitialBehavior(t *testing.T) {
 	repo := repomocks.NewMockHistoryRepository(t)
 	done := make(chan struct{})
@@ -168,6 +174,7 @@ func TestOmniboxLoadInitialHistory_UsesCapturedInitialBehavior(t *testing.T) {
 		initialBehavior: entity.OmniboxInitialBehaviorRecent,
 		ctx:             context.Background(),
 	}
+	omniboxSuggestionUpdatesInline(o)
 
 	o.loadInitialHistory(1)
 	o.initialBehavior = entity.OmniboxInitialBehaviorMostVisited
@@ -195,6 +202,7 @@ func TestOmniboxLoadInitialHistory_MostVisitedUsesThirtyDayWindow(t *testing.T) 
 		mostVisitedDays: 30,
 		ctx:             context.Background(),
 	}
+	omniboxSuggestionUpdatesInline(o)
 
 	o.loadInitialHistory(1)
 
@@ -221,6 +229,7 @@ func TestOmniboxLoadInitialHistory_MostVisitedUsesConfiguredWindow(t *testing.T)
 		mostVisitedDays: 7,
 		ctx:             context.Background(),
 	}
+	omniboxSuggestionUpdatesInline(o)
 
 	o.loadInitialHistory(1)
 
@@ -247,6 +256,7 @@ func TestOmniboxLoadInitialHistory_MostVisitedZeroWindowUsesAllHistory(t *testin
 		mostVisitedDays: 0,
 		ctx:             context.Background(),
 	}
+	omniboxSuggestionUpdatesInline(o)
 
 	o.loadInitialHistory(1)
 

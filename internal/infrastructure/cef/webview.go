@@ -274,10 +274,23 @@ type WebView struct {
 	// Last known hover URI for middle-click → new tab.
 	lastHoverURI string
 
-	// Favicon source visitors are retained until CEF calls them back because
-	// GetSource delivers asynchronously through a C callback pointer.
-	faviconSourceVisitorsMu sync.Mutex
-	faviconSourceVisitors   []faviconSourceVisitorRetention
+	// Favicon discovery state is scoped to the current main-frame document.
+	// Source visitors are retained until CEF calls them back because GetSource
+	// delivers asynchronously through a C callback pointer.
+	faviconSourceVisitorsMu    sync.Mutex
+	faviconSourceVisitors      []faviconSourceVisitorRetention
+	faviconEngineDocumentSeq   uint64
+	faviconSourcePendingToken  uint64
+	faviconSourceRequestSerial uint64
+	// faviconSourceCompletedDocumentSeq records the document whose source scan
+	// already ran, so a repeated loading-finished notification does not repeat a
+	// full-document transfer. It stays separate from faviconEngineDocumentSeq so
+	// engine-provided favicons remain accepted for the current document.
+	faviconSourceCompletedDocumentSeq uint64
+
+	// Content installation is deduplicated per committed main-frame document.
+	documentSeq          uint64
+	installedDocumentSeq uint64
 
 	// Load diagnostics state (mutex-protected).
 	loadDiagSeq             uint64
@@ -1186,15 +1199,28 @@ func (wv *WebView) handleNativePopupAborted() {
 
 // RunJavaScript executes a script in the main world. Fire-and-forget.
 func (wv *WebView) RunJavaScript(_ context.Context, script string) {
+	wv.runJavaScriptForDocument(0, script)
+}
+
+// RunJavaScriptForDocument executes a script pinned to one committed
+// main-frame document. The script is dropped when a newer document has
+// committed before it reaches the CEF UI thread, so a stale load-end callback
+// cannot install its content into a replacement document. A documentSeq of 0
+// means unpinned.
+func (wv *WebView) RunJavaScriptForDocument(documentSeq uint64, script string) {
+	wv.runJavaScriptForDocument(documentSeq, script)
+}
+
+func (wv *WebView) runJavaScriptForDocument(documentSeq uint64, script string) {
 	if wv.destroyed.Load() {
 		return
 	}
 	if wv.engine == nil {
-		wv.executeJavaScriptNow(script)
+		wv.executeJavaScript(documentSeq, script)
 		return
 	}
 	task := cefNewTask(cefTaskFunc(func() {
-		wv.executeJavaScriptNow(script)
+		wv.executeJavaScript(documentSeq, script)
 	}))
 	if task == nil {
 		return
@@ -1203,13 +1229,21 @@ func (wv *WebView) RunJavaScript(_ context.Context, script string) {
 }
 
 func (wv *WebView) executeJavaScriptNow(script string) {
+	wv.executeJavaScript(0, script)
+}
+
+func (wv *WebView) executeJavaScript(documentSeq uint64, script string) {
 	if wv == nil || wv.destroyed.Load() {
 		return
 	}
 	wv.mu.RLock()
 	browser := wv.browser
+	currentDocumentSeq := wv.documentSeq
 	wv.mu.RUnlock()
 	if browser == nil {
+		return
+	}
+	if documentSeq != 0 && currentDocumentSeq != documentSeq {
 		return
 	}
 	if frame := browser.GetMainFrame(); frame != nil {
@@ -2260,8 +2294,10 @@ func (wv *WebView) claimPendingNavigationSubmission(intentID uint64, browserID i
 // identity. noBrowserID marks captures taken while no browser was
 // attached. The current URL alone never proves document identity.
 type injectionEvent struct {
-	browserID int32
-	intentID  uint64
+	browserID   int32
+	intentID    uint64
+	documentSeq uint64
+	frameURL    string
 }
 
 // noBrowserID marks an injection event captured while no browser was
@@ -2275,20 +2311,21 @@ const noBrowserID = int32(-1)
 // detection work: a queued event from a replaced browser keeps the OLD
 // identifier and fails revalidation, while stamping the current wv.browser
 // would bless it. Same-browser navigations are distinguished by the pending
-// intent generation; repeated same-document load-ends share it and still
-// install (their scripts are idempotent).
-func (wv *WebView) captureInjectionEvent(browser purecef.Browser) injectionEvent {
-	if wv == nil {
-		return injectionEvent{browserID: noBrowserID}
-	}
-	if browser == nil {
+// intent generation and committed document. Repeated load-end notifications
+// for the same document share the sequence and are installed once.
+func (wv *WebView) captureInjectionEvent(browser purecef.Browser, frameURL string) injectionEvent {
+	if wv == nil || browser == nil {
 		return injectionEvent{browserID: noBrowserID}
 	}
 	browserID := browser.GetIdentifier()
 	wv.mu.RLock()
 	intentID := wv.pendingIntentID
+	documentSeq := wv.documentSeq
 	wv.mu.RUnlock()
-	return injectionEvent{browserID: browserID, intentID: intentID}
+	return injectionEvent{
+		browserID: browserID, intentID: intentID, documentSeq: documentSeq,
+		frameURL: strings.TrimSpace(frameURL),
+	}
 }
 
 func pendingURIEquivalent(a, b string) bool {
