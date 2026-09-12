@@ -1202,21 +1202,22 @@ func (o *Omnibox) onEntryChanged() {
 
 	entryText := o.entry.GetText()
 
-	// Detect debounced echo from our own SetText in setGhostText.
-	// search-changed is debounced by GtkSearchEntry, so it fires AFTER
-	// the isSettingGhost guard is already off. Such self-inflicted
-	// notifications must not consume a paste deferred while GTK is still
-	// reading the clipboard.
-	o.mu.RLock()
-	ghostEcho := o.ghostSuffix != "" && entryText == o.realInput+o.ghostSuffix
-	o.mu.RUnlock()
-	if ghostEcho {
-		return
-	}
-
 	o.mu.Lock()
 	deferredSubmit := o.pasteSubmit.textChanged()
 	o.mu.Unlock()
+
+	// Detect debounced echo from our own SetText in setGhostText.
+	// search-changed is debounced by GtkSearchEntry, so it fires AFTER
+	// the isSettingGhost guard is already off. A self-inflicted notification
+	// must leave the ghost state untouched, but it cannot be told apart from a
+	// paste that replaced the selected ghost suffix with the same text, so a
+	// deferred Enter always wins and the ghost state is rebuilt from the paste.
+	o.mu.RLock()
+	ghostEcho := o.ghostSuffix != "" && entryText == o.realInput+o.ghostSuffix
+	o.mu.RUnlock()
+	if ghostEcho && !deferredSubmit {
+		return
+	}
 
 	log := logging.FromContext(o.ctx)
 	if trimmed := url.TrimLeadingSpacesIfURL(entryText); trimmed != entryText {
