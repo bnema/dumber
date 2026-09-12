@@ -3,6 +3,7 @@ package cef
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync"
 
 	"github.com/bnema/dumber/internal/infrastructure/webutil"
@@ -259,23 +260,26 @@ func (ci *contentInjector) RefreshScripts(ctx context.Context, wv port.WebView) 
 // identity, and the current browser gets its own load-end installation.
 // The single snapshot bounds the residual check-then-install window to
 // nanoseconds, and any race there can only repeat idempotent scripts.
-// Repeated same-document load-ends still install.
+// Repeated notifications for the same committed document are coalesced.
 func (ci *contentInjector) onLoadEndForEvent(wv *WebView, event injectionEvent) {
 	if wv == nil || ci == nil || event.browserID == noBrowserID {
 		return
 	}
 	wv.mu.RLock()
-	browser, currentIntent := wv.browser, wv.pendingIntentID
+	browser := wv.browser
 	wv.mu.RUnlock()
-	if browser == nil {
+	if browser == nil || browser.GetIdentifier() != event.browserID {
 		return
 	}
-	if browser.GetIdentifier() != event.browserID {
+	wv.mu.Lock()
+	if wv.browser != browser || wv.pendingIntentID != event.intentID || event.documentSeq == 0 ||
+		wv.documentSeq != event.documentSeq || strings.TrimSpace(wv.uri) != event.frameURL ||
+		wv.installedDocumentSeq == event.documentSeq {
+		wv.mu.Unlock()
 		return
 	}
-	if currentIntent != event.intentID {
-		return
-	}
+	wv.installedDocumentSeq = event.documentSeq
+	wv.mu.Unlock()
 	ci.onLoadEnd(wv)
 }
 
