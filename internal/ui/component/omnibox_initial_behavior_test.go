@@ -153,7 +153,15 @@ func TestOmniboxToggleInitialBehaviorPreference_RefreshesEmptyHistory(t *testing
 	assert.Equal(t, 1, refreshCalls)
 }
 
+func runOmniboxSuggestionUpdatesSynchronously(t *testing.T) {
+	t.Helper()
+	original := scheduleOmniboxSuggestionUpdate
+	scheduleOmniboxSuggestionUpdate = func(fn func()) { fn() }
+	t.Cleanup(func() { scheduleOmniboxSuggestionUpdate = original })
+}
+
 func TestOmniboxLoadInitialHistory_UsesCapturedInitialBehavior(t *testing.T) {
+	runOmniboxSuggestionUpdatesSynchronously(t)
 	repo := repomocks.NewMockHistoryRepository(t)
 	done := make(chan struct{})
 	repo.EXPECT().GetRecent(mock.Anything, mock.Anything, mock.Anything).RunAndReturn(
@@ -180,6 +188,7 @@ func TestOmniboxLoadInitialHistory_UsesCapturedInitialBehavior(t *testing.T) {
 }
 
 func TestOmniboxLoadInitialHistory_MostVisitedUsesThirtyDayWindow(t *testing.T) {
+	runOmniboxSuggestionUpdatesSynchronously(t)
 	repo := repomocks.NewMockHistoryRepository(t)
 	done := make(chan struct{})
 	repo.EXPECT().GetMostVisited(mock.Anything, 30).RunAndReturn(
@@ -206,6 +215,7 @@ func TestOmniboxLoadInitialHistory_MostVisitedUsesThirtyDayWindow(t *testing.T) 
 }
 
 func TestOmniboxLoadInitialHistory_MostVisitedUsesConfiguredWindow(t *testing.T) {
+	runOmniboxSuggestionUpdatesSynchronously(t)
 	repo := repomocks.NewMockHistoryRepository(t)
 	done := make(chan struct{})
 	repo.EXPECT().GetMostVisited(mock.Anything, 7).RunAndReturn(
@@ -232,6 +242,7 @@ func TestOmniboxLoadInitialHistory_MostVisitedUsesConfiguredWindow(t *testing.T)
 }
 
 func TestOmniboxLoadInitialHistory_MostVisitedZeroWindowUsesAllHistory(t *testing.T) {
+	runOmniboxSuggestionUpdatesSynchronously(t)
 	repo := repomocks.NewMockHistoryRepository(t)
 	done := make(chan struct{})
 	repo.EXPECT().GetAllMostVisited(mock.Anything).RunAndReturn(

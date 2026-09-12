@@ -3050,16 +3050,21 @@ func (o *Omnibox) UpdateZoomIndicator(factor float64) {
 	glib.IdleAdd(&cb, 0)
 }
 
-// idleAddUpdateSuggestions schedules updateSuggestions on the GTK main thread.
-func (o *Omnibox) idleAddUpdateSuggestions(suggestions []Suggestion, query string, token uint64) {
-	var cb glib.SourceFunc = func(data uintptr) bool {
-		if !o.isSearchTokenCurrent(token) {
-			return false
-		}
-		o.updateSuggestions(suggestions, query)
-		return false // One-shot callback
+var scheduleOmniboxSuggestionUpdate = func(fn func()) {
+	var cb glib.SourceFunc = func(uintptr) bool {
+		fn()
+		return false
 	}
 	glib.IdleAdd(&cb, 0)
+}
+
+// idleAddUpdateSuggestions schedules updateSuggestions on the GTK main thread.
+func (o *Omnibox) idleAddUpdateSuggestions(suggestions []Suggestion, query string, token uint64) {
+	scheduleOmniboxSuggestionUpdate(func() {
+		if o.isSearchTokenCurrent(token) {
+			o.updateSuggestions(suggestions, query)
+		}
+	})
 }
 
 // getFavoriteURLs returns a set of all favorited URLs for batch lookup.
