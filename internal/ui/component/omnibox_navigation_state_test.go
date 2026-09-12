@@ -105,9 +105,14 @@ func TestGhostEchoDetectionKeepsSelfGeneratedCompletion(t *testing.T) {
 	ghostSuffix := "ide"
 	entryText := realInput + ghostSuffix
 
-	ghostEcho := ghostSuffix != "" && entryText == realInput+ghostSuffix
-	if !ghostEcho {
+	if !isGhostEcho(entryText, realInput, ghostSuffix) {
 		t.Fatal("the unchanged completion text must be recognized as a ghost echo")
+	}
+	if isGhostEcho(entryText+"/x", realInput, ghostSuffix) {
+		t.Fatal("text beyond the completion must not be treated as a ghost echo")
+	}
+	if isGhostEcho(entryText, realInput, "") {
+		t.Fatal("absent ghost text must not be treated as a ghost echo")
 	}
 }
 
