@@ -154,9 +154,9 @@ verify-generated: ## Verify tracked generated systemviews artifacts are committe
 		exit 1; \
 	}
 
-verify-systemviews-assets: ## Verify release embeds a compressed systemviews WASM asset
+verify-systemviews-assets: build-systemviews ## Verify release embeds a compressed systemviews WASM asset
 	@echo "Verifying embedded systemviews WASM asset..."
-	DUMBER_REQUIRE_SYSTEMVIEWS_WASM=1 GOFLAGS=$(GOFLAGS) go test -count=1 -run 'TestWebUIAssetsIncludesCompressedSystemviewsWASM|TestAssetManifestMatchesEmbeddedArtifacts' ./assets
+	DUMBER_REQUIRE_SYSTEMVIEWS_WASM=1 GOFLAGS="$(GOFLAGS)" go test -count=1 -run 'TestWebUIAssetsIncludesCompressedSystemviewsWASM|TestAssetManifestMatchesEmbeddedArtifacts' ./assets
 	go run ./cmd/systemviews-assets -check -dir assets/systemviews
 
 # Linting
