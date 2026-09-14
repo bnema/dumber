@@ -9,6 +9,7 @@ import (
 	"github.com/bnema/dumber/internal/application/dto"
 	"github.com/bnema/dumber/internal/application/usecase"
 	"github.com/bnema/dumber/internal/domain/entity"
+	repository "github.com/bnema/dumber/internal/domain/repository"
 	repomocks "github.com/bnema/dumber/internal/domain/repository/mocks"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -63,7 +64,7 @@ func TestSearchHistoryUseCase_GetRecent_ZeroLimitMeansAll(t *testing.T) {
 	ctx := testContext()
 	historyRepo := repomocks.NewMockHistoryRepository(t)
 	entries := []*entity.HistoryEntry{{ID: 1, URL: "https://example.com", Title: "Example"}}
-	historyRepo.EXPECT().GetRecent(mock.Anything, 0, 0).Return(entries, nil).Once()
+	historyRepo.EXPECT().GetRecent(mock.Anything, 0, 0, repository.HistoryScope{}).Return(entries, nil).Once()
 
 	uc := usecase.NewSearchHistoryUseCase(historyRepo)
 	result, err := uc.GetRecent(ctx, 0, 0)
@@ -75,7 +76,7 @@ func TestSearchHistoryUseCase_GetRecent_ZeroLimitMeansAll(t *testing.T) {
 func TestSearchHistoryUseCase_GetRecent_NegativeLimitDefaultsToPageSize(t *testing.T) {
 	ctx := testContext()
 	historyRepo := repomocks.NewMockHistoryRepository(t)
-	historyRepo.EXPECT().GetRecent(mock.Anything, 50, 0).Return([]*entity.HistoryEntry{}, nil).Once()
+	historyRepo.EXPECT().GetRecent(mock.Anything, 50, 0, repository.HistoryScope{}).Return([]*entity.HistoryEntry{}, nil).Once()
 
 	uc := usecase.NewSearchHistoryUseCase(historyRepo)
 	result, err := uc.GetRecent(ctx, -1, 0)
@@ -87,7 +88,7 @@ func TestSearchHistoryUseCase_GetRecent_NegativeLimitDefaultsToPageSize(t *testi
 func TestSearchHistoryUseCase_GetRecent_ClampsOversizedLimit(t *testing.T) {
 	ctx := testContext()
 	historyRepo := repomocks.NewMockHistoryRepository(t)
-	historyRepo.EXPECT().GetRecent(mock.Anything, 500, 10).Return([]*entity.HistoryEntry{}, nil).Once()
+	historyRepo.EXPECT().GetRecent(mock.Anything, 500, 10, repository.HistoryScope{}).Return([]*entity.HistoryEntry{}, nil).Once()
 
 	uc := usecase.NewSearchHistoryUseCase(historyRepo)
 	result, err := uc.GetRecent(ctx, 10_000, 10)
@@ -99,7 +100,7 @@ func TestSearchHistoryUseCase_GetRecent_ClampsOversizedLimit(t *testing.T) {
 func TestSearchHistoryUseCase_Search_ClampsOversizedLimit(t *testing.T) {
 	ctx := testContext()
 	historyRepo := repomocks.NewMockHistoryRepository(t)
-	historyRepo.EXPECT().Search(mock.Anything, "dumber", 100).Return([]entity.HistoryMatch{}, nil).Once()
+	historyRepo.EXPECT().Search(mock.Anything, "dumber", 100, repository.HistoryScope{}).Return([]entity.HistoryMatch{}, nil).Once()
 
 	uc := usecase.NewSearchHistoryUseCase(historyRepo)
 	result, err := uc.Search(ctx, usecase.SearchInput{Query: "dumber", Limit: 10_000})
@@ -107,6 +108,99 @@ func TestSearchHistoryUseCase_Search_ClampsOversizedLimit(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, result)
 	assert.Empty(t, result.Matches)
+}
+
+func TestSearchHistoryUseCase_Search_AppliesOptionalAgeScope(t *testing.T) {
+	ctx := testContext()
+	historyRepo := repomocks.NewMockHistoryRepository(t)
+	var gotScope repository.HistoryScope
+	historyRepo.EXPECT().
+		Search(mock.Anything, "dumber", 20, mock.Anything).
+		Run(func(_ context.Context, _ string, _ int, scope repository.HistoryScope) { gotScope = scope }).
+		Return([]entity.HistoryMatch{}, nil).
+		Once()
+
+	uc := usecase.NewSearchHistoryUseCase(historyRepo)
+	_, err := uc.Search(ctx, usecase.SearchInput{Query: "dumber", Limit: 20, MaxAgeDays: 30})
+
+	require.NoError(t, err)
+	assert.WithinDuration(t, time.Now().AddDate(0, 0, -30), gotScope.Cutoff, time.Minute)
+}
+
+func TestSearchHistoryUseCase_Search_ZeroMaxAgeMeansAllHistory(t *testing.T) {
+	ctx := testContext()
+	historyRepo := repomocks.NewMockHistoryRepository(t)
+	historyRepo.EXPECT().
+		Search(mock.Anything, "dumber", 20, repository.HistoryScope{}).
+		Return([]entity.HistoryMatch{}, nil).
+		Once()
+
+	uc := usecase.NewSearchHistoryUseCase(historyRepo)
+	_, err := uc.Search(ctx, usecase.SearchInput{Query: "dumber", Limit: 20, MaxAgeDays: 0})
+
+	require.NoError(t, err)
+}
+
+func TestSearchHistoryUseCase_GetRecentWithin_AppliesScopeAndLimit(t *testing.T) {
+	ctx := testContext()
+	historyRepo := repomocks.NewMockHistoryRepository(t)
+	var gotScope repository.HistoryScope
+	historyRepo.EXPECT().
+		GetRecent(mock.Anything, 8, 0, mock.Anything).
+		Run(func(_ context.Context, _ int, _ int, scope repository.HistoryScope) { gotScope = scope }).
+		Return([]*entity.HistoryEntry{}, nil).
+		Once()
+
+	uc := usecase.NewSearchHistoryUseCase(historyRepo)
+	_, err := uc.GetRecentWithin(ctx, 8, 14)
+
+	require.NoError(t, err)
+	assert.WithinDuration(t, time.Now().AddDate(0, 0, -14), gotScope.Cutoff, time.Minute)
+}
+
+func TestSearchHistoryUseCase_GetRecentWithin_ZeroMeansAllHistory(t *testing.T) {
+	ctx := testContext()
+	historyRepo := repomocks.NewMockHistoryRepository(t)
+	historyRepo.EXPECT().
+		GetRecent(mock.Anything, 8, 0, repository.HistoryScope{}).
+		Return([]*entity.HistoryEntry{}, nil).
+		Once()
+
+	uc := usecase.NewSearchHistoryUseCase(historyRepo)
+	_, err := uc.GetRecentWithin(ctx, 8, 0)
+
+	require.NoError(t, err)
+}
+
+func TestSearchHistoryUseCase_GetMostVisitedWithin_AppliesScopeAndLimit(t *testing.T) {
+	ctx := testContext()
+	historyRepo := repomocks.NewMockHistoryRepository(t)
+	var gotScope repository.HistoryScope
+	historyRepo.EXPECT().
+		GetMostVisitedWithin(mock.Anything, 8, mock.Anything).
+		Run(func(_ context.Context, _ int, scope repository.HistoryScope) { gotScope = scope }).
+		Return([]*entity.HistoryEntry{}, nil).
+		Once()
+
+	uc := usecase.NewSearchHistoryUseCase(historyRepo)
+	_, err := uc.GetMostVisitedWithin(ctx, 8, 14)
+
+	require.NoError(t, err)
+	assert.WithinDuration(t, time.Now().AddDate(0, 0, -14), gotScope.Cutoff, time.Minute)
+}
+
+func TestSearchHistoryUseCase_GetMostVisitedWithin_ZeroMeansAllHistory(t *testing.T) {
+	ctx := testContext()
+	historyRepo := repomocks.NewMockHistoryRepository(t)
+	historyRepo.EXPECT().
+		GetMostVisitedWithin(mock.Anything, 8, repository.HistoryScope{}).
+		Return([]*entity.HistoryEntry{}, nil).
+		Once()
+
+	uc := usecase.NewSearchHistoryUseCase(historyRepo)
+	_, err := uc.GetMostVisitedWithin(ctx, 8, 0)
+
+	require.NoError(t, err)
 }
 
 func TestSearchHistoryUseCase_GetRecentWindow_InvalidDomainReturnsValidationError(t *testing.T) {
@@ -814,6 +908,84 @@ func TestSearchHistoryUseCase_DeleteByDomainAllowsUnderscoreDomains(t *testing.T
 	uc := usecase.NewSearchHistoryUseCase(historyRepo)
 
 	err := uc.DeleteByDomain(ctx, "example_.com")
+
+	require.NoError(t, err)
+}
+
+func TestSearchHistoryUseCase_Search_NegativeMaxAgeMeansAllHistory(t *testing.T) {
+	ctx := testContext()
+	historyRepo := repomocks.NewMockHistoryRepository(t)
+	historyRepo.EXPECT().
+		Search(mock.Anything, "dumber", 20, repository.HistoryScope{}).
+		Return([]entity.HistoryMatch{}, nil).
+		Once()
+
+	uc := usecase.NewSearchHistoryUseCase(historyRepo)
+	_, err := uc.Search(ctx, usecase.SearchInput{Query: "dumber", Limit: 20, MaxAgeDays: -5})
+
+	require.NoError(t, err)
+}
+
+func TestSearchHistoryUseCase_GetRecentWithin_NegativeMaxAgeMeansAllHistory(t *testing.T) {
+	ctx := testContext()
+	historyRepo := repomocks.NewMockHistoryRepository(t)
+	historyRepo.EXPECT().
+		GetRecent(mock.Anything, 8, 0, repository.HistoryScope{}).
+		Return([]*entity.HistoryEntry{}, nil).
+		Once()
+
+	uc := usecase.NewSearchHistoryUseCase(historyRepo)
+	_, err := uc.GetRecentWithin(ctx, 8, -5)
+
+	require.NoError(t, err)
+}
+
+func TestSearchHistoryUseCase_GetRecentWithin_NonPositiveLimitReturnsEmpty(t *testing.T) {
+	ctx := testContext()
+	historyRepo := repomocks.NewMockHistoryRepository(t)
+	uc := usecase.NewSearchHistoryUseCase(historyRepo)
+
+	results, err := uc.GetRecentWithin(ctx, 0, 30)
+
+	require.NoError(t, err)
+	assert.Empty(t, results)
+}
+
+func TestSearchHistoryUseCase_GetMostVisitedWithin_NonPositiveLimitReturnsEmpty(t *testing.T) {
+	ctx := testContext()
+	historyRepo := repomocks.NewMockHistoryRepository(t)
+	uc := usecase.NewSearchHistoryUseCase(historyRepo)
+
+	results, err := uc.GetMostVisitedWithin(ctx, -3, 30)
+
+	require.NoError(t, err)
+	assert.Empty(t, results)
+}
+
+func TestSearchHistoryUseCase_GetRecentWithin_ClampsOversizedLimit(t *testing.T) {
+	ctx := testContext()
+	historyRepo := repomocks.NewMockHistoryRepository(t)
+	historyRepo.EXPECT().
+		GetRecent(mock.Anything, 500, 0, mock.Anything).
+		Return([]*entity.HistoryEntry{}, nil).
+		Once()
+
+	uc := usecase.NewSearchHistoryUseCase(historyRepo)
+	_, err := uc.GetRecentWithin(ctx, 10_000, 30)
+
+	require.NoError(t, err)
+}
+
+func TestSearchHistoryUseCase_GetMostVisitedWithin_ClampsOversizedLimit(t *testing.T) {
+	ctx := testContext()
+	historyRepo := repomocks.NewMockHistoryRepository(t)
+	historyRepo.EXPECT().
+		GetMostVisitedWithin(mock.Anything, 500, mock.Anything).
+		Return([]*entity.HistoryEntry{}, nil).
+		Once()
+
+	uc := usecase.NewSearchHistoryUseCase(historyRepo)
+	_, err := uc.GetMostVisitedWithin(ctx, 10_000, 30)
 
 	require.NoError(t, err)
 }

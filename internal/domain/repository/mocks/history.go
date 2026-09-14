@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/bnema/dumber/internal/domain/entity"
+	"github.com/bnema/dumber/internal/domain/repository"
 	mock "github.com/stretchr/testify/mock"
 )
 
@@ -776,9 +777,83 @@ func (_c *MockHistoryRepository_GetMostVisited_Call) RunAndReturn(run func(ctx c
 	return _c
 }
 
+// GetMostVisitedWithin provides a mock function for the type MockHistoryRepository
+func (_mock *MockHistoryRepository) GetMostVisitedWithin(ctx context.Context, limit int, scope repository.HistoryScope) ([]*entity.HistoryEntry, error) {
+	ret := _mock.Called(ctx, limit, scope)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetMostVisitedWithin")
+	}
+
+	var r0 []*entity.HistoryEntry
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, int, repository.HistoryScope) ([]*entity.HistoryEntry, error)); ok {
+		return returnFunc(ctx, limit, scope)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, int, repository.HistoryScope) []*entity.HistoryEntry); ok {
+		r0 = returnFunc(ctx, limit, scope)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]*entity.HistoryEntry)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, int, repository.HistoryScope) error); ok {
+		r1 = returnFunc(ctx, limit, scope)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockHistoryRepository_GetMostVisitedWithin_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetMostVisitedWithin'
+type MockHistoryRepository_GetMostVisitedWithin_Call struct {
+	*mock.Call
+}
+
+// GetMostVisitedWithin is a helper method to define mock.On call
+//   - ctx context.Context
+//   - limit int
+//   - scope repository.HistoryScope
+func (_e *MockHistoryRepository_Expecter) GetMostVisitedWithin(ctx any, limit any, scope any) *MockHistoryRepository_GetMostVisitedWithin_Call {
+	return &MockHistoryRepository_GetMostVisitedWithin_Call{Call: _e.mock.On("GetMostVisitedWithin", ctx, limit, scope)}
+}
+
+func (_c *MockHistoryRepository_GetMostVisitedWithin_Call) Run(run func(ctx context.Context, limit int, scope repository.HistoryScope)) *MockHistoryRepository_GetMostVisitedWithin_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 int
+		if args[1] != nil {
+			arg1 = args[1].(int)
+		}
+		var arg2 repository.HistoryScope
+		if args[2] != nil {
+			arg2 = args[2].(repository.HistoryScope)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *MockHistoryRepository_GetMostVisitedWithin_Call) Return(historyEntrys []*entity.HistoryEntry, err error) *MockHistoryRepository_GetMostVisitedWithin_Call {
+	_c.Call.Return(historyEntrys, err)
+	return _c
+}
+
+func (_c *MockHistoryRepository_GetMostVisitedWithin_Call) RunAndReturn(run func(ctx context.Context, limit int, scope repository.HistoryScope) ([]*entity.HistoryEntry, error)) *MockHistoryRepository_GetMostVisitedWithin_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetRecent provides a mock function for the type MockHistoryRepository
-func (_mock *MockHistoryRepository) GetRecent(ctx context.Context, limit int, offset int) ([]*entity.HistoryEntry, error) {
-	ret := _mock.Called(ctx, limit, offset)
+func (_mock *MockHistoryRepository) GetRecent(ctx context.Context, limit int, offset int, scope repository.HistoryScope) ([]*entity.HistoryEntry, error) {
+	ret := _mock.Called(ctx, limit, offset, scope)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetRecent")
@@ -786,18 +861,18 @@ func (_mock *MockHistoryRepository) GetRecent(ctx context.Context, limit int, of
 
 	var r0 []*entity.HistoryEntry
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, int, int) ([]*entity.HistoryEntry, error)); ok {
-		return returnFunc(ctx, limit, offset)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, int, int, repository.HistoryScope) ([]*entity.HistoryEntry, error)); ok {
+		return returnFunc(ctx, limit, offset, scope)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, int, int) []*entity.HistoryEntry); ok {
-		r0 = returnFunc(ctx, limit, offset)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, int, int, repository.HistoryScope) []*entity.HistoryEntry); ok {
+		r0 = returnFunc(ctx, limit, offset, scope)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).([]*entity.HistoryEntry)
 		}
 	}
-	if returnFunc, ok := ret.Get(1).(func(context.Context, int, int) error); ok {
-		r1 = returnFunc(ctx, limit, offset)
+	if returnFunc, ok := ret.Get(1).(func(context.Context, int, int, repository.HistoryScope) error); ok {
+		r1 = returnFunc(ctx, limit, offset, scope)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -813,11 +888,12 @@ type MockHistoryRepository_GetRecent_Call struct {
 //   - ctx context.Context
 //   - limit int
 //   - offset int
-func (_e *MockHistoryRepository_Expecter) GetRecent(ctx any, limit any, offset any) *MockHistoryRepository_GetRecent_Call {
-	return &MockHistoryRepository_GetRecent_Call{Call: _e.mock.On("GetRecent", ctx, limit, offset)}
+//   - scope repository.HistoryScope
+func (_e *MockHistoryRepository_Expecter) GetRecent(ctx any, limit any, offset any, scope any) *MockHistoryRepository_GetRecent_Call {
+	return &MockHistoryRepository_GetRecent_Call{Call: _e.mock.On("GetRecent", ctx, limit, offset, scope)}
 }
 
-func (_c *MockHistoryRepository_GetRecent_Call) Run(run func(ctx context.Context, limit int, offset int)) *MockHistoryRepository_GetRecent_Call {
+func (_c *MockHistoryRepository_GetRecent_Call) Run(run func(ctx context.Context, limit int, offset int, scope repository.HistoryScope)) *MockHistoryRepository_GetRecent_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
@@ -831,10 +907,15 @@ func (_c *MockHistoryRepository_GetRecent_Call) Run(run func(ctx context.Context
 		if args[2] != nil {
 			arg2 = args[2].(int)
 		}
+		var arg3 repository.HistoryScope
+		if args[3] != nil {
+			arg3 = args[3].(repository.HistoryScope)
+		}
 		run(
 			arg0,
 			arg1,
 			arg2,
+			arg3,
 		)
 	})
 	return _c
@@ -845,7 +926,7 @@ func (_c *MockHistoryRepository_GetRecent_Call) Return(historyEntrys []*entity.H
 	return _c
 }
 
-func (_c *MockHistoryRepository_GetRecent_Call) RunAndReturn(run func(ctx context.Context, limit int, offset int) ([]*entity.HistoryEntry, error)) *MockHistoryRepository_GetRecent_Call {
+func (_c *MockHistoryRepository_GetRecent_Call) RunAndReturn(run func(ctx context.Context, limit int, offset int, scope repository.HistoryScope) ([]*entity.HistoryEntry, error)) *MockHistoryRepository_GetRecent_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -1341,8 +1422,8 @@ func (_c *MockHistoryRepository_Save_Call) RunAndReturn(run func(ctx context.Con
 }
 
 // Search provides a mock function for the type MockHistoryRepository
-func (_mock *MockHistoryRepository) Search(ctx context.Context, query string, limit int) ([]entity.HistoryMatch, error) {
-	ret := _mock.Called(ctx, query, limit)
+func (_mock *MockHistoryRepository) Search(ctx context.Context, query string, limit int, scope repository.HistoryScope) ([]entity.HistoryMatch, error) {
+	ret := _mock.Called(ctx, query, limit, scope)
 
 	if len(ret) == 0 {
 		panic("no return value specified for Search")
@@ -1350,18 +1431,18 @@ func (_mock *MockHistoryRepository) Search(ctx context.Context, query string, li
 
 	var r0 []entity.HistoryMatch
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, string, int) ([]entity.HistoryMatch, error)); ok {
-		return returnFunc(ctx, query, limit)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, int, repository.HistoryScope) ([]entity.HistoryMatch, error)); ok {
+		return returnFunc(ctx, query, limit, scope)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, string, int) []entity.HistoryMatch); ok {
-		r0 = returnFunc(ctx, query, limit)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, int, repository.HistoryScope) []entity.HistoryMatch); ok {
+		r0 = returnFunc(ctx, query, limit, scope)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).([]entity.HistoryMatch)
 		}
 	}
-	if returnFunc, ok := ret.Get(1).(func(context.Context, string, int) error); ok {
-		r1 = returnFunc(ctx, query, limit)
+	if returnFunc, ok := ret.Get(1).(func(context.Context, string, int, repository.HistoryScope) error); ok {
+		r1 = returnFunc(ctx, query, limit, scope)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -1377,11 +1458,12 @@ type MockHistoryRepository_Search_Call struct {
 //   - ctx context.Context
 //   - query string
 //   - limit int
-func (_e *MockHistoryRepository_Expecter) Search(ctx any, query any, limit any) *MockHistoryRepository_Search_Call {
-	return &MockHistoryRepository_Search_Call{Call: _e.mock.On("Search", ctx, query, limit)}
+//   - scope repository.HistoryScope
+func (_e *MockHistoryRepository_Expecter) Search(ctx any, query any, limit any, scope any) *MockHistoryRepository_Search_Call {
+	return &MockHistoryRepository_Search_Call{Call: _e.mock.On("Search", ctx, query, limit, scope)}
 }
 
-func (_c *MockHistoryRepository_Search_Call) Run(run func(ctx context.Context, query string, limit int)) *MockHistoryRepository_Search_Call {
+func (_c *MockHistoryRepository_Search_Call) Run(run func(ctx context.Context, query string, limit int, scope repository.HistoryScope)) *MockHistoryRepository_Search_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
@@ -1395,10 +1477,15 @@ func (_c *MockHistoryRepository_Search_Call) Run(run func(ctx context.Context, q
 		if args[2] != nil {
 			arg2 = args[2].(int)
 		}
+		var arg3 repository.HistoryScope
+		if args[3] != nil {
+			arg3 = args[3].(repository.HistoryScope)
+		}
 		run(
 			arg0,
 			arg1,
 			arg2,
+			arg3,
 		)
 	})
 	return _c
@@ -1409,7 +1496,7 @@ func (_c *MockHistoryRepository_Search_Call) Return(historyMatchs []entity.Histo
 	return _c
 }
 
-func (_c *MockHistoryRepository_Search_Call) RunAndReturn(run func(ctx context.Context, query string, limit int) ([]entity.HistoryMatch, error)) *MockHistoryRepository_Search_Call {
+func (_c *MockHistoryRepository_Search_Call) RunAndReturn(run func(ctx context.Context, query string, limit int, scope repository.HistoryScope) ([]entity.HistoryMatch, error)) *MockHistoryRepository_Search_Call {
 	_c.Call.Return(run)
 	return _c
 }

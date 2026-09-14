@@ -35,7 +35,7 @@ const (
 	// Omnibox defaults
 	defaultOmniboxStyle             = "command"
 	defaultOmniboxInitialBehavior   = OmniboxInitialBehaviorRecent
-	defaultOmniboxMostVisitedDays   = 30
+	defaultOmniboxMaxHistoryDays    = 30
 	defaultOmniboxAutoOpenOnNewPane = false
 
 	// Workspace defaults
@@ -408,7 +408,7 @@ func DefaultConfig() *Config {
 		Omnibox: OmniboxConfig{
 			Style:             defaultOmniboxStyle,
 			InitialBehavior:   defaultOmniboxInitialBehavior,
-			MostVisitedDays:   defaultOmniboxMostVisitedDays,
+			MaxHistoryDays:    defaultOmniboxMaxHistoryDays,
 			AutoOpenOnNewPane: defaultOmniboxAutoOpenOnNewPane,
 		},
 		Session: SessionConfig{

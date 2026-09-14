@@ -21,7 +21,7 @@
 | `dmenu.sort_by_visit_count` | bool | `true` | |
 | `omnibox.style` | string | `command` | `multiplexer`, `command`, `minimal` |
 | `omnibox.initial_behavior` | string | `recent` | `recent`, `most_visited`, `none` |
-| `omnibox.most_visited_days` | int | `30` | `>= 0` |
+| `omnibox.max_history_days` | int | `30` | `>= 0` |
 | `omnibox.auto_open_on_new_pane` | bool | `false` | |
 | `logging.level` | string | `info` | `trace`, `debug`, `info`, `warn`, `error`, `fatal` |
 | `logging.format` | string | `text` | `text`, `json`, `console` |

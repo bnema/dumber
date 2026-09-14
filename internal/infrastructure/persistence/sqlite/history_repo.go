@@ -44,6 +44,30 @@ const (
 
 var expectedFTSFailureCount atomic.Uint64
 
+// boundedHistoryCutoff normalizes a real cutoff to UTC at the second precision
+// SQLite stores in last_visited, so the inclusive `>=` comparison matches an
+// entry exactly on the cutoff.
+//
+// sqlc models the nullable last_visited column comparison as sql.NullTime, so
+// Valid is always true here: only bounded callers use this helper. Unbounded
+// recent/most-visited lists use separate queries with no cutoff predicate, and
+// the FTS path uses historyCutoffParam.
+func boundedHistoryCutoff(cutoff time.Time) sql.NullTime {
+	return sql.NullTime{Time: cutoff.UTC().Truncate(time.Second), Valid: true}
+}
+
+// historyCutoffParam returns nil for an unbounded scope and a concrete cutoff
+// otherwise. It feeds the FTS queries, where MATCH already narrows the
+// candidate set and a single nullable predicate avoids duplicating the URL and
+// title variants across bounded and unbounded windows. sqlc types that
+// predicate as any because the `IS NULL` branch prevents a concrete inference.
+func historyCutoffParam(scope repository.HistoryScope) any {
+	if scope.Cutoff.IsZero() {
+		return nil
+	}
+	return boundedHistoryCutoff(scope.Cutoff)
+}
+
 type historyRepo struct {
 	db      *sql.DB
 	queries *sqlc.Queries
@@ -115,7 +139,7 @@ func (r *historyRepo) UpdateMetadata(ctx context.Context, entry *entity.HistoryE
 	return err
 }
 
-func (r *historyRepo) Search(ctx context.Context, query string, limit int) ([]entity.HistoryMatch, error) {
+func (r *historyRepo) Search(ctx context.Context, query string, limit int, scope repository.HistoryScope) ([]entity.HistoryMatch, error) {
 	if limit <= 0 {
 		return []entity.HistoryMatch{}, nil
 	}
@@ -136,9 +160,10 @@ func (r *historyRepo) Search(ctx context.Context, query string, limit int) ([]en
 	// Use domain-boosted query for URL search to prioritize domain matches
 	// Use sanitized first word for domain boost (intentional: domain boost targets first search term)
 	urlRows, urlErr := r.queries.SearchHistoryFTSUrlWithDomainBoost(ctx, sqlc.SearchHistoryFTSUrlWithDomainBoostParams{
-		Term:  sql.NullString{String: words[0], Valid: true},
-		Query: ftsQuery,
-		Limit: int64(limit),
+		Term:   sql.NullString{String: words[0], Valid: true},
+		Query:  ftsQuery,
+		Cutoff: historyCutoffParam(scope),
+		Limit:  int64(limit),
 	})
 	if urlErr != nil {
 		logFTSSearchError(ctx, "url", query, urlErr)
@@ -146,8 +171,9 @@ func (r *historyRepo) Search(ctx context.Context, query string, limit int) ([]en
 	}
 
 	titleRows, titleErr := r.queries.SearchHistoryFTSTitle(ctx, sqlc.SearchHistoryFTSTitleParams{
-		Query: ftsQuery,
-		Limit: int64(limit),
+		Query:  ftsQuery,
+		Cutoff: historyCutoffParam(scope),
+		Limit:  int64(limit),
 	})
 	if titleErr != nil {
 		logFTSSearchError(ctx, "title", query, titleErr)
@@ -482,18 +508,32 @@ func isExpectedFTSError(err error) bool {
 		strings.Contains(msg, "unterminated string")
 }
 
-func (r *historyRepo) GetRecent(ctx context.Context, limit, offset int) ([]*entity.HistoryEntry, error) {
+func (r *historyRepo) GetRecent(ctx context.Context, limit, offset int, scope repository.HistoryScope) ([]*entity.HistoryEntry, error) {
+	// SQLite treats a negative LIMIT as "no limit", which preserves the
+	// historical zero-limit-means-all behavior while applying the age scope.
+	sqlLimit := int64(limit)
 	if limit <= 0 {
-		rows, err := r.queries.GetAllRecentHistory(ctx)
-		if err != nil {
-			return nil, err
-		}
-		return historyEntriesFromRows(rows), nil
+		sqlLimit = -1
 	}
-	rows, err := r.queries.GetRecentHistory(ctx, sqlc.GetRecentHistoryParams{
-		Limit:  int64(limit),
-		Offset: int64(offset),
-	})
+
+	// Bounded and unbounded windows use separate queries so the bounded path
+	// compares last_visited directly and keeps the index usable.
+	var (
+		rows []sqlc.History
+		err  error
+	)
+	if scope.Cutoff.IsZero() {
+		rows, err = r.queries.GetRecentHistory(ctx, sqlc.GetRecentHistoryParams{
+			Limit:  sqlLimit,
+			Offset: int64(offset),
+		})
+	} else {
+		rows, err = r.queries.GetRecentHistorySinceCutoff(ctx, sqlc.GetRecentHistorySinceCutoffParams{
+			Cutoff: boundedHistoryCutoff(scope.Cutoff),
+			Limit:  sqlLimit,
+			Offset: int64(offset),
+		})
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -605,6 +645,36 @@ func (r *historyRepo) GetAllRecentHistory(ctx context.Context) ([]*entity.Histor
 
 func (r *historyRepo) GetAllMostVisited(ctx context.Context) ([]*entity.HistoryEntry, error) {
 	rows, err := r.queries.GetAllMostVisited(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return historyEntriesFromRows(rows), nil
+}
+
+func (r *historyRepo) GetMostVisitedWithin(
+	ctx context.Context,
+	limit int,
+	scope repository.HistoryScope,
+) ([]*entity.HistoryEntry, error) {
+	if limit <= 0 {
+		return []*entity.HistoryEntry{}, nil
+	}
+
+	// Bounded and unbounded windows use separate queries so the bounded path
+	// compares last_visited directly and keeps the index usable.
+	var (
+		rows []sqlc.History
+		err  error
+	)
+	if scope.Cutoff.IsZero() {
+		rows, err = r.queries.GetMostVisitedHistory(ctx, int64(limit))
+	} else {
+		rows, err = r.queries.GetMostVisitedHistorySinceCutoff(ctx, sqlc.GetMostVisitedHistorySinceCutoffParams{
+			Cutoff: boundedHistoryCutoff(scope.Cutoff),
+			Limit:  int64(limit),
+		})
+	}
 	if err != nil {
 		return nil, err
 	}

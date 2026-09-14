@@ -105,7 +105,7 @@ dumber dmenu --days 14 --most-visited
 |-----|------|---------|--------------|-------------|
 | `omnibox.style` | string | `"command"` | `multiplexer`, `command`, `minimal` | Omnibox visual treatment |
 | `omnibox.initial_behavior` | string | `"recent"` | `recent`, `most_visited`, `none` | Initial history display behavior; press `Ctrl+R` in the omnibox to switch |
-| `omnibox.most_visited_days` | int | `30` | `>= 0` | Days of history to consider when `initial_behavior = "most_visited"` (`0` = all history) |
+| `omnibox.max_history_days` | int | `30` | `>= 0` | Days of history used by omnibox suggestions, for both typed searches and the empty-input list (`0` = all history) |
 | `omnibox.auto_open_on_new_pane` | bool | `false` | - | Automatically open the omnibox after creating a new pane |
 
 Changing `omnibox.style` takes effect after restarting Dumber.
@@ -115,7 +115,7 @@ Changing `omnibox.style` takes effect after restarting Dumber.
 [omnibox]
 style = "command"            # Soft terminal-inspired command palette
 initial_behavior = "recent"  # Show recent history when omnibox opens
-most_visited_days = 30        # Days of history used for most_visited
+max_history_days = 30         # History window for omnibox searches and initial list
 auto_open_on_new_pane = false
 
 # Alternative visual treatments:
@@ -126,6 +126,10 @@ auto_open_on_new_pane = false
 # initial_behavior = "most_visited"  # Show most visited sites
 # initial_behavior = "none"          # Show no initial suggestions
 ```
+
+> **Note:** `omnibox.max_history_days` is non-destructive: it never deletes history, it only limits which entries omnibox suggestions consider. `most_visited` ranks by lifetime visit counts among URLs whose `last_visited` falls inside the window.
+>
+> This key replaced `omnibox.most_visited_days`. Run `dumber config migrate` to rename the legacy key while preserving its value. The derived environment variable is `DUMBER_OMNIBOX_MAX_HISTORY_DAYS`; the old `DUMBER_OMNIBOX_MOST_VISITED_DAYS` is no longer read.
 
 ## Logging
 

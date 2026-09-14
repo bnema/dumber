@@ -755,7 +755,7 @@ func (m *Manager) setClipboardDefaults(defaults *Config) {
 func (m *Manager) setOmniboxDefaults(defaults *Config) {
 	m.viper.SetDefault("omnibox.style", defaults.Omnibox.Style)
 	m.viper.SetDefault("omnibox.initial_behavior", defaults.Omnibox.InitialBehavior)
-	m.viper.SetDefault("omnibox.most_visited_days", defaults.Omnibox.MostVisitedDays)
+	m.viper.SetDefault("omnibox.max_history_days", defaults.Omnibox.MaxHistoryDays)
 	m.viper.SetDefault("omnibox.auto_open_on_new_pane", defaults.Omnibox.AutoOpenOnNewPane)
 }
 

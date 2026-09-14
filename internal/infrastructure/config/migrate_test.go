@@ -1541,3 +1541,79 @@ desc = "Toggle Favorites in right split"
 	assert.Equal(t, []string{"ctrl+b"}, cfg.Workspace.Shortcuts.Actions["toggle-favorites-sidebar"].Keys)
 	assert.Equal(t, []string{"ctrl+d"}, cfg.Workspace.Shortcuts.Actions["toggle-current-page-favorite"].Keys)
 }
+
+func writeMigratorUserConfig(t *testing.T, content string) string {
+	t.Helper()
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, ".config"))
+	t.Setenv("XDG_DATA_HOME", filepath.Join(home, ".local", "share"))
+	t.Setenv("XDG_STATE_HOME", filepath.Join(home, ".local", "state"))
+	t.Setenv("XDG_CACHE_HOME", filepath.Join(home, ".cache"))
+
+	configFile, err := GetConfigFile()
+	require.NoError(t, err)
+	require.NoError(t, os.MkdirAll(filepath.Dir(configFile), 0o755))
+	require.NoError(t, os.WriteFile(configFile, []byte(content), 0o644))
+	return configFile
+}
+
+func TestMigrator_DetectChanges_ReportsLegacyOmniboxMaxHistoryDaysRename(t *testing.T) {
+	writeMigratorUserConfig(t, "[omnibox]\nmost_visited_days = 0\n")
+
+	changes, err := NewMigrator().DetectChanges()
+	require.NoError(t, err)
+
+	found := false
+	for _, change := range changes {
+		if change.Type == port.KeyChangeRenamed &&
+			change.OldKey == "omnibox.most_visited_days" &&
+			change.NewKey == "omnibox.max_history_days" {
+			found = true
+		}
+		if change.OldKey == "omnibox.most_visited_days" && change.Type == port.KeyChangeRemoved {
+			t.Fatal("legacy key must be reported as a rename, not a removal")
+		}
+		if change.NewKey == "omnibox.max_history_days" && change.Type == port.KeyChangeAdded {
+			t.Fatal("migrated key must be reported as a rename, not an addition")
+		}
+	}
+	assert.True(t, found, "expected legacy omnibox.most_visited_days rename to be reported")
+}
+
+func TestMigrator_Migrate_RenamesLegacyOmniboxMaxHistoryDaysPreservingValue(t *testing.T) {
+	tests := []struct {
+		name  string
+		value string
+	}{
+		{name: "zero is preserved", value: "0"},
+		{name: "custom value is preserved", value: "7"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			configFile := writeMigratorUserConfig(t, "[omnibox]\nmost_visited_days = "+tt.value+"\n")
+
+			applied, err := NewMigrator().Migrate()
+			require.NoError(t, err)
+			assert.Contains(t, applied, "omnibox.most_visited_days -> omnibox.max_history_days")
+
+			migrated, err := os.ReadFile(configFile)
+			require.NoError(t, err)
+			assert.Contains(t, string(migrated), "max_history_days = "+tt.value)
+			assert.NotContains(t, string(migrated), "most_visited_days")
+		})
+	}
+}
+
+func TestMigrator_Migrate_KeepsNewOmniboxMaxHistoryDaysOverLegacyKey(t *testing.T) {
+	configFile := writeMigratorUserConfig(t, "[omnibox]\nmax_history_days = 7\nmost_visited_days = 99\n")
+
+	_, err := NewMigrator().Migrate()
+	require.NoError(t, err)
+
+	migrated, err := os.ReadFile(configFile)
+	require.NoError(t, err)
+	assert.Contains(t, string(migrated), "max_history_days = 7")
+	assert.NotContains(t, string(migrated), "most_visited_days")
+}

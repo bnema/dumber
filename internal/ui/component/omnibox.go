@@ -181,7 +181,7 @@ type Omnibox struct {
 	defaultSearch          string
 	normalizeNavigationURL func(ctx context.Context, input string) string
 	initialBehavior        entity.OmniboxInitialBehavior
-	mostVisitedDays        int
+	maxHistoryDays         int
 	saveInitialBehaviorFn  func(context.Context, entity.OmniboxInitialBehavior) error
 	ctx                    context.Context
 
@@ -236,7 +236,7 @@ type OmniboxConfig struct {
 	// It is injected so local filesystem probing stays outside the domain URL package.
 	NormalizeNavigationURL func(ctx context.Context, input string) string
 	InitialBehavior        entity.OmniboxInitialBehavior
-	MostVisitedDays        int
+	MaxHistoryDays         int
 	SaveInitialBehavior    func(ctx context.Context, behavior entity.OmniboxInitialBehavior) error
 	UIScale                float64 // UI scale for favicon sizing
 	// OnNavigate is called when the user submits a URL; returning nil closes the omnibox.
@@ -270,7 +270,7 @@ func NewOmnibox(ctx context.Context, cfg OmniboxConfig) *Omnibox {
 		defaultSearch:          cfg.DefaultSearch,
 		normalizeNavigationURL: cfg.NormalizeNavigationURL,
 		initialBehavior:        cfg.InitialBehavior,
-		mostVisitedDays:        cfg.MostVisitedDays,
+		maxHistoryDays:         cfg.MaxHistoryDays,
 		saveInitialBehaviorFn:  cfg.SaveInitialBehavior,
 		onToast:                cfg.OnToast,
 		onAccentKeyPress:       cfg.OnAccentKeyPress,
@@ -1761,6 +1761,10 @@ func effectiveSearchQuery(entryText, realInput string, hasGhost bool) string {
 // searchHistory runs a fuzzy history search in a background goroutine.
 // query is the search text; limit caps the number of results.
 func (o *Omnibox) searchHistory(query string, limit int, token uint64) {
+	// Capture the age window before spawning so the goroutine never reads
+	// mutable widget state.
+	maxAgeDays := o.maxHistoryDays
+
 	go func() {
 		ctx := o.ctx
 		log := logging.FromContext(ctx)
@@ -1778,8 +1782,9 @@ func (o *Omnibox) searchHistory(query string, limit int, token uint64) {
 
 		go func() {
 			searchInput := usecase.SearchInput{
-				Query: query,
-				Limit: limit,
+				Query:      query,
+				Limit:      limit,
+				MaxAgeDays: maxAgeDays,
 			}
 			output, err := o.historyUC.Search(ctx, searchInput)
 			searchCh <- searchResult{output, err}
@@ -1822,10 +1827,11 @@ func (o *Omnibox) loadInitialHistory(token uint64) {
 		return
 	}
 
-	// Capture effective result limit on the GTK main thread before spawning goroutine
+	// Capture effective result limit and age window on the GTK main thread
+	// before spawning goroutine.
 	initialLimit := o.effectiveMaxRows()
 	initialBehavior := o.initialBehavior
-	mostVisitedDays := o.mostVisitedDays
+	maxHistoryDays := o.maxHistoryDays
 
 	go func() {
 		ctx := o.ctx
@@ -1852,16 +1858,9 @@ func (o *Omnibox) loadInitialHistory(token uint64) {
 					err     error
 				)
 				if initialBehavior == entity.OmniboxInitialBehaviorMostVisited {
-					if mostVisitedDays == 0 {
-						results, err = o.historyUC.GetMostVisited(ctx, 0)
-					} else {
-						results, err = o.historyUC.GetMostVisited(ctx, mostVisitedDays)
-					}
-					if err == nil && len(results) > initialLimit {
-						results = results[:initialLimit]
-					}
+					results, err = o.historyUC.GetMostVisitedWithin(ctx, initialLimit, maxHistoryDays)
 				} else {
-					results, err = o.historyUC.GetRecent(ctx, initialLimit, 0)
+					results, err = o.historyUC.GetRecentWithin(ctx, initialLimit, maxHistoryDays)
 				}
 				historyCh <- historyResult{results, err}
 			}()

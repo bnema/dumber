@@ -21,7 +21,7 @@ func TestBuildOmniboxConfigUsesRuntimeUIConfig(t *testing.T) {
 		Omnibox: entity.RuntimeOmniboxConfig{
 			Style:           "command",
 			InitialBehavior: entity.OmniboxInitialBehaviorMostVisited,
-			MostVisitedDays: 7,
+			MaxHistoryDays:  7,
 		},
 	}
 
@@ -33,8 +33,8 @@ func TestBuildOmniboxConfigUsesRuntimeUIConfig(t *testing.T) {
 	if got.Style != "command" {
 		t.Fatalf("Style = %q, want command", got.Style)
 	}
-	if got.MostVisitedDays != 7 {
-		t.Fatalf("MostVisitedDays = %d, want 7", got.MostVisitedDays)
+	if got.MaxHistoryDays != 7 {
+		t.Fatalf("MaxHistoryDays = %d, want 7", got.MaxHistoryDays)
 	}
 	if got.DefaultSearch != "https://search.example/?q=%s" {
 		t.Fatalf("DefaultSearch = %q, want runtime default search", got.DefaultSearch)

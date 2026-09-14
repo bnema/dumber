@@ -96,8 +96,8 @@ func (uc *SearchHistoryUseCase) Search(ctx context.Context, input SearchInput) (
 
 	limit := clampPositiveLimit(input.Limit, defaultHistorySearchLimit, maxHistorySearchLimit)
 
-	// Use repository's FTS5 search
-	matches, err := uc.historyRepo.Search(ctx, input.Query, limit)
+	// Use repository's FTS5 search with the optional age scope applied in SQL.
+	matches, err := uc.historyRepo.Search(ctx, input.Query, limit, historyScopeFromDays(input.MaxAgeDays, time.Now()))
 	if err != nil {
 		return nil, fmt.Errorf("failed to search history: %w", err)
 	}
@@ -116,12 +116,59 @@ func (uc *SearchHistoryUseCase) Search(ctx context.Context, input SearchInput) (
 func (uc *SearchHistoryUseCase) GetRecent(ctx context.Context, limit, offset int) ([]*entity.HistoryEntry, error) {
 	limit = clampOptionalLimit(limit, defaultHistoryPageLimit, maxHistoryPageLimit)
 
-	entries, err := uc.historyRepo.GetRecent(ctx, limit, offset)
+	entries, err := uc.historyRepo.GetRecent(ctx, limit, offset, repository.HistoryScope{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to get recent history: %w", err)
 	}
 
 	return entries, nil
+}
+
+// GetRecentWithin retrieves up to limit recent history entries visited within
+// the last maxAgeDays days. Zero or negative maxAgeDays means all stored
+// history; a non-positive limit returns no entries. The age filter and limit
+// are applied in SQL.
+func (uc *SearchHistoryUseCase) GetRecentWithin(ctx context.Context, limit, maxAgeDays int) ([]*entity.HistoryEntry, error) {
+	if limit <= 0 {
+		return []*entity.HistoryEntry{}, nil
+	}
+	limit = clampPositiveLimit(limit, defaultHistoryPageLimit, maxHistoryPageLimit)
+
+	entries, err := uc.historyRepo.GetRecent(ctx, limit, 0, historyScopeFromDays(maxAgeDays, time.Now()))
+	if err != nil {
+		return nil, fmt.Errorf("failed to get recent history: %w", err)
+	}
+
+	return entries, nil
+}
+
+// GetMostVisitedWithin retrieves up to limit most-visited history entries
+// visited within the last maxAgeDays days. Zero or negative maxAgeDays means
+// all stored history; a non-positive limit returns no entries. The age filter
+// and limit are applied in SQL.
+func (uc *SearchHistoryUseCase) GetMostVisitedWithin(ctx context.Context, limit, maxAgeDays int) ([]*entity.HistoryEntry, error) {
+	if limit <= 0 {
+		return []*entity.HistoryEntry{}, nil
+	}
+	limit = clampPositiveLimit(limit, defaultHistoryPageLimit, maxHistoryPageLimit)
+
+	entries, err := uc.historyRepo.GetMostVisitedWithin(ctx, limit, historyScopeFromDays(maxAgeDays, time.Now()))
+	if err != nil {
+		return nil, fmt.Errorf("failed to get most visited history: %w", err)
+	}
+
+	return entries, nil
+}
+
+// historyScopeFromDays converts an optional max age in days to an explicit
+// history scope. The application boundary normalizes zero and negative values
+// to "no age restriction"; config validation rejects negative
+// omnibox.max_history_days before it reaches this layer.
+func historyScopeFromDays(maxAgeDays int, now time.Time) repository.HistoryScope {
+	if maxAgeDays <= 0 {
+		return repository.HistoryScope{}
+	}
+	return repository.HistoryScope{Cutoff: now.UTC().AddDate(0, 0, -maxAgeDays)}
 }
 
 // GetRecentByDomain retrieves recent history entries for a canonical domain. A

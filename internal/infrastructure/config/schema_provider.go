@@ -800,10 +800,10 @@ func (*SchemaProvider) getOmniboxKeys(defaults *Config) []entity.ConfigKeyInfo {
 			Section: SectionOmnibox,
 		},
 		{
-			Key:         "omnibox.most_visited_days",
+			Key:         "omnibox.max_history_days",
 			Type:        "int",
-			Default:     fmt.Sprintf("%d", defaults.Omnibox.MostVisitedDays),
-			Description: "Days of history to consider for most_visited (0 = all history)",
+			Default:     fmt.Sprintf("%d", defaults.Omnibox.MaxHistoryDays),
+			Description: "Days of omnibox suggestion history (typed and initial); 0 = all history, never deletes",
 			Range:       ">=0",
 			Section:     SectionOmnibox,
 		},

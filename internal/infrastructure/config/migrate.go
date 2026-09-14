@@ -124,6 +124,7 @@ func (m *Migrator) DetectChanges() ([]port.KeyChange, error) {
 		m.detectLegacyFavoritesSidebarRename(userKeysWithValues)...,
 	)
 	legacyRenames = append(legacyRenames, m.detectLegacyVimModeRenames(rawUserKeysWithValues)...)
+	legacyRenames = append(legacyRenames, m.detectLegacyOmniboxMaxHistoryDaysRename(rawUserKeysWithValues)...)
 	var changes []port.KeyChange
 	changes = append(changes, legacyRenames...)
 
@@ -788,6 +789,29 @@ func (m *Migrator) detectLegacyBrowsingContextRenames(rawUserKeys map[string]any
 		})
 	}
 	return changes
+}
+
+func (m *Migrator) detectLegacyOmniboxMaxHistoryDaysRename(rawUserKeys map[string]any) []port.KeyChange {
+	const (
+		oldKey = "omnibox.most_visited_days"
+		newKey = "omnibox.max_history_days"
+	)
+
+	oldValue, hasOld := rawUserKeys[oldKey]
+	if !hasOld {
+		return nil
+	}
+	if _, hasNew := rawUserKeys[newKey]; hasNew {
+		return nil
+	}
+
+	return []port.KeyChange{{
+		Type:     port.KeyChangeRenamed,
+		OldKey:   oldKey,
+		NewKey:   newKey,
+		OldValue: m.formatValue(oldValue),
+		NewValue: m.formatValue(m.defaultValueForKey(newKey)),
+	}}
 }
 
 func (m *Migrator) detectLegacyVimModeRenames(rawUserKeys map[string]any) []port.KeyChange {

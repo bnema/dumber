@@ -66,7 +66,7 @@ type RuntimeSearchShortcut struct {
 type RuntimeOmniboxConfig struct {
 	Style             string
 	InitialBehavior   OmniboxInitialBehavior
-	MostVisitedDays   int
+	MaxHistoryDays    int
 	AutoOpenOnNewPane bool
 }
 

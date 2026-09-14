@@ -135,18 +135,27 @@ func (r *LazyHistoryRepository) UpdateMetadata(ctx context.Context, entry *entit
 	return r.repo.Save(ctx, entry)
 }
 
-func (r *LazyHistoryRepository) Search(ctx context.Context, query string, limit int) ([]entity.HistoryMatch, error) {
+func (r *LazyHistoryRepository) Search(
+	ctx context.Context,
+	query string,
+	limit int,
+	scope repository.HistoryScope,
+) ([]entity.HistoryMatch, error) {
 	if err := r.init(ctx); err != nil {
 		return nil, err
 	}
-	return r.repo.Search(ctx, query, limit)
+	return r.repo.Search(ctx, query, limit, scope)
 }
 
-func (r *LazyHistoryRepository) GetRecent(ctx context.Context, limit, offset int) ([]*entity.HistoryEntry, error) {
+func (r *LazyHistoryRepository) GetRecent(
+	ctx context.Context,
+	limit, offset int,
+	scope repository.HistoryScope,
+) ([]*entity.HistoryEntry, error) {
 	if err := r.init(ctx); err != nil {
 		return nil, err
 	}
-	return r.repo.GetRecent(ctx, limit, offset)
+	return r.repo.GetRecent(ctx, limit, offset, scope)
 }
 
 func (r *LazyHistoryRepository) GetRecentByDomain(ctx context.Context, domain string, limit, offset int) ([]*entity.HistoryEntry, error) {
@@ -193,6 +202,17 @@ func (r *LazyHistoryRepository) GetMostVisited(ctx context.Context, days int) ([
 		return nil, err
 	}
 	return r.repo.GetMostVisited(ctx, days)
+}
+
+func (r *LazyHistoryRepository) GetMostVisitedWithin(
+	ctx context.Context,
+	limit int,
+	scope repository.HistoryScope,
+) ([]*entity.HistoryEntry, error) {
+	if err := r.init(ctx); err != nil {
+		return nil, err
+	}
+	return r.repo.GetMostVisitedWithin(ctx, limit, scope)
 }
 
 func (r *LazyHistoryRepository) GetAllRecentHistory(ctx context.Context) ([]*entity.HistoryEntry, error) {

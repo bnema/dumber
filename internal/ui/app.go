@@ -1318,7 +1318,7 @@ func buildOmniboxConfig(
 		DefaultSearch:          runtimeCfg.DefaultSearchEngine,
 		NormalizeNavigationURL: callbacks.NormalizeNavigationURL,
 		InitialBehavior:        runtimeCfg.Omnibox.InitialBehavior,
-		MostVisitedDays:        runtimeCfg.Omnibox.MostVisitedDays,
+		MaxHistoryDays:         runtimeCfg.Omnibox.MaxHistoryDays,
 		SaveInitialBehavior:    deps.HandlerDeps.SaveOmniboxInitialBehavior,
 		UIScale:                runtimeCfg.DefaultUIScale,
 		OnNavigate:             callbacks.OnNavigate,

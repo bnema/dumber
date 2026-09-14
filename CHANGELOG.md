@@ -17,6 +17,7 @@ All notable changes to this project will be documented in this file.
 - **Favorites organization**: Favorites now use a tags-first model. Existing folder assignments are migrated into deterministic tags, with collision handling and folded-name uniqueness preserved during migration.
 - **Page mode configuration**: Page Mode is now called Vim Mode and uses the `workspace.vim_mode` configuration namespace for activation, timeouts, and action sequences. Existing page-mode bindings are migrated by the configuration loader.
 - **Browsing-context routing**: External links, floating panes, popups, and standalone omnibox launches now use explicit browsing-context ownership so they open in the appropriate pane or browser window.
+- **Omnibox history window**: Replaced `omnibox.most_visited_days` with `omnibox.max_history_days`. The window now applies to typed omnibox searches and to both empty-input lists (`recent` and `most_visited`), filtered in SQL before result limits. `dumber config migrate` renames the legacy key while preserving its value (including `0`).
 - **CEF presentation and lifecycle**: Browser visibility, first-frame presentation, accessibility enablement, browser recreation, and PipeWire audio handoff now follow stricter lifecycle ownership and synchronization.
 - **Dependencies and packaging**: Updated the CEF/GTK bridge and PureGo dependencies, refreshed vendored build inputs, and synchronized CI, Flatpak, AUR, and release workflow metadata.
 
