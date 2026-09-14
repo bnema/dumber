@@ -389,6 +389,8 @@ type ClipboardConfig struct {
 
 // OmniboxConfig holds omnibox behavior preferences
 type OmniboxConfig struct {
+	// Style selects the omnibox visual treatment: "multiplexer", "command", or "minimal".
+	Style string `mapstructure:"style" yaml:"style" toml:"style"`
 	// InitialBehavior controls what to show when omnibox opens with empty input
 	// Values: "recent" (recent visits), "most_visited" (most visited sites), "none" (nothing)
 	InitialBehavior OmniboxInitialBehavior `mapstructure:"initial_behavior" yaml:"initial_behavior" toml:"initial_behavior"`

@@ -646,6 +646,14 @@ func looksLikeBareRelativeWorkspacePath(value string) bool {
 
 func validateOmnibox(config *Config) []string {
 	var validationErrors []string
+	switch config.Omnibox.Style {
+	case "multiplexer", "command", "minimal":
+	default:
+		validationErrors = append(validationErrors, fmt.Sprintf(
+			"omnibox.style must be one of: multiplexer, command, minimal (got: %s)",
+			config.Omnibox.Style,
+		))
+	}
 	if config.Omnibox.MaxHistoryDays < 0 {
 		validationErrors = append(validationErrors, "omnibox.max_history_days must be non-negative")
 	}

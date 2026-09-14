@@ -96,6 +96,7 @@ func RuntimeConfigSnapshotFromConfig(cfg *config.Config) entity.RuntimeConfigSna
 			SearchShortcuts:     runtimeSearchShortcutsFromConfig(cfg.SearchShortcuts),
 			DefaultSearchEngine: cfg.DefaultSearchEngine,
 			Omnibox: entity.RuntimeOmniboxConfig{
+				Style:             cfg.Omnibox.Style,
 				InitialBehavior:   cfg.Omnibox.InitialBehavior,
 				MaxHistoryDays:    cfg.Omnibox.MaxHistoryDays,
 				AutoOpenOnNewPane: cfg.Omnibox.AutoOpenOnNewPane,

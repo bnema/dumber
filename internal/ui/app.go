@@ -1309,6 +1309,7 @@ func buildOmniboxConfig(
 	}
 
 	return component.OmniboxConfig{
+		Style:                  runtimeCfg.Omnibox.Style,
 		HistoryUC:              deps.HistoryUC,
 		FavoritesUC:            deps.FavoritesUC,
 		FaviconAdapter:         faviconAdapter,

@@ -39,6 +39,7 @@ func TestMigrator_GetAllDefaultKeys(t *testing.T) {
 	assert.True(t, keySet["history.max_entries"], "should include history.max_entries")
 	assert.True(t, keySet["logging.level"], "should include logging.level")
 	assert.True(t, keySet["appearance.sans_font"], "should include appearance.sans_font")
+	assert.True(t, keySet["omnibox.style"], "should include omnibox.style for config migrate")
 }
 
 func TestMigrator_GetUserConfigKeys(t *testing.T) {
