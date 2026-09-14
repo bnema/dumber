@@ -646,8 +646,8 @@ func looksLikeBareRelativeWorkspacePath(value string) bool {
 
 func validateOmnibox(config *Config) []string {
 	var validationErrors []string
-	if config.Omnibox.MostVisitedDays < 0 {
-		validationErrors = append(validationErrors, "omnibox.most_visited_days must be non-negative")
+	if config.Omnibox.MaxHistoryDays < 0 {
+		validationErrors = append(validationErrors, "omnibox.max_history_days must be non-negative")
 	}
 	switch config.Omnibox.InitialBehavior {
 	case OmniboxInitialBehaviorRecent, OmniboxInitialBehaviorMostVisited, OmniboxInitialBehaviorNone:

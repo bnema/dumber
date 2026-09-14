@@ -97,7 +97,7 @@ func RuntimeConfigSnapshotFromConfig(cfg *config.Config) entity.RuntimeConfigSna
 			DefaultSearchEngine: cfg.DefaultSearchEngine,
 			Omnibox: entity.RuntimeOmniboxConfig{
 				InitialBehavior:   cfg.Omnibox.InitialBehavior,
-				MostVisitedDays:   cfg.Omnibox.MostVisitedDays,
+				MaxHistoryDays:    cfg.Omnibox.MaxHistoryDays,
 				AutoOpenOnNewPane: cfg.Omnibox.AutoOpenOnNewPane,
 			},
 			Update: entity.RuntimeUpdateConfig{

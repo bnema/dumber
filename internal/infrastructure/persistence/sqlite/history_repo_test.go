@@ -2,12 +2,14 @@ package sqlite_test
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"path/filepath"
 	"testing"
 	"time"
 
 	"github.com/bnema/dumber/internal/domain/entity"
+	repository "github.com/bnema/dumber/internal/domain/repository"
 	"github.com/bnema/dumber/internal/infrastructure/persistence/sqlite"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/stretchr/testify/assert"
@@ -188,11 +190,11 @@ func TestHistoryRepository_CRUD(t *testing.T) {
 	assert.Equal(t, int64(2), found2.VisitCount)
 
 	// Get recent
-	recent, err := repo.GetRecent(ctx, 10, 0)
+	recent, err := repo.GetRecent(ctx, 10, 0, repository.HistoryScope{})
 	require.NoError(t, err)
 	require.Len(t, recent, 1)
 
-	allRecent, err := repo.GetRecent(ctx, 0, 0)
+	allRecent, err := repo.GetRecent(ctx, 0, 0, repository.HistoryScope{})
 	require.NoError(t, err)
 	require.Len(t, allRecent, 1)
 
@@ -350,7 +352,7 @@ func TestHistoryRepository_Search_SingleWord(t *testing.T) {
 	}
 
 	// Search for "github" - should find the github entry
-	results, err := repo.Search(ctx, "github", 10)
+	results, err := repo.Search(ctx, "github", 10, repository.HistoryScope{})
 	require.NoError(t, err)
 	require.Len(t, results, 1)
 	assert.Equal(t, "https://github.com/user/repo", results[0].Entry.URL)
@@ -377,7 +379,7 @@ func TestHistoryRepository_Search_MultiWord(t *testing.T) {
 	}
 
 	// Search for "github issues" - should find only the github issues entry
-	results, err := repo.Search(ctx, "github issues", 10)
+	results, err := repo.Search(ctx, "github issues", 10, repository.HistoryScope{})
 	require.NoError(t, err)
 	require.Len(t, results, 1)
 	assert.Equal(t, "https://github.com/issues", results[0].Entry.URL)
@@ -401,7 +403,7 @@ func TestHistoryRepository_Search_MatchesTitle(t *testing.T) {
 	require.NoError(t, repo.Save(ctx, entry))
 
 	// Search for "Documentation" - should find by title
-	results, err := repo.Search(ctx, "Documentation", 10)
+	results, err := repo.Search(ctx, "Documentation", 10, repository.HistoryScope{})
 	require.NoError(t, err)
 	require.Len(t, results, 1)
 	assert.Equal(t, "https://docs.example.com/guide", results[0].Entry.URL)
@@ -424,12 +426,12 @@ func TestHistoryRepository_Search_EmptyQuery(t *testing.T) {
 	}))
 
 	// Empty query should return empty results, no error
-	results, err := repo.Search(ctx, "", 10)
+	results, err := repo.Search(ctx, "", 10, repository.HistoryScope{})
 	require.NoError(t, err)
 	assert.Empty(t, results)
 
 	// Whitespace-only query should also return empty results
-	results, err = repo.Search(ctx, "   ", 10)
+	results, err = repo.Search(ctx, "   ", 10, repository.HistoryScope{})
 	require.NoError(t, err)
 	assert.Empty(t, results)
 }
@@ -457,7 +459,7 @@ func TestHistoryRepository_Search_NoValidTokens(t *testing.T) {
 	}
 
 	for _, q := range invalidQueries {
-		results, err := repo.Search(ctx, q, 10)
+		results, err := repo.Search(ctx, q, 10, repository.HistoryScope{})
 		require.NoError(t, err, "query %q should return early without SQL errors", q)
 		assert.Empty(t, results, "query %q should have no valid tokens", q)
 	}
@@ -480,7 +482,7 @@ func TestHistoryRepository_Search_NoResults(t *testing.T) {
 	}))
 
 	// Search for something that doesn't exist
-	results, err := repo.Search(ctx, "nonexistent", 10)
+	results, err := repo.Search(ctx, "nonexistent", 10, repository.HistoryScope{})
 	require.NoError(t, err)
 	assert.Empty(t, results)
 }
@@ -506,7 +508,7 @@ func TestHistoryRepository_Search_PrefixMatching(t *testing.T) {
 	}
 
 	// Search for "git" - should find both github and gitlab (prefix match)
-	results, err := repo.Search(ctx, "git", 10)
+	results, err := repo.Search(ctx, "git", 10, repository.HistoryScope{})
 	require.NoError(t, err)
 	require.Len(t, results, 2)
 
@@ -541,7 +543,7 @@ func TestHistoryRepository_Search_DomainLikeQuery(t *testing.T) {
 
 	// Search with period in query (domain-like) - periods should be treated as separators
 	// "gordon.bnem" should match "gordon.bnema.dev" (tokens: gordon, bnem -> gordon, bnema)
-	results, err := repo.Search(ctx, "gordon.bnem", 10)
+	results, err := repo.Search(ctx, "gordon.bnem", 10, repository.HistoryScope{})
 	require.NoError(t, err)
 	require.NotEmpty(t, results, "domain-like query 'gordon.bnem' should match gordon.bnema.dev")
 
@@ -584,7 +586,7 @@ func TestHistoryRepository_Search_SpecialCharacters(t *testing.T) {
 	}
 
 	for _, q := range specialQueries {
-		results, err := repo.Search(ctx, q, 10)
+		results, err := repo.Search(ctx, q, 10, repository.HistoryScope{})
 		require.NoError(t, err, "query %q should not cause error", q)
 		// May or may not find results, but should not error
 		_ = results
@@ -606,7 +608,7 @@ func TestHistoryRepository_Search_IgnoresFTSOperatorsAsTokens(t *testing.T) {
 		Title: "Dumber",
 	}))
 
-	results, err := repo.Search(ctx, "AND github OR", 10)
+	results, err := repo.Search(ctx, "AND github OR", 10, repository.HistoryScope{})
 	require.NoError(t, err)
 	require.Len(t, results, 1)
 	assert.Equal(t, "https://github.com/bnema/dumber", results[0].Entry.URL)
@@ -627,7 +629,7 @@ func TestHistoryRepository_Search_SlashSeparatedQuery(t *testing.T) {
 		Title: "Dumber",
 	}))
 
-	results, err := repo.Search(ctx, "github.com/bnema", 10)
+	results, err := repo.Search(ctx, "github.com/bnema", 10, repository.HistoryScope{})
 	require.NoError(t, err)
 	require.NotEmpty(t, results, "slash-separated query should match history")
 }
@@ -651,7 +653,7 @@ func TestHistoryRepository_Search_PrefersURLMatchOverTitleOnlyMatch(t *testing.T
 		Title: "GitHub Issues Mirror",
 	}))
 
-	results, err := repo.Search(ctx, "github issues", 10)
+	results, err := repo.Search(ctx, "github issues", 10, repository.HistoryScope{})
 	require.NoError(t, err)
 	require.Len(t, results, 2)
 	assert.Equal(t, "https://github.com/bnema/dumber/issues", results[0].Entry.URL)
@@ -676,7 +678,7 @@ func TestHistoryRepository_Search_PrefersHostPrefixOverTitleContains(t *testing.
 		Title: "GitHub documentation mirror",
 	}))
 
-	results, err := repo.Search(ctx, "git", 10)
+	results, err := repo.Search(ctx, "git", 10, repository.HistoryScope{})
 	require.NoError(t, err)
 	require.Len(t, results, 2)
 	assert.Equal(t, "https://github.com", results[0].Entry.URL)
@@ -701,7 +703,7 @@ func TestHistoryRepository_Search_PrefersShorterRootURLForHostQuery(t *testing.T
 		Title: "Issue 123",
 	}))
 
-	results, err := repo.Search(ctx, "github", 10)
+	results, err := repo.Search(ctx, "github", 10, repository.HistoryScope{})
 	require.NoError(t, err)
 	require.Len(t, results, 2)
 	assert.Equal(t, "https://github.com", results[0].Entry.URL)
@@ -829,11 +831,11 @@ func TestHistoryRepository_Search_ReturnsEmptyForNonPositiveLimit(t *testing.T) 
 		Title: "GitHub",
 	}))
 
-	results, err := repo.Search(ctx, "git", 0)
+	results, err := repo.Search(ctx, "git", 0, repository.HistoryScope{})
 	require.NoError(t, err)
 	assert.Empty(t, results)
 
-	results, err = repo.Search(ctx, "git", -1)
+	results, err = repo.Search(ctx, "git", -1, repository.HistoryScope{})
 	require.NoError(t, err)
 	assert.Empty(t, results)
 }
@@ -936,4 +938,236 @@ func historyIDs(entries []*entity.HistoryEntry) []int64 {
 		ids[i] = entry.ID
 	}
 	return ids
+}
+
+// insertHistoryRow seeds a history row with an explicit visit count and
+// last_visited so age-scope tests can use stable, non-now timestamps. The
+// timestamp is written in the same UTC second-precision format that SQLite's
+// CURRENT_TIMESTAMP uses in production.
+func insertHistoryRow(
+	t *testing.T,
+	ctx context.Context,
+	db *sql.DB,
+	url, title string,
+	visitCount int,
+	lastVisited time.Time,
+) {
+	t.Helper()
+	timestamp := sqliteTimestamp(lastVisited)
+	_, err := db.ExecContext(ctx,
+		`INSERT INTO history (url, title, last_visited, created_at, visit_count) VALUES (?, ?, ?, ?, ?)`,
+		url, title, timestamp, timestamp, visitCount)
+	require.NoError(t, err)
+}
+
+// sqliteTimestamp formats a time the way SQLite's CURRENT_TIMESTAMP stores it:
+// UTC at second precision without a timezone suffix.
+func sqliteTimestamp(t time.Time) string {
+	return t.UTC().Format("2006-01-02 15:04:05")
+}
+
+func TestHistoryRepository_GetMostVisitedWithin_ExcludesOldHighCountURL(t *testing.T) {
+	ctx := historyTestCtx()
+	db, err := sqlite.NewConnection(ctx, filepath.Join(t.TempDir(), "dumber.db"))
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = db.Close() })
+	repo := sqlite.NewHistoryRepository(db)
+
+	now := time.Date(2026, 6, 24, 12, 0, 0, 0, time.UTC)
+	cutoff := now.AddDate(0, 0, -30)
+	insertHistoryRow(t, ctx, db, "https://old.example.com", "Old Popular", 50, now.AddDate(0, 0, -40))
+	insertHistoryRow(t, ctx, db, "https://recent.example.com", "Recent", 2, now.AddDate(0, 0, -1))
+
+	results, err := repo.GetMostVisitedWithin(ctx, 10, repository.HistoryScope{Cutoff: cutoff})
+	require.NoError(t, err)
+	require.Len(t, results, 1)
+	assert.Equal(t, "https://recent.example.com", results[0].URL)
+
+	// A zero cutoff means all stored history, so the old popular URL returns.
+	all, err := repo.GetMostVisitedWithin(ctx, 10, repository.HistoryScope{})
+	require.NoError(t, err)
+	require.Len(t, all, 2)
+	assert.Equal(t, "https://old.example.com", all[0].URL)
+	assert.Equal(t, int64(50), all[0].VisitCount)
+}
+
+func TestHistoryRepository_GetMostVisitedWithin_BoundsResults(t *testing.T) {
+	ctx := historyTestCtx()
+	db, err := sqlite.NewConnection(ctx, filepath.Join(t.TempDir(), "dumber.db"))
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = db.Close() })
+	repo := sqlite.NewHistoryRepository(db)
+
+	now := time.Date(2026, 6, 24, 12, 0, 0, 0, time.UTC)
+	insertHistoryRow(t, ctx, db, "https://one.example.com", "One", 5, now.Add(-time.Hour))
+	insertHistoryRow(t, ctx, db, "https://two.example.com", "Two", 3, now.Add(-2*time.Hour))
+	insertHistoryRow(t, ctx, db, "https://three.example.com", "Three", 1, now.Add(-3*time.Hour))
+
+	results, err := repo.GetMostVisitedWithin(ctx, 2, repository.HistoryScope{})
+	require.NoError(t, err)
+	require.Len(t, results, 2)
+	assert.Equal(t, []string{"https://one.example.com", "https://two.example.com"}, historyURLs(results))
+}
+
+func TestHistoryRepository_GetRecent_ScopeExcludesOldEntries(t *testing.T) {
+	ctx := historyTestCtx()
+	db, err := sqlite.NewConnection(ctx, filepath.Join(t.TempDir(), "dumber.db"))
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = db.Close() })
+	repo := sqlite.NewHistoryRepository(db)
+
+	now := time.Date(2026, 6, 24, 12, 0, 0, 0, time.UTC)
+	cutoff := now.AddDate(0, 0, -30)
+	insertHistoryRow(t, ctx, db, "https://old.example.com", "Old", 1, now.AddDate(0, 0, -40))
+	insertHistoryRow(t, ctx, db, "https://recent.example.com", "Recent", 1, now.AddDate(0, 0, -1))
+
+	scoped, err := repo.GetRecent(ctx, 10, 0, repository.HistoryScope{Cutoff: cutoff})
+	require.NoError(t, err)
+	require.Len(t, scoped, 1)
+	assert.Equal(t, "https://recent.example.com", scoped[0].URL)
+
+	all, err := repo.GetRecent(ctx, 10, 0, repository.HistoryScope{})
+	require.NoError(t, err)
+	require.Len(t, all, 2)
+
+	bounded, err := repo.GetRecent(ctx, 1, 0, repository.HistoryScope{})
+	require.NoError(t, err)
+	require.Len(t, bounded, 1)
+}
+
+func TestHistoryRepository_Search_ScopeExcludesOldTitleOnlyMatch(t *testing.T) {
+	ctx := historyTestCtx()
+	db, err := sqlite.NewConnection(ctx, filepath.Join(t.TempDir(), "dumber.db"))
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = db.Close() })
+	repo := sqlite.NewHistoryRepository(db)
+
+	now := time.Date(2026, 6, 24, 12, 0, 0, 0, time.UTC)
+	cutoff := now.AddDate(0, 0, -30)
+	// Matches only in the title, but is older than the window.
+	insertHistoryRow(t, ctx, db, "https://old.example.com/ancient", "Widget Old Guide", 1, now.AddDate(0, 0, -40))
+	// Matches in the title and is inside the window.
+	insertHistoryRow(t, ctx, db, "https://recent.example.com/guide", "Widget Recent Guide", 1, now.AddDate(0, 0, -1))
+	// Matches in the URL, but is older than the window.
+	insertHistoryRow(t, ctx, db, "https://widget.example.com/page", "No match here", 1, now.AddDate(0, 0, -40))
+
+	scoped, err := repo.Search(ctx, "widget", 10, repository.HistoryScope{Cutoff: cutoff})
+	require.NoError(t, err)
+	require.Len(t, scoped, 1)
+	assert.Equal(t, "https://recent.example.com/guide", scoped[0].Entry.URL)
+
+	// A zero cutoff keeps the general, unrestricted search behavior.
+	all, err := repo.Search(ctx, "widget", 10, repository.HistoryScope{})
+	require.NoError(t, err)
+	require.Len(t, all, 3)
+}
+
+func historyURLs(entries []*entity.HistoryEntry) []string {
+	urls := make([]string, len(entries))
+	for i, entry := range entries {
+		urls[i] = entry.URL
+	}
+	return urls
+}
+
+func TestHistoryRepository_ScopeCutoffIsInclusiveAtSecondPrecision(t *testing.T) {
+	ctx := historyTestCtx()
+	db, err := sqlite.NewConnection(ctx, filepath.Join(t.TempDir(), "dumber.db"))
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = db.Close() })
+	repo := sqlite.NewHistoryRepository(db)
+
+	cutoff := time.Date(2026, 6, 24, 12, 0, 0, 0, time.UTC)
+	insertHistoryRow(t, ctx, db, "https://exact.example.com", "Exact", 1, cutoff)
+	insertHistoryRow(t, ctx, db, "https://before.example.com", "Before", 1, cutoff.Add(-time.Second))
+
+	results, err := repo.GetRecent(ctx, 10, 0, repository.HistoryScope{Cutoff: cutoff})
+	require.NoError(t, err)
+	require.Len(t, results, 1, "the entry exactly on the cutoff must be included")
+	assert.Equal(t, "https://exact.example.com", results[0].URL)
+}
+
+func TestHistoryRepository_UnboundedScopePreservesNullLastVisited(t *testing.T) {
+	ctx := historyTestCtx()
+	db, err := sqlite.NewConnection(ctx, filepath.Join(t.TempDir(), "dumber.db"))
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = db.Close() })
+	repo := sqlite.NewHistoryRepository(db)
+
+	_, err = db.ExecContext(
+		ctx,
+		`INSERT INTO history (url, title, last_visited, visit_count) VALUES (?, ?, NULL, ?)`,
+		"https://null-last-visited.example.com",
+		"Legacy Null Row",
+		1,
+	)
+	require.NoError(t, err)
+
+	cutoff := time.Date(2026, 6, 24, 12, 0, 0, 0, time.UTC)
+
+	recent, err := repo.GetRecent(ctx, 10, 0, repository.HistoryScope{})
+	require.NoError(t, err)
+	require.Len(t, recent, 1, "unbounded recent history must keep NULL last_visited rows")
+
+	mostVisited, err := repo.GetMostVisitedWithin(ctx, 10, repository.HistoryScope{})
+	require.NoError(t, err)
+	require.Len(t, mostVisited, 1, "unbounded most-visited must keep NULL last_visited rows")
+
+	matches, err := repo.Search(ctx, "legacy", 10, repository.HistoryScope{})
+	require.NoError(t, err)
+	require.Len(t, matches, 1, "unbounded search must keep NULL last_visited rows")
+
+	scoped, err := repo.GetRecent(ctx, 10, 0, repository.HistoryScope{Cutoff: cutoff})
+	require.NoError(t, err)
+	assert.Empty(t, scoped, "a bounded window must not include rows without a last_visited timestamp")
+}
+
+func TestHistoryRepository_Search_FiltersBeforeLimitOnURLMatch(t *testing.T) {
+	ctx := historyTestCtx()
+	db, err := sqlite.NewConnection(ctx, filepath.Join(t.TempDir(), "dumber.db"))
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = db.Close() })
+	repo := sqlite.NewHistoryRepository(db)
+
+	now := time.Date(2026, 6, 24, 12, 0, 0, 0, time.UTC)
+	cutoff := now.AddDate(0, 0, -30)
+	// The old row outranks the recent row (higher visit count and domain boost),
+	// so it would consume the single LIMIT slot if filtering happened after LIMIT.
+	insertHistoryRow(t, ctx, db, "https://urlsecret.example.com/", "Old", 50, now.AddDate(0, 0, -40))
+	insertHistoryRow(t, ctx, db, "https://urlsecret-recent.example.com/", "Recent", 1, now.AddDate(0, 0, -1))
+
+	results, err := repo.Search(ctx, "urlsecret", 1, repository.HistoryScope{Cutoff: cutoff})
+	require.NoError(t, err)
+	require.Len(t, results, 1, "URL FTS must filter by age before applying LIMIT")
+	assert.Equal(t, "https://urlsecret-recent.example.com/", results[0].Entry.URL)
+
+	// Without a scope the old high-priority row wins the same query.
+	all, err := repo.Search(ctx, "urlsecret", 10, repository.HistoryScope{})
+	require.NoError(t, err)
+	require.Len(t, all, 2)
+	assert.Equal(t, "https://urlsecret.example.com/", all[0].Entry.URL)
+}
+
+func TestHistoryRepository_Search_FiltersBeforeLimitOnTitleMatch(t *testing.T) {
+	ctx := historyTestCtx()
+	db, err := sqlite.NewConnection(ctx, filepath.Join(t.TempDir(), "dumber.db"))
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = db.Close() })
+	repo := sqlite.NewHistoryRepository(db)
+
+	now := time.Date(2026, 6, 24, 12, 0, 0, 0, time.UTC)
+	cutoff := now.AddDate(0, 0, -30)
+	// The query only matches titles, so only the title FTS path is exercised.
+	// The old row has the higher visit count and would win an unfiltered LIMIT.
+	insertHistoryRow(t, ctx, db, "https://old.example.com/ancient", "Titlesecret Old Guide", 50, now.AddDate(0, 0, -40))
+	insertHistoryRow(t, ctx, db, "https://recent.example.com/entry", "Titlesecret Recent Guide", 1, now.AddDate(0, 0, -1))
+
+	results, err := repo.Search(ctx, "titlesecret", 1, repository.HistoryScope{Cutoff: cutoff})
+	require.NoError(t, err)
+	require.Len(t, results, 1, "title FTS must filter by age before applying LIMIT")
+	assert.Equal(t, "https://recent.example.com/entry", results[0].Entry.URL)
+
+	all, err := repo.Search(ctx, "titlesecret", 10, repository.HistoryScope{})
+	require.NoError(t, err)
+	require.Len(t, all, 2)
 }

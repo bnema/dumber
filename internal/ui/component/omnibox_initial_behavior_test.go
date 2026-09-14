@@ -8,6 +8,7 @@ import (
 
 	appusecase "github.com/bnema/dumber/internal/application/usecase"
 	"github.com/bnema/dumber/internal/domain/entity"
+	repository "github.com/bnema/dumber/internal/domain/repository"
 	repomocks "github.com/bnema/dumber/internal/domain/repository/mocks"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -159,19 +160,40 @@ func omniboxSuggestionUpdatesInline(o *Omnibox) {
 	o.scheduleSuggestionUpdate = func(fn func()) { fn() }
 }
 
+// scopeCutoffWithin matches a history scope whose cutoff is approximately the
+// given age, tolerating the small delay between test setup and query execution.
+func scopeCutoffWithin(want, tolerance time.Duration) any {
+	return mock.MatchedBy(func(scope repository.HistoryScope) bool {
+		if scope.Cutoff.IsZero() {
+			return false
+		}
+		diff := time.Since(scope.Cutoff) - want
+		if diff < 0 {
+			diff = -diff
+		}
+		return diff <= tolerance
+	})
+}
+
+// scopeUnbounded matches a history scope with no age restriction.
+func scopeUnbounded() any {
+	return mock.MatchedBy(func(scope repository.HistoryScope) bool {
+		return scope.Cutoff.IsZero()
+	})
+}
+
 func TestOmniboxLoadInitialHistory_UsesCapturedInitialBehavior(t *testing.T) {
 	repo := repomocks.NewMockHistoryRepository(t)
 	done := make(chan struct{})
-	repo.EXPECT().GetRecent(mock.Anything, mock.Anything, mock.Anything).RunAndReturn(
-		func(context.Context, int, int) ([]*entity.HistoryEntry, error) {
-			close(done)
-			return []*entity.HistoryEntry{{URL: "https://example.com"}}, nil
-		},
-	)
+	repo.EXPECT().
+		GetRecent(mock.Anything, mock.Anything, 0, mock.Anything).
+		Run(func(context.Context, int, int, repository.HistoryScope) { close(done) }).
+		Return([]*entity.HistoryEntry{{URL: "https://example.com"}}, nil)
 
 	o := &Omnibox{
 		historyUC:       appusecase.NewSearchHistoryUseCase(repo),
 		initialBehavior: entity.OmniboxInitialBehaviorRecent,
+		maxHistoryDays:  30,
 		ctx:             context.Background(),
 	}
 	omniboxSuggestionUpdatesInline(o)
@@ -186,20 +208,18 @@ func TestOmniboxLoadInitialHistory_UsesCapturedInitialBehavior(t *testing.T) {
 	}
 }
 
-func TestOmniboxLoadInitialHistory_MostVisitedUsesThirtyDayWindow(t *testing.T) {
+func TestOmniboxLoadInitialHistory_RecentUsesConfiguredWindow(t *testing.T) {
 	repo := repomocks.NewMockHistoryRepository(t)
 	done := make(chan struct{})
-	repo.EXPECT().GetMostVisited(mock.Anything, 30).RunAndReturn(
-		func(context.Context, int) ([]*entity.HistoryEntry, error) {
-			close(done)
-			return []*entity.HistoryEntry{{URL: "https://example.com"}}, nil
-		},
-	)
+	repo.EXPECT().
+		GetRecent(mock.Anything, mock.Anything, 0, scopeCutoffWithin(7*24*time.Hour, time.Minute)).
+		Run(func(context.Context, int, int, repository.HistoryScope) { close(done) }).
+		Return([]*entity.HistoryEntry{{URL: "https://example.com"}}, nil)
 
 	o := &Omnibox{
 		historyUC:       appusecase.NewSearchHistoryUseCase(repo),
-		initialBehavior: entity.OmniboxInitialBehaviorMostVisited,
-		mostVisitedDays: 30,
+		initialBehavior: entity.OmniboxInitialBehaviorRecent,
+		maxHistoryDays:  7,
 		ctx:             context.Background(),
 	}
 	omniboxSuggestionUpdatesInline(o)
@@ -209,24 +229,22 @@ func TestOmniboxLoadInitialHistory_MostVisitedUsesThirtyDayWindow(t *testing.T) 
 	select {
 	case <-done:
 	case <-time.After(2 * time.Second):
-		t.Fatal("timed out waiting for most-visited load")
+		t.Fatal("timed out waiting for recent-history load")
 	}
 }
 
 func TestOmniboxLoadInitialHistory_MostVisitedUsesConfiguredWindow(t *testing.T) {
 	repo := repomocks.NewMockHistoryRepository(t)
 	done := make(chan struct{})
-	repo.EXPECT().GetMostVisited(mock.Anything, 7).RunAndReturn(
-		func(context.Context, int) ([]*entity.HistoryEntry, error) {
-			close(done)
-			return []*entity.HistoryEntry{{URL: "https://example.com"}}, nil
-		},
-	)
+	repo.EXPECT().
+		GetMostVisitedWithin(mock.Anything, mock.Anything, scopeCutoffWithin(7*24*time.Hour, time.Minute)).
+		Run(func(context.Context, int, repository.HistoryScope) { close(done) }).
+		Return([]*entity.HistoryEntry{{URL: "https://example.com"}}, nil)
 
 	o := &Omnibox{
 		historyUC:       appusecase.NewSearchHistoryUseCase(repo),
 		initialBehavior: entity.OmniboxInitialBehaviorMostVisited,
-		mostVisitedDays: 7,
+		maxHistoryDays:  7,
 		ctx:             context.Background(),
 	}
 	omniboxSuggestionUpdatesInline(o)
@@ -243,17 +261,15 @@ func TestOmniboxLoadInitialHistory_MostVisitedUsesConfiguredWindow(t *testing.T)
 func TestOmniboxLoadInitialHistory_MostVisitedZeroWindowUsesAllHistory(t *testing.T) {
 	repo := repomocks.NewMockHistoryRepository(t)
 	done := make(chan struct{})
-	repo.EXPECT().GetAllMostVisited(mock.Anything).RunAndReturn(
-		func(context.Context) ([]*entity.HistoryEntry, error) {
-			close(done)
-			return []*entity.HistoryEntry{{URL: "https://example.com"}}, nil
-		},
-	)
+	repo.EXPECT().
+		GetMostVisitedWithin(mock.Anything, mock.Anything, scopeUnbounded()).
+		Run(func(context.Context, int, repository.HistoryScope) { close(done) }).
+		Return([]*entity.HistoryEntry{{URL: "https://example.com"}}, nil)
 
 	o := &Omnibox{
 		historyUC:       appusecase.NewSearchHistoryUseCase(repo),
 		initialBehavior: entity.OmniboxInitialBehaviorMostVisited,
-		mostVisitedDays: 0,
+		maxHistoryDays:  0,
 		ctx:             context.Background(),
 	}
 	omniboxSuggestionUpdatesInline(o)
@@ -264,5 +280,54 @@ func TestOmniboxLoadInitialHistory_MostVisitedZeroWindowUsesAllHistory(t *testin
 	case <-done:
 	case <-time.After(2 * time.Second):
 		t.Fatal("timed out waiting for all-history most-visited load")
+	}
+}
+
+func TestOmniboxLoadInitialHistory_MostVisitedBoundsSQL(t *testing.T) {
+	repo := repomocks.NewMockHistoryRepository(t)
+	done := make(chan struct{})
+	repo.EXPECT().
+		GetMostVisitedWithin(mock.Anything, OmniboxListDefaults.MaxVisibleRows, mock.Anything).
+		Run(func(context.Context, int, repository.HistoryScope) { close(done) }).
+		Return([]*entity.HistoryEntry{{URL: "https://example.com"}}, nil)
+
+	o := &Omnibox{
+		historyUC:       appusecase.NewSearchHistoryUseCase(repo),
+		initialBehavior: entity.OmniboxInitialBehaviorMostVisited,
+		maxHistoryDays:  30,
+		ctx:             context.Background(),
+	}
+	omniboxSuggestionUpdatesInline(o)
+
+	o.loadInitialHistory(1)
+
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for bounded most-visited load")
+	}
+}
+
+func TestOmniboxSearchHistory_PassesConfiguredAgeScope(t *testing.T) {
+	repo := repomocks.NewMockHistoryRepository(t)
+	done := make(chan struct{})
+	repo.EXPECT().
+		Search(mock.Anything, "example", 5, scopeCutoffWithin(30*24*time.Hour, time.Minute)).
+		Run(func(context.Context, string, int, repository.HistoryScope) { close(done) }).
+		Return([]entity.HistoryMatch{}, nil)
+
+	o := &Omnibox{
+		historyUC:      appusecase.NewSearchHistoryUseCase(repo),
+		maxHistoryDays: 30,
+		ctx:            context.Background(),
+	}
+	omniboxSuggestionUpdatesInline(o)
+
+	o.searchHistory("example", 5, 1)
+
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for typed history search")
 	}
 }

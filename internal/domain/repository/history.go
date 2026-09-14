@@ -7,6 +7,13 @@ import (
 	"github.com/bnema/dumber/internal/domain/entity"
 )
 
+// HistoryScope constrains a history query to an optional age window. Cutoff is
+// the inclusive lower bound for an entry's last_visited timestamp. The zero
+// time disables age filtering, so all stored history is eligible.
+type HistoryScope struct {
+	Cutoff time.Time
+}
+
 // HistoryRepository defines operations for browsing history persistence.
 type HistoryRepository interface {
 	// Save creates or updates a history entry (upsert).
@@ -15,11 +22,15 @@ type HistoryRepository interface {
 	// FindByURL retrieves a history entry by its URL.
 	FindByURL(ctx context.Context, url string) (*entity.HistoryEntry, error)
 
-	// Search performs a fuzzy search on history entries.
-	Search(ctx context.Context, query string, limit int) ([]entity.HistoryMatch, error)
+	// Search performs a fuzzy search on history entries. Results older than
+	// scope.Cutoff are excluded in SQL before the result limit is applied. A
+	// non-positive limit returns no matches.
+	Search(ctx context.Context, query string, limit int, scope HistoryScope) ([]entity.HistoryMatch, error)
 
-	// GetRecent retrieves recent history entries with pagination. A zero limit means all entries.
-	GetRecent(ctx context.Context, limit, offset int) ([]*entity.HistoryEntry, error)
+	// GetRecent retrieves recent history entries with pagination. A non-positive
+	// limit means all entries. Results older than scope.Cutoff are excluded in
+	// SQL before the limit is applied.
+	GetRecent(ctx context.Context, limit, offset int, scope HistoryScope) ([]*entity.HistoryEntry, error)
 
 	// GetRecentByDomain retrieves recent history entries for a domain with pagination. A zero limit means all matching entries.
 	GetRecentByDomain(ctx context.Context, domain string, limit, offset int) ([]*entity.HistoryEntry, error)
@@ -37,6 +48,11 @@ type HistoryRepository interface {
 	// GetMostVisited retrieves history entries sorted by visit count within the last N days.
 	// days must be > 0.
 	GetMostVisited(ctx context.Context, days int) ([]*entity.HistoryEntry, error)
+
+	// GetMostVisitedWithin retrieves history entries ordered by visit count,
+	// optionally restricted to scope.Cutoff and capped by limit in SQL. A
+	// non-positive limit returns an empty slice.
+	GetMostVisitedWithin(ctx context.Context, limit int, scope HistoryScope) ([]*entity.HistoryEntry, error)
 
 	// GetAllRecentHistory retrieves all history entries sorted by recency.
 	GetAllRecentHistory(ctx context.Context) ([]*entity.HistoryEntry, error)

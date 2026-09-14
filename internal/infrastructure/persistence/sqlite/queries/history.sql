@@ -1,7 +1,8 @@
 -- name: GetRecentHistory :many
 SELECT * FROM history
+WHERE (@cutoff IS NULL OR last_visited >= @cutoff)
 ORDER BY last_visited DESC, id DESC
-LIMIT ? OFFSET ?;
+LIMIT @limit OFFSET @offset;
 
 -- name: GetRecentHistoryByDomain :many
 SELECT * FROM history
@@ -113,6 +114,7 @@ SELECT h.id, h.url, h.title, h.favicon_url, h.visit_count, h.last_visited, h.cre
 FROM history_fts fts
 JOIN history h ON fts.rowid = h.id
 WHERE fts.url MATCH @query
+  AND (@cutoff IS NULL OR h.last_visited >= @cutoff)
 ORDER BY h.visit_count DESC, h.last_visited DESC
 LIMIT @limit;
 
@@ -128,6 +130,7 @@ SELECT h.id, h.url, h.title, h.favicon_url, h.visit_count, h.last_visited, h.cre
 FROM history_fts fts
 JOIN history h ON fts.rowid = h.id
 WHERE fts.url MATCH @query
+  AND (@cutoff IS NULL OR h.last_visited >= @cutoff)
 ORDER BY domain_boost DESC, h.visit_count DESC, h.last_visited DESC
 LIMIT @limit;
 
@@ -136,6 +139,7 @@ SELECT h.id, h.url, h.title, h.favicon_url, h.visit_count, h.last_visited, h.cre
 FROM history_fts fts
 JOIN history h ON fts.rowid = h.id
 WHERE fts.title MATCH @query
+  AND (@cutoff IS NULL OR h.last_visited >= @cutoff)
 ORDER BY h.visit_count DESC, h.last_visited DESC
 LIMIT @limit;
 
@@ -156,6 +160,12 @@ ORDER BY last_visited DESC, id DESC;
 -- name: GetAllMostVisited :many
 SELECT * FROM history
 ORDER BY visit_count DESC, last_visited DESC;
+
+-- name: GetMostVisitedHistory :many
+SELECT * FROM history
+WHERE (@cutoff IS NULL OR last_visited >= @cutoff)
+ORDER BY visit_count DESC, last_visited DESC
+LIMIT @limit;
 
 -- name: CapVisitCount :exec
 UPDATE history SET visit_count = ? WHERE url = ? AND visit_count > ?;

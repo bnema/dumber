@@ -50,7 +50,7 @@ func BenchmarkHistorySQLiteSidebarRecent(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	for range b.N {
-		if _, err := repo.GetRecent(ctx, 50, 0); err != nil {
+		if _, err := repo.GetRecent(ctx, 50, 0, repository.HistoryScope{}); err != nil {
 			b.Fatal(err)
 		}
 	}
@@ -64,7 +64,7 @@ func BenchmarkHistorySQLiteOmniboxSearch(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	for range b.N {
-		if _, err := repo.Search(ctx, "dumber history", 10); err != nil {
+		if _, err := repo.Search(ctx, "dumber history", 10, repository.HistoryScope{}); err != nil {
 			b.Fatal(err)
 		}
 	}

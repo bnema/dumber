@@ -392,10 +392,11 @@ type OmniboxConfig struct {
 	// InitialBehavior controls what to show when omnibox opens with empty input
 	// Values: "recent" (recent visits), "most_visited" (most visited sites), "none" (nothing)
 	InitialBehavior OmniboxInitialBehavior `mapstructure:"initial_behavior" yaml:"initial_behavior" toml:"initial_behavior"`
-	// MostVisitedDays controls how many days of history are considered when initial behavior is most_visited.
-	// 0 means all history.
+	// MaxHistoryDays controls how many days of history the omnibox considers for
+	// typed searches and for the empty-input initial list (recent or most_visited).
+	// 0 means all stored history.
 	// Default: 30.
-	MostVisitedDays int `mapstructure:"most_visited_days" yaml:"most_visited_days" toml:"most_visited_days"`
+	MaxHistoryDays int `mapstructure:"max_history_days" yaml:"max_history_days" toml:"max_history_days"`
 	// AutoOpenOnNewPane opens the omnibox automatically when a new pane is created.
 	// Default: false
 	AutoOpenOnNewPane bool `mapstructure:"auto_open_on_new_pane" yaml:"auto_open_on_new_pane" toml:"auto_open_on_new_pane"`

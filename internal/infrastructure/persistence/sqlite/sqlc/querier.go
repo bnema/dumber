@@ -50,6 +50,7 @@ type Querier interface {
 	GetHistoryStats(ctx context.Context) (GetHistoryStatsRow, error)
 	GetHourlyDistribution(ctx context.Context) ([]GetHourlyDistributionRow, error)
 	GetMostVisited(ctx context.Context, datetime interface{}) ([]History, error)
+	GetMostVisitedHistory(ctx context.Context, arg GetMostVisitedHistoryParams) ([]History, error)
 	GetPermission(ctx context.Context, arg GetPermissionParams) (Permission, error)
 	GetRecentHistory(ctx context.Context, arg GetRecentHistoryParams) ([]History, error)
 	GetRecentHistoryByDomain(ctx context.Context, arg GetRecentHistoryByDomainParams) ([]History, error)

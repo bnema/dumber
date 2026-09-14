@@ -455,3 +455,26 @@ func TestValidateConfig_WebKitDefaultProfileIgnoresZeroGPUThreads(t *testing.T) 
 	err := validateConfig(cfg)
 	require.NoError(t, err)
 }
+
+func TestValidateConfig_OmniboxMaxHistoryDays(t *testing.T) {
+	t.Run("default is valid", func(t *testing.T) {
+		cfg := DefaultConfig()
+		require.NoError(t, validateConfig(cfg))
+	})
+
+	t.Run("zero means all history and is valid", func(t *testing.T) {
+		cfg := DefaultConfig()
+		cfg.Omnibox.MaxHistoryDays = 0
+		require.NoError(t, validateConfig(cfg))
+	})
+
+	t.Run("negative is rejected", func(t *testing.T) {
+		cfg := DefaultConfig()
+		cfg.Omnibox.MaxHistoryDays = -1
+
+		err := validateConfig(cfg)
+
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "omnibox.max_history_days must be non-negative")
+	})
+}
