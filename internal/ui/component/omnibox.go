@@ -31,7 +31,7 @@ const (
 	endBoxSpacing               = 6
 	defaultOmniboxPlaceholder   = "Search history or enter URL… (! lists bangs)"
 	minGhostInputLength         = 1
-	initialBehaviorBadgeTooltip = "Toggle default history order (Ctrl+R)"
+	initialBehaviorBadgeTooltip = "Default history order · Ctrl+R to switch"
 )
 
 type favoriteRowIndicatorUpdate struct {
@@ -140,7 +140,7 @@ type Omnibox struct {
 	outerBox             *gtk.Box // Outer container for positioning
 	mainBox              *gtk.Box // Main content box
 	headerBox            *gtk.Box
-	initialBehaviorBadge *gtk.Button
+	initialBehaviorBadge *gtk.Label
 	historyBtn           *gtk.Button
 	favoritesBtn         *gtk.Button
 	zoomLabel            *gtk.Label
@@ -151,6 +151,7 @@ type Omnibox struct {
 
 	// Parent overlay reference for sizing (set via SetParentOverlay)
 	parentOverlay layout.OverlayWidget
+	style         string
 
 	// State
 	mu              sync.RWMutex
@@ -224,6 +225,7 @@ type Omnibox struct {
 
 // OmniboxConfig holds configuration for creating an Omnibox.
 type OmniboxConfig struct {
+	Style          string
 	HistoryUC      *usecase.SearchHistoryUseCase
 	FavoritesUC    *usecase.ManageFavoritesUseCase
 	FaviconAdapter *adapter.FaviconAdapter
@@ -257,6 +259,7 @@ func NewOmnibox(ctx context.Context, cfg OmniboxConfig) *Omnibox {
 	sizeCfg := ResolveModalSizeConfig(cfg.SizeConfig, OmniboxSizeDefaults)
 
 	o := &Omnibox{
+		style:                  cfg.Style,
 		viewMode:               ViewModeHistory,
 		selectedIndex:          -1,
 		historyUC:              cfg.HistoryUC,
@@ -509,7 +512,7 @@ func (o *Omnibox) refreshInitialBehaviorBadge() {
 	if !state.visible {
 		return
 	}
-	o.initialBehaviorBadge.SetLabel(state.label)
+	o.initialBehaviorBadge.SetText(state.label)
 	tooltip := state.tooltip
 	o.initialBehaviorBadge.SetTooltipText(&tooltip)
 }
@@ -754,6 +757,11 @@ func (o *Omnibox) initMainBox() error {
 		return errNilWidget("mainBox")
 	}
 	o.mainBox.AddCssClass("omnibox-container")
+	style := strings.TrimSpace(o.style)
+	if style == "" {
+		style = "command"
+	}
+	o.mainBox.AddCssClass("omnibox-style-" + style)
 	return nil
 }
 
@@ -780,19 +788,11 @@ func (o *Omnibox) initHeader() error {
 	o.favoritesBtn.AddCssClass("omnibox-header-btn")
 	o.favoritesBtn.SetCanFocus(false)
 
-	o.initialBehaviorBadge = gtk.NewButtonWithLabel("")
+	o.initialBehaviorBadge = gtk.NewLabel(nil)
 	if o.initialBehaviorBadge == nil {
 		return errNilWidget("initialBehaviorBadge")
 	}
 	o.initialBehaviorBadge.AddCssClass("omnibox-header-badge")
-	o.initialBehaviorBadge.SetCanFocus(false)
-	o.initialBehaviorBadge.SetFocusOnClick(false)
-
-	initialBehaviorClickCb := func(_ gtk.Button) {
-		o.toggleInitialBehaviorPreference()
-	}
-	o.retainedCallbacks = append(o.retainedCallbacks, initialBehaviorClickCb)
-	o.initialBehaviorBadge.ConnectClicked(&initialBehaviorClickCb)
 	o.refreshInitialBehaviorBadge()
 
 	historyClickCb := func(_ gtk.Button) {
@@ -2177,10 +2177,7 @@ func (o *Omnibox) createFaviconImage(rawURL, fallbackIcon string) *gtk.Image {
 	return favicon
 }
 
-const favoriteStarBaseSize = 18
 const favoriteStarSlotClass = "omnibox-favorite-star-slot"
-
-func favoriteStarSize(scale float64) int { return ScaleValue(favoriteStarBaseSize, scale) }
 
 func shouldShowFavoriteStar(s Suggestion) bool { return s.IsFavorite }
 
@@ -2224,17 +2221,17 @@ func favoriteStarSlotForRow(row *gtk.ListBoxRow) *gtk.Box {
 	return nil
 }
 
-func (o *Omnibox) createFavoriteStarIcon() *gtk.Image {
-	star := gtk.NewImage()
-	if star == nil {
+func (*Omnibox) createFavoriteStarIcon() *gtk.Label {
+	marker := gtk.NewLabel(nil)
+	if marker == nil {
 		return nil
 	}
-	iconName := "starred-symbolic"
-	star.SetFromIconName(&iconName)
-	star.SetPixelSize(favoriteStarSize(o.uiScale))
-	star.AddCssClass("omnibox-favorite-star")
-	star.SetValign(gtk.AlignCenterValue)
-	return star
+	marker.SetText("*")
+	marker.AddCssClass("omnibox-favorite-star")
+	marker.SetValign(gtk.AlignCenterValue)
+	tooltip := "Favorite"
+	marker.SetTooltipText(&tooltip)
+	return marker
 }
 
 func (o *Omnibox) appendSuggestionTitleAndURL(textBox *gtk.Box, title, displayURL string) {

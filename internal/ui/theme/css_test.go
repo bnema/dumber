@@ -103,9 +103,6 @@ func TestGenerateCSS_OmniboxHeaderBadgeSelectorsExist(t *testing.T) {
 	if !strings.Contains(css, ".omnibox-header-badge {") {
 		t.Fatalf("expected omnibox header badge selector in CSS")
 	}
-	if !strings.Contains(css, ".omnibox-header-badge:hover {") {
-		t.Fatalf("expected omnibox header badge hover selector in CSS")
-	}
 }
 
 func TestGenerateCSS_OmniboxHeaderBadgeUsesPassiveNeutralChipStyling(t *testing.T) {
@@ -114,11 +111,6 @@ func TestGenerateCSS_OmniboxHeaderBadgeUsesPassiveNeutralChipStyling(t *testing.
 	badgeRe := regexp.MustCompile(`(?s)\.omnibox-header-badge\s*\{[^}]*background-color:\s*alpha\(var\(--surface-variant\),\s*0\.65\);[^}]*color:\s*var\(--muted\);[^}]*border:\s*0\.0625em solid alpha\(var\(--border\),\s*0\.85\);[^}]*border-radius:\s*0\.1875em;[^}]*padding:\s*0\.0625em 0\.375em;[^}]*font-size:\s*0\.6875em;`)
 	if !badgeRe.MatchString(css) {
 		t.Fatalf("expected omnibox header badge to use passive neutral chip styling")
-	}
-
-	hoverRe := regexp.MustCompile(`(?s)\.omnibox-header-badge:hover\s*\{[^}]*background-color:\s*shade\(var\(--surface-variant\),\s*1\.08\);[^}]*border-color:\s*var\(--border\);[^}]*color:\s*var\(--text\);`)
-	if !hoverRe.MatchString(css) {
-		t.Fatalf("expected omnibox header badge hover styling to stay neutral while hinting interactivity")
 	}
 
 	badgeBlock := regexp.MustCompile(`(?s)\.omnibox-header-badge\s*\{[^}]*\}`).FindString(css)
@@ -142,8 +134,9 @@ func TestGenerateCSS_FavoriteRowsOnlyTintTrailingAffordance(t *testing.T) {
 	if strings.Contains(css, "border-right: 0.125em solid alpha(var(--warning), 0.55);") {
 		t.Fatalf("expected favorite indicator to move off the right edge")
 	}
-	if !strings.Contains(css, "color: mix(var(--warning), var(--muted), 0.45);") {
-		t.Fatalf("expected favorite star color to be softened")
+	favoriteMarker := cssRuleBlock(t, css, ".omnibox-row .omnibox-favorite-star")
+	if !strings.Contains(favoriteMarker, "color: mix(var(--warning), var(--muted), 0.45);") {
+		t.Fatalf("expected favorite marker color to be softened")
 	}
 	if strings.Contains(css, ".omnibox-row.omnibox-row-favorite .omnibox-favorite-star-slot") {
 		t.Fatalf("expected favorite highlight to move off the star slot")
@@ -256,6 +249,21 @@ func TestGenerateCSSWithScale_UsesMediumWeightForOmniboxSuggestionTitle(t *testi
 	assert.Contains(t, css, ".omnibox-suggestion-title {")
 	assert.Contains(t, css, "font-weight: 500;")
 	assert.NotContains(t, css, ".omnibox-suggestion-title {\n\tfont-size: 0.875em;\n\tcolor: var(--text);\n\tfont-weight: 400;")
+}
+
+func TestGenerateCSS_OmniboxIncludesVisualConcepts(t *testing.T) {
+	css := GenerateCSS(DefaultDarkPalette())
+
+	for _, style := range []string{"multiplexer", "command", "minimal"} {
+		assert.Contains(t, css, ".omnibox-container.omnibox-style-"+style)
+	}
+	assert.Contains(t, css, ".omnibox-style-multiplexer .omnibox-header-btn.omnibox-header-active")
+	assert.Contains(t, css, ".omnibox-style-command .omnibox-header-badge")
+	assert.Contains(t, css, ".omnibox-style-command .omnibox-favorite-star")
+	assert.Contains(t, css, ".omnibox-style-command entry.omnibox-entry")
+	minimalFavorite := cssRuleBlock(t, css, ".omnibox-style-minimal .omnibox-favorite-star")
+	assert.Contains(t, minimalFavorite, "color: var(--warning);")
+	assert.Contains(t, css, ".omnibox-style-minimal .omnibox-shortcut-badge")
 }
 
 func TestGenerateCSS_ContentAreaTabBarInset(t *testing.T) {

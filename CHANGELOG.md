@@ -6,12 +6,14 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- **Omnibox visual styles**: Added configurable `command`, `multiplexer`, and `minimal` GTK treatments. The terminal-inspired `command` palette is the default.
 - **Vim mode for keyboard-driven page navigation**: Added configurable multi-key sequences for page scrolling, fast scrolling, page-input focus, and live heading navigation. Pressing `Enter` on a selected CEF heading opens its associated link before leaving Vim Mode. CEF accessibility data also provides the foundation for navigating structured page content such as headings, lists, paragraphs, and sections.
 - **Native favorites sidebar**: Added a keyboard-driven GTK sidebar toggled with `Ctrl+B`, including search, tag filtering, tag creation, favorite editing, shortcut assignment, deletion, and opening favorites in the current pane or a new split.
 - **WebP favicon decoding**: Added safe WebP decoding for sites that publish WebP favicons.
 
 ### Changed
 
+- **Omnibox status indicators**: The history-order control is now a passive status badge switched with `Ctrl+R`, and favorites use a terminal-style `*` marker.
 - **Favorites organization**: Favorites now use a tags-first model. Existing folder assignments are migrated into deterministic tags, with collision handling and folded-name uniqueness preserved during migration.
 - **Page mode configuration**: Page Mode is now called Vim Mode and uses the `workspace.vim_mode` configuration namespace for activation, timeouts, and action sequences. Existing page-mode bindings are migrated by the configuration loader.
 - **Browsing-context routing**: External links, floating panes, popups, and standalone omnibox launches now use explicit browsing-context ownership so they open in the appropriate pane or browser window.
