@@ -466,13 +466,6 @@ entry.omnibox-entry > text:focus-visible {
 	padding: 0.0625em 0.375em;
 	font-size: 0.6875em;
 	font-weight: 500;
-	transition: background-color 100ms ease-in-out, border-color 100ms ease-in-out, color 100ms ease-in-out;
-}
-
-.omnibox-header-badge:hover {
-	background-color: shade(var(--surface-variant), 1.08);
-	border-color: var(--border);
-	color: var(--text);
 }
 
 /* Zoom indicator in omnibox header */
@@ -693,6 +686,11 @@ entry.omnibox-entry.omnibox-entry-bang-active:focus-visible > text {
 	padding-bottom: 0.4375em;
 	border-left-width: 0.125em;
 	font-family: var(--font-mono);
+}
+
+.omnibox-style-minimal .omnibox-favorite-star {
+	color: var(--warning);
+	opacity: 0.85;
 }
 
 .omnibox-style-minimal .omnibox-shortcut-badge {

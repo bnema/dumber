@@ -31,7 +31,7 @@ const (
 	endBoxSpacing               = 6
 	defaultOmniboxPlaceholder   = "Search history or enter URL… (! lists bangs)"
 	minGhostInputLength         = 1
-	initialBehaviorBadgeTooltip = "Toggle default history order (Ctrl+R)"
+	initialBehaviorBadgeTooltip = "Default history order · Ctrl+R to switch"
 )
 
 type favoriteRowIndicatorUpdate struct {

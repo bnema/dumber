@@ -27,7 +27,7 @@ func TestOmniboxInitialBehaviorBadgeState(t *testing.T) {
 			behavior:    entity.OmniboxInitialBehaviorRecent,
 			wantVisible: true,
 			wantLabel:   "Recent",
-			wantTooltip: "Toggle default history order (Ctrl+R)",
+			wantTooltip: "Default history order · Ctrl+R to switch",
 			wantNext:    entity.OmniboxInitialBehaviorMostVisited,
 		},
 		{
@@ -35,7 +35,7 @@ func TestOmniboxInitialBehaviorBadgeState(t *testing.T) {
 			behavior:    entity.OmniboxInitialBehaviorMostVisited,
 			wantVisible: true,
 			wantLabel:   "Most used",
-			wantTooltip: "Toggle default history order (Ctrl+R)",
+			wantTooltip: "Default history order · Ctrl+R to switch",
 			wantNext:    entity.OmniboxInitialBehaviorRecent,
 		},
 		{
