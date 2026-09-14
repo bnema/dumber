@@ -10,6 +10,33 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestValidateConfig_OmniboxStyle(t *testing.T) {
+	tests := []struct {
+		style   string
+		wantErr bool
+	}{
+		{style: "command"},
+		{style: "multiplexer"},
+		{style: "minimal"},
+		{style: "", wantErr: true},
+		{style: "classic", wantErr: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.style, func(t *testing.T) {
+			cfg := DefaultConfig()
+			cfg.Omnibox.Style = tt.style
+			err := validateConfig(cfg)
+			if tt.wantErr {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), "omnibox.style")
+				return
+			}
+			require.NoError(t, err)
+		})
+	}
+}
+
 func TestValidateConfig_EngineType(t *testing.T) {
 	t.Setenv("DUMBER_ENGINE", "")
 

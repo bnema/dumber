@@ -647,7 +647,7 @@ func looksLikeBareRelativeWorkspacePath(value string) bool {
 func validateOmnibox(config *Config) []string {
 	var validationErrors []string
 	switch config.Omnibox.Style {
-	case "", "multiplexer", "command", "minimal":
+	case "multiplexer", "command", "minimal":
 	default:
 		validationErrors = append(validationErrors, fmt.Sprintf(
 			"omnibox.style must be one of: multiplexer, command, minimal (got: %s)",
