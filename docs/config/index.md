@@ -119,6 +119,10 @@ auto_open_on_new_pane = false
 # initial_behavior = "none"          # Show no initial suggestions
 ```
 
+> **Note:** `omnibox.max_history_days` is non-destructive: it never deletes history, it only limits which entries omnibox suggestions consider. `most_visited` ranks by lifetime visit counts among URLs whose `last_visited` falls inside the window.
+>
+> This key replaced `omnibox.most_visited_days`. Run `dumber config migrate` to rename the legacy key while preserving its value. The derived environment variable is `DUMBER_OMNIBOX_MAX_HISTORY_DAYS`; the old `DUMBER_OMNIBOX_MOST_VISITED_DAYS` is no longer read.
+
 ## Logging
 
 | Key | Type | Default | Valid Values | Description |

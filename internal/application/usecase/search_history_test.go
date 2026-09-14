@@ -961,3 +961,31 @@ func TestSearchHistoryUseCase_GetMostVisitedWithin_NonPositiveLimitReturnsEmpty(
 	require.NoError(t, err)
 	assert.Empty(t, results)
 }
+
+func TestSearchHistoryUseCase_GetRecentWithin_ClampsOversizedLimit(t *testing.T) {
+	ctx := testContext()
+	historyRepo := repomocks.NewMockHistoryRepository(t)
+	historyRepo.EXPECT().
+		GetRecent(mock.Anything, 500, 0, mock.Anything).
+		Return([]*entity.HistoryEntry{}, nil).
+		Once()
+
+	uc := usecase.NewSearchHistoryUseCase(historyRepo)
+	_, err := uc.GetRecentWithin(ctx, 10_000, 30)
+
+	require.NoError(t, err)
+}
+
+func TestSearchHistoryUseCase_GetMostVisitedWithin_ClampsOversizedLimit(t *testing.T) {
+	ctx := testContext()
+	historyRepo := repomocks.NewMockHistoryRepository(t)
+	historyRepo.EXPECT().
+		GetMostVisitedWithin(mock.Anything, 500, mock.Anything).
+		Return([]*entity.HistoryEntry{}, nil).
+		Once()
+
+	uc := usecase.NewSearchHistoryUseCase(historyRepo)
+	_, err := uc.GetMostVisitedWithin(ctx, 10_000, 30)
+
+	require.NoError(t, err)
+}

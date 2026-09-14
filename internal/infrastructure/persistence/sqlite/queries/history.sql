@@ -1,6 +1,13 @@
 -- name: GetRecentHistory :many
 SELECT * FROM history
-WHERE (@cutoff IS NULL OR last_visited >= @cutoff)
+ORDER BY last_visited DESC, id DESC
+LIMIT ? OFFSET ?;
+
+-- name: GetRecentHistorySinceCutoff :many
+-- Bounded window variant: the direct comparison keeps the last_visited index
+-- usable. Rows with a NULL last_visited are intentionally excluded.
+SELECT * FROM history
+WHERE last_visited >= @cutoff
 ORDER BY last_visited DESC, id DESC
 LIMIT @limit OFFSET @offset;
 
@@ -109,15 +116,6 @@ ORDER BY day ASC;
 -- name: DeleteHistoryByDomain :exec
 DELETE FROM history WHERE domain = @domain;
 
--- name: SearchHistoryFTSUrl :many
-SELECT h.id, h.url, h.title, h.favicon_url, h.visit_count, h.last_visited, h.created_at, h.domain
-FROM history_fts fts
-JOIN history h ON fts.rowid = h.id
-WHERE fts.url MATCH @query
-  AND (@cutoff IS NULL OR h.last_visited >= @cutoff)
-ORDER BY h.visit_count DESC, h.last_visited DESC
-LIMIT @limit;
-
 -- name: SearchHistoryFTSUrlWithDomainBoost :many
 SELECT h.id, h.url, h.title, h.favicon_url, h.visit_count, h.last_visited, h.created_at,
        CASE
@@ -163,7 +161,14 @@ ORDER BY visit_count DESC, last_visited DESC;
 
 -- name: GetMostVisitedHistory :many
 SELECT * FROM history
-WHERE (@cutoff IS NULL OR last_visited >= @cutoff)
+ORDER BY visit_count DESC, last_visited DESC
+LIMIT @limit;
+
+-- name: GetMostVisitedHistorySinceCutoff :many
+-- Bounded window variant: the direct comparison keeps the last_visited index
+-- usable. Rows with a NULL last_visited are intentionally excluded.
+SELECT * FROM history
+WHERE last_visited >= @cutoff
 ORDER BY visit_count DESC, last_visited DESC
 LIMIT @limit;
 

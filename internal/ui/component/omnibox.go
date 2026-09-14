@@ -1761,6 +1761,10 @@ func effectiveSearchQuery(entryText, realInput string, hasGhost bool) string {
 // searchHistory runs a fuzzy history search in a background goroutine.
 // query is the search text; limit caps the number of results.
 func (o *Omnibox) searchHistory(query string, limit int, token uint64) {
+	// Capture the age window before spawning so the goroutine never reads
+	// mutable widget state.
+	maxAgeDays := o.maxHistoryDays
+
 	go func() {
 		ctx := o.ctx
 		log := logging.FromContext(ctx)
@@ -1780,7 +1784,7 @@ func (o *Omnibox) searchHistory(query string, limit int, token uint64) {
 			searchInput := usecase.SearchInput{
 				Query:      query,
 				Limit:      limit,
-				MaxAgeDays: o.maxHistoryDays,
+				MaxAgeDays: maxAgeDays,
 			}
 			output, err := o.historyUC.Search(ctx, searchInput)
 			searchCh <- searchResult{output, err}

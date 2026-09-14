@@ -795,7 +795,7 @@ func (*SchemaProvider) getOmniboxKeys(defaults *Config) []entity.ConfigKeyInfo {
 			Key:         "omnibox.max_history_days",
 			Type:        "int",
 			Default:     fmt.Sprintf("%d", defaults.Omnibox.MaxHistoryDays),
-			Description: "Days of history used by omnibox suggestions, for both typed searches and the empty-input list (0 = all history)",
+			Description: "Days of omnibox suggestion history (typed and initial); 0 = all history, never deletes",
 			Range:       ">=0",
 			Section:     SectionOmnibox,
 		},

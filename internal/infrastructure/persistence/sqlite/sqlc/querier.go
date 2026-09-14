@@ -50,11 +50,17 @@ type Querier interface {
 	GetHistoryStats(ctx context.Context) (GetHistoryStatsRow, error)
 	GetHourlyDistribution(ctx context.Context) ([]GetHourlyDistributionRow, error)
 	GetMostVisited(ctx context.Context, datetime interface{}) ([]History, error)
-	GetMostVisitedHistory(ctx context.Context, arg GetMostVisitedHistoryParams) ([]History, error)
+	GetMostVisitedHistory(ctx context.Context, limit int64) ([]History, error)
+	// Bounded window variant: the direct comparison keeps the last_visited index
+	// usable. Rows with a NULL last_visited are intentionally excluded.
+	GetMostVisitedHistorySinceCutoff(ctx context.Context, arg GetMostVisitedHistorySinceCutoffParams) ([]History, error)
 	GetPermission(ctx context.Context, arg GetPermissionParams) (Permission, error)
 	GetRecentHistory(ctx context.Context, arg GetRecentHistoryParams) ([]History, error)
 	GetRecentHistoryByDomain(ctx context.Context, arg GetRecentHistoryByDomainParams) ([]History, error)
 	GetRecentHistorySince(ctx context.Context, datetime interface{}) ([]History, error)
+	// Bounded window variant: the direct comparison keeps the last_visited index
+	// usable. Rows with a NULL last_visited are intentionally excluded.
+	GetRecentHistorySinceCutoff(ctx context.Context, arg GetRecentHistorySinceCutoffParams) ([]History, error)
 	GetRecentHistoryWindow(ctx context.Context, arg GetRecentHistoryWindowParams) ([]History, error)
 	GetRecentHistoryWindowByDomain(ctx context.Context, arg GetRecentHistoryWindowByDomainParams) ([]History, error)
 	GetRecentSessions(ctx context.Context, limit int64) ([]Session, error)
@@ -79,7 +85,6 @@ type Querier interface {
 	RemoveTagFromFavorite(ctx context.Context, arg RemoveTagFromFavoriteParams) error
 	SearchHistory(ctx context.Context, arg SearchHistoryParams) ([]History, error)
 	SearchHistoryFTSTitle(ctx context.Context, arg SearchHistoryFTSTitleParams) ([]History, error)
-	SearchHistoryFTSUrl(ctx context.Context, arg SearchHistoryFTSUrlParams) ([]History, error)
 	SearchHistoryFTSUrlWithDomainBoost(ctx context.Context, arg SearchHistoryFTSUrlWithDomainBoostParams) ([]SearchHistoryFTSUrlWithDomainBoostRow, error)
 	SetFavoriteShortcut(ctx context.Context, arg SetFavoriteShortcutParams) error
 	SetPermission(ctx context.Context, arg SetPermissionParams) error

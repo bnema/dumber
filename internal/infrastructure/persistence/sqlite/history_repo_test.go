@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -1170,4 +1171,141 @@ func TestHistoryRepository_Search_FiltersBeforeLimitOnTitleMatch(t *testing.T) {
 	all, err := repo.Search(ctx, "titlesecret", 10, repository.HistoryScope{})
 	require.NoError(t, err)
 	require.Len(t, all, 2)
+}
+
+func TestHistoryRepository_GetRecent_BoundedLimitOffsetAndCutoff(t *testing.T) {
+	ctx := historyTestCtx()
+	db, err := sqlite.NewConnection(ctx, filepath.Join(t.TempDir(), "dumber.db"))
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = db.Close() })
+	repo := sqlite.NewHistoryRepository(db)
+
+	now := time.Date(2026, 6, 24, 12, 0, 0, 0, time.UTC)
+	cutoff := now.AddDate(0, 0, -30)
+	insertHistoryRow(t, ctx, db, "https://one.example.com", "One", 1, now.Add(-time.Hour))
+	insertHistoryRow(t, ctx, db, "https://two.example.com", "Two", 1, now.Add(-2*time.Hour))
+	insertHistoryRow(t, ctx, db, "https://three.example.com", "Three", 1, now.Add(-3*time.Hour))
+	insertHistoryRow(t, ctx, db, "https://stale.example.com", "Stale", 1, now.AddDate(0, 0, -40))
+
+	scope := repository.HistoryScope{Cutoff: cutoff}
+
+	page, err := repo.GetRecent(ctx, 1, 1, scope)
+	require.NoError(t, err)
+	require.Len(t, page, 1)
+	assert.Equal(t, "https://two.example.com", page[0].URL)
+
+	// A non-positive limit means all eligible rows, with the offset applied and
+	// the stale row excluded by the cutoff.
+	rest, err := repo.GetRecent(ctx, 0, 1, scope)
+	require.NoError(t, err)
+	require.Len(t, rest, 2)
+	assert.Equal(t, []string{"https://two.example.com", "https://three.example.com"}, historyURLs(rest))
+}
+
+func TestHistoryRepository_Search_BoundedScopeEmptyResult(t *testing.T) {
+	ctx := historyTestCtx()
+	db, err := sqlite.NewConnection(ctx, filepath.Join(t.TempDir(), "dumber.db"))
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = db.Close() })
+	repo := sqlite.NewHistoryRepository(db)
+
+	now := time.Date(2026, 6, 24, 12, 0, 0, 0, time.UTC)
+	cutoff := now.AddDate(0, 0, -30)
+	insertHistoryRow(t, ctx, db, "https://old.example.com/ancient", "Ephemeral Secret", 1, now.AddDate(0, 0, -40))
+
+	scoped, err := repo.Search(ctx, "ephemeral", 10, repository.HistoryScope{Cutoff: cutoff})
+	require.NoError(t, err)
+	assert.Empty(t, scoped, "a bounded search must not return age-excluded matches")
+
+	all, err := repo.Search(ctx, "ephemeral", 10, repository.HistoryScope{})
+	require.NoError(t, err)
+	require.Len(t, all, 1)
+}
+
+func TestHistoryRepository_GetMostVisitedWithin_NonPositiveLimitIsEmpty(t *testing.T) {
+	ctx := historyTestCtx()
+	db, err := sqlite.NewConnection(ctx, filepath.Join(t.TempDir(), "dumber.db"))
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = db.Close() })
+	repo := sqlite.NewHistoryRepository(db)
+
+	now := time.Date(2026, 6, 24, 12, 0, 0, 0, time.UTC)
+	insertHistoryRow(t, ctx, db, "https://example.com", "Example", 5, now.Add(-time.Hour))
+
+	unbounded, err := repo.GetMostVisitedWithin(ctx, 0, repository.HistoryScope{})
+	require.NoError(t, err)
+	assert.Empty(t, unbounded)
+
+	bounded, err := repo.GetMostVisitedWithin(ctx, -5, repository.HistoryScope{Cutoff: now.AddDate(0, 0, -30)})
+	require.NoError(t, err)
+	assert.Empty(t, bounded)
+}
+
+// queryPlan records the actual driver's EXPLAIN QUERY PLAN output for a query.
+func queryPlan(t *testing.T, ctx context.Context, db *sql.DB, query string, args ...any) []string {
+	t.Helper()
+
+	rows, err := db.QueryContext(ctx, "EXPLAIN QUERY PLAN "+query, args...)
+	require.NoError(t, err)
+	defer func() { _ = rows.Close() }()
+
+	var details []string
+	for rows.Next() {
+		var id, parent, notUsed int
+		var detail string
+		require.NoError(t, rows.Scan(&id, &parent, &notUsed, &detail))
+		details = append(details, detail)
+	}
+	require.NoError(t, rows.Err())
+	return details
+}
+
+func TestHistoryRepository_BoundedRecentPlanUsesCutoffIndex(t *testing.T) {
+	ctx := historyTestCtx()
+	db, err := sqlite.NewConnection(ctx, filepath.Join(t.TempDir(), "dumber.db"))
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = db.Close() })
+
+	cutoff := time.Date(2026, 6, 24, 12, 0, 0, 0, time.UTC)
+	plan := queryPlan(
+		t,
+		ctx,
+		db,
+		"SELECT * FROM history WHERE last_visited >= ? ORDER BY last_visited DESC, id DESC LIMIT ? OFFSET ?",
+		sqliteTimestamp(cutoff),
+		50,
+		0,
+	)
+
+	joined := strings.Join(plan, "\n")
+	require.Contains(t, joined, "SEARCH", "bounded recent query must use an index search")
+	require.Contains(t, joined, "idx_history_last_visited", "bounded recent query must use the last_visited index")
+}
+
+func TestHistoryRepository_ScopeCutoffSubSecondNormalization(t *testing.T) {
+	ctx := historyTestCtx()
+	db, err := sqlite.NewConnection(ctx, filepath.Join(t.TempDir(), "dumber.db"))
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = db.Close() })
+	repo := sqlite.NewHistoryRepository(db)
+
+	// Stored at exactly 12:00:05 with no fractional part, matching
+	// CURRENT_TIMESTAMP.
+	stored := time.Date(2026, 6, 24, 12, 0, 5, 0, time.UTC)
+	insertHistoryRow(t, ctx, db, "https://subsecond.example.com/marker", "Subsecond Marker", 1, stored)
+	scope := repository.HistoryScope{Cutoff: stored.Add(500 * time.Millisecond)}
+
+	recent, err := repo.GetRecent(ctx, 10, 0, scope)
+	require.NoError(t, err)
+	require.Len(t, recent, 1, "a sub-second cutoff must normalize to the stored second and include the row")
+	assert.Equal(t, "https://subsecond.example.com/marker", recent[0].URL)
+
+	mostVisited, err := repo.GetMostVisitedWithin(ctx, 10, scope)
+	require.NoError(t, err)
+	require.Len(t, mostVisited, 1)
+
+	matches, err := repo.Search(ctx, "subsecond", 10, scope)
+	require.NoError(t, err)
+	require.Len(t, matches, 1, "the shared FTS cutoff helper must apply the same normalization")
+	assert.Equal(t, "https://subsecond.example.com/marker", matches[0].Entry.URL)
 }

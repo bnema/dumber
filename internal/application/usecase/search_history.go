@@ -132,6 +132,7 @@ func (uc *SearchHistoryUseCase) GetRecentWithin(ctx context.Context, limit, maxA
 	if limit <= 0 {
 		return []*entity.HistoryEntry{}, nil
 	}
+	limit = clampPositiveLimit(limit, defaultHistoryPageLimit, maxHistoryPageLimit)
 
 	entries, err := uc.historyRepo.GetRecent(ctx, limit, 0, historyScopeFromDays(maxAgeDays, time.Now()))
 	if err != nil {
@@ -149,6 +150,7 @@ func (uc *SearchHistoryUseCase) GetMostVisitedWithin(ctx context.Context, limit,
 	if limit <= 0 {
 		return []*entity.HistoryEntry{}, nil
 	}
+	limit = clampPositiveLimit(limit, defaultHistoryPageLimit, maxHistoryPageLimit)
 
 	entries, err := uc.historyRepo.GetMostVisitedWithin(ctx, limit, historyScopeFromDays(maxAgeDays, time.Now()))
 	if err != nil {

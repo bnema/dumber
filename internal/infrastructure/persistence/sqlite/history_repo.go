@@ -44,16 +44,22 @@ const (
 
 var expectedFTSFailureCount atomic.Uint64
 
-// historyCutoff converts an optional scope to a SQLite comparison value. An
-// unbounded scope binds NULL so the query keeps every row (including rows with
-// a NULL last_visited). A bounded scope binds a UTC timestamp formatted at the
-// same second precision as SQLite's CURRENT_TIMESTAMP, which makes the
-// inclusive `>=` comparison true for entries exactly on the cutoff.
-func historyCutoff(scope repository.HistoryScope) any {
+// historyCutoffTime normalizes a cutoff to UTC at the second precision SQLite
+// stores in last_visited, so the inclusive `>=` comparison matches an entry
+// exactly on the cutoff.
+func historyCutoffTime(cutoff time.Time) sql.NullTime {
+	return sql.NullTime{Time: cutoff.UTC().Truncate(time.Second), Valid: true}
+}
+
+// historyCutoffParam returns nil for an unbounded scope and a bounded cutoff
+// otherwise. It is used by the FTS queries, where the MATCH lookup already
+// narrows the candidate set and a single nullable predicate avoids duplicating
+// the URL and title variants across bounded and unbounded windows.
+func historyCutoffParam(scope repository.HistoryScope) any {
 	if scope.Cutoff.IsZero() {
 		return nil
 	}
-	return scope.Cutoff.UTC().Format("2006-01-02 15:04:05")
+	return historyCutoffTime(scope.Cutoff)
 }
 
 type historyRepo struct {
@@ -150,7 +156,7 @@ func (r *historyRepo) Search(ctx context.Context, query string, limit int, scope
 	urlRows, urlErr := r.queries.SearchHistoryFTSUrlWithDomainBoost(ctx, sqlc.SearchHistoryFTSUrlWithDomainBoostParams{
 		Term:   sql.NullString{String: words[0], Valid: true},
 		Query:  ftsQuery,
-		Cutoff: historyCutoff(scope),
+		Cutoff: historyCutoffParam(scope),
 		Limit:  int64(limit),
 	})
 	if urlErr != nil {
@@ -160,7 +166,7 @@ func (r *historyRepo) Search(ctx context.Context, query string, limit int, scope
 
 	titleRows, titleErr := r.queries.SearchHistoryFTSTitle(ctx, sqlc.SearchHistoryFTSTitleParams{
 		Query:  ftsQuery,
-		Cutoff: historyCutoff(scope),
+		Cutoff: historyCutoffParam(scope),
 		Limit:  int64(limit),
 	})
 	if titleErr != nil {
@@ -503,11 +509,25 @@ func (r *historyRepo) GetRecent(ctx context.Context, limit, offset int, scope re
 	if limit <= 0 {
 		sqlLimit = -1
 	}
-	rows, err := r.queries.GetRecentHistory(ctx, sqlc.GetRecentHistoryParams{
-		Cutoff: historyCutoff(scope),
-		Limit:  sqlLimit,
-		Offset: int64(offset),
-	})
+
+	// Bounded and unbounded windows use separate queries so the bounded path
+	// compares last_visited directly and keeps the index usable.
+	var (
+		rows []sqlc.History
+		err  error
+	)
+	if scope.Cutoff.IsZero() {
+		rows, err = r.queries.GetRecentHistory(ctx, sqlc.GetRecentHistoryParams{
+			Limit:  sqlLimit,
+			Offset: int64(offset),
+		})
+	} else {
+		rows, err = r.queries.GetRecentHistorySinceCutoff(ctx, sqlc.GetRecentHistorySinceCutoffParams{
+			Cutoff: historyCutoffTime(scope.Cutoff),
+			Limit:  sqlLimit,
+			Offset: int64(offset),
+		})
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -634,10 +654,21 @@ func (r *historyRepo) GetMostVisitedWithin(
 	if limit <= 0 {
 		return []*entity.HistoryEntry{}, nil
 	}
-	rows, err := r.queries.GetMostVisitedHistory(ctx, sqlc.GetMostVisitedHistoryParams{
-		Cutoff: historyCutoff(scope),
-		Limit:  int64(limit),
-	})
+
+	// Bounded and unbounded windows use separate queries so the bounded path
+	// compares last_visited directly and keeps the index usable.
+	var (
+		rows []sqlc.History
+		err  error
+	)
+	if scope.Cutoff.IsZero() {
+		rows, err = r.queries.GetMostVisitedHistory(ctx, int64(limit))
+	} else {
+		rows, err = r.queries.GetMostVisitedHistorySinceCutoff(ctx, sqlc.GetMostVisitedHistorySinceCutoffParams{
+			Cutoff: historyCutoffTime(scope.Cutoff),
+			Limit:  int64(limit),
+		})
+	}
 	if err != nil {
 		return nil, err
 	}

@@ -388,18 +388,58 @@ func (q *Queries) GetMostVisited(ctx context.Context, datetime interface{}) ([]H
 
 const GetMostVisitedHistory = `-- name: GetMostVisitedHistory :many
 SELECT id, url, title, favicon_url, visit_count, last_visited, created_at, domain FROM history
-WHERE (?1 IS NULL OR last_visited >= ?1)
+ORDER BY visit_count DESC, last_visited DESC
+LIMIT ?1
+`
+
+func (q *Queries) GetMostVisitedHistory(ctx context.Context, limit int64) ([]History, error) {
+	rows, err := q.db.QueryContext(ctx, GetMostVisitedHistory, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []History{}
+	for rows.Next() {
+		var i History
+		if err := rows.Scan(
+			&i.ID,
+			&i.Url,
+			&i.Title,
+			&i.FaviconUrl,
+			&i.VisitCount,
+			&i.LastVisited,
+			&i.CreatedAt,
+			&i.Domain,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const GetMostVisitedHistorySinceCutoff = `-- name: GetMostVisitedHistorySinceCutoff :many
+SELECT id, url, title, favicon_url, visit_count, last_visited, created_at, domain FROM history
+WHERE last_visited >= ?1
 ORDER BY visit_count DESC, last_visited DESC
 LIMIT ?2
 `
 
-type GetMostVisitedHistoryParams struct {
-	Cutoff interface{} `json:"cutoff"`
-	Limit  int64       `json:"limit"`
+type GetMostVisitedHistorySinceCutoffParams struct {
+	Cutoff sql.NullTime `json:"cutoff"`
+	Limit  int64        `json:"limit"`
 }
 
-func (q *Queries) GetMostVisitedHistory(ctx context.Context, arg GetMostVisitedHistoryParams) ([]History, error) {
-	rows, err := q.db.QueryContext(ctx, GetMostVisitedHistory, arg.Cutoff, arg.Limit)
+// Bounded window variant: the direct comparison keeps the last_visited index
+// usable. Rows with a NULL last_visited are intentionally excluded.
+func (q *Queries) GetMostVisitedHistorySinceCutoff(ctx context.Context, arg GetMostVisitedHistorySinceCutoffParams) ([]History, error) {
+	rows, err := q.db.QueryContext(ctx, GetMostVisitedHistorySinceCutoff, arg.Cutoff, arg.Limit)
 	if err != nil {
 		return nil, err
 	}
@@ -432,19 +472,17 @@ func (q *Queries) GetMostVisitedHistory(ctx context.Context, arg GetMostVisitedH
 
 const GetRecentHistory = `-- name: GetRecentHistory :many
 SELECT id, url, title, favicon_url, visit_count, last_visited, created_at, domain FROM history
-WHERE (?1 IS NULL OR last_visited >= ?1)
 ORDER BY last_visited DESC, id DESC
-LIMIT ?3 OFFSET ?2
+LIMIT ? OFFSET ?
 `
 
 type GetRecentHistoryParams struct {
-	Cutoff interface{} `json:"cutoff"`
-	Offset int64       `json:"offset"`
-	Limit  int64       `json:"limit"`
+	Limit  int64 `json:"limit"`
+	Offset int64 `json:"offset"`
 }
 
 func (q *Queries) GetRecentHistory(ctx context.Context, arg GetRecentHistoryParams) ([]History, error) {
-	rows, err := q.db.QueryContext(ctx, GetRecentHistory, arg.Cutoff, arg.Offset, arg.Limit)
+	rows, err := q.db.QueryContext(ctx, GetRecentHistory, arg.Limit, arg.Offset)
 	if err != nil {
 		return nil, err
 	}
@@ -528,6 +566,53 @@ ORDER BY last_visited DESC
 
 func (q *Queries) GetRecentHistorySince(ctx context.Context, datetime interface{}) ([]History, error) {
 	rows, err := q.db.QueryContext(ctx, GetRecentHistorySince, datetime)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []History{}
+	for rows.Next() {
+		var i History
+		if err := rows.Scan(
+			&i.ID,
+			&i.Url,
+			&i.Title,
+			&i.FaviconUrl,
+			&i.VisitCount,
+			&i.LastVisited,
+			&i.CreatedAt,
+			&i.Domain,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const GetRecentHistorySinceCutoff = `-- name: GetRecentHistorySinceCutoff :many
+SELECT id, url, title, favicon_url, visit_count, last_visited, created_at, domain FROM history
+WHERE last_visited >= ?1
+ORDER BY last_visited DESC, id DESC
+LIMIT ?3 OFFSET ?2
+`
+
+type GetRecentHistorySinceCutoffParams struct {
+	Cutoff sql.NullTime `json:"cutoff"`
+	Offset int64        `json:"offset"`
+	Limit  int64        `json:"limit"`
+}
+
+// Bounded window variant: the direct comparison keeps the last_visited index
+// usable. Rows with a NULL last_visited are intentionally excluded.
+func (q *Queries) GetRecentHistorySinceCutoff(ctx context.Context, arg GetRecentHistorySinceCutoffParams) ([]History, error) {
+	rows, err := q.db.QueryContext(ctx, GetRecentHistorySinceCutoff, arg.Cutoff, arg.Offset, arg.Limit)
 	if err != nil {
 		return nil, err
 	}
@@ -744,54 +829,6 @@ type SearchHistoryFTSTitleParams struct {
 
 func (q *Queries) SearchHistoryFTSTitle(ctx context.Context, arg SearchHistoryFTSTitleParams) ([]History, error) {
 	rows, err := q.db.QueryContext(ctx, SearchHistoryFTSTitle, arg.Query, arg.Cutoff, arg.Limit)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []History{}
-	for rows.Next() {
-		var i History
-		if err := rows.Scan(
-			&i.ID,
-			&i.Url,
-			&i.Title,
-			&i.FaviconUrl,
-			&i.VisitCount,
-			&i.LastVisited,
-			&i.CreatedAt,
-			&i.Domain,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const SearchHistoryFTSUrl = `-- name: SearchHistoryFTSUrl :many
-SELECT h.id, h.url, h.title, h.favicon_url, h.visit_count, h.last_visited, h.created_at, h.domain
-FROM history_fts fts
-JOIN history h ON fts.rowid = h.id
-WHERE fts.url MATCH ?1
-  AND (?2 IS NULL OR h.last_visited >= ?2)
-ORDER BY h.visit_count DESC, h.last_visited DESC
-LIMIT ?3
-`
-
-type SearchHistoryFTSUrlParams struct {
-	Query  string      `json:"query"`
-	Cutoff interface{} `json:"cutoff"`
-	Limit  int64       `json:"limit"`
-}
-
-func (q *Queries) SearchHistoryFTSUrl(ctx context.Context, arg SearchHistoryFTSUrlParams) ([]History, error) {
-	rows, err := q.db.QueryContext(ctx, SearchHistoryFTSUrl, arg.Query, arg.Cutoff, arg.Limit)
 	if err != nil {
 		return nil, err
 	}
