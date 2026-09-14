@@ -44,22 +44,28 @@ const (
 
 var expectedFTSFailureCount atomic.Uint64
 
-// historyCutoffTime normalizes a cutoff to UTC at the second precision SQLite
-// stores in last_visited, so the inclusive `>=` comparison matches an entry
-// exactly on the cutoff.
-func historyCutoffTime(cutoff time.Time) sql.NullTime {
+// boundedHistoryCutoff normalizes a real cutoff to UTC at the second precision
+// SQLite stores in last_visited, so the inclusive `>=` comparison matches an
+// entry exactly on the cutoff.
+//
+// sqlc models the nullable last_visited column comparison as sql.NullTime, so
+// Valid is always true here: only bounded callers use this helper. Unbounded
+// recent/most-visited lists use separate queries with no cutoff predicate, and
+// the FTS path uses historyCutoffParam.
+func boundedHistoryCutoff(cutoff time.Time) sql.NullTime {
 	return sql.NullTime{Time: cutoff.UTC().Truncate(time.Second), Valid: true}
 }
 
-// historyCutoffParam returns nil for an unbounded scope and a bounded cutoff
-// otherwise. It is used by the FTS queries, where the MATCH lookup already
-// narrows the candidate set and a single nullable predicate avoids duplicating
-// the URL and title variants across bounded and unbounded windows.
+// historyCutoffParam returns nil for an unbounded scope and a concrete cutoff
+// otherwise. It feeds the FTS queries, where MATCH already narrows the
+// candidate set and a single nullable predicate avoids duplicating the URL and
+// title variants across bounded and unbounded windows. sqlc types that
+// predicate as any because the `IS NULL` branch prevents a concrete inference.
 func historyCutoffParam(scope repository.HistoryScope) any {
 	if scope.Cutoff.IsZero() {
 		return nil
 	}
-	return historyCutoffTime(scope.Cutoff)
+	return boundedHistoryCutoff(scope.Cutoff)
 }
 
 type historyRepo struct {
@@ -523,7 +529,7 @@ func (r *historyRepo) GetRecent(ctx context.Context, limit, offset int, scope re
 		})
 	} else {
 		rows, err = r.queries.GetRecentHistorySinceCutoff(ctx, sqlc.GetRecentHistorySinceCutoffParams{
-			Cutoff: historyCutoffTime(scope.Cutoff),
+			Cutoff: boundedHistoryCutoff(scope.Cutoff),
 			Limit:  sqlLimit,
 			Offset: int64(offset),
 		})
@@ -665,7 +671,7 @@ func (r *historyRepo) GetMostVisitedWithin(
 		rows, err = r.queries.GetMostVisitedHistory(ctx, int64(limit))
 	} else {
 		rows, err = r.queries.GetMostVisitedHistorySinceCutoff(ctx, sqlc.GetMostVisitedHistorySinceCutoffParams{
-			Cutoff: historyCutoffTime(scope.Cutoff),
+			Cutoff: boundedHistoryCutoff(scope.Cutoff),
 			Limit:  int64(limit),
 		})
 	}

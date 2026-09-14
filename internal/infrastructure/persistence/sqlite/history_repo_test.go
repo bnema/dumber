@@ -12,6 +12,7 @@ import (
 	"github.com/bnema/dumber/internal/domain/entity"
 	repository "github.com/bnema/dumber/internal/domain/repository"
 	"github.com/bnema/dumber/internal/infrastructure/persistence/sqlite"
+	"github.com/bnema/dumber/internal/infrastructure/persistence/sqlite/sqlc"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -1266,16 +1267,14 @@ func TestHistoryRepository_BoundedRecentPlanUsesCutoffIndex(t *testing.T) {
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = db.Close() })
 
+	// Exercise the exact generated statement that historyRepo.GetRecent runs for
+	// a bounded scope (see GetRecentHistorySinceCutoff), passed verbatim including
+	// sqlc's leading `-- name:` comment. This fails to compile if the bounded
+	// variant disappears, and the plan assertions fail if it regresses to a
+	// nullable `(? IS NULL OR last_visited >= ?)` predicate, which plans as a
+	// SCAN using idx_history_last_visited rather than a SEARCH.
 	cutoff := time.Date(2026, 6, 24, 12, 0, 0, 0, time.UTC)
-	plan := queryPlan(
-		t,
-		ctx,
-		db,
-		"SELECT * FROM history WHERE last_visited >= ? ORDER BY last_visited DESC, id DESC LIMIT ? OFFSET ?",
-		sqliteTimestamp(cutoff),
-		50,
-		0,
-	)
+	plan := queryPlan(t, ctx, db, sqlc.GetRecentHistorySinceCutoff, sql.NullTime{Time: cutoff.UTC(), Valid: true}, 0, 50)
 
 	joined := strings.Join(plan, "\n")
 	require.Contains(t, joined, "SEARCH", "bounded recent query must use an index search")
