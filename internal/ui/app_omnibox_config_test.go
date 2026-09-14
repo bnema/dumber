@@ -19,6 +19,7 @@ func TestBuildOmniboxConfigUsesRuntimeUIConfig(t *testing.T) {
 			},
 		},
 		Omnibox: entity.RuntimeOmniboxConfig{
+			Style:           "command",
 			InitialBehavior: entity.OmniboxInitialBehaviorMostVisited,
 			MostVisitedDays: 7,
 		},
@@ -29,6 +30,9 @@ func TestBuildOmniboxConfigUsesRuntimeUIConfig(t *testing.T) {
 			return "normalized:" + input
 		},
 	})
+	if got.Style != "command" {
+		t.Fatalf("Style = %q, want command", got.Style)
+	}
 	if got.MostVisitedDays != 7 {
 		t.Fatalf("MostVisitedDays = %d, want 7", got.MostVisitedDays)
 	}

@@ -780,6 +780,14 @@ func (*SchemaProvider) getSessionKeys(defaults *Config) []entity.ConfigKeyInfo {
 func (*SchemaProvider) getOmniboxKeys(defaults *Config) []entity.ConfigKeyInfo {
 	return []entity.ConfigKeyInfo{
 		{
+			Key:         "omnibox.style",
+			Type:        "string",
+			Default:     defaults.Omnibox.Style,
+			Description: "Visual treatment for the omnibox",
+			Values:      []string{"multiplexer", "command", "minimal"},
+			Section:     SectionOmnibox,
+		},
+		{
 			Key:         "omnibox.initial_behavior",
 			Type:        "string",
 			Default:     string(defaults.Omnibox.InitialBehavior),

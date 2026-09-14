@@ -411,6 +411,9 @@ entry.omnibox-entry > text:focus-visible {
 	opacity: 0.75;
 	margin-left: 0.625em;
 	margin-right: 0.125em;
+	font-family: var(--font-mono);
+	font-size: 1em;
+	font-weight: 700;
 }
 
 .omnibox-row:selected .omnibox-favorite-star {
@@ -507,6 +510,195 @@ entry.omnibox-entry.omnibox-entry-bang-active:focus-visible > text {
 	color: var(--control-text);
 	margin-top: -0.0625em; /* Nudge up 1px to align with entry text baseline */
 	background-color: transparent;
+}
+
+/* Multiplexer: segmented status line, square prompt, and strong active rail. */
+.omnibox-container.omnibox-style-multiplexer {
+	border-radius: 0;
+	border-color: var(--border);
+	box-shadow: 0 1.125em 3em alpha(black, 0.34);
+}
+
+.omnibox-style-multiplexer .omnibox-header {
+	padding: 0;
+	min-height: 2em;
+	background-color: shade(var(--surface), 0.94);
+}
+
+.omnibox-style-multiplexer .omnibox-header-btn {
+	margin: 0;
+	padding: 0.375em 1em;
+	border: none;
+	border-right: 0.0625em solid var(--border);
+	border-radius: 0;
+	font-family: var(--font-mono);
+	font-size: 0.75em;
+	font-weight: 600;
+}
+
+.omnibox-style-multiplexer .omnibox-header-btn.omnibox-header-active {
+	background-color: var(--accent);
+	color: var(--accent-text);
+}
+
+.omnibox-style-multiplexer .omnibox-header-badge {
+	padding: 0.1875em 0.5em;
+	background-color: transparent;
+	border: none;
+	color: var(--muted);
+	font-family: var(--font-mono);
+	font-size: 0.6875em;
+	font-weight: 600;
+}
+
+.omnibox-style-multiplexer .omnibox-bang-badge,
+.omnibox-style-multiplexer .omnibox-zoom-indicator,
+.omnibox-style-multiplexer .omnibox-shortcut-badge {
+	border-radius: 0;
+	font-family: var(--font-mono);
+}
+
+.omnibox-style-multiplexer entry.omnibox-entry {
+	margin: 0.75em;
+	border-radius: 0;
+	border-left: 0.25em solid var(--accent);
+	font-family: var(--font-mono);
+}
+
+.omnibox-style-multiplexer .omnibox-row {
+	border-left-width: 0.25em;
+}
+
+.omnibox-style-multiplexer .omnibox-row:selected {
+	background-color: alpha(var(--accent), 0.14);
+	box-shadow: 0.1875em 0 0 var(--accent) inset;
+}
+
+.omnibox-style-multiplexer .omnibox-favorite-star {
+	min-width: 1.25em;
+	margin: 0 0.375em 0 0.125em;
+	padding: 0;
+	color: var(--warning);
+	opacity: 0.85;
+}
+
+/* Command: a calmer command palette with a floating input and compact tabs. */
+.omnibox-container.omnibox-style-command {
+	border-radius: 0.625em;
+	box-shadow: 0 1.25em 3.5em alpha(black, 0.38), 0 0 0 0.0625em alpha(white, 0.04) inset;
+	padding: 0.375em;
+}
+
+.omnibox-style-command .omnibox-header {
+	border-bottom: none;
+	padding: 0.25em 0.375em 0.125em;
+}
+
+.omnibox-style-command .omnibox-header-btn {
+	border-radius: 1em;
+	padding: 0.25em 0.75em;
+	font-size: 0.75em;
+}
+
+.omnibox-style-command .omnibox-header-btn.omnibox-header-active {
+	background-color: alpha(var(--accent), 0.13);
+	border-color: transparent;
+}
+
+.omnibox-style-command .omnibox-header-badge {
+	padding: 0.1875em 0.5em;
+	background-color: transparent;
+	border: none;
+	color: var(--muted);
+	font-family: var(--font-mono);
+	font-size: 0.6875em;
+	font-weight: 600;
+}
+
+.omnibox-style-command entry.omnibox-entry {
+	margin: 0.5em 0.375em 0.75em;
+	padding: 0.75em 0.875em;
+	border-radius: 0.375em;
+	font-family: var(--font-mono);
+	box-shadow: 0 0 0 0.0625em alpha(var(--accent), 0.12), 0 0.5em 1.5em alpha(black, 0.12);
+}
+
+.omnibox-style-command .omnibox-scrolled {
+	border-top-color: alpha(var(--border), 0.35);
+}
+
+.omnibox-style-command .omnibox-row {
+	margin: 0.125em 0.25em;
+	border: none;
+	border-radius: 0.25em;
+}
+
+.omnibox-style-command .omnibox-row:selected {
+	background-color: alpha(var(--accent), 0.16);
+	border-left-color: transparent;
+}
+
+.omnibox-style-command .omnibox-favorite-star {
+	min-width: 1.25em;
+	margin: 0 0.375em 0 0.125em;
+	padding: 0;
+	color: var(--warning);
+	opacity: 0.85;
+}
+
+/* Minimal: terminal typography and hairline structure with almost no chrome. */
+.omnibox-container.omnibox-style-minimal {
+	border-radius: 0;
+	box-shadow: 0 0.75em 2em alpha(black, 0.2);
+}
+
+.omnibox-style-minimal .omnibox-header {
+	padding: 0.25em 0.75em;
+	background-color: var(--surface);
+}
+
+.omnibox-style-minimal .omnibox-header-btn {
+	margin-right: 1em;
+	padding: 0.25em 0;
+	border: none;
+	border-bottom: 0.125em solid transparent;
+	border-radius: 0;
+	background-color: transparent;
+	font-family: var(--font-mono);
+	font-size: 0.75em;
+}
+
+.omnibox-style-minimal .omnibox-header-btn.omnibox-header-active {
+	background-color: transparent;
+	border-bottom-color: var(--accent);
+}
+
+.omnibox-style-minimal entry.omnibox-entry {
+	margin: 0;
+	padding: 0.75em;
+	border: none;
+	border-bottom: 0.0625em solid var(--border);
+	border-radius: 0;
+	background-color: var(--surface);
+	font-family: var(--font-mono);
+	box-shadow: none;
+}
+
+.omnibox-style-minimal .omnibox-scrolled {
+	border-top: none;
+}
+
+.omnibox-style-minimal .omnibox-row {
+	padding-top: 0.4375em;
+	padding-bottom: 0.4375em;
+	border-left-width: 0.125em;
+	font-family: var(--font-mono);
+}
+
+.omnibox-style-minimal .omnibox-shortcut-badge {
+	background-color: transparent;
+	border: 0.0625em solid alpha(var(--border), 0.7);
+	border-radius: 0;
 }
 `
 }

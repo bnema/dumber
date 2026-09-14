@@ -272,6 +272,7 @@ func (p Palette) ToCSSVars() string {
 	sb.WriteString("  --text: " + p.Text + ";\n")
 	sb.WriteString("  --muted: " + p.Muted + ";\n")
 	sb.WriteString("  --accent: " + p.Accent + ";\n")
+	sb.WriteString("  --accent-text: " + readableTextColor(p.Accent, p.Background) + ";\n")
 	sb.WriteString("  --border: " + p.Border + ";\n")
 	sb.WriteString("  --success: " + p.Success + ";\n")
 	sb.WriteString("  --warning: " + p.Warning + ";\n")

@@ -258,6 +258,19 @@ func TestGenerateCSSWithScale_UsesMediumWeightForOmniboxSuggestionTitle(t *testi
 	assert.NotContains(t, css, ".omnibox-suggestion-title {\n\tfont-size: 0.875em;\n\tcolor: var(--text);\n\tfont-weight: 400;")
 }
 
+func TestGenerateCSS_OmniboxIncludesVisualConcepts(t *testing.T) {
+	css := GenerateCSS(DefaultDarkPalette())
+
+	for _, style := range []string{"multiplexer", "command", "minimal"} {
+		assert.Contains(t, css, ".omnibox-container.omnibox-style-"+style)
+	}
+	assert.Contains(t, css, ".omnibox-style-multiplexer .omnibox-header-btn.omnibox-header-active")
+	assert.Contains(t, css, ".omnibox-style-command .omnibox-header-badge")
+	assert.Contains(t, css, ".omnibox-style-command .omnibox-favorite-star")
+	assert.Contains(t, css, ".omnibox-style-command entry.omnibox-entry")
+	assert.Contains(t, css, ".omnibox-style-minimal .omnibox-shortcut-badge")
+}
+
 func TestGenerateCSS_ContentAreaTabBarInset(t *testing.T) {
 	css := GenerateCSS(DefaultDarkPalette())
 

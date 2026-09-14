@@ -33,6 +33,7 @@ const (
 	defaultNewPaneURL = "about:blank"
 
 	// Omnibox defaults
+	defaultOmniboxStyle             = "command"
 	defaultOmniboxInitialBehavior   = OmniboxInitialBehaviorRecent
 	defaultOmniboxMostVisitedDays   = 30
 	defaultOmniboxAutoOpenOnNewPane = false
@@ -405,6 +406,7 @@ func DefaultConfig() *Config {
 			AutoCopyOnSelection: true, // Enabled by default (zellij-style)
 		},
 		Omnibox: OmniboxConfig{
+			Style:             defaultOmniboxStyle,
 			InitialBehavior:   defaultOmniboxInitialBehavior,
 			MostVisitedDays:   defaultOmniboxMostVisitedDays,
 			AutoOpenOnNewPane: defaultOmniboxAutoOpenOnNewPane,
