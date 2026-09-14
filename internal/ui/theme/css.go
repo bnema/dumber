@@ -406,7 +406,7 @@ entry.omnibox-entry > text:focus-visible {
 	font-weight: 400;
 }
 
-.omnibox-favorite-star {
+.omnibox-row .omnibox-favorite-star {
 	color: mix(var(--warning), var(--muted), 0.45);
 	opacity: 0.75;
 	margin-left: 0.625em;
@@ -691,6 +691,13 @@ entry.omnibox-entry.omnibox-entry-bang-active:focus-visible > text {
 .omnibox-style-minimal .omnibox-favorite-star {
 	color: var(--warning);
 	opacity: 0.85;
+}
+
+.omnibox-style-minimal .omnibox-header-badge {
+	background-color: transparent;
+	border: none;
+	color: var(--muted);
+	font-family: var(--font-mono);
 }
 
 .omnibox-style-minimal .omnibox-shortcut-badge {

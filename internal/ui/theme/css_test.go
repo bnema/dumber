@@ -134,8 +134,9 @@ func TestGenerateCSS_FavoriteRowsOnlyTintTrailingAffordance(t *testing.T) {
 	if strings.Contains(css, "border-right: 0.125em solid alpha(var(--warning), 0.55);") {
 		t.Fatalf("expected favorite indicator to move off the right edge")
 	}
-	if !strings.Contains(css, "color: mix(var(--warning), var(--muted), 0.45);") {
-		t.Fatalf("expected favorite star color to be softened")
+	favoriteMarker := cssRuleBlock(t, css, ".omnibox-row .omnibox-favorite-star")
+	if !strings.Contains(favoriteMarker, "color: mix(var(--warning), var(--muted), 0.45);") {
+		t.Fatalf("expected favorite marker color to be softened")
 	}
 	if strings.Contains(css, ".omnibox-row.omnibox-row-favorite .omnibox-favorite-star-slot") {
 		t.Fatalf("expected favorite highlight to move off the star slot")

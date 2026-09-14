@@ -13,6 +13,7 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- **Omnibox status indicators**: The history-order control is now a passive status badge switched with `Ctrl+R`, and favorites use a terminal-style `*` marker.
 - **Favorites organization**: Favorites now use a tags-first model. Existing folder assignments are migrated into deterministic tags, with collision handling and folded-name uniqueness preserved during migration.
 - **Page mode configuration**: Page Mode is now called Vim Mode and uses the `workspace.vim_mode` configuration namespace for activation, timeouts, and action sequences. Existing page-mode bindings are migrated by the configuration loader.
 - **Browsing-context routing**: External links, floating panes, popups, and standalone omnibox launches now use explicit browsing-context ownership so they open in the appropriate pane or browser window.
