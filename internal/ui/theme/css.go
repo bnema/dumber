@@ -699,7 +699,7 @@ entry.omnibox-entry.omnibox-entry-bang-active:focus-visible > text {
 }
 
 .omnibox-style-minimal .omnibox-row.omnibox-row-favorite:selected {
-	border-left-color: var(--warning);
+	border-left: 0.125em solid var(--warning);
 }
 
 .omnibox-style-minimal .omnibox-favorite-star {
