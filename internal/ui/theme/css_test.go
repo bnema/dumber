@@ -251,6 +251,17 @@ func TestGenerateCSSWithScale_UsesMediumWeightForOmniboxSuggestionTitle(t *testi
 	assert.NotContains(t, css, ".omnibox-suggestion-title {\n\tfont-size: 0.875em;\n\tcolor: var(--text);\n\tfont-weight: 400;")
 }
 
+func TestGenerateCSS_OmniboxOuterBordersScaleWithGTKText(t *testing.T) {
+	css := GenerateCSS(DefaultDarkPalette())
+
+	base := cssRuleBlock(t, css, ".omnibox-container")
+	assert.Contains(t, base, "border: 0.09375em solid alpha(var(--border), 0.9);")
+	assert.NotContains(t, base, "border: 1px")
+
+	command := cssRuleBlock(t, css, ".omnibox-container.omnibox-style-command")
+	assert.Contains(t, command, "border: 0.125em solid alpha(var(--border), 0.95);")
+}
+
 func TestGenerateCSS_OmniboxIncludesVisualConcepts(t *testing.T) {
 	css := GenerateCSS(DefaultDarkPalette())
 

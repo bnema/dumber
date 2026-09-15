@@ -242,7 +242,7 @@ window.standalone-omnibox-window {
 .omnibox-container {
 	background-color: var(--surface);
 	background-image: none;
-	border: 0.0625em solid alpha(var(--border), 0.85);
+	border: 0.09375em solid alpha(var(--border), 0.9);
 	border-radius: 0.1875em;
 	box-shadow: 0 0.875em 2.5em alpha(black, 0.24), 0 0.0625em 0 alpha(white, 0.05) inset;
 	padding: 0;
@@ -577,6 +577,7 @@ entry.omnibox-entry.omnibox-entry-bang-active:focus-visible > text {
 
 /* Command: a calmer command palette with a floating input and compact tabs. */
 .omnibox-container.omnibox-style-command {
+	border: 0.125em solid alpha(var(--border), 0.95);
 	border-radius: 0.625em;
 	box-shadow: 0 1.25em 3.5em alpha(black, 0.38), 0 0 0 0.0625em alpha(white, 0.04) inset;
 	padding: 0.375em;
