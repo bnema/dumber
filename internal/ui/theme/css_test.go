@@ -2,6 +2,7 @@ package theme
 
 import (
 	"regexp"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -269,6 +270,36 @@ func TestGenerateCSS_AuxiliaryWidgetDimensionsUseScalableUnits(t *testing.T) {
 		assert.NotRegexp(t, pxDimension, block, selector)
 		assert.Regexp(t, `\d(?:\.\d+)?em`, block, selector)
 	}
+}
+
+func TestGenerateCSS_OmniboxOuterBordersUseScalableEmUnits(t *testing.T) {
+	css := GenerateCSS(DefaultDarkPalette())
+
+	base := cssRuleBlock(t, css, ".omnibox-container")
+	baseWidth := cssBorderWidthEm(t, base)
+	assert.InDelta(t, 0.09375, baseWidth, 0.000001)
+
+	command := cssRuleBlock(t, css, ".omnibox-container.omnibox-style-command")
+	commandWidth := cssBorderWidthEm(t, command)
+	assert.Greater(t, commandWidth, baseWidth)
+
+	for _, style := range []string{"multiplexer", "minimal"} {
+		block := cssRuleBlock(t, css, ".omnibox-container.omnibox-style-"+style)
+		assert.NotRegexp(t, `(?m)^\s*border(?:-width)?:`, block)
+	}
+}
+
+func cssBorderWidthEm(t *testing.T, block string) float64 {
+	t.Helper()
+	match := regexp.MustCompile(`(?m)^\s*border:\s*([0-9.]+)em\s`).FindStringSubmatch(block)
+	if len(match) != 2 {
+		t.Fatalf("CSS rule does not define an em border: %s", block)
+	}
+	width, err := strconv.ParseFloat(match[1], 64)
+	if err != nil {
+		t.Fatalf("parse border width %q: %v", match[1], err)
+	}
+	return width
 }
 
 func TestGenerateCSS_OmniboxIncludesVisualConcepts(t *testing.T) {
