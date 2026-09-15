@@ -252,6 +252,26 @@ func TestGenerateCSSWithScale_UsesMediumWeightForOmniboxSuggestionTitle(t *testi
 	assert.NotContains(t, css, ".omnibox-suggestion-title {\n\tfont-size: 0.875em;\n\tcolor: var(--text);\n\tfont-weight: 400;")
 }
 
+func TestGenerateCSS_AuxiliaryWidgetDimensionsUseScalableUnits(t *testing.T) {
+	css := GenerateCSS(DefaultDarkPalette())
+
+	selectors := []string{
+		".loading-skeleton-spinner",
+		".loading-skeleton-logo",
+		".loading-skeleton-version",
+		".stacked-pane-close-button",
+		"progressbar.osd",
+		"progressbar.osd trough",
+		"progressbar.osd progress",
+	}
+	pxDimension := regexp.MustCompile(`(?m)^\s*(?:-gtk-icon-size|font-size|min-width|min-height|padding|margin|border-radius):[^;]*\dpx`)
+	for _, selector := range selectors {
+		block := cssRuleBlock(t, css, selector)
+		assert.NotRegexp(t, pxDimension, block, selector)
+		assert.Regexp(t, `\d(?:\.\d+)?em`, block, selector)
+	}
+}
+
 func TestGenerateCSS_OmniboxOuterBordersUseScalableEmUnits(t *testing.T) {
 	css := GenerateCSS(DefaultDarkPalette())
 
