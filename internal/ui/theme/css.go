@@ -873,22 +873,22 @@ func generatePaneCSS(p Palette) string {
 }
 
 .loading-skeleton-spinner {
-	-gtk-icon-size: 2em;
-	min-width: 2em;
-	min-height: 2em;
+	-gtk-icon-size: 2.1818em;
+	min-width: 2.1818em;
+	min-height: 2.1818em;
 	color: var(--muted);
 	opacity: 0.4;
 }
 
 .loading-skeleton-logo {
 	opacity: 0.08;
-	min-width: 16em;
-	min-height: 16em;
+	min-width: 17.4545em;
+	min-height: 17.4545em;
 }
 
 .loading-skeleton-version {
 	opacity: 0.25;
-	font-size: 0.8125em;
+	font-size: 0.8864em;
 	color: var(--muted);
 }
 
@@ -978,11 +978,11 @@ func generateStackedPaneCSS(p Palette) string {
 .stacked-pane-close-button {
 	background: transparent;
 	border: none;
-	border-radius: 0.25em;
-	padding: 0.25em;
-	margin: 0 0.125em;
-	min-width: 1.25em;
-	min-height: 1.25em;
+	border-radius: 0.2727em;
+	padding: 0.2727em;
+	margin: 0 0.1364em;
+	min-width: 1.3636em;
+	min-height: 1.3636em;
 	opacity: 0.4;
 	transition: opacity 100ms ease-in-out, background-color 100ms ease-in-out;
 }
@@ -1019,20 +1019,20 @@ func generateProgressBarCSS(p Palette) string {
 
 /* Native GtkProgressBar with osd class */
 progressbar.osd {
-	min-height: 0.25em;
+	min-height: 0.2727em;
 }
 
 progressbar.osd trough {
-	min-height: 0.25em;
-	min-width: 0.125em;
+	min-height: 0.2727em;
+	min-width: 0.1364em;
 	margin: 0;
 	padding: 0;
 	background-color: alpha(var(--bg), 0.3);
 }
 
 progressbar.osd progress {
-	min-height: 0.25em;
-	min-width: 0.125em;
+	min-height: 0.2727em;
+	min-width: 0.1364em;
 	margin: 0;
 	padding: 0;
 	background-color: var(--accent);
