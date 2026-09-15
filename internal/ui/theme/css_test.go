@@ -302,6 +302,24 @@ func cssBorderWidthEm(t *testing.T, block string) float64 {
 	return width
 }
 
+func TestGenerateCSS_SelectedFavoritesKeepWarningBorderInEveryStyle(t *testing.T) {
+	css := GenerateCSS(DefaultDarkPalette())
+
+	for _, style := range []string{"multiplexer", "command", "minimal"} {
+		selectedSelector := ".omnibox-style-" + style + " .omnibox-row:selected"
+		favoriteSelector := ".omnibox-style-" + style + " .omnibox-row.omnibox-row-favorite:selected"
+		favoriteBlock := cssRuleBlock(t, css, favoriteSelector)
+		assert.Contains(t, favoriteBlock, "var(--warning)", style)
+		assert.Greater(t, strings.Index(css, favoriteSelector), strings.Index(css, selectedSelector), style)
+	}
+
+	minimal := cssRuleBlock(t, css, ".omnibox-style-minimal .omnibox-row.omnibox-row-favorite:selected")
+	assert.Contains(t, minimal, "border-left: 0.125em solid var(--warning);")
+
+	multiplexer := cssRuleBlock(t, css, ".omnibox-style-multiplexer .omnibox-row.omnibox-row-favorite:selected")
+	assert.Contains(t, multiplexer, "box-shadow: 0.1875em 0 0 var(--warning) inset;")
+}
+
 func TestGenerateCSS_OmniboxIncludesVisualConcepts(t *testing.T) {
 	css := GenerateCSS(DefaultDarkPalette())
 
