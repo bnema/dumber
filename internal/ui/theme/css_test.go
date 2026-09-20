@@ -259,7 +259,6 @@ func TestGenerateCSS_AuxiliaryWidgetDimensionsUseScalableUnits(t *testing.T) {
 		".loading-skeleton-spinner",
 		".loading-skeleton-logo",
 		".loading-skeleton-version",
-		".stacked-pane-close-button",
 		"progressbar.osd",
 		"progressbar.osd trough",
 		"progressbar.osd progress",
@@ -270,6 +269,26 @@ func TestGenerateCSS_AuxiliaryWidgetDimensionsUseScalableUnits(t *testing.T) {
 		assert.NotRegexp(t, pxDimension, block, selector)
 		assert.Regexp(t, `\d(?:\.\d+)?em`, block, selector)
 	}
+}
+
+func TestGenerateCSS_StackedPaneTitlebarKeepsCompactVerticalChrome(t *testing.T) {
+	css := GenerateCSS(DefaultDarkPalette())
+
+	titlebar := cssRuleBlock(t, css, ".stacked-pane-titlebar")
+	assert.Contains(t, titlebar, "padding: 4px 0.5em;")
+	assert.Contains(t, titlebar, "min-height: 24px;")
+	assert.NotRegexp(t, `(?m)^\s*(?:padding-(?:top|bottom)|min-height):[^;]*em`, titlebar)
+
+	closeButton := cssRuleBlock(t, css, ".stacked-pane-close-button")
+	assert.Contains(t, closeButton, "padding: 3px;")
+	assert.Contains(t, closeButton, "margin: 0 2px;")
+	assert.Contains(t, closeButton, "min-height: 15px;")
+	assert.NotRegexp(t, `(?m)^\s*(?:padding|margin|min-height):[^;]*em`, closeButton)
+
+	// Text and horizontal sizing still follow GTK font scaling.
+	label := cssRuleBlock(t, css, ".stacked-pane-titlebar label")
+	assert.Contains(t, label, "font-size: 0.75em;")
+	assert.Contains(t, closeButton, "min-width: 1.3636em;")
 }
 
 func TestGenerateCSS_OmniboxOuterBordersUseScalableEmUnits(t *testing.T) {
