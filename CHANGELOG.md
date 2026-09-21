@@ -25,6 +25,7 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
+- **Omnibox favorite selection**: Selected favorite rows retain their yellow left indicator in every visual style.
 - **Popup and floating-pane stability**: Hardened deferred popup cleanup, failed popup creation, opener-capable fallback behavior, and pane/window rollback paths.
 - **WebView resource cleanup**: Fixed stale callback, timer, tick, split, hover-controller, and rebuilt-WebView ownership paths that could leak resources or act on detached views.
 - **CEF rendering and input**: Improved OSR input and clipboard handling, effective visibility transitions, canvas presentation, repeated GPU relaunch recovery, and runtime propagation to helper processes.

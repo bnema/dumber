@@ -567,6 +567,11 @@ entry.omnibox-entry.omnibox-entry-bang-active:focus-visible > text {
 	box-shadow: 0.1875em 0 0 var(--accent) inset;
 }
 
+.omnibox-style-multiplexer .omnibox-row.omnibox-row-favorite:selected {
+	border-left-color: var(--warning);
+	box-shadow: 0.1875em 0 0 var(--warning) inset;
+}
+
 .omnibox-style-multiplexer .omnibox-favorite-star {
 	min-width: 1.25em;
 	margin: 0 0.375em 0 0.125em;
@@ -632,6 +637,10 @@ entry.omnibox-entry.omnibox-entry-bang-active:focus-visible > text {
 	border-left-color: transparent;
 }
 
+.omnibox-style-command .omnibox-row.omnibox-row-favorite:selected {
+	border-left: 0.1875em solid var(--warning);
+}
+
 .omnibox-style-command .omnibox-favorite-star {
 	min-width: 1.25em;
 	margin: 0 0.375em 0 0.125em;
@@ -687,6 +696,10 @@ entry.omnibox-entry.omnibox-entry-bang-active:focus-visible > text {
 	padding-bottom: 0.4375em;
 	border-left-width: 0.125em;
 	font-family: var(--font-mono);
+}
+
+.omnibox-style-minimal .omnibox-row.omnibox-row-favorite:selected {
+	border-left: 0.125em solid var(--warning);
 }
 
 .omnibox-style-minimal .omnibox-favorite-star {
@@ -935,7 +948,7 @@ func generatePaneCSS(p Palette) string {
 }
 
 // generateStackedPaneCSS creates stacked pane (Zellij-style tabs within panes) styles.
-// Uses em units for scalable UI.
+// Text uses scalable units while vertical chrome stays compact in device pixels.
 func generateStackedPaneCSS(p Palette) string {
 	return `/* ===== Stacked Pane Styling ===== */
 
@@ -945,8 +958,8 @@ func generateStackedPaneCSS(p Palette) string {
 	background-color: var(--surface-variant);
 	color: var(--control-text);
 	border-bottom: 0.0625em solid var(--border);
-	padding: 0.25em 0.5em;
-	min-height: 1.5em;
+	padding: 4px 0.5em;
+	min-height: 24px;
 }
 
 /* Keep the background stable so --control-text retains its contrast.
@@ -975,15 +988,16 @@ func generateStackedPaneCSS(p Palette) string {
 	text-decoration-line: underline;
 }
 
-/* Close button in stacked pane title bar */
+/* Close button in stacked pane title bar.
+ * Its vertical footprint is intentionally smaller than the original scale-1 baseline. */
 .stacked-pane-close-button {
 	background: transparent;
 	border: none;
 	border-radius: 0.2727em;
-	padding: 0.2727em;
-	margin: 0 0.1364em;
+	padding: 3px;
+	margin: 0 2px;
 	min-width: 1.3636em;
-	min-height: 1.3636em;
+	min-height: 15px;
 	opacity: 0.4;
 	transition: opacity 100ms ease-in-out, background-color 100ms ease-in-out;
 }
