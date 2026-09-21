@@ -65,6 +65,9 @@ func RunWithInstanceRelay(ctx context.Context, profile runtimeprofile.Profile, r
 	if !ok {
 		return 1, fmt.Errorf("named instance requires a preparable browser launch relay")
 	}
+	if profile.InstanceRoot == "" {
+		profile.InstanceRoot = profile.IPC.RuntimeDir
+	}
 	lease, err := acquireInstanceNamespace(ctx, profile)
 	if err != nil {
 		return 1, err
