@@ -6,6 +6,7 @@ import (
 
 	"github.com/bnema/dumber/internal/application/usecase"
 	"github.com/bnema/dumber/internal/domain/entity"
+	domainurl "github.com/bnema/dumber/internal/domain/url"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/dumber/internal/ui/window"
 	"github.com/bnema/puregotk/v4/gtk"
@@ -100,6 +101,53 @@ func (a *App) openInitialBrowserWindowShell(ctx context.Context, initialURL stri
 		Msg("ui: initial browser window shell registered")
 	a.activateBrowserWindow(created)
 	return nil
+}
+
+// OpenInstance opens a dedicated window for a logical instance, or focuses the
+// existing window and opens the requested URL there. All instances owned by an
+// App share the same engine and CEF request context.
+func (a *App) OpenInstance(ctx context.Context, name, url string) error {
+	if name == "" {
+		return fmt.Errorf("instance name must not be empty")
+	}
+	url = domainurl.Normalize(url)
+	return a.dispatchWindowURLWork(ctx, "ui.open_instance", url, func(ctx context.Context) error {
+		if a.instanceWindows == nil {
+			a.instanceWindows = make(map[string]string)
+		}
+		if windowID := a.instanceWindows[name]; windowID != "" {
+			if existing := a.browserWindows[windowID]; existing != nil {
+				a.activateBrowserWindow(existing)
+				return a.openExternalURLInWindowOnMainThread(ctx, url, existing)
+			}
+			delete(a.instanceWindows, name)
+		}
+
+		before := make(map[string]struct{}, len(a.browserWindows))
+		for id := range a.browserWindows {
+			before[id] = struct{}{}
+		}
+		if err := a.openFreshWindow(ctx, url); err != nil {
+			return err
+		}
+		for id := range a.browserWindows {
+			if _, existed := before[id]; !existed {
+				a.instanceWindows[name] = id
+				return nil
+			}
+		}
+		return fmt.Errorf("instance %q did not create a browser window", name)
+	})
+}
+
+func (a *App) openExternalURLInWindowOnMainThread(ctx context.Context, url string, target *browserWindow) error {
+	if target == nil {
+		return fmt.Errorf("target browser window is nil")
+	}
+	a.activateBrowserWindow(target)
+	return a.openExternalURLInFocusedWindow(ctx, url, entity.ExternalLinksConfig{
+		Behavior: entity.ExternalLinkBehaviorTabbed,
+	})
 }
 
 func (a *App) openFreshWindow(ctx context.Context, url string) error {

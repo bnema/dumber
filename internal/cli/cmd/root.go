@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -112,15 +113,42 @@ var browseCmd = &cobra.Command{
 
 If a URL is provided, navigate to it. Otherwise, open the homepage.
 
+With --instance <name> (CEF only), Dumber opens or focuses one dedicated
+window inside the current CEF profile host. Named instances share cookies,
+tokens, local storage, configuration, favorites and history by default.
+
+Use --profile <name> for a separate persistent CEF profile and host process.
+Use --ephemeral for a fresh temporary CEF profile removed when its host exits.
+--profile and --ephemeral are mutually exclusive.
+
 Examples:
-  dumber browse                  # Open browser to homepage
-  dumber browse example.com      # Open browser to URL`,
+  dumber browse                                      # Open browser normally
+  dumber browse example.com                          # Open browser to URL
+  dumber browse --instance scratch example.com       # Dedicated shared-profile window
+  dumber browse --instance work --profile work       # Isolated persistent profile
+  dumber browse --instance private --ephemeral       # Temporary isolated profile`,
+	PreRunE: func(command *cobra.Command, _ []string) error {
+		instance, _ := command.Flags().GetString("instance")
+		profile, _ := command.Flags().GetString("profile")
+		ephemeral, _ := command.Flags().GetBool("ephemeral")
+		if command.Flags().Changed("instance") && (instance == "" || strings.HasPrefix(instance, "-")) {
+			return fmt.Errorf("--instance must not be empty or start with '-'")
+		}
+		if command.Flags().Changed("profile") && (profile == "" || strings.HasPrefix(profile, "-")) {
+			return fmt.Errorf("--profile must not be empty or start with '-'")
+		}
+		if profile != "" && ephemeral {
+			return fmt.Errorf("--profile and --ephemeral are mutually exclusive")
+		}
+		return nil
+	},
 	Run: func(_ *cobra.Command, _ []string) {
-		// This is handled by main.go before cobra runs
+		// Valid GUI launches are handled by main.go before Cobra runs.
 	},
 }
 
 func init() {
+	browseCmd.Flags().AddFlagSet(browseFlags())
 	rootCmd.AddCommand(browseCmd)
 }
 

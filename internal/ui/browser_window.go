@@ -388,6 +388,11 @@ func (a *App) removeBrowserWindow(id string) {
 		a.contentCoord.ClearPopupNamedContextsForWindow(id)
 	}
 	delete(a.browserWindows, id)
+	for name, windowID := range a.instanceWindows {
+		if windowID == id {
+			delete(a.instanceWindows, name)
+		}
+	}
 
 	fallback := a.deterministicBrowserWindowFallback()
 	a.updateLastFocusedWindowAfterRemoval(id, fallback)

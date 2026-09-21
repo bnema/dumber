@@ -13,6 +13,19 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestPrepareCEFSettings_IsolatedRootOverridesInheritedSession(t *testing.T) {
+	t.Setenv(CEFRootCachePathEnvVar, "/normal-session")
+	paths := RuntimePaths{StateRoot: "/normal", IsolatedRoot: "/tmp/instance/cef"}
+	opts := port.EngineOptions{CacheDir: "/cache", DataDir: "/data"}
+	logger := zerolog.Nop()
+	settings, err := prepareCEFSettings(opts, paths, RuntimeConfig{}, &logger)
+	require.NoError(t, err)
+	require.Equal(t, paths.IsolatedRoot, settings.RootCachePath)
+	require.Equal(t, settings.RootCachePath, paths.stateRoot(opts))
+	require.Equal(t, settings.RootCachePath, settings.CachePath)
+	require.Equal(t, "/normal-session", os.Getenv(CEFRootCachePathEnvVar))
+}
+
 func TestResolvedStateRoot_PrefersCacheDir(t *testing.T) {
 	profile := testCEFDevProfile(t)
 	root := resolvedStateRoot(profile.CEFUserDataDir(), port.EngineOptions{DataDir: "/tmp/data", CacheDir: "/tmp/cache"})
@@ -62,19 +75,15 @@ func TestPrepareCEFSettings_UsesResolvedProfilePaths(t *testing.T) {
 	require.Empty(t, settings.BrowserSubprocessPath)
 }
 
-// TestPrepareCEFSettings_LeavesCachePathToCEFDefault locks the P3 cache
-// contract: only RootCachePath is configured and CachePath stays empty, so
-// the global request context runs incognito-style with in-memory storage.
-// RootCachePath does not supply CachePath and grants no persistent
-// localStorage. Setting an explicit CachePath requires the P3.3
-// compatibility decision with data-preservation tests.
-func TestPrepareCEFSettings_LeavesCachePathToCEFDefault(t *testing.T) {
+// TestPrepareCEFSettings_ConfiguresPersistentGlobalRequestContext locks the
+// purego-cef contract needed for profile cookies and localStorage.
+func TestPrepareCEFSettings_ConfiguresPersistentGlobalRequestContext(t *testing.T) {
 	logger := zerolog.Nop()
 	profile := testCEFDevProfile(t)
 	settings, err := prepareCEFSettings(port.EngineOptions{}, RuntimePaths{StateRoot: profile.CEFUserDataDir(), LogFile: profile.CEFLogFile()}, RuntimeConfig{}, &logger)
 	require.NoError(t, err)
 	require.NotEmpty(t, settings.RootCachePath)
-	require.Empty(t, settings.CachePath, "explicit CachePath needs the P3.3 decision; empty CachePath means in-memory global context")
+	require.Equal(t, settings.RootCachePath, settings.CachePath)
 }
 
 func TestParseLoadedLibCEFPath(t *testing.T) {

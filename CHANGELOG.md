@@ -6,6 +6,7 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- **Named browser windows**: Added `dumber browse --instance <name>` to open or focus a stable named window in the current CEF profile host. Named windows share cookies, tokens, local storage, configuration, history, and favorites; use `--profile` for a separate persistent browser profile/host or `--ephemeral` for a temporary isolated profile/host.
 - **Omnibox visual styles**: Added configurable `command`, `multiplexer`, and `minimal` GTK treatments. The terminal-inspired `command` palette is the default.
 - **Vim mode for keyboard-driven page navigation**: Added configurable multi-key sequences for page scrolling, fast scrolling, page-input focus, and live heading navigation. Pressing `Enter` on a selected CEF heading opens its associated link before leaving Vim Mode. CEF accessibility data also provides the foundation for navigating structured page content such as headings, lists, paragraphs, and sections.
 - **Native favorites sidebar**: Added a keyboard-driven GTK sidebar toggled with `Ctrl+B`, including search, tag filtering, tag creation, favorite editing, shortcut assignment, deletion, and opening favorites in the current pane or a new split.

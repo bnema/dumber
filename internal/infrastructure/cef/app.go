@@ -433,10 +433,38 @@ func parseBrowseRelaunchCommandLine(commandLine purecef.CommandLine) (string, bo
 	}
 
 	args := parseRelaunchCommandLineArgs(commandLine.GetCommandLineString())
-	if len(args) < 3 || args[1] != "browse" || args[2] == "" {
+	if len(args) < 2 || args[1] != "browse" {
 		return "", false
 	}
-	return args[2], true
+	var browseURL string
+	for index := 2; index < len(args); index++ {
+		arg := args[index]
+		switch {
+		case arg == "--instance":
+			index++
+			if index >= len(args) || args[index] == "" {
+				return "", false
+			}
+		case strings.HasPrefix(arg, "--instance="):
+			if strings.TrimPrefix(arg, "--instance=") == "" {
+				return "", false
+			}
+		case arg == "--profile" || strings.HasPrefix(arg, "--profile=") || arg == "--ephemeral":
+			// Profile-scoped launches must be handled by their own elected host;
+			// CEF's already-running callback must never route them into this one.
+			return "", false
+		case strings.HasPrefix(arg, "-"):
+			return "", false
+		case browseURL == "":
+			browseURL = arg
+		default:
+			return "", false
+		}
+	}
+	if browseURL == "" {
+		return "", false
+	}
+	return browseURL, true
 }
 
 func isBrowseRelaunchCommandLine(commandLine purecef.CommandLine) bool {

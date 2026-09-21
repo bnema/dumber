@@ -29,6 +29,8 @@ const defaultCEFWindowlessFrameRate = 60
 
 // RuntimePaths contains the concrete filesystem paths the CEF adapter needs.
 type RuntimePaths struct {
+	// IsolatedRoot takes precedence over inherited session-spawn environment.
+	IsolatedRoot  string
 	StateRoot     string
 	LogFile       string
 	ProfileLogDir string
@@ -44,7 +46,7 @@ func NewEngine(
 	deps EngineDependencies,
 ) (*Engine, error) {
 	logger := logging.FromContext(ctx)
-	stateRoot := resolvedStateRoot(paths.StateRoot, opts)
+	stateRoot := paths.stateRoot(opts)
 	if consumeNextStartSafetyMarker(stateRoot) {
 		applyNextStartSafetyEnvironment()
 		logger.Warn().Str("state_root", stateRoot).Msg("cef: applying next-start GPU safety recovery")
@@ -136,6 +138,13 @@ func normalizedWindowlessFrameRate(frameRate int32) int32 {
 	return defaultCEFWindowlessFrameRate
 }
 
+func (p RuntimePaths) stateRoot(opts port.EngineOptions) string {
+	if p.IsolatedRoot != "" {
+		return p.IsolatedRoot
+	}
+	return resolvedStateRoot(p.StateRoot, opts)
+}
+
 func resolvedStateRoot(defaultStateRoot string, opts port.EngineOptions) string {
 	if root := os.Getenv(CEFRootCachePathEnvVar); root != "" {
 		return root
@@ -189,7 +198,11 @@ func prepareCEFSettings(
 	settings := purecef.DefaultSettings()
 	settings.MultiThreadedMessageLoop = true
 	settings.ExternalMessagePump = false
-	settings.RootCachePath = resolvedStateRoot(paths.StateRoot, opts)
+	settings.RootCachePath = paths.stateRoot(opts)
+	// purego-cef follows CEF's global request-context contract: RootCachePath
+	// only bounds acceptable cache paths; CachePath opts the global context
+	// into persistent cookies and localStorage.
+	settings.CachePath = settings.RootCachePath
 	settings.CEFDir = configureCEFSubprocessRuntime(cfg.CEFDir)
 	if runtimeLogFile, err := prepareCEFLogFile(paths.LogFile, cfg.LogFile); err != nil {
 		logger.Warn().Err(err).Msg("cef: failed to prepare runtime log file")

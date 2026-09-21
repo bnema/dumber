@@ -91,7 +91,8 @@ type App struct {
 	runtimeConfig *runtimeConfigState
 
 	browserWindows       map[string]*browserWindow
-	browserWindowOrder   []string // registration order of window IDs
+	browserWindowOrder   []string          // registration order of window IDs
+	instanceWindows      map[string]string // logical instance name -> browser window ID
 	lastFocusedWindowID  string
 	nativePopupWindows   map[port.WebViewID]*nativePopupWindow
 	browserWindowFactory func(context.Context, string) (*browserWindow, error)
@@ -228,6 +229,7 @@ func New(deps *Dependencies) (*App, error) {
 		windowForTab:            make(map[entity.TabID]*browserWindow),
 		floatingSessions:        make(map[floatingSessionKey]*floatingWorkspaceSession),
 		browserWindows:          make(map[string]*browserWindow),
+		instanceWindows:         make(map[string]string),
 		vimModePolicyUC:         usecase.NewVimModePolicyUseCase(),
 		vimNavigationUC:         usecase.NewVimNavigationUseCase(),
 		pageEditableFocusByPane: make(map[entity.PaneID]bool),
@@ -344,6 +346,9 @@ func (a *App) Run(ctx context.Context, args []string) int {
 	}
 
 	appID := AppID
+	if a.deps != nil && a.deps.ApplicationID != "" {
+		appID = a.deps.ApplicationID
+	}
 	a.gtkApp = gtk.NewApplication(&appID, gtkApplicationFlags())
 	if a.gtkApp == nil {
 		log.Error().Msg("failed to create GTK application")
@@ -418,6 +423,12 @@ func (a *App) onActivate(ctx context.Context) {
 			a.Quit()
 		}
 		return
+	}
+
+	if name := os.Getenv("DUMBER_INITIAL_INSTANCE"); name != "" {
+		if initial := a.lastFocusedBrowserWindow(); initial != nil {
+			a.instanceWindows[name] = initial.id
+		}
 	}
 
 	a.installCrashReportNotifier(ctx)

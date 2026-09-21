@@ -52,8 +52,9 @@ type DeferredInitResult struct {
 
 // ParallelInitInput holds the input for parallel initialization.
 type ParallelInitInput struct {
-	Ctx    context.Context
-	Config *config.Config
+	RuntimeProfile runtimeprofile.Profile
+	Ctx            context.Context
+	Config         *config.Config
 }
 
 // DeferredInitInput holds the input for deferred initialization.
@@ -101,9 +102,13 @@ func RunParallelInit(input ParallelInitInput) (*ParallelInitResult, error) {
 		wg       sync.WaitGroup
 	)
 
-	profile, err := ResolveRuntimeProfile(input.Config)
-	if err != nil {
-		return nil, fmt.Errorf("resolve runtime profile: %w", err)
+	profile := input.RuntimeProfile
+	if profile.Engine == "" {
+		var err error
+		profile, err = ResolveRuntimeProfile(input.Config)
+		if err != nil {
+			return nil, fmt.Errorf("resolve runtime profile: %w", err)
+		}
 	}
 
 	start := time.Now()

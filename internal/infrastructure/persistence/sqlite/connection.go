@@ -3,9 +3,14 @@ package sqlite
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
+	"time"
+
+	"golang.org/x/sys/unix"
 
 	"github.com/bnema/dumber/internal/logging"
 	_ "github.com/bnema/purego-sqlite/driver" // SQLite driver (purego, no WASM/CGo)
@@ -26,6 +31,12 @@ func NewConnection(ctx context.Context, dbPath string) (*sql.DB, error) {
 		return nil, fmt.Errorf("failed to create database directory: %w", err)
 	}
 
+	lock, err := lockDatabaseStartup(ctx, dbPath+".startup.lock")
+	if err != nil {
+		return nil, err
+	}
+	defer unlockDatabaseStartup(lock)
+
 	// Open database connection
 	db, err := sql.Open("sqlite3", dbPath)
 	if err != nil {
@@ -42,7 +53,7 @@ func NewConnection(ctx context.Context, dbPath string) (*sql.DB, error) {
 	}
 
 	// Apply performance pragmas
-	if err := applyPragmas(db); err != nil {
+	if err := applyPragmas(ctx, db); err != nil {
 		_ = db.Close()
 		return nil, err
 	}
@@ -58,10 +69,14 @@ func NewConnection(ctx context.Context, dbPath string) (*sql.DB, error) {
 	return db, nil
 }
 
+const (
+	pragmaRetryTimeout = 5 * time.Second
+	lockRetryInterval  = 25 * time.Millisecond
+)
+
 // applyPragmas configures SQLite for optimal performance.
-func applyPragmas(db *sql.DB) error {
+func applyPragmas(ctx context.Context, db *sql.DB) error {
 	pragmas := []string{
-		"PRAGMA journal_mode = WAL",    // Write-Ahead Logging for concurrent access
 		"PRAGMA synchronous = NORMAL",  // Safe in WAL mode
 		"PRAGMA cache_size = -64000",   // 64MB cache
 		"PRAGMA temp_store = MEMORY",   // Temporary tables in RAM
@@ -70,13 +85,83 @@ func applyPragmas(db *sql.DB) error {
 		"PRAGMA foreign_keys = ON",     // Enable referential integrity
 	}
 
+	var journalMode string
+	if err := retryPragma(ctx, func() error {
+		return db.QueryRowContext(ctx, "PRAGMA journal_mode = WAL").Scan(&journalMode)
+	}); err != nil {
+		return fmt.Errorf("failed to set pragma %q: %w", "PRAGMA journal_mode = WAL", err)
+	}
+	if !strings.EqualFold(journalMode, "wal") {
+		return fmt.Errorf("failed to set pragma %q: journal mode is %q", "PRAGMA journal_mode = WAL", journalMode)
+	}
+
 	for _, pragma := range pragmas {
-		if _, err := db.Exec(pragma); err != nil {
+		if err := retryPragma(ctx, func() error {
+			_, err := db.ExecContext(ctx, pragma)
+			return err
+		}); err != nil {
 			return fmt.Errorf("failed to set pragma %q: %w", pragma, err)
 		}
 	}
-
 	return nil
+}
+
+func retryPragma(ctx context.Context, run func() error) error {
+	deadline := time.Now().Add(pragmaRetryTimeout)
+	for {
+		err := run()
+		if err == nil || !isSQLiteBusy(err) || !time.Now().Before(deadline) {
+			return err
+		}
+		timer := time.NewTimer(lockRetryInterval)
+		select {
+		case <-ctx.Done():
+			if !timer.Stop() {
+				<-timer.C
+			}
+			return ctx.Err()
+		case <-timer.C:
+		}
+	}
+}
+
+func isSQLiteBusy(err error) bool {
+	message := strings.ToLower(err.Error())
+	return strings.Contains(message, "database is locked") || strings.Contains(message, "database is busy") ||
+		strings.Contains(message, "sqlite_busy")
+}
+
+func lockDatabaseStartup(ctx context.Context, path string) (*os.File, error) {
+	const (
+		lockRetryInterval = 25 * time.Millisecond
+		ownerOnlyFileMode = 0o600
+	)
+	file, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR|os.O_TRUNC, ownerOnlyFileMode)
+	if err != nil {
+		return nil, fmt.Errorf("open database startup lock: %w", err)
+	}
+	for {
+		if err := unix.Flock(int(file.Fd()), unix.LOCK_EX|unix.LOCK_NB); err == nil {
+			return file, nil
+		} else if !errors.Is(err, unix.EWOULDBLOCK) {
+			_ = file.Close()
+			return nil, fmt.Errorf("lock database startup: %w", err)
+		}
+		select {
+		case <-ctx.Done():
+			_ = file.Close()
+			return nil, fmt.Errorf("lock database startup: %w", ctx.Err())
+		case <-time.After(lockRetryInterval):
+		}
+	}
+}
+
+func unlockDatabaseStartup(file *os.File) {
+	if file == nil {
+		return
+	}
+	_ = unix.Flock(int(file.Fd()), unix.LOCK_UN)
+	_ = file.Close()
 }
 
 // configurePool sets connection pool parameters optimized for SQLite.
