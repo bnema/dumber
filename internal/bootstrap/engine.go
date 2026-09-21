@@ -121,11 +121,15 @@ func BuildEngine(input EngineInput) (port.Engine, error) {
 			ImageDataResolver:          webkit.NewContextMenuResolver(),
 		}
 		audioFactory := audiofactory.NewAudioOutputFactory()
-		return cef.NewEngine(input.Ctx, opts, cef.RuntimePaths{
+		paths := cef.RuntimePaths{
 			StateRoot:     profile.CEFUserDataDir(),
 			LogFile:       profile.CEFLogFile(),
 			ProfileLogDir: profile.Shared.LogDir,
-		}, cefCfg, audioFactory, deps)
+		}
+		if profile.InstanceRoot != "" {
+			paths.IsolatedRoot = profile.CEFUserDataDir()
+		}
+		return cef.NewEngine(input.Ctx, opts, paths, cefCfg, audioFactory, deps)
 	default:
 		return nil, fmt.Errorf("unknown engine type: %q", engineType)
 	}

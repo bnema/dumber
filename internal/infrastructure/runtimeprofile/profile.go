@@ -68,11 +68,13 @@ type IPCPaths struct {
 
 // Profile is the fully resolved runtime profile for one mode+engine namespace.
 type Profile struct {
-	Mode        Mode
-	Engine      string
-	Shared      SharedPaths
-	EnginePaths EnginePaths
-	IPC         IPCPaths
+	InstanceRoot        string
+	InstanceAppIDSuffix string
+	Mode                Mode
+	Engine              string
+	Shared              SharedPaths
+	EnginePaths         EnginePaths
+	IPC                 IPCPaths
 }
 
 // Resolve builds a runtime profile from pure inputs.
@@ -201,6 +203,9 @@ func cwdValue(get func() (string, error)) (string, error) {
 
 // CEFUserDataDir returns the resolved CEF root cache/user-data directory.
 func (p Profile) CEFUserDataDir() string {
+	if p.InstanceRoot != "" {
+		return filepath.Join(p.InstanceRoot, "cef")
+	}
 	if p.Mode == ModeDev {
 		return filepath.Join(p.EnginePaths.RootDir, "data")
 	}

@@ -14,6 +14,22 @@ import (
 	"github.com/rs/zerolog"
 )
 
+func TestLaunchModeFromArgs_InstanceBrowse(t *testing.T) {
+	for _, args := range [][]string{
+		{"dumber", "browse", "--instance", "work", "https://example.com"},
+		{"dumber", "browse", "https://example.com", "--instance", "work"},
+	} {
+		mode, url := launchModeFromArgs(args)
+		if mode != launchModeBrowse || url != "https://example.com" {
+			t.Fatalf("unexpected instance launch: %s %q", mode, url)
+		}
+	}
+	mode, _ := launchModeFromArgs([]string{"dumber", "browse", "--instance", "work", "--help"})
+	if mode != launchModeCLI {
+		t.Fatal("instance help must go through Cobra")
+	}
+}
+
 func TestLaunchModeFromArgs_DetectsStandaloneOmnibox(t *testing.T) {
 	mode, _ := launchModeFromArgs([]string{"dumber", "omnibox"})
 	if mode != launchModeStandaloneOmnibox {

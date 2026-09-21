@@ -13,6 +13,7 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -37,7 +38,11 @@ const browserLaunchDirPerm = 0o700
 var ErrBrowserLaunchRelayUnconfirmed = errors.New("browser launch relay did not confirm delivery")
 
 type browserLaunchRelay struct {
-	ipc runtimeprofile.IPCPaths
+	ipc       runtimeprofile.IPCPaths
+	prepareMu sync.Mutex
+	prepared  *browserLaunchRelayListener
+	lease     io.Closer
+	serving   bool
 	// admission is the shared admission/work-lease boundary: a lease is
 	// acquired before sending Accepted and released when dispatch settles.
 	// Shutdown closes it so losing requests get an error response instead
@@ -48,6 +53,7 @@ type browserLaunchRelay struct {
 type browserLaunchRequest struct {
 	RequestID string              `json:"request_id,omitempty"`
 	URL       string              `json:"url"`
+	Instance  string              `json:"instance,omitempty"`
 	Action    browserLaunchAction `json:"action,omitempty"`
 }
 
@@ -56,6 +62,7 @@ type browserLaunchAction string
 const (
 	browserLaunchActionOpenExternalURL browserLaunchAction = "open-external-url"
 	browserLaunchActionOpenFreshWindow browserLaunchAction = "open-fresh-window"
+	browserLaunchActionOpenInstance    browserLaunchAction = "open-instance"
 	// browserLaunchActionCloseAllWindows is a diagnostic-only action for the
 	// residency harness: it closes every user window through the standard
 	// removal path. It is honored only when the OWNING process sets
@@ -88,6 +95,7 @@ type browserLaunchRelayListener struct {
 	admission  *process.AdmissionGate
 	once       sync.Once
 	err        error
+	closed     atomic.Bool
 }
 
 var newBrowserLaunchRequestID = func() string {
@@ -120,17 +128,29 @@ func (r *browserLaunchRelay) AdmissionGate() *process.AdmissionGate {
 }
 
 func (r *browserLaunchRelay) DeliverOpenExternalURL(ctx context.Context, url string) (bool, error) {
-	return r.deliver(ctx, url, "")
+	return r.deliver(ctx, url, "", "")
 }
 
 func (r *browserLaunchRelay) DeliverOpenFreshWindow(ctx context.Context, url string) (bool, error) {
-	return r.deliver(ctx, url, browserLaunchActionOpenFreshWindow)
+	return r.deliver(ctx, url, "", browserLaunchActionOpenFreshWindow)
 }
 
-func (r *browserLaunchRelay) deliver(ctx context.Context, url string, action browserLaunchAction) (bool, error) {
+func (r *browserLaunchRelay) DeliverOpenInstance(ctx context.Context, name, url string) (bool, error) {
+	return r.deliver(ctx, url, name, browserLaunchActionOpenInstance)
+}
+
+func (r *browserLaunchRelay) deliver(ctx context.Context, url, instance string, action browserLaunchAction) (bool, error) {
 	socketPath, err := r.socketPath()
 	if err != nil {
 		return false, err
+	}
+
+	if _, statErr := os.Stat(filepath.Dir(socketPath)); statErr == nil {
+		if ownerErr := validateBrowserLaunchSocketDirOwned(socketPath, uint32(os.Geteuid())); ownerErr != nil {
+			return false, ownerErr
+		}
+	} else if !os.IsNotExist(statErr) {
+		return false, fmt.Errorf("stat browser launch dir: %w", statErr)
 	}
 
 	conn, err := (&net.Dialer{}).DialContext(ctx, "unix", socketPath)
@@ -152,7 +172,13 @@ func (r *browserLaunchRelay) deliver(ctx context.Context, url string, action bro
 	if err := setBrowserLaunchConnDeadline(ctx, conn); err != nil {
 		return false, err
 	}
-	if err := json.NewEncoder(conn).Encode(browserLaunchRequest{RequestID: requestID, URL: url, Action: action}); err != nil {
+	request := browserLaunchRequest{
+		RequestID: requestID,
+		URL:       url,
+		Instance:  instance,
+		Action:    action,
+	}
+	if err := json.NewEncoder(conn).Encode(request); err != nil {
 		return false, err
 	}
 
@@ -273,6 +299,49 @@ func validateBrowserLaunchSocketDirOwned(socketPath string, expectedUID uint32) 
 }
 
 func (r *browserLaunchRelay) Listen(ctx context.Context, opener port.BrowserWindowOpener) (io.Closer, error) {
+	r.prepareMu.Lock()
+	defer r.prepareMu.Unlock()
+	if r.serving {
+		return nil, errors.New("browser launch relay already serving")
+	}
+	listener := r.prepared
+	if listener != nil && listener.closed.Load() {
+		return nil, errors.New("browser launch relay reservation closed")
+	}
+	if listener == nil {
+		var err error
+		listener, err = r.bind(true)
+		if err != nil {
+			return nil, err
+		}
+	}
+	r.serving = true
+	go listener.serve(ctx, opener)
+	return listener, nil
+}
+
+// Prepare binds without accepting or acknowledging requests until Listen.
+// The supplied lease proves exclusive namespace ownership and must outlive
+// this relay; stale socket recovery is only safe while that lease is held.
+func (r *browserLaunchRelay) Prepare(namespaceLease io.Closer) error {
+	r.prepareMu.Lock()
+	defer r.prepareMu.Unlock()
+	if r.prepared != nil || r.serving {
+		return errors.New("browser launch relay already prepared or serving")
+	}
+	if namespaceLease == nil {
+		return errors.New("browser launch relay requires namespace lease")
+	}
+	listener, err := r.bind(true)
+	if err != nil {
+		return err
+	}
+	r.lease = namespaceLease
+	r.prepared = listener
+	return nil
+}
+
+func (r *browserLaunchRelay) bind(recoverStale bool) (*browserLaunchRelayListener, error) {
 	socketPath, err := r.socketPath()
 	if err != nil {
 		return nil, err
@@ -286,7 +355,7 @@ func (r *browserLaunchRelay) Listen(ctx context.Context, opener port.BrowserWind
 	}
 	listener, err := net.ListenUnix("unix", &net.UnixAddr{Name: socketPath, Net: "unix"})
 	if err != nil {
-		if !errors.Is(err, syscall.EADDRINUSE) {
+		if !recoverStale || !errors.Is(err, syscall.EADDRINUSE) {
 			return nil, fmt.Errorf("listen browser launch socket: %w", err)
 		}
 
@@ -312,10 +381,7 @@ func (r *browserLaunchRelay) Listen(ctx context.Context, opener port.BrowserWind
 		}
 	}
 
-	relayListener := &browserLaunchRelayListener{listener: listener, socketPath: socketPath, admission: r.AdmissionGate()}
-	go relayListener.serve(ctx, opener)
-
-	return relayListener, nil
+	return &browserLaunchRelayListener{listener: listener, socketPath: socketPath, admission: r.AdmissionGate()}, nil
 }
 
 func (r *browserLaunchRelay) socketPath() (string, error) {
@@ -330,10 +396,10 @@ func (r *browserLaunchRelay) socketPath() (string, error) {
 
 func (l *browserLaunchRelayListener) Close() error {
 	l.once.Do(func() {
+		l.closed.Store(true)
 		if l.listener != nil {
 			l.err = l.listener.Close()
 		}
-		_ = os.Remove(l.socketPath)
 	})
 
 	return l.err
@@ -476,6 +542,13 @@ func (l *browserLaunchRelayListener) handleConnection(ctx context.Context, conn 
 			err = opener.OpenExternalURL(ctx, request.URL)
 		case browserLaunchActionOpenFreshWindow:
 			err = opener.OpenFreshWindow(ctx, request.URL)
+		case browserLaunchActionOpenInstance:
+			instanceOpener, ok := opener.(port.BrowserInstanceOpener)
+			if !ok {
+				err = errors.New("browser launch relay opener does not support named instances")
+			} else {
+				err = instanceOpener.OpenInstance(ctx, request.Instance, request.URL)
+			}
 		case browserLaunchActionCloseAllWindows:
 			if closer, ok := opener.(windowCloseOpener); ok {
 				err = closer.CloseAllWindows(ctx)

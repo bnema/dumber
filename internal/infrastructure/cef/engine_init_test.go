@@ -13,6 +13,19 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestPrepareCEFSettings_IsolatedRootOverridesInheritedSession(t *testing.T) {
+	t.Setenv(CEFRootCachePathEnvVar, "/normal-session")
+	paths := RuntimePaths{StateRoot: "/normal", IsolatedRoot: "/tmp/instance/cef"}
+	opts := port.EngineOptions{CacheDir: "/cache", DataDir: "/data"}
+	logger := zerolog.Nop()
+	settings, err := prepareCEFSettings(opts, paths, RuntimeConfig{}, &logger)
+	require.NoError(t, err)
+	require.Equal(t, paths.IsolatedRoot, settings.RootCachePath)
+	require.Equal(t, settings.RootCachePath, paths.stateRoot(opts))
+	require.Empty(t, settings.CachePath)
+	require.Equal(t, "/normal-session", os.Getenv(CEFRootCachePathEnvVar))
+}
+
 func TestResolvedStateRoot_PrefersCacheDir(t *testing.T) {
 	profile := testCEFDevProfile(t)
 	root := resolvedStateRoot(profile.CEFUserDataDir(), port.EngineOptions{DataDir: "/tmp/data", CacheDir: "/tmp/cache"})

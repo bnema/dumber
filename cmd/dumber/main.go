@@ -75,16 +75,11 @@ func launchModeFromArgs(args []string) (launchMode, string) {
 	if len(args) > 1 {
 		switch args[1] {
 		case "browse":
-			if len(args) > 3 {
+			url, _, ok := cmd.ParseBrowseArgs(args[2:])
+			if !ok {
 				return launchModeCLI, ""
 			}
-			if len(args) > 2 {
-				if strings.HasPrefix(args[2], "-") {
-					return launchModeCLI, ""
-				}
-				return launchModeBrowse, args[2]
-			}
-			return launchModeBrowse, ""
+			return launchModeBrowse, url
 		case "omnibox":
 			if len(args) > 2 {
 				return launchModeCLI, ""
@@ -221,6 +216,11 @@ func main() {
 	if mode == launchModeBrowse {
 		cfg := initConfig()
 		timing.configComplete = time.Now()
+		browseArgs, _ := cmd.ParseBrowseLaunchArgs(os.Args[2:])
+		if browseArgs.Instance != "" || browseArgs.Profile != "" || browseArgs.Ephemeral {
+			os.Exit(runInstanceGUI(cfg, timing, browseArgs))
+			return
+		}
 		configureBrowserLaunchRelay(cfg)
 		startupURL := domainurl.ResolveBrowserStartupURL(browseURL)
 		freshWindow := os.Getenv(desktop.FreshWindowLaunchEnvVar) == "1"
@@ -277,6 +277,80 @@ func setAlreadyRunningRelaunchHandler(engine port.Engine, app *ui.App, ctx conte
 }
 
 func runGUI(cfg *config.Config, timing startupTiming) int {
+	return runGUIWithProfile(cfg, timing, runtimeprofile.Profile{})
+}
+
+func runInstanceGUI(cfg *config.Config, timing startupTiming, args cmd.BrowseArgs) int {
+	profile, err := bootstrap.ResolveRuntimeProfile(cfg)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "dumber: resolve runtime profile: %v\n", err)
+		return 1
+	}
+	if args.Profile != "" {
+		profile, err = bootstrap.NewBrowserProfile(cfg, args.Profile)
+	} else if args.Ephemeral {
+		profile, err = bootstrap.NewEphemeralBrowserProfile(cfg)
+	}
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "dumber: %v\n", err)
+		return 1
+	}
+	if profile.Engine != config.EngineTypeCEF {
+		fmt.Fprintln(os.Stderr, "dumber: --instance requires the CEF engine")
+		return 1
+	}
+	browserLaunchRelay = desktop.NewBrowserLaunchRelay(profile.IPC)
+	startupURL := domainurl.ResolveBrowserStartupURL(args.URL)
+	_ = os.Unsetenv(desktop.FreshWindowLaunchEnvVar)
+	instanceRelay, ok := browserLaunchRelay.(port.BrowserInstanceLaunchRelay)
+	if !ok {
+		fmt.Fprintln(os.Stderr, "dumber: browser launch relay does not support named instances")
+		return 1
+	}
+	instanceName := args.Instance
+	if instanceName == "" {
+		instanceName = "default"
+	}
+	if forwarded, err := instanceRelay.DeliverOpenInstance(context.Background(), instanceName, startupURL); err != nil {
+		if forwarded && errors.Is(err, desktop.ErrBrowserLaunchRelayUnconfirmed) {
+			return 0
+		}
+		fmt.Fprintf(os.Stderr, "warning: failed to forward instance %q, starting the CEF profile host: %v\n", instanceName, err)
+	} else if forwarded {
+		return 0
+	}
+	// The first named launch owns the shared profile host. Its initial browser
+	// window is registered for the instance after GTK activation below.
+	initialURL = startupURL
+	restoreSessionID = ""
+	if err := os.Setenv("DUMBER_INITIAL_INSTANCE", instanceName); err != nil {
+		fmt.Fprintf(os.Stderr, "dumber: set initial instance: %v\n", err)
+		return 1
+	}
+	defer func() { _ = os.Unsetenv("DUMBER_INITIAL_INSTANCE") }()
+	os.Args = os.Args[:1]
+	code, launchErr := bootstrap.RunWithInstanceRelay(context.Background(), profile, browserLaunchRelay, func() int {
+		return runGUIWithProfile(cfg, timing, profile)
+	})
+	if launchErr != nil {
+		fmt.Fprintf(os.Stderr, "dumber: start CEF profile host: %v\n", launchErr)
+	}
+	if args.Ephemeral {
+		if removeErr := os.RemoveAll(profile.InstanceRoot); removeErr != nil {
+			fmt.Fprintf(os.Stderr, "warning: failed to remove ephemeral browser profile: %v\n", removeErr)
+		}
+	}
+	return code
+}
+
+// Return rather than os.Exit so the named IPC reservation is released on failure.
+func reportGUIStackError(log *zerolog.Logger, err error) int {
+	log.Error().Err(err).Msg("failed to initialize database/webkit")
+	return 1
+}
+
+//nolint:funlen // Startup orchestration is intentionally linear to preserve cleanup ordering.
+func runGUIWithProfile(cfg *config.Config, timing startupTiming, profile runtimeprofile.Profile) int {
 	bootstrap.ApplyGTKIMModuleFallbackDefault(os.Stderr)
 
 	runtime.LockOSThread()
@@ -296,7 +370,7 @@ func runGUI(cfg *config.Config, timing startupTiming) int {
 	timer.Mark("logger")
 	bootstrapLog := logging.FromContext(ctx)
 
-	initResult, err := runParallelInitPhase(ctx, cfg)
+	initResult, err := runParallelInitPhase(ctx, cfg, profile)
 	if err != nil {
 		return 1
 	}
@@ -311,14 +385,17 @@ func runGUI(cfg *config.Config, timing startupTiming) int {
 
 	engine, repos, dbCleanup, err := initStackAndRepos(ctx, cfg, initResult, needsEagerDB)
 	if err != nil {
-		bootstrapLog.Fatal().Err(err).Msg("failed to initialize database/webkit")
+		return reportGUIStackError(bootstrapLog, err)
 	}
 	if dbCleanup != nil {
 		defer dbCleanup()
 	}
 	timer.Mark("db_webkit_parallel")
 
-	ctx, browserSession, sessionCleanup := initBrowserSession(ctx, cfg, repos, bootstrapLog)
+	ctx, browserSession, sessionCleanup, err := initBrowserSession(ctx, cfg, repos)
+	if err != nil {
+		return reportBrowserSessionStartupError(bootstrapLog, err)
+	}
 	defer sessionCleanup()
 	bootstrap.LogResolvedTheme(ctx, initResult.ResolvedTheme)
 	timer.Mark("session")
@@ -366,7 +443,7 @@ func runStandaloneOmnibox() int {
 	ctx := initStartupContext(cfg)
 	applyCEFRenderStackDefault(ctx, cfg)
 
-	initResult, err := runParallelInitPhase(ctx, cfg)
+	initResult, err := runParallelInitPhase(ctx, cfg, runtimeprofile.Profile{})
 	if err != nil {
 		return 1
 	}
@@ -567,10 +644,11 @@ func activateCEFStartupTraceForGUI(
 	activate(timing.processEntry, timing.configComplete, logger)
 }
 
-func runParallelInitPhase(ctx context.Context, cfg *config.Config) (*bootstrap.ParallelInitResult, error) {
+func runParallelInitPhase(ctx context.Context, cfg *config.Config, profile runtimeprofile.Profile) (*bootstrap.ParallelInitResult, error) {
 	initResult, err := bootstrap.RunParallelInit(bootstrap.ParallelInitInput{
-		Ctx:    ctx,
-		Config: cfg,
+		Ctx:            ctx,
+		Config:         cfg,
+		RuntimeProfile: profile,
 	})
 	if err != nil {
 		handleParallelInitError(ctx, err)
@@ -579,16 +657,23 @@ func runParallelInitPhase(ctx context.Context, cfg *config.Config) (*bootstrap.P
 	return initResult, nil
 }
 
+func reportBrowserSessionStartupError(log *zerolog.Logger, err error) int {
+	if err == nil {
+		return 0
+	}
+	log.Error().Err(err).Msg("failed to start session")
+	return 1
+}
+
 func initBrowserSession(
 	ctx context.Context,
 	cfg *config.Config,
 	repos *repositories,
-	bootstrapLog *zerolog.Logger,
-) (context.Context, *bootstrap.BrowserSession, func()) {
+) (context.Context, *bootstrap.BrowserSession, func(), error) {
 	deferPersist := restoreSessionID == "" && !cfg.Session.AutoRestore
 	browserSession, sessionCtx, err := bootstrap.StartBrowserSession(ctx, cfg, repos.session, deferPersist)
 	if err != nil {
-		bootstrapLog.Fatal().Err(err).Msg("failed to start session")
+		return ctx, nil, nil, err
 	}
 	cleanup := func() {
 		_ = browserSession.End(sessionCtx)
@@ -596,7 +681,7 @@ func initBrowserSession(
 			browserSession.LogCleanup()
 		}
 	}
-	return sessionCtx, browserSession, cleanup
+	return sessionCtx, browserSession, cleanup, nil
 }
 
 func closeIdleInhibitor(inhibitor port.IdleInhibitor) {
@@ -625,6 +710,9 @@ func buildAndConfigureApp(
 		return nil, err
 	}
 	configureDeferredInit(uiDeps, cfg, browserSession)
+	if initResult.RuntimeProfile.InstanceRoot != "" {
+		uiDeps.ApplicationID = ui.AppID + ".instance." + initResult.RuntimeProfile.InstanceAppIDSuffix
+	}
 	return ui.New(uiDeps)
 }
 

@@ -16,6 +16,8 @@ import (
 // Dependencies holds all injected dependencies for the UI layer.
 // This struct is created once at startup and passed to UI components.
 type Dependencies struct {
+	// ApplicationID optionally distinguishes the GUI for the Wayland compositor.
+	ApplicationID string
 	// Core context and configuration
 	Ctx                    context.Context
 	RuntimeConfig          port.RuntimeConfigProvider
