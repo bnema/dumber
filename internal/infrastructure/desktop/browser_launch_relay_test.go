@@ -430,6 +430,47 @@ func TestBrowserLaunchRelay_CloseRemovesSocketPath(t *testing.T) {
 	waitForSocketGone(t, ipc.BrowserLaunchSocket)
 }
 
+func TestBrowserLaunchRelay_CloseDoesNotRemoveSuccessorSocket(t *testing.T) {
+	ipc := testIPC(shortTempDir(t))
+	relay := NewBrowserLaunchRelay(ipc)
+	closer, err := relay.Listen(t.Context(), browserWindowOpenerFunc(func(context.Context, string) error { return nil }))
+	require.NoError(t, err)
+	waitForSocket(t, ipc.BrowserLaunchSocket)
+
+	require.NoError(t, os.Remove(ipc.BrowserLaunchSocket))
+	successor, err := net.ListenUnix("unix", &net.UnixAddr{Name: ipc.BrowserLaunchSocket, Net: "unix"})
+	require.NoError(t, err)
+	defer successor.Close()
+	require.NoError(t, closer.Close())
+	_, err = os.Lstat(ipc.BrowserLaunchSocket)
+	require.NoError(t, err, "closing predecessor must preserve successor pathname")
+}
+
+func TestBrowserLaunchRelay_ClientCloseBeforeAckDispatchesOnceAndDeduplicates(t *testing.T) {
+	ipc := testIPC(shortTempDir(t))
+	relay := NewBrowserLaunchRelay(ipc)
+	received := make(chan string, 2)
+	closer, err := relay.Listen(t.Context(), browserWindowOpenerFunc(func(_ context.Context, url string) error { received <- url; return nil }))
+	require.NoError(t, err)
+	defer closer.Close()
+	waitForSocket(t, ipc.BrowserLaunchSocket)
+
+	send := func() {
+		conn, dialErr := net.Dial("unix", ipc.BrowserLaunchSocket)
+		require.NoError(t, dialErr)
+		require.NoError(t, json.NewEncoder(conn).Encode(browserLaunchRequest{RequestID: "retained-1", URL: "https://example.com/retained"}))
+		require.NoError(t, conn.Close())
+	}
+	send()
+	require.Equal(t, "https://example.com/retained", <-received)
+	send()
+	select {
+	case got := <-received:
+		t.Fatalf("duplicate request dispatched: %s", got)
+	case <-time.After(100 * time.Millisecond):
+	}
+}
+
 func TestBrowserLaunchRelay_ContextCancelStopsServing(t *testing.T) {
 	ipc := testIPC(shortTempDir(t))
 	relay := NewBrowserLaunchRelay(ipc)

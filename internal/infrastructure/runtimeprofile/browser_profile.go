@@ -5,7 +5,10 @@ import (
 	"encoding/hex"
 	"fmt"
 	"path/filepath"
+	"regexp"
 )
+
+var instanceNamePattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_-]{0,31}$`)
 
 // WithBrowserProfile selects an isolated persistent CEF profile while keeping
 // Dumber application data (configuration, history and favorites) shared.

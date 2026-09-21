@@ -14,6 +14,13 @@ import (
 	"github.com/rs/zerolog"
 )
 
+func TestReportParallelInitErrorReturnsFailureToCaller(t *testing.T) {
+	failure := errors.New("parallel init failed")
+	if got := reportParallelInitError(context.Background(), failure); !errors.Is(got, failure) {
+		t.Fatalf("reportParallelInitError() = %v, want original failure", got)
+	}
+}
+
 func TestLaunchModeFromArgs_InstanceBrowse(t *testing.T) {
 	for _, args := range [][]string{
 		{"dumber", "browse", "--instance", "work", "https://example.com"},

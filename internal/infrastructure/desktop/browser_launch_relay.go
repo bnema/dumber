@@ -92,7 +92,10 @@ type browserLaunchResponse struct {
 type browserLaunchRelayListener struct {
 	listener   *net.UnixListener
 	socketPath string
+	socketInfo os.FileInfo
 	admission  *process.AdmissionGate
+	seenMu     sync.Mutex
+	seen       map[string]struct{}
 	once       sync.Once
 	err        error
 	closed     atomic.Bool
@@ -381,7 +384,21 @@ func (r *browserLaunchRelay) bind(recoverStale bool) (*browserLaunchRelayListene
 		}
 	}
 
-	return &browserLaunchRelayListener{listener: listener, socketPath: socketPath, admission: r.AdmissionGate()}, nil
+	// Go's UnixListener otherwise unlinks by pathname on Close, which can
+	// remove a successor socket created after this listener was closed.
+	listener.SetUnlinkOnClose(false)
+	socketInfo, err := os.Lstat(socketPath)
+	if err != nil {
+		_ = listener.Close()
+		return nil, fmt.Errorf("stat bound browser launch socket: %w", err)
+	}
+	return &browserLaunchRelayListener{
+		listener:   listener,
+		socketPath: socketPath,
+		socketInfo: socketInfo,
+		admission:  r.AdmissionGate(),
+		seen:       make(map[string]struct{}),
+	}, nil
 }
 
 func (r *browserLaunchRelay) socketPath() (string, error) {
@@ -399,6 +416,13 @@ func (l *browserLaunchRelayListener) Close() error {
 		l.closed.Store(true)
 		if l.listener != nil {
 			l.err = l.listener.Close()
+		}
+		// Remove only the directory entry that still names this listener.
+		// A concurrently-created successor owns a different inode and must live.
+		if current, err := os.Lstat(l.socketPath); err == nil && l.socketInfo != nil && os.SameFile(current, l.socketInfo) {
+			l.err = errors.Join(l.err, os.Remove(l.socketPath))
+		} else if err != nil && !os.IsNotExist(err) {
+			l.err = errors.Join(l.err, err)
 		}
 	})
 
@@ -501,17 +525,30 @@ func (l *browserLaunchRelayListener) handleConnection(ctx context.Context, conn 
 		return
 	}
 
+	l.seenMu.Lock()
+	_, duplicate := l.seen[requestID]
+	if !duplicate {
+		l.seen[requestID] = struct{}{}
+	}
+	l.seenMu.Unlock()
+	if duplicate {
+		defer gate.Release()
+		_ = json.NewEncoder(conn).Encode(browserLaunchResponse{RequestID: requestID, Accepted: true})
+		return
+	}
+
 	if err := conn.SetDeadline(time.Now().Add(browserLaunchIOTimeout)); err != nil {
 		gate.Release()
 		return
 	}
-	if err := json.NewEncoder(conn).Encode(browserLaunchResponse{RequestID: requestID, Accepted: true}); err != nil {
-		log.Warn().Err(err).
+	ackErr := json.NewEncoder(conn).Encode(browserLaunchResponse{RequestID: requestID, Accepted: true})
+	if ackErr != nil {
+		// Decode plus admission transfers ownership of the request to the host.
+		// Dispatch must not depend on the client remaining alive for the ACK.
+		log.Warn().Err(ackErr).
 			Str("request_id", requestID).
 			Str("url_host", safeURLHost(request.URL)).
-			Msg("failed to encode browser launch response")
-		gate.Release()
-		return
+			Msg("failed to encode browser launch response; dispatching retained request")
 	}
 	log.Debug().
 		Str("request_id", requestID).
@@ -523,60 +560,76 @@ func (l *browserLaunchRelayListener) handleConnection(ctx context.Context, conn 
 		// definitive factory/dispatch failure. Factory/dispatch failure
 		// retains the documented existing failure semantics and never
 		// triggers duplicate fallback.
-		defer gate.Release()
-		if opener == nil {
-			log.Warn().
-				Str("request_id", requestID).
-				Str("url_host", safeURLHost(request.URL)).
-				Msg("browser launch relay accepted request without opener")
-			return
-		}
-		started := time.Now()
-		log.Debug().
+		dispatchBrowserLaunch(ctx, request, requestID, opener, gate, log)
+	}()
+}
+
+// dispatchBrowserLaunch performs the admitted request's UI dispatch on behalf
+// of handleConnection, holding the admission lease until it completes. It
+// retains the documented failure semantics: a definitive factory or dispatch
+// failure only logs and releases the lease, never triggering duplicate
+// fallback.
+func dispatchBrowserLaunch(
+	ctx context.Context,
+	request browserLaunchRequest,
+	requestID string,
+	opener port.BrowserWindowOpener,
+	gate *process.AdmissionGate,
+	log *zerolog.Logger,
+) {
+	defer gate.Release()
+	if opener == nil {
+		log.Warn().
 			Str("request_id", requestID).
 			Str("url_host", safeURLHost(request.URL)).
-			Msg("browser launch relay calling browser URL opener")
-		var err error
-		switch request.Action {
-		case "", browserLaunchActionOpenExternalURL:
-			err = opener.OpenExternalURL(ctx, request.URL)
-		case browserLaunchActionOpenFreshWindow:
-			err = opener.OpenFreshWindow(ctx, request.URL)
-		case browserLaunchActionOpenInstance:
-			instanceOpener, ok := opener.(port.BrowserInstanceOpener)
-			if !ok {
-				err = errors.New("browser launch relay opener does not support named instances")
-			} else {
-				err = instanceOpener.OpenInstance(ctx, request.Instance, request.URL)
-			}
-		case browserLaunchActionCloseAllWindows:
-			if closer, ok := opener.(windowCloseOpener); ok {
-				err = closer.CloseAllWindows(ctx)
-			} else {
-				err = errors.New("browser launch relay opener does not support diagnostic close")
-			}
-		default:
-			log.Warn().
-				Str("request_id", requestID).
-				Str("url_host", safeURLHost(request.URL)).
-				Str("action", string(request.Action)).
-				Msg("browser launch relay rejected unknown action")
-			return
+			Msg("browser launch relay accepted request without opener")
+		return
+	}
+	started := time.Now()
+	log.Debug().
+		Str("request_id", requestID).
+		Str("url_host", safeURLHost(request.URL)).
+		Msg("browser launch relay calling browser URL opener")
+	var err error
+	switch request.Action {
+	case "", browserLaunchActionOpenExternalURL:
+		err = opener.OpenExternalURL(ctx, request.URL)
+	case browserLaunchActionOpenFreshWindow:
+		err = opener.OpenFreshWindow(ctx, request.URL)
+	case browserLaunchActionOpenInstance:
+		instanceOpener, ok := opener.(port.BrowserInstanceOpener)
+		if !ok {
+			err = errors.New("browser launch relay opener does not support named instances")
+		} else {
+			err = instanceOpener.OpenInstance(ctx, request.Instance, request.URL)
 		}
-		if err != nil {
-			log.Warn().Err(err).
-				Str("request_id", requestID).
-				Str("url_host", safeURLHost(request.URL)).
-				Dur("elapsed", time.Since(started)).
-				Msg("browser launch relay browser URL opener failed")
-			return
+	case browserLaunchActionCloseAllWindows:
+		if closer, ok := opener.(windowCloseOpener); ok {
+			err = closer.CloseAllWindows(ctx)
+		} else {
+			err = errors.New("browser launch relay opener does not support diagnostic close")
 		}
-		log.Debug().
+	default:
+		log.Warn().
+			Str("request_id", requestID).
+			Str("url_host", safeURLHost(request.URL)).
+			Str("action", string(request.Action)).
+			Msg("browser launch relay rejected unknown action")
+		return
+	}
+	if err != nil {
+		log.Warn().Err(err).
 			Str("request_id", requestID).
 			Str("url_host", safeURLHost(request.URL)).
 			Dur("elapsed", time.Since(started)).
-			Msg("browser launch relay browser URL opener returned success")
-	}()
+			Msg("browser launch relay browser URL opener failed")
+		return
+	}
+	log.Debug().
+		Str("request_id", requestID).
+		Str("url_host", safeURLHost(request.URL)).
+		Dur("elapsed", time.Since(started)).
+		Msg("browser launch relay browser URL opener returned success")
 }
 
 var _ port.BrowserLaunchRelay = (*browserLaunchRelay)(nil)

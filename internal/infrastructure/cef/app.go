@@ -449,6 +449,10 @@ func parseBrowseRelaunchCommandLine(commandLine purecef.CommandLine) (string, bo
 			if strings.TrimPrefix(arg, "--instance=") == "" {
 				return "", false
 			}
+		case arg == "--profile" || strings.HasPrefix(arg, "--profile=") || arg == "--ephemeral":
+			// Profile-scoped launches must be handled by their own elected host;
+			// CEF's already-running callback must never route them into this one.
+			return "", false
 		case strings.HasPrefix(arg, "-"):
 			return "", false
 		case browseURL == "":

@@ -216,8 +216,13 @@ func main() {
 	if mode == launchModeBrowse {
 		cfg := initConfig()
 		timing.configComplete = time.Now()
-		browseArgs, _ := cmd.ParseBrowseLaunchArgs(os.Args[2:])
-		if browseArgs.Instance != "" || browseArgs.Profile != "" || browseArgs.Ephemeral {
+		browseArgs, ok := cmd.ParseBrowseLaunchArgs(os.Args[2:])
+		if !ok {
+			cmd.Execute()
+			return
+		}
+		if cfg.Engine.ResolveEngineType() == config.EngineTypeCEF || browseArgs.Instance != "" ||
+			browseArgs.Profile != "" || browseArgs.Ephemeral {
 			os.Exit(runInstanceGUI(cfg, timing, browseArgs))
 			return
 		}
@@ -302,24 +307,11 @@ func runInstanceGUI(cfg *config.Config, timing startupTiming, args cmd.BrowseArg
 	browserLaunchRelay = desktop.NewBrowserLaunchRelay(profile.IPC)
 	startupURL := domainurl.ResolveBrowserStartupURL(args.URL)
 	_ = os.Unsetenv(desktop.FreshWindowLaunchEnvVar)
-	instanceRelay, ok := browserLaunchRelay.(port.BrowserInstanceLaunchRelay)
-	if !ok {
-		fmt.Fprintln(os.Stderr, "dumber: browser launch relay does not support named instances")
-		return 1
-	}
 	instanceName := args.Instance
 	if instanceName == "" {
 		instanceName = "default"
 	}
-	if forwarded, err := instanceRelay.DeliverOpenInstance(context.Background(), instanceName, startupURL); err != nil {
-		if forwarded && errors.Is(err, desktop.ErrBrowserLaunchRelayUnconfirmed) {
-			return 0
-		}
-		fmt.Fprintf(os.Stderr, "warning: failed to forward instance %q, starting the CEF profile host: %v\n", instanceName, err)
-	} else if forwarded {
-		return 0
-	}
-	// The first named launch owns the shared profile host. Its initial browser
+	// The elected first launch owns the shared profile host. Its initial browser
 	// window is registered for the instance after GTK activation below.
 	initialURL = startupURL
 	restoreSessionID = ""
@@ -329,11 +321,14 @@ func runInstanceGUI(cfg *config.Config, timing startupTiming, args cmd.BrowseArg
 	}
 	defer func() { _ = os.Unsetenv("DUMBER_INITIAL_INSTANCE") }()
 	os.Args = os.Args[:1]
-	code, launchErr := bootstrap.RunWithInstanceRelay(context.Background(), profile, browserLaunchRelay, func() int {
-		return runGUIWithProfile(cfg, timing, profile)
-	})
-	if launchErr != nil {
-		fmt.Fprintf(os.Stderr, "dumber: start CEF profile host: %v\n", launchErr)
+	code, launchErr := bootstrap.DeliverOrRunWithInstanceRelay(
+		context.Background(), profile, browserLaunchRelay, instanceName, startupURL,
+		func() int {
+			return runGUIWithProfile(cfg, timing, profile)
+		},
+	)
+	if launchErr != nil && !errors.Is(launchErr, desktop.ErrBrowserLaunchRelayUnconfirmed) {
+		fmt.Fprintf(os.Stderr, "dumber: start or deliver to CEF profile host: %v\n", launchErr)
 	}
 	if args.Ephemeral {
 		if removeErr := os.RemoveAll(profile.InstanceRoot); removeErr != nil {
@@ -651,8 +646,7 @@ func runParallelInitPhase(ctx context.Context, cfg *config.Config, profile runti
 		RuntimeProfile: profile,
 	})
 	if err != nil {
-		handleParallelInitError(ctx, err)
-		return nil, err
+		return nil, reportParallelInitError(ctx, err)
 	}
 	return initResult, nil
 }
@@ -853,15 +847,17 @@ func initConfig() *config.Config {
 	return config.Get()
 }
 
-func handleParallelInitError(ctx context.Context, err error) {
+func reportParallelInitError(ctx context.Context, err error) error {
 	log := logging.FromContext(ctx)
 	if runtimeErr, ok := err.(*bootstrap.RuntimeRequirementsError); ok {
 		runtimeErr.LogDetails(ctx)
-		log.Fatal().Err(runtimeErr).
+		log.Error().Err(runtimeErr).
 			Str("hint", "Run: dumber doctor (and set runtime.prefix for /opt installs)").
 			Msg("runtime requirements not met")
+		return err
 	}
-	log.Fatal().Err(err).Msg("initialization failed")
+	log.Error().Err(err).Msg("initialization failed")
+	return err
 }
 
 func logDeferredInitResults(ctx context.Context, result bootstrap.DeferredInitResult) {

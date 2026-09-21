@@ -126,6 +126,20 @@ func TestParseBrowseURLFromRelaunchCommandLineWithInstanceFlag(t *testing.T) {
 	}
 }
 
+func TestParseBrowseRelaunchCommandLineRejectsCrossProfileLaunches(t *testing.T) {
+	t.Parallel()
+
+	for _, commandLine := range []string{
+		"dumber browse --profile work https://example.com",
+		"dumber browse --profile=work https://example.com",
+		"dumber browse --ephemeral https://example.com",
+	} {
+		if got, ok := parseBrowseRelaunchCommandLine(relaunchCommandLineStub{commandLineString: commandLine}); ok || got != "" {
+			t.Fatalf("parseBrowseRelaunchCommandLine(%q) = (%q, %v), want rejected", commandLine, got, ok)
+		}
+	}
+}
+
 func TestDumberBPH_OnAlreadyRunningAppRelaunch_ForwardsBrowseURLAndReturns1(t *testing.T) {
 	t.Parallel()
 

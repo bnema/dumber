@@ -199,6 +199,10 @@ func prepareCEFSettings(
 	settings.MultiThreadedMessageLoop = true
 	settings.ExternalMessagePump = false
 	settings.RootCachePath = paths.stateRoot(opts)
+	// purego-cef follows CEF's global request-context contract: RootCachePath
+	// only bounds acceptable cache paths; CachePath opts the global context
+	// into persistent cookies and localStorage.
+	settings.CachePath = settings.RootCachePath
 	settings.CEFDir = configureCEFSubprocessRuntime(cfg.CEFDir)
 	if runtimeLogFile, err := prepareCEFLogFile(paths.LogFile, cfg.LogFile); err != nil {
 		logger.Warn().Err(err).Msg("cef: failed to prepare runtime log file")
