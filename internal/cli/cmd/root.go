@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -130,11 +131,11 @@ Examples:
 		instance, _ := command.Flags().GetString("instance")
 		profile, _ := command.Flags().GetString("profile")
 		ephemeral, _ := command.Flags().GetBool("ephemeral")
-		if command.Flags().Changed("instance") && instance == "" {
-			return fmt.Errorf("--instance must not be empty")
+		if command.Flags().Changed("instance") && (instance == "" || strings.HasPrefix(instance, "-")) {
+			return fmt.Errorf("--instance must not be empty or start with '-'")
 		}
-		if command.Flags().Changed("profile") && profile == "" {
-			return fmt.Errorf("--profile must not be empty")
+		if command.Flags().Changed("profile") && (profile == "" || strings.HasPrefix(profile, "-")) {
+			return fmt.Errorf("--profile must not be empty or start with '-'")
 		}
 		if profile != "" && ephemeral {
 			return fmt.Errorf("--profile and --ephemeral are mutually exclusive")

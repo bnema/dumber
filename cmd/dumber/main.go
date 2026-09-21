@@ -248,7 +248,7 @@ func main() {
 		}
 
 		initialURL = startupURL
-		restoreSessionID = os.Getenv("DUMBER_RESTORE_SESSION")
+		restoreSessionID = os.Getenv(desktop.RestoreSessionEnvVar)
 		os.Args = os.Args[:1]
 		os.Exit(runGUI(cfg, timing))
 		return
@@ -306,15 +306,15 @@ func runInstanceGUI(cfg *config.Config, timing startupTiming, args cmd.BrowseArg
 	}
 	browserLaunchRelay = desktop.NewBrowserLaunchRelay(profile.IPC)
 	startupURL := domainurl.ResolveBrowserStartupURL(args.URL)
-	_ = os.Unsetenv(desktop.FreshWindowLaunchEnvVar)
-	instanceName := args.Instance
-	if instanceName == "" {
-		instanceName = "default"
+	freshWindow := os.Getenv(desktop.FreshWindowLaunchEnvVar) == "1"
+	if freshWindow {
+		_ = os.Unsetenv(desktop.FreshWindowLaunchEnvVar)
 	}
+	instanceName := args.Instance
 	// The elected first launch owns the shared profile host. Its initial browser
 	// window is registered for the instance after GTK activation below.
 	initialURL = startupURL
-	restoreSessionID = ""
+	restoreSessionID = os.Getenv(desktop.RestoreSessionEnvVar)
 	if err := os.Setenv("DUMBER_INITIAL_INSTANCE", instanceName); err != nil {
 		fmt.Fprintf(os.Stderr, "dumber: set initial instance: %v\n", err)
 		return 1
@@ -322,7 +322,7 @@ func runInstanceGUI(cfg *config.Config, timing startupTiming, args cmd.BrowseArg
 	defer func() { _ = os.Unsetenv("DUMBER_INITIAL_INSTANCE") }()
 	os.Args = os.Args[:1]
 	code, launchErr := bootstrap.DeliverOrRunWithInstanceRelay(
-		context.Background(), profile, browserLaunchRelay, instanceName, startupURL,
+		context.Background(), profile, browserLaunchRelay, instanceName, startupURL, freshWindow,
 		func() int {
 			return runGUIWithProfile(cfg, timing, profile)
 		},

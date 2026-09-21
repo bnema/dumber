@@ -53,7 +53,7 @@ func NewConnection(ctx context.Context, dbPath string) (*sql.DB, error) {
 	}
 
 	// Apply performance pragmas
-	if err := applyPragmas(db); err != nil {
+	if err := applyPragmas(ctx, db); err != nil {
 		_ = db.Close()
 		return nil, err
 	}
@@ -69,14 +69,14 @@ func NewConnection(ctx context.Context, dbPath string) (*sql.DB, error) {
 	return db, nil
 }
 
+const (
+	pragmaRetryTimeout = 5 * time.Second
+	lockRetryInterval  = 25 * time.Millisecond
+)
+
 // applyPragmas configures SQLite for optimal performance.
-func applyPragmas(db *sql.DB) error {
-	const (
-		pragmaRetryTimeout = 5 * time.Second
-		lockRetryInterval  = 25 * time.Millisecond
-	)
+func applyPragmas(ctx context.Context, db *sql.DB) error {
 	pragmas := []string{
-		"PRAGMA journal_mode = WAL",    // Write-Ahead Logging for concurrent access
 		"PRAGMA synchronous = NORMAL",  // Safe in WAL mode
 		"PRAGMA cache_size = -64000",   // 64MB cache
 		"PRAGMA temp_store = MEMORY",   // Temporary tables in RAM
@@ -85,21 +85,44 @@ func applyPragmas(db *sql.DB) error {
 		"PRAGMA foreign_keys = ON",     // Enable referential integrity
 	}
 
-	for _, pragma := range pragmas {
-		deadline := time.Now().Add(pragmaRetryTimeout)
-		for {
-			if _, err := db.Exec(pragma); err != nil {
-				if isSQLiteBusy(err) && time.Now().Before(deadline) {
-					time.Sleep(lockRetryInterval)
-					continue
-				}
-				return fmt.Errorf("failed to set pragma %q: %w", pragma, err)
-			}
-			break
-		}
+	var journalMode string
+	if err := retryPragma(ctx, func() error {
+		return db.QueryRowContext(ctx, "PRAGMA journal_mode = WAL").Scan(&journalMode)
+	}); err != nil {
+		return fmt.Errorf("failed to set pragma %q: %w", "PRAGMA journal_mode = WAL", err)
+	}
+	if !strings.EqualFold(journalMode, "wal") {
+		return fmt.Errorf("failed to set pragma %q: journal mode is %q", "PRAGMA journal_mode = WAL", journalMode)
 	}
 
+	for _, pragma := range pragmas {
+		if err := retryPragma(ctx, func() error {
+			_, err := db.ExecContext(ctx, pragma)
+			return err
+		}); err != nil {
+			return fmt.Errorf("failed to set pragma %q: %w", pragma, err)
+		}
+	}
 	return nil
+}
+
+func retryPragma(ctx context.Context, run func() error) error {
+	deadline := time.Now().Add(pragmaRetryTimeout)
+	for {
+		err := run()
+		if err == nil || !isSQLiteBusy(err) || !time.Now().Before(deadline) {
+			return err
+		}
+		timer := time.NewTimer(lockRetryInterval)
+		select {
+		case <-ctx.Done():
+			if !timer.Stop() {
+				<-timer.C
+			}
+			return ctx.Err()
+		case <-timer.C:
+		}
+	}
 }
 
 func isSQLiteBusy(err error) bool {
@@ -113,7 +136,7 @@ func lockDatabaseStartup(ctx context.Context, path string) (*os.File, error) {
 		lockRetryInterval = 25 * time.Millisecond
 		ownerOnlyFileMode = 0o600
 	)
-	file, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR, ownerOnlyFileMode)
+	file, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR|os.O_TRUNC, ownerOnlyFileMode)
 	if err != nil {
 		return nil, fmt.Errorf("open database startup lock: %w", err)
 	}

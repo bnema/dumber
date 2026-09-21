@@ -1,8 +1,10 @@
 package cmd
 
 import (
+	"io"
 	"testing"
 
+	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/require"
 )
 
@@ -19,6 +21,8 @@ func TestParseBrowseArgs(t *testing.T) {
 		{"missing name", "", "", []string{"--instance"}, false},
 		{"empty equals", "", "", []string{"--instance="}, false},
 		{"empty separate", "", "", []string{"--instance", ""}, false},
+		{"flag-like name", "", "", []string{"--instance", "--ephemeral"}, false},
+		{"flag-like profile", "", "", []string{"--profile", "--ephemeral"}, false},
 		{"help", "", "", []string{"--help"}, false},
 		{"unknown", "", "", []string{"--unknown"}, false},
 		{"extra", "", "", []string{"--instance", "work", "a", "b"}, false},
@@ -50,4 +54,41 @@ func TestParseBrowseLaunchArgsProfiles(t *testing.T) {
 
 	_, ok = ParseBrowseLaunchArgs([]string{"--profile", "work", "--ephemeral"})
 	require.False(t, ok)
+
+	_, ok = ParseBrowseLaunchArgs([]string{"--profile", "--ephemeral"})
+	require.False(t, ok, "a flag-like profile must not be treated as a profile name")
+
+	_, ok = ParseBrowseLaunchArgs([]string{"--instance", "--ephemeral"})
+	require.False(t, ok, "a flag-like instance must not be treated as an instance name")
+}
+
+// browsePreRunEError exercises the real browse PreRunE through Cobra flag
+// parsing, which is the fallback path main takes when early launch parsing
+// rejects the arguments.
+func browsePreRunEError(t *testing.T, args []string) error {
+	t.Helper()
+	cmd := &cobra.Command{
+		Use:           "browse",
+		Args:          cobra.MaximumNArgs(1),
+		SilenceErrors: true,
+		SilenceUsage:  true,
+		PreRunE:       browseCmd.PreRunE,
+		Run:           func(*cobra.Command, []string) {},
+	}
+	cmd.Flags().AddFlagSet(browseFlags())
+	cmd.SetOut(io.Discard)
+	cmd.SetErr(io.Discard)
+	cmd.SetArgs(args)
+	return cmd.Execute()
+}
+
+func TestBrowseCommandPreRunERejectsFlagLikeValues(t *testing.T) {
+	require.Error(t, browsePreRunEError(t, []string{"--instance", "--ephemeral"}))
+	require.Error(t, browsePreRunEError(t, []string{"--profile", "--ephemeral"}))
+	require.Error(t, browsePreRunEError(t, []string{"--instance", ""}))
+	require.Error(t, browsePreRunEError(t, []string{"--profile", ""}))
+
+	require.NoError(t, browsePreRunEError(t, []string{"--instance", "work"}))
+	require.NoError(t, browsePreRunEError(t, []string{"--instance", "private", "--ephemeral"}))
+	require.NoError(t, browsePreRunEError(t, []string{"--profile", "work"}))
 }

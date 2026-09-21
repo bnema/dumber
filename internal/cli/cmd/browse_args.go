@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"io"
+	"strings"
 
 	"github.com/spf13/pflag"
 )
@@ -32,10 +33,10 @@ func ParseBrowseLaunchArgs(args []string) (BrowseArgs, bool) {
 	result.Instance, _ = flags.GetString("instance")
 	result.Profile, _ = flags.GetString("profile")
 	result.Ephemeral, _ = flags.GetBool("ephemeral")
-	if flags.Changed("instance") && result.Instance == "" {
+	if flags.Changed("instance") && (result.Instance == "" || strings.HasPrefix(result.Instance, "-")) {
 		return BrowseArgs{}, false
 	}
-	if flags.Changed("profile") && result.Profile == "" {
+	if flags.Changed("profile") && (result.Profile == "" || strings.HasPrefix(result.Profile, "-")) {
 		return BrowseArgs{}, false
 	}
 	if result.Profile != "" && result.Ephemeral {

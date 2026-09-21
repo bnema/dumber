@@ -72,11 +72,20 @@ func DeliverOrRunWithInstanceRelay(
 	profile runtimeprofile.Profile,
 	relay port.BrowserLaunchRelay,
 	name, url string,
+	freshWindow bool,
 	run func() int,
 ) (int, error) {
-	instanceRelay, ok := relay.(port.BrowserInstanceLaunchRelay)
-	if !ok {
-		return 1, fmt.Errorf("named instance requires an instance launch relay")
+	deliver := relay.DeliverOpenExternalURL
+	if freshWindow {
+		deliver = relay.DeliverOpenFreshWindow
+	} else if name != "" {
+		instanceRelay, ok := relay.(port.BrowserInstanceLaunchRelay)
+		if !ok {
+			return 1, fmt.Errorf("named instance requires an instance launch relay")
+		}
+		deliver = func(ctx context.Context, url string) (bool, error) {
+			return instanceRelay.DeliverOpenInstance(ctx, name, url)
+		}
 	}
 	// Normalize before any acquisition attempt so a cold default profile locks
 	// the shared IPC runtime directory instead of retrying a permanent mkdir/open
@@ -86,7 +95,7 @@ func DeliverOrRunWithInstanceRelay(
 	}
 	for {
 		deliveryCtx, cancel := context.WithTimeout(ctx, instanceElectionSlice)
-		delivered, err := instanceRelay.DeliverOpenInstance(deliveryCtx, name, url)
+		delivered, err := deliver(deliveryCtx, url)
 		cancel()
 		if delivered {
 			// An unconfirmed ACK still means ownership may have transferred; retrying

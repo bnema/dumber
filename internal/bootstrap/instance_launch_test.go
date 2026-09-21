@@ -16,16 +16,30 @@ import (
 
 type instanceRelayStub struct {
 	port.BrowserLaunchRelay
-	err          error
-	prepared     bool
-	lease        io.Closer
-	deliverCalls int
-	deliverAfter int
+	err           error
+	prepared      bool
+	lease         io.Closer
+	deliverCalls  int
+	deliverAfter  int
+	deliveredKind string
+}
+
+func (r *instanceRelayStub) deliver(kind string) (bool, error) {
+	r.deliveredKind = kind
+	r.deliverCalls++
+	return r.deliverCalls >= r.deliverAfter, nil
+}
+
+func (r *instanceRelayStub) DeliverOpenExternalURL(context.Context, string) (bool, error) {
+	return r.deliver("external")
+}
+
+func (r *instanceRelayStub) DeliverOpenFreshWindow(context.Context, string) (bool, error) {
+	return r.deliver("fresh")
 }
 
 func (r *instanceRelayStub) DeliverOpenInstance(context.Context, string, string) (bool, error) {
-	r.deliverCalls++
-	return r.deliverCalls >= r.deliverAfter, nil
+	return r.deliver("instance")
 }
 
 func (r *instanceRelayStub) Prepare(lease io.Closer) error {
@@ -58,6 +72,35 @@ func TestRunWithInstanceRelayFailsBeforeEngineStartup(t *testing.T) {
 	require.ErrorIs(t, err, failure)
 	require.True(t, relay.prepared)
 }
+func TestDeliverOrRunWithInstanceRelayPreservesLaunchIntent(t *testing.T) {
+	for _, test := range []struct {
+		name        string
+		instance    string
+		freshWindow bool
+		want        string
+	}{
+		{name: "default external", want: "external"},
+		{name: "named instance", instance: "work", want: "instance"},
+		{name: "fresh window", instance: "work", freshWindow: true, want: "fresh"},
+		{name: "fresh window without instance", freshWindow: true, want: "fresh"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			profile := testInstanceProfile(t)
+			owner, err := acquireInstanceNamespace(context.Background(), profile)
+			require.NoError(t, err)
+			defer owner.Close()
+			relay := &instanceRelayStub{deliverAfter: 1}
+			code, err := DeliverOrRunWithInstanceRelay(context.Background(), profile, relay, test.instance, "https://example.com", test.freshWindow, func() int {
+				t.Fatal("delivered request must not start host")
+				return 1
+			})
+			require.NoError(t, err)
+			require.Zero(t, code)
+			require.Equal(t, test.want, relay.deliveredKind)
+		})
+	}
+}
+
 func TestDeliverOrRunWithInstanceRelayRetriesWhileHostStarts(t *testing.T) {
 	profile := testInstanceProfile(t)
 	owner, err := acquireInstanceNamespace(context.Background(), profile)
@@ -67,7 +110,7 @@ func TestDeliverOrRunWithInstanceRelayRetriesWhileHostStarts(t *testing.T) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
-	code, err := DeliverOrRunWithInstanceRelay(ctx, profile, relay, "work", "https://example.com", func() int {
+	code, err := DeliverOrRunWithInstanceRelay(ctx, profile, relay, "work", "https://example.com", false, func() int {
 		t.Fatal("loser must not start host")
 		return 1
 	})
@@ -78,7 +121,9 @@ func TestDeliverOrRunWithInstanceRelayRetriesWhileHostStarts(t *testing.T) {
 
 // With a cold default profile no host is running, so the first process must
 // normalize InstanceRoot to IPC.RuntimeDir, acquire the lease, prepare the
-// relay, and start the host instead of spinning on an empty runtime path.
+// relay, and start the host instead of spinning on an empty runtime path. The
+// real default cold start carries an empty instance name (main passes
+// args.Instance verbatim), so delivery must use the external-URL path.
 func TestDeliverOrRunWithInstanceRelayStartsHostForColdDefaultProfile(t *testing.T) {
 	profile := testColdDefaultProfile(t)
 	relay := &instanceRelayStub{deliverAfter: 1 << 30}
@@ -86,7 +131,7 @@ func TestDeliverOrRunWithInstanceRelayStartsHostForColdDefaultProfile(t *testing
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
-	code, err := DeliverOrRunWithInstanceRelay(ctx, profile, relay, "default", "https://example.com", func() int {
+	code, err := DeliverOrRunWithInstanceRelay(ctx, profile, relay, "", "https://example.com", false, func() int {
 		ran = true
 		return 0
 	})
@@ -95,6 +140,7 @@ func TestDeliverOrRunWithInstanceRelayStartsHostForColdDefaultProfile(t *testing
 	require.True(t, ran, "cold default profile must start the host")
 	require.True(t, relay.prepared, "host must prepare the relay")
 	require.Equal(t, 1, relay.deliverCalls)
+	require.Equal(t, "external", relay.deliveredKind, "empty instance name must not use the instance relay")
 }
 
 // A permanent acquisition failure (for example a runtime root that cannot be
@@ -111,7 +157,7 @@ func TestDeliverOrRunWithInstanceRelayReturnsPermanentAcquireError(t *testing.T)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 	start := time.Now()
-	code, err := DeliverOrRunWithInstanceRelay(ctx, profile, relay, "default", "https://example.com", func() int {
+	code, err := DeliverOrRunWithInstanceRelay(ctx, profile, relay, "default", "https://example.com", false, func() int {
 		t.Fatal("permanent failure must not start the host")
 		return 1
 	})
