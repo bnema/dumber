@@ -183,13 +183,16 @@ func (h *handlerSet) OnFaviconUrlchange(browser purecef.Browser, iconURLs purece
 		return
 	}
 	h.wv.mu.RLock()
-	pageURL, cb, currentBrowser, documentSeq := h.wv.uri, h.wv.callbacks, h.wv.browser, h.wv.documentSeq
+	pageURL, committedURL, cb, currentBrowser, documentSeq := h.wv.uri, h.wv.committedURL, h.wv.callbacks, h.wv.browser, h.wv.documentSeq
 	h.wv.mu.RUnlock()
 	if cb == nil || cb.OnFaviconURLChanged == nil || browser == nil || currentBrowser == nil ||
 		browser.GetIdentifier() != currentBrowser.GetIdentifier() {
 		return
 	}
-	candidates := resolveFaviconCandidates(pageURL, decodeCEFStringList(iconURLs))
+	if committedURL == "" {
+		committedURL = pageURL
+	}
+	candidates := resolveFaviconCandidates(committedURL, decodeCEFStringList(iconURLs))
 	if len(candidates) == 0 {
 		return
 	}
