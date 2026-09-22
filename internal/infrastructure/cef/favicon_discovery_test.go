@@ -72,6 +72,26 @@ func TestCEFOnFaviconUrlchangeForwardsOrderedCandidates(t *testing.T) {
 	require.Equal(t, []string{"https://example.com/favicon.png", "https://cdn.example.com/icon.ico"}, icons)
 }
 
+func TestCEFOnFaviconUrlchangeResolvesInternalCandidatesAgainstCommittedURL(t *testing.T) {
+	prevDecode := decodeCEFStringList
+	decodeCEFStringList = func(purecef.StringList) []string { return []string{"/favicon.png"} }
+	defer func() { decodeCEFStringList = prevDecode }()
+
+	var page string
+	var icons []string
+	browser := cefmocks.NewMockBrowser(t)
+	browser.EXPECT().GetIdentifier().Return(int32(7)).Maybe()
+	wv := &WebView{ctx: context.Background(), browser: browser, documentSeq: 1, callbacks: &port.WebViewCallbacks{
+		OnFaviconURLChanged: func(p string, urls []string) { page, icons = p, urls },
+	}}
+	wv.setCommittedURLsLocked("https://dumber.invalid/history", "dumb://history")
+
+	(&handlerSet{wv: wv}).OnFaviconUrlchange(browser, purecef.StringList(1))
+
+	require.Equal(t, "dumb://history", page)
+	require.Equal(t, []string{"https://dumber.invalid/favicon.png"}, icons)
+}
+
 func TestCEFLoadingFinishedDiscoversMetadataBeforeFallback(t *testing.T) {
 	prevNewStringVisitor := cefNewStringVisitor
 	cefNewStringVisitor = func(visitor purecef.StringVisitor) purecef.StringVisitor { return visitor }
@@ -95,6 +115,32 @@ func TestCEFLoadingFinishedDiscoversMetadataBeforeFallback(t *testing.T) {
 
 	require.Equal(t, "https://example.com/docs/page", page)
 	require.Equal(t, []string{"https://example.com/meta.png", "https://example.com/favicon.ico"}, icons)
+}
+
+func TestCEFLoadingFinishedResolvesInternalMetadataAgainstCommittedURL(t *testing.T) {
+	prevNewStringVisitor := cefNewStringVisitor
+	cefNewStringVisitor = func(visitor purecef.StringVisitor) purecef.StringVisitor { return visitor }
+	defer func() { cefNewStringVisitor = prevNewStringVisitor }()
+
+	browser := cefmocks.NewMockBrowser(t)
+	frame := cefmocks.NewMockFrame(t)
+	browser.EXPECT().GetIdentifier().Return(int32(7)).Maybe()
+	browser.EXPECT().GetMainFrame().Return(frame)
+	frame.EXPECT().GetSource(mock.Anything).Run(func(visitor purecef.StringVisitor) {
+		visitor.Visit(`<html><head><link rel="icon" href="/meta.png"></head></html>`)
+	}).Return()
+
+	var page string
+	var icons []string
+	wv := &WebView{ctx: context.Background(), browser: browser, documentSeq: 1, callbacks: &port.WebViewCallbacks{
+		OnFaviconURLChanged: func(p string, urls []string) { page, icons = p, urls },
+	}}
+	wv.setCommittedURLsLocked("https://dumber.invalid/history", "dumb://history")
+
+	(&handlerSet{wv: wv}).OnLoadingStateChange(browser, 0, 1, 0)
+
+	require.Equal(t, "dumb://history", page)
+	require.Equal(t, []string{"https://dumber.invalid/meta.png", "https://dumber.invalid/favicon.ico"}, icons)
 }
 
 func TestCEFLoadingFinishedForwardsFallbackCandidate(t *testing.T) {

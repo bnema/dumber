@@ -256,7 +256,13 @@ type WebView struct {
 	popupOpenerBridgeParentURI  string
 
 	// State cache (mutex-protected).
+	// uri is the conceptual/public URI used by UI callbacks (for example
+	// dumb://history). committedURL is the raw committed CEF main-frame URL
+	// (for example https://dumber.invalid/history). The two forms are updated
+	// together through setCommittedURLsLocked; never compare one form against
+	// the other.
 	uri                       string
+	committedURL              string
 	title                     string
 	progress                  float64
 	canGoBack                 bool
@@ -1148,9 +1154,11 @@ func (wv *WebView) activateNativePopup(popupID int32, targetURL string) (purecef
 		wv.setPendingNavigationLocked(toActualInternalURL(targetURL), time.Now())
 	}
 	if strings.TrimSpace(wv.pendingURI) != "" {
-		wv.uri = toConceptualInternalURL(wv.pendingURI)
+		raw := strings.TrimSpace(wv.pendingURI)
+		wv.setCommittedURLsLocked(raw, toConceptualInternalURL(raw))
 	} else {
-		wv.uri = toConceptualInternalURL(targetURL)
+		raw := strings.TrimSpace(targetURL)
+		wv.setCommittedURLsLocked(raw, toConceptualInternalURL(raw))
 	}
 	wv.isLoading = true
 	return wv.client, true
@@ -1461,10 +1469,20 @@ func (wv *WebView) NativeWidget() uintptr {
 // ---------------------------------------------------------------------------
 
 func (wv *WebView) updateURI(uri string) {
-	uri = toConceptualInternalURL(uri)
+	wv.setCommittedURL(uri)
+}
+
+// setCommittedURL is the single owner of main-frame commit identity: it
+// updates the raw committed CEF URL and the conceptual/public URI together,
+// preserving pending-navigation acknowledgement, diagnostics timestamps, and
+// all current callbacks. raw is the unmodified committed URL; the conceptual
+// URI is derived from it.
+func (wv *WebView) setCommittedURL(raw string) {
+	raw = strings.TrimSpace(raw)
+	uri := toConceptualInternalURL(raw)
 	now := time.Now()
 	wv.mu.Lock()
-	wv.uri = uri
+	wv.setCommittedURLsLocked(raw, uri)
 	wv.loadDiagLastAddressAt = now
 	cb := wv.callbacks
 	pendingMatched := wv.clearPendingNavigationIfEquivalentLocked(uri)
@@ -1482,6 +1500,13 @@ func (wv *WebView) updateURI(uri string) {
 		})
 	}
 	wv.runNavigationCallbacks(uri)
+}
+
+// setCommittedURLsLocked records the raw committed CEF main-frame URL and
+// the conceptual/public URI derived from it. The caller must hold wv.mu.
+func (wv *WebView) setCommittedURLsLocked(raw, uri string) {
+	wv.committedURL = raw
+	wv.uri = uri
 }
 
 func (wv *WebView) updateTitle(title string) {
@@ -2285,6 +2310,17 @@ func (wv *WebView) claimPendingNavigationSubmission(intentID uint64, browserID i
 	return uri, pendingClaimReady
 }
 
+// documentIdentity is the private identity of a committed main-frame
+// document: the callback browser identifier, the navigation intent ID, the
+// document sequence, and the raw committed CEF URL. Conceptual and raw URL
+// forms are never compared against each other.
+type documentIdentity struct {
+	browserID    int32
+	intentID     uint64
+	documentSeq  uint64
+	committedURL string
+}
+
 // injectionEvent captures the navigation identity observed at main-frame
 // load-end so the GTK-dispatched installation can drop stale events: an
 // old main frame firing during process swap, or a queued callback outlived
@@ -2294,10 +2330,7 @@ func (wv *WebView) claimPendingNavigationSubmission(intentID uint64, browserID i
 // identity. noBrowserID marks captures taken while no browser was
 // attached. The current URL alone never proves document identity.
 type injectionEvent struct {
-	browserID   int32
-	intentID    uint64
-	documentSeq uint64
-	frameURL    string
+	documentIdentity
 }
 
 // noBrowserID marks an injection event captured while no browser was
@@ -2315,7 +2348,7 @@ const noBrowserID = int32(-1)
 // for the same document share the sequence and are installed once.
 func (wv *WebView) captureInjectionEvent(browser purecef.Browser, frameURL string) injectionEvent {
 	if wv == nil || browser == nil {
-		return injectionEvent{browserID: noBrowserID}
+		return injectionEvent{documentIdentity: documentIdentity{browserID: noBrowserID}}
 	}
 	browserID := browser.GetIdentifier()
 	wv.mu.RLock()
@@ -2323,8 +2356,12 @@ func (wv *WebView) captureInjectionEvent(browser purecef.Browser, frameURL strin
 	documentSeq := wv.documentSeq
 	wv.mu.RUnlock()
 	return injectionEvent{
-		browserID: browserID, intentID: intentID, documentSeq: documentSeq,
-		frameURL: strings.TrimSpace(frameURL),
+		documentIdentity: documentIdentity{
+			browserID:    browserID,
+			intentID:     intentID,
+			documentSeq:  documentSeq,
+			committedURL: strings.TrimSpace(frameURL),
+		},
 	}
 }
 
