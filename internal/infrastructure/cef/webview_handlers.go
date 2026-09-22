@@ -392,9 +392,13 @@ func (h *handlerSet) OnLoadingStateChange(browser purecef.Browser, isloading, ca
 	h.wv.mu.RLock()
 	cb := h.wv.callbacks
 	pageURL := h.wv.uri
+	committedURL := h.wv.committedURL
 	h.wv.mu.RUnlock()
+	if committedURL == "" {
+		committedURL = pageURL
+	}
 	if !loading && cb != nil && cb.OnFaviconURLChanged != nil {
-		h.emitDiscoveredFaviconCandidates(browser, pageURL, cb)
+		h.emitDiscoveredFaviconCandidates(browser, pageURL, committedURL, cb)
 	}
 	if cb != nil && cb.OnLoadChanged != nil {
 		if loading {
@@ -435,7 +439,7 @@ func (wv *WebView) retainFaviconSourceVisitor(visitor purecef.StringVisitor) fun
 	}
 }
 
-func (h *handlerSet) emitDiscoveredFaviconCandidates(browser purecef.Browser, pageURL string, cb *port.WebViewCallbacks) {
+func (h *handlerSet) emitDiscoveredFaviconCandidates(browser purecef.Browser, pageURL, committedURL string, cb *port.WebViewCallbacks) {
 	if h == nil || h.wv == nil || cb == nil || cb.OnFaviconURLChanged == nil {
 		return
 	}
@@ -458,7 +462,7 @@ func (h *handlerSet) emitDiscoveredFaviconCandidates(browser purecef.Browser, pa
 		}
 		h.wv.mu.Unlock()
 	}
-	fallback := fallbackFaviconCandidates(pageURL)
+	fallback := fallbackFaviconCandidates(committedURL)
 	emit := func(candidates []string) {
 		if len(candidates) == 0 {
 			return
@@ -499,7 +503,7 @@ func (h *handlerSet) emitDiscoveredFaviconCandidates(browser purecef.Browser, pa
 		if engineWon {
 			return
 		}
-		candidates := DiscoverFaviconCandidates(pageURL, source)
+		candidates := DiscoverFaviconCandidates(committedURL, source)
 		if len(candidates) == 0 {
 			candidates = fallback
 		}

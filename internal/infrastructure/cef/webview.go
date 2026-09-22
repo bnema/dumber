@@ -1154,9 +1154,11 @@ func (wv *WebView) activateNativePopup(popupID int32, targetURL string) (purecef
 		wv.setPendingNavigationLocked(toActualInternalURL(targetURL), time.Now())
 	}
 	if strings.TrimSpace(wv.pendingURI) != "" {
-		wv.setCommittedURLsLocked(strings.TrimSpace(wv.pendingURI), toConceptualInternalURL(wv.pendingURI))
+		raw := strings.TrimSpace(wv.pendingURI)
+		wv.setCommittedURLsLocked(raw, toConceptualInternalURL(raw))
 	} else {
-		wv.setCommittedURLsLocked(strings.TrimSpace(targetURL), toConceptualInternalURL(targetURL))
+		raw := strings.TrimSpace(targetURL)
+		wv.setCommittedURLsLocked(raw, toConceptualInternalURL(raw))
 	}
 	wv.isLoading = true
 	return wv.client, true
