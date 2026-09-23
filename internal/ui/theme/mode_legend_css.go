@@ -1,37 +1,45 @@
 package theme
 
+import (
+	"fmt"
+	"strings"
+)
+
+// modeLegendColors maps legend mode classes to the palette variable of their mode.
+var modeLegendColors = []struct{ mode, color string }{
+	{"pane", "--pane-mode-color"},
+	{"vim", "--pane-mode-color"},
+	{"resize", "--resize-mode-color"},
+	{"tab", "--tab-mode-color"},
+	{"session", "--session-mode-color"},
+}
+
 func generateModeLegendCSS() string {
-	return `/* Mode frame legend: shares omnibox palette and treatments. */
+	var sb strings.Builder
+	sb.WriteString(`/* Mode frame legend: omnibox surface, tinted with the active mode color. */
 .mode-legend-anchor { background-color: transparent; }
-.mode-legend-panel {
-	--mode-legend-color: var(--pane-mode-color);
-	border-color: var(--mode-legend-color);
-	border-width: 0.25em;
-	border-radius: 0.625em 0.625em 0 0;
-	padding: 0.5em;
+.omnibox-container.mode-legend-panel {
+	border-style: solid;
+	border-width: 0.125em;
+	padding: 0 0 0.375em 0;
 	min-width: 0;
 	animation: mode-legend-appear 120ms ease-out;
 }
-.mode-legend-panel.mode-legend-no-motion { animation: none; }
-.mode-legend-panel.mode-legend-tab { --mode-legend-color: var(--tab-mode-color); }
-.mode-legend-panel.mode-legend-session { --mode-legend-color: var(--session-mode-color); }
-.mode-legend-panel.mode-legend-resize { --mode-legend-color: var(--resize-mode-color); }
-.mode-legend-panel.mode-legend-vim { border-width: 0.125em; --mode-legend-color: var(--pane-mode-color); }
-.mode-legend-panel.omnibox-style-minimal { border-radius: 0; }
-.mode-legend-panel.omnibox-style-multiplexer { border-radius: 0.25em 0.25em 0 0; }
+.omnibox-container.mode-legend-panel.mode-legend-no-motion { animation: none; }
 .mode-legend-title {
 	font-family: var(--font-mono);
+	font-size: 0.8125em;
 	font-weight: bold;
-	color: var(--mode-legend-color);
-	margin: 0.25em 0.5em 0.5em;
+	color: #ffffff;
+	padding: 0.375em 0.75em;
+	margin-bottom: 0.375em;
 }
-.mode-legend-content { padding: 0.25em; }
+.mode-legend-content { padding: 0 0.25em; }
 .mode-legend-group { margin: 0 0.375em; min-width: 0; }
 .mode-legend-group-title {
 	font-family: var(--font-mono);
-	font-size: 0.75em;
+	font-size: 0.6875em;
 	font-weight: bold;
-	color: var(--mode-legend-color);
 	margin-bottom: 0.25em;
 }
 .mode-legend-row { padding: 0.125em 0; min-width: 0; }
@@ -41,17 +49,27 @@ func generateModeLegendCSS() string {
 	font-weight: bold;
 	color: var(--text);
 	background-color: var(--surface-variant);
-	border: 0.0625em solid alpha(var(--mode-legend-color), 0.45);
+	border-style: solid;
+	border-width: 0.0625em;
 	border-radius: 0.25em;
-	padding: 0.125em 0.25em;
-	margin-right: 0.25em;
+	padding: 0.125em 0.375em;
+	margin-right: 0.375em;
+	transition: background-color 120ms ease-out, color 120ms ease-out;
 }
-.mode-legend-keycap.mode-legend-flash { background-color: var(--mode-legend-color); color: var(--bg); }
 .mode-legend-description { font-size: 0.75em; color: var(--muted); }
 .mode-legend-row.mode-legend-dim { opacity: 0.3; }
 @keyframes mode-legend-appear {
-	from { opacity: 0; transform: translateY(0.5em); }
-	to { opacity: 1; transform: translateY(0); }
+	from { opacity: 0; }
+	to { opacity: 1; }
 }
-`
+`)
+	for _, m := range modeLegendColors {
+		fmt.Fprintf(&sb, `.omnibox-container.mode-legend-panel.mode-legend-%[1]s { border-color: var(%[2]s); }
+.mode-legend-%[1]s .mode-legend-title { background-color: var(%[2]s); }
+.mode-legend-%[1]s .mode-legend-group-title { color: var(%[2]s); }
+.mode-legend-%[1]s .mode-legend-keycap { border-color: alpha(var(%[2]s), 0.6); }
+.mode-legend-%[1]s .mode-legend-keycap.mode-legend-flash { background-color: var(%[2]s); color: #ffffff; }
+`, m.mode, m.color)
+	}
+	return sb.String()
 }

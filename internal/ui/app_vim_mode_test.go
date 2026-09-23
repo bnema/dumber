@@ -706,8 +706,10 @@ func TestVimMode_Transfer_EmptyOwnershipIsNoop(t *testing.T) {
 // 4. Pulse targeting — normal vs fast
 // ============================================================================
 
+// attachTestModeFrame uses the pane overlay as the frame's CSS target so the
+// pulse assertions below observe the classes the frame border receives.
 func attachTestModeFrame(bw *browserWindow, target layout.Widget) {
-	bw.modeFrame = &modeFrame{mode: input.ModeVim, target: target, frameClass: "vim-mode-active"}
+	bw.modeFrame = &modeFrame{mode: input.ModeVim, target: target, frameClass: "vim-mode-active", borderStyle: target}
 }
 
 func setUpNormalPulse(overlay *mocks.MockOverlayWidget) {

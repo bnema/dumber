@@ -620,8 +620,8 @@ desc = "Open floating pane on GitHub"
 | `workspace.styling.tab_mode_color` | string | `"#FFA500"` | Tab mode color (orange) - used for border and toaster |
 | `workspace.styling.session_mode_color` | string | `"#9B59B6"` | Session mode color (purple) - used for border and toaster |
 | `workspace.styling.resize_mode_color` | string | `"#00D4AA"` | Resize mode color (teal) - used for border and toaster |
-| `workspace.styling.mode_indicator_toaster_enabled` | bool | `true` | Show the bottom-left mode toast until the legend appears, or while the legend is off |
-| `workspace.styling.mode_legend` | string | `"delay"` | `always`, `delay`, or `off`; the legend follows the active mode border |
+| `workspace.styling.mode_indicator_toaster_enabled` | bool | `true` | Show the bottom-left mode toast while a mode is active |
+| `workspace.styling.mode_legend` | string | `"delay"` | `always`, `delay`, or `off`; the legend sits on the active mode border in that mode's color |
 | `workspace.styling.mode_legend_delay_ms` | int | `500` | Wait before showing the legend when set to `delay` (>= 0) |
 | `workspace.styling.mode_legend_animations` | bool | `true` | Animate the legend and its keycap feedback |
 | `workspace.styling.transition_duration` | int | `120` | Base Vim border pulse duration (ms); legend appearance is 120 ms |

@@ -168,7 +168,7 @@ type WorkspaceStylingConfig struct {
 
 	ModeIndicatorToasterEnabled bool   `mapstructure:"mode_indicator_toaster_enabled" yaml:"mode_indicator_toaster_enabled" toml:"mode_indicator_toaster_enabled" json:"mode_indicator_toaster_enabled"` //nolint:lll // struct tags must stay on one line
 	ModeLegend                  string `mapstructure:"mode_legend" yaml:"mode_legend" toml:"mode_legend" json:"mode_legend"`
-	ModeLegendDelayMs           int    `mapstructure:"mode_legend_delay_ms" yaml:"mode_legend_delay_ms" toml:"mode_legend_delay_ms" json:"mode_legend_delay_ms"`                       //nolint:lll // struct tags must stay on one line
+	ModeLegendDelayMs           int    `mapstructure:"mode_legend_delay_ms" yaml:"mode_legend_delay_ms" toml:"mode_legend_delay_ms" json:"mode_legend_delay_ms"`         //nolint:lll // struct tags must stay on one line
 	ModeLegendAnimations        bool   `mapstructure:"mode_legend_animations" yaml:"mode_legend_animations" toml:"mode_legend_animations" json:"mode_legend_animations"` //nolint:lll // struct tags must stay on one line
 
 	TransitionDuration int `mapstructure:"transition_duration" yaml:"transition_duration" toml:"transition_duration" json:"transition_duration"` //nolint:lll // struct tags must stay on one line

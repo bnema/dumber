@@ -705,7 +705,7 @@ func (*SchemaProvider) getWorkspaceKeys(defaults *Config) []entity.ConfigKeyInfo
 			Key:         "workspace.styling.mode_indicator_toaster_enabled",
 			Type:        "bool",
 			Default:     fmt.Sprintf("%t", defaults.Workspace.Styling.ModeIndicatorToasterEnabled),
-			Description: "Show mode toast while the legend is delayed or disabled",
+			Description: "Show the mode toast while a mode is active",
 			Section:     SectionWorkspace,
 		},
 		{

@@ -920,28 +920,22 @@ func generatePaneCSS(p Palette) string {
 	border-color: transparent;
 }
 
-/* Pane mode active - thick inset border (for overlay) */
-.pane-mode-active {
+/* Mode frame: a click-through overlay drawn above web content. */
+.mode-frame-border {
 	background-color: transparent;
+	border-radius: 0;
+}
+
+.mode-frame-border.pane-mode-active {
 	box-shadow: inset 0 0 0 0.25em var(--pane-mode-color);
-	border-radius: 0;
 }
 
-/* Tab mode active - thick inset border (for overlay) */
-.tab-mode-active {
-	background-color: transparent;
+.mode-frame-border.tab-mode-active {
 	box-shadow: inset 0 0 0 0.25em var(--tab-mode-color);
-	border-radius: 0;
 }
 
-/* Resize mode active - thick inset border */
-.resize-mode-active {
-	background-color: transparent;
-	/* Prefer inset shadow, but also set outline for widgets that don't paint shadows */
+.mode-frame-border.resize-mode-active {
 	box-shadow: inset 0 0 0 0.25em var(--resize-mode-color);
-	outline: 0.25em solid var(--resize-mode-color);
-	outline-offset: -0.25em;
-	border-radius: 0;
 }
 `
 }
@@ -1301,10 +1295,8 @@ row:selected .session-manager-row {
 }
 
 /* Session mode border */
-.session-mode-active {
-	background-color: transparent;
+.mode-frame-border.session-mode-active {
 	box-shadow: inset 0 0 0 0.25em var(--session-mode-color);
-	border-radius: 0;
 }
 `
 }

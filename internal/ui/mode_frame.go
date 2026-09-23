@@ -1,7 +1,6 @@
 package ui
 
 import (
-	"context"
 	"strings"
 
 	"github.com/bnema/dumber/internal/domain/entity"
@@ -31,6 +30,9 @@ type modeFrame struct {
 	target            layout.Widget
 	frameClass        string
 	root              *gtk.Box
+	border            *gtk.Box
+	borderStyle       cssClassTarget // border's CSS classes; a seam for tests
+	borderRect        func() (x, y, width, height int, ok bool)
 	panel             *gtk.Box
 	content           *gtk.FlowBox
 	scroller          *gtk.ScrolledWindow
@@ -50,7 +52,6 @@ type modeFrame struct {
 	lastColumns       uint
 	lastPanelWidth    int
 	lastMaxHeight     int
-	onShow            func(context.Context)
 	overlay           *gtk.Overlay
 	positionHandlerID uint
 	pulseCycle        bool
@@ -82,15 +83,32 @@ func newModeFrame(overlay *gtk.Overlay) *modeFrame {
 	f.heading.AddCssClass("mode-legend-title")
 	f.panel.Append(&f.heading.Widget)
 	f.initLegendContent()
+	// The border is its own overlay: inset shadows on pane containers are
+	// painted below web content and would be invisible.
+	f.border = gtk.NewBox(gtk.OrientationVerticalValue, 0)
+	f.border.SetCanFocus(false)
+	f.border.SetCanTarget(false)
+	f.border.SetVisible(false)
+	f.border.AddCssClass("mode-frame-border")
+	f.borderStyle = f.border
+	overlay.AddOverlay(&f.border.Widget)
+	overlay.SetClipOverlay(&f.border.Widget, false)
+	overlay.SetMeasureOverlay(&f.border.Widget, false)
 	overlay.AddOverlay(&f.root.Widget)
 	overlay.SetClipOverlay(&f.root.Widget, false)
 	overlay.SetMeasureOverlay(&f.root.Widget, false)
 	// A single positioned overlay tracks the active pane without reparenting it.
 	cb := func(_ gtk.Overlay, widgetPtr uintptr, allocation *uintptr) bool {
-		if widgetPtr != f.root.GoPointer() || f.placement == nil {
+		placement := f.placement
+		if f.border != nil && widgetPtr == f.border.GoPointer() {
+			placement = f.borderRect
+		} else if widgetPtr != f.root.GoPointer() {
 			return false
 		}
-		x, y, w, h, ok := f.placement()
+		if placement == nil {
+			return false
+		}
+		x, y, w, h, ok := placement()
 		if !ok {
 			return false
 		}
@@ -133,12 +151,22 @@ func (f *modeFrame) destroy() {
 		f.positionHandlerID = 0
 	}
 	f.placement = nil
-	f.onShow = nil
+	f.borderRect = nil
 	if f.overlay != nil && f.root != nil {
 		f.overlay.RemoveOverlay(&f.root.Widget)
 	}
+	if f.overlay != nil && f.border != nil {
+		f.overlay.RemoveOverlay(&f.border.Widget)
+	}
 	f.overlay = nil
 	f.root = nil
+	f.border = nil
+	f.borderStyle = nil
+}
+
+type cssClassTarget interface {
+	AddCssClass(string)
+	RemoveCssClass(string)
 }
 
 func (f *modeFrame) setTarget(target layout.Widget, class string) {
@@ -148,38 +176,48 @@ func (f *modeFrame) setTarget(target layout.Widget, class string) {
 	if target == f.target && class == f.frameClass {
 		return
 	}
-	if f.target != nil && f.frameClass != "" {
-		f.target.RemoveCssClass(f.frameClass)
-		if f.frameClass == "vim-mode-active" {
-			for _, pulseClass := range []string{"vim-mode-pulse", "vim-mode-pulse-fast", "vim-mode-pulse-cycle-a", "vim-mode-pulse-cycle-b"} {
-				f.target.RemoveCssClass(pulseClass)
-			}
+	if f.borderStyle != nil && f.frameClass != "" {
+		f.borderStyle.RemoveCssClass(f.frameClass)
+		for _, pulseClass := range vimPulseClasses {
+			f.borderStyle.RemoveCssClass(pulseClass)
 		}
 	}
 	f.target, f.frameClass = target, class
-	if target != nil && class != "" {
-		target.AddCssClass(class)
+	if f.borderStyle != nil && target != nil && class != "" {
+		f.borderStyle.AddCssClass(class)
 	}
-}
-
-func (f *modeFrame) pulse(fast bool) {
-	if f == nil || f.mode != input.ModeVim || f.target == nil {
+	if f.border == nil {
 		return
 	}
-	for _, class := range []string{"vim-mode-pulse", "vim-mode-pulse-fast", "vim-mode-pulse-cycle-a", "vim-mode-pulse-cycle-b"} {
-		f.target.RemoveCssClass(class)
+	if target != nil && class != "" {
+		f.startGeometryRefresh()
+		return
+	}
+	f.stopGeometryRefresh()
+	f.borderRect = nil
+	f.border.SetVisible(false)
+}
+
+var vimPulseClasses = []string{"vim-mode-pulse", "vim-mode-pulse-fast", "vim-mode-pulse-cycle-a", "vim-mode-pulse-cycle-b"}
+
+func (f *modeFrame) pulse(fast bool) {
+	if f == nil || f.mode != input.ModeVim || f.target == nil || f.borderStyle == nil {
+		return
+	}
+	for _, class := range vimPulseClasses {
+		f.borderStyle.RemoveCssClass(class)
 	}
 	class := "vim-mode-pulse"
 	if fast {
 		class = "vim-mode-pulse-fast"
 	}
-	f.target.AddCssClass(class)
+	f.borderStyle.AddCssClass(class)
 	cycle := "vim-mode-pulse-cycle-a"
 	if f.pulseCycle {
 		cycle = "vim-mode-pulse-cycle-b"
 	}
 	f.pulseCycle = !f.pulseCycle
-	f.target.AddCssClass(cycle)
+	f.borderStyle.AddCssClass(cycle)
 }
 
 func modeFrameClass(mode input.Mode) string {
@@ -200,7 +238,7 @@ func modeFrameClass(mode input.Mode) string {
 }
 
 func (f *modeFrame) setMode(
-	ctx context.Context, mode input.Mode, target layout.Widget, cfg entity.WorkspaceStylingConfig,
+	mode input.Mode, target layout.Widget, cfg entity.WorkspaceStylingConfig,
 	style string, actions map[string]entity.ActionBinding,
 ) {
 	if f == nil {
@@ -211,8 +249,8 @@ func (f *modeFrame) setMode(
 	f.mode, f.config = mode, cfg
 	f.pending = ""
 	f.pulseCycle = false
-	f.setTarget(target, modeFrameClass(mode))
 	f.hide()
+	f.setTarget(target, modeFrameClass(mode))
 	if f.style != style {
 		if f.style != "" {
 			f.panel.RemoveCssClass("omnibox-style-" + f.style)
@@ -244,14 +282,14 @@ func (f *modeFrame) setMode(
 		cb := glib.SourceFunc(func(_ uintptr) bool {
 			f.showTimer = 0
 			if generation == f.generation {
-				f.show(ctx)
+				f.show()
 			}
 			return false
 		})
 		f.showTimer = glib.TimeoutAdd(uint(cfg.ModeLegendDelayMs), &cb, 0)
 		return
 	}
-	f.show(ctx)
+	f.show()
 }
 
 func (f *modeFrame) cancelTimers() {
@@ -272,7 +310,6 @@ func (f *modeFrame) hide() {
 	if f == nil || f.root == nil {
 		return
 	}
-	f.stopGeometryRefresh()
 	f.visible = false
 	f.placement = nil
 	f.resetLegendHeight()
@@ -287,16 +324,12 @@ func (f *modeFrame) stopGeometryRefresh() {
 	f.refreshSource = 0
 }
 
-func (f *modeFrame) show(ctx context.Context) {
+func (f *modeFrame) show() {
 	if f == nil || f.mode == input.ModeNormal || f.target == nil {
 		return
 	}
 	f.visible = true
-	f.root.SetVisible(true)
 	f.startGeometryRefresh()
-	if f.onShow != nil {
-		f.onShow(ctx)
-	}
 }
 
 // Measure outside GTK allocation while the legend is active, including window
@@ -305,7 +338,7 @@ func (f *modeFrame) startGeometryRefresh() {
 	f.stopGeometryRefresh()
 	f.refreshGeometry()
 	cb := glib.SourceFunc(func(_ uintptr) bool {
-		if !f.visible || f.root == nil {
+		if f.target == nil || f.root == nil {
 			f.refreshSource = 0
 			return false
 		}
@@ -323,16 +356,23 @@ func (f *modeFrame) resetLegendHeight() {
 	}
 }
 
+// clearPlacement hides both the border and the legend: the target is gone.
 func (f *modeFrame) clearPlacement() {
+	if f.borderRect != nil {
+		f.borderRect = nil
+		f.border.SetVisible(false)
+	}
+	f.clearLegend()
+}
+
+// clearLegend hides only the legend; the border keeps tracking its target.
+func (f *modeFrame) clearLegend() {
 	if f.placement == nil {
 		return
 	}
 	f.placement = nil
 	f.root.SetVisible(false)
 	f.root.QueueAllocate()
-	if f.visible && f.onShow != nil {
-		f.onShow(context.Background())
-	}
 }
 
 func (f *modeFrame) measureLegendHeight(panelWidth int) int {
@@ -340,8 +380,9 @@ func (f *modeFrame) measureLegendHeight(panelWidth int) int {
 	if f.lastMaxHeight != 0 && maxHeight > f.lastMaxHeight {
 		f.resetLegendHeight()
 	}
+	// Measure the panel: GTK reports 0 for the root while it is still hidden.
 	_, naturalHeight := 0, 0
-	f.root.Measure(gtk.OrientationVerticalValue, panelWidth, nil, &naturalHeight, nil, nil)
+	f.panel.Measure(gtk.OrientationVerticalValue, panelWidth, nil, &naturalHeight, nil, nil)
 	if naturalHeight > maxHeight && maxHeight > 0 {
 		if f.lastMaxHeight != maxHeight {
 			f.scroller.SetPropagateNaturalHeight(false)
@@ -375,6 +416,11 @@ func (f *modeFrame) refreshGeometry() {
 		return
 	}
 	x, bottom := int(out.X), int(out.Y)+height
+	f.placeBorder(x, int(out.Y), width, height)
+	if !f.visible {
+		f.clearLegend()
+		return
+	}
 	// Keep every keycap visible even in a narrow split. No webview resize.
 	panelWidth := min(width-legendInset, legendMaxWidth)
 	columns := uint(3)
@@ -389,13 +435,13 @@ func (f *modeFrame) refreshGeometry() {
 		x += (width - panelWidth) / 2
 	}
 	if panelWidth <= 0 {
-		f.clearPlacement()
+		f.clearLegend()
 		return
 	}
 	f.sizeLegendColumns(columns, panelWidth)
 	naturalHeight := f.measureLegendHeight(panelWidth)
 	if naturalHeight <= 0 {
-		f.clearPlacement()
+		f.clearLegend()
 		return
 	}
 	y := bottom - naturalHeight - 4
@@ -411,9 +457,17 @@ func (f *modeFrame) refreshGeometry() {
 		}
 	}
 	f.root.QueueAllocate()
-	if previous == nil && f.onShow != nil {
-		f.onShow(context.Background())
+}
+
+func (f *modeFrame) placeBorder(x, y, width, height int) {
+	if f.borderRect != nil {
+		if ox, oy, ow, oh, _ := f.borderRect(); ox == x && oy == y && ow == width && oh == height {
+			return
+		}
 	}
+	f.borderRect = func() (int, int, int, int, bool) { return x, y, width, height, true }
+	f.border.SetVisible(true)
+	f.border.QueueAllocate()
 }
 
 func (f *modeFrame) sizeLegendColumns(columns uint, width int) {

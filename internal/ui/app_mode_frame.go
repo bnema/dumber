@@ -1,8 +1,6 @@
 package ui
 
 import (
-	"context"
-
 	"github.com/bnema/dumber/internal/ui/input"
 	"github.com/bnema/dumber/internal/ui/layout"
 )
@@ -44,13 +42,13 @@ func (a *App) retargetModeFrame(bw *browserWindow, mode input.Mode) {
 	}
 }
 
-func (a *App) updateModeFrame(ctx context.Context, bw *browserWindow, mode input.Mode) {
+func (a *App) updateModeFrame(bw *browserWindow, mode input.Mode) {
 	if bw == nil || bw.modeFrame == nil {
 		return
 	}
 	a.setModeFrameTab(bw)
 	cfg := a.runtimeConfigSnapshot().UI
-	bw.modeFrame.setMode(ctx, mode, a.modeFrameTarget(bw, mode), cfg.Workspace.Styling,
+	bw.modeFrame.setMode(mode, a.modeFrameTarget(bw, mode), cfg.Workspace.Styling,
 		cfg.Omnibox.Style, legendActions(mode, cfg.Workspace, cfg.Session))
 }
 

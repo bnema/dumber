@@ -4057,7 +4057,7 @@ func (a *App) handleModeChange(ctx context.Context, bw *browserWindow, from, to 
 	// Entering Vim Mode accents the active pane; leaving removes the accent.
 	a.handleVimModeOwnership(ctx, bw, to, from)
 
-	a.updateModeFrame(ctx, bw, to)
+	a.updateModeFrame(bw, to)
 
 	// Show/hide this window's mode indicator toaster based on mode and config.
 	a.updateModeIndicatorToaster(ctx, bw, to)
@@ -4220,13 +4220,11 @@ func (a *App) updateModeIndicatorToaster(ctx context.Context, bw *browserWindow,
 		return
 	}
 
-	if !a.runtimeConfigSnapshot().UI.Workspace.Styling.ModeIndicatorToasterEnabled || mode == input.ModeNormal ||
-		(bw.modeFrame != nil && bw.modeFrame.visible && bw.modeFrame.placement != nil) {
+	if !a.runtimeConfigSnapshot().UI.Workspace.Styling.ModeIndicatorToasterEnabled || mode == input.ModeNormal {
 		bw.modeToaster.Hide()
 		return
 	}
 
-	// The toast is visible only while the legend is delayed or disabled.
 	bw.modeToaster.Show(ctx, mode.DisplayName(), component.ToastInfo,
 		component.WithDuration(0),
 		component.WithPosition(component.ToastPositionBottomLeft),
@@ -4264,8 +4262,7 @@ func (a *App) showPendingSequence(ctx context.Context, bw *browserWindow, pendin
 		return
 	}
 	log := logging.FromContext(ctx)
-	if !a.runtimeConfigSnapshot().UI.Workspace.Styling.ModeIndicatorToasterEnabled ||
-		(bw.modeFrame != nil && bw.modeFrame.visible && bw.modeFrame.placement != nil) {
+	if !a.runtimeConfigSnapshot().UI.Workspace.Styling.ModeIndicatorToasterEnabled {
 		bw.modeToaster.Hide()
 		log.Debug().Str("window_id", bw.id).Msg("vim mode pending toaster hidden (disabled)")
 		return
@@ -5507,7 +5504,7 @@ func (a *App) applyRuntimeConfigChange(ctx context.Context, snapshot entity.Runt
 		if bw.keyboardHandler != nil {
 			mode = bw.keyboardHandler.Mode()
 		}
-		a.updateModeFrame(ctx, bw, mode)
+		a.updateModeFrame(bw, mode)
 		a.updateModeIndicatorToaster(ctx, bw, mode)
 	}
 }

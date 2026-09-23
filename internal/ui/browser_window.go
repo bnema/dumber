@@ -182,9 +182,6 @@ func (bw *browserWindow) initBorderOverlay(a *App) {
 	}
 
 	bw.modeFrame = newModeFrame(bw.mainWindow.ContentOverlay())
-	if bw.modeFrame != nil {
-		bw.modeFrame.onShow = func(ctx context.Context) { a.updateModeIndicatorToaster(ctx, bw, bw.modeFrame.mode) }
-	}
 }
 
 func (bw *browserWindow) initAccentPicker(ctx context.Context, a *App) {

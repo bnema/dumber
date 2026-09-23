@@ -32,22 +32,30 @@ func TestModeFrameTargets(t *testing.T) {
 	require.Nil(t, f.app.modeFrameTarget(f.bw1, input.ModePane))
 }
 
-func TestModeFrameSetTargetRemovesPreviousBorder(t *testing.T) {
-	first := mocks.NewMockWidget(t)
-	second := mocks.NewMockWidget(t)
-	f := &modeFrame{}
-	first.EXPECT().AddCssClass("pane-mode-active").Once()
+// The mode border is drawn by the frame's own overlay, above web content.
+// Pane widgets are only geometry targets and must never receive mode classes:
+// an inset shadow on them is painted below the web view and is invisible.
+func TestModeFrameSetTargetStylesFrameBorderNotPane(t *testing.T) {
+	first := mocks.NewMockWidget(t)  // no expectations: must stay unstyled
+	second := mocks.NewMockWidget(t) // no expectations: must stay unstyled
+	border := mocks.NewMockWidget(t)
+	f := &modeFrame{borderStyle: border}
+	border.EXPECT().AddCssClass("pane-mode-active").Once()
 	f.setTarget(first, "pane-mode-active")
-	first.EXPECT().RemoveCssClass("pane-mode-active").Once()
-	second.EXPECT().AddCssClass("resize-mode-active").Once()
+	border.EXPECT().RemoveCssClass("pane-mode-active").Once()
+	for _, class := range vimPulseClasses {
+		border.EXPECT().RemoveCssClass(class).Times(2)
+	}
+	border.EXPECT().AddCssClass("resize-mode-active").Once()
 	f.setTarget(second, "resize-mode-active")
-	second.EXPECT().RemoveCssClass("resize-mode-active").Once()
+	border.EXPECT().RemoveCssClass("resize-mode-active").Once()
 	f.setTarget(nil, "")
 }
 
-func TestModeFrameVimPulseAlternatesOnTarget(t *testing.T) {
+func TestModeFrameVimPulseAlternatesOnBorder(t *testing.T) {
+	pane := mocks.NewMockWidget(t) // no expectations: must stay unstyled
 	target := mocks.NewMockWidget(t)
-	f := &modeFrame{mode: input.ModeVim, target: target, frameClass: "vim-mode-active"}
+	f := &modeFrame{mode: input.ModeVim, target: pane, frameClass: "vim-mode-active", borderStyle: target}
 	for _, pulse := range []struct {
 		fast  bool
 		class string
