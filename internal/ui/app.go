@@ -4221,7 +4221,7 @@ func (a *App) updateModeIndicatorToaster(ctx context.Context, bw *browserWindow,
 	}
 
 	if !a.runtimeConfigSnapshot().UI.Workspace.Styling.ModeIndicatorToasterEnabled || mode == input.ModeNormal ||
-		(bw.modeFrame != nil && bw.modeFrame.visible) {
+		(bw.modeFrame != nil && bw.modeFrame.visible && bw.modeFrame.placement != nil) {
 		bw.modeToaster.Hide()
 		return
 	}
@@ -4265,7 +4265,7 @@ func (a *App) showPendingSequence(ctx context.Context, bw *browserWindow, pendin
 	}
 	log := logging.FromContext(ctx)
 	if !a.runtimeConfigSnapshot().UI.Workspace.Styling.ModeIndicatorToasterEnabled ||
-		(bw.modeFrame != nil && bw.modeFrame.visible) {
+		(bw.modeFrame != nil && bw.modeFrame.visible && bw.modeFrame.placement != nil) {
 		bw.modeToaster.Hide()
 		log.Debug().Str("window_id", bw.id).Msg("vim mode pending toaster hidden (disabled)")
 		return

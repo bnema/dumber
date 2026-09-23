@@ -228,6 +228,9 @@ func (f *modeFrame) setMode(
 	f.modeClass = "mode-legend-" + mode.String()
 	f.panel.AddCssClass(f.modeClass)
 	if mode == input.ModeNormal || cfg.ModeLegend == "off" || target == nil {
+		f.content.RemoveAll()
+		f.rows = nil
+		f.keycaps = nil
 		return
 	}
 	f.build(actions)
@@ -327,6 +330,9 @@ func (f *modeFrame) clearPlacement() {
 	f.placement = nil
 	f.root.SetVisible(false)
 	f.root.QueueAllocate()
+	if f.visible && f.onShow != nil {
+		f.onShow(context.Background())
+	}
 }
 
 func (f *modeFrame) measureLegendHeight(panelWidth int) int {
@@ -405,6 +411,9 @@ func (f *modeFrame) refreshGeometry() {
 		}
 	}
 	f.root.QueueAllocate()
+	if previous == nil && f.onShow != nil {
+		f.onShow(context.Background())
+	}
 }
 
 func (f *modeFrame) sizeLegendColumns(columns uint, width int) {

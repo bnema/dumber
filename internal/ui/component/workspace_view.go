@@ -195,7 +195,7 @@ func NewWorkspaceView(ctx context.Context, factory layout.WidgetFactory) *Worksp
 }
 
 // SetWorkspace sets the workspace to render and builds the widget tree.
-func (wv *WorkspaceView) SetWorkspace(ctx context.Context, ws *entity.Workspace) error {
+func (wv *WorkspaceView) SetWorkspace(ctx context.Context, ws *entity.Workspace) (buildErr error) {
 	if ws == nil {
 		return ErrNilWorkspace
 	}
@@ -204,7 +204,7 @@ func (wv *WorkspaceView) SetWorkspace(ctx context.Context, ws *entity.Workspace)
 	defer func() {
 		callback := wv.onRebuilt
 		wv.mu.Unlock()
-		if callback != nil {
+		if buildErr == nil && callback != nil {
 			callback()
 		}
 	}()

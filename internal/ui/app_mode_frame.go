@@ -36,10 +36,8 @@ func (a *App) retargetModeFrame(bw *browserWindow, mode input.Mode) {
 	}
 	a.setModeFrameTab(bw)
 	newTarget := a.modeFrameTarget(bw, mode)
-	if mode != input.ModeNormal && newTarget == nil {
-		// Rebuilds can temporarily lack a pane widget; retry on the next focus/rebuild event.
-		return
-	}
+	// Rebuilds can temporarily lack a pane widget. Drop the old border while
+	// the next focus/rebuild event retries the target.
 	bw.modeFrame.setTarget(newTarget, modeFrameClass(mode))
 	if bw.modeFrame.visible {
 		bw.modeFrame.refreshGeometry()
