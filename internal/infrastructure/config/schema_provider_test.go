@@ -22,6 +22,8 @@ func TestModeLegendSchemaDefaults(t *testing.T) {
 	for _, tc := range []struct{ key, kind, value, valueRange string }{
 		{"workspace.styling.mode_legend", "string", "delay", ""},
 		{"workspace.styling.mode_legend_delay_ms", "int", "500", ">=0"},
+		{"workspace.styling.mode_legend_linger", "bool", "true", ""},
+		{"workspace.styling.vim_mode_color", "string", "#F7768E", ""},
 		{"workspace.styling.mode_legend_animations", "bool", "true", ""},
 	} {
 		entry, ok := keys[tc.key]

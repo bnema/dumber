@@ -414,3 +414,16 @@ func TestGenerateCSS_SessionContainerHasNoMinWidth(t *testing.T) {
 	assert.NotContains(t, block, "min-width:")
 	assert.Contains(t, block, "background-color: var(--surface-variant);")
 }
+
+func TestVimModeUsesOwnColor(t *testing.T) {
+	css := generateVimModeCSS(120)
+	if strings.Contains(css, "--pane-mode-color") || !strings.Contains(css, "--vim-mode-color") {
+		t.Fatalf("Vim mode CSS must use Vim color")
+	}
+	if !strings.Contains(generateModeLegendCSS(), "var(--vim-mode-color)") {
+		t.Fatal("legend missing Vim color")
+	}
+	if !strings.Contains(DefaultModeColors().ToCSSVars(), "--vim-mode-color: #F7768E") {
+		t.Fatal("palette missing Vim color")
+	}
+}

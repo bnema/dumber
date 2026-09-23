@@ -145,12 +145,14 @@ func TestModeColorsFromEntity(t *testing.T) {
 		TabMode:     "#222222",
 		SessionMode: "#333333",
 		ResizeMode:  "#444444",
+		VimMode:     "#abcdef",
 	})
 
 	assert.Equal(t, "#111111", modeColors.PaneMode)
 	assert.Equal(t, "#222222", modeColors.TabMode)
 	assert.Equal(t, "#333333", modeColors.SessionMode)
 	assert.Equal(t, "#444444", modeColors.ResizeMode)
+	assert.Equal(t, "#abcdef", modeColors.VimMode)
 }
 
 func TestFontConfigFromEntity(t *testing.T) {

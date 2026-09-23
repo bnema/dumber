@@ -137,10 +137,12 @@
 | `workspace.styling.pane_mode_color` | string | `#4A90E2` | |
 | `workspace.styling.tab_mode_color` | string | `#FFA500` | |
 | `workspace.styling.session_mode_color` | string | `#9B59B6` | |
+| `workspace.styling.vim_mode_color` | string | `#F7768E` | Vim mode border, pulse, toast, and legend |
 | `workspace.styling.resize_mode_color` | string | `#00D4AA` | |
 | `workspace.styling.mode_indicator_toaster_enabled` | bool | `true` | Show the bottom-left mode toast while a mode is active |
 | `workspace.styling.mode_legend` | string | `delay` | `always`, `delay`, `off` |
 | `workspace.styling.mode_legend_delay_ms` | int | `500` | >= 0; used with `delay` |
+| `workspace.styling.mode_legend_linger` | bool | `true` | Keep the legend visible, read-only, after its mode ends while the pointer is over it, until the next key press or click. |
 | `workspace.styling.mode_legend_animations` | bool | `true` | |
 | `workspace.styling.transition_duration` | int | `120` | |
 | `session.auto_restore` | bool | `false` | |

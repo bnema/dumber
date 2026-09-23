@@ -806,7 +806,7 @@ entry.find-bar-entry:focus-visible {
 // generatePaneCSS creates pane border styles.
 // Uses em units for scalable UI.
 // generateVimModeCSS creates the pane-local Vim Mode accent and pulse styling.
-// It reuses --pane-mode-color (from workspace.styling.pane_mode_color).
+// It uses --vim-mode-color (from workspace.styling.vim_mode_color).
 func generateVimModeCSS(transitionDurationMs int) string {
 	if transitionDurationMs <= 0 {
 		transitionDurationMs = defaultTransitionDurationMs
@@ -817,7 +817,7 @@ func generateVimModeCSS(transitionDurationMs int) string {
 
 /* Vim mode frame on the active pane; pulses use this same widget. */
 .vim-mode-active {
-	box-shadow: inset 0 0 0 0.125em alpha(var(--pane-mode-color), 0.35);
+	box-shadow: inset 0 0 0 0.125em alpha(var(--vim-mode-color), 0.35);
 	border-radius: 0;
 }
 
@@ -825,27 +825,27 @@ func generateVimModeCSS(transitionDurationMs int) string {
    frame keeps its Vim mode border while briefly flaring brighter. The separate
    -anim-a and -anim-b pairs are required to restart repeated pulse animations. */
 @keyframes vim-mode-overlay-pulse-anim-a {
-	0%%   { box-shadow: inset 0 0 0 0.125em alpha(var(--pane-mode-color), 0.35); }
-	35%%  { box-shadow: inset 0 0 0 0.2em alpha(var(--pane-mode-color), 0.78); }
-	100%% { box-shadow: inset 0 0 0 0.125em alpha(var(--pane-mode-color), 0.35); }
+	0%%   { box-shadow: inset 0 0 0 0.125em alpha(var(--vim-mode-color), 0.35); }
+	35%%  { box-shadow: inset 0 0 0 0.2em alpha(var(--vim-mode-color), 0.78); }
+	100%% { box-shadow: inset 0 0 0 0.125em alpha(var(--vim-mode-color), 0.35); }
 }
 
 @keyframes vim-mode-overlay-pulse-anim-b {
-	0%%   { box-shadow: inset 0 0 0 0.125em alpha(var(--pane-mode-color), 0.35); }
-	35%%  { box-shadow: inset 0 0 0 0.2em alpha(var(--pane-mode-color), 0.78); }
-	100%% { box-shadow: inset 0 0 0 0.125em alpha(var(--pane-mode-color), 0.35); }
+	0%%   { box-shadow: inset 0 0 0 0.125em alpha(var(--vim-mode-color), 0.35); }
+	35%%  { box-shadow: inset 0 0 0 0.2em alpha(var(--vim-mode-color), 0.78); }
+	100%% { box-shadow: inset 0 0 0 0.125em alpha(var(--vim-mode-color), 0.35); }
 }
 
 @keyframes vim-mode-overlay-pulse-fast-anim-a {
-	0%%   { box-shadow: inset 0 0 0 0.125em alpha(var(--pane-mode-color), 0.35); }
-	25%%  { box-shadow: inset 0 0 0 0.26em alpha(var(--pane-mode-color), 0.95); }
-	100%% { box-shadow: inset 0 0 0 0.125em alpha(var(--pane-mode-color), 0.35); }
+	0%%   { box-shadow: inset 0 0 0 0.125em alpha(var(--vim-mode-color), 0.35); }
+	25%%  { box-shadow: inset 0 0 0 0.26em alpha(var(--vim-mode-color), 0.95); }
+	100%% { box-shadow: inset 0 0 0 0.125em alpha(var(--vim-mode-color), 0.35); }
 }
 
 @keyframes vim-mode-overlay-pulse-fast-anim-b {
-	0%%   { box-shadow: inset 0 0 0 0.125em alpha(var(--pane-mode-color), 0.35); }
-	25%%  { box-shadow: inset 0 0 0 0.26em alpha(var(--pane-mode-color), 0.95); }
-	100%% { box-shadow: inset 0 0 0 0.125em alpha(var(--pane-mode-color), 0.35); }
+	0%%   { box-shadow: inset 0 0 0 0.125em alpha(var(--vim-mode-color), 0.35); }
+	25%%  { box-shadow: inset 0 0 0 0.26em alpha(var(--vim-mode-color), 0.95); }
+	100%% { box-shadow: inset 0 0 0 0.125em alpha(var(--vim-mode-color), 0.35); }
 }
 
 /* Pane overlay scroll pulse — derived from transition_duration. */
@@ -1413,7 +1413,7 @@ func generateToasterCSS(p Palette) string {
 }
 
 .toast-vim-mode {
-	background-color: var(--pane-mode-color);
+	background-color: var(--vim-mode-color);
 	color: #ffffff;
 }
 

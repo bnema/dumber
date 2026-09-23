@@ -124,3 +124,25 @@ func TestModeFrameTargetDoesNotDependOnGlobalFocusedWindow(t *testing.T) {
 	require.Equal(t, f.pv1A.Widget(), f.app.modeFrameTarget(f.bw1, input.ModeVim))
 	require.Equal(t, f.pv2A.Widget(), f.app.modeFrameTarget(f.bw2, input.ModeVim))
 }
+
+func TestShouldLinger(t *testing.T) {
+	rect := func() (int, int, int, int, bool) { return 10, 20, 30, 40, true }
+	for _, tt := range []struct {
+		name            string
+		enabled, inside bool
+		x, y            float64
+		placement       func() (int, int, int, int, bool)
+		want            bool
+	}{
+		{"inside", true, true, 10, 20, rect, true},
+		{"edge outside", true, true, 40, 20, rect, false},
+		{"outside", true, true, 5, 25, rect, false},
+		{"disabled", false, true, 15, 25, rect, false},
+		{"left window", true, false, 15, 25, rect, false},
+		{"nil placement", true, true, 15, 25, nil, false},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			require.Equal(t, tt.want, shouldLinger(tt.enabled, tt.inside, tt.x, tt.y, tt.placement))
+		})
+	}
+}

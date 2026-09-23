@@ -8,7 +8,7 @@ import (
 // modeLegendColors maps legend mode classes to the palette variable of their mode.
 var modeLegendColors = []struct{ mode, color string }{
 	{"pane", "--pane-mode-color"},
-	{"vim", "--pane-mode-color"},
+	{"vim", "--vim-mode-color"},
 	{"resize", "--resize-mode-color"},
 	{"tab", "--tab-mode-color"},
 	{"session", "--session-mode-color"},
@@ -25,6 +25,7 @@ func generateModeLegendCSS() string {
 	min-width: 0;
 	animation: mode-legend-appear 120ms ease-out;
 }
+.omnibox-container.mode-legend-panel.mode-legend-lingering { opacity: 0.85; }
 .omnibox-container.mode-legend-panel.mode-legend-no-motion { animation: none; }
 .mode-legend-title {
 	font-family: var(--font-mono);

@@ -111,6 +111,7 @@ func ResolveThemeInputFromConfig(
 	if styling != nil {
 		modeColors := entity.ThemeModeColors{
 			PaneMode:    styling.PaneModeColor,
+			VimMode:     styling.VimModeColor,
 			TabMode:     styling.TabModeColor,
 			SessionMode: styling.SessionModeColor,
 			ResizeMode:  styling.ResizeModeColor,

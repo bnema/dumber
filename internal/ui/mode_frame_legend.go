@@ -126,7 +126,7 @@ func displayLegendKey(key string) string {
 }
 
 func (f *modeFrame) setPending(pending string, actions map[string]entity.ActionBinding) {
-	if f == nil || f.mode != input.ModeVim {
+	if f == nil || f.lingering || f.mode != input.ModeVim {
 		return
 	}
 	f.pending = pending
@@ -156,7 +156,7 @@ func legendSequenceMatches(pending string, keys []string) bool {
 }
 
 func (f *modeFrame) flash(action input.Action) {
-	if f == nil || !f.visible || !f.config.ModeLegendAnimations {
+	if f == nil || f.lingering || !f.visible || !f.config.ModeLegendAnimations {
 		return
 	}
 	name := strings.ReplaceAll(string(action), "_", "-")

@@ -616,13 +616,15 @@ desc = "Open floating pane on GitHub"
 | `workspace.styling.border_width` | int | `1` | Active pane border width (px) - overlay |
 | `workspace.styling.border_color` | string | `"@theme_selected_bg_color"` | Active pane border color |
 | `workspace.styling.mode_border_width` | int | `4` | Reserved; mode frame borders currently use fixed em widths (Vim is thinner) |
-| `workspace.styling.pane_mode_color` | string | `"#4A90E2"` | Pane mode color (blue); also reused for Vim mode pane-local accent, indicator, and pulse |
+| `workspace.styling.pane_mode_color` | string | `"#4A90E2"` | Pane mode color (blue) |
 | `workspace.styling.tab_mode_color` | string | `"#FFA500"` | Tab mode color (orange) - used for border and toaster |
 | `workspace.styling.session_mode_color` | string | `"#9B59B6"` | Session mode color (purple) - used for border and toaster |
+| `workspace.styling.vim_mode_color` | string | `"#F7768E"` | Vim mode border, pulse, toast, and legend color |
 | `workspace.styling.resize_mode_color` | string | `"#00D4AA"` | Resize mode color (teal) - used for border and toaster |
 | `workspace.styling.mode_indicator_toaster_enabled` | bool | `true` | Show the bottom-left mode toast while a mode is active |
 | `workspace.styling.mode_legend` | string | `"delay"` | `always`, `delay`, or `off`; the legend sits on the active mode border in that mode's color |
 | `workspace.styling.mode_legend_delay_ms` | int | `500` | Wait before showing the legend when set to `delay` (>= 0) |
+| `workspace.styling.mode_legend_linger` | bool | `true` | Keep the legend visible, read-only, after its mode ends while the pointer is over it, until the next key press or click. |
 | `workspace.styling.mode_legend_animations` | bool | `true` | Animate the legend and its keycap feedback |
 | `workspace.styling.transition_duration` | int | `120` | Base Vim border pulse duration (ms); legend appearance is 120 ms |
 
@@ -633,13 +635,15 @@ desc = "Open floating pane on GitHub"
 border_width = 1
 border_color = "@theme_selected_bg_color"
 mode_border_width = 4
-pane_mode_color = "#4A90E2"      # Blue for pane mode and Vim mode local accent
+pane_mode_color = "#4A90E2"      # Blue for pane mode
 tab_mode_color = "#FFA500"       # Orange for tab mode
 session_mode_color = "#9B59B6"   # Purple for session mode
+vim_mode_color = "#F7768E"     # Vim mode
 resize_mode_color = "#00D4AA"    # Teal for resize mode
 mode_indicator_toaster_enabled = true
 mode_legend = "delay"
 mode_legend_delay_ms = 500
+mode_legend_linger = true
 mode_legend_animations = true
 transition_duration = 120
 ```

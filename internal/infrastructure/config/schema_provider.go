@@ -695,6 +695,10 @@ func (*SchemaProvider) getWorkspaceKeys(defaults *Config) []entity.ConfigKeyInfo
 			Section:     SectionWorkspace,
 		},
 		{
+			Key: "workspace.styling.vim_mode_color", Type: "string", Default: defaults.Workspace.Styling.VimModeColor,
+			Description: "Color for Vim mode indicator", Section: SectionWorkspace,
+		},
+		{
 			Key:         "workspace.styling.resize_mode_color",
 			Type:        "string",
 			Default:     defaults.Workspace.Styling.ResizeModeColor,
@@ -722,6 +726,11 @@ func (*SchemaProvider) getWorkspaceKeys(defaults *Config) []entity.ConfigKeyInfo
 			Default:     fmt.Sprintf("%d", defaults.Workspace.Styling.ModeLegendDelayMs),
 			Description: "Delay before showing the mode legend in milliseconds",
 			Range:       ">=0",
+			Section:     SectionWorkspace,
+		},
+		{
+			Key: "workspace.styling.mode_legend_linger", Type: "bool", Default: fmt.Sprintf("%t", defaults.Workspace.Styling.ModeLegendLinger),
+			Description: "Keep the legend visible, read-only, after its mode ends while the pointer is over it, until the next key press or click.",
 			Section:     SectionWorkspace,
 		},
 		{

@@ -352,6 +352,7 @@ func (a *App) releaseTabWorkspace(ctx context.Context, tab *entity.Tab) {
 	a.releaseFloatingSessionsForTab(ctx, tab.ID)
 	if bw := a.browserWindowForTab(tab.ID); bw != nil && bw.modeFrame != nil && bw.modeFrame.tabID == tab.ID {
 		bw.modeFrame.cancelTimers()
+		bw.modeFrame.dismissLinger()
 		bw.modeFrame.generation++
 		bw.modeFrame.setTarget(nil, "")
 		bw.modeFrame.tabID = ""

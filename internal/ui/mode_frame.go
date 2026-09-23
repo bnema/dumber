@@ -6,6 +6,7 @@ import (
 	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/ui/input"
 	"github.com/bnema/dumber/internal/ui/layout"
+	"github.com/bnema/puregotk/v4/gdk"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/graphene"
@@ -25,36 +26,46 @@ const (
 // modeFrame owns the per-window mode border and its non-interactive legend.
 // GTK access is restricted to the main thread, as with the rest of the UI.
 type modeFrame struct {
-	mode              input.Mode
-	tabID             entity.TabID
-	target            layout.Widget
-	frameClass        string
-	root              *gtk.Box
-	border            *gtk.Box
-	borderStyle       cssClassTarget // border's CSS classes; a seam for tests
-	borderRect        func() (x, y, width, height int, ok bool)
-	panel             *gtk.Box
-	content           *gtk.FlowBox
-	scroller          *gtk.ScrolledWindow
-	heading           *gtk.Label
-	rows              map[string][]*gtk.Widget
-	keycaps           map[string][]*gtk.Widget
-	pending           string
-	visible           bool
-	style             string
-	modeClass         string
-	config            entity.WorkspaceStylingConfig
-	showTimer         uint
-	flashTimer        uint
-	generation        uint64
-	placement         func() (x, y, width, height int, ok bool)
-	refreshSource     uint
-	lastColumns       uint
-	lastPanelWidth    int
-	lastMaxHeight     int
-	overlay           *gtk.Overlay
-	positionHandlerID uint
-	pulseCycle        bool
+	mode               input.Mode
+	tabID              entity.TabID
+	target             layout.Widget
+	frameClass         string
+	root               *gtk.Box
+	border             *gtk.Box
+	borderStyle        cssClassTarget // border's CSS classes; a seam for tests
+	borderRect         func() (x, y, width, height int, ok bool)
+	panel              *gtk.Box
+	content            *gtk.FlowBox
+	scroller           *gtk.ScrolledWindow
+	heading            *gtk.Label
+	rows               map[string][]*gtk.Widget
+	keycaps            map[string][]*gtk.Widget
+	pending            string
+	visible            bool
+	style              string
+	modeClass          string
+	config             entity.WorkspaceStylingConfig
+	showTimer          uint
+	flashTimer         uint
+	generation         uint64
+	placement          func() (x, y, width, height int, ok bool)
+	refreshSource      uint
+	lastColumns        uint
+	lastPanelWidth     int
+	lastMaxHeight      int
+	overlay            *gtk.Overlay
+	positionHandlerID  uint
+	pulseCycle         bool
+	lingering          bool
+	pointerX, pointerY float64
+	pointerInside      bool
+	motionController   *gtk.EventControllerMotion
+	keyController      *gtk.EventControllerKey
+	clickController    *gtk.GestureClick
+	motionCb           func(gtk.EventControllerMotion, float64, float64)
+	leaveCb            func(gtk.EventControllerMotion)
+	keyCb              func(gtk.EventControllerKey, uint, uint, gdk.ModifierType) bool
+	clickCb            func(gtk.GestureClick, int, float64, float64)
 }
 
 func newModeFrame(overlay *gtk.Overlay) *modeFrame {
@@ -115,7 +126,33 @@ func newModeFrame(overlay *gtk.Overlay) *modeFrame {
 		return writeOverlayAllocation(allocation, x, y, w, h)
 	}
 	f.positionHandlerID = overlay.ConnectGetChildPosition(&cb)
+	f.installDismissControllers(overlay)
 	return f
+}
+
+func (f *modeFrame) installDismissControllers(overlay *gtk.Overlay) {
+	f.motionController = gtk.NewEventControllerMotion()
+	f.motionCb = func(_ gtk.EventControllerMotion, x, y float64) {
+		f.pointerX, f.pointerY, f.pointerInside = x, y, true
+	}
+	f.leaveCb = func(_ gtk.EventControllerMotion) { f.pointerInside = false }
+	f.motionController.ConnectMotion(&f.motionCb)
+	f.motionController.ConnectLeave(&f.leaveCb)
+	overlay.AddController(&f.motionController.EventController)
+	f.keyController = gtk.NewEventControllerKey()
+	f.keyController.SetPropagationPhase(gtk.PhaseCaptureValue)
+	f.keyCb = func(_ gtk.EventControllerKey, _, _ uint, _ gdk.ModifierType) bool {
+		f.dismissLinger()
+		return false
+	}
+	f.keyController.ConnectKeyPressed(&f.keyCb)
+	overlay.AddController(&f.keyController.EventController)
+	f.clickController = gtk.NewGestureClick()
+	f.clickController.SetButton(0)
+	f.clickController.SetPropagationPhase(gtk.PhaseCaptureValue)
+	f.clickCb = func(_ gtk.GestureClick, _ int, _, _ float64) { f.dismissLinger() }
+	f.clickController.ConnectPressed(&f.clickCb)
+	overlay.AddController(&f.clickController.EventController)
 }
 
 func (f *modeFrame) initLegendContent() {
@@ -144,7 +181,13 @@ func (f *modeFrame) destroy() {
 		return
 	}
 	f.cancelTimers()
+	f.dismissLinger()
 	f.stopGeometryRefresh()
+	if f.overlay != nil {
+		f.overlay.RemoveController(&f.motionController.EventController)
+		f.overlay.RemoveController(&f.keyController.EventController)
+		f.overlay.RemoveController(&f.clickController.EventController)
+	}
 	f.setTarget(nil, "")
 	if f.overlay != nil && f.positionHandlerID != 0 {
 		gobject.SignalHandlerDisconnect(gobject.ObjectNewFromInternalPtr(f.overlay.GoPointer()), f.positionHandlerID)
@@ -245,11 +288,21 @@ func (f *modeFrame) setMode(
 		return
 	}
 	f.cancelTimers()
+	linger := mode == input.ModeNormal && f.visible && !f.lingering &&
+		shouldLinger(cfg.ModeLegendLinger, f.pointerInside, f.pointerX, f.pointerY, f.placement)
+	f.dismissLinger()
 	f.generation++
 	f.mode, f.config = mode, cfg
 	f.pending = ""
 	f.pulseCycle = false
-	f.hide()
+	if linger {
+		f.lingering = true
+		f.visible = false
+		f.clearLegendFeedback()
+		f.panel.AddCssClass("mode-legend-lingering")
+	} else {
+		f.hide()
+	}
 	f.setTarget(target, modeFrameClass(mode))
 	if f.style != style {
 		if f.style != "" {
@@ -260,13 +313,17 @@ func (f *modeFrame) setMode(
 			f.panel.AddCssClass("omnibox-style-" + style)
 		}
 	}
-	if f.modeClass != "" {
+	if f.modeClass != "" && !linger {
 		f.panel.RemoveCssClass(f.modeClass)
 	}
-	f.modeClass = "mode-legend-" + mode.String()
-	f.panel.AddCssClass(f.modeClass)
+	if !linger {
+		f.modeClass = "mode-legend-" + mode.String()
+		f.panel.AddCssClass(f.modeClass)
+	}
 	if mode == input.ModeNormal || cfg.ModeLegend == "off" || target == nil {
-		f.content.RemoveAll()
+		if !linger {
+			f.content.RemoveAll()
+		}
 		f.rows = nil
 		f.keycaps = nil
 		return
@@ -292,6 +349,19 @@ func (f *modeFrame) setMode(
 	f.show()
 }
 
+func (f *modeFrame) clearLegendFeedback() {
+	for _, rows := range f.rows {
+		for _, row := range rows {
+			row.RemoveCssClass("mode-legend-dim")
+		}
+	}
+	for _, caps := range f.keycaps {
+		for _, cap := range caps {
+			cap.RemoveCssClass("mode-legend-flash")
+		}
+	}
+}
+
 func (f *modeFrame) cancelTimers() {
 	if f == nil {
 		return
@@ -304,6 +374,27 @@ func (f *modeFrame) cancelTimers() {
 		glib.SourceRemove(f.flashTimer)
 		f.flashTimer = 0
 	}
+}
+
+func pointInRect(x, y float64, rx, ry, width, height int) bool {
+	return x >= float64(rx) && y >= float64(ry) && x < float64(rx+width) && y < float64(ry+height)
+}
+
+func shouldLinger(enabled, inside bool, x, y float64, placement func() (int, int, int, int, bool)) bool {
+	if !enabled || !inside || placement == nil {
+		return false
+	}
+	rx, ry, w, h, ok := placement()
+	return ok && pointInRect(x, y, rx, ry, w, h)
+}
+
+func (f *modeFrame) dismissLinger() {
+	if f == nil || !f.lingering {
+		return
+	}
+	f.lingering = false
+	f.panel.RemoveCssClass("mode-legend-lingering")
+	f.hide()
 }
 
 func (f *modeFrame) hide() {
@@ -338,7 +429,7 @@ func (f *modeFrame) startGeometryRefresh() {
 	f.stopGeometryRefresh()
 	f.refreshGeometry()
 	cb := glib.SourceFunc(func(_ uintptr) bool {
-		if f.target == nil || f.root == nil {
+		if f.target == nil || f.root == nil || f.lingering {
 			f.refreshSource = 0
 			return false
 		}
@@ -397,6 +488,9 @@ func (f *modeFrame) measureLegendHeight(panelWidth int) int {
 // refreshGeometry measures the legend outside GTK's positioning callback.
 // A narrow target falls back to the window width, keeping the legend reachable.
 func (f *modeFrame) refreshGeometry() {
+	if f.lingering {
+		return
+	}
 	previous := f.placement
 	if f.target == nil || f.overlay == nil {
 		f.clearPlacement()
