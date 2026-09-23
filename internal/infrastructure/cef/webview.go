@@ -1737,7 +1737,8 @@ func (wv *WebView) bridgeInputOptions() cef2gtk.InputOptions {
 		OnMiddleClick: func(_, _ float64) bool {
 			return wv.handleMiddleClickFromBridge()
 		},
-		OnScroll: wv.handleScrollInput,
+		OnClickDiagnostic: wv.logClickDiagnostic,
+		OnScroll:          wv.handleScrollInput,
 		NavigationSwipe: cef2gtk.NavigationSwipeOptions{
 			// Dumber handles thresholding and progress UI locally from OnScroll so
 			// horizontal scrolling continues to reach CEF while history navigation

@@ -990,21 +990,44 @@ func (h *handlerSet) attachAfterCreatedBrowser(
 
 	if bridge != nil {
 		wv := h.wv
+		log := logging.FromContext(wv.ctx)
+		log.Debug().
+			Uint64("webview_id", uint64(wv.id)).
+			Int32("browser_id", browserID).
+			Bool("destroyed", wv.destroyed.Load()).
+			Bool("bridge_present", true).
+			Msg("cef: scheduling input bridge attachment")
 		wv.runOnGTK(func() {
-			if wv.destroyed.Load() || wv.viewBridge == nil {
+			currentBridge := wv.viewBridge
+			log.Debug().
+				Uint64("webview_id", uint64(wv.id)).
+				Int32("browser_id", browserID).
+				Bool("destroyed", wv.destroyed.Load()).
+				Bool("bridge_present", currentBridge != nil).
+				Bool("bridge_stale", currentBridge != bridge).
+				Msg("cef: starting input bridge attachment")
+			if wv.destroyed.Load() || currentBridge == nil || currentBridge != bridge || bridge.IsDestroyed() {
 				wv.handleInputAttachFailure(ErrAdapterDestroyed, host)
 				return
 			}
-			if err := wv.viewBridge.AttachInputToWidget(host, wv.nativeWidget, wv.bridgeInputOptions()); err != nil {
+			if err := bridge.AttachInputToWidget(host, wv.nativeWidget, wv.bridgeInputOptions()); err != nil {
 				wv.handleInputAttachFailure(err, host)
 				return
 			}
-			if wv.viewBridge != nil && wv.viewBridge.HasFocus() {
+			bridgeFocused := bridge.HasFocus()
+			if bridgeFocused {
 				syncWindowlessBrowserFocus(host)
 			} else {
 				host.Invalidate(purecef.PaintElementTypePetView)
 			}
 			wv.markInputAttached()
+			log.Debug().
+				Uint64("webview_id", uint64(wv.id)).
+				Int32("browser_id", browserID).
+				Bool("destroyed", wv.destroyed.Load()).
+				Bool("bridge_present", wv.viewBridge != nil).
+				Bool("bridge_focused", bridgeFocused).
+				Msg("cef: input bridge attachment succeeded")
 		})
 	}
 
@@ -1026,7 +1049,18 @@ func (wv *WebView) handleInputAttachFailure(err error, host purecef.BrowserHost)
 		return
 	}
 	if wv.ctx != nil {
-		logging.FromContext(wv.ctx).Warn().Err(err).Msg("cef: failed to attach input to cef2gtk bridge")
+		browserID := int32(0)
+		if host != nil {
+			if browser := host.GetBrowser(); browser != nil {
+				browserID = browser.GetIdentifier()
+			}
+		}
+		logging.FromContext(wv.ctx).Warn().Err(err).
+			Uint64("webview_id", uint64(wv.id)).
+			Int32("browser_id", browserID).
+			Bool("destroyed", wv.destroyed.Load()).
+			Bool("bridge_present", wv.viewBridge != nil).
+			Msg("cef: input bridge attachment failed")
 	}
 	if host != nil && !wv.destroyed.Load() {
 		host.CloseBrowser(1)
