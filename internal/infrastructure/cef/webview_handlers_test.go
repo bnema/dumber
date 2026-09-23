@@ -231,6 +231,10 @@ func TestNativePopupActivationDoesNotLetInitialBlankLoadClearPendingNavigationBe
 	require.Equal(t, int32(55), wv.nativePopupID)
 	require.Same(t, parent, wv.nativePopupParent)
 	require.Equal(t, "https://example.com/oauth", wv.pendingNavigationURI())
+	wv.mu.RLock()
+	require.Equal(t, "https://example.com/oauth", wv.committedURL)
+	require.Equal(t, "https://example.com/oauth", wv.uri)
+	wv.mu.RUnlock()
 
 	wv.updateURI("about:blank")
 	wv.updateLoadState(false, false, false)

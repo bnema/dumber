@@ -38,7 +38,7 @@ func newInjectionHarnessWithID(t *testing.T, uri string, browserID int32) *injec
 	h.browser.EXPECT().GetMainFrame().Return(frame).Maybe()
 	h.browser.EXPECT().GetIdentifier().Return(browserID).Maybe()
 	h.wv = &WebView{ctx: context.Background(), browser: h.browser, documentSeq: 1}
-	h.wv.uri = uri
+	h.wv.setCommittedURLsLocked(uri, toConceptualInternalURL(uri))
 	return h
 }
 
@@ -211,4 +211,46 @@ func TestInjectionEvent_StaleCallbackBrowserSkipped(t *testing.T) {
 	require.Equal(t, int32(7), event.browserID, "callback-sourced capture must keep the old identity")
 	testInjector().onLoadEndForEvent(h.wv, event)
 	require.Zero(t, h.scriptCount(), "old-callback event must not install against the replacement browser")
+}
+
+// TestInjectionEvent_InternalSystemviewInstalls reproduces the production
+// identity split for internal systemviews: the WebView's conceptual URI is
+// dumb://<page> while the CEF callback frame URL is the raw committed
+// https://dumber.invalid/<page>. The stale-event guard must compare raw
+// against raw, so the bridge and message scripts install.
+func TestInjectionEvent_InternalSystemviewInstalls(t *testing.T) {
+	for _, page := range []string{"history", "favorites"} {
+		t.Run(page, func(t *testing.T) {
+			h := newInjectionHarness(t, "https://example.com/a")
+			rawURL := "https://dumber.invalid/" + page
+			h.wv.updateURI(rawURL)
+			require.Equal(t, "dumb://"+page, h.wv.URI(), "UI callbacks must keep the conceptual URI")
+
+			testInjector().onLoadEndForEvent(h.wv, h.wv.captureInjectionEvent(h.browser, rawURL))
+
+			require.Equal(t, 7, h.scriptCount(), "internal install must stay a fixed small script set")
+			h.mu.Lock()
+			defer h.mu.Unlock()
+			joined := ""
+			for _, script := range h.scripts {
+				joined += script
+			}
+			require.Contains(t, joined, "dumber-theme-vars")
+			require.Contains(t, joined, "window.dumber")
+		})
+	}
+}
+
+// TestInjectionEvent_StaleCommittedURLSkips verifies the raw-URL stale guard:
+// an event captured for one committed document must not install after a
+// newer commit replaced the raw URL.
+func TestInjectionEvent_StaleCommittedURLSkips(t *testing.T) {
+	h := newInjectionHarness(t, "https://example.com/a")
+	h.wv.updateURI("https://dumber.invalid/history")
+	event := h.wv.captureInjectionEvent(h.browser, "https://dumber.invalid/history")
+
+	h.wv.updateURI("https://dumber.invalid/favorites")
+
+	testInjector().onLoadEndForEvent(h.wv, event)
+	require.Zero(t, h.scriptCount(), "event for a superseded commit must not install")
 }

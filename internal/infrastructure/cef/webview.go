@@ -256,7 +256,13 @@ type WebView struct {
 	popupOpenerBridgeParentURI  string
 
 	// State cache (mutex-protected).
+	// uri is the conceptual/public URI used by UI callbacks (for example
+	// dumb://history). committedURL is the raw committed CEF main-frame URL
+	// (for example https://dumber.invalid/history). The two forms are updated
+	// together through setCommittedURLsLocked; never compare one form against
+	// the other.
 	uri                       string
+	committedURL              string
 	title                     string
 	progress                  float64
 	canGoBack                 bool
@@ -407,7 +413,7 @@ func (wv *WebView) LoadURI(_ context.Context, uri string) error {
 		if browser == nil {
 			return nil
 		}
-		wv.schedulePendingNavigationReplay(0)
+		wv.schedulePendingNavigationReplay()
 		return nil
 	})
 }
@@ -780,7 +786,7 @@ func (wv *WebView) PrimePopupNavigation(uri string) {
 	wv.setPendingNavigationLocked(actualURI, time.Now())
 	wv.mu.Unlock()
 	if browser != nil {
-		wv.schedulePendingNavigationReplay(0)
+		wv.schedulePendingNavigationReplay()
 	}
 }
 
@@ -1148,9 +1154,11 @@ func (wv *WebView) activateNativePopup(popupID int32, targetURL string) (purecef
 		wv.setPendingNavigationLocked(toActualInternalURL(targetURL), time.Now())
 	}
 	if strings.TrimSpace(wv.pendingURI) != "" {
-		wv.uri = toConceptualInternalURL(wv.pendingURI)
+		raw := strings.TrimSpace(wv.pendingURI)
+		wv.setCommittedURLsLocked(raw, toConceptualInternalURL(raw))
 	} else {
-		wv.uri = toConceptualInternalURL(targetURL)
+		raw := strings.TrimSpace(targetURL)
+		wv.setCommittedURLsLocked(raw, toConceptualInternalURL(raw))
 	}
 	wv.isLoading = true
 	return wv.client, true
@@ -1461,10 +1469,20 @@ func (wv *WebView) NativeWidget() uintptr {
 // ---------------------------------------------------------------------------
 
 func (wv *WebView) updateURI(uri string) {
-	uri = toConceptualInternalURL(uri)
+	wv.setCommittedURL(uri)
+}
+
+// setCommittedURL is the single owner of main-frame commit identity: it
+// updates the raw committed CEF URL and the conceptual/public URI together,
+// preserving pending-navigation acknowledgement, diagnostics timestamps, and
+// all current callbacks. raw is the unmodified committed URL; the conceptual
+// URI is derived from it.
+func (wv *WebView) setCommittedURL(raw string) {
+	raw = strings.TrimSpace(raw)
+	uri := toConceptualInternalURL(raw)
 	now := time.Now()
 	wv.mu.Lock()
-	wv.uri = uri
+	wv.setCommittedURLsLocked(raw, uri)
 	wv.loadDiagLastAddressAt = now
 	cb := wv.callbacks
 	pendingMatched := wv.clearPendingNavigationIfEquivalentLocked(uri)
@@ -1482,6 +1500,13 @@ func (wv *WebView) updateURI(uri string) {
 		})
 	}
 	wv.runNavigationCallbacks(uri)
+}
+
+// setCommittedURLsLocked records the raw committed CEF main-frame URL and
+// the conceptual/public URI derived from it. The caller must hold wv.mu.
+func (wv *WebView) setCommittedURLsLocked(raw, uri string) {
+	wv.committedURL = raw
+	wv.uri = uri
 }
 
 func (wv *WebView) updateTitle(title string) {
@@ -2037,6 +2062,15 @@ func (wv *WebView) pendingNavigationURI() string {
 	return wv.pendingURI
 }
 
+func (wv *WebView) pendingNavigationSnapshot() (string, uint64) {
+	if wv == nil {
+		return "", 0
+	}
+	wv.mu.RLock()
+	defer wv.mu.RUnlock()
+	return wv.pendingURI, wv.pendingIntentID
+}
+
 func (wv *WebView) setPendingNavigationLocked(uri string, at time.Time) {
 	wv.pendingURI = uri
 	wv.pendingURIStartedAt = time.Time{}
@@ -2078,6 +2112,20 @@ func (wv *WebView) clearPendingNavigationIfEquivalentLocked(uri string) bool {
 	return true
 }
 
+// rearmPendingNavigationAfterBlankLoadEnd reopens an issued intent after the
+// initial about:blank commit: Chromium can drop LoadURL while that commit is in progress.
+// The intent ID prevents a stale load-end callback from rearming a newer request.
+func (wv *WebView) rearmPendingNavigationAfterBlankLoadEnd(intentID uint64) bool {
+	wv.mu.Lock()
+	defer wv.mu.Unlock()
+	if intentID == 0 || wv.pendingIntentID != intentID || wv.pendingURI == "" || !wv.pendingIssued {
+		return false
+	}
+	wv.pendingIssued = false
+	wv.pendingURIStartedAt = time.Time{}
+	return true
+}
+
 func (wv *WebView) hasObservedAddressForPendingNavigationLocked() bool {
 	if strings.TrimSpace(wv.pendingURI) == "" || strings.TrimSpace(wv.uri) == "" {
 		return false
@@ -2088,16 +2136,18 @@ func (wv *WebView) hasObservedAddressForPendingNavigationLocked() bool {
 	return !wv.loadDiagLastAddressAt.Before(wv.pendingURIStartedAt)
 }
 
-func (wv *WebView) schedulePendingNavigationReplay(attempt int) {
-	if wv == nil || wv.destroyed.Load() {
+func (wv *WebView) schedulePendingNavigationReplay() {
+	if wv == nil {
 		return
 	}
 	// Capture the intent at schedule time; a rapid replacement installs a new
 	// intent and stale tasks for the old ID must return without submitting.
-	wv.mu.RLock()
-	intentID := wv.pendingIntentID
-	wv.mu.RUnlock()
-	if intentID == 0 {
+	_, intentID := wv.pendingNavigationSnapshot()
+	wv.schedulePendingNavigationReplayForIntent(0, intentID)
+}
+
+func (wv *WebView) schedulePendingNavigationReplayForIntent(attempt int, intentID uint64) {
+	if wv == nil || wv.destroyed.Load() || intentID == 0 {
 		return
 	}
 	task := cefNewTask(cefTaskFunc(func() {
@@ -2129,7 +2179,7 @@ func (wv *WebView) schedulePendingNavigationReplay(attempt int) {
 		return
 	}
 	cefScheduleAfter(pendingNavigationRetryDelay, func() {
-		wv.schedulePendingNavigationReplay(attempt + 1)
+		wv.schedulePendingNavigationReplayForIntent(attempt+1, intentID)
 	})
 }
 
@@ -2172,7 +2222,7 @@ func (wv *WebView) replayPendingNavigationForIntent(attempt int, intentID uint64
 				Str("uri", logging.TruncateURL(uri, logging.PermissionLogURLMaxLen)).
 				Msg("cef: pending navigation replay waiting for main frame")
 		}
-		wv.schedulePendingNavigationReplay(attempt + 1)
+		wv.schedulePendingNavigationReplayForIntent(attempt+1, intentID)
 		return
 	}
 	currentURL := frame.GetURL()
@@ -2205,7 +2255,7 @@ func (wv *WebView) replayPendingNavigationForIntent(attempt int, intentID uint64
 	case pendingClaimReplaced:
 		// Browser was replaced between frame acquisition and claim; retry
 		// the same intent so the new browser is used at execution time.
-		wv.schedulePendingNavigationReplay(attempt + 1)
+		wv.schedulePendingNavigationReplayForIntent(attempt+1, intentID)
 	case pendingClaimReady:
 		frame.LoadURL(submitURI)
 		wv.resubmitIfBrowserReplaced(attempt, intentID, browser)
@@ -2232,7 +2282,7 @@ func (wv *WebView) resubmitIfBrowserReplaced(attempt int, intentID uint64, submi
 	}
 	wv.mu.Unlock()
 	if replaced {
-		wv.schedulePendingNavigationReplay(attempt + 1)
+		wv.schedulePendingNavigationReplayForIntent(attempt+1, intentID)
 	}
 }
 
@@ -2286,6 +2336,17 @@ func (wv *WebView) claimPendingNavigationSubmission(intentID uint64, browserID i
 	return uri, pendingClaimReady
 }
 
+// documentIdentity is the private identity of a committed main-frame
+// document: the callback browser identifier, the navigation intent ID, the
+// document sequence, and the raw committed CEF URL. Conceptual and raw URL
+// forms are never compared against each other.
+type documentIdentity struct {
+	browserID    int32
+	intentID     uint64
+	documentSeq  uint64
+	committedURL string
+}
+
 // injectionEvent captures the navigation identity observed at main-frame
 // load-end so the GTK-dispatched installation can drop stale events: an
 // old main frame firing during process swap, or a queued callback outlived
@@ -2295,10 +2356,7 @@ func (wv *WebView) claimPendingNavigationSubmission(intentID uint64, browserID i
 // identity. noBrowserID marks captures taken while no browser was
 // attached. The current URL alone never proves document identity.
 type injectionEvent struct {
-	browserID   int32
-	intentID    uint64
-	documentSeq uint64
-	frameURL    string
+	documentIdentity
 }
 
 // noBrowserID marks an injection event captured while no browser was
@@ -2316,7 +2374,7 @@ const noBrowserID = int32(-1)
 // for the same document share the sequence and are installed once.
 func (wv *WebView) captureInjectionEvent(browser purecef.Browser, frameURL string) injectionEvent {
 	if wv == nil || browser == nil {
-		return injectionEvent{browserID: noBrowserID}
+		return injectionEvent{documentIdentity: documentIdentity{browserID: noBrowserID}}
 	}
 	browserID := browser.GetIdentifier()
 	wv.mu.RLock()
@@ -2324,8 +2382,12 @@ func (wv *WebView) captureInjectionEvent(browser purecef.Browser, frameURL strin
 	documentSeq := wv.documentSeq
 	wv.mu.RUnlock()
 	return injectionEvent{
-		browserID: browserID, intentID: intentID, documentSeq: documentSeq,
-		frameURL: strings.TrimSpace(frameURL),
+		documentIdentity: documentIdentity{
+			browserID:    browserID,
+			intentID:     intentID,
+			documentSeq:  documentSeq,
+			committedURL: strings.TrimSpace(frameURL),
+		},
 	}
 }
 

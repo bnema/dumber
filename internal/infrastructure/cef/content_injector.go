@@ -3,7 +3,6 @@ package cef
 import (
 	"context"
 	"fmt"
-	"strings"
 	"sync"
 
 	"github.com/bnema/dumber/internal/infrastructure/webutil"
@@ -255,7 +254,10 @@ func (ci *contentInjector) RefreshScripts(ctx context.Context, wv port.WebView) 
 // OnLoadEnd callback's browser (not mutable WebView state), so events that
 // are provably stale are skipped: a replaced browser identifier (old main
 // frame during process swap) or a superseded intent ID (a newer navigation
-// committed while the callback was queued). Ambiguous cases fall back to skipping rather than
+// committed while the callback was queued). The raw committed CEF URL in the
+// event is compared only against the raw committed URL as an additional
+// stale-event guard; it is never compared against the conceptual URI.
+// Ambiguous cases fall back to skipping rather than
 // installing blind: an event captured without a browser cannot prove
 // identity, and the current browser gets its own load-end installation.
 // The installation is pinned to the validated document sequence, so a
@@ -274,7 +276,7 @@ func (ci *contentInjector) onLoadEndForEvent(wv *WebView, event injectionEvent) 
 	}
 	wv.mu.Lock()
 	if wv.browser != browser || wv.pendingIntentID != event.intentID || event.documentSeq == 0 ||
-		wv.documentSeq != event.documentSeq || strings.TrimSpace(wv.uri) != event.frameURL ||
+		wv.documentSeq != event.documentSeq || wv.committedURL != event.committedURL ||
 		wv.installedDocumentSeq == event.documentSeq {
 		wv.mu.Unlock()
 		return

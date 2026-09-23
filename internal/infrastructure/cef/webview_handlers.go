@@ -183,13 +183,16 @@ func (h *handlerSet) OnFaviconUrlchange(browser purecef.Browser, iconURLs purece
 		return
 	}
 	h.wv.mu.RLock()
-	pageURL, cb, currentBrowser, documentSeq := h.wv.uri, h.wv.callbacks, h.wv.browser, h.wv.documentSeq
+	pageURL, committedURL, cb, currentBrowser, documentSeq := h.wv.uri, h.wv.committedURL, h.wv.callbacks, h.wv.browser, h.wv.documentSeq
 	h.wv.mu.RUnlock()
 	if cb == nil || cb.OnFaviconURLChanged == nil || browser == nil || currentBrowser == nil ||
 		browser.GetIdentifier() != currentBrowser.GetIdentifier() {
 		return
 	}
-	candidates := resolveFaviconCandidates(pageURL, decodeCEFStringList(iconURLs))
+	if committedURL == "" {
+		committedURL = pageURL
+	}
+	candidates := resolveFaviconCandidates(committedURL, decodeCEFStringList(iconURLs))
 	if len(candidates) == 0 {
 		return
 	}
@@ -389,9 +392,13 @@ func (h *handlerSet) OnLoadingStateChange(browser purecef.Browser, isloading, ca
 	h.wv.mu.RLock()
 	cb := h.wv.callbacks
 	pageURL := h.wv.uri
+	committedURL := h.wv.committedURL
 	h.wv.mu.RUnlock()
+	if committedURL == "" {
+		committedURL = pageURL
+	}
 	if !loading && cb != nil && cb.OnFaviconURLChanged != nil {
-		h.emitDiscoveredFaviconCandidates(browser, pageURL, cb)
+		h.emitDiscoveredFaviconCandidates(browser, pageURL, committedURL, cb)
 	}
 	if cb != nil && cb.OnLoadChanged != nil {
 		if loading {
@@ -432,7 +439,7 @@ func (wv *WebView) retainFaviconSourceVisitor(visitor purecef.StringVisitor) fun
 	}
 }
 
-func (h *handlerSet) emitDiscoveredFaviconCandidates(browser purecef.Browser, pageURL string, cb *port.WebViewCallbacks) {
+func (h *handlerSet) emitDiscoveredFaviconCandidates(browser purecef.Browser, pageURL, committedURL string, cb *port.WebViewCallbacks) {
 	if h == nil || h.wv == nil || cb == nil || cb.OnFaviconURLChanged == nil {
 		return
 	}
@@ -455,7 +462,7 @@ func (h *handlerSet) emitDiscoveredFaviconCandidates(browser purecef.Browser, pa
 		}
 		h.wv.mu.Unlock()
 	}
-	fallback := fallbackFaviconCandidates(pageURL)
+	fallback := fallbackFaviconCandidates(committedURL)
 	emit := func(candidates []string) {
 		if len(candidates) == 0 {
 			return
@@ -496,7 +503,7 @@ func (h *handlerSet) emitDiscoveredFaviconCandidates(browser purecef.Browser, pa
 		if engineWon {
 			return
 		}
-		candidates := DiscoverFaviconCandidates(pageURL, source)
+		candidates := DiscoverFaviconCandidates(committedURL, source)
 		if len(candidates) == 0 {
 			candidates = fallback
 		}
@@ -579,12 +586,15 @@ func (h *handlerSet) OnLoadEnd(browser purecef.Browser, frame purecef.Frame, htt
 	// If a queued startup navigation is still pending after about:blank finished,
 	// replay it now that the initial main-frame load completed.
 	frameURL := frame.GetURL()
-	if pendingURI := h.wv.pendingNavigationURI(); pendingURI != "" && !pendingURIEquivalent(frameURL, pendingURI) {
+	pendingURI, pendingIntentID := h.wv.pendingNavigationSnapshot()
+	if pendingURI != "" && !pendingURIEquivalent(frameURL, pendingURI) {
 		if strings.EqualFold(strings.TrimSpace(frameURL), "about:blank") {
-			log.Debug().
+			rearmed := h.wv.rearmPendingNavigationAfterBlankLoadEnd(pendingIntentID)
+			log.Info().
 				Str("pending_uri", logging.TruncateURL(pendingURI, logging.PermissionLogURLMaxLen)).
+				Bool("rearmed", rearmed).
 				Msg("cef: replaying pending navigation after about:blank load end")
-			h.wv.schedulePendingNavigationReplay(0)
+			h.wv.schedulePendingNavigationReplayForIntent(0, pendingIntentID)
 		}
 	}
 
@@ -1077,7 +1087,7 @@ func (h *handlerSet) finishAfterCreated(
 		host.Invalidate(purecef.PaintElementTypePetView)
 	}
 	if state.hasPendingNavigation {
-		h.wv.schedulePendingNavigationReplay(0)
+		h.wv.schedulePendingNavigationReplay()
 	}
 	if state.nativePopupParent != nil && state.nativePopupID != 0 {
 		state.nativePopupParent.clearPendingNativePopup(state.nativePopupID, h.wv)
