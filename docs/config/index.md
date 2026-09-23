@@ -482,7 +482,7 @@ Notes:
 - `Tab` and `Shift+Tab` keep focus traversal inside the page while a page input is focused.
 - Live input, heading, heading-link activation, and page-focus navigation currently use the CEF engine path; WebKit fallback supports the Vim scroll commands while equivalent semantic navigation is pending.
 - Other app-level shortcuts stay suspended until Vim Mode exits, except for the Vim Mode toggle itself.
-- `workspace.styling.pane_mode_color` colors the Vim frame; `workspace.styling.transition_duration` controls its pulse. The mode legend and toast use the workspace styling options below.
+- `workspace.styling.vim_mode_color` colors the Vim frame; `workspace.styling.transition_duration` controls its pulse. The mode legend and toast use the workspace styling options below.
 - Scroll execution: CEF and WebKit both use the shared `BuildPageScrollByJS` resolver when the page is ready. Each step starts under the viewport center, walks up through ancestors that can move in the requested direction, and hands scrolling to the document when a nested container reaches its boundary. The application repeater owns held-key cadence; each engine executes one immediate scroll step per tick. Cross-origin frame contents remain best-effort. CEF may use native precision-wheel input only as a pre-frame fallback before the browser/main frame is ready.
 
 ### Resize Mode

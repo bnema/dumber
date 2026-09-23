@@ -159,8 +159,12 @@ func (f *modeFrame) flash(action input.Action) {
 	if f == nil || f.lingering || !f.visible || !f.config.ModeLegendAnimations {
 		return
 	}
-	name := strings.ReplaceAll(string(action), "_", "-")
+	name := string(action)
 	keycaps := f.keycaps[name]
+	if len(keycaps) == 0 {
+		name = strings.ReplaceAll(name, "_", "-")
+		keycaps = f.keycaps[name]
+	}
 	if len(keycaps) == 0 {
 		return
 	}
