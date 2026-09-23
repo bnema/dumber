@@ -9,14 +9,15 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/require"
 )
 
 func TestModeLegendSchemaDefaults(t *testing.T) {
-	keys := make(map[string]struct{ kind, value, valueRange string })
+	keys := make(map[string]entity.ConfigKeyInfo)
 	for _, key := range NewSchemaProvider().GetSchema() {
-		keys[key.Key] = struct{ kind, value, valueRange string }{key.Type, key.Default, key.Range}
+		keys[key.Key] = key
 	}
 	for _, tc := range []struct{ key, kind, value, valueRange string }{
 		{"workspace.styling.mode_legend", "string", "delay", ""},
@@ -25,10 +26,11 @@ func TestModeLegendSchemaDefaults(t *testing.T) {
 	} {
 		entry, ok := keys[tc.key]
 		require.True(t, ok, "missing schema key %s", tc.key)
-		require.Equal(t, tc.kind, entry.kind)
-		require.Equal(t, tc.value, entry.value)
-		require.Equal(t, tc.valueRange, entry.valueRange)
+		require.Equal(t, tc.kind, entry.Type)
+		require.Equal(t, tc.value, entry.Default)
+		require.Equal(t, tc.valueRange, entry.Range)
 	}
+	require.Equal(t, []string{"always", "delay", "off"}, keys["workspace.styling.mode_legend"].Values)
 }
 
 func TestConfigurationReferenceCoversSchemaKeys(t *testing.T) {

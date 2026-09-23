@@ -712,7 +712,8 @@ func (*SchemaProvider) getWorkspaceKeys(defaults *Config) []entity.ConfigKeyInfo
 			Key:         "workspace.styling.mode_legend",
 			Type:        "string",
 			Default:     defaults.Workspace.Styling.ModeLegend,
-			Description: "Mode legend visibility: always, delay, or off",
+			Description: "Mode legend visibility",
+			Values:      []string{"always", "delay", "off"},
 			Section:     SectionWorkspace,
 		},
 		{
