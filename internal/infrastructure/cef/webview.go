@@ -413,7 +413,7 @@ func (wv *WebView) LoadURI(_ context.Context, uri string) error {
 		if browser == nil {
 			return nil
 		}
-		wv.schedulePendingNavigationReplay(0)
+		wv.schedulePendingNavigationReplay()
 		return nil
 	})
 }
@@ -786,7 +786,7 @@ func (wv *WebView) PrimePopupNavigation(uri string) {
 	wv.setPendingNavigationLocked(actualURI, time.Now())
 	wv.mu.Unlock()
 	if browser != nil {
-		wv.schedulePendingNavigationReplay(0)
+		wv.schedulePendingNavigationReplay()
 	}
 }
 
@@ -1737,7 +1737,8 @@ func (wv *WebView) bridgeInputOptions() cef2gtk.InputOptions {
 		OnMiddleClick: func(_, _ float64) bool {
 			return wv.handleMiddleClickFromBridge()
 		},
-		OnScroll: wv.handleScrollInput,
+		OnClickDiagnostic: wv.logClickDiagnostic,
+		OnScroll:          wv.handleScrollInput,
 		NavigationSwipe: cef2gtk.NavigationSwipeOptions{
 			// Dumber handles thresholding and progress UI locally from OnScroll so
 			// horizontal scrolling continues to reach CEF while history navigation
@@ -2061,6 +2062,15 @@ func (wv *WebView) pendingNavigationURI() string {
 	return wv.pendingURI
 }
 
+func (wv *WebView) pendingNavigationSnapshot() (string, uint64) {
+	if wv == nil {
+		return "", 0
+	}
+	wv.mu.RLock()
+	defer wv.mu.RUnlock()
+	return wv.pendingURI, wv.pendingIntentID
+}
+
 func (wv *WebView) setPendingNavigationLocked(uri string, at time.Time) {
 	wv.pendingURI = uri
 	wv.pendingURIStartedAt = time.Time{}
@@ -2102,6 +2112,20 @@ func (wv *WebView) clearPendingNavigationIfEquivalentLocked(uri string) bool {
 	return true
 }
 
+// rearmPendingNavigationAfterBlankLoadEnd reopens an issued intent after the
+// initial about:blank commit: Chromium can drop LoadURL while that commit is in progress.
+// The intent ID prevents a stale load-end callback from rearming a newer request.
+func (wv *WebView) rearmPendingNavigationAfterBlankLoadEnd(intentID uint64) bool {
+	wv.mu.Lock()
+	defer wv.mu.Unlock()
+	if intentID == 0 || wv.pendingIntentID != intentID || wv.pendingURI == "" || !wv.pendingIssued {
+		return false
+	}
+	wv.pendingIssued = false
+	wv.pendingURIStartedAt = time.Time{}
+	return true
+}
+
 func (wv *WebView) hasObservedAddressForPendingNavigationLocked() bool {
 	if strings.TrimSpace(wv.pendingURI) == "" || strings.TrimSpace(wv.uri) == "" {
 		return false
@@ -2112,16 +2136,18 @@ func (wv *WebView) hasObservedAddressForPendingNavigationLocked() bool {
 	return !wv.loadDiagLastAddressAt.Before(wv.pendingURIStartedAt)
 }
 
-func (wv *WebView) schedulePendingNavigationReplay(attempt int) {
-	if wv == nil || wv.destroyed.Load() {
+func (wv *WebView) schedulePendingNavigationReplay() {
+	if wv == nil {
 		return
 	}
 	// Capture the intent at schedule time; a rapid replacement installs a new
 	// intent and stale tasks for the old ID must return without submitting.
-	wv.mu.RLock()
-	intentID := wv.pendingIntentID
-	wv.mu.RUnlock()
-	if intentID == 0 {
+	_, intentID := wv.pendingNavigationSnapshot()
+	wv.schedulePendingNavigationReplayForIntent(0, intentID)
+}
+
+func (wv *WebView) schedulePendingNavigationReplayForIntent(attempt int, intentID uint64) {
+	if wv == nil || wv.destroyed.Load() || intentID == 0 {
 		return
 	}
 	task := cefNewTask(cefTaskFunc(func() {
@@ -2153,7 +2179,7 @@ func (wv *WebView) schedulePendingNavigationReplay(attempt int) {
 		return
 	}
 	cefScheduleAfter(pendingNavigationRetryDelay, func() {
-		wv.schedulePendingNavigationReplay(attempt + 1)
+		wv.schedulePendingNavigationReplayForIntent(attempt+1, intentID)
 	})
 }
 
@@ -2196,7 +2222,7 @@ func (wv *WebView) replayPendingNavigationForIntent(attempt int, intentID uint64
 				Str("uri", logging.TruncateURL(uri, logging.PermissionLogURLMaxLen)).
 				Msg("cef: pending navigation replay waiting for main frame")
 		}
-		wv.schedulePendingNavigationReplay(attempt + 1)
+		wv.schedulePendingNavigationReplayForIntent(attempt+1, intentID)
 		return
 	}
 	currentURL := frame.GetURL()
@@ -2229,7 +2255,7 @@ func (wv *WebView) replayPendingNavigationForIntent(attempt int, intentID uint64
 	case pendingClaimReplaced:
 		// Browser was replaced between frame acquisition and claim; retry
 		// the same intent so the new browser is used at execution time.
-		wv.schedulePendingNavigationReplay(attempt + 1)
+		wv.schedulePendingNavigationReplayForIntent(attempt+1, intentID)
 	case pendingClaimReady:
 		frame.LoadURL(submitURI)
 		wv.resubmitIfBrowserReplaced(attempt, intentID, browser)
@@ -2256,7 +2282,7 @@ func (wv *WebView) resubmitIfBrowserReplaced(attempt int, intentID uint64, submi
 	}
 	wv.mu.Unlock()
 	if replaced {
-		wv.schedulePendingNavigationReplay(attempt + 1)
+		wv.schedulePendingNavigationReplayForIntent(attempt+1, intentID)
 	}
 }
 

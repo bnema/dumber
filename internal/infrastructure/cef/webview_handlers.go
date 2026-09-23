@@ -586,12 +586,15 @@ func (h *handlerSet) OnLoadEnd(browser purecef.Browser, frame purecef.Frame, htt
 	// If a queued startup navigation is still pending after about:blank finished,
 	// replay it now that the initial main-frame load completed.
 	frameURL := frame.GetURL()
-	if pendingURI := h.wv.pendingNavigationURI(); pendingURI != "" && !pendingURIEquivalent(frameURL, pendingURI) {
+	pendingURI, pendingIntentID := h.wv.pendingNavigationSnapshot()
+	if pendingURI != "" && !pendingURIEquivalent(frameURL, pendingURI) {
 		if strings.EqualFold(strings.TrimSpace(frameURL), "about:blank") {
-			log.Debug().
+			rearmed := h.wv.rearmPendingNavigationAfterBlankLoadEnd(pendingIntentID)
+			log.Info().
 				Str("pending_uri", logging.TruncateURL(pendingURI, logging.PermissionLogURLMaxLen)).
+				Bool("rearmed", rearmed).
 				Msg("cef: replaying pending navigation after about:blank load end")
-			h.wv.schedulePendingNavigationReplay(0)
+			h.wv.schedulePendingNavigationReplayForIntent(0, pendingIntentID)
 		}
 	}
 
@@ -987,21 +990,44 @@ func (h *handlerSet) attachAfterCreatedBrowser(
 
 	if bridge != nil {
 		wv := h.wv
+		log := logging.FromContext(wv.ctx)
+		log.Debug().
+			Uint64("webview_id", uint64(wv.id)).
+			Int32("browser_id", browserID).
+			Bool("destroyed", wv.destroyed.Load()).
+			Bool("bridge_present", true).
+			Msg("cef: scheduling input bridge attachment")
 		wv.runOnGTK(func() {
-			if wv.destroyed.Load() || wv.viewBridge == nil {
+			currentBridge := wv.viewBridge
+			log.Debug().
+				Uint64("webview_id", uint64(wv.id)).
+				Int32("browser_id", browserID).
+				Bool("destroyed", wv.destroyed.Load()).
+				Bool("bridge_present", currentBridge != nil).
+				Bool("bridge_stale", currentBridge != bridge).
+				Msg("cef: starting input bridge attachment")
+			if wv.destroyed.Load() || currentBridge == nil || currentBridge != bridge || bridge.IsDestroyed() {
 				wv.handleInputAttachFailure(ErrAdapterDestroyed, host)
 				return
 			}
-			if err := wv.viewBridge.AttachInputToWidget(host, wv.nativeWidget, wv.bridgeInputOptions()); err != nil {
+			if err := bridge.AttachInputToWidget(host, wv.nativeWidget, wv.bridgeInputOptions()); err != nil {
 				wv.handleInputAttachFailure(err, host)
 				return
 			}
-			if wv.viewBridge != nil && wv.viewBridge.HasFocus() {
+			bridgeFocused := bridge.HasFocus()
+			if bridgeFocused {
 				syncWindowlessBrowserFocus(host)
 			} else {
 				host.Invalidate(purecef.PaintElementTypePetView)
 			}
 			wv.markInputAttached()
+			log.Debug().
+				Uint64("webview_id", uint64(wv.id)).
+				Int32("browser_id", browserID).
+				Bool("destroyed", wv.destroyed.Load()).
+				Bool("bridge_present", wv.viewBridge != nil).
+				Bool("bridge_focused", bridgeFocused).
+				Msg("cef: input bridge attachment succeeded")
 		})
 	}
 
@@ -1023,7 +1049,18 @@ func (wv *WebView) handleInputAttachFailure(err error, host purecef.BrowserHost)
 		return
 	}
 	if wv.ctx != nil {
-		logging.FromContext(wv.ctx).Warn().Err(err).Msg("cef: failed to attach input to cef2gtk bridge")
+		browserID := int32(0)
+		if host != nil {
+			if browser := host.GetBrowser(); browser != nil {
+				browserID = browser.GetIdentifier()
+			}
+		}
+		logging.FromContext(wv.ctx).Warn().Err(err).
+			Uint64("webview_id", uint64(wv.id)).
+			Int32("browser_id", browserID).
+			Bool("destroyed", wv.destroyed.Load()).
+			Bool("bridge_present", wv.viewBridge != nil).
+			Msg("cef: input bridge attachment failed")
 	}
 	if host != nil && !wv.destroyed.Load() {
 		host.CloseBrowser(1)
@@ -1050,7 +1087,7 @@ func (h *handlerSet) finishAfterCreated(
 		host.Invalidate(purecef.PaintElementTypePetView)
 	}
 	if state.hasPendingNavigation {
-		h.wv.schedulePendingNavigationReplay(0)
+		h.wv.schedulePendingNavigationReplay()
 	}
 	if state.nativePopupParent != nil && state.nativePopupID != 0 {
 		state.nativePopupParent.clearPendingNativePopup(state.nativePopupID, h.wv)

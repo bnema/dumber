@@ -131,7 +131,7 @@ func (sv *StackedView) AddPane(ctx context.Context, paneID, title, faviconIconNa
 	defer sv.mu.Unlock()
 
 	log.Debug().
-		Str("title", title).
+		Str("pane_id", paneID).
 		Bool("container_nil", container == nil).
 		Int("current_count", len(sv.panes)).
 		Msg("StackedView.AddPane called")
@@ -299,7 +299,7 @@ func (sv *StackedView) InsertPaneAfter(
 	insertIndex := afterIndex + 1
 
 	log.Debug().
-		Str("title", title).
+		Str("pane_id", paneID).
 		Int("after_index", afterIndex).
 		Int("insert_index", insertIndex).
 		Int("current_count", len(sv.panes)).
@@ -478,22 +478,26 @@ func (sv *StackedView) updateVisibilityInternal(ctx context.Context) {
 		if pane.titleBar != nil {
 			pane.titleBar.SetVisible(!isActive)
 			log.Debug().
+				Str("pane_id", pane.paneID).
 				Int("pane_index", i).
-				Str("title", pane.title).
+				Int("active_index", sv.activeIndex).
+				Int("pane_count", len(sv.panes)).
 				Bool("is_active", isActive).
-				Bool("titlebar_visible", !isActive).
-				Msg("StackedView: set titlebar visibility")
+				Bool("requested_visible", !isActive).
+				Msg("StackedView: titlebar visibility changed")
 		}
 
 		// Container is visible only for active pane
 		if pane.container != nil {
 			pane.container.SetVisible(isActive)
 			log.Debug().
+				Str("pane_id", pane.paneID).
 				Int("pane_index", i).
-				Str("title", pane.title).
+				Int("active_index", sv.activeIndex).
+				Int("pane_count", len(sv.panes)).
 				Bool("is_active", isActive).
-				Bool("container_visible", isActive).
-				Msg("StackedView: set container visibility")
+				Bool("requested_visible", isActive).
+				Msg("StackedView: container visibility changed")
 		}
 
 		// Update CSS classes
