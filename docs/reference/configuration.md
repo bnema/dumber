@@ -133,12 +133,15 @@
 | `workspace.browsing_contexts.oauth_auto_close` | bool | `true` | |
 | `workspace.styling.border_width` | int | `1` | |
 | `workspace.styling.border_color` | string | `@theme_selected_bg_color` | |
-| `workspace.styling.mode_border_width` | int | `4` | |
+| `workspace.styling.mode_border_width` | int | `4` | Reserved; mode frame border widths are fixed |
 | `workspace.styling.pane_mode_color` | string | `#4A90E2` | |
 | `workspace.styling.tab_mode_color` | string | `#FFA500` | |
 | `workspace.styling.session_mode_color` | string | `#9B59B6` | |
 | `workspace.styling.resize_mode_color` | string | `#00D4AA` | |
-| `workspace.styling.mode_indicator_toaster_enabled` | bool | `true` | |
+| `workspace.styling.mode_indicator_toaster_enabled` | bool | `true` | Show the mode toast during the legend delay or when the legend is off |
+| `workspace.styling.mode_legend` | string | `delay` | `always`, `delay`, `off` |
+| `workspace.styling.mode_legend_delay_ms` | int | `500` | >= 0; used with `delay` |
+| `workspace.styling.mode_legend_animations` | bool | `true` | |
 | `workspace.styling.transition_duration` | int | `120` | |
 | `session.auto_restore` | bool | `false` | |
 | `session.snapshot_interval_ms` | int | `5000` | |

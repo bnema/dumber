@@ -740,6 +740,9 @@ func (m *Manager) setWorkspaceDefaults(defaults *Config) {
 	m.viper.SetDefault("workspace.styling.session_mode_color", defaults.Workspace.Styling.SessionModeColor)
 	m.viper.SetDefault("workspace.styling.resize_mode_color", defaults.Workspace.Styling.ResizeModeColor)
 	m.viper.SetDefault("workspace.styling.mode_indicator_toaster_enabled", defaults.Workspace.Styling.ModeIndicatorToasterEnabled)
+	m.viper.SetDefault("workspace.styling.mode_legend", defaults.Workspace.Styling.ModeLegend)
+	m.viper.SetDefault("workspace.styling.mode_legend_delay_ms", defaults.Workspace.Styling.ModeLegendDelayMs)
+	m.viper.SetDefault("workspace.styling.mode_legend_animations", defaults.Workspace.Styling.ModeLegendAnimations)
 	m.viper.SetDefault("workspace.styling.transition_duration", defaults.Workspace.Styling.TransitionDuration)
 }
 

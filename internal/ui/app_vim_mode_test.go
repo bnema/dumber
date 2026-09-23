@@ -17,7 +17,6 @@ import (
 	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/ui/component"
 	contentcoord "github.com/bnema/dumber/internal/ui/coordinator/content"
-	"github.com/bnema/dumber/internal/ui/focus"
 	"github.com/bnema/dumber/internal/ui/input"
 	"github.com/bnema/dumber/internal/ui/layout"
 	"github.com/bnema/dumber/internal/ui/layout/mocks"
@@ -143,20 +142,12 @@ func createTestPaneView(
 }
 
 // enterVimMode marks the owning pane with the pane-local visual accent.
-func enterVimMode(
-	t *testing.T,
-	app *App,
-	overlay *mocks.MockOverlayWidget,
-	bw *browserWindow,
-) {
+func enterVimMode(t *testing.T, app *App, bw *browserWindow) {
 	t.Helper()
-	overlay.EXPECT().AddCssClass("vim-mode-active").Once()
 	app.handleVimModeOwnership(context.Background(), bw, input.ModeVim, input.ModeNormal)
 }
 
-func expectVimModeAccentHidden(overlay *mocks.MockOverlayWidget) {
-	overlay.EXPECT().RemoveCssClass("vim-mode-active").Once()
-}
+func expectVimModeAccentHidden(_ *mocks.MockOverlayWidget) {}
 
 type accessibilityEnablingWebView struct {
 	*portmocks.MockWebView
@@ -417,7 +408,7 @@ func newSingleWindowVimModeFixture(t *testing.T) *vimModeTestFixture {
 func TestVimMode_Enter_SetsOwnershipOnActivePane(t *testing.T) {
 	f := newVimModeTestFixture(t)
 
-	enterVimMode(t, f.app, f.overlay1A, f.bw1)
+	enterVimMode(t, f.app, f.bw1)
 
 	assert.Equal(t, entity.PaneID("pane-a"), f.bw1.vimModePaneID,
 		"entering vim mode sets ownership on the active pane")
@@ -434,7 +425,7 @@ func TestVimMode_Enter_SetsOwnershipOnActivePane(t *testing.T) {
 func TestVimMode_Enter_MarksCorrectWindow(t *testing.T) {
 	f := newVimModeTestFixture(t)
 
-	enterVimMode(t, f.app, f.overlay2A, f.bw2)
+	enterVimMode(t, f.app, f.bw2)
 
 	assert.Equal(t, entity.PaneID("pane-a"), f.bw2.vimModePaneID)
 	assert.True(t, f.pv2A.IsVimMode())
@@ -630,7 +621,7 @@ func TestVimMode_Leave_ClearsOwnershipFromOwningPane(t *testing.T) {
 	f := newVimModeTestFixture(t)
 
 	// Enter first
-	enterVimMode(t, f.app, f.overlay1A, f.bw1)
+	enterVimMode(t, f.app, f.bw1)
 	require.Equal(t, entity.PaneID("pane-a"), f.bw1.vimModePaneID)
 
 	// Leave — SetVimMode(false) hides indicator and removes the CSS class
@@ -651,7 +642,7 @@ func TestVimMode_Transfer_MovesOwnershipToNewPane(t *testing.T) {
 	f := newVimModeTestFixture(t)
 
 	// Enter vim mode on bw1 pane-a — save label for hide expectation
-	enterVimMode(t, f.app, f.overlay1A, f.bw1)
+	enterVimMode(t, f.app, f.bw1)
 	require.Equal(t, entity.PaneID("pane-a"), f.bw1.vimModePaneID)
 
 	// Give bw1 a keyboard handler in vim mode so transfer performs the switch
@@ -660,9 +651,6 @@ func TestVimMode_Transfer_MovesOwnershipToNewPane(t *testing.T) {
 	// transferVimModeOwnershipToPane calls SetVimMode(false) on the old
 	// pane before SetVimMode(true) on the new pane.  Set up both.
 	expectVimModeAccentHidden(f.overlay1A)
-
-	// Set up the pane-local accent for pane-b.
-	f.overlay1B.EXPECT().AddCssClass("vim-mode-active").Once()
 
 	// Transfer ownership to pane-b
 	f.app.transferVimModeOwnershipToPane(context.Background(), f.bw1, entity.PaneID("pane-b"))
@@ -718,6 +706,10 @@ func TestVimMode_Transfer_EmptyOwnershipIsNoop(t *testing.T) {
 // 4. Pulse targeting — normal vs fast
 // ============================================================================
 
+func attachTestModeFrame(bw *browserWindow, target layout.Widget) {
+	bw.modeFrame = &modeFrame{mode: input.ModeVim, target: target, frameClass: "vim-mode-active"}
+}
+
 func setUpNormalPulse(overlay *mocks.MockOverlayWidget) {
 	overlay.EXPECT().RemoveCssClass("vim-mode-pulse").Once()
 	overlay.EXPECT().RemoveCssClass("vim-mode-pulse-fast").Once()
@@ -739,25 +731,22 @@ func setUpFastPulse(overlay *mocks.MockOverlayWidget) {
 func TestVimMode_Pulse_NormalTriggersOnOwningPane(t *testing.T) {
 	f := newVimModeTestFixture(t)
 
-	enterVimMode(t, f.app, f.overlay1A, f.bw1)
+	enterVimMode(t, f.app, f.bw1)
 	require.Equal(t, entity.PaneID("pane-a"), f.bw1.vimModePaneID)
 
-	// Pulse needs the indicator to exist — it was created lazily during
-	// enterVimMode, but we also need to set up pulse expectations.
-	// (enterVimMode created it, so we just set up pulse mocks.)
+	attachTestModeFrame(f.bw1, f.overlay1A)
 	setUpNormalPulse(f.overlay1A)
-
 	f.app.triggerVimModePulse(context.Background(), false)
 }
 
 func TestVimMode_Pulse_FastTriggersOnOwningPane(t *testing.T) {
 	f := newVimModeTestFixture(t)
 
-	enterVimMode(t, f.app, f.overlay1A, f.bw1)
+	enterVimMode(t, f.app, f.bw1)
 	require.Equal(t, entity.PaneID("pane-a"), f.bw1.vimModePaneID)
 
+	attachTestModeFrame(f.bw1, f.overlay1A)
 	setUpFastPulse(f.overlay1A)
-
 	f.app.triggerVimModePulse(context.Background(), true)
 }
 
@@ -775,8 +764,8 @@ func TestVimMode_Pulse_NoOwnerIsNoop(t *testing.T) {
 func TestVimMode_MultiWindow_TwoWindowsEnterLeave(t *testing.T) {
 	f := newVimModeTestFixture(t)
 
-	enterVimMode(t, f.app, f.overlay1A, f.bw1)
-	enterVimMode(t, f.app, f.overlay2A, f.bw2)
+	enterVimMode(t, f.app, f.bw1)
+	enterVimMode(t, f.app, f.bw2)
 
 	assert.Equal(t, entity.PaneID("pane-a"), f.bw1.vimModePaneID)
 	assert.Equal(t, entity.PaneID("pane-a"), f.bw2.vimModePaneID)
@@ -796,8 +785,8 @@ func TestVimMode_MultiWindow_TwoWindowsEnterLeave(t *testing.T) {
 func TestVimMode_MultiWindow_TransferIsolated(t *testing.T) {
 	f := newVimModeTestFixture(t)
 
-	enterVimMode(t, f.app, f.overlay1A, f.bw1)
-	enterVimMode(t, f.app, f.overlay2A, f.bw2)
+	enterVimMode(t, f.app, f.bw1)
+	enterVimMode(t, f.app, f.bw2)
 
 	f.bw1.keyboardHandler = newKeyboardHandlerInVimMode(t)
 
@@ -805,7 +794,6 @@ func TestVimMode_MultiWindow_TransferIsolated(t *testing.T) {
 	expectVimModeAccentHidden(f.overlay1A)
 
 	// Transfer bw1 to pane-b.
-	f.overlay1B.EXPECT().AddCssClass("vim-mode-active").Once()
 	f.app.transferVimModeOwnershipToPane(context.Background(), f.bw1, entity.PaneID("pane-b"))
 
 	assert.Equal(t, entity.PaneID("pane-b"), f.bw1.vimModePaneID)
@@ -820,10 +808,11 @@ func TestVimMode_MultiWindow_TransferIsolated(t *testing.T) {
 func TestVimMode_MultiWindow_PulseIsolated(t *testing.T) {
 	f := newVimModeTestFixture(t)
 
-	enterVimMode(t, f.app, f.overlay1A, f.bw1)
-	enterVimMode(t, f.app, f.overlay2A, f.bw2)
+	enterVimMode(t, f.app, f.bw1)
+	enterVimMode(t, f.app, f.bw2)
 
 	// Pulse on bw1 (lastFocusedWindowID = "win-1")
+	attachTestModeFrame(f.bw1, f.overlay1A)
 	setUpNormalPulse(f.overlay1A)
 	f.app.triggerVimModePulse(context.Background(), false)
 
@@ -866,7 +855,7 @@ func TestVimMode_HandleModeChange_NilBwDoesNotCrash(t *testing.T) {
 
 func TestVimMode_EditableFocusOnActivePaneExitsVimMode(t *testing.T) {
 	f := newSingleWindowVimModeFixture(t)
-	enterVimMode(t, f.app, f.overlay1A, f.bw1)
+	enterVimMode(t, f.app, f.bw1)
 	kh := bindVimModeKeyboardHandler(t, f.app, f.bw1)
 
 	expectVimModeAccentHidden(f.overlay1A)
@@ -879,7 +868,7 @@ func TestVimMode_EditableFocusOnActivePaneExitsVimMode(t *testing.T) {
 
 func TestVimMode_EditableFocusOnInactivePaneDoesNotExitVimMode(t *testing.T) {
 	f := newSingleWindowVimModeFixture(t)
-	enterVimMode(t, f.app, f.overlay1A, f.bw1)
+	enterVimMode(t, f.app, f.bw1)
 	kh := bindVimModeKeyboardHandler(t, f.app, f.bw1)
 
 	f.app.handlePageEditableFocusChanged(context.Background(), entity.PaneID("pane-b"), true)
@@ -891,7 +880,7 @@ func TestVimMode_EditableFocusOnInactivePaneDoesNotExitVimMode(t *testing.T) {
 
 func TestVimMode_PaneSwitchToEditablePaneExitsVimMode(t *testing.T) {
 	f := newSingleWindowVimModeFixture(t)
-	enterVimMode(t, f.app, f.overlay1A, f.bw1)
+	enterVimMode(t, f.app, f.bw1)
 	kh := bindVimModeKeyboardHandler(t, f.app, f.bw1)
 	f.app.pageEditableFocusByPane = map[entity.PaneID]bool{
 		"pane-b": true,
@@ -908,7 +897,7 @@ func TestVimMode_PaneSwitchToEditablePaneExitsVimMode(t *testing.T) {
 
 func TestVimMode_BackgroundWindowEditableFocusDoesNotExitFocusedWindowVimMode(t *testing.T) {
 	factory := mocks.NewMockWidgetFactory(t)
-	pv1, overlay1 := createTestPaneView(t, factory, "pane-a")
+	pv1, _ := createTestPaneView(t, factory, "pane-a")
 	pv2, _ := createTestPaneView(t, factory, "pane-x")
 
 	ws1 := &entity.Workspace{ID: "ws-1", ActivePaneID: "pane-a", Root: &entity.PaneNode{ID: "ws-1-pane-a", Pane: entity.NewPane("pane-a")}}
@@ -932,7 +921,7 @@ func TestVimMode_BackgroundWindowEditableFocusDoesNotExitFocusedWindowVimMode(t 
 		lastFocusedWindowID: "win-1",
 	}
 
-	enterVimMode(t, app, overlay1, bw1)
+	enterVimMode(t, app, bw1)
 	kh := bindVimModeKeyboardHandler(t, app, bw1)
 
 	app.handlePageEditableFocusChanged(context.Background(), entity.PaneID("pane-x"), true)
@@ -944,7 +933,7 @@ func TestVimMode_BackgroundWindowEditableFocusDoesNotExitFocusedWindowVimMode(t 
 
 func TestVimMode_OmniboxFocusExitsVimMode(t *testing.T) {
 	f := newSingleWindowVimModeFixture(t)
-	enterVimMode(t, f.app, f.overlay1A, f.bw1)
+	enterVimMode(t, f.app, f.bw1)
 	kh := bindVimModeKeyboardHandler(t, f.app, f.bw1)
 
 	expectVimModeAccentHidden(f.overlay1A)
@@ -956,7 +945,7 @@ func TestVimMode_OmniboxFocusExitsVimMode(t *testing.T) {
 
 func TestVimMode_FindBarFocusExitsVimMode(t *testing.T) {
 	f := newSingleWindowVimModeFixture(t)
-	enterVimMode(t, f.app, f.overlay1A, f.bw1)
+	enterVimMode(t, f.app, f.bw1)
 	kh := bindVimModeKeyboardHandler(t, f.app, f.bw1)
 
 	expectVimModeAccentHidden(f.overlay1A)
@@ -968,7 +957,7 @@ func TestVimMode_FindBarFocusExitsVimMode(t *testing.T) {
 
 func TestVimMode_TabSwitchExitsAndClearsOldAccent(t *testing.T) {
 	f := newSingleWindowVimModeFixture(t)
-	enterVimMode(t, f.app, f.overlay1A, f.bw1)
+	enterVimMode(t, f.app, f.bw1)
 	kh := bindVimModeKeyboardHandler(t, f.app, f.bw1)
 
 	tab2 := &entity.Tab{ID: "tab-2b", Workspace: &entity.Workspace{
@@ -1021,9 +1010,7 @@ func TestVimMode_ClearEditableFocusStateRemovesStoredBypass(t *testing.T) {
 // ============================================================================
 
 func TestVimMode_CSSClassConstants(t *testing.T) {
-	assert.Equal(t, "vim-mode-active", component.VimModeActiveClass)
-	assert.Equal(t, "vim-mode-pulse", component.VimModePulseClass)
-	assert.Equal(t, "vim-mode-pulse-fast", component.VimModeFastPulseClass)
+	assert.Equal(t, "vim-mode-active", modeFrameClass(input.ModeVim))
 }
 
 // ============================================================================
@@ -1203,38 +1190,15 @@ func TestVimMode_RuntimePreferenceEnableShowsPersistentToaster(t *testing.T) {
 }
 
 // ============================================================================
-// BorderManager — Vim mode must NOT use the global border overlay
-// ============================================================================
-
-func TestVimMode_GlobalBorderOverlayStaysOff(t *testing.T) {
-	mockFactory := mocks.NewMockWidgetFactory(t)
-	mockBox := mocks.NewMockBoxWidget(t)
-
-	mockFactory.EXPECT().NewBox(layout.OrientationVertical, 0).Return(mockBox).Once()
-	mockBox.EXPECT().SetCanFocus(false).Once()
-	mockBox.EXPECT().SetCanTarget(false).Once()
-	mockBox.EXPECT().SetHexpand(true).Once()
-	mockBox.EXPECT().SetVexpand(true).Once()
-	mockBox.EXPECT().SetVisible(false).Once()
-
-	bm := focus.NewBorderManager(mockFactory)
-
-	mockBox.EXPECT().SetVisible(false).Once()
-	bm.OnModeChange(context.Background(), input.ModeNormal, input.ModeVim)
-
-	mockBox.EXPECT().SetVisible(false).Once()
-	bm.OnModeChange(context.Background(), input.ModeVim, input.ModeNormal)
-}
-
-// ============================================================================
 // Pulse Debounce
 // ============================================================================
 
 func TestVimMode_Pulse_DebounceSkipsRapidConsecutiveCalls(t *testing.T) {
 	f := newSingleWindowVimModeFixture(t)
-	enterVimMode(t, f.app, f.overlay1A, f.bw1)
+	enterVimMode(t, f.app, f.bw1)
 
 	// Set up expectations for exactly ONE normal pulse.
+	attachTestModeFrame(f.bw1, f.overlay1A)
 	setUpNormalPulse(f.overlay1A)
 
 	// First call fires the pulse (debounce timer is zero).
@@ -1257,9 +1221,10 @@ func TestVimMode_Pulse_DebounceAllowsSpacedCalls(t *testing.T) {
 	assert.True(t, f.app.vimModePulseLastTime.IsZero(),
 		"fresh app should have zero pulse timer")
 
-	enterVimMode(t, f.app, f.overlay1A, f.bw1)
+	enterVimMode(t, f.app, f.bw1)
 
 	// Pulse #1 fires because timer is zero (time.Since(zero) is huge).
+	attachTestModeFrame(f.bw1, f.overlay1A)
 	setUpNormalPulse(f.overlay1A)
 	f.app.triggerVimModePulse(context.Background(), false)
 
@@ -1275,9 +1240,10 @@ func TestVimMode_Pulse_DebounceResetOnClearOwnership(t *testing.T) {
 	// pulse (which would need pulse-cycle alternation handling).
 
 	f := newSingleWindowVimModeFixture(t)
-	enterVimMode(t, f.app, f.overlay1A, f.bw1)
+	enterVimMode(t, f.app, f.bw1)
 
 	// Pulse #1 fires and sets the timer.
+	attachTestModeFrame(f.bw1, f.overlay1A)
 	setUpNormalPulse(f.overlay1A)
 	f.app.triggerVimModePulse(context.Background(), false)
 	assert.False(t, f.app.vimModePulseLastTime.IsZero(),
@@ -1300,10 +1266,11 @@ func TestVimMode_Pulse_DebounceFirstPulseAlwaysFires(t *testing.T) {
 	// of time.Time producing a time.Since result much larger than
 	// the debounce interval.
 	f := newSingleWindowVimModeFixture(t)
-	enterVimMode(t, f.app, f.overlay1A, f.bw1)
+	enterVimMode(t, f.app, f.bw1)
 
 	// Rapid double pulse — only first should fire regardless of order.
 	// Set up just one set of expectations.
+	attachTestModeFrame(f.bw1, f.overlay1A)
 	setUpNormalPulse(f.overlay1A)
 	f.app.triggerVimModePulse(context.Background(), false)
 	f.app.triggerVimModePulse(context.Background(), false)

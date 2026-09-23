@@ -95,8 +95,9 @@ func GenerateCSSFullWithTiming(p Palette, _ float64, fonts FontConfig, modeColor
 	sb.WriteString(generateTabBarCSS(p))
 	sb.WriteString("\n")
 
-	// Omnibox styling
+	// Omnibox and modal legend styling
 	sb.WriteString(generateOmniboxCSS(p))
+	sb.WriteString(generateModeLegendCSS())
 	sb.WriteString("\n")
 
 	// Find bar styling
@@ -814,16 +815,14 @@ func generateVimModeCSS(transitionDurationMs int) string {
 	fastPulseMs := transitionDurationMs * 6
 	return fmt.Sprintf(`/* ===== Vim Mode Styling ===== */
 
-/* Vim mode active — subtle local border accent on the pane overlay.
-   Uses the existing pane mode color token via CSS variable.
-   This is independent of the workspace-level pane-mode border overlay. */
+/* Vim mode frame on the active pane; pulses use this same widget. */
 .vim-mode-active {
 	box-shadow: inset 0 0 0 0.125em alpha(var(--pane-mode-color), 0.35);
 	border-radius: 0;
 }
 
-/* Pane overlay pulse keyframes — start/end at the active accent state so the
-   pane keeps its Vim mode border while briefly flaring brighter. The separate
+/* Frame pulse keyframes — start/end at the active accent state so the
+   frame keeps its Vim mode border while briefly flaring brighter. The separate
    -anim-a and -anim-b pairs are required to restart repeated pulse animations. */
 @keyframes vim-mode-overlay-pulse-anim-a {
 	0%%   { box-shadow: inset 0 0 0 0.125em alpha(var(--pane-mode-color), 0.35); }

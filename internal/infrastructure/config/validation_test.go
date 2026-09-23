@@ -10,6 +10,32 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestValidateConfig_ModeLegend(t *testing.T) {
+	for _, tc := range []struct {
+		name, mode string
+		delay      int
+		wantError  string
+	}{
+		{name: "default", mode: "delay", delay: 500},
+		{name: "always", mode: "always"},
+		{name: "off", mode: "off"},
+		{name: "unknown mode", mode: "sometimes", wantError: "workspace.styling.mode_legend must be always, delay, or off"},
+		{name: "negative delay", mode: "delay", delay: -1, wantError: "workspace.styling.mode_legend_delay_ms must be non-negative"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := DefaultConfig()
+			cfg.Workspace.Styling.ModeLegend = tc.mode
+			cfg.Workspace.Styling.ModeLegendDelayMs = tc.delay
+			err := validateConfig(cfg)
+			if tc.wantError != "" {
+				require.EqualError(t, err, "config validation failed:\n  - "+tc.wantError)
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+}
+
 func TestValidateConfig_OmniboxStyle(t *testing.T) {
 	tests := []struct {
 		style   string

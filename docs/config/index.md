@@ -482,7 +482,7 @@ Notes:
 - `Tab` and `Shift+Tab` keep focus traversal inside the page while a page input is focused.
 - Live input, heading, heading-link activation, and page-focus navigation currently use the CEF engine path; WebKit fallback supports the Vim scroll commands while equivalent semantic navigation is pending.
 - Other app-level shortcuts stay suspended until Vim Mode exits, except for the Vim Mode toggle itself.
-- `workspace.styling.pane_mode_color`, `workspace.styling.transition_duration`, and `workspace.styling.mode_indicator_toaster_enabled` control the pane-local Vim Mode visuals.
+- `workspace.styling.pane_mode_color` colors the Vim frame; `workspace.styling.transition_duration` controls its pulse. The mode legend and toast use the workspace styling options below.
 - Scroll execution: CEF and WebKit both use the shared `BuildPageScrollByJS` resolver when the page is ready. Each step starts under the viewport center, walks up through ancestors that can move in the requested direction, and hands scrolling to the document when a nested container reaches its boundary. The application repeater owns held-key cadence; each engine executes one immediate scroll step per tick. Cross-origin frame contents remain best-effort. CEF may use native precision-wheel input only as a pre-frame fallback before the browser/main frame is ready.
 
 ### Resize Mode
@@ -615,13 +615,16 @@ desc = "Open floating pane on GitHub"
 |-----|------|---------|-------------|
 | `workspace.styling.border_width` | int | `1` | Active pane border width (px) - overlay |
 | `workspace.styling.border_color` | string | `"@theme_selected_bg_color"` | Active pane border color |
-| `workspace.styling.mode_border_width` | int | `4` | Modal mode border width (px) - applies to all modes |
+| `workspace.styling.mode_border_width` | int | `4` | Reserved; mode frame borders currently use fixed em widths (Vim is thinner) |
 | `workspace.styling.pane_mode_color` | string | `"#4A90E2"` | Pane mode color (blue); also reused for Vim mode pane-local accent, indicator, and pulse |
 | `workspace.styling.tab_mode_color` | string | `"#FFA500"` | Tab mode color (orange) - used for border and toaster |
 | `workspace.styling.session_mode_color` | string | `"#9B59B6"` | Session mode color (purple) - used for border and toaster |
 | `workspace.styling.resize_mode_color` | string | `"#00D4AA"` | Resize mode color (teal) - used for border and toaster |
-| `workspace.styling.mode_indicator_toaster_enabled` | bool | `true` | Show bottom-left mode toaster when modal modes are active; Vim Mode keeps a persistent `VIM MODE` indicator until exit or toggle off |
-| `workspace.styling.transition_duration` | int | `120` | Border and pulse transition duration (ms) |
+| `workspace.styling.mode_indicator_toaster_enabled` | bool | `true` | Show the bottom-left mode toast until the legend appears, or while the legend is off |
+| `workspace.styling.mode_legend` | string | `"delay"` | `always`, `delay`, or `off`; the legend follows the active mode border |
+| `workspace.styling.mode_legend_delay_ms` | int | `500` | Wait before showing the legend when set to `delay` (>= 0) |
+| `workspace.styling.mode_legend_animations` | bool | `true` | Animate the legend and its keycap feedback |
+| `workspace.styling.transition_duration` | int | `120` | Base Vim border pulse duration (ms); legend appearance is 120 ms |
 
 **Example:**
 
@@ -635,6 +638,9 @@ tab_mode_color = "#FFA500"       # Orange for tab mode
 session_mode_color = "#9B59B6"   # Purple for session mode
 resize_mode_color = "#00D4AA"    # Teal for resize mode
 mode_indicator_toaster_enabled = true
+mode_legend = "delay"
+mode_legend_delay_ms = 500
+mode_legend_animations = true
 transition_duration = 120
 ```
 

@@ -15,6 +15,9 @@ func TestDefaultConfig_CoreDefaults(t *testing.T) {
 	assert.False(t, cfg.Media.ShowDiagnosticsOnStartup)
 	assert.Equal(t, ExternalLinkBehaviorWindowed, cfg.Workspace.ExternalLinks.Behavior)
 	assert.Equal(t, ExternalLinkPlacementRight, cfg.Workspace.ExternalLinks.Placement)
+	assert.Equal(t, "delay", cfg.Workspace.Styling.ModeLegend)
+	assert.Equal(t, 500, cfg.Workspace.Styling.ModeLegendDelayMs)
+	assert.True(t, cfg.Workspace.Styling.ModeLegendAnimations)
 
 	// Engine defaults (replaces old Performance/Privacy sections)
 	assert.Equal(t, EngineTypeCEF, cfg.Engine.Type)

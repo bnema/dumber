@@ -690,7 +690,6 @@ func TestSetVimMode_TrueAddsPaneAccentWithoutCreatingLabel(t *testing.T) {
 	setupPaneViewMocks(t, mockFactory, mockOverlay, mockBorderBox, mockWebView)
 	pv := component.NewPaneView(context.Background(), mockFactory, entity.PaneID("pane-1"), mockWebView)
 
-	mockOverlay.EXPECT().AddCssClass("vim-mode-active").Once()
 	pv.SetVimMode(true)
 
 	require.True(t, pv.IsVimMode())
@@ -704,9 +703,7 @@ func TestSetVimMode_FalseRemovesPaneAccent(t *testing.T) {
 	setupPaneViewMocks(t, mockFactory, mockOverlay, mockBorderBox, mockWebView)
 	pv := component.NewPaneView(context.Background(), mockFactory, entity.PaneID("pane-1"), mockWebView)
 
-	mockOverlay.EXPECT().AddCssClass("vim-mode-active").Once()
 	pv.SetVimMode(true)
-	mockOverlay.EXPECT().RemoveCssClass("vim-mode-active").Once()
 	pv.SetVimMode(false)
 
 	require.False(t, pv.IsVimMode())
@@ -733,64 +730,10 @@ func TestSetVimMode_TrueThenTrueIsIdempotent(t *testing.T) {
 	setupPaneViewMocks(t, mockFactory, mockOverlay, mockBorderBox, mockWebView)
 	pv := component.NewPaneView(context.Background(), mockFactory, entity.PaneID("pane-1"), mockWebView)
 
-	mockOverlay.EXPECT().AddCssClass("vim-mode-active").Once()
 	pv.SetVimMode(true)
 	pv.SetVimMode(true)
 
 	require.True(t, pv.IsVimMode())
-}
-
-func expectVimModeOverlayPulse(overlay *mocks.MockOverlayWidget, fast bool, cycle string) {
-	overlay.EXPECT().RemoveCssClass("vim-mode-pulse").Once()
-	overlay.EXPECT().RemoveCssClass("vim-mode-pulse-fast").Once()
-	overlay.EXPECT().RemoveCssClass("vim-mode-pulse-cycle-a").Once()
-	overlay.EXPECT().RemoveCssClass("vim-mode-pulse-cycle-b").Once()
-	if fast {
-		overlay.EXPECT().AddCssClass("vim-mode-pulse-fast").Once()
-	} else {
-		overlay.EXPECT().AddCssClass("vim-mode-pulse").Once()
-	}
-	overlay.EXPECT().AddCssClass(cycle).Once()
-}
-
-func TestTriggerVimModePulse_PulsesOnlyOverlay(t *testing.T) {
-	mockFactory := mocks.NewMockWidgetFactory(t)
-	mockOverlay := mocks.NewMockOverlayWidget(t)
-	mockBorderBox := mocks.NewMockBoxWidget(t)
-	mockWebView := mocks.NewMockWidget(t)
-	setupPaneViewMocks(t, mockFactory, mockOverlay, mockBorderBox, mockWebView)
-	pv := component.NewPaneView(context.Background(), mockFactory, entity.PaneID("pane-1"), mockWebView)
-
-	expectVimModeOverlayPulse(mockOverlay, false, "vim-mode-pulse-cycle-a")
-	pv.TriggerVimModePulse()
-}
-
-func TestTriggerVimModePulseFast_PulsesOnlyOverlay(t *testing.T) {
-	mockFactory := mocks.NewMockWidgetFactory(t)
-	mockOverlay := mocks.NewMockOverlayWidget(t)
-	mockBorderBox := mocks.NewMockBoxWidget(t)
-	mockWebView := mocks.NewMockWidget(t)
-	setupPaneViewMocks(t, mockFactory, mockOverlay, mockBorderBox, mockWebView)
-	pv := component.NewPaneView(context.Background(), mockFactory, entity.PaneID("pane-1"), mockWebView)
-
-	expectVimModeOverlayPulse(mockOverlay, true, "vim-mode-pulse-cycle-a")
-	pv.TriggerVimModePulseFast()
-}
-
-func TestTriggerVimModePulse_RepeatedCallsReTriggerOverlayAnimation(t *testing.T) {
-	mockFactory := mocks.NewMockWidgetFactory(t)
-	mockOverlay := mocks.NewMockOverlayWidget(t)
-	mockBorderBox := mocks.NewMockBoxWidget(t)
-	mockWebView := mocks.NewMockWidget(t)
-	setupPaneViewMocks(t, mockFactory, mockOverlay, mockBorderBox, mockWebView)
-	pv := component.NewPaneView(context.Background(), mockFactory, entity.PaneID("pane-1"), mockWebView)
-
-	expectVimModeOverlayPulse(mockOverlay, false, "vim-mode-pulse-cycle-a")
-	pv.TriggerVimModePulse()
-	expectVimModeOverlayPulse(mockOverlay, true, "vim-mode-pulse-cycle-b")
-	pv.TriggerVimModePulseFast()
-	expectVimModeOverlayPulse(mockOverlay, false, "vim-mode-pulse-cycle-a")
-	pv.TriggerVimModePulse()
 }
 
 func TestVimMode_CleanupHasNoIndicatorOverlay(t *testing.T) {
@@ -801,7 +744,6 @@ func TestVimMode_CleanupHasNoIndicatorOverlay(t *testing.T) {
 	setupPaneViewMocks(t, mockFactory, mockOverlay, mockBorderBox, mockWebView)
 	pv := component.NewPaneView(context.Background(), mockFactory, entity.PaneID("pane-1"), mockWebView)
 
-	mockOverlay.EXPECT().AddCssClass("vim-mode-active").Once()
 	pv.SetVimMode(true)
 	mockOverlay.EXPECT().RemoveOverlay(mock.Anything).Once()
 	mockOverlay.EXPECT().SetChild(nil).Once()

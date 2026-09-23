@@ -13,6 +13,24 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestModeLegendSchemaDefaults(t *testing.T) {
+	keys := make(map[string]struct{ kind, value, valueRange string })
+	for _, key := range NewSchemaProvider().GetSchema() {
+		keys[key.Key] = struct{ kind, value, valueRange string }{key.Type, key.Default, key.Range}
+	}
+	for _, tc := range []struct{ key, kind, value, valueRange string }{
+		{"workspace.styling.mode_legend", "string", "delay", ""},
+		{"workspace.styling.mode_legend_delay_ms", "int", "500", ">=0"},
+		{"workspace.styling.mode_legend_animations", "bool", "true", ""},
+	} {
+		entry, ok := keys[tc.key]
+		require.True(t, ok, "missing schema key %s", tc.key)
+		require.Equal(t, tc.kind, entry.kind)
+		require.Equal(t, tc.value, entry.value)
+		require.Equal(t, tc.valueRange, entry.valueRange)
+	}
+}
+
 func TestConfigurationReferenceCoversSchemaKeys(t *testing.T) {
 	docKeys := configurationReferenceKeys(t)
 

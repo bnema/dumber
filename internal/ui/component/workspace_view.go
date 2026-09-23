@@ -53,6 +53,7 @@ type WorkspaceView struct {
 	onActivePaneChanged func(paneID entity.PaneID)
 	onWebViewAttached   func(paneID entity.PaneID)
 	onSplitRatioDragged func(nodeID string, ratio float64)
+	onRebuilt           func()
 
 	// Hover suppression for keyboard navigation (Issue #89)
 	// Prevents hover focus from overriding keyboard-initiated focus changes
@@ -200,7 +201,13 @@ func (wv *WorkspaceView) SetWorkspace(ctx context.Context, ws *entity.Workspace)
 	}
 
 	wv.mu.Lock()
-	defer wv.mu.Unlock()
+	defer func() {
+		callback := wv.onRebuilt
+		wv.mu.Unlock()
+		if callback != nil {
+			callback()
+		}
+	}()
 
 	// Release previous views before dropping their ownership. This also detaches
 	// hover controllers and callback closures before their widgets are rebuilt.
@@ -450,6 +457,13 @@ func (wv *WorkspaceView) SetOnSplitRatioDragged(fn func(nodeID string, ratio flo
 	defer wv.mu.Unlock()
 
 	wv.onSplitRatioDragged = fn
+}
+
+// SetOnRebuilt notifies visual overlays when their target widget was replaced.
+func (wv *WorkspaceView) SetOnRebuilt(fn func()) {
+	wv.mu.Lock()
+	defer wv.mu.Unlock()
+	wv.onRebuilt = fn
 }
 
 // Rebuild rebuilds the widget tree from the current workspace.
