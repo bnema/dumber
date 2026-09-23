@@ -15,7 +15,7 @@ func clickDiagnosticPhaseName(phase cef2gtk.ClickDiagnosticPhase) string {
 	case cef2gtk.ClickDiagnosticReleased:
 		return "released"
 	case cef2gtk.ClickDiagnosticCancelled:
-		return "cancelled"
+		return "canceled"
 	case cef2gtk.ClickDiagnosticForwarded:
 		return "forwarded"
 	case cef2gtk.ClickDiagnosticConsumed:

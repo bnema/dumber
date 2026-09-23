@@ -10,7 +10,7 @@ func TestClickDiagnosticNamesAreStable(t *testing.T) {
 	phases := map[cef2gtk.ClickDiagnosticPhase]string{
 		cef2gtk.ClickDiagnosticPressed:   "pressed",
 		cef2gtk.ClickDiagnosticReleased:  "released",
-		cef2gtk.ClickDiagnosticCancelled: "cancelled",
+		cef2gtk.ClickDiagnosticCancelled: "canceled",
 		cef2gtk.ClickDiagnosticForwarded: "forwarded",
 		cef2gtk.ClickDiagnosticConsumed:  "consumed",
 		cef2gtk.ClickDiagnosticDropped:   "dropped",
