@@ -146,3 +146,10 @@ func TestShouldLinger(t *testing.T) {
 		})
 	}
 }
+
+func TestShouldStartLinger(t *testing.T) {
+	rect := func() (int, int, int, int, bool) { return 10, 20, 30, 40, true }
+	require.True(t, shouldStartLinger(true, false, true, true, 15, 25, rect))
+	require.False(t, shouldStartLinger(true, true, true, true, 15, 25, rect))
+	require.False(t, shouldStartLinger(false, false, true, true, 15, 25, rect))
+}

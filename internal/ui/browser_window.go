@@ -181,7 +181,7 @@ func (bw *browserWindow) initBorderOverlay(a *App) {
 		return
 	}
 
-	bw.modeFrame = newModeFrame(bw.mainWindow.ContentOverlay())
+	bw.modeFrame = newModeFrame(bw.mainWindow.ContentOverlay(), bw.mainWindow.Window())
 }
 
 func (bw *browserWindow) initAccentPicker(ctx context.Context, a *App) {

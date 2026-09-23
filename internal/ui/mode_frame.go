@@ -54,6 +54,9 @@ type modeFrame struct {
 	lastPanelWidth     int
 	lastMaxHeight      int
 	overlay            *gtk.Overlay
+	window             *gtk.ApplicationWindow
+	pressInFlight      bool
+	pressIdle          uint
 	positionHandlerID  uint
 	pulseCycle         bool
 	lingering          bool
@@ -63,16 +66,17 @@ type modeFrame struct {
 	keyController      *gtk.EventControllerKey
 	clickController    *gtk.GestureClick
 	motionCb           func(gtk.EventControllerMotion, float64, float64)
+	enterCb            func(gtk.EventControllerMotion, float64, float64)
 	leaveCb            func(gtk.EventControllerMotion)
 	keyCb              func(gtk.EventControllerKey, uint, uint, gdk.ModifierType) bool
 	clickCb            func(gtk.GestureClick, int, float64, float64)
 }
 
-func newModeFrame(overlay *gtk.Overlay) *modeFrame {
-	if overlay == nil {
+func newModeFrame(overlay *gtk.Overlay, window *gtk.ApplicationWindow) *modeFrame {
+	if overlay == nil || window == nil {
 		return nil
 	}
-	f := &modeFrame{mode: input.ModeNormal, overlay: overlay}
+	f := &modeFrame{mode: input.ModeNormal, overlay: overlay, window: window}
 	f.root = gtk.NewBox(gtk.OrientationVerticalValue, 0)
 	f.root.SetHalign(gtk.AlignStartValue)
 	f.root.SetValign(gtk.AlignStartValue)
@@ -126,16 +130,22 @@ func newModeFrame(overlay *gtk.Overlay) *modeFrame {
 		return writeOverlayAllocation(allocation, x, y, w, h)
 	}
 	f.positionHandlerID = overlay.ConnectGetChildPosition(&cb)
-	f.installDismissControllers(overlay)
+	f.installDismissControllers()
 	return f
 }
 
-func (f *modeFrame) installDismissControllers(overlay *gtk.Overlay) {
+func (f *modeFrame) installDismissControllers() {
+	overlay := f.overlay
+	window := f.window
 	f.motionController = gtk.NewEventControllerMotion()
 	f.motionCb = func(_ gtk.EventControllerMotion, x, y float64) {
 		f.pointerX, f.pointerY, f.pointerInside = x, y, true
 	}
 	f.leaveCb = func(_ gtk.EventControllerMotion) { f.pointerInside = false }
+	f.enterCb = func(_ gtk.EventControllerMotion, x, y float64) {
+		f.pointerX, f.pointerY, f.pointerInside = x, y, true
+	}
+	f.motionController.ConnectEnter(&f.enterCb)
 	f.motionController.ConnectMotion(&f.motionCb)
 	f.motionController.ConnectLeave(&f.leaveCb)
 	overlay.AddController(&f.motionController.EventController)
@@ -146,13 +156,25 @@ func (f *modeFrame) installDismissControllers(overlay *gtk.Overlay) {
 		return false
 	}
 	f.keyController.ConnectKeyPressed(&f.keyCb)
-	overlay.AddController(&f.keyController.EventController)
+	window.AddController(&f.keyController.EventController)
 	f.clickController = gtk.NewGestureClick()
 	f.clickController.SetButton(0)
 	f.clickController.SetPropagationPhase(gtk.PhaseCaptureValue)
-	f.clickCb = func(_ gtk.GestureClick, _ int, _, _ float64) { f.dismissLinger() }
+	f.clickCb = func(_ gtk.GestureClick, _ int, _, _ float64) {
+		f.dismissLinger()
+		f.pressInFlight = true
+		if f.pressIdle != 0 {
+			glib.SourceRemove(f.pressIdle)
+		}
+		cb := glib.SourceFunc(func(_ uintptr) bool {
+			f.pressInFlight = false
+			f.pressIdle = 0
+			return false
+		})
+		f.pressIdle = glib.IdleAdd(&cb, 0)
+	}
 	f.clickController.ConnectPressed(&f.clickCb)
-	overlay.AddController(&f.clickController.EventController)
+	window.AddController(&f.clickController.EventController)
 }
 
 func (f *modeFrame) initLegendContent() {
@@ -183,10 +205,16 @@ func (f *modeFrame) destroy() {
 	f.cancelTimers()
 	f.dismissLinger()
 	f.stopGeometryRefresh()
+	if f.pressIdle != 0 {
+		glib.SourceRemove(f.pressIdle)
+		f.pressIdle = 0
+	}
 	if f.overlay != nil {
 		f.overlay.RemoveController(&f.motionController.EventController)
-		f.overlay.RemoveController(&f.keyController.EventController)
-		f.overlay.RemoveController(&f.clickController.EventController)
+	}
+	if f.window != nil {
+		f.window.RemoveController(&f.keyController.EventController)
+		f.window.RemoveController(&f.clickController.EventController)
 	}
 	f.setTarget(nil, "")
 	if f.overlay != nil && f.positionHandlerID != 0 {
@@ -202,6 +230,7 @@ func (f *modeFrame) destroy() {
 		f.overlay.RemoveOverlay(&f.border.Widget)
 	}
 	f.overlay = nil
+	f.window = nil
 	f.root = nil
 	f.border = nil
 	f.borderStyle = nil
@@ -288,9 +317,13 @@ func (f *modeFrame) setMode(
 		return
 	}
 	f.cancelTimers()
-	linger := mode == input.ModeNormal && f.visible && !f.lingering &&
-		shouldLinger(cfg.ModeLegendLinger, f.pointerInside, f.pointerX, f.pointerY, f.placement)
-	f.dismissLinger()
+	// Normal-mode refreshes must preserve an already lingering legend.
+	keepLinger := mode == input.ModeNormal && f.mode == input.ModeNormal && f.lingering
+	linger := shouldStartLinger(mode == input.ModeNormal && f.visible, f.pressInFlight,
+		cfg.ModeLegendLinger, f.pointerInside, f.pointerX, f.pointerY, f.placement)
+	if !keepLinger {
+		f.dismissLinger()
+	}
 	f.generation++
 	f.mode, f.config = mode, cfg
 	f.pending = ""
@@ -300,28 +333,13 @@ func (f *modeFrame) setMode(
 		f.visible = false
 		f.clearLegendFeedback()
 		f.panel.AddCssClass("mode-legend-lingering")
-	} else {
+	} else if !keepLinger {
 		f.hide()
 	}
 	f.setTarget(target, modeFrameClass(mode))
-	if f.style != style {
-		if f.style != "" {
-			f.panel.RemoveCssClass("omnibox-style-" + f.style)
-		}
-		f.style = style
-		if style != "" {
-			f.panel.AddCssClass("omnibox-style-" + style)
-		}
-	}
-	if f.modeClass != "" && !linger {
-		f.panel.RemoveCssClass(f.modeClass)
-	}
-	if !linger {
-		f.modeClass = "mode-legend-" + mode.String()
-		f.panel.AddCssClass(f.modeClass)
-	}
+	f.setLegendStyle(style, mode, linger || keepLinger)
 	if mode == input.ModeNormal || cfg.ModeLegend == "off" || target == nil {
-		if !linger {
+		if !linger && !keepLinger {
 			f.content.RemoveAll()
 		}
 		f.rows = nil
@@ -347,6 +365,25 @@ func (f *modeFrame) setMode(
 		return
 	}
 	f.show()
+}
+
+func (f *modeFrame) setLegendStyle(style string, mode input.Mode, preserveModeClass bool) {
+	if f.style != style {
+		if f.style != "" {
+			f.panel.RemoveCssClass("omnibox-style-" + f.style)
+		}
+		f.style = style
+		if style != "" {
+			f.panel.AddCssClass("omnibox-style-" + style)
+		}
+	}
+	if f.modeClass != "" && !preserveModeClass {
+		f.panel.RemoveCssClass(f.modeClass)
+	}
+	if !preserveModeClass {
+		f.modeClass = "mode-legend-" + mode.String()
+		f.panel.AddCssClass(f.modeClass)
+	}
 }
 
 func (f *modeFrame) clearLegendFeedback() {
@@ -386,6 +423,10 @@ func shouldLinger(enabled, inside bool, x, y float64, placement func() (int, int
 	}
 	rx, ry, w, h, ok := placement()
 	return ok && pointInRect(x, y, rx, ry, w, h)
+}
+
+func shouldStartLinger(exiting, pressInFlight, enabled, inside bool, x, y float64, placement func() (int, int, int, int, bool)) bool {
+	return exiting && !pressInFlight && shouldLinger(enabled, inside, x, y, placement)
 }
 
 func (f *modeFrame) dismissLinger() {

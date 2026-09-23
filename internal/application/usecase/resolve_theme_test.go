@@ -1317,6 +1317,7 @@ func TestResolveThemeInputFromConfig_MapsAppearanceStylingAndPreference(t *testi
 		TabModeColor:     "#222222",
 		SessionModeColor: "#333333",
 		ResizeModeColor:  "#444444",
+		VimModeColor:     "#abcdef",
 	}
 	preference := port.ColorSchemePreference{PrefersDark: true, Source: "adwaita"}
 
@@ -1340,7 +1341,7 @@ func TestResolveThemeInputFromConfig_MapsAppearanceStylingAndPreference(t *testi
 	if input.UIScale != 1.25 {
 		t.Errorf("expected UI scale 1.25, got %f", input.UIScale)
 	}
-	if input.ModeColors == nil || input.ModeColors.PaneMode != "#111111" || input.ModeColors.ResizeMode != "#444444" {
+	if input.ModeColors == nil || input.ModeColors.PaneMode != "#111111" || input.ModeColors.ResizeMode != "#444444" || input.ModeColors.VimMode != "#abcdef" {
 		t.Fatalf("expected mode colors from styling, got %+v", input.ModeColors)
 	}
 }
@@ -1361,5 +1362,13 @@ func TestResolveThemeInputFromConfig_AllowsNilConfig(t *testing.T) {
 	if input.LightPalette != nil || input.DarkPalette != nil || input.Fonts != nil || input.ModeColors != nil {
 		t.Fatalf("expected nil optional inputs, got light=%v dark=%v fonts=%v modes=%v",
 			input.LightPalette, input.DarkPalette, input.Fonts, input.ModeColors)
+	}
+}
+
+func TestResolveThemeInputFromConfigVimColorFallback(t *testing.T) {
+	input := ResolveThemeInputFromConfig(nil, 1, &entity.WorkspaceStylingConfig{}, port.ColorSchemePreference{})
+	colors := entity.MergeModeColors(input.ModeColors, entity.DefaultThemeModeColors())
+	if colors.VimMode != "#F7768E" {
+		t.Fatalf("expected Vim fallback, got %q", colors.VimMode)
 	}
 }

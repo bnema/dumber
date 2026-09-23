@@ -53,9 +53,13 @@ func (a *App) updateModeFrame(bw *browserWindow, mode input.Mode) {
 }
 
 func (a *App) setModeFrameTab(bw *browserWindow) {
+	tabID := bw.modeFrame.tabID
 	bw.modeFrame.tabID = ""
 	if tab := a.activeTabForBrowserWindow(bw); tab != nil {
 		bw.modeFrame.tabID = tab.ID
+	}
+	if tabID != bw.modeFrame.tabID {
+		bw.modeFrame.dismissLinger()
 	}
 }
 
