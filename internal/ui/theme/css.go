@@ -95,8 +95,9 @@ func GenerateCSSFullWithTiming(p Palette, _ float64, fonts FontConfig, modeColor
 	sb.WriteString(generateTabBarCSS(p))
 	sb.WriteString("\n")
 
-	// Omnibox styling
+	// Omnibox and modal legend styling
 	sb.WriteString(generateOmniboxCSS(p))
+	sb.WriteString(generateModeLegendCSS())
 	sb.WriteString("\n")
 
 	// Find bar styling
@@ -805,7 +806,7 @@ entry.find-bar-entry:focus-visible {
 // generatePaneCSS creates pane border styles.
 // Uses em units for scalable UI.
 // generateVimModeCSS creates the pane-local Vim Mode accent and pulse styling.
-// It reuses --pane-mode-color (from workspace.styling.pane_mode_color).
+// It uses --vim-mode-color (from workspace.styling.vim_mode_color).
 func generateVimModeCSS(transitionDurationMs int) string {
 	if transitionDurationMs <= 0 {
 		transitionDurationMs = defaultTransitionDurationMs
@@ -814,39 +815,37 @@ func generateVimModeCSS(transitionDurationMs int) string {
 	fastPulseMs := transitionDurationMs * 6
 	return fmt.Sprintf(`/* ===== Vim Mode Styling ===== */
 
-/* Vim mode active — subtle local border accent on the pane overlay.
-   Uses the existing pane mode color token via CSS variable.
-   This is independent of the workspace-level pane-mode border overlay. */
+/* Vim mode frame on the active pane; pulses use this same widget. */
 .vim-mode-active {
-	box-shadow: inset 0 0 0 0.125em alpha(var(--pane-mode-color), 0.35);
+	box-shadow: inset 0 0 0 0.125em alpha(var(--vim-mode-color), 0.35);
 	border-radius: 0;
 }
 
-/* Pane overlay pulse keyframes — start/end at the active accent state so the
-   pane keeps its Vim mode border while briefly flaring brighter. The separate
+/* Frame pulse keyframes — start/end at the active accent state so the
+   frame keeps its Vim mode border while briefly flaring brighter. The separate
    -anim-a and -anim-b pairs are required to restart repeated pulse animations. */
 @keyframes vim-mode-overlay-pulse-anim-a {
-	0%%   { box-shadow: inset 0 0 0 0.125em alpha(var(--pane-mode-color), 0.35); }
-	35%%  { box-shadow: inset 0 0 0 0.2em alpha(var(--pane-mode-color), 0.78); }
-	100%% { box-shadow: inset 0 0 0 0.125em alpha(var(--pane-mode-color), 0.35); }
+	0%%   { box-shadow: inset 0 0 0 0.125em alpha(var(--vim-mode-color), 0.35); }
+	35%%  { box-shadow: inset 0 0 0 0.2em alpha(var(--vim-mode-color), 0.78); }
+	100%% { box-shadow: inset 0 0 0 0.125em alpha(var(--vim-mode-color), 0.35); }
 }
 
 @keyframes vim-mode-overlay-pulse-anim-b {
-	0%%   { box-shadow: inset 0 0 0 0.125em alpha(var(--pane-mode-color), 0.35); }
-	35%%  { box-shadow: inset 0 0 0 0.2em alpha(var(--pane-mode-color), 0.78); }
-	100%% { box-shadow: inset 0 0 0 0.125em alpha(var(--pane-mode-color), 0.35); }
+	0%%   { box-shadow: inset 0 0 0 0.125em alpha(var(--vim-mode-color), 0.35); }
+	35%%  { box-shadow: inset 0 0 0 0.2em alpha(var(--vim-mode-color), 0.78); }
+	100%% { box-shadow: inset 0 0 0 0.125em alpha(var(--vim-mode-color), 0.35); }
 }
 
 @keyframes vim-mode-overlay-pulse-fast-anim-a {
-	0%%   { box-shadow: inset 0 0 0 0.125em alpha(var(--pane-mode-color), 0.35); }
-	25%%  { box-shadow: inset 0 0 0 0.26em alpha(var(--pane-mode-color), 0.95); }
-	100%% { box-shadow: inset 0 0 0 0.125em alpha(var(--pane-mode-color), 0.35); }
+	0%%   { box-shadow: inset 0 0 0 0.125em alpha(var(--vim-mode-color), 0.35); }
+	25%%  { box-shadow: inset 0 0 0 0.26em alpha(var(--vim-mode-color), 0.95); }
+	100%% { box-shadow: inset 0 0 0 0.125em alpha(var(--vim-mode-color), 0.35); }
 }
 
 @keyframes vim-mode-overlay-pulse-fast-anim-b {
-	0%%   { box-shadow: inset 0 0 0 0.125em alpha(var(--pane-mode-color), 0.35); }
-	25%%  { box-shadow: inset 0 0 0 0.26em alpha(var(--pane-mode-color), 0.95); }
-	100%% { box-shadow: inset 0 0 0 0.125em alpha(var(--pane-mode-color), 0.35); }
+	0%%   { box-shadow: inset 0 0 0 0.125em alpha(var(--vim-mode-color), 0.35); }
+	25%%  { box-shadow: inset 0 0 0 0.26em alpha(var(--vim-mode-color), 0.95); }
+	100%% { box-shadow: inset 0 0 0 0.125em alpha(var(--vim-mode-color), 0.35); }
 }
 
 /* Pane overlay scroll pulse — derived from transition_duration. */
@@ -921,28 +920,22 @@ func generatePaneCSS(p Palette) string {
 	border-color: transparent;
 }
 
-/* Pane mode active - thick inset border (for overlay) */
-.pane-mode-active {
+/* Mode frame: a click-through overlay drawn above web content. */
+.mode-frame-border {
 	background-color: transparent;
+	border-radius: 0;
+}
+
+.mode-frame-border.pane-mode-active {
 	box-shadow: inset 0 0 0 0.25em var(--pane-mode-color);
-	border-radius: 0;
 }
 
-/* Tab mode active - thick inset border (for overlay) */
-.tab-mode-active {
-	background-color: transparent;
+.mode-frame-border.tab-mode-active {
 	box-shadow: inset 0 0 0 0.25em var(--tab-mode-color);
-	border-radius: 0;
 }
 
-/* Resize mode active - thick inset border */
-.resize-mode-active {
-	background-color: transparent;
-	/* Prefer inset shadow, but also set outline for widgets that don't paint shadows */
+.mode-frame-border.resize-mode-active {
 	box-shadow: inset 0 0 0 0.25em var(--resize-mode-color);
-	outline: 0.25em solid var(--resize-mode-color);
-	outline-offset: -0.25em;
-	border-radius: 0;
 }
 `
 }
@@ -1302,10 +1295,8 @@ row:selected .session-manager-row {
 }
 
 /* Session mode border */
-.session-mode-active {
-	background-color: transparent;
+.mode-frame-border.session-mode-active {
 	box-shadow: inset 0 0 0 0.25em var(--session-mode-color);
-	border-radius: 0;
 }
 `
 }
@@ -1422,7 +1413,7 @@ func generateToasterCSS(p Palette) string {
 }
 
 .toast-vim-mode {
-	background-color: var(--pane-mode-color);
+	background-color: var(--vim-mode-color);
 	color: #ffffff;
 }
 

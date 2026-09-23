@@ -15,7 +15,6 @@ import (
 	"github.com/bnema/dumber/internal/shared/syncdispatch"
 	"github.com/bnema/dumber/internal/ui/component"
 	contentcoord "github.com/bnema/dumber/internal/ui/coordinator/content"
-	"github.com/bnema/dumber/internal/ui/focus"
 	"github.com/bnema/dumber/internal/ui/input"
 	"github.com/bnema/dumber/internal/ui/layout"
 	"github.com/bnema/dumber/internal/ui/window"
@@ -36,7 +35,7 @@ func TestBrowserWindow_RemoveBrowserWindowClearsShellState(t *testing.T) {
 
 	setShellField(t, removed, "appToaster", &component.Toaster{})
 	setShellField(t, removed, "modeToaster", &component.Toaster{})
-	setShellField(t, removed, "borderMgr", &focus.BorderManager{})
+	setShellField(t, removed, "modeFrame", &modeFrame{})
 	setShellField(t, removed, "sessionManager", &component.SessionManager{})
 	setShellField(t, removed, "tabPicker", &component.TabPicker{})
 	setShellField(t, removed, "tabPickerWidget", (*testLayoutWidget)(nil))
@@ -54,7 +53,7 @@ func TestBrowserWindow_RemoveBrowserWindowClearsShellState(t *testing.T) {
 	for _, name := range []string{
 		"appToaster",
 		"modeToaster",
-		"borderMgr",
+		"modeFrame",
 		"sessionManager",
 		"tabPicker",
 		"tabPickerWidget",
@@ -428,22 +427,20 @@ func TestBrowserWindow_RemoveLastClearsMainWindow(t *testing.T) {
 	}
 }
 
-func TestBrowserWindow_RemovePromotedWindowClearsResizeModeBorderTarget(t *testing.T) {
+func TestBrowserWindow_RemovePromotedWindowKeepsRemainingWindow(t *testing.T) {
 	mainWindow := &window.MainWindow{}
 	otherWindow := &window.MainWindow{}
 	removed := &browserWindow{id: "window-1", mainWindow: mainWindow}
 	remaining := &browserWindow{id: "window-2", mainWindow: otherWindow}
-	resizeTarget := &testLayoutWidget{}
 	app := &App{
-		mainWindow:             mainWindow,
-		browserWindows:         map[string]*browserWindow{removed.id: removed, remaining.id: remaining},
-		resizeModeBorderTarget: resizeTarget,
+		mainWindow:     mainWindow,
+		browserWindows: map[string]*browserWindow{removed.id: removed, remaining.id: remaining},
 	}
 
 	app.removeBrowserWindow(removed.id)
 
-	if app.resizeModeBorderTarget != nil {
-		t.Fatalf("resizeModeBorderTarget = %p, want nil", app.resizeModeBorderTarget)
+	if app.mainWindow != otherWindow {
+		t.Fatalf("mainWindow = %p, want %p", app.mainWindow, otherWindow)
 	}
 }
 

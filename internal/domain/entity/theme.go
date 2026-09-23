@@ -40,6 +40,7 @@ type ThemeFonts struct {
 // All values must be CSS-safe hex colors (e.g., "#4A90E2").
 type ThemeModeColors struct {
 	PaneMode    string
+	VimMode     string
 	TabMode     string
 	SessionMode string
 	ResizeMode  string
@@ -104,6 +105,7 @@ func DefaultThemeFonts() ThemeFonts {
 func DefaultThemeModeColors() ThemeModeColors {
 	return ThemeModeColors{
 		PaneMode:    "#4A90E2",
+		VimMode:     "#F7768E",
 		TabMode:     "#FFA500",
 		SessionMode: "#9B59B6",
 		ResizeMode:  "#00D4AA",
@@ -266,6 +268,7 @@ func ValidateModeColorsHex(colors *ThemeModeColors, prefix string) []ThemeWarnin
 	}
 	var warnings []ThemeWarning
 	checkRequiredHex(&warnings, prefix, "pane_mode", colors.PaneMode)
+	checkRequiredHex(&warnings, prefix, "vim_mode", colors.VimMode)
 	checkRequiredHex(&warnings, prefix, "tab_mode", colors.TabMode)
 	checkRequiredHex(&warnings, prefix, "session_mode", colors.SessionMode)
 	checkRequiredHex(&warnings, prefix, "resize_mode", colors.ResizeMode)
@@ -285,6 +288,9 @@ func MergeModeColors(src *ThemeModeColors, defaults ThemeModeColors) ThemeModeCo
 	result := *src
 	if result.PaneMode == "" {
 		result.PaneMode = defaults.PaneMode
+	}
+	if result.VimMode == "" {
+		result.VimMode = defaults.VimMode
 	}
 	if result.TabMode == "" {
 		result.TabMode = defaults.TabMode

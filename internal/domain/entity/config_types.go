@@ -164,9 +164,14 @@ type WorkspaceStylingConfig struct {
 	PaneModeColor    string `mapstructure:"pane_mode_color" yaml:"pane_mode_color" toml:"pane_mode_color" json:"pane_mode_color"`             //nolint:lll // struct tags must stay on one line
 	TabModeColor     string `mapstructure:"tab_mode_color" yaml:"tab_mode_color" toml:"tab_mode_color" json:"tab_mode_color"`                 //nolint:lll // struct tags must stay on one line
 	SessionModeColor string `mapstructure:"session_mode_color" yaml:"session_mode_color" toml:"session_mode_color" json:"session_mode_color"` //nolint:lll // struct tags must stay on one line
+	VimModeColor     string `mapstructure:"vim_mode_color" yaml:"vim_mode_color" toml:"vim_mode_color" json:"vim_mode_color"`                 //nolint:lll // struct tags must stay on one line
 	ResizeModeColor  string `mapstructure:"resize_mode_color" yaml:"resize_mode_color" toml:"resize_mode_color" json:"resize_mode_color"`     //nolint:lll // struct tags must stay on one line
 
-	ModeIndicatorToasterEnabled bool `mapstructure:"mode_indicator_toaster_enabled" yaml:"mode_indicator_toaster_enabled" toml:"mode_indicator_toaster_enabled" json:"mode_indicator_toaster_enabled"` //nolint:lll // struct tags must stay on one line
+	ModeIndicatorToasterEnabled bool   `mapstructure:"mode_indicator_toaster_enabled" yaml:"mode_indicator_toaster_enabled" toml:"mode_indicator_toaster_enabled" json:"mode_indicator_toaster_enabled"` //nolint:lll // struct tags must stay on one line
+	ModeLegend                  string `mapstructure:"mode_legend" yaml:"mode_legend" toml:"mode_legend" json:"mode_legend"`
+	ModeLegendDelayMs           int    `mapstructure:"mode_legend_delay_ms" yaml:"mode_legend_delay_ms" toml:"mode_legend_delay_ms" json:"mode_legend_delay_ms"`         //nolint:lll // struct tags must stay on one line
+	ModeLegendLinger            bool   `mapstructure:"mode_legend_linger" yaml:"mode_legend_linger" toml:"mode_legend_linger" json:"mode_legend_linger"`                 //nolint:lll // struct tags must stay on one line
+	ModeLegendAnimations        bool   `mapstructure:"mode_legend_animations" yaml:"mode_legend_animations" toml:"mode_legend_animations" json:"mode_legend_animations"` //nolint:lll // struct tags must stay on one line
 
 	TransitionDuration int `mapstructure:"transition_duration" yaml:"transition_duration" toml:"transition_duration" json:"transition_duration"` //nolint:lll // struct tags must stay on one line
 }

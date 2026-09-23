@@ -8,6 +8,18 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestModeLegendDefaultsThroughLoader(t *testing.T) {
+	mgr := &Manager{viper: viper.New()}
+	mgr.setDefaults()
+	cfg, err := mgr.unmarshalConfig()
+	require.NoError(t, err)
+	assert.Equal(t, "delay", cfg.Workspace.Styling.ModeLegend)
+	assert.Equal(t, 500, cfg.Workspace.Styling.ModeLegendDelayMs)
+	assert.True(t, cfg.Workspace.Styling.ModeLegendAnimations)
+	assert.True(t, cfg.Workspace.Styling.ModeLegendLinger)
+	assert.Equal(t, "#F7768E", cfg.Workspace.Styling.VimModeColor)
+}
+
 func TestSetEngineDefaults(t *testing.T) {
 	mgr := &Manager{viper: viper.New()}
 	mgr.setDefaults()

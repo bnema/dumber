@@ -128,8 +128,6 @@ type App struct {
 	vimNavigationUC         *usecase.VimNavigationUseCase
 	pageEditableFocusByPane map[entity.PaneID]bool
 
-	resizeModeBorderTarget layout.Widget
-
 	// Omnibox configuration (omnibox is created per workspace view)
 	omniboxCfg component.OmniboxConfig
 	// Find bar configuration (find bar is created per workspace view)
@@ -1140,6 +1138,7 @@ func (a *App) initBrowserWindowInput(ctx context.Context, bw *browserWindow) {
 	bw.keyboardHandler = input.NewKeyboardHandler(ctx, &workspaceCfg, &sessionCfg)
 	bw.keyboardHandler.SetOnAction(func(actionCtx context.Context, action input.Action) error {
 		a.activateBrowserWindow(bw)
+		a.modeFrameAction(bw, action)
 		if action == input.ActionClosePane {
 			if a.closeAndReleaseActiveFloatingPane(actionCtx) {
 				return nil
@@ -1149,6 +1148,9 @@ func (a *App) initBrowserWindowInput(ctx context.Context, bw *browserWindow) {
 	})
 	bw.keyboardHandler.SetOnVimScrollLifecycle(func(scrollCtx context.Context, action input.Action, phase input.VimScrollPhase) error {
 		a.activateBrowserWindow(bw)
+		if phase == input.VimScrollContinuous {
+			a.modeFrameAction(bw, action)
+		}
 		return a.kbDispatcher.DispatchVimScrollLifecycle(scrollCtx, action, phase)
 	})
 	bw.keyboardHandler.SetOnEscape(func(escapeCtx context.Context) bool {
@@ -1161,6 +1163,7 @@ func (a *App) initBrowserWindowInput(ctx context.Context, bw *browserWindow) {
 	})
 	a.bindVimModeSequenceToaster(ctx, bw)
 	bw.keyboardHandler.SetOnSequenceAction(func(action string, count int) {
+		a.modeFrameAction(bw, input.Action(strings.ReplaceAll(action, "-", "_")))
 		a.navigateVimSequenceAction(ctx, bw, action, count)
 	})
 	bw.keyboardHandler.SetOnPageFocusNavigation(func(navigationCtx context.Context, backward bool) bool {
@@ -4043,14 +4046,6 @@ func (a *App) handleModeChange(ctx context.Context, bw *browserWindow, from, to 
 	log := logging.FromContext(ctx)
 	log.Debug().Str("from", from.String()).Str("to", to.String()).Msg("input mode changed")
 
-	if from == input.ModeResize && to != input.ModeResize {
-		a.clearResizeModeBorder()
-	}
-	if to == input.ModeResize {
-		// Resize mode targets the last-focused browser window's active workspace.
-		a.applyResizeModeBorder(ctx, a.activeWorkspace())
-	}
-
 	if to == input.ModeVim && from != input.ModeVim {
 		a.enableAccessibilityForVimMode(ctx, bw)
 	}
@@ -4062,12 +4057,7 @@ func (a *App) handleModeChange(ctx context.Context, bw *browserWindow, from, to 
 	// Entering Vim Mode accents the active pane; leaving removes the accent.
 	a.handleVimModeOwnership(ctx, bw, to, from)
 
-	// Update global border overlay visibility based on mode.
-	// Note: resize mode border is handled per-pane (stack container), not via global overlay.
-	// Vim mode explicitly skips the global border overlay.
-	if bw != nil && bw.borderMgr != nil {
-		bw.borderMgr.OnModeChange(ctx, from, to)
-	}
+	a.updateModeFrame(bw, to)
 
 	// Show/hide this window's mode indicator toaster based on mode and config.
 	a.updateModeIndicatorToaster(ctx, bw, to)
@@ -4191,16 +4181,8 @@ func (a *App) triggerVimModePulse(_ context.Context, fast bool) {
 	if bw == nil || bw.vimModePaneID == "" {
 		return
 	}
-	wsView := a.activeWorkspaceViewForBrowserWindow(bw)
-	if wsView == nil {
-		return
-	}
-	if pv := wsView.GetPaneView(bw.vimModePaneID); pv != nil {
-		if fast {
-			pv.TriggerVimModePulseFast()
-		} else {
-			pv.TriggerVimModePulse()
-		}
+	if bw.modeFrame != nil {
+		bw.modeFrame.pulse(fast)
 	}
 }
 
@@ -4243,8 +4225,6 @@ func (a *App) updateModeIndicatorToaster(ctx context.Context, bw *browserWindow,
 		return
 	}
 
-	// Modal mode toasts remain visible until that same window exits its mode.
-	// The mode class is applied atomically with Show() to avoid visual flicker.
 	bw.modeToaster.Show(ctx, mode.DisplayName(), component.ToastInfo,
 		component.WithDuration(0),
 		component.WithPosition(component.ToastPositionBottomLeft),
@@ -4271,7 +4251,14 @@ func (a *App) bindVimModeSequenceToaster(ctx context.Context, bw *browserWindow)
 // clears. Mode exit/hide is handled by handleModeChange/updateModeIndicatorToaster;
 // silent reset under ModalState avoids stale pending callbacks.
 func (a *App) showPendingSequence(ctx context.Context, bw *browserWindow, pending string) {
-	if a == nil || bw == nil || bw.modeToaster == nil {
+	if a == nil || bw == nil {
+		return
+	}
+	if bw.modeFrame != nil {
+		cfg := a.runtimeConfigSnapshot().UI.Workspace
+		bw.modeFrame.setPending(pending, cfg.VimMode.Actions)
+	}
+	if bw.modeToaster == nil {
 		return
 	}
 	log := logging.FromContext(ctx)
@@ -4312,49 +4299,6 @@ func getModeToastClass(mode input.Mode) string {
 		return "toast-resize-mode"
 	default:
 		return ""
-	}
-}
-
-func (a *App) clearResizeModeBorder() {
-	if a.resizeModeBorderTarget != nil {
-		a.resizeModeBorderTarget.RemoveCssClass("resize-mode-active")
-		a.resizeModeBorderTarget = nil
-	}
-}
-
-func (a *App) applyResizeModeBorder(ctx context.Context, ws *entity.Workspace) {
-	// activeWorkspaceView resolves via lastFocusedBrowserWindow; resize mode
-	// always operates on the last-focused window.
-	wsView := a.activeWorkspaceView()
-	if wsView == nil || ws == nil {
-		a.clearResizeModeBorder()
-		return
-	}
-
-	paneID := ws.ActivePaneID
-	if paneID == "" {
-		a.clearResizeModeBorder()
-		return
-	}
-
-	// Important: wrap the whole stack container when the active pane is in a stack.
-	target := wsView.GetStackContainerWidget(paneID)
-	if target == nil {
-		a.clearResizeModeBorder()
-		return
-	}
-
-	if !target.HasCssClass("resize-mode-active") {
-		target.AddCssClass("resize-mode-active")
-	}
-
-	if a.resizeModeBorderTarget != target {
-		if a.resizeModeBorderTarget != nil {
-			a.resizeModeBorderTarget.RemoveCssClass("resize-mode-active")
-		} else {
-			logging.FromContext(ctx).Debug().Str("pane_id", string(paneID)).Msg("resize mode border attached")
-		}
-		a.resizeModeBorderTarget = target
 	}
 }
 
@@ -4415,6 +4359,9 @@ func (a *App) createWorkspaceViewWithoutAttach(ctx context.Context, tab *entity.
 			a.contentCoord.SyncWebViewViewport(syncCtx, paneID, "workspace-pane-activated")
 			if bw := a.browserWindowForTab(tab.ID); bw != nil {
 				a.transferVimModeOwnershipToPane(ctx, bw, paneID)
+				if bw.keyboardHandler != nil {
+					a.retargetModeFrame(bw, bw.keyboardHandler.Mode())
+				}
 			}
 		})
 	}
@@ -4429,9 +4376,6 @@ func (a *App) createWorkspaceViewWithoutAttach(ctx context.Context, tab *entity.
 	if a.contentCoord != nil {
 		a.contentCoord.AttachToWorkspace(ctx, tab.Workspace, wsView)
 	}
-
-	// Note: Mode borders for tab/pane/session are attached to MainWindow.
-	// Resize mode border is attached to the active pane's stack container.
 
 	// Set omnibox config for this workspace view.
 	// When the owning browser window is known, bind navigation to the
@@ -4450,13 +4394,14 @@ func (a *App) createWorkspaceViewWithoutAttach(ctx context.Context, tab *entity.
 	wsView.SetAutoOpenOnNewPane(a.runtimeConfigSnapshot().UI.Omnibox.AutoOpenOnNewPane)
 
 	wsView.SetOnPaneFocused(func(paneID entity.PaneID) {
-		if a.keyboardHandler != nil && a.keyboardHandler.Mode() == input.ModeResize {
-			// Resize-mode pane focus tracks the last-focused window's workspace.
-			ws := a.activeWorkspace()
-			if ws != nil {
-				ws.ActivePaneID = paneID
-			}
-			a.applyResizeModeBorder(ctx, ws)
+		if bw := a.browserWindowForTab(tab.ID); bw != nil && bw.modeFrame != nil && bw.keyboardHandler != nil {
+			a.retargetModeFrame(bw, bw.keyboardHandler.Mode())
+		}
+	})
+
+	wsView.SetOnRebuilt(func() {
+		if bw := a.browserWindowForTab(tab.ID); bw != nil && bw.keyboardHandler != nil {
+			a.retargetModeFrame(bw, bw.keyboardHandler.Mode())
 		}
 	})
 
@@ -4587,6 +4532,9 @@ func (a *App) switchWorkspaceView(ctx context.Context, tabID entity.TabID) {
 	// Active tab state is managed by TabList.SetActive; no per-window field needed.
 	if target := a.browserWindowForTab(tabID); target != nil && target.mainWindow != nil {
 		target.mainWindow.SetContent(gtkWidget)
+		if target.keyboardHandler != nil {
+			a.retargetModeFrame(target, target.keyboardHandler.Mode())
+		}
 	} else if a.mainWindow != nil {
 		a.mainWindow.SetContent(gtkWidget)
 	}
@@ -5556,6 +5504,7 @@ func (a *App) applyRuntimeConfigChange(ctx context.Context, snapshot entity.Runt
 		if bw.keyboardHandler != nil {
 			mode = bw.keyboardHandler.Mode()
 		}
+		a.updateModeFrame(bw, mode)
 		a.updateModeIndicatorToaster(ctx, bw, mode)
 	}
 }

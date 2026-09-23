@@ -223,6 +223,14 @@ func validateWorkspaceStyling(config *Config) []string {
 	if config.Workspace.Styling.TransitionDuration < 0 {
 		validationErrors = append(validationErrors, "workspace.styling.transition_duration must be non-negative")
 	}
+	switch config.Workspace.Styling.ModeLegend {
+	case "always", "delay", "off":
+	default:
+		validationErrors = append(validationErrors, "workspace.styling.mode_legend must be always, delay, or off")
+	}
+	if config.Workspace.Styling.ModeLegendDelayMs < 0 {
+		validationErrors = append(validationErrors, "workspace.styling.mode_legend_delay_ms must be non-negative")
+	}
 	return validationErrors
 }
 

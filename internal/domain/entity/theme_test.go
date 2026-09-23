@@ -130,6 +130,7 @@ func TestThemeModeColors_DefaultsAreCSSSafe(t *testing.T) {
 		TabMode:     "#FFA500",
 		SessionMode: "#9B59B6",
 		ResizeMode:  "#00D4AA",
+		VimMode:     "#F7768E",
 	}
 
 	fields := map[string]string{
@@ -137,6 +138,7 @@ func TestThemeModeColors_DefaultsAreCSSSafe(t *testing.T) {
 		"TabMode":     defaults.TabMode,
 		"SessionMode": defaults.SessionMode,
 		"ResizeMode":  defaults.ResizeMode,
+		"VimMode":     defaults.VimMode,
 	}
 
 	for name, value := range fields {
@@ -171,6 +173,7 @@ func TestResolvedTheme_StructFieldsExist(t *testing.T) {
 			TabMode:     "#FFA500",
 			SessionMode: "#9B59B6",
 			ResizeMode:  "#00D4AA",
+			VimMode:     "#F7768E",
 		},
 		Warnings: []ThemeWarning{
 			{Field: "external", Message: "malformed external theme, using last-good"},
@@ -493,6 +496,9 @@ func TestMergeModeColors_FillsEmpties(t *testing.T) {
 	if result.PaneMode != "#111111" {
 		t.Errorf("PaneMode should be from src, got %q", result.PaneMode)
 	}
+	if result.VimMode != def.VimMode {
+		t.Errorf("VimMode should use default, got %q", result.VimMode)
+	}
 	if result.TabMode != def.TabMode {
 		t.Errorf("TabMode should be from defaults, got %q", result.TabMode)
 	}
@@ -505,6 +511,7 @@ func TestValidateModeColorsHex_ReturnsWarnings(t *testing.T) {
 		TabMode:     "not-a-color",
 		SessionMode: "#333333",
 		ResizeMode:  "",
+		VimMode:     "#F7768E",
 	}
 
 	warnings := ValidateModeColorsHex(colors, "mode_colors")

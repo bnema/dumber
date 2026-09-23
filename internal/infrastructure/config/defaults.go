@@ -76,6 +76,7 @@ const (
 	defaultPaneModeColor    = "#4A90E2" // Blue for pane mode
 	defaultTabModeColor     = "#FFA500" // Orange for tab mode
 	defaultSessionModeColor = "#9B59B6" // Purple for session mode
+	defaultVimModeColor     = "#F7768E"
 	defaultResizeModeColor  = "#00D4AA" // Cyan/teal for resize mode
 
 	// Mode indicator toaster
@@ -394,7 +395,12 @@ func DefaultConfig() *Config {
 				TabModeColor:                defaultTabModeColor,
 				SessionModeColor:            defaultSessionModeColor,
 				ResizeModeColor:             defaultResizeModeColor,
+				VimModeColor:                defaultVimModeColor,
+				ModeLegendLinger:            true,
 				ModeIndicatorToasterEnabled: defaultModeIndicatorToasterEnabled,
+				ModeLegend:                  "delay",
+				ModeLegendDelayMs:           500,
+				ModeLegendAnimations:        true,
 				TransitionDuration:          defaultTransitionDuration,
 			},
 		},

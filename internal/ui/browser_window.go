@@ -14,7 +14,6 @@ import (
 	"github.com/bnema/dumber/internal/shared/syncdispatch"
 	"github.com/bnema/dumber/internal/ui/component"
 	"github.com/bnema/dumber/internal/ui/coordinator"
-	"github.com/bnema/dumber/internal/ui/focus"
 	"github.com/bnema/dumber/internal/ui/input"
 	"github.com/bnema/dumber/internal/ui/layout"
 	"github.com/bnema/dumber/internal/ui/window"
@@ -37,7 +36,7 @@ type browserWindow struct {
 	appToaster             *component.Toaster
 	modeToaster            *component.Toaster
 	touchpadNavIndicator   *component.TouchpadNavigationIndicator
-	borderMgr              *focus.BorderManager
+	modeFrame              *modeFrame
 	sessionManager         *component.SessionManager
 	tabPicker              *component.TabPicker
 	tabPickerWidget        layout.Widget
@@ -101,7 +100,10 @@ func (bw *browserWindow) clearShellState() {
 	bw.appToaster = nil
 	bw.modeToaster = nil
 	bw.touchpadNavIndicator = nil
-	bw.borderMgr = nil
+	if bw.modeFrame != nil {
+		bw.modeFrame.destroy()
+		bw.modeFrame = nil
+	}
 	bw.sessionManager = nil
 	bw.tabPicker = nil
 	bw.tabPickerWidget = nil
@@ -179,15 +181,7 @@ func (bw *browserWindow) initBorderOverlay(a *App) {
 		return
 	}
 
-	bw.borderMgr = focus.NewBorderManager(a.widgetFactory)
-	if bw.borderMgr == nil {
-		return
-	}
-	if widget := bw.borderMgr.Widget(); widget != nil {
-		if gtkWidget := widget.GtkWidget(); gtkWidget != nil {
-			bw.mainWindow.AddOverlay(gtkWidget)
-		}
-	}
+	bw.modeFrame = newModeFrame(bw.mainWindow.ContentOverlay(), bw.mainWindow.Window())
 }
 
 func (bw *browserWindow) initAccentPicker(ctx context.Context, a *App) {
@@ -356,6 +350,15 @@ func (a *App) releaseTabWorkspace(ctx context.Context, tab *entity.Tab) {
 	}
 
 	a.releaseFloatingSessionsForTab(ctx, tab.ID)
+	if bw := a.browserWindowForTab(tab.ID); bw != nil && bw.modeFrame != nil && bw.modeFrame.tabID == tab.ID {
+		bw.modeFrame.cancelTimers()
+		bw.modeFrame.dismissLinger()
+		bw.modeFrame.generation++
+		bw.modeFrame.setTarget(nil, "")
+		bw.modeFrame.tabID = ""
+		bw.modeFrame.hide()
+		a.updateModeIndicatorToaster(ctx, bw, bw.modeFrame.mode)
+	}
 	if a.contentCoord != nil && tab.Workspace != nil {
 		for _, pane := range tab.Workspace.AllPanes() {
 			if pane == nil {
@@ -492,7 +495,6 @@ func (a *App) updateLastFocusedWindowAfterRemoval(removedID string, fallback *br
 }
 
 func (a *App) clearMainBrowserWindowAfterRemoval(fallback *browserWindow) {
-	a.clearResizeModeBorder()
 	if fallback != nil {
 		a.activateBrowserWindow(fallback)
 		return
@@ -523,7 +525,6 @@ func (a *App) cleanupTransientBrowserWindowForDestroy(bw *browserWindow) {
 		}
 	}
 	if bw.mainWindow == a.mainWindow {
-		a.clearResizeModeBorder()
 		if fallback != nil {
 			a.activateBrowserWindow(fallback)
 			return

@@ -27,6 +27,7 @@ type Palette struct {
 
 // ModeColors holds colors for modal mode indicators (borders and toasters).
 type ModeColors struct {
+	VimMode     string // Color for Vim mode (default: #F7768E)
 	PaneMode    string // Color for pane mode (default: #4A90E2 blue)
 	TabMode     string // Color for tab mode (default: #FFA500 orange)
 	SessionMode string // Color for session mode (default: #9B59B6 purple)
@@ -37,6 +38,7 @@ type ModeColors struct {
 func DefaultModeColors() ModeColors {
 	return ModeColors{
 		PaneMode:    "#4A90E2",
+		VimMode:     "#F7768E",
 		TabMode:     "#FFA500",
 		SessionMode: "#9B59B6",
 		ResizeMode:  "#00D4AA",
@@ -47,6 +49,7 @@ func DefaultModeColors() ModeColors {
 func (m ModeColors) ToCSSVars() string {
 	var sb strings.Builder
 	sb.WriteString("  --pane-mode-color: " + m.PaneMode + ";\n")
+	sb.WriteString("  --vim-mode-color: " + m.VimMode + ";\n")
 	sb.WriteString("  --tab-mode-color: " + m.TabMode + ";\n")
 	sb.WriteString("  --session-mode-color: " + m.SessionMode + ";\n")
 	sb.WriteString("  --resize-mode-color: " + m.ResizeMode + ";\n")
@@ -139,6 +142,7 @@ func PaletteFromEntity(p entity.ColorPalette, isDark bool) Palette {
 func ModeColorsFromEntity(colors entity.ThemeModeColors) ModeColors {
 	return ModeColors{
 		PaneMode:    colors.PaneMode,
+		VimMode:     colors.VimMode,
 		TabMode:     colors.TabMode,
 		SessionMode: colors.SessionMode,
 		ResizeMode:  colors.ResizeMode,
