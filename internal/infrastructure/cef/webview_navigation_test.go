@@ -11,6 +11,70 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestWebViewRearmPendingNavigationAfterBlankLoadEnd(t *testing.T) {
+	wv := &WebView{}
+	wv.setPendingNavigationLocked("https://example.com", time.Now())
+	intentID := wv.pendingIntentID
+	wv.mu.Lock()
+	wv.pendingIssued = true
+	wv.pendingURIStartedAt = time.Now()
+	wv.mu.Unlock()
+
+	require.True(t, wv.rearmPendingNavigationAfterBlankLoadEnd(intentID))
+	wv.mu.RLock()
+	require.Equal(t, intentID, wv.pendingIntentID)
+	require.False(t, wv.pendingIssued)
+	require.True(t, wv.pendingURIStartedAt.IsZero())
+	wv.mu.RUnlock()
+}
+
+func TestWebViewRearmPendingNavigationAfterBlankLoadEnd_NoOp(t *testing.T) {
+	wv := &WebView{}
+	require.False(t, wv.rearmPendingNavigationAfterBlankLoadEnd(0))
+	wv.setPendingNavigationLocked("https://example.com", time.Now())
+	require.False(t, wv.rearmPendingNavigationAfterBlankLoadEnd(wv.pendingIntentID))
+}
+
+func TestWebViewRearmPendingNavigationAfterBlankLoadEnd_DoesNotRearmOrReplayReplacementIntent(t *testing.T) {
+	browser := cefmocks.NewMockBrowser(t)
+	frame := cefmocks.NewMockFrame(t)
+	frame.EXPECT().GetURL().Return("").Once()
+	frame.EXPECT().LoadURL("https://new.example").Once()
+	browser.EXPECT().GetMainFrame().Return(frame).Once()
+	browser.EXPECT().GetIdentifier().Return(int32(1)).Twice()
+	wv := &WebView{ctx: context.Background(), browser: browser}
+	wv.setPendingNavigationLocked("https://old.example", time.Now())
+	observedIntentID := wv.pendingIntentID
+
+	// A newer navigation is installed and submitted after the handler snapshots
+	// the old intent but before its rearm helper acquires the mutex.
+	wv.setPendingNavigationLocked("https://new.example", time.Now())
+	newIntentID := wv.pendingIntentID
+	wv.replayPendingNavigationForIntent(0, newIntentID)
+	wv.mu.RLock()
+	startedAt := wv.pendingURIStartedAt
+	wv.mu.RUnlock()
+
+	require.False(t, wv.rearmPendingNavigationAfterBlankLoadEnd(observedIntentID))
+
+	oldTask := cefNewTask
+	oldPost := cefPostTask
+	defer func() { cefNewTask, cefPostTask = oldTask, oldPost }()
+	cefNewTask = func(task purecef.Task) purecef.Task { return task }
+	cefPostTask = func(_ purecef.ThreadID, task purecef.Task) int32 {
+		task.Execute()
+		return 1
+	}
+	wv.schedulePendingNavigationReplayForIntent(0, observedIntentID)
+
+	wv.mu.RLock()
+	defer wv.mu.RUnlock()
+	require.Equal(t, "https://new.example", wv.pendingURI)
+	require.Equal(t, newIntentID, wv.pendingIntentID)
+	require.True(t, wv.pendingIssued, "replacement intent must remain issued")
+	require.Equal(t, startedAt, wv.pendingURIStartedAt, "replacement intent must not be rearmed")
+}
+
 func TestWebViewReplayPendingNavigation_LoadsQueuedURIWhenMainFrameAvailable(t *testing.T) {
 	browser := cefmocks.NewMockBrowser(t)
 	frame := cefmocks.NewMockFrame(t)
@@ -149,9 +213,49 @@ func TestWebViewSchedulePendingNavigationReplay_RetriesWhenTaskPostFails(t *test
 
 	wv := &WebView{ctx: context.Background(), browser: browser}
 	wv.setPendingNavigationLocked("https://github.com/bnema", time.Now())
-	wv.schedulePendingNavigationReplay(0)
+	wv.schedulePendingNavigationReplay()
 
 	require.True(t, retried)
+}
+
+func TestWebViewSchedulePendingNavigationReplay_RetryStaysOnCapturedIntent(t *testing.T) {
+	browser := cefmocks.NewMockBrowser(t)
+	wv := &WebView{ctx: context.Background(), browser: browser}
+	wv.setPendingNavigationLocked("https://old.example", time.Now())
+
+	oldTask := cefNewTask
+	oldPost := cefPostTask
+	oldDelayed := cefPostDelayedTask
+	oldAfter := cefScheduleAfter
+	t.Cleanup(func() {
+		cefNewTask = oldTask
+		cefPostTask = oldPost
+		cefPostDelayedTask = oldDelayed
+		cefScheduleAfter = oldAfter
+	})
+	cefNewTask = func(task purecef.Task) purecef.Task { return task }
+	var retry func()
+	cefPostTask = func(_ purecef.ThreadID, _ purecef.Task) int32 { return 0 }
+	cefScheduleAfter = func(delay time.Duration, fn func()) {
+		require.Equal(t, pendingNavigationRetryDelay, delay)
+		retry = fn
+	}
+	cefPostDelayedTask = func(_ purecef.ThreadID, task purecef.Task, delayMs int64) int32 {
+		require.Equal(t, int64(pendingNavigationRetryDelay/time.Millisecond), delayMs)
+		task.Execute()
+		return 1
+	}
+
+	wv.schedulePendingNavigationReplay()
+	require.NotNil(t, retry)
+	wv.setPendingNavigationLocked("https://new.example", time.Now())
+	retry()
+
+	browser.AssertNotCalled(t, "GetMainFrame")
+	wv.mu.RLock()
+	defer wv.mu.RUnlock()
+	require.Equal(t, "https://new.example", wv.pendingURI)
+	require.False(t, wv.pendingIssued)
 }
 
 func TestWebViewReplayPendingNavigation_UsesCurrentBrowserAtExecutionTime(t *testing.T) {
@@ -179,7 +283,7 @@ func TestWebViewReplayPendingNavigation_UsesCurrentBrowserAtExecutionTime(t *tes
 
 	wv := &WebView{ctx: context.Background(), browser: staleBrowser}
 	wv.setPendingNavigationLocked("https://github.com/bnema", time.Now())
-	wv.schedulePendingNavigationReplay(0)
+	wv.schedulePendingNavigationReplay()
 	wv.mu.Lock()
 	wv.browser = activeBrowser
 	wv.mu.Unlock()
@@ -313,9 +417,9 @@ func TestWebViewReplayPendingNavigation_SubmitsOncePerIntent(t *testing.T) {
 	wv := &WebView{ctx: context.Background(), browser: browser}
 	wv.setPendingNavigationLocked("https://example.com/target", time.Now())
 	// OnAfterCreated schedules replay...
-	wv.schedulePendingNavigationReplay(0)
+	wv.schedulePendingNavigationReplay()
 	// ...and blank OnLoadEnd schedules a second replay before commit.
-	wv.schedulePendingNavigationReplay(0)
+	wv.schedulePendingNavigationReplay()
 	require.Len(t, scheduled, 2)
 	for _, task := range scheduled {
 		task.Execute()
@@ -347,7 +451,7 @@ func TestWebViewReplayPendingNavigation_StaleIntentDoesNotResubmit(t *testing.T)
 
 	wv := &WebView{ctx: context.Background(), browser: browser}
 	wv.setPendingNavigationLocked("https://example.com/first", time.Now())
-	wv.schedulePendingNavigationReplay(0)
+	wv.schedulePendingNavigationReplay()
 	require.Len(t, scheduled, 1)
 	stale := scheduled[0]
 	// Replacement installs a new intent; the stale task must not submit.
@@ -385,7 +489,7 @@ func TestWebViewReplayPendingNavigation_RetriesSameIntentOnFailedPost(t *testing
 	wv.mu.RLock()
 	intent := wv.pendingIntentID
 	wv.mu.RUnlock()
-	wv.schedulePendingNavigationReplay(0)
+	wv.schedulePendingNavigationReplay()
 	require.True(t, scheduledAfter)
 	wv.mu.RLock()
 	defer wv.mu.RUnlock()

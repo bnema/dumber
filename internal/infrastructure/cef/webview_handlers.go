@@ -586,12 +586,15 @@ func (h *handlerSet) OnLoadEnd(browser purecef.Browser, frame purecef.Frame, htt
 	// If a queued startup navigation is still pending after about:blank finished,
 	// replay it now that the initial main-frame load completed.
 	frameURL := frame.GetURL()
-	if pendingURI := h.wv.pendingNavigationURI(); pendingURI != "" && !pendingURIEquivalent(frameURL, pendingURI) {
+	pendingURI, pendingIntentID := h.wv.pendingNavigationSnapshot()
+	if pendingURI != "" && !pendingURIEquivalent(frameURL, pendingURI) {
 		if strings.EqualFold(strings.TrimSpace(frameURL), "about:blank") {
-			log.Debug().
+			rearmed := h.wv.rearmPendingNavigationAfterBlankLoadEnd(pendingIntentID)
+			log.Info().
 				Str("pending_uri", logging.TruncateURL(pendingURI, logging.PermissionLogURLMaxLen)).
+				Bool("rearmed", rearmed).
 				Msg("cef: replaying pending navigation after about:blank load end")
-			h.wv.schedulePendingNavigationReplay(0)
+			h.wv.schedulePendingNavigationReplayForIntent(0, pendingIntentID)
 		}
 	}
 
@@ -1050,7 +1053,7 @@ func (h *handlerSet) finishAfterCreated(
 		host.Invalidate(purecef.PaintElementTypePetView)
 	}
 	if state.hasPendingNavigation {
-		h.wv.schedulePendingNavigationReplay(0)
+		h.wv.schedulePendingNavigationReplay()
 	}
 	if state.nativePopupParent != nil && state.nativePopupID != 0 {
 		state.nativePopupParent.clearPendingNativePopup(state.nativePopupID, h.wv)
