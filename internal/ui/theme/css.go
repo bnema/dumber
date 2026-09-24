@@ -1380,25 +1380,25 @@ func generateToasterCSS(p Palette) string {
 /* Toast level: info (default, accent color) */
 .toast-info {
 	background-color: alpha(var(--accent), 0.9);
-	color: var(--bg);
+	color: var(--accent-text);
 }
 
 /* Toast level: success */
 .toast-success {
 	background-color: alpha(var(--success), 0.9);
-	color: var(--bg);
+	color: var(--success-text);
 }
 
 /* Toast level: warning */
 .toast-warning {
 	background-color: alpha(var(--warning), 0.9);
-	color: var(--bg);
+	color: var(--warning-text);
 }
 
 /* Toast level: error */
 .toast-error {
 	background-color: alpha(var(--destructive), 0.9);
-	color: var(--bg);
+	color: var(--destructive-text);
 }
 
 /* Toast with custom styling (mode indicator toasters) */
@@ -1409,27 +1409,27 @@ func generateToasterCSS(p Palette) string {
 /* Mode-specific toast colors */
 .toast-pane-mode {
 	background-color: var(--pane-mode-color);
-	color: #ffffff;
+	color: var(--pane-mode-text);
 }
 
 .toast-vim-mode {
 	background-color: var(--vim-mode-color);
-	color: #ffffff;
+	color: var(--vim-mode-text);
 }
 
 .toast-tab-mode {
 	background-color: var(--tab-mode-color);
-	color: #ffffff;
+	color: var(--tab-mode-text);
 }
 
 .toast-session-mode {
 	background-color: var(--session-mode-color);
-	color: #ffffff;
+	color: var(--session-mode-text);
 }
 
 .toast-resize-mode {
 	background-color: var(--resize-mode-color);
-	color: #ffffff;
+	color: var(--resize-mode-text);
 }
 `
 }
@@ -1461,7 +1461,7 @@ func generateLinkStatusCSS(p Palette) string {
 
 /* Link status label text */
 .link-status label {
-	color: var(--muted);
+	color: var(--control-muted);
 }
 `
 }
