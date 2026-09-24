@@ -53,6 +53,11 @@ func (m ModeColors) ToCSSVars() string {
 	sb.WriteString("  --tab-mode-color: " + m.TabMode + ";\n")
 	sb.WriteString("  --session-mode-color: " + m.SessionMode + ";\n")
 	sb.WriteString("  --resize-mode-color: " + m.ResizeMode + ";\n")
+	sb.WriteString("  --pane-mode-text: " + readableTextColor(m.PaneMode, "#ffffff") + ";\n")
+	sb.WriteString("  --vim-mode-text: " + readableTextColor(m.VimMode, "#ffffff") + ";\n")
+	sb.WriteString("  --tab-mode-text: " + readableTextColor(m.TabMode, "#ffffff") + ";\n")
+	sb.WriteString("  --session-mode-text: " + readableTextColor(m.SessionMode, "#ffffff") + ";\n")
+	sb.WriteString("  --resize-mode-text: " + readableTextColor(m.ResizeMode, "#ffffff") + ";\n")
 	return sb.String()
 }
 
@@ -273,6 +278,8 @@ func (p Palette) ToCSSVars() string {
 	sb.WriteString("  --surface: " + p.Surface + ";\n")
 	sb.WriteString("  --surface-variant: " + p.SurfaceVariant + ";\n")
 	sb.WriteString("  --control-text: " + readableTextColor(p.SurfaceVariant, p.Text) + ";\n")
+	sb.WriteString("  --control-muted: " + readableTextColor(p.SurfaceVariant, p.Muted) + ";\n")
+	sb.WriteString("  --surface-muted: " + readableTextColor(p.Surface, p.Muted) + ";\n")
 	sb.WriteString("  --text: " + p.Text + ";\n")
 	sb.WriteString("  --muted: " + p.Muted + ";\n")
 	sb.WriteString("  --accent: " + p.Accent + ";\n")
@@ -281,6 +288,9 @@ func (p Palette) ToCSSVars() string {
 	sb.WriteString("  --success: " + p.Success + ";\n")
 	sb.WriteString("  --warning: " + p.Warning + ";\n")
 	sb.WriteString("  --destructive: " + p.Destructive + ";\n")
+	sb.WriteString("  --success-text: " + readableTextColor(p.Success, p.Background) + ";\n")
+	sb.WriteString("  --warning-text: " + readableTextColor(p.Warning, p.Background) + ";\n")
+	sb.WriteString("  --destructive-text: " + readableTextColor(p.Destructive, p.Background) + ";\n")
 	return sb.String()
 }
 

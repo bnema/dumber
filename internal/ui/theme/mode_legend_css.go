@@ -5,13 +5,13 @@ import (
 	"strings"
 )
 
-// modeLegendColors maps legend mode classes to the palette variable of their mode.
-var modeLegendColors = []struct{ mode, color string }{
-	{"pane", "--pane-mode-color"},
-	{"vim", "--vim-mode-color"},
-	{"resize", "--resize-mode-color"},
-	{"tab", "--tab-mode-color"},
-	{"session", "--session-mode-color"},
+// modeLegendColors maps legend mode classes to the palette variables of their mode.
+var modeLegendColors = []struct{ mode, color, text string }{
+	{"pane", "--pane-mode-color", "--pane-mode-text"},
+	{"vim", "--vim-mode-color", "--vim-mode-text"},
+	{"resize", "--resize-mode-color", "--resize-mode-text"},
+	{"tab", "--tab-mode-color", "--tab-mode-text"},
+	{"session", "--session-mode-color", "--session-mode-text"},
 }
 
 func generateModeLegendCSS() string {
@@ -31,7 +31,6 @@ func generateModeLegendCSS() string {
 	font-family: var(--font-mono);
 	font-size: 0.8125em;
 	font-weight: bold;
-	color: #ffffff;
 	padding: 0.375em 0.75em;
 	margin-bottom: 0.375em;
 }
@@ -48,7 +47,7 @@ func generateModeLegendCSS() string {
 	font-family: var(--font-mono);
 	font-size: 0.75em;
 	font-weight: bold;
-	color: var(--text);
+	color: var(--control-text);
 	background-color: var(--surface-variant);
 	border-style: solid;
 	border-width: 0.0625em;
@@ -57,7 +56,7 @@ func generateModeLegendCSS() string {
 	margin-right: 0.375em;
 	transition: background-color 120ms ease-out, color 120ms ease-out;
 }
-.mode-legend-description { font-size: 0.75em; color: var(--muted); }
+.mode-legend-description { font-size: 0.75em; color: var(--surface-muted); }
 .mode-legend-row.mode-legend-dim { opacity: 0.3; }
 @keyframes mode-legend-appear {
 	from { opacity: 0; }
@@ -66,11 +65,11 @@ func generateModeLegendCSS() string {
 `)
 	for _, m := range modeLegendColors {
 		fmt.Fprintf(&sb, `.omnibox-container.mode-legend-panel.mode-legend-%[1]s { border-color: var(%[2]s); }
-.mode-legend-%[1]s .mode-legend-title { background-color: var(%[2]s); }
+.mode-legend-%[1]s .mode-legend-title { background-color: var(%[2]s); color: var(%[3]s); }
 .mode-legend-%[1]s .mode-legend-group-title { color: var(%[2]s); }
 .mode-legend-%[1]s .mode-legend-keycap { border-color: alpha(var(%[2]s), 0.6); }
-.mode-legend-%[1]s .mode-legend-keycap.mode-legend-flash { background-color: var(%[2]s); color: #ffffff; }
-`, m.mode, m.color)
+.mode-legend-%[1]s .mode-legend-keycap.mode-legend-flash { background-color: var(%[2]s); color: var(%[3]s); }
+`, m.mode, m.color, m.text)
 	}
 	return sb.String()
 }
