@@ -111,6 +111,8 @@ type Coordinator struct {
 
 	// Callback when a page editable target gains or loses focus.
 	onEditableFocusChanged func(paneID entity.PaneID, editable bool)
+	// onVimPageInteractionEnded fires when a page finishes link hints or visual selection.
+	onVimPageInteractionEnded func(paneID entity.PaneID)
 
 	// Callback for first load_started event (triggers deferred initialization)
 	onFirstLoadStarted func()
@@ -249,6 +251,12 @@ func (c *Coordinator) SetOnWebViewFocused(fn func(paneID entity.PaneID, wv port.
 // SetOnEditableFocusChanged sets the callback for page editable focus changes.
 func (c *Coordinator) SetOnEditableFocusChanged(fn func(paneID entity.PaneID, editable bool)) {
 	c.onEditableFocusChanged = fn
+}
+
+// SetOnVimPageInteractionEnded sets the callback for the end of an in-page
+// Vim interaction (link hints or visual selection).
+func (c *Coordinator) SetOnVimPageInteractionEnded(fn func(paneID entity.PaneID)) {
+	c.onVimPageInteractionEnded = fn
 }
 
 // SetOnFirstLoadStarted sets the callback for when the first navigation starts.

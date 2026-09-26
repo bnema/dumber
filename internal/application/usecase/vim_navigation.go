@@ -23,12 +23,21 @@ func NewVimNavigationUseCase() *VimNavigationUseCase {
 	return &VimNavigationUseCase{}
 }
 
-// Execute dispatches a configured semantic Vim action to the active WebView.
-func (*VimNavigationUseCase) Execute(ctx context.Context, wv port.WebView, action string, count int, highlightColor string) error {
+// Execute dispatches a configured Vim action to the active WebView. The
+// outcome tells the UI whether the page now owns key input.
+func (uc *VimNavigationUseCase) Execute(
+	ctx context.Context, wv port.WebView, action string, count int, highlightColor string,
+) (dto.VimNavigationOutcome, error) {
 	if wv == nil {
-		return errors.New("vim navigation: nil webview")
+		return dto.VimNavigationOutcome{}, errors.New("vim navigation: nil webview")
 	}
+	if request, ok := vimPageInteractionRequest(action, highlightColor); ok {
+		return uc.startPageInteraction(ctx, wv, request)
+	}
+	return dto.VimNavigationOutcome{}, executeVimNavigation(ctx, wv, action, count, highlightColor)
+}
 
+func executeVimNavigation(ctx context.Context, wv port.WebView, action string, count int, highlightColor string) error {
 	switch action {
 	case "confirm":
 		activator, ok := wv.(port.SemanticNavigationActivator)
@@ -70,6 +79,68 @@ func (*VimNavigationUseCase) Execute(ctx context.Context, wv port.WebView, actio
 		return errUnsupportedVimNavigationEngine
 	}
 	return navigator.NavigateSemantic(ctx, request)
+}
+
+var vimYankObjects = map[string]dto.VimPageTextObject{
+	"yank-section":   dto.VimPageTextObjectSection,
+	"yank-paragraph": dto.VimPageTextObjectParagraph,
+	"yank-code":      dto.VimPageTextObjectCode,
+	"yank-table":     dto.VimPageTextObjectTable,
+	"yank-list":      dto.VimPageTextObjectList,
+}
+
+func vimPageInteractionRequest(action, highlightColor string) (dto.VimPageInteractionRequest, bool) {
+	request := dto.VimPageInteractionRequest{HighlightColor: highlightColor}
+	switch action {
+	case "hint-follow":
+		request.Kind = dto.VimPageHintFollow
+	case "hint-follow-new":
+		request.Kind = dto.VimPageHintFollowNew
+	case "hint-yank-url":
+		request.Kind = dto.VimPageHintYankURL
+	case "visual":
+		request.Kind = dto.VimPageVisual
+	default:
+		object, ok := vimYankObjects[action]
+		if !ok {
+			return dto.VimPageInteractionRequest{}, false
+		}
+		request.Kind = dto.VimPageYankObject
+		request.Object = object
+	}
+	return request, true
+}
+
+func (*VimNavigationUseCase) startPageInteraction(
+	ctx context.Context, wv port.WebView, request dto.VimPageInteractionRequest,
+) (dto.VimNavigationOutcome, error) {
+	interactor, ok := wv.(port.VimPageInteractor)
+	if !ok {
+		return dto.VimNavigationOutcome{}, errUnsupportedVimNavigationEngine
+	}
+	if err := interactor.StartVimPageInteraction(ctx, request); err != nil {
+		return dto.VimNavigationOutcome{}, err
+	}
+	return dto.VimNavigationOutcome{CapturePageKeys: request.Kind.CapturesKeys()}, nil
+}
+
+// SendPageKey forwards one canonical key to the active in-page interaction.
+func (*VimNavigationUseCase) SendPageKey(ctx context.Context, wv port.WebView, key string) error {
+	interactor, ok := wv.(port.VimPageInteractor)
+	if !ok {
+		return errUnsupportedVimNavigationEngine
+	}
+	return interactor.SendVimPageKey(ctx, key)
+}
+
+// CancelPageInteraction ends any in-page interaction, removing its overlay or
+// selection. WebViews without the capability have nothing to cancel.
+func (*VimNavigationUseCase) CancelPageInteraction(ctx context.Context, wv port.WebView) error {
+	interactor, ok := wv.(port.VimPageInteractor)
+	if !ok {
+		return nil
+	}
+	return interactor.CancelVimPageInteraction(ctx)
 }
 
 // ClearSemanticNavigationHighlight removes the visual target left by semantic

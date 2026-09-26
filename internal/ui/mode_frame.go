@@ -628,6 +628,8 @@ func modeLegendGroup(mode input.Mode, name string) string {
 		return "RESIZE"
 	case strings.HasPrefix(name, "vim-scroll-") || strings.HasPrefix(name, "half-page-"):
 		return "SCROLL"
+	case mode == input.ModeVim && (strings.HasPrefix(name, "hint-") || strings.HasPrefix(name, "yank-") || name == "visual"):
+		return "SELECT"
 	case mode == input.ModeVim && (strings.Contains(name, "next") || strings.Contains(name, "prev") || name == "outline"):
 		return "JUMP"
 	case mode == input.ModeTab && (name == "next-tab" || name == "previous-tab"):

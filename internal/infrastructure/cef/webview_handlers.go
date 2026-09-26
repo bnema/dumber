@@ -532,6 +532,7 @@ func (h *handlerSet) OnLoadStart(_ purecef.Browser, frame purecef.Frame, _ purec
 	// (same-page, error, and helper-driven commits). Main frame only.
 	if h.wv != nil {
 		h.wv.invalidateScrollMotion()
+		h.wv.endVimPageInteractionOnNavigation()
 		h.wv.mu.Lock()
 		h.wv.documentSeq++
 		h.wv.faviconSourcePendingToken = 0
