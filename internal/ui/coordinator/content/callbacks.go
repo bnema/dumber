@@ -185,6 +185,12 @@ func (c *Coordinator) setupWebViewCallbacks(ctx context.Context, paneID entity.P
 		}
 	}
 
+	callbacks.OnVimPageInteractionEnded = func() {
+		if c.onVimPageInteractionEnded != nil {
+			c.onVimPageInteractionEnded(paneID)
+		}
+	}
+
 	// Add popup create handler if popup handling is configured
 	callbacks.OnCreate = c.buildPopupCreateHandler(ctx, paneID, wv)
 

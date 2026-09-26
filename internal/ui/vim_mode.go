@@ -117,6 +117,7 @@ func (a *App) handleModeChange(ctx context.Context, bw *browserWindow, from, to 
 		a.enableAccessibilityForVimMode(ctx, bw)
 	}
 	if from == input.ModeVim && to != input.ModeVim {
+		a.endVimPageInteraction(ctx, bw)
 		a.clearVimNavigationHighlight(ctx, bw)
 	}
 
@@ -142,6 +143,8 @@ func (a *App) transferVimModeOwnershipToPane(ctx context.Context, bw *browserWin
 	if bw.vimModePaneID == "" || bw.vimModePaneID == newPaneID {
 		return
 	}
+	// A page interaction belongs to the previous owner's WebView.
+	a.endVimPageInteraction(ctx, bw)
 
 	// Check if this window is actually in vim mode.
 	if bw.keyboardHandler == nil || bw.keyboardHandler.Mode() != input.ModeVim {

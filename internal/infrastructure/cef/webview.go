@@ -261,17 +261,24 @@ type WebView struct {
 	// (for example https://dumber.invalid/history). The two forms are updated
 	// together through setCommittedURLsLocked; never compare one form against
 	// the other.
-	uri                       string
-	committedURL              string
-	title                     string
-	progress                  float64
-	canGoBack                 bool
-	canGoFwd                  bool
-	isLoading                 bool
-	selectedText              string
-	focusedEditable           bool
-	inputAttached             bool
-	bridgeNonce               string
+	uri             string
+	committedURL    string
+	title           string
+	progress        float64
+	canGoBack       bool
+	canGoFwd        bool
+	isLoading       bool
+	selectedText    string
+	focusedEditable bool
+	inputAttached   bool
+	bridgeNonce     string
+	// vimPageToken is the secret for the armed Vim page interaction; results
+	// carrying any other token are rejected. Empty when none is armed.
+	vimPageToken string
+	vimPageKind  dto.VimPageInteractionKind
+	// vimPageGeneration increments on every arm so deferred end callbacks
+	// from an older interaction cannot release a newer one's key capture.
+	vimPageGeneration         uint64
 	selectionDebounceTimer    stoppableTimer
 	selectionDebounceSeq      uint64
 	selectionDebounceDelay    *time.Duration

@@ -35,6 +35,19 @@ func trieOwnsBinding(raw string) (vimkeys.Sequence, bool) {
 	return nil, false
 }
 
+// trieOnlyActionBinding owns a single-chord binding when its action has no
+// legacy shortcut mapping and must therefore complete through the trie.
+func trieOnlyActionBinding(action, raw string) (vimkeys.Sequence, bool) {
+	if mapModeConfigAction(action, "vim") != "" {
+		return nil, false
+	}
+	seq, err := vimkeys.ParseBinding(raw)
+	if err != nil || len(seq) != 1 || isCountStartKey(seq[0]) {
+		return nil, false
+	}
+	return seq, true
+}
+
 // buildVimModeTrie inserts trie-owned Vim mode bindings. Action names are
 // sorted so the first sorted name wins on Insert conflicts (validation already
 // rejects duplicates). Ownership is marked only after a successful Insert.
@@ -57,6 +70,11 @@ func buildVimModeTrie(cfg *entity.VimModeConfig) (*vimkeys.Trie, map[string]bool
 		sort.Strings(keys)
 		for _, key := range keys {
 			seq, ok := trieOwnsBinding(key)
+			if !ok {
+				// Single chords for actions without a legacy Action (for example
+				// "f" or "v") can only be dispatched through the sequence trie.
+				seq, ok = trieOnlyActionBinding(action, key)
+			}
 			if !ok {
 				continue
 			}
