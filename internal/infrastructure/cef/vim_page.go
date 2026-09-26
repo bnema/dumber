@@ -31,6 +31,8 @@ type vimPageBridgePayload struct {
 	Token string `json:"token"`
 	Text  string `json:"text,omitempty"`
 	URL   string `json:"url,omitempty"`
+	// Reason explains an early end (for example no visible targets).
+	Reason string `json:"reason,omitempty"`
 }
 
 const (
@@ -305,6 +307,10 @@ func (wv *WebView) handleVimPageResult(payload vimPageBridgePayload) {
 		return
 	}
 
+	logging.FromContext(wv.ctx).Debug().
+		Str("type", payload.Type).
+		Str("reason", payload.Reason).
+		Msg("cef: vim page interaction finished")
 	if kind.CapturesKeys() {
 		wv.notifyVimPageInteractionEnded(generation)
 	}

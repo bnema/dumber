@@ -35,6 +35,29 @@
 
   let state = null;
 
+  // deepQueryAll matches selector across the document and every open shadow
+  // root; component-heavy sites (for example Reddit) render content there.
+  function deepQueryAll(selector, root = document) {
+    const results = Array.from(root.querySelectorAll(selector));
+    for (const element of root.querySelectorAll("*")) {
+      if (element.shadowRoot) results.push(...deepQueryAll(selector, element.shadowRoot));
+    }
+    return results;
+  }
+
+  // deepTextNodes yields non-blank text nodes in document order, descending
+  // into open shadow roots.
+  function* deepTextNodes(root) {
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT);
+    for (let node = walker.currentNode; node; node = walker.nextNode()) {
+      if (node.nodeType === Node.TEXT_NODE) {
+        if (node.data.trim()) yield node;
+      } else if (node.shadowRoot) {
+        yield* deepTextNodes(node.shadowRoot);
+      }
+    }
+  }
+
   function post(token, message) {
     let encoded = "";
     try {
@@ -101,14 +124,15 @@
   function hintTargets(linksOnly) {
     const seen = new Set();
     const targets = [];
-    for (const element of document.querySelectorAll(linksOnly ? "a[href]" : ALL_TARGETS)) {
+    for (const element of deepQueryAll(linksOnly ? "a[href]" : ALL_TARGETS)) {
       if (seen.has(element) || element.disabled) continue;
       const rect = visibleRect(element);
       if (!rect) continue;
       const x = Math.min(Math.max(rect.left + rect.width / 2, 0), window.innerWidth - 1);
       const y = Math.min(Math.max(rect.top + rect.height / 2, 0), window.innerHeight - 1);
-      const hit = document.elementFromPoint(x, y);
-      if (hit && !element.contains(hit) && !hit.contains(element)) continue;
+      const root = element.getRootNode();
+      const hit = (root.elementFromPoint ? root : document).elementFromPoint(x, y);
+      if (hit && !element.contains(hit) && !hit.contains(element) && !(hit.shadowRoot && hit.shadowRoot.contains(element))) continue;
       seen.add(element);
       targets.push({ element, rect });
     }
@@ -192,10 +216,7 @@
   // --- Visual selection -----------------------------------------------------
 
   function firstVisibleTextPosition() {
-    const walker = document.createTreeWalker(document.body || document.documentElement, NodeFilter.SHOW_TEXT, {
-      acceptNode: (node) => (node.data.trim() ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT),
-    });
-    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+    for (const node of deepTextNodes(document.body || document.documentElement)) {
       if (!visibleRect(node.parentElement)) continue;
       const range = document.createRange();
       range.selectNodeContents(node);
@@ -300,7 +321,7 @@
   }
 
   function sectionText(color) {
-    const headings = Array.from(document.querySelectorAll("h1,h2,h3,h4,h5,h6"))
+    const headings = deepQueryAll("h1,h2,h3,h4,h5,h6")
       .filter((heading) => heading.getClientRects().length > 0);
     if (headings.length === 0) return "";
     const threshold = window.innerHeight * 0.25;
@@ -323,7 +344,7 @@
   function objectText(object, color) {
     if (object === "section") return sectionText(color);
     for (const selector of OBJECT_SELECTORS[object] || []) {
-      const candidates = Array.from(document.querySelectorAll(selector));
+      const candidates = deepQueryAll(selector);
       const element = candidates.find((candidate) =>
         visibleRect(candidate) && !candidates.some((other) => other !== candidate && other.contains(candidate)));
       if (element) {
@@ -362,7 +383,7 @@
         }
         state = { kind: request.kind, token };
         const started = request.kind === "visual" ? startVisual(color) : startHints(request.kind, color);
-        if (!started) finish({ type: "end" });
+        if (!started) finish({ type: "end", reason: request.kind === "visual" ? "no-visible-text" : "no-visible-targets" });
       },
       key(token, key) {
         if (!state || state.token !== token) {
