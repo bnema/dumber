@@ -46,9 +46,12 @@ func TestVimNavigationUseCaseExecuteDispatchesConfiguredActions(t *testing.T) {
 	wv := &vimNavigationWebView{MockWebView: portmocks.NewMockWebView(t)}
 	uc := NewVimNavigationUseCase()
 
-	require.NoError(t, uc.Execute(context.Background(), wv, "focus-input", 1, ""))
-	require.NoError(t, uc.Execute(context.Background(), wv, "heading-prev", 3, "#aabbcc"))
-	require.NoError(t, uc.Execute(context.Background(), wv, "confirm", 1, ""))
+	_, err := uc.Execute(context.Background(), wv, "focus-input", 1, "")
+	require.NoError(t, err)
+	_, err = uc.Execute(context.Background(), wv, "heading-prev", 3, "#aabbcc")
+	require.NoError(t, err)
+	_, err = uc.Execute(context.Background(), wv, "confirm", 1, "")
+	require.NoError(t, err)
 
 	assert.Equal(t, 1, wv.focusNextInputCalls)
 	assert.Equal(t, 1, wv.activateNavigationTargetCalls)
@@ -80,6 +83,7 @@ func TestVimNavigationUseCaseNavigatePageFocus(t *testing.T) {
 func TestVimNavigationUseCaseIgnoresUnsupportedCapability(t *testing.T) {
 	wv := portmocks.NewMockWebView(t)
 
-	require.ErrorIs(t, NewVimNavigationUseCase().Execute(context.Background(), wv, "focus-input", 1, ""), errUnsupportedVimNavigationEngine)
+	_, err := NewVimNavigationUseCase().Execute(context.Background(), wv, "focus-input", 1, "")
+	require.ErrorIs(t, err, errUnsupportedVimNavigationEngine)
 	assert.False(t, NewVimNavigationUseCase().NavigatePageFocus(wv, true))
 }

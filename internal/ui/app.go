@@ -2257,12 +2257,16 @@ func (a *App) navigateVimSequenceAction(ctx context.Context, bw *browserWindow, 
 	if navigationUC == nil {
 		return
 	}
-	if err := navigationUC.Execute(ctx, wv, action, count, a.vimNavigationHighlightColor()); err != nil {
+	outcome, err := navigationUC.Execute(ctx, wv, action, count, a.vimNavigationHighlightColor())
+	if err != nil {
 		logging.FromContext(ctx).Debug().
 			Err(err).
 			Str("action", action).
 			Msg("vim navigation unavailable")
 		return
+	}
+	if outcome.CapturePageKeys {
+		a.captureVimPageKeys(ctx, bw, wv)
 	}
 	if bw != nil && (action == "heading-next" || action == "heading-prev") {
 		if _, ok := wv.(port.SemanticNavigable); ok {
@@ -2275,6 +2279,55 @@ func (a *App) navigateVimSequenceAction(ctx context.Context, bw *browserWindow, 
 				bw.vimNavigationHighlightedWebViews = append(bw.vimNavigationHighlightedWebViews, wv)
 			}
 		}
+	}
+}
+
+// captureVimPageKeys routes this window's Vim Mode keys to the in-page
+// interaction running in wv until the page reports its end.
+func (a *App) captureVimPageKeys(ctx context.Context, bw *browserWindow, wv port.WebView) {
+	if bw == nil || bw.keyboardHandler == nil || wv == nil {
+		return
+	}
+	bw.vimPageInteractionWebView = wv
+	bw.keyboardHandler.SetPageKeyCapture(func(key string) {
+		if err := a.vimNavigationUseCase().SendPageKey(ctx, wv, key); err != nil {
+			logging.FromContext(ctx).Debug().Err(err).Msg("vim page key forwarding failed")
+			a.endVimPageInteraction(ctx, bw)
+		}
+	})
+}
+
+// handleVimPageInteractionEnded releases key capture when the page reports
+// that its hint or visual interaction finished.
+func (a *App) handleVimPageInteractionEnded(paneID entity.PaneID) {
+	bw := a.browserWindowForAnyPane(paneID)
+	if bw == nil || bw.vimPageInteractionWebView == nil || a.contentCoord == nil {
+		return
+	}
+	if a.contentCoord.GetWebView(paneID) != bw.vimPageInteractionWebView {
+		return
+	}
+	bw.vimPageInteractionWebView = nil
+	if bw.keyboardHandler != nil {
+		bw.keyboardHandler.ClearPageKeyCapture()
+	}
+}
+
+// endVimPageInteraction cancels any in-page interaction owned by this window.
+func (a *App) endVimPageInteraction(ctx context.Context, bw *browserWindow) {
+	if bw == nil {
+		return
+	}
+	wv := bw.vimPageInteractionWebView
+	bw.vimPageInteractionWebView = nil
+	if bw.keyboardHandler != nil {
+		bw.keyboardHandler.ClearPageKeyCapture()
+	}
+	if wv == nil {
+		return
+	}
+	if err := a.vimNavigationUseCase().CancelPageInteraction(ctx, wv); err != nil {
+		logging.FromContext(ctx).Debug().Err(err).Msg("failed to cancel vim page interaction")
 	}
 }
 
@@ -3467,6 +3520,9 @@ func (a *App) initCoordinators(ctx context.Context) {
 	a.contentCoord.SetOnEditableFocusChanged(func(paneID entity.PaneID, editable bool) {
 		a.handlePageEditableFocusChanged(ctx, paneID, editable)
 	})
+	a.contentCoord.SetOnVimPageInteractionEnded(func(paneID entity.PaneID) {
+		a.handleVimPageInteractionEnded(paneID)
+	})
 
 	// Hide loading skeleton once the WebView paints
 	a.contentCoord.SetOnWebViewShown(func(paneID entity.PaneID) {
@@ -4050,6 +4106,7 @@ func (a *App) handleModeChange(ctx context.Context, bw *browserWindow, from, to 
 		a.enableAccessibilityForVimMode(ctx, bw)
 	}
 	if from == input.ModeVim && to != input.ModeVim {
+		a.endVimPageInteraction(ctx, bw)
 		a.clearVimNavigationHighlight(ctx, bw)
 	}
 
@@ -4075,6 +4132,8 @@ func (a *App) transferVimModeOwnershipToPane(ctx context.Context, bw *browserWin
 	if bw.vimModePaneID == "" || bw.vimModePaneID == newPaneID {
 		return
 	}
+	// A page interaction belongs to the previous owner's WebView.
+	a.endVimPageInteraction(ctx, bw)
 
 	// Check if this window is actually in vim mode.
 	if bw.keyboardHandler == nil || bw.keyboardHandler.Mode() != input.ModeVim {

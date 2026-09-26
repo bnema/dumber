@@ -109,6 +109,9 @@ func TestModeLegendActionsUseActiveConfiguration(t *testing.T) {
 	require.Equal(t, "→", displayLegendKey("arrowright"))
 	require.Equal(t, "SPLIT", modeLegendGroup(input.ModePane, "split-right"))
 	require.Equal(t, "JUMP", modeLegendGroup(input.ModeVim, "heading-next"))
+	require.Equal(t, "SELECT", modeLegendGroup(input.ModeVim, "hint-follow-new"))
+	require.Equal(t, "SELECT", modeLegendGroup(input.ModeVim, "yank-code"))
+	require.Equal(t, "SELECT", modeLegendGroup(input.ModeVim, "visual"))
 }
 
 func TestModeFramePendingSequenceFiltersBindings(t *testing.T) {

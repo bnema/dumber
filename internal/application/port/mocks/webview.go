@@ -18,10 +18,19 @@ func NewMockTexture(t interface {
 	mock.TestingT
 	Cleanup(func())
 }) *MockTexture {
+	if helper, ok := t.(interface{ Helper() }); ok {
+		helper.Helper()
+	}
+
 	mock := &MockTexture{}
 	mock.Mock.Test(t)
 
-	t.Cleanup(func() { mock.AssertExpectations(t) })
+	t.Cleanup(func() {
+		if helper, ok := t.(interface{ Helper() }); ok {
+			helper.Helper()
+		}
+		mock.AssertExpectations(t)
+	})
 
 	return mock
 }
@@ -89,10 +98,19 @@ func NewMockFindController(t interface {
 	mock.TestingT
 	Cleanup(func())
 }) *MockFindController {
+	if helper, ok := t.(interface{ Helper() }); ok {
+		helper.Helper()
+	}
+
 	mock := &MockFindController{}
 	mock.Mock.Test(t)
 
-	t.Cleanup(func() { mock.AssertExpectations(t) })
+	t.Cleanup(func() {
+		if helper, ok := t.(interface{ Helper() }); ok {
+			helper.Helper()
+		}
+		mock.AssertExpectations(t)
+	})
 
 	return mock
 }
@@ -556,10 +574,19 @@ func NewMockWebView(t interface {
 	mock.TestingT
 	Cleanup(func())
 }) *MockWebView {
+	if helper, ok := t.(interface{ Helper() }); ok {
+		helper.Helper()
+	}
+
 	mock := &MockWebView{}
 	mock.Mock.Test(t)
 
-	t.Cleanup(func() { mock.AssertExpectations(t) })
+	t.Cleanup(func() {
+		if helper, ok := t.(interface{ Helper() }); ok {
+			helper.Helper()
+		}
+		mock.AssertExpectations(t)
+	})
 
 	return mock
 }
@@ -1889,10 +1916,19 @@ func NewMockWebViewPool(t interface {
 	mock.TestingT
 	Cleanup(func())
 }) *MockWebViewPool {
+	if helper, ok := t.(interface{ Helper() }); ok {
+		helper.Helper()
+	}
+
 	mock := &MockWebViewPool{}
 	mock.Mock.Test(t)
 
-	t.Cleanup(func() { mock.AssertExpectations(t) })
+	t.Cleanup(func() {
+		if helper, ok := t.(interface{ Helper() }); ok {
+			helper.Helper()
+		}
+		mock.AssertExpectations(t)
+	})
 
 	return mock
 }
@@ -2181,10 +2217,19 @@ func NewMockWebViewFactory(t interface {
 	mock.TestingT
 	Cleanup(func())
 }) *MockWebViewFactory {
+	if helper, ok := t.(interface{ Helper() }); ok {
+		helper.Helper()
+	}
+
 	mock := &MockWebViewFactory{}
 	mock.Mock.Test(t)
 
-	t.Cleanup(func() { mock.AssertExpectations(t) })
+	t.Cleanup(func() {
+		if helper, ok := t.(interface{ Helper() }); ok {
+			helper.Helper()
+		}
+		mock.AssertExpectations(t)
+	})
 
 	return mock
 }
@@ -2338,10 +2383,19 @@ func NewMockDevToolsOpener(t interface {
 	mock.TestingT
 	Cleanup(func())
 }) *MockDevToolsOpener {
+	if helper, ok := t.(interface{ Helper() }); ok {
+		helper.Helper()
+	}
+
 	mock := &MockDevToolsOpener{}
 	mock.Mock.Test(t)
 
-	t.Cleanup(func() { mock.AssertExpectations(t) })
+	t.Cleanup(func() {
+		if helper, ok := t.(interface{ Helper() }); ok {
+			helper.Helper()
+		}
+		mock.AssertExpectations(t)
+	})
 
 	return mock
 }
@@ -2398,10 +2452,19 @@ func NewMockPrinter(t interface {
 	mock.TestingT
 	Cleanup(func())
 }) *MockPrinter {
+	if helper, ok := t.(interface{ Helper() }); ok {
+		helper.Helper()
+	}
+
 	mock := &MockPrinter{}
 	mock.Mock.Test(t)
 
-	t.Cleanup(func() { mock.AssertExpectations(t) })
+	t.Cleanup(func() {
+		if helper, ok := t.(interface{ Helper() }); ok {
+			helper.Helper()
+		}
+		mock.AssertExpectations(t)
+	})
 
 	return mock
 }
@@ -2458,10 +2521,19 @@ func NewMockPopupLifecycleCapable(t interface {
 	mock.TestingT
 	Cleanup(func())
 }) *MockPopupLifecycleCapable {
+	if helper, ok := t.(interface{ Helper() }); ok {
+		helper.Helper()
+	}
+
 	mock := &MockPopupLifecycleCapable{}
 	mock.Mock.Test(t)
 
-	t.Cleanup(func() { mock.AssertExpectations(t) })
+	t.Cleanup(func() {
+		if helper, ok := t.(interface{ Helper() }); ok {
+			helper.Helper()
+		}
+		mock.AssertExpectations(t)
+	})
 
 	return mock
 }
@@ -2638,10 +2710,19 @@ func NewMockPopupFeatureResolver(t interface {
 	mock.TestingT
 	Cleanup(func())
 }) *MockPopupFeatureResolver {
+	if helper, ok := t.(interface{ Helper() }); ok {
+		helper.Helper()
+	}
+
 	mock := &MockPopupFeatureResolver{}
 	mock.Mock.Test(t)
 
-	t.Cleanup(func() { mock.AssertExpectations(t) })
+	t.Cleanup(func() {
+		if helper, ok := t.(interface{ Helper() }); ok {
+			helper.Helper()
+		}
+		mock.AssertExpectations(t)
+	})
 
 	return mock
 }
@@ -2709,10 +2790,19 @@ func NewMockPopupOpenerCapable(t interface {
 	mock.TestingT
 	Cleanup(func())
 }) *MockPopupOpenerCapable {
+	if helper, ok := t.(interface{ Helper() }); ok {
+		helper.Helper()
+	}
+
 	mock := &MockPopupOpenerCapable{}
 	mock.Mock.Test(t)
 
-	t.Cleanup(func() { mock.AssertExpectations(t) })
+	t.Cleanup(func() {
+		if helper, ok := t.(interface{ Helper() }); ok {
+			helper.Helper()
+		}
+		mock.AssertExpectations(t)
+	})
 
 	return mock
 }
@@ -2906,10 +2996,19 @@ func NewMockOAuthCallbackCapable(t interface {
 	mock.TestingT
 	Cleanup(func())
 }) *MockOAuthCallbackCapable {
+	if helper, ok := t.(interface{ Helper() }); ok {
+		helper.Helper()
+	}
+
 	mock := &MockOAuthCallbackCapable{}
 	mock.Mock.Test(t)
 
-	t.Cleanup(func() { mock.AssertExpectations(t) })
+	t.Cleanup(func() {
+		if helper, ok := t.(interface{ Helper() }); ok {
+			helper.Helper()
+		}
+		mock.AssertExpectations(t)
+	})
 
 	return mock
 }
@@ -3046,10 +3145,19 @@ func NewMockTextInputTargetProvider(t interface {
 	mock.TestingT
 	Cleanup(func())
 }) *MockTextInputTargetProvider {
+	if helper, ok := t.(interface{ Helper() }); ok {
+		helper.Helper()
+	}
+
 	mock := &MockTextInputTargetProvider{}
 	mock.Mock.Test(t)
 
-	t.Cleanup(func() { mock.AssertExpectations(t) })
+	t.Cleanup(func() {
+		if helper, ok := t.(interface{ Helper() }); ok {
+			helper.Helper()
+		}
+		mock.AssertExpectations(t)
+	})
 
 	return mock
 }
@@ -3119,10 +3227,19 @@ func NewMockPageScrollable(t interface {
 	mock.TestingT
 	Cleanup(func())
 }) *MockPageScrollable {
+	if helper, ok := t.(interface{ Helper() }); ok {
+		helper.Helper()
+	}
+
 	mock := &MockPageScrollable{}
 	mock.Mock.Test(t)
 
-	t.Cleanup(func() { mock.AssertExpectations(t) })
+	t.Cleanup(func() {
+		if helper, ok := t.(interface{ Helper() }); ok {
+			helper.Helper()
+		}
+		mock.AssertExpectations(t)
+	})
 
 	return mock
 }
@@ -3193,6 +3310,207 @@ func (_c *MockPageScrollable_ScrollPage_Call) Return(err error) *MockPageScrolla
 }
 
 func (_c *MockPageScrollable_ScrollPage_Call) RunAndReturn(run func(ctx context.Context, request port.PageScrollRequest) error) *MockPageScrollable_ScrollPage_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// NewMockVimPageInteractor creates a new instance of MockVimPageInteractor. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.
+// The first argument is typically a *testing.T value.
+func NewMockVimPageInteractor(t interface {
+	mock.TestingT
+	Cleanup(func())
+}) *MockVimPageInteractor {
+	if helper, ok := t.(interface{ Helper() }); ok {
+		helper.Helper()
+	}
+
+	mock := &MockVimPageInteractor{}
+	mock.Mock.Test(t)
+
+	t.Cleanup(func() {
+		if helper, ok := t.(interface{ Helper() }); ok {
+			helper.Helper()
+		}
+		mock.AssertExpectations(t)
+	})
+
+	return mock
+}
+
+// MockVimPageInteractor is an autogenerated mock type for the VimPageInteractor type
+type MockVimPageInteractor struct {
+	mock.Mock
+}
+
+type MockVimPageInteractor_Expecter struct {
+	mock *mock.Mock
+}
+
+func (_m *MockVimPageInteractor) EXPECT() *MockVimPageInteractor_Expecter {
+	return &MockVimPageInteractor_Expecter{mock: &_m.Mock}
+}
+
+// CancelVimPageInteraction provides a mock function for the type MockVimPageInteractor
+func (_mock *MockVimPageInteractor) CancelVimPageInteraction(ctx context.Context) error {
+	ret := _mock.Called(ctx)
+
+	if len(ret) == 0 {
+		panic("no return value specified for CancelVimPageInteraction")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context) error); ok {
+		r0 = returnFunc(ctx)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockVimPageInteractor_CancelVimPageInteraction_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CancelVimPageInteraction'
+type MockVimPageInteractor_CancelVimPageInteraction_Call struct {
+	*mock.Call
+}
+
+// CancelVimPageInteraction is a helper method to define mock.On call
+//   - ctx context.Context
+func (_e *MockVimPageInteractor_Expecter) CancelVimPageInteraction(ctx any) *MockVimPageInteractor_CancelVimPageInteraction_Call {
+	return &MockVimPageInteractor_CancelVimPageInteraction_Call{Call: _e.mock.On("CancelVimPageInteraction", ctx)}
+}
+
+func (_c *MockVimPageInteractor_CancelVimPageInteraction_Call) Run(run func(ctx context.Context)) *MockVimPageInteractor_CancelVimPageInteraction_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		run(
+			arg0,
+		)
+	})
+	return _c
+}
+
+func (_c *MockVimPageInteractor_CancelVimPageInteraction_Call) Return(err error) *MockVimPageInteractor_CancelVimPageInteraction_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockVimPageInteractor_CancelVimPageInteraction_Call) RunAndReturn(run func(ctx context.Context) error) *MockVimPageInteractor_CancelVimPageInteraction_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// SendVimPageKey provides a mock function for the type MockVimPageInteractor
+func (_mock *MockVimPageInteractor) SendVimPageKey(ctx context.Context, key string) error {
+	ret := _mock.Called(ctx, key)
+
+	if len(ret) == 0 {
+		panic("no return value specified for SendVimPageKey")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string) error); ok {
+		r0 = returnFunc(ctx, key)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockVimPageInteractor_SendVimPageKey_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SendVimPageKey'
+type MockVimPageInteractor_SendVimPageKey_Call struct {
+	*mock.Call
+}
+
+// SendVimPageKey is a helper method to define mock.On call
+//   - ctx context.Context
+//   - key string
+func (_e *MockVimPageInteractor_Expecter) SendVimPageKey(ctx any, key any) *MockVimPageInteractor_SendVimPageKey_Call {
+	return &MockVimPageInteractor_SendVimPageKey_Call{Call: _e.mock.On("SendVimPageKey", ctx, key)}
+}
+
+func (_c *MockVimPageInteractor_SendVimPageKey_Call) Run(run func(ctx context.Context, key string)) *MockVimPageInteractor_SendVimPageKey_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 string
+		if args[1] != nil {
+			arg1 = args[1].(string)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockVimPageInteractor_SendVimPageKey_Call) Return(err error) *MockVimPageInteractor_SendVimPageKey_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockVimPageInteractor_SendVimPageKey_Call) RunAndReturn(run func(ctx context.Context, key string) error) *MockVimPageInteractor_SendVimPageKey_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// StartVimPageInteraction provides a mock function for the type MockVimPageInteractor
+func (_mock *MockVimPageInteractor) StartVimPageInteraction(ctx context.Context, request dto.VimPageInteractionRequest) error {
+	ret := _mock.Called(ctx, request)
+
+	if len(ret) == 0 {
+		panic("no return value specified for StartVimPageInteraction")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, dto.VimPageInteractionRequest) error); ok {
+		r0 = returnFunc(ctx, request)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockVimPageInteractor_StartVimPageInteraction_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'StartVimPageInteraction'
+type MockVimPageInteractor_StartVimPageInteraction_Call struct {
+	*mock.Call
+}
+
+// StartVimPageInteraction is a helper method to define mock.On call
+//   - ctx context.Context
+//   - request dto.VimPageInteractionRequest
+func (_e *MockVimPageInteractor_Expecter) StartVimPageInteraction(ctx any, request any) *MockVimPageInteractor_StartVimPageInteraction_Call {
+	return &MockVimPageInteractor_StartVimPageInteraction_Call{Call: _e.mock.On("StartVimPageInteraction", ctx, request)}
+}
+
+func (_c *MockVimPageInteractor_StartVimPageInteraction_Call) Run(run func(ctx context.Context, request dto.VimPageInteractionRequest)) *MockVimPageInteractor_StartVimPageInteraction_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 dto.VimPageInteractionRequest
+		if args[1] != nil {
+			arg1 = args[1].(dto.VimPageInteractionRequest)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockVimPageInteractor_StartVimPageInteraction_Call) Return(err error) *MockVimPageInteractor_StartVimPageInteraction_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockVimPageInteractor_StartVimPageInteraction_Call) RunAndReturn(run func(ctx context.Context, request dto.VimPageInteractionRequest) error) *MockVimPageInteractor_StartVimPageInteraction_Call {
 	_c.Call.Return(run)
 	return _c
 }

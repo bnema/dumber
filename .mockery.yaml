@@ -60,6 +60,7 @@ packages:
       WindowStateProvider: {}
       WebView: {}
       PageScrollable: {}
+      VimPageInteractor: {}
       WebViewFactory: {}
       WebViewPool: {}
       MemoryPressureApplier: {}

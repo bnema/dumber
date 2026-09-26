@@ -59,6 +59,9 @@ type browserWindow struct {
 	// navigation target that must be cleared when this window leaves Vim Mode.
 	vimNavigationHighlightedWebViews   []port.WebView
 	vimNavigationHighlightedWebViewIDs map[port.WebViewID]struct{}
+	// vimPageInteractionWebView is the WebView running link hints or visual
+	// selection while this window's keys are captured for the page.
+	vimPageInteractionWebView port.WebView
 }
 
 func (bw *browserWindow) detachInputForDestroy() {
@@ -121,6 +124,7 @@ func (bw *browserWindow) clearShellState() {
 	bw.vimModePaneID = ""
 	bw.vimNavigationHighlightedWebViews = nil
 	bw.vimNavigationHighlightedWebViewIDs = nil
+	bw.vimPageInteractionWebView = nil
 }
 
 func (bw *browserWindow) initChrome(ctx context.Context, a *App) {
