@@ -156,3 +156,10 @@ func TestShouldStartLinger(t *testing.T) {
 	require.False(t, shouldStartLinger(true, true, true, true, 15, 25, rect))
 	require.False(t, shouldStartLinger(false, false, true, true, 15, 25, rect))
 }
+
+func TestVimPageInteractionLabel(t *testing.T) {
+	require.Equal(t, "VISUAL", vimPageInteractionLabel("visual"))
+	require.Equal(t, "HINTS", vimPageInteractionLabel("hint-follow"))
+	require.Equal(t, "HINTS · NEW PANE", vimPageInteractionLabel("hint-follow-new"))
+	require.Equal(t, "HINTS · YANK URL", vimPageInteractionLabel("hint-yank-url"))
+}
