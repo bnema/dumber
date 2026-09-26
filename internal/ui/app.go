@@ -2230,7 +2230,7 @@ func (a *App) navigateVimSequenceAction(ctx context.Context, bw *browserWindow, 
 		return
 	}
 	if outcome.CapturePageKeys {
-		a.captureVimPageKeys(ctx, bw, wv)
+		a.captureVimPageKeys(ctx, bw, wv, vimPageInteractionLabel(action))
 	}
 	if bw != nil && (action == "heading-next" || action == "heading-prev") {
 		if _, ok := wv.(port.SemanticNavigable); ok {
@@ -2248,11 +2248,12 @@ func (a *App) navigateVimSequenceAction(ctx context.Context, bw *browserWindow, 
 
 // captureVimPageKeys routes this window's Vim Mode keys to the in-page
 // interaction running in wv until the page reports its end.
-func (a *App) captureVimPageKeys(ctx context.Context, bw *browserWindow, wv port.WebView) {
+func (a *App) captureVimPageKeys(ctx context.Context, bw *browserWindow, wv port.WebView, label string) {
 	if bw == nil || bw.keyboardHandler == nil || wv == nil {
 		return
 	}
 	bw.vimPageInteractionWebView = wv
+	a.showVimModeToast(ctx, bw, label)
 	bw.keyboardHandler.SetPageKeyCapture(func(key string) {
 		if err := a.vimNavigationUseCase().SendPageKey(ctx, wv, key); err != nil {
 			logging.FromContext(ctx).Debug().Err(err).Msg("vim page key forwarding failed")
@@ -2263,7 +2264,7 @@ func (a *App) captureVimPageKeys(ctx context.Context, bw *browserWindow, wv port
 
 // handleVimPageInteractionEnded releases key capture when the page reports
 // that its hint or visual interaction finished.
-func (a *App) handleVimPageInteractionEnded(paneID entity.PaneID) {
+func (a *App) handleVimPageInteractionEnded(ctx context.Context, paneID entity.PaneID) {
 	bw := a.browserWindowForAnyPane(paneID)
 	if bw == nil || bw.vimPageInteractionWebView == nil || a.contentCoord == nil {
 		return
@@ -2274,6 +2275,24 @@ func (a *App) handleVimPageInteractionEnded(paneID entity.PaneID) {
 	bw.vimPageInteractionWebView = nil
 	if bw.keyboardHandler != nil {
 		bw.keyboardHandler.ClearPageKeyCapture()
+		if bw.keyboardHandler.Mode() == input.ModeVim {
+			a.showVimModeToast(ctx, bw, "")
+		}
+	}
+}
+
+// vimPageInteractionLabel names the key-capturing sub-mode shown in the Vim
+// Mode indicator so users can tell hints or visual selection are active.
+func vimPageInteractionLabel(action string) string {
+	switch action {
+	case "visual":
+		return "VISUAL"
+	case "hint-follow-new":
+		return "HINTS · NEW PANE"
+	case "hint-yank-url":
+		return "HINTS · YANK URL"
+	default:
+		return "HINTS"
 	}
 }
 
@@ -2289,6 +2308,9 @@ func (a *App) endVimPageInteraction(ctx context.Context, bw *browserWindow) {
 	}
 	if wv == nil {
 		return
+	}
+	if bw.keyboardHandler != nil && bw.keyboardHandler.Mode() == input.ModeVim {
+		a.showVimModeToast(ctx, bw, "")
 	}
 	if err := a.vimNavigationUseCase().CancelPageInteraction(ctx, wv); err != nil {
 		logging.FromContext(ctx).Debug().Err(err).Msg("failed to cancel vim page interaction")
@@ -3477,7 +3499,7 @@ func (a *App) initCoordinators(ctx context.Context) {
 		a.handlePageEditableFocusChanged(ctx, paneID, editable)
 	})
 	a.contentCoord.SetOnVimPageInteractionEnded(func(paneID entity.PaneID) {
-		a.handleVimPageInteractionEnded(paneID)
+		a.handleVimPageInteractionEnded(ctx, paneID)
 	})
 
 	// Hide loading skeleton once the WebView paints

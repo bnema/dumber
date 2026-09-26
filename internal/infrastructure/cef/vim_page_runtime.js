@@ -206,7 +206,17 @@
     return null;
   }
 
-  function startVisual() {
+  // Visual mode paints the selection with the accent so it stands out even on
+  // pages that restyle ::selection; the style is removed when visual ends.
+  function styleVisual(color) {
+    const style = document.createElement("style");
+    style.setAttribute("data-dumber-vim-visual", "");
+    style.textContent = "::selection { background: " + color + " !important; color: #111 !important; }";
+    document.documentElement.appendChild(style);
+    state.root = style;
+  }
+
+  function startVisual(color) {
     const selection = window.getSelection();
     if (!selection) return false;
     if (selection.rangeCount === 0 || selection.isCollapsed) {
@@ -217,6 +227,7 @@
     }
     state.count = "";
     state.pendingG = false;
+    styleVisual(color);
     return true;
   }
 
@@ -350,7 +361,7 @@
           return;
         }
         state = { kind: request.kind, token };
-        const started = request.kind === "visual" ? startVisual() : startHints(request.kind, color);
+        const started = request.kind === "visual" ? startVisual(color) : startHints(request.kind, color);
         if (!started) finish({ type: "end" });
       },
       key(token, key) {

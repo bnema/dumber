@@ -63,7 +63,7 @@ CEF and WebKit execute Vim Mode scroll commands (`h/j/k/l`, `Shift+J/K`) with th
 
 Link hints label the visible targets in the viewport; type a label to pick one, `Backspace` to undo a letter, and `Escape` to close the hints and stay in Vim Mode. `f` follows a link or activates a control, `F` opens a link in a new pane, and `yf` copies a link URL.
 
-`v` starts a visual selection from the current page selection, or from the first visible text. Motions extend it: `h/j/k/l`, `w/b/e`, `0`/`^`/`$`, `(`/`)` for sentences, `{`/`}` for paragraphs, `gg`/`G` for the document edges, and a count prefix such as `3w`. `o` swaps the selection ends, `y` or `Enter` copies and ends the selection, and `v` or `Escape` cancels it.
+`v` starts a visual selection from the current page selection, or from the first visible text. The mode indicator reads `VIM MODE · VISUAL` (or `· HINTS` while hints are shown) and the selection uses the theme accent. Motions extend it: `h/j/k/l`, `w/b/e`, `0`/`^`/`$`, `(`/`)` for sentences, `{`/`}` for paragraphs, `gg`/`G` for the document edges, and a count prefix such as `3w`. `o` swaps the selection ends, `y` or `Enter` copies and ends the selection, and `v` or `Escape` cancels it.
 
 Text-object yanks copy one block without selecting it: `yah` copies the current section (the heading nearest the top of the viewport through the next heading of the same or a higher level), and `yap`, `yac`, `yat`, and `yal` copy the first visible paragraph, code block, table, or list. The copied block flashes with the theme accent. Hints, visual selection, and yanks use the CEF engine path.
 
