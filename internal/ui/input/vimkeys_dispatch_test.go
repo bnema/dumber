@@ -161,6 +161,9 @@ func TestBuildVimModeTrie(t *testing.T) {
 			"yank-section":    {Keys: []string{"yah"}},
 			"outline":         {Keys: []string{"gO"}},
 			"half-page-down":  {Keys: []string{"<C-d>"}},
+			"hint-follow":     {Keys: []string{"f"}},
+			"hint-follow-new": {Keys: []string{"F"}},
+			"visual":          {Keys: []string{"v"}},
 			"confirm":         {Keys: []string{"enter"}},
 			"cancel":          {Keys: []string{"escape"}},
 		},
@@ -177,6 +180,9 @@ func TestBuildVimModeTrie(t *testing.T) {
 		"yah":   true,
 		"gO":    true,
 		"<C-d>": true,
+		"f":     true,
+		"F":     true,
+		"v":     true,
 	}
 	for key, want := range wantOwned {
 		if owned[key] != want {

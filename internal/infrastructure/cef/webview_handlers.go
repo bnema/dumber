@@ -536,6 +536,7 @@ func (h *handlerSet) OnLoadStart(_ purecef.Browser, frame purecef.Frame, _ purec
 		// A new document replaces the page that asked for any open JS dialog.
 		h.wv.cancelJSDialogs()
 		h.wv.invalidateScrollMotion()
+		h.wv.endVimPageInteractionOnNavigation()
 		h.wv.mu.Lock()
 		h.wv.documentSeq++
 		h.wv.faviconSourcePendingToken = 0

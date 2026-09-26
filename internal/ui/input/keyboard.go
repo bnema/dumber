@@ -121,6 +121,10 @@ type KeyboardHandler struct {
 	vimScrollNow              func() time.Time
 
 	seq vimModeSequenceState
+
+	// pageKeyCapture forwards Vim Mode keys to an in-page interaction (link
+	// hints or visual selection) while it is active.
+	pageKeyCapture PageKeyForwarder
 }
 
 // NewKeyboardHandler creates a new keyboard handler.
@@ -218,6 +222,7 @@ func (h *KeyboardHandler) SetOnModeChange(fn func(from, to Mode)) {
 			h.setControllerPhase(gtk.PhaseCaptureValue)
 		}
 		if to != ModeVim {
+			h.ClearPageKeyCapture()
 			h.stopVimScrollRepeat()
 			// Silent reset under ModalState lock: no pending callback (avoids Mode() re-entry).
 			h.resetPendingSequence(false)
@@ -405,6 +410,11 @@ func (h *KeyboardHandler) handleKeyPress(keyval, keycode uint, state gdk.Modifie
 		if onEscape != nil && onEscape(h.ctx) {
 			return true
 		}
+	}
+
+	// An in-page Vim interaction owns every key, including Escape and Enter.
+	if h.forwardPageKey(mode, keyval, state) {
+		return true
 	}
 
 	if h.handleGuaranteedModalExit(mode, keyval, modifiers) {

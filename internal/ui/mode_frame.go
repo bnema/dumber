@@ -618,6 +618,19 @@ func (f *modeFrame) sizeLegendColumns(columns uint, width int) {
 	}
 }
 
+// vimLegendGroup returns the legend group of a Vim Mode action, or "" when the
+// action belongs to a generic group.
+func vimLegendGroup(name string) string {
+	switch {
+	case strings.HasPrefix(name, "hint-") || strings.HasPrefix(name, "yank-") || name == "visual":
+		return "SELECT"
+	case strings.Contains(name, "next") || strings.Contains(name, "prev") || name == "outline":
+		return "JUMP"
+	default:
+		return ""
+	}
+}
+
 func modeLegendGroup(mode input.Mode, name string) string {
 	switch {
 	case name == "confirm" || name == "cancel":
@@ -632,8 +645,8 @@ func modeLegendGroup(mode input.Mode, name string) string {
 		return "RESIZE"
 	case strings.HasPrefix(name, "vim-scroll-") || strings.HasPrefix(name, "half-page-"):
 		return "SCROLL"
-	case mode == input.ModeVim && (strings.Contains(name, "next") || strings.Contains(name, "prev") || name == "outline"):
-		return "JUMP"
+	case mode == input.ModeVim && vimLegendGroup(name) != "":
+		return vimLegendGroup(name)
 	case (mode == input.ModeTab || mode == input.ModePrefix) && (name == "next-tab" || name == "previous-tab"):
 		return "SWITCH"
 	default:

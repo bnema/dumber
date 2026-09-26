@@ -463,6 +463,14 @@ desc = "Jump to next heading"
 keys = ["[["]
 desc = "Jump to previous heading"
 
+[workspace.vim_mode.actions.hint-follow]
+keys = ["f"]
+desc = "Show hints and follow a link or control"
+
+[workspace.vim_mode.actions.visual]
+keys = ["v"]
+desc = "Start visual selection (motions extend, y yanks)"
+
 [workspace.vim_mode.actions.confirm]
 keys = ["enter"]
 desc = "Open selected heading link and exit mode"
