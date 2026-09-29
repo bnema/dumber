@@ -525,9 +525,8 @@ func TestScheduleResizeRepaintPulse_CoalescesToLatestSequence(t *testing.T) {
 	wv.scheduleResizeRepaintPulse(context.Background(), "first")
 	wv.scheduleResizeRepaintPulse(context.Background(), "second")
 
-	pulses := len(resizeRepaintPulseDelaysMs)
-	wantDelays := append(resizeRepaintPulseDelaysMs[:], resizeRepaintPulseDelaysMs[:]...)
-	require.Equal(t, wantDelays, delays)
+	const pulses = 6
+	require.Equal(t, []int64{16, 48, 96, 160, 250, 400, 16, 48, 96, 160, 250, 400}, delays)
 	require.Len(t, scheduled, 2*pulses)
 
 	for _, task := range scheduled[:pulses] {
@@ -538,11 +537,16 @@ func TestScheduleResizeRepaintPulse_CoalescesToLatestSequence(t *testing.T) {
 	for _, task := range scheduled[pulses:] {
 		task.Execute()
 	}
-	wantCalls := make([]string, 0, 3*pulses)
-	for range pulses {
-		wantCalls = append(wantCalls, "NotifyScreenInfoChanged", "WasResized", "Invalidate")
-	}
-	require.Equal(t, wantCalls, host.calls)
+	// Only the first two pulses resync the viewport; later ones only request a
+	// refresh frame so the surface ID is not reallocated repeatedly.
+	require.Equal(t, []string{
+		"NotifyScreenInfoChanged", "WasResized", "Invalidate",
+		"NotifyScreenInfoChanged", "WasResized", "Invalidate",
+		"Invalidate",
+		"Invalidate",
+		"Invalidate",
+		"Invalidate",
+	}, host.calls)
 }
 
 func TestScheduleResizeRepaintPulse_SkipsStaleHost(t *testing.T) {
@@ -570,7 +574,7 @@ func TestScheduleResizeRepaintPulse_SkipsStaleHost(t *testing.T) {
 	wv.scheduleResizeRepaintPulse(context.Background(), "stale-host")
 	wv.host = currentHost
 
-	require.Len(t, scheduled, len(resizeRepaintPulseDelaysMs))
+	require.Len(t, scheduled, 6)
 	for _, task := range scheduled {
 		task.Execute()
 	}
@@ -626,7 +630,7 @@ func TestScheduleResizeRepaintPulse_SkipsWhenHostClearedBeforeExecution(t *testi
 	wv.scheduleResizeRepaintPulse(context.Background(), "nil-host-before-execute")
 	wv.host = nil
 
-	require.Len(t, scheduled, len(resizeRepaintPulseDelaysMs))
+	require.Len(t, scheduled, 6)
 	for _, task := range scheduled {
 		task.Execute()
 	}
