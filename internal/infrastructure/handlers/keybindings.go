@@ -93,48 +93,15 @@ func (h *KeybindingsHandler) HandleResetAllKeybindings(ctx context.Context, _ po
 func RegisterKeybindingsHandlers(ctx context.Context, router port.WebUIHandlerRouter, handler *KeybindingsHandler) error {
 	log := logging.FromContext(ctx).With().Str("component", "handlers").Logger()
 
-	// Get all keybindings
-	if err := router.RegisterHandlerWithCallbacks(
-		"get_keybindings",
-		"__dumber_keybindings_loaded",
-		"__dumber_keybindings_error",
-		"",
-		port.WebUIMessageHandlerFunc(handler.HandleGetKeybindings),
-	); err != nil {
-		return err
-	}
-
-	// Set a single keybinding
-	if err := router.RegisterHandlerWithCallbacks(
-		"set_keybinding",
-		"__dumber_keybinding_set",
-		"__dumber_keybinding_set_error",
-		"",
-		port.WebUIMessageHandlerFunc(handler.HandleSetKeybinding),
-	); err != nil {
-		return err
-	}
-
-	// Reset a single keybinding
-	if err := router.RegisterHandlerWithCallbacks(
-		"reset_keybinding",
-		"__dumber_keybinding_reset",
-		"__dumber_keybinding_reset_error",
-		"",
-		port.WebUIMessageHandlerFunc(handler.HandleResetKeybinding),
-	); err != nil {
-		return err
-	}
-
-	// Reset all keybindings
-	if err := router.RegisterHandlerWithCallbacks(
-		"reset_all_keybindings",
-		"__dumber_keybindings_reset_all",
-		"__dumber_keybindings_reset_all_error",
-		"",
-		port.WebUIMessageHandlerFunc(handler.HandleResetAllKeybindings),
-	); err != nil {
-		return err
+	for msgType, fn := range map[string]port.WebUIMessageHandlerFunc{
+		port.MsgGetKeybindings:      handler.HandleGetKeybindings,
+		port.MsgSetKeybinding:       handler.HandleSetKeybinding,
+		port.MsgResetKeybinding:     handler.HandleResetKeybinding,
+		port.MsgResetAllKeybindings: handler.HandleResetAllKeybindings,
+	} {
+		if err := port.RegisterWebUIMessage(router, msgType, fn); err != nil {
+			return err
+		}
 	}
 
 	log.Info().Msg("registered keybindings handlers")

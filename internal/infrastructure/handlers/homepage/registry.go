@@ -19,47 +19,9 @@ func RegisterHandlers(ctx context.Context, router port.WebUIHandlerRouter, cfg C
 	log := logging.FromContext(ctx)
 	log.Debug().Msg("registering homepage message handlers")
 
-	// Common callback for all homepage handlers
-	const callback = "__dumber_homepage_response"
-	const errorCallback = "__dumber_error"
-	const worldName = "" // main world
-
-	handlers := make(map[string]port.WebUIMessageHandler)
-
-	// History handlers
-	historyHandlers := NewHistoryHandlers(cfg.HistoryUC)
-	handlers["history_timeline"] = historyHandlers.HandleTimeline()
-	handlers["history_timeline_by_domain"] = historyHandlers.HandleTimelineByDomain()
-	handlers["history_timeline_window"] = historyHandlers.HandleTimelineWindow()
-	handlers["history_search_fts"] = historyHandlers.HandleSearchFTS()
-	handlers["history_delete_entry"] = historyHandlers.HandleDeleteEntry()
-	handlers["history_delete_range"] = historyHandlers.HandleDeleteRange()
-	handlers["history_clear_all"] = historyHandlers.HandleClearAll()
-	handlers["history_stats"] = historyHandlers.HandleStats()
-	handlers["history_analytics"] = historyHandlers.HandleAnalytics()
-	handlers["history_domain_stats"] = historyHandlers.HandleDomainStats()
-	handlers["history_delete_domain"] = historyHandlers.HandleDeleteDomain()
-
-	// Favorites handlers
-	favoritesHandlers := NewFavoritesHandlers(cfg.FavoritesUC)
-	handlers["favorite_list"] = favoritesHandlers.HandleList()
-	handlers["favorite_create"] = favoritesHandlers.HandleCreate()
-	handlers["favorite_update"] = favoritesHandlers.HandleUpdate()
-	handlers["favorite_delete"] = favoritesHandlers.HandleDelete()
-	handlers["favorite_set_shortcut"] = favoritesHandlers.HandleSetShortcut()
-	handlers["favorite_get_by_shortcut"] = favoritesHandlers.HandleGetByShortcut()
-	// Tag handlers
-	tagHandlers := NewTagHandlers(cfg.FavoritesUC)
-	handlers["tag_list"] = tagHandlers.HandleList()
-	handlers["tag_create"] = tagHandlers.HandleCreate()
-	handlers["tag_delete"] = tagHandlers.HandleDelete()
-	handlers["tag_update"] = tagHandlers.HandleUpdate() // Requires UpdateTag()
-	handlers["tag_assign"] = tagHandlers.HandleAssign()
-	handlers["tag_remove"] = tagHandlers.HandleRemove()
-
-	// Register all handlers
+	handlers := Handlers(cfg)
 	for msgType, handler := range handlers {
-		if err := router.RegisterHandlerWithCallbacks(msgType, callback, errorCallback, worldName, handler); err != nil {
+		if err := port.RegisterWebUIMessage(router, msgType, handler); err != nil {
 			return fmt.Errorf("failed to register handler %s: %w", msgType, err)
 		}
 		log.Debug().Str("type", msgType).Msg("registered homepage handler")
@@ -67,4 +29,39 @@ func RegisterHandlers(ctx context.Context, router port.WebUIHandlerRouter, cfg C
 
 	log.Info().Int("count", len(handlers)).Msg("homepage handlers registered")
 	return nil
+}
+
+// Handlers returns every homepage handler keyed by its WebUI message type.
+func Handlers(cfg Config) map[string]port.WebUIMessageHandler {
+	history := NewHistoryHandlers(cfg.HistoryUC)
+	favorites := NewFavoritesHandlers(cfg.FavoritesUC)
+	tags := NewTagHandlers(cfg.FavoritesUC)
+
+	return map[string]port.WebUIMessageHandler{
+		port.MsgHistoryTimeline:         history.HandleTimeline(),
+		port.MsgHistoryTimelineByDomain: history.HandleTimelineByDomain(),
+		port.MsgHistoryTimelineWindow:   history.HandleTimelineWindow(),
+		port.MsgHistorySearchFTS:        history.HandleSearchFTS(),
+		port.MsgHistoryDeleteEntry:      history.HandleDeleteEntry(),
+		port.MsgHistoryDeleteRange:      history.HandleDeleteRange(),
+		port.MsgHistoryClearAll:         history.HandleClearAll(),
+		port.MsgHistoryStats:            history.HandleStats(),
+		port.MsgHistoryAnalytics:        history.HandleAnalytics(),
+		port.MsgHistoryDomainStats:      history.HandleDomainStats(),
+		port.MsgHistoryDeleteDomain:     history.HandleDeleteDomain(),
+
+		port.MsgFavoriteList:          favorites.HandleList(),
+		port.MsgFavoriteCreate:        favorites.HandleCreate(),
+		port.MsgFavoriteUpdate:        favorites.HandleUpdate(),
+		port.MsgFavoriteDelete:        favorites.HandleDelete(),
+		port.MsgFavoriteSetShortcut:   favorites.HandleSetShortcut(),
+		port.MsgFavoriteGetByShortcut: favorites.HandleGetByShortcut(),
+
+		port.MsgTagList:   tags.HandleList(),
+		port.MsgTagCreate: tags.HandleCreate(),
+		port.MsgTagDelete: tags.HandleDelete(),
+		port.MsgTagUpdate: tags.HandleUpdate(),
+		port.MsgTagAssign: tags.HandleAssign(),
+		port.MsgTagRemove: tags.HandleRemove(),
+	}
 }

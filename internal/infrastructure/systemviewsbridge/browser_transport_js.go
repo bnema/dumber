@@ -11,6 +11,8 @@ import (
 	"strings"
 	"sync"
 	"syscall/js"
+
+	"github.com/bnema/dumber/internal/application/port"
 )
 
 type callbackPlan struct {
@@ -23,25 +25,11 @@ func NewBrowserClient() *Client {
 }
 
 func callbackPlanForMessage(msgType string) (callbackPlan, bool) {
-	switch msgType {
-	case "history_timeline", "history_timeline_by_domain", "history_timeline_window", "history_search_fts", "history_delete_entry", "history_delete_range", "history_stats", "history_analytics",
-		"history_domain_stats", "history_delete_domain", "favorite_list", "favorite_create", "favorite_update", "favorite_delete", "tag_list",
-		"favorite_set_shortcut",
-		"tag_create", "tag_update", "tag_delete", "tag_assign", "tag_remove":
-		return callbackPlan{success: "__dumber_homepage_response", failure: "__dumber_error"}, true
-	case "save_config":
-		return callbackPlan{success: "__dumber_config_saved", failure: "__dumber_config_error"}, true
-	case "get_keybindings":
-		return callbackPlan{success: "__dumber_keybindings_loaded", failure: "__dumber_keybindings_error"}, true
-	case "set_keybinding":
-		return callbackPlan{success: "__dumber_keybinding_set", failure: "__dumber_keybinding_set_error"}, true
-	case "reset_keybinding":
-		return callbackPlan{success: "__dumber_keybinding_reset", failure: "__dumber_keybinding_reset_error"}, true
-	case "reset_all_keybindings":
-		return callbackPlan{success: "__dumber_keybindings_reset_all", failure: "__dumber_keybindings_reset_all_error"}, true
-	default:
+	cb, ok := port.WebUIMessageCallbacks[msgType]
+	if !ok {
 		return callbackPlan{}, false
 	}
+	return callbackPlan{success: cb.Success, failure: cb.Failure}, true
 }
 
 type browserTransport struct{}

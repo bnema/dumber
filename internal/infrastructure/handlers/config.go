@@ -63,13 +63,7 @@ func RegisterConfigHandlers(
 
 	log := logging.FromContext(ctx).With().Str("component", "handlers").Logger()
 
-	if err := router.RegisterHandlerWithCallbacks(
-		"save_config",
-		"__dumber_config_saved",
-		"__dumber_config_error",
-		"",
-		handler,
-	); err != nil {
+	if err := port.RegisterWebUIMessage(router, port.MsgSaveConfig, handler); err != nil {
 		return err
 	}
 
