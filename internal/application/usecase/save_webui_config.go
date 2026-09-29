@@ -58,6 +58,10 @@ func normalizeWebUIConfig(cfg dto.WebUIConfig) dto.WebUIConfig {
 	cfg.Appearance.GtkFont = strings.TrimSpace(cfg.Appearance.GtkFont)
 	cfg.Appearance.ColorScheme = strings.TrimSpace(cfg.Appearance.ColorScheme)
 	cfg.DefaultSearchEngine = strings.TrimSpace(cfg.DefaultSearchEngine)
+	cfg.Performance.Profile = strings.TrimSpace(cfg.Performance.Profile)
+	if cfg.Performance.Profile == performanceProfileCustom {
+		cfg.Performance.Custom = clampCustomPerformance(cfg.Performance.Custom)
+	}
 	if len(cfg.SearchShortcuts) > 0 {
 		normalized := make(map[string]dto.SearchShortcut, len(cfg.SearchShortcuts))
 		for key, shortcut := range cfg.SearchShortcuts {
@@ -72,6 +76,28 @@ func normalizeWebUIConfig(cfg dto.WebUIConfig) dto.WebUIConfig {
 		cfg.SearchShortcuts = normalized
 	}
 	return cfg
+}
+
+const performanceProfileCustom = "custom"
+
+// Bounds for user-editable custom performance fields.
+const (
+	maxSkiaCPUThreads         = 8
+	maxSkiaGPUThreads         = 8
+	maxWebProcessMemoryMB     = 16384
+	maxNetworkProcessMemoryMB = 4096
+	maxWebViewPoolPrewarm     = 20
+)
+
+// clampCustomPerformance keeps custom profile values inside supported bounds.
+// A GPU thread count of -1 means "engine default".
+func clampCustomPerformance(c dto.WebUICustomPerformanceConfig) dto.WebUICustomPerformanceConfig {
+	c.SkiaCPUThreads = min(max(c.SkiaCPUThreads, 0), maxSkiaCPUThreads)
+	c.SkiaGPUThreads = min(max(c.SkiaGPUThreads, -1), maxSkiaGPUThreads)
+	c.WebProcessMemoryMB = min(max(c.WebProcessMemoryMB, 0), maxWebProcessMemoryMB)
+	c.NetworkProcessMemoryMB = min(max(c.NetworkProcessMemoryMB, 0), maxNetworkProcessMemoryMB)
+	c.WebViewPoolPrewarm = min(max(c.WebViewPoolPrewarm, 0), maxWebViewPoolPrewarm)
+	return c
 }
 
 func validateWebUIConfig(cfg dto.WebUIConfig) error {
