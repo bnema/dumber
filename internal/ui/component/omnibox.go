@@ -3,7 +3,6 @@ package component
 import (
 	"context"
 	"fmt"
-	stdurl "net/url"
 	"strings"
 	"sync"
 	"time"
@@ -1192,15 +1191,6 @@ func (o *Omnibox) handleCtrlNumberShortcut(keyval, keycode uint, ctrl bool) bool
 	return false
 }
 
-// isGhostEcho reports whether the entry text is the debounced echo of Dumber's
-// own ghost completion: realInput plus the suffix currently displayed. A
-// matching echo must leave the ghost state untouched, but it cannot be told
-// apart from a paste that replaced the selected suffix with the same text, so a
-// deferred Enter still wins and the ghost state is rebuilt from the paste.
-func isGhostEcho(entryText, realInput, ghostSuffix string) bool {
-	return ghostSuffix != "" && entryText == realInput+ghostSuffix
-}
-
 // onEntryChanged handles text input changes with debouncing.
 // When this fires, GTK has already processed the keystroke — if ghost text was
 // selected and the user typed, the selection was replaced naturally by GTK.
@@ -1453,19 +1443,6 @@ func (o *Omnibox) updateGhostFromSelection() {
 	o.updateGhostFromSelectionWithInput(query)
 }
 
-// reconcileEntryState decides how to resync the entry buffer with the
-// realInput/ghostSuffix shadow state. The buffer is the source of truth:
-// search-changed is debounced, so realInput lags behind fresh keystrokes.
-// The buffer is only ever rewritten to strip a still-intact ghost suffix —
-// never to restore older text, which would delete characters the user just
-// typed.
-func reconcileEntryState(buffer, realInput, ghostSuffix string) (newRealInput string, rewrite bool) {
-	if ghostSuffix != "" && buffer == realInput+ghostSuffix {
-		return realInput, true
-	}
-	return buffer, false
-}
-
 // restoreEntryToRealInput strips any intact ghost suffix from the entry buffer
 // and resyncs realInput from the buffer. It never writes stale realInput over
 // the buffer (see reconcileEntryState).
@@ -1552,150 +1529,25 @@ func (o *Omnibox) resolveGhostCompletion(
 	favorites []Favorite,
 ) {
 	log := logging.FromContext(o.ctx)
-	_, completionInput, ok := ghostCompletionInput(entryText)
+	fullText, suffix, ok := ghostCompletion(ghostCompletionRequest{
+		EntryText:            entryText,
+		SelectedURL:          selectedURL,
+		HasExplicitSelection: hasExplicitSelection,
+		Mode:                 mode,
+		MaxVisible:           maxVisible,
+		Suggestions:          suggestions,
+		Favorites:            favorites,
+	})
 	if !ok {
-		log.Debug().Str("entryText", entryText).Msg("ghost: resolveGhost — no completion input")
-		return
-	}
-
-	fullText, suffix, found := visibleGhostSuggestion(
-		completionInput,
-		selectedURL,
-		hasExplicitSelection,
-		mode,
-		maxVisible,
-		suggestions,
-		favorites,
-	)
-	if !found {
-		log.Debug().Str("input", completionInput).Msg("ghost: resolveGhost — no match found")
-		return
-	}
-	fullText, suffix = normalizeGhostSuggestion(completionInput, fullText, suffix)
-	if fullText == "" || suffix == "" {
-		log.Debug().Str("input", completionInput).Msg("ghost: resolveGhost — empty after normalize")
+		log.Debug().Str("entryText", entryText).Msg("ghost: resolveGhost — no completion")
 		return
 	}
 	log.Debug().
-		Str("input", completionInput).
+		Str("entryText", entryText).
 		Str("fullText", fullText).
 		Str("suffix", suffix).
 		Msg("ghost: resolveGhost — applying")
 	o.setGhostText(entryText, suffix)
-}
-
-func ghostCompletionInput(entryText string) (leadingWhitespace, completionInput string, ok bool) {
-	trimmed := strings.TrimLeft(entryText, " \t")
-	leadingWhitespace = entryText[:len(entryText)-len(trimmed)]
-	if trimmed == "" {
-		return leadingWhitespace, "", false
-	}
-	return leadingWhitespace, trimmed, true
-}
-
-// normalizeGhostSuggestion trims noisy URL completions to a domain completion when input
-// appears to be host-like (e.g. "google" -> "google.com" instead of full redirect URL).
-func normalizeGhostSuggestion(queryText, fullText, fallbackSuffix string) (normalizedFullText, suffix string) {
-	if queryText == "" || fullText == "" {
-		return "", ""
-	}
-
-	// If input already contains path/query-ish delimiters, keep original completion behavior.
-	if strings.ContainsAny(queryText, "/?#=& ") {
-		return fullText, fallbackSuffix
-	}
-
-	hostOnly := extractHostForCompletion(fullText)
-	if hostOnly != "" {
-		for _, candidate := range []string{hostOnly, strings.TrimPrefix(hostOnly, "www.")} {
-			if completionSuffix, ok := autocomplete.ComputeCompletionSuffix(queryText, candidate); ok {
-				return candidate, completionSuffix
-			}
-		}
-	}
-
-	return fullText, fallbackSuffix
-}
-
-func extractHostForCompletion(raw string) string {
-	if raw == "" {
-		return ""
-	}
-	if parsed, err := stdurl.Parse(raw); err == nil && parsed.Host != "" {
-		return strings.ToLower(parsed.Hostname())
-	}
-	trimmed := autocomplete.StripProtocol(raw)
-	trimmed = strings.ToLower(trimmed)
-	for _, sep := range []string{"/", "?", "#"} {
-		if idx := strings.Index(trimmed, sep); idx >= 0 {
-			trimmed = trimmed[:idx]
-		}
-	}
-	return strings.TrimSpace(trimmed)
-}
-
-func visibleGhostSuggestion(
-	query, selectedURL string,
-	hasExplicitSelection bool,
-	mode ViewMode,
-	maxVisible int,
-	suggestions []Suggestion,
-	favorites []Favorite,
-) (fullText, suffix string, ok bool) {
-	if hasExplicitSelection {
-		suffix, fullText, ok = autocomplete.ComputeURLCompletionSuffix(query, selectedURL)
-		return fullText, suffix, ok
-	}
-
-	visibleURLs := visibleURLsForMode(mode, maxVisible, suggestions, favorites)
-	suffix, fullText, ok = autocomplete.BestURLCompletion(query, visibleURLs)
-	return fullText, suffix, ok
-}
-
-func visibleURLsForMode(mode ViewMode, maxVisible int, suggestions []Suggestion, favorites []Favorite) []string {
-	if mode == ViewModeHistory {
-		visibleCount := visibleResultCount(len(suggestions), maxVisible)
-		urls := make([]string, 0, visibleCount)
-		for _, s := range suggestions[:visibleCount] {
-			if s.URL != "" {
-				urls = append(urls, s.URL)
-			}
-		}
-		return urls
-	}
-
-	visibleCount := visibleResultCount(len(favorites), maxVisible)
-	urls := make([]string, 0, visibleCount)
-	for _, f := range favorites[:visibleCount] {
-		if f.URL != "" {
-			urls = append(urls, f.URL)
-		}
-	}
-	return urls
-}
-
-func selectedTargetURL(mode ViewMode, idx, maxVisible int, suggestions []Suggestion, favorites []Favorite) (string, bool) {
-	if idx < 0 {
-		return "", false
-	}
-	return resolveTargetURLForSelection(mode, idx, maxVisible, suggestions, favorites), true
-}
-
-func bangSuggestionTextAt(idx int, bangSuggestions []BangSuggestion) (string, bool) {
-	if idx < 0 || idx >= len(bangSuggestions) {
-		return "", false
-	}
-	return "!" + bangSuggestions[idx].Key + " ", true
-}
-
-func visibleResultCount(total, maxVisible int) int {
-	if total <= 0 {
-		return 0
-	}
-	if maxVisible <= 0 || total < maxVisible {
-		return total
-	}
-	return maxVisible
 }
 
 // performSearch executes the search based on current view mode and query.
@@ -1749,13 +1601,6 @@ func (o *Omnibox) performSearch() {
 
 	// Perform fuzzy history search in background
 	o.searchHistory(query, o.effectiveMaxRows(), token)
-}
-
-func effectiveSearchQuery(entryText, realInput string, hasGhost bool) string {
-	if hasGhost && realInput != "" {
-		return realInput
-	}
-	return entryText
 }
 
 // searchHistory runs a fuzzy history search in a background goroutine.
@@ -2533,29 +2378,6 @@ func (o *Omnibox) navigateToSelected() {
 	}
 
 	o.submitNavigation(targetURL)
-}
-
-func resolveTargetURLForSelection(mode ViewMode, idx, maxVisible int, suggestions []Suggestion, favorites []Favorite) string {
-	if mode == ViewModeHistory {
-		visibleCount := visibleResultCount(len(suggestions), maxVisible)
-		if idx >= 0 && idx < visibleCount {
-			return suggestions[idx].URL
-		}
-		return ""
-	}
-	visibleCount := visibleResultCount(len(favorites), maxVisible)
-	if idx >= 0 && idx < visibleCount {
-		return favorites[idx].URL
-	}
-	return ""
-}
-
-func shouldPreferTypedURLNavigation(entryText string) bool {
-	entryText = strings.TrimSpace(entryText)
-	if entryText == "" {
-		return false
-	}
-	return url.LooksLikeURL(entryText)
 }
 
 func resolveFavoriteToggleTarget(
