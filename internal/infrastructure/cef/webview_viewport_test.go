@@ -525,21 +525,26 @@ func TestScheduleResizeRepaintPulse_CoalescesToLatestSequence(t *testing.T) {
 	wv.scheduleResizeRepaintPulse(context.Background(), "first")
 	wv.scheduleResizeRepaintPulse(context.Background(), "second")
 
-	require.Equal(t, []int64{16, 48, 16, 48}, delays)
-	require.Len(t, scheduled, 4)
+	const pulses = 6
+	require.Equal(t, []int64{16, 48, 96, 160, 250, 400, 16, 48, 96, 160, 250, 400}, delays)
+	require.Len(t, scheduled, 2*pulses)
 
-	scheduled[0].Execute()
-	scheduled[1].Execute()
+	for _, task := range scheduled[:pulses] {
+		task.Execute()
+	}
 	require.Empty(t, host.calls)
 
-	scheduled[2].Execute()
-	scheduled[3].Execute()
+	for _, task := range scheduled[pulses:] {
+		task.Execute()
+	}
+	// Only the first two pulses resync the viewport; later ones only request a
+	// refresh frame so the surface ID is not reallocated repeatedly.
 	require.Equal(t, []string{
-		"NotifyScreenInfoChanged",
-		"WasResized",
+		"NotifyScreenInfoChanged", "WasResized", "Invalidate",
+		"NotifyScreenInfoChanged", "WasResized", "Invalidate",
 		"Invalidate",
-		"NotifyScreenInfoChanged",
-		"WasResized",
+		"Invalidate",
+		"Invalidate",
 		"Invalidate",
 	}, host.calls)
 }
@@ -569,9 +574,10 @@ func TestScheduleResizeRepaintPulse_SkipsStaleHost(t *testing.T) {
 	wv.scheduleResizeRepaintPulse(context.Background(), "stale-host")
 	wv.host = currentHost
 
-	require.Len(t, scheduled, 2)
-	scheduled[0].Execute()
-	scheduled[1].Execute()
+	require.Len(t, scheduled, 6)
+	for _, task := range scheduled {
+		task.Execute()
+	}
 
 	require.Empty(t, capturedHost.calls)
 	require.Empty(t, currentHost.calls)
@@ -624,9 +630,10 @@ func TestScheduleResizeRepaintPulse_SkipsWhenHostClearedBeforeExecution(t *testi
 	wv.scheduleResizeRepaintPulse(context.Background(), "nil-host-before-execute")
 	wv.host = nil
 
-	require.Len(t, scheduled, 2)
-	scheduled[0].Execute()
-	scheduled[1].Execute()
+	require.Len(t, scheduled, 6)
+	for _, task := range scheduled {
+		task.Execute()
+	}
 
 	require.Empty(t, host.calls)
 }

@@ -180,6 +180,17 @@ func (wv *WebView) syncResizeViewportOnGTK(ctx context.Context, reason string) b
 	return true
 }
 
+// resizeViewportResyncDelaysMs re-run the full viewport resize notification
+// shortly after a GTK size change.
+var resizeViewportResyncDelaysMs = [...]int64{16, 48}
+
+// resizeRepaintOnlyDelaysMs keep requesting refresh frames until CEF's OSR
+// video capturer adopts the new frame size. Until then captured frames are
+// letterboxed; Invalidate forces a fresh capture instead of waiting for the
+// capturer's idle refresh timer (up to ~1s on static pages). These pulses skip
+// NotifyScreenInfoChanged, which would reallocate the surface ID each time.
+var resizeRepaintOnlyDelaysMs = [...]int64{96, 160, 250, 400}
+
 func (wv *WebView) scheduleResizeRepaintPulse(ctx context.Context, reason string) {
 	if wv == nil || wv.destroyed.Load() {
 		return
@@ -191,29 +202,48 @@ func (wv *WebView) scheduleResizeRepaintPulse(ctx context.Context, reason string
 		return
 	}
 	seq := wv.viewportResizePulseSeq.Add(1)
-	for _, delayMs := range [...]int64{16, 48} {
-		task := cefNewTask(cefTaskFunc(func() {
-			if wv == nil || wv.destroyed.Load() || wv.viewportResizePulseSeq.Load() != seq {
-				return
-			}
-			wv.mu.RLock()
-			currentHost := wv.host
-			wv.mu.RUnlock()
-			if currentHost != host {
-				return
-			}
-			notifyBrowserViewportResize(host)
-			logging.FromContext(ctx).Debug().
-				Uint64("webview_id", uint64(wv.id)).
-				Int64("delay_ms", delayMs).
-				Str("reason", reason).
-				Msg("cef: delayed resize viewport sync")
-		}))
-		if task == nil {
-			continue
-		}
-		cefPostDelayedTask(purecef.ThreadIDTidUi, task, delayMs)
+	for _, delayMs := range resizeViewportResyncDelaysMs {
+		wv.postResizePulse(ctx, host, seq, delayMs, reason, true)
 	}
+	for _, delayMs := range resizeRepaintOnlyDelaysMs {
+		wv.postResizePulse(ctx, host, seq, delayMs, reason, false)
+	}
+}
+
+func (wv *WebView) postResizePulse(
+	ctx context.Context,
+	host viewportSyncBrowserHost,
+	seq uint64,
+	delayMs int64,
+	reason string,
+	resync bool,
+) {
+	task := cefNewTask(cefTaskFunc(func() {
+		if wv == nil || wv.destroyed.Load() || wv.viewportResizePulseSeq.Load() != seq {
+			return
+		}
+		wv.mu.RLock()
+		currentHost := wv.host
+		wv.mu.RUnlock()
+		if currentHost != host {
+			return
+		}
+		if resync {
+			notifyBrowserViewportResize(host)
+		} else {
+			host.Invalidate(purecef.PaintElementTypePetView)
+		}
+		logging.FromContext(ctx).Debug().
+			Uint64("webview_id", uint64(wv.id)).
+			Int64("delay_ms", delayMs).
+			Bool("resync", resync).
+			Str("reason", reason).
+			Msg("cef: delayed resize viewport sync")
+	}))
+	if task == nil {
+		return
+	}
+	cefPostDelayedTask(purecef.ThreadIDTidUi, task, delayMs)
 }
 
 func (wv *WebView) tryStartPendingBrowserCreateOnGTKThread(ctx context.Context, reason string) bool {
