@@ -333,7 +333,8 @@ func (a *App) ensureFloatingSession(
 }
 
 func (a *App) releaseFloatingSessionsForTab(ctx context.Context, tabID entity.TabID) {
-	sessions := a.floatingSessions.forTab(tabID)
+	// Snapshot: releaseFloatingSession deletes from the registry.
+	sessions := a.floatingSessions.forTabSnapshot(tabID)
 	if len(sessions) == 0 {
 		return
 	}

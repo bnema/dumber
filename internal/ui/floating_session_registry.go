@@ -1,6 +1,8 @@
 package ui
 
 import (
+	"iter"
+	"maps"
 	"slices"
 
 	"github.com/bnema/dumber/internal/domain/entity"
@@ -12,15 +14,33 @@ import (
 // the key, never by parsing PaneID) live in one place.
 type floatingSessionRegistry map[floatingSessionKey]*floatingWorkspaceSession
 
-// forTab returns the non-nil sessions owned by tabID.
-func (r floatingSessionRegistry) forTab(tabID entity.TabID) map[floatingSessionKey]*floatingWorkspaceSession {
-	sessions := make(map[floatingSessionKey]*floatingWorkspaceSession)
-	for key, session := range r {
-		if key.tabID == tabID && session != nil {
-			sessions[key] = session
+// all yields every non-nil session without allocating. Callers must not add
+// or remove sessions while iterating; use forTabSnapshot for that.
+func (r floatingSessionRegistry) all() iter.Seq2[floatingSessionKey, *floatingWorkspaceSession] {
+	return func(yield func(floatingSessionKey, *floatingWorkspaceSession) bool) {
+		for key, session := range r {
+			if session != nil && !yield(key, session) {
+				return
+			}
 		}
 	}
-	return sessions
+}
+
+// forTab yields the non-nil sessions owned by tabID without allocating, so it
+// is safe on hot GTK layout callbacks. Same mutation rule as all.
+func (r floatingSessionRegistry) forTab(tabID entity.TabID) iter.Seq2[floatingSessionKey, *floatingWorkspaceSession] {
+	return func(yield func(floatingSessionKey, *floatingWorkspaceSession) bool) {
+		for key, session := range r.all() {
+			if key.tabID == tabID && !yield(key, session) {
+				return
+			}
+		}
+	}
+}
+
+// forTabSnapshot copies tabID's sessions so the caller may release them.
+func (r floatingSessionRegistry) forTabSnapshot(tabID entity.TabID) map[floatingSessionKey]*floatingWorkspaceSession {
+	return maps.Collect(r.forTab(tabID))
 }
 
 // byPaneID returns the session hosting paneID and its key.

@@ -43,6 +43,16 @@ func TestGhostCompletion(t *testing.T) {
 			wantOK:     true,
 		},
 		{
+			name: "explicit selection completes from the selected URL, not the best match",
+			req: ghostCompletionRequest{
+				EntryText: "gi", SelectedURL: "https://gitlab.com/", HasExplicitSelection: true,
+				Mode: ViewModeHistory, MaxVisible: 5, Suggestions: history,
+			},
+			wantFull:   "gitlab.com",
+			wantSuffix: "tlab.com",
+			wantOK:     true,
+		},
+		{
 			name:   "blank input shows nothing",
 			req:    ghostCompletionRequest{EntryText: "   ", Mode: ViewModeHistory, MaxVisible: 5, Suggestions: history},
 			wantOK: false,

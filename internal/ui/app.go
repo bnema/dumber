@@ -4313,8 +4313,8 @@ func (a *App) applyRuntimeConfigChange(ctx context.Context, snapshot entity.Runt
 			view.SetOmniboxUIScale(runtimeCfg.DefaultUIScale)
 		}
 	}
-	for _, session := range a.floatingSessions {
-		if session != nil && session.omnibox != nil {
+	for _, session := range a.floatingSessions.all() {
+		if session.omnibox != nil {
 			session.omnibox.SetUIScale(runtimeCfg.DefaultUIScale)
 		}
 	}

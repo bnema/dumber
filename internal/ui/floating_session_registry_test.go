@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"maps"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -24,8 +25,17 @@ func TestFloatingSessionRegistry(t *testing.T) {
 	}
 
 	t.Run("forTab skips other tabs and nil sessions", func(t *testing.T) {
-		assert.Len(t, r.forTab(tab1), 2)
-		assert.Len(t, r.forTab(tab2), 1)
+		assert.Len(t, r.forTabSnapshot(tab1), 2)
+		assert.Len(t, r.forTabSnapshot(tab2), 1)
+		assert.Len(t, maps.Collect(r.all()), 3, "all skips nil sessions")
+	})
+
+	t.Run("forTab does not allocate", func(t *testing.T) {
+		allocs := testing.AllocsPerRun(100, func() {
+			for range r.forTab(tab1) {
+			}
+		})
+		assert.Zero(t, allocs)
 	})
 
 	t.Run("byPaneID maps the pane to its owning key", func(t *testing.T) {
