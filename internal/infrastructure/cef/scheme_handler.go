@@ -90,6 +90,8 @@ type dumbSchemeHandler struct {
 	onPopupClose             func(browser purecef.Browser, payload rendererBridgePopupClosePayload)
 	onPopupOpenerNavigate    func(browser purecef.Browser, payload popupOpenerNavigatePayload)
 	onPopupOpenerPostMessage func(browser purecef.Browser, payload popupOpenerPostMessagePayload)
+	// onVimPage receives Vim Mode page runtime results (copy, open, end).
+	onVimPage func(browser purecef.Browser, payload vimPageBridgePayload)
 
 	// bridgeNonceValidator checks whether a bridge nonce belongs to the active
 	// browser/navigation context that issued the request.
@@ -261,6 +263,8 @@ func (h *dumbSchemeHandler) handleAPIPost(
 		return h.handlePopupOpenerNavigate(request, browser), true
 	case "/api/popup-opener-post-message":
 		return h.handlePopupOpenerPostMessage(request, browser), true
+	case "/api/vim-page":
+		return h.handleVimPage(request, browser), true
 	default:
 		return nil, false
 	}
@@ -491,6 +495,30 @@ func handlePopupBridgeRequest[T any](
 		dispatch(browser, payload)
 	} else {
 		h.logger.Warn().Msg("cef: " + action + " — callback not wired")
+	}
+	return h.newAPIJSONResourceHandler(http.StatusOK, map[string]any{"ok": true})
+}
+
+// handleVimPage accepts Vim page runtime results. It does not use the shared
+// bridge nonce: the payload carries a per-interaction token that the source
+// WebView validates, so the bridge nonce is never exposed to page-reachable
+// Vim calls.
+func (h *dumbSchemeHandler) handleVimPage(request purecef.Request, browser purecef.Browser) purecef.ResourceHandler {
+	if browser == nil {
+		return h.newAPIJSONResourceHandler(http.StatusBadRequest, map[string]string{"error": "browser unavailable"})
+	}
+	body := readBodyFromHeader(request)
+	if body == nil {
+		return h.newAPIJSONResourceHandler(http.StatusBadRequest, map[string]string{"error": "empty body"})
+	}
+	payload, err := decodeVimPageBridgePayload(body)
+	if err != nil {
+		return h.newAPIJSONResourceHandler(http.StatusBadRequest, map[string]string{"error": err.Error()})
+	}
+	if h.onVimPage == nil {
+		h.logger.Warn().Msg("cef: vim-page — callback not wired")
+	} else {
+		h.onVimPage(browser, payload)
 	}
 	return h.newAPIJSONResourceHandler(http.StatusOK, map[string]any{"ok": true})
 }

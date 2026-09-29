@@ -147,6 +147,10 @@ type WebViewCallbacks struct {
 	// OnEditableFocusChanged is called when the page focus enters or leaves an
 	// editable target such as input, textarea, or contenteditable content.
 	OnEditableFocusChanged func(editable bool)
+
+	// OnVimPageInteractionEnded is called when an in-page Vim interaction
+	// (link hints or visual selection) finishes or is canceled by the page.
+	OnVimPageInteractionEnded func()
 }
 
 // FindOptions configures search behavior.
@@ -483,6 +487,17 @@ type SemanticNavigationHighlightClearer interface {
 // unimplemented.
 type PageInputFocuser interface {
 	FocusNextInput()
+}
+
+// VimPageInteractor is an optional WebView capability for in-page Vim
+// interactions: link hints, visual selection, and text-object yanks. Keys are
+// canonical vimkeys strings such as "j", "J", or "<Esc>". Implementations
+// report the end of a key-capturing interaction through
+// WebViewCallbacks.OnVimPageInteractionEnded.
+type VimPageInteractor interface {
+	StartVimPageInteraction(ctx context.Context, request dto.VimPageInteractionRequest) error
+	SendVimPageKey(ctx context.Context, key string) error
+	CancelVimPageInteraction(ctx context.Context) error
 }
 
 // PageFocusNavigator is an optional WebView capability for keeping native-like

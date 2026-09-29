@@ -61,6 +61,12 @@ CEF and WebKit execute Vim Mode scroll commands (`h/j/k/l`, `Shift+J/K`) with th
 
 `gi` focuses the next visible, editable page input. With no eligible input focused it starts at the first one; repeated `gi` commands cycle through the inputs. `]]` and `[[` move through visible `h1`–`h6` headings and outline the selected heading with the current Dumber theme accent. `Enter` activates the first link inside the selected heading, or a link wrapping that heading, then leaves Vim Mode; without an associated link, it only leaves the mode. `Escape` leaves without activation. When a page input is focused, `Tab` and `Shift+Tab` keep focus traversal inside the page; traversal stops safely at the page boundaries instead of moving into the host window. These live input, heading, activation, and page-focus actions currently use the CEF engine path; the WebKit fallback supports Vim scrolling but not these semantic actions yet.
 
+Link hints label the visible targets in the viewport; type a label to pick one, `Backspace` to undo a letter, and `Escape` to close the hints and stay in Vim Mode. `f` follows a link or activates a control, `F` opens a link in a new pane, and `yf` copies a link URL.
+
+`v` starts a visual selection from the current page selection, or from the first visible text. The mode indicator reads `VIM MODE · VISUAL` (or `· HINTS` while hints are shown) and the selection uses the theme accent. Motions extend it: `h/j/k/l`, `w/b/e`, `0`/`^`/`$`, `(`/`)` for sentences, `{`/`}` for paragraphs, `gg`/`G` for the document edges, and a count prefix such as `3w`. `o` swaps the selection ends, `y` or `Enter` copies and ends the selection, and `v` or `Escape` cancels it.
+
+Text-object yanks copy one block without selecting it: `yah` copies the current section (the heading nearest the top of the viewport through the next heading of the same or a higher level), and `yap`, `yac`, `yat`, and `yal` copy the first visible paragraph, code block, table, or list. The copied block flashes with the theme accent. Hints, visual selection, and yanks use the CEF engine path.
+
 | Action | Keys |
 |--------|------|
 | Scroll left | `H` |
@@ -73,6 +79,11 @@ CEF and WebKit execute Vim Mode scroll commands (`h/j/k/l`, `Shift+J/K`) with th
 | Next heading | `]]` |
 | Previous heading | `[[` |
 | Page focus traversal | `Tab`, `Shift+Tab` |
+| Follow link or control (hints) | `f` |
+| Open link in new pane (hints) | `F` |
+| Yank link URL (hints) | `yf` |
+| Visual selection | `v` |
+| Yank section / paragraph / code / table / list | `yah`, `yap`, `yac`, `yat`, `yal` |
 | Activate selected heading link and exit | `Enter` |
 | Exit without activation | `Escape` |
 
@@ -173,6 +184,12 @@ keys = ["]]"]
 
 [workspace.vim_mode.actions.heading-prev]
 keys = ["[["]
+
+[workspace.vim_mode.actions.hint-follow]
+keys = ["f"]
+
+[workspace.vim_mode.actions.visual]
+keys = ["v"]
 
 [workspace.shortcuts.actions.close-pane]
 keys = ["ctrl+w"]

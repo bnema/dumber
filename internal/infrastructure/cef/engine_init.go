@@ -323,6 +323,7 @@ func newEngineSchemeHandler(
 	schemeHandler.onPopupClose = eng.handlePopupBridgeClose
 	schemeHandler.onPopupOpenerNavigate = eng.handlePopupOpenerNavigate
 	schemeHandler.onPopupOpenerPostMessage = eng.handlePopupOpenerPostMessage
+	schemeHandler.onVimPage = eng.handleVimPageBridge
 	schemeHandler.bridgeNonceValidator = eng.validateBridgeRequest
 	return messageRouter, schemeHandler, nil
 }

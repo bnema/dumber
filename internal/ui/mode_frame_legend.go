@@ -47,7 +47,7 @@ func (f *modeFrame) build(actions map[string]entity.ActionBinding) {
 		group := modeLegendGroup(f.mode, name)
 		groups[group] = append(groups[group], name)
 	}
-	order := []string{"SPLIT", "FOCUS", "SCROLL", "RESIZE", "SWITCH", "JUMP", "MANAGE", "EXIT"}
+	order := []string{"SPLIT", "FOCUS", "SCROLL", "RESIZE", "SWITCH", "JUMP", "SELECT", "MANAGE", "EXIT"}
 	index := 0
 	for _, groupName := range order {
 		names := groups[groupName]
