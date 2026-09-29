@@ -23,6 +23,8 @@ github.com/aymanbagabas/go-udiff v0.4.1/go.mod h1:0L9PGwj20lrtmEMeyw4WKJ/TMyDtvA
 github.com/bits-and-blooms/bitset v1.24.4/go.mod h1:7hO7Gc7Pp1vODcmWvKMRA9BNmbv6a/7QIWpPxHddWR8=
 github.com/bnema/purego v0.12.0-bnema.1 h1:/jQhDj74geYzFg57t6qDvTc2PbU5uEsM93YgzVXJenI=
 github.com/bnema/purego v0.12.0-bnema.1/go.mod h1:xS1iX3noypxnbOUEUAqOvkfnUzgHuu19VtL4+dfUMJM=
+github.com/bnema/purego v0.13.0-bnema.1 h1:fKRdztnvTmRqAjANMoN+utEIH73dvPqVPJh2iZCCAO8=
+github.com/bnema/purego v0.13.0-bnema.1/go.mod h1:xS1iX3noypxnbOUEUAqOvkfnUzgHuu19VtL4+dfUMJM=
 github.com/bnema/purego-cef v0.14.3 h1:mWc3kt+MJR5LypLfDK9n8E988n5nSENrLlUEPlMcGEo=
 github.com/bnema/purego-cef v0.14.3/go.mod h1:JWh6Eau9UFgEN6zQr71JIEgXTu+hSRAf++P3l7F7ZpY=
 github.com/bnema/purego-cef2gtk v0.11.2 h1:GTCWpJcihinQ5Tm9UTRv1/ORnIo94b0BMVq3STL0HeY=
