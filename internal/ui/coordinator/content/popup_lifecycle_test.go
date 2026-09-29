@@ -358,6 +358,7 @@ func TestPopupDeferredFeaturedDetachesBeforeNativeHost(t *testing.T) {
 		assert.True(t, staging.detached)
 		assert.Equal(t, dto.PopupFeaturesSpecified, input.Request.PopupFeatures.State)
 		assert.Same(t, popup, input.PopupWebView)
+		assert.True(t, input.AlreadyReadyToShow, "deferred popups have already fired ready-to-show")
 		return nil
 	})
 

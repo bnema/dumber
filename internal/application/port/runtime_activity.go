@@ -33,6 +33,23 @@ type RuntimeActivity interface {
 	Subscribe(func(RuntimeActivitySnapshot)) (unsubscribe func())
 }
 
+// RuntimeActivityProvider is an optional Engine capability. Engines whose
+// native runtime has work that must settle before idle exit (CEF) implement
+// it; engines without such work (WebKit) do not, and callers treat that as
+// always quiescent.
+type RuntimeActivityProvider interface {
+	RuntimeActivity() RuntimeActivity
+}
+
+// EngineRuntimeActivity returns the engine's runtime activity, or nil when
+// the engine does not report any.
+func EngineRuntimeActivity(engine Engine) RuntimeActivity {
+	if provider, ok := engine.(RuntimeActivityProvider); ok && provider != nil {
+		return provider.RuntimeActivity()
+	}
+	return nil
+}
+
 // PersistenceDrain is the narrow activity/drain boundary for persistence
 // owners whose saves cross the GTK/database boundary. Active covers pending
 // debounce, in-flight capture/execution, and unsettled terminal failure.

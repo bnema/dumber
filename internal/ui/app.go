@@ -696,11 +696,9 @@ func (a *App) openPopupNativeWindow(ctx context.Context, popupInput content.Nati
 	if err := a.openNativePopupWindow(ctx, popupInput); err != nil {
 		return err
 	}
-	// Deferred WebKit classification runs from ready-to-show. The native host
-	// is attached after that signal, so it must be revealed immediately rather
-	// than waiting for an already-delivered lifecycle callback.
-	if popupInput.Request.Engine == dto.BrowserEngineWebKit &&
-		popupInput.Request.PopupFeatures.State == dto.PopupFeaturesSpecified {
+	// A popup classified after ready-to-show has already delivered that
+	// lifecycle callback, so reveal it now instead of waiting for it.
+	if popupInput.AlreadyReadyToShow {
 		a.showNativePopupWindow(popupInput.PopupWebView.ID())
 	}
 	return nil
