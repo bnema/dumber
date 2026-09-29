@@ -172,16 +172,9 @@ type FindController interface {
 	DisconnectSignal(id uint)
 }
 
-// WebView defines the port interface for browser view operations.
-// This interface abstracts the underlying browser engine (WebKit, etc.)
-// and exposes only the navigation and state capabilities needed by
-// the application layer.
-type WebView interface {
-	// ID returns the unique identifier for this WebView.
-	ID() WebViewID
-
-	// --- Navigation ---
-
+// PageNavigator is the navigation subset of WebView. Consumers that only
+// load, reload, or stop pages depend on this instead of the full WebView.
+type PageNavigator interface {
 	// LoadURI navigates to the specified URI.
 	LoadURI(ctx context.Context, uri string) error
 
@@ -204,6 +197,17 @@ type WebView interface {
 	// GoForward navigates forward in history.
 	// Uses WebKit native navigation if available, falls back to JavaScript history.forward() for SPA compatibility.
 	GoForward(ctx context.Context) error
+}
+
+// WebView defines the port interface for browser view operations.
+// This interface abstracts the underlying browser engine (WebKit, etc.)
+// and exposes only the navigation and state capabilities needed by
+// the application layer.
+type WebView interface {
+	PageNavigator
+
+	// ID returns the unique identifier for this WebView.
+	ID() WebViewID
 
 	// --- State Queries ---
 
