@@ -88,11 +88,7 @@ func runDoctor(_ *cobra.Command, _ []string) error {
 	mediaOK := true
 	if runMedia {
 		adapter := media.New()
-		mediaUC := usecase.NewRunMediaDiagnosticsUseCase(adapter)
-		mediaOut, err := mediaUC.Execute(app.Ctx(), usecase.RunMediaDiagnosticsInput{})
-		if err != nil {
-			return err
-		}
+		mediaOut := usecase.NewCheckMediaUseCase(adapter).Diagnose(app.Ctx())
 
 		mediaOK = mediaOut.GStreamerAvailable
 		report.Media = &styles.DoctorMediaReport{

@@ -490,10 +490,8 @@ func (a *App) residencyQuiescent() bool {
 	if a == nil {
 		return true
 	}
-	if eng, ok := a.engine.(interface{ RuntimeActivity() port.RuntimeActivity }); ok && eng != nil {
-		if act := eng.RuntimeActivity(); act != nil && !act.Snapshot().Quiescent() {
-			return false
-		}
+	if act := port.EngineRuntimeActivity(a.engine); act != nil && !act.Snapshot().Quiescent() {
+		return false
 	}
 	if drain, ok := a.snapshotService.(port.PersistenceDrain); ok && drain != nil && drain.Active() {
 		return false
@@ -519,14 +517,12 @@ func (a *App) subscribeResidencyQuiescence() {
 		return
 	}
 	dispatch := func(fn func()) { r.DispatchToGTK(fn) }
-	if eng, ok := a.engine.(interface{ RuntimeActivity() port.RuntimeActivity }); ok && eng != nil {
-		if act := eng.RuntimeActivity(); act != nil {
-			unsubscribe := act.Subscribe(func(snapshot port.RuntimeActivitySnapshot) {
-				busy := !snapshot.Quiescent()
-				dispatch(func() { r.SetNativeBusy("cef-activity", busy) })
-			})
-			a.residencyUnsubscribe = append(a.residencyUnsubscribe, unsubscribe)
-		}
+	if act := port.EngineRuntimeActivity(a.engine); act != nil {
+		unsubscribe := act.Subscribe(func(snapshot port.RuntimeActivitySnapshot) {
+			busy := !snapshot.Quiescent()
+			dispatch(func() { r.SetNativeBusy("engine-activity", busy) })
+		})
+		a.residencyUnsubscribe = append(a.residencyUnsubscribe, unsubscribe)
 	}
 	if drain, ok := a.snapshotService.(port.PersistenceDrain); ok && drain != nil {
 		if notifier, ok := drain.(interface{ OnSettled(func()) }); ok {

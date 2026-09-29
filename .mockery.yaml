@@ -58,6 +58,7 @@ packages:
       SessionProcessProbe: {}
       SessionSpawner: {}
       WindowStateProvider: {}
+      PageNavigator: {}
       WebView: {}
       PageScrollable: {}
       WebViewFactory: {}

@@ -170,7 +170,7 @@ func (pm *popupManager) openNativePopup(
 	pm.setBrowsingContextDecision(popupWV, decision)
 	if !pm.adoptPopupInNativePopup(
 		ctx, hooks, parentPaneID, parentID, parentURIAtOpen, popupWV, req, decision,
-		dto.BrowsingContextFailureNativeArm,
+		dto.BrowsingContextFailureNativeArm, false,
 	) {
 		popupWV.Destroy()
 		return nil
@@ -179,7 +179,8 @@ func (pm *popupManager) openNativePopup(
 }
 
 // openExistingPopupInNativePopup attempts to transfer an already-created
-// WebView. On failure ownership remains with the caller.
+// WebView whose ready-to-show event has already fired (deferred feature
+// resolution). On failure ownership remains with the caller.
 func (pm *popupManager) openExistingPopupInNativePopup(
 	ctx context.Context,
 	hooks popupCoordinatorHooks,
@@ -192,7 +193,7 @@ func (pm *popupManager) openExistingPopupInNativePopup(
 ) bool {
 	return pm.adoptPopupInNativePopup(
 		ctx, hooks, parentPaneID, parentWebViewID, parentURIAtOpen, popupWV, req, decision,
-		dto.BrowsingContextFailureHostFailed,
+		dto.BrowsingContextFailureHostFailed, true,
 	)
 }
 
@@ -206,6 +207,7 @@ func (pm *popupManager) adoptPopupInNativePopup(
 	req port.PopupRequest,
 	decision dto.HostDecision,
 	failureCode dto.BrowsingContextFailureCode,
+	alreadyReadyToShow bool,
 ) bool {
 	log := logging.FromContext(ctx)
 	normalized := buildPopupBrowsingContextRequest(req)
@@ -236,6 +238,7 @@ func (pm *popupManager) adoptPopupInNativePopup(
 		PopupWebView: popupWV, TargetURI: req.TargetURI, Request: req,
 		ObserveOAuthAutoClose:      cfg != nil && cfg.OAuthAutoClose && IsOAuthURL(req.TargetURI),
 		AllowBrowserWindowFallback: allowFallback, OnNativeHostAbort: onAbort,
+		AlreadyReadyToShow: alreadyReadyToShow,
 	}); err != nil {
 		logBrowsingContextFailure(*log, normalized, decision, failureCode, err)
 		return false

@@ -477,6 +477,7 @@ func TestHandlePopupCreate_OpensNativePopupForAuthIntent(t *testing.T) {
 		assert.Equal(t, popupWV, input.PopupWebView)
 		assert.Equal(t, "https://accounts.google.com/o/oauth2/v2/auth", input.TargetURI)
 		assert.True(t, input.ObserveOAuthAutoClose)
+		assert.False(t, input.AlreadyReadyToShow, "immediate popups wait for their own ready-to-show")
 		return nil
 	})
 

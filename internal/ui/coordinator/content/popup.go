@@ -142,6 +142,10 @@ type NativePopupInput struct {
 	Request                    port.PopupRequest
 	ObserveOAuthAutoClose      bool
 	AllowBrowserWindowFallback bool
+	// AlreadyReadyToShow is true when the popup's ready-to-show lifecycle
+	// event fired before the native host was attached (deferred feature
+	// resolution). The host must reveal it immediately instead of waiting.
+	AlreadyReadyToShow bool
 	// OnNativeHostAbort returns true when fallback adopted the WebView. A false
 	// result leaves destruction responsibility with the native host.
 	OnNativeHostAbort func(context.Context, port.WebView) bool

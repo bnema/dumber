@@ -1,20 +1,14 @@
 package webkit
 
 import (
-	"bytes"
 	"context"
 	"embed"
 	"fmt"
-	"io"
-	"io/fs"
 	"net/http"
 	"net/url"
-	"path"
-	"strconv"
 	"strings"
 	"sync"
 
-	"github.com/andybalholm/brotli"
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/infrastructure/webutil"
 	"github.com/bnema/dumber/internal/logging"
@@ -33,9 +27,16 @@ const (
 	CrashPath               = "crash"
 	IndexHTML               = "index.html"
 	httpGET                 = "GET"
-	maxSystemviewsWASMBytes = 64 * 1024 * 1024
-	systemviewsAssetDir     = "systemviews"
+	maxSystemviewsWASMBytes = webutil.MaxSystemviewsWASMBytes
+	systemviewsAssetDir     = webutil.SystemviewsAssetDir
 )
+
+// systemviewTrust accepts dumb:// system-view requesters. WebKit gives
+// custom-scheme pages an opaque "null" Origin, so the referrer decides then.
+var systemviewTrust = webutil.SystemviewTrust{
+	IsTrustedURL:             isTrustedSystemviewURL,
+	OpaqueOriginUsesReferrer: true,
+}
 
 // SchemeRequest represents a request to a custom URI scheme.
 type SchemeRequest struct {
@@ -203,8 +204,6 @@ func buildCrashPageHTML(originalURI string) string {
 	return webutil.BuildCrashPageHTML(originalURI)
 }
 
-const systemviewFaviconSize = 32
-
 func (h *DumbSchemeHandler) handleFaviconAPI(req *SchemeRequest) *SchemeResponse {
 	if !isTrustedSystemviewFaviconRequest(req) {
 		return privateJSONErrorResponse(http.StatusForbidden, "forbidden")
@@ -218,21 +217,9 @@ func (h *DumbSchemeHandler) handleFaviconAPI(req *SchemeRequest) *SchemeResponse
 	if req == nil {
 		return privateJSONErrorResponse(http.StatusBadRequest, "invalid request")
 	}
-	parsed, err := url.Parse(req.URI)
+	domain, size, err := webutil.ParseSystemviewFaviconRequest(req.URI)
 	if err != nil {
-		return privateJSONErrorResponse(http.StatusBadRequest, "invalid request URL")
-	}
-	domain := strings.TrimSpace(parsed.Query().Get("domain"))
-	if domain == "" {
-		return privateJSONErrorResponse(http.StatusBadRequest, "missing domain")
-	}
-	size := systemviewFaviconSize
-	if rawSize := strings.TrimSpace(parsed.Query().Get("size")); rawSize != "" {
-		parsedSize, parseErr := strconv.Atoi(rawSize)
-		if parseErr != nil || parsedSize != systemviewFaviconSize {
-			return privateJSONErrorResponse(http.StatusBadRequest, "unsupported favicon size")
-		}
-		size = parsedSize
+		return privateJSONErrorResponse(http.StatusBadRequest, err.Error())
 	}
 
 	resolveCtx := h.ctx
@@ -261,30 +248,13 @@ func isTrustedSystemviewFaviconRequest(req *SchemeRequest) bool {
 }
 
 func isTrustedSystemviewAPIRequest(req *SchemeRequest) bool {
-	if req == nil {
-		return false
-	}
-	origin := strings.TrimSpace(req.Origin)
-	if origin != "" && !strings.EqualFold(origin, "null") {
-		return isTrustedSystemviewURL(origin)
-	}
-	return isTrustedSystemviewURL(req.Referer)
+	return req != nil && systemviewTrust.Allows(req.Origin, req.Referer)
 }
 
 func isTrustedSystemviewURL(raw string) bool {
-	parsed, err := url.Parse(strings.TrimSpace(raw))
-	if err != nil || parsed.Scheme == "" {
+	host, ok := webutil.DumbURLHost(raw)
+	if !ok {
 		return false
-	}
-	if !strings.EqualFold(parsed.Scheme, "dumb") {
-		return false
-	}
-	host := parsed.Host
-	if host == "" {
-		host = parsed.Opaque
-	}
-	if idx := strings.IndexAny(host, "/?#"); idx >= 0 {
-		host = host[:idx]
 	}
 	switch host {
 	case HistoryPath, FavoritesPath, ConfigPath, ErrorPath, CrashPath:
@@ -476,52 +446,10 @@ func (h *DumbSchemeHandler) handleAsset(u *url.URL) *SchemeResponse {
 	}
 }
 
-func safeSystemviewsAssetPath(assetDir, relPath string) (fullPath, cleanRelPath string, ok bool) {
-	assetDir = strings.Trim(assetDir, "/")
-	if assetDir != systemviewsAssetDir {
-		return "", "", false
-	}
-
-	relPath = strings.TrimLeft(relPath, "/")
-	if relPath == "" || strings.ContainsRune(relPath, '\x00') {
-		return "", "", false
-	}
-
-	cleanRelPath = path.Clean(relPath)
-	if cleanRelPath == "." || cleanRelPath == ".." || strings.HasPrefix(cleanRelPath, "../") || path.IsAbs(cleanRelPath) {
-		return "", "", false
-	}
-
-	fullPath = path.Join(assetDir, cleanRelPath)
-	if fullPath != assetDir && !strings.HasPrefix(fullPath, assetDir+"/") {
-		return "", "", false
-	}
-	return fullPath, cleanRelPath, true
-}
-
-func readAssetWithEncoding(assets fs.FS, fullPath, relPath string) ([]byte, error) {
-	var compressedErr error
-	if strings.HasSuffix(relPath, ".wasm") {
-		if compressed, err := fs.ReadFile(assets, fullPath+".br"); err == nil {
-			data, err := io.ReadAll(io.LimitReader(brotli.NewReader(bytes.NewReader(compressed)), maxSystemviewsWASMBytes+1))
-			if err != nil {
-				compressedErr = err
-			} else if len(data) > maxSystemviewsWASMBytes {
-				compressedErr = fmt.Errorf("decompressed asset %s exceeds %d bytes", fullPath, maxSystemviewsWASMBytes)
-			} else {
-				return data, nil
-			}
-		}
-	}
-	data, err := fs.ReadFile(assets, fullPath)
-	if err == nil {
-		return data, nil
-	}
-	if compressedErr != nil {
-		return nil, compressedErr
-	}
-	return nil, err
-}
+var (
+	safeSystemviewsAssetPath = webutil.SafeSystemviewsAssetPath
+	readAssetWithEncoding    = webutil.ReadSystemviewAsset
+)
 
 func resolveAssetPath(u *url.URL) (assetDir, relPath string, ok bool) {
 	if u == nil {

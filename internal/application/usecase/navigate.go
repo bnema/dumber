@@ -29,7 +29,7 @@ func NewNavigateUseCase(defaultZoom float64) *NavigateUseCase {
 type NavigateInput struct {
 	URL     string
 	PaneID  string
-	WebView port.WebView
+	WebView port.PageNavigator
 }
 
 // NavigateOutput contains the result of navigation.
@@ -62,7 +62,7 @@ func (uc *NavigateUseCase) Execute(ctx context.Context, input NavigateInput) (*N
 }
 
 // Reload reloads the current page.
-func (uc *NavigateUseCase) Reload(ctx context.Context, webview port.WebView, bypassCache bool) error {
+func (uc *NavigateUseCase) Reload(ctx context.Context, webview port.PageNavigator, bypassCache bool) error {
 	log := logging.FromContext(ctx).With().Float64("default_zoom", uc.defaultZoom).Logger()
 	log.Debug().Bool("bypass_cache", bypassCache).Msg("reloading page")
 
@@ -73,7 +73,7 @@ func (uc *NavigateUseCase) Reload(ctx context.Context, webview port.WebView, byp
 }
 
 // Stop stops the current page load.
-func (uc *NavigateUseCase) Stop(ctx context.Context, webview port.WebView) error {
+func (uc *NavigateUseCase) Stop(ctx context.Context, webview port.PageNavigator) error {
 	log := logging.FromContext(ctx).With().Float64("default_zoom", uc.defaultZoom).Logger()
 	log.Debug().Msg("stopping page load")
 	return webview.Stop(ctx)

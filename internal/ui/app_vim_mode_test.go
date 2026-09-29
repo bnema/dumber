@@ -580,7 +580,7 @@ func TestVimMode_NativePageFocusNavigationUsesActiveEditableWebView(t *testing.T
 	app, bw, paneID := newVimModeAccessibilityFixture(t)
 	wv := newInputFocusingWebView(t, 7)
 	app.contentCoord.RegisterPopupWebView(paneID, wv)
-	app.pageEditableFocusByPane = map[entity.PaneID]bool{paneID: true}
+	app.vimMode.editableFocus = map[entity.PaneID]bool{paneID: true}
 
 	assert.True(t, app.navigatePageFocus(context.Background(), bw, true))
 	assert.Equal(t, []bool{true}, wv.pageFocusNavigationCalls)
@@ -884,7 +884,7 @@ func TestVimMode_PaneSwitchToEditablePaneExitsVimMode(t *testing.T) {
 	f := newSingleWindowVimModeFixture(t)
 	enterVimMode(t, f.app, f.bw1)
 	kh := bindVimModeKeyboardHandler(t, f.app, f.bw1)
-	f.app.pageEditableFocusByPane = map[entity.PaneID]bool{
+	f.app.vimMode.editableFocus = map[entity.PaneID]bool{
 		"pane-b": true,
 	}
 
@@ -981,7 +981,7 @@ func TestVimMode_TabSwitchExitsAndClearsOldAccent(t *testing.T) {
 
 func TestVimMode_ActivationRemainsAvailableWhenPageIsEditable(t *testing.T) {
 	f := newSingleWindowVimModeFixture(t)
-	f.app.pageEditableFocusByPane = map[entity.PaneID]bool{
+	f.app.vimMode.editableFocus = map[entity.PaneID]bool{
 		"pane-a": true,
 	}
 
@@ -1000,7 +1000,7 @@ func TestVimMode_ActivationAvailabilityDoesNotDependOnEditableFocus(t *testing.T
 
 func TestVimMode_ClearEditableFocusStateRemovesStoredBypass(t *testing.T) {
 	f := newSingleWindowVimModeFixture(t)
-	f.app.pageEditableFocusByPane = map[entity.PaneID]bool{"pane-a": true}
+	f.app.vimMode.editableFocus = map[entity.PaneID]bool{"pane-a": true}
 
 	f.app.clearPageEditableFocusState(entity.PaneID("pane-a"))
 
@@ -1220,7 +1220,7 @@ func TestVimMode_Pulse_DebounceAllowsSpacedCalls(t *testing.T) {
 	f := newSingleWindowVimModeFixture(t)
 
 	// Fresh app: debounce timer is zero.
-	assert.True(t, f.app.vimModePulseLastTime.IsZero(),
+	assert.True(t, f.app.vimMode.pulseIdle(),
 		"fresh app should have zero pulse timer")
 
 	enterVimMode(t, f.app, f.bw1)
@@ -1231,7 +1231,7 @@ func TestVimMode_Pulse_DebounceAllowsSpacedCalls(t *testing.T) {
 	f.app.triggerVimModePulse(context.Background(), false)
 
 	// Timer is now set, proving the first pulse registered.
-	assert.False(t, f.app.vimModePulseLastTime.IsZero(),
+	assert.False(t, f.app.vimMode.pulseIdle(),
 		"pulse timer should be non-zero after first pulse")
 }
 
@@ -1248,7 +1248,7 @@ func TestVimMode_Pulse_DebounceResetOnClearOwnership(t *testing.T) {
 	attachTestModeFrame(f.bw1, f.overlay1A)
 	setUpNormalPulse(f.overlay1A)
 	f.app.triggerVimModePulse(context.Background(), false)
-	assert.False(t, f.app.vimModePulseLastTime.IsZero(),
+	assert.False(t, f.app.vimMode.pulseIdle(),
 		"pulse timer should be non-zero after first pulse")
 
 	// Clear ownership — this resets the debounce timer.
@@ -1257,7 +1257,7 @@ func TestVimMode_Pulse_DebounceResetOnClearOwnership(t *testing.T) {
 	assert.Empty(t, f.bw1.vimModePaneID)
 
 	// Debounce timer should now be back to zero.
-	assert.True(t, f.app.vimModePulseLastTime.IsZero(),
+	assert.True(t, f.app.vimMode.pulseIdle(),
 		"pulse timer should be reset after clearVimModeOwnership")
 }
 

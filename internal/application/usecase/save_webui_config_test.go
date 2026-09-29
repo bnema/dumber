@@ -97,6 +97,51 @@ func TestSaveWebUIConfigUseCase_NormalizesAndSavesValidConfig(t *testing.T) {
 	require.Equal(t, "DuckDuckGo", saved.SearchShortcuts["ddg"].Description)
 }
 
+func TestSaveWebUIConfigUseCase_ClampsCustomPerformanceOnlyForCustomProfile(t *testing.T) {
+	out := dto.WebUICustomPerformanceConfig{
+		SkiaCPUThreads:         99,
+		SkiaGPUThreads:         -5,
+		WebProcessMemoryMB:     -1,
+		NetworkProcessMemoryMB: 99999,
+		WebViewPoolPrewarm:     500,
+	}
+
+	tests := []struct {
+		name    string
+		profile string
+		want    dto.WebUICustomPerformanceConfig
+	}{
+		{
+			name:    "custom is clamped",
+			profile: " custom ",
+			want: dto.WebUICustomPerformanceConfig{
+				SkiaCPUThreads:         8,
+				SkiaGPUThreads:         -1,
+				WebProcessMemoryMB:     0,
+				NetworkProcessMemoryMB: 4096,
+				WebViewPoolPrewarm:     20,
+			},
+		},
+		{name: "other profiles are untouched", profile: "balanced", want: out},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			saver := portmocks.NewMockWebUIConfigSaver(t)
+			var saved dto.WebUIConfig
+			saver.EXPECT().SaveWebUIConfig(mock.Anything, mock.AnythingOfType("dto.WebUIConfig")).Run(func(_ context.Context, cfg dto.WebUIConfig) {
+				saved = cfg
+			}).Return(nil).Once()
+			cfg := validWebUIConfig()
+			cfg.Performance.Profile = tt.profile
+			cfg.Performance.Custom = out
+
+			require.NoError(t, usecase.NewSaveWebUIConfigUseCase(saver).Execute(context.Background(), cfg))
+			require.Equal(t, tt.want, saved.Performance.Custom)
+		})
+	}
+}
+
 func validWebUIConfig() dto.WebUIConfig {
 	palette := dto.ColorPalette{
 		Background:     "#ffffff",

@@ -9,18 +9,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"html"
-	"io"
 	"io/fs"
 	"maps"
 	"net/http"
 	"net/url"
-	"path"
-	"strconv"
 	"strings"
 	"sync"
 	"unsafe"
 
-	"github.com/andybalholm/brotli"
 	purecef "github.com/bnema/purego-cef/cef"
 
 	"github.com/bnema/dumber/internal/application/port"
@@ -39,8 +35,18 @@ const (
 	errorPath                   = "error"
 	indexHTML                   = "index.html"
 	maxSchemeTruncatedURLLength = 240
-	maxSystemviewsWASMBytes     = 64 * 1024 * 1024
-	systemviewsAssetDir         = "systemviews"
+	maxSystemviewsWASMBytes     = webutil.MaxSystemviewsWASMBytes
+	systemviewsAssetDir         = webutil.SystemviewsAssetDir
+)
+
+// systemviewTrust accepts requesters served from the internal HTTPS origin or
+// dumb:// pages. CEF system views have a real origin, so an opaque "null"
+// Origin is rejected rather than falling back to the referrer.
+var systemviewTrust = webutil.SystemviewTrust{IsTrustedURL: isTrustedSystemviewURL}
+
+var (
+	safeSystemviewsAssetPath = webutil.SafeSystemviewsAssetPath
+	readAssetWithEncoding    = webutil.ReadSystemviewAsset
 )
 
 // pageRootFiles maps internal page hosts/paths to their HTML entry points.
@@ -297,24 +303,19 @@ func (h *dumbSchemeHandler) rejectUntrustedSystemviewRequester(request purecef.R
 	if request == nil {
 		return h.newPrivateAPIJSONResourceHandler(http.StatusForbidden, map[string]string{"error": "forbidden"})
 	}
-	origin := strings.TrimSpace(request.GetHeaderByName("Origin"))
-	if origin != "" {
-		if isTrustedSystemviewURL(origin) {
-			return nil
+	origin := request.GetHeaderByName("Origin")
+	referrer := ""
+	if strings.TrimSpace(origin) == "" {
+		referrer = strings.TrimSpace(request.GetReferrerURL())
+		if referrer == "" {
+			referrer = request.GetHeaderByName("Referer")
 		}
-		return h.newPrivateAPIJSONResourceHandler(http.StatusForbidden, map[string]string{"error": "forbidden"})
 	}
-	referrer := strings.TrimSpace(request.GetReferrerURL())
-	if referrer == "" {
-		referrer = strings.TrimSpace(request.GetHeaderByName("Referer"))
-	}
-	if !isTrustedSystemviewURL(referrer) {
+	if !systemviewTrust.Allows(origin, referrer) {
 		return h.newPrivateAPIJSONResourceHandler(http.StatusForbidden, map[string]string{"error": "forbidden"})
 	}
 	return nil
 }
-
-const systemviewFaviconSize = 32
 
 func (h *dumbSchemeHandler) handleFaviconAPI(request purecef.Request) purecef.ResourceHandler {
 	if denied := h.rejectUntrustedFaviconRequester(request); denied != nil {
@@ -328,21 +329,9 @@ func (h *dumbSchemeHandler) handleFaviconAPI(request purecef.Request) purecef.Re
 		return h.newPrivateAPIJSONResourceHandler(http.StatusNotFound, map[string]string{"error": "favicon unavailable"})
 	}
 
-	parsed, err := url.Parse(request.GetURL())
+	domain, size, err := webutil.ParseSystemviewFaviconRequest(request.GetURL())
 	if err != nil {
-		return h.newPrivateAPIJSONResourceHandler(http.StatusBadRequest, map[string]string{"error": "invalid request URL"})
-	}
-	domain := strings.TrimSpace(parsed.Query().Get("domain"))
-	if domain == "" {
-		return h.newPrivateAPIJSONResourceHandler(http.StatusBadRequest, map[string]string{"error": "missing domain"})
-	}
-	size := systemviewFaviconSize
-	if rawSize := strings.TrimSpace(parsed.Query().Get("size")); rawSize != "" {
-		parsedSize, parseErr := strconv.Atoi(rawSize)
-		if parseErr != nil || parsedSize != systemviewFaviconSize {
-			return h.newPrivateAPIJSONResourceHandler(http.StatusBadRequest, map[string]string{"error": "unsupported favicon size"})
-		}
-		size = parsedSize
+		return h.newPrivateAPIJSONResourceHandler(http.StatusBadRequest, map[string]string{"error": err.Error()})
 	}
 
 	return newFaviconResourceHandler(h.ctx, resolver, domain, size)
@@ -360,17 +349,8 @@ func isTrustedSystemviewURL(raw string) bool {
 	if strings.EqualFold(parsed.Scheme, actualInternalScheme) {
 		return strings.EqualFold(parsed.Host, actualInternalHost)
 	}
-	if !strings.EqualFold(parsed.Scheme, "dumb") {
-		return false
-	}
-	host := parsed.Host
-	if host == "" {
-		host = parsed.Opaque
-	}
-	if idx := strings.IndexAny(host, "/?#"); idx >= 0 {
-		host = host[:idx]
-	}
-	return isInternalPageHost(host)
+	host, ok := webutil.DumbURLHost(raw)
+	return ok && isInternalPageHost(host)
 }
 
 func resolveConfigPayload(build func() ([]byte, error)) ([]byte, error) {
@@ -813,46 +793,6 @@ func (h *dumbSchemeHandler) versionError(fullPath string) purecef.ResourceHandle
 func sha256Hex(data []byte) string {
 	sum := sha256.Sum256(data)
 	return hex.EncodeToString(sum[:])
-}
-
-func safeSystemviewsAssetPath(assetDir, relPath string) (fullPath, cleanRelPath string, ok bool) {
-	assetDir = strings.Trim(assetDir, "/")
-	if assetDir != systemviewsAssetDir {
-		return "", "", false
-	}
-
-	relPath = strings.TrimLeft(relPath, "/")
-	if relPath == "" || strings.ContainsRune(relPath, '\x00') {
-		return "", "", false
-	}
-
-	cleanRelPath = path.Clean(relPath)
-	if cleanRelPath == "." || cleanRelPath == ".." || strings.HasPrefix(cleanRelPath, "../") || path.IsAbs(cleanRelPath) {
-		return "", "", false
-	}
-
-	fullPath = path.Join(assetDir, cleanRelPath)
-	if fullPath != assetDir && !strings.HasPrefix(fullPath, assetDir+"/") {
-		return "", "", false
-	}
-	return fullPath, cleanRelPath, true
-}
-
-func readAssetWithEncoding(assetsFS fs.FS, fullPath, relPath string) ([]byte, error) {
-	if strings.HasSuffix(relPath, ".wasm") {
-		if compressed, err := fs.ReadFile(assetsFS, fullPath+".br"); err == nil {
-			data, err := io.ReadAll(io.LimitReader(brotli.NewReader(bytes.NewReader(compressed)), maxSystemviewsWASMBytes+1))
-			if err != nil {
-				return nil, err
-			}
-			if len(data) > maxSystemviewsWASMBytes {
-				return nil, fmt.Errorf("decompressed asset %s exceeds %d bytes", fullPath, maxSystemviewsWASMBytes)
-			}
-			return data, nil
-		}
-	}
-	data, err := fs.ReadFile(assetsFS, fullPath)
-	return data, err
 }
 
 // resolveAssetPath maps either a dumb:// URL or the actual internal HTTPS URL

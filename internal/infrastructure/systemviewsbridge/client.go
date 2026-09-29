@@ -82,7 +82,7 @@ func (c *Client) Timeline(ctx context.Context, limit, offset int) ([]*entity.His
 	if offset < 0 {
 		return nil, fmt.Errorf("timeline offset must be non-negative, got %d", offset)
 	}
-	return request[[]*entity.HistoryEntry](c, ctx, "history_timeline", struct {
+	return request[[]*entity.HistoryEntry](c, ctx, port.MsgHistoryTimeline, struct {
 		RequestID string `json:"requestId"`
 		Limit     int    `json:"limit"`
 		Offset    int    `json:"offset"`
@@ -100,7 +100,7 @@ func (c *Client) TimelineByDomain(ctx context.Context, domain string, limit, off
 	if offset < 0 {
 		return nil, fmt.Errorf("timeline-by-domain offset must be non-negative, got %d", offset)
 	}
-	return request[[]*entity.HistoryEntry](c, ctx, "history_timeline_by_domain", struct {
+	return request[[]*entity.HistoryEntry](c, ctx, port.MsgHistoryTimelineByDomain, struct {
 		RequestID string `json:"requestId"`
 		Domain    string `json:"domain"`
 		Limit     int    `json:"limit"`
@@ -119,7 +119,7 @@ func (c *Client) TimelineWindow(ctx context.Context, before time.Time, beforeID 
 	if !before.IsZero() {
 		beforeCursor = before.Format(time.RFC3339Nano)
 	}
-	return request[*entity.HistoryWindow](c, ctx, "history_timeline_window", struct {
+	return request[*entity.HistoryWindow](c, ctx, port.MsgHistoryTimelineWindow, struct {
 		RequestID string `json:"requestId"`
 		Before    string `json:"before,omitempty"`
 		BeforeID  int64  `json:"beforeId,omitempty"`
@@ -131,7 +131,7 @@ func (c *Client) Search(ctx context.Context, query string, limit int) ([]*entity
 	if limit < 0 {
 		return nil, fmt.Errorf("search limit must be non-negative, got %d", limit)
 	}
-	return request[[]*entity.HistoryEntry](c, ctx, "history_search_fts", struct {
+	return request[[]*entity.HistoryEntry](c, ctx, port.MsgHistorySearchFTS, struct {
 		RequestID string `json:"requestId"`
 		Query     string `json:"query"`
 		Limit     int    `json:"limit"`
@@ -142,7 +142,7 @@ func (c *Client) DeleteEntry(ctx context.Context, id int64) error {
 	if id <= 0 {
 		return fmt.Errorf("delete entry id must be positive, got %d", id)
 	}
-	_, err := request[struct{}](c, ctx, "history_delete_entry", struct {
+	_, err := request[struct{}](c, ctx, port.MsgHistoryDeleteEntry, struct {
 		RequestID string `json:"requestId"`
 		ID        int64  `json:"id"`
 	}{RequestID: nextRequestID(), ID: id})
@@ -154,7 +154,7 @@ func (c *Client) DeleteRange(ctx context.Context, rangeID string) error {
 	if rangeID == "" {
 		return errors.New("history range ID cannot be empty")
 	}
-	_, err := request[struct{}](c, ctx, "history_delete_range", struct {
+	_, err := request[struct{}](c, ctx, port.MsgHistoryDeleteRange, struct {
 		RequestID string `json:"requestId"`
 		Range     string `json:"range"`
 	}{RequestID: nextRequestID(), Range: rangeID})
@@ -178,40 +178,40 @@ func (c *Client) Default(ctx context.Context) (dto.SystemviewConfigPayload, erro
 }
 
 func (c *Client) Save(ctx context.Context, cfg dto.WebUIConfig) error {
-	_, err := request[struct{}](c, ctx, "save_config", cfg)
+	_, err := request[struct{}](c, ctx, port.MsgSaveConfig, cfg)
 	return err
 }
 
 func (c *Client) GetKeybindings(ctx context.Context) (port.KeybindingsConfig, error) {
-	return request[port.KeybindingsConfig](c, ctx, "get_keybindings", struct {
+	return request[port.KeybindingsConfig](c, ctx, port.MsgGetKeybindings, struct {
 		RequestID string `json:"requestId"`
 	}{RequestID: nextRequestID()})
 }
 
 func (c *Client) SetKeybinding(ctx context.Context, req port.SetKeybindingRequest) (port.SetKeybindingResponse, error) {
-	return request[port.SetKeybindingResponse](c, ctx, "set_keybinding", req)
+	return request[port.SetKeybindingResponse](c, ctx, port.MsgSetKeybinding, req)
 }
 
 func (c *Client) ResetKeybinding(ctx context.Context, req port.ResetKeybindingRequest) error {
-	_, err := request[struct{}](c, ctx, "reset_keybinding", req)
+	_, err := request[struct{}](c, ctx, port.MsgResetKeybinding, req)
 	return err
 }
 
 func (c *Client) ResetAllKeybindings(ctx context.Context) error {
-	_, err := request[struct{}](c, ctx, "reset_all_keybindings", struct {
+	_, err := request[struct{}](c, ctx, port.MsgResetAllKeybindings, struct {
 		RequestID string `json:"requestId"`
 	}{RequestID: nextRequestID()})
 	return err
 }
 
 func (c *Client) Stats(ctx context.Context) (*entity.HistoryStats, error) {
-	return request[*entity.HistoryStats](c, ctx, "history_stats", struct {
+	return request[*entity.HistoryStats](c, ctx, port.MsgHistoryStats, struct {
 		RequestID string `json:"requestId"`
 	}{RequestID: nextRequestID()})
 }
 
 func (c *Client) Analytics(ctx context.Context) (*entity.HistoryAnalytics, error) {
-	return request[*entity.HistoryAnalytics](c, ctx, "history_analytics", struct {
+	return request[*entity.HistoryAnalytics](c, ctx, port.MsgHistoryAnalytics, struct {
 		RequestID string `json:"requestId"`
 	}{RequestID: nextRequestID()})
 }
@@ -220,7 +220,7 @@ func (c *Client) DomainStats(ctx context.Context, limit int) ([]*entity.DomainSt
 	if limit < 0 {
 		return nil, fmt.Errorf("domain stats limit must be non-negative, got %d", limit)
 	}
-	return request[[]*entity.DomainStat](c, ctx, "history_domain_stats", struct {
+	return request[[]*entity.DomainStat](c, ctx, port.MsgHistoryDomainStats, struct {
 		RequestID string `json:"requestId"`
 		Limit     int    `json:"limit"`
 	}{RequestID: nextRequestID(), Limit: limit})
@@ -231,7 +231,7 @@ func (c *Client) DeleteDomain(ctx context.Context, domain string) error {
 	if domain == "" {
 		return errors.New("history domain cannot be empty")
 	}
-	_, err := request[struct{}](c, ctx, "history_delete_domain", struct {
+	_, err := request[struct{}](c, ctx, port.MsgHistoryDeleteDomain, struct {
 		RequestID string `json:"requestId"`
 		Domain    string `json:"domain"`
 	}{RequestID: nextRequestID(), Domain: domain})
@@ -239,27 +239,27 @@ func (c *Client) DeleteDomain(ctx context.Context, domain string) error {
 }
 
 func (c *Client) List(ctx context.Context) ([]*entity.Favorite, error) {
-	return request[[]*entity.Favorite](c, ctx, "favorite_list", struct {
+	return request[[]*entity.Favorite](c, ctx, port.MsgFavoriteList, struct {
 		RequestID string `json:"requestId"`
 	}{RequestID: nextRequestID()})
 }
 
 func (c *Client) CreateFavorite(ctx context.Context, input dto.FavoriteCreateInput) (*entity.Favorite, error) {
-	return request[*entity.Favorite](c, ctx, "favorite_create", favoriteCreatePayload(input))
+	return request[*entity.Favorite](c, ctx, port.MsgFavoriteCreate, favoriteCreatePayload(input))
 }
 
 func (c *Client) UpdateFavorite(ctx context.Context, input dto.FavoriteUpdateInput) (*entity.Favorite, error) {
 	if input.ID <= 0 {
 		return nil, fmt.Errorf("update favorite id must be positive, got %d", input.ID)
 	}
-	return request[*entity.Favorite](c, ctx, "favorite_update", favoriteUpdatePayload(input))
+	return request[*entity.Favorite](c, ctx, port.MsgFavoriteUpdate, favoriteUpdatePayload(input))
 }
 
 func (c *Client) DeleteFavorite(ctx context.Context, id int64) error {
 	if id <= 0 {
 		return fmt.Errorf("delete favorite id must be positive, got %d", id)
 	}
-	_, err := request[struct{}](c, ctx, "favorite_delete", struct {
+	_, err := request[struct{}](c, ctx, port.MsgFavoriteDelete, struct {
 		RequestID string `json:"requestId"`
 		ID        int64  `json:"id"`
 	}{RequestID: nextRequestID(), ID: id})
@@ -304,7 +304,7 @@ func tagIDPayloads(ids []entity.TagID) []int64 {
 }
 
 func (c *Client) ListTags(ctx context.Context) ([]*entity.Tag, error) {
-	return request[[]*entity.Tag](c, ctx, "tag_list", struct {
+	return request[[]*entity.Tag](c, ctx, port.MsgTagList, struct {
 		RequestID string `json:"requestId"`
 	}{RequestID: nextRequestID()})
 }
@@ -313,7 +313,7 @@ func (c *Client) SetShortcut(ctx context.Context, favoriteID int64, shortcutKey 
 	if favoriteID <= 0 {
 		return fmt.Errorf("set shortcut favorite id must be positive, got %d", favoriteID)
 	}
-	_, err := request[struct{}](c, ctx, "favorite_set_shortcut", struct {
+	_, err := request[struct{}](c, ctx, port.MsgFavoriteSetShortcut, struct {
 		RequestID   string `json:"requestId"`
 		FavoriteID  int64  `json:"favorite_id"`
 		ShortcutKey *int   `json:"shortcut_key"`
@@ -330,7 +330,7 @@ func (c *Client) CreateTag(ctx context.Context, name, color string) (*entity.Tag
 	if trimmedColor := strings.TrimSpace(color); trimmedColor != "" {
 		colorPtr = &trimmedColor
 	}
-	return request[*entity.Tag](c, ctx, "tag_create", struct {
+	return request[*entity.Tag](c, ctx, port.MsgTagCreate, struct {
 		RequestID string  `json:"requestId"`
 		Name      string  `json:"name"`
 		Color     *string `json:"color"`
@@ -350,7 +350,7 @@ func (c *Client) UpdateTag(ctx context.Context, id int64, name, color string) er
 	if trimmedColor := strings.TrimSpace(color); trimmedColor != "" {
 		colorPtr = &trimmedColor
 	}
-	_, err := request[struct{}](c, ctx, "tag_update", struct {
+	_, err := request[struct{}](c, ctx, port.MsgTagUpdate, struct {
 		RequestID string  `json:"requestId"`
 		ID        int64   `json:"id"`
 		Name      *string `json:"name"`
@@ -363,7 +363,7 @@ func (c *Client) DeleteTag(ctx context.Context, id int64) error {
 	if id <= 0 {
 		return fmt.Errorf("delete tag id must be positive, got %d", id)
 	}
-	_, err := request[struct{}](c, ctx, "tag_delete", struct {
+	_, err := request[struct{}](c, ctx, port.MsgTagDelete, struct {
 		RequestID string `json:"requestId"`
 		ID        int64  `json:"id"`
 	}{RequestID: nextRequestID(), ID: id})
@@ -377,7 +377,7 @@ func (c *Client) AssignTag(ctx context.Context, favoriteID, tagID int64) error {
 	if tagID <= 0 {
 		return fmt.Errorf("assign tag id must be positive, got %d", tagID)
 	}
-	_, err := request[struct{}](c, ctx, "tag_assign", struct {
+	_, err := request[struct{}](c, ctx, port.MsgTagAssign, struct {
 		RequestID  string `json:"requestId"`
 		FavoriteID int64  `json:"favorite_id"`
 		TagID      int64  `json:"tag_id"`
@@ -392,7 +392,7 @@ func (c *Client) RemoveTag(ctx context.Context, favoriteID, tagID int64) error {
 	if tagID <= 0 {
 		return fmt.Errorf("remove tag id must be positive, got %d", tagID)
 	}
-	_, err := request[struct{}](c, ctx, "tag_remove", struct {
+	_, err := request[struct{}](c, ctx, port.MsgTagRemove, struct {
 		RequestID  string `json:"requestId"`
 		FavoriteID int64  `json:"favorite_id"`
 		TagID      int64  `json:"tag_id"`
