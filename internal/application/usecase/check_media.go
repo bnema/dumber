@@ -9,7 +9,8 @@ import (
 	"github.com/bnema/dumber/internal/logging"
 )
 
-// CheckMediaUseCase validates media playback requirements at startup.
+// CheckMediaUseCase validates media playback requirements and exposes the
+// detailed diagnostics used by the doctor command.
 type CheckMediaUseCase struct {
 	diagnostics port.MediaDiagnostics
 }
@@ -34,13 +35,21 @@ type CheckMediaOutput struct {
 	Warnings           []string
 }
 
+// Diagnose returns the full media diagnostics report. It never returns nil.
+func (uc *CheckMediaUseCase) Diagnose(ctx context.Context) *port.MediaDiagnosticsResult {
+	if result := uc.diagnostics.RunDiagnostics(ctx); result != nil {
+		return result
+	}
+	return &port.MediaDiagnosticsResult{}
+}
+
 // Execute checks media playback requirements.
 // Returns error if GStreamer is not installed (fatal).
 // Returns warnings for missing hardware acceleration (non-fatal).
 func (uc *CheckMediaUseCase) Execute(ctx context.Context, input CheckMediaInput) (*CheckMediaOutput, error) {
 	log := logging.FromContext(ctx)
 
-	result := uc.diagnostics.RunDiagnostics(ctx)
+	result := uc.Diagnose(ctx)
 
 	// GStreamer is required - fail early if not installed
 	if !result.GStreamerAvailable {
