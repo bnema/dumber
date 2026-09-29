@@ -6,12 +6,12 @@ require (
 	github.com/a-h/templ v0.3.1020
 	github.com/andybalholm/brotli v1.2.4
 	github.com/bnema/purego v0.13.0-bnema.1
-	github.com/bnema/purego-cef v0.14.3
-	github.com/bnema/purego-cef2gtk v0.11.3
+	github.com/bnema/purego-cef v0.14.4
+	github.com/bnema/purego-cef2gtk v0.11.4
 	github.com/bnema/purego-pipewire v0.1.6
 	github.com/bnema/purego-sqlite v0.1.5
 	github.com/bnema/purego-webp v0.2.1
-	github.com/bnema/puregotk v0.7.3
+	github.com/bnema/puregotk v0.7.4
 	github.com/charmbracelet/bubbles v1.0.0
 	github.com/charmbracelet/bubbletea v1.3.10
 	github.com/charmbracelet/lipgloss v1.1.0
