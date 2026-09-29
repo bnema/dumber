@@ -525,23 +525,24 @@ func TestScheduleResizeRepaintPulse_CoalescesToLatestSequence(t *testing.T) {
 	wv.scheduleResizeRepaintPulse(context.Background(), "first")
 	wv.scheduleResizeRepaintPulse(context.Background(), "second")
 
-	require.Equal(t, []int64{16, 48, 16, 48}, delays)
-	require.Len(t, scheduled, 4)
+	pulses := len(resizeRepaintPulseDelaysMs)
+	wantDelays := append(resizeRepaintPulseDelaysMs[:], resizeRepaintPulseDelaysMs[:]...)
+	require.Equal(t, wantDelays, delays)
+	require.Len(t, scheduled, 2*pulses)
 
-	scheduled[0].Execute()
-	scheduled[1].Execute()
+	for _, task := range scheduled[:pulses] {
+		task.Execute()
+	}
 	require.Empty(t, host.calls)
 
-	scheduled[2].Execute()
-	scheduled[3].Execute()
-	require.Equal(t, []string{
-		"NotifyScreenInfoChanged",
-		"WasResized",
-		"Invalidate",
-		"NotifyScreenInfoChanged",
-		"WasResized",
-		"Invalidate",
-	}, host.calls)
+	for _, task := range scheduled[pulses:] {
+		task.Execute()
+	}
+	wantCalls := make([]string, 0, 3*pulses)
+	for range pulses {
+		wantCalls = append(wantCalls, "NotifyScreenInfoChanged", "WasResized", "Invalidate")
+	}
+	require.Equal(t, wantCalls, host.calls)
 }
 
 func TestScheduleResizeRepaintPulse_SkipsStaleHost(t *testing.T) {
@@ -569,9 +570,10 @@ func TestScheduleResizeRepaintPulse_SkipsStaleHost(t *testing.T) {
 	wv.scheduleResizeRepaintPulse(context.Background(), "stale-host")
 	wv.host = currentHost
 
-	require.Len(t, scheduled, 2)
-	scheduled[0].Execute()
-	scheduled[1].Execute()
+	require.Len(t, scheduled, len(resizeRepaintPulseDelaysMs))
+	for _, task := range scheduled {
+		task.Execute()
+	}
 
 	require.Empty(t, capturedHost.calls)
 	require.Empty(t, currentHost.calls)
@@ -624,9 +626,10 @@ func TestScheduleResizeRepaintPulse_SkipsWhenHostClearedBeforeExecution(t *testi
 	wv.scheduleResizeRepaintPulse(context.Background(), "nil-host-before-execute")
 	wv.host = nil
 
-	require.Len(t, scheduled, 2)
-	scheduled[0].Execute()
-	scheduled[1].Execute()
+	require.Len(t, scheduled, len(resizeRepaintPulseDelaysMs))
+	for _, task := range scheduled {
+		task.Execute()
+	}
 
 	require.Empty(t, host.calls)
 }

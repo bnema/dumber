@@ -180,6 +180,12 @@ func (wv *WebView) syncResizeViewportOnGTK(ctx context.Context, reason string) b
 	return true
 }
 
+// resizeRepaintPulseDelaysMs spaces refresh demands past the moment CEF's OSR
+// video capturer adopts the new frame size. Until then captured frames are
+// letterboxed; each Invalidate forces a fresh capture instead of waiting for the
+// capturer's idle refresh timer (up to ~1s on static pages).
+var resizeRepaintPulseDelaysMs = [...]int64{16, 48, 96, 160, 250, 400}
+
 func (wv *WebView) scheduleResizeRepaintPulse(ctx context.Context, reason string) {
 	if wv == nil || wv.destroyed.Load() {
 		return
@@ -191,7 +197,7 @@ func (wv *WebView) scheduleResizeRepaintPulse(ctx context.Context, reason string
 		return
 	}
 	seq := wv.viewportResizePulseSeq.Add(1)
-	for _, delayMs := range [...]int64{16, 48} {
+	for _, delayMs := range resizeRepaintPulseDelaysMs {
 		task := cefNewTask(cefTaskFunc(func() {
 			if wv == nil || wv.destroyed.Load() || wv.viewportResizePulseSeq.Load() != seq {
 				return
