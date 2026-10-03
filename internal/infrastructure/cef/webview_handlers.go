@@ -30,6 +30,7 @@ type handlerSet struct {
 	fileDialogPresenter fileDialogPresenter
 	renderHandlerOnce   sync.Once
 	renderHandler       purecef.RenderHandler
+	permissions         permissionTracker
 }
 
 // Compile-time interface checks.
@@ -44,6 +45,7 @@ var (
 	_ purecef.DialogHandler      = (*handlerSet)(nil)
 	_ purecef.DownloadHandler    = (*handlerSet)(nil)
 	_ purecef.FindHandler        = (*handlerSet)(nil)
+	_ purecef.PermissionHandler  = (*handlerSet)(nil)
 )
 
 // ===========================================================================
@@ -71,7 +73,7 @@ func (h *handlerSet) GetDragHandler() purecef.DragHandler             { return n
 func (h *handlerSet) GetFindHandler() purecef.FindHandler             { return h }
 func (h *handlerSet) GetFocusHandler() purecef.FocusHandler           { return nil }
 func (h *handlerSet) GetFrameHandler() purecef.FrameHandler           { return nil }
-func (h *handlerSet) GetPermissionHandler() purecef.PermissionHandler { return nil }
+func (h *handlerSet) GetPermissionHandler() purecef.PermissionHandler { return h }
 func (h *handlerSet) GetJsdialogHandler() purecef.JsdialogHandler     { return nil }
 func (h *handlerSet) GetKeyboardHandler() purecef.KeyboardHandler     { return nil }
 func (h *handlerSet) GetLifeSpanHandler() purecef.LifeSpanHandler     { return h }
@@ -1114,6 +1116,7 @@ func (h *handlerSet) DoClose(_ purecef.Browser) bool {
 
 // OnBeforeClose fires the OnClose callback.
 func (h *handlerSet) OnBeforeClose(browser purecef.Browser) {
+	h.denyPendingPermissions()
 	if h.wv.engine != nil {
 		browserID := int32(0)
 		if browser != nil {

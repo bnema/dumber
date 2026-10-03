@@ -143,6 +143,18 @@ func TestPermissionDialog_BuildHeadingAndBody_DisplayCombinations(t *testing.T) 
 			expectedAction: "access your microphone and camera, and share your screen",
 		},
 		{
+			name:           "notification only",
+			permTypes:      []entity.PermissionType{entity.PermissionTypeNotification},
+			expectHeading:  "Allow Notifications?",
+			expectedAction: "show notifications",
+		},
+		{
+			name:           "geolocation only",
+			permTypes:      []entity.PermissionType{entity.PermissionTypeGeolocation},
+			expectHeading:  "Allow Location Access?",
+			expectedAction: "access your location",
+		},
+		{
 			name:           "website data access only",
 			permTypes:      []entity.PermissionType{entity.PermissionTypeWebsiteDataAccess},
 			expectHeading:  "Allow Third-Party Data Access?",

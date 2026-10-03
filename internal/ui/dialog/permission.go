@@ -150,7 +150,7 @@ func (d *PermissionDialog) showNextQueuedRequest() {
 
 // permFlags holds parsed permission type flags.
 type permFlags struct {
-	mic, cam, display, dataAccess bool
+	mic, cam, display, dataAccess, notification, geolocation bool
 }
 
 // parsePermFlags extracts boolean flags from permission types.
@@ -166,6 +166,10 @@ func parsePermFlags(permTypes []entity.PermissionType) permFlags {
 			f.display = true
 		case entity.PermissionTypeWebsiteDataAccess:
 			f.dataAccess = true
+		case entity.PermissionTypeNotification:
+			f.notification = true
+		case entity.PermissionTypeGeolocation:
+			f.geolocation = true
 		}
 	}
 	return f
@@ -204,6 +208,12 @@ func (d *PermissionDialog) buildHeading(
 	if f.dataAccess {
 		labels = append(labels, "Data Access")
 	}
+	if f.notification {
+		labels = append(labels, "Notifications")
+	}
+	if f.geolocation {
+		labels = append(labels, "Location")
+	}
 	switch {
 	case len(labels) == 0:
 		return "Allow Permission?"
@@ -211,6 +221,8 @@ func (d *PermissionDialog) buildHeading(
 		return "Allow Third-Party Data Access?"
 	case len(labels) == 1 && f.display:
 		return "Allow Screen Sharing?"
+	case len(labels) == 1 && f.notification:
+		return "Allow Notifications?"
 	case len(labels) == 1:
 		return "Allow " + labels[0] + " Access?"
 	default:
@@ -233,6 +245,12 @@ func (d *PermissionDialog) buildBody(
 	}
 	if f.display {
 		parts = append(parts, "share your screen")
+	}
+	if f.notification {
+		parts = append(parts, "show notifications")
+	}
+	if f.geolocation {
+		parts = append(parts, "access your location")
 	}
 	if f.dataAccess {
 		reqDomain := metadata[entity.PermissionMetadataKeyRequestingDomain]
