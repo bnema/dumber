@@ -421,12 +421,13 @@ func TestOnRequestMediaAccessPermissionFlagsDesktopVideoAsUnmediated(t *testing.
 		name      string
 		requested uint32
 		flagged   bool
+		audio     bool
 	}{
-		{"desktop video", mediaDeskV, true},
-		{"desktop audio and video", mediaDeskA | mediaDeskV, true},
-		{"camera and desktop video", mediaCamera | mediaDeskV, true},
-		{"camera only", mediaCamera, false},
-		{"microphone and camera", mediaMic | mediaCamera, false},
+		{"desktop video", mediaDeskV, true, false},
+		{"desktop audio and video", mediaDeskA | mediaDeskV, true, true},
+		{"camera and desktop video", mediaCamera | mediaDeskV, true, false},
+		{"camera only", mediaCamera, false, false},
+		{"microphone and camera", mediaMic | mediaCamera, false, false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -440,6 +441,7 @@ func TestOnRequestMediaAccessPermissionFlagsDesktopVideoAsUnmediated(t *testing.
 			require.Equal(t, int32(1), h.OnRequestMediaAccessPermission(browser, nil, "https://meet.example.com", tt.requested, cb))
 			require.NotNil(t, capture.types)
 			assert.Equal(t, tt.flagged, entity.PermissionMetadata(capture.meta).IsUnmediatedCapture())
+			assert.Equal(t, tt.audio, entity.PermissionMetadata(capture.meta).IsUnmediatedAudio())
 		})
 	}
 }

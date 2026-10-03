@@ -655,26 +655,22 @@ func TestHandlePermissionUseCase_UnmediatedDisplayShowsDialog(t *testing.T) {
 }
 
 func TestHandlePermissionUseCase_UnmediatedDisplayIgnoresStoredDecision(t *testing.T) {
-	for _, decision := range []entity.PermissionDecision{entity.PermissionGranted, entity.PermissionDenied} {
-		t.Run(string(decision), func(t *testing.T) {
-			permRepo := portmocks.NewMockPermissionRepository(t)
-			dialog := portmocks.NewMockPermissionDialogPresenter(t)
-			uc := usecase.NewHandlePermissionUseCase(permRepo, dialog, permissionLoggerFromContext)
+	permRepo := portmocks.NewMockPermissionRepository(t)
+	dialog := portmocks.NewMockPermissionDialogPresenter(t)
+	uc := usecase.NewHandlePermissionUseCase(permRepo, dialog, permissionLoggerFromContext)
 
-			// A stale stored record must neither auto-allow nor auto-deny.
-			permRepo.EXPECT().Get(mock.Anything, mock.Anything, entity.PermissionTypeDisplay).
-				Return(&entity.PermissionRecord{Type: entity.PermissionTypeDisplay, Decision: decision}, nil).Maybe()
-			dialog.EXPECT().ShowPermissionDialog(mock.Anything, "https://meet.example.com",
-				[]entity.PermissionType{entity.PermissionTypeDisplay}, mock.Anything, mock.Anything).
-				Run(func(_ context.Context, _ string, _ []entity.PermissionType, _ entity.PermissionMetadata, cb func(port.PermissionDialogResult)) {
-					cb(port.PermissionDialogResult{Allowed: false})
-				}).Once()
+	dialog.EXPECT().ShowPermissionDialog(mock.Anything, "https://meet.example.com",
+		[]entity.PermissionType{entity.PermissionTypeDisplay}, mock.Anything, mock.Anything).
+		Run(func(_ context.Context, _ string, _ []entity.PermissionType, _ entity.PermissionMetadata, cb func(port.PermissionDialogResult)) {
+			cb(port.PermissionDialogResult{Allowed: false})
+		}).Once()
 
-			uc.HandlePermissionRequest(testContext(), "https://meet.example.com",
-				[]entity.PermissionType{entity.PermissionTypeDisplay}, unmediatedDisplayMetadata,
-				usecase.PermissionCallback{Allow: func() { t.Fatal("must not auto-allow") }, Deny: func() {}})
-		})
-	}
+	uc.HandlePermissionRequest(testContext(), "https://meet.example.com",
+		[]entity.PermissionType{entity.PermissionTypeDisplay}, unmediatedDisplayMetadata,
+		usecase.PermissionCallback{Allow: func() { t.Fatal("must not auto-allow") }, Deny: func() {}})
+
+	// Display is never looked up, so no stored decision can auto-allow or auto-deny it.
+	permRepo.AssertNotCalled(t, "Get", mock.Anything, mock.Anything, entity.PermissionTypeDisplay)
 }
 
 func TestHandlePermissionUseCase_UnmediatedDisplayWithMicrophoneDoesNotPersistDisplay(t *testing.T) {

@@ -65,8 +65,9 @@ func (pp *PermissionPopup) Widget() *gtk.Widget {
 }
 
 // Show displays the permission popup with the given heading and body text.
+// When persistable is false the "Always Allow/Deny" buttons are hidden.
 // The callback receives (allowed, persistent) when the user makes a choice.
-func (pp *PermissionPopup) Show(ctx context.Context, heading, body string, callback func(allowed, persistent bool)) {
+func (pp *PermissionPopup) Show(ctx context.Context, heading, body string, persistable bool, callback func(allowed, persistent bool)) {
 	log := logging.FromContext(ctx)
 
 	pp.mu.Lock()
@@ -84,6 +85,12 @@ func (pp *PermissionPopup) Show(ctx context.Context, heading, body string, callb
 	}
 	if pp.bodyLabel != nil {
 		pp.bodyLabel.SetText(body)
+	}
+	if pp.btnAlwaysAllow != nil {
+		pp.btnAlwaysAllow.SetVisible(persistable)
+	}
+	if pp.btnAlwaysDeny != nil {
+		pp.btnAlwaysDeny.SetVisible(persistable)
 	}
 
 	pp.resizeAndCenter()

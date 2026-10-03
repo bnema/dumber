@@ -53,11 +53,15 @@ func mediaPermissionTypes(requested uint32) []string {
 
 // mediaPermissionMetadata flags desktop video capture as unmediated: CEF grants
 // the full screen on Cont() without any picker or portal, so Dumber must ask the
-// user explicitly.
+// user explicitly. Desktop audio (system loopback) is flagged separately so the
+// dialog can disclose it.
 func mediaPermissionMetadata(requested uint32) map[string]string {
 	metadata := map[string]string{}
 	if requested&uint32(purecef.MediaAccessPermissionTypesMediaPermissionDesktopVideoCapture) != 0 {
 		metadata[entity.PermissionMetadataKeyUnmediatedCapture] = entity.PermissionMetadataValueTrue
+	}
+	if requested&uint32(purecef.MediaAccessPermissionTypesMediaPermissionDesktopAudioCapture) != 0 {
+		metadata[entity.PermissionMetadataKeyUnmediatedAudio] = entity.PermissionMetadataValueTrue
 	}
 	return metadata
 }
