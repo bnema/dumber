@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/bnema/dumber/internal/application/port"
+	"github.com/bnema/dumber/internal/domain/entity"
 )
 
 type stubMediaAccessCallback struct {
@@ -33,6 +34,7 @@ type permissionCapture struct {
 	types  []string
 	allow  func()
 	deny   func()
+	meta   map[string]string
 	calls  int
 }
 
@@ -276,7 +278,7 @@ func TestDeliverPermissionRequest(t *testing.T) {
 		req := newReq(&results)
 		req.resolve(false)
 		handlerCalls = 0
-		h.deliverPermissionRequest(req, cb, "https://a.example", []string{"camera"})
+		h.deliverPermissionRequest(req, cb, "https://a.example", []string{"camera"}, nil)
 		assert.Zero(t, handlerCalls)
 		assert.Equal(t, []bool{false}, results)
 	})
@@ -286,7 +288,7 @@ func TestDeliverPermissionRequest(t *testing.T) {
 		var results []bool
 		req := newReq(&results)
 		handlerCalls = 0
-		h.deliverPermissionRequest(req, cb, "https://a.example", []string{"camera"})
+		h.deliverPermissionRequest(req, cb, "https://a.example", []string{"camera"}, nil)
 		assert.Zero(t, handlerCalls)
 		assert.Equal(t, []bool{false}, results)
 	})
@@ -412,4 +414,32 @@ func TestDispatchPermissionResultPostsToUIThread(t *testing.T) {
 	assert.Equal(t, purecef.ThreadIDTidUi, gotThread)
 	posted.Execute()
 	assert.Equal(t, 1, ran)
+}
+
+func TestOnRequestMediaAccessPermissionFlagsDesktopVideoAsUnmediated(t *testing.T) {
+	tests := []struct {
+		name      string
+		requested uint32
+		flagged   bool
+	}{
+		{"desktop video", mediaDeskV, true},
+		{"desktop audio and video", mediaDeskA | mediaDeskV, true},
+		{"camera and desktop video", mediaCamera | mediaDeskV, true},
+		{"camera only", mediaCamera, false},
+		{"microphone and camera", mediaMic | mediaCamera, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			capture := &permissionCapture{}
+			h, _, browser := newPermissionTestHandler(t, true)
+			h.wv.callbacks.OnPermissionRequest = func(_ string, types []string, meta map[string]string, _, _ func()) bool {
+				capture.types, capture.meta = types, meta
+				return true
+			}
+			cb := &stubMediaAccessCallback{}
+			require.Equal(t, int32(1), h.OnRequestMediaAccessPermission(browser, nil, "https://meet.example.com", tt.requested, cb))
+			require.NotNil(t, capture.types)
+			assert.Equal(t, tt.flagged, entity.PermissionMetadata(capture.meta).IsUnmediatedCapture())
+		})
+	}
 }

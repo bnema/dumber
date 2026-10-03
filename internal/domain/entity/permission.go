@@ -47,6 +47,14 @@ const (
 	// PermissionMetadataKeyCurrentDomain is the first-party domain currently loaded in
 	// the WebView — the context in which the cross-site request is happening.
 	PermissionMetadataKeyCurrentDomain = "current_domain"
+
+	// PermissionMetadataKeyUnmediatedCapture is set to PermissionMetadataValueTrue when no
+	// system picker/portal will mediate a display capture grant, i.e. allowing the request
+	// shares the entire screen immediately (CEF). It disables display auto-allow.
+	PermissionMetadataKeyUnmediatedCapture = "unmediated_capture"
+
+	// PermissionMetadataValueTrue is the metadata value for boolean flags.
+	PermissionMetadataValueTrue = "true"
 )
 
 // PermissionMetadata carries extra context for specific permission types.
@@ -107,7 +115,25 @@ func CanPersist(permType PermissionType) bool {
 	}
 }
 
+// IsUnmediatedCapture reports whether the metadata flags a display capture that no
+// system picker/portal mediates.
+func (m PermissionMetadata) IsUnmediatedCapture() bool {
+	return m[PermissionMetadataKeyUnmediatedCapture] == PermissionMetadataValueTrue
+}
+
+// IsAutoAllowFor is IsAutoAllow with request metadata taken into account: an
+// unmediated display capture is never auto-allowed.
+func IsAutoAllowFor(permType PermissionType, metadata PermissionMetadata) bool {
+	if permType == PermissionTypeDisplay && metadata.IsUnmediatedCapture() {
+		return false
+	}
+	return IsAutoAllow(permType)
+}
+
 // IsAutoAllow returns true if this permission type should be auto-allowed.
+// Exception: display capture is only auto-allowed when a system picker/portal
+// mediates it (WebKit); use IsAutoAllowFor for requests that may carry
+// PermissionMetadataKeyUnmediatedCapture (CEF), which must prompt the user.
 func IsAutoAllow(permType PermissionType) bool {
 	switch permType {
 	case PermissionTypeDisplay:

@@ -51,6 +51,17 @@ func mediaPermissionTypes(requested uint32) []string {
 	return types
 }
 
+// mediaPermissionMetadata flags desktop video capture as unmediated: CEF grants
+// the full screen on Cont() without any picker or portal, so Dumber must ask the
+// user explicitly.
+func mediaPermissionMetadata(requested uint32) map[string]string {
+	metadata := map[string]string{}
+	if requested&uint32(purecef.MediaAccessPermissionTypesMediaPermissionDesktopVideoCapture) != 0 {
+		metadata[entity.PermissionMetadataKeyUnmediatedCapture] = entity.PermissionMetadataValueTrue
+	}
+	return metadata
+}
+
 // promptPermissionTypes maps a CEF permission prompt bitmask to Dumber
 // permission types. It returns nil when the mask is empty or contains any bit
 // Dumber does not support.
@@ -186,6 +197,7 @@ func (h *handlerSet) OnRequestMediaAccessPermission(
 	h.beginPermissionRequest(
 		h.permissions.nextMediaKey(), browser, requestingOrigin,
 		mediaPermissionTypes(requestedPermissions),
+		mediaPermissionMetadata(requestedPermissions),
 		func(allow bool) {
 			if allow {
 				callback.Cont(requestedPermissions)
@@ -213,7 +225,7 @@ func (h *handlerSet) OnShowPermissionPrompt(
 	if len(types) == 0 {
 		return 0
 	}
-	h.beginPermissionRequest(permissionKey{prompt: true, id: promptID}, browser, requestingOrigin, types, func(allow bool) {
+	h.beginPermissionRequest(permissionKey{prompt: true, id: promptID}, browser, requestingOrigin, types, nil, func(allow bool) {
 		if allow {
 			callback.Cont(purecef.PermissionRequestResultPermissionResultAccept)
 			return
@@ -269,6 +281,7 @@ func (h *handlerSet) beginPermissionRequest(
 	browser purecef.Browser,
 	requestingOrigin string,
 	types []string,
+	metadata map[string]string,
 	finish func(allow bool),
 ) {
 	wv := h.wv
@@ -303,7 +316,7 @@ func (h *handlerSet) beginPermissionRequest(
 		return
 	}
 
-	wv.runOnGTK(func() { h.deliverPermissionRequest(req, cb, origin, types) })
+	wv.runOnGTK(func() { h.deliverPermissionRequest(req, cb, origin, types, metadata) })
 }
 
 // deliverPermissionRequest runs on the GTK thread. It skips requests that were
@@ -314,6 +327,7 @@ func (h *handlerSet) deliverPermissionRequest(
 	cb *port.WebViewCallbacks,
 	origin string,
 	types []string,
+	metadata map[string]string,
 ) {
 	if req.isDone() {
 		return
@@ -324,7 +338,7 @@ func (h *handlerSet) deliverPermissionRequest(
 	}
 	allow := func() { req.resolve(true) }
 	deny := func() { req.resolve(false) }
-	if !cb.OnPermissionRequest(origin, types, map[string]string{}, allow, deny) {
+	if !cb.OnPermissionRequest(origin, types, metadata, allow, deny) {
 		req.resolve(false)
 	}
 }

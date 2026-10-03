@@ -244,7 +244,11 @@ func (d *PermissionDialog) buildBody(
 		parts = append(parts, "access your camera")
 	}
 	if f.display {
-		parts = append(parts, "share your screen")
+		if metadata.IsUnmediatedCapture() {
+			parts = append(parts, "share your entire screen")
+		} else {
+			parts = append(parts, "share your screen")
+		}
 	}
 	if f.notification {
 		parts = append(parts, "show notifications")
