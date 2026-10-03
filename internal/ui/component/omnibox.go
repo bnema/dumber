@@ -7,7 +7,6 @@ import (
 	"sync"
 	"time"
 	"unicode/utf8"
-	"unsafe"
 
 	"github.com/bnema/puregotk/v4/gdk"
 	"github.com/bnema/puregotk/v4/glib"
@@ -613,10 +612,8 @@ func widgetMonitorHeight(widget *gtk.Widget) int {
 	if monitor == nil {
 		return 0
 	}
-	// gdk.Rectangle uses Go int fields, but GdkRectangle holds four C ints.
-	// Read the geometry through a struct with the C layout.
-	var geometry struct{ X, Y, Width, Height int32 }
-	monitor.GetGeometry((*gdk.Rectangle)(unsafe.Pointer(&geometry))) //nolint:gosec // C GdkRectangle layout, see above.
+	var geometry gdk.Rectangle
+	monitor.GetGeometry(&geometry)
 	return int(geometry.Height)
 }
 
