@@ -3589,6 +3589,16 @@ func (a *App) wireKeyboardActions() {
 	})
 }
 
+// permissionDialogForPane returns the permission dialog of the window owning the
+// pane (including floating panes), or nil when no window or dialog is available.
+func (a *App) permissionDialogForPane(paneID entity.PaneID) port.PermissionDialogPresenter {
+	bw := a.browserWindowForAnyPane(paneID)
+	if bw == nil || bw.permissionDialog == nil {
+		return nil
+	}
+	return bw.permissionDialog
+}
+
 func (a *App) wireWebRTCPermissionIndicator() {
 	if a.contentCoord == nil {
 		return
@@ -3598,18 +3608,24 @@ func (a *App) wireWebRTCPermissionIndicator() {
 		ctx = a.deps.Ctx
 	}
 
+	a.contentCoord.SetOnPermissionPrompt(func(paneID entity.PaneID) {
+		if a.deps == nil || a.deps.PermissionUC == nil {
+			return
+		}
+		// Clears the presenter when no window owns the pane, so the request is
+		// denied instead of being shown in a stale or wrong window.
+		a.deps.PermissionUC.SetDialogPresenter(a.permissionDialogForPane(paneID))
+	})
+
 	a.contentCoord.SetOnPermissionActivity(func(
 		paneID entity.PaneID,
 		origin string,
 		permTypes []entity.PermissionType,
 		state content.PermissionActivityState,
 	) {
-		bw := a.browserWindowForPane(paneID)
+		bw := a.browserWindowForAnyPane(paneID)
 		if bw == nil || bw.webrtcIndicator == nil {
 			return
-		}
-		if state == content.PermissionActivityRequesting && a.deps != nil && a.deps.PermissionUC != nil && bw.permissionDialog != nil {
-			a.deps.PermissionUC.SetDialogPresenter(bw.permissionDialog)
 		}
 		bw.webrtcIndicator.SetOrigin(origin)
 

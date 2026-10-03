@@ -61,6 +61,10 @@ type Coordinator struct {
 	// Callback when media permission activity changes (requesting/allowed/blocked).
 	onPermissionActivity func(paneID entity.PaneID, origin string, permTypes []entity.PermissionType, state PermissionActivityState)
 
+	// Callback invoked for every permission request, before it is handled, so the
+	// UI can bind the permission dialog of the window owning the pane.
+	onPermissionPrompt func(paneID entity.PaneID)
+
 	// Callback when the active pane commits a navigation (new page loading).
 	onActiveNavigationCommitted func(paneID entity.PaneID, uri string)
 
@@ -198,6 +202,12 @@ func (c *Coordinator) SetOnPermissionActivity(
 	fn func(paneID entity.PaneID, origin string, permTypes []entity.PermissionType, state PermissionActivityState),
 ) {
 	c.onPermissionActivity = fn
+}
+
+// SetOnPermissionPrompt sets a callback invoked for every permission request
+// (not only WebRTC ones) before it reaches the permission use case.
+func (c *Coordinator) SetOnPermissionPrompt(fn func(paneID entity.PaneID)) {
+	c.onPermissionPrompt = fn
 }
 
 // SetOnActiveNavigationCommitted sets a callback fired when the active pane commits a navigation.
