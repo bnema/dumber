@@ -72,7 +72,7 @@ func (h *handlerSet) GetFindHandler() purecef.FindHandler             { return h
 func (h *handlerSet) GetFocusHandler() purecef.FocusHandler           { return nil }
 func (h *handlerSet) GetFrameHandler() purecef.FrameHandler           { return nil }
 func (h *handlerSet) GetPermissionHandler() purecef.PermissionHandler { return nil }
-func (h *handlerSet) GetJsdialogHandler() purecef.JsdialogHandler     { return nil }
+func (h *handlerSet) GetJsdialogHandler() purecef.JsdialogHandler     { return h }
 func (h *handlerSet) GetKeyboardHandler() purecef.KeyboardHandler     { return nil }
 func (h *handlerSet) GetLifeSpanHandler() purecef.LifeSpanHandler     { return h }
 func (h *handlerSet) GetLoadHandler() purecef.LoadHandler             { return h }

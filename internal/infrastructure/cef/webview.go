@@ -221,6 +221,7 @@ type WebView struct {
 	// Callbacks and browsing-context state set by the UI layer.
 	mu                         sync.RWMutex
 	callbacks                  *port.WebViewCallbacks
+	jsDialogs                  jsDialogState
 	browsingContextDecision    dto.HostDecision
 	hasBrowsingContextDecision bool
 	nativePopupHostAbort       func()
@@ -1332,6 +1333,7 @@ func (wv *WebView) Destroy() {
 	// calling thread; GTK-only cleanup follows through the owning
 	// dispatcher without waiting for the deferred native browser close.
 	wv.invalidateScrollMotion()
+	wv.cancelJSDialogs()
 	wv.shutdownAccessibilityCapture()
 	wv.resetPageScrollQueue()
 	wv.syntheticPopupMu.Lock()

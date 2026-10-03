@@ -37,6 +37,16 @@ func generatePermissionPopupCSS(p Palette) string {
 	padding: 0.5em 0.75em;
 }
 
+/* JS dialog (alert/confirm/prompt/beforeunload): per-pane scrim + prompt entry */
+.jsdialog-scrim {
+	background-color: alpha(black, 0.35);
+}
+
+.jsdialog-entry {
+	margin: 0 1em 0.75em 1em;
+	font-size: 0.8125em;
+}
+
 /* Shared button base */
 .permission-popup-btn {
 	background-image: none;
