@@ -531,6 +531,8 @@ func (h *handlerSet) OnLoadStart(_ purecef.Browser, frame purecef.Frame, _ purec
 	// Post-commit fallback for navigation paths that bypass OnBeforeBrowse
 	// (same-page, error, and helper-driven commits). Main frame only.
 	if h.wv != nil {
+		// A new document replaces the page that asked for any open JS dialog.
+		h.wv.cancelJSDialogs()
 		h.wv.invalidateScrollMotion()
 		h.wv.mu.Lock()
 		h.wv.documentSeq++

@@ -1333,7 +1333,7 @@ func (wv *WebView) Destroy() {
 	// calling thread; GTK-only cleanup follows through the owning
 	// dispatcher without waiting for the deferred native browser close.
 	wv.invalidateScrollMotion()
-	wv.cancelJSDialogs()
+	wv.cancelJSDialogsClosing(true)
 	wv.shutdownAccessibilityCapture()
 	wv.resetPageScrollQueue()
 	wv.syntheticPopupMu.Lock()
