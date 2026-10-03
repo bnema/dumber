@@ -1159,3 +1159,30 @@ func TestRestoreSession_ActiveWindowIndexSyncsState(t *testing.T) {
 	assert.Equal(t, entity.WindowID("active-w2"), result[idx].WindowID,
 		"window at active index must match focused window ID")
 }
+
+func TestApp_PermissionDialogForPane(t *testing.T) {
+	tabID := entity.TabID("tab-1")
+	tabPane := entity.PaneID("pane-in-tab")
+	floatingPane := entity.PaneID("pane-floating")
+	tab := entity.NewTab(tabID, entity.WorkspaceID("ws-1"), entity.NewPane(tabPane))
+	tabs := entity.NewTabList()
+	tabs.Add(tab)
+	dialogA := &testPermissionDialogPresenter{}
+	owner := &browserWindow{id: "window-1", tabs: tabs, permissionDialog: dialogA}
+	noDialog := &browserWindow{id: "window-2", tabs: entity.NewTabList()}
+	app := &App{
+		browserWindows: map[string]*browserWindow{owner.id: owner, noDialog.id: noDialog},
+		windowForTab:   map[entity.TabID]*browserWindow{tabID: owner},
+		floatingSessions: map[floatingSessionKey]*floatingWorkspaceSession{
+			{tabID: tabID, sessionID: "profile"}: {paneID: floatingPane},
+		},
+	}
+
+	assert.Same(t, dialogA, app.permissionDialogForPane(tabPane), "tiled pane")
+	assert.Same(t, dialogA, app.permissionDialogForPane(floatingPane), "floating pane uses its tab's window")
+	assert.Nil(t, app.permissionDialogForPane("unknown"), "unowned pane clears the presenter")
+	assert.Nil(t, app.permissionDialogForPane(""))
+
+	owner.permissionDialog = nil
+	assert.Nil(t, app.permissionDialogForPane(tabPane), "window without dialog")
+}
