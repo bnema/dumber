@@ -1,0 +1,48 @@
+package component
+
+import (
+	"strings"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+
+	"github.com/bnema/dumber/internal/application/port"
+)
+
+func TestJSDialogOriginLabel(t *testing.T) {
+	assert.Equal(t, "example.com", jsDialogOriginLabel("https://example.com/a?b=c"))
+	assert.Equal(t, "example.com:8080", jsDialogOriginLabel("http://example.com:8080/"))
+	assert.Equal(t, "This page", jsDialogOriginLabel(""))
+	assert.Equal(t, "This page", jsDialogOriginLabel("not a url"))
+	assert.Equal(t, "file:", jsDialogOriginLabel("file:///tmp/x.html"))
+	long := jsDialogOriginLabel("https://" + strings.Repeat("a", 500) + ".com/")
+	assert.LessOrEqual(t, len([]rune(long)), jsDialogMaxHostChars+1)
+}
+
+func TestBuildJSDialogContent(t *testing.T) {
+	origin := "https://example.com/x"
+
+	alert := buildJSDialogContent(port.JSDialogRequest{Type: port.JSDialogAlert, Origin: origin, Message: "<b>hi</b>"})
+	assert.Equal(t, "example.com says:", alert.Heading)
+	assert.Equal(t, "<b>hi</b>", alert.Body, "message must stay plain text")
+	assert.Equal(t, "OK", alert.OKLabel)
+	assert.Empty(t, alert.CancelLabel)
+	assert.False(t, alert.ShowInput)
+
+	confirm := buildJSDialogContent(port.JSDialogRequest{Type: port.JSDialogConfirm, Origin: origin})
+	assert.Equal(t, "Cancel", confirm.CancelLabel)
+	assert.False(t, confirm.ShowInput)
+
+	prompt := buildJSDialogContent(port.JSDialogRequest{Type: port.JSDialogPrompt, Origin: origin})
+	assert.True(t, prompt.ShowInput)
+	assert.Equal(t, "Cancel", prompt.CancelLabel)
+
+	leave := buildJSDialogContent(port.JSDialogRequest{Type: port.JSDialogBeforeUnload, Origin: origin})
+	assert.Equal(t, "Leave page?", leave.Heading)
+	assert.Equal(t, "Leave", leave.OKLabel)
+	assert.Equal(t, "Stay", leave.CancelLabel)
+	assert.Contains(t, leave.Body, "example.com")
+
+	reload := buildJSDialogContent(port.JSDialogRequest{Type: port.JSDialogBeforeUnload, Origin: origin, IsReload: true, Message: "x"})
+	assert.Equal(t, "Reload page?", reload.Heading)
+}

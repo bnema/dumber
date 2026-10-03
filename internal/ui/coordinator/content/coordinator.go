@@ -46,6 +46,10 @@ type Coordinator struct {
 	// Callback to get active workspace state (avoids circular dependency)
 	getActiveWS func() (*entity.Workspace, *component.WorkspaceView)
 
+	// Resolves a pane's view across all tabs/windows (JS dialogs can come from
+	// background panes). Falls back to the active workspace view when nil.
+	paneViewResolver func(paneID entity.PaneID) *component.PaneView
+
 	// Callback when title changes (for history persistence)
 	onTitleUpdated func(ctx context.Context, paneID entity.PaneID, url, title string)
 
@@ -244,6 +248,11 @@ func (c *Coordinator) SetOnFullscreenChanged(fn func(paneID entity.PaneID, enter
 // SetOnWebViewFocused sets the callback for when a WebView gains focus.
 func (c *Coordinator) SetOnWebViewFocused(fn func(paneID entity.PaneID, wv port.WebView)) {
 	c.onWebViewFocused = fn
+}
+
+// SetPaneViewResolver sets a resolver that finds a pane's view in any tab/window.
+func (c *Coordinator) SetPaneViewResolver(fn func(paneID entity.PaneID) *component.PaneView) {
+	c.paneViewResolver = fn
 }
 
 // SetOnEditableFocusChanged sets the callback for page editable focus changes.

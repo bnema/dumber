@@ -5,6 +5,7 @@ import (
 	"context"
 	"sync"
 
+	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/dumber/internal/ui/input"
@@ -26,6 +27,8 @@ type PaneView struct {
 	toaster       *Toaster           // Toast notification overlay
 	linkStatus    *LinkStatusOverlay // Link hover URL overlay
 	loading       *LoadingSkeleton   // Placeholder shown until WebView paints
+	jsDialog      *JSDialogPopup     // JS alert/confirm/prompt/beforeunload overlay
+	jsDialogWidth layout.Widget      // overlay wrapper of jsDialog, for removal
 	paneID        entity.PaneID
 	isActive      bool
 
@@ -584,5 +587,63 @@ func (pv *PaneView) Cleanup() {
 		pv.linkStatus.Cleanup() // Cancel pending timers before removal
 		pv.overlay.RemoveOverlay(pv.linkStatus.Widget())
 		pv.linkStatus = nil
+	}
+	if pv.jsDialogWidth != nil {
+		pv.overlay.RemoveOverlay(pv.jsDialogWidth)
+		pv.jsDialogWidth = nil
+		pv.jsDialog = nil
+	}
+}
+
+// ensureJSDialog creates the JS dialog popup lazily on first use.
+// Must be called with write lock held.
+func (pv *PaneView) ensureJSDialog() *JSDialogPopup {
+	if pv.jsDialog != nil {
+		return pv.jsDialog
+	}
+	popup := NewJSDialogPopup()
+	if popup == nil {
+		return nil
+	}
+	w := pv.factory.WrapWidget(popup.Widget())
+	pv.overlay.AddOverlay(w)
+	pv.overlay.SetClipOverlay(w, false)
+	pv.overlay.SetMeasureOverlay(w, false)
+	popup.SetOnHidden(func() {
+		// Return keyboard focus to the page once the dialog is gone.
+		pv.mu.RLock()
+		wvw := pv.webViewWidget
+		pv.mu.RUnlock()
+		if wvw != nil {
+			wvw.GrabFocus()
+		}
+	})
+	pv.jsDialog = popup
+	pv.jsDialogWidth = w
+	return popup
+}
+
+// ShowJSDialog displays a JavaScript dialog scoped to this pane. The dialog
+// lives in the pane's overlay, so it never blocks other panes; if the pane is
+// in a background tab it becomes visible when that tab is shown. respond is
+// invoked once with the user's answer. Returns false if the popup is unavailable.
+func (pv *PaneView) ShowJSDialog(req port.JSDialogRequest, respond func(ok bool, input string)) bool {
+	pv.mu.Lock()
+	popup := pv.ensureJSDialog()
+	pv.mu.Unlock()
+	if popup == nil {
+		return false
+	}
+	popup.Show(req, respond)
+	return true
+}
+
+// HideJSDialog closes any JS dialog without answering it (engine-canceled).
+func (pv *PaneView) HideJSDialog() {
+	pv.mu.RLock()
+	popup := pv.jsDialog
+	pv.mu.RUnlock()
+	if popup != nil {
+		popup.Hide()
 	}
 }
