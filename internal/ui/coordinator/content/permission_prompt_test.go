@@ -19,9 +19,7 @@ func TestHandlePermissionRequest_BindsDialogBeforeUseCaseForNonWebRTCRequest(t *
 	permRepo := portmocks.NewMockPermissionRepository(t)
 	dialog := portmocks.NewMockPermissionDialogPresenter(t)
 	// The use case starts without a dialog presenter, like in production.
-	uc := usecase.NewHandlePermissionUseCase(permRepo, nil, func(ctx context.Context) *zerolog.Logger {
-		return zerolog.Ctx(ctx)
-	})
+	uc := usecase.NewHandlePermissionUseCase(permRepo, nil, zerolog.Ctx)
 
 	permRepo.EXPECT().Get(mock.Anything, "https://maps.example.com", entity.PermissionTypeGeolocation).
 		Return(nil, nil)
