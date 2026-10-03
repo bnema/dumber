@@ -3598,6 +3598,15 @@ func (a *App) wireWebRTCPermissionIndicator() {
 		ctx = a.deps.Ctx
 	}
 
+	a.contentCoord.SetOnPermissionPrompt(func(paneID entity.PaneID) {
+		if a.deps == nil || a.deps.PermissionUC == nil {
+			return
+		}
+		if bw := a.browserWindowForPane(paneID); bw != nil && bw.permissionDialog != nil {
+			a.deps.PermissionUC.SetDialogPresenter(bw.permissionDialog)
+		}
+	})
+
 	a.contentCoord.SetOnPermissionActivity(func(
 		paneID entity.PaneID,
 		origin string,
@@ -3607,9 +3616,6 @@ func (a *App) wireWebRTCPermissionIndicator() {
 		bw := a.browserWindowForPane(paneID)
 		if bw == nil || bw.webrtcIndicator == nil {
 			return
-		}
-		if state == content.PermissionActivityRequesting && a.deps != nil && a.deps.PermissionUC != nil && bw.permissionDialog != nil {
-			a.deps.PermissionUC.SetDialogPresenter(bw.permissionDialog)
 		}
 		bw.webrtcIndicator.SetOrigin(origin)
 

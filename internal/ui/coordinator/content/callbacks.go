@@ -270,6 +270,11 @@ func (c *Coordinator) handlePermissionRequest(
 		return true
 	}
 
+	// Bind the dialog presenter of the window owning this pane before handling.
+	if c.onPermissionPrompt != nil {
+		c.onPermissionPrompt(paneID)
+	}
+
 	// Delegate to use case
 	callback := usecase.PermissionCallback{
 		Allow: wrappedAllow,
