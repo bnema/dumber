@@ -58,7 +58,7 @@ The browser chrome stays out of the way by default. Open the omnibox when you wa
 
 - Chromium Embedded Framework backend by default
 - WebKit backend available as a fallback
-- Built-in ad blocking based on uBlock filter lists
+- Built-in ad blocking based on uBlock filter lists (WebKit backend only; see [Extensions and ad blocking](#extensions-and-ad-blocking))
 - GPU-accelerated video through VA-API/VDPAU where supported
 - Snapshot-based restoration of tabs, workspaces, and pane layout
 
