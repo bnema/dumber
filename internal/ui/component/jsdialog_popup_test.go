@@ -19,6 +19,21 @@ func TestJSDialogOriginLabel(t *testing.T) {
 	assert.LessOrEqual(t, len([]rune(long)), jsDialogMaxHostChars+1)
 }
 
+func TestJSDialogOriginLabelOpaqueSchemes(t *testing.T) {
+	cases := map[string]string{
+		"blob:https://example.com/3f1c-uuid":                "example.com",
+		"blob:http://sub.example.com:8080/uuid":             "sub.example.com:8080",
+		"filesystem:https://example.com/temporary/file.txt": "example.com",
+		"blob:null/uuid":          "blob:",
+		"blob:":                   "blob:",
+		"data:text/html,<b>x</b>": "data:",
+		"javascript:alert(1)":     "javascript:",
+	}
+	for in, want := range cases {
+		assert.Equal(t, want, jsDialogOriginLabel(in), in)
+	}
+}
+
 func TestJSDialogOriginLabelKeepsRegistrableDomain(t *testing.T) {
 	// A long attacker-controlled prefix must not push the real domain out.
 	label := jsDialogOriginLabel("https://" + strings.Repeat("paypal.com.", 20) + "evil.test/")

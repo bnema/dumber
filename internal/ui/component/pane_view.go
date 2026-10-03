@@ -31,6 +31,7 @@ type PaneView struct {
 	jsDialog       jsDialogView       // JS alert/confirm/prompt/beforeunload overlay
 	jsDialogWidget layout.Widget      // overlay wrapper of jsDialog, for removal
 	newJSDialog    func(layout.OverlayWidget) jsDialogView
+	cleanedUp      bool // Cleanup ran: no new JS dialog may be created
 	paneID         entity.PaneID
 	isActive       bool
 
@@ -219,10 +220,20 @@ func (pv *PaneView) AttachWebViewWidget(widget layout.Widget, revealed bool) {
 
 // GrabFocus attempts to focus the WebView.
 // Returns true if focus was successfully grabbed.
+//
+// While a JS dialog is open it owns keyboard focus: activation paths call
+// SetActive(true) (which requests dialog focus) and then GrabFocus, which must
+// not steal focus back to the page.
 func (pv *PaneView) GrabFocus() bool {
 	pv.mu.RLock()
 	wv := pv.webViewWidget
+	popup := pv.jsDialog
 	pv.mu.RUnlock()
+
+	if popup != nil && popup.Visible() {
+		popup.RequestFocus()
+		return true
+	}
 
 	if wv == nil {
 		return false
@@ -556,8 +567,14 @@ func (pv *PaneView) IsVimMode() bool {
 // Cleanup removes the WebView widget from the overlay and clears references.
 // This must be called before destroying the WebView to ensure proper GTK cleanup.
 // After calling Cleanup, the PaneView should not be reused.
+//
+// An open JS dialog is answered with cancel ("Stay" for beforeunload). That is
+// an accepted trade-off: WorkspaceView.Rebuild (split/close/consume/reattach)
+// cleans up views whose WebView survives, so such a dialog is canceled rather
+// than carried over to the rebuilt view. Canceling is the safe default.
 func (pv *PaneView) Cleanup() {
 	pv.mu.Lock()
+	pv.cleanedUp = true
 	// The WebView may outlive this view (workspace rebuild), so an open JS
 	// dialog must be answered, not dropped. The hidden callback re-locks
 	// pv.mu, so detach it here and dismiss after unlocking.
@@ -625,6 +642,7 @@ type jsDialogView interface {
 	Hide()
 	Dismiss(ok bool)
 	RequestFocus()
+	Visible() bool
 	SetOnHidden(fn func(hadFocus bool))
 	Destroy()
 }
@@ -680,6 +698,10 @@ func (pv *PaneView) ensureJSDialog() jsDialogView {
 // popup is unavailable.
 func (pv *PaneView) ShowJSDialog(req port.JSDialogRequest, respond func(ok bool, input string), uiScale float64) bool {
 	pv.mu.Lock()
+	if pv.cleanedUp {
+		pv.mu.Unlock()
+		return false
+	}
 	popup := pv.ensureJSDialog()
 	focus := pv.isActive
 	pv.mu.Unlock()
