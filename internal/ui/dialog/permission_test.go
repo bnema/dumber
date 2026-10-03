@@ -179,3 +179,19 @@ func TestPermissionDialog_BuildHeadingAndBody_DisplayCombinations(t *testing.T) 
 		assert.Equal(t, origin+" wants to allow accounts.google.com to access its data (including cookies) while you browse shop.example.com.", body)
 	})
 }
+
+func TestPermissionDialog_BuildBody_UnmediatedDisplay(t *testing.T) {
+	d := &PermissionDialog{}
+	origin := "https://meet.example.com"
+	meta := entity.PermissionMetadata{
+		entity.PermissionMetadataKeyUnmediatedCapture: entity.PermissionMetadataValueTrue,
+	}
+
+	assert.Equal(t, origin+" wants to share your entire screen.",
+		d.buildBody(origin, []entity.PermissionType{entity.PermissionTypeDisplay}, meta))
+	assert.Equal(t, origin+" wants to access your camera and share your entire screen.",
+		d.buildBody(origin, []entity.PermissionType{entity.PermissionTypeCamera, entity.PermissionTypeDisplay}, meta))
+	// Mediated display (WebKit portal) keeps the generic wording.
+	assert.Equal(t, origin+" wants to share your screen.",
+		d.buildBody(origin, []entity.PermissionType{entity.PermissionTypeDisplay}, nil))
+}

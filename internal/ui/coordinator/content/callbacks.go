@@ -236,7 +236,7 @@ func (c *Coordinator) handlePermissionRequest(
 		// Auto-allow display and device_info, deny others
 		allAutoAllow := true
 		for _, pt := range entityTypes {
-			if !entity.IsAutoAllow(pt) {
+			if !entity.IsAutoAllowFor(pt, entity.PermissionMetadata(metadata)) {
 				allAutoAllow = false
 				break
 			}

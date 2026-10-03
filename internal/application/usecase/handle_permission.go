@@ -133,20 +133,20 @@ func (uc *HandlePermissionUseCase) HandlePermissionRequest(
 		return
 	}
 
-	if uc.isAutoAllowOverrideDenied(ctx, origin, permTypes) {
+	if uc.isAutoAllowOverrideDenied(ctx, origin, permTypes, metadata) {
 		log.Debug().Msg("manual override denied auto-allow permission request")
 		callback.Deny()
 		return
 	}
 
-	if isAutoAllowSet(permTypes) {
+	if isAutoAllowSet(permTypes, metadata) {
 		log.Debug().Msg("auto-allowing permission request")
 		callback.Allow()
 		return
 	}
 
 	// For mic/camera: check stored permissions first
-	decision := uc.checkStoredPermissions(ctx, origin, permTypes)
+	decision := uc.checkStoredPermissions(ctx, origin, permTypes, metadata)
 	switch decision {
 	case entity.PermissionGranted:
 		if isWebsiteDataAccessPermission(permTypes) {
@@ -212,9 +212,9 @@ func (uc *HandlePermissionUseCase) QueryPermissionState(
 }
 
 // isAutoAllowSet returns true if all permission types in the set are auto-allow.
-func isAutoAllowSet(permTypes []entity.PermissionType) bool {
+func isAutoAllowSet(permTypes []entity.PermissionType, metadata entity.PermissionMetadata) bool {
 	for _, pt := range permTypes {
-		if !entity.IsAutoAllow(pt) {
+		if !entity.IsAutoAllowFor(pt, metadata) {
 			return false
 		}
 	}
@@ -227,6 +227,7 @@ func (uc *HandlePermissionUseCase) checkStoredPermissions(
 	ctx context.Context,
 	origin string,
 	permTypes []entity.PermissionType,
+	metadata entity.PermissionMetadata,
 ) entity.PermissionDecision {
 	log := uc.logger(ctx)
 
@@ -234,7 +235,7 @@ func (uc *HandlePermissionUseCase) checkStoredPermissions(
 
 	for _, permType := range permTypes {
 		// Skip auto-allow types - they're handled before this function
-		if entity.IsAutoAllow(permType) {
+		if entity.IsAutoAllowFor(permType, metadata) {
 			continue
 		}
 
@@ -414,9 +415,10 @@ func (uc *HandlePermissionUseCase) isAutoAllowOverrideDenied(
 	ctx context.Context,
 	origin string,
 	permTypes []entity.PermissionType,
+	metadata entity.PermissionMetadata,
 ) bool {
 	for _, permType := range permTypes {
-		if !entity.IsAutoAllow(permType) {
+		if !entity.IsAutoAllowFor(permType, metadata) {
 			continue
 		}
 

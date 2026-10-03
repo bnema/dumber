@@ -58,3 +58,35 @@ func TestHandlePermissionRequest_BindsDialogBeforeUseCaseForNonWebRTCRequest(t *
 	assert.Zero(t, denied)
 	assert.Zero(t, activityCalls, "geolocation is not tracked by the WebRTC indicator")
 }
+
+func TestHandlePermissionRequest_NoUseCaseFallbackDeniesUnmediatedDisplay(t *testing.T) {
+	tests := []struct {
+		name      string
+		metadata  map[string]string
+		wantAllow bool
+	}{
+		{"mediated display is auto-allowed", nil, true},
+		{
+			"unmediated display is denied",
+			map[string]string{entity.PermissionMetadataKeyUnmediatedCapture: entity.PermissionMetadataValueTrue},
+			false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := &Coordinator{}
+			allowed, denied := 0, 0
+			handled := c.handlePermissionRequest(context.Background(), "pane-1", "https://meet.example.com",
+				[]string{"display"}, tt.metadata, func() { allowed++ }, func() { denied++ })
+
+			require.True(t, handled)
+			if tt.wantAllow {
+				assert.Equal(t, 1, allowed)
+				assert.Zero(t, denied)
+			} else {
+				assert.Zero(t, allowed)
+				assert.Equal(t, 1, denied)
+			}
+		})
+	}
+}
