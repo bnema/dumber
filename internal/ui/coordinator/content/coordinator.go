@@ -47,8 +47,10 @@ type Coordinator struct {
 	getActiveWS func() (*entity.Workspace, *component.WorkspaceView)
 
 	// Resolves a pane's view across all tabs/windows (JS dialogs can come from
-	// background panes). Falls back to the active workspace view when nil.
+	// background panes). JS dialogs are not shown while it is nil.
 	paneViewResolver func(paneID entity.PaneID) *component.PaneView
+	// Current UI scale, used to size JS dialogs.
+	uiScaleProvider func() float64
 
 	// Callback when title changes (for history persistence)
 	onTitleUpdated func(ctx context.Context, paneID entity.PaneID, url, title string)
@@ -253,6 +255,11 @@ func (c *Coordinator) SetOnWebViewFocused(fn func(paneID entity.PaneID, wv port.
 // SetPaneViewResolver sets a resolver that finds a pane's view in any tab/window.
 func (c *Coordinator) SetPaneViewResolver(fn func(paneID entity.PaneID) *component.PaneView) {
 	c.paneViewResolver = fn
+}
+
+// SetUIScaleProvider sets the source of the current UI scale.
+func (c *Coordinator) SetUIScaleProvider(fn func() float64) {
+	c.uiScaleProvider = fn
 }
 
 // SetOnEditableFocusChanged sets the callback for page editable focus changes.

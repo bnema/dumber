@@ -10,14 +10,29 @@ import (
 	"github.com/bnema/puregotk/v4/pango"
 
 	"github.com/bnema/dumber/internal/application/port"
+	"github.com/bnema/dumber/internal/ui/layout"
 )
 
 const (
 	jsDialogMaxBodyHeight = 240
 	jsDialogMaxWidthChars = 60
 	jsDialogMaxHostChars  = 80
-	jsDialogDialogWidth   = 420
+	// jsDialogMaxTextRunes caps page-controlled text (message, prompt default)
+	// so a hostile page can't make GTK lay out megabytes of text.
+	jsDialogMaxTextRunes = 3000
+	// jsDialogBeforeUnloadText is Dumber's own beforeunload text: CEF always
+	// passes a fixed string, and browsers no longer show page text here.
+	jsDialogBeforeUnloadText = "Changes you made may not be saved."
 )
+
+// JSDialogSizeDefaults sizes the dialog box relative to its pane.
+var JSDialogSizeDefaults = ModalSizeConfig{
+	WidthPct:       0.9,
+	MaxWidth:       420,
+	TopMarginPct:   0.3,
+	FallbackWidth:  420,
+	FallbackHeight: 300,
+}
 
 // jsDialogContent is the plain-text content of a JS dialog.
 type jsDialogContent struct {
@@ -39,11 +54,21 @@ func jsDialogOriginLabel(origin string) string {
 	u, err := url.Parse(origin)
 	if err != nil || u.Host == "" {
 		if err == nil && u.Scheme != "" {
-			return truncateRunes(u.Scheme+":", jsDialogMaxHostChars)
+			return truncateRunesLeft(u.Scheme+":", jsDialogMaxHostChars)
 		}
 		return "This page"
 	}
-	return truncateRunes(u.Host, jsDialogMaxHostChars)
+	// Keep the end of the host: the registrable domain is what identifies it.
+	return truncateRunesLeft(u.Host, jsDialogMaxHostChars)
+}
+
+// truncateRunesLeft keeps the last n runes, prefixing "…" when it cut.
+func truncateRunesLeft(s string, n int) string {
+	r := []rune(s)
+	if len(r) <= n {
+		return s
+	}
+	return "…" + string(r[len(r)-n:])
 }
 
 func truncateRunes(s string, n int) string {
@@ -58,16 +83,14 @@ func truncateRunes(s string, n int) string {
 // All strings are plain text (never Pango markup).
 func buildJSDialogContent(req port.JSDialogRequest) jsDialogContent {
 	says := jsDialogOriginLabel(req.Origin) + " says:"
+	msg := truncateRunes(req.Message, jsDialogMaxTextRunes)
 	switch req.Type {
 	case port.JSDialogConfirm:
-		return jsDialogContent{Heading: says, Body: req.Message, OKLabel: "OK", CancelLabel: "Cancel"}
+		return jsDialogContent{Heading: says, Body: msg, OKLabel: "OK", CancelLabel: "Cancel"}
 	case port.JSDialogPrompt:
-		return jsDialogContent{Heading: says, Body: req.Message, OKLabel: "OK", CancelLabel: "Cancel", ShowInput: true}
+		return jsDialogContent{Heading: says, Body: msg, OKLabel: "OK", CancelLabel: "Cancel", ShowInput: true}
 	case port.JSDialogBeforeUnload:
-		body := strings.TrimSpace(req.Message)
-		if body == "" {
-			body = "Changes you made may not be saved."
-		}
+		body := jsDialogBeforeUnloadText
 		heading := "Leave page?"
 		if req.IsReload {
 			heading = "Reload page?"
@@ -79,7 +102,7 @@ func buildJSDialogContent(req port.JSDialogRequest) jsDialogContent {
 			CancelLabel: "Stay",
 		}
 	default:
-		return jsDialogContent{Heading: says, Body: req.Message, OKLabel: "OK"}
+		return jsDialogContent{Heading: says, Body: msg, OKLabel: "OK"}
 	}
 }
 
@@ -97,17 +120,30 @@ type JSDialogPopup struct {
 	btnOK        *gtk.Button
 	btnCancel    *gtk.Button
 
-	mu       sync.Mutex
-	visible  bool
-	respond  func(ok bool, input string)
-	onHidden func()
+	parent     layout.OverlayWidget
+	controller *gtk.EventControllerKey
+	signals    []popupSignal
+
+	mu        sync.Mutex
+	visible   bool
+	wantFocus bool // this dialog should own keyboard focus (pane is active)
+	destroyed bool
+	respond   func(ok bool, input string)
+	onHidden  func(hadFocus bool)
 
 	retainedCallbacks []any
 }
 
+// popupSignal remembers a connected handler so Destroy can disconnect it.
+type popupSignal struct {
+	obj interface{ DisconnectSignal(uint) }
+	id  uint
+}
+
 // NewJSDialogPopup creates the popup (hidden). Returns nil if widget creation fails.
-func NewJSDialogPopup() *JSDialogPopup {
-	p := &JSDialogPopup{}
+// parent is the pane overlay used to size the dialog.
+func NewJSDialogPopup(parent layout.OverlayWidget) *JSDialogPopup {
+	p := &JSDialogPopup{parent: parent}
 	if err := p.createWidgets(); err != nil {
 		return nil
 	}
@@ -123,24 +159,39 @@ func (p *JSDialogPopup) Widget() *gtk.Widget {
 	return &p.outerBox.Widget
 }
 
-// SetOnHidden sets a callback run after the popup closes (e.g. to restore focus).
-func (p *JSDialogPopup) SetOnHidden(fn func()) {
+// SetOnHidden sets (or with nil clears) a callback run after the popup closes. hadFocus reports
+// whether keyboard focus was inside the dialog when it closed, so the owner
+// only restores focus when the dialog had taken it.
+func (p *JSDialogPopup) SetOnHidden(fn func(hadFocus bool)) {
 	p.mu.Lock()
 	p.onHidden = fn
 	p.mu.Unlock()
 }
 
 // Show displays the dialog. respond is invoked once with the user's answer.
-// A dialog already visible is dismissed as canceled first.
-func (p *JSDialogPopup) Show(req port.JSDialogRequest, respond func(ok bool, input string)) {
-	p.dismiss(false)
+// A dialog already visible is dismissed as canceled first. Keyboard focus is
+// only taken when focus is true (the pane is active); otherwise RequestFocus
+// grabs it when the pane becomes active.
+func (p *JSDialogPopup) Show(req port.JSDialogRequest, respond func(ok bool, input string), focus bool, uiScale float64) {
+	p.Dismiss(false)
 
 	content := buildJSDialogContent(req)
 
 	p.mu.Lock()
+	if p.destroyed {
+		p.mu.Unlock()
+		if respond != nil {
+			respond(false, "")
+		}
+		return
+	}
 	p.visible = true
+	p.wantFocus = focus
 	p.respond = respond
 	p.mu.Unlock()
+
+	width, _ := CalculateModalDimensionsWithScale(p.parent, JSDialogSizeDefaults, uiScale)
+	p.mainBox.SetSizeRequest(width, -1)
 
 	p.headingLabel.SetText(content.Heading)
 	p.bodyLabel.SetText(content.Body)
@@ -152,18 +203,38 @@ func (p *JSDialogPopup) Show(req port.JSDialogRequest, respond func(ok bool, inp
 	}
 	p.input.SetVisible(content.ShowInput)
 	if content.ShowInput {
-		p.input.SetText(req.DefaultPrompt)
+		p.input.SetText(truncateRunes(req.DefaultPrompt, jsDialogMaxTextRunes))
 	} else {
 		p.input.SetText("")
 	}
 
 	p.outerBox.SetVisible(true)
-	if content.ShowInput {
+	if focus {
+		p.grabDefaultFocus()
+	}
+}
+
+// RequestFocus marks the dialog as the focus owner and grabs focus if shown.
+// Called when the owning pane becomes active.
+func (p *JSDialogPopup) RequestFocus() {
+	p.mu.Lock()
+	if !p.visible || p.destroyed {
+		p.mu.Unlock()
+		return
+	}
+	p.wantFocus = true
+	p.mu.Unlock()
+	p.grabDefaultFocus()
+}
+
+// grabDefaultFocus focuses the entry (prompt) or the OK button.
+func (p *JSDialogPopup) grabDefaultFocus() {
+	if p.input.GetVisible() {
 		p.input.GrabFocus()
 		p.input.SelectRegion(0, -1)
-	} else {
-		p.btnOK.GrabFocus()
+		return
 	}
+	p.btnOK.GrabFocus()
 }
 
 // Hide closes the popup without invoking the response callback. It is used when
@@ -172,52 +243,68 @@ func (p *JSDialogPopup) Hide() {
 	if p == nil {
 		return
 	}
-	p.mu.Lock()
-	wasVisible := p.visible
-	p.visible = false
-	p.respond = nil
-	hidden := p.onHidden
-	p.mu.Unlock()
-	if !wasVisible {
-		return
-	}
-	p.outerBox.SetVisible(false)
-	if hidden != nil {
-		hidden()
-	}
+	p.close(nil)
 }
 
-// IsVisible reports whether a dialog is displayed.
-func (p *JSDialogPopup) IsVisible() bool {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	return p.visible
+// Dismiss closes the popup and answers with ok. No-op when hidden.
+func (p *JSDialogPopup) Dismiss(ok bool) {
+	p.close(&ok)
 }
 
-// dismiss closes the popup and answers. Safe to call when hidden (no-op).
-func (p *JSDialogPopup) dismiss(ok bool) {
+// close hides the popup. When answer is non-nil the response callback is run.
+func (p *JSDialogPopup) close(answer *bool) {
 	p.mu.Lock()
 	if !p.visible {
 		p.mu.Unlock()
 		return
 	}
 	p.visible = false
+	p.wantFocus = false
 	respond := p.respond
 	p.respond = nil
 	hidden := p.onHidden
 	p.mu.Unlock()
 
+	hadFocus := p.outerBox.GetFocusChild() != nil
 	text := ""
-	if ok && p.input.GetVisible() {
+	if answer != nil && *answer && p.input.GetVisible() {
 		text = p.input.GetText()
 	}
 	p.outerBox.SetVisible(false)
-	if respond != nil {
-		respond(ok, text)
+	if answer != nil && respond != nil {
+		respond(*answer, text)
 	}
 	if hidden != nil {
-		hidden()
+		hidden(hadFocus)
 	}
+}
+
+// Destroy disconnects every handler and drops callbacks. The popup must not be
+// used afterwards. Call after the dialog was dismissed.
+func (p *JSDialogPopup) Destroy() {
+	if p == nil {
+		return
+	}
+	p.mu.Lock()
+	if p.destroyed {
+		p.mu.Unlock()
+		return
+	}
+	p.destroyed = true
+	p.visible = false
+	p.respond = nil
+	p.onHidden = nil
+	p.mu.Unlock()
+
+	for _, s := range p.signals {
+		s.obj.DisconnectSignal(s.id)
+	}
+	p.signals = nil
+	if p.controller != nil && p.outerBox != nil {
+		p.outerBox.RemoveController(&p.controller.EventController)
+		p.controller = nil
+	}
+	p.retainedCallbacks = nil
 }
 
 func (p *JSDialogPopup) createWidgets() error {
@@ -241,7 +328,13 @@ func (p *JSDialogPopup) createWidgets() error {
 		return errNilWidget("jsDialogEntry")
 	}
 	p.input.AddCssClass("jsdialog-entry")
+	p.input.SetMaxLength(jsDialogMaxTextRunes)
 	p.input.SetVisible(false)
+	// Enter in the entry = OK. Focused buttons activate themselves, so Enter on
+	// Cancel/Stay still cancels.
+	activateCb := func(gtk.Entry) { p.Dismiss(true) }
+	p.retainedCallbacks = append(p.retainedCallbacks, activateCb)
+	p.signals = append(p.signals, popupSignal{p.input, p.input.ConnectActivate(&activateCb)})
 
 	btnRow, err := p.createButtonRow()
 	if err != nil {
@@ -276,7 +369,6 @@ func (p *JSDialogPopup) createContainers() error {
 	p.mainBox.AddCssClass("permission-popup-container")
 	p.mainBox.SetHalign(gtk.AlignCenterValue)
 	p.mainBox.SetValign(gtk.AlignCenterValue)
-	p.mainBox.SetSizeRequest(jsDialogDialogWidth, -1)
 	return nil
 }
 
@@ -319,18 +411,21 @@ func (p *JSDialogPopup) createButtonRow() (*gtk.Box, error) {
 	p.btnOK.AddCssClass("permission-popup-btn")
 	p.btnOK.AddCssClass("permission-popup-btn-allow")
 
-	cancelCb := func(_ gtk.Button) { p.dismiss(false) }
-	okCb := func(_ gtk.Button) { p.dismiss(true) }
+	cancelCb := func(_ gtk.Button) { p.Dismiss(false) }
+	okCb := func(_ gtk.Button) { p.Dismiss(true) }
 	p.retainedCallbacks = append(p.retainedCallbacks, cancelCb, okCb)
-	p.btnCancel.ConnectClicked(&cancelCb)
-	p.btnOK.ConnectClicked(&okCb)
+	p.signals = append(p.signals,
+		popupSignal{p.btnCancel, p.btnCancel.ConnectClicked(&cancelCb)},
+		popupSignal{p.btnOK, p.btnOK.ConnectClicked(&okCb)},
+	)
 
 	btnRow.Append(&p.btnCancel.Widget)
 	btnRow.Append(&p.btnOK.Widget)
 	return btnRow, nil
 }
 
-// attachKeyController maps Enter to OK and Escape to Cancel.
+// attachKeyController maps Escape to Cancel (capture phase, so the page never
+// sees it). Enter is not handled here: see the entry's activate handler.
 func (p *JSDialogPopup) attachKeyController() {
 	controller := gtk.NewEventControllerKey()
 	if controller == nil {
@@ -338,17 +433,26 @@ func (p *JSDialogPopup) attachKeyController() {
 	}
 	controller.SetPropagationPhase(gtk.PhaseCaptureValue)
 	keyPressedCb := func(_ gtk.EventControllerKey, keyval uint, _ uint, _ gdk.ModifierType) bool {
-		switch keyval {
-		case uint(gdk.KEY_Escape):
-			p.dismiss(false)
-			return true
-		case uint(gdk.KEY_Return), uint(gdk.KEY_KP_Enter):
-			p.dismiss(true)
+		if keyval == uint(gdk.KEY_Escape) {
+			p.Dismiss(false)
 			return true
 		}
 		return false
 	}
 	p.retainedCallbacks = append(p.retainedCallbacks, keyPressedCb)
-	controller.ConnectKeyPressed(&keyPressedCb)
+	p.signals = append(p.signals, popupSignal{controller, controller.ConnectKeyPressed(&keyPressedCb)})
 	p.outerBox.AddController(&controller.EventController)
+	p.controller = controller
+
+	// A dialog shown while its tab was in the background gets focus once mapped.
+	mapCb := func(gtk.Widget) {
+		p.mu.Lock()
+		want := p.visible && p.wantFocus
+		p.mu.Unlock()
+		if want {
+			p.grabDefaultFocus()
+		}
+	}
+	p.retainedCallbacks = append(p.retainedCallbacks, mapCb)
+	p.signals = append(p.signals, popupSignal{&p.outerBox.Widget, p.outerBox.ConnectMap(&mapCb)})
 }

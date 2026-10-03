@@ -10,6 +10,7 @@ import (
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/dumber/internal/ui/input"
 	"github.com/bnema/dumber/internal/ui/layout"
+	"github.com/bnema/puregotk/v4/gtk"
 )
 
 // CSS class applied to the active pane's border overlay.
@@ -18,19 +19,20 @@ const activePaneClass = "pane-active"
 // PaneView is a container for a single WebView with active state indication.
 // It uses an overlay to display a border around the active pane.
 type PaneView struct {
-	ctx           context.Context
-	factory       layout.WidgetFactory
-	overlay       layout.OverlayWidget
-	webViewWidget layout.Widget      // The actual WebView widget
-	borderBox     layout.BoxWidget   // Border overlay for active indication
-	progressBar   *ProgressBar       // Loading progress indicator
-	toaster       *Toaster           // Toast notification overlay
-	linkStatus    *LinkStatusOverlay // Link hover URL overlay
-	loading       *LoadingSkeleton   // Placeholder shown until WebView paints
-	jsDialog      *JSDialogPopup     // JS alert/confirm/prompt/beforeunload overlay
-	jsDialogWidth layout.Widget      // overlay wrapper of jsDialog, for removal
-	paneID        entity.PaneID
-	isActive      bool
+	ctx            context.Context
+	factory        layout.WidgetFactory
+	overlay        layout.OverlayWidget
+	webViewWidget  layout.Widget      // The actual WebView widget
+	borderBox      layout.BoxWidget   // Border overlay for active indication
+	progressBar    *ProgressBar       // Loading progress indicator
+	toaster        *Toaster           // Toast notification overlay
+	linkStatus     *LinkStatusOverlay // Link hover URL overlay
+	loading        *LoadingSkeleton   // Placeholder shown until WebView paints
+	jsDialog       jsDialogView       // JS alert/confirm/prompt/beforeunload overlay
+	jsDialogWidget layout.Widget      // overlay wrapper of jsDialog, for removal
+	newJSDialog    func(layout.OverlayWidget) jsDialogView
+	paneID         entity.PaneID
+	isActive       bool
 
 	// Vim Mode input ownership; its border and pulse belong to modeFrame.
 	vimMode bool
@@ -104,9 +106,8 @@ func NewPaneView(ctx context.Context, factory layout.WidgetFactory, paneID entit
 // Active panes display a visual border indicator.
 func (pv *PaneView) SetActive(active bool) {
 	pv.mu.Lock()
-	defer pv.mu.Unlock()
-
 	if pv.isActive == active {
+		pv.mu.Unlock()
 		return
 	}
 
@@ -116,6 +117,13 @@ func (pv *PaneView) SetActive(active bool) {
 		pv.borderBox.AddCssClass(activePaneClass)
 	} else {
 		pv.borderBox.RemoveCssClass(activePaneClass)
+	}
+	popup := pv.jsDialog
+	pv.mu.Unlock()
+
+	// A dialog raised while this pane was inactive takes focus now.
+	if active && popup != nil {
+		popup.RequestFocus()
 	}
 }
 
@@ -550,8 +558,28 @@ func (pv *PaneView) IsVimMode() bool {
 // After calling Cleanup, the PaneView should not be reused.
 func (pv *PaneView) Cleanup() {
 	pv.mu.Lock()
-	defer pv.mu.Unlock()
+	// The WebView may outlive this view (workspace rebuild), so an open JS
+	// dialog must be answered, not dropped. The hidden callback re-locks
+	// pv.mu, so detach it here and dismiss after unlocking.
+	popup, popupWidget := pv.jsDialog, pv.jsDialogWidget
+	if popup != nil {
+		popup.SetOnHidden(nil)
+	}
+	pv.jsDialog, pv.jsDialogWidget = nil, nil
+	pv.cleanupLocked()
+	pv.mu.Unlock()
 
+	if popup != nil {
+		popup.Dismiss(false)
+		popup.Destroy()
+		if popupWidget != nil {
+			pv.overlay.RemoveOverlay(popupWidget)
+		}
+	}
+}
+
+// cleanupLocked releases everything except the JS dialog. Caller holds pv.mu.
+func (pv *PaneView) cleanupLocked() {
 	// Clear callbacks to prevent use-after-free
 	pv.onFocusIn = nil
 	pv.onFocusOut = nil
@@ -588,29 +616,50 @@ func (pv *PaneView) Cleanup() {
 		pv.overlay.RemoveOverlay(pv.linkStatus.Widget())
 		pv.linkStatus = nil
 	}
-	if pv.jsDialogWidth != nil {
-		pv.overlay.RemoveOverlay(pv.jsDialogWidth)
-		pv.jsDialogWidth = nil
-		pv.jsDialog = nil
+}
+
+// jsDialogView is the JS dialog popup as seen by PaneView (a seam for tests).
+type jsDialogView interface {
+	Widget() *gtk.Widget
+	Show(req port.JSDialogRequest, respond func(ok bool, input string), focus bool, uiScale float64)
+	Hide()
+	Dismiss(ok bool)
+	RequestFocus()
+	SetOnHidden(fn func(hadFocus bool))
+	Destroy()
+}
+
+func newJSDialogPopupView(parent layout.OverlayWidget) jsDialogView {
+	if p := NewJSDialogPopup(parent); p != nil {
+		return p
 	}
+	return nil
 }
 
 // ensureJSDialog creates the JS dialog popup lazily on first use.
 // Must be called with write lock held.
-func (pv *PaneView) ensureJSDialog() *JSDialogPopup {
+func (pv *PaneView) ensureJSDialog() jsDialogView {
 	if pv.jsDialog != nil {
 		return pv.jsDialog
 	}
-	popup := NewJSDialogPopup()
+	create := pv.newJSDialog
+	if create == nil {
+		create = newJSDialogPopupView
+	}
+	popup := create(pv.overlay)
 	if popup == nil {
 		return nil
 	}
 	w := pv.factory.WrapWidget(popup.Widget())
 	pv.overlay.AddOverlay(w)
-	pv.overlay.SetClipOverlay(w, false)
+	// Clip so the scrim stays inside the pane; it must not affect layout.
+	pv.overlay.SetClipOverlay(w, true)
 	pv.overlay.SetMeasureOverlay(w, false)
-	popup.SetOnHidden(func() {
-		// Return keyboard focus to the page once the dialog is gone.
+	popup.SetOnHidden(func(hadFocus bool) {
+		// Give focus back to the page only if the dialog had taken it.
+		if !hadFocus {
+			return
+		}
 		pv.mu.RLock()
 		wvw := pv.webViewWidget
 		pv.mu.RUnlock()
@@ -619,22 +668,25 @@ func (pv *PaneView) ensureJSDialog() *JSDialogPopup {
 		}
 	})
 	pv.jsDialog = popup
-	pv.jsDialogWidth = w
+	pv.jsDialogWidget = w
 	return popup
 }
 
 // ShowJSDialog displays a JavaScript dialog scoped to this pane. The dialog
 // lives in the pane's overlay, so it never blocks other panes; if the pane is
-// in a background tab it becomes visible when that tab is shown. respond is
-// invoked once with the user's answer. Returns false if the popup is unavailable.
-func (pv *PaneView) ShowJSDialog(req port.JSDialogRequest, respond func(ok bool, input string)) bool {
+// in a background tab it becomes visible when that tab is shown, and it only
+// takes keyboard focus while the pane is active (otherwise when it becomes
+// active). respond is invoked once with the user's answer. Returns false if the
+// popup is unavailable.
+func (pv *PaneView) ShowJSDialog(req port.JSDialogRequest, respond func(ok bool, input string), uiScale float64) bool {
 	pv.mu.Lock()
 	popup := pv.ensureJSDialog()
+	focus := pv.isActive
 	pv.mu.Unlock()
 	if popup == nil {
 		return false
 	}
-	popup.Show(req, respond)
+	popup.Show(req, respond, focus, uiScale)
 	return true
 }
 
