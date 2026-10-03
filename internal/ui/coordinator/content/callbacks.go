@@ -215,6 +215,10 @@ func (c *Coordinator) handlePermissionRequest(
 			entityTypes = append(entityTypes, entity.PermissionTypeCamera)
 		case "display":
 			entityTypes = append(entityTypes, entity.PermissionTypeDisplay)
+		case "notification":
+			entityTypes = append(entityTypes, entity.PermissionTypeNotification)
+		case "geolocation":
+			entityTypes = append(entityTypes, entity.PermissionTypeGeolocation)
 		case "device_info":
 			entityTypes = append(entityTypes, entity.PermissionTypeDeviceInfo)
 		case "website_data_access":
