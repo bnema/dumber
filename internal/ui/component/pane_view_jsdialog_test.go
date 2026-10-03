@@ -29,6 +29,7 @@ func (f *fakeJSDialogView) Show(_ port.JSDialogRequest, respond func(bool, strin
 	f.shown++
 	f.respond, f.focus = respond, focus
 }
+func (f *fakeJSDialogView) Visible() bool { return f.respond != nil }
 func (f *fakeJSDialogView) Hide()         {}
 func (f *fakeJSDialogView) RequestFocus() { f.focusRequests++ }
 func (f *fakeJSDialogView) SetOnHidden(fn func(bool)) {
@@ -108,4 +109,40 @@ func TestPaneViewSetActiveFocusesPendingJSDialog(t *testing.T) {
 	pv.SetActive(true)
 
 	assert.Equal(t, 1, fake.focusRequests)
+}
+
+func TestPaneViewGrabFocusDefersToVisibleJSDialog(t *testing.T) {
+	fake := &fakeJSDialogView{}
+	pv := newJSDialogPaneView(t, fake)
+	webview := mocks.NewMockWidget(t) // GrabFocus on it would fail the test (no expectation)
+	pv.webViewWidget = webview
+	border := mocks.NewMockBoxWidget(t)
+	border.EXPECT().AddCssClass(activePaneClass).Once()
+	pv.borderBox = border
+	require.True(t, pv.ShowJSDialog(port.JSDialogRequest{}, func(bool, string) {}, 1))
+
+	pv.SetActive(true)
+	require.Equal(t, 1, fake.focusRequests)
+	assert.True(t, pv.GrabFocus())
+
+	assert.Equal(t, 2, fake.focusRequests, "dialog focus requested again, WebView not focused")
+}
+
+func TestPaneViewGrabFocusFocusesWebViewWithoutDialog(t *testing.T) {
+	fake := &fakeJSDialogView{}
+	pv := newJSDialogPaneView(t, fake)
+	webview := mocks.NewMockWidget(t)
+	webview.EXPECT().GrabFocus().Return(true).Once()
+	pv.webViewWidget = webview
+
+	assert.True(t, pv.GrabFocus())
+}
+
+func TestPaneViewShowJSDialogAfterCleanupFails(t *testing.T) {
+	fake := &fakeJSDialogView{}
+	pv := newJSDialogPaneView(t, fake)
+	pv.Cleanup()
+
+	assert.False(t, pv.ShowJSDialog(port.JSDialogRequest{}, func(bool, string) {}, 1))
+	assert.Zero(t, fake.shown)
 }

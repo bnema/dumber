@@ -4,6 +4,7 @@ import (
 	"net/url"
 	"strings"
 	"sync"
+	"sync/atomic"
 
 	"github.com/bnema/puregotk/v4/gdk"
 	"github.com/bnema/puregotk/v4/gtk"
@@ -52,6 +53,12 @@ func jsDialogOriginLabel(origin string) string {
 		return "This page"
 	}
 	u, err := url.Parse(origin)
+	// blob:/filesystem: URLs carry the real origin in the opaque part.
+	if err == nil && u.Host == "" && (u.Scheme == "blob" || u.Scheme == "filesystem") && u.Opaque != "" {
+		if inner, innerErr := url.Parse(u.Opaque); innerErr == nil && inner.Host != "" {
+			u = inner
+		}
+	}
 	if err != nil || u.Host == "" {
 		if err == nil && u.Scheme != "" {
 			return truncateRunesLeft(u.Scheme+":", jsDialogMaxHostChars)
@@ -122,6 +129,8 @@ type JSDialogPopup struct {
 
 	parent     layout.OverlayWidget
 	controller *gtk.EventControllerKey
+	focusCtrl  *gtk.EventControllerFocus
+	hasFocus   atomic.Bool // keyboard focus is inside the popup (enter/leave)
 	signals    []popupSignal
 
 	mu        sync.Mutex
@@ -214,6 +223,13 @@ func (p *JSDialogPopup) Show(req port.JSDialogRequest, respond func(ok bool, inp
 	}
 }
 
+// Visible reports whether a dialog is currently shown.
+func (p *JSDialogPopup) Visible() bool {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return p.visible
+}
+
 // RequestFocus marks the dialog as the focus owner and grabs focus if shown.
 // Called when the owning pane becomes active.
 func (p *JSDialogPopup) RequestFocus() {
@@ -265,7 +281,8 @@ func (p *JSDialogPopup) close(answer *bool) {
 	hidden := p.onHidden
 	p.mu.Unlock()
 
-	hadFocus := p.outerBox.GetFocusChild() != nil
+	// Read before hiding: hiding a focused widget fires "leave".
+	hadFocus := p.hasFocus.Load()
 	text := ""
 	if answer != nil && *answer && p.input.GetVisible() {
 		text = p.input.GetText()
@@ -303,6 +320,10 @@ func (p *JSDialogPopup) Destroy() {
 	if p.controller != nil && p.outerBox != nil {
 		p.outerBox.RemoveController(&p.controller.EventController)
 		p.controller = nil
+	}
+	if p.focusCtrl != nil && p.outerBox != nil {
+		p.outerBox.RemoveController(&p.focusCtrl.EventController)
+		p.focusCtrl = nil
 	}
 	p.retainedCallbacks = nil
 }
@@ -443,6 +464,20 @@ func (p *JSDialogPopup) attachKeyController() {
 	p.signals = append(p.signals, popupSignal{controller, controller.ConnectKeyPressed(&keyPressedCb)})
 	p.outerBox.AddController(&controller.EventController)
 	p.controller = controller
+
+	// Track focus-within so close() knows whether the dialog owned focus
+	// (GetFocusChild would leak a reference).
+	if fc := gtk.NewEventControllerFocus(); fc != nil {
+		enterCb := func(gtk.EventControllerFocus) { p.hasFocus.Store(true) }
+		leaveCb := func(gtk.EventControllerFocus) { p.hasFocus.Store(false) }
+		p.retainedCallbacks = append(p.retainedCallbacks, enterCb, leaveCb)
+		p.signals = append(p.signals,
+			popupSignal{fc, fc.ConnectEnter(&enterCb)},
+			popupSignal{fc, fc.ConnectLeave(&leaveCb)},
+		)
+		p.outerBox.AddController(&fc.EventController)
+		p.focusCtrl = fc
+	}
 
 	// A dialog shown while its tab was in the background gets focus once mapped.
 	mapCb := func(gtk.Widget) {
