@@ -17,6 +17,7 @@ type ModalSizeConfig struct {
 	FixedWidth        int     // Optional fixed width in pixels (overrides WidthPct/MaxWidth)
 	FixedTopMargin    int     // Optional fixed top margin in pixels
 	UseFixedTopMargin bool    // When true, FixedTopMargin overrides TopMarginPct
+	UseMonitorHeight  bool    // When true, row limits use the monitor height (standalone window sized by its content)
 }
 
 // RowHeightDefaults holds default (unscaled) row heights for list-based modals.
@@ -140,6 +141,9 @@ func ResolveModalSizeConfig(cfg, defaults ModalSizeConfig) ModalSizeConfig {
 	if cfg.UseFixedTopMargin {
 		resolved.FixedTopMargin = cfg.FixedTopMargin
 		resolved.UseFixedTopMargin = true
+	}
+	if cfg.UseMonitorHeight {
+		resolved.UseMonitorHeight = true
 	}
 
 	return resolved

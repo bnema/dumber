@@ -576,13 +576,45 @@ func (o *Omnibox) setResultsContainerState(rowCount int) {
 	}
 }
 
-// effectiveMaxRows returns the max visible rows adapted to the current parent pane height.
+// effectiveMaxRows returns the max visible rows adapted to the available height:
+// the parent pane, or the monitor when the omnibox sizes its own window.
 // Must be called on the GTK main thread.
 func (o *Omnibox) effectiveMaxRows() int {
 	if o.parentOverlay == nil {
 		return OmniboxListDefaults.MaxVisibleRows
 	}
-	return EffectiveMaxRows(o.parentOverlay.GetAllocatedHeight(), o.estimateRowHeight(), o.sizeCfg, OmniboxListDefaults)
+	height := o.parentOverlay.GetAllocatedHeight()
+	if o.sizeCfg.UseMonitorHeight {
+		height = widgetMonitorHeight(o.parentOverlay.GtkWidget())
+	}
+	return EffectiveMaxRows(height, o.estimateRowHeight(), o.sizeCfg, OmniboxListDefaults)
+}
+
+// widgetMonitorHeight returns the logical height of the monitor showing the
+// widget, or 0 when it is unknown.
+func widgetMonitorHeight(widget *gtk.Widget) int {
+	if widget == nil {
+		return 0
+	}
+	native := widget.GetNative()
+	if native == nil {
+		return 0
+	}
+	surface := native.GetSurface()
+	if surface == nil {
+		return 0
+	}
+	display := surface.GetDisplay()
+	if display == nil {
+		return 0
+	}
+	monitor := display.GetMonitorAtSurface(surface)
+	if monitor == nil {
+		return 0
+	}
+	var geometry gdk.Rectangle
+	monitor.GetGeometry(&geometry)
+	return int(geometry.Height)
 }
 
 // requestedDimensions returns the scale-aware modal width and top margin for

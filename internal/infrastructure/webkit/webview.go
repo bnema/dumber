@@ -593,10 +593,10 @@ func (wv *WebView) ResolvePopupFeatures() dto.PopupFeatures {
 	if props == nil {
 		return dto.PopupFeatures{State: dto.PopupFeaturesUnknown}
 	}
-	geometry := &gdk.Rectangle{}
-	props.GetGeometry(geometry)
+	var geometry gdk.Rectangle
+	props.GetGeometry(&geometry)
 	return popupFeaturesFromWindowProperties(
-		geometry.X, geometry.Y, geometry.Width, geometry.Height,
+		int(geometry.X), int(geometry.Y), int(geometry.Width), int(geometry.Height),
 		props.GetToolbarVisible(), props.GetLocationbarVisible(), props.GetResizable(),
 	)
 }

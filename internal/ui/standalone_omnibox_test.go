@@ -136,6 +136,7 @@ func TestStandaloneOmniboxSizeConfig_UsesFixedGeometry(t *testing.T) {
 		FixedWidth:        800,
 		FixedTopMargin:    0,
 		UseFixedTopMargin: true,
+		UseMonitorHeight:  true,
 	}) {
 		t.Fatalf("unexpected standalone omnibox size config: %#v", cfg)
 	}

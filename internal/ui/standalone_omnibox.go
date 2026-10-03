@@ -206,6 +206,7 @@ func standaloneOmniboxSizeConfig() component.ModalSizeConfig {
 		FixedWidth:        component.OmniboxSizeDefaults.MaxWidth,
 		FixedTopMargin:    0,
 		UseFixedTopMargin: true,
+		UseMonitorHeight:  true,
 	}, component.OmniboxSizeDefaults)
 }
 
