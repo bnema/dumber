@@ -296,7 +296,7 @@ func (c *Coordinator) setupJSDialogCallbacks(paneID entity.PaneID, callbacks *po
 		if pv == nil {
 			return false
 		}
-		return pv.ShowJSDialog(req, respond)
+		return pv.ShowJSDialog(req, respond, c.jsDialogUIScale())
 	}
 	callbacks.OnJSDialogReset = func() {
 		if pv := c.paneViewForJSDialog(paneID); pv != nil {
@@ -305,20 +305,20 @@ func (c *Coordinator) setupJSDialogCallbacks(paneID entity.PaneID, callbacks *po
 	}
 }
 
-// paneViewForJSDialog resolves the PaneView that owns paneID's WebView. The
-// dialog is shown inside that pane's overlay even if the pane is in a
-// background tab (it appears when the tab is shown) and never blocks others.
-func (c *Coordinator) paneViewForJSDialog(paneID entity.PaneID) *component.PaneView {
-	if c.paneViewResolver != nil {
-		if pv := c.paneViewResolver(paneID); pv != nil {
-			return pv
-		}
+// jsDialogUIScale returns the current UI scale (1 when no provider is set).
+func (c *Coordinator) jsDialogUIScale() float64 {
+	if c.uiScaleProvider == nil {
+		return 1
 	}
-	if c.getActiveWS == nil {
+	return c.uiScaleProvider()
+}
+
+// paneViewForJSDialog resolves the PaneView that owns paneID's WebView through
+// the app-provided resolver (any tab/window). The dialog is shown inside that
+// pane's overlay even if the pane is in a background tab and never blocks others.
+func (c *Coordinator) paneViewForJSDialog(paneID entity.PaneID) *component.PaneView {
+	if c.paneViewResolver == nil {
 		return nil
 	}
-	if _, wsView := c.getActiveWS(); wsView != nil {
-		return wsView.GetPaneView(paneID)
-	}
-	return nil
+	return c.paneViewResolver(paneID)
 }
