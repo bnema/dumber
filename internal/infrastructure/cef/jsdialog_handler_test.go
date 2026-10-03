@@ -12,6 +12,9 @@ import (
 
 type stubJSDialogCallback struct {
 	calls []jsDialogAnswer
+	// onCont mimics CEF's DialogClosed ordering: OnDialogClosed and
+	// OnResetDialogState are delivered from inside Cont.
+	onCont func()
 }
 
 type jsDialogAnswer struct {
@@ -21,6 +24,17 @@ type jsDialogAnswer struct {
 
 func (s *stubJSDialogCallback) Cont(success int32, userInput string) {
 	s.calls = append(s.calls, jsDialogAnswer{ok: success != 0, input: userInput})
+	if s.onCont != nil {
+		s.onCont()
+	}
+}
+
+// echoCEFClose makes cb deliver CEF's DialogClosed + reset echo from Cont.
+func echoCEFClose(h *handlerSet, cb *stubJSDialogCallback) {
+	cb.onCont = func() {
+		h.OnDialogClosed(nil)
+		h.OnResetDialogState(nil)
+	}
 }
 
 // useDirectJSDialogContinue answers stub callbacks inline (no CEF UI thread).
@@ -176,8 +190,9 @@ func TestOnBeforeUnloadDialog(t *testing.T) {
 	cb := &stubJSDialogCallback{}
 
 	require.True(t, h.OnBeforeUnloadDialog(nil, "unsaved", 1, cb))
+	// CEF's fixed message text is not forwarded.
 	require.Equal(t, []port.JSDialogRequest{{
-		Type: port.JSDialogBeforeUnload, Origin: "https://example.com/edit", Message: "unsaved", IsReload: true,
+		Type: port.JSDialogBeforeUnload, Origin: "https://example.com/edit", IsReload: true,
 	}}, ui.reqs)
 
 	// A second beforeunload while open is answered "stay" immediately.
@@ -220,7 +235,7 @@ func TestDestroyCancelsPendingJSDialog(t *testing.T) {
 	cb := &stubJSDialogCallback{}
 	h.OnJsdialog(nil, "", purecef.JsdialogTypeJsdialogtypeAlert, "m", "", cb, new(int32))
 
-	wv.cancelJSDialogs()
+	wv.Destroy()
 
 	require.Equal(t, []jsDialogAnswer{{ok: false}}, cb.calls)
 	require.Equal(t, 1, ui.resets)
@@ -239,4 +254,103 @@ func TestJSDialogCancelledBeforeUIRunsIsNotShown(t *testing.T) {
 
 	require.Empty(t, ui.reqs)
 	require.Len(t, cb.calls, 1)
+}
+
+func TestResetEchoAfterSuppressDoesNotCancelOpenDialog(t *testing.T) {
+	useDirectJSDialogContinue(t)
+	ui := &jsDialogUIRecorder{handled: true}
+	h := &handlerSet{wv: newJSDialogWebView(ui)}
+	first := &stubJSDialogCallback{}
+	h.OnJsdialog(nil, "", purecef.JsdialogTypeJsdialogtypeAlert, "1", "", first, new(int32))
+
+	// A spammer is suppressed; CEF then sends OnResetDialogState.
+	h.OnJsdialog(nil, "", purecef.JsdialogTypeJsdialogtypeAlert, "2", "", &stubJSDialogCallback{}, new(int32))
+	h.OnResetDialogState(nil)
+
+	require.Empty(t, first.calls, "dialog #1 must stay pending")
+	require.Zero(t, ui.resets)
+
+	// A real reset afterwards still cancels it.
+	h.OnResetDialogState(nil)
+	require.Equal(t, []jsDialogAnswer{{ok: false}}, first.calls)
+	require.Equal(t, 1, ui.resets)
+}
+
+func TestResetEchoAfterRejectedBeforeUnloadDoesNotCancelOpenDialog(t *testing.T) {
+	useDirectJSDialogContinue(t)
+	ui := &jsDialogUIRecorder{handled: true}
+	h := &handlerSet{wv: newJSDialogWebView(ui)}
+	first := &stubJSDialogCallback{}
+	h.OnJsdialog(nil, "", purecef.JsdialogTypeJsdialogtypeConfirm, "1", "", first, new(int32))
+
+	other := &stubJSDialogCallback{}
+	echoCEFClose(h, other)
+	require.True(t, h.OnBeforeUnloadDialog(nil, "", 0, other))
+
+	require.Empty(t, first.calls)
+	require.Zero(t, ui.resets)
+}
+
+func TestCEFCloseEchoDoesNotCancelNewerDialog(t *testing.T) {
+	useDirectJSDialogContinue(t)
+	ui := &jsDialogUIRecorder{handled: true}
+	h := &handlerSet{wv: newJSDialogWebView(ui)}
+	first := &stubJSDialogCallback{}
+	echoCEFClose(h, first)
+	h.OnJsdialog(nil, "", purecef.JsdialogTypeJsdialogtypeAlert, "1", "", first, new(int32))
+
+	ui.respond[0](true, "") // Cont -> OnDialogClosed + OnResetDialogState (echo)
+	require.Equal(t, []jsDialogAnswer{{ok: true}}, first.calls)
+	require.Zero(t, ui.resets, "echo must not hide the UI")
+
+	// A newer dialog is unaffected by a trailing echo that arrives late.
+	second := &stubJSDialogCallback{}
+	h.OnJsdialog(nil, "", purecef.JsdialogTypeJsdialogtypeAlert, "2", "", second, new(int32))
+	h.OnResetDialogState(nil) // a genuine reset
+	require.Equal(t, []jsDialogAnswer{{ok: false}}, second.calls)
+}
+
+func TestNoStaleIgnoreAcrossDialogs(t *testing.T) {
+	useDirectJSDialogContinue(t)
+	ui := &jsDialogUIRecorder{handled: true}
+	h := &handlerSet{wv: newJSDialogWebView(ui)}
+	// Answered without a CEF echo (e.g. reset-then-late-answer path).
+	first := &stubJSDialogCallback{}
+	h.OnJsdialog(nil, "", purecef.JsdialogTypeJsdialogtypeAlert, "1", "", first, new(int32))
+	ui.respond[0](true, "")
+
+	second := &stubJSDialogCallback{}
+	h.OnJsdialog(nil, "", purecef.JsdialogTypeJsdialogtypeAlert, "2", "", second, new(int32))
+	h.OnResetDialogState(nil)
+
+	require.Equal(t, []jsDialogAnswer{{ok: false}}, second.calls, "real reset must cancel the new dialog")
+}
+
+func TestDestroyedWebViewDoesNotShowDialogs(t *testing.T) {
+	ui := &jsDialogUIRecorder{handled: true}
+	wv := newJSDialogWebView(ui)
+	wv.destroyed.Store(true)
+	h := &handlerSet{wv: wv}
+	cb := &stubJSDialogCallback{}
+	var suppress int32
+
+	require.Zero(t, h.OnJsdialog(nil, "", purecef.JsdialogTypeJsdialogtypeAlert, "m", "", cb, &suppress))
+	require.False(t, h.OnBeforeUnloadDialog(nil, "", 0, cb))
+	require.Zero(t, suppress)
+	require.Empty(t, ui.reqs)
+	require.Empty(t, cb.calls)
+}
+
+func TestRenderProcessTerminatedCancelsPendingJSDialog(t *testing.T) {
+	useDirectJSDialogContinue(t)
+	ui := &jsDialogUIRecorder{handled: true}
+	wv := newJSDialogWebView(ui)
+	h := &handlerSet{wv: wv}
+	cb := &stubJSDialogCallback{}
+	h.OnJsdialog(nil, "", purecef.JsdialogTypeJsdialogtypeAlert, "m", "", cb, new(int32))
+
+	h.OnRenderProcessTerminated(nil, purecef.TerminationStatusTsProcessCrashed, 0, "")
+
+	require.Equal(t, []jsDialogAnswer{{ok: false}}, cb.calls)
+	require.Equal(t, 1, ui.resets)
 }

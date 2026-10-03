@@ -20,7 +20,9 @@ type JSDialogRequest struct {
 	Type JSDialogType
 	// Origin is the URL of the frame that requested the dialog (best effort).
 	Origin string
-	// Message is the page-provided message (may be empty).
+	// Message is the page-provided message (may be empty). It is empty for
+	// JSDialogBeforeUnload: CEF always passes a fixed string, so the UI shows
+	// its own text (like Chrome/Firefox).
 	Message string
 	// DefaultPrompt is the prefilled input for JSDialogPrompt.
 	DefaultPrompt string

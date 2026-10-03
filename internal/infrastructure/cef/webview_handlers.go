@@ -1298,6 +1298,10 @@ const maxConsecutiveCrashes = 3
 
 // OnRenderProcessTerminated fires the OnWebProcessTerminated callback with a mapped reason.
 func (h *handlerSet) OnRenderProcessTerminated(_ purecef.Browser, status purecef.TerminationStatus, _ int32, _ string) {
+	// CEF never resets dialog state on a renderer crash; don't leave the UI
+	// (and the dead page's callback) hanging.
+	h.wv.cancelJSDialogs()
+
 	if h.wv.crashCount.Add(1) > maxConsecutiveCrashes {
 		return // suppress to break the loop
 	}
