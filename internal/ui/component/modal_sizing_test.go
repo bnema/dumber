@@ -117,6 +117,7 @@ func TestResolveModalSizeConfig_MergesDefaultsAndOverrides(t *testing.T) {
 		FixedWidth:        800,
 		FixedTopMargin:    0,
 		UseFixedTopMargin: true,
+		UseMonitorHeight:  true,
 	}
 
 	resolved := ResolveModalSizeConfig(override, defaults)
@@ -128,6 +129,7 @@ func TestResolveModalSizeConfig_MergesDefaultsAndOverrides(t *testing.T) {
 	assert.Equal(t, 800, resolved.FixedWidth)
 	assert.True(t, resolved.UseFixedTopMargin)
 	assert.Equal(t, 0, resolved.FixedTopMargin)
+	assert.True(t, resolved.UseMonitorHeight)
 }
 
 func TestScaleValue_DefaultScale(t *testing.T) {
