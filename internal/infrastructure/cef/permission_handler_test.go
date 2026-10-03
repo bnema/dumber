@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	purecef "github.com/bnema/purego-cef/cef"
+	cefmocks "github.com/bnema/purego-cef/cef/mocks"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -35,7 +36,12 @@ type permissionCapture struct {
 	calls  int
 }
 
-func newPermissionTestHandler(handled bool) (*handlerSet, *permissionCapture) {
+const testTopURL = "https://meet.example.com/room"
+
+// newPermissionTestHandler builds a handlerSet whose OnPermissionRequest
+// captures the request, and a browser whose main frame is at testTopURL.
+func newPermissionTestHandler(t *testing.T, handled bool) (*handlerSet, *permissionCapture, purecef.Browser) {
+	t.Helper()
 	capture := &permissionCapture{}
 	wv := &WebView{
 		ctx: context.Background(),
@@ -47,7 +53,11 @@ func newPermissionTestHandler(handled bool) (*handlerSet, *permissionCapture) {
 			},
 		},
 	}
-	return &handlerSet{wv: wv}, capture
+	browser := cefmocks.NewMockBrowser(t)
+	frame := cefmocks.NewMockFrame(t)
+	browser.EXPECT().GetMainFrame().Return(frame).Maybe()
+	frame.EXPECT().GetURL().Return(testTopURL).Maybe()
+	return &handlerSet{wv: wv}, capture, browser
 }
 
 const (
@@ -55,6 +65,18 @@ const (
 	mediaCamera = uint32(purecef.MediaAccessPermissionTypesMediaPermissionDeviceVideoCapture)
 	mediaDeskA  = uint32(purecef.MediaAccessPermissionTypesMediaPermissionDesktopAudioCapture)
 	mediaDeskV  = uint32(purecef.MediaAccessPermissionTypesMediaPermissionDesktopVideoCapture)
+
+	promptGeo   = uint32(purecef.PermissionRequestTypesPermissionTypeGeolocation)
+	promptNotif = uint32(purecef.PermissionRequestTypesPermissionTypeNotifications)
+	promptMic   = uint32(purecef.PermissionRequestTypesPermissionTypeMicStream)
+	promptCam   = uint32(purecef.PermissionRequestTypesPermissionTypeCameraStream)
+	promptPTZ   = uint32(purecef.PermissionRequestTypesPermissionTypeCameraPanTiltZoom)
+	promptClip  = uint32(purecef.PermissionRequestTypesPermissionTypeClipboard)
+)
+
+const (
+	promptAccept = purecef.PermissionRequestResultPermissionResultAccept
+	promptDeny   = purecef.PermissionRequestResultPermissionResultDeny
 )
 
 func TestMediaPermissionTypes(t *testing.T) {
@@ -62,63 +84,51 @@ func TestMediaPermissionTypes(t *testing.T) {
 		name      string
 		requested uint32
 		types     []string
-		allowed   uint32
 	}{
-		{"none", 0, nil, 0},
-		{"microphone", mediaMic, []string{"microphone"}, mediaMic},
-		{"camera", mediaCamera, []string{"camera"}, mediaCamera},
-		{"microphone and camera", mediaMic | mediaCamera, []string{"microphone", "camera"}, mediaMic | mediaCamera},
-		{"desktop video", mediaDeskV, []string{"display"}, mediaDeskV},
-		{"desktop audio and video", mediaDeskA | mediaDeskV, []string{"display"}, mediaDeskA | mediaDeskV},
-		{"camera and desktop", mediaCamera | mediaDeskV, []string{"camera", "display"}, mediaCamera | mediaDeskV},
-		{"unknown bit denies everything", mediaMic | 1<<10, nil, 0},
+		{"none", 0, nil},
+		{"microphone", mediaMic, []string{"microphone"}},
+		{"camera", mediaCamera, []string{"camera"}},
+		{"microphone and camera", mediaMic | mediaCamera, []string{"microphone", "camera"}},
+		{"desktop video", mediaDeskV, []string{"display"}},
+		{"desktop audio and video", mediaDeskA | mediaDeskV, []string{"display"}},
+		{"camera and desktop", mediaCamera | mediaDeskV, []string{"camera", "display"}},
+		{"desktop audio only is denied", mediaDeskA, nil},
+		{"mic and desktop audio only is denied", mediaMic | mediaDeskA, nil},
+		{"unknown bit denies everything", mediaMic | 1<<10, nil},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			types, allowed := mediaPermissionTypes(tt.requested)
-			assert.Equal(t, tt.types, types)
-			assert.Equal(t, tt.allowed, allowed)
+			assert.Equal(t, tt.types, mediaPermissionTypes(tt.requested))
 		})
 	}
 }
 
 func TestPromptPermissionTypes(t *testing.T) {
-	const (
-		geo   = uint32(purecef.PermissionRequestTypesPermissionTypeGeolocation)
-		notif = uint32(purecef.PermissionRequestTypesPermissionTypeNotifications)
-		mic   = uint32(purecef.PermissionRequestTypesPermissionTypeMicStream)
-		cam   = uint32(purecef.PermissionRequestTypesPermissionTypeCameraStream)
-		ptz   = uint32(purecef.PermissionRequestTypesPermissionTypeCameraPanTiltZoom)
-		clip  = uint32(purecef.PermissionRequestTypesPermissionTypeClipboard)
-	)
 	tests := []struct {
 		name      string
 		requested uint32
 		types     []string
-		ok        bool
 	}{
-		{"none", 0, nil, false},
-		{"geolocation", geo, []string{"geolocation"}, true},
-		{"notifications", notif, []string{"notification"}, true},
-		{"mic and camera", mic | cam, []string{"microphone", "camera"}, true},
-		{"camera pan tilt zoom", ptz, []string{"camera"}, true},
-		{"unsupported", clip, nil, false},
-		{"supported plus unsupported denies all", geo | clip, nil, false},
+		{"none", 0, nil},
+		{"geolocation", promptGeo, []string{"geolocation"}},
+		{"notifications", promptNotif, []string{"notification"}},
+		{"mic and camera", promptMic | promptCam, []string{"microphone", "camera"}},
+		{"camera pan tilt zoom unsupported", promptPTZ, nil},
+		{"unsupported", promptClip, nil},
+		{"supported plus unsupported denies all", promptGeo | promptClip, nil},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			types, ok := promptPermissionTypes(tt.requested)
-			assert.Equal(t, tt.ok, ok)
-			assert.Equal(t, tt.types, types)
+			assert.Equal(t, tt.types, promptPermissionTypes(tt.requested))
 		})
 	}
 }
 
 func TestOnRequestMediaAccessPermissionAllowGrantsRequestedMask(t *testing.T) {
-	h, capture := newPermissionTestHandler(true)
+	h, capture, browser := newPermissionTestHandler(t, true)
 	cb := &stubMediaAccessCallback{}
 
-	handled := h.OnRequestMediaAccessPermission(nil, nil, "https://meet.example.com/room", mediaMic|mediaCamera, cb)
+	handled := h.OnRequestMediaAccessPermission(browser, nil, "https://meet.example.com", mediaMic|mediaCamera, cb)
 
 	require.Equal(t, int32(1), handled)
 	require.Equal(t, "https://meet.example.com", capture.origin)
@@ -126,46 +136,98 @@ func TestOnRequestMediaAccessPermissionAllowGrantsRequestedMask(t *testing.T) {
 	require.Empty(t, cb.contCalls)
 
 	capture.allow()
-	capture.allow()
-	capture.deny()
-
 	assert.Equal(t, []uint32{mediaMic | mediaCamera}, cb.contCalls)
 	assert.Zero(t, cb.cancelCalls)
 	assert.Empty(t, h.permissions.pending)
 }
 
-func TestOnRequestMediaAccessPermissionDenyOnlyOnce(t *testing.T) {
-	h, capture := newPermissionTestHandler(true)
-	cb := &stubMediaAccessCallback{}
-
-	require.Equal(t, int32(1), h.OnRequestMediaAccessPermission(nil, nil, "https://a.example", mediaMic, cb))
-	capture.deny()
-	capture.allow()
-	capture.deny()
-
-	assert.Empty(t, cb.contCalls)
-	assert.Equal(t, 1, cb.cancelCalls)
+func TestPermissionRequestResolvesOnlyOnce(t *testing.T) {
+	steps := map[string]func(c *permissionCapture){
+		"allow first": func(c *permissionCapture) { c.allow(); c.deny(); c.allow() },
+		"deny first":  func(c *permissionCapture) { c.deny(); c.allow(); c.deny() },
+	}
+	for name, step := range steps {
+		wantAllow := name == "allow first"
+		t.Run("media "+name, func(t *testing.T) {
+			h, capture, browser := newPermissionTestHandler(t, true)
+			cb := &stubMediaAccessCallback{}
+			require.Equal(t, int32(1), h.OnRequestMediaAccessPermission(browser, nil, "https://meet.example.com", mediaMic, cb))
+			step(capture)
+			if wantAllow {
+				assert.Equal(t, []uint32{mediaMic}, cb.contCalls)
+				assert.Zero(t, cb.cancelCalls)
+			} else {
+				assert.Empty(t, cb.contCalls)
+				assert.Equal(t, 1, cb.cancelCalls)
+			}
+		})
+		t.Run("prompt "+name, func(t *testing.T) {
+			h, capture, browser := newPermissionTestHandler(t, true)
+			cb := &stubPermissionPromptCallback{}
+			require.Equal(t, int32(1), h.OnShowPermissionPrompt(browser, 7, "https://meet.example.com", promptGeo, cb))
+			require.Equal(t, []string{"geolocation"}, capture.types)
+			step(capture)
+			want := promptDeny
+			if wantAllow {
+				want = promptAccept
+			}
+			assert.Equal(t, []purecef.PermissionRequestResult{want}, cb.results)
+		})
+	}
 }
 
-func TestOnRequestMediaAccessPermissionDeniesWhenNotHandledOrUnsupported(t *testing.T) {
-	t.Run("handler returns false", func(t *testing.T) {
-		h, _ := newPermissionTestHandler(false)
+func TestOnRequestMediaAccessPermissionDenies(t *testing.T) {
+	tests := []struct {
+		name      string
+		handled   bool
+		origin    string
+		requested uint32
+		wantCalls int
+	}{
+		{"handler returns false", false, "https://meet.example.com", mediaMic, 1},
+		{"unknown bits", true, "https://meet.example.com", mediaMic | 1<<10, 0},
+		{"desktop audio only", true, "https://meet.example.com", mediaDeskA, 0},
+		{"invalid origin", true, "", mediaMic, 0},
+		{"cross-origin requester", true, "https://evil.example.org", mediaMic, 0},
+		{"different port", true, "https://meet.example.com:8443", mediaMic, 0},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			h, capture, browser := newPermissionTestHandler(t, tt.handled)
+			cb := &stubMediaAccessCallback{}
+			require.Equal(t, int32(1), h.OnRequestMediaAccessPermission(browser, nil, tt.origin, tt.requested, cb))
+			assert.Equal(t, 1, cb.cancelCalls)
+			assert.Empty(t, cb.contCalls)
+			assert.Equal(t, tt.wantCalls, capture.calls)
+		})
+	}
+}
+
+func TestOnRequestMediaAccessPermissionDeniesWithoutTopLevelOrigin(t *testing.T) {
+	t.Run("nil browser", func(t *testing.T) {
+		h, capture, _ := newPermissionTestHandler(t, true)
 		cb := &stubMediaAccessCallback{}
-		require.Equal(t, int32(1), h.OnRequestMediaAccessPermission(nil, nil, "https://a.example", mediaMic, cb))
-		assert.Equal(t, 1, cb.cancelCalls)
-		assert.Empty(t, cb.contCalls)
-	})
-	t.Run("unknown bits", func(t *testing.T) {
-		h, capture := newPermissionTestHandler(true)
-		cb := &stubMediaAccessCallback{}
-		require.Equal(t, int32(1), h.OnRequestMediaAccessPermission(nil, nil, "https://a.example", mediaMic|1<<10, cb))
+		require.Equal(t, int32(1), h.OnRequestMediaAccessPermission(nil, nil, "https://meet.example.com", mediaMic, cb))
 		assert.Equal(t, 1, cb.cancelCalls)
 		assert.Zero(t, capture.calls)
 	})
-	t.Run("invalid origin", func(t *testing.T) {
-		h, capture := newPermissionTestHandler(true)
+	t.Run("nil main frame", func(t *testing.T) {
+		h, capture, _ := newPermissionTestHandler(t, true)
+		browser := cefmocks.NewMockBrowser(t)
+		browser.EXPECT().GetMainFrame().Return(nil)
 		cb := &stubMediaAccessCallback{}
-		require.Equal(t, int32(1), h.OnRequestMediaAccessPermission(nil, nil, "", mediaMic, cb))
+		require.Equal(t, int32(1), h.OnRequestMediaAccessPermission(browser, nil, "https://meet.example.com", mediaMic, cb))
+		assert.Equal(t, 1, cb.cancelCalls)
+		assert.Zero(t, capture.calls)
+	})
+	t.Run("invalid main frame url", func(t *testing.T) {
+		h, capture, _ := newPermissionTestHandler(t, true)
+		browser := cefmocks.NewMockBrowser(t)
+		frame := cefmocks.NewMockFrame(t)
+		browser.EXPECT().GetMainFrame().Return(frame)
+		frame.EXPECT().GetURL().Return("about:blank")
+		cb := &stubMediaAccessCallback{}
+		require.Equal(t, int32(1), h.OnRequestMediaAccessPermission(browser, nil, "https://meet.example.com", mediaMic, cb))
 		assert.Equal(t, 1, cb.cancelCalls)
 		assert.Zero(t, capture.calls)
 	})
@@ -177,9 +239,10 @@ func TestOnRequestMediaAccessPermissionDeniesWithoutCallback(t *testing.T) {
 		"nil OnPermissionRequest fn": {},
 	} {
 		t.Run(name, func(t *testing.T) {
-			h := &handlerSet{wv: &WebView{ctx: context.Background(), callbacks: cbs}}
+			h, _, browser := newPermissionTestHandler(t, true)
+			h.wv.callbacks = cbs
 			cb := &stubMediaAccessCallback{}
-			require.Equal(t, int32(1), h.OnRequestMediaAccessPermission(nil, nil, "https://a.example", mediaMic, cb))
+			require.Equal(t, int32(1), h.OnRequestMediaAccessPermission(browser, nil, "https://meet.example.com", mediaMic, cb))
 			assert.Equal(t, 1, cb.cancelCalls)
 			assert.Empty(t, cb.contCalls)
 		})
@@ -187,46 +250,106 @@ func TestOnRequestMediaAccessPermissionDeniesWithoutCallback(t *testing.T) {
 }
 
 func TestOnRequestMediaAccessPermissionDeniesWhenDestroyed(t *testing.T) {
-	h, capture := newPermissionTestHandler(true)
+	h, capture, browser := newPermissionTestHandler(t, true)
 	h.wv.destroyed.Store(true)
 	cb := &stubMediaAccessCallback{}
-	require.Equal(t, int32(1), h.OnRequestMediaAccessPermission(nil, nil, "https://a.example", mediaMic, cb))
+	require.Equal(t, int32(1), h.OnRequestMediaAccessPermission(browser, nil, "https://meet.example.com", mediaMic, cb))
 	assert.Equal(t, 1, cb.cancelCalls)
 	assert.Zero(t, capture.calls)
 }
 
-func TestOnShowPermissionPromptAllowAndDeny(t *testing.T) {
-	const geo = uint32(purecef.PermissionRequestTypesPermissionTypeGeolocation)
+func TestDeliverPermissionRequest(t *testing.T) {
+	newReq := func(allowed *[]bool) *cefPermissionRequest {
+		return &cefPermissionRequest{finish: func(allow bool) { *allowed = append(*allowed, allow) }}
+	}
+	handlerCalls := 0
+	cb := &port.WebViewCallbacks{
+		OnPermissionRequest: func(string, []string, map[string]string, func(), func()) bool {
+			handlerCalls++
+			return true
+		},
+	}
 
-	h, capture := newPermissionTestHandler(true)
-	allowCb := &stubPermissionPromptCallback{}
-	require.Equal(t, int32(1), h.OnShowPermissionPrompt(nil, 7, "https://maps.example", geo, allowCb))
-	require.Equal(t, []string{"geolocation"}, capture.types)
-	capture.allow()
-	capture.deny()
-	assert.Equal(t, []purecef.PermissionRequestResult{purecef.PermissionRequestResultPermissionResultAccept}, allowCb.results)
-
-	denyCb := &stubPermissionPromptCallback{}
-	require.Equal(t, int32(1), h.OnShowPermissionPrompt(nil, 8, "https://maps.example", geo, denyCb))
-	capture.deny()
-	capture.allow()
-	assert.Equal(t, []purecef.PermissionRequestResult{purecef.PermissionRequestResultPermissionResultDeny}, denyCb.results)
+	t.Run("already resolved is skipped", func(t *testing.T) {
+		h := &handlerSet{wv: &WebView{ctx: context.Background()}}
+		var results []bool
+		req := newReq(&results)
+		req.resolve(false)
+		handlerCalls = 0
+		h.deliverPermissionRequest(req, cb, "https://a.example", []string{"camera"})
+		assert.Zero(t, handlerCalls)
+		assert.Equal(t, []bool{false}, results)
+	})
+	t.Run("destroyed before delivery denies", func(t *testing.T) {
+		h := &handlerSet{wv: &WebView{ctx: context.Background()}}
+		h.wv.destroyed.Store(true)
+		var results []bool
+		req := newReq(&results)
+		handlerCalls = 0
+		h.deliverPermissionRequest(req, cb, "https://a.example", []string{"camera"})
+		assert.Zero(t, handlerCalls)
+		assert.Equal(t, []bool{false}, results)
+	})
 }
 
-func TestOnShowPermissionPromptDeniesUnsupportedType(t *testing.T) {
-	const clip = uint32(purecef.PermissionRequestTypesPermissionTypeClipboard)
-	h, capture := newPermissionTestHandler(true)
+func TestPermissionTrackerAddDuplicateKeyReturnsPrevious(t *testing.T) {
+	var tracker permissionTracker
+	var results []string
+	mk := func(name string) *cefPermissionRequest {
+		return &cefPermissionRequest{finish: func(bool) { results = append(results, name) }}
+	}
+	key := permissionKey{prompt: true, id: 1}
+	first, second := mk("first"), mk("second")
+
+	assert.Nil(t, tracker.add(key, first))
+	prev := tracker.add(key, second)
+	require.Same(t, first, prev)
+	prev.resolve(false)
+
+	assert.Equal(t, []string{"first"}, results)
+	assert.Same(t, second, tracker.get(key), "resolving the replaced request must not untrack the new one")
+}
+
+func TestOnShowPermissionPromptDuplicateIDDeniesPrevious(t *testing.T) {
+	h, _, browser := newPermissionTestHandler(t, true)
+	first, second := &stubPermissionPromptCallback{}, &stubPermissionPromptCallback{}
+	require.Equal(t, int32(1), h.OnShowPermissionPrompt(browser, 4, "https://meet.example.com", promptGeo, first))
+	require.Equal(t, int32(1), h.OnShowPermissionPrompt(browser, 4, "https://meet.example.com", promptGeo, second))
+	assert.Equal(t, []purecef.PermissionRequestResult{promptDeny}, first.results)
+	assert.Empty(t, second.results)
+}
+
+func TestOnShowPermissionPromptUnsupportedReturnsZero(t *testing.T) {
+	for name, mask := range map[string]uint32{
+		"empty":       0,
+		"clipboard":   promptClip,
+		"ptz":         promptPTZ,
+		"mixed":       promptGeo | promptClip,
+		"unknown bit": 1 << 30,
+	} {
+		t.Run(name, func(t *testing.T) {
+			h, capture, browser := newPermissionTestHandler(t, true)
+			cb := &stubPermissionPromptCallback{}
+			assert.Equal(t, int32(0), h.OnShowPermissionPrompt(browser, 1, "https://meet.example.com", mask, cb))
+			assert.Empty(t, cb.results)
+			assert.Zero(t, capture.calls)
+			assert.Empty(t, h.permissions.pending)
+		})
+	}
+}
+
+func TestOnShowPermissionPromptDeniesCrossOrigin(t *testing.T) {
+	h, capture, browser := newPermissionTestHandler(t, true)
 	cb := &stubPermissionPromptCallback{}
-	require.Equal(t, int32(1), h.OnShowPermissionPrompt(nil, 1, "https://a.example", clip, cb))
-	assert.Equal(t, []purecef.PermissionRequestResult{purecef.PermissionRequestResultPermissionResultDeny}, cb.results)
+	require.Equal(t, int32(1), h.OnShowPermissionPrompt(browser, 1, "https://evil.example.org", promptNotif, cb))
+	assert.Equal(t, []purecef.PermissionRequestResult{promptDeny}, cb.results)
 	assert.Zero(t, capture.calls)
 }
 
 func TestOnDismissPermissionPromptDropsPendingWithoutCallingCEF(t *testing.T) {
-	const notif = uint32(purecef.PermissionRequestTypesPermissionTypeNotifications)
-	h, capture := newPermissionTestHandler(true)
+	h, capture, browser := newPermissionTestHandler(t, true)
 	cb := &stubPermissionPromptCallback{}
-	require.Equal(t, int32(1), h.OnShowPermissionPrompt(nil, 3, "https://a.example", notif, cb))
+	require.Equal(t, int32(1), h.OnShowPermissionPrompt(browser, 3, "https://meet.example.com", promptNotif, cb))
 
 	h.OnDismissPermissionPrompt(nil, 3, purecef.PermissionRequestResultPermissionResultDismiss)
 	capture.allow()
@@ -241,13 +364,12 @@ func TestOnDismissPermissionPromptDropsPendingWithoutCallingCEF(t *testing.T) {
 }
 
 func TestDenyPendingPermissionsResolvesAllOnce(t *testing.T) {
-	const geo = uint32(purecef.PermissionRequestTypesPermissionTypeGeolocation)
-	h, capture := newPermissionTestHandler(true)
+	h, capture, browser := newPermissionTestHandler(t, true)
 	media := &stubMediaAccessCallback{}
 	prompt := &stubPermissionPromptCallback{}
-	require.Equal(t, int32(1), h.OnRequestMediaAccessPermission(nil, nil, "https://a.example", mediaMic, media))
+	require.Equal(t, int32(1), h.OnRequestMediaAccessPermission(browser, nil, "https://meet.example.com", mediaMic, media))
 	mediaAllow := capture.allow
-	require.Equal(t, int32(1), h.OnShowPermissionPrompt(nil, 5, "https://a.example", geo, prompt))
+	require.Equal(t, int32(1), h.OnShowPermissionPrompt(browser, 5, "https://meet.example.com", promptGeo, prompt))
 	promptAllow := capture.allow
 
 	h.denyPendingPermissions()
@@ -257,7 +379,7 @@ func TestDenyPendingPermissionsResolvesAllOnce(t *testing.T) {
 
 	assert.Equal(t, 1, media.cancelCalls)
 	assert.Empty(t, media.contCalls)
-	assert.Equal(t, []purecef.PermissionRequestResult{purecef.PermissionRequestResultPermissionResultDeny}, prompt.results)
+	assert.Equal(t, []purecef.PermissionRequestResult{promptDeny}, prompt.results)
 	assert.Empty(t, h.permissions.pending)
 }
 
@@ -290,9 +412,4 @@ func TestDispatchPermissionResultPostsToUIThread(t *testing.T) {
 	assert.Equal(t, purecef.ThreadIDTidUi, gotThread)
 	posted.Execute()
 	assert.Equal(t, 1, ran)
-}
-
-func TestGetPermissionHandlerEnabled(t *testing.T) {
-	h := &handlerSet{wv: &WebView{ctx: context.Background()}}
-	assert.NotNil(t, h.GetPermissionHandler())
 }

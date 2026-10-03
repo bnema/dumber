@@ -8,6 +8,7 @@ import (
 	purecef "github.com/bnema/purego-cef/cef"
 	"github.com/rs/zerolog"
 
+	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/domain/entity"
 	urlutil "github.com/bnema/dumber/internal/domain/url"
 	"github.com/bnema/dumber/internal/logging"
@@ -21,46 +22,50 @@ const supportedMediaAccessMask = uint32(
 		purecef.MediaAccessPermissionTypesMediaPermissionDesktopVideoCapture)
 
 // mediaPermissionTypes maps a CEF media access bitmask to Dumber permission
-// types. The returned allowedMask contains only the requested bits that Dumber
-// understands; it is what must be granted when the user allows the request.
-// An empty request or one containing unknown bits yields no types (deny).
-func mediaPermissionTypes(requested uint32) (types []string, allowedMask uint32) {
+// types. It returns nil (deny) for an empty mask, a mask containing unknown
+// bits, or desktop audio without desktop video: Chromium would grant a
+// "loopback" system audio device for it without going through any portal.
+func mediaPermissionTypes(requested uint32) []string {
+	const (
+		deviceAudio  = uint32(purecef.MediaAccessPermissionTypesMediaPermissionDeviceAudioCapture)
+		deviceVideo  = uint32(purecef.MediaAccessPermissionTypesMediaPermissionDeviceVideoCapture)
+		desktopAudio = uint32(purecef.MediaAccessPermissionTypesMediaPermissionDesktopAudioCapture)
+		desktopVideo = uint32(purecef.MediaAccessPermissionTypesMediaPermissionDesktopVideoCapture)
+	)
 	if requested == 0 || requested&^supportedMediaAccessMask != 0 {
-		return nil, 0
+		return nil
 	}
-	allowedMask = requested
-	if allowedMask&uint32(purecef.MediaAccessPermissionTypesMediaPermissionDeviceAudioCapture) != 0 {
+	if requested&desktopAudio != 0 && requested&desktopVideo == 0 {
+		return nil
+	}
+	var types []string
+	if requested&deviceAudio != 0 {
 		types = append(types, string(entity.PermissionTypeMicrophone))
 	}
-	if allowedMask&uint32(purecef.MediaAccessPermissionTypesMediaPermissionDeviceVideoCapture) != 0 {
+	if requested&deviceVideo != 0 {
 		types = append(types, string(entity.PermissionTypeCamera))
 	}
-	const desktop = uint32(purecef.MediaAccessPermissionTypesMediaPermissionDesktopAudioCapture |
-		purecef.MediaAccessPermissionTypesMediaPermissionDesktopVideoCapture)
-	if allowedMask&desktop != 0 {
+	if requested&desktopVideo != 0 {
 		types = append(types, string(entity.PermissionTypeDisplay))
 	}
-	return types, allowedMask
+	return types
 }
 
 // promptPermissionTypes maps a CEF permission prompt bitmask to Dumber
-// permission types. ok is false when the mask is empty or contains any bit that
-// Dumber does not support, in which case the whole request must be denied.
-func promptPermissionTypes(requested uint32) (types []string, ok bool) {
-	if requested == 0 {
-		return nil, false
-	}
+// permission types. It returns nil when the mask is empty or contains any bit
+// Dumber does not support.
+func promptPermissionTypes(requested uint32) []string {
 	const (
-		camera = uint32(purecef.PermissionRequestTypesPermissionTypeCameraStream |
-			purecef.PermissionRequestTypesPermissionTypeCameraPanTiltZoom)
+		camera        = uint32(purecef.PermissionRequestTypesPermissionTypeCameraStream)
 		mic           = uint32(purecef.PermissionRequestTypesPermissionTypeMicStream)
 		geolocation   = uint32(purecef.PermissionRequestTypesPermissionTypeGeolocation)
 		notifications = uint32(purecef.PermissionRequestTypesPermissionTypeNotifications)
 		supported     = camera | mic | geolocation | notifications
 	)
-	if requested&^supported != 0 {
-		return nil, false
+	if requested == 0 || requested&^supported != 0 {
+		return nil
 	}
+	var types []string
 	if requested&mic != 0 {
 		types = append(types, string(entity.PermissionTypeMicrophone))
 	}
@@ -73,7 +78,7 @@ func promptPermissionTypes(requested uint32) (types []string, ok bool) {
 	if requested&notifications != 0 {
 		types = append(types, string(entity.PermissionTypeNotification))
 	}
-	return types, true
+	return types
 }
 
 // cefPermissionRequest guarantees that a CEF permission callback is resolved
@@ -169,7 +174,7 @@ func (t *permissionTracker) drain() []*cefPermissionRequest {
 
 // OnRequestMediaAccessPermission handles getUserMedia/getDisplayMedia requests.
 func (h *handlerSet) OnRequestMediaAccessPermission(
-	_ purecef.Browser,
+	browser purecef.Browser,
 	_ purecef.Frame,
 	requestingOrigin string,
 	requestedPermissions uint32,
@@ -178,21 +183,24 @@ func (h *handlerSet) OnRequestMediaAccessPermission(
 	if h == nil || h.wv == nil || callback == nil {
 		return 0
 	}
-	types, allowedMask := mediaPermissionTypes(requestedPermissions)
-	h.beginPermissionRequest(h.permissions.nextMediaKey(), requestingOrigin, types, func(allow bool) {
-		if allow && allowedMask != 0 {
-			callback.Cont(allowedMask)
-			return
-		}
-		callback.Cancel()
-	})
+	h.beginPermissionRequest(
+		h.permissions.nextMediaKey(), browser, requestingOrigin,
+		mediaPermissionTypes(requestedPermissions),
+		func(allow bool) {
+			if allow {
+				callback.Cont(requestedPermissions)
+				return
+			}
+			callback.Cancel()
+		})
 	return 1
 }
 
 // OnShowPermissionPrompt handles non-media permission requests
-// (geolocation, notifications, ...).
+// (geolocation, notifications). Unsupported requests are left to CEF's default
+// handling by returning 0.
 func (h *handlerSet) OnShowPermissionPrompt(
-	_ purecef.Browser,
+	browser purecef.Browser,
 	promptID uint64,
 	requestingOrigin string,
 	requestedPermissions uint32,
@@ -201,8 +209,11 @@ func (h *handlerSet) OnShowPermissionPrompt(
 	if h == nil || h.wv == nil || callback == nil {
 		return 0
 	}
-	types, _ := promptPermissionTypes(requestedPermissions)
-	h.beginPermissionRequest(permissionKey{prompt: true, id: promptID}, requestingOrigin, types, func(allow bool) {
+	types := promptPermissionTypes(requestedPermissions)
+	if len(types) == 0 {
+		return 0
+	}
+	h.beginPermissionRequest(permissionKey{prompt: true, id: promptID}, browser, requestingOrigin, types, func(allow bool) {
 		if allow {
 			callback.Cont(purecef.PermissionRequestResultPermissionResultAccept)
 			return
@@ -214,6 +225,10 @@ func (h *handlerSet) OnShowPermissionPrompt(
 
 // OnDismissPermissionPrompt is called when CEF dismisses a prompt we handled.
 // The callback is no longer valid, so it must not be invoked anymore.
+//
+// Known limitation: a Dumber permission dialog that is already open is not
+// closed on dismissal, because the dialog port has no cancel API. Its eventual
+// answer is ignored by the once-only guard.
 func (h *handlerSet) OnDismissPermissionPrompt(
 	_ purecef.Browser,
 	promptID uint64,
@@ -246,10 +261,12 @@ func (h *handlerSet) denyPendingPermissions() {
 // beginPermissionRequest registers a request, forwards it to the WebView's
 // OnPermissionRequest callback on the GTK thread, and guarantees finish is
 // invoked exactly once on the CEF UI thread. It denies when the request cannot
-// be mapped, the origin is invalid, no callback is available, or the WebView
-// is destroyed.
+// be mapped, the top-level origin is unavailable or differs from the requesting
+// origin (cross-origin frames are unsupported), no callback is available, or
+// the WebView is destroyed.
 func (h *handlerSet) beginPermissionRequest(
 	key permissionKey,
+	browser purecef.Browser,
 	requestingOrigin string,
 	types []string,
 	finish func(allow bool),
@@ -270,9 +287,9 @@ func (h *handlerSet) beginPermissionRequest(
 		req.resolve(false)
 		return
 	}
-	origin, err := urlutil.ExtractOrigin(requestingOrigin)
-	if err != nil {
-		log.Debug().Err(err).Msg("cef: denying permission request with invalid origin")
+	origin, ok := topLevelPermissionOrigin(browser, requestingOrigin)
+	if !ok {
+		log.Debug().Msg("cef: denying permission request; requester is not the top-level origin")
 		req.resolve(false)
 		return
 	}
@@ -286,16 +303,51 @@ func (h *handlerSet) beginPermissionRequest(
 		return
 	}
 
+	wv.runOnGTK(func() { h.deliverPermissionRequest(req, cb, origin, types) })
+}
+
+// deliverPermissionRequest runs on the GTK thread. It skips requests that were
+// already resolved (dismissed, closed) and denies when the WebView was destroyed
+// or the callback does not handle the request.
+func (h *handlerSet) deliverPermissionRequest(
+	req *cefPermissionRequest,
+	cb *port.WebViewCallbacks,
+	origin string,
+	types []string,
+) {
+	if req.isDone() {
+		return
+	}
+	if h.wv.destroyed.Load() {
+		req.resolve(false)
+		return
+	}
 	allow := func() { req.resolve(true) }
 	deny := func() { req.resolve(false) }
-	wv.runOnGTK(func() {
-		if req.isDone() {
-			return
-		}
-		if !cb.OnPermissionRequest(origin, types, map[string]string{}, allow, deny) {
-			req.resolve(false)
-		}
-	})
+	if !cb.OnPermissionRequest(origin, types, map[string]string{}, allow, deny) {
+		req.resolve(false)
+	}
+}
+
+// topLevelPermissionOrigin returns the canonical top-level (main frame) origin
+// and whether the requesting origin matches it.
+func topLevelPermissionOrigin(browser purecef.Browser, requestingOrigin string) (string, bool) {
+	if browser == nil {
+		return "", false
+	}
+	frame := browser.GetMainFrame()
+	if frame == nil {
+		return "", false
+	}
+	top, err := urlutil.ExtractOrigin(frame.GetURL())
+	if err != nil {
+		return "", false
+	}
+	requester, err := urlutil.ExtractOrigin(requestingOrigin)
+	if err != nil || requester != top {
+		return "", false
+	}
+	return top, true
 }
 
 // dispatchPermissionResult runs fn on the CEF UI thread, as CEF permission
