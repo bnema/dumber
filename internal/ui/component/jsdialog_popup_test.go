@@ -15,8 +15,27 @@ func TestJSDialogOriginLabel(t *testing.T) {
 	assert.Equal(t, "This page", jsDialogOriginLabel(""))
 	assert.Equal(t, "This page", jsDialogOriginLabel("not a url"))
 	assert.Equal(t, "file:", jsDialogOriginLabel("file:///tmp/x.html"))
-	long := jsDialogOriginLabel("https://" + strings.Repeat("a", 500) + ".com/")
+	long := jsDialogOriginLabel("https://" + strings.Repeat("a", 500) + ".example.com/")
 	assert.LessOrEqual(t, len([]rune(long)), jsDialogMaxHostChars+1)
+}
+
+func TestJSDialogOriginLabelKeepsRegistrableDomain(t *testing.T) {
+	// A long attacker-controlled prefix must not push the real domain out.
+	label := jsDialogOriginLabel("https://" + strings.Repeat("paypal.com.", 20) + "evil.test/")
+	assert.True(t, strings.HasPrefix(label, "…"))
+	assert.True(t, strings.HasSuffix(label, "evil.test"))
+}
+
+func TestBuildJSDialogContentCapsPageText(t *testing.T) {
+	huge := strings.Repeat("x", jsDialogMaxTextRunes*3)
+	c := buildJSDialogContent(port.JSDialogRequest{Type: port.JSDialogAlert, Message: huge})
+	assert.LessOrEqual(t, len([]rune(c.Body)), jsDialogMaxTextRunes+1)
+}
+
+func TestBuildJSDialogContentBeforeUnloadUsesFixedText(t *testing.T) {
+	c := buildJSDialogContent(port.JSDialogRequest{Type: port.JSDialogBeforeUnload, Origin: "https://example.com", Message: "page text"})
+	assert.Contains(t, c.Body, jsDialogBeforeUnloadText)
+	assert.NotContains(t, c.Body, "page text")
 }
 
 func TestBuildJSDialogContent(t *testing.T) {
