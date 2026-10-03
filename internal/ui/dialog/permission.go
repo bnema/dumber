@@ -14,7 +14,7 @@ import (
 )
 
 type permissionPopup interface {
-	Show(ctx context.Context, heading, body string, callback func(allowed, persistent bool))
+	Show(ctx context.Context, heading, body string, persistable bool, callback func(allowed, persistent bool))
 }
 
 type permissionDialogRequest struct {
@@ -109,7 +109,7 @@ func (d *PermissionDialog) showRequest(req permissionDialogRequest) {
 			Msg("showing website data access permission dialog")
 	}
 
-	d.popup.Show(ctx, heading, body, func(allowed, persistent bool) {
+	d.popup.Show(ctx, heading, body, anyPersistable(permTypes), func(allowed, persistent bool) {
 		if isDataAccess {
 			log.Info().
 				Str("origin", origin).
@@ -173,6 +173,17 @@ func parsePermFlags(permTypes []entity.PermissionType) permFlags {
 		}
 	}
 	return f
+}
+
+// anyPersistable reports whether at least one requested type can be remembered
+// ("Always Allow/Deny"). When none can, the popup hides those buttons.
+func anyPersistable(permTypes []entity.PermissionType) bool {
+	for _, pt := range permTypes {
+		if entity.CanPersist(pt) {
+			return true
+		}
+	}
+	return false
 }
 
 // joinPermissionLabels joins labels with commas and "and".
@@ -244,9 +255,12 @@ func (d *PermissionDialog) buildBody(
 		parts = append(parts, "access your camera")
 	}
 	if f.display {
-		if metadata.IsUnmediatedCapture() {
+		switch {
+		case metadata.IsUnmediatedCapture() && metadata.IsUnmediatedAudio():
+			parts = append(parts, "share your entire screen and system audio")
+		case metadata.IsUnmediatedCapture():
 			parts = append(parts, "share your entire screen")
-		} else {
+		default:
 			parts = append(parts, "share your screen")
 		}
 	}

@@ -53,6 +53,10 @@ const (
 	// shares the entire screen immediately (CEF). It disables display auto-allow.
 	PermissionMetadataKeyUnmediatedCapture = "unmediated_capture"
 
+	// PermissionMetadataKeyUnmediatedAudio is set to PermissionMetadataValueTrue when the
+	// request also captures system (desktop) audio, which no system UI mediates either.
+	PermissionMetadataKeyUnmediatedAudio = "unmediated_audio"
+
 	// PermissionMetadataValueTrue is the metadata value for boolean flags.
 	PermissionMetadataValueTrue = "true"
 )
@@ -119,6 +123,11 @@ func CanPersist(permType PermissionType) bool {
 // system picker/portal mediates.
 func (m PermissionMetadata) IsUnmediatedCapture() bool {
 	return m[PermissionMetadataKeyUnmediatedCapture] == PermissionMetadataValueTrue
+}
+
+// IsUnmediatedAudio reports whether the metadata flags system audio capture.
+func (m PermissionMetadata) IsUnmediatedAudio() bool {
+	return m[PermissionMetadataKeyUnmediatedAudio] == PermissionMetadataValueTrue
 }
 
 // IsAutoAllowFor is IsAutoAllow with request metadata taken into account: an

@@ -16,10 +16,19 @@ func NewMockPermissionPopup(t interface {
 	mock.TestingT
 	Cleanup(func())
 }) *MockPermissionPopup {
+	if helper, ok := t.(interface{ Helper() }); ok {
+		helper.Helper()
+	}
+
 	mock := &MockPermissionPopup{}
 	mock.Mock.Test(t)
 
-	t.Cleanup(func() { mock.AssertExpectations(t) })
+	t.Cleanup(func() {
+		if helper, ok := t.(interface{ Helper() }); ok {
+			helper.Helper()
+		}
+		mock.AssertExpectations(t)
+	})
 
 	return mock
 }
@@ -38,8 +47,8 @@ func (_m *MockPermissionPopup) EXPECT() *MockPermissionPopup_Expecter {
 }
 
 // Show provides a mock function for the type MockPermissionPopup
-func (_mock *MockPermissionPopup) Show(ctx context.Context, heading string, body string, callback func(allowed bool, persistent bool)) {
-	_mock.Called(ctx, heading, body, callback)
+func (_mock *MockPermissionPopup) Show(ctx context.Context, heading string, body string, persistable bool, callback func(allowed bool, persistent bool)) {
+	_mock.Called(ctx, heading, body, persistable, callback)
 	return
 }
 
@@ -52,12 +61,13 @@ type MockPermissionPopup_Show_Call struct {
 //   - ctx context.Context
 //   - heading string
 //   - body string
+//   - persistable bool
 //   - callback func(allowed bool, persistent bool)
-func (_e *MockPermissionPopup_Expecter) Show(ctx any, heading any, body any, callback any) *MockPermissionPopup_Show_Call {
-	return &MockPermissionPopup_Show_Call{Call: _e.mock.On("Show", ctx, heading, body, callback)}
+func (_e *MockPermissionPopup_Expecter) Show(ctx any, heading any, body any, persistable any, callback any) *MockPermissionPopup_Show_Call {
+	return &MockPermissionPopup_Show_Call{Call: _e.mock.On("Show", ctx, heading, body, persistable, callback)}
 }
 
-func (_c *MockPermissionPopup_Show_Call) Run(run func(ctx context.Context, heading string, body string, callback func(allowed bool, persistent bool))) *MockPermissionPopup_Show_Call {
+func (_c *MockPermissionPopup_Show_Call) Run(run func(ctx context.Context, heading string, body string, persistable bool, callback func(allowed bool, persistent bool))) *MockPermissionPopup_Show_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
@@ -71,15 +81,20 @@ func (_c *MockPermissionPopup_Show_Call) Run(run func(ctx context.Context, headi
 		if args[2] != nil {
 			arg2 = args[2].(string)
 		}
-		var arg3 func(allowed bool, persistent bool)
+		var arg3 bool
 		if args[3] != nil {
-			arg3 = args[3].(func(allowed bool, persistent bool))
+			arg3 = args[3].(bool)
+		}
+		var arg4 func(allowed bool, persistent bool)
+		if args[4] != nil {
+			arg4 = args[4].(func(allowed bool, persistent bool))
 		}
 		run(
 			arg0,
 			arg1,
 			arg2,
 			arg3,
+			arg4,
 		)
 	})
 	return _c
@@ -90,7 +105,7 @@ func (_c *MockPermissionPopup_Show_Call) Return() *MockPermissionPopup_Show_Call
 	return _c
 }
 
-func (_c *MockPermissionPopup_Show_Call) RunAndReturn(run func(ctx context.Context, heading string, body string, callback func(allowed bool, persistent bool))) *MockPermissionPopup_Show_Call {
+func (_c *MockPermissionPopup_Show_Call) RunAndReturn(run func(ctx context.Context, heading string, body string, persistable bool, callback func(allowed bool, persistent bool))) *MockPermissionPopup_Show_Call {
 	_c.Run(run)
 	return _c
 }

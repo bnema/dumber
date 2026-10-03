@@ -173,6 +173,8 @@ func (uc *HandlePermissionUseCase) HandlePermissionRequest(
 }
 
 // QueryPermissionState returns the current permission state for the W3C Permissions API.
+// Note: it has no CEF caller and does not consider PermissionMetadataKeyUnmediatedCapture
+// (display is reported as granted); revisit if a CEF Permissions API bridge is added.
 // This is used by websites to check if they already have permission before calling getUserMedia().
 func (uc *HandlePermissionUseCase) QueryPermissionState(
 	ctx context.Context,
