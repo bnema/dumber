@@ -21,13 +21,20 @@ import (
 // are suppressed (suppress_message=true) instead of being queued, so a page
 // cannot stack or spam dialogs.
 //
-// CEF reset semantics (javascript_dialog_manager.cc): OnResetDialogState is
-// also delivered (a) right after a suppressed OnJsdialog and (b) at the end of
-// every DialogClosed, i.e. inside/after each callback Cont. Those are not real
-// resets and must not cancel the dialog the user is looking at, so
-// jsDialogState carries a one-shot ignoreReset flag armed before suppressing,
-// rejecting or continuing. Only WebView destruction and renderer termination
-// cancel unconditionally.
+// CEF reset semantics (javascript_dialog_manager.cc): while CEF's handler_ is
+// set, OnResetDialogState is also delivered (a) right after a suppressed
+// OnJsdialog and (b) at the end of DialogClosed, i.e. inside/after a callback
+// Cont. Those are not real resets and must not cancel the dialog the user is
+// looking at, so jsDialogState carries a one-shot ignoreReset flag armed before
+// suppressing, rejecting or continuing (it may stay unconsumed when CEF's
+// handler_ was already cleared; begin resets it).
+//
+// After a suppress or a rejected beforeunload CEF clears handler_, so a later
+// navigation sends no reset for the still-open dialog, and Chromium's
+// main-frame commit does not reset state either. Main-frame OnLoadStart
+// therefore cancels a pending dialog too. Destroy and renderer termination
+// cancel unconditionally; Destroy also closes the state so no dialog can begin
+// afterwards.
 
 // continueCEFJSDialog resolves a CEF dialog callback. It is a seam for tests.
 // CEF's callback implementation re-posts to the CEF UI thread by itself.
@@ -52,7 +59,17 @@ type jsDialogState struct {
 	mu          sync.Mutex
 	current     *jsDialogCall
 	ignoreReset bool // swallow the next OnResetDialogState (see file comment)
+	closed      bool // WebView destroyed: begin always fails
 }
+
+// jsDialogBegin is the outcome of jsDialogState.begin.
+type jsDialogBegin int
+
+const (
+	jsDialogBeginOK     jsDialogBegin = iota
+	jsDialogBeginBusy                 // another dialog is open
+	jsDialogBeginClosed               // WebView destroyed
+)
 
 // armIgnoreReset makes the next OnResetDialogState a no-op.
 func (s *jsDialogState) armIgnoreReset() {
@@ -70,19 +87,22 @@ func (s *jsDialogState) consumeIgnoreReset() bool {
 	return was
 }
 
-// begin registers a new pending dialog; false if one is already open.
-func (s *jsDialogState) begin(cb purecef.JsdialogCallback) (*jsDialogCall, bool) {
+// begin registers a new pending dialog.
+func (s *jsDialogState) begin(cb purecef.JsdialogCallback) (*jsDialogCall, jsDialogBegin) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if s.closed {
+		return nil, jsDialogBeginClosed
+	}
 	if s.current != nil {
-		return nil, false
+		return nil, jsDialogBeginBusy
 	}
 	call := &jsDialogCall{callback: cb}
 	s.current = call
 	// A new dialog means any reset owed by the previous one has been delivered
 	// (the page is blocked until then); never carry a stale flag across.
 	s.ignoreReset = false
-	return call, true
+	return call, jsDialogBeginOK
 }
 
 func (s *jsDialogState) isDone(call *jsDialogCall) bool {
@@ -110,9 +130,14 @@ func (s *jsDialogState) resolve(call *jsDialogCall, ok bool, input string) bool 
 	return true
 }
 
-// cancelPending resolves the pending dialog (if any) with a cancel.
-func (s *jsDialogState) cancelPending() bool {
+// cancelPending resolves the pending dialog (if any) with a cancel. When
+// closing is true it also rejects every later begin (closing is atomic with
+// reading the pending call, so a concurrent begin cannot slip in).
+func (s *jsDialogState) cancelPending(closing bool) bool {
 	s.mu.Lock()
+	if closing {
+		s.closed = true
+	}
 	call := s.current
 	s.mu.Unlock()
 	if call == nil {
@@ -128,11 +153,15 @@ func (wv *WebView) jsDialogUICallbacks() *port.WebViewCallbacks {
 }
 
 // cancelJSDialogs resolves any pending dialog and tells the UI to hide it.
-func (wv *WebView) cancelJSDialogs() {
+func (wv *WebView) cancelJSDialogs() { wv.cancelJSDialogsClosing(false) }
+
+// cancelJSDialogsClosing is cancelJSDialogs; with closing it also forbids any
+// further dialog (WebView destruction).
+func (wv *WebView) cancelJSDialogsClosing(closing bool) {
 	if wv == nil {
 		return
 	}
-	if !wv.jsDialogs.cancelPending() {
+	if !wv.jsDialogs.cancelPending(closing) {
 		return
 	}
 	if cb := wv.jsDialogUICallbacks(); cb != nil && cb.OnJSDialogReset != nil {
@@ -196,8 +225,11 @@ func (h *handlerSet) OnJsdialog(
 	if ui == nil || ui.OnJSDialog == nil {
 		return 0 // no UI: let CEF apply its default behavior
 	}
-	call, ok := h.wv.jsDialogs.begin(callback)
-	if !ok {
+	call, begin := h.wv.jsDialogs.begin(callback)
+	if begin == jsDialogBeginClosed {
+		return 0
+	}
+	if begin == jsDialogBeginBusy {
 		// A dialog is already open: suppress rather than stack/spam. CEF will
 		// follow up with OnResetDialogState, which must not cancel that dialog.
 		h.wv.jsDialogs.armIgnoreReset()
@@ -235,8 +267,11 @@ func (h *handlerSet) OnBeforeUnloadDialog(
 	if ui == nil || ui.OnJSDialog == nil {
 		return false
 	}
-	call, ok := h.wv.jsDialogs.begin(callback)
-	if !ok {
+	call, begin := h.wv.jsDialogs.begin(callback)
+	if begin == jsDialogBeginClosed {
+		return false
+	}
+	if begin == jsDialogBeginBusy {
 		// Another dialog is open: stay on the page rather than stacking.
 		// The Cont below makes CEF send a reset that must not cancel it.
 		h.wv.jsDialogs.armIgnoreReset()

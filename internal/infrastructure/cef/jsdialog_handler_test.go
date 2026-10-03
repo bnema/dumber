@@ -246,8 +246,8 @@ func TestJSDialogCancelledBeforeUIRunsIsNotShown(t *testing.T) {
 	ui := &jsDialogUIRecorder{handled: true}
 	wv := newJSDialogWebView(ui)
 	cb := &stubJSDialogCallback{}
-	call, ok := wv.jsDialogs.begin(cb)
-	require.True(t, ok)
+	call, begin := wv.jsDialogs.begin(cb)
+	require.Equal(t, jsDialogBeginOK, begin)
 	wv.jsDialogs.resolve(call, false, "")
 
 	wv.presentJSDialog(call, port.JSDialogRequest{}, wv.callbacks)
@@ -303,11 +303,60 @@ func TestCEFCloseEchoDoesNotCancelNewerDialog(t *testing.T) {
 	require.Equal(t, []jsDialogAnswer{{ok: true}}, first.calls)
 	require.Zero(t, ui.resets, "echo must not hide the UI")
 
-	// A newer dialog is unaffected by a trailing echo that arrives late.
+	// The echo consumed the flag, so a genuine reset on a newer dialog cancels it.
 	second := &stubJSDialogCallback{}
 	h.OnJsdialog(nil, "", purecef.JsdialogTypeJsdialogtypeAlert, "2", "", second, new(int32))
-	h.OnResetDialogState(nil) // a genuine reset
+	h.OnResetDialogState(nil)
 	require.Equal(t, []jsDialogAnswer{{ok: false}}, second.calls)
+}
+
+func TestDeferredResetEchoIsConsumed(t *testing.T) {
+	useDirectJSDialogContinue(t)
+	ui := &jsDialogUIRecorder{handled: true}
+	h := &handlerSet{wv: newJSDialogWebView(ui)}
+	first := &stubJSDialogCallback{} // no synchronous echo
+	h.OnJsdialog(nil, "", purecef.JsdialogTypeJsdialogtypeAlert, "1", "", first, new(int32))
+	ui.respond[0](true, "")
+
+	// The echo arrives later, while no dialog is open: consumed, UI untouched.
+	h.OnDialogClosed(nil)
+	h.OnResetDialogState(nil)
+	require.Zero(t, ui.resets)
+	require.Len(t, first.calls, 1)
+	require.False(t, h.wv.jsDialogs.consumeIgnoreReset(), "flag must have been consumed")
+}
+
+func TestMainFrameLoadStartCancelsPendingDialog(t *testing.T) {
+	useDirectJSDialogContinue(t)
+	ui := &jsDialogUIRecorder{handled: true}
+	wv := newJSDialogWebView(ui)
+	h := &handlerSet{wv: wv}
+	first := &stubJSDialogCallback{}
+	h.OnJsdialog(nil, "", purecef.JsdialogTypeJsdialogtypeAlert, "1", "", first, new(int32))
+	// A suppressed spammer makes CEF drop its handler_, so no reset will follow.
+	h.OnJsdialog(nil, "", purecef.JsdialogTypeJsdialogtypeAlert, "2", "", &stubJSDialogCallback{}, new(int32))
+
+	h.OnLoadStart(nil, stubFrame{main: false, url: "https://sub.example.com"}, 0)
+	require.Empty(t, first.calls, "subframe loads must not cancel")
+
+	h.OnLoadStart(nil, stubFrame{main: true, url: "https://example.com/next"}, 0)
+	require.Equal(t, []jsDialogAnswer{{ok: false}}, first.calls)
+	require.Equal(t, 1, ui.resets)
+}
+
+func TestDestroyedStateRejectsNewDialog(t *testing.T) {
+	useDirectJSDialogContinue(t)
+	ui := &jsDialogUIRecorder{handled: true}
+	wv := newJSDialogWebView(ui)
+	h := &handlerSet{wv: wv}
+	wv.cancelJSDialogsClosing(true) // Destroy raced ahead of the destroyed check
+	cb := &stubJSDialogCallback{}
+	var suppress int32
+
+	require.Zero(t, h.OnJsdialog(nil, "", purecef.JsdialogTypeJsdialogtypeAlert, "m", "", cb, &suppress))
+	require.False(t, h.OnBeforeUnloadDialog(nil, "", 0, cb))
+	require.Zero(t, suppress)
+	require.Empty(t, ui.reqs)
 }
 
 func TestNoStaleIgnoreAcrossDialogs(t *testing.T) {
