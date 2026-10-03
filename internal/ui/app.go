@@ -3424,17 +3424,18 @@ func (a *App) initCoordinators(ctx context.Context) {
 		a.handlePageEditableFocusChanged(ctx, paneID, editable)
 	})
 
+	// JS dialogs are shown in the owning pane's overlay, wherever that pane lives.
+	a.contentCoord.SetPaneViewResolver(a.paneViewForPane)
+	a.contentCoord.SetUIScaleProvider(func() float64 {
+		return a.runtimeConfigSnapshot().UI.DefaultUIScale
+	})
+
 	// Hide loading skeleton once the WebView paints
 	a.contentCoord.SetOnWebViewShown(func(paneID entity.PaneID) {
 		// The WebView can be shown while its pane is in a background tab, so scan
 		// all WorkspaceViews rather than only the active one.
-		for _, wsView := range a.workspaceViews {
-			if wsView == nil {
-				continue
-			}
-			if pv := wsView.GetPaneView(paneID); pv != nil {
-				pv.HideLoadingSkeleton()
-			}
+		if pv := a.paneViewForPane(paneID); pv != nil {
+			pv.HideLoadingSkeleton()
 		}
 		if a.deps != nil && a.deps.OnFirstWebViewShown != nil {
 			a.firstWebViewShownOnce.Do(func() {
@@ -3587,6 +3588,19 @@ func (a *App) wireKeyboardActions() {
 	a.contentCoord.SetGestureActionHandler(func(ctx context.Context, action input.Action) error {
 		return a.kbDispatcher.Dispatch(ctx, action)
 	})
+}
+
+// paneViewForPane finds a pane's view in any tab (including background tabs).
+func (a *App) paneViewForPane(paneID entity.PaneID) *component.PaneView {
+	for _, wsView := range a.workspaceViews {
+		if wsView == nil {
+			continue
+		}
+		if pv := wsView.GetPaneView(paneID); pv != nil {
+			return pv
+		}
+	}
+	return nil
 }
 
 func (a *App) wireWebRTCPermissionIndicator() {

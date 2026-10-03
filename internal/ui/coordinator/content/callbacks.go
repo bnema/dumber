@@ -9,6 +9,7 @@ import (
 	"github.com/bnema/dumber/internal/application/usecase"
 	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/logging"
+	"github.com/bnema/dumber/internal/ui/component"
 )
 
 // internalSchemePath is the host used in dumb:// crash-page URIs.
@@ -131,6 +132,7 @@ func (c *Coordinator) setupWebViewCallbacks(ctx context.Context, paneID entity.P
 		},
 	}
 
+	c.setupJSDialogCallbacks(paneID, callbacks)
 	c.setupFaviconCallbacks(ctx, paneID, wv, callbacks)
 
 	// Middle-click link handler
@@ -285,4 +287,38 @@ func filterWebRTCPermissionTypes(types []entity.PermissionType) []entity.Permiss
 		}
 	}
 	return filtered
+}
+
+// setupJSDialogCallbacks routes JavaScript dialogs to the owning pane's overlay.
+func (c *Coordinator) setupJSDialogCallbacks(paneID entity.PaneID, callbacks *port.WebViewCallbacks) {
+	callbacks.OnJSDialog = func(req port.JSDialogRequest, respond func(ok bool, input string)) bool {
+		pv := c.paneViewForJSDialog(paneID)
+		if pv == nil {
+			return false
+		}
+		return pv.ShowJSDialog(req, respond, c.jsDialogUIScale())
+	}
+	callbacks.OnJSDialogReset = func() {
+		if pv := c.paneViewForJSDialog(paneID); pv != nil {
+			pv.HideJSDialog()
+		}
+	}
+}
+
+// jsDialogUIScale returns the current UI scale (1 when no provider is set).
+func (c *Coordinator) jsDialogUIScale() float64 {
+	if c.uiScaleProvider == nil {
+		return 1
+	}
+	return c.uiScaleProvider()
+}
+
+// paneViewForJSDialog resolves the PaneView that owns paneID's WebView through
+// the app-provided resolver (any tab/window). The dialog is shown inside that
+// pane's overlay even if the pane is in a background tab and never blocks others.
+func (c *Coordinator) paneViewForJSDialog(paneID entity.PaneID) *component.PaneView {
+	if c.paneViewResolver == nil {
+		return nil
+	}
+	return c.paneViewResolver(paneID)
 }

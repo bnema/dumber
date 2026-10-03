@@ -72,7 +72,7 @@ func (h *handlerSet) GetFindHandler() purecef.FindHandler             { return h
 func (h *handlerSet) GetFocusHandler() purecef.FocusHandler           { return nil }
 func (h *handlerSet) GetFrameHandler() purecef.FrameHandler           { return nil }
 func (h *handlerSet) GetPermissionHandler() purecef.PermissionHandler { return nil }
-func (h *handlerSet) GetJsdialogHandler() purecef.JsdialogHandler     { return nil }
+func (h *handlerSet) GetJsdialogHandler() purecef.JsdialogHandler     { return h }
 func (h *handlerSet) GetKeyboardHandler() purecef.KeyboardHandler     { return nil }
 func (h *handlerSet) GetLifeSpanHandler() purecef.LifeSpanHandler     { return h }
 func (h *handlerSet) GetLoadHandler() purecef.LoadHandler             { return h }
@@ -531,6 +531,8 @@ func (h *handlerSet) OnLoadStart(_ purecef.Browser, frame purecef.Frame, _ purec
 	// Post-commit fallback for navigation paths that bypass OnBeforeBrowse
 	// (same-page, error, and helper-driven commits). Main frame only.
 	if h.wv != nil {
+		// A new document replaces the page that asked for any open JS dialog.
+		h.wv.cancelJSDialogs()
 		h.wv.invalidateScrollMotion()
 		h.wv.mu.Lock()
 		h.wv.documentSeq++
@@ -1298,6 +1300,10 @@ const maxConsecutiveCrashes = 3
 
 // OnRenderProcessTerminated fires the OnWebProcessTerminated callback with a mapped reason.
 func (h *handlerSet) OnRenderProcessTerminated(_ purecef.Browser, status purecef.TerminationStatus, _ int32, _ string) {
+	// CEF never resets dialog state on a renderer crash; don't leave the UI
+	// (and the dead page's callback) hanging.
+	h.wv.cancelJSDialogs()
+
 	if h.wv.crashCount.Add(1) > maxConsecutiveCrashes {
 		return // suppress to break the loop
 	}
