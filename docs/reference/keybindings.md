@@ -63,7 +63,9 @@ CEF and WebKit execute Vim Mode scroll commands (`h/j/k/l`, `Shift+J/K`) with th
 
 Link hints label the visible targets in the viewport; type a label to pick one, `Backspace` to undo a letter, and `Escape` to close the hints and stay in Vim Mode. `f` follows a link or activates a control, `F` opens a link in a new pane, and `yf` copies a link URL.
 
-`v` starts a visual selection from the current page selection, or from the first visible text. The mode indicator reads `VIM MODE · VISUAL` (or `· HINTS` while hints are shown) and the selection uses the theme accent. Motions extend it: `h/j/k/l`, `w/b/e`, `0`/`^`/`$`, `(`/`)` for sentences, `{`/`}` for paragraphs, `gg`/`G` for the document edges, and a count prefix such as `3w`. `o` swaps the selection ends, `y` or `Enter` copies and ends the selection, and `v` or `Escape` cancels it.
+`v` starts visual selection. A non-empty selection that is visible in the viewport is used as is. Otherwise text-anchor hints label the visible text blocks; type a label to put the caret at the start of that text, or press `Escape` to place it at the first visible text of at least 50 characters (any visible text if none is that long). The mode indicator follows the page state: `VIM MODE · HINTS`, `· CARET`, `· VISUAL`, `· VISUAL LINE`.
+
+In caret mode a large blinking accent cursor marks the position and motions move it without selecting: `h/j/k/l`, `w/b/e`, `0`/`^`/`$`, `(`/`)` for sentences, `{`/`}` for paragraphs, `gg`/`G` for the document edges, and a count prefix such as `3w`. The view scrolls to keep the cursor visible. `v` starts a character selection from the caret and `V` selects whole lines; in both, the same motions extend the selection and `o` swaps its ends. `v` in a selection returns to the caret, `V` in a character selection switches to lines, and `v` in a line selection switches to characters. `y` or `Enter` copies the selection and returns to the caret at its end, so you can keep moving and copy again. `Escape` steps back from a selection to the caret, and `Escape` in caret mode ends visual selection and leaves plain Vim Mode.
 
 Text-object yanks copy one block without selecting it: `yah` copies the current section (the heading nearest the top of the viewport through the next heading of the same or a higher level), and `yap`, `yac`, `yat`, and `yal` copy the first visible paragraph, code block, table, or list. The copied block flashes with the theme accent. Hints, visual selection, and yanks use the CEF engine path.
 
@@ -82,7 +84,7 @@ Text-object yanks copy one block without selecting it: `yah` copies the current 
 | Follow link or control (hints) | `f` |
 | Open link in new pane (hints) | `F` |
 | Yank link URL (hints) | `yf` |
-| Visual selection | `v` |
+| Visual selection (caret, character, line) | `v`, `V` in caret mode |
 | Yank section / paragraph / code / table / list | `yah`, `yap`, `yac`, `yat`, `yal` |
 | Activate selected heading link and exit | `Enter` |
 | Exit without activation | `Escape` |
