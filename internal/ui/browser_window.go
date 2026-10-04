@@ -6,6 +6,7 @@ import (
 	"slices"
 	"sort"
 
+	"github.com/bnema/dumber/internal/application/dto"
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/application/usecase"
 	"github.com/bnema/dumber/internal/domain/entity"
@@ -62,6 +63,8 @@ type browserWindow struct {
 	// vimPageInteractionWebView is the WebView running link hints or visual
 	// selection while this window's keys are captured for the page.
 	vimPageInteractionWebView port.WebView
+	// vimPageInteractionKind names that interaction for its indicator label.
+	vimPageInteractionKind dto.VimPageInteractionKind
 }
 
 func (bw *browserWindow) detachInputForDestroy() {
@@ -125,6 +128,7 @@ func (bw *browserWindow) clearShellState() {
 	bw.vimNavigationHighlightedWebViews = nil
 	bw.vimNavigationHighlightedWebViewIDs = nil
 	bw.vimPageInteractionWebView = nil
+	bw.vimPageInteractionKind = 0
 }
 
 func (bw *browserWindow) initChrome(ctx context.Context, a *App) {

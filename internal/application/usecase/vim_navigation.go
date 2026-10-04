@@ -3,6 +3,7 @@ package usecase
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"github.com/bnema/dumber/internal/application/dto"
 	"github.com/bnema/dumber/internal/application/port"
@@ -119,9 +120,14 @@ func (*VimNavigationUseCase) startPageInteraction(
 		return dto.VimNavigationOutcome{}, errUnsupportedVimNavigationEngine
 	}
 	if err := interactor.StartVimPageInteraction(ctx, request); err != nil {
-		return dto.VimNavigationOutcome{}, err
+		return dto.VimNavigationOutcome{}, fmt.Errorf("vim navigation: start page interaction: %w", err)
 	}
-	return dto.VimNavigationOutcome{CapturePageKeys: request.Kind.CapturesKeys()}, nil
+	if !request.Kind.CapturesKeys() {
+		return dto.VimNavigationOutcome{}, nil
+	}
+	// Every key-capturing interaction opens on text or link hints; the page
+	// reports later sub-modes itself.
+	return dto.VimNavigationOutcome{CapturePageKeys: true, PageKind: request.Kind, PageMode: dto.VimPageModeHints}, nil
 }
 
 // SendPageKey forwards one canonical key to the active in-page interaction.
@@ -130,7 +136,10 @@ func (*VimNavigationUseCase) SendPageKey(ctx context.Context, wv port.WebView, k
 	if !ok {
 		return errUnsupportedVimNavigationEngine
 	}
-	return interactor.SendVimPageKey(ctx, key)
+	if err := interactor.SendVimPageKey(ctx, key); err != nil {
+		return fmt.Errorf("vim navigation: send page key: %w", err)
+	}
+	return nil
 }
 
 // CancelPageInteraction ends any in-page interaction, removing its overlay or
@@ -140,7 +149,10 @@ func (*VimNavigationUseCase) CancelPageInteraction(ctx context.Context, wv port.
 	if !ok {
 		return nil
 	}
-	return interactor.CancelVimPageInteraction(ctx)
+	if err := interactor.CancelVimPageInteraction(ctx); err != nil {
+		return fmt.Errorf("vim navigation: cancel page interaction: %w", err)
+	}
+	return nil
 }
 
 // ClearSemanticNavigationHighlight removes the visual target left by semantic

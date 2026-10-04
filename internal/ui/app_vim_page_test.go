@@ -42,6 +42,12 @@ func newVimPageTestWindow(t *testing.T) (*App, *browserWindow, *[]string) {
 	return app, bw, shown
 }
 
+var visualOutcome = hintsOutcome(dto.VimPageVisual)
+
+func hintsOutcome(kind dto.VimPageInteractionKind) dto.VimNavigationOutcome {
+	return dto.VimNavigationOutcome{CapturePageKeys: true, PageKind: kind, PageMode: dto.VimPageModeHints}
+}
+
 // Starting a key-capturing interaction must leave the sub-mode label on the
 // toast. The capture path used to reset the pending sequence with
 // notification, which repainted the toast back to plain "VIM MODE" in the
@@ -50,10 +56,10 @@ func TestCaptureVimPageKeysKeepsSubModeLabelOnToast(t *testing.T) {
 	app, bw, shown := newVimPageTestWindow(t)
 	wv := portmocks.NewMockWebView(t)
 
-	app.captureVimPageKeys(context.Background(), bw, wv, "VISUAL")
+	app.captureVimPageKeys(context.Background(), bw, wv, visualOutcome)
 
 	require.NotEmpty(t, *shown)
-	require.Equal(t, "VIM MODE · VISUAL", (*shown)[len(*shown)-1])
+	require.Equal(t, "VIM MODE · HINTS", (*shown)[len(*shown)-1], "every interaction opens on hints")
 	require.True(t, bw.keyboardHandler.PageKeyCaptureActive())
 }
 
@@ -65,7 +71,7 @@ func TestVimPageSubModeLabelSurvivesSequenceCompletion(t *testing.T) {
 	wv := portmocks.NewMockWebView(t)
 
 	app.showPendingSequence(context.Background(), bw, "")
-	app.captureVimPageKeys(context.Background(), bw, wv, "HINTS")
+	app.captureVimPageKeys(context.Background(), bw, wv, hintsOutcome(dto.VimPageHintFollow))
 	// Any pending notification emitted while the page owns the keys is noise.
 	app.showPendingSequence(context.Background(), bw, "")
 
@@ -81,7 +87,7 @@ func TestVimPageInteractionHidesLegendWhileCaptured(t *testing.T) {
 	bw.modeFrame = frame
 	wv := portmocks.NewMockWebView(t)
 
-	app.captureVimPageKeys(context.Background(), bw, wv, "VISUAL")
+	app.captureVimPageKeys(context.Background(), bw, wv, visualOutcome)
 	require.True(t, frame.suspended, "legend must be suspended while the page captures keys")
 
 	wv.EXPECT().ID().Return(1).Maybe()
@@ -98,7 +104,7 @@ func TestVimPageModeChangesRepaintToastWithoutReleasingCapture(t *testing.T) {
 	frame := &modeFrame{mode: input.ModeVim, visible: true}
 	bw.modeFrame = frame
 	wv := portmocks.NewMockWebView(t)
-	app.captureVimPageKeys(context.Background(), bw, wv, vimPageInteractionLabel("visual"))
+	app.captureVimPageKeys(context.Background(), bw, wv, visualOutcome)
 	require.Equal(t, "VIM MODE · HINTS", (*shown)[len(*shown)-1])
 
 	for mode, want := range map[dto.VimPageMode]string{
@@ -148,11 +154,63 @@ func TestExitModeWithPageCaptureDoesNotDeadlock(t *testing.T) {
 	})
 	wv := portmocks.NewMockWebView(t)
 	wv.EXPECT().ID().Return(1).Maybe()
-	app.captureVimPageKeys(context.Background(), bw, wv, "VISUAL")
+	app.captureVimPageKeys(context.Background(), bw, wv, visualOutcome)
 
 	exitModeWithin(t, bw.keyboardHandler.ExitMode)
 
 	require.False(t, bw.keyboardHandler.PageKeyCaptureActive())
 	require.Nil(t, bw.vimPageInteractionWebView)
 	require.Equal(t, input.ModeNormal, bw.keyboardHandler.Mode())
+}
+
+func TestVimPageModeLabel(t *testing.T) {
+	for mode, want := range map[dto.VimPageMode]string{
+		dto.VimPageModeHints:      "HINTS",
+		dto.VimPageModeCaret:      "CARET",
+		dto.VimPageModeVisual:     "VISUAL",
+		dto.VimPageModeVisualLine: "VISUAL LINE",
+	} {
+		got, ok := vimPageModeLabel(mode)
+		require.True(t, ok, mode)
+		require.Equal(t, want, got)
+	}
+	_, ok := vimPageModeLabel("bogus")
+	require.False(t, ok)
+}
+
+// One mapping drives every label: the sub-mode, plus the target of hints that
+// do more than follow. Later page-reported modes drop the hint target.
+func TestVimPageLabel(t *testing.T) {
+	tests := []struct {
+		kind dto.VimPageInteractionKind
+		mode dto.VimPageMode
+		want string
+	}{
+		{dto.VimPageVisual, dto.VimPageModeHints, "HINTS"},
+		{dto.VimPageHintFollow, dto.VimPageModeHints, "HINTS"},
+		{dto.VimPageHintFollowNew, dto.VimPageModeHints, "HINTS · NEW PANE"},
+		{dto.VimPageHintYankURL, dto.VimPageModeHints, "HINTS · YANK URL"},
+		{dto.VimPageVisual, dto.VimPageModeCaret, "CARET"},
+		{dto.VimPageVisual, dto.VimPageModeVisual, "VISUAL"},
+		{dto.VimPageVisual, dto.VimPageModeVisualLine, "VISUAL LINE"},
+	}
+	for _, tt := range tests {
+		got, ok := vimPageLabel(tt.kind, tt.mode)
+		require.True(t, ok)
+		require.Equal(t, tt.want, got, "kind %d mode %s", tt.kind, tt.mode)
+	}
+	_, ok := vimPageLabel(dto.VimPageVisual, "bogus")
+	require.False(t, ok)
+}
+
+func TestVimPageInteractionLabelsFollowTheOutcome(t *testing.T) {
+	app, bw, shown := newVimPageTestWindow(t)
+	wv := portmocks.NewMockWebView(t)
+
+	app.captureVimPageKeys(context.Background(), bw, wv, hintsOutcome(dto.VimPageHintFollowNew))
+	require.Equal(t, "VIM MODE · HINTS · NEW PANE", (*shown)[len(*shown)-1])
+	app.releaseVimPageKeys(context.Background(), bw, "test", true)
+
+	app.captureVimPageKeys(context.Background(), bw, wv, hintsOutcome(dto.VimPageHintYankURL))
+	require.Equal(t, "VIM MODE · HINTS · YANK URL", (*shown)[len(*shown)-1])
 }

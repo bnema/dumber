@@ -78,4 +78,9 @@ type VimNavigationOutcome struct {
 	// CapturePageKeys asks the UI to forward keys to the page interaction until
 	// the page reports that the interaction ended.
 	CapturePageKeys bool
+	// PageKind and PageMode name the key-capturing interaction and the
+	// sub-mode it starts in, so the UI labels it without knowing actions.
+	// Both are zero when CapturePageKeys is false.
+	PageKind VimPageInteractionKind
+	PageMode VimPageMode
 }
