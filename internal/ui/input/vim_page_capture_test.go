@@ -84,3 +84,35 @@ func TestSetPageKeyCaptureDoesNotNotifyPendingListeners(t *testing.T) {
 	assert.Empty(t, *pending)
 	assert.Empty(t, h.PendingSequence())
 }
+
+// The Vim Mode toggle shortcut is the escape hatch from a page interaction:
+// it must reach Go, leave Vim Mode and release the capture, never the page.
+func TestPageKeyCaptureLeavesVimModeToggleShortcutToGo(t *testing.T) {
+	h := NewKeyboardHandler(context.Background(), vimModeSequenceWorkspace(nil), newTestSession())
+	enterVimMode(t, h)
+	var forwarded []string
+	h.SetPageKeyCapture(func(key string) { forwarded = append(forwarded, key) })
+	h.handleKeyRelease(uint('y')) // the activation press is over; this is a new press
+
+	require.True(t, h.handleKeyPress(uint('y'), 0, gdk.ControlMaskValue))
+
+	assert.Empty(t, forwarded, "the toggle shortcut must not be forwarded to the page")
+	assert.Equal(t, ModeNormal, h.Mode())
+	assert.False(t, h.PageKeyCaptureActive(), "leaving Vim Mode releases the capture")
+}
+
+func TestPageKeyCaptureHonorsConfiguredToggleShortcut(t *testing.T) {
+	ws := vimModeSequenceWorkspace(nil)
+	ws.VimMode.ActivationShortcut = "ctrl+g"
+	h := NewKeyboardHandler(context.Background(), ws, newTestSession())
+	h.EnterVimMode()
+	var forwarded []string
+	h.SetPageKeyCapture(func(key string) { forwarded = append(forwarded, key) })
+
+	require.True(t, h.handleKeyPress(uint('y'), 0, gdk.ControlMaskValue), "ctrl+y is an ordinary key now")
+	assert.Equal(t, []string{"<C-y>"}, forwarded)
+	require.True(t, h.handleKeyPress(uint('g'), 0, gdk.ControlMaskValue))
+
+	assert.Equal(t, []string{"<C-y>"}, forwarded)
+	assert.Equal(t, ModeNormal, h.Mode())
+}

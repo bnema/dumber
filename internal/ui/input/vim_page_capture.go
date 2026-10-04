@@ -35,7 +35,23 @@ func (h *KeyboardHandler) PageKeyCaptureActive() bool {
 	return h.pageKeyCapture != nil
 }
 
-// forwardPageKey sends a Vim Mode key to the active page capture. Escape is
+// isVimModeToggleKey reports whether the key is the configured Vim Mode
+// activation shortcut. While Vim Mode is active it exits the mode, so it must
+// stay with Go even when a page interaction owns every other key.
+func (h *KeyboardHandler) isVimModeToggleKey(keyval uint, state gdk.ModifierType) bool {
+	h.mu.RLock()
+	shortcuts := h.shortcuts
+	h.mu.RUnlock()
+	if shortcuts == nil {
+		return false
+	}
+	binding := KeyBinding{Keyval: normalizeKeyval(keyval), Modifiers: Modifier(state) & modifierMask}
+	action, found := shortcuts.Lookup(binding, ModeVim)
+	return found && action == ActionEnterVimMode
+}
+
+// forwardPageKey sends a Vim Mode key to the active page capture, except the
+// Vim Mode toggle shortcut, which always falls through. Escape is
 // forwarded like any other key: the page decides whether it steps back (visual
 // to caret) or ends the interaction, and reports the end so the capture is
 // released. A page that cannot be reached ends the capture through the
@@ -52,6 +68,10 @@ func (h *KeyboardHandler) forwardPageKey(mode Mode, keyval uint, state gdk.Modif
 	}
 	if isModifierKeyval(keyval) {
 		return true
+	}
+	if h.isVimModeToggleKey(keyval, state) {
+		// Escape hatch: a page can never swallow the shortcut that leaves Vim Mode.
+		return false
 	}
 	key, ok := KeyvalToVimKey(keyval, state)
 	if !ok {
