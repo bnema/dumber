@@ -72,6 +72,8 @@ In caret mode a large blinking accent cursor marks the position and motions move
 
 Text-object yanks copy one block without selecting it: `yah` copies the current section (the heading nearest the top of the viewport through the next heading of the same or a higher level), and `yap`, `yac`, `yat`, and `yal` copy the first visible paragraph, code block, table, or list. The copied block flashes with the theme accent. Hints, visual selection, and yanks use the CEF engine path.
 
+While hints or visual selection are active, the page owns every key; the Vim Mode toggle shortcut (`Ctrl+Y` by default, or your `activation_shortcut`) is never forwarded to it. Pressing it always leaves Vim Mode and ends the interaction, so it is the way out even if a page misbehaves. Caret and visual selection anchor only to text in the page's main document: text inside shadow roots (some web components) is not offered as a caret position, while link hints and text-object yanks still reach into shadow DOM.
+
 | Action | Keys |
 |--------|------|
 | Scroll left | `H` |
@@ -241,8 +243,29 @@ keys = ["[["]
 [workspace.vim_mode.actions.hint-follow]
 keys = ["f"]
 
+[workspace.vim_mode.actions.hint-follow-new]
+keys = ["F"]
+
+[workspace.vim_mode.actions.hint-yank-url]
+keys = ["yf"]
+
 [workspace.vim_mode.actions.visual]
 keys = ["v"]
+
+[workspace.vim_mode.actions.yank-section]
+keys = ["yah"]
+
+[workspace.vim_mode.actions.yank-paragraph]
+keys = ["yap"]
+
+[workspace.vim_mode.actions.yank-code]
+keys = ["yac"]
+
+[workspace.vim_mode.actions.yank-table]
+keys = ["yat"]
+
+[workspace.vim_mode.actions.yank-list]
+keys = ["yal"]
 
 [workspace.shortcuts.actions.close-pane]
 keys = ["ctrl+w"]
