@@ -60,16 +60,14 @@
     return results;
   }
 
-  // deepTextNodes yields non-blank text nodes in document order, descending
-  // into open shadow roots.
-  function* deepTextNodes(root) {
-    const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT);
+  // lightTextNodes yields non-blank text nodes in document order. It does not
+  // enter shadow roots on purpose: Chromium reports Selection positions inside
+  // a shadow tree relative to its host, so a caret anchored there would sit in
+  // the wrong place. Link hints and text-object yanks still search shadow DOM.
+  function* lightTextNodes(root) {
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
     for (let node = walker.currentNode; node; node = walker.nextNode()) {
-      if (node.nodeType === Node.TEXT_NODE) {
-        if (node.data.trim()) yield node;
-      } else if (node.shadowRoot) {
-        yield* deepTextNodes(node.shadowRoot);
-      }
+      if (node.nodeType === Node.TEXT_NODE && node.data.trim()) yield node;
     }
   }
 
@@ -86,14 +84,22 @@
     }).catch(() => {});
   }
 
+  function onScreen(rect) {
+    return rect.bottom > 0 && rect.right > 0 && rect.top < window.innerHeight && rect.left < window.innerWidth;
+  }
+
+  // visibleRect returns a client rect of element inside the viewport. The
+  // cheap bounding-box test runs first: most elements of a long page are
+  // off-screen, and closest/getComputedStyle are the expensive part.
   function visibleRect(element) {
     if (!(element instanceof Element) || !element.isConnected) return null;
+    if (!onScreen(element.getBoundingClientRect())) return null;
     if (element.closest("[hidden],[inert],[aria-hidden=\"true\"]")) return null;
     const style = window.getComputedStyle(element);
     if (style.display === "none" || style.visibility === "hidden" || style.visibility === "collapse") return null;
     for (const rect of element.getClientRects()) {
       if (rect.width < 1 || rect.height < 1) continue;
-      if (rect.bottom <= 0 || rect.right <= 0 || rect.top >= window.innerHeight || rect.left >= window.innerWidth) continue;
+      if (!onScreen(rect)) continue;
       return rect;
     }
     return null;
@@ -205,15 +211,42 @@
     }
   }
 
+  // linkURL resolves the destination of an HTML or SVG anchor. An SVG <a>
+  // exposes href as an SVGAnimatedString that is not resolved against the
+  // document, so it is resolved here; Go validates the result before opening it.
+  function linkURL(element) {
+    if (element instanceof HTMLAnchorElement) return element.href;
+    const animated = element.href;
+    if (!animated || typeof animated.baseVal !== "string" || !animated.baseVal) return "";
+    try {
+      return new URL(animated.baseVal, document.baseURI).href;
+    } catch (_) {
+      return "";
+    }
+  }
+
+  function linkTarget(element) {
+    const target = element.target;
+    return target && typeof target === "object" ? target.baseVal : target;
+  }
+
+  function clickElement(element) {
+    if (typeof element.click === "function") {
+      element.click();
+      return;
+    }
+    element.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, view: window }));
+  }
+
   // activateHint returns the terminal message for the chosen hint.
   function activateHint(kind, element) {
-    const url = element instanceof HTMLAnchorElement ? element.href : "";
+    const url = linkURL(element);
     if (kind === "hint-yank-url") return url ? { type: "copy", text: url } : { type: "end" };
-    if (kind === "hint-follow-new" || (url && element.target === "_blank")) {
+    if (kind === "hint-follow-new" || (url && linkTarget(element) === "_blank")) {
       return url ? { type: "open-new", url } : { type: "end" };
     }
-    element.focus({ preventScroll: true });
-    if (!isEditable(element)) element.click();
+    if (typeof element.focus === "function") element.focus({ preventScroll: true });
+    if (!isEditable(element)) clickElement(element);
     return { type: "end" };
   }
 
@@ -309,19 +342,30 @@
     return null;
   }
 
-  // collectTextAnchors lists visible text starts in document order. perBlock
-  // keeps the first anchor of each block; minLength skips short texts.
-  function collectTextAnchors({ perBlock, minLength, limit }) {
-    const anchors = [];
-    const blocks = new Set();
-    for (const node of deepTextNodes(document.body || document.documentElement)) {
+  // visibleTextAnchors yields visible text starts in document order. A text
+  // node whose parent element is off-screen cannot be visible, so that cheap
+  // check (cached per element) runs before the range measurements.
+  function* visibleTextAnchors(minLength) {
+    const onScreenElements = new Map();
+    for (const node of lightTextNodes(document.body || document.documentElement)) {
       const element = node.parentElement;
       if (!element || SKIP_TEXT_PARENTS.test(element.tagName) || isEditable(element)) continue;
       if (node.data.trim().length < minLength) continue;
+      if (!onScreenElements.has(element)) onScreenElements.set(element, onScreen(element.getBoundingClientRect()));
+      if (!onScreenElements.get(element)) continue;
       const anchor = firstVisibleAnchor(node, element);
-      if (!anchor) continue;
+      if (anchor) yield anchor;
+    }
+  }
+
+  // collectTextAnchors lists visible text starts in document order. perBlock
+  // keeps the first anchor of each block.
+  function collectTextAnchors({ perBlock, limit }) {
+    const anchors = [];
+    const blocks = new Set();
+    for (const anchor of visibleTextAnchors(1)) {
       if (perBlock) {
-        const block = blockOf(element);
+        const block = blockOf(anchor.element);
         if (blocks.has(block)) continue;
         blocks.add(block);
       }
@@ -333,11 +377,14 @@
 
   // Esc during the text-anchor hints: Vimium's heuristic picks the first
   // visible text of at least LONG_TEXT_LENGTH characters (shorter ones are
-  // likely banners); any visible text is the fallback.
+  // likely banners); any visible text is the fallback. One pass finds both.
   function fallbackAnchor() {
-    const long = collectTextAnchors({ perBlock: false, minLength: LONG_TEXT_LENGTH, limit: 1 });
-    if (long.length > 0) return long[0];
-    return collectTextAnchors({ perBlock: false, minLength: 1, limit: 1 })[0] || null;
+    let first = null;
+    for (const anchor of visibleTextAnchors(1)) {
+      if (anchor.node.data.trim().length >= LONG_TEXT_LENGTH) return anchor;
+      if (!first) first = anchor;
+    }
+    return first;
   }
 
   function placeCaretAtFallback() {
@@ -405,7 +452,15 @@
         cursor.animate([{ opacity: 1 }, { opacity: 1, offset: 0.6 }, { opacity: 0.15 }], { duration: 1000, iterations: Infinity });
       }
       state.cursor = cursor;
-      state.onViewportChange = () => updateCursor(window.getSelection());
+      // Scroll and resize fire at frame rate or faster; repaint once per frame.
+      state.onViewportChange = () => {
+        if (!state || state.frame) return;
+        state.frame = window.requestAnimationFrame(() => {
+          if (!state) return;
+          state.frame = 0;
+          updateCursor(window.getSelection());
+        });
+      };
       window.addEventListener("scroll", state.onViewportChange, { capture: true, passive: true });
       window.addEventListener("resize", state.onViewportChange, { passive: true });
     }
@@ -464,7 +519,7 @@
       setPhase("visual");
       return true;
     }
-    const anchors = collectTextAnchors({ perBlock: true, minLength: 1, limit: HINT_CHARS.length * HINT_CHARS.length });
+    const anchors = collectTextAnchors({ perBlock: true, limit: HINT_CHARS.length * HINT_CHARS.length });
     if (anchors.length === 0) return false;
     buildHintOverlay(anchors, color, true);
     setPhase("hints");
@@ -489,38 +544,65 @@
     selection.collapse(selection.focusNode, selection.focusOffset);
   }
 
-  // extendByOne extends the focus one character and reports how the selected
-  // text length changed; 0 means the focus could not move.
-  function extendByOne(selection, direction) {
-    const length = selection.toString().length;
-    selection.modify("extend", direction, "character");
-    return selection.toString().length - length;
+  function focusMoved(selection, node, offset) {
+    return selection.focusNode !== node || selection.focusOffset !== offset;
   }
 
-  // nextCharacter returns the character after the focus without moving it.
-  function nextCharacter(selection) {
-    const before = selection.toString();
-    if (before.length === 0 || !isBackward(selection)) {
-      selection.modify("extend", "forward", "character");
-      const after = selection.toString();
-      if (after === before) return undefined;
-      selection.modify("extend", "backward", "character");
-      return after[after.length - 1];
+  // extendByOne extends the focus one character and reports whether it moved
+  // (1) or could not (0). It compares focus positions: reading the whole
+  // selection's text per step made long selections quadratic.
+  function extendByOne(selection, direction) {
+    const node = selection.focusNode;
+    const offset = selection.focusOffset;
+    selection.modify("extend", direction, "character");
+    return focusMoved(selection, node, offset) ? 1 : 0;
+  }
+
+  // characterAtFocus reads the character next to the focus from its text node.
+  // It returns null when the focus is not inside a text node or sits on its
+  // boundary, where the neighbor lives in another node.
+  function characterAtFocus(selection, forward) {
+    const node = selection.focusNode;
+    const offset = selection.focusOffset;
+    if (!node || node.nodeType !== Node.TEXT_NODE) return null;
+    const data = node.data;
+    if (forward) return offset < data.length ? String.fromCodePoint(data.codePointAt(offset)) : null;
+    if (offset <= 0) return null;
+    const unit = data.charCodeAt(offset - 1);
+    const paired = offset > 1 && unit >= 0xdc00 && unit <= 0xdfff;
+    return paired ? data.slice(offset - 2, offset) : data[offset - 1];
+  }
+
+  // probeCharacter finds the character across a node boundary by stepping the
+  // focus over it and back. Landing on a text node boundary or outside a text
+  // node means a block boundary was crossed, which counts as a line break.
+  function probeCharacter(selection, direction) {
+    const node = selection.focusNode;
+    const offset = selection.focusOffset;
+    selection.modify("extend", direction, "character");
+    if (!focusMoved(selection, node, offset)) return undefined;
+    const landed = selection.focusNode;
+    const landedOffset = selection.focusOffset;
+    let character = "\n";
+    if (landed && landed.nodeType === Node.TEXT_NODE) {
+      if (direction === "forward" && landedOffset > 0) character = landed.data[landedOffset - 1];
+      else if (direction === "backward" && landedOffset < landed.data.length) character = landed.data[landedOffset];
     }
-    return before[0];
+    selection.modify("extend", direction === "forward" ? "backward" : "forward", "character");
+    return character;
+  }
+
+  // nextCharacter returns the character after the focus without moving it, or
+  // undefined at the end of the document.
+  function nextCharacter(selection) {
+    const character = characterAtFocus(selection, true);
+    return character === null ? probeCharacter(selection, "forward") : character;
   }
 
   // previousCharacter returns the character before the focus without moving it.
   function previousCharacter(selection) {
-    const before = selection.toString();
-    if (before.length === 0 || isBackward(selection)) {
-      selection.modify("extend", "backward", "character");
-      const after = selection.toString();
-      if (after === before) return undefined;
-      selection.modify("extend", "forward", "character");
-      return after[0];
-    }
-    return before[before.length - 1];
+    const character = characterAtFocus(selection, false);
+    return character === null ? probeCharacter(selection, "backward") : character;
   }
 
   function isWordCharacter(character) {
@@ -566,21 +648,13 @@
 
   function firstNonBlank(selection, alter) {
     selection.modify(alter, "backward", "lineboundary");
-    if (alter === "move") {
-      // Measure with extend, then settle the caret where it ended.
-      for (let i = 0; i < MAX_MOTION_STEPS; i++) {
-        const character = nextCharacter(selection);
-        if (character === undefined || !/[ \t\u00a0]/.test(character)) break;
-        if (extendByOne(selection, "forward") === 0) break;
-      }
-      collapseToFocus(selection);
-      return;
-    }
     for (let i = 0; i < MAX_MOTION_STEPS; i++) {
       const character = nextCharacter(selection);
       if (character === undefined || !/[ \t\u00a0]/.test(character)) break;
       if (extendByOne(selection, "forward") === 0) break;
     }
+    // A caret measures with extend, then settles where the measuring ended.
+    if (alter === "move") collapseToFocus(selection);
   }
 
   // extendToLines grows the selection so both ends sit on line boundaries.
@@ -629,7 +703,11 @@
 
   // --- Phase transitions ---
 
+  // toCaret collapses a selection onto its last selected character, so the
+  // caret returns to the character that v included instead of drifting one
+  // position right on every v then Escape.
   function toCaret(selection) {
+    if (!selection.isCollapsed && !isBackward(selection)) extendByOne(selection, "backward");
     collapseToFocus(selection);
     setPhase("caret");
     revealFocus(selection);
@@ -637,7 +715,11 @@
 
   function toVisual(selection) {
     // Include the character under the caret, or the one before at the end.
-    if (extendByOne(selection, "forward") === 0) extendByOne(selection, "backward");
+    if (extendByOne(selection, "forward") === 0 && extendByOne(selection, "backward") !== 0) {
+      // At the end of the text the last character is selected backward; flip
+      // it so the focus stays at the end, like a forward selection.
+      swapEnds(selection);
+    }
     setPhase("visual");
     revealFocus(selection);
   }
@@ -768,6 +850,7 @@
   function cleanup() {
     if (state) {
       for (const node of [state.root, state.style, state.cursor]) if (node) node.remove();
+      if (state.frame) window.cancelAnimationFrame(state.frame);
       if (state.onViewportChange) {
         window.removeEventListener("scroll", state.onViewportChange, { capture: true });
         window.removeEventListener("resize", state.onViewportChange);
@@ -783,21 +866,30 @@
     if (token) post(token, message);
   }
 
+  // A document leaving the page (navigation, bfcache) takes the overlay along.
+  window.addEventListener("pagehide", () => { if (state) cleanup(); });
+
   Object.defineProperty(window, "__dumberVimPage", {
     configurable: false,
     enumerable: false,
     value: Object.freeze({
       start(token, request) {
-        cleanup();
-        const color = request.color || "#fbbf24";
-        if (request.kind === "yank") {
-          const text = objectText(request.object, color).trim();
-          post(token, text ? { type: "copy", text } : { type: "end" });
-          return;
+        try {
+          cleanup();
+          const color = request.color || "#fbbf24";
+          if (request.kind === "yank") {
+            const text = objectText(request.object, color).trim();
+            post(token, text ? { type: "copy", text } : { type: "end" });
+            return;
+          }
+          state = { kind: request.kind, token, color };
+          const started = request.kind === "visual" ? startVisual(color) : startHints(request.kind, color);
+          if (!started) finish({ type: "end", reason: request.kind === "visual" ? "no-visible-text" : "no-visible-targets" });
+        } catch (_) {
+          // A page quirk must never leave the user's keys captured.
+          cleanup();
+          post(token, { type: "end", reason: "error" });
         }
-        state = { kind: request.kind, token, color };
-        const started = request.kind === "visual" ? startVisual(color) : startHints(request.kind, color);
-        if (!started) finish({ type: "end", reason: request.kind === "visual" ? "no-visible-text" : "no-visible-targets" });
       },
       key(token, key) {
         if (!state || state.token !== token) {
@@ -816,9 +908,13 @@
       },
       cancel(token) {
         if (!state || state.token !== token) return;
-        if (state.kind === "visual" && state.phase !== "hints") {
-          const selection = window.getSelection();
-          if (selection) selection.removeAllRanges();
+        try {
+          if (state.kind === "visual" && state.phase !== "hints") {
+            const selection = window.getSelection();
+            if (selection) selection.removeAllRanges();
+          }
+        } catch (_) {
+          // Fall through: the overlay must go even when the selection cannot.
         }
         cleanup();
       },

@@ -5,6 +5,12 @@
 // runtime must implement word motions itself (Vimium #1441).
 const posted = [];
 const scrolls = [];
+const modifyCalls = [];
+const frames = new Map();
+let nextFrame = 1;
+let toStringCalls = 0;
+let closestCalls = 0;
+let rangeRectCalls = 0;
 const listeners = {};
 const CHAR_WIDTH = 10;
 const LINE_HEIGHT = 20;
@@ -24,7 +30,7 @@ class Node_ {
   append(...items) { for (const item of items) if (item instanceof Node_) this.appendChild(item); }
   remove() { if (this.parentElement) this.parentElement.children = this.parentElement.children.filter((c) => c !== this); this.parentElement = null; }
   setAttribute(name, value) { this.attrs[name] = value; }
-  closest() { return null; }
+  closest() { closestCalls++; return null; }
   contains(other) { for (let n = other; n; n = n.parentElement) if (n === this) return true; return false; }
   getClientRects() { return this.rect ? [this.rect] : []; }
   getBoundingClientRect() { return this.rect || rect(0, 0, 0, 0); }
@@ -37,6 +43,7 @@ class Node_ {
   }
   focus() { document.activeElement = this; }
   click() { posted.push({ clicked: this.href }); }
+  dispatchEvent(event) { posted.push({ dispatched: event.type, bubbles: event.bubbles, cancelable: event.cancelable, target: this.tagName }); return true; }
 }
 function matches(el, selector) {
   return selector.split(",").some((part) => {
@@ -51,6 +58,11 @@ function matches(el, selector) {
 class Element extends Node_ { constructor(tag) { super(1, tag.toUpperCase()); } }
 class HTMLElement extends Element {}
 class HTMLAnchorElement extends HTMLElement { constructor(href) { super("a"); this.href = href; this.target = ""; } }
+// SVGAElement_ models an SVG <a>: href is an SVGAnimatedString, there is no
+// click(), and the link is not an HTMLAnchorElement.
+class SVGAElement_ extends Element {
+  constructor(href) { super("a"); this.href = { baseVal: href }; this.target = { baseVal: "" }; this.click = undefined; }
+}
 class HTMLInputElement extends HTMLElement {}
 class HTMLTextAreaElement extends HTMLElement {}
 class HTMLSelectElement extends HTMLElement {}
@@ -71,10 +83,20 @@ const first = paragraph("Alpha bravo charlie", 10);
 const second = paragraph(LONG, 40);
 const third = paragraph("Third line, end.", 70);
 const far = paragraph("Far below the fold", 2000);
-const p = first.p; // legacy name used by the yank test
 const one = body.appendChild(new HTMLAnchorElement("file:///one.html")); one.rect = rect(10, 120, 40, 20);
 const two = body.appendChild(new HTMLAnchorElement("https://example.com/two")); two.rect = rect(80, 120, 40, 20);
-const TEXT = first.text.data;
+// shadowParagraph adds a host whose paragraph lives in an open shadow root;
+// its text node joins the selection model at the end of the document order.
+function shadowParagraph(data, top) {
+  const host = body.appendChild(new HTMLElement("div"));
+  const p = new HTMLElement("p");
+  p.rect = rect(10, top, 600, LINE_HEIGHT);
+  p.parentElement = null;
+  const text = p.appendChild(new Text_(data));
+  texts.push(text);
+  host.shadowRoot = { children: [p], querySelectorAll: (selector) => Node_.prototype.querySelectorAll.call({ children: [p] }, selector), getRootNode: () => document };
+  return { host, p, text };
+}
 
 const index = (node) => texts.indexOf(node);
 const order = (node, offset) => index(node) * 100000 + offset;
@@ -92,6 +114,7 @@ class Range_ {
   collapse(toStart) { if (toStart) { this.endContainer = this.startContainer; this.endOffset = this.startOffset; } else { this.startContainer = this.endContainer; this.startOffset = this.endOffset; } }
   selectNodeContents(node) { this.startContainer = this.endContainer = node; this.startOffset = 0; this.endOffset = node.data ? node.data.length : 0; }
   getClientRects() {
+    rangeRectCalls++;
     const node = this.startContainer;
     const box = node && node.parentElement && node.parentElement.rect;
     if (!box) return [];
@@ -107,8 +130,8 @@ const selection = {
   get isCollapsed() { return this.rangeCount === 0 || (this.anchorNode === this.focusNode && this.anchorOffset === this.focusOffset); },
   setBaseAndExtent(an, ao, fn, fo) { this.anchorNode = an; this.anchorOffset = ao; this.focusNode = fn; this.focusOffset = fo; this.rangeCount = 1; },
   collapse(node, offset) { this.setBaseAndExtent(node, offset, node, offset); },
-  setFocus(node, offset) { this.focusNode = node; this.focusOffset = offset; },
   modify(alter, direction, granularity) {
+    modifyCalls.push([alter, direction, granularity]);
     if (granularity === "word") throw new Error("native word granularity must not be used");
     const step = direction === "forward" ? 1 : -1;
     let i = index(this.focusNode);
@@ -124,12 +147,9 @@ const selection = {
       if (j >= 0 && j < texts.length) { i = j; o = Math.min(o, len(j)); } else o = step > 0 ? len(i) : 0;
     } else if (granularity === "documentboundary") {
       i = step > 0 ? texts.length - 1 : 0; o = step > 0 ? len(i) : 0;
-    } else if (granularity === "paragraph") {
-      if (step > 0) { if (o < len(i)) o = len(i); else if (i < texts.length - 1) { i++; o = len(i); } }
-      else if (o > 0) o = 0; else if (i > 0) { i--; o = 0; }
-    } else if (granularity === "sentence") {
-      o = step > 0 ? len(i) : 0;
     }
+    // Sentence and paragraph granularities are native: this model leaves the
+    // focus alone, and tests assert the modify() calls instead.
     this.focusNode = texts[i]; this.focusOffset = o;
     if (alter === "move") { this.anchorNode = this.focusNode; this.anchorOffset = this.focusOffset; }
   },
@@ -143,6 +163,7 @@ const selection = {
     return range;
   },
   toString() {
+    toStringCalls++;
     if (!this.rangeCount) return "";
     const r = this.getRangeAt();
     const a = index(r.startContainer);
@@ -168,8 +189,10 @@ global.document = {
     let i = 0; return { currentNode: nodes[0], nextNode: () => nodes[++i] || null };
   },
   querySelectorAll: (selector) => html.querySelectorAll(selector),
-  elementFromPoint: (x, y) => [two, one, ...texts.map((t) => t.parentElement)].find((el) => el.rect && x >= el.rect.left && x < el.rect.right && y >= el.rect.top && y < el.rect.bottom) || body,
+  baseURI: "https://example.com/dir/page.html",
+  elementFromPoint: (x, y) => [two, one, ...texts.map((t) => t.parentElement), ...body.children.slice().reverse()].find((el) => el.rect && x >= el.rect.left && x < el.rect.right && y >= el.rect.top && y < el.rect.bottom) || body,
 };
+global.MouseEvent = class { constructor(type, init) { this.type = type; Object.assign(this, init); } };
 global.window = {
   innerWidth: 800, innerHeight: 600,
   scrollBy(x, y) { scrolls.push([x, y]); },
@@ -177,10 +200,12 @@ global.window = {
   removeEventListener(type, fn) { listeners[type] = (listeners[type] || []).filter((f) => f !== fn); },
   getSelection: () => selection,
   getComputedStyle: () => ({ display: "block", visibility: "visible" }),
-  fetch: (url, init) => { posted.push(JSON.parse(Buffer.from(init.headers["X-Dumber-Body"], "base64").toString("latin1"))); return Promise.resolve(); },
+  // The runtime sends btoa(unescape(encodeURIComponent(json))): base64 of the
+  // UTF-8 bytes, which is what Go decodes.
+  fetch: (url, init) => { posted.push(JSON.parse(Buffer.from(init.headers["X-Dumber-Body"], "base64").toString("utf8"))); return Promise.resolve(); },
+  requestAnimationFrame(fn) { const id = nextFrame++; frames.set(id, fn); return id; },
+  cancelAnimationFrame(id) { frames.delete(id); },
 };
-global.btoa = (s) => Buffer.from(s, "binary").toString("base64");
-global.unescape = (s) => decodeURIComponent(s);
 global.setTimeout = (fn) => { fn(); return 0; };
 
 // Helpers for drivers.
@@ -194,10 +219,10 @@ const overlays = (name) => html.children.filter((c) => c.attrs && name in c.attr
 const cursor = () => overlays("data-dumber-vim-caret")[0] || null;
 const hintLabels = () => overlays("data-dumber-vim-hints").flatMap((root) => root.children.map((s) => s.textContent));
 const fire = (type) => (listeners[type] || []).slice().forEach((fn) => fn({}));
-const modes = () => posted.filter((m) => m.type === "mode").map((m) => m.mode);
+// flushFrames runs the animation frames requested so far.
+const flushFrames = () => { const pending = Array.from(frames.values()); frames.clear(); pending.forEach((fn) => fn()); };
 const vp = () => window.__dumberVimPage;
 const keys = (token, ...list) => list.forEach((k) => window.__dumberVimPage.key(token, k));
-const rec = (name, extra) => posted.push(Object.assign({ r: name }, extra));
 // startCaret begins the visual flow and places the caret at the start of the
 // paragraph with the given hint label ("s", "a", "d" for the first, second,
 // third visible paragraph).
