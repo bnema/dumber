@@ -3,6 +3,7 @@ package ui
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -84,7 +85,7 @@ func TestVimPageInteractionHidesLegendWhileCaptured(t *testing.T) {
 	require.True(t, frame.suspended, "legend must be suspended while the page captures keys")
 
 	wv.EXPECT().ID().Return(1).Maybe()
-	app.endVimPageInteraction(context.Background(), bw)
+	app.endVimPageInteraction(context.Background(), bw, true)
 	require.False(t, frame.suspended, "legend must be restored when the interaction ends")
 	require.False(t, bw.keyboardHandler.PageKeyCaptureActive())
 }
@@ -120,4 +121,38 @@ func TestVimPageModeChangeIgnoredWithoutInteraction(t *testing.T) {
 	app.showVimPageMode(context.Background(), bw, dto.VimPageModeCaret)
 
 	require.Empty(t, *shown, "a late mode report must not repaint the indicator once the interaction ended")
+}
+
+// exitModeWithin runs fn and fails the test if it does not return in time,
+// so a lock re-entry deadlock shows up as a failure instead of a hung run.
+func exitModeWithin(t *testing.T, fn func()) {
+	t.Helper()
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		fn()
+	}()
+	select {
+	case <-done:
+	case <-time.After(3 * time.Second):
+		t.Fatal("ExitMode did not return: mode-change callback re-entered the modal lock")
+	}
+}
+
+// ExitMode runs the mode-change callback under the modal lock. Releasing the
+// page capture from that callback must not read the mode back through the lock.
+func TestExitModeWithPageCaptureDoesNotDeadlock(t *testing.T) {
+	app, bw, _ := newVimPageTestWindow(t)
+	bw.keyboardHandler.SetOnModeChange(func(from, to input.Mode) {
+		app.handleModeChange(context.Background(), bw, from, to)
+	})
+	wv := portmocks.NewMockWebView(t)
+	wv.EXPECT().ID().Return(1).Maybe()
+	app.captureVimPageKeys(context.Background(), bw, wv, "VISUAL")
+
+	exitModeWithin(t, bw.keyboardHandler.ExitMode)
+
+	require.False(t, bw.keyboardHandler.PageKeyCaptureActive())
+	require.Nil(t, bw.vimPageInteractionWebView)
+	require.Equal(t, input.ModeNormal, bw.keyboardHandler.Mode())
 }

@@ -2258,7 +2258,7 @@ func (a *App) captureVimPageKeys(ctx context.Context, bw *browserWindow, wv port
 	bw.keyboardHandler.SetPageKeyCapture(func(key string) {
 		if err := a.vimNavigationUseCase().SendPageKey(ctx, wv, key); err != nil {
 			logging.FromContext(ctx).Debug().Err(err).Msg("vim page key forwarding failed")
-			a.endVimPageInteraction(ctx, bw)
+			a.endVimPageInteraction(ctx, bw, a.vimModeActiveForBrowserWindow(bw))
 		}
 	})
 	a.showVimModeToast(ctx, bw, label)
@@ -2272,9 +2272,11 @@ func (a *App) captureVimPageKeys(ctx context.Context, bw *browserWindow, wv port
 }
 
 // releaseVimPageKeys returns this window's keys to Vim Mode bindings and
-// restores the plain indicator and legend when the window is still in Vim
-// Mode. It reports the WebView that owned the interaction, if any.
-func (a *App) releaseVimPageKeys(ctx context.Context, bw *browserWindow, reason string) port.WebView {
+// restores the plain indicator and legend when stillVim reports the window
+// remains in Vim Mode. The caller supplies it because the mode-change callback
+// runs under the modal lock, where reading the mode back would deadlock.
+// It reports the WebView that owned the interaction, if any.
+func (a *App) releaseVimPageKeys(ctx context.Context, bw *browserWindow, reason string, stillVim bool) port.WebView {
 	wv := bw.vimPageInteractionWebView
 	bw.vimPageInteractionWebView = nil
 	if bw.keyboardHandler != nil {
@@ -2283,7 +2285,7 @@ func (a *App) releaseVimPageKeys(ctx context.Context, bw *browserWindow, reason 
 	if wv == nil {
 		return nil
 	}
-	if bw.keyboardHandler != nil && bw.keyboardHandler.Mode() == input.ModeVim {
+	if stillVim {
 		a.showVimModeToast(ctx, bw, "")
 		if bw.modeFrame != nil {
 			bw.modeFrame.setSuspended(false)
@@ -2306,7 +2308,7 @@ func (a *App) handleVimPageInteractionEnded(ctx context.Context, paneID entity.P
 	if a.contentCoord.GetWebView(paneID) != bw.vimPageInteractionWebView {
 		return
 	}
-	a.releaseVimPageKeys(ctx, bw, "page-reported-end")
+	a.releaseVimPageKeys(ctx, bw, "page-reported-end", a.vimModeActiveForBrowserWindow(bw))
 }
 
 // handleVimPageModeChanged repaints the indicator when the page moves its
@@ -2365,11 +2367,12 @@ func vimPageInteractionLabel(action string) string {
 }
 
 // endVimPageInteraction cancels any in-page interaction owned by this window.
-func (a *App) endVimPageInteraction(ctx context.Context, bw *browserWindow) {
+// stillVim reports whether the window stays in Vim Mode (see releaseVimPageKeys).
+func (a *App) endVimPageInteraction(ctx context.Context, bw *browserWindow, stillVim bool) {
 	if bw == nil {
 		return
 	}
-	wv := a.releaseVimPageKeys(ctx, bw, "canceled")
+	wv := a.releaseVimPageKeys(ctx, bw, "canceled", stillVim)
 	if wv == nil {
 		return
 	}
