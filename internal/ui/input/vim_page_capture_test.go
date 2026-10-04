@@ -68,3 +68,17 @@ func TestPageKeyCaptureModifiedEscapeForwardsPlainEscape(t *testing.T) {
 	assert.Equal(t, []string{"<Escape>"}, forwarded)
 	assert.False(t, h.PageKeyCaptureActive())
 }
+
+// Capturing keys for the page must not report a cleared pending sequence:
+// the pending callback repaints the mode toast and would erase the sub-mode
+// label shown an instant earlier.
+func TestSetPageKeyCaptureDoesNotNotifyPendingListeners(t *testing.T) {
+	h := NewKeyboardHandler(context.Background(), vimModeSequenceWorkspace(nil), newTestSession())
+	enterVimMode(t, h)
+	pending := capturePending(h)
+
+	h.SetPageKeyCapture(func(string) {})
+
+	assert.Empty(t, *pending)
+	assert.Empty(t, h.PendingSequence())
+}
