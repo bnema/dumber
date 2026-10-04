@@ -467,9 +467,37 @@ desc = "Jump to previous heading"
 keys = ["f"]
 desc = "Show hints and follow a link or control"
 
+[workspace.vim_mode.actions.hint-follow-new]
+keys = ["F"]
+desc = "Show hints and open a link in a new pane"
+
+[workspace.vim_mode.actions.hint-yank-url]
+keys = ["yf"]
+desc = "Show hints and yank a link URL"
+
 [workspace.vim_mode.actions.visual]
 keys = ["v"]
 desc = "Start visual selection (motions extend, y yanks)"
+
+[workspace.vim_mode.actions.yank-section]
+keys = ["yah"]
+desc = "Yank current section"
+
+[workspace.vim_mode.actions.yank-paragraph]
+keys = ["yap"]
+desc = "Yank first visible paragraph"
+
+[workspace.vim_mode.actions.yank-code]
+keys = ["yac"]
+desc = "Yank first visible code block"
+
+[workspace.vim_mode.actions.yank-table]
+keys = ["yat"]
+desc = "Yank first visible table"
+
+[workspace.vim_mode.actions.yank-list]
+keys = ["yal"]
+desc = "Yank first visible list"
 
 [workspace.vim_mode.actions.confirm]
 keys = ["enter"]
@@ -487,6 +515,7 @@ Notes:
 - `confirm` opens the first link inside the selected heading, or a link wrapping that heading, then exits Vim Mode. If the selected heading has no link, it only exits the mode.
 - The default `timeout_ms = 0` means Vim Mode stays active until you exit it or focus moves into an editable/browser UI context. `Ctrl+Y` can still activate it when a page input is already focused.
 - Arrow keys still use the browser engine's native page-navigation path while Vim Mode is active.
+- `f`, `F`, and `yf` label visible links; `yah`, `yap`, `yac`, `yat`, and `yal` copy a section, paragraph, code block, table, or list; `v` starts caret and visual selection. While a hint or visual interaction runs, the page owns every key except the activation shortcut (`activation_shortcut`, `Ctrl+Y` by default), which always leaves Vim Mode and ends the interaction, whatever the page does. These actions use the CEF engine path.
 - `Tab` and `Shift+Tab` keep focus traversal inside the page while a page input is focused.
 - Live input, heading, heading-link activation, and page-focus navigation currently use the CEF engine path; WebKit fallback supports the Vim scroll commands while equivalent semantic navigation is pending.
 - Other app-level shortcuts stay suspended until Vim Mode exits, except for the Vim Mode toggle itself.
