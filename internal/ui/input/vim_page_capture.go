@@ -36,8 +36,10 @@ func (h *KeyboardHandler) PageKeyCaptureActive() bool {
 }
 
 // forwardPageKey sends a Vim Mode key to the active page capture. Escape is
-// forwarded and also releases the capture locally so a page that never
-// reports completion cannot trap the keyboard.
+// forwarded like any other key: the page decides whether it steps back (visual
+// to caret) or ends the interaction, and reports the end so the capture is
+// released. A page that cannot be reached ends the capture through the
+// forwarder's error path, navigation, or leaving Vim Mode.
 func (h *KeyboardHandler) forwardPageKey(mode Mode, keyval uint, state gdk.ModifierType) bool {
 	if mode != ModeVim {
 		return false
@@ -56,9 +58,8 @@ func (h *KeyboardHandler) forwardPageKey(mode Mode, keyval uint, state gdk.Modif
 		return true
 	}
 	if key.Sym == "Esc" {
-		// Any Escape ends the interaction, so the page must see a plain one.
+		// The page must see a plain Escape whatever modifiers are held.
 		key.Mods = 0
-		h.ClearPageKeyCapture()
 	}
 	forward(vimkeys.Sequence{key}.String())
 	// Captured keys bypass dispatchAction, so keep Vim Mode's timeout alive.
