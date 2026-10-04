@@ -1186,3 +1186,26 @@ func TestApp_PermissionDialogForPane(t *testing.T) {
 	owner.permissionDialog = nil
 	assert.Nil(t, app.permissionDialogForPane(tabPane), "window without dialog")
 }
+
+func TestApp_ResetWebRTCIndicatorOnNavigationCoversFloatingPanes(t *testing.T) {
+	tab := entity.NewTab(entity.TabID("tab-1"), entity.WorkspaceID("workspace-1"), entity.NewPane(entity.PaneID("pane-1")))
+	tabs := entity.NewTabList()
+	tabs.Add(tab)
+	indicator := &component.WebRTCPermissionIndicator{}
+	bw := &browserWindow{id: "window-1", tabs: tabs, webrtcIndicator: indicator}
+	floatingPaneID := entity.PaneID("floating-pane")
+	app := &App{
+		browserWindows: map[string]*browserWindow{bw.id: bw},
+		windowForTab:   map[entity.TabID]*browserWindow{tab.ID: bw},
+		floatingSessions: map[floatingSessionKey]*floatingWorkspaceSession{
+			{tabID: tab.ID, sessionID: "profile:one"}: {paneID: floatingPaneID},
+		},
+	}
+
+	indicator.SetOrigin("https://old.example")
+	app.resetWebRTCIndicatorOnNavigation(floatingPaneID, "https://old.example/page")
+	assert.Equal(t, "https://old.example", indicator.Origin(), "same-origin navigation keeps the indicator")
+
+	app.resetWebRTCIndicatorOnNavigation(floatingPaneID, "https://new.example/")
+	assert.Empty(t, indicator.Origin(), "cross-origin navigation in a floating pane resets the indicator")
+}

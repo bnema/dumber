@@ -3658,22 +3658,26 @@ func (a *App) wireWebRTCPermissionIndicator() {
 	})
 
 	// Reset the owning window's indicator when that pane navigates away.
-	a.contentCoord.SetOnActiveNavigationCommitted(func(paneID entity.PaneID, uri string) {
-		bw := a.browserWindowForPane(paneID)
-		if bw == nil || bw.webrtcIndicator == nil {
-			return
-		}
-		newOrigin, err := urlutil.ExtractOrigin(uri)
-		if err != nil {
-			bw.webrtcIndicator.Reset()
-			return
-		}
+	a.contentCoord.SetOnActiveNavigationCommitted(a.resetWebRTCIndicatorOnNavigation)
+}
 
-		currentOrigin := bw.webrtcIndicator.Origin()
-		if currentOrigin != "" && currentOrigin != newOrigin {
-			bw.webrtcIndicator.Reset()
-		}
-	})
+// resetWebRTCIndicatorOnNavigation resets the indicator of the window owning the
+// pane (workspace or floating) when the pane navigates to a different origin.
+func (a *App) resetWebRTCIndicatorOnNavigation(paneID entity.PaneID, uri string) {
+	bw := a.browserWindowForAnyPane(paneID)
+	if bw == nil || bw.webrtcIndicator == nil {
+		return
+	}
+	newOrigin, err := urlutil.ExtractOrigin(uri)
+	if err != nil {
+		bw.webrtcIndicator.Reset()
+		return
+	}
+
+	currentOrigin := bw.webrtcIndicator.Origin()
+	if currentOrigin != "" && currentOrigin != newOrigin {
+		bw.webrtcIndicator.Reset()
+	}
 }
 
 func (a *App) wireBrowserWindowPermissionIndicator(bw *browserWindow) {
