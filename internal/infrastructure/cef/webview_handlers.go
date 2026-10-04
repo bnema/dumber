@@ -1299,6 +1299,8 @@ const maxConsecutiveCrashes = 3
 
 // OnRenderProcessTerminated fires the OnWebProcessTerminated callback with a mapped reason.
 func (h *handlerSet) OnRenderProcessTerminated(_ purecef.Browser, status purecef.TerminationStatus, _ int32, _ string) {
+	// The page runtime died with the renderer and can no longer report its end.
+	h.wv.endVimPageInteractionOnNavigation()
 	if h.wv.crashCount.Add(1) > maxConsecutiveCrashes {
 		return // suppress to break the loop
 	}

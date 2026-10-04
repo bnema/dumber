@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"html"
 	"io/fs"
@@ -492,8 +493,11 @@ func (h *dumbSchemeHandler) handleVimPage(request purecef.Request, browser purec
 		return h.newAPIJSONResourceHandler(http.StatusBadRequest, map[string]string{"error": "empty body"})
 	}
 	payload, err := decodeVimPageBridgePayload(body)
+	if errors.Is(err, errVimPagePayloadTooLarge) {
+		return h.newAPIJSONResourceHandler(http.StatusRequestEntityTooLarge, map[string]string{"error": "payload too large"})
+	}
 	if err != nil {
-		return h.newAPIJSONResourceHandler(http.StatusBadRequest, map[string]string{"error": err.Error()})
+		return h.newAPIJSONResourceHandler(http.StatusBadRequest, map[string]string{"error": "invalid payload"})
 	}
 	if h.onVimPage == nil {
 		h.logger.Warn().Msg("cef: vim-page — callback not wired")
