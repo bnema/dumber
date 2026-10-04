@@ -61,6 +61,13 @@ func TestVimNavigationUseCaseStartsPageInteractions(t *testing.T) {
 
 			require.NoError(t, err)
 			assert.Equal(t, tt.wantCapture, outcome.CapturePageKeys)
+			if tt.wantCapture {
+				assert.Equal(t, dto.VimNavigationOutcome{
+					CapturePageKeys: true, PageKind: tt.want.Kind, PageMode: dto.VimPageModeHints,
+				}, outcome, "capturing interactions open on hints and name their kind for the label")
+			} else {
+				assert.Equal(t, dto.VimNavigationOutcome{}, outcome)
+			}
 		})
 	}
 }
@@ -74,6 +81,7 @@ func TestVimNavigationUseCasePageInteractionErrorDoesNotCapture(t *testing.T) {
 	outcome, err := NewVimNavigationUseCase().Execute(ctx, wv, "visual", 1, "")
 
 	require.ErrorIs(t, err, boom)
+	require.ErrorContains(t, err, "vim navigation: start page interaction")
 	assert.False(t, outcome.CapturePageKeys)
 }
 
@@ -98,4 +106,20 @@ func TestVimNavigationUseCaseForwardsPageKeysAndCancel(t *testing.T) {
 
 	require.NoError(t, uc.SendPageKey(ctx, wv, "J"))
 	require.NoError(t, uc.CancelPageInteraction(ctx, wv))
+}
+
+func TestVimNavigationUseCaseWrapsPageKeyAndCancelErrors(t *testing.T) {
+	ctx := context.Background()
+	wv, interactor := newInteractiveWebView(t)
+	boom := errors.New("boom")
+	interactor.EXPECT().SendVimPageKey(ctx, "j").Return(boom).Once()
+	interactor.EXPECT().CancelVimPageInteraction(ctx).Return(boom).Once()
+	uc := NewVimNavigationUseCase()
+
+	err := uc.SendPageKey(ctx, wv, "j")
+	require.ErrorIs(t, err, boom)
+	require.ErrorContains(t, err, "vim navigation: send page key")
+	err = uc.CancelPageInteraction(ctx, wv)
+	require.ErrorIs(t, err, boom)
+	require.ErrorContains(t, err, "vim navigation: cancel page interaction")
 }
