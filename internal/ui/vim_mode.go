@@ -316,6 +316,11 @@ func (a *App) showPendingSequence(ctx context.Context, bw *browserWindow, pendin
 	if a == nil || bw == nil {
 		return
 	}
+	if bw.vimPageInteractionWebView != nil {
+		// The page owns the keys: the indicator shows the interaction's
+		// sub-mode, and the legend is suspended. Nothing to repaint.
+		return
+	}
 	if bw.modeFrame != nil {
 		cfg := a.runtimeConfigSnapshot().UI.Workspace
 		bw.modeFrame.setPending(pending, cfg.VimMode.Actions)

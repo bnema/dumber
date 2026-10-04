@@ -2253,13 +2253,47 @@ func (a *App) captureVimPageKeys(ctx context.Context, bw *browserWindow, wv port
 		return
 	}
 	bw.vimPageInteractionWebView = wv
-	a.showVimModeToast(ctx, bw, label)
+	// Capture first: it resets the pending sequence, and the toast and legend
+	// below must reflect the sub-mode, not a cleared sequence.
 	bw.keyboardHandler.SetPageKeyCapture(func(key string) {
 		if err := a.vimNavigationUseCase().SendPageKey(ctx, wv, key); err != nil {
 			logging.FromContext(ctx).Debug().Err(err).Msg("vim page key forwarding failed")
 			a.endVimPageInteraction(ctx, bw)
 		}
 	})
+	a.showVimModeToast(ctx, bw, label)
+	if bw.modeFrame != nil {
+		bw.modeFrame.setSuspended(true)
+	}
+	logging.FromContext(ctx).Debug().
+		Str("window_id", bw.id).
+		Str("sub_mode", label).
+		Msg("vim page interaction capturing keys")
+}
+
+// releaseVimPageKeys returns this window's keys to Vim Mode bindings and
+// restores the plain indicator and legend when the window is still in Vim
+// Mode. It reports the WebView that owned the interaction, if any.
+func (a *App) releaseVimPageKeys(ctx context.Context, bw *browserWindow, reason string) port.WebView {
+	wv := bw.vimPageInteractionWebView
+	bw.vimPageInteractionWebView = nil
+	if bw.keyboardHandler != nil {
+		bw.keyboardHandler.ClearPageKeyCapture()
+	}
+	if wv == nil {
+		return nil
+	}
+	if bw.keyboardHandler != nil && bw.keyboardHandler.Mode() == input.ModeVim {
+		a.showVimModeToast(ctx, bw, "")
+		if bw.modeFrame != nil {
+			bw.modeFrame.setSuspended(false)
+		}
+	}
+	logging.FromContext(ctx).Debug().
+		Str("window_id", bw.id).
+		Str("reason", reason).
+		Msg("vim page interaction released keys")
+	return wv
 }
 
 // handleVimPageInteractionEnded releases key capture when the page reports
@@ -2272,13 +2306,7 @@ func (a *App) handleVimPageInteractionEnded(ctx context.Context, paneID entity.P
 	if a.contentCoord.GetWebView(paneID) != bw.vimPageInteractionWebView {
 		return
 	}
-	bw.vimPageInteractionWebView = nil
-	if bw.keyboardHandler != nil {
-		bw.keyboardHandler.ClearPageKeyCapture()
-		if bw.keyboardHandler.Mode() == input.ModeVim {
-			a.showVimModeToast(ctx, bw, "")
-		}
-	}
+	a.releaseVimPageKeys(ctx, bw, "page-reported-end")
 }
 
 // vimPageInteractionLabel names the key-capturing sub-mode shown in the Vim
@@ -2301,16 +2329,9 @@ func (a *App) endVimPageInteraction(ctx context.Context, bw *browserWindow) {
 	if bw == nil {
 		return
 	}
-	wv := bw.vimPageInteractionWebView
-	bw.vimPageInteractionWebView = nil
-	if bw.keyboardHandler != nil {
-		bw.keyboardHandler.ClearPageKeyCapture()
-	}
+	wv := a.releaseVimPageKeys(ctx, bw, "canceled")
 	if wv == nil {
 		return
-	}
-	if bw.keyboardHandler != nil && bw.keyboardHandler.Mode() == input.ModeVim {
-		a.showVimModeToast(ctx, bw, "")
 	}
 	if err := a.vimNavigationUseCase().CancelPageInteraction(ctx, wv); err != nil {
 		logging.FromContext(ctx).Debug().Err(err).Msg("failed to cancel vim page interaction")

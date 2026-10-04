@@ -11,9 +11,11 @@ type PageKeyForwarder func(key string)
 
 // SetPageKeyCapture routes Vim Mode keys to fn until ClearPageKeyCapture or
 // Vim Mode exits. Pending sequences are discarded so they cannot complete
-// against keys meant for the page.
+// against keys meant for the page. The reset is silent: the pending listener
+// repaints the mode indicator, and a notification here would overwrite the
+// sub-mode label the caller shows for the interaction.
 func (h *KeyboardHandler) SetPageKeyCapture(fn PageKeyForwarder) {
-	h.ResetPendingSequence()
+	h.resetPendingSequence(false)
 	h.mu.Lock()
 	h.pageKeyCapture = fn
 	h.mu.Unlock()
