@@ -256,6 +256,32 @@ func TestJSDialogCancelledBeforeUIRunsIsNotShown(t *testing.T) {
 	require.Len(t, cb.calls, 1)
 }
 
+func TestStaleUIResetSkippedWhenNewerDialogPending(t *testing.T) {
+	useDirectJSDialogContinue(t)
+	ui := &jsDialogUIRecorder{handled: true}
+	wv := newJSDialogWebView(ui)
+	h := &handlerSet{wv: wv}
+	old := &stubJSDialogCallback{}
+	h.OnJsdialog(nil, "", purecef.JsdialogTypeJsdialogtypeAlert, "old", "", old, new(int32))
+
+	// Cancel resolves the old dialog; its UI reset is still queued for the
+	// GTK thread (modeled by calling resetJSDialogUI later).
+	require.True(t, wv.jsDialogs.cancelPending(false))
+
+	// A newer dialog arrives before the queued reset runs.
+	newer := &stubJSDialogCallback{}
+	h.OnJsdialog(nil, "", purecef.JsdialogTypeJsdialogtypeAlert, "new", "", newer, new(int32))
+	require.Len(t, ui.reqs, 2)
+
+	wv.resetJSDialogUI(wv.callbacks.OnJSDialogReset)
+	require.Zero(t, ui.resets, "stale reset must not hide the newer dialog")
+
+	// Once nothing is pending the reset goes through.
+	ui.respond[1](true, "")
+	wv.resetJSDialogUI(wv.callbacks.OnJSDialogReset)
+	require.Equal(t, 1, ui.resets)
+}
+
 func TestResetEchoAfterSuppressDoesNotCancelOpenDialog(t *testing.T) {
 	useDirectJSDialogContinue(t)
 	ui := &jsDialogUIRecorder{handled: true}

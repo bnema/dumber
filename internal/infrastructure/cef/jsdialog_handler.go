@@ -105,6 +105,13 @@ func (s *jsDialogState) begin(cb purecef.JsdialogCallback) (*jsDialogCall, jsDia
 	return call, jsDialogBeginOK
 }
 
+// hasPending reports whether an unresolved dialog is registered.
+func (s *jsDialogState) hasPending() bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.current != nil
+}
+
 func (s *jsDialogState) isDone(call *jsDialogCall) bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -165,8 +172,20 @@ func (wv *WebView) cancelJSDialogsClosing(closing bool) {
 		return
 	}
 	if cb := wv.jsDialogUICallbacks(); cb != nil && cb.OnJSDialogReset != nil {
-		wv.runOnGTK(cb.OnJSDialogReset)
+		wv.runOnGTK(func() { wv.resetJSDialogUI(cb.OnJSDialogReset) })
 	}
+}
+
+// resetJSDialogUI runs on the GTK thread, after a cancel posted it. The reset
+// carries no dialog identity, so if a newer dialog began in the meantime it is
+// stale and must be skipped, or it would hide that dialog. A dialog that
+// begins after this check has its presentation queued behind us on the GTK
+// thread, so it is never hidden either.
+func (wv *WebView) resetJSDialogUI(reset func()) {
+	if wv.jsDialogs.hasPending() {
+		return
+	}
+	reset()
 }
 
 func jsDialogTypeFromCEF(t purecef.JsdialogType) (port.JSDialogType, bool) {
