@@ -2309,12 +2309,52 @@ func (a *App) handleVimPageInteractionEnded(ctx context.Context, paneID entity.P
 	a.releaseVimPageKeys(ctx, bw, "page-reported-end")
 }
 
+// handleVimPageModeChanged repaints the indicator when the page moves its
+// interaction to another sub-mode (hints, caret, visual). Key capture and the
+// legend suspension stay as they are.
+func (a *App) handleVimPageModeChanged(ctx context.Context, paneID entity.PaneID, mode dto.VimPageMode) {
+	bw := a.browserWindowForAnyPane(paneID)
+	if bw == nil || bw.vimPageInteractionWebView == nil || a.contentCoord == nil {
+		return
+	}
+	if a.contentCoord.GetWebView(paneID) != bw.vimPageInteractionWebView {
+		return
+	}
+	a.showVimPageMode(ctx, bw, mode)
+}
+
+// showVimPageMode paints the sub-mode label for the interaction owned by bw.
+func (a *App) showVimPageMode(ctx context.Context, bw *browserWindow, mode dto.VimPageMode) {
+	label, ok := vimPageModeLabel(mode)
+	if !ok || bw == nil || bw.vimPageInteractionWebView == nil {
+		return
+	}
+	a.showVimModeToast(ctx, bw, label)
+}
+
+// vimPageModeLabel names a page-reported sub-mode for the Vim Mode indicator.
+func vimPageModeLabel(mode dto.VimPageMode) (string, bool) {
+	switch mode {
+	case dto.VimPageModeHints:
+		return "HINTS", true
+	case dto.VimPageModeCaret:
+		return "CARET", true
+	case dto.VimPageModeVisual:
+		return "VISUAL", true
+	case dto.VimPageModeVisualLine:
+		return "VISUAL LINE", true
+	default:
+		return "", false
+	}
+}
+
 // vimPageInteractionLabel names the key-capturing sub-mode shown in the Vim
-// Mode indicator so users can tell hints or visual selection are active.
+// Mode indicator so users can tell hints or visual selection are active. The
+// page refines the visual flow's label as it reports sub-mode changes.
 func vimPageInteractionLabel(action string) string {
 	switch action {
 	case "visual":
-		return "VISUAL"
+		return "HINTS"
 	case "hint-follow-new":
 		return "HINTS · NEW PANE"
 	case "hint-yank-url":
@@ -3521,6 +3561,9 @@ func (a *App) initCoordinators(ctx context.Context) {
 	})
 	a.contentCoord.SetOnVimPageInteractionEnded(func(paneID entity.PaneID) {
 		a.handleVimPageInteractionEnded(ctx, paneID)
+	})
+	a.contentCoord.SetOnVimPageModeChanged(func(paneID entity.PaneID, mode dto.VimPageMode) {
+		a.handleVimPageModeChanged(ctx, paneID, mode)
 	})
 
 	// JS dialogs are shown in the owning pane's overlay, wherever that pane lives.

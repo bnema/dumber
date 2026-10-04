@@ -4,6 +4,7 @@ import (
 	"context"
 	"sync"
 
+	"github.com/bnema/dumber/internal/application/dto"
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/application/usecase"
 	"github.com/bnema/dumber/internal/domain/entity"
@@ -123,6 +124,8 @@ type Coordinator struct {
 	onEditableFocusChanged func(paneID entity.PaneID, editable bool)
 	// onVimPageInteractionEnded fires when a page finishes link hints or visual selection.
 	onVimPageInteractionEnded func(paneID entity.PaneID)
+	// onVimPageModeChanged fires when a page interaction moves to another sub-mode.
+	onVimPageModeChanged func(paneID entity.PaneID, mode dto.VimPageMode)
 
 	// Callback for first load_started event (triggers deferred initialization)
 	onFirstLoadStarted func()
@@ -283,6 +286,12 @@ func (c *Coordinator) SetOnEditableFocusChanged(fn func(paneID entity.PaneID, ed
 // Vim interaction (link hints or visual selection).
 func (c *Coordinator) SetOnVimPageInteractionEnded(fn func(paneID entity.PaneID)) {
 	c.onVimPageInteractionEnded = fn
+}
+
+// SetOnVimPageModeChanged sets the callback for sub-mode changes of an
+// in-page Vim interaction (hints, caret, visual).
+func (c *Coordinator) SetOnVimPageModeChanged(fn func(paneID entity.PaneID, mode dto.VimPageMode)) {
+	c.onVimPageModeChanged = fn
 }
 
 // SetOnFirstLoadStarted sets the callback for when the first navigation starts.

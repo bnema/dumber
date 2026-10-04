@@ -34,7 +34,7 @@ func TestPageKeyCaptureForwardsVimModeKeys(t *testing.T) {
 	assert.Empty(t, h.PendingSequence())
 }
 
-func TestPageKeyCaptureEscapeReleasesCaptureAndStaysInVimMode(t *testing.T) {
+func TestPageKeyCaptureEscapeIsForwardedAndKeepsCaptureForPageToEnd(t *testing.T) {
 	h := NewKeyboardHandler(context.Background(), vimModeSequenceWorkspace(nil), newTestSession())
 	enterVimMode(t, h)
 	var forwarded []string
@@ -43,8 +43,11 @@ func TestPageKeyCaptureEscapeReleasesCaptureAndStaysInVimMode(t *testing.T) {
 	require.True(t, h.handleKeyPress(uint(gdk.KEY_Escape), 0, 0))
 
 	assert.Equal(t, []string{"<Escape>"}, forwarded)
-	assert.False(t, h.PageKeyCaptureActive())
+	assert.True(t, h.PageKeyCaptureActive(), "the page steps back or reports the end itself")
 	assert.Equal(t, ModeVim, h.Mode())
+
+	h.ClearPageKeyCapture()
+	assert.False(t, h.PageKeyCaptureActive())
 }
 
 func TestPageKeyCaptureClearedWhenLeavingVimMode(t *testing.T) {
@@ -66,7 +69,6 @@ func TestPageKeyCaptureModifiedEscapeForwardsPlainEscape(t *testing.T) {
 	require.True(t, h.handleKeyPress(uint(gdk.KEY_Escape), 0, gdk.ShiftMaskValue))
 
 	assert.Equal(t, []string{"<Escape>"}, forwarded)
-	assert.False(t, h.PageKeyCaptureActive())
 }
 
 // Capturing keys for the page must not report a cleared pending sequence:

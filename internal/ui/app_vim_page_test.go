@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/bnema/dumber/internal/application/dto"
 	portmocks "github.com/bnema/dumber/internal/application/port/mocks"
 	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/ui/input"
@@ -86,4 +87,37 @@ func TestVimPageInteractionHidesLegendWhileCaptured(t *testing.T) {
 	app.endVimPageInteraction(context.Background(), bw)
 	require.False(t, frame.suspended, "legend must be restored when the interaction ends")
 	require.False(t, bw.keyboardHandler.PageKeyCaptureActive())
+}
+
+// The page moves between hints, caret, visual and visual line without ending
+// the interaction: the toast follows each state while key capture and the
+// suspended legend stay in place.
+func TestVimPageModeChangesRepaintToastWithoutReleasingCapture(t *testing.T) {
+	app, bw, shown := newVimPageTestWindow(t)
+	frame := &modeFrame{mode: input.ModeVim, visible: true}
+	bw.modeFrame = frame
+	wv := portmocks.NewMockWebView(t)
+	app.captureVimPageKeys(context.Background(), bw, wv, vimPageInteractionLabel("visual"))
+	require.Equal(t, "VIM MODE · HINTS", (*shown)[len(*shown)-1])
+
+	for mode, want := range map[dto.VimPageMode]string{
+		dto.VimPageModeCaret:      "VIM MODE · CARET",
+		dto.VimPageModeVisual:     "VIM MODE · VISUAL",
+		dto.VimPageModeVisualLine: "VIM MODE · VISUAL LINE",
+		dto.VimPageModeHints:      "VIM MODE · HINTS",
+	} {
+		app.showVimPageMode(context.Background(), bw, mode)
+		require.Equal(t, want, (*shown)[len(*shown)-1])
+		require.True(t, bw.keyboardHandler.PageKeyCaptureActive(), "mode %s must not release key capture", mode)
+		require.NotNil(t, bw.vimPageInteractionWebView)
+		require.True(t, frame.suspended, "legend stays hidden while the page owns the keys")
+	}
+}
+
+func TestVimPageModeChangeIgnoredWithoutInteraction(t *testing.T) {
+	app, bw, shown := newVimPageTestWindow(t)
+
+	app.showVimPageMode(context.Background(), bw, dto.VimPageModeCaret)
+
+	require.Empty(t, *shown, "a late mode report must not repaint the indicator once the interaction ended")
 }

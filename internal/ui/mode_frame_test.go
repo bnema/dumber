@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"github.com/bnema/dumber/internal/application/dto"
 	"testing"
 
 	"github.com/bnema/dumber/internal/domain/entity"
@@ -157,8 +158,23 @@ func TestShouldStartLinger(t *testing.T) {
 	require.False(t, shouldStartLinger(false, false, true, true, 15, 25, rect))
 }
 
+func TestVimPageModeLabel(t *testing.T) {
+	for mode, want := range map[dto.VimPageMode]string{
+		dto.VimPageModeHints:      "HINTS",
+		dto.VimPageModeCaret:      "CARET",
+		dto.VimPageModeVisual:     "VISUAL",
+		dto.VimPageModeVisualLine: "VISUAL LINE",
+	} {
+		got, ok := vimPageModeLabel(mode)
+		require.True(t, ok, mode)
+		require.Equal(t, want, got)
+	}
+	_, ok := vimPageModeLabel("bogus")
+	require.False(t, ok)
+}
+
 func TestVimPageInteractionLabel(t *testing.T) {
-	require.Equal(t, "VISUAL", vimPageInteractionLabel("visual"))
+	require.Equal(t, "HINTS", vimPageInteractionLabel("visual"), "visual starts on text-anchor hints; the page reports later states")
 	require.Equal(t, "HINTS", vimPageInteractionLabel("hint-follow"))
 	require.Equal(t, "HINTS · NEW PANE", vimPageInteractionLabel("hint-follow-new"))
 	require.Equal(t, "HINTS · YANK URL", vimPageInteractionLabel("hint-yank-url"))
