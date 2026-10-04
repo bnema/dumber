@@ -1,6 +1,7 @@
 package cef
 
 import (
+	_ "embed"
 	"encoding/json"
 	"os/exec"
 	"strings"
@@ -9,108 +10,13 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// vimPageRuntimeHarness is a minimal DOM shim for the embedded runtime: one
-// paragraph of text and two links, a Selection with Chromium-like
-// setBaseAndExtent/modify semantics over that text, and a fetch that records
-// every message posted to the Go bridge.
-const vimPageRuntimeHarness = `
-const posted = [];
-const TEXT = "Alpha bravo charlie";
-const rect = (x, y, w, h) => ({ left: x, top: y, right: x + w, bottom: y + h, width: w, height: h });
-class Node_ {
-  constructor(type, tag) {
-    this.nodeType = type; this.tagName = tag; this.children = []; this.parentElement = null;
-    this.style = {}; this.attrs = {}; this.isConnected = true; this.shadowRoot = null;
-    this.classList = { add() {}, remove() {} };
-  }
-  appendChild(child) { child.parentElement = this; this.children.push(child); return child; }
-  append(...items) { for (const item of items) if (item instanceof Node_) this.appendChild(item); }
-  remove() { if (this.parentElement) this.parentElement.children = this.parentElement.children.filter((c) => c !== this); }
-  setAttribute(name, value) { this.attrs[name] = value; }
-  closest() { return null; }
-  contains(other) { for (let n = other; n; n = n.parentElement) if (n === this) return true; return false; }
-  getClientRects() { return this.rect ? [this.rect] : []; }
-  getBoundingClientRect() { return this.rect || rect(0, 0, 0, 0); }
-  getRootNode() { return document; }
-  querySelectorAll(selector) {
-    const out = [];
-    const visit = (node) => { for (const c of node.children) { if (c.nodeType === 1) { if (matches(c, selector)) out.push(c); visit(c); } } };
-    visit(this);
-    return out;
-  }
-  focus() { document.activeElement = this; }
-  click() { posted.push({ clicked: this.href }); }
-}
-function matches(el, selector) {
-  return selector.split(",").some((part) => {
-    part = part.trim();
-    if (part === "*") return true;
-    if (part === "a[href]") return el.tagName === "A" && el.href;
-    if (part.startsWith("[")) return false;
-    const base = part.replace(/:not\(.*\)$/, "");
-    return el.tagName === base.toUpperCase();
-  });
-}
-class Element extends Node_ { constructor(tag) { super(1, tag.toUpperCase()); } }
-class HTMLElement extends Element {}
-class HTMLAnchorElement extends HTMLElement { constructor(href) { super("a"); this.href = href; this.target = ""; } }
-class HTMLInputElement extends HTMLElement {}
-class HTMLTextAreaElement extends HTMLElement {}
-class HTMLSelectElement extends HTMLElement {}
-const Element_ = HTMLElement;
-class Text_ extends Node_ { constructor(data) { super(3, "#text"); this.data = data; } }
-const html = new Element_("html");
-const body = html.appendChild(new Element_("body"));
-const p = body.appendChild(new Element_("p")); p.rect = rect(10, 10, 300, 20);
-const text = p.appendChild(new Text_(TEXT));
-const one = body.appendChild(new HTMLAnchorElement("file:///one.html")); one.rect = rect(10, 50, 40, 20);
-const two = body.appendChild(new HTMLAnchorElement("https://example.com/two")); two.rect = rect(80, 50, 40, 20);
-const selection = {
-  anchorNode: null, anchorOffset: 0, focusNode: null, focusOffset: 0, rangeCount: 0,
-  get isCollapsed() { return this.rangeCount === 0 || (this.anchorNode === this.focusNode && this.anchorOffset === this.focusOffset); },
-  setBaseAndExtent(an, ao, fn, fo) { this.anchorNode = an; this.anchorOffset = ao; this.focusNode = fn; this.focusOffset = fo; this.rangeCount = 1; },
-  modify(_alter, direction, granularity) {
-    const step = direction === "forward" ? 1 : -1;
-    if (granularity === "character") this.focusOffset = Math.max(0, Math.min(TEXT.length, this.focusOffset + step));
-    else if (granularity === "word") {
-      let i = this.focusOffset;
-      if (step > 0) { while (i < TEXT.length && TEXT[i] !== " ") i++; while (i < TEXT.length && TEXT[i] === " ") i++; }
-      else { while (i > 0 && TEXT[i - 1] === " ") i--; while (i > 0 && TEXT[i - 1] !== " ") i--; }
-      this.focusOffset = i;
-    } else if (granularity === "lineboundary" || granularity === "documentboundary" || granularity === "line") {
-      this.focusOffset = step > 0 ? TEXT.length : 0;
-    }
-  },
-  removeAllRanges() { this.rangeCount = 0; this.anchorNode = this.focusNode = null; },
-  addRange() { this.rangeCount = 1; },
-  getRangeAt() { return {}; },
-  toString() { return this.rangeCount ? TEXT.slice(Math.min(this.anchorOffset, this.focusOffset), Math.max(this.anchorOffset, this.focusOffset)) : ""; },
-};
-global.Node = { TEXT_NODE: 3, ELEMENT_NODE: 1 };
-global.NodeFilter = { SHOW_ELEMENT: 1, SHOW_TEXT: 4 };
-global.Element = Element; global.HTMLElement = HTMLElement; global.HTMLAnchorElement = HTMLAnchorElement;
-global.HTMLInputElement = HTMLInputElement; global.HTMLTextAreaElement = HTMLTextAreaElement; global.HTMLSelectElement = HTMLSelectElement;
-global.document = {
-  body, documentElement: html, activeElement: body,
-  createElement: (tag) => new HTMLElement(tag),
-  createRange: () => ({ setStart() {}, collapse() {}, selectNodeContents() {}, getBoundingClientRect: () => rect(10, 10, 300, 20) }),
-  createTreeWalker: (root) => {
-    const nodes = []; const visit = (n) => { nodes.push(n); for (const c of n.children) visit(c); }; visit(root);
-    let i = 0; return { currentNode: nodes[0], nextNode: () => nodes[++i] || null };
-  },
-  querySelectorAll: (selector) => html.querySelectorAll(selector),
-  elementFromPoint: (x, y) => [two, one, p].find((el) => el.rect && x >= el.rect.left && x < el.rect.right && y >= el.rect.top && y < el.rect.bottom) || body,
-};
-global.window = {
-  innerWidth: 800, innerHeight: 600, scrollBy() {},
-  getSelection: () => selection,
-  getComputedStyle: () => ({ display: "block", visibility: "visible" }),
-  fetch: (url, init) => { posted.push(JSON.parse(Buffer.from(init.headers["X-Dumber-Body"], "base64").toString("latin1"))); return Promise.resolve(); },
-};
-global.btoa = (s) => Buffer.from(s, "binary").toString("base64");
-global.unescape = (s) => decodeURIComponent(s);
-global.setTimeout = (fn) => { fn(); return 0; };
-`
+// vimPageRuntimeHarness is a DOM shim for the embedded runtime: three visible
+// paragraphs and one below the fold, two links, a Selection and Range with
+// Chromium-like semantics, and a fetch that records every message posted to
+// the Go bridge. See testdata/vim_page_harness.js.
+//
+//go:embed testdata/vim_page_harness.js
+var vimPageRuntimeHarness string
 
 // runVimPageRuntime executes the embedded runtime inside the harness, then
 // the given driver script, and returns every message posted to the bridge
@@ -130,34 +36,37 @@ func runVimPageRuntime(t *testing.T, driver string) []map[string]any {
 	return posted
 }
 
-func TestVimPageRuntimeVisualExtendsAndYanks(t *testing.T) {
-	posted := runVimPageRuntime(t, `
-const vp = window.__dumberVimPage;
-vp.start("tok", { kind: "visual", color: "#fbbf24" });
-posted.push({ started: selection.toString() });
-for (const key of ["l", "l", "w"]) vp.key("tok", key);
-posted.push({ extended: selection.toString() });
-vp.key("tok", "y");
-posted.push({ after: selection.rangeCount });
-`)
-	require.Len(t, posted, 4)
-	require.Equal(t, "A", posted[0]["started"], "visual starts on the first visible character")
-	require.Equal(t, "Alpha ", posted[1]["extended"], "motions extend the selection")
-	require.Equal(t, map[string]any{"token": "tok", "type": "copy", "text": "Alpha "}, posted[2])
-	require.EqualValues(t, 0, posted[3]["after"], "yank clears the selection")
+// named returns the driver snapshot recorded under name.
+func named(t *testing.T, posted []map[string]any, name string) map[string]any {
+	t.Helper()
+	for _, entry := range posted {
+		if entry["n"] == name {
+			return entry
+		}
+	}
+	require.FailNow(t, "snapshot not recorded", name)
+	return nil
 }
 
-func TestVimPageRuntimeVisualExitsOnVAndEscapeWithoutCopy(t *testing.T) {
-	for _, key := range []string{"v", "<Escape>"} {
-		posted := runVimPageRuntime(t, `
-const vp = window.__dumberVimPage;
-vp.start("tok", { kind: "visual" });
-vp.key("tok", "l");
-vp.key("tok", `+jsString(key)+`);
-`)
-		require.Len(t, posted, 1, "key %s", key)
-		require.Equal(t, "end", posted[0]["type"], "key %s", key)
+// bridgeMessages returns the runtime's own bridge messages, without snapshots.
+func bridgeMessages(posted []map[string]any) []map[string]any {
+	var out []map[string]any
+	for _, entry := range posted {
+		if _, ok := entry["token"]; ok {
+			out = append(out, entry)
+		}
 	}
+	return out
+}
+
+func modeSequence(posted []map[string]any) []any {
+	var out []any
+	for _, entry := range bridgeMessages(posted) {
+		if entry["type"] == "mode" {
+			out = append(out, entry["mode"])
+		}
+	}
+	return out
 }
 
 func TestVimPageRuntimeStartDoesNotEndImmediately(t *testing.T) {
@@ -165,26 +74,433 @@ func TestVimPageRuntimeStartDoesNotEndImmediately(t *testing.T) {
 window.__dumberVimPage.start("tok", { kind: "visual" });
 window.__dumberVimPage.start("hint", { kind: "hint-follow" });
 `)
-	require.Empty(t, posted, "starting an interaction with visible content posts nothing until a key ends it")
+	for _, message := range bridgeMessages(posted) {
+		require.NotEqual(t, "end", message["type"], "starting with visible content never ends the interaction")
+	}
+}
+
+func TestVimPageRuntimeVisualStartsWithTextAnchorHints(t *testing.T) {
+	posted := runVimPageRuntime(t, `
+window.__dumberVimPage.start("tok", { kind: "visual", color: "#fbbf24" });
+posted.push({ n: "hints", labels: hintLabels(), selection: selection.rangeCount, caret: cursor() !== null });
+`)
+	hints := named(t, posted, "hints")
+	require.Equal(t, []any{"s", "a", "d"}, hints["labels"], "one label per visible text block, none for text below the fold")
+	require.EqualValues(t, 0, hints["selection"])
+	require.Equal(t, false, hints["caret"], "no caret until an anchor is picked")
+	require.Equal(t, []any{"hints"}, modeSequence(posted))
+}
+
+func TestVimPageRuntimeTextAnchorLabelPlacesCaret(t *testing.T) {
+	posted := runVimPageRuntime(t, `
+startCaret("tok", "a");
+S("caret", { hints: hintLabels(), cursor: cursor() && cursor().style });
+`)
+	caret := named(t, posted, "caret")
+	require.Empty(t, caret["text"])
+	require.Equal(t, "1:0", caret["anchor"], "the label puts the caret at the start of that text")
+	require.Equal(t, "1:0", caret["focus"])
+	require.Empty(t, caret["hints"], "the hint overlay is gone once the caret is placed")
+	style := caret["cursor"].(map[string]any)
+	require.Equal(t, "fixed", style["position"])
+	require.Equal(t, "#fbbf24", style["background"], "the caret uses the accent color")
+	require.Equal(t, "none", style["pointer-events"])
+	require.Equal(t, "2147483647", style["z-index"])
+	require.Equal(t, "8px", style["left"])
+	require.Equal(t, "37px", style["top"], "the caret is taller than the line, centered on it")
+	require.Equal(t, "26px", style["height"])
+	require.Equal(t, "4px", style["width"])
+	require.Equal(t, []any{"hints", "caret"}, modeSequence(posted))
+	require.Empty(t, bridgeMessagesOfType(posted, "end"))
+}
+
+func bridgeMessagesOfType(posted []map[string]any, messageType string) []map[string]any {
+	var out []map[string]any
+	for _, message := range bridgeMessages(posted) {
+		if message["type"] == messageType {
+			out = append(out, message)
+		}
+	}
+	return out
+}
+
+func TestVimPageRuntimeEscapeInTextAnchorHintsPicksFirstLongText(t *testing.T) {
+	posted := runVimPageRuntime(t, `
+window.__dumberVimPage.start("tok", { kind: "visual" });
+vp().key("tok", "<Escape>");
+S("caret");
+`)
+	caret := named(t, posted, "caret")
+	require.Equal(t, "1:0", caret["focus"], "the first visible text of at least 50 characters is chosen over short banners")
+	require.Equal(t, []any{"hints", "caret"}, modeSequence(posted))
+}
+
+func TestVimPageRuntimeEscapeInTextAnchorHintsFallsBackToAnyVisibleText(t *testing.T) {
+	posted := runVimPageRuntime(t, `
+second.text.data = "short";
+window.__dumberVimPage.start("tok", { kind: "visual" });
+vp().key("tok", "<Escape>");
+S("caret");
+`)
+	require.Equal(t, "0:0", named(t, posted, "caret")["focus"])
+}
+
+func TestVimPageRuntimeVisualEndsWithReasonWhenNoVisibleText(t *testing.T) {
+	posted := runVimPageRuntime(t, `
+for (const t of texts) t.parentElement.rect = rect(10, 5000, 600, 20);
+window.__dumberVimPage.start("tok", { kind: "visual" });
+`)
+	require.Equal(t, []map[string]any{{"token": "tok", "type": "end", "reason": "no-visible-text"}}, bridgeMessages(posted))
+}
+
+func TestVimPageRuntimeEscapeFallbackEndsWhenNothingVisible(t *testing.T) {
+	posted := runVimPageRuntime(t, `
+window.__dumberVimPage.start("tok", { kind: "visual" });
+for (const t of texts) t.parentElement.rect = rect(10, 5000, 600, 20);
+vp().key("tok", "<Escape>");
+`)
+	ends := bridgeMessagesOfType(posted, "end")
+	require.Len(t, ends, 1)
+	require.Equal(t, "no-visible-text", ends[0]["reason"])
+}
+
+func TestVimPageRuntimeVisibleSelectionStartsVisualDirectly(t *testing.T) {
+	posted := runVimPageRuntime(t, `
+selection.setBaseAndExtent(first.text, 0, first.text, 5);
+window.__dumberVimPage.start("tok", { kind: "visual" });
+S("start", { hints: hintLabels(), cursor: cursor() !== null });
+vp().key("tok", "l");
+S("extended");
+`)
+	start := named(t, posted, "start")
+	require.Equal(t, "Alpha", start["text"], "an existing visible selection is used as is")
+	require.Empty(t, start["hints"])
+	require.Equal(t, true, start["cursor"])
+	require.Equal(t, "Alpha ", named(t, posted, "extended")["text"])
+	require.Equal(t, []any{"visual"}, modeSequence(posted))
+}
+
+func TestVimPageRuntimeSelectionOutsideViewportIsIgnored(t *testing.T) {
+	posted := runVimPageRuntime(t, `
+selection.setBaseAndExtent(far.text, 0, far.text, 3);
+window.__dumberVimPage.start("tok", { kind: "visual" });
+posted.push({ n: "hints", labels: hintLabels() });
+`)
+	require.Equal(t, []any{"s", "a", "d"}, named(t, posted, "hints")["labels"])
+	require.Equal(t, []any{"hints"}, modeSequence(posted))
+}
+
+func TestVimPageRuntimeCaretMotionsMoveWithoutSelecting(t *testing.T) {
+	tests := []struct {
+		name  string
+		start string // hint label
+		keys  []string
+		want  string // focus
+	}{
+		{"l", "s", []string{"l", "l"}, "0:2"},
+		{"counted l", "s", []string{"3", "l"}, "0:3"},
+		{"h clamps", "s", []string{"l", "h", "h"}, "0:0"},
+		{"w", "s", []string{"w"}, "0:6"},
+		{"2w", "s", []string{"2", "w"}, "0:12"},
+		{"w crosses line", "s", []string{"3", "w"}, "1:0"},
+		{"e", "s", []string{"e"}, "0:5"},
+		{"b", "s", []string{"w", "w", "b"}, "0:6"},
+		{"b at start", "s", []string{"b"}, "0:0"},
+		{"$", "s", []string{"$"}, "0:19"},
+		{"0", "s", []string{"$", "0"}, "0:0"},
+		{"^", "s", []string{"$", "^"}, "0:0"},
+		{"j", "s", []string{"l", "l", "j"}, "1:2"},
+		{"k", "a", []string{"l", "k"}, "0:1"},
+		{"G", "s", []string{"G"}, "3:18"},
+		{"gg", "a", []string{"G", "g", "g"}, "0:0"},
+		{"}", "s", []string{"}"}, "0:19"},
+		{"{", "a", []string{"l", "{"}, "1:0"},
+		{")", "s", []string{")"}, "0:19"},
+		{"(", "s", []string{"$", "("}, "0:0"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			keys, err := json.Marshal(tt.keys)
+			require.NoError(t, err)
+			posted := runVimPageRuntime(t, `
+startCaret("tok", `+jsString(tt.start)+`);
+keys("tok", ...`+string(keys)+`);
+S("end");
+`)
+			end := named(t, posted, "end")
+			require.Equal(t, tt.want, end["focus"])
+			require.Equal(t, end["focus"], end["anchor"], "the caret stays collapsed")
+			require.Empty(t, end["text"])
+			require.Empty(t, bridgeMessagesOfType(posted, "end"))
+		})
+	}
+}
+
+func TestVimPageRuntimeWordMotionsSkipPunctuation(t *testing.T) {
+	posted := runVimPageRuntime(t, `
+startCaret("tok", "d");
+keys("tok", "w");
+S("w1");
+keys("tok", "w");
+S("w2");
+keys("tok", "b");
+S("b1");
+`)
+	// "Third line, end.": w from "Third" -> "line"; w -> "end" (the comma and
+	// space are skipped); b -> back to "line".
+	require.Equal(t, "2:6", named(t, posted, "w1")["focus"])
+	require.Equal(t, "2:12", named(t, posted, "w2")["focus"])
+	require.Equal(t, "2:6", named(t, posted, "b1")["focus"])
+}
+
+func TestVimPageRuntimeCaretMotionScrollsFocusIntoView(t *testing.T) {
+	posted := runVimPageRuntime(t, `
+startCaret("tok", "s");
+scrolls.length = 0;
+keys("tok", "G");
+posted.push({ n: "scrolled", scrolls });
+`)
+	scrolled := named(t, posted, "scrolled")["scrolls"].([]any)
+	require.NotEmpty(t, scrolled, "moving the caret below the fold scrolls it into view")
+	require.Greater(t, scrolled[0].([]any)[1].(float64), float64(1000))
+}
+
+func TestVimPageRuntimeCaretFollowsScrollAndIsRemovedOnEnd(t *testing.T) {
+	posted := runVimPageRuntime(t, `
+startCaret("tok", "s");
+const bar = cursor();
+first.p.rect = rect(10, -300, 600, 20); // the page scrolled the paragraph away
+fire("scroll");
+const hiddenWhileOffscreen = bar.style.display;
+first.p.rect = rect(10, 100, 600, 20);
+fire("scroll");
+posted.push({ n: "follow", hidden: hiddenWhileOffscreen, top: bar.style.top, display: bar.style.display });
+keys("tok", "<Escape>");
+posted.push({ n: "cleanup", caret: cursor() === null, styles: overlays("data-dumber-vim-visual").length, scrollListeners: (listeners.scroll || []).length, resize: (listeners.resize || []).length, selection: selection.rangeCount });
+`)
+	follow := named(t, posted, "follow")
+	require.Equal(t, "none", follow["hidden"], "the caret hides while its text is off screen")
+	require.Equal(t, "97px", follow["top"], "the caret follows its text when the page scrolls")
+	require.Empty(t, follow["display"])
+	cleanup := named(t, posted, "cleanup")
+	require.Equal(t, true, cleanup["caret"], "the caret overlay is removed on cleanup")
+	require.EqualValues(t, 0, cleanup["styles"])
+	require.EqualValues(t, 0, cleanup["scrollListeners"])
+	require.EqualValues(t, 0, cleanup["resize"])
+	require.EqualValues(t, 0, cleanup["selection"])
+}
+
+func TestVimPageRuntimeVisualFromCaretExtendsAndYankReturnsToCaret(t *testing.T) {
+	posted := runVimPageRuntime(t, `
+startCaret("tok", "s");
+keys("tok", "v");
+S("v");
+keys("tok", "l", "l");
+S("extended");
+keys("tok", "w");
+S("word");
+keys("tok", "y");
+S("after");
+keys("tok", "l");
+S("moved");
+keys("tok", "y");
+S("caretYank");
+keys("tok", "v", "e");
+S("second");
+keys("tok", "<Return>");
+S("afterReturn");
+`)
+	require.Equal(t, "A", named(t, posted, "v")["text"], "v starts charwise from the caret")
+	require.Equal(t, "Alp", named(t, posted, "extended")["text"])
+	require.Equal(t, "Alpha ", named(t, posted, "word")["text"])
+
+	after := named(t, posted, "after")
+	require.Empty(t, after["text"], "y returns to a collapsed caret")
+	require.Equal(t, "0:6", after["focus"], "at the focus end of the selection")
+	require.Equal(t, after["focus"], after["anchor"])
+	require.Equal(t, "0:7", named(t, posted, "moved")["focus"], "the caret keeps moving after a yank")
+	require.Equal(t, "0:7", named(t, posted, "caretYank")["focus"], "y in caret mode does nothing")
+
+	copies := bridgeMessagesOfType(posted, "copy")
+	require.Len(t, copies, 2, "y in caret mode copies nothing; Enter chains a second copy")
+	require.Equal(t, map[string]any{"token": "tok", "type": "copy", "text": "Alpha "}, copies[0])
+	require.Equal(t, "ravo", copies[1]["text"], "v includes the character under the caret and e extends to the word end")
+	require.Empty(t, named(t, posted, "afterReturn")["text"])
+	require.Empty(t, bridgeMessagesOfType(posted, "end"), "copying never ends the interaction")
+	require.Equal(t, []any{"hints", "caret", "visual", "caret", "visual", "caret"}, modeSequence(posted))
+}
+
+func TestVimPageRuntimeVisualOSwapsEnds(t *testing.T) {
+	posted := runVimPageRuntime(t, `
+startCaret("tok", "s");
+keys("tok", "l", "l", "l", "v");
+S("before");
+keys("tok", "o");
+S("swapped");
+keys("tok", "h", "h");
+S("shrunk");
+keys("tok", "o", "l");
+S("back");
+`)
+	before := named(t, posted, "before")
+	require.Equal(t, "0:3", before["anchor"])
+	require.Equal(t, "0:4", before["focus"])
+	swapped := named(t, posted, "swapped")
+	require.Equal(t, "0:4", swapped["anchor"])
+	require.Equal(t, "0:3", swapped["focus"])
+	require.Equal(t, "0:4", named(t, posted, "shrunk")["anchor"])
+	require.Equal(t, "0:1", named(t, posted, "shrunk")["focus"])
+	require.Equal(t, "lph", named(t, posted, "shrunk")["text"])
+	back := named(t, posted, "back")
+	require.Equal(t, "0:1", back["anchor"])
+	require.Equal(t, "0:5", back["focus"], "after o the motions extend the other end")
+}
+
+func TestVimPageRuntimeVisualLine(t *testing.T) {
+	posted := runVimPageRuntime(t, `
+startCaret("tok", "a");
+keys("tok", "l", "l");
+keys("tok", "V");
+S("line");
+keys("tok", "j");
+S("down");
+keys("tok", "k", "k");
+S("up");
+keys("tok", "o");
+S("swapped");
+keys("tok", "y");
+S("yanked");
+`)
+	require.Equal(t, "The quick brown fox jumps over the lazy dog near the river", named(t, posted, "line")["text"], "V selects the whole line")
+	require.Equal(t, "The quick brown fox jumps over the lazy dog near the river\nThird line, end.", named(t, posted, "down")["text"])
+	up := named(t, posted, "up")
+	require.Equal(t, "Alpha bravo charlie\nThe quick brown fox jumps over the lazy dog near the river", up["text"], "motions extend by whole lines")
+	require.Equal(t, "1:58", up["anchor"])
+	require.Equal(t, "0:0", up["focus"])
+	require.Equal(t, "0:0", named(t, posted, "swapped")["anchor"], "o swaps the ends")
+	yanked := named(t, posted, "yanked")
+	require.Empty(t, yanked["text"])
+	require.Equal(t, yanked["focus"], yanked["anchor"], "y returns to a caret at the focus")
+	copies := bridgeMessagesOfType(posted, "copy")
+	require.Len(t, copies, 1)
+	require.Equal(t, "Alpha bravo charlie\nThe quick brown fox jumps over the lazy dog near the river", copies[0]["text"])
+	require.Equal(t, []any{"hints", "caret", "visual-line", "caret"}, modeSequence(posted))
+}
+
+func TestVimPageRuntimeModeSwitchingKeys(t *testing.T) {
+	posted := runVimPageRuntime(t, `
+startCaret("tok", "s");
+keys("tok", "l", "l");
+keys("tok", "v", "l");
+S("visual");
+keys("tok", "V");
+S("line");
+keys("tok", "v");
+S("visualAgain");
+keys("tok", "V");
+keys("tok", "V");
+S("caretFromLine");
+keys("tok", "v");
+keys("tok", "v");
+S("caretFromVisual");
+keys("tok", "v", "l", "<Escape>");
+S("escapeVisual");
+keys("tok", "V", "<Escape>");
+S("escapeLine");
+`)
+	require.Equal(t, "ph", named(t, posted, "visual")["text"], "v includes the character under the caret, then l extends")
+	require.Equal(t, "Alpha bravo charlie", named(t, posted, "line")["text"])
+	require.Equal(t, "Alpha bravo charlie", named(t, posted, "visualAgain")["text"], "v in visual line switches to charwise without changing the range")
+	require.Empty(t, named(t, posted, "caretFromLine")["text"], "V in visual line goes back to caret")
+	require.Empty(t, named(t, posted, "caretFromVisual")["text"], "v in visual goes back to caret")
+	require.Empty(t, named(t, posted, "escapeVisual")["text"], "Escape in visual goes back to caret")
+	require.Empty(t, named(t, posted, "escapeLine")["text"], "Escape in visual line goes back to caret")
+	require.Empty(t, bridgeMessagesOfType(posted, "end"), "none of these end the interaction")
+	require.Equal(t, []any{
+		"hints", "caret", "visual", "visual-line", "visual", "visual-line", "caret",
+		"visual", "caret", "visual", "caret", "visual-line", "caret",
+	}, modeSequence(posted))
+}
+
+func TestVimPageRuntimeEscapeInCaretEndsInteraction(t *testing.T) {
+	posted := runVimPageRuntime(t, `
+startCaret("tok", "s");
+keys("tok", "l", "<Escape>");
+posted.push({ n: "after", selection: selection.rangeCount, caret: cursor() === null });
+`)
+	require.Equal(t, []map[string]any{{"token": "tok", "type": "end"}}, bridgeMessagesOfType(posted, "end"))
+	after := named(t, posted, "after")
+	require.EqualValues(t, 0, after["selection"])
+	require.Equal(t, true, after["caret"])
+}
+
+func TestVimPageRuntimeCancelRemovesCaretAndSelection(t *testing.T) {
+	posted := runVimPageRuntime(t, `
+startCaret("tok", "s");
+keys("tok", "v", "l");
+vp().cancel("tok");
+posted.push({ n: "after", selection: selection.rangeCount, caret: cursor() === null, styles: overlays("data-dumber-vim-visual").length });
+`)
+	after := named(t, posted, "after")
+	require.EqualValues(t, 0, after["selection"])
+	require.Equal(t, true, after["caret"])
+	require.EqualValues(t, 0, after["styles"])
+	require.Empty(t, bridgeMessagesOfType(posted, "end"), "cancel is Go-initiated and reports nothing")
+}
+
+func TestVimPageRuntimeCancelRemovesHintOverlay(t *testing.T) {
+	posted := runVimPageRuntime(t, `
+window.__dumberVimPage.start("tok", { kind: "visual" });
+vp().cancel("tok");
+posted.push({ n: "after", labels: hintLabels() });
+`)
+	require.Empty(t, named(t, posted, "after")["labels"])
+}
+
+func TestVimPageRuntimeKeyErrorReleasesCapture(t *testing.T) {
+	posted := runVimPageRuntime(t, `
+startCaret("tok", "s");
+selection.modify = () => { throw new Error("page quirk"); };
+keys("tok", "l");
+`)
+	ends := bridgeMessagesOfType(posted, "end")
+	require.Len(t, ends, 1, "a failing motion must not leave the keyboard captured")
+	require.Equal(t, "error", ends[0]["reason"])
 }
 
 func TestVimPageRuntimeHintsFollowAndYank(t *testing.T) {
 	posted := runVimPageRuntime(t, `
-const vp = window.__dumberVimPage;
-vp.start("a", { kind: "hint-follow" });
-posted.push({ labels: html.querySelectorAll("span").map((s) => s.textContent) });
-vp.key("a", "a");
-vp.start("b", { kind: "hint-yank-url" });
-vp.key("b", "s");
-vp.start("c", { kind: "hint-follow-new" });
-vp.key("c", "a");
+const vpage = window.__dumberVimPage;
+vpage.start("a", { kind: "hint-follow" });
+posted.push({ n: "labels", labels: hintLabels() });
+vpage.key("a", "a");
+vpage.start("b", { kind: "hint-yank-url" });
+vpage.key("b", "s");
+vpage.start("c", { kind: "hint-follow-new" });
+vpage.key("c", "a");
+vpage.start("d", { kind: "hint-follow" });
+vpage.key("d", "<Escape>");
 `)
-	require.Len(t, posted, 5)
-	require.ElementsMatch(t, []any{"s", "a"}, posted[0]["labels"], "two visible links get one-letter labels")
-	require.Equal(t, "https://example.com/two", posted[1]["clicked"], "follow clicks the chosen link")
-	require.Equal(t, "end", posted[2]["type"])
-	require.Equal(t, map[string]any{"token": "b", "type": "copy", "text": "file:///one.html"}, posted[3])
-	require.Equal(t, map[string]any{"token": "c", "type": "open-new", "url": "https://example.com/two"}, posted[4])
+	require.ElementsMatch(t, []any{"s", "a"}, named(t, posted, "labels")["labels"], "two visible links get one-letter labels")
+	require.Equal(t, "https://example.com/two", named2(posted, "clicked"), "follow clicks the chosen link")
+	messages := bridgeMessages(posted)
+	require.Equal(t, []map[string]any{
+		{"token": "a", "type": "end"},
+		{"token": "b", "type": "copy", "text": "file:///one.html"},
+		{"token": "c", "type": "open-new", "url": "https://example.com/two"},
+		{"token": "d", "type": "end"},
+	}, messages)
+	require.NotContains(t, modeSequence(posted), "caret", "link hints never report caret modes")
+}
+
+// named2 returns a field recorded by a harness side effect (such as a click).
+func named2(posted []map[string]any, key string) any {
+	for _, entry := range posted {
+		if value, ok := entry[key]; ok {
+			return value
+		}
+	}
+	return nil
 }
 
 func TestVimPageRuntimeYankParagraph(t *testing.T) {
@@ -192,19 +508,18 @@ func TestVimPageRuntimeYankParagraph(t *testing.T) {
 p.innerText = TEXT;
 window.__dumberVimPage.start("tok", { kind: "yank", object: "paragraph" });
 `)
-	require.Len(t, posted, 1)
-	require.Equal(t, "copy", posted[0]["type"])
-	require.True(t, strings.HasPrefix(posted[0]["text"].(string), "Alpha"))
+	messages := bridgeMessages(posted)
+	require.Len(t, messages, 1)
+	require.Equal(t, "copy", messages[0]["type"])
+	require.True(t, strings.HasPrefix(messages[0]["text"].(string), "Alpha"))
 }
 
 func TestVimPageRuntimeStaleTokenKeyReleasesCapture(t *testing.T) {
 	posted := runVimPageRuntime(t, `
-const vp = window.__dumberVimPage;
-vp.start("live", { kind: "visual" });
-vp.key("stale", "j");
-posted.push({ liveSelection: selection.rangeCount });
+startCaret("live", "s");
+vp().key("stale", "j");
+posted.push({ n: "live", selection: selection.rangeCount });
 `)
-	require.Len(t, posted, 2)
-	require.Equal(t, map[string]any{"token": "stale", "type": "end"}, posted[0])
-	require.EqualValues(t, 1, posted[1]["liveSelection"], "a stale key must not disturb the live interaction")
+	require.Equal(t, []map[string]any{{"token": "stale", "type": "end"}}, bridgeMessagesOfType(posted, "end"))
+	require.EqualValues(t, 1, named(t, posted, "live")["selection"], "a stale key must not disturb the live interaction")
 }

@@ -33,10 +33,13 @@ type vimPageBridgePayload struct {
 	URL   string `json:"url,omitempty"`
 	// Reason explains an early end (for example no visible targets).
 	Reason string `json:"reason,omitempty"`
+	// Mode names the sub-mode of a "mode" message.
+	Mode string `json:"mode,omitempty"`
 }
 
 const (
 	vimPageMessageCopy    = "copy"
+	vimPageMessageMode    = "mode"
 	vimPageMessageOpenNew = "open-new"
 	vimPageMessageEnd     = "end"
 )
@@ -60,6 +63,10 @@ func decodeVimPageBridgePayload(body []byte) (vimPageBridgePayload, error) {
 	case vimPageMessageOpenNew:
 		if payload.URL == "" {
 			return payload, errors.New("missing url")
+		}
+	case vimPageMessageMode:
+		if !dto.VimPageMode(payload.Mode).Valid() {
+			return payload, fmt.Errorf("unknown mode %q", payload.Mode)
 		}
 	case vimPageMessageEnd:
 	default:
@@ -211,6 +218,37 @@ func (wv *WebView) notifyVimPageInteractionEnded(generation uint64) {
 	})
 }
 
+// vimPageResultEndsInteraction reports whether a result spends the token.
+// The caret and visual flow is long-lived: its mode changes and copies leave
+// the interaction running so copies can be chained; every other result is
+// terminal, so a token grants exactly one of them.
+func vimPageResultEndsInteraction(kind dto.VimPageInteractionKind, messageType string) bool {
+	if kind != dto.VimPageVisual {
+		return true
+	}
+	return messageType != vimPageMessageMode && messageType != vimPageMessageCopy
+}
+
+// notifyVimPageModeChanged reports a sub-mode change on GTK unless a newer
+// interaction was armed in the meantime.
+func (wv *WebView) notifyVimPageModeChanged(generation uint64, mode dto.VimPageMode) {
+	wv.mu.RLock()
+	cb := wv.callbacks
+	wv.mu.RUnlock()
+	if cb == nil || cb.OnVimPageModeChanged == nil {
+		return
+	}
+	changed := cb.OnVimPageModeChanged
+	wv.runOnGTK(func() {
+		wv.mu.RLock()
+		current := wv.vimPageGeneration
+		wv.mu.RUnlock()
+		if current == generation {
+			changed(mode)
+		}
+	})
+}
+
 // vimPageResultAllowed ties each result type to the interaction the user
 // started, so a hijacked token only yields the kind of result requested.
 func vimPageResultAllowed(kind dto.VimPageInteractionKind, messageType string) bool {
@@ -221,6 +259,8 @@ func vimPageResultAllowed(kind dto.VimPageInteractionKind, messageType string) b
 		return kind == dto.VimPageHintFollow || kind == dto.VimPageHintFollowNew
 	case vimPageMessageCopy:
 		return kind == dto.VimPageYankObject || kind == dto.VimPageHintYankURL || kind == dto.VimPageVisual
+	case vimPageMessageMode:
+		return kind == dto.VimPageVisual
 	default:
 		return false
 	}
@@ -296,8 +336,8 @@ func (wv *WebView) handleVimPageResult(payload vimPageBridgePayload) {
 	kind := wv.vimPageKind
 	generation := wv.vimPageGeneration
 	valid := armed != "" && subtle.ConstantTimeCompare([]byte(armed), []byte(payload.Token)) == 1
-	if valid {
-		// Every runtime message is terminal: a token grants exactly one result.
+	ends := vimPageResultEndsInteraction(kind, payload.Type)
+	if valid && ends {
 		wv.vimPageToken = ""
 		wv.vimPageKind = 0
 	}
@@ -307,12 +347,14 @@ func (wv *WebView) handleVimPageResult(payload vimPageBridgePayload) {
 		return
 	}
 
-	logging.FromContext(wv.ctx).Debug().
-		Str("type", payload.Type).
-		Str("reason", payload.Reason).
-		Msg("cef: vim page interaction finished")
-	if kind.CapturesKeys() {
-		wv.notifyVimPageInteractionEnded(generation)
+	if ends {
+		logging.FromContext(wv.ctx).Debug().
+			Str("type", payload.Type).
+			Str("reason", payload.Reason).
+			Msg("cef: vim page interaction finished")
+		if kind.CapturesKeys() {
+			wv.notifyVimPageInteractionEnded(generation)
+		}
 	}
 	if !vimPageResultAllowed(kind, payload.Type) {
 		logging.FromContext(wv.ctx).Debug().Str("type", payload.Type).Msg("cef: vim page result rejected — not allowed for interaction")
@@ -320,6 +362,8 @@ func (wv *WebView) handleVimPageResult(payload vimPageBridgePayload) {
 	}
 
 	switch payload.Type {
+	case vimPageMessageMode:
+		wv.notifyVimPageModeChanged(generation, dto.VimPageMode(payload.Mode))
 	case vimPageMessageCopy:
 		if wv.engine != nil {
 			wv.engine.handleExplicitClipboardBridgeText(wv.id, "copy", payload.Text)
