@@ -110,6 +110,8 @@ func TestVimPageRequestJSONValidatesAccentColor(t *testing.T) {
 		"":                         `{"kind":"visual"}`,
 		"red":                      `{"kind":"visual"}`,
 		"#12":                      `{"kind":"visual"}`,
+		"#12345":                   `{"kind":"visual"}`,
+		"#1234567":                 `{"kind":"visual"}`,
 		"#123456789":               `{"kind":"visual"}`,
 		"#abc;} body{display:none": `{"kind":"visual"}`,
 		"url(javascript:alert(1))": `{"kind":"visual"}`,
@@ -402,10 +404,19 @@ func TestWebViewHandleVimPageResultVisualCopyNeedsForwardedCopyKey(t *testing.T)
 	wv.grantVimPageCopyAllowance("other", "y")
 	wv.handleVimPageResult(copyResult)
 	assert.Len(t, *queued, 2)
+
+	// y presses the page ignored (caret phase, empty selection) do not bank
+	// copies for later.
+	wv.grantVimPageCopyAllowance("tok", "y")
+	wv.grantVimPageCopyAllowance("tok", "y")
+	wv.grantVimPageCopyAllowance("tok", "y")
+	wv.handleVimPageResult(copyResult)
+	wv.handleVimPageResult(copyResult)
+	assert.Len(t, *queued, 3, "ignored copy keys do not accumulate allowance")
 }
 
 func TestWebViewSendVimPageKeyGrantsCopyAllowanceOnlyForVisual(t *testing.T) {
-	for kind, want := range map[dto.VimPageInteractionKind]int{dto.VimPageVisual: 2, dto.VimPageHintYankURL: 0} {
+	for kind, want := range map[dto.VimPageInteractionKind]int{dto.VimPageVisual: 1, dto.VimPageHintYankURL: 0} {
 		browser := cefmocks.NewMockBrowser(t)
 		frame := cefmocks.NewMockFrame(t)
 		browser.EXPECT().GetMainFrame().Return(frame).Times(3)

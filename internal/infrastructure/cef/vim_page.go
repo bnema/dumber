@@ -29,7 +29,7 @@ var (
 	errVimPagePayloadTooLarge  = errors.New("vim page: payload too large")
 	// vimPageAccentColor admits the CSS hex colors the runtime paints with;
 	// anything else is replaced by the runtime default before reaching JS.
-	vimPageAccentColor = regexp.MustCompile(`^#[0-9a-fA-F]{3,8}$`)
+	vimPageAccentColor = regexp.MustCompile(`^#(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$`)
 )
 
 // vimPageBridgePayload is one result reported by the page runtime. Token is
@@ -323,14 +323,16 @@ func vimPageKeyRequestsCopy(key string) bool {
 }
 
 // grantVimPageCopyAllowance records that the user pressed a copy key for the
-// armed visual interaction, so one visual copy result will be accepted.
+// armed visual interaction, so one visual copy result will be accepted. The
+// allowance is capped at one: y/Enter presses the page ignores (caret or hint
+// phase, empty selection) must not bank copies for a page holding the token.
 func (wv *WebView) grantVimPageCopyAllowance(token, key string) {
 	if !vimPageKeyRequestsCopy(key) {
 		return
 	}
 	wv.mu.Lock()
 	if wv.vimPageToken == token && wv.vimPageKind == dto.VimPageVisual {
-		wv.vimPageCopyAllowance++
+		wv.vimPageCopyAllowance = 1
 	}
 	wv.mu.Unlock()
 }
