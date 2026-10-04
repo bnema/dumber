@@ -164,6 +164,11 @@ type WebViewCallbacks struct {
 	// OnVimPageInteractionEnded is called when an in-page Vim interaction
 	// (link hints or visual selection) finishes or is canceled by the page.
 	OnVimPageInteractionEnded func()
+
+	// OnVimPageModeChanged is called when a key-capturing in-page Vim
+	// interaction moves to another sub-mode (hints, caret, visual) without
+	// ending.
+	OnVimPageModeChanged func(mode dto.VimPageMode)
 }
 
 // FindOptions configures search behavior.

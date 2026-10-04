@@ -89,6 +89,10 @@ func TestDecodeVimPageBridgePayload(t *testing.T) {
 		{"open", `{"type":"open-new","token":"t","url":"https://example.com/a"}`, false},
 		{"open empty", `{"type":"open-new","token":"t"}`, true},
 		{"end", `{"type":"end","token":"t"}`, false},
+		{"mode caret", `{"type":"mode","token":"t","mode":"caret"}`, false},
+		{"mode visual line", `{"type":"mode","token":"t","mode":"visual-line"}`, false},
+		{"mode unknown", `{"type":"mode","token":"t","mode":"insert"}`, true},
+		{"mode missing", `{"type":"mode","token":"t"}`, true},
 		{"unknown", `{"type":"eval","token":"t"}`, true},
 		{"malformed", `{`, true},
 	}
@@ -118,6 +122,57 @@ func newVimResultWebView(opened *string, ended *int) *WebView {
 		OnLinkMiddleClick:         func(uri string) bool { *opened = uri; return true },
 		OnVimPageInteractionEnded: func() { *ended++ },
 	}}
+}
+
+// Mode messages and copies of the caret/visual flow are not terminal: the
+// token stays armed so the user can keep moving and chain copies, and the UI
+// is told about each sub-mode without being asked to release key capture.
+func TestWebViewHandleVimPageResultVisualFlowStaysArmedAcrossModeAndCopy(t *testing.T) {
+	var opened string
+	ended := 0
+	var modes []dto.VimPageMode
+	wv := newVimResultWebView(&opened, &ended)
+	wv.callbacks.OnVimPageModeChanged = func(mode dto.VimPageMode) { modes = append(modes, mode) }
+	wv.vimPageToken, wv.vimPageKind = "tok", dto.VimPageVisual
+
+	wv.handleVimPageResult(vimPageBridgePayload{Type: vimPageMessageMode, Token: "tok", Mode: "caret"})
+	wv.handleVimPageResult(vimPageBridgePayload{Type: vimPageMessageMode, Token: "tok", Mode: "visual-line"})
+	wv.handleVimPageResult(vimPageBridgePayload{Type: vimPageMessageCopy, Token: "tok", Text: "copied"})
+
+	assert.Equal(t, []dto.VimPageMode{dto.VimPageModeCaret, dto.VimPageModeVisualLine}, modes)
+	assert.Zero(t, ended, "mode and copy must not end the interaction")
+	assert.Equal(t, "tok", wv.currentVimPageToken())
+
+	wv.handleVimPageResult(vimPageBridgePayload{Type: vimPageMessageEnd, Token: "tok"})
+	assert.Equal(t, 1, ended)
+	assert.Empty(t, wv.currentVimPageToken())
+}
+
+func TestWebViewHandleVimPageResultCopyEndsHintYankAndYankObject(t *testing.T) {
+	for _, kind := range []dto.VimPageInteractionKind{dto.VimPageHintYankURL, dto.VimPageYankObject} {
+		var opened string
+		ended := 0
+		wv := newVimResultWebView(&opened, &ended)
+		wv.vimPageToken, wv.vimPageKind = "tok", kind
+
+		wv.handleVimPageResult(vimPageBridgePayload{Type: vimPageMessageCopy, Token: "tok", Text: "x"})
+
+		assert.Empty(t, wv.currentVimPageToken(), "kind %d: copy stays terminal", kind)
+		assert.Equal(t, map[bool]int{true: 1, false: 0}[kind.CapturesKeys()], ended, "kind %d", kind)
+	}
+}
+
+func TestWebViewHandleVimPageResultModeRejectedForLinkHints(t *testing.T) {
+	var opened string
+	ended := 0
+	modes := 0
+	wv := newVimResultWebView(&opened, &ended)
+	wv.callbacks.OnVimPageModeChanged = func(dto.VimPageMode) { modes++ }
+	wv.vimPageToken, wv.vimPageKind = "tok", dto.VimPageHintFollow
+
+	wv.handleVimPageResult(vimPageBridgePayload{Type: vimPageMessageMode, Token: "tok", Mode: "caret"})
+
+	assert.Zero(t, modes, "hint interactions never report sub-modes")
 }
 
 func TestWebViewHandleVimPageResultAcceptsArmedTokenOnce(t *testing.T) {
