@@ -172,7 +172,7 @@ func PopoverPointingRect(
 			destX, destY = tx, ty
 		}
 	}
-	return &gdk.Rectangle{X: int(destX), Y: int(destY), Width: 1, Height: 1}
+	return &gdk.Rectangle{X: int32(destX), Y: int32(destY), Width: 1, Height: 1}
 }
 
 func createPopoverHost(parent *gtk.Widget, x, y int32) (*gtk.MenuButton, *gtk.Overlay) {

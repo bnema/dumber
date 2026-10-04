@@ -24,10 +24,10 @@ func TestPopoverPointingRect(t *testing.T) {
 			return 24, 48, true
 		})
 
-		require.Equal(t, 24, rect.X)
-		require.Equal(t, 48, rect.Y)
-		require.Equal(t, 1, rect.Width)
-		require.Equal(t, 1, rect.Height)
+		require.Equal(t, int32(24), rect.X)
+		require.Equal(t, int32(48), rect.Y)
+		require.Equal(t, int32(1), rect.Width)
+		require.Equal(t, int32(1), rect.Height)
 	})
 
 	t.Run("falls back to raw coordinates when translation fails", func(t *testing.T) {
@@ -35,8 +35,8 @@ func TestPopoverPointingRect(t *testing.T) {
 			return srcX, srcY, false
 		})
 
-		require.Equal(t, 10, rect.X)
-		require.Equal(t, 20, rect.Y)
+		require.Equal(t, int32(10), rect.X)
+		require.Equal(t, int32(20), rect.Y)
 	})
 }
 
