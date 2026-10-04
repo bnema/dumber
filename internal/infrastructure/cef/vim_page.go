@@ -4,10 +4,12 @@ import (
 	"context"
 	"crypto/subtle"
 	_ "embed"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"net/url"
+	"regexp"
 	"strings"
 
 	purecef "github.com/bnema/purego-cef/cef"
@@ -22,7 +24,13 @@ var _ port.VimPageInteractor = (*WebView)(nil)
 //go:embed vim_page_runtime.js
 var vimPageRuntimeTemplateJS string
 
-var errVimPageTokenUnavailable = errors.New("vim page: interaction token unavailable")
+var (
+	errVimPageTokenUnavailable = errors.New("vim page: interaction token unavailable")
+	errVimPagePayloadTooLarge  = errors.New("vim page: payload too large")
+	// vimPageAccentColor admits the CSS hex colors the runtime paints with;
+	// anything else is replaced by the runtime default before reaching JS.
+	vimPageAccentColor = regexp.MustCompile(`^#[0-9a-fA-F]{3,8}$`)
+)
 
 // vimPageBridgePayload is one result reported by the page runtime. Token is
 // the per-interaction secret issued by StartVimPageInteraction.
@@ -47,7 +55,7 @@ const (
 func decodeVimPageBridgePayload(body []byte) (vimPageBridgePayload, error) {
 	var payload vimPageBridgePayload
 	if len(body) > maxClipboardBytes {
-		return payload, errors.New("payload too large")
+		return payload, errVimPagePayloadTooLarge
 	}
 	if err := json.Unmarshal(body, &payload); err != nil {
 		return payload, err
@@ -140,11 +148,15 @@ func vimPageRequestJSON(request dto.VimPageInteractionRequest) (string, error) {
 			return "", fmt.Errorf("unsupported vim text object: %d", request.Object)
 		}
 	}
+	color := request.HighlightColor
+	if !vimPageAccentColor.MatchString(color) {
+		color = ""
+	}
 	encoded, err := json.Marshal(struct {
 		Kind   string `json:"kind"`
 		Object string `json:"object,omitempty"`
 		Color  string `json:"color,omitempty"`
-	}{Kind: kind, Object: object, Color: request.HighlightColor})
+	}{Kind: kind, Object: object, Color: color})
 	if err != nil {
 		return "", err
 	}
@@ -157,13 +169,28 @@ func jsString(s string) string {
 	return string(encoded)
 }
 
-// vimPageScript installs the runtime when absent and then invokes one method
-// with the interaction token. The token is a per-interaction secret, not the
-// shared bridge nonce, so a page that intercepts the call only learns a token
-// valid for the interaction the user just started.
-func vimPageScript(method, token string, args ...string) string {
+// vimPageStartScript installs the runtime when absent and starts an
+// interaction. The token is a per-interaction secret, not the shared bridge
+// nonce, so a page that intercepts the call only learns a token valid for the
+// interaction the user just started.
+func vimPageStartScript(token, request string) string {
+	return vimPageRuntimeTemplateJS + "\nwindow.__dumberVimPage.start(" + jsString(token) + ", " + request + ");"
+}
+
+// vimPageCallScript invokes key or cancel on the installed runtime without
+// shipping it again. When the runtime is gone (the document was replaced), it
+// reports the end of the token so Go releases the key capture.
+func vimPageCallScript(method, token string, args ...string) string {
 	call := append([]string{jsString(token)}, args...)
-	return vimPageRuntimeTemplateJS + "\nwindow.__dumberVimPage." + method + "(" + strings.Join(call, ", ") + ");"
+	return "window.__dumberVimPage ? window.__dumberVimPage." + method + "(" + strings.Join(call, ", ") + ") : " + vimPageEndScript(token)
+}
+
+// vimPageEndScript posts an end message for token over the same bridge the
+// runtime uses.
+func vimPageEndScript(token string) string {
+	body, _ := json.Marshal(map[string]string{"token": token, "type": vimPageMessageEnd})
+	return `window.fetch("dumb:///api/vim-page", {method: "POST", headers: {"X-Dumber-Body": ` +
+		jsString(base64.StdEncoding.EncodeToString(body)) + `}}).catch(() => {});`
 }
 
 // armVimPageInteraction issues a fresh token for a new interaction and
@@ -176,6 +203,7 @@ func (wv *WebView) armVimPageInteraction(kind dto.VimPageInteractionKind) (strin
 	wv.mu.Lock()
 	wv.vimPageToken = token
 	wv.vimPageKind = kind
+	wv.vimPageCopyAllowance = 0
 	wv.vimPageGeneration++
 	wv.mu.Unlock()
 	return token, nil
@@ -195,6 +223,7 @@ func (wv *WebView) disarmVimPageInteraction() (bool, uint64) {
 	captured := wv.vimPageToken != "" && wv.vimPageKind.CapturesKeys()
 	wv.vimPageToken = ""
 	wv.vimPageKind = 0
+	wv.vimPageCopyAllowance = 0
 	return captured, wv.vimPageGeneration
 }
 
@@ -220,8 +249,9 @@ func (wv *WebView) notifyVimPageInteractionEnded(generation uint64) {
 
 // vimPageResultEndsInteraction reports whether a result spends the token.
 // The caret and visual flow is long-lived: its mode changes and copies leave
-// the interaction running so copies can be chained; every other result is
-// terminal, so a token grants exactly one of them.
+// the interaction running so copies can be chained. Copies stay bounded by
+// the user's own y/Enter presses (see vimPageCopyAllowance), not by the
+// token. Every other result is terminal, so a token grants exactly one.
 func vimPageResultEndsInteraction(kind dto.VimPageInteractionKind, messageType string) bool {
 	if kind != dto.VimPageVisual {
 		return true
@@ -279,11 +309,30 @@ func (wv *WebView) StartVimPageInteraction(_ context.Context, request dto.VimPag
 	if err != nil {
 		return err
 	}
-	if err := wv.scheduleJavaScript(vimPageScript("start", token, encoded)); err != nil {
+	if err := wv.scheduleJavaScript(vimPageStartScript(token, encoded)); err != nil {
 		wv.disarmVimPageInteraction()
 		return err
 	}
 	return nil
+}
+
+// vimPageKeyRequestsCopy reports whether a forwarded key may make a visual
+// selection copy: y and Enter yank in the caret and visual flow.
+func vimPageKeyRequestsCopy(key string) bool {
+	return key == "y" || key == "<Return>"
+}
+
+// grantVimPageCopyAllowance records that the user pressed a copy key for the
+// armed visual interaction, so one visual copy result will be accepted.
+func (wv *WebView) grantVimPageCopyAllowance(token, key string) {
+	if !vimPageKeyRequestsCopy(key) {
+		return
+	}
+	wv.mu.Lock()
+	if wv.vimPageToken == token && wv.vimPageKind == dto.VimPageVisual {
+		wv.vimPageCopyAllowance++
+	}
+	wv.mu.Unlock()
 }
 
 // SendVimPageKey forwards one canonical key to the active page interaction.
@@ -295,7 +344,8 @@ func (wv *WebView) SendVimPageKey(_ context.Context, key string) error {
 	if key == "" || token == "" {
 		return nil
 	}
-	return wv.scheduleJavaScript(vimPageScript("key", token, jsString(key)))
+	wv.grantVimPageCopyAllowance(token, key)
+	return wv.scheduleJavaScript(vimPageCallScript("key", token, jsString(key)))
 }
 
 // CancelVimPageInteraction removes any hint overlay or visual selection.
@@ -308,7 +358,7 @@ func (wv *WebView) CancelVimPageInteraction(_ context.Context) error {
 	if token == "" {
 		return nil
 	}
-	return wv.scheduleJavaScript(vimPageScript("cancel", token))
+	return wv.scheduleJavaScript(vimPageCallScript("cancel", token))
 }
 
 // endVimPageInteractionOnNavigation drops an interaction whose document is
@@ -326,24 +376,52 @@ func (e *Engine) handleVimPageBridge(browser purecef.Browser, payload vimPageBri
 	})
 }
 
+// spendVimPageResultLocked validates the token of one result and applies its
+// effect on the armed state: a terminal result disarms the interaction, and a
+// visual copy spends one allowance. A visual copy is non-terminal, so the
+// token alone would let a page that read it write the clipboard repeatedly;
+// each accepted copy needs a y/Enter key the user pressed. wv.mu must be held.
+func (wv *WebView) spendVimPageResultLocked(payload vimPageBridgePayload) (valid, ends, copyDenied bool) {
+	armed := wv.vimPageToken
+	valid = armed != "" && subtle.ConstantTimeCompare([]byte(armed), []byte(payload.Token)) == 1
+	if !valid {
+		return false, false, false
+	}
+	kind := wv.vimPageKind
+	if payload.Type == vimPageMessageCopy && kind == dto.VimPageVisual {
+		if wv.vimPageCopyAllowance <= 0 {
+			return true, false, true
+		}
+		wv.vimPageCopyAllowance--
+	}
+	ends = vimPageResultEndsInteraction(kind, payload.Type)
+	if ends {
+		wv.vimPageToken = ""
+		wv.vimPageKind = 0
+		wv.vimPageCopyAllowance = 0
+	}
+	return true, ends, false
+}
+
 // handleVimPageResult accepts a result only for the interaction the user
 // armed; results from stale or forged interactions are dropped.
 func (wv *WebView) handleVimPageResult(payload vimPageBridgePayload) {
+	if wv == nil || wv.destroyed.Load() {
+		return
+	}
 	wv.mu.Lock()
 	cb := wv.callbacks
 	sourceURI := wv.uri
-	armed := wv.vimPageToken
 	kind := wv.vimPageKind
 	generation := wv.vimPageGeneration
-	valid := armed != "" && subtle.ConstantTimeCompare([]byte(armed), []byte(payload.Token)) == 1
-	ends := vimPageResultEndsInteraction(kind, payload.Type)
-	if valid && ends {
-		wv.vimPageToken = ""
-		wv.vimPageKind = 0
-	}
+	valid, ends, copyDenied := wv.spendVimPageResultLocked(payload)
 	wv.mu.Unlock()
 	if !valid {
 		logging.FromContext(wv.ctx).Debug().Str("type", payload.Type).Msg("cef: vim page result rejected — stale or unknown token")
+		return
+	}
+	if copyDenied {
+		logging.FromContext(wv.ctx).Debug().Msg("cef: vim page copy rejected — no user copy key pending")
 		return
 	}
 
@@ -365,8 +443,10 @@ func (wv *WebView) handleVimPageResult(payload vimPageBridgePayload) {
 	case vimPageMessageMode:
 		wv.notifyVimPageModeChanged(generation, dto.VimPageMode(payload.Mode))
 	case vimPageMessageCopy:
-		if wv.engine != nil {
-			wv.engine.handleExplicitClipboardBridgeText(wv.id, "copy", payload.Text)
+		// Results arrive on the CEF IO thread; the clipboard write belongs on GTK.
+		if engine := wv.engine; engine != nil {
+			id, text := wv.id, payload.Text
+			wv.runOnGTK(func() { engine.handleExplicitClipboardBridgeText(id, "copy", text) })
 		}
 	case vimPageMessageOpenNew:
 		if !isNavigableVimHintURL(payload.URL, sourceURI) {
