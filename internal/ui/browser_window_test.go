@@ -1159,3 +1159,53 @@ func TestRestoreSession_ActiveWindowIndexSyncsState(t *testing.T) {
 	assert.Equal(t, entity.WindowID("active-w2"), result[idx].WindowID,
 		"window at active index must match focused window ID")
 }
+
+func TestApp_PermissionDialogForPane(t *testing.T) {
+	tabID := entity.TabID("tab-1")
+	tabPane := entity.PaneID("pane-in-tab")
+	floatingPane := entity.PaneID("pane-floating")
+	tab := entity.NewTab(tabID, entity.WorkspaceID("ws-1"), entity.NewPane(tabPane))
+	tabs := entity.NewTabList()
+	tabs.Add(tab)
+	dialogA := &testPermissionDialogPresenter{}
+	owner := &browserWindow{id: "window-1", tabs: tabs, permissionDialog: dialogA}
+	noDialog := &browserWindow{id: "window-2", tabs: entity.NewTabList()}
+	app := &App{
+		browserWindows: map[string]*browserWindow{owner.id: owner, noDialog.id: noDialog},
+		windowForTab:   map[entity.TabID]*browserWindow{tabID: owner},
+		floatingSessions: map[floatingSessionKey]*floatingWorkspaceSession{
+			{tabID: tabID, sessionID: "profile"}: {paneID: floatingPane},
+		},
+	}
+
+	assert.Same(t, dialogA, app.permissionDialogForPane(tabPane), "tiled pane")
+	assert.Same(t, dialogA, app.permissionDialogForPane(floatingPane), "floating pane uses its tab's window")
+	assert.Nil(t, app.permissionDialogForPane("unknown"), "unowned pane clears the presenter")
+	assert.Nil(t, app.permissionDialogForPane(""))
+
+	owner.permissionDialog = nil
+	assert.Nil(t, app.permissionDialogForPane(tabPane), "window without dialog")
+}
+
+func TestApp_ResetWebRTCIndicatorOnNavigationCoversFloatingPanes(t *testing.T) {
+	tab := entity.NewTab(entity.TabID("tab-1"), entity.WorkspaceID("workspace-1"), entity.NewPane(entity.PaneID("pane-1")))
+	tabs := entity.NewTabList()
+	tabs.Add(tab)
+	indicator := &component.WebRTCPermissionIndicator{}
+	bw := &browserWindow{id: "window-1", tabs: tabs, webrtcIndicator: indicator}
+	floatingPaneID := entity.PaneID("floating-pane")
+	app := &App{
+		browserWindows: map[string]*browserWindow{bw.id: bw},
+		windowForTab:   map[entity.TabID]*browserWindow{tab.ID: bw},
+		floatingSessions: map[floatingSessionKey]*floatingWorkspaceSession{
+			{tabID: tab.ID, sessionID: "profile:one"}: {paneID: floatingPaneID},
+		},
+	}
+
+	indicator.SetOrigin("https://old.example")
+	app.resetWebRTCIndicatorOnNavigation(floatingPaneID, "https://old.example/page")
+	assert.Equal(t, "https://old.example", indicator.Origin(), "same-origin navigation keeps the indicator")
+
+	app.resetWebRTCIndicatorOnNavigation(floatingPaneID, "https://new.example/")
+	assert.Empty(t, indicator.Origin(), "cross-origin navigation in a floating pane resets the indicator")
+}

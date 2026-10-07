@@ -14,7 +14,7 @@ import (
 )
 
 type permissionPopup interface {
-	Show(ctx context.Context, heading, body string, callback func(allowed, persistent bool))
+	Show(ctx context.Context, heading, body string, persistable bool, callback func(allowed, persistent bool))
 }
 
 type permissionDialogRequest struct {
@@ -109,7 +109,7 @@ func (d *PermissionDialog) showRequest(req permissionDialogRequest) {
 			Msg("showing website data access permission dialog")
 	}
 
-	d.popup.Show(ctx, heading, body, func(allowed, persistent bool) {
+	d.popup.Show(ctx, heading, body, anyPersistable(permTypes), func(allowed, persistent bool) {
 		if isDataAccess {
 			log.Info().
 				Str("origin", origin).
@@ -150,7 +150,7 @@ func (d *PermissionDialog) showNextQueuedRequest() {
 
 // permFlags holds parsed permission type flags.
 type permFlags struct {
-	mic, cam, display, dataAccess bool
+	mic, cam, display, dataAccess, notification, geolocation bool
 }
 
 // parsePermFlags extracts boolean flags from permission types.
@@ -166,9 +166,24 @@ func parsePermFlags(permTypes []entity.PermissionType) permFlags {
 			f.display = true
 		case entity.PermissionTypeWebsiteDataAccess:
 			f.dataAccess = true
+		case entity.PermissionTypeNotification:
+			f.notification = true
+		case entity.PermissionTypeGeolocation:
+			f.geolocation = true
 		}
 	}
 	return f
+}
+
+// anyPersistable reports whether at least one requested type can be remembered
+// ("Always Allow/Deny"). When none can, the popup hides those buttons.
+func anyPersistable(permTypes []entity.PermissionType) bool {
+	for _, pt := range permTypes {
+		if entity.CanPersist(pt) {
+			return true
+		}
+	}
+	return false
 }
 
 // joinPermissionLabels joins labels with commas and "and".
@@ -204,6 +219,12 @@ func (d *PermissionDialog) buildHeading(
 	if f.dataAccess {
 		labels = append(labels, "Data Access")
 	}
+	if f.notification {
+		labels = append(labels, "Notifications")
+	}
+	if f.geolocation {
+		labels = append(labels, "Location")
+	}
 	switch {
 	case len(labels) == 0:
 		return "Allow Permission?"
@@ -211,6 +232,8 @@ func (d *PermissionDialog) buildHeading(
 		return "Allow Third-Party Data Access?"
 	case len(labels) == 1 && f.display:
 		return "Allow Screen Sharing?"
+	case len(labels) == 1 && f.notification:
+		return "Allow Notifications?"
 	case len(labels) == 1:
 		return "Allow " + labels[0] + " Access?"
 	default:
@@ -232,7 +255,20 @@ func (d *PermissionDialog) buildBody(
 		parts = append(parts, "access your camera")
 	}
 	if f.display {
-		parts = append(parts, "share your screen")
+		switch {
+		case metadata.IsUnmediatedCapture() && metadata.IsUnmediatedAudio():
+			parts = append(parts, "share your entire screen and system audio")
+		case metadata.IsUnmediatedCapture():
+			parts = append(parts, "share your entire screen")
+		default:
+			parts = append(parts, "share your screen")
+		}
+	}
+	if f.notification {
+		parts = append(parts, "show notifications")
+	}
+	if f.geolocation {
+		parts = append(parts, "access your location")
 	}
 	if f.dataAccess {
 		reqDomain := metadata[entity.PermissionMetadataKeyRequestingDomain]

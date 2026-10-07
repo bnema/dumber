@@ -3590,6 +3590,16 @@ func (a *App) wireKeyboardActions() {
 	})
 }
 
+// permissionDialogForPane returns the permission dialog of the window owning the
+// pane (including floating panes), or nil when no window or dialog is available.
+func (a *App) permissionDialogForPane(paneID entity.PaneID) port.PermissionDialogPresenter {
+	bw := a.browserWindowForAnyPane(paneID)
+	if bw == nil || bw.permissionDialog == nil {
+		return nil
+	}
+	return bw.permissionDialog
+}
+
 // paneViewForPane finds a pane's view in any tab (including background tabs).
 func (a *App) paneViewForPane(paneID entity.PaneID) *component.PaneView {
 	for _, wsView := range a.workspaceViews {
@@ -3612,18 +3622,24 @@ func (a *App) wireWebRTCPermissionIndicator() {
 		ctx = a.deps.Ctx
 	}
 
+	a.contentCoord.SetOnPermissionPrompt(func(paneID entity.PaneID) {
+		if a.deps == nil || a.deps.PermissionUC == nil {
+			return
+		}
+		// Clears the presenter when no window owns the pane, so the request is
+		// denied instead of being shown in a stale or wrong window.
+		a.deps.PermissionUC.SetDialogPresenter(a.permissionDialogForPane(paneID))
+	})
+
 	a.contentCoord.SetOnPermissionActivity(func(
 		paneID entity.PaneID,
 		origin string,
 		permTypes []entity.PermissionType,
 		state content.PermissionActivityState,
 	) {
-		bw := a.browserWindowForPane(paneID)
+		bw := a.browserWindowForAnyPane(paneID)
 		if bw == nil || bw.webrtcIndicator == nil {
 			return
-		}
-		if state == content.PermissionActivityRequesting && a.deps != nil && a.deps.PermissionUC != nil && bw.permissionDialog != nil {
-			a.deps.PermissionUC.SetDialogPresenter(bw.permissionDialog)
 		}
 		bw.webrtcIndicator.SetOrigin(origin)
 
@@ -3642,22 +3658,26 @@ func (a *App) wireWebRTCPermissionIndicator() {
 	})
 
 	// Reset the owning window's indicator when that pane navigates away.
-	a.contentCoord.SetOnActiveNavigationCommitted(func(paneID entity.PaneID, uri string) {
-		bw := a.browserWindowForPane(paneID)
-		if bw == nil || bw.webrtcIndicator == nil {
-			return
-		}
-		newOrigin, err := urlutil.ExtractOrigin(uri)
-		if err != nil {
-			bw.webrtcIndicator.Reset()
-			return
-		}
+	a.contentCoord.SetOnActiveNavigationCommitted(a.resetWebRTCIndicatorOnNavigation)
+}
 
-		currentOrigin := bw.webrtcIndicator.Origin()
-		if currentOrigin != "" && currentOrigin != newOrigin {
-			bw.webrtcIndicator.Reset()
-		}
-	})
+// resetWebRTCIndicatorOnNavigation resets the indicator of the window owning the
+// pane (workspace or floating) when the pane navigates to a different origin.
+func (a *App) resetWebRTCIndicatorOnNavigation(paneID entity.PaneID, uri string) {
+	bw := a.browserWindowForAnyPane(paneID)
+	if bw == nil || bw.webrtcIndicator == nil {
+		return
+	}
+	newOrigin, err := urlutil.ExtractOrigin(uri)
+	if err != nil {
+		bw.webrtcIndicator.Reset()
+		return
+	}
+
+	currentOrigin := bw.webrtcIndicator.Origin()
+	if currentOrigin != "" && currentOrigin != newOrigin {
+		bw.webrtcIndicator.Reset()
+	}
 }
 
 func (a *App) wireBrowserWindowPermissionIndicator(bw *browserWindow) {

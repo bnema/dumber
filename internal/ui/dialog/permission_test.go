@@ -21,8 +21,8 @@ func TestPermissionDialog_QueuesRequestsWhilePopupVisible(t *testing.T) {
 	var showCalls []permissionPopupShowCall
 	var callback func(allowed, persistent bool)
 	popup.EXPECT().
-		Show(mock.Anything, mock.Anything, mock.Anything, mock.Anything).
-		Run(func(_ context.Context, heading string, body string, cb func(allowed, persistent bool)) {
+		Show(mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).
+		Run(func(_ context.Context, heading string, body string, _ bool, cb func(allowed, persistent bool)) {
 			showCalls = append(showCalls, permissionPopupShowCall{
 				heading: heading,
 				body:    body,
@@ -143,6 +143,18 @@ func TestPermissionDialog_BuildHeadingAndBody_DisplayCombinations(t *testing.T) 
 			expectedAction: "access your microphone and camera, and share your screen",
 		},
 		{
+			name:           "notification only",
+			permTypes:      []entity.PermissionType{entity.PermissionTypeNotification},
+			expectHeading:  "Allow Notifications?",
+			expectedAction: "show notifications",
+		},
+		{
+			name:           "geolocation only",
+			permTypes:      []entity.PermissionType{entity.PermissionTypeGeolocation},
+			expectHeading:  "Allow Location Access?",
+			expectedAction: "access your location",
+		},
+		{
 			name:           "website data access only",
 			permTypes:      []entity.PermissionType{entity.PermissionTypeWebsiteDataAccess},
 			expectHeading:  "Allow Third-Party Data Access?",
@@ -166,4 +178,80 @@ func TestPermissionDialog_BuildHeadingAndBody_DisplayCombinations(t *testing.T) 
 		body := d.buildBody(origin, []entity.PermissionType{entity.PermissionTypeWebsiteDataAccess}, meta)
 		assert.Equal(t, origin+" wants to allow accounts.google.com to access its data (including cookies) while you browse shop.example.com.", body)
 	})
+}
+
+func TestPermissionDialog_BuildBody_UnmediatedDisplay(t *testing.T) {
+	d := &PermissionDialog{}
+	origin := "https://meet.example.com"
+	meta := entity.PermissionMetadata{
+		entity.PermissionMetadataKeyUnmediatedCapture: entity.PermissionMetadataValueTrue,
+	}
+
+	assert.Equal(t, origin+" wants to share your entire screen.",
+		d.buildBody(origin, []entity.PermissionType{entity.PermissionTypeDisplay}, meta))
+	assert.Equal(t, origin+" wants to access your camera and share your entire screen.",
+		d.buildBody(origin, []entity.PermissionType{entity.PermissionTypeCamera, entity.PermissionTypeDisplay}, meta))
+	// Mediated display (WebKit portal) keeps the generic wording.
+	assert.Equal(t, origin+" wants to share your screen.",
+		d.buildBody(origin, []entity.PermissionType{entity.PermissionTypeDisplay}, nil))
+}
+
+func TestPermissionDialog_BuildBody_UnmediatedDisplayWithSystemAudio(t *testing.T) {
+	d := &PermissionDialog{}
+	origin := "https://meet.example.com"
+	meta := entity.PermissionMetadata{
+		entity.PermissionMetadataKeyUnmediatedCapture: entity.PermissionMetadataValueTrue,
+		entity.PermissionMetadataKeyUnmediatedAudio:   entity.PermissionMetadataValueTrue,
+	}
+
+	assert.Equal(t, origin+" wants to share your entire screen and system audio.",
+		d.buildBody(origin, []entity.PermissionType{entity.PermissionTypeDisplay}, meta))
+}
+
+func TestAnyPersistable(t *testing.T) {
+	tests := []struct {
+		name  string
+		types []entity.PermissionType
+		want  bool
+	}{
+		{"display only", []entity.PermissionType{entity.PermissionTypeDisplay}, false},
+		{"microphone", []entity.PermissionType{entity.PermissionTypeMicrophone}, true},
+		{"microphone and display", []entity.PermissionType{entity.PermissionTypeMicrophone, entity.PermissionTypeDisplay}, true},
+		{"geolocation", []entity.PermissionType{entity.PermissionTypeGeolocation}, true},
+		{"none", nil, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, anyPersistable(tt.types))
+		})
+	}
+}
+
+func TestPermissionDialog_PassesPersistableToPopup(t *testing.T) {
+	tests := []struct {
+		name  string
+		types []entity.PermissionType
+		want  bool
+	}{
+		{"display only hides always buttons", []entity.PermissionType{entity.PermissionTypeDisplay}, false},
+		{"mixed keeps always buttons", []entity.PermissionType{entity.PermissionTypeMicrophone, entity.PermissionTypeDisplay}, true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			popup := dialogmocks.NewMockPermissionPopup(t)
+			var got *bool
+			popup.EXPECT().
+				Show(mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).
+				Run(func(_ context.Context, _ string, _ string, persistable bool, _ func(allowed, persistent bool)) {
+					got = &persistable
+				}).Once()
+
+			d := &PermissionDialog{popup: popup}
+			d.ShowPermissionDialog(context.Background(), "https://meet.example.com", tt.types, nil, func(port.PermissionDialogResult) {})
+
+			if assert.NotNil(t, got) {
+				assert.Equal(t, tt.want, *got)
+			}
+		})
+	}
 }

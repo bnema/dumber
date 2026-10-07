@@ -205,24 +205,7 @@ func (c *Coordinator) handlePermissionRequest(
 ) bool {
 	log := logging.FromContext(ctx)
 
-	// Convert string permission types to entity types
-	entityTypes := make([]entity.PermissionType, 0, len(permTypes))
-	for _, pt := range permTypes {
-		switch pt {
-		case "microphone":
-			entityTypes = append(entityTypes, entity.PermissionTypeMicrophone)
-		case "camera":
-			entityTypes = append(entityTypes, entity.PermissionTypeCamera)
-		case "display":
-			entityTypes = append(entityTypes, entity.PermissionTypeDisplay)
-		case "device_info":
-			entityTypes = append(entityTypes, entity.PermissionTypeDeviceInfo)
-		case "website_data_access":
-			entityTypes = append(entityTypes, entity.PermissionTypeWebsiteDataAccess)
-		default:
-			log.Warn().Str("type", pt).Msg("unknown permission type, skipping")
-		}
-	}
+	entityTypes := permissionTypesFromStrings(ctx, permTypes)
 
 	if len(entityTypes) == 0 {
 		log.Warn().Str("origin", origin).Msg("permission request with no valid types, denying")
@@ -255,7 +238,7 @@ func (c *Coordinator) handlePermissionRequest(
 		// Auto-allow display and device_info, deny others
 		allAutoAllow := true
 		for _, pt := range entityTypes {
-			if !entity.IsAutoAllow(pt) {
+			if !entity.IsAutoAllowFor(pt, entity.PermissionMetadata(metadata)) {
 				allAutoAllow = false
 				break
 			}
@@ -268,6 +251,11 @@ func (c *Coordinator) handlePermissionRequest(
 		return true
 	}
 
+	// Bind the dialog presenter of the window owning this pane before handling.
+	if c.onPermissionPrompt != nil {
+		c.onPermissionPrompt(paneID)
+	}
+
 	// Delegate to use case
 	callback := usecase.PermissionCallback{
 		Allow: wrappedAllow,
@@ -276,6 +264,34 @@ func (c *Coordinator) handlePermissionRequest(
 
 	c.permissionUC.HandlePermissionRequest(ctx, origin, entityTypes, entity.PermissionMetadata(metadata), callback)
 	return true
+}
+
+// permissionTypesFromStrings converts engine permission type strings to entity
+// types, skipping unknown ones.
+func permissionTypesFromStrings(ctx context.Context, permTypes []string) []entity.PermissionType {
+	log := logging.FromContext(ctx)
+	entityTypes := make([]entity.PermissionType, 0, len(permTypes))
+	for _, pt := range permTypes {
+		switch pt {
+		case "microphone":
+			entityTypes = append(entityTypes, entity.PermissionTypeMicrophone)
+		case "camera":
+			entityTypes = append(entityTypes, entity.PermissionTypeCamera)
+		case "display":
+			entityTypes = append(entityTypes, entity.PermissionTypeDisplay)
+		case "notification":
+			entityTypes = append(entityTypes, entity.PermissionTypeNotification)
+		case "geolocation":
+			entityTypes = append(entityTypes, entity.PermissionTypeGeolocation)
+		case "device_info":
+			entityTypes = append(entityTypes, entity.PermissionTypeDeviceInfo)
+		case "website_data_access":
+			entityTypes = append(entityTypes, entity.PermissionTypeWebsiteDataAccess)
+		default:
+			log.Warn().Str("type", pt).Msg("unknown permission type, skipping")
+		}
+	}
+	return entityTypes
 }
 
 func filterWebRTCPermissionTypes(types []entity.PermissionType) []entity.PermissionType {
