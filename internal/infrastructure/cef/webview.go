@@ -221,6 +221,7 @@ type WebView struct {
 	// Callbacks and browsing-context state set by the UI layer.
 	mu                         sync.RWMutex
 	callbacks                  *port.WebViewCallbacks
+	jsDialogs                  jsDialogState
 	browsingContextDecision    dto.HostDecision
 	hasBrowsingContextDecision bool
 	nativePopupHostAbort       func()
@@ -1332,6 +1333,7 @@ func (wv *WebView) Destroy() {
 	// calling thread; GTK-only cleanup follows through the owning
 	// dispatcher without waiting for the deferred native browser close.
 	wv.invalidateScrollMotion()
+	wv.cancelJSDialogsClosing(true)
 	wv.shutdownAccessibilityCapture()
 	wv.resetPageScrollQueue()
 	wv.syntheticPopupMu.Lock()
@@ -2602,6 +2604,16 @@ func (wv *WebView) releaseBeginFrameTickCallback() {
 	}
 }
 
+// postToGTK queues fn on the GTK main loop. It is a seam for tests.
+var postToGTK = func(fn func()) {
+	// Heap-allocate the callback so it survives until glib invokes it.
+	cb := new(glib.SourceOnceFunc)
+	*cb = func(_ uintptr) {
+		fn()
+	}
+	glib.IdleAddOnce(cb, 0)
+}
+
 func (wv *WebView) runOnGTK(fn func()) {
 	if fn == nil {
 		return
@@ -2611,13 +2623,7 @@ func (wv *WebView) runOnGTK(fn func()) {
 		fn()
 		return
 	}
-
-	// Heap-allocate the callback so it survives until glib invokes it.
-	cb := new(glib.SourceOnceFunc)
-	*cb = func(_ uintptr) {
-		fn()
-	}
-	glib.IdleAddOnce(cb, 0)
+	postToGTK(fn)
 }
 
 func (wv *WebView) isOnGTKThread() bool {

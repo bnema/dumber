@@ -147,6 +147,19 @@ type WebViewCallbacks struct {
 	// OnEditableFocusChanged is called when the page focus enters or leaves an
 	// editable target such as input, textarea, or contenteditable content.
 	OnEditableFocusChanged func(editable bool)
+
+	// OnJSDialog is called when the page requests a JavaScript dialog (alert,
+	// confirm, prompt) or the beforeunload "Leave page?" confirmation. The UI
+	// shows the dialog scoped to this WebView and calls respond exactly once
+	// when the user answers (ok=false for cancel/dismiss; input is only
+	// meaningful for prompts). Return false if no dialog could be shown; the
+	// engine then answers with a cancel itself. respond is idempotent and safe
+	// to call from the GTK thread.
+	OnJSDialog func(req JSDialogRequest, respond func(ok bool, input string)) bool
+	// OnJSDialogReset is called when the engine canceled a pending dialog (page
+	// navigation, WebView destruction). The UI must hide any dialog shown for
+	// this WebView without invoking respond.
+	OnJSDialogReset func()
 }
 
 // FindOptions configures search behavior.
