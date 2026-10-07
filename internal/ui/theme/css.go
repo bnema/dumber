@@ -937,6 +937,10 @@ func generatePaneCSS(p Palette) string {
 .mode-frame-border.resize-mode-active {
 	box-shadow: inset 0 0 0 0.25em var(--resize-mode-color);
 }
+
+.mode-frame-border.prefix-mode-active {
+	box-shadow: inset 0 0 0 0.25em var(--pane-mode-color);
+}
 `
 }
 
@@ -1430,6 +1434,11 @@ func generateToasterCSS(p Palette) string {
 .toast-resize-mode {
 	background-color: var(--resize-mode-color);
 	color: var(--resize-mode-text);
+}
+
+.toast-prefix-mode {
+	background-color: var(--pane-mode-color);
+	color: var(--pane-mode-text);
 }
 `
 }

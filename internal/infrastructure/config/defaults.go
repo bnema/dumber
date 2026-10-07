@@ -1,6 +1,7 @@
 package config
 
 import (
+	"maps"
 	"os"
 	"path/filepath"
 
@@ -39,6 +40,9 @@ const (
 	defaultOmniboxAutoOpenOnNewPane = false
 
 	// Workspace defaults
+	defaultKeymap                          = KeymapZellij
+	defaultPrefixActivationShortcut        = "ctrl+space"
+	defaultPrefixTimeoutMilliseconds       = 2000
 	defaultPaneActivationShortcut          = "ctrl+p"
 	defaultPaneTimeoutMilliseconds         = 3000
 	defaultTabActivationShortcut           = "ctrl+t"
@@ -158,6 +162,13 @@ func getDefaultExternalThemeTemplatePath() string {
 	return filepath.Join(configDir, defaultExternalThemeTemplateFilename)
 }
 
+// withBuiltinGlobalShortcuts adds the preset-independent browser shortcuts
+// to the configured global shortcut defaults.
+func withBuiltinGlobalShortcuts(actions map[string]ActionBinding) map[string]ActionBinding {
+	maps.Copy(actions, entity.BuiltinGlobalShortcuts())
+	return actions
+}
+
 // DefaultConfig returns the default configuration values for dumber.
 func DefaultConfig() *Config {
 	browsingContextDefaults := defaultBrowsingContextConfig()
@@ -271,6 +282,31 @@ func DefaultConfig() *Config {
 		Workspace: WorkspaceConfig{
 			NewPaneURL:        defaultNewPaneURL,
 			SwitchToTabOnMove: true,
+			Keymap:            defaultKeymap,
+			PrefixMode: PrefixModeConfig{
+				ActivationShortcut:  defaultPrefixActivationShortcut,
+				TimeoutMilliseconds: defaultPrefixTimeoutMilliseconds,
+				Actions: map[string]ActionBinding{
+					"split-right":       {Keys: []string{"%"}, Desc: "Split pane to the right"},
+					"split-down":        {Keys: []string{"\""}, Desc: "Split pane downward"},
+					"close-pane":        {Keys: []string{"x"}, Desc: "Close current pane"},
+					"stack-pane":        {Keys: []string{"shift+s"}, Desc: "Stack pane with sibling"},
+					"move-pane-to-tab":  {Keys: []string{"!"}, Desc: "Move pane to different tab"},
+					"focus-left":        {Keys: []string{"arrowleft"}, Desc: "Focus pane to the left"},
+					"focus-right":       {Keys: []string{"arrowright"}, Desc: "Focus pane to the right"},
+					"focus-up":          {Keys: []string{"arrowup"}, Desc: "Focus pane above"},
+					"focus-down":        {Keys: []string{"arrowdown"}, Desc: "Focus pane below"},
+					"new-tab":           {Keys: []string{"c"}, Desc: "Create new tab"},
+					"close-tab":         {Keys: []string{"&"}, Desc: "Close current tab"},
+					"next-tab":          {Keys: []string{"n"}, Desc: "Switch to next tab"},
+					"previous-tab":      {Keys: []string{"p"}, Desc: "Switch to previous tab"},
+					"rename-tab":        {Keys: []string{","}, Desc: "Rename current tab"},
+					"session-manager":   {Keys: []string{"s"}, Desc: "Open session manager"},
+					"enter-resize-mode": {Keys: []string{"r"}, Desc: "Enter resize mode"},
+					"enter-vim-mode":    {Keys: []string{"["}, Desc: "Enter Vim mode"},
+					"cancel":            {Keys: []string{"escape"}, Desc: "Cancel/exit prefix"},
+				},
+			},
 			PaneMode: PaneModeConfig{
 				ActivationShortcut:  defaultPaneActivationShortcut,
 				TimeoutMilliseconds: defaultPaneTimeoutMilliseconds,
@@ -359,7 +395,7 @@ func DefaultConfig() *Config {
 				},
 			},
 			Shortcuts: GlobalShortcutsConfig{
-				Actions: map[string]ActionBinding{
+				Actions: withBuiltinGlobalShortcuts(map[string]ActionBinding{
 					"toggle-floating-pane":         {Keys: []string{"alt+f"}, Desc: "Toggle floating pane"},
 					"toggle-history-systemview":    {Keys: []string{"ctrl+h"}, Desc: "Toggle History in right split"},
 					"toggle-favorites-sidebar":     {Keys: []string{"ctrl+b"}, Desc: "Toggle Favorites sidebar"},
@@ -372,7 +408,7 @@ func DefaultConfig() *Config {
 					"consume-or-expel-right":       {Keys: []string{"alt+]"}, Desc: "Consume/expel pane right"},
 					"consume-or-expel-up":          {Keys: []string{"alt+{"}, Desc: "Consume/expel pane up"},
 					"consume-or-expel-down":        {Keys: []string{"alt+}"}, Desc: "Consume/expel pane down"},
-				},
+				}),
 			},
 			FloatingPane: FloatingPaneConfig{
 				WidthPct:  defaultFloatingPaneWidthPct,

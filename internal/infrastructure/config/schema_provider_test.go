@@ -166,6 +166,7 @@ func TestSchemaProviderCoversViperDefaults(t *testing.T) {
 		"appearance.light_palette":         "appearance.light_palette.*",
 		"appearance.dark_palette":          "appearance.dark_palette.*",
 		"search_shortcuts":                 "search_shortcuts.<key>",
+		"workspace.prefix_mode.actions":    "workspace.prefix_mode.actions.<action>",
 		"workspace.pane_mode.actions":      "workspace.pane_mode.actions.<action>",
 		"workspace.tab_mode.actions":       "workspace.tab_mode.actions.<action>",
 		"workspace.vim_mode.actions":       "workspace.vim_mode.actions.<action>",

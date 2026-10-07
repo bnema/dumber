@@ -16,6 +16,7 @@ var _ port.AllKeybindingsResetter = (*ResetAllKeybindingsUseCase)(nil)
 // validModes defines the valid keybinding modes.
 var validModes = map[string]bool{
 	"global":  true,
+	"prefix":  true,
 	"pane":    true,
 	"tab":     true,
 	"vim":     true,

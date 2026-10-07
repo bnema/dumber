@@ -531,3 +531,18 @@ func TestValidateConfig_OmniboxMaxHistoryDays(t *testing.T) {
 		assert.Contains(t, err.Error(), "omnibox.max_history_days must be non-negative")
 	})
 }
+
+func TestValidateKeymap(t *testing.T) {
+	cfg := DefaultConfig()
+	assert.Empty(t, validateKeymap(cfg))
+
+	cfg.Workspace.Keymap = KeymapTmux
+	assert.Empty(t, validateKeymap(cfg))
+
+	cfg.Workspace.Keymap = "emacs"
+	assert.Contains(t, validateKeymap(cfg), "workspace.keymap must be 'zellij' or 'tmux' (got: emacs)")
+
+	cfg.Workspace.Keymap = KeymapZellij
+	cfg.Workspace.PrefixMode.TimeoutMilliseconds = -1
+	assert.Contains(t, validateKeymap(cfg), "workspace.prefix_mode.timeout_ms must be non-negative")
+}

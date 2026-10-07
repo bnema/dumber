@@ -139,6 +139,7 @@ func cloneRuntimeSearchShortcuts(in map[string]entity.RuntimeSearchShortcut) map
 }
 
 func cloneWorkspaceConfig(in entity.WorkspaceConfig) entity.WorkspaceConfig {
+	in.PrefixMode.Actions = cloneActionBindings(in.PrefixMode.Actions)
 	in.PaneMode.Actions = cloneActionBindings(in.PaneMode.Actions)
 	in.TabMode.Actions = cloneActionBindings(in.TabMode.Actions)
 	in.VimMode.Actions = cloneActionBindings(in.VimMode.Actions)

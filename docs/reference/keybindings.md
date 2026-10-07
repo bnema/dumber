@@ -1,6 +1,9 @@
 # Keybindings
 
-Dumber uses modal keybindings inspired by Zellij. Press a mode activation key, then use action keys within that mode.
+Dumber uses modal keybindings. Pick the activation style with `workspace.keymap`:
+
+- `zellij` (default): each mode has its own activation key, listed below.
+- `tmux`: one prefix key, then a single action key. See [Keymap presets](#keymap-presets).
 
 ## Mode Activation
 
@@ -101,12 +104,60 @@ CEF and WebKit execute Vim Mode scroll commands (`h/j/k/l`, `Shift+J/K`) with th
 | Confirm | `Enter` |
 | Cancel | `Escape` |
 
+## Keymap Presets
+
+```toml
+[workspace]
+keymap = "tmux"   # or "zellij" (default)
+```
+
+With `keymap = "tmux"`, the Pane, Tab, Resize, and Session activation keys are unbound. Press the prefix (`Ctrl+Space` by default), then one action key. Dumber runs the action and returns to normal mode; an unbound key or `Escape` cancels the prefix. Vim Mode keeps `Ctrl+Y` in both presets.
+
+| After `Ctrl+Space` | Action |
+|--------------------|--------|
+| `%` | Split right |
+| `"` | Split down |
+| `x` | Close pane |
+| `Shift+S` | Stack pane |
+| `!` | Move pane to another tab |
+| `←` `→` `↑` `↓` | Focus pane |
+| `c` | New tab |
+| `&` | Close tab |
+| `n` / `p` | Next / previous tab |
+| `,` | Rename tab |
+| `s` | Session manager |
+| `r` | Enter Resize Mode |
+| `[` | Enter Vim Mode |
+
+Change the prefix or its actions under `[workspace.prefix_mode]`. Symbols such as `%` and `"` match whichever Shift state your layout needs, so write them without `shift+`. `Ctrl+Space` is often used to switch input methods; pick another prefix (for example `alt+a`) if your desktop already uses it.
+
+```toml
+[workspace.prefix_mode]
+activation_shortcut = "alt+a"
+timeout_ms = 2000
+
+[workspace.prefix_mode.actions.split-right]
+keys = ["%", "v"]
+```
+
 ## Global Shortcuts
 
-These work outside modal modes:
+These work outside modal modes in both keymaps. Every entry lives under `[workspace.shortcuts.actions]`, so you can rebind it or disable it with `keys = []`.
 
 | Action | Keys |
 |--------|------|
+| Open omnibox | `Ctrl+L` |
+| Find in page / next / previous | `Ctrl+F` / `F3`, `Ctrl+G` / `Shift+F3`, `Ctrl+Shift+G` |
+| Reload / hard reload | `Ctrl+R`, `F5` / `Ctrl+Shift+R`, `Ctrl+F5` |
+| Back / forward | `Ctrl+←` / `Ctrl+→` |
+| Zoom in / out / reset | `Ctrl++`, `Ctrl+=` / `Ctrl+-` / `Ctrl+0` |
+| Focus pane | `Alt+H/J/K/L`, `Alt+arrows` |
+| Copy URL | `Ctrl+Shift+C` |
+| Print | `Ctrl+Shift+P` |
+| Session manager | `Ctrl+Shift+S` |
+| Developer tools | `F12` |
+| Fullscreen | `F11` |
+| Quit | `Ctrl+Q` |
 | Toggle floating pane | `Alt+F` |
 | Toggle History sidebar (native GTK sidebar panel only). Ctrl+H may conflict with the browser's default History shortcut; behavior can vary by browser. | `Ctrl+H` |
 | Toggle Favorites sidebar (native GTK bookmarks panel) | `Ctrl+B` |

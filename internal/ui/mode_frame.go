@@ -304,6 +304,8 @@ func modeFrameClass(mode input.Mode) string {
 		return "tab-mode-active"
 	case input.ModeSession:
 		return "session-mode-active"
+	case input.ModePrefix:
+		return "prefix-mode-active"
 	default:
 		return ""
 	}
@@ -622,6 +624,8 @@ func modeLegendGroup(mode input.Mode, name string) string {
 		return "EXIT"
 	case strings.HasPrefix(name, "split-"):
 		return "SPLIT"
+	case strings.HasPrefix(name, "enter-"):
+		return "MODES"
 	case strings.HasPrefix(name, "focus-"):
 		return "FOCUS"
 	case strings.HasPrefix(name, "resize-"):
@@ -630,7 +634,7 @@ func modeLegendGroup(mode input.Mode, name string) string {
 		return "SCROLL"
 	case mode == input.ModeVim && (strings.Contains(name, "next") || strings.Contains(name, "prev") || name == "outline"):
 		return "JUMP"
-	case mode == input.ModeTab && (name == "next-tab" || name == "previous-tab"):
+	case (mode == input.ModeTab || mode == input.ModePrefix) && (name == "next-tab" || name == "previous-tab"):
 		return "SWITCH"
 	default:
 		return "MANAGE"

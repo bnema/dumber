@@ -28,6 +28,8 @@ const (
 	ModeResize
 	// ModeVim is the modal Vim-style scrolling mode.
 	ModeVim
+	// ModePrefix is the tmux-style one-shot prefix mode.
+	ModePrefix
 )
 
 // String returns a human-readable mode name.
@@ -45,6 +47,8 @@ func (m Mode) String() string {
 		return "resize"
 	case ModeVim:
 		return "vim"
+	case ModePrefix:
+		return "prefix"
 	default:
 		return "unknown"
 	}
@@ -63,6 +67,8 @@ func (m Mode) DisplayName() string {
 		return "RESIZE MODE"
 	case ModeVim:
 		return "VIM MODE"
+	case ModePrefix:
+		return "PREFIX"
 	default:
 		return ""
 	}
@@ -138,6 +144,11 @@ func (m *ModalState) EnterPaneMode(ctx context.Context, timeout time.Duration) {
 // EnterSessionMode switches to session mode with an optional timeout.
 func (m *ModalState) EnterSessionMode(ctx context.Context, timeout time.Duration) {
 	m.enterMode(ctx, ModeSession, timeout)
+}
+
+// EnterPrefixMode switches to the one-shot prefix mode with an optional timeout.
+func (m *ModalState) EnterPrefixMode(ctx context.Context, timeout time.Duration) {
+	m.enterMode(ctx, ModePrefix, timeout)
 }
 
 // EnterResizeMode switches to resize mode with an optional timeout.

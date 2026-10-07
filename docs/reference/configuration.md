@@ -98,6 +98,10 @@
 | `workspace.switch_to_tab_on_move` | bool | `true` | |
 | `workspace.tab_bar_position` | string | `bottom` | `top`, `bottom` |
 | `workspace.hide_tab_bar_when_single_tab` | bool | `true` | |
+| `workspace.keymap` | string | `zellij` | `zellij`, `tmux`; see [Keymap presets](keybindings.md#keymap-presets) |
+| `workspace.prefix_mode.activation_shortcut` | string | `ctrl+space` | prefix key for the `tmux` keymap |
+| `workspace.prefix_mode.timeout_ms` | int | `2000` | >= 0 |
+| `workspace.prefix_mode.actions.<action>` | object | see defaults | one-shot actions after the prefix |
 | `workspace.pane_mode.activation_shortcut` | string | `ctrl+p` | |
 | `workspace.pane_mode.timeout_ms` | int | `3000` | |
 | `workspace.pane_mode.actions.<action>` | []string | see defaults | pane mode key mappings |
@@ -114,7 +118,7 @@
 | `workspace.resize_mode.actions.<action>` | []string | see defaults | resize mode key mappings |
 | `workspace.resize_mode.step_percent` | float | `5.0` | |
 | `workspace.resize_mode.min_pane_percent` | float | `10.0` | |
-| `workspace.shortcuts.actions` | map | see defaults | global shortcut action mappings |
+| `workspace.shortcuts.actions` | map | see defaults | global shortcut action mappings, including browser shortcuts (`open-omnibox`, `reload`, `focus-left`, ...); set `keys = []` to disable one |
 | `workspace.shortcuts.actions.toggle_floating_pane.keys` | []string | `alt+f` | key strings |
 | `workspace.shortcuts.actions.toggle_floating_pane.desc` | string | `Toggle floating pane` | |
 | `workspace.floating_pane.width_pct` | float | `0.82` | `(0,1]` |

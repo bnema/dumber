@@ -4,6 +4,7 @@ package input
 import (
 	"context"
 	"maps"
+	"slices"
 	"sort"
 	"strings"
 
@@ -109,6 +110,7 @@ const (
 	ActionEnterPaneMode    Action = "enter_pane_mode"
 	ActionEnterSessionMode Action = "enter_session_mode"
 	ActionEnterResizeMode  Action = "enter_resize_mode"
+	ActionEnterPrefixMode  Action = "enter_prefix_mode"
 	ActionExitMode         Action = "exit_mode"
 
 	// Tab actions (global and modal)
@@ -235,6 +237,8 @@ type ShortcutSet struct {
 	ResizeMode ShortcutTable
 	// VimMode shortcuts are only active in vim mode.
 	VimMode ShortcutTable
+	// PrefixMode shortcuts are one-shot actions after the tmux-style prefix.
+	PrefixMode ShortcutTable
 	// vimModeSequences holds multi-key Vim mode bindings.
 	vimModeSequences *vimkeys.Trie
 }
@@ -251,6 +255,7 @@ func NewShortcutSet(ctx context.Context, workspace *entity.WorkspaceConfig, sess
 		SessionMode: make(ShortcutTable),
 		ResizeMode:  make(ShortcutTable),
 		VimMode:     make(ShortcutTable),
+		PrefixMode:  make(ShortcutTable),
 	}
 
 	set.buildGlobalShortcutsFromParts(ctx, workspace, session)
@@ -259,6 +264,7 @@ func NewShortcutSet(ctx context.Context, workspace *entity.WorkspaceConfig, sess
 		set.buildPaneModeShortcuts(ctx, workspace)
 		set.buildResizeModeShortcuts(ctx, workspace)
 		set.buildVimModeShortcuts(ctx, workspace)
+		set.buildModeShortcuts(ctx, workspace.PrefixMode.GetKeyBindings(), set.PrefixMode, "prefix")
 	}
 	if session != nil {
 		set.buildSessionModeShortcuts(ctx, session)
@@ -271,6 +277,7 @@ func NewShortcutSet(ctx context.Context, workspace *entity.WorkspaceConfig, sess
 		Int("resize", len(set.ResizeMode)).
 		Int("session", len(set.SessionMode)).
 		Int("vim", len(set.VimMode)).
+		Int("prefix", len(set.PrefixMode)).
 		Msg("shortcuts registered")
 
 	return set
@@ -278,11 +285,12 @@ func NewShortcutSet(ctx context.Context, workspace *entity.WorkspaceConfig, sess
 
 // buildGlobalShortcutsFromParts populates global shortcuts from workspace and session configs.
 func (s *ShortcutSet) buildGlobalShortcutsFromParts(ctx context.Context, workspace *entity.WorkspaceConfig, session *entity.SessionConfig) {
+	s.registerBuiltinShortcutFallbacks(workspace)
 	s.registerActivationShortcutsFromParts(ctx, workspace, session)
 	s.registerConfiguredShortcuts(workspace)
-	s.registerStandardShortcuts()
-	s.registerPaneNavigationShortcuts()
-	s.registerTabSwitchShortcuts()
+	// Alt+1-9, Alt+0, and Alt+Tab are registered by GlobalShortcutHandler;
+	// Alt+Shift+Tab stays here as a fallback binding.
+	s.Global[KeyBinding{uint(gdk.KEY_Tab), ModAlt | ModShift}] = ActionSwitchLastTab
 	s.registerFloatingProfileShortcutsFromWorkspace(ctx, workspace)
 }
 
@@ -330,77 +338,63 @@ func (s *ShortcutSet) buildVimModeShortcuts(ctx context.Context, cfg *entity.Wor
 	}
 }
 
+// registerActivationShortcutsFromParts registers mode activation shortcuts.
+// The zellij keymap binds one shortcut per mode; the tmux keymap binds a single
+// one-shot prefix instead of the pane, tab, resize, and session activations.
+// Vim Mode keeps its own activation in both keymaps.
 func (s *ShortcutSet) registerActivationShortcutsFromParts(
 	ctx context.Context, workspace *entity.WorkspaceConfig, session *entity.SessionConfig,
 ) {
-	log := logging.FromContext(ctx)
-	if workspace == nil {
-		// Still register session mode if available.
-		if session != nil {
-			if binding, ok := ParseKeyString(session.SessionMode.ActivationShortcut); ok {
-				s.Global[binding] = ActionEnterSessionMode
-				log.Trace().
-					Str("shortcut", session.SessionMode.ActivationShortcut).
-					Uint("keyval", binding.Keyval).
-					Uint("mod", uint(binding.Modifiers)).
-					Msg("session mode activation registered")
-			} else {
-				log.Warn().Str("shortcut", session.SessionMode.ActivationShortcut).Msg("failed to parse session mode activation shortcut")
-			}
+	if workspace != nil {
+		s.registerActivation(ctx, workspace.VimMode.ActivationShortcut, ActionEnterVimMode)
+		if workspace.Keymap == entity.KeymapTmux {
+			s.registerActivation(ctx, workspace.PrefixMode.ActivationShortcut, ActionEnterPrefixMode)
+			return
 		}
-		return
-	}
-	if binding, ok := ParseKeyString(workspace.VimMode.ActivationShortcut); ok {
-		s.Global[binding] = ActionEnterVimMode
-		log.Trace().
-			Str("shortcut", workspace.VimMode.ActivationShortcut).
-			Uint("keyval", binding.Keyval).
-			Uint("mod", uint(binding.Modifiers)).
-			Msg("vim mode activation registered")
-	} else {
-		log.Warn().Str("shortcut", workspace.VimMode.ActivationShortcut).Msg("failed to parse vim mode activation shortcut")
-	}
-	if binding, ok := ParseKeyString(workspace.TabMode.ActivationShortcut); ok {
-		s.Global[binding] = ActionEnterTabMode
-		log.Trace().
-			Str("shortcut", workspace.TabMode.ActivationShortcut).
-			Uint("keyval", binding.Keyval).
-			Uint("mod", uint(binding.Modifiers)).
-			Msg("tab mode activation registered")
-	} else {
-		log.Warn().Str("shortcut", workspace.TabMode.ActivationShortcut).Msg("failed to parse tab mode activation shortcut")
-	}
-	if binding, ok := ParseKeyString(workspace.PaneMode.ActivationShortcut); ok {
-		s.Global[binding] = ActionEnterPaneMode
-		log.Trace().
-			Str("shortcut", workspace.PaneMode.ActivationShortcut).
-			Uint("keyval", binding.Keyval).
-			Uint("mod", uint(binding.Modifiers)).
-			Msg("pane mode activation registered")
-	} else {
-		log.Warn().Str("shortcut", workspace.PaneMode.ActivationShortcut).Msg("failed to parse pane mode activation shortcut")
+		s.registerActivation(ctx, workspace.TabMode.ActivationShortcut, ActionEnterTabMode)
+		s.registerActivation(ctx, workspace.PaneMode.ActivationShortcut, ActionEnterPaneMode)
+		s.registerActivation(ctx, workspace.ResizeMode.ActivationShortcut, ActionEnterResizeMode)
 	}
 	if session != nil {
-		if binding, ok := ParseKeyString(session.SessionMode.ActivationShortcut); ok {
-			s.Global[binding] = ActionEnterSessionMode
-			log.Trace().
-				Str("shortcut", session.SessionMode.ActivationShortcut).
-				Uint("keyval", binding.Keyval).
-				Uint("mod", uint(binding.Modifiers)).
-				Msg("session mode activation registered")
-		} else {
-			log.Warn().Str("shortcut", session.SessionMode.ActivationShortcut).Msg("failed to parse session mode activation shortcut")
-		}
+		s.registerActivation(ctx, session.SessionMode.ActivationShortcut, ActionEnterSessionMode)
 	}
-	if binding, ok := ParseKeyString(workspace.ResizeMode.ActivationShortcut); ok {
-		s.Global[binding] = ActionEnterResizeMode
-		log.Trace().
-			Str("shortcut", workspace.ResizeMode.ActivationShortcut).
-			Uint("keyval", binding.Keyval).
-			Uint("mod", uint(binding.Modifiers)).
-			Msg("resize mode activation registered")
-	} else {
-		log.Warn().Str("shortcut", workspace.ResizeMode.ActivationShortcut).Msg("failed to parse resize mode activation shortcut")
+}
+
+func (s *ShortcutSet) registerActivation(ctx context.Context, shortcut string, action Action) {
+	log := logging.FromContext(ctx)
+	binding, ok := ParseKeyString(shortcut)
+	if !ok {
+		log.Warn().Str("shortcut", shortcut).Str("action", string(action)).Msg("failed to parse mode activation shortcut")
+		return
+	}
+	s.Global[binding] = action
+	log.Trace().
+		Str("shortcut", shortcut).
+		Str("action", string(action)).
+		Uint("keyval", binding.Keyval).
+		Uint("mod", uint(binding.Modifiers)).
+		Msg("mode activation registered")
+}
+
+// registerBuiltinShortcutFallbacks binds built-in browser shortcuts whose
+// action is missing from the configured global shortcuts, so configs written
+// before these actions became configurable keep working until migrated.
+func (s *ShortcutSet) registerBuiltinShortcutFallbacks(cfg *entity.WorkspaceConfig) {
+	for name, binding := range entity.BuiltinGlobalShortcuts() {
+		if cfg != nil {
+			if _, configured := cfg.Shortcuts.Actions[name]; configured {
+				continue
+			}
+		}
+		action, ok := configActionToAction[name]
+		if !ok {
+			continue
+		}
+		for _, key := range binding.Keys {
+			if kb, ok := ParseKeyString(key); ok {
+				s.Global[kb] = action
+			}
+		}
 	}
 }
 
@@ -408,27 +402,39 @@ func (s *ShortcutSet) registerConfiguredShortcuts(cfg *entity.WorkspaceConfig) {
 	if cfg == nil {
 		return
 	}
-	// Note: Ctrl+T is NOT registered globally - it enters tab mode.
-	// In tab mode, use:
-	//   n = new tab
-	//   x = close tab
-	//   l/tab = next tab
-	//   h/shift+tab = previous tab
-	//   r = rename tab
-	// This follows Zellij-style modal keyboard interface.
-	//
-	// However, these standard browser shortcuts ARE global.
-	for actionName, actionBinding := range cfg.Shortcuts.Actions {
+	for _, actionName := range orderedGlobalShortcutActions(cfg.Shortcuts.Actions) {
 		action, ok := configActionToAction[actionName]
 		if !ok {
 			continue
 		}
-		for _, keyStr := range actionBinding.Keys {
+		for _, keyStr := range cfg.Shortcuts.Actions[actionName].Keys {
 			if binding, ok := ParseKeyString(keyStr); ok {
 				s.Global[binding] = action
 			}
 		}
 	}
+}
+
+// orderedGlobalShortcutActions returns action names in registration order:
+// sorted, with built-in browser actions last so they win a shared key, as
+// they did when they were hard-coded. A stable order keeps the winner of a
+// key conflict the same across restarts.
+func orderedGlobalShortcutActions(actions map[string]entity.ActionBinding) []string {
+	builtins := entity.BuiltinGlobalShortcuts()
+	names := slices.Sorted(maps.Keys(actions))
+	slices.SortStableFunc(names, func(a, b string) int {
+		_, aBuiltin := builtins[a]
+		_, bBuiltin := builtins[b]
+		switch {
+		case aBuiltin == bBuiltin:
+			return 0
+		case aBuiltin:
+			return 1
+		default:
+			return -1
+		}
+	})
+	return names
 }
 
 func (s *ShortcutSet) registerFloatingProfileShortcutsFromWorkspace(ctx context.Context, workspace *entity.WorkspaceConfig) {
@@ -535,54 +541,6 @@ func reserveGlobalOnlyShortcutBindings(occupied map[KeyBinding]Action) {
 	if _, exists := occupied[altTab]; !exists {
 		occupied[altTab] = ActionSwitchLastTab
 	}
-}
-
-func (s *ShortcutSet) registerStandardShortcuts() {
-	s.Global[KeyBinding{uint(gdk.KEY_l), ModCtrl}] = ActionOpenOmnibox
-	s.Global[KeyBinding{uint(gdk.KEY_f), ModCtrl}] = ActionOpenFind
-	s.Global[KeyBinding{uint(gdk.KEY_F3), ModNone}] = ActionFindNext
-	s.Global[KeyBinding{uint(gdk.KEY_F3), ModShift}] = ActionFindPrev
-	s.Global[KeyBinding{uint(gdk.KEY_g), ModCtrl}] = ActionFindNext
-	s.Global[KeyBinding{uint(gdk.KEY_g), ModCtrl | ModShift}] = ActionFindPrev
-	s.Global[KeyBinding{uint(gdk.KEY_r), ModCtrl}] = ActionReload
-	s.Global[KeyBinding{uint('r'), ModCtrl | ModShift}] = ActionHardReload
-	s.Global[KeyBinding{uint(gdk.KEY_F5), ModNone}] = ActionReload
-	s.Global[KeyBinding{uint(gdk.KEY_F5), ModCtrl}] = ActionHardReload
-	s.Global[KeyBinding{uint(gdk.KEY_F12), ModNone}] = ActionOpenDevTools
-	s.Global[KeyBinding{uint(gdk.KEY_Left), ModCtrl}] = ActionGoBack
-	s.Global[KeyBinding{uint(gdk.KEY_Right), ModCtrl}] = ActionGoForward
-	s.Global[KeyBinding{uint(gdk.KEY_plus), ModCtrl}] = ActionZoomIn
-	s.Global[KeyBinding{uint(gdk.KEY_equal), ModCtrl}] = ActionZoomIn // Ctrl+= (no shift needed)
-	s.Global[KeyBinding{uint(gdk.KEY_minus), ModCtrl}] = ActionZoomOut
-	s.Global[KeyBinding{uint(gdk.KEY_0), ModCtrl}] = ActionZoomReset
-	s.Global[KeyBinding{uint(gdk.KEY_q), ModCtrl}] = ActionQuit
-	s.Global[KeyBinding{uint(gdk.KEY_F11), ModNone}] = ActionToggleFullscreen
-	s.Global[KeyBinding{uint('c'), ModCtrl | ModShift}] = ActionCopyURL
-	s.Global[KeyBinding{uint('p'), ModCtrl | ModShift}] = ActionPrintPage
-	// Session management - direct shortcut to open session manager
-	s.Global[KeyBinding{uint(gdk.KEY_s), ModCtrl | ModShift}] = ActionOpenSessionManager
-}
-
-func (s *ShortcutSet) registerPaneNavigationShortcuts() {
-	s.Global[KeyBinding{uint(gdk.KEY_h), ModAlt}] = ActionFocusLeft
-	s.Global[KeyBinding{uint(gdk.KEY_l), ModAlt}] = ActionFocusRight
-	s.Global[KeyBinding{uint(gdk.KEY_k), ModAlt}] = ActionFocusUp
-	s.Global[KeyBinding{uint(gdk.KEY_j), ModAlt}] = ActionFocusDown
-
-	s.Global[KeyBinding{uint(gdk.KEY_Left), ModAlt}] = ActionFocusLeft
-	s.Global[KeyBinding{uint(gdk.KEY_Right), ModAlt}] = ActionFocusRight
-	s.Global[KeyBinding{uint(gdk.KEY_Up), ModAlt}] = ActionFocusUp
-	s.Global[KeyBinding{uint(gdk.KEY_Down), ModAlt}] = ActionFocusDown
-}
-
-func (s *ShortcutSet) registerTabSwitchShortcuts() {
-	// NOTE: Alt+1-9, Alt+0, and Alt+Tab are now handled by GlobalShortcutHandler
-	// using GtkShortcutController with GTK_SHORTCUT_SCOPE_GLOBAL.
-	// This is necessary because WebKitGTK's WebView consumes these key events
-	// before they reach the EventControllerKey in capture phase.
-	//
-	// Only Alt+Shift+Tab remains here as a fallback binding.
-	s.Global[KeyBinding{uint(gdk.KEY_Tab), ModAlt | ModShift}] = ActionSwitchLastTab
 }
 
 func (s *ShortcutSet) buildModeShortcuts(ctx context.Context, bindings map[string]string, dest map[KeyBinding]Action, mode string) {
@@ -694,6 +652,31 @@ var configActionToAction = map[string]Action{
 
 	// Session actions
 	"session-manager": ActionOpenSessionManager,
+
+	// Browser actions
+	"open-omnibox":      ActionOpenOmnibox,
+	"open-find":         ActionOpenFind,
+	"find-next":         ActionFindNext,
+	"find-prev":         ActionFindPrev,
+	"reload":            ActionReload,
+	"hard-reload":       ActionHardReload,
+	"open-devtools":     ActionOpenDevTools,
+	"go-back":           ActionGoBack,
+	"go-forward":        ActionGoForward,
+	"zoom-in":           ActionZoomIn,
+	"zoom-out":          ActionZoomOut,
+	"zoom-reset":        ActionZoomReset,
+	"quit":              ActionQuit,
+	"toggle-fullscreen": ActionToggleFullscreen,
+	"copy-url":          ActionCopyURL,
+	"print-page":        ActionPrintPage,
+
+	// Mode activation (used by the tmux prefix)
+	"enter-pane-mode":    ActionEnterPaneMode,
+	"enter-tab-mode":     ActionEnterTabMode,
+	"enter-resize-mode":  ActionEnterResizeMode,
+	"enter-session-mode": ActionEnterSessionMode,
+	"enter-vim-mode":     ActionEnterVimMode,
 
 	// Vim mode scroll actions
 	"vim_scroll_left":      ActionVimScrollLeft,
@@ -854,9 +837,9 @@ func stringToKeyval(s string) (uint, bool) {
 		return keyval, true
 	}
 
-	// Single letter keys (a-z)
-	if len(s) == 1 && s[0] >= 'a' && s[0] <= 'z' {
-		// ASCII lowercase a=97, which matches gdk.KEY_a
+	// Single printable ASCII keys (a-z, symbols such as %, ", &).
+	// GDK keyvals for printable ASCII match their character codes.
+	if len(s) == 1 && s[0] > ' ' && s[0] <= '~' {
 		return uint(s[0]), true
 	}
 
@@ -884,11 +867,26 @@ func (s *ShortcutSet) Lookup(binding KeyBinding, mode Mode) (Action, bool) {
 		modeTable = s.SessionMode
 	case ModeVim:
 		modeTable = s.VimMode
+	case ModePrefix:
+		modeTable = s.PrefixMode
 	}
 
 	if modeTable != nil {
 		if action, ok := modeTable[binding]; ok {
 			return action, true
+		}
+		// Shifted symbols (%, ", {, ...) arrive with Shift held but are
+		// configured without it, since the symbol already implies Shift.
+		if isShiftedSymbol(binding) {
+			if action, ok := modeTable[KeyBinding{Keyval: binding.Keyval}]; ok {
+				return action, true
+			}
+		}
+		// International layouts deliver some symbols as dead keys.
+		if symbol, ok := deadKeySymbols[binding.Keyval]; ok {
+			if action, ok := modeTable[KeyBinding{Keyval: symbol}]; ok {
+				return action, true
+			}
 		}
 		if mode == ModeVim {
 			return "", false
@@ -901,6 +899,22 @@ func (s *ShortcutSet) Lookup(binding KeyBinding, mode Mode) (Action, bool) {
 	}
 
 	return "", false
+}
+
+// deadKeySymbols maps dead keysyms to the ASCII symbol they stand for.
+var deadKeySymbols = map[uint]uint{
+	uint(gdk.KEY_dead_diaeresis):  '"',
+	uint(gdk.KEY_dead_acute):      '\'',
+	uint(gdk.KEY_dead_grave):      '`',
+	uint(gdk.KEY_dead_circumflex): '^',
+	uint(gdk.KEY_dead_tilde):      '~',
+}
+
+// isShiftedSymbol reports a Shift-only binding on a printable ASCII symbol.
+func isShiftedSymbol(binding KeyBinding) bool {
+	k := binding.Keyval
+	isSymbol := k > ' ' && k <= '~' && (k < 'a' || k > 'z') && (k < 'A' || k > 'Z')
+	return binding.Modifiers == ModShift && isSymbol
 }
 
 // ShouldAutoExitMode returns true if the action should cause modal mode to exit.

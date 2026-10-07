@@ -426,6 +426,37 @@ func (*SchemaProvider) getWorkspaceKeys(defaults *Config) []entity.ConfigKeyInfo
 			Description: "Switch focus to tab when moving pane to it",
 			Section:     SectionWorkspace,
 		},
+		// Keymap preset
+		{
+			Key:         "workspace.keymap",
+			Type:        "string",
+			Default:     string(defaults.Workspace.Keymap),
+			Description: "Mode activation style: zellij (one shortcut per mode) or tmux (single prefix key)",
+			Values:      []string{string(KeymapZellij), string(KeymapTmux)},
+			Section:     SectionWorkspace,
+		},
+		{
+			Key:         "workspace.prefix_mode.activation_shortcut",
+			Type:        "string",
+			Default:     defaults.Workspace.PrefixMode.ActivationShortcut,
+			Description: "Prefix key used when workspace.keymap is tmux",
+			Section:     SectionWorkspace,
+		},
+		{
+			Key:         "workspace.prefix_mode.timeout_ms",
+			Type:        "int",
+			Default:     fmt.Sprintf("%d", defaults.Workspace.PrefixMode.TimeoutMilliseconds),
+			Description: "Prefix timeout in milliseconds (0 = no timeout)",
+			Range:       ">=0",
+			Section:     SectionWorkspace,
+		},
+		{
+			Key:         "workspace.prefix_mode.actions.<action>",
+			Type:        "object",
+			Default:     "(see defaults)",
+			Description: "One-shot actions available after the prefix key",
+			Section:     SectionWorkspace,
+		},
 		// Pane mode
 		{
 			Key:         "workspace.pane_mode.activation_shortcut",

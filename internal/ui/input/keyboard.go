@@ -502,6 +502,9 @@ func (h *KeyboardHandler) handleShortcutLookupResult(
 			log.Trace().Uint("keyval", keyval).Msg("routing native page navigation key to focused widget in vim mode")
 			return false
 		}
+		if mode == ModePrefix {
+			return h.handleUnboundPrefixKey(keyval, modifiers)
+		}
 		return mode != ModeNormal // Consume unrecognized keys in modal mode
 	}
 	if h.shouldPassthroughVimModeActivation(action, mode) {
@@ -697,6 +700,26 @@ func (h *KeyboardHandler) confirmVimMode() {
 	h.modal.ExitMode(h.ctx)
 }
 
+// handleUnboundPrefixKey handles a key with no prefix action. Modifier and
+// dead-key presses (the Shift before '%') keep the prefix waiting. Any other
+// key cancels the prefix, tmux-style; modified keys then continue to their
+// normal handlers (Alt+1 tab switch, page shortcuts), plain keys are consumed.
+func (h *KeyboardHandler) handleUnboundPrefixKey(keyval uint, modifiers Modifier) bool {
+	if isNonCharacterKeysym(keyval) {
+		return true
+	}
+	h.modal.ExitMode(h.ctx)
+	return !IsShortcutModified(modifiers)
+}
+
+// isNonCharacterKeysym reports modifier, ISO lock/latch, and dead keysyms:
+// keys pressed on the way to a character rather than characters themselves.
+func isNonCharacterKeysym(keyval uint) bool {
+	isModifier := keyval >= uint(gdk.KEY_Shift_L) && keyval <= uint(gdk.KEY_Hyper_R)
+	isISOOrDead := keyval >= uint(gdk.KEY_ISO_Lock) && keyval <= uint(gdk.KEY_dead_greek)
+	return isModifier || isISOOrDead
+}
+
 // dispatchAction dispatches the action and handles mode-related logic.
 func (h *KeyboardHandler) dispatchAction(action Action, mode Mode) bool {
 	if h.handleModeAction(action) {
@@ -721,7 +744,10 @@ func (h *KeyboardHandler) dispatchAction(action Action, mode Mode) bool {
 		h.modal.ResetTimeout(h.ctx)
 	}
 
-	if mode != ModeNormal && ShouldAutoExitMode(action) {
+	// The prefix is one-shot: any action returns to normal mode. Mode-enter
+	// actions already left ModePrefix in handleModeAction.
+	if (mode == ModePrefix && h.modal.Mode() == ModePrefix) ||
+		(mode != ModeNormal && ShouldAutoExitMode(action)) {
 		h.modal.ExitMode(h.ctx)
 	}
 
@@ -755,6 +781,7 @@ func isRepeatedKeyboardActionSuppressed(action Action) bool {
 		ActionEnterSessionMode,
 		ActionEnterResizeMode,
 		ActionEnterVimMode,
+		ActionEnterPrefixMode,
 		ActionNewTab,
 		ActionRenameTab,
 		ActionSplitRight,
@@ -880,6 +907,17 @@ func (h *KeyboardHandler) handleModeAction(action Action) bool {
 	}
 
 	switch action {
+	case ActionEnterPrefixMode:
+		if h.modal.Mode() == ModePrefix {
+			h.modal.ExitMode(h.ctx)
+			return true
+		}
+		var ms int
+		if workspace != nil {
+			ms = workspace.PrefixMode.TimeoutMilliseconds
+		}
+		h.modal.EnterPrefixMode(h.ctx, time.Duration(ms)*time.Millisecond)
+		return true
 	case ActionEnterTabMode:
 		var ms int
 		if workspace != nil {

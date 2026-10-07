@@ -27,6 +27,7 @@ func validateConfig(config *Config) error {
 	validationErrors = append(validationErrors, validatePopups(config)...)
 	validationErrors = append(validationErrors, validateExternalLinks(config)...)
 	validationErrors = append(validationErrors, validateWorkspaceStyling(config)...)
+	validationErrors = append(validationErrors, validateKeymap(config)...)
 	validationErrors = append(validationErrors, validatePaneMode(config)...)
 	validationErrors = append(validationErrors, validateTabBar(config)...)
 	validationErrors = append(validationErrors, validateTabMode(config)...)
@@ -231,6 +232,19 @@ func validateWorkspaceStyling(config *Config) []string {
 	if config.Workspace.Styling.ModeLegendDelayMs < 0 {
 		validationErrors = append(validationErrors, "workspace.styling.mode_legend_delay_ms must be non-negative")
 	}
+	return validationErrors
+}
+
+func validateKeymap(config *Config) []string {
+	var validationErrors []string
+	switch config.Workspace.Keymap {
+	case KeymapZellij, KeymapTmux:
+	default:
+		validationErrors = append(validationErrors, fmt.Sprintf(
+			"workspace.keymap must be 'zellij' or 'tmux' (got: %s)", config.Workspace.Keymap))
+	}
+	validationErrors = append(validationErrors, validateModalModeActions(
+		"prefix_mode", config.Workspace.PrefixMode.TimeoutMilliseconds, config.Workspace.PrefixMode.Actions)...)
 	return validationErrors
 }
 

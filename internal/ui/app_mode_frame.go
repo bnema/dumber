@@ -10,7 +10,7 @@ func (a *App) modeFrameTarget(bw *browserWindow, mode input.Mode) layout.Widget 
 	if wsView == nil {
 		return nil
 	}
-	if mode == input.ModeTab || mode == input.ModeSession {
+	if mode == input.ModeTab || mode == input.ModeSession || mode == input.ModePrefix {
 		return wsView.Widget()
 	}
 	ws := a.activeWorkspaceForBrowserWindow(bw)

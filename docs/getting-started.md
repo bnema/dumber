@@ -10,7 +10,7 @@ Or use the desktop entry after running `dumber setup`.
 
 ## Basic Navigation
 
-Dumber uses modal keybindings inspired by Zellij:
+Dumber uses modal keybindings inspired by Zellij. If you prefer tmux, set `keymap = "tmux"` under `[workspace]` to use one prefix key (`Ctrl+Space`) followed by a single action key; see [Keymap presets](./reference/keybindings.md#keymap-presets).
 
 | Mode | Activation | Purpose |
 |------|------------|---------|

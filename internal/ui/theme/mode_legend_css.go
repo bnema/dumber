@@ -12,6 +12,7 @@ var modeLegendColors = []struct{ mode, color, text string }{
 	{"resize", "--resize-mode-color", "--resize-mode-text"},
 	{"tab", "--tab-mode-color", "--tab-mode-text"},
 	{"session", "--session-mode-color", "--session-mode-text"},
+	{"prefix", "--pane-mode-color", "--pane-mode-text"},
 }
 
 func generateModeLegendCSS() string {
