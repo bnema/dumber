@@ -2604,6 +2604,16 @@ func (wv *WebView) releaseBeginFrameTickCallback() {
 	}
 }
 
+// postToGTK queues fn on the GTK main loop. It is a seam for tests.
+var postToGTK = func(fn func()) {
+	// Heap-allocate the callback so it survives until glib invokes it.
+	cb := new(glib.SourceOnceFunc)
+	*cb = func(_ uintptr) {
+		fn()
+	}
+	glib.IdleAddOnce(cb, 0)
+}
+
 func (wv *WebView) runOnGTK(fn func()) {
 	if fn == nil {
 		return
@@ -2613,13 +2623,7 @@ func (wv *WebView) runOnGTK(fn func()) {
 		fn()
 		return
 	}
-
-	// Heap-allocate the callback so it survives until glib invokes it.
-	cb := new(glib.SourceOnceFunc)
-	*cb = func(_ uintptr) {
-		fn()
-	}
-	glib.IdleAddOnce(cb, 0)
+	postToGTK(fn)
 }
 
 func (wv *WebView) isOnGTKThread() bool {

@@ -256,29 +256,54 @@ func TestJSDialogCancelledBeforeUIRunsIsNotShown(t *testing.T) {
 	require.Len(t, cb.calls, 1)
 }
 
+// useQueuedGTK makes runOnGTK queue callbacks; the returned func runs them in
+// order, like the GTK main loop would.
+func useQueuedGTK(t *testing.T, wv *WebView) (drain func()) {
+	t.Helper()
+	var queue []func()
+	prev := postToGTK
+	postToGTK = func(fn func()) { queue = append(queue, fn) }
+	t.Cleanup(func() { postToGTK = prev })
+	wv.engine = &Engine{}
+	return func() {
+		for len(queue) > 0 {
+			fn := queue[0]
+			queue = queue[1:]
+			fn()
+		}
+	}
+}
+
 func TestStaleUIResetSkippedWhenNewerDialogPending(t *testing.T) {
 	useDirectJSDialogContinue(t)
 	ui := &jsDialogUIRecorder{handled: true}
 	wv := newJSDialogWebView(ui)
+	drainGTK := useQueuedGTK(t, wv)
 	h := &handlerSet{wv: wv}
 	old := &stubJSDialogCallback{}
 	h.OnJsdialog(nil, "", purecef.JsdialogTypeJsdialogtypeAlert, "old", "", old, new(int32))
+	drainGTK()
+	require.Len(t, ui.reqs, 1)
 
-	// Cancel resolves the old dialog; its UI reset is still queued for the
-	// GTK thread (modeled by calling resetJSDialogUI later).
-	require.True(t, wv.jsDialogs.cancelPending(false))
+	// Cancel resolves the old dialog; its UI reset is queued for GTK.
+	wv.cancelJSDialogs()
+	require.Equal(t, []jsDialogAnswer{{ok: false}}, old.calls)
+	require.Zero(t, ui.resets, "reset must wait for the GTK queue")
 
 	// A newer dialog arrives before the queued reset runs.
 	newer := &stubJSDialogCallback{}
 	h.OnJsdialog(nil, "", purecef.JsdialogTypeJsdialogtypeAlert, "new", "", newer, new(int32))
+
+	// GTK runs the stale reset, then presents the newer dialog.
+	drainGTK()
 	require.Len(t, ui.reqs, 2)
-
-	wv.resetJSDialogUI(wv.callbacks.OnJSDialogReset)
 	require.Zero(t, ui.resets, "stale reset must not hide the newer dialog")
+	require.Empty(t, newer.calls, "newer dialog must stay pending")
 
-	// Once nothing is pending the reset goes through.
-	ui.respond[1](true, "")
-	wv.resetJSDialogUI(wv.callbacks.OnJSDialogReset)
+	// Canceling the newer dialog resets the UI once GTK runs.
+	wv.cancelJSDialogs()
+	drainGTK()
+	require.Equal(t, []jsDialogAnswer{{ok: false}}, newer.calls)
 	require.Equal(t, 1, ui.resets)
 }
 
