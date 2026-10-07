@@ -78,6 +78,28 @@ func (t *TabModeConfig) GetKeyBindings() map[string]string {
 	return keyBindingsFromActions(t.Actions)
 }
 
+// KeymapPreset selects how workspace modes are activated.
+type KeymapPreset string
+
+const (
+	// KeymapZellij activates each mode with its own shortcut (Ctrl+P, Ctrl+T, ...).
+	KeymapZellij KeymapPreset = "zellij"
+	// KeymapTmux activates a single one-shot prefix key; mode shortcuts are unbound.
+	KeymapTmux KeymapPreset = "tmux"
+)
+
+// PrefixModeConfig holds the tmux-style one-shot prefix configuration.
+type PrefixModeConfig struct {
+	ActivationShortcut  string                   `mapstructure:"activation_shortcut" yaml:"activation_shortcut" toml:"activation_shortcut" json:"activation_shortcut"` //nolint:lll // struct tags must stay on one line
+	TimeoutMilliseconds int                      `mapstructure:"timeout_ms" yaml:"timeout_ms" toml:"timeout_ms" json:"timeout_ms"`
+	Actions             map[string]ActionBinding `mapstructure:"actions" yaml:"actions" toml:"actions" json:"actions"`
+}
+
+// GetKeyBindings returns a map from key string to action name.
+func (p *PrefixModeConfig) GetKeyBindings() map[string]string {
+	return keyBindingsFromActions(p.Actions)
+}
+
 // VimModeConfig holds vim scroll mode shortcut configuration.
 type VimModeConfig struct {
 	ActivationShortcut          string                   `mapstructure:"activation_shortcut" yaml:"activation_shortcut" toml:"activation_shortcut" json:"activation_shortcut"` //nolint:lll // struct tags must stay on one line
@@ -245,6 +267,8 @@ type ExternalLinksConfig struct {
 // WorkspaceConfig holds all workspace layout and behavior settings.
 type WorkspaceConfig struct {
 	NewPaneURL    string                `mapstructure:"new_pane_url" yaml:"new_pane_url" toml:"new_pane_url" json:"new_pane_url"`
+	Keymap        KeymapPreset          `mapstructure:"keymap" yaml:"keymap" toml:"keymap" json:"keymap"`
+	PrefixMode    PrefixModeConfig      `mapstructure:"prefix_mode" yaml:"prefix_mode" toml:"prefix_mode" json:"prefix_mode"`
 	PaneMode      PaneModeConfig        `mapstructure:"pane_mode" yaml:"pane_mode" toml:"pane_mode" json:"pane_mode"`
 	TabMode       TabModeConfig         `mapstructure:"tab_mode" yaml:"tab_mode" toml:"tab_mode" json:"tab_mode"`
 	VimMode       VimModeConfig         `mapstructure:"vim_mode" yaml:"vim_mode" toml:"vim_mode" json:"vim_mode"`

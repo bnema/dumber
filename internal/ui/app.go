@@ -3898,6 +3898,8 @@ func getModeToastClass(mode input.Mode) string {
 		return "toast-session-mode"
 	case input.ModeResize:
 		return "toast-resize-mode"
+	case input.ModePrefix:
+		return "toast-prefix-mode"
 	default:
 		return ""
 	}

@@ -90,7 +90,7 @@ For dependencies, distribution notes, and troubleshooting, see the [installation
 
 ## Keyboard modes
 
-Dumber uses modal keybindings for browser management.
+Dumber uses modal keybindings for browser management. The default `zellij` keymap gives each mode its own key; set `workspace.keymap = "tmux"` to use a single prefix (`Ctrl+Space`) followed by one action key instead.
 
 | Mode | Default key | Used for |
 |------|-------------|----------|

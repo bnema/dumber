@@ -698,8 +698,16 @@ func (m *Manager) setZoomAndScaleDefaults(defaults *Config) {
 	m.viper.SetDefault("sidebar_width", defaults.SidebarWidth)
 }
 
+func (m *Manager) setKeymapDefaults(defaults *Config) {
+	m.viper.SetDefault("workspace.keymap", string(defaults.Workspace.Keymap))
+	m.viper.SetDefault("workspace.prefix_mode.activation_shortcut", defaults.Workspace.PrefixMode.ActivationShortcut)
+	m.viper.SetDefault("workspace.prefix_mode.timeout_ms", defaults.Workspace.PrefixMode.TimeoutMilliseconds)
+	m.viper.SetDefault("workspace.prefix_mode.actions", defaults.Workspace.PrefixMode.Actions)
+}
+
 func (m *Manager) setWorkspaceDefaults(defaults *Config) {
 	m.viper.SetDefault("workspace.new_pane_url", defaults.Workspace.NewPaneURL)
+	m.setKeymapDefaults(defaults)
 	m.viper.SetDefault("workspace.pane_mode.activation_shortcut", defaults.Workspace.PaneMode.ActivationShortcut)
 	m.viper.SetDefault("workspace.pane_mode.timeout_ms", defaults.Workspace.PaneMode.TimeoutMilliseconds)
 	m.viper.SetDefault("workspace.pane_mode.actions", defaults.Workspace.PaneMode.Actions)

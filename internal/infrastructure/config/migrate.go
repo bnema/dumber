@@ -302,6 +302,7 @@ type defaultActionMap struct {
 func (m *Migrator) defaultActionMaps() []defaultActionMap {
 	return []defaultActionMap{
 		{key: "workspace.shortcuts.actions", actions: m.defaultConfig.Workspace.Shortcuts.Actions},
+		{key: "workspace.prefix_mode.actions", actions: m.defaultConfig.Workspace.PrefixMode.Actions},
 		{key: "workspace.pane_mode.actions", actions: m.defaultConfig.Workspace.PaneMode.Actions},
 		{key: "workspace.tab_mode.actions", actions: m.defaultConfig.Workspace.TabMode.Actions},
 		{key: "workspace.vim_mode.actions", actions: m.defaultConfig.Workspace.VimMode.Actions},

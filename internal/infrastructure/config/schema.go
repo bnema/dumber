@@ -15,6 +15,17 @@ type ColorPalette = entity.ColorPalette
 // ActionBinding defines a keybinding with optional description.
 type ActionBinding = entity.ActionBinding
 
+// PrefixModeConfig defines the tmux-style one-shot prefix.
+type PrefixModeConfig = entity.PrefixModeConfig
+
+// KeymapPreset selects how workspace modes are activated.
+type KeymapPreset = entity.KeymapPreset
+
+const (
+	KeymapZellij = entity.KeymapZellij
+	KeymapTmux   = entity.KeymapTmux
+)
+
 // PaneModeConfig defines modal behavior for pane management.
 type PaneModeConfig = entity.PaneModeConfig
 

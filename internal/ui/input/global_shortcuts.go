@@ -81,12 +81,12 @@ func NewGlobalShortcutHandler(
 	if workspace != nil {
 		actionMap := globalShortcutActionMap()
 
-		for actionName, actionBinding := range workspace.Shortcuts.Actions {
+		for _, actionName := range orderedGlobalShortcutActions(workspace.Shortcuts.Actions) {
 			action, ok := actionMap[actionName]
 			if !ok {
 				continue
 			}
-			for _, keyStr := range actionBinding.Keys {
+			for _, keyStr := range workspace.Shortcuts.Actions[actionName].Keys {
 				binding, ok := ParseKeyString(keyStr)
 				if !ok {
 					log.Warn().Str("shortcut", keyStr).Str("action", string(action)).Msg("failed to parse global shortcut")
@@ -194,13 +194,6 @@ func (h *GlobalShortcutHandler) registerDefaultGlobalShortcuts(log *zerolog.Logg
 	log.Trace().
 		Uint("keyval", uint(gdk.KEY_Tab)).
 		Str("action", string(ActionSwitchLastTab)).
-		Msg("registered global shortcut")
-
-	// Ctrl+Shift+S for direct session manager access (needs global scope for WebView focus).
-	h.registerShortcut(uint(gdk.KEY_s), gdk.ControlMaskValue|gdk.ShiftMaskValue, ActionOpenSessionManager)
-	log.Trace().
-		Uint("keyval", uint(gdk.KEY_s)).
-		Str("action", string(ActionOpenSessionManager)).
 		Msg("registered global shortcut")
 }
 
@@ -338,6 +331,12 @@ func (h *GlobalShortcutHandler) dispatchGlobalShortcut(actionToDispatch Action, 
 		log.Warn().
 			Str("action", string(actionToDispatch)).
 			Msg("mode action triggered but keyboard handler not set, falling through to default handler")
+	}
+
+	// After the tmux prefix, dispatch through KeyboardHandler so the
+	// one-shot exit follows the same order as keys it handles directly.
+	if h.kbHandler != nil && h.kbHandler.Mode() == ModePrefix {
+		return h.kbHandler.DispatchAction(actionToDispatch)
 	}
 
 	if h.onAction != nil {
@@ -559,12 +558,12 @@ func (h *GlobalShortcutHandler) ReloadShortcuts(ctx context.Context, workspace *
 	if workspace != nil {
 		actionMap := globalShortcutActionMap()
 
-		for actionName, actionBinding := range workspace.Shortcuts.Actions {
+		for _, actionName := range orderedGlobalShortcutActions(workspace.Shortcuts.Actions) {
 			action, ok := actionMap[actionName]
 			if !ok {
 				continue
 			}
-			for _, keyStr := range actionBinding.Keys {
+			for _, keyStr := range workspace.Shortcuts.Actions[actionName].Keys {
 				binding, ok := ParseKeyString(keyStr)
 				if !ok {
 					continue
@@ -840,7 +839,8 @@ func formatEventType(eventType gdk.EventType) string {
 
 func isModeAction(action Action) bool {
 	switch action {
-	case ActionEnterTabMode, ActionEnterPaneMode, ActionEnterSessionMode, ActionEnterResizeMode, ActionEnterVimMode, ActionExitMode:
+	case ActionEnterTabMode, ActionEnterPaneMode, ActionEnterSessionMode, ActionEnterResizeMode, ActionEnterVimMode,
+		ActionEnterPrefixMode, ActionExitMode:
 		return true
 	default:
 		return false

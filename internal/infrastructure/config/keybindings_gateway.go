@@ -9,7 +9,10 @@ import (
 	"github.com/bnema/dumber/internal/logging"
 )
 
-const modeGlobal = "global"
+const (
+	modeGlobal = "global"
+	modePrefix = "prefix"
+)
 
 // KeybindingsGateway implements port.KeybindingsProvider and port.KeybindingsSaver.
 type KeybindingsGateway struct {
@@ -30,6 +33,7 @@ func (g *KeybindingsGateway) GetKeybindings(ctx context.Context) (port.Keybindin
 
 	groups := []port.KeybindingGroup{
 		g.buildGlobalGroup(cfg, defaults),
+		g.buildPrefixModeGroup(cfg, defaults),
 		g.buildPaneModeGroup(cfg, defaults),
 		g.buildTabModeGroup(cfg, defaults),
 		g.buildVimModeGroup(cfg, defaults),
@@ -47,6 +51,7 @@ func (g *KeybindingsGateway) GetDefaultKeybindings(ctx context.Context) (port.Ke
 
 	groups := []port.KeybindingGroup{
 		g.buildGlobalGroup(defaults, defaults),
+		g.buildPrefixModeGroup(defaults, defaults),
 		g.buildPaneModeGroup(defaults, defaults),
 		g.buildTabModeGroup(defaults, defaults),
 		g.buildVimModeGroup(defaults, defaults),
@@ -108,6 +113,7 @@ func (g *KeybindingsGateway) ResetAllKeybindings(ctx context.Context) error {
 	cfg := g.mgr.Get()
 	defaults := DefaultConfig()
 
+	cfg.Workspace.PrefixMode.Actions = defaults.Workspace.PrefixMode.Actions
 	cfg.Workspace.PaneMode.Actions = defaults.Workspace.PaneMode.Actions
 	cfg.Workspace.TabMode.Actions = defaults.Workspace.TabMode.Actions
 	cfg.Workspace.VimMode.Actions = defaults.Workspace.VimMode.Actions
@@ -124,6 +130,16 @@ func (g *KeybindingsGateway) buildGlobalGroup(cfg, defaults *Config) port.Keybin
 		Mode:        modeGlobal,
 		DisplayName: "Global Shortcuts",
 		Bindings:    g.buildModeBindings(cfg.Workspace.Shortcuts.Actions, defaults.Workspace.Shortcuts.Actions),
+	}
+}
+
+// buildPrefixModeGroup builds the tmux-style prefix group.
+func (g *KeybindingsGateway) buildPrefixModeGroup(cfg, defaults *Config) port.KeybindingGroup {
+	return port.KeybindingGroup{
+		Mode:        modePrefix,
+		DisplayName: "Prefix (tmux keymap)",
+		Bindings:    g.buildModeBindings(cfg.Workspace.PrefixMode.Actions, defaults.Workspace.PrefixMode.Actions),
+		Activation:  cfg.Workspace.PrefixMode.ActivationShortcut,
 	}
 }
 
@@ -211,6 +227,11 @@ func (*KeybindingsGateway) updateKeybinding(cfg *Config, req port.SetKeybindingR
 			existing.Keys = req.Keys
 			cfg.Workspace.Shortcuts.Actions[req.Action] = existing
 		}
+	case modePrefix:
+		if existing, ok := cfg.Workspace.PrefixMode.Actions[req.Action]; ok {
+			existing.Keys = req.Keys
+			cfg.Workspace.PrefixMode.Actions[req.Action] = existing
+		}
 	case "pane":
 		if existing, ok := cfg.Workspace.PaneMode.Actions[req.Action]; ok {
 			existing.Keys = req.Keys
@@ -244,6 +265,10 @@ func (*KeybindingsGateway) getDefaultKeys(defaults *Config, mode, action string)
 	switch mode {
 	case modeGlobal:
 		if binding, ok := defaults.Workspace.Shortcuts.Actions[action]; ok {
+			return binding.Keys
+		}
+	case modePrefix:
+		if binding, ok := defaults.Workspace.PrefixMode.Actions[action]; ok {
 			return binding.Keys
 		}
 	case "pane":
@@ -289,6 +314,7 @@ func (*KeybindingsGateway) checkConflicts(cfg *Config, targetMode, targetAction 
 	}
 
 	addBindings(modeGlobal, cfg.Workspace.Shortcuts.Actions)
+	addBindings(modePrefix, cfg.Workspace.PrefixMode.Actions)
 	addBindings("pane", cfg.Workspace.PaneMode.Actions)
 	addBindings("tab", cfg.Workspace.TabMode.Actions)
 	addBindings("vim", cfg.Workspace.VimMode.Actions)

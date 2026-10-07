@@ -1617,3 +1617,53 @@ func TestMigrator_Migrate_KeepsNewOmniboxMaxHistoryDaysOverLegacyKey(t *testing.
 	assert.Contains(t, string(migrated), "max_history_days = 7")
 	assert.NotContains(t, string(migrated), "most_visited_days")
 }
+
+func TestMigrator_Migrate_AddsKeymapPresetAndBuiltinShortcuts(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, ".config"))
+	t.Setenv("XDG_DATA_HOME", filepath.Join(home, ".local", "share"))
+	t.Setenv("XDG_STATE_HOME", filepath.Join(home, ".local", "state"))
+	t.Setenv("XDG_CACHE_HOME", filepath.Join(home, ".cache"))
+
+	configFile, err := GetConfigFile()
+	require.NoError(t, err)
+	require.NoError(t, os.MkdirAll(filepath.Dir(configFile), 0o755))
+	// A config written before keymap presets: no keymap, no prefix_mode, and a
+	// shortcuts table without the configurable browser actions.
+	require.NoError(t, os.WriteFile(configFile, []byte(`
+[workspace.shortcuts.actions.quit]
+keys = ["ctrl+shift+q"]
+desc = "Custom quit"
+
+[workspace.shortcuts.actions.toggle-floating-pane]
+keys = ["alt+f"]
+desc = "Toggle floating pane"
+`), 0o644))
+
+	m := NewMigrator()
+	result, err := m.CheckMigration()
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	assert.Contains(t, result.MissingKeys, "workspace.keymap")
+	assert.Contains(t, result.MissingKeys, "workspace.prefix_mode.activation_shortcut")
+	assert.Contains(t, result.MissingKeys, "workspace.shortcuts.actions.open-omnibox")
+
+	_, err = m.Migrate()
+	require.NoError(t, err)
+
+	mgr, err := NewManager()
+	require.NoError(t, err)
+	require.NoError(t, mgr.Load())
+	cfg := mgr.Get()
+
+	assert.Equal(t, KeymapZellij, cfg.Workspace.Keymap)
+	assert.Equal(t, defaultPrefixActivationShortcut, cfg.Workspace.PrefixMode.ActivationShortcut)
+	assert.Equal(t, DefaultConfig().Workspace.PrefixMode.Actions, cfg.Workspace.PrefixMode.Actions)
+	assert.Equal(t, []string{"ctrl+l"}, cfg.Workspace.Shortcuts.Actions["open-omnibox"].Keys)
+	assert.Equal(t, []string{"ctrl+shift+q"}, cfg.Workspace.Shortcuts.Actions["quit"].Keys, "user override kept")
+
+	again, err := m.CheckMigration()
+	require.NoError(t, err)
+	assert.Nil(t, again, "migration is idempotent")
+}

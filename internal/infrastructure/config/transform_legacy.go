@@ -31,6 +31,7 @@ func NewLegacyConfigTransformer() *LegacyConfigTransformer {
 //	desc = "Focus pane to the left"
 func (t *LegacyConfigTransformer) TransformLegacyActions(rawConfig map[string]any) {
 	actionPaths := [][]string{
+		{"workspace", "prefix_mode", "actions"},
 		{"workspace", "pane_mode", "actions"},
 		{"workspace", "tab_mode", "actions"},
 		{"workspace", "resize_mode", "actions"},
@@ -296,6 +297,10 @@ func (*LegacyConfigTransformer) ForceLegacyPopupsToBrowsingContexts(rawConfig ma
 
 func (t *LegacyConfigTransformer) getDefaultDesc(path []string, actionName string) string {
 	switch {
+	case path[0] == sectionWorkspace && path[1] == "prefix_mode":
+		if b, ok := t.defaults.Workspace.PrefixMode.Actions[actionName]; ok {
+			return b.Desc
+		}
 	case path[0] == sectionWorkspace && path[1] == "pane_mode":
 		if b, ok := t.defaults.Workspace.PaneMode.Actions[actionName]; ok {
 			return b.Desc
