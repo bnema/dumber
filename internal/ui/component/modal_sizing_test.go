@@ -176,6 +176,8 @@ func TestOmniboxSizeDefaults_Values(t *testing.T) {
 func TestOmniboxValign(t *testing.T) {
 	assert.Equal(t, gtk.AlignCenterValue, omniboxValign(OmniboxSizeDefaults))
 	assert.Equal(t, gtk.AlignStartValue, omniboxValign(ModalSizeConfig{UseFixedTopMargin: true}))
+	assert.Equal(t, gtk.AlignStartValue, omniboxValign(ResolveModalSizeConfig(
+		ModalSizeConfig{TopMarginPct: 0.2}, OmniboxSizeDefaults)))
 }
 
 func TestOmniboxListDefaults_ScrollableResults(t *testing.T) {

@@ -782,10 +782,11 @@ func (o *Omnibox) initOuterBox() error {
 	return nil
 }
 
-// omniboxValign centers the in-pane omnibox vertically; a fixed top margin
-// (standalone window sized by its content) keeps it top-aligned.
+// omniboxValign centers the omnibox vertically by default. Any configured top
+// margin (fixed for the content-sized standalone window, or a percentage
+// override) keeps it top-aligned so the margin is applied as requested.
 func omniboxValign(cfg ModalSizeConfig) gtk.Align {
-	if cfg.UseFixedTopMargin {
+	if cfg.UseFixedTopMargin || cfg.TopMarginPct > 0 {
 		return gtk.AlignStartValue
 	}
 	return gtk.AlignCenterValue
@@ -2814,9 +2815,6 @@ func (o *Omnibox) Show(ctx context.Context, query string) {
 		parentHeight = o.parentOverlay.GetAllocatedHeight()
 	}
 	width, marginTop := o.requestedDimensions()
-	if omniboxValign(o.sizeCfg) == gtk.AlignCenterValue {
-		marginTop = 0 // centered by GTK; a margin would push it off-center
-	}
 	log.Debug().
 		Int("parentWidth", parentWidth).
 		Int("parentHeight", parentHeight).
