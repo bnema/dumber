@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	layoutmocks "github.com/bnema/dumber/internal/ui/layout/mocks"
+	"github.com/bnema/puregotk/v4/gtk"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -168,8 +169,20 @@ func TestDefaultRowHeights_Values(t *testing.T) {
 func TestOmniboxSizeDefaults_Values(t *testing.T) {
 	assert.InDelta(t, 0.8, OmniboxSizeDefaults.WidthPct, 0.0001)
 	assert.Equal(t, 800, OmniboxSizeDefaults.MaxWidth)
-	assert.InDelta(t, 0.2, OmniboxSizeDefaults.TopMarginPct, 0.0001)
+	assert.Zero(t, OmniboxSizeDefaults.TopMarginPct)
 	assert.Equal(t, 600, OmniboxSizeDefaults.FallbackHeight)
+}
+
+func TestOmniboxValign(t *testing.T) {
+	assert.Equal(t, gtk.AlignCenterValue, omniboxValign(OmniboxSizeDefaults))
+	assert.Equal(t, gtk.AlignStartValue, omniboxValign(ModalSizeConfig{UseFixedTopMargin: true}))
+	assert.Equal(t, gtk.AlignStartValue, omniboxValign(ResolveModalSizeConfig(
+		ModalSizeConfig{TopMarginPct: 0.2}, OmniboxSizeDefaults)))
+}
+
+func TestOmniboxListDefaults_ScrollableResults(t *testing.T) {
+	assert.Less(t, OmniboxListDefaults.MaxVisibleRows, OmniboxListDefaults.MaxResults)
+	assert.Less(t, OmniboxListDefaults.SmallMaxVisibleRows, OmniboxListDefaults.MaxVisibleRows)
 }
 
 func TestSessionManagerSizeDefaults_Values(t *testing.T) {
@@ -325,7 +338,7 @@ func TestCalculateModalDimensionsWithScale_LargeParent(t *testing.T) {
 		parent := mockParent(t, 3000, 1200)
 		w, m := CalculateModalDimensionsWithScale(parent, cfg, tt.scale)
 		assert.Equal(t, tt.want, w, "scale %v", tt.scale)
-		assert.Equal(t, 240, m, "top margin unchanged")
+		assert.Zero(t, m, "omnibox is centered, not top-margined")
 	}
 }
 
@@ -351,7 +364,7 @@ func TestCalculateModalDimensionsWithScale_NormalizesBadScale(t *testing.T) {
 		parent := mockParent(t, 3000, 1080)
 		w, m := CalculateModalDimensionsWithScale(parent, cfg, scale)
 		assert.Equal(t, 800, w, "scale %v", scale)
-		assert.Equal(t, 216, m, "scale %v", scale)
+		assert.Zero(t, m, "scale %v", scale)
 	}
 }
 
