@@ -19,7 +19,7 @@ type ghostCompletionRequest struct {
 	SelectedURL          string
 	HasExplicitSelection bool
 	Mode                 ViewMode
-	MaxVisible           int
+	MaxResults           int
 	Suggestions          []Suggestion
 	Favorites            []Favorite
 }
@@ -34,7 +34,7 @@ func ghostCompletion(req ghostCompletionRequest) (fullText, suffix string, ok bo
 		return "", "", false
 	}
 	fullText, suffix, ok = visibleGhostSuggestion(
-		input, req.SelectedURL, req.HasExplicitSelection, req.Mode, req.MaxVisible, req.Suggestions, req.Favorites,
+		input, req.SelectedURL, req.HasExplicitSelection, req.Mode, req.MaxResults, req.Suggestions, req.Favorites,
 	)
 	if !ok {
 		return "", "", false
@@ -122,7 +122,7 @@ func visibleGhostSuggestion(
 	query, selectedURL string,
 	hasExplicitSelection bool,
 	mode ViewMode,
-	maxVisible int,
+	maxResults int,
 	suggestions []Suggestion,
 	favorites []Favorite,
 ) (fullText, suffix string, ok bool) {
@@ -131,16 +131,16 @@ func visibleGhostSuggestion(
 		return fullText, suffix, ok
 	}
 
-	visibleURLs := visibleURLsForMode(mode, maxVisible, suggestions, favorites)
-	suffix, fullText, ok = autocomplete.BestURLCompletion(query, visibleURLs)
+	listedURLs := listedURLsForMode(mode, maxResults, suggestions, favorites)
+	suffix, fullText, ok = autocomplete.BestURLCompletion(query, listedURLs)
 	return fullText, suffix, ok
 }
 
-func visibleURLsForMode(mode ViewMode, maxVisible int, suggestions []Suggestion, favorites []Favorite) []string {
+func listedURLsForMode(mode ViewMode, maxResults int, suggestions []Suggestion, favorites []Favorite) []string {
 	if mode == ViewModeHistory {
-		visibleCount := visibleResultCount(len(suggestions), maxVisible)
-		urls := make([]string, 0, visibleCount)
-		for _, s := range suggestions[:visibleCount] {
+		count := limitedCount(len(suggestions), maxResults)
+		urls := make([]string, 0, count)
+		for _, s := range suggestions[:count] {
 			if s.URL != "" {
 				urls = append(urls, s.URL)
 			}
@@ -148,9 +148,9 @@ func visibleURLsForMode(mode ViewMode, maxVisible int, suggestions []Suggestion,
 		return urls
 	}
 
-	visibleCount := visibleResultCount(len(favorites), maxVisible)
-	urls := make([]string, 0, visibleCount)
-	for _, f := range favorites[:visibleCount] {
+	count := limitedCount(len(favorites), maxResults)
+	urls := make([]string, 0, count)
+	for _, f := range favorites[:count] {
 		if f.URL != "" {
 			urls = append(urls, f.URL)
 		}
@@ -158,11 +158,11 @@ func visibleURLsForMode(mode ViewMode, maxVisible int, suggestions []Suggestion,
 	return urls
 }
 
-func selectedTargetURL(mode ViewMode, idx, maxVisible int, suggestions []Suggestion, favorites []Favorite) (string, bool) {
+func selectedTargetURL(mode ViewMode, idx, maxResults int, suggestions []Suggestion, favorites []Favorite) (string, bool) {
 	if idx < 0 {
 		return "", false
 	}
-	return resolveTargetURLForSelection(mode, idx, maxVisible, suggestions, favorites), true
+	return resolveTargetURLForSelection(mode, idx, maxResults, suggestions, favorites), true
 }
 
 func bangSuggestionTextAt(idx int, bangSuggestions []BangSuggestion) (string, bool) {
@@ -172,14 +172,27 @@ func bangSuggestionTextAt(idx int, bangSuggestions []BangSuggestion) (string, bo
 	return "!" + bangSuggestions[idx].Key + " ", true
 }
 
-func visibleResultCount(total, maxVisible int) int {
+func limitedCount(total, maxResults int) int {
 	if total <= 0 {
 		return 0
 	}
-	if maxVisible <= 0 || total < maxVisible {
+	if maxResults <= 0 || total < maxResults {
 		return total
 	}
-	return maxVisible
+	return maxResults
+}
+
+// navigableCount returns how many rows of the active list are rendered and
+// reachable by keyboard: the active list length capped at MaxResults.
+func navigableCount(bangMode bool, mode ViewMode, bangs, suggestions, favorites int) int {
+	total := favorites
+	switch {
+	case bangMode:
+		total = bangs
+	case mode == ViewModeHistory:
+		total = suggestions
+	}
+	return limitedCount(total, OmniboxListDefaults.MaxResults)
 }
 
 func effectiveSearchQuery(entryText, realInput string, hasGhost bool) string {
@@ -189,16 +202,16 @@ func effectiveSearchQuery(entryText, realInput string, hasGhost bool) string {
 	return entryText
 }
 
-func resolveTargetURLForSelection(mode ViewMode, idx, maxVisible int, suggestions []Suggestion, favorites []Favorite) string {
+func resolveTargetURLForSelection(mode ViewMode, idx, maxResults int, suggestions []Suggestion, favorites []Favorite) string {
 	if mode == ViewModeHistory {
-		visibleCount := visibleResultCount(len(suggestions), maxVisible)
-		if idx >= 0 && idx < visibleCount {
+		count := limitedCount(len(suggestions), maxResults)
+		if idx >= 0 && idx < count {
 			return suggestions[idx].URL
 		}
 		return ""
 	}
-	visibleCount := visibleResultCount(len(favorites), maxVisible)
-	if idx >= 0 && idx < visibleCount {
+	count := limitedCount(len(favorites), maxResults)
+	if idx >= 0 && idx < count {
 		return favorites[idx].URL
 	}
 	return ""

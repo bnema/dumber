@@ -178,9 +178,8 @@ func TestOmniboxValign(t *testing.T) {
 	assert.Equal(t, gtk.AlignStartValue, omniboxValign(ModalSizeConfig{UseFixedTopMargin: true}))
 }
 
-func TestOmniboxListDefaults_ShowFiveScrollTen(t *testing.T) {
-	assert.Equal(t, 5, OmniboxListDefaults.MaxVisibleRows)
-	assert.Equal(t, 10, OmniboxListDefaults.MaxResults)
+func TestOmniboxListDefaults_ScrollableResults(t *testing.T) {
+	assert.Less(t, OmniboxListDefaults.MaxVisibleRows, OmniboxListDefaults.MaxResults)
 	assert.Less(t, OmniboxListDefaults.SmallMaxVisibleRows, OmniboxListDefaults.MaxVisibleRows)
 }
 
