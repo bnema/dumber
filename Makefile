@@ -14,7 +14,7 @@ MAIN_PATH=./cmd/dumber
 DIST_DIR=dist
 LOCAL_BIN_DIR?=$(HOME)/.local/bin
 TOOL_BIN_DIR?=$(shell go env GOPATH)/bin
-GOLANGCI_LINT_VERSION?=v2.13.2
+GOLANGCI_LINT_VERSION?=v2.14.0
 STATICCHECK_VERSION?=v0.7.0
 
 # Detect number of CPU cores for parallel compilation
