@@ -43,19 +43,20 @@ var DefaultRowHeights = RowHeightDefaults{
 }
 
 // OmniboxSizeDefaults provides default sizing for omnibox modal.
+// The in-pane omnibox is vertically centered, so it has no top margin.
 var OmniboxSizeDefaults = ModalSizeConfig{
 	WidthPct:       0.8,
 	MaxWidth:       800,
-	TopMarginPct:   0.2,
 	FallbackWidth:  800,
 	FallbackHeight: 600,
 }
 
-// OmniboxListDefaults provides display limits for omnibox modal.
+// OmniboxListDefaults provides display limits for omnibox modal:
+// MaxResults rows are listed and navigable, MaxVisibleRows fit before scrolling.
 var OmniboxListDefaults = ListDisplayDefaults{
-	MaxVisibleRows:      10,
+	MaxVisibleRows:      5,
 	MaxResults:          10,
-	SmallMaxVisibleRows: 5,
+	SmallMaxVisibleRows: 3,
 }
 
 // SessionManagerSizeDefaults provides default sizing for session manager modal.

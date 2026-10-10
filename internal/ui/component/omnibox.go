@@ -776,10 +776,19 @@ func (o *Omnibox) initOuterBox() error {
 		return errNilWidget("outerBox")
 	}
 	o.outerBox.AddCssClass("omnibox-outer")
-	o.outerBox.SetHalign(gtk.AlignCenterValue) // Center horizontally
-	o.outerBox.SetValign(gtk.AlignStartValue)  // Align to top
-	o.outerBox.SetVisible(false)               // Hidden by default
+	o.outerBox.SetHalign(gtk.AlignCenterValue)
+	o.outerBox.SetValign(omniboxValign(o.sizeCfg))
+	o.outerBox.SetVisible(false) // Hidden by default
 	return nil
+}
+
+// omniboxValign centers the in-pane omnibox vertically; a fixed top margin
+// (standalone window sized by its content) keeps it top-aligned.
+func omniboxValign(cfg ModalSizeConfig) gtk.Align {
+	if cfg.UseFixedTopMargin {
+		return gtk.AlignStartValue
+	}
+	return gtk.AlignCenterValue
 }
 
 func (o *Omnibox) initMainBox() error {
@@ -923,7 +932,7 @@ func (o *Omnibox) initList() error {
 			return
 		}
 
-		targetURL := resolveTargetURLForSelection(mode, idx, o.effectiveMaxRows(), suggestions, favorites)
+		targetURL := resolveTargetURLForSelection(mode, idx, OmniboxListDefaults.MaxResults, suggestions, favorites)
 
 		if targetURL != "" {
 			o.submitNavigation(targetURL)
@@ -1503,7 +1512,7 @@ func (o *Omnibox) restoreEntryToRealInput() {
 // updateGhostFromSelectionWithInput updates ghost text based on selected row and input.
 func (o *Omnibox) updateGhostFromSelectionWithInput(entryText string) {
 	log := logging.FromContext(o.ctx)
-	maxVisible := o.effectiveMaxRows()
+	maxVisible := OmniboxListDefaults.MaxResults
 	o.mu.RLock()
 	idx := o.selectedIndex
 	mode := o.viewMode
@@ -1632,7 +1641,7 @@ func (o *Omnibox) performSearch() {
 	}
 
 	// Perform fuzzy history search in background
-	o.searchHistory(query, o.effectiveMaxRows(), token)
+	o.searchHistory(query, OmniboxListDefaults.MaxResults, token)
 }
 
 // searchHistory runs a fuzzy history search in a background goroutine.
@@ -1706,7 +1715,7 @@ func (o *Omnibox) loadInitialHistory(token uint64) {
 
 	// Capture effective result limit and age window on the GTK main thread
 	// before spawning goroutine.
-	initialLimit := o.effectiveMaxRows()
+	initialLimit := OmniboxListDefaults.MaxResults
 	initialBehavior := o.initialBehavior
 	maxHistoryDays := o.maxHistoryDays
 
@@ -1962,8 +1971,13 @@ func (o *Omnibox) updateFavorites(favorites []Favorite, query string) {
 
 // rebuildList rebuilds the ListBox contents.
 func (o *Omnibox) rebuildList() {
-	// Clear existing rows
+	// Clear existing rows and show new results from the top
 	o.listBox.RemoveAll()
+	if o.scrolledWin != nil {
+		if adj := o.scrolledWin.GetVadjustment(); adj != nil {
+			adj.SetValue(0)
+		}
+	}
 
 	o.mu.RLock()
 	mode := o.viewMode
@@ -2253,10 +2267,30 @@ func (o *Omnibox) selectIndex(index int) {
 	row := o.listBox.GetRowAtIndex(index)
 	if row != nil {
 		o.listBox.SelectRow(row)
+		o.scrollRowIntoView(row)
 		return
 	}
 
 	o.updateGhostFromSelection()
+}
+
+// scrollRowIntoView scrolls the results list so the row is fully visible.
+// The entry keeps keyboard focus, so GTK does not scroll the list itself.
+func (o *Omnibox) scrollRowIntoView(row *gtk.ListBoxRow) {
+	if o.scrolledWin == nil || row == nil {
+		return
+	}
+	adj := o.scrolledWin.GetVadjustment()
+	if adj == nil {
+		return
+	}
+	src := &graphene.Point{}
+	out := &graphene.Point{}
+	if !row.ComputePoint(&o.listBox.Widget, src, out) {
+		return
+	}
+	top := float64(out.Y)
+	adj.ClampPage(top, top+float64(row.GetAllocatedHeight()))
 }
 
 // selectNext moves selection down.
@@ -2265,7 +2299,7 @@ func (o *Omnibox) selectNext() {
 	current := o.selectedIndex
 	mode := o.viewMode
 	bangMode := o.bangMode
-	maxVisible := o.effectiveMaxRows()
+	maxVisible := OmniboxListDefaults.MaxResults
 	var maxIndex int
 	if bangMode {
 		maxIndex = visibleResultCount(len(o.bangSuggestions), maxVisible) - 1
@@ -2294,7 +2328,7 @@ func (o *Omnibox) selectPrevious() {
 	current := o.selectedIndex
 	mode := o.viewMode
 	bangMode := o.bangMode
-	maxVisible := o.effectiveMaxRows()
+	maxVisible := OmniboxListDefaults.MaxResults
 	var maxIndex int
 	if bangMode {
 		maxIndex = visibleResultCount(len(o.bangSuggestions), maxVisible) - 1
@@ -2327,7 +2361,7 @@ func (o *Omnibox) selectAndNavigate(index int) {
 	suggestions := o.suggestions
 	favorites := o.favorites
 	o.mu.RUnlock()
-	maxVisible := o.effectiveMaxRows()
+	maxVisible := OmniboxListDefaults.MaxResults
 
 	if bangMode {
 		o.navigateToSelected()
@@ -2400,7 +2434,7 @@ func (o *Omnibox) navigateToSelected() {
 	var targetURL string
 	if idx >= 0 {
 		// If user has selected a result, navigate to that result.
-		targetURL = resolveTargetURLForSelection(mode, idx, o.effectiveMaxRows(), suggestions, favorites)
+		targetURL = resolveTargetURLForSelection(mode, idx, OmniboxListDefaults.MaxResults, suggestions, favorites)
 	} else {
 		targetURL = o.buildURL(entryText)
 	}

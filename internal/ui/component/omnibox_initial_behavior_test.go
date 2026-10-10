@@ -287,7 +287,7 @@ func TestOmniboxLoadInitialHistory_MostVisitedBoundsSQL(t *testing.T) {
 	repo := repomocks.NewMockHistoryRepository(t)
 	done := make(chan struct{})
 	repo.EXPECT().
-		GetMostVisitedWithin(mock.Anything, OmniboxListDefaults.MaxVisibleRows, mock.Anything).
+		GetMostVisitedWithin(mock.Anything, OmniboxListDefaults.MaxResults, mock.Anything).
 		Run(func(context.Context, int, repository.HistoryScope) { close(done) }).
 		Return([]*entity.HistoryEntry{{URL: "https://example.com"}}, nil)
 
