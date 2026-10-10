@@ -3,8 +3,8 @@ module github.com/bnema/dumber
 go 1.27
 
 require (
-	github.com/a-h/templ v0.3.1020
-	github.com/andybalholm/brotli v1.2.5
+	github.com/a-h/templ v0.3.1070
+	github.com/andybalholm/brotli v1.2.6
 	github.com/bnema/purego v0.13.0-bnema.1
 	github.com/bnema/purego-cef v0.14.4
 	github.com/bnema/purego-cef2gtk v0.11.4
@@ -47,10 +47,9 @@ require (
 	github.com/erikgeiser/coninput v0.0.0-20211004153227-1c3628e74d0f // indirect
 	github.com/fatih/color v1.19.0 // indirect
 	github.com/go-viper/mapstructure/v2 v2.5.0 // indirect
-	github.com/google/go-cmp v0.7.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/lucasb-eyer/go-colorful v1.4.0 // indirect
-	github.com/mattn/go-colorable v0.1.14 // indirect
+	github.com/mattn/go-colorable v0.1.15 // indirect
 	github.com/mattn/go-isatty v0.0.24 // indirect
 	github.com/mattn/go-localereader v0.0.1 // indirect
 	github.com/mattn/go-runewidth v0.0.23 // indirect
@@ -76,9 +75,8 @@ require (
 	golang.org/x/mod v0.41.0 // indirect
 	golang.org/x/sync v0.23.0 // indirect
 	golang.org/x/text v0.42.0 // indirect
-	golang.org/x/tools v0.49.0 // indirect
+	golang.org/x/tools v0.51.0 // indirect
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
-	mvdan.cc/gofumpt v0.9.2 // indirect
 )
 
 tool github.com/a-h/templ/cmd/templ
