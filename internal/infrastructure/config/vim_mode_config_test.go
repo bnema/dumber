@@ -20,18 +20,26 @@ var legacyVimModeActions = []string{
 }
 
 var sequenceVimModeActions = map[string]string{
-	"heading-next":   "]]",
-	"heading-prev":   "[[",
-	"focus-input":    "gi",
-	"code-next":      "]c",
-	"code-prev":      "[c",
-	"table-next":     "]t",
-	"image-next":     "]i",
-	"list-next":      "]l",
-	"outline":        "gO",
-	"yank-section":   "yah",
-	"half-page-down": "<C-d>",
-	"half-page-up":   "<C-u>",
+	"heading-next":    "]]",
+	"heading-prev":    "[[",
+	"focus-input":     "gi",
+	"code-next":       "]c",
+	"code-prev":       "[c",
+	"table-next":      "]t",
+	"image-next":      "]i",
+	"list-next":       "]l",
+	"outline":         "gO",
+	"yank-section":    "yah",
+	"yank-paragraph":  "yap",
+	"yank-code":       "yac",
+	"yank-table":      "yat",
+	"yank-list":       "yal",
+	"hint-yank-url":   "yf",
+	"half-page-down":  "<C-d>",
+	"half-page-up":    "<C-u>",
+	"hint-follow":     "f",
+	"hint-follow-new": "F",
+	"visual":          "v",
 }
 
 func TestDefaultConfig_VimModeDefaults(t *testing.T) {
@@ -66,7 +74,7 @@ func TestVimModeSequenceDefaults(t *testing.T) {
 	vimMode := cfg.Workspace.VimMode
 
 	assert.Equal(t, 500, vimMode.SequenceTimeoutMilliseconds)
-	require.Len(t, sequenceVimModeActions, 12)
+	require.Len(t, sequenceVimModeActions, 20)
 
 	for action, key := range sequenceVimModeActions {
 		requireActionBinding(t, vimMode.Actions, action, []string{key})
@@ -129,7 +137,12 @@ func TestVimModeConfig_GetKeyBindings(t *testing.T) {
 	assert.Equal(t, "yank-section", bindings["yah"])
 	assert.Equal(t, "half-page-down", bindings["<C-d>"])
 	assert.Equal(t, "half-page-up", bindings["<C-u>"])
-	assert.Len(t, bindings, 20)
+	assert.Equal(t, "yank-code", bindings["yac"])
+	assert.Equal(t, "hint-follow", bindings["f"])
+	assert.Equal(t, "hint-follow-new", bindings["F"])
+	assert.Equal(t, "hint-yank-url", bindings["yf"])
+	assert.Equal(t, "visual", bindings["v"])
+	assert.Len(t, bindings, 28)
 }
 
 func TestValidateVimMode_NonNegativeTimeout(t *testing.T) {

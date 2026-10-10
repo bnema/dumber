@@ -203,8 +203,10 @@ type WebView struct {
 	// GTK sync dispatch hooks are injectable for tests. Production uses the GTK
 	// default main context through runOnGTK and isOnGTKThread.
 	gtkSyncDispatch func(func())
-	gtkSyncIsOwner  func() bool
-	gtkSyncTimeout  time.Duration
+	// gtkDispatch replaces the async GTK idle hop in tests.
+	gtkDispatch    func(func())
+	gtkSyncIsOwner func() bool
+	gtkSyncTimeout time.Duration
 
 	// scrollCancelSeam overrides the adapter for scroll cancellation in
 	// tests. Production leaves it nil so the live view bridge is used.
@@ -262,17 +264,27 @@ type WebView struct {
 	// (for example https://dumber.invalid/history). The two forms are updated
 	// together through setCommittedURLsLocked; never compare one form against
 	// the other.
-	uri                       string
-	committedURL              string
-	title                     string
-	progress                  float64
-	canGoBack                 bool
-	canGoFwd                  bool
-	isLoading                 bool
-	selectedText              string
-	focusedEditable           bool
-	inputAttached             bool
-	bridgeNonce               string
+	uri             string
+	committedURL    string
+	title           string
+	progress        float64
+	canGoBack       bool
+	canGoFwd        bool
+	isLoading       bool
+	selectedText    string
+	focusedEditable bool
+	inputAttached   bool
+	bridgeNonce     string
+	// vimPageToken is the secret for the armed Vim page interaction; results
+	// carrying any other token are rejected. Empty when none is armed.
+	vimPageToken string
+	vimPageKind  dto.VimPageInteractionKind
+	// vimPageCopyAllowance counts y/Enter keys Go forwarded in a visual
+	// interaction that no accepted copy result has consumed yet.
+	vimPageCopyAllowance int
+	// vimPageGeneration increments on every arm so deferred end callbacks
+	// from an older interaction cannot release a newer one's key capture.
+	vimPageGeneration         uint64
 	selectionDebounceTimer    stoppableTimer
 	selectionDebounceSeq      uint64
 	selectionDebounceDelay    *time.Duration
@@ -1353,6 +1365,9 @@ func (wv *WebView) Destroy() {
 	wv.nativePopupFallbackStarted = false
 	wv.popupOpenerBridgeParent = nil
 	wv.popupOpenerBridgeParentURI = ""
+	wv.vimPageToken = ""
+	wv.vimPageKind = 0
+	wv.vimPageCopyAllowance = 0
 	wv.mu.Unlock()
 	wv.stopNativePopupFallbackTimer()
 	wv.stopRenderStallWatchdog()
@@ -2616,6 +2631,10 @@ var postToGTK = func(fn func()) {
 
 func (wv *WebView) runOnGTK(fn func()) {
 	if fn == nil {
+		return
+	}
+	if wv.gtkDispatch != nil {
+		wv.gtkDispatch(fn)
 		return
 	}
 	// When engine is nil (test/bootstrap), call directly.

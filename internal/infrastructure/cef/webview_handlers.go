@@ -536,6 +536,7 @@ func (h *handlerSet) OnLoadStart(_ purecef.Browser, frame purecef.Frame, _ purec
 		// A new document replaces the page that asked for any open JS dialog.
 		h.wv.cancelJSDialogs()
 		h.wv.invalidateScrollMotion()
+		h.wv.endVimPageInteractionOnNavigation()
 		h.wv.mu.Lock()
 		h.wv.documentSeq++
 		h.wv.faviconSourcePendingToken = 0
@@ -1307,6 +1308,8 @@ func (h *handlerSet) OnRenderProcessTerminated(_ purecef.Browser, status purecef
 	// (and the dead page's callback) hanging.
 	h.wv.cancelJSDialogs()
 
+	// The page runtime died with the renderer and can no longer report its end.
+	h.wv.endVimPageInteractionOnNavigation()
 	if h.wv.crashCount.Add(1) > maxConsecutiveCrashes {
 		return // suppress to break the loop
 	}

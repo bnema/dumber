@@ -26,22 +26,25 @@ const (
 // modeFrame owns the per-window mode border and its non-interactive legend.
 // GTK access is restricted to the main thread, as with the rest of the UI.
 type modeFrame struct {
-	mode               input.Mode
-	tabID              entity.TabID
-	target             layout.Widget
-	frameClass         string
-	root               *gtk.Box
-	border             *gtk.Box
-	borderStyle        cssClassTarget // border's CSS classes; a seam for tests
-	borderRect         func() (x, y, width, height int, ok bool)
-	panel              *gtk.Box
-	content            *gtk.FlowBox
-	scroller           *gtk.ScrolledWindow
-	heading            *gtk.Label
-	rows               map[string][]*gtk.Widget
-	keycaps            map[string][]*gtk.Widget
-	pending            string
-	visible            bool
+	mode        input.Mode
+	tabID       entity.TabID
+	target      layout.Widget
+	frameClass  string
+	root        *gtk.Box
+	border      *gtk.Box
+	borderStyle cssClassTarget // border's CSS classes; a seam for tests
+	borderRect  func() (x, y, width, height int, ok bool)
+	panel       *gtk.Box
+	content     *gtk.FlowBox
+	scroller    *gtk.ScrolledWindow
+	heading     *gtk.Label
+	rows        map[string][]*gtk.Widget
+	keycaps     map[string][]*gtk.Widget
+	pending     string
+	visible     bool
+	// suspended hides the legend while an in-page interaction (link hints,
+	// visual selection) owns the keys; the border keeps tracking its target.
+	suspended          bool
 	style              string
 	modeClass          string
 	config             entity.WorkspaceStylingConfig
@@ -330,6 +333,7 @@ func (f *modeFrame) setMode(
 	f.mode, f.config = mode, cfg
 	f.pending = ""
 	f.pulseCycle = false
+	f.suspended = false
 	if linger {
 		f.lingering = true
 		f.visible = false
@@ -429,6 +433,27 @@ func shouldLinger(enabled, inside bool, x, y float64, placement func() (int, int
 
 func shouldStartLinger(exiting, pressInFlight, enabled, inside bool, x, y float64, placement func() (int, int, int, int, bool)) bool {
 	return exiting && !pressInFlight && shouldLinger(enabled, inside, x, y, placement)
+}
+
+// setSuspended hides the legend while suspended is true and brings it back
+// otherwise, without touching the mode, its border, or a pending show timer.
+// Used while an in-page interaction owns the keys, when the legend would list
+// bindings that do not apply.
+func (f *modeFrame) setSuspended(suspended bool) {
+	if f == nil || f.suspended == suspended {
+		return
+	}
+	f.suspended = suspended
+	if f.root == nil || f.lingering {
+		return
+	}
+	if suspended {
+		f.clearLegend()
+		return
+	}
+	if f.visible {
+		f.refreshGeometry()
+	}
 }
 
 func (f *modeFrame) dismissLinger() {
@@ -554,7 +579,7 @@ func (f *modeFrame) refreshGeometry() {
 	}
 	x, bottom := int(out.X), int(out.Y)+height
 	f.placeBorder(x, int(out.Y), width, height)
-	if !f.visible {
+	if !f.visible || f.suspended {
 		f.clearLegend()
 		return
 	}
@@ -618,6 +643,19 @@ func (f *modeFrame) sizeLegendColumns(columns uint, width int) {
 	}
 }
 
+// vimLegendGroup returns the legend group of a Vim Mode action, or "" when the
+// action belongs to a generic group.
+func vimLegendGroup(name string) string {
+	switch {
+	case strings.HasPrefix(name, "hint-") || strings.HasPrefix(name, "yank-") || name == "visual":
+		return "SELECT"
+	case strings.Contains(name, "next") || strings.Contains(name, "prev") || name == "outline":
+		return "JUMP"
+	default:
+		return ""
+	}
+}
+
 func modeLegendGroup(mode input.Mode, name string) string {
 	switch {
 	case name == "confirm" || name == "cancel":
@@ -632,8 +670,8 @@ func modeLegendGroup(mode input.Mode, name string) string {
 		return "RESIZE"
 	case strings.HasPrefix(name, "vim-scroll-") || strings.HasPrefix(name, "half-page-"):
 		return "SCROLL"
-	case mode == input.ModeVim && (strings.Contains(name, "next") || strings.Contains(name, "prev") || name == "outline"):
-		return "JUMP"
+	case mode == input.ModeVim && vimLegendGroup(name) != "":
+		return vimLegendGroup(name)
 	case (mode == input.ModeTab || mode == input.ModePrefix) && (name == "next-tab" || name == "previous-tab"):
 		return "SWITCH"
 	default:

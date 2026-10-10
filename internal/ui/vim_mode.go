@@ -117,6 +117,9 @@ func (a *App) handleModeChange(ctx context.Context, bw *browserWindow, from, to 
 		a.enableAccessibilityForVimMode(ctx, bw)
 	}
 	if from == input.ModeVim && to != input.ModeVim {
+		// Runs under the modal lock: the window is leaving Vim Mode, so do not
+		// read the mode back.
+		a.endVimPageInteraction(ctx, bw, false)
 		a.clearVimNavigationHighlight(ctx, bw)
 	}
 
@@ -142,6 +145,8 @@ func (a *App) transferVimModeOwnershipToPane(ctx context.Context, bw *browserWin
 	if bw.vimModePaneID == "" || bw.vimModePaneID == newPaneID {
 		return
 	}
+	// A page interaction belongs to the previous owner's WebView.
+	a.endVimPageInteraction(ctx, bw, a.vimModeActiveForBrowserWindow(bw))
 
 	// Check if this window is actually in vim mode.
 	if bw.keyboardHandler == nil || bw.keyboardHandler.Mode() != input.ModeVim {
@@ -313,6 +318,11 @@ func (a *App) showPendingSequence(ctx context.Context, bw *browserWindow, pendin
 	if a == nil || bw == nil {
 		return
 	}
+	if bw.vimPageInteractionWebView != nil {
+		// The page owns the keys: the indicator shows the interaction's
+		// sub-mode, and the legend is suspended. Nothing to repaint.
+		return
+	}
 	if bw.modeFrame != nil {
 		cfg := a.runtimeConfigSnapshot().UI.Workspace
 		bw.modeFrame.setPending(pending, cfg.VimMode.Actions)
@@ -320,25 +330,31 @@ func (a *App) showPendingSequence(ctx context.Context, bw *browserWindow, pendin
 	if bw.modeToaster == nil {
 		return
 	}
-	log := logging.FromContext(ctx)
-	if !a.runtimeConfigSnapshot().UI.Workspace.Styling.ModeIndicatorToasterEnabled {
-		bw.modeToaster.Hide()
-		log.Debug().Str("window_id", bw.id).Msg("vim mode pending toaster hidden (disabled)")
+
+	a.showVimModeToast(ctx, bw, pending)
+	logging.FromContext(ctx).Debug().
+		Str("window_id", bw.id).
+		Str("pending", pending).
+		Msg("vim mode pending toaster updated")
+}
+
+// showVimModeToast shows "VIM MODE" with an optional " · detail" suffix on the
+// per-window mode toaster, honoring the indicator toggle.
+func (a *App) showVimModeToast(ctx context.Context, bw *browserWindow, detail string) {
+	if bw == nil || bw.modeToaster == nil {
 		return
 	}
-
+	if !a.runtimeConfigSnapshot().UI.Workspace.Styling.ModeIndicatorToasterEnabled {
+		bw.modeToaster.Hide()
+		return
+	}
 	text := input.ModeVim.DisplayName()
-	if pending != "" {
-		text = text + " · " + pending
+	if detail != "" {
+		text = text + " · " + detail
 	}
 	bw.modeToaster.Show(ctx, text, component.ToastInfo,
 		component.WithDuration(0),
 		component.WithPosition(component.ToastPositionBottomLeft),
 		component.WithModeClass(getModeToastClass(input.ModeVim)),
 	)
-	log.Debug().
-		Str("window_id", bw.id).
-		Str("pending", pending).
-		Str("toast_text", text).
-		Msg("vim mode pending toaster updated")
 }

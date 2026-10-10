@@ -5,6 +5,7 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/bnema/dumber/internal/application/dto"
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/application/usecase"
 	"github.com/bnema/dumber/internal/domain/entity"
@@ -187,10 +188,26 @@ func (c *Coordinator) setupWebViewCallbacks(ctx context.Context, paneID entity.P
 		}
 	}
 
+	c.setupVimPageCallbacks(paneID, callbacks)
+
 	// Add popup create handler if popup handling is configured
 	callbacks.OnCreate = c.buildPopupCreateHandler(ctx, paneID, wv)
 
 	wv.SetCallbacks(callbacks)
+}
+
+// setupVimPageCallbacks forwards in-page Vim interaction events for one pane.
+func (c *Coordinator) setupVimPageCallbacks(paneID entity.PaneID, callbacks *port.WebViewCallbacks) {
+	callbacks.OnVimPageInteractionEnded = func() {
+		if c.onVimPageInteractionEnded != nil {
+			c.onVimPageInteractionEnded(paneID)
+		}
+	}
+	callbacks.OnVimPageModeChanged = func(mode dto.VimPageMode) {
+		if c.onVimPageModeChanged != nil {
+			c.onVimPageModeChanged(paneID, mode)
+		}
+	}
 }
 
 // handlePermissionRequest processes media permission requests from WebKit.

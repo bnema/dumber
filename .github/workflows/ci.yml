@@ -106,7 +106,7 @@ jobs:
       - name: Install dependencies
         run: |
           for attempt in 1 2 3; do
-            if pacman -Syu --noconfirm && pacman -S --noconfirm git go webkitgtk-6.0 gtk4 gtk4-layer-shell libadwaita gobject-introspection base-devel brotli dbus; then
+            if pacman -Syu --noconfirm && pacman -S --noconfirm git go webkitgtk-6.0 gtk4 gtk4-layer-shell libadwaita gobject-introspection base-devel brotli dbus nodejs; then
               exit 0
             fi
             if [ "$attempt" -eq 3 ]; then
@@ -141,6 +141,7 @@ jobs:
           GDK_BACKEND: wayland
           WAYLAND_DISPLAY: wayland-0
           DUMBER_REQUIRE_SYSTEMVIEWS_WASM: 1
+          DUMBER_REQUIRE_NODE: 1
         run: go test -v ./...
       - name: Verify purego-only constraints
         run: make verify-purego

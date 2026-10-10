@@ -1,0 +1,101 @@
+package input
+
+import (
+	"github.com/bnema/dumber/internal/domain/vimkeys"
+	"github.com/bnema/puregotk/v4/gdk"
+)
+
+// PageKeyForwarder receives canonical vimkeys strings ("j", "J", "<Escape>")
+// while an in-page Vim interaction owns keyboard input.
+type PageKeyForwarder func(key string)
+
+// SetPageKeyCapture routes Vim Mode keys to fn until ClearPageKeyCapture or
+// Vim Mode exits. Pending sequences are discarded so they cannot complete
+// against keys meant for the page. The reset is silent: the pending listener
+// repaints the mode indicator, and a notification here would overwrite the
+// sub-mode label the caller shows for the interaction.
+func (h *KeyboardHandler) SetPageKeyCapture(fn PageKeyForwarder) {
+	h.resetPendingSequence(false)
+	h.mu.Lock()
+	h.pageKeyCapture = fn
+	h.mu.Unlock()
+}
+
+// ClearPageKeyCapture returns key handling to Vim Mode bindings.
+func (h *KeyboardHandler) ClearPageKeyCapture() {
+	h.mu.Lock()
+	h.pageKeyCapture = nil
+	h.mu.Unlock()
+}
+
+// PageKeyCaptureActive reports whether an in-page interaction owns keys.
+func (h *KeyboardHandler) PageKeyCaptureActive() bool {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	return h.pageKeyCapture != nil
+}
+
+// isVimModeToggleKey reports whether the key is the configured Vim Mode
+// activation shortcut. While Vim Mode is active it exits the mode, so it must
+// stay with Go even when a page interaction owns every other key.
+func (h *KeyboardHandler) isVimModeToggleKey(keyval uint, state gdk.ModifierType) bool {
+	h.mu.RLock()
+	shortcuts := h.shortcuts
+	h.mu.RUnlock()
+	if shortcuts == nil {
+		return false
+	}
+	binding := KeyBinding{Keyval: normalizeKeyval(keyval), Modifiers: Modifier(state) & modifierMask}
+	action, found := shortcuts.Lookup(binding, ModeVim)
+	return found && action == ActionEnterVimMode
+}
+
+// forwardPageKey sends a Vim Mode key to the active page capture, except the
+// Vim Mode toggle shortcut, which always falls through. Escape is
+// forwarded like any other key: the page decides whether it steps back (visual
+// to caret) or ends the interaction, and reports the end so the capture is
+// released. A page that cannot be reached ends the capture through the
+// forwarder's error path, navigation, or leaving Vim Mode.
+func (h *KeyboardHandler) forwardPageKey(mode Mode, keyval uint, state gdk.ModifierType) bool {
+	if mode != ModeVim {
+		return false
+	}
+	h.mu.RLock()
+	forward := h.pageKeyCapture
+	h.mu.RUnlock()
+	if forward == nil {
+		return false
+	}
+	if isModifierKeyval(keyval) {
+		return true
+	}
+	if h.isVimModeToggleKey(keyval, state) {
+		// Escape hatch: a page can never swallow the shortcut that leaves Vim Mode.
+		return false
+	}
+	key, ok := KeyvalToVimKey(keyval, state)
+	if !ok {
+		return true
+	}
+	if key.Sym == "Esc" {
+		// The page must see a plain Escape whatever modifiers are held.
+		key.Mods = 0
+	}
+	forward(vimkeys.Sequence{key}.String())
+	// Captured keys bypass dispatchAction, so keep Vim Mode's timeout alive.
+	h.modal.ResetTimeout(h.ctx)
+	return true
+}
+
+func isModifierKeyval(keyval uint) bool {
+	switch keyval {
+	case uint(gdk.KEY_Shift_L), uint(gdk.KEY_Shift_R),
+		uint(gdk.KEY_Control_L), uint(gdk.KEY_Control_R),
+		uint(gdk.KEY_Alt_L), uint(gdk.KEY_Alt_R),
+		uint(gdk.KEY_Super_L), uint(gdk.KEY_Super_R),
+		uint(gdk.KEY_Caps_Lock), uint(gdk.KEY_ISO_Level3_Shift):
+		return true
+	default:
+		return false
+	}
+}

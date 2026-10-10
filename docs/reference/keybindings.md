@@ -64,6 +64,16 @@ CEF and WebKit execute Vim Mode scroll commands (`h/j/k/l`, `Shift+J/K`) with th
 
 `gi` focuses the next visible, editable page input. With no eligible input focused it starts at the first one; repeated `gi` commands cycle through the inputs. `]]` and `[[` move through visible `h1`–`h6` headings and outline the selected heading with the current Dumber theme accent. `Enter` activates the first link inside the selected heading, or a link wrapping that heading, then leaves Vim Mode; without an associated link, it only leaves the mode. `Escape` leaves without activation. When a page input is focused, `Tab` and `Shift+Tab` keep focus traversal inside the page; traversal stops safely at the page boundaries instead of moving into the host window. These live input, heading, activation, and page-focus actions currently use the CEF engine path; the WebKit fallback supports Vim scrolling but not these semantic actions yet.
 
+Link hints label the visible targets in the viewport; type a label to pick one, `Backspace` to undo a letter, and `Escape` to close the hints and stay in Vim Mode. `f` follows a link or activates a control, `F` opens a link in a new pane, and `yf` copies a link URL.
+
+`v` starts visual selection. A non-empty selection that is visible in the viewport is used as is. Otherwise text-anchor hints label the visible text blocks; type a label to put the caret at the start of that text, or press `Escape` to place it at the first visible text of at least 50 characters (any visible text if none is that long). The mode indicator follows the page state: `VIM MODE · HINTS`, `· CARET`, `· VISUAL`, `· VISUAL LINE`.
+
+In caret mode a large blinking accent cursor marks the position and motions move it without selecting: `h/j/k/l`, `w/b/e`, `0`/`^`/`$`, `(`/`)` for sentences, `{`/`}` for paragraphs, `gg`/`G` for the document edges, and a count prefix such as `3w`. The view scrolls to keep the cursor visible. `v` starts a character selection from the caret and `V` selects whole lines; in both, the same motions extend the selection and `o` swaps its ends. `v` in a selection returns to the caret, `V` in a character selection switches to lines, and `v` in a line selection switches to characters. `y` or `Enter` copies the selection and returns to the caret at its end, so you can keep moving and copy again. `Escape` steps back from a selection to the caret, and `Escape` in caret mode ends visual selection and leaves plain Vim Mode.
+
+Text-object yanks copy one block without selecting it: `yah` copies the current section (the heading nearest the top of the viewport through the next heading of the same or a higher level), and `yap`, `yac`, `yat`, and `yal` copy the first visible paragraph, code block, table, or list. The copied block flashes with the theme accent. Hints, visual selection, and yanks use the CEF engine path.
+
+While hints or visual selection are active, the page owns every key; the Vim Mode toggle shortcut (`Ctrl+Y` by default, or your `activation_shortcut`) is never forwarded to it. Pressing it always leaves Vim Mode and ends the interaction, so it is the way out even if a page misbehaves. Caret and visual selection anchor only to text in the page's main document: text inside shadow roots (some web components) is not offered as a caret position, while link hints and text-object yanks still reach into shadow DOM.
+
 | Action | Keys |
 |--------|------|
 | Scroll left | `H` |
@@ -76,6 +86,11 @@ CEF and WebKit execute Vim Mode scroll commands (`h/j/k/l`, `Shift+J/K`) with th
 | Next heading | `]]` |
 | Previous heading | `[[` |
 | Page focus traversal | `Tab`, `Shift+Tab` |
+| Follow link or control (hints) | `f` |
+| Open link in new pane (hints) | `F` |
+| Yank link URL (hints) | `yf` |
+| Visual selection (caret, character, line) | `v`, `V` in caret mode |
+| Yank section / paragraph / code / table / list | `yah`, `yap`, `yac`, `yat`, `yal` |
 | Activate selected heading link and exit | `Enter` |
 | Exit without activation | `Escape` |
 
@@ -224,6 +239,33 @@ keys = ["]]"]
 
 [workspace.vim_mode.actions.heading-prev]
 keys = ["[["]
+
+[workspace.vim_mode.actions.hint-follow]
+keys = ["f"]
+
+[workspace.vim_mode.actions.hint-follow-new]
+keys = ["F"]
+
+[workspace.vim_mode.actions.hint-yank-url]
+keys = ["yf"]
+
+[workspace.vim_mode.actions.visual]
+keys = ["v"]
+
+[workspace.vim_mode.actions.yank-section]
+keys = ["yah"]
+
+[workspace.vim_mode.actions.yank-paragraph]
+keys = ["yap"]
+
+[workspace.vim_mode.actions.yank-code]
+keys = ["yac"]
+
+[workspace.vim_mode.actions.yank-table]
+keys = ["yat"]
+
+[workspace.vim_mode.actions.yank-list]
+keys = ["yal"]
 
 [workspace.shortcuts.actions.close-pane]
 keys = ["ctrl+w"]

@@ -2221,12 +2221,16 @@ func (a *App) navigateVimSequenceAction(ctx context.Context, bw *browserWindow, 
 	if navigationUC == nil {
 		return
 	}
-	if err := navigationUC.Execute(ctx, wv, action, count, a.vimNavigationHighlightColor()); err != nil {
+	outcome, err := navigationUC.Execute(ctx, wv, action, count, a.vimNavigationHighlightColor())
+	if err != nil {
 		logging.FromContext(ctx).Debug().
 			Err(err).
 			Str("action", action).
 			Msg("vim navigation unavailable")
 		return
+	}
+	if outcome.CapturePageKeys {
+		a.captureVimPageKeys(ctx, bw, wv, outcome)
 	}
 	if bw != nil && (action == "heading-next" || action == "heading-prev") {
 		if _, ok := wv.(port.SemanticNavigable); ok {
@@ -3422,6 +3426,12 @@ func (a *App) initCoordinators(ctx context.Context) {
 	})
 	a.contentCoord.SetOnEditableFocusChanged(func(paneID entity.PaneID, editable bool) {
 		a.handlePageEditableFocusChanged(ctx, paneID, editable)
+	})
+	a.contentCoord.SetOnVimPageInteractionEnded(func(paneID entity.PaneID) {
+		a.handleVimPageInteractionEnded(ctx, paneID)
+	})
+	a.contentCoord.SetOnVimPageModeChanged(func(paneID entity.PaneID, mode dto.VimPageMode) {
+		a.handleVimPageModeChanged(ctx, paneID, mode)
 	})
 
 	// JS dialogs are shown in the owning pane's overlay, wherever that pane lives.
