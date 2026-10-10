@@ -79,7 +79,7 @@ func TestNavigableCount(t *testing.T) {
 		bangs, suggestions, favorites int
 		want                          int
 	}{
-		{"history beyond visible rows", false, ViewModeHistory, 0, limit, 30, limit},
+		{"history capped at results limit", false, ViewModeHistory, 0, limit + 5, 30, limit},
 		{"favorites capped at results limit", false, ViewModeFavorites, 0, 3, 30, limit},
 		{"bangs win over view mode", true, ViewModeHistory, 2, 8, 0, 2},
 		{"empty list", false, ViewModeFavorites, 4, 4, 0, 0},

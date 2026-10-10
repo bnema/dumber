@@ -2814,6 +2814,9 @@ func (o *Omnibox) Show(ctx context.Context, query string) {
 		parentHeight = o.parentOverlay.GetAllocatedHeight()
 	}
 	width, marginTop := o.requestedDimensions()
+	if omniboxValign(o.sizeCfg) == gtk.AlignCenterValue {
+		marginTop = 0 // centered by GTK; a margin would push it off-center
+	}
 	log.Debug().
 		Int("parentWidth", parentWidth).
 		Int("parentHeight", parentHeight).
@@ -2827,9 +2830,6 @@ func (o *Omnibox) Show(ctx context.Context, query string) {
 		Msg("omnibox geometry decision")
 
 	o.mainBox.SetSizeRequest(width, -1)
-	if omniboxValign(o.sizeCfg) == gtk.AlignCenterValue {
-		marginTop = 0 // centered by GTK; a margin would push it off-center
-	}
 	o.outerBox.SetMarginTop(marginTop)
 
 	// Show the omnibox

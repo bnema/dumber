@@ -360,7 +360,7 @@ func TestVisibleGhostSuggestion(t *testing.T) {
 	}
 }
 
-func TestVisibleGhostSuggestionRespectsVisibleLimit(t *testing.T) {
+func TestVisibleGhostSuggestionRespectsResultLimit(t *testing.T) {
 	suggestions := []Suggestion{
 		{URL: "https://github.com/bnema/dumber"},
 		{URL: "https://gitlab.com/team/project"},
