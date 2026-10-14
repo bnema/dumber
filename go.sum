@@ -30,6 +30,8 @@ github.com/bnema/puregotk v0.7.6-0.20261014040300-b8cb664e2749 h1:n8DFisi/eoX8tm
 github.com/bnema/puregotk v0.7.6-0.20261014040300-b8cb664e2749/go.mod h1:BLcNL9jse2WqX3bRZCVhx4scE9xzWT26OazdHFzL5mo=
 github.com/bnema/puregotk v0.7.6-0.20261014045447-ac98146cbb5d h1:RJXcSvKtBfQ9fDw0YGEypiT3oHET33h3qP1pr4JrLek=
 github.com/bnema/puregotk v0.7.6-0.20261014045447-ac98146cbb5d/go.mod h1:BLcNL9jse2WqX3bRZCVhx4scE9xzWT26OazdHFzL5mo=
+github.com/bnema/puregotk v0.7.6 h1:++v/8UxwkfvbljswDU4rbxr+Nyix0lmXCvWpQt8srjo=
+github.com/bnema/puregotk v0.7.6/go.mod h1:BLcNL9jse2WqX3bRZCVhx4scE9xzWT26OazdHFzL5mo=
 github.com/cenkalti/backoff/v4 v4.3.0 h1:MyRJ/UdXutAwSAT+s3wNd7MfTIcy71VQueUuFK343L8=
 github.com/cenkalti/backoff/v4 v4.3.0/go.mod h1:Y3VNntkOUPxTVeUxJ/G5vcM//AlwfmyYozVcomhLiZE=
 github.com/charmbracelet/bubbles v1.0.0 h1:12J8/ak/uCZEMQ6KU7pcfwceyjLlWsDLAxB5fXonfvc=
