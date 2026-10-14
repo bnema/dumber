@@ -86,8 +86,8 @@ func (a *App) modeFrameAction(bw *browserWindow, action input.Action) {
 // modeLegendPreference is the app-wide "legend collapsed" state, shared by
 // every mode and window. A click is applied at once and saved in the
 // background. It keeps priority over the configured value, which may still be
-// the previous one while the save is in flight, until a configuration reload
-// settles it (see configReloaded).
+// the previous one while saves are in flight, until a configuration reload
+// received after the writer drained settles it (see configReloaded).
 type modeLegendPreference struct {
 	mu        sync.Mutex
 	collapsed bool // last click; meaningful while clicked is set
@@ -97,7 +97,6 @@ type modeLegendPreference struct {
 	// and the file ends on the last click.
 	pending *bool
 	saving  bool
-	idle    sync.WaitGroup
 }
 
 // current returns the state to show, given the configured one.
@@ -120,7 +119,6 @@ func (p *modeLegendPreference) click(collapsed bool) (startWriter bool) {
 		return false
 	}
 	p.saving = true
-	p.idle.Add(1)
 	return true
 }
 
@@ -130,20 +128,21 @@ func (p *modeLegendPreference) next() (collapsed, ok bool) {
 	defer p.mu.Unlock()
 	if p.pending == nil {
 		p.saving = false
-		p.idle.Done()
 		return false, false
 	}
 	collapsed, p.pending = *p.pending, nil
 	return collapsed, true
 }
 
-// configReloaded hands the state back to the configuration when a reload
-// agrees with the last click (it is that click's own save), or when no save is
-// in flight (an external edit, or a save that failed).
-func (p *modeLegendPreference) configReloaded(configured bool) {
+// configReloaded hands the state back to the configuration on a reload
+// received once the writer has drained: that reload reflects the saved clicks
+// (or an external edit, or a failed save). Reloads received while the writer
+// runs are ignored: they may come from an earlier save and would undo the
+// latest click.
+func (p *modeLegendPreference) configReloaded(_ bool) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	if !p.saving || configured == p.collapsed {
+	if !p.saving {
 		p.clicked = false
 	}
 }

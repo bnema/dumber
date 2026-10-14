@@ -473,6 +473,54 @@ func TestModeLegendPreferenceClickWinsUntilSettled(t *testing.T) {
 	require.True(t, p.current(true))
 }
 
+func TestModeLegendPreferenceReloadsDuringSavesDoNotUndoLastClick(t *testing.T) {
+	var p modeLegendPreference
+	require.True(t, p.click(true))
+	first, ok := p.next() // the writer takes the first value
+	require.True(t, ok)
+	require.True(t, first)
+	require.False(t, p.click(false), "the writer is still active")
+
+	p.configReloaded(false) // matches the latest click, but the save is still pending
+	p.configReloaded(true)  // the first save's own reload, arriving late
+	require.False(t, p.current(true), "the latest click survives intermediate reloads")
+
+	second, ok := p.next()
+	require.True(t, ok)
+	require.False(t, second)
+	require.False(t, p.current(true), "still the latest click until the writer drains")
+	_, ok = p.next()
+	require.False(t, ok)
+	require.False(t, p.current(true), "drained: reloads have not been received yet")
+
+	p.configReloaded(false) // first reload after the drain
+	require.False(t, p.current(false))
+	require.True(t, p.current(true), "the configuration decides again")
+}
+
+func TestModeLegendPreferenceReloadAfterDrain(t *testing.T) {
+	tests := []struct {
+		name       string
+		reloaded   bool
+		configured bool
+	}{
+		{"own save reloads", true, true},
+		{"external edit", false, false},
+		{"failed save leaves the file unchanged", false, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var p modeLegendPreference
+			require.True(t, p.click(true))
+			_, _ = p.next()
+			_, _ = p.next()
+			p.configReloaded(tt.reloaded)
+			require.Equal(t, tt.configured, p.current(tt.configured))
+			require.Equal(t, !tt.configured, p.current(!tt.configured))
+		})
+	}
+}
+
 func TestModeLegendPreferenceCoalescesClicksAndKeepsLast(t *testing.T) {
 	var p modeLegendPreference
 	require.True(t, p.click(true))
