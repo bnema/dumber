@@ -11,7 +11,7 @@ require (
 	github.com/bnema/purego-pipewire v0.1.6
 	github.com/bnema/purego-sqlite v0.1.5
 	github.com/bnema/purego-webp v0.2.1
-	github.com/bnema/puregotk v0.7.5
+	github.com/bnema/puregotk v0.7.6-0.20261014045447-ac98146cbb5d
 	github.com/charmbracelet/bubbles v1.0.0
 	github.com/charmbracelet/bubbletea v1.3.10
 	github.com/charmbracelet/lipgloss v1.1.0
