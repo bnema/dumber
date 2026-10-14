@@ -4,26 +4,11 @@ package idle
 import (
 	"context"
 	"fmt"
-	"strings"
 	"sync"
 
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/zerobus"
-)
-
-const (
-	portalDest      = "org.freedesktop.portal.Desktop"
-	portalPath      = "/org/freedesktop/portal/desktop"
-	portalInterface = "org.freedesktop.portal.Inhibit"
-	requestIface    = "org.freedesktop.portal.Request"
-	propertiesIface = "org.freedesktop.DBus.Properties"
-
-	// Inhibit flags from portal spec
-	flagLogout     = 1
-	flagUserSwitch = 2
-	flagSuspend    = 4
-	flagIdle       = 8
 )
 
 // Compile-time interface check.
@@ -32,12 +17,12 @@ var _ port.IdleInhibitor = (*PortalInhibitor)(nil)
 // PortalInhibitor implements idle inhibition using XDG Desktop Portal.
 // This works on Wayland with any compositor (GNOME, KDE, sway, hyprland, etc.).
 //
-// A zerobus connection is not safe for concurrent use, so every bus call
-// runs under mu. Calls drop the signals that arrive meanwhile.
+// Every portal call runs under mu because the client is not safe for
+// concurrent use.
 type PortalInhibitor struct {
 	mu          sync.Mutex
-	conn        *zerobus.Conn // nil when the portal is unavailable or after Close
-	requestPath string        // active inhibit request handle
+	portal      portalClient // nil when the portal is unavailable or after Close
+	requestPath string       // active inhibit request handle
 	refcount    int
 }
 
@@ -49,40 +34,23 @@ func NewPortalInhibitor(ctx context.Context) *PortalInhibitor {
 		logging.FromContext(ctx).Debug().Err(err).Msg("idle inhibitor: cannot connect to D-Bus session bus")
 		return &PortalInhibitor{}
 	}
-	return newPortalInhibitor(ctx, conn)
+	return newPortalInhibitor(ctx, &zerobusPortal{conn: conn})
 }
 
-// newPortalInhibitor takes ownership of conn and keeps it only if the portal
-// answers on it.
-func newPortalInhibitor(ctx context.Context, conn *zerobus.Conn) *PortalInhibitor {
+// newPortalInhibitor takes ownership of portal and keeps it only if it
+// answers.
+func newPortalInhibitor(ctx context.Context, portal portalClient) *PortalInhibitor {
 	log := logging.FromContext(ctx)
 
-	version, err := portalVersion(conn)
+	version, err := portal.Version()
 	if err != nil {
 		log.Debug().Err(err).Msg("idle inhibitor: portal not available")
-		_ = conn.Close()
+		_ = portal.Close()
 		return &PortalInhibitor{}
 	}
 
 	log.Debug().Uint32("version", version).Msg("idle inhibitor: portal available")
-	return &PortalInhibitor{conn: conn}
-}
-
-// portalVersion reads the version property of the Inhibit portal.
-func portalVersion(conn *zerobus.Conn) (uint32, error) {
-	e := conn.NewCall(portalDest, portalPath, propertiesIface, "Get", "ss")
-	e.Str(portalInterface)
-	e.Str("version")
-	m, err := conn.Call()
-	if err != nil {
-		return 0, err
-	}
-	body := m.Body()
-	if sig := body.Variant(); sig != "u" {
-		return 0, fmt.Errorf("portal version has type %q, want \"u\"", sig)
-	}
-	version := body.Uint32()
-	return version, body.Err()
+	return &PortalInhibitor{portal: portal}
 }
 
 // Inhibit increments the inhibit refcount. First call activates inhibition.
@@ -100,12 +68,12 @@ func (p *PortalInhibitor) Inhibit(ctx context.Context, reason string) error {
 		return nil
 	}
 
-	if p.conn == nil {
+	if p.portal == nil {
 		log.Debug().Msg("idle inhibitor: not supported, skipping")
 		return nil
 	}
 
-	handle, err := p.callInhibit(reason)
+	handle, err := p.portal.Inhibit(reason)
 	if err != nil {
 		p.refcount--
 		log.Warn().Err(err).Msg("idle inhibitor: failed to inhibit")
@@ -119,32 +87,6 @@ func (p *PortalInhibitor) Inhibit(ctx context.Context, reason string) error {
 		Msg("idle inhibitor: activated")
 
 	return nil
-}
-
-// callInhibit calls Inhibit(window: s, flags: u, options: a{sv}) -> handle: o
-// and returns the request handle.
-func (p *PortalInhibitor) callInhibit(reason string) (string, error) {
-	e := p.conn.NewCall(portalDest, portalPath, portalInterface, "Inhibit", "sua{sv}")
-	e.Str("")                        // window identifier (empty for non-sandboxed)
-	e.Uint32(flagIdle | flagSuspend) // inhibit idle and suspend
-	options := e.BeginArray('{')
-	e.Struct()
-	e.Str("reason")
-	e.Variant("s")
-	e.Str(reason)
-	e.EndArray(options)
-
-	m, err := p.conn.Call()
-	if err != nil {
-		return "", err
-	}
-	body := m.Body()
-	// The reply points into the receive buffer: copy the handle we keep.
-	handle := strings.Clone(body.ObjectPath())
-	if err := body.Err(); err != nil {
-		return "", err
-	}
-	return handle, nil
 }
 
 // Uninhibit decrements the refcount. When zero, releases inhibition.
@@ -174,9 +116,8 @@ func (p *PortalInhibitor) Uninhibit(ctx context.Context) error {
 // closeRequest releases the active inhibit request. A portal that already
 // ended the request answers with an error, which is ignored.
 func (p *PortalInhibitor) closeRequest() {
-	if p.conn != nil && p.requestPath != "" {
-		p.conn.NewCall(portalDest, p.requestPath, requestIface, "Close", "")
-		_, _ = p.conn.Call()
+	if p.portal != nil && p.requestPath != "" {
+		_ = p.portal.CloseRequest(p.requestPath)
 	}
 	p.requestPath = ""
 }
@@ -196,10 +137,10 @@ func (p *PortalInhibitor) Close() error {
 	p.closeRequest()
 	p.refcount = 0
 
-	if p.conn == nil {
+	if p.portal == nil {
 		return nil
 	}
-	err := p.conn.Close()
-	p.conn = nil
+	err := p.portal.Close()
+	p.portal = nil
 	return err
 }

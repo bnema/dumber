@@ -29,6 +29,15 @@ packages:
       toolkitClipboard:
         config:
           structname: MockToolkitClipboard
+  github.com/bnema/dumber/internal/infrastructure/idle:
+    config:
+      dir: '{{.InterfaceDir}}/mocks'
+      filename: '{{ .InterfaceFile | base }}'
+      pkgname: mocks
+    interfaces:
+      portalClient:
+        config:
+          structname: MockPortalClient
   github.com/bnema/dumber/internal/infrastructure/systemviewsbridge:
     config:
       dir: '{{.InterfaceDir}}/mocks'
