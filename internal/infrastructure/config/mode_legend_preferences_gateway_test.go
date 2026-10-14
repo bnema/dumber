@@ -2,6 +2,7 @@ package config
 
 import (
 	"context"
+	"sync/atomic"
 	"testing"
 
 	"github.com/bnema/dumber/internal/domain/entity"
@@ -38,40 +39,51 @@ func newWatchedTestManager(t *testing.T, configHome string) *Manager {
 	return mgr
 }
 
-func TestManagerUpdate_OverlappingUpdatesDoNotLoseWrites(t *testing.T) {
+// TestManagerUpdate_UpdateAfterStaleSnapshotDoesNotLoseWrites forces the
+// interleaving a Get()-then-Save() implementation loses: another update
+// publishes right after the snapshot the first update works from was taken.
+// Update must apply its change on top of that update instead of overwriting it.
+func TestManagerUpdate_UpdateAfterStaleSnapshotDoesNotLoseWrites(t *testing.T) {
 	configHome := t.TempDir()
 	mgr := newWatchedTestManager(t, configHome)
 	legend := NewModeLegendPreferencesGateway(mgr)
 	omnibox := NewOmniboxPreferencesGateway(mgr)
 
-	otherStarted := make(chan struct{})
-	otherDone := make(chan error, 1)
-
-	// The first update starts a second one while it still holds the lock. The
-	// second update must wait and then be applied on top of the first result.
-	err := mgr.Update(func(cfg *Config) {
-		go func() {
-			close(otherStarted)
-			otherDone <- omnibox.SaveOmniboxInitialBehavior(context.Background(), entity.OmniboxInitialBehaviorMostVisited)
+	saveOther := func() error {
+		return omnibox.SaveOmniboxInitialBehavior(context.Background(), entity.OmniboxInitialBehaviorMostVisited)
+	}
+	queued := make(chan error, 1)
+	var fired atomic.Bool
+	mgr.afterSnapshot = func() {
+		// The nested update calls this hook too; only the first snapshot reacts.
+		if fired.Swap(true) {
+			return
+		}
+		func() {
+			if mgr.mu.TryLock() {
+				// The snapshot was taken without keeping the lock: another
+				// update publishes before this one continues.
+				mgr.mu.Unlock()
+				require.NoError(t, saveOther())
+				queued <- nil
+				return
+			}
+			// The lock is held across the whole update: the other update has
+			// to queue behind it.
+			go func() { queued <- saveOther() }()
 		}()
-		<-otherStarted
-		cfg.Workspace.Styling.ModeLegendCollapsed = true
-	})
-	require.NoError(t, err)
-	require.NoError(t, <-otherDone)
+	}
 
-	got := mgr.Get()
-	require.True(t, got.Workspace.Styling.ModeLegendCollapsed)
-	require.Equal(t, entity.OmniboxInitialBehaviorMostVisited, got.Omnibox.InitialBehavior)
+	require.NoError(t, legend.SaveModeLegendCollapsed(context.Background(), true))
+	require.NoError(t, <-queued)
 
-	reloaded := newTestOmniboxPreferencesGatewayManager(t, configHome).Get()
-	require.True(t, reloaded.Workspace.Styling.ModeLegendCollapsed)
-	require.Equal(t, entity.OmniboxInitialBehaviorMostVisited, reloaded.Omnibox.InitialBehavior)
-
-	require.NoError(t, legend.SaveModeLegendCollapsed(context.Background(), false))
-	got = mgr.Get()
-	require.False(t, got.Workspace.Styling.ModeLegendCollapsed)
-	require.Equal(t, entity.OmniboxInitialBehaviorMostVisited, got.Omnibox.InitialBehavior)
+	for name, got := range map[string]*Config{
+		"in-memory": mgr.Get(),
+		"on-disk":   newTestOmniboxPreferencesGatewayManager(t, configHome).Get(),
+	} {
+		require.True(t, got.Workspace.Styling.ModeLegendCollapsed, name)
+		require.Equal(t, entity.OmniboxInitialBehaviorMostVisited, got.Omnibox.InitialBehavior, name)
+	}
 }
 
 func TestManagerUpdate_AppliesToLatestConfigAfterSave(t *testing.T) {

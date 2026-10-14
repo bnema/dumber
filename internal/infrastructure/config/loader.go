@@ -24,6 +24,11 @@ type Manager struct {
 	callbacks      []func(*Config)
 	watching       bool
 	skipNextReload bool // Set by Save() to prevent fsnotify reload from overwriting in-memory config
+
+	// afterSnapshot is a test seam called right after Get or Update copies the
+	// current config (Get calls it without the lock held, Update with it held).
+	// It is nil outside tests.
+	afterSnapshot func()
 }
 
 type automaticEnvConfig struct {
@@ -517,10 +522,13 @@ func normalizeMedia(config *Config) {
 // Get returns the current configuration (thread-safe).
 func (m *Manager) Get() *Config {
 	m.mu.RLock()
-	defer m.mu.RUnlock()
-
 	// Return a copy to prevent external modification
 	configCopy := *m.config
+	m.mu.RUnlock()
+
+	if m.afterSnapshot != nil {
+		m.afterSnapshot()
+	}
 	return &configCopy
 }
 
@@ -548,6 +556,9 @@ func (m *Manager) Update(mutate func(*Config)) error {
 	defer m.mu.Unlock()
 
 	updated := *m.config
+	if m.afterSnapshot != nil {
+		m.afterSnapshot()
+	}
 	mutate(&updated)
 
 	return m.saveLocked(&updated)
