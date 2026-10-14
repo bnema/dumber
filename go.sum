@@ -24,6 +24,8 @@ github.com/bnema/purego-webp v0.2.1 h1:/4TU7++xyc6WnHzqRPg5bYYiIoKnxYaf/7haau0q5
 github.com/bnema/purego-webp v0.2.1/go.mod h1:TYOQvozzcPup3zJQ58YmiCB4MkroeiyvvTP/MGWm+zI=
 github.com/bnema/puregotk v0.7.6 h1:++v/8UxwkfvbljswDU4rbxr+Nyix0lmXCvWpQt8srjo=
 github.com/bnema/puregotk v0.7.6/go.mod h1:BLcNL9jse2WqX3bRZCVhx4scE9xzWT26OazdHFzL5mo=
+github.com/bnema/zerobus v0.1.1 h1:N17A0XtvvVfneXHC1NHwSOL0fHbn7xDOP+rw3LZw8NE=
+github.com/bnema/zerobus v0.1.1/go.mod h1:QWo6NcbIyic3+gcqwB3IzZh8dIEdXFfw7WdhjNPITYM=
 github.com/cenkalti/backoff/v4 v4.3.0 h1:MyRJ/UdXutAwSAT+s3wNd7MfTIcy71VQueUuFK343L8=
 github.com/cenkalti/backoff/v4 v4.3.0/go.mod h1:Y3VNntkOUPxTVeUxJ/G5vcM//AlwfmyYozVcomhLiZE=
 github.com/charmbracelet/bubbles v1.0.0 h1:12J8/ak/uCZEMQ6KU7pcfwceyjLlWsDLAxB5fXonfvc=
@@ -63,8 +65,6 @@ github.com/fsnotify/fsnotify v1.10.1 h1:b0/UzAf9yR5rhf3RPm9gf3ehBPpf0oZKIjtpKrx5
 github.com/fsnotify/fsnotify v1.10.1/go.mod h1:TLheqan6HD6GBK6PrDWyDPBaEV8LspOxvPSjC+bVfgo=
 github.com/go-viper/mapstructure/v2 v2.5.0 h1:vM5IJoUAy3d7zRSVtIwQgBj7BiWtMPfmPEgAXnvj1Ro=
 github.com/go-viper/mapstructure/v2 v2.5.0/go.mod h1:oJDH3BJKyqBA2TXFhDsKDGDTlndYOZ6rGS0BRZIxGhM=
-github.com/godbus/dbus/v5 v5.2.4 h1:F2gUCy++NMIxGmo9J+z5le/+ZC8W1OgeR51P4i9ZB/U=
-github.com/godbus/dbus/v5 v5.2.4/go.mod h1:3AAv2+hPq5rdnr5txxxRwiGjPXamgoIHgz9FPBfOp3c=
 github.com/google/go-cmp v0.7.0 h1:wk8382ETsv4JYUZwIsn6YpYiWiBsYLSJiTsyBybVuN8=
 github.com/google/go-cmp v0.7.0/go.mod h1:pXiqmnSA92OHEEa9HXL2W4E7lf9JzCmGVUdgjX3N/iU=
 github.com/google/uuid v1.6.0 h1:NIvaJDMOsjHA8n1jAhLSgzrAzy1Hgr+hNrb57e+94F0=
