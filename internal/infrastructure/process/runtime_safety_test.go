@@ -38,7 +38,7 @@ func TestMergeRuntimeSafety(t *testing.T) {
 				for _, entry := range got {
 					if strings.HasPrefix(entry, "GODEBUG=") {
 						count++
-				}
+					}
 				}
 				require.Equal(t, 1, count, "changed environ must hold exactly one GODEBUG entry")
 			}

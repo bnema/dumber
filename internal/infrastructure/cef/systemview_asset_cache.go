@@ -192,22 +192,22 @@ func readBoundedAsset(assetsFS fs.FS, name string, maxBytes int) ([]byte, error)
 // waiters share the same decoded bytes unaffected. A versioned request pins
 // exact bytes: only output hashing to wantDigest earns immutable headers.
 type systemviewWASMResourceHandler struct {
-	cancel      context.CancelFunc
-	cancelOnce  sync.Once
+	cancel     context.CancelFunc
+	cancelOnce sync.Once
 	// ctx scopes the request to the handler lifetime: engine shutdown
 	// cancels it, letting completion suppress the native continuation.
 	// It is released after the continuation decision, never by load
 	// itself, so shutdown stays observable at that point.
-	ctx         context.Context
-	bundle      *systemviewAssetBundle
-	versioned   bool
-	wantDigest  string
-	once        sync.Once
+	ctx        context.Context
+	bundle     *systemviewAssetBundle
+	versioned  bool
+	wantDigest string
+	once       sync.Once
 	// settleMu arbitrates the continuation race: exactly one of
 	// request completion or cancellation wins, so a canceled waiter
 	// never resumes CEF while a completed load always does.
-	settleMu     sync.Mutex
-	settled      bool
+	settleMu    sync.Mutex
+	settled     bool
 	done        chan struct{}
 	data        []byte
 	contentType string

@@ -120,13 +120,13 @@ func TestNavCommandOffThreadDispatchCompletes(t *testing.T) {
 	browser.EXPECT().GoBack().Return().Once()
 
 	wv := &WebView{
-		ctx:             context.Background(),
-		engine:          &Engine{},
-		browser:         browser,
+		ctx:              context.Background(),
+		engine:           &Engine{},
+		browser:          browser,
 		scrollCancelSeam: fake,
-		gtkSyncIsOwner:  func() bool { return false },
-		gtkSyncDispatch: func(fn func()) { go fn() },
-		gtkSyncTimeout:  2 * time.Second,
+		gtkSyncIsOwner:   func() bool { return false },
+		gtkSyncDispatch:  func(fn func()) { go fn() },
+		gtkSyncTimeout:   2 * time.Second,
 	}
 
 	require.NoError(t, wv.GoBack(context.Background()))
@@ -141,12 +141,12 @@ func TestNavCommandDispatchTimeoutSkipsNavigation(t *testing.T) {
 	fake.startGesture()
 
 	wv := &WebView{
-		ctx:             context.Background(),
-		engine:          &Engine{},
+		ctx:              context.Background(),
+		engine:           &Engine{},
 		scrollCancelSeam: fake,
-		gtkSyncIsOwner:  func() bool { return false },
-		gtkSyncDispatch: func(func()) {},
-		gtkSyncTimeout:  20 * time.Millisecond,
+		gtkSyncIsOwner:   func() bool { return false },
+		gtkSyncDispatch:  func(func()) {},
+		gtkSyncTimeout:   20 * time.Millisecond,
 	}
 
 	err := wv.LoadURI(context.Background(), "https://example.com/")
