@@ -19,8 +19,7 @@ func (g *ModeLegendPreferencesGateway) SaveModeLegendCollapsed(_ context.Context
 		return fmt.Errorf("config manager not initialized")
 	}
 
-	current := g.mgr.Get()
-	current.Workspace.Styling.ModeLegendCollapsed = collapsed
-
-	return g.mgr.Save(current)
+	return g.mgr.Update(func(cfg *Config) {
+		cfg.Workspace.Styling.ModeLegendCollapsed = collapsed
+	})
 }

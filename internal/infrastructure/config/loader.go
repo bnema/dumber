@@ -517,6 +517,32 @@ func (m *Manager) Save(cfg *Config) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
+	return m.saveLocked(cfg)
+}
+
+// Update applies mutate to a copy of the latest configuration and persists the
+// result while holding the manager's write lock. Unlike Get() followed by
+// Save(), no concurrent reload or save can be overwritten by a stale snapshot.
+//
+// mutate runs under the lock: it must not call back into the Manager, and it
+// should only replace fields of the config it receives (the copy is shallow,
+// so nested maps and slices must be replaced rather than modified in place).
+func (m *Manager) Update(mutate func(*Config)) error {
+	if mutate == nil {
+		return fmt.Errorf("config mutation is nil")
+	}
+
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	updated := *m.config
+	mutate(&updated)
+
+	return m.saveLocked(&updated)
+}
+
+// saveLocked validates, writes and publishes cfg. Must be called with m.mu held for write.
+func (m *Manager) saveLocked(cfg *Config) error {
 	if cfg == nil {
 		return fmt.Errorf("config is nil")
 	}
