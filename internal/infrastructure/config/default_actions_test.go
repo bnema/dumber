@@ -122,15 +122,6 @@ func TestCompleteDefaultActions_SkipsDefaultsConflictingWithUserKeys(t *testing.
 	require.NoError(t, validateConfig(cfg))
 }
 
-func TestCompleteDefaultActions_LegacyUnderscoreNameCountsAsConfigured(t *testing.T) {
-	cfg := DefaultConfig()
-	cfg.Workspace.PaneMode.Actions = map[string]ActionBinding{
-		"stack_pane": {Keys: []string{"ctrl+alt+f12"}},
-	}
-	completeDefaultActions(cfg)
-	assert.NotContains(t, cfg.Workspace.PaneMode.Actions, "stack-pane")
-}
-
 func TestCompleteDefaultActions_DoesNotMutateSharedMaps(t *testing.T) {
 	cfg := DefaultConfig()
 	original := map[string]ActionBinding{"custom": {Keys: []string{"ctrl+alt+f12"}}}
@@ -260,4 +251,151 @@ keys = []
 	require.True(t, ok)
 	assert.Empty(t, stack.Keys)
 	assert.Len(t, got.Workspace.VimMode.Actions, len(DefaultConfig().Workspace.VimMode.Actions))
+}
+
+func TestManagerLoad_UnderscoreActionNamesAreCanonicalizedBeforeCompletion(t *testing.T) {
+	cfg := loadConfigFromTOML(t, `
+[workspace.pane_mode.actions.stack_pane]
+keys = ["ctrl+alt+f12"]
+desc = "Mine"
+
+[workspace.resize_mode.actions.resize_increase_left]
+keys = ["z"]
+
+[workspace.prefix_mode.actions.enter_resize_mode]
+keys = ["ctrl+alt+f11"]
+
+[workspace.pane_mode.actions.focus_left]
+keys = ["ctrl+alt+f10"]
+
+[workspace.shortcuts.actions.toggle_floating_pane]
+keys = ["alt+g"]
+`)
+
+	pane := cfg.Workspace.PaneMode.Actions
+	assert.NotContains(t, pane, "stack_pane")
+	assert.Equal(t, []string{"ctrl+alt+f12"}, pane["stack-pane"].Keys)
+	assert.Equal(t, "Mine", pane["stack-pane"].Desc)
+	assert.NotContains(t, pane, "focus_left")
+	assert.Equal(t, []string{"ctrl+alt+f10"}, pane["focus-left"].Keys)
+
+	resize := cfg.Workspace.ResizeMode.Actions
+	assert.NotContains(t, resize, "resize_increase_left")
+	assert.Equal(t, []string{"z"}, resize["resize-increase-left"].Keys)
+	assert.Contains(t, resize, "resize-increase-right", "other defaults are still completed")
+
+	prefix := cfg.Workspace.PrefixMode.Actions
+	assert.NotContains(t, prefix, "enter_resize_mode")
+	assert.Equal(t, []string{"ctrl+alt+f11"}, prefix["enter-resize-mode"].Keys)
+
+	shortcuts := cfg.Workspace.Shortcuts.Actions
+	assert.NotContains(t, shortcuts, "toggle_floating_pane")
+	assert.Equal(t, []string{"alt+g"}, shortcuts["toggle-floating-pane"].Keys)
+
+	for _, spec := range actionMapSpecs() {
+		for name := range *spec.actions(cfg) {
+			assert.NotContains(t, name, "_", "%s.%s", spec.key, name)
+		}
+	}
+}
+
+func TestManagerLoad_HyphenActionNameWinsOverUnderscoreDuplicate(t *testing.T) {
+	cfg := loadConfigFromTOML(t, `
+[workspace.pane_mode.actions.stack_pane]
+keys = ["ctrl+alt+f12"]
+
+[workspace.pane_mode.actions.stack-pane]
+keys = ["ctrl+alt+f11"]
+`)
+	assert.Equal(t, []string{"ctrl+alt+f11"}, cfg.Workspace.PaneMode.Actions["stack-pane"].Keys)
+	assert.NotContains(t, cfg.Workspace.PaneMode.Actions, "stack_pane")
+}
+
+func TestCompleteDefaultActions_AliasSpellingsOfAUserKeyBlockTheDefault(t *testing.T) {
+	tests := []struct {
+		name        string
+		userKey     string
+		wantSkipped string
+	}{
+		{name: "right vs arrowright", userKey: "right", wantSkipped: "split-right"},
+		{name: "Right vs arrowright", userKey: "Right", wantSkipped: "split-right"},
+		{name: "uppercase letter vs explicit shift", userKey: "shift+M", wantSkipped: "move-pane-to-next-tab"},
+		{name: "explicit shift vs uppercase letter", userKey: "M", wantSkipped: "move-pane-to-next-tab"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := DefaultConfig()
+			cfg.Workspace.PaneMode.Actions = map[string]ActionBinding{
+				"close-pane": {Keys: []string{tt.userKey}},
+			}
+			completeDefaultActions(cfg)
+
+			got := cfg.Workspace.PaneMode.Actions
+			assert.Equal(t, []string{tt.userKey}, got["close-pane"].Keys)
+			if tt.wantSkipped != "" {
+				assert.NotContains(t, got, tt.wantSkipped)
+			}
+			require.NoError(t, validateConfig(cfg), "completed config must stay valid")
+		})
+	}
+}
+
+func TestCompleteDefaultActions_ControlSpellingBlocksGlobalDefault(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.Workspace.Shortcuts.Actions = map[string]ActionBinding{
+		"new-tab": {Keys: []string{"Control+r"}},
+	}
+	completeDefaultActions(cfg)
+
+	// Default reload is ["ctrl+r", "f5"]; "Control+r" is the same key as
+	// "ctrl+r", so the user owns it and reload is not added back.
+	assert.NotContains(t, cfg.Workspace.Shortcuts.Actions, "reload")
+	assert.Contains(t, cfg.Workspace.Shortcuts.Actions, "hard-reload")
+	assert.Contains(t, cfg.Workspace.Shortcuts.Actions, "open-omnibox")
+	require.NoError(t, validateConfig(cfg))
+}
+
+func TestManagerLoad_AliasConflictIsResolvedDeterministically(t *testing.T) {
+	cfg := loadConfigFromTOML(t, `
+[workspace.pane_mode.actions.close-pane]
+keys = ["right"]
+`)
+	pane := cfg.Workspace.PaneMode.Actions
+	assert.Equal(t, []string{"right"}, pane["close-pane"].Keys)
+	assert.NotContains(t, pane, "split-right", "arrowright is the same key as right")
+	assert.Contains(t, pane, "split-left")
+}
+
+func TestValidateModalModeActions_DetectsAliasDuplicates(t *testing.T) {
+	tests := []struct {
+		name      string
+		keysA     string
+		keysB     string
+		wantCanon string
+	}{
+		{name: "right and arrowright", keysA: "right", keysB: "arrowright", wantCanon: "right"},
+		{name: "control and ctrl", keysA: "control+t", keysB: "ctrl+t", wantCanon: "ctrl+t"},
+		{name: "uppercase and explicit shift", keysA: "M", keysB: "shift+m", wantCanon: "shift+m"},
+		{name: "modifier order and case", keysA: "Shift+Ctrl+T", keysB: "ctrl+shift+t", wantCanon: "ctrl+shift+t"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			errs := validateModalModeActions("pane_mode", 0, map[string]ActionBinding{
+				"action-a": {Keys: []string{tt.keysA}},
+				"action-b": {Keys: []string{tt.keysB}},
+			})
+			require.Len(t, errs, 1)
+			assert.Contains(t, errs[0], "duplicate key binding '"+tt.wantCanon+"' found in pane_mode")
+			assert.Contains(t, errs[0], "action-a")
+			assert.Contains(t, errs[0], "action-b")
+		})
+	}
+}
+
+func TestValidateModalModeActions_SpellingsOfOneKeyInOneActionAreNotDuplicates(t *testing.T) {
+	// The defaults list "M" and "shift+m" together.
+	errs := validateModalModeActions("pane_mode", 0, map[string]ActionBinding{
+		"move-pane-to-next-tab": {Keys: []string{"M", "shift+m"}},
+	})
+	assert.Empty(t, errs)
 }

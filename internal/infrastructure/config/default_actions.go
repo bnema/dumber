@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"slices"
 	"sort"
-	"strings"
 
 	"github.com/bnema/dumber/internal/logging"
 )
@@ -18,7 +17,7 @@ type actionMapSpec struct {
 	// actions returns a pointer to the action map inside a Config.
 	actions func(*Config) *map[string]ActionBinding
 	// canonKey canonicalizes a key sequence the way the validator does for
-	// duplicate detection. nil means keys are compared verbatim.
+	// duplicate detection. nil means single key chords (see canonicalizeChordKey).
 	canonKey func(string) (string, error)
 }
 
@@ -38,11 +37,6 @@ func actionMapSpecs() []actionMapSpec {
 	}
 }
 
-// legacyActionName returns the underscore spelling used by older configs.
-func legacyActionName(name string) string {
-	return strings.ReplaceAll(name, "-", "_")
-}
-
 // skippedDefaultAction is a default action not added because a user binding wins.
 type skippedDefaultAction struct {
 	name     string
@@ -51,17 +45,18 @@ type skippedDefaultAction struct {
 }
 
 // missingDefaultActions returns the sorted names of default actions that the
-// user did not configure (by canonical or legacy underscore name) and whose key
-// sequences are not already used by a user action. userKeys maps each user
-// action name to its keys; an action with no keys (disabled) is still present,
-// so it is never re-added.
+// user did not configure and whose key sequences are not already used by a user
+// action. userKeys maps each user action name to its keys; an action with no
+// keys (disabled) is still present, so it is never re-added. Action names are
+// expected in canonical (hyphenated) form: LegacyConfigTransformer renames
+// underscore spellings before this runs.
 func (s actionMapSpec) missingDefaultActions(
 	defaults map[string]ActionBinding,
 	userKeys map[string][]string,
 ) (missing []string, skipped []skippedDefaultAction) {
 	canon := s.canonKey
 	if canon == nil {
-		canon = func(key string) (string, error) { return key, nil }
+		canon = canonicalizeChordKey
 	}
 	canonOrRaw := func(key string) string {
 		if c, err := canon(key); err == nil {
@@ -90,9 +85,6 @@ func (s actionMapSpec) missingDefaultActions(
 
 	for _, name := range defaultNames {
 		if _, ok := userKeys[name]; ok {
-			continue
-		}
-		if _, ok := userKeys[legacyActionName(name)]; ok {
 			continue
 		}
 		conflict := false

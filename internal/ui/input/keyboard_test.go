@@ -16,6 +16,7 @@ import (
 // Used by tests that construct a KeyboardHandler.
 func newTestWorkspace() *entity.WorkspaceConfig {
 	return &entity.WorkspaceConfig{
+		Shortcuts:  entity.GlobalShortcutsConfig{Actions: entity.BuiltinGlobalShortcuts()},
 		TabMode:    entity.TabModeConfig{ActivationShortcut: "ctrl+t"},
 		PaneMode:   entity.PaneModeConfig{ActivationShortcut: "ctrl+p"},
 		ResizeMode: entity.ResizeModeConfig{ActivationShortcut: "ctrl+alt+r"},
@@ -331,7 +332,7 @@ func TestHandleKeyPress_DoesNotExitResizeModeWhileActivationKeyIsHeld(t *testing
 func TestHandleKeyPress_DoesNotRetoggleFloatingPaneAfterUnrelatedRelease(t *testing.T) {
 	workspace := newTestWorkspace()
 	workspace.Shortcuts.Actions = map[string]entity.ActionBinding{
-		"toggle_floating_pane": {Keys: []string{"alt+f"}},
+		"toggle-floating-pane": {Keys: []string{"alt+f"}},
 	}
 	h := NewKeyboardHandler(context.Background(), workspace, newTestSession())
 	calls := 0

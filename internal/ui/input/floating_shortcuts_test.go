@@ -16,9 +16,10 @@ func defaultWorkspaceConfig() *entity.WorkspaceConfig {
 	return &entity.WorkspaceConfig{
 		Shortcuts: entity.GlobalShortcutsConfig{
 			Actions: map[string]entity.ActionBinding{
-				"toggle_floating_pane":   {Keys: []string{"alt+f"}},
-				"consume_or_expel_left":  {Keys: []string{"alt+["}},
-				"consume_or_expel_right": {Keys: []string{"alt+]"}},
+				"toggle-floating-pane":   {Keys: []string{"alt+f"}},
+				"consume-or-expel-left":  {Keys: []string{"alt+["}},
+				"consume-or-expel-right": {Keys: []string{"alt+]"}},
+				"open-omnibox":           {Keys: []string{"ctrl+l"}},
 			},
 		},
 	}

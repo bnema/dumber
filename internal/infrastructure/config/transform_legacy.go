@@ -1,6 +1,12 @@
 package config
 
-import "math"
+import (
+	"math"
+	"slices"
+	"strings"
+
+	"github.com/bnema/dumber/internal/logging"
+)
 
 const (
 	sectionWorkspace = "workspace"
@@ -18,8 +24,29 @@ func NewLegacyConfigTransformer() *LegacyConfigTransformer {
 	return &LegacyConfigTransformer{defaults: DefaultConfig()}
 }
 
-// TransformLegacyActions converts old-format action bindings to new format.
-// This handles migration from:
+// legacyActionSlicePaths are the action maps that older configs wrote as plain
+// key lists. Vim Mode never had that format.
+var legacyActionSlicePaths = [][]string{
+	{"workspace", "prefix_mode", "actions"},
+	{"workspace", "pane_mode", "actions"},
+	{"workspace", "tab_mode", "actions"},
+	{"workspace", "resize_mode", "actions"},
+	{"workspace", "shortcuts", "actions"},
+	{"session", "session_mode", "actions"},
+}
+
+// actionNamePaths are all configurable action maps.
+var actionNamePaths = append(slices.Clone(legacyActionSlicePaths), []string{"workspace", "vim_mode", "actions"})
+
+// TransformLegacyActions canonicalizes action names and converts old-format
+// action bindings to the new format.
+//
+// Names: older configs spell actions with underscores (stack_pane); the
+// canonical spelling is hyphenated (stack-pane). Every action map is renamed to
+// the hyphen form so the rest of the system only ever sees one spelling. When a
+// map holds both spellings of an action, the hyphenated one wins.
+//
+// Bindings: this handles migration from:
 //
 //	[workspace.pane_mode.actions]
 //	"focus-left" = ["h", "arrowleft"]
@@ -30,18 +57,70 @@ func NewLegacyConfigTransformer() *LegacyConfigTransformer {
 //	keys = ["h", "arrowleft"]
 //	desc = "Focus pane to the left"
 func (t *LegacyConfigTransformer) TransformLegacyActions(rawConfig map[string]any) {
-	actionPaths := [][]string{
-		{"workspace", "prefix_mode", "actions"},
-		{"workspace", "pane_mode", "actions"},
-		{"workspace", "tab_mode", "actions"},
-		{"workspace", "resize_mode", "actions"},
-		{"workspace", "shortcuts", "actions"},
-		{"session", "session_mode", "actions"},
+	for _, path := range actionNamePaths {
+		if actions, ok := rawActionSection(rawConfig, path); ok {
+			canonicalizeActionNames(actions, strings.Join(path, "."))
+		}
 	}
+	for _, path := range legacyActionSlicePaths {
+		if actions, ok := rawActionSection(rawConfig, path); ok {
+			t.transformActionSection(actions, path)
+		}
+	}
+}
 
-	for _, path := range actionPaths {
-		t.transformActionSection(rawConfig, path)
+// canonicalActionName returns the canonical (hyphenated) spelling of an action name.
+func canonicalActionName(name string) string {
+	return strings.ReplaceAll(name, "_", "-")
+}
+
+// canonicalizeActionNames renames underscore action names to their hyphenated
+// form in place. If both spellings exist, the hyphenated entry is kept.
+func canonicalizeActionNames(actions map[string]any, section string) {
+	var legacyNames []string
+	for name := range actions {
+		if canonicalActionName(name) != name {
+			legacyNames = append(legacyNames, name)
+		}
 	}
+	slices.Sort(legacyNames)
+
+	for _, name := range legacyNames {
+		canonical := canonicalActionName(name)
+		value := actions[name]
+		delete(actions, name)
+
+		log := logging.NewFromEnv()
+		if _, exists := actions[canonical]; exists {
+			log.Debug().
+				Str("section", section).
+				Str("action", name).
+				Str("canonical", canonical).
+				Msg("config: legacy action name ignored because the canonical spelling is also configured")
+			continue
+		}
+		actions[canonical] = value
+		log.Debug().
+			Str("section", section).
+			Str("action", name).
+			Str("canonical", canonical).
+			Msg("config: legacy action name renamed")
+	}
+}
+
+// rawActionSection returns the raw action map at path, if the path exists and
+// holds a table.
+func rawActionSection(rawConfig map[string]any, path []string) (map[string]any, bool) {
+	current := rawConfig
+	for _, key := range path[:len(path)-1] {
+		next, ok := current[key].(map[string]any)
+		if !ok {
+			return nil, false
+		}
+		current = next
+	}
+	actions, ok := current[path[len(path)-1]].(map[string]any)
+	return actions, ok
 }
 
 // TransformLegacyEngineConfig removes deprecated engine config keys.
@@ -217,29 +296,9 @@ func int64ConfigValue(value any) (int64, bool) {
 	}
 }
 
-func (t *LegacyConfigTransformer) transformActionSection(rawConfig map[string]any, path []string) {
-	// Navigate to the parent of the actions section
-	current := rawConfig
-	for _, key := range path[:len(path)-1] {
-		next, ok := current[key].(map[string]any)
-		if !ok {
-			return // Path doesn't exist
-		}
-		current = next
-	}
-
-	actionsKey := path[len(path)-1]
-	actionsRaw, ok := current[actionsKey]
-	if !ok {
-		return
-	}
-
-	actions, ok := actionsRaw.(map[string]any)
-	if !ok {
-		return
-	}
-
-	// Check each action and transform if needed
+// transformActionSection converts old-format (key list) bindings of one action
+// map to the ActionBinding format.
+func (t *LegacyConfigTransformer) transformActionSection(actions map[string]any, path []string) {
 	for actionName, actionValue := range actions {
 		// If value is a slice (old format), convert to ActionBinding format
 		if slice, ok := actionValue.([]any); ok {

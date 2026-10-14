@@ -108,12 +108,10 @@ func TestHandleKeyPress_PrefixPressedTwiceExits(t *testing.T) {
 	assert.Equal(t, ModeNormal, h.Mode())
 }
 
-func TestShortcutSet_BuiltinFallbacksAndOverrides(t *testing.T) {
+func TestShortcutSet_BuiltinShortcutsAndOverrides(t *testing.T) {
 	ws := newTestWorkspace()
-	ws.Shortcuts.Actions = map[string]entity.ActionBinding{
-		"reload": {Keys: []string{}},               // disabled by user
-		"quit":   {Keys: []string{"ctrl+shift+q"}}, // rebound by user
-	}
+	ws.Shortcuts.Actions["reload"] = entity.ActionBinding{Keys: []string{}}             // disabled by user
+	ws.Shortcuts.Actions["quit"] = entity.ActionBinding{Keys: []string{"ctrl+shift+q"}} // rebound by user
 	set := NewShortcutSet(context.Background(), ws, newTestSession())
 
 	lookup := func(key string) (Action, bool) {
@@ -124,7 +122,7 @@ func TestShortcutSet_BuiltinFallbacksAndOverrides(t *testing.T) {
 	}
 
 	action, ok := lookup("ctrl+l")
-	assert.True(t, ok, "missing builtin action falls back to its default key")
+	assert.True(t, ok, "untouched builtin action keeps its default key")
 	assert.Equal(t, ActionOpenOmnibox, action)
 
 	_, ok = lookup("ctrl+r")

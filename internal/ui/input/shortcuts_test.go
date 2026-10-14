@@ -380,7 +380,7 @@ func TestShouldAutoExitMode(t *testing.T) {
 }
 
 func TestMapConfigAction_EjectPaneToWindowAliases(t *testing.T) {
-	tests := []string{"eject_pane_to_window", "eject-pane-to-window"}
+	tests := []string{"eject-pane-to-window"}
 	for _, name := range tests {
 		t.Run(name, func(t *testing.T) {
 			if got := mapConfigAction(name); got != ActionEjectPaneToWindow {
@@ -391,29 +391,9 @@ func TestMapConfigAction_EjectPaneToWindowAliases(t *testing.T) {
 }
 
 func TestMapConfigAction_ToggleFloatingPane(t *testing.T) {
-	action := mapConfigAction("toggle_floating_pane")
+	action := mapConfigAction("toggle-floating-pane")
 	if action != ActionToggleFloatingPane {
-		t.Fatalf("mapConfigAction(toggle_floating_pane) = %s, want %s", action, ActionToggleFloatingPane)
-	}
-}
-
-func TestMapConfigAction_ToggleSystemViews(t *testing.T) {
-	tests := []struct {
-		name string
-		want Action
-	}{
-		{name: "toggle_history_systemview", want: ActionToggleHistorySystemView},
-		{name: "toggle_favorites_sidebar", want: ActionToggleFavoritesSidebar},
-		{name: "toggle_current_page_favorite", want: ActionToggleCurrentPageFavorite},
-		{name: "toggle_config_systemview", want: ActionToggleConfigSystemView},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := mapConfigAction(tt.name); got != tt.want {
-				t.Fatalf("mapConfigAction(%s) = %s, want %s", tt.name, got, tt.want)
-			}
-		})
+		t.Fatalf("mapConfigAction(toggle-floating-pane) = %s, want %s", action, ActionToggleFloatingPane)
 	}
 }
 
@@ -580,17 +560,11 @@ func TestMapConfigAction_VimScrollActions(t *testing.T) {
 		config   string
 		expected Action
 	}{
-		{name: "vim_scroll_left", config: "vim_scroll_left", expected: ActionVimScrollLeft},
 		{name: "vim-scroll-left", config: "vim-scroll-left", expected: ActionVimScrollLeft},
-		{name: "vim_scroll_down", config: "vim_scroll_down", expected: ActionVimScrollDown},
 		{name: "vim-scroll-down", config: "vim-scroll-down", expected: ActionVimScrollDown},
-		{name: "vim_scroll_up", config: "vim_scroll_up", expected: ActionVimScrollUp},
 		{name: "vim-scroll-up", config: "vim-scroll-up", expected: ActionVimScrollUp},
-		{name: "vim_scroll_right", config: "vim_scroll_right", expected: ActionVimScrollRight},
 		{name: "vim-scroll-right", config: "vim-scroll-right", expected: ActionVimScrollRight},
-		{name: "vim_scroll_down_fast", config: "vim_scroll_down_fast", expected: ActionVimScrollDownFast},
 		{name: "vim-scroll-down-fast", config: "vim-scroll-down-fast", expected: ActionVimScrollDownFast},
-		{name: "vim_scroll_up_fast", config: "vim_scroll_up_fast", expected: ActionVimScrollUpFast},
 		{name: "vim-scroll-up-fast", config: "vim-scroll-up-fast", expected: ActionVimScrollUpFast},
 	}
 

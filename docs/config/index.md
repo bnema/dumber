@@ -357,7 +357,7 @@ new_pane_url = "dumb://history"
 
 ### Action Maps
 
-Every action map (`workspace.shortcuts.actions`, `workspace.prefix_mode.actions`, `workspace.pane_mode.actions`, `workspace.tab_mode.actions`, `workspace.vim_mode.actions`, `workspace.resize_mode.actions`, `session.session_mode.actions`) is completed with the default actions your config does not define, so new default actions are active without editing the file. Your bindings win: a default action is skipped when one of its keys is already used by an action you configured in the same map. Set `keys = []` on an action to disable it.
+Every action map (`workspace.shortcuts.actions`, `workspace.prefix_mode.actions`, `workspace.pane_mode.actions`, `workspace.tab_mode.actions`, `workspace.vim_mode.actions`, `workspace.resize_mode.actions`, `session.session_mode.actions`) is completed with the default actions your config does not define, so new default actions are active without editing the file. Your bindings win: a default action is skipped when one of its keys is already used by an action you configured in the same map. Set `keys = []` on an action to disable it. Keys are compared by the binding they resolve to, not by spelling: `right` and `arrowright`, `ctrl` and `control`, and `M` and `shift+m` are the same key. Action names use hyphens (`stack-pane`); older underscore spellings (`stack_pane`) are still read and renamed to the hyphen form when the config loads (if both spellings are present, the hyphenated one is used).
 
 ### Pane Mode
 
@@ -564,26 +564,26 @@ Global shortcuts are configured under `workspace.shortcuts.actions` using the sa
 
 | Action | Default Keys | Description |
 |--------|--------------|-------------|
-| `toggle_floating_pane` | `alt+f` | Toggle the workspace floating pane (persistent session) |
-| `close_pane` | `ctrl+w` | Close active pane (or release floating pane when floating is active) |
-| `next_tab` | `ctrl+tab` | Switch to next tab |
-| `previous_tab` | `ctrl+shift+tab` | Switch to previous tab |
-| `consume_or_expel_left` | `alt+[` | Consume into left sibling stack, or expel left if stacked |
-| `consume_or_expel_right` | `alt+]` | Consume into right sibling stack, or expel right if stacked |
-| `consume_or_expel_up` | `alt+{` | Consume into upper sibling stack, or expel up if stacked |
-| `consume_or_expel_down` | `alt+}` | Consume into lower sibling stack, or expel down if stacked |
+| `toggle-floating-pane` | `alt+f` | Toggle the workspace floating pane (persistent session) |
+| `close-pane` | `ctrl+w` | Close active pane (or release floating pane when floating is active) |
+| `next-tab` | `ctrl+tab` | Switch to next tab |
+| `previous-tab` | `ctrl+shift+tab` | Switch to previous tab |
+| `consume-or-expel-left` | `alt+[` | Consume into left sibling stack, or expel left if stacked |
+| `consume-or-expel-right` | `alt+]` | Consume into right sibling stack, or expel right if stacked |
+| `consume-or-expel-up` | `alt+{` | Consume into upper sibling stack, or expel up if stacked |
+| `consume-or-expel-down` | `alt+}` | Consume into lower sibling stack, or expel down if stacked |
 
 **Example:**
 ```toml
-[workspace.shortcuts.actions.close_pane]
+[workspace.shortcuts.actions.close-pane]
   keys = ["ctrl+w"]
   desc = "Close active pane"
 
-[workspace.shortcuts.actions.next_tab]
+[workspace.shortcuts.actions.next-tab]
   keys = ["ctrl+tab", "alt+l"]
   desc = "Switch to next tab"
 
-[workspace.shortcuts.actions.toggle_floating_pane]
+[workspace.shortcuts.actions.toggle-floating-pane]
   keys = ["alt+f"]
   desc = "Toggle floating pane"
 ```
@@ -601,7 +601,7 @@ Global shortcuts are configured under `workspace.shortcuts.actions` using the sa
 
 The floating workspace pane is a persistent overlay session: hiding it does not destroy its web content.
 
-- Default behavior includes exactly one floating shortcut: `Alt+F` (`toggle_floating_pane`).
+- Default behavior includes exactly one floating shortcut: `Alt+F` (`toggle-floating-pane`).
 - URL shortcuts (for example `Alt+G`) are user-defined via `workspace.floating_pane.profiles` and are empty by default.
 - `Alt+F` toggles visibility only and preserves floating state.
 - `Ctrl+W` on an active floating pane closes and releases that floating session for a fresh next open.
@@ -616,7 +616,7 @@ The floating workspace pane is a persistent overlay session: hiding it does not 
 **Example:**
 
 ```toml
-[workspace.shortcuts.actions.toggle_floating_pane]
+[workspace.shortcuts.actions.toggle-floating-pane]
 keys = ["alt+f"]
 desc = "Toggle floating pane"
 

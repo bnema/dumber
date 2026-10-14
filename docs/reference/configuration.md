@@ -119,8 +119,8 @@
 | `workspace.resize_mode.step_percent` | float | `5.0` | |
 | `workspace.resize_mode.min_pane_percent` | float | `10.0` | |
 | `workspace.shortcuts.actions` | map | see defaults | global shortcut action mappings, including browser shortcuts (`open-omnibox`, `reload`, `focus-left`, ...); set `keys = []` to disable one |
-| `workspace.shortcuts.actions.toggle_floating_pane.keys` | []string | `alt+f` | key strings |
-| `workspace.shortcuts.actions.toggle_floating_pane.desc` | string | `Toggle floating pane` | |
+| `workspace.shortcuts.actions.toggle-floating-pane.keys` | []string | `alt+f` | key strings |
+| `workspace.shortcuts.actions.toggle-floating-pane.desc` | string | `Toggle floating pane` | |
 | `workspace.floating_pane.width_pct` | float | `0.82` | `(0,1]` |
 | `workspace.floating_pane.height_pct` | float | `0.72` | `(0,1]` |
 | `workspace.floating_pane.profiles.<name>.keys` | []string | | at least one key |
