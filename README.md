@@ -249,7 +249,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for details.
 ## Community
 
 - [Report bugs](https://github.com/bnema/dumber/issues)
-- [Releases](https://github.com/bnema/dumber/releases)
+- [Releases](https://github.com/bnema/dumber/releases): notes for each version
 
 ## License
 
