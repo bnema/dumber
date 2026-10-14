@@ -30,6 +30,8 @@ type fakePortal struct {
 	// endRequest makes the portal answer Close with an error, like a
 	// portal that already ended the request with a Response signal.
 	endRequest bool
+	// failInhibit makes the portal reject Inhibit calls.
+	failInhibit bool
 }
 
 func (f *fakePortal) serve(t *testing.T, conn *zerobus.Conn) {
@@ -53,13 +55,17 @@ func (f *fakePortal) serve(t *testing.T, conn *zerobus.Conn) {
 }
 
 func (f *fakePortal) answer(conn *zerobus.Conn, m *zerobus.Message) {
-	call := portalCall{member: m.Member, path: strings.Clone(m.Path)}
+	call := portalCall{member: strings.Clone(m.Member), path: strings.Clone(m.Path)}
 	switch m.Member {
 	case "Get":
 		e := conn.NewReply(m, "v")
 		e.Variant("u")
 		e.Uint32(3)
 	case "Inhibit":
+		if f.failInhibit {
+			conn.NewError(m, "org.freedesktop.DBus.Error.AccessDenied", "s").Str("denied")
+			break
+		}
 		body := m.Body()
 		body.Str() // window
 		call.flags = body.Uint32()
@@ -181,6 +187,25 @@ func TestPortalInhibitorToleratesEndedRequest(t *testing.T) {
 	if c := portal.next(t); c.member != "Inhibit" {
 		t.Fatalf("call = %s, want Inhibit", c.member)
 	}
+}
+
+func TestPortalInhibitorRollsBackFailedInhibit(t *testing.T) {
+	portal := &fakePortal{failInhibit: true}
+	p := newTestInhibitor(t, portal)
+
+	if err := p.Inhibit(context.Background(), "video playing"); err == nil {
+		t.Fatal("Inhibit succeeded although the portal rejected it")
+	}
+	portal.next(t)
+	if p.IsInhibited() {
+		t.Fatal("refcount kept after a failed Inhibit")
+	}
+
+	// Nothing to release: Uninhibit must not call Close.
+	if err := p.Uninhibit(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	portal.none(t)
 }
 
 func TestPortalInhibitorCloseReleasesActiveRequest(t *testing.T) {
