@@ -312,10 +312,7 @@ func validateModalModeActionsWithKeyCanon(
 	seenSequence := make(map[string]string)
 	for _, action := range actionNames {
 		binding := actions[action]
-		if len(binding.Keys) == 0 {
-			validationErrors = append(validationErrors, fmt.Sprintf("workspace.%s.actions.%s must have at least one key binding", modePath, action))
-			continue
-		}
+		// An action with no keys is disabled; it binds nothing and is valid.
 		keys := append([]string(nil), binding.Keys...)
 		sort.Strings(keys)
 		for _, key := range keys {

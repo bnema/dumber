@@ -355,6 +355,10 @@ Existing configs using older keys are migrated to the current engine shape. New 
 new_pane_url = "dumb://history"
 ```
 
+### Action Maps
+
+Every action map (`workspace.shortcuts.actions`, `workspace.prefix_mode.actions`, `workspace.pane_mode.actions`, `workspace.tab_mode.actions`, `workspace.vim_mode.actions`, `workspace.resize_mode.actions`, `session.session_mode.actions`) is completed with the default actions your config does not define, so new default actions are active without editing the file. Your bindings win: a default action is skipped when one of its keys is already used by an action you configured in the same map. Set `keys = []` on an action to disable it.
+
 ### Pane Mode
 
 | Key | Type | Default | Description |

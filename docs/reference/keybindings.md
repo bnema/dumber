@@ -20,6 +20,8 @@ Press `Escape` or `Enter` to exit any mode.
 
 Keybinding tables use uppercase letters as visual labels for unshifted letter keys. In config, use lowercase (for example, `["w"]` for Pane Mode eject). Shifted keys are shown with an explicit `Shift+` prefix.
 
+Default actions missing from your config are always active. Your own bindings override defaults (a default is skipped if one of its keys is already used in the same mode), and `keys = []` disables an action.
+
 ## Pane Mode (`Ctrl+P`)
 
 | Action | Keys |

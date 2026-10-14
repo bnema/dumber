@@ -101,7 +101,7 @@
 | `workspace.keymap` | string | `zellij` | `zellij`, `tmux`; see [Keymap presets](keybindings.md#keymap-presets) |
 | `workspace.prefix_mode.activation_shortcut` | string | `ctrl+space` | prefix key for the `tmux` keymap |
 | `workspace.prefix_mode.timeout_ms` | int | `2000` | >= 0 |
-| `workspace.prefix_mode.actions.<action>` | object | see defaults | one-shot actions after the prefix |
+| `workspace.prefix_mode.actions.<action>` | object | see defaults | one-shot actions after the prefix; every action map keeps default actions you do not define, your keys win on conflict, and `keys = []` disables an action |
 | `workspace.pane_mode.activation_shortcut` | string | `ctrl+p` | |
 | `workspace.pane_mode.timeout_ms` | int | `3000` | |
 | `workspace.pane_mode.actions.<action>` | []string | see defaults | pane mode key mappings |

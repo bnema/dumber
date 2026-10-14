@@ -296,19 +296,21 @@ const (
 
 type defaultActionMap struct {
 	key     string
+	spec    actionMapSpec
 	actions map[string]entity.ActionBinding
 }
 
 func (m *Migrator) defaultActionMaps() []defaultActionMap {
-	return []defaultActionMap{
-		{key: "workspace.shortcuts.actions", actions: m.defaultConfig.Workspace.Shortcuts.Actions},
-		{key: "workspace.prefix_mode.actions", actions: m.defaultConfig.Workspace.PrefixMode.Actions},
-		{key: "workspace.pane_mode.actions", actions: m.defaultConfig.Workspace.PaneMode.Actions},
-		{key: "workspace.tab_mode.actions", actions: m.defaultConfig.Workspace.TabMode.Actions},
-		{key: "workspace.vim_mode.actions", actions: m.defaultConfig.Workspace.VimMode.Actions},
-		{key: "workspace.resize_mode.actions", actions: m.defaultConfig.Workspace.ResizeMode.Actions},
-		{key: "session.session_mode.actions", actions: m.defaultConfig.Session.SessionMode.Actions},
+	specs := actionMapSpecs()
+	maps := make([]defaultActionMap, 0, len(specs))
+	for _, spec := range specs {
+		maps = append(maps, defaultActionMap{
+			key:     spec.key,
+			spec:    spec,
+			actions: *spec.actions(m.defaultConfig),
+		})
 	}
+	return maps
 }
 
 // typesAreCompatible checks if the default types for two keys are compatible.
@@ -987,7 +989,21 @@ func (*Migrator) isUserDataSection(keyPath string) bool {
 	return false
 }
 
+// userActionKeys extracts name -> keys from a raw user action table. Entries
+// that cannot be parsed are still reported (with no keys) so they count as
+// configured.
+func (m *Migrator) userActionKeys(userActions map[string]any) map[string][]string {
+	out := make(map[string][]string, len(userActions))
+	for name, value := range userActions {
+		binding, _ := m.actionBindingFromAny(value)
+		out[name] = binding.Keys
+	}
+	return out
+}
+
 // detectMissingDefaultActions finds default shortcut/modal actions not present in user config.
+// Defaults whose keys are already used by a user action are not reported because
+// they are never added.
 func (m *Migrator) detectMissingDefaultActions(userKeysWithValues map[string]any) []string {
 	if userKeysWithValues == nil {
 		return nil
@@ -1005,15 +1021,9 @@ func (m *Migrator) detectMissingDefaultActions(userKeysWithValues map[string]any
 			continue
 		}
 
-		for actionName := range actionMap.actions {
-			if _, exists := userActions[actionName]; exists {
-				continue
-			}
-			legacyActionName := strings.ReplaceAll(actionName, "-", "_")
-			if _, exists := userActions[legacyActionName]; exists {
-				continue
-			}
-			missing = append(missing, actionMap.key+"."+actionName)
+		names, _ := actionMap.spec.missingDefaultActions(actionMap.actions, m.userActionKeys(userActions))
+		for _, name := range names {
+			missing = append(missing, actionMap.key+"."+name)
 		}
 	}
 
@@ -1034,15 +1044,9 @@ func (m *Migrator) mergeMissingDefaultActions(rawConfig map[string]any) {
 			continue
 		}
 
-		for actionName, defaultAction := range actionMap.actions {
-			if _, exists := userActions[actionName]; exists {
-				continue
-			}
-			legacyActionName := strings.ReplaceAll(actionName, "-", "_")
-			if _, exists := userActions[legacyActionName]; exists {
-				continue
-			}
-			userActions[actionName] = defaultAction
+		names, _ := actionMap.spec.missingDefaultActions(actionMap.actions, m.userActionKeys(userActions))
+		for _, name := range names {
+			userActions[name] = actionMap.actions[name]
 		}
 
 		m.setNestedValue(rawConfig, actionMap.key, userActions)

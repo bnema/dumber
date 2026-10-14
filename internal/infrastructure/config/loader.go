@@ -374,6 +374,7 @@ func ensureDatabasePath(config *Config) error {
 }
 
 func normalizeConfig(config *Config) {
+	completeDefaultActions(config)
 	normalizeExternalLinks(config)
 	normalizeAppearance(config)
 	normalizeMedia(config)

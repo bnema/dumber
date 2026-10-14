@@ -357,16 +357,14 @@ func TestValidateVimMode_CanonicalAliasConflicts(t *testing.T) {
 	}
 }
 
-func TestValidateVimMode_EmptyActionKeysFail(t *testing.T) {
+func TestValidateVimMode_EmptyActionKeysDisableAction(t *testing.T) {
 	cfg := DefaultConfig()
 	// Override an action with no key bindings.
 	cfg.Workspace.VimMode.Actions = map[string]ActionBinding{
 		"vim-scroll-left": {Keys: []string{}, Desc: "No keys"},
 	}
 
-	err := validateConfig(cfg)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "workspace.vim_mode.actions.vim-scroll-left must have at least one key binding")
+	require.NoError(t, validateConfig(cfg))
 }
 
 func TestValidateModalModeActions_RegressionTable(t *testing.T) {
@@ -390,13 +388,6 @@ func TestValidateModalModeActions_RegressionTable(t *testing.T) {
 			timeout:  0,
 			actions:  nil,
 			want:     "workspace.pane_mode.actions cannot be empty",
-		},
-		{
-			name:     "tab empty keys",
-			modePath: "tab_mode",
-			timeout:  0,
-			actions:  map[string]ActionBinding{"new-tab": {Keys: []string{}}},
-			want:     "workspace.tab_mode.actions.new-tab must have at least one key binding",
 		},
 		{
 			name:     "page duplicate vim binding",
