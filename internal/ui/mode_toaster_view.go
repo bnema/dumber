@@ -82,6 +82,12 @@ type gtkModeToasterView struct {
 	interactive  bool
 	animations   bool
 
+	// legendWidgets are the widgets built for the current legend. puregotk
+	// constructors hand back a reference we own, which GTK does not drop when
+	// the widget is removed from its parent, so they are unreferenced once the
+	// legend is replaced or the view destroyed.
+	legendWidgets []*gtk.Widget
+
 	groups      []legendGroup
 	groupBoxes  []*gtk.Box
 	columns     [][]*gtk.Box // group boxes per column box, as placed
@@ -441,6 +447,7 @@ func (v *gtkModeToasterView) setBodyLingering(lingering bool) {
 // setLegend replaces the legend content; nil empties it.
 func (v *gtkModeToasterView) setLegend(groups []legendGroup) {
 	v.clearColumns()
+	v.releaseLegendWidgets()
 	v.groupBoxes = nil
 	v.rows = make(map[string][]*gtk.Widget)
 	v.keycaps = make(map[string][]*gtk.Widget)
@@ -457,11 +464,13 @@ func (v *gtkModeToasterView) setLegend(groups []legendGroup) {
 
 func (v *gtkModeToasterView) buildGroup(group legendGroup) *gtk.Box {
 	box := gtk.NewBox(gtk.OrientationVerticalValue, 0)
+	v.legendWidgets = append(v.legendWidgets, &box.Widget)
 	box.SetCanFocus(false)
 	box.SetCanTarget(false)
 	box.AddCssClass("mode-legend-group")
 	name := group.Name
 	title := gtk.NewLabel(&name)
+	v.legendWidgets = append(v.legendWidgets, &title.Widget)
 	title.SetCanFocus(false)
 	title.SetCanTarget(false)
 	title.SetHalign(gtk.AlignStartValue)
@@ -475,6 +484,7 @@ func (v *gtkModeToasterView) buildGroup(group legendGroup) *gtk.Box {
 
 func (v *gtkModeToasterView) buildRow(row legendRow) *gtk.Box {
 	box := gtk.NewBox(gtk.OrientationHorizontalValue, 0)
+	v.legendWidgets = append(v.legendWidgets, &box.Widget)
 	box.SetCanFocus(false)
 	box.SetCanTarget(false)
 	box.AddCssClass("mode-legend-row")
@@ -482,6 +492,7 @@ func (v *gtkModeToasterView) buildRow(row legendRow) *gtk.Box {
 	for _, key := range row.Keys {
 		display := displayLegendKey(key)
 		keycap := gtk.NewLabel(&display)
+		v.legendWidgets = append(v.legendWidgets, &keycap.Widget)
 		keycap.SetCanFocus(false)
 		keycap.SetCanTarget(false)
 		keycap.AddCssClass("mode-legend-keycap")
@@ -490,6 +501,7 @@ func (v *gtkModeToasterView) buildRow(row legendRow) *gtk.Box {
 	}
 	desc := row.Desc
 	text := gtk.NewLabel(&desc)
+	v.legendWidgets = append(v.legendWidgets, &text.Widget)
 	text.SetCanFocus(false)
 	text.SetCanTarget(false)
 	text.SetHalign(gtk.AlignStartValue)
@@ -507,8 +519,20 @@ func (v *gtkModeToasterView) clearColumns() {
 			col.Remove(&group.Widget)
 		}
 		v.columnBox.Remove(&col.Widget)
+		col.Unref() // drop the reference NewBox gave us
 	}
 	v.columnBoxes, v.columns = nil, nil
+}
+
+// releaseLegendWidgets drops our reference to every widget of the current
+// legend. The group boxes must already be detached from the columns.
+func (v *gtkModeToasterView) releaseLegendWidgets() {
+	for _, widget := range v.legendWidgets {
+		widget.Unref()
+	}
+	v.legendWidgets = nil
+	v.groupBoxes, v.groups = nil, nil
+	v.rows, v.keycaps = make(map[string][]*gtk.Widget), make(map[string][]*gtk.Widget)
 }
 
 // layoutColumns distributes the groups over count columns.
@@ -702,10 +726,26 @@ func (v *gtkModeToasterView) destroy() {
 		v.positionHandlerID = 0
 	}
 	v.placement = nil
+	v.clearColumns()
+	v.releaseLegendWidgets()
 	v.overlay.RemoveOverlay(&v.pill.Widget)
 	v.overlay.RemoveOverlay(&v.root.Widget)
+
+	// Widgets are handed to us with a reference that GTK does not release on
+	// removal: drop it. (Controllers are owned by the widget they were added to,
+	// which released them on removal.) The callbacks go too, now that nothing
+	// can invoke them.
+	for _, widget := range []*gtk.Widget{
+		&v.pillLabel.Widget, &v.chevron.Widget, &v.hint.Widget, &v.columnBox.Widget,
+		&v.scroller.Widget, &v.panel.Widget, &v.pill.Widget, &v.root.Widget,
+	} {
+		widget.Unref()
+	}
+	v.pillClickCb, v.pillScrollCb, v.motionCb, v.enterCb, v.leaveCb, v.keyCb, v.windowClickC = nil, nil, nil, nil, nil, nil, nil
 	v.overlay, v.window = nil, nil
-	v.pill, v.root = nil, nil
+	v.pill, v.pillLabel, v.chevron = nil, nil, nil
+	v.root, v.panel, v.scroller, v.columnBox, v.hint = nil, nil, nil, nil, nil
+	v.motion, v.keys, v.windowClick, v.pillClick, v.pillScroll = nil, nil, nil, nil, nil
 }
 
 // newModeToaster builds the mode toaster of a window inside its content
