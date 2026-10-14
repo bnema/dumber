@@ -376,13 +376,39 @@ func (s *ShortcutSet) registerActivation(ctx context.Context, shortcut string, a
 		Msg("mode activation registered")
 }
 
+// legacyActionName returns the underscore spelling older configs use for an
+// action. It is the same rule the config loader applies when it completes
+// missing default actions, so a legacy-named action counts as configured in
+// both places.
+func legacyActionName(name string) string {
+	return strings.ReplaceAll(name, "-", "_")
+}
+
+// globalShortcutAction resolves a configured global shortcut name to its
+// action. Besides the names in configActionToAction, a built-in browser action
+// is also recognized by its legacy underscore spelling.
+func globalShortcutAction(name string) (Action, bool) {
+	if action, ok := configActionToAction[name]; ok {
+		return action, true
+	}
+	for builtin := range entity.BuiltinGlobalShortcuts() {
+		if legacyActionName(builtin) == name {
+			action, ok := configActionToAction[builtin]
+			return action, ok
+		}
+	}
+	return "", false
+}
+
 // registerBuiltinShortcutFallbacks binds built-in browser shortcuts whose
 // action is missing from the configured global shortcuts, so configs written
 // before these actions became configurable keep working until migrated.
 func (s *ShortcutSet) registerBuiltinShortcutFallbacks(cfg *entity.WorkspaceConfig) {
 	for name, binding := range entity.BuiltinGlobalShortcuts() {
 		if cfg != nil {
-			if _, configured := cfg.Shortcuts.Actions[name]; configured {
+			_, configured := cfg.Shortcuts.Actions[name]
+			_, configuredLegacy := cfg.Shortcuts.Actions[legacyActionName(name)]
+			if configured || configuredLegacy {
 				continue
 			}
 		}
@@ -403,7 +429,7 @@ func (s *ShortcutSet) registerConfiguredShortcuts(cfg *entity.WorkspaceConfig) {
 		return
 	}
 	for _, actionName := range orderedGlobalShortcutActions(cfg.Shortcuts.Actions) {
-		action, ok := configActionToAction[actionName]
+		action, ok := globalShortcutAction(actionName)
 		if !ok {
 			continue
 		}
@@ -421,10 +447,20 @@ func (s *ShortcutSet) registerConfiguredShortcuts(cfg *entity.WorkspaceConfig) {
 // key conflict the same across restarts.
 func orderedGlobalShortcutActions(actions map[string]entity.ActionBinding) []string {
 	builtins := entity.BuiltinGlobalShortcuts()
+	isBuiltin := func(name string) bool {
+		if _, ok := builtins[name]; ok {
+			return true
+		}
+		for builtin := range builtins {
+			if legacyActionName(builtin) == name {
+				return true
+			}
+		}
+		return false
+	}
 	names := slices.Sorted(maps.Keys(actions))
 	slices.SortStableFunc(names, func(a, b string) int {
-		_, aBuiltin := builtins[a]
-		_, bBuiltin := builtins[b]
+		aBuiltin, bBuiltin := isBuiltin(a), isBuiltin(b)
 		switch {
 		case aBuiltin == bBuiltin:
 			return 0
