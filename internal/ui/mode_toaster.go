@@ -181,9 +181,15 @@ func (t *modeToaster) setMode(mode input.Mode, cfg entity.WorkspaceStylingConfig
 		t.clearLinger()
 	}
 	t.generation++
+	// A rebuild within the same mode (a config hot reload during a Vim page
+	// capture, say) keeps the interaction state: the sub-mode label, the pending
+	// sequence and the suspension belong to what the user is doing, not to the
+	// legend being rebuilt.
+	if mode != t.mode {
+		t.detail, t.pending = "", ""
+		t.suspended = false
+	}
 	t.mode, t.cfg, t.style, t.actions = mode, cfg, style, actions
-	t.detail, t.pending = "", ""
-	t.suspended = false
 	t.ready = false
 	t.view.setStyle(style)
 	if linger {
@@ -201,6 +207,9 @@ func (t *modeToaster) setMode(mode input.Mode, cfg entity.WorkspaceStylingConfig
 	}
 	t.groups = buildLegendGroups(mode, actions)
 	t.view.setLegend(t.groups)
+	if t.pending != "" {
+		t.dimRulesOutPending()
+	}
 	t.view.setAnimations(cfg.ModeLegendAnimations)
 	if cfg.ModeLegend == "delay" && cfg.ModeLegendDelayMs > 0 {
 		generation := t.generation
@@ -237,12 +246,18 @@ func (t *modeToaster) setPending(pending string) {
 	}
 	t.detail = pending
 	t.pending = pending
+	t.dimRulesOutPending()
+	t.reconcile()
+}
+
+// dimRulesOutPending dims the legend rows the pending sequence rules out. A
+// rebuilt legend starts undimmed, so it is applied again after each rebuild.
+func (t *modeToaster) dimRulesOutPending() {
 	for _, group := range t.groups {
 		for _, row := range group.Rows {
-			t.view.setActionDimmed(row.Action, !legendSequenceMatches(pending, row.Keys))
+			t.view.setActionDimmed(row.Action, !legendSequenceMatches(t.pending, row.Keys))
 		}
 	}
-	t.reconcile()
 }
 
 // setSuspended hides the legend while suspended is true and brings it back

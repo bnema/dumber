@@ -285,6 +285,44 @@ func TestModeToasterModeChangeResetsDetailAndSuspension(t *testing.T) {
 	require.True(t, view.bodyShown)
 }
 
+func TestModeToasterSameModeRebuildKeepsInteractionState(t *testing.T) {
+	toaster, view := newTestToaster(nil)
+	toaster.apply(input.ModeVim, legendOn("always"), "", testVimActions)
+	toaster.setDetail("HINTS")
+	toaster.setSuspended(true)
+	require.False(t, view.bodyShown)
+
+	// A hot reload that changes the bindings rebuilds the legend mid-capture.
+	changed := map[string]entity.ActionBinding{"visual": {Keys: []string{"v"}}, "cancel": {Keys: []string{"esc"}}}
+	toaster.apply(input.ModeVim, legendOn("always"), "", changed)
+
+	require.Equal(t, "VIM MODE · HINTS", view.header, "the sub-mode label survives the rebuild")
+	require.False(t, view.bodyShown, "the legend stays suspended while the page owns the keys")
+	require.True(t, toaster.suspended)
+
+	toaster.setDetail("")
+	toaster.setSuspended(false)
+	require.True(t, view.bodyShown)
+	require.Equal(t, "VIM MODE", view.header)
+}
+
+func TestModeToasterSameModeRebuildReappliesPendingDimming(t *testing.T) {
+	toaster, view := newTestToaster(nil)
+	toaster.apply(input.ModeVim, legendOn("always"), "", testVimActions)
+	toaster.setPending("]")
+
+	changed := map[string]entity.ActionBinding{
+		"heading-next": {Keys: []string{"]]"}},
+		"visual":       {Keys: []string{"v"}},
+	}
+	toaster.apply(input.ModeVim, legendOn("always"), "", changed)
+	// The rebuilt legend starts undimmed, as a real view's new rows would.
+	require.Equal(t, "]", toaster.pending)
+	require.Equal(t, "VIM MODE · ]", view.header)
+	require.False(t, view.dimmed["heading-next"])
+	require.True(t, view.dimmed["visual"], "rows the pending sequence rules out are dimmed again")
+}
+
 func TestModeToasterFlashLightsKeycapsAndClears(t *testing.T) {
 	toaster, view := newTestToaster(nil)
 	toaster.apply(input.ModeVim, legendOn("always"), "", testVimActions)

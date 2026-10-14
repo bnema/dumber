@@ -49,6 +49,7 @@ func (f *fakeModeToasterView) clearFlash()                      { f.flashed = ma
 func (f *fakeModeToasterView) destroy()                         { f.destroyed = true }
 func (f *fakeModeToasterView) setLegend(groups []legendGroup) {
 	f.groups = groups
+	f.dimmed = map[string]bool{} // new rows start undimmed
 	f.flashable = map[string]bool{}
 	for _, group := range groups {
 		for _, row := range group.Rows {
