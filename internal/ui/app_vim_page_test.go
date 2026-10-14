@@ -5,41 +5,31 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
 	"github.com/bnema/dumber/internal/application/dto"
 	portmocks "github.com/bnema/dumber/internal/application/port/mocks"
 	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/ui/input"
-	"github.com/bnema/dumber/internal/ui/layout/mocks"
 )
 
-// newVimPageTestWindow builds a window in Vim Mode with a real mode toaster
-// bound to the pending-sequence callback, as initChrome does. It records every
-// text shown on the toast so tests can assert what the user sees.
+// newVimPageTestWindow builds a window in Vim Mode with a mode toaster bound
+// to the pending-sequence callback, as initChrome does. It records every header
+// the pill shows so tests can assert what the user sees.
 func newVimPageTestWindow(t *testing.T) (*App, *browserWindow, *[]string) {
 	t.Helper()
-	factory := mocks.NewMockWidgetFactory(t)
-	toaster, container, label := newModeToasterForVimModeTest(t, factory)
-	shown := &[]string{}
-	container.EXPECT().RemoveCssClass(mock.Anything).Maybe()
-	container.EXPECT().AddCssClass(mock.Anything).Maybe()
-	container.EXPECT().SetHalign(mock.Anything).Maybe()
-	container.EXPECT().SetValign(mock.Anything).Maybe()
-	container.EXPECT().SetVisible(mock.Anything).Maybe()
-	label.EXPECT().SetText(mock.Anything).Run(func(text string) { *shown = append(*shown, text) }).Maybe()
-
 	app := &App{runtimeConfig: runtimeConfigStateFromSnapshotForTest(entity.RuntimeConfigSnapshot{
 		UI: entity.RuntimeUIConfig{Workspace: entity.WorkspaceConfig{Styling: entity.WorkspaceStylingConfig{
 			ModeIndicatorToasterEnabled: true,
+			ModeLegend:                  "off",
 		}}},
 	})}
-	bw := &browserWindow{id: "win-1", modeToaster: toaster}
+	bw, view := newFakeModeToasterWindow("win-1")
 	app.browserWindows = map[string]*browserWindow{bw.id: bw}
 	bw.keyboardHandler = newKeyboardHandlerInVimMode(t)
 	app.bindVimModeSequenceToaster(context.Background(), bw)
-	return app, bw, shown
+	app.updateModeFrame(bw, input.ModeVim)
+	return app, bw, &view.headers
 }
 
 var visualOutcome = hintsOutcome(dto.VimPageVisual)
@@ -83,16 +73,15 @@ func TestVimPageSubModeLabelSurvivesSequenceCompletion(t *testing.T) {
 // restored when the interaction ends.
 func TestVimPageInteractionHidesLegendWhileCaptured(t *testing.T) {
 	app, bw, _ := newVimPageTestWindow(t)
-	frame := &modeFrame{mode: input.ModeVim, visible: true}
-	bw.modeFrame = frame
+	toaster := bw.modeToaster
 	wv := portmocks.NewMockWebView(t)
 
 	app.captureVimPageKeys(context.Background(), bw, wv, visualOutcome)
-	require.True(t, frame.suspended, "legend must be suspended while the page captures keys")
+	require.True(t, toaster.suspended, "legend must be suspended while the page captures keys")
 
 	wv.EXPECT().ID().Return(1).Maybe()
 	app.endVimPageInteraction(context.Background(), bw, true)
-	require.False(t, frame.suspended, "legend must be restored when the interaction ends")
+	require.False(t, toaster.suspended, "legend must be restored when the interaction ends")
 	require.False(t, bw.keyboardHandler.PageKeyCaptureActive())
 }
 
@@ -101,8 +90,7 @@ func TestVimPageInteractionHidesLegendWhileCaptured(t *testing.T) {
 // suspended legend stay in place.
 func TestVimPageModeChangesRepaintToastWithoutReleasingCapture(t *testing.T) {
 	app, bw, shown := newVimPageTestWindow(t)
-	frame := &modeFrame{mode: input.ModeVim, visible: true}
-	bw.modeFrame = frame
+	toaster := bw.modeToaster
 	wv := portmocks.NewMockWebView(t)
 	app.captureVimPageKeys(context.Background(), bw, wv, visualOutcome)
 	require.Equal(t, "VIM MODE · HINTS", (*shown)[len(*shown)-1])
@@ -117,16 +105,17 @@ func TestVimPageModeChangesRepaintToastWithoutReleasingCapture(t *testing.T) {
 		require.Equal(t, want, (*shown)[len(*shown)-1])
 		require.True(t, bw.keyboardHandler.PageKeyCaptureActive(), "mode %s must not release key capture", mode)
 		require.NotNil(t, bw.vimPageInteractionWebView)
-		require.True(t, frame.suspended, "legend stays hidden while the page owns the keys")
+		require.True(t, toaster.suspended, "legend stays hidden while the page owns the keys")
 	}
 }
 
 func TestVimPageModeChangeIgnoredWithoutInteraction(t *testing.T) {
 	app, bw, shown := newVimPageTestWindow(t)
+	before := len(*shown)
 
 	app.showVimPageMode(context.Background(), bw, dto.VimPageModeCaret)
 
-	require.Empty(t, *shown, "a late mode report must not repaint the indicator once the interaction ended")
+	require.Len(t, *shown, before, "a late mode report must not repaint the indicator once the interaction ended")
 }
 
 // exitModeWithin runs fn and fails the test if it does not return in time,

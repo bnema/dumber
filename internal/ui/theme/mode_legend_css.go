@@ -17,26 +17,38 @@ var modeLegendColors = []struct{ mode, color, text string }{
 
 func generateModeLegendCSS() string {
 	var sb strings.Builder
-	sb.WriteString(`/* Mode frame legend: omnibox surface, tinted with the active mode color. */
+	sb.WriteString(`/* Mode toaster: a bottom-left pill whose legend expands above it. The legend
+   is an omnibox surface tinted with the active mode color. */
 .mode-legend-anchor { background-color: transparent; }
+.mode-toaster-pill {
+	border-radius: 0.25em;
+	padding: 0.375em 0.625em;
+	font-size: 0.875em;
+	font-weight: 600;
+	box-shadow: 0 2px 8px alpha(black, 0.3);
+	min-width: 2.5em;
+}
+.mode-toaster-chevron { margin-left: 0.5em; font-size: 0.75em; opacity: 0.85; }
+.mode-toaster-pill.mode-toaster-interactive:hover { box-shadow: 0 2px 10px alpha(black, 0.45); }
+.mode-toaster-pill.mode-toaster-interactive:hover .mode-toaster-chevron { opacity: 1; }
 .omnibox-container.mode-legend-panel {
 	border-style: solid;
 	border-width: 0.125em;
-	padding: 0 0 0.375em 0;
+	padding: 0.625em 0.5em 0.375em 0.5em;
 	min-width: 0;
 	animation: mode-legend-appear 120ms ease-out;
 }
 .omnibox-container.mode-legend-panel.mode-legend-lingering { opacity: 0.85; }
 .omnibox-container.mode-legend-panel.mode-legend-no-motion { animation: none; }
-.mode-legend-title {
+.mode-legend-hint {
 	font-family: var(--font-mono);
-	font-size: 0.8125em;
-	font-weight: bold;
-	padding: 0.375em 0.75em;
-	margin-bottom: 0.375em;
+	font-size: 0.6875em;
+	color: var(--surface-muted);
+	margin: 0.25em 0.5em 0 0;
 }
-.mode-legend-content { padding: 0 0.25em; }
-.mode-legend-group { margin: 0 0.375em; min-width: 0; }
+.mode-legend-columns { padding: 0 0.25em; }
+.mode-legend-column { min-width: 0; }
+.mode-legend-group { margin: 0 0.375em 0.5em 0.375em; min-width: 0; }
 .mode-legend-group-title {
 	font-family: var(--font-mono);
 	font-size: 0.6875em;
@@ -66,7 +78,7 @@ func generateModeLegendCSS() string {
 `)
 	for _, m := range modeLegendColors {
 		fmt.Fprintf(&sb, `.omnibox-container.mode-legend-panel.mode-legend-%[1]s { border-color: var(%[2]s); }
-.mode-legend-%[1]s .mode-legend-title { background-color: var(%[2]s); color: var(%[3]s); }
+.mode-toaster-pill.mode-toaster-%[1]s { background-color: var(%[2]s); color: var(%[3]s); }
 .mode-legend-%[1]s .mode-legend-group-title { color: var(%[2]s); }
 .mode-legend-%[1]s .mode-legend-keycap { border-color: alpha(var(%[2]s), 0.6); }
 .mode-legend-%[1]s .mode-legend-keycap.mode-legend-flash { background-color: var(%[2]s); color: var(%[3]s); }

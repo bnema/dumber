@@ -143,11 +143,12 @@
 | `workspace.styling.session_mode_color` | string | `#9B59B6` | |
 | `workspace.styling.vim_mode_color` | string | `#F7768E` | Vim mode border, pulse, toast, and legend |
 | `workspace.styling.resize_mode_color` | string | `#00D4AA` | |
-| `workspace.styling.mode_indicator_toaster_enabled` | bool | `true` | Show the bottom-left mode toast while a mode is active |
-| `workspace.styling.mode_legend` | string | `delay` | `always`, `delay`, `off` |
+| `workspace.styling.mode_indicator_toaster_enabled` | bool | `true` | Show the bottom-left mode toaster header while a mode is active (still shown when the legend is not `off`) |
+| `workspace.styling.mode_legend` | string | `delay` | `always`, `delay`, `off`; `off` keeps only the toaster header |
 | `workspace.styling.mode_legend_delay_ms` | int | `500` | >= 0; used with `delay` |
 | `workspace.styling.mode_legend_linger` | bool | `true` | Keep the legend visible, read-only, after its mode ends while the pointer is over it, until the next key press or click. |
 | `workspace.styling.mode_legend_animations` | bool | `true` | |
+| `workspace.styling.mode_legend_collapsed` | bool | `false` | Collapse the legend to the mode toaster header; toggled by clicking the toaster and saved for all modes |
 | `workspace.styling.transition_duration` | int | `120` | |
 | `session.auto_restore` | bool | `false` | |
 | `session.snapshot_interval_ms` | int | `5000` | |

@@ -19,6 +19,7 @@ func TestDefaultConfig_CoreDefaults(t *testing.T) {
 	assert.Equal(t, 500, cfg.Workspace.Styling.ModeLegendDelayMs)
 	assert.True(t, cfg.Workspace.Styling.ModeLegendAnimations)
 	assert.True(t, cfg.Workspace.Styling.ModeLegendLinger)
+	assert.False(t, cfg.Workspace.Styling.ModeLegendCollapsed)
 	assert.Equal(t, "#F7768E", cfg.Workspace.Styling.VimModeColor)
 
 	// Engine defaults (replaces old Performance/Privacy sections)

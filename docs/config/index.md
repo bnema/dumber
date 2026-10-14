@@ -662,11 +662,12 @@ desc = "Open floating pane on GitHub"
 | `workspace.styling.session_mode_color` | string | `"#9B59B6"` | Session mode color (purple) - used for border and toaster |
 | `workspace.styling.vim_mode_color` | string | `"#F7768E"` | Vim mode border, pulse, toast, and legend color |
 | `workspace.styling.resize_mode_color` | string | `"#00D4AA"` | Resize mode color (teal) - used for border and toaster |
-| `workspace.styling.mode_indicator_toaster_enabled` | bool | `true` | Show the bottom-left mode toast while a mode is active |
-| `workspace.styling.mode_legend` | string | `"delay"` | `always`, `delay`, or `off`; the legend sits on the active mode border in that mode's color |
-| `workspace.styling.mode_legend_delay_ms` | int | `500` | Wait before showing the legend when set to `delay` (>= 0) |
+| `workspace.styling.mode_indicator_toaster_enabled` | bool | `true` | Show the bottom-left mode toaster header while a mode is active. When `false` and `mode_legend` is not `off`, the header is still shown because the legend expands from it |
+| `workspace.styling.mode_legend` | string | `"delay"` | `always`, `delay`, or `off`; the legend expands from the bottom-left mode toaster in that mode's color. `off` keeps only the toaster header, without the expand/collapse chevron |
+| `workspace.styling.mode_legend_delay_ms` | int | `500` | Wait before showing the expanded legend when set to `delay` (>= 0) |
 | `workspace.styling.mode_legend_linger` | bool | `true` | Keep the legend visible, read-only, after its mode ends while the pointer is over it, until the next key press or click. |
 | `workspace.styling.mode_legend_animations` | bool | `true` | Animate the legend and its keycap feedback |
+| `workspace.styling.mode_legend_collapsed` | bool | `false` | Collapse the legend to the mode toaster header. Clicking the toaster toggles it, applies immediately in every window, and is saved here for all modes |
 | `workspace.styling.transition_duration` | int | `120` | Base Vim border pulse duration (ms); legend appearance is 120 ms |
 
 **Example:**
@@ -686,6 +687,7 @@ mode_legend = "delay"
 mode_legend_delay_ms = 500
 mode_legend_linger = true
 mode_legend_animations = true
+mode_legend_collapsed = false
 transition_duration = 120
 ```
 

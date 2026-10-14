@@ -427,3 +427,17 @@ func TestVimModeUsesOwnColor(t *testing.T) {
 		t.Fatal("palette missing Vim color")
 	}
 }
+
+func TestModeLegendCSSStylesToasterPillAndBand(t *testing.T) {
+	css := generateModeLegendCSS()
+	for _, mode := range []string{"pane", "vim", "resize", "tab", "session", "prefix"} {
+		assert.Contains(t, css, ".mode-toaster-pill.mode-toaster-"+mode+" {", mode)
+		assert.Contains(t, css, ".omnibox-container.mode-legend-panel.mode-legend-"+mode+" {", mode)
+	}
+	for _, class := range []string{".mode-toaster-chevron", ".mode-toaster-interactive", ".mode-legend-columns", ".mode-legend-column", ".mode-legend-hint"} {
+		assert.Contains(t, css, class)
+	}
+	assert.NotContains(t, css, "mode-legend-title", "the legend no longer has its own heading")
+	assert.NotContains(t, css, "mode-legend-content", "the flow box is gone")
+	assert.NotContains(t, GenerateCSS(DefaultDarkPalette()), ".toast-vim-mode", "modes no longer reuse the generic toast")
+}

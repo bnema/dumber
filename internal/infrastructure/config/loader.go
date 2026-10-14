@@ -754,6 +754,7 @@ func (m *Manager) setWorkspaceDefaults(defaults *Config) {
 	m.viper.SetDefault("workspace.styling.mode_legend", defaults.Workspace.Styling.ModeLegend)
 	m.viper.SetDefault("workspace.styling.mode_legend_delay_ms", defaults.Workspace.Styling.ModeLegendDelayMs)
 	m.viper.SetDefault("workspace.styling.mode_legend_animations", defaults.Workspace.Styling.ModeLegendAnimations)
+	m.viper.SetDefault("workspace.styling.mode_legend_collapsed", defaults.Workspace.Styling.ModeLegendCollapsed)
 	m.viper.SetDefault("workspace.styling.transition_duration", defaults.Workspace.Styling.TransitionDuration)
 }
 

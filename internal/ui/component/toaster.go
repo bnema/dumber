@@ -80,9 +80,6 @@ type ToastOptions struct {
 	TextColor string
 	// Position determines where the toast appears on screen.
 	Position ToastPosition
-	// ModeClass is a CSS class for mode-specific styling (e.g., "toast-pane-mode").
-	// When set, this class is applied atomically with Show() to avoid visual flicker.
-	ModeClass string
 }
 
 // ToastOption is a functional option for configuring toast display.
@@ -117,14 +114,6 @@ func WithPosition(pos ToastPosition) ToastOption {
 	}
 }
 
-// WithModeClass sets a mode-specific CSS class for styling.
-// This is applied atomically within Show() to avoid visual flicker.
-func WithModeClass(class string) ToastOption {
-	return func(o *ToastOptions) {
-		o.ModeClass = class
-	}
-}
-
 // defaultToastOptions returns the default toast options.
 func defaultToastOptions() ToastOptions {
 	return ToastOptions{
@@ -150,7 +139,6 @@ type Toaster struct {
 	hasCustomStyle    bool
 	customBgColor     string           // Current custom background color
 	customTextColor   string           // Current custom text color
-	customModeClass   string           // Current mode-specific CSS class (e.g., "toast-pane-mode")
 	customCSSProvider *gtk.CssProvider // CSS provider for inline custom colors
 
 	mu sync.Mutex
@@ -222,11 +210,6 @@ func (t *Toaster) Show(ctx context.Context, message string, level ToastLevel, op
 
 	// Apply custom colors if specified
 	t.applyCustomStyle(options)
-
-	// Apply mode class if specified (atomically to avoid flicker)
-	if options.ModeClass != "" {
-		t.applyModeClassInternal(options.ModeClass)
-	}
 
 	// Apply position
 	t.applyPosition(options.Position)
@@ -385,11 +368,6 @@ func (t *Toaster) applyCustomStyle(opts ToastOptions) {
 func (t *Toaster) clearCustomStyle() {
 	if t.hasCustomStyle {
 		t.container.RemoveCssClass("toast-custom")
-		// Remove mode-specific class if one was applied
-		if t.customModeClass != "" {
-			t.container.RemoveCssClass(t.customModeClass)
-			t.customModeClass = ""
-		}
 		// Remove custom CSS provider if one was added
 		if t.customCSSProvider != nil {
 			styleCtx := t.container.GtkWidget().GetStyleContext()
@@ -405,15 +383,6 @@ func (t *Toaster) clearCustomStyle() {
 		t.customBgColor = ""
 		t.customTextColor = ""
 	}
-}
-
-// applyModeClassInternal applies mode class without locking (must be called with lock held).
-func (t *Toaster) applyModeClassInternal(modeClass string) {
-	// Remove level class and add mode class
-	t.container.RemoveCssClass(t.currentLevel.cssClass())
-	t.container.AddCssClass(modeClass)
-	t.hasCustomStyle = true
-	t.customModeClass = modeClass // Store class name for cleanup tracking
 }
 
 // startDismissTimerWithDuration starts the auto-dismiss timer with the given duration.

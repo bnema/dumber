@@ -1019,58 +1019,24 @@ func TestVimMode_CSSClassConstants(t *testing.T) {
 // Mode toaster
 // ============================================================================
 
-func newModeToasterForVimModeTest(t *testing.T, factory *mocks.MockWidgetFactory) (*component.Toaster, *mocks.MockBoxWidget, *mocks.MockLabelWidget) {
-	t.Helper()
-
-	container := mocks.NewMockBoxWidget(t)
-	label := mocks.NewMockLabelWidget(t)
-	factory.EXPECT().NewBox(layout.OrientationHorizontal, 0).Return(container).Once()
-	container.EXPECT().AddCssClass("toast").Once()
-	container.EXPECT().AddCssClass("toast-info").Once()
-	container.EXPECT().SetHalign(mock.Anything).Once()
-	container.EXPECT().SetValign(mock.Anything).Once()
-	container.EXPECT().SetHexpand(false).Once()
-	container.EXPECT().SetVexpand(false).Once()
-	container.EXPECT().SetCanTarget(false).Once()
-	container.EXPECT().SetCanFocus(false).Once()
-	container.EXPECT().SetVisible(false).Once()
-	factory.EXPECT().NewLabel("").Return(label).Once()
-	label.EXPECT().SetCanTarget(false).Once()
-	label.EXPECT().SetCanFocus(false).Once()
-	container.EXPECT().Append(label).Once()
-
-	return component.NewToaster(factory), container, label
-}
-
-func expectVimModeToastShown(container *mocks.MockBoxWidget, label *mocks.MockLabelWidget) {
-	container.EXPECT().RemoveCssClass("toast-info").Once()
-	container.EXPECT().AddCssClass("toast-vim-mode").Once()
-	container.EXPECT().SetHalign(mock.Anything).Once()
-	container.EXPECT().SetValign(mock.Anything).Once()
-	label.EXPECT().SetText("VIM MODE").Once()
-	container.EXPECT().SetVisible(true).Once()
+func enabledIndicatorSnapshot() entity.RuntimeConfigSnapshot {
+	return entity.RuntimeConfigSnapshot{
+		UI: entity.RuntimeUIConfig{Workspace: entity.WorkspaceConfig{
+			Styling: entity.WorkspaceStylingConfig{ModeIndicatorToasterEnabled: true, ModeLegend: "off"},
+		}},
+	}
 }
 
 func TestVimMode_ToasterRemainsVisibleUntilModeExit(t *testing.T) {
-	factory := mocks.NewMockWidgetFactory(t)
-	toaster, container, label := newModeToasterForVimModeTest(t, factory)
-	expectVimModeToastShown(container, label)
-	// These optional calls are made only by the old brief auto-dismiss path.
-	container.EXPECT().RemoveCssClass("toast-vim-mode").Maybe()
-	container.EXPECT().SetVisible(false).Maybe()
-
-	app := &App{runtimeConfig: runtimeConfigStateFromSnapshotForTest(entity.RuntimeConfigSnapshot{
-		UI: entity.RuntimeUIConfig{Workspace: entity.WorkspaceConfig{Styling: entity.WorkspaceStylingConfig{
-			ModeIndicatorToasterEnabled: true,
-		}}},
-	})}
-	bw := &browserWindow{id: "win-1", modeToaster: toaster}
+	app := &App{runtimeConfig: runtimeConfigStateFromSnapshotForTest(enabledIndicatorSnapshot())}
+	bw, view := newFakeModeToasterWindow("win-1")
 	app.browserWindows = map[string]*browserWindow{bw.id: bw}
-	app.lastFocusedWindowID = bw.id
 
-	app.updateModeIndicatorToaster(context.Background(), bw, input.ModeVim)
-	require.True(t, toaster.IsVisible())
+	app.updateModeFrame(bw, input.ModeVim)
+	require.True(t, view.pillShown)
+	require.Equal(t, "VIM MODE", view.header)
 
+	// Nothing but a mode change hides it: no timer dismisses the persistent pill.
 	deadline := time.Now().Add(time.Duration(component.ToastBriefDurationMs+100) * time.Millisecond)
 	mainContext := glib.MainContextDefault()
 	for time.Now().Before(deadline) {
@@ -1079,116 +1045,95 @@ func TestVimMode_ToasterRemainsVisibleUntilModeExit(t *testing.T) {
 			mainContext.Iteration(false)
 		}
 	}
-
-	assert.True(t, toaster.IsVisible(), "Vim Mode toast must remain visible until mode exit")
+	assert.True(t, view.pillShown, "Vim Mode pill must remain visible until mode exit")
 }
 
 func TestVimMode_ModeExitHidesToaster(t *testing.T) {
-	factory := mocks.NewMockWidgetFactory(t)
-	toaster, container, label := newModeToasterForVimModeTest(t, factory)
-	expectVimModeToastShown(container, label)
-	container.EXPECT().RemoveCssClass("toast-custom").Once()
-	container.EXPECT().RemoveCssClass("toast-vim-mode").Once()
-	container.EXPECT().SetVisible(false).Once()
+	app := &App{runtimeConfig: runtimeConfigStateFromSnapshotForTest(enabledIndicatorSnapshot())}
+	bw, view := newFakeModeToasterWindow("win-1")
 
-	app := &App{runtimeConfig: runtimeConfigStateFromSnapshotForTest(entity.RuntimeConfigSnapshot{
-		UI: entity.RuntimeUIConfig{Workspace: entity.WorkspaceConfig{Styling: entity.WorkspaceStylingConfig{
-			ModeIndicatorToasterEnabled: true,
-		}}},
-	})}
-	bw := &browserWindow{id: "win-1", modeToaster: toaster}
+	app.updateModeFrame(bw, input.ModeVim)
+	require.True(t, view.pillShown)
+	app.updateModeFrame(bw, input.ModeNormal)
 
-	app.updateModeIndicatorToaster(context.Background(), bw, input.ModeVim)
-	require.True(t, toaster.IsVisible())
-	app.updateModeIndicatorToaster(context.Background(), bw, input.ModeNormal)
-
-	assert.False(t, toaster.IsVisible(), "leaving Vim Mode must hide its persistent toast")
+	assert.False(t, view.pillShown, "leaving Vim Mode must hide its persistent pill")
 }
 
-func TestVimMode_DisabledModeIndicatorPreferenceSuppressesToaster(t *testing.T) {
-	factory := mocks.NewMockWidgetFactory(t)
-	toaster, _, _ := newModeToasterForVimModeTest(t, factory)
-	app := &App{runtimeConfig: runtimeConfigStateFromSnapshotForTest(entity.RuntimeConfigSnapshot{})}
-	bw := &browserWindow{id: "win-1", modeToaster: toaster}
+func TestVimMode_DisabledIndicatorWithLegendOffShowsNothing(t *testing.T) {
+	app := &App{runtimeConfig: runtimeConfigStateFromSnapshotForTest(entity.RuntimeConfigSnapshot{
+		UI: entity.RuntimeUIConfig{Workspace: entity.WorkspaceConfig{
+			Styling: entity.WorkspaceStylingConfig{ModeLegend: "off"},
+		}},
+	})}
+	bw, view := newFakeModeToasterWindow("win-1")
 
-	app.updateModeIndicatorToaster(context.Background(), bw, input.ModeVim)
+	app.updateModeFrame(bw, input.ModeVim)
 
-	assert.False(t, toaster.IsVisible())
+	assert.False(t, view.pillShown)
+	assert.False(t, view.bodyShown)
+}
+
+func TestVimMode_DisabledIndicatorKeepsPillAsLegendHeader(t *testing.T) {
+	snapshot := entity.RuntimeConfigSnapshot{
+		UI: entity.RuntimeUIConfig{Workspace: entity.WorkspaceConfig{
+			Styling: entity.WorkspaceStylingConfig{ModeLegend: "always"},
+			VimMode: entity.VimModeConfig{Actions: map[string]entity.ActionBinding{"visual": {Keys: []string{"v"}}}},
+		}},
+	}
+	app := &App{runtimeConfig: runtimeConfigStateFromSnapshotForTest(snapshot)}
+	bw, view := newFakeModeToasterWindow("win-1")
+
+	app.updateModeFrame(bw, input.ModeVim)
+
+	assert.True(t, view.pillShown, "the pill is the legend header even when the indicator is disabled")
+	assert.True(t, view.bodyShown)
 }
 
 func TestVimMode_MultiWindowToastersExitIndependently(t *testing.T) {
-	factory := mocks.NewMockWidgetFactory(t)
-	toaster1, container1, label1 := newModeToasterForVimModeTest(t, factory)
-	toaster2, container2, label2 := newModeToasterForVimModeTest(t, factory)
-	expectVimModeToastShown(container1, label1)
-	expectVimModeToastShown(container2, label2)
-	container1.EXPECT().RemoveCssClass("toast-custom").Once()
-	container1.EXPECT().RemoveCssClass("toast-vim-mode").Once()
-	container1.EXPECT().SetVisible(false).Once()
+	app := &App{runtimeConfig: runtimeConfigStateFromSnapshotForTest(enabledIndicatorSnapshot())}
+	bw1, view1 := newFakeModeToasterWindow("win-1")
+	bw2, view2 := newFakeModeToasterWindow("win-2")
 
-	app := &App{runtimeConfig: runtimeConfigStateFromSnapshotForTest(entity.RuntimeConfigSnapshot{
-		UI: entity.RuntimeUIConfig{Workspace: entity.WorkspaceConfig{Styling: entity.WorkspaceStylingConfig{
-			ModeIndicatorToasterEnabled: true,
-		}}},
-	})}
-	bw1 := &browserWindow{id: "win-1", modeToaster: toaster1}
-	bw2 := &browserWindow{id: "win-2", modeToaster: toaster2}
+	app.updateModeFrame(bw1, input.ModeVim)
+	app.updateModeFrame(bw2, input.ModeVim)
+	app.updateModeFrame(bw1, input.ModeNormal)
 
-	app.updateModeIndicatorToaster(context.Background(), bw1, input.ModeVim)
-	app.updateModeIndicatorToaster(context.Background(), bw2, input.ModeVim)
-	app.updateModeIndicatorToaster(context.Background(), bw1, input.ModeNormal)
-
-	assert.False(t, toaster1.IsVisible())
-	assert.True(t, toaster2.IsVisible(), "exiting one window must not hide another window's Vim Mode toast")
+	assert.False(t, view1.pillShown)
+	assert.True(t, view2.pillShown, "exiting one window must not hide another window's pill")
 }
 
 func TestVimMode_RuntimePreferenceDisableHidesPersistentToaster(t *testing.T) {
-	factory := mocks.NewMockWidgetFactory(t)
-	toaster, container, label := newModeToasterForVimModeTest(t, factory)
-	expectVimModeToastShown(container, label)
-	container.EXPECT().RemoveCssClass("toast-custom").Once()
-	container.EXPECT().RemoveCssClass("toast-vim-mode").Once()
-	container.EXPECT().SetVisible(false).Once()
-
-	enabled := entity.RuntimeConfigSnapshot{
-		UI: entity.RuntimeUIConfig{Workspace: entity.WorkspaceConfig{Styling: entity.WorkspaceStylingConfig{
-			ModeIndicatorToasterEnabled: true,
-		}}},
-	}
 	keyboardHandler := newKeyboardHandlerInVimMode(t)
-	bw := &browserWindow{id: "win-1", modeToaster: toaster, keyboardHandler: keyboardHandler}
+	bw, view := newFakeModeToasterWindow("win-1")
+	bw.keyboardHandler = keyboardHandler
 	app := &App{
-		runtimeConfig:  runtimeConfigStateFromSnapshotForTest(enabled),
+		runtimeConfig:  runtimeConfigStateFromSnapshotForTest(enabledIndicatorSnapshot()),
 		browserWindows: map[string]*browserWindow{bw.id: bw},
 	}
 
-	app.updateModeIndicatorToaster(context.Background(), bw, input.ModeVim)
-	require.True(t, toaster.IsVisible())
-	app.applyRuntimeConfigChange(context.Background(), entity.RuntimeConfigSnapshot{})
+	app.updateModeFrame(bw, input.ModeVim)
+	require.True(t, view.pillShown)
+	disabled := enabledIndicatorSnapshot()
+	disabled.UI.Workspace.Styling.ModeIndicatorToasterEnabled = false
+	app.applyRuntimeConfigChange(context.Background(), disabled)
 
-	assert.False(t, toaster.IsVisible(), "runtime preference disable must reconcile an existing persistent toast")
+	assert.False(t, view.pillShown, "runtime preference disable must reconcile an existing pill")
 }
 
 func TestVimMode_RuntimePreferenceEnableShowsPersistentToaster(t *testing.T) {
-	factory := mocks.NewMockWidgetFactory(t)
-	toaster, container, label := newModeToasterForVimModeTest(t, factory)
-	expectVimModeToastShown(container, label)
-
 	keyboardHandler := newKeyboardHandlerInVimMode(t)
-	bw := &browserWindow{id: "win-1", modeToaster: toaster, keyboardHandler: keyboardHandler}
+	bw, view := newFakeModeToasterWindow("win-1")
+	bw.keyboardHandler = keyboardHandler
+	off := enabledIndicatorSnapshot()
+	off.UI.Workspace.Styling.ModeIndicatorToasterEnabled = false
 	app := &App{
-		runtimeConfig:  runtimeConfigStateFromSnapshotForTest(entity.RuntimeConfigSnapshot{}),
+		runtimeConfig:  runtimeConfigStateFromSnapshotForTest(off),
 		browserWindows: map[string]*browserWindow{bw.id: bw},
 	}
-	enabled := entity.RuntimeConfigSnapshot{
-		UI: entity.RuntimeUIConfig{Workspace: entity.WorkspaceConfig{Styling: entity.WorkspaceStylingConfig{
-			ModeIndicatorToasterEnabled: true,
-		}}},
-	}
 
-	app.applyRuntimeConfigChange(context.Background(), enabled)
+	app.applyRuntimeConfigChange(context.Background(), enabledIndicatorSnapshot())
 
-	assert.True(t, toaster.IsVisible(), "runtime preference enable must reconcile active Vim Mode")
+	assert.True(t, view.pillShown, "runtime preference enable must reconcile active Vim Mode")
 }
 
 // ============================================================================

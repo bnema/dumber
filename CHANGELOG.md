@@ -15,6 +15,7 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- **Mode toaster and legend**: The bottom-left mode indicator and the key legend are now one expandable "mode toaster". The legend expands above the pill as a wide band (up to 1100 px, one to four columns by window width, groups kept in order with balanced column heights) instead of a centered panel. Click the toaster to collapse or expand the legend; the choice applies to every window and mode and is saved as `workspace.styling.mode_legend_collapsed`. With `mode_indicator_toaster_enabled = false` the toaster stays as the legend's header unless `mode_legend = "off"`.
 - **Omnibox borders**: Outer borders scale with the configured UI size and remain more pronounced for the default `command` style.
 - **Omnibox status indicators**: The history-order control is now a passive status badge switched with `Ctrl+R`, and favorites use a terminal-style `*` marker.
 - **Favorites organization**: Favorites now use a tags-first model. Existing folder assignments are migrated into deterministic tags, with collision handling and folded-name uniqueness preserved during migration.

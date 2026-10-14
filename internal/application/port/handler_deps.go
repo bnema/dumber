@@ -46,6 +46,7 @@ type AutoCopyConfig interface {
 type HandlerDeps struct {
 	SaveConfig                 func(context.Context, dto.WebUIConfig) error
 	SaveOmniboxInitialBehavior func(context.Context, entity.OmniboxInitialBehavior) error
+	SaveModeLegendCollapsed    func(context.Context, bool) error
 	KeybindingsGetter          KeybindingsGetter
 	KeybindingSetter           KeybindingSetter
 	KeybindingResetter         KeybindingResetter

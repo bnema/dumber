@@ -126,6 +126,7 @@ type App struct {
 	vimModePolicyUC *usecase.VimModePolicyUseCase
 	vimNavigationUC *usecase.VimNavigationUseCase
 	vimMode         vimModeState
+	modeLegend      modeLegendPreference
 
 	// Omnibox configuration (omnibox is created per workspace view)
 	omniboxCfg component.OmniboxConfig
@@ -3929,26 +3930,6 @@ func (a *App) updateWindowTitleFromActivePane(tabID entity.TabID) {
 	a.updateWindowTitle(title, a.ownerOrLastFocusedBrowserWindow(tabID, ""))
 }
 
-// getModeToastClass returns the CSS class for the given mode's toast styling.
-func getModeToastClass(mode input.Mode) string {
-	switch mode {
-	case input.ModePane:
-		return "toast-pane-mode"
-	case input.ModeVim:
-		return "toast-vim-mode"
-	case input.ModeTab:
-		return "toast-tab-mode"
-	case input.ModeSession:
-		return "toast-session-mode"
-	case input.ModeResize:
-		return "toast-resize-mode"
-	case input.ModePrefix:
-		return "toast-prefix-mode"
-	default:
-		return ""
-	}
-}
-
 // createWorkspaceView creates a WorkspaceView for a tab and attaches it to the content area.
 func (a *App) createWorkspaceView(ctx context.Context, tab *entity.Tab) {
 	if !a.createWorkspaceViewWithoutAttach(ctx, tab) {
@@ -4345,6 +4326,7 @@ func (a *App) applyRuntimeConfigChange(ctx context.Context, snapshot entity.Runt
 		a.runtimeConfig = newRuntimeConfigState(nil)
 	}
 	a.runtimeConfig.Update(snapshot)
+	a.modeLegend.configReloaded(snapshot.UI.Workspace.Styling.ModeLegendCollapsed)
 	if a.contentCoord != nil {
 		a.contentCoord.UpdatePopupConfig(snapshot.UI.Workspace.BrowsingContexts)
 	}
@@ -4385,7 +4367,6 @@ func (a *App) applyRuntimeConfigChange(ctx context.Context, snapshot entity.Runt
 			mode = bw.keyboardHandler.Mode()
 		}
 		a.updateModeFrame(bw, mode)
-		a.updateModeIndicatorToaster(ctx, bw, mode)
 	}
 }
 

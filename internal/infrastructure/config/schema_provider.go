@@ -740,7 +740,7 @@ func (*SchemaProvider) getWorkspaceKeys(defaults *Config) []entity.ConfigKeyInfo
 			Key:         "workspace.styling.mode_indicator_toaster_enabled",
 			Type:        "bool",
 			Default:     fmt.Sprintf("%t", defaults.Workspace.Styling.ModeIndicatorToasterEnabled),
-			Description: "Show the mode toast while a mode is active",
+			Description: "Show the bottom-left mode toaster while a mode is active (kept as the legend header while the legend is not off)",
 			Section:     SectionWorkspace,
 		},
 		{
@@ -769,6 +769,13 @@ func (*SchemaProvider) getWorkspaceKeys(defaults *Config) []entity.ConfigKeyInfo
 			Type:        "bool",
 			Default:     fmt.Sprintf("%t", defaults.Workspace.Styling.ModeLegendAnimations),
 			Description: "Animate the mode legend and pressed keycaps",
+			Section:     SectionWorkspace,
+		},
+		{
+			Key:         "workspace.styling.mode_legend_collapsed",
+			Type:        "bool",
+			Default:     fmt.Sprintf("%t", defaults.Workspace.Styling.ModeLegendCollapsed),
+			Description: "Collapse the mode legend to its header; toggled by clicking the mode toaster and shared by all modes and windows",
 			Section:     SectionWorkspace,
 		},
 		{

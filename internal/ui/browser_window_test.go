@@ -34,7 +34,7 @@ func TestBrowserWindow_RemoveBrowserWindowClearsShellState(t *testing.T) {
 	}
 
 	setShellField(t, removed, "appToaster", &component.Toaster{})
-	setShellField(t, removed, "modeToaster", &component.Toaster{})
+	setShellField(t, removed, "modeToaster", &modeToaster{})
 	setShellField(t, removed, "modeFrame", &modeFrame{})
 	setShellField(t, removed, "sessionManager", &component.SessionManager{})
 	setShellField(t, removed, "tabPicker", &component.TabPicker{})
