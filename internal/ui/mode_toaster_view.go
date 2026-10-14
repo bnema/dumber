@@ -97,11 +97,16 @@ type gtkModeToasterView struct {
 
 	bodyWanted bool
 	lingering  bool
-	// placement is the legend rectangle in overlay coordinates; nil hides it.
-	placement                 func() (x, y, width, height int, ok bool)
+	// placement is the legend rectangle in overlay coordinates; it is only
+	// meaningful while placed is set, which otherwise hides the legend.
+	placement                 overlayRect
+	placed                    bool
 	lastColumns               int
 	lastWidth, lastMaxContent int
 }
+
+// overlayRect is a rectangle in overlay coordinates.
+type overlayRect struct{ x, y, width, height int }
 
 func newGTKModeToasterView(overlay *gtk.Overlay, window *gtk.ApplicationWindow, events modeToasterEvents) *gtkModeToasterView {
 	if overlay == nil || window == nil {
@@ -117,11 +122,11 @@ func newGTKModeToasterView(overlay *gtk.Overlay, window *gtk.ApplicationWindow, 
 	overlay.SetClipOverlay(&v.root.Widget, false)
 	overlay.SetMeasureOverlay(&v.root.Widget, false)
 	cb := func(_ gtk.Overlay, widgetPtr uintptr, allocation *uintptr) bool {
-		if v.root == nil || widgetPtr != v.root.GoPointer() || v.placement == nil {
+		if v.root == nil || widgetPtr != v.root.GoPointer() || !v.placed {
 			return false
 		}
-		x, y, w, h, ok := v.placement()
-		return ok && writeOverlayAllocation(allocation, x, y, w, h)
+		r := v.placement
+		return writeOverlayAllocation(allocation, r.x, r.y, r.width, r.height)
 	}
 	v.positionHandlerID = overlay.ConnectGetChildPosition(&cb)
 	v.installWindowControllers()
@@ -605,15 +610,16 @@ func (v *gtkModeToasterView) setBodyVisible(visible bool) {
 
 func (v *gtkModeToasterView) hideBody() {
 	v.stopRefresh()
-	v.placement = nil
+	v.placed = false
 	v.root.SetVisible(false)
 }
 
 func (v *gtkModeToasterView) lingerRect() (x, y, width, height int, ok bool) {
-	if v.placement == nil {
+	if !v.placed {
 		return 0, 0, 0, 0, false
 	}
-	return v.placement()
+	r := v.placement
+	return r.x, r.y, r.width, r.height, true
 }
 
 func (v *gtkModeToasterView) scrollLegend(delta float64) bool {
@@ -693,22 +699,20 @@ func (v *gtkModeToasterView) refreshGeometry() {
 		return
 	}
 	y := max(bottom-naturalHeight, 0)
-	previous := v.placement
-	v.placement = func() (int, int, int, int, bool) { return left, y, bandWidth, naturalHeight, true }
-	v.root.SetVisible(true)
-	if previous != nil {
-		if ox, oy, ow, oh, _ := previous(); ox == left && oy == y && ow == bandWidth && oh == naturalHeight {
-			return
-		}
+	next := overlayRect{x: left, y: y, width: bandWidth, height: naturalHeight}
+	if v.placed && v.placement == next {
+		return
 	}
+	v.placement, v.placed = next, true
+	v.root.SetVisible(true)
 	v.root.QueueAllocate()
 }
 
 func (v *gtkModeToasterView) clearPlacement() {
-	if v.placement == nil {
+	if !v.placed {
 		return
 	}
-	v.placement = nil
+	v.placed = false
 	v.root.SetVisible(false)
 	v.root.QueueAllocate()
 }
@@ -725,7 +729,7 @@ func (v *gtkModeToasterView) destroy() {
 		gobject.SignalHandlerDisconnect(gobject.ObjectNewFromInternalPtr(v.overlay.GoPointer()), v.positionHandlerID)
 		v.positionHandlerID = 0
 	}
-	v.placement = nil
+	v.placed = false
 	v.clearColumns()
 	v.releaseLegendWidgets()
 	v.overlay.RemoveOverlay(&v.pill.Widget)
