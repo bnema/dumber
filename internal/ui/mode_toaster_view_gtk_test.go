@@ -22,14 +22,21 @@ func watchFinalized(t *testing.T, widget *gtk.Widget) *bool {
 func TestGTKModeToasterViewReleasesWidgets(t *testing.T) {
 	gtkApp := requireGTKDisplayApp(t)
 	defer gtkApp.Unref()
+	// Windows may only be created once the GApplication has started up;
+	// registering emits the startup signal.
+	registered, err := gtkApp.Register(nil)
+	require.NoError(t, err)
+	require.True(t, registered, "the test application registers")
 
 	var view *gtkModeToasterView
 	done := make(chan struct{})
 	run := glib.SourceFunc(func(uintptr) bool {
 		defer close(done)
 		window := gtk.NewApplicationWindow(gtkApp)
+		require.NotNil(t, window)
 		overlay := gtk.NewOverlay()
 		window.SetChild(&overlay.Widget)
+		overlayFinalized := watchFinalized(t, &overlay.Widget)
 		view = newGTKModeToasterView(overlay, window, modeToasterEvents{})
 		require.NotNil(t, view)
 
@@ -59,7 +66,23 @@ func TestGTKModeToasterViewReleasesWidgets(t *testing.T) {
 		require.True(t, *body, "destroy releases the legend body")
 		require.True(t, *label, "destroy releases the pill label")
 		require.True(t, *lastRow, "destroy releases the legend rows")
-		window.Destroy()
+
+		frame := newModeFrame(overlay)
+		require.NotNil(t, frame)
+		border := watchFinalized(t, &frame.border.Widget)
+		frame.destroy()
+		require.True(t, *border, "destroy releases the mode frame border")
+
+		// The window is never presented: destroying an unrealized window
+		// crashes on Wayland, so drop the references instead (the same as
+		// the global shortcut handler test). The overlay's last reference
+		// goes with the window's child; the window itself stays on GTK's
+		// toplevel list until destroyed, so its finalization is not asserted.
+		window.SetChild(nil)
+		overlay.Unref()
+		require.True(t, *overlayFinalized, "the test releases its overlay")
+		gtkApp.RemoveWindow(&window.Window)
+		window.Unref()
 		return false
 	})
 	glib.MainContextDefault().Invoke(&run, 0)

@@ -75,6 +75,8 @@ func (f *modeFrame) destroy() {
 	f.borderRect = nil
 	if f.overlay != nil && f.border != nil {
 		f.overlay.RemoveOverlay(&f.border.Widget)
+		// NewBox's reference is not released by the removal.
+		f.border.Unref()
 	}
 	f.overlay = nil
 	f.border = nil
