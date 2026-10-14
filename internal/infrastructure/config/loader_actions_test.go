@@ -36,7 +36,7 @@ touchpad_navigation_max_vertical_ratio = 2.0
 	assert.InDelta(t, 2.0, cfg.Engine.CEF.Input.TouchpadNavigationMaxVerticalRatio, 0.001)
 }
 
-func TestManagerLoad_DoesNotMergeMissingPaneModeActionsInMemory(t *testing.T) {
+func TestManagerLoad_MergesMissingPaneModeActionsInMemory(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, ".config"))
@@ -65,7 +65,7 @@ desc = "Custom stack pane"
 	require.NotNil(t, cfg)
 
 	_, ok := cfg.Workspace.PaneMode.Actions["eject-pane-to-window"]
-	assert.False(t, ok)
+	assert.True(t, ok)
 
 	stack := cfg.Workspace.PaneMode.Actions["stack-pane"]
 	assert.Equal(t, "Custom stack pane", stack.Desc)
@@ -123,6 +123,8 @@ desc = "Toggle Favorites in right split"
 	favorites := cfg.Workspace.Shortcuts.Actions["toggle-favorites-systemview"]
 	assert.Empty(t, favorites.Keys)
 	assert.Equal(t, "Toggle Favorites in right split", favorites.Desc)
-	_, ok := cfg.Workspace.Shortcuts.Actions["toggle-favorites-sidebar"]
-	assert.False(t, ok)
+	// The renamed default action is a missing default, so it is active in memory.
+	sidebar, ok := cfg.Workspace.Shortcuts.Actions["toggle-favorites-sidebar"]
+	assert.True(t, ok)
+	assert.NotEmpty(t, sidebar.Keys)
 }

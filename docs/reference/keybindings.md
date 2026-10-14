@@ -20,6 +20,8 @@ Press `Escape` or `Enter` to exit any mode.
 
 Keybinding tables use uppercase letters as visual labels for unshifted letter keys. In config, use lowercase (for example, `["w"]` for Pane Mode eject). Shifted keys are shown with an explicit `Shift+` prefix.
 
+Default actions missing from your config are always active. Your own bindings override defaults (a default is skipped if one of its keys is already used in the same mode), and `keys = []` disables an action.
+
 ## Pane Mode (`Ctrl+P`)
 
 | Action | Keys |
@@ -58,7 +60,7 @@ Keybinding tables use uppercase letters as visual labels for unshifted letter ke
 
 ## Vim Mode (`Ctrl+Y`)
 
-Vim Mode is an explicit Vim-style navigation mode for the active pane only. Its frame uses `workspace.styling.vim_mode_color`, a bottom-left `VIM MODE` toast stays visible while the mode is active, and a shortcut legend appears after 500 ms. Set `workspace.styling.mode_legend` to `always` or `off` to change the legend timing. The mode exits automatically when focus moves into the omnibox, find bar, overlays, or an editable element inside the page. The default `timeout_ms` is `0`, so Vim Mode does not auto-time out unless you configure one. Arrow keys continue to flow through the browser engine's native page-navigation path while Vim Mode is active, while other app-level shortcuts stay suspended until you leave the mode. `Ctrl+Y` remains available when an editable page control is already focused.
+Vim Mode is an explicit Vim-style navigation mode for the active pane only. Its frame uses `workspace.styling.vim_mode_color`, a bottom-left `VIM MODE` toaster stays visible while the mode is active, and a shortcut legend expands from it after 500 ms. Click the toaster to collapse or expand the legend (the choice is saved in `workspace.styling.mode_legend_collapsed` and shared by all modes). Set `workspace.styling.mode_legend` to `always` or `off` to change the legend timing. The mode exits automatically when focus moves into the omnibox, find bar, overlays, or an editable element inside the page. The default `timeout_ms` is `0`, so Vim Mode does not auto-time out unless you configure one. Arrow keys continue to flow through the browser engine's native page-navigation path while Vim Mode is active, while other app-level shortcuts stay suspended until you leave the mode. `Ctrl+Y` remains available when an editable page control is already focused.
 
 CEF and WebKit execute Vim Mode scroll commands (`h/j/k/l`, `Shift+J/K`) with the shared `BuildPageScrollByJS` resolver. Each step starts under the viewport center, walks up through ancestors that can move in the requested direction, and hands scrolling to the document when a nested container reaches its boundary. Cross-origin frame contents remain best-effort.
 

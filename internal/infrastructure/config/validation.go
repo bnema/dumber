@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/bnema/dumber/internal/domain/keychord"
 	domainurl "github.com/bnema/dumber/internal/domain/url"
 	domainvalidation "github.com/bnema/dumber/internal/domain/validation"
 	"github.com/bnema/dumber/internal/domain/vimkeys"
@@ -299,8 +300,12 @@ func validateModalModeActionsWithKeyCanon(
 		validationErrors = append(validationErrors, fmt.Sprintf("workspace.%s.actions cannot be empty", modePath))
 	}
 
+	// Single-chord maps accept several spellings of one key under the same
+	// action (for example "M" and "shift+m"); that is redundant, not a conflict.
+	// Vim sequences keep reporting any repeated sequence.
+	allowSameActionAliases := keyCanon == nil
 	if keyCanon == nil {
-		keyCanon = func(key string) (string, error) { return key, nil }
+		keyCanon = canonicalizeChordKey
 	}
 
 	actionNames := make([]string, 0, len(actions))
@@ -312,10 +317,7 @@ func validateModalModeActionsWithKeyCanon(
 	seenSequence := make(map[string]string)
 	for _, action := range actionNames {
 		binding := actions[action]
-		if len(binding.Keys) == 0 {
-			validationErrors = append(validationErrors, fmt.Sprintf("workspace.%s.actions.%s must have at least one key binding", modePath, action))
-			continue
-		}
+		// An action with no keys is disabled; it binds nothing and is valid.
 		keys := append([]string(nil), binding.Keys...)
 		sort.Strings(keys)
 		for _, key := range keys {
@@ -331,32 +333,10 @@ func validateModalModeActionsWithKeyCanon(
 				continue
 			}
 			if modePath == "vim_mode" {
-				sequence, parseErr := vimkeys.ParseBinding(canonical)
-				if parseErr == nil {
-					if len(sequence) > 0 && isVimCountStartKey(sequence[0]) {
-						validationErrors = append(validationErrors, fmt.Sprintf(
-							"workspace.%s.actions.%s cannot start with a count digit (1-9): '%s'",
-							modePath,
-							action,
-							canonical,
-						))
-					}
-					legacyExit := action == "confirm" || action == "cancel"
-					if !legacyExit {
-						for _, key := range sequence {
-							if key.Mods == 0 && (key.Sym == "CR" || key.Sym == "Esc") {
-								validationErrors = append(validationErrors, fmt.Sprintf(
-									"workspace.%s.actions.%s cannot bind Enter or Escape outside the modal fallback actions",
-									modePath,
-									action,
-								))
-								break
-							}
-						}
-					}
-				}
+				validationErrors = append(validationErrors, validateVimBindingKey(modePath, action, canonical)...)
 			}
-			if existingAction, exists := seenSequence[canonical]; exists {
+			existingAction, exists := seenSequence[canonical]
+			if exists && (!allowSameActionAliases || existingAction != action) {
 				validationErrors = append(validationErrors, fmt.Sprintf(
 					"duplicate key binding '%s' found in %s actions '%s' and '%s'",
 					canonical,
@@ -369,6 +349,50 @@ func validateModalModeActionsWithKeyCanon(
 		}
 	}
 	return validationErrors
+}
+
+// validateVimBindingKey checks the Vim-specific rules of one canonical binding.
+func validateVimBindingKey(modePath, action, canonical string) []string {
+	sequence, err := vimkeys.ParseBinding(canonical)
+	if err != nil {
+		return nil
+	}
+	var validationErrors []string
+	if len(sequence) > 0 && isVimCountStartKey(sequence[0]) {
+		validationErrors = append(validationErrors, fmt.Sprintf(
+			"workspace.%s.actions.%s cannot start with a count digit (1-9): '%s'",
+			modePath,
+			action,
+			canonical,
+		))
+	}
+	legacyExit := action == "confirm" || action == "cancel"
+	if legacyExit {
+		return validationErrors
+	}
+	for _, key := range sequence {
+		if key.Mods == 0 && (key.Sym == "CR" || key.Sym == "Esc") {
+			validationErrors = append(validationErrors, fmt.Sprintf(
+				"workspace.%s.actions.%s cannot bind Enter or Escape outside the modal fallback actions",
+				modePath,
+				action,
+			))
+			break
+		}
+	}
+	return validationErrors
+}
+
+// canonicalizeChordKey canonicalizes a single-chord key string the way the
+// input layer resolves it (aliases, modifier spelling, letter case), so
+// differently spelled bindings of one key compare equal. A string that is not a
+// valid chord is returned unchanged: the input layer rejects it with a warning
+// when it is loaded, and it cannot collide with a valid binding.
+func canonicalizeChordKey(key string) (string, error) {
+	if canonical, ok := keychord.Canonicalize(key); ok {
+		return canonical, nil
+	}
+	return key, nil
 }
 
 func isVimCountStartKey(key vimkeys.Key) bool {

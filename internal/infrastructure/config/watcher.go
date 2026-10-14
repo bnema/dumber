@@ -87,20 +87,12 @@ func (m *Manager) reload() error {
 		return err
 	}
 
-	m.transformLegacyConfig()
-
-	config := &Config{}
-	if err := m.viper.Unmarshal(config); err != nil {
+	config, err := m.unmarshalConfig()
+	if err != nil {
 		return err
 	}
-
-	// Set database path if not specified
-	if config.Database.Path == "" {
-		dbPath, err := GetDatabaseFile()
-		if err != nil {
-			return fmt.Errorf("failed to get database path: %w", err)
-		}
-		config.Database.Path = dbPath
+	if err := ensureDatabasePath(config); err != nil {
+		return err
 	}
 
 	normalizeConfig(config)

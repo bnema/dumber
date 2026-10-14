@@ -28,6 +28,9 @@ func TestDependenciesValidateAcceptsRuntimeConfigOnly(t *testing.T) {
 			SaveOmniboxInitialBehavior: func(context.Context, entity.OmniboxInitialBehavior) error {
 				return nil
 			},
+			SaveModeLegendCollapsed: func(context.Context, bool) error {
+				return nil
+			},
 		},
 	}
 

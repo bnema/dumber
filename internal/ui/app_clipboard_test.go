@@ -38,6 +38,7 @@ func TestNew_DoesNotWireClipboardOrchestratorWhenClipboardMissing(t *testing.T) 
 		HandlerDeps: port.HandlerDeps{
 			SaveConfig:                 func(context.Context, dto.WebUIConfig) error { return nil },
 			SaveOmniboxInitialBehavior: func(context.Context, entity.OmniboxInitialBehavior) error { return nil },
+			SaveModeLegendCollapsed:    func(context.Context, bool) error { return nil },
 		},
 		Clipboard: nil,
 	}
@@ -66,6 +67,7 @@ func TestNew_ClosesHistoryRecorderWhenRegisterHandlersFails(t *testing.T) {
 		HandlerDeps: port.HandlerDeps{
 			SaveConfig:                 func(context.Context, dto.WebUIConfig) error { return nil },
 			SaveOmniboxInitialBehavior: func(context.Context, entity.OmniboxInitialBehavior) error { return nil },
+			SaveModeLegendCollapsed:    func(context.Context, bool) error { return nil },
 		},
 	}
 
@@ -101,6 +103,7 @@ func TestNew_WiresClipboardOrchestratorWhenClipboardPresent(t *testing.T) {
 		HandlerDeps: port.HandlerDeps{
 			SaveConfig:                 func(context.Context, dto.WebUIConfig) error { return nil },
 			SaveOmniboxInitialBehavior: func(context.Context, entity.OmniboxInitialBehavior) error { return nil },
+			SaveModeLegendCollapsed:    func(context.Context, bool) error { return nil },
 		},
 		Clipboard: clipboard,
 	}

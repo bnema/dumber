@@ -1404,42 +1404,6 @@ func generateToasterCSS(p Palette) string {
 	background-color: alpha(var(--destructive), 0.9);
 	color: var(--destructive-text);
 }
-
-/* Toast with custom styling (mode indicator toasters) */
-.toast-custom {
-	color: #ffffff;
-}
-
-/* Mode-specific toast colors */
-.toast-pane-mode {
-	background-color: var(--pane-mode-color);
-	color: var(--pane-mode-text);
-}
-
-.toast-vim-mode {
-	background-color: var(--vim-mode-color);
-	color: var(--vim-mode-text);
-}
-
-.toast-tab-mode {
-	background-color: var(--tab-mode-color);
-	color: var(--tab-mode-text);
-}
-
-.toast-session-mode {
-	background-color: var(--session-mode-color);
-	color: var(--session-mode-text);
-}
-
-.toast-resize-mode {
-	background-color: var(--resize-mode-color);
-	color: var(--resize-mode-text);
-}
-
-.toast-prefix-mode {
-	background-color: var(--pane-mode-color);
-	color: var(--pane-mode-text);
-}
 `
 }
 

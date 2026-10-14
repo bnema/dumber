@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/bnema/dumber/internal/domain/entity"
+	"github.com/bnema/dumber/internal/domain/keychord"
 	"github.com/bnema/dumber/internal/domain/vimkeys"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/puregotk/v4/gdk"
@@ -31,67 +32,42 @@ const (
 // modifierMask filters out non-standard modifiers from GDK state.
 const modifierMask = ModCtrl | ModShift | ModAlt
 
+// keyvalByName maps the canonical key names of the keychord package to GDK
+// keyvals. Printable ASCII keys map to their character code and need no entry.
 var keyvalByName = map[string]uint{
-	"escape":     uint(gdk.KEY_Escape),
-	"esc":        uint(gdk.KEY_Escape),
-	"return":     uint(gdk.KEY_Return),
-	"enter":      uint(gdk.KEY_Return),
-	"tab":        uint(gdk.KEY_Tab),
-	"space":      uint(gdk.KEY_space),
-	"backspace":  uint(gdk.KEY_BackSpace),
-	"delete":     uint(gdk.KEY_Delete),
-	"del":        uint(gdk.KEY_Delete),
-	"home":       uint(gdk.KEY_Home),
-	"end":        uint(gdk.KEY_End),
-	"pageup":     uint(gdk.KEY_Page_Up),
-	"page_up":    uint(gdk.KEY_Page_Up),
-	"pagedown":   uint(gdk.KEY_Page_Down),
-	"page_down":  uint(gdk.KEY_Page_Down),
-	"left":       uint(gdk.KEY_Left),
-	"arrowleft":  uint(gdk.KEY_Left),
-	"right":      uint(gdk.KEY_Right),
-	"arrowright": uint(gdk.KEY_Right),
-	"up":         uint(gdk.KEY_Up),
-	"arrowup":    uint(gdk.KEY_Up),
-	"down":       uint(gdk.KEY_Down),
-	"arrowdown":  uint(gdk.KEY_Down),
-	"f1":         uint(gdk.KEY_F1),
-	"f2":         uint(gdk.KEY_F2),
-	"f3":         uint(gdk.KEY_F3),
-	"f4":         uint(gdk.KEY_F4),
-	"f5":         uint(gdk.KEY_F5),
-	"f6":         uint(gdk.KEY_F6),
-	"f7":         uint(gdk.KEY_F7),
-	"f8":         uint(gdk.KEY_F8),
-	"f9":         uint(gdk.KEY_F9),
-	"f10":        uint(gdk.KEY_F10),
-	"f11":        uint(gdk.KEY_F11),
-	"f12":        uint(gdk.KEY_F12),
-	"plus":       uint(gdk.KEY_plus),
-	"+":          uint(gdk.KEY_plus),
-	"minus":      uint(gdk.KEY_minus),
-	"-":          uint(gdk.KEY_minus),
-	"equal":      uint(gdk.KEY_equal),
-	"=":          uint(gdk.KEY_equal),
-	"0":          uint(gdk.KEY_0),
-	"1":          uint(gdk.KEY_1),
-	"2":          uint(gdk.KEY_2),
-	"3":          uint(gdk.KEY_3),
-	"4":          uint(gdk.KEY_4),
-	"5":          uint(gdk.KEY_5),
-	"6":          uint(gdk.KEY_6),
-	"7":          uint(gdk.KEY_7),
-	"8":          uint(gdk.KEY_8),
-	"9":          uint(gdk.KEY_9),
-
+	"escape":       uint(gdk.KEY_Escape),
+	"return":       uint(gdk.KEY_Return),
+	"tab":          uint(gdk.KEY_Tab),
+	"space":        uint(gdk.KEY_space),
+	"backspace":    uint(gdk.KEY_BackSpace),
+	"delete":       uint(gdk.KEY_Delete),
+	"home":         uint(gdk.KEY_Home),
+	"end":          uint(gdk.KEY_End),
+	"pageup":       uint(gdk.KEY_Page_Up),
+	"pagedown":     uint(gdk.KEY_Page_Down),
+	"left":         uint(gdk.KEY_Left),
+	"right":        uint(gdk.KEY_Right),
+	"up":           uint(gdk.KEY_Up),
+	"down":         uint(gdk.KEY_Down),
+	"f1":           uint(gdk.KEY_F1),
+	"f2":           uint(gdk.KEY_F2),
+	"f3":           uint(gdk.KEY_F3),
+	"f4":           uint(gdk.KEY_F4),
+	"f5":           uint(gdk.KEY_F5),
+	"f6":           uint(gdk.KEY_F6),
+	"f7":           uint(gdk.KEY_F7),
+	"f8":           uint(gdk.KEY_F8),
+	"f9":           uint(gdk.KEY_F9),
+	"f10":          uint(gdk.KEY_F10),
+	"f11":          uint(gdk.KEY_F11),
+	"f12":          uint(gdk.KEY_F12),
+	"plus":         uint(gdk.KEY_plus),
+	"minus":        uint(gdk.KEY_minus),
+	"equal":        uint(gdk.KEY_equal),
 	"bracketleft":  uint(gdk.KEY_bracketleft),
 	"bracketright": uint(gdk.KEY_bracketright),
-	"[":            uint(gdk.KEY_bracketleft),
-	"]":            uint(gdk.KEY_bracketright),
 	"braceleft":    uint(gdk.KEY_braceleft),
 	"braceright":   uint(gdk.KEY_braceright),
-	"{":            uint(gdk.KEY_braceleft),
-	"}":            uint(gdk.KEY_braceright),
 }
 
 // KeyBinding represents a single key combination.
@@ -285,7 +261,6 @@ func NewShortcutSet(ctx context.Context, workspace *entity.WorkspaceConfig, sess
 
 // buildGlobalShortcutsFromParts populates global shortcuts from workspace and session configs.
 func (s *ShortcutSet) buildGlobalShortcutsFromParts(ctx context.Context, workspace *entity.WorkspaceConfig, session *entity.SessionConfig) {
-	s.registerBuiltinShortcutFallbacks(workspace)
 	s.registerActivationShortcutsFromParts(ctx, workspace, session)
 	s.registerConfiguredShortcuts(workspace)
 	// Alt+1-9, Alt+0, and Alt+Tab are registered by GlobalShortcutHandler;
@@ -376,28 +351,6 @@ func (s *ShortcutSet) registerActivation(ctx context.Context, shortcut string, a
 		Msg("mode activation registered")
 }
 
-// registerBuiltinShortcutFallbacks binds built-in browser shortcuts whose
-// action is missing from the configured global shortcuts, so configs written
-// before these actions became configurable keep working until migrated.
-func (s *ShortcutSet) registerBuiltinShortcutFallbacks(cfg *entity.WorkspaceConfig) {
-	for name, binding := range entity.BuiltinGlobalShortcuts() {
-		if cfg != nil {
-			if _, configured := cfg.Shortcuts.Actions[name]; configured {
-				continue
-			}
-		}
-		action, ok := configActionToAction[name]
-		if !ok {
-			continue
-		}
-		for _, key := range binding.Keys {
-			if kb, ok := ParseKeyString(key); ok {
-				s.Global[kb] = action
-			}
-		}
-	}
-}
-
 func (s *ShortcutSet) registerConfiguredShortcuts(cfg *entity.WorkspaceConfig) {
 	if cfg == nil {
 		return
@@ -421,10 +374,13 @@ func (s *ShortcutSet) registerConfiguredShortcuts(cfg *entity.WorkspaceConfig) {
 // key conflict the same across restarts.
 func orderedGlobalShortcutActions(actions map[string]entity.ActionBinding) []string {
 	builtins := entity.BuiltinGlobalShortcuts()
+	isBuiltin := func(name string) bool {
+		_, ok := builtins[name]
+		return ok
+	}
 	names := slices.Sorted(maps.Keys(actions))
 	slices.SortStableFunc(names, func(a, b string) int {
-		_, aBuiltin := builtins[a]
-		_, bBuiltin := builtins[b]
+		aBuiltin, bBuiltin := isBuiltin(a), isBuiltin(b)
 		switch {
 		case aBuiltin == bBuiltin:
 			return 0
@@ -573,57 +529,37 @@ func (s *ShortcutSet) buildModeShortcuts(ctx context.Context, bindings map[strin
 		Msg(mode + " mode shortcuts built")
 }
 
+// configActionToAction maps canonical (hyphenated) config action names to
+// actions. Config loading canonicalizes legacy underscore spellings, so only
+// hyphenated names are looked up here.
 var configActionToAction = map[string]Action{
-	"toggle_floating_pane":         ActionToggleFloatingPane,
 	"toggle-floating-pane":         ActionToggleFloatingPane,
-	"toggle_history_systemview":    ActionToggleHistorySystemView,
 	"toggle-history-systemview":    ActionToggleHistorySystemView,
-	"toggle_favorites_sidebar":     ActionToggleFavoritesSidebar,
 	"toggle-favorites-sidebar":     ActionToggleFavoritesSidebar,
-	"toggle_current_page_favorite": ActionToggleCurrentPageFavorite,
 	"toggle-current-page-favorite": ActionToggleCurrentPageFavorite,
-	"toggle_config_systemview":     ActionToggleConfigSystemView,
 	"toggle-config-systemview":     ActionToggleConfigSystemView,
 
 	// Tab actions
-	"new_tab":      ActionNewTab,
 	"new-tab":      ActionNewTab,
-	"close_tab":    ActionCloseTab,
 	"close-tab":    ActionCloseTab,
-	"next_tab":     ActionNextTab,
 	"next-tab":     ActionNextTab,
-	"previous_tab": ActionPreviousTab,
 	"previous-tab": ActionPreviousTab,
-	"rename_tab":   ActionRenameTab,
 	"rename-tab":   ActionRenameTab,
 
 	// Pane actions
-	"split_right":           ActionSplitRight,
 	"split-right":           ActionSplitRight,
-	"split_left":            ActionSplitLeft,
 	"split-left":            ActionSplitLeft,
-	"split_up":              ActionSplitUp,
 	"split-up":              ActionSplitUp,
-	"split_down":            ActionSplitDown,
 	"split-down":            ActionSplitDown,
-	"close_pane":            ActionClosePane,
 	"close-pane":            ActionClosePane,
-	"stack_pane":            ActionStackPane,
 	"stack-pane":            ActionStackPane,
-	"move_pane_to_tab":      ActionMovePaneToTab,
 	"move-pane-to-tab":      ActionMovePaneToTab,
-	"move_pane_to_next_tab": ActionMovePaneToNextTab,
 	"move-pane-to-next-tab": ActionMovePaneToNextTab,
-	"eject_pane_to_window":  ActionEjectPaneToWindow,
 	"eject-pane-to-window":  ActionEjectPaneToWindow,
 
-	"consume_or_expel_left":  ActionConsumeOrExpelLeft,
 	"consume-or-expel-left":  ActionConsumeOrExpelLeft,
-	"consume_or_expel_right": ActionConsumeOrExpelRight,
 	"consume-or-expel-right": ActionConsumeOrExpelRight,
-	"consume_or_expel_up":    ActionConsumeOrExpelUp,
 	"consume-or-expel-up":    ActionConsumeOrExpelUp,
-	"consume_or_expel_down":  ActionConsumeOrExpelDown,
 	"consume-or-expel-down":  ActionConsumeOrExpelDown,
 
 	// Focus navigation
@@ -679,17 +615,11 @@ var configActionToAction = map[string]Action{
 	"enter-vim-mode":     ActionEnterVimMode,
 
 	// Vim mode scroll actions
-	"vim_scroll_left":      ActionVimScrollLeft,
 	"vim-scroll-left":      ActionVimScrollLeft,
-	"vim_scroll_down":      ActionVimScrollDown,
 	"vim-scroll-down":      ActionVimScrollDown,
-	"vim_scroll_up":        ActionVimScrollUp,
 	"vim-scroll-up":        ActionVimScrollUp,
-	"vim_scroll_right":     ActionVimScrollRight,
 	"vim-scroll-right":     ActionVimScrollRight,
-	"vim_scroll_down_fast": ActionVimScrollDownFast,
 	"vim-scroll-down-fast": ActionVimScrollDownFast,
-	"vim_scroll_up_fast":   ActionVimScrollUpFast,
 	"vim-scroll-up-fast":   ActionVimScrollUpFast,
 }
 
@@ -760,87 +690,42 @@ func mapConfigAction(configAction string) Action {
 }
 
 // ParseKeyString converts a config key string like "ctrl+t" to a KeyBinding.
+// Alias, modifier and case handling is shared with the config layer through
+// keychord, so strings that canonicalize equal always parse to the same binding.
 // Returns false if the string cannot be parsed.
 func ParseKeyString(s string) (KeyBinding, bool) {
-	if s == "" {
+	chord, ok := keychord.Parse(s)
+	if !ok {
 		return KeyBinding{}, false
 	}
-
-	s = strings.TrimSpace(s)
-	if s == "" {
-		return KeyBinding{}, false
-	}
-	if s == "+" {
-		return KeyBinding{Keyval: uint(gdk.KEY_plus), Modifiers: ModNone}, true
-	}
-
-	parts := strings.Split(s, "+")
-
-	var modifiers Modifier
-	var keyPart string
-
-	for _, part := range parts {
-		part = strings.TrimSpace(part)
-		if part == "" {
-			continue
-		}
-
-		lower := strings.ToLower(part)
-		switch lower {
-		case "ctrl", "control":
-			modifiers |= ModCtrl
-		case "shift":
-			modifiers |= ModShift
-		case "alt":
-			modifiers |= ModAlt
-		default:
-			if keyPart != "" {
-				return KeyBinding{}, false
-			}
-			keyPart = part
-		}
-	}
-
-	// Allow parsing "ctrl++" / "alt+shift++" where the key is "+".
-	if keyPart == "" && strings.HasSuffix(s, "++") {
-		keyPart = "+"
-	}
-
-	if keyPart == "" {
-		return KeyBinding{}, false
-	}
-
-	// Treat uppercase single-letter keys as Shift+<letter>.
-	if len(keyPart) == 1 && keyPart[0] >= 'A' && keyPart[0] <= 'Z' {
-		modifiers |= ModShift
-		keyPart = strings.ToLower(keyPart)
-	}
-
-	keyval, ok := stringToKeyval(keyPart)
+	keyval, ok := keychordKeyval(chord.Key)
 	if !ok {
 		return KeyBinding{}, false
 	}
 
-	return KeyBinding{
-		Keyval:    keyval,
-		Modifiers: modifiers,
-	}, true
+	var modifiers Modifier
+	if chord.Mods&keychord.Ctrl != 0 {
+		modifiers |= ModCtrl
+	}
+	if chord.Mods&keychord.Alt != 0 {
+		modifiers |= ModAlt
+	}
+	if chord.Mods&keychord.Shift != 0 {
+		modifiers |= ModShift
+	}
+	return KeyBinding{Keyval: keyval, Modifiers: modifiers}, true
 }
 
-// stringToKeyval converts a key name to its GDK keyval.
-func stringToKeyval(s string) (uint, bool) {
-	if s == "" {
-		return 0, false
-	}
-
-	if keyval, ok := keyvalByName[strings.ToLower(s)]; ok {
+// keychordKeyval converts a canonical keychord key name to its GDK keyval.
+func keychordKeyval(name string) (uint, bool) {
+	if keyval, ok := keyvalByName[name]; ok {
 		return keyval, true
 	}
 
-	// Single printable ASCII keys (a-z, symbols such as %, ", &).
+	// Single printable ASCII keys (a-z, 0-9, symbols such as %, ", &).
 	// GDK keyvals for printable ASCII match their character codes.
-	if len(s) == 1 && s[0] > ' ' && s[0] <= '~' {
-		return uint(s[0]), true
+	if len(name) == 1 && name[0] > ' ' && name[0] <= '~' {
+		return uint(name[0]), true
 	}
 
 	return 0, false

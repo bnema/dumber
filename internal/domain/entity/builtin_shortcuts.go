@@ -2,8 +2,9 @@ package entity
 
 // BuiltinGlobalShortcuts returns the standard browser shortcuts shared by every
 // keymap preset. Config defaults include them so users can rebind or disable
-// them; the input layer also falls back to them for actions missing from an
-// older config file. An action present with empty keys stays disabled.
+// them, and config loading completes any that a config file omits (unless the
+// user already bound one of their keys). An action present with empty keys
+// stays disabled.
 func BuiltinGlobalShortcuts() map[string]ActionBinding {
 	return map[string]ActionBinding{
 		"open-omnibox":      {Keys: []string{"ctrl+l"}, Desc: "Open omnibox"},

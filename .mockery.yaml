@@ -75,6 +75,7 @@ packages:
       KeybindingsProvider: {}
       KeybindingsSaver: {}
       OmniboxPreferencesSaver: {}
+      ModeLegendPreferencesSaver: {}
       DownloadResponse: {}
       PermissionDialogPresenter: {}
       PermissionRepository: {}

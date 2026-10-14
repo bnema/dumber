@@ -504,23 +504,14 @@ func shouldIgnoreGlobalShortcutInMode(mode Mode, action Action) bool {
 
 func globalShortcutActionMap() map[string]Action {
 	return map[string]Action{
-		"toggle_floating_pane":         ActionToggleFloatingPane,
 		"toggle-floating-pane":         ActionToggleFloatingPane,
-		"consume_or_expel_left":        ActionConsumeOrExpelLeft,
 		"consume-or-expel-left":        ActionConsumeOrExpelLeft,
-		"consume_or_expel_right":       ActionConsumeOrExpelRight,
 		"consume-or-expel-right":       ActionConsumeOrExpelRight,
-		"consume_or_expel_up":          ActionConsumeOrExpelUp,
 		"consume-or-expel-up":          ActionConsumeOrExpelUp,
-		"consume_or_expel_down":        ActionConsumeOrExpelDown,
 		"consume-or-expel-down":        ActionConsumeOrExpelDown,
-		"toggle_history_systemview":    ActionToggleHistorySystemView,
 		"toggle-history-systemview":    ActionToggleHistorySystemView,
-		"toggle_favorites_sidebar":     ActionToggleFavoritesSidebar,
 		"toggle-favorites-sidebar":     ActionToggleFavoritesSidebar,
-		"toggle_current_page_favorite": ActionToggleCurrentPageFavorite,
 		"toggle-current-page-favorite": ActionToggleCurrentPageFavorite,
-		"toggle_config_systemview":     ActionToggleConfigSystemView,
 		"toggle-config-systemview":     ActionToggleConfigSystemView,
 	}
 }

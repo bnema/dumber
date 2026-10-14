@@ -445,6 +445,7 @@ func DefaultConfig() *Config {
 				ModeLegend:                  "delay",
 				ModeLegendDelayMs:           500,
 				ModeLegendAnimations:        true,
+				ModeLegendCollapsed:         false,
 				TransitionDuration:          defaultTransitionDuration,
 			},
 		},

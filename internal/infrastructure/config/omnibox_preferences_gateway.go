@@ -20,8 +20,7 @@ func (g *OmniboxPreferencesGateway) SaveOmniboxInitialBehavior(_ context.Context
 		return fmt.Errorf("config manager not initialized")
 	}
 
-	current := g.mgr.Get()
-	current.Omnibox.InitialBehavior = behavior
-
-	return g.mgr.Save(current)
+	return g.mgr.Update(func(cfg *Config) {
+		cfg.Omnibox.InitialBehavior = behavior
+	})
 }

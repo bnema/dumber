@@ -35,7 +35,7 @@ OAuth flows and scripts that request popup dimensions or restricted browser chro
 ## Example
 
 ```toml
-[workspace.shortcuts.actions.toggle_floating_pane]
+[workspace.shortcuts.actions.toggle-floating-pane]
 keys = ["alt+f"]
 desc = "Toggle floating pane"
 

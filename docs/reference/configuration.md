@@ -101,7 +101,7 @@
 | `workspace.keymap` | string | `zellij` | `zellij`, `tmux`; see [Keymap presets](keybindings.md#keymap-presets) |
 | `workspace.prefix_mode.activation_shortcut` | string | `ctrl+space` | prefix key for the `tmux` keymap |
 | `workspace.prefix_mode.timeout_ms` | int | `2000` | >= 0 |
-| `workspace.prefix_mode.actions.<action>` | object | see defaults | one-shot actions after the prefix |
+| `workspace.prefix_mode.actions.<action>` | object | see defaults | one-shot actions after the prefix; every action map keeps default actions you do not define, your keys win on conflict, and `keys = []` disables an action |
 | `workspace.pane_mode.activation_shortcut` | string | `ctrl+p` | |
 | `workspace.pane_mode.timeout_ms` | int | `3000` | |
 | `workspace.pane_mode.actions.<action>` | []string | see defaults | pane mode key mappings |
@@ -119,8 +119,8 @@
 | `workspace.resize_mode.step_percent` | float | `5.0` | |
 | `workspace.resize_mode.min_pane_percent` | float | `10.0` | |
 | `workspace.shortcuts.actions` | map | see defaults | global shortcut action mappings, including browser shortcuts (`open-omnibox`, `reload`, `focus-left`, ...); set `keys = []` to disable one |
-| `workspace.shortcuts.actions.toggle_floating_pane.keys` | []string | `alt+f` | key strings |
-| `workspace.shortcuts.actions.toggle_floating_pane.desc` | string | `Toggle floating pane` | |
+| `workspace.shortcuts.actions.toggle-floating-pane.keys` | []string | `alt+f` | key strings |
+| `workspace.shortcuts.actions.toggle-floating-pane.desc` | string | `Toggle floating pane` | |
 | `workspace.floating_pane.width_pct` | float | `0.82` | `(0,1]` |
 | `workspace.floating_pane.height_pct` | float | `0.72` | `(0,1]` |
 | `workspace.floating_pane.profiles.<name>.keys` | []string | | at least one key |
@@ -143,11 +143,12 @@
 | `workspace.styling.session_mode_color` | string | `#9B59B6` | |
 | `workspace.styling.vim_mode_color` | string | `#F7768E` | Vim mode border, pulse, toast, and legend |
 | `workspace.styling.resize_mode_color` | string | `#00D4AA` | |
-| `workspace.styling.mode_indicator_toaster_enabled` | bool | `true` | Show the bottom-left mode toast while a mode is active |
-| `workspace.styling.mode_legend` | string | `delay` | `always`, `delay`, `off` |
+| `workspace.styling.mode_indicator_toaster_enabled` | bool | `true` | Show the bottom-left mode toaster header while a mode is active (still shown when the legend is not `off`) |
+| `workspace.styling.mode_legend` | string | `delay` | `always`, `delay`, `off`; `off` keeps only the toaster header |
 | `workspace.styling.mode_legend_delay_ms` | int | `500` | >= 0; used with `delay` |
 | `workspace.styling.mode_legend_linger` | bool | `true` | Keep the legend visible, read-only, after its mode ends while the pointer is over it, until the next key press or click. |
 | `workspace.styling.mode_legend_animations` | bool | `true` | |
+| `workspace.styling.mode_legend_collapsed` | bool | `false` | Collapse the legend to the mode toaster header; toggled by clicking the toaster and saved for all modes |
 | `workspace.styling.transition_duration` | int | `120` | |
 | `session.auto_restore` | bool | `false` | |
 | `session.snapshot_interval_ms` | int | `5000` | |

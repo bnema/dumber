@@ -35,7 +35,7 @@ type browserWindow struct {
 	tabs                   *entity.TabList // per-window tab list (single source of truth for tab state)
 	mainWindow             *window.MainWindow
 	appToaster             *component.Toaster
-	modeToaster            *component.Toaster
+	modeToaster            *modeToaster
 	touchpadNavIndicator   *component.TouchpadNavigationIndicator
 	modeFrame              *modeFrame
 	sessionManager         *component.SessionManager
@@ -104,8 +104,11 @@ func (bw *browserWindow) clearShellState() {
 		bw.touchpadNavIndicator.Destroy()
 	}
 	bw.appToaster = nil
-	bw.modeToaster = nil
 	bw.touchpadNavIndicator = nil
+	if bw.modeToaster != nil {
+		bw.modeToaster.destroy()
+		bw.modeToaster = nil
+	}
 	if bw.modeFrame != nil {
 		bw.modeFrame.destroy()
 		bw.modeFrame = nil
@@ -141,7 +144,7 @@ func (bw *browserWindow) initChrome(ctx context.Context, a *App) {
 	// no hidden-panel queries or widget row rebuilds.
 	bw.initToasterOverlay(a)
 	bw.initTouchpadNavigationIndicator()
-	bw.initBorderOverlay(a)
+	bw.initBorderOverlay(ctx, a)
 	bw.initAccentPicker(ctx, a)
 	bw.initSessionManager(ctx, a)
 	bw.initTabPicker(ctx, a)
@@ -155,15 +158,6 @@ func (bw *browserWindow) initToasterOverlay(a *App) {
 	bw.appToaster = component.NewToaster(a.widgetFactory)
 	if bw.appToaster != nil {
 		if widget := bw.appToaster.Widget(); widget != nil {
-			if gtkWidget := widget.GtkWidget(); gtkWidget != nil {
-				bw.mainWindow.AddOverlay(gtkWidget)
-			}
-		}
-	}
-
-	bw.modeToaster = component.NewToaster(a.widgetFactory)
-	if bw.modeToaster != nil {
-		if widget := bw.modeToaster.Widget(); widget != nil {
 			if gtkWidget := widget.GtkWidget(); gtkWidget != nil {
 				bw.mainWindow.AddOverlay(gtkWidget)
 			}
@@ -184,12 +178,19 @@ func (bw *browserWindow) initTouchpadNavigationIndicator() {
 	}
 }
 
-func (bw *browserWindow) initBorderOverlay(a *App) {
+// initBorderOverlay creates the mode border and the mode toaster, which share
+// the window's content overlay.
+func (bw *browserWindow) initBorderOverlay(ctx context.Context, a *App) {
 	if bw == nil || a == nil || a.widgetFactory == nil || bw.mainWindow == nil {
 		return
 	}
 
-	bw.modeFrame = newModeFrame(bw.mainWindow.ContentOverlay(), bw.mainWindow.Window())
+	overlay := bw.mainWindow.ContentOverlay()
+	bw.modeFrame = newModeFrame(overlay)
+	collapsed := a.modeLegendCollapsed()
+	bw.modeToaster = newModeToaster(overlay, bw.mainWindow.Window(), collapsed, func(next bool) {
+		a.setModeLegendCollapsed(ctx, next)
+	})
 }
 
 func (bw *browserWindow) initAccentPicker(ctx context.Context, a *App) {
@@ -359,13 +360,11 @@ func (a *App) releaseTabWorkspace(ctx context.Context, tab *entity.Tab) {
 
 	a.releaseFloatingSessionsForTab(ctx, tab.ID)
 	if bw := a.browserWindowForTab(tab.ID); bw != nil && bw.modeFrame != nil && bw.modeFrame.tabID == tab.ID {
-		bw.modeFrame.cancelTimers()
-		bw.modeFrame.dismissLinger()
-		bw.modeFrame.generation++
 		bw.modeFrame.setTarget(nil, "")
 		bw.modeFrame.tabID = ""
-		bw.modeFrame.hide()
-		a.updateModeIndicatorToaster(ctx, bw, bw.modeFrame.mode)
+		// The legend belonged to the released workspace; the header stays for
+		// the mode.
+		bw.modeToaster.release()
 	}
 	if a.contentCoord != nil && tab.Workspace != nil {
 		for _, pane := range tab.Workspace.AllPanes() {

@@ -24,6 +24,11 @@ type Manager struct {
 	callbacks      []func(*Config)
 	watching       bool
 	skipNextReload bool // Set by Save() to prevent fsnotify reload from overwriting in-memory config
+
+	// afterSnapshot is a test seam called right after Get or Update copies the
+	// current config (Get calls it without the lock held, Update with it held).
+	// It is nil outside tests.
+	afterSnapshot func()
 }
 
 type automaticEnvConfig struct {
@@ -145,15 +150,19 @@ func (m *Manager) readConfigFile() error {
 		}
 	}
 
-	// Transform legacy action bindings and engine config before unmarshaling.
-	m.transformLegacyConfig()
-
 	return nil
 }
 
-// transformLegacyConfig converts old-format action bindings and engine config to the new format.
-// This is called after reading config but before unmarshaling.
-func (m *Manager) transformLegacyConfig() {
+// transformedSettings returns a throwaway Viper holding the effective settings
+// (config file, defaults and environment as resolved by the long-lived Viper)
+// after the legacy transforms: old-format action bindings, legacy engine config
+// and legacy popups.
+//
+// The transformed values are deliberately NOT written back to m.viper with
+// Set(). Set() registers top-priority overrides that ReadInConfig never
+// clears, so a later reload would keep returning the values of the first read
+// instead of the file contents.
+func (m *Manager) transformedSettings() (*viper.Viper, error) {
 	legacyPopupsInConfig := m.viper.InConfig("workspace.popups")
 
 	rawConfig := m.viper.AllSettings()
@@ -175,10 +184,11 @@ func (m *Manager) transformLegacyConfig() {
 		transformer.TransformLegacyPopupsToBrowsingContexts(rawConfig)
 	}
 
-	// Apply transformed config back to viper
-	for key, value := range rawConfig {
-		m.viper.Set(key, value)
+	settings := viper.New()
+	if err := settings.MergeConfigMap(rawConfig); err != nil {
+		return nil, fmt.Errorf("failed to merge transformed config: %w", err)
 	}
+	return settings, nil
 }
 
 func (m *Manager) configureAutomaticEnv() {
@@ -348,9 +358,16 @@ func (m *Manager) hasEngineSectionInConfig() bool {
 	return m.viper.InConfig("engine.type")
 }
 
+// unmarshalConfig decodes the current file, defaults and environment, with the
+// legacy transforms applied, into a fresh Config. It is used by both the initial
+// load and every reload, so neither depends on state left by a previous read.
 func (m *Manager) unmarshalConfig() (*Config, error) {
+	settings, err := m.transformedSettings()
+	if err != nil {
+		return nil, err
+	}
 	config := &Config{}
-	if err := m.viper.Unmarshal(config); err != nil {
+	if err := settings.Unmarshal(config); err != nil {
 		configFile := m.viper.ConfigFileUsed()
 		return nil, fmt.Errorf(
 			"failed to parse config file at %s: %w\nCheck for syntax errors, invalid values, or type mismatches",
@@ -374,6 +391,7 @@ func ensureDatabasePath(config *Config) error {
 }
 
 func normalizeConfig(config *Config) {
+	completeDefaultActions(config)
 	normalizeExternalLinks(config)
 	normalizeAppearance(config)
 	normalizeMedia(config)
@@ -504,10 +522,13 @@ func normalizeMedia(config *Config) {
 // Get returns the current configuration (thread-safe).
 func (m *Manager) Get() *Config {
 	m.mu.RLock()
-	defer m.mu.RUnlock()
-
 	// Return a copy to prevent external modification
 	configCopy := *m.config
+	m.mu.RUnlock()
+
+	if m.afterSnapshot != nil {
+		m.afterSnapshot()
+	}
 	return &configCopy
 }
 
@@ -516,6 +537,35 @@ func (m *Manager) Save(cfg *Config) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
+	return m.saveLocked(cfg)
+}
+
+// Update applies mutate to a copy of the latest configuration and persists the
+// result while holding the manager's write lock. Unlike Get() followed by
+// Save(), no concurrent reload or save can be overwritten by a stale snapshot.
+//
+// mutate runs under the lock: it must not call back into the Manager, and it
+// should only replace fields of the config it receives (the copy is shallow,
+// so nested maps and slices must be replaced rather than modified in place).
+func (m *Manager) Update(mutate func(*Config)) error {
+	if mutate == nil {
+		return fmt.Errorf("config mutation is nil")
+	}
+
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	updated := *m.config
+	if m.afterSnapshot != nil {
+		m.afterSnapshot()
+	}
+	mutate(&updated)
+
+	return m.saveLocked(&updated)
+}
+
+// saveLocked validates, writes and publishes cfg. Must be called with m.mu held for write.
+func (m *Manager) saveLocked(cfg *Config) error {
 	if cfg == nil {
 		return fmt.Errorf("config is nil")
 	}
@@ -753,6 +803,7 @@ func (m *Manager) setWorkspaceDefaults(defaults *Config) {
 	m.viper.SetDefault("workspace.styling.mode_legend", defaults.Workspace.Styling.ModeLegend)
 	m.viper.SetDefault("workspace.styling.mode_legend_delay_ms", defaults.Workspace.Styling.ModeLegendDelayMs)
 	m.viper.SetDefault("workspace.styling.mode_legend_animations", defaults.Workspace.Styling.ModeLegendAnimations)
+	m.viper.SetDefault("workspace.styling.mode_legend_collapsed", defaults.Workspace.Styling.ModeLegendCollapsed)
 	m.viper.SetDefault("workspace.styling.transition_duration", defaults.Workspace.Styling.TransitionDuration)
 }
 

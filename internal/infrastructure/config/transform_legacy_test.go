@@ -89,8 +89,9 @@ func TestTransformLegacyActions_AllModes(t *testing.T) {
 
 	// Check shortcuts
 	shortcutActions := rawConfig["workspace"].(map[string]any)["shortcuts"].(map[string]any)["actions"].(map[string]any)
-	closePane, ok := shortcutActions["close_pane"].(map[string]any)
-	require.True(t, ok)
+	closePane, ok := shortcutActions["close-pane"].(map[string]any)
+	require.True(t, ok, "underscore action names are renamed to the hyphen form")
+	assert.NotContains(t, shortcutActions, "close_pane")
 	assert.Equal(t, []string{"ctrl+w"}, closePane["keys"])
 
 	// Check session mode
@@ -403,4 +404,73 @@ func TestTransformLegacyActions_UnknownAction(t *testing.T) {
 	require.True(t, ok)
 	assert.Equal(t, []string{"x"}, binding["keys"])
 	assert.Empty(t, binding["desc"], "unknown action should have empty description")
+}
+
+func TestTransformLegacyActions_RenamesUnderscoreNamesInEveryActionMap(t *testing.T) {
+	raw := map[string]any{
+		"workspace": map[string]any{
+			"shortcuts":   map[string]any{"actions": map[string]any{"toggle_floating_pane": map[string]any{"keys": []any{"alt+g"}}}},
+			"prefix_mode": map[string]any{"actions": map[string]any{"enter_resize_mode": map[string]any{"keys": []any{"z"}}}},
+			"pane_mode":   map[string]any{"actions": map[string]any{"focus_left": map[string]any{"keys": []any{"z"}}}},
+			"tab_mode":    map[string]any{"actions": map[string]any{"new_tab": map[string]any{"keys": []any{"z"}}}},
+			"resize_mode": map[string]any{"actions": map[string]any{"resize_increase_left": map[string]any{"keys": []any{"z"}}}},
+			"vim_mode":    map[string]any{"actions": map[string]any{"vim_scroll_left": map[string]any{"keys": []any{"z"}}}},
+		},
+		"session": map[string]any{
+			"session_mode": map[string]any{"actions": map[string]any{"session_manager": map[string]any{"keys": []any{"z"}}}},
+		},
+	}
+
+	NewLegacyConfigTransformer().TransformLegacyActions(raw)
+
+	want := map[string]string{
+		"shortcuts":   "toggle-floating-pane",
+		"prefix_mode": "enter-resize-mode",
+		"pane_mode":   "focus-left",
+		"tab_mode":    "new-tab",
+		"resize_mode": "resize-increase-left",
+		"vim_mode":    "vim-scroll-left",
+	}
+	workspace := raw["workspace"].(map[string]any)
+	for section, name := range want {
+		actions := workspace[section].(map[string]any)["actions"].(map[string]any)
+		assert.Len(t, actions, 1, section)
+		assert.Contains(t, actions, name, section)
+	}
+	sessionActions := raw["session"].(map[string]any)["session_mode"].(map[string]any)["actions"].(map[string]any)
+	assert.Len(t, sessionActions, 1)
+	assert.Contains(t, sessionActions, "session-manager")
+}
+
+func TestTransformLegacyActions_HyphenSpellingWinsOverUnderscore(t *testing.T) {
+	raw := map[string]any{
+		"workspace": map[string]any{
+			"pane_mode": map[string]any{"actions": map[string]any{
+				"stack_pane": map[string]any{"keys": []any{"q"}},
+				"stack-pane": map[string]any{"keys": []any{"w"}},
+			}},
+		},
+	}
+
+	NewLegacyConfigTransformer().TransformLegacyActions(raw)
+
+	actions := raw["workspace"].(map[string]any)["pane_mode"].(map[string]any)["actions"].(map[string]any)
+	require.Len(t, actions, 1)
+	assert.Equal(t, []any{"w"}, actions["stack-pane"].(map[string]any)["keys"])
+}
+
+func TestTransformLegacyActions_RenamesUnderscoreNamesInSliceFormat(t *testing.T) {
+	raw := map[string]any{
+		"workspace": map[string]any{
+			"pane_mode": map[string]any{"actions": map[string]any{"stack_pane": []any{"q"}}},
+		},
+	}
+
+	NewLegacyConfigTransformer().TransformLegacyActions(raw)
+
+	actions := raw["workspace"].(map[string]any)["pane_mode"].(map[string]any)["actions"].(map[string]any)
+	binding, ok := actions["stack-pane"].(map[string]any)
+	require.True(t, ok)
+	assert.Equal(t, []string{"q"}, binding["keys"])
+	assert.Equal(t, DefaultConfig().Workspace.PaneMode.Actions["stack-pane"].Desc, binding["desc"])
 }

@@ -28,8 +28,8 @@ func (a *App) captureVimPageKeys(ctx context.Context, bw *browserWindow, wv port
 		}
 	})
 	a.showVimModeToast(ctx, bw, label)
-	if bw.modeFrame != nil {
-		bw.modeFrame.setSuspended(true)
+	if bw.modeToaster != nil {
+		bw.modeToaster.setSuspended(true)
 	}
 	logging.FromContext(ctx).Debug().
 		Str("window_id", bw.id).
@@ -54,8 +54,8 @@ func (a *App) releaseVimPageKeys(ctx context.Context, bw *browserWindow, reason 
 	}
 	if stillVim {
 		a.showVimModeToast(ctx, bw, "")
-		if bw.modeFrame != nil {
-			bw.modeFrame.setSuspended(false)
+		if bw.modeToaster != nil {
+			bw.modeToaster.setSuspended(false)
 		}
 	}
 	logging.FromContext(ctx).Debug().

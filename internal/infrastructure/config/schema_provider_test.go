@@ -25,6 +25,7 @@ func TestModeLegendSchemaDefaults(t *testing.T) {
 		{"workspace.styling.mode_legend_linger", "bool", "true", ""},
 		{"workspace.styling.vim_mode_color", "string", "#F7768E", ""},
 		{"workspace.styling.mode_legend_animations", "bool", "true", ""},
+		{"workspace.styling.mode_legend_collapsed", "bool", "false", ""},
 	} {
 		entry, ok := keys[tc.key]
 		require.True(t, ok, "missing schema key %s", tc.key)

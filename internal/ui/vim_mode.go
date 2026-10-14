@@ -7,7 +7,6 @@ import (
 	"github.com/bnema/dumber/internal/application/usecase"
 	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/logging"
-	"github.com/bnema/dumber/internal/ui/component"
 	"github.com/bnema/dumber/internal/ui/input"
 )
 
@@ -127,10 +126,8 @@ func (a *App) handleModeChange(ctx context.Context, bw *browserWindow, from, to 
 	// Entering Vim Mode accents the active pane; leaving removes the accent.
 	a.handleVimModeOwnership(ctx, bw, to, from)
 
+	// Retarget the border and reconcile the mode toaster (indicator + legend).
 	a.updateModeFrame(bw, to)
-
-	// Show/hide this window's mode indicator toaster based on mode and config.
-	a.updateModeIndicatorToaster(ctx, bw, to)
 }
 
 // transferVimModeOwnershipToPane transfers the pane-local Vim Mode accent
@@ -277,25 +274,6 @@ func (a *App) clearVimModeOwnership(ctx context.Context, bw *browserWindow) {
 	a.vimMode.resetPulse()
 }
 
-// updateModeIndicatorToaster reconciles one window's mode toaster with its
-// current mode and the live mode-indicator preference.
-func (a *App) updateModeIndicatorToaster(ctx context.Context, bw *browserWindow, mode input.Mode) {
-	if bw == nil || bw.modeToaster == nil {
-		return
-	}
-
-	if !a.runtimeConfigSnapshot().UI.Workspace.Styling.ModeIndicatorToasterEnabled || mode == input.ModeNormal {
-		bw.modeToaster.Hide()
-		return
-	}
-
-	bw.modeToaster.Show(ctx, mode.DisplayName(), component.ToastInfo,
-		component.WithDuration(0),
-		component.WithPosition(component.ToastPositionBottomLeft),
-		component.WithModeClass(getModeToastClass(mode)),
-	)
-}
-
 // bindVimModeSequenceToaster wires pending Vim-sequence text onto this
 // window's modeToaster only (never appToaster / pane toasters).
 func (a *App) bindVimModeSequenceToaster(ctx context.Context, bw *browserWindow) {
@@ -312,7 +290,7 @@ func (a *App) bindVimModeSequenceToaster(ctx context.Context, bw *browserWindow)
 
 // showPendingSequence shows "VIM MODE · pending" on the per-window modeToaster
 // while a sequence is incomplete, and restores stable "VIM MODE" when pending
-// clears. Mode exit/hide is handled by handleModeChange/updateModeIndicatorToaster;
+// clears. Mode exit is handled by handleModeChange/updateModeFrame;
 // silent reset under ModalState avoids stale pending callbacks.
 func (a *App) showPendingSequence(ctx context.Context, bw *browserWindow, pending string) {
 	if a == nil || bw == nil {
@@ -323,15 +301,11 @@ func (a *App) showPendingSequence(ctx context.Context, bw *browserWindow, pendin
 		// sub-mode, and the legend is suspended. Nothing to repaint.
 		return
 	}
-	if bw.modeFrame != nil {
-		cfg := a.runtimeConfigSnapshot().UI.Workspace
-		bw.modeFrame.setPending(pending, cfg.VimMode.Actions)
-	}
 	if bw.modeToaster == nil {
 		return
 	}
 
-	a.showVimModeToast(ctx, bw, pending)
+	bw.modeToaster.setPending(pending)
 	logging.FromContext(ctx).Debug().
 		Str("window_id", bw.id).
 		Str("pending", pending).
@@ -339,22 +313,10 @@ func (a *App) showPendingSequence(ctx context.Context, bw *browserWindow, pendin
 }
 
 // showVimModeToast shows "VIM MODE" with an optional " · detail" suffix on the
-// per-window mode toaster, honoring the indicator toggle.
-func (a *App) showVimModeToast(ctx context.Context, bw *browserWindow, detail string) {
+// per-window mode toaster.
+func (a *App) showVimModeToast(_ context.Context, bw *browserWindow, detail string) {
 	if bw == nil || bw.modeToaster == nil {
 		return
 	}
-	if !a.runtimeConfigSnapshot().UI.Workspace.Styling.ModeIndicatorToasterEnabled {
-		bw.modeToaster.Hide()
-		return
-	}
-	text := input.ModeVim.DisplayName()
-	if detail != "" {
-		text = text + " · " + detail
-	}
-	bw.modeToaster.Show(ctx, text, component.ToastInfo,
-		component.WithDuration(0),
-		component.WithPosition(component.ToastPositionBottomLeft),
-		component.WithModeClass(getModeToastClass(input.ModeVim)),
-	)
+	bw.modeToaster.setDetail(detail)
 }
