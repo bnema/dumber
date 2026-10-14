@@ -45,7 +45,6 @@ archives:
     files:
       - LICENSE
       - README.md
-      - CHANGELOG.md
       - src: flatpak/dev.bnema.Dumber.desktop
         dst: .
         strip_parent: true
