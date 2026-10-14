@@ -136,8 +136,8 @@ type refreshCoordinator struct {
 	// Adds happen under mu before the goroutine starts; Done runs when the
 	// executor finishes. Sealed admission (closed) guarantees no Add can
 	// race a completed Wait.
-	wg     sync.WaitGroup
-	epoch  uint64
+	wg    sync.WaitGroup
+	epoch uint64
 	// closed seals admission: set by Close before cancel/drain, so no
 	// refresh can start after the drain observes zero active operations.
 	closed bool
