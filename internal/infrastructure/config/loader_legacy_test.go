@@ -149,11 +149,12 @@ func TestTransformLegacyConfig_DefaultAdaptiveDoesNotBlockLegacyCEFMigration(t *
 	m.setDefaults()
 	require.NoError(t, m.viper.ReadInConfig())
 
-	m.transformLegacyConfig()
+	settings, err := m.transformedSettings()
+	require.NoError(t, err)
 
-	require.True(t, m.viper.GetBool("engine.cef.adaptive_windowless_frame_rate"))
-	require.Equal(t, 0, m.viper.GetInt("engine.cef.windowless_frame_rate"))
-	require.Equal(t, defaultCEFWindowlessFrameRateMax, m.viper.GetInt("engine.cef.windowless_frame_rate_max"))
+	require.True(t, settings.GetBool("engine.cef.adaptive_windowless_frame_rate"))
+	require.Equal(t, 0, settings.GetInt("engine.cef.windowless_frame_rate"))
+	require.Equal(t, defaultCEFWindowlessFrameRateMax, settings.GetInt("engine.cef.windowless_frame_rate_max"))
 }
 
 func TestTransformLegacyConfig_ExplicitAdaptiveEnvOverrideBlocksLegacyCEFMigration(t *testing.T) {
@@ -169,10 +170,11 @@ func TestTransformLegacyConfig_ExplicitAdaptiveEnvOverrideBlocksLegacyCEFMigrati
 	m.setDefaults()
 	require.NoError(t, m.viper.ReadInConfig())
 
-	m.transformLegacyConfig()
+	settings, err := m.transformedSettings()
+	require.NoError(t, err)
 
-	require.False(t, m.viper.GetBool("engine.cef.adaptive_windowless_frame_rate"))
-	require.Equal(t, 60, m.viper.GetInt("engine.cef.windowless_frame_rate"))
+	require.False(t, settings.GetBool("engine.cef.adaptive_windowless_frame_rate"))
+	require.Equal(t, 60, settings.GetInt("engine.cef.windowless_frame_rate"))
 }
 
 func TestTransformLegacyConfig_UnconfiguredManagerIgnoresAmbientAdaptiveEnv(t *testing.T) {
@@ -187,10 +189,11 @@ func TestTransformLegacyConfig_UnconfiguredManagerIgnoresAmbientAdaptiveEnv(t *t
 	m.setDefaults()
 	require.NoError(t, m.viper.ReadInConfig())
 
-	m.transformLegacyConfig()
+	settings, err := m.transformedSettings()
+	require.NoError(t, err)
 
-	require.True(t, m.viper.GetBool("engine.cef.adaptive_windowless_frame_rate"))
-	require.Equal(t, 0, m.viper.GetInt("engine.cef.windowless_frame_rate"))
+	require.True(t, settings.GetBool("engine.cef.adaptive_windowless_frame_rate"))
+	require.Equal(t, 0, settings.GetInt("engine.cef.windowless_frame_rate"))
 }
 
 func TestTransformLegacyConfig_ExplicitAdaptiveEnvTrueMigratesLegacyCEFDefault(t *testing.T) {
@@ -206,9 +209,10 @@ func TestTransformLegacyConfig_ExplicitAdaptiveEnvTrueMigratesLegacyCEFDefault(t
 	m.setDefaults()
 	require.NoError(t, m.viper.ReadInConfig())
 
-	m.transformLegacyConfig()
+	settings, err := m.transformedSettings()
+	require.NoError(t, err)
 
-	require.True(t, m.viper.GetBool("engine.cef.adaptive_windowless_frame_rate"))
-	require.Equal(t, 0, m.viper.GetInt("engine.cef.windowless_frame_rate"))
-	require.Equal(t, defaultCEFWindowlessFrameRateMax, m.viper.GetInt("engine.cef.windowless_frame_rate_max"))
+	require.True(t, settings.GetBool("engine.cef.adaptive_windowless_frame_rate"))
+	require.Equal(t, 0, settings.GetInt("engine.cef.windowless_frame_rate"))
+	require.Equal(t, defaultCEFWindowlessFrameRateMax, settings.GetInt("engine.cef.windowless_frame_rate_max"))
 }

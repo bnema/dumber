@@ -145,15 +145,19 @@ func (m *Manager) readConfigFile() error {
 		}
 	}
 
-	// Transform legacy action bindings and engine config before unmarshaling.
-	m.transformLegacyConfig()
-
 	return nil
 }
 
-// transformLegacyConfig converts old-format action bindings and engine config to the new format.
-// This is called after reading config but before unmarshaling.
-func (m *Manager) transformLegacyConfig() {
+// transformedSettings returns a throwaway Viper holding the effective settings
+// (config file, defaults and environment as resolved by the long-lived Viper)
+// after the legacy transforms: old-format action bindings, legacy engine config
+// and legacy popups.
+//
+// The transformed values are deliberately NOT written back to m.viper with
+// Set(). Set() registers top-priority overrides that ReadInConfig never
+// clears, so a later reload would keep returning the values of the first read
+// instead of the file contents.
+func (m *Manager) transformedSettings() (*viper.Viper, error) {
 	legacyPopupsInConfig := m.viper.InConfig("workspace.popups")
 
 	rawConfig := m.viper.AllSettings()
@@ -175,10 +179,11 @@ func (m *Manager) transformLegacyConfig() {
 		transformer.TransformLegacyPopupsToBrowsingContexts(rawConfig)
 	}
 
-	// Apply transformed config back to viper
-	for key, value := range rawConfig {
-		m.viper.Set(key, value)
+	settings := viper.New()
+	if err := settings.MergeConfigMap(rawConfig); err != nil {
+		return nil, fmt.Errorf("failed to merge transformed config: %w", err)
 	}
+	return settings, nil
 }
 
 func (m *Manager) configureAutomaticEnv() {
@@ -348,9 +353,16 @@ func (m *Manager) hasEngineSectionInConfig() bool {
 	return m.viper.InConfig("engine.type")
 }
 
+// unmarshalConfig decodes the current file, defaults and environment, with the
+// legacy transforms applied, into a fresh Config. It is used by both the initial
+// load and every reload, so neither depends on state left by a previous read.
 func (m *Manager) unmarshalConfig() (*Config, error) {
+	settings, err := m.transformedSettings()
+	if err != nil {
+		return nil, err
+	}
 	config := &Config{}
-	if err := m.viper.Unmarshal(config); err != nil {
+	if err := settings.Unmarshal(config); err != nil {
 		configFile := m.viper.ConfigFileUsed()
 		return nil, fmt.Errorf(
 			"failed to parse config file at %s: %w\nCheck for syntax errors, invalid values, or type mismatches",

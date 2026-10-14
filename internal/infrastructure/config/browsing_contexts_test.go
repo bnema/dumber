@@ -273,20 +273,21 @@ func TestLegacyPopupsFullRoundTrip(t *testing.T) {
 	m.viper.Set("workspace.popups.oauth_auto_close", false)
 
 	// Transform should map popups → browsing_contexts.
-	m.transformLegacyConfig()
+	settings, err := m.transformedSettings()
+	require.NoError(t, err)
 
 	// popups key should be gone from viper after transform.
-	assert.False(t, m.viper.IsSet("workspace.popups.behavior"),
+	assert.False(t, settings.IsSet("workspace.popups.behavior"),
 		"workspace.popups.behavior should not exist after transform")
 
 	// browsing_contexts should now hold the values.
-	assert.Equal(t, "stacked", m.viper.GetString("workspace.browsing_contexts.behavior"))
-	assert.Equal(t, "left", m.viper.GetString("workspace.browsing_contexts.placement"))
-	assert.False(t, m.viper.GetBool("workspace.browsing_contexts.oauth_auto_close"))
+	assert.Equal(t, "stacked", settings.GetString("workspace.browsing_contexts.behavior"))
+	assert.Equal(t, "left", settings.GetString("workspace.browsing_contexts.placement"))
+	assert.False(t, settings.GetBool("workspace.browsing_contexts.oauth_auto_close"))
 
 	// Unmarshal should succeed.
 	cfg := &Config{}
-	err := m.viper.Unmarshal(cfg)
+	err = settings.Unmarshal(cfg)
 	require.NoError(t, err)
 
 	// BrowsingContexts should have the legacy values.
@@ -319,14 +320,15 @@ oauth_auto_close = false
 	m.setDefaults()
 	require.NoError(t, m.viper.ReadInConfig())
 
-	m.transformLegacyConfig()
+	settings, err := m.transformedSettings()
+	require.NoError(t, err)
 
-	assert.Equal(t, "stacked", m.viper.GetString("workspace.browsing_contexts.behavior"))
-	assert.Equal(t, "left", m.viper.GetString("workspace.browsing_contexts.placement"))
-	assert.False(t, m.viper.GetBool("workspace.browsing_contexts.oauth_auto_close"))
+	assert.Equal(t, "stacked", settings.GetString("workspace.browsing_contexts.behavior"))
+	assert.Equal(t, "left", settings.GetString("workspace.browsing_contexts.placement"))
+	assert.False(t, settings.GetBool("workspace.browsing_contexts.oauth_auto_close"))
 
 	cfg := &Config{}
-	require.NoError(t, m.viper.Unmarshal(cfg))
+	require.NoError(t, settings.Unmarshal(cfg))
 	normalizeConfig(cfg)
 
 	assert.Equal(t, PopupBehaviorStacked, cfg.Workspace.BrowsingContexts.Behavior)
@@ -354,10 +356,11 @@ placement = "left"
 	m.setDefaults()
 	require.NoError(t, m.viper.ReadInConfig())
 
-	m.transformLegacyConfig()
+	settings, err := m.transformedSettings()
+	require.NoError(t, err)
 
-	assert.Equal(t, "tabbed", m.viper.GetString("workspace.browsing_contexts.behavior"))
-	assert.Equal(t, "left", m.viper.GetString("workspace.browsing_contexts.placement"))
+	assert.Equal(t, "tabbed", settings.GetString("workspace.browsing_contexts.behavior"))
+	assert.Equal(t, "left", settings.GetString("workspace.browsing_contexts.placement"))
 }
 
 func TestReload_ReappliesLegacyPopupsCompatibility(t *testing.T) {
