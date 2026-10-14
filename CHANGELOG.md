@@ -27,6 +27,8 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
+- **Default actions in partial action maps**: Default actions missing from a configured action map (for example new Vim Mode bindings such as `f`, `v`, or `yap`) are active without running `dumber config migrate`. Your keys win on conflict, keys are compared by the binding they resolve to (`right` = `arrowright`), `keys = []` disables an action, and legacy underscore action names are read as their hyphenated form.
+- **Config reload**: Edits to the config file and preferences saved from the app are applied on reload instead of being replaced by stale values from the first load.
 - **Omnibox favorite selection**: Selected favorite rows retain their yellow left indicator in every visual style.
 - **Popup and floating-pane stability**: Hardened deferred popup cleanup, failed popup creation, opener-capable fallback behavior, and pane/window rollback paths.
 - **WebView resource cleanup**: Fixed stale callback, timer, tick, split, hover-controller, and rebuilt-WebView ownership paths that could leak resources or act on detached views.
