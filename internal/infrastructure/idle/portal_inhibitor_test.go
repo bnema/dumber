@@ -85,11 +85,13 @@ func TestPortalInhibitorRollsBackFailedInhibit(t *testing.T) {
 
 func TestPortalInhibitorClose(t *testing.T) {
 	tests := []struct {
-		name    string
-		inhibit bool
+		name     string
+		inhibit  bool
+		closeErr error
 	}{
 		{name: "releases active request", inhibit: true},
 		{name: "without active request"},
+		{name: "returns connection close error once", closeErr: errPortal},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -99,9 +101,9 @@ func TestPortalInhibitorClose(t *testing.T) {
 				portal.EXPECT().CloseRequest(testHandle).Return(nil).Once()
 				require.NoError(t, p.Inhibit(context.Background(), "video playing"))
 			}
-			portal.EXPECT().Close().Return(nil).Once()
+			portal.EXPECT().Close().Return(tt.closeErr).Once()
 
-			require.NoError(t, p.Close())
+			require.ErrorIs(t, p.Close(), tt.closeErr)
 			require.False(t, p.IsInhibited())
 			// Close is idempotent.
 			require.NoError(t, p.Close())
