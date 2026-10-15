@@ -2,6 +2,7 @@ package content
 
 import (
 	"context"
+	neturl "net/url"
 	"strings"
 
 	"github.com/bnema/dumber/internal/application/port"
@@ -387,10 +388,100 @@ func (c *Coordinator) onLinkHover(paneID entity.PaneID, uri string) {
 	}
 }
 
+// externalPrompt is a pane's outstanding external-launch confirmation.
+type externalPrompt struct {
+	token    uint64
+	identity webViewIdentity
+}
+
+// promptExternalLaunch asks the user whether the external URI may be handed to
+// the system handler. A pane has at most one outstanding prompt: further
+// external URIs from that pane are dropped until it is answered, so a page
+// cannot flood the window's prompt queue.
+func (c *Coordinator) promptExternalLaunch(ctx context.Context, paneID entity.PaneID, identity webViewIdentity, uri string) {
+	log := logging.FromContext(ctx)
+	if c.onConfirmExternalLaunch == nil || c.onLaunchExternalURL == nil {
+		log.Info().Str("pane_id", string(paneID)).Msg("external scheme launch unavailable; blocked")
+		return
+	}
+
+	c.externalPromptMu.Lock()
+	if _, pending := c.externalPrompts[paneID]; pending {
+		c.externalPromptMu.Unlock()
+		return
+	}
+	if c.externalPrompts == nil {
+		c.externalPrompts = make(map[entity.PaneID]externalPrompt)
+	}
+	c.externalPromptSeq++
+	token := c.externalPromptSeq
+	c.externalPrompts[paneID] = externalPrompt{token: token, identity: identity}
+	origin := c.externalPromptOrigins[paneID]
+	c.externalPromptMu.Unlock()
+
+	c.onConfirmExternalLaunch(paneID, origin, uri, func(allowed bool) {
+		c.externalPromptMu.Lock()
+		prompt, pending := c.externalPrompts[paneID]
+		// The prompt is stale when its pane was released, rebound, or
+		// re-prompted while it was queued: never launch for it.
+		current := pending && prompt.token == token
+		if current {
+			delete(c.externalPrompts, paneID)
+		}
+		c.externalPromptMu.Unlock()
+		current = current && c.isBoundWebView(paneID, identity)
+
+		log.Info().Str("pane_id", string(paneID)).Bool("allowed", allowed).Bool("stale", !current).
+			Str("uri", logging.TruncateURL(uri, logging.PermissionLogURLMaxLen)).
+			Msg("external scheme launch decision")
+		if allowed && current {
+			c.onLaunchExternalURL(uri)
+		}
+	})
+}
+
+// rememberExternalPromptOrigin records the host of the http(s) document shown
+// in the pane, so a later external-launch prompt can name the requesting site.
+// Any other document clears it: the prompt then says "A page" rather than
+// attributing the request to a previous site.
+func (c *Coordinator) rememberExternalPromptOrigin(paneID entity.PaneID, uri string) {
+	host := ""
+	if parsed, err := neturl.Parse(uri); err == nil && (parsed.Scheme == "http" || parsed.Scheme == "https") {
+		host = parsed.Hostname()
+	}
+	c.externalPromptMu.Lock()
+	defer c.externalPromptMu.Unlock()
+	if host == "" {
+		delete(c.externalPromptOrigins, paneID)
+		return
+	}
+	if c.externalPromptOrigins == nil {
+		c.externalPromptOrigins = make(map[entity.PaneID]string)
+	}
+	c.externalPromptOrigins[paneID] = host
+}
+
+// isBoundWebView reports whether identity is still the WebView bound to the
+// pane. Engine callbacks are posted asynchronously and can arrive after the
+// pane was released or rebound.
+func (c *Coordinator) isBoundWebView(paneID entity.PaneID, identity webViewIdentity) bool {
+	bound, ok := identityForWebView(c.GetWebView(paneID))
+	return ok && bound == identity
+}
+
+// clearExternalPrompt invalidates the pane's outstanding external-launch
+// prompt so a late answer cannot launch anything, and forgets its origin.
+func (c *Coordinator) clearExternalPrompt(paneID entity.PaneID) {
+	c.externalPromptMu.Lock()
+	delete(c.externalPrompts, paneID)
+	delete(c.externalPromptOrigins, paneID)
+	c.externalPromptMu.Unlock()
+}
+
 // handleURIChanged handles URI changes from WebKit, including external scheme detection
 // and SPA navigation tracking.
-func (c *Coordinator) handleURIChanged(ctx context.Context, paneID entity.PaneID, wv port.WebView, uri string) {
-	if uri == "" {
+func (c *Coordinator) handleURIChanged(ctx context.Context, paneID entity.PaneID, wv port.WebView, identity webViewIdentity, uri string) {
+	if uri == "" || !c.isBoundWebView(paneID, identity) {
 		return
 	}
 
@@ -401,24 +492,22 @@ func (c *Coordinator) handleURIChanged(ctx context.Context, paneID entity.PaneID
 	isExternal := urlutil.IsExternalScheme(uri)
 
 	if isExternal {
-		log.Info().Str("pane_id", string(paneID)).Str("uri", uri).Msg("external scheme URI change blocked")
+		log.Info().Str("pane_id", string(paneID)).Str("uri", logging.TruncateURL(uri, logging.PermissionLogURLMaxLen)).
+			Msg("external scheme URI change intercepted")
 
-		// External schemes must only be launched from WebKit's navigation-policy path,
-		// where NavigationAction.IsUserGesture is available and verified. URI changes can
-		// be driven by page script or redirects, so this path only cleans up WebKit state.
 		if err := wv.Stop(ctx); err != nil {
-			log.Warn().Str("pane_id", string(paneID)).Str("uri", uri).Err(err).Msg("stop webview for blocked external URL")
+			log.Warn().Str("pane_id", string(paneID)).Err(err).Msg("stop webview for external URL")
 		}
 
-		// Navigate back to avoid stale URI in omnibox/history.
-		if wv.CanGoBack() {
-			if err := wv.GoBack(ctx); err != nil {
-				log.Warn().Str("pane_id", string(paneID)).Err(err).Msg("GoBack after blocked external URL")
-			}
-		}
+		// URI changes can be driven by page script or redirects (OAuth flows end
+		// with a redirect to claude://, vscode://, ...), so the launch is never
+		// automatic: the user must confirm it. Do not navigate back: going back
+		// to an OAuth endpoint re-issues the redirect and loops.
+		c.promptExternalLaunch(ctx, paneID, identity, uri)
 		return
 	}
 
+	c.rememberExternalPromptOrigin(paneID, uri)
 	if !wv.IsLoading() {
 		c.onSPANavigation(ctx, paneID, uri)
 	}

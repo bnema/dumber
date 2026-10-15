@@ -255,3 +255,26 @@ func TestPermissionDialog_PassesPersistableToPopup(t *testing.T) {
 		})
 	}
 }
+
+func TestPermissionDialog_ExternalLaunchConfirmHidesQueryAndIsNotPersistable(t *testing.T) {
+	popup := dialogmocks.NewMockPermissionPopup(t)
+	var body string
+	var persistable bool
+	var cb func(allowed, persistent bool)
+	popup.EXPECT().
+		Show(mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).
+		Run(func(_ context.Context, _ string, b string, p bool, c func(allowed, persistent bool)) {
+			body, persistable, cb = b, p, c
+		}).Once()
+
+	d := &PermissionDialog{popup: popup}
+	var allowed bool
+	d.ShowExternalLaunchConfirm(context.Background(), "claude.ai", "claude://login/google-auth?code=secret", func(a bool) { allowed = a })
+
+	assert.Contains(t, body, "claude.ai wants to open claude://login")
+	assert.NotContains(t, body, "secret")
+	assert.False(t, persistable)
+
+	cb(true, false)
+	assert.True(t, allowed)
+}

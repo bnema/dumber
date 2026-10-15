@@ -683,3 +683,103 @@ type popupStagingHostStub struct {
 
 func (s *popupStagingHostStub) Detach() error { s.detached = true; return s.detachErr }
 func (s *popupStagingHostStub) Destroy()      { s.destroyCalls++ }
+
+// ---------------------------------------------------------------------------
+// Popup config concurrency / aborted popup cleanup
+// ---------------------------------------------------------------------------
+
+func TestPopupConfig_ConcurrentUpdateAndRead(t *testing.T) {
+	t.Parallel()
+
+	pm := newPopupManager()
+	var wg sync.WaitGroup
+	for i := range 20 {
+		wg.Add(3)
+		go func() {
+			defer wg.Done()
+			pm.updatePopupConfig(entity.BrowsingContextConfig{OpenInNewPane: i%2 == 0})
+		}()
+		go func() {
+			defer wg.Done()
+			pm.setPopupConfig(&entity.BrowsingContextConfig{OAuthAutoClose: i%2 == 0})
+		}()
+		go func() {
+			defer wg.Done()
+			if cfg := pm.currentPopupConfig(); cfg != nil {
+				_ = cfg.OpenInNewPane
+			}
+		}()
+	}
+	wg.Wait()
+}
+
+func TestCurrentPopupConfig_ReturnsSnapshot(t *testing.T) {
+	t.Parallel()
+
+	pm := newPopupManager()
+	pm.updatePopupConfig(entity.BrowsingContextConfig{OpenInNewPane: true})
+	snapshot := pm.currentPopupConfig()
+	require.NotNil(t, snapshot)
+	snapshot.OpenInNewPane = false
+
+	require.True(t, pm.currentPopupConfig().OpenInNewPane)
+}
+
+func TestPopupClose_AbortedPendingPopupCleansPendingOAuthAndPane(t *testing.T) {
+	ctx := context.Background()
+	parent := mocks.NewMockWebView(t)
+	parent.EXPECT().ID().Return(port.WebViewID(101)).Once()
+	popup := &closableLifecyclePopupStub{popupNavigationWebViewStub: &popupNavigationWebViewStub{MockWebView: mocks.NewMockWebView(t)}}
+	popup.EXPECT().ID().Return(port.WebViewID(260)).Maybe()
+	popup.EXPECT().URI().Return("").Maybe()
+	popup.EXPECT().IsLoading().Return(false).Maybe()
+	popup.EXPECT().Generation().Return(uint64(1)).Maybe()
+	popup.EXPECT().SetCallbacks(mock.Anything).Once()
+	popup.EXPECT().Destroy().Maybe()
+	factory := mocks.NewMockWebViewFactory(t)
+	factory.EXPECT().CreateRelated(mock.Anything, port.WebViewID(101)).Return(popup, nil).Once()
+
+	c := &Coordinator{webViews: make(map[entity.PaneID]port.WebView), popups: newPopupManager()}
+	c.SetPopupConfig(factory, &entity.BrowsingContextConfig{OpenInNewPane: true, OAuthAutoClose: true}, func() string { return "popup-pane" })
+	var closedPanes []entity.PaneID
+	c.SetOnInsertPopup(func(context.Context, InsertPopupInput) error { return nil })
+	c.SetOnClosePane(func(_ context.Context, paneID entity.PaneID) error {
+		closedPanes = append(closedPanes, paneID)
+		return nil
+	})
+
+	created := c.handlePopupCreate(ctx, "parent-pane", parent, port.PopupRequest{
+		TargetURI: "https://example.com/popup", FrameName: "popup", IsUserGesture: true,
+	})
+	require.Same(t, popup, created)
+	require.Len(t, c.popups.pendingPopups, 1)
+	// OAuth tracking is normally armed for auth-intent popups; seed it so the
+	// cleanup contract is covered regardless of the policy's current routing.
+	c.popups.trackOAuthPopup(260, "parent-pane", "https://app.example.com/login")
+	require.Len(t, c.popups.popupOAuth, 1)
+	require.NotNil(t, c.getWebViewLocked("popup-pane"))
+	require.NotNil(t, popup.onClose)
+
+	// CEF aborts the popup before ready-to-show: the engine fires the lifecycle
+	// close callback exactly as it does for a destroyed shell.
+	popup.close()
+
+	assert.Empty(t, c.popups.pendingPopups)
+	assert.Empty(t, c.popups.popupOAuth)
+	assert.Equal(t, []entity.PaneID{"popup-pane"}, closedPanes)
+	assert.Nil(t, c.getWebViewLocked("popup-pane"))
+}
+
+// closableLifecyclePopupStub records the lifecycle close callback the content
+// layer installs so tests can simulate the engine tearing the shell down.
+type closableLifecyclePopupStub struct {
+	*popupNavigationWebViewStub
+	onClose func()
+}
+
+func (s *closableLifecyclePopupStub) SetOnClose(fn func()) { s.onClose = fn }
+func (s *closableLifecyclePopupStub) close() {
+	if s.onClose != nil {
+		s.onClose()
+	}
+}

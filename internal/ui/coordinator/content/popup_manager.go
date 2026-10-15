@@ -130,6 +130,8 @@ func (pm *popupManager) setPopupConfig(popupConfig *entity.BrowsingContextConfig
 	if pm == nil {
 		return
 	}
+	pm.mu.Lock()
+	defer pm.mu.Unlock()
 	if popupConfig == nil {
 		pm.popupConfig = entity.BrowsingContextConfig{}
 		pm.hasPopupConfig = false
@@ -143,15 +145,25 @@ func (pm *popupManager) updatePopupConfig(popupConfig entity.BrowsingContextConf
 	if pm == nil {
 		return
 	}
+	pm.mu.Lock()
+	defer pm.mu.Unlock()
 	pm.popupConfig = popupConfig
 	pm.hasPopupConfig = true
 }
 
+// currentPopupConfig returns a snapshot copy of the popup config (nil when
+// unset). The copy keeps callers from racing with concurrent config updates.
 func (pm *popupManager) currentPopupConfig() *entity.BrowsingContextConfig {
-	if pm == nil || !pm.hasPopupConfig {
+	if pm == nil {
 		return nil
 	}
-	return &pm.popupConfig
+	pm.mu.RLock()
+	defer pm.mu.RUnlock()
+	if !pm.hasPopupConfig {
+		return nil
+	}
+	cfg := pm.popupConfig
+	return &cfg
 }
 
 func (pm *popupManager) setWindowIDResolver(fn func(entity.PaneID) (string, bool)) {

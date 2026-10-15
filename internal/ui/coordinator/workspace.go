@@ -304,6 +304,20 @@ func comparablePaneURL(raw string) string {
 	return "dumb:" + page
 }
 
+// FocusPaneByID makes an existing pane the active pane of ws, revealing it in
+// its stack when needed and giving it keyboard focus in wsView.
+func (c *WorkspaceCoordinator) FocusPaneByID(
+	ctx context.Context,
+	ws *entity.Workspace,
+	wsView *component.WorkspaceView,
+	paneID entity.PaneID,
+) {
+	if ws == nil || ws.FindPane(paneID) == nil {
+		return
+	}
+	c.focusExistingPane(ctx, ws, wsView, paneID)
+}
+
 func (c *WorkspaceCoordinator) focusExistingPane(
 	ctx context.Context,
 	ws *entity.Workspace,

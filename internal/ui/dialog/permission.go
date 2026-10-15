@@ -4,6 +4,7 @@ package dialog
 import (
 	"context"
 	"fmt"
+	neturl "net/url"
 	"strings"
 	"sync"
 
@@ -23,6 +24,11 @@ type permissionDialogRequest struct {
 	permTypes []entity.PermissionType
 	metadata  entity.PermissionMetadata
 	callback  func(result port.PermissionDialogResult)
+
+	// heading and body, when set, replace the permission-derived text. Used
+	// for one-shot confirmations that share the popup and its queue.
+	heading string
+	body    string
 }
 
 // PermissionDialog implements the port.PermissionDialogPresenter interface.
@@ -67,6 +73,38 @@ func (d *PermissionDialog) ShowPermissionDialog(
 	d.showRequest(req)
 }
 
+// ShowExternalLaunchConfirm asks whether an external application may open uri
+// on behalf of origin (the requesting site's host, may be empty). The prompt
+// shares the permission popup queue and is never persistable.
+func (d *PermissionDialog) ShowExternalLaunchConfirm(ctx context.Context, origin, uri string, callback func(allowed bool)) {
+	req := permissionDialogRequest{
+		ctx:     ctx,
+		heading: "Open External Application?",
+		body:    externalLaunchBody(origin, uri),
+		callback: func(result port.PermissionDialogResult) {
+			callback(result.Allowed)
+		},
+	}
+	if !d.enqueueOrStart(req) {
+		return
+	}
+	d.showRequest(req)
+}
+
+// externalLaunchBody names the requesting host and only the scheme and host of
+// the target, so OAuth codes in the query string are never displayed.
+func externalLaunchBody(origin, uri string) string {
+	target := uri
+	if parsed, err := neturl.Parse(uri); err == nil && parsed.Scheme != "" {
+		target = parsed.Scheme + "://" + parsed.Host
+	}
+	requester := "A page"
+	if origin != "" {
+		requester = origin
+	}
+	return fmt.Sprintf("%s wants to open %s in an external application.", requester, target)
+}
+
 func (d *PermissionDialog) enqueueOrStart(req permissionDialogRequest) bool {
 	d.mu.Lock()
 	defer d.mu.Unlock()
@@ -97,8 +135,11 @@ func (d *PermissionDialog) showRequest(req permissionDialogRequest) {
 	}
 
 	// Build dialog text
-	heading := d.buildHeading(permTypes)
-	body := d.buildBody(origin, permTypes, metadata)
+	heading, body := req.heading, req.body
+	if heading == "" {
+		heading = d.buildHeading(permTypes)
+		body = d.buildBody(origin, permTypes, metadata)
+	}
 
 	isDataAccess := parsePermFlags(permTypes).dataAccess
 	if isDataAccess {
