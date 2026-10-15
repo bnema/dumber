@@ -136,12 +136,15 @@ type Coordinator struct {
 	onLaunchExternalURL func(uri string)
 	// Callback asking the user to confirm an external scheme launch for a pane.
 	// respond must be called exactly once on the GTK thread.
-	onConfirmExternalLaunch func(paneID entity.PaneID, uri string, respond func(allowed bool))
+	// origin is the host of the requesting page, empty when unknown.
+	onConfirmExternalLaunch func(paneID entity.PaneID, origin, uri string, respond func(allowed bool))
 
-	// externalPromptMu guards externalPrompts: panes with an outstanding
-	// external-launch prompt, mapped to the WebView that asked.
-	externalPromptMu sync.Mutex
-	externalPrompts  map[entity.PaneID]port.WebView
+	// externalPromptMu guards the external-launch prompt state: outstanding
+	// prompts per pane, the token sequence, and the last web host per pane.
+	externalPromptMu      sync.Mutex
+	externalPrompts       map[entity.PaneID]externalPrompt
+	externalPromptSeq     uint64
+	externalPromptOrigins map[entity.PaneID]string
 }
 
 type pendingThemeUpdate struct {
@@ -317,7 +320,7 @@ func (c *Coordinator) SetOnLaunchExternalURL(fn func(uri string)) {
 
 // SetOnConfirmExternalLaunch sets the callback that asks the user whether an
 // external URL scheme reached by page navigation may be opened.
-func (c *Coordinator) SetOnConfirmExternalLaunch(fn func(paneID entity.PaneID, uri string, respond func(allowed bool))) {
+func (c *Coordinator) SetOnConfirmExternalLaunch(fn func(paneID entity.PaneID, origin, uri string, respond func(allowed bool))) {
 	c.onConfirmExternalLaunch = fn
 }
 

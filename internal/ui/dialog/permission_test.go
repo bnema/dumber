@@ -269,9 +269,9 @@ func TestPermissionDialog_ExternalLaunchConfirmHidesQueryAndIsNotPersistable(t *
 
 	d := &PermissionDialog{popup: popup}
 	var allowed bool
-	d.ShowExternalLaunchConfirm(context.Background(), "claude://login/google-auth?code=secret", func(a bool) { allowed = a })
+	d.ShowExternalLaunchConfirm(context.Background(), "claude.ai", "claude://login/google-auth?code=secret", func(a bool) { allowed = a })
 
-	assert.Contains(t, body, "claude://login")
+	assert.Contains(t, body, "claude.ai wants to open claude://login")
 	assert.NotContains(t, body, "secret")
 	assert.False(t, persistable)
 

@@ -73,13 +73,14 @@ func (d *PermissionDialog) ShowPermissionDialog(
 	d.showRequest(req)
 }
 
-// ShowExternalLaunchConfirm asks whether an external application may open uri.
-// The prompt shares the permission popup queue and is never persistable.
-func (d *PermissionDialog) ShowExternalLaunchConfirm(ctx context.Context, uri string, callback func(allowed bool)) {
+// ShowExternalLaunchConfirm asks whether an external application may open uri
+// on behalf of origin (the requesting site's host, may be empty). The prompt
+// shares the permission popup queue and is never persistable.
+func (d *PermissionDialog) ShowExternalLaunchConfirm(ctx context.Context, origin, uri string, callback func(allowed bool)) {
 	req := permissionDialogRequest{
 		ctx:     ctx,
 		heading: "Open External Application?",
-		body:    externalLaunchBody(uri),
+		body:    externalLaunchBody(origin, uri),
 		callback: func(result port.PermissionDialogResult) {
 			callback(result.Allowed)
 		},
@@ -90,14 +91,18 @@ func (d *PermissionDialog) ShowExternalLaunchConfirm(ctx context.Context, uri st
 	d.showRequest(req)
 }
 
-// externalLaunchBody names only the scheme and host so OAuth codes in the
-// query string are never displayed.
-func externalLaunchBody(uri string) string {
+// externalLaunchBody names the requesting host and only the scheme and host of
+// the target, so OAuth codes in the query string are never displayed.
+func externalLaunchBody(origin, uri string) string {
 	target := uri
 	if parsed, err := neturl.Parse(uri); err == nil && parsed.Scheme != "" {
 		target = parsed.Scheme + "://" + parsed.Host
 	}
-	return fmt.Sprintf("This page wants to open %s in an external application.", target)
+	requester := "A page"
+	if origin != "" {
+		requester = origin
+	}
+	return fmt.Sprintf("%s wants to open %s in an external application.", requester, target)
 }
 
 func (d *PermissionDialog) enqueueOrStart(req permissionDialogRequest) bool {

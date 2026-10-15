@@ -387,13 +387,20 @@ func (c *Coordinator) onLinkHover(paneID entity.PaneID, uri string) {
 	}
 }
 
+// externalPrompt is a pane's outstanding external-launch confirmation.
+type externalPrompt struct {
+	token    uint64
+	identity webViewIdentity
+}
+
 // promptExternalLaunch asks the user whether the external URI may be handed to
 // the system handler. A pane has at most one outstanding prompt: further
 // external URIs from that pane are dropped until it is answered, so a page
 // cannot flood the window's prompt queue.
 func (c *Coordinator) promptExternalLaunch(ctx context.Context, paneID entity.PaneID, wv port.WebView, uri string) {
 	log := logging.FromContext(ctx)
-	if c.onConfirmExternalLaunch == nil || c.onLaunchExternalURL == nil {
+	identity, ok := identityForWebView(wv)
+	if !ok || c.onConfirmExternalLaunch == nil || c.onLaunchExternalURL == nil {
 		log.Info().Str("pane_id", string(paneID)).Msg("external scheme launch unavailable; blocked")
 		return
 	}
@@ -404,22 +411,26 @@ func (c *Coordinator) promptExternalLaunch(ctx context.Context, paneID entity.Pa
 		return
 	}
 	if c.externalPrompts == nil {
-		c.externalPrompts = make(map[entity.PaneID]port.WebView)
+		c.externalPrompts = make(map[entity.PaneID]externalPrompt)
 	}
-	c.externalPrompts[paneID] = wv
+	c.externalPromptSeq++
+	token := c.externalPromptSeq
+	c.externalPrompts[paneID] = externalPrompt{token: token, identity: identity}
+	origin := c.externalPromptOrigins[paneID]
 	c.externalPromptMu.Unlock()
 
-	c.onConfirmExternalLaunch(paneID, uri, func(allowed bool) {
+	c.onConfirmExternalLaunch(paneID, origin, uri, func(allowed bool) {
 		c.externalPromptMu.Lock()
-		owner, pending := c.externalPrompts[paneID]
-		// The prompt is stale when its pane was released (or rebound to
-		// another WebView) while it was queued: never launch for it.
-		current := pending && owner == wv
+		prompt, pending := c.externalPrompts[paneID]
+		// The prompt is stale when its pane was released, rebound, or
+		// re-prompted while it was queued: never launch for it.
+		current := pending && prompt.token == token
 		if current {
 			delete(c.externalPrompts, paneID)
 		}
 		c.externalPromptMu.Unlock()
-		current = current && c.GetWebView(paneID) == wv
+		bound, ok := identityForWebView(c.GetWebView(paneID))
+		current = current && ok && bound == identity
 
 		log.Info().Str("pane_id", string(paneID)).Bool("allowed", allowed).Bool("stale", !current).
 			Str("uri", logging.TruncateURL(uri, logging.PermissionLogURLMaxLen)).
@@ -430,11 +441,27 @@ func (c *Coordinator) promptExternalLaunch(ctx context.Context, paneID entity.Pa
 	})
 }
 
+// rememberExternalPromptOrigin records the host of the last web page shown in
+// the pane, so a later external-launch prompt can name the requesting site.
+func (c *Coordinator) rememberExternalPromptOrigin(paneID entity.PaneID, uri string) {
+	host := logging.SafeURLHost(uri)
+	if host == "" {
+		return
+	}
+	c.externalPromptMu.Lock()
+	if c.externalPromptOrigins == nil {
+		c.externalPromptOrigins = make(map[entity.PaneID]string)
+	}
+	c.externalPromptOrigins[paneID] = host
+	c.externalPromptMu.Unlock()
+}
+
 // clearExternalPrompt invalidates the pane's outstanding external-launch
-// prompt so a late answer cannot launch anything.
+// prompt so a late answer cannot launch anything, and forgets its origin.
 func (c *Coordinator) clearExternalPrompt(paneID entity.PaneID) {
 	c.externalPromptMu.Lock()
 	delete(c.externalPrompts, paneID)
+	delete(c.externalPromptOrigins, paneID)
 	c.externalPromptMu.Unlock()
 }
 
@@ -467,6 +494,7 @@ func (c *Coordinator) handleURIChanged(ctx context.Context, paneID entity.PaneID
 		return
 	}
 
+	c.rememberExternalPromptOrigin(paneID, uri)
 	if !wv.IsLoading() {
 		c.onSPANavigation(ctx, paneID, uri)
 	}

@@ -3605,12 +3605,12 @@ func (a *App) wireKeyboardActions() {
 
 // externalLaunchConfirmer is implemented by the window permission dialog.
 type externalLaunchConfirmer interface {
-	ShowExternalLaunchConfirm(ctx context.Context, uri string, callback func(allowed bool))
+	ShowExternalLaunchConfirm(ctx context.Context, origin, uri string, callback func(allowed bool))
 }
 
 // confirmExternalLaunch asks, in the window owning paneID, whether uri may be
 // opened by an external application. Without a window it denies.
-func (a *App) confirmExternalLaunch(paneID entity.PaneID, uri string, respond func(allowed bool)) {
+func (a *App) confirmExternalLaunch(paneID entity.PaneID, origin, uri string, respond func(allowed bool)) {
 	ctx := context.Background()
 	if a.deps != nil && a.deps.Ctx != nil {
 		ctx = a.deps.Ctx
@@ -3620,7 +3620,7 @@ func (a *App) confirmExternalLaunch(paneID entity.PaneID, uri string, respond fu
 		respond(false)
 		return
 	}
-	confirmer.ShowExternalLaunchConfirm(ctx, uri, respond)
+	confirmer.ShowExternalLaunchConfirm(ctx, origin, uri, respond)
 }
 
 // permissionDialogForPane returns the permission dialog of the window owning the
