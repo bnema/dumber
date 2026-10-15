@@ -6,6 +6,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/application/port/mocks"
@@ -288,4 +290,33 @@ func TestHandleURIChanged_NonHTTPDocumentClearsOrigin(t *testing.T) {
 
 		assert.Equal(t, []string{""}, rec.origins, doc)
 	}
+}
+
+func TestURIChangedCallback_IgnoredAfterSameWebViewIsReusedFromPool(t *testing.T) {
+	ctx := context.Background()
+	c := newMinimalCoordinator()
+	rec := &externalLaunchRecorder{}
+	rec.install(c)
+	spaCalls := 0
+	c.onPaneURIUpdated = func(entity.PaneID, string) { spaCalls++ }
+
+	generation := uint64(1)
+	wv := mocks.NewMockWebView(t)
+	wv.EXPECT().ID().Return(port.WebViewID(1)).Maybe()
+	wv.EXPECT().Generation().RunAndReturn(func() uint64 { return generation }).Maybe()
+	var callbacks *port.WebViewCallbacks
+	wv.EXPECT().SetCallbacks(mock.Anything).Run(func(cb *port.WebViewCallbacks) { callbacks = cb }).Once()
+
+	c.setWebViewLocked(testPaneID, wv)
+	c.setupWebViewCallbacks(ctx, testPaneID, wv)
+	require.NotNil(t, callbacks)
+
+	// The same object is reused from the pool for a new binding.
+	generation = 2
+	callbacks.OnURIChanged("https://site.example/")
+	callbacks.OnURIChanged("claude://login")
+
+	assert.Empty(t, rec.prompts)
+	assert.Empty(t, c.externalPromptOrigins)
+	assert.Zero(t, spaCalls)
 }
