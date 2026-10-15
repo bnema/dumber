@@ -90,8 +90,9 @@ type App struct {
 	runtimeConfig *runtimeConfigState
 
 	browserWindows       map[string]*browserWindow
-	browserWindowOrder   []string          // registration order of window IDs
-	instanceWindows      map[string]string // logical instance name -> browser window ID
+	browserWindowOrder   []string               // registration order of window IDs
+	instanceWindows      map[string]string      // logical instance name -> browser window ID
+	externalRelayPanes   usecase.RelayPaneReuse // panes opened by the external URL relay (main thread only)
 	lastFocusedWindowID  string
 	nativePopupWindows   map[port.WebViewID]*nativePopupWindow
 	browserWindowFactory func(context.Context, string) (*browserWindow, error)
@@ -3207,6 +3208,7 @@ func (a *App) initContentCoordinator(
 	// Wire external URL launcher (e.g. xdg-open for vscode://, spotify://)
 	if a.deps.LaunchExternalURL != nil {
 		a.contentCoord.SetOnLaunchExternalURL(a.deps.LaunchExternalURL)
+		a.contentCoord.SetOnConfirmExternalLaunch(a.confirmExternalLaunch)
 	}
 
 	a.contentCoord.SetOnTouchpadNavigationGesture(func(paneID entity.PaneID, gesture entity.TouchpadNavigationGesture) {
@@ -3599,6 +3601,26 @@ func (a *App) wireKeyboardActions() {
 	a.contentCoord.SetGestureActionHandler(func(ctx context.Context, action input.Action) error {
 		return a.kbDispatcher.Dispatch(ctx, action)
 	})
+}
+
+// externalLaunchConfirmer is implemented by the window permission dialog.
+type externalLaunchConfirmer interface {
+	ShowExternalLaunchConfirm(ctx context.Context, origin, uri string, callback func(allowed bool))
+}
+
+// confirmExternalLaunch asks, in the window owning paneID, whether uri may be
+// opened by an external application. Without a window it denies.
+func (a *App) confirmExternalLaunch(paneID entity.PaneID, origin, uri string, respond func(allowed bool)) {
+	ctx := context.Background()
+	if a.deps != nil && a.deps.Ctx != nil {
+		ctx = a.deps.Ctx
+	}
+	confirmer, ok := a.permissionDialogForPane(paneID).(externalLaunchConfirmer)
+	if !ok {
+		respond(false)
+		return
+	}
+	confirmer.ShowExternalLaunchConfirm(ctx, origin, uri, respond)
 }
 
 // permissionDialogForPane returns the permission dialog of the window owning the

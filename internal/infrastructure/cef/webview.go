@@ -1233,6 +1233,30 @@ func (wv *WebView) handleNativePopupAborted() {
 	wv.mu.Unlock()
 }
 
+// releaseUnrecoverableAbortedPopup destroys a pane-hosted popup shell whose
+// CEF popup was aborted and that can no longer obtain a browser. While
+// pendingCreate is set the shell still recovers through direct browser
+// creation (see preparePopupShellDirectBrowserCreation), so it is left alone.
+// Destroy runs the lifecycle close callback registered by the content layer,
+// which drops its pending-popup and OAuth state, closes the hidden pane and
+// releases the view. Shells owned by a native popup host (nativePopupHostAbort
+// installed) or without a content-layer close callback are never touched: the
+// host owns their teardown.
+func (wv *WebView) releaseUnrecoverableAbortedPopup() bool {
+	if wv == nil {
+		return false
+	}
+	wv.mu.RLock()
+	release := wv.nativePopupHostAbort == nil && wv.popupLifecycleClose != nil &&
+		wv.browser == nil && wv.pendingCreate == nil
+	wv.mu.RUnlock()
+	if !release {
+		return false
+	}
+	wv.Destroy()
+	return true
+}
+
 // ---------------------------------------------------------------------------
 // JavaScript / Appearance
 // ---------------------------------------------------------------------------

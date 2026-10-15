@@ -903,9 +903,22 @@ func (h *handlerSet) handlePopupHostDecision(
 	}
 }
 
+// OnBeforePopupAborted is keyed by CEF's popup_id, which only maps to a popup
+// shell through the parent's pendingNativePopups. The content layer keys its
+// pending popup and OAuth state by the shell's WebViewID, so cleanup of a shell
+// that can no longer get a browser goes through its lifecycle close callback
+// (content handlePopupClose) rather than by id. Recoverable shells keep using
+// the direct-creation fallback.
 func (h *handlerSet) OnBeforePopupAborted(_ purecef.Browser, popupID int32) {
-	if popup := h.wv.takePendingNativePopup(popupID); popup != nil {
-		popup.handleNativePopupAborted()
+	popup := h.wv.takePendingNativePopup(popupID)
+	if popup == nil {
+		return
+	}
+	popup.handleNativePopupAborted()
+	if popup.releaseUnrecoverableAbortedPopup() {
+		logging.FromContext(h.currentContext()).Debug().
+			Int32("popup_id", popupID).
+			Msg("cef: popup aborted and unrecoverable, released popup shell")
 	}
 }
 
