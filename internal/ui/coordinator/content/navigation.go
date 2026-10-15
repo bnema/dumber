@@ -387,6 +387,42 @@ func (c *Coordinator) onLinkHover(paneID entity.PaneID, uri string) {
 	}
 }
 
+// promptExternalLaunch asks the user once per pane and URI whether the external
+// URI may be handed to the system handler.
+func (c *Coordinator) promptExternalLaunch(ctx context.Context, paneID entity.PaneID, uri string) {
+	log := logging.FromContext(ctx)
+	if c.onConfirmExternalLaunch == nil || c.onLaunchExternalURL == nil {
+		log.Info().Str("pane_id", string(paneID)).Msg("external scheme launch unavailable; blocked")
+		return
+	}
+
+	c.externalPromptMu.Lock()
+	if c.externalPrompts[paneID] == uri {
+		c.externalPromptMu.Unlock()
+		return
+	}
+	if c.externalPrompts == nil {
+		c.externalPrompts = make(map[entity.PaneID]string)
+	}
+	c.externalPrompts[paneID] = uri
+	c.externalPromptMu.Unlock()
+
+	c.onConfirmExternalLaunch(paneID, uri, func(allowed bool) {
+		c.externalPromptMu.Lock()
+		if c.externalPrompts[paneID] == uri {
+			delete(c.externalPrompts, paneID)
+		}
+		c.externalPromptMu.Unlock()
+
+		log.Info().Str("pane_id", string(paneID)).Bool("allowed", allowed).
+			Str("uri", logging.TruncateURL(uri, logging.PermissionLogURLMaxLen)).
+			Msg("external scheme launch decision")
+		if allowed {
+			c.onLaunchExternalURL(uri)
+		}
+	})
+}
+
 // handleURIChanged handles URI changes from WebKit, including external scheme detection
 // and SPA navigation tracking.
 func (c *Coordinator) handleURIChanged(ctx context.Context, paneID entity.PaneID, wv port.WebView, uri string) {
@@ -401,21 +437,18 @@ func (c *Coordinator) handleURIChanged(ctx context.Context, paneID entity.PaneID
 	isExternal := urlutil.IsExternalScheme(uri)
 
 	if isExternal {
-		log.Info().Str("pane_id", string(paneID)).Str("uri", uri).Msg("external scheme URI change blocked")
+		log.Info().Str("pane_id", string(paneID)).Str("uri", logging.TruncateURL(uri, logging.PermissionLogURLMaxLen)).
+			Msg("external scheme URI change intercepted")
 
-		// External schemes must only be launched from WebKit's navigation-policy path,
-		// where NavigationAction.IsUserGesture is available and verified. URI changes can
-		// be driven by page script or redirects, so this path only cleans up WebKit state.
 		if err := wv.Stop(ctx); err != nil {
-			log.Warn().Str("pane_id", string(paneID)).Str("uri", uri).Err(err).Msg("stop webview for blocked external URL")
+			log.Warn().Str("pane_id", string(paneID)).Err(err).Msg("stop webview for external URL")
 		}
 
-		// Navigate back to avoid stale URI in omnibox/history.
-		if wv.CanGoBack() {
-			if err := wv.GoBack(ctx); err != nil {
-				log.Warn().Str("pane_id", string(paneID)).Err(err).Msg("GoBack after blocked external URL")
-			}
-		}
+		// URI changes can be driven by page script or redirects (OAuth flows end
+		// with a redirect to claude://, vscode://, ...), so the launch is never
+		// automatic: the user must confirm it. Do not navigate back: going back
+		// to an OAuth endpoint re-issues the redirect and loops.
+		c.promptExternalLaunch(ctx, paneID, uri)
 		return
 	}
 

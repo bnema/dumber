@@ -134,6 +134,15 @@ type Coordinator struct {
 	// Callback to open a URL with the system's default handler (e.g. xdg-open).
 	// Used for external URL schemes like vscode://, spotify://, etc.
 	onLaunchExternalURL func(uri string)
+	// Callback asking the user to confirm an external scheme launch for a pane.
+	// respond must be called exactly once on the GTK thread.
+	onConfirmExternalLaunch func(paneID entity.PaneID, uri string, respond func(allowed bool))
+
+	// externalPromptMu guards externalPrompts, the external URI currently
+	// awaiting confirmation per pane. It suppresses duplicate prompts when the
+	// engine reports the same address change more than once.
+	externalPromptMu sync.Mutex
+	externalPrompts  map[entity.PaneID]string
 }
 
 type pendingThemeUpdate struct {
@@ -305,6 +314,12 @@ func (c *Coordinator) SetOnFirstLoadStarted(fn func()) {
 // (e.g. vscode://, spotify://) is detected and must be handed off to the system.
 func (c *Coordinator) SetOnLaunchExternalURL(fn func(uri string)) {
 	c.onLaunchExternalURL = fn
+}
+
+// SetOnConfirmExternalLaunch sets the callback that asks the user whether an
+// external URL scheme reached by page navigation may be opened.
+func (c *Coordinator) SetOnConfirmExternalLaunch(fn func(paneID entity.PaneID, uri string, respond func(allowed bool))) {
+	c.onConfirmExternalLaunch = fn
 }
 
 // SetSettingsApplier sets the engine settings applier for config hot-reload.
