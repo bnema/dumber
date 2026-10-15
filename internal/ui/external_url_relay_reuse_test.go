@@ -58,7 +58,7 @@ func newRelayReuseHarness(t *testing.T) *relayReuseHarness {
 		contentCoord:        contentCoord,
 		navCoord:            coordinator.NewNavigationCoordinator(ctx, nil, contentCoord),
 	}
-	app.externalRelayPanes.now = func() time.Time { return *h.clock }
+	app.externalRelayPanes.Now = func() time.Time { return *h.clock }
 	app.tabCoord = coordinator.NewTabCoordinator(ctx, coordinator.TabCoordinatorConfig{TabsUC: app.tabsUC})
 	app.tabCoord.SetOnTabCreated(func(_ context.Context, _ coordinator.TabTarget, tab *entity.Tab) {
 		app.workspaceViews[tab.ID] = &component.WorkspaceView{}
@@ -130,26 +130,20 @@ func TestApp_OpenExternalURLCreatesNewPaneWhenRelayPaneWasClosed(t *testing.T) {
 
 	assert.Len(t, h.tabs.Tabs, 2)
 	assert.NotEqual(t, relayTab.ID, h.tabs.ActiveTabID)
-	assert.Len(t, h.app.externalRelayPanes.entries, 1, "stale entry replaced by the new pane")
+	assert.Equal(t, 1, h.app.externalRelayPanes.Len(), "stale entry replaced by the new pane")
 }
 
-func TestRelayPaneRegistry_PrunesExpiredAndMissingPanes(t *testing.T) {
-	now := time.Date(2026, 1, 1, 12, 0, 0, 0, time.UTC)
-	reg := relayPaneRegistry{now: func() time.Time { return now }}
-	reg.record("https://a.example/", "pane-a")
-	reg.record("https://b.example/", "pane-b")
+func TestApp_OpenExternalURLCreatesNewPaneWhenRelayPaneCannotNavigate(t *testing.T) {
+	ctx := context.Background()
+	h := newRelayReuseHarness(t)
 
-	exists := func(id entity.PaneID) bool { return id != "pane-b" }
-	_, ok := reg.lookup("https://b.example/", exists)
-	assert.False(t, ok)
-	assert.NotContains(t, reg.entries, "https://b.example/")
+	require.NoError(t, h.app.OpenExternalURL(ctx, relayTestURL))
+	relayPaneID := h.tabs.ActiveTab().Workspace.ActivePane().Pane.ID
+	// The pane still exists but its WebView is gone, so navigation fails.
+	h.app.contentCoord.ReleaseWebView(ctx, relayPaneID)
 
-	id, ok := reg.lookup("https://a.example/", exists)
-	assert.True(t, ok)
-	assert.Equal(t, entity.PaneID("pane-a"), id)
+	require.NoError(t, h.app.OpenExternalURL(ctx, relayTestURL))
 
-	now = now.Add(domainurl.RelayReuseWindow + time.Second)
-	_, ok = reg.lookup("https://a.example/", exists)
-	assert.False(t, ok)
-	assert.Empty(t, reg.entries)
+	assert.Len(t, h.tabs.Tabs, 3)
+	assert.Equal(t, 1, h.app.externalRelayPanes.Len(), "failed entry replaced by the new pane")
 }

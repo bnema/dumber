@@ -90,9 +90,9 @@ type App struct {
 	runtimeConfig *runtimeConfigState
 
 	browserWindows       map[string]*browserWindow
-	browserWindowOrder   []string          // registration order of window IDs
-	instanceWindows      map[string]string // logical instance name -> browser window ID
-	externalRelayPanes   relayPaneRegistry // panes opened by the external URL relay (main thread only)
+	browserWindowOrder   []string               // registration order of window IDs
+	instanceWindows      map[string]string      // logical instance name -> browser window ID
+	externalRelayPanes   usecase.RelayPaneReuse // panes opened by the external URL relay (main thread only)
 	lastFocusedWindowID  string
 	nativePopupWindows   map[port.WebViewID]*nativePopupWindow
 	browserWindowFactory func(context.Context, string) (*browserWindow, error)
