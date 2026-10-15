@@ -19,6 +19,15 @@ type externalLaunchRecorder struct {
 	launched []string
 }
 
+const testPaneID = entity.PaneID("pane-1")
+
+// uriChanged delivers a URI change to testPaneID as the engine callback
+// installed for wv.
+func uriChanged(ctx context.Context, c *Coordinator, wv port.WebView, uri string) {
+	identity, _ := identityForWebView(wv)
+	c.handleURIChanged(ctx, testPaneID, wv, identity, uri)
+}
+
 // externalWebView returns a WebView mock with ID 1 and the given generation.
 func externalWebView(t *testing.T, generation uint64) *mocks.MockWebView {
 	wv := mocks.NewMockWebView(t)
@@ -47,10 +56,11 @@ func TestHandleURIChanged_ExternalSchemeWithoutConfirmerIsBlocked(t *testing.T) 
 
 	launchCount := 0
 	c := &Coordinator{
+		webViews:            map[entity.PaneID]port.WebView{"pane-1": wv},
 		onLaunchExternalURL: func(string) { launchCount++ },
 	}
 
-	c.handleURIChanged(ctx, "pane-1", wv, "vscode://file/etc/passwd")
+	uriChanged(ctx, c, wv, "vscode://file/etc/passwd")
 
 	assert.Equal(t, 0, launchCount)
 }
@@ -67,7 +77,7 @@ func TestHandleURIChanged_ExternalSchemeLaunchesOnlyAfterConfirmation(t *testing
 	rec.install(c)
 
 	uri := "claude://login/google-auth?code=abc"
-	c.handleURIChanged(ctx, "pane-1", wv, uri)
+	uriChanged(ctx, c, wv, uri)
 
 	assert.Equal(t, []string{uri}, rec.prompts)
 	assert.Empty(t, rec.launched)
@@ -88,7 +98,7 @@ func TestHandleURIChanged_ExternalSchemeDeniedDoesNotLaunchOrGoBack(t *testing.T
 	c := &Coordinator{webViews: map[entity.PaneID]port.WebView{"pane-1": wv}}
 	rec.install(c)
 
-	c.handleURIChanged(ctx, "pane-1", wv, "spotify://track/123")
+	uriChanged(ctx, c, wv, "spotify://track/123")
 	rec.respond(false)
 
 	assert.Empty(t, rec.launched)
@@ -106,15 +116,15 @@ func TestHandleURIChanged_OneOutstandingPromptPerPane(t *testing.T) {
 	rec.install(c)
 
 	// Alternating URIs must not queue more prompts while one is pending.
-	c.handleURIChanged(ctx, "pane-1", wv, "claude://a")
-	c.handleURIChanged(ctx, "pane-1", wv, "claude://b")
-	c.handleURIChanged(ctx, "pane-1", wv, "claude://a")
+	uriChanged(ctx, c, wv, "claude://a")
+	uriChanged(ctx, c, wv, "claude://b")
+	uriChanged(ctx, c, wv, "claude://a")
 	assert.Equal(t, []string{"claude://a"}, rec.prompts)
 
 	// Once answered, the pane may prompt again.
 	rec.respond(false)
 	wv.EXPECT().Stop(ctx).Return(nil).Once()
-	c.handleURIChanged(ctx, "pane-1", wv, "claude://b")
+	uriChanged(ctx, c, wv, "claude://b")
 	assert.Len(t, rec.prompts, 2)
 }
 
@@ -129,7 +139,7 @@ func TestHandleURIChanged_StalePromptAfterReleaseDoesNotLaunch(t *testing.T) {
 	c := &Coordinator{webViews: map[entity.PaneID]port.WebView{"pane-1": wv}}
 	rec.install(c)
 
-	c.handleURIChanged(ctx, "pane-1", wv, "claude://login?code=x")
+	uriChanged(ctx, c, wv, "claude://login?code=x")
 	// Pane closed while the prompt was queued.
 	c.clearExternalPrompt("pane-1")
 	delete(c.webViews, "pane-1")
@@ -142,20 +152,21 @@ func TestHandleURIChanged_HTTPURIStillRecordsSPANavigation(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	paneID := entity.PaneID("pane-1")
-	wv := mocks.NewMockWebView(t)
+	paneID := testPaneID
+	wv := externalWebView(t, 1)
 	wv.EXPECT().IsLoading().Return(false).Once()
 
 	var recordedPane entity.PaneID
 	var recordedURI string
 	c := &Coordinator{
+		webViews: map[entity.PaneID]port.WebView{paneID: wv},
 		onPaneURIUpdated: func(paneID entity.PaneID, uri string) {
 			recordedPane = paneID
 			recordedURI = uri
 		},
 	}
 
-	c.handleURIChanged(ctx, paneID, wv, "https://example.com/app#state")
+	uriChanged(ctx, c, wv, "https://example.com/app#state")
 
 	assert.Equal(t, paneID, recordedPane)
 	assert.Equal(t, "https://example.com/app#state", recordedURI)
@@ -172,7 +183,7 @@ func TestHandleURIChanged_StopErrorDoesNotPanic(t *testing.T) {
 	c := &Coordinator{webViews: map[entity.PaneID]port.WebView{"pane-1": wv}}
 	rec.install(c)
 
-	c.handleURIChanged(ctx, "pane-1", wv, "vscode://file/etc/passwd")
+	uriChanged(ctx, c, wv, "vscode://file/etc/passwd")
 
 	assert.Len(t, rec.prompts, 1)
 	assert.Empty(t, rec.launched)
@@ -189,11 +200,11 @@ func TestHandleURIChanged_OldAnswerCannotLaunchReplacementPrompt(t *testing.T) {
 	c := &Coordinator{webViews: map[entity.PaneID]port.WebView{"pane-1": wv}}
 	rec.install(c)
 
-	c.handleURIChanged(ctx, "pane-1", wv, "claude://old")
+	uriChanged(ctx, c, wv, "claude://old")
 	oldRespond := rec.respond
 	// The pane is invalidated, then the same WebView asks again.
 	c.clearExternalPrompt("pane-1")
-	c.handleURIChanged(ctx, "pane-1", wv, "claude://new")
+	uriChanged(ctx, c, wv, "claude://new")
 	newRespond := rec.respond
 
 	oldRespond(true)
@@ -215,7 +226,7 @@ func TestHandleURIChanged_RebindToNewGenerationMakesPromptStale(t *testing.T) {
 	c := &Coordinator{webViews: map[entity.PaneID]port.WebView{"pane-1": wv}}
 	rec.install(c)
 
-	c.handleURIChanged(ctx, "pane-1", wv, "claude://login?code=x")
+	uriChanged(ctx, c, wv, "claude://login?code=x")
 	c.webViews["pane-1"] = rebound
 
 	rec.respond(true)
@@ -234,8 +245,47 @@ func TestHandleURIChanged_PromptNamesLastWebOrigin(t *testing.T) {
 	c := &Coordinator{webViews: map[entity.PaneID]port.WebView{"pane-1": wv}}
 	rec.install(c)
 
-	c.handleURIChanged(ctx, "pane-1", wv, "https://claude.ai/login/popup-google-auth?code=x")
-	c.handleURIChanged(ctx, "pane-1", wv, "claude://login")
+	uriChanged(ctx, c, wv, "https://claude.ai/login/popup-google-auth?code=x")
+	uriChanged(ctx, c, wv, "claude://login")
 
 	assert.Equal(t, []string{"claude.ai"}, rec.origins)
+}
+
+func TestHandleURIChanged_IgnoresCallbackFromReleasedWebView(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	wv := externalWebView(t, 1)
+
+	rec := &externalLaunchRecorder{}
+	c := &Coordinator{}
+	rec.install(c)
+
+	// The callback was queued before the pane released its WebView.
+	uriChanged(ctx, c, wv, "https://site.example/")
+	uriChanged(ctx, c, wv, "claude://login")
+
+	assert.Empty(t, rec.prompts)
+	assert.Empty(t, c.externalPromptOrigins)
+}
+
+func TestHandleURIChanged_NonHTTPDocumentClearsOrigin(t *testing.T) {
+	t.Parallel()
+
+	for _, doc := range []string{"data:text/html,hi", "file://trusted.example/page.html"} {
+		ctx := context.Background()
+		wv := externalWebView(t, 1)
+		wv.EXPECT().IsLoading().Return(true).Times(2)
+		wv.EXPECT().Stop(ctx).Return(nil).Once()
+
+		rec := &externalLaunchRecorder{}
+		c := &Coordinator{webViews: map[entity.PaneID]port.WebView{"pane-1": wv}}
+		rec.install(c)
+
+		uriChanged(ctx, c, wv, "https://trusted.example/")
+		uriChanged(ctx, c, wv, doc)
+		uriChanged(ctx, c, wv, "claude://login")
+
+		assert.Equal(t, []string{""}, rec.origins, doc)
+	}
 }
