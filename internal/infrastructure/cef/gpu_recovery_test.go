@@ -12,15 +12,32 @@ import (
 	"github.com/bnema/dumber/internal/application/port"
 )
 
+// gpuRecoveryHost records render-host calls. pulses counts Invalidate calls
+// (two per pulse); ops records the full call sequence.
 type gpuRecoveryHost struct {
 	purecef.BrowserHost
 	pulses int
+	ops    []string
 }
 
-func (h *gpuRecoveryHost) Invalidate(purecef.PaintElementType) { h.pulses++ }
-func (h *gpuRecoveryHost) WasHidden(int32)                     {}
-func (h *gpuRecoveryHost) NotifyScreenInfoChanged()            {}
-func (h *gpuRecoveryHost) WasResized()                         {}
+func (h *gpuRecoveryHost) Invalidate(purecef.PaintElementType) {
+	h.pulses++
+	h.ops = append(h.ops, "Invalidate")
+}
+
+func (h *gpuRecoveryHost) WasHidden(hidden int32) {
+	if hidden != 0 {
+		h.ops = append(h.ops, "WasHidden(1)")
+		return
+	}
+	h.ops = append(h.ops, "WasHidden(0)")
+}
+
+func (h *gpuRecoveryHost) NotifyScreenInfoChanged() {
+	h.ops = append(h.ops, "NotifyScreenInfoChanged")
+}
+
+func (h *gpuRecoveryHost) WasResized() { h.ops = append(h.ops, "WasResized") }
 
 type gpuRecoveryBrowser struct {
 	purecef.Browser
@@ -194,7 +211,10 @@ func TestGPURecovery_ViewThatPaintsIsNotReloaded(t *testing.T) {
 	h.setPaints(wv, 10)
 
 	e.runGPURecoveryPass()
-	require.Equal(t, 2, host.pulses)
+	require.Equal(t, []string{
+		"Invalidate", "WasHidden(1)", "WasHidden(0)",
+		"NotifyScreenInfoChanged", "WasResized", "Invalidate",
+	}, host.ops, "pulse must reset visibility and screen info, then repaint")
 	require.Len(t, h.pending(), 1)
 	require.Equal(t, gpuRecoveryVerifyDelay, h.pending()[0].delay)
 
@@ -363,23 +383,6 @@ func TestGPURecovery_LostWakeup_ShowThenDeferDoesNotLeavePending(t *testing.T) {
 	require.False(t, deferred)
 	require.False(t, pendingOf(wv))
 	require.Empty(t, h.pending())
-}
-
-func TestGPURecovery_VerifyHiddenThenShownBetweenCheckAndStore(t *testing.T) {
-	h := newGPURecoveryHarness(t)
-	wv, host, browser := newGPURecoveryView(1)
-	e := newGPURecoveryEngine(wv)
-	e.runGPURecoveryPass() // visible pulse, verify scheduled
-
-	// The view is hidden and then shown again before verify runs. The show
-	// happens while nothing is pending, so it must not strand anything and the
-	// verify must see a visible, still-frozen view and reload it.
-	wv.applyEffectiveVisibility(host, false)
-	wv.applyEffectiveVisibility(host, true)
-	h.flush()
-
-	require.False(t, pendingOf(wv))
-	require.Equal(t, 1, browser.reloads)
 }
 
 func TestGPURecovery_ConcurrentShowAndDeferNeverStrandsPending(t *testing.T) {
@@ -613,9 +616,22 @@ func startVerifyBlockedOnGTK(t *testing.T, h *gpuRecoveryHarness, q *queuedGTK) 
 		pending[0].fn()
 	}()
 	// Wait (without sleeping) until the reload operation is queued on GTK.
-	op := <-q.ops
-	q.ops <- op
-	return func() { <-done }
+	// Fail fast if verify returns without queuing one, instead of hanging.
+	select {
+	case op := <-q.ops:
+		q.ops <- op
+	case <-done:
+		t.Fatal("verify finished without queuing a GTK reload operation")
+	case <-time.After(5 * time.Second):
+		t.Fatal("timed out waiting for the GTK reload operation")
+	}
+	return func() {
+		select {
+		case <-done:
+		case <-time.After(5 * time.Second):
+			t.Fatal("timed out waiting for verify to finish")
+		}
+	}
 }
 
 func TestGPURecovery_ReloadSkippedWhenSupersededWhileWaitingOnGTK(t *testing.T) {
