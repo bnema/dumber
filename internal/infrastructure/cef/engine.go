@@ -57,6 +57,8 @@ type Engine struct {
 	alreadyRunningAppRelaunchMu      sync.RWMutex
 	alreadyRunningAppRelaunchHandler func(string)
 	gpuRelaunchCount                 atomic.Int32
+	// gpuRecoveryScheduled debounces GPU-relaunch recovery passes.
+	gpuRecoveryScheduled atomic.Bool
 
 	// activeWebViews tracks all live webviews for CSS broadcast.
 	activeWebViews  sync.Map // map[port.WebViewID]*WebView
@@ -488,11 +490,12 @@ func (e *Engine) recordContextInitialized() {
 }
 
 func (e *Engine) recordChildProcessLaunch(processType, useAngle, ozonePlatform, renderNodeOverride, commandLine string) {
+	var gpuLaunchCount uint64
 	switch processType {
 	case "renderer":
 		e.childLaunchRenderer.Add(1)
 	case "gpu-process":
-		e.childLaunchGPU.Add(1)
+		gpuLaunchCount = e.childLaunchGPU.Add(1)
 	default:
 		e.childLaunchOther.Add(1)
 	}
@@ -507,6 +510,9 @@ func (e *Engine) recordChildProcessLaunch(processType, useAngle, ozonePlatform, 
 		Uint64("gpu_launches", e.childLaunchGPU.Load()).
 		Uint64("other_launches", e.childLaunchOther.Load()).
 		Msg("cef: OnBeforeChildProcessLaunch")
+
+	// The first GPU launch is startup; any later one is a crash relaunch.
+	e.noteGPUProcessLaunch(gpuLaunchCount)
 }
 
 func (e *Engine) recordBrowserCreateRequest(width, height, result int32) {

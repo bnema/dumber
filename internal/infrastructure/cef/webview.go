@@ -130,9 +130,16 @@ type WebView struct {
 	renderStallStop           chan struct{}
 	renderStallDone           chan struct{}
 	renderStallRecoveryLastAt time.Time
-	latestProfileSnapshot     cef2gtk.ProfileSnapshot
-	previousProfileSnapshot   cef2gtk.ProfileSnapshot
-	latestProfileSnapshotAt   time.Time
+	// gpuRecoveryPending marks a view that was hidden during a GPU recovery
+	// attempt and must be recovered once it becomes visible. It is guarded by
+	// mu, together with effectiveVisible, so deferring and showing are atomic.
+	gpuRecoveryPending bool
+	// gpuRecoveryGen identifies the latest GPU recovery attempt. Callbacks of
+	// older attempts see a stale value and bail.
+	gpuRecoveryGen          atomic.Uint64
+	latestProfileSnapshot   cef2gtk.ProfileSnapshot
+	previousProfileSnapshot cef2gtk.ProfileSnapshot
+	latestProfileSnapshotAt time.Time
 
 	removeSizeObserver      func()
 	viewportSyncMu          sync.Mutex
@@ -458,6 +465,15 @@ func (wv *WebView) LoadHTML(ctx context.Context, content, _ string) error {
 }
 
 func (wv *WebView) Reload(_ context.Context) error {
+	return wv.reloadGuarded(nil)
+}
+
+// reloadGuarded reloads the current page. When proceed is non-nil it runs on
+// the GTK thread inside the navigation callback, immediately before the
+// reload is issued, and a false result skips the reload. It lets callers that
+// waited on the synchronous GTK dispatch revalidate their preconditions. It
+// must not block on the GTK thread and must not be called with wv.mu held.
+func (wv *WebView) reloadGuarded(proceed func() bool) error {
 	if wv.destroyed.Load() {
 		return errDestroyed
 	}
@@ -467,6 +483,9 @@ func (wv *WebView) Reload(_ context.Context) error {
 		wv.mu.RUnlock()
 		if browser == nil {
 			return errNoBrowser
+		}
+		if proceed != nil && !proceed() {
+			return nil
 		}
 		browser.Reload()
 		return nil

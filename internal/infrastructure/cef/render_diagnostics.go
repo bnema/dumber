@@ -10,7 +10,12 @@ import (
 	"github.com/bnema/dumber/internal/logging"
 )
 
-const renderStallRecoveryCooldown = 10 * time.Second
+const (
+	renderStallRecoveryCooldown = 10 * time.Second
+	// renderRecoveryVerifyDelay is how long a render pulse gets to produce a
+	// new accelerated paint before its outcome is evaluated.
+	renderRecoveryVerifyDelay = 2 * time.Second
+)
 
 func (e *Engine) logAllWebViewRenderSnapshots(now time.Time, _ port.WebViewID, reason string, classification renderStallClassification) {
 	if e == nil {
@@ -141,57 +146,45 @@ func (wv *WebView) maybeRunRenderStallRecovery(now time.Time, _ *Cef2gtkAdapter,
 	}
 	wv.renderStallMu.Unlock()
 
-	wv.mu.RLock()
-	host := wv.host
-	browser := wv.browser
-	wv.mu.RUnlock()
-	if host == nil {
+	target, ok := wv.renderPulseTarget()
+	if !ok {
 		return
 	}
-	browserID := int32(0)
-	if browser != nil {
-		browserID = browser.GetIdentifier()
-	}
+	browserID := target.browserID
 	logging.FromContext(wv.ctx).Warn().
 		Uint64("webview_id", uint64(wv.id)).
 		Int32("browser_id", browserID).
 		Int("accelerated_paints_before", paintsBefore).
 		Msg("cef: render stall recovery pulse scheduled")
-	task := cefNewTask(cefTaskFunc(func() {
-		if wv == nil || wv.viewBridge == nil || wv.destroyed.Load() || wv.ctx == nil || host == nil {
+	const msg = "cef: render stall recovery pulse"
+	posted := wv.postRenderPulseTask(msg, func(host purecef.BrowserHost, _ *Cef2gtkAdapter) {
+		// Hidden views legitimately produce no paints and the pulse would
+		// mark them visible, so only pulse views CEF believes are shown.
+		if wv.effectivelyHidden() {
+			logging.FromContext(wv.ctx).Warn().
+				Uint64("webview_id", uint64(wv.id)).
+				Int32("browser_id", browserID).
+				Msg(msg + " skipped: view hidden")
 			return
 		}
-		host.Invalidate(purecef.PaintElementTypePetView)
-		host.WasHidden(1)
-		host.WasHidden(0)
-		host.NotifyScreenInfoChanged()
-		host.WasResized()
-		host.Invalidate(purecef.PaintElementTypePetView)
+		pulseRender(host)
 		logging.FromContext(wv.ctx).Warn().
 			Uint64("webview_id", uint64(wv.id)).
 			Int32("browser_id", browserID).
-			Msg("cef: render stall recovery pulse executed")
-	}))
-	if task == nil {
-		return
-	}
-	result := cefPostTask(purecef.ThreadIDTidUi, task)
-	logging.FromContext(wv.ctx).Warn().
-		Uint64("webview_id", uint64(wv.id)).
-		Int32("browser_id", browserID).
-		Int32("post_result", result).
-		Msg("cef: render stall recovery pulse posted")
-	if result != 1 {
+			Msg(msg + " executed")
+	})
+	if !posted {
 		return
 	}
 	wv.renderStallMu.Lock()
 	wv.renderStallRecoveryLastAt = now
 	wv.renderStallMu.Unlock()
-	cefScheduleAfter(2*time.Second, func() {
-		if wv == nil || wv.viewBridge == nil || wv.destroyed.Load() || wv.ctx == nil {
+	cefScheduleAfter(renderRecoveryVerifyDelay, func() {
+		bridge := wv.liveBridge()
+		if bridge == nil || wv.ctx == nil {
 			return
 		}
-		after := wv.viewBridge.Diagnostics().AcceleratedPaints
+		after := bridge.Diagnostics().AcceleratedPaints
 		logging.FromContext(wv.ctx).Warn().
 			Uint64("webview_id", uint64(wv.id)).
 			Int32("browser_id", browserID).
@@ -200,4 +193,92 @@ func (wv *WebView) maybeRunRenderStallRecovery(now time.Time, _ *Cef2gtkAdapter,
 			Bool("recovered", after > paintsBefore).
 			Msg("cef: render stall recovery pulse result")
 	})
+}
+
+// renderPulseTargetInfo is a consistent snapshot of the state a render pulse
+// needs, captured under wv.mu.
+type renderPulseTargetInfo struct {
+	host       purecef.BrowserHost
+	bridge     *Cef2gtkAdapter
+	browserID  int32
+	hasBrowser bool
+}
+
+// renderPulseTarget snapshots a view that can receive a render pulse. It
+// reports false when the view is destroyed, has no CEF host yet, or has no
+// live bridge. The bridge is cleared under wv.mu by teardown, so it must only
+// be read through this snapshot or liveBridge.
+func (wv *WebView) renderPulseTarget() (renderPulseTargetInfo, bool) {
+	if wv == nil || wv.ctx == nil || wv.destroyed.Load() {
+		return renderPulseTargetInfo{}, false
+	}
+	wv.mu.RLock()
+	host := wv.host
+	browser := wv.browser
+	bridge := wv.viewBridge
+	wv.mu.RUnlock()
+	if host == nil || bridge == nil {
+		return renderPulseTargetInfo{}, false
+	}
+	info := renderPulseTargetInfo{host: host, bridge: bridge}
+	if browser != nil {
+		info.browserID = browser.GetIdentifier()
+		info.hasBrowser = true
+	}
+	return info, true
+}
+
+// liveBridge returns the view bridge, or nil once the view is destroyed or its
+// bridge torn down. Safe from any goroutine.
+func (wv *WebView) liveBridge() *Cef2gtkAdapter {
+	if wv == nil || wv.destroyed.Load() {
+		return nil
+	}
+	wv.mu.RLock()
+	defer wv.mu.RUnlock()
+	return wv.viewBridge
+}
+
+// pulseRender asks CEF to produce a fresh OSR frame.
+func pulseRender(host purecef.BrowserHost) {
+	host.Invalidate(purecef.PaintElementTypePetView)
+	host.WasHidden(1)
+	host.WasHidden(0)
+	host.NotifyScreenInfoChanged()
+	host.WasResized()
+	host.Invalidate(purecef.PaintElementTypePetView)
+}
+
+// postRenderPulseTask posts body to the CEF UI thread. The host and bridge are
+// revalidated when the task executes; body only runs for a live view. msg is
+// the log message prefix. It reports whether CEF accepted the task.
+func (wv *WebView) postRenderPulseTask(msg string, body func(host purecef.BrowserHost, bridge *Cef2gtkAdapter)) bool {
+	target, ok := wv.renderPulseTarget()
+	if !ok {
+		return false
+	}
+	host := target.host
+	task := cefNewTask(cefTaskFunc(func() {
+		bridge := wv.liveBridge()
+		if bridge == nil {
+			return
+		}
+		wv.mu.RLock()
+		currentHost := wv.host
+		wv.mu.RUnlock()
+		if currentHost != host {
+			return
+		}
+		body(host, bridge)
+	}))
+	if task == nil {
+		return false
+	}
+	result := cefPostTask(purecef.ThreadIDTidUi, task)
+	logging.FromContext(wv.ctx).Warn().
+		Uint64("webview_id", uint64(wv.id)).
+		Int32("browser_id", target.browserID).
+		Int32("post_result", result).
+		Msg(msg + " posted")
+	return result == 1
 }

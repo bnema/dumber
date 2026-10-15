@@ -28,10 +28,15 @@ func (wv *WebView) scrollCancelTarget() scrollCancelBridge {
 	if wv.scrollCancelSeam != nil {
 		return wv.scrollCancelSeam
 	}
-	if wv.viewBridge == nil {
+	// Teardown clears viewBridge under wv.mu from the GTK thread while this
+	// runs from any thread (CEF UI, timers, GTK).
+	wv.mu.RLock()
+	bridge := wv.viewBridge
+	wv.mu.RUnlock()
+	if bridge == nil {
 		return nil
 	}
-	return wv.viewBridge
+	return bridge
 }
 
 // scrollMotionRetired immediately retires animated scroll motion and release

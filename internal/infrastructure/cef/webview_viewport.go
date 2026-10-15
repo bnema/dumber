@@ -622,9 +622,19 @@ func (wv *WebView) applyEffectiveVisibility(host viewportSyncBrowserHost, visibl
 	}
 	wv.effectiveVisibilityKnown = true
 	wv.effectiveVisible = visible
+	// Consume the deferred GPU recovery in the same critical section that
+	// publishes visibility: a concurrent deferral either saw the view hidden
+	// (and set pending before this point) or sees it visible and does not defer.
+	resumeGPURecovery := visible && wv.gpuRecoveryPending
+	if visible {
+		wv.gpuRecoveryPending = false
+	}
 	wv.mu.Unlock()
 	if visible {
 		host.WasHidden(0)
+		if resumeGPURecovery {
+			wv.startGPURecovery()
+		}
 		return
 	}
 	// The hidden transition retires scroll motion: a re-shown page never
