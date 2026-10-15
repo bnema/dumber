@@ -7,6 +7,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/application/port/mocks"
 	"github.com/bnema/dumber/internal/domain/entity"
 )
@@ -52,7 +53,7 @@ func TestHandleURIChanged_ExternalSchemeLaunchesOnlyAfterConfirmation(t *testing
 	wv.EXPECT().Stop(ctx).Return(nil).Once()
 
 	rec := &externalLaunchRecorder{}
-	c := &Coordinator{}
+	c := &Coordinator{webViews: map[entity.PaneID]port.WebView{"pane-1": wv}}
 	rec.install(c)
 
 	uri := "claude://login/google-auth?code=abc"
@@ -74,7 +75,7 @@ func TestHandleURIChanged_ExternalSchemeDeniedDoesNotLaunchOrGoBack(t *testing.T
 	wv.EXPECT().Stop(ctx).Return(nil).Once()
 
 	rec := &externalLaunchRecorder{}
-	c := &Coordinator{}
+	c := &Coordinator{webViews: map[entity.PaneID]port.WebView{"pane-1": wv}}
 	rec.install(c)
 
 	c.handleURIChanged(ctx, "pane-1", wv, "spotify://track/123")
@@ -83,27 +84,48 @@ func TestHandleURIChanged_ExternalSchemeDeniedDoesNotLaunchOrGoBack(t *testing.T
 	assert.Empty(t, rec.launched)
 }
 
-func TestHandleURIChanged_DuplicateExternalURIPromptsOnce(t *testing.T) {
+func TestHandleURIChanged_OneOutstandingPromptPerPane(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
 	wv := mocks.NewMockWebView(t)
-	wv.EXPECT().Stop(ctx).Return(nil).Twice()
+	wv.EXPECT().Stop(ctx).Return(nil).Times(3)
 
 	rec := &externalLaunchRecorder{}
-	c := &Coordinator{}
+	c := &Coordinator{webViews: map[entity.PaneID]port.WebView{"pane-1": wv}}
 	rec.install(c)
 
-	uri := "claude://login/google-auth?code=abc"
-	c.handleURIChanged(ctx, "pane-1", wv, uri)
-	c.handleURIChanged(ctx, "pane-1", wv, uri)
-	assert.Len(t, rec.prompts, 1)
+	// Alternating URIs must not queue more prompts while one is pending.
+	c.handleURIChanged(ctx, "pane-1", wv, "claude://a")
+	c.handleURIChanged(ctx, "pane-1", wv, "claude://b")
+	c.handleURIChanged(ctx, "pane-1", wv, "claude://a")
+	assert.Equal(t, []string{"claude://a"}, rec.prompts)
 
-	// Once answered, a later identical request may prompt again.
+	// Once answered, the pane may prompt again.
 	rec.respond(false)
 	wv.EXPECT().Stop(ctx).Return(nil).Once()
-	c.handleURIChanged(ctx, "pane-1", wv, uri)
+	c.handleURIChanged(ctx, "pane-1", wv, "claude://b")
 	assert.Len(t, rec.prompts, 2)
+}
+
+func TestHandleURIChanged_StalePromptAfterReleaseDoesNotLaunch(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	wv := mocks.NewMockWebView(t)
+	wv.EXPECT().Stop(ctx).Return(nil).Once()
+
+	rec := &externalLaunchRecorder{}
+	c := &Coordinator{webViews: map[entity.PaneID]port.WebView{"pane-1": wv}}
+	rec.install(c)
+
+	c.handleURIChanged(ctx, "pane-1", wv, "claude://login?code=x")
+	// Pane closed while the prompt was queued.
+	c.clearExternalPrompt("pane-1")
+	delete(c.webViews, "pane-1")
+
+	rec.respond(true)
+	assert.Empty(t, rec.launched)
 }
 
 func TestHandleURIChanged_HTTPURIStillRecordsSPANavigation(t *testing.T) {
@@ -137,7 +159,7 @@ func TestHandleURIChanged_StopErrorDoesNotPanic(t *testing.T) {
 	wv.EXPECT().Stop(ctx).Return(errors.New("stop failed")).Once()
 
 	rec := &externalLaunchRecorder{}
-	c := &Coordinator{}
+	c := &Coordinator{webViews: map[entity.PaneID]port.WebView{"pane-1": wv}}
 	rec.install(c)
 
 	c.handleURIChanged(ctx, "pane-1", wv, "vscode://file/etc/passwd")

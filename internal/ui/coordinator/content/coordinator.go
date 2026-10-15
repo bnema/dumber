@@ -138,11 +138,10 @@ type Coordinator struct {
 	// respond must be called exactly once on the GTK thread.
 	onConfirmExternalLaunch func(paneID entity.PaneID, uri string, respond func(allowed bool))
 
-	// externalPromptMu guards externalPrompts, the external URI currently
-	// awaiting confirmation per pane. It suppresses duplicate prompts when the
-	// engine reports the same address change more than once.
+	// externalPromptMu guards externalPrompts: panes with an outstanding
+	// external-launch prompt, mapped to the WebView that asked.
 	externalPromptMu sync.Mutex
-	externalPrompts  map[entity.PaneID]string
+	externalPrompts  map[entity.PaneID]port.WebView
 }
 
 type pendingThemeUpdate struct {

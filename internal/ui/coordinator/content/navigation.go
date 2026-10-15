@@ -387,9 +387,11 @@ func (c *Coordinator) onLinkHover(paneID entity.PaneID, uri string) {
 	}
 }
 
-// promptExternalLaunch asks the user once per pane and URI whether the external
-// URI may be handed to the system handler.
-func (c *Coordinator) promptExternalLaunch(ctx context.Context, paneID entity.PaneID, uri string) {
+// promptExternalLaunch asks the user whether the external URI may be handed to
+// the system handler. A pane has at most one outstanding prompt: further
+// external URIs from that pane are dropped until it is answered, so a page
+// cannot flood the window's prompt queue.
+func (c *Coordinator) promptExternalLaunch(ctx context.Context, paneID entity.PaneID, wv port.WebView, uri string) {
 	log := logging.FromContext(ctx)
 	if c.onConfirmExternalLaunch == nil || c.onLaunchExternalURL == nil {
 		log.Info().Str("pane_id", string(paneID)).Msg("external scheme launch unavailable; blocked")
@@ -397,30 +399,43 @@ func (c *Coordinator) promptExternalLaunch(ctx context.Context, paneID entity.Pa
 	}
 
 	c.externalPromptMu.Lock()
-	if c.externalPrompts[paneID] == uri {
+	if _, pending := c.externalPrompts[paneID]; pending {
 		c.externalPromptMu.Unlock()
 		return
 	}
 	if c.externalPrompts == nil {
-		c.externalPrompts = make(map[entity.PaneID]string)
+		c.externalPrompts = make(map[entity.PaneID]port.WebView)
 	}
-	c.externalPrompts[paneID] = uri
+	c.externalPrompts[paneID] = wv
 	c.externalPromptMu.Unlock()
 
 	c.onConfirmExternalLaunch(paneID, uri, func(allowed bool) {
 		c.externalPromptMu.Lock()
-		if c.externalPrompts[paneID] == uri {
+		owner, pending := c.externalPrompts[paneID]
+		// The prompt is stale when its pane was released (or rebound to
+		// another WebView) while it was queued: never launch for it.
+		current := pending && owner == wv
+		if current {
 			delete(c.externalPrompts, paneID)
 		}
 		c.externalPromptMu.Unlock()
+		current = current && c.GetWebView(paneID) == wv
 
-		log.Info().Str("pane_id", string(paneID)).Bool("allowed", allowed).
+		log.Info().Str("pane_id", string(paneID)).Bool("allowed", allowed).Bool("stale", !current).
 			Str("uri", logging.TruncateURL(uri, logging.PermissionLogURLMaxLen)).
 			Msg("external scheme launch decision")
-		if allowed {
+		if allowed && current {
 			c.onLaunchExternalURL(uri)
 		}
 	})
+}
+
+// clearExternalPrompt invalidates the pane's outstanding external-launch
+// prompt so a late answer cannot launch anything.
+func (c *Coordinator) clearExternalPrompt(paneID entity.PaneID) {
+	c.externalPromptMu.Lock()
+	delete(c.externalPrompts, paneID)
+	c.externalPromptMu.Unlock()
 }
 
 // handleURIChanged handles URI changes from WebKit, including external scheme detection
@@ -448,7 +463,7 @@ func (c *Coordinator) handleURIChanged(ctx context.Context, paneID entity.PaneID
 		// with a redirect to claude://, vscode://, ...), so the launch is never
 		// automatic: the user must confirm it. Do not navigate back: going back
 		// to an OAuth endpoint re-issues the redirect and loops.
-		c.promptExternalLaunch(ctx, paneID, uri)
+		c.promptExternalLaunch(ctx, paneID, wv, uri)
 		return
 	}
 
