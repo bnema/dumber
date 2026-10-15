@@ -634,7 +634,7 @@ func (a *App) dispatchWindowURLWork(ctx context.Context, label, url string, work
 func (a *App) OpenExternalURL(ctx context.Context, url string) error {
 	url = domainurl.Normalize(url)
 	return a.dispatchWindowURLWork(ctx, "ui.open_external_url", url, func(ctx context.Context) error {
-		return a.openExternalURLOnMainThread(ctx, url, a.runtimeConfigSnapshot())
+		return a.openRelayURLOnMainThread(ctx, url, a.runtimeConfigSnapshot())
 	})
 }
 
