@@ -59,7 +59,7 @@ func (c *ImageConverter) Convert(ctx context.Context, original []byte, contentTy
 func decodeFaviconImage(data []byte, ct string, webp *webPDecoder) (image.Image, error) {
 	switch ct {
 	case "image/svg+xml":
-		return nil, fmt.Errorf("%w: svg favicon conversion is disabled", appport.ErrFaviconMiss)
+		return rasterizeSVG(data)
 	case "image/x-icon", "image/vnd.microsoft.icon", "image/ico":
 		img, err := decodeICO(data)
 		if err != nil {
