@@ -65,14 +65,65 @@ func TestConverterRejectsFormatsThatWouldProducePlaceholders(t *testing.T) {
 		name, ct string
 		data     []byte
 	}{
-		{"svg", "image/svg+xml", []byte(`<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"><rect width="16" height="16" fill="#ff0000"/></svg>`)},
 		{"webp", "image/webp", []byte("RIFF\x04\x00\x00\x00WEBPVP8 ")},
+		{"empty svg", "image/svg+xml", []byte(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"></svg>`)},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			if _, err := conv.Convert(context.Background(), tc.data, tc.ct, []int{32}); !errors.Is(err, appport.ErrFaviconMiss) {
 				t.Fatalf("err = %v, want favicon miss", err)
 			}
 		})
+	}
+}
+
+func TestConverterRasterizesSVG(t *testing.T) {
+	conv := NewImageConverter()
+	svg := []byte(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <rect x="0" y="0" width="32" height="16" fill="#ff0000"/>
+  <rect x="0" y="16" width="32" height="16" fill="#0000ff"/>
+</svg>`)
+	out, err := conv.Convert(context.Background(), svg, "image/svg+xml", []int{32})
+	if err != nil {
+		t.Fatal(err)
+	}
+	img, err := png.Decode(bytes.NewReader(out.SizedPNG[32]))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if img.Bounds().Dx() != 32 || img.Bounds().Dy() != 32 {
+		t.Fatalf("size = %v", img.Bounds())
+	}
+	r, _, b, a := img.At(16, 4).RGBA()
+	if a == 0 || r>>8 < 200 || b>>8 > 50 {
+		t.Fatalf("top pixel = r%d b%d a%d, want red", r>>8, b>>8, a>>8)
+	}
+	r, _, b, a = img.At(16, 28).RGBA()
+	if a == 0 || b>>8 < 200 || r>>8 > 50 {
+		t.Fatalf("bottom pixel = r%d b%d a%d, want blue", r>>8, b>>8, a>>8)
+	}
+}
+
+func TestConverterRejectsRecursiveSVGUse(t *testing.T) {
+	conv := NewImageConverter()
+	for _, tc := range []struct{ name, svg string }{
+		{"self cycle", `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><defs><g id="a"><use href="#a"/></g></defs><use href="#a"/></svg>`},
+		{"mutual cycle", `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 16 16"><defs><g id="a"><use xlink:href="#b"/></g><g id="b"><use xlink:href="#a"/></g></defs><use xlink:href="#a"/></svg>`},
+		{"use targets use", `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><defs><use id="a" href="#a"/></defs><use href="#a"/></svg>`},
+		{"flat def run after sibling id", `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><defs><g id="a"></g><use href="#a"/></defs><use href="#a"/></svg>`},
+		{"anonymous def", `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><defs><use href="#"/></defs><use href="#"/></svg>`},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if _, err := conv.Convert(context.Background(), []byte(tc.svg), "image/svg+xml", []int{32}); !errors.Is(err, appport.ErrFaviconMiss) {
+				t.Fatalf("err = %v, want favicon miss", err)
+			}
+		})
+	}
+}
+
+func TestConverterRendersFlatSVGUse(t *testing.T) {
+	svg := []byte(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><defs><rect id="r" width="16" height="16" fill="#00ff00"/></defs><use href="#r"/></svg>`)
+	if _, err := NewImageConverter().Convert(context.Background(), svg, "image/svg+xml", []int{32}); err != nil {
+		t.Fatal(err)
 	}
 }
 
