@@ -8,11 +8,11 @@ require (
 	github.com/bnema/purego v0.13.0-bnema.1
 	github.com/bnema/purego-cef v0.14.4
 	github.com/bnema/purego-cef2gtk v0.11.5
-	github.com/bnema/purego-pipewire v0.1.6
+	github.com/bnema/purego-pipewire v0.2.0
 	github.com/bnema/purego-sqlite v0.1.5
 	github.com/bnema/purego-webp v0.2.1
 	github.com/bnema/puregotk v0.7.6
-	github.com/bnema/zerobus v0.1.1
+	github.com/bnema/zerobus v0.2.0
 	github.com/charmbracelet/bubbles v1.0.0
 	github.com/charmbracelet/bubbletea v1.3.10
 	github.com/charmbracelet/lipgloss v1.1.0
