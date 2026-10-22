@@ -2,6 +2,16 @@
 # https://goreleaser.com
 version: 2
 
+# Releases are published on ermite. In CI the runner sets GITHUB_API_URL and
+# GITHUB_SERVER_URL to an address the job can reach; the public URLs are the
+# fallback for a local run. The release workflow also runs on the GitHub
+# mirror, so older builds, whose updater only reads GitHub, still update:
+# there GoReleaser keeps its github.com defaults.
+github_urls:
+  api: '{{ if eq (index .Env "GITHUB_SERVER_URL") "https://github.com" }}https://api.github.com{{ else }}{{ or (index .Env "GITHUB_API_URL") "https://git.bnema.dev/-/github/api" }}{{ end }}/'
+  upload: '{{ if eq (index .Env "GITHUB_SERVER_URL") "https://github.com" }}https://uploads.github.com{{ else }}{{ or (index .Env "GITHUB_API_URL") "https://git.bnema.dev/-/github/api" }}/uploads{{ end }}/'
+  download: '{{ or (index .Env "GITHUB_SERVER_URL") "https://git.bnema.dev" }}/'
+
 before:
   hooks:
     # Build and verify systemviews assets before building binaries
@@ -61,7 +71,7 @@ snapshot:
 
 changelog:
   sort: asc
-  use: github
+  use: git
   filters:
     exclude:
       - '^docs:'
@@ -116,7 +126,7 @@ release:
     ### Linux (x86_64/amd64)
     ```bash
     # Download latest release
-    wget https://github.com/bnema/dumber/releases/latest/download/dumber_linux_x86_64.tar.gz
+    wget https://git.bnema.dev/dumber/releases/latest/download/dumber_linux_x86_64.tar.gz
 
     # Extract and install to ~/.local/bin (enables auto-updates)
     tar -xzf dumber_linux_x86_64.tar.gz
@@ -157,10 +167,6 @@ release:
     # Hardware acceleration
     sudo apt install gstreamer1.0-vaapi va-driver-all
     ```
-
-    ---
-
-    **Full Changelog**: https://github.com/bnema/dumber/compare/{{.PreviousTag}}...{{.Tag}}
 
   # Auto-detect prerelease from version (v1.0.0-rc1, v1.0.0-alpha, etc.)
   prerelease: auto

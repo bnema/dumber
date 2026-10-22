@@ -4,7 +4,7 @@ pkgver=0.32.0.r5.gcbc3a47f
 pkgrel=1
 pkgdesc="A minimal keyboard-driven browser for tiling WMs (git version)"
 arch=('x86_64')
-url="https://github.com/bnema/dumber"
+url="https://git.bnema.dev/dumber"
 license=('MIT')
 makedepends=('go>=1.27' 'git' 'brotli')
 depends=('gtk4' 'cef' 'webkitgtk-6.0' 'libwebp')
@@ -27,7 +27,7 @@ optdepends=(
 )
 provides=('dumber-browser' 'dumber')
 conflicts=('dumber-browser' 'dumber-browser-bin')
-source=("git+https://github.com/bnema/dumber.git")
+source=("git+https://git.bnema.dev/dumber.git")
 sha256sums=('SKIP')
 
 pkgver() {

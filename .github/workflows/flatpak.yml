@@ -14,8 +14,11 @@ permissions:
   contents: write
 
 jobs:
+  # ermite (git.bnema.dev) builds the Flatpak; the GitHub mirror only gets a
+  # copy of the release for older updaters (see release.yml).
   flatpak:
     name: Build Flatpak
+    if: github.server_url != 'https://github.com'
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/flathub-infra/flatpak-github-actions:gnome-48
@@ -37,7 +40,8 @@ jobs:
       - name: Wait for release assets
         run: |
           VERSION="${{ steps.version.outputs.version }}"
-          URL="https://github.com/bnema/dumber/releases/download/${VERSION}/dumber_linux_x86_64.tar.gz"
+          # The job reaches the forge at GITHUB_SERVER_URL (the runner relay).
+          URL="${GITHUB_SERVER_URL}/dumber/releases/download/${VERSION}/dumber_linux_x86_64.tar.gz"
           echo "Waiting for release asset: $URL"
           for i in $(seq 1 30); do
             if curl -sL --fail -o /dev/null "$URL"; then
@@ -54,7 +58,8 @@ jobs:
         id: sha256
         run: |
           VERSION="${{ steps.version.outputs.version }}"
-          URL="https://github.com/bnema/dumber/releases/download/${VERSION}/dumber_linux_x86_64.tar.gz"
+          # The job reaches the forge at GITHUB_SERVER_URL (the runner relay).
+          URL="${GITHUB_SERVER_URL}/dumber/releases/download/${VERSION}/dumber_linux_x86_64.tar.gz"
           SHA256=$(curl -sL "$URL" | sha256sum | cut -d' ' -f1)
           echo "sha256=$SHA256" >> $GITHUB_OUTPUT
           echo "SHA256: $SHA256"
@@ -91,7 +96,7 @@ jobs:
                 - install -Dm644 dev.bnema.Dumber.metainfo.xml /app/share/metainfo/dev.bnema.Dumber.metainfo.xml
               sources:
                 - type: archive
-                  url: https://github.com/bnema/dumber/releases/download/${VERSION}/dumber_linux_x86_64.tar.gz
+                  url: ${GITHUB_SERVER_URL}/dumber/releases/download/${VERSION}/dumber_linux_x86_64.tar.gz
                   sha256: ${SHA256}
                 - type: file
                   path: flatpak/dev.bnema.Dumber.desktop

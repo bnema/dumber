@@ -3,7 +3,7 @@
 ## Quick Install (Linux x86_64)
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/bnema/dumber/main/install.sh | bash
+curl -fsSL https://git.bnema.dev/dumber/raw/main/install.sh | bash
 ```
 
 Installs to `~/.local/bin` if available, otherwise `/usr/local/bin` (requires sudo).
@@ -13,19 +13,19 @@ Installs to `~/.local/bin` if available, otherwise `/usr/local/bin` (requires su
 Install a specific version:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/bnema/dumber/main/install.sh | DUMBER_VERSION=v0.26.2 bash
+curl -fsSL https://git.bnema.dev/dumber/raw/main/install.sh | DUMBER_VERSION=v0.26.2 bash
 ```
 
 Install the latest prerelease:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/bnema/dumber/main/install.sh | DUMBER_PRERELEASE=1 bash
+curl -fsSL https://git.bnema.dev/dumber/raw/main/install.sh | DUMBER_PRERELEASE=1 bash
 ```
 
 Combine both to install a specific prerelease:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/bnema/dumber/main/install.sh | DUMBER_VERSION=v0.27.0-rc.1 DUMBER_PRERELEASE=1 bash
+curl -fsSL https://git.bnema.dev/dumber/raw/main/install.sh | DUMBER_VERSION=v0.27.0-rc.1 DUMBER_PRERELEASE=1 bash
 ```
 
 ## Flatpak
@@ -41,7 +41,7 @@ flatpak install dumber.flatpak
 ## From Source
 
 ```bash
-git clone https://github.com/bnema/dumber
+git clone https://git.bnema.dev/dumber
 cd dumber
 make build
 ./dist/dumber browse

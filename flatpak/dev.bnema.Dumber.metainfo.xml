@@ -26,9 +26,9 @@
     </ul>
   </description>
   <launchable type="desktop-id">dev.bnema.Dumber.desktop</launchable>
-  <url type="homepage">https://github.com/bnema/dumber</url>
+  <url type="homepage">https://git.bnema.dev/dumber</url>
   <url type="bugtracker">https://github.com/bnema/dumber/issues</url>
-  <url type="vcs-browser">https://github.com/bnema/dumber</url>
+  <url type="vcs-browser">https://git.bnema.dev/dumber</url>
   <developer id="dev.bnema">
     <name>bnema</name>
   </developer>

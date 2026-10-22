@@ -14,7 +14,9 @@ jobs:
   publish-aur-git:
     name: Publish dumber-browser-git to AUR
     runs-on: ubuntu-latest
+    # AUR packages are published from ermite only (git.bnema.dev).
     if: >
+      github.server_url != 'https://github.com' &&
       github.event.workflow_run.name == 'CI' &&
       github.event.workflow_run.conclusion == 'success' &&
       github.event.workflow_run.head_branch == 'main'
@@ -49,7 +51,7 @@ jobs:
             'pkgrel=1' \
             'pkgdesc="A minimal keyboard-driven browser for tiling WMs (git version)"' \
             "arch=('x86_64')" \
-            'url="https://github.com/bnema/dumber"' \
+            'url="https://git.bnema.dev/dumber"' \
             "license=('MIT')" \
             "makedepends=('go>=1.27' 'git' 'brotli')" \
             "depends=('gtk4' 'cef' 'webkitgtk-6.0')" \
@@ -72,7 +74,7 @@ jobs:
             ')' \
             "provides=('dumber-browser' 'dumber')" \
             "conflicts=('dumber-browser' 'dumber-browser-bin')" \
-            'source=("git+https://github.com/bnema/dumber.git")' \
+            'source=("git+https://git.bnema.dev/dumber.git")' \
             "sha256sums=('SKIP')" \
             '' \
             'pkgver() {' \
@@ -116,6 +118,7 @@ jobs:
     name: Publish dumber-browser-bin to AUR
     runs-on: ubuntu-latest
     if: >
+      github.server_url != 'https://github.com' &&
       github.event.workflow_run.name == 'Flatpak' &&
       github.event.workflow_run.conclusion == 'success'
     concurrency:
@@ -147,19 +150,17 @@ jobs:
       - name: Verify release still exists
         run: |
           TAG="${{ steps.release.outputs.tag }}"
-          if ! gh release view "$TAG" &>/dev/null; then
+          if ! curl -fsS -o /dev/null "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/releases/tags/${TAG}"; then
             echo "::error::Release $TAG no longer exists. Aborting AUR publish."
             exit 1
           fi
           echo "Release $TAG verified, proceeding with AUR publish."
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Download checksums
         id: checksum
         run: |
           TAG="${{ steps.release.outputs.tag }}"
-          curl -sL "https://github.com/bnema/dumber/releases/download/${TAG}/checksums.txt" -o checksums.txt
+          curl -fsSL "${GITHUB_SERVER_URL}/dumber/releases/download/${TAG}/checksums.txt" -o checksums.txt
           cat checksums.txt
           SHA256=$(grep 'dumber_linux_x86_64.tar.gz' checksums.txt | cut -d' ' -f1)
           if [ -z "$SHA256" ]; then
@@ -184,7 +185,7 @@ jobs:
             'pkgrel=1' \
             'pkgdesc="A minimal keyboard-driven browser for tiling WMs"' \
             "arch=('x86_64')" \
-            'url="https://github.com/bnema/dumber"' \
+            'url="https://git.bnema.dev/dumber"' \
             "license=('MIT')" \
             "depends=('gtk4' 'cef' 'webkitgtk-6.0')" \
             'optdepends=(' \
@@ -206,7 +207,7 @@ jobs:
             ')' \
             "provides=('dumber-browser' 'dumber')" \
             "conflicts=('dumber-browser' 'dumber-browser-git')" \
-            'source=("${pkgname}-${pkgver}.tar.gz::https://github.com/bnema/dumber/releases/download/v${pkgver}/dumber_linux_x86_64.tar.gz")' \
+            'source=("${pkgname}-${pkgver}.tar.gz::https://git.bnema.dev/dumber/releases/download/v${pkgver}/dumber_linux_x86_64.tar.gz")' \
             "sha256sums=('${SHA256}')" \
             '' \
             'package() {' \

@@ -1,4 +1,3 @@
-
 name: Release
 
 on:
@@ -10,6 +9,10 @@ permissions:
   contents: write
 
 jobs:
+  # ermite (git.bnema.dev) publishes the release, the Flatpak and the AUR
+  # packages. The GitHub mirror also runs this job for each mirrored tag: its
+  # copy of the release keeps older builds updating, since their updater only
+  # reads GitHub. Flatpak and AUR run on ermite only.
   release:
     runs-on: ubuntu-latest
     steps:
@@ -19,7 +22,7 @@ jobs:
 
       - uses: actions/setup-go@v7
         with:
-          go-version: stable
+          go-version-file: go.mod
 
       - uses: actions/setup-node@v7
         with:

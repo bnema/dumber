@@ -2,7 +2,7 @@
 
 <p align="center">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="License: MIT"></a>
-  <a href="https://github.com/bnema/dumber/releases"><img src="https://img.shields.io/badge/platform-Linux%20Wayland%20only-blue?style=flat-square" alt="Platform: Linux Wayland"></a>
+  <a href="https://git.bnema.dev/dumber/releases"><img src="https://img.shields.io/badge/platform-Linux%20Wayland%20only-blue?style=flat-square" alt="Platform: Linux Wayland"></a>
   <a href="https://github.com/bnema/dumber/commits/main"><img src="https://badgen.net/github/last-commit/bnema/dumber/main?icon=github" alt="Last commit"></a>
   <a href="https://github.com/bnema/dumber/stargazers"><img src="https://badgen.net/github/stars/bnema/dumber?icon=github" alt="GitHub stars"></a>
 </p>
@@ -67,7 +67,7 @@ The browser chrome stays out of the way by default. Open the omnibox when you wa
 ### Install script
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/bnema/dumber/v0.33.0/install.sh | DUMBER_VERSION=v0.33.0 bash
+curl -fsSL https://git.bnema.dev/dumber/raw/v0.33.0/install.sh | DUMBER_VERSION=v0.33.0 bash
 dumber browse
 ```
 
@@ -81,7 +81,7 @@ yay -S dumber-browser-git   # Build from source
 ### Flatpak
 
 ```bash
-wget https://github.com/bnema/dumber/releases/latest/download/dumber.flatpak
+wget https://git.bnema.dev/dumber/releases/latest/download/dumber.flatpak
 flatpak install --user dumber.flatpak
 flatpak run dev.bnema.Dumber browse
 ```
@@ -216,7 +216,7 @@ Set `ENV=dev` to isolate the development process under `.dev/dumber/`. Dumber se
 Systemviews assets are generated with `go tool templ` and Go's `js/wasm` toolchain; no root Node toolchain is required.
 
 ```bash
-git clone https://github.com/bnema/dumber
+git clone https://git.bnema.dev/dumber
 cd dumber
 make build
 ./dist/dumber browse
@@ -249,7 +249,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for details.
 ## Community
 
 - [Report bugs](https://github.com/bnema/dumber/issues)
-- [Releases](https://github.com/bnema/dumber/releases): notes for each version
+- [Releases](https://git.bnema.dev/dumber/releases): notes for each version
 
 ## License
 
