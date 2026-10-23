@@ -5,11 +5,15 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"io"
 	"net"
 	"net/http"
+	"net/http/httptest"
+	"net/url"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync/atomic"
 	"syscall"
@@ -96,6 +100,39 @@ func TestValidateDownloadURL(t *testing.T) {
 			wantErr: false,
 		},
 
+		{
+			name:    "valid ermite versioned URL",
+			url:     "https://git.bnema.dev/dumber/releases/download/v0.15.0/dumber_linux_x86_64.tar.gz",
+			wantErr: false,
+		},
+		{
+			name:    "valid ermite latest URL",
+			url:     "https://git.bnema.dev/dumber/releases/latest/download/dumber_linux_x86_64.tar.gz",
+			wantErr: false,
+		},
+		{
+			name:    "ermite http not allowed",
+			url:     "http://git.bnema.dev/dumber/releases/download/v1/file.tar.gz",
+			wantErr: true,
+			errMsg:  "must use HTTPS",
+		},
+		{
+			name:    "userinfo trick",
+			url:     "https://git.bnema.dev@evil.com/dumber/releases/download/v1/file.tar.gz",
+			wantErr: true,
+		},
+		{
+			name:    "userinfo on allowed host",
+			url:     "https://user@git.bnema.dev/dumber/releases/download/v1/file.tar.gz",
+			wantErr: true,
+		},
+		{
+			name:    "ermite subdomain not allowed",
+			url:     "https://evil.git.bnema.dev/dumber/releases/download/v1/file.tar.gz",
+			wantErr: true,
+			errMsg:  "must be from git.bnema.dev or github.com",
+		},
+
 		// Invalid scheme
 		{
 			name:    "http not allowed",
@@ -115,19 +152,19 @@ func TestValidateDownloadURL(t *testing.T) {
 			name:    "wrong host",
 			url:     "https://evil.com/bnema/dumber/releases/latest/download/file.tar.gz",
 			wantErr: true,
-			errMsg:  "must be from github.com",
+			errMsg:  "must be from git.bnema.dev or github.com",
 		},
 		{
 			name:    "subdomain not allowed",
 			url:     "https://raw.github.com/bnema/dumber/releases/latest/download/file.tar.gz",
 			wantErr: true,
-			errMsg:  "must be from github.com",
+			errMsg:  "must be from git.bnema.dev or github.com",
 		},
 		{
 			name:    "typosquat domain",
 			url:     "https://githuh.com/bnema/dumber/releases/latest/download/file.tar.gz",
 			wantErr: true,
-			errMsg:  "must be from github.com",
+			errMsg:  "must be from git.bnema.dev or github.com",
 		},
 
 		// Invalid path
@@ -135,13 +172,13 @@ func TestValidateDownloadURL(t *testing.T) {
 			name:    "not a releases URL",
 			url:     "https://github.com/bnema/dumber/raw/main/README.md",
 			wantErr: true,
-			errMsg:  "must be a GitHub releases URL",
+			errMsg:  "must be a releases URL",
 		},
 		{
 			name:    "blob URL not allowed",
 			url:     "https://github.com/bnema/dumber/blob/main/cmd/dumber/main.go",
 			wantErr: true,
-			errMsg:  "must be a GitHub releases URL",
+			errMsg:  "must be a releases URL",
 		},
 
 		// Malformed URLs
@@ -541,8 +578,9 @@ func TestGitHubCheckerCheckForUpdate_TransientError(t *testing.T) {
 	if !errors.Is(err, port.ErrUpdateCheckTransient) {
 		t.Fatalf("expected transient error, got %v", err)
 	}
-	if atomic.LoadInt32(&calls) != maxRetryAttempts {
-		t.Fatalf("calls = %d, want %d", calls, maxRetryAttempts)
+	// Both sources (ermite, then GitHub) are tried, each with full retries.
+	if want := int32(2 * maxRetryAttempts); atomic.LoadInt32(&calls) != want {
+		t.Fatalf("calls = %d, want %d", calls, want)
 	}
 }
 
@@ -558,7 +596,7 @@ func TestGitHubDownloaderDoRequestWithRetry_NoRetryOnClientError(t *testing.T) {
 	downloader.randInt63 = func(_ int64) int64 { return 0 }
 	downloader.sleep = func(context.Context, time.Duration) error { return nil }
 
-	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, checksumsURLTemplate, http.NoBody)
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, "https://git.bnema.dev/dumber/releases/download/v1.0.0/checksums.txt", http.NoBody)
 	if err != nil {
 		t.Fatalf("failed to create request: %v", err)
 	}
@@ -593,5 +631,203 @@ func testResponse(status int, body string) *http.Response {
 		StatusCode: status,
 		Body:       io.NopCloser(strings.NewReader(body)),
 		Header:     make(http.Header),
+	}
+}
+
+func newTestChecker(sources ...releaseSource) *GitHubChecker {
+	c := NewGitHubChecker()
+	c.sources = sources
+	c.randInt63 = func(_ int64) int64 { return 0 }
+	c.sleep = func(context.Context, time.Duration) error { return nil }
+	return c
+}
+
+func releaseServer(t *testing.T, status int, body string) *httptest.Server {
+	t.Helper()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(status)
+		_, _ = w.Write([]byte(body))
+	}))
+	t.Cleanup(srv.Close)
+	return srv
+}
+
+func TestCheckForUpdate_SourceSelection(t *testing.T) {
+	const okBody = `{"tag_name":"v2.0.0","html_url":"https://example/r","body":"notes"}`
+
+	const unreachableURL = "https://unreachable.invalid/latest"
+
+	tests := []struct {
+		name        string
+		ermiteURL   func() string
+		githubURL   func() string
+		wantBase    string // "ermite", "github" or "" for error
+		wantErr     bool
+		wantNewer   bool
+		wantTransit bool
+	}{
+		{
+			name:      "ermite answers",
+			ermiteURL: serverURL(t, http.StatusOK, okBody),
+			githubURL: serverURL(t, http.StatusOK, `{"tag_name":"v9.9.9"}`),
+			wantBase:  "ermite", wantNewer: true,
+		},
+		{
+			name:      "ermite accepts other 2xx",
+			ermiteURL: serverURL(t, http.StatusCreated, okBody),
+			githubURL: serverURL(t, http.StatusOK, `{"tag_name":"v9.9.9"}`),
+			wantBase:  "ermite", wantNewer: true,
+		},
+		{
+			name:      "ermite 404 falls back",
+			ermiteURL: serverURL(t, http.StatusNotFound, "missing"),
+			githubURL: serverURL(t, http.StatusOK, okBody),
+			wantBase:  "github", wantNewer: true,
+		},
+		{
+			name:      "ermite 5xx falls back",
+			ermiteURL: serverURL(t, http.StatusInternalServerError, "boom"),
+			githubURL: serverURL(t, http.StatusOK, okBody),
+			wantBase:  "github", wantNewer: true,
+		},
+		{
+			name:      "ermite unreachable falls back",
+			ermiteURL: func() string { return unreachableURL },
+			githubURL: serverURL(t, http.StatusOK, okBody),
+			wantBase:  "github", wantNewer: true,
+		},
+		{
+			name:      "ermite bad json falls back",
+			ermiteURL: serverURL(t, http.StatusOK, "not json"),
+			githubURL: serverURL(t, http.StatusOK, okBody),
+			wantBase:  "github", wantNewer: true,
+		},
+		{
+			name:      "ermite empty tag falls back",
+			ermiteURL: serverURL(t, http.StatusOK, `{"tag_name":""}`),
+			githubURL: serverURL(t, http.StatusOK, okBody),
+			wantBase:  "github", wantNewer: true,
+		},
+		{
+			name:      "both fail",
+			ermiteURL: serverURL(t, http.StatusInternalServerError, "boom"),
+			githubURL: serverURL(t, http.StatusNotFound, "nope"),
+			wantErr:   true,
+		},
+		{
+			name:      "permanent then transient is not transient",
+			ermiteURL: serverURL(t, http.StatusOK, "invalid"),
+			githubURL: serverURL(t, http.StatusServiceUnavailable, "down"),
+			wantErr:   true,
+		},
+		{
+			name:        "both transient",
+			ermiteURL:   serverURL(t, http.StatusBadGateway, "boom"),
+			githubURL:   serverURL(t, http.StatusForbidden, "rate"),
+			wantErr:     true,
+			wantTransit: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ermite, github := tt.ermiteURL(), tt.githubURL()
+			checker := newTestChecker(
+				releaseSource{name: "ermite", apiURL: ermite, downloadBase: ermite + "/e/releases/download"},
+				releaseSource{name: "github", apiURL: github, downloadBase: github + "/g/releases/download"},
+			)
+
+			var githubCalls int
+			checker.client.Transport = roundTripFunc(func(req *http.Request) (*http.Response, error) {
+				if req.URL.String() == unreachableURL {
+					return nil, &net.OpError{Op: "dial", Net: "tcp", Err: syscall.ECONNREFUSED}
+				}
+				if req.URL.String() == github {
+					githubCalls++
+				}
+				return http.DefaultTransport.RoundTrip(req)
+			})
+			info, err := checker.CheckForUpdate(context.Background(), "1.0.0")
+			if tt.wantBase == "ermite" && githubCalls != 0 {
+				t.Fatalf("GitHub received %d requests", githubCalls)
+			}
+			if tt.wantErr {
+				if err == nil {
+					t.Fatal("expected error, got nil")
+				}
+				if got := errors.Is(err, port.ErrUpdateCheckTransient); got != tt.wantTransit {
+					t.Fatalf("transient = %v, want %v (err: %v)", got, tt.wantTransit, err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			base := map[string]string{"ermite": ermite + "/e", "github": github + "/g"}[tt.wantBase]
+			want := fmt.Sprintf("%s/releases/download/v2.0.0/dumber_%s_%s.tar.gz", base, runtime.GOOS, getArchName())
+			if info.DownloadURL != want {
+				t.Fatalf("DownloadURL = %q, want %q", info.DownloadURL, want)
+			}
+			if info.IsNewer != tt.wantNewer || info.LatestVersion != "2.0.0" {
+				t.Fatalf("IsNewer=%v LatestVersion=%q", info.IsNewer, info.LatestVersion)
+			}
+		})
+	}
+}
+
+// serverURL lazily starts a server so each subtest owns its cleanup.
+func serverURL(t *testing.T, status int, body string) func() string {
+	return func() string { return releaseServer(t, status, body).URL }
+}
+
+func TestChecksumsURLFor_SameSourceAndTag(t *testing.T) {
+	tests := []struct{ archive, want string }{
+		{"https://git.bnema.dev/dumber/releases/download/release%2Fv1/dumber_linux_x86_64.tar.gz",
+			"https://git.bnema.dev/dumber/releases/download/release%2Fv1/checksums.txt"},
+		{
+			"https://git.bnema.dev/dumber/releases/download/v1.2.3/dumber_linux_x86_64.tar.gz",
+			"https://git.bnema.dev/dumber/releases/download/v1.2.3/checksums.txt",
+		},
+		{
+			"https://github.com/bnema/dumber/releases/download/v1.2.3/dumber_linux_x86_64.tar.gz?x=1",
+			"https://github.com/bnema/dumber/releases/download/v1.2.3/checksums.txt",
+		},
+		{
+			"https://git.bnema.dev/dumber/releases/latest/download/dumber_linux_x86_64.tar.gz",
+			"https://git.bnema.dev/dumber/releases/latest/download/checksums.txt",
+		},
+	}
+	for _, tt := range tests {
+		u, err := url.Parse(tt.archive)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := checksumsURLFor(u); got != tt.want {
+			t.Errorf("checksumsURLFor(%q) = %q, want %q", tt.archive, got, tt.want)
+		}
+	}
+}
+
+func TestGetExpectedChecksum_UsesArchiveDirectory(t *testing.T) {
+	var gotPath string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.Path
+		_, _ = fmt.Fprint(w, "abc123  dumber_linux_x86_64.tar.gz\n")
+	}))
+	defer srv.Close()
+
+	d := NewGitHubDownloader()
+	d.randInt63 = func(_ int64) int64 { return 0 }
+	d.sleep = func(context.Context, time.Duration) error { return nil }
+
+	hash, err := d.getExpectedChecksum(context.Background(), srv.URL+"/dumber/releases/download/v1.2.3/dumber_linux_x86_64.tar.gz")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if hash != "abc123" {
+		t.Fatalf("hash = %q", hash)
+	}
+	if want := "/dumber/releases/download/v1.2.3/checksums.txt"; gotPath != want {
+		t.Fatalf("checksums path = %q, want %q", gotPath, want)
 	}
 }

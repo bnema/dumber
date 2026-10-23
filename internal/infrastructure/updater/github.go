@@ -4,6 +4,7 @@ package updater
 import (
 	"archive/tar"
 	"bufio"
+	"bytes"
 	"compress/gzip"
 	"context"
 	"crypto/sha256"
@@ -32,16 +33,24 @@ import (
 )
 
 const (
-	// GitHub API endpoint for latest release.
-	githubAPIURL = "https://api.github.com/repos/bnema/dumber/releases/latest"
+	// Ermite (primary) release source.
+	ermiteAPIURL       = "https://git.bnema.dev/-/github/api/repos/bnema/dumber/releases/latest"
+	ermiteDownloadBase = "https://git.bnema.dev/dumber/releases/download"
 
-	// Download URL pattern for the release archive.
-	// Uses version-less filename for stable "latest" download URL.
-	downloadURLTemplate = "https://github.com/bnema/dumber/releases/latest/download/dumber_%s_%s.tar.gz"
+	// GitHub (fallback) release source.
+	githubAPIURL       = "https://api.github.com/repos/bnema/dumber/releases/latest"
+	githubDownloadBase = "https://github.com/bnema/dumber/releases/download"
 
-	// Checksums file URL pattern.
-	checksumsURLTemplate = "https://github.com/bnema/dumber/releases/latest/download/checksums.txt"
+	// Archive filename pattern (version-less).
+	archiveNameTemplate = "dumber_%s_%s.tar.gz"
 
+	// Checksums filename published next to the archive.
+	checksumsFilename = "checksums.txt"
+
+	// Metadata response limits prevent unbounded memory consumption.
+	maxReleaseJSONSize   = 1024 * 1024
+	maxChecksumsSize     = 1024 * 1024
+	maxDownloadRedirects = 10
 	// HTTP client timeout for API requests.
 	apiTimeout = 10 * time.Second
 
@@ -59,9 +68,6 @@ const (
 
 	// Minimum binary size (1MB) - prevents truncated/corrupt binaries.
 	minBinarySize = 1 * 1024 * 1024
-
-	// Allowed GitHub download host.
-	allowedDownloadHost = "github.com"
 
 	// Maximum number of attempts for retryable network requests.
 	maxRetryAttempts = 3
@@ -84,23 +90,48 @@ type githubRelease struct {
 	Body        string    `json:"body"`
 }
 
-// GitHubChecker implements UpdateChecker using the GitHub API.
+// allowedDownloadHosts is the allowlist of hosts downloads may come from.
+var allowedDownloadHosts = map[string]struct{}{
+	"git.bnema.dev": {},
+	"github.com":    {},
+}
+
+// releaseSource describes one place releases can be queried and downloaded from.
+type releaseSource struct {
+	name string
+	// apiURL returns the GitHub-compatible "latest release" JSON.
+	apiURL string
+	// downloadBase is the URL prefix; assets live at <downloadBase>/<tag>/<asset>.
+	downloadBase string
+}
+
+// defaultReleaseSources returns release sources in priority order: ermite, then GitHub.
+func defaultReleaseSources() []releaseSource {
+	return []releaseSource{
+		{name: "ermite", apiURL: ermiteAPIURL, downloadBase: ermiteDownloadBase},
+		{name: "github", apiURL: githubAPIURL, downloadBase: githubDownloadBase},
+	}
+}
+
+// GitHubChecker implements UpdateChecker using ermite first, falling back to GitHub.
 type GitHubChecker struct {
+	sources   []releaseSource
 	client    *http.Client
 	randInt63 func(n int64) int64
 	sleep     func(ctx context.Context, d time.Duration) error
 }
 
-// NewGitHubChecker creates a new GitHub-based update checker.
+// NewGitHubChecker creates an ermite-first update checker with GitHub fallback.
 func NewGitHubChecker() *GitHubChecker {
 	return &GitHubChecker{
-		client:    &http.Client{Timeout: apiTimeout},
+		sources:   defaultReleaseSources(),
+		client:    &http.Client{Timeout: apiTimeout, CheckRedirect: checkAPIRedirect},
 		randInt63: rand.Int63n,
 		sleep:     waitForBackoff,
 	}
 }
 
-// CheckForUpdate checks if a newer version is available on GitHub.
+// CheckForUpdate checks ermite, then GitHub, for a newer release.
 func (g *GitHubChecker) CheckForUpdate(ctx context.Context, currentVersion string) (*entity.UpdateInfo, error) {
 	log := logging.FromContext(ctx)
 
@@ -128,7 +159,37 @@ func (g *GitHubChecker) CheckForUpdate(ctx context.Context, currentVersion strin
 		}, nil
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, githubAPIURL, http.NoBody)
+	var errs []error
+	allTransient := true
+	for _, src := range g.sources {
+		release, err := g.fetchLatestRelease(ctx, src, currentVersion)
+		if err != nil {
+			log.Debug().Err(err).Str("source", src.name).Msg("release source failed")
+			if !errors.Is(err, port.ErrUpdateCheckTransient) {
+				allTransient = false
+			}
+			// %v keeps each message but drops the per-source error chain, so the
+			// result is transient only when every source failed transiently.
+			errs = append(errs, fmt.Errorf("%s: %v", src.name, err)) //nolint:errorlint // chain dropped on purpose, see above
+			continue
+		}
+		return buildUpdateInfo(ctx, src, release, currentVersion), nil
+	}
+	if len(errs) == 0 {
+		return nil, errors.New("no release sources configured")
+	}
+	joined := errors.Join(errs...)
+	if allTransient {
+		return nil, fmt.Errorf("%w: %w", port.ErrUpdateCheckTransient, joined)
+	}
+	return nil, joined
+}
+
+// fetchLatestRelease queries a single release source.
+func (g *GitHubChecker) fetchLatestRelease(
+	ctx context.Context, src releaseSource, currentVersion string,
+) (*githubRelease, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, src.apiURL, http.NoBody)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
@@ -138,36 +199,46 @@ func (g *GitHubChecker) CheckForUpdate(ctx context.Context, currentVersion strin
 	resp, err := g.doRequestWithRetry(ctx, req)
 	if err != nil {
 		if isRetryableRequestError(err) {
-			log.Debug().Err(err).Msg("transient update check failure; skipping check")
 			return nil, fmt.Errorf("%w: %w", port.ErrUpdateCheckTransient, err)
 		}
 		return nil, fmt.Errorf("failed to fetch latest release: %w", err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
-	if resp.StatusCode != http.StatusOK {
+	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
 		if isRetryableStatus(resp.StatusCode) {
-			log.Debug().Int("status", resp.StatusCode).Msg("transient update check API status; skipping check")
-			return nil, fmt.Errorf("%w: github API returned status %d", port.ErrUpdateCheckTransient, resp.StatusCode)
+			return nil, fmt.Errorf("%w: release API returned status %d", port.ErrUpdateCheckTransient, resp.StatusCode)
 		}
-		return nil, fmt.Errorf("github API returned status %d", resp.StatusCode)
+		return nil, fmt.Errorf("release API returned status %d", resp.StatusCode)
 	}
 
+	data, err := readMetadata(resp.Body, maxReleaseJSONSize)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read release: %w", err)
+	}
 	var release githubRelease
-	if err := json.NewDecoder(resp.Body).Decode(&release); err != nil {
+	if err := json.Unmarshal(data, &release); err != nil {
 		return nil, fmt.Errorf("failed to decode release: %w", err)
 	}
+	if strings.TrimSpace(release.TagName) == "" {
+		return nil, errors.New("release has empty tag_name")
+	}
+	return &release, nil
+}
+
+// buildUpdateInfo builds the UpdateInfo with a download URL pinned to the resolved tag on src.
+func buildUpdateInfo(ctx context.Context, src releaseSource, release *githubRelease, currentVersion string) *entity.UpdateInfo {
+	log := logging.FromContext(ctx)
 
 	latestVersion := strings.TrimPrefix(release.TagName, "v")
 	currentClean := strings.TrimPrefix(currentVersion, "v")
-
 	isNewer := compareVersions(currentClean, latestVersion) < 0
 
-	// Build download URL based on current architecture.
-	archName := getArchName()
-	downloadURL := fmt.Sprintf(downloadURLTemplate, runtime.GOOS, archName)
+	downloadURL := fmt.Sprintf("%s/%s/"+archiveNameTemplate,
+		strings.TrimRight(src.downloadBase, "/"), url.PathEscape(release.TagName), runtime.GOOS, getArchName())
 
 	log.Debug().
+		Str("source", src.name).
 		Str("current", currentVersion).
 		Str("latest", latestVersion).
 		Bool("is_newer", isNewer).
@@ -181,7 +252,7 @@ func (g *GitHubChecker) CheckForUpdate(ctx context.Context, currentVersion strin
 		DownloadURL:    downloadURL,
 		PublishedAt:    release.PublishedAt,
 		ReleaseNotes:   release.Body,
-	}, nil
+	}
 }
 
 // getArchName returns the architecture name used in release assets.
@@ -250,10 +321,53 @@ type GitHubDownloader struct {
 // NewGitHubDownloader creates a new GitHub release downloader.
 func NewGitHubDownloader() *GitHubDownloader {
 	return &GitHubDownloader{
-		client:    &http.Client{Timeout: downloadTimeout},
+		client:    &http.Client{Timeout: downloadTimeout, CheckRedirect: checkDownloadRedirect},
 		randInt63: rand.Int63n,
 		sleep:     waitForBackoff,
 	}
+}
+
+// checkAPIRedirect restricts metadata redirects to the release API hosts.
+func checkAPIRedirect(req *http.Request, via []*http.Request) error {
+	if len(via) > maxDownloadRedirects {
+		return errors.New("too many API redirects")
+	}
+	if req.URL.Scheme != "https" || req.URL.User != nil {
+		return errors.New("API redirect must use HTTPS without userinfo")
+	}
+	switch req.URL.Host {
+	case "git.bnema.dev", "api.github.com":
+		return nil
+	default:
+		return fmt.Errorf("API redirect host not allowed: %s", req.URL.Host)
+	}
+}
+
+// checkDownloadRedirect permits only release hosts and GitHub's asset CDNs.
+func checkDownloadRedirect(req *http.Request, via []*http.Request) error {
+	if len(via) > maxDownloadRedirects {
+		return errors.New("too many download redirects")
+	}
+	if req.URL.Scheme != "https" || req.URL.User != nil {
+		return errors.New("download redirect must use HTTPS without userinfo")
+	}
+	switch req.URL.Host {
+	case "git.bnema.dev", "github.com", "objects.githubusercontent.com", "release-assets.githubusercontent.com":
+		return nil
+	default:
+		return fmt.Errorf("download redirect host not allowed: %s", req.URL.Host)
+	}
+}
+
+func readMetadata(r io.Reader, limit int64) ([]byte, error) {
+	data, err := io.ReadAll(io.LimitReader(r, limit+1))
+	if err != nil {
+		return nil, err
+	}
+	if int64(len(data)) > limit {
+		return nil, fmt.Errorf("metadata exceeds maximum size of %d bytes", limit)
+	}
+	return data, nil
 }
 
 func isRetryableStatus(status int) bool {
@@ -388,7 +502,7 @@ func (g *GitHubChecker) doRequestWithRetry(ctx context.Context, req *http.Reques
 	return doRequestWithRetryHelper(ctx, g.client, req, g.sleep, g.randInt63)
 }
 
-// validateDownloadURL ensures the URL is a valid GitHub releases URL.
+// validateDownloadURL ensures the URL is an https releases URL on an allowlisted host.
 func validateDownloadURL(downloadURL string) error {
 	parsed, err := url.Parse(downloadURL)
 	if err != nil {
@@ -399,23 +513,27 @@ func validateDownloadURL(downloadURL string) error {
 		return fmt.Errorf("URL must use HTTPS, got %s", parsed.Scheme)
 	}
 
-	if parsed.Host != allowedDownloadHost {
-		return fmt.Errorf("URL must be from %s, got %s", allowedDownloadHost, parsed.Host)
+	if parsed.User != nil {
+		return fmt.Errorf("URL must not contain userinfo")
+	}
+
+	if _, ok := allowedDownloadHosts[parsed.Host]; !ok {
+		return fmt.Errorf("URL must be from git.bnema.dev or github.com, got %s", parsed.Host)
 	}
 
 	// Verify it's a releases download path: /owner/repo/releases/...
 	if !strings.Contains(parsed.Path, "/releases/") {
-		return fmt.Errorf("URL must be a GitHub releases URL")
+		return fmt.Errorf("URL must be a releases URL")
 	}
 
 	return nil
 }
 
 // fetchChecksums downloads the checksums.txt file and returns a map of filename -> sha256.
-func (g *GitHubDownloader) fetchChecksums(ctx context.Context) (map[string]string, error) {
+func (g *GitHubDownloader) fetchChecksums(ctx context.Context, checksumsURL string) (map[string]string, error) {
 	log := logging.FromContext(ctx)
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, checksumsURLTemplate, http.NoBody)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, checksumsURL, http.NoBody)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create checksums request: %w", err)
 	}
@@ -431,8 +549,12 @@ func (g *GitHubDownloader) fetchChecksums(ctx context.Context) (map[string]strin
 		return nil, fmt.Errorf("checksums fetch failed with status %d", resp.StatusCode)
 	}
 
+	data, err := readMetadata(resp.Body, maxChecksumsSize)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read checksums: %w", err)
+	}
 	checksums := make(map[string]string)
-	scanner := bufio.NewScanner(resp.Body)
+	scanner := bufio.NewScanner(bytes.NewReader(data))
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
 		if line == "" {
@@ -476,16 +598,27 @@ func verifyChecksum(filePath, expectedHash string) error {
 	return nil
 }
 
+// checksumsURLFor returns the checksums.txt URL in the same directory (source and tag) as the archive URL.
+func checksumsURLFor(archiveURL *url.URL) string {
+	c := *archiveURL
+	c.RawQuery = ""
+	c.Fragment = ""
+	escaped := archiveURL.EscapedPath()
+	c.RawPath = escaped[:strings.LastIndex(escaped, "/")+1] + checksumsFilename
+	c.Path, _ = url.PathUnescape(c.RawPath)
+	return c.String()
+}
+
 // getExpectedChecksum fetches checksums and returns the hash for the given URL.
 func (g *GitHubDownloader) getExpectedChecksum(ctx context.Context, downloadURL string) (string, error) {
-	checksums, err := g.fetchChecksums(ctx)
-	if err != nil {
-		return "", fmt.Errorf("failed to fetch checksums: %w", err)
-	}
-
 	parsedURL, err := url.Parse(downloadURL)
 	if err != nil {
 		return "", fmt.Errorf("failed to parse download URL: %w", err)
+	}
+
+	checksums, err := g.fetchChecksums(ctx, checksumsURLFor(parsedURL))
+	if err != nil {
+		return "", fmt.Errorf("failed to fetch checksums: %w", err)
 	}
 
 	archiveFilename := filepath.Base(parsedURL.Path)
@@ -501,7 +634,7 @@ func (g *GitHubDownloader) getExpectedChecksum(ctx context.Context, downloadURL 
 func (g *GitHubDownloader) Download(ctx context.Context, downloadURL, destDir string) (string, error) {
 	log := logging.FromContext(ctx)
 
-	// Validate the download URL is from GitHub releases.
+	// Validate the download URL is from an allowed releases host.
 	if err := validateDownloadURL(downloadURL); err != nil {
 		return "", fmt.Errorf("invalid download URL: %w", err)
 	}
