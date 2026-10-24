@@ -10,13 +10,13 @@ permissions:
 
 jobs:
   # ermite (git.bnema.dev) publishes the release, the Flatpak and the AUR
-  # packages. The GitHub mirror also runs this job for each mirrored tag: its
-  # copy of the release keeps older builds updating, since their updater only
-  # reads GitHub. Flatpak and AUR run on ermite only.
+  # packages. The GitHub mirror does not run this job: it gets a link-only
+  # release from github-release.yml.
   release:
+    if: github.server_url != 'https://github.com'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7.0.1
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
