@@ -53,15 +53,27 @@ window, tooltip, popover {
 
 const defaultTransitionDurationMs = 120
 
-// Compact chrome shares the stacked titlebar baseline. Text and horizontal
-// padding scale with GTK fonts; vertical dimensions stay compact.
+// Compact chrome rows (top tab buttons and stacked titlebars) share one
+// vertical sizing policy. GTK min-height applies to the content box, so the
+// row content is at least compactTitleMinHeight and grows with the font to fit
+// the tallest child: the 1em close icon plus its vertical padding. Padding and
+// the bottom border stay in whole device pixels so every row rounds the same.
 const (
-	compactTitleMinHeight = 24
-	compactTitlePaddingY  = 4
-	compactTitlePaddingX  = "0.5em"
-	compactTitleFontSize  = "0.75em"
-	compactTitleBorder    = "0.0625em"
+	compactTitleMinHeight     = 24
+	compactTitlePaddingY      = 4
+	compactTitlePaddingX      = "0.5em"
+	compactTitleFontSize      = "0.75em"
+	compactTitleBorderPx      = 1
+	compactCloseButtonPadding = 3
 )
+
+// compactTitleContentMinHeight is the shared content-box min-height of compact rows.
+var compactTitleContentMinHeight = fmt.Sprintf("max(%dpx, calc(1em + %dpx))",
+	compactTitleMinHeight, 2*compactCloseButtonPadding)
+
+// compactTitleRowHeight is the full border-box height of one compact row.
+var compactTitleRowHeight = fmt.Sprintf("calc(%s + %dpx)",
+	compactTitleContentMinHeight, 2*compactTitlePaddingY+compactTitleBorderPx)
 
 // GenerateCSSWithScaleAndFonts creates GTK4 CSS using the provided palette, UI scale factor and fonts.
 // Scale affects widget sizing that uses relative units; text scaling is handled via GtkSettings.
@@ -186,23 +198,16 @@ func appendNativeSidebarCSS(sb *strings.Builder, p Palette) {
 
 // generateTabBarCSS creates tab bar styles.
 // Text scales with GTK fonts while vertical chrome matches stacked titlebars.
+// The content inset reserved for the overlaid bar is measured from the bar
+// widget itself (see window.MainWindow), so no inset rule lives here.
 func generateTabBarCSS(_ Palette) string {
 	return fmt.Sprintf(`/* Tab bar styling */
-/* Content area inset for overlaid tab bars — uses the same compact footprint as
-   the tab buttons and remains static to avoid OSR vertical reallocations. */
-.content-area-tabbar-inset-top {
-	padding-top: calc(%[1]dpx + %[5]s);
-}
-
-.content-area-tabbar-inset-bottom {
-	padding-bottom: calc(%[1]dpx + %[5]s);
-}
-
+/* An empty bar keeps the footprint of one compact row. */
 .tab-bar {
 	background-color: var(--surface);
 	border: none;
 	padding: 0;
-	min-height: %[1]dpx;
+	min-height: %[1]s;
 }
 
 /* Tab button styling */
@@ -210,11 +215,11 @@ button.tab-button {
 	background-color: var(--surface-variant);
 	background-image: none;
 	border: none;
-	border-right: %[5]s solid var(--border);
-	border-bottom: %[5]s solid var(--border);
+	border-right: %[5]dpx solid var(--border);
+	border-bottom: %[5]dpx solid var(--border);
 	border-radius: 0;
 	padding: %[2]dpx %[3]s;
-	min-height: %[6]dpx;
+	min-height: %[6]s;
 	transition: background-color 200ms ease-in-out;
 }
 
@@ -234,8 +239,8 @@ button.tab-button.tab-button-active {
 	color: var(--text);
 	font-weight: 400;
 }
-`, compactTitleMinHeight+2*compactTitlePaddingY, compactTitlePaddingY,
-		compactTitlePaddingX, compactTitleFontSize, compactTitleBorder, compactTitleMinHeight)
+`, compactTitleRowHeight, compactTitlePaddingY,
+		compactTitlePaddingX, compactTitleFontSize, compactTitleBorderPx, compactTitleContentMinHeight)
 }
 
 // generateOmniboxCSS creates omnibox styles.
@@ -967,9 +972,9 @@ func generateStackedPaneCSS(_ Palette) string {
 .stacked-pane-titlebar {
 	background-color: var(--surface-variant);
 	color: var(--control-text);
-	border-bottom: %[5]s solid var(--border);
+	border-bottom: %[5]dpx solid var(--border);
 	padding: %[1]dpx %[2]s;
-	min-height: %[3]dpx;
+	min-height: %[3]s;
 }
 
 /* Keep the background stable so --control-text retains its contrast.
@@ -999,12 +1004,12 @@ func generateStackedPaneCSS(_ Palette) string {
 }
 
 /* Close button in stacked pane title bar.
- * Its vertical footprint is intentionally smaller than the original scale-1 baseline. */
+ * Its 1em icon plus vertical padding sets the shared compact row content height. */
 .stacked-pane-close-button {
 	background: transparent;
 	border: none;
 	border-radius: 0.2727em;
-	padding: 3px;
+	padding: %[6]dpx;
 	margin: 0 2px;
 	min-width: 1.3636em;
 	min-height: 15px;
@@ -1035,7 +1040,8 @@ func generateStackedPaneCSS(_ Palette) string {
 	outline: none;
 	box-shadow: none;
 }
-`, compactTitlePaddingY, compactTitlePaddingX, compactTitleMinHeight, compactTitleFontSize, compactTitleBorder)
+`, compactTitlePaddingY, compactTitlePaddingX, compactTitleContentMinHeight, compactTitleFontSize,
+		compactTitleBorderPx, compactCloseButtonPadding)
 }
 
 // generateProgressBarCSS creates progress bar styles for page loading indication.

@@ -25,9 +25,14 @@ const (
 //	  rootBox (vertical)
 //	    contentOverlay
 //	      contentAreaHBox (horizontal)
-//	        mainContentBox (vertical, expand) ← workspace tab content
+//	        mainContentBox (vertical, expand)
+//	          tabBarInset (top: first child, bottom: last child)
+//	          workspace tab content
 //	        sidebarBox (vertical, fixed width) ← optional sidebar
 //	      tabBar (overlay, not measured)
+//
+// tabBarInset shares a vertical GtkSizeGroup with tabBar, so GTK sizes it to
+// the bar's measured height and follows font and style changes.
 type MainWindow struct {
 	window         *gtk.ApplicationWindow
 	rootBox        *gtk.Box // Vertical: tab bar + content
@@ -35,6 +40,7 @@ type MainWindow struct {
 	contentOverlay *gtk.Overlay // Overlay for content + omnibox
 	contentAreaBox *gtk.Box     // Horizontal: main content + sidebar
 	mainContentBox *gtk.Box     // Vertical container for workspace content
+	tabBarInset    *gtk.Box     // Reserves the overlaid tab bar footprint
 	sidebarBox     *gtk.Box     // Vertical container for sidebar (hidden by default)
 	currentContent *gtk.Widget  // Track current content for removal on tab switch
 
@@ -145,9 +151,28 @@ func (mw *MainWindow) initContentBoxes() error {
 	mw.mainContentBox.SetVexpand(true)
 	mw.mainContentBox.SetVisible(true)
 
+	// Empty spacer sized like the tab bar; hidden until the bar is shown.
+	mw.tabBarInset = gtk.NewBox(gtk.OrientationVerticalValue, 0)
+	if mw.tabBarInset == nil {
+		mw.mainContentBox.Unref()
+		mw.contentAreaBox.Unref()
+		mw.contentOverlay.Unref()
+		mw.tabBar.Destroy()
+		mw.rootBox.Unref()
+		mw.window.Unref()
+		return ErrWidgetCreationFailed("tabBarInset")
+	}
+	mw.tabBarInset.AddCssClass("tab-bar-inset")
+	mw.tabBarInset.SetHexpand(true)
+	mw.tabBarInset.SetVexpand(false)
+	mw.tabBarInset.SetCanTarget(false)
+	mw.tabBarInset.SetFocusable(false)
+	mw.tabBarInset.SetVisible(false)
+
 	// Sidebar box (hidden by default).
 	mw.sidebarBox = gtk.NewBox(gtk.OrientationVerticalValue, 0)
 	if mw.sidebarBox == nil {
+		mw.tabBarInset.Unref()
 		mw.mainContentBox.Unref()
 		mw.contentAreaBox.Unref()
 		mw.contentOverlay.Unref()
@@ -176,15 +201,28 @@ func (mw *MainWindow) assembleLayout() {
 	tabBarWidget.SetValign(gtk.AlignStartValue)
 	if tabBarPos == "bottom" {
 		tabBarWidget.SetValign(gtk.AlignEndValue)
-		// Inset is NOT applied unconditionally. See SetTabBarContentInsetVisible
-		// which is called when the bottom tab bar is actually visible.
 	}
+	// The inset is hidden until SetTabBarContentInsetVisible(true). Content is
+	// added on the opposite side of it by SetContent.
+	mw.mainContentBox.Append(&mw.tabBarInset.Widget)
 	mw.contentOverlay.AddOverlay(tabBarWidget)
 	mw.contentOverlay.SetClipOverlay(tabBarWidget, false)
 	// Keep the tab bar out of measurement so showing/hiding it never changes the
 	// WebView content allocation; the content area reserves a stable inset while
 	// the overlay remains non-measured to avoid WebView allocation changes.
 	mw.contentOverlay.SetMeasureOverlay(tabBarWidget, false)
+
+	// The inset requests the tab bar's real height: GTK measures the bar with
+	// its current font and CSS and re-measures it whenever those change.
+	insetGroup := gtk.NewSizeGroup(gtk.SizeGroupVerticalValue)
+	if insetGroup != nil {
+		insetGroup.AddWidget(tabBarWidget)
+		insetGroup.AddWidget(&mw.tabBarInset.Widget)
+		// Member widgets keep the group alive.
+		insetGroup.Unref()
+	} else {
+		mw.logger.Warn().Msg("tab bar inset size group creation failed")
+	}
 
 	mw.logger.Debug().
 		Str("tab_bar_position", tabBarPos).
@@ -231,7 +269,11 @@ func (mw *MainWindow) SetContent(widget *gtk.Widget) {
 
 	if widget != nil {
 		widget.SetVisible(true)
-		mw.mainContentBox.Append(widget)
+		if mw.tabBarPosition == "bottom" {
+			mw.mainContentBox.Prepend(widget)
+		} else {
+			mw.mainContentBox.Append(widget)
+		}
 		mw.currentContent = widget
 	}
 }
@@ -270,38 +312,29 @@ func (mw *MainWindow) ContentOverlay() *gtk.Overlay {
 	return mw.contentOverlay
 }
 
-// SetTabBarContentInsetVisible adds or removes the tab bar inset CSS class
-// on the main content area. Avoids duplicate add/remove if already in the desired state.
+// SetTabBarContentInsetVisible shows or hides the spacer that reserves the
+// overlaid tab bar's measured height in the main content area.
 func (mw *MainWindow) SetTabBarContentInsetVisible(visible bool) {
-	if mw.mainContentBox == nil {
+	if mw.tabBarInset == nil || mw.tabBarInset.GetVisible() == visible {
 		return
 	}
-	class := mw.tabBarContentInsetClass()
-	if visible {
-		if !mw.mainContentBox.HasCssClass(class) {
-			mw.mainContentBox.AddCssClass(class)
-		}
-	} else {
-		if mw.mainContentBox.HasCssClass(class) {
-			mw.mainContentBox.RemoveCssClass(class)
-		}
-	}
+	mw.tabBarInset.SetVisible(visible)
 }
 
-// HasTabBarContentInset returns whether the tab bar inset CSS class is currently
-// applied to the main content area.
+// HasTabBarContentInset returns whether the tab bar inset is reserved.
 func (mw *MainWindow) HasTabBarContentInset() bool {
-	if mw.mainContentBox == nil {
+	if mw.tabBarInset == nil {
 		return false
 	}
-	return mw.mainContentBox.HasCssClass(mw.tabBarContentInsetClass())
+	return mw.tabBarInset.GetVisible()
 }
 
-func (mw *MainWindow) tabBarContentInsetClass() string {
-	if mw.tabBarPosition == "bottom" {
-		return "content-area-tabbar-inset-bottom"
+// TabBarContentInset returns the spacer reserving the tab bar footprint.
+func (mw *MainWindow) TabBarContentInset() *gtk.Widget {
+	if mw.tabBarInset == nil {
+		return nil
 	}
-	return "content-area-tabbar-inset-top"
+	return &mw.tabBarInset.Widget
 }
 
 // AddOverlay adds a widget as an overlay above the content area.
@@ -332,6 +365,10 @@ func (mw *MainWindow) Destroy() {
 	if mw.sidebarBox != nil {
 		mw.sidebarBox.Unref()
 		mw.sidebarBox = nil
+	}
+	if mw.tabBarInset != nil {
+		mw.tabBarInset.Unref()
+		mw.tabBarInset = nil
 	}
 	if mw.mainContentBox != nil {
 		mw.mainContentBox.Unref()

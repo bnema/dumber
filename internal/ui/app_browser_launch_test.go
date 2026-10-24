@@ -3517,29 +3517,23 @@ func TestMainWindow_BottomTabBar_ContentAreaHasInset(t *testing.T) {
 	defer mw.Destroy()
 
 	// Bottom window should start WITHOUT the inset
-	if mw.ContentArea().HasCssClass("content-area-tabbar-inset-bottom") {
+	if mw.HasTabBarContentInset() || mw.TabBarContentInset().GetVisible() {
 		t.Fatal("bottom-tab-bar content area: should NOT have inset at window creation")
 	}
 
-	// HasTabBarContentInset must return false initially
-	if mw.HasTabBarContentInset() {
-		t.Fatal("HasTabBarContentInset should return false initially")
+	// The bottom inset sits after the content.
+	content := gtk.NewBox(gtk.OrientationVerticalValue, 0)
+	mw.SetContent(&content.Widget)
+	if mw.ContentArea().GetLastChild().GoPointer() != mw.TabBarContentInset().GoPointer() {
+		t.Fatal("bottom-tab-bar content area: inset must be the last child")
 	}
 
-	// SetTabBarContentInsetVisible(true) must add the class
 	mw.SetTabBarContentInsetVisible(true)
-	if !mw.ContentArea().HasCssClass("content-area-tabbar-inset-bottom") {
-		t.Fatal("bottom-tab-bar content area: expected content-area-tabbar-inset-bottom CSS class after SetTabBarContentInsetVisible(true)")
-	}
-	if !mw.HasTabBarContentInset() {
+	if !mw.HasTabBarContentInset() || !mw.TabBarContentInset().GetVisible() {
 		t.Fatal("HasTabBarContentInset should return true after SetTabBarContentInsetVisible(true)")
 	}
 
-	// SetTabBarContentInsetVisible(false) must remove the class
 	mw.SetTabBarContentInsetVisible(false)
-	if mw.ContentArea().HasCssClass("content-area-tabbar-inset-bottom") {
-		t.Fatal("bottom-tab-bar content area: should NOT have inset after SetTabBarContentInsetVisible(false)")
-	}
 	if mw.HasTabBarContentInset() {
 		t.Fatal("HasTabBarContentInset should return false after SetTabBarContentInsetVisible(false)")
 	}
@@ -3560,28 +3554,23 @@ func TestMainWindow_TopTabBar_ContentAreaHasTopInset(t *testing.T) {
 	}
 	defer mw.Destroy()
 
-	if mw.ContentArea().HasCssClass("content-area-tabbar-inset-top") {
+	if mw.HasTabBarContentInset() {
 		t.Fatal("top-tab-bar content area: should NOT have inset at window creation")
 	}
-	if mw.ContentArea().HasCssClass("content-area-tabbar-inset-bottom") {
-		t.Fatal("top-tab-bar content area: should NOT have content-area-tabbar-inset-bottom CSS class")
+
+	// The top inset sits before the content.
+	content := gtk.NewBox(gtk.OrientationVerticalValue, 0)
+	mw.SetContent(&content.Widget)
+	if mw.ContentArea().GetFirstChild().GoPointer() != mw.TabBarContentInset().GoPointer() {
+		t.Fatal("top-tab-bar content area: inset must be the first child")
 	}
 
 	mw.SetTabBarContentInsetVisible(true)
-	if !mw.ContentArea().HasCssClass("content-area-tabbar-inset-top") {
-		t.Fatal("top-tab-bar content area: expected content-area-tabbar-inset-top CSS class after SetTabBarContentInsetVisible(true)")
-	}
-	if mw.ContentArea().HasCssClass("content-area-tabbar-inset-bottom") {
-		t.Fatal("top-tab-bar content area: should NOT have bottom inset after SetTabBarContentInsetVisible(true)")
-	}
 	if !mw.HasTabBarContentInset() {
 		t.Fatal("HasTabBarContentInset should return true for top inset")
 	}
 
 	mw.SetTabBarContentInsetVisible(false)
-	if mw.ContentArea().HasCssClass("content-area-tabbar-inset-top") {
-		t.Fatal("top-tab-bar content area: should NOT have inset after SetTabBarContentInsetVisible(false)")
-	}
 	if mw.HasTabBarContentInset() {
 		t.Fatal("HasTabBarContentInset should return false after removing top inset")
 	}
