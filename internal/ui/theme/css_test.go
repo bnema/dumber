@@ -278,7 +278,7 @@ func TestGenerateCSS_StackedPaneTitlebarKeepsCompactVerticalChrome(t *testing.T)
 	titlebar := cssRuleBlock(t, css, ".stacked-pane-titlebar")
 	assert.Contains(t, titlebar, "padding: 4px 0.5em;")
 	assert.NotRegexp(t, `(?m)^\s*padding-(?:top|bottom):[^;]*em`, titlebar)
-	// Small fonts keep the 24px floor; larger fonts grow with the close icon.
+	// Small fonts keep the 24px floor; larger fonts follow the 1em + 6px floor.
 	tab, row, _ := compactRowHeights(t, css, 12)
 	assert.Equal(t, 33, row)
 	assert.Equal(t, tab, row)
@@ -359,8 +359,8 @@ func TestGenerateCSS_OmniboxIncludesVisualConcepts(t *testing.T) {
 }
 
 // compactRowHeights evaluates the generated compact row CSS for a font size in
-// px, the way GTK sizes the rows: content box = max(min-height, close button)
-// rounded up to whole pixels, then whole-pixel padding and bottom border.
+// px, the way GTK sizes the rows: content box = max(floor, 1em + extra)
+// rounded up to whole pixels, then whole-pixel padding and the row line.
 func compactRowHeights(t *testing.T, css string, fontPx float64) (tab, titlebar, emptyBar int) {
 	t.Helper()
 	content := func(block string) float64 {
@@ -369,8 +369,8 @@ func compactRowHeights(t *testing.T, css string, fontPx float64) (tab, titlebar,
 			t.Fatalf("expected shared compact min-height in %q", block)
 		}
 		floor, _ := strconv.Atoi(m[1])
-		closeButtonPadding, _ := strconv.Atoi(m[2])
-		return math.Max(float64(floor), fontPx+float64(closeButtonPadding))
+		contentExtra, _ := strconv.Atoi(m[2])
+		return math.Max(float64(floor), fontPx+float64(contentExtra))
 	}
 	chrome := func(block string) int {
 		m := regexp.MustCompile(`padding: (\d+)px [^;]+;`).FindStringSubmatch(block)
@@ -393,9 +393,9 @@ func compactRowHeights(t *testing.T, css string, fontPx float64) (tab, titlebar,
 		t.Fatalf("expected compact row min-height on .tab-bar, got %q", bar)
 	}
 	floor, _ := strconv.Atoi(m[1])
-	closeButtonPadding, _ := strconv.Atoi(m[2])
+	contentExtra, _ := strconv.Atoi(m[2])
 	extra, _ := strconv.Atoi(m[3])
-	emptyBar = int(math.Ceil(math.Max(float64(floor), fontPx+float64(closeButtonPadding)) + float64(extra)))
+	emptyBar = int(math.Ceil(math.Max(float64(floor), fontPx+float64(contentExtra)) + float64(extra)))
 	return tab, titlebar, emptyBar
 }
 
@@ -427,6 +427,27 @@ func TestGenerateCSS_TabBarInsetIsMeasuredNotStyled(t *testing.T) {
 	assert.NotContains(t, css, "content-area-tabbar-inset")
 	assert.Contains(t, cssRuleBlock(t, css, ".tab-bar"), "border: none;")
 	assert.Contains(t, cssRuleBlock(t, css, ".tab-bar"), "padding: 0;")
+}
+
+func TestGenerateCSS_TabBarDrawsFullWidthContentSeparator(t *testing.T) {
+	css := GenerateCSS(DefaultDarkPalette())
+	// The separator is an inset shadow on the content side, so it spans the
+	// whole bar without adding height.
+	top := cssRuleBlock(t, css, ".tab-bar.tab-bar-top")
+	assert.Contains(t, top, "box-shadow: inset 0 -1px var(--border);")
+	bottom := cssRuleBlock(t, css, ".tab-bar.tab-bar-bottom")
+	assert.Contains(t, bottom, "box-shadow: inset 0 1px var(--border);")
+	for _, block := range []string{top, bottom} {
+		assert.NotRegexp(t, `(?m)^\s*(?:border|padding|min-height)`, block)
+	}
+
+	// Bottom-bar buttons move their row line to the content-facing edge,
+	// keeping the same vertical chrome as top-bar buttons.
+	bottomButton := cssRuleBlock(t, css, ".tab-bar-bottom button.tab-button")
+	assert.Contains(t, bottomButton, "border-bottom: none;")
+	assert.Contains(t, bottomButton, "border-top: 1px solid var(--border);")
+	bottomActive := cssRuleBlock(t, css, ".tab-bar-bottom button.tab-button.tab-button-active")
+	assert.Contains(t, bottomActive, "border-top-color: var(--accent);")
 }
 
 func TestGenerateCSS_TabButtonsMatchCompactStackedTitlebars(t *testing.T) {

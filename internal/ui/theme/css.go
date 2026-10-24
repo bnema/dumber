@@ -53,23 +53,25 @@ window, tooltip, popover {
 
 const defaultTransitionDurationMs = 120
 
-// Compact chrome rows (top tab buttons and stacked titlebars) share one
-// vertical sizing policy. GTK min-height applies to the content box, so the
-// row content is at least compactTitleMinHeight and grows with the font to fit
-// the tallest child: the 1em close icon plus its vertical padding. Padding and
-// the bottom border stay in whole device pixels so every row rounds the same.
+// Compact chrome rows (tab buttons and stacked titlebars) share one vertical
+// sizing policy. GTK min-height applies to the content box, so the row content
+// is at least compactTitleMinHeight and, at large fonts, follows a
+// font-relative floor of 1em + compactTitleContentExtraPx so the label and the
+// fixed 16px icons fit. Padding and the row line stay in whole device pixels
+// so every row rounds the same.
 const (
-	compactTitleMinHeight     = 24
-	compactTitlePaddingY      = 4
-	compactTitlePaddingX      = "0.5em"
-	compactTitleFontSize      = "0.75em"
-	compactTitleBorderPx      = 1
-	compactCloseButtonPadding = 3
+	compactTitleMinHeight      = 24
+	compactTitleContentExtraPx = 6
+	compactTitlePaddingY       = 4
+	compactTitlePaddingX       = "0.5em"
+	compactTitleFontSize       = "0.75em"
+	compactTitleBorderPx       = 1
+	compactCloseButtonPadding  = 3
 )
 
 // compactTitleContentMinHeight is the shared content-box min-height of compact rows.
 var compactTitleContentMinHeight = fmt.Sprintf("max(%dpx, calc(1em + %dpx))",
-	compactTitleMinHeight, 2*compactCloseButtonPadding)
+	compactTitleMinHeight, compactTitleContentExtraPx)
 
 // compactTitleRowHeight is the full border-box height of one compact row.
 var compactTitleRowHeight = fmt.Sprintf("calc(%s + %dpx)",
@@ -200,6 +202,11 @@ func appendNativeSidebarCSS(sb *strings.Builder, p Palette) {
 // Text scales with GTK fonts while vertical chrome matches stacked titlebars.
 // The content inset reserved for the overlaid bar is measured from the bar
 // widget itself (see window.MainWindow), so no inset rule lives here.
+//
+// The full-width separator on the content side is an inset box-shadow, so it
+// adds no height: the bar, its tab buttons and stacked titlebars keep one row
+// height. Tab buttons draw the same 1px line on that side (accent when active)
+// over the bar's line.
 func generateTabBarCSS(_ Palette) string {
 	return fmt.Sprintf(`/* Tab bar styling */
 /* An empty bar keeps the footprint of one compact row. */
@@ -208,6 +215,15 @@ func generateTabBarCSS(_ Palette) string {
 	border: none;
 	padding: 0;
 	min-height: %[1]s;
+}
+
+/* Full-width separator between the bar and the content. */
+.tab-bar.tab-bar-top {
+	box-shadow: inset 0 -%[5]dpx var(--border);
+}
+
+.tab-bar.tab-bar-bottom {
+	box-shadow: inset 0 %[5]dpx var(--border);
 }
 
 /* Tab button styling */
@@ -231,6 +247,16 @@ button.tab-button.tab-button-active {
 	background-color: shade(var(--surface-variant), 1.2);
 	border-bottom-color: var(--accent);
 	font-weight: 600;
+}
+
+/* A bottom bar faces the content with its top edge. */
+.tab-bar-bottom button.tab-button {
+	border-bottom: none;
+	border-top: %[5]dpx solid var(--border);
+}
+
+.tab-bar-bottom button.tab-button.tab-button-active {
+	border-top-color: var(--accent);
 }
 
 /* Tab title text */
@@ -1004,7 +1030,7 @@ func generateStackedPaneCSS(_ Palette) string {
 }
 
 /* Close button in stacked pane title bar.
- * Its 1em icon plus vertical padding sets the shared compact row content height. */
+ * Its icon is a fixed 16px; the row height comes from the titlebar min-height. */
 .stacked-pane-close-button {
 	background: transparent;
 	border: none;

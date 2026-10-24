@@ -162,7 +162,6 @@ func (mw *MainWindow) initContentBoxes() error {
 		mw.window.Unref()
 		return ErrWidgetCreationFailed("tabBarInset")
 	}
-	mw.tabBarInset.AddCssClass("tab-bar-inset")
 	mw.tabBarInset.SetHexpand(true)
 	mw.tabBarInset.SetVexpand(false)
 	mw.tabBarInset.SetCanTarget(false)
@@ -199,8 +198,12 @@ func (mw *MainWindow) assembleLayout() {
 	tabBarWidget := mw.tabBar.Widget()
 	tabBarWidget.SetHalign(gtk.AlignFillValue)
 	tabBarWidget.SetValign(gtk.AlignStartValue)
+	// The position class selects which edge draws the content separator.
 	if tabBarPos == "bottom" {
 		tabBarWidget.SetValign(gtk.AlignEndValue)
+		tabBarWidget.AddCssClass("tab-bar-bottom")
+	} else {
+		tabBarWidget.AddCssClass("tab-bar-top")
 	}
 	// The inset is hidden until SetTabBarContentInsetVisible(true). Content is
 	// added on the opposite side of it by SetContent.
@@ -330,6 +333,7 @@ func (mw *MainWindow) HasTabBarContentInset() bool {
 }
 
 // TabBarContentInset returns the spacer reserving the tab bar footprint.
+// It exists for tests that check the inset placement and measured height.
 func (mw *MainWindow) TabBarContentInset() *gtk.Widget {
 	if mw.tabBarInset == nil {
 		return nil
