@@ -137,14 +137,14 @@ func (l *LazyDB) DB(ctx context.Context) (*sql.DB, error) {
 	db, err, closed := l.db, l.err, l.closed
 	l.mu.RUnlock()
 
-	if err != nil {
-		if errors.Is(err, ErrLazyDBClosed) {
-			return nil, ErrLazyDBClosed
-		}
-		return nil, fmt.Errorf("database initialization failed: %w", err)
-	}
-	if closed {
+	// Closure takes precedence over the cached init result: Close cancels
+	// admitted init work, so its error (context canceled) must not leak to
+	// callers in place of the closed-provider error.
+	if closed || errors.Is(err, ErrLazyDBClosed) {
 		return nil, ErrLazyDBClosed
+	}
+	if err != nil {
+		return nil, fmt.Errorf("database initialization failed: %w", err)
 	}
 	return db, nil
 }

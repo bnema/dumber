@@ -68,8 +68,10 @@ func TestLazyDB_CloseSettlesAdmittedInit(t *testing.T) {
 		t.Fatal("Close did not return after initialization settled")
 	}
 
+	// Close canceled the admitted init, so its cached error is a context
+	// cancellation; callers must still see the closed-provider error.
 	_, err := lazy.DB(context.Background())
-	require.Error(t, err, "no usable connection may escape Close")
+	require.ErrorIs(t, err, ErrLazyDBClosed, "no usable connection may escape Close")
 
 	require.NoError(t, lazy.Close(), "repeat Close must be idempotent")
 }
