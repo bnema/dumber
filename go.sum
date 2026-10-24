@@ -14,8 +14,8 @@ github.com/bnema/purego v0.13.0-bnema.1 h1:fKRdztnvTmRqAjANMoN+utEIH73dvPqVPJh2i
 github.com/bnema/purego v0.13.0-bnema.1/go.mod h1:xS1iX3noypxnbOUEUAqOvkfnUzgHuu19VtL4+dfUMJM=
 github.com/bnema/purego-cef v0.14.4 h1:2aBUc8mwvv51lAECeYsGp5w9p7EeAa5mMneP8ECKItM=
 github.com/bnema/purego-cef v0.14.4/go.mod h1:/7n7I0qZFTCoHiMb7bfgtSjLFNFmxIOU5Loy7vWS2Cc=
-github.com/bnema/purego-cef2gtk v0.11.5 h1:ViaZj8m2mBV9anLX3JnrK6k8cGutkHyNOao2U1JL69c=
-github.com/bnema/purego-cef2gtk v0.11.5/go.mod h1:LkLW769zyIetthxRy2eWQuXPUwxSugAuCMFpZR+zFQg=
+github.com/bnema/purego-cef2gtk v0.11.6 h1:vwQCgflpU9KXQ31uIL/tG9g28wrqZsXsB+mr/S9bOs0=
+github.com/bnema/purego-cef2gtk v0.11.6/go.mod h1:LkLW769zyIetthxRy2eWQuXPUwxSugAuCMFpZR+zFQg=
 github.com/bnema/purego-pipewire v0.2.0 h1:drIE0NjxynoCn9gCHTQFKkQVYEh/qsBNt2L2qZFYwro=
 github.com/bnema/purego-pipewire v0.2.0/go.mod h1:FxEYkYIWIP2g8Zo25jlnQSoP9yjsmb5vIuZwnqPg9uQ=
 github.com/bnema/purego-sqlite v0.1.5 h1:L4KtDQR0++TZqHVnuzCPsrw55s1ww/nXGEpdrkHsM4Y=
