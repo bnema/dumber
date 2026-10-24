@@ -53,6 +53,16 @@ window, tooltip, popover {
 
 const defaultTransitionDurationMs = 120
 
+// Compact chrome shares the stacked titlebar baseline. Text and horizontal
+// padding scale with GTK fonts; vertical dimensions stay compact.
+const (
+	compactTitleMinHeight = 24
+	compactTitlePaddingY  = 4
+	compactTitlePaddingX  = "0.5em"
+	compactTitleFontSize  = "0.75em"
+	compactTitleBorder    = "0.0625em"
+)
+
 // GenerateCSSWithScaleAndFonts creates GTK4 CSS using the provided palette, UI scale factor and fonts.
 // Scale affects widget sizing that uses relative units; text scaling is handled via GtkSettings.
 // Uses default mode colors.
@@ -175,24 +185,24 @@ func appendNativeSidebarCSS(sb *strings.Builder, p Palette) {
 }
 
 // generateTabBarCSS creates tab bar styles.
-// Uses em units for scalable UI.
-func generateTabBarCSS(p Palette) string {
-	return `/* Tab bar styling */
-/* Content area inset for overlaid tab bars — uses the same 2em token as
-   .tab-bar min-height and remains static to avoid OSR vertical reallocations. */
+// Text scales with GTK fonts while vertical chrome matches stacked titlebars.
+func generateTabBarCSS(_ Palette) string {
+	return fmt.Sprintf(`/* Tab bar styling */
+/* Content area inset for overlaid tab bars — uses the same compact footprint as
+   the tab buttons and remains static to avoid OSR vertical reallocations. */
 .content-area-tabbar-inset-top {
-	padding-top: 2em;
+	padding-top: calc(%[1]dpx + %[5]s);
 }
 
 .content-area-tabbar-inset-bottom {
-	padding-bottom: 2em;
+	padding-bottom: calc(%[1]dpx + %[5]s);
 }
 
 .tab-bar {
 	background-color: var(--surface);
-	border-top: 0.125em solid var(--border);
+	border: none;
 	padding: 0;
-	min-height: 2em;
+	min-height: %[1]dpx;
 }
 
 /* Tab button styling */
@@ -200,9 +210,11 @@ button.tab-button {
 	background-color: var(--surface-variant);
 	background-image: none;
 	border: none;
-	border-right: 0.0625em solid var(--border);
+	border-right: %[5]s solid var(--border);
+	border-bottom: %[5]s solid var(--border);
 	border-radius: 0;
-	padding: 0.25em 0.5em;
+	padding: %[2]dpx %[3]s;
+	min-height: %[6]dpx;
 	transition: background-color 200ms ease-in-out;
 }
 
@@ -212,17 +224,18 @@ button.tab-button:hover {
 
 button.tab-button.tab-button-active {
 	background-color: shade(var(--surface-variant), 1.2);
-	border-bottom: 0.125em solid var(--accent);
+	border-bottom-color: var(--accent);
 	font-weight: 600;
 }
 
 /* Tab title text */
 .tab-title {
-	font-size: 0.75em;
+	font-size: %[4]s;
 	color: var(--text);
-	font-weight: 500;
+	font-weight: 400;
 }
-`
+`, compactTitleMinHeight+2*compactTitlePaddingY, compactTitlePaddingY,
+		compactTitlePaddingX, compactTitleFontSize, compactTitleBorder, compactTitleMinHeight)
 }
 
 // generateOmniboxCSS creates omnibox styles.
@@ -946,17 +959,17 @@ func generatePaneCSS(p Palette) string {
 
 // generateStackedPaneCSS creates stacked pane (Zellij-style tabs within panes) styles.
 // Text uses scalable units while vertical chrome stays compact in device pixels.
-func generateStackedPaneCSS(p Palette) string {
-	return `/* ===== Stacked Pane Styling ===== */
+func generateStackedPaneCSS(_ Palette) string {
+	return fmt.Sprintf(`/* ===== Stacked Pane Styling ===== */
 
 /* Title bar for inactive panes in a stack */
 /* The title bar is now a Box with GestureClick, not wrapped in a button */
 .stacked-pane-titlebar {
 	background-color: var(--surface-variant);
 	color: var(--control-text);
-	border-bottom: 0.0625em solid var(--border);
-	padding: 4px 0.5em;
-	min-height: 24px;
+	border-bottom: %[5]s solid var(--border);
+	padding: %[1]dpx %[2]s;
+	min-height: %[3]dpx;
 }
 
 /* Keep the background stable so --control-text retains its contrast.
@@ -976,7 +989,7 @@ func generateStackedPaneCSS(p Palette) string {
 /* Title text in title bar */
 .stacked-pane-titlebar label {
 	color: var(--control-text);
-	font-size: 0.75em;
+	font-size: %[4]s;
 	font-weight: 400;
 }
 
@@ -1022,7 +1035,7 @@ func generateStackedPaneCSS(p Palette) string {
 	outline: none;
 	box-shadow: none;
 }
-`
+`, compactTitlePaddingY, compactTitlePaddingX, compactTitleMinHeight, compactTitleFontSize, compactTitleBorder)
 }
 
 // generateProgressBarCSS creates progress bar styles for page loading indication.

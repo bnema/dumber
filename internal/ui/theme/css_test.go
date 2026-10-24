@@ -356,20 +356,29 @@ func TestGenerateCSS_OmniboxIncludesVisualConcepts(t *testing.T) {
 
 func TestGenerateCSS_ContentAreaTabBarInset(t *testing.T) {
 	css := GenerateCSS(DefaultDarkPalette())
+	assert.Contains(t, cssRuleBlock(t, css, ".content-area-tabbar-inset-top"), "padding-top: calc(32px + 0.0625em);")
+	assert.Contains(t, cssRuleBlock(t, css, ".content-area-tabbar-inset-bottom"), "padding-bottom: calc(32px + 0.0625em);")
+	assert.Contains(t, cssRuleBlock(t, css, ".tab-bar"), "min-height: 32px;")
+	assert.Contains(t, cssRuleBlock(t, css, ".tab-bar"), "border: none;")
+}
 
-	topBlock := cssRuleBlock(t, css, ".content-area-tabbar-inset-top")
-	if !strings.Contains(topBlock, "padding-top: 2em;") {
-		t.Fatal("expected padding-top: 2em in .content-area-tabbar-inset-top block")
-	}
-	bottomBlock := cssRuleBlock(t, css, ".content-area-tabbar-inset-bottom")
-	if !strings.Contains(bottomBlock, "padding-bottom: 2em;") {
-		t.Fatal("expected padding-bottom: 2em in .content-area-tabbar-inset-bottom block")
-	}
-	if !strings.Contains(css, ".tab-bar") {
-		t.Fatal("expected .tab-bar selector in generated CSS")
-	}
-	if !strings.Contains(css, "min-height: 2em;") {
-		t.Fatal("expected min-height: 2em in .tab-bar block")
+func TestGenerateCSS_TabButtonsMatchCompactStackedTitlebars(t *testing.T) {
+	for _, scale := range []float64{1, 1.5, 2} {
+		css := GenerateCSSWithScale(DefaultDarkPalette(), scale)
+		tab := cssRuleBlock(t, css, "button.tab-button")
+		titlebar := cssRuleBlock(t, css, ".stacked-pane-titlebar")
+		for _, declaration := range []string{"padding: 4px 0.5em;", "min-height: 24px;", "border-bottom: 0.0625em solid var(--border);"} {
+			assert.Contains(t, tab, declaration)
+			assert.Contains(t, titlebar, declaration)
+		}
+		for _, selector := range []string{".tab-title", ".stacked-pane-titlebar label"} {
+			label := cssRuleBlock(t, css, selector)
+			assert.Contains(t, label, "font-size: 0.75em;")
+			assert.Contains(t, label, "font-weight: 400;")
+		}
+		active := cssRuleBlock(t, css, "button.tab-button.tab-button-active")
+		assert.Contains(t, active, "border-bottom-color: var(--accent);")
+		assert.NotContains(t, active, "border-bottom:")
 	}
 }
 
