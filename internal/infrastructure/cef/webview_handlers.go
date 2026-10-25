@@ -259,8 +259,6 @@ func (h *handlerSet) OnFullscreenModeChange(_ purecef.Browser, fullscreen int32)
 	}
 }
 
-func (h *handlerSet) OnTooltip(_ purecef.Browser, _ uintptr) int32 { return 0 }
-
 // OnStatusMessage fires the OnLinkHover callback with the status text
 // and caches the hover URI for middle-click interception.
 func (h *handlerSet) OnStatusMessage(_ purecef.Browser, value string) {
@@ -533,6 +531,7 @@ func (h *handlerSet) OnLoadStart(_ purecef.Browser, frame purecef.Frame, _ purec
 	// Post-commit fallback for navigation paths that bypass OnBeforeBrowse
 	// (same-page, error, and helper-driven commits). Main frame only.
 	if h.wv != nil {
+		h.wv.runOnGTK(func() { h.wv.setTooltipOnGTK("") })
 		// A new document replaces the page that asked for any open JS dialog.
 		h.wv.cancelJSDialogs()
 		h.wv.invalidateScrollMotion()

@@ -145,6 +145,8 @@ type WebView struct {
 	viewportSyncMu          sync.Mutex
 	viewportSyncPending     bool
 	viewportSyncReason      string
+	tooltipText             string
+	tooltipSetFunc          func(*string)
 	viewportMapFunc         func(gtk.Widget)
 	viewportShowFunc        func(gtk.Widget)
 	viewportHideFunc        func(gtk.Widget)
@@ -1388,6 +1390,7 @@ func (wv *WebView) Destroy() {
 	// calling thread; GTK-only cleanup follows through the owning
 	// dispatcher without waiting for the deferred native browser close.
 	wv.invalidateScrollMotion()
+	wv.runOnGTK(func() { wv.setTooltipOnGTK("") })
 	wv.cancelJSDialogsClosing(true)
 	wv.shutdownAccessibilityCapture()
 	wv.resetPageScrollQueue()
