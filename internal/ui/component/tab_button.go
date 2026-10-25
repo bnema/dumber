@@ -2,17 +2,23 @@
 package component
 
 import (
+	"strings"
+
 	"github.com/bnema/dumber/internal/domain/entity"
+	"github.com/bnema/puregotk/v4/gdk"
 	"github.com/bnema/puregotk/v4/gtk"
 	"github.com/bnema/puregotk/v4/pango"
 )
 
 // TabButton represents a single tab button in the tab bar.
 type TabButton struct {
-	button   *gtk.Button
-	label    *gtk.Label
-	tabID    entity.TabID
-	isActive bool
+	entry           *gtk.Entry
+	renameCallbacks []any
+	cancelRename    func()
+	button          *gtk.Button
+	label           *gtk.Label
+	tabID           entity.TabID
+	isActive        bool
 
 	// Callback for click events
 	onClick func(tabID entity.TabID)
@@ -118,6 +124,9 @@ func (tb *TabButton) SetOnClick(fn func(tabID entity.TabID)) {
 
 // Destroy cleans up the button resources.
 func (tb *TabButton) Destroy() {
+	if tb.cancelRename != nil {
+		tb.cancelRename()
+	}
 	if tb.label != nil {
 		tb.label.Unref()
 		tb.label = nil
@@ -126,4 +135,75 @@ func (tb *TabButton) Destroy() {
 		tb.button.Unref()
 		tb.button = nil
 	}
+}
+
+// beginRename keeps the original label alive while it is temporarily unparented.
+func (tb *TabButton) beginRename(onCommit func(string), onCancel, onFinish func()) {
+	entry := gtk.NewEntry()
+	if entry == nil {
+		onFinish()
+		return
+	}
+	entry.SetText(tb.label.GetText())
+	const renameWidthChars = 20
+	entry.SetWidthChars(renameWidthChars)
+	entry.AddCssClass("tab-rename-entry")
+	tb.entry = entry
+	tb.label.Ref()
+	tb.button.SetCanFocus(true)
+	tb.button.SetChild(&entry.Widget)
+	finished := false
+	finish := func(commit bool, restoreFocus bool) {
+		if finished {
+			return
+		}
+		finished = true
+		name := strings.TrimSpace(entry.GetText())
+		tb.entry = nil
+		tb.cancelRename = nil
+		tb.button.SetChild(&tb.label.Widget)
+		tb.label.Unref()
+		// Release the reference taken by gtk.NewEntry; this destroys the entry
+		// and its controllers, which drop their signal closures.
+		entry.Unref()
+		tb.renameCallbacks = nil
+		tb.button.SetCanFocus(false)
+		onFinish()
+		if commit && name != "" {
+			if onCommit != nil {
+				onCommit(name)
+			}
+		} else if restoreFocus && onCancel != nil {
+			onCancel()
+		}
+	}
+	tb.cancelRename = func() { finish(false, false) }
+	tb.connectRenameControllers(entry, finish)
+	entry.GrabFocus()
+	entry.SelectRegion(0, -1)
+}
+
+// connectRenameControllers maps Enter to commit, Escape to cancel, and focus
+// loss to a cancel that leaves focus where the user moved it.
+func (tb *TabButton) connectRenameControllers(entry *gtk.Entry, finish func(commit, restoreFocus bool)) {
+	key := gtk.NewEventControllerKey()
+	key.SetPropagationPhase(gtk.PhaseCaptureValue)
+	pressed := func(_ gtk.EventControllerKey, keyval uint, _ uint, _ gdk.ModifierType) bool {
+		switch keyval {
+		case uint(gdk.KEY_Return), uint(gdk.KEY_KP_Enter):
+			finish(true, true)
+			return true
+		case uint(gdk.KEY_Escape):
+			finish(false, true)
+			return true
+		}
+		return false
+	}
+	key.ConnectKeyPressed(&pressed)
+	entry.AddController(&key.EventController)
+	focus := gtk.NewEventControllerFocus()
+	leave := func(_ gtk.EventControllerFocus) { finish(false, false) }
+	focus.ConnectLeave(&leave)
+	entry.AddController(&focus.EventController)
+	tb.renameCallbacks = []any{pressed, leave}
 }

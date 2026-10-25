@@ -570,3 +570,34 @@ func (c *TabCoordinator) CreateWithPane(
 		Msg("tab created with popup pane")
 	return output.Tab, nil
 }
+
+// BeginRename edits the active tab's title without transferring tab state to the widget.
+func (c *TabCoordinator) BeginRename(ctx context.Context, target TabTarget, restoreFocus func()) error {
+	if target.Tabs == nil || target.MainWindow == nil || target.MainWindow.TabBar() == nil {
+		return nil
+	}
+	tab := target.Tabs.ActiveTab()
+	if tab == nil {
+		return nil
+	}
+	bar := target.MainWindow.TabBar()
+	bar.BeginRename(tab.ID, func(name string) {
+		// The target may have changed while the entry was open.
+		if target.Tabs.Find(tab.ID) == tab {
+			if err := c.tabsUC.Rename(ctx, target.Tabs, tab.ID, name); err != nil {
+				logging.FromContext(ctx).Warn().Err(err).Str("tab_id", string(tab.ID)).Msg("tab rename failed")
+			} else {
+				bar.UpdateTitle(tab.ID, tab.Title())
+				c.notifyStateChanged()
+			}
+		}
+		if restoreFocus != nil {
+			restoreFocus()
+		}
+	}, func() {
+		if restoreFocus != nil {
+			restoreFocus()
+		}
+	})
+	return nil
+}

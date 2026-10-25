@@ -1121,7 +1121,7 @@ func (a *App) initBrowserWindowInput(ctx context.Context, bw *browserWindow) {
 	})
 	bw.keyboardHandler.SetOnEscape(func(escapeCtx context.Context) bool {
 		a.activateBrowserWindow(bw)
-		return a.handleGlobalEscape(escapeCtx)
+		return a.handleBrowserWindowEscape(escapeCtx, bw)
 	})
 	bw.keyboardHandler.SetOnModeChange(func(from, to input.Mode) {
 		a.activateBrowserWindow(bw)
@@ -1136,7 +1136,7 @@ func (a *App) initBrowserWindowInput(ctx context.Context, bw *browserWindow) {
 		return a.navigatePageFocus(navigationCtx, bw, backward)
 	})
 	bw.keyboardHandler.SetRouteKey(func(kc input.KeyContext) input.KeyRoute {
-		if bw.sessionManager != nil && bw.sessionManager.IsVisible() {
+		if bw.hasNativeModalInput() {
 			return input.RoutePassToWidget
 		}
 		if bw.tabPicker != nil && bw.tabPicker.IsVisible() {
@@ -3490,6 +3490,18 @@ func (a *App) initCoordinators(ctx context.Context) {
 
 func (a *App) keyboardActions() dispatcher.KeyboardActions {
 	return dispatcher.KeyboardActions{
+		RenameTab: func(ctx context.Context) error {
+			return a.withFocusedTabTarget(ctx, "rename tab", false, func(target coordinator.TabTarget) error {
+				bw := a.browserWindowForTabTarget(target)
+				return a.tabCoord.BeginRename(ctx, target, func() {
+					if wsView := a.activeWorkspaceViewForBrowserWindow(bw); wsView != nil {
+						if ws := a.activeWorkspaceForBrowserWindow(bw); ws != nil {
+							wsView.FocusPane(ws.ActivePaneID)
+						}
+					}
+				})
+			})
+		},
 		NewTab: func(ctx context.Context) error {
 			newPaneURL := a.runtimeConfigSnapshot().UI.Workspace.NewPaneURL
 			if newPaneURL == "" {

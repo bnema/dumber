@@ -259,6 +259,14 @@ button.tab-button.tab-button-active {
 	border-top-color: var(--accent);
 }
 
+.tab-rename-entry {
+ min-height: 0;
+ padding: 0;
+ margin: 0;
+ font-size: %[4]s;
+ color: var(--text);
+}
+
 /* Tab title text */
 .tab-title {
 	font-size: %[4]s;

@@ -14,6 +14,8 @@ type TabBar struct {
 
 	explicitlyVisible bool
 	autoHidden        bool
+	// renaming temporarily forces the bar visible while an inline editor is open.
+	renaming bool
 
 	// Active tab tracking
 	activeTabID entity.TabID
@@ -188,8 +190,8 @@ func (tb *TabBar) applyVisibilityState() {
 		return
 	}
 
-	interactive := tb.explicitlyVisible && !tb.autoHidden
-	tb.box.SetVisible(tb.explicitlyVisible)
+	interactive := tb.renaming || (tb.explicitlyVisible && !tb.autoHidden)
+	tb.box.SetVisible(tb.renaming || tb.explicitlyVisible)
 	if interactive {
 		tb.box.SetOpacity(1.0)
 	} else {
@@ -213,4 +215,39 @@ func (tb *TabBar) Destroy() {
 		tb.box.Unref()
 		tb.box = nil
 	}
+}
+
+// IsRenaming reports whether an inline title editor owns keyboard input.
+func (tb *TabBar) IsRenaming() bool {
+	for _, button := range tb.buttons {
+		if button.entry != nil {
+			return true
+		}
+	}
+	return false
+}
+
+// BeginRename swaps a tab label for an editor. The component never mutates tab state.
+func (tb *TabBar) BeginRename(tabID entity.TabID, onCommit func(string), onCancel func()) {
+	if tb.IsRenaming() {
+		return
+	}
+	button := tb.buttons[tabID]
+	if button == nil {
+		return
+	}
+	tb.setRenaming(true)
+	button.beginRename(onCommit, onCancel, func() {
+		tb.setRenaming(false)
+	})
+}
+
+// setRenaming toggles the rename visibility override and reapplies the
+// latest desired visibility, so tab-count changes during editing are kept.
+func (tb *TabBar) setRenaming(renaming bool) {
+	if tb == nil || tb.box == nil {
+		return
+	}
+	tb.renaming = renaming
+	tb.applyVisibilityState()
 }

@@ -25,6 +25,7 @@ const (
 )
 
 type KeyboardActions struct {
+	RenameTab      func(context.Context) error
 	NewTab         func(context.Context) error
 	CloseTab       func(context.Context) error
 	NextTab        func(context.Context) error
@@ -208,7 +209,7 @@ func (d *KeyboardDispatcher) initActionHandlers() {
 		input.ActionSwitchTabIndex9:  func(ctx context.Context) error { return d.handleSwitchTabIndex(ctx, ninthTabIndex) },
 		input.ActionSwitchTabIndex10: func(ctx context.Context) error { return d.handleSwitchTabIndex(ctx, tenthTabIndex) },
 		input.ActionRenameTab: func(ctx context.Context) error {
-			return d.logNoop(ctx, "rename tab action (not yet implemented)")
+			return d.handleKeyboardAction(ctx, "rename tab", d.actions.RenameTab)
 		},
 		// Pane actions
 		input.ActionSplitRight: func(ctx context.Context) error { return d.wsCoord.Split(ctx, usecase.SplitRight) },

@@ -816,3 +816,19 @@ func verifyExternalPaneCreation(ws *entity.Workspace, previous entity.PaneID, ur
 	}
 	return nil
 }
+
+// isRenamingTab scopes native title editor routing to its owning window.
+func (bw *browserWindow) isRenamingTab() bool {
+	return bw != nil && bw.mainWindow != nil && bw.mainWindow.TabBar() != nil && bw.mainWindow.TabBar().IsRenaming()
+}
+
+func (a *App) handleBrowserWindowEscape(ctx context.Context, bw *browserWindow) bool {
+	if bw.isRenamingTab() {
+		return false
+	}
+	return a.handleGlobalEscape(ctx)
+}
+
+func (bw *browserWindow) hasNativeModalInput() bool {
+	return bw.isRenamingTab() || (bw.sessionManager != nil && bw.sessionManager.IsVisible())
+}
