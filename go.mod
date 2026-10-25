@@ -5,7 +5,7 @@ go 1.27
 require (
 	github.com/a-h/templ v0.3.1070
 	github.com/andybalholm/brotli v1.2.6
-	github.com/bnema/purego v0.13.0-bnema.1
+	github.com/bnema/purego v0.13.0-bnema.2
 	github.com/bnema/purego-cef v0.14.4
 	github.com/bnema/purego-cef2gtk v0.11.6
 	github.com/bnema/purego-pipewire v0.2.0
