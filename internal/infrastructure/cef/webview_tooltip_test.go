@@ -9,6 +9,7 @@ import (
 	purecef "github.com/bnema/purego-cef/cef"
 	cefmocks "github.com/bnema/purego-cef/cef/mocks"
 	"github.com/bnema/puregotk/v4/gtk"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
@@ -60,6 +61,22 @@ func TestOnTooltipSetsClearsAndDeduplicates(t *testing.T) {
 	require.Nil(t, (*calls)[3])
 }
 
+func TestOnTooltipQueuedUpdateCopiesBorrowedText(t *testing.T) {
+	wv, browser, calls := tooltipTestView(t)
+	var queued func()
+	wv.gtkDispatch = func(fn func()) { queued = fn }
+	units := utf16.Encode([]rune("borrowed"))
+	value := cefTooltipString{Str: &units[0], Length: uintptr(len(units))}
+	(&handlerSet{wv: wv}).OnTooltip(browser, uintptr(unsafe.Pointer(&value)))
+	for i := range units {
+		units[i] = 'x'
+	}
+	require.NotNil(t, queued)
+	queued()
+	require.Len(t, *calls, 1)
+	require.Equal(t, "borrowed", *(*calls)[0])
+}
+
 func TestOnTooltipGuardsAndQueuedUpdates(t *testing.T) {
 	var h *handlerSet
 	require.Zero(t, h.OnTooltip(nil, 0))
@@ -109,9 +126,15 @@ func TestOnLoadStartClearsTooltipOnlyForMainFrame(t *testing.T) {
 	wv, _, calls := tooltipTestView(t)
 	wv.setTooltipOnGTK("title")
 	h := &handlerSet{wv: wv}
-	h.OnLoadStart(nil, stubFrame{main: false}, 0)
+	subframe := cefmocks.NewMockFrame(t)
+	subframe.EXPECT().IsMain().Return(false)
+	h.OnLoadStart(nil, subframe, 0)
 	require.Len(t, *calls, 1)
-	h.OnLoadStart(nil, stubFrame{main: true, url: "https://example.com"}, 0)
+	mainFrame := cefmocks.NewMockFrame(t)
+	mainFrame.EXPECT().IsMain().Return(true)
+	mainFrame.EXPECT().GetURL().Return("https://example.com").Maybe()
+	mainFrame.EXPECT().ExecuteJavaScript(mock.Anything, mock.Anything, mock.Anything).Maybe()
+	h.OnLoadStart(nil, mainFrame, 0)
 	require.Len(t, *calls, 2)
 	require.Nil(t, (*calls)[1])
 }

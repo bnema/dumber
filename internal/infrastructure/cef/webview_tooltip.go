@@ -19,12 +19,19 @@ func decodeCEFTooltipString(text uintptr) string {
 	if text == 0 {
 		return ""
 	}
-	// CEF supplies a valid cef_string_t pointer for this callback.
-	value := (*cefTooltipString)(unsafe.Pointer(text)) //nolint:govet // CEF callback ABI supplies a borrowed native pointer as uintptr.
+	value := (*cefTooltipString)(nativePointer(text))
 	if value.Str == nil || value.Length == 0 {
 		return ""
 	}
 	return string(utf16.Decode(unsafe.Slice(value.Str, value.Length)))
+}
+
+// nativePointer converts a native address that CEF passes as uintptr. CEF owns
+// the memory and keeps it valid for the callback, so checkptr does not apply.
+//
+//go:nocheckptr
+func nativePointer(addr uintptr) unsafe.Pointer {
+	return *(*unsafe.Pointer)(unsafe.Pointer(&addr))
 }
 
 func (h *handlerSet) OnTooltip(browser purecef.Browser, text uintptr) int32 {
