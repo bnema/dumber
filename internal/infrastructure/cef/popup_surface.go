@@ -3,6 +3,9 @@ package cef
 import (
 	"context"
 	"sync/atomic"
+	"unsafe"
+
+	"github.com/bnema/puregotk/v4/gdk"
 
 	purecef "github.com/bnema/purego-cef/cef"
 	cef2gtk "github.com/bnema/purego-cef2gtk"
@@ -19,6 +22,7 @@ type popupBridgeSurface struct {
 	bridge      *Cef2gtkAdapter
 	popupWidget *gtk.Widget
 	prepared    atomic.Uint32
+	rect        purecef.Rect
 }
 
 // newPopupBridgeSurface must be called on the GTK thread because it creates
@@ -69,13 +73,38 @@ func newPopupBridgeSurface(
 	root.SetCanFocus(true)
 	root.SetFocusable(true)
 	root.SetFocusOnClick(true)
-	return &popupBridgeSurface{
+	surface := &popupBridgeSurface{
 		ctx:         ctx,
 		root:        root,
 		mainWidget:  mainWidget,
 		bridge:      bridge,
 		popupWidget: popupWidget,
 	}
+	// Override GTK's natural-size/alignment placement. Margins are not a
+	// position: they participate in size negotiation and can change the popup
+	// allocation, which the bridge's fill-mode picture then scales to fit.
+	position := func(_ gtk.Overlay, child uintptr, allocation *uintptr) bool {
+		if child != popupWidget.GoPointer() || allocation == nil {
+			return false
+		}
+		rect, valid := popupAllocation(surface.rect)
+		if !valid {
+			return false
+		}
+		// The generated binding calls GtkAllocation* *uintptr; the native
+		// argument is the rectangle storage itself, not a pointer to a pointer.
+		*(*gdk.Rectangle)(unsafe.Pointer(allocation)) = rect
+		return true
+	}
+	overlay.ConnectGetChildPosition(&position)
+	return surface
+}
+
+// popupAllocation deliberately does not intersect with the view bounds. The
+// overlay clips overflow; shrinking the allocation would distort hit testing.
+func popupAllocation(rect purecef.Rect) (gdk.Rectangle, bool) {
+	return gdk.Rectangle{X: rect.X, Y: rect.Y, Width: rect.Width, Height: rect.Height},
+		rect.Width > 0 && rect.Height > 0
 }
 
 func (s *popupBridgeSurface) RootWidget() *gtk.Widget {
@@ -128,16 +157,13 @@ func (s *popupBridgeSurface) SetPopupRect(rect purecef.Rect) {
 	if s == nil || s.popupWidget == nil {
 		return
 	}
-	if rect.Width <= 0 || rect.Height <= 0 {
+	s.rect = rect
+	if _, valid := popupAllocation(rect); !valid {
 		s.popupWidget.SetVisible(false)
 		return
 	}
-	s.popupWidget.SetMarginStart(int(rect.X))
-	s.popupWidget.SetMarginTop(int(rect.Y))
-	s.popupWidget.SetSizeRequest(int(rect.Width), int(rect.Height))
-	s.popupWidget.QueueResize()
 	if s.root != nil {
-		s.root.QueueResize()
+		s.root.QueueAllocate()
 	}
 }
 
