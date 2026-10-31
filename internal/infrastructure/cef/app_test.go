@@ -548,3 +548,13 @@ func TestDumberBPH_OnBeforeChildProcessLaunch_DisablesWebAuthnByDefault(t *testi
 		t.Fatal("expected no-zygote switch to be appended")
 	}
 }
+
+func TestConfigureCommandLineEnablesWebGPU(t *testing.T) {
+	commandLine := newMutableCommandLineStub()
+
+	configureCommandLine(commandLine)
+
+	if !commandLine.HasSwitch("enable-unsafe-webgpu") {
+		t.Fatal("expected enable-unsafe-webgpu switch")
+	}
+}

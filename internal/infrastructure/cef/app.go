@@ -63,6 +63,11 @@ func configureCommandLineWithRenderStack(commandLine purecef.CommandLine, render
 	// Chromium blocks them, showing an infinite spinner.
 	commandLine.AppendSwitchWithValue("autoplay-policy", "no-user-gesture-required")
 
+	// Expose WebGPU (navigator.gpu). Chromium keeps it off on Linux for
+	// drivers outside Google's allow-list; Dumber already runs ANGLE on
+	// Vulkan and recovers from GPU process crashes.
+	commandLine.AppendSwitch("enable-unsafe-webgpu")
+
 	configureHardwareVideoDecode(commandLine)
 	configureEnvChromiumFlags(commandLine)
 	configureRenderNodeOverride(commandLine)
