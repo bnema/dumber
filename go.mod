@@ -3,8 +3,8 @@ module github.com/bnema/dumber
 go 1.27
 
 require (
-	github.com/a-h/templ v0.3.1070
-	github.com/andybalholm/brotli v1.2.6
+	github.com/a-h/templ v0.3.1100
+	github.com/andybalholm/brotli v1.2.7
 	github.com/bnema/purego v0.13.0-bnema.2
 	github.com/bnema/purego-cef v0.14.4
 	github.com/bnema/purego-cef2gtk v0.11.6
@@ -27,7 +27,7 @@ require (
 	github.com/srwiley/rasterx v0.0.0-20220730225603-2ab79fcdd4ef
 	github.com/stretchr/testify v1.12.1
 	golang.org/x/image v0.47.0
-	golang.org/x/net v0.61.0
+	golang.org/x/net v0.62.0
 	golang.org/x/sys v0.49.0
 	gopkg.in/yaml.v3 v3.0.1
 )
