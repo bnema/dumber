@@ -6,6 +6,7 @@ package mocks
 
 import (
 	"github.com/bnema/purego-pipewire/pipewire"
+	"github.com/bnema/purego-pipewire/spa"
 	mock "github.com/stretchr/testify/mock"
 )
 
@@ -15,10 +16,19 @@ func NewMockPlayer(t interface {
 	mock.TestingT
 	Cleanup(func())
 }) *MockPlayer {
+	if helper, ok := t.(interface{ Helper() }); ok {
+		helper.Helper()
+	}
+
 	mock := &MockPlayer{}
 	mock.Mock.Test(t)
 
-	t.Cleanup(func() { mock.AssertExpectations(t) })
+	t.Cleanup(func() {
+		if helper, ok := t.(interface{ Helper() }); ok {
+			helper.Helper()
+		}
+		mock.AssertExpectations(t)
+	})
 
 	return mock
 }
@@ -80,6 +90,68 @@ func (_c *MockPlayer_Close_Call) RunAndReturn(run func() error) *MockPlayer_Clos
 	return _c
 }
 
+// GetControl provides a mock function for the type MockPlayer
+func (_mock *MockPlayer) GetControl(id spa.Prop) (*spa.ControlInfo, error) {
+	ret := _mock.Called(id)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetControl")
+	}
+
+	var r0 *spa.ControlInfo
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(spa.Prop) (*spa.ControlInfo, error)); ok {
+		return returnFunc(id)
+	}
+	if returnFunc, ok := ret.Get(0).(func(spa.Prop) *spa.ControlInfo); ok {
+		r0 = returnFunc(id)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*spa.ControlInfo)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(spa.Prop) error); ok {
+		r1 = returnFunc(id)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockPlayer_GetControl_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetControl'
+type MockPlayer_GetControl_Call struct {
+	*mock.Call
+}
+
+// GetControl is a helper method to define mock.On call
+//   - id spa.Prop
+func (_e *MockPlayer_Expecter) GetControl(id any) *MockPlayer_GetControl_Call {
+	return &MockPlayer_GetControl_Call{Call: _e.mock.On("GetControl", id)}
+}
+
+func (_c *MockPlayer_GetControl_Call) Run(run func(id spa.Prop)) *MockPlayer_GetControl_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 spa.Prop
+		if args[0] != nil {
+			arg0 = args[0].(spa.Prop)
+		}
+		run(
+			arg0,
+		)
+	})
+	return _c
+}
+
+func (_c *MockPlayer_GetControl_Call) Return(controlInfo *spa.ControlInfo, err error) *MockPlayer_GetControl_Call {
+	_c.Call.Return(controlInfo, err)
+	return _c
+}
+
+func (_c *MockPlayer_GetControl_Call) RunAndReturn(run func(id spa.Prop) (*spa.ControlInfo, error)) *MockPlayer_GetControl_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Pause provides a mock function for the type MockPlayer
 func (_mock *MockPlayer) Pause() error {
 	ret := _mock.Called()
@@ -120,6 +192,69 @@ func (_c *MockPlayer_Pause_Call) Return(err error) *MockPlayer_Pause_Call {
 }
 
 func (_c *MockPlayer_Pause_Call) RunAndReturn(run func() error) *MockPlayer_Pause_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// SetControl provides a mock function for the type MockPlayer
+func (_mock *MockPlayer) SetControl(values ...spa.PropValue) error {
+	// spa.PropValue
+	_va := make([]any, len(values))
+	for _i := range values {
+		_va[_i] = values[_i]
+	}
+	var _ca []any
+	_ca = append(_ca, _va...)
+	ret := _mock.Called(_ca...)
+
+	if len(ret) == 0 {
+		panic("no return value specified for SetControl")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(...spa.PropValue) error); ok {
+		r0 = returnFunc(values...)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockPlayer_SetControl_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SetControl'
+type MockPlayer_SetControl_Call struct {
+	*mock.Call
+}
+
+// SetControl is a helper method to define mock.On call
+//   - values ...spa.PropValue
+func (_e *MockPlayer_Expecter) SetControl(values ...any) *MockPlayer_SetControl_Call {
+	return &MockPlayer_SetControl_Call{Call: _e.mock.On("SetControl",
+		append([]any{}, values...)...)}
+}
+
+func (_c *MockPlayer_SetControl_Call) Run(run func(values ...spa.PropValue)) *MockPlayer_SetControl_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 []spa.PropValue
+		variadicArgs := make([]spa.PropValue, len(args)-0)
+		for i, a := range args[0:] {
+			if a != nil {
+				variadicArgs[i] = a.(spa.PropValue)
+			}
+		}
+		arg0 = variadicArgs
+		run(
+			arg0...,
+		)
+	})
+	return _c
+}
+
+func (_c *MockPlayer_SetControl_Call) Return(err error) *MockPlayer_SetControl_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockPlayer_SetControl_Call) RunAndReturn(run func(values ...spa.PropValue) error) *MockPlayer_SetControl_Call {
 	_c.Call.Return(run)
 	return _c
 }
