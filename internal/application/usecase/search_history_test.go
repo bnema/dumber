@@ -124,7 +124,8 @@ func TestSearchHistoryUseCase_Search_AppliesOptionalAgeScope(t *testing.T) {
 	_, err := uc.Search(ctx, usecase.SearchInput{Query: "dumber", Limit: 20, MaxAgeDays: 30})
 
 	require.NoError(t, err)
-	assert.WithinDuration(t, time.Now().AddDate(0, 0, -30), gotScope.Cutoff, time.Minute)
+	// UTC like the use case: AddDate in local time shifts by an hour across DST.
+	assert.WithinDuration(t, time.Now().UTC().AddDate(0, 0, -30), gotScope.Cutoff, time.Minute)
 }
 
 func TestSearchHistoryUseCase_Search_ZeroMaxAgeMeansAllHistory(t *testing.T) {
