@@ -836,6 +836,7 @@ func (sm *SessionManager) addSessionInfo(hbox *gtk.Box, info entity.SessionInfo)
 		return
 	}
 	infoBox.SetHexpand(true)
+	infoBox.SetValign(gtk.AlignCenterValue)
 	title := sessionDateTitle(info.Session.StartedAt, time.Now())
 	subtitle := sessionSubtitle(info)
 	for _, item := range []struct{ text, class string }{{title, "session-title"}, {subtitle, "session-count"}} {

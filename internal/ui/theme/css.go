@@ -1263,8 +1263,8 @@ func generateSessionManagerCSS(p Palette) string {
 	margin: 0.125em 0.375em;
 	border: none;
 	border-radius: 0.5em;
-	padding: 0.75em 0.875em;
-	min-height: 3.25em;
+	padding: 0.625em 0.875em;
+	min-height: 0;
 }
 
 .omnibox-style-multiplexer .session-manager-row {
@@ -1295,7 +1295,7 @@ func generateSessionManagerCSS(p Palette) string {
 	font-size: 0.875em;
 	font-weight: 500;
 	color: var(--text);
-	margin-bottom: 0.25em;
+	margin-bottom: 0.125em;
 }
 
 .session-state {
@@ -1320,10 +1320,6 @@ func generateSessionManagerCSS(p Palette) string {
 
 .omnibox-style-command .session-manager-row-wrapper:selected .session-manager-row {
 	background-color: alpha(var(--accent), 0.12);
-}
-
-.omnibox-style-command .session-manager-scrolled {
-	min-height: 12em;
 }
 
 /* Tab/pane count label */

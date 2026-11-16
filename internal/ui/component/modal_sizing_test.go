@@ -343,11 +343,11 @@ func TestCalculateModalDimensionsWithScale_LargeParent(t *testing.T) {
 }
 
 func TestCalculateModalDimensionsWithScale_SmallParentPercentageBound(t *testing.T) {
-	cfg := SessionManagerSizeDefaults // 0.6 * w, max 600
+	cfg := SessionManagerSizeDefaults // 0.7 * w, max 760
 	parent := mockParent(t, 500, 800)
 	w, m := CalculateModalDimensionsWithScale(parent, cfg, 2.0)
-	// 0.6*500=300 < 600*2 → percentage bound wins
-	assert.Equal(t, 300, w)
+	// 0.7*500=350 < 760*2 → percentage bound wins
+	assert.Equal(t, 350, w)
 	assert.Equal(t, int(float64(800)*cfg.TopMarginPct), m)
 }
 
@@ -418,8 +418,8 @@ func TestOmniboxRequestedDimensions_UsesScale(t *testing.T) {
 func TestSessionManagerRequestedDimensions_UsesScale(t *testing.T) {
 	sm := &SessionManager{parentOverlay: mockParent(t, 3000, 1200), uiScale: 1.5}
 	w, m := sm.requestedDimensions()
-	// 0.6*3000=1800 vs 600*1.5=900 → 900
-	assert.Equal(t, 900, w)
+	// 0.7*3000=2100 vs 760*1.5=1140 → 1140
+	assert.Equal(t, 1140, w)
 	assert.Equal(t, int(float64(1200)*SessionManagerSizeDefaults.TopMarginPct), m)
 }
 

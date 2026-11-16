@@ -61,10 +61,10 @@ var OmniboxListDefaults = ListDisplayDefaults{
 
 // SessionManagerSizeDefaults provides default sizing for session manager modal.
 var SessionManagerSizeDefaults = ModalSizeConfig{
-	WidthPct:       0.6,
-	MaxWidth:       600,
+	WidthPct:       0.7,
+	MaxWidth:       760,
 	TopMarginPct:   0.15,
-	FallbackWidth:  600,
+	FallbackWidth:  760,
 	FallbackHeight: 600,
 }
 
