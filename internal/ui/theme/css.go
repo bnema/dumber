@@ -120,7 +120,7 @@ func GenerateCSSFullWithTiming(p Palette, _ float64, fonts FontConfig, modeColor
 	sb.WriteString("\n")
 
 	// Omnibox and modal legend styling
-	sb.WriteString(generateOmniboxCSS(p))
+	sb.WriteString(generateOmniboxCSS())
 	sb.WriteString(generateModeLegendCSS())
 	sb.WriteString("\n")
 
@@ -279,7 +279,7 @@ button.tab-button.tab-button-active {
 
 // generateOmniboxCSS creates omnibox styles.
 // Uses em units for scalable UI.
-func generateOmniboxCSS(p Palette) string {
+func generateOmniboxCSS() string {
 	return `/* ===== Omnibox Styling ===== */
 
 window.standalone-omnibox-window {
