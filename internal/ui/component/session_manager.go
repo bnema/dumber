@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/application/usecase"
@@ -31,7 +32,7 @@ type SessionManager struct {
 	titleLabel     *gtk.Label
 	scrolledWindow *gtk.ScrolledWindow
 	listBox        *gtk.ListBox
-	footerLabel    *gtk.Label
+	footerBox      *gtk.Box
 
 	// Parent overlay reference for sizing
 	parentOverlay layout.OverlayWidget
@@ -284,7 +285,7 @@ func (sm *SessionManager) createWidgets() error {
 	// Assemble
 	sm.mainBox.Append(&sm.headerBox.Widget)
 	sm.mainBox.Append(&sm.scrolledWindow.Widget)
-	sm.mainBox.Append(&sm.footerLabel.Widget)
+	sm.mainBox.Append(&sm.footerBox.Widget)
 	sm.outerBox.Append(&sm.mainBox.Widget)
 
 	return nil
@@ -364,13 +365,24 @@ func (sm *SessionManager) initList() error {
 }
 
 func (sm *SessionManager) initFooter() error {
-	footerText := "↑↓/jk navigate  Enter expand  r restore  x delete  Esc close"
-	sm.footerLabel = gtk.NewLabel(&footerText)
-	if sm.footerLabel == nil {
-		return errNilWidget("sessionFooterLabel")
+	sm.footerBox = gtk.NewBox(gtk.OrientationHorizontalValue, sessionRowBoxSpacing)
+	if sm.footerBox == nil {
+		return errNilWidget("sessionFooterBox")
 	}
-	sm.footerLabel.AddCssClass("session-manager-footer")
-	sm.footerLabel.SetHalign(gtk.AlignCenterValue)
+	sm.footerBox.AddCssClass("session-manager-footer")
+	for _, shortcut := range [][2]string{{"↑↓", "navigate"}, {"Enter", "expand"}, {"r", "restore"}, {"x", "delete"}, {"Esc", "close"}} {
+		group := gtk.NewBox(gtk.OrientationHorizontalValue, 4)
+		key := gtk.NewLabel(&shortcut[0])
+		label := gtk.NewLabel(&shortcut[1])
+		if group == nil || key == nil || label == nil {
+			return errNilWidget("sessionFooterShortcut")
+		}
+		key.AddCssClass("session-manager-key")
+		group.Append(&key.Widget)
+		group.Append(&label.Widget)
+		sm.footerBox.Append(&group.Widget)
+	}
+
 	return nil
 }
 
@@ -808,7 +820,9 @@ func (sm *SessionManager) createSessionRow(info entity.SessionInfo) *gtk.ListBox
 	}
 	hbox.AddCssClass("session-manager-row")
 
-	sm.addStatusIndicator(hbox, info)
+	if !info.IsCurrent && !info.IsActive {
+		hbox.AddCssClass("session-exited")
+	}
 	sm.addSessionInfo(hbox, info)
 	sm.addRelativeTime(hbox, info)
 
@@ -816,87 +830,37 @@ func (sm *SessionManager) createSessionRow(info entity.SessionInfo) *gtk.ListBox
 	return row
 }
 
-func (sm *SessionManager) addStatusIndicator(hbox *gtk.Box, info entity.SessionInfo) {
-	var statusText string
-	switch {
-	case info.IsCurrent:
-		statusText = "●" // Filled dot for current
-		hbox.AddCssClass("session-current")
-	case info.IsActive:
-		statusText = "○" // Empty dot for other active instance
-		hbox.AddCssClass("session-active")
-	default:
-		statusText = "◼" // Small square for exited (like stop icon)
-		hbox.AddCssClass("session-exited")
-	}
-	statusLabel := gtk.NewLabel(&statusText)
-	if statusLabel != nil {
-		statusLabel.AddCssClass("session-status")
-		hbox.Append(&statusLabel.Widget)
-	}
-}
-
 func (sm *SessionManager) addSessionInfo(hbox *gtk.Box, info entity.SessionInfo) {
-	const infoBoxSpacing = 2
-	infoBox := gtk.NewBox(gtk.OrientationVerticalValue, infoBoxSpacing)
+	infoBox := gtk.NewBox(gtk.OrientationVerticalValue, 0)
 	if infoBox == nil {
 		return
 	}
 	infoBox.SetHexpand(true)
-
-	// Session ID row: shortID (accent) + rest of ID (dimmed) + optional (current) badge
-	idRowBox := gtk.NewBox(gtk.OrientationHorizontalValue, 0)
-	if idRowBox != nil {
-		idRowBox.SetHalign(gtk.AlignStartValue)
-
-		fullID := string(info.Session.ID)
-		shortID := info.Session.ShortID() // Last 4 chars
-
-		// Short ID with accent color (displayed first)
-		shortLabel := gtk.NewLabel(&shortID)
-		if shortLabel != nil {
-			shortLabel.AddCssClass("session-id-short")
-			idRowBox.Append(&shortLabel.Widget)
+	title := sessionDateTitle(info.Session.StartedAt, time.Now())
+	subtitle := sessionSubtitle(info)
+	for _, item := range []struct{ text, class string }{{title, "session-title"}, {subtitle, "session-count"}} {
+		label := gtk.NewLabel(&item.text)
+		if label != nil {
+			label.AddCssClass(item.class)
+			label.SetHalign(gtk.AlignStartValue)
+			infoBox.Append(&label.Widget)
 		}
-
-		// Rest of the ID (prefix before the short suffix), dimmed
-		// Format: "20251225_083026_7566" -> shortID="7566", prefix="20251225_083026"
-		// Remove trailing underscore for cleaner display
-		if len(fullID) > 4 {
-			prefix := fullID[:len(fullID)-4]
-			// Trim trailing underscore if present
-			prefix = strings.TrimSuffix(prefix, "_")
-			prefix = " " + prefix
-			prefixLabel := gtk.NewLabel(&prefix)
-			if prefixLabel != nil {
-				prefixLabel.AddCssClass("session-id-prefix")
-				idRowBox.Append(&prefixLabel.Widget)
-			}
-		}
-
-		// Current badge
-		if info.IsCurrent {
-			badge := " (current)"
-			badgeLabel := gtk.NewLabel(&badge)
-			if badgeLabel != nil {
-				badgeLabel.AddCssClass("session-id-badge")
-				idRowBox.Append(&badgeLabel.Widget)
-			}
-		}
-
-		infoBox.Append(&idRowBox.Widget)
 	}
-
-	// Tab/pane count
-	countText := fmt.Sprintf("%d tabs, %d panes", info.TabCount, info.PaneCount)
-	countLabel := gtk.NewLabel(&countText)
-	if countLabel != nil {
-		countLabel.AddCssClass("session-count")
-		countLabel.SetHalign(gtk.AlignStartValue)
-		infoBox.Append(&countLabel.Widget)
-	}
-
 	hbox.Append(&infoBox.Widget)
+	if info.IsCurrent || info.IsActive {
+		status := "Open"
+		if info.IsCurrent {
+			status = "Current"
+		}
+		label := gtk.NewLabel(&status)
+		if label != nil {
+			label.AddCssClass("session-state")
+			if info.IsCurrent {
+				label.AddCssClass("session-state-current")
+			}
+			hbox.Append(&label.Widget)
+		}
+	}
 }
 
 func (sm *SessionManager) addRelativeTime(hbox *gtk.Box, info entity.SessionInfo) {

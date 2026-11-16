@@ -51,7 +51,10 @@ func generatePermissionPopupCSS(p Palette) string {
 }
 
 .omnibox-style-command .permission-popup-btn {
-	border-radius: 1em;
+	border-radius: 0.375em;
+	padding: 0.625em 1em;
+	border-color: transparent;
+	box-shadow: none;
 }
 
 /* Allow buttons - accent styled */
@@ -86,6 +89,54 @@ func generatePermissionPopupCSS(p Palette) string {
 .permission-popup-btn-destructive:hover {
 	background-color: alpha(var(--destructive), 0.25);
 	border-color: var(--destructive);
+}
+
+/* Command dialogs use quiet UI typography and spacious content. */
+.omnibox-style-command.permission-popup-container {
+	font-family: var(--font-gtk);
+}
+
+.omnibox-style-command .permission-popup-heading {
+	padding: 1em 1.25em 0.5em;
+}
+
+.omnibox-style-command .permission-popup-body {
+	padding: 0.5em 1.25em 1em;
+}
+
+.omnibox-style-command .permission-popup-btn-row {
+	font-family: var(--font-gtk);
+	padding: 0.75em 1.25em;
+}
+
+.omnibox-style-command .permission-popup-btn-allow {
+	background-color: mix(var(--surface), var(--accent), 0.7);
+	color: var(--accent-text);
+}
+
+.omnibox-style-command .permission-popup-btn-allow:hover {
+	background-color: mix(var(--surface), var(--accent), 0.85);
+	border-color: transparent;
+}
+
+.omnibox-style-command .permission-popup-btn-deny,
+.omnibox-style-command .permission-popup-btn-destructive {
+	background-color: alpha(var(--text), 0.04);
+	border-color: transparent;
+}
+
+.omnibox-style-command .permission-popup-btn-deny:hover,
+.omnibox-style-command .permission-popup-btn-destructive:hover {
+	background-color: alpha(var(--text), 0.08);
+	border-color: transparent;
+}
+
+.omnibox-style-command .permission-popup-btn-destructive {
+	background-color: transparent;
+}
+
+.omnibox-style-command .jsdialog-entry {
+	margin: 0 1.25em 1em;
 }
 `
 }

@@ -555,14 +555,35 @@ func TestModalChromeMatchesOmniboxVariants(t *testing.T) {
 
 func TestSessionRowsUseTintInsteadOfNativeSelection(t *testing.T) {
 	css := GenerateCSS(DefaultDarkPalette())
-	wrapper := cssRuleBlock(t, css, ".session-manager-list > row.session-manager-row-wrapper")
+	wrapper := cssRuleBlock(t, css, ".session-manager-list > row.session-manager-row-wrapper:hover")
 	assert.Contains(t, wrapper, "background-color: transparent;")
 	assert.Contains(t, wrapper, "border: none;")
 	command := cssRuleBlock(t, css, ".omnibox-style-command .session-manager-row")
 	assert.Contains(t, command, "border: none;")
-	assert.Contains(t, command, "margin: 0.125em 0.25em;")
+	assert.Contains(t, command, "margin: 0.125em 0.375em;")
 	selected := cssRuleBlock(t, css, ".omnibox-style-command .session-manager-row-wrapper:selected .session-manager-row")
-	assert.Contains(t, selected, "alpha(var(--accent), 0.16)")
+	assert.Contains(t, selected, "alpha(var(--accent), 0.12)")
 	buttons := cssRuleBlock(t, css, ".omnibox-style-command .permission-popup-btn")
-	assert.Contains(t, buttons, "border-radius: 1em;")
+	assert.Contains(t, buttons, "border-radius: 0.375em;")
+}
+
+func TestCommandModalsUseCalmTypographyAndSpacing(t *testing.T) {
+	css := GenerateCSS(DefaultDarkPalette())
+	for _, selector := range []string{".omnibox-style-command.session-manager-container", ".omnibox-style-command.permission-popup-container"} {
+		// The shared shell comes first; the later local rule controls typography.
+		assert.Contains(t, css, selector+" {\n\tfont-family: var(--font-gtk);\n}")
+	}
+	title := cssRuleBlock(t, css, ".session-title")
+	assert.Contains(t, title, "font-size: 0.875em;")
+	assert.Contains(t, title, "font-weight: 500;")
+	assert.NotContains(t, title, "font-mono")
+	rows := cssRuleBlock(t, css, ".omnibox-style-command .session-manager-row")
+	assert.Contains(t, rows, "padding: 0.75em 0.875em;")
+	assert.Contains(t, rows, "min-height: 3.25em;")
+	assert.Contains(t, css, ".session-manager-list > row:focus-visible {\n\toutline: none;")
+	assert.NotContains(t, css, ".session-status")
+	footer := cssRuleBlock(t, css, ".session-manager-footer")
+	assert.Contains(t, footer, "font-family: var(--font-gtk);")
+	key := cssRuleBlock(t, css, ".session-manager-key")
+	assert.Contains(t, key, "font-family: var(--font-mono);")
 }

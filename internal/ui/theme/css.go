@@ -1248,7 +1248,9 @@ func generateSessionManagerCSS(p Palette) string {
 }
 
 /* GTK list rows must not paint a native full-accent selection behind content. */
-.session-manager-list > row.session-manager-row-wrapper {
+.session-manager-list > row.session-manager-row-wrapper,
+.session-manager-list > row.session-manager-row-wrapper:selected,
+.session-manager-list > row.session-manager-row-wrapper:hover {
 	padding: 0;
 	border: none;
 	border-radius: 0;
@@ -1258,13 +1260,11 @@ func generateSessionManagerCSS(p Palette) string {
 }
 
 .omnibox-style-command .session-manager-row {
-	margin: 0.125em 0.25em;
+	margin: 0.125em 0.375em;
 	border: none;
-	border-radius: 0.25em;
-}
-
-.omnibox-style-command .session-manager-row-wrapper:selected .session-manager-row {
-	background-color: alpha(var(--accent), 0.16);
+	border-radius: 0.5em;
+	padding: 0.75em 0.875em;
+	min-height: 3.25em;
 }
 
 .omnibox-style-multiplexer .session-manager-row {
@@ -1283,64 +1283,47 @@ func generateSessionManagerCSS(p Palette) string {
 	font-family: var(--font-mono);
 }
 
-.omnibox-style-multiplexer .session-id-badge,
-.omnibox-style-minimal .session-id-badge {
-	border-radius: 0;
-	background-color: transparent;
+.session-manager-list > row:focus,
+.session-manager-list > row:focus-visible {
+	outline: none;
+	box-shadow: none;
 }
 
-/* Status indicator dot */
-.session-status {
+.session-exited { opacity: 0.7; }
+
+.session-title {
 	font-size: 0.875em;
-	min-width: 1em;
-	margin-right: 0.5em;
+	font-weight: 500;
+	color: var(--text);
+	margin-bottom: 0.25em;
 }
 
-/* Current session - accent color dot */
-.session-current .session-status {
-	color: var(--accent);
-}
-
-/* Active session (other instance) - muted dot */
-.session-active .session-status {
-	color: var(--muted);
-}
-
-/* Exited session - dimmed appearance with subtle stop icon */
-.session-exited {
-	opacity: 0.75;
-}
-
-.session-exited .session-status {
-	color: var(--error);
-	opacity: 0.5;
-}
-
-/* Session ID labels */
-.session-id-short {
-	font-size: 0.875em;
-	font-weight: 600;
-	color: var(--accent);
-	font-family: var(--font-mono);
-}
-
-.session-id-prefix {
-	font-size: 0.875em;
-	font-weight: 400;
-	color: var(--muted);
-	font-family: var(--font-mono);
-}
-
-.session-id-badge {
+.session-state {
 	font-size: 0.75em;
 	font-weight: 500;
 	color: var(--muted);
-	font-family: var(--font-mono);
-	background-color: alpha(var(--surface-variant), 0.65);
-	border: 0.0625em solid alpha(var(--border), 0.85);
-	border-radius: 0.1875em;
-	padding: 0.0625em 0.375em;
-	margin-left: 0.5em;
+}
+
+.session-state-current { color: var(--accent); }
+
+.omnibox-style-command.session-manager-container {
+	font-family: var(--font-gtk);
+}
+
+.omnibox-style-command .session-manager-header {
+	padding: 0.75em 1em;
+}
+
+.omnibox-style-command .session-manager-row-wrapper:hover .session-manager-row {
+	background-color: alpha(var(--text), 0.04);
+}
+
+.omnibox-style-command .session-manager-row-wrapper:selected .session-manager-row {
+	background-color: alpha(var(--accent), 0.12);
+}
+
+.omnibox-style-command .session-manager-scrolled {
+	min-height: 12em;
 }
 
 /* Tab/pane count label */
@@ -1365,7 +1348,6 @@ func generateSessionManagerCSS(p Palette) string {
 	letter-spacing: 0.05em;
 	padding: 0.5em 0.75em 0.25em 0.75em;
 	background-color: transparent;
-	font-family: var(--font-mono);
 	border-bottom: 0.0625em solid var(--border);
 }
 
@@ -1373,10 +1355,17 @@ func generateSessionManagerCSS(p Palette) string {
 .session-manager-footer {
 	background-color: transparent;
 	border-top: 0.0625em solid alpha(var(--border), 0.65);
-	padding: 0.375em 0.75em;
-	font-size: 0.6875em;
+	padding: 0.625em 1em;
+	font-size: 0.75em;
 	color: var(--muted);
+	font-family: var(--font-gtk);
+}
+
+.session-manager-key {
 	font-family: var(--font-mono);
+	background-color: alpha(var(--text), 0.06);
+	border-radius: 0.25em;
+	padding: 0.125em 0.375em;
 }
 
 /* Session mode border */
