@@ -7,9 +7,11 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/bnema/dumber/internal/application/port"
+	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/infrastructure/runtimeprofile"
 	"github.com/stretchr/testify/require"
 )
@@ -185,4 +187,70 @@ func TestRunWithInstanceRelayOwnsLeaseThroughGUILifetime(t *testing.T) {
 	lease, err := acquireInstanceNamespace(context.Background(), profile)
 	require.NoError(t, err)
 	require.NoError(t, lease.Close())
+}
+
+type restoreInstanceRelay struct {
+	instanceRelayStub
+	restoreID entity.SessionID
+}
+
+func (r *restoreInstanceRelay) DeliverRestoreSession(_ context.Context, id entity.SessionID) (bool, error) {
+	r.restoreID = id
+	return r.deliver("restore")
+}
+func TestRestoreElectionPreservesIntent(t *testing.T) {
+	relay := &restoreInstanceRelay{instanceRelayStub: instanceRelayStub{deliverAfter: 1}}
+	code, err := DeliverRestoreOrRunWithInstanceRelay(context.Background(), testInstanceProfile(t), relay, "saved", func() int { t.Fatal("must not start another host"); return 1 })
+	require.NoError(t, err)
+	require.Zero(t, code)
+	require.Equal(t, "restore", relay.deliveredKind)
+	require.Equal(t, entity.SessionID("saved"), relay.restoreID)
+}
+
+func TestRestoreElectionColdHostRunsStartupClosure(t *testing.T) {
+	relay := &restoreInstanceRelay{instanceRelayStub: instanceRelayStub{deliverAfter: 100}}
+	ran := false
+	code, err := DeliverRestoreOrRunWithInstanceRelay(context.Background(), testInstanceProfile(t), relay, "saved", func() int { ran = true; return 0 })
+	require.NoError(t, err)
+	require.Zero(t, code)
+	require.True(t, ran)
+	require.True(t, relay.prepared)
+	require.Equal(t, entity.SessionID("saved"), relay.restoreID)
+}
+
+type restoreFailureRelay struct {
+	instanceRelayStub
+	delivered bool
+	failure   error
+}
+
+func (r *restoreFailureRelay) DeliverRestoreSession(context.Context, entity.SessionID) (bool, error) {
+	return r.delivered, r.failure
+}
+func TestRestoreElectionFailureNeverStartsFallback(t *testing.T) {
+	for _, delivered := range []bool{false, true} {
+		relay := &restoreFailureRelay{delivered: delivered, failure: errors.New("restore rejected or unknown")}
+		code, err := DeliverRestoreOrRunWithInstanceRelay(context.Background(), testInstanceProfile(t), relay, "saved", func() int { t.Fatal("restore error must not start fallback GUI"); return 0 })
+		require.Equal(t, 1, code)
+		require.ErrorIs(t, err, relay.failure)
+	}
+}
+
+type slowRestoreRelay struct{ instanceRelayStub }
+
+func (*slowRestoreRelay) DeliverRestoreSession(ctx context.Context, _ entity.SessionID) (bool, error) {
+	select {
+	case <-time.After(2 * instanceElectionSlice):
+		return true, nil
+	case <-ctx.Done():
+		return true, ctx.Err()
+	}
+}
+func TestRestoreElectionCompletionOutlivesProbeBudget(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		relay := &slowRestoreRelay{}
+		code, err := DeliverRestoreOrRunWithInstanceRelay(context.Background(), testInstanceProfile(t), relay, "saved", func() int { t.Fatal("delivered restore must not start GUI"); return 1 })
+		require.NoError(t, err)
+		require.Zero(t, code)
+	})
 }

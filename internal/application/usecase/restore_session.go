@@ -85,3 +85,28 @@ func (uc *RestoreSessionUseCase) Execute(ctx context.Context, input RestoreInput
 func (uc *RestoreSessionUseCase) DeleteSnapshot(ctx context.Context, sessionID entity.SessionID) error {
 	return uc.stateRepo.DeleteSnapshot(ctx, sessionID)
 }
+
+// ErrSessionAlreadyOpen prevents importing a live session's changing snapshot.
+var ErrSessionAlreadyOpen = errors.New("session already open")
+
+// ExecuteImport loads a historical snapshot without changing its ownership or metadata.
+// Imported windows belong to the caller's current live session.
+func (uc *RestoreSessionUseCase) ExecuteImport(ctx context.Context, input RestoreInput, current entity.SessionID) (*RestoreOutput, error) {
+	if input.SessionID == "" {
+		return nil, fmt.Errorf("session id required")
+	}
+	if input.SessionID == current {
+		return nil, ErrSessionAlreadyOpen
+	}
+	session, err := uc.sessionRepo.FindByID(ctx, input.SessionID)
+	if err != nil {
+		return nil, fmt.Errorf("find session: %w", err)
+	}
+	if session == nil {
+		return nil, ErrSessionNotFound
+	}
+	if session.IsActive() {
+		return nil, ErrSessionAlreadyOpen
+	}
+	return uc.Execute(ctx, input)
+}

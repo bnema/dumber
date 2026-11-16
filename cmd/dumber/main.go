@@ -236,15 +236,18 @@ func main() {
 		if freshWindow {
 			forward = tryForwardFreshWindowURLToRunningInstance
 		}
-		if forwarded, err := forward(context.Background(), browserLaunchRelay, startupURL); err != nil {
+
+		if forwarded, err := restoreAwareForwarder(forward, browserLaunchRelay)(
+			context.Background(), browserLaunchRelay, startupURL,
+		); browseForwardExit(forwarded, err, os.Getenv(desktop.RestoreSessionEnvVar) != "") >= 0 {
+			os.Exit(reportBrowseForwardResult(forwarded, err))
+		} else if err != nil {
 			fmt.Fprintf(
 				os.Stderr,
 				"warning: failed to forward browse URL %q to a running instance, falling back to a new process: %v\n",
 				startupURL,
 				err,
 			)
-		} else if forwarded {
-			os.Exit(0)
 		}
 
 		initialURL = startupURL
@@ -269,6 +272,42 @@ func main() {
 
 	// Default: run CLI (shows help if no subcommand)
 	cmd.Execute()
+}
+
+// browseForwardExit keeps URL fallback behavior but never retries restore errors.
+func browseForwardExit(delivered bool, err error, restore bool) int {
+	if restore && err != nil {
+		return 1
+	}
+	if delivered && err == nil {
+		return 0
+	}
+	return -1
+}
+
+func reportBrowseForwardResult(delivered bool, err error) int {
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "dumber: restore session: %v\n", err)
+		return 1
+	}
+	return browseForwardExit(delivered, nil, true)
+}
+
+func restoreAwareForwarder(
+	forward func(context.Context, port.BrowserLaunchRelay, string) (bool, error),
+	relay port.BrowserLaunchRelay,
+) func(context.Context, port.BrowserLaunchRelay, string) (bool, error) {
+	id := entity.SessionID(os.Getenv(desktop.RestoreSessionEnvVar))
+	if id == "" {
+		return forward
+	}
+	return func(ctx context.Context, _ port.BrowserLaunchRelay, _ string) (bool, error) {
+		restorer, ok := relay.(port.SessionRestoreRelay)
+		if !ok {
+			return false, fmt.Errorf("relay does not support restoration")
+		}
+		return restorer.DeliverRestoreSession(ctx, id)
+	}
 }
 
 func setAlreadyRunningRelaunchHandler(engine port.Engine, app *ui.App, ctx context.Context, log *zerolog.Logger) {
@@ -321,13 +360,20 @@ func runInstanceGUI(cfg *config.Config, timing startupTiming, args cmd.BrowseArg
 	}
 	defer func() { _ = os.Unsetenv("DUMBER_INITIAL_INSTANCE") }()
 	os.Args = os.Args[:1]
-	code, launchErr := bootstrap.DeliverOrRunWithInstanceRelay(
-		context.Background(), profile, browserLaunchRelay, instanceName, startupURL, freshWindow,
-		func() int {
-			return runGUIWithProfile(cfg, timing, profile)
-		},
-	)
-	if launchErr != nil && !errors.Is(launchErr, desktop.ErrBrowserLaunchRelayUnconfirmed) {
+	var code int
+	var launchErr error
+	run := func() int { return runGUIWithProfile(cfg, timing, profile) }
+	if restoreSessionID != "" {
+		code, launchErr = bootstrap.DeliverRestoreOrRunWithInstanceRelay(
+			context.Background(), profile, browserLaunchRelay, entity.SessionID(restoreSessionID), run,
+		)
+	} else {
+		code, launchErr = bootstrap.DeliverOrRunWithInstanceRelay(
+			context.Background(), profile, browserLaunchRelay, instanceName, startupURL, freshWindow, run,
+		)
+	}
+
+	if launchErr != nil && (restoreSessionID != "" || !errors.Is(launchErr, desktop.ErrBrowserLaunchRelayUnconfirmed)) {
 		fmt.Fprintf(os.Stderr, "dumber: start or deliver to CEF profile host: %v\n", launchErr)
 	}
 	if args.Ephemeral {
@@ -1178,7 +1224,6 @@ func buildUIDependencies(
 		},
 		CheckUpdateUC:       uc.checkUpdate,
 		ApplyUpdateUC:       uc.applyUpdate,
-		SessionSpawner:      bootstrap.NewSessionSpawner(ctx, runtimeProfile),
 		FileSystem:          localPaths,
 		LocalPathResolver:   localPaths,
 		AccentFocusProvider: focusProvider,

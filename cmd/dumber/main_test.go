@@ -379,3 +379,20 @@ func TestOmniboxCombinedLaunchEnvironment(t *testing.T) {
 		})
 	}
 }
+
+func TestBrowseForwardExitPreservesRestoreOwnership(t *testing.T) {
+	failure := errors.New("restore rejected or unknown")
+	for _, tt := range []struct {
+		delivered bool
+		err       error
+		restore   bool
+		want      int
+	}{
+		{true, failure, true, 1}, {false, failure, true, 1}, {true, nil, true, 0}, {false, nil, true, -1},
+		{true, failure, false, -1}, {false, failure, false, -1}, {true, nil, false, 0},
+	} {
+		if got := browseForwardExit(tt.delivered, tt.err, tt.restore); got != tt.want {
+			t.Errorf("%+v: got %d", tt, got)
+		}
+	}
+}

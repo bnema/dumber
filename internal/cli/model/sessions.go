@@ -20,6 +20,9 @@ import (
 
 // SessionsModel is the Bubble Tea model for interactive session browser.
 type SessionsModel struct {
+	restoreStarted    bool
+	restoredSessionID entity.SessionID
+	restoreErr        error
 	// UI components
 	help    help.Model
 	keys    sessionsKeyMap
@@ -39,12 +42,12 @@ type SessionsModel struct {
 	maxListedSessions int
 
 	// Dependencies
-	ctx             context.Context
-	listSessionsUC  *usecase.ListSessionsUseCase
-	restoreUC       *usecase.RestoreSessionUseCase
-	deleteSessionUC *usecase.DeleteSessionUseCase
-	sessionSpawner  port.SessionSpawner
-	theme           *styles.Theme
+	ctx                    context.Context
+	listSessionsUC         *usecase.ListSessionsUseCase
+	restoreUC              *usecase.RestoreSessionUseCase
+	deleteSessionUC        *usecase.DeleteSessionUseCase
+	sessionRestoreLauncher port.SessionRestoreLauncher
+	theme                  *styles.Theme
 }
 
 // sessionsKeyMap defines keybindings for the sessions browser.
@@ -112,12 +115,12 @@ func defaultSessionsKeyMap() sessionsKeyMap {
 
 // SessionsModelConfig holds configuration for the sessions model.
 type SessionsModelConfig struct {
-	ListSessionsUC    *usecase.ListSessionsUseCase
-	RestoreUC         *usecase.RestoreSessionUseCase
-	DeleteSessionUC   *usecase.DeleteSessionUseCase
-	SessionSpawner    port.SessionSpawner
-	CurrentSession    entity.SessionID
-	MaxExitedSessions int
+	ListSessionsUC         *usecase.ListSessionsUseCase
+	RestoreUC              *usecase.RestoreSessionUseCase
+	DeleteSessionUC        *usecase.DeleteSessionUseCase
+	SessionRestoreLauncher port.SessionRestoreLauncher
+	CurrentSession         entity.SessionID
+	MaxExitedSessions      int
 }
 
 // NewSessionsModel creates a new sessions browser model.
@@ -128,20 +131,20 @@ func NewSessionsModel(ctx context.Context, theme *styles.Theme, cfg SessionsMode
 	}
 
 	return SessionsModel{
-		help:              help.New(),
-		keys:              defaultSessionsKeyMap(),
-		selectedIdx:       0,
-		expandedIdx:       -1,
-		width:             80,
-		height:            24,
-		maxListedSessions: maxListed,
-		ctx:               ctx,
-		listSessionsUC:    cfg.ListSessionsUC,
-		restoreUC:         cfg.RestoreUC,
-		deleteSessionUC:   cfg.DeleteSessionUC,
-		sessionSpawner:    cfg.SessionSpawner,
-		currentSession:    cfg.CurrentSession,
-		theme:             theme,
+		help:                   help.New(),
+		keys:                   defaultSessionsKeyMap(),
+		selectedIdx:            0,
+		expandedIdx:            -1,
+		width:                  80,
+		height:                 24,
+		maxListedSessions:      maxListed,
+		ctx:                    ctx,
+		listSessionsUC:         cfg.ListSessionsUC,
+		restoreUC:              cfg.RestoreUC,
+		deleteSessionUC:        cfg.DeleteSessionUC,
+		sessionRestoreLauncher: cfg.SessionRestoreLauncher,
+		currentSession:         cfg.CurrentSession,
+		theme:                  theme,
 	}
 }
 
@@ -164,6 +167,7 @@ type sessionDeletedMsg struct {
 
 // sessionRestoredMsg is sent when a session restoration is triggered.
 type sessionRestoredMsg struct {
+	started   bool
 	sessionID entity.SessionID
 	err       error
 }
@@ -222,12 +226,13 @@ func (m SessionsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case sessionRestoredMsg:
 		if msg.err != nil {
-			m.statusMessage = fmt.Sprintf("Error: %v", msg.err)
-		} else {
-			m.statusMessage = fmt.Sprintf("Restoring session %s...", msg.sessionID)
+			m.restoreErr = msg.err
 			return m, tea.Quit
 		}
-		return m, nil
+		m.restoreStarted = msg.started
+		m.restoredSessionID = msg.sessionID
+		m.statusMessage = "Session restored"
+		return m, tea.Quit
 	}
 
 	return m, nil
@@ -332,21 +337,22 @@ func (m SessionsModel) restoreSession(sessionID entity.SessionID) tea.Cmd {
 			return sessionRestoredMsg{sessionID: sessionID, err: fmt.Errorf("restore use case not available")}
 		}
 
-		// Validate the session has restorable state
-		_, err := m.restoreUC.Execute(m.ctx, usecase.RestoreInput{SessionID: sessionID})
+		// Validate eligibility before either relay delivery or a cold browser start.
+		_, err := m.restoreUC.ExecuteImport(m.ctx, usecase.RestoreInput{SessionID: sessionID}, m.currentSession)
 		if err != nil {
 			return sessionRestoredMsg{sessionID: sessionID, err: err}
 		}
 
-		// Spawn a new dumber instance
-		if m.sessionSpawner == nil {
-			return sessionRestoredMsg{sessionID: sessionID, err: fmt.Errorf("session spawner not available")}
+		// Deliver to the profile host, or launch it with restore intent.
+		if m.sessionRestoreLauncher == nil {
+			return sessionRestoredMsg{sessionID: sessionID, err: fmt.Errorf("session restore launcher not available")}
 		}
-		if err := m.sessionSpawner.SpawnWithSession(sessionID); err != nil {
+		started, err := m.sessionRestoreLauncher.RestoreSession(m.ctx, sessionID)
+		if err != nil {
 			return sessionRestoredMsg{sessionID: sessionID, err: err}
 		}
 
-		return sessionRestoredMsg{sessionID: sessionID}
+		return sessionRestoredMsg{sessionID: sessionID, started: started}
 	}
 }
 
@@ -716,3 +722,17 @@ func (m SessionsModel) renderPaneNode(
 
 // Ensure interface compliance at compile time.
 var _ tea.Model = (*SessionsModel)(nil)
+
+// RestoreError reports delivery failure after the interactive program exits.
+func (m SessionsModel) RestoreError() error { return m.restoreErr }
+
+// RestoreStatus reports completion or a cold start after the alternate screen closes.
+func (m SessionsModel) RestoreStatus() string {
+	if m.restoredSessionID == "" {
+		return ""
+	}
+	if m.restoreStarted {
+		return fmt.Sprintf("browser starting, restoring session %s", m.restoredSessionID)
+	}
+	return "Session restored"
+}

@@ -8,11 +8,14 @@ import (
 	"testing"
 	"time"
 
+	portmocks "github.com/bnema/dumber/internal/application/port/mocks"
 	"github.com/bnema/dumber/internal/application/usecase"
 	"github.com/bnema/dumber/internal/cli"
 	"github.com/bnema/dumber/internal/cli/styles"
 	"github.com/bnema/dumber/internal/domain/entity"
+	repomocks "github.com/bnema/dumber/internal/domain/repository/mocks"
 	"github.com/bnema/dumber/internal/infrastructure/config"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
@@ -193,4 +196,42 @@ func (sessionCommandStateRepo) GetAllSnapshots(context.Context) ([]*entity.Sessi
 
 func (sessionCommandStateRepo) GetTotalSnapshotsSize(context.Context) (int64, error) {
 	return 0, nil
+}
+
+func TestSessionRestoreDeliveryFailureIsPrintedAndReturned(t *testing.T) {
+	cfg := config.DefaultConfig()
+	ended := time.Now()
+	sessions := &sessionCommandSessionRepo{sessions: []*entity.Session{{ID: "saved", Type: entity.SessionTypeBrowser, StartedAt: time.Now(), EndedAt: &ended}}}
+	states := repomocks.NewMockSessionStateRepository(t)
+	states.EXPECT().GetAllSnapshots(mock.Anything).Return([]*entity.SessionState{}, nil)
+	states.EXPECT().GetSnapshot(mock.Anything, entity.SessionID("saved")).Return(&entity.SessionState{Version: entity.SessionStateVersion}, nil)
+	launcher := portmocks.NewMockSessionRestoreLauncher(t)
+	launcher.EXPECT().RestoreSession(mock.Anything, entity.SessionID("saved")).Return(false, fmt.Errorf("relay unavailable"))
+	withApp(t, &cli.App{Config: cfg, Theme: styles.NewTheme(cfg), SessionUC: usecase.NewManageSessionUseCase(sessions, nil), ListSessionsUC: usecase.NewListSessionsUseCase(sessions, states), RestoreUC: usecase.NewRestoreSessionUseCase(states, sessions), SessionRestoreLauncher: launcher})
+	old := os.Stderr
+	reader, writer, err := os.Pipe()
+	require.NoError(t, err)
+	os.Stderr = writer
+	t.Cleanup(func() { os.Stderr = old; _ = reader.Close(); _ = writer.Close() })
+	err = runSessionsRestore(nil, []string{"saved"})
+	require.ErrorContains(t, err, "relay unavailable")
+	require.NoError(t, writer.Close())
+	output, readErr := io.ReadAll(reader)
+	require.NoError(t, readErr)
+	require.Contains(t, string(output), "relay unavailable")
+	var printed *printedError
+	require.ErrorAs(t, err, &printed)
+}
+
+func TestSessionRestoreRejectsActiveSourceBeforeColdDestination(t *testing.T) {
+	cfg := config.DefaultConfig()
+	sessions := &sessionCommandSessionRepo{sessions: []*entity.Session{{ID: "active-source", Type: entity.SessionTypeBrowser, StartedAt: time.Now()}}}
+	states := repomocks.NewMockSessionStateRepository(t)
+	states.EXPECT().GetAllSnapshots(mock.Anything).Return([]*entity.SessionState{}, nil)
+	// The cold-launch-capable service must never be called for an active source.
+	launcher := portmocks.NewMockSessionRestoreLauncher(t)
+	withApp(t, &cli.App{Config: cfg, Theme: styles.NewTheme(cfg), SessionUC: usecase.NewManageSessionUseCase(sessions, nil), ListSessionsUC: usecase.NewListSessionsUseCase(sessions, states), RestoreUC: usecase.NewRestoreSessionUseCase(states, sessions), SessionRestoreLauncher: launcher})
+	discardStderr(t)
+	err := runSessionsRestore(nil, []string{"active-source"})
+	require.ErrorIs(t, err, usecase.ErrSessionAlreadyOpen)
 }

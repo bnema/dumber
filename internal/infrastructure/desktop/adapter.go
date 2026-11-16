@@ -10,7 +10,6 @@ import (
 	"strings"
 
 	"github.com/bnema/dumber/internal/application/port"
-	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/infrastructure/process"
 	"github.com/bnema/dumber/internal/logging"
 )
@@ -433,17 +432,6 @@ func (a *Adapter) UnsetAsDefaultBrowser(ctx context.Context) error {
 	return nil
 }
 
-// SessionSpawner implements port.SessionSpawner by launching a new dumber process.
-type SessionSpawner struct {
-	ctx      context.Context
-	spawnEnv port.SessionSpawnEnvironment
-}
-
-// NewSessionSpawner creates a new session spawner.
-func NewSessionSpawner(ctx context.Context, spawnEnv port.SessionSpawnEnvironment) *SessionSpawner {
-	return &SessionSpawner{ctx: ctx, spawnEnv: spawnEnv}
-}
-
 // RestoreSessionEnvVar is the environment variable used to pass session ID for restoration.
 const RestoreSessionEnvVar = "DUMBER_RESTORE_SESSION"
 
@@ -589,51 +577,4 @@ func withoutEnvKeys(env []string, keys ...string) []string {
 	}
 
 	return filtered
-}
-
-// SpawnWithSession starts a new dumber instance to restore a session.
-func (s *SessionSpawner) SpawnWithSession(sessionID entity.SessionID) error {
-	log := logging.FromContext(s.ctx)
-
-	execPath, err := getExecutablePath()
-	if err != nil {
-		return fmt.Errorf("get executable path: %w", err)
-	}
-
-	// Start dumber browse with session ID in environment
-	cmd := exec.Command(execPath, "browse")
-
-	sanitizedEnv, _ := process.MergeRuntimeSafety(sanitizedChildEnv(os.Environ()))
-	sanitizedEnv = withoutEnvKeys(sanitizedEnv, RestoreSessionEnvVar)
-	overrides := []string{RestoreSessionEnvVar + "=" + string(sessionID)}
-	if s.spawnEnv != nil {
-		sanitizedEnv = withoutEnvKeys(sanitizedEnv, s.spawnEnv.RootCacheEnvVar())
-		overrides = append(overrides, s.spawnEnv.RootCacheEnvVar()+"="+s.spawnEnv.SessionRootCachePath(sessionID))
-	}
-	sanitizedEnv = append(sanitizedEnv, overrides...)
-	cmd.Env = sanitizedEnv
-
-	// Detach from current process group so the new process survives.
-	cmd.Stdin = nil
-	cmd.Stdout = nil
-	cmd.Stderr = nil
-
-	if err := cmd.Start(); err != nil {
-		return fmt.Errorf("spawn session: %w", err)
-	}
-
-	// Capture PID before releasing.
-	pid := cmd.Process.Pid
-
-	// Release the process so it continues running after we close.
-	if err := cmd.Process.Release(); err != nil {
-		log.Warn().Err(err).Msg("failed to release spawned process (non-fatal)")
-	}
-
-	log.Info().
-		Str("session_id", string(sessionID)).
-		Int("pid", pid).
-		Msg("spawned dumber with session restoration")
-
-	return nil
 }

@@ -41,7 +41,7 @@ type App struct {
 
 	// Services
 	FaviconService          *favicon.Service
-	SessionSpawner          port.SessionSpawner
+	SessionRestoreLauncher  port.SessionRestoreLauncher
 	LocalPaths              port.LocalPathResolver
 	NavigationURLNormalizer *usecase.NavigationURLNormalizer
 
@@ -56,9 +56,10 @@ func NewApp() (*App, error) {
 	var err error
 	// Load config
 	cfg := loadConfig()
-	profile, err := bootstrap.ResolveRuntimeProfile(cfg)
+
+	launcher, err := bootstrap.NewSessionRestoreLauncher(cfg, "", "")
 	if err != nil {
-		return nil, fmt.Errorf("resolve runtime profile: %w", err)
+		return nil, err
 	}
 
 	// Create theme through the shared resolver. CLI keeps the historical dark default
@@ -144,7 +145,7 @@ func NewApp() (*App, error) {
 		RestoreUC:               restoreUC,
 		DeleteSessionUC:         deleteSessionUC,
 		FaviconService:          faviconService,
-		SessionSpawner:          bootstrap.NewSessionSpawner(ctx, profile),
+		SessionRestoreLauncher:  launcher,
 		LocalPaths:              localPaths,
 		NavigationURLNormalizer: usecase.NewNavigationURLNormalizer(localPaths),
 		ctx:                     ctx,

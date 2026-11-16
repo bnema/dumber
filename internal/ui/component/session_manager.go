@@ -7,7 +7,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/application/usecase"
 	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/logging"
@@ -50,7 +49,6 @@ type SessionManager struct {
 	// Dependencies
 	listSessionsUC  *usecase.ListSessionsUseCase
 	deleteSessionUC *usecase.DeleteSessionUseCase
-	spawner         port.SessionSpawner
 	currentSession  entity.SessionID
 
 	// Callbacks
@@ -80,7 +78,6 @@ type SessionManager struct {
 type SessionManagerConfig struct {
 	ListSessionsUC  *usecase.ListSessionsUseCase
 	DeleteSessionUC *usecase.DeleteSessionUseCase
-	Spawner         port.SessionSpawner
 	CurrentSession  entity.SessionID
 	UIScale         float64
 	Style           string
@@ -99,7 +96,6 @@ func NewSessionManager(ctx context.Context, cfg SessionManagerConfig) *SessionMa
 		ctx:             ctx,
 		listSessionsUC:  cfg.ListSessionsUC,
 		deleteSessionUC: cfg.DeleteSessionUC,
-		spawner:         cfg.Spawner,
 		currentSession:  cfg.CurrentSession,
 		onClose:         cfg.OnClose,
 		onOpen:          cfg.OnOpen,
@@ -940,6 +936,9 @@ func (sm *SessionManager) openSelected() {
 	// Don't open current session
 	if info.IsCurrent {
 		log.Debug().Msg("cannot open current session")
+		if sm.onToast != nil {
+			sm.onToast(sm.ctx, "Session already open", ToastWarning)
+		}
 		return
 	}
 

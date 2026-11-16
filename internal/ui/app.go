@@ -2759,7 +2759,10 @@ func (a *App) restoreSession(ctx context.Context, sessionID entity.SessionID) er
 	activeBW := runtimeWindows[safeWindowIndex(state.ActiveWindowIndex, len(runtimeWindows))]
 	a.activateBrowserWindow(activeBW)
 	a.replaceGlobalTabsFromRuntimeWindows(runtimeWindows, activeBW)
-	a.buildRestoredWindowUI(ctx, runtimeWindows)
+	if err := a.buildRestoredWindowUI(ctx, runtimeWindows); err != nil {
+		a.rollbackStartupRestore(ctx, runtimeWindows)
+		return err
+	}
 	a.showRestoredRuntimeWindows(runtimeWindows)
 
 	return nil
@@ -2951,7 +2954,7 @@ func (a *App) showRestoredRuntimeWindows(runtimeWindows []*browserWindow) {
 	}
 }
 
-func (a *App) buildRestoredWindowUI(ctx context.Context, runtimeWindows []*browserWindow) {
+func (a *App) buildRestoredWindowUI(ctx context.Context, runtimeWindows []*browserWindow) error {
 	for _, bw := range runtimeWindows {
 		perWinTabs := a.tabListForBrowserWindow(bw)
 		if perWinTabs == nil || perWinTabs.Count() == 0 {
@@ -2959,10 +2962,15 @@ func (a *App) buildRestoredWindowUI(ctx context.Context, runtimeWindows []*brows
 			continue
 		}
 
-		tabBar := bw.mainWindow.TabBar()
+		var tabBar *component.TabBar
+		if bw.mainWindow != nil {
+			tabBar = bw.mainWindow.TabBar()
+		}
 		activeTab := perWinTabs.ActiveTab()
 		for _, tab := range perWinTabs.Tabs {
-			a.buildRestoredTabUI(ctx, bw, tabBar, tab)
+			if err := a.buildRestoredTabUI(ctx, bw, tabBar, tab); err != nil {
+				return err
+			}
 		}
 
 		if activeTab != nil {
@@ -2973,14 +2981,15 @@ func (a *App) buildRestoredWindowUI(ctx context.Context, runtimeWindows []*brows
 		}
 		a.updateBrowserWindowTabBarVisibility(bw)
 	}
+	return nil
 }
 
-func (a *App) buildRestoredTabUI(ctx context.Context, bw *browserWindow, tabBar *component.TabBar, tab *entity.Tab) {
+func (a *App) buildRestoredTabUI(ctx context.Context, bw *browserWindow, tabBar *component.TabBar, tab *entity.Tab) error {
 	if tab == nil {
-		return
+		return fmt.Errorf("restored tab is nil")
 	}
 	if !a.createWorkspaceViewWithoutAttach(ctx, tab) {
-		return
+		return fmt.Errorf("create workspace for restored tab %s", tab.ID)
 	}
 	wsView := a.workspaceViews[tab.ID]
 	if a.wsCoord != nil && wsView != nil {
@@ -2995,6 +3004,7 @@ func (a *App) buildRestoredTabUI(ctx context.Context, bw *browserWindow, tabBar 
 		Str("window_id", bw.id).
 		Int("panes", tab.Workspace.PaneCount()).
 		Msg("restored tab with workspace")
+	return nil
 }
 
 // assignRestoredWindowTabList assigns a restored WindowTabListState to a runtime browser window.
