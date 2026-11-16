@@ -15,6 +15,7 @@ import (
 
 	purecef "github.com/bnema/purego-cef/cef"
 	cef2gtk "github.com/bnema/purego-cef2gtk"
+	"github.com/bnema/puregotk/v4/gdk"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gtk"
 
@@ -186,8 +187,13 @@ type WebView struct {
 
 	// beginFrameTick drives CEF external BeginFrame requests while the GTK
 	// widget is visible. Access is guarded by mu.
-	beginFrameTick   *gtk.TickCallback
-	beginFrameTickID uint
+	beginFrameTick         *gtk.TickCallback
+	beginFrameTickID       uint
+	beginFrameKick         navigationFrameKick
+	beginFrameClock        *gdk.FrameClock
+	beginFrameFallbackID   uint
+	beginFrameFallback     *glib.SourceFunc
+	lastExternalBeginFrame time.Time
 
 	// pendingCreate holds browser creation params until the GL area is realized.
 	pendingCreate *pendingBrowserCreate
@@ -2590,7 +2596,17 @@ func (wv *WebView) scheduleStopBeginFrameLoop() {
 }
 
 func (wv *WebView) startBeginFrameLoop() {
-	if wv.destroyed.Load() || wv.viewBridge == nil || wv.viewBridge.Widget() == nil {
+	if wv.destroyed.Load() {
+		return
+	}
+	wv.mu.RLock()
+	bridge := wv.viewBridge
+	wv.mu.RUnlock()
+	if bridge == nil {
+		return
+	}
+	widget := bridge.Widget()
+	if widget == nil {
 		return
 	}
 
@@ -2600,40 +2616,38 @@ func (wv *WebView) startBeginFrameLoop() {
 		return
 	}
 
-	widget := wv.viewBridge.Widget()
 	cb := new(gtk.TickCallback)
 	*cb = func(_, _, _ uintptr) bool {
 		if wv.destroyed.Load() {
+			wv.stopNavigationFrameKick()
 			wv.releaseBeginFrameTickCallback()
 			return false
 		}
-		wv.mu.RLock()
+		wv.mu.Lock()
+		wv.beginFrameKick.lastTick = time.Now()
 		host := wv.host
-		wv.mu.RUnlock()
+		wv.mu.Unlock()
 		if host == nil {
+			wv.stopNavigationFrameKick()
 			wv.releaseBeginFrameTickCallback()
 			return false
 		}
-		host.SendExternalBeginFrame()
-		if wv.viewBridge != nil {
-			wv.viewBridge.RecordExternalBeginFrameSent()
-		}
+		wv.refreshNavigationFrameKick()
+		wv.sendExternalBeginFrame()
+
 		return true
 	}
 	wv.beginFrameTick = cb
-	wv.beginFrameTickID = widget.AddTickCallback(cb, 0, nil)
-	host := wv.host
 	wv.mu.Unlock()
-
-	if host != nil {
-		host.SendExternalBeginFrame()
-		if wv.viewBridge != nil {
-			wv.viewBridge.RecordExternalBeginFrameSent()
-		}
-	}
+	id := widget.AddTickCallback(cb, 0, nil)
+	wv.mu.Lock()
+	wv.beginFrameTickID = id
+	wv.mu.Unlock()
+	wv.sendExternalBeginFrame()
 }
 
 func (wv *WebView) stopBeginFrameLoop() {
+	wv.stopNavigationFrameKick()
 	wv.mu.Lock()
 	tickID := wv.beginFrameTickID
 	callback := wv.beginFrameTick

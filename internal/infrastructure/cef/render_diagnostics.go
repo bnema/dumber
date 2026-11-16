@@ -72,6 +72,14 @@ func (wv *WebView) logRenderDiagnosticSnapshot(
 		width, height = bridge.Size()
 		scale = bridge.DeviceScaleFactor()
 	}
+	wv.mu.RLock()
+	lastBeginFrame := wv.lastExternalBeginFrame
+	kick := wv.beginFrameKick
+	wv.mu.RUnlock()
+	lastBeginFrameAge := int64(-1) // No external BeginFrame has been sent yet.
+	if !lastBeginFrame.IsZero() {
+		lastBeginFrameAge = now.Sub(lastBeginFrame).Milliseconds()
+	}
 	uiHeartbeat, ioHeartbeat := wv.cefHeartbeatSnapshots(now)
 	profile, profileAge, hasProfile := wv.latestCEF2GTKProfileSnapshot(now)
 	logging.FromContext(wv.ctx).Warn().
@@ -115,6 +123,8 @@ func (wv *WebView) logRenderDiagnosticSnapshot(
 		Int32("surface_height", height).
 		Float32("surface_scale", scale).
 		Bool("external_begin_frame", externalBeginFrameEnabled()).
+		Int64("last_external_begin_frame_age_ms", lastBeginFrameAge).
+		Bool("navigation_kick_active", kick.active(now, isLoading, diag.AcceleratedPaints)).
 		Bool("profile_snapshot_available", hasProfile).
 		Int64("profile_snapshot_age_ms", durationMillis(profileAge)).
 		Uint64("profile_frames_received", profile.FramesReceived).

@@ -360,6 +360,13 @@ func (v faviconSourceVisitor) Visit(source string) {
 func (h *handlerSet) OnLoadingStateChange(browser purecef.Browser, isloading, cangoback, cangoforward int32) {
 	loading := isloading != 0
 	h.wv.updateLoadState(loading, cangoback != 0, cangoforward != 0)
+	h.wv.runOnGTK(func() {
+		if loading {
+			h.wv.kickNavigationFrame()
+		} else {
+			h.wv.refreshNavigationFrameKick()
+		}
+	})
 	if h.wv != nil && h.wv.ctx != nil {
 		h.wv.mu.RLock()
 		uri := h.wv.uri
@@ -531,7 +538,7 @@ func (h *handlerSet) OnLoadStart(_ purecef.Browser, frame purecef.Frame, _ purec
 	// Post-commit fallback for navigation paths that bypass OnBeforeBrowse
 	// (same-page, error, and helper-driven commits). Main frame only.
 	if h.wv != nil {
-		h.wv.runOnGTK(func() { h.wv.setTooltipOnGTK("") })
+		h.wv.runOnGTK(func() { h.wv.setTooltipOnGTK(""); h.wv.kickNavigationFrame() })
 		// A new document replaces the page that asked for any open JS dialog.
 		h.wv.cancelJSDialogs()
 		h.wv.invalidateScrollMotion()
