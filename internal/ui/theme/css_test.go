@@ -542,10 +542,16 @@ func TestModeLegendCSSStylesToasterPillAndBand(t *testing.T) {
 func TestModalChromeMatchesOmniboxVariants(t *testing.T) {
 	css := GenerateCSS(DefaultDarkPalette())
 	for _, modal := range []string{"session-manager", "permission-popup"} {
-		for _, style := range []string{"command", "multiplexer", "minimal"} {
+		for _, style := range []string{"", "command", "multiplexer", "minimal"} {
 			t.Run(modal+"/"+style, func(t *testing.T) {
-				omnibox := cssRuleBlock(t, css, ".omnibox-container.omnibox-style-"+style)
-				popup := cssRuleBlock(t, css, ".omnibox-style-"+style+"."+modal+"-container")
+				omniboxSelector := ".omnibox-container"
+				popupSelector := "." + modal + "-container"
+				if style != "" {
+					omniboxSelector += ".omnibox-style-" + style
+					popupSelector = ".omnibox-style-" + style + popupSelector
+				}
+				omnibox := cssRuleBlock(t, css, omniboxSelector)
+				popup := cssRuleBlock(t, css, popupSelector)
 				assert.Equal(t, strings.TrimSpace(omnibox), strings.TrimSpace(popup))
 				assert.NotContains(t, popup, "width:")
 			})

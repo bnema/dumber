@@ -292,14 +292,7 @@ window.standalone-omnibox-window {
 }
 
 /* Omnibox main container - the visible popup */
-.omnibox-container {
-	background-color: var(--surface);
-	background-image: none;
-	border: 0.09375em solid alpha(var(--border), 0.9);
-	border-radius: 0.1875em;
-	box-shadow: 0 0.875em 2.5em alpha(black, 0.24), 0 0.0625em 0 alpha(white, 0.05) inset;
-	padding: 0;
-}
+` + generateModalContainerCSS(".omnibox-container", "") + `
 
 /* Header with History/Favorites toggle */
 .omnibox-header {
@@ -559,11 +552,7 @@ entry.omnibox-entry.omnibox-entry-bang-active:focus-visible > text {
 }
 
 /* Multiplexer: segmented status line, square prompt, and strong active rail. */
-.omnibox-container.omnibox-style-multiplexer {
-	border-radius: 0;
-	border-color: var(--border);
-	box-shadow: 0 1.125em 3em alpha(black, 0.34);
-}
+` + generateModalContainerCSS(".omnibox-container.omnibox-style-multiplexer", "multiplexer") + `
 
 .omnibox-style-multiplexer .omnibox-header {
 	padding: 0;
@@ -634,12 +623,7 @@ entry.omnibox-entry.omnibox-entry-bang-active:focus-visible > text {
 }
 
 /* Command: a calmer command palette with a floating input and compact tabs. */
-.omnibox-container.omnibox-style-command {
-	border: 0.125em solid alpha(var(--border), 0.95);
-	border-radius: 0.625em;
-	box-shadow: 0 1.25em 3.5em alpha(black, 0.38), 0 0 0 0.0625em alpha(white, 0.04) inset;
-	padding: 0.375em;
-}
+` + generateModalContainerCSS(".omnibox-container.omnibox-style-command", "command") + `
 
 .omnibox-style-command .omnibox-header {
 	border-bottom: none;
@@ -703,10 +687,7 @@ entry.omnibox-entry.omnibox-entry-bang-active:focus-visible > text {
 }
 
 /* Minimal: terminal typography and hairline structure with almost no chrome. */
-.omnibox-container.omnibox-style-minimal {
-	border-radius: 0;
-	box-shadow: 0 0.75em 2em alpha(black, 0.2);
-}
+` + generateModalContainerCSS(".omnibox-container.omnibox-style-minimal", "minimal") + `
 
 .omnibox-style-minimal .omnibox-header {
 	padding: 0.25em 0.75em;
