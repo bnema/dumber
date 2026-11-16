@@ -638,7 +638,7 @@ func (pv *PaneView) cleanupLocked() {
 // jsDialogView is the JS dialog popup as seen by PaneView (a seam for tests).
 type jsDialogView interface {
 	Widget() *gtk.Widget
-	Show(req port.JSDialogRequest, respond func(ok bool, input string), focus bool, uiScale float64)
+	Show(req port.JSDialogRequest, respond func(ok bool, input string), focus bool, appearance ModalAppearance)
 	Hide()
 	Dismiss(ok bool)
 	RequestFocus()
@@ -696,7 +696,7 @@ func (pv *PaneView) ensureJSDialog() jsDialogView {
 // takes keyboard focus while the pane is active (otherwise when it becomes
 // active). respond is invoked once with the user's answer. Returns false if the
 // popup is unavailable.
-func (pv *PaneView) ShowJSDialog(req port.JSDialogRequest, respond func(ok bool, input string), uiScale float64) bool {
+func (pv *PaneView) ShowJSDialog(req port.JSDialogRequest, respond func(ok bool, input string), appearance ModalAppearance) bool {
 	pv.mu.Lock()
 	if pv.cleanedUp {
 		pv.mu.Unlock()
@@ -708,7 +708,7 @@ func (pv *PaneView) ShowJSDialog(req port.JSDialogRequest, respond func(ok bool,
 	if popup == nil {
 		return false
 	}
-	popup.Show(req, respond, focus, uiScale)
+	popup.Show(req, respond, focus, appearance)
 	return true
 }
 

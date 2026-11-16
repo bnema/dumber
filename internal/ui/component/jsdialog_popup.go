@@ -118,8 +118,9 @@ func buildJSDialogContent(req port.JSDialogRequest) jsDialogContent {
 // pane's WebView and never blocks other panes. It replaces Adwaita AlertDialog
 // for the same reason as PermissionPopup (purego ConnectResponse bug).
 type JSDialogPopup struct {
-	outerBox *gtk.Box
-	mainBox  *gtk.Box
+	outerBox   *gtk.Box
+	mainBox    *gtk.Box
+	styleClass string
 
 	headingLabel *gtk.Label
 	bodyLabel    *gtk.Label
@@ -181,7 +182,7 @@ func (p *JSDialogPopup) SetOnHidden(fn func(hadFocus bool)) {
 // A dialog already visible is dismissed as canceled first. Keyboard focus is
 // only taken when focus is true (the pane is active); otherwise RequestFocus
 // grabs it when the pane becomes active.
-func (p *JSDialogPopup) Show(req port.JSDialogRequest, respond func(ok bool, input string), focus bool, uiScale float64) {
+func (p *JSDialogPopup) Show(req port.JSDialogRequest, respond func(ok bool, input string), focus bool, appearance ModalAppearance) {
 	p.Dismiss(false)
 
 	content := buildJSDialogContent(req)
@@ -199,7 +200,14 @@ func (p *JSDialogPopup) Show(req port.JSDialogRequest, respond func(ok bool, inp
 	p.respond = respond
 	p.mu.Unlock()
 
-	width, _ := CalculateModalDimensionsWithScale(p.parent, JSDialogSizeDefaults, uiScale)
+	styleClass := modalStyleClass(appearance.Style)
+	if styleClass != p.styleClass {
+		p.mainBox.RemoveCssClass(p.styleClass)
+		p.mainBox.AddCssClass(styleClass)
+		p.styleClass = styleClass
+	}
+
+	width, _ := CalculateModalDimensionsWithScale(p.parent, JSDialogSizeDefaults, appearance.UIScale)
 	p.mainBox.SetSizeRequest(width, -1)
 
 	p.headingLabel.SetText(content.Heading)
@@ -389,7 +397,8 @@ func (p *JSDialogPopup) createContainers() error {
 		return errNilWidget("jsDialogMainBox")
 	}
 	p.mainBox.AddCssClass("permission-popup-container")
-	p.mainBox.AddCssClass(modalStyleClass(""))
+	p.styleClass = modalStyleClass("")
+	p.mainBox.AddCssClass(p.styleClass)
 	p.mainBox.SetHalign(gtk.AlignCenterValue)
 	p.mainBox.SetValign(gtk.AlignCenterValue)
 	return nil

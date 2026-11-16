@@ -15,6 +15,7 @@ import (
 
 // fakeJSDialogView records calls made by PaneView.
 type fakeJSDialogView struct {
+	appearance    ModalAppearance
 	respond       func(bool, string)
 	focus         bool
 	shown         int
@@ -25,7 +26,8 @@ type fakeJSDialogView struct {
 }
 
 func (f *fakeJSDialogView) Widget() *gtk.Widget { return nil }
-func (f *fakeJSDialogView) Show(_ port.JSDialogRequest, respond func(bool, string), focus bool, _ float64) {
+func (f *fakeJSDialogView) Show(_ port.JSDialogRequest, respond func(bool, string), focus bool, appearance ModalAppearance) {
+	f.appearance = appearance
 	f.shown++
 	f.respond, f.focus = respond, focus
 }
@@ -72,7 +74,7 @@ func TestPaneViewCleanupAnswersOpenJSDialog(t *testing.T) {
 	pv := newJSDialogPaneView(t, fake)
 
 	var answers []bool
-	require.True(t, pv.ShowJSDialog(port.JSDialogRequest{}, func(ok bool, _ string) { answers = append(answers, ok) }, 1))
+	require.True(t, pv.ShowJSDialog(port.JSDialogRequest{}, func(ok bool, _ string) { answers = append(answers, ok) }, ModalAppearance{UIScale: 1}))
 
 	pv.Cleanup()
 
@@ -90,11 +92,11 @@ func TestPaneViewShowJSDialogFocusFollowsActive(t *testing.T) {
 	fake := &fakeJSDialogView{}
 	pv := newJSDialogPaneView(t, fake)
 
-	require.True(t, pv.ShowJSDialog(port.JSDialogRequest{}, func(bool, string) {}, 1))
+	require.True(t, pv.ShowJSDialog(port.JSDialogRequest{}, func(bool, string) {}, ModalAppearance{UIScale: 1}))
 	assert.False(t, fake.focus, "inactive pane's dialog must not steal focus")
 
 	pv.isActive = true
-	require.True(t, pv.ShowJSDialog(port.JSDialogRequest{}, func(bool, string) {}, 1))
+	require.True(t, pv.ShowJSDialog(port.JSDialogRequest{}, func(bool, string) {}, ModalAppearance{UIScale: 1}))
 	assert.True(t, fake.focus)
 }
 
@@ -104,7 +106,7 @@ func TestPaneViewSetActiveFocusesPendingJSDialog(t *testing.T) {
 	border := mocks.NewMockBoxWidget(t)
 	border.EXPECT().AddCssClass(activePaneClass).Once()
 	pv.borderBox = border
-	require.True(t, pv.ShowJSDialog(port.JSDialogRequest{}, func(bool, string) {}, 1))
+	require.True(t, pv.ShowJSDialog(port.JSDialogRequest{}, func(bool, string) {}, ModalAppearance{UIScale: 1}))
 
 	pv.SetActive(true)
 
@@ -119,7 +121,7 @@ func TestPaneViewGrabFocusDefersToVisibleJSDialog(t *testing.T) {
 	border := mocks.NewMockBoxWidget(t)
 	border.EXPECT().AddCssClass(activePaneClass).Once()
 	pv.borderBox = border
-	require.True(t, pv.ShowJSDialog(port.JSDialogRequest{}, func(bool, string) {}, 1))
+	require.True(t, pv.ShowJSDialog(port.JSDialogRequest{}, func(bool, string) {}, ModalAppearance{UIScale: 1}))
 
 	pv.SetActive(true)
 	require.Equal(t, 1, fake.focusRequests)
@@ -143,6 +145,21 @@ func TestPaneViewShowJSDialogAfterCleanupFails(t *testing.T) {
 	pv := newJSDialogPaneView(t, fake)
 	pv.Cleanup()
 
-	assert.False(t, pv.ShowJSDialog(port.JSDialogRequest{}, func(bool, string) {}, 1))
+	assert.False(t, pv.ShowJSDialog(port.JSDialogRequest{}, func(bool, string) {}, ModalAppearance{UIScale: 1}))
 	assert.Zero(t, fake.shown)
+}
+
+func TestPaneViewJSDialogAppearance(t *testing.T) {
+	fake := &fakeJSDialogView{}
+	pv := newJSDialogPaneView(t, fake)
+	for _, style := range []string{"multiplexer", "command", "minimal", ""} {
+		appearance := ModalAppearance{UIScale: 1.25, Style: style}
+		require.True(t, pv.ShowJSDialog(port.JSDialogRequest{}, nil, appearance))
+		assert.Equal(t, appearance, fake.appearance)
+		expected := style
+		if expected == "" {
+			expected = "command"
+		}
+		assert.Equal(t, "omnibox-style-"+expected, modalStyleClass(fake.appearance.Style))
+	}
 }

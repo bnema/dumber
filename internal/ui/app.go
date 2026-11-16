@@ -3439,8 +3439,9 @@ func (a *App) initCoordinators(ctx context.Context) {
 
 	// JS dialogs are shown in the owning pane's overlay, wherever that pane lives.
 	a.contentCoord.SetPaneViewResolver(a.paneViewForPane)
-	a.contentCoord.SetUIScaleProvider(func() float64 {
-		return a.runtimeConfigSnapshot().UI.DefaultUIScale
+	a.contentCoord.SetModalAppearanceProvider(func() component.ModalAppearance {
+		cfg := a.runtimeConfigSnapshot().UI
+		return component.ModalAppearance{UIScale: cfg.DefaultUIScale, Style: cfg.Omnibox.Style}
 	})
 
 	// Hide loading skeleton once the WebView paints

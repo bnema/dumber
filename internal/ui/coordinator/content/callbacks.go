@@ -329,7 +329,7 @@ func (c *Coordinator) setupJSDialogCallbacks(paneID entity.PaneID, callbacks *po
 		if pv == nil {
 			return false
 		}
-		return pv.ShowJSDialog(req, respond, c.jsDialogUIScale())
+		return pv.ShowJSDialog(req, respond, c.jsDialogAppearance())
 	}
 	callbacks.OnJSDialogReset = func() {
 		if pv := c.paneViewForJSDialog(paneID); pv != nil {
@@ -338,12 +338,12 @@ func (c *Coordinator) setupJSDialogCallbacks(paneID entity.PaneID, callbacks *po
 	}
 }
 
-// jsDialogUIScale returns the current UI scale (1 when no provider is set).
-func (c *Coordinator) jsDialogUIScale() float64 {
-	if c.uiScaleProvider == nil {
-		return 1
+// jsDialogAppearance reads live appearance, defaulting to scale 1 and command style.
+func (c *Coordinator) jsDialogAppearance() component.ModalAppearance {
+	if c.modalAppearanceProvider == nil {
+		return component.ModalAppearance{UIScale: 1}
 	}
-	return c.uiScaleProvider()
+	return c.modalAppearanceProvider()
 }
 
 // paneViewForJSDialog resolves the PaneView that owns paneID's WebView through

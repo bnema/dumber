@@ -51,7 +51,7 @@ type Coordinator struct {
 	// background panes). JS dialogs are not shown while it is nil.
 	paneViewResolver func(paneID entity.PaneID) *component.PaneView
 	// Current UI scale, used to size JS dialogs.
-	uiScaleProvider func() float64
+	modalAppearanceProvider func() component.ModalAppearance
 
 	// Callback when title changes (for history persistence)
 	onTitleUpdated func(ctx context.Context, paneID entity.PaneID, url, title string)
@@ -283,9 +283,9 @@ func (c *Coordinator) SetPaneViewResolver(fn func(paneID entity.PaneID) *compone
 	c.paneViewResolver = fn
 }
 
-// SetUIScaleProvider sets the source of the current UI scale.
-func (c *Coordinator) SetUIScaleProvider(fn func() float64) {
-	c.uiScaleProvider = fn
+// SetModalAppearanceProvider sets the source of the current modal appearance.
+func (c *Coordinator) SetModalAppearanceProvider(fn func() component.ModalAppearance) {
+	c.modalAppearanceProvider = fn
 }
 
 // SetOnEditableFocusChanged sets the callback for page editable focus changes.
