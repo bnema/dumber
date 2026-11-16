@@ -11,6 +11,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/bnema/dumber/internal/application/usecase"
+	"github.com/bnema/dumber/internal/bootstrap"
 	"github.com/bnema/dumber/internal/cli/model"
 	"github.com/bnema/dumber/internal/cli/styles"
 	"github.com/bnema/dumber/internal/domain/entity"
@@ -19,8 +20,10 @@ import (
 const defaultSessionsLimit = 20
 
 var (
-	sessionsJSON  bool
-	sessionsLimit int
+	sessionsJSON     bool
+	sessionsLimit    int
+	sessionsProfile  string
+	sessionsInstance string
 )
 
 var sessionsCmd = &cobra.Command{
@@ -37,12 +40,21 @@ Run without arguments to open the interactive session browser.`,
 
 func init() {
 	rootCmd.AddCommand(sessionsCmd)
+	sessionsCmd.PersistentFlags().StringVar(&sessionsProfile, "profile", "", "Restore into this persistent browser profile")
+	sessionsCmd.PersistentFlags().StringVar(&sessionsInstance, "instance", "", "Select a logical instance sharing the profile host")
 }
 
 func runSessions(_ *cobra.Command, _ []string) error {
 	cliApp := GetApp()
 	if cliApp == nil {
 		return fmt.Errorf("app not initialized")
+	}
+	if sessionsProfile != "" || sessionsInstance != "" {
+		launcher, err := bootstrap.NewSessionRestoreLauncher(cliApp.Config, sessionsProfile, sessionsInstance)
+		if err != nil {
+			return err
+		}
+		cliApp.SessionRestoreLauncher = launcher
 	}
 
 	if cliApp.ListSessionsUC == nil || cliApp.SessionUC == nil {
@@ -57,17 +69,29 @@ func runSessions(_ *cobra.Command, _ []string) error {
 
 	// Run interactive TUI
 	m := model.NewSessionsModel(cliApp.Ctx(), cliApp.Theme, model.SessionsModelConfig{
-		ListSessionsUC:    cliApp.ListSessionsUC,
-		RestoreUC:         cliApp.RestoreUC,
-		DeleteSessionUC:   cliApp.DeleteSessionUC,
-		SessionSpawner:    cliApp.SessionSpawner,
-		CurrentSession:    currentSessionID,
-		MaxExitedSessions: cliApp.Config.Session.MaxExitedSessions,
+		ListSessionsUC:         cliApp.ListSessionsUC,
+		RestoreUC:              cliApp.RestoreUC,
+		DeleteSessionUC:        cliApp.DeleteSessionUC,
+		SessionRestoreLauncher: cliApp.SessionRestoreLauncher,
+		CurrentSession:         currentSessionID,
+		MaxExitedSessions:      cliApp.Config.Session.MaxExitedSessions,
 	})
 
 	p := tea.NewProgram(m, tea.WithAltScreen())
-	_, err := p.Run()
-	return err
+	final, err := p.Run()
+	if err != nil {
+		return err
+	}
+	if result, ok := final.(model.SessionsModel); ok {
+		if err := result.RestoreError(); err != nil {
+			return err
+		}
+		if status := result.RestoreStatus(); status != "" {
+			fmt.Println(status)
+		}
+		return nil
+	}
+	return nil
 }
 
 // sessions list
@@ -156,6 +180,14 @@ func runSessionsRestore(_ *cobra.Command, args []string) error {
 	if cliApp == nil {
 		return fmt.Errorf("app not initialized")
 	}
+	if sessionsProfile != "" || sessionsInstance != "" {
+		launcher, err := bootstrap.NewSessionRestoreLauncher(cliApp.Config, sessionsProfile, sessionsInstance)
+		if err != nil {
+			return err
+		}
+		cliApp.SessionRestoreLauncher = launcher
+	}
+
 	renderer := styles.NewSessionsCLIRenderer(cliApp.Theme)
 
 	if cliApp.RestoreUC == nil || cliApp.ListSessionsUC == nil || cliApp.SessionUC == nil {
@@ -173,27 +205,36 @@ func runSessionsRestore(_ *cobra.Command, args []string) error {
 
 	sessionID := sessionInfo.Session.ID
 
-	// Validate the session has restorable state
-	_, err = cliApp.RestoreUC.Execute(cliApp.Ctx(), usecase.RestoreInput{SessionID: sessionID})
+	// Validate eligibility before either relay delivery or a cold browser start.
+	ctx := cliApp.Ctx()
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	_, err = cliApp.RestoreUC.ExecuteImport(ctx, usecase.RestoreInput{SessionID: sessionID}, "")
 	if err != nil {
 		wrappedErr := fmt.Errorf("restore session: %w", err)
 		fmt.Fprintln(os.Stderr, renderer.RenderError(wrappedErr))
 		return wrapPrintedError(wrappedErr)
 	}
 
-	// Spawn a new dumber instance with the session
-	if cliApp.SessionSpawner == nil {
-		err := fmt.Errorf("session spawner not available")
+	// Deliver to the profile host, or launch it with restore intent.
+	if cliApp.SessionRestoreLauncher == nil {
+		err = fmt.Errorf("session restore launcher not available")
 		fmt.Fprintln(os.Stderr, renderer.RenderError(err))
 		return wrapPrintedError(err)
 	}
-	if err := cliApp.SessionSpawner.SpawnWithSession(sessionID); err != nil {
-		wrappedErr := fmt.Errorf("spawn browser: %w", err)
+	started, err := cliApp.SessionRestoreLauncher.RestoreSession(ctx, sessionID)
+	if err != nil {
+		wrappedErr := fmt.Errorf("restore browser session: %w", err)
 		fmt.Fprintln(os.Stderr, renderer.RenderError(wrappedErr))
 		return wrapPrintedError(wrappedErr)
 	}
 
-	fmt.Println(renderer.RenderRestoreStarted(sessionID))
+	if started {
+		fmt.Printf("browser starting, restoring session %s\n", sessionID)
+	} else {
+		fmt.Println("Session restored")
+	}
 	return nil
 }
 

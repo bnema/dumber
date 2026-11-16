@@ -12,6 +12,7 @@ import (
 	"golang.org/x/sys/unix"
 
 	"github.com/bnema/dumber/internal/application/port"
+	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/infrastructure/runtimeprofile"
 )
 
@@ -75,6 +76,21 @@ func DeliverOrRunWithInstanceRelay(
 	freshWindow bool,
 	run func() int,
 ) (int, error) {
+	return deliverOrRunWithInstanceRelay(ctx, profile, relay, name, url, freshWindow, "", run)
+}
+
+// DeliverRestoreOrRunWithInstanceRelay preserves restore intent through host election.
+func DeliverRestoreOrRunWithInstanceRelay(
+	ctx context.Context, profile runtimeprofile.Profile, relay port.BrowserLaunchRelay,
+	id entity.SessionID, run func() int,
+) (int, error) {
+	return deliverOrRunWithInstanceRelay(ctx, profile, relay, "", "", false, id, run)
+}
+
+func deliverOrRunWithInstanceRelay(
+	ctx context.Context, profile runtimeprofile.Profile, relay port.BrowserLaunchRelay,
+	name, url string, freshWindow bool, restoreID entity.SessionID, run func() int,
+) (int, error) {
 	deliver := relay.DeliverOpenExternalURL
 	if freshWindow {
 		deliver = relay.DeliverOpenFreshWindow
@@ -87,6 +103,15 @@ func DeliverOrRunWithInstanceRelay(
 			return instanceRelay.DeliverOpenInstance(ctx, name, url)
 		}
 	}
+	if restoreID != "" {
+		restorer, ok := relay.(port.SessionRestoreRelay)
+		if !ok {
+			return 1, fmt.Errorf("host relay does not support session restoration")
+		}
+		deliver = func(ctx context.Context, _ string) (bool, error) {
+			return restorer.DeliverRestoreSession(ctx, restoreID)
+		}
+	}
 	// Normalize before any acquisition attempt so a cold default profile locks
 	// the shared IPC runtime directory instead of retrying a permanent mkdir/open
 	// failure on an empty path.
@@ -94,9 +119,10 @@ func DeliverOrRunWithInstanceRelay(
 		profile.InstanceRoot = profile.IPC.RuntimeDir
 	}
 	for {
-		deliveryCtx, cancel := context.WithTimeout(ctx, instanceElectionSlice)
-		delivered, err := deliver(deliveryCtx, url)
-		cancel()
+		delivered, err := deliverForElection(ctx, deliver, url, restoreID != "")
+		if restoreID != "" && err != nil {
+			return 1, err
+		}
 		if delivered {
 			// An unconfirmed ACK still means ownership may have transferred; retrying
 			// the same request would rely on relay request-ID deduplication.
@@ -146,4 +172,15 @@ func runWithInstanceLease(profile runtimeprofile.Profile, relay port.BrowserLaun
 		)
 	}
 	return run(), nil
+}
+
+// Restore relays bound connection probing themselves; their completion wait must
+// retain the caller's budget rather than the short host-election probe slice.
+func deliverForElection(ctx context.Context, deliver func(context.Context, string) (bool, error), url string, restore bool) (bool, error) {
+	if restore {
+		return deliver(ctx, url)
+	}
+	probe, cancel := context.WithTimeout(ctx, instanceElectionSlice)
+	defer cancel()
+	return deliver(probe, url)
 }

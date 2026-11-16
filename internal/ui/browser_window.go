@@ -2,6 +2,7 @@ package ui
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"slices"
 	"sort"
@@ -256,15 +257,13 @@ func (bw *browserWindow) initSessionManager(ctx context.Context, a *App) {
 		OnClose: func() {
 			log.Debug().Msg("session manager closed")
 		},
-		OnOpen: func(sessionID entity.SessionID) {
-			log.Info().Str("session_id", string(sessionID)).Msg("session restoration requested")
-			if spawner := a.deps.SessionSpawner; spawner == nil {
-				log.Warn().Str("session_id", string(sessionID)).Msg("session spawner not available")
-				return
-			} else if err := spawner.SpawnWithSession(sessionID); err != nil {
-				log.Error().Err(err).Str("session_id", string(sessionID)).Msg("failed to spawn session")
+		OnOpen: sessionManagerOpenHandler(ctx, func(id entity.SessionID) error {
+			return a.restoreSessionInNewWindows(ctx, id)
+		}, func(ctx context.Context, message string, level component.ToastLevel) {
+			if bw.appToaster != nil {
+				bw.appToaster.Show(ctx, message, level)
 			}
-		},
+		}),
 		OnToast: func(ctx context.Context, message string, level component.ToastLevel) {
 			if bw.appToaster != nil {
 				bw.appToaster.Show(ctx, message, level)
@@ -831,4 +830,23 @@ func (a *App) handleBrowserWindowEscape(ctx context.Context, bw *browserWindow) 
 
 func (bw *browserWindow) hasNativeModalInput() bool {
 	return bw.isRenamingTab() || (bw.sessionManager != nil && bw.sessionManager.IsVisible())
+}
+
+// sessionManagerOpenHandler reports restoration results in the requesting window.
+func sessionManagerOpenHandler(
+	ctx context.Context,
+	open func(entity.SessionID) error,
+	notify func(context.Context, string, component.ToastLevel),
+) func(entity.SessionID) {
+	return func(id entity.SessionID) {
+		if err := open(id); err != nil {
+			if errors.Is(err, usecase.ErrSessionAlreadyOpen) {
+				notify(ctx, "Session already open", component.ToastWarning)
+			} else {
+				notify(ctx, "Session restore failed: "+err.Error(), component.ToastWarning)
+			}
+			return
+		}
+		notify(ctx, "Session restored", component.ToastSuccess)
+	}
 }

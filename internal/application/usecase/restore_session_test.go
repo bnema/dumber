@@ -138,3 +138,31 @@ func TestRestoreSessionUseCase_DeleteSnapshot(t *testing.T) {
 	err := uc.DeleteSnapshot(ctx, sessionID)
 	require.NoError(t, err)
 }
+
+func TestRestoreSessionUseCase_ExecuteImportRejectsLiveSessions(t *testing.T) {
+	ctx := testContext()
+	for _, current := range []bool{true, false} {
+		t.Run(map[bool]string{true: "current", false: "other instance"}[current], func(t *testing.T) {
+			states := repomocks.NewMockSessionStateRepository(t)
+			sessions := repomocks.NewMockSessionRepository(t)
+			liveID := entity.SessionID("current")
+			if !current {
+				liveID = "another"
+				sessions.EXPECT().FindByID(ctx, entity.SessionID("current")).Return(&entity.Session{ID: "current"}, nil)
+			}
+			_, err := usecase.NewRestoreSessionUseCase(states, sessions).ExecuteImport(ctx, usecase.RestoreInput{SessionID: "current"}, liveID)
+			require.ErrorIs(t, err, usecase.ErrSessionAlreadyOpen)
+		})
+	}
+}
+
+func TestRestoreSessionUseCase_ExecuteImportReportsSnapshotFailure(t *testing.T) {
+	ctx := testContext()
+	states := repomocks.NewMockSessionStateRepository(t)
+	sessions := repomocks.NewMockSessionRepository(t)
+	ended := time.Now()
+	sessions.EXPECT().FindByID(ctx, entity.SessionID("saved")).Return(&entity.Session{ID: "saved", EndedAt: &ended}, nil)
+	states.EXPECT().GetSnapshot(ctx, entity.SessionID("saved")).Return(nil, errors.New("snapshot unavailable"))
+	_, err := usecase.NewRestoreSessionUseCase(states, sessions).ExecuteImport(ctx, usecase.RestoreInput{SessionID: "saved"}, "live")
+	require.ErrorContains(t, err, "snapshot unavailable")
+}

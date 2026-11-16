@@ -12,12 +12,14 @@ import (
 	neturl "net/url"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sync"
 	"sync/atomic"
 	"syscall"
 	"time"
 
 	"github.com/bnema/dumber/internal/application/port"
+	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/infrastructure/process"
 	"github.com/bnema/dumber/internal/infrastructure/runtimeprofile"
 	"github.com/bnema/dumber/internal/logging"
@@ -37,6 +39,21 @@ const browserLaunchDirPerm = 0o700
 // request but the caller did not receive a confirmation response in time.
 var ErrBrowserLaunchRelayUnconfirmed = errors.New("browser launch relay did not confirm delivery")
 
+// ErrSessionRestoreResultUnknown prevents duplicate fallback after ownership may transfer.
+var ErrSessionRestoreResultUnknown = errors.New("restore delivered but result unknown")
+
+const sessionRestoreCompletionTimeout = 10 * time.Second
+
+var restoreSessionIDPattern = regexp.MustCompile(`^\d{8}_\d{6}_[0-9a-f]{4}$`)
+
+func validRestoreSessionID(id entity.SessionID) bool {
+	if !restoreSessionIDPattern.MatchString(string(id)) {
+		return false
+	}
+	_, err := time.Parse("20060102_150405", string(id)[:15])
+	return err == nil
+}
+
 type browserLaunchRelay struct {
 	ipc       runtimeprofile.IPCPaths
 	prepareMu sync.Mutex
@@ -52,6 +69,7 @@ type browserLaunchRelay struct {
 
 type browserLaunchRequest struct {
 	RequestID string              `json:"request_id,omitempty"`
+	SessionID entity.SessionID    `json:"session_id,omitempty"`
 	URL       string              `json:"url"`
 	Instance  string              `json:"instance,omitempty"`
 	Action    browserLaunchAction `json:"action,omitempty"`
@@ -63,6 +81,7 @@ const (
 	browserLaunchActionOpenExternalURL browserLaunchAction = "open-external-url"
 	browserLaunchActionOpenFreshWindow browserLaunchAction = "open-fresh-window"
 	browserLaunchActionOpenInstance    browserLaunchAction = "open-instance"
+	browserLaunchActionRestoreSession  browserLaunchAction = "restore-session"
 	// browserLaunchActionCloseAllWindows is a diagnostic-only action for the
 	// residency harness: it closes every user window through the standard
 	// removal path. It is honored only when the OWNING process sets
@@ -86,6 +105,7 @@ type windowCloseOpener interface {
 type browserLaunchResponse struct {
 	RequestID string `json:"request_id,omitempty"`
 	Accepted  bool   `json:"accepted,omitempty"`
+	Completed bool   `json:"completed,omitempty"`
 	Error     string `json:"error,omitempty"`
 }
 
@@ -143,6 +163,15 @@ func (r *browserLaunchRelay) DeliverOpenInstance(ctx context.Context, name, url 
 }
 
 func (r *browserLaunchRelay) deliver(ctx context.Context, url, instance string, action browserLaunchAction) (bool, error) {
+	return r.deliverRequest(ctx, browserLaunchRequest{URL: url, Instance: instance, Action: action})
+}
+
+func (r *browserLaunchRelay) DeliverRestoreSession(ctx context.Context, id entity.SessionID) (bool, error) {
+	return r.deliverRequest(ctx, browserLaunchRequest{Action: browserLaunchActionRestoreSession, SessionID: id})
+}
+
+func (r *browserLaunchRelay) deliverRequest(ctx context.Context, request browserLaunchRequest) (bool, error) {
+	url := request.URL
 	socketPath, err := r.socketPath()
 	if err != nil {
 		return false, err
@@ -156,7 +185,11 @@ func (r *browserLaunchRelay) deliver(ctx context.Context, url, instance string, 
 		return false, fmt.Errorf("stat browser launch dir: %w", statErr)
 	}
 
-	conn, err := (&net.Dialer{}).DialContext(ctx, "unix", socketPath)
+	dialer := net.Dialer{}
+	if request.Action == browserLaunchActionRestoreSession {
+		dialer.Timeout = browserLaunchIOTimeout
+	}
+	conn, err := dialer.DialContext(ctx, "unix", socketPath)
 	if err != nil {
 		if isMissingRelayListener(err) {
 			return false, nil
@@ -175,11 +208,9 @@ func (r *browserLaunchRelay) deliver(ctx context.Context, url, instance string, 
 	if err := setBrowserLaunchConnDeadline(ctx, conn); err != nil {
 		return false, err
 	}
-	request := browserLaunchRequest{
-		RequestID: requestID,
-		URL:       url,
-		Instance:  instance,
-		Action:    action,
+	request.RequestID = requestID
+	if request.Action == browserLaunchActionRestoreSession {
+		return sendRestoreRequest(ctx, conn, request)
 	}
 	if err := json.NewEncoder(conn).Encode(request); err != nil {
 		return false, err
@@ -189,6 +220,11 @@ func (r *browserLaunchRelay) deliver(ctx context.Context, url, instance string, 
 		return false, err
 	}
 
+	return receiveLaunchAcknowledgement(ctx, conn, requestID, url, log)
+}
+
+// receiveLaunchAcknowledgement preserves the admission-only contract for URL/window actions.
+func receiveLaunchAcknowledgement(ctx context.Context, conn net.Conn, requestID, url string, log *zerolog.Logger) (bool, error) {
 	var response browserLaunchResponse
 	decoder := json.NewDecoder(conn)
 	for {
@@ -507,6 +543,15 @@ func (l *browserLaunchRelayListener) handleConnection(ctx context.Context, conn 
 	if err := json.NewDecoder(conn).Decode(&request); err != nil {
 		return
 	}
+	if request.Action == browserLaunchActionRestoreSession {
+		_, supported := opener.(port.SessionRestoreOpener)
+		if !supported || !validRestoreSessionID(request.SessionID) {
+			_ = json.NewEncoder(conn).Encode(browserLaunchResponse{
+				RequestID: request.RequestID, Error: "invalid or unsupported session restore request",
+			})
+			return
+		}
+	}
 	requestID := request.RequestID
 	if requestID == "" {
 		requestID = newBrowserLaunchRequestID()
@@ -531,6 +576,15 @@ func (l *browserLaunchRelayListener) handleConnection(ctx context.Context, conn 
 		l.seen[requestID] = struct{}{}
 	}
 	l.seenMu.Unlock()
+	if request.Action == browserLaunchActionRestoreSession {
+		if duplicate {
+			gate.Release()
+			_ = json.NewEncoder(conn).Encode(browserLaunchResponse{RequestID: requestID, Error: ErrSessionRestoreResultUnknown.Error()})
+			return
+		}
+		completeSessionRestore(ctx, conn, request, opener.(port.SessionRestoreOpener), gate)
+		return
+	}
 	if duplicate {
 		defer gate.Release()
 		_ = json.NewEncoder(conn).Encode(browserLaunchResponse{RequestID: requestID, Accepted: true})
@@ -633,3 +687,67 @@ func dispatchBrowserLaunch(
 }
 
 var _ port.BrowserLaunchRelay = (*browserLaunchRelay)(nil)
+
+// receiveRestoreCompletion requires an explicit completion marker: older hosts'
+// admission ACKs cannot be mistaken for a successful restoration.
+func receiveRestoreCompletion(ctx context.Context, conn net.Conn, requestID string) (bool, error) {
+	deadline := time.Now().Add(sessionRestoreCompletionTimeout + time.Second)
+	if caller, ok := ctx.Deadline(); ok && caller.Before(deadline) {
+		deadline = caller
+	}
+	if err := conn.SetDeadline(deadline); err != nil {
+		return true, fmt.Errorf("%w: %w", ErrSessionRestoreResultUnknown, err)
+	}
+	var response browserLaunchResponse
+	if err := json.NewDecoder(conn).Decode(&response); err != nil {
+		return true, fmt.Errorf("%w: %w", ErrSessionRestoreResultUnknown, err)
+	}
+	if response.RequestID != requestID {
+		return true, fmt.Errorf("%w: mismatched response", ErrSessionRestoreResultUnknown)
+	}
+	if response.Error == ErrSessionRestoreResultUnknown.Error() {
+		return true, ErrSessionRestoreResultUnknown
+	}
+	if response.Error != "" {
+		return true, errors.New(response.Error)
+	}
+	if !response.Completed {
+		return true, fmt.Errorf("%w: host did not confirm restore completion", ErrSessionRestoreResultUnknown)
+	}
+	return true, nil
+}
+
+// completeSessionRestore bounds the response wait, not ownership: admitted work
+// retains its lease until it settles even when the client has disconnected.
+func completeSessionRestore(
+	ctx context.Context, conn net.Conn, request browserLaunchRequest,
+	opener port.SessionRestoreOpener, gate *process.AdmissionGate,
+) {
+	result := make(chan error, 1)
+	timer := time.NewTimer(sessionRestoreCompletionTimeout)
+	defer timer.Stop()
+	// UI callbacks retain this context; its lifetime belongs to the host, not
+	// to the client's completion wait.
+	go func() { defer gate.Release(); result <- opener.RestoreSession(ctx, request.SessionID) }()
+	response := browserLaunchResponse{RequestID: request.RequestID, Accepted: true}
+	select {
+	case err := <-result:
+		response.Completed = true
+		if err != nil {
+			response.Error = err.Error()
+		}
+	case <-timer.C:
+		response.Error = ErrSessionRestoreResultUnknown.Error()
+	case <-ctx.Done():
+		response.Error = ErrSessionRestoreResultUnknown.Error()
+	}
+	_ = conn.SetWriteDeadline(time.Now().Add(browserLaunchIOTimeout))
+	_ = json.NewEncoder(conn).Encode(response)
+}
+
+func sendRestoreRequest(ctx context.Context, conn net.Conn, request browserLaunchRequest) (bool, error) {
+	if err := json.NewEncoder(conn).Encode(request); err != nil {
+		return true, fmt.Errorf("%w: %w", ErrSessionRestoreResultUnknown, err)
+	}
+	return receiveRestoreCompletion(ctx, conn, request.RequestID)
+}

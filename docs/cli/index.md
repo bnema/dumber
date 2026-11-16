@@ -80,7 +80,7 @@ Manage browser sessions.
 ```bash
 dumber sessions
 dumber sessions list [flags]
-dumber sessions restore <session-id>
+dumber sessions restore <session-id> [--profile <name>] [--instance <name>]
 dumber sessions delete <session-id>
 ```
 
@@ -91,6 +91,23 @@ dumber sessions delete <session-id>
 | `list` | List saved sessions |
 | `restore <id>` | Restore a saved session |
 | `delete <id>` | Delete a saved session |
+
+Restoration opens the saved windows, tabs, and panes as new windows in the
+running profile host. Existing windows stay open, and the restored windows join
+the current live session. The saved session remains in history unchanged.
+Active sessions are not duplicated.
+
+`--profile <name>` selects an isolated persistent profile host. Logical instances
+selected with `--instance <name>` share their profile's host and browser data.
+Eligibility (saved snapshot, session not already open) is checked before
+anything starts. With a running host, the command waits for the restore result;
+rejections and unknown outcomes are reported on stderr with a non-zero exit
+status. When no host is running, Dumber starts the GUI, prints
+`browser starting, restoring session <id>`, and returns. That browser restores
+into its initial window and reports a later failure with a toast.
+
+The graphical session manager restores inside its current host and reports
+success or failure with a toast. Startup auto-restore uses the initial window.
 
 **list flags:**
 

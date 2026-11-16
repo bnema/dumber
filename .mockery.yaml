@@ -65,7 +65,9 @@ packages:
       DiffFormatter: {}
       SessionLogger: {}
       SessionProcessProbe: {}
-      SessionSpawner: {}
+      SessionRestoreLauncher: {}
+      SessionRestoreRelay: {}
+      SessionRestoreOpener: {}
       WindowStateProvider: {}
       PageNavigator: {}
       WebView: {}

@@ -3346,6 +3346,8 @@ func TestApp_RestoreSessionDoesNotLeakStaleWindowsIntoTabMerge(t *testing.T) {
 		},
 		tabs: entity.NewTabList(),
 	}
+	// This ownership-only test does not construct GTK workspace widgets.
+	app.workspaceViewCreateOverride = func(context.Context, *entity.Tab) bool { return true }
 	// Seed global tabs with a stale tab to verify it is replaced.
 	app.tabs.Add(staleTab1)
 
