@@ -192,7 +192,6 @@ type WebView struct {
 	beginFrameKick         navigationFrameKick
 	beginFrameClock        *gdk.FrameClock
 	beginFrameFallbackID   uint
-	beginFrameFallback     *glib.SourceFunc
 	lastExternalBeginFrame time.Time
 
 	// pendingCreate holds browser creation params until the GL area is realized.

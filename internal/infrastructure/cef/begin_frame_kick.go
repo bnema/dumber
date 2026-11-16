@@ -3,6 +3,7 @@ package cef
 import (
 	"time"
 
+	"github.com/bnema/puregotk/v4/gdk"
 	"github.com/bnema/puregotk/v4/glib"
 )
 
@@ -85,9 +86,10 @@ func (wv *WebView) kickNavigationFrame() {
 		}
 		return true
 	}
+	// GLib owns cb through its source registry; removing the source releases it.
 	id := glib.TimeoutAdd(navigationFrameFallbackIntervalMS, cb, 0)
 	wv.mu.Lock()
-	wv.beginFrameFallback, wv.beginFrameFallbackID = cb, id
+	wv.beginFrameFallbackID = id
 	wv.mu.Unlock()
 	if id == 0 {
 		wv.stopNavigationFrameKick()
@@ -105,33 +107,51 @@ func (wv *WebView) refreshNavigationFrameKick() bool {
 		// Fast path for every steady-state tick: no kick, nothing to release.
 		return false
 	}
-	paints := 0
-	if bridge != nil {
-		paints = bridge.Diagnostics().AcceleratedPaints
-	}
-	if wv.destroyed.Load() || host == nil || !kick.active(time.Now(), loading, paints) {
+	if wv.destroyed.Load() || host == nil || bridge == nil {
 		wv.stopNavigationFrameKick()
 		return false
 	}
-	if clock == nil && bridge != nil {
-		if widget := bridge.Widget(); widget != nil {
-			if clock = widget.GetFrameClock(); clock != nil {
-				clock.Ref()
-				clock.BeginUpdating()
-				wv.mu.Lock()
-				wv.beginFrameClock = clock
-				wv.mu.Unlock()
-			}
-		}
+	paints := kick.paints // While loading the paint count cannot end the kick.
+	if !loading {
+		paints = bridge.Diagnostics().AcceleratedPaints
 	}
+	if !kick.active(time.Now(), loading, paints) {
+		wv.stopNavigationFrameKick()
+		return false
+	}
+	wv.holdNavigationFrameClock(bridge, clock)
 	return true
+}
+
+// holdNavigationFrameClock keeps the widget's current frame clock in
+// BeginUpdating, following clock changes after unrealize or reparenting.
+func (wv *WebView) holdNavigationFrameClock(bridge *Cef2gtkAdapter, held *gdk.FrameClock) {
+	widget := bridge.Widget()
+	var current *gdk.FrameClock
+	if widget != nil {
+		current = widget.GetFrameClock() // Returns a new reference.
+	}
+	if current != nil && held != nil && current.Ptr == held.Ptr {
+		current.Unref()
+		return
+	}
+	if current != nil {
+		current.BeginUpdating()
+	}
+	wv.mu.Lock()
+	wv.beginFrameClock = current
+	wv.mu.Unlock()
+	if held != nil {
+		held.EndUpdating()
+		held.Unref()
+	}
 }
 
 // Safe to repeat, including after the widget has already gone away.
 func (wv *WebView) stopNavigationFrameKick() {
 	wv.mu.Lock()
-	clock, id, cb := wv.beginFrameClock, wv.beginFrameFallbackID, wv.beginFrameFallback
-	wv.beginFrameClock, wv.beginFrameFallbackID, wv.beginFrameFallback = nil, 0, nil
+	clock, id := wv.beginFrameClock, wv.beginFrameFallbackID
+	wv.beginFrameClock, wv.beginFrameFallbackID = nil, 0
 	wv.beginFrameKick = navigationFrameKick{}
 	wv.mu.Unlock()
 	if clock != nil {
@@ -140,8 +160,5 @@ func (wv *WebView) stopNavigationFrameKick() {
 	}
 	if id != 0 {
 		glib.SourceRemove(id)
-	}
-	if cb != nil {
-		_ = unrefTickCallback(cb)
 	}
 }

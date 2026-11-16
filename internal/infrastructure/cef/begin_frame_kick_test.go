@@ -1,7 +1,6 @@
 package cef
 
 import (
-	"github.com/bnema/puregotk/v4/glib"
 	"testing"
 	"time"
 )
@@ -53,28 +52,8 @@ func TestStopBeginFrameLoopClearsNavigationKick(t *testing.T) {
 		wv.destroyed.Store(destroyed)
 		wv.stopBeginFrameLoop()
 		wv.stopBeginFrameLoop()
-		if wv.beginFrameKick != (navigationFrameKick{}) || wv.beginFrameFallback != nil || wv.beginFrameFallbackID != 0 || wv.beginFrameClock != nil {
+		if wv.beginFrameKick != (navigationFrameKick{}) || wv.beginFrameFallbackID != 0 || wv.beginFrameClock != nil {
 			t.Fatal("stop must clear navigation kick resources")
 		}
-	}
-}
-
-func TestStopNavigationKickReleasesFallbackCallback(t *testing.T) {
-	cb := new(glib.SourceFunc)
-	wv := &WebView{beginFrameFallback: cb, beginFrameKick: navigationFrameKick{deadline: time.Now().Add(time.Second)}}
-	old := unrefTickCallback
-	defer func() { unrefTickCallback = old }()
-	calls := 0
-	unrefTickCallback = func(got any) error {
-		if got != cb {
-			t.Fatal("wrong callback released")
-		}
-		calls++
-		return nil
-	}
-	wv.stopBeginFrameLoop()
-	wv.stopBeginFrameLoop()
-	if calls != 1 {
-		t.Fatalf("callback releases = %d, want 1", calls)
 	}
 }
