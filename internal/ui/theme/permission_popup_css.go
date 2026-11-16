@@ -4,17 +4,9 @@ package theme
 // Uses em units for scalable UI, matches omnibox/session manager styling patterns.
 func generatePermissionPopupCSS(p Palette) string {
 	_ = p
-	return `/* ===== Permission Popup Styling ===== */
-
-.permission-popup-outer {
-	/* Positioning handled via SetHalign/SetValign in Go */
-}
+	return generateModalChromeCSS("permission-popup", "permission-popup-heading") + `/* ===== Permission Popup Styling ===== */
 
 .permission-popup-container {
-	background-color: var(--surface-variant);
-	border: 0.0625em solid var(--border);
-	border-radius: 0.1875em;
-	padding: 0;
 	min-width: 20em;
 }
 
@@ -22,7 +14,6 @@ func generatePermissionPopupCSS(p Palette) string {
 	font-size: 0.9375em;
 	font-weight: 600;
 	color: var(--text);
-	padding: 0.75em 1em 0.25em 1em;
 }
 
 .permission-popup-body {
@@ -33,7 +24,8 @@ func generatePermissionPopupCSS(p Palette) string {
 }
 
 .permission-popup-btn-row {
-	border-top: 0.0625em solid var(--border);
+	border-top: 0.0625em solid alpha(var(--border), 0.65);
+	font-family: var(--font-mono);
 	padding: 0.5em 0.75em;
 }
 
@@ -51,11 +43,15 @@ func generatePermissionPopupCSS(p Palette) string {
 .permission-popup-btn {
 	background-image: none;
 	border: 0.0625em solid var(--border);
-	border-radius: 0.1875em;
+	border-radius: 0;
 	padding: 0.375em 0.75em;
 	font-size: 0.8125em;
 	font-weight: 500;
 	transition: background-color 120ms ease-in-out, border-color 120ms ease-in-out;
+}
+
+.omnibox-style-command .permission-popup-btn {
+	border-radius: 1em;
 }
 
 /* Allow buttons - accent styled */

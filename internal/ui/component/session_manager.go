@@ -62,6 +62,7 @@ type SessionManager struct {
 
 	// Scaling
 	uiScale float64
+	style   string
 
 	// Cached measurements (populated after first layout)
 	measuredHeights struct {
@@ -81,6 +82,7 @@ type SessionManagerConfig struct {
 	Spawner         port.SessionSpawner
 	CurrentSession  entity.SessionID
 	UIScale         float64
+	Style           string
 	OnClose         func()
 	OnOpen          func(sessionID entity.SessionID)
 	OnToast         func(ctx context.Context, message string, level ToastLevel)
@@ -104,6 +106,7 @@ func NewSessionManager(ctx context.Context, cfg SessionManagerConfig) *SessionMa
 		selectedIndex:   -1,
 		expandedIndex:   -1,
 		uiScale:         uiScale,
+		style:           cfg.Style,
 	}
 
 	if err := sm.createWidgets(); err != nil {
@@ -250,6 +253,7 @@ func (sm *SessionManager) createWidgets() error {
 		return errNilWidget("sessionOuterBox")
 	}
 	sm.outerBox.AddCssClass("session-manager-outer")
+	sm.outerBox.SetOverflow(gtk.OverflowVisibleValue)
 	sm.outerBox.SetHalign(gtk.AlignCenterValue)
 	sm.outerBox.SetValign(gtk.AlignStartValue)
 	sm.outerBox.SetVisible(false)
@@ -260,6 +264,7 @@ func (sm *SessionManager) createWidgets() error {
 		return errNilWidget("sessionMainBox")
 	}
 	sm.mainBox.AddCssClass("session-manager-container")
+	sm.mainBox.AddCssClass(modalStyleClass(sm.style))
 
 	// Header
 	if err := sm.initHeader(); err != nil {

@@ -252,6 +252,7 @@ func (bw *browserWindow) initSessionManager(ctx context.Context, a *App) {
 		ListSessionsUC:  listSessionsUC,
 		DeleteSessionUC: deleteSessionUC,
 		CurrentSession:  a.deps.CurrentSessionID,
+		Style:           runtimeCfg.Omnibox.Style,
 		UIScale:         runtimeCfg.DefaultUIScale,
 		OnClose: func() {
 			log.Debug().Msg("session manager closed")
@@ -277,7 +278,7 @@ func (bw *browserWindow) initSessionManager(ctx context.Context, a *App) {
 		return
 	}
 	if widget := bw.sessionManager.Widget(); widget != nil {
-		bw.mainWindow.AddOverlay(widget)
+		bw.mainWindow.AddNonMeasuringOverlay(widget)
 	}
 	log.Debug().Msg("session manager initialized")
 }

@@ -30,6 +30,7 @@ type PermissionPopup struct {
 
 	parentOverlay layout.OverlayWidget
 	uiScale       float64
+	style         string
 
 	mu       sync.Mutex
 	visible  bool
@@ -39,7 +40,7 @@ type PermissionPopup struct {
 }
 
 // NewPermissionPopup creates a new permission popup component.
-func NewPermissionPopup(parentOverlay layout.OverlayWidget, uiScale float64) *PermissionPopup {
+func NewPermissionPopup(parentOverlay layout.OverlayWidget, uiScale float64, style string) *PermissionPopup {
 	if uiScale <= 0 {
 		uiScale = 1.0
 	}
@@ -47,6 +48,7 @@ func NewPermissionPopup(parentOverlay layout.OverlayWidget, uiScale float64) *Pe
 	pp := &PermissionPopup{
 		parentOverlay: parentOverlay,
 		uiScale:       uiScale,
+		style:         style,
 	}
 
 	if err := pp.createWidgets(); err != nil {
@@ -152,6 +154,7 @@ func (pp *PermissionPopup) setupContainers() error {
 		return errNilWidget("permissionPopupOuterBox")
 	}
 	pp.outerBox.AddCssClass("permission-popup-outer")
+	pp.outerBox.SetOverflow(gtk.OverflowVisibleValue)
 	pp.outerBox.SetHalign(gtk.AlignCenterValue)
 	pp.outerBox.SetValign(gtk.AlignStartValue)
 	pp.outerBox.SetVisible(false)
@@ -161,6 +164,7 @@ func (pp *PermissionPopup) setupContainers() error {
 		return errNilWidget("permissionPopupMainBox")
 	}
 	pp.mainBox.AddCssClass("permission-popup-container")
+	pp.mainBox.AddCssClass(modalStyleClass(pp.style))
 	return nil
 }
 

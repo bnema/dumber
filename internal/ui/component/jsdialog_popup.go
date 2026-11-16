@@ -377,6 +377,7 @@ func (p *JSDialogPopup) createContainers() error {
 	}
 	// Fill the pane so the scrim swallows pointer input meant for the page.
 	p.outerBox.AddCssClass("jsdialog-scrim")
+	p.outerBox.SetOverflow(gtk.OverflowVisibleValue)
 	p.outerBox.SetHexpand(true)
 	p.outerBox.SetVexpand(true)
 	p.outerBox.SetHalign(gtk.AlignFillValue)
@@ -388,6 +389,7 @@ func (p *JSDialogPopup) createContainers() error {
 		return errNilWidget("jsDialogMainBox")
 	}
 	p.mainBox.AddCssClass("permission-popup-container")
+	p.mainBox.AddCssClass(modalStyleClass(""))
 	p.mainBox.SetHalign(gtk.AlignCenterValue)
 	p.mainBox.SetValign(gtk.AlignCenterValue)
 	return nil

@@ -1200,30 +1200,9 @@ progressbar.touchpad-navigation-progress progress {
 // Uses em units for scalable UI, matches omnibox styling patterns.
 func generateSessionManagerCSS(p Palette) string {
 	_ = p
-	return `/* ===== Session Manager Styling ===== */
+	return generateModalChromeCSS("session-manager", "session-manager-header") + `/* ===== Session Manager Styling ===== */
 
-/* Session manager outer container - for positioning in overlay */
-.session-manager-outer {
-	/* Positioning is handled via SetHalign/SetValign in Go */
-}
-
-/* Session manager main container - the visible popup */
-.session-manager-container {
-	background-color: var(--surface-variant);
-	border: 0.0625em solid var(--border);
-	border-radius: 0.1875em;
-	padding: 0;
-	/* Width is owned by the Go sizing request so CSS must not force
-	   growth beyond the percentage viewport limit. */
-	/* Note: max-width not supported in GTK4 CSS, rely on container constraints */
-}
-
-/* Header with title */
-.session-manager-header {
-	background-color: shade(var(--surface-variant), 1.1);
-	border-bottom: 0.0625em solid var(--border);
-	padding: 0.5em 0.75em;
-}
+/* Width is owned by the Go sizing request; do not force a CSS width. */
 
 .session-manager-title {
 	font-size: 0.9375em;
@@ -1233,7 +1212,7 @@ func generateSessionManagerCSS(p Palette) string {
 
 /* Scrolled window for session list */
 .session-manager-scrolled {
-	background-color: shade(var(--surface-variant), 0.95);
+	background-color: var(--surface);
 }
 
 /* List box */
@@ -1247,24 +1226,67 @@ func generateSessionManagerCSS(p Palette) string {
 	margin: 0;
 	border-radius: 0;
 	border-left: 0.1875em solid transparent;
-	border-bottom: 0.0625em solid alpha(var(--border), 0.5);
+	border-bottom: 0.0625em solid alpha(var(--border), 0.35);
+	background-color: transparent;
+	background-image: none;
 	transition: background-color 100ms ease-in-out, border-left 100ms ease-in-out;
 	min-height: 2.75em;
 }
 
-.session-manager-row:last-child {
+.session-manager-row-wrapper:last-child .session-manager-row {
 	border-bottom: none;
 }
 
-.session-manager-row:hover {
+.session-manager-row-wrapper:hover .session-manager-row {
 	background-color: alpha(var(--accent), 0.12);
-	border-left: 0.1875em solid var(--accent);
+	border-left-color: var(--accent);
 }
 
-.session-manager-row:selected,
-row:selected .session-manager-row {
+.session-manager-row-wrapper:selected .session-manager-row {
 	background-color: alpha(var(--accent), 0.2);
-	border-left: 0.1875em solid var(--accent);
+	border-left-color: var(--accent);
+}
+
+/* GTK list rows must not paint a native full-accent selection behind content. */
+.session-manager-list > row.session-manager-row-wrapper {
+	padding: 0;
+	border: none;
+	border-radius: 0;
+	background-color: transparent;
+	background-image: none;
+	box-shadow: none;
+}
+
+.omnibox-style-command .session-manager-row {
+	margin: 0.125em 0.25em;
+	border: none;
+	border-radius: 0.25em;
+}
+
+.omnibox-style-command .session-manager-row-wrapper:selected .session-manager-row {
+	background-color: alpha(var(--accent), 0.16);
+}
+
+.omnibox-style-multiplexer .session-manager-row {
+	border-left-width: 0.25em;
+}
+
+.omnibox-style-multiplexer .session-manager-row-wrapper:selected .session-manager-row {
+	background-color: alpha(var(--accent), 0.14);
+	box-shadow: 0.1875em 0 0 var(--accent) inset;
+}
+
+.omnibox-style-minimal .session-manager-row {
+	padding-top: 0.4375em;
+	padding-bottom: 0.4375em;
+	border-left-width: 0.125em;
+	font-family: var(--font-mono);
+}
+
+.omnibox-style-multiplexer .session-id-badge,
+.omnibox-style-minimal .session-id-badge {
+	border-radius: 0;
+	background-color: transparent;
 }
 
 /* Status indicator dot */
@@ -1312,7 +1334,12 @@ row:selected .session-manager-row {
 .session-id-badge {
 	font-size: 0.75em;
 	font-weight: 500;
-	color: var(--accent);
+	color: var(--muted);
+	font-family: var(--font-mono);
+	background-color: alpha(var(--surface-variant), 0.65);
+	border: 0.0625em solid alpha(var(--border), 0.85);
+	border-radius: 0.1875em;
+	padding: 0.0625em 0.375em;
 	margin-left: 0.5em;
 }
 
@@ -1337,14 +1364,15 @@ row:selected .session-manager-row {
 	text-transform: uppercase;
 	letter-spacing: 0.05em;
 	padding: 0.5em 0.75em 0.25em 0.75em;
-	background-color: alpha(var(--border), 0.3);
+	background-color: transparent;
+	font-family: var(--font-mono);
 	border-bottom: 0.0625em solid var(--border);
 }
 
 /* Footer with keyboard shortcuts */
 .session-manager-footer {
-	background-color: shade(var(--surface-variant), 0.9);
-	border-top: 0.0625em solid var(--border);
+	background-color: transparent;
+	border-top: 0.0625em solid alpha(var(--border), 0.65);
 	padding: 0.375em 0.75em;
 	font-size: 0.6875em;
 	color: var(--muted);

@@ -509,7 +509,7 @@ func TestGenerateCSS_SessionContainerHasNoMinWidth(t *testing.T) {
 	css := GenerateCSS(DefaultDarkPalette())
 	block := cssRuleBlock(t, css, ".session-manager-container")
 	assert.NotContains(t, block, "min-width:")
-	assert.Contains(t, block, "background-color: var(--surface-variant);")
+	assert.Contains(t, block, "background-color: var(--surface);")
 }
 
 func TestVimModeUsesOwnColor(t *testing.T) {
@@ -537,4 +537,32 @@ func TestModeLegendCSSStylesToasterPillAndBand(t *testing.T) {
 	assert.NotContains(t, css, "mode-legend-title", "the legend no longer has its own heading")
 	assert.NotContains(t, css, "mode-legend-content", "the flow box is gone")
 	assert.NotContains(t, GenerateCSS(DefaultDarkPalette()), ".toast-vim-mode", "modes no longer reuse the generic toast")
+}
+
+func TestModalChromeMatchesOmniboxVariants(t *testing.T) {
+	css := GenerateCSS(DefaultDarkPalette())
+	for _, modal := range []string{"session-manager", "permission-popup"} {
+		for _, style := range []string{"command", "multiplexer", "minimal"} {
+			t.Run(modal+"/"+style, func(t *testing.T) {
+				omnibox := cssRuleBlock(t, css, ".omnibox-container.omnibox-style-"+style)
+				popup := cssRuleBlock(t, css, ".omnibox-style-"+style+"."+modal+"-container")
+				assert.Equal(t, strings.TrimSpace(omnibox), strings.TrimSpace(popup))
+				assert.NotContains(t, popup, "width:")
+			})
+		}
+	}
+}
+
+func TestSessionRowsUseTintInsteadOfNativeSelection(t *testing.T) {
+	css := GenerateCSS(DefaultDarkPalette())
+	wrapper := cssRuleBlock(t, css, ".session-manager-list > row.session-manager-row-wrapper")
+	assert.Contains(t, wrapper, "background-color: transparent;")
+	assert.Contains(t, wrapper, "border: none;")
+	command := cssRuleBlock(t, css, ".omnibox-style-command .session-manager-row")
+	assert.Contains(t, command, "border: none;")
+	assert.Contains(t, command, "margin: 0.125em 0.25em;")
+	selected := cssRuleBlock(t, css, ".omnibox-style-command .session-manager-row-wrapper:selected .session-manager-row")
+	assert.Contains(t, selected, "alpha(var(--accent), 0.16)")
+	buttons := cssRuleBlock(t, css, ".omnibox-style-command .permission-popup-btn")
+	assert.Contains(t, buttons, "border-radius: 1em;")
 }

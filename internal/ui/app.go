@@ -503,11 +503,11 @@ func (a *App) initBrowserWindowOverlays(mainWindow *window.MainWindow, browserWi
 		if uiScale == 0 {
 			uiScale = 1.0
 		}
-		permPopup := component.NewPermissionPopup(nil, uiScale)
+		permPopup := component.NewPermissionPopup(nil, uiScale, runtimeCfg.Omnibox.Style)
 		if permPopup != nil {
 			// Add popup to the main window's content overlay
 			if w := permPopup.Widget(); w != nil {
-				mainWindow.AddOverlay(w)
+				mainWindow.AddNonMeasuringOverlay(w)
 			}
 			browserWindow.permissionDialog = dialog.NewPermissionDialog(permPopup)
 		}
