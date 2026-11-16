@@ -338,6 +338,11 @@ func (sm *SessionManager) initList() error {
 
 	// Connect row selection - map list row index to session index
 	rowSelectedCb := func(_ gtk.ListBox, rowPtr uintptr) {
+		// GTK emits row-selected with a NULL row when the selection is cleared
+		// (e.g. RemoveAll during a rebuild).
+		if rowPtr == 0 {
+			return
+		}
 		row := gtk.ListBoxRowNewFromInternalPtr(rowPtr)
 		if row == nil {
 			return
@@ -370,7 +375,7 @@ func (sm *SessionManager) initFooter() error {
 		return errNilWidget("sessionFooterBox")
 	}
 	sm.footerBox.AddCssClass("session-manager-footer")
-	for _, shortcut := range [][2]string{{"↑↓", "navigate"}, {"Enter", "expand"}, {"r", "restore"}, {"x", "delete"}, {"Esc", "close"}} {
+	for _, shortcut := range [][2]string{{"↑↓", "navigate"}, {"Enter", "restore"}, {"Space", "preview"}, {"x", "delete"}, {"Esc", "close"}} {
 		group := gtk.NewBox(gtk.OrientationHorizontalValue, 4)
 		key := gtk.NewLabel(&shortcut[0])
 		label := gtk.NewLabel(&shortcut[1])
@@ -415,13 +420,13 @@ func (sm *SessionManager) handleKeyPress(keyval uint, _ gdk.ModifierType) bool {
 		sm.selectNext()
 		return true
 
-	case uint(gdk.KEY_Return), uint(gdk.KEY_KP_Enter), uint(gdk.KEY_space):
-		// Enter/Space expands/collapses to preview session contents
+	case uint(gdk.KEY_space), uint(gdk.KEY_Tab):
+		// Space/Tab expands/collapses to preview session contents
 		sm.toggleExpanded()
 		return true
 
-	case uint(gdk.KEY_r), uint(gdk.KEY_o):
-		// r/o restores the selected session
+	case uint(gdk.KEY_Return), uint(gdk.KEY_KP_Enter), uint(gdk.KEY_r), uint(gdk.KEY_o):
+		// Enter/r/o restores the selected session
 		sm.openSelected()
 		return true
 
