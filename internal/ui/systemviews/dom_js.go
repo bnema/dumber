@@ -236,12 +236,9 @@ func isPaletteShortcut(event js.Value) bool {
 	return event.Get("ctrlKey").Bool() || event.Get("metaKey").Bool()
 }
 
-// ShowPalette opens the action palette from systemviews.js and runs the
-// chosen item's action (after a confirm dialog when the item asks for one).
-func (d *browserDOM) ShowPalette(request PaletteRequest) {
-	if d == nil || d.actionHandler == nil || d.paletteOpen || !visualLayerHas("palette") {
-		return
-	}
+// paletteItems converts the request items for systemviews.js and indexes
+// them by id.
+func paletteItems(request PaletteRequest) ([]any, map[string]PaletteItem) {
 	items := make([]any, 0, len(request.Items))
 	byID := make(map[string]PaletteItem, len(request.Items))
 	for i := range request.Items {
@@ -256,6 +253,16 @@ func (d *browserDOM) ShowPalette(request PaletteRequest) {
 			"danger":   item.Danger,
 		})
 	}
+	return items, byID
+}
+
+// ShowPalette opens the action palette from systemviews.js and runs the
+// chosen item's action (after a confirm dialog when the item asks for one).
+func (d *browserDOM) ShowPalette(request PaletteRequest) {
+	if d == nil || d.actionHandler == nil || d.paletteOpen || !visualLayerHas("palette") {
+		return
+	}
+	items, byID := paletteItems(request)
 	visual := js.Global().Get("dumberSystemviews")
 	all := js.ValueOf(items)
 	placeholder := request.Placeholder
@@ -277,25 +284,28 @@ func (d *browserDOM) ShowPalette(request PaletteRequest) {
 	settled = js.FuncOf(func(_ js.Value, args []js.Value) any {
 		settled.Release()
 		d.paletteOpen = false
-		if len(args) == 0 || args[0].Type() != js.TypeString {
-			return nil
-		}
-		id := args[0].String()
-		if strings.HasPrefix(id, "setting:") {
-			visual.Call("jumpToSetting", id)
-			return nil
-		}
-		item, ok := byID[id]
-		if !ok {
-			return nil
-		}
-		run := func() { d.runPaletteAction(item.Action) }
-		if item.Confirm == "" || !d.showConfirmDialog(item.Confirm, run) {
-			run()
+		if len(args) > 0 && args[0].Type() == js.TypeString {
+			d.runPaletteChoice(visual, byID, args[0].String())
 		}
 		return nil
 	})
 	result.Call("then", settled, settled)
+}
+
+// runPaletteChoice jumps to a chosen setting or runs a chosen item's action.
+func (d *browserDOM) runPaletteChoice(visual js.Value, byID map[string]PaletteItem, id string) {
+	if strings.HasPrefix(id, "setting:") {
+		visual.Call("jumpToSetting", id)
+		return
+	}
+	item, ok := byID[id]
+	if !ok {
+		return
+	}
+	run := func() { d.runPaletteAction(item.Action) }
+	if item.Confirm == "" || !d.showConfirmDialog(item.Confirm, run) {
+		run()
+	}
 }
 
 func (d *browserDOM) runPaletteAction(action DOMAction) {
@@ -618,6 +628,11 @@ func (d *browserDOM) AppendHistoryTimeline(markup string) error {
 	return nil
 }
 
+const (
+	// maxEnterStagger caps the fade-in stagger index of appended rows.
+	maxEnterStagger = 8
+)
+
 // markEnteringRows tags freshly appended rows so CSS can fade them in with a
 // short stagger; prefers-reduced-motion disables the animation in CSS.
 func markEnteringRows(container js.Value) {
@@ -625,7 +640,7 @@ func markEnteringRows(container js.Value) {
 	for i := 0; i < rows.Get("length").Int(); i++ {
 		row := rows.Index(i)
 		row.Get("classList").Call("add", "sv-enter")
-		row.Get("style").Call("setProperty", "--sv-enter-index", strconv.Itoa(min(i, 8)))
+		row.Get("style").Call("setProperty", "--sv-enter-index", strconv.Itoa(min(i, maxEnterStagger)))
 	}
 }
 
@@ -709,6 +724,13 @@ func (d *browserDOM) scheduleAlertDismissal() {
 	}
 }
 
+const (
+	// alertFadeDelayMS is how long an alert stays before fading out.
+	alertFadeDelayMS = 4200
+	// alertRemoveDelayMS lets the fade-out transition finish before removal.
+	alertRemoveDelayMS = 220
+)
+
 func scheduleAlertRemoval(setTimeout, alert js.Value) {
 	var fadeFn js.Func
 	fadeFn = js.FuncOf(func(js.Value, []js.Value) any {
@@ -726,10 +748,10 @@ func scheduleAlertRemoval(setTimeout, alert js.Value) {
 			}
 			return nil
 		})
-		setTimeout.Invoke(removeFn, 220)
+		setTimeout.Invoke(removeFn, alertRemoveDelayMS)
 		return nil
 	})
-	setTimeout.Invoke(fadeFn, 4200)
+	setTimeout.Invoke(fadeFn, alertFadeDelayMS)
 }
 
 func (d *browserDOM) BindActions(handler DOMActionHandler) error {
@@ -739,7 +761,19 @@ func (d *browserDOM) BindActions(handler DOMActionHandler) error {
 	d.Release()
 	d.actionHandler = handler
 
-	clickHandler := js.FuncOf(func(_ js.Value, args []js.Value) any {
+	d.addEventBinding(d.target, "click", d.newClickHandler(handler))
+	d.addEventBinding(d.target, "submit", d.newSubmitHandler(handler))
+	d.addEventBinding(d.target, "change", newPerformanceProfileChangeHandler())
+	d.addEventBinding(d.target, "reset", d.newResetHandler())
+	d.addEventBinding(d.target, "input", d.newLiveSearchInputHandler(handler))
+	d.addEventBinding(js.Global(), "pagehide", d.newPagehideHandler(handler))
+	d.addEventBinding(d.document, "keydown", d.newKeydownHandler())
+	return nil
+}
+
+// newClickHandler dispatches clicks on [data-sv-action] elements.
+func (d *browserDOM) newClickHandler(handler DOMActionHandler) js.Func {
+	return js.FuncOf(func(_ js.Value, args []js.Value) any {
 		event := firstJSArg(args)
 		if !event.Truthy() {
 			return nil
@@ -757,26 +791,33 @@ func (d *browserDOM) BindActions(handler DOMActionHandler) error {
 			return nil
 		}
 		event.Call("preventDefault")
-		if action == uiActionConfigResetKeys {
-			resetKeybindingRow(element)
-			return nil
-		}
-		data := collectActionData(element)
-		if d.startUndoableAction(element, action, data, handler) {
-			return nil
-		}
-		if action == historyActionClear {
-			// The search field lives outside the swapped regions.
-			d.clearHistorySearchInput()
-		}
-		d.confirmAction(element, func() {
-			handler(DOMAction{Action: action, Data: data})
-		})
+		d.dispatchClickAction(element, action, handler)
 		return nil
 	})
-	d.addEventBinding(d.target, "click", clickHandler)
+}
 
-	submitHandler := js.FuncOf(func(_ js.Value, args []js.Value) any {
+func (d *browserDOM) dispatchClickAction(element js.Value, action string, handler DOMActionHandler) {
+	if action == uiActionConfigResetKeys {
+		resetKeybindingRow(element)
+		return
+	}
+	data := collectActionData(element)
+	if d.startUndoableAction(element, action, data, handler) {
+		return
+	}
+	if action == historyActionClear {
+		// The search field lives outside the swapped regions.
+		d.clearHistorySearchInput()
+	}
+	d.confirmAction(element, func() {
+		handler(DOMAction{Action: action, Data: data})
+	})
+}
+
+// newSubmitHandler dispatches submits of [data-sv-action] forms with their
+// field values.
+func (d *browserDOM) newSubmitHandler(handler DOMActionHandler) js.Func {
+	return js.FuncOf(func(_ js.Value, args []js.Value) any {
 		event := firstJSArg(args)
 		if !event.Truthy() {
 			return nil
@@ -800,53 +841,62 @@ func (d *browserDOM) BindActions(handler DOMActionHandler) error {
 		})
 		return nil
 	})
-	d.addEventBinding(d.target, "submit", submitHandler)
+}
 
-	changeHandler := js.FuncOf(func(_ js.Value, args []js.Value) any {
-		event := firstJSArg(args)
-		if !event.Truthy() {
+// eventTargetMatches returns the event target when it matches selector.
+func eventTargetMatches(args []js.Value, selector string) (js.Value, bool) {
+	event := firstJSArg(args)
+	if !event.Truthy() {
+		return js.Undefined(), false
+	}
+	target := event.Get("target")
+	if !target.Truthy() || !target.Get("matches").Truthy() || !target.Call("matches", selector).Bool() {
+		return js.Undefined(), false
+	}
+	return target, true
+}
+
+func newPerformanceProfileChangeHandler() js.Func {
+	return js.FuncOf(func(_ js.Value, args []js.Value) any {
+		target, ok := eventTargetMatches(args, "[data-sv-performance-profile]")
+		if !ok {
 			return nil
 		}
-		target := event.Get("target")
-		if !target.Truthy() || !target.Get("matches").Truthy() || !target.Call("matches", "[data-sv-performance-profile]").Bool() {
-			return nil
-		}
-		form := target.Get("form")
-		if form.Truthy() {
+		if form := target.Get("form"); form.Truthy() {
 			updatePerformanceCustomInputs(form)
 		}
 		return nil
 	})
-	d.addEventBinding(d.target, "change", changeHandler)
+}
 
-	// form.reset() (Discard) restores values after the event, so the custom
-	// performance inputs are synced on the next tick.
-	resetHandler := js.FuncOf(func(js.Value, []js.Value) any {
+// newResetHandler handles Discard, which calls form.reset(). Reset restores
+// values after the event, so the custom performance inputs are synced on the
+// next tick.
+func (d *browserDOM) newResetHandler() js.Func {
+	return js.FuncOf(func(js.Value, []js.Value) any {
 		time.AfterFunc(0, d.syncPerformanceCustomInputStates)
 		return nil
 	})
-	d.addEventBinding(d.target, "reset", resetHandler)
+}
 
-	inputHandler := js.FuncOf(func(_ js.Value, args []js.Value) any {
-		event := firstJSArg(args)
-		if !event.Truthy() {
-			return nil
-		}
-		target := event.Get("target")
-		if !target.Truthy() || !target.Get("matches").Truthy() || !target.Call("matches", "[data-sv-history-search]").Bool() {
+func (d *browserDOM) newLiveSearchInputHandler(handler DOMActionHandler) js.Func {
+	return js.FuncOf(func(_ js.Value, args []js.Value) any {
+		target, ok := eventTargetMatches(args, "[data-sv-history-search]")
+		if !ok {
 			return nil
 		}
 		d.scheduleLiveSearch(target.Get("value").String(), handler)
 		return nil
 	})
-	d.addEventBinding(d.target, "input", inputHandler)
+}
 
-	// Pending undoable deletes must reach the bridge before the page goes
-	// away. The flush is queued like any action, then this callback yields so
-	// the worker goroutine posts the bridge messages before control returns
-	// to the browser and the page is torn down. Blocking here on anything
-	// that needs the JS event loop would deadlock, so it only yields.
-	pagehideHandler := js.FuncOf(func(js.Value, []js.Value) any {
+// newPagehideHandler makes pending undoable deletes reach the bridge before
+// the page goes away. The flush is queued like any action, then this callback
+// yields so the worker goroutine posts the bridge messages before control
+// returns to the browser and the page is torn down. Blocking here on anything
+// that needs the JS event loop would deadlock, so it only yields.
+func (d *browserDOM) newPagehideHandler(handler DOMActionHandler) js.Func {
+	return js.FuncOf(func(js.Value, []js.Value) any {
 		// Settle the toast first so a bfcache-restored page shows no stale
 		// Undo; the flush commits pending deletes either way.
 		d.dismissToast()
@@ -856,9 +906,10 @@ func (d *browserDOM) BindActions(handler DOMActionHandler) error {
 		}
 		return nil
 	})
-	d.addEventBinding(js.Global(), "pagehide", pagehideHandler)
+}
 
-	keydownHandler := js.FuncOf(func(_ js.Value, args []js.Value) any {
+func (d *browserDOM) newKeydownHandler() js.Func {
+	return js.FuncOf(func(_ js.Value, args []js.Value) any {
 		event := firstJSArg(args)
 		if !d.eventTargetInsideMount(event) {
 			return nil
@@ -866,9 +917,6 @@ func (d *browserDOM) BindActions(handler DOMActionHandler) error {
 		d.handleKeyboard(event)
 		return nil
 	})
-	d.addEventBinding(d.document, "keydown", keydownHandler)
-
-	return nil
 }
 
 func (d *browserDOM) eventTargetInsideMount(event js.Value) bool {
@@ -1111,6 +1159,163 @@ func (d *browserDOM) inheritAppTheme(element js.Value) {
 	}
 }
 
+// confirmDialogElements are the nodes of one confirm dialog.
+type confirmDialogElements struct {
+	overlay       js.Value
+	dialog        js.Value
+	cancelButton  js.Value
+	confirmButton js.Value
+}
+
+// appendElement creates a tag element and appends it to parent.
+func (d *browserDOM) appendElement(tag string, parent js.Value) js.Value {
+	element := d.document.Call("createElement", tag)
+	parent.Call("appendChild", element)
+	return element
+}
+
+func (d *browserDOM) buildConfirmDialog(message string) confirmDialogElements {
+	overlay := d.document.Call("createElement", "div")
+	overlay.Get("classList").Call("add", "sv-confirm-backdrop")
+	overlay.Set("role", "presentation")
+	d.inheritAppTheme(overlay)
+
+	dialog := d.appendElement("div", overlay)
+	dialog.Get("classList").Call("add", "sv-confirm-dialog")
+	dialog.Set("role", "dialog")
+	dialog.Call("setAttribute", "aria-modal", "true")
+	dialog.Call("setAttribute", "aria-labelledby", "sv-confirm-title")
+	dialog.Call("setAttribute", "aria-describedby", "sv-confirm-message")
+
+	title := d.appendElement("h3", dialog)
+	title.Set("id", "sv-confirm-title")
+	title.Set("textContent", "Confirm action")
+
+	text := d.appendElement("p", dialog)
+	text.Set("id", "sv-confirm-message")
+	text.Set("textContent", message)
+
+	actions := d.appendElement("div", dialog)
+	actions.Get("classList").Call("add", "sv-confirm-actions")
+
+	cancelButton := d.appendElement("button", actions)
+	cancelButton.Set("type", "button")
+	cancelButton.Set("className", "sv-button sv-button-neutral")
+	cancelButton.Set("textContent", "Cancel")
+
+	confirmButton := d.appendElement("button", actions)
+	confirmButton.Set("type", "button")
+	confirmButton.Set("className", "sv-button sv-button-danger")
+	confirmButton.Set("textContent", "Confirm")
+
+	return confirmDialogElements{overlay: overlay, dialog: dialog, cancelButton: cancelButton, confirmButton: confirmButton}
+}
+
+// confirmSession is one open confirm dialog: its listeners and the page
+// state to restore when it closes.
+type confirmSession struct {
+	d         *browserDOM
+	ui        confirmDialogElements
+	id        uint64
+	onConfirm func()
+	invoker   js.Value
+	wasInert  bool
+
+	cancelFn   js.Func
+	confirmFn  js.Func
+	keyFn      js.Func
+	backdropFn js.Func
+	cleaned    bool
+	confirmed  bool
+}
+
+func (s *confirmSession) cleanup() {
+	if s.cleaned {
+		return
+	}
+	s.cleaned = true
+	d := s.d
+	if d.activeConfirmID == s.id {
+		d.activeConfirmCleanup = nil
+	}
+	if s.ui.overlay.Truthy() {
+		s.ui.overlay.Call("remove")
+	}
+	// Lift inert before focusing the invoker, which lives in the page.
+	d.target.Set("inert", s.wasInert)
+	if d.document.Truthy() && s.keyFn.Truthy() {
+		d.document.Call("removeEventListener", "keydown", s.keyFn)
+	}
+	s.cancelFn.Release()
+	s.confirmFn.Release()
+	s.keyFn.Release()
+	s.backdropFn.Release()
+	if s.invoker.Truthy() && s.invoker.Get("isConnected").Bool() {
+		s.invoker.Call("focus")
+	}
+}
+
+func (s *confirmSession) runConfirm() {
+	if s.confirmed {
+		return
+	}
+	s.confirmed = true
+	s.cleanup()
+	s.onConfirm()
+}
+
+func (s *confirmSession) handleKey(event js.Value) {
+	switch strings.ToLower(event.Get("key").String()) {
+	case "tab":
+		// aria-modal: keep focus on the dialog's two buttons.
+		event.Call("preventDefault")
+		if activeElement().Equal(s.ui.confirmButton) {
+			s.ui.cancelButton.Call("focus")
+		} else {
+			s.ui.confirmButton.Call("focus")
+		}
+	case "escape":
+		event.Call("preventDefault")
+		event.Call("stopPropagation")
+		s.cleanup()
+	case "enter":
+		if confirmDialogEnterShouldAutoConfirm(s.d.document, s.ui.dialog, s.ui.confirmButton) {
+			event.Call("preventDefault")
+			event.Call("stopPropagation")
+			s.runConfirm()
+		}
+	}
+}
+
+// bind creates the session's js.Funcs and attaches them.
+func (s *confirmSession) bind() {
+	s.cancelFn = js.FuncOf(func(js.Value, []js.Value) any {
+		s.cleanup()
+		return nil
+	})
+	s.confirmFn = js.FuncOf(func(js.Value, []js.Value) any {
+		s.runConfirm()
+		return nil
+	})
+	s.keyFn = js.FuncOf(func(_ js.Value, args []js.Value) any {
+		if event := firstJSArg(args); event.Truthy() {
+			s.handleKey(event)
+		}
+		return nil
+	})
+	s.backdropFn = js.FuncOf(func(_ js.Value, args []js.Value) any {
+		event := firstJSArg(args)
+		if event.Truthy() && event.Get("target").Equal(s.ui.overlay) {
+			s.cleanup()
+		}
+		return nil
+	})
+	s.ui.cancelButton.Call("addEventListener", "click", s.cancelFn)
+	s.ui.confirmButton.Call("addEventListener", "click", s.confirmFn)
+	s.d.document.Call("addEventListener", "keydown", s.keyFn)
+	s.ui.overlay.Call("addEventListener", "click", s.backdropFn)
+}
+
 func (d *browserDOM) showConfirmDialog(message string, onConfirm func()) bool {
 	if d == nil || !d.document.Truthy() {
 		return false
@@ -1123,145 +1328,25 @@ func (d *browserDOM) showConfirmDialog(message string, onConfirm func()) bool {
 	// js.Func values are released before the replacement is mounted.
 	d.cleanupActiveConfirmDialog()
 
-	overlay := d.document.Call("createElement", "div")
-	overlay.Get("classList").Call("add", "sv-confirm-backdrop")
-	overlay.Set("role", "presentation")
-	d.inheritAppTheme(overlay)
-
-	dialog := d.document.Call("createElement", "div")
-	dialog.Get("classList").Call("add", "sv-confirm-dialog")
-	dialog.Set("role", "dialog")
-	dialog.Call("setAttribute", "aria-modal", "true")
-	dialog.Call("setAttribute", "aria-labelledby", "sv-confirm-title")
-	dialog.Call("setAttribute", "aria-describedby", "sv-confirm-message")
-	overlay.Call("appendChild", dialog)
-
-	title := d.document.Call("createElement", "h3")
-	title.Set("id", "sv-confirm-title")
-	title.Set("textContent", "Confirm action")
-	dialog.Call("appendChild", title)
-
-	text := d.document.Call("createElement", "p")
-	text.Set("id", "sv-confirm-message")
-	text.Set("textContent", message)
-	dialog.Call("appendChild", text)
-
-	actions := d.document.Call("createElement", "div")
-	actions.Get("classList").Call("add", "sv-confirm-actions")
-	dialog.Call("appendChild", actions)
-
-	cancelButton := d.document.Call("createElement", "button")
-	cancelButton.Set("type", "button")
-	cancelButton.Set("className", "sv-button sv-button-neutral")
-	cancelButton.Set("textContent", "Cancel")
-	actions.Call("appendChild", cancelButton)
-
-	confirmButton := d.document.Call("createElement", "button")
-	confirmButton.Set("type", "button")
-	confirmButton.Set("className", "sv-button sv-button-danger")
-	confirmButton.Set("textContent", "Confirm")
-	actions.Call("appendChild", confirmButton)
-
+	ui := d.buildConfirmDialog(message)
 	d.activeConfirmID++
-	confirmID := d.activeConfirmID
-	// Focus goes back to the control that asked, so a re-render after the
-	// action can find its place again.
-	invoker := activeElement()
-	// The page behind the dialog is inert: assistive tech and pointer or
-	// keyboard input cannot reach it while the dialog is open.
-	wasInert := d.target.Get("inert").Truthy()
-
-	var cleanup func()
-	var cancelFn js.Func
-	var confirmFn js.Func
-	var keyFn js.Func
-	var backdropFn js.Func
-	cleaned := false
-	confirmed := false
-	cleanup = func() {
-		if cleaned {
-			return
-		}
-		cleaned = true
-		if d.activeConfirmID == confirmID {
-			d.activeConfirmCleanup = nil
-		}
-		if overlay.Truthy() {
-			overlay.Call("remove")
-		}
-		// Lift inert before focusing the invoker, which lives in the page.
-		d.target.Set("inert", wasInert)
-		if d.document.Truthy() && keyFn.Value.Truthy() {
-			d.document.Call("removeEventListener", "keydown", keyFn)
-		}
-		cancelFn.Release()
-		confirmFn.Release()
-		keyFn.Release()
-		backdropFn.Release()
-		if invoker.Truthy() && invoker.Get("isConnected").Bool() {
-			invoker.Call("focus")
-		}
+	session := &confirmSession{
+		d:         d,
+		ui:        ui,
+		id:        d.activeConfirmID,
+		onConfirm: onConfirm,
+		// Focus goes back to the control that asked, so a re-render after the
+		// action can find its place again.
+		invoker: activeElement(),
+		// The page behind the dialog is inert: assistive tech and pointer or
+		// keyboard input cannot reach it while the dialog is open.
+		wasInert: d.target.Get("inert").Truthy(),
 	}
-	runConfirm := func() {
-		if confirmed {
-			return
-		}
-		confirmed = true
-		cleanup()
-		onConfirm()
-	}
-	cancelFn = js.FuncOf(func(js.Value, []js.Value) any {
-		cleanup()
-		return nil
-	})
-	confirmFn = js.FuncOf(func(js.Value, []js.Value) any {
-		runConfirm()
-		return nil
-	})
-	keyFn = js.FuncOf(func(_ js.Value, args []js.Value) any {
-		event := firstJSArg(args)
-		if !event.Truthy() {
-			return nil
-		}
-		switch strings.ToLower(event.Get("key").String()) {
-		case "tab":
-			// aria-modal: keep focus on the dialog's two buttons.
-			event.Call("preventDefault")
-			if activeElement().Equal(confirmButton) {
-				cancelButton.Call("focus")
-			} else {
-				confirmButton.Call("focus")
-			}
-		case "escape":
-			event.Call("preventDefault")
-			event.Call("stopPropagation")
-			cleanup()
-		case "enter":
-			if confirmDialogEnterShouldAutoConfirm(d.document, dialog, confirmButton) {
-				event.Call("preventDefault")
-				event.Call("stopPropagation")
-				runConfirm()
-			}
-		}
-		return nil
-	})
-	backdropFn = js.FuncOf(func(_ js.Value, args []js.Value) any {
-		event := firstJSArg(args)
-		if event.Truthy() && event.Get("target").Equal(overlay) {
-			cleanup()
-		}
-		return nil
-	})
-
-	cancelButton.Call("addEventListener", "click", cancelFn)
-	confirmButton.Call("addEventListener", "click", confirmFn)
-	document := d.document
-	document.Call("addEventListener", "keydown", keyFn)
-	overlay.Call("addEventListener", "click", backdropFn)
-	d.activeConfirmCleanup = cleanup
-	body.Call("appendChild", overlay)
+	session.bind()
+	d.activeConfirmCleanup = session.cleanup
+	body.Call("appendChild", ui.overlay)
 	d.target.Set("inert", true)
-	confirmButton.Call("focus")
+	ui.confirmButton.Call("focus")
 	return true
 }
 

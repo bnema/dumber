@@ -110,14 +110,7 @@
       (target.closest('input, textarea, select, [contenteditable]') !== null);
   }
 
-  /**
-   * Shows a single action toast. A newer toast replaces the current one.
-   * @param {{message: string, actionLabel: string, timeoutMs: number, theme?: Element}} options
-   * @returns {Promise<'action'|'timeout'|'replaced'|'dismissed'>}
-   */
-  function toast(options) {
-    activeToast?.settle('replaced');
-
+  function buildToast(options) {
     const host = document.createElement('div');
     host.className = 'sv-toast-host';
     inheritTheme(host, options.theme);
@@ -153,33 +146,75 @@
     box.append(progress);
     host.append(box);
     document.body.append(host);
-    if (supportsPopover) host.showPopover();
-    announce(options.actionLabel ? `${options.message}. Press U to ${options.actionLabel.toLowerCase()}.` : options.message);
+    return { host, box, action, hasAction, supportsPopover };
+  }
 
-    return new Promise((resolve) => {
-      let remaining = options.timeoutMs;
-      let startedAt = performance.now();
-      let timer = window.setTimeout(() => settle('timeout'), remaining);
-      let done = false;
+  // u, or Ctrl/Cmd+Z without Shift.
+  function isUndoKey(event) {
+    return (event.key === 'u' && !event.ctrlKey && !event.metaKey && !event.altKey) ||
+      ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z' && !event.shiftKey);
+  }
 
-      const pause = () => {
-        if (done || timer === 0) return;
+  // Calls onTimeout after timeoutMs, paused while the pointer or focus is in
+  // box.
+  function toastTimer(box, timeoutMs, onTimeout) {
+    let remaining = timeoutMs;
+    let startedAt = performance.now();
+    let timer = window.setTimeout(onTimeout, remaining);
+    let stopped = false;
+    return {
+      pause() {
+        if (stopped || timer === 0) return;
         window.clearTimeout(timer);
         timer = 0;
         remaining -= performance.now() - startedAt;
         box.classList.add('sv-toast-paused');
-      };
-      const resume = () => {
-        if (done || timer !== 0 || box.matches(':hover, :focus-within')) return;
+      },
+      resume() {
+        if (stopped || timer !== 0 || box.matches(':hover, :focus-within')) return;
         startedAt = performance.now();
-        timer = window.setTimeout(() => settle('timeout'), Math.max(remaining, 0));
+        timer = window.setTimeout(onTimeout, Math.max(remaining, 0));
         box.classList.remove('sv-toast-paused');
-      };
+      },
+      stop() {
+        stopped = true;
+        window.clearTimeout(timer);
+      },
+    };
+  }
+
+  function removeToast({ host, box, supportsPopover }, immediate) {
+    const remove = () => {
+      if (supportsPopover && host.matches(':popover-open')) host.hidePopover();
+      host.remove();
+    };
+    if (immediate) {
+      remove();
+    } else {
+      box.classList.add('sv-toast-leaving');
+      window.setTimeout(remove, 160);
+    }
+  }
+
+  /**
+   * Shows a single action toast. A newer toast replaces the current one.
+   * @param {{message: string, actionLabel: string, timeoutMs: number, theme?: Element}} options
+   * @returns {Promise<'action'|'timeout'|'replaced'|'dismissed'>}
+   */
+  function toast(options) {
+    activeToast?.settle('replaced');
+
+    const ui = buildToast(options);
+    const { host, box, action, hasAction } = ui;
+    if (ui.supportsPopover) host.showPopover();
+    announce(options.actionLabel ? `${options.message}. Press U to ${options.actionLabel.toLowerCase()}.` : options.message);
+
+    return new Promise((resolve) => {
+      let done = false;
+      const timer = toastTimer(box, options.timeoutMs, () => settle('timeout'));
       const onKey = (event) => {
         if (!hasAction || document.querySelector('dialog[open], .sv-confirm-backdrop')) return;
-        const undo = (event.key === 'u' && !event.ctrlKey && !event.metaKey && !event.altKey) ||
-          ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z' && !event.shiftKey);
-        if (!undo || isEditable(event.target)) return;
+        if (!isUndoKey(event) || isEditable(event.target)) return;
         event.preventDefault();
         event.stopImmediatePropagation();
         settle('action');
@@ -188,29 +223,20 @@
       function settle(result) {
         if (done) return;
         done = true;
-        window.clearTimeout(timer);
+        timer.stop();
         // A replacing toast announces itself; only clear when none follows.
         if (result !== 'replaced') announce('');
         document.removeEventListener('keydown', onKey, true);
         if (activeToast?.host === host) activeToast = null;
-        const remove = () => {
-          if (supportsPopover && host.matches(':popover-open')) host.hidePopover();
-          host.remove();
-        };
-        if (reducedMotion.matches || result === 'replaced') {
-          remove();
-        } else {
-          box.classList.add('sv-toast-leaving');
-          window.setTimeout(remove, 160);
-        }
+        removeToast(ui, reducedMotion.matches || result === 'replaced');
         resolve(result);
       }
 
       action.addEventListener('click', () => settle('action'));
-      box.addEventListener('pointerenter', pause);
-      box.addEventListener('pointerleave', resume);
-      box.addEventListener('focusin', pause);
-      box.addEventListener('focusout', resume);
+      box.addEventListener('pointerenter', timer.pause);
+      box.addEventListener('pointerleave', timer.resume);
+      box.addEventListener('focusin', timer.pause);
+      box.addEventListener('focusout', timer.resume);
       // Capture phase so the page's own shortcuts (u is free, Ctrl+Z is not
       // used) never see the undo key while a toast is open.
       document.addEventListener('keydown', onKey, true);
@@ -285,6 +311,32 @@
     return value.length > VALUE_MAX ? `${value.slice(0, VALUE_MAX - 1)}…` : value;
   }
 
+  // Reads a settings row's label, search help and focusable control.
+  function describeSettingRow(row) {
+    if (row.matches('[data-sv-setting]')) {
+      const box = row.querySelector('.sv-setting-control');
+      const control = box?.querySelector('input:checked:not([type=checkbox]), input:not([type=hidden]):not([type=radio]), select, textarea, button') ?? null;
+      // Segmented choices ("Dark", "Balanced") find their setting too.
+      const choices = [...(box?.querySelectorAll('.sv-segment, option') ?? [])].map((choice) => choice.textContent.trim());
+      return { label: textOf(row, '.sv-setting-label'), help: [textOf(row, '.sv-setting-help'), ...choices].join(' '), control };
+    }
+    if (row.matches('[data-sv-color]')) {
+      return { label: textOf(row, '.sv-color-label'), help: '', control: row.querySelector('[data-sv-color-input]') };
+    }
+    if (row.matches('[data-sv-kb-row]')) {
+      return { label: textOf(row, '.sv-kb-label'), help: textOf(row, '.sv-kb-action'), control: row.querySelector('[data-sv-kb-input]') };
+    }
+    if (row.matches('[data-sv-shortcut-row]')) {
+      const control = row.querySelector('input[name$=".key"]');
+      return {
+        label: `Search shortcut ${control?.value ?? ''}`.trim(),
+        help: [...row.querySelectorAll('input[name$=".url"], input[name$=".description"]')].map((input) => input.value).join(' '),
+        control,
+      };
+    }
+    return { label: textOf(row, 'dt'), help: textOf(row, 'dd'), control: null };
+  }
+
   /**
    * Lists every setting on the settings page for the palette: its label,
    * help, current value and section. Choosing one calls jumpToSetting.
@@ -302,32 +354,7 @@
           row.checkVisibility?.() === false) continue;
       const section = textOf(row.closest('[data-sv-config-section]') ?? row, 'h2');
       const card = textOf(row.closest('.sv-settings-card') ?? row, '.sv-settings-card-title, summary');
-      let label = '';
-      let help = '';
-      let control = null;
-      if (row.matches('[data-sv-setting]')) {
-        label = textOf(row, '.sv-setting-label');
-        help = textOf(row, '.sv-setting-help');
-        const box = row.querySelector('.sv-setting-control');
-        control = box?.querySelector('input:checked:not([type=checkbox]), input:not([type=hidden]):not([type=radio]), select, textarea, button') ?? null;
-        // Segmented choices ("Dark", "Balanced") find their setting too.
-        const choices = [...(box?.querySelectorAll('.sv-segment, option') ?? [])].map((choice) => choice.textContent.trim());
-        help = [help, ...choices].join(' ');
-      } else if (row.matches('[data-sv-color]')) {
-        label = textOf(row, '.sv-color-label');
-        control = row.querySelector('[data-sv-color-input]');
-      } else if (row.matches('[data-sv-kb-row]')) {
-        label = textOf(row, '.sv-kb-label');
-        help = textOf(row, '.sv-kb-action');
-        control = row.querySelector('[data-sv-kb-input]');
-      } else if (row.matches('[data-sv-shortcut-row]')) {
-        control = row.querySelector('input[name$=".key"]');
-        label = `Search shortcut ${control?.value ?? ''}`.trim();
-        help = [...row.querySelectorAll('input[name$=".url"], input[name$=".description"]')].map((input) => input.value).join(' ');
-      } else {
-        label = textOf(row, 'dt');
-        help = textOf(row, 'dd');
-      }
+      const { label, help, control } = describeSettingRow(row);
       if (!label) continue;
       const id = `setting:${items.length}`;
       settingTargets.set(id, { row, control });
@@ -375,6 +402,7 @@
   }
 
   let paletteSeq = 0;
+
   function buildPalette(uid, options) {
     const dialog = document.createElement('dialog');
     dialog.className = 'sv-palette';
@@ -455,6 +483,16 @@
     return option;
   }
 
+  // Items matching query: in order while browsing, best match first when
+  // searching.
+  function rankPaletteItems(items, query) {
+    const matches = items
+      .map((item, order) => ({ item, order, score: matchScore(item, query) }))
+      .filter((entry) => entry.score > 0);
+    if (query) matches.sort((a, b) => b.score - a.score || a.order - b.order);
+    return matches.map((entry) => entry.item);
+  }
+
   /**
    * Owns the rendered options and the active one for a palette.
    * @param {string} uid
@@ -481,15 +519,10 @@
 
     function render() {
       const query = input.value.trim().toLowerCase();
-      const matches = items
-        .map((item, order) => ({ item, order, score: matchScore(item, query) }))
-        .filter((entry) => entry.score > 0);
-      if (query) matches.sort((a, b) => b.score - a.score || a.order - b.order);
-
       list.replaceChildren();
       options$ = [];
       let group = null;
-      for (const { item } of matches) {
+      for (const item of rankPaletteItems(items, query)) {
         // Group headings only while browsing; a ranked search is one list.
         if (!query && item.group && item.group !== group) {
           group = item.group;
@@ -568,12 +601,6 @@
     });
   }
 
-  // ----- Settings page ------------------------------------------------------
-  //
-  // The settings form is plain HTML and saves without this file. Here we only
-  // add feedback: the unsaved-changes bar, sidebar scrollspy, color swatches,
-  // the keybinding filter, the key recorder and conflict hints.
-
   /**
    * Collects listeners and cleanups so one teardown call removes them all.
    */
@@ -586,6 +613,13 @@
     };
     return { on, addCleanup, teardown: () => cleanups.forEach((cleanup) => cleanup()) };
   }
+
+  // ----- Settings page ------------------------------------------------------
+  //
+  // The settings form is plain HTML and saves without this file. Here we only
+  // add feedback: the unsaved-changes bar, sidebar scrollspy, color swatches,
+  // the keybinding filter, the key recorder and conflict hints.
+
   /** @type {(() => void) | null} */
   let teardownSettings = null;
 
@@ -689,10 +723,8 @@
    * Returns refreshDirty: marks changed rows and nav links and drives the
    * unsaved-changes bar.
    */
-  function dirtyTracker(root, form) {
+  function dirtyTracker(root, form, status, navLinks) {
     const savebar = root.querySelector('[data-sv-savebar]');
-    const status = root.querySelector('[data-sv-region="config-status"]');
-    const navLinks = [...root.querySelectorAll('[data-sv-config-nav]')];
     return function refreshDirty() {
       for (const marked of root.querySelectorAll('[data-sv-dirty]')) {
         if (marked !== form) marked.removeAttribute('data-sv-dirty');
@@ -741,8 +773,7 @@
     root.querySelectorAll('[data-sv-font-input]').forEach(syncFont);
   }
 
-  // Applies an edit to a color or font field. Returns false for the
-  // keybinding filter, which is not a setting.
+  // Applies an edit to a color or font field.
   function syncEditedField(root, target) {
     if (target.matches('[data-sv-color-input]')) syncColor(root, target);
     else if (target.matches('[data-sv-color-picker]')) {
@@ -752,8 +783,6 @@
         syncColor(root, text);
       }
     } else if (target.matches('[data-sv-font-input]')) syncFont(target);
-    else if (target.matches('[data-sv-keybinding-filter]')) return false;
-    return true;
   }
 
   // --- Search shortcut rows ------------------------------------------------
@@ -926,8 +955,7 @@
   // --- Sidebar -------------------------------------------------------------
 
   // Highlights the section in view and scrolls to a section on click.
-  function setupSidebar(root, on, addCleanup) {
-    const navLinks = [...root.querySelectorAll('[data-sv-config-nav]')];
+  function setupSidebar(root, navLinks, on, addCleanup) {
     const setCurrent = (id) => {
       for (const link of navLinks) {
         if (link.dataset.svConfigNav === id) link.setAttribute('aria-current', 'true');
@@ -969,8 +997,7 @@
    * Routes form edits and resets to the page parts.
    * @param {{refreshDirty: () => void, refreshKeybindings: () => void, applyFilter: () => void, stopRecording: (keep: boolean) => void}} parts
    */
-  function wireSettingsForm(root, form, on, parts) {
-    const status = root.querySelector('[data-sv-region="config-status"]');
+  function wireSettingsForm(root, form, status, on, parts) {
     // A few hundred fields at most: refreshing on every edit is cheap.
     const refresh = () => {
       parts.refreshDirty();
@@ -981,10 +1008,11 @@
       const target = event.target;
       if (!(target instanceof HTMLElement)) return;
       target.removeAttribute('aria-invalid');
-      if (!syncEditedField(root, target)) {
+      if (target.matches('[data-sv-keybinding-filter]')) {
         parts.applyFilter();
         return;
       }
+      syncEditedField(root, target);
       // A validation error replaced the dirty label: bring it back.
       if (status && !status.querySelector('[data-sv-dirty-label]')) status.innerHTML = DIRTY_LABEL_HTML;
       const shortcut = target.closest('[data-sv-shortcut-new]');
@@ -1025,15 +1053,17 @@
     const { on, addCleanup, teardown } = listenerScope();
     teardownSettings = teardown;
 
+    const status = root.querySelector('[data-sv-region="config-status"]');
+    const navLinks = [...root.querySelectorAll('[data-sv-config-nav]')];
     const kbRows = [...root.querySelectorAll('[data-sv-kb-row]')];
     const parts = {
-      refreshDirty: dirtyTracker(root, form),
+      refreshDirty: dirtyTracker(root, form, status, navLinks),
       refreshKeybindings: () => refreshKeybindings(kbRows),
       applyFilter: setupKeybindingFilter(root, kbRows, on),
       stopRecording: setupKeyRecorder(root, form, on),
     };
-    setupSidebar(root, on, addCleanup);
-    wireSettingsForm(root, form, on, parts);
+    setupSidebar(root, navLinks, on, addCleanup);
+    wireSettingsForm(root, form, status, on, parts);
 
     syncAllFields(root);
     parts.refreshDirty();
