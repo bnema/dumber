@@ -11,7 +11,11 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/net/html"
 
+	"github.com/stretchr/testify/mock"
+
+	"github.com/bnema/dumber/internal/application/dto"
 	"github.com/bnema/dumber/internal/application/port"
+	"github.com/bnema/dumber/internal/application/port/mocks"
 )
 
 func testConfigKeybindings() port.KeybindingsConfig {
@@ -38,16 +42,54 @@ func testConfigKeybindings() port.KeybindingsConfig {
 	}}
 }
 
-func newConfigApp(t *testing.T, dom DOM) (*App, *recordingConfigService) {
+// configStore is the stored config behind a mocked config service: Current
+// returns it and Save updates it, so remounts show what was written.
+type configStore struct {
+	current dto.SystemviewConfigPayload
+	saved   []dto.WebUIConfig
+}
+
+// newConfigService mocks a config service whose Current and GetKeybindings
+// serve the store and the given keybindings.
+func newConfigService(t *testing.T, current dto.SystemviewConfigPayload, keybindings port.KeybindingsConfig) (*mocks.MockSystemviewConfigService, *configStore) {
 	t.Helper()
-	service := &recordingConfigService{
-		current:     testConfigPayload(),
-		defaultCfg:  testDefaultConfigPayload(),
-		keybindings: testConfigKeybindings(),
-	}
+	store := &configStore{current: current}
+	service := mocks.NewMockSystemviewConfigService(t)
+	service.EXPECT().Current(mock.Anything).RunAndReturn(func(context.Context) (dto.SystemviewConfigPayload, error) {
+		return store.current, nil
+	})
+	service.EXPECT().GetKeybindings(mock.Anything).Return(keybindings, nil)
+	return service, store
+}
+
+// expectSave lets the service accept Save calls and records them in the store.
+func (s *configStore) expectSave(service *mocks.MockSystemviewConfigService) {
+	service.EXPECT().Save(mock.Anything, mock.Anything).RunAndReturn(func(_ context.Context, cfg dto.WebUIConfig) error {
+		s.saved = append(s.saved, cfg)
+		s.current.Appearance = cfg.Appearance
+		s.current.DefaultUIScale = cfg.DefaultUIScale
+		s.current.DefaultSearchEngine = cfg.DefaultSearchEngine
+		s.current.SearchShortcuts = cfg.SearchShortcuts
+		s.current.Performance.Profile = cfg.Performance.Profile
+		s.current.Performance.Custom = dto.SystemviewCustomPerformancePayload{
+			SkiaCPUThreads:         cfg.Performance.Custom.SkiaCPUThreads,
+			SkiaGPUThreads:         cfg.Performance.Custom.SkiaGPUThreads,
+			WebProcessMemoryMB:     cfg.Performance.Custom.WebProcessMemoryMB,
+			NetworkProcessMemoryMB: cfg.Performance.Custom.NetworkProcessMemoryMB,
+			WebViewPoolPrewarm:     cfg.Performance.Custom.WebViewPoolPrewarm,
+		}
+		return nil
+	})
+}
+
+// newConfigApp loads the config route. The service has no Save or keybinding
+// write expectations, so any unexpected write fails the test.
+func newConfigApp(t *testing.T, dom DOM) (*App, *mocks.MockSystemviewConfigService, *configStore) {
+	t.Helper()
+	service, store := newConfigService(t, testConfigPayload(), testConfigKeybindings())
 	app := NewApp(Dependencies{DOM: dom, Config: service, LocationURI: "dumb://config"})
 	require.NoError(t, app.LoadInitial(context.Background()))
-	return app, service
+	return app, service, store
 }
 
 // submittedConfigForm returns what the browser would submit for the settings
@@ -152,7 +194,7 @@ func saveBatch(t *testing.T, app *App, data map[string]string) {
 func TestConfigViewRendersSettingsForm(t *testing.T) {
 	t.Parallel()
 
-	app, _ := newConfigApp(t, &recordingDOM{})
+	app, _, _ := newConfigApp(t, &recordingDOM{})
 	out := app.renderedHTML
 
 	for _, want := range []string{
@@ -185,26 +227,29 @@ func TestConfigSaveBatchUnchangedFormWritesNothing(t *testing.T) {
 	t.Parallel()
 
 	dom := &recordingDOM{}
-	app, service := newConfigApp(t, dom)
+	app, service, store := newConfigApp(t, dom)
 
 	saveBatch(t, app, submittedConfigForm(t, app.renderedHTML))
 
-	assert.Zero(t, service.saveCount, "an untouched form is not a config change")
-	assert.Zero(t, service.setCount+service.resetCount, "rendered keys round-trip, including , + and <C-d>")
+	assert.Empty(t, store.saved, "an untouched form is not a config change")
+	// Rendered keys round-trip, including , + and <C-d>.
+	service.AssertNotCalled(t, "SetKeybinding", mock.Anything, mock.Anything)
+	service.AssertNotCalled(t, "ResetKeybinding", mock.Anything, mock.Anything)
 	assert.Contains(t, dom.HTML(), "No changes to save")
 }
 
 func TestConfigSaveBatchUnchangedFormWithEmptyFormatWritesNothing(t *testing.T) {
 	t.Parallel()
 
-	service := &recordingConfigService{current: testConfigPayload(), keybindings: testConfigKeybindings()}
-	service.current.Appearance.ExternalTheme.Format = ""
+	cfg := testConfigPayload()
+	cfg.Appearance.ExternalTheme.Format = ""
+	service, store := newConfigService(t, cfg, testConfigKeybindings())
 	app := NewApp(Dependencies{DOM: &recordingDOM{}, Config: service, LocationURI: "dumb://config"})
 	require.NoError(t, app.LoadInitial(context.Background()))
 
 	saveBatch(t, app, submittedConfigForm(t, app.renderedHTML))
 
-	assert.Zero(t, service.saveCount, "an empty stored format stays empty")
+	assert.Empty(t, store.saved, "an empty stored format stays empty")
 }
 
 // Field errors name the field so the page can focus it; nothing is written.
@@ -225,7 +270,7 @@ func TestConfigSaveBatchFieldErrors(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			dom := &regionDOM{}
-			app, service := newConfigApp(t, dom)
+			app, _, store := newConfigApp(t, dom)
 			data := submittedConfigForm(t, app.renderedHTML)
 			data[tc.field] = tc.value
 			if tc.field == "shortcut.1.key" {
@@ -234,7 +279,7 @@ func TestConfigSaveBatchFieldErrors(t *testing.T) {
 
 			saveBatch(t, app, data)
 
-			assert.Zero(t, service.saveCount)
+			assert.Empty(t, store.saved)
 			require.Len(t, dom.regions, 1)
 			assert.Contains(t, dom.regions[0][0].HTML, tc.message)
 			assert.Contains(t, dom.regions[0][0].HTML, `data-sv-error-field="`+tc.field+`"`)
@@ -246,7 +291,7 @@ func TestConfigSaveBatchRejectsOutOfRangeCustomPerformance(t *testing.T) {
 	t.Parallel()
 
 	dom := &regionDOM{}
-	app, service := newConfigApp(t, dom)
+	app, _, store := newConfigApp(t, dom)
 	data := submittedConfigForm(t, app.renderedHTML)
 	data["profile"] = "custom"
 	for _, field := range performanceCustomFields(testConfigPayload().Performance.Custom) {
@@ -256,7 +301,7 @@ func TestConfigSaveBatchRejectsOutOfRangeCustomPerformance(t *testing.T) {
 
 	saveBatch(t, app, data)
 
-	assert.Zero(t, service.saveCount)
+	assert.Empty(t, store.saved)
 	require.Len(t, dom.regions, 1)
 	assert.Contains(t, dom.regions[0][0].HTML, "Skia CPU threads must be between 0 and 8")
 }
@@ -264,19 +309,33 @@ func TestConfigSaveBatchRejectsOutOfRangeCustomPerformance(t *testing.T) {
 func TestConfigSaveBatchMissingFieldsKeepStoredValues(t *testing.T) {
 	t.Parallel()
 
-	app, service := newConfigApp(t, &recordingDOM{})
+	app, service, store := newConfigApp(t, &recordingDOM{})
 
 	saveBatch(t, app, map[string]string{})
 
-	assert.Zero(t, service.saveCount)
-	assert.Zero(t, service.setCount+service.resetCount)
+	assert.Empty(t, store.saved)
+	service.AssertNotCalled(t, "SetKeybinding", mock.Anything, mock.Anything)
+	service.AssertNotCalled(t, "ResetKeybinding", mock.Anything, mock.Anything)
 }
 
 func TestConfigSaveBatchWritesConfigOnceAndChangedKeybindings(t *testing.T) {
 	t.Parallel()
 
 	dom := &recordingDOM{}
-	app, service := newConfigApp(t, dom)
+	app, service, store := newConfigApp(t, dom)
+	store.expectSave(service)
+	var setReqs []port.SetKeybindingRequest
+	service.EXPECT().SetKeybinding(mock.Anything, mock.Anything).RunAndReturn(
+		func(_ context.Context, req port.SetKeybindingRequest) (port.SetKeybindingResponse, error) {
+			setReqs = append(setReqs, req)
+			return port.SetKeybindingResponse{}, nil
+		})
+	var resetReqs []port.ResetKeybindingRequest
+	service.EXPECT().ResetKeybinding(mock.Anything, mock.Anything).RunAndReturn(
+		func(_ context.Context, req port.ResetKeybindingRequest) error {
+			resetReqs = append(resetReqs, req)
+			return nil
+		})
 	data := submittedConfigForm(t, app.renderedHTML)
 
 	data["sans_font"] = "Fira Sans"
@@ -294,8 +353,8 @@ func TestConfigSaveBatchWritesConfigOnceAndChangedKeybindings(t *testing.T) {
 
 	saveBatch(t, app, data)
 
-	require.Equal(t, 1, service.saveCount, "all config fields are written together")
-	saved := service.savedConfig
+	require.Len(t, store.saved, 1, "all config fields are written together")
+	saved := store.saved[0]
 	assert.Equal(t, "Fira Sans", saved.Appearance.SansFont)
 	assert.Equal(t, "prefer-light", saved.Appearance.ColorScheme)
 	assert.False(t, saved.Appearance.ExternalTheme.Enabled)
@@ -307,31 +366,32 @@ func TestConfigSaveBatchWritesConfigOnceAndChangedKeybindings(t *testing.T) {
 	assert.Equal(t, "custom", saved.Performance.Profile)
 	assert.Equal(t, 4, saved.Performance.Custom.SkiaCPUThreads)
 
-	assert.Equal(t, 1, service.setCount)
-	assert.Equal(t, []string{"ctrl+h", "alt+h"}, service.setReq.Keys)
-	assert.Equal(t, 1, service.resetCount, "back to the default keys resets the binding")
-	assert.Equal(t, "new-tab", service.resetReq.Action)
+	require.Len(t, setReqs, 1)
+	assert.Equal(t, []string{"ctrl+h", "alt+h"}, setReqs[0].Keys)
+	require.Len(t, resetReqs, 1, "back to the default keys resets the binding")
+	assert.Equal(t, "new-tab", resetReqs[0].Action)
 	assert.Contains(t, dom.HTML(), "Settings saved · 2 keybindings updated")
 }
 
 func TestConfigSaveBatchDeletesMarkedShortcut(t *testing.T) {
 	t.Parallel()
 
-	app, service := newConfigApp(t, &recordingDOM{})
+	app, service, store := newConfigApp(t, &recordingDOM{})
+	store.expectSave(service)
 	data := submittedConfigForm(t, app.renderedHTML)
 	data["shortcut.0.delete"] = "on"
 
 	saveBatch(t, app, data)
 
-	require.Equal(t, 1, service.saveCount)
-	assert.Empty(t, service.savedConfig.SearchShortcuts)
+	require.Len(t, store.saved, 1)
+	assert.Empty(t, store.saved[0].SearchShortcuts)
 }
 
 func TestConfigSaveBatchValidationErrorKeepsForm(t *testing.T) {
 	t.Parallel()
 
 	dom := &regionDOM{}
-	app, service := newConfigApp(t, dom)
+	app, _, store := newConfigApp(t, dom)
 	mountedBefore := dom.HTML()
 	data := submittedConfigForm(t, app.renderedHTML)
 	data["sans_font"] = "Changed"
@@ -340,7 +400,7 @@ func TestConfigSaveBatchValidationErrorKeepsForm(t *testing.T) {
 
 	saveBatch(t, app, data)
 
-	assert.Zero(t, service.saveCount, "nothing is written when any field is invalid")
+	assert.Empty(t, store.saved, "nothing is written when any field is invalid")
 	assert.Equal(t, mountedBefore, dom.HTML(), "the form is not remounted, so edits survive")
 	require.Len(t, dom.regions, 1)
 	require.Len(t, dom.regions[0], 1)
@@ -350,20 +410,15 @@ func TestConfigSaveBatchValidationErrorKeepsForm(t *testing.T) {
 	assert.Contains(t, status.HTML, `data-sv-error-field="shortcut.1.url"`)
 }
 
-type failingKeybindingConfig struct {
-	*recordingConfigService
-}
-
-func (s failingKeybindingConfig) SetKeybinding(context.Context, port.SetKeybindingRequest) (port.SetKeybindingResponse, error) {
-	return port.SetKeybindingResponse{}, errors.New("bridge closed")
-}
-
 func TestConfigSaveBatchPartialFailureRemounts(t *testing.T) {
 	t.Parallel()
 
 	dom := &regionDOM{}
-	service := &recordingConfigService{current: testConfigPayload(), keybindings: testConfigKeybindings()}
-	app := NewApp(Dependencies{DOM: dom, Config: failingKeybindingConfig{service}, LocationURI: "dumb://config"})
+	service, store := newConfigService(t, testConfigPayload(), testConfigKeybindings())
+	store.expectSave(service)
+	service.EXPECT().SetKeybinding(mock.Anything, mock.Anything).
+		Return(port.SetKeybindingResponse{}, errors.New("bridge closed")).Once()
+	app := NewApp(Dependencies{DOM: dom, Config: service, LocationURI: "dumb://config"})
 	require.NoError(t, app.LoadInitial(context.Background()))
 	data := submittedConfigForm(t, app.renderedHTML)
 	data["sans_font"] = "Changed"
@@ -371,7 +426,7 @@ func TestConfigSaveBatchPartialFailureRemounts(t *testing.T) {
 
 	saveBatch(t, app, data)
 
-	assert.Equal(t, 1, service.saveCount)
+	assert.Len(t, store.saved, 1)
 	assert.Empty(t, dom.regions)
 	assert.Contains(t, dom.HTML(), "saved part of the changes; keybinding toggle_history_systemview failed: bridge closed")
 	assert.Contains(t, dom.HTML(), `value="Changed"`, "the page shows what was stored")
@@ -381,7 +436,8 @@ func TestConfigSaveBatchShowsToastInsteadOfAlert(t *testing.T) {
 	t.Parallel()
 
 	dom := &toastDOM{}
-	app, _ := newConfigApp(t, dom)
+	app, service, store := newConfigApp(t, dom)
+	store.expectSave(service)
 	data := submittedConfigForm(t, app.renderedHTML)
 	data["serif_font"] = "Georgia Pro"
 
@@ -397,14 +453,19 @@ func TestConfigImmediateActionsStillRun(t *testing.T) {
 	t.Parallel()
 
 	dom := &recordingDOM{}
-	app, service := newConfigApp(t, dom)
+	app, service, store := newConfigApp(t, dom)
+	store.expectSave(service)
+	service.EXPECT().ResetAllKeybindings(mock.Anything).Return(nil).Once()
+	service.EXPECT().Default(mock.Anything).Return(testDefaultConfigPayload(), nil).Once()
 
 	require.NoError(t, app.HandleDOMAction(context.Background(), DOMAction{Action: configActionResetAllKeybindings}))
-	assert.True(t, service.calledResetAll)
+	service.AssertCalled(t, "ResetAllKeybindings", mock.Anything)
 	assert.Contains(t, dom.HTML(), "Reset all keybindings to defaults")
 
 	require.NoError(t, app.HandleDOMAction(context.Background(), DOMAction{Action: configActionResetAppearance}))
-	assert.True(t, service.calledDefault)
+	service.AssertCalled(t, "Default", mock.Anything)
+	require.Len(t, store.saved, 1, "the default appearance is saved")
+	assert.Equal(t, testDefaultConfigPayload().Appearance, store.saved[0].Appearance)
 	assert.Contains(t, dom.HTML(), "Reset appearance settings to defaults")
 }
 
@@ -440,7 +501,7 @@ func TestConfigPaletteOffersSettingsCommands(t *testing.T) {
 	t.Parallel()
 
 	dom := &paletteDOM{}
-	app, _ := newConfigApp(t, dom)
+	app, _, _ := newConfigApp(t, dom)
 
 	require.NoError(t, app.HandleDOMAction(context.Background(), DOMAction{Action: paletteActionOpen}))
 

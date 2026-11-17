@@ -10,10 +10,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func favoritesFixture(t *testing.T, dom DOM) (*App, *recordingFavoritesService) {
+func favoritesFixture(t *testing.T, dom DOM) (*App, *favoritesStore) {
 	t.Helper()
 	three := 3
-	favorites := &recordingFavoritesService{
+	favorites := newFavoritesStore(t, &favoritesStore{
 		favorites: []*entity.Favorite{
 			{ID: 1, URL: "https://go.dev", Title: "Go", ShortcutKey: &three, FaviconURL: "https://go.dev/icon.png",
 				Tags: []entity.Tag{{ID: 7, Name: "dev"}, {ID: 8, Name: "news"}}},
@@ -21,8 +21,9 @@ func favoritesFixture(t *testing.T, dom DOM) (*App, *recordingFavoritesService) 
 			{ID: 3, URL: "https://plain.example", Title: "Plain"},
 		},
 		tags: []*entity.Tag{{ID: 7, Name: "dev", Color: "#3b82f6"}, {ID: 8, Name: "news", Color: "#ef4444"}},
-	}
-	app := NewApp(Dependencies{DOM: dom, Favorites: favorites, LocationURI: "dumb://favorites"})
+	})
+	favorites.expectWrites()
+	app := NewApp(Dependencies{DOM: dom, Favorites: favorites.service, LocationURI: "dumb://favorites"})
 	require.NoError(t, app.LoadInitial(context.Background()))
 	return app, favorites
 }
@@ -40,7 +41,7 @@ func regionHTML(t *testing.T, regions []DOMRegion, name string) string {
 
 func TestFavoritesRenderDataCountsAndHidesPending(t *testing.T) {
 	t.Parallel()
-	app, _ := favoritesFixture(t, &recordingDOM{})
+	app, favorites := favoritesFixture(t, &recordingDOM{})
 	data := app.favoritesData
 	assert.Equal(t, 3, data.TotalCount)
 	assert.Equal(t, 1, data.UntaggedCount)
@@ -50,7 +51,7 @@ func TestFavoritesRenderDataCountsAndHidesPending(t *testing.T) {
 
 	filter := entity.TagID(8)
 	data = buildFavoritesRenderData(favoritesSource{
-		Favorites:       app.deps.Favorites.(*recordingFavoritesService).favorites,
+		Favorites:       favorites.favorites,
 		Tags:            app.tags,
 		HiddenFavorites: map[int64]string{2: "News"},
 		HiddenTags:      map[int64]string{8: "news"},

@@ -22,9 +22,9 @@ func (d *regionDOM) UpdateRegions(update RegionUpdate) error {
 	return nil
 }
 
-func loadedHistoryApp(t *testing.T, dom DOM, history *recordingHistoryService) *App {
+func loadedHistoryApp(t *testing.T, dom DOM, history *historyStore) *App {
 	t.Helper()
-	app := NewApp(Dependencies{DOM: dom, History: history, LocationURI: "dumb://history"})
+	app := NewApp(Dependencies{DOM: dom, History: history.service, LocationURI: "dumb://history"})
 	require.NoError(t, app.LoadInitial(context.Background()))
 	history.statsCalled = false
 	history.called = false
@@ -55,11 +55,11 @@ func TestLiveSearchUpdatesRegionsWithoutReloadingStats(t *testing.T) {
 	t.Parallel()
 
 	dom := &regionDOM{}
-	history := &recordingHistoryService{
+	history := newHistoryStore(t, &historyStore{
 		entries:       []*entity.HistoryEntry{{ID: 1, URL: "https://example.com", Title: "Example"}},
 		searchEntries: []*entity.HistoryEntry{{ID: 7, URL: "https://go.dev", Title: "Go result"}},
 		stats:         &entity.HistoryStats{TotalEntries: 3},
-	}
+	})
 	app := loadedHistoryApp(t, dom, history)
 	mountedBefore := dom.HTML()
 
@@ -89,10 +89,10 @@ func TestLiveSearchEmptyQueryRestoresTimeline(t *testing.T) {
 	t.Parallel()
 
 	dom := &regionDOM{}
-	history := &recordingHistoryService{
+	history := newHistoryStore(t, &historyStore{
 		entries:       []*entity.HistoryEntry{{ID: 1, URL: "https://example.com", Title: "Timeline entry"}},
 		searchEntries: []*entity.HistoryEntry{{ID: 7, URL: "https://go.dev", Title: "Go result"}},
-	}
+	})
 	app := loadedHistoryApp(t, dom, history)
 
 	ctx := context.Background()
@@ -109,7 +109,7 @@ func TestLiveSearchSameQueryIsNoop(t *testing.T) {
 	t.Parallel()
 
 	dom := &regionDOM{}
-	history := &recordingHistoryService{entries: []*entity.HistoryEntry{{ID: 1, URL: "https://example.com"}}}
+	history := newHistoryStore(t, &historyStore{entries: []*entity.HistoryEntry{{ID: 1, URL: "https://example.com"}}})
 	app := loadedHistoryApp(t, dom, history)
 
 	require.NoError(t, app.HandleDOMAction(context.Background(), DOMAction{Action: historyActionSearchLive, Data: map[string]string{"query": "  "}}))
@@ -122,10 +122,10 @@ func TestLiveSearchFallsBackToMountWithoutRegionSupport(t *testing.T) {
 	t.Parallel()
 
 	dom := &recordingDOM{}
-	history := &recordingHistoryService{
+	history := newHistoryStore(t, &historyStore{
 		entries:       []*entity.HistoryEntry{{ID: 1, URL: "https://example.com"}},
 		searchEntries: []*entity.HistoryEntry{{ID: 7, URL: "https://go.dev", Title: "Go result"}},
-	}
+	})
 	app := loadedHistoryApp(t, dom, history)
 
 	require.NoError(t, app.HandleDOMAction(context.Background(), DOMAction{Action: historyActionSearchLive, Data: map[string]string{"query": "go"}}))
@@ -145,7 +145,7 @@ func TestHistoryFilterActionsSwapRegionsWithTransition(t *testing.T) {
 		t.Run(action.Action, func(t *testing.T) {
 			t.Parallel()
 			dom := &regionDOM{}
-			history := &recordingHistoryService{entries: []*entity.HistoryEntry{{ID: 1, URL: "https://example.com", Title: "Example"}}}
+			history := newHistoryStore(t, &historyStore{entries: []*entity.HistoryEntry{{ID: 1, URL: "https://example.com", Title: "Example"}}})
 			app := loadedHistoryApp(t, dom, history)
 			mountedBefore := dom.HTML()
 
@@ -162,7 +162,8 @@ func TestHistoryDeleteKeepsFullRemount(t *testing.T) {
 	t.Parallel()
 
 	dom := &regionDOM{}
-	history := &recordingHistoryService{entries: []*entity.HistoryEntry{{ID: 42, URL: "https://example.com", Title: "Example"}}}
+	history := newHistoryStore(t, &historyStore{entries: []*entity.HistoryEntry{{ID: 42, URL: "https://example.com", Title: "Example"}}})
+	history.expectDeletes()
 	app := loadedHistoryApp(t, dom, history)
 
 	require.NoError(t, app.HandleDOMAction(context.Background(), DOMAction{
@@ -178,13 +179,13 @@ func TestLiveSearchBeforeInitialLoadRendersFullRoute(t *testing.T) {
 	t.Parallel()
 
 	dom := &regionDOM{}
-	history := &recordingHistoryService{
+	history := newHistoryStore(t, &historyStore{
 		entries:       []*entity.HistoryEntry{{ID: 1, URL: "https://example.com", Title: "Example"}},
 		searchEntries: []*entity.HistoryEntry{{ID: 7, URL: "https://go.dev", Title: "Go result"}},
 		stats:         &entity.HistoryStats{TotalEntries: 3},
 		domainStats:   []*entity.DomainStat{{Domain: "go.dev", PageCount: 2}},
-	}
-	app := NewApp(Dependencies{DOM: dom, History: history, LocationURI: "dumb://history"})
+	})
+	app := NewApp(Dependencies{DOM: dom, History: history.service, LocationURI: "dumb://history"})
 	app.LoadInitialShell(context.Background())
 	require.Contains(t, app.renderedHTML, "Loading…")
 

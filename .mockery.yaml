@@ -83,6 +83,9 @@ packages:
       FocusedInputProvider: {}
       AccentPickerUI: {}
       FontDetector: {}
+      SystemviewConfigService: {}
+      SystemviewFavoritesService: {}
+      SystemviewHistoryService: {}
       KeybindingsProvider: {}
       KeybindingsSaver: {}
       OmniboxPreferencesSaver: {}

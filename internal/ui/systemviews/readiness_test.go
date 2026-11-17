@@ -146,12 +146,12 @@ func TestReadinessNotGatedOnAsyncHistoryData(t *testing.T) {
 	t.Parallel()
 
 	dom := &signalingActionDOM{signalingDOM: signalingDOM{recordingDOM: recordingDOM{mounts: make(chan string, 4)}}}
-	history := &recordingHistoryService{
+	history := newHistoryStore(t, &historyStore{
 		entries:         []*entity.HistoryEntry{{ID: 1, URL: "https://example.com", Title: "Loaded entry"}},
 		timelineStarted: make(chan struct{}),
 		releaseTimeline: make(chan struct{}),
-	}
-	app := NewApp(Dependencies{DOM: dom, History: history, LocationURI: "dumb://history"})
+	})
+	app := NewApp(Dependencies{DOM: dom, History: history.service, LocationURI: "dumb://history"})
 
 	require.NoError(t, app.RunWithContext(context.Background()))
 	select {

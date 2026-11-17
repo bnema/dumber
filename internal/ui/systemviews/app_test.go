@@ -9,8 +9,10 @@ import (
 
 	"github.com/bnema/dumber/internal/application/dto"
 	"github.com/bnema/dumber/internal/application/port"
+	"github.com/bnema/dumber/internal/application/port/mocks"
 	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
@@ -65,13 +67,13 @@ func TestAppRunMountsPlaceholderAndRecordsRoute(t *testing.T) {
 func TestAppLoadInitialHistoryRouteUsesStyledSections(t *testing.T) {
 	t.Parallel()
 
-	history := &recordingHistoryService{entries: []*entity.HistoryEntry{{
+	history := newHistoryStore(t, &historyStore{entries: []*entity.HistoryEntry{{
 		URL:   "https://example.com",
 		Title: "Example",
-	}}}
+	}}})
 
 	app := NewApp(Dependencies{
-		History:     history,
+		History:     history.service,
 		LocationURI: "dumb://history",
 	})
 
@@ -81,9 +83,8 @@ func TestAppLoadInitialHistoryRouteUsesStyledSections(t *testing.T) {
 	assert.Contains(t, app.renderedHTML, "Example")
 	assert.Contains(t, app.renderedHTML, "https://example.com")
 	assert.True(t, history.called)
-	assert.False(t, history.analyticsCalled)
-	assert.Equal(t, 0, history.limit)
-	assert.Equal(t, 0, history.offset)
+	history.service.AssertNotCalled(t, "Analytics", mock.Anything)
+	history.service.AssertNotCalled(t, "Timeline", mock.Anything, mock.Anything, mock.Anything)
 
 	// Shell frame present, no full document wrapper.
 	assert.NotContains(t, app.renderedHTML, "<html")
@@ -99,14 +100,14 @@ func TestAppLoadInitialHistoryRouteUsesStyledSections(t *testing.T) {
 func TestAppLoadInitialHistoryRouteShowsTotalStatsWithWindowedTimeline(t *testing.T) {
 	t.Parallel()
 
-	history := &recordingHistoryService{
+	history := newHistoryStore(t, &historyStore{
 		entries: []*entity.HistoryEntry{
 			{ID: 1, URL: "https://older.example", Title: "Older", VisitCount: 2},
 			{ID: 2, URL: "https://newer.example", Title: "Newer", VisitCount: 3},
 		},
 		stats: &entity.HistoryStats{TotalEntries: 8904, TotalVisits: 40947, UniqueDays: 121},
-	}
-	app := NewApp(Dependencies{History: history, LocationURI: "dumb://history"})
+	})
+	app := NewApp(Dependencies{History: history.service, LocationURI: "dumb://history"})
 
 	require.NoError(t, app.LoadInitial(context.Background()))
 	assert.True(t, history.statsCalled)
@@ -120,12 +121,12 @@ func TestAppRunMountsHistoryLoadingBeforeAsyncHydration(t *testing.T) {
 	t.Parallel()
 
 	dom := &recordingActionDOM{recordingDOM: recordingDOM{mounts: make(chan string, 4)}}
-	history := &recordingHistoryService{
+	history := newHistoryStore(t, &historyStore{
 		entries:         []*entity.HistoryEntry{{ID: 1, URL: "https://example.com", Title: "Loaded entry"}},
 		timelineStarted: make(chan struct{}),
 		releaseTimeline: make(chan struct{}),
-	}
-	app := NewApp(Dependencies{DOM: dom, History: history, LocationURI: "dumb://history"})
+	})
+	app := NewApp(Dependencies{DOM: dom, History: history.service, LocationURI: "dumb://history"})
 
 	require.NoError(t, app.RunWithContext(context.Background()))
 	loadingHTML := receiveMount(t, dom.mounts)
@@ -168,12 +169,12 @@ func TestSurfaceActionErrorWhileAsyncHydrationBlockedPreventsStaleMount(t *testi
 	t.Parallel()
 
 	dom := &recordingActionDOM{recordingDOM: recordingDOM{mounts: make(chan string, 4)}}
-	history := &recordingHistoryService{
+	history := newHistoryStore(t, &historyStore{
 		entries:         []*entity.HistoryEntry{{ID: 1, URL: "https://example.com", Title: "Stale hydrated entry"}},
 		timelineStarted: make(chan struct{}),
 		releaseTimeline: make(chan struct{}),
-	}
-	app := NewApp(Dependencies{DOM: dom, History: history, LocationURI: "dumb://history"})
+	})
+	app := NewApp(Dependencies{DOM: dom, History: history.service, LocationURI: "dumb://history"})
 	ctx := context.Background()
 
 	require.NoError(t, app.RunWithContext(ctx))
@@ -199,7 +200,7 @@ func TestSurfaceActionErrorWhileAsyncHydrationBlockedPreventsStaleMount(t *testi
 
 func TestCurrentHistoryRouteSnapshotIncludesWindowAfter(t *testing.T) {
 	cursor := time.Date(2026, 4, 25, 9, 0, 0, 0, time.UTC)
-	app := NewApp(Dependencies{History: &recordingHistoryService{}, LocationURI: "dumb://history"})
+	app := NewApp(Dependencies{History: newHistoryStore(t, &historyStore{}).service, LocationURI: "dumb://history"})
 	app.currentRoute = RouteHistory
 	app.historyWindowAfter = cursor
 
@@ -211,15 +212,15 @@ func TestAppHandleHistoryLoadMoreAppendsOlderWindow(t *testing.T) {
 	t.Parallel()
 
 	cursor := time.Date(2026, 4, 25, 9, 0, 0, 0, time.UTC)
-	history := &recordingHistoryService{window: &entity.HistoryWindow{
+	history := newHistoryStore(t, &historyStore{window: &entity.HistoryWindow{
 		Entries:           []*entity.HistoryEntry{{ID: 2, URL: "https://older.example", Title: "Older entry", LastVisited: cursor.Add(-time.Hour)}},
 		Before:            cursor,
 		CursorLastVisited: cursor.Add(-time.Hour),
 		CursorID:          2,
 		HasMore:           true,
-	}}
+	}})
 	dom := &recordingActionDOM{}
-	app := NewApp(Dependencies{DOM: dom, History: history, LocationURI: "dumb://history"})
+	app := NewApp(Dependencies{DOM: dom, History: history.service, LocationURI: "dumb://history"})
 	app.currentRoute = RouteHistory
 	app.historyEntries = []*entity.HistoryEntry{{ID: 1, URL: "https://newer.example", Title: "Newer entry", LastVisited: cursor}}
 	app.historyWindowAfter = cursor
@@ -244,15 +245,15 @@ func TestAppHandleHistoryLoadMoreRemountsWhenAppendUnavailable(t *testing.T) {
 	t.Parallel()
 
 	cursor := time.Date(2026, 4, 25, 9, 0, 0, 0, time.UTC)
-	history := &recordingHistoryService{window: &entity.HistoryWindow{
+	history := newHistoryStore(t, &historyStore{window: &entity.HistoryWindow{
 		Entries:           []*entity.HistoryEntry{{ID: 2, URL: "https://older.example", Title: "Older entry", LastVisited: cursor.Add(-time.Hour)}},
 		Before:            cursor,
 		CursorLastVisited: cursor.Add(-time.Hour),
 		CursorID:          2,
 		HasMore:           true,
-	}}
+	}})
 	dom := &recordingDOM{}
-	app := NewApp(Dependencies{DOM: dom, History: history, LocationURI: "dumb://history"})
+	app := NewApp(Dependencies{DOM: dom, History: history.service, LocationURI: "dumb://history"})
 	app.currentRoute = RouteHistory
 	app.historyEntries = []*entity.HistoryEntry{{ID: 1, URL: "https://newer.example", Title: "Newer entry", LastVisited: cursor}}
 	app.historyWindowAfter = cursor
@@ -274,14 +275,14 @@ func TestAppHandleHistoryLoadMoreDisablesPartialNextCursor(t *testing.T) {
 	t.Parallel()
 
 	cursor := time.Date(2026, 4, 25, 9, 0, 0, 0, time.UTC)
-	history := &recordingHistoryService{window: &entity.HistoryWindow{
+	history := newHistoryStore(t, &historyStore{window: &entity.HistoryWindow{
 		Entries: []*entity.HistoryEntry{{ID: 2, URL: "https://older.example", Title: "Older entry", LastVisited: cursor.Add(-time.Hour)}},
 		Before:  cursor,
 		After:   cursor.Add(-24 * time.Hour),
 		HasMore: true,
-	}}
+	}})
 	dom := &recordingActionDOM{}
-	app := NewApp(Dependencies{DOM: dom, History: history, LocationURI: "dumb://history"})
+	app := NewApp(Dependencies{DOM: dom, History: history.service, LocationURI: "dumb://history"})
 	app.currentRoute = RouteHistory
 	app.historyEntries = []*entity.HistoryEntry{{ID: 1, URL: "https://newer.example", Title: "Newer entry", LastVisited: cursor}}
 	app.historyWindowAfter = cursor
@@ -302,9 +303,9 @@ func TestAppHandleHistoryLoadMoreIgnoresStaleCursor(t *testing.T) {
 	t.Parallel()
 
 	cursor := time.Date(2026, 4, 25, 9, 0, 0, 0, time.UTC)
-	history := &recordingHistoryService{window: &entity.HistoryWindow{Entries: []*entity.HistoryEntry{{ID: 2, URL: "https://older.example"}}}}
+	history := newHistoryStore(t, &historyStore{window: &entity.HistoryWindow{Entries: []*entity.HistoryEntry{{ID: 2, URL: "https://older.example"}}}})
 	dom := &recordingActionDOM{}
-	app := NewApp(Dependencies{DOM: dom, History: history, LocationURI: "dumb://history"})
+	app := NewApp(Dependencies{DOM: dom, History: history.service, LocationURI: "dumb://history"})
 	app.currentRoute = RouteHistory
 	app.historyWindowAfter = cursor
 	app.historyHasMore = true
@@ -320,17 +321,17 @@ func TestAppHandleHistoryLoadMoreIgnoresStaleCursor(t *testing.T) {
 func TestAppLoadInitialHistoryRouteRendersManagementActions(t *testing.T) {
 	t.Parallel()
 
-	history := &recordingHistoryService{
+	history := newHistoryStore(t, &historyStore{
 		entries: []*entity.HistoryEntry{{
 			ID:    42,
 			URL:   "https://example.com/page",
 			Title: "Example",
 		}},
 		domainStats: []*entity.DomainStat{{Domain: "www.example.com:8080", PageCount: 1, TotalVisits: 3}},
-	}
+	})
 
 	app := NewApp(Dependencies{
-		History:     history,
+		History:     history.service,
 		LocationURI: "dumb://history",
 	})
 
@@ -350,11 +351,12 @@ func TestAppLoadInitialHistoryRouteRendersManagementActions(t *testing.T) {
 
 func TestAppHandleHistoryActionsRefreshesDOM(t *testing.T) {
 	dom := &recordingDOM{}
-	history := &recordingHistoryService{
+	history := newHistoryStore(t, &historyStore{
 		entries:       []*entity.HistoryEntry{{ID: 42, URL: "https://example.com", Title: "Example"}},
 		searchEntries: []*entity.HistoryEntry{{ID: 7, URL: "https://search.example", Title: "Search result"}},
-	}
-	app := NewApp(Dependencies{DOM: dom, History: history, LocationURI: "dumb://history"})
+	})
+	history.expectDeletes()
+	app := NewApp(Dependencies{DOM: dom, History: history.service, LocationURI: "dumb://history"})
 
 	require.NoError(t, app.HandleDOMAction(context.Background(), DOMAction{
 		Action: historyActionSearch,
@@ -400,8 +402,8 @@ func TestAppHandleHistoryActionsRefreshesDOM(t *testing.T) {
 
 func TestAppCloseStopsActionWorkerAndReleasesDOM(t *testing.T) {
 	dom := &recordingActionDOM{}
-	history := &recordingHistoryService{entries: []*entity.HistoryEntry{{ID: 1, URL: "https://example.com"}}}
-	app := NewApp(Dependencies{DOM: dom, History: history, LocationURI: "dumb://history"})
+	history := newHistoryStore(t, &historyStore{entries: []*entity.HistoryEntry{{ID: 1, URL: "https://example.com"}}})
+	app := NewApp(Dependencies{DOM: dom, History: history.service, LocationURI: "dumb://history"})
 
 	ctx := t.Context()
 	require.NoError(t, app.RunWithContext(ctx))
@@ -431,8 +433,8 @@ func TestAppRunCleansActionWorkerWhenBindingFails(t *testing.T) {
 
 func TestAppRunReleasesDOMWhenActionWorkerCannotStart(t *testing.T) {
 	dom := &recordingActionDOM{}
-	history := &recordingHistoryService{entries: []*entity.HistoryEntry{{ID: 1, URL: "https://example.com"}}}
-	app := NewApp(Dependencies{DOM: dom, History: history, LocationURI: "dumb://history"})
+	history := newHistoryStore(t, &historyStore{entries: []*entity.HistoryEntry{{ID: 1, URL: "https://example.com"}}})
+	app := NewApp(Dependencies{DOM: dom, History: history.service, LocationURI: "dumb://history"})
 
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
@@ -449,9 +451,9 @@ func TestAppRunReleasesDOMWhenActionWorkerCannotStart(t *testing.T) {
 func TestAppLoadInitialHistoryRouteRendersErrorState(t *testing.T) {
 	t.Parallel()
 
-	history := &recordingHistoryService{err: errors.New("database unavailable")}
+	history := newHistoryStore(t, &historyStore{err: errors.New("database unavailable")})
 	app := NewApp(Dependencies{
-		History:     history,
+		History:     history.service,
 		LocationURI: "dumb://history",
 	})
 
@@ -466,11 +468,12 @@ func TestAppLoadInitialHistoryRouteRendersErrorState(t *testing.T) {
 func TestAppLoadInitialHistoryRouteAppliesThemeTokens(t *testing.T) {
 	t.Parallel()
 
-	history := &recordingHistoryService{entries: []*entity.HistoryEntry{{
+	history := newHistoryStore(t, &historyStore{entries: []*entity.HistoryEntry{{
 		URL:   "https://example.com",
 		Title: "Example",
-	}}}
-	config := &recordingConfigService{current: dto.SystemviewConfigPayload{
+	}}})
+	config := mocks.NewMockSystemviewConfigService(t)
+	config.EXPECT().Current(mock.Anything).Return(dto.SystemviewConfigPayload{
 		Appearance: dto.WebUIAppearanceConfig{
 			ColorScheme: "prefer-light",
 			LightPalette: dto.ColorPalette{
@@ -496,11 +499,11 @@ func TestAppLoadInitialHistoryRouteAppliesThemeTokens(t *testing.T) {
 			MonospaceFont:   "JetBrains Mono",
 			DefaultFontSize: 16,
 		},
-	}}
+	}, nil)
 
 	app := NewApp(Dependencies{
 		Config:      config,
-		History:     history,
+		History:     history.service,
 		LocationURI: "dumb://history",
 	})
 
@@ -513,13 +516,13 @@ func TestAppLoadInitialHistoryRouteAppliesThemeTokens(t *testing.T) {
 func TestAppLoadInitialFavoritesRouteRendersData(t *testing.T) {
 	t.Parallel()
 
-	favorites := &recordingFavoritesService{
+	favorites := newFavoritesStore(t, &favoritesStore{
 		favorites: []*entity.Favorite{{URL: "https://example.com", Title: "Example"}},
 		tags:      []*entity.Tag{{Name: "Go"}},
-	}
+	})
 
 	app := NewApp(Dependencies{
-		Favorites:   favorites,
+		Favorites:   favorites.service,
 		LocationURI: "dumb://favorites",
 	})
 
@@ -548,12 +551,12 @@ func TestAppLoadInitialFavoritesRouteRendersCRUDControls(t *testing.T) {
 	t.Parallel()
 
 	shortcut := 3
-	favorites := &recordingFavoritesService{
+	favorites := newFavoritesStore(t, &favoritesStore{
 		favorites: []*entity.Favorite{{ID: 42, URL: "https://example.com", Title: "Example", ShortcutKey: &shortcut}},
 		tags:      []*entity.Tag{{ID: 7, Name: "Go", Color: "#00add8"}},
-	}
+	})
 
-	app := NewApp(Dependencies{Favorites: favorites, LocationURI: "dumb://favorites"})
+	app := NewApp(Dependencies{Favorites: favorites.service, LocationURI: "dumb://favorites"})
 
 	require.NoError(t, app.LoadInitial(context.Background()))
 	assert.Contains(t, app.renderedHTML, `data-sv-action="favorite.create"`)
@@ -574,11 +577,12 @@ func TestAppLoadInitialFavoritesRouteRendersCRUDControls(t *testing.T) {
 
 func TestAppHandleFavoriteActionsRefreshesDOM(t *testing.T) {
 	dom := &recordingDOM{}
-	favorites := &recordingFavoritesService{
+	favorites := newFavoritesStore(t, &favoritesStore{
 		favorites: []*entity.Favorite{{ID: 42, URL: "https://example.com", Title: "Example"}},
 		tags:      []*entity.Tag{{ID: 7, Name: "Go", Color: "#00add8"}},
-	}
-	app := NewApp(Dependencies{DOM: dom, Favorites: favorites, LocationURI: "dumb://favorites"})
+	})
+	favorites.expectWrites()
+	app := NewApp(Dependencies{DOM: dom, Favorites: favorites.service, LocationURI: "dumb://favorites"})
 
 	require.NoError(t, app.HandleDOMAction(context.Background(), DOMAction{
 		Action: favoriteActionCreate,
@@ -678,26 +682,25 @@ func TestAppLoadInitialConfigRouteRendersData(t *testing.T) {
 			},
 		},
 	}
-	service := &recordingConfigService{
-		current: config,
-		keybindings: port.KeybindingsConfig{Groups: []port.KeybindingGroup{
-			{
-				Mode:        "default",
-				DisplayName: "Default",
-				Bindings: []port.KeybindingEntry{
-					{Action: "open", Description: "Open", Keys: []string{"ctrl+o"}, DefaultKeys: []string{"ctrl+o"}},
-					{Action: "new-tab", Description: "New tab", Keys: []string{"ctrl+t"}, DefaultKeys: []string{"ctrl+shift+t"}, IsCustom: true},
-				},
+	service := mocks.NewMockSystemviewConfigService(t)
+	service.EXPECT().Current(mock.Anything).Return(config, nil)
+	service.EXPECT().GetKeybindings(mock.Anything).Return(port.KeybindingsConfig{Groups: []port.KeybindingGroup{
+		{
+			Mode:        "default",
+			DisplayName: "Default",
+			Bindings: []port.KeybindingEntry{
+				{Action: "open", Description: "Open", Keys: []string{"ctrl+o"}, DefaultKeys: []string{"ctrl+o"}},
+				{Action: "new-tab", Description: "New tab", Keys: []string{"ctrl+t"}, DefaultKeys: []string{"ctrl+shift+t"}, IsCustom: true},
 			},
-			{
-				Mode:        "search",
-				DisplayName: "Search",
-				Bindings: []port.KeybindingEntry{
-					{Action: "find", Description: "Find", Keys: []string{"ctrl+f"}, DefaultKeys: []string{"ctrl+f"}},
-				},
+		},
+		{
+			Mode:        "search",
+			DisplayName: "Search",
+			Bindings: []port.KeybindingEntry{
+				{Action: "find", Description: "Find", Keys: []string{"ctrl+f"}, DefaultKeys: []string{"ctrl+f"}},
 			},
-		}},
-	}
+		},
+	}}, nil)
 
 	app := NewApp(Dependencies{
 		Config:      service,
@@ -742,8 +745,8 @@ func TestAppLoadInitialConfigRouteRendersData(t *testing.T) {
 	assert.Contains(t, app.renderedHTML, "default")
 	assert.Contains(t, app.renderedHTML, "custom")
 	assert.NotContains(t, app.renderedHTML, "groups[0].bindings[0].action")
-	assert.True(t, service.calledCurrent)
-	assert.True(t, service.calledKeybindings)
+	service.AssertCalled(t, "Current", mock.Anything)
+	service.AssertCalled(t, "GetKeybindings", mock.Anything)
 
 	// Shell frame present, no full document wrapper.
 	assert.NotContains(t, app.renderedHTML, "<html")
@@ -764,10 +767,9 @@ func TestAppLoadInitialConfigRouteUsesResolvedAppearanceOnlyForShellTheme(t *tes
 	resolved.DarkPalette.Background = "#222222"
 	resolved.DarkPalette.SurfaceVariant = "#444444"
 	cfg.ResolvedAppearance = &resolved
-	service := &recordingConfigService{
-		current:     cfg,
-		keybindings: port.KeybindingsConfig{},
-	}
+	service := mocks.NewMockSystemviewConfigService(t)
+	service.EXPECT().Current(mock.Anything).Return(cfg, nil)
+	service.EXPECT().GetKeybindings(mock.Anything).Return(port.KeybindingsConfig{}, nil)
 
 	app := NewApp(Dependencies{Config: service, LocationURI: "dumb://config"})
 
@@ -906,288 +908,8 @@ func (d *failingActionDOM) BindActions(DOMActionHandler) error {
 	return d.bindErr
 }
 
-// Recording fixture to capture history state for stateful render assertions.
-type recordingHistoryService struct {
-	called       bool
-	limit        int
-	offset       int
-	entries      []*entity.HistoryEntry
-	err          error
-	domainCalled bool
-	domain       string
-
-	searchCalled  bool
-	query         string
-	searchLimit   int
-	searchEntries []*entity.HistoryEntry
-
-	deletedEntryID  int64
-	deleteErr       error
-	deletedRangeID  string
-	deletedDomain   string
-	domainStats     []*entity.DomainStat
-	stats           *entity.HistoryStats
-	statsCalled     bool
-	window          *entity.HistoryWindow
-	windowBefore    time.Time
-	windowBeforeID  int64
-	windowDomain    string
-	analyticsCalled bool
-
-	timelineStarted chan struct{}
-	releaseTimeline chan struct{}
-	startOnce       sync.Once
-}
-
-func (s *recordingHistoryService) Timeline(_ context.Context, limit, offset int) ([]*entity.HistoryEntry, error) {
-	s.called = true
-	s.limit = limit
-	s.offset = offset
-	if s.timelineStarted != nil {
-		s.startOnce.Do(func() { close(s.timelineStarted) })
-	}
-	if s.releaseTimeline != nil {
-		<-s.releaseTimeline
-	}
-	return s.entries, s.err
-}
-
-func (s *recordingHistoryService) TimelineByDomain(_ context.Context, domain string, limit, offset int) ([]*entity.HistoryEntry, error) {
-	s.domainCalled = true
-	s.domain = domain
-	s.limit = limit
-	s.offset = offset
-	return s.entries, s.err
-}
-
-func (s *recordingHistoryService) TimelineWindow(_ context.Context, before time.Time, beforeID int64, domain string) (*entity.HistoryWindow, error) {
-	s.called = true
-	s.windowBefore = before
-	s.windowBeforeID = beforeID
-	s.windowDomain = domain
-	if s.timelineStarted != nil {
-		s.startOnce.Do(func() { close(s.timelineStarted) })
-	}
-	if s.releaseTimeline != nil {
-		<-s.releaseTimeline
-	}
-	if s.err != nil {
-		return nil, s.err
-	}
-	if s.window != nil {
-		return s.window, nil
-	}
-	return &entity.HistoryWindow{Entries: s.entries, Before: before, After: before.Add(-24 * time.Hour)}, nil
-}
-
-func (s *recordingHistoryService) Search(_ context.Context, query string, limit int) ([]*entity.HistoryEntry, error) {
-	s.searchCalled = true
-	s.query = query
-	s.searchLimit = limit
-	if s.searchEntries != nil {
-		return s.searchEntries, nil
-	}
-	return s.entries, nil
-}
-
-func (s *recordingHistoryService) DeleteEntry(_ context.Context, id int64) error {
-	s.deletedEntryID = id
-	return s.deleteErr
-}
-
-func (s *recordingHistoryService) DeleteRange(_ context.Context, rangeID string) error {
-	s.deletedRangeID = rangeID
-	return nil
-}
-
-func (s *recordingHistoryService) Stats(context.Context) (*entity.HistoryStats, error) {
-	s.statsCalled = true
-	return s.stats, nil
-}
-
-func (s *recordingHistoryService) Analytics(context.Context) (*entity.HistoryAnalytics, error) {
-	s.analyticsCalled = true
-	return nil, nil
-}
-
-func (s *recordingHistoryService) DomainStats(context.Context, int) ([]*entity.DomainStat, error) {
-	return s.domainStats, nil
-}
-
-func (s *recordingHistoryService) DeleteDomain(_ context.Context, domain string) error {
-	s.deletedDomain = domain
-	return nil
-}
-
-// Recording fixture to capture favorites state for stateful render assertions.
-type recordingFavoritesService struct {
-	calledList bool
-	calledTags bool
-	favorites  []*entity.Favorite
-	tags       []*entity.Tag
-
-	createdFavorite    dto.FavoriteCreateInput
-	updatedFavorite    dto.FavoriteUpdateInput
-	deletedFavorite    int64
-	createdTag         string
-	updatedTagID       int64
-	deletedTagID       int64
-	assignedFavoriteID int64
-	assignedTagID      int64
-	removedFavoriteID  int64
-	removedTagID       int64
-	assigned           [][2]int64
-	removed            [][2]int64
-	shortcuts          map[int64]*int
-	failDelete         error
-	failAssign         error
-}
-
-func (s *recordingFavoritesService) List(context.Context) ([]*entity.Favorite, error) {
-	s.calledList = true
-	return s.favorites, nil
-}
-
-func (s *recordingFavoritesService) ListTags(context.Context) ([]*entity.Tag, error) {
-	s.calledTags = true
-	return s.tags, nil
-}
-
-func (s *recordingFavoritesService) CreateFavorite(_ context.Context, input dto.FavoriteCreateInput) (*entity.Favorite, error) {
-	s.createdFavorite = input
-	return &entity.Favorite{ID: 99, URL: input.URL, Title: input.Title}, nil
-}
-
-func (s *recordingFavoritesService) UpdateFavorite(_ context.Context, input dto.FavoriteUpdateInput) (*entity.Favorite, error) {
-	s.updatedFavorite = input
-	return &entity.Favorite{ID: input.ID, URL: "https://example.com", Title: input.Title, FaviconURL: input.FaviconURL, ShortcutKey: input.ShortcutKey}, nil
-}
-
-func (s *recordingFavoritesService) DeleteFavorite(_ context.Context, id int64) error {
-	if s.failDelete != nil {
-		return s.failDelete
-	}
-	s.deletedFavorite = id
-	return nil
-}
-
-func (s *recordingFavoritesService) SetShortcut(_ context.Context, id int64, key *int) error {
-	if s.shortcuts == nil {
-		s.shortcuts = map[int64]*int{}
-	}
-	s.shortcuts[id] = key
-	return nil
-}
-
-func (s *recordingFavoritesService) CreateTag(_ context.Context, name, color string) (*entity.Tag, error) {
-	s.createdTag = name
-	return &entity.Tag{ID: 55, Name: name, Color: color}, nil
-}
-
-func (s *recordingFavoritesService) UpdateTag(_ context.Context, id int64, _, _ string) error {
-	s.updatedTagID = id
-	return nil
-}
-
-func (s *recordingFavoritesService) DeleteTag(_ context.Context, id int64) error {
-	s.deletedTagID = id
-	return nil
-}
-
-func (s *recordingFavoritesService) AssignTag(_ context.Context, favoriteID, tagID int64) error {
-	if s.failAssign != nil {
-		return s.failAssign
-	}
-	s.assignedFavoriteID = favoriteID
-	s.assignedTagID = tagID
-	s.assigned = append(s.assigned, [2]int64{favoriteID, tagID})
-	return nil
-}
-
-func (s *recordingFavoritesService) RemoveTag(_ context.Context, favoriteID, tagID int64) error {
-	s.removedFavoriteID = favoriteID
-	s.removedTagID = tagID
-	s.removed = append(s.removed, [2]int64{favoriteID, tagID})
-	return nil
-}
-
-// Recording fixture to capture config state for stateful render assertions.
-type recordingConfigService struct {
-	calledCurrent     bool
-	calledDefault     bool
-	calledSave        bool
-	calledKeybindings bool
-	calledSet         bool
-	calledReset       bool
-	calledResetAll    bool
-	saveCount         int
-	setCount          int
-	resetCount        int
-
-	current     dto.SystemviewConfigPayload
-	defaultCfg  dto.SystemviewConfigPayload
-	keybindings port.KeybindingsConfig
-	savedConfig dto.WebUIConfig
-	setReq      port.SetKeybindingRequest
-	setResp     port.SetKeybindingResponse
-	resetReq    port.ResetKeybindingRequest
-}
-
-func (s *recordingConfigService) Current(context.Context) (dto.SystemviewConfigPayload, error) {
-	s.calledCurrent = true
-	return s.current, nil
-}
-
-func (s *recordingConfigService) Default(context.Context) (dto.SystemviewConfigPayload, error) {
-	s.calledDefault = true
-	return s.defaultCfg, nil
-}
-
-func (s *recordingConfigService) Save(_ context.Context, cfg dto.WebUIConfig) error {
-	s.calledSave = true
-	s.saveCount++
-	s.savedConfig = cfg
-	s.current.Appearance = cfg.Appearance
-	s.current.DefaultUIScale = cfg.DefaultUIScale
-	s.current.DefaultSearchEngine = cfg.DefaultSearchEngine
-	s.current.SearchShortcuts = cfg.SearchShortcuts
-	s.current.Performance.Profile = cfg.Performance.Profile
-	s.current.Performance.Custom = dto.SystemviewCustomPerformancePayload{
-		SkiaCPUThreads:         cfg.Performance.Custom.SkiaCPUThreads,
-		SkiaGPUThreads:         cfg.Performance.Custom.SkiaGPUThreads,
-		WebProcessMemoryMB:     cfg.Performance.Custom.WebProcessMemoryMB,
-		NetworkProcessMemoryMB: cfg.Performance.Custom.NetworkProcessMemoryMB,
-		WebViewPoolPrewarm:     cfg.Performance.Custom.WebViewPoolPrewarm,
-	}
-	return nil
-}
-
-func (s *recordingConfigService) GetKeybindings(context.Context) (port.KeybindingsConfig, error) {
-	s.calledKeybindings = true
-	return s.keybindings, nil
-}
-
-func (s *recordingConfigService) SetKeybinding(_ context.Context, req port.SetKeybindingRequest) (port.SetKeybindingResponse, error) {
-	s.calledSet = true
-	s.setCount++
-	s.setReq = req
-	return s.setResp, nil
-}
-
-func (s *recordingConfigService) ResetKeybinding(_ context.Context, req port.ResetKeybindingRequest) error {
-	s.calledReset = true
-	s.resetCount++
-	s.resetReq = req
-	return nil
-}
-
-func (s *recordingConfigService) ResetAllKeybindings(context.Context) error {
-	s.calledResetAll = true
-	return nil
-}
-
 func TestHandleFavoriteActionValidatesCreateURL(t *testing.T) {
-	app := NewApp(Dependencies{Favorites: &recordingFavoritesService{}})
+	app := NewApp(Dependencies{Favorites: newFavoritesStore(t, &favoritesStore{}).service})
 
 	err := app.handleFavoriteAction(context.Background(), DOMAction{
 		Action: favoriteActionCreate,
@@ -1212,8 +934,9 @@ func TestHandleFavoriteActionValidatesCreateURL(t *testing.T) {
 }
 
 func TestHandleFavoriteCreateAcceptsInternalDumbRoutes(t *testing.T) {
-	favorites := &recordingFavoritesService{}
-	app := NewApp(Dependencies{Favorites: favorites})
+	favorites := newFavoritesStore(t, &favoritesStore{})
+	favorites.expectWrites()
+	app := NewApp(Dependencies{Favorites: favorites.service})
 
 	require.NoError(t, app.handleFavoriteAction(context.Background(), DOMAction{
 		Action: favoriteActionCreate,
@@ -1229,8 +952,8 @@ func TestHandleFavoriteCreateAcceptsInternalDumbRoutes(t *testing.T) {
 }
 
 func TestHandleFavoriteCreateRejectsUnknownDumbRoutes(t *testing.T) {
-	favorites := &recordingFavoritesService{}
-	app := NewApp(Dependencies{Favorites: favorites})
+	favorites := newFavoritesStore(t, &favoritesStore{})
+	app := NewApp(Dependencies{Favorites: favorites.service})
 
 	err := app.handleFavoriteAction(context.Background(), DOMAction{
 		Action: favoriteActionCreate,
@@ -1254,8 +977,8 @@ func TestParsePositiveInt64DistinguishesParseAndRangeErrors(t *testing.T) {
 
 func TestHandleHistorySearchClearsDomainFilter(t *testing.T) {
 	dom := &recordingDOM{}
-	history := &recordingHistoryService{searchEntries: []*entity.HistoryEntry{{ID: 7, URL: "https://search.example", Title: "Search result"}}}
-	app := NewApp(Dependencies{DOM: dom, History: history, LocationURI: "dumb://history"})
+	history := newHistoryStore(t, &historyStore{searchEntries: []*entity.HistoryEntry{{ID: 7, URL: "https://search.example", Title: "Search result"}}})
+	app := NewApp(Dependencies{DOM: dom, History: history.service, LocationURI: "dumb://history"})
 	app.historyDomainFilter = "example.com"
 
 	require.NoError(t, app.HandleDOMAction(context.Background(), DOMAction{
@@ -1266,7 +989,7 @@ func TestHandleHistorySearchClearsDomainFilter(t *testing.T) {
 	assert.Equal(t, "search", app.historyQuery)
 	assert.Empty(t, app.historyDomainFilter)
 	assert.True(t, history.searchCalled)
-	assert.False(t, history.domainCalled)
+	history.service.AssertNotCalled(t, "TimelineByDomain", mock.Anything, mock.Anything, mock.Anything, mock.Anything)
 }
 
 func TestAppRunWithContextRejectsNilContext(t *testing.T) {
@@ -1279,8 +1002,8 @@ func TestAppRunWithContextRejectsNilContext(t *testing.T) {
 }
 
 func TestAppRunWithContextRequiresDOMBeforeLoading(t *testing.T) {
-	history := &recordingHistoryService{entries: []*entity.HistoryEntry{{ID: 1, URL: "https://example.com"}}}
-	app := NewApp(Dependencies{History: history, LocationURI: "dumb://history"})
+	history := newHistoryStore(t, &historyStore{entries: []*entity.HistoryEntry{{ID: 1, URL: "https://example.com"}}})
+	app := NewApp(Dependencies{History: history.service, LocationURI: "dumb://history"})
 
 	err := app.RunWithContext(context.Background())
 
@@ -1290,9 +1013,9 @@ func TestAppRunWithContextRequiresDOMBeforeLoading(t *testing.T) {
 
 func TestHandleActionsRejectUnknownAction(t *testing.T) {
 	app := NewApp(Dependencies{
-		History:   &recordingHistoryService{},
-		Favorites: &recordingFavoritesService{},
-		Config:    &recordingConfigService{current: testConfigPayload()},
+		History:   newHistoryStore(t, &historyStore{}).service,
+		Favorites: newFavoritesStore(t, &favoritesStore{}).service,
+		Config:    mocks.NewMockSystemviewConfigService(t),
 	})
 
 	require.ErrorContains(t, app.handleHistoryAction(context.Background(), DOMAction{Action: "history.unknown"}), "unknown history action")

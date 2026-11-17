@@ -35,15 +35,16 @@ func (d *toastDOM) lastTimeline(t *testing.T) string {
 	return ""
 }
 
-func undoFixture(t *testing.T) (*App, *toastDOM, *recordingHistoryService) {
+func undoFixture(t *testing.T) (*App, *toastDOM, *historyStore) {
 	t.Helper()
 	now := time.Now()
 	dom := &toastDOM{}
-	history := &recordingHistoryService{entries: []*entity.HistoryEntry{
+	history := newHistoryStore(t, &historyStore{entries: []*entity.HistoryEntry{
 		{ID: 3, URL: "https://c.example", Title: "Third", LastVisited: now},
 		{ID: 2, URL: "https://b.example", Title: "Second", LastVisited: now.Add(-time.Minute)},
 		{ID: 1, URL: "https://a.example", Title: "First", LastVisited: now.Add(-2 * time.Minute)},
-	}}
+	}})
+	history.expectDeletes()
 	return loadedHistoryApp(t, dom, history), dom, history
 }
 
@@ -124,7 +125,8 @@ func TestFlushCommitsEveryPendingDelete(t *testing.T) {
 func TestUndoableDeleteWithoutToastDeletesImmediately(t *testing.T) {
 	t.Parallel()
 	dom := &regionDOM{}
-	history := &recordingHistoryService{entries: []*entity.HistoryEntry{{ID: 2, URL: "https://b.example", Title: "Second"}}}
+	history := newHistoryStore(t, &historyStore{entries: []*entity.HistoryEntry{{ID: 2, URL: "https://b.example", Title: "Second"}}})
+	history.expectDeletes()
 	app := loadedHistoryApp(t, dom, history)
 
 	require.NoError(t, app.HandleDOMAction(context.Background(), deferredDelete("2")))

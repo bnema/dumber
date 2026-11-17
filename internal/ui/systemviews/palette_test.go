@@ -41,7 +41,7 @@ func TestPaletteOnHistoryOffersHistoryCommandsAndOtherViews(t *testing.T) {
 	t.Parallel()
 
 	dom := &paletteDOM{}
-	history := &recordingHistoryService{entries: []*entity.HistoryEntry{{ID: 1, URL: "https://example.com"}}}
+	history := newHistoryStore(t, &historyStore{entries: []*entity.HistoryEntry{{ID: 1, URL: "https://example.com"}}})
 	app := loadedHistoryApp(t, dom, history)
 
 	require.NoError(t, app.HandleDOMAction(context.Background(), DOMAction{Action: paletteActionOpen}))
@@ -67,7 +67,7 @@ func TestPaletteOffersClearFiltersWhenFiltered(t *testing.T) {
 	t.Parallel()
 
 	dom := &paletteDOM{}
-	history := &recordingHistoryService{entries: []*entity.HistoryEntry{{ID: 1, URL: "https://example.com"}}}
+	history := newHistoryStore(t, &historyStore{entries: []*entity.HistoryEntry{{ID: 1, URL: "https://example.com"}}})
 	app := loadedHistoryApp(t, dom, history)
 	ctx := context.Background()
 
@@ -102,7 +102,7 @@ func TestPaletteWithoutSupportIsNoop(t *testing.T) {
 func TestPageHeaderOffersPaletteTrigger(t *testing.T) {
 	t.Parallel()
 
-	history := &recordingHistoryService{entries: []*entity.HistoryEntry{{ID: 1, URL: "https://example.com"}}}
+	history := newHistoryStore(t, &historyStore{entries: []*entity.HistoryEntry{{ID: 1, URL: "https://example.com"}}})
 	app := loadedHistoryApp(t, &recordingDOM{}, history)
 
 	assert.Contains(t, app.renderedHTML, `data-sv-action="palette.open"`)
