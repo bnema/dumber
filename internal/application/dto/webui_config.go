@@ -85,8 +85,14 @@ type SearchShortcut struct {
 
 // WebUIAppearanceWithResolvedTheme builds a display-only appearance payload from
 // resolved theme values while preserving fields that are not theme-resolution
-// outputs, such as ColorScheme and ExternalTheme.
+// outputs, such as ExternalTheme. ColorScheme carries the host's resolved
+// choice ("prefer-dark" or "prefer-light"): a page must not re-detect it,
+// because the engine's prefers-color-scheme can disagree with the host.
 func WebUIAppearanceWithResolvedTheme(base WebUIAppearanceConfig, resolved entity.ResolvedTheme) WebUIAppearanceConfig {
+	base.ColorScheme = "prefer-light"
+	if resolved.PrefersDark {
+		base.ColorScheme = "prefer-dark"
+	}
 	base.SansFont = resolved.Fonts.SansFont
 	base.SerifFont = resolved.Fonts.SerifFont
 	base.MonospaceFont = resolved.Fonts.MonospaceFont
