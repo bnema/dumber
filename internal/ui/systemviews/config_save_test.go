@@ -227,14 +227,13 @@ func TestConfigSaveBatchUnchangedFormWritesNothing(t *testing.T) {
 	t.Parallel()
 
 	dom := &recordingDOM{}
-	app, service, store := newConfigApp(t, dom)
+	app, _, store := newConfigApp(t, dom)
 
 	saveBatch(t, app, submittedConfigForm(t, app.renderedHTML))
 
 	assert.Empty(t, store.saved, "an untouched form is not a config change")
-	// Rendered keys round-trip, including , + and <C-d>.
-	service.AssertNotCalled(t, "SetKeybinding", mock.Anything, mock.Anything)
-	service.AssertNotCalled(t, "ResetKeybinding", mock.Anything, mock.Anything)
+	// Rendered keys round-trip, including , + and <C-d>: SetKeybinding and
+	// ResetKeybinding have no expectation, so a keybinding write fails the test.
 	assert.Contains(t, dom.HTML(), "No changes to save")
 }
 
@@ -309,13 +308,12 @@ func TestConfigSaveBatchRejectsOutOfRangeCustomPerformance(t *testing.T) {
 func TestConfigSaveBatchMissingFieldsKeepStoredValues(t *testing.T) {
 	t.Parallel()
 
-	app, service, store := newConfigApp(t, &recordingDOM{})
+	app, _, store := newConfigApp(t, &recordingDOM{})
 
 	saveBatch(t, app, map[string]string{})
 
 	assert.Empty(t, store.saved)
-	service.AssertNotCalled(t, "SetKeybinding", mock.Anything, mock.Anything)
-	service.AssertNotCalled(t, "ResetKeybinding", mock.Anything, mock.Anything)
+	// No keybinding expectation: a keybinding write fails the test.
 }
 
 func TestConfigSaveBatchWritesConfigOnceAndChangedKeybindings(t *testing.T) {

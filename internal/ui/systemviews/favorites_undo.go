@@ -2,6 +2,7 @@ package systemviews
 
 import (
 	"context"
+	"slices"
 	"strconv"
 	"strings"
 )
@@ -167,14 +168,15 @@ func (a *App) commitFavoritesDeletes(ctx context.Context, favoriteIDs, tagIDs []
 	if service == nil || len(favorites)+len(tags) == 0 {
 		return nil
 	}
-	var failed []string
-	for _, id := range favorites {
-		if err := service.DeleteFavorite(ctx, id); err != nil {
-			failed = append(failed, err.Error())
+	errs := runConcurrently(len(favorites)+len(tags), func(i int) error {
+		if i < len(favorites) {
+			return service.DeleteFavorite(ctx, favorites[i])
 		}
-	}
-	for _, id := range tags {
-		if err := service.DeleteTag(ctx, id); err != nil {
+		return service.DeleteTag(ctx, tags[i-len(favorites)])
+	})
+	var failed []string
+	for _, err := range errs {
+		if err != nil {
 			failed = append(failed, err.Error())
 		}
 	}
@@ -183,6 +185,9 @@ func (a *App) commitFavoritesDeletes(ctx context.Context, favoriteIDs, tagIDs []
 	}
 	a.lockState()
 	defer a.unlockState()
+	if a.closed {
+		return nil
+	}
 	a.favoritesError = "Could not delete: " + strings.Join(failed, "; ")
 	return a.refreshFavoritesRegionsLocked(ctx, false)
 }
@@ -195,6 +200,7 @@ func takePending(pending map[int64]string, ids []int64, all bool) []int64 {
 		for id := range pending {
 			ids = append(ids, id)
 		}
+		slices.Sort(ids) // stable error message order
 	}
 	taken := make([]int64, 0, len(ids))
 	for _, id := range ids {

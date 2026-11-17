@@ -22,7 +22,6 @@ func favoritesFixture(t *testing.T, dom DOM) (*App, *favoritesStore) {
 		},
 		tags: []*entity.Tag{{ID: 7, Name: "dev", Color: "#3b82f6"}, {ID: 8, Name: "news", Color: "#ef4444"}},
 	})
-	favorites.expectWrites()
 	app := NewApp(Dependencies{DOM: dom, Favorites: favorites.service, LocationURI: "dumb://favorites"})
 	require.NoError(t, app.LoadInitial(context.Background()))
 	return app, favorites
@@ -67,6 +66,8 @@ func TestFavoritesRenderDataCountsAndHidesPending(t *testing.T) {
 func TestFavoriteSaveDiffsTagsAndKeepsAbsentFields(t *testing.T) {
 	t.Parallel()
 	app, favorites := favoritesFixture(t, &recordingDOM{})
+	favorites.expectUpdateFavorite(1)
+	favorites.expectRemoveTag(1, 7)
 
 	require.NoError(t, app.HandleDOMAction(context.Background(), DOMAction{
 		Action: favoriteActionSave,
@@ -82,6 +83,9 @@ func TestFavoriteSaveDiffsTagsAndKeepsAbsentFields(t *testing.T) {
 func TestFavoriteSaveUncheckingEveryTagRemovesThem(t *testing.T) {
 	t.Parallel()
 	app, favorites := favoritesFixture(t, &recordingDOM{})
+	favorites.expectUpdateFavorite(1)
+	favorites.expectRemoveTag(1, 7)
+	favorites.expectRemoveTag(1, 8)
 
 	// The hidden empty "tags" field is all that is sent when nothing is ticked.
 	require.NoError(t, app.HandleDOMAction(context.Background(), DOMAction{
@@ -94,6 +98,8 @@ func TestFavoriteSaveUncheckingEveryTagRemovesThem(t *testing.T) {
 func TestFavoriteSaveMovesShortcutFromOtherFavorite(t *testing.T) {
 	t.Parallel()
 	app, favorites := favoritesFixture(t, &recordingDOM{})
+	favorites.expectSetShortcut(1)
+	favorites.expectUpdateFavorite(2)
 
 	require.NoError(t, app.HandleDOMAction(context.Background(), DOMAction{
 		Action: favoriteActionSave,
@@ -104,6 +110,7 @@ func TestFavoriteSaveMovesShortcutFromOtherFavorite(t *testing.T) {
 	require.NotNil(t, favorites.updatedFavorite.ShortcutKey)
 	assert.Equal(t, 3, *favorites.updatedFavorite.ShortcutKey)
 
+	favorites.expectUpdateFavorite(2)
 	require.NoError(t, app.HandleDOMAction(context.Background(), DOMAction{
 		Action: favoriteActionSave,
 		Data:   map[string]string{"id": "2", "title": "News", "shortcut_key": ""},
@@ -132,6 +139,7 @@ func TestFavoriteSaveErrorKeepsOpenPanels(t *testing.T) {
 func TestFavoriteSaveIgnoresTagsPendingDelete(t *testing.T) {
 	t.Parallel()
 	app, favorites := favoritesFixture(t, &toastDOM{})
+	favorites.expectUpdateFavorite(1)
 
 	require.NoError(t, app.HandleDOMAction(context.Background(), DOMAction{
 		Action: tagActionDelete, Data: map[string]string{"id": "7", undoDataKey: "true"},
@@ -171,7 +179,7 @@ func TestFavoriteDeferredDeleteUndoAndCommit(t *testing.T) {
 	require.NoError(t, app.HandleDOMAction(ctx, DOMAction{
 		Action: favoriteActionDelete, Data: map[string]string{"id": "2", undoDataKey: "true"},
 	}))
-	assert.Zero(t, favorites.deletedFavorite)
+	assert.Empty(t, favorites.deletedFavoriteIDs())
 	require.Len(t, dom.toasts, 1)
 	assert.Equal(t, "Deleted “News”", dom.toasts[0].Message)
 	assert.NotContains(t, regionHTML(t, dom.regions[len(dom.regions)-1], favoritesRegionList), "News")
@@ -179,14 +187,16 @@ func TestFavoriteDeferredDeleteUndoAndCommit(t *testing.T) {
 	require.NoError(t, app.HandleDOMAction(ctx, dom.toasts[0].OnAction))
 	assert.Contains(t, regionHTML(t, dom.regions[len(dom.regions)-1], favoritesRegionList), "News")
 	require.NoError(t, app.HandleDOMAction(ctx, dom.toasts[0].OnDismiss))
-	assert.Zero(t, favorites.deletedFavorite, "an undone delete is never committed")
+	assert.Empty(t, favorites.deletedFavoriteIDs(), "an undone delete is never committed")
+
+	favorites.expectDeleteFavorite(2)
 
 	require.NoError(t, app.HandleDOMAction(ctx, DOMAction{
 		Action: favoriteActionDelete, Data: map[string]string{"id": "2", undoDataKey: "true"},
 	}))
 	updates := len(dom.regions)
 	require.NoError(t, app.HandleDOMAction(ctx, dom.toasts[1].OnDismiss))
-	assert.Equal(t, int64(2), favorites.deletedFavorite)
+	assert.Equal(t, []int64{2}, favorites.deletedFavoriteIDs())
 	assert.Len(t, dom.regions, updates, "a successful commit renders nothing")
 }
 
@@ -195,6 +205,7 @@ func TestFavoriteCommitFailureShowsError(t *testing.T) {
 	dom := &toastDOM{}
 	app, favorites := favoritesFixture(t, dom)
 	favorites.failDelete = errors.New("db locked")
+	favorites.expectDeleteFavorite(2)
 
 	require.NoError(t, app.HandleDOMAction(context.Background(), DOMAction{
 		Action: favoriteActionDelete, Data: map[string]string{"id": "2", undoDataKey: "true"},
@@ -203,10 +214,29 @@ func TestFavoriteCommitFailureShowsError(t *testing.T) {
 	assert.Contains(t, regionHTML(t, dom.regions[len(dom.regions)-1], favoritesRegionAlerts), "db locked")
 }
 
+func TestFavoriteCommitFailureAfterCloseDoesNotRender(t *testing.T) {
+	t.Parallel()
+	dom := &toastDOM{}
+	app, favorites := favoritesFixture(t, dom)
+	favorites.failDelete = errors.New("db locked")
+	favorites.expectDeleteFavorite(2)
+
+	require.NoError(t, app.HandleDOMAction(context.Background(), DOMAction{
+		Action: favoriteActionDelete, Data: map[string]string{"id": "2", undoDataKey: "true"},
+	}))
+	renders := len(dom.regions)
+	app.Close()
+	require.NoError(t, app.HandleDOMAction(context.Background(), dom.toasts[0].OnDismiss))
+	assert.Len(t, dom.regions, renders, "a closed app must not re-render")
+	assert.Empty(t, app.favoritesError)
+}
+
 func TestFlushDeletesCommitsPendingTagsAndFavorites(t *testing.T) {
 	t.Parallel()
 	dom := &toastDOM{}
 	app, favorites := favoritesFixture(t, dom)
+	favorites.expectDeleteTag(8)
+	favorites.expectDeleteFavorite(3)
 	ctx := context.Background()
 
 	require.NoError(t, app.HandleDOMAction(ctx, DOMAction{
@@ -218,8 +248,8 @@ func TestFlushDeletesCommitsPendingTagsAndFavorites(t *testing.T) {
 	assert.Equal(t, "Deleted tag “news”", dom.toasts[0].Message)
 
 	require.NoError(t, app.HandleDOMAction(ctx, DOMAction{Action: actionFlushDeletes}))
-	assert.Equal(t, int64(8), favorites.deletedTagID)
-	assert.Equal(t, int64(3), favorites.deletedFavorite)
+	assert.Equal(t, []int64{8}, favorites.deletedTagIDs())
+	assert.Equal(t, []int64{3}, favorites.deletedFavoriteIDs())
 }
 
 func TestTagColorInputValidates(t *testing.T) {
@@ -265,6 +295,8 @@ func TestFavoriteSavePartialFailureRemounts(t *testing.T) {
 	dom := &regionDOM{}
 	app, favorites := favoritesFixture(t, dom)
 	favorites.failAssign = errors.New("tag gone")
+	favorites.expectUpdateFavorite(3)
+	favorites.expectAssignTag(3, 7)
 	mounts := dom.mountCount
 
 	require.NoError(t, app.HandleDOMAction(context.Background(), DOMAction{
@@ -299,5 +331,5 @@ func TestFavoritesCommitDeleteRejectsInvalidID(t *testing.T) {
 
 	err := app.HandleDOMAction(context.Background(), DOMAction{Action: favoriteActionCommitDelete, Data: map[string]string{"id": "0"}})
 	require.Error(t, err)
-	assert.Zero(t, favorites.deletedFavorite)
+	assert.Empty(t, favorites.deletedFavoriteIDs())
 }

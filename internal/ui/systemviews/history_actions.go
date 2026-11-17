@@ -35,7 +35,14 @@ func (a *App) HandleDOMAction(ctx context.Context, event DOMAction) error {
 		return a.handleHistoryLiveSearch(ctx, a.takeLiveSearchQuery(event.Data["query"]))
 	}
 	if event.Action == actionFlushDeletes {
-		return errors.Join(a.commitHistoryDeletes(ctx, nil), a.commitFavoritesDeletes(ctx, nil, nil))
+		// Both groups start together so every bridge request is posted
+		// while the pagehide handler yields.
+		return errors.Join(runConcurrently(2, func(i int) error {
+			if i == 0 {
+				return a.commitHistoryDeletes(ctx, nil)
+			}
+			return a.commitFavoritesDeletes(ctx, nil, nil)
+		})...)
 	}
 	if historyUndoAction(event) {
 		return a.handleHistoryUndoAction(ctx, event)

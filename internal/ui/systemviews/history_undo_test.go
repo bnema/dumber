@@ -44,7 +44,6 @@ func undoFixture(t *testing.T) (*App, *toastDOM, *historyStore) {
 		{ID: 2, URL: "https://b.example", Title: "Second", LastVisited: now.Add(-time.Minute)},
 		{ID: 1, URL: "https://a.example", Title: "First", LastVisited: now.Add(-2 * time.Minute)},
 	}})
-	history.expectDeletes()
 	return loadedHistoryApp(t, dom, history), dom, history
 }
 
@@ -58,7 +57,7 @@ func TestUndoableDeleteHidesEntryAndWaitsForToast(t *testing.T) {
 
 	require.NoError(t, app.HandleDOMAction(context.Background(), deferredDelete("2")))
 
-	assert.Zero(t, history.deletedEntryID, "nothing is deleted before the toast settles")
+	assert.Empty(t, history.deletedEntryIDs(), "nothing is deleted before the toast settles")
 	assert.NotContains(t, dom.lastTimeline(t), "Second")
 	require.Len(t, dom.toasts, 1)
 	toast := dom.toasts[0]
@@ -72,12 +71,13 @@ func TestUndoableDeleteHidesEntryAndWaitsForToast(t *testing.T) {
 func TestUndoableDeleteCommitsWhenToastDismissed(t *testing.T) {
 	t.Parallel()
 	app, dom, history := undoFixture(t)
+	history.expectDeleteEntry(2)
 	ctx := context.Background()
 
 	require.NoError(t, app.HandleDOMAction(ctx, deferredDelete("2")))
 	require.NoError(t, app.HandleDOMAction(ctx, dom.toasts[0].OnDismiss))
 
-	assert.Equal(t, int64(2), history.deletedEntryID)
+	assert.Equal(t, []int64{2}, history.deletedEntryIDs())
 	assert.Empty(t, app.pendingHistoryDeletes)
 }
 
@@ -90,7 +90,7 @@ func TestUndoRestoresEntryInPlaceAndCancelsDelete(t *testing.T) {
 	require.NoError(t, app.HandleDOMAction(ctx, dom.toasts[0].OnAction))
 	require.NoError(t, app.HandleDOMAction(ctx, dom.toasts[0].OnDismiss), "a late dismiss after undo is a no-op")
 
-	assert.Zero(t, history.deletedEntryID)
+	assert.Empty(t, history.deletedEntryIDs())
 	timeline := dom.lastTimeline(t)
 	third, second, first := strings.Index(timeline, "Third"), strings.Index(timeline, "Second"), strings.Index(timeline, "First")
 	assert.True(t, third < second && second < first, "undone entry returns to its time-ordered slot")
@@ -112,13 +112,14 @@ func TestPendingDeleteStaysHiddenAcrossReloads(t *testing.T) {
 func TestFlushCommitsEveryPendingDelete(t *testing.T) {
 	t.Parallel()
 	app, _, history := undoFixture(t)
+	history.expectDeleteEntry(2, 3)
 	ctx := context.Background()
 
 	require.NoError(t, app.HandleDOMAction(ctx, deferredDelete("2")))
 	require.NoError(t, app.HandleDOMAction(ctx, deferredDelete("3")))
 	require.NoError(t, app.HandleDOMAction(ctx, DOMAction{Action: actionFlushDeletes}))
 
-	assert.NotZero(t, history.deletedEntryID)
+	assert.ElementsMatch(t, []int64{2, 3}, history.deletedEntryIDs())
 	assert.Empty(t, app.pendingHistoryDeletes)
 }
 
@@ -126,12 +127,12 @@ func TestUndoableDeleteWithoutToastDeletesImmediately(t *testing.T) {
 	t.Parallel()
 	dom := &regionDOM{}
 	history := newHistoryStore(t, &historyStore{entries: []*entity.HistoryEntry{{ID: 2, URL: "https://b.example", Title: "Second"}}})
-	history.expectDeletes()
+	history.expectDeleteEntry(2)
 	app := loadedHistoryApp(t, dom, history)
 
 	require.NoError(t, app.HandleDOMAction(context.Background(), deferredDelete("2")))
 
-	assert.Equal(t, int64(2), history.deletedEntryID)
+	assert.Equal(t, []int64{2}, history.deletedEntryIDs())
 	assert.Empty(t, app.pendingHistoryDeletes)
 }
 
@@ -139,6 +140,7 @@ func TestFailedCommitRestoresEntryAndShowsError(t *testing.T) {
 	t.Parallel()
 	app, dom, history := undoFixture(t)
 	history.deleteErr = errors.New("db locked")
+	history.expectDeleteEntry(2)
 	ctx := context.Background()
 
 	require.NoError(t, app.HandleDOMAction(ctx, deferredDelete("2")))

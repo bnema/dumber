@@ -5,6 +5,7 @@ import (
 	"errors"
 	"sync"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/bnema/dumber/internal/application/dto"
@@ -83,8 +84,7 @@ func TestAppLoadInitialHistoryRouteUsesStyledSections(t *testing.T) {
 	assert.Contains(t, app.renderedHTML, "Example")
 	assert.Contains(t, app.renderedHTML, "https://example.com")
 	assert.True(t, history.called)
-	history.service.AssertNotCalled(t, "Analytics", mock.Anything)
-	history.service.AssertNotCalled(t, "Timeline", mock.Anything, mock.Anything, mock.Anything)
+	// Analytics and Timeline have no expectation: the history route must not call them.
 
 	// Shell frame present, no full document wrapper.
 	assert.NotContains(t, app.renderedHTML, "<html")
@@ -160,7 +160,7 @@ func TestSurfaceActionErrorPreventsStaleAsyncHydrationMount(t *testing.T) {
 	assert.NotContains(t, errorHTML, "Stale hydrated entry")
 
 	require.NoError(t, app.mountHTMLIfCurrent(ctx, staleHTML, staleGeneration))
-	assertNoMount(t, dom.mounts, 100*time.Millisecond)
+	assertNoMount(t, dom.mounts)
 	assert.Contains(t, dom.HTML(), "action worker failed")
 	assert.NotContains(t, dom.HTML(), "Stale hydrated entry")
 }
@@ -168,34 +168,34 @@ func TestSurfaceActionErrorPreventsStaleAsyncHydrationMount(t *testing.T) {
 func TestSurfaceActionErrorWhileAsyncHydrationBlockedPreventsStaleMount(t *testing.T) {
 	t.Parallel()
 
-	dom := &recordingActionDOM{recordingDOM: recordingDOM{mounts: make(chan string, 4)}}
-	history := newHistoryStore(t, &historyStore{
-		entries:         []*entity.HistoryEntry{{ID: 1, URL: "https://example.com", Title: "Stale hydrated entry"}},
-		timelineStarted: make(chan struct{}),
-		releaseTimeline: make(chan struct{}),
+	synctest.Test(t, func(t *testing.T) {
+		dom := &recordingActionDOM{recordingDOM: recordingDOM{mounts: make(chan string, 4)}}
+		history := newHistoryStore(t, &historyStore{
+			entries:         []*entity.HistoryEntry{{ID: 1, URL: "https://example.com", Title: "Stale hydrated entry"}},
+			timelineStarted: make(chan struct{}),
+			releaseTimeline: make(chan struct{}),
+		})
+		app := NewApp(Dependencies{DOM: dom, History: history.service, LocationURI: "dumb://history"})
+		defer app.Close()
+		ctx := context.Background()
+
+		require.NoError(t, app.RunWithContext(ctx))
+		loadingHTML := receiveMount(t, dom.mounts)
+		assert.Contains(t, loadingHTML, "Loading history")
+
+		<-history.timelineStarted
+
+		app.surfaceActionError(ctx, errors.New("action worker failed"))
+		errorHTML := receiveMount(t, dom.mounts)
+		assert.Contains(t, errorHTML, "action worker failed")
+		assert.NotContains(t, errorHTML, "Stale hydrated entry")
+
+		close(history.releaseTimeline)
+		synctest.Wait() // the hydration goroutine has finished or is durably blocked
+		assertNoMount(t, dom.mounts)
+		assert.Contains(t, dom.HTML(), "action worker failed")
+		assert.NotContains(t, dom.HTML(), "Stale hydrated entry")
 	})
-	app := NewApp(Dependencies{DOM: dom, History: history.service, LocationURI: "dumb://history"})
-	ctx := context.Background()
-
-	require.NoError(t, app.RunWithContext(ctx))
-	loadingHTML := receiveMount(t, dom.mounts)
-	assert.Contains(t, loadingHTML, "Loading history")
-
-	select {
-	case <-history.timelineStarted:
-	case <-time.After(time.Second):
-		t.Fatal("history timeline was not started asynchronously")
-	}
-
-	app.surfaceActionError(ctx, errors.New("action worker failed"))
-	errorHTML := receiveMount(t, dom.mounts)
-	assert.Contains(t, errorHTML, "action worker failed")
-	assert.NotContains(t, errorHTML, "Stale hydrated entry")
-
-	close(history.releaseTimeline)
-	assertNoMount(t, dom.mounts, 100*time.Millisecond)
-	assert.Contains(t, dom.HTML(), "action worker failed")
-	assert.NotContains(t, dom.HTML(), "Stale hydrated entry")
 }
 
 func TestCurrentHistoryRouteSnapshotIncludesWindowAfter(t *testing.T) {
@@ -355,7 +355,9 @@ func TestAppHandleHistoryActionsRefreshesDOM(t *testing.T) {
 		entries:       []*entity.HistoryEntry{{ID: 42, URL: "https://example.com", Title: "Example"}},
 		searchEntries: []*entity.HistoryEntry{{ID: 7, URL: "https://search.example", Title: "Search result"}},
 	})
-	history.expectDeletes()
+	history.expectDeleteEntry(42)
+	history.expectDeleteRange("week")
+	history.expectDeleteDomain("example.com")
 	app := NewApp(Dependencies{DOM: dom, History: history.service, LocationURI: "dumb://history"})
 
 	require.NoError(t, app.HandleDOMAction(context.Background(), DOMAction{
@@ -372,7 +374,7 @@ func TestAppHandleHistoryActionsRefreshesDOM(t *testing.T) {
 		Action: historyActionDeleteEntry,
 		Data:   map[string]string{"id": "42"},
 	}))
-	assert.Equal(t, int64(42), history.deletedEntryID)
+	assert.Equal(t, []int64{42}, history.deletedEntryIDs())
 	assert.Equal(t, 0, app.historyOffset)
 	assert.Contains(t, dom.HTML(), "Deleted history entry")
 
@@ -380,7 +382,6 @@ func TestAppHandleHistoryActionsRefreshesDOM(t *testing.T) {
 		Action: historyActionDeleteRange,
 		Data:   map[string]string{"range": "week"},
 	}))
-	assert.Equal(t, "week", history.deletedRangeID)
 	assert.Contains(t, dom.HTML(), "Deleted history from this week")
 
 	require.NoError(t, app.HandleDOMAction(context.Background(), DOMAction{Action: historyActionClear}))
@@ -396,7 +397,6 @@ func TestAppHandleHistoryActionsRefreshesDOM(t *testing.T) {
 		Action: historyActionDeleteDomain,
 		Data:   map[string]string{"domain": "example.com"},
 	}))
-	assert.Equal(t, "example.com", history.deletedDomain)
 	assert.Contains(t, dom.HTML(), "Deleted history for example.com")
 }
 
@@ -581,7 +581,10 @@ func TestAppHandleFavoriteActionsRefreshesDOM(t *testing.T) {
 		favorites: []*entity.Favorite{{ID: 42, URL: "https://example.com", Title: "Example"}},
 		tags:      []*entity.Tag{{ID: 7, Name: "Go", Color: "#00add8"}},
 	})
-	favorites.expectWrites()
+	favorites.expectCreateFavorite("https://new.example")
+	favorites.expectUpdateFavorite(42)
+	favorites.expectAssignTag(42, 7)
+	favorites.expectDeleteFavorite(42)
 	app := NewApp(Dependencies{DOM: dom, Favorites: favorites.service, LocationURI: "dumb://favorites"})
 
 	require.NoError(t, app.HandleDOMAction(context.Background(), DOMAction{
@@ -616,7 +619,7 @@ func TestAppHandleFavoriteActionsRefreshesDOM(t *testing.T) {
 		Action: favoriteActionDelete,
 		Data:   map[string]string{"id": "42"},
 	}))
-	assert.Equal(t, int64(42), favorites.deletedFavorite)
+	assert.Equal(t, []int64{42}, favorites.deletedFavoriteIDs())
 	assert.Contains(t, dom.HTML(), "Deleted favorite")
 }
 
@@ -868,12 +871,14 @@ func receiveMount(t *testing.T, mounts <-chan string) string {
 	}
 }
 
-func assertNoMount(t *testing.T, mounts <-chan string, wait time.Duration) {
+// assertNoMount checks that no mount is queued. Callers reach a sync point
+// first (a synchronous call, or synctest.Wait for background work).
+func assertNoMount(t *testing.T, mounts <-chan string) {
 	t.Helper()
 	select {
 	case html := <-mounts:
 		t.Fatalf("unexpected DOM mount: %s", html)
-	case <-time.After(wait):
+	default:
 	}
 }
 
@@ -935,7 +940,8 @@ func TestHandleFavoriteActionValidatesCreateURL(t *testing.T) {
 
 func TestHandleFavoriteCreateAcceptsInternalDumbRoutes(t *testing.T) {
 	favorites := newFavoritesStore(t, &favoritesStore{})
-	favorites.expectWrites()
+	favorites.expectCreateFavorite("dumb:history")
+	favorites.expectCreateFavorite("dumb://config")
 	app := NewApp(Dependencies{Favorites: favorites.service})
 
 	require.NoError(t, app.handleFavoriteAction(context.Background(), DOMAction{
@@ -989,7 +995,7 @@ func TestHandleHistorySearchClearsDomainFilter(t *testing.T) {
 	assert.Equal(t, "search", app.historyQuery)
 	assert.Empty(t, app.historyDomainFilter)
 	assert.True(t, history.searchCalled)
-	history.service.AssertNotCalled(t, "TimelineByDomain", mock.Anything, mock.Anything, mock.Anything, mock.Anything)
+	// TimelineByDomain has no expectation: search must not filter by domain.
 }
 
 func TestAppRunWithContextRejectsNilContext(t *testing.T) {

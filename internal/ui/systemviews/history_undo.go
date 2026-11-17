@@ -2,6 +2,7 @@ package systemviews
 
 import (
 	"context"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -141,6 +142,7 @@ func (a *App) commitHistoryDeletes(ctx context.Context, ids []int64) error {
 		for id := range a.pendingHistoryDeletes {
 			ids = append(ids, id)
 		}
+		slices.Sort(ids) // stable error message order
 	}
 	commit := make([]*entity.HistoryEntry, 0, len(ids))
 	for _, id := range ids {
@@ -155,14 +157,17 @@ func (a *App) commitHistoryDeletes(ctx context.Context, ids []int64) error {
 	if history == nil || len(commit) == 0 {
 		return nil
 	}
+	errs := runConcurrently(len(commit), func(i int) error {
+		return history.DeleteEntry(ctx, commit[i].ID)
+	})
 	var (
 		failed        []string
 		failedEntries []*entity.HistoryEntry
 	)
-	for _, entry := range commit {
-		if err := history.DeleteEntry(ctx, entry.ID); err != nil {
+	for i, err := range errs {
+		if err != nil {
 			failed = append(failed, err.Error())
-			failedEntries = append(failedEntries, entry)
+			failedEntries = append(failedEntries, commit[i])
 		}
 	}
 	if len(failed) == 0 {

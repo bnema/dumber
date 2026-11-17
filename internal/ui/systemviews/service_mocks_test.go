@@ -2,6 +2,7 @@ package systemviews
 
 import (
 	"context"
+	"slices"
 	"sync"
 	"testing"
 	"time"
@@ -15,10 +16,11 @@ import (
 
 // historyStore is the stored history behind a mocked history service. Reads
 // (TimelineWindow, Search, Stats, DomainStats) are served from it and recorded.
-// Deletes need expectDeletes; Timeline, TimelineByDomain and Analytics have no
+// Deletes need expectDelete* per call; Timeline, TimelineByDomain and Analytics have no
 // expectation, so any call to them fails the test.
 type historyStore struct {
 	service *mocks.MockSystemviewHistoryService
+	mu      sync.Mutex // guards delete records; deletes run concurrently
 
 	called         bool // TimelineWindow
 	windowBefore   time.Time
@@ -36,10 +38,8 @@ type historyStore struct {
 	stats         *entity.HistoryStats
 	domainStats   []*entity.DomainStat
 
-	deletedEntryID int64
+	deletedEntries []int64
 	deleteErr      error
-	deletedRangeID string
-	deletedDomain  string
 
 	// When set, TimelineWindow closes timelineStarted and blocks until
 	// releaseTimeline is closed.
@@ -91,43 +91,53 @@ func newHistoryStore(t *testing.T, s *historyStore) *historyStore {
 	return s
 }
 
-// expectDeletes lets the service accept deletes and records them.
-func (s *historyStore) expectDeletes() {
-	s.service.EXPECT().DeleteEntry(mock.Anything, mock.Anything).RunAndReturn(func(_ context.Context, id int64) error {
-		s.deletedEntryID = id
-		return s.deleteErr
-	}).Maybe()
-	s.service.EXPECT().DeleteRange(mock.Anything, mock.Anything).RunAndReturn(func(_ context.Context, id string) error {
-		s.deletedRangeID = id
-		return nil
-	}).Maybe()
-	s.service.EXPECT().DeleteDomain(mock.Anything, mock.Anything).RunAndReturn(func(_ context.Context, domain string) error {
-		s.deletedDomain = domain
-		return nil
-	}).Maybe()
+// expectDeleteEntry expects one DeleteEntry per id and records it. Each
+// call returns deleteErr.
+func (s *historyStore) expectDeleteEntry(ids ...int64) {
+	for _, id := range ids {
+		s.service.EXPECT().DeleteEntry(mock.Anything, id).RunAndReturn(func(_ context.Context, id int64) error {
+			s.mu.Lock()
+			defer s.mu.Unlock()
+			s.deletedEntries = append(s.deletedEntries, id)
+			return s.deleteErr
+		}).Once()
+	}
+}
+
+func (s *historyStore) deletedEntryIDs() []int64 {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return slices.Clone(s.deletedEntries)
+}
+
+func (s *historyStore) expectDeleteRange(rangeID string) {
+	s.service.EXPECT().DeleteRange(mock.Anything, rangeID).Return(nil).Once()
+}
+
+func (s *historyStore) expectDeleteDomain(domain string) {
+	s.service.EXPECT().DeleteDomain(mock.Anything, domain).Return(nil).Once()
 }
 
 // favoritesStore is the stored favorites behind a mocked favorites service.
-// List and ListTags serve it; writes need expectWrites and are recorded.
+// List and ListTags serve it; each expected write needs its expect* helper.
 type favoritesStore struct {
 	service *mocks.MockSystemviewFavoritesService
+	mu      sync.Mutex // guards delete records; deletes run concurrently
 
 	calledList bool
 	calledTags bool
 	favorites  []*entity.Favorite
 	tags       []*entity.Tag
 
-	createdFavorite dto.FavoriteCreateInput
-	updatedFavorite dto.FavoriteUpdateInput
-	deletedFavorite int64
-	createdTag      string
-	updatedTagID    int64
-	deletedTagID    int64
-	assigned        [][2]int64
-	removed         [][2]int64
-	shortcuts       map[int64]*int
-	failDelete      error
-	failAssign      error
+	createdFavorite  dto.FavoriteCreateInput
+	updatedFavorite  dto.FavoriteUpdateInput
+	deletedFavorites []int64
+	deletedTags      []int64
+	assigned         [][2]int64
+	removed          [][2]int64
+	shortcuts        map[int64]*int
+	failDelete       error
+	failAssign       error
 }
 
 func newFavoritesStore(t *testing.T, s *favoritesStore) *favoritesStore {
@@ -145,60 +155,94 @@ func newFavoritesStore(t *testing.T, s *favoritesStore) *favoritesStore {
 	return s
 }
 
-// expectWrites lets the service accept favorite and tag writes and records
-// them. failDelete and failAssign make those calls fail without recording.
-func (s *favoritesStore) expectWrites() {
-	svc := s.service
-	svc.EXPECT().CreateFavorite(mock.Anything, mock.Anything).RunAndReturn(
-		func(_ context.Context, input dto.FavoriteCreateInput) (*entity.Favorite, error) {
+// expectCreateFavorite expects one CreateFavorite for url, records the
+// input and returns favorite 99.
+func (s *favoritesStore) expectCreateFavorite(url string) {
+	s.service.EXPECT().CreateFavorite(mock.Anything, mock.MatchedBy(func(in dto.FavoriteCreateInput) bool { return in.URL == url })).
+		RunAndReturn(func(_ context.Context, input dto.FavoriteCreateInput) (*entity.Favorite, error) {
 			s.createdFavorite = input
 			return &entity.Favorite{ID: 99, URL: input.URL, Title: input.Title}, nil
-		}).Maybe()
-	svc.EXPECT().UpdateFavorite(mock.Anything, mock.Anything).RunAndReturn(
-		func(_ context.Context, input dto.FavoriteUpdateInput) (*entity.Favorite, error) {
+		}).Once()
+}
+
+// expectUpdateFavorite expects one UpdateFavorite for id and echoes the input.
+func (s *favoritesStore) expectUpdateFavorite(id int64) {
+	s.service.EXPECT().UpdateFavorite(mock.Anything, mock.MatchedBy(func(in dto.FavoriteUpdateInput) bool { return int64(in.ID) == id })).
+		RunAndReturn(func(_ context.Context, input dto.FavoriteUpdateInput) (*entity.Favorite, error) {
 			s.updatedFavorite = input
 			return &entity.Favorite{ID: input.ID, URL: "https://example.com", Title: input.Title, FaviconURL: input.FaviconURL, ShortcutKey: input.ShortcutKey}, nil
-		}).Maybe()
-	svc.EXPECT().DeleteFavorite(mock.Anything, mock.Anything).RunAndReturn(func(_ context.Context, id int64) error {
-		if s.failDelete != nil {
-			return s.failDelete
-		}
-		s.deletedFavorite = id
-		return nil
-	}).Maybe()
-	svc.EXPECT().SetShortcut(mock.Anything, mock.Anything, mock.Anything).RunAndReturn(
+		}).Once()
+}
+
+// expectDeleteFavorite expects one DeleteFavorite per id. A call returns
+// failDelete when set and records the id otherwise.
+func (s *favoritesStore) expectDeleteFavorite(ids ...int64) {
+	for _, id := range ids {
+		s.service.EXPECT().DeleteFavorite(mock.Anything, id).RunAndReturn(func(_ context.Context, id int64) error {
+			s.mu.Lock()
+			defer s.mu.Unlock()
+			if s.failDelete != nil {
+				return s.failDelete
+			}
+			s.deletedFavorites = append(s.deletedFavorites, id)
+			return nil
+		}).Once()
+	}
+}
+
+// expectDeleteTag expects one DeleteTag per id and records it.
+func (s *favoritesStore) expectDeleteTag(ids ...int64) {
+	for _, id := range ids {
+		s.service.EXPECT().DeleteTag(mock.Anything, id).RunAndReturn(func(_ context.Context, id int64) error {
+			s.mu.Lock()
+			defer s.mu.Unlock()
+			s.deletedTags = append(s.deletedTags, id)
+			return nil
+		}).Once()
+	}
+}
+
+func (s *favoritesStore) deletedFavoriteIDs() []int64 {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return slices.Clone(s.deletedFavorites)
+}
+
+func (s *favoritesStore) deletedTagIDs() []int64 {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return slices.Clone(s.deletedTags)
+}
+
+// expectSetShortcut expects one SetShortcut for id and records the key.
+func (s *favoritesStore) expectSetShortcut(id int64) {
+	s.service.EXPECT().SetShortcut(mock.Anything, id, mock.Anything).RunAndReturn(
 		func(_ context.Context, id int64, key *int) error {
 			if s.shortcuts == nil {
 				s.shortcuts = map[int64]*int{}
 			}
 			s.shortcuts[id] = key
 			return nil
-		}).Maybe()
-	svc.EXPECT().CreateTag(mock.Anything, mock.Anything, mock.Anything).RunAndReturn(
-		func(_ context.Context, name, color string) (*entity.Tag, error) {
-			s.createdTag = name
-			return &entity.Tag{ID: 55, Name: name, Color: color}, nil
-		}).Maybe()
-	svc.EXPECT().UpdateTag(mock.Anything, mock.Anything, mock.Anything, mock.Anything).RunAndReturn(
-		func(_ context.Context, id int64, _, _ string) error {
-			s.updatedTagID = id
-			return nil
-		}).Maybe()
-	svc.EXPECT().DeleteTag(mock.Anything, mock.Anything).RunAndReturn(func(_ context.Context, id int64) error {
-		s.deletedTagID = id
-		return nil
-	}).Maybe()
-	svc.EXPECT().AssignTag(mock.Anything, mock.Anything, mock.Anything).RunAndReturn(
+		}).Once()
+}
+
+// expectAssignTag expects one AssignTag; it returns failAssign when set.
+func (s *favoritesStore) expectAssignTag(favoriteID, tagID int64) {
+	s.service.EXPECT().AssignTag(mock.Anything, favoriteID, tagID).RunAndReturn(
 		func(_ context.Context, favoriteID, tagID int64) error {
 			if s.failAssign != nil {
 				return s.failAssign
 			}
 			s.assigned = append(s.assigned, [2]int64{favoriteID, tagID})
 			return nil
-		}).Maybe()
-	svc.EXPECT().RemoveTag(mock.Anything, mock.Anything, mock.Anything).RunAndReturn(
+		}).Once()
+}
+
+// expectRemoveTag expects one RemoveTag and records it.
+func (s *favoritesStore) expectRemoveTag(favoriteID, tagID int64) {
+	s.service.EXPECT().RemoveTag(mock.Anything, favoriteID, tagID).RunAndReturn(
 		func(_ context.Context, favoriteID, tagID int64) error {
 			s.removed = append(s.removed, [2]int64{favoriteID, tagID})
 			return nil
-		}).Maybe()
+		}).Once()
 }

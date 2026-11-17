@@ -163,7 +163,7 @@ func TestHistoryDeleteKeepsFullRemount(t *testing.T) {
 
 	dom := &regionDOM{}
 	history := newHistoryStore(t, &historyStore{entries: []*entity.HistoryEntry{{ID: 42, URL: "https://example.com", Title: "Example"}}})
-	history.expectDeletes()
+	history.expectDeleteRange("hour")
 	app := loadedHistoryApp(t, dom, history)
 
 	require.NoError(t, app.HandleDOMAction(context.Background(), DOMAction{
