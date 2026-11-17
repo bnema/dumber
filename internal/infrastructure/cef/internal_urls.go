@@ -4,6 +4,8 @@ import (
 	"net/url"
 	"path"
 	"strings"
+
+	browserurl "github.com/bnema/dumber/internal/domain/url"
 )
 
 const (
@@ -40,6 +42,10 @@ func toActualInternalURL(raw string) string {
 	page := parsed.Host
 	if page == "" {
 		page = parsed.Opaque
+	}
+	// Aliases load their page: dumb://settings opens dumb://config.
+	if canonical, ok := browserurl.SystemviewPage(page); ok {
+		page = canonical
 	}
 	if page == "" || !isInternalPageHost(page) {
 		return raw

@@ -73,6 +73,20 @@ func TestIsTrustedSystemviewURL(t *testing.T) {
 	}
 }
 
+func TestSettingsAliasResolvesToSystemviews(t *testing.T) {
+	t.Parallel()
+
+	for _, raw := range []string{"dumb://settings", "dumb:settings"} {
+		require.True(t, isTrustedSystemviewURL(raw), raw)
+		u, err := url.Parse(raw)
+		require.NoError(t, err)
+		dir, file, ok := resolveAssetPath(u)
+		require.True(t, ok, raw)
+		require.Equal(t, systemviewsAssetDir, dir, raw)
+		require.Equal(t, IndexHTML, file, raw)
+	}
+}
+
 func TestIsTrustedSystemviewFaviconRequestRequiresTrustedRefererWhenOriginAbsent(t *testing.T) {
 	t.Parallel()
 

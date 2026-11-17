@@ -3,6 +3,8 @@ package systemviews
 import (
 	"net/url"
 	"strings"
+
+	browserurl "github.com/bnema/dumber/internal/domain/url"
 )
 
 type Route string
@@ -47,6 +49,10 @@ func routeFromPageHost(host, opaque string) Route {
 		page = strings.TrimSpace(opaque)
 	}
 
+	// Aliases share their page's route: dumb://settings is dumb://config.
+	if canonical, ok := browserurl.SystemviewPage(page); ok {
+		page = canonical
+	}
 	switch strings.ToLower(page) {
 	case string(RouteHistory):
 		return RouteHistory

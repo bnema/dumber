@@ -13,6 +13,7 @@ import (
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/domain/repository"
+	browserurl "github.com/bnema/dumber/internal/domain/url"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/rs/zerolog"
 )
@@ -315,6 +316,10 @@ func (uc *HistoryRecorderUseCase) UpdateHistoryTitle(_ context.Context, historyU
 	historyURL = strings.TrimSpace(historyURL)
 	if historyURL == "" || !isRecordableHistoryURL(historyURL) {
 		return
+	}
+	if stable, ok := browserurl.SystemviewTitle(historyURL); ok {
+		// "History — 1,240 entries" would churn; keep the page name.
+		title = stable
 	}
 	historyURL = canonicalizeURLForHistory(historyURL, historyCanonicalizationOptions{
 		StripTrackingParams: stripTrackingParamsForHistoryDedup,
@@ -697,7 +702,13 @@ func (uc *HistoryRecorderUseCase) persistTitleUpdate(ctx context.Context, histor
 	return titlePersistenceSaved
 }
 
+// isRecordableHistoryURL accepts web pages and the user-facing dumb://
+// pages (history, favorites, settings), so they can be found again from
+// the omnibox.
 func isRecordableHistoryURL(raw string) bool {
+	if browserurl.IsSystemviewPageURL(raw) {
+		return true
+	}
 	parsed, err := url.Parse(strings.TrimSpace(raw))
 	if err != nil {
 		return false
@@ -726,6 +737,12 @@ func canonicalizeURLForHistory(raw string, opts historyCanonicalizationOptions) 
 
 	parsed.Scheme = strings.ToLower(parsed.Scheme)
 	parsed.Host = canonicalHistoryHost(parsed)
+	if parsed.Scheme == "dumb" {
+		// Aliases share one entry: dumb://settings is dumb://config.
+		if page, ok := browserurl.SystemviewPage(parsed.Host); ok {
+			parsed.Host = page
+		}
+	}
 	parsed.User = nil
 	parsed.Fragment = ""
 	parsed.Path = normalizePathForHistory(parsed.Path)

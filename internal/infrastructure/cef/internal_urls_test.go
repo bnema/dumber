@@ -34,6 +34,11 @@ func TestToActualInternalURL(t *testing.T) {
 			want: "https://dumber.invalid/config",
 		},
 		{
+			name: "settings alias opens config",
+			in:   "dumb://settings",
+			want: "https://dumber.invalid/config",
+		},
+		{
 			name: "api path stays at origin root",
 			in:   "dumb://history/api/message",
 			want: "https://dumber.invalid/api/message",
@@ -183,5 +188,13 @@ func TestToConceptualInternalURL(t *testing.T) {
 				t.Fatalf("toConceptualInternalURL(%q) = %q, want %q", tt.in, got, tt.want)
 			}
 		})
+	}
+}
+
+func TestSettingsAliasRoundTripsToConfig(t *testing.T) {
+	t.Parallel()
+
+	if got := toConceptualInternalURL(toActualInternalURL("dumb://settings")); got != "dumb://config" {
+		t.Fatalf("round trip of dumb://settings = %q, want dumb://config", got)
 	}
 }

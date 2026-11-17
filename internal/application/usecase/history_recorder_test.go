@@ -141,7 +141,8 @@ func TestHistoryRecorder_RecordHistory_IgnoresNonWebSchemes(t *testing.T) {
 	uc := NewHistoryRecorderUseCase(repo, sink)
 	uc.RecordHistory(ctx, "pane-1", "file:///private/history.txt")
 	uc.RecordHistory(ctx, "pane-1", "data:text/plain,secret")
-	uc.RecordHistory(ctx, "pane-1", "dumb://history")
+	uc.RecordHistory(ctx, "pane-1", "dumb://history/crash")
+	uc.RecordHistory(ctx, "pane-1", "dumb://api/favicon")
 	uc.RecordHistory(ctx, "pane-1", "about:blank")
 	uc.Close()
 
@@ -155,10 +156,20 @@ func TestHistoryRecorder_UpdateHistoryTitle_IgnoresNonWebSchemes(t *testing.T) {
 
 	uc := NewHistoryRecorderUseCase(repo, sink)
 	uc.UpdateHistoryTitle(ctx, "file:///private/history.txt", "Secret")
-	uc.UpdateHistoryTitle(ctx, "dumb://history", "History")
+	uc.UpdateHistoryTitle(ctx, "dumb://error", "Error")
 	uc.Close()
 
 	require.Empty(t, sink.snapshot())
+}
+
+func TestHistoryRecorder_RecordsSystemviewPages(t *testing.T) {
+	t.Parallel()
+	require.True(t, isRecordableHistoryURL("dumb://history"))
+	require.True(t, isRecordableHistoryURL("dumb://favorites"))
+	require.True(t, isRecordableHistoryURL("dumb://settings"))
+	opts := historyCanonicalizationOptions{StripTrackingParams: true}
+	require.Equal(t, "dumb://config", canonicalizeURLForHistory("dumb://settings/", opts))
+	require.Equal(t, "dumb://history", canonicalizeURLForHistory("dumb://History", opts))
 }
 
 func TestIsHashOnlyTransition_UsesCanonicalComparison(t *testing.T) {
@@ -356,6 +367,28 @@ func TestHistoryRecorder_UpdateHistoryTitle_PublishesTitleOnlyWithoutIncrementin
 	require.Equal(t, []dto.HistoryChangeReason{dto.HistoryChangeReasonTitle}, changes[0].Reasons)
 	require.Zero(t, changes[0].VisitCount)
 	require.Equal(t, 1, changes[0].TitleCount)
+}
+
+func TestHistoryRecorder_UpdateHistoryTitle_StoresStableSettingsTitleUnderConfig(t *testing.T) {
+	ctx := context.Background()
+	sink := &recordingHistoryChangeSink{}
+	repo := &metadataUpdatingHistoryRepository{
+		MockHistoryRepository: repomocks.NewMockHistoryRepository(t),
+		entry:                 &entity.HistoryEntry{URL: "dumb://config", Title: "Old"},
+	}
+	repo.EXPECT().FindByURL(mock.Anything, "dumb://config").RunAndReturn(
+		func(context.Context, string) (*entity.HistoryEntry, error) {
+			return repo.snapshotEntry(), nil
+		},
+	).Once()
+
+	uc := NewHistoryRecorderUseCase(repo, sink)
+	uc.UpdateHistoryTitle(ctx, "dumb://settings", "Settings — Dumber")
+	uc.Close()
+
+	after := repo.snapshotEntry()
+	require.NotNil(t, after)
+	require.Equal(t, "Settings", after.Title)
 }
 
 func TestHistoryRecorder_FlushPendingHistoryDiscardsTitleWhenHistoryRowMissing(t *testing.T) {

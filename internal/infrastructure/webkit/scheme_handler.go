@@ -10,6 +10,7 @@ import (
 	"sync"
 
 	"github.com/bnema/dumber/internal/application/port"
+	browserurl "github.com/bnema/dumber/internal/domain/url"
 	"github.com/bnema/dumber/internal/infrastructure/webutil"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/puregotk/v4/gio"
@@ -256,7 +257,7 @@ func isTrustedSystemviewURL(raw string) bool {
 	if !ok {
 		return false
 	}
-	switch host {
+	switch canonicalSystemviewHost(host) {
 	case HistoryPath, FavoritesPath, ConfigPath, ErrorPath, CrashPath:
 		return true
 	default:
@@ -467,7 +468,7 @@ func resolveAssetPath(u *url.URL) (assetDir, relPath string, ok bool) {
 		CrashPath:     {assetDir: systemviewsAssetDir, file: IndexHTML},
 	}
 
-	if root, ok := rootByHost[u.Host]; ok {
+	if root, ok := rootByHost[canonicalSystemviewHost(u.Host)]; ok {
 		assetPath := strings.TrimPrefix(u.Path, "/")
 		if assetPath == "" {
 			return root.assetDir, root.file, true
@@ -475,12 +476,21 @@ func resolveAssetPath(u *url.URL) (assetDir, relPath string, ok bool) {
 		return root.assetDir, assetPath, true
 	}
 
-	switch u.Opaque {
+	switch canonicalSystemviewHost(u.Opaque) {
 	case HistoryPath, FavoritesPath, ConfigPath, ErrorPath, CrashPath:
 		return systemviewsAssetDir, IndexHTML, true
 	default:
 		return "", "", false
 	}
+}
+
+// canonicalSystemviewHost resolves page aliases (dumb://settings is
+// dumb://config) through the domain map; other hosts are returned as is.
+func canonicalSystemviewHost(host string) string {
+	if page, ok := browserurl.SystemviewPage(host); ok {
+		return page
+	}
+	return host
 }
 
 func shouldAddCORSHeaders(requestPath string) bool {
