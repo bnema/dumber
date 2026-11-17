@@ -6,6 +6,7 @@ import (
 	"math"
 	"strings"
 
+	"github.com/bnema/dumber/internal/domain/color"
 	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/puregotk/v4/gdk"
@@ -100,7 +101,7 @@ func (m *Manager) GetCurrentPalette() Palette {
 // Used to set WebView background color to eliminate white flash during loading.
 func (m *Manager) GetBackgroundRGBA() (r, g, b, a float32) {
 	palette := m.GetCurrentPalette()
-	return HexToRGBA(palette.Background)
+	return color.HexToRGBA(palette.Background)
 }
 
 // GetLightPalette returns the light theme palette.

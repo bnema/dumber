@@ -3,10 +3,10 @@ package theme
 
 import (
 	"fmt"
-	"math"
 	"regexp"
 	"strings"
 
+	"github.com/bnema/dumber/internal/domain/color"
 	"github.com/bnema/dumber/internal/domain/entity"
 )
 
@@ -53,11 +53,11 @@ func (m ModeColors) ToCSSVars() string {
 	sb.WriteString("  --tab-mode-color: " + m.TabMode + ";\n")
 	sb.WriteString("  --session-mode-color: " + m.SessionMode + ";\n")
 	sb.WriteString("  --resize-mode-color: " + m.ResizeMode + ";\n")
-	sb.WriteString("  --pane-mode-text: " + readableTextColor(m.PaneMode, "#ffffff") + ";\n")
-	sb.WriteString("  --vim-mode-text: " + readableTextColor(m.VimMode, "#ffffff") + ";\n")
-	sb.WriteString("  --tab-mode-text: " + readableTextColor(m.TabMode, "#ffffff") + ";\n")
-	sb.WriteString("  --session-mode-text: " + readableTextColor(m.SessionMode, "#ffffff") + ";\n")
-	sb.WriteString("  --resize-mode-text: " + readableTextColor(m.ResizeMode, "#ffffff") + ";\n")
+	sb.WriteString("  --pane-mode-text: " + color.ReadableTextColor(m.PaneMode, "#ffffff") + ";\n")
+	sb.WriteString("  --vim-mode-text: " + color.ReadableTextColor(m.VimMode, "#ffffff") + ";\n")
+	sb.WriteString("  --tab-mode-text: " + color.ReadableTextColor(m.TabMode, "#ffffff") + ";\n")
+	sb.WriteString("  --session-mode-text: " + color.ReadableTextColor(m.SessionMode, "#ffffff") + ";\n")
+	sb.WriteString("  --resize-mode-text: " + color.ReadableTextColor(m.ResizeMode, "#ffffff") + ";\n")
 	return sb.String()
 }
 
@@ -176,77 +176,13 @@ func Coalesce(values ...string) string {
 // hexColorRegex matches valid hex colors (#RGB, #RRGGBB, #RRGGBBAA).
 var hexColorRegex = regexp.MustCompile(`^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})$`)
 
-// Hex format length constants.
-const (
-	hexLenShort    = 3   // #RGB
-	hexLenStandard = 6   // #RRGGBB
-	hexLenWithAlha = 8   // #RRGGBBAA
-	maxColorValue  = 255 // Maximum value for 8-bit color channel
-)
-
-// HexToRGBA converts a hex color string to RGBA float32 values (0.0-1.0).
-// Supports #RGB, #RRGGBB, and #RRGGBBAA formats.
-// Returns opaque black (0,0,0,1) if parsing fails.
-func HexToRGBA(hex string) (r, g, b, a float32) {
-	// Default to opaque black
-	if hex == "" || hex[0] != '#' {
-		return 0, 0, 0, 1
-	}
-	hex = hex[1:]
-
-	var ri, gi, bi, ai uint64
-	switch len(hex) {
-	case hexLenShort: // #RGB
-		ri, _ = parseHex(hex[0:1])
-		gi, _ = parseHex(hex[1:2])
-		bi, _ = parseHex(hex[2:3])
-		ri *= 17 // 0xF -> 0xFF
-		gi *= 17
-		bi *= 17
-		ai = maxColorValue
-	case hexLenStandard: // #RRGGBB
-		ri, _ = parseHex(hex[0:2])
-		gi, _ = parseHex(hex[2:4])
-		bi, _ = parseHex(hex[4:6])
-		ai = maxColorValue
-	case hexLenWithAlha: // #RRGGBBAA
-		ri, _ = parseHex(hex[0:2])
-		gi, _ = parseHex(hex[2:4])
-		bi, _ = parseHex(hex[4:6])
-		ai, _ = parseHex(hex[6:8])
-	default:
-		return 0, 0, 0, 1
-	}
-
-	return float32(ri) / maxColorValue, float32(gi) / maxColorValue, float32(bi) / maxColorValue, float32(ai) / maxColorValue
-}
-
-// parseHex parses a hex string to uint64.
-func parseHex(s string) (uint64, error) {
-	var result uint64
-	for _, c := range s {
-		result *= 16
-		switch {
-		case c >= '0' && c <= '9':
-			result += uint64(c - '0')
-		case c >= 'a' && c <= 'f':
-			result += uint64(c - 'a' + 10)
-		case c >= 'A' && c <= 'F':
-			result += uint64(c - 'A' + 10)
-		default:
-			return 0, fmt.Errorf("invalid hex char: %c", c)
-		}
-	}
-	return result, nil
-}
-
 // ValidateHexColor checks if a string is a valid hex color.
-func ValidateHexColor(color string) error {
-	if color == "" {
+func ValidateHexColor(value string) error {
+	if value == "" {
 		return nil // Empty is valid (will use default)
 	}
-	if !hexColorRegex.MatchString(color) {
-		return fmt.Errorf("invalid hex color: %s", color)
+	if !hexColorRegex.MatchString(value) {
+		return fmt.Errorf("invalid hex color: %s", value)
 	}
 	return nil
 }
@@ -277,67 +213,21 @@ func (p Palette) ToCSSVars() string {
 	sb.WriteString("  --bg: " + p.Background + ";\n")
 	sb.WriteString("  --surface: " + p.Surface + ";\n")
 	sb.WriteString("  --surface-variant: " + p.SurfaceVariant + ";\n")
-	sb.WriteString("  --control-text: " + readableTextColor(p.SurfaceVariant, p.Text) + ";\n")
-	sb.WriteString("  --control-muted: " + readableTextColor(p.SurfaceVariant, p.Muted) + ";\n")
-	sb.WriteString("  --surface-muted: " + readableTextColor(p.Surface, p.Muted) + ";\n")
+	sb.WriteString("  --control-text: " + color.ReadableTextColor(p.SurfaceVariant, p.Text) + ";\n")
+	sb.WriteString("  --control-muted: " + color.ReadableTextColor(p.SurfaceVariant, p.Muted) + ";\n")
+	sb.WriteString("  --surface-muted: " + color.ReadableTextColor(p.Surface, p.Muted) + ";\n")
 	sb.WriteString("  --text: " + p.Text + ";\n")
 	sb.WriteString("  --muted: " + p.Muted + ";\n")
 	sb.WriteString("  --accent: " + p.Accent + ";\n")
-	sb.WriteString("  --accent-text: " + readableTextColor(p.Accent, p.Background) + ";\n")
+	sb.WriteString("  --accent-text: " + color.ReadableTextColor(p.Accent, p.Background) + ";\n")
 	sb.WriteString("  --border: " + p.Border + ";\n")
 	sb.WriteString("  --success: " + p.Success + ";\n")
 	sb.WriteString("  --warning: " + p.Warning + ";\n")
 	sb.WriteString("  --destructive: " + p.Destructive + ";\n")
-	sb.WriteString("  --success-text: " + readableTextColor(p.Success, p.Background) + ";\n")
-	sb.WriteString("  --warning-text: " + readableTextColor(p.Warning, p.Background) + ";\n")
-	sb.WriteString("  --destructive-text: " + readableTextColor(p.Destructive, p.Background) + ";\n")
+	sb.WriteString("  --success-text: " + color.ReadableTextColor(p.Success, p.Background) + ";\n")
+	sb.WriteString("  --warning-text: " + color.ReadableTextColor(p.Warning, p.Background) + ";\n")
+	sb.WriteString("  --destructive-text: " + color.ReadableTextColor(p.Destructive, p.Background) + ";\n")
 	return sb.String()
-}
-
-const (
-	minimumReadableContrast = 4.5
-	contrastLuminanceOffset = 0.05
-	sRGBLinearThreshold     = 0.04045
-	sRGBLinearDivisor       = 12.92
-	sRGBGammaOffset         = 0.055
-	sRGBGammaScale          = 1.055
-	sRGBGammaExponent       = 2.4
-	redLuminanceWeight      = 0.2126
-	greenLuminanceWeight    = 0.7152
-	blueLuminanceWeight     = 0.0722
-)
-
-func readableTextColor(background, preferred string) string {
-	if contrastRatio(background, preferred) >= minimumReadableContrast {
-		return preferred
-	}
-	if contrastRatio(background, "#ffffff") >= contrastRatio(background, "#000000") {
-		return "#ffffff"
-	}
-	return "#000000"
-}
-
-func contrastRatio(first, second string) float64 {
-	firstLuminance := relativeLuminance(first)
-	secondLuminance := relativeLuminance(second)
-	if firstLuminance < secondLuminance {
-		firstLuminance, secondLuminance = secondLuminance, firstLuminance
-	}
-	return (firstLuminance + contrastLuminanceOffset) / (secondLuminance + contrastLuminanceOffset)
-}
-
-func relativeLuminance(color string) float64 {
-	r, g, b, _ := HexToRGBA(color)
-	linearize := func(channel float32) float64 {
-		value := float64(channel)
-		if value <= sRGBLinearThreshold {
-			return value / sRGBLinearDivisor
-		}
-		return math.Pow((value+sRGBGammaOffset)/sRGBGammaScale, sRGBGammaExponent)
-	}
-	return redLuminanceWeight*linearize(r) +
-		greenLuminanceWeight*linearize(g) +
-		blueLuminanceWeight*linearize(b)
 }
 
 // ToWebCSSVars generates CSS custom properties for web UI (Tailwind compatibility).
