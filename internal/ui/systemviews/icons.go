@@ -16,6 +16,10 @@ const (
 	iconTag       systemIcon = "tag"
 	iconSettings  systemIcon = "settings"
 	iconAlert     systemIcon = "alert-triangle"
+	iconKeyboard  systemIcon = "keyboard"
+	iconPencil    systemIcon = "pencil"
+	iconMore      systemIcon = "ellipsis"
+	iconStar      systemIcon = "star"
 )
 
 func iconClass(name systemIcon) string {

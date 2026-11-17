@@ -61,6 +61,6 @@ func TestFavoritesHTMLSanitizesTagColors(t *testing.T) {
 		Tags:      []*entity.Tag{{ID: 7, Name: "Bad", Color: `red;background:url(javascript:alert(1))`}},
 	})
 
-	require.NotContains(t, html, `style="background:red`)
-	assert.Contains(t, html, "background:#808080")
+	require.NotContains(t, html, "javascript")
+	assert.Contains(t, html, "--tag-color:#808080")
 }

@@ -19,7 +19,7 @@ import (
 	"github.com/bnema/dumber/assets"
 )
 
-const versionedShellFixture = `<html><head><link rel="stylesheet" href="./systemviews.css"><script src="./wasm_exec.js"></script></head><body><script>instantiateWasm(go, './systemviews.wasm')</script><img src="./other.png"></body></html>`
+const versionedShellFixture = `<html><head><link rel="stylesheet" href="./systemviews.css"><script src="./wasm_exec.js"></script><script src="./systemviews.js" defer></script></head><body><script>instantiateWasm(go, './systemviews.wasm')</script><img src="./other.png"></body></html>`
 
 func shellBundleFS(t *testing.T, shell string) fstest.MapFS {
 	t.Helper()
@@ -43,6 +43,7 @@ func TestAssetP32_ShellRefsVersionedFromBundleManifest(t *testing.T) {
 	require.Contains(t, served, "./systemviews.wasm?v="+strings.Repeat("b", 64))
 	require.Contains(t, served, "./wasm_exec.js?v="+strings.Repeat("c", 64))
 	require.Contains(t, served, "./systemviews.css?v="+strings.Repeat("a", 64))
+	require.Contains(t, served, "./systemviews.js?v="+strings.Repeat("d", 64))
 	require.Contains(t, served, `"./other.png"`, "unpinned references pass through untouched")
 }
 
@@ -76,6 +77,7 @@ func TestAssetP32_AlreadyVersionedRefsUntouched(t *testing.T) {
 		[]byte(`<script src="./wasm_exec.js?v=old"></script><script src="./wasm_exec.js"></script>`),
 		assets.Manifest{Version: assets.ManifestVersion, Files: map[string]assets.FileEntry{
 			"systemviews.css":  {SHA256: "a", Size: 1},
+			"systemviews.js":   {SHA256: "a", Size: 4},
 			"systemviews.wasm": {SHA256: "b", Size: 2},
 			"wasm_exec.js":     {SHA256: "c", Size: 3},
 		}},
@@ -115,6 +117,7 @@ func TestAssetP32_ReplacementSwapsShellVersions(t *testing.T) {
 	digestA := strings.Repeat("a", 64)
 	manifestA, err := assets.Manifest{Version: assets.ManifestVersion, Files: map[string]assets.FileEntry{
 		"systemviews.css":  {SHA256: digestA, Size: 1},
+		"systemviews.js":   {SHA256: digestA, Size: 4},
 		"systemviews.wasm": {SHA256: digestA, Size: 2},
 		"wasm_exec.js":     {SHA256: digestA, Size: 3},
 	}}.Bytes()
@@ -130,6 +133,7 @@ func TestAssetP32_ReplacementSwapsShellVersions(t *testing.T) {
 	digestB := strings.Repeat("b", 64)
 	manifestB, err := assets.Manifest{Version: assets.ManifestVersion, Files: map[string]assets.FileEntry{
 		"systemviews.css":  {SHA256: digestB, Size: 1},
+		"systemviews.js":   {SHA256: digestB, Size: 4},
 		"systemviews.wasm": {SHA256: digestB, Size: 2},
 		"wasm_exec.js":     {SHA256: digestB, Size: 3},
 	}}.Bytes()
@@ -169,6 +173,7 @@ func trueManifestFS(t *testing.T, wasm, js, css []byte) fstest.MapFS {
 		"systemviews.wasm": wasm,
 		"wasm_exec.js":     js,
 		"systemviews.css":  css,
+		"systemviews.js":   []byte("/* enhance */"),
 	} {
 		sum := sha256.Sum256(data)
 		entries[name] = assets.FileEntry{SHA256: hex.EncodeToString(sum[:]), Size: int64(len(data))}
@@ -180,6 +185,7 @@ func trueManifestFS(t *testing.T, wasm, js, css []byte) fstest.MapFS {
 		"systemviews/systemviews.wasm.br":    {Data: brotliCompressForTest(t, wasm)},
 		"systemviews/wasm_exec.js":           {Data: js},
 		"systemviews/systemviews.css":        {Data: css},
+		"systemviews/systemviews.js":         {Data: []byte("/* enhance */")},
 		"systemviews/" + assets.ManifestName: {Data: manifest},
 	}
 }
@@ -283,6 +289,7 @@ func TestAssetP33_MissingVersionedArtifactRejected(t *testing.T) {
 	}
 	manifest, err := assets.Manifest{Version: assets.ManifestVersion, Files: map[string]assets.FileEntry{
 		"systemviews.css":  {SHA256: digestOf([]byte("/* css */")), Size: int64(len("/* css */"))},
+		"systemviews.js":   {SHA256: strings.Repeat("d", 64), Size: 4},
 		"systemviews.wasm": {SHA256: strings.Repeat("b", 64), Size: 2},
 		"wasm_exec.js":     {SHA256: strings.Repeat("c", 64), Size: 3},
 	}}.Bytes()
@@ -328,6 +335,7 @@ func TestAssetP33_WrongVersionWASMDecodesNothing(t *testing.T) {
 	}
 	manifest, err := assets.Manifest{Version: assets.ManifestVersion, Files: map[string]assets.FileEntry{
 		"systemviews.css":  {SHA256: strings.Repeat("a", 64), Size: 1},
+		"systemviews.js":   {SHA256: strings.Repeat("d", 64), Size: 4},
 		"systemviews.wasm": {SHA256: digestOf(wasm), Size: int64(len(wasm))},
 		"wasm_exec.js":     {SHA256: strings.Repeat("c", 64), Size: 3},
 	}}.Bytes()
@@ -348,6 +356,7 @@ func TestAssetP33_StaleWASMBytesFailClosedOnWire(t *testing.T) {
 	other := []byte("\x00asm-other-wire")
 	otherManifest, err := assets.Manifest{Version: assets.ManifestVersion, Files: map[string]assets.FileEntry{
 		"systemviews.css":  {SHA256: strings.Repeat("a", 64), Size: 1},
+		"systemviews.js":   {SHA256: strings.Repeat("d", 64), Size: 4},
 		"systemviews.wasm": {SHA256: digestOf(other), Size: int64(len(other))},
 		"wasm_exec.js":     {SHA256: strings.Repeat("c", 64), Size: 3},
 	}}.Bytes()

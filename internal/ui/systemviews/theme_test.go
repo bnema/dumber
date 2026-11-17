@@ -38,6 +38,28 @@ func TestBuildInlineVarsRejectsUnsafeCSSValues(t *testing.T) {
 	assert.Contains(t, vars, "--sv-border: #ABCDEF80;")
 	assert.Contains(t, vars, "--sv-font-serif: Georgia;")
 	assert.Contains(t, vars, "--sv-font-mono: JetBrains Mono;")
+	assert.NotContains(t, vars, "--sv-accent-text")
+}
+
+func TestBuildInlineVarsAddsReadableAccentText(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		palette dto.ColorPalette
+		want    string
+	}{
+		{name: "dark background on bright accent", palette: dto.ColorPalette{Background: "#0a0a0a", Accent: "#4ade80"}, want: "--sv-accent-text: #0a0a0a;"},
+		{name: "white fallback on dark accent", palette: dto.ColorPalette{Background: "#1a1a1a", Accent: "#1d4ed8"}, want: "--sv-accent-text: #ffffff;"},
+		{name: "light background on dark accent", palette: dto.ColorPalette{Background: "#fafafa", Accent: "#15803d"}, want: "--sv-accent-text: #fafafa;"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			vars := buildInlineVars(dto.WebUIAppearanceConfig{}, tt.palette)
+			assert.Contains(t, vars, tt.want)
+		})
+	}
 }
 
 func TestSanitizeCSSFontFamilyQuotes(t *testing.T) {

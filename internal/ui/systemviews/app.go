@@ -24,30 +24,43 @@ type Dependencies struct {
 type App struct {
 	// mu protects rendered route state; actionMu protects worker channels.
 	// The two locks must not be held at the same time.
-	mu                     sync.Mutex
-	actionMu               sync.Mutex
-	deps                   Dependencies
-	currentRoute           Route
-	shellTheme             shellTheme
-	historyEntries         []*entity.HistoryEntry
-	historyStats           *entity.HistoryStats
-	historyAnalytics       *entity.HistoryAnalytics
-	historyDomainStats     []*entity.DomainStat
-	historyQuery           string
-	historyDomainFilter    string
-	historyOffset          int
-	historyWindowBefore    time.Time
-	historyWindowAfter     time.Time
-	historyCursorID        int64
-	historyHasMore         bool
-	historyNotice          string
-	historyError           string
+	mu             sync.Mutex
+	actionMu       sync.Mutex
+	deps           Dependencies
+	currentRoute   Route
+	shellTheme     shellTheme
+	historyEntries []*entity.HistoryEntry
+	historyStats   *entity.HistoryStats
+	// historyLoaded reports whether a full history route result (stats,
+	// domains, timeline) has been committed since the last reset.
+	historyLoaded       bool
+	historyAnalytics    *entity.HistoryAnalytics
+	historyDomainStats  []*entity.DomainStat
+	historyQuery        string
+	historyDomainFilter string
+	historyOffset       int
+	historyWindowBefore time.Time
+	historyWindowAfter  time.Time
+	historyCursorID     int64
+	historyHasMore      bool
+	historyNotice       string
+	historyError        string
+	// pendingHistoryDeletes holds entries hidden behind an undo toast; they
+	// survive route reloads and are filtered from every render.
+	pendingHistoryDeletes  map[int64]*entity.HistoryEntry
 	favorites              []*entity.Favorite
 	tags                   []*entity.Tag
 	favoriteTagFilter      *entity.TagID
 	favoriteUntaggedFilter bool
 	favoritesNotice        string
 	favoritesError         string
+	// favoritesData is the last favorites render; deferred deletes read
+	// labels from it for their toast.
+	favoritesData favoritesRenderData
+	// pendingFavoriteDeletes and pendingTagDeletes hold ids (with their
+	// label) hidden behind an undo toast; every favorites render skips them.
+	pendingFavoriteDeletes map[int64]string
+	pendingTagDeletes      map[int64]string
 	config                 *dto.SystemviewConfigPayload
 	keybindings            port.KeybindingsConfig
 	configNotice           string
@@ -61,6 +74,9 @@ type App struct {
 	actionCancel           context.CancelFunc
 	actionClosed           bool
 	actionWG               sync.WaitGroup
+	// liveSearchQuery/liveSearchQueued coalesce typing (actionMu).
+	liveSearchQuery  string
+	liveSearchQueued bool
 }
 
 const (
@@ -327,10 +343,17 @@ func (a *App) enqueueDOMAction(action DOMAction) bool {
 	if a.actionClosed || queue == nil || ctx == nil {
 		return false
 	}
+	liveSearch := action.Action == historyActionSearchLive
+	if liveSearch && !a.coalesceLiveSearchLocked(action) {
+		return true
+	}
 	select {
 	case <-ctx.Done():
 		return false
 	case queue <- action:
+		if liveSearch {
+			a.liveSearchQueued = true
+		}
 		return true
 	default:
 		return false
@@ -521,7 +544,7 @@ func routeDocumentTitle(route Route) string {
 	case RouteFavorites:
 		return "Favorites"
 	case RouteConfig:
-		return "Config"
+		return "Settings"
 	default:
 		return "Dumber System View"
 	}
@@ -532,7 +555,7 @@ func routeSubtitle(route Route) string {
 	case RouteHistory:
 		return "Recent visits"
 	case RouteFavorites:
-		return "Saved bookmarks"
+		return "Favorites"
 	case RouteConfig:
 		return "Browser settings"
 	default:
@@ -545,6 +568,7 @@ func (a *App) loadHistoryLoadingRoute() {
 	a.tags = nil
 	a.historyEntries = nil
 	a.historyStats = nil
+	a.historyLoaded = false
 	a.historyAnalytics = nil
 	a.historyDomainStats = nil
 	a.historyNotice = ""
@@ -603,6 +627,8 @@ type historyRouteSnapshot struct {
 	cursorID     int64
 	notice       string
 	error        string
+	// hidden lists entries pending deletion behind an undo toast.
+	hidden map[int64]struct{}
 }
 
 type historyRouteResult struct {
@@ -629,6 +655,7 @@ func (a *App) currentHistoryRouteSnapshotLocked() historyRouteSnapshot {
 		cursorID:     a.historyCursorID,
 		notice:       a.historyNotice,
 		error:        a.historyError,
+		hidden:       a.pendingHistoryDeleteIDsLocked(),
 	}
 }
 
@@ -648,6 +675,7 @@ func (a *App) renderHistoryRouteSnapshot(ctx context.Context, snapshot historyRo
 	if err != nil {
 		return historyRouteResult{}, err
 	}
+	entries = withoutHiddenEntries(entries, snapshot.hidden)
 	stats, err := snapshot.history.Stats(ctx)
 	if err != nil {
 		return historyRouteResult{}, fmt.Errorf("failed to load history stats: %w", err)
@@ -727,8 +755,9 @@ func loadHistoryWindowSnapshot(ctx context.Context, snapshot historyRouteSnapsho
 func (a *App) commitHistoryRouteResultLocked(result historyRouteResult) {
 	a.favorites = nil
 	a.tags = nil
-	a.historyEntries = result.entries
+	a.historyEntries = a.withoutPendingDeletesLocked(result.entries)
 	a.historyStats = result.stats
+	a.historyLoaded = true
 	a.historyAnalytics = nil
 	a.historyDomainStats = result.domains
 	a.historyWindowBefore = result.windowBefore
@@ -744,7 +773,7 @@ func (a *App) loadFavoritesRoute(ctx context.Context) error {
 		a.renderedHTML = renderAppFrame(renderedPage{
 			route:    a.currentRoute,
 			title:    routeDocumentTitle(RouteFavorites),
-			subtitle: "Saved bookmarks",
+			subtitle: "Favorites",
 			body:     placeholderHTML(a.currentRoute),
 		}, a.shellTheme)
 		return nil
@@ -760,22 +789,26 @@ func (a *App) loadFavoritesRoute(ctx context.Context) error {
 	}
 
 	a.historyEntries = nil
-	favorites = filterFavorites(favorites, a.favoriteTagFilter, a.favoriteUntaggedFilter)
-	a.favorites = favorites
-	a.tags = tags
-	data := favoritesRenderData{
-		Favorites:      favorites,
-		Tags:           tags,
-		TagFilter:      a.favoriteTagFilter,
-		UntaggedFilter: a.favoriteUntaggedFilter,
-		Notice:         a.favoritesNotice,
-		Error:          a.favoritesError,
-	}
+	data := buildFavoritesRenderData(favoritesSource{
+		Favorites:       favorites,
+		Tags:            tags,
+		HiddenFavorites: a.pendingFavoriteDeletes,
+		HiddenTags:      a.pendingTagDeletes,
+		TagFilter:       a.favoriteTagFilter,
+		UntaggedFilter:  a.favoriteUntaggedFilter,
+	})
+	data.Notice = a.favoritesNotice
+	data.Error = a.favoritesError
+	a.favoriteTagFilter = data.TagFilter
+	a.favorites = data.Favorites
+	a.tags = data.Tags
+	a.favoritesData = data
 	a.renderedHTML = renderAppFrame(renderedPage{
-		route:    RouteFavorites,
-		title:    favoritesDocumentTitle(data),
-		subtitle: "Saved bookmarks",
-		body:     favoritesHTML(data),
+		route:          RouteFavorites,
+		title:          favoritesDocumentTitle(data),
+		subtitle:       "Favorites",
+		subtitleDetail: favoritesTitleDetail(data),
+		body:           favoritesHTML(data),
 	}, a.shellTheme)
 	return nil
 }
@@ -808,7 +841,7 @@ func (a *App) loadConfigRoute(ctx context.Context) error {
 	a.keybindings = keybindings
 	a.renderedHTML = renderAppFrame(renderedPage{
 		route:    RouteConfig,
-		title:    "Config — Dumber",
+		title:    "Settings — Dumber",
 		subtitle: "Browser settings",
 		body: configHTML(configRenderData{
 			Config:      config,
@@ -843,6 +876,7 @@ func (a *App) loadShellTheme(ctx context.Context) {
 func (a *App) resetRouteState() {
 	a.historyEntries = nil
 	a.historyStats = nil
+	a.historyLoaded = false
 	a.historyAnalytics = nil
 	a.historyDomainStats = nil
 	a.historyQuery = ""

@@ -4,10 +4,18 @@ package systemviews
 
 import (
 	"fmt"
+	"runtime"
 	"strconv"
 	"strings"
 	"syscall/js"
+	"time"
 )
+
+// pagehideYields bounds how long the pagehide callback lets queued work run.
+const pagehideYields = 64
+
+// liveSearchDebounce waits for a short typing pause before searching.
+const liveSearchDebounce = 150 * time.Millisecond
 
 type browserDOM struct {
 	document                js.Value
@@ -17,6 +25,15 @@ type browserDOM struct {
 	historyObserverCallback js.Func
 	activeConfirmCleanup    func()
 	activeConfirmID         uint64
+	liveSearchTimer         *time.Timer
+	actionHandler           DOMActionHandler
+	// restoreFocusIndex keeps keyboard focus at the same row position after
+	// an undoable delete re-renders the list (-1 when unused).
+	restoreFocusIndex int
+	// undoFocusKey is the focus key of the row an undoable delete removed;
+	// an undo that brings the row back focuses it again.
+	undoFocusKey string
+	paletteOpen  bool
 }
 
 type jsEventBinding struct {
@@ -32,20 +49,138 @@ func NewDOM() DOM {
 	}
 
 	target := doc.Call("getElementById", "app")
-	return &browserDOM{document: doc, target: target}
+	return &browserDOM{document: doc, target: target, restoreFocusIndex: -1}
 }
 
 func (d *browserDOM) Mount(markup string) error {
 	if d == nil || !d.target.Truthy() {
 		return fmt.Errorf("DOM mount target #app not found")
 	}
+	focus := d.captureFocusKey()
+	search := d.captureHistorySearch()
 	d.target.Set("innerHTML", markup)
 	d.updateDocumentTitle()
 	d.scheduleAlertDismissal()
 	d.syncPerformanceCustomInputStates()
 	d.focusAutofocusTarget()
 	d.setupHistoryInfiniteScroll()
+	if visualLayerHas("enhance") {
+		js.Global().Get("dumberSystemviews").Call("enhance", d.target)
+	}
+	d.restoreFocusKey(focus)
+	d.restoreHistorySearch(search)
 	return nil
+}
+
+// historySearchState is the focused history search field's text and caret,
+// kept across a full Mount so typing during the first load is not lost.
+type historySearchState struct {
+	value      string
+	start, end js.Value
+	ok         bool
+}
+
+func (d *browserDOM) captureHistorySearch() historySearchState {
+	active := activeElement()
+	if !active.Truthy() || active.Get("matches").Type() != js.TypeFunction ||
+		!active.Call("matches", "[data-sv-history-search]").Bool() {
+		return historySearchState{}
+	}
+	return historySearchState{
+		value: active.Get("value").String(),
+		start: active.Get("selectionStart"),
+		end:   active.Get("selectionEnd"),
+		ok:    true,
+	}
+}
+
+func (d *browserDOM) restoreHistorySearch(state historySearchState) {
+	if !state.ok {
+		return
+	}
+	input := d.target.Call("querySelector", "[data-sv-history-search]")
+	if !input.Truthy() {
+		return
+	}
+	input.Set("value", state.value)
+	if !activeElement().Equal(input) {
+		input.Call("focus", map[string]any{"preventScroll": true})
+	}
+	if state.start.Type() == js.TypeNumber && state.end.Type() == js.TypeNumber {
+		input.Call("setSelectionRange", state.start, state.end)
+	}
+}
+
+// focusableSelector finds the element to focus inside a keyed container.
+const focusableSelector = "a[href], button:not([disabled]), input:not([type=hidden]):not([disabled]), select, textarea"
+
+// captureFocusKey names the focused element so a re-render can focus its
+// replacement: the nearest [data-sv-focus-key] container, else its id.
+func (d *browserDOM) captureFocusKey() string {
+	active := activeElement()
+	if !active.Truthy() || active.Equal(d.target) || !d.target.Call("contains", active).Bool() {
+		return ""
+	}
+	if keyed := active.Call("closest", "[data-sv-focus-key]"); keyed.Truthy() {
+		return "key:" + keyed.Call("getAttribute", "data-sv-focus-key").String()
+	}
+	if id := active.Get("id").String(); id != "" {
+		return "id:" + id
+	}
+	if name := active.Call("getAttribute", "name"); name.Truthy() && name.String() != "" {
+		// Radios and checkboxes share a name: the value tells them apart.
+		return `sel:[name="` + cssAttrEscape(name.String()) + `"][value="` + cssAttrEscape(active.Get("value").String()) + `"]`
+	}
+	return ""
+}
+
+func activeInsideRow() bool {
+	active := activeElement()
+	return active.Truthy() && active.Get("closest").Type() == js.TypeFunction &&
+		active.Call("closest", "[data-sv-history-row], [data-sv-undo-row]").Truthy()
+}
+
+func (d *browserDOM) focusKeyPresent(key string) bool {
+	name := strings.TrimPrefix(key, "key:")
+	return d.target.Call("querySelector", `[data-sv-focus-key="`+cssAttrEscape(name)+`"]`).Truthy()
+}
+
+// restoreFocusKey focuses the element captureFocusKey named, unless the
+// re-render already put focus somewhere on the page.
+func (d *browserDOM) restoreFocusKey(key string) {
+	if key == "" {
+		return
+	}
+	if active := activeElement(); active.Truthy() && !active.Equal(d.document.Get("body")) &&
+		!active.Equal(d.target) && d.target.Call("contains", active).Bool() {
+		return
+	}
+	var element js.Value
+	if name, ok := strings.CutPrefix(key, "key:"); ok {
+		element = d.target.Call("querySelector", `[data-sv-focus-key="`+cssAttrEscape(name)+`"]`)
+		if element.Truthy() && !element.Call("matches", focusableSelector).Bool() {
+			element = element.Call("querySelector", focusableSelector)
+		}
+	} else if id, ok := strings.CutPrefix(key, "id:"); ok {
+		element = d.target.Call("querySelector", `[id="`+cssAttrEscape(id)+`"]`)
+	} else if selector, ok := strings.CutPrefix(key, "sel:"); ok {
+		element = d.target.Call("querySelector", selector)
+	}
+	if element.Truthy() {
+		element.Call("focus", map[string]any{"preventScroll": true})
+		if activeElement().Equal(element) {
+			return
+		}
+	}
+	// The element is gone (a deleted tag) or cannot take focus (hidden, or
+	// inside a closed popover): use the page's fallback.
+	fallback := d.target.Call("querySelector", "[data-sv-focus-fallback]")
+	if fallback.Truthy() && !fallback.Call("matches", focusableSelector).Bool() {
+		fallback = fallback.Call("querySelector", focusableSelector)
+	}
+	if fallback.Truthy() {
+		fallback.Call("focus", map[string]any{"preventScroll": true})
+	}
 }
 
 // SignalReady marks the shell ready after mount and action binding: the
@@ -86,6 +221,380 @@ func (d *browserDOM) SignalError(message string) error {
 	return nil
 }
 
+func (d *browserDOM) clearHistorySearchInput() {
+	d.stopLiveSearch()
+	if input := d.target.Call("querySelector", "[data-sv-history-search]"); input.Truthy() {
+		input.Set("value", "")
+	}
+}
+
+// isPaletteShortcut matches Ctrl+K (Cmd+K on macOS keyboards).
+func isPaletteShortcut(event js.Value) bool {
+	if !strings.EqualFold(event.Get("key").String(), "k") || event.Get("altKey").Bool() || event.Get("shiftKey").Bool() {
+		return false
+	}
+	return event.Get("ctrlKey").Bool() || event.Get("metaKey").Bool()
+}
+
+// ShowPalette opens the action palette from systemviews.js and runs the
+// chosen item's action (after a confirm dialog when the item asks for one).
+func (d *browserDOM) ShowPalette(request PaletteRequest) {
+	if d == nil || d.actionHandler == nil || d.paletteOpen || !visualLayerHas("palette") {
+		return
+	}
+	items := make([]any, 0, len(request.Items))
+	byID := make(map[string]PaletteItem, len(request.Items))
+	for i := range request.Items {
+		item := &request.Items[i]
+		byID[item.ID] = *item
+		items = append(items, map[string]any{
+			"id":       item.ID,
+			"label":    item.Label,
+			"group":    item.Group,
+			"hint":     item.Hint,
+			"keywords": item.Keywords,
+			"danger":   item.Danger,
+		})
+	}
+	visual := js.Global().Get("dumberSystemviews")
+	all := js.ValueOf(items)
+	placeholder := request.Placeholder
+	if d.isConfigRoute() && visual.Get("settingsIndex").Type() == js.TypeFunction {
+		// Every setting on the page becomes searchable; choosing one jumps to it.
+		all = all.Call("concat", visual.Call("settingsIndex", d.target))
+		placeholder = "Search settings or type a command…"
+	}
+	result := visual.Call("palette", map[string]any{
+		"placeholder": placeholder,
+		"items":       all,
+		"theme":       d.target.Call("querySelector", ".sv-app"),
+	})
+	if !result.Truthy() || result.Get("then").Type() != js.TypeFunction {
+		return
+	}
+	d.paletteOpen = true
+	var settled js.Func
+	settled = js.FuncOf(func(_ js.Value, args []js.Value) any {
+		settled.Release()
+		d.paletteOpen = false
+		if len(args) == 0 || args[0].Type() != js.TypeString {
+			return nil
+		}
+		id := args[0].String()
+		if strings.HasPrefix(id, "setting:") {
+			visual.Call("jumpToSetting", id)
+			return nil
+		}
+		item, ok := byID[id]
+		if !ok {
+			return nil
+		}
+		run := func() { d.runPaletteAction(item.Action) }
+		if item.Confirm == "" || !d.showConfirmDialog(item.Confirm, run) {
+			run()
+		}
+		return nil
+	})
+	result.Call("then", settled, settled)
+}
+
+func (d *browserDOM) runPaletteAction(action DOMAction) {
+	switch action.Action {
+	case uiActionNavigate:
+		d.navigateToRoute(Route(action.Data["route"]))
+	case uiActionConfigSave:
+		d.submitConfigForm()
+	case uiActionConfigDiscard:
+		if form := d.target.Call("querySelector", "[data-sv-config-form]"); form.Truthy() {
+			form.Call("reset")
+		}
+	case uiActionConfigSection:
+		if section := d.target.Call("querySelector", "#"+cssIdentifier(action.Data["section"])); section.Truthy() {
+			section.Call("scrollIntoView", map[string]any{"behavior": scrollBehavior(), "block": "start"})
+			// Move focus too, so the next Tab continues inside the section.
+			if visualLayerHas("focusSection") {
+				js.Global().Get("dumberSystemviews").Call("focusSection", section)
+			} else {
+				if !section.Call("hasAttribute", "tabindex").Bool() {
+					section.Call("setAttribute", "tabindex", "-1")
+				}
+				section.Call("focus", map[string]any{"preventScroll": true})
+			}
+		}
+	case uiActionFocusSearch:
+		if input := d.target.Call("querySelector", "[data-sv-history-search]"); input.Truthy() {
+			input.Call("focus")
+			input.Call("select")
+		}
+	case uiActionFocus:
+		if element := d.target.Call("querySelector", action.Data["selector"]); element.Truthy() {
+			element.Call("focus")
+		}
+	case uiActionOpenPopover:
+		if popover := d.target.Call("querySelector", "#"+cssIdentifier(action.Data["id"])); popover.Truthy() &&
+			popover.Get("showPopover").Type() == js.TypeFunction {
+			popover.Call("showPopover")
+		}
+	default:
+		if action.Action == historyActionClear {
+			d.clearHistorySearchInput()
+		}
+		d.actionHandler(action)
+	}
+}
+
+// navigateToRoute opens another system view in the same tab, keeping the
+// scheme the page was loaded with (dumb:// or the internal https origin).
+func (d *browserDOM) navigateToRoute(route Route) {
+	switch route {
+	case RouteHistory, RouteFavorites, RouteConfig:
+	default:
+		return
+	}
+	location := js.Global().Get("location")
+	target := location.Get("origin").String() + "/" + string(route)
+	if strings.EqualFold(location.Get("protocol").String(), "dumb:") {
+		target = "dumb://" + string(route)
+	}
+	location.Call("assign", target)
+}
+
+// rowLeaveDuration matches .sv-row-leaving in systemviews.css.
+const rowLeaveDuration = 160 * time.Millisecond
+
+// startUndoableAction handles a delete that the visual layer can undo: no
+// confirm dialog, the row animates out, and the action is dispatched once
+// the animation ends. It reports false when the regular path must run.
+func (d *browserDOM) startUndoableAction(element js.Value, action string, data map[string]string, handler DOMActionHandler) bool {
+	if !element.Call("hasAttribute", "data-sv-undoable").Bool() || !visualLayerHas("toast") {
+		return false
+	}
+	row := element.Call("closest", "[data-sv-history-row], [data-sv-undo-row]")
+	if row.Truthy() && (row.Get("classList").Call("contains", "sv-row-leaving").Bool() || row.Call("hasAttribute", "data-sv-pending").Bool()) {
+		// A repeated key during the leave animation: already dispatched.
+		return true
+	}
+	delete(data, "svUndoable")
+	data[undoDataKey] = "true"
+
+	d.undoFocusKey = ""
+	if keyed := element.Call("closest", "[data-sv-focus-key]"); keyed.Truthy() {
+		d.undoFocusKey = "key:" + keyed.Call("getAttribute", "data-sv-focus-key").String()
+	}
+	if popover := element.Call("closest", "[popover]"); popover.Truthy() && popover.Get("hidePopover").Type() == js.TypeFunction {
+		popover.Call("hidePopover")
+	}
+	if row.Truthy() {
+		row.Call("setAttribute", "data-sv-pending", "")
+	}
+	if row.Truthy() && (row.Get("classList").Call("contains", "sv-focused").Bool() || row.Call("contains", activeElement()).Bool()) {
+		// Focus moves to the row that takes the deleted row's place.
+		if row.Call("matches", "[data-sv-favorite-row]").Bool() {
+			d.restoreFocusIndex = d.rowIndex(favoriteRowSelector, row)
+		} else if row.Call("matches", "[data-sv-history-row]").Bool() {
+			d.restoreFocusIndex = d.rowIndex(historyRowSelector, row)
+		}
+	}
+	dispatch := func() { handler(DOMAction{Action: action, Data: data}) }
+	if !row.Truthy() || prefersReducedMotion() {
+		dispatch()
+		return true
+	}
+	row.Get("classList").Call("add", "sv-row-leaving")
+	time.AfterFunc(rowLeaveDuration, dispatch)
+	return true
+}
+
+// ShowToast renders an action toast through systemviews.js and dispatches
+// the request's follow-up action when the toast settles.
+func (d *browserDOM) ShowToast(request ToastRequest) bool {
+	if d == nil || d.actionHandler == nil || !visualLayerHas("toast") {
+		return false
+	}
+	options := map[string]any{
+		"message":     request.Message,
+		"actionLabel": request.ActionLabel,
+		"timeoutMs":   request.Timeout.Milliseconds(),
+		"theme":       d.target.Call("querySelector", ".sv-app"),
+	}
+	result := js.Global().Get("dumberSystemviews").Call("toast", options)
+	if !result.Truthy() || result.Get("then").Type() != js.TypeFunction {
+		return false
+	}
+	handler := d.actionHandler
+	// The key of the row this toast can bring back. A newer delete replaces
+	// it, so only this toast's own key is cleared below.
+	undoKey := d.undoFocusKey
+	var settled js.Func
+	settled = js.FuncOf(func(_ js.Value, args []js.Value) any {
+		settled.Release()
+		result := ""
+		if len(args) > 0 && args[0].Type() == js.TypeString {
+			result = args[0].String()
+		}
+		next := request.OnDismiss
+		if result == "action" {
+			next = request.OnAction
+		} else if result != "replaced" && undoKey != "" && d.undoFocusKey == undoKey {
+			// No undo is coming: later swaps must not chase the removed row.
+			d.undoFocusKey = ""
+		}
+		if next.Action != "" {
+			handler(next)
+		}
+		return nil
+	})
+	result.Call("then", settled, settled)
+	return true
+}
+
+func (d *browserDOM) dismissToast() {
+	if visualLayerHas("dismissToast") {
+		js.Global().Get("dumberSystemviews").Call("dismissToast")
+	}
+}
+
+func visualLayerHas(name string) bool {
+	visual := js.Global().Get("dumberSystemviews")
+	return visual.Truthy() && visual.Get(name).Type() == js.TypeFunction
+}
+
+func scrollBehavior() string {
+	if prefersReducedMotion() {
+		return "auto"
+	}
+	return "smooth"
+}
+
+func prefersReducedMotion() bool {
+	matchMedia := js.Global().Get("matchMedia")
+	if matchMedia.Type() != js.TypeFunction {
+		return false
+	}
+	return matchMedia.Invoke("(prefers-reduced-motion: reduce)").Get("matches").Bool()
+}
+
+// scheduleLiveSearch restarts the debounce timer; only the query typed last
+// before the pause is sent.
+func (d *browserDOM) scheduleLiveSearch(query string, handler DOMActionHandler) {
+	d.stopLiveSearch()
+	d.liveSearchTimer = time.AfterFunc(liveSearchDebounce, func() {
+		handler(DOMAction{Action: historyActionSearchLive, Data: map[string]string{"query": query}})
+	})
+}
+
+func (d *browserDOM) stopLiveSearch() {
+	if d.liveSearchTimer != nil {
+		d.liveSearchTimer.Stop()
+		d.liveSearchTimer = nil
+	}
+}
+
+// UpdateRegions replaces each [data-sv-region] in place. The optional visual
+// layer (systemviews.js) performs the whole swap in one call so it can
+// animate the new rows; otherwise the markup is set directly.
+func (d *browserDOM) UpdateRegions(update RegionUpdate) error {
+	if d == nil || !d.target.Truthy() {
+		return fmt.Errorf("DOM mount target #app not found")
+	}
+	focus := d.captureFocusKey()
+	if d.undoFocusKey != "" && !d.focusKeyPresent(d.undoFocusKey) && (focus == "" || activeInsideRow()) {
+		// An undo brings the removed row back: return focus to it, unless
+		// the user has moved on to something other than the list.
+		focus = d.undoFocusKey
+	}
+	defer func() {
+		if d.undoFocusKey != "" && d.focusKeyPresent(d.undoFocusKey) {
+			// The undo restored the row: the key is consumed.
+			d.undoFocusKey = ""
+		}
+		d.restoreFocusKey(focus)
+	}()
+	elements := make([]js.Value, 0, len(update.Regions))
+	for _, region := range update.Regions {
+		element := d.target.Call("querySelector", `[data-sv-region="`+region.Name+`"]`)
+		if !element.Truthy() {
+			return fmt.Errorf("systemview region %q not found", region.Name)
+		}
+		elements = append(elements, element)
+	}
+
+	visual := js.Global().Get("dumberSystemviews")
+	if visual.Truthy() && visual.Get("swap").Type() == js.TypeFunction {
+		entries := make([]any, 0, len(update.Regions))
+		for i, region := range update.Regions {
+			entries = append(entries, []any{elements[i], region.HTML})
+		}
+		visual.Call("swap", entries, map[string]any{"transition": update.Transition})
+	} else {
+		for i, region := range update.Regions {
+			elements[i].Set("innerHTML", region.HTML)
+		}
+	}
+	d.afterRegionUpdate()
+	return nil
+}
+
+func (d *browserDOM) afterRegionUpdate() {
+	if dataset := d.target.Get("dataset"); dataset.Truthy() {
+		dataset.Delete(historyIndexKey)
+		dataset.Delete(favoriteIndexKey)
+	}
+	if index := d.restoreFocusIndex; index >= 0 {
+		d.restoreFocusIndex = -1
+		if d.isFavoritesRoute() {
+			d.focusRowAt(favoriteRowSelector, favoriteIndexKey, index)
+		} else {
+			d.focusRowAt(historyRowSelector, historyIndexKey, index)
+		}
+	}
+	d.updateDocumentTitle()
+	d.scheduleAlertDismissal()
+	d.setupHistoryInfiniteScroll()
+	d.focusErrorField()
+}
+
+// focusErrorField moves focus to the form field named by a validation error
+// ([data-sv-error-field]) and marks it invalid until it is edited.
+func (d *browserDOM) focusErrorField() {
+	status := d.target.Call("querySelector", "[data-sv-error-field]")
+	if !status.Truthy() {
+		return
+	}
+	name := status.Call("getAttribute", "data-sv-error-field").String()
+	if name == "" {
+		return
+	}
+	field := d.target.Call("querySelector", `[name="`+cssAttrEscape(name)+`"]:not([type="hidden"])`)
+	if !field.Truthy() {
+		return
+	}
+	field.Call("setAttribute", "aria-invalid", "true")
+	field.Call("scrollIntoView", map[string]any{"block": "center"})
+	field.Call("focus", map[string]any{"preventScroll": true})
+}
+
+// cssAttrEscape escapes a value for a double-quoted CSS attribute selector.
+func cssAttrEscape(value string) string {
+	return strings.NewReplacer(`\`, `\\`, `"`, `\"`).Replace(value)
+}
+
+// resetKeybindingRow puts a keybinding row's field back to its default keys.
+// The input event lets the visual layer refresh the row and the save bar.
+func resetKeybindingRow(button js.Value) {
+	row := button.Call("closest", "[data-sv-kb-row]")
+	if !row.Truthy() {
+		return
+	}
+	input := row.Call("querySelector", "[data-sv-kb-input]")
+	if !input.Truthy() {
+		return
+	}
+	input.Set("value", input.Call("getAttribute", "data-default-keys").String())
+	input.Call("dispatchEvent", js.Global().Get("Event").New("input", map[string]any{"bubbles": true}))
+	input.Call("focus")
+}
+
 func (d *browserDOM) AppendHistoryTimeline(markup string) error {
 	if d == nil || !d.target.Truthy() {
 		return fmt.Errorf("DOM mount target #app not found")
@@ -100,12 +609,24 @@ func (d *browserDOM) AppendHistoryTimeline(markup string) error {
 
 	container := d.document.Call("createElement", "div")
 	container.Set("innerHTML", markup)
+	markEnteringRows(container)
 	d.mergeLeadingHistoryGroup(timeline, container)
 	for container.Get("firstChild").Truthy() {
 		timeline.Call("appendChild", container.Get("firstChild"))
 	}
 	d.setupHistoryInfiniteScroll()
 	return nil
+}
+
+// markEnteringRows tags freshly appended rows so CSS can fade them in with a
+// short stagger; prefers-reduced-motion disables the animation in CSS.
+func markEnteringRows(container js.Value) {
+	rows := container.Call("querySelectorAll", "[data-sv-history-row]")
+	for i := 0; i < rows.Get("length").Int(); i++ {
+		row := rows.Index(i)
+		row.Get("classList").Call("add", "sv-enter")
+		row.Get("style").Call("setProperty", "--sv-enter-index", strconv.Itoa(min(i, 8)))
+	}
 }
 
 func (d *browserDOM) mergeLeadingHistoryGroup(timeline, container js.Value) {
@@ -216,6 +737,7 @@ func (d *browserDOM) BindActions(handler DOMActionHandler) error {
 		return fmt.Errorf("DOM action binding target not available")
 	}
 	d.Release()
+	d.actionHandler = handler
 
 	clickHandler := js.FuncOf(func(_ js.Value, args []js.Value) any {
 		event := firstJSArg(args)
@@ -226,21 +748,27 @@ func (d *browserDOM) BindActions(handler DOMActionHandler) error {
 		if !element.Truthy() {
 			return nil
 		}
+		// Forms dispatch only through submit, never on a click in their box.
 		if strings.EqualFold(element.Get("tagName").String(), "form") {
-			target := event.Get("target")
-			if !target.Truthy() {
-				target = event.Get("srcElement")
-			}
-			if !target.Truthy() || !element.Equal(target) {
-				return nil
-			}
+			return nil
 		}
 		action := element.Call("getAttribute", "data-sv-action").String()
 		if action == "" {
 			return nil
 		}
 		event.Call("preventDefault")
+		if action == uiActionConfigResetKeys {
+			resetKeybindingRow(element)
+			return nil
+		}
 		data := collectActionData(element)
+		if d.startUndoableAction(element, action, data, handler) {
+			return nil
+		}
+		if action == historyActionClear {
+			// The search field lives outside the swapped regions.
+			d.clearHistorySearchInput()
+		}
 		d.confirmAction(element, func() {
 			handler(DOMAction{Action: action, Data: data})
 		})
@@ -290,6 +818,45 @@ func (d *browserDOM) BindActions(handler DOMActionHandler) error {
 		return nil
 	})
 	d.addEventBinding(d.target, "change", changeHandler)
+
+	// form.reset() (Discard) restores values after the event, so the custom
+	// performance inputs are synced on the next tick.
+	resetHandler := js.FuncOf(func(js.Value, []js.Value) any {
+		time.AfterFunc(0, d.syncPerformanceCustomInputStates)
+		return nil
+	})
+	d.addEventBinding(d.target, "reset", resetHandler)
+
+	inputHandler := js.FuncOf(func(_ js.Value, args []js.Value) any {
+		event := firstJSArg(args)
+		if !event.Truthy() {
+			return nil
+		}
+		target := event.Get("target")
+		if !target.Truthy() || !target.Get("matches").Truthy() || !target.Call("matches", "[data-sv-history-search]").Bool() {
+			return nil
+		}
+		d.scheduleLiveSearch(target.Get("value").String(), handler)
+		return nil
+	})
+	d.addEventBinding(d.target, "input", inputHandler)
+
+	// Pending undoable deletes must reach the bridge before the page goes
+	// away. The flush is queued like any action, then this callback yields so
+	// the worker goroutine posts the bridge messages before control returns
+	// to the browser and the page is torn down. Blocking here on anything
+	// that needs the JS event loop would deadlock, so it only yields.
+	pagehideHandler := js.FuncOf(func(js.Value, []js.Value) any {
+		// Settle the toast first so a bfcache-restored page shows no stale
+		// Undo; the flush commits pending deletes either way.
+		d.dismissToast()
+		handler(DOMAction{Action: actionFlushDeletes})
+		for range pagehideYields {
+			runtime.Gosched()
+		}
+		return nil
+	})
+	d.addEventBinding(js.Global(), "pagehide", pagehideHandler)
 
 	keydownHandler := js.FuncOf(func(_ js.Value, args []js.Value) any {
 		event := firstJSArg(args)
@@ -402,6 +969,7 @@ func (d *browserDOM) Release() {
 	}
 	d.disconnectHistoryObserver()
 	d.cleanupActiveConfirmDialog()
+	d.stopLiveSearch()
 	for _, binding := range d.bindings {
 		if binding.target.Truthy() {
 			binding.target.Call("removeEventListener", binding.event, binding.fn)
@@ -460,11 +1028,11 @@ func updatePerformanceCustomInputs(form js.Value) {
 	if !form.Truthy() || !form.Get("querySelector").Truthy() {
 		return
 	}
-	selectEl := form.Call("querySelector", "[data-sv-performance-profile]")
-	if !selectEl.Truthy() {
+	profile := form.Call("querySelector", "[data-sv-performance-profile]:checked")
+	if !profile.Truthy() {
 		return
 	}
-	enabled := strings.EqualFold(selectEl.Get("value").String(), "custom")
+	enabled := strings.EqualFold(profile.Get("value").String(), customPerformanceProfile)
 	inputs := form.Call("querySelectorAll", "[data-sv-performance-custom]")
 	for i := 0; i < inputs.Get("length").Int(); i++ {
 		inputs.Index(i).Set("disabled", !enabled)
@@ -522,6 +1090,27 @@ func (d *browserDOM) cleanupActiveConfirmDialog() {
 	cleanup()
 }
 
+// inheritAppTheme copies the palette variables and theme/style classes of the
+// mounted .sv-app root onto element, which lives outside it under <body>.
+func (d *browserDOM) inheritAppTheme(element js.Value) {
+	if !d.target.Truthy() {
+		return
+	}
+	root := d.target.Call("querySelector", ".sv-app")
+	if !root.Truthy() {
+		return
+	}
+	if style := root.Call("getAttribute", "style"); style.Type() == js.TypeString {
+		element.Call("setAttribute", "style", style.String())
+	}
+	classes := root.Get("classList")
+	for i := 0; i < classes.Get("length").Int(); i++ {
+		if name := classes.Call("item", i).String(); name != "sv-app" {
+			element.Get("classList").Call("add", name)
+		}
+	}
+}
+
 func (d *browserDOM) showConfirmDialog(message string, onConfirm func()) bool {
 	if d == nil || !d.document.Truthy() {
 		return false
@@ -537,6 +1126,7 @@ func (d *browserDOM) showConfirmDialog(message string, onConfirm func()) bool {
 	overlay := d.document.Call("createElement", "div")
 	overlay.Get("classList").Call("add", "sv-confirm-backdrop")
 	overlay.Set("role", "presentation")
+	d.inheritAppTheme(overlay)
 
 	dialog := d.document.Call("createElement", "div")
 	dialog.Get("classList").Call("add", "sv-confirm-dialog")
@@ -562,7 +1152,7 @@ func (d *browserDOM) showConfirmDialog(message string, onConfirm func()) bool {
 
 	cancelButton := d.document.Call("createElement", "button")
 	cancelButton.Set("type", "button")
-	cancelButton.Set("className", "sv-button sv-button-secondary")
+	cancelButton.Set("className", "sv-button sv-button-neutral")
 	cancelButton.Set("textContent", "Cancel")
 	actions.Call("appendChild", cancelButton)
 
@@ -574,6 +1164,12 @@ func (d *browserDOM) showConfirmDialog(message string, onConfirm func()) bool {
 
 	d.activeConfirmID++
 	confirmID := d.activeConfirmID
+	// Focus goes back to the control that asked, so a re-render after the
+	// action can find its place again.
+	invoker := activeElement()
+	// The page behind the dialog is inert: assistive tech and pointer or
+	// keyboard input cannot reach it while the dialog is open.
+	wasInert := d.target.Get("inert").Truthy()
 
 	var cleanup func()
 	var cancelFn js.Func
@@ -593,6 +1189,8 @@ func (d *browserDOM) showConfirmDialog(message string, onConfirm func()) bool {
 		if overlay.Truthy() {
 			overlay.Call("remove")
 		}
+		// Lift inert before focusing the invoker, which lives in the page.
+		d.target.Set("inert", wasInert)
 		if d.document.Truthy() && keyFn.Value.Truthy() {
 			d.document.Call("removeEventListener", "keydown", keyFn)
 		}
@@ -600,6 +1198,9 @@ func (d *browserDOM) showConfirmDialog(message string, onConfirm func()) bool {
 		confirmFn.Release()
 		keyFn.Release()
 		backdropFn.Release()
+		if invoker.Truthy() && invoker.Get("isConnected").Bool() {
+			invoker.Call("focus")
+		}
 	}
 	runConfirm := func() {
 		if confirmed {
@@ -623,6 +1224,14 @@ func (d *browserDOM) showConfirmDialog(message string, onConfirm func()) bool {
 			return nil
 		}
 		switch strings.ToLower(event.Get("key").String()) {
+		case "tab":
+			// aria-modal: keep focus on the dialog's two buttons.
+			event.Call("preventDefault")
+			if activeElement().Equal(confirmButton) {
+				cancelButton.Call("focus")
+			} else {
+				confirmButton.Call("focus")
+			}
 		case "escape":
 			event.Call("preventDefault")
 			event.Call("stopPropagation")
@@ -651,6 +1260,7 @@ func (d *browserDOM) showConfirmDialog(message string, onConfirm func()) bool {
 	overlay.Call("addEventListener", "click", backdropFn)
 	d.activeConfirmCleanup = cleanup
 	body.Call("appendChild", overlay)
+	d.target.Set("inert", true)
 	confirmButton.Call("focus")
 	return true
 }
@@ -676,6 +1286,21 @@ func (d *browserDOM) handleKeyboard(event js.Value) {
 	if d == nil || !d.target.Truthy() || !event.Truthy() {
 		return
 	}
+	if d.activeConfirmCleanup != nil {
+		// The confirm dialog owns the keyboard while it is open.
+		return
+	}
+	if isPaletteShortcut(event) {
+		event.Call("preventDefault")
+		if d.actionHandler != nil && !d.paletteOpen {
+			d.actionHandler(DOMAction{Action: paletteActionOpen})
+		}
+		return
+	}
+	if d.isConfigRoute() {
+		d.handleConfigKeyboard(event)
+		return
+	}
 	if d.isHistoryRoute() {
 		d.handleHistoryKeyboard(event)
 		return
@@ -691,7 +1316,18 @@ func (d *browserDOM) handleHistoryKeyboard(event js.Value) {
 	}
 	key := strings.ToLower(event.Get("key").String())
 	target := event.Get("target")
-	if isEditableTarget(target) && key != "escape" {
+	if key == "arrowdown" && isHistorySearchInput(target) {
+		// Leave the search field for the results, like a command palette.
+		event.Call("preventDefault")
+		target.Call("blur")
+		d.focusHistoryRow(1)
+		return
+	}
+	if key == "escape" && isTextEntry(target) {
+		target.Call("blur")
+		return
+	}
+	if !navigableTarget(target) || hasModifier(event) {
 		return
 	}
 
@@ -708,30 +1344,57 @@ func (d *browserDOM) handleHistoryKeyboard(event js.Value) {
 		event.Call("preventDefault")
 		d.focusHistoryRow(-1)
 	case "enter":
-		if row := d.activeHistoryRow(); row.Truthy() {
-			event.Call("preventDefault")
-			if link := row.Call("querySelector", ".sv-history-open"); link.Truthy() {
-				link.Call("click")
-			}
+		if !isActivatable(target) { // a focused link or button handles Enter natively
+			clickInRow(event, d.activeHistoryRow(), ".sv-history-open")
 		}
 	case "d", "delete", "backspace":
-		// Delete the focused row through the same delegated click path as pointer users,
-		// including the data-sv-confirm guard on the delete button.
-		if row := d.activeHistoryRow(); row.Truthy() {
-			event.Call("preventDefault")
-			if button := row.Call("querySelector", `[data-sv-action="history.deleteEntry"]`); button.Truthy() {
-				button.Call("click")
-			}
-		}
-	case "escape":
-		if target.Truthy() && isEditableTarget(target) {
-			target.Call("blur")
-		}
+		// Same delegated click path as pointer users, including the
+		// data-sv-confirm guard on the delete button.
+		clickInRow(event, d.activeHistoryRow(), `[data-sv-action="history.deleteEntry"]`)
+	}
+}
+
+// clickInRow clicks selector inside row, through the same delegated path
+// as pointer users.
+func clickInRow(event, row js.Value, selector string) {
+	if !row.Truthy() {
+		return
+	}
+	if element := row.Call("querySelector", selector); element.Truthy() {
+		event.Call("preventDefault")
+		element.Call("click")
 	}
 }
 
 func (d *browserDOM) isHistoryRoute() bool {
 	return d.target.Call("querySelector", `[data-route="history"]`).Truthy()
+}
+
+func (d *browserDOM) isConfigRoute() bool {
+	return d.target.Call("querySelector", "[data-sv-config-form]").Truthy()
+}
+
+// handleConfigKeyboard saves with Ctrl+S and keeps Enter in the keybinding
+// filter from submitting the settings form.
+func (d *browserDOM) handleConfigKeyboard(event js.Value) {
+	key := strings.ToLower(event.Get("key").String())
+	ctrl := event.Get("ctrlKey").Bool() || event.Get("metaKey").Bool()
+	if ctrl && key == "s" && !event.Get("altKey").Bool() && !event.Get("shiftKey").Bool() {
+		event.Call("preventDefault")
+		d.submitConfigForm()
+		return
+	}
+	target := event.Get("target")
+	if key == "enter" && target.Truthy() && target.Get("matches").Truthy() && target.Call("matches", "[data-sv-keybinding-filter]").Bool() {
+		event.Call("preventDefault")
+	}
+}
+
+func (d *browserDOM) submitConfigForm() {
+	form := d.target.Call("querySelector", "[data-sv-config-form]")
+	if form.Truthy() && form.Get("requestSubmit").Type() == js.TypeFunction {
+		form.Call("requestSubmit")
+	}
 }
 
 func (d *browserDOM) isFavoritesRoute() bool {
@@ -741,11 +1404,27 @@ func (d *browserDOM) isFavoritesRoute() bool {
 func (d *browserDOM) handleFavoritesKeyboard(event js.Value) {
 	key := strings.ToLower(event.Get("key").String())
 	target := event.Get("target")
-	if isEditableTarget(target) && key != "escape" {
+	if key == "arrowdown" && target.Truthy() && target.Call("matches", "[data-sv-favorite-filter]").Bool() {
+		event.Call("preventDefault")
+		d.focusFavoriteRow(1)
+		return
+	}
+	if !navigableTarget(target) || hasModifier(event) {
 		return
 	}
 
 	switch key {
+	case "/":
+		if input := d.target.Call("querySelector", "[data-sv-favorite-filter]"); input.Truthy() {
+			event.Call("preventDefault")
+			input.Call("focus")
+			input.Call("select")
+		}
+	case "n":
+		if input := d.target.Call("querySelector", "[data-sv-favorite-add-url]"); input.Truthy() {
+			event.Call("preventDefault")
+			input.Call("focus")
+		}
 	case "j", "arrowdown":
 		event.Call("preventDefault")
 		d.focusFavoriteRow(1)
@@ -753,92 +1432,158 @@ func (d *browserDOM) handleFavoritesKeyboard(event js.Value) {
 		event.Call("preventDefault")
 		d.focusFavoriteRow(-1)
 	case "enter":
-		if row := d.activeFavoriteRow(); row.Truthy() {
-			event.Call("preventDefault")
-			if link := row.Call("querySelector", ".sv-favorite-open"); link.Truthy() {
-				link.Call("click")
-			}
+		if !isActivatable(target) {
+			clickInRow(event, d.activeFavoriteRow(), ".sv-favorite-open")
 		}
 	case "e":
-		if row := d.activeFavoriteRow(); row.Truthy() {
-			event.Call("preventDefault")
-			if input := row.Call("querySelector", `[name="title"]`); input.Truthy() {
-				input.Call("focus")
-			}
-		}
+		clickInRow(event, d.activeFavoriteRow(), "[data-sv-favorite-edit]")
 	case "d", "delete", "backspace":
-		if row := d.activeFavoriteRow(); row.Truthy() {
-			event.Call("preventDefault")
-			if button := row.Call("querySelector", `[data-sv-action="favorite.delete"]`); button.Truthy() {
-				button.Call("click")
-			}
-		}
-	case "escape":
-		if target.Truthy() && isEditableTarget(target) {
-			target.Call("blur")
-		}
+		clickInRow(event, d.activeFavoriteRow(), `[data-sv-action="favorite.delete"]`)
 	}
 }
 
-func isEditableTarget(target js.Value) bool {
-	if !target.Truthy() {
+// navigableTarget reports whether single-key list shortcuts may run with
+// focus on target: not in a text field, and not inside a form, panel or
+// popover, where arrows and letters belong to the controls.
+func navigableTarget(target js.Value) bool {
+	if isTextEntry(target) {
 		return false
 	}
-	tag := strings.ToLower(target.Get("tagName").String())
-	role := strings.ToLower(target.Get("role").String())
-	return tag == "input" || tag == "textarea" || tag == "select" || tag == "button" ||
-		(tag == "a" && target.Get("href").String() != "") || role == "button" || role == "link" ||
-		target.Get("isContentEditable").Bool()
+	if !target.Truthy() || target.Get("closest").Type() != js.TypeFunction {
+		return true
+	}
+	return !target.Call("closest", "form, [popover], [data-sv-favorite-panel], [role=radiogroup]").Truthy()
+}
+
+// isTextEntry reports fields where letters are typed rather than shortcuts.
+func isTextEntry(target js.Value) bool {
+	if !target.Truthy() || target.Get("matches").Type() != js.TypeFunction {
+		return false
+	}
+	return target.Call("matches", textEntrySelector).Bool() || target.Get("isContentEditable").Bool()
+}
+
+const textEntrySelector = "textarea, select, " +
+	"input:not([type=button]):not([type=submit]):not([type=reset]):not([type=checkbox]):not([type=radio]):not([type=color]):not([type=range])"
+
+// isActivatable reports elements that handle Enter themselves.
+func isActivatable(target js.Value) bool {
+	return target.Truthy() && target.Get("matches").Type() == js.TypeFunction &&
+		target.Call("matches", "a[href], button, summary, [role=button], input").Bool()
+}
+
+func hasModifier(event js.Value) bool {
+	return event.Get("ctrlKey").Bool() || event.Get("metaKey").Bool() || event.Get("altKey").Bool()
+}
+
+func activeElement() js.Value {
+	return js.Global().Get("document").Get("activeElement")
+}
+
+func isHistorySearchInput(target js.Value) bool {
+	return target.Truthy() && target.Get("matches").Type() == js.TypeFunction &&
+		target.Call("matches", "[data-sv-history-search]").Bool()
+}
+
+// Keyboard row navigation: the active index lives in the mount's dataset.
+const (
+	historyRowSelector  = "[data-sv-history-row]"
+	favoriteRowSelector = "[data-sv-favorite-row]:not([hidden])"
+	historyIndexKey     = "svActiveHistoryIndex"
+	favoriteIndexKey    = "svActiveFavoriteIndex"
+)
+
+// focusRowAt focuses the row at index, clamped to the last row.
+func (d *browserDOM) focusRowAt(selector, datasetKey string, index int) {
+	d.target.Get("dataset").Set(datasetKey, strconv.Itoa(index-1))
+	d.focusRow(selector, datasetKey, 1)
 }
 
 func (d *browserDOM) focusHistoryRow(delta int) {
-	d.focusRow("[data-sv-history-row]", "svActiveHistoryIndex", delta)
+	d.focusRow(historyRowSelector, historyIndexKey, delta)
 }
 
 func (d *browserDOM) activeHistoryRow() js.Value {
-	return d.activeRow("[data-sv-history-row]", "svActiveHistoryIndex")
+	return d.activeRow(historyRowSelector, historyIndexKey)
 }
 
 func (d *browserDOM) focusFavoriteRow(delta int) {
-	d.focusRow("[data-sv-favorite-row]", "svActiveFavoriteIndex", delta)
+	d.focusRow(favoriteRowSelector, favoriteIndexKey, delta)
 }
 
 func (d *browserDOM) activeFavoriteRow() js.Value {
-	return d.activeRow("[data-sv-favorite-row]", "svActiveFavoriteIndex")
+	return d.activeRow(favoriteRowSelector, favoriteIndexKey)
 }
 
+// focusRow moves the highlight by delta and gives real focus to the row's
+// main link, so screen readers follow and Tab continues from there.
 func (d *browserDOM) focusRow(selector, datasetKey string, delta int) {
 	rows := d.target.Call("querySelectorAll", selector)
 	length := rows.Get("length").Int()
-	if length == 0 {
+	if length <= 0 {
 		return
 	}
-	idx := d.activeIndex(datasetKey)
+	idx := d.currentRowIndex(rows, selector, datasetKey)
 	if idx < 0 {
 		idx = 0
 	} else {
 		idx += delta
 	}
-	if idx < 0 {
-		idx = 0
-	}
-	if idx >= length {
-		idx = length - 1
-	}
-	for i := 0; i < length; i++ {
-		rows.Index(i).Get("classList").Call("remove", "sv-focused")
+	idx = max(0, min(idx, length-1))
+	if previous := d.target.Call("querySelector", ".sv-focused"); previous.Truthy() {
+		previous.Get("classList").Call("remove", "sv-focused")
 	}
 	row := rows.Index(idx)
 	row.Get("classList").Call("add", "sv-focused")
 	d.target.Get("dataset").Set(datasetKey, strconv.Itoa(idx))
+	if link := row.Call("querySelector", "a.sv-row-title"); link.Truthy() {
+		link.Call("focus", map[string]any{"preventScroll": true})
+	}
 	row.Call("scrollIntoView", map[string]any{"block": "nearest"})
 }
 
+// currentRowIndex prefers the row holding focus (the user may have tabbed
+// there) over the stored index.
+func (d *browserDOM) currentRowIndex(rows js.Value, selector, datasetKey string) int {
+	active := activeElement()
+	if row := d.rowOf(selector, active); row.Truthy() {
+		return nodeIndex(rows, row)
+	}
+	return d.activeIndex(datasetKey)
+}
+
+func (d *browserDOM) rowIndex(selector string, row js.Value) int {
+	return nodeIndex(d.target.Call("querySelectorAll", selector), row)
+}
+
+// nodeIndex is Array.prototype.indexOf over a NodeList.
+func nodeIndex(nodes, node js.Value) int {
+	return js.Global().Get("Array").Get("prototype").Get("indexOf").Call("call", nodes, node).Int()
+}
+
+// rowOf is the row (matching selector) inside the mount that holds element.
+func (d *browserDOM) rowOf(selector string, element js.Value) js.Value {
+	if !element.Truthy() || element.Get("closest").Type() != js.TypeFunction {
+		return js.Value{}
+	}
+	row := element.Call("closest", selector)
+	if !row.Truthy() || !d.target.Call("contains", row).Bool() {
+		return js.Value{}
+	}
+	return row
+}
+
+// activeRow is the row keyboard actions apply to: the row holding focus,
+// else (focus on the page itself) the row j/k last highlighted.
 func (d *browserDOM) activeRow(selector, datasetKey string) js.Value {
 	rows := d.target.Call("querySelectorAll", selector)
 	length := rows.Get("length").Int()
 	if length <= 0 {
 		return js.Value{}
+	}
+	active := activeElement()
+	if active.Truthy() && !active.Equal(d.document.Get("body")) {
+		return d.rowOf(selector, active)
 	}
 	idx := d.activeIndex(datasetKey)
 	if idx < 0 || idx >= length {

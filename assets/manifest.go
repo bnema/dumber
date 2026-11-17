@@ -28,7 +28,7 @@ const ManifestName = "asset-manifest.json"
 
 // ManifestFiles lists every served uncompressed asset pinned by the
 // manifest, in canonical order.
-var ManifestFiles = []string{"systemviews.css", "systemviews.wasm", "wasm_exec.js"}
+var ManifestFiles = []string{"systemviews.css", "systemviews.js", "systemviews.wasm", "wasm_exec.js"}
 
 // FileEntry pins one asset's content identity.
 type FileEntry struct {

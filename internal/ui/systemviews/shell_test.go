@@ -24,7 +24,7 @@ func TestRenderAppFrame_ReturnsFragment(t *testing.T) {
 	assert.NotContains(t, out, "<body")
 
 	// Root div carries theme class.
-	assert.Contains(t, out, `class="sv-app sv-dark"`)
+	assert.Contains(t, out, `class="sv-app sv-style-command sv-dark"`)
 
 	// Route and document title are on the root element.
 	assert.Contains(t, out, `data-route="history"`)
@@ -51,7 +51,7 @@ func TestRenderAppFrame_DefaultThemeClass(t *testing.T) {
 	// Empty theme — should still get sv-app with sv-dark default.
 	out := renderAppFrame(page, shellTheme{})
 
-	assert.Contains(t, out, `class="sv-app sv-dark"`)
+	assert.Contains(t, out, `class="sv-app sv-style-command sv-dark"`)
 	assert.Contains(t, out, `data-route="favorites"`)
 	assert.Contains(t, out, `data-page-title="Favorites"`)
 }
@@ -88,26 +88,7 @@ func TestRenderAppFrame_InlineVarsApplied(t *testing.T) {
 	out := renderAppFrame(page, theme)
 
 	assert.Contains(t, out, `style="--sv-background: #fff;"`)
-	assert.Contains(t, out, `class="sv-app sv-light"`)
-}
-
-func TestListHTMLWrapsRows(t *testing.T) {
-	t.Parallel()
-
-	out := listHTML(`<li class="sv-list-row">entry</li>`, "Nothing here")
-
-	assert.Contains(t, out, `class="sv-list"`)
-	assert.Contains(t, out, `class="sv-list-row"`)
-	assert.Contains(t, out, "entry")
-}
-
-func TestListHTMLEmptyState(t *testing.T) {
-	t.Parallel()
-
-	out := listHTML("", "Nothing here")
-
-	assert.Contains(t, out, `class="sv-empty"`)
-	assert.Contains(t, out, "Nothing here")
+	assert.Contains(t, out, `class="sv-app sv-style-command sv-light"`)
 }
 
 func TestLinkHTMLSanitizesHref(t *testing.T) {
@@ -156,15 +137,6 @@ func TestErrorStateHTML(t *testing.T) {
 	assert.Contains(t, out, `class="sv-error"`)
 	assert.Contains(t, out, `role="alert"`)
 	assert.Contains(t, out, "boom")
-}
-
-func TestSectionHTML(t *testing.T) {
-	t.Parallel()
-
-	out := sectionHTML("test-section", "Test Title", "<p>inner</p>")
-	assert.Contains(t, out, `class="sv-section test-section"`)
-	assert.Contains(t, out, "Test Title")
-	assert.Contains(t, out, "<p>inner</p>")
 }
 
 func TestEmptyStateHTML(t *testing.T) {

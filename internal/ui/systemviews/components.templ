@@ -8,29 +8,24 @@ templ appFrameComponent(page renderedPage, theme shellTheme, body templ.Componen
 	>
 		<div class="sv-shell">
 			if page.subtitle != "" {
-				<h1 class="sv-title">
-					{ page.subtitle }
-					if page.subtitleDetail != "" {
-						<span class="sv-title-detail">{ page.subtitleDetail }</span>
-					}
-				</h1>
+				<div class="sv-page-header">
+					<h1 class="sv-title">
+						{ page.subtitle }
+						if page.subtitleDetail != "" {
+							<span class="sv-title-detail">{ page.subtitleDetail }</span>
+						}
+					</h1>
+					<button type="button" class="sv-palette-trigger" data-sv-action="palette.open" aria-keyshortcuts="Control+K">
+						<span>Actions</span>
+						<kbd>Ctrl</kbd><kbd>K</kbd>
+					</button>
+				</div>
 			}
 			<div class="sv-content">
 				@body
 			</div>
 		</div>
 	</div>
-}
-
-templ Section(className string, title string) {
-	<section class={ sectionClass(className) }>
-		<h2>{ title }</h2>
-		{ children... }
-	</section>
-}
-
-templ Meta(text string) {
-	<p class="sv-meta">{ text }</p>
 }
 
 templ EmptyState(message string) {
@@ -44,33 +39,10 @@ templ LoadingPanel(message string) {
 	</div>
 }
 
-templ LoadingCard(label string) {
-	<div class="sv-stat-card sv-loading-card" role="status" aria-live="polite">
-		<span class="sv-spinner" aria-hidden="true"></span>
-		<span class="sv-stat-label">{ label }</span>
-	</div>
-}
-
 templ Alert(kind string, message string) {
 	if message != "" {
 		<div class={ alertClass(kind) } role={ alertRole(kind) }>{ message }</div>
 	}
-}
-
-templ List() {
-	<ul class="sv-list">
-		{ children... }
-	</ul>
-}
-
-templ ListRow() {
-	<li class="sv-list-row">
-		{ children... }
-	</li>
-}
-
-templ Button(label string, action string, classes string, attrs templ.Attributes, disabled bool) {
-	<button type="button" class={ buttonClass(classes) } data-sv-action={ action } disabled?={ disabled } { attrs... }>{ label }</button>
 }
 
 templ KeyList(keys []string) {

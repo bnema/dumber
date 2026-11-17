@@ -54,8 +54,8 @@ func TestNewBridgeApp_UsesCurrentConfigForNonConfigRoutes(t *testing.T) {
 	require.Eventually(t, bridge.calledHistory.Load, time.Second, 10*time.Millisecond)
 	assert.True(t, bridge.calledConfig.Load())
 	assert.False(t, bridge.calledKeybindings.Load())
-	html := receiveMountContaining(t, dom.mounts, `class="sv-app sv-dark"`, `--sv-background: #111111;`)
-	assert.Contains(t, html, `class="sv-app sv-dark"`)
+	html := receiveMountContaining(t, dom.mounts, `class="sv-app sv-style-command sv-dark"`, `--sv-background: #111111;`)
+	assert.Contains(t, html, `class="sv-app sv-style-command sv-dark"`)
 	assert.Contains(t, html, `--sv-background: #111111;`)
 }
 

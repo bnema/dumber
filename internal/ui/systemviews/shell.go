@@ -40,20 +40,16 @@ func pageDocumentTitle(page renderedPage) string {
 	return routeSubtitle(page.route)
 }
 
+// shellStyleClass selects the chrome variant, matching the native overlays'
+// omnibox.style. Only the default "command" style exists for system views.
+const shellStyleClass = "sv-style-command"
+
 func appRootClass(theme shellTheme) string {
 	themeClass := theme.RootClass
 	if themeClass == "" {
 		themeClass = "sv-dark"
 	}
-	return "sv-app " + themeClass
-}
-
-func sectionClass(className string) string {
-	classes := "sv-section"
-	if strings.TrimSpace(className) != "" {
-		classes += " " + strings.TrimSpace(className)
-	}
-	return classes
+	return "sv-app " + shellStyleClass + " " + themeClass
 }
 
 func alertClass(kind string) string {
@@ -75,23 +71,6 @@ func alertRole(kind string) string {
 	return "status"
 }
 
-func buttonClass(extra string) string {
-	extra = strings.TrimSpace(extra)
-	if extra == "" {
-		return "sv-button"
-	}
-	return "sv-button " + extra
-}
-
-func listHTML(rows, emptyMessage string) string {
-	if strings.TrimSpace(rows) == "" {
-		return emptyStateHTML(emptyMessage)
-	}
-
-	return fmt.Sprintf(`<ul class="sv-list">%s</ul>`, rows)
-}
-
-// listRowHTML inserts trusted, pre-sanitized raw HTML inside a list item.
 func linkHTML(href, label string) string {
 	return fmt.Sprintf(`<a class=%q href=%q>%s</a>`, "sv-link", html.EscapeString(sanitizeHref(href)), html.EscapeString(label))
 }
@@ -113,16 +92,6 @@ func kvHTML(rows []kvPair) string {
 
 func kvRowHTML(label, value string) string {
 	return fmt.Sprintf(`<div class=%q><dt>%s</dt><dd>%s</dd></div>`, "sv-kv-row", html.EscapeString(label), html.EscapeString(value))
-}
-
-// sectionHTML wraps content in a styled section with a heading. inner is
-// passed through as raw HTML, so callers must provide trusted markup.
-func sectionHTML(class, title, inner string) string {
-	return fmt.Sprintf(`<section class=%q><h2>%s</h2>%s</section>`,
-		sectionClass(class),
-		html.EscapeString(title),
-		inner,
-	)
 }
 
 // emptyStateHTML returns a standard empty-state placeholder.

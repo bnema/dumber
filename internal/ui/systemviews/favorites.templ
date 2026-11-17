@@ -5,158 +5,271 @@ import (
 	"github.com/bnema/dumber/internal/domain/entity"
 )
 
+// FavoritesView is the favorites page: tag sidebar, add bar and list. The
+// alerts, sidebar and list are regions swapped in place by filters and
+// deferred deletes.
 templ FavoritesView(data favoritesRenderData) {
-	@Alert("success", data.Notice)
-	@Alert("error", data.Error)
-	@Section("sv-favorites-controls", "Manage favorites") {
-		@FavoritesControls(data)
-	}
-	@Section("sv-favorites-list", "Favorites") {
-		@Meta(favoritesSummary(data))
-		if len(data.Favorites) == 0 {
-			@EmptyState("No favorites")
-		} else {
-			<ul class="sv-list">
-				for _, favorite := range data.Favorites {
-					if favorite != nil {
-						@FavoriteItem(favorite, data.Tags)
-					}
-				}
-			</ul>
-		}
-	}
-	@Section("sv-tags-list", "Tags") {
-		@Meta(tagsSummary(data))
-		@TagCreateForm()
-		if len(data.Tags) == 0 {
-			@EmptyState("No tags")
-		} else {
-			<ul class="sv-list">
-				for _, tag := range data.Tags {
-					if tag != nil {
-						@TagItem(tag)
-					}
-				}
-			</ul>
-		}
-	}
-}
-
-templ FavoritesControls(data favoritesRenderData) {
-	<form class="sv-card-form" data-sv-action="favorite.create">
-		<label><span>URL</span><input name="url" type="url" placeholder="https://example.com" required/></label>
-		<label><span>Title</span><input name="title" type="text" placeholder="Optional title"/></label>
-		@FavoriteCreateTagPicker(data.Tags)
-		<button class="sv-button" type="submit">@ButtonIconLabel(iconPlus, "Add favorite")</button>
-	</form>
-	<div class="sv-filter-panel">
-		<div class="sv-button-row">
-			<span class="sv-meta">Tags</span>
-			<button type="button" class={ favoriteFilterClass(favoriteAllFilterActive(data)) } aria-pressed={ fmt.Sprintf("%t", favoriteAllFilterActive(data)) } data-sv-action="favorite.clearFilters">All</button>
-			<button type="button" class={ favoriteFilterClass(favoriteUntaggedFilterActive(data)) } aria-pressed={ fmt.Sprintf("%t", favoriteUntaggedFilterActive(data)) } data-sv-action="favorite.filterUntagged">Untagged</button>
-			for _, tag := range data.Tags {
-				if tag != nil {
-					<button type="button" class={ favoriteFilterClass(favoriteTagFilterActive(data, tag.ID)) } aria-pressed={ fmt.Sprintf("%t", favoriteTagFilterActive(data, tag.ID)) } data-sv-action="favorite.filterTag" data-tag-id={ fmt.Sprintf("%d", tag.ID) }>
-						<span class="sv-tag-dot" style={ "background:" + safeTagColor(tag.Color) }></span>{ tag.Name }
-					</button>
-				}
-			}
+	<div class="sv-favorites" data-sv-favorites>
+		<nav class="sv-config-nav sv-fav-nav" aria-label="Filter by tag">
+			<div class="sv-region" data-sv-region={ favoritesRegionNav }>
+				@FavoritesNav(data)
+			</div>
+			<button type="button" class="sv-fav-nav-new" popovertarget="sv-tag-new" style="anchor-name:--sv-tag-new">
+				@ButtonIconLabel(iconPlus, "New tag")
+			</button>
+			<div id="sv-tag-new" class="sv-popover" popover role="dialog" aria-labelledby="sv-tag-new-title" style="position-anchor:--sv-tag-new">
+				<h3 id="sv-tag-new-title" class="sv-popover-title">New tag</h3>
+				@TagForm(nil, data.Tags)
+			</div>
+		</nav>
+		<div class="sv-config-main sv-fav-main">
+			<div class="sv-region" data-sv-region={ favoritesRegionAlerts }>
+				@FavoritesAlerts(data)
+			</div>
+			<form id="sv-fav-add" class="sv-fav-add" data-sv-action="favorite.create" data-sv-favorite-create autocomplete="off">
+				<label class="sv-sr-only" for="sv-fav-add-url">URL</label>
+				<input id="sv-fav-add-url" class="sv-input" name="url" type="url" placeholder="Add a favorite: https://…" required data-sv-favorite-add-url/>
+				<label class="sv-sr-only" for="sv-fav-add-title">Title</label>
+				<input id="sv-fav-add-title" class="sv-input" name="title" type="text" placeholder="Title (optional)"/>
+				<button class="sv-button" type="submit">@ButtonIconLabel(iconPlus, "Add")</button>
+			</form>
+			<div class="sv-region" data-sv-region={ favoritesRegionList }>
+				@FavoritesList(data)
+			</div>
+			<p class="sv-meta sv-key-hints" aria-hidden="true">
+				<span><kbd>j</kbd>/<kbd>k</kbd> move</span>
+				<span><kbd>Enter</kbd> open</span>
+				<span><kbd>e</kbd> edit</span>
+				<span><kbd>d</kbd> delete</span>
+				<span><kbd>/</kbd> filter</span>
+				<span><kbd>Ctrl</kbd><kbd>K</kbd> actions</span>
+			</p>
 		</div>
 	</div>
-	<p class="sv-meta sv-key-hints">Keys: <kbd>j</kbd>/<kbd>k</kbd> move, <kbd>Enter</kbd> open, <kbd>e</kbd> edit title, <kbd>d</kbd> delete focused favorite.</p>
 }
 
-templ FavoriteCreateTagPicker(tags []*entity.Tag) {
-	if len(tags) > 0 {
-		<fieldset class="sv-tag-picker">
-			<legend>Tags</legend>
-			<div class="sv-tag-controls">
-				for _, tag := range tags {
-					if tag != nil {
-						<label class="sv-tag-toggle">
-							<input type="checkbox" name="tags" value={ fmt.Sprintf("%d", tag.ID) }/>
-							<span><span class="sv-tag-dot" style={ "background:" + safeTagColor(tag.Color) }></span>{ tag.Name }</span>
+templ FavoritesAlerts(data favoritesRenderData) {
+	@Alert("success", data.Notice)
+	@Alert("error", data.Error)
+}
+
+// FavoritesNav lists the filters: All, Untagged, then each tag with its
+// count and an edit popover. The popover is a sibling of the filter button
+// so clicks inside it never trigger the filter.
+templ FavoritesNav(data favoritesRenderData) {
+	<ul class="sv-fav-nav-list" role="list">
+		<li class="sv-fav-nav-item" data-sv-focus-key="filter-all" data-sv-focus-fallback>
+			@favoriteFilterButton("favorite.clearFilters", "", favoriteFilterActive(data, "all", 0), data.TotalCount) {
+				@Icon(iconStar)
+				<span class="sv-fav-nav-label">All</span>
+			}
+		</li>
+		<li class="sv-fav-nav-item" data-sv-focus-key="filter-untagged">
+			@favoriteFilterButton("favorite.filterUntagged", "", favoriteFilterActive(data, "untagged", 0), data.UntaggedCount) {
+				<span class="sv-tag-dot sv-tag-dot-empty" aria-hidden="true"></span>
+				<span class="sv-fav-nav-label">Untagged</span>
+			}
+		</li>
+		if len(data.Tags) > 0 {
+			<li class="sv-fav-nav-heading" aria-hidden="true">Tags</li>
+		}
+		for _, tag := range data.Tags {
+			<li class="sv-fav-nav-item" data-sv-undo-row data-sv-tag-item data-tag-id={ fmt.Sprintf("%d", tag.ID) } data-sv-focus-key={ tagDOMID(tag, "item") }>
+				@favoriteFilterButton("favorite.filterTag", fmt.Sprintf("%d", tag.ID), favoriteFilterActive(data, "tag", tag.ID), data.TagCounts[tag.ID]) {
+					<span class="sv-tag-dot" style={ tagDotStyle(tag.Color) } aria-hidden="true"></span>
+					<span class="sv-fav-nav-label">{ tag.Name }</span>
+				}
+				<button type="button" class="sv-icon-button sv-fav-nav-more" popovertarget={ tagDOMID(tag, "menu") } aria-label={ "Edit tag " + tag.Name } style={ "anchor-name:--" + tagDOMID(tag, "anchor") }>
+					@Icon(iconMore)
+				</button>
+				<div id={ tagDOMID(tag, "menu") } class="sv-popover" popover role="dialog" aria-label={ "Edit tag " + tag.Name } style={ "position-anchor:--" + tagDOMID(tag, "anchor") }>
+					@TagForm(tag, data.Tags)
+				</div>
+			</li>
+		}
+	</ul>
+}
+
+templ favoriteFilterButton(action string, tagID string, active bool, count int) {
+	<button type="button" class="sv-fav-nav-link" data-sv-action={ action }
+		if tagID != "" {
+			data-tag-id={ tagID }
+		}
+		aria-current={ ariaCurrent(active) }
+	>
+		{ children... }
+		<span class="sv-fav-nav-count">{ countLabel(count) }</span>
+	</button>
+}
+
+// TagForm creates a tag (tag == nil) or edits one: name, color swatches
+// and, for an existing tag, delete.
+templ TagForm(tag *entity.Tag, tags []*entity.Tag) {
+	{{ prefix := "sv-tag-new" }}
+	{{ current := nextTagColor(tags) }}
+	if tag != nil {
+		{{ prefix = tagDOMID(tag, "form") }}
+		{{ current = tag.Color }}
+	}
+	<form class="sv-tag-form" data-sv-action={ tagFormAction(tag) } data-sv-tag-form autocomplete="off">
+		if tag != nil {
+			<input type="hidden" name="id" value={ fmt.Sprintf("%d", tag.ID) }/>
+		}
+		<label class="sv-field-label" for={ prefix + "-name" }>Name</label>
+		<input id={ prefix + "-name" } class="sv-input" name="name" type="text" required maxlength="40" placeholder="e.g. work"
+			if tag != nil {
+				value={ tag.Name }
+			}
+		/>
+		<fieldset class="sv-swatches">
+			<legend class="sv-field-label">Color</legend>
+			for _, preset := range tagColorPresets {
+				<label class="sv-swatch" style={ tagDotStyle(preset.Value) } title={ preset.Name }>
+					<input type="radio" name="color" value={ preset.Value } checked?={ tagColorChecked(current, preset.Value) } aria-label={ preset.Name }/>
+				</label>
+			}
+			<label class="sv-swatch sv-swatch-custom" style={ tagDotStyle(tagCustomColor(current)) } title="Custom color">
+				<input type="radio" name="color" value={ tagCustomColor(current) } checked?={ !tagColorIsPreset(current) } aria-label="Custom color" data-sv-color-custom/>
+			</label>
+			<input class="sv-swatch-picker" type="color" value={ tagCustomColor(current) } aria-label="Pick a custom color" data-sv-color-picker/>
+			<span class="sv-swatch-note" aria-hidden="true">Custom</span>
+		</fieldset>
+		<div class="sv-tag-form-actions">
+			if tag != nil {
+				<button type="button" class="sv-text-button sv-text-button-danger" data-sv-action="tag.delete" data-id={ fmt.Sprintf("%d", tag.ID) } data-sv-confirm={ "Delete the tag “" + tag.Name + "”? Favorites keep their other tags." } data-sv-undoable>
+					@ButtonIconLabel(iconTrash, "Delete")
+				</button>
+			}
+			<button type="submit" class="sv-button">
+				if tag == nil {
+					Create tag
+				} else {
+					Save
+				}
+			</button>
+		</div>
+	</form>
+}
+
+templ FavoritesList(data favoritesRenderData) {
+	<div class="sv-fav-list-header">
+		<h2 class="sv-fav-heading">
+			if tag := activeFilterTag(data); tag != nil {
+				<span class="sv-tag-dot" style={ tagDotStyle(tag.Color) } aria-hidden="true"></span>
+			}
+			{ favoritesFilterLabel(data) }
+			<span class="sv-fav-heading-count">{ countLabel(len(data.Favorites)) }</span>
+		</h2>
+		if len(data.Favorites) > 0 {
+			<div class="sv-fav-filter">
+				@Icon(iconSearch)
+				<label class="sv-sr-only" for="sv-fav-filter">Filter favorites</label>
+				<input id="sv-fav-filter" class="sv-input" type="search" placeholder="Filter…" data-sv-favorite-filter aria-controls="sv-fav-list" aria-keyshortcuts="/"/>
+			</div>
+		}
+	</div>
+	if len(data.Favorites) == 0 {
+		<div class="sv-fav-empty">
+			<span class="sv-fav-empty-icon" aria-hidden="true">@Icon(iconStar)</span>
+			<p class="sv-fav-empty-title">{ favoritesEmptyMessage(data) }</p>
+			<p class="sv-meta">{ favoritesEmptyHint(data) }</p>
+		</div>
+	} else {
+		<ul id="sv-fav-list" class="sv-fav-list" role="list" aria-label={ favoritesFilterLabel(data) }>
+			for _, favorite := range data.Favorites {
+				@FavoriteItem(favorite, data)
+			}
+		</ul>
+		<p class="sv-fav-nomatch sv-meta" role="status" data-sv-favorite-nomatch hidden>No favorites match this filter.</p>
+	}
+	<input type="hidden" form="sv-fav-add" name="tags" value={ favoritesCreateTagValue(data) } data-sv-favorite-create-tags/>
+}
+
+templ FavoriteItem(favorite *entity.Favorite, data favoritesRenderData) {
+	<li class="sv-fav-item" data-sv-favorite-row data-sv-undo-row data-favorite-id={ fmt.Sprintf("%d", favorite.ID) } data-sv-search={ favoriteSearchText(favorite) } data-sv-focus-key={ favoriteDOMID(favorite, "item") }>
+		<div class="sv-row sv-fav-row">
+			{{ faviconURL := favoriteFaviconURL(favorite) }}
+			<span class={ historyFaviconClass(faviconURL) } aria-hidden="true">
+				<span class="sv-history-favicon-fallback">{ favoriteFaviconFallback(favorite) }</span>
+				if faviconURL != "" {
+					<img src={ templ.SafeURL(faviconURL) } alt="" width="16" height="16" loading="lazy" decoding="async" referrerpolicy="same-origin" onerror="this.parentElement.classList.remove('sv-history-favicon-has-image'); this.remove()"/>
+				}
+			</span>
+			<div class="sv-row-text">
+				<a class="sv-row-title sv-favorite-open" href={ templ.SafeURL(sanitizeHref(favorite.URL)) } title={ favorite.URL }>{ favoriteItemLabel(favorite) }</a>
+				<p class="sv-row-subtitle">{ favoriteDisplayURL(favorite) }</p>
+			</div>
+			<div class="sv-fav-row-meta">
+				{{ tags := favoriteTags(favorite, data.Tags) }}
+				if len(tags) > 0 {
+					<ul class="sv-tag-chips" role="list" aria-label="Tags">
+						for _, tag := range tags {
+							<li class="sv-tag-chip" style={ tagDotStyle(tag.Color) }>{ tag.Name }</li>
+						}
+					</ul>
+				}
+				if badge := shortcutBadge(favorite); badge != "" {
+					<kbd class="sv-fav-shortcut" title={ "Shortcut " + badge }><span class="sv-sr-only">Shortcut </span>{ badge }</kbd>
+				}
+				<button type="button" class="sv-icon-button sv-row-action" aria-expanded="false" aria-controls={ favoriteDOMID(favorite, "panel") } aria-keyshortcuts="e" data-sv-favorite-edit>
+					@IconOnly(iconPencil, "Edit "+favoriteItemLabel(favorite))
+				</button>
+				<button type="button" class="sv-icon-button sv-row-action sv-row-action-danger" data-sv-action="favorite.delete" data-id={ fmt.Sprintf("%d", favorite.ID) } data-sv-confirm="Delete this favorite?" data-sv-undoable aria-keyshortcuts="d">
+					@IconOnly(iconTrash, "Delete "+favoriteItemLabel(favorite))
+				</button>
+			</div>
+		</div>
+		<div id={ favoriteDOMID(favorite, "panel") } class="sv-fav-panel" role="region" aria-label={ "Edit " + favoriteItemLabel(favorite) } hidden data-sv-favorite-panel>
+			@FavoriteEditForm(favorite, data)
+		</div>
+	</li>
+}
+
+templ FavoriteEditForm(favorite *entity.Favorite, data favoritesRenderData) {
+	<form class="sv-fav-form" data-sv-action="favorite.save" data-sv-favorite-form autocomplete="off">
+		<input type="hidden" name="id" value={ fmt.Sprintf("%d", favorite.ID) }/>
+		@SettingRow(favoriteDOMID(favorite, "title"), "Title", "") {
+			<input id={ favoriteDOMID(favorite, "title") } class="sv-input sv-input-wide" name="title" type="text" value={ favoriteItemLabel(favorite) } required/>
+		}
+		@SettingRow(favoriteDOMID(favorite, "icon"), "Icon URL", "Optional custom icon for this favorite.") {
+			<input id={ favoriteDOMID(favorite, "icon") } class="sv-input sv-input-wide" name="favicon_url" type="url" value={ favorite.FaviconURL } placeholder="https://…/favicon.png"/>
+		}
+		@SettingGroupRow(favoriteDOMID(favorite, "shortcut-label"), "Shortcut", "Quick-access number, 1 to 9.") {
+			<div class="sv-segmented sv-segmented-compact" role="radiogroup" aria-labelledby={ favoriteDOMID(favorite, "shortcut-label") }>
+				for _, value := range shortcutOptions() {
+					{{ note := shortcutOwnerNote(data, favorite, value) }}
+					<label class="sv-segment" title={ note } data-sv-taken?={ note != "" }>
+						<input type="radio" name="shortcut_key" value={ shortcutValue(value) } checked?={ shortcutChecked(favorite.ShortcutKey, value) }
+							if note != "" {
+								aria-description={ note }
+							}
+						/>
+						<span>{ shortcutOptionLabel(value) }</span>
+					</label>
+				}
+			</div>
+		}
+		@SettingGroupRow(favoriteDOMID(favorite, "tags-label"), "Tags", "") {
+			if len(data.Tags) == 0 {
+				<p class="sv-meta">No tags yet. Create one with “New tag” in the sidebar.</p>
+			} else {
+				<input type="hidden" name="tags" value=""/>
+				<div class="sv-tag-toggles" role="group" aria-labelledby={ favoriteDOMID(favorite, "tags-label") }>
+					for _, tag := range data.Tags {
+						<label class="sv-tag-toggle" style={ tagDotStyle(tag.Color) }>
+							<input type="checkbox" name="tags" value={ fmt.Sprintf("%d", tag.ID) } checked?={ favorite.HasTag(tag.ID) }/>
+							<span class="sv-tag-dot" aria-hidden="true"></span>
+							<span>{ tag.Name }</span>
 						</label>
 					}
-				}
-			</div>
-		</fieldset>
-	}
-}
-
-templ FavoriteItem(favorite *entity.Favorite, tags []*entity.Tag) {
-	<li class="sv-list-row">
-		<article class="sv-favorite-item" data-sv-favorite-row data-favorite-id={ fmt.Sprintf("%d", favorite.ID) }>
-			<div class="sv-favorite-header">
-				<div>
-					<a class="sv-link sv-favorite-open" href={ templ.SafeURL(sanitizeHref(favorite.URL)) }>{ favoriteItemLabel(favorite) }</a>
-					<p class="sv-history-url">{ favorite.URL }</p>
-					if favoriteMetaText(favorite) != "" {
-						<p class="sv-meta">{ favoriteMetaText(favorite) }</p>
-					}
 				</div>
-				<div class="sv-history-row-actions">
-					<a class="sv-button sv-button-secondary" href={ templ.SafeURL(sanitizeHref(favorite.URL)) }>@ButtonIconLabel(iconExternal, "Open")</a>
-					<button type="button" class="sv-button sv-button-secondary sv-button-danger sv-button-icon-only" data-sv-action="favorite.delete" data-id={ fmt.Sprintf("%d", favorite.ID) } data-sv-confirm="Delete this favorite?" aria-label="Delete this favorite">@IconOnly(iconTrash, "Delete this favorite")</button>
-				</div>
-			</div>
-			@FavoriteEditForm(favorite)
-			@FavoriteTagControls(favorite, tags)
-		</article>
-	</li>
-}
-
-templ FavoriteEditForm(favorite *entity.Favorite) {
-	<form class="sv-inline-form" data-sv-action="favorite.update">
-		<input type="hidden" name="id" value={ fmt.Sprintf("%d", favorite.ID) }/>
-		<label><span>Title</span><input name="title" type="text" value={ favorite.Title }/></label>
-		<label><span>Favicon</span><input name="favicon_url" type="url" value={ favorite.FaviconURL }/></label>
-		@ShortcutSelect(favorite.ShortcutKey)
-		<button class="sv-button sv-button-secondary" type="submit">@ButtonIconLabel(iconSave, "Save")</button>
-	</form>
-}
-
-templ FavoriteTagControls(favorite *entity.Favorite, tags []*entity.Tag) {
-	if len(tags) > 0 {
-		<div class="sv-tag-controls">
-			<span class="sv-meta">Tags</span>
-			for _, tag := range tags {
-				if tag != nil {
-					<button type="button" class={ favoriteTagButtonClass(favorite, tag) } data-sv-action={ favoriteTagButtonAction(favorite, tag) } data-favorite-id={ fmt.Sprintf("%d", favorite.ID) } data-tag-id={ fmt.Sprintf("%d", tag.ID) }>
-						<span class="sv-tag-dot" style={ "background:" + safeTagColor(tag.Color) }></span>{ favoriteTagButtonLabel(favorite, tag) }
-					</button>
-				}
 			}
-		</div>
-	}
-}
-
-templ TagCreateForm() {
-	<form class="sv-inline-form" data-sv-action="tag.create">
-		<label><span>Name</span><input name="name" type="text" required/></label>
-		<label><span>Color</span><input name="color" type="text" placeholder="#808080"/></label>
-		<button class="sv-button sv-button-secondary" type="submit">@ButtonIconLabel(iconTag, "Create tag")</button>
-	</form>
-}
-
-templ TagItem(tag *entity.Tag) {
-	<li class="sv-list-row">
-		<form class="sv-inline-form" data-sv-action="tag.update">
-			<input type="hidden" name="id" value={ fmt.Sprintf("%d", tag.ID) }/>
-			<span class="sv-tag-dot" style={ "background:" + safeTagColor(tag.Color) }></span>
-			<label><span>Name</span><input name="name" type="text" value={ tag.Name } required/></label>
-			<label><span>Color</span><input name="color" type="text" value={ tag.Color }/></label>
-			<button class="sv-button sv-button-secondary" type="submit">@ButtonIconLabel(iconSave, "Save")</button>
-			<button type="button" class="sv-button sv-button-secondary sv-button-danger sv-button-icon-only" data-sv-action="tag.delete" data-id={ fmt.Sprintf("%d", tag.ID) } data-sv-confirm="Delete this tag?" aria-label="Delete this tag">@IconOnly(iconTrash, "Delete this tag")</button>
-		</form>
-	</li>
-}
-
-templ ShortcutSelect(selected *int) {
-	<label><span>Shortcut</span><select name="shortcut_key">
-		<option value="">None</option>
-		for i := 1; i <= 9; i++ {
-			<option value={ fmt.Sprintf("%d", i) } selected?={ shortcutSelected(selected, i) }>{ fmt.Sprintf("%d", i) }</option>
 		}
-	</select></label>
+		<div class="sv-fav-form-actions">
+			<span class="sv-meta" data-sv-favorite-dirty aria-live="polite"></span>
+			<button type="button" class="sv-button sv-button-secondary" data-sv-favorite-close>Close</button>
+			<button type="reset" class="sv-button sv-button-secondary">Discard</button>
+			<button type="submit" class="sv-button">@ButtonIconLabel(iconSave, "Save")</button>
+		</div>
+	</form>
 }

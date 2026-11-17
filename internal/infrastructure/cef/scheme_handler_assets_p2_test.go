@@ -78,6 +78,7 @@ func testManifestBytes(t *testing.T) []byte {
 	t.Helper()
 	data, err := assets.Manifest{Version: assets.ManifestVersion, Files: map[string]assets.FileEntry{
 		"systemviews.css":  {SHA256: strings.Repeat("a", 64), Size: 1},
+		"systemviews.js":   {SHA256: strings.Repeat("d", 64), Size: 4},
 		"systemviews.wasm": {SHA256: strings.Repeat("b", 64), Size: 2},
 		"wasm_exec.js":     {SHA256: strings.Repeat("c", 64), Size: 3},
 	}}.Bytes()

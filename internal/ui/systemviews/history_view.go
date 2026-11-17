@@ -3,6 +3,7 @@ package systemviews
 import (
 	"fmt"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -11,6 +12,25 @@ import (
 )
 
 const historyURLDisplayMaxRunes = 180
+
+// Named history regions that live updates replace in place.
+const (
+	historyRegionAlerts   = "history-alerts"
+	historyRegionFilters  = "history-filters"
+	historyRegionDomains  = "history-domains"
+	historyRegionTimeline = "history-timeline"
+)
+
+// historyLiveRegions renders every region a live search can change. The
+// search form is never part of a region, so typing keeps focus and caret.
+func historyLiveRegions(data historyRenderData) []DOMRegion {
+	return []DOMRegion{
+		{Name: historyRegionAlerts, HTML: mustRenderComponent(HistoryAlerts(data))},
+		{Name: historyRegionFilters, HTML: mustRenderComponent(HistoryFilters(data))},
+		{Name: historyRegionDomains, HTML: mustRenderComponent(HistoryDomains(data))},
+		{Name: historyRegionTimeline, HTML: mustRenderComponent(HistoryTimeline(data))},
+	}
+}
 
 type historyRenderData struct {
 	Entries             []*entity.HistoryEntry
@@ -52,20 +72,19 @@ func historyTimelineAppendHTML(data historyRenderData) string {
 }
 
 func historyDocumentTitle(data historyRenderData) string {
-	return "History " + historyTitleDetail(data)
+	return "History · " + historyTitleDetail(data)
 }
 
 func historyTitleDetail(data historyRenderData) string {
 	if data.Loading {
-		return "- Loading"
+		return "Loading…"
 	}
 	entries, visits, days := historySummaryValues(data)
-	return fmt.Sprintf(
-		"- %s, %s, %s",
+	return strings.Join([]string{
 		historyCountLabel(entries, "entry", "entries"),
 		historyCountLabel(visits, "visit", "visits"),
 		historyCountLabel(days, "day", "days"),
-	)
+	}, " · ")
 }
 
 func historyCountLabel(count int64, singular, plural string) string {
@@ -73,7 +92,24 @@ func historyCountLabel(count int64, singular, plural string) string {
 	if count == 1 {
 		label = singular
 	}
-	return fmt.Sprintf("%d %s", count, label)
+	return groupThousands(count) + " " + label
+}
+
+// groupThousands formats 40947 as "40,947" so large counts stay scannable.
+func groupThousands(count int64) string {
+	digits := strconv.FormatInt(count, 10)
+	sign := ""
+	if strings.HasPrefix(digits, "-") {
+		sign, digits = "-", digits[1:]
+	}
+	var b strings.Builder
+	for i, r := range digits {
+		if i > 0 && (len(digits)-i)%3 == 0 {
+			b.WriteByte(',')
+		}
+		b.WriteRune(r)
+	}
+	return sign + b.String()
 }
 
 var historyCleanupRanges = []historyCleanupItem{
@@ -116,7 +152,7 @@ func historyShowingLabel(data historyRenderData) string {
 		return fmt.Sprintf("Showing %d matching item%s", count, pluralSuffix(count))
 	}
 	if strings.TrimSpace(data.DomainFilter) != "" {
-		return fmt.Sprintf("Loaded %d domain item%s", count, pluralSuffix(count))
+		return fmt.Sprintf("Showing %d visit%s", count, pluralSuffix(count))
 	}
 	return fmt.Sprintf("Loaded %d item%s", count, pluralSuffix(count))
 }
@@ -212,7 +248,7 @@ func historyDateKeyAndLabel(ts, now time.Time) (string, string) {
 	case entryStart.Equal(yesterdayStart):
 		return dateKey, "Yesterday"
 	default:
-		return dateKey, local.Format("Mon Jan 2")
+		return dateKey, local.Format("Mon 2 Jan")
 	}
 }
 
@@ -272,13 +308,6 @@ func historyDomainDisplayLabel(domain *entity.DomainStat) string {
 	return displayHistoryDomain(domain.Domain)
 }
 
-func formatHistoryTime(ts time.Time) string {
-	if ts.IsZero() {
-		return ""
-	}
-	return ts.Local().Format("15:04")
-}
-
 func historyItemLabel(entry *entity.HistoryEntry) string {
 	if entry == nil {
 		return ""
@@ -297,11 +326,23 @@ func historyItemURL(entry *entity.HistoryEntry) string {
 	if entry == nil {
 		return ""
 	}
-	return truncateHistoryURL(entry.URL)
+	return truncateHistoryURL(stripURLScheme(entry.URL))
+}
+
+func stripURLScheme(raw string) string {
+	raw = strings.TrimSpace(raw)
+	for _, prefix := range []string{"https://", "http://"} {
+		if strings.HasPrefix(strings.ToLower(raw), prefix) {
+			raw = raw[len(prefix):]
+			break
+		}
+	}
+	return strings.TrimSuffix(raw, "/")
 }
 
 func historyItemFaviconURL(entry *entity.HistoryEntry) string {
-	if entry == nil {
+	if entry == nil || browserurl.IsSystemviewPageURL(entry.URL) {
+		// Internal pages have no site favicon; never ask the resolver.
 		return ""
 	}
 	domain := browserurl.CanonicalDomain(entry.URL)
@@ -347,18 +388,61 @@ func truncateHistoryURL(raw string) string {
 	return string(runes[:historyURLDisplayMaxRunes-1]) + "…"
 }
 
-func historyItemMeta(entry *entity.HistoryEntry) string {
+// historyItemSubtitle shows where the page lives (URL without scheme) and how
+// often it was visited, e.g. "github.com/bnema/dumber · 12 visits".
+func historyItemSubtitle(entry *entity.HistoryEntry) string {
 	if entry == nil {
 		return ""
 	}
-	meta := []string{displayHistoryDomain(entry.URL)}
+	parts := []string{historyItemURL(entry)}
 	if entry.VisitCount > 1 {
-		meta = append(meta, fmt.Sprintf("%dx", entry.VisitCount))
+		parts = append(parts, fmt.Sprintf("%d visits", entry.VisitCount))
 	}
-	if !entry.LastVisited.IsZero() {
-		meta = append(meta, formatHistoryTime(entry.LastVisited))
+	return strings.Join(nonEmptyStrings(parts), " · ")
+}
+
+// historyItemTime is the row meta: relative for today's visits ("5m ago"),
+// clock time for older days, since the day heading already carries the date.
+func historyItemTime(entry *entity.HistoryEntry, now time.Time) string {
+	if entry == nil || entry.LastVisited.IsZero() {
+		return ""
 	}
-	return strings.Join(nonEmptyStrings(meta), " · ")
+	visited := entry.LastVisited.In(now.Location())
+	if visited.Format("2006-01-02") != now.Format("2006-01-02") {
+		return visited.Format("15:04")
+	}
+	elapsed := now.Sub(visited)
+	switch {
+	case elapsed < time.Minute:
+		return "just now"
+	case elapsed < time.Hour:
+		return fmt.Sprintf("%dm ago", int(elapsed/time.Minute))
+	default:
+		return fmt.Sprintf("%dh ago", int(elapsed/time.Hour))
+	}
+}
+
+func historyDomainIsActive(domainKey, filter string) bool {
+	filter = strings.TrimSpace(filter)
+	return filter != "" && strings.EqualFold(domainKey, filter)
+}
+
+func historyDomainChipClass(domainKey, filter string) string {
+	if historyDomainIsActive(domainKey, filter) {
+		return "sv-domain-chip sv-domain-chip-active"
+	}
+	return "sv-domain-chip"
+}
+
+func historyDomainPressed(domainKey, filter string) string {
+	return strconv.FormatBool(historyDomainIsActive(domainKey, filter))
+}
+
+func historyDomainTitle(domain *entity.DomainStat) string {
+	if domain == nil {
+		return ""
+	}
+	return historyCountLabel(domain.PageCount, "page", "pages") + " · " + historyCountLabel(domain.TotalVisits, "visit", "visits")
 }
 
 func nonEmptyStrings(values []string) []string {

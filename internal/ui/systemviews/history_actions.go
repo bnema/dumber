@@ -2,6 +2,7 @@ package systemviews
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -30,6 +31,21 @@ func (a *App) HandleDOMAction(ctx context.Context, event DOMAction) error {
 	if a == nil {
 		return fmt.Errorf("app is nil")
 	}
+	if event.Action == historyActionSearchLive {
+		return a.handleHistoryLiveSearch(ctx, a.takeLiveSearchQuery(event.Data["query"]))
+	}
+	if event.Action == actionFlushDeletes {
+		return errors.Join(a.commitHistoryDeletes(ctx, nil), a.commitFavoritesDeletes(ctx, nil, nil))
+	}
+	if historyUndoAction(event) {
+		return a.handleHistoryUndoAction(ctx, event)
+	}
+	if favoritesUndoAction(event) {
+		return a.handleFavoritesUndoAction(ctx, event)
+	}
+	if event.Action == paletteActionOpen {
+		return a.handlePaletteOpen(ctx)
+	}
 	a.lockState()
 	if a.closed {
 		a.unlockState()
@@ -48,44 +64,47 @@ func (a *App) HandleDOMAction(ctx context.Context, event DOMAction) error {
 
 	switch route {
 	case RouteHistory:
-		a.historyError = ""
-		if err := a.handleHistoryAction(ctx, event); err != nil {
-			a.historyNotice = ""
-			a.historyError = err.Error()
-		}
-		if err := a.loadHistoryRoute(ctx); err != nil {
-			a.renderRouteError(err)
-			_ = a.mountRenderedHTML()
-			return err
-		}
-		return a.mountRenderedHTML()
+		return a.applyHistoryActionLocked(ctx, event)
 	case RouteFavorites:
-		a.favoritesError = ""
-		if err := a.handleFavoriteAction(ctx, event); err != nil {
-			a.favoritesNotice = ""
-			a.favoritesError = err.Error()
-		}
-		if err := a.loadFavoritesRoute(ctx); err != nil {
-			a.renderRouteError(err)
-			_ = a.mountRenderedHTML()
-			return err
-		}
-		return a.mountRenderedHTML()
+		return a.applyFavoritesActionLocked(ctx, event)
 	case RouteConfig:
-		a.configError = ""
-		if err := a.handleConfigAction(ctx, event); err != nil {
-			a.configNotice = ""
-			a.configError = err.Error()
-		}
-		a.loadShellTheme(ctx)
-		if err := a.loadConfigRoute(ctx); err != nil {
-			a.renderRouteError(err)
-			_ = a.mountRenderedHTML()
-			return err
-		}
-		return a.mountRenderedHTML()
+		return a.applyConfigActionLocked(ctx, event)
 	default:
 		return nil
+	}
+}
+
+// applyHistoryActionLocked runs a history action and refreshes the view:
+// filter changes swap the result regions, everything else remounts.
+func (a *App) applyHistoryActionLocked(ctx context.Context, event DOMAction) error {
+	a.historyError = ""
+	if err := a.handleHistoryAction(ctx, event); err != nil {
+		a.historyNotice = ""
+		a.historyError = err.Error()
+	}
+	if err := a.loadHistoryRoute(ctx); err != nil {
+		a.renderRouteError(err)
+		_ = a.mountRenderedHTML()
+		return err
+	}
+	if updater, ok := a.deps.DOM.(DOMRegionUpdater); ok && historyFilterAction(event.Action) {
+		return updater.UpdateRegions(RegionUpdate{
+			Regions:    historyLiveRegions(a.historyRenderDataLocked()),
+			Transition: true,
+		})
+	}
+	return a.mountRenderedHTML()
+}
+
+// historyFilterAction reports actions that only change which entries are
+// shown. They swap the result regions with a transition instead of
+// remounting; deletions change totals and keep the full remount.
+func historyFilterAction(action string) bool {
+	switch action {
+	case historyActionSearch, historyActionClear, historyActionFilterDomain, historyActionClearDomain:
+		return true
+	default:
+		return false
 	}
 }
 
@@ -245,11 +264,12 @@ func (a *App) historyLoadMoreRequestLocked(event DOMAction) (historyLoadMoreRequ
 
 func (a *App) appendHistoryWindowLocked(window *entity.HistoryWindow, dom DOM) (string, string) {
 	appendSkipFirstDate := lastHistoryDateKey(a.historyEntries)
-	a.historyEntries = append(a.historyEntries, window.Entries...)
+	visible := a.withoutPendingDeletesLocked(window.Entries)
+	a.historyEntries = append(a.historyEntries, visible...)
 	a.historyWindowBefore = window.Before
 	a.historyWindowAfter, a.historyCursorID, a.historyHasMore = historyWindowCursor(window)
 	data := historyRenderData{
-		Entries:             window.Entries,
+		Entries:             visible,
 		Stats:               a.historyStats,
 		Domains:             a.historyDomainStats,
 		Query:               a.historyQuery,

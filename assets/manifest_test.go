@@ -20,7 +20,7 @@ func TestParseManifestRejectsBadInputs(t *testing.T) {
 		return fmt.Sprintf(`"sha256":%q,"size":%d`, digest, size)
 	}
 	entry := func(css, wasm, js string) string {
-		return `{"version":1,"files":{"systemviews.css":{` + css + `},"systemviews.wasm":{` + wasm + `},"wasm_exec.js":{` + js + `}}}`
+		return `{"version":1,"files":{"systemviews.css":{` + css + `},"systemviews.js":{` + pin(good, 4) + `},"systemviews.wasm":{` + wasm + `},"wasm_exec.js":{` + js + `}}}`
 	}
 	valid := entry(pin(good, 1), pin(good, 2), pin(good, 3))
 	if _, err := ParseManifest([]byte(valid)); err != nil {
@@ -29,7 +29,7 @@ func TestParseManifestRejectsBadInputs(t *testing.T) {
 
 	cases := map[string]string{
 		"bad version":  strings.Replace(valid, `"version":1`, `"version":2`, 1),
-		"missing pin":  `{"version":1,"files":{"systemviews.css":{` + pin(good, 1) + `},"systemviews.wasm":{` + pin(good, 2) + `}}}`,
+		"missing pin":  `{"version":1,"files":{"systemviews.css":{` + pin(good, 1) + `},"systemviews.js":{` + pin(good, 4) + `},"systemviews.wasm":{` + pin(good, 2) + `}}}`,
 		"unknown file": strings.TrimSuffix(valid, `}`) + `,"evil.js":{` + pin(good, 4) + `}}`,
 		"empty digest": entry(pin("", 1), pin(good, 2), pin(good, 3)),
 		"short digest": entry(pin("abc", 1), pin(good, 2), pin(good, 3)),
@@ -65,6 +65,7 @@ func TestManifestBytesAreCanonical(t *testing.T) {
 		"wasm_exec.js":     {SHA256: good, Size: 3},
 		"systemviews.wasm": {SHA256: good, Size: 2},
 		"systemviews.css":  {SHA256: good, Size: 1},
+		"systemviews.js":   {SHA256: good, Size: 4},
 	}}
 	first, err := m.Bytes()
 	if err != nil {
@@ -80,11 +81,12 @@ func TestManifestBytesAreCanonical(t *testing.T) {
 	if !bytes.HasSuffix(first, []byte("\n")) || bytes.Contains(first, []byte("1970")) {
 		t.Fatalf("manifest must end with newline and carry no timestamps:\n%s", first)
 	}
-	// Sorted keys: css < wasm < wasm_exec.
+	// Sorted keys: css < js < wasm < wasm_exec.
 	css := bytes.Index(first, []byte("systemviews.css"))
+	enhance := bytes.Index(first, []byte("systemviews.js"))
 	wasm := bytes.Index(first, []byte("systemviews.wasm"))
 	js := bytes.Index(first, []byte("wasm_exec.js"))
-	if css >= wasm || wasm >= js {
+	if css >= enhance || enhance >= wasm || wasm >= js {
 		t.Fatalf("manifest keys not sorted:\n%s", first)
 	}
 	if _, err := ParseManifest(first); err != nil {

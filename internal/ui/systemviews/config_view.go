@@ -2,12 +2,15 @@ package systemviews
 
 import (
 	"fmt"
+	"math"
 	"reflect"
+	"slices"
 	"sort"
 	"strings"
 
 	"github.com/bnema/dumber/internal/application/dto"
 	"github.com/bnema/dumber/internal/application/port"
+	"github.com/bnema/dumber/internal/domain/keychord"
 )
 
 type configRenderData struct {
@@ -56,17 +59,6 @@ func keybindingGroupTitle(group renderedKeybindingGroup) string {
 	return title
 }
 
-func keybindingGroupMeta(group renderedKeybindingGroup) string {
-	meta := make([]string, 0, 2)
-	if strings.TrimSpace(group.Mode) != "" {
-		meta = append(meta, "mode: "+group.Mode)
-	}
-	if strings.TrimSpace(group.Activation) != "" {
-		meta = append(meta, "activation: "+group.Activation)
-	}
-	return strings.Join(meta, " • ")
-}
-
 func keybindingDescription(binding renderedKeybinding) string {
 	description := strings.TrimSpace(binding.Description)
 	if description != "" {
@@ -88,17 +80,6 @@ func keybindingAction(binding renderedKeybinding) string {
 
 func keybindingIsCustom(binding renderedKeybinding) bool {
 	return binding.IsCustom || !sameStringSlice(binding.Keys, binding.DefaultKeys)
-}
-
-func keybindingStatus(binding renderedKeybinding) string {
-	if keybindingIsCustom(binding) {
-		return "custom"
-	}
-	return "default"
-}
-
-func keybindingKeysValue(keys []string) string {
-	return strings.Join(keys, ", ")
 }
 
 type searchShortcutRow struct {
@@ -128,20 +109,254 @@ func searchShortcutRows(shortcuts map[string]dto.SearchShortcut) []searchShortcu
 	return rows
 }
 
+// configSection is one entry of the settings sidebar.
+type configSection struct {
+	ID    string
+	Label string
+}
+
+var configSections = []configSection{
+	{"sv-config-appearance", "Appearance"},
+	{"sv-config-search", "Search"},
+	{"sv-config-performance", "Performance"},
+	{"sv-config-keybindings", "Keybindings"},
+	{"sv-config-advanced", "Advanced"},
+}
+
+// segmentOption is one choice of a segmented control.
+type segmentOption struct {
+	Value string
+	Label string
+}
+
+var colorSchemeOptions = []segmentOption{
+	{"default", "System"},
+	{"prefer-light", "Light"},
+	{"prefer-dark", "Dark"},
+}
+
+var performanceProfileOptions = []segmentOption{
+	{"default", "Default"},
+	{balancedPerformanceProfile, "Balanced"},
+	{"lite", "Lite"},
+	{"max", "Max"},
+	{customPerformanceProfile, "Custom"},
+}
+
+// normalizedOption matches a stored option value case-insensitively.
+func normalizedOption(value, fallback string) string {
+	value = strings.ToLower(strings.TrimSpace(value))
+	if value == "" {
+		return fallback
+	}
+	return value
+}
+
+type configFontField struct {
+	Name  string
+	Label string
+	Help  string
+	Value string
+}
+
+func configFontFields(appearance dto.WebUIAppearanceConfig) []configFontField {
+	return []configFontField{
+		{"sans_font", "Sans-serif", "Default font for page text.", appearance.SansFont},
+		{"serif_font", "Serif", "Used when a page asks for a serif font.", appearance.SerifFont},
+		{"monospace_font", "Monospace", "Used for code.", appearance.MonospaceFont},
+		{"gtk_font", "Interface", "Font of Dumber's own interface.", appearance.GtkFont},
+	}
+}
+
+// palettePreviewVars feeds the palette preview card. Invalid colors are left
+// out so the card falls back to the page theme.
+func palettePreviewVars(palette dto.ColorPalette) string {
+	parts := make([]string, 0, 7)
+	for _, field := range paletteFieldsOf(&palette) {
+		if value, ok := sanitizeCSSColor(*field.Value); ok {
+			parts = append(parts, fmt.Sprintf("--pp-%s: %s;", strings.ReplaceAll(field.Key, "_", "-"), value))
+		}
+	}
+	return strings.Join(parts, " ")
+}
+
+func swatchStyle(value string) string {
+	if color, ok := sanitizeCSSColor(value); ok {
+		return "--sv-swatch: " + color + ";"
+	}
+	return ""
+}
+
+// colorPickerValue converts a stored color to the #rrggbb form required by
+// <input type="color">.
+func colorPickerValue(value string) string {
+	value = strings.ToLower(strings.TrimSpace(value))
+	hex, ok := strings.CutPrefix(value, "#")
+	if !ok {
+		return "#000000"
+	}
+	for _, r := range hex {
+		if !strings.ContainsRune("0123456789abcdef", r) {
+			return "#000000"
+		}
+	}
+	const short, shortAlpha, long, longAlpha = 3, 4, 6, 8
+	switch len(hex) {
+	case short, shortAlpha:
+		return "#" + string([]byte{hex[0], hex[0], hex[1], hex[1], hex[2], hex[2]})
+	case long, longAlpha:
+		return "#" + hex[:long]
+	default:
+		return "#000000"
+	}
+}
+
+// externalThemeFormats lists the known formats. The stored value is always
+// an option, even empty or unknown, so an untouched form saves it unchanged.
+func externalThemeFormats(current string) []string {
+	formats := []string{"colors-json", "dumber-json"}
+	if !slices.Contains(formats, current) {
+		formats = append([]string{current}, formats...)
+	}
+	return formats
+}
+
+func externalThemeFormatLabel(format string) string {
+	if format == "" {
+		return "Not set"
+	}
+	return format
+}
+
+func shortcutPlaceholder(isNew bool, field string) string {
+	if !isNew {
+		return ""
+	}
+	switch field {
+	case "key":
+		return "New key"
+	case "url":
+		return "https://example.com/search?q=%s"
+	default:
+		return "Description"
+	}
+}
+
+func performanceDescription(engine string) string {
+	if strings.TrimSpace(engine) != "" && !engineIsWebKit(engine) {
+		return "Profiles tune the WebKit engine; they have no effect on " + engine + "."
+	}
+	return "How much CPU, GPU and memory web pages may use. Changes apply after a restart."
+}
+
+// hardwareSummary reads "8 cores · 16 threads · 32 GB RAM · Radeon (4 GB)".
+func hardwareSummary(config dto.SystemviewConfigPayload) string {
+	hw := config.Performance.Hardware
+	parts := make([]string, 0, 5)
+	if hw.CPUCores > 0 {
+		parts = append(parts, fmt.Sprintf("%d %s", hw.CPUCores, plural(hw.CPUCores, "core")))
+	}
+	if hw.CPUThreads > 0 {
+		parts = append(parts, fmt.Sprintf("%d %s", hw.CPUThreads, plural(hw.CPUThreads, "thread")))
+	}
+	if hw.TotalRAMMB > 0 {
+		parts = append(parts, formatMegabytes(hw.TotalRAMMB)+" RAM")
+	}
+	if gpu := strings.TrimSpace(hw.GPUVendor + " " + hw.GPUName); gpu != "" {
+		if hw.VRAMMB > 0 {
+			gpu += " (" + formatMegabytes(hw.VRAMMB) + ")"
+		}
+		parts = append(parts, gpu)
+	}
+	if engine := strings.TrimSpace(config.EngineType); engine != "" {
+		parts = append(parts, engine+" engine")
+	}
+	if len(parts) == 0 {
+		return "Not detected"
+	}
+	return strings.Join(parts, " · ")
+}
+
+const megabytesPerGigabyte = 1024
+
+// formatMegabytes reads "512 MB" or "15.6 GB" (one decimal).
+func formatMegabytes(mb int) string {
+	if mb >= megabytesPerGigabyte {
+		return fmt.Sprintf("%g GB", math.Round(float64(mb)*10/megabytesPerGigabyte)/10)
+	}
+	return fmt.Sprintf("%d MB", mb)
+}
+
+type performanceCustomField struct {
+	Name     string
+	Label    string
+	Help     string
+	Min, Max int
+	Value    int
+}
+
+func performanceCustomFields(custom dto.SystemviewCustomPerformancePayload) []performanceCustomField {
+	return []performanceCustomField{
+		{"skia_cpu_threads", "Skia CPU threads", "Raster threads. 0 lets the engine decide.",
+			0, maxCustomPerformanceThreads, custom.SkiaCPUThreads},
+		{"skia_gpu_threads", "Skia GPU threads", "-1 lets the engine decide.",
+			-1, maxCustomPerformanceThreads, custom.SkiaGPUThreads},
+		{"web_process_memory_mb", "Web process memory", "Limit per page process, in MB. 0 means no limit.",
+			0, maxCustomPerformanceWebMemoryMB, custom.WebProcessMemoryMB},
+		{"network_process_memory_mb", "Network process memory", "Limit in MB. 0 means no limit.",
+			0, maxCustomPerformanceNetworkMemoryMB, custom.NetworkProcessMemoryMB},
+		{"webview_pool_prewarm", "Prewarmed views", "Views kept ready so new tabs open instantly.",
+			0, maxCustomPerformancePrewarm, custom.WebViewPoolPrewarm},
+	}
+}
+
+func keybindingInputID(mode, action string) string {
+	return "sv-kb-" + cssIdentifier(mode) + "-" + cssIdentifier(action)
+}
+
+// cssIdentifier keeps letters, digits, '-' and '_' so a value is safe in an id.
+func cssIdentifier(value string) string {
+	var b strings.Builder
+	for _, r := range value {
+		switch {
+		case r >= 'a' && r <= 'z', r >= 'A' && r <= 'Z', r >= '0' && r <= '9', r == '-', r == '_':
+			b.WriteRune(r)
+		default:
+			b.WriteByte('_')
+		}
+	}
+	return b.String()
+}
+
+// keybindingGroupRecordable reports whether every key of the group is a
+// single chord, which the key recorder can capture. Groups that use key
+// sequences (vim: "gi", "<C-d>", "[[") are edited as text only.
+func keybindingGroupRecordable(group renderedKeybindingGroup) bool {
+	for _, binding := range group.Bindings {
+		for _, keys := range [][]string{binding.Keys, binding.DefaultKeys} {
+			for _, key := range keys {
+				if _, ok := keychord.Parse(key); !ok {
+					return false
+				}
+			}
+		}
+	}
+	return true
+}
+
+func keybindingDefaultLabel(binding renderedKeybinding) string {
+	if len(binding.DefaultKeys) == 0 {
+		return "unassigned"
+	}
+	return formatKeyList(binding.DefaultKeys)
+}
+
 func formatConfigInt(value int) string {
 	return fmt.Sprintf("%d", value)
 }
 
 func formatConfigFloat(value float64) string {
 	return fmt.Sprintf("%g", value)
-}
-
-func colorSchemeSelected(current, option string) bool {
-	return strings.EqualFold(strings.TrimSpace(current), option)
-}
-
-func performanceProfileSelected(current, option string) bool {
-	return strings.EqualFold(strings.TrimSpace(current), option)
 }
 
 func engineIsWebKit(engine string) bool {

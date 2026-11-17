@@ -6,6 +6,7 @@ import (
 	"unicode"
 
 	"github.com/bnema/dumber/internal/application/dto"
+	"github.com/bnema/dumber/internal/domain/color"
 )
 
 type shellTheme struct {
@@ -64,7 +65,7 @@ func resolveShellTheme(appearance dto.WebUIAppearanceConfig) shellTheme {
 }
 
 func buildInlineVars(appearance dto.WebUIAppearanceConfig, palette dto.ColorPalette) string {
-	parts := make([]string, 0, 11)
+	parts := make([]string, 0, 12)
 	appendInlineVar := func(name, value string, sanitize func(string) (string, bool)) {
 		value, ok := sanitize(value)
 		if !ok {
@@ -79,6 +80,7 @@ func buildInlineVars(appearance dto.WebUIAppearanceConfig, palette dto.ColorPale
 	appendInlineVar("--sv-text", palette.Text, sanitizeCSSColor)
 	appendInlineVar("--sv-muted", palette.Muted, sanitizeCSSColor)
 	appendInlineVar("--sv-accent", palette.Accent, sanitizeCSSColor)
+	appendInlineVar("--sv-accent-text", accentTextColor(palette), sanitizeCSSColor)
 	appendInlineVar("--sv-border", palette.Border, sanitizeCSSColor)
 	appendInlineVar("--sv-font-sans", appearance.SansFont, sanitizeCSSFontFamily)
 	appendInlineVar("--sv-font-serif", appearance.SerifFont, sanitizeCSSFontFamily)
@@ -88,6 +90,18 @@ func buildInlineVars(appearance dto.WebUIAppearanceConfig, palette dto.ColorPale
 	}
 
 	return strings.Join(parts, " ")
+}
+
+// accentTextColor mirrors the GTK --accent-text token: text drawn on an accent
+// fill. Contrast is only computable from hex values; other formats fall back to
+// the stylesheet default.
+func accentTextColor(palette dto.ColorPalette) string {
+	accent := strings.TrimSpace(palette.Accent)
+	background := strings.TrimSpace(palette.Background)
+	if !isHexColor(strings.ToLower(accent)) || !isHexColor(strings.ToLower(background)) {
+		return ""
+	}
+	return color.ReadableTextColor(accent, background)
 }
 
 func sanitizeCSSColor(value string) (string, bool) {

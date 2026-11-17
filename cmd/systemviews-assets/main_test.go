@@ -26,6 +26,7 @@ func fixtureBundle(t *testing.T, wasm, js, css []byte) string {
 	writeFixture(t, dir, "systemviews.wasm.br", brotliCompressForGeneratorTest(t, wasm))
 	writeFixture(t, dir, "wasm_exec.js", js)
 	writeFixture(t, dir, "systemviews.css", css)
+	writeFixture(t, dir, "systemviews.js", []byte("/* enhance */"))
 	return dir
 }
 
@@ -124,6 +125,7 @@ func TestCollectManifestRejectsRawCompressedMismatch(t *testing.T) {
 		"systemviews.wasm.br": {Data: brotliCompressForGeneratorTest(t, []byte("\x00asm-other"))},
 		"wasm_exec.js":        {Data: []byte("/* js */")},
 		"systemviews.css":     {Data: []byte("/* css */")},
+		"systemviews.js":      {Data: []byte("/* enhance */")},
 	}
 	if _, err := collectManifest(fsys); err == nil {
 		t.Fatal("collectManifest() with raw/compressed mismatch succeeded, want error")

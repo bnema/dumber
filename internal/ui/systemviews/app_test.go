@@ -33,6 +33,7 @@ func TestParseRoute(t *testing.T) {
 		{name: "favorites opaque", uri: "dumb:favorites", want: RouteFavorites},
 		{name: "config host", uri: "dumb://config", want: RouteConfig},
 		{name: "config opaque", uri: "dumb:config", want: RouteConfig},
+		{name: "settings alias", uri: "dumb://settings", want: RouteConfig},
 	}
 
 	for _, tt := range tests {
@@ -90,9 +91,9 @@ func TestAppLoadInitialHistoryRouteUsesStyledSections(t *testing.T) {
 	assert.NotContains(t, app.renderedHTML, "<body")
 	assert.Contains(t, app.renderedHTML, `class="sv-shell"`)
 	assert.Contains(t, app.renderedHTML, `data-route="history"`)
-	assert.Contains(t, app.renderedHTML, `data-page-title="History - 1 entry, 1 visit, 0 days"`)
-	assert.Contains(t, app.renderedHTML, `sv-section`)
-	assert.Contains(t, app.renderedHTML, `class="sv-list"`)
+	assert.Contains(t, app.renderedHTML, `data-page-title="History · 1 entry · 1 visit · 0 days"`)
+	assert.Contains(t, app.renderedHTML, `sv-panel sv-history-panel`)
+	assert.Contains(t, app.renderedHTML, `class="sv-rows"`)
 }
 
 func TestAppLoadInitialHistoryRouteShowsTotalStatsWithWindowedTimeline(t *testing.T) {
@@ -109,9 +110,8 @@ func TestAppLoadInitialHistoryRouteShowsTotalStatsWithWindowedTimeline(t *testin
 
 	require.NoError(t, app.LoadInitial(context.Background()))
 	assert.True(t, history.statsCalled)
-	assert.Contains(t, app.renderedHTML, "Loaded 2 items")
-	assert.Contains(t, app.renderedHTML, `data-page-title="History - 8904 entries, 40947 visits, 121 days"`)
-	assert.Contains(t, app.renderedHTML, `<h1 class="sv-title">History <span class="sv-title-detail">- 8904 entries, 40947 visits, 121 days</span></h1>`)
+	assert.Contains(t, app.renderedHTML, `data-page-title="History · 8,904 entries · 40,947 visits · 121 days"`)
+	assert.Contains(t, app.renderedHTML, `<h1 class="sv-title">History <span class="sv-title-detail">8,904 entries · 40,947 visits · 121 days</span></h1>`)
 	assert.NotContains(t, app.renderedHTML, `sv-history-summary`)
 	assert.NotContains(t, app.renderedHTML, `sv-stat-value`)
 }
@@ -141,7 +141,6 @@ func TestAppRunMountsHistoryLoadingBeforeAsyncHydration(t *testing.T) {
 
 	hydratedHTML := receiveMount(t, dom.mounts)
 	assert.Contains(t, hydratedHTML, "Loaded entry")
-	assert.Contains(t, hydratedHTML, "Loaded 1 item")
 }
 
 func TestSurfaceActionErrorPreventsStaleAsyncHydrationMount(t *testing.T) {
@@ -364,7 +363,7 @@ func TestAppHandleHistoryActionsRefreshesDOM(t *testing.T) {
 	assert.True(t, history.searchCalled)
 	assert.Equal(t, "example", history.query)
 	assert.Contains(t, dom.HTML(), "Search result")
-	assert.Contains(t, dom.HTML(), "Query: example")
+	assert.Contains(t, dom.HTML(), "Showing 1 matching item")
 
 	app.historyOffset = historyTimelineLimit
 	require.NoError(t, app.HandleDOMAction(context.Background(), DOMAction{
@@ -506,7 +505,7 @@ func TestAppLoadInitialHistoryRouteAppliesThemeTokens(t *testing.T) {
 	})
 
 	require.NoError(t, app.LoadInitial(context.Background()))
-	assert.Contains(t, app.renderedHTML, `class="sv-app sv-light"`)
+	assert.Contains(t, app.renderedHTML, `class="sv-app sv-style-command sv-light"`)
 	assert.Contains(t, app.renderedHTML, `--sv-background: #ffffff;`)
 	assert.Contains(t, app.renderedHTML, `--sv-surface-variant: #eeeeee;`)
 }
@@ -541,8 +540,8 @@ func TestAppLoadInitialFavoritesRouteRendersData(t *testing.T) {
 	assert.Contains(t, app.renderedHTML, `class="sv-shell"`)
 	assert.Contains(t, app.renderedHTML, `data-route="favorites"`)
 	assert.Contains(t, app.renderedHTML, `data-page-title="Favorites — 1 bookmark"`)
-	assert.Contains(t, app.renderedHTML, `sv-section`)
-	assert.Contains(t, app.renderedHTML, `class="sv-meta"`)
+	assert.Contains(t, app.renderedHTML, `data-sv-favorites`)
+	assert.Contains(t, app.renderedHTML, `data-sv-region="favorites-list"`)
 }
 
 func TestAppLoadInitialFavoritesRouteRendersCRUDControls(t *testing.T) {
@@ -558,7 +557,7 @@ func TestAppLoadInitialFavoritesRouteRendersCRUDControls(t *testing.T) {
 
 	require.NoError(t, app.LoadInitial(context.Background()))
 	assert.Contains(t, app.renderedHTML, `data-sv-action="favorite.create"`)
-	assert.Contains(t, app.renderedHTML, `data-sv-action="favorite.update"`)
+	assert.Contains(t, app.renderedHTML, `data-sv-action="favorite.save"`)
 	assert.Contains(t, app.renderedHTML, `data-sv-action="favorite.delete"`)
 	assert.NotContains(t, app.renderedHTML, `data-sv-action="folder.create"`)
 	assert.NotContains(t, app.renderedHTML, `data-sv-action="folder.update"`)
@@ -566,12 +565,11 @@ func TestAppLoadInitialFavoritesRouteRendersCRUDControls(t *testing.T) {
 	assert.Contains(t, app.renderedHTML, `data-sv-action="tag.create"`)
 	assert.Contains(t, app.renderedHTML, `data-sv-action="tag.update"`)
 	assert.Contains(t, app.renderedHTML, `data-sv-action="tag.delete"`)
-	assert.Contains(t, app.renderedHTML, `data-sv-action="tag.assign"`)
 	assert.Contains(t, app.renderedHTML, `data-sv-action="favorite.filterUntagged"`)
 	assert.Contains(t, app.renderedHTML, `name="tags"`)
 	assert.Contains(t, app.renderedHTML, `value="7"`)
 	assert.Contains(t, app.renderedHTML, "Go")
-	assert.Contains(t, app.renderedHTML, "Shortcut 3")
+	assert.Contains(t, app.renderedHTML, `title="Shortcut 3"`)
 }
 
 func TestAppHandleFavoriteActionsRefreshesDOM(t *testing.T) {
@@ -588,25 +586,19 @@ func TestAppHandleFavoriteActionsRefreshesDOM(t *testing.T) {
 	}))
 	assert.Equal(t, "https://new.example", favorites.createdFavorite.URL)
 	assert.Equal(t, []entity.TagID{7}, favorites.createdFavorite.Tags)
-	assert.Contains(t, dom.HTML(), "Added favorite New")
+	assert.Contains(t, dom.HTML(), "Added “New”")
 
 	require.NoError(t, app.HandleDOMAction(context.Background(), DOMAction{
-		Action: favoriteActionUpdate,
-		Data:   map[string]string{"id": "42", "title": "Updated", "favicon_url": "https://icon.example/favicon.ico", "shortcut_key": "4"},
+		Action: favoriteActionSave,
+		Data:   map[string]string{"id": "42", "title": "Updated", "favicon_url": "https://icon.example/favicon.ico", "shortcut_key": "4", "tags": ",7"},
 	}))
 	assert.Equal(t, entity.FavoriteID(42), favorites.updatedFavorite.ID)
 	assert.Equal(t, "Updated", favorites.updatedFavorite.Title)
 	assert.True(t, favorites.updatedFavorite.ShortcutKeySet)
 	require.NotNil(t, favorites.updatedFavorite.ShortcutKey)
 	assert.Equal(t, 4, *favorites.updatedFavorite.ShortcutKey)
-	assert.Contains(t, dom.HTML(), "Saved favorite Updated")
-
-	require.NoError(t, app.HandleDOMAction(context.Background(), DOMAction{
-		Action: tagActionAssign,
-		Data:   map[string]string{"favoriteId": "42", "tagId": "7"},
-	}))
-	assert.Equal(t, int64(42), favorites.assignedFavoriteID)
-	assert.Equal(t, int64(7), favorites.assignedTagID)
+	assert.Equal(t, [][2]int64{{42, 7}}, favorites.assigned)
+	assert.Contains(t, dom.HTML(), "Saved “Updated”")
 
 	require.NoError(t, app.HandleDOMAction(context.Background(), DOMAction{
 		Action: favoriteActionFilterTag,
@@ -759,157 +751,9 @@ func TestAppLoadInitialConfigRouteRendersData(t *testing.T) {
 	assert.NotContains(t, app.renderedHTML, "<body")
 	assert.Contains(t, app.renderedHTML, `class="sv-shell"`)
 	assert.Contains(t, app.renderedHTML, `data-route="config"`)
-	assert.Contains(t, app.renderedHTML, `data-page-title="Config — Dumber"`)
-	assert.Contains(t, app.renderedHTML, `sv-section`)
-	assert.Contains(t, app.renderedHTML, `class="sv-meta"`)
-}
-
-func TestAppLoadInitialConfigRouteRendersEditControls(t *testing.T) {
-	t.Parallel()
-
-	service := &recordingConfigService{
-		current: testConfigPayload(),
-		keybindings: port.KeybindingsConfig{Groups: []port.KeybindingGroup{{
-			Mode:        "default",
-			DisplayName: "Default",
-			Bindings: []port.KeybindingEntry{{
-				Action:      "toggle_history_systemview",
-				Description: "Toggle history",
-				Keys:        []string{"ctrl+h"},
-				DefaultKeys: []string{"ctrl+h"},
-			}},
-		}}},
-	}
-	app := NewApp(Dependencies{Config: service, LocationURI: "dumb://config"})
-
-	require.NoError(t, app.LoadInitial(context.Background()))
-	assert.Contains(t, app.renderedHTML, `data-sv-action="config.appearance.save"`)
-	assert.Contains(t, app.renderedHTML, `data-sv-action="config.appearance.reset"`)
-	assert.Contains(t, app.renderedHTML, `name="external_theme_enabled"`)
-	assert.Contains(t, app.renderedHTML, `name="external_theme_provider"`)
-	assert.Contains(t, app.renderedHTML, `name="external_theme_format"`)
-	assert.Contains(t, app.renderedHTML, `name="external_theme_path"`)
-	assert.Contains(t, app.renderedHTML, `value="noctalia"`)
-	assert.Contains(t, app.renderedHTML, `value="dumber-json"`)
-	assert.Contains(t, app.renderedHTML, `/tmp/noctalia-dumber.json`)
-	assert.Contains(t, app.renderedHTML, `data-sv-action="config.search.save"`)
-	assert.Contains(t, app.renderedHTML, `data-sv-action="config.searchShortcut.create"`)
-	assert.Contains(t, app.renderedHTML, `data-sv-action="config.searchShortcut.update"`)
-	assert.Contains(t, app.renderedHTML, `data-sv-action="config.searchShortcut.delete"`)
-	assert.Contains(t, app.renderedHTML, `data-sv-action="config.performance.save"`)
-	assert.Contains(t, app.renderedHTML, `data-sv-action="config.keybinding.set"`)
-	assert.Contains(t, app.renderedHTML, `data-sv-action="config.keybinding.reset"`)
-	assert.Contains(t, app.renderedHTML, `data-sv-action="config.keybinding.resetAll"`)
-	assert.Contains(t, app.renderedHTML, "may require restarting")
-}
-
-func TestAppHandleConfigActionsRefreshesDOM(t *testing.T) {
-	dom := &recordingDOM{}
-	service := &recordingConfigService{
-		current:    testConfigPayload(),
-		defaultCfg: testDefaultConfigPayload(),
-		keybindings: port.KeybindingsConfig{Groups: []port.KeybindingGroup{{
-			Mode:        "default",
-			DisplayName: "Default",
-			Bindings: []port.KeybindingEntry{{
-				Action:      "toggle_history_systemview",
-				Description: "Toggle history",
-				Keys:        []string{"ctrl+h"},
-				DefaultKeys: []string{"ctrl+h"},
-			}},
-		}}},
-		setResp: port.SetKeybindingResponse{},
-	}
-	app := NewApp(Dependencies{DOM: dom, Config: service, LocationURI: "dumb://config"})
-
-	require.NoError(t, app.HandleDOMAction(context.Background(), DOMAction{
-		Action: configActionSaveAppearance,
-		Data: map[string]string{
-			"sans_font": "Inter", "serif_font": "Georgia", "monospace_font": "JetBrains Mono",
-			"default_font_size": "18", "default_ui_scale": "1.25", "color_scheme": "prefer-light",
-			"external_theme_enabled": "yes", "external_theme_provider": " noctalia ", "external_theme_format": " dumber-json ", "external_theme_path": " /tmp/noctalia-dumber.json ",
-			"light_background": "#ffffff", "light_surface": "#fafafa", "light_surface_variant": "#eeeeee", "light_text": "#111111", "light_muted": "#666666", "light_accent": "#0055ff", "light_border": "#dddddd",
-			"dark_background": "#111111", "dark_surface": "#1a1a1a", "dark_surface_variant": "#2a2a2a", "dark_text": "#f5f5f5", "dark_muted": "#a0a0a0", "dark_accent": "#66aaff", "dark_border": "#333333",
-		},
-	}))
-	assert.True(t, service.calledSave)
-	assert.Equal(t, 18, service.savedConfig.Appearance.DefaultFontSize)
-	assert.InEpsilon(t, 1.25, service.savedConfig.DefaultUIScale, 0.001)
-	assert.True(t, service.savedConfig.Appearance.ExternalTheme.Enabled)
-	assert.Equal(t, "noctalia", service.savedConfig.Appearance.ExternalTheme.Provider)
-	assert.Equal(t, "dumber-json", service.savedConfig.Appearance.ExternalTheme.Format)
-	assert.Equal(t, "/tmp/noctalia-dumber.json", service.savedConfig.Appearance.ExternalTheme.Path)
-	assert.Contains(t, dom.HTML(), "Saved appearance settings")
-	assert.Contains(t, dom.HTML(), `class="sv-app sv-light"`)
-
-	require.NoError(t, app.HandleDOMAction(context.Background(), DOMAction{
-		Action: configActionCreateSearchShortcut,
-		Data:   map[string]string{"key": "g", "url": "https://google.com/search?q=%s", "description": "Google"},
-	}))
-	assert.Equal(t, "Google", service.savedConfig.SearchShortcuts["g"].Description)
-	assert.Contains(t, dom.HTML(), "Created search shortcut g")
-
-	require.NoError(t, app.HandleDOMAction(context.Background(), DOMAction{
-		Action: configActionSavePerformance,
-		Data: map[string]string{
-			"profile": "custom", "skia_cpu_threads": "4", "skia_gpu_threads": "2",
-			"web_process_memory_mb": "2048", "network_process_memory_mb": "512", "webview_pool_prewarm": "4",
-		},
-	}))
-	assert.Equal(t, "custom", service.savedConfig.Performance.Profile)
-	assert.Equal(t, 2048, service.savedConfig.Performance.Custom.WebProcessMemoryMB)
-	assert.Contains(t, dom.HTML(), "Saved performance settings")
-
-	require.NoError(t, app.HandleDOMAction(context.Background(), DOMAction{
-		Action: configActionSavePerformance,
-		Data:   map[string]string{"profile": "default"},
-	}))
-	assert.Equal(t, "default", service.savedConfig.Performance.Profile)
-	assert.Contains(t, dom.HTML(), "Saved performance settings")
-
-	require.NoError(t, app.HandleDOMAction(context.Background(), DOMAction{
-		Action: configActionSetKeybinding,
-		Data:   map[string]string{"mode": "default", "action": "toggle_history_systemview", "keys": "ctrl+h, alt+h"},
-	}))
-	assert.True(t, service.calledSet)
-	assert.Equal(t, []string{"ctrl+h", "alt+h"}, service.setReq.Keys)
-	assert.Contains(t, service.setReq.RequestID, "systemviews-config-")
-	assert.Contains(t, dom.HTML(), "Saved keybinding toggle_history_systemview")
-
-	require.NoError(t, app.HandleDOMAction(context.Background(), DOMAction{
-		Action: configActionResetKeybinding,
-		Data:   map[string]string{"mode": "default", "action": "toggle_history_systemview"},
-	}))
-	assert.True(t, service.calledReset)
-	assert.Equal(t, "toggle_history_systemview", service.resetReq.Action)
-	assert.Contains(t, service.resetReq.RequestID, "systemviews-config-")
-	assert.NotEqual(t, service.setReq.RequestID, service.resetReq.RequestID)
-	assert.Contains(t, dom.HTML(), "Reset keybinding toggle_history_systemview")
-
-	require.NoError(t, app.HandleDOMAction(context.Background(), DOMAction{Action: configActionResetAllKeybindings}))
-	assert.True(t, service.calledResetAll)
-	assert.Contains(t, dom.HTML(), "Reset all keybindings to defaults")
-}
-
-func TestAppRejectsSearchURLsWithoutPlaceholder(t *testing.T) {
-	t.Parallel()
-
-	service := &recordingConfigService{current: testConfigPayload(), defaultCfg: testDefaultConfigPayload()}
-	app := NewApp(Dependencies{Config: service, LocationURI: "dumb://config"})
-
-	err := app.handleConfigAction(context.Background(), DOMAction{
-		Action: configActionSaveSearch,
-		Data:   map[string]string{"default_search_engine": "https://example.com/search"},
-	})
-	require.Error(t, err)
-	assert.False(t, service.calledSave)
-
-	err = app.handleConfigAction(context.Background(), DOMAction{
-		Action: configActionCreateSearchShortcut,
-		Data:   map[string]string{"key": "bad", "url": "https://example.com/search", "description": "Bad"},
-	})
-	require.Error(t, err)
-	assert.False(t, service.calledSave)
+	assert.Contains(t, app.renderedHTML, `data-page-title="Settings — Dumber"`)
+	assert.Contains(t, app.renderedHTML, `sv-config-section`)
+	assert.Contains(t, app.renderedHTML, `data-sv-config-form`)
 }
 
 func TestAppLoadInitialConfigRouteUsesResolvedAppearanceOnlyForShellTheme(t *testing.T) {
@@ -969,6 +813,7 @@ func testDefaultConfigPayload() dto.SystemviewConfigPayload {
 
 // Recording fixture to capture DOM mounts for stateful render assertions.
 type recordingDOM struct {
+	mountCount   int
 	mu           sync.Mutex
 	mounted      bool
 	html         string
@@ -980,6 +825,7 @@ func (d *recordingDOM) Mount(markup string) error {
 	d.mu.Lock()
 	d.mounted = true
 	d.html = markup
+	d.mountCount++
 	mounts := d.mounts
 	d.mu.Unlock()
 	if mounts != nil {
@@ -1076,6 +922,7 @@ type recordingHistoryService struct {
 	searchEntries []*entity.HistoryEntry
 
 	deletedEntryID  int64
+	deleteErr       error
 	deletedRangeID  string
 	deletedDomain   string
 	domainStats     []*entity.DomainStat
@@ -1145,7 +992,7 @@ func (s *recordingHistoryService) Search(_ context.Context, query string, limit 
 
 func (s *recordingHistoryService) DeleteEntry(_ context.Context, id int64) error {
 	s.deletedEntryID = id
-	return nil
+	return s.deleteErr
 }
 
 func (s *recordingHistoryService) DeleteRange(_ context.Context, rangeID string) error {
@@ -1189,6 +1036,11 @@ type recordingFavoritesService struct {
 	assignedTagID      int64
 	removedFavoriteID  int64
 	removedTagID       int64
+	assigned           [][2]int64
+	removed            [][2]int64
+	shortcuts          map[int64]*int
+	failDelete         error
+	failAssign         error
 }
 
 func (s *recordingFavoritesService) List(context.Context) ([]*entity.Favorite, error) {
@@ -1212,11 +1064,20 @@ func (s *recordingFavoritesService) UpdateFavorite(_ context.Context, input dto.
 }
 
 func (s *recordingFavoritesService) DeleteFavorite(_ context.Context, id int64) error {
+	if s.failDelete != nil {
+		return s.failDelete
+	}
 	s.deletedFavorite = id
 	return nil
 }
 
-func (s *recordingFavoritesService) SetShortcut(context.Context, int64, *int) error { return nil }
+func (s *recordingFavoritesService) SetShortcut(_ context.Context, id int64, key *int) error {
+	if s.shortcuts == nil {
+		s.shortcuts = map[int64]*int{}
+	}
+	s.shortcuts[id] = key
+	return nil
+}
 
 func (s *recordingFavoritesService) CreateTag(_ context.Context, name, color string) (*entity.Tag, error) {
 	s.createdTag = name
@@ -1234,14 +1095,19 @@ func (s *recordingFavoritesService) DeleteTag(_ context.Context, id int64) error
 }
 
 func (s *recordingFavoritesService) AssignTag(_ context.Context, favoriteID, tagID int64) error {
+	if s.failAssign != nil {
+		return s.failAssign
+	}
 	s.assignedFavoriteID = favoriteID
 	s.assignedTagID = tagID
+	s.assigned = append(s.assigned, [2]int64{favoriteID, tagID})
 	return nil
 }
 
 func (s *recordingFavoritesService) RemoveTag(_ context.Context, favoriteID, tagID int64) error {
 	s.removedFavoriteID = favoriteID
 	s.removedTagID = tagID
+	s.removed = append(s.removed, [2]int64{favoriteID, tagID})
 	return nil
 }
 
@@ -1254,6 +1120,9 @@ type recordingConfigService struct {
 	calledSet         bool
 	calledReset       bool
 	calledResetAll    bool
+	saveCount         int
+	setCount          int
+	resetCount        int
 
 	current     dto.SystemviewConfigPayload
 	defaultCfg  dto.SystemviewConfigPayload
@@ -1276,6 +1145,7 @@ func (s *recordingConfigService) Default(context.Context) (dto.SystemviewConfigP
 
 func (s *recordingConfigService) Save(_ context.Context, cfg dto.WebUIConfig) error {
 	s.calledSave = true
+	s.saveCount++
 	s.savedConfig = cfg
 	s.current.Appearance = cfg.Appearance
 	s.current.DefaultUIScale = cfg.DefaultUIScale
@@ -1299,12 +1169,14 @@ func (s *recordingConfigService) GetKeybindings(context.Context) (port.Keybindin
 
 func (s *recordingConfigService) SetKeybinding(_ context.Context, req port.SetKeybindingRequest) (port.SetKeybindingResponse, error) {
 	s.calledSet = true
+	s.setCount++
 	s.setReq = req
 	return s.setResp, nil
 }
 
 func (s *recordingConfigService) ResetKeybinding(_ context.Context, req port.ResetKeybindingRequest) error {
 	s.calledReset = true
+	s.resetCount++
 	s.resetReq = req
 	return nil
 }
@@ -1380,25 +1252,6 @@ func TestParsePositiveInt64DistinguishesParseAndRangeErrors(t *testing.T) {
 	assert.Contains(t, err.Error(), "tag id must be a positive integer")
 }
 
-func TestHandleFavoriteTagActionsAcceptSnakeCaseIDs(t *testing.T) {
-	favorites := &recordingFavoritesService{}
-	app := NewApp(Dependencies{Favorites: favorites})
-
-	require.NoError(t, app.handleFavoriteAction(context.Background(), DOMAction{
-		Action: tagActionAssign,
-		Data:   map[string]string{"favorite_id": "42", "tag_id": "7"},
-	}))
-	assert.Equal(t, int64(42), favorites.assignedFavoriteID)
-	assert.Equal(t, int64(7), favorites.assignedTagID)
-
-	require.NoError(t, app.handleFavoriteAction(context.Background(), DOMAction{
-		Action: tagActionRemove,
-		Data:   map[string]string{"favorite_id": "42", "tag_id": "7"},
-	}))
-	assert.Equal(t, int64(42), favorites.removedFavoriteID)
-	assert.Equal(t, int64(7), favorites.removedTagID)
-}
-
 func TestHandleHistorySearchClearsDomainFilter(t *testing.T) {
 	dom := &recordingDOM{}
 	history := &recordingHistoryService{searchEntries: []*entity.HistoryEntry{{ID: 7, URL: "https://search.example", Title: "Search result"}}}
@@ -1445,20 +1298,4 @@ func TestHandleActionsRejectUnknownAction(t *testing.T) {
 	require.ErrorContains(t, app.handleHistoryAction(context.Background(), DOMAction{Action: "history.unknown"}), "unknown history action")
 	require.ErrorContains(t, app.handleFavoriteAction(context.Background(), DOMAction{Action: "favorite.unknown"}), "unknown favorite action")
 	require.ErrorContains(t, app.handleConfigAction(context.Background(), DOMAction{Action: "config.unknown"}), "unknown config action")
-}
-
-func TestSavePerformanceConfigRejectsOutOfRangeValues(t *testing.T) {
-	service := &recordingConfigService{current: testConfigPayload()}
-	app := NewApp(Dependencies{Config: service})
-
-	err := app.handleConfigAction(context.Background(), DOMAction{
-		Action: configActionSavePerformance,
-		Data: map[string]string{
-			"profile": "custom", "skia_cpu_threads": "65", "skia_gpu_threads": "2",
-			"web_process_memory_mb": "2048", "network_process_memory_mb": "512", "webview_pool_prewarm": "4",
-		},
-	})
-
-	require.ErrorContains(t, err, "Skia CPU threads must be between 0 and 8")
-	assert.False(t, service.calledSave)
 }

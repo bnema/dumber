@@ -24,7 +24,7 @@ func TestHistoryDateKeyAndLabelUsesProvidedNow(t *testing.T) {
 	assert.Equal(t, "2026-04-20", olderKey)
 	assert.Equal(t, "Today", todayLabel)
 	assert.Equal(t, "Yesterday", yesterdayLabel)
-	assert.Equal(t, "Mon Apr 20", olderLabel)
+	assert.Equal(t, "Mon 20 Apr", olderLabel)
 }
 
 func TestHistorySummaryValuesUsesAllProvidedEntries(t *testing.T) {
@@ -66,12 +66,12 @@ func TestHistoryTimelineAppendMergesDuplicateFirstDayGroup(t *testing.T) {
 
 	html := historyTimelineAppendHTML(data)
 
-	assert.NotContains(t, html, ">Thu Apr 23</h3>")
-	assert.NotContains(t, html, `<section class="sv-timeline-group"><ul class="sv-list">`)
+	assert.NotContains(t, html, ">Thu 23 Apr</h3>")
+	assert.NotContains(t, html, `<section class="sv-timeline-group"><ul class="sv-rows">`)
 	assert.Contains(t, html, `data-sv-history-merge-date="2026-04-23"`)
 	assert.Contains(t, html, "Same day")
 	assert.Contains(t, html, `data-sv-history-date="2026-04-22"`)
-	assert.Contains(t, html, ">Wed Apr 22</h3>")
+	assert.Contains(t, html, ">Wed 22 Apr</h3>")
 }
 
 func TestHistoryItemURLTruncatesLongURLs(t *testing.T) {
@@ -112,4 +112,40 @@ func TestHistoryItemFaviconURLIgnoresStoredRemoteFaviconURL(t *testing.T) {
 	}
 
 	assert.Equal(t, "/api/favicon?domain=example.com&size=32", historyItemFaviconURL(entry))
+}
+
+func TestHistoryItemTimeIsRelativeTodayAndClockOtherwise(t *testing.T) {
+	t.Parallel()
+
+	loc := time.FixedZone("test", 2*60*60)
+	now := time.Date(2026, 4, 24, 12, 0, 0, 0, loc)
+	at := func(ts time.Time) string { return historyItemTime(&entity.HistoryEntry{LastVisited: ts}, now) }
+
+	assert.Equal(t, "just now", at(now.Add(-20*time.Second)))
+	assert.Equal(t, "5m ago", at(now.Add(-5*time.Minute)))
+	assert.Equal(t, "3h ago", at(now.Add(-3*time.Hour)))
+	assert.Equal(t, "19:20", at(time.Date(2026, 4, 23, 19, 20, 0, 0, loc)))
+	assert.Empty(t, at(time.Time{}))
+}
+
+func TestHistoryItemSubtitleShowsURLWithoutSchemeAndVisits(t *testing.T) {
+	t.Parallel()
+
+	assert.Equal(t, "github.com/bnema/dumber · 12 visits",
+		historyItemSubtitle(&entity.HistoryEntry{URL: "https://github.com/bnema/dumber/", VisitCount: 12}))
+	assert.Equal(t, "example.com/docs",
+		historyItemSubtitle(&entity.HistoryEntry{URL: "http://example.com/docs", VisitCount: 1}))
+}
+
+func TestHistoryTitleDetailGroupsThousands(t *testing.T) {
+	t.Parallel()
+
+	data := historyRenderData{Stats: &entity.HistoryStats{TotalEntries: 8904, TotalVisits: 1, UniqueDays: 1234567}}
+
+	assert.Equal(t, "8,904 entries · 1 visit · 1,234,567 days", historyTitleDetail(data))
+}
+
+func TestHistoryItemFaviconSkipsSystemviews(t *testing.T) {
+	t.Parallel()
+	assert.Empty(t, historyItemFaviconURL(&entity.HistoryEntry{URL: "dumb://config"}))
 }

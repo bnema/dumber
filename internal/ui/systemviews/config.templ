@@ -1,207 +1,372 @@
 package systemviews
 
 import (
+	"strconv"
+
 	"github.com/bnema/dumber/internal/application/dto"
 	"github.com/bnema/dumber/internal/application/port"
 )
 
+// configFormID ties the save bar buttons, which live outside the form so
+// they stay pinned while scrolling, to the settings form.
+const configFormID = "sv-config-form"
+
 templ ConfigView(data configRenderData) {
-	@Alert("success", data.Notice)
-	@Alert("error", data.Error)
-	@Section("sv-config-appearance", "Appearance") {
-		@AppearanceForm(data.Config)
-	}
-	@Section("sv-config-search", "Search") {
-		@SearchSettings(data.Config)
-	}
-	@Section("sv-config-performance", "Performance") {
-		@PerformanceSettings(data.Config)
-	}
-	@Section("sv-config-keybindings", "Keybindings") {
-		@Meta(configKeybindingSummary(data.Keybindings))
-		@ConfigKeybindings(data.Keybindings)
-	}
-	@Section("sv-config-values", "Current payload") {
-		@KV(flattenValues(data.Config))
-	}
-}
-
-templ AppearanceForm(config dto.SystemviewConfigPayload) {
-	<form class="sv-card-form sv-config-form" data-sv-action="config.appearance.save">
-		<label><span>Sans font</span><input name="sans_font" type="text" value={ config.Appearance.SansFont } required/></label>
-		<label><span>Serif font</span><input name="serif_font" type="text" value={ config.Appearance.SerifFont } required/></label>
-		<label><span>Monospace font</span><input name="monospace_font" type="text" value={ config.Appearance.MonospaceFont } required/></label>
-		<label><span>GTK UI font</span><input name="gtk_font" type="text" value={ config.Appearance.GtkFont } required/></label>
-		<label><span>Default font size</span><input name="default_font_size" type="number" min="1" max="72" value={ formatConfigInt(config.Appearance.DefaultFontSize) } required/></label>
-		<label><span>UI scale</span><input name="default_ui_scale" type="number" min="0.5" max="3" step="0.05" value={ formatConfigFloat(config.DefaultUIScale) } required/></label>
-		<label><span>Color scheme</span><select name="color_scheme">
-			<option value="default" selected?={ colorSchemeSelected(config.Appearance.ColorScheme, "default") }>System default</option>
-			<option value="prefer-light" selected?={ colorSchemeSelected(config.Appearance.ColorScheme, "prefer-light") }>Prefer light</option>
-			<option value="prefer-dark" selected?={ colorSchemeSelected(config.Appearance.ColorScheme, "prefer-dark") }>Prefer dark</option>
-		</select></label>
-		<fieldset class="sv-fieldset">
-			<legend>External theme</legend>
-			<p class="sv-meta">Provider noctalia supports colors-json (default Noctalia colors.json) and dumber-json (advanced user template).</p>
-			<label><span>Enable external theme</span><input name="external_theme_enabled" type="checkbox" checked?={ config.Appearance.ExternalTheme.Enabled }/></label>
-			<label><span>Provider</span><input name="external_theme_provider" type="text" value={ config.Appearance.ExternalTheme.Provider } placeholder="noctalia"/></label>
-			<label><span>Format</span><input name="external_theme_format" type="text" value={ config.Appearance.ExternalTheme.Format } placeholder="colors-json"/></label>
-			<label><span>Path</span><input name="external_theme_path" type="text" value={ config.Appearance.ExternalTheme.Path } placeholder="~/.config/noctalia/colors.json"/></label>
-		</fieldset>
-		@PaletteFields("Light palette", "light", config.Appearance.LightPalette)
-		@PaletteFields("Dark palette", "dark", config.Appearance.DarkPalette)
-		<div class="sv-button-row sv-form-actions">
-			<button class="sv-button" type="submit">@ButtonIconLabel(iconSave, "Save appearance")</button>
-			<button class="sv-button sv-button-secondary" type="button" data-sv-action="config.appearance.reset" data-sv-confirm="Reset appearance settings to defaults?">@ButtonIconLabel(iconRotateCCW, "Reset appearance")</button>
+	<div class="sv-config" data-sv-config>
+		<nav class="sv-config-nav" aria-label="Settings sections">
+			for _, section := range configSections {
+				<a class="sv-config-nav-link" href={ templ.SafeURL("#" + section.ID) } data-sv-config-nav={ section.ID }>
+					<span>{ section.Label }</span>
+					<span class="sv-config-nav-dot" aria-hidden="true"></span>
+				</a>
+			}
+		</nav>
+		<div class="sv-config-main">
+			@Alert("success", data.Notice)
+			@Alert("error", data.Error)
+			<form id={ configFormID } class="sv-config-form" data-sv-action="config.saveBatch" data-sv-config-form data-sv-performance-form autocomplete="off">
+				@ConfigAppearance(data.Config)
+				@ConfigSearch(data.Config)
+				@ConfigPerformance(data.Config)
+				@ConfigKeybindings(data.Keybindings)
+			</form>
+			@ConfigAdvanced(data.Config)
+			@ConfigSaveBar()
 		</div>
-	</form>
+	</div>
 }
 
-templ PaletteFields(title string, prefix string, palette dto.ColorPalette) {
-	<fieldset class="sv-fieldset">
-		<legend>{ title }</legend>
-		<label><span>Background</span><input name={ prefix + "_background" } type="text" value={ palette.Background } required/></label>
-		<label><span>Surface</span><input name={ prefix + "_surface" } type="text" value={ palette.Surface } required/></label>
-		<label><span>Surface variant</span><input name={ prefix + "_surface_variant" } type="text" value={ palette.SurfaceVariant } required/></label>
-		<label><span>Text</span><input name={ prefix + "_text" } type="text" value={ palette.Text } required/></label>
-		<label><span>Muted</span><input name={ prefix + "_muted" } type="text" value={ palette.Muted } required/></label>
-		<label><span>Accent</span><input name={ prefix + "_accent" } type="text" value={ palette.Accent } required/></label>
-		<label><span>Border</span><input name={ prefix + "_border" } type="text" value={ palette.Border } required/></label>
-	</fieldset>
+templ ConfigSection(id string, title string, description string) {
+	<section id={ id } class="sv-config-section" aria-labelledby={ id + "-title" } data-sv-config-section>
+		<div class="sv-config-section-header">
+			<h2 id={ id + "-title" }>{ title }</h2>
+			<p>{ description }</p>
+		</div>
+		{ children... }
+	</section>
 }
 
-templ SearchSettings(config dto.SystemviewConfigPayload) {
-	<form class="sv-card-form" data-sv-action="config.search.save">
-		<label><span>Default search engine</span><input name="default_search_engine" type="text" value={ config.DefaultSearchEngine } placeholder="https://duckduckgo.com/?q=%s" required/></label>
-		<button class="sv-button" type="submit">@ButtonIconLabel(iconSave, "Save search default")</button>
-	</form>
-	<div class="sv-group">
-		<div class="sv-group-header"><h4>Search shortcuts</h4></div>
-		<p class="sv-meta">Shortcut URLs must include the %s placeholder for the search query.</p>
-		<form class="sv-inline-form" data-sv-action="config.searchShortcut.create">
-			<label><span>Key</span><input name="key" type="text" placeholder="ddg" required/></label>
-			<label><span>URL</span><input name="url" type="text" placeholder="https://duckduckgo.com/?q=%s" pattern=".*%s.*" required/></label>
-			<label><span>Description</span><input name="description" type="text" placeholder="DuckDuckGo"/></label>
-			<button class="sv-button sv-button-secondary" type="submit">@ButtonIconLabel(iconPlus, "Add shortcut")</button>
-		</form>
-		{{ shortcuts := searchShortcutRows(config.SearchShortcuts) }}
-		if len(shortcuts) == 0 {
-			@EmptyState("No search shortcuts configured")
-		} else {
-			<ul class="sv-list">
-				for _, shortcut := range shortcuts {
-					@SearchShortcutItem(shortcut)
-				}
-			</ul>
+templ SettingsCard(title string) {
+	<div class="sv-settings-card">
+		if title != "" {
+			<h3 class="sv-settings-card-title">{ title }</h3>
+		}
+		{ children... }
+	</div>
+}
+
+// SettingRow lays out one setting: label and help on the left, control on
+// the right. inputID labels the control.
+templ SettingRow(inputID string, label string, help string) {
+	<div class="sv-setting" data-sv-setting>
+		<div class="sv-setting-text">
+			<label class="sv-setting-label" for={ inputID }>{ label }</label>
+			if help != "" {
+				<p class="sv-setting-help">{ help }</p>
+			}
+		</div>
+		<div class="sv-setting-control">
+			{ children... }
+		</div>
+	</div>
+}
+
+// SettingGroupRow is a SettingRow for a group of controls (radios), labelled
+// with aria-labelledby instead of <label for>.
+templ SettingGroupRow(labelID string, label string, help string) {
+	<div class="sv-setting" data-sv-setting>
+		<div class="sv-setting-text">
+			<span class="sv-setting-label" id={ labelID }>{ label }</span>
+			if help != "" {
+				<p class="sv-setting-help">{ help }</p>
+			}
+		</div>
+		<div class="sv-setting-control">
+			{ children... }
+		</div>
+	</div>
+}
+
+templ Segmented(name string, labelID string, options []segmentOption, current string, attrs templ.Attributes) {
+	<div class="sv-segmented" role="radiogroup" aria-labelledby={ labelID }>
+		for _, option := range options {
+			<label class="sv-segment">
+				<input type="radio" name={ name } value={ option.Value } checked?={ option.Value == current } { attrs... }/>
+				<span>{ option.Label }</span>
+			</label>
 		}
 	</div>
 }
 
-templ SearchShortcutItem(shortcut searchShortcutRow) {
-	<li class="sv-list-row">
-		<form class="sv-inline-form" data-sv-action="config.searchShortcut.update">
-			<input type="hidden" name="key" value={ shortcut.Key }/>
-			<label><span>Key</span><input name="new_key" type="text" value={ shortcut.Key } required/></label>
-			<label><span>URL</span><input name="url" type="text" value={ shortcut.URL } pattern=".*%s.*" required/></label>
-			<label><span>Description</span><input name="description" type="text" value={ shortcut.Description }/></label>
-			<button class="sv-button sv-button-secondary" type="submit">@ButtonIconLabel(iconSave, "Save")</button>
-			<button class="sv-button sv-button-secondary sv-button-danger sv-button-icon-only" type="button" data-sv-action="config.searchShortcut.delete" data-key={ shortcut.Key } data-sv-confirm="Delete this search shortcut?" aria-label={ "Delete search shortcut " + shortcut.Key }>@IconOnly(iconTrash, "Delete search shortcut " + shortcut.Key)</button>
-		</form>
-	</li>
+templ ConfigAppearance(config dto.SystemviewConfigPayload) {
+	@ConfigSection("sv-config-appearance", "Appearance", "Theme, fonts and colors used by Dumber and its pages.") {
+		@SettingsCard("") {
+			@SettingGroupRow("sv-color-scheme-label", "Color scheme", "System follows your desktop's light or dark preference.") {
+				@Segmented("color_scheme", "sv-color-scheme-label", colorSchemeOptions, normalizedOption(config.Appearance.ColorScheme, "default"), nil)
+			}
+			@SettingRow("sv-ui-scale", "Interface scale", "Zoom applied to every page, from 0.5 to 3.") {
+				<div class="sv-input-affix">
+					<input id="sv-ui-scale" class="sv-input sv-input-number" name="default_ui_scale" type="number" min="0.5" max="3" step="0.05" value={ formatConfigFloat(config.DefaultUIScale) } required/>
+					<span aria-hidden="true">×</span>
+				</div>
+			}
+			@SettingRow("sv-font-size", "Default font size", "Base text size for pages that do not set their own.") {
+				<div class="sv-input-affix">
+					<input id="sv-font-size" class="sv-input sv-input-number" name="default_font_size" type="number" min="1" max="72" value={ formatConfigInt(config.Appearance.DefaultFontSize) } required/>
+					<span aria-hidden="true">px</span>
+				</div>
+			}
+		}
+		@SettingsCard("Fonts") {
+			for _, font := range configFontFields(config.Appearance) {
+				@SettingRow("sv-font-"+font.Name, font.Label, font.Help) {
+					<input id={ "sv-font-" + font.Name } class="sv-input sv-input-font" name={ font.Name } type="text" value={ font.Value } placeholder="System default" spellcheck="false" data-sv-font-input/>
+				}
+			}
+		}
+		@PaletteCard("Light palette", "light", config.Appearance.LightPalette)
+		@PaletteCard("Dark palette", "dark", config.Appearance.DarkPalette)
+		@ExternalThemeCard(config.Appearance.ExternalTheme)
+		<div class="sv-config-section-footer">
+			<button class="sv-text-button sv-text-button-danger" type="button" data-sv-action="config.appearance.reset" data-sv-confirm="Reset appearance settings to defaults? Unsaved changes on this page are lost.">
+				@ButtonIconLabel(iconRotateCCW, "Reset appearance to defaults")
+			</button>
+		</div>
+	}
 }
 
-templ PerformanceSettings(config dto.SystemviewConfigPayload) {
-	{{ customProfile := performanceProfileSelected(config.Performance.Profile, "custom") }}
-	<form class="sv-card-form sv-config-form" data-sv-action="config.performance.save" data-sv-performance-form>
-		<label><span>Profile</span><select name="profile" data-sv-performance-profile>
-			<option value="default" selected?={ performanceProfileSelected(config.Performance.Profile, "default") }>Default</option>
-			<option value="balanced" selected?={ performanceProfileSelected(config.Performance.Profile, "balanced") }>Balanced</option>
-			<option value="lite" selected?={ performanceProfileSelected(config.Performance.Profile, "lite") }>Lite</option>
-			<option value="max" selected?={ performanceProfileSelected(config.Performance.Profile, "max") }>Max</option>
-			<option value="custom" selected?={ performanceProfileSelected(config.Performance.Profile, "custom") }>Custom</option>
-		</select></label>
-		<p class="sv-meta">Choose Custom to edit individual performance values.</p>
-		<label><span>Skia CPU threads</span><input name="skia_cpu_threads" type="number" min="0" max="8" value={ formatConfigInt(config.Performance.Custom.SkiaCPUThreads) } disabled?={ !customProfile } data-sv-performance-custom/></label>
-		<label><span>Skia GPU threads</span><input name="skia_gpu_threads" type="number" min="-1" max="8" value={ formatConfigInt(config.Performance.Custom.SkiaGPUThreads) } disabled?={ !customProfile } data-sv-performance-custom/></label>
-		<label><span>Web process memory MB</span><input name="web_process_memory_mb" type="number" min="0" max="16384" value={ formatConfigInt(config.Performance.Custom.WebProcessMemoryMB) } disabled?={ !customProfile } data-sv-performance-custom/></label>
-		<label><span>Network process memory MB</span><input name="network_process_memory_mb" type="number" min="0" max="4096" value={ formatConfigInt(config.Performance.Custom.NetworkProcessMemoryMB) } disabled?={ !customProfile } data-sv-performance-custom/></label>
-		<label><span>WebView pool prewarm</span><input name="webview_pool_prewarm" type="number" min="0" max="20" value={ formatConfigInt(config.Performance.Custom.WebViewPoolPrewarm) } disabled?={ !customProfile } data-sv-performance-custom/></label>
-		<button class="sv-button" type="submit">@ButtonIconLabel(iconSave, "Save performance")</button>
-	</form>
-	<div class="sv-stat-grid">
-		<div class="sv-stat-card"><span class="sv-stat-value">{ formatConfigInt(config.Performance.Hardware.CPUThreads) }</span><span class="sv-stat-label">CPU threads</span></div>
-		<div class="sv-stat-card"><span class="sv-stat-value">{ formatConfigInt(config.Performance.Hardware.TotalRAMMB) }</span><span class="sv-stat-label">RAM MB</span></div>
-		<div class="sv-stat-card"><span class="sv-stat-value">{ config.Performance.Hardware.GPUName }</span><span class="sv-stat-label">GPU</span></div>
-		<div class="sv-stat-card"><span class="sv-stat-value">{ config.EngineType }</span><span class="sv-stat-label">Engine</span></div>
+templ PaletteCard(title string, prefix string, palette dto.ColorPalette) {
+	@SettingsCard(title) {
+		<div class="sv-palette-editor">
+			<div class="sv-color-grid">
+				for _, field := range paletteFieldsOf(&palette) {
+					@ColorField(prefix, field)
+				}
+			</div>
+			<div class="sv-palette-preview" data-sv-palette-preview={ prefix } style={ palettePreviewVars(palette) } aria-hidden="true">
+				<div class="sv-pp-window">
+					<span class="sv-pp-title">Page title</span>
+					<span class="sv-pp-muted">Secondary text</span>
+					<div class="sv-pp-row">
+						<span class="sv-pp-chip">Tag</span>
+						<span class="sv-pp-button">Accent</span>
+					</div>
+				</div>
+			</div>
+		</div>
+	}
+}
+
+templ ColorField(prefix string, field paletteField) {
+	{{ name := prefix + "_" + field.Key }}
+	<div class="sv-color-field" data-sv-color>
+		<span class="sv-color-swatch" style={ swatchStyle(*field.Value) }>
+			<input type="color" value={ colorPickerValue(*field.Value) } aria-label={ field.Label + " color picker" } data-sv-color-picker/>
+		</span>
+		<label class="sv-color-label" for={ "sv-" + name }>{ field.Label }</label>
+		<input id={ "sv-" + name } class="sv-input sv-input-mono sv-color-input" name={ name } type="text" value={ *field.Value } spellcheck="false" required data-sv-color-input data-sv-palette={ prefix } data-sv-palette-key={ field.Key }/>
 	</div>
-	if !engineIsWebKit(config.EngineType) {
-		<p class="sv-meta">Performance tuning applies only to the WebKit engine.</p>
-	} else {
-		<p class="sv-meta">Performance profile changes may require restarting the browser to affect existing engine processes.</p>
+}
+
+templ ExternalThemeCard(theme dto.WebUIExternalThemeConfig) {
+	@SettingsCard("External theme") {
+		<div class="sv-external-theme">
+			@SettingRow("sv-external-theme", "Use an external theme", "Read colors from a theme file (Noctalia) and follow its changes.") {
+				<input type="hidden" name={ configFieldExternalThemeEnabled } value="off"/>
+				<input id="sv-external-theme" class="sv-switch" name={ configFieldExternalThemeEnabled } type="checkbox" role="switch" checked?={ theme.Enabled } data-sv-external-theme-toggle/>
+			}
+			<div class="sv-setting-dependents">
+				@SettingRow("sv-external-provider", "Provider", "Theme source. Only noctalia is supported.") {
+					<input id="sv-external-provider" class="sv-input" name="external_theme_provider" type="text" value={ theme.Provider } placeholder="noctalia" spellcheck="false"/>
+				}
+				@SettingRow("sv-external-format", "Format", "colors-json reads Noctalia's colors.json; dumber-json is a custom template.") {
+					<select id="sv-external-format" class="sv-input sv-select" name="external_theme_format">
+						for _, format := range externalThemeFormats(theme.Format) {
+							<option value={ format } selected?={ format == theme.Format }>{ externalThemeFormatLabel(format) }</option>
+						}
+					</select>
+				}
+				@SettingRow("sv-external-path", "File", "") {
+					<input id="sv-external-path" class="sv-input sv-input-mono sv-input-wide" name="external_theme_path" type="text" value={ theme.Path } placeholder="~/.config/noctalia/colors.json" spellcheck="false"/>
+				}
+			</div>
+		</div>
+	}
+}
+
+templ ConfigSearch(config dto.SystemviewConfigPayload) {
+	@ConfigSection("sv-config-search", "Search", "Where the omnibox sends searches, and shortcuts such as “gh query”.") {
+		@SettingsCard("") {
+			<div class="sv-setting sv-setting-stacked" data-sv-setting>
+				<div class="sv-setting-text">
+					<label class="sv-setting-label" for="sv-search-engine">Default search engine</label>
+					<p class="sv-setting-help">%s is replaced by what you type.</p>
+				</div>
+				<div class="sv-setting-control">
+					<input id="sv-search-engine" class="sv-input sv-input-mono sv-input-wide" name="default_search_engine" type="text" inputmode="url" value={ config.DefaultSearchEngine } placeholder="https://duckduckgo.com/?q=%s" pattern=".*%s.*" spellcheck="false" required/>
+				</div>
+			</div>
+		}
+		@SettingsCard("Search shortcuts") {
+			{{ rows := searchShortcutRows(config.SearchShortcuts) }}
+			<div class="sv-shortcut-table" role="table" aria-label="Search shortcuts" data-sv-shortcut-table>
+				<div class="sv-shortcut-head" role="row">
+					<span role="columnheader">Key</span>
+					<span role="columnheader">URL</span>
+					<span role="columnheader">Description</span>
+					<span role="columnheader"><span class="sv-sr-only">Delete</span></span>
+				</div>
+				for i, row := range rows {
+					@SearchShortcutRow(strconv.Itoa(i), row, false)
+				}
+				@SearchShortcutRow(strconv.Itoa(len(rows)), searchShortcutRow{}, true)
+			</div>
+			<p class="sv-settings-card-note">Type in the last row to add a shortcut. Deleted rows are removed when you save.</p>
+		}
+	}
+}
+
+templ SearchShortcutRow(index string, row searchShortcutRow, isNew bool) {
+	{{ prefix := configShortcutPrefix + index + "." }}
+	<div class="sv-shortcut-row" role="row" data-sv-shortcut-row data-sv-shortcut-new?={ isNew }>
+		<input type="hidden" name={ prefix + "original" } value={ row.Key }/>
+		<span role="cell"><input class="sv-input sv-input-mono" name={ prefix + "key" } type="text" value={ row.Key } placeholder={ shortcutPlaceholder(isNew, "key") } aria-label="Shortcut key" spellcheck="false"/></span>
+		<span role="cell"><input class="sv-input sv-input-mono" name={ prefix + "url" } type="text" value={ row.URL } placeholder={ shortcutPlaceholder(isNew, "url") } pattern=".*%s.*" aria-label="Search URL, with %s for the query" spellcheck="false"/></span>
+		<span role="cell"><input class="sv-input" name={ prefix + "description" } type="text" value={ row.Description } placeholder={ shortcutPlaceholder(isNew, "description") } aria-label="Description"/></span>
+		<span role="cell">
+			if !isNew {
+				<label class="sv-shortcut-delete" title="Delete when saving">
+					<input type="checkbox" name={ prefix + "delete" } value="on" aria-label={ "Delete search shortcut " + row.Key }/>
+					@Icon(iconTrash)
+				</label>
+			}
+		</span>
+	</div>
+}
+
+templ ConfigPerformance(config dto.SystemviewConfigPayload) {
+	{{ profile := normalizedOption(config.Performance.Profile, "default") }}
+	@ConfigSection("sv-config-performance", "Performance", performanceDescription(config.EngineType)) {
+		@SettingsCard("") {
+			@SettingGroupRow("sv-profile-label", "Profile", "Default tunes Dumber from your hardware. Custom unlocks each value.") {
+				@Segmented("profile", "sv-profile-label", performanceProfileOptions, profile, templ.Attributes{"data-sv-performance-profile": true})
+			}
+			<div class="sv-setting sv-setting-info">
+				<span class="sv-setting-label">Detected hardware</span>
+				<span class="sv-hardware">{ hardwareSummary(config) }</span>
+			</div>
+		}
+		<div class="sv-performance-custom">
+			@SettingsCard("Custom values") {
+				for _, field := range performanceCustomFields(config.Performance.Custom) {
+					@SettingRow("sv-perf-"+field.Name, field.Label, field.Help) {
+						<input id={ "sv-perf-" + field.Name } class="sv-input sv-input-number" name={ field.Name } type="number" min={ strconv.Itoa(field.Min) } max={ strconv.Itoa(field.Max) } value={ strconv.Itoa(field.Value) } required disabled?={ profile != customPerformanceProfile } data-sv-performance-custom/>
+					}
+				}
+			}
+		</div>
 	}
 }
 
 templ ConfigKeybindings(keybindings port.KeybindingsConfig) {
 	{{ groups := configKeybindingGroups(keybindings) }}
-	if groups == nil {
-		@EmptyState("Keybindings unavailable")
-	} else if len(groups) == 0 {
-		@EmptyState("No keybindings configured")
-	} else {
-		<div class="sv-button-row">
-			<button class="sv-button sv-button-secondary sv-button-danger" type="button" data-sv-action="config.keybinding.resetAll" data-sv-confirm="Reset all keybindings to defaults?">@ButtonIconLabel(iconRotateCCW, "Reset all keybindings")</button>
-		</div>
-		for _, group := range groups {
-			@ConfigKeybindingGroup(group)
+	@ConfigSection("sv-config-keybindings", "Keybindings", configKeybindingSummary(keybindings)) {
+		if groups == nil {
+			@EmptyState("Keybindings unavailable")
+		} else if len(groups) == 0 {
+			@EmptyState("No keybindings configured")
+		} else {
+			<div class="sv-kb-toolbar">
+				<div class="sv-search-field sv-kb-filter">
+					@Icon(iconSearch)
+					<input type="search" placeholder="Filter by action or key…" aria-label="Filter keybindings" spellcheck="false" data-sv-keybinding-filter/>
+				</div>
+				<button class="sv-text-button sv-text-button-danger" type="button" data-sv-action="config.keybinding.resetAll" data-sv-confirm="Reset all keybindings to defaults? Unsaved changes on this page are lost.">
+					@ButtonIconLabel(iconRotateCCW, "Reset all")
+				</button>
+			</div>
+			<p class="sv-kb-empty" data-sv-keybinding-empty hidden>No keybinding matches this filter.</p>
+			for _, group := range groups {
+				@ConfigKeybindingGroup(group)
+			}
 		}
 	}
 }
 
 templ ConfigKeybindingGroup(group renderedKeybindingGroup) {
-	<div class="sv-group">
-		<div class="sv-group-header">
-			<div>
-				<h4>{ keybindingGroupTitle(group) }</h4>
-				if keybindingGroupMeta(group) != "" {
-					<p class="sv-meta">{ keybindingGroupMeta(group) }</p>
-				}
-			</div>
-		</div>
-		<div class="sv-group-body">
-			if len(group.Bindings) == 0 {
-				@EmptyState("No bindings in this group")
-			} else {
-				<ul class="sv-list">
-					for _, binding := range group.Bindings {
-						@ConfigKeybinding(group, binding)
-					}
-				</ul>
+	<div class="sv-settings-card sv-kb-group" data-sv-kb-group>
+		<div class="sv-kb-group-header">
+			<h3 class="sv-settings-card-title">{ keybindingGroupTitle(group) }</h3>
+			if group.Activation != "" {
+				<span class="sv-kb-activation">
+					Activate with
+					@KeyList([]string{ group.Activation })
+				</span>
 			}
 		</div>
+		if len(group.Bindings) == 0 {
+			@EmptyState("No bindings in this group")
+		} else {
+			for _, binding := range group.Bindings {
+				@ConfigKeybinding(group, binding)
+			}
+		}
 	</div>
 }
 
 templ ConfigKeybinding(group renderedKeybindingGroup, binding renderedKeybinding) {
-	<li class="sv-list-row">
-		<div class="sv-keybinding-row">
-			<div>
-				<strong>{ keybindingDescription(binding) }</strong>
-				<p class="sv-meta">{ keybindingAction(binding) }</p>
-				<div class="sv-binding-keys">
-					@KeyList(binding.Keys)
-					<span class="sv-badge">{ keybindingStatus(binding) }</span>
-					if keybindingIsCustom(binding) && len(binding.DefaultKeys) > 0 {
-						<span class="sv-meta">default:</span>
-						@KeyList(binding.DefaultKeys)
-					}
-				</div>
-			</div>
-			<form class="sv-inline-form" data-sv-action="config.keybinding.set">
-				<input type="hidden" name="mode" value={ group.Mode }/>
-				<input type="hidden" name="action" value={ binding.Action }/>
-				<label><span>Keys</span><input name="keys" type="text" value={ keybindingKeysValue(binding.Keys) } placeholder="ctrl+h, ctrl+shift+h" required/></label>
-				<button class="sv-button sv-button-secondary" type="submit">@ButtonIconLabel(iconSave, "Save")</button>
-				<button class="sv-button sv-button-secondary" type="button" data-sv-action="config.keybinding.reset" data-mode={ group.Mode } data-action={ binding.Action }>@ButtonIconLabel(iconRotateCCW, "Reset")</button>
-			</form>
+	{{ inputID := keybindingInputID(group.Mode, binding.Action) }}
+	<div class="sv-kb-row" data-sv-kb-row data-sv-kb-mode={ group.Mode }>
+		<div class="sv-kb-text">
+			<label class="sv-kb-label" for={ inputID }>{ keybindingDescription(binding) }</label>
+			<span class="sv-kb-action">{ keybindingAction(binding) }</span>
 		</div>
-	</li>
+		<div class="sv-kb-keys" data-sv-kb-keys>
+			<input id={ inputID } class="sv-input sv-input-mono sv-kb-input" name={ keybindingFieldName(group.Mode, binding.Action) } type="text" value={ formatKeyList(binding.Keys) } placeholder="Unassigned" spellcheck="false" data-sv-kb-input data-default-keys={ formatKeyList(binding.DefaultKeys) }/>
+			if keybindingGroupRecordable(group) {
+				<button class="sv-icon-button sv-kb-record" type="button" aria-pressed="false" aria-label={ "Record keys for " + keybindingDescription(binding) } title="Record keys" data-sv-kb-record>
+					@Icon(iconKeyboard)
+				</button>
+			}
+			<button class="sv-icon-button sv-kb-reset" type="button" data-sv-action={ uiActionConfigResetKeys } data-sv-kb-reset hidden?={ !keybindingIsCustom(binding) } aria-label={ "Reset " + keybindingDescription(binding) + " to its default keys" } title={ "Default: " + keybindingDefaultLabel(binding) }>
+				@Icon(iconRotateCCW)
+			</button>
+		</div>
+		<p class="sv-kb-conflict" data-sv-kb-conflict hidden></p>
+	</div>
+}
+
+templ ConfigAdvanced(config dto.SystemviewConfigPayload) {
+	@ConfigSection("sv-config-advanced", "Advanced", "Every stored value, read-only. Edit the config file for settings not shown above.") {
+		<details class="sv-settings-card sv-config-details">
+			<summary>Raw configuration values</summary>
+			@KV(flattenValues(config))
+		</details>
+	}
+}
+
+templ ConfigSaveBar() {
+	<div class="sv-savebar" data-sv-savebar>
+		<div class="sv-savebar-status" data-sv-region={ configRegionStatus } aria-live="polite">
+			@ConfigStatus(configStatus{})
+		</div>
+		<div class="sv-savebar-actions">
+			<button class="sv-button sv-button-neutral" type="reset" form={ configFormID } data-sv-discard>Discard</button>
+			<button class="sv-button" type="submit" form={ configFormID }>
+				<span>Save changes</span>
+				<kbd class="sv-button-kbd">Ctrl S</kbd>
+			</button>
+		</div>
+	</div>
+}
+
+templ ConfigStatus(status configStatus) {
+	if status.Error != "" {
+		<p class="sv-savebar-error" role="alert" data-sv-error-field={ status.Field }>
+			@Icon(iconAlert)
+			<span>{ status.Error }</span>
+		</p>
+	} else {
+		<p class="sv-savebar-message" data-sv-dirty-label>Changes are saved together</p>
+	}
 }
