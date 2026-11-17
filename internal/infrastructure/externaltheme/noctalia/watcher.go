@@ -28,6 +28,8 @@ type FileWatcher struct {
 	stopCtx  context.Context
 	stopFunc context.CancelFunc
 	running  bool
+	// done is closed when the current run goroutine exits.
+	done chan struct{}
 }
 
 // NewFileWatcher creates a file watcher with the default debounce delay.
@@ -92,8 +94,9 @@ func (w *FileWatcher) Start(ctx context.Context, cfg entity.ExternalThemeConfig,
 	w.stopCtx = runCtx
 	w.stopFunc = cancel
 	w.running = true
+	w.done = make(chan struct{})
 
-	go w.run(runCtx, watcher, path, onChange)
+	go w.run(runCtx, watcher, path, onChange, w.done)
 	return nil
 }
 
@@ -120,53 +123,91 @@ func (w *FileWatcher) stopLocked() error {
 	return err
 }
 
-func (w *FileWatcher) run(ctx context.Context, watcher *fsnotify.Watcher, path string, onChange func()) {
-	var timer *time.Timer
-	var timerC <-chan time.Time
+func (w *FileWatcher) run(ctx context.Context, watcher *fsnotify.Watcher, path string, onChange func(), done chan<- struct{}) {
 	defer func() {
-		if timer != nil {
-			timer.Stop()
-		}
 		w.mu.Lock()
 		if w.watcher == watcher {
 			_ = w.stopLocked()
 		}
 		w.mu.Unlock()
+		close(done)
 	}()
+	loop(ctx, watcher.Events, watcher.Errors, path, w.delay, onChange)
+}
+
+// loop debounces relevant events for path into onChange calls. It returns when
+// ctx is done or either channel is closed.
+func loop(
+	ctx context.Context,
+	events <-chan fsnotify.Event,
+	errs <-chan error,
+	path string,
+	delay time.Duration,
+	onChange func(),
+) {
+	d := newDebouncer(delay)
+	defer d.stop()
 
 	for {
 		select {
 		case <-ctx.Done():
 			return
-		case event, ok := <-watcher.Events:
+		case event, ok := <-events:
 			if !ok {
 				return
 			}
-			if !isRelevantFileEvent(event, path) {
-				continue
+			if isRelevantFileEvent(event, path) {
+				d.trigger()
 			}
-			if timer == nil {
-				timer = time.NewTimer(w.delay)
-				timerC = timer.C
-			} else {
-				if !timer.Stop() {
-					select {
-					case <-timer.C:
-					default:
-					}
-				}
-				timer.Reset(w.delay)
-				timerC = timer.C
-			}
-		case err, ok := <-watcher.Errors:
+		case err, ok := <-errs:
 			if !ok {
 				return
 			}
 			slog.Warn("noctalia theme watcher error", "error", err)
-		case <-timerC:
-			timerC = nil
+		case <-d.C():
+			d.fired()
 			onChange()
 		}
+	}
+}
+
+// debouncer coalesces bursts of triggers into one fire after delay of quiet.
+// It is not safe for concurrent use; the owning loop drives it.
+type debouncer struct {
+	delay time.Duration
+	timer *time.Timer
+	c     <-chan time.Time
+}
+
+func newDebouncer(delay time.Duration) *debouncer {
+	return &debouncer{delay: delay}
+}
+
+// trigger (re)arms the timer so it fires delay after the latest trigger.
+func (d *debouncer) trigger() {
+	if d.timer == nil {
+		d.timer = time.NewTimer(d.delay)
+	} else {
+		if !d.timer.Stop() {
+			select {
+			case <-d.timer.C:
+			default:
+			}
+		}
+		d.timer.Reset(d.delay)
+	}
+	d.c = d.timer.C
+}
+
+// C returns the fire channel, or nil when nothing is pending.
+func (d *debouncer) C() <-chan time.Time { return d.c }
+
+// fired must be called after receiving from C.
+func (d *debouncer) fired() { d.c = nil }
+
+func (d *debouncer) stop() {
+	if d.timer != nil {
+		d.timer.Stop()
 	}
 }
 
@@ -194,4 +235,16 @@ func (w *FileWatcher) isRunningForTest() bool {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	return w.running
+}
+
+func (w *FileWatcher) fsWatcherForTest() *fsnotify.Watcher {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	return w.watcher
+}
+
+func (w *FileWatcher) doneForTest() <-chan struct{} {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	return w.done
 }
