@@ -375,16 +375,7 @@
   }
 
   let paletteSeq = 0;
-
-  /**
-   * Opens the action palette. Resolves with the chosen item id, or null when
-   * the palette is dismissed.
-   * Items with searchOnly appear only once the user types.
-   * @param {{placeholder: string, items: Array<{id: string, label: string, group?: string, detail?: string, hint?: string, keywords?: string, danger?: boolean, searchOnly?: boolean}>, theme?: Element}} options
-   * @returns {Promise<string|null>}
-   */
-  function palette(options) {
-    const uid = `sv-palette-${++paletteSeq}`;
+  function buildPalette(uid, options) {
     const dialog = document.createElement('dialog');
     dialog.className = 'sv-palette';
     dialog.setAttribute('aria-label', 'Actions');
@@ -423,7 +414,54 @@
 
     dialog.append(field, list, empty);
     document.body.append(dialog);
+    return { dialog, input, list, empty };
+  }
 
+  function paletteGroupHeading(group) {
+    const heading = document.createElement('div');
+    heading.className = 'sv-palette-group';
+    heading.setAttribute('role', 'presentation');
+    heading.textContent = group;
+    return heading;
+  }
+
+  function paletteOption(id, item) {
+    const option = document.createElement('div');
+    option.className = 'sv-palette-option';
+    option.id = id;
+    option.dataset.id = item.id;
+    option.setAttribute('role', 'option');
+    if (item.danger) option.classList.add('sv-palette-danger');
+    const label = document.createElement('span');
+    label.className = 'sv-palette-label';
+    label.textContent = item.label;
+    if (item.detail) {
+      const text = document.createElement('span');
+      text.className = 'sv-palette-text';
+      const detail = document.createElement('span');
+      detail.className = 'sv-palette-detail';
+      detail.textContent = item.detail;
+      text.append(label, detail);
+      option.append(text);
+    } else {
+      option.append(label);
+    }
+    if (item.hint) {
+      const hint = document.createElement('span');
+      hint.className = 'sv-palette-hint';
+      hint.textContent = item.hint;
+      option.append(hint);
+    }
+    return option;
+  }
+
+  /**
+   * Owns the rendered options and the active one for a palette.
+   * @param {string} uid
+   * @param {Array<object>} items
+   * @param {{input: HTMLInputElement, list: HTMLElement, empty: HTMLElement}} ui
+   */
+  function paletteListing(uid, items, { input, list, empty }) {
     /** @type {HTMLElement[]} */
     let options$ = [];
     let active = -1;
@@ -443,7 +481,7 @@
 
     function render() {
       const query = input.value.trim().toLowerCase();
-      const matches = options.items
+      const matches = items
         .map((item, order) => ({ item, order, score: matchScore(item, query) }))
         .filter((entry) => entry.score > 0);
       if (query) matches.sort((a, b) => b.score - a.score || a.order - b.order);
@@ -455,38 +493,9 @@
         // Group headings only while browsing; a ranked search is one list.
         if (!query && item.group && item.group !== group) {
           group = item.group;
-          const heading = document.createElement('div');
-          heading.className = 'sv-palette-group';
-          heading.setAttribute('role', 'presentation');
-          heading.textContent = group;
-          list.append(heading);
+          list.append(paletteGroupHeading(group));
         }
-        const option = document.createElement('div');
-        option.className = 'sv-palette-option';
-        option.id = `${uid}-${options$.length}`;
-        option.dataset.id = item.id;
-        option.setAttribute('role', 'option');
-        if (item.danger) option.classList.add('sv-palette-danger');
-        const label = document.createElement('span');
-        label.className = 'sv-palette-label';
-        label.textContent = item.label;
-        if (item.detail) {
-          const text = document.createElement('span');
-          text.className = 'sv-palette-text';
-          const detail = document.createElement('span');
-          detail.className = 'sv-palette-detail';
-          detail.textContent = item.detail;
-          text.append(label, detail);
-          option.append(text);
-        } else {
-          option.append(label);
-        }
-        if (item.hint) {
-          const hint = document.createElement('span');
-          hint.className = 'sv-palette-hint';
-          hint.textContent = item.hint;
-          option.append(hint);
-        }
+        const option = paletteOption(`${uid}-${options$.length}`, item);
         list.append(option);
         options$.push(option);
       }
@@ -494,6 +503,31 @@
       if (empty.textContent !== emptyText) empty.textContent = emptyText;
       setActive(0);
     }
+
+    return {
+      render,
+      step: (delta) => setActive(active + delta),
+      current: () => options$[active],
+      hover(option) {
+        const index = option ? options$.indexOf(option) : -1;
+        if (index >= 0 && index !== active) setActive(index);
+      },
+    };
+  }
+
+  /**
+   * Opens the action palette. Resolves with the chosen item id, or null when
+   * the palette is dismissed.
+   * Items with searchOnly appear only once the user types.
+   * @param {{placeholder: string, items: Array<{id: string, label: string, group?: string, detail?: string, hint?: string, keywords?: string, danger?: boolean, searchOnly?: boolean}>, theme?: Element}} options
+   * @returns {Promise<string|null>}
+   */
+  function palette(options) {
+    const uid = `sv-palette-${++paletteSeq}`;
+    const ui = buildPalette(uid, options);
+    const { dialog, input, list } = ui;
+    const listing = paletteListing(uid, options.items, ui);
+    const optionAt = (event) => (event.target instanceof Element ? event.target.closest('[role="option"]') : null);
 
     return new Promise((resolve) => {
       let result = null;
@@ -503,28 +537,22 @@
         dialog.close();
       };
 
-      input.addEventListener('input', render);
+      input.addEventListener('input', listing.render);
       input.addEventListener('keydown', (event) => {
         const ctrl = event.ctrlKey && !event.altKey && !event.metaKey;
         if (event.key === 'ArrowDown' || (ctrl && (event.key === 'n' || event.key === 'j'))) {
           event.preventDefault();
-          setActive(active + 1);
+          listing.step(1);
         } else if (event.key === 'ArrowUp' || (ctrl && (event.key === 'p' || event.key === 'k'))) {
           event.preventDefault();
-          setActive(active - 1);
+          listing.step(-1);
         } else if (event.key === 'Enter') {
           event.preventDefault();
-          choose(options$[active]);
+          choose(listing.current());
         }
       });
-      list.addEventListener('pointermove', (event) => {
-        const option = event.target instanceof Element ? event.target.closest('[role="option"]') : null;
-        const index = option ? options$.indexOf(option) : -1;
-        if (index >= 0 && index !== active) setActive(index);
-      });
-      list.addEventListener('click', (event) => {
-        choose(event.target instanceof Element ? event.target.closest('[role="option"]') : null);
-      });
+      list.addEventListener('pointermove', (event) => listing.hover(optionAt(event)));
+      list.addEventListener('click', (event) => choose(optionAt(event)));
       // A click on the backdrop lands on the dialog element itself.
       dialog.addEventListener('click', (event) => {
         if (event.target === dialog) dialog.close();
@@ -534,7 +562,7 @@
         resolve(result);
       }, { once: true });
 
-      render();
+      listing.render();
       dialog.showModal();
       input.focus();
     });
@@ -546,6 +574,18 @@
   // add feedback: the unsaved-changes bar, sidebar scrollspy, color swatches,
   // the keybinding filter, the key recorder and conflict hints.
 
+  /**
+   * Collects listeners and cleanups so one teardown call removes them all.
+   */
+  function listenerScope() {
+    const cleanups = [];
+    const addCleanup = (cleanup) => cleanups.push(cleanup);
+    const on = (target, type, handler, options) => {
+      target.addEventListener(type, handler, options);
+      addCleanup(() => target.removeEventListener(type, handler, options));
+    };
+    return { on, addCleanup, teardown: () => cleanups.forEach((cleanup) => cleanup()) };
+  }
   /** @type {(() => void) | null} */
   let teardownSettings = null;
 
@@ -641,39 +681,19 @@
     return field.value !== field.defaultValue;
   }
 
+  // Rows that show a dirty mark when one of their fields changed.
+  const MARK_ROWS = '[data-sv-setting], [data-sv-shortcut-row], [data-sv-kb-row], [data-sv-color]';
+  const DIRTY_LABEL_HTML = '<p class="sv-savebar-message" data-sv-dirty-label></p>';
+
   /**
-   * Adds the settings and favorites page behaviours under root. Safe to call
-   * after every mount: the previous page's listeners and observers are
-   * removed first.
-   * @param {Element} root
+   * Returns refreshDirty: marks changed rows and nav links and drives the
+   * unsaved-changes bar.
    */
-  function enhance(root) {
-    teardownSettings?.();
-    teardownSettings = null;
-    teardownFavorites?.();
-    teardownFavorites = null;
-    const favorites = root.querySelector('[data-sv-favorites]');
-    if (favorites) enhanceFavorites(favorites);
-    const form = root.querySelector('[data-sv-config-form]');
-    if (!(form instanceof HTMLFormElement)) return;
-
-    const cleanups = [];
-    const on = (target, type, handler, options) => {
-      target.addEventListener(type, handler, options);
-      cleanups.push(() => target.removeEventListener(type, handler, options));
-    };
-    teardownSettings = () => cleanups.forEach((cleanup) => cleanup());
-
+  function dirtyTracker(root, form) {
     const savebar = root.querySelector('[data-sv-savebar]');
     const status = root.querySelector('[data-sv-region="config-status"]');
     const navLinks = [...root.querySelectorAll('[data-sv-config-nav]')];
-    const afterReset = (fn) => window.setTimeout(fn, 0);
-
-    // --- Unsaved changes ---------------------------------------------------
-
-    const MARK_ROWS = '[data-sv-setting], [data-sv-shortcut-row], [data-sv-kb-row], [data-sv-color]';
-
-    function refreshDirty() {
+    return function refreshDirty() {
       for (const marked of root.querySelectorAll('[data-sv-dirty]')) {
         if (marked !== form) marked.removeAttribute('data-sv-dirty');
       }
@@ -695,93 +715,107 @@
       savebar?.toggleAttribute('data-sv-open', count > 0 || Boolean(status?.querySelector('.sv-savebar-error')));
       const label = status?.querySelector('[data-sv-dirty-label]');
       if (label) label.textContent = count === 1 ? '1 unsaved change' : `${count} unsaved changes`;
-    }
-
-    // A few hundred fields at most: refreshing on every edit is cheap.
-    const refresh = () => {
-      refreshDirty();
-      refreshKeybindings();
     };
+  }
 
-    // --- Colors and fonts --------------------------------------------------
+  // --- Colors and fonts ----------------------------------------------------
 
-    function syncColor(input) {
-      const field = input.closest('[data-sv-color]');
-      const value = input.value.trim();
-      const valid = value !== '' && CSS.supports('color', value);
-      field?.querySelector('.sv-color-swatch')?.style.setProperty('--sv-swatch', valid ? value : 'transparent');
-      const picker = field?.querySelector('[data-sv-color-picker]');
-      if (picker && /^#[0-9a-f]{6}$/i.test(value)) picker.value = value.toLowerCase();
-      const preview = root.querySelector(`[data-sv-palette-preview="${input.dataset.svPalette}"]`);
-      const name = `--pp-${(input.dataset.svPaletteKey || '').replace(/_/g, '-')}`;
-      if (preview && valid) preview.style.setProperty(name, value);
-    }
+  function syncColor(root, input) {
+    const field = input.closest('[data-sv-color]');
+    const value = input.value.trim();
+    const valid = value !== '' && CSS.supports('color', value);
+    field?.querySelector('.sv-color-swatch')?.style.setProperty('--sv-swatch', valid ? value : 'transparent');
+    const picker = field?.querySelector('[data-sv-color-picker]');
+    if (picker && /^#[0-9a-f]{6}$/i.test(value)) picker.value = value.toLowerCase();
+    const preview = root.querySelector(`[data-sv-palette-preview="${input.dataset.svPalette}"]`);
+    const name = `--pp-${(input.dataset.svPaletteKey || '').replace(/_/g, '-')}`;
+    if (preview && valid) preview.style.setProperty(name, value);
+  }
 
-    function syncFont(input) {
-      input.style.fontFamily = input.value.trim() ? `${input.value}, var(--sv-font-sans, system-ui)` : '';
-    }
+  function syncFont(input) {
+    input.style.fontFamily = input.value.trim() ? `${input.value}, var(--sv-font-sans, system-ui)` : '';
+  }
 
-    function syncAllFields() {
-      root.querySelectorAll('[data-sv-color-input]').forEach(syncColor);
-      root.querySelectorAll('[data-sv-font-input]').forEach(syncFont);
-    }
+  function syncAllFields(root) {
+    root.querySelectorAll('[data-sv-color-input]').forEach((input) => syncColor(root, input));
+    root.querySelectorAll('[data-sv-font-input]').forEach(syncFont);
+  }
 
-    // --- Search shortcut rows ----------------------------------------------
-
-    // Typing in the trailing blank row adds another blank row below it.
-    function growShortcuts(row) {
-      if (row.nextElementSibling || ![...row.querySelectorAll('input:not([type="hidden"])')].some((input) => input.value)) {
-        return;
+  // Applies an edit to a color or font field. Returns false for the
+  // keybinding filter, which is not a setting.
+  function syncEditedField(root, target) {
+    if (target.matches('[data-sv-color-input]')) syncColor(root, target);
+    else if (target.matches('[data-sv-color-picker]')) {
+      const text = target.closest('[data-sv-color]')?.querySelector('[data-sv-color-input]');
+      if (text) {
+        text.value = target.value;
+        syncColor(root, text);
       }
-      const rows = row.parentElement.querySelectorAll('[data-sv-shortcut-row]');
-      const clone = row.cloneNode(true);
-      clone.dataset.svShortcutClone = '';
-      clone.removeAttribute('data-sv-dirty');
-      for (const input of clone.querySelectorAll('input')) {
-        input.name = input.name.replace(/^shortcut\.\d+\./, `shortcut.${rows.length}.`);
-        input.value = '';
-        input.removeAttribute('aria-invalid');
-      }
-      row.after(clone);
+    } else if (target.matches('[data-sv-font-input]')) syncFont(target);
+    else if (target.matches('[data-sv-keybinding-filter]')) return false;
+    return true;
+  }
+
+  // --- Search shortcut rows ------------------------------------------------
+
+  // Typing in the trailing blank row adds another blank row below it.
+  function growShortcuts(row) {
+    if (row.nextElementSibling || ![...row.querySelectorAll('input:not([type="hidden"])')].some((input) => input.value)) {
+      return;
     }
+    const rows = row.parentElement.querySelectorAll('[data-sv-shortcut-row]');
+    const clone = row.cloneNode(true);
+    clone.dataset.svShortcutClone = '';
+    clone.removeAttribute('data-sv-dirty');
+    for (const input of clone.querySelectorAll('input')) {
+      input.name = input.name.replace(/^shortcut\.\d+\./, `shortcut.${rows.length}.`);
+      input.value = '';
+      input.removeAttribute('aria-invalid');
+    }
+    row.after(clone);
+  }
 
-    // --- Keybindings -------------------------------------------------------
+  // --- Keybindings ---------------------------------------------------------
 
-    const kbRows = [...root.querySelectorAll('[data-sv-kb-row]')];
+  // Shows each row's reset button and the rows sharing one of its chords.
+  function refreshKeybindings(kbRows) {
+    const byMode = new Map();
+    for (const row of kbRows) {
+      const input = row.querySelector('[data-sv-kb-input]');
+      const chords = splitKeys(input.value).map(canonicalChord);
+      const defaults = splitKeys(input.dataset.defaultKeys || '').map(canonicalChord);
+      const reset = row.querySelector('[data-sv-kb-reset]');
+      if (reset) reset.hidden = chords.join(' ') === defaults.join(' ');
+      const mode = row.dataset.svKbMode || '';
+      if (!byMode.has(mode)) byMode.set(mode, new Map());
+      const owners = byMode.get(mode);
+      for (const chord of new Set(chords)) {
+        if (!owners.has(chord)) owners.set(chord, []);
+        owners.get(chord).push(row);
+      }
+      row.svChords = chords;
+    }
+    for (const row of kbRows) {
+      const owners = byMode.get(row.dataset.svKbMode || '');
+      const others = new Set();
+      for (const chord of row.svChords) {
+        for (const other of owners.get(chord) || []) if (other !== row) others.add(other);
+      }
+      const note = row.querySelector('[data-sv-kb-conflict]');
+      if (!note) continue;
+      note.hidden = others.size === 0;
+      note.textContent = others.size === 0 ? '' :
+        `Also used by ${[...others].map((other) => other.querySelector('.sv-kb-label')?.textContent.trim()).join(', ')}`;
+      row.toggleAttribute('data-sv-conflict', others.size > 0);
+    }
+  }
+
+  /**
+   * Wires the keybinding filter's Escape key. Returns applyFilter.
+   */
+  function setupKeybindingFilter(root, kbRows, on) {
     const filter = root.querySelector('[data-sv-keybinding-filter]');
     const filterEmpty = root.querySelector('[data-sv-keybinding-empty]');
-
-    function refreshKeybindings() {
-      const byMode = new Map();
-      for (const row of kbRows) {
-        const input = row.querySelector('[data-sv-kb-input]');
-        const chords = splitKeys(input.value).map(canonicalChord);
-        const defaults = splitKeys(input.dataset.defaultKeys || '').map(canonicalChord);
-        const reset = row.querySelector('[data-sv-kb-reset]');
-        if (reset) reset.hidden = chords.join(' ') === defaults.join(' ');
-        const mode = row.dataset.svKbMode || '';
-        if (!byMode.has(mode)) byMode.set(mode, new Map());
-        const owners = byMode.get(mode);
-        for (const chord of new Set(chords)) {
-          if (!owners.has(chord)) owners.set(chord, []);
-          owners.get(chord).push(row);
-        }
-        row.svChords = chords;
-      }
-      for (const row of kbRows) {
-        const owners = byMode.get(row.dataset.svKbMode || '');
-        const others = new Set();
-        for (const chord of row.svChords) {
-          for (const other of owners.get(chord) || []) if (other !== row) others.add(other);
-        }
-        const note = row.querySelector('[data-sv-kb-conflict]');
-        if (!note) continue;
-        note.hidden = others.size === 0;
-        note.textContent = others.size === 0 ? '' :
-          `Also used by ${[...others].map((other) => other.querySelector('.sv-kb-label')?.textContent.trim()).join(', ')}`;
-        row.toggleAttribute('data-sv-conflict', others.size > 0);
-      }
-    }
 
     function applyFilter() {
       const query = (filter?.value || '').trim().toLowerCase();
@@ -797,10 +831,27 @@
       if (filterEmpty) filterEmpty.hidden = visible > 0 || query === '';
     }
 
+    if (filter) {
+      on(filter, 'keydown', (event) => {
+        if (event.key !== 'Escape') return;
+        event.preventDefault();
+        if (filter.value) {
+          filter.value = '';
+          applyFilter();
+        } else {
+          filter.blur();
+        }
+      });
+    }
+    return applyFilter;
+  }
+
+  // Holds the key recorder state: at most one field records at a time.
+  function keyRecorder() {
     /** @type {{input: HTMLInputElement, previous: string, button: HTMLElement} | null} */
     let recording = null;
 
-    function stopRecording(keep) {
+    function stop(keep) {
       if (!recording) return;
       const { input, previous, button } = recording;
       recording = null;
@@ -811,8 +862,8 @@
       input.dispatchEvent(new Event('input', { bubbles: true }));
     }
 
-    function startRecording(input, button) {
-      stopRecording(true);
+    function start(input, button) {
+      stop(true);
       recording = { input, previous: input.value, button };
       input.closest('[data-sv-kb-row]')?.setAttribute('data-sv-recording', '');
       button.setAttribute('aria-pressed', 'true');
@@ -821,6 +872,15 @@
       // A focused, editable field tells Dumber to pass keys to the page.
       input.focus();
     }
+
+    return { start, stop, input: () => recording?.input ?? null };
+  }
+
+  /**
+   * Wires the record buttons and key capture. Returns the recorder's stop.
+   */
+  function setupKeyRecorder(root, form, on) {
+    const recorder = keyRecorder();
 
     // The record buttons are rendered by the page (recordable groups only);
     // this only wires their behaviour.
@@ -831,39 +891,49 @@
       // instead of blurring (and cancelling) it first.
       on(button, 'pointerdown', (event) => event.preventDefault());
       on(button, 'click', () => {
-        if (recording?.input === input) stopRecording(false);
-        else startRecording(input, button);
+        if (recorder.input() === input) recorder.stop(false);
+        else recorder.start(input, button);
       });
     }
 
     // Window capture runs before every other key handler, so a recorded
     // Ctrl+S or Ctrl+K is captured instead of executed.
     on(window, 'keydown', (event) => {
-      if (!recording || event.target !== recording.input) return;
+      const input = recorder.input();
+      if (!input || event.target !== input) return;
       if (event.key === 'Tab') {
-        stopRecording(false);
+        recorder.stop(false);
         return;
       }
       event.preventDefault();
       event.stopImmediatePropagation();
       if (event.key === 'Escape' && !event.ctrlKey && !event.altKey && !event.shiftKey) {
-        stopRecording(false);
+        recorder.stop(false);
         return;
       }
       const chord = chordFromEvent(event);
       if (!chord) return;
-      recording.input.value = chord;
-      stopRecording(true);
+      input.value = chord;
+      recorder.stop(true);
     }, true);
 
-    // --- Sidebar -----------------------------------------------------------
+    on(form, 'focusout', (event) => {
+      if (recorder.input() && event.target === recorder.input()) recorder.stop(false);
+    });
+    return recorder.stop;
+  }
 
-    function setCurrent(id) {
+  // --- Sidebar -------------------------------------------------------------
+
+  // Highlights the section in view and scrolls to a section on click.
+  function setupSidebar(root, on, addCleanup) {
+    const navLinks = [...root.querySelectorAll('[data-sv-config-nav]')];
+    const setCurrent = (id) => {
       for (const link of navLinks) {
         if (link.dataset.svConfigNav === id) link.setAttribute('aria-current', 'true');
         else link.removeAttribute('aria-current');
       }
-    }
+    };
 
     const sections = [...root.querySelectorAll('[data-sv-config-section]')];
     if (sections.length > 0 && 'IntersectionObserver' in window) {
@@ -877,12 +947,12 @@
         if (first) setCurrent(first.id);
       }, { rootMargin: '-15% 0px -70% 0px' });
       sections.forEach((section) => observer.observe(section));
-      cleanups.push(() => observer.disconnect());
+      addCleanup(() => observer.disconnect());
     }
     if (sections[0]) setCurrent(sections[0].id);
 
     for (const link of navLinks) {
-      link.addEventListener('click', (event) => {
+      on(link, 'click', (event) => {
         const target = root.querySelector(`#${CSS.escape(link.dataset.svConfigNav)}`);
         if (!target) return;
         event.preventDefault();
@@ -891,65 +961,83 @@
         focusSection(target);
       });
     }
+  }
 
-    // --- Wiring ------------------------------------------------------------
+  // --- Form wiring ---------------------------------------------------------
+
+  /**
+   * Routes form edits and resets to the page parts.
+   * @param {{refreshDirty: () => void, refreshKeybindings: () => void, applyFilter: () => void, stopRecording: (keep: boolean) => void}} parts
+   */
+  function wireSettingsForm(root, form, on, parts) {
+    const status = root.querySelector('[data-sv-region="config-status"]');
+    // A few hundred fields at most: refreshing on every edit is cheap.
+    const refresh = () => {
+      parts.refreshDirty();
+      parts.refreshKeybindings();
+    };
 
     on(form, 'input', (event) => {
       const target = event.target;
       if (!(target instanceof HTMLElement)) return;
       target.removeAttribute('aria-invalid');
-      if (target.matches('[data-sv-color-input]')) syncColor(target);
-      else if (target.matches('[data-sv-color-picker]')) {
-        const text = target.closest('[data-sv-color]')?.querySelector('[data-sv-color-input]');
-        if (text) {
-          text.value = target.value;
-          syncColor(text);
-        }
-      } else if (target.matches('[data-sv-font-input]')) syncFont(target);
-      else if (target.matches('[data-sv-keybinding-filter]')) {
-        applyFilter();
+      if (!syncEditedField(root, target)) {
+        parts.applyFilter();
         return;
       }
       // A validation error replaced the dirty label: bring it back.
-      if (status && !status.querySelector('[data-sv-dirty-label]')) {
-        status.innerHTML = '<p class="sv-savebar-message" data-sv-dirty-label></p>';
-      }
+      if (status && !status.querySelector('[data-sv-dirty-label]')) status.innerHTML = DIRTY_LABEL_HTML;
       const shortcut = target.closest('[data-sv-shortcut-new]');
       if (shortcut) growShortcuts(shortcut);
       refresh();
     });
     on(form, 'change', refresh);
     on(form, 'reset', () => {
-      stopRecording(false);
-      afterReset(() => {
+      parts.stopRecording(false);
+      // Reset updates field values after the event: read them next tick.
+      window.setTimeout(() => {
         root.querySelectorAll('[data-sv-shortcut-clone]').forEach((row) => row.remove());
         root.querySelectorAll('[aria-invalid]').forEach((field) => field.removeAttribute('aria-invalid'));
-        if (status) status.innerHTML = '<p class="sv-savebar-message" data-sv-dirty-label></p>';
-        syncAllFields();
-        applyFilter();
-        refreshDirty();
-        refreshKeybindings();
-      });
+        if (status) status.innerHTML = DIRTY_LABEL_HTML;
+        syncAllFields(root);
+        parts.applyFilter();
+        refresh();
+      }, 0);
     });
-    on(form, 'focusout', (event) => {
-      if (recording && event.target === recording.input) stopRecording(false);
-    });
-    if (filter) {
-      on(filter, 'keydown', (event) => {
-        if (event.key !== 'Escape') return;
-        event.preventDefault();
-        if (filter.value) {
-          filter.value = '';
-          applyFilter();
-        } else {
-          filter.blur();
-        }
-      });
-    }
+  }
 
-    syncAllFields();
-    refreshDirty();
-    refreshKeybindings();
+  /**
+   * Adds the settings and favorites page behaviours under root. Safe to call
+   * after every mount: the previous page's listeners and observers are
+   * removed first.
+   * @param {Element} root
+   */
+  function enhance(root) {
+    teardownSettings?.();
+    teardownSettings = null;
+    teardownFavorites?.();
+    teardownFavorites = null;
+    const favorites = root.querySelector('[data-sv-favorites]');
+    if (favorites) enhanceFavorites(favorites);
+    const form = root.querySelector('[data-sv-config-form]');
+    if (!(form instanceof HTMLFormElement)) return;
+
+    const { on, addCleanup, teardown } = listenerScope();
+    teardownSettings = teardown;
+
+    const kbRows = [...root.querySelectorAll('[data-sv-kb-row]')];
+    const parts = {
+      refreshDirty: dirtyTracker(root, form),
+      refreshKeybindings: () => refreshKeybindings(kbRows),
+      applyFilter: setupKeybindingFilter(root, kbRows, on),
+      stopRecording: setupKeyRecorder(root, form, on),
+    };
+    setupSidebar(root, on, addCleanup);
+    wireSettingsForm(root, form, on, parts);
+
+    syncAllFields(root);
+    parts.refreshDirty();
+    parts.refreshKeybindings();
   }
 
   // ----- Favorites ----------------------------------------------------------
@@ -959,50 +1047,86 @@
 
   const anchorPositioning = typeof CSS !== 'undefined' && CSS.supports?.('anchor-name: --sv-a');
 
-  /**
-   * Adds the favorites page behaviours: edit panels with unsaved-change
-   * status, the local text filter, tag popovers and the color picker.
-   * Listeners are delegated on root, which region swaps never replace.
-   * @param {Element} root
-   */
-  function enhanceFavorites(root) {
-    const cleanups = [];
-    const on = (target, type, handler, options) => {
-      target.addEventListener(type, handler, options);
-      cleanups.push(() => target.removeEventListener(type, handler, options));
-    };
-    teardownFavorites = () => cleanups.forEach((cleanup) => cleanup());
-    let query = '';
+  // --- Edit panels ---------------------------------------------------------
 
-    // --- Edit panels --------------------------------------------------------
+  function panelOf(row) {
+    return row?.querySelector('[data-sv-favorite-panel]') ?? null;
+  }
 
-    function panelOf(row) {
-      return row?.querySelector('[data-sv-favorite-panel]') ?? null;
+  function setPanel(row, open) {
+    const panel = panelOf(row);
+    const toggle = row?.querySelector('[data-sv-favorite-edit]');
+    if (!panel || !toggle) return;
+    panel.hidden = !open;
+    toggle.setAttribute('aria-expanded', String(open));
+    row.toggleAttribute('data-sv-open', open);
+    if (open) {
+      const title = panel.querySelector('[name="title"]');
+      title?.focus();
+      title?.select?.();
     }
+  }
 
-    function setPanel(row, open) {
-      const panel = panelOf(row);
-      const toggle = row?.querySelector('[data-sv-favorite-edit]');
-      if (!panel || !toggle) return;
-      panel.hidden = !open;
-      toggle.setAttribute('aria-expanded', String(open));
-      row.toggleAttribute('data-sv-open', open);
-      if (open) {
-        const title = panel.querySelector('[name="title"]');
-        title?.focus();
-        title?.select?.();
+  function closePanel(row) {
+    setPanel(row, false);
+    row?.querySelector('[data-sv-favorite-edit]')?.focus();
+  }
+
+  function refreshPanelDirty(form) {
+    const fields = [...form.elements].filter((field) => field.name && field.type !== 'hidden');
+    const names = new Set(fields.filter(fieldIsDirty).map((field) => field.name));
+    form.toggleAttribute('data-sv-dirty', names.size > 0);
+    const label = form.querySelector('[data-sv-favorite-dirty]');
+    if (label) label.textContent = names.size === 0 ? '' : names.size === 1 ? '1 unsaved change' : `${names.size} unsaved changes`;
+  }
+
+  const favoriteFormOf = (event) => (event.target instanceof Element ? event.target.closest('[data-sv-favorite-form]') : null);
+
+  // Opens and closes edit panels and tracks their unsaved changes.
+  function setupFavoritePanels(root, on) {
+    on(root, 'click', (event) => {
+      const target = event.target instanceof Element ? event.target : null;
+      if (!target) return;
+      const edit = target.closest('[data-sv-favorite-edit]');
+      if (edit) {
+        const row = edit.closest('[data-sv-favorite-row]');
+        setPanel(row, panelOf(row)?.hidden ?? false);
+        return;
       }
-    }
+      const close = target.closest('[data-sv-favorite-close]');
+      if (close) closePanel(close.closest('[data-sv-favorite-row]'));
+    });
+    on(root, 'keydown', (event) => {
+      const target = event.target instanceof Element ? event.target : null;
+      if (!target || event.key !== 'Escape') return;
+      // The filter and popovers handle their own Escape.
+      if (target.matches('[data-sv-favorite-filter]') || target.closest('[popover]')) return;
+      const panel = target.closest('[data-sv-favorite-panel]');
+      if (!panel) return;
+      event.preventDefault();
+      closePanel(panel.closest('[data-sv-favorite-row]'));
+    });
+    const refresh = (event) => {
+      const form = favoriteFormOf(event);
+      if (form) refreshPanelDirty(form);
+    };
+    on(root, 'input', (event) => {
+      if (event.target instanceof Element && event.target.matches('[data-sv-favorite-filter]')) return;
+      refresh(event);
+    });
+    on(root, 'change', refresh);
+    on(root, 'reset', (event) => {
+      const form = event.target;
+      if (!(form instanceof HTMLFormElement) || !form.matches('[data-sv-favorite-form]')) return;
+      window.setTimeout(() => refreshPanelDirty(form), 0);
+    });
+  }
 
-    function refreshPanelDirty(form) {
-      const fields = [...form.elements].filter((field) => field.name && field.type !== 'hidden');
-      const names = new Set(fields.filter(fieldIsDirty).map((field) => field.name));
-      form.toggleAttribute('data-sv-dirty', names.size > 0);
-      const label = form.querySelector('[data-sv-favorite-dirty]');
-      if (label) label.textContent = names.size === 0 ? '' : names.size === 1 ? '1 unsaved change' : `${names.size} unsaved changes`;
-    }
+  // --- Text filter ---------------------------------------------------------
 
-    // --- Text filter --------------------------------------------------------
+  // Filters rows by the typed text; the text survives region swaps.
+  function setupFavoriteFilter(root, on, addCleanup) {
+    let query = '';
 
     function applyQuery() {
       const input = root.querySelector('[data-sv-favorite-filter]');
@@ -1022,90 +1146,58 @@
     // swap() runs this before Go restores focus, so focus never lands on a
     // row that is about to be hidden.
     afterSwapHooks.add(applyQuery);
-    cleanups.push(() => afterSwapHooks.delete(applyQuery));
+    addCleanup(() => afterSwapHooks.delete(applyQuery));
 
-    // --- Tag popovers -------------------------------------------------------
-
-    function syncCustomColor(picker) {
-      const custom = picker.closest('[data-sv-tag-form]')?.querySelector('[data-sv-color-custom]');
-      if (!custom) return;
-      custom.value = picker.value;
-      custom.checked = true;
-      custom.closest('.sv-swatch')?.style.setProperty('--tag-color', picker.value);
-    }
-
-    function placePopover(popover) {
-      if (anchorPositioning) return;
-      const invoker = root.querySelector(`[popovertarget="${CSS.escape(popover.id)}"]`);
-      if (!invoker) return;
-      const rect = invoker.getBoundingClientRect();
-      const width = popover.offsetWidth;
-      const left = Math.max(8, Math.min(rect.left, window.innerWidth - width - 8));
-      popover.style.left = `${left}px`;
-      popover.style.top = `${Math.min(rect.bottom + 6, window.innerHeight - popover.offsetHeight - 8)}px`;
-    }
-
-    // --- Wiring ------------------------------------------------------------
-
-    on(root, 'click', (event) => {
-      const target = event.target instanceof Element ? event.target : null;
-      if (!target) return;
-      const edit = target.closest('[data-sv-favorite-edit]');
-      if (edit) {
-        const row = edit.closest('[data-sv-favorite-row]');
-        setPanel(row, panelOf(row)?.hidden ?? false);
-        return;
-      }
-      const close = target.closest('[data-sv-favorite-close]');
-      if (close) {
-        const row = close.closest('[data-sv-favorite-row]');
-        setPanel(row, false);
-        row?.querySelector('[data-sv-favorite-edit]')?.focus();
-      }
+    on(root, 'input', (event) => {
+      if (!(event.target instanceof Element) || !event.target.matches('[data-sv-favorite-filter]')) return;
+      query = event.target.value;
+      applyQuery();
     });
     on(root, 'keydown', (event) => {
-      const target = event.target instanceof Element ? event.target : null;
-      if (!target || event.key !== 'Escape') return;
-      if (target.matches('[data-sv-favorite-filter]')) {
-        if (query) {
-          event.preventDefault();
-          query = '';
-          applyQuery();
-        } else {
-          target.blur();
-        }
-        return;
-      }
-      if (target.closest('[popover]')) return; // the popover closes natively
-      const panel = target.closest('[data-sv-favorite-panel]');
-      if (panel) {
+      const target = event.target;
+      if (event.key !== 'Escape' || !(target instanceof Element) || !target.matches('[data-sv-favorite-filter]')) return;
+      if (query) {
         event.preventDefault();
-        const row = panel.closest('[data-sv-favorite-row]');
-        setPanel(row, false);
-        row?.querySelector('[data-sv-favorite-edit]')?.focus();
-      }
-    });
-    on(root, 'input', (event) => {
-      const target = event.target instanceof Element ? event.target : null;
-      if (!target) return;
-      if (target.matches('[data-sv-favorite-filter]')) {
-        query = target.value;
+        query = '';
         applyQuery();
-        return;
+      } else {
+        target.blur();
       }
-      if (target.matches('[data-sv-color-picker]')) syncCustomColor(target);
-      const form = target.closest('[data-sv-favorite-form]');
-      if (form) refreshPanelDirty(form);
     });
-    on(root, 'change', (event) => {
-      const form = event.target instanceof Element ? event.target.closest('[data-sv-favorite-form]') : null;
-      if (form) refreshPanelDirty(form);
+    applyQuery();
+  }
+
+  // --- Tag popovers --------------------------------------------------------
+
+  function syncCustomColor(picker) {
+    const custom = picker.closest('[data-sv-tag-form]')?.querySelector('[data-sv-color-custom]');
+    if (!custom) return;
+    custom.value = picker.value;
+    custom.checked = true;
+    custom.closest('.sv-swatch')?.style.setProperty('--tag-color', picker.value);
+  }
+
+  function placePopover(root, popover) {
+    if (anchorPositioning) return;
+    const invoker = root.querySelector(`[popovertarget="${CSS.escape(popover.id)}"]`);
+    if (!invoker) return;
+    const rect = invoker.getBoundingClientRect();
+    const width = popover.offsetWidth;
+    const left = Math.max(8, Math.min(rect.left, window.innerWidth - width - 8));
+    popover.style.left = `${left}px`;
+    popover.style.top = `${Math.min(rect.bottom + 6, window.innerHeight - popover.offsetHeight - 8)}px`;
+  }
+
+  // Positions tag popovers, focuses their name field and syncs the custom
+  // color swatch.
+  function setupTagPopovers(root, on) {
+    on(root, 'input', (event) => {
+      if (event.target instanceof Element && event.target.matches('[data-sv-color-picker]')) syncCustomColor(event.target);
     });
     on(root, 'reset', (event) => {
       const form = event.target;
       if (!(form instanceof HTMLFormElement)) return;
       window.setTimeout(() => {
-        if (form.matches('[data-sv-favorite-form]')) refreshPanelDirty(form);
         const picker = form.querySelector('[data-sv-color-picker]');
         const custom = form.querySelector('[data-sv-color-custom]');
         if (picker && custom) custom.closest('.sv-swatch')?.style.setProperty('--tag-color', custom.value);
@@ -1116,7 +1208,7 @@
       const popover = event.target;
       if (!(popover instanceof HTMLElement) || !popover.hasAttribute('popover')) return;
       if (event.newState === 'open') {
-        placePopover(popover);
+        placePopover(root, popover);
         const name = popover.querySelector('[name="name"]');
         name?.focus();
         name?.select?.();
@@ -1124,8 +1216,20 @@
         popover.querySelector('form')?.reset();
       }
     }, true);
+  }
 
-    applyQuery();
+  /**
+   * Adds the favorites page behaviours: edit panels with unsaved-change
+   * status, the local text filter, tag popovers and the color picker.
+   * Listeners are delegated on root, which region swaps never replace.
+   * @param {Element} root
+   */
+  function enhanceFavorites(root) {
+    const { on, addCleanup, teardown } = listenerScope();
+    teardownFavorites = teardown;
+    setupTagPopovers(root, on);
+    setupFavoritePanels(root, on);
+    setupFavoriteFilter(root, on, addCleanup);
   }
 
   const api = {
