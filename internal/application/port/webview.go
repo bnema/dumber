@@ -64,6 +64,10 @@ const (
 	WebProcessTerminationCrashed
 	WebProcessTerminationExceededMemory
 	WebProcessTerminationByAPI
+	// WebProcessTerminationRuntimeReplaced means the engine runtime was
+	// replaced on disk (for example by a package update). New web processes
+	// cannot start until the browser restarts.
+	WebProcessTerminationRuntimeReplaced
 )
 
 // PopupRequest contains metadata about a popup window request.

@@ -37,6 +37,10 @@ type Engine struct {
 	applicationScaleMu sync.RWMutex
 	applicationScale   float64
 
+	// runtimeLib is the libcef file loaded at startup, set once before any
+	// browser exists. Nil disables the runtime replacement check.
+	runtimeLib *runtimeLibrary
+
 	messageRouter *MessageRouter
 	schemeHandler *dumbSchemeHandler
 	contentInj    *contentInjector

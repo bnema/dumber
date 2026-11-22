@@ -473,6 +473,21 @@ func (pv *PaneView) HideLoadingSkeleton() {
 	}
 }
 
+// runtimeReplacedNotice tells the user why a pane stays empty after the web
+// engine runtime was replaced on disk.
+const runtimeReplacedNotice = "The web engine was updated. Restart Dumber to load pages."
+
+// ShowRuntimeReplacedNotice shows a persistent notice over the pane: the web
+// engine runtime was replaced on disk, so no page can render until restart.
+// It is native GTK because any web page would need a new renderer.
+func (pv *PaneView) ShowRuntimeReplacedNotice() {
+	pv.mu.Lock()
+	loading := pv.loading
+	pv.mu.Unlock()
+
+	loading.ShowNotice(runtimeReplacedNotice)
+}
+
 // ensureToaster creates the toaster lazily on first use.
 // Must be called with write lock held.
 func (pv *PaneView) ensureToaster() *Toaster {

@@ -11,11 +11,13 @@ import (
 // It is intended to be embedded as an overlay while primary content is loading.
 // Shows a faded app logo, a discrete spinner, and the version below.
 type LoadingSkeleton struct {
+	factory   layout.WidgetFactory
 	container layout.BoxWidget
 	content   layout.BoxWidget
 	spinner   layout.SpinnerWidget
 	logo      layout.ImageWidget
 	version   layout.LabelWidget
+	notice    layout.LabelWidget // created on first ShowNotice
 }
 
 const (
@@ -95,6 +97,7 @@ func NewLoadingSkeleton(factory layout.WidgetFactory) *LoadingSkeleton {
 	container.Append(content)
 
 	ls := &LoadingSkeleton{
+		factory:   factory,
 		container: container,
 		content:   content,
 		spinner:   spinner,
@@ -112,8 +115,11 @@ func (ls *LoadingSkeleton) Widget() layout.Widget {
 	return ls.container
 }
 
+// SetVisible shows or hides the skeleton. Once a notice is shown it stays: the
+// condition it reports lasts until restart, so later paints or load events
+// must not hide it.
 func (ls *LoadingSkeleton) SetVisible(visible bool) {
-	if ls == nil || ls.container == nil {
+	if ls == nil || ls.container == nil || ls.notice != nil {
 		return
 	}
 	ls.container.SetVisible(visible)
@@ -124,4 +130,33 @@ func (ls *LoadingSkeleton) SetVisible(visible bool) {
 			ls.spinner.Stop()
 		}
 	}
+}
+
+// ShowNotice shows the skeleton with a persistent message in place of the
+// spinner, for panes that cannot load anything until the user acts. The notice
+// stays until the pane is destroyed; calling it again only updates the text.
+func (ls *LoadingSkeleton) ShowNotice(text string) {
+	if ls == nil || ls.container == nil || ls.content == nil {
+		return
+	}
+	if ls.notice == nil {
+		if ls.factory == nil {
+			return
+		}
+		notice := ls.factory.NewLabel(text)
+		notice.SetHalign(gtk.AlignCenterValue)
+		notice.SetValign(gtk.AlignCenterValue)
+		notice.SetCanFocus(false)
+		notice.SetCanTarget(false)
+		notice.AddCssClass("loading-skeleton-notice")
+		ls.content.Append(notice)
+		ls.notice = notice
+	} else {
+		ls.notice.SetText(text)
+	}
+	if ls.spinner != nil {
+		ls.spinner.Stop()
+		ls.spinner.SetVisible(false)
+	}
+	ls.container.SetVisible(true)
 }

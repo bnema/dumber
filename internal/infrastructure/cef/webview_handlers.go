@@ -1329,28 +1329,25 @@ func (h *handlerSet) OnRenderProcessTerminated(_ purecef.Browser, status purecef
 
 	// The page runtime died with the renderer and can no longer report its end.
 	h.wv.endVimPageInteractionOnNavigation()
-	if h.wv.crashCount.Add(1) > maxConsecutiveCrashes {
+
+	// A replaced runtime kills every new renderer, so this check runs before
+	// the crash cap: the pane must still learn why nothing loads.
+	runtimeReplaced := h.wv.engine.runtimeLibraryReplaced()
+	if !runtimeReplaced && h.wv.crashCount.Add(1) > maxConsecutiveCrashes {
 		return // suppress to break the loop
 	}
 
 	var reason port.WebProcessTerminationReason
 	var label string
-	switch status {
-	case purecef.TerminationStatusTsAbnormalTermination:
-		reason = port.WebProcessTerminationCrashed
-		label = "abnormal termination"
-	case purecef.TerminationStatusTsProcessWasKilled:
-		reason = port.WebProcessTerminationByAPI
-		label = "killed"
-	case purecef.TerminationStatusTsProcessCrashed:
-		reason = port.WebProcessTerminationCrashed
-		label = "crashed"
-	case purecef.TerminationStatusTsProcessOom:
-		reason = port.WebProcessTerminationExceededMemory
-		label = "out of memory"
+	switch {
+	case runtimeReplaced:
+		reason = port.WebProcessTerminationRuntimeReplaced
+		label = "runtime replaced"
+		logging.FromContext(h.wv.ctx).Warn().
+			Str("libcef_path", h.wv.engine.runtimeLib.path).
+			Msg("cef: renderer terminated after the CEF runtime was replaced on disk; restart required")
 	default:
-		reason = port.WebProcessTerminationUnknown
-		label = "unknown"
+		reason, label = terminationReason(status)
 	}
 
 	h.wv.mu.RLock()
@@ -1361,6 +1358,23 @@ func (h *handlerSet) OnRenderProcessTerminated(_ purecef.Browser, status purecef
 		h.wv.runOnGTK(func() {
 			cb.OnWebProcessTerminated(reason, label, uri)
 		})
+	}
+}
+
+// terminationReason maps a CEF renderer termination status to the port reason
+// and a log label.
+func terminationReason(status purecef.TerminationStatus) (port.WebProcessTerminationReason, string) {
+	switch status {
+	case purecef.TerminationStatusTsAbnormalTermination:
+		return port.WebProcessTerminationCrashed, "abnormal termination"
+	case purecef.TerminationStatusTsProcessWasKilled:
+		return port.WebProcessTerminationByAPI, "killed"
+	case purecef.TerminationStatusTsProcessCrashed:
+		return port.WebProcessTerminationCrashed, "crashed"
+	case purecef.TerminationStatusTsProcessOom:
+		return port.WebProcessTerminationExceededMemory, "out of memory"
+	default:
+		return port.WebProcessTerminationUnknown, "unknown"
 	}
 }
 

@@ -932,6 +932,12 @@ func generatePaneCSS(p Palette) string {
 	min-height: 17.4545em;
 }
 
+.loading-skeleton-notice {
+	margin-top: 0.5em;
+	font-weight: 600;
+	color: var(--text);
+}
+
 .loading-skeleton-version {
 	opacity: 0.25;
 	font-size: 0.8864em;

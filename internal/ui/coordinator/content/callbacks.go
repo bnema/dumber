@@ -20,7 +20,9 @@ func shouldRenderCrashPage(reason port.WebProcessTerminationReason) bool {
 	switch reason {
 	case port.WebProcessTerminationCrashed, port.WebProcessTerminationExceededMemory:
 		return true
-	case port.WebProcessTerminationByAPI:
+	case port.WebProcessTerminationByAPI, port.WebProcessTerminationRuntimeReplaced:
+		// A crash page is a web page too; with a replaced runtime its renderer
+		// would be killed like the one it replaces.
 		return false
 	default:
 		return true
@@ -100,33 +102,7 @@ func (c *Coordinator) setupWebViewCallbacks(ctx context.Context, paneID entity.P
 			}
 		},
 		OnWebProcessTerminated: func(reason port.WebProcessTerminationReason, reasonLabel string, uri string) {
-			originalURI := extractOriginalURIFromCrashPage(uri)
-			if !shouldRenderCrashPage(reason) {
-				log.Info().
-					Str("pane_id", string(paneID)).
-					Str("reason", reasonLabel).
-					Str("uri", uri).
-					Msg("web process termination handled without crash page")
-				return
-			}
-
-			crashURI := buildCrashPageURI(originalURI)
-			log.Warn().
-				Str("pane_id", string(paneID)).
-				Str("reason", reasonLabel).
-				Str("uri", uri).
-				Str("crash_uri", crashURI).
-				Msg("web process terminated, redirecting to crash page")
-
-			if err := wv.LoadURI(ctx, crashURI); err != nil {
-				log.Error().
-					Err(err).
-					Str("pane_id", string(paneID)).
-					Str("reason", reasonLabel).
-					Str("uri", uri).
-					Str("crash_uri", crashURI).
-					Msg("failed to load crash page after web process termination")
-			}
+			c.handleWebProcessTerminated(ctx, paneID, wv, reason, reasonLabel, uri)
 		},
 		OnPermissionRequest: func(origin string, permTypes []string, metadata map[string]string, allow, deny func()) bool {
 			return c.handlePermissionRequest(ctx, paneID, origin, permTypes, metadata, allow, deny)
@@ -325,14 +301,14 @@ func filterWebRTCPermissionTypes(types []entity.PermissionType) []entity.Permiss
 // setupJSDialogCallbacks routes JavaScript dialogs to the owning pane's overlay.
 func (c *Coordinator) setupJSDialogCallbacks(paneID entity.PaneID, callbacks *port.WebViewCallbacks) {
 	callbacks.OnJSDialog = func(req port.JSDialogRequest, respond func(ok bool, input string)) bool {
-		pv := c.paneViewForJSDialog(paneID)
+		pv := c.paneViewFor(paneID)
 		if pv == nil {
 			return false
 		}
 		return pv.ShowJSDialog(req, respond, c.jsDialogAppearance())
 	}
 	callbacks.OnJSDialogReset = func() {
-		if pv := c.paneViewForJSDialog(paneID); pv != nil {
+		if pv := c.paneViewFor(paneID); pv != nil {
 			pv.HideJSDialog()
 		}
 	}
@@ -346,10 +322,63 @@ func (c *Coordinator) jsDialogAppearance() component.ModalAppearance {
 	return c.modalAppearanceProvider()
 }
 
-// paneViewForJSDialog resolves the PaneView that owns paneID's WebView through
-// the app-provided resolver (any tab/window). The dialog is shown inside that
-// pane's overlay even if the pane is in a background tab and never blocks others.
-func (c *Coordinator) paneViewForJSDialog(paneID entity.PaneID) *component.PaneView {
+// handleWebProcessTerminated reacts to a dead renderer: a restart notice when
+// the engine runtime was replaced, a crash page for real crashes, nothing else
+// for intentional kills.
+func (c *Coordinator) handleWebProcessTerminated(
+	ctx context.Context,
+	paneID entity.PaneID,
+	wv port.WebView,
+	reason port.WebProcessTerminationReason,
+	reasonLabel string,
+	uri string,
+) {
+	log := logging.FromContext(ctx)
+	if reason == port.WebProcessTerminationRuntimeReplaced {
+		log.Warn().
+			Str("pane_id", string(paneID)).
+			Str("uri", uri).
+			Msg("web engine runtime replaced on disk; showing restart notice")
+		if pv := c.paneViewFor(paneID); pv != nil {
+			pv.ShowRuntimeReplacedNotice()
+		}
+		return
+	}
+
+	originalURI := extractOriginalURIFromCrashPage(uri)
+	if !shouldRenderCrashPage(reason) {
+		log.Info().
+			Str("pane_id", string(paneID)).
+			Str("reason", reasonLabel).
+			Str("uri", uri).
+			Msg("web process termination handled without crash page")
+		return
+	}
+
+	crashURI := buildCrashPageURI(originalURI)
+	log.Warn().
+		Str("pane_id", string(paneID)).
+		Str("reason", reasonLabel).
+		Str("uri", uri).
+		Str("crash_uri", crashURI).
+		Msg("web process terminated, redirecting to crash page")
+
+	if err := wv.LoadURI(ctx, crashURI); err != nil {
+		log.Error().
+			Err(err).
+			Str("pane_id", string(paneID)).
+			Str("reason", reasonLabel).
+			Str("uri", uri).
+			Str("crash_uri", crashURI).
+			Msg("failed to load crash page after web process termination")
+	}
+}
+
+// paneViewFor resolves the PaneView that owns paneID's WebView through the
+// app-provided resolver (any tab/window). Dialogs and notices are shown inside
+// that pane's overlay even if the pane is in a background tab and never block
+// others.
+func (c *Coordinator) paneViewFor(paneID entity.PaneID) *component.PaneView {
 	if c.paneViewResolver == nil {
 		return nil
 	}

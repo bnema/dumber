@@ -75,7 +75,17 @@ func TestNewLoadingSkeleton_ShowsAndStartsSpinner(t *testing.T) {
 	require.NotNil(t, ls)
 }
 
-func TestLoadingSkeleton_SetVisible_StopsSpinnerWhenHidden(t *testing.T) {
+type mockedLoadingSkeleton struct {
+	skeleton  *component.LoadingSkeleton
+	factory   *mocks.MockWidgetFactory
+	container *mocks.MockBoxWidget
+	content   *mocks.MockBoxWidget
+	spinner   *mocks.MockSpinnerWidget
+}
+
+// newMockedLoadingSkeleton builds a visible skeleton on generated widget mocks.
+func newMockedLoadingSkeleton(t *testing.T) mockedLoadingSkeleton {
+	t.Helper()
 	mockFactory := mocks.NewMockWidgetFactory(t)
 	mockContainer := mocks.NewMockBoxWidget(t)
 	mockContent := mocks.NewMockBoxWidget(t)
@@ -136,8 +146,54 @@ func TestLoadingSkeleton_SetVisible_StopsSpinnerWhenHidden(t *testing.T) {
 
 	ls := component.NewLoadingSkeleton(mockFactory)
 	require.NotNil(t, ls)
+	return mockedLoadingSkeleton{
+		skeleton:  ls,
+		factory:   mockFactory,
+		container: mockContainer,
+		content:   mockContent,
+		spinner:   mockSpinner,
+	}
+}
 
-	mockContainer.EXPECT().SetVisible(false).Once()
-	mockSpinner.EXPECT().Stop().Once()
-	ls.SetVisible(false)
+func TestLoadingSkeleton_SetVisible_StopsSpinnerWhenHidden(t *testing.T) {
+	m := newMockedLoadingSkeleton(t)
+
+	m.container.EXPECT().SetVisible(false).Once()
+	m.spinner.EXPECT().Stop().Once()
+	m.skeleton.SetVisible(false)
+}
+
+func TestLoadingSkeleton_ShowNotice_ReplacesSpinnerWithPersistentMessage(t *testing.T) {
+	m := newMockedLoadingSkeleton(t)
+	notice := mocks.NewMockLabelWidget(t)
+
+	// The skeleton was already hidden by a first paint.
+	m.container.EXPECT().SetVisible(false).Once()
+	m.spinner.EXPECT().Stop().Once()
+	m.skeleton.SetVisible(false)
+
+	m.factory.EXPECT().NewLabel("engine updated").Return(notice).Once()
+	notice.EXPECT().SetHalign(mock.Anything).Once()
+	notice.EXPECT().SetValign(mock.Anything).Once()
+	notice.EXPECT().SetCanFocus(false).Once()
+	notice.EXPECT().SetCanTarget(false).Once()
+	notice.EXPECT().AddCssClass("loading-skeleton-notice").Once()
+	m.content.EXPECT().Append(notice).Once()
+	m.spinner.EXPECT().Stop().Twice()
+	m.spinner.EXPECT().SetVisible(false).Twice()
+	m.container.EXPECT().SetVisible(true).Twice()
+	m.skeleton.ShowNotice("engine updated")
+
+	// Repeated renderer deaths reuse the same label.
+	notice.EXPECT().SetText("engine updated again").Once()
+	m.skeleton.ShowNotice("engine updated again")
+
+	// A later paint or load event must not hide the notice: the mocks fail on
+	// any unexpected SetVisible or Stop call.
+	m.skeleton.SetVisible(false)
+}
+
+func TestLoadingSkeleton_ShowNotice_NilSafe(t *testing.T) {
+	var ls *component.LoadingSkeleton
+	ls.ShowNotice("engine updated")
 }

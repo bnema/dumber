@@ -239,7 +239,11 @@ func initializeCEF(eng *Engine, settings purecef.Settings, logger *zerolog.Logge
 	}
 	activeStartupTrace().Mark("cef_initialized")
 	if libcefPath := loadedLibCEFPath(); libcefPath != "" {
-		logger.Info().Str("libcef_path", libcefPath).Msg("cef: runtime library loaded")
+		eng.runtimeLib = newRuntimeLibrary(libcefPath)
+		logger.Info().
+			Str("libcef_path", libcefPath).
+			Bool("replacement_check", eng.runtimeLib != nil).
+			Msg("cef: runtime library loaded")
 	} else {
 		logger.Warn().Msg("cef: runtime library loaded but libcef path was not found in /proc/self/maps")
 	}
