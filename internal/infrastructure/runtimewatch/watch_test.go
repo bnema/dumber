@@ -70,7 +70,6 @@ func TestStart_LogsMetricsOnEachTick(t *testing.T) {
 		time.Sleep(25 * time.Second)
 		stop()
 		stop() // idempotent
-		synctest.Wait()
 
 		out := buf.String()
 		assert.Equal(t, 1, strings.Count(out, "runtime watch enabled"))
@@ -78,12 +77,76 @@ func TestStart_LogsMetricsOnEachTick(t *testing.T) {
 	})
 }
 
-func TestStart_StopsOnContextDone(t *testing.T) {
-	synctest.Test(t, func(_ *testing.T) {
+func TestRun_StopsOnContextDone(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		logger := zerolog.Nop()
+		cfg := Config{MetricsInterval: time.Second, ForcedGCInterval: time.Second, LeakWindow: 5}
+		w := newWatcher(cfg, &logger)
 		ctx, cancel := context.WithCancel(context.Background())
-		stop := Start(ctx, Config{MetricsInterval: time.Second, ForcedGCInterval: time.Second}, nil)
+		exited := make(chan struct{})
+		go func() {
+			w.run(ctx, nil)
+			close(exited)
+		}()
+
 		cancel()
 		synctest.Wait()
-		stop()
+
+		select {
+		case <-exited:
+		default:
+			t.Fatal("run did not exit after ctx was canceled")
+		}
 	})
+}
+
+type observation struct {
+	warn        bool
+	first, last uint64
+}
+
+func TestWatcherObserve(t *testing.T) {
+	warnAt := func(first, last uint64) observation { return observation{true, first, last} }
+	quiet := observation{}
+	tests := []struct {
+		name    string
+		samples []uint64
+		want    []observation
+	}{
+		{
+			name:    "warns on the 5th growing sample",
+			samples: []uint64{10, 20, 30, 40, 60},
+			want:    []observation{quiet, quiet, quiet, quiet, warnAt(10, 60)},
+		},
+		{
+			name:    "ring resets after a warning",
+			samples: []uint64{10, 20, 30, 40, 60, 70, 80, 90, 100, 120},
+			want: []observation{
+				quiet, quiet, quiet, quiet, warnAt(10, 60),
+				quiet, quiet, quiet, quiet, warnAt(70, 120),
+			},
+		},
+		{
+			name:    "a dip delays the warning",
+			samples: []uint64{10, 20, 15, 30, 40, 50, 70},
+			want:    []observation{quiet, quiet, quiet, quiet, quiet, quiet, warnAt(15, 70)},
+		},
+		{
+			name:    "growth below the minimum never warns",
+			samples: []uint64{10, 11, 12, 13, 14, 15, 16, 17},
+			want:    []observation{quiet, quiet, quiet, quiet, quiet, quiet, quiet, quiet},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			logger := zerolog.Nop()
+			w := newWatcher(Config{LeakWindow: 5, LeakMinGrowth: 50}, &logger)
+			got := make([]observation, 0, len(tt.samples))
+			for _, n := range tt.samples {
+				warn, first, last := w.observe(n)
+				got = append(got, observation{warn, first, last})
+			}
+			assert.Equal(t, tt.want, got)
+		})
+	}
 }

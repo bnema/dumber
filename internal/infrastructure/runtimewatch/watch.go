@@ -152,22 +152,33 @@ func (w *watcher) sample() {
 		Uint64("gc_cycles", sampleUint64(w.samples[3])).
 		Msg("runtime metrics")
 
+	if warn, first, last := w.observe(goroutines); warn {
+		w.logger.Warn().
+			Uint64("first", first).
+			Uint64("last", last).
+			Int("window", w.cfg.LeakWindow).
+			Msg("runtime: goroutine count keeps growing")
+	}
+}
+
+// observe adds a goroutine count to the ring. It reports a warning (with the
+// window's first and last counts) when the full window keeps growing, then
+// clears the ring so the next warning needs a full new window.
+func (w *watcher) observe(n uint64) (warn bool, first, last uint64) {
 	if w.cfg.LeakWindow <= 0 {
-		return
+		return false, 0, 0
 	}
 	if len(w.ring) == w.cfg.LeakWindow {
 		copy(w.ring, w.ring[1:])
 		w.ring = w.ring[:len(w.ring)-1]
 	}
-	w.ring = append(w.ring, goroutines)
-	if len(w.ring) == w.cfg.LeakWindow && goroutinesGrowing(w.ring, w.cfg.LeakMinGrowth) {
-		w.logger.Warn().
-			Uint64("first", w.ring[0]).
-			Uint64("last", w.ring[len(w.ring)-1]).
-			Int("window", len(w.ring)).
-			Msg("runtime: goroutine count keeps growing")
-		w.ring = w.ring[:0]
+	w.ring = append(w.ring, n)
+	if len(w.ring) < w.cfg.LeakWindow || !goroutinesGrowing(w.ring, w.cfg.LeakMinGrowth) {
+		return false, 0, 0
 	}
+	first, last = w.ring[0], w.ring[len(w.ring)-1]
+	w.ring = w.ring[:0]
+	return true, first, last
 }
 
 func sampleUint64(s metrics.Sample) uint64 {
