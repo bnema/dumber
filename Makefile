@@ -1,6 +1,6 @@
 # Makefile for dumber (Clean Architecture - puregotk)
 
-.PHONY: build build-systemviews generate-systemviews build-quick install-local test lint staticcheck clean install-tools install-golangci-lint install-staticcheck dev generate help init man flatpak-deps flatpak-build flatpak-install flatpak-run flatpak-clean stress-omnibox-callbacks verify-purego verify-generated verify-systemviews-assets check
+.PHONY: build build-systemviews generate-systemviews build-quick install-local test lint staticcheck clean install-tools install-golangci-lint install-staticcheck dev generate help init man flatpak-deps flatpak-build flatpak-install flatpak-run flatpak-clean stress stress-omnibox-callbacks verify-purego verify-generated verify-systemviews-assets check
 
 # Load local overrides from .env.local if present (Makefile syntax)
 ifneq (,$(wildcard .env.local))
@@ -13,6 +13,8 @@ BINARY_NAME=dumber
 MAIN_PATH=./cmd/dumber
 DIST_DIR=dist
 LOCAL_BIN_DIR?=$(HOME)/.local/bin
+DURATION?=10m
+STRESS_TIMEOUT?=40m
 TOOL_BIN_DIR?=$(shell go env GOPATH)/bin
 GOLANGCI_LINT_VERSION?=v2.14.0
 STATICCHECK_VERSION?=2026.2.2
@@ -141,6 +143,9 @@ test-cover: ## Run tests with coverage
 	go tool cover -html=coverage.out -o coverage.html
 	@echo "Coverage report: coverage.html"
 
+stress: ## Run the headless NeferWL stress harness (needs GPU, neferwl, dbus-run-session)
+	DUMBER_STRESS=1 DUMBER_STRESS_DURATION=$(DURATION) go test -tags stress -count=1 -timeout $(STRESS_TIMEOUT) -v ./test/stress/
+
 stress-omnibox-callbacks: ## Run placeholder omnibox callback stress harness
 	GOFLAGS=-mod=mod CGO_ENABLED=0 go run ./scripts/stress_omnibox_callbacks.go
 
@@ -163,6 +168,7 @@ verify-systemviews-assets: build-systemviews ## Verify release embeds a compress
 lint: ## Run golangci-lint
 	@echo "Running golangci-lint..."
 	golangci-lint run
+	golangci-lint run --build-tags stress ./test/stress/...
 
 lint-fix: ## Run golangci-lint with --fix
 	@echo "Running golangci-lint with --fix..."
@@ -229,6 +235,8 @@ check: ## Run local all-clear checks (tools, build, generated assets, tests, con
 	@$(MAKE) test
 	@echo "\nVerifying purego-only constraints..."
 	@$(MAKE) verify-purego
+	@echo "\nVetting the stress harness..."
+	@go vet -tags stress ./test/stress/
 	@echo "\nAll checks passed!"
 
 # Documentation
