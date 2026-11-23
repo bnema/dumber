@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -27,6 +28,9 @@ const (
 	procDir       = "/proc"
 	stopTimeout   = 20 * time.Second
 	stopPoll      = 100 * time.Millisecond
+	killTimeout   = 10 * time.Second
+	sessionIDMax  = 32
+	deadBus       = "unix:path=/nonexistent"
 )
 
 // sandbox is an isolated XDG tree plus the NeferWL session Dumber runs in.
@@ -96,25 +100,49 @@ func newSandbox(t *testing.T) *sandbox {
 	return &sandbox{root: root}
 }
 
-// env returns the host environment without display/XDG/debug leaks, plus
+// env returns the sandbox environment: an allowlist of host variables plus
 // the sandbox XDG dirs and the session Wayland display.
 func (sb *sandbox) env() []string {
 	return sandboxEnv(os.Environ(), sb.root, sb.wayland)
 }
 
-func sandboxEnv(base []string, root, wayland string) []string {
-	drop := map[string]bool{
-		"DISPLAY": true, "ENV": true, "WAYLAND_DISPLAY": true, "GODEBUG": true,
-		"XDG_CONFIG_HOME": true, "XDG_DATA_HOME": true,
-		"XDG_STATE_HOME": true, "XDG_CACHE_HOME": true,
+// envKeep lists host variables passed through as-is.
+var envKeep = map[string]bool{
+	"PATH": true, "HOME": true, "USER": true, "LOGNAME": true, "SHELL": true,
+	"TERM": true, "LANG": true, "TZ": true, "XDG_RUNTIME_DIR": true,
+}
+
+// envKeepPrefixes lists locale and GPU driver variable prefixes passed through.
+var envKeepPrefixes = []string{"LC_", "VK_", "MESA_", "LIBVA_", "__GLX_", "DRI_"}
+
+// envNever must never reach the sandbox: a real bus or Wayland socket would
+// let Dumber (or a fallback GUI from a failed relay) touch the user's desktop.
+var envNever = map[string]bool{
+	"DBUS_SESSION_BUS_ADDRESS": true, "DBUS_SYSTEM_BUS_ADDRESS": true, "WAYLAND_SOCKET": true,
+}
+
+func keepEnv(k string) bool {
+	if envNever[k] {
+		return false
 	}
-	env := make([]string, 0, len(base)+9)
+	if envKeep[k] {
+		return true
+	}
+	for _, p := range envKeepPrefixes {
+		if strings.HasPrefix(k, p) {
+			return true
+		}
+	}
+	return false
+}
+
+func sandboxEnv(base []string, root, wayland string) []string {
+	env := make([]string, 0, len(envKeep)+9)
 	for _, kv := range base {
 		k, _, _ := strings.Cut(kv, "=")
-		if drop[k] || strings.HasPrefix(k, "DUMBER_") {
-			continue
+		if keepEnv(k) {
+			env = append(env, kv)
 		}
-		env = append(env, kv)
 	}
 	return append(env,
 		"XDG_CONFIG_HOME="+filepath.Join(root, "config"),
@@ -169,12 +197,29 @@ func startNeferwl(t *testing.T, sb *sandbox, id string, ttl time.Duration) {
 	sb.session, sb.wayland = id, wl
 }
 
-// sessionID is the NeferWL session id for this test process.
-func sessionID() string { return "stress-" + strconv.Itoa(os.Getpid()) }
+// sessionID is a NeferWL session id unique to this process and test:
+// lowercase a-z0-9 and '-', at most sessionIDMax characters.
+func sessionID(t *testing.T) string {
+	id := "stress-" + strconv.Itoa(os.Getpid()) + "-"
+	var name strings.Builder
+	for _, c := range strings.ToLower(strings.TrimPrefix(t.Name(), "Test")) {
+		if (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') {
+			name.WriteRune(c)
+		} else {
+			name.WriteByte('-')
+		}
+	}
+	id += name.String()
+	if len(id) > sessionIDMax {
+		id = id[:sessionIDMax]
+	}
+	return strings.TrimRight(id, "-")
+}
 
 // launchDumber spawns dumber on url in the session, waits for its window,
-// and returns the browser PID. stdout/stderr go to logDir.
-func launchDumber(t *testing.T, sb *sandbox, url, logDir string) int {
+// and returns the verified browser process. stdout/stderr go to logDir.
+// On failure it stops every browser process started from sb.bin.
+func launchDumber(t *testing.T, sb *sandbox, url, logDir string) *dumberProc {
 	t.Helper()
 	if err := os.MkdirAll(logDir, dirPerm); err != nil {
 		t.Fatalf("log dir: %v", err)
@@ -199,13 +244,19 @@ func launchDumber(t *testing.T, sb *sandbox, url, logDir string) int {
 		"--until", "window-mapped app_id="+dumberAppID, "--timeout", "90s",
 		"--", script, url).CombinedOutput()
 	if err != nil {
+		stopAll(t, sb.bin)
 		t.Fatalf("neferwl spawn dumber: %v\n%s", err, out)
 	}
-	pids := findBrowserPIDs(sb.bin)
-	if len(pids) != 1 {
+	procs := findBrowserProcs(sb.bin)
+	if len(procs) != 1 {
+		pids := make([]int, 0, len(procs))
+		for _, p := range procs {
+			pids = append(pids, p.pid)
+		}
+		stopAll(t, sb.bin)
 		t.Fatalf("want exactly one dumber browser process, got %v", pids)
 	}
-	return pids[0]
+	return procs[0]
 }
 
 func validShellName(k string) bool {
@@ -220,74 +271,140 @@ func validShellName(k string) bool {
 	return true
 }
 
-// findBrowserPIDs walks /proc for the dumber browser process (not CEF subprocesses).
-func findBrowserPIDs(bin string) []int {
+// dumberProc is a browser process found by findBrowserProcs. proc is
+// pidfd-backed on Linux, so signals never reach a reused PID.
+type dumberProc struct {
+	pid  int
+	bin  string
+	proc *os.Process
+}
+
+// findBrowserProcs walks /proc for dumber browser processes (not CEF
+// subprocesses) started from bin.
+func findBrowserProcs(bin string) []*dumberProc {
 	entries, _ := os.ReadDir(procDir)
-	var pids []int
+	var procs []*dumberProc
 	for _, e := range entries {
 		pid, err := strconv.Atoi(e.Name())
-		if err != nil {
+		if err != nil || !exeIs(pid, bin) {
 			continue
 		}
-		dir := filepath.Join(procDir, e.Name())
-		if exe, lerr := os.Readlink(filepath.Join(dir, "exe")); lerr != nil || exe != bin {
+		raw, rerr := os.ReadFile(filepath.Join(procDir, e.Name(), "cmdline"))
+		if rerr != nil || !isBrowserCmdline(raw) {
 			continue
 		}
-		raw, rerr := os.ReadFile(filepath.Join(dir, "cmdline"))
-		if rerr != nil {
+		p, ferr := os.FindProcess(pid)
+		if ferr != nil {
 			continue
 		}
-		args := strings.Split(strings.TrimRight(string(raw), "\x00"), "\x00")
-		browse, sub := false, false
-		for _, a := range args {
-			browse = browse || a == "browse"
-			sub = sub || strings.HasPrefix(a, "--type=")
+		// Re-check after taking the handle: the PID could have been reused
+		// between the /proc read and FindProcess.
+		if !exeIs(pid, bin) {
+			_ = p.Release()
+			continue
 		}
-		if browse && !sub {
-			pids = append(pids, pid)
+		procs = append(procs, &dumberProc{pid: pid, bin: bin, proc: p})
+	}
+	return procs
+}
+
+func exeIs(pid int, bin string) bool {
+	exe, err := os.Readlink(filepath.Join(procDir, strconv.Itoa(pid), "exe"))
+	return err == nil && exe == bin
+}
+
+func isBrowserCmdline(raw []byte) bool {
+	browse, sub := false, false
+	for _, a := range strings.Split(strings.TrimRight(string(raw), "\x00"), "\x00") {
+		browse = browse || a == "browse"
+		sub = sub || strings.HasPrefix(a, "--type=")
+	}
+	return browse && !sub
+}
+
+// signal sends sig through the process handle after checking that the PID
+// still runs sb.bin. It returns os.ErrProcessDone when the process is gone.
+func (p *dumberProc) signal(sig os.Signal) error {
+	if !exeIs(p.pid, p.bin) {
+		return os.ErrProcessDone
+	}
+	return p.proc.Signal(sig)
+}
+
+// alive reports whether the process exists, is not a zombie, and still runs bin.
+func (p *dumberProc) alive() bool {
+	if p == nil || p.proc.Signal(syscall.Signal(0)) != nil {
+		return false
+	}
+	return pidAlive(p.pid) && exeIs(p.pid, p.bin)
+}
+
+// waitGone polls until the process exits or timeout elapses; it reports
+// whether the process is gone.
+func (p *dumberProc) waitGone(timeout time.Duration) bool {
+	deadline := time.Now().Add(timeout)
+	for p.alive() {
+		if !time.Now().Before(deadline) {
+			return false
+		}
+		time.Sleep(stopPoll)
+	}
+	return true
+}
+
+// stopDumber sends SIGTERM, waits up to timeout, then SIGKILLs. It reports
+// whether SIGKILL was needed, and an error if the process survived SIGKILL.
+// Waiting keeps the sandbox removable: CEF writes its profile on shutdown.
+func stopDumber(p *dumberProc, timeout time.Duration) (killed bool, err error) {
+	if err := p.signal(syscall.SIGTERM); errors.Is(err, os.ErrProcessDone) {
+		return false, nil
+	}
+	if p.waitGone(timeout) {
+		return false, nil
+	}
+	_ = p.signal(syscall.SIGKILL)
+	if !p.waitGone(killTimeout) {
+		return true, fmt.Errorf("pid %d still alive %s after SIGKILL", p.pid, killTimeout)
+	}
+	return true, nil
+}
+
+// stopAll stops every surviving browser process started from bin.
+func stopAll(t *testing.T, bin string) {
+	for _, p := range findBrowserProcs(bin) {
+		if _, err := stopDumber(p, stopTimeout); err != nil {
+			t.Errorf("stop leftover dumber: %v", err)
 		}
 	}
-	return pids
 }
 
 // relayOpen runs `dumber browse url` in the sandbox env with a 20s timeout.
+// The session bus points nowhere, so if the relay is unreachable and dumber
+// falls back to starting a GUI, that GUI cannot reach any real bus.
 func relayOpen(sb *sandbox, url string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), relayTimeout)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, sb.bin, "browse", url)
-	cmd.Env = sb.env()
+	cmd.Env = append(sb.env(), "DBUS_SESSION_BUS_ADDRESS="+deadBus)
 	return cmd.Run()
 }
 
-// alive reports whether pid exists and is not a zombie.
-func alive(pid int) bool {
+// pidAlive reports whether pid exists and is not a zombie.
+func pidAlive(pid int) bool {
 	b, err := os.ReadFile(filepath.Join(procDir, strconv.Itoa(pid), "stat"))
 	if err != nil {
 		return false
 	}
-	// state follows the ")" closing the comm field.
-	i := bytes.LastIndexByte(b, ')')
-	if i < 0 || i+2 >= len(b) {
-		return false
-	}
-	return b[i+2] != 'Z'
+	state, ok := statState(b)
+	return ok && state != 'Z'
 }
 
-// stopDumber sends SIGTERM to pid, waits up to timeout for it to exit, then
-// SIGKILLs it. It reports whether SIGKILL was needed. Waiting keeps the
-// sandbox removable: CEF writes its profile on shutdown.
-func stopDumber(pid int, timeout time.Duration) (killed bool) {
-	_ = syscall.Kill(pid, syscall.SIGTERM)
-	deadline := time.Now().Add(timeout)
-	for alive(pid) && time.Now().Before(deadline) {
-		time.Sleep(stopPoll)
+// statState returns the state field of /proc/<pid>/stat. The comm field can
+// hold ')' itself, so the state follows the last ')'.
+func statState(b []byte) (byte, bool) {
+	i := bytes.LastIndexByte(b, ')')
+	if i < 0 || i+2 >= len(b) {
+		return 0, false
 	}
-	if !alive(pid) {
-		return false
-	}
-	_ = syscall.Kill(pid, syscall.SIGKILL)
-	for alive(pid) {
-		time.Sleep(stopPoll)
-	}
-	return true
+	return b[i+2], true
 }
