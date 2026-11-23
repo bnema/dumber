@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"slices"
 	"strconv"
@@ -198,6 +199,11 @@ func prepareCEFSettings(
 	settings := purecef.DefaultSettings()
 	settings.MultiThreadedMessageLoop = true
 	settings.ExternalMessagePump = false
+	// Keep the Go runtime's SIGSEGV/SIGBUS/SIGABRT/... handlers. Chromium
+	// otherwise resets them to SIG_DFL, so Go faults kill the process with no
+	// panic, no recover() and no traceback. initializeCEF absorbs SIGPIPE
+	// itself, as Chromium would have.
+	settings.DisableSignalHandlers = true
 	settings.RootCachePath = paths.stateRoot(opts)
 	// purego-cef follows CEF's global request-context contract: RootCachePath
 	// only bounds acceptable cache paths; CachePath opts the global context
@@ -222,6 +228,15 @@ func prepareCEFSettings(
 	return settings, nil
 }
 
+// absorbSIGPIPE replaces the SIGPIPE ignore that Chromium's signal setup
+// would have done. Chromium threads rely on it: with Go's handler and no
+// Notify, a SIGPIPE on a non-Go thread is re-raised with SIG_DFL and kills the
+// process. Notify keeps Go's handler, so writes just fail with EPIPE, and
+// unlike signal.Ignore, child processes still start with SIGPIPE at SIG_DFL.
+func absorbSIGPIPE() {
+	signal.Notify(make(chan os.Signal, 1), syscall.SIGPIPE)
+}
+
 // initializeCEF calls cef_initialize with the App to register custom schemes
 // and browser-process callbacks (OnBeforeCommandLineProcessing, etc.).
 func initializeCEF(eng *Engine, settings purecef.Settings, logger *zerolog.Logger) error {
@@ -234,6 +249,9 @@ func initializeCEF(eng *Engine, settings purecef.Settings, logger *zerolog.Logge
 	// InitWithApp encapsulates loading libcef, so only the begin boundary is
 	// observable here; do not invent a separate library-load completion event.
 	activeStartupTrace().Mark("cef_library_load_begin")
+	if settings.DisableSignalHandlers {
+		absorbSIGPIPE()
+	}
 	if err := purecef.InitWithApp(settings, app); err != nil {
 		return fmt.Errorf("cef.InitWithApp: %w", err)
 	}

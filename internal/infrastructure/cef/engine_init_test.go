@@ -86,6 +86,16 @@ func TestPrepareCEFSettings_ConfiguresPersistentGlobalRequestContext(t *testing.
 	require.Equal(t, settings.RootCachePath, settings.CachePath)
 }
 
+// TestPrepareCEFSettings_KeepsGoSignalHandlers locks the setting that stops
+// Chromium from resetting the Go runtime's crash signal handlers to SIG_DFL.
+func TestPrepareCEFSettings_KeepsGoSignalHandlers(t *testing.T) {
+	logger := zerolog.Nop()
+	profile := testCEFDevProfile(t)
+	settings, err := prepareCEFSettings(port.EngineOptions{}, RuntimePaths{StateRoot: profile.CEFUserDataDir(), LogFile: profile.CEFLogFile()}, RuntimeConfig{}, &logger)
+	require.NoError(t, err)
+	require.True(t, settings.DisableSignalHandlers)
+}
+
 func TestParseLoadedLibCEFPath(t *testing.T) {
 	maps := "7f5fd4000000-7f5fd4200000 r--p 00000000 00:00 0 /usr/lib/libvulkan.so.1\n" +
 		"7f5fe0000000-7f5fe8200000 r-xp 00000000 00:00 0 /opt/cef-vaapi-runtime/usr/lib/cef/libcef.so\n" +
