@@ -32,7 +32,7 @@ NATIVE_GOFLAGS?=$(GOFLAGS)
 WASM_GOFLAGS?=$(GOFLAGS)
 
 # Linker flags
-LDFLAGS=-ldflags "-s -w -X main.version=$(VERSION) -X main.commit=$(COMMIT) -X main.buildDate=$(BUILD_DATE)"
+LDFLAGS=-ldflags "-X main.version=$(VERSION) -X main.commit=$(COMMIT) -X main.buildDate=$(BUILD_DATE)"
 
 # Systemview artifacts are built with the toolchain that satisfies go.mod's
 # go directive: setup-go's toolchain in CI, the local Go elsewhere. GOENV=off
