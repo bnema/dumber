@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -148,7 +149,7 @@ func StartBrowserSession(
 		persistOnce.Do(func() {
 			// Check for crash from previous run.
 			if logDir != "" {
-				reports := detectPreviousCrash(logDir, &logger)
+				reports := detectPreviousCrash(logDir, string(session.ID), &logger)
 				if len(reports) > 0 {
 					bs.SetCrashReports(reports)
 				}
@@ -166,7 +167,7 @@ func StartBrowserSession(
 
 			// Write PID file so next startup can detect crashes.
 			if logDir != "" {
-				writePIDFile(logDir, &logger)
+				writePIDFile(logDir, string(session.ID), &logger)
 			}
 
 			// Background cleanup of old sessions.
@@ -210,13 +211,34 @@ func pidFilePath(logDir string) string {
 	return filepath.Join(logDir, pidFileName)
 }
 
-func writePIDFile(logDir string, logger *zerolog.Logger) {
+// writePIDFile writes the PID file: the PID on line 1, the session ID on line 2.
+func writePIDFile(logDir, sessionID string, logger *zerolog.Logger) {
 	p := pidFilePath(logDir)
-	content := fmt.Sprintf("%d\n", os.Getpid())
+	content := fmt.Sprintf("%d\n%s\n", os.Getpid(), sessionID)
 	if err := os.WriteFile(p, []byte(content), filePerm); err != nil && logger != nil {
 		logger.Warn().Err(err).Msg("failed to write PID file")
 	}
 }
+
+// parsePIDFile parses PID file content. The first line is the PID; the
+// optional second line is the session ID.
+func parsePIDFile(raw string) (pid int, sessionID string, err error) {
+	lines := strings.Split(strings.TrimSpace(raw), "\n")
+	pid, err = strconv.Atoi(strings.TrimSpace(lines[0]))
+	if err != nil {
+		return 0, "", fmt.Errorf("parse PID: %w", err)
+	}
+	if len(lines) > 1 {
+		sessionID = strings.TrimSpace(lines[1])
+		if !validSessionIDRegex.MatchString(sessionID) {
+			// The session ID is used in file paths; ignore unsafe values.
+			sessionID = ""
+		}
+	}
+	return pid, sessionID, nil
+}
+
+var validSessionIDRegex = regexp.MustCompile(`^[A-Za-z0-9_-]+$`)
 
 func removePIDFile(logDir string) {
 	_ = os.Remove(pidFilePath(logDir))
@@ -225,14 +247,14 @@ func removePIDFile(logDir string) {
 // detectPreviousCrash checks the PID file from a previous run.
 // If the file exists and the process is dead, the previous session crashed.
 // Returns generated crash report paths (if any).
-func detectPreviousCrash(logDir string, logger *zerolog.Logger) []string {
+func detectPreviousCrash(logDir, currentSessionID string, logger *zerolog.Logger) []string {
 	p := pidFilePath(logDir)
 	raw, err := os.ReadFile(p)
 	if err != nil {
 		return nil // No PID file → clean previous exit (or first run).
 	}
 
-	pid, parseErr := strconv.Atoi(strings.TrimSpace(string(raw)))
+	pid, crashedSessionID, parseErr := parsePIDFile(string(raw))
 	if parseErr != nil {
 		// Corrupt PID file, remove and move on.
 		_ = os.Remove(p)
@@ -255,14 +277,17 @@ func detectPreviousCrash(logDir string, logger *zerolog.Logger) []string {
 	// Previous process is dead → crash. Generate report from last log.
 	_ = os.Remove(p)
 
-	lastLog := findLastSessionLog(logDir)
-	if lastLog == "" {
-		return nil
-	}
-
-	lastSessionID := sessionIDFromLogPath(lastLog)
+	lastSessionID := crashedSessionID
 	if lastSessionID == "" {
-		return nil
+		// v1 PID file without a session ID: use the newest other session log.
+		lastLog := findLastSessionLog(logDir, currentSessionID)
+		if lastLog == "" {
+			return nil
+		}
+		lastSessionID = sessionIDFromLogPath(lastLog)
+		if lastSessionID == "" {
+			return nil
+		}
 	}
 
 	if logger != nil {
@@ -285,15 +310,23 @@ func detectPreviousCrash(logDir string, logger *zerolog.Logger) []string {
 	return []string{reportPath}
 }
 
-// findLastSessionLog returns the most recent session_*.log file in logDir.
-func findLastSessionLog(logDir string) string {
+// findLastSessionLog returns the most recent session_*.log file in logDir,
+// skipping the log of the exclude session.
+func findLastSessionLog(logDir, exclude string) string {
 	matches, err := filepath.Glob(filepath.Join(logDir, "session_*.log"))
 	if err != nil || len(matches) == 0 {
 		return ""
 	}
 	var newest string
 	var newestMod time.Time
+	excludeName := ""
+	if exclude != "" {
+		excludeName = corelogging.SessionFilename(exclude)
+	}
 	for _, m := range matches {
+		if excludeName != "" && filepath.Base(m) == excludeName {
+			continue
+		}
 		info, statErr := os.Stat(m)
 		if statErr != nil {
 			continue

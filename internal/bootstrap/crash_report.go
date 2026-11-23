@@ -22,6 +22,7 @@ const (
 	logTailLineCount    = 120
 	maxCrashReportsKept = 20
 	scannerMaxTokenSize = 256 * 1024
+	fatalOutputMaxLines = 2000
 )
 
 type crashReport struct {
@@ -31,6 +32,8 @@ type crashReport struct {
 	CrashedPID           int                `json:"crashed_pid,omitempty"`
 	SessionLogFile       string             `json:"session_log_file,omitempty"`
 	SessionLogTail       []string           `json:"session_log_tail_redacted,omitempty"`
+	FatalOutputFile      string             `json:"fatal_output_file,omitempty"`
+	FatalOutput          []string           `json:"fatal_output,omitempty"`
 	ReporterProcess      crashReporter      `json:"reporter_process"`
 	CoreDumpDiagnostics  crashCoreDump      `json:"core_dump_diagnostics"`
 	IssueTemplate        crashIssueTemplate `json:"issue_template"`
@@ -63,6 +66,11 @@ func writeCrashReport(logDir, sessionID string, crashedPID int) (string, error) 
 	if logDir == "" || sessionID == "" {
 		return "", errors.New("logDir and sessionID are required")
 	}
+	// sessionID comes from files on disk; keep it a single path element.
+	if filepath.Base(sessionID) != sessionID || sessionID == "." || sessionID == ".." {
+		return "", fmt.Errorf("invalid session ID %q", sessionID)
+	}
+	sessionID = filepath.Base(sessionID)
 
 	reportsDir := filepath.Join(logDir, crashReportsDirName)
 	if err := os.MkdirAll(reportsDir, dirPerm); err != nil {
@@ -105,6 +113,12 @@ func writeCrashReport(logDir, sessionID string, crashedPID int) (string, error) 
 		report.SessionLogTail = readRedactedLogTail(logPath, logTailLineCount)
 	}
 
+	fatalPath := FatalOutputPath(logDir, crashedPID)
+	if _, err := os.Stat(fatalPath); err == nil {
+		report.FatalOutputFile = fatalPath
+		report.FatalOutput = readRedactedLogHead(fatalPath, fatalOutputMaxLines)
+	}
+
 	report.GeneratedMarkdownRef = markdownPath
 
 	payload, err := json.MarshalIndent(report, "", "  ")
@@ -119,6 +133,11 @@ func writeCrashReport(logDir, sessionID string, crashedPID int) (string, error) 
 	markdown := buildCrashMarkdown(report)
 	if err := os.WriteFile(markdownPath, []byte(markdown), filePerm); err != nil {
 		return "", err
+	}
+
+	// The fatal output is now embedded; remove it so it is not reported twice.
+	if report.FatalOutputFile != "" {
+		_ = os.Remove(report.FatalOutputFile)
 	}
 
 	return jsonPath, nil
@@ -153,6 +172,16 @@ func buildCrashMarkdown(report crashReport) string {
 		lines = append(lines, "```")
 	}
 
+	if len(report.FatalOutput) > 0 {
+		lines = append(lines,
+			"",
+			"## Go Fatal Output",
+			"```text",
+		)
+		lines = append(lines, report.FatalOutput...)
+		lines = append(lines, "```")
+	}
+
 	lines = append(lines,
 		"",
 		"## GitHub Issue Template",
@@ -179,6 +208,26 @@ func buildCrashMarkdown(report crashReport) string {
 // ---------------------------------------------------------------------------
 // Redaction helpers (kept from previous implementation)
 // ---------------------------------------------------------------------------
+
+// readRedactedLogHead returns at most the first maxLines lines of path, redacted.
+func readRedactedLogHead(path string, maxLines int) []string {
+	file, err := os.Open(path)
+	if err != nil {
+		return nil
+	}
+	defer func() { _ = file.Close() }()
+
+	var result []string
+	scanner := bufio.NewScanner(file)
+	scanner.Buffer(make([]byte, 0, scannerMaxTokenSize), scannerMaxTokenSize)
+	for len(result) < maxLines && scanner.Scan() {
+		result = append(result, redactSensitiveContent(scanner.Text()))
+	}
+	if scanner.Err() != nil {
+		result = append(result, fmt.Sprintf("[fatal output truncated: %v]", scanner.Err()))
+	}
+	return result
+}
 
 func readRedactedLogTail(path string, lines int) []string {
 	if lines <= 0 {

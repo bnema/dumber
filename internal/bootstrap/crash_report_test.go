@@ -121,3 +121,33 @@ func TestWriteCrashReport(t *testing.T) {
 	assert.NotContains(t, text, "code=abc")
 	assert.NotContains(t, text, "token=def")
 }
+
+func TestWriteCrashReport_EmbedsFatalOutputThenRemovesIt(t *testing.T) {
+	logDir := t.TempDir()
+	sessionID := "crash-fatal-1"
+	crashedPID := 4242
+
+	fatalPath := FatalOutputPath(logDir, crashedPID)
+	require.NoError(t, os.MkdirAll(filepath.Dir(fatalPath), dirPerm))
+	fatalBody := "fatal error: unexpected signal\nfetching https://example.com/x?token=abc\n"
+	require.NoError(t, os.WriteFile(fatalPath, []byte(fatalBody), filePerm))
+
+	jsonPath, err := writeCrashReport(logDir, sessionID, crashedPID)
+	require.NoError(t, err)
+
+	raw, err := os.ReadFile(jsonPath)
+	require.NoError(t, err)
+	var report crashReport
+	require.NoError(t, json.Unmarshal(raw, &report))
+	assert.Equal(t, fatalPath, report.FatalOutputFile)
+	require.Len(t, report.FatalOutput, 2)
+	assert.Equal(t, "fatal error: unexpected signal", report.FatalOutput[0])
+	assert.NotContains(t, report.FatalOutput[1], "token=abc")
+
+	md, err := os.ReadFile(strings.TrimSuffix(jsonPath, ".json") + ".md")
+	require.NoError(t, err)
+	assert.Contains(t, string(md), "## Go Fatal Output")
+	assert.Contains(t, string(md), "fatal error: unexpected signal")
+
+	assert.NoFileExists(t, fatalPath)
+}
