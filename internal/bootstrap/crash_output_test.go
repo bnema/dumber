@@ -1,6 +1,7 @@
 package bootstrap
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -66,17 +67,17 @@ func TestEnableCrashOutput_EmptyLogDirIsNoop(t *testing.T) {
 const crashHelperDirEnv = "DUMBER_CRASH_HELPER_DIR"
 
 // TestCrashOutputHelper runs only as a child of TestCrashOutputSubprocess.
-// It enables crash output in its working directory (the parent's temp dir)
-// and dies from an unrecovered goroutine panic.
+// It enables crash output in os.TempDir()/<DUMBER_CRASH_HELPER_DIR> and dies
+// from an unrecovered goroutine panic.
 func TestCrashOutputHelper(t *testing.T) {
-	if os.Getenv(crashHelperDirEnv) == "" {
+	name := os.Getenv(crashHelperDirEnv)
+	if name == "" {
 		return
 	}
-	dir, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("getwd: %v", err)
-	}
-	if _, err = EnableCrashOutput(dir); err != nil {
+	// The env carries a single directory name under os.TempDir(); Base keeps
+	// it that way (and is the sanitizer gosec G703 recognizes).
+	dir := filepath.Join(os.TempDir(), filepath.Base(name))
+	if _, err := EnableCrashOutput(dir); err != nil {
 		t.Fatalf("enable crash output: %v", err)
 	}
 	go func() { panic("crash output helper panic") }()
@@ -84,13 +85,17 @@ func TestCrashOutputHelper(t *testing.T) {
 }
 
 func TestCrashOutputSubprocess(t *testing.T) {
-	dir := t.TempDir()
-	cmd := exec.Command(os.Args[0], "-test.run=^TestCrashOutputHelper$")
-	cmd.Dir = dir
-	cmd.Env = append(os.Environ(), crashHelperDirEnv+"="+dir, "GOTRACEBACK=single")
+	dir, err := os.MkdirTemp("", "dumber-crash-helper-*")
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = os.RemoveAll(dir) })
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, os.Args[0], "-test.run=^TestCrashOutputHelper$")
+	cmd.Env = append(os.Environ(), crashHelperDirEnv+"="+filepath.Base(dir), "GOTRACEBACK=single")
 
-	err := cmd.Run()
+	err = cmd.Run()
 	var exitErr *exec.ExitError
+	require.NoError(t, ctx.Err(), "child timed out instead of crashing")
 	require.ErrorAs(t, err, &exitErr, "child must exit non-zero")
 
 	data, err := os.ReadFile(FatalOutputPath(dir, cmd.Process.Pid))
