@@ -129,3 +129,4 @@ aur/*/logo-512.png
 docs/reference/stability-performance-multi-agent-runbook-*.md
 /phase1/
 perf.data
+test/stress/artifacts/

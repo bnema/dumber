@@ -25,7 +25,7 @@ const (
 	execPerm      = 0o700
 	relayTimeout  = 20 * time.Second
 	procDir       = "/proc"
-	stopTimeout   = 15 * time.Second
+	stopTimeout   = 20 * time.Second
 	stopPoll      = 100 * time.Millisecond
 )
 
@@ -156,7 +156,7 @@ func startNeferwl(t *testing.T, sb *sandbox, id string, ttl time.Duration) {
 	if err := os.WriteFile(conf, []byte("animations = off\n"), filePerm); err != nil {
 		t.Fatalf("write nwl.conf: %v", err)
 	}
-	out, err := exec.Command("neferwl", "session", "new", "--id", id, "--config", conf,
+	out, err := exec.Command("neferwl", "session", "new", "--id", id, "--config", conf, //nolint:gosec // fixed binary, test-built args
 		"--size", "1600x1000", "--ttl", ttl.String(), "--", "--no-xwayland", "--no-terminal").Output()
 	if err != nil {
 		t.Fatalf("neferwl session new: %v\n%s", err, out)
@@ -273,15 +273,21 @@ func alive(pid int) bool {
 	return b[i+2] != 'Z'
 }
 
-// stopDumber sends SIGTERM to pid, waits for it to exit, then SIGKILLs it.
-// Waiting keeps the sandbox removable: CEF writes its profile on shutdown.
-func stopDumber(pid int) {
+// stopDumber sends SIGTERM to pid, waits up to timeout for it to exit, then
+// SIGKILLs it. It reports whether SIGKILL was needed. Waiting keeps the
+// sandbox removable: CEF writes its profile on shutdown.
+func stopDumber(pid int, timeout time.Duration) (killed bool) {
 	_ = syscall.Kill(pid, syscall.SIGTERM)
-	deadline := time.Now().Add(stopTimeout)
+	deadline := time.Now().Add(timeout)
 	for alive(pid) && time.Now().Before(deadline) {
 		time.Sleep(stopPoll)
 	}
-	if alive(pid) {
-		_ = syscall.Kill(pid, syscall.SIGKILL)
+	if !alive(pid) {
+		return false
 	}
+	_ = syscall.Kill(pid, syscall.SIGKILL)
+	for alive(pid) {
+		time.Sleep(stopPoll)
+	}
+	return true
 }
