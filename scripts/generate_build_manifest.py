@@ -28,7 +28,7 @@ import re
 import subprocess
 import sys
 
-UPSTREAM_MODULE = "github.com/bnema/purego-cef2gtk"
+UPSTREAM_MODULE = "bnema.dev/purego-cef2gtk"
 VERSION_RE = r"(v\d+\.\d+\.\d+)-0\.\d{14}-([0-9a-f]{12})"
 TAG_RE = r"v\d+\.\d+\.\d+"
 

@@ -13,7 +13,7 @@ import (
 	"golang.org/x/sys/unix"
 
 	"github.com/bnema/dumber/internal/logging"
-	_ "github.com/bnema/purego-sqlite/driver" // SQLite driver (purego, no WASM/CGo)
+	_ "bnema.dev/purego-sqlite/driver" // SQLite driver (purego, no WASM/CGo)
 )
 
 // NewConnection creates a new SQLite database connection with optimized settings.

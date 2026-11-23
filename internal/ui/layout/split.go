@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/bnema/dumber/internal/logging"
-	"github.com/bnema/puregotk/v4/glib"
+	"bnema.dev/puregotk/v4/glib"
 	"github.com/rs/zerolog"
 )
 

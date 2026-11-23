@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/bnema/dumber/internal/domain/entity"
-	"github.com/bnema/puregotk/v4/gdk"
+	"bnema.dev/puregotk/v4/gdk"
 )
 
 func TestHandleKeyPress_CtrlRTriggersInitialBehaviorToggle(t *testing.T) {

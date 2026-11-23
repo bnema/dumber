@@ -14,7 +14,7 @@ import (
 	"github.com/bnema/dumber/internal/infrastructure/runtimeprofile"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/dumber/internal/ui/theme"
-	"github.com/bnema/puregotk/v4/gdk"
+	"bnema.dev/puregotk/v4/gdk"
 	"github.com/rs/zerolog"
 )
 

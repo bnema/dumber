@@ -5,7 +5,7 @@ import (
 	"image"
 	"math"
 
-	"github.com/bnema/purego-webp/libwebp"
+	"bnema.dev/purego-webp/libwebp"
 )
 
 const (

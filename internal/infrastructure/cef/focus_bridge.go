@@ -1,6 +1,6 @@
 package cef
 
-import purecef "github.com/bnema/purego-cef/cef"
+import purecef "bnema.dev/purego-cef/cef"
 
 func syncWindowlessBrowserFocus(host purecef.BrowserHost) {
 	if host == nil {

@@ -10,7 +10,7 @@ import (
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/dumber/internal/ui/input"
 	"github.com/bnema/dumber/internal/ui/layout"
-	"github.com/bnema/puregotk/v4/gtk"
+	"bnema.dev/puregotk/v4/gtk"
 )
 
 // CSS class applied to the active pane's border overlay.

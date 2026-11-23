@@ -45,7 +45,7 @@ packages:
       pkgname: mocks
     interfaces:
       Transport: {}
-  github.com/bnema/purego-pipewire/pipewire:
+  bnema.dev/purego-pipewire/pipewire:
     config:
       dir: internal/infrastructure/audio/pipewire/mocks
       filename: '{{ .InterfaceFile | base }}'

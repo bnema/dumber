@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	cefmocks "github.com/bnema/purego-cef/cef/mocks"
+	cefmocks "bnema.dev/purego-cef/cef/mocks"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )

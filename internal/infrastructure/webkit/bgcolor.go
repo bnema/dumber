@@ -3,7 +3,7 @@ package webkit
 import (
 	"sync"
 
-	"github.com/bnema/puregotk/v4/gdk"
+	"bnema.dev/puregotk/v4/gdk"
 )
 
 // bgColor holds RGBA components for WebView background color (eliminates white flash).

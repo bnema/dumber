@@ -31,11 +31,11 @@ import (
 	"github.com/bnema/dumber/internal/ui/layout"
 	"github.com/bnema/dumber/internal/ui/theme"
 	"github.com/bnema/dumber/internal/ui/window"
-	"github.com/bnema/puregotk/v4/adw"
-	"github.com/bnema/puregotk/v4/gdk"
-	"github.com/bnema/puregotk/v4/gio"
-	"github.com/bnema/puregotk/v4/glib"
-	"github.com/bnema/puregotk/v4/gtk"
+	"bnema.dev/puregotk/v4/adw"
+	"bnema.dev/puregotk/v4/gdk"
+	"bnema.dev/puregotk/v4/gio"
+	"bnema.dev/puregotk/v4/glib"
+	"bnema.dev/puregotk/v4/gtk"
 )
 
 const (

@@ -6,7 +6,7 @@ import (
 	"math"
 	"testing"
 
-	purecef "github.com/bnema/purego-cef/cef"
+	purecef "bnema.dev/purego-cef/cef"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

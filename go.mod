@@ -1,18 +1,18 @@
 module github.com/bnema/dumber
 
-go 1.27
+go 1.27.4
 
 require (
+	bnema.dev/purego v0.13.0-bnema.4
+	bnema.dev/purego-cef v0.15.0
+	bnema.dev/purego-cef2gtk v0.12.0
+	bnema.dev/purego-pipewire v0.6.0
+	bnema.dev/purego-sqlite v0.2.0
+	bnema.dev/purego-webp v0.3.0
+	bnema.dev/puregotk v0.8.0
+	bnema.dev/zerobus v0.6.0
 	github.com/a-h/templ v0.3.1118
 	github.com/andybalholm/brotli v1.3.0
-	github.com/bnema/purego v0.13.0-bnema.2
-	github.com/bnema/purego-cef v0.14.4
-	github.com/bnema/purego-cef2gtk v0.11.7
-	github.com/bnema/purego-pipewire v0.3.0
-	github.com/bnema/purego-sqlite v0.1.5
-	github.com/bnema/purego-webp v0.2.1
-	github.com/bnema/puregotk v0.7.6
-	github.com/bnema/zerobus v0.4.0
 	github.com/charmbracelet/bubbles v1.0.0
 	github.com/charmbracelet/bubbletea v1.3.10
 	github.com/charmbracelet/lipgloss v1.1.0

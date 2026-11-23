@@ -2,9 +2,9 @@ package gtkmenu
 
 import (
 	"github.com/bnema/dumber/internal/application/port"
-	"github.com/bnema/puregotk/v4/gdk"
-	"github.com/bnema/puregotk/v4/gobject"
-	"github.com/bnema/puregotk/v4/gtk"
+	"bnema.dev/puregotk/v4/gdk"
+	"bnema.dev/puregotk/v4/gobject"
+	"bnema.dev/puregotk/v4/gtk"
 )
 
 type renderItem struct {

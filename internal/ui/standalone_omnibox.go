@@ -10,11 +10,11 @@ import (
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/dumber/internal/ui/component"
 	"github.com/bnema/dumber/internal/ui/layout"
-	"github.com/bnema/puregotk/v4/gdk"
-	"github.com/bnema/puregotk/v4/gio"
-	"github.com/bnema/puregotk/v4/glib"
-	"github.com/bnema/puregotk/v4/gtk"
-	"github.com/bnema/puregotk/v4/layershell"
+	"bnema.dev/puregotk/v4/gdk"
+	"bnema.dev/puregotk/v4/gio"
+	"bnema.dev/puregotk/v4/glib"
+	"bnema.dev/puregotk/v4/gtk"
+	"bnema.dev/puregotk/v4/layershell"
 )
 
 var layerShellLibraryAvailable = func() bool {

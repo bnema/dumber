@@ -6,10 +6,10 @@ import (
 
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/domain/entity"
-	cefmocks "github.com/bnema/purego-cef/cef/mocks"
-	"github.com/bnema/purego-cef2gtk"
-	"github.com/bnema/puregotk/v4/gdk"
-	"github.com/bnema/puregotk/v4/gtk"
+	cefmocks "bnema.dev/purego-cef/cef/mocks"
+	"bnema.dev/purego-cef2gtk"
+	"bnema.dev/puregotk/v4/gdk"
+	"bnema.dev/puregotk/v4/gtk"
 	"github.com/stretchr/testify/require"
 )
 

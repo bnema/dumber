@@ -5,8 +5,8 @@ import (
 	"sync"
 
 	"github.com/bnema/dumber/internal/ui/mainloop"
-	"github.com/bnema/puregotk/v4/glib"
-	"github.com/bnema/puregotk/v4/gtk"
+	"bnema.dev/puregotk/v4/glib"
+	"bnema.dev/puregotk/v4/gtk"
 
 	"github.com/bnema/dumber/internal/ui/layout"
 )

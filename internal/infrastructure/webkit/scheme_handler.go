@@ -13,9 +13,9 @@ import (
 	browserurl "github.com/bnema/dumber/internal/domain/url"
 	"github.com/bnema/dumber/internal/infrastructure/webutil"
 	"github.com/bnema/dumber/internal/logging"
-	"github.com/bnema/puregotk/v4/gio"
-	"github.com/bnema/puregotk/v4/soup"
-	"github.com/bnema/puregotk/v4/webkit"
+	"bnema.dev/puregotk/v4/gio"
+	"bnema.dev/puregotk/v4/soup"
+	"bnema.dev/puregotk/v4/webkit"
 	"github.com/rs/zerolog"
 )
 

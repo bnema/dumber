@@ -6,7 +6,7 @@ import (
 
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/domain/entity"
-	"github.com/bnema/puregotk/v4/gdk"
+	"bnema.dev/puregotk/v4/gdk"
 )
 
 func (c *Coordinator) setupFaviconCallbacks(

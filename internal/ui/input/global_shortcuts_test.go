@@ -5,9 +5,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bnema/puregotk/v4/gdk"
-	"github.com/bnema/puregotk/v4/gio"
-	"github.com/bnema/puregotk/v4/gtk"
+	"bnema.dev/puregotk/v4/gdk"
+	"bnema.dev/puregotk/v4/gio"
+	"bnema.dev/puregotk/v4/gtk"
 )
 
 func TestShouldRegisterGTKGlobalShortcut_ExcludesVimModeActivation(t *testing.T) {

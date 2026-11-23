@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/bnema/dumber/internal/domain/entity"
-	"github.com/bnema/puregotk/v4/gtk"
+	"bnema.dev/puregotk/v4/gtk"
 )
 
 func TestHoverHandlerSchedulesCallbackOnGLibAndRejectsStaleGeneration(t *testing.T) {

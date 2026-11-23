@@ -3,7 +3,7 @@
 package layout
 
 import (
-	"github.com/bnema/puregotk/v4/gtk"
+	"bnema.dev/puregotk/v4/gtk"
 )
 
 // Orientation represents the orientation for layout widgets.

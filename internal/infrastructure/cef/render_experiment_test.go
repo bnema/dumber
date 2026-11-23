@@ -4,7 +4,7 @@ import (
 	"strconv"
 	"testing"
 
-	purecef "github.com/bnema/purego-cef/cef"
+	purecef "bnema.dev/purego-cef/cef"
 )
 
 func TestWindowlessFrameRatePinnedFollowsTheOverride(t *testing.T) {

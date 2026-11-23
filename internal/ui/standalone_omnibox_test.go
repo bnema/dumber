@@ -6,8 +6,8 @@ import (
 
 	"github.com/bnema/dumber/internal/ui/component"
 	layoutmocks "github.com/bnema/dumber/internal/ui/layout/mocks"
-	"github.com/bnema/puregotk/v4/gtk"
-	"github.com/bnema/puregotk/v4/layershell"
+	"bnema.dev/puregotk/v4/gtk"
+	"bnema.dev/puregotk/v4/layershell"
 )
 
 func TestWrapStandaloneOmniboxNavigate_CallsOriginalThenQuit(t *testing.T) {

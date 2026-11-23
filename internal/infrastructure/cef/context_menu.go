@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"strings"
 
-	purecef "github.com/bnema/purego-cef/cef"
+	purecef "bnema.dev/purego-cef/cef"
 
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/logging"
-	"github.com/bnema/puregotk/v4/gtk"
+	"bnema.dev/puregotk/v4/gtk"
 )
 
 // ContextMenuRenderer renders normalized context menu items for the CEF adapter.

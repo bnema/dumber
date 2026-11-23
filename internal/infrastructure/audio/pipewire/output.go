@@ -9,7 +9,7 @@ import (
 	"sync"
 	"sync/atomic"
 
-	pwpipewire "github.com/bnema/purego-pipewire/pipewire"
+	pwpipewire "bnema.dev/purego-pipewire/pipewire"
 
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/logging"

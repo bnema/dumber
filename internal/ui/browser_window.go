@@ -19,7 +19,7 @@ import (
 	"github.com/bnema/dumber/internal/ui/input"
 	"github.com/bnema/dumber/internal/ui/layout"
 	"github.com/bnema/dumber/internal/ui/window"
-	"github.com/bnema/puregotk/v4/glib"
+	"bnema.dev/puregotk/v4/glib"
 )
 
 type nativeSidebarKind string

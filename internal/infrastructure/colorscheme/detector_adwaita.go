@@ -3,7 +3,7 @@ package colorscheme
 import (
 	"sync/atomic"
 
-	"github.com/bnema/puregotk/v4/adw"
+	"bnema.dev/puregotk/v4/adw"
 )
 
 const (

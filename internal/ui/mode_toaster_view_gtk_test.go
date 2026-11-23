@@ -3,9 +3,9 @@ package ui
 import (
 	"testing"
 
-	"github.com/bnema/puregotk/v4/glib"
-	"github.com/bnema/puregotk/v4/gobject"
-	"github.com/bnema/puregotk/v4/gtk"
+	"bnema.dev/puregotk/v4/glib"
+	"bnema.dev/puregotk/v4/gobject"
+	"bnema.dev/puregotk/v4/gtk"
 	"github.com/stretchr/testify/require"
 )
 

@@ -12,10 +12,10 @@ import (
 	"strings"
 	"syscall"
 
-	purecef "github.com/bnema/purego-cef/cef"
-	cef2gtk "github.com/bnema/purego-cef2gtk"
-	"github.com/bnema/puregotk/v4/gdk"
-	"github.com/bnema/puregotk/v4/glib"
+	purecef "bnema.dev/purego-cef/cef"
+	cef2gtk "bnema.dev/purego-cef2gtk"
+	"bnema.dev/puregotk/v4/gdk"
+	"bnema.dev/puregotk/v4/glib"
 	"github.com/rs/zerolog"
 
 	"github.com/bnema/dumber/assets"

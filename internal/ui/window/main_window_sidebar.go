@@ -1,7 +1,7 @@
 package window
 
 import (
-	"github.com/bnema/puregotk/v4/gtk"
+	"bnema.dev/puregotk/v4/gtk"
 )
 
 // SidebarWidthConfig defines the initial/recommended width range for the sidebar.

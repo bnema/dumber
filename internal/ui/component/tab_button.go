@@ -5,9 +5,9 @@ import (
 	"strings"
 
 	"github.com/bnema/dumber/internal/domain/entity"
-	"github.com/bnema/puregotk/v4/gdk"
-	"github.com/bnema/puregotk/v4/gtk"
-	"github.com/bnema/puregotk/v4/pango"
+	"bnema.dev/puregotk/v4/gdk"
+	"bnema.dev/puregotk/v4/gtk"
+	"bnema.dev/puregotk/v4/pango"
 )
 
 // TabButton represents a single tab button in the tab bar.

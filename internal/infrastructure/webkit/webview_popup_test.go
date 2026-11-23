@@ -5,7 +5,7 @@ import (
 
 	"github.com/bnema/dumber/internal/application/dto"
 	"github.com/bnema/dumber/internal/application/port"
-	purewebkit "github.com/bnema/puregotk/v4/webkit"
+	purewebkit "bnema.dev/puregotk/v4/webkit"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

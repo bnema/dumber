@@ -9,7 +9,7 @@ import (
 
 	"github.com/bnema/dumber/internal/application/port"
 	pipewiremocks "github.com/bnema/dumber/internal/infrastructure/audio/pipewire/mocks"
-	pwpipewire "github.com/bnema/purego-pipewire/pipewire"
+	pwpipewire "bnema.dev/purego-pipewire/pipewire"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

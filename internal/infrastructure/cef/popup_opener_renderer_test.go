@@ -4,8 +4,8 @@ import (
 	"testing"
 	"unsafe"
 
-	purecef "github.com/bnema/purego-cef/cef"
-	cefmocks "github.com/bnema/purego-cef/cef/mocks"
+	purecef "bnema.dev/purego-cef/cef"
+	cefmocks "bnema.dev/purego-cef/cef/mocks"
 	"github.com/stretchr/testify/require"
 )
 

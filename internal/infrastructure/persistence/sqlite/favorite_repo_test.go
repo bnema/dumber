@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/bnema/dumber/internal/domain/entity"
-	_ "github.com/bnema/purego-sqlite/driver"
+	_ "bnema.dev/purego-sqlite/driver"
 )
 
 func openFavoriteRepoTestDB(t *testing.T) *sql.DB {

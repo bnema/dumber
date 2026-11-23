@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	"github.com/bnema/dumber/assets"
-	"github.com/bnema/puregotk/v4/gdk"
+	"bnema.dev/puregotk/v4/gdk"
 	"github.com/stretchr/testify/require"
 )
 

@@ -4,8 +4,8 @@ import (
 	"os"
 	"strings"
 
-	purecef "github.com/bnema/purego-cef/cef"
-	cef2gtk "github.com/bnema/purego-cef2gtk"
+	purecef "bnema.dev/purego-cef/cef"
+	cef2gtk "bnema.dev/purego-cef2gtk"
 
 	"github.com/bnema/dumber/internal/logging"
 )

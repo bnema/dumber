@@ -8,7 +8,7 @@ import (
 	"github.com/bnema/dumber/internal/application/port"
 	portmocks "github.com/bnema/dumber/internal/application/port/mocks"
 	"github.com/bnema/dumber/internal/domain/favicon"
-	"github.com/bnema/puregotk/v4/gdk"
+	"bnema.dev/puregotk/v4/gdk"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/mock"
 )

@@ -5,7 +5,7 @@ import (
 	"sync"
 
 	"github.com/bnema/dumber/internal/domain/entity"
-	"github.com/bnema/puregotk/v4/gtk"
+	"bnema.dev/puregotk/v4/gtk"
 )
 
 // revealerTransitionDuration is the animation duration in milliseconds

@@ -5,9 +5,9 @@ import (
 	"strings"
 	"time"
 
-	purecef "github.com/bnema/purego-cef/cef"
-	"github.com/bnema/puregotk/v4/gobject"
-	"github.com/bnema/puregotk/v4/gtk"
+	purecef "bnema.dev/purego-cef/cef"
+	"bnema.dev/puregotk/v4/gobject"
+	"bnema.dev/puregotk/v4/gtk"
 
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/dumber/internal/shared/syncdispatch"

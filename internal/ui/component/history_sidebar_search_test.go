@@ -10,7 +10,7 @@ import (
 	"github.com/bnema/dumber/internal/application/dto"
 	portmocks "github.com/bnema/dumber/internal/application/port/mocks"
 	"github.com/bnema/dumber/internal/domain/entity"
-	"github.com/bnema/puregotk/v4/glib"
+	"bnema.dev/puregotk/v4/glib"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"

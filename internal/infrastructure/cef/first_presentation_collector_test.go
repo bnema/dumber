@@ -231,7 +231,7 @@ func TestFirstPresentationCollectorDerivesSelectedImmutableModuleProvenance(t *t
 	contents, err := os.ReadFile(filepath.Join(output, "metadata.json"))
 	require.NoError(t, err)
 	require.NoError(t, json.Unmarshal(contents, &metadata))
-	require.Equal(t, "github.com/bnema/purego-cef2gtk", metadata.Upstream.Module)
+	require.Equal(t, "bnema.dev/purego-cef2gtk", metadata.Upstream.Module)
 	require.Equal(t, testUpstreamVersion, metadata.Upstream.Version)
 	require.Equal(t, "v0.8.5", metadata.Upstream.Tag)
 	require.Equal(t, testUpstreamRevision, metadata.Upstream.Revision)
@@ -485,7 +485,7 @@ func collectorFakeGo(t *testing.T, temp, depVersion, vcsRevision string, replace
 	binDir := filepath.Join(temp, "gobin")
 	require.NoError(t, os.MkdirAll(binDir, 0o755))
 	goBin := filepath.Join(binDir, "go")
-	depLine := fmt.Sprintf("dep\tgithub.com/bnema/purego-cef2gtk\t%s", depVersion)
+	depLine := fmt.Sprintf("dep\tbnema.dev/purego-cef2gtk\t%s", depVersion)
 	if replacement {
 		depLine += " => ./local-override"
 	}
@@ -514,7 +514,7 @@ func collectorManifest(t *testing.T, temp, binary, sourceRevision, depVersion, d
 		"binary_sha256":   hex.EncodeToString(sum[:]),
 		"source_revision": sourceRevision,
 		"modules": map[string]any{
-			"github.com/bnema/purego-cef2gtk": map[string]string{
+			"bnema.dev/purego-cef2gtk": map[string]string{
 				"version":  depVersion,
 				"revision": depRevision,
 			},

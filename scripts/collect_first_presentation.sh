@@ -41,7 +41,7 @@ else
   output="$evidence_root/first-presentation-$(date -u +%Y%m%dT%H%M%S)-$$"
 fi
 readonly output
-readonly upstream_module="github.com/bnema/purego-cef2gtk"
+readonly upstream_module="bnema.dev/purego-cef2gtk"
 readonly script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 readonly runtime_probe="$script_dir/cef_runtime_probe.py"
 

@@ -11,7 +11,7 @@ import (
 	"sync"
 	"time"
 
-	cef2gtk "github.com/bnema/purego-cef2gtk"
+	cef2gtk "bnema.dev/purego-cef2gtk"
 
 	"github.com/bnema/dumber/internal/logging"
 )

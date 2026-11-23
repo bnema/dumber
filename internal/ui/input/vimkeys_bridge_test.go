@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/bnema/dumber/internal/domain/vimkeys"
-	"github.com/bnema/puregotk/v4/gdk"
+	"bnema.dev/puregotk/v4/gdk"
 )
 
 func TestKeyvalToVimKey(t *testing.T) {

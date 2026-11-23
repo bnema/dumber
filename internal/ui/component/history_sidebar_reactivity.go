@@ -3,8 +3,8 @@ package component
 import (
 	"time"
 
-	"github.com/bnema/puregotk/v4/glib"
-	"github.com/bnema/puregotk/v4/gtk"
+	"bnema.dev/puregotk/v4/glib"
+	"bnema.dev/puregotk/v4/gtk"
 )
 
 type relativeTimeLabelBinding struct {

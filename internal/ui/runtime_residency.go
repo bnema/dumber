@@ -7,7 +7,7 @@ import (
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/application/usecase"
 	"github.com/bnema/dumber/internal/logging"
-	"github.com/bnema/puregotk/v4/glib"
+	"bnema.dev/puregotk/v4/glib"
 )
 
 // ResidencyTimeoutMaxMs bounds the startup-only idle timeout in milliseconds.

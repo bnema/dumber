@@ -3,7 +3,7 @@ package cef
 import (
 	"testing"
 
-	"github.com/bnema/puregotk/v4/gtk"
+	"bnema.dev/puregotk/v4/gtk"
 )
 
 func TestStopBeginFrameLoopReleasesCallbackSlotWithoutWidget(t *testing.T) {

@@ -9,8 +9,8 @@ import (
 	"github.com/bnema/dumber/internal/domain/color"
 	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/logging"
-	"github.com/bnema/puregotk/v4/gdk"
-	"github.com/bnema/puregotk/v4/gtk"
+	"bnema.dev/puregotk/v4/gdk"
+	"bnema.dev/puregotk/v4/gtk"
 )
 
 // Manager handles theme state and CSS application.

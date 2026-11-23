@@ -3,7 +3,7 @@ package component
 import (
 	"strings"
 
-	"github.com/bnema/puregotk/v4/gtk"
+	"bnema.dev/puregotk/v4/gtk"
 
 	"github.com/bnema/dumber/internal/domain/entity"
 )

@@ -9,7 +9,7 @@ import (
 	domainurl "github.com/bnema/dumber/internal/domain/url"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/dumber/internal/ui/window"
-	"github.com/bnema/puregotk/v4/gtk"
+	"bnema.dev/puregotk/v4/gtk"
 )
 
 func (a *App) createBrowserWindow(ctx context.Context, initialURL string) (*browserWindow, error) {

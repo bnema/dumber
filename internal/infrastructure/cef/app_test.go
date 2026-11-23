@@ -6,7 +6,7 @@ import (
 	"testing"
 	"unsafe"
 
-	purecef "github.com/bnema/purego-cef/cef"
+	purecef "bnema.dev/purego-cef/cef"
 )
 
 type schemeRegistrarStub struct {

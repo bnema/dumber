@@ -3,8 +3,8 @@ package cef
 import (
 	"time"
 
-	"github.com/bnema/puregotk/v4/gdk"
-	"github.com/bnema/puregotk/v4/glib"
+	"bnema.dev/puregotk/v4/gdk"
+	"bnema.dev/puregotk/v4/glib"
 )
 
 const (

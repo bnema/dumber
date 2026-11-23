@@ -3,7 +3,7 @@ package component
 import (
 	"testing"
 
-	"github.com/bnema/puregotk/v4/gdk"
+	"bnema.dev/puregotk/v4/gdk"
 )
 
 func TestShouldPreferTypedURLNavigation(t *testing.T) {

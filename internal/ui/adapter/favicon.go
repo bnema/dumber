@@ -11,8 +11,8 @@ import (
 	"github.com/bnema/dumber/internal/domain/favicon"
 	domainurl "github.com/bnema/dumber/internal/domain/url"
 	"github.com/bnema/dumber/internal/logging"
-	"github.com/bnema/puregotk/v4/gdk"
-	"github.com/bnema/puregotk/v4/glib"
+	"bnema.dev/puregotk/v4/gdk"
+	"bnema.dev/puregotk/v4/glib"
 	"github.com/rs/zerolog"
 )
 

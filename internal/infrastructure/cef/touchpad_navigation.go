@@ -4,8 +4,8 @@ import (
 	"math"
 
 	"github.com/bnema/dumber/internal/domain/entity"
-	cef2gtk "github.com/bnema/purego-cef2gtk"
-	"github.com/bnema/puregotk/v4/gdk"
+	cef2gtk "bnema.dev/purego-cef2gtk"
+	"bnema.dev/puregotk/v4/gdk"
 )
 
 const (

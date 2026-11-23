@@ -6,8 +6,8 @@ import (
 	"sync"
 
 	"github.com/bnema/dumber/assets"
-	"github.com/bnema/puregotk/v4/gdk"
-	"github.com/bnema/puregotk/v4/glib"
+	"bnema.dev/puregotk/v4/gdk"
+	"bnema.dev/puregotk/v4/glib"
 )
 
 var errLogoDecode = errors.New("logo decode failed")

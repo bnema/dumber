@@ -5,12 +5,12 @@ import (
 	"sync/atomic"
 	"unsafe"
 
-	"github.com/bnema/puregotk/v4/gdk"
+	"bnema.dev/puregotk/v4/gdk"
 
-	purecef "github.com/bnema/purego-cef/cef"
-	cef2gtk "github.com/bnema/purego-cef2gtk"
-	"github.com/bnema/puregotk/v4/glib"
-	"github.com/bnema/puregotk/v4/gtk"
+	purecef "bnema.dev/purego-cef/cef"
+	cef2gtk "bnema.dev/purego-cef2gtk"
+	"bnema.dev/puregotk/v4/glib"
+	"bnema.dev/puregotk/v4/gtk"
 
 	"github.com/bnema/dumber/internal/logging"
 )

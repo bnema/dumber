@@ -4,7 +4,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	purecef "github.com/bnema/purego-cef/cef"
+	purecef "bnema.dev/purego-cef/cef"
 
 	"github.com/bnema/dumber/internal/logging"
 )

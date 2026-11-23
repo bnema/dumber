@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	cef2gtk "github.com/bnema/purego-cef2gtk"
+	cef2gtk "bnema.dev/purego-cef2gtk"
 )
 
 func TestRenderStallWatchdogStartStopIdempotent(t *testing.T) {

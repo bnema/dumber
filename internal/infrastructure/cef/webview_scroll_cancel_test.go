@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
-	purecef "github.com/bnema/purego-cef/cef"
-	cefmocks "github.com/bnema/purego-cef/cef/mocks"
-	cef2gtk "github.com/bnema/purego-cef2gtk"
+	purecef "bnema.dev/purego-cef/cef"
+	cefmocks "bnema.dev/purego-cef/cef/mocks"
+	cef2gtk "bnema.dev/purego-cef2gtk"
 	"github.com/stretchr/testify/require"
 )
 

@@ -6,8 +6,8 @@ import (
 	"sync"
 
 	"github.com/bnema/dumber/internal/logging"
-	"github.com/bnema/puregotk/v4/gobject"
-	"github.com/bnema/puregotk/v4/gtk"
+	"bnema.dev/puregotk/v4/gobject"
+	"bnema.dev/puregotk/v4/gtk"
 )
 
 // ErrStackEmpty is returned when operating on an empty stack.

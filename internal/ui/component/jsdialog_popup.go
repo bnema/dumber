@@ -6,9 +6,9 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/bnema/puregotk/v4/gdk"
-	"github.com/bnema/puregotk/v4/gtk"
-	"github.com/bnema/puregotk/v4/pango"
+	"bnema.dev/puregotk/v4/gdk"
+	"bnema.dev/puregotk/v4/gtk"
+	"bnema.dev/puregotk/v4/pango"
 
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/ui/layout"

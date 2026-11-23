@@ -2,7 +2,7 @@ package input
 
 import (
 	"github.com/bnema/dumber/internal/domain/vimkeys"
-	"github.com/bnema/puregotk/v4/gdk"
+	"bnema.dev/puregotk/v4/gdk"
 )
 
 // PageKeyForwarder receives canonical vimkeys strings ("j", "J", "<Escape>")

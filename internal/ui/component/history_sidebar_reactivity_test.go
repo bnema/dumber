@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/bnema/dumber/internal/domain/entity"
-	"github.com/bnema/puregotk/v4/glib"
+	"bnema.dev/puregotk/v4/glib"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

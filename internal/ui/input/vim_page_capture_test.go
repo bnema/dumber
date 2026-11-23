@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/bnema/puregotk/v4/gdk"
+	"bnema.dev/puregotk/v4/gdk"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 

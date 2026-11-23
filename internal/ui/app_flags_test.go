@@ -3,7 +3,7 @@ package ui
 import (
 	"testing"
 
-	"github.com/bnema/puregotk/v4/gio"
+	"bnema.dev/puregotk/v4/gio"
 	"github.com/stretchr/testify/assert"
 )
 

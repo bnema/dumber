@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"testing"
 
-	_ "github.com/bnema/purego-sqlite/driver"
+	_ "bnema.dev/purego-sqlite/driver"
 	"github.com/pressly/goose/v3"
 )
 

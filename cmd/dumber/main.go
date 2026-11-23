@@ -42,8 +42,8 @@ import (
 	"github.com/bnema/dumber/internal/ui/adapter"
 	"github.com/bnema/dumber/internal/ui/component"
 	"github.com/bnema/dumber/internal/ui/theme"
-	cef "github.com/bnema/purego-cef/cef"
-	"github.com/bnema/puregotk/v4/gtk"
+	cef "bnema.dev/purego-cef/cef"
+	"bnema.dev/puregotk/v4/gtk"
 	"github.com/rs/zerolog"
 )
 

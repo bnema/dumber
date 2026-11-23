@@ -3,7 +3,7 @@ package layout
 import (
 	"testing"
 
-	"github.com/bnema/puregotk/v4/gtk"
+	"bnema.dev/puregotk/v4/gtk"
 )
 
 func TestGtkPanedReleaseTickCallbackUnrefsRawSlotExactlyOnce(t *testing.T) {

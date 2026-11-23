@@ -5,9 +5,9 @@ import (
 	"sync"
 	"sync/atomic"
 
-	purecef "github.com/bnema/purego-cef/cef"
-	cef2gtk "github.com/bnema/purego-cef2gtk"
-	"github.com/bnema/puregotk/v4/gtk"
+	purecef "bnema.dev/purego-cef/cef"
+	cef2gtk "bnema.dev/purego-cef2gtk"
+	"bnema.dev/puregotk/v4/gtk"
 )
 
 // ErrAdapterDestroyed is returned when an operation is attempted on a destroyed

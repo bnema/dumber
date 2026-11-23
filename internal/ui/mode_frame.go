@@ -4,10 +4,10 @@ import (
 	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/ui/input"
 	"github.com/bnema/dumber/internal/ui/layout"
-	"github.com/bnema/puregotk/v4/glib"
-	"github.com/bnema/puregotk/v4/gobject"
-	"github.com/bnema/puregotk/v4/graphene"
-	"github.com/bnema/puregotk/v4/gtk"
+	"bnema.dev/puregotk/v4/glib"
+	"bnema.dev/puregotk/v4/gobject"
+	"bnema.dev/puregotk/v4/graphene"
+	"bnema.dev/puregotk/v4/gtk"
 )
 
 const borderRefreshMs = 100

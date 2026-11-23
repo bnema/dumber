@@ -55,7 +55,7 @@ func importsCEF2GTK(path string) (bool, error) {
 	}
 	for _, spec := range file.Imports {
 		importPath, err := strconv.Unquote(spec.Path.Value)
-		if err == nil && strings.HasPrefix(importPath, "github.com/bnema/purego-cef2gtk") {
+		if err == nil && strings.HasPrefix(importPath, "bnema.dev/purego-cef2gtk") {
 			return true, nil
 		}
 	}

@@ -8,11 +8,11 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"github.com/bnema/puregotk/v4/gdk"
-	"github.com/bnema/puregotk/v4/glib"
-	"github.com/bnema/puregotk/v4/graphene"
-	"github.com/bnema/puregotk/v4/gtk"
-	"github.com/bnema/puregotk/v4/pango"
+	"bnema.dev/puregotk/v4/gdk"
+	"bnema.dev/puregotk/v4/glib"
+	"bnema.dev/puregotk/v4/graphene"
+	"bnema.dev/puregotk/v4/gtk"
+	"bnema.dev/puregotk/v4/pango"
 
 	"github.com/bnema/dumber/internal/application/usecase"
 	"github.com/bnema/dumber/internal/domain/autocomplete"

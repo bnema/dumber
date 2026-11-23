@@ -1,7 +1,7 @@
 package cef
 
 import (
-	purecef "github.com/bnema/purego-cef/cef"
+	purecef "bnema.dev/purego-cef/cef"
 )
 
 type stubMenuModel struct{}

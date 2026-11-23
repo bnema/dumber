@@ -6,8 +6,8 @@ import (
 
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/dumber/internal/ui/component"
-	"github.com/bnema/puregotk/v4/gobject"
-	"github.com/bnema/puregotk/v4/gtk"
+	"bnema.dev/puregotk/v4/gobject"
+	"bnema.dev/puregotk/v4/gtk"
 	"github.com/rs/zerolog"
 )
 

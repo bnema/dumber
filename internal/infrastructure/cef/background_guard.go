@@ -3,8 +3,8 @@ package cef
 import (
 	"fmt"
 
-	"github.com/bnema/puregotk/v4/gdk"
-	"github.com/bnema/puregotk/v4/gtk"
+	"bnema.dev/puregotk/v4/gdk"
+	"bnema.dev/puregotk/v4/gtk"
 )
 
 // opaqueWhiteBackground is Chromium's standard windowless canvas fallback. It is

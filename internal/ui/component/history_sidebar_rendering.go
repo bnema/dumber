@@ -1,8 +1,8 @@
 package component
 
 import (
-	"github.com/bnema/puregotk/v4/gtk"
-	"github.com/bnema/puregotk/v4/pango"
+	"bnema.dev/puregotk/v4/gtk"
+	"bnema.dev/puregotk/v4/pango"
 
 	"github.com/bnema/dumber/internal/domain/entity"
 )

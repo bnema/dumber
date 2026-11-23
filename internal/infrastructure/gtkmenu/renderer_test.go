@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/bnema/dumber/internal/application/port"
-	"github.com/bnema/puregotk/v4/gtk"
+	"bnema.dev/puregotk/v4/gtk"
 	"github.com/stretchr/testify/require"
 )
 

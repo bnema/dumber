@@ -4,7 +4,7 @@ import (
 	"unicode/utf16"
 	"unsafe"
 
-	purecef "github.com/bnema/purego-cef/cef"
+	purecef "bnema.dev/purego-cef/cef"
 )
 
 // cefTooltipString mirrors cef_string_t. The storage belongs to CEF and is

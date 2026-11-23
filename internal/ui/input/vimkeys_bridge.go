@@ -4,7 +4,7 @@ import (
 	"strings"
 
 	"github.com/bnema/dumber/internal/domain/vimkeys"
-	"github.com/bnema/puregotk/v4/gdk"
+	"bnema.dev/puregotk/v4/gdk"
 )
 
 // namedKeyvalSym maps a GDK named keyval onto a canonical vimkeys symbol.

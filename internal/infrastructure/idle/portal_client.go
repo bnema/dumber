@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/bnema/zerobus"
+	"bnema.dev/zerobus"
 )
 
 const (

@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/bnema/dumber/internal/domain/entity"
-	"github.com/bnema/puregotk/v4/webkit"
+	"bnema.dev/puregotk/v4/webkit"
 )
 
 func TestNeedsExplicitContextMenuSignalOnAcquire(t *testing.T) {

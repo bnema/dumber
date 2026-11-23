@@ -5,7 +5,7 @@ import (
 	"sync"
 	"sync/atomic"
 
-	purecef "github.com/bnema/purego-cef/cef"
+	purecef "bnema.dev/purego-cef/cef"
 	"github.com/rs/zerolog"
 
 	"github.com/bnema/dumber/internal/application/port"

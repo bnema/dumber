@@ -8,7 +8,7 @@ import (
 
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/logging"
-	"github.com/bnema/zerobus"
+	"bnema.dev/zerobus"
 )
 
 // Compile-time interface check.

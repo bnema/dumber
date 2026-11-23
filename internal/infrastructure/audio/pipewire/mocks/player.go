@@ -5,8 +5,8 @@
 package mocks
 
 import (
-	"github.com/bnema/purego-pipewire/pipewire"
-	"github.com/bnema/purego-pipewire/spa"
+	"bnema.dev/purego-pipewire/pipewire"
+	"bnema.dev/purego-pipewire/spa"
 	mock "github.com/stretchr/testify/mock"
 )
 
