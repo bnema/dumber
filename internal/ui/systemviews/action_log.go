@@ -5,7 +5,7 @@ package systemviews
 import (
 	"context"
 
-	"github.com/bnema/dumber/internal/logging"
+	"bnema.dev/dumber/internal/logging"
 )
 
 func logActionMountError(ctx context.Context, mountErr, actionErr error) {

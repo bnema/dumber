@@ -7,7 +7,7 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 
-	"github.com/bnema/dumber/internal/domain/entity"
+	"bnema.dev/dumber/internal/domain/entity"
 )
 
 // ConfigSchemaRenderer renders configuration schema information.

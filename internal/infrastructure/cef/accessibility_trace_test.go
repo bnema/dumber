@@ -6,8 +6,8 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/bnema/dumber/internal/application/port"
-	"github.com/bnema/dumber/internal/logging"
+	"bnema.dev/dumber/internal/application/port"
+	"bnema.dev/dumber/internal/logging"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

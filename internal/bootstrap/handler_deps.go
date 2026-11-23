@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/bnema/dumber/internal/application/port"
-	"github.com/bnema/dumber/internal/application/usecase"
-	"github.com/bnema/dumber/internal/infrastructure/config"
+	"bnema.dev/dumber/internal/application/port"
+	"bnema.dev/dumber/internal/application/usecase"
+	"bnema.dev/dumber/internal/infrastructure/config"
 )
 
 // BuildHandlerDeps constructs handler dependencies from the config manager.

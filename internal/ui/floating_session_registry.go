@@ -5,7 +5,7 @@ import (
 	"maps"
 	"slices"
 
-	"github.com/bnema/dumber/internal/domain/entity"
+	"bnema.dev/dumber/internal/domain/entity"
 )
 
 // floatingSessionRegistry owns every floating pane session, keyed by tab and

@@ -1,6 +1,6 @@
 package port
 
-import "github.com/bnema/dumber/internal/domain/entity"
+import "bnema.dev/dumber/internal/domain/entity"
 
 // ConfigSchemaProvider provides configuration schema information.
 type ConfigSchemaProvider interface {

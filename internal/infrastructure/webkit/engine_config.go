@@ -1,6 +1,6 @@
 package webkit
 
-import "github.com/bnema/dumber/internal/infrastructure/config"
+import "bnema.dev/dumber/internal/infrastructure/config"
 
 // WebKitEngineConfig holds all WebKit-specific engine configuration.
 // This is the infrastructure-side version (no TOML tags).

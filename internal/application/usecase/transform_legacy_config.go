@@ -1,6 +1,6 @@
 package usecase
 
-import "github.com/bnema/dumber/internal/application/port"
+import "bnema.dev/dumber/internal/application/port"
 
 // TransformLegacyConfigUseCase handles legacy config format transformation.
 type TransformLegacyConfigUseCase struct {

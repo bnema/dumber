@@ -12,10 +12,10 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/spf13/cobra"
 
-	"github.com/bnema/dumber/internal/application/port"
-	"github.com/bnema/dumber/internal/application/usecase"
-	"github.com/bnema/dumber/internal/cli/styles"
-	"github.com/bnema/dumber/internal/infrastructure/config"
+	"bnema.dev/dumber/internal/application/port"
+	"bnema.dev/dumber/internal/application/usecase"
+	"bnema.dev/dumber/internal/cli/styles"
+	"bnema.dev/dumber/internal/infrastructure/config"
 )
 
 var configYes bool

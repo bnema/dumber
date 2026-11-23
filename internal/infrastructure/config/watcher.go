@@ -3,7 +3,7 @@ package config
 import (
 	"fmt"
 
-	"github.com/bnema/dumber/internal/logging"
+	"bnema.dev/dumber/internal/logging"
 	"github.com/fsnotify/fsnotify"
 )
 

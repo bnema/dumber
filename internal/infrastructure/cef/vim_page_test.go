@@ -14,8 +14,8 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/bnema/dumber/internal/application/dto"
-	"github.com/bnema/dumber/internal/application/port"
+	"bnema.dev/dumber/internal/application/dto"
+	"bnema.dev/dumber/internal/application/port"
 )
 
 // expectVimPageScript expects one ExecuteJavaScript call and captures the

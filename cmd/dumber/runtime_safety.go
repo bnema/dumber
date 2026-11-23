@@ -5,7 +5,7 @@ import (
 	"os"
 	"syscall"
 
-	"github.com/bnema/dumber/internal/infrastructure/process"
+	"bnema.dev/dumber/internal/infrastructure/process"
 )
 
 func environmentValue(environ []string, name string) string {

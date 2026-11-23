@@ -6,8 +6,8 @@ import (
 	"errors"
 	"testing"
 
-	appport "github.com/bnema/dumber/internal/application/port"
-	domainfavicon "github.com/bnema/dumber/internal/domain/favicon"
+	appport "bnema.dev/dumber/internal/application/port"
+	domainfavicon "bnema.dev/dumber/internal/domain/favicon"
 )
 
 func TestBlobStoreWriteReadOverwriteAndInvalidate(t *testing.T) {

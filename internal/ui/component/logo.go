@@ -5,7 +5,7 @@ import (
 	"errors"
 	"sync"
 
-	"github.com/bnema/dumber/assets"
+	"bnema.dev/dumber/assets"
 	"bnema.dev/puregotk/v4/gdk"
 	"bnema.dev/puregotk/v4/glib"
 )

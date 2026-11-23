@@ -10,7 +10,7 @@ import (
 	"os"
 	"testing"
 
-	appport "github.com/bnema/dumber/internal/application/port"
+	appport "bnema.dev/dumber/internal/application/port"
 )
 
 func TestConverterWebPConvertsAlphaFixture(t *testing.T) {

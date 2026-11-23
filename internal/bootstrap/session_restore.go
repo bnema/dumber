@@ -1,9 +1,9 @@
 package bootstrap
 
 import (
-	"github.com/bnema/dumber/internal/application/port"
-	"github.com/bnema/dumber/internal/infrastructure/config"
-	"github.com/bnema/dumber/internal/infrastructure/desktop"
+	"bnema.dev/dumber/internal/application/port"
+	"bnema.dev/dumber/internal/infrastructure/config"
+	"bnema.dev/dumber/internal/infrastructure/desktop"
 )
 
 func NewSessionRestoreLauncher(cfg *config.Config, profileName, instance string) (port.SessionRestoreLauncher, error) {

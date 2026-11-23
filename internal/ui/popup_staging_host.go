@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/bnema/dumber/internal/ui/coordinator/content"
-	"github.com/bnema/dumber/internal/ui/window"
+	"bnema.dev/dumber/internal/ui/coordinator/content"
+	"bnema.dev/dumber/internal/ui/window"
 	"bnema.dev/puregotk/v4/gtk"
 )
 

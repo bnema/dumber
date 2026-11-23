@@ -3,7 +3,7 @@ package config
 import (
 	"testing"
 
-	"github.com/bnema/dumber/internal/application/port"
+	"bnema.dev/dumber/internal/application/port"
 )
 
 func TestConfigDiffFormatter_FormatChangesAsDiff(t *testing.T) {

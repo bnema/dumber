@@ -1,6 +1,6 @@
 package port
 
-import "github.com/bnema/dumber/internal/domain/entity"
+import "bnema.dev/dumber/internal/domain/entity"
 
 type RuntimeConfigProvider interface {
 	Current() entity.RuntimeConfigSnapshot

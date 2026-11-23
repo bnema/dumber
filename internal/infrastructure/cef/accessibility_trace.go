@@ -3,8 +3,8 @@ package cef
 import (
 	"context"
 
-	"github.com/bnema/dumber/internal/application/port"
-	"github.com/bnema/dumber/internal/logging"
+	"bnema.dev/dumber/internal/application/port"
+	"bnema.dev/dumber/internal/logging"
 )
 
 func logAccessibilityCaptureEnabled(ctx context.Context, webViewID port.WebViewID, captureDir string) {

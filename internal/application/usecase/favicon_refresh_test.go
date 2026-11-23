@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
-	appport "github.com/bnema/dumber/internal/application/port"
-	portmocks "github.com/bnema/dumber/internal/application/port/mocks"
-	"github.com/bnema/dumber/internal/domain/favicon"
+	appport "bnema.dev/dumber/internal/application/port"
+	portmocks "bnema.dev/dumber/internal/application/port/mocks"
+	"bnema.dev/dumber/internal/domain/favicon"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )

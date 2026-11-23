@@ -4,9 +4,9 @@ import (
 	"context"
 	"database/sql"
 
-	"github.com/bnema/dumber/internal/domain/repository"
-	"github.com/bnema/dumber/internal/infrastructure/persistence/sqlite/sqlc"
-	"github.com/bnema/dumber/internal/logging"
+	"bnema.dev/dumber/internal/domain/repository"
+	"bnema.dev/dumber/internal/infrastructure/persistence/sqlite/sqlc"
+	"bnema.dev/dumber/internal/logging"
 )
 
 type contentWhitelistRepo struct {

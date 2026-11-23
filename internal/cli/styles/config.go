@@ -7,7 +7,7 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 
-	"github.com/bnema/dumber/internal/application/port"
+	"bnema.dev/dumber/internal/application/port"
 )
 
 // ConfigRenderer renders config status messages with styled output.

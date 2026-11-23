@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/bnema/dumber/internal/application/port"
-	"github.com/bnema/dumber/internal/logging"
+	"bnema.dev/dumber/internal/application/port"
+	"bnema.dev/dumber/internal/logging"
 )
 
 // WebViewFactory creates WebView instances for the application.

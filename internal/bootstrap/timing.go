@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/bnema/dumber/internal/logging"
+	"bnema.dev/dumber/internal/logging"
 )
 
 // StartupTimer tracks timing for cold start phases.

@@ -7,10 +7,10 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/bnema/dumber/internal/application/port"
-	"github.com/bnema/dumber/internal/domain/entity"
-	"github.com/bnema/dumber/internal/infrastructure/webutil"
-	"github.com/bnema/dumber/internal/logging"
+	"bnema.dev/dumber/internal/application/port"
+	"bnema.dev/dumber/internal/domain/entity"
+	"bnema.dev/dumber/internal/infrastructure/webutil"
+	"bnema.dev/dumber/internal/logging"
 	"bnema.dev/puregotk/v4/webkit"
 )
 

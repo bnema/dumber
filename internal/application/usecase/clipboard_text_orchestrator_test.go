@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bnema/dumber/internal/application/dto"
-	portmocks "github.com/bnema/dumber/internal/application/port/mocks"
-	"github.com/bnema/dumber/internal/domain/entity"
+	"bnema.dev/dumber/internal/application/dto"
+	portmocks "bnema.dev/dumber/internal/application/port/mocks"
+	"bnema.dev/dumber/internal/domain/entity"
 )
 
 type blockingClipboard struct {

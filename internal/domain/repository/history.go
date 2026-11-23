@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/bnema/dumber/internal/domain/entity"
+	"bnema.dev/dumber/internal/domain/entity"
 )
 
 // HistoryScope constrains a history query to an optional age window. Cutoff is

@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/bnema/dumber/internal/domain/entity"
+	"bnema.dev/dumber/internal/domain/entity"
 )
 
 func TestManagePanesUseCase_Split_ValidDirections(t *testing.T) {

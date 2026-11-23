@@ -10,10 +10,10 @@ import (
 	"sync/atomic"
 	"syscall"
 
-	"github.com/bnema/dumber/internal/application/port"
-	"github.com/bnema/dumber/internal/infrastructure/config"
-	"github.com/bnema/dumber/internal/logging"
-	"github.com/bnema/dumber/internal/shared/syncdispatch"
+	"bnema.dev/dumber/internal/application/port"
+	"bnema.dev/dumber/internal/infrastructure/config"
+	"bnema.dev/dumber/internal/logging"
+	"bnema.dev/dumber/internal/shared/syncdispatch"
 )
 
 const (

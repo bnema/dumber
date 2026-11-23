@@ -10,8 +10,8 @@ import (
 	cefmocks "bnema.dev/purego-cef/cef/mocks"
 	"github.com/stretchr/testify/require"
 
-	"github.com/bnema/dumber/internal/application/port"
-	"github.com/bnema/dumber/internal/application/usecase"
+	"bnema.dev/dumber/internal/application/port"
+	"bnema.dev/dumber/internal/application/usecase"
 )
 
 type stubDownloadItem struct {

@@ -6,10 +6,10 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/bnema/dumber/internal/application/port"
-	"github.com/bnema/dumber/internal/application/port/mocks"
-	"github.com/bnema/dumber/internal/domain/entity"
-	"github.com/bnema/dumber/internal/ui/component"
+	"bnema.dev/dumber/internal/application/port"
+	"bnema.dev/dumber/internal/application/port/mocks"
+	"bnema.dev/dumber/internal/domain/entity"
+	"bnema.dev/dumber/internal/ui/component"
 )
 
 func TestCoordinator_ActiveWebView_UsesOverride(t *testing.T) {

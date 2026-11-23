@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/bnema/dumber/internal/application/dto"
+	"bnema.dev/dumber/internal/application/dto"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/require"
 )

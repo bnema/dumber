@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	port "github.com/bnema/dumber/internal/application/port"
+	port "bnema.dev/dumber/internal/application/port"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/bnema/dumber/internal/application/port"
+	"bnema.dev/dumber/internal/application/port"
 )
 
 const noChangesMsg = "No changes detected."

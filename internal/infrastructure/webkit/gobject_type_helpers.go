@@ -4,7 +4,7 @@ import (
 	"context"
 	"sync"
 
-	"github.com/bnema/dumber/internal/logging"
+	"bnema.dev/dumber/internal/logging"
 	"bnema.dev/purego"
 	"bnema.dev/puregotk/pkg/core"
 	gtypes "bnema.dev/puregotk/v4/gobject/types"

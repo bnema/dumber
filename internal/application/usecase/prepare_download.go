@@ -4,9 +4,9 @@ import (
 	"context"
 	"path/filepath"
 
-	"github.com/bnema/dumber/internal/application/port"
-	"github.com/bnema/dumber/internal/domain/download"
-	"github.com/bnema/dumber/internal/logging"
+	"bnema.dev/dumber/internal/application/port"
+	"bnema.dev/dumber/internal/domain/download"
+	"bnema.dev/dumber/internal/logging"
 )
 
 // PrepareDownloadInput is an alias for port.DownloadPrepareInput.

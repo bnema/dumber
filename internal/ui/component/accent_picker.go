@@ -3,8 +3,8 @@ package component
 import (
 	"sync"
 
-	"github.com/bnema/dumber/internal/application/port"
-	"github.com/bnema/dumber/internal/ui/layout"
+	"bnema.dev/dumber/internal/application/port"
+	"bnema.dev/dumber/internal/ui/layout"
 	"bnema.dev/puregotk/v4/gdk"
 	"bnema.dev/puregotk/v4/gtk"
 )

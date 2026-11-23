@@ -5,8 +5,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/bnema/dumber/internal/application/port"
-	"github.com/bnema/dumber/internal/logging"
+	"bnema.dev/dumber/internal/application/port"
+	"bnema.dev/dumber/internal/logging"
 )
 
 // CopyURLUseCase handles copying URLs to the system clipboard.

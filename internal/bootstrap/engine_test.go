@@ -5,9 +5,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/bnema/dumber/internal/infrastructure/cef"
-	"github.com/bnema/dumber/internal/infrastructure/config"
-	"github.com/bnema/dumber/internal/infrastructure/runtimeprofile"
+	"bnema.dev/dumber/internal/infrastructure/cef"
+	"bnema.dev/dumber/internal/infrastructure/config"
+	"bnema.dev/dumber/internal/infrastructure/runtimeprofile"
 	"github.com/stretchr/testify/require"
 )
 

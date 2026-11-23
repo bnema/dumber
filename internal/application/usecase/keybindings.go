@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/bnema/dumber/internal/application/port"
+	"bnema.dev/dumber/internal/application/port"
 )
 
 // Compile-time checks: keybinding use cases must satisfy their port interfaces.

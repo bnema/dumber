@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bnema/dumber/internal/application/port"
-	"github.com/bnema/dumber/internal/infrastructure/audio/null"
-	"github.com/bnema/dumber/internal/logging"
+	"bnema.dev/dumber/internal/application/port"
+	"bnema.dev/dumber/internal/infrastructure/audio/null"
+	"bnema.dev/dumber/internal/logging"
 	purecef "bnema.dev/purego-cef/cef"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"

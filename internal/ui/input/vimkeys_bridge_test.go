@@ -3,7 +3,7 @@ package input
 import (
 	"testing"
 
-	"github.com/bnema/dumber/internal/domain/vimkeys"
+	"bnema.dev/dumber/internal/domain/vimkeys"
 	"bnema.dev/puregotk/v4/gdk"
 )
 

@@ -6,8 +6,8 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/bnema/dumber/internal/domain/color"
-	"github.com/bnema/dumber/internal/domain/entity"
+	"bnema.dev/dumber/internal/domain/color"
+	"bnema.dev/dumber/internal/domain/entity"
 )
 
 // Palette holds semantic color tokens for theming.

@@ -3,7 +3,7 @@ package config
 import (
 	"fmt"
 
-	"github.com/bnema/dumber/internal/domain/entity"
+	"bnema.dev/dumber/internal/domain/entity"
 )
 
 // Section names for grouping config keys.

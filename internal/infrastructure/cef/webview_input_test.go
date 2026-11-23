@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/bnema/dumber/internal/application/port"
-	"github.com/bnema/dumber/internal/domain/entity"
+	"bnema.dev/dumber/internal/application/port"
+	"bnema.dev/dumber/internal/domain/entity"
 	cefmocks "bnema.dev/purego-cef/cef/mocks"
 	"bnema.dev/purego-cef2gtk"
 	"bnema.dev/puregotk/v4/gdk"

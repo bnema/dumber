@@ -6,7 +6,7 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 
-	"github.com/bnema/dumber/internal/domain/build"
+	"bnema.dev/dumber/internal/domain/build"
 )
 
 // AboutRenderer renders build info in fastfetch style.

@@ -12,7 +12,7 @@ import (
 
 	"golang.org/x/sys/unix"
 
-	"github.com/bnema/dumber/internal/logging"
+	"bnema.dev/dumber/internal/logging"
 	_ "bnema.dev/purego-sqlite/driver" // SQLite driver (purego, no WASM/CGo)
 )
 

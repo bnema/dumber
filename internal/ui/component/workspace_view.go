@@ -8,9 +8,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/bnema/dumber/internal/domain/entity"
-	"github.com/bnema/dumber/internal/logging"
-	"github.com/bnema/dumber/internal/ui/layout"
+	"bnema.dev/dumber/internal/domain/entity"
+	"bnema.dev/dumber/internal/logging"
+	"bnema.dev/dumber/internal/ui/layout"
 	"bnema.dev/puregotk/v4/glib"
 	"github.com/rs/zerolog"
 )

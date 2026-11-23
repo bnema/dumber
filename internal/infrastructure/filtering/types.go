@@ -3,7 +3,7 @@ package filtering
 import (
 	"time"
 
-	"github.com/bnema/dumber/internal/application/port"
+	"bnema.dev/dumber/internal/application/port"
 )
 
 // FilterState is an alias for port.FilterState to avoid breaking existing references.

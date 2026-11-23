@@ -10,9 +10,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bnema/dumber/internal/application/port"
-	"github.com/bnema/dumber/internal/infrastructure/process"
-	"github.com/bnema/dumber/internal/infrastructure/runtimeprofile"
+	"bnema.dev/dumber/internal/application/port"
+	"bnema.dev/dumber/internal/infrastructure/process"
+	"bnema.dev/dumber/internal/infrastructure/runtimeprofile"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

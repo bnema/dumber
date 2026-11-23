@@ -5,7 +5,7 @@
 package mocks
 
 import (
-	"github.com/bnema/dumber/internal/infrastructure/config"
+	"bnema.dev/dumber/internal/infrastructure/config"
 	mock "github.com/stretchr/testify/mock"
 )
 

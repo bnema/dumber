@@ -8,7 +8,7 @@ import (
 	"image"
 	"io"
 
-	appport "github.com/bnema/dumber/internal/application/port"
+	appport "bnema.dev/dumber/internal/application/port"
 	"github.com/srwiley/oksvg"
 	"github.com/srwiley/rasterx"
 )

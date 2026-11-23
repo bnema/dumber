@@ -5,7 +5,7 @@ import (
 
 	purecef "bnema.dev/purego-cef/cef"
 
-	"github.com/bnema/dumber/internal/application/port"
+	"bnema.dev/dumber/internal/application/port"
 )
 
 // Compile-time interface check.

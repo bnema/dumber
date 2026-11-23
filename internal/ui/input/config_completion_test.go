@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/bnema/dumber/internal/infrastructure/config"
+	"bnema.dev/dumber/internal/infrastructure/config"
 	"bnema.dev/puregotk/v4/gdk"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

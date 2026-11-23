@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/bnema/dumber/internal/application/dto"
+	"bnema.dev/dumber/internal/application/dto"
 )
 
 func TestWebViewNavigateSemantic_HeadingExecutesStrictNavigationScript(t *testing.T) {

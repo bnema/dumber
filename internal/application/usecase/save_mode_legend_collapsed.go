@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/bnema/dumber/internal/application/port"
+	"bnema.dev/dumber/internal/application/port"
 )
 
 // SaveModeLegendCollapsedUseCase persists whether the mode legend is collapsed

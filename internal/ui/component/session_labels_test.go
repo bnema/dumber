@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bnema/dumber/internal/domain/entity"
+	"bnema.dev/dumber/internal/domain/entity"
 )
 
 func TestSessionDateTitle(t *testing.T) {

@@ -11,8 +11,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/bnema/dumber/internal/cli/styles"
-	"github.com/bnema/dumber/internal/infrastructure/config"
+	"bnema.dev/dumber/internal/cli/styles"
+	"bnema.dev/dumber/internal/infrastructure/config"
 )
 
 type crashReportSummary struct {

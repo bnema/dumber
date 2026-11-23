@@ -6,7 +6,7 @@ import (
 	"bnema.dev/puregotk/v4/gtk"
 	"bnema.dev/puregotk/v4/pango"
 
-	"github.com/bnema/dumber/internal/domain/entity"
+	"bnema.dev/dumber/internal/domain/entity"
 )
 
 type favoriteSidebarDisplayRowKind int

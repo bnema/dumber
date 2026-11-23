@@ -4,9 +4,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/bnema/dumber/internal/application/port"
-	"github.com/bnema/dumber/internal/infrastructure/config"
-	"github.com/bnema/dumber/internal/infrastructure/runtimeprofile"
+	"bnema.dev/dumber/internal/application/port"
+	"bnema.dev/dumber/internal/infrastructure/config"
+	"bnema.dev/dumber/internal/infrastructure/runtimeprofile"
 	"github.com/stretchr/testify/require"
 )
 

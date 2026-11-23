@@ -9,7 +9,7 @@ import (
 	"image/png"
 	"testing"
 
-	appport "github.com/bnema/dumber/internal/application/port"
+	appport "bnema.dev/dumber/internal/application/port"
 )
 
 func TestConverterPNGNormalizesAndSizes(t *testing.T) {

@@ -3,7 +3,7 @@ package cef
 import (
 	"sync"
 
-	"github.com/bnema/dumber/internal/application/port"
+	"bnema.dev/dumber/internal/application/port"
 )
 
 // downloadOwner identifies one download by its owning browser and the CEF

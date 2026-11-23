@@ -7,10 +7,10 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/bnema/dumber/internal/domain/entity"
-	"github.com/bnema/dumber/internal/domain/repository"
-	"github.com/bnema/dumber/internal/infrastructure/persistence/sqlite/sqlc"
-	"github.com/bnema/dumber/internal/logging"
+	"bnema.dev/dumber/internal/domain/entity"
+	"bnema.dev/dumber/internal/domain/repository"
+	"bnema.dev/dumber/internal/infrastructure/persistence/sqlite/sqlc"
+	"bnema.dev/dumber/internal/logging"
 )
 
 type sessionStateRepo struct {

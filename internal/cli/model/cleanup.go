@@ -6,8 +6,8 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
-	"github.com/bnema/dumber/internal/application/usecase"
-	"github.com/bnema/dumber/internal/cli/styles"
+	"bnema.dev/dumber/internal/application/usecase"
+	"bnema.dev/dumber/internal/cli/styles"
 )
 
 // CleanupModel wraps styles.CleanupModel for standalone use.

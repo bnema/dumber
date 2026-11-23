@@ -7,9 +7,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/bnema/dumber/internal/application/port"
-	"github.com/bnema/dumber/internal/domain/favicon"
-	"github.com/bnema/dumber/internal/infrastructure/persistence/sqlite/sqlc"
+	"bnema.dev/dumber/internal/application/port"
+	"bnema.dev/dumber/internal/domain/favicon"
+	"bnema.dev/dumber/internal/infrastructure/persistence/sqlite/sqlc"
 )
 
 type faviconRepo struct {

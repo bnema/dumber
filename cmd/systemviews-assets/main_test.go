@@ -9,7 +9,7 @@ import (
 
 	"github.com/andybalholm/brotli"
 
-	"github.com/bnema/dumber/assets"
+	"bnema.dev/dumber/assets"
 )
 
 func writeFixture(t *testing.T, dir, name string, data []byte) {

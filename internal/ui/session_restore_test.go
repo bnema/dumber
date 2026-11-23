@@ -7,11 +7,11 @@ import (
 	"testing"
 	"time"
 
-	portmocks "github.com/bnema/dumber/internal/application/port/mocks"
-	"github.com/bnema/dumber/internal/domain/entity"
-	repomocks "github.com/bnema/dumber/internal/domain/repository/mocks"
-	"github.com/bnema/dumber/internal/infrastructure/config"
-	"github.com/bnema/dumber/internal/ui/component"
+	portmocks "bnema.dev/dumber/internal/application/port/mocks"
+	"bnema.dev/dumber/internal/domain/entity"
+	repomocks "bnema.dev/dumber/internal/domain/repository/mocks"
+	"bnema.dev/dumber/internal/infrastructure/config"
+	"bnema.dev/dumber/internal/ui/component"
 	"github.com/stretchr/testify/require"
 )
 

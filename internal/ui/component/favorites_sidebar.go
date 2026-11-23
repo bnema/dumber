@@ -8,9 +8,9 @@ import (
 	"bnema.dev/puregotk/v4/glib"
 	"bnema.dev/puregotk/v4/gtk"
 
-	"github.com/bnema/dumber/internal/application/port"
-	"github.com/bnema/dumber/internal/application/usecase"
-	"github.com/bnema/dumber/internal/domain/entity"
+	"bnema.dev/dumber/internal/application/port"
+	"bnema.dev/dumber/internal/application/usecase"
+	"bnema.dev/dumber/internal/domain/entity"
 )
 
 // FavoritesSidebarConfig holds configuration for creating a FavoritesSidebar.

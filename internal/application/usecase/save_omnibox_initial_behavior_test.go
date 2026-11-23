@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	portmocks "github.com/bnema/dumber/internal/application/port/mocks"
-	"github.com/bnema/dumber/internal/domain/entity"
+	portmocks "bnema.dev/dumber/internal/application/port/mocks"
+	"bnema.dev/dumber/internal/domain/entity"
 )
 
 func TestSaveOmniboxInitialBehaviorUseCase_AllowsRecent(t *testing.T) {

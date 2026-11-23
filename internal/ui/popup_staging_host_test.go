@@ -5,9 +5,9 @@ import (
 	"errors"
 	"testing"
 
-	portmocks "github.com/bnema/dumber/internal/application/port/mocks"
-	"github.com/bnema/dumber/internal/ui/coordinator/content"
-	"github.com/bnema/dumber/internal/ui/layout"
+	portmocks "bnema.dev/dumber/internal/application/port/mocks"
+	"bnema.dev/dumber/internal/ui/coordinator/content"
+	"bnema.dev/dumber/internal/ui/layout"
 	"bnema.dev/puregotk/v4/gtk"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

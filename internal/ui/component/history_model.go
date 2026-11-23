@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bnema/dumber/internal/domain/entity"
+	"bnema.dev/dumber/internal/domain/entity"
 )
 
 // historyGroup represents a day-grouped section of history entries.

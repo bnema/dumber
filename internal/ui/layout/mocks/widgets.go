@@ -5,7 +5,7 @@
 package mocks
 
 import (
-	"github.com/bnema/dumber/internal/ui/layout"
+	"bnema.dev/dumber/internal/ui/layout"
 	"bnema.dev/puregotk/v4/gtk"
 	mock "github.com/stretchr/testify/mock"
 )

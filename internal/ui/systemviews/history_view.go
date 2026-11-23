@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bnema/dumber/internal/domain/entity"
-	browserurl "github.com/bnema/dumber/internal/domain/url"
+	"bnema.dev/dumber/internal/domain/entity"
+	browserurl "bnema.dev/dumber/internal/domain/url"
 )
 
 const historyURLDisplayMaxRunes = 180

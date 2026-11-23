@@ -5,9 +5,9 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/bnema/dumber/internal/application/usecase"
-	"github.com/bnema/dumber/internal/domain/entity"
-	"github.com/bnema/dumber/internal/ui/window"
+	"bnema.dev/dumber/internal/application/usecase"
+	"bnema.dev/dumber/internal/domain/entity"
+	"bnema.dev/dumber/internal/ui/window"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

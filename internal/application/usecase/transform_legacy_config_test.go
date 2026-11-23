@@ -3,7 +3,7 @@ package usecase
 import (
 	"testing"
 
-	"github.com/bnema/dumber/internal/application/port/mocks"
+	"bnema.dev/dumber/internal/application/port/mocks"
 	"github.com/stretchr/testify/mock"
 )
 

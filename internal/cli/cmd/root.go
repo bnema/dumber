@@ -9,8 +9,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/bnema/dumber/internal/cli"
-	"github.com/bnema/dumber/internal/domain/build"
+	"bnema.dev/dumber/internal/cli"
+	"bnema.dev/dumber/internal/domain/build"
 )
 
 var (

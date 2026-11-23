@@ -5,7 +5,7 @@ package null
 import (
 	"context"
 
-	"github.com/bnema/dumber/internal/application/port"
+	"bnema.dev/dumber/internal/application/port"
 )
 
 // Factory creates null audio output streams that discard all audio data.

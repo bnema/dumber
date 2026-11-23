@@ -1,9 +1,9 @@
 package ui
 
 import (
-	"github.com/bnema/dumber/internal/bootstrap"
-	"github.com/bnema/dumber/internal/domain/entity"
-	"github.com/bnema/dumber/internal/infrastructure/config"
+	"bnema.dev/dumber/internal/bootstrap"
+	"bnema.dev/dumber/internal/domain/entity"
+	"bnema.dev/dumber/internal/infrastructure/config"
 )
 
 func runtimeConfigSnapshotForTest(cfg *config.Config) entity.RuntimeConfigSnapshot {

@@ -21,7 +21,7 @@ import (
 	cefmocks "bnema.dev/purego-cef/cef/mocks"
 	"github.com/stretchr/testify/require"
 
-	"github.com/bnema/dumber/assets"
+	"bnema.dev/dumber/assets"
 )
 
 // blockingReadFileFS blocks ReadFile of one name until release is closed,

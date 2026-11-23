@@ -8,13 +8,13 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/bnema/dumber/internal/application/port"
-	portmocks "github.com/bnema/dumber/internal/application/port/mocks"
-	"github.com/bnema/dumber/internal/application/usecase"
-	"github.com/bnema/dumber/internal/domain/entity"
-	"github.com/bnema/dumber/internal/ui/component"
-	"github.com/bnema/dumber/internal/ui/coordinator"
-	"github.com/bnema/dumber/internal/ui/coordinator/content"
+	"bnema.dev/dumber/internal/application/port"
+	portmocks "bnema.dev/dumber/internal/application/port/mocks"
+	"bnema.dev/dumber/internal/application/usecase"
+	"bnema.dev/dumber/internal/domain/entity"
+	"bnema.dev/dumber/internal/ui/component"
+	"bnema.dev/dumber/internal/ui/coordinator"
+	"bnema.dev/dumber/internal/ui/coordinator/content"
 )
 
 func newPopupAdoptionApp(t *testing.T, attach func(context.Context, entity.TabID, *entity.Pane, port.WebView) error) (*App, *browserWindow) {

@@ -5,10 +5,10 @@ import (
 	"testing"
 	"unsafe"
 
-	"github.com/bnema/dumber/internal/domain/entity"
-	"github.com/bnema/dumber/internal/ui/component"
-	contentcoord "github.com/bnema/dumber/internal/ui/coordinator/content"
-	layoutmocks "github.com/bnema/dumber/internal/ui/layout/mocks"
+	"bnema.dev/dumber/internal/domain/entity"
+	"bnema.dev/dumber/internal/ui/component"
+	contentcoord "bnema.dev/dumber/internal/ui/coordinator/content"
+	layoutmocks "bnema.dev/dumber/internal/ui/layout/mocks"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

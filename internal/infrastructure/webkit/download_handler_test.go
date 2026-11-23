@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/bnema/dumber/internal/application/usecase"
+	"bnema.dev/dumber/internal/application/usecase"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

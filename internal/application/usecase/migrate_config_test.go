@@ -9,8 +9,8 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/bnema/dumber/internal/application/port"
-	"github.com/bnema/dumber/internal/application/port/mocks"
+	"bnema.dev/dumber/internal/application/port"
+	"bnema.dev/dumber/internal/application/port/mocks"
 )
 
 func TestMigrateConfigUseCase_Check_NoMigrationNeeded(t *testing.T) {

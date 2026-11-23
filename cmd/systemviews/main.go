@@ -6,8 +6,8 @@ import (
 	"os"
 	"syscall/js"
 
-	"github.com/bnema/dumber/internal/infrastructure/systemviewsbridge"
-	"github.com/bnema/dumber/internal/ui/systemviews"
+	"bnema.dev/dumber/internal/infrastructure/systemviewsbridge"
+	"bnema.dev/dumber/internal/ui/systemviews"
 )
 
 func main() {

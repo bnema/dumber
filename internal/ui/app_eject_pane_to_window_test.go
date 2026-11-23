@@ -4,9 +4,9 @@ import (
 	"context"
 	"testing"
 
-	"github.com/bnema/dumber/internal/application/usecase"
-	"github.com/bnema/dumber/internal/domain/entity"
-	"github.com/bnema/dumber/internal/ui/component"
+	"bnema.dev/dumber/internal/application/usecase"
+	"bnema.dev/dumber/internal/domain/entity"
+	"bnema.dev/dumber/internal/ui/component"
 )
 
 func TestApp_EjectActivePaneToWindowRegistersTargetOwnership(t *testing.T) {

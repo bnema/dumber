@@ -3,7 +3,7 @@ package ui
 import (
 	"bnema.dev/puregotk/v4/glib"
 
-	"github.com/bnema/dumber/internal/ui/input"
+	"bnema.dev/dumber/internal/ui/input"
 )
 
 // fakeModeToasterView records what the mode toaster asks its view to paint.

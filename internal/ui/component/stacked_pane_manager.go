@@ -5,9 +5,9 @@ import (
 	"context"
 	"errors"
 
-	"github.com/bnema/dumber/internal/domain/entity"
-	"github.com/bnema/dumber/internal/logging"
-	"github.com/bnema/dumber/internal/ui/layout"
+	"bnema.dev/dumber/internal/domain/entity"
+	"bnema.dev/dumber/internal/logging"
+	"bnema.dev/dumber/internal/ui/layout"
 )
 
 // ErrStackNotFound is returned when a StackedView cannot be found for a pane.

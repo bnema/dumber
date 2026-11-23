@@ -1,6 +1,6 @@
 package webkit
 
-import "github.com/bnema/dumber/internal/application/port"
+import "bnema.dev/dumber/internal/application/port"
 
 var _ port.SystemviewFaviconResolverSetter = (*Engine)(nil)
 

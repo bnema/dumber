@@ -8,7 +8,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/bnema/dumber/internal/infrastructure/filtering"
+	"bnema.dev/dumber/internal/infrastructure/filtering"
 	"bnema.dev/puregotk/v4/webkit"
 	mock "github.com/stretchr/testify/mock"
 )

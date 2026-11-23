@@ -5,8 +5,8 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/bnema/dumber/internal/application/dto"
-	"github.com/bnema/dumber/internal/domain/color"
+	"bnema.dev/dumber/internal/application/dto"
+	"bnema.dev/dumber/internal/domain/color"
 )
 
 type shellTheme struct {

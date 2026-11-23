@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/bnema/dumber/internal/application/port"
-	downloadutil "github.com/bnema/dumber/internal/domain/download"
-	"github.com/bnema/dumber/internal/infrastructure/downloadruntime"
-	"github.com/bnema/dumber/internal/logging"
+	"bnema.dev/dumber/internal/application/port"
+	downloadutil "bnema.dev/dumber/internal/domain/download"
+	"bnema.dev/dumber/internal/infrastructure/downloadruntime"
+	"bnema.dev/dumber/internal/logging"
 	"bnema.dev/puregotk/v4/glib"
 	"bnema.dev/puregotk/v4/webkit"
 )

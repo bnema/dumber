@@ -3,7 +3,7 @@ package usecase
 import (
 	"fmt"
 
-	"github.com/bnema/dumber/internal/domain/entity"
+	"bnema.dev/dumber/internal/domain/entity"
 )
 
 // MovePaneToTabUseCase moves a pane from one tab's workspace to another.

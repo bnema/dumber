@@ -3,8 +3,8 @@ package webkit
 import (
 	"testing"
 
-	"github.com/bnema/dumber/internal/application/dto"
-	"github.com/bnema/dumber/internal/application/port"
+	"bnema.dev/dumber/internal/application/dto"
+	"bnema.dev/dumber/internal/application/port"
 	purewebkit "bnema.dev/puregotk/v4/webkit"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

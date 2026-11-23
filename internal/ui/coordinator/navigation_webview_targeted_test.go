@@ -4,10 +4,10 @@ import (
 	"context"
 	"testing"
 
-	"github.com/bnema/dumber/internal/application/port"
-	"github.com/bnema/dumber/internal/application/port/mocks"
-	"github.com/bnema/dumber/internal/application/usecase"
-	"github.com/bnema/dumber/internal/domain/entity"
+	"bnema.dev/dumber/internal/application/port"
+	"bnema.dev/dumber/internal/application/port/mocks"
+	"bnema.dev/dumber/internal/application/usecase"
+	"bnema.dev/dumber/internal/domain/entity"
 )
 
 type mockScrollableWebView struct {

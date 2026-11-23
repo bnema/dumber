@@ -14,7 +14,7 @@ import (
 	"strings"
 	"time"
 
-	corelogging "github.com/bnema/dumber/internal/logging"
+	corelogging "bnema.dev/dumber/internal/logging"
 )
 
 const (

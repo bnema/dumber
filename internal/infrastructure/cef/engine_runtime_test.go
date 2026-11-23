@@ -5,8 +5,8 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/bnema/dumber/internal/application/dto"
-	"github.com/bnema/dumber/internal/application/port"
+	"bnema.dev/dumber/internal/application/dto"
+	"bnema.dev/dumber/internal/application/port"
 	"github.com/stretchr/testify/require"
 )
 

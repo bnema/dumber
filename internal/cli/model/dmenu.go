@@ -10,8 +10,8 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
-	"github.com/bnema/dumber/internal/application/usecase"
-	"github.com/bnema/dumber/internal/cli/styles"
+	"bnema.dev/dumber/internal/application/usecase"
+	"bnema.dev/dumber/internal/cli/styles"
 )
 
 // DmenuModel is the Bubble Tea model for interactive dmenu.

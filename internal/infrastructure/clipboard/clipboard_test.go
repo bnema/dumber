@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/bnema/dumber/internal/domain/entity"
-	clipboardmocks "github.com/bnema/dumber/internal/infrastructure/clipboard/mocks"
+	"bnema.dev/dumber/internal/domain/entity"
+	clipboardmocks "bnema.dev/dumber/internal/infrastructure/clipboard/mocks"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )

@@ -8,10 +8,10 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/bnema/dumber/internal/application/dto"
-	"github.com/bnema/dumber/internal/application/port"
-	"github.com/bnema/dumber/internal/application/port/mocks"
-	"github.com/bnema/dumber/internal/infrastructure/handlers/homepage"
+	"bnema.dev/dumber/internal/application/dto"
+	"bnema.dev/dumber/internal/application/port"
+	"bnema.dev/dumber/internal/application/port/mocks"
+	"bnema.dev/dumber/internal/infrastructure/handlers/homepage"
 )
 
 // TestWebUIContract_EveryMessageHasAHandlerAndMatchingCallbacks checks both

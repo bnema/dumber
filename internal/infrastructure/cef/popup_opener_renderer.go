@@ -6,7 +6,7 @@ import (
 
 	purecef "bnema.dev/purego-cef/cef"
 
-	"github.com/bnema/dumber/internal/logging"
+	"bnema.dev/dumber/internal/logging"
 )
 
 const (

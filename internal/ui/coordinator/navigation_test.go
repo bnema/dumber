@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	coordinatormocks "github.com/bnema/dumber/internal/ui/coordinator/mocks"
+	coordinatormocks "bnema.dev/dumber/internal/ui/coordinator/mocks"
 	"github.com/stretchr/testify/mock"
 )
 

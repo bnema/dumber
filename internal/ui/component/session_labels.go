@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/bnema/dumber/internal/domain/entity"
+	"bnema.dev/dumber/internal/domain/entity"
 )
 
 // sessionDateTitle compares calendar dates in the viewer's timezone, including

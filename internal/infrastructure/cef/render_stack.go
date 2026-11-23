@@ -5,7 +5,7 @@ import (
 
 	cef2gtk "bnema.dev/purego-cef2gtk"
 
-	"github.com/bnema/dumber/internal/application/port"
+	"bnema.dev/dumber/internal/application/port"
 )
 
 func resolveCEFRenderStackPlan(stack string) (cef2gtk.RenderStackPlan, error) {

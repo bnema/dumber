@@ -4,8 +4,8 @@ import (
 	stdurl "net/url"
 	"strings"
 
-	"github.com/bnema/dumber/internal/domain/autocomplete"
-	"github.com/bnema/dumber/internal/domain/url"
+	"bnema.dev/dumber/internal/domain/autocomplete"
+	"bnema.dev/dumber/internal/domain/url"
 )
 
 // Omnibox suggestion logic: pure functions over the entry text and the

@@ -2,7 +2,7 @@ template: testify
 template-data:
   unroll-variadic: true
 packages:
-  github.com/bnema/dumber/internal/bootstrap:
+  bnema.dev/dumber/internal/bootstrap:
     config:
       dir: '{{.InterfaceDir}}/mocks'
       filename: '{{ .InterfaceFile | base }}'
@@ -11,7 +11,7 @@ packages:
       configChangeManager:
         config:
           structname: MockConfigChangeManager
-  github.com/bnema/dumber/internal/cli/cmd:
+  bnema.dev/dumber/internal/cli/cmd:
     config:
       dir: '{{.InterfaceDir}}/mocks'
       filename: '{{ .InterfaceFile | base }}'
@@ -20,7 +20,7 @@ packages:
       sessionManager:
         config:
           structname: MockSessionManager
-  github.com/bnema/dumber/internal/infrastructure/clipboard:
+  bnema.dev/dumber/internal/infrastructure/clipboard:
     config:
       dir: '{{.InterfaceDir}}/mocks'
       filename: '{{ .InterfaceFile | base }}'
@@ -29,7 +29,7 @@ packages:
       toolkitClipboard:
         config:
           structname: MockToolkitClipboard
-  github.com/bnema/dumber/internal/infrastructure/idle:
+  bnema.dev/dumber/internal/infrastructure/idle:
     config:
       dir: '{{.InterfaceDir}}/mocks'
       filename: '{{ .InterfaceFile | base }}'
@@ -38,7 +38,7 @@ packages:
       portalClient:
         config:
           structname: MockPortalClient
-  github.com/bnema/dumber/internal/infrastructure/systemviewsbridge:
+  bnema.dev/dumber/internal/infrastructure/systemviewsbridge:
     config:
       dir: '{{.InterfaceDir}}/mocks'
       filename: '{{ .InterfaceFile | base }}'
@@ -52,7 +52,7 @@ packages:
       pkgname: mocks
     interfaces:
       Player: {}
-  github.com/bnema/dumber/internal/application/port:
+  bnema.dev/dumber/internal/application/port:
     config:
       dir: '{{.InterfaceDir}}/mocks'
       filename: '{{ .InterfaceFile | base }}'
@@ -163,7 +163,7 @@ packages:
       WebUIConfigSaver: {}
       SystemviewConfigReader: {}
       XDGPaths: {}
-  github.com/bnema/dumber/internal/domain/repository:
+  bnema.dev/dumber/internal/domain/repository:
     config:
       dir: '{{.InterfaceDir}}/mocks'
       filename: '{{ .InterfaceFile | base }}'
@@ -176,7 +176,7 @@ packages:
       SessionStateRepository: {}
       TagRepository: {}
       ZoomRepository: {}
-  github.com/bnema/dumber/internal/infrastructure/filtering:
+  bnema.dev/dumber/internal/infrastructure/filtering:
     config:
       dir: '{{.InterfaceDir}}/mocks'
       filename: '{{ .InterfaceFile | base }}'
@@ -184,7 +184,7 @@ packages:
     interfaces:
       FilterDownloader: {}
       FilterStore: {}
-  github.com/bnema/dumber/internal/ui/layout:
+  bnema.dev/dumber/internal/ui/layout:
     config:
       dir: '{{.InterfaceDir}}/mocks'
       filename: '{{ .InterfaceFile | base }}'
@@ -202,14 +202,14 @@ packages:
       SpinnerWidget: {}
       Widget: {}
       WidgetFactory: {}
-  github.com/bnema/dumber/internal/ui/coordinator:
+  bnema.dev/dumber/internal/ui/coordinator:
     config:
       dir: '{{.InterfaceDir}}/mocks'
       filename: '{{ .InterfaceFile | base }}'
       pkgname: mocks
     interfaces:
       OmniboxProvider: {}
-  github.com/bnema/dumber/internal/ui/dialog:
+  bnema.dev/dumber/internal/ui/dialog:
     config:
       dir: '{{.InterfaceDir}}/mocks'
       filename: '{{ .InterfaceFile | base }}'

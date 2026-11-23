@@ -9,11 +9,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bnema/dumber/internal/domain/entity"
-	repository "github.com/bnema/dumber/internal/domain/repository"
-	"github.com/bnema/dumber/internal/infrastructure/persistence/sqlite"
-	"github.com/bnema/dumber/internal/infrastructure/persistence/sqlite/sqlc"
-	"github.com/bnema/dumber/internal/logging"
+	"bnema.dev/dumber/internal/domain/entity"
+	repository "bnema.dev/dumber/internal/domain/repository"
+	"bnema.dev/dumber/internal/infrastructure/persistence/sqlite"
+	"bnema.dev/dumber/internal/infrastructure/persistence/sqlite/sqlc"
+	"bnema.dev/dumber/internal/logging"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

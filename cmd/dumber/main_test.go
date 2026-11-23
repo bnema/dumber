@@ -6,11 +6,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bnema/dumber/internal/application/port/mocks"
-	"github.com/bnema/dumber/internal/bootstrap"
-	"github.com/bnema/dumber/internal/infrastructure/colorscheme"
-	"github.com/bnema/dumber/internal/infrastructure/config"
-	"github.com/bnema/dumber/internal/infrastructure/desktop"
+	"bnema.dev/dumber/internal/application/port/mocks"
+	"bnema.dev/dumber/internal/bootstrap"
+	"bnema.dev/dumber/internal/infrastructure/colorscheme"
+	"bnema.dev/dumber/internal/infrastructure/config"
+	"bnema.dev/dumber/internal/infrastructure/desktop"
 	"github.com/rs/zerolog"
 )
 

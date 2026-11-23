@@ -19,7 +19,7 @@ import (
 	purecef "bnema.dev/purego-cef/cef"
 	"github.com/stretchr/testify/require"
 
-	"github.com/bnema/dumber/assets"
+	"bnema.dev/dumber/assets"
 )
 
 // decodeCountingFS counts full asset reads: with no cache, one served WASM

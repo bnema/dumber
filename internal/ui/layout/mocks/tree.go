@@ -5,8 +5,8 @@
 package mocks
 
 import (
-	"github.com/bnema/dumber/internal/domain/entity"
-	"github.com/bnema/dumber/internal/ui/layout"
+	"bnema.dev/dumber/internal/domain/entity"
+	"bnema.dev/dumber/internal/ui/layout"
 	mock "github.com/stretchr/testify/mock"
 )
 

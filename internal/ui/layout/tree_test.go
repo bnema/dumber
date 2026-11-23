@@ -8,9 +8,9 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/bnema/dumber/internal/domain/entity"
-	"github.com/bnema/dumber/internal/ui/layout"
-	"github.com/bnema/dumber/internal/ui/layout/mocks"
+	"bnema.dev/dumber/internal/domain/entity"
+	"bnema.dev/dumber/internal/ui/layout"
+	"bnema.dev/dumber/internal/ui/layout/mocks"
 )
 
 func setupStackedLeafMocks(t *testing.T, mockFactory *mocks.MockWidgetFactory) (*mocks.MockBoxWidget, *mocks.MockWidget) {

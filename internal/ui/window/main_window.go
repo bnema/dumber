@@ -4,8 +4,8 @@ package window
 import (
 	"context"
 
-	"github.com/bnema/dumber/internal/logging"
-	"github.com/bnema/dumber/internal/ui/component"
+	"bnema.dev/dumber/internal/logging"
+	"bnema.dev/dumber/internal/ui/component"
 	"bnema.dev/puregotk/v4/gobject"
 	"bnema.dev/puregotk/v4/gtk"
 	"github.com/rs/zerolog"

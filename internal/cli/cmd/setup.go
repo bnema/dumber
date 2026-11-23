@@ -6,10 +6,10 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/bnema/dumber/assets"
-	"github.com/bnema/dumber/internal/application/usecase"
-	"github.com/bnema/dumber/internal/infrastructure/desktop"
-	"github.com/bnema/dumber/internal/infrastructure/env"
+	"bnema.dev/dumber/assets"
+	"bnema.dev/dumber/internal/application/usecase"
+	"bnema.dev/dumber/internal/infrastructure/desktop"
+	"bnema.dev/dumber/internal/infrastructure/env"
 )
 
 var setupCmd = &cobra.Command{

@@ -6,10 +6,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bnema/dumber/internal/application/port"
-	"github.com/bnema/dumber/internal/domain/favicon"
-	"github.com/bnema/dumber/internal/infrastructure/persistence/sqlite"
-	"github.com/bnema/dumber/internal/logging"
+	"bnema.dev/dumber/internal/application/port"
+	"bnema.dev/dumber/internal/domain/favicon"
+	"bnema.dev/dumber/internal/infrastructure/persistence/sqlite"
+	"bnema.dev/dumber/internal/logging"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

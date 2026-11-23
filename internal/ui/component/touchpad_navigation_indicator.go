@@ -1,7 +1,7 @@
 package component
 
 import (
-	"github.com/bnema/dumber/internal/domain/entity"
+	"bnema.dev/dumber/internal/domain/entity"
 	"bnema.dev/puregotk/v4/glib"
 	"bnema.dev/puregotk/v4/gtk"
 )

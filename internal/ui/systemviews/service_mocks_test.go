@@ -9,9 +9,9 @@ import (
 
 	"github.com/stretchr/testify/mock"
 
-	"github.com/bnema/dumber/internal/application/dto"
-	"github.com/bnema/dumber/internal/application/port/mocks"
-	"github.com/bnema/dumber/internal/domain/entity"
+	"bnema.dev/dumber/internal/application/dto"
+	"bnema.dev/dumber/internal/application/port/mocks"
+	"bnema.dev/dumber/internal/domain/entity"
 )
 
 // historyStore is the stored history behind a mocked history service. Reads

@@ -1,6 +1,6 @@
 package dto
 
-import "github.com/bnema/dumber/internal/domain/entity"
+import "bnema.dev/dumber/internal/domain/entity"
 
 // HistorySearchInput holds search parameters for history search use cases.
 type HistorySearchInput struct {

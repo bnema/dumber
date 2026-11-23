@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bnema/dumber/internal/domain/entity"
-	"github.com/bnema/dumber/internal/infrastructure/persistence/sqlite"
-	"github.com/bnema/dumber/internal/logging"
+	"bnema.dev/dumber/internal/domain/entity"
+	"bnema.dev/dumber/internal/infrastructure/persistence/sqlite"
+	"bnema.dev/dumber/internal/logging"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

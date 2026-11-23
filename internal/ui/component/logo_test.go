@@ -7,7 +7,7 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/bnema/dumber/assets"
+	"bnema.dev/dumber/assets"
 	"bnema.dev/puregotk/v4/gdk"
 	"github.com/stretchr/testify/require"
 )

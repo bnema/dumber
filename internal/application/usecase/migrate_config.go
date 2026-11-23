@@ -3,8 +3,8 @@ package usecase
 import (
 	"context"
 
-	"github.com/bnema/dumber/internal/application/port"
-	"github.com/bnema/dumber/internal/logging"
+	"bnema.dev/dumber/internal/application/port"
+	"bnema.dev/dumber/internal/logging"
 )
 
 // CheckConfigMigrationInput holds the input for checking config migration.

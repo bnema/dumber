@@ -5,10 +5,10 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/bnema/dumber/internal/application/dto"
-	"github.com/bnema/dumber/internal/application/usecase"
-	"github.com/bnema/dumber/internal/ui/component"
-	"github.com/bnema/dumber/internal/ui/window"
+	"bnema.dev/dumber/internal/application/dto"
+	"bnema.dev/dumber/internal/application/usecase"
+	"bnema.dev/dumber/internal/ui/component"
+	"bnema.dev/dumber/internal/ui/window"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

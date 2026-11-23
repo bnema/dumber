@@ -9,7 +9,7 @@ import (
 	purecef "bnema.dev/purego-cef/cef"
 	"github.com/stretchr/testify/require"
 
-	"github.com/bnema/dumber/internal/application/port"
+	"bnema.dev/dumber/internal/application/port"
 )
 
 // gpuRecoveryHost records render-host calls. pulses counts Invalidate calls

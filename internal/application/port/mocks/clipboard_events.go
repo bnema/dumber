@@ -7,7 +7,7 @@ package mocks
 import (
 	"context"
 
-	"github.com/bnema/dumber/internal/application/dto"
+	"bnema.dev/dumber/internal/application/dto"
 	mock "github.com/stretchr/testify/mock"
 )
 

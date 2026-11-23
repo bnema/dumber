@@ -8,7 +8,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/spf13/cobra"
 
-	"github.com/bnema/dumber/internal/cli/model"
+	"bnema.dev/dumber/internal/cli/model"
 )
 
 var (

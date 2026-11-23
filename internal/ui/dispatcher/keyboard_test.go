@@ -5,12 +5,12 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/bnema/dumber/internal/application/port"
-	"github.com/bnema/dumber/internal/application/port/mocks"
-	"github.com/bnema/dumber/internal/application/usecase"
-	"github.com/bnema/dumber/internal/domain/entity"
-	"github.com/bnema/dumber/internal/ui/coordinator"
-	"github.com/bnema/dumber/internal/ui/input"
+	"bnema.dev/dumber/internal/application/port"
+	"bnema.dev/dumber/internal/application/port/mocks"
+	"bnema.dev/dumber/internal/application/usecase"
+	"bnema.dev/dumber/internal/domain/entity"
+	"bnema.dev/dumber/internal/ui/coordinator"
+	"bnema.dev/dumber/internal/ui/input"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

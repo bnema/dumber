@@ -3,9 +3,9 @@ package bootstrap
 import (
 	"maps"
 
-	"github.com/bnema/dumber/internal/application/port"
-	"github.com/bnema/dumber/internal/domain/entity"
-	"github.com/bnema/dumber/internal/infrastructure/config"
+	"bnema.dev/dumber/internal/application/port"
+	"bnema.dev/dumber/internal/domain/entity"
+	"bnema.dev/dumber/internal/infrastructure/config"
 )
 
 type configChangeManager interface {

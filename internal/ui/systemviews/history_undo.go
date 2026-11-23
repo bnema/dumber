@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bnema/dumber/internal/domain/entity"
+	"bnema.dev/dumber/internal/domain/entity"
 )
 
 // Deferred deletion of single history entries: the row leaves the view at

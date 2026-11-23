@@ -3,7 +3,7 @@ package port
 import (
 	"context"
 
-	"github.com/bnema/dumber/internal/domain/entity"
+	"bnema.dev/dumber/internal/domain/entity"
 )
 
 // Clipboard defines the port interface for clipboard operations.

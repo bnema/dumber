@@ -4,12 +4,12 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/bnema/dumber/internal/application/port"
-	"github.com/bnema/dumber/internal/domain/entity"
-	"github.com/bnema/dumber/internal/logging"
-	"github.com/bnema/dumber/internal/ui/component"
-	"github.com/bnema/dumber/internal/ui/input"
-	"github.com/bnema/dumber/internal/ui/layout"
+	"bnema.dev/dumber/internal/application/port"
+	"bnema.dev/dumber/internal/domain/entity"
+	"bnema.dev/dumber/internal/logging"
+	"bnema.dev/dumber/internal/ui/component"
+	"bnema.dev/dumber/internal/ui/input"
+	"bnema.dev/dumber/internal/ui/layout"
 )
 
 // EnsureWebView acquires or reuses a WebView for the given pane.

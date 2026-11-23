@@ -8,8 +8,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/bnema/dumber/internal/application/dto"
-	portmocks "github.com/bnema/dumber/internal/application/port/mocks"
+	"bnema.dev/dumber/internal/application/dto"
+	portmocks "bnema.dev/dumber/internal/application/port/mocks"
 )
 
 // interactiveWebView composes generated mocks so a WebView also exposes the

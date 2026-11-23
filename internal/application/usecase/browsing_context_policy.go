@@ -3,7 +3,7 @@ package usecase
 import (
 	"strings"
 
-	"github.com/bnema/dumber/internal/application/dto"
+	"bnema.dev/dumber/internal/application/dto"
 )
 
 // BrowsingContextPolicy selects the product host for a normalized browsing-context request.

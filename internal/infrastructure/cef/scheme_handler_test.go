@@ -11,7 +11,7 @@ import (
 	cefmocks "bnema.dev/purego-cef/cef/mocks"
 	"github.com/stretchr/testify/require"
 
-	"github.com/bnema/dumber/internal/application/port"
+	"bnema.dev/dumber/internal/application/port"
 )
 
 func expectAPIResponseHeaders(response *cefmocks.MockResponse) {

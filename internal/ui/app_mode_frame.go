@@ -4,9 +4,9 @@ import (
 	"context"
 	"sync"
 
-	"github.com/bnema/dumber/internal/logging"
-	"github.com/bnema/dumber/internal/ui/input"
-	"github.com/bnema/dumber/internal/ui/layout"
+	"bnema.dev/dumber/internal/logging"
+	"bnema.dev/dumber/internal/ui/input"
+	"bnema.dev/dumber/internal/ui/layout"
 )
 
 func (a *App) modeFrameTarget(bw *browserWindow, mode input.Mode) layout.Widget {

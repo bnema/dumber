@@ -9,12 +9,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/bnema/dumber/internal/application/dto"
-	"github.com/bnema/dumber/internal/application/port"
-	"github.com/bnema/dumber/internal/domain/entity"
-	"github.com/bnema/dumber/internal/domain/repository"
-	domainurl "github.com/bnema/dumber/internal/domain/url"
-	"github.com/bnema/dumber/internal/logging"
+	"bnema.dev/dumber/internal/application/dto"
+	"bnema.dev/dumber/internal/application/port"
+	"bnema.dev/dumber/internal/domain/entity"
+	"bnema.dev/dumber/internal/domain/repository"
+	domainurl "bnema.dev/dumber/internal/domain/url"
+	"bnema.dev/dumber/internal/logging"
 )
 
 // Compile-time checks: ManageFavoritesUseCase must satisfy favorites application ports.

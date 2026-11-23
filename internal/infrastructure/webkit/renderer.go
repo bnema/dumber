@@ -1,6 +1,6 @@
 package webkit
 
-import gtkmenu "github.com/bnema/dumber/internal/infrastructure/gtkmenu"
+import gtkmenu "bnema.dev/dumber/internal/infrastructure/gtkmenu"
 
 type Renderer = gtkmenu.Renderer
 

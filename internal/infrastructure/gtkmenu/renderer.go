@@ -1,7 +1,7 @@
 package gtkmenu
 
 import (
-	"github.com/bnema/dumber/internal/application/port"
+	"bnema.dev/dumber/internal/application/port"
 	"bnema.dev/puregotk/v4/gdk"
 	"bnema.dev/puregotk/v4/gobject"
 	"bnema.dev/puregotk/v4/gtk"

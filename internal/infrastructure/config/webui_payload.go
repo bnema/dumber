@@ -1,8 +1,8 @@
 package config
 
 import (
-	"github.com/bnema/dumber/internal/application/dto"
-	"github.com/bnema/dumber/internal/application/port"
+	"bnema.dev/dumber/internal/application/dto"
+	"bnema.dev/dumber/internal/application/port"
 )
 
 // BuildSystemviewConfigPayload projects the full config into the stable DTO used by

@@ -9,7 +9,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/bnema/dumber/internal/logging"
+	"bnema.dev/dumber/internal/logging"
 	"github.com/pelletier/go-toml/v2"
 )
 

@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
-	cmdmocks "github.com/bnema/dumber/internal/cli/cmd/mocks"
-	"github.com/bnema/dumber/internal/domain/entity"
-	"github.com/bnema/dumber/internal/logging"
+	cmdmocks "bnema.dev/dumber/internal/cli/cmd/mocks"
+	"bnema.dev/dumber/internal/domain/entity"
+	"bnema.dev/dumber/internal/logging"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )

@@ -3,7 +3,7 @@ package port
 import (
 	"context"
 
-	"github.com/bnema/dumber/internal/domain/entity"
+	"bnema.dev/dumber/internal/domain/entity"
 )
 
 // PermissionDialogResult represents the user's response from a permission dialog.

@@ -7,8 +7,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/bnema/dumber/internal/application/dto"
-	"github.com/bnema/dumber/internal/domain/entity"
+	"bnema.dev/dumber/internal/application/dto"
+	"bnema.dev/dumber/internal/domain/entity"
 )
 
 // WebViewID uniquely identifies a WebView instance.

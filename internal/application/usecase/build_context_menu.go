@@ -3,7 +3,7 @@ package usecase
 import (
 	"context"
 
-	"github.com/bnema/dumber/internal/application/port"
+	"bnema.dev/dumber/internal/application/port"
 )
 
 // BuildContextMenuUseCase normalizes context menu items from menu state.

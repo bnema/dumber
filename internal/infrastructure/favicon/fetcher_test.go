@@ -9,8 +9,8 @@ import (
 	"net/url"
 	"testing"
 
-	appport "github.com/bnema/dumber/internal/application/port"
-	domainfavicon "github.com/bnema/dumber/internal/domain/favicon"
+	appport "bnema.dev/dumber/internal/application/port"
+	domainfavicon "bnema.dev/dumber/internal/domain/favicon"
 )
 
 func TestFetcherExplicitIconURLAndDuckDuckGoFallback(t *testing.T) {

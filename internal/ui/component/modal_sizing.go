@@ -3,7 +3,7 @@ package component
 import (
 	"math"
 
-	"github.com/bnema/dumber/internal/ui/layout"
+	"bnema.dev/dumber/internal/ui/layout"
 	"bnema.dev/puregotk/v4/gtk"
 )
 

@@ -13,10 +13,10 @@ import (
 	purecef "bnema.dev/purego-cef/cef"
 	cef2gtk "bnema.dev/purego-cef2gtk"
 
-	"github.com/bnema/dumber/internal/application/dto"
-	"github.com/bnema/dumber/internal/application/port"
-	"github.com/bnema/dumber/internal/domain/entity"
-	"github.com/bnema/dumber/internal/logging"
+	"bnema.dev/dumber/internal/application/dto"
+	"bnema.dev/dumber/internal/application/port"
+	"bnema.dev/dumber/internal/domain/entity"
+	"bnema.dev/dumber/internal/logging"
 )
 
 // Compile-time interface check.

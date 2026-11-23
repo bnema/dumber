@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/bnema/dumber/internal/application/port"
-	"github.com/bnema/dumber/internal/application/usecase"
-	"github.com/bnema/dumber/internal/logging"
-	"github.com/bnema/dumber/internal/ui/component"
+	"bnema.dev/dumber/internal/application/port"
+	"bnema.dev/dumber/internal/application/usecase"
+	"bnema.dev/dumber/internal/logging"
+	"bnema.dev/dumber/internal/ui/component"
 )
 
 // newFavoritesSidebarComponent constructs the native favorites sidebar. It is

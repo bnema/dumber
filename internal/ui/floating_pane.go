@@ -6,10 +6,10 @@ import (
 	"strings"
 	"unsafe"
 
-	"github.com/bnema/dumber/internal/application/port"
-	"github.com/bnema/dumber/internal/domain/entity"
-	"github.com/bnema/dumber/internal/ui/component"
-	"github.com/bnema/dumber/internal/ui/layout"
+	"bnema.dev/dumber/internal/application/port"
+	"bnema.dev/dumber/internal/domain/entity"
+	"bnema.dev/dumber/internal/ui/component"
+	"bnema.dev/dumber/internal/ui/layout"
 	"bnema.dev/puregotk/v4/gtk"
 )
 

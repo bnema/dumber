@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 	"sync"
 
-	domainurl "github.com/bnema/dumber/internal/domain/url"
-	"github.com/bnema/dumber/internal/logging"
+	domainurl "bnema.dev/dumber/internal/domain/url"
+	"bnema.dev/dumber/internal/logging"
 )
 
 const (

@@ -6,7 +6,7 @@ import (
 	"embed"
 	"fmt"
 
-	"github.com/bnema/dumber/internal/logging"
+	"bnema.dev/dumber/internal/logging"
 	"github.com/pressly/goose/v3"
 )
 

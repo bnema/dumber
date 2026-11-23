@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/bnema/dumber/internal/application/port"
-	"github.com/bnema/dumber/internal/infrastructure/audio/null"
+	"bnema.dev/dumber/internal/application/port"
+	"bnema.dev/dumber/internal/infrastructure/audio/null"
 )
 
 // failingFactory is a factory that always returns an error

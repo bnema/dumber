@@ -3,7 +3,7 @@ package cef
 import (
 	"context"
 
-	"github.com/bnema/dumber/internal/application/port"
+	"bnema.dev/dumber/internal/application/port"
 )
 
 var (

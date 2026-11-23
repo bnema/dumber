@@ -4,8 +4,8 @@ import (
 	"context"
 	"errors"
 
-	"github.com/bnema/dumber/internal/application/port"
-	domainerrors "github.com/bnema/dumber/internal/domain/errors"
+	"bnema.dev/dumber/internal/application/port"
+	domainerrors "bnema.dev/dumber/internal/domain/errors"
 )
 
 var (

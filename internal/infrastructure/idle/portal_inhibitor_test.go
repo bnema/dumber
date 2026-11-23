@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/bnema/dumber/internal/infrastructure/idle/mocks"
+	"bnema.dev/dumber/internal/infrastructure/idle/mocks"
 	"github.com/stretchr/testify/require"
 )
 

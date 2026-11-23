@@ -4,7 +4,7 @@ import (
 	"math"
 	"testing"
 
-	layoutmocks "github.com/bnema/dumber/internal/ui/layout/mocks"
+	layoutmocks "bnema.dev/dumber/internal/ui/layout/mocks"
 	"bnema.dev/puregotk/v4/gtk"
 	"github.com/stretchr/testify/assert"
 )

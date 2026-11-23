@@ -3,7 +3,7 @@ package port
 import (
 	"context"
 
-	"github.com/bnema/dumber/internal/domain/entity"
+	"bnema.dev/dumber/internal/domain/entity"
 )
 
 // SessionRestoreLauncher delivers a restore to the profile host, or starts it.

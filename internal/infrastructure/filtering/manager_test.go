@@ -10,9 +10,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bnema/dumber/internal/infrastructure/filtering"
-	"github.com/bnema/dumber/internal/infrastructure/filtering/mocks"
-	"github.com/bnema/dumber/internal/logging"
+	"bnema.dev/dumber/internal/infrastructure/filtering"
+	"bnema.dev/dumber/internal/infrastructure/filtering/mocks"
+	"bnema.dev/dumber/internal/logging"
 	"bnema.dev/puregotk/v4/webkit"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"

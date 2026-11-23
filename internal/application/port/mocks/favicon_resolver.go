@@ -7,8 +7,8 @@ package mocks
 import (
 	"context"
 
-	"github.com/bnema/dumber/internal/application/port"
-	"github.com/bnema/dumber/internal/domain/favicon"
+	"bnema.dev/dumber/internal/application/port"
+	"bnema.dev/dumber/internal/domain/favicon"
 	mock "github.com/stretchr/testify/mock"
 )
 

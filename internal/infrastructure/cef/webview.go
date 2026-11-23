@@ -19,12 +19,12 @@ import (
 	"bnema.dev/puregotk/v4/glib"
 	"bnema.dev/puregotk/v4/gtk"
 
-	"github.com/bnema/dumber/internal/application/dto"
-	"github.com/bnema/dumber/internal/application/port"
-	"github.com/bnema/dumber/internal/domain/entity"
-	"github.com/bnema/dumber/internal/infrastructure/webutil"
-	"github.com/bnema/dumber/internal/logging"
-	"github.com/bnema/dumber/internal/shared/syncdispatch"
+	"bnema.dev/dumber/internal/application/dto"
+	"bnema.dev/dumber/internal/application/port"
+	"bnema.dev/dumber/internal/domain/entity"
+	"bnema.dev/dumber/internal/infrastructure/webutil"
+	"bnema.dev/dumber/internal/logging"
+	"bnema.dev/dumber/internal/shared/syncdispatch"
 )
 
 // Compile-time interface checks.

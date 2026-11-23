@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/bnema/dumber/internal/application/dto"
+	"bnema.dev/dumber/internal/application/dto"
 )
 
 type WebUIConfigGateway struct {

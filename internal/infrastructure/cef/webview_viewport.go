@@ -9,8 +9,8 @@ import (
 	"bnema.dev/puregotk/v4/gobject"
 	"bnema.dev/puregotk/v4/gtk"
 
-	"github.com/bnema/dumber/internal/logging"
-	"github.com/bnema/dumber/internal/shared/syncdispatch"
+	"bnema.dev/dumber/internal/logging"
+	"bnema.dev/dumber/internal/shared/syncdispatch"
 )
 
 type viewportSyncBrowserHost interface {

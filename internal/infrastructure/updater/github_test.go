@@ -20,7 +20,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bnema/dumber/internal/application/port"
+	"bnema.dev/dumber/internal/application/port"
 )
 
 func TestCompareVersions(t *testing.T) {

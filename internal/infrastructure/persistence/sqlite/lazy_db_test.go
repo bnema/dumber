@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bnema/dumber/internal/infrastructure/persistence/sqlite"
+	"bnema.dev/dumber/internal/infrastructure/persistence/sqlite"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

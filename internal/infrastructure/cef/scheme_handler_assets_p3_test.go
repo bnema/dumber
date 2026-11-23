@@ -16,7 +16,7 @@ import (
 	cefmocks "bnema.dev/purego-cef/cef/mocks"
 	"github.com/stretchr/testify/require"
 
-	"github.com/bnema/dumber/assets"
+	"bnema.dev/dumber/assets"
 )
 
 const versionedShellFixture = `<html><head><link rel="stylesheet" href="./systemviews.css"><script src="./wasm_exec.js"></script><script src="./systemviews.js" defer></script></head><body><script>instantiateWasm(go, './systemviews.wasm')</script><img src="./other.png"></body></html>`

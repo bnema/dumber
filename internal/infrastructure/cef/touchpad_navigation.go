@@ -3,7 +3,7 @@ package cef
 import (
 	"math"
 
-	"github.com/bnema/dumber/internal/domain/entity"
+	"bnema.dev/dumber/internal/domain/entity"
 	cef2gtk "bnema.dev/purego-cef2gtk"
 	"bnema.dev/puregotk/v4/gdk"
 )

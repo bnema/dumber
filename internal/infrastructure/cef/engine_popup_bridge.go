@@ -3,7 +3,7 @@ package cef
 import (
 	purecef "bnema.dev/purego-cef/cef"
 
-	"github.com/bnema/dumber/internal/logging"
+	"bnema.dev/dumber/internal/logging"
 )
 
 func (e *Engine) webViewForBrowser(browser purecef.Browser) *WebView {

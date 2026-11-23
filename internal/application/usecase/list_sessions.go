@@ -4,9 +4,9 @@ import (
 	"context"
 	"time"
 
-	"github.com/bnema/dumber/internal/domain/entity"
-	"github.com/bnema/dumber/internal/domain/repository"
-	"github.com/bnema/dumber/internal/logging"
+	"bnema.dev/dumber/internal/domain/entity"
+	"bnema.dev/dumber/internal/domain/repository"
+	"bnema.dev/dumber/internal/logging"
 )
 
 // ListAllSessionsLimit asks Execute to return every known session.

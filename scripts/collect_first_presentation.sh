@@ -80,7 +80,7 @@ for line in buildinfo.splitlines():
     parts = line.split()
     if len(parts) < 2:
         continue
-    if parts[0] == "mod" and len(parts) >= 3 and parts[1] == "github.com/bnema/dumber":
+    if parts[0] == "mod" and len(parts) >= 3 and parts[1] == "bnema.dev/dumber":
         mod_version = parts[2]
     if parts[0] == "dep" and len(parts) >= 3 and parts[1] == module:
         dep_version = parts[2]

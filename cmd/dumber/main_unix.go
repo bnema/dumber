@@ -7,7 +7,7 @@ import (
 	"runtime/debug"
 	"strconv"
 
-	"github.com/bnema/dumber/internal/logging"
+	"bnema.dev/dumber/internal/logging"
 	"golang.org/x/sys/unix"
 )
 

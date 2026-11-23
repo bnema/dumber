@@ -4,7 +4,7 @@ package component
 import (
 	"strings"
 
-	"github.com/bnema/dumber/internal/domain/entity"
+	"bnema.dev/dumber/internal/domain/entity"
 	"bnema.dev/puregotk/v4/gdk"
 	"bnema.dev/puregotk/v4/gtk"
 	"bnema.dev/puregotk/v4/pango"

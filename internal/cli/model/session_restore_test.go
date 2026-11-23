@@ -3,10 +3,10 @@ package model
 import (
 	"context"
 	"fmt"
-	portmocks "github.com/bnema/dumber/internal/application/port/mocks"
-	"github.com/bnema/dumber/internal/application/usecase"
-	"github.com/bnema/dumber/internal/domain/entity"
-	repomocks "github.com/bnema/dumber/internal/domain/repository/mocks"
+	portmocks "bnema.dev/dumber/internal/application/port/mocks"
+	"bnema.dev/dumber/internal/application/usecase"
+	"bnema.dev/dumber/internal/domain/entity"
+	repomocks "bnema.dev/dumber/internal/domain/repository/mocks"
 	"testing"
 
 	"github.com/stretchr/testify/require"

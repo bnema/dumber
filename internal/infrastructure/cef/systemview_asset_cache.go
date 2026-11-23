@@ -37,7 +37,7 @@ import (
 	"github.com/andybalholm/brotli"
 	purecef "bnema.dev/purego-cef/cef"
 
-	"github.com/bnema/dumber/assets"
+	"bnema.dev/dumber/assets"
 )
 
 // systemviewsWASMPath is the fixed bundle-relative WASM served to internal

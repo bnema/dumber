@@ -3,8 +3,8 @@ package port
 import (
 	"context"
 
-	"github.com/bnema/dumber/internal/application/dto"
-	"github.com/bnema/dumber/internal/domain/entity"
+	"bnema.dev/dumber/internal/application/dto"
+	"bnema.dev/dumber/internal/domain/entity"
 )
 
 // AccentKeyHandler receives accent/dead-key events from the WebView JS bridge.

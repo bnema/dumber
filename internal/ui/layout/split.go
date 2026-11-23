@@ -5,7 +5,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/bnema/dumber/internal/logging"
+	"bnema.dev/dumber/internal/logging"
 	"bnema.dev/puregotk/v4/glib"
 	"github.com/rs/zerolog"
 )

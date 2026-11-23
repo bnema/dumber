@@ -1,7 +1,7 @@
 package cef
 
 import (
-	"github.com/bnema/dumber/internal/shared/syncdispatch"
+	"bnema.dev/dumber/internal/shared/syncdispatch"
 )
 
 // This file owns inertial-scroll cancellation ordering for CEF WebViews.

@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	portmocks "github.com/bnema/dumber/internal/application/port/mocks"
+	portmocks "bnema.dev/dumber/internal/application/port/mocks"
 	"github.com/stretchr/testify/require"
 )
 

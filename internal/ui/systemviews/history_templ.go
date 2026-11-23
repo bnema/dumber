@@ -8,8 +8,8 @@ import "github.com/a-h/templ"
 import templruntime "github.com/a-h/templ/runtime"
 
 import (
+	"bnema.dev/dumber/internal/domain/entity"
 	"fmt"
-	"github.com/bnema/dumber/internal/domain/entity"
 	"strings"
 	"time"
 )

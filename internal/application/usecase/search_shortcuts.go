@@ -5,8 +5,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/bnema/dumber/internal/domain/url"
-	"github.com/bnema/dumber/internal/logging"
+	"bnema.dev/dumber/internal/domain/url"
+	"bnema.dev/dumber/internal/logging"
 )
 
 // SearchShortcut represents a search shortcut configuration.

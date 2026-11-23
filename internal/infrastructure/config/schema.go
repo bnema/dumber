@@ -1,6 +1,6 @@
 package config
 
-import "github.com/bnema/dumber/internal/domain/entity"
+import "bnema.dev/dumber/internal/domain/entity"
 
 // Type aliases for config value types now defined in domain/entity.
 // These aliases keep all existing config-package callers working without

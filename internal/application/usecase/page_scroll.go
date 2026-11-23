@@ -6,7 +6,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/bnema/dumber/internal/application/port"
+	"bnema.dev/dumber/internal/application/port"
 )
 
 // PageScrollCommand represents a semantic page scroll action.

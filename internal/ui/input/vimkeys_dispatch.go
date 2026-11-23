@@ -5,8 +5,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/bnema/dumber/internal/domain/entity"
-	"github.com/bnema/dumber/internal/domain/vimkeys"
+	"bnema.dev/dumber/internal/domain/entity"
+	"bnema.dev/dumber/internal/domain/vimkeys"
 	"bnema.dev/puregotk/v4/gdk"
 	"github.com/rs/zerolog/log"
 )

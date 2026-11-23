@@ -4,7 +4,7 @@ import (
 	"net/url"
 	"strings"
 
-	browserurl "github.com/bnema/dumber/internal/domain/url"
+	browserurl "bnema.dev/dumber/internal/domain/url"
 )
 
 type Route string

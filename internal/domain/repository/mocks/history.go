@@ -8,8 +8,8 @@ import (
 	"context"
 	"time"
 
-	"github.com/bnema/dumber/internal/domain/entity"
-	"github.com/bnema/dumber/internal/domain/repository"
+	"bnema.dev/dumber/internal/domain/entity"
+	"bnema.dev/dumber/internal/domain/repository"
 	mock "github.com/stretchr/testify/mock"
 )
 

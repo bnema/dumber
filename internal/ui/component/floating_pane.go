@@ -5,7 +5,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/bnema/dumber/internal/ui/layout"
+	"bnema.dev/dumber/internal/ui/layout"
 )
 
 const defaultFloatingPaneURL = "about:blank"

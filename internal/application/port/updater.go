@@ -5,7 +5,7 @@ import (
 	"context"
 	"errors"
 
-	"github.com/bnema/dumber/internal/domain/entity"
+	"bnema.dev/dumber/internal/domain/entity"
 )
 
 // ErrUpdateCheckTransient indicates a temporary update-check failure that should not be treated as actionable.

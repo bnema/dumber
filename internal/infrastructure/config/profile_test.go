@@ -4,7 +4,7 @@ import (
 	"runtime"
 	"testing"
 
-	"github.com/bnema/dumber/internal/application/port"
+	"bnema.dev/dumber/internal/application/port"
 )
 
 func TestResolvePerformanceProfile_Default(t *testing.T) {

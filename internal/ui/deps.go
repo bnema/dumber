@@ -4,12 +4,12 @@ package ui
 import (
 	"context"
 
-	"github.com/bnema/dumber/internal/application/port"
-	"github.com/bnema/dumber/internal/application/usecase"
-	"github.com/bnema/dumber/internal/domain/entity"
-	"github.com/bnema/dumber/internal/domain/repository"
-	"github.com/bnema/dumber/internal/ui/adapter"
-	"github.com/bnema/dumber/internal/ui/theme"
+	"bnema.dev/dumber/internal/application/port"
+	"bnema.dev/dumber/internal/application/usecase"
+	"bnema.dev/dumber/internal/domain/entity"
+	"bnema.dev/dumber/internal/domain/repository"
+	"bnema.dev/dumber/internal/ui/adapter"
+	"bnema.dev/dumber/internal/ui/theme"
 	"bnema.dev/puregotk/v4/gtk"
 )
 

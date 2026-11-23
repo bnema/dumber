@@ -9,9 +9,9 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/bnema/dumber/internal/application/port"
-	"github.com/bnema/dumber/internal/infrastructure/fonts"
-	"github.com/bnema/dumber/internal/logging"
+	"bnema.dev/dumber/internal/application/port"
+	"bnema.dev/dumber/internal/infrastructure/fonts"
+	"bnema.dev/dumber/internal/logging"
 	"github.com/spf13/viper"
 )
 

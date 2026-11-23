@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/bnema/dumber/internal/domain/entity"
+	"bnema.dev/dumber/internal/domain/entity"
 )
 
 // SessionRepository persists session metadata.

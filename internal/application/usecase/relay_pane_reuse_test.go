@@ -6,8 +6,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/bnema/dumber/internal/domain/entity"
-	domainurl "github.com/bnema/dumber/internal/domain/url"
+	"bnema.dev/dumber/internal/domain/entity"
+	domainurl "bnema.dev/dumber/internal/domain/url"
 )
 
 func TestRelayPaneReuse_PrunesExpiredAndMissingPanes(t *testing.T) {

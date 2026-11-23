@@ -3,9 +3,9 @@ package ui
 import (
 	"context"
 
-	"github.com/bnema/dumber/internal/domain/entity"
-	domainurl "github.com/bnema/dumber/internal/domain/url"
-	"github.com/bnema/dumber/internal/logging"
+	"bnema.dev/dumber/internal/domain/entity"
+	domainurl "bnema.dev/dumber/internal/domain/url"
+	"bnema.dev/dumber/internal/logging"
 )
 
 // openRelayURLOnMainThread opens a relayed external URL, reusing the pane from

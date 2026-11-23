@@ -2,7 +2,7 @@
 // Concrete browsing-context DTOs live in internal/application/dto.
 package port
 
-import "github.com/bnema/dumber/internal/application/dto"
+import "bnema.dev/dumber/internal/application/dto"
 
 // PaneHostedBrowsingContextCapable is implemented by engines that need an
 // explicit transition from a related/native-popup shell into a pane-hosted

@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"sync"
 
-	"github.com/bnema/dumber/internal/logging"
+	"bnema.dev/dumber/internal/logging"
 	"bnema.dev/puregotk/v4/webkit"
 	"github.com/rs/zerolog"
 )

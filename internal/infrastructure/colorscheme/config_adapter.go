@@ -1,7 +1,7 @@
 package colorscheme
 
 import (
-	"github.com/bnema/dumber/internal/infrastructure/config"
+	"bnema.dev/dumber/internal/infrastructure/config"
 )
 
 // ConfigAdapter adapts config.Config to the ConfigProvider interface.

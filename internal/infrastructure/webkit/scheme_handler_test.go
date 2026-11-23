@@ -10,7 +10,7 @@ import (
 	"testing/fstest"
 
 	"github.com/andybalholm/brotli"
-	"github.com/bnema/dumber/assets"
+	"bnema.dev/dumber/assets"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

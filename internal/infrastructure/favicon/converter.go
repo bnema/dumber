@@ -11,7 +11,7 @@ import (
 	"mime"
 	"strings"
 
-	appport "github.com/bnema/dumber/internal/application/port"
+	appport "bnema.dev/dumber/internal/application/port"
 	"golang.org/x/image/draw"
 )
 

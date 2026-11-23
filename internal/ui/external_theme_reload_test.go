@@ -8,13 +8,13 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	portmocks "github.com/bnema/dumber/internal/application/port/mocks"
-	"github.com/bnema/dumber/internal/application/usecase"
-	"github.com/bnema/dumber/internal/bootstrap"
-	"github.com/bnema/dumber/internal/domain/entity"
-	"github.com/bnema/dumber/internal/infrastructure/config"
-	"github.com/bnema/dumber/internal/shared/syncdispatch"
-	uitheme "github.com/bnema/dumber/internal/ui/theme"
+	portmocks "bnema.dev/dumber/internal/application/port/mocks"
+	"bnema.dev/dumber/internal/application/usecase"
+	"bnema.dev/dumber/internal/bootstrap"
+	"bnema.dev/dumber/internal/domain/entity"
+	"bnema.dev/dumber/internal/infrastructure/config"
+	"bnema.dev/dumber/internal/shared/syncdispatch"
+	uitheme "bnema.dev/dumber/internal/ui/theme"
 )
 
 type recordingExternalThemeWatcher struct {

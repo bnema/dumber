@@ -9,10 +9,10 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/bnema/dumber/internal/domain/keychord"
-	domainurl "github.com/bnema/dumber/internal/domain/url"
-	domainvalidation "github.com/bnema/dumber/internal/domain/validation"
-	"github.com/bnema/dumber/internal/domain/vimkeys"
+	"bnema.dev/dumber/internal/domain/keychord"
+	domainurl "bnema.dev/dumber/internal/domain/url"
+	domainvalidation "bnema.dev/dumber/internal/domain/validation"
+	"bnema.dev/dumber/internal/domain/vimkeys"
 )
 
 const cefLogSeverityDisabled = 99

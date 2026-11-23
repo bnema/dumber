@@ -5,10 +5,10 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/bnema/dumber/internal/application/usecase"
-	"github.com/bnema/dumber/internal/cli"
-	"github.com/bnema/dumber/internal/infrastructure/config"
-	"github.com/bnema/dumber/internal/infrastructure/filesystem"
+	"bnema.dev/dumber/internal/application/usecase"
+	"bnema.dev/dumber/internal/cli"
+	"bnema.dev/dumber/internal/infrastructure/config"
+	"bnema.dev/dumber/internal/infrastructure/filesystem"
 )
 
 func TestParseSelectionResolvesExistingLocalFile(t *testing.T) {

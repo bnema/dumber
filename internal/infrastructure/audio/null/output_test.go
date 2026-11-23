@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/bnema/dumber/internal/application/port"
+	"bnema.dev/dumber/internal/application/port"
 )
 
 func TestFactory_NewStream_ReturnsWritableClosableStream(t *testing.T) {

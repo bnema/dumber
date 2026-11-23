@@ -5,9 +5,9 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/bnema/dumber/internal/application/port"
-	"github.com/bnema/dumber/internal/domain/build"
-	"github.com/bnema/dumber/internal/domain/entity"
+	"bnema.dev/dumber/internal/application/port"
+	"bnema.dev/dumber/internal/domain/build"
+	"bnema.dev/dumber/internal/domain/entity"
 )
 
 func TestCheckUpdateUseCase_TransientErrorReturnsNoUpdate(t *testing.T) {

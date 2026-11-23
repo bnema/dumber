@@ -1,7 +1,7 @@
 package ui
 
 import (
-	"github.com/bnema/dumber/internal/ui/input"
+	"bnema.dev/dumber/internal/ui/input"
 	"bnema.dev/puregotk/v4/gdk"
 	"bnema.dev/puregotk/v4/glib"
 	"bnema.dev/puregotk/v4/gobject"

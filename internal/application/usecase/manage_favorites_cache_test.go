@@ -5,9 +5,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bnema/dumber/internal/domain/entity"
-	repomocks "github.com/bnema/dumber/internal/domain/repository/mocks"
-	"github.com/bnema/dumber/internal/logging"
+	"bnema.dev/dumber/internal/domain/entity"
+	repomocks "bnema.dev/dumber/internal/domain/repository/mocks"
+	"bnema.dev/dumber/internal/logging"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

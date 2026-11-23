@@ -7,14 +7,14 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/bnema/dumber/internal/application/usecase"
-	"github.com/bnema/dumber/internal/domain/entity"
-	domainurl "github.com/bnema/dumber/internal/domain/url"
-	"github.com/bnema/dumber/internal/logging"
-	"github.com/bnema/dumber/internal/ui/component"
-	"github.com/bnema/dumber/internal/ui/coordinator/content"
-	"github.com/bnema/dumber/internal/ui/focus"
-	"github.com/bnema/dumber/internal/ui/layout"
+	"bnema.dev/dumber/internal/application/usecase"
+	"bnema.dev/dumber/internal/domain/entity"
+	domainurl "bnema.dev/dumber/internal/domain/url"
+	"bnema.dev/dumber/internal/logging"
+	"bnema.dev/dumber/internal/ui/component"
+	"bnema.dev/dumber/internal/ui/coordinator/content"
+	"bnema.dev/dumber/internal/ui/focus"
+	"bnema.dev/dumber/internal/ui/layout"
 	"github.com/rs/zerolog"
 )
 

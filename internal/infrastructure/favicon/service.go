@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/bnema/dumber/assets"
-	"github.com/bnema/dumber/internal/logging"
+	"bnema.dev/dumber/assets"
+	"bnema.dev/dumber/internal/logging"
 )
 
 // InternalScheme is the URL scheme used for internal browser pages.

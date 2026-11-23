@@ -5,10 +5,10 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/bnema/dumber/internal/application/usecase"
-	"github.com/bnema/dumber/internal/cli/styles"
-	"github.com/bnema/dumber/internal/infrastructure/deps"
-	"github.com/bnema/dumber/internal/infrastructure/media"
+	"bnema.dev/dumber/internal/application/usecase"
+	"bnema.dev/dumber/internal/cli/styles"
+	"bnema.dev/dumber/internal/infrastructure/deps"
+	"bnema.dev/dumber/internal/infrastructure/media"
 )
 
 var (

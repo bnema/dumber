@@ -1,6 +1,6 @@
 package component
 
-import "github.com/bnema/dumber/internal/domain/entity"
+import "bnema.dev/dumber/internal/domain/entity"
 
 type webrtcPermissionState string
 

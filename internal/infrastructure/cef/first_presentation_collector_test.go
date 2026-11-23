@@ -496,7 +496,7 @@ func collectorFakeGo(t *testing.T, temp, depVersion, vcsRevision string, replace
 	}
 	script := fmt.Sprintf(`#!/bin/sh
 if [ "$1" = "version" ] && [ "$2" = "-m" ]; then
-  printf '%%s\n' 'path\tgithub.com/bnema/dumber/cmd/dumber' 'mod\tgithub.com/bnema/dumber\t(devel)' '%s' '%s'
+  printf '%%s\n' 'path\tbnema.dev/dumber/cmd/dumber' 'mod\tbnema.dev/dumber\t(devel)' '%s' '%s'
   exit 0
 fi
 exit 1

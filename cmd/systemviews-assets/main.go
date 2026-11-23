@@ -24,7 +24,7 @@ import (
 
 	"github.com/andybalholm/brotli"
 
-	"github.com/bnema/dumber/assets"
+	"bnema.dev/dumber/assets"
 )
 
 // maxManifestWASMBytes bounds manifest-time decompression, mirroring the

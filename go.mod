@@ -1,4 +1,4 @@
-module github.com/bnema/dumber
+module bnema.dev/dumber
 
 go 1.27.4
 

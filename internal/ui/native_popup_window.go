@@ -5,12 +5,12 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/bnema/dumber/internal/application/port"
-	"github.com/bnema/dumber/internal/domain/entity"
-	"github.com/bnema/dumber/internal/logging"
-	"github.com/bnema/dumber/internal/ui/coordinator/content"
-	"github.com/bnema/dumber/internal/ui/layout"
-	"github.com/bnema/dumber/internal/ui/window"
+	"bnema.dev/dumber/internal/application/port"
+	"bnema.dev/dumber/internal/domain/entity"
+	"bnema.dev/dumber/internal/logging"
+	"bnema.dev/dumber/internal/ui/coordinator/content"
+	"bnema.dev/dumber/internal/ui/layout"
+	"bnema.dev/dumber/internal/ui/window"
 	"bnema.dev/puregotk/v4/gtk"
 )
 

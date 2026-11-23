@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bnema/dumber/internal/shared/syncdispatch"
+	"bnema.dev/dumber/internal/shared/syncdispatch"
 	purecef "bnema.dev/purego-cef/cef"
 	"github.com/stretchr/testify/require"
 )

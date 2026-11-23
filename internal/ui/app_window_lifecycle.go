@@ -4,11 +4,11 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/bnema/dumber/internal/application/usecase"
-	"github.com/bnema/dumber/internal/domain/entity"
-	domainurl "github.com/bnema/dumber/internal/domain/url"
-	"github.com/bnema/dumber/internal/logging"
-	"github.com/bnema/dumber/internal/ui/window"
+	"bnema.dev/dumber/internal/application/usecase"
+	"bnema.dev/dumber/internal/domain/entity"
+	domainurl "bnema.dev/dumber/internal/domain/url"
+	"bnema.dev/dumber/internal/logging"
+	"bnema.dev/dumber/internal/ui/window"
 	"bnema.dev/puregotk/v4/gtk"
 )
 

@@ -3,8 +3,8 @@ package bootstrap
 import (
 	"fmt"
 
-	"github.com/bnema/dumber/internal/infrastructure/config"
-	"github.com/bnema/dumber/internal/infrastructure/runtimeprofile"
+	"bnema.dev/dumber/internal/infrastructure/config"
+	"bnema.dev/dumber/internal/infrastructure/runtimeprofile"
 )
 
 func NewBrowserProfile(cfg *config.Config, name string) (runtimeprofile.Profile, error) {

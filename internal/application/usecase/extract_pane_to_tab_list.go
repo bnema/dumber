@@ -3,7 +3,7 @@ package usecase
 import (
 	"fmt"
 
-	"github.com/bnema/dumber/internal/domain/entity"
+	"bnema.dev/dumber/internal/domain/entity"
 )
 
 // ExtractPaneToTabListUseCase moves a pane from a source tab list into a new

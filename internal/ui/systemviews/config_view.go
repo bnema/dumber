@@ -8,9 +8,9 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/bnema/dumber/internal/application/dto"
-	"github.com/bnema/dumber/internal/application/port"
-	"github.com/bnema/dumber/internal/domain/keychord"
+	"bnema.dev/dumber/internal/application/dto"
+	"bnema.dev/dumber/internal/application/port"
+	"bnema.dev/dumber/internal/domain/keychord"
 )
 
 type configRenderData struct {

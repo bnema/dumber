@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bnema/dumber/internal/application/dto"
-	"github.com/bnema/dumber/internal/domain/entity"
+	"bnema.dev/dumber/internal/application/dto"
+	"bnema.dev/dumber/internal/domain/entity"
 	"bnema.dev/puregotk/v4/gdk"
 	"bnema.dev/puregotk/v4/glib"
 	"bnema.dev/puregotk/v4/gtk"

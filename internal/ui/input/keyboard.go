@@ -23,8 +23,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/bnema/dumber/internal/domain/entity"
-	"github.com/bnema/dumber/internal/logging"
+	"bnema.dev/dumber/internal/domain/entity"
+	"bnema.dev/dumber/internal/logging"
 	"bnema.dev/puregotk/v4/gdk"
 	"bnema.dev/puregotk/v4/glib"
 	"bnema.dev/puregotk/v4/gtk"

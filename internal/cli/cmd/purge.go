@@ -6,15 +6,15 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/spf13/cobra"
 
-	"github.com/bnema/dumber/internal/application/usecase"
-	"github.com/bnema/dumber/internal/bootstrap"
-	"github.com/bnema/dumber/internal/cli"
-	"github.com/bnema/dumber/internal/cli/model"
-	"github.com/bnema/dumber/internal/cli/styles"
-	"github.com/bnema/dumber/internal/infrastructure/desktop"
-	"github.com/bnema/dumber/internal/infrastructure/filesystem"
-	"github.com/bnema/dumber/internal/infrastructure/runtimeprofile"
-	xdgadapter "github.com/bnema/dumber/internal/infrastructure/xdg"
+	"bnema.dev/dumber/internal/application/usecase"
+	"bnema.dev/dumber/internal/bootstrap"
+	"bnema.dev/dumber/internal/cli"
+	"bnema.dev/dumber/internal/cli/model"
+	"bnema.dev/dumber/internal/cli/styles"
+	"bnema.dev/dumber/internal/infrastructure/desktop"
+	"bnema.dev/dumber/internal/infrastructure/filesystem"
+	"bnema.dev/dumber/internal/infrastructure/runtimeprofile"
+	xdgadapter "bnema.dev/dumber/internal/infrastructure/xdg"
 )
 
 var purgeForce bool

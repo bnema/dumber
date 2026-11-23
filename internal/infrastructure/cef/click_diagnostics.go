@@ -3,7 +3,7 @@ package cef
 import (
 	"fmt"
 
-	"github.com/bnema/dumber/internal/logging"
+	"bnema.dev/dumber/internal/logging"
 	cef2gtk "bnema.dev/purego-cef2gtk"
 	"github.com/rs/zerolog"
 )

@@ -6,7 +6,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/bnema/dumber/internal/application/port"
+	"bnema.dev/dumber/internal/application/port"
 )
 
 const (

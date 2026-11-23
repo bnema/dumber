@@ -11,14 +11,14 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/spf13/cobra"
 
-	"github.com/bnema/dumber/assets"
-	"github.com/bnema/dumber/internal/application/usecase"
-	"github.com/bnema/dumber/internal/cli/model"
-	"github.com/bnema/dumber/internal/domain/entity"
-	domainurl "github.com/bnema/dumber/internal/domain/url"
-	"github.com/bnema/dumber/internal/infrastructure/config"
-	"github.com/bnema/dumber/internal/infrastructure/favicon"
-	"github.com/bnema/dumber/internal/logging"
+	"bnema.dev/dumber/assets"
+	"bnema.dev/dumber/internal/application/usecase"
+	"bnema.dev/dumber/internal/cli/model"
+	"bnema.dev/dumber/internal/domain/entity"
+	domainurl "bnema.dev/dumber/internal/domain/url"
+	"bnema.dev/dumber/internal/infrastructure/config"
+	"bnema.dev/dumber/internal/infrastructure/favicon"
+	"bnema.dev/dumber/internal/logging"
 )
 
 var (

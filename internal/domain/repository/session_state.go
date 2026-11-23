@@ -3,7 +3,7 @@ package repository
 import (
 	"context"
 
-	"github.com/bnema/dumber/internal/domain/entity"
+	"bnema.dev/dumber/internal/domain/entity"
 )
 
 // SessionStateRepository persists session state snapshots.

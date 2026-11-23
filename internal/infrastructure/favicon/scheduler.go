@@ -4,7 +4,7 @@ import (
 	"context"
 	"sync"
 
-	"github.com/bnema/dumber/internal/domain/favicon"
+	"bnema.dev/dumber/internal/domain/favicon"
 )
 
 type RefreshScheduler struct {

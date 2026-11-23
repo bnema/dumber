@@ -3,7 +3,7 @@ package cef
 import (
 	"strings"
 
-	"github.com/bnema/dumber/internal/infrastructure/webutil"
+	"bnema.dev/dumber/internal/infrastructure/webutil"
 )
 
 // trustedPageFetchBridgeBaseJS is the invariant fetch-bridge bundle injected on

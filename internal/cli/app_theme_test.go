@@ -7,7 +7,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/bnema/dumber/internal/infrastructure/config"
+	"bnema.dev/dumber/internal/infrastructure/config"
 )
 
 func TestResolveCLIThemePreservesDarkDefault(t *testing.T) {

@@ -3,9 +3,9 @@ package logging
 import (
 	"context"
 
-	"github.com/bnema/dumber/internal/application/port"
-	"github.com/bnema/dumber/internal/domain/entity"
-	corelogging "github.com/bnema/dumber/internal/logging"
+	"bnema.dev/dumber/internal/application/port"
+	"bnema.dev/dumber/internal/domain/entity"
+	corelogging "bnema.dev/dumber/internal/logging"
 	"github.com/rs/zerolog"
 )
 

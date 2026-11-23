@@ -5,7 +5,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/bnema/dumber/internal/application/port"
+	"bnema.dev/dumber/internal/application/port"
 )
 
 func TestApplyDefaultRenderStackEnvironment_DefaultsToGDKDMABUFWithANGLEVulkan(t *testing.T) {

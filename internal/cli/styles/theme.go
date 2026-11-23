@@ -4,8 +4,8 @@ package styles
 import (
 	"github.com/charmbracelet/lipgloss"
 
-	"github.com/bnema/dumber/internal/domain/entity"
-	"github.com/bnema/dumber/internal/infrastructure/config"
+	"bnema.dev/dumber/internal/domain/entity"
+	"bnema.dev/dumber/internal/infrastructure/config"
 )
 
 // Theme holds lipgloss colors and styles derived from config.

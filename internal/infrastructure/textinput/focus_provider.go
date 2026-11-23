@@ -4,7 +4,7 @@ package textinput
 import (
 	"sync"
 
-	"github.com/bnema/dumber/internal/application/port"
+	"bnema.dev/dumber/internal/application/port"
 )
 
 // FocusProvider tracks which text input target currently has focus.

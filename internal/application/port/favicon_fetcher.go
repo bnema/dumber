@@ -3,7 +3,7 @@ package port
 import (
 	"context"
 
-	"github.com/bnema/dumber/internal/domain/favicon"
+	"bnema.dev/dumber/internal/domain/favicon"
 )
 
 // FaviconFetchRequest specifies the page and optional icon URL for a favicon fetch.

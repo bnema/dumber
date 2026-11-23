@@ -10,17 +10,17 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/bnema/dumber/internal/application/dto"
-	"github.com/bnema/dumber/internal/application/port"
-	portmocks "github.com/bnema/dumber/internal/application/port/mocks"
-	"github.com/bnema/dumber/internal/application/usecase"
-	"github.com/bnema/dumber/internal/domain/entity"
-	"github.com/bnema/dumber/internal/ui/component"
-	contentcoord "github.com/bnema/dumber/internal/ui/coordinator/content"
-	"github.com/bnema/dumber/internal/ui/input"
-	"github.com/bnema/dumber/internal/ui/layout"
-	"github.com/bnema/dumber/internal/ui/layout/mocks"
-	"github.com/bnema/dumber/internal/ui/theme"
+	"bnema.dev/dumber/internal/application/dto"
+	"bnema.dev/dumber/internal/application/port"
+	portmocks "bnema.dev/dumber/internal/application/port/mocks"
+	"bnema.dev/dumber/internal/application/usecase"
+	"bnema.dev/dumber/internal/domain/entity"
+	"bnema.dev/dumber/internal/ui/component"
+	contentcoord "bnema.dev/dumber/internal/ui/coordinator/content"
+	"bnema.dev/dumber/internal/ui/input"
+	"bnema.dev/dumber/internal/ui/layout"
+	"bnema.dev/dumber/internal/ui/layout/mocks"
+	"bnema.dev/dumber/internal/ui/theme"
 )
 
 // ---------------------------------------------------------------------------

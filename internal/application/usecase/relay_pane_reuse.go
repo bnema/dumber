@@ -3,8 +3,8 @@ package usecase
 import (
 	"time"
 
-	"github.com/bnema/dumber/internal/domain/entity"
-	domainurl "github.com/bnema/dumber/internal/domain/url"
+	"bnema.dev/dumber/internal/domain/entity"
+	domainurl "bnema.dev/dumber/internal/domain/url"
 )
 
 type relayPaneRecord struct {

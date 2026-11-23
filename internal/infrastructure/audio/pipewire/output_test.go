@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bnema/dumber/internal/application/port"
-	pipewiremocks "github.com/bnema/dumber/internal/infrastructure/audio/pipewire/mocks"
+	"bnema.dev/dumber/internal/application/port"
+	pipewiremocks "bnema.dev/dumber/internal/infrastructure/audio/pipewire/mocks"
 	pwpipewire "bnema.dev/purego-pipewire/pipewire"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

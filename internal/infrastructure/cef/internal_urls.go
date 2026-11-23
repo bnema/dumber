@@ -5,7 +5,7 @@ import (
 	"path"
 	"strings"
 
-	browserurl "github.com/bnema/dumber/internal/domain/url"
+	browserurl "bnema.dev/dumber/internal/domain/url"
 )
 
 const (

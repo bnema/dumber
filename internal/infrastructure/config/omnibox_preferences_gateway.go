@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/bnema/dumber/internal/domain/entity"
+	"bnema.dev/dumber/internal/domain/entity"
 )
 
 type OmniboxPreferencesGateway struct {

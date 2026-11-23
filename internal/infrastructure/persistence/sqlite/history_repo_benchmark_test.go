@@ -9,10 +9,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bnema/dumber/internal/application/usecase"
-	"github.com/bnema/dumber/internal/domain/repository"
-	"github.com/bnema/dumber/internal/infrastructure/persistence/sqlite"
-	"github.com/bnema/dumber/internal/infrastructure/persistence/sqlite/sqlc"
+	"bnema.dev/dumber/internal/application/usecase"
+	"bnema.dev/dumber/internal/domain/repository"
+	"bnema.dev/dumber/internal/infrastructure/persistence/sqlite"
+	"bnema.dev/dumber/internal/infrastructure/persistence/sqlite/sqlc"
 )
 
 const (

@@ -3,8 +3,8 @@ package content
 import (
 	"sync"
 
-	"github.com/bnema/dumber/internal/application/port"
-	"github.com/bnema/dumber/internal/domain/entity"
+	"bnema.dev/dumber/internal/application/port"
+	"bnema.dev/dumber/internal/domain/entity"
 )
 
 type namedBrowsingContextKey struct {

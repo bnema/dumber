@@ -1,6 +1,6 @@
 package dto
 
-import "github.com/bnema/dumber/internal/domain/entity"
+import "bnema.dev/dumber/internal/domain/entity"
 
 // FavoriteCreateInput contains fields needed to create a favorite from a UI port.
 type FavoriteCreateInput struct {

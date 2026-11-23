@@ -4,7 +4,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/bnema/dumber/internal/domain/entity"
+	"bnema.dev/dumber/internal/domain/entity"
 )
 
 // vimModeState holds the app-wide Vim Mode bookkeeping that is not tied to a

@@ -4,8 +4,8 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/bnema/dumber/internal/domain/entity"
-	"github.com/bnema/dumber/internal/ui/input"
+	"bnema.dev/dumber/internal/domain/entity"
+	"bnema.dev/dumber/internal/ui/input"
 	"bnema.dev/puregotk/v4/glib"
 )
 

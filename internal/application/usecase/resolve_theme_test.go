@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/bnema/dumber/internal/application/port"
-	"github.com/bnema/dumber/internal/domain/entity"
+	"bnema.dev/dumber/internal/application/port"
+	"bnema.dev/dumber/internal/domain/entity"
 )
 
 // assertNoWarnings fails the test if there are any warnings.

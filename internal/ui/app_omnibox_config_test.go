@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/bnema/dumber/internal/domain/entity"
+	"bnema.dev/dumber/internal/domain/entity"
 )
 
 func TestBuildOmniboxConfigUsesRuntimeUIConfig(t *testing.T) {

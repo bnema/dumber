@@ -6,8 +6,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 
-	"github.com/bnema/dumber/internal/ui/layout"
-	"github.com/bnema/dumber/internal/ui/layout/mocks"
+	"bnema.dev/dumber/internal/ui/layout"
+	"bnema.dev/dumber/internal/ui/layout/mocks"
 )
 
 func TestPaneView_HideLoadingSkeleton_HidesWhenPresent(t *testing.T) {

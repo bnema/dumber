@@ -3,7 +3,7 @@ package config
 import (
 	"runtime"
 
-	"github.com/bnema/dumber/internal/application/port"
+	"bnema.dev/dumber/internal/application/port"
 )
 
 const (

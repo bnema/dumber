@@ -1,9 +1,9 @@
 package ui
 
 import (
-	"github.com/bnema/dumber/internal/domain/entity"
-	"github.com/bnema/dumber/internal/ui/input"
-	"github.com/bnema/dumber/internal/ui/layout"
+	"bnema.dev/dumber/internal/domain/entity"
+	"bnema.dev/dumber/internal/ui/input"
+	"bnema.dev/dumber/internal/ui/layout"
 	"bnema.dev/puregotk/v4/glib"
 	"bnema.dev/puregotk/v4/gobject"
 	"bnema.dev/puregotk/v4/graphene"

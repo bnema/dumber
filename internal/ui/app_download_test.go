@@ -5,8 +5,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/bnema/dumber/internal/application/port"
-	"github.com/bnema/dumber/internal/ui/component"
+	"bnema.dev/dumber/internal/application/port"
+	"bnema.dev/dumber/internal/ui/component"
 )
 
 func TestDownloadEventAdapterToastSpecLifecycle(t *testing.T) {

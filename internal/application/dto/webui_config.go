@@ -1,6 +1,6 @@
 package dto
 
-import "github.com/bnema/dumber/internal/domain/entity"
+import "bnema.dev/dumber/internal/domain/entity"
 
 // WebUIConfig represents the subset of configuration editable in dumb://config.
 type WebUIConfig struct {

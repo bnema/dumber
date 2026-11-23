@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/bnema/dumber/internal/ui/component"
-	layoutmocks "github.com/bnema/dumber/internal/ui/layout/mocks"
+	"bnema.dev/dumber/internal/ui/component"
+	layoutmocks "bnema.dev/dumber/internal/ui/layout/mocks"
 	"bnema.dev/puregotk/v4/gtk"
 	"bnema.dev/puregotk/v4/layershell"
 )

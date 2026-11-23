@@ -7,8 +7,8 @@ import (
 	"os"
 	"sync"
 
-	"github.com/bnema/dumber/internal/application/port"
-	"github.com/bnema/dumber/internal/logging"
+	"bnema.dev/dumber/internal/application/port"
+	"bnema.dev/dumber/internal/logging"
 )
 
 const dirPerm = 0o755

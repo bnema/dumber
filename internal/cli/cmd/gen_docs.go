@@ -9,7 +9,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
 
-	xdgadapter "github.com/bnema/dumber/internal/infrastructure/xdg"
+	xdgadapter "bnema.dev/dumber/internal/infrastructure/xdg"
 )
 
 const dirPerm = 0o755

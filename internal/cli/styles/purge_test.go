@@ -4,9 +4,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bnema/dumber/internal/cli/styles"
-	"github.com/bnema/dumber/internal/domain/entity"
-	"github.com/bnema/dumber/internal/infrastructure/config"
+	"bnema.dev/dumber/internal/cli/styles"
+	"bnema.dev/dumber/internal/domain/entity"
+	"bnema.dev/dumber/internal/infrastructure/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

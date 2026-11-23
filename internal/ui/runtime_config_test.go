@@ -6,12 +6,12 @@ import (
 
 	"github.com/stretchr/testify/mock"
 
-	"github.com/bnema/dumber/internal/application/dto"
-	"github.com/bnema/dumber/internal/application/port"
-	portmocks "github.com/bnema/dumber/internal/application/port/mocks"
-	"github.com/bnema/dumber/internal/domain/entity"
-	"github.com/bnema/dumber/internal/shared/syncdispatch"
-	"github.com/bnema/dumber/internal/ui/coordinator/content"
+	"bnema.dev/dumber/internal/application/dto"
+	"bnema.dev/dumber/internal/application/port"
+	portmocks "bnema.dev/dumber/internal/application/port/mocks"
+	"bnema.dev/dumber/internal/domain/entity"
+	"bnema.dev/dumber/internal/shared/syncdispatch"
+	"bnema.dev/dumber/internal/ui/coordinator/content"
 )
 
 func TestDependenciesValidateAcceptsRuntimeConfigOnly(t *testing.T) {

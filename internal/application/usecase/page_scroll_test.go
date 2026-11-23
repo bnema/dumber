@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/bnema/dumber/internal/application/port"
+	"bnema.dev/dumber/internal/application/port"
 )
 
 func TestPageScroll_SmallVerticalDown(t *testing.T) {

@@ -4,9 +4,9 @@ import (
 	"reflect"
 	"testing"
 
-	bootstrapmocks "github.com/bnema/dumber/internal/bootstrap/mocks"
-	"github.com/bnema/dumber/internal/domain/entity"
-	"github.com/bnema/dumber/internal/infrastructure/config"
+	bootstrapmocks "bnema.dev/dumber/internal/bootstrap/mocks"
+	"bnema.dev/dumber/internal/domain/entity"
+	"bnema.dev/dumber/internal/infrastructure/config"
 	"github.com/stretchr/testify/mock"
 )
 

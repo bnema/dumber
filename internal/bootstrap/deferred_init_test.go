@@ -5,7 +5,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/bnema/dumber/internal/infrastructure/config"
+	"bnema.dev/dumber/internal/infrastructure/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

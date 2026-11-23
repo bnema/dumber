@@ -4,9 +4,9 @@ import (
 	"context"
 	"errors"
 
-	"github.com/bnema/dumber/internal/application/port"
-	"github.com/bnema/dumber/internal/domain/build"
-	"github.com/bnema/dumber/internal/logging"
+	"bnema.dev/dumber/internal/application/port"
+	"bnema.dev/dumber/internal/domain/build"
+	"bnema.dev/dumber/internal/logging"
 )
 
 // CheckUpdateInput holds the input for the check update use case.

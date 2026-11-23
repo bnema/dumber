@@ -4,10 +4,10 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/bnema/dumber/internal/application/port"
-	"github.com/bnema/dumber/internal/domain/entity"
-	"github.com/bnema/dumber/internal/infrastructure/filtering"
-	"github.com/bnema/dumber/internal/infrastructure/handlers"
+	"bnema.dev/dumber/internal/application/port"
+	"bnema.dev/dumber/internal/domain/entity"
+	"bnema.dev/dumber/internal/infrastructure/filtering"
+	"bnema.dev/dumber/internal/infrastructure/handlers"
 	"github.com/rs/zerolog"
 )
 

@@ -11,9 +11,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bnema/dumber/internal/application/port"
-	"github.com/bnema/dumber/internal/logging"
-	"github.com/bnema/dumber/internal/shared/syncdispatch"
+	"bnema.dev/dumber/internal/application/port"
+	"bnema.dev/dumber/internal/logging"
+	"bnema.dev/dumber/internal/shared/syncdispatch"
 	purecef "bnema.dev/purego-cef/cef"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"

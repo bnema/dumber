@@ -5,8 +5,8 @@ import (
 	stdurl "net/url"
 	"strings"
 
-	"github.com/bnema/dumber/internal/application/port"
-	domainurl "github.com/bnema/dumber/internal/domain/url"
+	"bnema.dev/dumber/internal/application/port"
+	domainurl "bnema.dev/dumber/internal/domain/url"
 )
 
 // NavigationURLNormalizer normalizes user navigation input while keeping

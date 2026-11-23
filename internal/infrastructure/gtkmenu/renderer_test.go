@@ -3,7 +3,7 @@ package gtkmenu
 import (
 	"testing"
 
-	"github.com/bnema/dumber/internal/application/port"
+	"bnema.dev/dumber/internal/application/port"
 	"bnema.dev/puregotk/v4/gtk"
 	"github.com/stretchr/testify/require"
 )

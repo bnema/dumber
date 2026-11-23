@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	urlutil "github.com/bnema/dumber/internal/domain/url"
+	urlutil "bnema.dev/dumber/internal/domain/url"
 )
 
 type standaloneTestLocalPathResolver struct {

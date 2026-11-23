@@ -7,10 +7,10 @@ import (
 
 	purecef "bnema.dev/purego-cef/cef"
 
-	"github.com/bnema/dumber/internal/application/port"
-	downloadutil "github.com/bnema/dumber/internal/domain/download"
-	"github.com/bnema/dumber/internal/infrastructure/downloadruntime"
-	"github.com/bnema/dumber/internal/logging"
+	"bnema.dev/dumber/internal/application/port"
+	downloadutil "bnema.dev/dumber/internal/domain/download"
+	"bnema.dev/dumber/internal/infrastructure/downloadruntime"
+	"bnema.dev/dumber/internal/logging"
 )
 
 // maxFinishedEntries caps the finished-ID set. When the cap is reached the set

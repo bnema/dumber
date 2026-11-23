@@ -9,10 +9,10 @@ import (
 
 	purecef "bnema.dev/purego-cef/cef"
 
-	"github.com/bnema/dumber/internal/application/dto"
-	"github.com/bnema/dumber/internal/application/port"
-	downloadutil "github.com/bnema/dumber/internal/domain/download"
-	"github.com/bnema/dumber/internal/logging"
+	"bnema.dev/dumber/internal/application/dto"
+	"bnema.dev/dumber/internal/application/port"
+	downloadutil "bnema.dev/dumber/internal/domain/download"
+	"bnema.dev/dumber/internal/logging"
 )
 
 // Console message markers used by injected JavaScript for log filtering.

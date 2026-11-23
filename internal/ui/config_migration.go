@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/bnema/dumber/internal/logging"
-	"github.com/bnema/dumber/internal/ui/component"
+	"bnema.dev/dumber/internal/logging"
+	"bnema.dev/dumber/internal/ui/component"
 )
 
 // checkConfigMigration checks if user config needs migration and shows a toast.

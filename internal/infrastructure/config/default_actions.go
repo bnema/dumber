@@ -5,7 +5,7 @@ import (
 	"slices"
 	"sort"
 
-	"github.com/bnema/dumber/internal/logging"
+	"bnema.dev/dumber/internal/logging"
 )
 
 // actionMapSpec describes one configurable action map. It is the single source

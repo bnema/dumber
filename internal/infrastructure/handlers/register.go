@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"unicode/utf8"
 
-	"github.com/bnema/dumber/internal/application/port"
-	"github.com/bnema/dumber/internal/infrastructure/handlers/homepage"
-	"github.com/bnema/dumber/internal/logging"
+	"bnema.dev/dumber/internal/application/port"
+	"bnema.dev/dumber/internal/infrastructure/handlers/homepage"
+	"bnema.dev/dumber/internal/logging"
 )
 
 // AccentKeyHandler is implemented by the InsertAccentUseCase to receive

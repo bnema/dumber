@@ -10,8 +10,8 @@ import (
 	"bnema.dev/puregotk/v4/gtk"
 	"bnema.dev/puregotk/v4/pango"
 
-	"github.com/bnema/dumber/internal/application/port"
-	"github.com/bnema/dumber/internal/ui/layout"
+	"bnema.dev/dumber/internal/application/port"
+	"bnema.dev/dumber/internal/ui/layout"
 )
 
 const (

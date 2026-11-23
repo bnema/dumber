@@ -5,12 +5,12 @@ import (
 	neturl "net/url"
 	"strings"
 
-	"github.com/bnema/dumber/internal/application/port"
-	"github.com/bnema/dumber/internal/application/usecase"
-	"github.com/bnema/dumber/internal/domain/entity"
-	urlutil "github.com/bnema/dumber/internal/domain/url"
-	"github.com/bnema/dumber/internal/logging"
-	"github.com/bnema/dumber/internal/ui/component"
+	"bnema.dev/dumber/internal/application/port"
+	"bnema.dev/dumber/internal/application/usecase"
+	"bnema.dev/dumber/internal/domain/entity"
+	urlutil "bnema.dev/dumber/internal/domain/url"
+	"bnema.dev/dumber/internal/logging"
+	"bnema.dev/dumber/internal/ui/component"
 	"bnema.dev/puregotk/v4/gtk"
 )
 

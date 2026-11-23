@@ -3,7 +3,7 @@ package port
 import (
 	"context"
 
-	"github.com/bnema/dumber/internal/domain/favicon"
+	"bnema.dev/dumber/internal/domain/favicon"
 )
 
 // FaviconInvalidator clears cached or derived data for a single favicon key.

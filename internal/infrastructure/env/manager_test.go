@@ -6,7 +6,7 @@ import (
 	"os/exec"
 	"testing"
 
-	"github.com/bnema/dumber/internal/infrastructure/env"
+	"bnema.dev/dumber/internal/infrastructure/env"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

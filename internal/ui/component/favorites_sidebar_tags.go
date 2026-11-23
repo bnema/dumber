@@ -5,7 +5,7 @@ import (
 
 	"bnema.dev/puregotk/v4/gtk"
 
-	"github.com/bnema/dumber/internal/domain/entity"
+	"bnema.dev/dumber/internal/domain/entity"
 )
 
 func (fs *FavoritesSidebar) showCreateTagPrompt() {

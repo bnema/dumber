@@ -6,8 +6,8 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/bnema/dumber/internal/ui/component"
-	layoutmocks "github.com/bnema/dumber/internal/ui/layout/mocks"
+	"bnema.dev/dumber/internal/ui/component"
+	layoutmocks "bnema.dev/dumber/internal/ui/layout/mocks"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

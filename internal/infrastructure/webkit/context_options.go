@@ -1,6 +1,6 @@
 package webkit
 
-import "github.com/bnema/dumber/internal/application/port"
+import "bnema.dev/dumber/internal/application/port"
 
 // cookiePolicy controls cookie acceptance behavior for the WebKit NetworkSession.
 // This is a webkit-internal type; values match port.CookiePolicy string values.

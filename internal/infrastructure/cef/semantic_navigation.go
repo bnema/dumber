@@ -7,7 +7,7 @@ import (
 
 	purecef "bnema.dev/purego-cef/cef"
 
-	"github.com/bnema/dumber/internal/application/dto"
+	"bnema.dev/dumber/internal/application/dto"
 )
 
 // NavigateSemantic performs the initial live Vim structural navigation path.

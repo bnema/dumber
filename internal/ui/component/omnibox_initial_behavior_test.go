@@ -6,10 +6,10 @@ import (
 	"testing"
 	"time"
 
-	appusecase "github.com/bnema/dumber/internal/application/usecase"
-	"github.com/bnema/dumber/internal/domain/entity"
-	repository "github.com/bnema/dumber/internal/domain/repository"
-	repomocks "github.com/bnema/dumber/internal/domain/repository/mocks"
+	appusecase "bnema.dev/dumber/internal/application/usecase"
+	"bnema.dev/dumber/internal/domain/entity"
+	repository "bnema.dev/dumber/internal/domain/repository"
+	repomocks "bnema.dev/dumber/internal/domain/repository/mocks"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )

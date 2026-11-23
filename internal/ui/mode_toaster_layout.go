@@ -1,8 +1,8 @@
 package ui
 
 import (
-	"github.com/bnema/dumber/internal/domain/entity"
-	"github.com/bnema/dumber/internal/ui/input"
+	"bnema.dev/dumber/internal/domain/entity"
+	"bnema.dev/dumber/internal/ui/input"
 )
 
 // Legend band geometry. The legend is a wide band anchored on the mode toaster,

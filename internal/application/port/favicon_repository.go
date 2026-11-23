@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/bnema/dumber/internal/domain/favicon"
+	"bnema.dev/dumber/internal/domain/favicon"
 )
 
 // FaviconRepository persists favicon metadata and supports fallback-key lookups.

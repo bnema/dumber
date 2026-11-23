@@ -8,8 +8,8 @@ import (
 	"sync"
 	"time"
 
-	appport "github.com/bnema/dumber/internal/application/port"
-	"github.com/bnema/dumber/internal/domain/favicon"
+	appport "bnema.dev/dumber/internal/application/port"
+	"bnema.dev/dumber/internal/domain/favicon"
 )
 
 var ErrFaviconMiss = appport.ErrFaviconMiss

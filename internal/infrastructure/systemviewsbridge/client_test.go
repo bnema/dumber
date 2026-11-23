@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bnema/dumber/internal/application/dto"
-	"github.com/bnema/dumber/internal/application/port"
-	systemviewsbridgemocks "github.com/bnema/dumber/internal/infrastructure/systemviewsbridge/mocks"
+	"bnema.dev/dumber/internal/application/dto"
+	"bnema.dev/dumber/internal/application/port"
+	systemviewsbridgemocks "bnema.dev/dumber/internal/infrastructure/systemviewsbridge/mocks"
 	"github.com/stretchr/testify/mock"
 )
 
