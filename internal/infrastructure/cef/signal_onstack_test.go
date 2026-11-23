@@ -2,30 +2,23 @@ package cef
 
 import "testing"
 
-func TestSignalsNeedingOnStack(t *testing.T) {
+func TestNeedsOnStack(t *testing.T) {
 	const otherFlags uint64 = 0x04000000 | 0x10000000 // SA_RESTORER | SA_RESTART
 	tests := []struct {
-		name  string
-		in    signalHandlerState
-		want  bool
-		flags uint64
+		name    string
+		handler uintptr
+		flags   uint64
+		want    bool
 	}{
-		{"SIG_DFL skipped", signalHandlerState{Signal: 1, Handler: sigHandlerDefault}, false, 0},
-		{"SIG_IGN skipped", signalHandlerState{Signal: 2, Handler: sigHandlerIgnore}, false, 0},
-		{"already onstack skipped", signalHandlerState{Signal: 3, Handler: 0x1234, Flags: otherFlags | saOnStackFlag}, false, 0},
-		{"missing onstack repaired", signalHandlerState{Signal: 11, Handler: 0x1234, Flags: otherFlags}, true, otherFlags | saOnStackFlag},
+		{"SIG_DFL skipped", sigHandlerDefault, otherFlags, false},
+		{"SIG_IGN skipped", sigHandlerIgnore, otherFlags, false},
+		{"already onstack skipped", 0x1234, otherFlags | saOnStackFlag, false},
+		{"missing onstack repaired", 0x1234, otherFlags, true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := signalsNeedingOnStack([]signalHandlerState{tt.in})
-			if !tt.want {
-				if len(got) != 0 {
-					t.Fatalf("expected no repair, got %+v", got)
-				}
-				return
-			}
-			if len(got) != 1 || got[0].Signal != tt.in.Signal || got[0].Handler != tt.in.Handler || got[0].Flags != tt.flags {
-				t.Fatalf("got %+v, want flags %#x", got, tt.flags)
+			if got := needsOnStack(tt.handler, tt.flags); got != tt.want {
+				t.Fatalf("needsOnStack(%#x, %#x) = %v, want %v", tt.handler, tt.flags, got, tt.want)
 			}
 		})
 	}

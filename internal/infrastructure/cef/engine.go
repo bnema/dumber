@@ -33,7 +33,7 @@ type Engine struct {
 	profileLogDir string
 	runtimeCEFDir string
 	// signalOnStackInit is the SA_ONSTACK repair done right after CEF init,
-	// replayed by SetHandlerContext once the session log file exists.
+	// logged by SetHandlerContext once the session log file exists.
 	signalOnStackInit  signalOnStackResult
 	stateRoot          string
 	renderStackPlan    cef2gtk.RenderStackPlan

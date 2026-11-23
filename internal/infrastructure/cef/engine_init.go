@@ -238,8 +238,8 @@ func initializeCEF(eng *Engine, settings purecef.Settings, logger *zerolog.Logge
 		return fmt.Errorf("cef.InitWithApp: %w", err)
 	}
 	activeStartupTrace().Mark("cef_initialized")
+	// Logged by SetHandlerContext, once the session log file exists.
 	eng.signalOnStackInit = repairSignalOnStack()
-	logSignalOnStackRepair(logger, eng.signalOnStackInit, true)
 	if libcefPath := loadedLibCEFPath(); libcefPath != "" {
 		eng.runtimeLib = newRuntimeLibrary(libcefPath)
 		logger.Info().

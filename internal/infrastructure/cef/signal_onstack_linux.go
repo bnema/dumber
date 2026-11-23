@@ -32,36 +32,35 @@ func rtSigaction(sig int, act, old *kernelSigaction) error {
 
 // repairSignalOnStack adds SA_ONSTACK to every installed handler that lacks
 // it, preserving handler, mask, restorer and other flags.
+//
+// Each signal is read and written back immediately, like runtime.setsigstack.
+// The read-modify-write is not atomic: a handler installed by another thread
+// between the two syscalls is overwritten, the same race the Go runtime accepts.
 func repairSignalOnStack() signalOnStackResult {
 	var res signalOnStackResult
-	actions := make(map[int]kernelSigaction, 64)
-	states := make([]signalHandlerState, 0, 64)
 	for sig := 1; sig <= 64; sig++ {
 		if sig == int(unix.SIGKILL) || sig == int(unix.SIGSTOP) {
 			continue
 		}
-		var old kernelSigaction
-		if err := rtSigaction(sig, nil, &old); err != nil {
-			if errors.Is(err, unix.EINVAL) {
-				continue
+		var act kernelSigaction
+		if err := rtSigaction(sig, nil, &act); err != nil {
+			if !errors.Is(err, unix.EINVAL) {
+				res.Errors = append(res.Errors, fmt.Errorf("read signal %d: %w", sig, err))
 			}
-			res.Errors = append(res.Errors, fmt.Errorf("read signal %d: %w", sig, err))
 			continue
 		}
-		actions[sig] = old
-		states = append(states, signalHandlerState{Signal: sig, Handler: old.handler, Flags: old.flags})
-	}
-	for _, st := range signalsNeedingOnStack(states) {
-		act := actions[st.Signal]
-		act.flags = st.Flags
-		if err := rtSigaction(st.Signal, &act, nil); err != nil {
-			res.Errors = append(res.Errors, fmt.Errorf("repair signal %d: %w", st.Signal, err))
+		if !needsOnStack(act.handler, act.flags) {
+			continue
+		}
+		act.flags |= saOnStackFlag
+		if err := rtSigaction(sig, &act, nil); err != nil {
+			res.Errors = append(res.Errors, fmt.Errorf("repair signal %d: %w", sig, err))
 			continue
 		}
 		res.Repaired = append(res.Repaired, repairedSignal{
-			Signal:  st.Signal,
-			Name:    unix.SignalName(unix.Signal(st.Signal)),
-			Handler: st.Handler,
+			Signal:  sig,
+			Name:    unix.SignalName(unix.Signal(sig)),
+			Handler: act.handler,
 		})
 	}
 	return res

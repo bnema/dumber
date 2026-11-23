@@ -179,10 +179,11 @@ func durationMillis(d time.Duration) int64 {
 }
 
 // auditSignalOnStack repairs handlers Chromium installed after init without
-// SA_ONSTACK. It only issues rt_sigaction syscalls, so it never blocks.
+// SA_ONSTACK. It only issues rt_sigaction syscalls, so it never blocks. The
+// repair runs even when no logger context is set yet.
 func (e *Engine) auditSignalOnStack() {
 	res := repairSignalOnStack()
-	if e == nil || e.ctx == nil {
+	if e.ctx == nil {
 		return
 	}
 	logSignalOnStackRepair(logging.FromContext(e.ctx), res, false)
