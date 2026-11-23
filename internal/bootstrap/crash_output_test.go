@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"runtime/debug"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -96,4 +97,25 @@ func TestCrashOutputSubprocess(t *testing.T) {
 	require.NoError(t, err)
 	assert.Contains(t, string(data), "panic:")
 	assert.Contains(t, string(data), "goroutine ")
+}
+
+func TestEnableCrashOutput_RotatesStaleFileForReusedPID(t *testing.T) {
+	defer resetCrashOutput()
+	logDir := t.TempDir()
+	path := FatalOutputPath(logDir, os.Getpid())
+	require.NoError(t, os.MkdirAll(filepath.Dir(path), dirPerm))
+	require.NoError(t, os.WriteFile(path, []byte("panic: old\n"), filePerm))
+	mtime := time.Unix(1700000000, 0)
+	require.NoError(t, os.Chtimes(path, mtime, mtime))
+
+	cleanup, err := EnableCrashOutput(logDir)
+	require.NoError(t, err)
+	defer cleanup()
+
+	data, err := os.ReadFile(rotatedFatalOutputPath(logDir, os.Getpid(), mtime.Unix()))
+	require.NoError(t, err)
+	assert.Equal(t, "panic: old\n", string(data))
+	info, err := os.Stat(path)
+	require.NoError(t, err)
+	assert.Zero(t, info.Size())
 }

@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	corelogging "github.com/bnema/dumber/internal/logging"
 	"github.com/stretchr/testify/assert"
@@ -93,7 +94,7 @@ func TestWriteCrashReport(t *testing.T) {
 		"\n"
 	require.NoError(t, os.WriteFile(logPath, []byte(logBody), filePerm))
 
-	jsonPath, err := writeCrashReport(logDir, sessionID, 12345)
+	jsonPath, err := writeCrashReport(logDir, sessionID, 12345, "")
 	require.NoError(t, err)
 	require.NotEmpty(t, jsonPath)
 	assert.FileExists(t, jsonPath)
@@ -122,7 +123,7 @@ func TestWriteCrashReport(t *testing.T) {
 	assert.NotContains(t, text, "token=def")
 }
 
-func TestWriteCrashReport_EmbedsFatalOutputThenRemovesIt(t *testing.T) {
+func TestWriteCrashReport_EmbedsFatalOutputAndKeepsIt(t *testing.T) {
 	logDir := t.TempDir()
 	sessionID := "crash-fatal-1"
 	crashedPID := 4242
@@ -132,14 +133,18 @@ func TestWriteCrashReport_EmbedsFatalOutputThenRemovesIt(t *testing.T) {
 	fatalBody := "fatal error: unexpected signal\nfetching https://example.com/x?token=abc\n"
 	require.NoError(t, os.WriteFile(fatalPath, []byte(fatalBody), filePerm))
 
-	jsonPath, err := writeCrashReport(logDir, sessionID, crashedPID)
+	jsonPath, err := writeCrashReport(logDir, sessionID, crashedPID, fatalPath)
 	require.NoError(t, err)
 
 	raw, err := os.ReadFile(jsonPath)
 	require.NoError(t, err)
 	var report crashReport
 	require.NoError(t, json.Unmarshal(raw, &report))
-	assert.Equal(t, fatalPath, report.FatalOutputFile)
+	keptPath := filepath.Join(logDir, "crashes", "session_crash-fatal-1.fatal.txt")
+	assert.Equal(t, keptPath, report.FatalOutputFile)
+	kept, err := os.ReadFile(keptPath)
+	require.NoError(t, err)
+	assert.Equal(t, fatalBody, string(kept))
 	require.Len(t, report.FatalOutput, 2)
 	assert.Equal(t, "fatal error: unexpected signal", report.FatalOutput[0])
 	assert.NotContains(t, report.FatalOutput[1], "token=abc")
@@ -173,4 +178,89 @@ func TestRedactSensitiveContent_HomeDir(t *testing.T) {
 			assert.Equal(t, tt.want, redactSensitiveContent(tt.in))
 		})
 	}
+}
+
+func writeFatalFile(t *testing.T, path, body string) {
+	t.Helper()
+	require.NoError(t, os.MkdirAll(filepath.Dir(path), dirPerm))
+	require.NoError(t, os.WriteFile(path, []byte(body), filePerm))
+}
+
+func readReport(t *testing.T, jsonPath string) crashReport {
+	t.Helper()
+	raw, err := os.ReadFile(jsonPath)
+	require.NoError(t, err)
+	var report crashReport
+	require.NoError(t, json.Unmarshal(raw, &report))
+	return report
+}
+
+func TestWriteCrashReport_TruncatesLongFatalOutput(t *testing.T) {
+	logDir := t.TempDir()
+	fatalPath := FatalOutputPath(logDir, 77)
+	var body strings.Builder
+	for i := range fatalOutputMaxLines + 5 {
+		fmt.Fprintf(&body, "line %d\n", i)
+	}
+	writeFatalFile(t, fatalPath, body.String())
+
+	jsonPath, err := writeCrashReport(logDir, "long-1", 77, fatalPath)
+	require.NoError(t, err)
+
+	report := readReport(t, jsonPath)
+	require.Len(t, report.FatalOutput, fatalOutputMaxLines+1)
+	assert.Equal(t, "line 0", report.FatalOutput[0])
+	assert.Equal(t,
+		fmt.Sprintf("[fatal output truncated at %d lines; full file: session_long-1.fatal.txt]", fatalOutputMaxLines),
+		report.FatalOutput[fatalOutputMaxLines])
+	kept, err := os.ReadFile(report.FatalOutputFile)
+	require.NoError(t, err)
+	assert.Equal(t, body.String(), string(kept))
+}
+
+func TestWriteCrashReport_EmptyFatalFileIsDeletedAndNotReferenced(t *testing.T) {
+	logDir := t.TempDir()
+	fatalPath := FatalOutputPath(logDir, 78)
+	writeFatalFile(t, fatalPath, "")
+
+	jsonPath, err := writeCrashReport(logDir, "empty-1", 78, fatalPath)
+	require.NoError(t, err)
+
+	report := readReport(t, jsonPath)
+	assert.Empty(t, report.FatalOutputFile)
+	assert.Empty(t, report.FatalOutput)
+	assert.NoFileExists(t, fatalPath)
+}
+
+func TestWriteCrashReport_ExistingReportDeletesFatalFile(t *testing.T) {
+	logDir := t.TempDir()
+	_, err := writeCrashReport(logDir, "dup-1", 79, "")
+	require.NoError(t, err)
+
+	fatalPath := FatalOutputPath(logDir, 79)
+	writeFatalFile(t, fatalPath, "panic: again\n")
+	_, err = writeCrashReport(logDir, "dup-1", 79, fatalPath)
+	require.NoError(t, err)
+	assert.NoFileExists(t, fatalPath)
+}
+
+func TestPruneOldCrashReports_RemovesKeptFatalFile(t *testing.T) {
+	reportsDir := t.TempDir()
+	old := time.Now().Add(-time.Hour)
+	for _, id := range []string{"old", "new"} {
+		for _, ext := range []string{".crash.json", ".crash.md", ".fatal.txt"} {
+			p := filepath.Join(reportsDir, "session_"+id+ext)
+			require.NoError(t, os.WriteFile(p, []byte("x"), filePerm))
+			if id == "old" {
+				require.NoError(t, os.Chtimes(p, old, old))
+			}
+		}
+	}
+
+	pruneOldCrashReports(reportsDir, 1)
+
+	assert.NoFileExists(t, filepath.Join(reportsDir, "session_old.crash.json"))
+	assert.NoFileExists(t, filepath.Join(reportsDir, "session_old.crash.md"))
+	assert.NoFileExists(t, filepath.Join(reportsDir, "session_old.fatal.txt"))
+	assert.FileExists(t, filepath.Join(reportsDir, "session_new.fatal.txt"))
 }

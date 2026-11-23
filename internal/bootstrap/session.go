@@ -149,6 +149,7 @@ func StartBrowserSession(
 			// Check for crash from previous run.
 			if logDir != "" {
 				reports := detectPreviousCrash(logDir, string(session.ID), &logger)
+				reports = append(reports, sweepFatalOutputs(logDir, os.Getpid(), string(session.ID), &logger)...)
 				if len(reports) > 0 {
 					bs.SetCrashReports(reports)
 				}
@@ -261,17 +262,12 @@ func detectPreviousCrash(logDir, currentSessionID string, logger *zerolog.Logger
 		return nil
 	}
 
-	// Check if the process is still running.
-	proc, procErr := os.FindProcess(pid)
-	if procErr == nil {
-		// On Unix, FindProcess always succeeds. Send signal 0 to probe existence.
-		if killErr := proc.Signal(syscall.Signal(0)); killErr == nil {
-			// Process is alive → another instance running, don't touch PID file.
-			if logger != nil {
-				logger.Warn().Int("pid", pid).Msg("previous instance still running (PID file exists)")
-			}
-			return nil
+	if processAlive(pid) {
+		// Another instance is running; don't touch the PID file.
+		if logger != nil {
+			logger.Warn().Int("pid", pid).Msg("previous instance still running (PID file exists)")
 		}
+		return nil
 	}
 
 	// Previous process is dead → crash. Generate report from last log.
@@ -297,7 +293,7 @@ func detectPreviousCrash(logDir, currentSessionID string, logger *zerolog.Logger
 			Msg("previous session crashed (stale PID file)")
 	}
 
-	reportPath, reportErr := writeCrashReport(logDir, lastSessionID, pid)
+	reportPath, reportErr := writeCrashReport(logDir, lastSessionID, pid, FatalOutputPath(logDir, pid))
 	if reportErr != nil {
 		if logger != nil {
 			logger.Warn().Err(reportErr).Msg("failed to write crash report")
@@ -308,6 +304,21 @@ func detectPreviousCrash(logDir, currentSessionID string, logger *zerolog.Logger
 		return nil
 	}
 	return []string{reportPath}
+}
+
+// processAlive reports whether another process with pid is running. Our own
+// PID counts as dead: a PID file holding it was left by a crashed process
+// whose PID was reused (for example in a fresh PID namespace).
+func processAlive(pid int) bool {
+	if pid == os.Getpid() {
+		return false
+	}
+	proc, err := os.FindProcess(pid)
+	if err != nil {
+		return false
+	}
+	// On Unix, FindProcess always succeeds. Signal 0 probes existence.
+	return proc.Signal(syscall.Signal(0)) == nil
 }
 
 // findLastSessionLog returns the most recent session_*.log file in logDir,

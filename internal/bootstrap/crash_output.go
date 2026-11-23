@@ -12,6 +12,11 @@ func FatalOutputPath(logDir string, pid int) string {
 	return filepath.Join(logDir, crashReportsDirName, fmt.Sprintf("pid_%d.fatal.txt", pid))
 }
 
+// rotatedFatalOutputPath is where a stale fatal file for a reused PID is moved.
+func rotatedFatalOutputPath(logDir string, pid int, mtimeUnix int64) string {
+	return filepath.Join(logDir, crashReportsDirName, fmt.Sprintf("pid_%d.%d.fatal.txt", pid, mtimeUnix))
+}
+
 // EnableCrashOutput routes Go runtime fatal output (panics, throws) to a
 // per-PID file under <logDir>/crashes. The cleanup disables the redirect and
 // removes the file when nothing was written. An empty logDir is a no-op.
@@ -23,7 +28,13 @@ func EnableCrashOutput(logDir string) (cleanup func(), err error) {
 	if mkErr := os.MkdirAll(filepath.Join(logDir, crashReportsDirName), dirPerm); mkErr != nil {
 		return noop, fmt.Errorf("create crash dir: %w", mkErr)
 	}
-	path := FatalOutputPath(logDir, os.Getpid())
+	pid := os.Getpid()
+	path := FatalOutputPath(logDir, pid)
+	// A non-empty file with our PID belongs to an earlier process that had the
+	// same PID (PID reuse); move it aside so the startup sweep reports it.
+	if info, statErr := os.Stat(path); statErr == nil && info.Size() > 0 {
+		_ = os.Rename(path, rotatedFatalOutputPath(logDir, pid, info.ModTime().Unix()))
+	}
 	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, filePerm)
 	if err != nil {
 		return noop, fmt.Errorf("open fatal output file: %w", err)

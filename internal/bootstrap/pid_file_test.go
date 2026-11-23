@@ -89,3 +89,56 @@ func TestFindLastSessionLog_ExcludesSession(t *testing.T) {
 	assert.Equal(t, "session_older.log", filepath.Base(findLastSessionLog(logDir, "current")))
 	assert.Equal(t, "session_current.log", filepath.Base(findLastSessionLog(logDir, "")))
 }
+
+func TestDetectPreviousCrash_OwnPIDCountsAsDead(t *testing.T) {
+	logDir := t.TempDir()
+	writeSessionLog(t, logDir, "reused", time.Now().Add(-time.Hour))
+	require.NoError(t, os.WriteFile(pidFilePath(logDir), []byte(fmt.Sprintf("%d\nreused\n", os.Getpid())), filePerm))
+
+	reports := detectPreviousCrash(logDir, "current", nil)
+
+	require.Len(t, reports, 1)
+	assert.Equal(t, "session_reused.crash.json", filepath.Base(reports[0]))
+}
+
+func TestSweepFatalOutputs(t *testing.T) {
+	logDir := t.TempDir()
+	now := time.Now()
+	writeSessionLog(t, logDir, "startup-crash", now.Add(-time.Hour))
+	writeSessionLog(t, logDir, "current", now)
+	self := os.Getpid()
+
+	orphan := FatalOutputPath(logDir, deadPID)
+	empty := FatalOutputPath(logDir, deadPID-1)
+	own := FatalOutputPath(logDir, self)
+	rotated := rotatedFatalOutputPath(logDir, self, 1700000000)
+	writeFatalFile(t, orphan, "panic: startup\n")
+	writeFatalFile(t, empty, "")
+	writeFatalFile(t, own, "")
+	writeFatalFile(t, rotated, "panic: reused pid\n")
+
+	reports := sweepFatalOutputs(logDir, self, "current", nil)
+
+	names := make([]string, 0, len(reports))
+	for _, r := range reports {
+		names = append(names, filepath.Base(r))
+	}
+	// The first orphan (glob order) takes the newest other session; the
+	// second falls back to a pid_<pid>[_<mtime>] ID.
+	require.Len(t, names, 2)
+	assert.Contains(t, names, "session_startup-crash.crash.json")
+	assert.Condition(t, func() bool {
+		for _, n := range names {
+			if n == fmt.Sprintf("session_pid_%d.crash.json", deadPID) ||
+				n == fmt.Sprintf("session_pid_%d_1700000000.crash.json", self) {
+				return true
+			}
+		}
+		return false
+	}, "one report uses the pid fallback ID: %v", names)
+	assert.NoFileExists(t, orphan)
+	assert.NoFileExists(t, empty)
+	assert.NoFileExists(t, rotated)
+	assert.FileExists(t, own, "the current process's own file is left alone")
+	assert.FileExists(t, filepath.Join(logDir, "crashes", "session_startup-crash.fatal.txt"))
+}
