@@ -27,11 +27,14 @@ var _ port.AlreadyRunningAppRelaunchHandlerSetter = (*Engine)(nil)
 // Engine implements port.Engine for the CEF browser backend.
 // It manages the CEF lifecycle and provides access to all engine subsystems.
 type Engine struct {
-	ctx                context.Context
-	factory            *WebViewFactory
-	pool               *WebViewPool
-	profileLogDir      string
-	runtimeCEFDir      string
+	ctx           context.Context
+	factory       *WebViewFactory
+	pool          *WebViewPool
+	profileLogDir string
+	runtimeCEFDir string
+	// signalOnStackInit is the SA_ONSTACK repair done right after CEF init,
+	// replayed by SetHandlerContext once the session log file exists.
+	signalOnStackInit  signalOnStackResult
 	stateRoot          string
 	renderStackPlan    cef2gtk.RenderStackPlan
 	applicationScaleMu sync.RWMutex
@@ -481,6 +484,7 @@ func (e *Engine) SetHandlerContext(ctx context.Context) {
 	} else {
 		logger.Warn().Msg("cef: runtime library loaded but libcef path was not found in /proc/self/maps")
 	}
+	logSignalOnStackRepair(logger, e.signalOnStackInit, true)
 	if e.messageRouter != nil {
 		e.messageRouter.SetBaseContext(ctx)
 	}

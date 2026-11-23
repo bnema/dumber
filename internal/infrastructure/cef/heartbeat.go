@@ -95,6 +95,7 @@ func (e *Engine) cefHeartbeatLoop(stop <-chan struct{}, done chan<- struct{}) {
 	defer close(done)
 	ticker := time.NewTicker(cefHeartbeatInterval)
 	defer ticker.Stop()
+	var lastSignalAudit time.Time
 	for {
 		select {
 		case <-stop:
@@ -102,6 +103,10 @@ func (e *Engine) cefHeartbeatLoop(stop <-chan struct{}, done chan<- struct{}) {
 		case now := <-ticker.C:
 			e.postCEFThreadHeartbeat("ui", purecef.ThreadIDTidUi, &e.cefUIHeartbeat, now)
 			e.postCEFThreadHeartbeat("io", purecef.ThreadIDTidIo, &e.cefIOHeartbeat, now)
+			if now.Sub(lastSignalAudit) >= signalOnStackAuditInterval {
+				lastSignalAudit = now
+				e.auditSignalOnStack()
+			}
 		}
 	}
 }
@@ -171,4 +176,14 @@ func durationMillis(d time.Duration) int64 {
 		return 0
 	}
 	return d.Milliseconds()
+}
+
+// auditSignalOnStack repairs handlers Chromium installed after init without
+// SA_ONSTACK. It only issues rt_sigaction syscalls, so it never blocks.
+func (e *Engine) auditSignalOnStack() {
+	res := repairSignalOnStack()
+	if e == nil || e.ctx == nil {
+		return
+	}
+	logSignalOnStackRepair(logging.FromContext(e.ctx), res, false)
 }
