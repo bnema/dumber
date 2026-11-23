@@ -9,7 +9,7 @@ import (
 	"testing"
 )
 
-func fetch(t *testing.T, ps *pageServer, host, path string) (*http.Response, string) {
+func fetch(t *testing.T, ps *pageServer, host, path string) (status int, location, body string) {
 	t.Helper()
 	req, err := http.NewRequest(http.MethodGet, ps.url(hostIP, path), http.NoBody)
 	if err != nil {
@@ -28,28 +28,28 @@ func fetch(t *testing.T, ps *pageServer, host, path string) (*http.Response, str
 	if err != nil {
 		t.Fatal(err)
 	}
-	return resp, string(b)
+	return resp.StatusCode, resp.Header.Get("Location"), string(b)
 }
 
 func TestPageServer(t *testing.T) {
 	ps := newPageServer(t)
 
-	resp, body := fetch(t, ps, hostIP, "/page")
-	if resp.StatusCode != http.StatusOK || !strings.Contains(body, "#2e8b57") {
-		t.Fatalf("/page: status %d, body missing #2e8b57", resp.StatusCode)
+	status, _, body := fetch(t, ps, hostIP, "/page")
+	if status != http.StatusOK || !strings.Contains(body, "#2e8b57") {
+		t.Fatalf("/page: status %d, body missing #2e8b57", status)
 	}
 
-	resp, _ = fetch(t, ps, hostIP, "/redirect")
-	if want := ps.url(hostLocal, "/page"); resp.StatusCode != http.StatusFound || resp.Header.Get("Location") != want {
-		t.Fatalf("/redirect: status %d location %q, want 302 %q", resp.StatusCode, resp.Header.Get("Location"), want)
+	status, loc, _ := fetch(t, ps, hostIP, "/redirect")
+	if want := ps.url(hostLocal, "/page"); status != http.StatusFound || loc != want {
+		t.Fatalf("/redirect: status %d location %q, want 302 %q", status, loc, want)
 	}
 
 	for _, path := range []string{"/popup", "/iframe"} {
-		_, body = fetch(t, ps, hostIP, path)
+		_, _, body = fetch(t, ps, hostIP, path)
 		if !strings.Contains(body, ps.url(hostLocal, "/page")) {
 			t.Fatalf("%s from %s does not reference %s", path, hostIP, hostLocal)
 		}
-		_, body = fetch(t, ps, hostLocal, path)
+		_, _, body = fetch(t, ps, hostLocal, path)
 		if !strings.Contains(body, ps.url(hostIP, "/page")) {
 			t.Fatalf("%s from %s does not reference %s", path, hostLocal, hostIP)
 		}

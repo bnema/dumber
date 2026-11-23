@@ -9,11 +9,14 @@ import (
 	"net/http/httptest"
 	"strconv"
 	"testing"
+	"time"
 )
 
 const (
 	hostIP    = "127.0.0.1"
 	hostLocal = "localhost"
+
+	readHeaderTimeout = 5 * time.Second
 )
 
 // pageServer serves local multi-site pages on 127.0.0.1 and localhost.
@@ -37,7 +40,7 @@ func newPageServer(t *testing.T) *pageServer {
 	if err != nil {
 		t.Fatalf("listen page server: %v", err)
 	}
-	ps.srv = &httptest.Server{Listener: ln, Config: &http.Server{Handler: mux}}
+	ps.srv = &httptest.Server{Listener: ln, Config: &http.Server{Handler: mux, ReadHeaderTimeout: readHeaderTimeout}}
 	ps.srv.Start()
 	ps.port = strconv.Itoa(ln.Addr().(*net.TCPAddr).Port)
 	t.Cleanup(ps.srv.Close)
@@ -50,7 +53,7 @@ func (ps *pageServer) url(host, path string) string {
 }
 
 // otherHost returns the host the request did not target.
-func (ps *pageServer) otherHost(r *http.Request) string {
+func otherHost(r *http.Request) string {
 	host := r.Host
 	if h, _, err := net.SplitHostPort(host); err == nil {
 		host = h
@@ -72,7 +75,7 @@ func writeHTML(w http.ResponseWriter, title, head, body string) {
 }
 
 func (ps *pageServer) handlePage(w http.ResponseWriter, r *http.Request) {
-	o := ps.otherHost(r)
+	o := otherHost(r)
 	body := fmt.Sprintf(`<h1>stress page</h1><ul>
 <li><a id="page" href="%s">page</a></li>
 <li><a id="redirect" href="%s">redirect</a></li>
@@ -85,24 +88,24 @@ func (ps *pageServer) handlePage(w http.ResponseWriter, r *http.Request) {
 }
 
 func (ps *pageServer) handleRedirect(w http.ResponseWriter, r *http.Request) {
-	http.Redirect(w, r, ps.url(ps.otherHost(r), "/page"), http.StatusFound)
+	http.Redirect(w, r, ps.url(otherHost(r), "/page"), http.StatusFound)
 }
 
 func (ps *pageServer) handlePopup(w http.ResponseWriter, r *http.Request) {
-	target := strconv.Quote(ps.url(ps.otherHost(r), "/page"))
+	target := strconv.Quote(ps.url(otherHost(r), "/page"))
 	head := fmt.Sprintf(`<script>window.addEventListener("load",function(){window.open(%s,"_blank");});</script>`, target)
 	writeHTML(w, "popup", head, "<h1>popup</h1>")
 }
 
 func (ps *pageServer) handleIframe(w http.ResponseWriter, r *http.Request) {
-	src := ps.url(ps.otherHost(r), "/page")
+	src := ps.url(otherHost(r), "/page")
 	body := fmt.Sprintf(`<iframe src="%s" style="width:48%%;height:90%%;border:0"></iframe>
 <iframe src="%s" style="width:48%%;height:90%%;border:0"></iframe>`, src, src)
 	writeHTML(w, "iframe", "", body)
 }
 
 func (ps *pageServer) handleAlloc(w http.ResponseWriter, r *http.Request) {
-	target := strconv.Quote(ps.url(ps.otherHost(r), "/page"))
+	target := strconv.Quote(ps.url(otherHost(r), "/page"))
 	// ~50 MB: 20 steps of 100ms, each allocating 2.5 MB of float64 (8 bytes).
 	head := fmt.Sprintf(`<script>
 (function(){
