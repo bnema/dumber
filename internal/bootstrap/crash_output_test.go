@@ -3,6 +3,7 @@ package bootstrap
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime/debug"
 	"testing"
@@ -59,4 +60,40 @@ func TestEnableCrashOutput_EmptyLogDirIsNoop(t *testing.T) {
 	cleanup, err := EnableCrashOutput("")
 	require.NoError(t, err)
 	assert.NotPanics(t, cleanup)
+}
+
+const crashHelperDirEnv = "DUMBER_CRASH_HELPER_DIR"
+
+// TestCrashOutputHelper runs only as a child of TestCrashOutputSubprocess.
+// It enables crash output in its working directory (the parent's temp dir)
+// and dies from an unrecovered goroutine panic.
+func TestCrashOutputHelper(t *testing.T) {
+	if os.Getenv(crashHelperDirEnv) == "" {
+		return
+	}
+	dir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("getwd: %v", err)
+	}
+	if _, err = EnableCrashOutput(dir); err != nil {
+		t.Fatalf("enable crash output: %v", err)
+	}
+	go func() { panic("crash output helper panic") }()
+	select {}
+}
+
+func TestCrashOutputSubprocess(t *testing.T) {
+	dir := t.TempDir()
+	cmd := exec.Command(os.Args[0], "-test.run=^TestCrashOutputHelper$")
+	cmd.Dir = dir
+	cmd.Env = append(os.Environ(), crashHelperDirEnv+"="+dir, "GOTRACEBACK=single")
+
+	err := cmd.Run()
+	var exitErr *exec.ExitError
+	require.ErrorAs(t, err, &exitErr, "child must exit non-zero")
+
+	data, err := os.ReadFile(FatalOutputPath(dir, cmd.Process.Pid))
+	require.NoError(t, err)
+	assert.Contains(t, string(data), "panic:")
+	assert.Contains(t, string(data), "goroutine ")
 }
