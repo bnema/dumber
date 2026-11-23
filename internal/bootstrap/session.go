@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -228,17 +227,18 @@ func parsePIDFile(raw string) (pid int, sessionID string, err error) {
 	if err != nil {
 		return 0, "", fmt.Errorf("parse PID: %w", err)
 	}
+	if pid <= 0 {
+		return 0, "", fmt.Errorf("invalid PID %d", pid)
+	}
 	if len(lines) > 1 {
 		sessionID = strings.TrimSpace(lines[1])
-		if !validSessionIDRegex.MatchString(sessionID) {
+		if !validSessionID(sessionID) {
 			// The session ID is used in file paths; ignore unsafe values.
 			sessionID = ""
 		}
 	}
 	return pid, sessionID, nil
 }
-
-var validSessionIDRegex = regexp.MustCompile(`^[A-Za-z0-9_-]+$`)
 
 func removePIDFile(logDir string) {
 	_ = os.Remove(pidFilePath(logDir))

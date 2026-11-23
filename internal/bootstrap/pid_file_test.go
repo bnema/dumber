@@ -26,6 +26,8 @@ func TestParsePIDFile(t *testing.T) {
 		{name: "v1 one line", raw: "123\n", wantPID: 123},
 		{name: "v2 two lines", raw: "123\nabc-session\n", wantPID: 123, wantSession: "abc-session"},
 		{name: "unsafe session ignored", raw: "123\n../../etc\n", wantPID: 123},
+		{name: "zero pid", raw: "0\nabc\n", wantErr: true},
+		{name: "negative pid", raw: "-5\n", wantErr: true},
 		{name: "garbage", raw: "not-a-pid\nabc\n", wantErr: true},
 		{name: "empty", raw: "", wantErr: true},
 	}

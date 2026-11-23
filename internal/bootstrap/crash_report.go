@@ -66,10 +66,12 @@ func writeCrashReport(logDir, sessionID string, crashedPID int) (string, error) 
 	if logDir == "" || sessionID == "" {
 		return "", errors.New("logDir and sessionID are required")
 	}
-	// sessionID comes from files on disk; keep it a single path element.
-	if filepath.Base(sessionID) != sessionID || sessionID == "." || sessionID == ".." {
+	// sessionID comes from files on disk and is used in file paths.
+	if !validSessionID(sessionID) {
 		return "", fmt.Errorf("invalid session ID %q", sessionID)
 	}
+	// No-op after validation, but gosec only recognizes filepath.Base as a
+	// path sanitizer (G703).
 	sessionID = filepath.Base(sessionID)
 
 	reportsDir := filepath.Join(logDir, crashReportsDirName)
@@ -266,6 +268,16 @@ func readRedactedLogTail(path string, lines int) []string {
 	return result
 }
 
+var validSessionIDRegex = regexp.MustCompile(`^[A-Za-z0-9_-]+$`)
+
+// validSessionID reports whether id is safe to use as a file name element.
+func validSessionID(id string) bool {
+	return validSessionIDRegex.MatchString(id)
+}
+
+// userHomeDir is replaceable in tests.
+var userHomeDir = os.UserHomeDir
+
 var urlRegex = regexp.MustCompile(`(?i)\b(?:https?|wss?)://[^\s\]\)\"'<>]+`)
 
 var secretKeyRegex = regexp.MustCompile(`(?i)(token|access_token|id_token|code|password|passwd|secret|authorization)=([^&\s]+)`)
@@ -279,7 +291,22 @@ func redactSensitiveContent(line string) string {
 	redacted = secretKeyRegex.ReplaceAllString(redacted, "$1=[REDACTED]")
 	redacted = secretJSONRegex.ReplaceAllString(redacted, `"$1":"[REDACTED]"`)
 	redacted = secretHeaderRegex.ReplaceAllString(redacted, "$1: [REDACTED]")
-	return redacted
+	return redactHomeDir(redacted)
+}
+
+// redactHomeDir replaces the user's home directory prefix with "~".
+func redactHomeDir(line string) string {
+	home, err := userHomeDir()
+	if err != nil {
+		return line
+	}
+	home = strings.TrimRight(home, "/")
+	if home == "" {
+		return line
+	}
+	// Match the home dir only as a whole path prefix, not /home/userfoo.
+	re := regexp.MustCompile(regexp.QuoteMeta(home) + `(/|[^A-Za-z0-9._-]|$)`)
+	return re.ReplaceAllString(line, "~$1")
 }
 
 func redactURLString(raw string) string {

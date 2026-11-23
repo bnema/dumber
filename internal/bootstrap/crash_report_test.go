@@ -151,3 +151,26 @@ func TestWriteCrashReport_EmbedsFatalOutputThenRemovesIt(t *testing.T) {
 
 	assert.NoFileExists(t, fatalPath)
 }
+
+func TestRedactSensitiveContent_HomeDir(t *testing.T) {
+	tests := []struct {
+		name string
+		home string
+		in   string
+		want string
+	}{
+		{name: "path under home", home: "/home/alice", in: "open /home/alice/.config/x", want: "open ~/.config/x"},
+		{name: "home alone", home: "/home/alice/", in: "cwd=/home/alice", want: "cwd=~"},
+		{name: "other user prefix kept", home: "/home/alice", in: "/home/alicebob/x", want: "/home/alicebob/x"},
+		{name: "root home ignored", home: "/", in: "/etc/passwd", want: "/etc/passwd"},
+		{name: "empty home ignored", home: "", in: "/home/alice/x", want: "/home/alice/x"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			orig := userHomeDir
+			t.Cleanup(func() { userHomeDir = orig })
+			userHomeDir = func() (string, error) { return tt.home, nil }
+			assert.Equal(t, tt.want, redactSensitiveContent(tt.in))
+		})
+	}
+}
