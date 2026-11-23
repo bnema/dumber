@@ -406,6 +406,11 @@ func runGUIWithProfile(cfg *config.Config, timing startupTiming, profile runtime
 	timer.Mark("config")
 
 	ctx := initStartupContext(cfg)
+	crashOutputCleanup, crashOutputErr := bootstrap.EnableCrashOutput(bootstrap.ResolveLogDir(cfg))
+	if crashOutputErr != nil {
+		logging.FromContext(ctx).Warn().Err(crashOutputErr).Msg("failed to enable crash output file")
+	}
+	defer crashOutputCleanup()
 	activateCEFStartupTraceForGUI(cfg, timing, logging.FromContext(ctx), infracef.ActivateStartupTrace)
 	applyCEFRenderStackDefault(ctx, cfg)
 	timer.Mark("logger")

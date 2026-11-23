@@ -64,6 +64,18 @@ func (s *BrowserSession) CrashReports() []string {
 	return append([]string(nil), s.crashReportPaths...)
 }
 
+// ResolveLogDir returns the configured log directory, falling back to the
+// default log directory. It returns "" when neither is available.
+func ResolveLogDir(cfg *config.Config) string {
+	if cfg.Logging.LogDir != "" {
+		return cfg.Logging.LogDir
+	}
+	if dir, err := config.GetLogDir(); err == nil {
+		return dir
+	}
+	return ""
+}
+
 // StartBrowserSession creates and persists a browser session.
 // It checks for previous crashes via PID file, creates the session log,
 // and sets up cleanup.
@@ -78,12 +90,7 @@ func StartBrowserSession(
 		return nil, ctx, errors.New("session repository is nil")
 	}
 
-	logDir := cfg.Logging.LogDir
-	if logDir == "" {
-		if dir, err := config.GetLogDir(); err == nil {
-			logDir = dir
-		}
-	}
+	logDir := ResolveLogDir(cfg)
 
 	sessionLoggerAdapter := infralogging.NewSessionLoggerAdapter()
 	sessionUC := usecase.NewManageSessionUseCase(sessionRepo, sessionLoggerAdapter)
