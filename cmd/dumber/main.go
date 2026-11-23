@@ -33,6 +33,7 @@ import (
 	"github.com/bnema/dumber/internal/infrastructure/persistence/sqlite"
 	"github.com/bnema/dumber/internal/infrastructure/process"
 	"github.com/bnema/dumber/internal/infrastructure/runtimeprofile"
+	"github.com/bnema/dumber/internal/infrastructure/runtimewatch"
 	"github.com/bnema/dumber/internal/infrastructure/snapshot"
 	"github.com/bnema/dumber/internal/infrastructure/textinput"
 	"github.com/bnema/dumber/internal/infrastructure/updater"
@@ -447,6 +448,8 @@ func runGUIWithProfile(cfg *config.Config, timing startupTiming, profile runtime
 	timer.Mark("session")
 
 	log := logging.FromContext(ctx)
+	stopWatch := runtimewatch.Start(ctx, runtimewatch.ConfigFromEnv(os.Getenv), log)
+	defer stopWatch()
 	logCoreDumpLimits(ctx)
 
 	engine.SetHandlerContext(ctx)
