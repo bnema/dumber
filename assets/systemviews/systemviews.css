@@ -2804,19 +2804,19 @@ html[data-sv-enhanced] .sv-savebar:not([data-sv-open]):not(:has(.sv-savebar-erro
 
 .sv-home {
   --sv-home-columns: 3;
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  display: flex;
+  flex-wrap: wrap;
   gap: 1rem;
 }
 
-/* Full-width regions; list widgets share a row. */
+/* Full-width regions; list widgets share a row and stretch to fill it. */
 .sv-home-region {
-  grid-column: 1 / -1;
+  flex: 1 1 100%;
   min-width: 0;
 }
 
 .sv-home-region:has(> .sv-home-widget-favorites, > .sv-home-widget-top_sites, > .sv-home-widget-recent) {
-  grid-column: auto;
+  flex: 1 1 15rem;
 }
 
 .sv-home-region:empty,
@@ -2930,9 +2930,19 @@ html[data-sv-enhanced] .sv-savebar:not([data-sv-open]):not(:has(.sv-savebar-erro
   font-size: 1.0625rem;
 }
 
+.sv-home-search-input::-webkit-search-cancel-button {
+  appearance: none;
+}
+
+/* Suggestions float over the page like the omnibox dropdown. */
 .sv-home-suggestions {
+  position: absolute;
+  top: calc(100% + 0.25rem);
+  right: 0;
+  left: 0;
+  z-index: 10;
   display: grid;
-  margin-top: 0.25rem;
+  overflow: hidden;
   border-radius: var(--sv-radius-panel);
   background: var(--sv-surface);
   box-shadow: var(--sv-float-shadow);
@@ -3013,7 +3023,7 @@ html[data-sv-enhanced] .sv-savebar:not([data-sv-open]):not(:has(.sv-savebar-erro
 
 .sv-home-bookmarks {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
   gap: 1rem;
 }
 
@@ -3022,7 +3032,8 @@ html[data-sv-enhanced] .sv-savebar:not([data-sv-open]):not(:has(.sv-savebar-erro
   gap: 1.25rem;
 }
 
-.sv-home-group > .sv-home-section-title {
+.sv-home-group > .sv-home-section-title,
+.sv-home-bookmark-group > .sv-home-section-title {
   padding: 0;
 }
 
@@ -3278,4 +3289,8 @@ html[data-sv-enhanced] .sv-savebar:not([data-sv-open]):not(:has(.sv-savebar-erro
 @media (prefers-reduced-motion: reduce) {
   .sv-home-svc-loading { animation: none; }
   .sv-home-svc-fill { transition: none; }
+}
+
+.sv-home-search:not(:focus-within) .sv-home-suggestions {
+  display: none;
 }
