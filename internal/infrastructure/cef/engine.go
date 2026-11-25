@@ -12,10 +12,12 @@ import (
 
 	purecef "bnema.dev/purego-cef/cef"
 	cef2gtk "bnema.dev/purego-cef2gtk"
+	"github.com/rs/zerolog"
 
 	"bnema.dev/dumber/internal/application/dto"
 	"bnema.dev/dumber/internal/application/port"
 	"bnema.dev/dumber/internal/domain/entity"
+	"bnema.dev/dumber/internal/infrastructure/sigstack"
 	"bnema.dev/dumber/internal/logging"
 )
 
@@ -34,7 +36,7 @@ type Engine struct {
 	runtimeCEFDir string
 	// signalOnStackInit is the SA_ONSTACK repair done right after CEF init,
 	// logged by SetHandlerContext once the session log file exists.
-	signalOnStackInit  signalOnStackResult
+	signalOnStackInit  sigstack.Result
 	stateRoot          string
 	renderStackPlan    cef2gtk.RenderStackPlan
 	applicationScaleMu sync.RWMutex
@@ -484,7 +486,7 @@ func (e *Engine) SetHandlerContext(ctx context.Context) {
 	} else {
 		logger.Warn().Msg("cef: runtime library loaded but libcef path was not found in /proc/self/maps")
 	}
-	logSignalOnStackRepair(logger, e.signalOnStackInit, true)
+	sigstack.Log(logger, "cef", e.signalOnStackInit, zerolog.WarnLevel, true)
 	if e.messageRouter != nil {
 		e.messageRouter.SetBaseContext(ctx)
 	}
