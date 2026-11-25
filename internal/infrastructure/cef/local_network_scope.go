@@ -25,9 +25,13 @@ import (
 // whose top-level page is a system view, a request from any other origin to
 // a private or loopback address is canceled.
 //
-// Known limits: hostnames are resolved with Go's resolver, which can answer
-// differently from Chromium's (DNS rebinding). WebSockets and service or
-// shared worker fetches are not seen by the CEF resource request handler.
+// Residual risks, accepted for v1 and documented in docs/home/index.md:
+//   - Hostnames are resolved with Go's resolver, which can answer
+//     differently from Chromium's (DNS rebinding).
+//   - WebSockets and service or shared worker fetches never reach the CEF
+//     resource request handler. Only Chromium's own Local Network Access
+//     check applies to them, and the session grant of the system view
+//     origin can cover them.
 
 const (
 	localNetworkResolveTimeout = 3 * time.Second

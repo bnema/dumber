@@ -152,7 +152,7 @@ template = """
 - **URL:** absolute `http(s)://` only, without user name or password. Dumber's internal host `dumber.invalid` and its subdomains are refused, including look-alike spellings (the host is IDNA-mapped like a browser does, and hosts with `%` escapes are refused).
 - **Sandbox:** `allow-scripts allow-same-origin allow-forms allow-popups`, with `referrerpolicy="no-referrer"`. The embed runs as its own site but cannot navigate the home page.
 - **Isolation:** an embed never reaches Dumber's page bridge or internal API, cannot navigate itself or a popup to a `dumb://` page, and cannot open one in a popup.
-- **Local network:** embeds may reach LAN and private addresses. Dumber grants this to `dumb://` pages only; regular sites must ask (see [Permissions](../reference/permissions.md)).
+- **Local network:** with CEF, only the origins of your `embed` URLs (scheme, host and port) may reach LAN, private and loopback addresses from `dumb://home`. A frame or request from any other origin, such as a page an embed navigated to or a frame nested inside an embed, is blocked when it targets one. Regular sites must ask (see [Permissions](../reference/permissions.md)).
 - **Reloads:** saving `home.toml` keeps every unchanged embed running with its loaded page, including when actions, widgets or other services change. An embed reloads only when its URL or height changes, when its service moves to another group, or when services are reordered.
 
 ## Actions
@@ -242,5 +242,6 @@ Ready-made snippets are in [`examples/`](./examples/). API paths in them are exa
 
 - Embedded sites run in a third-party iframe, so their login cookies are usually blocked. For Grafana, only anonymous or public panels work.
 - API widgets read JSON only.
+- Avoid embedding public websites on `dumb://home`. Local network scoping covers http(s) requests and frames, not WebSockets or service and shared workers.
 - HTTPS certificates are verified. A service with a self-signed certificate gets the letter icon: set a local `icon` instead.
 - A failed icon lookup is remembered for 10 minutes. Editing the service's `url` or `icon` retries at once.
