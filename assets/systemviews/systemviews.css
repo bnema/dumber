@@ -2931,7 +2931,10 @@ html[data-sv-enhanced] .sv-savebar:not([data-sv-open]):not(:has(.sv-savebar-erro
 }
 
 .sv-home-search-input::-webkit-search-cancel-button {
+  -webkit-appearance: none;
   appearance: none;
+  /* WebKitGTK keeps drawing the button without this. */
+  display: none;
 }
 
 /* Suggestions float over the page like the omnibox dropdown. */
