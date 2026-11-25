@@ -89,6 +89,7 @@ func NewEngine(
 		clipboard:              deps.Clipboard,
 		resolver:               deps.ImageDataResolver,
 		activity:               NewRuntimeActivityTracker(),
+		localNetwork:           newLocalNetworkScope(),
 	}
 
 	logger.Info().

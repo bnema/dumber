@@ -50,6 +50,11 @@ type Engine struct {
 	schemeHandler *dumbSchemeHandler
 	contentInj    *contentInjector
 
+	// localNetwork keeps the local network access of system views to the
+	// home embed origins. Nil in unit-test literals.
+	localNetwork         *localNetworkScope
+	localNetworkHandlers localNetworkHandlers
+
 	registerHandlers                 HandlerRegistrar
 	registerAccentHandlers           AccentHandlerRegistrar
 	currentConfigPayload             func() ([]byte, error)
@@ -497,6 +502,9 @@ func (e *Engine) recordContextInitialized() {
 	logging.FromContext(e.ctx).Debug().
 		Uint64("count", count).
 		Msg("cef: OnContextInitialized")
+	if count == 1 {
+		resetSystemViewLocalNetworkGrants(e.ctx)
+	}
 }
 
 func (e *Engine) recordChildProcessLaunch(processType, useAngle, ozonePlatform, renderNodeOverride, commandLine string) {

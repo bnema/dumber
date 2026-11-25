@@ -1310,11 +1310,34 @@ func (h *handlerSet) OnOpenUrlfromTab(
 	return 0
 }
 
+// GetResourceRequestHandler runs on the CEF IO thread for every request,
+// redirects included. It only returns a handler for a request that a system
+// view page must not let reach the local network (localNetworkScope).
 func (h *handlerSet) GetResourceRequestHandler(
-	_ purecef.Browser, _ purecef.Frame, _ purecef.Request,
-	_, _ int32, _ string, _ *int32,
+	browser purecef.Browser, _ purecef.Frame, request purecef.Request,
+	_, _ int32, requestInitiator string, _ *int32,
 ) purecef.ResourceRequestHandler {
-	return nil
+	if browser == nil || request == nil || h.wv == nil || h.wv.engine == nil || h.wv.engine.localNetwork == nil {
+		return nil
+	}
+	mainFrame := browser.GetMainFrame()
+	if mainFrame == nil {
+		return nil
+	}
+	engine := h.wv.engine
+	verdict := engine.localNetwork.decide(mainFrame.GetURL(), request.GetURL(), requestInitiator, request.GetResourceType())
+	if verdict == localNetworkAllow {
+		return nil
+	}
+	block, resolve := engine.localNetworkHandlers.get(engine.ctx, engine.localNetwork)
+	if verdict == localNetworkBlock {
+		logging.FromContext(h.currentContext()).Debug().
+			Str("initiator", requestInitiator).
+			Str("destination", requestOrigin(request.GetURL())).
+			Msg("cef: blocked a local network request from a system view subframe")
+		return block
+	}
+	return resolve
 }
 
 func (h *handlerSet) GetAuthCredentials(
