@@ -23,7 +23,6 @@ const (
 	homeWidgetRegionPrefix = "home-widget-"
 )
 
-
 // homeDefaultSearchEngine is used when the browser sends no search engine.
 const homeDefaultSearchEngine = "https://duckduckgo.com/?q=%s"
 
@@ -119,16 +118,39 @@ func homeSearchURL(engine, query string) string {
 	if query == "" {
 		return ""
 	}
-	if browserurl.LooksLikeURL(query) {
-		if target := browserurl.Normalize(query); isHomeNavigableURL(target) {
-			return target
-		}
+	if target := homeAddressURL(query); target != "" {
+		return target
 	}
+	return homeEngineSearchURL(engine, query)
+}
+
+// homeAddressURL returns the normalised address for a URL-like query, using
+// the omnibox check, or "" when query is not a navigable address.
+func homeAddressURL(query string) string {
+	if !browserurl.LooksLikeURL(query) {
+		return ""
+	}
+	if target := browserurl.Normalize(query); isHomeNavigableURL(target) {
+		return target
+	}
+	return ""
+}
+
+// homeEngineSearchURL fills engine with the encoded query. An empty engine
+// or one without %s falls back to the default engine. It returns "" when the
+// result is not navigable.
+func homeEngineSearchURL(engine, query string) string {
 	engine = strings.TrimSpace(engine)
 	if engine == "" || !strings.Contains(engine, "%s") {
 		engine = homeDefaultSearchEngine
 	}
-	target := strings.Replace(engine, "%s", url.QueryEscape(query), 1)
+	return homeFillTemplate(engine, query)
+}
+
+// homeFillTemplate replaces %s in template with the encoded query, or
+// returns "" when the result is not navigable.
+func homeFillTemplate(template, query string) string {
+	target := strings.Replace(template, "%s", url.QueryEscape(query), 1)
 	if !isHomeNavigableURL(target) {
 		return ""
 	}
