@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"time"
+
+	"bnema.dev/dumber/internal/domain/entity"
 )
 
 // ErrHomeIconNotFound reports that no usable icon exists for a home service.
@@ -29,6 +31,8 @@ type HomeIconSource interface {
 	FetchIcon(ctx context.Context, serviceURL, iconURL string) (*HomeIconImage, error)
 	// ReadLocalIcon reads a local override icon from an absolute path.
 	ReadLocalIcon(ctx context.Context, path string) (*HomeIconImage, error)
+	// LocalIconModTime returns the modification time of a local icon file.
+	LocalIconModTime(ctx context.Context, path string) (time.Time, error)
 }
 
 // HomeIconCache stores normalized home service icons, separate from the
@@ -52,4 +56,9 @@ type HomeIconResolver interface {
 // home icon resolver to internal systemview pages.
 type HomeIconResolverSetter interface {
 	SetHomeIconResolver(resolver HomeIconResolver)
+}
+
+// HomeIconVersioner computes the cache-busting icon version of a service.
+type HomeIconVersioner interface {
+	HomeIconVersion(ctx context.Context, service entity.HomeService) string
 }

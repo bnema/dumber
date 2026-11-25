@@ -402,6 +402,15 @@ func (s *HomeIconSource) FetchIcon(ctx context.Context, serviceURL, iconURL stri
 	return &appport.HomeIconImage{URL: iconURL, Bytes: body, ContentType: ct}, nil
 }
 
+// LocalIconModTime returns the modification time of a local icon file.
+func (*HomeIconSource) LocalIconModTime(_ context.Context, path string) (time.Time, error) {
+	info, err := os.Stat(path)
+	if err != nil {
+		return time.Time{}, err
+	}
+	return info.ModTime(), nil
+}
+
 // ReadLocalIcon reads an override icon file (max 1 MiB).
 func (*HomeIconSource) ReadLocalIcon(_ context.Context, path string) (*appport.HomeIconImage, error) {
 	f, err := os.Open(path)

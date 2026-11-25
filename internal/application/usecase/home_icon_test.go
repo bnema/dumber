@@ -291,3 +291,55 @@ func TestHomeIconByIDConfigEditBypassesFailureMemory(t *testing.T) {
 	resolve()
 	require.Equal(t, 2, calls, "an edited service must retry immediately")
 }
+
+func TestHomeIconVersionTracksURLIconAndOverrideMTime(t *testing.T) {
+	fx := newHomeIconFixture(t)
+	fx.uc.configDir = "/cfg"
+	ctx := context.Background()
+	mtime := time.Unix(1000, 0)
+	fx.src.EXPECT().LocalIconModTime(mock.Anything, "/cfg/icons/j.svg").
+		RunAndReturn(func(context.Context, string) (time.Time, error) { return mtime, nil })
+
+	base := entity.HomeService{ID: "j", URL: svc, Icon: "icons/j.svg"}
+	v1 := fx.uc.HomeIconVersion(ctx, base)
+	require.Len(t, v1, 12)
+	require.Equal(t, v1, fx.uc.HomeIconVersion(ctx, base), "stable when nothing changes")
+
+	renamed := base
+	renamed.Name = "Renamed"
+	require.Equal(t, v1, fx.uc.HomeIconVersion(ctx, renamed), "unrelated fields do not bust the cache")
+
+	moved := base
+	moved.URL = "http://jelly.local:9000/"
+	require.NotEqual(t, v1, fx.uc.HomeIconVersion(ctx, moved), "url change")
+
+	mtime = mtime.Add(time.Second)
+	require.NotEqual(t, v1, fx.uc.HomeIconVersion(ctx, base), "override file edited")
+
+	noIcon := entity.HomeService{ID: "j", URL: svc}
+	require.NotEqual(t, v1, fx.uc.HomeIconVersion(ctx, noIcon), "icon removed")
+
+	escaping := entity.HomeService{ID: "j", URL: svc, Icon: "../x.png"}
+	require.NotEmpty(t, fx.uc.HomeIconVersion(ctx, escaping), "escaping paths are never stat'ed but still versioned")
+}
+
+type stubIconVersioner struct{}
+
+func (stubIconVersioner) HomeIconVersion(_ context.Context, s entity.HomeService) string {
+	return "v-" + s.ID
+}
+
+func TestLoadHomeSetsIconVersions(t *testing.T) {
+	ctx := context.Background()
+	layout := entity.DefaultHomeLayout()
+	layout.Groups = []entity.HomeGroup{{Name: "G", Services: []entity.HomeService{{ID: "a", Name: "A"}, {ID: "b", Name: "B"}}}}
+	source := portmocks.NewMockHomeConfigSource(t)
+	source.EXPECT().Load(ctx).Return(appport.HomeConfigSnapshot{Layout: layout}, nil)
+
+	resp, err := NewHomeUseCase(HomeDeps{Source: source, IconVersions: stubIconVersioner{}}).LoadHome(ctx)
+	require.NoError(t, err)
+	got := resp.Layout.Groups[0].Services
+	require.Equal(t, "v-a", got[0].IconVersion)
+	require.Equal(t, "v-b", got[1].IconVersion)
+	require.Empty(t, layout.Groups[0].Services[0].IconVersion, "source layout is not mutated")
+}

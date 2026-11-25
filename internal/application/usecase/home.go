@@ -32,6 +32,8 @@ type HomeDeps struct {
 	LookupEnv func(string) (string, bool)
 	// Now defaults to time.Now.
 	Now func() time.Time
+	// IconVersions sets HomeService.IconVersion for the page. Optional.
+	IconVersions port.HomeIconVersioner
 }
 
 // HomeUseCase serves the dumb://home page.
@@ -44,6 +46,7 @@ type HomeUseCase struct {
 	templates port.HomeTemplateRenderer
 	lookupEnv func(string) (string, bool)
 	now       func() time.Time
+	versions  port.HomeIconVersioner
 
 	widgetMu       sync.Mutex
 	widgetCache    map[string]homeWidgetCacheEntry
@@ -66,6 +69,7 @@ func NewHomeUseCase(deps HomeDeps) *HomeUseCase {
 		templates:      deps.Templates,
 		lookupEnv:      deps.LookupEnv,
 		now:            deps.Now,
+		versions:       deps.IconVersions,
 		widgetCache:    map[string]homeWidgetCacheEntry{},
 		widgetInflight: map[string]*homeWidgetFlight{},
 		actionRunning:  map[string]bool{},
@@ -97,6 +101,14 @@ func (uc *HomeUseCase) LoadHome(ctx context.Context) (*dto.HomeLoadResponse, err
 	}
 	if uc.runtime != nil {
 		resp.SearchEngine = uc.runtime.Current().UI.DefaultSearchEngine
+	}
+	if uc.versions != nil {
+		for gi := range resp.Layout.Groups {
+			services := resp.Layout.Groups[gi].Services
+			for si := range services {
+				services[si].IconVersion = uc.versions.HomeIconVersion(ctx, services[si])
+			}
+		}
 	}
 	return resp, nil
 }

@@ -12,23 +12,29 @@ import (
 )
 
 // wireHomeIcons serves home service icons to the home systemview through
-// the engine's /api/home-icon endpoint.
-func wireHomeIcons(ctx context.Context, engine port.Engine, homeConfig port.HomeConfigSource, configDir string) {
-	setter, ok := engine.(port.HomeIconResolverSetter)
-	if !ok {
-		return
-	}
+// the engine's /api/home-icon endpoint and returns the use case, which also
+// computes the page's icon versions.
+func wireHomeIcons(
+	ctx context.Context,
+	engine port.Engine,
+	homeConfig port.HomeConfigSource,
+	configDir string,
+) *usecase.HomeIconUseCase {
 	var cache port.HomeIconCache
 	if faviconCacheDir, err := config.GetFaviconCacheDir(); err != nil || faviconCacheDir == "" {
 		logging.FromContext(ctx).Warn().Err(err).Msg("home icon cache disabled: no favicon cache dir")
 	} else {
 		cache = infrafavicon.NewHomeIconCache(filepath.Join(faviconCacheDir, "home"))
 	}
-	setter.SetHomeIconResolver(usecase.NewHomeIconUseCase(usecase.HomeIconDeps{
+	icons := usecase.NewHomeIconUseCase(usecase.HomeIconDeps{
 		Source:    infrafavicon.NewHomeIconSource(),
 		Converter: infrafavicon.NewImageConverter(),
 		Cache:     cache,
 		Config:    homeConfig,
 		ConfigDir: configDir,
-	}))
+	})
+	if setter, ok := engine.(port.HomeIconResolverSetter); ok {
+		setter.SetHomeIconResolver(icons)
+	}
+	return icons
 }

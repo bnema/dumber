@@ -143,11 +143,15 @@ type HomeGroup struct {
 
 // HomeService is a service card.
 type HomeService struct {
-	ID          string             `toml:"id" json:"id"`
-	Name        string             `toml:"name" json:"name"`
-	URL         string             `toml:"url,omitempty" json:"url,omitempty"`
-	Description string             `toml:"description,omitempty" json:"description,omitempty"`
-	Icon        string             `toml:"icon,omitempty" json:"icon,omitempty"`
+	ID          string `toml:"id" json:"id"`
+	Name        string `toml:"name" json:"name"`
+	URL         string `toml:"url,omitempty" json:"url,omitempty"`
+	Description string `toml:"description,omitempty" json:"description,omitempty"`
+	Icon        string `toml:"icon,omitempty" json:"icon,omitempty"`
+	// IconVersion changes when the service's icon may have changed (url,
+	// icon path, override file mtime). Set natively for the page only; the
+	// page appends it to /api/home-icon as a cache buster.
+	IconVersion string             `toml:"-" json:"icon_version,omitempty"`
 	Widget      *HomeServiceWidget `toml:"widget,omitempty" json:"widget,omitempty"`
 	Actions     []HomeAction       `toml:"actions,omitempty" json:"actions,omitempty"`
 }
@@ -383,7 +387,8 @@ func (l HomeLayout) Validate() []HomeValidationError {
 		if g.Name == "" {
 			errs.addf(p+".name", "is required")
 		}
-		for j, s := range g.Services {
+		for j := range g.Services {
+			s := &g.Services[j]
 			sp := fmt.Sprintf("%s.services[%d]", p, j)
 			if s.ID != "" {
 				if first, dup := seen[s.ID]; dup {
@@ -392,7 +397,7 @@ func (l HomeLayout) Validate() []HomeValidationError {
 					seen[s.ID] = sp
 				}
 			}
-			validateService(&errs, sp, s)
+			validateService(&errs, sp, *s)
 		}
 	}
 	return errs
@@ -533,9 +538,9 @@ func checkIconPath(icon string) string {
 // FindService returns the service with the given id.
 func (l HomeLayout) FindService(id string) (HomeService, bool) {
 	for _, g := range l.Groups {
-		for _, s := range g.Services {
-			if s.ID == id {
-				return s, true
+		for i := range g.Services {
+			if g.Services[i].ID == id {
+				return g.Services[i], true
 			}
 		}
 	}
@@ -566,8 +571,8 @@ func (l HomeLayout) RedactedForPage() HomeLayout {
 	}
 	for i, g := range l.Groups {
 		services := make([]HomeService, len(g.Services))
-		for j, s := range g.Services {
-			services[j] = redactService(s)
+		for j := range g.Services {
+			services[j] = redactService(g.Services[j])
 		}
 		out.Groups[i] = HomeGroup{Name: g.Name, Services: services}
 	}

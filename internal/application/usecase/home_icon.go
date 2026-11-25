@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -33,7 +34,10 @@ const HomeIconNegativeTTL = 10 * time.Minute
 // every candidate fetch).
 const homeIconResolveTimeout = 20 * time.Second
 
-var _ appport.HomeIconResolver = (*HomeIconUseCase)(nil)
+var (
+	_ appport.HomeIconResolver  = (*HomeIconUseCase)(nil)
+	_ appport.HomeIconVersioner = (*HomeIconUseCase)(nil)
+)
 
 // HomeIconDeps wires the home service icon use case.
 type HomeIconDeps struct {
@@ -114,6 +118,22 @@ func (uc *HomeIconUseCase) ResolveHomeIconByID(ctx context.Context, serviceID st
 		}
 	}
 	return uc.resolveShared(ctx, homeIconKey(service.URL, override)+"\x00"+serviceConfigHash(service), service.URL, override)
+}
+
+// HomeIconVersion returns a short hash of the service URL, icon path and the
+// override file's mtime. The page appends it to /api/home-icon so an edited
+// icon bypasses the browser's max-age cache; the endpoint ignores it.
+func (uc *HomeIconUseCase) HomeIconVersion(ctx context.Context, service entity.HomeService) string {
+	mtime := ""
+	if service.Icon != "" && uc.source != nil {
+		if path, ok := resolveUnderDir(uc.configDir, service.Icon); ok {
+			if t, err := uc.source.LocalIconModTime(ctx, path); err == nil {
+				mtime = strconv.FormatInt(t.UnixNano(), 10)
+			}
+		}
+	}
+	sum := sha256.Sum256([]byte(service.URL + "\x00" + service.Icon + "\x00" + mtime))
+	return hex.EncodeToString(sum[:6])
 }
 
 // serviceConfigHash fingerprints a service's own home.toml entry, so any
