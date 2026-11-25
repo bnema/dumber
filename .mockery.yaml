@@ -142,6 +142,7 @@ packages:
       HomePage: {}
       FileOpener: {}
       HomeHTTPClient: {}
+      HomeStatusProber: {}
       HomeTemplateRenderer: {}
       HomeIconVersioner: {}
       HomeIconResolver: {}
