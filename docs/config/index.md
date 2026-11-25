@@ -346,7 +346,7 @@ Existing configs using older keys are migrated to the current engine shape. New 
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| `workspace.new_pane_url` | string | `"dumb://home"` | URL loaded for new panes/tabs (supports `http(s)://`, `dumb://`, `file://`, `about:`) |
+| `workspace.new_pane_url` | string | `"dumb://home"` | URL loaded for new panes/tabs: an `http(s)://`, `dumb://`, `file://` or `about:` URL, or an existing local path |
 | `workspace.startup_url` | string | `"dumb://home"` | URL opened at startup when no URL is given and no session is restored (same schemes as `new_pane_url`) |
 | `workspace.switch_to_tab_on_move` | bool | `true` | When moving a pane to another tab, automatically switch to the destination tab |
 

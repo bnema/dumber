@@ -64,14 +64,14 @@ Built-in widgets, shown at the top in file order. Without `home.toml` the defaul
 | Key | Type | Applies to | Default | Rules |
 |-----|------|-----------|---------|-------|
 | `type` | string | all | - | `api` or `embed` |
-| `url` | string | all | - | `http(s)://` |
+| `url` | string | all | - | `http(s)://`; see [Embeds](#embeds) for embed limits |
 | `headers` | table | `api` | - | Not allowed on `embed` |
 | `refresh` | duration | `api` | `"60s"` | At least `5s` |
 | `timeout` | duration | `api` | `"10s"` | Above `0`, at most `60s` |
 | `display` | string | `api` | `"stats"` | `stats`, `list`, `bar` |
 | `fields` | array | `api` | - | At least one, unless `template` is set |
 | `items` | string | `api` | - | Path to an array, only with `display = "list"` |
-| `template` | string | `api` | - | HTML template, at most 16 KiB. Replaces `display` |
+| `template` | string | `api` | - | HTML template, at most 16 KiB. Replaces `display`. Not allowed on `embed` |
 | `height` | int (px) | `embed` | `240` | `80`-`2000` |
 
 Durations use Go syntax: `30s`, `5m`, `1h30m`.
@@ -147,13 +147,19 @@ template = """
 
 ## Embeds
 
-`embed` shows `url` in a sandboxed iframe, `height` pixels tall. Only `http(s)://` URLs are allowed. The embedded site must allow framing: some services send `X-Frame-Options` or `frame-ancestors` and refuse to be embedded.
+`embed` shows `url` in an iframe, `height` pixels tall. The embedded site must allow framing: some services send `X-Frame-Options` or `frame-ancestors` and refuse to be embedded.
+
+- **URL:** absolute `http(s)://` only, without user name or password. Dumber's internal host `dumber.invalid` and its subdomains are refused, including look-alike spellings (the host is IDNA-mapped like a browser does, and hosts with `%` escapes are refused).
+- **Sandbox:** `allow-scripts allow-same-origin allow-forms allow-popups`, with `referrerpolicy="no-referrer"`. The embed runs as its own site but cannot navigate the home page.
+- **Isolation:** an embed never reaches Dumber's page bridge or internal API, cannot navigate itself or a popup to a `dumb://` page, and cannot open one in a popup.
+- **Local network:** embeds may reach LAN and private addresses. Dumber grants this to `dumb://` pages only; regular sites must ask (see [Permissions](../reference/permissions.md)).
+- **Reloads:** saving `home.toml` keeps every unchanged embed running with its loaded page. An embed reloads only when its URL or height changes, or when services are reordered.
 
 ## Actions
 
 Each action is a button on the service card. With `confirm`, the page asks for confirmation first. The browser process sends the request and the page only shows whether it succeeded. Only one request per action runs at a time.
 
-**Inputs** ask the user for values before sending. Each input is `{ name, label, placeholder }`. `name` matches `[A-Za-z_][A-Za-z0-9_]*` and is unique per action. Use `{{input.NAME}}` in two places only:
+**Inputs** ask the user for values before sending. Each input is `{ name, label, placeholder }`. `name` matches `[A-Za-z_][A-Za-z0-9_]{0,63}` and is unique per action, `label` is required and `placeholder` is optional. Use `{{input.NAME}}` in two places only:
 
 - `url`, where the value is URL-encoded.
 - A JSON `body`, inside a string literal such as `body = '{"query": "{{input.query}}"}'`, where the value is JSON-escaped. The body must be valid JSON once inputs are filled in.
@@ -205,11 +211,15 @@ Discovery runs in the browser process. On private and LAN addresses it only foll
 
 | Part | Classes |
 |------|---------|
-| Page | `sv-home`, `sv-home-header`, `sv-home-title`, `sv-home-nav`, `sv-home-open-config`, `sv-home-grid`, `sv-home-columns`, `sv-home-region`, `sv-home-section-title`, `sv-home-muted` |
-| Widgets | `sv-home-widget`, `sv-home-widget-<type>`, `sv-home-clock`, `sv-home-clock-time`, `sv-home-clock-date`, `sv-home-search`, `sv-home-search-input`, `sv-home-suggestions`, `sv-home-suggestion`, `sv-home-rows`, `sv-home-row`, `sv-home-row-title`, `sv-home-row-url` |
+| Page | `sv-home`, `sv-home-region` (`sv-home-region-groups` for the service area), `sv-home-header`, `sv-home-title`, `sv-home-open-config`, `sv-home-section-title`, `sv-home-muted` |
+| Widgets | `sv-home-widget`, `sv-home-widget-<type>`, `sv-home-clock`, `sv-home-clock-time`, `sv-home-clock-date`, `sv-home-search`, `sv-home-search-input`, `sv-home-suggestions`, `sv-home-suggestion`, `sv-home-rows`, `sv-home-row`, `sv-home-row-title`, `sv-home-row-url`, `sv-home-loading`, `sv-home-skeleton` |
 | Bookmarks | `sv-home-bookmarks`, `sv-home-bookmark-group` |
-| Services | `sv-home-groups`, `sv-home-group`, `sv-home-service`, `sv-home-service-link`, `sv-home-service-icon`, `sv-home-service-icon-has-image`, `sv-home-service-glyph`, `sv-home-service-text`, `sv-home-service-name`, `sv-home-service-description`, `sv-home-service-widget` |
+| Services | `sv-home-groups`, `sv-home-group`, `sv-home-grid`, `sv-home-service`, `sv-home-service-tile`, `sv-home-service-link`, `sv-home-service-icon`, `sv-home-service-icon-has-image`, `sv-home-service-glyph`, `sv-home-service-text`, `sv-home-service-name`, `sv-home-service-description`, `sv-home-service-widget`, `sv-home-service-actions`, `sv-home-service-embed`, `sv-home-embed` |
+| API widget | `sv-home-svc`, `sv-home-svc-display-<display>`, `sv-home-svc-loading`, `sv-home-svc-stale`, `sv-home-svc-stale-badge`, `sv-home-svc-error`, `sv-home-svc-stats`, `sv-home-svc-field`, `sv-home-svc-label`, `sv-home-svc-value`, `sv-home-svc-list`, `sv-home-svc-row`, `sv-home-svc-cell`, `sv-home-svc-bars`, `sv-home-svc-bar`, `sv-home-svc-track`, `sv-home-svc-fill`, `sv-home-svc-html` |
+| Actions | `sv-home-svc-actions`, `sv-home-svc-action`, `sv-home-svc-chip`, `sv-home-svc-confirm`, `sv-home-svc-confirm-text`, `sv-home-svc-form`, `sv-home-svc-form-buttons` |
 | Errors | `sv-home-errors`, `sv-home-errors-title`, `sv-home-error-list`, `sv-home-error`, `sv-home-error-path` |
+
+Layout variables: `--sv-home-columns` (from `settings.columns`) on `sv-home-groups`, and `--sv-home-bar` (fill percent) on each `sv-home-svc-bar`.
 
 Example:
 
