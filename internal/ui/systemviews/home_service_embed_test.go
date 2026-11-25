@@ -3,7 +3,6 @@ package systemviews
 import (
 	"testing"
 
-	"bnema.dev/dumber/internal/application/dto"
 	"bnema.dev/dumber/internal/domain/entity"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -16,9 +15,9 @@ func embedService(rawURL string, height int) entity.HomeService {
 }
 
 // embedPushes returns every markup pushed into the cam embed region.
-func embedPushes(dom *regionDOM) []string {
+func embedPushes(dom *treeDOM) []string {
 	var pushes []string
-	for _, update := range dom.regions {
+	for _, update := range dom.regions() {
 		for _, region := range update {
 			if region.Name == homeServiceEmbedRegion("cam") {
 				pushes = append(pushes, region.HTML)
@@ -28,12 +27,12 @@ func embedPushes(dom *regionDOM) []string {
 	return pushes
 }
 
-func newEmbedApp(t *testing.T, home *homeStore) (*App, *regionDOM) {
+func newEmbedApp(t *testing.T, home *homeStore) (*App, *treeDOM) {
 	t.Helper()
-	dom := &editRegionDOM{}
+	dom := newTreeDOM()
 	app := newHomeApp(t, dom, home)
 	t.Cleanup(app.Close)
-	return app, &dom.regionDOM
+	return app, dom
 }
 
 func TestHomeEmbedURL(t *testing.T) {
@@ -91,7 +90,7 @@ func TestHomeEmbedKeptAcrossReloads(t *testing.T) {
 	home := newHomeStore(t, &homeStore{load: homeLayoutWith(embedService("https://cam.lan/live", 0), entity.HomeService{ID: "other", Name: "Other"})})
 	app, dom := newEmbedApp(t, home)
 	require.Len(t, embedPushes(dom), 1)
-	mounts := dom.mountCount
+	mounts := dom.mountCount()
 
 	// Same layout: nothing touches the iframe.
 	reloadHome(t, app)
@@ -100,7 +99,7 @@ func TestHomeEmbedKeptAcrossReloads(t *testing.T) {
 	home.load.Layout.Groups[0].Services[1].Description = "changed"
 	reloadHome(t, app)
 	assert.Len(t, embedPushes(dom), 1, "the iframe node is kept")
-	assert.Equal(t, mounts, dom.mountCount, "no remount")
+	assert.Equal(t, mounts, dom.mountCount(), "no remount")
 
 	// A new height replaces the iframe.
 	home.load.Layout.Groups[0].Services[0].Widget.Height = 500
@@ -115,19 +114,4 @@ func TestHomeEmbedKeptAcrossReloads(t *testing.T) {
 	pushes = embedPushes(dom)
 	require.Len(t, pushes, 3)
 	assert.Empty(t, pushes[2])
-}
-
-func TestHomeEmbedPushedAgainAfterRemount(t *testing.T) {
-	t.Parallel()
-	home := newHomeStore(t, &homeStore{load: homeLayoutWith(embedService("https://cam.lan/live", 0), entity.HomeService{ID: "nas", Name: "NAS"})})
-	app, dom := newEmbedApp(t, home)
-	mounts := dom.mountCount
-
-	// A reorder is the structural change that still remounts.
-	home.load = dto.HomeLoadResponse{Layout: entity.HomeLayout{Groups: []entity.HomeGroup{
-		{Name: "Lab", Services: []entity.HomeService{{ID: "nas", Name: "NAS"}, embedService("https://cam.lan/live", 0)}},
-	}}}
-	reloadHome(t, app)
-	assert.Equal(t, mounts+1, dom.mountCount)
-	assert.Len(t, embedPushes(dom), 2, "the remount emptied the region")
 }

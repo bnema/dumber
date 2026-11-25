@@ -31,8 +31,6 @@ type homeServiceWidgets struct {
 	// embeds is the key (url and height) of the iframe pushed into each embed
 	// region; an unchanged key is never pushed again, so the iframe is kept.
 	embeds map[string]string
-	// newTicker returns a tick channel and its stop function. Tests replace it.
-	newTicker func(time.Duration) (<-chan time.Time, func())
 }
 
 // homeServiceWidgetView is what one api widget slot renders.
@@ -175,22 +173,13 @@ func (a *App) startHomeServiceWidgetsLocked(ctx context.Context) {
 }
 
 func (a *App) refreshHomeServiceWidget(ctx context.Context, generation uint64, service entity.HomeService, interval time.Duration) {
-	a.lockState()
-	newTicker := a.homeSvc.newTicker
-	a.unlockState()
-	if newTicker == nil {
-		newTicker = func(d time.Duration) (<-chan time.Time, func()) {
-			ticker := time.NewTicker(d)
-			return ticker.C, ticker.Stop
-		}
-	}
-	ticks, stop := newTicker(interval)
-	defer stop()
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
 	for {
 		select {
 		case <-ctx.Done():
 			return
-		case <-ticks:
+		case <-ticker.C:
 			if !a.fetchHomeServiceWidget(ctx, generation, service) {
 				return
 			}

@@ -111,16 +111,6 @@ func (s *homeStore) actionRequests() []dto.HomeActionRequest {
 	return append([]dto.HomeActionRequest(nil), s.actionReqs...)
 }
 
-type navDOM struct {
-	regionDOM
-	navigated []string
-}
-
-func (d *navDOM) NavigateTo(rawURL string) error {
-	d.navigated = append(d.navigated, rawURL)
-	return nil
-}
-
 var homeTestNow = time.Date(2026, 11, 25, 14, 5, 0, 0, time.UTC)
 
 func newHomeApp(t *testing.T, dom DOM, home *homeStore) *App {
@@ -128,6 +118,7 @@ func newHomeApp(t *testing.T, dom DOM, home *homeStore) *App {
 	app := NewApp(Dependencies{DOM: dom, Home: home.service, LocationURI: "dumb://home"})
 	app.now = func() time.Time { return homeTestNow }
 	require.NoError(t, app.LoadInitial(context.Background()))
+	require.NoError(t, dom.Mount(app.renderedHTML))
 	fillHome(app)
 	return app
 }
@@ -189,7 +180,7 @@ func TestHomeRendersErrorBanner(t *testing.T) {
 			},
 		},
 	})
-	app := newHomeApp(t, &regionDOM{}, home)
+	app := newHomeApp(t, newTreeDOM(), home)
 
 	assert.Contains(t, app.renderedHTML, `data-sv-region="home-errors"`)
 	assert.Contains(t, app.renderedHTML, `home.toml:4:9`)
@@ -207,7 +198,7 @@ func TestHomeRendersServiceGroups(t *testing.T) {
 			{ID: "nas", Name: "NAS"},
 		}}},
 	}
-	app := newHomeApp(t, &regionDOM{}, newHomeStore(t, &homeStore{load: dto.HomeLoadResponse{Layout: layout}}))
+	app := newHomeApp(t, newTreeDOM(), newHomeStore(t, &homeStore{load: dto.HomeLoadResponse{Layout: layout}}))
 	html := app.renderedHTML
 
 	assert.Contains(t, html, `--sv-home-columns: 4;`)
@@ -255,34 +246,27 @@ func TestHomeSearchURLNeverNavigatesToScriptSchemes(t *testing.T) {
 func TestHomeSearchActionNavigates(t *testing.T) {
 	t.Parallel()
 	home := newHomeStore(t, &homeStore{load: dto.HomeLoadResponse{Layout: entity.DefaultHomeLayout(), SearchEngine: "https://s.test/?q=%s"}})
-	dom := &navDOM{}
+	dom := &navTreeDOM{treeDOM: newTreeDOM()}
 	app := newHomeApp(t, dom, home)
 
 	require.NoError(t, app.HandleDOMAction(context.Background(), DOMAction{Action: homeActionSearch, Data: map[string]string{"query": "cats"}}))
 	assert.Equal(t, []string{"https://s.test/?q=cats"}, dom.navigated)
 }
 
-// editRegionDOM is a regionDOM that also accepts structural edits.
-type editRegionDOM struct{ regionDOM }
-
-func (*editRegionDOM) InsertAnchorMarkup(string, string, string) error     { return nil }
-func (*editRegionDOM) RemoveAnchor(string) error                           { return nil }
-func (*editRegionDOM) SetAnchorStyleProperty(string, string, string) error { return nil }
-
 func TestHomeReloadSwapsOnlyChangedRegions(t *testing.T) {
 	t.Parallel()
 	layout := entity.DefaultHomeLayout()
 	home := newHomeStore(t, &homeStore{load: dto.HomeLoadResponse{Layout: layout}})
-	dom := &editRegionDOM{}
+	dom := newTreeDOM()
 	app := newHomeApp(t, dom, home)
-	dom.regions = nil
-	mounts := dom.mountCount
+	dom.reset()
+	mounts := dom.mountCount()
 
 	// Unchanged data: nothing is swapped or remounted.
 	require.NoError(t, app.HandleDOMAction(context.Background(), DOMAction{Action: actionSystemviewChanged, Data: map[string]string{"topic": "home"}}))
 	app.homeFillWG.Wait()
-	assert.Empty(t, dom.regions)
-	assert.Equal(t, mounts, dom.mountCount)
+	assert.Empty(t, dom.regions())
+	assert.Equal(t, mounts, dom.mountCount())
 
 	// Other topics are ignored.
 	require.NoError(t, app.HandleDOMAction(context.Background(), DOMAction{Action: actionSystemviewChanged, Data: map[string]string{"topic": "config"}}))
@@ -292,36 +276,36 @@ func TestHomeReloadSwapsOnlyChangedRegions(t *testing.T) {
 	home.load.Layout.Settings.Title = "Lab"
 	require.NoError(t, app.HandleDOMAction(context.Background(), DOMAction{Action: actionSystemviewChanged, Data: map[string]string{"topic": "home"}}))
 	app.homeFillWG.Wait()
-	require.Len(t, dom.regions, 1)
-	require.Len(t, dom.regions[0], 1)
-	assert.Equal(t, homeRegionHeader, dom.regions[0][0].Name)
-	assert.Contains(t, dom.regions[0][0].HTML, "Lab")
+	require.Len(t, dom.regions(), 1)
+	require.Len(t, dom.regions()[0], 1)
+	assert.Equal(t, homeRegionHeader, dom.regions()[0][0].Name)
+	assert.Contains(t, dom.regions()[0][0].HTML, "Lab")
 
 	// A widget added swaps the widgets container only.
 	home.load.Layout.Widgets = append(home.load.Layout.Widgets, entity.HomeBuiltinWidget{Type: entity.HomeWidgetClock})
 	require.NoError(t, app.HandleDOMAction(context.Background(), DOMAction{Action: actionSystemviewChanged, Data: map[string]string{"topic": "home"}}))
 	app.homeFillWG.Wait()
-	require.Len(t, dom.regions, 2)
-	assert.Equal(t, homeRegionWidgets, dom.regions[1][0].Name)
-	assert.Equal(t, mounts, dom.mountCount)
+	require.Len(t, dom.regions(), 2)
+	assert.Equal(t, homeRegionWidgets, dom.regions()[1][0].Name)
+	assert.Equal(t, mounts, dom.mountCount())
 }
 
 func TestHomeClockTickSwapsOnlyClock(t *testing.T) {
 	t.Parallel()
 	home := newHomeStore(t, &homeStore{load: dto.HomeLoadResponse{Layout: entity.DefaultHomeLayout()}})
-	dom := &regionDOM{}
+	dom := newTreeDOM()
 	app := newHomeApp(t, dom, home)
-	dom.regions = nil
+	dom.reset()
 
 	require.NoError(t, app.HandleDOMAction(context.Background(), DOMAction{Action: homeActionClockTick}))
-	assert.Empty(t, dom.regions, "same minute, nothing to swap")
+	assert.Empty(t, dom.regions(), "same minute, nothing to swap")
 
 	app.now = func() time.Time { return homeTestNow.Add(time.Minute) }
 	require.NoError(t, app.HandleDOMAction(context.Background(), DOMAction{Action: homeActionClockTick}))
-	require.Len(t, dom.regions, 1)
-	require.Len(t, dom.regions[0], 1)
-	assert.Equal(t, homeWidgetRegion(1), dom.regions[0][0].Name)
-	assert.Contains(t, dom.regions[0][0].HTML, "14:06")
+	require.Len(t, dom.regions(), 1)
+	require.Len(t, dom.regions()[0], 1)
+	assert.Equal(t, homeWidgetRegion(1), dom.regions()[0][0].Name)
+	assert.Contains(t, dom.regions()[0][0].HTML, "14:06")
 	assert.Equal(t, 1, home.loadCalls)
 }
 
@@ -334,7 +318,7 @@ func TestHomeClock12h(t *testing.T) {
 func TestHomeOpenConfig(t *testing.T) {
 	t.Parallel()
 	home := newHomeStore(t, &homeStore{load: dto.HomeLoadResponse{Layout: entity.DefaultHomeLayout()}})
-	app := newHomeApp(t, &regionDOM{}, home)
+	app := newHomeApp(t, newTreeDOM(), home)
 	require.NoError(t, app.HandleDOMAction(context.Background(), DOMAction{Action: homeActionOpenConfig}))
 	assert.True(t, home.opened)
 }
@@ -357,16 +341,17 @@ func TestHomeFavoritesWidgetFiltersByTagAndLimit(t *testing.T) {
 func TestHomeSuggestionsUpdateRegion(t *testing.T) {
 	t.Parallel()
 	history := newHistoryStore(t, &historyStore{searchEntries: []*entity.HistoryEntry{{URL: "https://go.dev", Title: "Go"}}})
-	dom := &regionDOM{}
+	dom := newTreeDOM()
 	app := NewApp(Dependencies{DOM: dom, Home: newHomeStore(t, &homeStore{load: dto.HomeLoadResponse{Layout: entity.DefaultHomeLayout()}}).service, History: history.service, LocationURI: "dumb://home"})
 	require.NoError(t, app.LoadInitial(context.Background()))
+	require.NoError(t, dom.Mount(app.renderedHTML))
 	fillHome(app)
-	dom.regions = nil
+	dom.reset()
 
 	require.NoError(t, app.HandleDOMAction(context.Background(), DOMAction{Action: homeActionSuggest, Data: map[string]string{"query": "go"}}))
-	require.Len(t, dom.regions, 1)
-	assert.Equal(t, homeRegionSuggestions, dom.regions[0][0].Name)
-	assert.Contains(t, dom.regions[0][0].HTML, "data-sv-home-suggestion")
+	require.Len(t, dom.regions(), 1)
+	assert.Equal(t, homeRegionSuggestions, dom.regions()[0][0].Name)
+	assert.Contains(t, dom.regions()[0][0].HTML, "data-sv-home-suggestion")
 	assert.Equal(t, "go", history.query)
 	assert.Equal(t, homeSuggestionLimit, history.searchLimit)
 }
@@ -377,33 +362,32 @@ func TestHomeMountsBeforeWidgetsLoad(t *testing.T) {
 		load:  dto.HomeLoadResponse{Layout: entity.DefaultHomeLayout()},
 		sites: map[dto.HomeSitesKind][]dto.HomeSite{dto.HomeSitesTop: {{URL: "https://top.test/", Title: "Top Site"}}},
 	})
-	dom := &regionDOM{}
+	dom := newTreeDOM()
 	app := NewApp(Dependencies{DOM: dom, Home: home.service, LocationURI: "dumb://home"})
 	require.NoError(t, app.LoadInitial(context.Background()))
 	assert.Contains(t, app.renderedHTML, "sv-home-skeleton")
 	assert.NotContains(t, app.renderedHTML, "Top Site")
 	assert.Empty(t, home.siteReqs, "sites are not fetched before the page shows")
 
+	require.NoError(t, dom.Mount(app.renderedHTML))
+
 	// The page shows before the widgets load; each widget then swaps its
 	// own region.
-	tree := newTreeDOM()
-	require.NoError(t, tree.Mount(app.renderedHTML))
-	app.deps.DOM = tree
 	fillHome(app)
-	assert.Contains(t, tree.html(), "Top Site")
-	assert.NotContains(t, tree.html(), "sv-home-skeleton")
-	assert.ElementsMatch(t, []string{homeWidgetRegion(2), homeWidgetRegion(3), homeWidgetRegion(4)}, tree.swapped)
-	assert.Empty(t, dom.regions)
+	assert.Contains(t, dom.html(), "Top Site")
+	assert.NotContains(t, dom.html(), "sv-home-skeleton")
+	assert.ElementsMatch(t, []string{homeWidgetRegion(2), homeWidgetRegion(3), homeWidgetRegion(4)}, dom.swapped)
 }
 
 func TestHomeSuggestionDropsStaleResponse(t *testing.T) {
 	t.Parallel()
 	history := newHistoryStore(t, &historyStore{searchEntries: []*entity.HistoryEntry{{URL: "https://go.dev", Title: "Go"}}})
-	dom := &regionDOM{}
+	dom := newTreeDOM()
 	app := NewApp(Dependencies{DOM: dom, Home: newHomeStore(t, &homeStore{load: dto.HomeLoadResponse{Layout: entity.DefaultHomeLayout()}}).service, History: history.service, LocationURI: "dumb://home"})
 	require.NoError(t, app.LoadInitial(context.Background()))
+	require.NoError(t, dom.Mount(app.renderedHTML))
 	fillHome(app)
-	dom.regions = nil
+	dom.reset()
 
 	// A newer query is taken while this one is in flight: bump the sequence
 	// the way a second handleHomeSuggest would.
@@ -416,7 +400,7 @@ func TestHomeSuggestionDropsStaleResponse(t *testing.T) {
 			return history.searchEntries, nil
 		})
 	require.NoError(t, app.handleHomeSuggest(context.Background(), "go"))
-	assert.Empty(t, dom.regions)
+	assert.Empty(t, dom.regions())
 }
 
 func homeServiceLayout() entity.HomeLayout {
@@ -614,17 +598,17 @@ func TestHomeServiceIconURLVersion(t *testing.T) {
 
 func TestSystemviewChangedIgnoredOutsideHome(t *testing.T) {
 	t.Parallel()
-	newApps := map[string]func(t *testing.T, dom *regionDOM) *App{
-		"history": func(t *testing.T, dom *regionDOM) *App {
+	newApps := map[string]func(t *testing.T, dom *treeDOM) *App{
+		"history": func(t *testing.T, dom *treeDOM) *App {
 			return loadedHistoryApp(t, dom, newHistoryStore(t, &historyStore{}))
 		},
-		"favorites": func(t *testing.T, dom *regionDOM) *App {
+		"favorites": func(t *testing.T, dom *treeDOM) *App {
 			favorites := newFavoritesStore(t, &favoritesStore{})
 			app := NewApp(Dependencies{DOM: dom, Favorites: favorites.service, LocationURI: "dumb://favorites"})
 			require.NoError(t, app.LoadInitial(context.Background()))
 			return app
 		},
-		"config": func(t *testing.T, dom *regionDOM) *App {
+		"config": func(t *testing.T, dom *treeDOM) *App {
 			app, _, _ := newConfigApp(t, dom)
 			return app
 		},
@@ -632,15 +616,15 @@ func TestSystemviewChangedIgnoredOutsideHome(t *testing.T) {
 	for name, newApp := range newApps {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			dom := &regionDOM{}
+			dom := newTreeDOM()
 			app := newApp(t, dom)
 			before := app.renderedHTML
-			mounts := dom.mountCount
+			mounts := dom.mountCount()
 			for _, topic := range []string{"home", "config"} {
 				require.NoError(t, app.HandleDOMAction(context.Background(), DOMAction{Action: actionSystemviewChanged, Data: map[string]string{"topic": topic}}))
 			}
-			assert.Equal(t, mounts, dom.mountCount, "no remount")
-			assert.Empty(t, dom.regions)
+			assert.Equal(t, mounts, dom.mountCount(), "no remount")
+			assert.Empty(t, dom.regions())
 			assert.Equal(t, before, app.renderedHTML, "no error banner")
 		})
 	}
@@ -793,5 +777,35 @@ func TestHomeSlotAndWidgetListChangesKeepEmbeds(t *testing.T) {
 			assert.Same(t, pve, dom.node("data-sv-region", "home-svc-embed:pve"))
 			tc.check(t, dom)
 		})
+	}
+}
+
+func TestHomeRemountRestoresSlotsFormsAndEmbeds(t *testing.T) {
+	t.Parallel()
+	box := actionService(entity.HomeAction{ID: "scale", Label: "Scale", Inputs: []entity.HomeActionInput{{Name: "n"}}})
+	nas := apiService("nas", entity.HomeDisplayStats, "")
+	cam := embedService("https://cam.lan/live", 300)
+	home := newHomeStore(t, &homeStore{load: homeLayoutWith(box, nas, cam)})
+	home.set("nas", dto.HomeWidgetDataResponse{Fields: []dto.HomeWidgetValue{{Label: "Disk", Value: "80%"}}})
+	app, dom := newActionApp(t, home)
+	require.NoError(t, app.HandleDOMAction(context.Background(), svcEvent(homeActionSvcOpen, "scale", nil)))
+	mounts := dom.mountCount()
+
+	checks := map[string]func(t *testing.T){
+		"form":  func(t *testing.T) { assert.Contains(t, dom.regionHTML(homeServiceActionsRegion("box")), `name="input.n"`) },
+		"slot":  func(t *testing.T) { assert.Contains(t, dom.regionHTML(homeServiceRegion("nas")), `80%`) },
+		"embed": func(t *testing.T) { assert.Contains(t, dom.regionHTML(homeServiceEmbedRegion("cam")), `src="https://cam.lan/live"`) },
+	}
+	for name, check := range checks {
+		t.Run("before/"+name, check)
+	}
+
+	// A reorder is the structural change that still remounts the page.
+	home.load = homeLayoutWith(cam, nas, box)
+	reloadHome(t, app)
+	require.Equal(t, mounts+1, dom.mountCount())
+
+	for name, check := range checks {
+		t.Run("after/"+name, check)
 	}
 }

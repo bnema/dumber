@@ -11,12 +11,14 @@ import (
 
 // treeDOM is a fake DOM that keeps a real node tree, so tests can check that
 // an element survived a reload (same node) and that edits only target
-// elements that exist, like the browser adapter.
+// elements that exist, like the browser adapter. It is safe for the widget
+// goroutines and records every region update.
 type treeDOM struct {
 	mu      sync.Mutex
 	root    *html.Node
 	mounts  int
 	swapped []string
+	updates []RegionUpdate
 	inserts int
 	removes int
 	styles  map[string]string
@@ -71,6 +73,7 @@ func (d *treeDOM) UpdateRegions(update RegionUpdate) error {
 			return fmt.Errorf("systemview region %q not found", region.Name)
 		}
 	}
+	d.updates = append(d.updates, update)
 	for _, region := range update.Regions {
 		d.swapped = append(d.swapped, region.Name)
 		if err := d.setChildren(d.find("data-sv-region", region.Name), region.HTML); err != nil {
@@ -188,6 +191,88 @@ func (d *treeDOM) html() string {
 	defer d.mu.Unlock()
 	var b strings.Builder
 	for c := d.root.FirstChild; c != nil; c = c.NextSibling {
+		_ = html.Render(&b, c)
+	}
+	return b.String()
+}
+
+func (d *treeDOM) mountCount() int {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	return d.mounts
+}
+
+// regions returns the regions of each update since the last reset.
+func (d *treeDOM) regions() [][]DOMRegion {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	regions := make([][]DOMRegion, 0, len(d.updates))
+	for _, update := range d.updates {
+		regions = append(regions, update.Regions)
+	}
+	return regions
+}
+
+// reset forgets the recorded updates.
+func (d *treeDOM) reset() {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	d.updates, d.swapped = nil, nil
+}
+
+// lastRegion returns the last markup pushed into name and how many times
+// it was pushed.
+func (d *treeDOM) lastRegion(name string) (markup string, count int) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	for _, update := range d.updates {
+		for _, region := range update.Regions {
+			if region.Name == name {
+				markup = region.HTML
+				count++
+			}
+		}
+	}
+	return markup, count
+}
+
+// lastFocus returns the focus key of the last region update.
+func (d *treeDOM) lastFocus() string {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	if len(d.updates) == 0 {
+		return ""
+	}
+	return d.updates[len(d.updates)-1].Focus
+}
+
+func (d *treeDOM) toastMessages() []string {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	return append([]string(nil), d.toasts...)
+}
+
+// navTreeDOM is a treeDOM that records navigations.
+type navTreeDOM struct {
+	*treeDOM
+	navigated []string
+}
+
+func (d *navTreeDOM) NavigateTo(rawURL string) error {
+	d.navigated = append(d.navigated, rawURL)
+	return nil
+}
+
+// regionHTML renders the current children of a region.
+func (d *treeDOM) regionHTML(region string) string {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	node := d.find("data-sv-region", region)
+	if node == nil {
+		return ""
+	}
+	var b strings.Builder
+	for c := node.FirstChild; c != nil; c = c.NextSibling {
 		_ = html.Render(&b, c)
 	}
 	return b.String()

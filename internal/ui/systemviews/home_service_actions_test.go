@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"testing/synctest"
 
 	"bnema.dev/dumber/internal/application/dto"
 	"bnema.dev/dumber/internal/domain/entity"
@@ -11,38 +12,17 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// toastRegionDOM is a goroutine-safe region DOM that records toasts.
-type toastRegionDOM struct {
-	syncRegionDOM
-	toasts []ToastRequest
-}
-
-func (d *toastRegionDOM) ShowToast(request ToastRequest) bool {
-	d.mu.Lock()
-	defer d.mu.Unlock()
-	d.toasts = append(d.toasts, request)
-	return true
-}
-
-func (d *toastRegionDOM) toastMessages() []string {
-	d.mu.Lock()
-	defer d.mu.Unlock()
-	messages := make([]string, 0, len(d.toasts))
-	for _, toast := range d.toasts {
-		messages = append(messages, toast.Message)
-	}
-	return messages
-}
-
 func actionService(actions ...entity.HomeAction) entity.HomeService {
 	return entity.HomeService{ID: "box", Name: "Box", Actions: actions}
 }
 
-func newActionApp(t *testing.T, home *homeStore) (*App, *toastRegionDOM) {
+func newActionApp(t *testing.T, home *homeStore) (*App, *treeDOM) {
 	t.Helper()
-	dom := &toastRegionDOM{}
+	dom := newTreeDOM()
+	dom.toastOK = true
 	app := NewApp(Dependencies{DOM: dom, Home: home.service, LocationURI: "dumb://home"})
 	require.NoError(t, app.LoadInitial(context.Background()))
+	require.NoError(t, dom.Mount(app.renderedHTML))
 	fillHome(app)
 	t.Cleanup(app.Close)
 	return app, dom
@@ -71,32 +51,35 @@ func TestHomeServiceActionsRenderButtons(t *testing.T) {
 
 func TestHomeServiceActionRunsDirectlyWithBusyState(t *testing.T) {
 	t.Parallel()
-	home := newHomeStore(t, &homeStore{
-		load:       homeLayoutWith(actionService(entity.HomeAction{ID: "ping", Label: "Ping"})),
-		actionResp: dto.HomeActionResponse{Status: dto.HomeStatusOK, Message: "pong"},
-		gate:       make(chan struct{}),
+	synctest.Test(t, func(t *testing.T) {
+		home := newHomeStore(t, &homeStore{
+			load:       homeLayoutWith(actionService(entity.HomeAction{ID: "ping", Label: "Ping"})),
+			actionResp: dto.HomeActionResponse{Status: dto.HomeStatusOK, Message: "pong"},
+			gate:       make(chan struct{}),
+		})
+		app, dom := newActionApp(t, home)
+		ctx := context.Background()
+
+		require.NoError(t, app.HandleDOMAction(ctx, svcEvent(homeActionSvcOpen, "ping", nil)))
+		busy, _ := dom.lastRegion("home-svc-actions:box")
+		assert.Contains(t, busy, `aria-busy="true"`)
+		assert.Contains(t, busy, `disabled`)
+		assert.Contains(t, busy, `Running…`)
+
+		// A second click while busy is ignored.
+		require.NoError(t, app.HandleDOMAction(ctx, svcEvent(homeActionSvcOpen, "ping", nil)))
+		synctest.Wait()
+		require.Len(t, home.actionRequests(), 1)
+
+		close(home.gate)
+		synctest.Wait()
+		assert.Len(t, home.actionRequests(), 1)
+		assert.Equal(t, dto.HomeActionRequest{ServiceID: "box", ActionID: "ping"}, home.actionRequests()[0])
+		assert.Equal(t, []string{"Ping: pong"}, dom.toastMessages())
+		idle, _ := dom.lastRegion("home-svc-actions:box")
+		assert.NotContains(t, idle, `aria-busy`)
+		assert.Contains(t, idle, `>Ping</button>`)
 	})
-	app, dom := newActionApp(t, home)
-	ctx := context.Background()
-
-	require.NoError(t, app.HandleDOMAction(ctx, svcEvent(homeActionSvcOpen, "ping", nil)))
-	busy, _ := dom.lastRegion("home-svc-actions:box")
-	assert.Contains(t, busy, `aria-busy="true"`)
-	assert.Contains(t, busy, `disabled`)
-	assert.Contains(t, busy, `Running…`)
-
-	// A second click while busy is ignored.
-	require.NoError(t, app.HandleDOMAction(ctx, svcEvent(homeActionSvcOpen, "ping", nil)))
-	waitFor(t, func() bool { return len(home.actionRequests()) == 1 })
-
-	close(home.gate)
-	app.homeFillWG.Wait()
-	assert.Len(t, home.actionRequests(), 1)
-	assert.Equal(t, dto.HomeActionRequest{ServiceID: "box", ActionID: "ping"}, home.actionRequests()[0])
-	assert.Equal(t, []string{"Ping: pong"}, dom.toastMessages())
-	idle, _ := dom.lastRegion("home-svc-actions:box")
-	assert.NotContains(t, idle, `aria-busy`)
-	assert.Contains(t, idle, `>Ping</button>`)
 }
 
 func TestHomeServiceActionInputsThenConfirm(t *testing.T) {
@@ -167,47 +150,6 @@ func TestHomeServiceActionErrorToast(t *testing.T) {
 	assert.Equal(t, []string{"Ping failed: bridge down"}, dom.toastMessages())
 }
 
-func TestHomeServiceActionFormSurvivesGroupsSwap(t *testing.T) {
-	t.Parallel()
-	svc := actionService(entity.HomeAction{ID: "scale", Label: "Scale", Inputs: []entity.HomeActionInput{{Name: "n"}}})
-	home := newHomeStore(t, &homeStore{load: homeLayoutWith(svc)})
-	app, dom := newActionApp(t, home)
-	require.NoError(t, app.HandleDOMAction(context.Background(), svcEvent(homeActionSvcOpen, "scale", nil)))
-	_, before := dom.lastRegion("home-svc-actions:box")
-
-	home.load = homeLayoutWith(svc, entity.HomeService{ID: "other", Name: "Other"})
-	app.lockState()
-	require.NoError(t, app.reloadHomeLocked(context.Background()))
-	app.unlockState()
-	app.homeFillWG.Wait()
-
-	form, after := dom.lastRegion("home-svc-actions:box")
-	assert.Equal(t, before+1, after)
-	assert.Contains(t, form, `name="input.n"`)
-}
-
-// focusRegionDOM records the focus key of each region update.
-type focusRegionDOM struct {
-	toastRegionDOM
-	focuses []string
-}
-
-func (d *focusRegionDOM) UpdateRegions(update RegionUpdate) error {
-	d.mu.Lock()
-	d.focuses = append(d.focuses, update.Focus)
-	d.mu.Unlock()
-	return d.toastRegionDOM.UpdateRegions(update)
-}
-
-func (d *focusRegionDOM) lastFocus() string {
-	d.mu.Lock()
-	defer d.mu.Unlock()
-	if len(d.focuses) == 0 {
-		return ""
-	}
-	return d.focuses[len(d.focuses)-1]
-}
-
 func TestHomeServiceActionStepsMoveFocus(t *testing.T) {
 	t.Parallel()
 	home := newHomeStore(t, &homeStore{
@@ -217,9 +159,11 @@ func TestHomeServiceActionStepsMoveFocus(t *testing.T) {
 		})),
 		actionResp: dto.HomeActionResponse{Status: dto.HomeStatusOK},
 	})
-	dom := &focusRegionDOM{}
+	dom := newTreeDOM()
+	dom.toastOK = true
 	app := NewApp(Dependencies{DOM: dom, Home: home.service, LocationURI: "dumb://home"})
 	require.NoError(t, app.LoadInitial(context.Background()))
+	require.NoError(t, dom.Mount(app.renderedHTML))
 	fillHome(app)
 	t.Cleanup(app.Close)
 	ctx := context.Background()

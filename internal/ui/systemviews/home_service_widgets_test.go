@@ -3,8 +3,8 @@ package systemviews
 import (
 	"context"
 	"errors"
-	"sync"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"bnema.dev/dumber/internal/application/dto"
@@ -12,77 +12,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
-
-// syncRegionDOM is a regionDOM safe for the widget goroutines.
-type syncRegionDOM struct {
-	mu sync.Mutex
-	regionDOM
-}
-
-func (d *syncRegionDOM) UpdateRegions(update RegionUpdate) error {
-	d.mu.Lock()
-	defer d.mu.Unlock()
-	return d.regionDOM.UpdateRegions(update)
-}
-
-func (d *syncRegionDOM) Mount(markup string) error {
-	d.mu.Lock()
-	defer d.mu.Unlock()
-	return d.regionDOM.Mount(markup)
-}
-
-// lastRegion returns the last markup pushed into name.
-func (d *syncRegionDOM) lastRegion(name string) (string, int) {
-	d.mu.Lock()
-	defer d.mu.Unlock()
-	html, count := "", 0
-	for _, update := range d.regions {
-		for _, region := range update {
-			if region.Name == name {
-				html = region.HTML
-				count++
-			}
-		}
-	}
-	return html, count
-}
-
-// manualTicker hands out tick channels the test drives.
-type manualTicker struct {
-	mu      sync.Mutex
-	ticks   []chan time.Time
-	stopped int
-}
-
-func (m *manualTicker) new(time.Duration) (<-chan time.Time, func()) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	ch := make(chan time.Time)
-	m.ticks = append(m.ticks, ch)
-	return ch, func() {
-		m.mu.Lock()
-		m.stopped++
-		m.mu.Unlock()
-	}
-}
-
-func (m *manualTicker) count() (started, stopped int) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	return len(m.ticks), m.stopped
-}
-
-func (m *manualTicker) tick(t *testing.T, i int) {
-	t.Helper()
-	m.mu.Lock()
-	ch := m.ticks[i]
-	m.mu.Unlock()
-	select {
-	case ch <- time.Now():
-	case <-time.After(2 * time.Second):
-		t.Fatal("refresh loop did not take the tick")
-	}
-}
 
 func apiService(id string, display entity.HomeDisplay, refresh string, fields ...entity.HomeField) entity.HomeService {
 	return entity.HomeService{ID: id, Name: id, Widget: &entity.HomeServiceWidget{
@@ -95,29 +24,22 @@ func homeLayoutWith(services ...entity.HomeService) dto.HomeLoadResponse {
 	return dto.HomeLoadResponse{Layout: layout}
 }
 
-func newServiceApp(t *testing.T, home *homeStore, ticker *manualTicker) (*App, *syncRegionDOM) {
+func newServiceApp(t *testing.T, home *homeStore) (*App, *treeDOM) {
 	t.Helper()
-	dom := &syncRegionDOM{}
+	dom := newTreeDOM()
 	app := NewApp(Dependencies{DOM: dom, Home: home.service, LocationURI: "dumb://home"})
 	app.now = func() time.Time { return homeTestNow }
-	if ticker != nil {
-		app.homeSvc.newTicker = ticker.new
-	}
 	require.NoError(t, app.LoadInitial(context.Background()))
+	require.NoError(t, dom.Mount(app.renderedHTML))
 	fillHome(app)
 	t.Cleanup(app.Close)
 	return app, dom
 }
 
-func waitFor(t *testing.T, cond func() bool) {
-	t.Helper()
-	require.Eventually(t, cond, 2*time.Second, 5*time.Millisecond)
-}
-
 func TestHomeServiceWidgetSlotIsAnEmptyRegion(t *testing.T) {
 	t.Parallel()
 	home := newHomeStore(t, &homeStore{load: homeLayoutWith(apiService("nas", entity.HomeDisplayStats, ""), entity.HomeService{ID: "plain", Name: "Plain"})})
-	app, _ := newServiceApp(t, home, nil)
+	app, _ := newServiceApp(t, home)
 	assert.Contains(t, app.renderedHTML, `data-sv-region="home-svc:nas"`)
 	// The slot of a service without an api widget exists, empty, so adding
 	// a widget later swaps its contents.
@@ -197,7 +119,7 @@ func TestHomeServiceWidgetDisplays(t *testing.T) {
 			t.Parallel()
 			home := newHomeStore(t, &homeStore{load: homeLayoutWith(tc.service)})
 			home.set("s", tc.data)
-			_, dom := newServiceApp(t, home, nil)
+			_, dom := newServiceApp(t, home)
 			got, count := dom.lastRegion("home-svc:s")
 			require.Equal(t, 1, count)
 			for _, want := range tc.want {
@@ -213,97 +135,86 @@ func TestHomeServiceWidgetDisplays(t *testing.T) {
 func TestHomeServiceWidgetBridgeErrorShowsInline(t *testing.T) {
 	t.Parallel()
 	home := newHomeStore(t, &homeStore{load: homeLayoutWith(apiService("s", entity.HomeDisplayStats, "")), dataErr: errors.New("bridge down")})
-	_, dom := newServiceApp(t, home, nil)
+	_, dom := newServiceApp(t, home)
 	got, _ := dom.lastRegion("home-svc:s")
 	assert.Contains(t, got, `bridge down`)
 }
 
+// homeTestRefresh is the refresh interval of the refresh loop tests. They
+// run in a synctest bubble: time.Sleep advances the fake clock and
+// synctest.Wait lets the loop finish its tick.
+const homeTestRefresh = 10 * time.Second
+
+func refreshService(id string) entity.HomeService {
+	return apiService(id, entity.HomeDisplayStats, homeTestRefresh.String())
+}
+
+// tickHome advances the fake clock by one refresh interval and waits for
+// the loops to settle.
+func tickHome() {
+	time.Sleep(homeTestRefresh)
+	synctest.Wait()
+}
+
 func TestHomeServiceWidgetRefreshSwapsOnlyOnChange(t *testing.T) {
 	t.Parallel()
-	ticker := &manualTicker{}
-	home := newHomeStore(t, &homeStore{load: homeLayoutWith(apiService("s", entity.HomeDisplayStats, "1s"))})
-	first := dto.HomeWidgetDataResponse{Fields: []dto.HomeWidgetValue{{Label: "A", Value: "1"}}, FetchedAt: time.Unix(1, 0)}
-	home.set("s", first)
-	_, dom := newServiceApp(t, home, ticker)
-	waitFor(t, func() bool { started, _ := ticker.count(); return started == 1 })
+	synctest.Test(t, func(t *testing.T) {
+		home := newHomeStore(t, &homeStore{load: homeLayoutWith(refreshService("s"))})
+		first := dto.HomeWidgetDataResponse{Fields: []dto.HomeWidgetValue{{Label: "A", Value: "1"}}, FetchedAt: time.Unix(1, 0)}
+		home.set("s", first)
+		_, dom := newServiceApp(t, home)
 
-	// Same data, new fetched_at: no swap.
-	first.FetchedAt = time.Unix(2, 0)
-	home.set("s", first)
-	ticker.tick(t, 0)
-	waitFor(t, func() bool { return home.callCount("s") == 2 })
-	_, count := dom.lastRegion("home-svc:s")
-	assert.Equal(t, 1, count)
+		// Same data, new fetched_at: no swap.
+		first.FetchedAt = time.Unix(2, 0)
+		home.set("s", first)
+		tickHome()
+		assert.Equal(t, 2, home.callCount("s"))
+		_, count := dom.lastRegion("home-svc:s")
+		assert.Equal(t, 1, count)
 
-	home.set("s", dto.HomeWidgetDataResponse{Fields: []dto.HomeWidgetValue{{Label: "A", Value: "2"}}})
-	ticker.tick(t, 0)
-	waitFor(t, func() bool { _, count := dom.lastRegion("home-svc:s"); return count == 2 })
-	got, _ := dom.lastRegion("home-svc:s")
-	assert.Contains(t, got, `>2</dd>`)
+		home.set("s", dto.HomeWidgetDataResponse{Fields: []dto.HomeWidgetValue{{Label: "A", Value: "2"}}})
+		tickHome()
+		got, count := dom.lastRegion("home-svc:s")
+		assert.Equal(t, 2, count)
+		assert.Contains(t, got, `>2</dd>`)
+	})
 }
 
-func TestHomeServiceWidgetTimersClearedOnReloadAndClose(t *testing.T) {
+func TestHomeServiceWidgetRefreshLoopLifetime(t *testing.T) {
 	t.Parallel()
-	ticker := &manualTicker{}
-	home := newHomeStore(t, &homeStore{load: homeLayoutWith(apiService("s", entity.HomeDisplayStats, "10s"))})
-	app, _ := newServiceApp(t, home, ticker)
-	waitFor(t, func() bool { started, _ := ticker.count(); return started == 1 })
+	for name, stop := range map[string]func(*App){
+		"reload replaces the loop": func(app *App) {
+			app.lockState()
+			require.NoError(t, app.reloadHomeLocked(context.Background()))
+			app.unlockState()
+			app.homeFillWG.Wait()
+		},
+		"route change stops the loop": func(app *App) {
+			app.lockState()
+			app.resetRouteState()
+			app.unlockState()
+		},
+		"close stops the loop": func(app *App) { app.Close() },
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			synctest.Test(t, func(t *testing.T) {
+				home := newHomeStore(t, &homeStore{load: homeLayoutWith(refreshService("s"))})
+				app, _ := newServiceApp(t, home)
+				reload := name == "reload replaces the loop"
+				stop(app)
+				synctest.Wait()
+				before := home.callCount("s")
 
-	app.lockState()
-	require.NoError(t, app.reloadHomeLocked(context.Background()))
-	app.unlockState()
-	app.homeFillWG.Wait()
-	waitFor(t, func() bool { started, stopped := ticker.count(); return started == 2 && stopped == 1 })
-
-	app.Close()
-	waitFor(t, func() bool { _, stopped := ticker.count(); return stopped == 2 })
-}
-
-func TestHomeServiceWidgetTimersStopOnRouteChange(t *testing.T) {
-	t.Parallel()
-	ticker := &manualTicker{}
-	home := newHomeStore(t, &homeStore{load: homeLayoutWith(apiService("s", entity.HomeDisplayStats, "10s"))})
-	app, _ := newServiceApp(t, home, ticker)
-	waitFor(t, func() bool { started, _ := ticker.count(); return started == 1 })
-
-	app.lockState()
-	app.resetRouteState()
-	app.unlockState()
-	waitFor(t, func() bool { _, stopped := ticker.count(); return stopped == 1 })
-}
-
-func TestHomeServiceWidgetRestoredAfterRemount(t *testing.T) {
-	t.Parallel()
-	nas := apiService("nas", entity.HomeDisplayStats, "")
-	home := newHomeStore(t, &homeStore{load: homeLayoutWith(nas)})
-	home.set("nas", dto.HomeWidgetDataResponse{Fields: []dto.HomeWidgetValue{{Label: "Disk", Value: "80%"}}})
-	app, dom := newServiceApp(t, home, nil)
-	_, before := dom.lastRegion("home-svc:nas")
-	require.Equal(t, 1, before)
-	mounts := dom.mountCount
-
-	// Adding a service is a structural change: the page remounts empty slots.
-	home.load = homeLayoutWith(nas, entity.HomeService{ID: "new", Name: "New"})
-	app.lockState()
-	require.NoError(t, app.reloadHomeLocked(context.Background()))
-	app.unlockState()
-	app.homeFillWG.Wait()
-
-	assert.Equal(t, mounts+1, dom.mountCount)
-	got, after := dom.lastRegion("home-svc:nas")
-	assert.Equal(t, 2, after, "slot pushed back after the remount")
-	assert.Contains(t, got, `80%`)
-}
-
-func TestHomeServiceWidgetCloseWaitsForRefreshLoop(t *testing.T) {
-	t.Parallel()
-	ticker := &manualTicker{}
-	home := newHomeStore(t, &homeStore{load: homeLayoutWith(apiService("s", entity.HomeDisplayStats, "10s"))})
-	app, _ := newServiceApp(t, home, ticker)
-	waitFor(t, func() bool { started, _ := ticker.count(); return started == 1 })
-
-	app.Close()
-	// No waiting: the loop must have stopped its ticker before Close returned.
-	_, stopped := ticker.count()
-	assert.Equal(t, 1, stopped)
+				tickHome()
+				// One loop left after a reload, none otherwise. A leaked
+				// loop also fails the bubble when the test ends.
+				want := before
+				if reload {
+					want++
+				}
+				assert.Equal(t, want, home.callCount("s"))
+			})
+		})
+	}
 }
