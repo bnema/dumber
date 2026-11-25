@@ -82,16 +82,13 @@ func resolveHomeQuery(in homeQueryInput) homeQueryResult {
 	}
 
 	needle := strings.ToLower(query)
-	for _, item := range in.Items {
-		if strings.Contains(item.Text, needle) {
-			res.Matches = append(res.Matches, item.Key)
-		}
-	}
 	firstMatch := ""
 	for _, item := range in.Items {
-		if len(res.Matches) > 0 && item.Key == res.Matches[0] {
-			firstMatch = homeNavigable(item.URL)
-			break
+		if strings.Contains(item.Text, needle) {
+			if len(res.Matches) == 0 {
+				firstMatch = homeNavigable(item.URL)
+			}
+			res.Matches = append(res.Matches, item.Key)
 		}
 	}
 

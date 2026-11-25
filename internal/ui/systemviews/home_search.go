@@ -2,10 +2,10 @@ package systemviews
 
 import (
 	"encoding/json"
-
-	"github.com/a-h/templ"
 	"sort"
 	"strings"
+
+	"github.com/a-h/templ"
 
 	"bnema.dev/dumber/internal/application/dto"
 	"bnema.dev/dumber/internal/domain/entity"

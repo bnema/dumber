@@ -152,8 +152,8 @@ func (d *browserDOM) handleHomeSearchKey(event, input js.Value, key string) {
 		}
 	case homeKeySelectNext, homeKeySelectPrev:
 		event.Call("preventDefault")
-		view := d.applyHomeSearch(input)
-		d.homeSelected = view.MoveSelection(action == homeKeySelectNext)
+		// homeView is current: every input and page change re-applies it.
+		d.homeSelected = d.homeView.MoveSelection(action == homeKeySelectNext)
 		d.applyHomeSearch(input)
 		d.scrollHomeSelection()
 	case homeKeyClear:
@@ -492,6 +492,7 @@ func (d *browserDOM) applyHomeSearch(input js.Value) homeSearchView {
 	if hint := form.Call("querySelector", "[data-sv-home-hint]"); hint.Truthy() {
 		setInnerHTMLIfChanged(hint, mustRenderComponent(HomeSearchHint(view)))
 	}
+	d.homeView = view
 	return view
 }
 

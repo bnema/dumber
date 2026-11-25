@@ -156,38 +156,41 @@ func (a *App) startHomeServiceWidgetsLocked(ctx context.Context) {
 	services := homeAPIServices(a.homeData.Load)
 	for i := range services {
 		service := services[i]
-		a.homeFillWG.Add(1)
-		go func(service entity.HomeService) {
-			defer a.homeFillWG.Done()
-			if !a.fetchHomeServiceWidget(loopCtx, generation, service) {
-				return
-			}
-			if interval := homeServiceRefresh(service.Widget); interval > 0 {
-				// Add before this fill goroutine finishes, so a Close that
-				// has waited for the fills also waits for the loop.
-				a.homeRefreshWG.Add(1)
-				go func() {
-					defer a.homeRefreshWG.Done()
-					a.refreshHomeServiceWidget(loopCtx, generation, service, interval)
-				}()
-			}
-		}(service)
+		a.startHomeLoopLocked(loopCtx, homeServiceRefresh(service.Widget), func(ctx context.Context) bool {
+			return a.fetchHomeServiceWidget(ctx, generation, service)
+		})
 	}
 }
 
-func (a *App) refreshHomeServiceWidget(ctx context.Context, generation uint64, service entity.HomeService, interval time.Duration) {
-	ticker := time.NewTicker(interval)
-	defer ticker.Stop()
-	for {
-		select {
-		case <-ctx.Done():
+// startHomeLoopLocked runs step once in a fill goroutine, then every
+// interval (none when interval is 0) until step reports false or ctx is
+// done. step checks the generation itself. Caller holds App.mu.
+func (a *App) startHomeLoopLocked(ctx context.Context, interval time.Duration, step func(context.Context) bool) {
+	a.homeFillWG.Add(1)
+	go func() {
+		defer a.homeFillWG.Done()
+		if !step(ctx) || interval <= 0 {
 			return
-		case <-ticker.C:
-			if !a.fetchHomeServiceWidget(ctx, generation, service) {
-				return
-			}
 		}
-	}
+		// Add before this fill goroutine finishes, so a Close that has
+		// waited for the fills also waits for the loop.
+		a.homeRefreshWG.Add(1)
+		go func() {
+			defer a.homeRefreshWG.Done()
+			ticker := time.NewTicker(interval)
+			defer ticker.Stop()
+			for {
+				select {
+				case <-ctx.Done():
+					return
+				case <-ticker.C:
+					if !step(ctx) {
+						return
+					}
+				}
+			}
+		}()
+	}()
 }
 
 // fetchHomeServiceWidget loads one widget and swaps its slot when the

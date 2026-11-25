@@ -34,6 +34,8 @@ type browserDOM struct {
 	// form, per form element.
 	homeForm   js.Value
 	homeConfig homeSearchConfig
+	// homeView is the last applied Home search view.
+	homeView homeSearchView
 	// homeQuery is the last typed Home search query, restored after a
 	// remount.
 	homeQuery     string

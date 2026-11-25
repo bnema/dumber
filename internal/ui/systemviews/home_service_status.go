@@ -143,6 +143,20 @@ func (a *App) pruneHomeStatusesLocked(load dto.HomeLoadResponse) {
 			delete(a.homeSvc.statuses, id)
 		}
 	}
+	// A service gone from the layout takes its dot with it; a service
+	// still there but unchecked keeps it until syncHomeDotsLocked clears
+	// its region.
+	present := make(map[string]bool)
+	for gi := range load.Layout.Groups {
+		for si := range load.Layout.Groups[gi].Services {
+			present[load.Layout.Groups[gi].Services[si].ID] = true
+		}
+	}
+	for id := range a.homeSvc.dots {
+		if !present[id] {
+			delete(a.homeSvc.dots, id)
+		}
+	}
 }
 
 // syncHomeDotsLocked pushes the current dot of every checked service and
@@ -177,30 +191,10 @@ func (a *App) startHomeStatusLocked(loopCtx context.Context, generation uint64) 
 	a.syncHomeDotsLocked()
 	services := homeStatusServices(a.homeData.Load)
 	for i := range services {
-		service := services[i]
-		a.homeFillWG.Add(1)
-		go func() {
-			defer a.homeFillWG.Done()
-			if !a.probeHomeService(loopCtx, generation, service.ID) {
-				return
-			}
-			a.homeRefreshWG.Add(1)
-			go func() {
-				defer a.homeRefreshWG.Done()
-				ticker := time.NewTicker(homeStatusInterval)
-				defer ticker.Stop()
-				for {
-					select {
-					case <-loopCtx.Done():
-						return
-					case <-ticker.C:
-						if !a.probeHomeService(loopCtx, generation, service.ID) {
-							return
-						}
-					}
-				}
-			}()
-		}()
+		id := services[i].ID
+		a.startHomeLoopLocked(loopCtx, homeStatusInterval, func(ctx context.Context) bool {
+			return a.probeHomeService(ctx, generation, id)
+		})
 	}
 }
 
