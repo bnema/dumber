@@ -2,6 +2,7 @@ package systemviews
 
 import (
 	"context"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -168,6 +169,25 @@ func TestHomeSearchURL(t *testing.T) {
 		assert.Equal(t, want, homeSearchURL(engine, query), query)
 	}
 	assert.Equal(t, "https://duckduckgo.com/?q=hi", homeSearchURL("", "hi"))
+}
+
+func TestHomeSearchURLNeverNavigatesToScriptSchemes(t *testing.T) {
+	t.Parallel()
+	engine := "https://search.test/?q=%s"
+	for _, query := range []string{
+		"javascript://x.com/%0aalert(1)",
+		"javascript:alert(1)",
+		"JAVASCRIPT://x.com/%0aalert(document.domain)",
+		"vbscript:x",
+		"data:text/html,<script>alert(1)</script>",
+		"blob:x",
+	} {
+		got := homeSearchURL(engine, query)
+		assert.True(t, strings.HasPrefix(got, "https://search.test/?q="), "%q -> %q", query, got)
+	}
+	assert.Empty(t, homeSearchURL("javascript:%s", "hi"), "unsafe search engine template")
+	assert.Equal(t, "dumb://history", homeSearchURL(engine, "dumb://history"))
+	assert.Equal(t, "file:///tmp/x.html", homeSearchURL(engine, "file:///tmp/x.html"))
 }
 
 func TestHomeSearchActionNavigates(t *testing.T) {

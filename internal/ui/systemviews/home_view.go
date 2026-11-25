@@ -121,13 +121,37 @@ func homeSearchURL(engine, query string) string {
 		return ""
 	}
 	if browserurl.LooksLikeURL(query) {
-		return browserurl.Normalize(query)
+		if target := browserurl.Normalize(query); isHomeNavigableURL(target) {
+			return target
+		}
 	}
 	engine = strings.TrimSpace(engine)
 	if engine == "" || !strings.Contains(engine, "%s") {
 		engine = homeDefaultSearchEngine
 	}
-	return strings.Replace(engine, "%s", url.QueryEscape(query), 1)
+	target := strings.Replace(engine, "%s", url.QueryEscape(query), 1)
+	if !isHomeNavigableURL(target) {
+		return ""
+	}
+	return target
+}
+
+// isHomeNavigableURL reports whether the home page may navigate itself to
+// raw. Script-capable schemes (javascript:, data:, blob:, ...) would run in
+// the privileged page with bridge access, so only these schemes pass.
+func isHomeNavigableURL(raw string) bool {
+	u, err := url.Parse(raw)
+	if err != nil {
+		return false
+	}
+	switch strings.ToLower(u.Scheme) {
+	case "http", "https":
+		return u.Host != ""
+	case "dumb", "file":
+		return true
+	default:
+		return false
+	}
 }
 
 // homeClockText formats now for the clock widget.
