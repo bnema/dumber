@@ -199,17 +199,7 @@ func (uc *HomeIconUseCase) resolveShared(
 		// other tiles may be waiting, and a canceled fetch would otherwise
 		// be remembered as a failure.
 		workCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), homeIconResolveTimeout)
-		go func() {
-			defer cancel()
-			call.png, _, call.err = uc.resolve(workCtx, serviceURL, localOverridePath)
-			uc.mu.Lock()
-			delete(uc.inflight, key)
-			if errors.Is(call.err, ErrHomeIconNotFound) {
-				uc.failures[key] = uc.now()
-			}
-			uc.mu.Unlock()
-			close(call.done)
-		}()
+		go uc.runIconCall(workCtx, cancel, call, key, serviceURL, localOverridePath)
 	}
 	uc.mu.Unlock()
 	select {
@@ -221,6 +211,48 @@ func (uc *HomeIconUseCase) resolveShared(
 	case <-ctx.Done():
 		return nil, "", ctx.Err()
 	}
+}
+
+// runIconCall resolves one shared icon call. Cleanup is deferred so a
+// panic (for example while decoding a remote image) still releases the
+// waiters and is recorded as a failure instead of crashing the browser.
+func (uc *HomeIconUseCase) runIconCall(
+	workCtx context.Context, cancel context.CancelFunc, call *homeIconCall,
+	key, serviceURL, localOverridePath string,
+) {
+	defer cancel()
+	defer func() {
+		if r := recover(); r != nil {
+			logging.FromContext(workCtx).Error().Interface("panic", r).Str("url", serviceURL).
+				Msg("home icon resolution panicked")
+			call.png = nil
+			call.err = fmt.Errorf("%w: resolution failed", ErrHomeIconNotFound)
+		}
+		uc.mu.Lock()
+		delete(uc.inflight, key)
+		// workCtx never sees the callers' cancellation, so a deadline error
+		// means the shared 20s budget ran out: remember it like a miss.
+		timedOut := call.err != nil && errors.Is(workCtx.Err(), context.DeadlineExceeded)
+		if errors.Is(call.err, ErrHomeIconNotFound) || timedOut {
+			uc.rememberFailureLocked(key)
+		}
+		uc.mu.Unlock()
+		close(call.done)
+	}()
+	call.png, _, call.err = uc.resolve(workCtx, serviceURL, localOverridePath)
+}
+
+// rememberFailureLocked records a failure for key and drops expired ones,
+// so the map does not grow with every service ever configured. Caller
+// holds uc.mu.
+func (uc *HomeIconUseCase) rememberFailureLocked(key string) {
+	now := uc.now()
+	for k, failedAt := range uc.failures {
+		if !now.Before(failedAt.Add(HomeIconNegativeTTL)) {
+			delete(uc.failures, k)
+		}
+	}
+	uc.failures[key] = now
 }
 
 func (uc *HomeIconUseCase) resolve(

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"sync"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	appport "bnema.dev/dumber/internal/application/port"
@@ -131,52 +132,99 @@ func TestHomeIconNegativeCacheSkipsRetryWithinTTL(t *testing.T) {
 }
 
 func TestHomeIconConcurrentCallsShareOneResolution(t *testing.T) {
-	fx := newHomeIconFixture(t)
-	release := make(chan struct{})
-	started := make(chan struct{})
-	fx.cache.EXPECT().Get(mock.Anything, svc).Return(nil, time.Time{}, false).Once()
-	fx.src.EXPECT().DiscoverIconURLs(mock.Anything, svc).
-		RunAndReturn(func(context.Context, string) ([]string, error) {
-			close(started)
-			<-release
-			return []string{"u/a.png"}, nil
-		}).Once()
-	fx.src.EXPECT().FetchIcon(mock.Anything, mock.Anything, "u/a.png").Return(img("image/png", "a"), nil).Once()
-	fx.conv.EXPECT().Convert(mock.Anything, []byte("a"), "image/png", []int{128}).Return(converted("a128"), nil).Once()
-	fx.cache.EXPECT().Put(mock.Anything, svc, []byte("a128")).Return(nil).Once()
+	synctest.Test(t, func(t *testing.T) {
+		fx := newHomeIconFixture(t)
+		release := make(chan struct{})
+		fx.cache.EXPECT().Get(mock.Anything, svc).Return(nil, time.Time{}, false).Once()
+		fx.src.EXPECT().DiscoverIconURLs(mock.Anything, svc).
+			RunAndReturn(func(context.Context, string) ([]string, error) {
+				<-release
+				return []string{"u/a.png"}, nil
+			}).Once()
+		fx.src.EXPECT().FetchIcon(mock.Anything, mock.Anything, "u/a.png").Return(img("image/png", "a"), nil).Once()
+		fx.conv.EXPECT().Convert(mock.Anything, []byte("a"), "image/png", []int{128}).Return(converted("a128"), nil).Once()
+		fx.cache.EXPECT().Put(mock.Anything, svc, []byte("a128")).Return(nil).Once()
 
-	const callers = 5
-	var wg sync.WaitGroup
-	results := make(chan string, callers)
-	resolve := func() {
-		defer wg.Done()
-		got, _, err := fx.uc.ResolveHomeServiceIcon(context.Background(), svc, "")
-		if err != nil {
-			results <- "err:" + err.Error()
-			return
+		const callers = 5
+		results := make([]string, callers)
+		var wg sync.WaitGroup
+		for i := range callers {
+			wg.Go(func() {
+				got, _, err := fx.uc.ResolveHomeServiceIcon(context.Background(), svc, "")
+				if err != nil {
+					results[i] = "err:" + err.Error()
+					return
+				}
+				results[i] = string(got)
+			})
 		}
-		results <- string(got)
-	}
-	wg.Add(1)
-	go resolve()
-	<-started
-	for range callers - 1 {
-		wg.Add(1)
-		go resolve()
-	}
-	// Let waiters reach the in-flight call before releasing it.
-	require.Eventually(t, func() bool {
+		// Every caller is now either the resolver blocked on release or a
+		// waiter blocked on the shared call.
+		synctest.Wait()
+		fx.uc.mu.Lock()
+		require.Len(t, fx.uc.inflight, 1)
+		fx.uc.mu.Unlock()
+		close(release)
+		wg.Wait()
+		for _, r := range results {
+			require.Equal(t, "a128", r)
+		}
+	})
+}
+
+func TestHomeIconPanicIsRecoveredAndRemembered(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		fx := newHomeIconFixture(t)
+		fx.cache.EXPECT().Get(mock.Anything, svc).Return(nil, time.Time{}, false).Once()
+		fx.src.EXPECT().DiscoverIconURLs(mock.Anything, svc).Return([]string{"u/bad.png"}, nil).Once()
+		fx.src.EXPECT().FetchIcon(mock.Anything, mock.Anything, "u/bad.png").Return(img("image/png", "bad"), nil).Once()
+		fx.conv.EXPECT().Convert(mock.Anything, []byte("bad"), "image/png", []int{128}).
+			RunAndReturn(func(context.Context, []byte, string, []int) (*appport.ConvertedFavicon, error) {
+				panic("decoder exploded")
+			}).Once()
+
+		_, _, err := fx.uc.ResolveHomeServiceIcon(context.Background(), svc, "")
+		require.ErrorIs(t, err, ErrHomeIconNotFound)
+		_, _, err = fx.uc.ResolveHomeServiceIcon(context.Background(), svc, "")
+		require.ErrorIs(t, err, ErrHomeIconNotFound, "the failure is remembered")
 		fx.uc.mu.Lock()
 		defer fx.uc.mu.Unlock()
-		return len(fx.uc.inflight) == 1
-	}, time.Second, time.Millisecond)
-	time.Sleep(20 * time.Millisecond)
-	close(release)
-	wg.Wait()
-	close(results)
-	for r := range results {
-		require.Equal(t, "a128", r)
-	}
+		require.Empty(t, fx.uc.inflight)
+	})
+}
+
+func TestHomeIconSharedTimeoutIsRemembered(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		fx := newHomeIconFixture(t)
+		fx.cache.EXPECT().Get(mock.Anything, svc).Return(nil, time.Time{}, false).Once()
+		fx.src.EXPECT().DiscoverIconURLs(mock.Anything, svc).Return([]string{"u/slow.png", "u/next.png"}, nil).Once()
+		fx.src.EXPECT().FetchIcon(mock.Anything, mock.Anything, "u/slow.png").
+			RunAndReturn(func(ctx context.Context, _, _ string) (*appport.HomeIconImage, error) {
+				<-ctx.Done() // the shared 20s budget expires (fake clock)
+				return nil, ctx.Err()
+			}).Once()
+
+		_, _, err := fx.uc.ResolveHomeServiceIcon(context.Background(), svc, "")
+		require.ErrorIs(t, err, context.DeadlineExceeded)
+		fx.uc.mu.Lock()
+		_, remembered := fx.uc.failures[homeIconKey(svc, "")]
+		fx.uc.mu.Unlock()
+		require.True(t, remembered)
+		_, _, err = fx.uc.ResolveHomeServiceIcon(context.Background(), svc, "")
+		require.ErrorIs(t, err, ErrHomeIconNotFound, "no second resolution within the TTL")
+	})
+}
+
+func TestHomeIconExpiredFailuresArePrunedOnInsert(t *testing.T) {
+	fx := newHomeIconFixture(t)
+	fx.uc.failures["old"] = fx.now.Add(-2 * HomeIconNegativeTTL)
+	fx.uc.failures["recent"] = fx.now.Add(-time.Minute)
+	fx.uc.mu.Lock()
+	fx.uc.rememberFailureLocked("new")
+	fx.uc.mu.Unlock()
+	require.NotContains(t, fx.uc.failures, "old")
+	require.Contains(t, fx.uc.failures, "recent")
+	require.Contains(t, fx.uc.failures, "new")
 }
 
 type stubHomeConfig struct{ layout entity.HomeLayout }
@@ -226,47 +274,48 @@ func TestResolveUnderDir(t *testing.T) {
 }
 
 func TestHomeIconLeaderCancelDoesNotFailFollowers(t *testing.T) {
-	fx := newHomeIconFixture(t)
-	fetching := make(chan struct{})
-	release := make(chan struct{})
-	fx.cache.EXPECT().Get(mock.Anything, svc).Return(nil, time.Time{}, false).Once()
-	fx.src.EXPECT().DiscoverIconURLs(mock.Anything, svc).Return([]string{"u/favicon.ico"}, nil).Once()
-	fx.src.EXPECT().FetchIcon(mock.Anything, mock.Anything, "u/favicon.ico").
-		RunAndReturn(func(ctx context.Context, _, _ string) (*appport.HomeIconImage, error) {
-			close(fetching)
-			select {
-			case <-release:
-				return img("image/x-icon", "ico"), nil
-			case <-ctx.Done():
-				return nil, ctx.Err()
-			}
-		}).Once()
-	fx.conv.EXPECT().Convert(mock.Anything, []byte("ico"), "image/x-icon", []int{128}).Return(converted("ico128"), nil).Once()
-	fx.cache.EXPECT().Put(mock.Anything, svc, []byte("ico128")).Return(nil).Once()
+	synctest.Test(t, func(t *testing.T) {
+		fx := newHomeIconFixture(t)
+		release := make(chan struct{})
+		fx.cache.EXPECT().Get(mock.Anything, svc).Return(nil, time.Time{}, false).Once()
+		fx.src.EXPECT().DiscoverIconURLs(mock.Anything, svc).Return([]string{"u/favicon.ico"}, nil).Once()
+		fx.src.EXPECT().FetchIcon(mock.Anything, mock.Anything, "u/favicon.ico").
+			RunAndReturn(func(ctx context.Context, _, _ string) (*appport.HomeIconImage, error) {
+				select {
+				case <-release:
+					return img("image/x-icon", "ico"), nil
+				case <-ctx.Done():
+					return nil, ctx.Err()
+				}
+			}).Once()
+		fx.conv.EXPECT().Convert(mock.Anything, []byte("ico"), "image/x-icon", []int{128}).Return(converted("ico128"), nil).Once()
+		fx.cache.EXPECT().Put(mock.Anything, svc, []byte("ico128")).Return(nil).Once()
 
-	leaderCtx, cancelLeader := context.WithCancel(context.Background())
-	leaderErr := make(chan error, 1)
-	go func() {
-		_, _, err := fx.uc.ResolveHomeServiceIcon(leaderCtx, svc, "")
-		leaderErr <- err
-	}()
-	<-fetching
-	follower := make(chan string, 1)
-	go func() {
-		got, _, err := fx.uc.ResolveHomeServiceIcon(context.Background(), svc, "")
-		if err != nil {
-			follower <- "err:" + err.Error()
-			return
-		}
-		follower <- string(got)
-	}()
-	cancelLeader()
-	require.ErrorIs(t, <-leaderErr, context.Canceled)
-	close(release)
-	require.Equal(t, "ico128", <-follower)
-	fx.uc.mu.Lock()
-	defer fx.uc.mu.Unlock()
-	require.Empty(t, fx.uc.failures)
+		leaderCtx, cancelLeader := context.WithCancel(context.Background())
+		var leaderErr error
+		var follower string
+		var wg sync.WaitGroup
+		wg.Go(func() { _, _, leaderErr = fx.uc.ResolveHomeServiceIcon(leaderCtx, svc, "") })
+		synctest.Wait() // the shared fetch is blocked on release
+		wg.Go(func() {
+			got, _, err := fx.uc.ResolveHomeServiceIcon(context.Background(), svc, "")
+			if err != nil {
+				follower = "err:" + err.Error()
+				return
+			}
+			follower = string(got)
+		})
+		synctest.Wait() // the follower waits on the same call
+		cancelLeader()
+		synctest.Wait()
+		close(release)
+		wg.Wait()
+		require.ErrorIs(t, leaderErr, context.Canceled)
+		require.Equal(t, "ico128", follower)
+		fx.uc.mu.Lock()
+		defer fx.uc.mu.Unlock()
+		require.Empty(t, fx.uc.failures)
+	})
 }
 
 func TestHomeIconByIDConfigEditBypassesFailureMemory(t *testing.T) {
