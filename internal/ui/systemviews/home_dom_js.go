@@ -97,7 +97,9 @@ func (d *browserDOM) addCaptureBinding(target js.Value, event string, fn js.Func
 }
 
 func (d *browserDOM) isHomeRoute() bool {
-	return d.target.Call("querySelector", `[data-sv-region="home"]`).Truthy()
+	// data-route is on the app root even when the home load failed, so hot
+	// reload can still recover the page.
+	return d.target.Call("querySelector", `[data-route="home"]`).Truthy()
 }
 
 // handleHomeKeyboard moves focus between suggestions, rows and tiles with
