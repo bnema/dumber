@@ -106,3 +106,31 @@ func TestProbe_RejectsNonHTTP(t *testing.T) {
 	_, err := NewProber().Probe(context.Background(), "file:///etc/passwd", time.Second)
 	require.ErrorIs(t, err, ErrUnsupportedScheme)
 }
+
+func TestProbe_DropsUserinfo(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Empty(t, r.Header.Get("Authorization"))
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer srv.Close()
+	u := strings.Replace(srv.URL, "http://", "http://user:pass@", 1)
+	res, err := NewProber().Probe(context.Background(), u, time.Second)
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusNoContent, res.StatusCode)
+}
+
+func TestProbe_LatencyCoversOnlyGetAfterFallback(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodHead {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+		}
+	}))
+	defer srv.Close()
+	// Each now() call advances a fake clock by one second.
+	clock := time.Unix(0, 0)
+	p := NewProber()
+	p.now = func() time.Time { clock = clock.Add(time.Second); return clock }
+	res, err := p.Probe(context.Background(), srv.URL, time.Second)
+	require.NoError(t, err)
+	assert.Equal(t, time.Second, res.Latency)
+}

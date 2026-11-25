@@ -38,6 +38,7 @@ type homeStatusCacheEntry struct {
 }
 
 type homeStatusFlight struct {
+	url  string
 	done chan struct{}
 	resp dto.HomeStatusResponse
 }
@@ -70,8 +71,9 @@ func (uc *HomeUseCase) CheckHomeStatus(ctx context.Context, serviceID string) (*
 		return &resp, nil
 	}
 	f, running := st.inflight[serviceID]
-	if !running {
-		f = &homeStatusFlight{done: make(chan struct{})}
+	if !running || f.url != svc.URL {
+		// A flight for an older url keeps running for its own waiters.
+		f = &homeStatusFlight{url: svc.URL, done: make(chan struct{})}
 		st.inflight[serviceID] = f
 		// The shared probe must not die with the first caller's request.
 		workCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), homeStatusTimeout)
@@ -107,7 +109,9 @@ func (uc *HomeUseCase) runStatusFlight(
 		if ok {
 			st.cache[serviceID] = homeStatusCacheEntry{url: url, at: uc.now(), resp: resp}
 		}
-		delete(st.inflight, serviceID)
+		if st.inflight[serviceID] == f {
+			delete(st.inflight, serviceID)
+		}
 		f.resp = resp
 		close(f.done)
 	}()

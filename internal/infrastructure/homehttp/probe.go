@@ -47,6 +47,8 @@ func (p *Prober) Probe(ctx context.Context, rawURL string, timeout time.Duration
 	if !isHTTPScheme(target) || target.Host == "" {
 		return port.HomeProbeResult{}, ErrUnsupportedScheme
 	}
+	// Userinfo would make net/http send Authorization: Basic on its own.
+	target.User = nil
 	if timeout <= 0 {
 		timeout = DefaultTimeout
 	}
@@ -57,6 +59,8 @@ func (p *Prober) Probe(ctx context.Context, rawURL string, timeout time.Duration
 	start := p.now()
 	code, err := p.send(ctx, http.MethodHead, target)
 	if err == nil && (code == http.StatusMethodNotAllowed || code == http.StatusNotImplemented) {
+		// Time only the GET, not the rejected HEAD round trip.
+		start = p.now()
 		code, err = p.send(ctx, http.MethodGet, target)
 	}
 	latency := p.now().Sub(start)

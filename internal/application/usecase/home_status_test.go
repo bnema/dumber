@@ -218,3 +218,36 @@ func TestCheckHomeStatus_PrunesRemovedServices(t *testing.T) {
 	defer f.uc.statusState.mu.Unlock()
 	assert.NotContains(t, f.uc.statusState.cache, "media")
 }
+
+func TestCheckHomeStatus_URLChangeDoesNotJoinOldFlight(t *testing.T) {
+	f := newHomeStatusFixture(t)
+	release := make(chan struct{})
+	f.prober.EXPECT().Probe(mock.Anything, "https://media.local", homeStatusTimeout).
+		RunAndReturn(func(context.Context, string, time.Duration) (port.HomeProbeResult, error) {
+			<-release
+			return port.HomeProbeResult{StatusCode: 200}, nil
+		}).Once()
+	f.prober.EXPECT().Probe(mock.Anything, "https://media2.local", homeStatusTimeout).
+		Return(port.HomeProbeResult{StatusCode: 503}, nil).Once()
+
+	oldDone := make(chan *dto.HomeStatusResponse)
+	go func() {
+		resp, _ := f.uc.CheckHomeStatus(context.Background(), "media")
+		oldDone <- resp
+	}()
+	require.Eventually(t, func() bool {
+		f.uc.statusState.mu.Lock()
+		defer f.uc.statusState.mu.Unlock()
+		return len(f.uc.statusState.inflight) == 1
+	}, time.Second, time.Millisecond)
+
+	f.uc.statusState.mu.Lock()
+	f.layout.Groups[0].Services[0].URL = "https://media2.local"
+	f.uc.statusState.mu.Unlock()
+	resp, err := f.uc.CheckHomeStatus(context.Background(), "media")
+	require.NoError(t, err)
+	assert.Equal(t, 503, resp.Code)
+
+	close(release)
+	assert.Equal(t, 200, (<-oldDone).Code)
+}
