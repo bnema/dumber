@@ -45,7 +45,9 @@ func New(delay time.Duration) *Watcher {
 // goroutine after each file has been quiet for the debounce delay.
 //
 // Calling Start with the same path set (order-insensitive) while running is a
-// no-op. A different set restarts the watcher. An empty set stops it.
+// no-op. A different set restarts the watcher once the previous goroutine
+// has exited. An empty set stops it. Like Stop, Start must not be called from
+// inside onChange.
 func (w *Watcher) Start(ctx context.Context, paths []string, onChange func(path string)) error {
 	normalized := normalizePaths(paths)
 	if len(normalized) == 0 {
@@ -57,11 +59,21 @@ func (w *Watcher) Start(ctx context.Context, paths []string, onChange func(path 
 
 	w.mu.Lock()
 	defer w.mu.Unlock()
-	if w.running && slices.Equal(w.paths, normalized) {
-		return nil
-	}
-	if err := w.stopLocked(); err != nil {
-		return fmt.Errorf("stop previous file watcher: %w", err)
+	// Stop a watcher on another path set and wait for its goroutine, so no
+	// old onChange runs once Start returns. The lock is released while
+	// waiting (the goroutine takes it on exit); loop in case another Start
+	// ran in between.
+	for w.running {
+		if slices.Equal(w.paths, normalized) {
+			return nil
+		}
+		done := w.done
+		if err := w.stopLocked(); err != nil {
+			return fmt.Errorf("stop previous file watcher: %w", err)
+		}
+		w.mu.Unlock()
+		<-done
+		w.mu.Lock()
 	}
 
 	parents := parentDirs(normalized)

@@ -328,3 +328,59 @@ func TestStopWaitsForRunningCallback(t *testing.T) {
 		t.Fatal("Stop returned before onChange finished")
 	}
 }
+
+func TestRestartWaitsForRunningCallback(t *testing.T) {
+	dir := t.TempDir()
+	first := filepath.Join(dir, "a.toml")
+	second := filepath.Join(dir, "b.toml")
+	for _, p := range []string{first, second} {
+		if err := os.WriteFile(p, []byte("x"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	w := New(10 * time.Millisecond)
+	t.Cleanup(func() { _ = w.Stop() })
+	entered := make(chan struct{})
+	release := make(chan struct{})
+	var finished atomic.Bool
+	var once sync.Once
+	if err := w.Start(context.Background(), []string{first}, func(string) {
+		once.Do(func() { close(entered) })
+		<-release
+		finished.Store(true)
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(first, []byte("y"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case <-entered:
+	case <-time.After(5 * time.Second):
+		t.Fatal("callback never ran")
+	}
+
+	restarted := make(chan error, 1)
+	go func() { restarted <- w.Start(context.Background(), []string{second}, func(string) {}) }()
+	select {
+	case <-restarted:
+		t.Fatal("Start restarted while the old onChange was still running")
+	case <-time.After(100 * time.Millisecond):
+	}
+	close(release)
+	select {
+	case err := <-restarted:
+		if err != nil {
+			t.Fatal(err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("Start never returned")
+	}
+	if !finished.Load() {
+		t.Fatal("Start returned before the old onChange finished")
+	}
+	if !w.Running() {
+		t.Fatal("watcher must run on the new path set")
+	}
+}
