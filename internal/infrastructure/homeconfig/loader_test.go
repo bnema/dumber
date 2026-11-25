@@ -4,7 +4,9 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -121,4 +123,49 @@ func TestEnsureExists_WritesValidStarterOnce(t *testing.T) {
 	data, err := os.ReadFile(l.Path())
 	require.NoError(t, err)
 	assert.Equal(t, validHome, string(data))
+}
+
+func TestLoad_CachesUntilFileChanges(t *testing.T) {
+	ctx := context.Background()
+	l := New(t.TempDir())
+	write(t, l, validHome)
+	first, err := l.Load(ctx)
+	require.NoError(t, err)
+	again, err := l.Load(ctx)
+	require.NoError(t, err)
+	assert.Same(t, &first.Layout.Groups[0], &again.Layout.Groups[0], "unchanged file is not decoded again")
+
+	// Touch only: stat differs, the content hash matches.
+	later := time.Now().Add(time.Hour)
+	require.NoError(t, os.Chtimes(l.Path(), later, later))
+	touched, err := l.Load(ctx)
+	require.NoError(t, err)
+	assert.Same(t, &first.Layout.Groups[0], &touched.Layout.Groups[0])
+
+	// Same size, new content and mtime: decoded again.
+	edited := strings.Replace(validHome, "Lab", "Bal", 1)
+	write(t, l, edited)
+	require.NoError(t, os.Chtimes(l.Path(), later.Add(time.Second), later.Add(time.Second)))
+	changed, err := l.Load(ctx)
+	require.NoError(t, err)
+	assert.Equal(t, "Bal", changed.Layout.Settings.Title)
+}
+
+func TestLoad_CachedParseErrorKeepsLastValid(t *testing.T) {
+	ctx := context.Background()
+	l := New(t.TempDir())
+	write(t, l, validHome)
+	first, err := l.Load(ctx)
+	require.NoError(t, err)
+	write(t, l, "[settings\n")
+	for range 2 {
+		broken, loadErr := l.Load(ctx)
+		require.NoError(t, loadErr)
+		require.NotNil(t, broken.ParseError)
+		assert.Equal(t, first.Layout, broken.Layout)
+	}
+	require.NoError(t, os.Remove(l.Path()))
+	gone, err := l.Load(ctx)
+	require.NoError(t, err)
+	assert.False(t, gone.Exists)
 }

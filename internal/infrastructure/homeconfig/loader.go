@@ -4,12 +4,14 @@ package homeconfig
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"errors"
 	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
 	"sync"
+	"time"
 
 	"github.com/pelletier/go-toml/v2"
 
@@ -32,6 +34,16 @@ type Loader struct {
 
 	mu        sync.Mutex
 	lastValid *entity.HomeLayout
+	cached    *loaderCache
+}
+
+// loaderCache is the result of the last decode. The file is decoded again
+// only when its stat or content changes; widgets and icons call Load often.
+type loaderCache struct {
+	modTime time.Time
+	size    int64
+	sum     [sha256.Size]byte
+	snap    port.HomeConfigSnapshot
 }
 
 var _ port.HomeConfigSource = (*Loader)(nil)
@@ -44,12 +56,25 @@ func New(configDir string) *Loader {
 // Path returns the absolute path of home.toml.
 func (l *Loader) Path() string { return l.path }
 
-// Load reads, decodes, normalizes and validates home.toml.
+// Load reads, decodes, normalizes and validates home.toml. An unchanged
+// file returns the cached snapshot; callers must not mutate its layout.
 func (l *Loader) Load(_ context.Context) (port.HomeConfigSnapshot, error) {
 	snap := port.HomeConfigSnapshot{Path: l.path}
 
+	info, err := os.Stat(l.path)
+	if errors.Is(err, fs.ErrNotExist) {
+		l.setCache(nil)
+		snap.Layout = entity.DefaultHomeLayout()
+		return snap, nil
+	}
+	if err == nil {
+		if cached, ok := l.cachedFor(info); ok {
+			return cached, nil
+		}
+	}
 	data, err := os.ReadFile(l.path)
 	if errors.Is(err, fs.ErrNotExist) {
+		l.setCache(nil)
 		snap.Layout = entity.DefaultHomeLayout()
 		return snap, nil
 	}
@@ -57,7 +82,47 @@ func (l *Loader) Load(_ context.Context) (port.HomeConfigSnapshot, error) {
 		snap.Layout = l.fallback()
 		return snap, fmt.Errorf("read %s: %w", l.path, err)
 	}
-	snap.Exists = true
+	sum := sha256.Sum256(data)
+	l.mu.Lock()
+	if c := l.cached; c != nil && c.sum == sum {
+		if info != nil {
+			c.modTime, c.size = info.ModTime(), info.Size()
+		}
+		out := c.snap
+		l.mu.Unlock()
+		return out, nil
+	}
+	l.mu.Unlock()
+
+	snap = l.decode(data)
+	entry := &loaderCache{sum: sum, snap: snap}
+	if info != nil {
+		entry.modTime, entry.size = info.ModTime(), info.Size()
+	}
+	l.setCache(entry)
+	return snap, nil
+}
+
+// cachedFor returns the cached snapshot when info matches its file stat.
+func (l *Loader) cachedFor(info fs.FileInfo) (port.HomeConfigSnapshot, bool) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	c := l.cached
+	if c == nil || !c.modTime.Equal(info.ModTime()) || c.size != info.Size() {
+		return port.HomeConfigSnapshot{}, false
+	}
+	return c.snap, true
+}
+
+func (l *Loader) setCache(c *loaderCache) {
+	l.mu.Lock()
+	l.cached = c
+	l.mu.Unlock()
+}
+
+// decode parses data and updates the last valid layout.
+func (l *Loader) decode(data []byte) port.HomeConfigSnapshot {
+	snap := port.HomeConfigSnapshot{Path: l.path, Exists: true}
 
 	var layout entity.HomeLayout
 	dec := toml.NewDecoder(bytes.NewReader(data))
@@ -65,21 +130,21 @@ func (l *Loader) Load(_ context.Context) (port.HomeConfigSnapshot, error) {
 	if err := dec.Decode(&layout); err != nil {
 		snap.ParseError = parseError(l.path, err)
 		snap.Layout = l.fallback()
-		return snap, nil
+		return snap
 	}
 
 	layout.Normalize()
 	if errs := layout.Validate(); len(errs) > 0 {
 		snap.ValidationErrors = errs
 		snap.Layout = l.fallback()
-		return snap, nil
+		return snap
 	}
 
 	l.mu.Lock()
 	l.lastValid = &layout
 	l.mu.Unlock()
 	snap.Layout = layout
-	return snap, nil
+	return snap
 }
 
 func (l *Loader) fallback() entity.HomeLayout {
