@@ -496,7 +496,7 @@ func validateServiceWidget(errs *homeErrs, p string, w HomeServiceWidget) {
 		}
 		if !isHTTPURL(w.URL) {
 			errs.addf(p+".url", "must be an http(s) URL")
-		} else if u, _ := url.Parse(w.URL); strings.EqualFold(u.Hostname(), HomeEmbedBlockedHost) {
+		} else if IsBlockedEmbedURL(w.URL) {
 			errs.addf(p+".url", "host %q is not allowed", HomeEmbedBlockedHost)
 		}
 		if len(w.Headers) > 0 {

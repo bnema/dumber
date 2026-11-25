@@ -53,6 +53,9 @@ func TestHomeEmbedURL(t *testing.T) {
 		"https://dumber.invalid/history":    "",
 		"https://DUMBER.INVALID./config":    "",
 		"https://api.dumber.invalid/":       "",
+		"http://ｄｕｍｂｅｒ.invalid/":            "",
+		"http://dumber。invalid/":            "",
+		"http://dumber%2Einvalid/":          "",
 		"https://":                          "",
 	} {
 		got, ok := homeEmbedURL(raw)

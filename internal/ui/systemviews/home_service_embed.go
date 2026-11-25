@@ -17,9 +17,6 @@ const (
 	// homeEmbedSandbox lets the embedded app run, but never top-navigate the
 	// home page.
 	homeEmbedSandbox = "allow-scripts allow-same-origin allow-forms allow-popups"
-	// homeInternalHost is the origin CEF serves system views from. An embed of
-	// it would get bridge access.
-	homeInternalHost = "dumber.invalid"
 )
 
 // homeEmbedView is one iframe to render.
@@ -41,8 +38,9 @@ func homeEmbedURL(raw string) (string, bool) {
 	default:
 		return "", false
 	}
-	host := strings.TrimSuffix(strings.ToLower(parsed.Hostname()), ".")
-	if host == "" || host == homeInternalHost || strings.HasSuffix(host, "."+homeInternalHost) {
+	// IDNA-mapped like the browser does, so fullwidth or ideographic-dot
+	// spellings of the internal host are refused too.
+	if entity.IsBlockedEmbedURL(raw) {
 		return "", false
 	}
 	parsed.Scheme = strings.ToLower(parsed.Scheme)
