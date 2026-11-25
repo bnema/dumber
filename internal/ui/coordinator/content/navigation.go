@@ -30,8 +30,7 @@ func (c *Coordinator) onLoadCommitted(ctx context.Context, paneID entity.PaneID,
 	switch {
 	case strings.HasPrefix(uri, "dumb://"):
 		// Internal pages: apply themed background
-		theme, ok := c.getCurrentTheme()
-		if ok && theme.prefersDark {
+		if c.webUIPrefersDark() {
 			wv.SetBackgroundColor(darkBgR, darkBgG, darkBgB, darkBgA)
 		} else {
 			wv.ResetBackgroundToDefault()
@@ -73,9 +72,7 @@ func (c *Coordinator) onLoadCommitted(ctx context.Context, paneID entity.PaneID,
 		return
 	}
 
-	if !c.applyPendingThemeUpdate(ctx, paneID, wv) {
-		c.applyCurrentTheme(ctx, paneID, wv)
-	}
+	c.applySystemViewStateOnCommit(ctx, paneID, wv)
 
 	c.markPendingReveal(paneID, identity)
 	c.revealIfPending(ctx, paneID, wv, identity, uri, "progress-after-commit")
@@ -218,7 +215,7 @@ func (c *Coordinator) onLoadFinished(ctx context.Context, paneID entity.PaneID, 
 	if c.shouldSkipAboutBlankAppearance(paneID, wv) {
 		return
 	}
-	c.applyPendingThemeUpdate(ctx, paneID, wv)
+	c.applySystemViewStateOnFinish(ctx, paneID, wv)
 	c.refreshPendingScripts(ctx, paneID, wv)
 }
 

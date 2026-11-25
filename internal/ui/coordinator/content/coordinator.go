@@ -95,13 +95,14 @@ type Coordinator struct {
 	pendingReveal    map[entity.PaneID]webViewIdentity
 	revealedWebViews map[entity.PaneID]webViewIdentity
 
-	appearanceMu          sync.Mutex
-	pendingScriptRefresh  map[entity.PaneID]bool
-	pendingThemePanes     map[entity.PaneID]bool
-	pendingThemeUpdate    pendingThemeUpdate
-	hasPendingThemeUpdate bool
-	currentTheme          pendingThemeUpdate
-	hasCurrentTheme       bool
+	appearanceMu         sync.Mutex
+	pendingScriptRefresh map[entity.PaneID]bool
+	// systemViewState holds broadcast scripts by topic key; systemViewOrder
+	// keeps key insertion order for a deterministic apply order.
+	systemViewState        map[string]string
+	systemViewOrder        []string
+	pendingSystemViewPanes map[entity.PaneID]bool
+	prefersDarkWebUI       bool
 
 	// Gesture action handler for mouse button navigation
 	gestureActionHandler input.ActionHandler
@@ -147,11 +148,6 @@ type Coordinator struct {
 	externalPromptOrigins map[entity.PaneID]string
 }
 
-type pendingThemeUpdate struct {
-	prefersDark bool
-	cssText     string
-}
-
 // PermissionActivityState represents the visible state for media permission activity.
 type PermissionActivityState string
 
@@ -176,23 +172,23 @@ func NewCoordinator(
 	log.Debug().Msg("creating content coordinator")
 
 	return &Coordinator{
-		logger:               log.With().Str("component", "content-coordinator").Logger(),
-		pool:                 pool,
-		injector:             injector,
-		widgetFactory:        widgetFactory,
-		faviconAdapter:       faviconAdapter,
-		zoomUC:               zoomUC,
-		permissionUC:         permissionUC,
-		webViews:             make(map[entity.PaneID]port.WebView),
-		webViewPaneIDs:       make(map[port.WebViewID]entity.PaneID),
-		paneTitles:           make(map[entity.PaneID]string),
-		navOrigins:           make(map[entity.PaneID]string),
-		pendingReveal:        make(map[entity.PaneID]webViewIdentity),
-		revealedWebViews:     make(map[entity.PaneID]webViewIdentity),
-		pendingScriptRefresh: make(map[entity.PaneID]bool),
-		pendingThemePanes:    make(map[entity.PaneID]bool),
-		getActiveWS:          getActiveWS,
-		popups:               newPopupManager(),
+		logger:                 log.With().Str("component", "content-coordinator").Logger(),
+		pool:                   pool,
+		injector:               injector,
+		widgetFactory:          widgetFactory,
+		faviconAdapter:         faviconAdapter,
+		zoomUC:                 zoomUC,
+		permissionUC:           permissionUC,
+		webViews:               make(map[entity.PaneID]port.WebView),
+		webViewPaneIDs:         make(map[port.WebViewID]entity.PaneID),
+		paneTitles:             make(map[entity.PaneID]string),
+		navOrigins:             make(map[entity.PaneID]string),
+		pendingReveal:          make(map[entity.PaneID]webViewIdentity),
+		revealedWebViews:       make(map[entity.PaneID]webViewIdentity),
+		pendingScriptRefresh:   make(map[entity.PaneID]bool),
+		pendingSystemViewPanes: make(map[entity.PaneID]bool),
+		getActiveWS:            getActiveWS,
+		popups:                 newPopupManager(),
 	}
 }
 

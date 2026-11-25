@@ -287,118 +287,6 @@ func TestNavOrigins_ConcurrentAccess(t *testing.T) {
 	// Test passes if no race conditions occur
 }
 
-// TestQueueThemeApply tests the appearance queue management for theme applies.
-
-func TestQueueThemeApply_TakeReturnsTrue(t *testing.T) {
-	t.Parallel()
-
-	paneID := entity.PaneID("pane-1")
-	c := &Coordinator{}
-
-	c.queueThemeApply(paneID, true, "body { color: white; }")
-
-	update, ok := c.takePendingThemeApply(paneID)
-	assert.True(t, ok)
-	assert.True(t, update.prefersDark)
-	assert.Equal(t, "body { color: white; }", update.cssText)
-}
-
-func TestQueueThemeApply_SecondTakeReturnsFalse(t *testing.T) {
-	t.Parallel()
-
-	paneID := entity.PaneID("pane-1")
-	c := &Coordinator{}
-
-	c.queueThemeApply(paneID, false, "body { color: black; }")
-
-	_, firstOk := c.takePendingThemeApply(paneID)
-	assert.True(t, firstOk)
-
-	_, secondOk := c.takePendingThemeApply(paneID)
-	assert.False(t, secondOk)
-}
-
-func TestQueueThemeApply_TakeWithoutQueue_ReturnsFalse(t *testing.T) {
-	t.Parallel()
-
-	paneID := entity.PaneID("pane-1")
-	c := &Coordinator{}
-
-	_, ok := c.takePendingThemeApply(paneID)
-	assert.False(t, ok)
-}
-
-func TestQueueThemeApply_MultiplePanesQueued_Independently(t *testing.T) {
-	t.Parallel()
-
-	pane1 := entity.PaneID("pane-1")
-	pane2 := entity.PaneID("pane-2")
-	c := &Coordinator{}
-
-	// pendingThemeUpdate is a single shared payload; queueThemeApply always
-	// overwrites it with the latest call. Both panes are marked as pending,
-	// but they share the last-written update.
-	c.queueThemeApply(pane1, true, "shared-css")
-	c.queueThemeApply(pane2, true, "shared-css")
-
-	// Both panes should be independently takeable
-	update1, ok1 := c.takePendingThemeApply(pane1)
-	assert.True(t, ok1)
-	assert.Equal(t, "shared-css", update1.cssText)
-
-	// pane2 should still be queued after taking pane1
-	update2, ok2 := c.takePendingThemeApply(pane2)
-	assert.True(t, ok2)
-	assert.Equal(t, "shared-css", update2.cssText)
-
-	// Neither should be available after both are taken
-	_, ok3 := c.takePendingThemeApply(pane1)
-	assert.False(t, ok3)
-	_, ok4 := c.takePendingThemeApply(pane2)
-	assert.False(t, ok4)
-}
-
-func TestQueueThemeApply_LastWriteWins(t *testing.T) {
-	t.Parallel()
-
-	paneID := entity.PaneID("pane-1")
-	c := &Coordinator{}
-
-	// Queue twice; the second call overwrites pendingThemeUpdate
-	c.queueThemeApply(paneID, true, "first-css")
-	c.queueThemeApply(paneID, false, "second-css")
-
-	update, ok := c.takePendingThemeApply(paneID)
-	assert.True(t, ok)
-	assert.False(t, update.prefersDark)
-	assert.Equal(t, "second-css", update.cssText)
-}
-
-func TestQueueThemeApply_HasPendingFlagClearedWhenAllTaken(t *testing.T) {
-	t.Parallel()
-
-	pane1 := entity.PaneID("pane-1")
-	pane2 := entity.PaneID("pane-2")
-	c := &Coordinator{}
-
-	c.queueThemeApply(pane1, true, "css")
-	c.queueThemeApply(pane2, true, "css")
-
-	_, _ = c.takePendingThemeApply(pane1)
-
-	// hasPendingThemeUpdate should still be true since pane2 is pending
-	c.appearanceMu.Lock()
-	assert.True(t, c.hasPendingThemeUpdate)
-	c.appearanceMu.Unlock()
-
-	_, _ = c.takePendingThemeApply(pane2)
-
-	// Now hasPendingThemeUpdate should be false
-	c.appearanceMu.Lock()
-	assert.False(t, c.hasPendingThemeUpdate)
-	c.appearanceMu.Unlock()
-}
-
 // TestQueueScriptRefresh tests the appearance queue management for script refreshes.
 
 func TestQueueScriptRefresh_TakeReturnsTrue(t *testing.T) {
@@ -455,22 +343,8 @@ func TestQueueScriptRefresh_MultiplePanesQueuedIndependently(t *testing.T) {
 	assert.False(t, c.takePendingScriptRefresh(pane3))
 }
 
-// TestApplyPendingThemeUpdate tests the state management aspect of applyPendingThemeUpdate.
-
-func TestApplyPendingThemeUpdate_ReturnsFalseWhenNothingQueued(t *testing.T) {
-	t.Parallel()
-
-	paneID := entity.PaneID("pane-1")
-	c := &Coordinator{}
-
-	// applyPendingThemeUpdate calls takePendingThemeApply; with nothing queued it
-	// returns false immediately without touching the WebView.
-	result := c.applyPendingThemeUpdate(context.TODO(), paneID, nil)
-	assert.False(t, result)
-}
-
 // TestClearPendingAppearance tests that clearPendingAppearance removes both
-// theme and script queues for the targeted pane only.
+// system view and script queues for the targeted pane only.
 func TestClearPendingAppearance_ClearsBothQueuesForPane(t *testing.T) {
 	t.Parallel()
 
@@ -478,20 +352,18 @@ func TestClearPendingAppearance_ClearsBothQueuesForPane(t *testing.T) {
 	pane2 := entity.PaneID("pane-2")
 	c := &Coordinator{}
 
-	c.queueThemeApply(pane1, true, "css")
+	c.markSystemViewPending(pane1)
 	c.queueScriptRefresh(pane1)
-	c.queueThemeApply(pane2, true, "css")
+	c.markSystemViewPending(pane2)
 	c.queueScriptRefresh(pane2)
 
 	c.clearPendingAppearance(pane1)
 
 	// pane1 queues should be gone
 	assert.False(t, c.takePendingScriptRefresh(pane1))
-	_, themeOk1 := c.takePendingThemeApply(pane1)
-	assert.False(t, themeOk1)
+	assert.False(t, c.takeSystemViewPending(pane1))
 
 	// pane2 queues should still be present
 	assert.True(t, c.takePendingScriptRefresh(pane2))
-	_, themeOk2 := c.takePendingThemeApply(pane2)
-	assert.True(t, themeOk2)
+	assert.True(t, c.takeSystemViewPending(pane2))
 }
