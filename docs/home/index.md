@@ -69,7 +69,9 @@ Built-in widgets, shown at the top in file order. Without `home.toml` the defaul
 | `refresh` | duration | `api` | `"60s"` | At least `5s` |
 | `timeout` | duration | `api` | `"10s"` | Above `0`, at most `60s` |
 | `display` | string | `api` | `"stats"` | `stats`, `list`, `bar` |
-| `fields` | array | `api` | - | At least one |
+| `fields` | array | `api` | - | At least one, unless `template` is set |
+| `items` | string | `api` | - | Path to an array, only with `display = "list"` |
+| `template` | string | `api` | - | HTML template, at most 16 KiB. Replaces `display` |
 | `height` | int (px) | `embed` | `240` | `80`-`2000` |
 
 Durations use Go syntax: `30s`, `5m`, `1h30m`.
@@ -87,6 +89,7 @@ Each field is `{ label, path, format }`. `label` and `path` are required, and `f
 | `headers` | table | - | |
 | `body` | string | - | Request body |
 | `confirm` | string | - | When set, the page asks this question before sending |
+| `inputs` | array | - | Values typed by the user, see [Actions](#actions) |
 
 ## API widgets
 
@@ -111,6 +114,35 @@ Dumber requests `url` (GET, at most 2 MiB, at most 3 redirects, User-Agent `dumb
 | `bytes` | `1.5 KiB`, `3.2 GiB` |
 | `duration` | seconds as `1h 2m`, `3d 4h` |
 
+**Lists:** with `display = "list"`, set `items` to the path of an array. Each element becomes a row, and field paths are read from the element. Without `items`, a JSON root array is used.
+
+```toml
+[groups.services.widget]
+type = "api"
+url = "https://example.local/api/jobs"
+display = "list"
+items = "data.jobs"
+fields = [ { label = "Job", path = "name" }, { label = "Done", path = "progress", format = "percent" } ]
+```
+
+**Templates:** `template` renders your own HTML with Go `html/template` syntax. It receives `.data` (the parsed JSON) and `.fields` (formatted field values by label). Helpers: `format "number" .data.x` (any field format), `default "n/a" .data.x`, `join ", " .data.list`. Dumber renders it in the browser process (at most 2 s and 64 KiB of output) and sanitizes the result with an allowlist:
+
+- Kept: basic text, list, table and layout tags (`div`, `span`, `p`, `strong`, `ul`, `table`, `h1`-`h6`, `progress`, `meter`, ...), `a` and `img` with `http(s)` URLs (and `data:image/*` for images), `class`, `title`, `data-*` attributes and a few inline styles (`color`, `background-color`, `width`, `height`, `display`, ...).
+- Removed: `script`, `style`, `iframe`, forms, `svg`, event handlers, `id`, `name`, `data-sv-*`, and any `javascript:` or `url(...)` value.
+
+A template error shows `template error: ...` on the card.
+
+```toml
+[groups.services.widget]
+type = "api"
+url = "https://example.local/api/stats"
+fields = [ { label = "Movies", path = "MovieCount", format = "number" } ]
+template = """
+<strong>{{ index .fields "Movies" }}</strong> movies
+{{ if .data.Updating }}<em>updating</em>{{ end }}
+"""
+```
+
 **Secrets:** write `{{env.NAME}}` in `url`, `headers` and action `url`, `headers` and `body`. Dumber replaces it with the environment variable `NAME` of the browser process. A missing variable is an error that names the variable. Keep tokens in the environment, not in `home.toml`.
 
 ## Embeds
@@ -119,12 +151,22 @@ Dumber requests `url` (GET, at most 2 MiB, at most 3 redirects, User-Agent `dumb
 
 ## Actions
 
-Each action is a button on the service card. With `confirm`, the page asks for confirmation first. The browser process sends the request and the page only shows whether it succeeded.
+Each action is a button on the service card. With `confirm`, the page asks for confirmation first. The browser process sends the request and the page only shows whether it succeeded. Only one request per action runs at a time.
+
+**Inputs** ask the user for values before sending. Each input is `{ name, label, placeholder }`. `name` matches `[A-Za-z_][A-Za-z0-9_]*` and is unique per action. Use `{{input.NAME}}` in `url` (URL-encoded) or `body` (JSON-escaped when the body starts with `{` or `[`, raw otherwise). Headers cannot use inputs, and an input that is not declared is an error. Typed values are inserted as plain text: `{{env.X}}` typed by a user is never expanded.
+
+```toml
+[[groups.services.actions]]
+id = "search"
+label = "Search"
+url = "https://example.local/api/search?q={{input.query}}"
+inputs = [ { name = "query", label = "Title", placeholder = "Movie title" } ]
+```
 
 ## Security model
 
 - `home.toml` and `user.css` cannot run JavaScript.
-- Secrets stay in the browser process. The page never sees headers, action URLs, action bodies or API widget URLs; it only receives formatted field values and action results.
+- Secrets stay in the browser process. The page never sees headers, action URLs, action bodies or API widget URLs; it only receives formatted field values, sanitized template HTML and action results.
 - Requests may target private and LAN addresses, so you can reach your own services.
 - Requests carry no cookies.
 

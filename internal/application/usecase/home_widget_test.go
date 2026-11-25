@@ -352,3 +352,70 @@ func TestRunHomeAction_UndeclaredInputInTemplateRejectedAtCall(t *testing.T) {
 	assert.Equal(t, dto.HomeStatusError, resp.Status)
 	assert.Contains(t, resp.Message, "zzz")
 }
+
+type fakeHomeRenderer struct {
+	calls int
+	data  any
+	err   error
+}
+
+func (r *fakeHomeRenderer) Render(tmpl string, data any) (string, error) {
+	r.calls++
+	r.data = data
+	if r.err != nil {
+		return "", r.err
+	}
+	return "<p>" + tmpl + "</p>", nil
+}
+
+func TestFetchWidgetData_TemplateRenderedAndCached(t *testing.T) {
+	f := newHomeWidgetFixture(t)
+	renderer := &fakeHomeRenderer{}
+	f.uc.templates = renderer
+	f.layout.Groups[0].Services[0].Widget.Template = "T"
+	f.http.EXPECT().Do(mock.Anything, mock.Anything).Return(okJSON(`{"movies":5}`), nil).Once()
+
+	resp, err := f.uc.FetchWidgetData(f.ctx, "media")
+	require.NoError(t, err)
+	assert.Equal(t, dto.HomeStatusOK, resp.Status)
+	assert.Equal(t, "<p>T</p>", resp.HTML)
+	assert.Equal(t, map[string]any{
+		"data":   map[string]any{"movies": 5.0},
+		"fields": map[string]string{"Movies": "5", "Missing": ""},
+	}, renderer.data)
+
+	cached, err := f.uc.FetchWidgetData(f.ctx, "media")
+	require.NoError(t, err)
+	assert.Equal(t, "<p>T</p>", cached.HTML)
+	assert.Equal(t, 1, renderer.calls)
+}
+
+func TestFetchWidgetData_TemplateErrorHasNoStaleData(t *testing.T) {
+	f := newHomeWidgetFixture(t)
+	renderer := &fakeHomeRenderer{}
+	f.uc.templates = renderer
+	f.layout.Groups[0].Services[0].Widget.Template = "T"
+	f.http.EXPECT().Do(mock.Anything, mock.Anything).Return(okJSON(`{"movies":5}`), nil).Twice()
+	_, err := f.uc.FetchWidgetData(f.ctx, "media")
+	require.NoError(t, err)
+
+	*f.now = f.now.Add(time.Hour)
+	renderer.err = errors.New(`template: w:1: unexpected "}"`)
+	resp, err := f.uc.FetchWidgetData(f.ctx, "media")
+	require.NoError(t, err)
+	assert.Equal(t, dto.HomeStatusError, resp.Status)
+	assert.Equal(t, `template error: template: w:1: unexpected "}"`, resp.Error)
+	assert.False(t, resp.Stale)
+	assert.Empty(t, resp.HTML)
+	assert.Empty(t, resp.Fields)
+}
+
+func TestFetchWidgetData_TemplateWithoutRenderer(t *testing.T) {
+	f := newHomeWidgetFixture(t)
+	f.layout.Groups[0].Services[0].Widget.Template = "T"
+	f.http.EXPECT().Do(mock.Anything, mock.Anything).Return(okJSON(`{}`), nil).Once()
+	resp, err := f.uc.FetchWidgetData(f.ctx, "media")
+	require.NoError(t, err)
+	assert.Equal(t, dto.HomeStatusError, resp.Status)
+	assert.Contains(t, resp.Error, "template error")
+}

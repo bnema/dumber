@@ -25,6 +25,9 @@ type HomeDeps struct {
 	History port.HomeSitesHistory
 	Opener  port.FileOpener
 	HTTP    port.HomeHTTPClient
+	// Templates renders api widget templates. Nil makes templated widgets
+	// report an error.
+	Templates port.HomeTemplateRenderer
 	// LookupEnv resolves {{env.NAME}}. Defaults to a lookup that finds nothing.
 	LookupEnv func(string) (string, bool)
 	// Now defaults to time.Now.
@@ -38,6 +41,7 @@ type HomeUseCase struct {
 	history   port.HomeSitesHistory
 	opener    port.FileOpener
 	http      port.HomeHTTPClient
+	templates port.HomeTemplateRenderer
 	lookupEnv func(string) (string, bool)
 	now       func() time.Time
 
@@ -59,6 +63,7 @@ func NewHomeUseCase(deps HomeDeps) *HomeUseCase {
 		history:        deps.History,
 		opener:         deps.Opener,
 		http:           deps.HTTP,
+		templates:      deps.Templates,
 		lookupEnv:      deps.LookupEnv,
 		now:            deps.Now,
 		widgetCache:    map[string]homeWidgetCacheEntry{},

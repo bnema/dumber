@@ -30,6 +30,7 @@ import (
 	infrafavicon "bnema.dev/dumber/internal/infrastructure/favicon"
 	"bnema.dev/dumber/internal/infrastructure/filesystem"
 	"bnema.dev/dumber/internal/infrastructure/homeconfig"
+	"bnema.dev/dumber/internal/infrastructure/homehtml"
 	"bnema.dev/dumber/internal/infrastructure/homehttp"
 	"bnema.dev/dumber/internal/infrastructure/idle"
 	"bnema.dev/dumber/internal/infrastructure/persistence/sqlite"
@@ -1208,6 +1209,7 @@ func buildUIDependencies(
 			History:   homeSitesHistory(uc),
 			Opener:    desktop.FileOpener{},
 			HTTP:      homehttp.New(),
+			Templates: homehtml.Renderer{},
 			LookupEnv: os.LookupEnv,
 		})
 		wireHomeIcons(ctx, engine, homeConfig, configDir)

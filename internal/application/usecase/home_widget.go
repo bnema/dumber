@@ -74,12 +74,12 @@ func (uc *HomeUseCase) FetchWidgetData(ctx context.Context, serviceID string) (*
 	uc.widgetInflight[serviceID] = f
 	uc.widgetMu.Unlock()
 
-	resp := uc.fetchWidget(ctx, serviceID, widget)
+	resp, allowStale := uc.fetchWidget(ctx, serviceID, widget)
 
 	uc.widgetMu.Lock()
 	if resp.Status == dto.HomeStatusOK {
 		uc.widgetCache[serviceID] = homeWidgetCacheEntry{hash: hash, resp: resp}
-	} else if last, ok := uc.widgetCache[serviceID]; ok && last.hash == hash {
+	} else if last, ok := uc.widgetCache[serviceID]; ok && allowStale && last.hash == hash {
 		stale := last.resp
 		stale.Status = dto.HomeStatusError
 		stale.Error = resp.Error
@@ -96,14 +96,17 @@ func (uc *HomeUseCase) FetchWidgetData(ctx context.Context, serviceID string) (*
 }
 
 // fetchWidget performs the HTTP request. Errors in the result are safe to
-// show: they never include header values or the expanded URL.
-func (uc *HomeUseCase) fetchWidget(ctx context.Context, serviceID string, w entity.HomeServiceWidget) dto.HomeWidgetDataResponse {
+// show: they never include header values or the expanded URL. allowStale is
+// false for template errors, which must not fall back to older data.
+func (uc *HomeUseCase) fetchWidget(
+	ctx context.Context, serviceID string, w entity.HomeServiceWidget,
+) (resp dto.HomeWidgetDataResponse, allowStale bool) {
 	log := logging.FromContext(ctx).With().Str("home_service", serviceID).Logger()
-	fail := func(msg string) dto.HomeWidgetDataResponse {
+	fail := func(msg string) (dto.HomeWidgetDataResponse, bool) {
 		log.Debug().Str("reason", msg).Msg("home widget fetch failed")
 		return dto.HomeWidgetDataResponse{
 			ServiceID: serviceID, Status: dto.HomeStatusError, Error: msg, FetchedAt: uc.now(),
-		}
+		}, true
 	}
 
 	req, err := uc.expandHomeRequest(http.MethodGet, w.URL, w.Headers, nil)
@@ -124,17 +127,43 @@ func (uc *HomeUseCase) fetchWidget(ctx context.Context, serviceID string, w enti
 		return fail("invalid JSON response")
 	}
 
-	resp := dto.HomeWidgetDataResponse{ServiceID: serviceID, Status: dto.HomeStatusOK, FetchedAt: uc.now()}
+	resp = dto.HomeWidgetDataResponse{ServiceID: serviceID, Status: dto.HomeStatusOK, FetchedAt: uc.now()}
+	if w.Template != "" {
+		resp.Fields = extractHomeValues(doc, w.Fields)
+		html, err := uc.renderHomeTemplate(w.Template, doc, resp.Fields)
+		if err != nil {
+			failed, _ := fail(err.Error())
+			return failed, false
+		}
+		resp.HTML = html
+		return resp, true
+	}
 	if items, ok := homeWidgetItems(doc, w); ok {
 		resp.Items = make([]dto.HomeWidgetItem, 0, len(items))
 		for _, item := range items {
 			resp.Items = append(resp.Items, dto.HomeWidgetItem{Fields: extractHomeValues(item, w.Fields)})
 		}
 		resp.Fields = []dto.HomeWidgetValue{}
-		return resp
+		return resp, true
 	}
 	resp.Fields = extractHomeValues(doc, w.Fields)
-	return resp
+	return resp, true
+}
+
+// renderHomeTemplate renders tmpl with {"data": doc, "fields": label→value}.
+func (uc *HomeUseCase) renderHomeTemplate(tmpl string, doc any, fields []dto.HomeWidgetValue) (string, error) {
+	if uc.templates == nil {
+		return "", errors.New("template error: rendering is not available")
+	}
+	byLabel := make(map[string]string, len(fields))
+	for _, f := range fields {
+		byLabel[f.Label] = f.Value
+	}
+	html, err := uc.templates.Render(tmpl, map[string]any{"data": doc, "fields": byLabel})
+	if err != nil {
+		return "", fmt.Errorf("template error: %s", err.Error())
+	}
+	return html, nil
 }
 
 // homeWidgetItems returns the array a list widget renders, if any.

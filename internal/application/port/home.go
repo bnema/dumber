@@ -49,3 +49,9 @@ type HomePage interface {
 	FetchWidgetData(ctx context.Context, serviceID string) (*dto.HomeWidgetDataResponse, error)
 	RunHomeAction(ctx context.Context, req dto.HomeActionRequest) (*dto.HomeActionResponse, error)
 }
+
+// HomeTemplateRenderer renders an api widget template to sanitized HTML.
+// Errors carry only the template parse or execution message.
+type HomeTemplateRenderer interface {
+	Render(tmpl string, data any) (string, error)
+}

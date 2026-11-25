@@ -104,9 +104,11 @@ type HomeWidgetDataResponse struct {
 	Status    HomeStatus        `json:"status"`
 	Fields    []HomeWidgetValue `json:"fields"`
 	Items     []HomeWidgetItem  `json:"items,omitempty"`
-	Error     string            `json:"error,omitempty"`
-	FetchedAt time.Time         `json:"fetched_at"`
-	Stale     bool              `json:"stale"`
+	// HTML is the sanitized output of the widget template, when one is set.
+	HTML      string    `json:"html,omitempty"`
+	Error     string    `json:"error,omitempty"`
+	FetchedAt time.Time `json:"fetched_at"`
+	Stale     bool      `json:"stale"`
 }
 
 // HomeActionRequest is the payload of the home_action message.

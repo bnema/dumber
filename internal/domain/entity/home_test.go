@@ -298,3 +298,53 @@ func TestHomeRedactedKeepsInputs(t *testing.T) {
 		t.Fatalf("inputs = %+v", got)
 	}
 }
+
+func TestHomeValidateTemplate(t *testing.T) {
+	tests := []struct {
+		name   string
+		mutate func(l *HomeLayout)
+		path   string
+	}{
+		{"api template without fields", func(l *HomeLayout) {
+			w := l.Groups[0].Services[0].Widget
+			w.Template = "<b>{{.data.x}}</b>"
+			w.Fields = nil
+		}, ""},
+		{"template too long", func(l *HomeLayout) {
+			l.Groups[0].Services[0].Widget.Template = strings.Repeat("x", HomeMaxTemplateLen+1)
+		}, "groups[0].services[0].widget.template"},
+		{"template on embed", func(l *HomeLayout) {
+			l.Groups[0].Services[1].Widget.Template = "<b>x</b>"
+		}, "groups[0].services[1].widget.template"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			l := validHomeLayout()
+			l.Normalize()
+			tt.mutate(&l)
+			errs := l.Validate()
+			if tt.path == "" {
+				if len(errs) != 0 {
+					t.Fatalf("unexpected errors: %v", errs)
+				}
+				return
+			}
+			if len(errs) != 1 || errs[0].Path != tt.path {
+				t.Fatalf("errors = %v, want one at %s", errs, tt.path)
+			}
+		})
+	}
+}
+
+func TestHomeRedactedClearsTemplate(t *testing.T) {
+	l := validHomeLayout()
+	l.Groups[0].Services[0].Widget.Template = "<i>TEMPLATESECRET</i>"
+	l.Normalize()
+	data, err := json.Marshal(l.RedactedForPage())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(data), "TEMPLATESECRET") || strings.Contains(string(data), `"template"`) {
+		t.Fatalf("template leaked: %s", data)
+	}
+}

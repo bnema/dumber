@@ -92,6 +92,8 @@ const (
 	HomeMaxTimeout     = 60 * time.Second
 	// HomeEmbedBlockedHost is the internal page host that embeds must never target.
 	HomeEmbedBlockedHost = "dumber.invalid"
+	// HomeMaxTemplateLen bounds an api widget template, in bytes.
+	HomeMaxTemplateLen = 16 * 1024
 )
 
 var (
@@ -160,10 +162,13 @@ type HomeServiceWidget struct {
 	// Items is the path to an array rendered one row per element when
 	// display is list. Field paths are then relative to each element. Empty
 	// with a top-level JSON array uses that array.
-	Items   string      `toml:"items,omitempty" json:"items,omitempty"`
-	Fields  []HomeField `toml:"fields,omitempty" json:"fields,omitempty"`
-	Height  int         `toml:"height,omitempty" json:"height,omitempty"`
-	Timeout string      `toml:"timeout,omitempty" json:"timeout,omitempty"`
+	Items string `toml:"items,omitempty" json:"items,omitempty"`
+	// Template is an HTML template rendered natively and sanitized. When set,
+	// Display is ignored. It is never sent to the page.
+	Template string      `toml:"template,omitempty" json:"template,omitempty"`
+	Fields   []HomeField `toml:"fields,omitempty" json:"fields,omitempty"`
+	Height   int         `toml:"height,omitempty" json:"height,omitempty"`
+	Timeout  string      `toml:"timeout,omitempty" json:"timeout,omitempty"`
 }
 
 // HomeField maps a JSON path of an api response to a displayed value.
@@ -476,8 +481,14 @@ func validateServiceWidget(errs *homeErrs, p string, w HomeServiceWidget) {
 		if w.Items != "" && w.Display != HomeDisplayList {
 			errs.addf(p+".items", "is only allowed with display = list")
 		}
-		validateHomeFields(errs, p, w.Fields)
+		if len(w.Template) > HomeMaxTemplateLen {
+			errs.addf(p+".template", "must be at most %d bytes", HomeMaxTemplateLen)
+		}
+		validateHomeFields(errs, p, w.Fields, w.Template != "")
 	case HomeServiceWidgetEmbed:
+		if w.Template != "" {
+			errs.addf(p+".template", "is only allowed for api widgets")
+		}
 		if !isHTTPURL(w.URL) {
 			errs.addf(p+".url", "must be an http(s) URL")
 		} else if u, _ := url.Parse(w.URL); strings.EqualFold(u.Hostname(), HomeEmbedBlockedHost) {
@@ -641,8 +652,8 @@ func sortedKeys(m map[string]string) []string {
 	return keys
 }
 
-func validateHomeFields(errs *homeErrs, p string, fields []HomeField) {
-	if len(fields) == 0 {
+func validateHomeFields(errs *homeErrs, p string, fields []HomeField, hasTemplate bool) {
+	if len(fields) == 0 && !hasTemplate {
 		errs.addf(p+".fields", "at least one field is required")
 	}
 	for i, f := range fields {
