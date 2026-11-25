@@ -751,6 +751,17 @@ func (h *handlerSet) OnBeforePopup(
 	if targetURL == "" {
 		return true
 	}
+	sourceIsMain, sourceURL := false, ""
+	if frame != nil {
+		sourceIsMain, sourceURL = frame.IsMain(), frame.GetURL()
+	}
+	if blockInternalPopup(sourceIsMain, sourceURL, targetURL) {
+		logging.FromContext(h.currentContext()).Warn().
+			Str("from", logging.TruncateURL(sourceURL, maxSchemeTruncatedURLLength)).
+			Str("target", logging.TruncateURL(targetURL, maxSchemeTruncatedURLLength)).
+			Msg("cef: blocked popup to a system view from a non-system page")
+		return true
+	}
 
 	h.wv.mu.RLock()
 	cb := h.wv.callbacks
@@ -810,6 +821,10 @@ func (h *handlerSet) OnBeforePopup(
 		if got, hasDecision := carrier.BrowsingContextHostDecision(); hasDecision {
 			decision = got
 		}
+	}
+
+	if popupFromSystemViewSubframe(sourceIsMain, h.wv.URI()) {
+		cefPopup.denyPopupOpenerBridge()
 	}
 
 	return h.handlePopupHostDecision(
@@ -1186,8 +1201,26 @@ func (h *handlerSet) OnBeforeClose(browser purecef.Browser) {
 // RequestHandler (11 methods)
 // ===========================================================================
 
-func (h *handlerSet) OnBeforeBrowse(browser purecef.Browser, frame purecef.Frame, request purecef.Request, _, _ int32) bool {
-	if frame == nil || !frame.IsMain() || request == nil {
+func (h *handlerSet) OnBeforeBrowse(browser purecef.Browser, frame purecef.Frame, request purecef.Request, _, isRedirect int32) bool {
+	if frame == nil {
+		return false
+	}
+	isMain := frame.IsMain()
+	if request == nil {
+		return false
+	}
+	if target := request.GetURL(); isInternalTargetURL(target) {
+		current := frame.GetURL()
+		if blockInternalNavigation(isMain, current, target, request.GetTransitionType(), isRedirect != 0) {
+			logging.FromContext(h.currentContext()).Warn().
+				Bool("main_frame", isMain).
+				Str("from", logging.TruncateURL(current, maxSchemeTruncatedURLLength)).
+				Str("target", logging.TruncateURL(target, maxSchemeTruncatedURLLength)).
+				Msg("cef: blocked page-initiated navigation to a system view")
+			return true
+		}
+	}
+	if !isMain {
 		return false
 	}
 	// Pre-commit invalidation for every main-frame navigation. The allow /
@@ -1277,11 +1310,43 @@ func (h *handlerSet) OnOpenUrlfromTab(
 	return 0
 }
 
+// GetResourceRequestHandler runs on the CEF IO thread for every request,
+// redirects included. It only returns a handler for a request that a system
+// view page must not let reach the local network (localNetworkScope).
 func (h *handlerSet) GetResourceRequestHandler(
-	_ purecef.Browser, _ purecef.Frame, _ purecef.Request,
-	_, _ int32, _ string, _ *int32,
+	browser purecef.Browser, frame purecef.Frame, request purecef.Request,
+	_, _ int32, requestInitiator string, _ *int32,
 ) purecef.ResourceRequestHandler {
-	return nil
+	if browser == nil || request == nil || h.wv == nil || h.wv.engine == nil || h.wv.engine.localNetwork == nil {
+		return nil
+	}
+	mainFrame := browser.GetMainFrame()
+	if mainFrame == nil {
+		return nil
+	}
+	engine := h.wv.engine
+	req := localNetworkRequest{
+		TopURL:       mainFrame.GetURL(),
+		URL:          request.GetURL(),
+		Initiator:    requestInitiator,
+		ResourceType: request.GetResourceType(),
+	}
+	if req.ResourceType == purecef.ResourceTypeRtSubFrame && isActualInternalURL(req.TopURL) {
+		req.FrameURL, req.ParentURL = subframeURLs(frame)
+	}
+	verdict := engine.localNetwork.decide(req)
+	if verdict == localNetworkAllow {
+		return nil
+	}
+	block, resolve := engine.localNetworkHandlers.get(engine.ctx, engine.localNetwork)
+	if verdict == localNetworkBlock {
+		logging.FromContext(h.currentContext()).Debug().
+			Str("initiator", requestInitiator).
+			Str("destination", requestOrigin(request.GetURL())).
+			Msg("cef: blocked a local network request from a system view subframe")
+		return block
+	}
+	return resolve
 }
 
 func (h *handlerSet) GetAuthCredentials(

@@ -26,7 +26,25 @@ type browserDOM struct {
 	activeConfirmCleanup    func()
 	activeConfirmID         uint64
 	liveSearchTimer         *time.Timer
-	actionHandler           DOMActionHandler
+	homeSuggestTimer        *time.Timer
+	// homeSelected is the identity of the selected search row (see
+	// homeItemIdentity), or "" for the default selection.
+	homeSelected string
+	// homeForm and homeConfig cache the engine data parsed from the search
+	// form, per form element.
+	homeForm   js.Value
+	homeConfig homeSearchConfig
+	// homeView is the last applied Home search view.
+	homeView homeSearchView
+	// The Home overflow observers (see setupHomeOverflowObserver).
+	homeOverflowResize     js.Value
+	homeOverflowResizeFn   js.Func
+	homeOverflowMutation   js.Value
+	homeOverflowMutationFn js.Func
+	// homeQuery is the last typed Home search query, restored after a
+	// remount.
+	homeQuery     string
+	actionHandler DOMActionHandler
 	// restoreFocusIndex keeps keyboard focus at the same row position after
 	// an undoable delete re-renders the list (-1 when unused).
 	restoreFocusIndex int
@@ -37,9 +55,10 @@ type browserDOM struct {
 }
 
 type jsEventBinding struct {
-	target js.Value
-	event  string
-	fn     js.Func
+	target  js.Value
+	event   string
+	fn      js.Func
+	capture bool
 }
 
 func NewDOM() DOM {
@@ -129,7 +148,7 @@ func (d *browserDOM) captureFocusKey() string {
 	}
 	if name := active.Call("getAttribute", "name"); name.Truthy() && name.String() != "" {
 		// Radios and checkboxes share a name: the value tells them apart.
-		return `sel:[name="` + cssAttrEscape(name.String()) + `"][value="` + cssAttrEscape(active.Get("value").String()) + `"]`
+		return `sel:[name="` + cssQuoted(name.String()) + `"][value="` + cssQuoted(active.Get("value").String()) + `"]`
 	}
 	return ""
 }
@@ -142,7 +161,7 @@ func activeInsideRow() bool {
 
 func (d *browserDOM) focusKeyPresent(key string) bool {
 	name := strings.TrimPrefix(key, "key:")
-	return d.target.Call("querySelector", `[data-sv-focus-key="`+cssAttrEscape(name)+`"]`).Truthy()
+	return d.target.Call("querySelector", `[data-sv-focus-key="`+cssQuoted(name)+`"]`).Truthy()
 }
 
 // restoreFocusKey focuses the element captureFocusKey named, unless the
@@ -157,12 +176,12 @@ func (d *browserDOM) restoreFocusKey(key string) {
 	}
 	var element js.Value
 	if name, ok := strings.CutPrefix(key, "key:"); ok {
-		element = d.target.Call("querySelector", `[data-sv-focus-key="`+cssAttrEscape(name)+`"]`)
+		element = d.target.Call("querySelector", `[data-sv-focus-key="`+cssQuoted(name)+`"]`)
 		if element.Truthy() && !element.Call("matches", focusableSelector).Bool() {
 			element = element.Call("querySelector", focusableSelector)
 		}
 	} else if id, ok := strings.CutPrefix(key, "id:"); ok {
-		element = d.target.Call("querySelector", `[id="`+cssAttrEscape(id)+`"]`)
+		element = d.target.Call("querySelector", `[id="`+cssQuoted(id)+`"]`)
 	} else if selector, ok := strings.CutPrefix(key, "sel:"); ok {
 		element = d.target.Call("querySelector", selector)
 	}
@@ -357,7 +376,7 @@ func (d *browserDOM) runPaletteAction(action DOMAction) {
 // scheme the page was loaded with (dumb:// or the internal https origin).
 func (d *browserDOM) navigateToRoute(route Route) {
 	switch route {
-	case RouteHistory, RouteFavorites, RouteConfig:
+	case RouteHome, RouteHistory, RouteFavorites, RouteConfig:
 	default:
 		return
 	}
@@ -508,6 +527,9 @@ func (d *browserDOM) UpdateRegions(update RegionUpdate) error {
 		return fmt.Errorf("DOM mount target #app not found")
 	}
 	focus := d.captureFocusKey()
+	if update.Focus != "" {
+		focus = update.Focus
+	}
 	if d.undoFocusKey != "" && !d.focusKeyPresent(d.undoFocusKey) && (focus == "" || activeInsideRow()) {
 		// An undo brings the removed row back: return focus to it, unless
 		// the user has moved on to something other than the list.
@@ -575,18 +597,13 @@ func (d *browserDOM) focusErrorField() {
 	if name == "" {
 		return
 	}
-	field := d.target.Call("querySelector", `[name="`+cssAttrEscape(name)+`"]:not([type="hidden"])`)
+	field := d.target.Call("querySelector", `[name="`+cssQuoted(name)+`"]:not([type="hidden"])`)
 	if !field.Truthy() {
 		return
 	}
 	field.Call("setAttribute", "aria-invalid", "true")
 	field.Call("scrollIntoView", map[string]any{"block": "center"})
 	field.Call("focus", map[string]any{"preventScroll": true})
-}
-
-// cssAttrEscape escapes a value for a double-quoted CSS attribute selector.
-func cssAttrEscape(value string) string {
-	return strings.NewReplacer(`\`, `\\`, `"`, `\"`).Replace(value)
 }
 
 // resetKeybindingRow puts a keybinding row's field back to its default keys.
@@ -768,6 +785,7 @@ func (d *browserDOM) BindActions(handler DOMActionHandler) error {
 	d.addEventBinding(d.target, "input", d.newLiveSearchInputHandler(handler))
 	d.addEventBinding(js.Global(), "pagehide", d.newPagehideHandler(handler))
 	d.addEventBinding(d.document, "keydown", d.newKeydownHandler())
+	d.bindHomeEvents(handler)
 	return nil
 }
 
@@ -1016,11 +1034,13 @@ func (d *browserDOM) Release() {
 		return
 	}
 	d.disconnectHistoryObserver()
+	d.releaseHomeOverflowObserver()
 	d.cleanupActiveConfirmDialog()
 	d.stopLiveSearch()
+	d.stopHomeSuggest()
 	for _, binding := range d.bindings {
 		if binding.target.Truthy() {
-			binding.target.Call("removeEventListener", binding.event, binding.fn)
+			binding.target.Call("removeEventListener", binding.event, binding.fn, binding.capture)
 		}
 		binding.fn.Release()
 	}
@@ -1392,6 +1412,10 @@ func (d *browserDOM) handleKeyboard(event js.Value) {
 	}
 	if d.isFavoritesRoute() {
 		d.handleFavoritesKeyboard(event)
+		return
+	}
+	if d.isHomeRoute() {
+		d.handleHomeKeyboard(event)
 	}
 }
 

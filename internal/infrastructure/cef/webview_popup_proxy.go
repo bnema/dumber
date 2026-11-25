@@ -45,6 +45,10 @@ func (wv *WebView) handleSyntheticPopupOpen(targetURL, frameName, proxyID string
 	if wv == nil || proxyID == "" || wv.destroyed.Load() {
 		return
 	}
+	if wv.rejectSyntheticPopupTarget(targetURL) {
+		wv.deleteSyntheticPopupState(proxyID)
+		return
+	}
 
 	wv.syntheticPopupMu.Lock()
 	state := wv.syntheticPopupStateLocked(proxyID)
@@ -123,6 +127,9 @@ func (wv *WebView) handleSyntheticPopupNavigate(proxyID, targetURL string) {
 	}
 
 	trimmedURI := strings.TrimSpace(targetURL)
+	if wv.rejectSyntheticPopupTarget(trimmedURI) {
+		return
+	}
 	wv.syntheticPopupMu.Lock()
 	state := wv.syntheticPopupStateLocked(proxyID)
 	if state.Closed {
@@ -191,4 +198,19 @@ func closeSyntheticPopupWebView(popupWV port.WebView) {
 		return
 	}
 	popupWV.Destroy()
+}
+
+// rejectSyntheticPopupTarget refuses synthetic popups (and their later
+// navigations) to a system view unless the page itself is one.
+func (wv *WebView) rejectSyntheticPopupTarget(target string) bool {
+	if !blockInternalPopup(true, wv.URI(), target) {
+		return false
+	}
+	if wv.ctx != nil {
+		logging.FromContext(wv.ctx).Warn().
+			Uint64("webview_id", uint64(wv.id)).
+			Str("target", logging.TruncateURL(target, logging.PermissionLogURLMaxLen)).
+			Msg("cef: synthetic popup to a system view refused")
+	}
+	return true
 }

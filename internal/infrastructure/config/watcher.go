@@ -1,13 +1,20 @@
 package config
 
 import (
+	"bytes"
+	"context"
+	"crypto/sha256"
 	"fmt"
+	"os"
 
+	"bnema.dev/dumber/internal/infrastructure/filewatch"
 	"bnema.dev/dumber/internal/logging"
-	"github.com/fsnotify/fsnotify"
 )
 
 // Watch starts watching the config file for changes and reloads automatically.
+//
+// Events whose file content matches the last loaded or saved content are
+// ignored, so the manager's own Save does not trigger a reload.
 func (m *Manager) Watch() error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -16,74 +23,107 @@ func (m *Manager) Watch() error {
 		return nil // Already watching
 	}
 
-	m.viper.WatchConfig()
-	m.viper.OnConfigChange(func(e fsnotify.Event) {
-		log := logging.NewFromEnv()
-		log.Debug().Str("op", e.Op.String()).Str("file", e.Name).Msg("fsnotify config change detected")
-
-		// Acquire write lock before reload (reload modifies m.config)
-		m.mu.Lock()
-
-		// Track whether notifyCallbacksLocked will handle the unlock
-		willNotify := false
-		defer func() {
-			if !willNotify {
-				m.mu.Unlock()
-			}
-		}()
-
-		// Skip reload if this was triggered by our own Save() - the in-memory
-		// config is already correct and viper may have stale cached data
-		if m.skipNextReload {
-			log.Debug().Msg("skipping reload (triggered by own Save)")
-			m.skipNextReload = false
-			// Still need to sync viper's internal state with the file we just wrote
-			if err := m.viper.ReadInConfig(); err != nil {
-				log.Warn().Err(err).Msg("failed to sync viper config after Save")
-				// Continue anyway - in-memory config is correct, just viper internal state is off
-			}
-			willNotify = true
-			m.notifyCallbacksLocked()
-			return
-		}
-
-		log.Debug().Msg("reloading config from external change")
-		if err := m.reload(); err != nil {
-			log.Warn().Err(err).Msg("failed to reload config")
-			return // defer will unlock
-		}
-		willNotify = true
-		m.notifyCallbacksLocked()
-	})
+	path := m.GetConfigFile()
+	if path == "" {
+		return fmt.Errorf("config file path is unknown")
+	}
+	if m.fileWatcher == nil {
+		m.fileWatcher = filewatch.New(m.watchDelay)
+	}
+	if err := m.fileWatcher.Start(context.Background(), []string{path}, m.handleFileChange); err != nil {
+		return fmt.Errorf("watch config file: %w", err)
+	}
 
 	m.watching = true
 	return nil
 }
 
+// StopWatching stops the config file watcher. It is safe to call repeatedly.
+func (m *Manager) StopWatching() error {
+	m.mu.Lock()
+	m.watching = false
+	fw := m.fileWatcher
+	m.mu.Unlock()
+	if fw == nil {
+		return nil
+	}
+	// Stop waits for handleFileChange, which takes m.mu: call it unlocked.
+	return fw.Stop()
+}
+
+// handleFileChange runs on the watcher goroutine for each debounced change.
+func (m *Manager) handleFileChange(path string) {
+	log := logging.NewFromEnv()
+
+	content, err := os.ReadFile(path)
+	if err != nil {
+		log.Debug().Err(err).Str("file", path).Msg("config file unreadable, keeping current config")
+		return
+	}
+	hash := sha256.Sum256(content)
+
+	m.mu.Lock()
+	if hash == m.lastContentHash {
+		m.mu.Unlock()
+		log.Debug().Msg("config file content unchanged, skipping reload")
+		return
+	}
+
+	log.Debug().Msg("reloading config from external change")
+	if err := m.reloadFrom(content); err != nil {
+		m.mu.Unlock()
+		log.Warn().Err(err).Msg("failed to reload config, keeping last good config")
+		return
+	}
+	m.lastContentHash = hash
+	m.notifyCallbacksLocked()
+}
+
 // notifyCallbacksLocked copies callbacks and config, releases lock, then notifies.
 // Must be called with m.mu held for write. Releases the lock before calling callbacks.
+// Each notification gets the next generation, assigned under the lock, so
+// receivers can drop notifications that arrive out of order.
 func (m *Manager) notifyCallbacksLocked() {
 	config := m.config
-	callbacks := make([]func(*Config), len(m.callbacks))
-	copy(callbacks, m.callbacks)
+	m.generation++
+	generation := m.generation
+	genCallbacks := make([]func(*Config, uint64), len(m.genCallbacks))
+	copy(genCallbacks, m.genCallbacks)
 	m.mu.Unlock()
 
-	for _, callback := range callbacks {
-		callback(config)
+	for _, callback := range genCallbacks {
+		callback(config, generation)
 	}
 }
 
-// OnConfigChange registers a callback function to be called when config changes.
-func (m *Manager) OnConfigChange(callback func(*Config)) {
+// OnConfigChangeGeneration registers a callback that also receives the
+// notification generation. Generations increase with every change; a
+// callback seeing a generation lower than one it already handled is stale.
+func (m *Manager) OnConfigChangeGeneration(callback func(*Config, uint64)) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	m.callbacks = append(m.callbacks, callback)
+	m.genCallbacks = append(m.genCallbacks, callback)
 }
 
-// reload reloads the configuration (internal method, must be called with lock held for write).
+// reload reloads the configuration from disk (must be called with lock held for write).
 func (m *Manager) reload() error {
-	if err := m.viper.ReadInConfig(); err != nil {
+	content, err := os.ReadFile(m.GetConfigFile())
+	if err != nil {
+		return err
+	}
+	if err := m.reloadFrom(content); err != nil {
+		return err
+	}
+	m.lastContentHash = sha256.Sum256(content)
+	return nil
+}
+
+// reloadFrom parses content as the config file and replaces the current
+// config on success. Must be called with lock held for write. It does not
+// update lastContentHash.
+func (m *Manager) reloadFrom(content []byte) error {
+	if err := m.viper.ReadConfig(bytes.NewReader(content)); err != nil {
 		return err
 	}
 
@@ -112,12 +152,4 @@ func Watch() error {
 		return fmt.Errorf("configuration not initialized")
 	}
 	return globalManager.Watch()
-}
-
-// OnConfigChange registers a callback for global configuration changes.
-func OnConfigChange(callback func(*Config)) {
-	if globalManager == nil {
-		return
-	}
-	globalManager.OnConfigChange(callback)
 }

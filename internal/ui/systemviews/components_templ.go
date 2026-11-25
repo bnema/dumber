@@ -32,7 +32,7 @@ func appFrameComponent(page renderedPage, theme shellTheme, body templ.Component
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			var templ_7745c5c3_Var2 = []any{appRootClass(theme)}
+			var templ_7745c5c3_Var2 = []any{appRootClass(page.route, theme)}
 			templ_7745c5c3_Err = templ.RenderCSSItems(ctx, templ_7745c5c3_ElementWriter, templ_7745c5c3_Var2...)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
@@ -53,7 +53,7 @@ func appFrameComponent(page renderedPage, theme shellTheme, body templ.Component
 			var templ_7745c5c3_Var4 string
 			templ_7745c5c3_Var4, templ_7745c5c3_Err = templruntime.NewAttributeExpression(string(page.route)).Resolve(ctx)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `components.templ`, Line: 4, Col: 67}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `components.templ`, Line: 4, Col: 79}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var4)
 			if templ_7745c5c3_Err != nil {
@@ -66,7 +66,7 @@ func appFrameComponent(page renderedPage, theme shellTheme, body templ.Component
 			var templ_7745c5c3_Var5 string
 			templ_7745c5c3_Var5, templ_7745c5c3_Err = templruntime.NewAttributeExpression(pageDocumentTitle(page)).Resolve(ctx)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `components.templ`, Line: 4, Col: 111}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `components.templ`, Line: 4, Col: 123}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var5)
 			if templ_7745c5c3_Err != nil {

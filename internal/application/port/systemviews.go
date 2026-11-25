@@ -37,6 +37,16 @@ type SystemviewFavoritesService interface {
 	RemoveTag(ctx context.Context, favoriteID, tagID int64) error
 }
 
+// SystemviewHomeService is the data source of dumb://home.
+type SystemviewHomeService interface {
+	HomeLoad(ctx context.Context) (dto.HomeLoadResponse, error)
+	HomeSites(ctx context.Context, req dto.HomeSitesRequest) (dto.HomeSitesResponse, error)
+	HomeOpenConfig(ctx context.Context) (dto.HomeOpenConfigResponse, error)
+	HomeWidgetData(ctx context.Context, serviceID string) (dto.HomeWidgetDataResponse, error)
+	HomeStatus(ctx context.Context, serviceID string) (dto.HomeStatusResponse, error)
+	HomeAction(ctx context.Context, req dto.HomeActionRequest) (dto.HomeActionResponse, error)
+}
+
 // SystemviewConfigService exposes config and keybinding operations for the systemviews UI.
 type SystemviewConfigService interface {
 	Current(ctx context.Context) (dto.SystemviewConfigPayload, error)

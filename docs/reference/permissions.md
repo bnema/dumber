@@ -20,8 +20,9 @@ These permissions require explicit user approval:
 
 - **Microphone** - Websites can request audio capture access
 - **Camera** - Websites can request video capture access
+- **Local network** (`local_network`, CEF) - A site asks to connect to devices on your local network (LAN or private addresses). The dialog says "connect to devices on your local network" and the answer can be remembered per origin. `dumb://` pages get it without a prompt so home page embeds can reach your own services.
 
-When both microphone and camera are requested together, a combined dialog is shown.
+When several permissions are requested together, one combined dialog is shown.
 
 ## WebAuthn / passkeys / security keys
 

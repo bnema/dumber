@@ -1,15 +1,19 @@
 package config
 
 import (
+	"bytes"
 	"context"
+	"crypto/sha256"
 	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 
 	"bnema.dev/dumber/internal/application/port"
+	"bnema.dev/dumber/internal/infrastructure/filewatch"
 	"bnema.dev/dumber/internal/infrastructure/fonts"
 	"bnema.dev/dumber/internal/logging"
 	"github.com/spf13/viper"
@@ -17,13 +21,22 @@ import (
 
 // Manager handles configuration loading, watching, and reloading.
 type Manager struct {
-	config         *Config
-	viper          *viper.Viper
-	automaticEnv   automaticEnvConfig
-	mu             sync.RWMutex
-	callbacks      []func(*Config)
-	watching       bool
-	skipNextReload bool // Set by Save() to prevent fsnotify reload from overwriting in-memory config
+	config       *Config
+	viper        *viper.Viper
+	automaticEnv automaticEnvConfig
+	// envTables hides table env names from AutomaticEnv; nil when the viper
+	// instance was not created by newConfigViper.
+	envTables    *tableSafeEnvReplacer
+	mu           sync.RWMutex
+	genCallbacks []func(*Config, uint64)
+	generation   uint64
+	watching     bool
+	fileWatcher  *filewatch.Watcher
+	// watchDelay overrides the file watcher debounce delay (tests only).
+	watchDelay time.Duration
+	// lastContentHash is the sha256 of the config file bytes last loaded or
+	// written by this manager. Watcher events with the same content are skipped.
+	lastContentHash [32]byte
 
 	// afterSnapshot is a test seam called right after Get or Update copies the
 	// current config (Get calls it without the lock held, Update with it held).
@@ -39,10 +52,10 @@ type automaticEnvConfig struct {
 
 // NewManager creates a new configuration manager.
 func NewManager() (*Manager, error) {
-	v := viper.New()
+	v, envTables := newConfigViper()
 	m := &Manager{
 		viper:     v,
-		callbacks: make([]func(*Config), 0),
+		envTables: envTables,
 	}
 
 	// Configure Viper for TOML as default format
@@ -96,10 +109,21 @@ func (m *Manager) Load() error {
 	}
 
 	m.setDefaults()
+	m.refreshEnvTables()
 
 	if err := m.readConfigFile(); err != nil {
 		return err
 	}
+	// Re-read the bytes and feed them to viper so the stored hash matches
+	// exactly what was parsed.
+	content, readErr := os.ReadFile(m.viper.ConfigFileUsed())
+	if readErr != nil {
+		return fmt.Errorf("failed to read config file: %w", readErr)
+	}
+	if parseErr := m.viper.ReadConfig(bytes.NewReader(content)); parseErr != nil {
+		return fmt.Errorf("failed to parse config file: %w", parseErr)
+	}
+	m.refreshEnvTables()
 
 	if err := m.checkLegacyFormat(); err != nil {
 		return err
@@ -119,6 +143,7 @@ func (m *Manager) Load() error {
 	}
 
 	m.config = config
+	m.lastContentHash = sha256.Sum256(content)
 	return nil
 }
 
@@ -163,6 +188,7 @@ func (m *Manager) readConfigFile() error {
 // clears, so a later reload would keep returning the values of the first read
 // instead of the file contents.
 func (m *Manager) transformedSettings() (*viper.Viper, error) {
+	m.refreshEnvTables()
 	legacyPopupsInConfig := m.viper.InConfig("workspace.popups")
 
 	rawConfig := m.viper.AllSettings()
@@ -197,7 +223,9 @@ func (m *Manager) configureAutomaticEnv() {
 	}
 	replacer := strings.NewReplacer(".", "_")
 	m.viper.SetEnvPrefix("DUMBER")
-	m.viper.SetEnvKeyReplacer(replacer)
+	if m.envTables == nil {
+		m.viper.SetEnvKeyReplacer(replacer)
+	}
 	m.viper.AutomaticEnv()
 	m.automaticEnv = automaticEnvConfig{
 		enabled:     true,
@@ -533,11 +561,11 @@ func (m *Manager) Get() *Config {
 }
 
 // Save saves the provided configuration to disk with ordered sections.
+//
+// When watching, registered callbacks are notified once after a successful save.
 func (m *Manager) Save(cfg *Config) error {
 	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	return m.saveLocked(cfg)
+	return m.finishSaveLocked(m.saveLocked(cfg))
 }
 
 // Update applies mutate to a copy of the latest configuration and persists the
@@ -553,7 +581,6 @@ func (m *Manager) Update(mutate func(*Config)) error {
 	}
 
 	m.mu.Lock()
-	defer m.mu.Unlock()
 
 	updated := *m.config
 	if m.afterSnapshot != nil {
@@ -561,7 +588,19 @@ func (m *Manager) Update(mutate func(*Config)) error {
 	}
 	mutate(&updated)
 
-	return m.saveLocked(&updated)
+	return m.finishSaveLocked(m.saveLocked(&updated))
+}
+
+// finishSaveLocked releases m.mu (held for write) and, after a successful
+// save while watching, notifies callbacks. The watcher skips the file event
+// of our own write by content hash, so this is the single notification.
+func (m *Manager) finishSaveLocked(err error) error {
+	if err != nil || !m.watching {
+		m.mu.Unlock()
+		return err
+	}
+	m.notifyCallbacksLocked()
+	return nil
 }
 
 // saveLocked validates, writes and publishes cfg. Must be called with m.mu held for write.
@@ -590,28 +629,23 @@ func (m *Manager) saveLocked(cfg *Config) error {
 		}
 	}
 
-	// Set flag BEFORE writing to prevent fsnotify-triggered reload from
-	// overwriting our in-memory config with stale viper cache
-	m.skipNextReload = true
-
-	if err := WriteConfigOrdered(&cfgToSave, configFile); err != nil {
-		m.skipNextReload = false // Reset on error
+	content, err := writeConfigOrdered(&cfgToSave, configFile)
+	if err != nil {
 		return fmt.Errorf("failed to write config: %w", err)
 	}
+	m.lastContentHash = sha256.Sum256(content)
 
-	// Update in-memory config immediately (don't wait for file watcher).
-	// This ensures subsequent Get() calls return normalized values even when
-	// the watcher intentionally skips reload for our own Save().
+	// Update in-memory config immediately; the watcher skips our own write.
 	m.config = &cfgToSave
 
-	// Also reload from disk to sync Viper's internal state (if not watching)
+	// Sync viper's internal state with the bytes we just wrote.
 	if !m.watching {
-		m.skipNextReload = false // Clear flag since we're doing manual reload
-		if err := m.reload(); err != nil {
-			return err
-		}
+		return m.reloadFrom(content)
 	}
-
+	if err := m.viper.ReadConfig(bytes.NewReader(content)); err != nil {
+		log := logging.NewFromEnv()
+		log.Warn().Err(err).Msg("failed to sync viper config after Save")
+	}
 	return nil
 }
 
@@ -757,6 +791,7 @@ func (m *Manager) setKeymapDefaults(defaults *Config) {
 
 func (m *Manager) setWorkspaceDefaults(defaults *Config) {
 	m.viper.SetDefault("workspace.new_pane_url", defaults.Workspace.NewPaneURL)
+	m.viper.SetDefault("workspace.startup_url", defaults.Workspace.StartupURL)
 	m.setKeymapDefaults(defaults)
 	m.viper.SetDefault("workspace.pane_mode.activation_shortcut", defaults.Workspace.PaneMode.ActivationShortcut)
 	m.viper.SetDefault("workspace.pane_mode.timeout_ms", defaults.Workspace.PaneMode.TimeoutMilliseconds)

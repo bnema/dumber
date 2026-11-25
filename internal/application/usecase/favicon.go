@@ -10,6 +10,7 @@ import (
 
 	appport "bnema.dev/dumber/internal/application/port"
 	"bnema.dev/dumber/internal/domain/favicon"
+	"bnema.dev/dumber/internal/logging"
 )
 
 var ErrFaviconMiss = appport.ErrFaviconMiss
@@ -246,7 +247,51 @@ func (uc *FaviconUseCase) Observe(
 	return uc.observeKey(ctx, key, pageURL, iconURL, bytes, source, contentType)
 }
 
+// seedHostKey makes a page-specific favicon resolvable by its host: when the
+// host has no entry yet, the page's icon is stored under the host key too.
+// An existing host entry is never overwritten by a page-specific icon. The
+// resolver only falls back from a page to its parents, so without this a
+// site visited only through a deep link has no icon for host lookups
+// (history, home rows).
+func (uc *FaviconUseCase) seedHostKey(
+	ctx context.Context,
+	pageKey favicon.Key,
+	pageURL, iconURL string,
+	bytes []byte,
+	source favicon.Source,
+	contentType string,
+) {
+	hostKey, ok := favicon.CanonicalHostKey(pageURL)
+	if !ok || hostKey == pageKey {
+		return
+	}
+	existing, err := uc.repo.Get(ctx, hostKey)
+	if err != nil || existing != nil {
+		return
+	}
+	if _, err := uc.storeKey(ctx, hostKey, pageURL, iconURL, bytes, source, contentType); err != nil {
+		logging.FromContext(ctx).Debug().Err(err).Str("key", string(hostKey)).Msg("favicon host key seed failed")
+	}
+}
+
 func (uc *FaviconUseCase) observeKey(
+	ctx context.Context,
+	key favicon.Key,
+	pageURL, iconURL string,
+	bytes []byte,
+	source favicon.Source,
+	contentType string,
+) (*favicon.Metadata, error) {
+	meta, err := uc.storeKey(ctx, key, pageURL, iconURL, bytes, source, contentType)
+	if err != nil {
+		return nil, err
+	}
+	uc.seedHostKey(ctx, key, pageURL, iconURL, bytes, source, contentType)
+	return meta, nil
+}
+
+// storeKey records bytes for exactly one key.
+func (uc *FaviconUseCase) storeKey(
 	ctx context.Context,
 	key favicon.Key,
 	pageURL, iconURL string,

@@ -4,8 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"maps"
-	"strings"
 	"time"
 
 	"bnema.dev/dumber/internal/application/port"
@@ -16,6 +14,7 @@ import (
 const (
 	aboutBlankURI              = "about:blank"
 	crashPageURI               = "dumb://history/crash"
+	systemViewThemeKey         = "theme"
 	logURLMaxLen               = 80
 	oauthParentRefreshDebounce = 200 * time.Millisecond
 
@@ -26,39 +25,28 @@ const (
 	darkBgA = 1.0
 )
 
-// ApplyWebUIThemeToAll updates theme CSS for already-loaded dumb:// pages.
-// This is necessary because user scripts only run on navigation.
+// ApplyWebUIThemeToAll pushes theme CSS to dumb:// pages, including pages
+// loaded later. User scripts only run on navigation, so loaded pages need it.
 func (c *Coordinator) ApplyWebUIThemeToAll(ctx context.Context, prefersDark bool, cssText string) {
-	log := logging.FromContext(ctx)
 	if cssText == "" {
 		return
 	}
-
-	c.setCurrentTheme(prefersDark, cssText)
-
 	script, err := buildWebUIThemeScript(prefersDark, cssText)
 	if err != nil {
-		log.Warn().Err(err).Msg("failed to build WebUI theme script")
+		logging.FromContext(ctx).Warn().Err(err).Msg("failed to build WebUI theme script")
 		return
 	}
+	c.appearanceMu.Lock()
+	c.prefersDarkWebUI = prefersDark
+	c.appearanceMu.Unlock()
+	c.BroadcastToSystemViews(ctx, systemViewThemeKey, script)
+}
 
-	// Snapshot webViews under lock to avoid data race with concurrent popup create/close.
-	c.webViewsMu.RLock()
-	snapshot := make(map[entity.PaneID]port.WebView, len(c.webViews))
-	maps.Copy(snapshot, c.webViews)
-	c.webViewsMu.RUnlock()
-
-	for paneID, wv := range snapshot {
-		if wv == nil || wv.IsDestroyed() {
-			continue
-		}
-		if c.shouldDeferAppearance(wv) {
-			c.queueThemeApply(paneID, prefersDark, cssText)
-			log.Debug().Str("pane_id", string(paneID)).Msg("deferred WebUI theme apply until load committed")
-			continue
-		}
-		c.applyWebUITheme(ctx, paneID, wv, script, prefersDark)
-	}
+// webUIPrefersDark reports whether the last WebUI theme pushed was dark.
+func (c *Coordinator) webUIPrefersDark() bool {
+	c.appearanceMu.Lock()
+	defer c.appearanceMu.Unlock()
+	return c.prefersDarkWebUI
 }
 
 func buildWebUIThemeScript(prefersDark bool, cssText string) (string, error) {
@@ -120,108 +108,6 @@ func buildWebUIThemeScript(prefersDark bool, cssText string) (string, error) {
 })();`, string(cssJSON), prefersDark)
 
 	return script, nil
-}
-
-func (c *Coordinator) applyWebUITheme(
-	ctx context.Context,
-	paneID entity.PaneID,
-	wv port.WebView,
-	script string,
-	prefersDark bool,
-) {
-	if wv == nil || wv.IsDestroyed() {
-		return
-	}
-	uri := wv.URI()
-	if !strings.HasPrefix(uri, "dumb://") {
-		return
-	}
-	wv.RunJavaScript(ctx, script)
-	logging.FromContext(ctx).
-		Debug().
-		Str("pane_id", string(paneID)).
-		Str("uri", uri).
-		Bool("prefers_dark", prefersDark).
-		Msg("applied WebUI theme")
-}
-
-func (c *Coordinator) queueThemeApply(paneID entity.PaneID, prefersDark bool, cssText string) {
-	c.appearanceMu.Lock()
-	if c.pendingThemePanes == nil {
-		c.pendingThemePanes = make(map[entity.PaneID]bool)
-	}
-	c.pendingThemePanes[paneID] = true
-	c.pendingThemeUpdate = pendingThemeUpdate{
-		prefersDark: prefersDark,
-		cssText:     cssText,
-	}
-	c.hasPendingThemeUpdate = true
-	c.appearanceMu.Unlock()
-}
-
-func (c *Coordinator) setCurrentTheme(prefersDark bool, cssText string) {
-	c.appearanceMu.Lock()
-	c.currentTheme = pendingThemeUpdate{
-		prefersDark: prefersDark,
-		cssText:     cssText,
-	}
-	c.hasCurrentTheme = true
-	c.appearanceMu.Unlock()
-}
-
-func (c *Coordinator) getCurrentTheme() (pendingThemeUpdate, bool) {
-	c.appearanceMu.Lock()
-	defer c.appearanceMu.Unlock()
-
-	if !c.hasCurrentTheme {
-		return pendingThemeUpdate{}, false
-	}
-	return c.currentTheme, true
-}
-
-func (c *Coordinator) takePendingThemeApply(paneID entity.PaneID) (pendingThemeUpdate, bool) {
-	c.appearanceMu.Lock()
-	defer c.appearanceMu.Unlock()
-
-	if !c.hasPendingThemeUpdate || c.pendingThemePanes == nil || !c.pendingThemePanes[paneID] {
-		return pendingThemeUpdate{}, false
-	}
-	delete(c.pendingThemePanes, paneID)
-	update := c.pendingThemeUpdate
-	if len(c.pendingThemePanes) == 0 {
-		c.hasPendingThemeUpdate = false
-	}
-	return update, true
-}
-
-func (c *Coordinator) applyPendingThemeUpdate(ctx context.Context, paneID entity.PaneID, wv port.WebView) bool {
-	update, ok := c.takePendingThemeApply(paneID)
-	if !ok {
-		return false
-	}
-
-	script, err := buildWebUIThemeScript(update.prefersDark, update.cssText)
-	if err != nil {
-		logging.FromContext(ctx).Warn().Err(err).Msg("failed to build deferred WebUI theme script")
-		return false
-	}
-	c.applyWebUITheme(ctx, paneID, wv, script, update.prefersDark)
-	return true
-}
-
-func (c *Coordinator) applyCurrentTheme(ctx context.Context, paneID entity.PaneID, wv port.WebView) bool {
-	update, ok := c.getCurrentTheme()
-	if !ok || update.cssText == "" {
-		return false
-	}
-
-	script, err := buildWebUIThemeScript(update.prefersDark, update.cssText)
-	if err != nil {
-		logging.FromContext(ctx).Warn().Err(err).Msg("failed to build current WebUI theme script")
-		return false
-	}
-	c.applyWebUITheme(ctx, paneID, wv, script, update.prefersDark)
-	return true
 }
 
 func (c *Coordinator) queueScriptRefresh(paneID entity.PaneID) {
@@ -288,11 +174,8 @@ func (c *Coordinator) clearPendingAppearance(paneID entity.PaneID) {
 	if c.pendingScriptRefresh != nil {
 		delete(c.pendingScriptRefresh, paneID)
 	}
-	if c.pendingThemePanes != nil {
-		delete(c.pendingThemePanes, paneID)
-		if len(c.pendingThemePanes) == 0 {
-			c.hasPendingThemeUpdate = false
-		}
-	}
+	delete(c.pendingSystemViewPanes, paneID)
+	delete(c.committedSystemViewPanes, paneID)
+	delete(c.pendingSystemViewNotify, paneID)
 	c.appearanceMu.Unlock()
 }

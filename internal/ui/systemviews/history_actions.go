@@ -31,6 +31,9 @@ func (a *App) HandleDOMAction(ctx context.Context, event DOMAction) error {
 	if a == nil {
 		return fmt.Errorf("app is nil")
 	}
+	if handled, err := a.handleHomeEarlyAction(ctx, event); handled {
+		return err
+	}
 	if event.Action == historyActionSearchLive {
 		return a.handleHistoryLiveSearch(ctx, a.takeLiveSearchQuery(event.Data["query"]))
 	}
@@ -76,6 +79,8 @@ func (a *App) HandleDOMAction(ctx context.Context, event DOMAction) error {
 		return a.applyFavoritesActionLocked(ctx, event)
 	case RouteConfig:
 		return a.applyConfigActionLocked(ctx, event)
+	case RouteHome:
+		return a.applyHomeActionLocked(ctx, event)
 	default:
 		return nil
 	}

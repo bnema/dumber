@@ -30,8 +30,21 @@ const themeCSSScript = `(function() {
   (document.head || document.documentElement).appendChild(style);
 })();`
 
-// internalPageAllowList restricts script injection to internal dumb:// pages only.
-var internalPageAllowList = []string{"dumb://*"}
+// WebKit user content allow lists cannot target dumb:// pages. A match
+// pattern needs a path starting with "/", but dumb://home (a non-special
+// scheme URL) has an empty path, so no pattern matches it and "dumb://*" is
+// rejected as invalid. Internal-only scripts therefore:
+//   - use internalPageBlockList so WebKit itself keeps them off http(s) and
+//     file pages, and
+//   - wrap their source with internalPageOnly, which runs them only in the
+//     top frame of a dumb: document (covers about:, data:, blob:, ...).
+var internalPageBlockList = []string{"*://*/*", "file:///*"}
+
+// internalPageOnly guards an internal-only user script. The wrapped source
+// must not rely on top-level let/const/function being global.
+func internalPageOnly(source string) string {
+	return "if (window.top === window && location.protocol === 'dumb:') {\n" + source + "\n}"
+}
 
 // autoCopySelectionScript is injected to enable auto-copy on text selection (zellij-style).
 // It listens for selection changes, debounces them, and posts to the Go message handler.
@@ -391,6 +404,25 @@ func (ci *ContentInjector) InjectScripts(ctx context.Context, ucm *webkit.UserCo
 
 	prefersDark := ci.PrefersDark()
 
+	// 0. Authenticate the dumb:// top frame on the message bridge. Added first
+	// so it wraps postMessage before any other script or page code runs.
+	if wv := LookupWebView(webviewID); wv != nil && wv.SystemviewBridgeToken() != "" {
+		addScript(
+			webkit.NewUserScript(
+				buildSystemviewBridgeTokenScript(wv.SystemviewBridgeToken()),
+				webkit.UserContentInjectTopFrameValue,
+				webkit.UserScriptInjectAtDocumentStartValue,
+				nil, // see internalPageBlockList; the script checks dumb: itself
+				internalPageBlockList,
+			),
+			"systemview-bridge-token",
+		)
+	} else {
+		log.Error().
+			Uint64("webview_id", uint64(webviewID)).
+			Msg("skipping system view bridge token script; trusted page messages will be rejected")
+	}
+
 	// 1. Inject WebRTC compatibility aliases for all pages.
 	addScript(
 		webkit.NewUserScript(
@@ -420,11 +452,11 @@ func (ci *ContentInjector) InjectScripts(ctx context.Context, ucm *webkit.UserCo
 		idScript := fmt.Sprintf("window.__dumber_webview_id=%d;", uint64(webviewID))
 		addScript(
 			webkit.NewUserScript(
-				idScript,
+				internalPageOnly(idScript),
 				webkit.UserContentInjectTopFrameValue,
 				webkit.UserScriptInjectAtDocumentStartValue,
-				internalPageAllowList,
 				nil,
+				internalPageBlockList,
 			),
 			"webview-id",
 		)
@@ -438,11 +470,11 @@ func (ci *ContentInjector) InjectScripts(ctx context.Context, ucm *webkit.UserCo
 	internalDarkModeScript := webutil.DarkModeScript(prefersDark, "__dumber_gtk_prefers_dark")
 	addScript(
 		webkit.NewUserScript(
-			internalDarkModeScript,
+			internalPageOnly(internalDarkModeScript),
 			webkit.UserContentInjectTopFrameValue,
 			webkit.UserScriptInjectAtDocumentStartValue,
-			internalPageAllowList,
 			nil,
+			internalPageBlockList,
 		),
 		"internal-dark-mode-handler",
 	)
@@ -453,11 +485,11 @@ func (ci *ContentInjector) InjectScripts(ctx context.Context, ucm *webkit.UserCo
 		themeCSSInjectionScript := fmt.Sprintf(themeCSSScript, escapedCSS)
 		addScript(
 			webkit.NewUserScript(
-				themeCSSInjectionScript,
+				internalPageOnly(themeCSSInjectionScript),
 				webkit.UserContentInjectTopFrameValue,
 				webkit.UserScriptInjectAtDocumentEndValue,
-				internalPageAllowList,
 				nil,
+				internalPageBlockList,
 			),
 			"theme-css-vars",
 		)

@@ -1,0 +1,164 @@
+package systemviews
+
+import (
+	"strconv"
+
+	"bnema.dev/dumber/internal/domain/entity"
+)
+
+// homeServiceWidgetSlot is the widget slot of a service tile, then its
+// actions region. Both regions always exist, empty when the service has no
+// api widget or no actions, so adding one swaps contents and keeps the
+// embed. Api widget slots are filled by HomeServiceWidget once data arrives.
+templ homeServiceWidgetSlot(service entity.HomeService) {
+	<div class="sv-home-service-widget" data-sv-region={ homeServiceRegion(service.ID) }>
+		@HomeServiceWidgetPlaceholder(service)
+	</div>
+	<div class="sv-home-service-actions" data-sv-region={ homeServiceActionsRegion(service.ID) }>
+		@HomeServiceIdleActions(service)
+	</div>
+}
+
+// HomeServiceWidgetPlaceholder is the widget slot before data arrives.
+templ HomeServiceWidgetPlaceholder(service entity.HomeService) {
+	if homeServiceHasAPIWidget(service) {
+		<div class="sv-home-svc sv-home-svc-loading" aria-busy="true"></div>
+	}
+}
+
+// HomeServiceIdleActions is the actions region with no action open.
+templ HomeServiceIdleActions(service entity.HomeService) {
+	if homeServiceHasActions(service) {
+		@HomeServiceActions(homeServiceActionsView{Service: service})
+	}
+}
+
+// HomeServiceWidget renders the fetched data of an api widget.
+templ HomeServiceWidget(view homeServiceWidgetView) {
+	<div class={ "sv-home-svc", "sv-home-svc-display-" + string(view.Display), templ.KV("sv-home-svc-inline", homeServiceWidgetInline(view)), templ.KV("sv-home-svc-stale", view.Data.Stale) }>
+		if view.Data.Stale {
+			<span class="sv-home-svc-stale-badge" title="Showing the last good data">stale</span>
+		}
+		if view.Data.Error != "" {
+			<p class="sv-home-svc-error" role="status">{ view.Data.Error }</p>
+		}
+		if view.Data.HTML != "" {
+			<div class="sv-home-svc-html">
+				// Safe: HTML is produced natively by the widget template and passed
+				// through the homehtml allowlist sanitizer; it is the only raw insertion.
+				@templ.Raw(view.Data.HTML)
+			</div>
+		} else {
+			switch view.Display {
+				case entity.HomeDisplayList:
+					@homeServiceList(view)
+				case entity.HomeDisplayBar:
+					<div class="sv-home-svc-bars">
+						for _, bar := range homeServiceBars(view) {
+							<div class="sv-home-svc-bar" style={ homeBarStyle(bar) }>
+								<span class="sv-home-svc-label">{ bar.Label }</span>
+								<span class="sv-home-svc-value">{ bar.Value }</span>
+								<span class="sv-home-svc-track" aria-hidden="true"><span class="sv-home-svc-fill"></span></span>
+							</div>
+						}
+					</div>
+				default:
+					<dl class="sv-home-svc-stats">
+						for _, field := range view.Data.Fields {
+							<div class="sv-home-svc-field-pair">
+								<dt class="sv-home-svc-label">{ field.Label }</dt>
+								<dd class="sv-home-svc-value">{ field.Value }</dd>
+							</div>
+						}
+					</dl>
+			}
+		}
+	</div>
+}
+
+templ homeServiceList(view homeServiceWidgetView) {
+	<ul class="sv-home-svc-list">
+		if len(view.Data.Items) > 0 {
+			for _, item := range view.Data.Items {
+				<li class="sv-home-svc-row">
+					for _, field := range item.Fields {
+						<span class="sv-home-svc-cell" title={ field.Label }>{ field.Value }</span>
+					}
+				</li>
+			}
+		} else {
+			for _, field := range view.Data.Fields {
+				<li class="sv-home-svc-row">
+					<span class="sv-home-svc-label">{ field.Label }</span>
+					<span class="sv-home-svc-value">{ field.Value }</span>
+				</li>
+			}
+		}
+	</ul>
+}
+
+// HomeServiceActions renders the action buttons of a service, with the
+// inline form or confirmation of the open action.
+templ HomeServiceActions(view homeServiceActionsView) {
+	<div class="sv-home-svc-actions">
+		for _, action := range view.Service.Actions {
+			if view.State.ActionID == action.ID && view.State.Step == homeActionForm {
+				<form class="sv-home-svc-form" data-sv-action={ homeActionSvcSubmit } data-sv-service={ view.Service.ID } data-sv-home-action={ action.ID } autocomplete="off">
+					for _, input := range action.Inputs {
+						<label class="sv-home-svc-field">
+							<span class="sv-home-svc-label">{ homeActionInputLabel(input) }</span>
+							<input class="sv-input" type="text" name={ homeActionInputName(input.Name) } placeholder={ input.Placeholder }/>
+						</label>
+					}
+					<div class="sv-home-svc-form-buttons">
+						<button type="submit" class="sv-button">{ homeActionLabel(action) }</button>
+						<button type="button" class="sv-button sv-button-secondary" data-sv-action={ homeActionSvcCancel } data-sv-service={ view.Service.ID }>Cancel</button>
+					</div>
+				</form>
+			} else if view.State.ActionID == action.ID && view.State.Step == homeActionConfirm {
+				<div class="sv-home-svc-confirm" role="group" aria-label={ homeActionLabel(action) }>
+					<span class="sv-home-svc-confirm-text">{ action.Confirm }</span>
+					<button type="button" class="sv-button sv-button-danger" data-sv-action={ homeActionSvcConfirm } data-sv-service={ view.Service.ID }>Confirm</button>
+					<button type="button" class="sv-button sv-button-secondary" data-sv-action={ homeActionSvcCancel } data-sv-service={ view.Service.ID }>Cancel</button>
+				</div>
+			} else {
+				{{ busy := view.State.ActionID == action.ID && view.State.Step == homeActionBusy }}
+				<button
+					type="button"
+					class="sv-button sv-button-secondary sv-home-svc-action"
+					data-sv-action={ homeActionSvcOpen }
+					data-sv-service={ view.Service.ID }
+					data-sv-home-action={ action.ID }
+					disabled?={ view.State.Step == homeActionBusy }
+					if busy {
+						aria-busy="true"
+					}
+				>
+					if busy {
+						Running…
+					} else {
+						{ homeActionLabel(action) }
+					}
+				</button>
+			}
+		}
+	</div>
+}
+
+// HomeServiceEmbed is the content of an embed region: the iframe, or a note
+// when the url was rejected.
+templ HomeServiceEmbed(view homeEmbedView, ok bool, rejected bool) {
+	if ok {
+		<iframe
+			class="sv-home-embed"
+			src={ templ.SafeURL(view.URL) }
+			height={ strconv.Itoa(view.Height) }
+			title={ view.Name }
+			sandbox={ homeEmbedSandbox }
+			referrerpolicy="no-referrer"
+			loading="lazy"
+		></iframe>
+	} else if rejected {
+		<p class="sv-home-svc-error" role="status">Embed url must be an http(s) address.</p>
+	}
+}

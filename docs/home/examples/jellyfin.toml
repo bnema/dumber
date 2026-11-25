@@ -1,0 +1,23 @@
+# Jellyfin library counts. API paths are examples: check your Jellyfin version's API docs.
+# export JELLYFIN_TOKEN=... (Dashboard > API Keys)
+
+[[groups]]
+name = "Media"
+
+[[groups.services]]
+id = "jellyfin"
+name = "Jellyfin"
+url = "http://jellyfin.lan:8096"
+description = "Movies and shows"
+
+[groups.services.widget]
+type = "api"
+url = "http://jellyfin.lan:8096/Items/Counts"
+headers = { "Authorization" = 'MediaBrowser Token="{{env.JELLYFIN_TOKEN}}"' }
+refresh = "5m"
+display = "stats"
+fields = [
+  { label = "Movies", path = "MovieCount", format = "number" },
+  { label = "Series", path = "SeriesCount", format = "number" },
+  { label = "Episodes", path = "EpisodeCount", format = "number" },
+]

@@ -268,6 +268,7 @@ type ExternalLinksConfig struct {
 // WorkspaceConfig holds all workspace layout and behavior settings.
 type WorkspaceConfig struct {
 	NewPaneURL    string                `mapstructure:"new_pane_url" yaml:"new_pane_url" toml:"new_pane_url" json:"new_pane_url"`
+	StartupURL    string                `mapstructure:"startup_url" yaml:"startup_url" toml:"startup_url" json:"startup_url"`
 	Keymap        KeymapPreset          `mapstructure:"keymap" yaml:"keymap" toml:"keymap" json:"keymap"`
 	PrefixMode    PrefixModeConfig      `mapstructure:"prefix_mode" yaml:"prefix_mode" toml:"prefix_mode" json:"prefix_mode"`
 	PaneMode      PaneModeConfig        `mapstructure:"pane_mode" yaml:"pane_mode" toml:"pane_mode" json:"pane_mode"`

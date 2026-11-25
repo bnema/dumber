@@ -3,6 +3,7 @@ package systemviews
 import (
 	"fmt"
 	"html"
+	"strings"
 	"time"
 )
 
@@ -56,12 +57,24 @@ type RegionUpdate struct {
 	// Transition asks the visual layer to animate the swap when it can.
 	// Live typing keeps it off so results never lag behind keystrokes.
 	Transition bool
+	// Focus, when set, names the element to focus after the swap, as a
+	// focus key: "sel:<css selector>", "key:<data-sv-focus-key>" or
+	// "id:<id>". It replaces the previously focused element, and like it is
+	// only applied when the swap left focus outside the page content.
+	Focus string
 }
 
 // DOMRegionUpdater is implemented by DOM adapters that can replace named
 // regions in place, leaving the rest of the page (and its focus) untouched.
 type DOMRegionUpdater interface {
 	UpdateRegions(update RegionUpdate) error
+}
+
+// DOMHomeSearch is implemented by DOM adapters that run the Home search in
+// the page. ReapplyHomeSearch re-applies the typed query (filter, selection,
+// engine chip and hint) after the page markup changed under it.
+type DOMHomeSearch interface {
+	ReapplyHomeSearch()
 }
 
 // ToastRequest describes a transient notification, with at most one action.
@@ -125,6 +138,23 @@ type PaletteRequest struct {
 // palette. Without a palette UI it does nothing.
 type DOMPalette interface {
 	ShowPalette(request PaletteRequest)
+}
+
+// cssQuotedReplacer escapes what can end or break a double-quoted CSS string:
+// the quote, backslash, line breaks (as hex escapes, the space ends them) and
+// NUL, which CSS replaces with U+FFFD anyway.
+var cssQuotedReplacer = strings.NewReplacer(
+	`\`, `\\`,
+	`"`, `\"`,
+	"\n", `\a `,
+	"\r", `\d `,
+	"\f", `\c `,
+	"\x00", "\uFFFD",
+)
+
+// cssQuoted escapes s for a double-quoted CSS attribute selector value.
+func cssQuoted(s string) string {
+	return cssQuotedReplacer.Replace(s)
 }
 
 func placeholderHTML(route Route) string {

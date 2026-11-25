@@ -16,6 +16,7 @@ import (
 
 	appport "bnema.dev/dumber/internal/application/port"
 	domainfavicon "bnema.dev/dumber/internal/domain/favicon"
+	"bnema.dev/dumber/internal/infrastructure/netaddr"
 )
 
 const (
@@ -34,12 +35,83 @@ type Fetcher struct {
 	client        *http.Client
 	duckDuckGoURL string
 	maxBytes      int64
+	// envProxy and lookupIP are test seams for proxyFunc.
+	envProxy func(*http.Request) (*url.URL, error)
+	lookupIP func(ctx context.Context, host string) ([]net.IP, error)
+}
+
+func defaultLookupIP(ctx context.Context, host string) ([]net.IP, error) {
+	return net.DefaultResolver.LookupIP(ctx, "ip", host)
+}
+
+// proxyFunc keeps the environment proxy but refuses private targets first.
+// With a proxy, safeDialContext only sees the proxy's address, so the SSRF
+// rule must be checked here against the real target host.
+//
+// Residual risk (accepted, SEC-008): this is a check-then-use race. The host
+// is resolved here, then the proxy resolves it again on its own. A hostile
+// DNS server can answer a public address to us and a private one to the
+// proxy (DNS rebinding), so the proxy may still reach a private address.
+// Closing it would mean connecting by IP, which a proxy does not allow, or
+// dropping proxy support, which breaks users who need one for the internet.
+// It is accepted because the impact is small:
+//   - only GET requests to favicon URLs are made, with no request body and
+//     no user cookies or credentials;
+//   - responses are capped at maxFaviconBytes and kept only when the body
+//     sniffs as a supported image type (bodyMatchesContentType);
+//   - kept bytes are decoded and re-encoded to PNG before use, and the only
+//     consumers are the browser's favicon UI and the systemview
+//     /api/favicon image endpoint. No raw response body, header or status
+//     text reaches web pages.
+//
+// Without a proxy, safeDialContext checks the address it actually dials, so
+// this race does not exist.
+func (f *Fetcher) proxyFunc(req *http.Request) (*url.URL, error) {
+	envProxy := f.envProxy
+	if envProxy == nil {
+		envProxy = http.ProxyFromEnvironment
+	}
+	proxyURL, err := envProxy(req)
+	if err != nil || proxyURL == nil {
+		return proxyURL, err
+	}
+	if !f.proxyTargetAllowed(req.Context(), req.URL) {
+		return nil, fmt.Errorf("favicon target %s resolves to a private address", req.URL.Hostname())
+	}
+	return proxyURL, nil
+}
+
+func (f *Fetcher) proxyTargetAllowed(ctx context.Context, target *url.URL) bool {
+	allowed, _ := ctx.Value(allowedLocalOriginKey).(string)
+	if allowed != "" && strings.EqualFold(allowed, normalizeOriginHostPort(target.Hostname(), target.Port(), target.Scheme)) {
+		return true
+	}
+	host := target.Hostname()
+	if isLocalhost(host) {
+		return false
+	}
+	lookup := f.lookupIP
+	if lookup == nil {
+		lookup = defaultLookupIP
+	}
+	ips, err := lookup(ctx, host)
+	if err != nil || len(ips) == 0 {
+		return false
+	}
+	for _, ip := range ips {
+		addr, ok := netip.AddrFromSlice(ip)
+		if !ok || netaddr.IsPrivate(addr) {
+			return false
+		}
+	}
+	return true
 }
 
 func NewFetcher() *Fetcher {
 	f := &Fetcher{duckDuckGoURL: duckduckgoFaviconURL, maxBytes: maxFaviconBytes}
 	transport := http.DefaultTransport.(*http.Transport).Clone()
 	transport.DialContext = f.safeDialContext
+	transport.Proxy = f.proxyFunc
 	f.client = &http.Client{Timeout: fetchTimeout, Transport: transport, CheckRedirect: f.checkRedirect}
 	return f
 }
@@ -64,6 +136,7 @@ func (f *Fetcher) safeTransport(base http.RoundTripper) http.RoundTripper {
 	}
 	clone := transport.Clone()
 	clone.DialContext = f.safeDialContext
+	clone.Proxy = f.proxyFunc
 	return clone
 }
 
@@ -186,7 +259,7 @@ func (*Fetcher) safeDialContext(ctx context.Context, network, address string) (n
 	var dialIP net.IP
 	for _, ip := range ips {
 		addr, ok := netip.AddrFromSlice(ip.IP)
-		if (!ok || isPrivateAddr(addr)) && !allowed {
+		if (!ok || netaddr.IsPrivate(addr)) && !allowed {
 			continue
 		}
 		dialIP = ip.IP
@@ -285,7 +358,7 @@ func isInternalHost(host string) bool {
 	}
 	for _, ip := range ips {
 		addr, ok := netip.AddrFromSlice(ip)
-		if !ok || isPrivateAddr(addr) {
+		if !ok || netaddr.IsPrivate(addr) {
 			return true
 		}
 	}
@@ -294,8 +367,4 @@ func isInternalHost(host string) bool {
 
 func isLocalhost(host string) bool {
 	return strings.EqualFold(host, "localhost") || host == "127.0.0.1" || host == "::1"
-}
-
-func isPrivateAddr(addr netip.Addr) bool {
-	return addr.IsPrivate() || addr.IsLoopback() || addr.IsLinkLocalUnicast() || addr.IsLinkLocalMulticast() || addr.IsUnspecified()
 }

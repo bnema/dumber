@@ -10,6 +10,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"bnema.dev/dumber/internal/application/dto"
@@ -88,6 +89,9 @@ type App struct {
 	mainWindow *window.MainWindow
 
 	runtimeConfig *runtimeConfigState
+	// lastConfigGeneration is the newest applied config notification
+	// generation (main thread only).
+	lastConfigGeneration uint64
 
 	browserWindows       map[string]*browserWindow
 	browserWindowOrder   []string               // registration order of window IDs
@@ -97,6 +101,14 @@ type App struct {
 	nativePopupWindows   map[port.WebViewID]*nativePopupWindow
 	browserWindowFactory func(context.Context, string) (*browserWindow, error)
 	dispatchOnMainThread func(string, func()) syncdispatch.SyncDispatchResult
+	// postOnMainThread queues fn on the GTK main loop and returns at once.
+	postOnMainThread func(label string, fn func())
+
+	// userCSSReadSeq numbers user.css reads; userCSSAppliedSeq (main thread
+	// only) is the newest applied, so an older read never overwrites a
+	// newer one.
+	userCSSReadSeq    atomic.Uint64
+	userCSSAppliedSeq uint64
 
 	// State
 	tabs   *entity.TabList
@@ -206,6 +218,11 @@ func New(deps *Dependencies) (*App, error) {
 				fn()
 			}
 			return syncdispatch.SyncDispatchResult{Label: label, Status: syncdispatch.SyncDispatchInline}
+		},
+		postOnMainThread: func(_ string, fn func()) {
+			if fn != nil {
+				fn()
+			}
 		},
 		engine: deps.Engine,
 		cancel: cancel,
@@ -324,6 +341,7 @@ func (a *App) Run(ctx context.Context, args []string) int {
 	}
 	defer a.gtkApp.Unref()
 	a.dispatchOnMainThread = a.runOnMainThread
+	a.postOnMainThread = postToGTKMainLoop
 
 	// Bounded opt-in residency owns exactly one application hold, taken
 	// only when enabled and released once on every Run exit (including
@@ -819,10 +837,11 @@ func (a *App) closeBrowserLaunchRelayListener() {
 }
 
 func (a *App) initialWindowURL() string {
+	configured := a.runtimeConfigSnapshot().UI.Workspace.StartupURL
 	if a.deps != nil {
-		return urlutil.ResolveBrowserStartupURL(a.deps.InitialURL)
+		return urlutil.ResolveBrowserStartupURL(a.deps.InitialURL, configured)
 	}
-	return urlutil.DefaultBrowserStartupURL()
+	return urlutil.ResolveBrowserStartupURL("", configured)
 }
 
 func (a *App) initLayoutInfrastructure() {
@@ -3135,11 +3154,7 @@ func (a *App) onShutdown(ctx context.Context) {
 
 	// Stop accepting relaunches before teardown starts.
 	a.closeBrowserLaunchRelayListener()
-	if a.deps != nil && a.deps.ExternalThemeWatcher != nil {
-		if err := a.deps.ExternalThemeWatcher.Stop(); err != nil {
-			log.Warn().Err(err).Msg("failed to stop external theme watcher")
-		}
-	}
+	a.stopFileWatchers(ctx)
 
 	// Cancel context to signal all goroutines
 	a.cancel(errors.New("application shutdown"))
@@ -3467,6 +3482,7 @@ func (a *App) initCoordinators(ctx context.Context) {
 			})
 		}
 		a.preloadAccessibilityForShownPane(paneID)
+		a.focusRevealedActivePane(paneID)
 
 		// This only updates focus when the shown pane belongs to the last-focused
 		// window's active workspace. activeWorkspace() delegates to
@@ -4333,6 +4349,7 @@ func (a *App) initConfigWatcher(ctx context.Context) {
 	log := logging.FromContext(ctx)
 
 	a.syncExternalThemeWatcher(ctx)
+	a.initSystemViewFileWatcher(ctx)
 
 	if a.deps == nil || a.deps.RuntimeConfig == nil {
 		log.Debug().Msg("no config watcher available, skipping config file watcher")
@@ -4366,6 +4383,18 @@ func (a *App) dispatchRuntimeConfigChange(ctx context.Context, snapshot entity.R
 func (a *App) applyRuntimeConfigChange(ctx context.Context, snapshot entity.RuntimeConfigSnapshot) {
 	if a == nil {
 		return
+	}
+	// Notifications come from several goroutines (file watcher, saves) and
+	// can reach the main thread out of order: drop older ones.
+	if snapshot.Generation != 0 {
+		if snapshot.Generation <= a.lastConfigGeneration {
+			logging.FromContext(ctx).Debug().
+				Uint64("generation", snapshot.Generation).
+				Uint64("applied", a.lastConfigGeneration).
+				Msg("dropping stale runtime config change")
+			return
+		}
+		a.lastConfigGeneration = snapshot.Generation
 	}
 	if a.runtimeConfig == nil {
 		a.runtimeConfig = newRuntimeConfigState(nil)
@@ -4415,6 +4444,80 @@ func (a *App) applyRuntimeConfigChange(ctx context.Context, snapshot entity.Runt
 	}
 }
 
+// stopFileWatchers stops the external theme and system view file watchers.
+func (a *App) stopFileWatchers(ctx context.Context) {
+	if a.deps == nil {
+		return
+	}
+	log := logging.FromContext(ctx)
+	if a.deps.ExternalThemeWatcher != nil {
+		if err := a.deps.ExternalThemeWatcher.Stop(); err != nil {
+			log.Warn().Err(err).Msg("failed to stop external theme watcher")
+		}
+	}
+	if a.deps.SystemViewFileWatcher != nil {
+		if err := a.deps.SystemViewFileWatcher.Stop(); err != nil {
+			log.Warn().Err(err).Msg("failed to stop system view file watcher")
+		}
+	}
+}
+
+// initSystemViewFileWatcher loads user.css once and reloads it on change.
+func (a *App) initSystemViewFileWatcher(ctx context.Context) {
+	if a == nil || a.deps == nil || a.deps.SystemViewUserStyle == nil {
+		return
+	}
+	go a.reloadSystemViewUserCSS(ctx)
+	if a.deps.SystemViewFileWatcher == nil {
+		return
+	}
+	if err := a.deps.SystemViewFileWatcher.Start(ctx, port.SystemViewFileHandlers{
+		OnUserCSS:    func() { a.reloadSystemViewUserCSS(ctx) },
+		OnHomeConfig: func() { a.notifyHomeConfigChanged(ctx) },
+	}); err != nil {
+		logging.FromContext(ctx).Warn().Err(err).Msg("failed to start system view file watcher")
+	}
+}
+
+// notifyHomeConfigChanged tells loaded system view pages that home.toml
+// changed so dumb://home reloads its data.
+func (a *App) notifyHomeConfigChanged(ctx context.Context) {
+	script, err := content.BuildSystemViewEventScript(dto.HomeChangedEvent, map[string]string{"topic": dto.HomeChangedTopic})
+	if err != nil {
+		logging.FromContext(ctx).Warn().Err(err).Msg("failed to build home changed event")
+		return
+	}
+	a.postMain("ui.systemview_home_changed", func() {
+		if a.contentCoord != nil {
+			logging.FromContext(ctx).Debug().Msg("notifying system views of home.toml change")
+			a.contentCoord.NotifySystemViews(ctx, script)
+		}
+	})
+}
+
+// reloadSystemViewUserCSS reads user.css off the main thread, then posts the
+// apply to the main thread. A read that finishes after a newer one is
+// dropped.
+func (a *App) reloadSystemViewUserCSS(ctx context.Context) {
+	seq := a.userCSSReadSeq.Add(1)
+	css, err := a.deps.SystemViewUserStyle.Read()
+	if err != nil {
+		logging.FromContext(ctx).Warn().Err(err).
+			Str("path", a.deps.SystemViewUserStyle.Path()).
+			Msg("failed to read user css")
+		return
+	}
+	a.postMain("ui.systemview_user_css_reload", func() {
+		if seq < a.userCSSAppliedSeq {
+			return
+		}
+		a.userCSSAppliedSeq = seq
+		if a.contentCoord != nil {
+			a.contentCoord.ApplySystemViewUserCSS(ctx, css)
+		}
+	})
+}
+
 func (a *App) syncExternalThemeWatcher(ctx context.Context) {
 	if a == nil || a.deps == nil || a.deps.ExternalThemeWatcher == nil {
 		return
@@ -4422,7 +4525,7 @@ func (a *App) syncExternalThemeWatcher(ctx context.Context) {
 	log := logging.FromContext(ctx)
 	cfg := a.runtimeConfigSnapshot().UI.Appearance.ExternalTheme
 	if err := a.deps.ExternalThemeWatcher.Start(ctx, cfg, func() {
-		a.dispatchOnMainThread("ui.external_theme_reload", func() {
+		a.postMain("ui.external_theme_reload", func() {
 			a.applyAppearanceConfig(ctx)
 		})
 	}); err != nil {
@@ -4574,4 +4677,25 @@ func (a *App) showFilterStatus(ctx context.Context, status port.FilterStatus) {
 	case port.FilterStateError:
 		a.showToastOnLastFocusedBrowserWindow(ctx, "Filter load failed: "+status.Message, component.ToastError)
 	}
+}
+
+// postToGTKMainLoop queues fn on the GTK main loop without waiting. File
+// watcher callbacks use it: a watcher Stop on the main thread waits for its
+// in-flight callback, which must therefore never wait for the main thread.
+func postToGTKMainLoop(_ string, fn func()) {
+	if fn == nil {
+		return
+	}
+	cb := glib.SourceOnceFunc(func(_ uintptr) { fn() })
+	glib.IdleAddOnce(&cb, 0)
+}
+
+// postMain queues fn on the main thread without waiting. App literals in
+// tests without postOnMainThread run fn inline.
+func (a *App) postMain(label string, fn func()) {
+	if a.postOnMainThread == nil {
+		fn()
+		return
+	}
+	a.postOnMainThread(label, fn)
 }

@@ -280,6 +280,8 @@ func permissionTypesFromStrings(ctx context.Context, permTypes []string) []entit
 			entityTypes = append(entityTypes, entity.PermissionTypeDeviceInfo)
 		case "website_data_access":
 			entityTypes = append(entityTypes, entity.PermissionTypeWebsiteDataAccess)
+		case "local_network":
+			entityTypes = append(entityTypes, entity.PermissionTypeLocalNetwork)
 		default:
 			log.Warn().Str("type", pt).Msg("unknown permission type, skipping")
 		}

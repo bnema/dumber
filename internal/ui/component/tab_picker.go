@@ -237,7 +237,7 @@ func (tp *TabPicker) createList() error {
 		if row == nil {
 			return
 		}
-		idx := row.GetIndex()
+		idx := listBoxRowIndex(row)
 		tp.mu.Lock()
 		tp.selectedIndex = idx
 		tp.mu.Unlock()

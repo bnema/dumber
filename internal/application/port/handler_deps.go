@@ -51,4 +51,6 @@ type HandlerDeps struct {
 	KeybindingSetter           KeybindingSetter
 	KeybindingResetter         KeybindingResetter
 	AllKeybindingsResetter     AllKeybindingsResetter
+	// Home serves the dumb://home messages. Nil disables them.
+	Home HomePage
 }

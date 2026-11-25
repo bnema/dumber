@@ -274,3 +274,25 @@ func TestParseBangShortcut(t *testing.T) {
 		})
 	}
 }
+
+func TestParseBangPrefix(t *testing.T) {
+	tests := []struct {
+		input, key, query string
+		ok                bool
+	}{
+		{"!gh", "gh", "", true},
+		{"!gh dumber", "gh", "dumber", true},
+		{"!G foo", "G", "foo", true},
+		{"!gh   ", "gh", "", true},
+		{"plain text", "", "", false},
+		{"! foo", "", "", false},
+		{"!", "", "", false},
+	}
+	for _, tt := range tests {
+		key, query, ok := ParseBangPrefix(tt.input)
+		if key != tt.key || query != tt.query || ok != tt.ok {
+			t.Errorf("ParseBangPrefix(%q) = (%q, %q, %v), want (%q, %q, %v)",
+				tt.input, key, query, ok, tt.key, tt.query, tt.ok)
+		}
+	}
+}

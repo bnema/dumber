@@ -343,7 +343,7 @@ func (sm *SessionManager) initList() error {
 		if row == nil {
 			return
 		}
-		listRowIdx := row.GetIndex()
+		listRowIdx := listBoxRowIndex(row)
 		sm.mu.Lock()
 		// Ignore selection changes while rebuilding the list
 		if sm.populatingList {

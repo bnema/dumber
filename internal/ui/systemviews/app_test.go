@@ -30,6 +30,9 @@ func TestParseRoute(t *testing.T) {
 		{name: "dumb scheme only", uri: "dumb://", want: RouteUnknown},
 		{name: "dumb unknown host", uri: "dumb://unknown", want: RouteUnknown},
 		{name: "dumb opaque bogus", uri: "dumb:bogus", want: RouteUnknown},
+		{name: "home host", uri: "dumb://home", want: RouteHome},
+		{name: "home opaque", uri: "dumb:home", want: RouteHome},
+		{name: "home internal origin", uri: "https://dumber.invalid/home", want: RouteHome},
 		{name: "history host", uri: "dumb://history", want: RouteHistory},
 		{name: "history opaque", uri: "dumb:history", want: RouteHistory},
 		{name: "favorites host", uri: "dumb://favorites", want: RouteFavorites},
@@ -508,7 +511,7 @@ func TestAppLoadInitialHistoryRouteAppliesThemeTokens(t *testing.T) {
 	})
 
 	require.NoError(t, app.LoadInitial(context.Background()))
-	assert.Contains(t, app.renderedHTML, `class="sv-app sv-style-command sv-light"`)
+	assert.Contains(t, app.renderedHTML, `class="sv-app sv-style-command sv-light sv-route-history"`)
 	assert.Contains(t, app.renderedHTML, `--sv-background: #ffffff;`)
 	assert.Contains(t, app.renderedHTML, `--sv-surface-variant: #eeeeee;`)
 }
@@ -1027,4 +1030,16 @@ func TestHandleActionsRejectUnknownAction(t *testing.T) {
 	require.ErrorContains(t, app.handleHistoryAction(context.Background(), DOMAction{Action: "history.unknown"}), "unknown history action")
 	require.ErrorContains(t, app.handleFavoriteAction(context.Background(), DOMAction{Action: "favorite.unknown"}), "unknown favorite action")
 	require.ErrorContains(t, app.handleConfigAction(context.Background(), DOMAction{Action: "config.unknown"}), "unknown config action")
+}
+
+func TestLoadInitialRendersHomeRoute(t *testing.T) {
+	t.Parallel()
+	app := NewApp(Dependencies{LocationURI: "dumb://home"})
+	require.NoError(t, app.LoadInitial(context.Background()))
+	assert.Equal(t, RouteHome, app.CurrentRoute())
+	assert.Contains(t, app.renderedHTML, `data-route="home"`)
+	assert.Contains(t, app.renderedHTML, `sv-route-home`)
+	assert.Contains(t, app.renderedHTML, `data-sv-region="home"`)
+	assert.Contains(t, app.renderedHTML, `class="sv-home"`)
+	assert.Contains(t, app.renderedHTML, `data-page-title="Home"`)
 }

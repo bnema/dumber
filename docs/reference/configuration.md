@@ -94,7 +94,8 @@
 | `default_ui_scale` | float | `1.0` | > 0 |
 | `default_webpage_zoom` | float | `1.2` | > 0 |
 | `sidebar_width` | int | `320` | `0` or `280-380` |
-| `workspace.new_pane_url` | string | `about:blank` | |
+| `workspace.new_pane_url` | string | `dumb://home` | `http(s)`, `dumb`, `file` or `about` URL, or an existing local path |
+| `workspace.startup_url` | string | `dumb://home` | Same as `new_pane_url`; used when no URL is given and no session is restored |
 | `workspace.switch_to_tab_on_move` | bool | `true` | |
 | `workspace.tab_bar_position` | string | `bottom` | `top`, `bottom` |
 | `workspace.hide_tab_bar_when_single_tab` | bool | `true` | |

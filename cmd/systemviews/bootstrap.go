@@ -12,6 +12,7 @@ type bridgeServices interface {
 	port.SystemviewHistoryService
 	port.SystemviewFavoritesService
 	port.SystemviewConfigService
+	port.SystemviewHomeService
 }
 
 func newBridgeApp(dom systemviews.DOM, locationURI string, bridge bridgeServices) *systemviews.App {
@@ -21,6 +22,7 @@ func newBridgeApp(dom systemviews.DOM, locationURI string, bridge bridgeServices
 		History:     bridge,
 		Favorites:   bridge,
 		Config:      bridgeConfigProxy{bridge: bridge, route: route},
+		Home:        bridge,
 		LocationURI: locationURI,
 	})
 }

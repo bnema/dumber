@@ -1,0 +1,649 @@
+package usecase
+
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"errors"
+	"net/url"
+	"strings"
+	"sync"
+	"testing"
+	"testing/synctest"
+	"time"
+
+	"github.com/rs/zerolog"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
+
+	"bnema.dev/dumber/internal/application/dto"
+	"bnema.dev/dumber/internal/application/port"
+	"bnema.dev/dumber/internal/application/port/mocks"
+	"bnema.dev/dumber/internal/domain/entity"
+	"bnema.dev/dumber/internal/logging"
+)
+
+const homeTestSecret = "s3cr3t-token"
+
+type homeWidgetFixture struct {
+	uc     *HomeUseCase
+	layout *entity.HomeLayout
+	// contentHash is the snapshot ContentHash; tests bump it with edits.
+	contentHash *[32]byte
+	http        *mocks.MockHomeHTTPClient
+	now         *time.Time
+	logs        *bytes.Buffer
+	ctx         context.Context
+}
+
+func newHomeWidgetFixture(t *testing.T) *homeWidgetFixture {
+	t.Helper()
+	layout := entity.HomeLayout{Groups: []entity.HomeGroup{{Name: "G", Services: []entity.HomeService{
+		{
+			ID: "media", Name: "Media",
+			Widget: &entity.HomeServiceWidget{
+				Type:    entity.HomeServiceWidgetAPI,
+				URL:     "https://media.local/api?token={{env.TOKEN}}",
+				Headers: map[string]string{"X-Token": "{{env.TOKEN}}"},
+				Fields: []entity.HomeField{
+					{Label: "Movies", Path: "movies", Format: entity.HomeFormatNumber},
+					{Label: "Missing", Path: "nope"},
+				},
+			},
+			Actions: []entity.HomeAction{
+				{
+					ID: "search", Label: "Search", Method: entity.HomeMethodPost,
+					URL:     "https://media.local/search?q={{input.q}}&k={{env.TOKEN}}",
+					Headers: map[string]string{"Authorization": "Bearer {{env.TOKEN}}"},
+					Body:    `{"query":"{{input.q}}"}`,
+					Inputs:  []entity.HomeActionInput{{Name: "q", Label: "Query"}},
+				},
+				{
+					ID: "note", Label: "Note", Method: entity.HomeMethodPost, URL: "https://media.local/note",
+					Body:   `{"text":"{{input.q}}"}`,
+					Inputs: []entity.HomeActionInput{{Name: "q", Label: "Query"}},
+				},
+			},
+		},
+		{ID: "plain", Name: "Plain"},
+	}}}}
+	layout.Normalize()
+	require.Empty(t, layout.Validate())
+
+	contentHash := new([32]byte)
+	source := mocks.NewMockHomeConfigSource(t)
+	source.EXPECT().Load(mock.Anything).RunAndReturn(func(context.Context) (port.HomeConfigSnapshot, error) {
+		return port.HomeConfigSnapshot{Layout: layout, Exists: true, ContentHash: *contentHash}, nil
+	}).Maybe()
+	httpClient := mocks.NewMockHomeHTTPClient(t)
+	now := time.Date(2026, 1, 1, 12, 0, 0, 0, time.UTC)
+	logs := &bytes.Buffer{}
+	f := &homeWidgetFixture{
+		layout:      &layout,
+		contentHash: contentHash,
+		http:        httpClient,
+		now:         &now,
+		logs:        logs,
+		ctx:         logging.WithContext(context.Background(), zerolog.New(logs).Level(zerolog.DebugLevel)),
+	}
+	f.uc = NewHomeUseCase(HomeDeps{
+		Source: source,
+		HTTP:   httpClient,
+		LookupEnv: func(name string) (string, bool) {
+			if name == "TOKEN" {
+				return homeTestSecret, true
+			}
+			return "", false
+		},
+		Now: func() time.Time { return *f.now },
+	})
+	return f
+}
+
+func (f *homeWidgetFixture) assertNoSecret(t *testing.T, v any) {
+	t.Helper()
+	data, err := json.Marshal(v)
+	require.NoError(t, err)
+	assert.NotContains(t, string(data), homeTestSecret)
+	assert.NotContains(t, f.logs.String(), homeTestSecret)
+}
+
+func okJSON(body string) port.HomeHTTPResponse {
+	return port.HomeHTTPResponse{StatusCode: 200, Body: []byte(body)}
+}
+
+func TestFetchWidgetData_ExpandsEnvAndExtractsFields(t *testing.T) {
+	f := newHomeWidgetFixture(t)
+	f.http.EXPECT().Do(mock.Anything, mock.Anything).RunAndReturn(
+		func(_ context.Context, req port.HomeHTTPRequest) (port.HomeHTTPResponse, error) {
+			assert.Equal(t, "GET", req.Method)
+			assert.Equal(t, "https://media.local/api?token="+homeTestSecret, req.URL)
+			assert.Equal(t, homeTestSecret, req.Headers["X-Token"])
+			assert.Equal(t, 10*time.Second, req.Timeout)
+			return okJSON(`{"movies":12345}`), nil
+		}).Once()
+
+	resp, err := f.uc.FetchWidgetData(f.ctx, "media")
+	require.NoError(t, err)
+	assert.Equal(t, dto.HomeStatusOK, resp.Status)
+	require.Len(t, resp.Fields, 2)
+	assert.Equal(t, "12,345", resp.Fields[0].Value)
+	assert.InDelta(t, 12345.0, resp.Fields[0].Raw, 0)
+	assert.Equal(t, dto.HomeWidgetValue{Label: "Missing"}, resp.Fields[1])
+	assert.Equal(t, *f.now, resp.FetchedAt)
+	assert.False(t, resp.Stale)
+}
+
+func TestFetchWidgetData_CacheHitThenTTLExpiry(t *testing.T) {
+	f := newHomeWidgetFixture(t)
+	f.http.EXPECT().Do(mock.Anything, mock.Anything).Return(okJSON(`{"movies":1}`), nil).Once()
+
+	_, err := f.uc.FetchWidgetData(f.ctx, "media")
+	require.NoError(t, err)
+	*f.now = f.now.Add(59 * time.Second)
+	resp, err := f.uc.FetchWidgetData(f.ctx, "media")
+	require.NoError(t, err)
+	assert.Equal(t, "1", resp.Fields[0].Value)
+
+	f.http.EXPECT().Do(mock.Anything, mock.Anything).Return(okJSON(`{"movies":2}`), nil).Once()
+	*f.now = f.now.Add(2 * time.Second)
+	resp, err = f.uc.FetchWidgetData(f.ctx, "media")
+	require.NoError(t, err)
+	assert.Equal(t, "2", resp.Fields[0].Value)
+}
+
+func TestFetchWidgetData_StaleOnError(t *testing.T) {
+	f := newHomeWidgetFixture(t)
+	f.http.EXPECT().Do(mock.Anything, mock.Anything).Return(okJSON(`{"movies":7}`), nil).Once()
+	first, err := f.uc.FetchWidgetData(f.ctx, "media")
+	require.NoError(t, err)
+
+	*f.now = f.now.Add(time.Hour)
+	f.http.EXPECT().Do(mock.Anything, mock.Anything).Return(port.HomeHTTPResponse{StatusCode: 503}, nil).Once()
+	resp, err := f.uc.FetchWidgetData(f.ctx, "media")
+	require.NoError(t, err)
+	assert.Equal(t, dto.HomeStatusError, resp.Status)
+	assert.True(t, resp.Stale)
+	assert.Equal(t, "HTTP 503", resp.Error)
+	assert.Equal(t, "7", resp.Fields[0].Value)
+	assert.Equal(t, first.FetchedAt, resp.FetchedAt)
+}
+
+func TestFetchWidgetData_ErrorWithoutCacheHasNoSecrets(t *testing.T) {
+	f := newHomeWidgetFixture(t)
+	// A transport error that embeds the expanded URL, like *url.Error does.
+	transportErr := &url.Error{Op: "Get", URL: "https://media.local/api?token=" + homeTestSecret, Err: errors.New("refused")}
+	f.http.EXPECT().Do(mock.Anything, mock.Anything).Return(port.HomeHTTPResponse{}, transportErr).Once()
+
+	resp, err := f.uc.FetchWidgetData(f.ctx, "media")
+	require.NoError(t, err)
+	assert.Equal(t, dto.HomeStatusError, resp.Status)
+	assert.False(t, resp.Stale)
+	assert.Equal(t, "request failed", resp.Error)
+	assert.Empty(t, resp.Fields)
+	f.assertNoSecret(t, resp)
+}
+
+func TestFetchWidgetData_MissingEnvNamesVariableOnly(t *testing.T) {
+	f := newHomeWidgetFixture(t)
+	f.layout.Groups[0].Services[0].Widget.URL = "https://media.local/{{env.NOPE}}"
+	resp, err := f.uc.FetchWidgetData(f.ctx, "media")
+	require.NoError(t, err)
+	assert.Contains(t, resp.Error, "NOPE")
+	f.assertNoSecret(t, resp)
+}
+
+func TestFetchWidgetData_InvalidatesOnConfigChange(t *testing.T) {
+	f := newHomeWidgetFixture(t)
+	f.http.EXPECT().Do(mock.Anything, mock.Anything).Return(okJSON(`{"movies":1}`), nil).Once()
+	_, err := f.uc.FetchWidgetData(f.ctx, "media")
+	require.NoError(t, err)
+
+	f.layout.Groups[0].Services[0].Widget.Fields[0].Label = "Films"
+	f.http.EXPECT().Do(mock.Anything, mock.Anything).Return(port.HomeHTTPResponse{StatusCode: 500}, nil).Once()
+	resp, err := f.uc.FetchWidgetData(f.ctx, "media")
+	require.NoError(t, err)
+	// The old cache entry was dropped, so there is no stale data to show.
+	assert.False(t, resp.Stale)
+	assert.Empty(t, resp.Fields)
+}
+
+func TestFetchWidgetData_ListItems(t *testing.T) {
+	f := newHomeWidgetFixture(t)
+	w := f.layout.Groups[0].Services[0].Widget
+	w.Display = entity.HomeDisplayList
+	w.Items = "data.rows"
+	w.Fields = []entity.HomeField{{Label: "Name", Path: "name", Format: entity.HomeFormatText}}
+	f.http.EXPECT().Do(mock.Anything, mock.Anything).
+		Return(okJSON(`{"data":{"rows":[{"name":"a"},{"name":"b"}]}}`), nil).Once()
+
+	resp, err := f.uc.FetchWidgetData(f.ctx, "media")
+	require.NoError(t, err)
+	require.Len(t, resp.Items, 2)
+	assert.Equal(t, "b", resp.Items[1].Fields[0].Value)
+	assert.Empty(t, resp.Fields)
+}
+
+func TestFetchWidgetData_InvalidJSON(t *testing.T) {
+	f := newHomeWidgetFixture(t)
+	f.http.EXPECT().Do(mock.Anything, mock.Anything).Return(okJSON(`<html>`), nil).Once()
+	resp, err := f.uc.FetchWidgetData(f.ctx, "media")
+	require.NoError(t, err)
+	assert.Equal(t, "invalid JSON response", resp.Error)
+}
+
+func TestFetchWidgetData_UnknownOrNonAPIService(t *testing.T) {
+	f := newHomeWidgetFixture(t)
+	_, err := f.uc.FetchWidgetData(f.ctx, "nope")
+	require.Error(t, err)
+	_, err = f.uc.FetchWidgetData(f.ctx, "plain")
+	require.Error(t, err)
+}
+
+func TestFetchWidgetData_ConcurrentCallsShareOneRequest(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		f := newHomeWidgetFixture(t)
+		release := make(chan struct{})
+		f.http.EXPECT().Do(mock.Anything, mock.Anything).RunAndReturn(
+			func(context.Context, port.HomeHTTPRequest) (port.HomeHTTPResponse, error) {
+				<-release
+				return okJSON(`{"movies":3}`), nil
+			}).Once()
+
+		var wg sync.WaitGroup
+		results := make([]*dto.HomeWidgetDataResponse, 5)
+		for i := range results {
+			wg.Go(func() {
+				resp, err := f.uc.FetchWidgetData(f.ctx, "media")
+				assert.NoError(t, err)
+				results[i] = resp
+			})
+		}
+		synctest.Wait() // one flight blocked on release, every caller waiting on it
+		f.uc.widgetMu.Lock()
+		require.Len(t, f.uc.widgetInflight, 1)
+		f.uc.widgetMu.Unlock()
+		close(release)
+		wg.Wait()
+		for _, r := range results {
+			require.NotNil(t, r)
+			assert.Equal(t, "3", r.Fields[0].Value)
+		}
+	})
+}
+
+func TestFetchWidgetData_LeaderCancelDoesNotFailFollowers(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		f := newHomeWidgetFixture(t)
+		release := make(chan struct{})
+		f.http.EXPECT().Do(mock.Anything, mock.Anything).RunAndReturn(
+			func(ctx context.Context, _ port.HomeHTTPRequest) (port.HomeHTTPResponse, error) {
+				select {
+				case <-release:
+					return okJSON(`{"movies":4}`), nil
+				case <-ctx.Done():
+					return port.HomeHTTPResponse{}, ctx.Err()
+				}
+			}).Once()
+
+		leaderCtx, cancelLeader := context.WithCancel(f.ctx)
+		var leaderErr error
+		var follower *dto.HomeWidgetDataResponse
+		var wg sync.WaitGroup
+		wg.Go(func() { _, leaderErr = f.uc.FetchWidgetData(leaderCtx, "media") })
+		synctest.Wait()
+		wg.Go(func() {
+			resp, err := f.uc.FetchWidgetData(f.ctx, "media")
+			assert.NoError(t, err)
+			follower = resp
+		})
+		synctest.Wait()
+		cancelLeader()
+		synctest.Wait()
+		close(release)
+		wg.Wait()
+		require.ErrorIs(t, leaderErr, context.Canceled)
+		require.NotNil(t, follower)
+		assert.Equal(t, dto.HomeStatusOK, follower.Status)
+		assert.Equal(t, "4", follower.Fields[0].Value)
+	})
+}
+
+func TestRunHomeAction_EncodesInputs(t *testing.T) {
+	f := newHomeWidgetFixture(t)
+	f.http.EXPECT().Do(mock.Anything, mock.Anything).RunAndReturn(
+		func(_ context.Context, req port.HomeHTTPRequest) (port.HomeHTTPResponse, error) {
+			assert.Equal(t, "POST", req.Method)
+			assert.Equal(t, "https://media.local/search?q=a+%26+b%3D%22c%22&k="+homeTestSecret, req.URL)
+			assert.Equal(t, "Bearer "+homeTestSecret, req.Headers["Authorization"])
+			assert.JSONEq(t, `{"query":"a & b=\"c\""}`, string(req.Body))
+			return port.HomeHTTPResponse{StatusCode: 204}, nil
+		}).Once()
+
+	resp, err := f.uc.RunHomeAction(f.ctx, dto.HomeActionRequest{
+		ServiceID: "media", ActionID: "search", Inputs: map[string]string{"q": `a & b="c"`},
+	})
+	require.NoError(t, err)
+	assert.Equal(t, &dto.HomeActionResponse{Status: dto.HomeStatusOK, HTTPStatus: 204, Message: "HTTP 204"}, resp)
+}
+
+func TestRunHomeAction_NoEnvExpansionOfInputs(t *testing.T) {
+	f := newHomeWidgetFixture(t)
+	f.http.EXPECT().Do(mock.Anything, mock.Anything).RunAndReturn(
+		func(_ context.Context, req port.HomeHTTPRequest) (port.HomeHTTPResponse, error) {
+			assert.JSONEq(t, `{"text":"{{env.TOKEN}}"}`, string(req.Body))
+			return port.HomeHTTPResponse{StatusCode: 200}, nil
+		}).Once()
+
+	_, err := f.uc.RunHomeAction(f.ctx, dto.HomeActionRequest{
+		ServiceID: "media", ActionID: "note", Inputs: map[string]string{"q": "{{env.TOKEN}}"},
+	})
+	require.NoError(t, err)
+}
+
+func TestRunHomeAction_Rejections(t *testing.T) {
+	f := newHomeWidgetFixture(t)
+	for _, req := range []dto.HomeActionRequest{
+		{ServiceID: "nope", ActionID: "search"},
+		{ServiceID: "media", ActionID: "nope"},
+		{ServiceID: "media", ActionID: "search", Inputs: map[string]string{"other": "x"}},
+		{ServiceID: "media", ActionID: "search", Inputs: map[string]string{"q": strings.Repeat("x", homeMaxInputLen+1)}},
+	} {
+		_, err := f.uc.RunHomeAction(f.ctx, req)
+		require.Error(t, err, "%+v", req)
+	}
+}
+
+func TestRunHomeAction_HTTPErrorHasNoSecrets(t *testing.T) {
+	f := newHomeWidgetFixture(t)
+	f.http.EXPECT().Do(mock.Anything, mock.Anything).Return(port.HomeHTTPResponse{StatusCode: 401}, nil).Once()
+	resp, err := f.uc.RunHomeAction(f.ctx, dto.HomeActionRequest{ServiceID: "media", ActionID: "search"})
+	require.NoError(t, err)
+	assert.Equal(t, &dto.HomeActionResponse{Status: dto.HomeStatusError, HTTPStatus: 401, Message: "HTTP 401"}, resp)
+	f.assertNoSecret(t, resp)
+}
+
+func TestRunHomeAction_OneInFlightPerAction(t *testing.T) {
+	f := newHomeWidgetFixture(t)
+	started := make(chan struct{})
+	release := make(chan struct{})
+	f.http.EXPECT().Do(mock.Anything, mock.Anything).RunAndReturn(
+		func(context.Context, port.HomeHTTPRequest) (port.HomeHTTPResponse, error) {
+			close(started)
+			<-release
+			return port.HomeHTTPResponse{StatusCode: 200}, nil
+		}).Once()
+
+	done := make(chan *dto.HomeActionResponse)
+	go func() {
+		resp, _ := f.uc.RunHomeAction(f.ctx, dto.HomeActionRequest{ServiceID: "media", ActionID: "search"})
+		done <- resp
+	}()
+	<-started
+	busy, err := f.uc.RunHomeAction(f.ctx, dto.HomeActionRequest{ServiceID: "media", ActionID: "search"})
+	require.NoError(t, err)
+	assert.Equal(t, dto.HomeStatusError, busy.Status)
+	assert.Equal(t, errHomeActionRunning.Error(), busy.Message)
+	close(release)
+	assert.Equal(t, dto.HomeStatusOK, (<-done).Status)
+}
+
+func TestRunHomeAction_UndeclaredInputInTemplateRejectedAtCall(t *testing.T) {
+	f := newHomeWidgetFixture(t)
+	f.layout.Groups[0].Services[0].Actions[0].URL = "https://media.local/{{input.zzz}}"
+	resp, err := f.uc.RunHomeAction(f.ctx, dto.HomeActionRequest{ServiceID: "media", ActionID: "search"})
+	require.NoError(t, err)
+	assert.Equal(t, dto.HomeStatusError, resp.Status)
+	assert.Contains(t, resp.Message, "zzz")
+}
+
+func (f *homeWidgetFixture) withRenderer(t *testing.T) *mocks.MockHomeTemplateRenderer {
+	r := mocks.NewMockHomeTemplateRenderer(t)
+	f.uc.templates = r
+	return r
+}
+
+func renderOK(tmpl string, _ any) (string, error) { return "<p>" + tmpl + "</p>", nil }
+
+func TestFetchWidgetData_TemplateRenderedAndCached(t *testing.T) {
+	f := newHomeWidgetFixture(t)
+	renderer := f.withRenderer(t)
+	f.layout.Groups[0].Services[0].Widget.Template = "T"
+	f.http.EXPECT().Do(mock.Anything, mock.Anything).Return(okJSON(`{"movies":5}`), nil).Once()
+	renderer.EXPECT().Render("T", map[string]any{
+		"data":   map[string]any{"movies": 5.0},
+		"fields": map[string]string{"Movies": "5", "Missing": ""},
+	}).RunAndReturn(renderOK).Once()
+
+	resp, err := f.uc.FetchWidgetData(f.ctx, "media")
+	require.NoError(t, err)
+	assert.Equal(t, dto.HomeStatusOK, resp.Status)
+	assert.Equal(t, "<p>T</p>", resp.HTML)
+
+	cached, err := f.uc.FetchWidgetData(f.ctx, "media")
+	require.NoError(t, err)
+	assert.Equal(t, "<p>T</p>", cached.HTML)
+}
+
+func TestFetchWidgetData_TemplateErrorHasNoStaleData(t *testing.T) {
+	f := newHomeWidgetFixture(t)
+	renderer := f.withRenderer(t)
+	f.layout.Groups[0].Services[0].Widget.Template = "T"
+	f.http.EXPECT().Do(mock.Anything, mock.Anything).Return(okJSON(`{"movies":5}`), nil).Twice()
+	renderer.EXPECT().Render("T", mock.Anything).RunAndReturn(renderOK).Once()
+	_, err := f.uc.FetchWidgetData(f.ctx, "media")
+	require.NoError(t, err)
+
+	*f.now = f.now.Add(time.Hour)
+	renderer.EXPECT().Render("T", mock.Anything).Return("", errors.New(`template: w:1: unexpected "}"`)).Once()
+	resp, err := f.uc.FetchWidgetData(f.ctx, "media")
+	require.NoError(t, err)
+	assert.Equal(t, dto.HomeStatusError, resp.Status)
+	assert.Equal(t, `template error: template: w:1: unexpected "}"`, resp.Error)
+	assert.False(t, resp.Stale)
+	assert.Empty(t, resp.HTML)
+	assert.Empty(t, resp.Fields)
+}
+
+func TestFetchWidgetData_TemplateWithoutRenderer(t *testing.T) {
+	f := newHomeWidgetFixture(t)
+	f.layout.Groups[0].Services[0].Widget.Template = "T"
+	f.http.EXPECT().Do(mock.Anything, mock.Anything).Return(okJSON(`{}`), nil).Once()
+	resp, err := f.uc.FetchWidgetData(f.ctx, "media")
+	require.NoError(t, err)
+	assert.Equal(t, dto.HomeStatusError, resp.Status)
+	assert.Contains(t, resp.Error, "template error")
+}
+
+func TestFetchWidgetData_TemplateFailureNotRetriedUntilWidgetChanges(t *testing.T) {
+	f := newHomeWidgetFixture(t)
+	renderer := f.withRenderer(t)
+	w := f.layout.Groups[0].Services[0].Widget
+	w.Template = "T"
+	f.http.EXPECT().Do(mock.Anything, mock.Anything).Return(okJSON(`{}`), nil).Once()
+	renderer.EXPECT().Render("T", mock.Anything).Return("", errors.New("template execution timed out")).Once()
+
+	first, err := f.uc.FetchWidgetData(f.ctx, "media")
+	require.NoError(t, err)
+	assert.Equal(t, "template error: template execution timed out", first.Error)
+
+	*f.now = f.now.Add(2 * time.Minute) // past the refresh, inside the failure TTL
+	again, err := f.uc.FetchWidgetData(f.ctx, "media")
+	require.NoError(t, err)
+	assert.Equal(t, first.Error, again.Error)
+
+	w.Template = "T2"
+	f.http.EXPECT().Do(mock.Anything, mock.Anything).Return(okJSON(`{}`), nil).Once()
+	renderer.EXPECT().Render("T2", mock.Anything).RunAndReturn(renderOK).Once()
+	fixed, err := f.uc.FetchWidgetData(f.ctx, "media")
+	require.NoError(t, err)
+	assert.Equal(t, dto.HomeStatusOK, fixed.Status)
+	assert.Equal(t, "<p>T2</p>", fixed.HTML)
+}
+
+func TestFetchWidgetData_TemplateFailureExpires(t *testing.T) {
+	f := newHomeWidgetFixture(t)
+	renderer := f.withRenderer(t)
+	f.layout.Groups[0].Services[0].Widget.Template = "T"
+	f.http.EXPECT().Do(mock.Anything, mock.Anything).Return(okJSON(`{}`), nil).Twice()
+	renderer.EXPECT().Render("T", mock.Anything).Return("", errors.New("boom")).Once()
+
+	_, err := f.uc.FetchWidgetData(f.ctx, "media")
+	require.NoError(t, err)
+	*f.now = f.now.Add(homeTemplateFailureMinTTL)
+	renderer.EXPECT().Render("T", mock.Anything).RunAndReturn(renderOK).Once()
+	resp, err := f.uc.FetchWidgetData(f.ctx, "media")
+	require.NoError(t, err)
+	assert.Equal(t, dto.HomeStatusOK, resp.Status)
+}
+
+func TestFetchWidgetData_PanicReleasesWaiters(t *testing.T) {
+	f := newHomeWidgetFixture(t)
+	f.http.EXPECT().Do(mock.Anything, mock.Anything).
+		RunAndReturn(func(context.Context, port.HomeHTTPRequest) (port.HomeHTTPResponse, error) {
+			panic("client exploded")
+		}).Once()
+	resp, err := f.uc.FetchWidgetData(f.ctx, "media")
+	require.NoError(t, err)
+	assert.Equal(t, dto.HomeStatusError, resp.Status)
+	assert.Equal(t, "internal error", resp.Error)
+	f.uc.widgetMu.Lock()
+	defer f.uc.widgetMu.Unlock()
+	assert.Empty(t, f.uc.widgetInflight)
+}
+
+func TestFetchWidgetData_PrunesRemovedServices(t *testing.T) {
+	f := newHomeWidgetFixture(t)
+	f.http.EXPECT().Do(mock.Anything, mock.Anything).Return(okJSON(`{"movies":1}`), nil).Once()
+	_, err := f.uc.FetchWidgetData(f.ctx, "media")
+	require.NoError(t, err)
+
+	f.uc.widgetCache["gone"] = homeWidgetCacheEntry{}
+	f.uc.templateFailures["gone"] = homeTemplateFailure{msg: "x"}
+	_, err = f.uc.FetchWidgetData(f.ctx, "media")
+	require.NoError(t, err)
+	f.uc.widgetMu.Lock()
+	assert.Contains(t, f.uc.widgetCache, "gone", "unchanged content hash: no scan")
+	f.uc.widgetMu.Unlock()
+
+	f.layout.Groups[0].Services[1].Name = "Plain 2" // layout changes, media stays
+	f.contentHash[0] = 1
+	_, err = f.uc.FetchWidgetData(f.ctx, "media")
+	require.NoError(t, err)
+	f.uc.widgetMu.Lock()
+	defer f.uc.widgetMu.Unlock()
+	assert.Contains(t, f.uc.widgetCache, "media")
+	assert.NotContains(t, f.uc.widgetCache, "gone")
+	assert.NotContains(t, f.uc.templateFailures, "gone")
+}
+
+func TestRunHomeAction_RejectsInputOutsideJSONStringAtCall(t *testing.T) {
+	f := newHomeWidgetFixture(t)
+	f.layout.Groups[0].Services[0].Actions[1].Body = "text={{input.q}}"
+	resp, err := f.uc.RunHomeAction(f.ctx, dto.HomeActionRequest{
+		ServiceID: "media", ActionID: "note", Inputs: map[string]string{"q": "x"},
+	})
+	require.NoError(t, err)
+	assert.Equal(t, dto.HomeStatusError, resp.Status)
+	assert.Contains(t, resp.Message, "JSON")
+}
+
+func TestRunHomeAction_InputsCannotChangeOrigin(t *testing.T) {
+	f := newHomeWidgetFixture(t)
+	f.layout.Groups[0].Services[0].Actions[0].URL = "https://{{input.q}}/x"
+	resp, err := f.uc.RunHomeAction(f.ctx, dto.HomeActionRequest{
+		ServiceID: "media", ActionID: "search", Inputs: map[string]string{"q": "evil.example"},
+	})
+	require.NoError(t, err)
+	assert.Equal(t, dto.HomeStatusError, resp.Status)
+	assert.Contains(t, resp.Message, "scheme, host or port")
+}
+
+func TestRunHomeAction_EnvSecretIsJSONEscapedInBody(t *testing.T) {
+	f := newHomeWidgetFixture(t)
+	f.uc.lookupEnv = func(name string) (string, bool) {
+		if name == "TOKEN" {
+			return `x", "admin": true, "y": "`, true
+		}
+		return "", false
+	}
+	f.layout.Groups[0].Services[0].Actions[1].Body = `{"token":"{{env.TOKEN}}","text":"{{input.q}}"}`
+	f.http.EXPECT().Do(mock.Anything, mock.Anything).RunAndReturn(
+		func(_ context.Context, req port.HomeHTTPRequest) (port.HomeHTTPResponse, error) {
+			var got map[string]any
+			require.NoError(t, json.Unmarshal(req.Body, &got))
+			assert.Equal(t, map[string]any{"token": `x", "admin": true, "y": "`, "text": "hi"}, got)
+			return port.HomeHTTPResponse{StatusCode: 200}, nil
+		}).Once()
+	_, err := f.uc.RunHomeAction(f.ctx, dto.HomeActionRequest{
+		ServiceID: "media", ActionID: "note", Inputs: map[string]string{"q": "hi"},
+	})
+	require.NoError(t, err)
+}
+
+// TestRunHomeAction_InputsNeverChangeOriginEndToEnd tries origin changes
+// from typed inputs. Placeholders in the origin are refused; elsewhere the
+// input is URL-encoded, so the request still goes to the configured origin
+// (the sameHomeOrigin check backs this up).
+func TestRunHomeAction_InputsNeverChangeOriginEndToEnd(t *testing.T) {
+	refused := []struct{ name, url, input string }{
+		{"scheme", "{{input.q}}://media.local/x", "http"},
+		{"host", "https://{{input.q}}/x", "evil.example"},
+		{"host suffix", "https://media.local{{input.q}}/x", ".evil.example"},
+		{"port", "https://media.local:{{input.q}}/x", "8443"},
+		{"userinfo", "https://{{input.q}}@media.local/x", "user:pw"},
+		{"at sign", "https://media.local{{input.q}}/x", "@evil.example"},
+	}
+	for _, tc := range refused {
+		t.Run("refused/"+tc.name, func(t *testing.T) {
+			f := newHomeWidgetFixture(t)
+			f.layout.Groups[0].Services[0].Actions[0].URL = tc.url
+			resp, err := f.uc.RunHomeAction(f.ctx, dto.HomeActionRequest{
+				ServiceID: "media", ActionID: "search", Inputs: map[string]string{"q": tc.input},
+			})
+			require.NoError(t, err)
+			assert.Equal(t, dto.HomeStatusError, resp.Status)
+			assert.Contains(t, resp.Message, "scheme, host or port")
+		})
+	}
+
+	encoded := []struct{ name, url, input string }{
+		{"double slash in path", "https://media.local/{{input.q}}", "//evil.example/x"},
+		{"at sign in path", "https://media.local/{{input.q}}", "@evil.example"},
+		{"userinfo in path", "https://media.local/{{input.q}}", "user:pw@evil.example"},
+		{"absolute url in query", "https://media.local/x?u={{input.q}}", "https://evil.example:8443/"},
+		{"backslash", "https://media.local/{{input.q}}", `\\evil.example`},
+	}
+	for _, tc := range encoded {
+		t.Run("encoded/"+tc.name, func(t *testing.T) {
+			f := newHomeWidgetFixture(t)
+			f.layout.Groups[0].Services[0].Actions[0].URL = tc.url
+			f.http.EXPECT().Do(mock.Anything, mock.Anything).RunAndReturn(
+				func(_ context.Context, req port.HomeHTTPRequest) (port.HomeHTTPResponse, error) {
+					u, err := url.Parse(req.URL)
+					require.NoError(t, err)
+					assert.Equal(t, "https", u.Scheme)
+					assert.Equal(t, "media.local", u.Host)
+					assert.Nil(t, u.User)
+					return port.HomeHTTPResponse{StatusCode: 204}, nil
+				}).Once()
+			resp, err := f.uc.RunHomeAction(f.ctx, dto.HomeActionRequest{
+				ServiceID: "media", ActionID: "search", Inputs: map[string]string{"q": tc.input},
+			})
+			require.NoError(t, err)
+			assert.Equal(t, dto.HomeStatusOK, resp.Status)
+		})
+	}
+}
+
+func TestSameHomeOrigin(t *testing.T) {
+	base := "https://media.local/x"
+	assert.True(t, sameHomeOrigin(base, "https://MEDIA.local/y?q=1"))
+	for _, other := range []string{
+		"http://media.local/x", "https://evil.example/x", "https://media.local:8443/x",
+		"https://media.local.evil.example/x", "https://media.local@evil.example/x", "://bad",
+	} {
+		assert.False(t, sameHomeOrigin(base, other), other)
+	}
+}

@@ -98,7 +98,13 @@ type KeyboardHandler struct {
 
 	// GTK controller (nil until attached)
 	controller *gtk.EventControllerKey
-	window     *gtk.ApplicationWindow
+	// releaseController observes key releases in the capture phase. WebKit's
+	// own key controller stops the release of every press it saw (it handles
+	// presses asynchronously and re-posts unhandled ones), and the omnibox
+	// receives releases of keys pressed before it took focus, so a bubble
+	// phase release handler misses them and held-key state never clears.
+	releaseController *gtk.EventControllerKey
+	window            *gtk.ApplicationWindow
 
 	// Callback retention: must stay reachable by Go GC.
 	keyPressedCb         func(gtk.EventControllerKey, uint, uint, gdk.ModifierType) bool
@@ -321,11 +327,18 @@ func (h *KeyboardHandler) AttachTo(window *gtk.ApplicationWindow) {
 	h.keyReleasedCb = func(_ gtk.EventControllerKey, keyval uint, _ uint, _ gdk.ModifierType) {
 		h.handleKeyRelease(keyval)
 	}
-	h.keyReleasedHandlerID = h.controller.ConnectKeyReleased(&h.keyReleasedCb)
+	h.releaseController = gtk.NewEventControllerKey()
+	if h.releaseController != nil {
+		h.releaseController.SetPropagationPhase(gtk.PhaseCaptureValue)
+		h.keyReleasedHandlerID = h.releaseController.ConnectKeyReleased(&h.keyReleasedCb)
+	}
 
-	// Add controller to window
+	// Add controllers to window
 	h.window = window
 	window.AddController(&h.controller.EventController)
+	if h.releaseController != nil {
+		window.AddController(&h.releaseController.EventController)
+	}
 
 	log.Debug().Msg("keyboard handler attached to window")
 }
@@ -370,13 +383,17 @@ func (h *KeyboardHandler) detach(removeController bool) {
 	if h.controller != nil && h.keyPressedHandlerID != 0 {
 		h.controller.DisconnectSignal(h.keyPressedHandlerID)
 	}
-	if h.controller != nil && h.keyReleasedHandlerID != 0 {
-		h.controller.DisconnectSignal(h.keyReleasedHandlerID)
+	if h.releaseController != nil && h.keyReleasedHandlerID != 0 {
+		h.releaseController.DisconnectSignal(h.keyReleasedHandlerID)
 	}
 	if removeController && h.window != nil && h.controller != nil {
 		h.window.RemoveController(&h.controller.EventController)
 	}
+	if removeController && h.window != nil && h.releaseController != nil {
+		h.window.RemoveController(&h.releaseController.EventController)
+	}
 	h.controller = nil
+	h.releaseController = nil
 	h.window = nil
 	h.keyPressedCb = nil
 	h.keyReleasedCb = nil

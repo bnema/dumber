@@ -182,7 +182,7 @@ func (fs *FavoritesSidebar) selectedEnterURL() string {
 	if fs.destroyed {
 		return ""
 	}
-	return fs.rowURLAt(row.GetIndex())
+	return fs.rowURLAt(listBoxRowIndex(row))
 }
 
 func (fs *FavoritesSidebar) onRowActivated(row *gtk.ListBoxRow) {
@@ -194,7 +194,7 @@ func (fs *FavoritesSidebar) onRowActivated(row *gtk.ListBoxRow) {
 		fs.mu.RUnlock()
 		return
 	}
-	url := fs.rowURLAt(row.GetIndex())
+	url := fs.rowURLAt(listBoxRowIndex(row))
 	fs.mu.RUnlock()
 	fs.navigateToURL(url)
 }
@@ -205,7 +205,7 @@ func (fs *FavoritesSidebar) selectAdjacentRow(delta int) {
 	}
 	current := -1
 	if row := fs.listBox.GetSelectedRow(); row != nil {
-		current = row.GetIndex()
+		current = listBoxRowIndex(row)
 	}
 	fs.mu.RLock()
 	if fs.destroyed {
@@ -366,7 +366,7 @@ func (fs *FavoritesSidebar) selectedRowIsFirst() bool {
 	fs.mu.RLock()
 	first := firstSelectableIndex(fs.displayRows)
 	fs.mu.RUnlock()
-	return row.GetIndex() == first
+	return listBoxRowIndex(row) == first
 }
 
 func (fs *FavoritesSidebar) listHasFocus() bool {

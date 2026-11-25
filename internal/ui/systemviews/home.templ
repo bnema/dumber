@@ -1,0 +1,355 @@
+package systemviews
+
+import (
+	"strconv"
+
+	"bnema.dev/dumber/internal/application/dto"
+	"bnema.dev/dumber/internal/domain/entity"
+)
+
+// HomePage renders the dumb://home view from its pre-rendered regions; the
+// home-groups entry is a placeholder for the service groups.
+templ HomePage(regions []DOMRegion, load dto.HomeLoadResponse, shape homeShape, leaves map[string]string) {
+	<div class="sv-home" data-sv-region="home">
+		for _, region := range regions {
+			if isHomeWidgetRegion(region.Name) {
+				// Rendered in the widgets container below the header.
+			} else if region.Name == homeRegionHeader {
+				<div class="sv-home-region" data-sv-region={ region.Name }>
+					@templ.Raw(region.HTML)
+				</div>
+				<div class="sv-home-widgets" data-sv-region={ homeRegionWidgets }>
+					@HomeWidgetRegions(regions)
+				</div>
+			} else if region.Name == homeRegionGroups {
+				<div class="sv-home-region sv-home-region-groups">
+					@HomeGroups(load, shape, leaves)
+				</div>
+			} else {
+				<div class="sv-home-region" data-sv-region={ region.Name }>
+					@templ.Raw(region.HTML)
+				</div>
+			}
+		}
+	</div>
+}
+
+// HomeWidgetRegions renders the built-in widget regions of regions. A change
+// of the widget list swaps this whole list, and nothing else.
+templ HomeWidgetRegions(regions []DOMRegion) {
+	for _, region := range regions {
+		if isHomeWidgetRegion(region.Name) {
+			<div class="sv-home-region" data-sv-region={ region.Name }>
+				@templ.Raw(region.HTML)
+			</div>
+		}
+	}
+}
+
+templ HomeErrors(load dto.HomeLoadResponse) {
+	if homeHasErrors(load) {
+		<div class="sv-home-errors" role="alert">
+			<p class="sv-home-errors-title">home.toml has errors; showing the last valid layout.</p>
+			if load.ParseError != nil {
+				<p class="sv-home-error"><code class="sv-home-error-path">{ homeParseErrorLocation(load.ParseError) }</code> { load.ParseError.Message }</p>
+			}
+			if len(load.ValidationErrors) > 0 {
+				<ul class="sv-home-error-list">
+					for _, verr := range load.ValidationErrors {
+						<li class="sv-home-error"><code class="sv-home-error-path">{ verr.Path }</code>: { verr.Message }</li>
+					}
+				</ul>
+			}
+		</div>
+	}
+}
+
+// HomeHeader is the title with ghost controls. The clock and status summary
+// regions are its siblings; CSS puts them on the same line.
+templ HomeHeader(load dto.HomeLoadResponse) {
+	<header class="sv-home-header">
+		<h2 class="sv-home-title">{ homeTitle(load) }</h2>
+		<button type="button" class="sv-home-ghost sv-home-open-config" data-sv-action="home.openConfig" title={ load.ConfigPath }>Open home.toml</button>
+		<button type="button" class="sv-palette-trigger sv-home-ghost" data-sv-action="palette.open" aria-keyshortcuts="Control+K">
+			<span>Actions</span>
+			<kbd>Ctrl</kbd><kbd>K</kbd>
+		</button>
+	</header>
+}
+
+// HomeStatusSummary is the service count of the header line, empty when
+// there are no services. With status checks on, it adds the offline count.
+templ HomeStatusSummary(summary homeSummary) {
+	if summary.Services > 0 {
+		<span class="sv-home-status-summary">
+			{ homeServiceCountText(summary.Services) }
+			if summary.Status {
+				{ " · " }
+				<span class={ "sv-home-status-offline", templ.KV("sv-home-status-offline-some", summary.Offline > 0) }>{ strconv.Itoa(summary.Offline) } offline</span>
+			}
+		</span>
+	}
+}
+
+// HomeGroupCount is the content of a group count region.
+templ HomeGroupCount(text string) {
+	{ text }
+}
+
+// HomeServiceStatus is the content of a status region: a dot whose state
+// is in data-state, labelled for assistive tech and tooltips.
+templ HomeServiceStatus(dot homeStatusDot) {
+	<span class="sv-home-status-dot" data-state={ dot.State } role="img" aria-label={ dot.Label } title={ dot.Label }></span>
+}
+
+templ HomeWidget(widget homeWidgetData) {
+	<div class={ "sv-home-widget", "sv-home-widget-" + string(widget.Widget.Type) }>
+		switch widget.Widget.Type {
+			case entity.HomeWidgetSearch:
+				@homeSearchWidget(widget.Search)
+			case entity.HomeWidgetClock:
+				<div class="sv-home-clock">
+					<span class="sv-home-clock-date">{ widget.Date }</span>
+					<span class="sv-home-clock-sep" aria-hidden="true">·</span>
+					<time class="sv-home-clock-time">{ widget.Time }</time>
+				</div>
+			default:
+				<h3 class="sv-home-section-title">{ homeWidgetTitle(widget.Widget) }</h3>
+				if widget.Loading {
+					<ul class="sv-home-rows sv-home-loading" aria-busy="true">
+						for range 3 {
+							<li class="sv-home-skeleton"></li>
+						}
+					</ul>
+				} else if widget.Error != "" {
+					<p class="sv-home-muted">{ widget.Error }</p>
+				} else if len(widget.Rows) == 0 {
+					<p class="sv-home-muted">Nothing here yet.</p>
+				} else {
+					<ul class="sv-home-rows">
+						for _, row := range widget.Rows {
+							<li>@homeRowLink(row, false)</li>
+						}
+					</ul>
+				}
+		}
+	</div>
+}
+
+templ homeSearchWidget(config homeSearchConfig) {
+	{{ view := buildHomeSearchView(config, "", nil, nil, "") }}
+	<form
+		class="sv-home-search"
+		data-sv-action="home.search"
+		role="search"
+		autocomplete="off"
+		data-sv-home-engine-url={ config.EngineURL }
+		data-sv-home-engine-name={ config.EngineName }
+		data-sv-home-shortcuts={ homeShortcutsJSON(config.Shortcuts) }
+	>
+		<div class="sv-home-search-field">
+			<input class="sv-home-search-input" type="search" name="query" placeholder="A service, an address or a web search" aria-label="Search services or the web" aria-describedby="sv-home-search-hint" spellcheck="false" data-sv-home-search data-sv-autofocus/>
+			<span class="sv-home-search-engine" data-state={ view.ChipState } data-sv-home-engine title="Engine used by Enter">
+				@HomeSearchChip(view)
+			</span>
+			<kbd class="sv-home-search-key" aria-hidden="true">/</kbd>
+		</div>
+		<div class="sv-home-search-hint" id="sv-home-search-hint" aria-live="polite" data-sv-home-hint>
+			@HomeSearchHint(view)
+		</div>
+		<div class="sv-home-suggestions" role="listbox" data-sv-region={ homeRegionSuggestions }></div>
+	</form>
+}
+
+// HomeSearchChip is the content of the engine chip: an icon with a letter
+// fallback, then the engine name.
+templ HomeSearchChip(view homeSearchView) {
+	if view.ChipState == homeChipAddress {
+		<span class="sv-home-search-engine-icon" aria-hidden="true">↗</span>
+	} else {
+		<span class={ "sv-home-search-engine-icon", templ.KV("sv-home-search-engine-has-image", view.ChipIcon != "") } aria-hidden="true">
+			<span class="sv-home-search-engine-glyph">{ homeInitial(view.ChipName) }</span>
+			if view.ChipIcon != "" {
+				<img src={ templ.SafeURL(view.ChipIcon) } alt="" width="16" height="16" decoding="async" referrerpolicy="same-origin" data-sv-img-fallback="sv-home-search-engine-has-image"/>
+			}
+		</span>
+	}
+	<span class="sv-home-search-engine-name">{ view.ChipName }</span>
+}
+
+// HomeSearchHint is the hint line under the search field.
+templ HomeSearchHint(view homeSearchView) {
+	switch view.Hint {
+		case homeHintIdle:
+			<span>Filter services as you type</span>
+			if len(view.Shortcuts) > 0 {
+				<span>
+					for _, key := range view.Shortcuts {
+						<kbd>{ "!" + key }</kbd>{ " " }
+					}
+					… switch engine
+				</span>
+			}
+		case homeHintOpen:
+			<span><kbd>↵</kbd> open <b>{ view.SelectedName }</b></span>
+			<span><kbd>↑</kbd><kbd>↓</kbd> choose</span>
+			<span><kbd>⇧</kbd><kbd>↵</kbd> search { view.Result.EngineName }</span>
+		case homeHintWeb:
+			<span><kbd>↵</kbd> search <b>{ view.HintQuery }</b> on { view.Result.EngineName }</span>
+			<span>No service matches</span>
+		case homeHintBangSearch:
+			<span><kbd>↵</kbd> search <b>{ view.HintQuery }</b> on { view.Result.EngineName }</span>
+		case homeHintBangType:
+			<span>Type your { view.Result.EngineName } search</span>
+		case homeHintCandidates:
+			for _, candidate := range view.Candidates {
+				<span><kbd>{ "!" + candidate.Key }</kbd> { candidate.Name }</span>
+			}
+		case homeHintUnknown:
+			<span>Unknown shortcut <b>{ "!" + view.HintQuery }</b></span>
+		case homeHintSearchFallback:
+			<span><kbd>↵</kbd> search <b>{ view.HintQuery }</b> on { view.Result.EngineName }</span>
+			<span><kbd>↑</kbd><kbd>↓</kbd> choose</span>
+		case homeHintOpenAddress:
+			if view.SelectedURL != "" {
+				<span><kbd>↵</kbd> open <b>{ view.SelectedName }</b></span>
+				<span><kbd>⇧</kbd><kbd>↵</kbd> open <span class="sv-home-search-url">{ view.Result.WebTarget }</span></span>
+			} else {
+				<span><kbd>↵</kbd> open <span class="sv-home-search-url">{ view.Result.WebTarget }</span></span>
+			}
+	}
+}
+
+templ HomeSuggestions(rows []homeRow) {
+	for _, row := range rows {
+		@homeRowLink(row, true)
+	}
+}
+
+templ homeRowLink(row homeRow, suggestion bool) {
+	{{ favicon := homeFaviconURL(row.URL) }}
+	<a
+		class={ "sv-home-row", templ.KV("sv-home-suggestion", suggestion) }
+		href={ templ.SafeURL(sanitizeHref(row.URL)) }
+		title={ row.URL }
+		data-sv-home-nav
+		if suggestion {
+			data-sv-home-suggestion
+			role="option"
+		} else {
+			data-sv-home-item="row"
+			data-sv-home-name={ homeRowLabel(row) }
+			data-sv-home-text={ homeRowItemText(row) }
+			data-sv-home-url={ row.URL }
+		}
+	>
+		<span class={ historyFaviconClass(favicon) } aria-hidden="true">
+			<span class="sv-history-favicon-fallback">{ homeInitial(homeRowLabel(row)) }</span>
+			if favicon != "" {
+				<img src={ templ.SafeURL(favicon) } alt="" width="16" height="16" loading="lazy" decoding="async" referrerpolicy="same-origin" data-sv-img-fallback={ "sv-history-favicon-has-image" }/>
+			}
+		</span>
+		<span class="sv-home-row-text">
+			<span class="sv-home-row-title">{ homeRowLabel(row) }</span>
+			<span class="sv-home-row-url">{ stripURLScheme(row.URL) }</span>
+		</span>
+	</a>
+}
+
+templ HomeBookmarks(groups []entity.HomeBookmarkGroup) {
+	if len(groups) > 0 {
+		<div class="sv-home-bookmarks">
+			for _, group := range groups {
+				<section class="sv-home-bookmark-group">
+					<h3 class="sv-home-section-title">{ group.Group }</h3>
+					<ul class="sv-home-rows">
+						for _, link := range group.Links {
+							<li>@homeRowLink(homeRow{URL: link.URL, Title: link.Name}, false)</li>
+						}
+					</ul>
+				</section>
+			}
+		</div>
+	}
+}
+
+// HomeGroups is the service skeleton: group blocks with a title region and
+// one shell per service. Containers are anchors, never regions, so a swap can
+// not re-create the iframes below them.
+templ HomeGroups(load dto.HomeLoadResponse, shape homeShape, leaves map[string]string) {
+	<div class="sv-home-groups" style={ homeGridStyle(load) } data-sv-anchor={ homeAnchorGroups }>
+		for gi := range load.Layout.Groups {
+			@HomeGroupBlock(load.Layout.Groups[gi], shape.Groups[gi].Key, leaves)
+		}
+	</div>
+}
+
+// HomeGroupBlock is one group; it is also the markup inserted for a new
+// group.
+templ HomeGroupBlock(group entity.HomeGroup, key string, leaves map[string]string) {
+	<section class="sv-home-group" data-sv-anchor={ homeGroupAnchor(key) }>
+		<div class="sv-home-group-head">
+			<h3 class="sv-home-section-title" data-sv-region={ homeGroupTitleRegion(key) }>
+				@templ.Raw(leaves[homeGroupTitleRegion(key)])
+			</h3>
+			<span class="sv-home-group-count" data-sv-region={ homeGroupCountRegion(key) }>
+				@templ.Raw(leaves[homeGroupCountRegion(key)])
+			</span>
+		</div>
+		<div class="sv-home-grid" data-sv-anchor={ homeGridAnchor(key) }>
+			for _, service := range group.Services {
+				@HomeServiceShell(service, leaves)
+			}
+		</div>
+	</section>
+}
+
+templ HomeGroupTitle(name string) {
+	{ name }
+}
+
+// HomeServiceShell is a service row. It holds the independent regions of a
+// service as siblings: the tile, the api widget and actions slots, the
+// status slot and the embed. It is also the markup inserted for a new
+// service.
+templ HomeServiceShell(service entity.HomeService, leaves map[string]string) {
+	<div class="sv-home-service" data-sv-home-service={ service.ID } data-sv-anchor={ homeShellAnchor(service.ID) }>
+		<div class="sv-home-service-tile" data-sv-region={ homeServiceTileRegion(service.ID) }>
+			@templ.Raw(leaves[homeServiceTileRegion(service.ID)])
+		</div>
+		@homeServiceWidgetSlot(service)
+		<div class="sv-home-service-status" data-sv-region={ homeServiceStatusRegion(service.ID) }></div>
+		<div class="sv-home-service-embed" data-sv-region={ homeServiceEmbedRegion(service.ID) }></div>
+	</div>
+}
+
+// HomeServiceTile is the content of a tile region: link, icon, name and
+// description. The link carries the search data, so a tile swap keeps it
+// current; search marks the enclosing service row.
+templ HomeServiceTile(service entity.HomeService) {
+	if service.URL != "" {
+		<a class="sv-home-service-link" href={ templ.SafeURL(sanitizeHref(service.URL)) } title={ service.URL } data-sv-home-nav { homeServiceItemAttrs(service)... }>
+			@homeServiceHead(service)
+		</a>
+	} else {
+		<div class="sv-home-service-link" tabindex="0" data-sv-home-nav { homeServiceItemAttrs(service)... }>
+			@homeServiceHead(service)
+		</div>
+	}
+}
+
+templ homeServiceHead(service entity.HomeService) {
+	{{ icon := homeServiceIconURL(service) }}
+	<span class={ "sv-home-service-icon", templ.KV("sv-home-service-icon-has-image", icon != "") } aria-hidden="true">
+		<span class="sv-home-service-glyph">{ homeInitial(service.Name) }</span>
+		if icon != "" {
+			<img src={ templ.SafeURL(icon) } alt="" width="20" height="20" loading="lazy" decoding="async" referrerpolicy="same-origin" data-sv-img-fallback={ "sv-home-service-icon-has-image" }/>
+		}
+	</span>
+	<span class="sv-home-service-text">
+		<span class="sv-home-service-name">{ service.Name }</span>
+		if service.Description != "" {
+			<span class="sv-home-service-description">{ service.Description }</span>
+		}
+	</span>
+}

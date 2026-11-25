@@ -9,8 +9,10 @@ import (
 
 	"bnema.dev/dumber/internal/application/dto"
 	"bnema.dev/dumber/internal/application/port"
+	"bnema.dev/dumber/internal/application/port/mocks"
 	"bnema.dev/dumber/internal/domain/entity"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
@@ -54,8 +56,8 @@ func TestNewBridgeApp_UsesCurrentConfigForNonConfigRoutes(t *testing.T) {
 	require.Eventually(t, bridge.calledHistory.Load, time.Second, 10*time.Millisecond)
 	assert.True(t, bridge.calledConfig.Load())
 	assert.False(t, bridge.calledKeybindings.Load())
-	html := receiveMountContaining(t, dom.mounts, `class="sv-app sv-style-command sv-dark"`, `--sv-background: #111111;`)
-	assert.Contains(t, html, `class="sv-app sv-style-command sv-dark"`)
+	html := receiveMountContaining(t, dom.mounts, `class="sv-app sv-style-command sv-dark sv-route-history"`, `--sv-background: #111111;`)
+	assert.Contains(t, html, `class="sv-app sv-style-command sv-dark sv-route-history"`)
 	assert.Contains(t, html, `--sv-background: #111111;`)
 }
 
@@ -89,6 +91,19 @@ func TestNewBridgeApp_WiresConfigService(t *testing.T) {
 	assert.False(t, bridge.calledFavorites.Load())
 	assert.True(t, bridge.calledConfig.Load())
 	assert.True(t, bridge.calledKeybindings.Load())
+}
+
+func TestNewBridgeApp_WiresHomeService(t *testing.T) {
+	t.Parallel()
+
+	home := mocks.NewMockSystemviewHomeService(t)
+	home.EXPECT().HomeLoad(mock.Anything).Return(dto.HomeLoadResponse{Layout: entity.DefaultHomeLayout()}, nil).Once()
+	home.EXPECT().HomeSites(mock.Anything, mock.Anything).Return(dto.HomeSitesResponse{}, nil).Maybe()
+	bridge := &bridgeServiceRecorder{MockSystemviewHomeService: home}
+	app := newBridgeApp(&recordingDOM{}, "dumb://home", bridge)
+
+	require.NoError(t, app.LoadInitial(context.Background()))
+	assert.False(t, bridge.calledKeybindings.Load())
 }
 
 type recordingDOM struct {
@@ -133,6 +148,9 @@ func receiveMountContaining(t *testing.T, mounts <-chan string, values ...string
 // Recording fixture intentionally tracks state across history, favorites, config,
 // and keybindings boundaries for the composite bootstrap assertions.
 type bridgeServiceRecorder struct {
+	// Home is set only by the tests that open dumb://home.
+	*mocks.MockSystemviewHomeService
+
 	calledHistory     atomic.Bool
 	calledFavorites   atomic.Bool
 	calledConfig      atomic.Bool

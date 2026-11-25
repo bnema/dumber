@@ -75,7 +75,7 @@ func promptPermissionTypes(requested uint32) []string {
 		mic           = uint32(purecef.PermissionRequestTypesPermissionTypeMicStream)
 		geolocation   = uint32(purecef.PermissionRequestTypesPermissionTypeGeolocation)
 		notifications = uint32(purecef.PermissionRequestTypesPermissionTypeNotifications)
-		supported     = camera | mic | geolocation | notifications
+		supported     = camera | mic | geolocation | notifications | localNetworkPermissionMask
 	)
 	if requested == 0 || requested&^supported != 0 {
 		return nil
@@ -93,7 +93,31 @@ func promptPermissionTypes(requested uint32) []string {
 	if requested&notifications != 0 {
 		types = append(types, string(entity.PermissionTypeNotification))
 	}
+	if requested&localNetworkPermissionMask != 0 {
+		types = append(types, string(entity.PermissionTypeLocalNetwork))
+	}
 	return types
+}
+
+// localNetworkPermissionMask covers Chromium's Local Network Access prompts,
+// raised when a page loads from a private or loopback address.
+const localNetworkPermissionMask = uint32(purecef.PermissionRequestTypesPermissionTypeLocalNetworkAccessDeprecated) |
+	uint32(purecef.PermissionRequestTypesPermissionTypeLocalNetwork) |
+	uint32(purecef.PermissionRequestTypesPermissionTypeLoopbackNetwork)
+
+// systemviewLocalNetworkPrompt reports a prompt that asks only for local
+// network access, from the internal system view origin, in a browser whose
+// top-level page is a system view. Such a prompt comes from a dumb://home
+// embed of a LAN or loopback service.
+func systemviewLocalNetworkPrompt(browser purecef.Browser, requestingOrigin string, requested uint32) bool {
+	if requested == 0 || requested&^localNetworkPermissionMask != 0 || !isActualInternalURL(requestingOrigin) {
+		return false
+	}
+	if browser == nil {
+		return false
+	}
+	frame := browser.GetMainFrame()
+	return frame != nil && isActualInternalURL(frame.GetURL())
 }
 
 // cefPermissionRequest guarantees that a CEF permission callback is resolved
@@ -213,8 +237,9 @@ func (h *handlerSet) OnRequestMediaAccessPermission(
 }
 
 // OnShowPermissionPrompt handles non-media permission requests
-// (geolocation, notifications). Unsupported requests are left to CEF's default
-// handling by returning 0.
+// (geolocation, notifications, local network). Unsupported requests are left
+// to CEF's default handling by returning 0, except local network prompts:
+// CEF shows nothing for them off-screen, so they are always resolved.
 func (h *handlerSet) OnShowPermissionPrompt(
 	browser purecef.Browser,
 	promptID uint64,
@@ -225,8 +250,20 @@ func (h *handlerSet) OnShowPermissionPrompt(
 	if h == nil || h.wv == nil || callback == nil {
 		return 0
 	}
+	if systemviewLocalNetworkPrompt(browser, requestingOrigin, requestedPermissions) {
+		// The system view page frames only the embeds the user listed in
+		// home.toml; left unanswered, this prompt stalls them forever.
+		logCEFPermission(h.wv).Debug().Msg("cef: granting local network access to the system view page")
+		callback.Cont(purecef.PermissionRequestResultPermissionResultAccept)
+		return 1
+	}
 	types := promptPermissionTypes(requestedPermissions)
 	if len(types) == 0 {
+		if requestedPermissions&localNetworkPermissionMask != 0 {
+			logCEFPermission(h.wv).Debug().Msg("cef: denying local network prompt mixed with unsupported permissions")
+			callback.Cont(purecef.PermissionRequestResultPermissionResultDeny)
+			return 1
+		}
 		return 0
 	}
 	h.beginPermissionRequest(permissionKey{prompt: true, id: promptID}, browser, requestingOrigin, types, nil, func(allow bool) {

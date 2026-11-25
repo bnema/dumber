@@ -29,12 +29,16 @@ import (
 	renderenv "bnema.dev/dumber/internal/infrastructure/env"
 	infrafavicon "bnema.dev/dumber/internal/infrastructure/favicon"
 	"bnema.dev/dumber/internal/infrastructure/filesystem"
+	"bnema.dev/dumber/internal/infrastructure/homeconfig"
+	"bnema.dev/dumber/internal/infrastructure/homehtml"
+	"bnema.dev/dumber/internal/infrastructure/homehttp"
 	"bnema.dev/dumber/internal/infrastructure/idle"
 	"bnema.dev/dumber/internal/infrastructure/persistence/sqlite"
 	"bnema.dev/dumber/internal/infrastructure/process"
 	"bnema.dev/dumber/internal/infrastructure/runtimeprofile"
 	"bnema.dev/dumber/internal/infrastructure/runtimewatch"
 	"bnema.dev/dumber/internal/infrastructure/snapshot"
+	"bnema.dev/dumber/internal/infrastructure/systemviewfiles"
 	"bnema.dev/dumber/internal/infrastructure/textinput"
 	"bnema.dev/dumber/internal/infrastructure/updater"
 	"bnema.dev/dumber/internal/infrastructure/xdg"
@@ -228,7 +232,7 @@ func main() {
 			return
 		}
 		configureBrowserLaunchRelay(cfg)
-		startupURL := domainurl.ResolveBrowserStartupURL(browseURL)
+		startupURL := domainurl.ResolveBrowserStartupURL(browseURL, cfg.Workspace.StartupURL)
 		freshWindow := os.Getenv(desktop.FreshWindowLaunchEnvVar) == "1"
 		if freshWindow {
 			_ = os.Unsetenv(desktop.FreshWindowLaunchEnvVar)
@@ -345,7 +349,7 @@ func runInstanceGUI(cfg *config.Config, timing startupTiming, args cmd.BrowseArg
 		return 1
 	}
 	browserLaunchRelay = desktop.NewBrowserLaunchRelay(profile.IPC)
-	startupURL := domainurl.ResolveBrowserStartupURL(args.URL)
+	startupURL := domainurl.ResolveBrowserStartupURL(args.URL, cfg.Workspace.StartupURL)
 	freshWindow := os.Getenv(desktop.FreshWindowLaunchEnvVar) == "1"
 	if freshWindow {
 		_ = os.Unsetenv(desktop.FreshWindowLaunchEnvVar)
@@ -1149,6 +1153,14 @@ func legacyFaviconService(uc *useCases) port.FaviconService {
 	return uc.favicon
 }
 
+// homeSitesHistory avoids passing a typed nil use case as an interface.
+func homeSitesHistory(uc *useCases) port.HomeSitesHistory {
+	if uc == nil || uc.history == nil {
+		return nil
+	}
+	return uc.history
+}
+
 func buildUIDependencies(
 	ctx context.Context,
 	cfg *config.Config,
@@ -1181,18 +1193,45 @@ func buildUIDependencies(
 	runtimeConfig := bootstrap.NewRuntimeConfigProvider(cfg, config.GetManager())
 	localPaths := filesystem.New()
 
+	var (
+		systemViewUserStyle   port.SystemViewUserStyle
+		systemViewFileWatcher port.SystemViewFileWatcher
+	)
+	if configDir, dirErr := config.GetConfigDir(); dirErr != nil {
+		logging.FromContext(ctx).Warn().Err(dirErr).Msg("system view user files disabled: no config dir")
+	} else {
+		systemViewUserStyle = systemviewfiles.NewUserStyle(configDir)
+		systemViewFileWatcher = systemviewfiles.NewWatcher(configDir)
+		homeConfig := homeconfig.New(configDir)
+		homeIcons := wireHomeIcons(ctx, engine, homeConfig, configDir)
+		handlerDeps.Home = usecase.NewHomeUseCase(usecase.HomeDeps{
+			Source:       homeConfig,
+			Runtime:      runtimeConfig,
+			History:      homeSitesHistory(uc),
+			Opener:       desktop.FileOpener{},
+			HTTP:         homehttp.New(),
+			Status:       homehttp.NewProber(),
+			Templates:    homehtml.Renderer{},
+			LookupEnv:    os.LookupEnv,
+			IconVersions: homeIcons,
+			EmbedOrigins: homeEmbedOriginSetter(engine),
+		})
+	}
+
 	uiDeps := &ui.Dependencies{
-		Ctx:                  ctx,
-		RuntimeConfig:        runtimeConfig,
-		InitialURL:           initialURL,
-		RestoreSessionID:     restoreSessionID,
-		StartupCrashReports:  startupCrashReports,
-		Theme:                themeManager,
-		ResolveThemeUC:       resolveThemeUC,
-		ExternalThemeSource:  externalThemeSource,
-		ExternalThemeWatcher: externalThemeWatcher,
-		ColorResolver:        colorResolver,
-		AdwaitaDetector:      adwaitaDetector,
+		Ctx:                   ctx,
+		RuntimeConfig:         runtimeConfig,
+		InitialURL:            initialURL,
+		RestoreSessionID:      restoreSessionID,
+		StartupCrashReports:   startupCrashReports,
+		Theme:                 themeManager,
+		ResolveThemeUC:        resolveThemeUC,
+		ExternalThemeSource:   externalThemeSource,
+		ExternalThemeWatcher:  externalThemeWatcher,
+		ColorResolver:         colorResolver,
+		AdwaitaDetector:       adwaitaDetector,
+		SystemViewUserStyle:   systemViewUserStyle,
+		SystemViewFileWatcher: systemViewFileWatcher,
 		XDG: xdg.New(
 			runtimeProfile.Mode == runtimeprofile.ModeDev,
 			bootstrap.ResolveXDGRuntimeDir(runtimeProfile),

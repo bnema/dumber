@@ -12,6 +12,7 @@ import (
 	"bnema.dev/dumber/internal/infrastructure/env"
 	"bnema.dev/dumber/internal/infrastructure/filtering"
 	"bnema.dev/dumber/internal/infrastructure/runtimeprofile"
+	"bnema.dev/dumber/internal/infrastructure/sigstack"
 	"bnema.dev/dumber/internal/logging"
 	"bnema.dev/dumber/internal/ui/theme"
 	"bnema.dev/puregotk/v4/gdk"
@@ -52,6 +53,9 @@ func NewEngine(
 	if err != nil {
 		return nil, err
 	}
+
+	// Must run before the first page load creates JSC's handlers on its own.
+	sigstack.Log(&logger, "webkit", installJSCSignalHandlersOnStack(), zerolog.InfoLevel, true)
 
 	// --- Filter manager ---
 	filterManager := engineInitFilterManager(ctx, cfg, profile.Shared.DataDir, logger)

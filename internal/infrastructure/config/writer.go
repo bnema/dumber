@@ -16,16 +16,25 @@ import (
 // WriteConfigOrdered writes the configuration to disk with consistent ordering.
 // Uses atomic write (temp file + rename) to prevent race conditions with file watchers.
 func WriteConfigOrdered(cfg *Config, path string) error {
+	_, err := writeConfigOrdered(cfg, path)
+	return err
+}
+
+// writeConfigOrdered writes cfg like WriteConfigOrdered and returns the bytes written.
+func writeConfigOrdered(cfg *Config, path string) ([]byte, error) {
 	if cfg == nil {
-		return fmt.Errorf("config is nil")
+		return nil, fmt.Errorf("config is nil")
 	}
 
 	content, err := encodeConfigToTOML(cfg)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return atomicWriteFile(path, content, filePerm)
+	if err := atomicWriteFile(path, content, filePerm); err != nil {
+		return nil, err
+	}
+	return []byte(content), nil
 }
 
 // encodeConfigToTOML encodes the config struct to sorted TOML content.

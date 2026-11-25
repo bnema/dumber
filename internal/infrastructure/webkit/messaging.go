@@ -46,6 +46,14 @@ type MessageRouter struct {
 
 	idMu      sync.Mutex
 	syncedIDs map[WebViewID]bool
+
+	// Seams for asynchronous dispatch; tests replace them.
+	goAsync func(func())
+	onMain  func(func())
+	// stampFor identifies the page a request came from; async responses are
+	// delivered only if the stamp is unchanged and still trusted.
+	stampFor func(WebViewID) (deliveryStamp, bool)
+	respond func(ctx context.Context, webviewID WebViewID, callback, world string, payload json.RawMessage) error
 }
 
 // NewMessageRouter creates a new message router.
@@ -54,11 +62,16 @@ func NewMessageRouter(ctx context.Context) *MessageRouter {
 		ctx = context.Background()
 	}
 
-	return &MessageRouter{
+	r := &MessageRouter{
 		handlers:  make(map[string]handlerEntry),
 		baseCtx:   ctx,
 		syncedIDs: make(map[WebViewID]bool),
+		goAsync:   func(f func()) { go f() },
+		onMain:    runOnGTKMain,
+		stampFor:  webViewDeliveryStamp,
 	}
+	r.respond = r.dispatchResponse
+	return r
 }
 
 // SetBaseContext updates the base context used for logging and handler execution.
@@ -188,7 +201,7 @@ func (r *MessageRouter) handleScriptMessage(senderUCM webkit.UserContentManager,
 
 	log.Debug().Uint64("value_ptr", uint64(valuePtr)).Msg("handleScriptMessage entry")
 
-	msg, ok := decodeScriptMessage(valuePtr, log)
+	msg, bridgeToken, ok := decodeScriptMessage(valuePtr, log)
 	if !ok {
 		return
 	}
@@ -207,6 +220,13 @@ func (r *MessageRouter) handleScriptMessage(senderUCM webkit.UserContentManager,
 			Uint64("sender_webview_id", uint64(senderWV.ID())).
 			Str("uri", senderWV.URI()).
 			Msg("rejecting script message from untrusted page")
+		return
+	}
+	if !allowsSystemviewBridgeMessage(senderWV.URI(), senderWV.SystemviewBridgeToken(), bridgeToken) {
+		log.Warn().
+			Str("type", msg.Type).
+			Uint64("sender_webview_id", uint64(senderWV.ID())).
+			Msg("rejecting script message without a valid bridge token (embedded frame?)")
 		return
 	}
 
@@ -237,38 +257,19 @@ func (r *MessageRouter) handleScriptMessage(senderUCM webkit.UserContentManager,
 		Str("callback", entry.callback).
 		Msg("received script message, dispatching to handler")
 
-	resp, err := entry.handler.Handle(baseCtx, WebViewID(msg.WebViewID), msg.Payload)
-	log.Debug().Str("type", msg.Type).Err(err).Msg("handler execution completed")
-	if err != nil {
-		log.Error().Err(err).Str("type", msg.Type).Msg("message handler returned error")
-		if entry.errorCallback != "" {
-			if respErr := r.dispatchResponse(baseCtx, WebViewID(msg.WebViewID), entry.errorCallback, entry.world, err.Error()); respErr != nil {
-				log.Warn().Err(respErr).Msg("failed to dispatch error callback")
-			}
-		}
-		return
-	}
-
-	if entry.callback != "" {
-		if err := r.dispatchResponse(baseCtx, WebViewID(msg.WebViewID), entry.callback, entry.world, resp); err != nil {
-			log.Warn().Err(err).
-				Str("callback", entry.callback).
-				Uint64("webview_id", msg.WebViewID).
-				Msg("failed to dispatch callback response")
-		}
-	}
+	r.runHandler(baseCtx, entry, msg)
 }
 
-func decodeScriptMessage(valuePtr uintptr, log zerolog.Logger) (Message, bool) {
+func decodeScriptMessage(valuePtr uintptr, log zerolog.Logger) (Message, string, bool) {
 	if valuePtr == 0 {
 		log.Warn().Msg("received script message with nil value pointer")
-		return Message{}, false
+		return Message{}, "", false
 	}
 
 	jscValue := javascriptcore.ValueNewFromInternalPtr(valuePtr)
 	if jscValue == nil {
 		log.Warn().Msg("failed to wrap script message JSC value")
-		return Message{}, false
+		return Message{}, "", false
 	}
 
 	rawJSON := jscValue.ToJson(0)
@@ -277,15 +278,15 @@ func decodeScriptMessage(valuePtr uintptr, log zerolog.Logger) (Message, bool) {
 		log.Error().
 			Msg("script message JSON serialization failed (ToJson returned empty) - " +
 				"this usually means JS sent non-serializable values like Proxy objects")
-		return Message{}, false
+		return Message{}, "", false
 	}
 
-	var msg Message
-	if err := json.Unmarshal([]byte(rawJSON), &msg); err != nil {
+	msg, token, err := parseScriptMessageJSON([]byte(rawJSON))
+	if err != nil {
 		log.Warn().Err(err).Int("json_len", len(rawJSON)).Msg("failed to unmarshal script message")
-		return Message{}, false
+		return Message{}, "", false
 	}
-	return msg, true
+	return msg, token, true
 }
 
 // handleAllowlistedBridgeMessage handles the one narrow page-origin hint that
@@ -380,7 +381,7 @@ func (r *MessageRouter) registeredHandlerTypes() []string {
 }
 
 // dispatchResponse serializes the payload and invokes a window callback in JS.
-func (r *MessageRouter) dispatchResponse(ctx context.Context, webviewID WebViewID, callback, world string, payload any) error {
+func (r *MessageRouter) dispatchResponse(ctx context.Context, webviewID WebViewID, callback, world string, data json.RawMessage) error {
 	if ctx == nil {
 		ctx = r.baseContext()
 	}
@@ -398,9 +399,8 @@ func (r *MessageRouter) dispatchResponse(ctx context.Context, webviewID WebViewI
 		return fmt.Errorf("webview %d not found", webviewID)
 	}
 
-	data, err := json.Marshal(payload)
-	if err != nil {
-		return fmt.Errorf("marshal callback payload: %w", err)
+	if len(data) == 0 {
+		data = json.RawMessage("null")
 	}
 
 	script := fmt.Sprintf(

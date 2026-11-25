@@ -13,6 +13,10 @@
   /* Matches the GTK theme's fixed --destructive (not palette-driven). */
   --sv-danger: #ef4444;
   --sv-success: var(--sv-accent);
+  /* Service status (Home dots); fixed, not palette-driven. */
+  --sv-ok: #4ade80;
+  --sv-warn: #fbbf24;
+  --sv-down: #f87171;
 }
 
 .sv-dark {
@@ -30,6 +34,9 @@
   --sv-accent-text: #ffffff;
   --sv-border: #d7dee8;
   --sv-danger: #dc2626;
+  --sv-ok: #16a34a;
+  --sv-warn: #b45309;
+  --sv-down: #dc2626;
 }
 
 /* Derived tokens, recomputed from the palette variables in every scheme.
@@ -2798,4 +2805,891 @@ html[data-sv-enhanced] .sv-savebar:not([data-sv-open]):not(:has(.sv-savebar-erro
     animation-duration: 0ms !important;
     animation-delay: 0ms !important;
   }
+}
+
+/* ===== Home (dumb://home) ===== */
+
+/* No cards: services are rows, groups are columns of rows. Only floating
+   layers (suggestions) get a shadow. */
+.sv-shell:has(.sv-home) {
+  max-width: 64rem;
+}
+
+.sv-home {
+  --sv-home-columns: 3;
+  --sv-home-icon: 1.25rem;
+  --sv-home-row-pad: 0.625rem;
+  --sv-home-row-gap: 0.75rem;
+  /* Left edge of the row text column, for content under a row. */
+  --sv-home-indent: calc(var(--sv-home-row-pad) + var(--sv-home-icon) + var(--sv-home-row-gap));
+  --sv-home-tint: color-mix(in srgb, var(--sv-text) 5%, transparent);
+  --sv-home-selected: color-mix(in srgb, var(--sv-accent) 13%, transparent);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.75rem 0.5rem;
+  align-items: baseline;
+}
+
+/* The widgets container only groups the widget regions for swaps; they
+   stay flex items of the page. */
+.sv-home-widgets {
+  display: contents;
+}
+
+/* Full-width regions by default; order puts the header line first
+   whatever the widget order in home.toml. */
+.sv-home-region {
+  flex: 1 1 100%;
+  order: 3;
+  min-width: 0;
+}
+
+.sv-home-region:has(> .sv-home-errors) {
+  order: 0;
+}
+
+/* Header line: title and ghost controls, then clock and service count on
+   the right. They are sibling regions, laid out together here. */
+.sv-home-region:has(> .sv-home-header) {
+  flex: 1 1 18rem;
+  order: 1;
+}
+
+.sv-home-region:has(> .sv-home-widget-clock),
+.sv-home-region:has(> .sv-home-status-summary) {
+  flex: 0 0 auto;
+  order: 2;
+}
+
+.sv-home-region:has(> .sv-home-widget-search) {
+  /* Pulls the search closer to the header line. */
+  margin-top: -0.75rem;
+}
+
+.sv-home-region:has(> .sv-home-widget-favorites, > .sv-home-widget-top_sites, > .sv-home-widget-recent) {
+  flex: 1 1 15rem;
+}
+
+.sv-home-widget {
+  min-width: 0;
+}
+
+.sv-home-region:empty,
+.sv-home-region:has(> :only-child:empty) {
+  display: none;
+}
+
+.sv-home-errors {
+  display: grid;
+  gap: 0.375rem;
+  padding: 0.75rem 1rem;
+  border-radius: var(--sv-radius-control);
+  background: color-mix(in srgb, var(--sv-danger) 10%, transparent);
+  color: var(--sv-danger-text);
+  font-size: 0.8125rem;
+}
+
+.sv-home-errors-title {
+  margin: 0;
+  font-weight: 600;
+}
+
+.sv-home-error-list {
+  display: grid;
+  gap: 0.25rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.sv-home-error {
+  margin: 0;
+}
+
+.sv-home-error-path {
+  font-family: var(--sv-font-mono, ui-monospace), ui-monospace, monospace;
+  font-size: 0.75rem;
+  word-break: break-all;
+}
+
+.sv-home-header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.5rem;
+  align-items: baseline;
+}
+
+.sv-home-title {
+  margin: 0 0.5rem 0 0;
+  color: var(--sv-text);
+  font-family: var(--sv-header-font, inherit);
+  font-size: 1.375rem;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+
+/* Ghost controls: text only, tinted on hover. */
+.sv-home .sv-home-ghost {
+  display: inline-flex;
+  gap: 0.25rem;
+  align-items: center;
+  padding: 0.1875rem 0.5rem;
+  border: 0;
+  border-radius: var(--sv-radius-control);
+  background: transparent;
+  color: var(--sv-muted-text);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.8125rem;
+  transition: background-color var(--sv-ease), color var(--sv-ease);
+}
+
+.sv-home .sv-home-ghost:hover {
+  background: var(--sv-home-tint);
+  color: var(--sv-text);
+}
+
+.sv-home .sv-home-ghost:focus-visible {
+  outline: 2px solid var(--sv-accent);
+  outline-offset: 1px;
+}
+
+.sv-home .sv-palette-trigger.sv-home-ghost span {
+  margin-right: 0.25rem;
+}
+
+html:not([data-sv-enhanced]) .sv-home .sv-palette-trigger {
+  display: none;
+}
+
+.sv-home-status-summary {
+  color: var(--sv-muted-text);
+  font-size: 0.875rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.sv-home:has(.sv-home-widget-clock) .sv-home-status-summary::before {
+  content: "·";
+  margin-right: 0.5rem;
+}
+
+.sv-home-section-title {
+  margin: 0 0 0.375rem;
+  padding: 0 var(--sv-home-row-pad);
+  color: var(--sv-muted-text);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.sv-home-muted {
+  margin: 0;
+  padding: 0.25rem var(--sv-home-row-pad);
+  color: var(--sv-muted-text);
+  font-size: 0.8125rem;
+}
+
+/* Search: an omnibox-like field with the engine chip, a hint line, then
+   history suggestions as rows. */
+.sv-home-search {
+  display: grid;
+  gap: 0.375rem;
+}
+
+.sv-home-search-field {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  padding: 0.4375rem 0.5rem 0.4375rem 0.875rem;
+  border: 1px solid var(--sv-border);
+  border-radius: 8px;
+  background: var(--sv-surface);
+  transition: border-color var(--sv-ease);
+}
+
+.sv-home-search-field:focus-within {
+  border-color: color-mix(in srgb, var(--sv-accent) 55%, var(--sv-border));
+}
+
+.sv-home .sv-home-search-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 0.1875rem 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--sv-text);
+  font: inherit;
+  font-size: 0.9375rem;
+}
+
+.sv-home-search-input::placeholder {
+  color: var(--sv-muted-text);
+}
+
+.sv-home-search-input::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+  appearance: none;
+  /* WebKitGTK keeps drawing the button without this. */
+  display: none;
+}
+
+/* Engine chip: what Enter uses. idle is dimmed, bang is tinted. */
+.sv-home-search-engine {
+  display: inline-flex;
+  flex: 0 0 auto;
+  gap: 0.375rem;
+  align-items: center;
+  padding: 0.1875rem 0.5rem 0.1875rem 0.25rem;
+  border-radius: 999px;
+  color: var(--sv-muted-text);
+  font-size: 0.78125rem;
+  white-space: nowrap;
+  transition: background-color var(--sv-ease), color var(--sv-ease), opacity var(--sv-ease);
+}
+
+.sv-home-search-engine[data-state="idle"] {
+  opacity: 0.55;
+}
+
+.sv-home-search-engine[data-state="bang"] {
+  background: var(--sv-home-selected);
+  color: var(--sv-text);
+}
+
+.sv-home-search-engine-icon {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  width: 1.125rem;
+  height: 1.125rem;
+  overflow: hidden;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--sv-accent) 16%, transparent);
+  color: var(--sv-accent);
+  font-size: 0.625rem;
+  font-weight: 700;
+}
+
+.sv-home-search-engine[data-state="address"] .sv-home-search-engine-icon {
+  background: color-mix(in srgb, var(--sv-text) 10%, transparent);
+  color: var(--sv-text);
+}
+
+.sv-home-search-engine-icon img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.sv-home-search-engine-has-image {
+  background: transparent;
+}
+
+.sv-home-search-engine-has-image .sv-home-search-engine-glyph {
+  visibility: hidden;
+}
+
+.sv-home kbd {
+  padding: 0.0625rem 0.3125rem;
+  border-radius: var(--sv-radius-chip);
+  background: color-mix(in srgb, var(--sv-text) 7%, transparent);
+  color: var(--sv-muted-text);
+  font-family: var(--sv-font-mono, ui-monospace), ui-monospace, monospace;
+  font-size: 0.6875rem;
+}
+
+.sv-home-search-hint {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1rem;
+  min-height: 1.3em;
+  padding: 0 0.875rem;
+  color: var(--sv-muted-text);
+  font-size: 0.78125rem;
+}
+
+.sv-home-search-hint b {
+  display: inline-block;
+  max-width: min(40ch, 60vw);
+  overflow: hidden;
+  color: var(--sv-text);
+  font-weight: 550;
+  vertical-align: bottom;
+  white-space: nowrap;
+}
+
+.sv-home-search-url {
+  color: var(--sv-text);
+  font-family: var(--sv-font-mono, ui-monospace), ui-monospace, monospace;
+  word-break: break-all;
+}
+
+/* History suggestions: rows under the hint, hidden in bang modes. */
+.sv-home-suggestions {
+  display: grid;
+  gap: 0.125rem;
+}
+
+.sv-home-suggestions:empty,
+.sv-home-search:not(:focus-within) .sv-home-suggestions,
+.sv-home-search[data-sv-home-bang] .sv-home-suggestions {
+  display: none;
+}
+
+/* Search results: rows that do not match hide, the selected one is
+   tinted. Embeds and emptied sections hide while filtering. */
+[data-sv-home-item][data-sv-home-hidden],
+.sv-home-rows > li:has(> [data-sv-home-hidden]) {
+  display: none;
+}
+
+[data-sv-home-item="row"][data-sv-home-selected] {
+  background: var(--sv-home-selected);
+}
+
+.sv-home[data-sv-home-query] .sv-home-service-embed {
+  display: none;
+}
+
+.sv-home-region:has(> .sv-home-bookmarks, > .sv-home-widget):has([data-sv-home-hidden]):not(:has([data-sv-home-item]:not([data-sv-home-hidden]))),
+.sv-home-bookmark-group:has([data-sv-home-hidden]):not(:has([data-sv-home-item]:not([data-sv-home-hidden]))),
+.sv-home-widget:has([data-sv-home-hidden]):not(:has([data-sv-home-item]:not([data-sv-home-hidden]))) {
+  display: none;
+}
+
+/* Clock: compact "date · time" text on the header line. */
+.sv-home-clock {
+  display: flex;
+  gap: 0.5rem;
+  align-items: baseline;
+  color: var(--sv-muted-text);
+  font-size: 0.875rem;
+  white-space: nowrap;
+}
+
+.sv-home-clock-time {
+  color: var(--sv-text);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.sv-home-rows {
+  display: grid;
+  /* One track that may shrink below its content, so long titles and
+     addresses ellipsize instead of widening the column. */
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.125rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* A link row: favicon centred on two lines, title over a muted address
+   (same size and colour as a service description). */
+.sv-home-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--sv-home-row-gap);
+  align-items: center;
+  min-width: 0;
+  padding: 0.4375rem var(--sv-home-row-pad);
+  border-radius: 6px;
+  color: var(--sv-text);
+  text-decoration: none;
+  transition: background-color var(--sv-ease);
+}
+
+.sv-home-row:hover {
+  background: var(--sv-home-tint);
+}
+
+.sv-home-row:focus-visible {
+  background: var(--sv-home-selected);
+  outline: 2px solid var(--sv-accent);
+  outline-offset: -2px;
+}
+
+.sv-home-row-text {
+  display: grid;
+  min-width: 0;
+}
+
+.sv-home-row-title,
+.sv-home-row-url {
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.sv-home-row-url {
+  color: var(--sv-muted-text);
+  font-size: 0.78125rem;
+}
+
+/* Truncated texts fade into whatever is behind them (page, hover or
+   selected tint). The page marks them with data-sv-overflow only while
+   they are cut, so short texts keep every letter. */
+.sv-home [data-sv-overflow] {
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 2.5rem), transparent);
+  mask-image: linear-gradient(to right, #000 calc(100% - 2.5rem), transparent);
+}
+
+.sv-home-bookmarks {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  gap: 1.75rem 2.5rem;
+}
+
+/* Groups: columns of service rows, at most --sv-home-columns per line. */
+.sv-home-groups {
+  --sv-home-col-gap: 2.5rem;
+  display: grid;
+  /* auto-fill keeps column widths while search hides groups. */
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, max(19rem, (100% - (var(--sv-home-columns) - 1) * var(--sv-home-col-gap)) / var(--sv-home-columns))), 1fr));
+  gap: 1.75rem var(--sv-home-col-gap);
+  align-items: start;
+}
+
+.sv-home-group {
+  min-width: 0;
+}
+
+.sv-home-group-head {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 0 var(--sv-home-row-pad);
+}
+
+.sv-home-group-head > .sv-home-section-title {
+  min-width: 0;
+  padding: 0;
+}
+
+.sv-home-group-count {
+  color: var(--sv-muted-text);
+  font-size: 0.6875rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.sv-home-bookmark-group > .sv-home-section-title {
+  padding: 0 var(--sv-home-row-pad);
+}
+
+/* The rows of one group. Keyboard navigation reads its column count. */
+.sv-home-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.125rem;
+}
+
+/* Hidden rows (search filter); a group whose rows are all hidden hides
+   too. Groups empty in home.toml stay. */
+.sv-home-service[data-sv-home-hidden] {
+  display: none;
+}
+
+.sv-home-group:has([data-sv-home-hidden]):not(:has(.sv-home-service:not([data-sv-home-hidden]))) {
+  display: none;
+}
+
+/* A service row: tile (icon, name, description) | inline widget | actions |
+   status on the first line; block widget, open action form and embed under
+   it, aligned with the text column. Regions stay siblings. */
+.sv-home-service {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto auto;
+  grid-template-areas:
+    "tile widget actions status"
+    "block block block block"
+    "form form form form"
+    "embed embed embed embed";
+  align-items: center;
+  align-content: start;
+  column-gap: 0;
+  padding-right: var(--sv-home-row-pad);
+  border-radius: 6px;
+  transition: background-color var(--sv-ease);
+}
+
+.sv-home-service:hover {
+  background: var(--sv-home-tint);
+}
+
+.sv-home-service[data-sv-home-selected] {
+  background: var(--sv-home-selected);
+}
+
+.sv-home-service-tile {
+  grid-area: tile;
+  min-width: 0;
+}
+
+.sv-home-service-link {
+  display: grid;
+  grid-template-columns: var(--sv-home-icon) minmax(0, 1fr);
+  gap: var(--sv-home-row-gap);
+  align-items: center;
+  min-width: 0;
+  padding: 0.5rem 0 0.5rem var(--sv-home-row-pad);
+  border-radius: 6px;
+  color: var(--sv-text);
+  text-decoration: none;
+}
+
+.sv-home-service-link:focus-visible {
+  outline: none;
+}
+
+/* The focus ring covers the whole row, like the hover tint. */
+.sv-home-service:has(.sv-home-service-link:focus-visible) {
+  outline: 2px solid var(--sv-accent);
+  outline-offset: -2px;
+}
+
+.sv-home-service-icon {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  width: var(--sv-home-icon);
+  height: var(--sv-home-icon);
+  overflow: hidden;
+  border-radius: var(--sv-radius-chip);
+  background: var(--sv-chip);
+  color: var(--sv-muted-text);
+  font-size: 0.6875rem;
+  font-weight: 600;
+}
+
+.sv-home-service-icon img {
+  position: absolute;
+  inset: 0;
+  width: var(--sv-home-icon);
+  height: var(--sv-home-icon);
+  object-fit: contain;
+}
+
+.sv-home-service-icon-has-image {
+  background: transparent;
+}
+
+.sv-home-service-icon-has-image .sv-home-service-glyph {
+  visibility: hidden;
+}
+
+.sv-home-service-text {
+  display: grid;
+  min-width: 0;
+}
+
+.sv-home-service-name,
+.sv-home-service-description {
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.sv-home-service-name {
+  font-weight: 550;
+}
+
+.sv-home-service-description {
+  color: var(--sv-muted-text);
+  font-size: 0.78125rem;
+}
+
+.sv-home-service-widget:empty,
+.sv-home-service-actions:empty,
+.sv-home-service-status:empty,
+.sv-home-service-embed:empty {
+  display: none;
+}
+
+/* Under the row by default: lists, bars, many stats, template HTML. */
+.sv-home-service-widget {
+  grid-area: block;
+  min-width: 0;
+  padding: 0 0 0.5rem var(--sv-home-indent);
+}
+
+/* Inline on the row: up to two stats, or the loading placeholder. */
+.sv-home-service-widget:has(> .sv-home-svc-inline, > .sv-home-svc-loading) {
+  grid-area: widget;
+  margin-left: 0.625rem;
+  padding: 0;
+}
+
+/* Margins, not column-gap: empty tracks must not leave space. */
+.sv-home-service-status {
+  grid-area: status;
+  margin-left: 0.625rem;
+}
+
+/* Actions show on hover, keyboard focus or selection, and stay while an
+   action runs or its form or confirmation is open. */
+.sv-home-service-actions {
+  display: none;
+  grid-area: actions;
+  margin-left: 0.625rem;
+}
+
+.sv-home-service:hover > .sv-home-service-actions,
+.sv-home-service:focus-within > .sv-home-service-actions,
+.sv-home-service[data-sv-home-selected] > .sv-home-service-actions,
+.sv-home-service-actions:has([aria-busy="true"]) {
+  display: block;
+}
+
+.sv-home-service > .sv-home-service-actions:has(.sv-home-svc-form, .sv-home-svc-confirm) {
+  display: block;
+  grid-area: form;
+  margin-left: 0;
+  padding: 0.25rem 0 0.625rem var(--sv-home-indent);
+}
+
+.sv-home-service-embed {
+  grid-area: embed;
+  padding: 0.25rem 0 0.625rem var(--sv-home-indent);
+}
+
+.sv-home-embed {
+  display: block;
+  width: 100%;
+  border: 0;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--sv-text) 3%, var(--sv-background));
+}
+
+.sv-home-skeleton {
+  height: 1rem;
+  margin: 0.625rem;
+  border-radius: var(--sv-radius-chip);
+  background: var(--sv-chip);
+  animation: sv-home-pulse 1.2s ease-in-out infinite alternate;
+}
+
+.sv-home-skeleton:nth-child(2) { width: 70%; }
+.sv-home-skeleton:nth-child(3) { width: 45%; }
+
+@keyframes sv-home-pulse {
+  from { opacity: 0.45; }
+  to { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sv-home-skeleton { animation: none; }
+}
+
+/* home service widgets: plain text, no boxes */
+
+.sv-home-svc {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  color: var(--sv-text);
+  font-size: 0.78125rem;
+}
+
+.sv-home-svc-loading {
+  width: 3rem;
+  height: 0.5rem;
+  border-radius: var(--sv-radius-chip);
+  background: var(--sv-chip);
+  animation: sv-home-pulse 1.2s ease-in-out infinite alternate;
+}
+
+.sv-home-svc-stale-badge {
+  color: var(--sv-muted-text);
+  font-size: 0.6875rem;
+}
+
+.sv-home-svc-stale > :not(.sv-home-svc-stale-badge):not(.sv-home-svc-error) {
+  opacity: 0.6;
+}
+
+.sv-home-svc-inline {
+  flex-direction: row;
+  align-items: baseline;
+  gap: 0.5rem;
+  white-space: nowrap;
+}
+
+.sv-home-svc-error {
+  margin: 0;
+  color: var(--sv-danger-text);
+  overflow-wrap: anywhere;
+}
+
+.sv-home-svc-label {
+  color: var(--sv-muted-text);
+}
+
+.sv-home-svc-value {
+  margin: 0;
+  color: var(--sv-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.sv-home-svc-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.125rem 1rem;
+  margin: 0;
+}
+
+.sv-home-svc-field-pair {
+  display: flex;
+  gap: 0.3125rem;
+  align-items: baseline;
+}
+
+.sv-home-svc-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.sv-home-svc-row {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: space-between;
+}
+
+.sv-home-svc-cell {
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.sv-home-svc-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.sv-home-svc-bar {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.125rem 0.5rem;
+}
+
+.sv-home-svc-track {
+  grid-column: 1 / -1;
+  height: 0.25rem;
+  overflow: hidden;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--sv-text) 10%, transparent);
+}
+
+.sv-home-svc-fill {
+  display: block;
+  width: var(--sv-home-bar, 0%);
+  height: 100%;
+  background: var(--sv-accent);
+  transition: width 240ms var(--sv-ease);
+}
+
+.sv-home-svc-html {
+  overflow-wrap: anywhere;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sv-home-svc-loading { animation: none; }
+  .sv-home-svc-fill { transition: none; }
+}
+
+.sv-home-svc-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+
+.sv-home .sv-home-svc-action {
+  padding: 0.125rem 0.5rem;
+  border: 0;
+  border-radius: var(--sv-radius-chip);
+  background: color-mix(in srgb, var(--sv-text) 8%, transparent);
+  color: var(--sv-text);
+  font-size: 0.75rem;
+}
+
+.sv-home .sv-home-svc-action:hover {
+  background: color-mix(in srgb, var(--sv-text) 14%, transparent);
+}
+
+.sv-home-svc-action[aria-busy="true"] {
+  cursor: progress;
+}
+
+.sv-home-svc-form {
+  display: flex;
+  flex: 1 1 100%;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.sv-home-svc-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  font-size: 0.75rem;
+}
+
+.sv-home-svc-form-buttons,
+.sv-home-svc-confirm {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.sv-home-svc-confirm {
+  flex: 1 1 100%;
+}
+
+.sv-home-svc-confirm-text {
+  flex: 1 1 100%;
+  font-size: 0.8125rem;
+}
+
+/* Service status: a dot per checked service, offline count in the header. */
+.sv-home-service-status {
+  display: inline-flex;
+  align-items: center;
+}
+
+.sv-home-status-dot {
+  display: block;
+  width: 0.4375rem;
+  height: 0.4375rem;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--sv-muted) 55%, transparent);
+}
+
+.sv-home-status-dot[data-state="up"] {
+  background: var(--sv-ok);
+}
+
+.sv-home-status-dot[data-state="error"] {
+  background: var(--sv-warn);
+}
+
+.sv-home-status-dot[data-state="down"] {
+  background: var(--sv-down);
+}
+
+.sv-home-status-offline-some {
+  color: var(--sv-down);
+}
+
+/* A history suggestion selected with the arrow keys. */
+.sv-home-suggestion[data-sv-home-selected] {
+  background: var(--sv-home-selected);
 }

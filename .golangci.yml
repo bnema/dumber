@@ -149,7 +149,7 @@ linters:
         linters:
           - gosec
       # CEF/OpenGL interop requires unsafe pointer arithmetic
-      - path: internal/infrastructure/cef/
+      - path: internal/infrastructure/(cef|sigstack)/
         text: "G103:"
         linters:
           - gosec

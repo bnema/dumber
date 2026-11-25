@@ -8,7 +8,7 @@ import (
 
 func TestSystemviewPageResolvesAliases(t *testing.T) {
 	t.Parallel()
-	for host, want := range map[string]string{"history": "history", "Favorites": "favorites", "config": "config", "settings": "config"} {
+	for host, want := range map[string]string{"home": "home", "history": "history", "Favorites": "favorites", "config": "config", "settings": "config"} {
 		page, ok := SystemviewPage(host)
 		assert.True(t, ok, host)
 		assert.Equal(t, want, page, host)
@@ -33,6 +33,9 @@ func TestSystemviewTitle(t *testing.T) {
 	title, ok := SystemviewTitle("dumb://settings")
 	assert.True(t, ok)
 	assert.Equal(t, "Settings", title)
+	title, ok = SystemviewTitle("dumb://home")
+	assert.True(t, ok)
+	assert.Equal(t, "Home", title)
 	_, ok = SystemviewTitle("https://example.com")
 	assert.False(t, ok)
 }

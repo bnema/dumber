@@ -50,6 +50,7 @@ func TestPaletteOnHistoryOffersHistoryCommandsAndOtherViews(t *testing.T) {
 	ids := paletteIDs(dom.palettes[0])
 	assert.Contains(t, ids, "history.search")
 	assert.Contains(t, ids, "history.deleteRange.all")
+	assert.Contains(t, ids, "goto.home")
 	assert.Contains(t, ids, "goto.favorites")
 	assert.Contains(t, ids, "goto.config")
 	assert.NotContains(t, ids, "goto.history", "the current view is not offered")
@@ -86,7 +87,7 @@ func TestPaletteOutsideHistoryOnlyNavigates(t *testing.T) {
 
 	require.NoError(t, app.HandleDOMAction(context.Background(), DOMAction{Action: paletteActionOpen}))
 
-	assert.Equal(t, []string{"goto.history", "goto.config"}, paletteIDs(dom.palettes[0]))
+	assert.Equal(t, []string{"goto.home", "goto.history", "goto.config"}, paletteIDs(dom.palettes[0]))
 }
 
 func TestPaletteWithoutSupportIsNoop(t *testing.T) {

@@ -1,0 +1,30 @@
+# Portainer container restart. API paths are examples: check your Portainer
+# version's API docs. Endpoint 1 and container "jellyfin" are placeholders.
+# export PORTAINER_TOKEN=... (My account > Access tokens)
+
+[[groups]]
+name = "Docker"
+
+[[groups.services]]
+id = "portainer"
+name = "Portainer"
+url = "https://portainer.lan:9443"
+
+[groups.services.widget]
+type = "api"
+url = "https://portainer.lan:9443/api/endpoints/1/docker/info"
+headers = { "X-API-Key" = "{{env.PORTAINER_TOKEN}}" }
+refresh = "60s"
+fields = [
+  { label = "Running", path = "ContainersRunning", format = "number" },
+  { label = "Stopped", path = "ContainersStopped", format = "number" },
+  { label = "Images", path = "Images", format = "number" },
+]
+
+[[groups.services.actions]]
+id = "restart-jellyfin"
+label = "Restart Jellyfin"
+method = "POST"
+url = "https://portainer.lan:9443/api/endpoints/1/docker/containers/jellyfin/restart"
+headers = { "X-API-Key" = "{{env.PORTAINER_TOKEN}}" }
+confirm = "Restart the Jellyfin container?"

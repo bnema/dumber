@@ -36,6 +36,10 @@ const (
 
 	// PermissionTypeWebsiteDataAccess represents 3rd party cookie/data access permission.
 	PermissionTypeWebsiteDataAccess PermissionType = "website_data_access"
+
+	// PermissionTypeLocalNetwork represents access to devices on the local
+	// network or loopback (Chromium Local Network Access).
+	PermissionTypeLocalNetwork PermissionType = "local_network"
 )
 
 // Metadata keys for PermissionMetadata.

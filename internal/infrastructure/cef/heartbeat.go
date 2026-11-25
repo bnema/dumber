@@ -5,7 +5,9 @@ import (
 	"time"
 
 	purecef "bnema.dev/purego-cef/cef"
+	"github.com/rs/zerolog"
 
+	"bnema.dev/dumber/internal/infrastructure/sigstack"
 	"bnema.dev/dumber/internal/logging"
 )
 
@@ -178,13 +180,17 @@ func durationMillis(d time.Duration) int64 {
 	return d.Milliseconds()
 }
 
+// signalOnStackAuditInterval bounds how often the heartbeat re-checks signal
+// handlers installed by CEF/Chromium after initialization.
+const signalOnStackAuditInterval = 10 * time.Second
+
 // auditSignalOnStack repairs handlers Chromium installed after init without
 // SA_ONSTACK. It only issues rt_sigaction syscalls, so it never blocks. The
 // repair runs even when no logger context is set yet.
 func (e *Engine) auditSignalOnStack() {
-	res := repairSignalOnStack()
+	res := sigstack.Repair()
 	if e.ctx == nil {
 		return
 	}
-	logSignalOnStackRepair(logging.FromContext(e.ctx), res, false)
+	sigstack.Log(logging.FromContext(e.ctx), "cef", res, zerolog.WarnLevel, false)
 }

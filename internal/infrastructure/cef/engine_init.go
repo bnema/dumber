@@ -21,6 +21,7 @@ import (
 
 	"bnema.dev/dumber/assets"
 	"bnema.dev/dumber/internal/application/port"
+	"bnema.dev/dumber/internal/infrastructure/sigstack"
 	"bnema.dev/dumber/internal/logging"
 )
 
@@ -88,6 +89,7 @@ func NewEngine(
 		clipboard:              deps.Clipboard,
 		resolver:               deps.ImageDataResolver,
 		activity:               NewRuntimeActivityTracker(),
+		localNetwork:           newLocalNetworkScope(),
 	}
 
 	logger.Info().
@@ -257,7 +259,7 @@ func initializeCEF(eng *Engine, settings purecef.Settings, logger *zerolog.Logge
 	}
 	activeStartupTrace().Mark("cef_initialized")
 	// Logged by SetHandlerContext, once the session log file exists.
-	eng.signalOnStackInit = repairSignalOnStack()
+	eng.signalOnStackInit = sigstack.Repair()
 	if libcefPath := loadedLibCEFPath(); libcefPath != "" {
 		eng.runtimeLib = newRuntimeLibrary(libcefPath)
 		logger.Info().

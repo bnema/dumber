@@ -172,6 +172,9 @@ type WebView struct {
 	// Signal handler IDs for disconnection
 	signalIDs  []uintptr
 	generation atomic.Uint64
+	// navigationSeq changes when a navigation starts or commits, so async
+	// bridge responses can tell the page they were asked for is gone.
+	navigationSeq atomic.Uint64
 
 	// Callbacks (set by UI layer)
 	OnLoadChanged              func(LoadEvent)
@@ -207,6 +210,9 @@ type WebView struct {
 	frontendAttached         atomic.Bool
 	navigationActive         atomic.Bool
 	editableFocusBridgeToken string
+	// systemviewBridgeToken authenticates script messages from the top frame
+	// of trusted dumb:// pages. It is injected only into that frame.
+	systemviewBridgeToken string
 
 	// asyncCallbacks keeps references to async JS callbacks to prevent GC
 	asyncCallbacks []any
@@ -378,6 +384,7 @@ func NewWebView(ctx context.Context, wkCtx *WebKitContext, settings *SettingsMan
 		signalIDs:                make([]uintptr, 0, 4),
 		runJSErrorStats:          make(map[string]runJSErrorStat),
 		editableFocusBridgeToken: newEditableFocusBridgeToken(),
+		systemviewBridgeToken:    newEditableFocusBridgeToken(),
 	}
 
 	// Register in global registry
@@ -430,6 +437,7 @@ func NewWebViewWithRelated(ctx context.Context, parent *WebView, settings *Setti
 		signalIDs:                make([]uintptr, 0, 6),
 		runJSErrorStats:          make(map[string]runJSErrorStat),
 		editableFocusBridgeToken: newEditableFocusBridgeToken(),
+		systemviewBridgeToken:    newEditableFocusBridgeToken(),
 	}
 
 	wv.id = globalRegistry.register(wv)
@@ -494,6 +502,9 @@ func (wv *WebView) handleLoadChanged(event LoadEvent, uri, title string, progres
 	wv.progress = progress
 
 	notifyEditableBlur := false
+	if event == LoadStarted || event == LoadCommitted {
+		wv.navigationSeq.Add(1)
+	}
 	switch event {
 	case LoadStarted:
 		wv.navigationActive.Store(true)
@@ -644,6 +655,10 @@ func (wv *WebView) connectCreateSignal() {
 		var targetURI string
 		if req := navAction.GetRequest(); req != nil {
 			targetURI = req.GetUri()
+		}
+		if blockSystemViewPopup(targetURI) {
+			wv.logger.Warn().Str("target", targetURI).Msg("create signal: refusing popup to a system view")
+			return gtk.Widget{} // Block popup
 		}
 
 		popupReq := PopupRequest{
@@ -1619,6 +1634,12 @@ func (wv *WebView) Generation() uint64 {
 	return wv.generation.Load()
 }
 
+// NavigationSeq returns a counter that changes on every navigation start and
+// commit.
+func (wv *WebView) NavigationSeq() uint64 {
+	return wv.navigationSeq.Load()
+}
+
 // IsLoading returns true if a page is currently loading.
 func (wv *WebView) IsLoading() bool {
 	wv.mu.RLock()
@@ -2100,6 +2121,7 @@ func (wv *WebView) ResetForPoolReuse() {
 	}
 	wv.generation.Add(1)
 	wv.setEditableFocusBridgeToken(newEditableFocusBridgeToken())
+	wv.setSystemviewBridgeToken(newEditableFocusBridgeToken())
 
 	// Disconnect GLib signals to prevent stale callbacks from firing on reused WebView.
 	// They will be reconnected when the WebView is re-acquired from the pool.

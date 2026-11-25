@@ -15,25 +15,38 @@ import "strings"
 //	"plain text"     → ("", "", false)
 //	"test !g"        → ("", "", false) - bang not at start
 func ParseBangShortcut(input string) (shortcut, query string, found bool) {
+	shortcut, query, found = ParseBangPrefix(input)
+	if !found || query == "" {
+		return "", "", false
+	}
+	return shortcut, query, true
+}
+
+// ParseBangPrefix extracts a bang key from input, allowing an empty query.
+// The key runs from after "!" to the first space; the query is the trimmed
+// rest.
+//
+// Examples:
+//
+//	"!gh"         → ("gh", "", true)
+//	"!gh dumber"  → ("gh", "dumber", true)
+//	"! foo"       → ("", "", false) - empty key
+//	"plain text"  → ("", "", false)
+func ParseBangPrefix(input string) (key, query string, ok bool) {
 	if !strings.HasPrefix(input, "!") {
 		return "", "", false
 	}
-
-	// Find the space separating shortcut from query
-	spaceIdx := strings.Index(input, " ")
-	if spaceIdx == -1 || spaceIdx == 1 {
-		// No space found or empty shortcut ("! query")
+	rest := input[1:]
+	if spaceIdx := strings.Index(rest, " "); spaceIdx >= 0 {
+		key = rest[:spaceIdx]
+		query = strings.TrimSpace(rest[spaceIdx+1:])
+	} else {
+		key = rest
+	}
+	if key == "" {
 		return "", "", false
 	}
-
-	shortcut = input[1:spaceIdx]
-	query = strings.TrimSpace(input[spaceIdx+1:])
-
-	if query == "" {
-		return "", "", false
-	}
-
-	return shortcut, query, true
+	return key, query, true
 }
 
 // BuildSearchURL constructs a URL from user input, handling bang shortcuts.

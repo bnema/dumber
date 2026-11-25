@@ -1,0 +1,32 @@
+# AdGuard Home stats and a protection toggle. API paths are examples: check
+# your AdGuard Home version's OpenAPI docs.
+# export ADGUARD_BASIC=$(printf 'user:password' | base64)
+
+[[groups]]
+name = "Network"
+
+[[groups.services]]
+id = "adguard"
+name = "AdGuard Home"
+url = "http://adguard.lan"
+
+[groups.services.widget]
+type = "api"
+url = "http://adguard.lan/control/stats"
+headers = { "Authorization" = "Basic {{env.ADGUARD_BASIC}}" }
+refresh = "60s"
+display = "bar"
+fields = [
+  { label = "Queries", path = "num_dns_queries", format = "number" },
+  { label = "Blocked", path = "num_blocked_filtering", format = "number" },
+  { label = "Avg ms", path = "avg_processing_time", format = "number" },
+]
+
+[[groups.services.actions]]
+id = "pause"
+label = "Pause 10 min"
+method = "POST"
+url = "http://adguard.lan/control/protection"
+headers = { "Authorization" = "Basic {{env.ADGUARD_BASIC}}", "Content-Type" = "application/json" }
+body = '{"enabled": false, "duration": 600000}'
+confirm = "Pause ad blocking for 10 minutes?"

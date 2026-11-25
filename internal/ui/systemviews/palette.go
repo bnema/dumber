@@ -15,6 +15,7 @@ const (
 	paletteGroupSection  = "Jump to"
 	paletteGroupFavorite = "Favorites"
 	paletteGroupTags     = "Show tag"
+	paletteGroupHome     = "Home"
 )
 
 // DOM-handled favorites commands.
@@ -46,6 +47,8 @@ func (a *App) paletteItemsLocked() []PaletteItem {
 		items = append(items, a.historyPaletteItemsLocked()...)
 	case RouteConfig:
 		items = append(items, configPaletteItems()...)
+	case RouteHome:
+		items = append(items, homePaletteItems()...)
 	case RouteFavorites:
 		if a.deps.Favorites != nil {
 			items = append(items, favoritesPaletteItems(a.favoritesData)...)
@@ -56,6 +59,7 @@ func (a *App) paletteItemsLocked() []PaletteItem {
 		label    string
 		keywords string
 	}{
+		{RouteHome, "Home", "start dashboard"},
 		{RouteHistory, "History", "visits timeline"},
 		{RouteFavorites, "Favorites", "bookmarks tags"},
 		{RouteConfig, "Settings", "config preferences appearance keybindings"},
@@ -193,4 +197,23 @@ func favoritesPaletteItems(data favoritesRenderData) []PaletteItem {
 		})
 	}
 	return items
+}
+
+func homePaletteItems() []PaletteItem {
+	return []PaletteItem{
+		{
+			ID:       "home.search",
+			Label:    "Search",
+			Group:    paletteGroupHome,
+			Keywords: "find address url",
+			Action:   DOMAction{Action: uiActionFocus, Data: map[string]string{"selector": "[data-sv-home-search]"}},
+		},
+		{
+			ID:       "home.openConfig",
+			Label:    "Open home.toml",
+			Group:    paletteGroupHome,
+			Keywords: "edit layout config",
+			Action:   DOMAction{Action: homeActionOpenConfig},
+		},
+	}
 }

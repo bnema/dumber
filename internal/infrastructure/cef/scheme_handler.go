@@ -11,7 +11,6 @@ import (
 	"fmt"
 	"html"
 	"io/fs"
-	"maps"
 	"net/http"
 	"net/url"
 	"strings"
@@ -30,6 +29,7 @@ import (
 
 // Scheme path constants matching WebKit's naming.
 const (
+	homePath                    = "home"
 	historyPath                 = "history"
 	favoritesPath               = "favorites"
 	configPath                  = "config"
@@ -52,6 +52,7 @@ var (
 
 // pageRootFiles maps internal page hosts/paths to their HTML entry points.
 var pageRootFiles = map[string]string{
+	homePath:      indexHTML,
 	historyPath:   indexHTML,
 	favoritesPath: indexHTML,
 	configPath:    indexHTML,
@@ -63,9 +64,10 @@ var cefNewResourceHandler = purecef.NewResourceHandler
 // dumbSchemeHandler serves both the conceptual dumb:// URLs and the actual
 // internal https://dumber.invalid origin used by CEF.
 type dumbSchemeHandler struct {
-	ctx             context.Context
-	messageRouter   *MessageRouter
-	faviconResolver port.FaviconSystemviewResolver
+	ctx              context.Context
+	messageRouter    *MessageRouter
+	faviconResolver  port.FaviconSystemviewResolver
+	homeIconResolver port.HomeIconResolver
 	// assets is the captured immutable asset filesystem. Together with
 	// bundle it forms one replaceable bundle state: installing a different
 	// FS replaces both, and in-flight requests retain their captured pair.
@@ -141,6 +143,12 @@ func (h *dumbSchemeHandler) setAssets(assetsFS fs.FS) {
 	h.logger.Debug().Msg("assets filesystem configured")
 }
 
+func (h *dumbSchemeHandler) setHomeIconResolver(resolver port.HomeIconResolver) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.homeIconResolver = resolver
+}
+
 func (h *dumbSchemeHandler) setFaviconResolver(resolver port.FaviconSystemviewResolver) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
@@ -149,7 +157,9 @@ func (h *dumbSchemeHandler) setFaviconResolver(resolver port.FaviconSystemviewRe
 
 // Create implements purecef.SchemeHandlerFactory. Called on the CEF IO thread
 // for requests to either dumb:// or the internal https origin.
-func (h *dumbSchemeHandler) Create(browser purecef.Browser, _ purecef.Frame, _ string, request purecef.Request) purecef.ResourceHandler {
+func (h *dumbSchemeHandler) Create(
+	browser purecef.Browser, frame purecef.Frame, _ string, request purecef.Request,
+) purecef.ResourceHandler {
 	reqURL := request.GetURL()
 	method := request.GetMethod()
 
@@ -175,7 +185,17 @@ func (h *dumbSchemeHandler) Create(browser purecef.Browser, _ purecef.Frame, _ s
 	// those requests to https://dumber.invalid makes site connect-src policies
 	// block them.
 	if apiPath, ok := resolveAPIPath(u); ok {
+		if denied := h.rejectSubframeSystemviewAPI(frame, apiPath); denied != nil {
+			return denied
+		}
 		return h.handleAPI(browser, method, apiPath, request)
+	}
+
+	// Defense in depth behind OnBeforeBrowse: system view documents never
+	// load in a subframe.
+	if frame != nil && !frame.IsMain() && request.GetResourceType() == purecef.ResourceTypeRtSubFrame {
+		h.logger.Warn().Str("url", reqURL).Msg("refusing system view document in a subframe")
+		return h.newErrorResourceHandler(http.StatusForbidden, "Forbidden")
 	}
 
 	// Keep dumb:// as the app-level abstraction, but redirect CEF page/asset
@@ -243,6 +263,8 @@ func (h *dumbSchemeHandler) handleAPIGet(requestPath string, request purecef.Req
 		return h.handleConfigAPI(h.defaultConfigPayload), true
 	case "/api/favicon":
 		return h.handleFaviconAPI(request), true
+	case "/api/home-icon":
+		return h.handleHomeIconAPI(request), true
 	default:
 		return nil, false
 	}
@@ -285,11 +307,23 @@ func (h *dumbSchemeHandler) handleMessageAPI(request purecef.Request) purecef.Re
 	if body == nil {
 		return h.newAPIJSONResourceHandler(http.StatusBadRequest, map[string]string{"error": "empty body"})
 	}
-	resp, err := h.messageRouter.HandleMessage(h.ctx, 0, body)
-	if err != nil {
-		return h.newAPIJSONResourceHandler(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	if webutil.IsInlineBridgeMessage(bridgeMessageType(body)) {
+		resp, err := h.messageRouter.HandleMessage(h.ctx, 0, body)
+		if err != nil {
+			return h.newAPIJSONResourceHandler(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		}
+		return h.newAPIRawResourceHandler(http.StatusOK, "application/json", resp)
 	}
-	return h.newAPIRawResourceHandler(http.StatusOK, "application/json", resp)
+	// Dispatch off the IO thread: handlers may block on remote services.
+	router := h.messageRouter
+	return newAsyncResponseResourceHandler(h.ctx, func(ctx context.Context) asyncResponse {
+		resp, err := router.HandleMessage(ctx, 0, body)
+		if err != nil {
+			data, _ := json.Marshal(map[string]string{"error": err.Error()})
+			return apiAsyncResponse(http.StatusInternalServerError, data)
+		}
+		return apiAsyncResponse(http.StatusOK, resp)
+	})
 }
 
 func (h *dumbSchemeHandler) rejectForbiddenAPIOrigin(request purecef.Request) purecef.ResourceHandler {
@@ -340,6 +374,23 @@ func (h *dumbSchemeHandler) handleFaviconAPI(request purecef.Request) purecef.Re
 	}
 
 	return newFaviconResourceHandler(h.ctx, resolver, domain, size)
+}
+
+func (h *dumbSchemeHandler) handleHomeIconAPI(request purecef.Request) purecef.ResourceHandler {
+	if denied := h.rejectUntrustedFaviconRequester(request); denied != nil {
+		return denied
+	}
+	h.mu.RLock()
+	resolver := h.homeIconResolver
+	h.mu.RUnlock()
+	if resolver == nil {
+		return h.newPrivateAPIJSONResourceHandler(http.StatusNotFound, map[string]string{"error": "home icons unavailable"})
+	}
+	serviceID, err := webutil.ParseHomeIconRequest(request.GetURL())
+	if err != nil {
+		return h.newPrivateAPIJSONResourceHandler(http.StatusBadRequest, map[string]string{"error": err.Error()})
+	}
+	return newHomeIconResourceHandler(h.ctx, resolver, serviceID)
 }
 
 func (h *dumbSchemeHandler) rejectUntrustedFaviconRequester(request purecef.Request) purecef.ResourceHandler {
@@ -900,7 +951,7 @@ func resolveActualAssetPath(u *url.URL) (assetDir, relPath string, ok bool) {
 
 func assetDirForPageHost(host string) string {
 	switch host {
-	case historyPath, favoritesPath, configPath, errorPath:
+	case homePath, historyPath, favoritesPath, configPath, errorPath:
 		return systemviewsAssetDir
 	default:
 		return ""
@@ -961,7 +1012,7 @@ type staticResourceHandler struct {
 	offset      int
 }
 
-func apiResponseHeaders(extra map[string]string) map[string]string {
+func apiResponseHeaders() map[string]string {
 	headers := map[string]string{
 		"Access-Control-Allow-Origin":  "*",
 		"Access-Control-Allow-Methods": "GET, POST, OPTIONS",
@@ -974,7 +1025,6 @@ func apiResponseHeaders(extra map[string]string) map[string]string {
 		"Access-Control-Max-Age": "86400",
 		"Cache-Control":          "no-store",
 	}
-	maps.Copy(headers, extra)
 	return headers
 }
 
@@ -992,7 +1042,7 @@ func (h *dumbSchemeHandler) newRawResourceHandler(status int, contentType string
 }
 
 func (h *dumbSchemeHandler) newAPIRawResourceHandler(status int, contentType string, data []byte) purecef.ResourceHandler {
-	return newStaticResourceHandler(status, contentType, data, apiResponseHeaders(nil))
+	return newStaticResourceHandler(status, contentType, data, apiResponseHeaders())
 }
 
 func (h *dumbSchemeHandler) newPrivateAPIRawResourceHandler(status int, contentType string, data []byte) purecef.ResourceHandler {
@@ -1034,25 +1084,59 @@ func newFaviconResourceHandler(
 	domain string,
 	size int,
 ) purecef.ResourceHandler {
+	resolve := func(ctx context.Context) ([]byte, string, error) {
+		if resolver == nil {
+			return nil, "", errors.New("favicon resolver unavailable")
+		}
+		resolved, err := resolver.ResolveSystemviewIcon(ctx, domain, size)
+		if err != nil || resolved == nil {
+			return nil, "", err
+		}
+		return resolved.Bytes, resolved.ContentType, nil
+	}
+	return newAsyncImageResourceHandler(ctx, resolve, `{"error":"favicon not cached"}`, "no-store")
+}
+
+// newHomeIconResourceHandler resolves a home service icon off the CEF IO
+// thread and completes the request through the CEF callback.
+func newHomeIconResourceHandler(ctx context.Context, resolver port.HomeIconResolver, serviceID string) purecef.ResourceHandler {
+	resolve := func(ctx context.Context) ([]byte, string, error) {
+		return resolver.ResolveHomeIconByID(ctx, serviceID)
+	}
+	return newAsyncImageResourceHandler(ctx, resolve, `{"error":"home icon not found"}`, homeIconCacheControl)
+}
+
+const homeIconCacheControl = "max-age=3600"
+
+// newAsyncImageResourceHandler builds a resource handler that runs resolve on
+// a goroutine and answers 404 JSON when it fails or returns no bytes.
+func newAsyncImageResourceHandler(
+	ctx context.Context,
+	resolve func(context.Context) ([]byte, string, error),
+	notFoundJSON string,
+	cacheControl string,
+) purecef.ResourceHandler {
 	reqCtx, cancel := context.WithCancel(ctx) //nolint:gosec // canceled by load completion or CEF Cancel callback
-	return cefNewResourceHandler(&faviconResourceHandler{
+	return cefNewResourceHandler(&asyncResourceHandler{
 		ctx:      reqCtx,
 		cancel:   cancel,
-		resolver: resolver,
-		domain:   domain,
-		size:     size,
+		resolve:  resolve,
+		notFound: []byte(notFoundJSON),
 		done:     make(chan struct{}),
-		headers:  map[string]string{"Cache-Control": "no-store"},
+		headers:  map[string]string{"Cache-Control": cacheControl},
 	})
 }
 
-type faviconResourceHandler struct {
+// asyncResourceHandler serves a response computed on a goroutine: Open
+// returns at once and resumes the request with callback.Cont when ready.
+// Favicons, home icons and /api/message use it.
+type asyncResourceHandler struct {
 	ctx         context.Context
 	cancel      context.CancelFunc
 	cancelOnce  sync.Once
-	resolver    port.FaviconSystemviewResolver
-	domain      string
-	size        int
+	resolve     func(context.Context) ([]byte, string, error)
+	produce     func(context.Context) asyncResponse
+	notFound    []byte
 	headers     map[string]string
 	once        sync.Once
 	done        chan struct{}
@@ -1062,28 +1146,36 @@ type faviconResourceHandler struct {
 	offset      int
 }
 
-func (rh *faviconResourceHandler) load() {
+func (rh *asyncResourceHandler) load() {
 	defer close(rh.done)
 	defer rh.cancelRequest()
-	rh.statusCode = http.StatusNotFound
-	rh.contentType = "application/json"
-	rh.data = []byte(`{"error":"favicon not cached"}`)
-	if rh.resolver == nil {
+	if rh.produce != nil {
+		r := safeProduce(rh.ctx, rh.produce)
+		rh.statusCode, rh.contentType, rh.data, rh.headers = r.status, r.contentType, r.data, r.headers
 		return
 	}
-	resolved, err := rh.resolver.ResolveSystemviewIcon(rh.ctx, rh.domain, rh.size)
-	if err != nil || resolved == nil || len(resolved.Bytes) == 0 {
+	rh.statusCode = http.StatusNotFound
+	rh.contentType = "application/json"
+	rh.data = rh.notFound
+	headers := rh.headers
+	rh.headers = map[string]string{"Cache-Control": "no-store"}
+	if rh.resolve == nil {
+		return
+	}
+	data, contentType, err := rh.resolve(rh.ctx)
+	if err != nil || len(data) == 0 {
 		return
 	}
 	rh.statusCode = http.StatusOK
-	rh.contentType = resolved.ContentType
+	rh.headers = headers
+	rh.contentType = contentType
 	if rh.contentType == "" {
 		rh.contentType = "image/png"
 	}
-	rh.data = resolved.Bytes
+	rh.data = data
 }
 
-func (rh *faviconResourceHandler) Open(_ purecef.Request, handleRequest *int32, callback purecef.Callback) int32 {
+func (rh *asyncResourceHandler) Open(_ purecef.Request, handleRequest *int32, callback purecef.Callback) int32 {
 	if handleRequest != nil {
 		*handleRequest = 0
 	}
@@ -1098,7 +1190,7 @@ func (rh *faviconResourceHandler) Open(_ purecef.Request, handleRequest *int32, 
 	return 1
 }
 
-func (rh *faviconResourceHandler) ProcessRequest(_ purecef.Request, callback purecef.Callback) int32 {
+func (rh *asyncResourceHandler) ProcessRequest(_ purecef.Request, callback purecef.Callback) int32 {
 	rh.once.Do(func() {
 		go func() {
 			rh.load()
@@ -1110,7 +1202,7 @@ func (rh *faviconResourceHandler) ProcessRequest(_ purecef.Request, callback pur
 	return 1
 }
 
-func (rh *faviconResourceHandler) GetResponseHeaders(response purecef.Response, responseLength *int64, _ uintptr) {
+func (rh *asyncResourceHandler) GetResponseHeaders(response purecef.Response, responseLength *int64, _ uintptr) {
 	<-rh.done
 	response.SetStatus(int32(rh.statusCode))
 	if text := http.StatusText(rh.statusCode); text != "" {
@@ -1129,11 +1221,11 @@ func (rh *faviconResourceHandler) GetResponseHeaders(response purecef.Response, 
 	}
 }
 
-func (rh *faviconResourceHandler) Skip(_ int64, _ *int64, _ purecef.ResourceSkipCallback) int32 {
+func (rh *asyncResourceHandler) Skip(_ int64, _ *int64, _ purecef.ResourceSkipCallback) int32 {
 	return 0
 }
 
-func (rh *faviconResourceHandler) Read(dataOut unsafe.Pointer, bytesToRead int32, bytesRead *int32, _ purecef.ResourceReadCallback) int32 {
+func (rh *asyncResourceHandler) Read(dataOut unsafe.Pointer, bytesToRead int32, bytesRead *int32, _ purecef.ResourceReadCallback) int32 {
 	<-rh.done
 	if rh.offset >= len(rh.data) {
 		return 0
@@ -1149,13 +1241,13 @@ func (rh *faviconResourceHandler) Read(dataOut unsafe.Pointer, bytesToRead int32
 	return 1
 }
 
-func (rh *faviconResourceHandler) ReadResponse(_ unsafe.Pointer, _ int32, _ *int32, _ purecef.Callback) int32 {
+func (rh *asyncResourceHandler) ReadResponse(_ unsafe.Pointer, _ int32, _ *int32, _ purecef.Callback) int32 {
 	return 0
 }
 
-func (rh *faviconResourceHandler) Cancel() { rh.cancelRequest() }
+func (rh *asyncResourceHandler) Cancel() { rh.cancelRequest() }
 
-func (rh *faviconResourceHandler) cancelRequest() {
+func (rh *asyncResourceHandler) cancelRequest() {
 	if rh.cancel != nil {
 		rh.cancelOnce.Do(rh.cancel)
 	}

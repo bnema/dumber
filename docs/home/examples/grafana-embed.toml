@@ -1,0 +1,16 @@
+# Grafana panel embed. Only anonymous or public panels work: login cookies
+# are blocked in a third-party iframe. Grafana must allow embedding
+# (allow_embedding = true in grafana.ini). The panel URL is an example.
+
+[[groups]]
+name = "Monitoring"
+
+[[groups.services]]
+id = "grafana"
+name = "Grafana"
+url = "https://grafana.lan"
+
+[groups.services.widget]
+type = "embed"
+url = "https://grafana.lan/d-solo/node/node-exporter?orgId=1&panelId=2&theme=dark"
+height = 320

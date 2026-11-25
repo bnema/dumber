@@ -18,6 +18,7 @@ type Dependencies struct {
 	Favorites   port.SystemviewFavoritesService
 	History     port.SystemviewHistoryService
 	Config      port.SystemviewConfigService
+	Home        port.SystemviewHomeService
 	LocationURI string
 }
 
@@ -65,15 +66,37 @@ type App struct {
 	keybindings            port.KeybindingsConfig
 	configNotice           string
 	configError            string
-	renderedHTML           string
-	renderGeneration       uint64
-	closed                 bool
-	actionQueue            chan DOMAction
-	actionErrorQueue       chan error
-	actionCtx              context.Context
-	actionCancel           context.CancelFunc
-	actionClosed           bool
-	actionWG               sync.WaitGroup
+	// homeData and homeRendered are the last home render; reloads swap
+	// only the regions whose markup changed.
+	homeData     homeRenderData
+	homeRendered []DOMRegion
+	// homeGroups is the rendered structure of the service groups, with
+	// homeLeaves (group titles, tiles) and homeActionKeys; reloads edit the
+	// page from them without a remount.
+	homeGroups     homeShape
+	homeLeaves     map[string]string
+	homeActionKeys map[string]string
+	homeWidgetKeys map[string]string
+	homeGroupSeq   int
+	// homeGeneration invalidates in-flight widget fills after a reload.
+	homeGeneration uint64
+	homeSuggestSeq uint64
+	homeFillWG     sync.WaitGroup
+	// homeRefreshWG tracks the service widget refresh loops, which run until
+	// their context is canceled. Close waits for them.
+	homeRefreshWG sync.WaitGroup
+	homeSvc       homeServiceWidgets
+	// now is the clock source of the home clock widget (tests override it).
+	now              func() time.Time
+	renderedHTML     string
+	renderGeneration uint64
+	closed           bool
+	actionQueue      chan DOMAction
+	actionErrorQueue chan error
+	actionCtx        context.Context
+	actionCancel     context.CancelFunc
+	actionClosed     bool
+	actionWG         sync.WaitGroup
 	// liveSearchQuery/liveSearchQueued coalesce typing (actionMu).
 	liveSearchQuery  string
 	liveSearchQueued bool
@@ -147,6 +170,10 @@ func (a *App) RunWithContext(ctx context.Context) error {
 	}
 	if asyncInitial {
 		a.refreshCurrentRouteAsync(ctx)
+	}
+	if a.currentRoute == RouteHome {
+		a.startHomeClock()
+		a.startHomeFill(ctx)
 	}
 	return nil
 }
@@ -343,7 +370,7 @@ func (a *App) enqueueDOMAction(action DOMAction) bool {
 	if a.actionClosed || queue == nil || ctx == nil {
 		return false
 	}
-	liveSearch := action.Action == historyActionSearchLive
+	liveSearch := action.Action == historyActionSearchLive || action.Action == homeActionSuggest
 	if liveSearch && !a.coalesceLiveSearchLocked(action) {
 		return true
 	}
@@ -413,6 +440,9 @@ func (a *App) surfaceActionError(ctx context.Context, err error) {
 	if a == nil || err == nil {
 		return
 	}
+	if a.toastHomeError(err) {
+		return
+	}
 	a.lockState()
 	a.renderRouteError(err)
 	a.renderGeneration++
@@ -431,6 +461,7 @@ func (a *App) Close() {
 	a.lockState()
 	a.closed = true
 	a.renderGeneration++
+	a.stopHomeServiceWidgetsLocked()
 	a.unlockState()
 
 	a.lockAction()
@@ -448,6 +479,8 @@ func (a *App) Close() {
 		cancel()
 	}
 	a.actionWG.Wait()
+	a.homeFillWG.Wait()
+	a.homeRefreshWG.Wait()
 	if actionQueue != nil {
 		close(actionQueue)
 	}
@@ -505,6 +538,8 @@ func (a *App) LoadInitial(ctx context.Context) error {
 
 func (a *App) loadCurrentRoute(ctx context.Context) error {
 	switch a.currentRoute {
+	case RouteHome:
+		return a.loadHomeRoute(ctx)
 	case RouteHistory:
 		return a.loadHistoryRoute(ctx)
 	case RouteFavorites:
@@ -524,6 +559,9 @@ func (a *App) loadCurrentRoute(ctx context.Context) error {
 }
 
 func (a *App) renderRouteError(err error) {
+	if a.currentRoute == RouteHome {
+		a.invalidateHomeRenderLocked()
+	}
 	a.resetRouteState()
 	message := "unknown error"
 	if err != nil {
@@ -539,6 +577,8 @@ func (a *App) renderRouteError(err error) {
 
 func routeDocumentTitle(route Route) string {
 	switch route {
+	case RouteHome:
+		return "Home"
 	case RouteHistory:
 		return "History"
 	case RouteFavorites:
@@ -552,6 +592,8 @@ func routeDocumentTitle(route Route) string {
 
 func routeSubtitle(route Route) string {
 	switch route {
+	case RouteHome:
+		return "Home"
 	case RouteHistory:
 		return "Recent visits"
 	case RouteFavorites:
@@ -874,6 +916,7 @@ func (a *App) loadShellTheme(ctx context.Context) {
 }
 
 func (a *App) resetRouteState() {
+	a.resetHomeServiceWidgetsLocked()
 	a.historyEntries = nil
 	a.historyStats = nil
 	a.historyLoaded = false
