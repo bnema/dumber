@@ -304,6 +304,7 @@ func (a *App) startHomeFillLocked(ctx context.Context) {
 	if a.closed || ctx == nil {
 		return
 	}
+	a.startHomeServiceWidgetsLocked(ctx)
 	generation := a.homeGeneration
 	widgets := append([]homeWidgetData(nil), a.homeData.Widgets...)
 	for i := range widgets {
@@ -359,9 +360,15 @@ func (a *App) applyHomeRegionsLocked(next []DOMRegion) error {
 		return nil
 	}
 	if updater, ok := a.deps.DOM.(DOMRegionUpdater); ok && sameShape {
-		return updater.UpdateRegions(RegionUpdate{Regions: changed})
+		if err := updater.UpdateRegions(RegionUpdate{Regions: changed}); err != nil {
+			return err
+		}
+		return a.restoreHomeServiceSlotsLocked(changed, false)
 	}
-	return a.mountRenderedHTML()
+	if err := a.mountRenderedHTML(); err != nil {
+		return err
+	}
+	return a.restoreHomeServiceSlotsLocked(nil, true)
 }
 
 // startHomeClock queues a clock refresh every homeClockInterval until the

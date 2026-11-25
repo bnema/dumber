@@ -1,0 +1,79 @@
+package systemviews
+
+import "bnema.dev/dumber/internal/domain/entity"
+
+// homeServiceWidgetSlot is the empty slot of a service tile. Api widget
+// slots are regions filled by HomeServiceWidget once data arrives.
+templ homeServiceWidgetSlot(service entity.HomeService) {
+	if homeServiceHasAPIWidget(service) {
+		<div class="sv-home-service-widget" data-sv-region={ homeServiceRegion(service.ID) }>
+			<div class="sv-home-svc sv-home-svc-loading" aria-busy="true"></div>
+		</div>
+	} else {
+		<div class="sv-home-service-widget"></div>
+	}
+}
+
+// HomeServiceWidget renders the fetched data of an api widget.
+templ HomeServiceWidget(view homeServiceWidgetView) {
+	<div class={ "sv-home-svc", "sv-home-svc-" + string(view.Display), templ.KV("sv-home-svc-stale", view.Data.Stale) }>
+		if view.Data.Stale {
+			<span class="sv-home-svc-stale-badge" title="Showing the last good data">stale</span>
+		}
+		if view.Data.Error != "" {
+			<p class="sv-home-svc-error" role="status">{ view.Data.Error }</p>
+		}
+		if view.Data.HTML != "" {
+			<div class="sv-home-svc-html">
+				// Safe: HTML is produced natively by the widget template and passed
+				// through the homehtml allowlist sanitizer; it is the only raw insertion.
+				@templ.Raw(view.Data.HTML)
+			</div>
+		} else {
+			switch view.Display {
+				case entity.HomeDisplayList:
+					@homeServiceList(view)
+				case entity.HomeDisplayBar:
+					<div class="sv-home-svc-bars">
+						for _, bar := range homeServiceBars(view) {
+							<div class="sv-home-svc-bar" style={ homeBarStyle(bar) }>
+								<span class="sv-home-svc-label">{ bar.Label }</span>
+								<span class="sv-home-svc-value">{ bar.Value }</span>
+								<span class="sv-home-svc-track" aria-hidden="true"><span class="sv-home-svc-fill"></span></span>
+							</div>
+						}
+					</div>
+				default:
+					<dl class="sv-home-svc-stats">
+						for _, field := range view.Data.Fields {
+							<div class="sv-home-svc-chip">
+								<dt class="sv-home-svc-label">{ field.Label }</dt>
+								<dd class="sv-home-svc-value">{ field.Value }</dd>
+							</div>
+						}
+					</dl>
+			}
+		}
+	</div>
+}
+
+templ homeServiceList(view homeServiceWidgetView) {
+	<ul class="sv-home-svc-list">
+		if len(view.Data.Items) > 0 {
+			for _, item := range view.Data.Items {
+				<li class="sv-home-svc-row">
+					for _, field := range item.Fields {
+						<span class="sv-home-svc-cell" title={ field.Label }>{ field.Value }</span>
+					}
+				</li>
+			}
+		} else {
+			for _, field := range view.Data.Fields {
+				<li class="sv-home-svc-row">
+					<span class="sv-home-svc-label">{ field.Label }</span>
+					<span class="sv-home-svc-value">{ field.Value }</span>
+				</li>
+			}
+		}
+	</ul>
+}

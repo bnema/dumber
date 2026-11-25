@@ -74,6 +74,7 @@ type App struct {
 	homeGeneration uint64
 	homeSuggestSeq uint64
 	homeFillWG     sync.WaitGroup
+	homeSvc        homeServiceWidgets
 	// now is the clock source of the home clock widget (tests override it).
 	now              func() time.Time
 	renderedHTML     string
@@ -446,6 +447,7 @@ func (a *App) Close() {
 	a.lockState()
 	a.closed = true
 	a.renderGeneration++
+	a.stopHomeServiceWidgetsLocked()
 	a.unlockState()
 
 	a.lockAction()
@@ -896,6 +898,7 @@ func (a *App) loadShellTheme(ctx context.Context) {
 }
 
 func (a *App) resetRouteState() {
+	a.resetHomeServiceWidgetsLocked()
 	a.historyEntries = nil
 	a.historyStats = nil
 	a.historyLoaded = false
