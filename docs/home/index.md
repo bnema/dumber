@@ -29,6 +29,7 @@ Unknown keys are errors. Text values are trimmed.
 |-----|------|---------|-------|
 | `title` | string | `"Home"` | Empty means the default |
 | `columns` | int | `3` | `1`-`6`. Maximum number of group columns. A column is at least 19rem wide, so the 64rem page fits at most 3 |
+| `status` | bool | `false` | Check whether services with a `url` answer. See [Service status](#service-status) |
 
 ### `[[widgets]]`
 
@@ -57,6 +58,7 @@ Built-in widgets, shown at the top in file order. Without `home.toml` the defaul
 | `name` | string | Required |
 | `url` | string | Optional, `http(s)://`; the row links to it |
 | `description` | string | Optional |
+| `status` | bool | Optional. Turns the status check on or off for this service, over `settings.status`. Ignored without `url` |
 | `icon` | string | Optional path relative to `~/.config/dumber/`, no `..`, extension `.svg`, `.png`, `.ico` or `.webp`. Without it, the icon is discovered from `url`. |
 
 ### `[groups.services.widget]`
@@ -120,6 +122,32 @@ Matching is a case-insensitive substring of the name, description and address of
 | `↑` `↓` | Service row | Move to the previous or next row |
 
 A typed query survives `home.toml` reloads: new rows are filtered as they appear.
+
+## Service status
+
+With `status = true` in `[settings]`, or on a service, each checked service row ends with a dot. The browser process probes the service `url` when the page opens, then every 60 seconds while it stays open. A probe sends `HEAD` (then `GET` if the server refuses `HEAD`), follows no redirect and gives up after 5 seconds. Results are reused for 30 seconds.
+
+| Dot | State | Means |
+|-----|-------|-------|
+| Green | Up | Any HTTP answer below 500, including redirects, 401 and 403, or an answer whose TLS certificate could not be verified |
+| Amber | Error | A 5xx answer |
+| Red | Down | No answer: refused, unreachable or timed out |
+| Grey | Checking | No result yet |
+
+The dot's tooltip gives the state, the rounded latency, an unverified certificate or the HTTP code, for example `Up · 40 ms` or `Error · HTTP 503`.
+
+While at least one service is checked, the header reads `N services · M offline` (error and down count as offline) and each group title shows `up/total` over its checked services. Editing `home.toml` starts or stops the checks; with none left, dots and counters disappear.
+
+```toml
+[settings]
+status = true
+
+[[groups.services]]
+id = "printer"
+name = "Printer"
+url = "http://printer.lan"
+status = false  # never probe this one
+```
 
 ## API widgets
 
@@ -234,6 +262,7 @@ Discovery runs in the browser process. On private and LAN addresses it only foll
 | Radii | `--sv-radius-panel`, `--sv-radius-control`, `--sv-radius-row`, `--sv-radius-chip` |
 | Type | `--sv-font-sans`, `--sv-font-mono`, `--sv-font-size`, `--sv-header-font` |
 | Effects | `--sv-float-shadow`, `--sv-ease` |
+| Status | `--sv-ok`, `--sv-warn`, `--sv-down` |
 
 **Page classes:** the page root has `sv-route-<page>` (`sv-route-home`, `sv-route-history`, `sv-route-favorites`, `sv-route-config`), so you can target one page.
 
@@ -241,10 +270,10 @@ Discovery runs in the browser process. On private and LAN addresses it only foll
 
 | Part | Classes |
 |------|---------|
-| Page | `sv-home`, `sv-home-region` (`sv-home-region-groups` for the service area), `sv-home-header`, `sv-home-title`, `sv-home-ghost`, `sv-home-open-config`, `sv-home-status-summary`, `sv-home-section-title`, `sv-home-muted` |
+| Page | `sv-home`, `sv-home-region` (`sv-home-region-groups` for the service area), `sv-home-header`, `sv-home-title`, `sv-home-ghost`, `sv-home-open-config`, `sv-home-status-summary`, `sv-home-status-offline`, `sv-home-status-offline-some` (at least one offline), `sv-home-section-title`, `sv-home-muted` |
 | Widgets | `sv-home-widget`, `sv-home-widget-<type>`, `sv-home-clock`, `sv-home-clock-date`, `sv-home-clock-sep`, `sv-home-clock-time`, `sv-home-search`, `sv-home-search-field`, `sv-home-search-input`, `sv-home-search-engine`, `sv-home-search-engine-icon`, `sv-home-search-engine-has-image`, `sv-home-search-engine-glyph`, `sv-home-search-engine-name`, `sv-home-search-key`, `sv-home-search-hint`, `sv-home-search-url`, `sv-home-suggestions`, `sv-home-suggestion`, `sv-home-rows`, `sv-home-row`, `sv-home-row-title`, `sv-home-row-url`, `sv-home-loading`, `sv-home-skeleton` |
 | Bookmarks | `sv-home-bookmarks`, `sv-home-bookmark-group` |
-| Services | `sv-home-groups`, `sv-home-group`, `sv-home-group-head`, `sv-home-group-count`, `sv-home-grid`, `sv-home-service`, `sv-home-service-tile`, `sv-home-service-link`, `sv-home-service-icon`, `sv-home-service-icon-has-image`, `sv-home-service-glyph`, `sv-home-service-text`, `sv-home-service-name`, `sv-home-service-description`, `sv-home-service-widget`, `sv-home-service-actions`, `sv-home-service-status`, `sv-home-service-embed`, `sv-home-embed` |
+| Services | `sv-home-groups`, `sv-home-group`, `sv-home-group-head`, `sv-home-group-count`, `sv-home-grid`, `sv-home-service`, `sv-home-service-tile`, `sv-home-service-link`, `sv-home-service-icon`, `sv-home-service-icon-has-image`, `sv-home-service-glyph`, `sv-home-service-text`, `sv-home-service-name`, `sv-home-service-description`, `sv-home-service-widget`, `sv-home-service-actions`, `sv-home-service-status`, `sv-home-status-dot`, `sv-home-service-embed`, `sv-home-embed` |
 | API widget | `sv-home-svc`, `sv-home-svc-display-<display>`, `sv-home-svc-loading`, `sv-home-svc-stale`, `sv-home-svc-stale-badge`, `sv-home-svc-inline`, `sv-home-svc-error`, `sv-home-svc-stats`, `sv-home-svc-field-pair`, `sv-home-svc-label`, `sv-home-svc-value`, `sv-home-svc-list`, `sv-home-svc-row`, `sv-home-svc-cell`, `sv-home-svc-bars`, `sv-home-svc-bar`, `sv-home-svc-track`, `sv-home-svc-fill`, `sv-home-svc-html` |
 | Actions | `sv-home-svc-actions`, `sv-home-svc-action`, `sv-home-svc-field`, `sv-home-svc-confirm`, `sv-home-svc-confirm-text`, `sv-home-svc-form`, `sv-home-svc-form-buttons` |
 | Errors | `sv-home-errors`, `sv-home-errors-title`, `sv-home-error-list`, `sv-home-error`, `sv-home-error-path` |
@@ -261,6 +290,7 @@ Search state attributes:
 | `data-sv-home-query` | `sv-home` | A query is filtering the page; embeds hide |
 | `data-sv-home-bang` | `sv-home-search` | A `!` query; suggestions hide |
 | `data-state` | `sv-home-search-engine` | `idle`, `web`, `bang` or `address` |
+| `data-state` | `sv-home-status-dot` | `up`, `error`, `down` or `pending` |
 
 Layout variables: `--sv-home-columns` (maximum group columns, from `settings.columns`) on `sv-home-groups`, and `--sv-home-bar` (fill percent) on each `sv-home-svc-bar`.
 
