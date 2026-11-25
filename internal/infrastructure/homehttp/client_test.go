@@ -130,13 +130,14 @@ func TestDoErrorsDoNotLeakSecrets(t *testing.T) {
 	srv.Close() // connection refused
 
 	_, err := New().Do(context.Background(), port.HomeHTTPRequest{
-		URL:     addr + "/api?apikey=querysecret",
+		URL:     addr + "/api/pathsecret?apikey=querysecret",
 		Headers: map[string]string{"Authorization": "Bearer headersecret"},
 	})
 	if err == nil {
 		t.Fatal("expected error")
 	}
-	if msg := err.Error(); strings.Contains(msg, "headersecret") || strings.Contains(msg, "querysecret") {
+	if msg := err.Error(); strings.Contains(msg, "headersecret") || strings.Contains(msg, "querysecret") ||
+		strings.Contains(msg, "pathsecret") {
 		t.Fatalf("error leaks a secret: %q", msg)
 	}
 

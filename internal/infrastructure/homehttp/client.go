@@ -68,8 +68,8 @@ func New() *Client {
 	}}
 }
 
-// Do performs req. Errors name the method and the URL without its query and
-// never include header values.
+// Do performs req. Errors name the method, scheme and host only, and never
+// include header values.
 func (c *Client) Do(ctx context.Context, req port.HomeHTTPRequest) (port.HomeHTTPResponse, error) {
 	target, err := url.Parse(req.URL)
 	if err != nil {
@@ -129,9 +129,10 @@ func isHTTPScheme(u *url.URL) bool {
 	return u != nil && (u.Scheme == "http" || u.Scheme == "https")
 }
 
-// redactedURL drops user info, query and fragment, which may hold secrets.
+// redactedURL keeps only the scheme and host. User info, path, query and
+// fragment may all hold secrets (for example an expanded {{env.TOKEN}}).
 func redactedURL(u *url.URL) string {
-	return (&url.URL{Scheme: u.Scheme, Host: u.Host, Path: u.Path}).String()
+	return (&url.URL{Scheme: u.Scheme, Host: u.Host}).String()
 }
 
 // unwrapURLError drops the *url.Error wrapper, whose message repeats the full
