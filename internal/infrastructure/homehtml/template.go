@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"html/template"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -37,6 +38,9 @@ var (
 	// ErrTemplateRangeDepth is returned for more than MaxTemplateRangeDepth
 	// nested ranges.
 	ErrTemplateRangeDepth = errors.New("ranges nested more than 2 deep are not allowed")
+	// ErrTemplateSubTemplate is returned for define, block and template,
+	// which could hide nested ranges or recurse.
+	ErrTemplateSubTemplate = errors.New("define, block and template are not allowed")
 )
 
 var templateFuncs = template.FuncMap{
@@ -171,7 +175,8 @@ func isEmpty(v any) bool {
 }
 
 // capTemplateArrays returns a copy of v, a json.Unmarshal result, with every
-// array truncated to limit elements. Other values are returned as is.
+// array truncated to limit elements and every object to its first limit
+// keys in sorted order. Other values are returned as is.
 func capTemplateArrays(v any, limit int) any {
 	switch x := v.(type) {
 	case []any:
@@ -184,9 +189,18 @@ func capTemplateArrays(v any, limit int) any {
 		}
 		return out
 	case map[string]any:
-		out := make(map[string]any, len(x))
-		for k, item := range x {
-			out[k] = capTemplateArrays(item, limit)
+		keys := make([]string, 0, len(x))
+		for k := range x {
+			keys = append(keys, k)
+		}
+		if len(keys) > limit {
+			// Keep the first keys in sorted order so the result is stable.
+			slices.Sort(keys)
+			keys = keys[:limit]
+		}
+		out := make(map[string]any, len(keys))
+		for _, k := range keys {
+			out[k] = capTemplateArrays(x[k], limit)
 		}
 		return out
 	default:

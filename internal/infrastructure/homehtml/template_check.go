@@ -10,13 +10,22 @@ import (
 // either. JSON data decodes numbers as float64, which range rejects at run
 // time, so data paths are safe. Variables are tracked by name across the
 // whole template, which is conservative.
+//
+// Widget templates may not use define, block or template: a template call
+// would hide ranges from the depth check, and recursion has no bound.
 func checkRanges(t *template.Template) error {
+	if len(t.Templates()) > 1 {
+		return ErrTemplateSubTemplate
+	}
 	for _, tt := range t.Templates() {
 		if tt.Tree == nil || tt.Tree.Root == nil {
 			continue
 		}
 		c := rangeChecker{intVars: map[string]bool{}}
 		c.collect(tt.Tree.Root)
+		if callsTemplate(tt.Tree.Root) {
+			return ErrTemplateSubTemplate
+		}
 		if c.bad(tt.Tree.Root) {
 			return ErrTemplateIntRange
 		}
@@ -125,6 +134,34 @@ func walkPipe(p *parse.PipeNode, onPipe func(*parse.PipeNode)) {
 			}
 		}
 	}
+}
+
+// callsTemplate reports whether n contains a {{template}} call.
+func callsTemplate(n parse.Node) bool {
+	switch x := n.(type) {
+	case *parse.ListNode:
+		if x == nil {
+			return false
+		}
+		for _, child := range x.Nodes {
+			if callsTemplate(child) {
+				return true
+			}
+		}
+	case *parse.IfNode:
+		return branchCallsTemplate(&x.BranchNode)
+	case *parse.WithNode:
+		return branchCallsTemplate(&x.BranchNode)
+	case *parse.RangeNode:
+		return branchCallsTemplate(&x.BranchNode)
+	case *parse.TemplateNode:
+		return true
+	}
+	return false
+}
+
+func branchCallsTemplate(b *parse.BranchNode) bool {
+	return callsTemplate(b.List) || (b.ElseList != nil && callsTemplate(b.ElseList))
 }
 
 // rangeDepth returns the deepest nesting of range nodes under n.

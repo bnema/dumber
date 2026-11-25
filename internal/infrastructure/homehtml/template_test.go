@@ -70,7 +70,6 @@ func TestRenderTemplate_RejectsIntegerRange(t *testing.T) {
 		`{{range len .data}}x{{end}}`,
 		`{{$n := 2000000000}}{{range $n}}x{{end}}`,
 		`{{if .data}}{{range 5}}x{{end}}{{end}}`,
-		`{{define "t"}}{{range 9}}x{{end}}{{end}}ok`,
 	} {
 		start := time.Now()
 		_, err := RenderTemplate(tmpl, map[string]any{"data": []any{1.0}})
@@ -150,4 +149,31 @@ func TestCachedTemplateRendersConcurrently(t *testing.T) {
 		})
 	}
 	wg.Wait()
+}
+
+func TestRenderTemplate_RejectsSubTemplates(t *testing.T) {
+	t.Parallel()
+	probes := []string{
+		`{{define "inner"}}{{range .}}{{range .}}x{{end}}{{end}}{{end}}{{range .}}{{range .}}{{template "inner" .}}{{end}}{{end}}`,
+		`{{define "r"}}{{range .}}{{template "r" .}}{{end}}{{end}}{{template "r" .}}`,
+		`{{block "b" .}}x{{end}}`,
+		`{{if .}}{{template "missing" .}}{{end}}`,
+	}
+	for _, p := range probes {
+		_, err := RenderTemplate(p, []any{[]any{1}})
+		require.ErrorIs(t, err, ErrTemplateSubTemplate, p)
+	}
+}
+
+func TestCapTemplateArrays_CapsObjectKeys(t *testing.T) {
+	t.Parallel()
+	obj := map[string]any{}
+	for i := range MaxTemplateArrayItems + 10 {
+		obj[fmt.Sprintf("k%04d", i)] = i
+	}
+	got := capTemplateArrays(map[string]any{"o": obj}, MaxTemplateArrayItems).(map[string]any)["o"].(map[string]any)
+	require.Len(t, got, MaxTemplateArrayItems)
+	require.Contains(t, got, "k0000")
+	require.Contains(t, got, fmt.Sprintf("k%04d", MaxTemplateArrayItems-1))
+	require.NotContains(t, got, fmt.Sprintf("k%04d", MaxTemplateArrayItems))
 }

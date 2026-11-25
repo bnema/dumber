@@ -130,7 +130,7 @@ fields = [ { label = "Job", path = "name" }, { label = "Done", path = "progress"
 - Kept: basic text, list, table and layout tags (`div`, `span`, `p`, `strong`, `ul`, `table`, `h1`-`h6`, `progress`, `meter`, ...), `a` and `img` with `http(s)` URLs (and `data:image/*` for images), `class`, `title`, `data-*` attributes and a few inline styles (`color`, `background-color`, `width`, `height`, `display`, ...).
 - Removed: `script`, `style`, `iframe`, forms, `svg`, event handlers, `id`, `name`, `data-sv-*`, and any `javascript:` or `url(...)` value.
 
-A template error shows `template error: ...` on the card, and the template is not run again until you edit that widget. `{{ range }}` over a number (such as `{{ range 10 }}` or `{{ range len .data.x }}`) is rejected; range over arrays from `.data` instead. Arrays in `.data` are cut to their first 500 items, and ranges cannot nest more than 2 deep.
+A template error shows `template error: ...` on the card. The template is not run again until you edit that widget, or for at least 5 minutes (3 refresh periods for slow widgets). `{{ range }}` over a number (such as `{{ range 10 }}` or `{{ range len .data.x }}`) is rejected; range over arrays from `.data` instead. `{{ define }}`, `{{ block }}` and `{{ template }}` are not allowed. Arrays in `.data` are cut to their first 500 items, objects to their first 500 keys in sorted order, and ranges cannot nest more than 2 deep.
 
 ```toml
 [groups.services.widget]
