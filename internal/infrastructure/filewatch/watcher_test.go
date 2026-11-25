@@ -50,7 +50,7 @@ func TestStartErrors(t *testing.T) {
 	if err := w.Start(context.Background(), []string{missing}, func(string) {}); err == nil {
 		t.Fatal("expected error for missing parent dir")
 	}
-	if w.isRunningForTest() {
+	if w.Running() {
 		t.Fatal("watcher running after failed Start")
 	}
 }
@@ -71,7 +71,7 @@ func TestStopIdempotentAndContextCancel(t *testing.T) {
 		})
 	}
 	wg.Wait()
-	if w.isRunningForTest() {
+	if w.Running() {
 		t.Fatal("running after Stop")
 	}
 
@@ -85,7 +85,7 @@ func TestStopIdempotentAndContextCancel(t *testing.T) {
 	case <-time.After(5 * time.Second):
 		t.Fatal("goroutine did not exit after ctx cancel")
 	}
-	if w.isRunningForTest() {
+	if w.Running() {
 		t.Fatal("running after ctx cancel")
 	}
 }
@@ -124,7 +124,7 @@ func TestStartSameSetIsNoOpAndNewSetRestarts(t *testing.T) {
 	if err := w.Start(context.Background(), nil, cb); err != nil {
 		t.Fatalf("Start empty: %v", err)
 	}
-	if w.isRunningForTest() {
+	if w.Running() {
 		t.Fatal("running after empty set")
 	}
 }

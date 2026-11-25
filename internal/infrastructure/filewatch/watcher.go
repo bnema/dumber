@@ -284,7 +284,8 @@ func parentDirs(paths []string) []string {
 	return slices.Compact(parents)
 }
 
-func (w *Watcher) isRunningForTest() bool {
+// Running reports whether the watcher is currently active.
+func (w *Watcher) Running() bool {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	return w.running
