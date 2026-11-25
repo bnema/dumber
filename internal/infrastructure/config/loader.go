@@ -782,6 +782,7 @@ func (m *Manager) setKeymapDefaults(defaults *Config) {
 
 func (m *Manager) setWorkspaceDefaults(defaults *Config) {
 	m.viper.SetDefault("workspace.new_pane_url", defaults.Workspace.NewPaneURL)
+	m.viper.SetDefault("workspace.startup_url", defaults.Workspace.StartupURL)
 	m.setKeymapDefaults(defaults)
 	m.viper.SetDefault("workspace.pane_mode.activation_shortcut", defaults.Workspace.PaneMode.ActivationShortcut)
 	m.viper.SetDefault("workspace.pane_mode.timeout_ms", defaults.Workspace.PaneMode.TimeoutMilliseconds)

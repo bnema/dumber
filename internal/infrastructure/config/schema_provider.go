@@ -405,6 +405,13 @@ func (*SchemaProvider) getWorkspaceKeys(defaults *Config) []entity.ConfigKeyInfo
 			Section:     SectionWorkspace,
 		},
 		{
+			Key:         "workspace.startup_url",
+			Type:        "string",
+			Default:     defaults.Workspace.StartupURL,
+			Description: "URL opened at startup when no URL is given and no session is restored",
+			Section:     SectionWorkspace,
+		},
+		{
 			Key:         "workspace.tab_bar_position",
 			Type:        "string",
 			Default:     defaults.Workspace.TabBarPosition,

@@ -546,3 +546,25 @@ func TestValidateKeymap(t *testing.T) {
 	cfg.Workspace.PrefixMode.TimeoutMilliseconds = -1
 	assert.Contains(t, validateKeymap(cfg), "workspace.prefix_mode.timeout_ms must be non-negative")
 }
+
+func TestValidateConfig_WorkspaceStartupURL(t *testing.T) {
+	cfg := DefaultConfig()
+	require.Equal(t, "dumb://home", cfg.Workspace.StartupURL)
+	require.Equal(t, "dumb://home", cfg.Workspace.NewPaneURL)
+	require.NoError(t, validateConfig(cfg))
+
+	cfg.Workspace.StartupURL = ""
+	err := validateConfig(cfg)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "workspace.startup_url cannot be empty")
+
+	cfg.Workspace.StartupURL = "ftp://example.com"
+	err = validateConfig(cfg)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "workspace.startup_url must use one of")
+
+	cfg.Workspace.StartupURL = "missing-local-file"
+	err = validateConfig(cfg)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "workspace.startup_url")
+}

@@ -819,10 +819,11 @@ func (a *App) closeBrowserLaunchRelayListener() {
 }
 
 func (a *App) initialWindowURL() string {
+	configured := a.runtimeConfigSnapshot().UI.Workspace.StartupURL
 	if a.deps != nil {
-		return urlutil.ResolveBrowserStartupURL(a.deps.InitialURL)
+		return urlutil.ResolveBrowserStartupURL(a.deps.InitialURL, configured)
 	}
-	return urlutil.DefaultBrowserStartupURL()
+	return urlutil.ResolveBrowserStartupURL("", configured)
 }
 
 func (a *App) initLayoutInfrastructure() {
@@ -3135,11 +3136,7 @@ func (a *App) onShutdown(ctx context.Context) {
 
 	// Stop accepting relaunches before teardown starts.
 	a.closeBrowserLaunchRelayListener()
-	if a.deps != nil && a.deps.ExternalThemeWatcher != nil {
-		if err := a.deps.ExternalThemeWatcher.Stop(); err != nil {
-			log.Warn().Err(err).Msg("failed to stop external theme watcher")
-		}
-	}
+	a.stopFileWatchers(ctx)
 
 	// Cancel context to signal all goroutines
 	a.cancel(errors.New("application shutdown"))
@@ -4333,6 +4330,7 @@ func (a *App) initConfigWatcher(ctx context.Context) {
 	log := logging.FromContext(ctx)
 
 	a.syncExternalThemeWatcher(ctx)
+	a.initSystemViewFileWatcher(ctx)
 
 	if a.deps == nil || a.deps.RuntimeConfig == nil {
 		log.Debug().Msg("no config watcher available, skipping config file watcher")
@@ -4413,6 +4411,57 @@ func (a *App) applyRuntimeConfigChange(ctx context.Context, snapshot entity.Runt
 		}
 		a.updateModeFrame(bw, mode)
 	}
+}
+
+// stopFileWatchers stops the external theme and system view file watchers.
+func (a *App) stopFileWatchers(ctx context.Context) {
+	if a.deps == nil {
+		return
+	}
+	log := logging.FromContext(ctx)
+	if a.deps.ExternalThemeWatcher != nil {
+		if err := a.deps.ExternalThemeWatcher.Stop(); err != nil {
+			log.Warn().Err(err).Msg("failed to stop external theme watcher")
+		}
+	}
+	if a.deps.SystemViewFileWatcher != nil {
+		if err := a.deps.SystemViewFileWatcher.Stop(); err != nil {
+			log.Warn().Err(err).Msg("failed to stop system view file watcher")
+		}
+	}
+}
+
+// initSystemViewFileWatcher loads user.css once and reloads it on change.
+func (a *App) initSystemViewFileWatcher(ctx context.Context) {
+	if a == nil || a.deps == nil || a.deps.SystemViewUserStyle == nil {
+		return
+	}
+	go a.reloadSystemViewUserCSS(ctx)
+	if a.deps.SystemViewFileWatcher == nil {
+		return
+	}
+	if err := a.deps.SystemViewFileWatcher.Start(ctx, func() {
+		a.reloadSystemViewUserCSS(ctx)
+	}); err != nil {
+		logging.FromContext(ctx).Warn().Err(err).Msg("failed to start system view file watcher")
+	}
+}
+
+// reloadSystemViewUserCSS reads user.css off the main thread, then applies it
+// on the main thread.
+func (a *App) reloadSystemViewUserCSS(ctx context.Context) {
+	css, err := a.deps.SystemViewUserStyle.Read()
+	if err != nil {
+		logging.FromContext(ctx).Warn().Err(err).
+			Str("path", a.deps.SystemViewUserStyle.Path()).
+			Msg("failed to read user css")
+		return
+	}
+	a.dispatchOnMainThread("ui.systemview_user_css_reload", func() {
+		if a.contentCoord != nil {
+			a.contentCoord.ApplySystemViewUserCSS(ctx, css)
+		}
+	})
 }
 
 func (a *App) syncExternalThemeWatcher(ctx context.Context) {

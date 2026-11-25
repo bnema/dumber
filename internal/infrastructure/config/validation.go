@@ -36,6 +36,7 @@ func validateConfig(config *Config) error {
 	validationErrors = append(validationErrors, validateFloatingPane(config)...)
 	validationErrors = append(validationErrors, validateLogging(config)...)
 	validationErrors = append(validationErrors, validateWorkspaceNewPaneURL(config)...)
+	validationErrors = append(validationErrors, validateWorkspaceStartupURL(config)...)
 	validationErrors = append(validationErrors, validateOmnibox(config)...)
 	validationErrors = append(validationErrors, validateEngine(config)...)
 	validationErrors = append(validationErrors, validateRendering(config)...)
@@ -595,6 +596,13 @@ func validateWorkspaceNewPaneURL(config *Config) []string {
 	)...)
 
 	return validationErrors
+}
+
+func validateWorkspaceStartupURL(config *Config) []string {
+	if config.Workspace.StartupURL == "" {
+		return []string{"workspace.startup_url cannot be empty"}
+	}
+	return validateWorkspaceURLValue("workspace.startup_url", config.Workspace.StartupURL)
 }
 
 func validateWorkspaceURLValue(fieldPath, value string) []string {

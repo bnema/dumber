@@ -31,7 +31,8 @@ const (
 	defaultExternalThemeTemplateFilename = "noctalia-theme.json"
 
 	// Workspace defaults
-	defaultNewPaneURL = "about:blank"
+	defaultNewPaneURL = "dumb://home"
+	defaultStartupURL = "dumb://home"
 
 	// Omnibox defaults
 	defaultOmniboxStyle             = "command"
@@ -281,6 +282,7 @@ func DefaultConfig() *Config {
 		SidebarWidth:       defaultSidebarWidth, // 320px, clamped to [280, 380]
 		Workspace: WorkspaceConfig{
 			NewPaneURL:        defaultNewPaneURL,
+			StartupURL:        defaultStartupURL,
 			SwitchToTabOnMove: true,
 			Keymap:            defaultKeymap,
 			PrefixMode: PrefixModeConfig{
