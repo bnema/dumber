@@ -176,7 +176,7 @@ func cleanAttr(tag, key, val string) (string, bool) {
 		return cleanURL(val, true)
 	}
 	allowed := globalAttrs[key] ||
-		isPrefixedAttr(key, "aria-") || isPrefixedAttr(key, "data-") ||
+		isPrefixedAttr(key, "aria-") || isUserDataAttr(key) ||
 		((tag == "progress" || tag == "meter") && rangeAttrs[key]) ||
 		(tag == "time" && key == "datetime") ||
 		(tag == "img" && (key == "alt" || key == "width" || key == "height"))
@@ -184,6 +184,12 @@ func cleanAttr(tag, key, val string) (string, bool) {
 		return "", false
 	}
 	return val, true
+}
+
+// isUserDataAttr allows data-* except data-sv-*, which the system view page
+// reads as actions and regions.
+func isUserDataAttr(key string) bool {
+	return isPrefixedAttr(key, "data-") && !strings.HasPrefix(key, "data-sv-") && key != "data-sv"
 }
 
 func isPrefixedAttr(key, prefix string) bool {

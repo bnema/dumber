@@ -58,7 +58,8 @@ func unsafeAttr(tag string, a html.Attribute) string {
 	key := strings.ToLower(a.Key)
 	val := normalize(a.Val)
 	switch {
-	case strings.HasPrefix(key, "on") || key == "srcset" || key == "formaction" || a.Namespace != "":
+	case strings.HasPrefix(key, "on") || key == "srcset" || key == "formaction" || a.Namespace != "",
+		key == "id" || key == "name" || strings.HasPrefix(key, "data-sv-") || key == "data-sv":
 		return "attr " + key
 	case strings.Contains(val, "javascript:") || strings.Contains(val, "vbscript:"):
 		return "script url in " + key
@@ -158,6 +159,15 @@ func TestSanitize_KeepsAllowedMarkup(t *testing.T) {
 	for _, tc := range cases {
 		assert.Equal(t, tc.want, Sanitize(tc.in), "input %q", tc.in)
 	}
+}
+
+func TestSanitize_DropsPageHooksAndClobbering(t *testing.T) {
+	t.Parallel()
+	in := `<div id="app" name="x" data-sv-action="home.openConfig" DATA-SV-REGION="home" data-sv="1" data-svc="ok" data-id="7">` +
+		`<img name="getElementById" id="dumberSystemviews" src="https://e.com/i.png"><a id="x" name="y" href="https://e.com">l</a></div>`
+	assert.Equal(t,
+		`<div data-svc="ok" data-id="7"><img src="https://e.com/i.png"/><a href="https://e.com" rel="noopener noreferrer" target="_blank">l</a></div>`,
+		Sanitize(in))
 }
 
 func TestSanitize_Caps(t *testing.T) {
