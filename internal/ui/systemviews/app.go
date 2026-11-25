@@ -74,7 +74,10 @@ type App struct {
 	homeGeneration uint64
 	homeSuggestSeq uint64
 	homeFillWG     sync.WaitGroup
-	homeSvc        homeServiceWidgets
+	// homeRefreshWG tracks the service widget refresh loops, which run until
+	// their context is cancelled. Close waits for them.
+	homeRefreshWG sync.WaitGroup
+	homeSvc       homeServiceWidgets
 	// now is the clock source of the home clock widget (tests override it).
 	now              func() time.Time
 	renderedHTML     string
@@ -466,6 +469,7 @@ func (a *App) Close() {
 	}
 	a.actionWG.Wait()
 	a.homeFillWG.Wait()
+	a.homeRefreshWG.Wait()
 	if actionQueue != nil {
 		close(actionQueue)
 	}

@@ -329,3 +329,16 @@ func TestHomeServiceWidgetRestoredAfterRemount(t *testing.T) {
 	assert.Equal(t, 2, after, "slot pushed back after the remount")
 	assert.Contains(t, got, `80%`)
 }
+
+func TestHomeServiceWidgetCloseWaitsForRefreshLoop(t *testing.T) {
+	t.Parallel()
+	ticker := &manualTicker{}
+	home := &svcHome{fakeHome: fakeHome{load: homeLayoutWith(apiService("s", entity.HomeDisplayStats, "10s"))}}
+	app, _ := newServiceApp(t, home, ticker)
+	waitFor(t, func() bool { started, _ := ticker.count(); return started == 1 })
+
+	app.Close()
+	// No waiting: the loop must have stopped its ticker before Close returned.
+	_, stopped := ticker.count()
+	assert.Equal(t, 1, stopped)
+}

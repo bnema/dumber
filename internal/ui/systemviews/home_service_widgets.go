@@ -162,7 +162,13 @@ func (a *App) startHomeServiceWidgetsLocked(ctx context.Context) {
 				return
 			}
 			if interval := homeServiceRefresh(service.Widget); interval > 0 {
-				go a.refreshHomeServiceWidget(loopCtx, generation, service, interval)
+				// Add before this fill goroutine finishes, so a Close that
+				// has waited for the fills also waits for the loop.
+				a.homeRefreshWG.Add(1)
+				go func() {
+					defer a.homeRefreshWG.Done()
+					a.refreshHomeServiceWidget(loopCtx, generation, service, interval)
+				}()
 			}
 		}(service)
 	}
