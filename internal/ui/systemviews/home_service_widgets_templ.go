@@ -82,7 +82,7 @@ func HomeServiceWidget(view homeServiceWidgetView) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			var templ_7745c5c3_Var4 = []any{"sv-home-svc", "sv-home-svc-" + string(view.Display), templ.KV("sv-home-svc-stale", view.Data.Stale)}
+			var templ_7745c5c3_Var4 = []any{"sv-home-svc", "sv-home-svc-display-" + string(view.Display), templ.KV("sv-home-svc-stale", view.Data.Stale)}
 			templ_7745c5c3_Err = templ.RenderCSSItems(ctx, templ_7745c5c3_ElementWriter, templ_7745c5c3_Var4...)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err

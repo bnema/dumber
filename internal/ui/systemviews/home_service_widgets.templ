@@ -16,7 +16,7 @@ templ homeServiceWidgetSlot(service entity.HomeService) {
 
 // HomeServiceWidget renders the fetched data of an api widget.
 templ HomeServiceWidget(view homeServiceWidgetView) {
-	<div class={ "sv-home-svc", "sv-home-svc-" + string(view.Display), templ.KV("sv-home-svc-stale", view.Data.Stale) }>
+	<div class={ "sv-home-svc", "sv-home-svc-display-" + string(view.Display), templ.KV("sv-home-svc-stale", view.Data.Stale) }>
 		if view.Data.Stale {
 			<span class="sv-home-svc-stale-badge" title="Showing the last good data">stale</span>
 		}
