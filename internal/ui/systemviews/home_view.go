@@ -195,7 +195,12 @@ func homeServiceIconURL(service entity.HomeService) string {
 	if !homeServiceIcons || service.ID == "" {
 		return ""
 	}
-	return "/api/home-icon?" + url.Values{"service": {service.ID}}.Encode()
+	query := url.Values{"service": {service.ID}}
+	if service.IconVersion != "" {
+		// Busts the cached icon when the service url or icon changes.
+		query.Set("v", service.IconVersion)
+	}
+	return "/api/home-icon?" + query.Encode()
 }
 
 func homeWidgetRegion(index int) string {

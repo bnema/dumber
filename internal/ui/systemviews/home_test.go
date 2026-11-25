@@ -423,3 +423,10 @@ func TestHomeServiceStructureChangeRemounts(t *testing.T) {
 		})
 	}
 }
+
+func TestHomeServiceIconURLVersion(t *testing.T) {
+	t.Parallel()
+	assert.Equal(t, "/api/home-icon?service=jelly&v=0123456789ab",
+		homeServiceIconURL(entity.HomeService{ID: "jelly", IconVersion: "0123456789ab"}))
+	assert.Equal(t, "/api/home-icon?service=jelly", homeServiceIconURL(entity.HomeService{ID: "jelly"}))
+}
