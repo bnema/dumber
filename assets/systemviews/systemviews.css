@@ -3295,10 +3295,6 @@ html[data-sv-enhanced] .sv-savebar:not([data-sv-open]):not(:has(.sv-savebar-erro
   display: none;
 }
 
-.sv-home-service-embed:empty {
-  display: none;
-}
-
 .sv-home-service-actions {
   padding: 0 0.625rem 0.625rem;
 }
@@ -3342,6 +3338,10 @@ html[data-sv-enhanced] .sv-savebar:not([data-sv-open]):not(:has(.sv-savebar-erro
 .sv-home-svc-confirm-text {
   flex: 1 1 100%;
   font-size: 0.8125rem;
+}
+
+.sv-home-service-embed:empty {
+  display: none;
 }
 
 .sv-home-service-embed {
