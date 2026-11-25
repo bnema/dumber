@@ -650,6 +650,10 @@ func (wv *WebView) connectCreateSignal() {
 		if req := navAction.GetRequest(); req != nil {
 			targetURI = req.GetUri()
 		}
+		if blockSystemViewPopup(targetURI) {
+			wv.logger.Warn().Str("target", targetURI).Msg("create signal: refusing popup to a system view")
+			return gtk.Widget{} // Block popup
+		}
 
 		popupReq := PopupRequest{
 			TargetURI:      targetURI,
