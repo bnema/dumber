@@ -439,6 +439,9 @@ func (a *App) surfaceActionError(ctx context.Context, err error) {
 	if a == nil || err == nil {
 		return
 	}
+	if a.toastHomeError(err) {
+		return
+	}
 	a.lockState()
 	a.renderRouteError(err)
 	a.renderGeneration++
@@ -555,6 +558,9 @@ func (a *App) loadCurrentRoute(ctx context.Context) error {
 }
 
 func (a *App) renderRouteError(err error) {
+	if a.currentRoute == RouteHome {
+		a.invalidateHomeRenderLocked()
+	}
 	a.resetRouteState()
 	message := "unknown error"
 	if err != nil {

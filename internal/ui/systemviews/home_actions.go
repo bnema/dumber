@@ -302,11 +302,11 @@ func (a *App) reloadHomeLocked(ctx context.Context) error {
 	a.homeGeneration++
 	previous := a.homeData.Load
 	a.homeData = data
-	if err := a.applyHomeReloadLocked(previous, homeRegions(data)); err != nil {
-		return err
-	}
+	err = a.applyHomeReloadLocked(previous, homeRegions(data))
+	// The widget loops follow the new layout even when the page fell back
+	// to a remount.
 	a.startHomeFillLocked(ctx)
-	return nil
+	return err
 }
 
 // applyHomeReloadLocked moves the page to the reloaded layout. Top regions
@@ -327,21 +327,77 @@ func (a *App) applyHomeReloadLocked(previous dto.HomeLoadResponse, next []DOMReg
 	if !sameShape || !planned || !canUpdate || !canEdit {
 		return a.remountHomeLocked()
 	}
+	base := homeReloadBase{previous: previous, changed: changed, leaves: oldLeaves, actionKeys: oldActionKeys}
+	if err := a.editHomeLocked(editor, updater, plan, base); err != nil {
+		// A failed edit leaves the page half-edited: start over from the
+		// full page.
+		logActionMountError(context.Background(), err, nil)
+		return a.remountHomeLocked()
+	}
+	return nil
+}
+
+// homeReloadBase is what a reload compares against: the previous layout,
+// the changed top regions, and the previous leaves and action keys.
+type homeReloadBase struct {
+	previous   dto.HomeLoadResponse
+	changed    []DOMRegion
+	leaves     map[string]string
+	actionKeys map[string]string
+}
+
+// editHomeLocked applies the in-place edits of a reload. Caller holds App.mu.
+func (a *App) editHomeLocked(editor DOMStructureEditor, updater DOMRegionUpdater, plan homeStructurePlan, base homeReloadBase) error {
 	if err := a.applyHomeStructureLocked(editor, plan); err != nil {
 		return err
 	}
-	if homeColumns(previous) != homeColumns(a.homeData.Load) {
+	if homeColumns(base.previous) != homeColumns(a.homeData.Load) {
 		if err := editor.SetAnchorStyleProperty(homeAnchorGroups, homeColumnsProperty, strconv.Itoa(homeColumns(a.homeData.Load))); err != nil {
 			return err
 		}
 	}
-	regions := changed
-	regions = append(regions, a.changedHomeLeavesLocked(oldLeaves, plan)...)
-	regions = append(regions, a.changedHomeActionRegionsLocked(oldActionKeys, plan)...)
+	regions := base.changed
+	regions = append(regions, a.changedHomeLeavesLocked(base.leaves, plan)...)
+	regions = append(regions, a.changedHomeActionRegionsLocked(base.actionKeys, plan)...)
+	regions = append(regions, a.freshBusyActionRegionsLocked(plan)...)
 	if len(regions) == 0 {
 		return nil
 	}
 	return updater.UpdateRegions(RegionUpdate{Regions: regions})
+}
+
+// freshBusyActionRegionsLocked renders a running action as busy in its new
+// shell, so its completion still lands on a matching button.
+func (a *App) freshBusyActionRegionsLocked(plan homeStructurePlan) []DOMRegion {
+	var regions []DOMRegion
+	for id := range plan.Fresh {
+		state, ok := a.homeSvc.actions[id]
+		if !ok {
+			continue
+		}
+		service, found := findHomeService(a.homeData.Load, id)
+		if !found || !homeServiceHasActions(service) {
+			continue
+		}
+		regions = append(regions, DOMRegion{
+			Name: homeServiceActionsRegion(id),
+			HTML: mustRenderComponent(HomeServiceActions(homeServiceActionsView{Service: service, State: state})),
+		})
+	}
+	return regions
+}
+
+// invalidateHomeRenderLocked forgets the rendered home page after an error
+// page replaced it: clock ticks and widget fills find nothing to swap, and
+// the next home.toml change remounts the page. Caller holds App.mu.
+func (a *App) invalidateHomeRenderLocked() {
+	a.homeGeneration++
+	a.stopHomeServiceWidgetsLocked()
+	a.homeData = homeRenderData{}
+	a.homeRendered = nil
+	a.homeGroups = homeShape{}
+	a.homeLeaves = nil
+	a.homeActionKeys = nil
 }
 
 func (a *App) remountHomeLocked() error {
@@ -379,6 +435,11 @@ func (a *App) applyHomeStructureLocked(editor DOMStructureEditor, plan homeStruc
 	for id := range plan.Fresh {
 		delete(a.homeSvc.slots, id)
 		delete(a.homeSvc.embeds, id)
+		// A form or confirmation does not survive a new shell; a running
+		// action does, so its completion toast still fires.
+		if a.homeSvc.actions[id].Step != homeActionBusy {
+			delete(a.homeSvc.actions, id)
+		}
 	}
 	return nil
 }
@@ -557,3 +618,22 @@ func (a *App) handleHomeEarlyAction(ctx context.Context, event DOMAction) (bool,
 		return false, nil
 	}
 }
+
+// toastHomeError shows an action error of the home page as a toast and keeps
+// the page: on dumb://home no action error is worth losing the page.
+func (a *App) toastHomeError(err error) bool {
+	a.lockState()
+	home := a.currentRoute == RouteHome && !a.closed && len(a.homeRendered) > 0
+	a.unlockState()
+	if !home {
+		return false
+	}
+	toaster, ok := a.deps.DOM.(DOMToaster)
+	if !ok {
+		return false
+	}
+	return toaster.ShowToast(ToastRequest{Message: err.Error(), Timeout: homeErrorToastTimeout})
+}
+
+// homeErrorToastTimeout is how long a home action error stays visible.
+const homeErrorToastTimeout = 6 * time.Second

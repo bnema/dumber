@@ -20,6 +20,20 @@ type treeDOM struct {
 	inserts int
 	removes int
 	styles  map[string]string
+	// insertErr makes InsertAnchorMarkup fail; toastOK makes ShowToast
+	// report a shown toast, recorded in toasts.
+	insertErr error
+	toastOK   bool
+	toasts    []string
+}
+
+func (d *treeDOM) ShowToast(request ToastRequest) bool {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	if d.toastOK {
+		d.toasts = append(d.toasts, request.Message)
+	}
+	return d.toastOK
 }
 
 func newTreeDOM() *treeDOM {
@@ -69,6 +83,9 @@ func (d *treeDOM) UpdateRegions(update RegionUpdate) error {
 func (d *treeDOM) InsertAnchorMarkup(parent, before, markup string) error {
 	d.mu.Lock()
 	defer d.mu.Unlock()
+	if d.insertErr != nil {
+		return d.insertErr
+	}
 	container := d.find("data-sv-anchor", parent)
 	if container == nil {
 		return fmt.Errorf("anchor %q not found", parent)
@@ -143,11 +160,11 @@ func (d *treeDOM) find(attr, value string) *html.Node {
 	return found
 }
 
-// text returns the text content of the element with attr=value.
-func (d *treeDOM) text(attr, value string) string {
+// text returns the text content of a region.
+func (d *treeDOM) text(region string) string {
 	d.mu.Lock()
 	defer d.mu.Unlock()
-	node := d.find(attr, value)
+	node := d.find("data-sv-region", region)
 	if node == nil {
 		return ""
 	}

@@ -294,8 +294,9 @@ func (d *browserDOM) InsertAnchorMarkup(parent, before, markup string) error {
 	fragment := template.Get("content")
 	next := js.Null()
 	if before != "" {
-		if sibling := d.anchorElement(before); sibling.Truthy() {
-			next = sibling
+		next = d.anchorElement(before)
+		if !next.Truthy() || !next.Get("parentElement").Equal(container) {
+			return fmt.Errorf("systemview anchor %q not found in %q", before, parent)
 		}
 	}
 	container.Call("insertBefore", fragment, next)

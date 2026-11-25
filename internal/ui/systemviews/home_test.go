@@ -2,6 +2,7 @@ package systemviews
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"sync"
 	"testing"
@@ -421,7 +422,7 @@ func TestHomeReloadKeepsEmbedsAndSearch(t *testing.T) {
 			mutate: func(l *entity.HomeLayout) { l.Groups[0].Name = "Video" },
 			check: func(t *testing.T, dom *treeDOM) {
 				assert.Equal(t, []string{"home-group-title:g1"}, dom.swapped)
-				assert.Equal(t, "Video", dom.text("data-sv-region", "home-group-title:g1"))
+				assert.Equal(t, "Video", dom.text("home-group-title:g1"))
 			},
 		},
 		"columns": {
@@ -435,7 +436,7 @@ func TestHomeReloadKeepsEmbedsAndSearch(t *testing.T) {
 			mutate: func(l *entity.HomeLayout) { l.Groups[0].Services[2].Actions[0].Label = "Wake up" },
 			check: func(t *testing.T, dom *treeDOM) {
 				assert.Equal(t, []string{homeServiceActionsRegion("nas")}, dom.swapped)
-				assert.Contains(t, dom.text("data-sv-region", homeServiceActionsRegion("nas")), "Wake up")
+				assert.Contains(t, dom.text(homeServiceActionsRegion("nas")), "Wake up")
 			},
 		},
 		"service added": {
@@ -448,7 +449,7 @@ func TestHomeReloadKeepsEmbedsAndSearch(t *testing.T) {
 				shell := dom.node("data-sv-anchor", "home-svc-shell:new")
 				require.NotNil(t, shell)
 				assert.Equal(t, dom.node("data-sv-anchor", "home-svc-shell:cam"), shell.NextSibling, "inserted in place")
-				assert.Contains(t, dom.text("data-sv-region", "home-svc-tile:new"), "New")
+				assert.Contains(t, dom.text("home-svc-tile:new"), "New")
 			},
 		},
 		"service removed": {
@@ -586,4 +587,84 @@ func TestHomeActionLabelChangeKeepsOpenForm(t *testing.T) {
 	reloadHome(t, app)
 	assert.Empty(t, dom.swapped, "the open form keeps its inputs")
 	assert.Equal(t, 1, dom.mounts)
+}
+
+func TestHomeActionErrorShowsToastAndKeepsPage(t *testing.T) {
+	t.Parallel()
+	home := &fakeHome{load: dto.HomeLoadResponse{Layout: homeServiceLayoutWithSearch()}}
+	dom := newTreeDOM()
+	dom.toastOK = true
+	app := newMountedHomeApp(t, dom, home)
+	embed := dom.node("data-sv-region", "home-svc-embed:cam")
+
+	app.surfaceActionError(context.Background(), errors.New("open home.toml: no opener"))
+	assert.Equal(t, []string{"open home.toml: no opener"}, dom.toasts)
+	assert.Equal(t, 1, dom.mounts, "the page is kept")
+	assert.Same(t, embed, dom.node("data-sv-region", "home-svc-embed:cam"))
+}
+
+func TestHomeErrorPageRecoversOnReload(t *testing.T) {
+	t.Parallel()
+	home := &fakeHome{load: dto.HomeLoadResponse{Layout: homeServiceLayoutWithSearch()}}
+	dom := newTreeDOM()
+	app := newMountedHomeApp(t, dom, home)
+
+	// Without a toast UI the error page replaces the home page.
+	app.surfaceActionError(context.Background(), errors.New("boom"))
+	require.Equal(t, 2, dom.mounts)
+	assert.Nil(t, dom.node("data-sv-region", "home-svc-embed:cam"))
+	// A clock tick finds nothing to swap.
+	require.NoError(t, app.HandleDOMAction(context.Background(), DOMAction{Action: homeActionClockTick}))
+
+	reloadHome(t, app)
+	assert.Equal(t, 3, dom.mounts, "the home.toml change remounts the page")
+	assert.NotNil(t, dom.node("data-sv-region", "home-svc-embed:cam"))
+}
+
+func TestHomeFailedEditRemounts(t *testing.T) {
+	t.Parallel()
+	home := &fakeHome{load: dto.HomeLoadResponse{Layout: homeServiceLayoutWithSearch()}}
+	dom := newTreeDOM()
+	app := newMountedHomeApp(t, dom, home)
+	dom.insertErr = errors.New("insert failed")
+
+	home.load.Layout.Groups[0].Services = append(home.load.Layout.Groups[0].Services, entity.HomeService{ID: "new", Name: "New"})
+	reloadHome(t, app)
+	assert.Equal(t, 2, dom.mounts, "a failed edit falls back to a remount")
+	assert.NotNil(t, dom.node("data-sv-anchor", "home-svc-shell:new"))
+}
+
+func TestHomeFreshShellResetsActionsButKeepsBusy(t *testing.T) {
+	t.Parallel()
+	layout := homeServiceLayoutWithSearch()
+	layout.Groups[1].Services = append(layout.Groups[1].Services, entity.HomeService{
+		ID: "nas2", Name: "NAS 2", Actions: []entity.HomeAction{{ID: "wake", Label: "Wake"}},
+	})
+	home := &fakeHome{load: dto.HomeLoadResponse{Layout: layout}}
+	dom := newTreeDOM()
+	app := newMountedHomeApp(t, dom, home)
+	app.lockState()
+	app.homeSvc.actions = map[string]homeActionState{
+		"nas":  {ActionID: "wake", Step: homeActionBusy},
+		"nas2": {ActionID: "wake", Step: homeActionForm},
+	}
+	app.unlockState()
+
+	// Moving nas to the next group and giving nas2 an api widget gives
+	// both a new shell.
+	groups := home.load.Layout.Groups
+	nas := groups[0].Services[2]
+	groups[0].Services = groups[0].Services[:2:2]
+	groups[1].Services = append([]entity.HomeService{nas}, groups[1].Services...)
+	groups[1].Services[2].Widget = &entity.HomeServiceWidget{Type: entity.HomeServiceWidgetAPI, URL: "https://nas2.lan/api"}
+	reloadHome(t, app)
+
+	assert.Equal(t, 1, dom.mounts)
+	app.lockState()
+	_, formKept := app.homeSvc.actions["nas2"]
+	busy := app.homeSvc.actions["nas"]
+	app.unlockState()
+	assert.False(t, formKept, "an open form is dropped with its shell")
+	assert.Equal(t, homeActionBusy, busy.Step, "a running action is kept")
+	assert.Contains(t, dom.text(homeServiceActionsRegion("nas")), "Running")
 }
