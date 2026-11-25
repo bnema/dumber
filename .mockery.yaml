@@ -131,6 +131,8 @@ packages:
       Focusable: {}
       FindController: {}
       EntryInputTarget: {}
+      HomeIconCache: {}
+      HomeIconSource: {}
       HomepageFavorites: {}
       HomepageHistory: {}
       HomeConfigSource: {}

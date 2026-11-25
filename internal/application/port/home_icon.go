@@ -1,0 +1,38 @@
+package port
+
+import (
+	"context"
+	"errors"
+	"time"
+)
+
+// ErrHomeIconNotFound reports that no usable icon exists for a home service.
+// Callers show a generic icon.
+var ErrHomeIconNotFound = errors.New("home service icon not found")
+
+// HomeIconImage is raw icon data with its sniffed MIME type.
+type HomeIconImage struct {
+	URL         string
+	Bytes       []byte
+	ContentType string
+}
+
+// HomeIconSource discovers and loads icons for home services configured by
+// the user. It may reach private network addresses because service URLs come
+// from trusted user config. It must never be used for page-supplied URLs.
+type HomeIconSource interface {
+	// DiscoverIconURLs returns candidate icon URLs for serviceURL, best first.
+	DiscoverIconURLs(ctx context.Context, serviceURL string) ([]string, error)
+	// FetchIcon downloads one icon URL.
+	FetchIcon(ctx context.Context, iconURL string) (*HomeIconImage, error)
+	// ReadLocalIcon reads a local override icon from an absolute path.
+	ReadLocalIcon(ctx context.Context, path string) (*HomeIconImage, error)
+}
+
+// HomeIconCache stores normalized home service icons, separate from the
+// browsing favicon cache.
+type HomeIconCache interface {
+	// Get returns the cached PNG and when it was stored.
+	Get(ctx context.Context, serviceURL string) (png []byte, storedAt time.Time, ok bool)
+	Put(ctx context.Context, serviceURL string, png []byte) error
+}
