@@ -117,7 +117,7 @@ func (hs *HistorySidebar) handleEnterKey(state gdk.ModifierType) bool {
 	}
 
 	hs.mu.RLock()
-	url := hs.entryURLAtIndex(row.GetIndex())
+	url := hs.entryURLAtIndex(listBoxRowIndex(row))
 	hs.mu.RUnlock()
 	if url == "" {
 		return false
@@ -148,7 +148,7 @@ func (hs *HistorySidebar) handleDeleteKey() bool {
 		return false
 	}
 
-	idx := row.GetIndex()
+	idx := listBoxRowIndex(row)
 
 	hs.mu.RLock()
 	url := hs.entryURLAtIndex(idx)
@@ -300,7 +300,7 @@ func (hs *HistorySidebar) scrollByPage(direction int) {
 func (hs *HistorySidebar) jumpToPreviousDay() {
 	currentIdx := -1
 	if row := hs.listBox.GetSelectedRow(); row != nil {
-		currentIdx = row.GetIndex()
+		currentIdx = listBoxRowIndex(row)
 	}
 
 	hs.mu.RLock()
@@ -323,7 +323,7 @@ func (hs *HistorySidebar) jumpToPreviousDay() {
 func (hs *HistorySidebar) jumpToNextDay() {
 	currentIdx := -1
 	if row := hs.listBox.GetSelectedRow(); row != nil {
-		currentIdx = row.GetIndex()
+		currentIdx = listBoxRowIndex(row)
 	}
 
 	hs.mu.RLock()
@@ -382,7 +382,7 @@ func (hs *HistorySidebar) jumpToLastSelectable() {
 	// If we found a selectable row, try it. Otherwise fall back to last row.
 	if lastRow != nil {
 		hs.listBox.SelectRow(lastRow)
-		hs.ensureRowVisible(lastRow.GetIndex())
+		hs.ensureRowVisible(listBoxRowIndex(lastRow))
 		return
 	}
 	// Fallback: last row regardless of selectability
@@ -423,7 +423,7 @@ func (hs *HistorySidebar) selectAdjacentRow(direction int) {
 
 	current := -1
 	if row := hs.listBox.GetSelectedRow(); row != nil {
-		current = row.GetIndex()
+		current = listBoxRowIndex(row)
 	}
 
 	hs.mu.RLock()
@@ -514,7 +514,7 @@ func (hs *HistorySidebar) onRowActivated(row *gtk.ListBoxRow) {
 		hs.mu.RUnlock()
 		return
 	}
-	entry := newKeyboardNavModelFromRows(hs.displayRows).entryAt(row.GetIndex())
+	entry := newKeyboardNavModelFromRows(hs.displayRows).entryAt(listBoxRowIndex(row))
 	hs.mu.RUnlock()
 	if entry == nil || entry.URL == "" {
 		return

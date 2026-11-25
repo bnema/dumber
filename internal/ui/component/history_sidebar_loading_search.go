@@ -175,7 +175,7 @@ func (hs *HistorySidebar) preserveScrollAndSelection() {
 	}
 	if hs.listBox != nil {
 		if selected := hs.listBox.GetSelectedRow(); selected != nil {
-			if url := hs.entryURLAtIndex(selected.GetIndex()); url != "" {
+			if url := hs.entryURLAtIndex(listBoxRowIndex(selected)); url != "" {
 				hs.prevSelectedURL = url
 			}
 		}
@@ -218,7 +218,7 @@ func (hs *HistorySidebar) getRowURL(row *gtk.ListBoxRow) string {
 	// The child is the vertical box. Walk children to find our stored URL.
 	// We store the URL directly on the row as data.
 	// Actually, let's use a simpler approach: walk the list box to find the entry.
-	idx := row.GetIndex()
+	idx := listBoxRowIndex(row)
 	hs.mu.RLock()
 	defer hs.mu.RUnlock()
 

@@ -901,7 +901,7 @@ func (o *Omnibox) initList() error {
 			o.mu.Unlock()
 		} else {
 			o.mu.Lock()
-			o.selectedIndex = row.GetIndex()
+			o.selectedIndex = listBoxRowIndex(row)
 			o.mu.Unlock()
 		}
 		o.updateGhostFromSelection()
@@ -915,7 +915,7 @@ func (o *Omnibox) initList() error {
 		if row == nil {
 			return
 		}
-		idx := row.GetIndex()
+		idx := listBoxRowIndex(row)
 		o.mu.RLock()
 		mode := o.viewMode
 		bangMode := o.bangMode
@@ -979,7 +979,7 @@ func (o *Omnibox) handleListHoverSelection(y float64) {
 		return
 	}
 
-	index := row.GetIndex()
+	index := listBoxRowIndex(row)
 	if index < 0 || index == selectedIndex {
 		return
 	}

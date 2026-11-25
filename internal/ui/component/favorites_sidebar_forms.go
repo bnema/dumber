@@ -355,7 +355,7 @@ func (fs *FavoritesSidebar) selectedFavorite() *entity.Favorite {
 	idx := firstSelectableIndex(fs.displayRows)
 	if fs.listBox != nil {
 		if row := fs.listBox.GetSelectedRow(); row != nil {
-			idx = row.GetIndex()
+			idx = listBoxRowIndex(row)
 		}
 	}
 	if idx >= 0 && idx < len(fs.displayRows) {
