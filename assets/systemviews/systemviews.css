@@ -3099,3 +3099,23 @@ html[data-sv-enhanced] .sv-savebar:not([data-sv-open]):not(:has(.sv-savebar-erro
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+.sv-home-skeleton {
+  height: 1rem;
+  margin: 0.625rem;
+  border-radius: var(--sv-radius-chip);
+  background: var(--sv-chip);
+  animation: sv-home-pulse 1.2s ease-in-out infinite alternate;
+}
+
+.sv-home-skeleton:nth-child(2) { width: 70%; }
+.sv-home-skeleton:nth-child(3) { width: 45%; }
+
+@keyframes sv-home-pulse {
+  from { opacity: 0.45; }
+  to { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sv-home-skeleton { animation: none; }
+}

@@ -57,7 +57,13 @@ templ HomeWidget(widget homeWidgetData) {
 				</div>
 			default:
 				<h3 class="sv-home-section-title">{ homeWidgetTitle(widget.Widget) }</h3>
-				if widget.Error != "" {
+				if widget.Loading {
+					<ul class="sv-home-rows sv-home-loading" aria-busy="true">
+						for range 3 {
+							<li class="sv-home-skeleton"></li>
+						}
+					</ul>
+				} else if widget.Error != "" {
 					<p class="sv-home-muted">{ widget.Error }</p>
 				} else if len(widget.Rows) == 0 {
 					<p class="sv-home-muted">Nothing here yet.</p>

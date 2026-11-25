@@ -42,6 +42,8 @@ type homeWidgetData struct {
 	Widget entity.HomeBuiltinWidget
 	Rows   []homeRow
 	Error  string
+	// Loading marks a list widget whose rows are still being fetched.
+	Loading bool
 	// Clock fields, computed in the page.
 	Time string
 	Date string

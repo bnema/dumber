@@ -2,16 +2,19 @@ package systemviews
 
 import (
 	"context"
+	"sync"
 	"testing"
 	"time"
 
 	"bnema.dev/dumber/internal/application/dto"
 	"bnema.dev/dumber/internal/domain/entity"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
 type fakeHome struct {
+	mu        sync.Mutex
 	load      dto.HomeLoadResponse
 	sites     map[dto.HomeSitesKind][]dto.HomeSite
 	siteReqs  []dto.HomeSitesRequest
@@ -25,6 +28,8 @@ func (f *fakeHome) HomeLoad(context.Context) (dto.HomeLoadResponse, error) {
 }
 
 func (f *fakeHome) HomeSites(_ context.Context, req dto.HomeSitesRequest) (dto.HomeSitesResponse, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
 	f.siteReqs = append(f.siteReqs, req)
 	return dto.HomeSitesResponse{Sites: f.sites[req.Kind]}, nil
 }
@@ -55,7 +60,16 @@ func newHomeApp(t *testing.T, dom DOM, home *fakeHome, favorites *favoritesStore
 	app := NewApp(deps)
 	app.now = func() time.Time { return homeTestNow }
 	require.NoError(t, app.LoadInitial(context.Background()))
+	fillHome(app)
 	return app
+}
+
+// fillHome runs the background widget fill and waits for it.
+func fillHome(app *App) {
+	app.lockState()
+	app.startHomeFillLocked(context.Background())
+	app.unlockState()
+	app.homeFillWG.Wait()
 }
 
 func TestHomeRendersDefaultLayout(t *testing.T) {
@@ -87,7 +101,7 @@ func TestHomeRendersDefaultLayout(t *testing.T) {
 	assert.Contains(t, html, `/api/favicon?domain=top.test&amp;size=32`)
 	assert.Contains(t, html, `data-sv-action="home.openConfig"`)
 	assert.NotContains(t, html, `sv-home-errors"`)
-	assert.Equal(t, []dto.HomeSitesRequest{
+	assert.ElementsMatch(t, []dto.HomeSitesRequest{
 		{Kind: dto.HomeSitesTop, Limit: entity.HomeDefaultLimit},
 		{Kind: dto.HomeSitesRecent, Limit: entity.HomeDefaultLimit},
 	}, home.siteReqs)
@@ -164,10 +178,12 @@ func TestHomeReloadSwapsOnlyChangedRegions(t *testing.T) {
 	home := &fakeHome{load: dto.HomeLoadResponse{Layout: layout}}
 	dom := &regionDOM{}
 	app := newHomeApp(t, dom, home, nil)
+	dom.regions = nil
 	mounts := dom.mountCount
 
 	// Unchanged data: nothing is swapped or remounted.
 	require.NoError(t, app.HandleDOMAction(context.Background(), DOMAction{Action: actionSystemviewChanged, Data: map[string]string{"topic": "home"}}))
+	app.homeFillWG.Wait()
 	assert.Empty(t, dom.regions)
 	assert.Equal(t, mounts, dom.mountCount)
 
@@ -178,6 +194,7 @@ func TestHomeReloadSwapsOnlyChangedRegions(t *testing.T) {
 	// A new title only swaps the header.
 	home.load.Layout.Settings.Title = "Lab"
 	require.NoError(t, app.HandleDOMAction(context.Background(), DOMAction{Action: actionSystemviewChanged, Data: map[string]string{"topic": "home"}}))
+	app.homeFillWG.Wait()
 	require.Len(t, dom.regions, 1)
 	require.Len(t, dom.regions[0], 1)
 	assert.Equal(t, homeRegionHeader, dom.regions[0][0].Name)
@@ -186,6 +203,7 @@ func TestHomeReloadSwapsOnlyChangedRegions(t *testing.T) {
 	// A widget added changes the region list: full remount.
 	home.load.Layout.Widgets = append(home.load.Layout.Widgets, entity.HomeBuiltinWidget{Type: entity.HomeWidgetClock})
 	require.NoError(t, app.HandleDOMAction(context.Background(), DOMAction{Action: actionSystemviewChanged, Data: map[string]string{"topic": "home"}}))
+	app.homeFillWG.Wait()
 	assert.Len(t, dom.regions, 1)
 	assert.Equal(t, mounts+1, dom.mountCount)
 }
@@ -195,6 +213,7 @@ func TestHomeClockTickSwapsOnlyClock(t *testing.T) {
 	home := &fakeHome{load: dto.HomeLoadResponse{Layout: entity.DefaultHomeLayout()}}
 	dom := &regionDOM{}
 	app := newHomeApp(t, dom, home, nil)
+	dom.regions = nil
 
 	require.NoError(t, app.HandleDOMAction(context.Background(), DOMAction{Action: homeActionClockTick}))
 	assert.Empty(t, dom.regions, "same minute, nothing to swap")
@@ -242,6 +261,8 @@ func TestHomeSuggestionsUpdateRegion(t *testing.T) {
 	dom := &regionDOM{}
 	app := NewApp(Dependencies{DOM: dom, Home: &fakeHome{load: dto.HomeLoadResponse{Layout: entity.DefaultHomeLayout()}}, History: history.service, LocationURI: "dumb://home"})
 	require.NoError(t, app.LoadInitial(context.Background()))
+	fillHome(app)
+	dom.regions = nil
 
 	require.NoError(t, app.HandleDOMAction(context.Background(), DOMAction{Action: homeActionSuggest, Data: map[string]string{"query": "go"}}))
 	require.Len(t, dom.regions, 1)
@@ -249,4 +270,50 @@ func TestHomeSuggestionsUpdateRegion(t *testing.T) {
 	assert.Contains(t, dom.regions[0][0].HTML, "data-sv-home-suggestion")
 	assert.Equal(t, "go", history.query)
 	assert.Equal(t, homeSuggestionLimit, history.searchLimit)
+}
+
+func TestHomeMountsBeforeWidgetsLoad(t *testing.T) {
+	t.Parallel()
+	home := &fakeHome{
+		load:  dto.HomeLoadResponse{Layout: entity.DefaultHomeLayout()},
+		sites: map[dto.HomeSitesKind][]dto.HomeSite{dto.HomeSitesTop: {{URL: "https://top.test/", Title: "Top Site"}}},
+	}
+	dom := &regionDOM{}
+	app := NewApp(Dependencies{DOM: dom, Home: home, LocationURI: "dumb://home"})
+	require.NoError(t, app.LoadInitial(context.Background()))
+	assert.Contains(t, app.renderedHTML, "sv-home-skeleton")
+	assert.NotContains(t, app.renderedHTML, "Top Site")
+	assert.Empty(t, home.siteReqs, "sites are not fetched before the page shows")
+
+	fillHome(app)
+	assert.Contains(t, app.renderedHTML, "Top Site")
+	assert.NotContains(t, app.renderedHTML, "sv-home-skeleton")
+	// Each widget swaps its own region.
+	for _, update := range dom.regions {
+		require.Len(t, update, 1)
+	}
+	assert.Len(t, dom.regions, 3)
+}
+
+func TestHomeSuggestionDropsStaleResponse(t *testing.T) {
+	t.Parallel()
+	history := newHistoryStore(t, &historyStore{searchEntries: []*entity.HistoryEntry{{URL: "https://go.dev", Title: "Go"}}})
+	dom := &regionDOM{}
+	app := NewApp(Dependencies{DOM: dom, Home: &fakeHome{load: dto.HomeLoadResponse{Layout: entity.DefaultHomeLayout()}}, History: history.service, LocationURI: "dumb://home"})
+	require.NoError(t, app.LoadInitial(context.Background()))
+	fillHome(app)
+	dom.regions = nil
+
+	// A newer query is taken while this one is in flight: bump the sequence
+	// the way a second handleHomeSuggest would.
+	history.service.ExpectedCalls = nil
+	history.service.EXPECT().Search(mock.Anything, mock.Anything, mock.Anything).RunAndReturn(
+		func(context.Context, string, int) ([]*entity.HistoryEntry, error) {
+			app.lockState()
+			app.homeSuggestSeq++
+			app.unlockState()
+			return history.searchEntries, nil
+		})
+	require.NoError(t, app.handleHomeSuggest(context.Background(), "go"))
+	assert.Empty(t, dom.regions)
 }

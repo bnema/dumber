@@ -70,6 +70,10 @@ type App struct {
 	// only the regions whose markup changed.
 	homeData     homeRenderData
 	homeRendered []DOMRegion
+	// homeGeneration invalidates in-flight widget fills after a reload.
+	homeGeneration uint64
+	homeSuggestSeq uint64
+	homeFillWG     sync.WaitGroup
 	// now is the clock source of the home clock widget (tests override it).
 	now              func() time.Time
 	renderedHTML     string
@@ -157,6 +161,7 @@ func (a *App) RunWithContext(ctx context.Context) error {
 	}
 	if a.currentRoute == RouteHome {
 		a.startHomeClock()
+		a.startHomeFill(ctx)
 	}
 	return nil
 }
@@ -353,7 +358,7 @@ func (a *App) enqueueDOMAction(action DOMAction) bool {
 	if a.actionClosed || queue == nil || ctx == nil {
 		return false
 	}
-	liveSearch := action.Action == historyActionSearchLive
+	liveSearch := action.Action == historyActionSearchLive || action.Action == homeActionSuggest
 	if liveSearch && !a.coalesceLiveSearchLocked(action) {
 		return true
 	}
@@ -458,6 +463,7 @@ func (a *App) Close() {
 		cancel()
 	}
 	a.actionWG.Wait()
+	a.homeFillWG.Wait()
 	if actionQueue != nil {
 		close(actionQueue)
 	}

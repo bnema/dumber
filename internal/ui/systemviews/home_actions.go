@@ -45,14 +45,16 @@ func (a *App) homeNow() time.Time {
 	return time.Now()
 }
 
-// loadHomeRoute loads the layout and widget data and renders the full page.
-// Caller holds App.mu.
+// loadHomeRoute loads the layout and renders the page with the list widgets
+// in their loading state; fillHomeWidgets loads them afterwards. Caller holds
+// App.mu.
 func (a *App) loadHomeRoute(ctx context.Context) error {
-	data, err := a.buildHomeData(ctx)
+	data, err := a.buildHomeData(ctx, nil)
 	if err != nil {
 		return err
 	}
 	a.resetRouteState()
+	a.homeGeneration++
 	a.homeData = data
 	a.homeRendered = homeRegions(data)
 	a.renderHomePageLocked()
@@ -68,7 +70,9 @@ func (a *App) renderHomePageLocked() {
 	}, a.shellTheme)
 }
 
-func (a *App) buildHomeData(ctx context.Context) (homeRenderData, error) {
+// buildHomeData loads the layout. List widgets keep the rows of the same
+// widget in previous (so a reload does not flash), else start loading.
+func (a *App) buildHomeData(ctx context.Context, previous []homeWidgetData) (homeRenderData, error) {
 	load := dto.HomeLoadResponse{Layout: entity.DefaultHomeLayout()}
 	if a.deps.Home != nil {
 		var err error
@@ -77,18 +81,36 @@ func (a *App) buildHomeData(ctx context.Context) (homeRenderData, error) {
 		}
 	}
 	data := homeRenderData{Load: load, Widgets: make([]homeWidgetData, 0, len(load.Layout.Widgets))}
-	for _, widget := range load.Layout.Widgets {
-		data.Widgets = append(data.Widgets, a.buildHomeWidget(ctx, widget))
+	for i, widget := range load.Layout.Widgets {
+		item := homeWidgetData{Widget: widget}
+		switch {
+		case widget.Type == entity.HomeWidgetClock:
+			item.Time, item.Date = homeClockText(widget.Format, a.homeNow())
+		case !homeListWidget(widget.Type):
+		case i < len(previous) && previous[i].Widget == widget && !previous[i].Loading:
+			item = previous[i]
+		default:
+			item.Loading = true
+		}
+		data.Widgets = append(data.Widgets, item)
 	}
 	return data, nil
 }
 
-func (a *App) buildHomeWidget(ctx context.Context, widget entity.HomeBuiltinWidget) homeWidgetData {
+func homeListWidget(kind entity.HomeBuiltinWidgetType) bool {
+	switch kind {
+	case entity.HomeWidgetFavorites, entity.HomeWidgetTopSites, entity.HomeWidgetRecent:
+		return true
+	default:
+		return false
+	}
+}
+
+// fetchHomeWidget loads the rows of a list widget.
+func (a *App) fetchHomeWidget(ctx context.Context, widget entity.HomeBuiltinWidget) homeWidgetData {
 	data := homeWidgetData{Widget: widget}
 	var err error
 	switch widget.Type {
-	case entity.HomeWidgetClock:
-		data.Time, data.Date = homeClockText(widget.Format, a.homeNow())
 	case entity.HomeWidgetFavorites:
 		data.Rows, err = a.homeFavoriteRows(ctx, widget)
 	case entity.HomeWidgetTopSites:
@@ -156,8 +178,6 @@ func (a *App) applyHomeActionLocked(ctx context.Context, event DOMAction) error 
 		return a.openHomeConfigLocked(ctx)
 	case homeActionSearch:
 		return a.navigateHomeSearchLocked(event.Data["query"])
-	case homeActionSuggest:
-		return a.updateHomeSuggestionsLocked(ctx, event.Data["query"])
 	case homeActionClockTick:
 		return a.refreshHomeClockLocked()
 	case actionSystemviewChanged:
@@ -200,12 +220,24 @@ func (a *App) navigateHomeSearchLocked(query string) error {
 	return navigator.NavigateTo(target)
 }
 
-func (a *App) updateHomeSuggestionsLocked(ctx context.Context, query string) error {
+// handleHomeSuggest shows history suggestions for query. Typing is
+// coalesced in the action queue; a response is dropped when a newer query
+// was taken meanwhile.
+func (a *App) handleHomeSuggest(ctx context.Context, query string) error {
 	updater, ok := a.deps.DOM.(DOMRegionUpdater)
 	if !ok {
 		return nil
 	}
 	query = strings.TrimSpace(query)
+	a.lockState()
+	if a.closed || a.currentRoute != RouteHome {
+		a.unlockState()
+		return nil
+	}
+	a.homeSuggestSeq++
+	seq := a.homeSuggestSeq
+	a.unlockState()
+
 	var rows []homeRow
 	if query != "" && a.deps.History != nil {
 		entries, err := a.deps.History.Search(ctx, query, homeSuggestionLimit)
@@ -217,6 +249,12 @@ func (a *App) updateHomeSuggestionsLocked(ctx context.Context, query string) err
 				rows = append(rows, homeRow{URL: entry.URL, Title: entry.Title})
 			}
 		}
+	}
+
+	a.lockState()
+	defer a.unlockState()
+	if a.closed || seq != a.homeSuggestSeq {
+		return nil
 	}
 	return updater.UpdateRegions(RegionUpdate{Regions: []DOMRegion{{
 		Name: homeRegionSuggestions,
@@ -245,12 +283,70 @@ func (a *App) refreshHomeClockLocked() error {
 
 // reloadHomeLocked reloads home.toml data and swaps only changed regions.
 func (a *App) reloadHomeLocked(ctx context.Context) error {
-	data, err := a.buildHomeData(ctx)
+	data, err := a.buildHomeData(ctx, a.homeData.Widgets)
 	if err != nil {
 		return err
 	}
+	a.homeGeneration++
 	a.homeData = data
-	return a.applyHomeRegionsLocked(homeRegions(data))
+	if err := a.applyHomeRegionsLocked(homeRegions(data)); err != nil {
+		return err
+	}
+	a.startHomeFillLocked(ctx)
+	return nil
+}
+
+// startHomeFillLocked loads every list widget in the background, each one
+// swapping its own region when it returns. Caller holds App.mu.
+func (a *App) startHomeFillLocked(ctx context.Context) {
+	if a.closed || ctx == nil {
+		return
+	}
+	generation := a.homeGeneration
+	widgets := append([]homeWidgetData(nil), a.homeData.Widgets...)
+	for i := range widgets {
+		if !homeListWidget(widgets[i].Widget.Type) {
+			continue
+		}
+		a.homeFillWG.Add(1)
+		go func(index int, widget entity.HomeBuiltinWidget) {
+			defer a.homeFillWG.Done()
+			data := a.fetchHomeWidget(ctx, widget)
+			if ctx.Err() != nil {
+				return
+			}
+			a.lockState()
+			defer a.unlockState()
+			if a.closed || a.homeGeneration != generation || index >= len(a.homeData.Widgets) {
+				return
+			}
+			a.homeData.Widgets[index] = data
+			next := append([]DOMRegion(nil), a.homeRendered...)
+			for j := range next {
+				if next[j].Name == homeWidgetRegion(index) {
+					next[j].HTML = mustRenderComponent(HomeWidget(data))
+				}
+			}
+			if err := a.applyHomeRegionsLocked(next); err != nil {
+				logActionMountError(ctx, err, nil)
+			}
+		}(i, widgets[i].Widget)
+	}
+}
+
+// startHomeFill is startHomeFillLocked after the initial mount, bound to
+// the action workers' context when they run.
+func (a *App) startHomeFill(ctx context.Context) {
+	a.lockAction()
+	if a.actionCtx != nil {
+		ctx = a.actionCtx
+	}
+	a.unlockAction()
+	a.lockState()
+	defer a.unlockState()
+	if a.currentRoute == RouteHome {
+		a.startHomeFillLocked(ctx)
+	}
 }
 
 func (a *App) applyHomeRegionsLocked(next []DOMRegion) error {

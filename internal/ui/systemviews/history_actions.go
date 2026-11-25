@@ -31,6 +31,9 @@ func (a *App) HandleDOMAction(ctx context.Context, event DOMAction) error {
 	if a == nil {
 		return fmt.Errorf("app is nil")
 	}
+	if event.Action == homeActionSuggest {
+		return a.handleHomeSuggest(ctx, a.takeLiveSearchQuery(event.Data["query"]))
+	}
 	if event.Action == historyActionSearchLive {
 		return a.handleHistoryLiveSearch(ctx, a.takeLiveSearchQuery(event.Data["query"]))
 	}
