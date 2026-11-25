@@ -389,3 +389,77 @@ func TestHomeValidateInputInURLOrigin(t *testing.T) {
 		}
 	}
 }
+
+func TestHomeServiceStatusEnabled(t *testing.T) {
+	on, off := true, false
+	tests := []struct {
+		name    string
+		url     string
+		status  *bool
+		setting bool
+		want    bool
+	}{
+		{"no url, setting on", "", nil, true, false},
+		{"no url, service on", "", &on, true, false},
+		{"url, inherits off", "https://x.local", nil, false, false},
+		{"url, inherits on", "https://x.local", nil, true, true},
+		{"url, service on overrides", "https://x.local", &on, false, true},
+		{"url, service off overrides", "https://x.local", &off, true, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := HomeService{URL: tt.url, Status: tt.status}
+			if got := s.StatusEnabled(HomeSettings{Status: tt.setting}); got != tt.want {
+				t.Fatalf("StatusEnabled() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestHomeValidateStatus(t *testing.T) {
+	on, off := true, false
+	tests := []struct {
+		name    string
+		url     string
+		status  *bool
+		wantErr bool
+	}{
+		{"status on without url", "", &on, true},
+		{"status off without url", "", &off, false},
+		{"status on with url", "https://x.local", &on, false},
+		{"unset without url", "", nil, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			l := validHomeLayout()
+			l.Settings.Status = true
+			l.Groups[0].Services[1].URL = tt.url
+			l.Groups[0].Services[1].Status = tt.status
+			l.Normalize()
+			var found bool
+			for _, e := range l.Validate() {
+				if e.Path == "groups[0].services[1].status" {
+					found = true
+				}
+			}
+			if found != tt.wantErr {
+				t.Fatalf("status error = %v, want %v (errs %v)", found, tt.wantErr, l.Validate())
+			}
+		})
+	}
+}
+
+func TestHomeRedactedForPageKeepsStatus(t *testing.T) {
+	on := true
+	l := validHomeLayout()
+	l.Settings.Status = true
+	l.Groups[0].Services[0].Status = &on
+	r := l.RedactedForPage()
+	if !r.Settings.Status {
+		t.Fatal("settings.status dropped")
+	}
+	got := r.Groups[0].Services[0].Status
+	if got == nil || !*got || got == &on {
+		t.Fatalf("service status not deep-copied: %v", got)
+	}
+}

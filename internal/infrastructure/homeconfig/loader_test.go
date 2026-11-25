@@ -188,3 +188,33 @@ func TestLoad_SetsContentHash(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotEqual(t, first.ContentHash, edited.ContentHash)
 }
+
+func TestLoad_StatusKeys(t *testing.T) {
+	l := New(t.TempDir())
+	write(t, l, `[settings]
+status = true
+
+[[groups]]
+name = "Homelab"
+[[groups.services]]
+id = "jellyfin"
+name = "Jellyfin"
+url = "https://jelly.local"
+status = false
+[[groups.services]]
+id = "grafana"
+name = "Grafana"
+url = "https://grafana.local"
+`)
+	snap, err := l.Load(context.Background())
+	require.NoError(t, err)
+	require.Nil(t, snap.ParseError)
+	require.Empty(t, snap.ValidationErrors)
+	assert.True(t, snap.Layout.Settings.Status)
+	jelly, _ := snap.Layout.FindService("jellyfin")
+	require.NotNil(t, jelly.Status)
+	assert.False(t, jelly.StatusEnabled(snap.Layout.Settings))
+	graf, _ := snap.Layout.FindService("grafana")
+	assert.Nil(t, graf.Status)
+	assert.True(t, graf.StatusEnabled(snap.Layout.Settings))
+}

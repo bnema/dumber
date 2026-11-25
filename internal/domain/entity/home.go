@@ -113,6 +113,8 @@ type HomeLayout struct {
 type HomeSettings struct {
 	Title   string `toml:"title" json:"title"`
 	Columns int    `toml:"columns" json:"columns"`
+	// Status enables the reachability check for every service with a url.
+	Status bool `toml:"status" json:"status"`
 }
 
 // HomeBuiltinWidget is a built-in widget at the top of the page.
@@ -154,6 +156,20 @@ type HomeService struct {
 	IconVersion string             `toml:"-" json:"icon_version,omitempty"`
 	Widget      *HomeServiceWidget `toml:"widget,omitempty" json:"widget,omitempty"`
 	Actions     []HomeAction       `toml:"actions,omitempty" json:"actions,omitempty"`
+	// Status overrides HomeSettings.Status for this service when set.
+	Status *bool `toml:"status,omitempty" json:"status,omitempty"`
+}
+
+// StatusEnabled reports whether the reachability check runs for s. It is
+// always false without a url; otherwise the service value wins over settings.
+func (s HomeService) StatusEnabled(settings HomeSettings) bool {
+	if s.URL == "" {
+		return false
+	}
+	if s.Status != nil {
+		return *s.Status
+	}
+	return settings.Status
 }
 
 // HomeServiceWidget is the live widget attached to a service.
@@ -429,6 +445,9 @@ func validateService(errs *homeErrs, p string, s HomeService) {
 	if s.URL != "" && !isHTTPURL(s.URL) {
 		errs.addf(p+".url", "must be an http(s) URL")
 	}
+	if s.Status != nil && *s.Status && s.URL == "" {
+		errs.addf(p+".status", "requires a url")
+	}
 	if s.Icon != "" {
 		if msg := checkIconPath(s.Icon); msg != "" {
 			errs.addf(p+".icon", "%s", msg)
@@ -581,6 +600,10 @@ func (l HomeLayout) RedactedForPage() HomeLayout {
 
 func redactService(s HomeService) HomeService {
 	r := HomeService{ID: s.ID, Name: s.Name, URL: s.URL, Description: s.Description, Icon: s.Icon}
+	if s.Status != nil {
+		v := *s.Status
+		r.Status = &v
+	}
 	if w := s.Widget; w != nil {
 		rw := &HomeServiceWidget{
 			Type:    w.Type,
