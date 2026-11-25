@@ -31,9 +31,7 @@ func newTestDispatchRouter(t *testing.T) (*MessageRouter, chan func(), *[]record
 	r.stampFor = func(WebViewID) (deliveryStamp, bool) { return deliveryStamp{view: "page"}, true }
 	var mu sync.Mutex
 	var got []recordedResponse
-	r.respond = func(_ context.Context, id WebViewID, callback, _ string, payload any) error {
-		data, err := json.Marshal(payload)
-		require.NoError(t, err)
+	r.respond = func(_ context.Context, id WebViewID, callback, _ string, data json.RawMessage) error {
 		mu.Lock()
 		got = append(got, recordedResponse{webviewID: id, callback: callback, payload: string(data)})
 		mu.Unlock()

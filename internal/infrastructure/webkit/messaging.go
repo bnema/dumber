@@ -53,7 +53,7 @@ type MessageRouter struct {
 	// stampFor identifies the page a request came from; async responses are
 	// delivered only if the stamp is unchanged and still trusted.
 	stampFor func(WebViewID) (deliveryStamp, bool)
-	respond func(ctx context.Context, webviewID WebViewID, callback, world string, payload any) error
+	respond func(ctx context.Context, webviewID WebViewID, callback, world string, payload json.RawMessage) error
 }
 
 // NewMessageRouter creates a new message router.
@@ -381,7 +381,7 @@ func (r *MessageRouter) registeredHandlerTypes() []string {
 }
 
 // dispatchResponse serializes the payload and invokes a window callback in JS.
-func (r *MessageRouter) dispatchResponse(ctx context.Context, webviewID WebViewID, callback, world string, payload any) error {
+func (r *MessageRouter) dispatchResponse(ctx context.Context, webviewID WebViewID, callback, world string, data json.RawMessage) error {
 	if ctx == nil {
 		ctx = r.baseContext()
 	}
@@ -399,9 +399,8 @@ func (r *MessageRouter) dispatchResponse(ctx context.Context, webviewID WebViewI
 		return fmt.Errorf("webview %d not found", webviewID)
 	}
 
-	data, err := json.Marshal(payload)
-	if err != nil {
-		return fmt.Errorf("marshal callback payload: %w", err)
+	if len(data) == 0 {
+		data = json.RawMessage("null")
 	}
 
 	script := fmt.Sprintf(

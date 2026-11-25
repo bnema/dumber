@@ -31,7 +31,7 @@ func (r *MessageRouter) runHandler(baseCtx context.Context, entry handlerEntry, 
 	requestID := bridgeRequestID(msg.Payload)
 	if webutil.IsInlineBridgeMessage(msg.Type) {
 		resp, err := entry.handler.Handle(baseCtx, webviewID, msg.Payload)
-		r.deliver(baseCtx, entry, msg.Type, webviewID, requestID, resp, err)
+		r.deliver(baseCtx, entry, msg.Type, webviewID, encodeResult(requestID, resp, err))
 		return
 	}
 	stamp, ok := r.stampFor(webviewID)
@@ -40,6 +40,7 @@ func (r *MessageRouter) runHandler(baseCtx context.Context, entry handlerEntry, 
 	}
 	r.goAsync(func() {
 		resp, err := safeHandle(baseCtx, entry, webviewID, msg.Payload)
+		result := encodeResult(requestID, resp, err)
 		r.onMain(func() {
 			if now, ok := r.stampFor(webviewID); !ok || now != stamp {
 				logging.FromContext(baseCtx).Debug().
@@ -48,7 +49,7 @@ func (r *MessageRouter) runHandler(baseCtx context.Context, entry handlerEntry, 
 					Msg("dropping bridge response: the requesting page is gone")
 				return
 			}
-			r.deliver(baseCtx, entry, msg.Type, webviewID, requestID, resp, err)
+			r.deliver(baseCtx, entry, msg.Type, webviewID, result)
 		})
 	})
 }
@@ -79,44 +80,55 @@ func safeHandle(ctx context.Context, entry handlerEntry, webviewID WebViewID, pa
 	return entry.handler.Handle(ctx, webviewID, payload)
 }
 
-// deliver sends the handler result to the page callbacks. Responses to
-// requests that carry a requestId are wrapped in the bridge envelope so the
-// page matches them by id: asynchronous responses can arrive out of order.
-func (r *MessageRouter) deliver(
-	ctx context.Context,
-	entry handlerEntry,
-	msgType string,
-	webviewID WebViewID,
-	requestID string,
-	resp any,
-	err error,
-) {
-	log := logging.FromContext(ctx).With().Str("component", "message-router").Logger()
-	log.Debug().Str("type", msgType).Err(err).Msg("handler execution completed")
+// handlerResult is a handler outcome already encoded as the JSON argument of
+// its page callback. Encoding happens off the GTK thread.
+type handlerResult struct {
+	err     error           // handler error, logged on delivery
+	failure bool            // deliver to the error callback
+	payload json.RawMessage // callback argument
+}
+
+// encodeResult encodes resp or err for the page. Responses to requests that
+// carry a requestId are wrapped in the bridge envelope (unless the handler
+// already returned one) so the page matches them by id: asynchronous
+// responses can arrive out of order.
+func encodeResult(requestID string, resp any, err error) handlerResult {
 	if err != nil {
-		log.Error().Err(err).Str("type", msgType).Msg("message handler returned error")
-		if entry.errorCallback == "" {
-			return
-		}
-		var payload any = err.Error()
+		var v any = err.Error()
 		if requestID != "" {
-			payload = bridgeEnvelope{RequestID: requestID, Error: err.Error()}
+			v = bridgeEnvelope{RequestID: requestID, Error: err.Error()}
 		}
-		if respErr := r.respond(ctx, webviewID, entry.errorCallback, entry.world, payload); respErr != nil {
-			log.Warn().Err(respErr).Msg("failed to dispatch error callback")
+		data, _ := json.Marshal(v) // strings and this struct always encode
+		return handlerResult{err: err, failure: true, payload: data}
+	}
+	data, mErr := json.Marshal(resp)
+	if mErr != nil {
+		return encodeResult(requestID, nil, fmt.Errorf("marshal callback payload: %w", mErr))
+	}
+	if requestID != "" && bridgeRequestID(data) == "" {
+		data, mErr = json.Marshal(bridgeEnvelope{RequestID: requestID, Success: true, Data: json.RawMessage(data)})
+		if mErr != nil {
+			return encodeResult(requestID, nil, fmt.Errorf("marshal callback payload: %w", mErr))
 		}
+	}
+	return handlerResult{payload: data}
+}
+
+// deliver sends an encoded handler result to the page callbacks.
+func (r *MessageRouter) deliver(ctx context.Context, entry handlerEntry, msgType string, webviewID WebViewID, result handlerResult) {
+	log := logging.FromContext(ctx).With().Str("component", "message-router").Logger()
+	log.Debug().Str("type", msgType).Err(result.err).Msg("handler execution completed")
+	callback := entry.callback
+	if result.failure {
+		log.Error().Err(result.err).Str("type", msgType).Msg("message handler returned error")
+		callback = entry.errorCallback
+	}
+	if callback == "" {
 		return
 	}
-	if entry.callback == "" {
-		return
-	}
-	payload := resp
-	if requestID != "" && !hasRequestID(resp) {
-		payload = bridgeEnvelope{RequestID: requestID, Success: true, Data: resp}
-	}
-	if respErr := r.respond(ctx, webviewID, entry.callback, entry.world, payload); respErr != nil {
+	if respErr := r.respond(ctx, webviewID, callback, entry.world, result.payload); respErr != nil {
 		log.Warn().Err(respErr).
-			Str("callback", entry.callback).
+			Str("callback", callback).
 			Uint64("webview_id", uint64(webviewID)).
 			Msg("failed to dispatch callback response")
 	}
@@ -124,23 +136,10 @@ func (r *MessageRouter) deliver(
 
 // bridgeEnvelope matches the systemviews bridge response envelope.
 type bridgeEnvelope struct {
-	RequestID string `json:"requestId"`
-	Success   bool   `json:"success,omitempty"`
-	Data      any    `json:"data,omitempty"`
-	Error     string `json:"error,omitempty"`
-}
-
-// hasRequestID reports whether resp already is a bridge envelope (many
-// handlers answer with their own {requestId, success, data} envelope).
-func hasRequestID(resp any) bool {
-	if resp == nil {
-		return false
-	}
-	data, err := json.Marshal(resp)
-	if err != nil {
-		return false
-	}
-	return bridgeRequestID(data) != ""
+	RequestID string          `json:"requestId"`
+	Success   bool            `json:"success,omitempty"`
+	Data      json.RawMessage `json:"data,omitempty"`
+	Error     string          `json:"error,omitempty"`
 }
 
 func bridgeRequestID(payload json.RawMessage) string {
