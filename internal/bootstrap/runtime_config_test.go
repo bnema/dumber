@@ -13,7 +13,8 @@ import (
 type configManagerState struct {
 	current    *config.Config
 	watchCalls int
-	callbacks  []func(*config.Config)
+	callbacks  []func(*config.Config, uint64)
+	generation uint64
 }
 
 func newMockConfigManager(t *testing.T, state *configManagerState) *bootstrapmocks.MockConfigChangeManager {
@@ -22,7 +23,7 @@ func newMockConfigManager(t *testing.T, state *configManagerState) *bootstrapmoc
 	manager := bootstrapmocks.NewMockConfigChangeManager(t)
 	manager.EXPECT().Get().RunAndReturn(state.get).Maybe()
 	manager.EXPECT().Watch().RunAndReturn(state.watch).Maybe()
-	manager.EXPECT().OnConfigChange(mock.Anything).RunAndReturn(state.onConfigChange).Maybe()
+	manager.EXPECT().OnConfigChangeGeneration(mock.Anything).RunAndReturn(state.onConfigChange).Maybe()
 	return manager
 }
 
@@ -31,7 +32,7 @@ func (s *configManagerState) watch() error {
 	return nil
 }
 
-func (s *configManagerState) onConfigChange(callback func(*config.Config)) {
+func (s *configManagerState) onConfigChange(callback func(*config.Config, uint64)) {
 	s.callbacks = append(s.callbacks, callback)
 }
 
@@ -41,8 +42,9 @@ func (s *configManagerState) get() *config.Config {
 
 func (s *configManagerState) emit(next *config.Config) {
 	s.current = next
+	s.generation++
 	for _, callback := range s.callbacks {
-		callback(next)
+		callback(next, s.generation)
 	}
 }
 
@@ -174,6 +176,7 @@ func TestRuntimeConfigProviderOnChangeFallsBackWhenPayloadIsNil(t *testing.T) {
 
 	manager.emit(nil)
 	want := RuntimeConfigSnapshotFromConfig(initial)
+	want.Generation = 1
 
 	if !reflect.DeepEqual(seen, want) {
 		t.Fatalf("callback snapshot=%#v, want initial fallback %#v", seen, want)

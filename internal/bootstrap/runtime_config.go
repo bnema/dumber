@@ -11,7 +11,7 @@ import (
 type configChangeManager interface {
 	Get() *config.Config
 	Watch() error
-	OnConfigChange(func(*config.Config))
+	OnConfigChangeGeneration(func(*config.Config, uint64))
 }
 
 type runtimeConfigProvider struct {
@@ -51,12 +51,13 @@ func (p *runtimeConfigProvider) OnChange(callback func(entity.RuntimeConfigSnaps
 	if p == nil || p.manager == nil || callback == nil {
 		return
 	}
-	p.manager.OnConfigChange(func(cfg *config.Config) {
-		if cfg == nil {
-			callback(cloneRuntimeConfigSnapshot(p.fallback))
-			return
+	p.manager.OnConfigChangeGeneration(func(cfg *config.Config, generation uint64) {
+		snapshot := cloneRuntimeConfigSnapshot(p.fallback)
+		if cfg != nil {
+			snapshot = RuntimeConfigSnapshotFromConfig(cfg)
 		}
-		callback(RuntimeConfigSnapshotFromConfig(cfg))
+		snapshot.Generation = generation
+		callback(snapshot)
 	})
 }
 

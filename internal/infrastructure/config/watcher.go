@@ -81,14 +81,23 @@ func (m *Manager) handleFileChange(path string) {
 
 // notifyCallbacksLocked copies callbacks and config, releases lock, then notifies.
 // Must be called with m.mu held for write. Releases the lock before calling callbacks.
+// Each notification gets the next generation, assigned under the lock, so
+// receivers can drop notifications that arrive out of order.
 func (m *Manager) notifyCallbacksLocked() {
 	config := m.config
+	m.generation++
+	generation := m.generation
 	callbacks := make([]func(*Config), len(m.callbacks))
 	copy(callbacks, m.callbacks)
+	genCallbacks := make([]func(*Config, uint64), len(m.genCallbacks))
+	copy(genCallbacks, m.genCallbacks)
 	m.mu.Unlock()
 
 	for _, callback := range callbacks {
 		callback(config)
+	}
+	for _, callback := range genCallbacks {
+		callback(config, generation)
 	}
 }
 
@@ -98,6 +107,16 @@ func (m *Manager) OnConfigChange(callback func(*Config)) {
 	defer m.mu.Unlock()
 
 	m.callbacks = append(m.callbacks, callback)
+}
+
+// OnConfigChangeGeneration registers a callback that also receives the
+// notification generation. Generations increase with every change; a
+// callback seeing a generation lower than one it already handled is stale.
+func (m *Manager) OnConfigChangeGeneration(callback func(*Config, uint64)) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	m.genCallbacks = append(m.genCallbacks, callback)
 }
 
 // reload reloads the configuration from disk (must be called with lock held for write).

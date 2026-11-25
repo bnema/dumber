@@ -36,6 +36,9 @@ type EngineSettingsUpdate struct {
 }
 
 type RuntimeConfigSnapshot struct {
+	// Generation orders change notifications; 0 means unordered (initial
+	// or synthetic snapshots).
+	Generation     uint64
 	EngineSettings EngineSettingsPayload
 	UI             RuntimeUIConfig
 }

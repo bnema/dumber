@@ -26,9 +26,11 @@ type Manager struct {
 	automaticEnv automaticEnvConfig
 	// envTables hides table env names from AutomaticEnv; nil when the viper
 	// instance was not created by newConfigViper.
-	envTables *tableSafeEnvReplacer
-	mu        sync.RWMutex
+	envTables    *tableSafeEnvReplacer
+	mu           sync.RWMutex
 	callbacks    []func(*Config)
+	genCallbacks []func(*Config, uint64)
+	generation   uint64
 	watching     bool
 	fileWatcher  *filewatch.Watcher
 	// watchDelay overrides the file watcher debounce delay (tests only).

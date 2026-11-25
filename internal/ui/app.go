@@ -88,6 +88,9 @@ type App struct {
 	mainWindow *window.MainWindow
 
 	runtimeConfig *runtimeConfigState
+	// lastConfigGeneration is the newest applied config notification
+	// generation (main thread only).
+	lastConfigGeneration uint64
 
 	browserWindows       map[string]*browserWindow
 	browserWindowOrder   []string               // registration order of window IDs
@@ -4365,6 +4368,18 @@ func (a *App) dispatchRuntimeConfigChange(ctx context.Context, snapshot entity.R
 func (a *App) applyRuntimeConfigChange(ctx context.Context, snapshot entity.RuntimeConfigSnapshot) {
 	if a == nil {
 		return
+	}
+	// Notifications come from several goroutines (file watcher, saves) and
+	// can reach the main thread out of order: drop older ones.
+	if snapshot.Generation != 0 {
+		if snapshot.Generation <= a.lastConfigGeneration {
+			logging.FromContext(ctx).Debug().
+				Uint64("generation", snapshot.Generation).
+				Uint64("applied", a.lastConfigGeneration).
+				Msg("dropping stale runtime config change")
+			return
+		}
+		a.lastConfigGeneration = snapshot.Generation
 	}
 	if a.runtimeConfig == nil {
 		a.runtimeConfig = newRuntimeConfigState(nil)
