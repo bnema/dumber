@@ -811,3 +811,46 @@ func (f *faviconFetcherState) fetch(_ context.Context, req appport.FaviconFetchR
 		ContentType: response.contentType,
 	}, nil
 }
+
+func TestFaviconObserveDeepLinkSeedsHostKey(t *testing.T) {
+	fx := newFaviconFixture(t)
+	ctx := context.Background()
+	if _, err := fx.uc.Observe(ctx, "http://127.0.0.1:18765/page.html", "http://127.0.0.1:18765/fav.png", []byte("deep"), favicon.SourceEngine, "image/png"); err != nil {
+		t.Fatal(err)
+	}
+	pageKey, _ := favicon.CanonicalKey("http://127.0.0.1:18765/page.html")
+	hostKey, _ := favicon.CanonicalHostKey("http://127.0.0.1:18765/page.html")
+	if pageKey == hostKey {
+		t.Fatalf("test needs distinct keys, got %q", pageKey)
+	}
+	if fx.repo.byKey[pageKey] == nil || fx.repo.byKey[hostKey] == nil {
+		t.Fatalf("want page and host entries, got %v", fx.repo.byKey)
+	}
+	got, err := fx.uc.ResolveSystemviewIcon(ctx, string(hostKey), SystemviewIconSize)
+	if err != nil {
+		t.Fatalf("host lookup after a deep-link-only visit: %v", err)
+	}
+	if string(got.Bytes) != "png32:deep" {
+		t.Fatalf("got %q", got.Bytes)
+	}
+}
+
+func TestFaviconObserveDeepLinkNeverOverwritesHostEntry(t *testing.T) {
+	fx := newFaviconFixture(t)
+	fx.seed("example.com", []byte("host-icon"), false)
+	before := *fx.repo.byKey["example.com"]
+	if _, err := fx.uc.Observe(context.Background(), "https://example.com/deep/page", "https://example.com/deep.png", []byte("deep"), favicon.SourceEngine, "image/png"); err != nil {
+		t.Fatal(err)
+	}
+	after := fx.repo.byKey["example.com"]
+	if after.ContentHash != before.ContentHash || after.SourceURL != before.SourceURL {
+		t.Fatalf("host entry overwritten: before=%+v after=%+v", before, *after)
+	}
+	if string(fx.blobs.sized["example.com"][32]) != "host-icon" {
+		t.Fatalf("host blob overwritten: %q", fx.blobs.sized["example.com"][32])
+	}
+	pageKey, _ := favicon.CanonicalKey("https://example.com/deep/page")
+	if fx.repo.byKey[pageKey] == nil {
+		t.Fatal("page entry not stored")
+	}
+}
