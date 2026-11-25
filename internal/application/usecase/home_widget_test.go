@@ -9,6 +9,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/rs/zerolog"
@@ -237,32 +238,72 @@ func TestFetchWidgetData_UnknownOrNonAPIService(t *testing.T) {
 }
 
 func TestFetchWidgetData_ConcurrentCallsShareOneRequest(t *testing.T) {
-	f := newHomeWidgetFixture(t)
-	release := make(chan struct{})
-	f.http.EXPECT().Do(mock.Anything, mock.Anything).RunAndReturn(
-		func(context.Context, port.HomeHTTPRequest) (port.HomeHTTPResponse, error) {
-			<-release
-			return okJSON(`{"movies":3}`), nil
-		}).Once()
+	synctest.Test(t, func(t *testing.T) {
+		f := newHomeWidgetFixture(t)
+		release := make(chan struct{})
+		f.http.EXPECT().Do(mock.Anything, mock.Anything).RunAndReturn(
+			func(context.Context, port.HomeHTTPRequest) (port.HomeHTTPResponse, error) {
+				<-release
+				return okJSON(`{"movies":3}`), nil
+			}).Once()
 
-	var wg sync.WaitGroup
-	results := make([]*dto.HomeWidgetDataResponse, 5)
-	for i := range results {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		var wg sync.WaitGroup
+		results := make([]*dto.HomeWidgetDataResponse, 5)
+		for i := range results {
+			wg.Go(func() {
+				resp, err := f.uc.FetchWidgetData(f.ctx, "media")
+				assert.NoError(t, err)
+				results[i] = resp
+			})
+		}
+		synctest.Wait() // one flight blocked on release, every caller waiting on it
+		f.uc.widgetMu.Lock()
+		require.Len(t, f.uc.widgetInflight, 1)
+		f.uc.widgetMu.Unlock()
+		close(release)
+		wg.Wait()
+		for _, r := range results {
+			require.NotNil(t, r)
+			assert.Equal(t, "3", r.Fields[0].Value)
+		}
+	})
+}
+
+func TestFetchWidgetData_LeaderCancelDoesNotFailFollowers(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		f := newHomeWidgetFixture(t)
+		release := make(chan struct{})
+		f.http.EXPECT().Do(mock.Anything, mock.Anything).RunAndReturn(
+			func(ctx context.Context, _ port.HomeHTTPRequest) (port.HomeHTTPResponse, error) {
+				select {
+				case <-release:
+					return okJSON(`{"movies":4}`), nil
+				case <-ctx.Done():
+					return port.HomeHTTPResponse{}, ctx.Err()
+				}
+			}).Once()
+
+		leaderCtx, cancelLeader := context.WithCancel(f.ctx)
+		var leaderErr error
+		var follower *dto.HomeWidgetDataResponse
+		var wg sync.WaitGroup
+		wg.Go(func() { _, leaderErr = f.uc.FetchWidgetData(leaderCtx, "media") })
+		synctest.Wait()
+		wg.Go(func() {
 			resp, err := f.uc.FetchWidgetData(f.ctx, "media")
 			assert.NoError(t, err)
-			results[i] = resp
-		}()
-	}
-	time.Sleep(20 * time.Millisecond)
-	close(release)
-	wg.Wait()
-	for _, r := range results {
-		require.NotNil(t, r)
-		assert.Equal(t, "3", r.Fields[0].Value)
-	}
+			follower = resp
+		})
+		synctest.Wait()
+		cancelLeader()
+		synctest.Wait()
+		close(release)
+		wg.Wait()
+		require.ErrorIs(t, leaderErr, context.Canceled)
+		require.NotNil(t, follower)
+		assert.Equal(t, dto.HomeStatusOK, follower.Status)
+		assert.Equal(t, "4", follower.Fields[0].Value)
+	})
 }
 
 func TestRunHomeAction_EncodesInputs(t *testing.T) {
@@ -432,7 +473,7 @@ func TestFetchWidgetData_TemplateFailureNotRetriedUntilWidgetChanges(t *testing.
 	require.NoError(t, err)
 	assert.Equal(t, "template error: template execution timed out", first.Error)
 
-	*f.now = f.now.Add(time.Hour)
+	*f.now = f.now.Add(2 * time.Minute) // past the refresh, inside the failure TTL
 	again, err := f.uc.FetchWidgetData(f.ctx, "media")
 	require.NoError(t, err)
 	assert.Equal(t, first.Error, again.Error)
@@ -446,6 +487,54 @@ func TestFetchWidgetData_TemplateFailureNotRetriedUntilWidgetChanges(t *testing.
 	assert.Equal(t, dto.HomeStatusOK, fixed.Status)
 	assert.Equal(t, "<p>T2</p>", fixed.HTML)
 	assert.Equal(t, 2, renderer.calls)
+}
+
+func TestFetchWidgetData_TemplateFailureExpires(t *testing.T) {
+	f := newHomeWidgetFixture(t)
+	renderer := &fakeHomeRenderer{err: errors.New("boom")}
+	f.uc.templates = renderer
+	f.layout.Groups[0].Services[0].Widget.Template = "T"
+	f.http.EXPECT().Do(mock.Anything, mock.Anything).Return(okJSON(`{}`), nil).Twice()
+
+	_, err := f.uc.FetchWidgetData(f.ctx, "media")
+	require.NoError(t, err)
+	*f.now = f.now.Add(homeTemplateFailureMinTTL)
+	renderer.err = nil
+	resp, err := f.uc.FetchWidgetData(f.ctx, "media")
+	require.NoError(t, err)
+	assert.Equal(t, dto.HomeStatusOK, resp.Status)
+	assert.Equal(t, 2, renderer.calls)
+}
+
+func TestFetchWidgetData_PanicReleasesWaiters(t *testing.T) {
+	f := newHomeWidgetFixture(t)
+	f.http.EXPECT().Do(mock.Anything, mock.Anything).
+		RunAndReturn(func(context.Context, port.HomeHTTPRequest) (port.HomeHTTPResponse, error) {
+			panic("client exploded")
+		}).Once()
+	resp, err := f.uc.FetchWidgetData(f.ctx, "media")
+	require.NoError(t, err)
+	assert.Equal(t, dto.HomeStatusError, resp.Status)
+	assert.Equal(t, "internal error", resp.Error)
+	f.uc.widgetMu.Lock()
+	defer f.uc.widgetMu.Unlock()
+	assert.Empty(t, f.uc.widgetInflight)
+}
+
+func TestFetchWidgetData_PrunesRemovedServices(t *testing.T) {
+	f := newHomeWidgetFixture(t)
+	f.http.EXPECT().Do(mock.Anything, mock.Anything).Return(okJSON(`{"movies":1}`), nil).Once()
+	_, err := f.uc.FetchWidgetData(f.ctx, "media")
+	require.NoError(t, err)
+	f.uc.templateFailures["gone"] = homeTemplateFailure{msg: "x"}
+
+	f.layout.Groups[0].Services[1].Name = "Plain 2" // layout changes, media stays
+	_, err = f.uc.FetchWidgetData(f.ctx, "media")
+	require.NoError(t, err)
+	f.uc.widgetMu.Lock()
+	defer f.uc.widgetMu.Unlock()
+	assert.Contains(t, f.uc.widgetCache, "media")
+	assert.NotContains(t, f.uc.templateFailures, "gone")
 }
 
 func TestRunHomeAction_RejectsInputOutsideJSONStringAtCall(t *testing.T) {

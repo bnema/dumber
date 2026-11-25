@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"time"
 
 	"bnema.dev/dumber/internal/application/dto"
 	"bnema.dev/dumber/internal/application/port"
@@ -20,11 +21,21 @@ type homeWidgetCacheEntry struct {
 	resp dto.HomeWidgetDataResponse
 }
 
-// homeTemplateFailure is a template error for one widget configuration.
+// homeTemplateFailure is a template error for one widget configuration,
+// remembered until expires.
 type homeTemplateFailure struct {
-	hash [sha256.Size]byte
-	msg  string
+	hash    [sha256.Size]byte
+	msg     string
+	expires time.Time
 }
+
+// homeTemplateFailureMinTTL is the shortest time a template failure is
+// remembered; slower widgets keep it for 3 refresh periods.
+const homeTemplateFailureMinTTL = 5 * time.Minute
+
+// homeWidgetRenderBudget is added to the widget timeout to bound one shared
+// fetch, covering JSON parsing and template rendering.
+const homeWidgetRenderBudget = 5 * time.Second
 
 // homeWidgetFlight lets concurrent fetches of the same service share one
 // HTTP request.
@@ -36,7 +47,7 @@ type homeWidgetFlight struct {
 // FetchWidgetData returns the data of the api widget of serviceID. Fetch
 // failures are reported in the response (status error), with the last good
 // data marked stale when available. The error return is for unknown
-// services or non-api widgets.
+// services or non-api widgets, and for the caller's own cancellation.
 func (uc *HomeUseCase) FetchWidgetData(ctx context.Context, serviceID string) (*dto.HomeWidgetDataResponse, error) {
 	if uc.source == nil || uc.http == nil {
 		return nil, errors.New("home widgets not configured")
@@ -56,8 +67,9 @@ func (uc *HomeUseCase) FetchWidgetData(ctx context.Context, serviceID string) (*
 	hash := hashHomeWidget(widget)
 
 	uc.widgetMu.Lock()
+	uc.pruneWidgetStateLocked(snap.Layout)
 	if failure, failed := uc.templateFailures[serviceID]; failed {
-		if failure.hash == hash {
+		if failure.hash == hash && uc.now().Before(failure.expires) {
 			uc.widgetMu.Unlock()
 			return &dto.HomeWidgetDataResponse{
 				ServiceID: serviceID, Status: dto.HomeStatusError, Error: failure.msg, FetchedAt: uc.now(),
@@ -75,42 +87,92 @@ func (uc *HomeUseCase) FetchWidgetData(ctx context.Context, serviceID string) (*
 		resp := entry.resp
 		return &resp, nil
 	}
-	if f, running := uc.widgetInflight[serviceID]; running {
-		uc.widgetMu.Unlock()
-		select {
-		case <-f.done:
-			resp := *f.resp
-			return &resp, nil
-		case <-ctx.Done():
-			return nil, ctx.Err()
+	f, running := uc.widgetInflight[serviceID]
+	if !running {
+		f = &homeWidgetFlight{done: make(chan struct{})}
+		uc.widgetInflight[serviceID] = f
+		// The shared fetch must not die with the first caller's request:
+		// other tiles may be waiting on it.
+		workCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), widget.TimeoutDuration()+homeWidgetRenderBudget)
+		go uc.runWidgetFlight(workCtx, cancel, f, serviceID, widget, hash)
+	}
+	uc.widgetMu.Unlock()
+
+	select {
+	case <-f.done:
+		resp := *f.resp
+		return &resp, nil
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
+}
+
+// runWidgetFlight performs one shared fetch and publishes its result.
+// Cleanup is deferred so a panic still releases the waiters.
+func (uc *HomeUseCase) runWidgetFlight(
+	ctx context.Context, cancel context.CancelFunc, f *homeWidgetFlight,
+	serviceID string, widget entity.HomeServiceWidget, hash [sha256.Size]byte,
+) {
+	defer cancel()
+	resp := dto.HomeWidgetDataResponse{
+		ServiceID: serviceID, Status: dto.HomeStatusError, Error: "internal error", FetchedAt: uc.now(),
+	}
+	allowStale := true
+	defer func() {
+		if r := recover(); r != nil {
+			logging.FromContext(ctx).Error().Interface("panic", r).Str("home_service", serviceID).
+				Msg("home widget fetch panicked")
+		}
+		uc.widgetMu.Lock()
+		defer uc.widgetMu.Unlock()
+		switch {
+		case resp.Status == dto.HomeStatusOK:
+			uc.widgetCache[serviceID] = homeWidgetCacheEntry{hash: hash, resp: resp}
+		case !allowStale:
+			uc.templateFailures[serviceID] = homeTemplateFailure{
+				hash: hash, msg: resp.Error,
+				expires: uc.now().Add(max(3*widget.RefreshDuration(), homeTemplateFailureMinTTL)),
+			}
+			delete(uc.widgetCache, serviceID)
+		default:
+			if last, ok := uc.widgetCache[serviceID]; ok && last.hash == hash {
+				stale := last.resp
+				stale.Status = dto.HomeStatusError
+				stale.Error = resp.Error
+				stale.Stale = true
+				resp = stale
+			}
+		}
+		delete(uc.widgetInflight, serviceID)
+		f.resp = &resp
+		close(f.done)
+	}()
+	resp, allowStale = uc.fetchWidget(ctx, serviceID, widget)
+}
+
+// pruneWidgetStateLocked drops cached data and template failures of
+// services that left the layout. It only scans when the layout changed.
+// Caller holds uc.widgetMu.
+func (uc *HomeUseCase) pruneWidgetStateLocked(layout entity.HomeLayout) {
+	data, err := json.Marshal(layout.Groups)
+	if err != nil {
+		return
+	}
+	sum := sha256.Sum256(data)
+	if sum == uc.lastLayoutHash {
+		return
+	}
+	uc.lastLayoutHash = sum
+	for id := range uc.widgetCache {
+		if _, ok := layout.FindService(id); !ok {
+			delete(uc.widgetCache, id)
 		}
 	}
-	f := &homeWidgetFlight{done: make(chan struct{})}
-	uc.widgetInflight[serviceID] = f
-	uc.widgetMu.Unlock()
-
-	resp, allowStale := uc.fetchWidget(ctx, serviceID, widget)
-
-	uc.widgetMu.Lock()
-	if resp.Status == dto.HomeStatusOK {
-		uc.widgetCache[serviceID] = homeWidgetCacheEntry{hash: hash, resp: resp}
-	} else if !allowStale {
-		uc.templateFailures[serviceID] = homeTemplateFailure{hash: hash, msg: resp.Error}
-		delete(uc.widgetCache, serviceID)
-	} else if last, ok := uc.widgetCache[serviceID]; ok && last.hash == hash {
-		stale := last.resp
-		stale.Status = dto.HomeStatusError
-		stale.Error = resp.Error
-		stale.Stale = true
-		resp = stale
+	for id := range uc.templateFailures {
+		if _, ok := layout.FindService(id); !ok {
+			delete(uc.templateFailures, id)
+		}
 	}
-	delete(uc.widgetInflight, serviceID)
-	f.resp = &resp
-	close(f.done)
-	uc.widgetMu.Unlock()
-
-	out := resp
-	return &out, nil
 }
 
 // fetchWidget performs the HTTP request. Errors in the result are safe to

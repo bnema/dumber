@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"context"
+	"crypto/sha256"
 	"errors"
 	"fmt"
 	"strings"
@@ -57,6 +58,9 @@ type HomeUseCase struct {
 	// templateFailures remembers a failed template per service and widget
 	// hash, so a slow or broken template is not re-rendered on every refresh.
 	templateFailures map[string]homeTemplateFailure
+	// lastLayoutHash is the layout seen last, to prune state of removed
+	// services only when the layout changes.
+	lastLayoutHash [sha256.Size]byte
 
 	actionMu      sync.Mutex
 	actionRunning map[string]bool
