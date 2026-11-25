@@ -56,6 +56,9 @@ func (a *App) HandleDOMAction(ctx context.Context, event DOMAction) error {
 	if event.Action == paletteActionOpen {
 		return a.handlePaletteOpen(ctx)
 	}
+	if homeServiceAction(event) {
+		return a.handleHomeServiceAction(ctx, event)
+	}
 	a.lockState()
 	if a.closed {
 		a.unlockState()

@@ -3298,3 +3298,48 @@ html[data-sv-enhanced] .sv-savebar:not([data-sv-open]):not(:has(.sv-savebar-erro
 .sv-home-service-embed:empty {
   display: none;
 }
+
+.sv-home-service-actions {
+  padding: 0 0.625rem 0.625rem;
+}
+
+.sv-home-svc-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+}
+
+.sv-home-svc-action[aria-busy="true"] {
+  cursor: progress;
+}
+
+.sv-home-svc-form {
+  display: flex;
+  flex: 1 1 100%;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.sv-home-svc-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  font-size: 0.75rem;
+}
+
+.sv-home-svc-form-buttons,
+.sv-home-svc-confirm {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.sv-home-svc-confirm {
+  flex: 1 1 100%;
+}
+
+.sv-home-svc-confirm-text {
+  flex: 1 1 100%;
+  font-size: 0.8125rem;
+}

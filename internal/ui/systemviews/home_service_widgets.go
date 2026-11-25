@@ -26,6 +26,8 @@ type homeServiceWidgets struct {
 	cancel context.CancelFunc
 	// slots is the last markup pushed into each service slot.
 	slots map[string]string
+	// actions is the action UI state of services whose actions are not idle.
+	actions map[string]homeActionState
 	// newTicker returns a tick channel and its stop function. Tests replace it.
 	newTicker func(time.Duration) (<-chan time.Time, func())
 }
@@ -226,13 +228,14 @@ func (a *App) stopHomeServiceWidgetsLocked() {
 func (a *App) resetHomeServiceWidgetsLocked() {
 	a.stopHomeServiceWidgetsLocked()
 	a.homeSvc.slots = nil
+	a.homeSvc.actions = nil
 }
 
-// restoreHomeServiceSlotsLocked pushes the cached widget markup back after
-// the home-groups region (which renders the slots empty) was swapped or the
-// page remounted. Caller holds App.mu.
+// restoreHomeServiceSlotsLocked pushes the cached widget markup and open
+// action forms back after the home-groups region (which renders them empty
+// and idle) was swapped or the page remounted. Caller holds App.mu.
 func (a *App) restoreHomeServiceSlotsLocked(changed []DOMRegion, remounted bool) error {
-	if len(a.homeSvc.slots) == 0 {
+	if len(a.homeSvc.slots) == 0 && len(a.homeSvc.actions) == 0 {
 		return nil
 	}
 	if !remounted && !homeRegionsInclude(changed, homeRegionGroups) {
@@ -248,6 +251,7 @@ func (a *App) restoreHomeServiceSlotsLocked(changed []DOMRegion, remounted bool)
 			regions = append(regions, DOMRegion{Name: homeServiceRegion(service.ID), HTML: markup})
 		}
 	}
+	regions = append(regions, a.homeActionRegionsLocked()...)
 	if len(regions) == 0 {
 		return nil
 	}
