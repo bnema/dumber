@@ -394,54 +394,45 @@ func TestRunHomeAction_UndeclaredInputInTemplateRejectedAtCall(t *testing.T) {
 	assert.Contains(t, resp.Message, "zzz")
 }
 
-type fakeHomeRenderer struct {
-	calls int
-	data  any
-	err   error
+func (f *homeWidgetFixture) withRenderer(t *testing.T) *mocks.MockHomeTemplateRenderer {
+	r := mocks.NewMockHomeTemplateRenderer(t)
+	f.uc.templates = r
+	return r
 }
 
-func (r *fakeHomeRenderer) Render(tmpl string, data any) (string, error) {
-	r.calls++
-	r.data = data
-	if r.err != nil {
-		return "", r.err
-	}
-	return "<p>" + tmpl + "</p>", nil
-}
+func renderOK(tmpl string, _ any) (string, error) { return "<p>" + tmpl + "</p>", nil }
 
 func TestFetchWidgetData_TemplateRenderedAndCached(t *testing.T) {
 	f := newHomeWidgetFixture(t)
-	renderer := &fakeHomeRenderer{}
-	f.uc.templates = renderer
+	renderer := f.withRenderer(t)
 	f.layout.Groups[0].Services[0].Widget.Template = "T"
 	f.http.EXPECT().Do(mock.Anything, mock.Anything).Return(okJSON(`{"movies":5}`), nil).Once()
+	renderer.EXPECT().Render("T", map[string]any{
+		"data":   map[string]any{"movies": 5.0},
+		"fields": map[string]string{"Movies": "5", "Missing": ""},
+	}).RunAndReturn(renderOK).Once()
 
 	resp, err := f.uc.FetchWidgetData(f.ctx, "media")
 	require.NoError(t, err)
 	assert.Equal(t, dto.HomeStatusOK, resp.Status)
 	assert.Equal(t, "<p>T</p>", resp.HTML)
-	assert.Equal(t, map[string]any{
-		"data":   map[string]any{"movies": 5.0},
-		"fields": map[string]string{"Movies": "5", "Missing": ""},
-	}, renderer.data)
 
 	cached, err := f.uc.FetchWidgetData(f.ctx, "media")
 	require.NoError(t, err)
 	assert.Equal(t, "<p>T</p>", cached.HTML)
-	assert.Equal(t, 1, renderer.calls)
 }
 
 func TestFetchWidgetData_TemplateErrorHasNoStaleData(t *testing.T) {
 	f := newHomeWidgetFixture(t)
-	renderer := &fakeHomeRenderer{}
-	f.uc.templates = renderer
+	renderer := f.withRenderer(t)
 	f.layout.Groups[0].Services[0].Widget.Template = "T"
 	f.http.EXPECT().Do(mock.Anything, mock.Anything).Return(okJSON(`{"movies":5}`), nil).Twice()
+	renderer.EXPECT().Render("T", mock.Anything).RunAndReturn(renderOK).Once()
 	_, err := f.uc.FetchWidgetData(f.ctx, "media")
 	require.NoError(t, err)
 
 	*f.now = f.now.Add(time.Hour)
-	renderer.err = errors.New(`template: w:1: unexpected "}"`)
+	renderer.EXPECT().Render("T", mock.Anything).Return("", errors.New(`template: w:1: unexpected "}"`)).Once()
 	resp, err := f.uc.FetchWidgetData(f.ctx, "media")
 	require.NoError(t, err)
 	assert.Equal(t, dto.HomeStatusError, resp.Status)
@@ -463,11 +454,11 @@ func TestFetchWidgetData_TemplateWithoutRenderer(t *testing.T) {
 
 func TestFetchWidgetData_TemplateFailureNotRetriedUntilWidgetChanges(t *testing.T) {
 	f := newHomeWidgetFixture(t)
-	renderer := &fakeHomeRenderer{err: errors.New("template execution timed out")}
-	f.uc.templates = renderer
+	renderer := f.withRenderer(t)
 	w := f.layout.Groups[0].Services[0].Widget
 	w.Template = "T"
 	f.http.EXPECT().Do(mock.Anything, mock.Anything).Return(okJSON(`{}`), nil).Once()
+	renderer.EXPECT().Render("T", mock.Anything).Return("", errors.New("template execution timed out")).Once()
 
 	first, err := f.uc.FetchWidgetData(f.ctx, "media")
 	require.NoError(t, err)
@@ -477,33 +468,30 @@ func TestFetchWidgetData_TemplateFailureNotRetriedUntilWidgetChanges(t *testing.
 	again, err := f.uc.FetchWidgetData(f.ctx, "media")
 	require.NoError(t, err)
 	assert.Equal(t, first.Error, again.Error)
-	assert.Equal(t, 1, renderer.calls)
 
 	w.Template = "T2"
-	renderer.err = nil
 	f.http.EXPECT().Do(mock.Anything, mock.Anything).Return(okJSON(`{}`), nil).Once()
+	renderer.EXPECT().Render("T2", mock.Anything).RunAndReturn(renderOK).Once()
 	fixed, err := f.uc.FetchWidgetData(f.ctx, "media")
 	require.NoError(t, err)
 	assert.Equal(t, dto.HomeStatusOK, fixed.Status)
 	assert.Equal(t, "<p>T2</p>", fixed.HTML)
-	assert.Equal(t, 2, renderer.calls)
 }
 
 func TestFetchWidgetData_TemplateFailureExpires(t *testing.T) {
 	f := newHomeWidgetFixture(t)
-	renderer := &fakeHomeRenderer{err: errors.New("boom")}
-	f.uc.templates = renderer
+	renderer := f.withRenderer(t)
 	f.layout.Groups[0].Services[0].Widget.Template = "T"
 	f.http.EXPECT().Do(mock.Anything, mock.Anything).Return(okJSON(`{}`), nil).Twice()
+	renderer.EXPECT().Render("T", mock.Anything).Return("", errors.New("boom")).Once()
 
 	_, err := f.uc.FetchWidgetData(f.ctx, "media")
 	require.NoError(t, err)
 	*f.now = f.now.Add(homeTemplateFailureMinTTL)
-	renderer.err = nil
+	renderer.EXPECT().Render("T", mock.Anything).RunAndReturn(renderOK).Once()
 	resp, err := f.uc.FetchWidgetData(f.ctx, "media")
 	require.NoError(t, err)
 	assert.Equal(t, dto.HomeStatusOK, resp.Status)
-	assert.Equal(t, 2, renderer.calls)
 }
 
 func TestFetchWidgetData_PanicReleasesWaiters(t *testing.T) {

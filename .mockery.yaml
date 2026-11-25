@@ -142,6 +142,11 @@ packages:
       HomePage: {}
       FileOpener: {}
       HomeHTTPClient: {}
+      HomeTemplateRenderer: {}
+      HomeIconVersioner: {}
+      HomeIconResolver: {}
+      SystemViewUserStyle: {}
+      SystemViewFileWatcher: {}
       HistoryChangeSink: {}
       HistoryMutationCoordinator: {}
       HistorySidebarHistory: {}

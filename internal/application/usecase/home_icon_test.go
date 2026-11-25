@@ -227,17 +227,19 @@ func TestHomeIconExpiredFailuresArePrunedOnInsert(t *testing.T) {
 	require.Contains(t, fx.uc.failures, "new")
 }
 
-type stubHomeConfig struct{ layout entity.HomeLayout }
-
-func (s stubHomeConfig) Load(context.Context) (appport.HomeConfigSnapshot, error) {
-	return appport.HomeConfigSnapshot{Layout: s.layout}, nil
+// withLayout makes the use case read services from a mocked home.toml.
+func (fx *homeIconFixture) withLayout(t *testing.T, services ...entity.HomeService) {
+	t.Helper()
+	cfg := portmocks.NewMockHomeConfigSource(t)
+	cfg.EXPECT().Load(mock.Anything).Return(appport.HomeConfigSnapshot{
+		Layout: entity.HomeLayout{Groups: []entity.HomeGroup{{Name: "g", Services: services}}},
+	}, nil).Maybe()
+	fx.uc.config = cfg
 }
-func (stubHomeConfig) Path() string                { return "" }
-func (stubHomeConfig) EnsureExists() (bool, error) { return false, nil }
 
 func newHomeIconByIDFixture(t *testing.T, services ...entity.HomeService) *homeIconFixture {
 	fx := newHomeIconFixture(t)
-	fx.uc.config = stubHomeConfig{layout: entity.HomeLayout{Groups: []entity.HomeGroup{{Name: "g", Services: services}}}}
+	fx.withLayout(t, services...)
 	fx.uc.configDir = "/cfg"
 	return fx
 }
@@ -336,7 +338,7 @@ func TestHomeIconByIDConfigEditBypassesFailureMemory(t *testing.T) {
 	resolve()
 	require.Equal(t, 1, calls, "unchanged config must hit the failure memory")
 	svcA.Name = "Jellyfin 2"
-	fx.uc.config = stubHomeConfig{layout: entity.HomeLayout{Groups: []entity.HomeGroup{{Name: "g", Services: []entity.HomeService{svcA}}}}}
+	fx.withLayout(t, svcA)
 	resolve()
 	require.Equal(t, 2, calls, "an edited service must retry immediately")
 }
@@ -372,12 +374,6 @@ func TestHomeIconVersionTracksURLIconAndOverrideMTime(t *testing.T) {
 	require.NotEmpty(t, fx.uc.HomeIconVersion(ctx, escaping), "escaping paths are never stat'ed but still versioned")
 }
 
-type stubIconVersioner struct{}
-
-func (stubIconVersioner) HomeIconVersion(_ context.Context, s entity.HomeService) string {
-	return "v-" + s.ID
-}
-
 func TestLoadHomeSetsIconVersions(t *testing.T) {
 	ctx := context.Background()
 	layout := entity.DefaultHomeLayout()
@@ -385,7 +381,11 @@ func TestLoadHomeSetsIconVersions(t *testing.T) {
 	source := portmocks.NewMockHomeConfigSource(t)
 	source.EXPECT().Load(ctx).Return(appport.HomeConfigSnapshot{Layout: layout}, nil)
 
-	resp, err := NewHomeUseCase(HomeDeps{Source: source, IconVersions: stubIconVersioner{}}).LoadHome(ctx)
+	versions := portmocks.NewMockHomeIconVersioner(t)
+	versions.EXPECT().HomeIconVersion(ctx, mock.Anything).
+		RunAndReturn(func(_ context.Context, s entity.HomeService) string { return "v-" + s.ID }).Twice()
+
+	resp, err := NewHomeUseCase(HomeDeps{Source: source, IconVersions: versions}).LoadHome(ctx)
 	require.NoError(t, err)
 	got := resp.Layout.Groups[0].Services
 	require.Equal(t, "v-a", got[0].IconVersion)
