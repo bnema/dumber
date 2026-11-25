@@ -172,6 +172,9 @@ type WebView struct {
 	// Signal handler IDs for disconnection
 	signalIDs  []uintptr
 	generation atomic.Uint64
+	// navigationSeq changes when a navigation starts or commits, so async
+	// bridge responses can tell the page they were asked for is gone.
+	navigationSeq atomic.Uint64
 
 	// Callbacks (set by UI layer)
 	OnLoadChanged              func(LoadEvent)
@@ -499,6 +502,9 @@ func (wv *WebView) handleLoadChanged(event LoadEvent, uri, title string, progres
 	wv.progress = progress
 
 	notifyEditableBlur := false
+	if event == LoadStarted || event == LoadCommitted {
+		wv.navigationSeq.Add(1)
+	}
 	switch event {
 	case LoadStarted:
 		wv.navigationActive.Store(true)
@@ -1626,6 +1632,12 @@ func (wv *WebView) FaviconGdk() *gdk.Texture {
 // Used by callback holders to detect stale closures after pool reuse.
 func (wv *WebView) Generation() uint64 {
 	return wv.generation.Load()
+}
+
+// NavigationSeq returns a counter that changes on every navigation start and
+// commit.
+func (wv *WebView) NavigationSeq() uint64 {
+	return wv.navigationSeq.Load()
 }
 
 // IsLoading returns true if a page is currently loading.

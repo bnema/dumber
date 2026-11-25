@@ -50,6 +50,9 @@ type MessageRouter struct {
 	// Seams for asynchronous dispatch; tests replace them.
 	goAsync func(func())
 	onMain  func(func())
+	// stampFor identifies the page a request came from; async responses are
+	// delivered only if the stamp is unchanged and still trusted.
+	stampFor func(WebViewID) (deliveryStamp, bool)
 	respond func(ctx context.Context, webviewID WebViewID, callback, world string, payload any) error
 }
 
@@ -65,6 +68,7 @@ func NewMessageRouter(ctx context.Context) *MessageRouter {
 		syncedIDs: make(map[WebViewID]bool),
 		goAsync:   func(f func()) { go f() },
 		onMain:    runOnGTKMain,
+		stampFor:  webViewDeliveryStamp,
 	}
 	r.respond = r.dispatchResponse
 	return r

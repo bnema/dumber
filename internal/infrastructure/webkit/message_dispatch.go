@@ -34,12 +34,40 @@ func (r *MessageRouter) runHandler(baseCtx context.Context, entry handlerEntry, 
 		r.deliver(baseCtx, entry, msg.Type, webviewID, requestID, resp, err)
 		return
 	}
+	stamp, ok := r.stampFor(webviewID)
+	if !ok {
+		return
+	}
 	r.goAsync(func() {
 		resp, err := safeHandle(baseCtx, entry, webviewID, msg.Payload)
 		r.onMain(func() {
+			if now, ok := r.stampFor(webviewID); !ok || now != stamp {
+				logging.FromContext(baseCtx).Debug().
+					Str("type", msg.Type).
+					Uint64("webview_id", uint64(webviewID)).
+					Msg("dropping bridge response: the requesting page is gone")
+				return
+			}
 			r.deliver(baseCtx, entry, msg.Type, webviewID, requestID, resp, err)
 		})
 	})
+}
+
+// deliveryStamp identifies one page load in one WebView.
+type deliveryStamp struct {
+	view       any
+	generation uint64
+	navigation uint64
+}
+
+// webViewDeliveryStamp returns the stamp of a WebView that shows a trusted
+// system view. It runs on the GTK main thread.
+func webViewDeliveryStamp(id WebViewID) (deliveryStamp, bool) {
+	wv := LookupWebView(id)
+	if wv == nil || wv.destroyed.Load() || !isTrustedBridgeWebView(wv) {
+		return deliveryStamp{}, false
+	}
+	return deliveryStamp{view: wv, generation: wv.Generation(), navigation: wv.NavigationSeq()}, true
 }
 
 func safeHandle(ctx context.Context, entry handlerEntry, webviewID WebViewID, payload json.RawMessage) (resp any, err error) {

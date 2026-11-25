@@ -28,6 +28,7 @@ func newTestDispatchRouter(t *testing.T) (*MessageRouter, chan func(), *[]record
 	r := NewMessageRouter(context.Background())
 	mainQueue := make(chan func(), 16)
 	r.onMain = func(f func()) { mainQueue <- f }
+	r.stampFor = func(WebViewID) (deliveryStamp, bool) { return deliveryStamp{view: "page"}, true }
 	var mu sync.Mutex
 	var got []recordedResponse
 	r.respond = func(_ context.Context, id WebViewID, callback, _ string, payload any) error {
@@ -153,4 +154,54 @@ func TestRunHandlerSyncTypesStayInline(t *testing.T) {
 	mu.Lock()
 	defer mu.Unlock()
 	assert.Len(t, *got, len(webutil.InlineBridgeMessageTypes()))
+}
+
+func TestRunHandlerDropsResponseWhenThePageChanged(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		after deliveryStamp
+		ok    bool
+	}{
+		{"navigated to another page", deliveryStamp{view: "wv", generation: 1, navigation: 2}, true},
+		{"pool reuse", deliveryStamp{view: "wv", generation: 2, navigation: 1}, true},
+		{"same id, different view", deliveryStamp{view: "other", generation: 1, navigation: 1}, true},
+		{"no longer a trusted system view", deliveryStamp{}, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			r, mainQueue, got, mu := newTestDispatchRouter(t)
+			current, ok := deliveryStamp{view: "wv", generation: 1, navigation: 1}, true
+			var stampMu sync.Mutex
+			r.stampFor = func(WebViewID) (deliveryStamp, bool) {
+				stampMu.Lock()
+				defer stampMu.Unlock()
+				return current, ok
+			}
+			release := make(chan struct{})
+			entry := handlerEntry{callback: "__ok", errorCallback: "__err", handler: port.WebUIMessageHandlerFunc(
+				func(context.Context, port.WebViewID, json.RawMessage) (any, error) {
+					<-release
+					return "secret", nil
+				})}
+			r.runHandler(context.Background(), entry, Message{Type: "home_widget_data", WebViewID: 3, Payload: json.RawMessage(`{"requestId":"r"}`)})
+
+			stampMu.Lock()
+			current, ok = tc.after, tc.ok
+			stampMu.Unlock()
+			close(release)
+			(<-mainQueue)()
+
+			mu.Lock()
+			defer mu.Unlock()
+			assert.Empty(t, *got, "no callback may run for a page that changed")
+		})
+	}
+}
+
+func TestRunHandlerIgnoresRequestsFromUntrustedPages(t *testing.T) {
+	r := NewMessageRouter(context.Background())
+	r.stampFor = func(WebViewID) (deliveryStamp, bool) { return deliveryStamp{}, false }
+	r.goAsync = func(func()) { t.Fatal("handler must not run") }
+	entry := handlerEntry{callback: "__ok", handler: port.WebUIMessageHandlerFunc(
+		func(context.Context, port.WebViewID, json.RawMessage) (any, error) { return nil, nil })}
+	r.runHandler(context.Background(), entry, Message{Type: "home_widget_data", WebViewID: 3})
 }
