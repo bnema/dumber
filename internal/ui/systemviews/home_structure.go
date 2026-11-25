@@ -246,7 +246,6 @@ func homeInserts(next homeShape, oldGroups, kept map[string]bool) []homeStructur
 	return inserts
 }
 
-
 // homeShapeIDs returns the service ids of shape in page order. Service ids
 // are valid and unique: the layout validation refuses anything else.
 func homeShapeIDs(shape homeShape) []string {

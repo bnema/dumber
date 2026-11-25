@@ -799,9 +799,13 @@ func TestHomeRemountRestoresSlotsFormsAndEmbeds(t *testing.T) {
 	mounts := dom.mountCount()
 
 	checks := map[string]func(t *testing.T){
-		"form":  func(t *testing.T) { assert.Contains(t, dom.regionHTML(homeServiceActionsRegion("box")), `name="input.n"`) },
-		"slot":  func(t *testing.T) { assert.Contains(t, dom.regionHTML(homeServiceRegion("nas")), `80%`) },
-		"embed": func(t *testing.T) { assert.Contains(t, dom.regionHTML(homeServiceEmbedRegion("cam")), `src="https://cam.lan/live"`) },
+		"form": func(t *testing.T) {
+			assert.Contains(t, dom.regionHTML(homeServiceActionsRegion("box")), `name="input.n"`)
+		},
+		"slot": func(t *testing.T) { assert.Contains(t, dom.regionHTML(homeServiceRegion("nas")), `80%`) },
+		"embed": func(t *testing.T) {
+			assert.Contains(t, dom.regionHTML(homeServiceEmbedRegion("cam")), `src="https://cam.lan/live"`)
+		},
 	}
 	for name, check := range checks {
 		t.Run("before/"+name, check)

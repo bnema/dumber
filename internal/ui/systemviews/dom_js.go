@@ -29,7 +29,10 @@ type browserDOM struct {
 	homeSuggestTimer        *time.Timer
 	// homeSelected is the selected search row (matches, then
 	// suggestions), or -1 for the default selection.
-	homeSelected  int
+	homeSelected int
+	// homeQuery is the last typed Home search query, restored after a
+	// remount.
+	homeQuery     string
 	actionHandler DOMActionHandler
 	// restoreFocusIndex keeps keyboard focus at the same row position after
 	// an undoable delete re-renders the list (-1 when unused).

@@ -264,10 +264,22 @@ func (a *App) handleHomeSuggest(ctx context.Context, query string) error {
 	if a.closed || seq != a.homeSuggestSeq {
 		return nil
 	}
-	return updater.UpdateRegions(RegionUpdate{Regions: []DOMRegion{{
+	if err := updater.UpdateRegions(RegionUpdate{Regions: []DOMRegion{{
 		Name: homeRegionSuggestions,
 		HTML: mustRenderComponent(HomeSuggestions(rows)),
-	}}})
+	}}}); err != nil {
+		return err
+	}
+	a.reapplyHomeSearchLocked()
+	return nil
+}
+
+// reapplyHomeSearchLocked asks the page to re-apply the typed query after
+// rows were added, removed or re-rendered. Caller holds App.mu.
+func (a *App) reapplyHomeSearchLocked() {
+	if search, ok := a.deps.DOM.(DOMHomeSearch); ok {
+		search.ReapplyHomeSearch()
+	}
 }
 
 // refreshHomeClockLocked re-renders the clock widgets whose text changed.
@@ -357,10 +369,13 @@ func (a *App) editHomeLocked(editor DOMStructureEditor, updater DOMRegionUpdater
 	regions = append(regions, a.changedHomeActionRegionsLocked(base.actionKeys, plan)...)
 	regions = append(regions, a.changedHomeWidgetSlotsLocked(base.widgetKeys, plan)...)
 	regions = append(regions, a.freshBusyActionRegionsLocked(plan)...)
-	if len(regions) == 0 {
-		return nil
+	if len(regions) > 0 {
+		if err := updater.UpdateRegions(RegionUpdate{Regions: regions}); err != nil {
+			return err
+		}
 	}
-	return updater.UpdateRegions(RegionUpdate{Regions: regions})
+	a.reapplyHomeSearchLocked()
+	return nil
 }
 
 // freshBusyActionRegionsLocked renders a running action as busy in its new
@@ -405,7 +420,11 @@ func (a *App) remountHomeLocked() error {
 	if err := a.mountRenderedHTML(); err != nil {
 		return err
 	}
-	return a.restoreHomeServiceSlotsLocked()
+	if err := a.restoreHomeServiceSlotsLocked(); err != nil {
+		return err
+	}
+	a.reapplyHomeSearchLocked()
+	return nil
 }
 
 // applyHomeStructureLocked removes, then inserts, the groups and service
@@ -588,7 +607,11 @@ func (a *App) applyHomeRegionsLocked(next []DOMRegion) error {
 	if updater, ok := a.deps.DOM.(DOMRegionUpdater); ok && sameShape {
 		// Widget, action and embed regions are never in changed: they
 		// survive swaps untouched and need no restore.
-		return updater.UpdateRegions(RegionUpdate{Regions: changed})
+		if err := updater.UpdateRegions(RegionUpdate{Regions: changed}); err != nil {
+			return err
+		}
+		a.reapplyHomeSearchLocked()
+		return nil
 	}
 	return a.remountHomeLocked()
 }

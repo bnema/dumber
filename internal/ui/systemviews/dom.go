@@ -70,6 +70,13 @@ type DOMRegionUpdater interface {
 	UpdateRegions(update RegionUpdate) error
 }
 
+// DOMHomeSearch is implemented by DOM adapters that run the Home search in
+// the page. ReapplyHomeSearch re-applies the typed query (filter, selection,
+// engine chip and hint) after the page markup changed under it.
+type DOMHomeSearch interface {
+	ReapplyHomeSearch()
+}
+
 // ToastRequest describes a transient notification, with at most one action.
 // The DOM dispatches OnAction when the user takes the action, and OnDismiss
 // when the toast times out, is replaced by a newer toast, or the page is

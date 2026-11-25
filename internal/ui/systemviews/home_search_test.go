@@ -195,3 +195,45 @@ func TestHomePageKey(t *testing.T) {
 	assert.Equal(t, homeKeyNone, homePageKey("/", true), "typing a slash in a field")
 	assert.Equal(t, homeKeyNone, homePageKey("a", false))
 }
+
+func TestHomeReloadReappliesTypedQuery(t *testing.T) {
+	t.Parallel()
+	home := newHomeStore(t, &homeStore{load: dto.HomeLoadResponse{Layout: homeServiceLayoutWithSearch()}})
+	dom := newSearchTreeDOM("jelly")
+	app := mountHomeApp(t, dom.treeDOM, Dependencies{Home: home.service})
+	app.deps.DOM = dom
+	dom.ReapplyHomeSearch()
+
+	exists, hidden, selected := dom.shellState("jelly")
+	require.True(t, exists)
+	assert.False(t, hidden)
+	assert.True(t, selected)
+	_, hidden, _ = dom.shellState("nas")
+	assert.True(t, hidden, "non-matching rows hide")
+
+	// A new matching service appears filtered in, without a remount.
+	before := dom.reapply
+	mounts := dom.mountCount()
+	home.load.Layout.Groups[1].Services = append(home.load.Layout.Groups[1].Services, entity.HomeService{ID: "seerr", Name: "Jellyseerr", URL: "https://seerr.lan"})
+	reloadHome(t, app)
+	assert.Equal(t, mounts, dom.mountCount(), "no remount")
+	assert.Greater(t, dom.reapply, before, "the reload re-applies the query")
+	exists, hidden, _ = dom.shellState("seerr")
+	require.True(t, exists)
+	assert.False(t, hidden, "new matching service is filtered in")
+
+	// Select the last match, then remove it: the selection stays valid.
+	dom.mu.Lock()
+	dom.selected = 1
+	dom.mu.Unlock()
+	dom.ReapplyHomeSearch()
+	_, _, selected = dom.shellState("seerr")
+	require.True(t, selected)
+	home.load.Layout.Groups[1].Services = home.load.Layout.Groups[1].Services[:1]
+	reloadHome(t, app)
+	exists, _, _ = dom.shellState("seerr")
+	assert.False(t, exists)
+	_, hidden, selected = dom.shellState("jelly")
+	assert.False(t, hidden)
+	assert.True(t, selected, "the selection is clamped to the rows left")
+}

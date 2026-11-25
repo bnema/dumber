@@ -74,6 +74,7 @@ func (d *browserDOM) bindHomeImageAndInputEvents(handler DOMActionHandler) {
 		// Filtering runs now, on every keystroke; only history
 		// suggestions go through the debounced action queue.
 		d.homeSelected = -1
+		d.homeQuery = target.Get("value").String()
 		d.applyHomeSearch(target)
 		d.scheduleHomeSuggest(target.Get("value").String(), handler)
 		return nil
@@ -154,6 +155,7 @@ func (d *browserDOM) handleHomeSearchKey(event, input js.Value, key string) {
 	case homeKeyClear:
 		event.Call("preventDefault")
 		input.Set("value", "")
+		d.homeQuery = ""
 		d.homeSelected = -1
 		d.applyHomeSearch(input)
 		if d.actionHandler != nil {
@@ -481,4 +483,21 @@ func setBoolAttribute(el js.Value, name string, on bool) {
 	} else {
 		el.Call("removeAttribute", name)
 	}
+}
+
+// ReapplyHomeSearch re-applies the typed query after the page changed: new
+// rows are filtered, the selection is clamped to the rows left. After a
+// remount the input is new, so the last query is typed back into it.
+func (d *browserDOM) ReapplyHomeSearch() {
+	if d == nil || !d.target.Truthy() {
+		return
+	}
+	input := d.target.Call("querySelector", homeSearchSelector)
+	if !input.Truthy() {
+		return
+	}
+	if input.Get("value").String() == "" && d.homeQuery != "" {
+		input.Set("value", d.homeQuery)
+	}
+	d.applyHomeSearch(input)
 }
