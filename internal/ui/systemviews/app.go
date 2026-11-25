@@ -75,7 +75,7 @@ type App struct {
 	homeSuggestSeq uint64
 	homeFillWG     sync.WaitGroup
 	// homeRefreshWG tracks the service widget refresh loops, which run until
-	// their context is cancelled. Close waits for them.
+	// their context is canceled. Close waits for them.
 	homeRefreshWG sync.WaitGroup
 	homeSvc       homeServiceWidgets
 	// now is the clock source of the home clock widget (tests override it).
