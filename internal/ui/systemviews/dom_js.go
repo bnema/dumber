@@ -26,6 +26,7 @@ type browserDOM struct {
 	activeConfirmCleanup    func()
 	activeConfirmID         uint64
 	liveSearchTimer         *time.Timer
+	homeSuggestTimer        *time.Timer
 	actionHandler           DOMActionHandler
 	// restoreFocusIndex keeps keyboard focus at the same row position after
 	// an undoable delete re-renders the list (-1 when unused).
@@ -37,9 +38,10 @@ type browserDOM struct {
 }
 
 type jsEventBinding struct {
-	target js.Value
-	event  string
-	fn     js.Func
+	target  js.Value
+	event   string
+	fn      js.Func
+	capture bool
 }
 
 func NewDOM() DOM {
@@ -768,6 +770,7 @@ func (d *browserDOM) BindActions(handler DOMActionHandler) error {
 	d.addEventBinding(d.target, "input", d.newLiveSearchInputHandler(handler))
 	d.addEventBinding(js.Global(), "pagehide", d.newPagehideHandler(handler))
 	d.addEventBinding(d.document, "keydown", d.newKeydownHandler())
+	d.bindHomeEvents(handler)
 	return nil
 }
 
@@ -1018,9 +1021,10 @@ func (d *browserDOM) Release() {
 	d.disconnectHistoryObserver()
 	d.cleanupActiveConfirmDialog()
 	d.stopLiveSearch()
+	d.stopHomeSuggest()
 	for _, binding := range d.bindings {
 		if binding.target.Truthy() {
-			binding.target.Call("removeEventListener", binding.event, binding.fn)
+			binding.target.Call("removeEventListener", binding.event, binding.fn, binding.capture)
 		}
 		binding.fn.Release()
 	}
@@ -1392,6 +1396,10 @@ func (d *browserDOM) handleKeyboard(event js.Value) {
 	}
 	if d.isFavoritesRoute() {
 		d.handleFavoritesKeyboard(event)
+		return
+	}
+	if d.isHomeRoute() {
+		d.handleHomeKeyboard(event)
 	}
 }
 

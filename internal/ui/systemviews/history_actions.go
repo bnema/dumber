@@ -76,6 +76,8 @@ func (a *App) HandleDOMAction(ctx context.Context, event DOMAction) error {
 		return a.applyFavoritesActionLocked(ctx, event)
 	case RouteConfig:
 		return a.applyConfigActionLocked(ctx, event)
+	case RouteHome:
+		return a.applyHomeActionLocked(ctx, event)
 	default:
 		return nil
 	}

@@ -1,6 +1,174 @@
 package systemviews
 
-// HomePage renders the dumb://home view.
-templ HomePage() {
-	<section class="sv-home" data-sv-region="home"></section>
+import (
+	"bnema.dev/dumber/internal/application/dto"
+	"bnema.dev/dumber/internal/domain/entity"
+)
+
+// HomePage renders the dumb://home view from its pre-rendered regions.
+templ HomePage(regions []DOMRegion) {
+	<div class="sv-home" data-sv-region="home">
+		for _, region := range regions {
+			<div class="sv-home-region" data-sv-region={ region.Name }>
+				@templ.Raw(region.HTML)
+			</div>
+		}
+	</div>
+}
+
+templ HomeErrors(load dto.HomeLoadResponse) {
+	if homeHasErrors(load) {
+		<div class="sv-home-errors" role="alert">
+			<p class="sv-home-errors-title">home.toml has errors; showing the last valid layout.</p>
+			if load.ParseError != nil {
+				<p class="sv-home-error"><code class="sv-home-error-path">{ homeParseErrorLocation(load.ParseError) }</code> { load.ParseError.Message }</p>
+			}
+			if len(load.ValidationErrors) > 0 {
+				<ul class="sv-home-error-list">
+					for _, verr := range load.ValidationErrors {
+						<li class="sv-home-error"><code class="sv-home-error-path">{ verr.Path }</code>: { verr.Message }</li>
+					}
+				</ul>
+			}
+		</div>
+	}
+}
+
+templ HomeHeader(load dto.HomeLoadResponse) {
+	<header class="sv-home-header">
+		<h2 class="sv-home-title">{ homeTitle(load) }</h2>
+		<button type="button" class="sv-button sv-button-secondary sv-home-open-config" data-sv-action="home.openConfig" title={ load.ConfigPath }>Open home.toml</button>
+		<button type="button" class="sv-palette-trigger" data-sv-action="palette.open" aria-keyshortcuts="Control+K">
+			<span>Actions</span>
+			<kbd>Ctrl</kbd><kbd>K</kbd>
+		</button>
+	</header>
+}
+
+templ HomeWidget(widget homeWidgetData) {
+	<div class={ "sv-home-widget", "sv-home-widget-" + string(widget.Widget.Type) }>
+		switch widget.Widget.Type {
+			case entity.HomeWidgetSearch:
+				@homeSearchWidget()
+			case entity.HomeWidgetClock:
+				<div class="sv-home-clock">
+					<time class="sv-home-clock-time">{ widget.Time }</time>
+					<span class="sv-home-clock-date">{ widget.Date }</span>
+				</div>
+			default:
+				<h3 class="sv-home-section-title">{ homeWidgetTitle(widget.Widget) }</h3>
+				if widget.Error != "" {
+					<p class="sv-home-muted">{ widget.Error }</p>
+				} else if len(widget.Rows) == 0 {
+					<p class="sv-home-muted">Nothing here yet.</p>
+				} else {
+					<ul class="sv-home-rows">
+						for _, row := range widget.Rows {
+							<li>@homeRowLink(row, false)</li>
+						}
+					</ul>
+				}
+		}
+	</div>
+}
+
+templ homeSearchWidget() {
+	<form class="sv-home-search" data-sv-action="home.search" role="search" autocomplete="off">
+		<input class="sv-input sv-home-search-input" type="search" name="query" placeholder="Search or enter address" aria-label="Search or enter address" data-sv-home-search data-sv-autofocus/>
+		<div class="sv-home-suggestions" role="listbox" data-sv-region={ homeRegionSuggestions }></div>
+	</form>
+}
+
+templ HomeSuggestions(rows []homeRow) {
+	for _, row := range rows {
+		@homeRowLink(row, true)
+	}
+}
+
+templ homeRowLink(row homeRow, suggestion bool) {
+	{{ favicon := homeFaviconURL(row.URL) }}
+	<a
+		class="sv-home-row"
+		href={ templ.SafeURL(sanitizeHref(row.URL)) }
+		title={ row.URL }
+		data-sv-home-nav
+		if suggestion {
+			data-sv-home-suggestion
+			role="option"
+		}
+	>
+		<span class={ historyFaviconClass(favicon) } aria-hidden="true">
+			<span class="sv-history-favicon-fallback">{ homeInitial(homeRowLabel(row)) }</span>
+			if favicon != "" {
+				<img src={ templ.SafeURL(favicon) } alt="" width="16" height="16" loading="lazy" decoding="async" referrerpolicy="same-origin" data-sv-img-fallback={ "sv-history-favicon-has-image" }/>
+			}
+		</span>
+		<span class="sv-home-row-title">{ homeRowLabel(row) }</span>
+		<span class="sv-home-row-url">{ stripURLScheme(row.URL) }</span>
+	</a>
+}
+
+templ HomeBookmarks(groups []entity.HomeBookmarkGroup) {
+	if len(groups) > 0 {
+		<div class="sv-home-bookmarks">
+			for _, group := range groups {
+				<section class="sv-home-bookmark-group">
+					<h3 class="sv-home-section-title">{ group.Group }</h3>
+					<ul class="sv-home-rows">
+						for _, link := range group.Links {
+							<li>@homeRowLink(homeRow{URL: link.URL, Title: link.Name}, false)</li>
+						}
+					</ul>
+				</section>
+			}
+		</div>
+	}
+}
+
+templ HomeGroups(load dto.HomeLoadResponse) {
+	if len(load.Layout.Groups) > 0 {
+		<div class="sv-home-groups" style={ homeGridStyle(load) }>
+			for _, group := range load.Layout.Groups {
+				<section class="sv-home-group">
+					<h3 class="sv-home-section-title">{ group.Name }</h3>
+					<div class="sv-home-grid">
+						for _, service := range group.Services {
+							@homeServiceTile(service)
+						}
+					</div>
+				</section>
+			}
+		</div>
+	}
+}
+
+templ homeServiceTile(service entity.HomeService) {
+	<div class="sv-home-service" data-sv-home-service={ service.ID }>
+		if service.URL != "" {
+			<a class="sv-home-service-link" href={ templ.SafeURL(sanitizeHref(service.URL)) } title={ service.URL } data-sv-home-nav>
+				@homeServiceHead(service)
+			</a>
+		} else {
+			<div class="sv-home-service-link" tabindex="0" data-sv-home-nav>
+				@homeServiceHead(service)
+			</div>
+		}
+		<div class="sv-home-service-widget"></div>
+	</div>
+}
+
+templ homeServiceHead(service entity.HomeService) {
+	{{ icon := homeServiceIconURL(service) }}
+	<span class={ "sv-home-service-icon", templ.KV("sv-home-service-icon-has-image", icon != "") } aria-hidden="true">
+		<span class="sv-home-service-glyph">{ homeInitial(service.Name) }</span>
+		if icon != "" {
+			<img src={ templ.SafeURL(icon) } alt="" width="32" height="32" loading="lazy" decoding="async" referrerpolicy="same-origin" data-sv-img-fallback={ "sv-home-service-icon-has-image" }/>
+		}
+	</span>
+	<span class="sv-home-service-text">
+		<span class="sv-home-service-name">{ service.Name }</span>
+		if service.Description != "" {
+			<span class="sv-home-service-description">{ service.Description }</span>
+		}
+	</span>
 }

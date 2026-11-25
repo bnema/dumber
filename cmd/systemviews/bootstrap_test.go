@@ -54,8 +54,8 @@ func TestNewBridgeApp_UsesCurrentConfigForNonConfigRoutes(t *testing.T) {
 	require.Eventually(t, bridge.calledHistory.Load, time.Second, 10*time.Millisecond)
 	assert.True(t, bridge.calledConfig.Load())
 	assert.False(t, bridge.calledKeybindings.Load())
-	html := receiveMountContaining(t, dom.mounts, `class="sv-app sv-style-command sv-dark"`, `--sv-background: #111111;`)
-	assert.Contains(t, html, `class="sv-app sv-style-command sv-dark"`)
+	html := receiveMountContaining(t, dom.mounts, `class="sv-app sv-style-command sv-dark sv-route-history"`, `--sv-background: #111111;`)
+	assert.Contains(t, html, `class="sv-app sv-style-command sv-dark sv-route-history"`)
 	assert.Contains(t, html, `--sv-background: #111111;`)
 }
 
@@ -89,6 +89,17 @@ func TestNewBridgeApp_WiresConfigService(t *testing.T) {
 	assert.False(t, bridge.calledFavorites.Load())
 	assert.True(t, bridge.calledConfig.Load())
 	assert.True(t, bridge.calledKeybindings.Load())
+}
+
+func TestNewBridgeApp_WiresHomeService(t *testing.T) {
+	t.Parallel()
+
+	bridge := &bridgeServiceRecorder{}
+	app := newBridgeApp(&recordingDOM{}, "dumb://home", bridge)
+
+	require.NoError(t, app.LoadInitial(context.Background()))
+	assert.True(t, bridge.calledHome.Load())
+	assert.False(t, bridge.calledKeybindings.Load())
 }
 
 type recordingDOM struct {
@@ -137,6 +148,7 @@ type bridgeServiceRecorder struct {
 	calledFavorites   atomic.Bool
 	calledConfig      atomic.Bool
 	calledKeybindings atomic.Bool
+	calledHome        atomic.Bool
 
 	historyEntries []*entity.HistoryEntry
 	favorites      []*entity.Favorite
@@ -240,3 +252,16 @@ func (*bridgeServiceRecorder) ResetKeybinding(context.Context, port.ResetKeybind
 }
 
 func (*bridgeServiceRecorder) ResetAllKeybindings(context.Context) error { return nil }
+
+func (b *bridgeServiceRecorder) HomeLoad(context.Context) (dto.HomeLoadResponse, error) {
+	b.calledHome.Store(true)
+	return dto.HomeLoadResponse{Layout: entity.DefaultHomeLayout()}, nil
+}
+
+func (*bridgeServiceRecorder) HomeSites(context.Context, dto.HomeSitesRequest) (dto.HomeSitesResponse, error) {
+	return dto.HomeSitesResponse{}, nil
+}
+
+func (*bridgeServiceRecorder) HomeOpenConfig(context.Context) (dto.HomeOpenConfigResponse, error) {
+	return dto.HomeOpenConfigResponse{}, nil
+}

@@ -18,6 +18,7 @@ type Dependencies struct {
 	Favorites   port.SystemviewFavoritesService
 	History     port.SystemviewHistoryService
 	Config      port.SystemviewConfigService
+	Home        HomeService
 	LocationURI string
 }
 
@@ -65,15 +66,21 @@ type App struct {
 	keybindings            port.KeybindingsConfig
 	configNotice           string
 	configError            string
-	renderedHTML           string
-	renderGeneration       uint64
-	closed                 bool
-	actionQueue            chan DOMAction
-	actionErrorQueue       chan error
-	actionCtx              context.Context
-	actionCancel           context.CancelFunc
-	actionClosed           bool
-	actionWG               sync.WaitGroup
+	// homeData and homeRendered are the last home render; reloads swap
+	// only the regions whose markup changed.
+	homeData     homeRenderData
+	homeRendered []DOMRegion
+	// now is the clock source of the home clock widget (tests override it).
+	now              func() time.Time
+	renderedHTML     string
+	renderGeneration uint64
+	closed           bool
+	actionQueue      chan DOMAction
+	actionErrorQueue chan error
+	actionCtx        context.Context
+	actionCancel     context.CancelFunc
+	actionClosed     bool
+	actionWG         sync.WaitGroup
 	// liveSearchQuery/liveSearchQueued coalesce typing (actionMu).
 	liveSearchQuery  string
 	liveSearchQueued bool
@@ -147,6 +154,9 @@ func (a *App) RunWithContext(ctx context.Context) error {
 	}
 	if asyncInitial {
 		a.refreshCurrentRouteAsync(ctx)
+	}
+	if a.currentRoute == RouteHome {
+		a.startHomeClock()
 	}
 	return nil
 }
@@ -506,8 +516,7 @@ func (a *App) LoadInitial(ctx context.Context) error {
 func (a *App) loadCurrentRoute(ctx context.Context) error {
 	switch a.currentRoute {
 	case RouteHome:
-		a.loadHomeRoute()
-		return nil
+		return a.loadHomeRoute(ctx)
 	case RouteHistory:
 		return a.loadHistoryRoute(ctx)
 	case RouteFavorites:
@@ -772,16 +781,6 @@ func (a *App) commitHistoryRouteResultLocked(result historyRouteResult) {
 	a.historyCursorID = result.cursorID
 	a.historyHasMore = result.hasMore
 	a.renderedHTML = result.html
-}
-
-func (a *App) loadHomeRoute() {
-	a.resetRouteState()
-	a.renderedHTML = renderAppFrame(renderedPage{
-		route:    RouteHome,
-		title:    routeDocumentTitle(RouteHome),
-		subtitle: routeSubtitle(RouteHome),
-		body:     mustRenderComponent(HomePage()),
-	}, a.shellTheme)
 }
 
 func (a *App) loadFavoritesRoute(ctx context.Context) error {
