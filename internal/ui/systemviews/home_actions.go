@@ -16,6 +16,8 @@ type HomeService interface {
 	HomeLoad(ctx context.Context) (dto.HomeLoadResponse, error)
 	HomeSites(ctx context.Context, req dto.HomeSitesRequest) (dto.HomeSitesResponse, error)
 	HomeOpenConfig(ctx context.Context) (dto.HomeOpenConfigResponse, error)
+	HomeWidgetData(ctx context.Context, serviceID string) (dto.HomeWidgetDataResponse, error)
+	HomeAction(ctx context.Context, req dto.HomeActionRequest) (dto.HomeActionResponse, error)
 }
 
 // DOMNavigator is implemented by DOM adapters that can open a URL in the

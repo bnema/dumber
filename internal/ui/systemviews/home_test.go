@@ -39,6 +39,14 @@ func (f *fakeHome) HomeOpenConfig(context.Context) (dto.HomeOpenConfigResponse, 
 	return dto.HomeOpenConfigResponse{Path: "/cfg/home.toml"}, nil
 }
 
+func (f *fakeHome) HomeWidgetData(_ context.Context, serviceID string) (dto.HomeWidgetDataResponse, error) {
+	return dto.HomeWidgetDataResponse{ServiceID: serviceID, Status: dto.HomeStatusOK}, nil
+}
+
+func (f *fakeHome) HomeAction(context.Context, dto.HomeActionRequest) (dto.HomeActionResponse, error) {
+	return dto.HomeActionResponse{Status: dto.HomeStatusOK}, nil
+}
+
 type navDOM struct {
 	regionDOM
 	navigated []string

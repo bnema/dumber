@@ -68,3 +68,45 @@ func TestClientHomeOpenConfigDecodesResponse(t *testing.T) {
 	typ, _ := sentMessage(t, native.last)
 	assert.Equal(t, "home_open_config", typ)
 }
+
+func TestClientHomeWidgetDataSendsRequest(t *testing.T) {
+	t.Parallel()
+	native := newTransportRecorder(t, true, []byte(`{"success":true,"data":{"service_id":"media","status":"error","fields":[{"label":"Movies","value":"12","raw":12}],"error":"HTTP 503","fetched_at":"2026-01-01T12:00:00Z","stale":true}}`))
+	resp, err := NewClient(native, nil).HomeWidgetData(context.Background(), "media")
+	require.NoError(t, err)
+	assert.Equal(t, dto.HomeStatusError, resp.Status)
+	assert.True(t, resp.Stale)
+	assert.Equal(t, "HTTP 503", resp.Error)
+	require.Len(t, resp.Fields, 1)
+	assert.Equal(t, "12", resp.Fields[0].Value)
+	typ, payload := sentMessage(t, native.last)
+	assert.Equal(t, "home_widget_data", typ)
+	assert.Equal(t, "media", payload["service_id"])
+	assert.NotEmpty(t, payload["requestId"])
+}
+
+func TestClientHomeActionSendsRequest(t *testing.T) {
+	t.Parallel()
+	native := newTransportRecorder(t, true, []byte(`{"success":true,"data":{"status":"ok","http_status":204,"message":"HTTP 204"}}`))
+	resp, err := NewClient(native, nil).HomeAction(context.Background(), dto.HomeActionRequest{
+		ServiceID: "media", ActionID: "restart", Inputs: map[string]string{"q": "x"},
+	})
+	require.NoError(t, err)
+	assert.Equal(t, dto.HomeActionResponse{Status: dto.HomeStatusOK, HTTPStatus: 204, Message: "HTTP 204"}, resp)
+	typ, payload := sentMessage(t, native.last)
+	assert.Equal(t, "home_action", typ)
+	assert.Equal(t, "media", payload["service_id"])
+	assert.Equal(t, "restart", payload["action_id"])
+	assert.Equal(t, map[string]any{"q": "x"}, payload["inputs"])
+}
+
+func TestClientHomeWidgetAndActionRejectMissingIDs(t *testing.T) {
+	t.Parallel()
+	native := newTransportRecorder(t, true, nil)
+	client := NewClient(native, nil)
+	_, err := client.HomeWidgetData(context.Background(), "")
+	require.Error(t, err)
+	_, err = client.HomeAction(context.Background(), dto.HomeActionRequest{ServiceID: "media"})
+	require.Error(t, err)
+	assert.False(t, native.called)
+}

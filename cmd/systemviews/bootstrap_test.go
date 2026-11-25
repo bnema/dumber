@@ -265,3 +265,11 @@ func (*bridgeServiceRecorder) HomeSites(context.Context, dto.HomeSitesRequest) (
 func (*bridgeServiceRecorder) HomeOpenConfig(context.Context) (dto.HomeOpenConfigResponse, error) {
 	return dto.HomeOpenConfigResponse{}, nil
 }
+
+func (*bridgeServiceRecorder) HomeWidgetData(context.Context, string) (dto.HomeWidgetDataResponse, error) {
+	return dto.HomeWidgetDataResponse{}, nil
+}
+
+func (*bridgeServiceRecorder) HomeAction(context.Context, dto.HomeActionRequest) (dto.HomeActionResponse, error) {
+	return dto.HomeActionResponse{}, nil
+}

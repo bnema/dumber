@@ -37,3 +37,25 @@ func (c *Client) HomeOpenConfig(ctx context.Context) (dto.HomeOpenConfigResponse
 		RequestID string `json:"requestId"`
 	}{RequestID: nextRequestID()})
 }
+
+// HomeWidgetData returns the data of the api widget of serviceID.
+func (c *Client) HomeWidgetData(ctx context.Context, serviceID string) (dto.HomeWidgetDataResponse, error) {
+	if serviceID == "" {
+		return dto.HomeWidgetDataResponse{}, fmt.Errorf("home widget data: missing service id")
+	}
+	return request[dto.HomeWidgetDataResponse](c, ctx, port.MsgHomeWidgetData, struct {
+		RequestID string `json:"requestId"`
+		dto.HomeWidgetDataRequest
+	}{RequestID: nextRequestID(), HomeWidgetDataRequest: dto.HomeWidgetDataRequest{ServiceID: serviceID}})
+}
+
+// HomeAction runs a declared action of a home service.
+func (c *Client) HomeAction(ctx context.Context, req dto.HomeActionRequest) (dto.HomeActionResponse, error) {
+	if req.ServiceID == "" || req.ActionID == "" {
+		return dto.HomeActionResponse{}, fmt.Errorf("home action: missing service id or action id")
+	}
+	return request[dto.HomeActionResponse](c, ctx, port.MsgHomeAction, struct {
+		RequestID string `json:"requestId"`
+		dto.HomeActionRequest
+	}{RequestID: nextRequestID(), HomeActionRequest: req})
+}
