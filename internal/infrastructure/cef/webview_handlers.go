@@ -751,6 +751,17 @@ func (h *handlerSet) OnBeforePopup(
 	if targetURL == "" {
 		return true
 	}
+	sourceIsMain, sourceURL := false, ""
+	if frame != nil {
+		sourceIsMain, sourceURL = frame.IsMain(), frame.GetURL()
+	}
+	if blockInternalPopup(sourceIsMain, sourceURL, targetURL) {
+		logging.FromContext(h.currentContext()).Warn().
+			Str("from", logging.TruncateURL(sourceURL, maxSchemeTruncatedURLLength)).
+			Str("target", logging.TruncateURL(targetURL, maxSchemeTruncatedURLLength)).
+			Msg("cef: blocked popup to a system view from a non-system page")
+		return true
+	}
 
 	h.wv.mu.RLock()
 	cb := h.wv.callbacks
@@ -1186,8 +1197,26 @@ func (h *handlerSet) OnBeforeClose(browser purecef.Browser) {
 // RequestHandler (11 methods)
 // ===========================================================================
 
-func (h *handlerSet) OnBeforeBrowse(browser purecef.Browser, frame purecef.Frame, request purecef.Request, _, _ int32) bool {
-	if frame == nil || !frame.IsMain() || request == nil {
+func (h *handlerSet) OnBeforeBrowse(browser purecef.Browser, frame purecef.Frame, request purecef.Request, _, isRedirect int32) bool {
+	if frame == nil {
+		return false
+	}
+	isMain := frame.IsMain()
+	if request == nil {
+		return false
+	}
+	if target := request.GetURL(); isInternalTargetURL(target) {
+		current := frame.GetURL()
+		if blockInternalNavigation(isMain, current, target, request.GetTransitionType(), isRedirect != 0) {
+			logging.FromContext(h.currentContext()).Warn().
+				Bool("main_frame", isMain).
+				Str("from", logging.TruncateURL(current, maxSchemeTruncatedURLLength)).
+				Str("target", logging.TruncateURL(target, maxSchemeTruncatedURLLength)).
+				Msg("cef: blocked page-initiated navigation to a system view")
+			return true
+		}
+	}
+	if !isMain {
 		return false
 	}
 	// Pre-commit invalidation for every main-frame navigation. The allow /

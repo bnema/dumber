@@ -218,6 +218,7 @@ func TestPreBrowseInvalidationKeepsDecision(t *testing.T) {
 	// never consulted; the request only needs to be non-nil to reach
 	// pre-commit invalidation.
 	request := cefmocks.NewMockRequest(t)
+	request.EXPECT().GetURL().Return("https://example.com/")
 	h := &handlerSet{wv: &WebView{ctx: context.Background(), scrollCancelSeam: fake}}
 
 	require.False(t, h.OnBeforeBrowse(nil, frame, request, 0, 0))

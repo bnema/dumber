@@ -191,6 +191,13 @@ func (h *dumbSchemeHandler) Create(
 		return h.handleAPI(browser, method, apiPath, request)
 	}
 
+	// Defense in depth behind OnBeforeBrowse: system view documents never
+	// load in a subframe.
+	if frame != nil && !frame.IsMain() && request.GetResourceType() == purecef.ResourceTypeRtSubFrame {
+		h.logger.Warn().Str("url", reqURL).Msg("refusing system view document in a subframe")
+		return h.newErrorResourceHandler(http.StatusForbidden, "Forbidden")
+	}
+
 	// Keep dumb:// as the app-level abstraction, but redirect CEF page/asset
 	// loads to a normal HTTPS origin so Chromium applies the standard web
 	// security model.

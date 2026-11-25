@@ -57,7 +57,7 @@ func TestRejectSubframeSystemviewAPI(t *testing.T) {
 		main.EXPECT().IsMain().Return(true).Once()
 		require.Nil(t, h.rejectSubframeSystemviewAPI(main, path), path)
 
-		require.Nil(t, h.rejectSubframeSystemviewAPI(nil, path), path)
+		requireForbidden(t, h.rejectSubframeSystemviewAPI(nil, path))
 	}
 
 	// Bridges used by external pages (nonce-gated) stay reachable from subframes.

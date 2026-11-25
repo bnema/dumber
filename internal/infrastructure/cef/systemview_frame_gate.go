@@ -18,10 +18,10 @@ var subframeDeniedAPIPaths = map[string]bool{
 
 // rejectSubframeSystemviewAPI denies private system-view API requests that come
 // from a subframe. It is defense in depth on top of the Origin/Referer check:
-// cross-origin iframes are already rejected there. A nil frame (request not
-// tied to a frame) falls through to that check.
+// cross-origin iframes are already rejected there. A request without a frame
+// is rejected too: system view pages always send these from their main frame.
 func (h *dumbSchemeHandler) rejectSubframeSystemviewAPI(frame purecef.Frame, apiPath string) purecef.ResourceHandler {
-	if frame == nil || !subframeDeniedAPIPaths[apiPath] || frame.IsMain() {
+	if !subframeDeniedAPIPaths[apiPath] || (frame != nil && frame.IsMain()) {
 		return nil
 	}
 	return h.newPrivateAPIJSONResourceHandler(http.StatusForbidden, map[string]string{"error": "forbidden"})
