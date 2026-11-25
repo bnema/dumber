@@ -290,8 +290,8 @@ func TestAssetP1_FaviconHandlerCarriesNoStore(t *testing.T) {
 	stubIdentityResourceHandler(t)
 
 	rh := newFaviconResourceHandler(t.Context(), nil, "example.com", 32)
-	fav, ok := rh.(*faviconResourceHandler)
-	require.True(t, ok, "expected *faviconResourceHandler, got %T", rh)
+	fav, ok := rh.(*asyncResourceHandler)
+	require.True(t, ok, "expected *asyncResourceHandler, got %T", rh)
 	require.Equal(t, "no-store", fav.headers["Cache-Control"])
 }
 

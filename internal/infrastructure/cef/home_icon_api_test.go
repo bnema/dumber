@@ -40,7 +40,7 @@ func trustedHomeIconRequest(t *testing.T, query string) *cefmocks.MockRequest {
 
 func TestHomeIconAPIServesPNGWithCacheControl(t *testing.T) {
 	h := homeIconTestHandler(t)
-	rh, ok := h.handleHomeIconAPI(trustedHomeIconRequest(t, "?service=jellyfin")).(*faviconResourceHandler)
+	rh, ok := h.handleHomeIconAPI(trustedHomeIconRequest(t, "?service=jellyfin")).(*asyncResourceHandler)
 	require.True(t, ok)
 	rh.load()
 	require.Equal(t, http.StatusOK, rh.statusCode)
@@ -51,7 +51,7 @@ func TestHomeIconAPIServesPNGWithCacheControl(t *testing.T) {
 
 func TestHomeIconAPIUnknownServiceIs404NoStore(t *testing.T) {
 	h := homeIconTestHandler(t)
-	rh, ok := h.handleHomeIconAPI(trustedHomeIconRequest(t, "?service=nope")).(*faviconResourceHandler)
+	rh, ok := h.handleHomeIconAPI(trustedHomeIconRequest(t, "?service=nope")).(*asyncResourceHandler)
 	require.True(t, ok)
 	rh.load()
 	require.Equal(t, http.StatusNotFound, rh.statusCode)
@@ -80,6 +80,6 @@ func TestHomeIconAPIIsRoutedForGET(t *testing.T) {
 	h := homeIconTestHandler(t)
 	got, handled := h.handleAPIGet("/api/home-icon", trustedHomeIconRequest(t, "?service=jellyfin"))
 	require.True(t, handled)
-	_, ok := got.(*faviconResourceHandler)
+	_, ok := got.(*asyncResourceHandler)
 	require.True(t, ok)
 }

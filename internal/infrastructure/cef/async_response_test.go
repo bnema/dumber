@@ -34,12 +34,12 @@ func TestHandleMessageAPIRunsSlowHandlerOffThread(t *testing.T) {
 	h, err := newDumbSchemeHandler(context.Background(), router, noopConfigPayload(), noopConfigPayload())
 	require.NoError(t, err)
 
-	returned := make(chan *faviconResourceHandler, 1)
+	returned := make(chan *asyncResourceHandler, 1)
 	go func() {
-		rh, _ := h.handleMessageAPI(trustedMessageRequest(t, `{"type":"home_widget_data","payload":{"requestId":"r1"}}`)).(*faviconResourceHandler)
+		rh, _ := h.handleMessageAPI(trustedMessageRequest(t, `{"type":"home_widget_data","payload":{"requestId":"r1"}}`)).(*asyncResourceHandler)
 		returned <- rh
 	}()
-	var rh *faviconResourceHandler
+	var rh *asyncResourceHandler
 	select {
 	case rh = <-returned:
 	case <-time.After(2 * time.Second):
@@ -70,7 +70,7 @@ func TestHandleMessageAPIInlineTypesStaySynchronous(t *testing.T) {
 	require.NoError(t, err)
 
 	got := h.handleMessageAPI(trustedMessageRequest(t, `{"type":"accent_key_press","payload":{}}`))
-	_, async := got.(*faviconResourceHandler)
+	_, async := got.(*asyncResourceHandler)
 	require.False(t, async)
 }
 
@@ -82,7 +82,7 @@ func TestHandleMessageAPIAsyncHandlerPanicIs500(t *testing.T) {
 	h, err := newDumbSchemeHandler(context.Background(), router, noopConfigPayload(), noopConfigPayload())
 	require.NoError(t, err)
 
-	rh := h.handleMessageAPI(trustedMessageRequest(t, `{"type":"boom"}`)).(*faviconResourceHandler)
+	rh := h.handleMessageAPI(trustedMessageRequest(t, `{"type":"boom"}`)).(*asyncResourceHandler)
 	rh.load()
 	require.Equal(t, http.StatusInternalServerError, rh.statusCode)
 	require.Contains(t, string(rh.data), "panicked")

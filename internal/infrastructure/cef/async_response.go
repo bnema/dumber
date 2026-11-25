@@ -23,7 +23,7 @@ type asyncResponse struct {
 // thread that serves every other request.
 func newAsyncResponseResourceHandler(ctx context.Context, produce func(context.Context) asyncResponse) purecef.ResourceHandler {
 	reqCtx, cancel := context.WithCancel(ctx) //nolint:gosec // canceled by load completion or CEF Cancel callback
-	return cefNewResourceHandler(&faviconResourceHandler{
+	return cefNewResourceHandler(&asyncResourceHandler{
 		ctx:     reqCtx,
 		cancel:  cancel,
 		produce: produce,

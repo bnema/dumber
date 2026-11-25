@@ -1117,7 +1117,7 @@ func newAsyncImageResourceHandler(
 	cacheControl string,
 ) purecef.ResourceHandler {
 	reqCtx, cancel := context.WithCancel(ctx) //nolint:gosec // canceled by load completion or CEF Cancel callback
-	return cefNewResourceHandler(&faviconResourceHandler{
+	return cefNewResourceHandler(&asyncResourceHandler{
 		ctx:      reqCtx,
 		cancel:   cancel,
 		resolve:  resolve,
@@ -1127,7 +1127,10 @@ func newAsyncImageResourceHandler(
 	})
 }
 
-type faviconResourceHandler struct {
+// asyncResourceHandler serves a response computed on a goroutine: Open
+// returns at once and resumes the request with callback.Cont when ready.
+// Favicons, home icons and /api/message use it.
+type asyncResourceHandler struct {
 	ctx         context.Context
 	cancel      context.CancelFunc
 	cancelOnce  sync.Once
@@ -1143,7 +1146,7 @@ type faviconResourceHandler struct {
 	offset      int
 }
 
-func (rh *faviconResourceHandler) load() {
+func (rh *asyncResourceHandler) load() {
 	defer close(rh.done)
 	defer rh.cancelRequest()
 	if rh.produce != nil {
@@ -1172,7 +1175,7 @@ func (rh *faviconResourceHandler) load() {
 	rh.data = data
 }
 
-func (rh *faviconResourceHandler) Open(_ purecef.Request, handleRequest *int32, callback purecef.Callback) int32 {
+func (rh *asyncResourceHandler) Open(_ purecef.Request, handleRequest *int32, callback purecef.Callback) int32 {
 	if handleRequest != nil {
 		*handleRequest = 0
 	}
@@ -1187,7 +1190,7 @@ func (rh *faviconResourceHandler) Open(_ purecef.Request, handleRequest *int32, 
 	return 1
 }
 
-func (rh *faviconResourceHandler) ProcessRequest(_ purecef.Request, callback purecef.Callback) int32 {
+func (rh *asyncResourceHandler) ProcessRequest(_ purecef.Request, callback purecef.Callback) int32 {
 	rh.once.Do(func() {
 		go func() {
 			rh.load()
@@ -1199,7 +1202,7 @@ func (rh *faviconResourceHandler) ProcessRequest(_ purecef.Request, callback pur
 	return 1
 }
 
-func (rh *faviconResourceHandler) GetResponseHeaders(response purecef.Response, responseLength *int64, _ uintptr) {
+func (rh *asyncResourceHandler) GetResponseHeaders(response purecef.Response, responseLength *int64, _ uintptr) {
 	<-rh.done
 	response.SetStatus(int32(rh.statusCode))
 	if text := http.StatusText(rh.statusCode); text != "" {
@@ -1218,11 +1221,11 @@ func (rh *faviconResourceHandler) GetResponseHeaders(response purecef.Response, 
 	}
 }
 
-func (rh *faviconResourceHandler) Skip(_ int64, _ *int64, _ purecef.ResourceSkipCallback) int32 {
+func (rh *asyncResourceHandler) Skip(_ int64, _ *int64, _ purecef.ResourceSkipCallback) int32 {
 	return 0
 }
 
-func (rh *faviconResourceHandler) Read(dataOut unsafe.Pointer, bytesToRead int32, bytesRead *int32, _ purecef.ResourceReadCallback) int32 {
+func (rh *asyncResourceHandler) Read(dataOut unsafe.Pointer, bytesToRead int32, bytesRead *int32, _ purecef.ResourceReadCallback) int32 {
 	<-rh.done
 	if rh.offset >= len(rh.data) {
 		return 0
@@ -1238,13 +1241,13 @@ func (rh *faviconResourceHandler) Read(dataOut unsafe.Pointer, bytesToRead int32
 	return 1
 }
 
-func (rh *faviconResourceHandler) ReadResponse(_ unsafe.Pointer, _ int32, _ *int32, _ purecef.Callback) int32 {
+func (rh *asyncResourceHandler) ReadResponse(_ unsafe.Pointer, _ int32, _ *int32, _ purecef.Callback) int32 {
 	return 0
 }
 
-func (rh *faviconResourceHandler) Cancel() { rh.cancelRequest() }
+func (rh *asyncResourceHandler) Cancel() { rh.cancelRequest() }
 
-func (rh *faviconResourceHandler) cancelRequest() {
+func (rh *asyncResourceHandler) cancelRequest() {
 	if rh.cancel != nil {
 		rh.cancelOnce.Do(rh.cancel)
 	}
