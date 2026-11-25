@@ -471,7 +471,7 @@ func TestOnShowPermissionPromptGrantsLocalNetworkToSystemview(t *testing.T) {
 	}
 }
 
-func TestOnShowPermissionPromptLocalNetworkElsewhereUnchanged(t *testing.T) {
+func TestOnShowPermissionPromptLocalNetworkElsewhereDenied(t *testing.T) {
 	loopback := uint32(purecef.PermissionRequestTypesPermissionTypeLoopbackNetwork)
 	for name, tc := range map[string]struct {
 		top, origin string
@@ -486,8 +486,8 @@ func TestOnShowPermissionPromptLocalNetworkElsewhereUnchanged(t *testing.T) {
 			h, _, _ := newPermissionTestHandler(t, true)
 			browser := newSystemviewPermissionBrowser(t, tc.top)
 			cb := &stubPermissionPromptCallback{}
-			assert.Equal(t, int32(0), h.OnShowPermissionPrompt(browser, 1, tc.origin, tc.mask, cb))
-			assert.Empty(t, cb.results)
+			require.Equal(t, int32(1), h.OnShowPermissionPrompt(browser, 1, tc.origin, tc.mask, cb))
+			assert.Equal(t, []purecef.PermissionRequestResult{promptDeny}, cb.results, "resolved, never left pending")
 		})
 	}
 }

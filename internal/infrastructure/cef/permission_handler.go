@@ -253,6 +253,13 @@ func (h *handlerSet) OnShowPermissionPrompt(
 		callback.Cont(purecef.PermissionRequestResultPermissionResultAccept)
 		return 1
 	}
+	if requestedPermissions&localNetworkPermissionMask != 0 {
+		// CEF has no visible prompt in off-screen mode: an unanswered local
+		// network prompt would stall the request forever, so deny it.
+		logCEFPermission(h.wv).Debug().Str("origin", requestingOrigin).Msg("cef: denying local network access")
+		callback.Cont(purecef.PermissionRequestResultPermissionResultDeny)
+		return 1
+	}
 	types := promptPermissionTypes(requestedPermissions)
 	if len(types) == 0 {
 		return 0
