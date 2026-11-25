@@ -18,6 +18,16 @@ type HomeLoadResponse struct {
 	ParseError       *HomeParseError              `json:"parse_error,omitempty"`
 	ValidationErrors []entity.HomeValidationError `json:"validation_errors,omitempty"`
 	SearchEngine     string                       `json:"search_engine"`
+	// SearchEngineName is the display name of SearchEngine.
+	SearchEngineName string `json:"search_engine_name"`
+	// SearchShortcuts maps bang keys to their search engines.
+	SearchShortcuts map[string]HomeSearchShortcut `json:"search_shortcuts,omitempty"`
+}
+
+// HomeSearchShortcut is one bang search engine shown on the Home page.
+type HomeSearchShortcut struct {
+	URL  string `json:"url"`
+	Name string `json:"name"`
 }
 
 // HomeParseError locates a TOML syntax or decoding error in home.toml.

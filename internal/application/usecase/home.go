@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
+	neturl "net/url"
 	"strings"
 	"sync"
 	"time"
@@ -118,7 +119,9 @@ func (uc *HomeUseCase) LoadHome(ctx context.Context) (*dto.HomeLoadResponse, err
 		ValidationErrors: snap.ValidationErrors,
 	}
 	if uc.runtime != nil {
-		resp.SearchEngine = uc.runtime.Current().UI.DefaultSearchEngine
+		ui := uc.runtime.Current().UI
+		resp.SearchEngine = ui.DefaultSearchEngine
+		resp.SearchShortcuts, resp.SearchEngineName = homeSearchEngines(ui.SearchShortcuts, ui.DefaultSearchEngine)
 	}
 	if uc.versions != nil {
 		for gi := range resp.Layout.Groups {
@@ -194,4 +197,61 @@ func (uc *HomeUseCase) OpenHomeConfig(ctx context.Context) (*dto.HomeOpenConfigR
 		return nil, fmt.Errorf("open home config: %w", err)
 	}
 	return &dto.HomeOpenConfigResponse{Path: path, Created: created}, nil
+}
+
+// homeSearchEngines returns the valid search shortcuts with display names and
+// the display name of the default engine. Keys are kept as configured: the
+// omnibox resolves bang keys case-insensitively against these keys.
+func homeSearchEngines(
+	shortcuts map[string]entity.RuntimeSearchShortcut, defaultEngine string,
+) (map[string]dto.HomeSearchShortcut, string) {
+	var out map[string]dto.HomeSearchShortcut
+	engineName := ""
+	for key, sc := range shortcuts {
+		host, ok := searchTemplateHost(sc.URL)
+		if !ok || strings.TrimSpace(key) == "" {
+			continue
+		}
+		name := searchEngineName(sc.Description, host)
+		if out == nil {
+			out = make(map[string]dto.HomeSearchShortcut, len(shortcuts))
+		}
+		out[key] = dto.HomeSearchShortcut{URL: sc.URL, Name: name}
+		if sc.URL == defaultEngine && (engineName == "" || name < engineName) {
+			engineName = name
+		}
+	}
+	if engineName == "" {
+		if u, err := neturl.Parse(defaultEngine); err == nil {
+			engineName = strings.TrimPrefix(strings.ToLower(u.Hostname()), "www.")
+		}
+	}
+	return out, engineName
+}
+
+// searchTemplateHost reports the host of an http(s) search URL template that
+// contains %s.
+func searchTemplateHost(template string) (string, bool) {
+	if !strings.Contains(template, "%s") {
+		return "", false
+	}
+	u, err := neturl.Parse(template)
+	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Hostname() == "" {
+		return "", false
+	}
+	return u.Hostname(), true
+}
+
+// searchEngineName derives a display name from a shortcut description,
+// dropping a trailing " search", or falls back to the host without "www.".
+func searchEngineName(description, host string) string {
+	name := strings.TrimSpace(description)
+	const suffix = " search"
+	if len(name) >= len(suffix) && strings.EqualFold(name[len(name)-len(suffix):], suffix) {
+		name = strings.TrimSpace(name[:len(name)-len(suffix)])
+	}
+	if name != "" {
+		return name
+	}
+	return strings.TrimPrefix(strings.ToLower(host), "www.")
 }

@@ -142,3 +142,43 @@ func TestHomeUseCase_OpenHomeConfig_EnsureError(t *testing.T) {
 	_, err := NewHomeUseCase(HomeDeps{Source: source, Opener: opener}).OpenHomeConfig(context.Background())
 	require.Error(t, err)
 }
+
+func TestLoadHome_SearchShortcuts(t *testing.T) {
+	ctx := context.Background()
+	source := mocks.NewMockHomeConfigSource(t)
+	source.EXPECT().Load(ctx).Return(port.HomeConfigSnapshot{}, nil)
+	runtime := mocks.NewMockRuntimeConfigProvider(t)
+	runtime.EXPECT().Current().Return(entity.RuntimeConfigSnapshot{
+		UI: entity.RuntimeUIConfig{
+			DefaultSearchEngine: "https://duckduckgo.com/?q=%s",
+			SearchShortcuts: map[string]entity.RuntimeSearchShortcut{
+				"ddg": {URL: "https://duckduckgo.com/?q=%s", Description: "DuckDuckGo Search"},
+				"gh":  {URL: "https://www.github.com/search?q=%s", Description: "  "},
+				"bad": {URL: "https://example.com/no-placeholder"},
+				"ftp": {URL: "ftp://example.com/?q=%s", Description: "FTP"},
+			},
+		},
+	})
+
+	resp, err := NewHomeUseCase(HomeDeps{Source: source, Runtime: runtime}).LoadHome(ctx)
+	require.NoError(t, err)
+	assert.Equal(t, "DuckDuckGo", resp.SearchEngineName)
+	assert.Equal(t, map[string]dto.HomeSearchShortcut{
+		"ddg": {URL: "https://duckduckgo.com/?q=%s", Name: "DuckDuckGo"},
+		"gh":  {URL: "https://www.github.com/search?q=%s", Name: "github.com"},
+	}, resp.SearchShortcuts)
+}
+
+func TestHomeSearchEngines_HostFallback(t *testing.T) {
+	shortcuts, name := homeSearchEngines(map[string]entity.RuntimeSearchShortcut{
+		"g": {URL: "https://google.com/search?q=%s", Description: "Google"},
+	}, "https://www.startpage.com/do/search?q=%s")
+	assert.Equal(t, "startpage.com", name)
+	assert.Len(t, shortcuts, 1)
+}
+
+func TestSearchEngineName(t *testing.T) {
+	assert.Equal(t, "Wikipedia", searchEngineName("Wikipedia SEARCH", "en.wikipedia.org"))
+	assert.Equal(t, "Research", searchEngineName("Research", "x.org"))
+	assert.Equal(t, "x.org", searchEngineName("", "www.x.org"))
+}
