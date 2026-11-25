@@ -26,6 +26,10 @@ const homeIconContentType = "image/png"
 // HomeIconNegativeTTL is how long a failed resolution is remembered.
 const HomeIconNegativeTTL = 10 * time.Minute
 
+// homeIconResolveTimeout bounds one shared resolution (page, manifest and
+// every candidate fetch).
+const homeIconResolveTimeout = 20 * time.Second
+
 var _ appport.HomeIconResolver = (*HomeIconUseCase)(nil)
 
 // HomeIconDeps wires the home service icon use case.
@@ -142,35 +146,36 @@ func (uc *HomeIconUseCase) ResolveHomeServiceIcon(
 		}
 		delete(uc.failures, key)
 	}
-	if call, ok := uc.inflight[key]; ok {
-		uc.mu.Unlock()
-		select {
-		case <-call.done:
-			if call.err != nil {
-				return nil, "", call.err
+	call, ok := uc.inflight[key]
+	if !ok {
+		call = &homeIconCall{done: make(chan struct{})}
+		uc.inflight[key] = call
+		// The shared work must not die with the first caller's request:
+		// other tiles may be waiting, and a canceled fetch would otherwise
+		// be remembered as a failure.
+		workCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), homeIconResolveTimeout)
+		go func() {
+			defer cancel()
+			call.png, _, call.err = uc.resolve(workCtx, serviceURL, localOverridePath)
+			uc.mu.Lock()
+			delete(uc.inflight, key)
+			if errors.Is(call.err, ErrHomeIconNotFound) {
+				uc.failures[key] = uc.now()
 			}
-			return call.png, homeIconContentType, nil
-		case <-ctx.Done():
-			return nil, "", ctx.Err()
+			uc.mu.Unlock()
+			close(call.done)
+		}()
+	}
+	uc.mu.Unlock()
+	select {
+	case <-call.done:
+		if call.err != nil {
+			return nil, "", call.err
 		}
+		return call.png, homeIconContentType, nil
+	case <-ctx.Done():
+		return nil, "", ctx.Err()
 	}
-	call := &homeIconCall{done: make(chan struct{})}
-	uc.inflight[key] = call
-	uc.mu.Unlock()
-
-	call.png, _, call.err = uc.resolve(ctx, serviceURL, localOverridePath)
-
-	uc.mu.Lock()
-	delete(uc.inflight, key)
-	if errors.Is(call.err, ErrHomeIconNotFound) {
-		uc.failures[key] = uc.now()
-	}
-	uc.mu.Unlock()
-	close(call.done)
-	if call.err != nil {
-		return nil, "", call.err
-	}
-	return call.png, homeIconContentType, nil
 }
 
 func (uc *HomeIconUseCase) resolve(

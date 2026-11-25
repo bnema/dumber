@@ -86,22 +86,13 @@ func (h *DumbSchemeHandler) serveHomeIconAsync(req *webkit.URISchemeRequest, sch
 	req.Ref()
 	go func() {
 		response := resolve(ctx)
-		var cb glib.SourceFunc
-		cb = func(_ uintptr) bool {
+		// glib copies the callback into its own registry and dispatches it
+		// through one shared trampoline, so no per-call callback slot leaks.
+		cb := glib.SourceFunc(func(_ uintptr) bool {
 			h.sendResponse(req, response)
 			req.Unref()
-			h.mu.Lock()
-			delete(h.pendingIdle, &cb)
-			h.mu.Unlock()
 			return false
-		}
-		// Keep the callback reachable until GLib runs it.
-		h.mu.Lock()
-		if h.pendingIdle == nil {
-			h.pendingIdle = make(map[*glib.SourceFunc]struct{})
-		}
-		h.pendingIdle[&cb] = struct{}{}
-		h.mu.Unlock()
+		})
 		glib.IdleAdd(&cb, 0)
 	}()
 }

@@ -14,7 +14,6 @@ import (
 	"bnema.dev/dumber/internal/infrastructure/webutil"
 	"bnema.dev/dumber/internal/logging"
 	"bnema.dev/puregotk/v4/gio"
-	"bnema.dev/puregotk/v4/glib"
 	"bnema.dev/puregotk/v4/soup"
 	"bnema.dev/puregotk/v4/webkit"
 	"github.com/rs/zerolog"
@@ -80,7 +79,6 @@ type DumbSchemeHandler struct {
 	assets               embed.FS
 	faviconResolver      port.FaviconSystemviewResolver
 	homeIconResolver     port.HomeIconResolver
-	pendingIdle          map[*glib.SourceFunc]struct{}
 	assetDir             string // default subdirectory within embed.FS (e.g., "systemviews")
 	logger               zerolog.Logger
 	mu                   sync.RWMutex

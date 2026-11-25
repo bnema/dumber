@@ -1201,15 +1201,16 @@ func buildUIDependencies(
 	} else {
 		systemViewUserStyle = systemviewfiles.NewUserStyle(configDir)
 		systemViewFileWatcher = systemviewfiles.NewWatcher(configDir)
+		homeConfig := homeconfig.New(configDir)
 		handlerDeps.Home = usecase.NewHomeUseCase(usecase.HomeDeps{
-			Source:    homeconfig.New(configDir),
+			Source:    homeConfig,
 			Runtime:   runtimeConfig,
 			History:   homeSitesHistory(uc),
 			Opener:    desktop.FileOpener{},
 			HTTP:      homehttp.New(),
 			LookupEnv: os.LookupEnv,
 		})
-		wireHomeIcons(ctx, engine, configDir)
+		wireHomeIcons(ctx, engine, homeConfig, configDir)
 	}
 
 	uiDeps := &ui.Dependencies{

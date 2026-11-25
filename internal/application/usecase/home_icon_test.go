@@ -224,3 +224,47 @@ func TestResolveUnderDir(t *testing.T) {
 	_, ok := resolveUnderDir("", "a.png")
 	require.False(t, ok)
 }
+
+func TestHomeIconLeaderCancelDoesNotFailFollowers(t *testing.T) {
+	fx := newHomeIconFixture(t)
+	fetching := make(chan struct{})
+	release := make(chan struct{})
+	fx.cache.EXPECT().Get(mock.Anything, svc).Return(nil, time.Time{}, false).Once()
+	fx.src.EXPECT().DiscoverIconURLs(mock.Anything, svc).Return([]string{"u/favicon.ico"}, nil).Once()
+	fx.src.EXPECT().FetchIcon(mock.Anything, "u/favicon.ico").
+		RunAndReturn(func(ctx context.Context, _ string) (*appport.HomeIconImage, error) {
+			close(fetching)
+			select {
+			case <-release:
+				return img("image/x-icon", "ico"), nil
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			}
+		}).Once()
+	fx.conv.EXPECT().Convert(mock.Anything, []byte("ico"), "image/x-icon", []int{128}).Return(converted("ico128"), nil).Once()
+	fx.cache.EXPECT().Put(mock.Anything, svc, []byte("ico128")).Return(nil).Once()
+
+	leaderCtx, cancelLeader := context.WithCancel(context.Background())
+	leaderErr := make(chan error, 1)
+	go func() {
+		_, _, err := fx.uc.ResolveHomeServiceIcon(leaderCtx, svc, "")
+		leaderErr <- err
+	}()
+	<-fetching
+	follower := make(chan string, 1)
+	go func() {
+		got, _, err := fx.uc.ResolveHomeServiceIcon(context.Background(), svc, "")
+		if err != nil {
+			follower <- "err:" + err.Error()
+			return
+		}
+		follower <- string(got)
+	}()
+	cancelLeader()
+	require.ErrorIs(t, <-leaderErr, context.Canceled)
+	close(release)
+	require.Equal(t, "ico128", <-follower)
+	fx.uc.mu.Lock()
+	defer fx.uc.mu.Unlock()
+	require.Empty(t, fx.uc.failures)
+}

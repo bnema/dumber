@@ -8,13 +8,12 @@ import (
 	"bnema.dev/dumber/internal/application/usecase"
 	"bnema.dev/dumber/internal/infrastructure/config"
 	infrafavicon "bnema.dev/dumber/internal/infrastructure/favicon"
-	"bnema.dev/dumber/internal/infrastructure/homeconfig"
 	"bnema.dev/dumber/internal/logging"
 )
 
 // wireHomeIcons serves home service icons to the home systemview through
 // the engine's /api/home-icon endpoint.
-func wireHomeIcons(ctx context.Context, engine port.Engine, configDir string) {
+func wireHomeIcons(ctx context.Context, engine port.Engine, homeConfig port.HomeConfigSource, configDir string) {
 	setter, ok := engine.(port.HomeIconResolverSetter)
 	if !ok {
 		return
@@ -29,7 +28,7 @@ func wireHomeIcons(ctx context.Context, engine port.Engine, configDir string) {
 		Source:    infrafavicon.NewHomeIconSource(),
 		Converter: infrafavicon.NewImageConverter(),
 		Cache:     cache,
-		Config:    homeconfig.New(configDir),
+		Config:    homeConfig,
 		ConfigDir: configDir,
 	}))
 }
