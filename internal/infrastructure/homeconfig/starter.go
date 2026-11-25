@@ -50,12 +50,13 @@ limit = 8
 # icon = "icons/media.svg"      # relative to the config dir
 #
 # [groups.services.widget]
-# type = "api"                  # api | embed
+# type = "api"                  # api: JSON stats | embed: iframe (url + height)
 # url = "https://media.local/api/stats"
 # headers = { "X-Token" = "{{env.MEDIA_TOKEN}}" }
 # refresh = "60s"
 # display = "stats"             # stats | list | bar
 # fields = [ { label = "Movies", path = "MovieCount", format = "number" } ]
+# template = "<strong>{{ index .fields \"Movies\" }}</strong> movies"  # optional HTML, replaces display
 #
 # [[groups.services.actions]]
 # id = "restart"
@@ -63,4 +64,5 @@ limit = 8
 # method = "POST"
 # url = "https://media.local/api/restart"
 # confirm = "Restart the media server?"
+# inputs = [ { name = "reason", label = "Reason" } ]   # use {{input.reason}} in url or body
 `

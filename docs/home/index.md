@@ -163,6 +163,16 @@ url = "https://example.local/api/search?q={{input.query}}"
 inputs = [ { name = "query", label = "Title", placeholder = "Movie title" } ]
 ```
 
+## Service icons
+
+Each service card shows a 128px icon:
+
+1. `icon`, a local file relative to `~/.config/dumber/` (`.svg`, `.png`, `.ico`, `.webp`).
+2. Otherwise Dumber reads the page at `url` and picks the best candidate: SVG icon, then web app manifest icons, then `apple-touch-icon`, then the favicon (`/favicon.ico` last).
+3. When nothing works, the card shows the first letter of the service name.
+
+Discovery runs in the browser process. On private and LAN addresses it only follows the service's own host and port, so links, manifests and redirects cannot send it to other machines on your network.
+
 ## Security model
 
 - `home.toml` and `user.css` cannot run JavaScript.
@@ -217,3 +227,5 @@ Ready-made snippets are in [`examples/`](./examples/). API paths in them are exa
 
 - Embedded sites run in a third-party iframe, so their login cookies are usually blocked. For Grafana, only anonymous or public panels work.
 - API widgets read JSON only.
+- HTTPS certificates are verified. A service with a self-signed certificate gets the letter icon: set a local `icon` instead.
+- A failed icon lookup is remembered for 10 minutes. Editing the service's `url` or `icon` retries at once.
