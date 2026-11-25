@@ -75,3 +75,28 @@ func TestRenderTemplate_AllowsRangeOverData(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "<i>a</i><i>b</i>", out)
 }
+
+func TestRenderTemplate_CapsArrays(t *testing.T) {
+	t.Parallel()
+	big := make([]any, 600)
+	for i := range big {
+		big[i] = map[string]any{"tags": make([]any, 600)}
+	}
+	out, err := RenderTemplate(`{{len .data.items}} {{len (index .data.items 0).tags}}`,
+		map[string]any{"data": map[string]any{"items": big}})
+	require.NoError(t, err)
+	assert.Equal(t, "500 500", out)
+	assert.Len(t, big, 600, "caller data is not modified")
+}
+
+func TestRenderTemplate_RangeDepth(t *testing.T) {
+	t.Parallel()
+	data := map[string]any{"a": []any{[]any{[]any{"x"}}}}
+	out, err := RenderTemplate(`{{range .a}}{{range .}}ok{{end}}{{end}}`, data)
+	require.NoError(t, err)
+	assert.Equal(t, "ok", out)
+	_, err = RenderTemplate(`{{range .a}}{{range .}}{{range .}}x{{end}}{{end}}{{end}}`, data)
+	require.ErrorIs(t, err, ErrTemplateRangeDepth)
+	_, err = RenderTemplate(`{{range .a}}{{if .}}{{range .}}{{with .}}{{range .}}x{{end}}{{end}}{{end}}{{end}}{{end}}`, data)
+	require.ErrorIs(t, err, ErrTemplateRangeDepth)
+}

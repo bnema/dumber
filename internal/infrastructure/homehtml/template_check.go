@@ -20,6 +20,9 @@ func checkRanges(t *template.Template) error {
 		if c.bad(tt.Tree.Root) {
 			return ErrTemplateIntRange
 		}
+		if rangeDepth(tt.Tree.Root) > MaxTemplateRangeDepth {
+			return ErrTemplateRangeDepth
+		}
 	}
 	return nil
 }
@@ -122,4 +125,34 @@ func walkPipe(p *parse.PipeNode, onPipe func(*parse.PipeNode)) {
 			}
 		}
 	}
+}
+
+// rangeDepth returns the deepest nesting of range nodes under n.
+func rangeDepth(n parse.Node) int {
+	switch x := n.(type) {
+	case *parse.ListNode:
+		if x == nil {
+			return 0
+		}
+		deepest := 0
+		for _, child := range x.Nodes {
+			deepest = max(deepest, rangeDepth(child))
+		}
+		return deepest
+	case *parse.IfNode:
+		return branchDepth(&x.BranchNode)
+	case *parse.WithNode:
+		return branchDepth(&x.BranchNode)
+	case *parse.RangeNode:
+		return 1 + branchDepth(&x.BranchNode)
+	}
+	return 0
+}
+
+func branchDepth(b *parse.BranchNode) int {
+	d := rangeDepth(b.List)
+	if b.ElseList != nil {
+		d = max(d, rangeDepth(b.ElseList))
+	}
+	return d
 }

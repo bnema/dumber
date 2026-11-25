@@ -16,6 +16,12 @@ const (
 	MaxTemplateOutputBytes = 64 << 10
 	// TemplateTimeout bounds how long a template may execute.
 	TemplateTimeout = 2 * time.Second
+	// MaxTemplateArrayItems caps every array in the template data. Longer
+	// arrays are truncated so nested ranges stay cheap.
+	MaxTemplateArrayItems = 500
+	// MaxTemplateRangeDepth is how deep ranges may nest. With the array cap,
+	// a template loops at most 500^2 times.
+	MaxTemplateRangeDepth = 2
 )
 
 var (
@@ -26,6 +32,9 @@ var (
 	// ErrTemplateIntRange is returned for {{range N}} over a number, which
 	// could loop for a very long time.
 	ErrTemplateIntRange = errors.New("range over a number is not allowed")
+	// ErrTemplateRangeDepth is returned for more than MaxTemplateRangeDepth
+	// nested ranges.
+	ErrTemplateRangeDepth = errors.New("ranges nested more than 2 deep are not allowed")
 )
 
 var templateFuncs = template.FuncMap{
@@ -65,6 +74,7 @@ func renderTemplate(ctx context.Context, tmpl string, data any, timeout time.Dur
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
+	data = capTemplateArrays(data, MaxTemplateArrayItems)
 	buf := &cappedBuffer{limit: MaxTemplateOutputBytes}
 	done := make(chan error, 1)
 	go func() {
@@ -114,5 +124,29 @@ func isEmpty(v any) bool {
 		return len(x) == 0
 	default:
 		return false
+	}
+}
+
+// capTemplateArrays returns a copy of v, a json.Unmarshal result, with every
+// array truncated to limit elements. Other values are returned as is.
+func capTemplateArrays(v any, limit int) any {
+	switch x := v.(type) {
+	case []any:
+		if len(x) > limit {
+			x = x[:limit]
+		}
+		out := make([]any, len(x))
+		for i, item := range x {
+			out[i] = capTemplateArrays(item, limit)
+		}
+		return out
+	case map[string]any:
+		out := make(map[string]any, len(x))
+		for k, item := range x {
+			out[k] = capTemplateArrays(item, limit)
+		}
+		return out
+	default:
+		return v
 	}
 }
