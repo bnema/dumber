@@ -133,6 +133,10 @@ packages:
       EntryInputTarget: {}
       HomepageFavorites: {}
       HomepageHistory: {}
+      HomeConfigSource: {}
+      HomeSitesHistory: {}
+      HomePage: {}
+      FileOpener: {}
       HistoryChangeSink: {}
       HistoryMutationCoordinator: {}
       HistorySidebarHistory: {}
