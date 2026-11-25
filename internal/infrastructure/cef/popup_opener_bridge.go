@@ -162,7 +162,7 @@ func (wv *WebView) EnablePopupOpenerBridge(parent port.WebView, noJavaScriptAcce
 		return
 	}
 	parentWV, ok := parent.(*WebView)
-	if !ok || parentWV == nil {
+	if !ok || parentWV == nil || wv.popupOpenerBridgeDenied {
 		wv.popupOpenerBridgeParent = nil
 		wv.popupOpenerBridgeParentURI = ""
 		wv.syncPopupOpenerBridgeExtraInfoLocked()
@@ -271,7 +271,17 @@ func (wv *WebView) handlePopupOpenerNavigate(targetURL string) {
 	wv.runOpenerNavigationCallbacks(resolvedURL)
 }
 
+// resolvePopupOpenerNavigationTarget returns the URL a popup may navigate its
+// opener to, or "". A popup never moves a regular page to a system view.
 func resolvePopupOpenerNavigationTarget(rawTarget, openerURI string) string {
+	resolved := resolvePopupOpenerURL(rawTarget, openerURI)
+	if isInternalTargetURL(resolved) && !isInternalTargetURL(openerURI) {
+		return ""
+	}
+	return resolved
+}
+
+func resolvePopupOpenerURL(rawTarget, openerURI string) string {
 	trimmedTarget := strings.TrimSpace(rawTarget)
 	if trimmedTarget == "" {
 		return ""
@@ -451,4 +461,26 @@ func canonicalOrigin(rawURL string) string {
 		return scheme + "://" + host
 	}
 	return scheme + "://" + host + ":" + portStr
+}
+
+// denyPopupOpenerBridge removes the synthetic opener bridge of a popup opened
+// by an iframe of a system view page. The bridge targets the whole parent
+// WebView, so it would let a sandboxed embed (no allow-top-navigation)
+// navigate or message the dumb:// page itself.
+func (wv *WebView) denyPopupOpenerBridge() {
+	if wv == nil {
+		return
+	}
+	wv.mu.Lock()
+	defer wv.mu.Unlock()
+	wv.popupOpenerBridgeDenied = true
+	wv.popupOpenerBridgeParent = nil
+	wv.popupOpenerBridgeParentURI = ""
+	wv.syncPopupOpenerBridgeExtraInfoLocked()
+}
+
+// popupFromSystemViewSubframe reports a popup requested by an iframe inside a
+// system view page.
+func popupFromSystemViewSubframe(sourceIsMain bool, pageURI string) bool {
+	return !sourceIsMain && isInternalTargetURL(pageURI)
 }

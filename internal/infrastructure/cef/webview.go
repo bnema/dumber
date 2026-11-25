@@ -270,6 +270,7 @@ type WebView struct {
 	pendingNativePopups         map[int32]*WebView
 	popupNoJavaScriptAccess     bool
 	popupOpenerBridgeParent     *WebView
+	popupOpenerBridgeDenied     bool
 	popupOpenerBridgeParentURI  string
 
 	// State cache (mutex-protected).
@@ -1071,7 +1072,7 @@ func (wv *WebView) preparePopupShellDirectBrowserCreation() bool {
 	wv.nativePopupCandidate = false
 	wv.nativePopupParent = nil
 	wv.nativePopupID = 0
-	if !wv.popupNoJavaScriptAccess && parent != nil && !parent.destroyed.Load() {
+	if !wv.popupNoJavaScriptAccess && !wv.popupOpenerBridgeDenied && parent != nil && !parent.destroyed.Load() {
 		wv.popupOpenerBridgeParent = parent
 		wv.popupOpenerBridgeParentURI = parent.URI()
 	} else {

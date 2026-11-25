@@ -823,6 +823,10 @@ func (h *handlerSet) OnBeforePopup(
 		}
 	}
 
+	if popupFromSystemViewSubframe(sourceIsMain, h.wv.URI()) {
+		cefPopup.denyPopupOpenerBridge()
+	}
+
 	return h.handlePopupHostDecision(
 		cefPopup,
 		decision,
