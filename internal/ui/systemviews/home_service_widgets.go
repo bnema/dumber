@@ -12,8 +12,8 @@ import (
 )
 
 // homeServiceRegionPrefix + service id names the widget slot of a service
-// tile. The slot sits inside the home-groups region, which renders it empty;
-// its data is pushed separately so a refresh never swaps the whole grid.
+// shell. The shell renders it with a loading placeholder; its data is pushed
+// into the slot alone, so a refresh never touches the rest of the shell.
 const homeServiceRegionPrefix = "home-svc:"
 
 // homeServiceMinRefresh is the shortest allowed widget refresh interval.
@@ -55,7 +55,7 @@ func homeServiceRegion(id string) string {
 }
 
 func homeServiceHasAPIWidget(service entity.HomeService) bool {
-	return service.ID != "" && service.Widget != nil && service.Widget.Type == entity.HomeServiceWidgetAPI
+	return service.Widget != nil && service.Widget.Type == entity.HomeServiceWidgetAPI
 }
 
 // homeAPIServices returns the services of load with an api widget.

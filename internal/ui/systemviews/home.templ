@@ -206,14 +206,14 @@ templ HomeServiceShell(service entity.HomeService, leaves map[string]string) {
 // description.
 templ HomeServiceTile(service entity.HomeService) {
 	if service.URL != "" {
-			<a class="sv-home-service-link" href={ templ.SafeURL(sanitizeHref(service.URL)) } title={ service.URL } data-sv-home-nav>
-				@homeServiceHead(service)
-			</a>
-		} else {
-			<div class="sv-home-service-link" tabindex="0" data-sv-home-nav>
-				@homeServiceHead(service)
-			</div>
-		}
+		<a class="sv-home-service-link" href={ templ.SafeURL(sanitizeHref(service.URL)) } title={ service.URL } data-sv-home-nav>
+			@homeServiceHead(service)
+		</a>
+	} else {
+		<div class="sv-home-service-link" tabindex="0" data-sv-home-nav>
+			@homeServiceHead(service)
+		</div>
+	}
 }
 
 templ homeServiceHead(service entity.HomeService) {

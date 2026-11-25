@@ -193,9 +193,7 @@ func (a *App) applyHomeActionLocked(ctx context.Context, event DOMAction) error 
 	case homeActionClockTick:
 		return a.refreshHomeClockLocked()
 	case actionSystemviewChanged:
-		if event.Data["topic"] != dto.HomeChangedTopic {
-			return nil
-		}
+		// handleHomeEarlyAction already dropped other topics and routes.
 		return a.reloadHomeLocked(ctx)
 	default:
 		return nil
@@ -323,7 +321,6 @@ func (a *App) applyHomeReloadLocked(previous dto.HomeLoadResponse, next []DOMReg
 	oldLeaves, oldActionKeys, oldWidgetKeys := a.homeLeaves, a.homeActionKeys, a.homeWidgetKeys
 	a.homeRendered = next
 	a.setHomeGroupsLocked(shape)
-	a.renderHomePageLocked()
 	if !sameShape || !planned || !canUpdate || !canEdit {
 		return a.remountHomeLocked()
 	}
@@ -403,7 +400,10 @@ func (a *App) invalidateHomeRenderLocked() {
 	a.homeWidgetKeys = nil
 }
 
+// remountHomeLocked renders the full page and mounts it. The full page is
+// only rendered here and on the first load: in-place edits never need it.
 func (a *App) remountHomeLocked() error {
+	a.renderHomePageLocked()
 	if err := a.mountRenderedHTML(); err != nil {
 		return err
 	}
@@ -584,7 +584,6 @@ func (a *App) startHomeFill(ctx context.Context) {
 func (a *App) applyHomeRegionsLocked(next []DOMRegion) error {
 	changed, sameShape := changedHomeRegions(a.homeRendered, next)
 	a.homeRendered = next
-	a.renderHomePageLocked()
 	if sameShape && len(changed) == 0 {
 		return nil
 	}

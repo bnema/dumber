@@ -61,13 +61,9 @@ func (d *navDOM) NavigateTo(rawURL string) error {
 
 var homeTestNow = time.Date(2026, 11, 25, 14, 5, 0, 0, time.UTC)
 
-func newHomeApp(t *testing.T, dom DOM, home *fakeHome, favorites *favoritesStore) *App {
+func newHomeApp(t *testing.T, dom DOM, home *fakeHome) *App {
 	t.Helper()
-	deps := Dependencies{DOM: dom, Home: home, LocationURI: "dumb://home"}
-	if favorites != nil {
-		deps.Favorites = favorites.service
-	}
-	app := NewApp(deps)
+	app := NewApp(Dependencies{DOM: dom, Home: home, LocationURI: "dumb://home"})
 	app.now = func() time.Time { return homeTestNow }
 	require.NoError(t, app.LoadInitial(context.Background()))
 	fillHome(app)
@@ -94,8 +90,9 @@ func TestHomeRendersDefaultLayout(t *testing.T) {
 	favorites := newFavoritesStore(t, &favoritesStore{favorites: []*entity.Favorite{
 		{URL: "https://fav.test", Title: "Fav"},
 	}})
-	app := newHomeApp(t, &regionDOM{}, home, favorites)
-	html := app.renderedHTML
+	dom := newTreeDOM()
+	mountHomeApp(t, dom, Dependencies{Home: home, Favorites: favorites.service})
+	html := dom.html()
 
 	assert.Contains(t, html, `data-route="home"`)
 	assert.Contains(t, html, `data-page-title="Home"`)
@@ -128,7 +125,7 @@ func TestHomeRendersErrorBanner(t *testing.T) {
 			{Path: "groups[0].services[1].url", Message: "must be http or https"},
 		},
 	}}
-	app := newHomeApp(t, &regionDOM{}, home, nil)
+	app := newHomeApp(t, &regionDOM{}, home)
 
 	assert.Contains(t, app.renderedHTML, `data-sv-region="home-errors"`)
 	assert.Contains(t, app.renderedHTML, `home.toml:4:9`)
@@ -146,7 +143,7 @@ func TestHomeRendersServiceGroups(t *testing.T) {
 			{ID: "nas", Name: "NAS"},
 		}}},
 	}
-	app := newHomeApp(t, &regionDOM{}, &fakeHome{load: dto.HomeLoadResponse{Layout: layout}}, nil)
+	app := newHomeApp(t, &regionDOM{}, &fakeHome{load: dto.HomeLoadResponse{Layout: layout}})
 	html := app.renderedHTML
 
 	assert.Contains(t, html, `--sv-home-columns: 4;`)
@@ -195,7 +192,7 @@ func TestHomeSearchActionNavigates(t *testing.T) {
 	t.Parallel()
 	home := &fakeHome{load: dto.HomeLoadResponse{Layout: entity.DefaultHomeLayout(), SearchEngine: "https://s.test/?q=%s"}}
 	dom := &navDOM{}
-	app := newHomeApp(t, dom, home, nil)
+	app := newHomeApp(t, dom, home)
 
 	require.NoError(t, app.HandleDOMAction(context.Background(), DOMAction{Action: homeActionSearch, Data: map[string]string{"query": "cats"}}))
 	assert.Equal(t, []string{"https://s.test/?q=cats"}, dom.navigated)
@@ -213,7 +210,7 @@ func TestHomeReloadSwapsOnlyChangedRegions(t *testing.T) {
 	layout := entity.DefaultHomeLayout()
 	home := &fakeHome{load: dto.HomeLoadResponse{Layout: layout}}
 	dom := &editRegionDOM{}
-	app := newHomeApp(t, dom, home, nil)
+	app := newHomeApp(t, dom, home)
 	dom.regions = nil
 	mounts := dom.mountCount
 
@@ -249,7 +246,7 @@ func TestHomeClockTickSwapsOnlyClock(t *testing.T) {
 	t.Parallel()
 	home := &fakeHome{load: dto.HomeLoadResponse{Layout: entity.DefaultHomeLayout()}}
 	dom := &regionDOM{}
-	app := newHomeApp(t, dom, home, nil)
+	app := newHomeApp(t, dom, home)
 	dom.regions = nil
 
 	require.NoError(t, app.HandleDOMAction(context.Background(), DOMAction{Action: homeActionClockTick}))
@@ -273,7 +270,7 @@ func TestHomeClock12h(t *testing.T) {
 func TestHomeOpenConfig(t *testing.T) {
 	t.Parallel()
 	home := &fakeHome{load: dto.HomeLoadResponse{Layout: entity.DefaultHomeLayout()}}
-	app := newHomeApp(t, &regionDOM{}, home, nil)
+	app := newHomeApp(t, &regionDOM{}, home)
 	require.NoError(t, app.HandleDOMAction(context.Background(), DOMAction{Action: homeActionOpenConfig}))
 	assert.True(t, home.opened)
 }
@@ -286,10 +283,11 @@ func TestHomeFavoritesWidgetFiltersByTagAndLimit(t *testing.T) {
 		{URL: "https://w1.test", Title: "Work One", Tags: []entity.Tag{{Name: "Work"}}},
 		{URL: "https://w2.test", Title: "Work Two", Tags: []entity.Tag{{Name: "work"}}},
 	}})
-	app := newHomeApp(t, &regionDOM{}, &fakeHome{load: dto.HomeLoadResponse{Layout: layout}}, favorites)
-	assert.Contains(t, app.renderedHTML, "Work One")
-	assert.NotContains(t, app.renderedHTML, "Work Two")
-	assert.NotContains(t, app.renderedHTML, "Home One")
+	dom := newTreeDOM()
+	mountHomeApp(t, dom, Dependencies{Home: &fakeHome{load: dto.HomeLoadResponse{Layout: layout}}, Favorites: favorites.service})
+	assert.Contains(t, dom.html(), "Work One")
+	assert.NotContains(t, dom.html(), "Work Two")
+	assert.NotContains(t, dom.html(), "Home One")
 }
 
 func TestHomeSuggestionsUpdateRegion(t *testing.T) {
@@ -322,14 +320,16 @@ func TestHomeMountsBeforeWidgetsLoad(t *testing.T) {
 	assert.NotContains(t, app.renderedHTML, "Top Site")
 	assert.Empty(t, home.siteReqs, "sites are not fetched before the page shows")
 
+	// The page shows before the widgets load; each widget then swaps its
+	// own region.
+	tree := newTreeDOM()
+	require.NoError(t, tree.Mount(app.renderedHTML))
+	app.deps.DOM = tree
 	fillHome(app)
-	assert.Contains(t, app.renderedHTML, "Top Site")
-	assert.NotContains(t, app.renderedHTML, "sv-home-skeleton")
-	// Each widget swaps its own region.
-	for _, update := range dom.regions {
-		require.Len(t, update, 1)
-	}
-	assert.Len(t, dom.regions, 3)
+	assert.Contains(t, tree.html(), "Top Site")
+	assert.NotContains(t, tree.html(), "sv-home-skeleton")
+	assert.ElementsMatch(t, []string{homeWidgetRegion(2), homeWidgetRegion(3), homeWidgetRegion(4)}, tree.swapped)
+	assert.Empty(t, dom.regions)
 }
 
 func TestHomeSuggestionDropsStaleResponse(t *testing.T) {
@@ -373,7 +373,15 @@ func reloadHome(t *testing.T, app *App) {
 // newMountedHomeApp loads, mounts and fills a home page on dom.
 func newMountedHomeApp(t *testing.T, dom *treeDOM, home *fakeHome) *App {
 	t.Helper()
-	app := NewApp(Dependencies{DOM: dom, Home: home, LocationURI: "dumb://home"})
+	return mountHomeApp(t, dom, Dependencies{Home: home})
+}
+
+// mountHomeApp loads, mounts and fills a home page with deps on dom.
+func mountHomeApp(t *testing.T, dom *treeDOM, deps Dependencies) *App {
+	t.Helper()
+	deps.DOM = dom
+	deps.LocationURI = "dumb://home"
+	app := NewApp(deps)
 	app.now = func() time.Time { return homeTestNow }
 	require.NoError(t, app.LoadInitial(context.Background()))
 	require.NoError(t, dom.Mount(app.renderedHTML))

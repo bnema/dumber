@@ -53,7 +53,7 @@ func homeServiceActionsRegion(id string) string {
 }
 
 func homeServiceHasActions(service entity.HomeService) bool {
-	return service.ID != "" && len(service.Actions) > 0
+	return len(service.Actions) > 0
 }
 
 func homeServiceAction(event DOMAction) bool {

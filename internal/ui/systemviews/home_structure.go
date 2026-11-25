@@ -149,16 +149,9 @@ type homeStructurePlan struct {
 }
 
 // planHomeStructure returns the edits from old to next, or false when only
-// a remount can do it: a reorder, or ids that are empty or not unique.
+// a remount can do it: a reorder.
 func planHomeStructure(old, next homeShape) (homeStructurePlan, bool) {
-	oldIDs, ok := homeShapeIDs(old)
-	if !ok {
-		return homeStructurePlan{}, false
-	}
-	newIDs, ok := homeShapeIDs(next)
-	if !ok {
-		return homeStructurePlan{}, false
-	}
+	oldIDs, newIDs := homeShapeIDs(old), homeShapeIDs(next)
 	// Services kept in place keep their relative order; anything else is a
 	// reorder.
 	if !sameOrder(filterIDs(oldIDs, newIDs), filterIDs(newIDs, oldIDs)) {
@@ -252,19 +245,16 @@ func homeInserts(next homeShape, oldGroups, kept map[string]bool) []homeStructur
 }
 
 
-func homeShapeIDs(shape homeShape) ([]string, bool) {
+// homeShapeIDs returns the service ids of shape in page order. Service ids
+// are valid and unique: the layout validation refuses anything else.
+func homeShapeIDs(shape homeShape) []string {
 	var ids []string
-	seen := make(map[string]bool)
 	for i := range shape.Groups {
 		for _, service := range shape.Groups[i].Services {
-			if service.ID == "" || seen[service.ID] {
-				return nil, false
-			}
-			seen[service.ID] = true
 			ids = append(ids, service.ID)
 		}
 	}
-	return ids, true
+	return ids
 }
 
 // filterIDs returns the ids of a that are also in b, in a's order.

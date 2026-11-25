@@ -31,7 +31,7 @@ func embedPushes(dom *regionDOM) []string {
 func newEmbedApp(t *testing.T, home *fakeHome) (*App, *regionDOM) {
 	t.Helper()
 	dom := &editRegionDOM{}
-	app := newHomeApp(t, dom, home, nil)
+	app := newHomeApp(t, dom, home)
 	t.Cleanup(app.Close)
 	return app, &dom.regionDOM
 }

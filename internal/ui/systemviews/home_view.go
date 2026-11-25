@@ -23,8 +23,6 @@ const (
 	homeWidgetRegionPrefix = "home-widget-"
 )
 
-// homeServiceIcons enables the /api/home-icon image above the fallback glyph.
-const homeServiceIcons = true
 
 // homeDefaultSearchEngine is used when the browser sends no search engine.
 const homeDefaultSearchEngine = "https://duckduckgo.com/?q=%s"
@@ -193,9 +191,6 @@ func homeInitial(label string) string {
 }
 
 func homeServiceIconURL(service entity.HomeService) string {
-	if !homeServiceIcons || service.ID == "" {
-		return ""
-	}
 	query := url.Values{"service": {service.ID}}
 	if service.IconVersion != "" {
 		// Busts the cached icon when the service url or icon changes.

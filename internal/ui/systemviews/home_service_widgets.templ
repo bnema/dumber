@@ -129,7 +129,7 @@ templ HomeServiceActions(view homeServiceActionsView) {
 					data-sv-action={ homeActionSvcOpen }
 					data-sv-service={ view.Service.ID }
 					data-sv-home-action={ action.ID }
-					disabled?={ busy || view.State.Step == homeActionBusy }
+					disabled?={ view.State.Step == homeActionBusy }
 					if busy {
 						aria-busy="true"
 					}

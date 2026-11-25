@@ -9,11 +9,7 @@ import (
 	"bnema.dev/dumber/internal/domain/entity"
 )
 
-// Embed heights, in CSS pixels.
 const (
-	homeEmbedDefaultHeight = 300
-	homeEmbedMinHeight     = 80
-	homeEmbedMaxHeight     = 2000
 	// homeEmbedSandbox lets the embedded app run, but never top-navigate the
 	// home page.
 	homeEmbedSandbox = "allow-scripts allow-same-origin allow-forms allow-popups"
@@ -21,8 +17,10 @@ const (
 
 // homeEmbedView is one iframe to render.
 type homeEmbedView struct {
-	Name   string
-	URL    string
+	Name string
+	URL  string
+	// Height comes normalized by the layout validation (240 by default,
+	// 80 to 2000).
 	Height int
 }
 
@@ -48,23 +46,16 @@ func homeEmbedURL(raw string) (string, bool) {
 	return parsed.String(), true
 }
 
-func homeEmbedHeight(height int) int {
-	if height <= 0 {
-		return homeEmbedDefaultHeight
-	}
-	return min(max(height, homeEmbedMinHeight), homeEmbedMaxHeight)
-}
-
 // homeEmbedFor returns the iframe of service, when it has a valid embed.
 func homeEmbedFor(service entity.HomeService) (homeEmbedView, bool) {
-	if service.ID == "" || service.Widget == nil || service.Widget.Type != entity.HomeServiceWidgetEmbed {
+	if service.Widget == nil || service.Widget.Type != entity.HomeServiceWidgetEmbed {
 		return homeEmbedView{}, false
 	}
 	target, ok := homeEmbedURL(service.Widget.URL)
 	if !ok {
 		return homeEmbedView{Name: service.Name}, false
 	}
-	return homeEmbedView{Name: service.Name, URL: target, Height: homeEmbedHeight(service.Widget.Height)}, true
+	return homeEmbedView{Name: service.Name, URL: target, Height: service.Widget.Height}, true
 }
 
 // homeEmbedKey identifies what an embed region shows: the same key keeps
@@ -87,9 +78,6 @@ func (a *App) changedHomeEmbedRegionsLocked() []DOMRegion {
 	for _, group := range a.homeData.Load.Layout.Groups {
 		for i := range group.Services {
 			service := &group.Services[i]
-			if service.ID == "" || seen[service.ID] {
-				continue
-			}
 			seen[service.ID] = true
 			key := homeEmbedKey(*service)
 			if a.homeSvc.embeds[service.ID] == key {

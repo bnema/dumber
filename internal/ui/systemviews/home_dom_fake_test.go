@@ -181,3 +181,14 @@ func (d *treeDOM) text(region string) string {
 	walk(node)
 	return strings.TrimSpace(b.String())
 }
+
+// html renders the mounted tree.
+func (d *treeDOM) html() string {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	var b strings.Builder
+	for c := d.root.FirstChild; c != nil; c = c.NextSibling {
+		_ = html.Render(&b, c)
+	}
+	return b.String()
+}
