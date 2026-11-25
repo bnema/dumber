@@ -3176,7 +3176,7 @@ html:not([data-sv-enhanced]) .sv-home .sv-palette-trigger {
     "embed embed embed embed";
   align-items: center;
   align-content: start;
-  column-gap: 0.625rem;
+  column-gap: 0;
   padding-right: var(--sv-home-row-pad);
   border-radius: 6px;
   transition: background-color var(--sv-ease);
@@ -3208,6 +3208,11 @@ html:not([data-sv-enhanced]) .sv-home .sv-palette-trigger {
 }
 
 .sv-home-service-link:focus-visible {
+  outline: none;
+}
+
+/* The focus ring covers the whole row, like the hover tint. */
+.sv-home-service:has(.sv-home-service-link:focus-visible) {
   outline: 2px solid var(--sv-accent);
   outline-offset: -2px;
 }
@@ -3280,11 +3285,14 @@ html:not([data-sv-enhanced]) .sv-home .sv-palette-trigger {
 /* Inline on the row: up to two stats, or the loading placeholder. */
 .sv-home-service-widget:has(> .sv-home-svc-inline, > .sv-home-svc-loading) {
   grid-area: widget;
+  margin-left: 0.625rem;
   padding: 0;
 }
 
+/* Margins, not column-gap: empty tracks must not leave space. */
 .sv-home-service-status {
   grid-area: status;
+  margin-left: 0.625rem;
 }
 
 /* Actions show on hover, keyboard focus or selection, and stay while an
@@ -3292,6 +3300,7 @@ html:not([data-sv-enhanced]) .sv-home .sv-palette-trigger {
 .sv-home-service-actions {
   display: none;
   grid-area: actions;
+  margin-left: 0.625rem;
 }
 
 .sv-home-service:hover > .sv-home-service-actions,
@@ -3304,6 +3313,7 @@ html:not([data-sv-enhanced]) .sv-home .sv-palette-trigger {
 .sv-home-service > .sv-home-service-actions:has(.sv-home-svc-form, .sv-home-svc-confirm) {
   display: block;
   grid-area: form;
+  margin-left: 0;
   padding: 0.25rem 0 0.625rem var(--sv-home-indent);
 }
 
