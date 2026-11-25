@@ -3464,6 +3464,7 @@ func (a *App) initCoordinators(ctx context.Context) {
 			})
 		}
 		a.preloadAccessibilityForShownPane(paneID)
+		a.focusRevealedActivePane(paneID)
 
 		// This only updates focus when the shown pane belongs to the last-focused
 		// window's active workspace. activeWorkspace() delegates to
