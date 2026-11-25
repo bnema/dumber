@@ -399,7 +399,7 @@ func (ci *ContentInjector) InjectScripts(ctx context.Context, ucm *webkit.UserCo
 				buildSystemviewBridgeTokenScript(wv.SystemviewBridgeToken()),
 				webkit.UserContentInjectTopFrameValue,
 				webkit.UserScriptInjectAtDocumentStartValue,
-				internalPageAllowList,
+				nil, // allow lists never match here; the script checks dumb: itself
 				nil,
 			),
 			"systemview-bridge-token",

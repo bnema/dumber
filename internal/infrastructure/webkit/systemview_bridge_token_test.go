@@ -49,6 +49,10 @@ func TestBuildSystemviewBridgeTokenScript(t *testing.T) {
 	assert.Contains(t, script, systemviewBridgeTokenField)
 	assert.Contains(t, script, "Object.getPrototypeOf(handler)")
 	assert.Contains(t, script, "configurable: false")
+	guard := strings.Index(script, "location.protocol !== 'dumb:'")
+	require.Positive(t, guard, "script must check the dumb: scheme itself")
+	assert.Less(t, guard, strings.Index(script, "tok\\'en"), "scheme check must run before the token is defined")
+	assert.Contains(t, script, "window.top !== window")
 	assert.Equal(t, 1, strings.Count(script, "tok\\'en"), "token must appear once, only in the closure")
 }
 

@@ -62,8 +62,14 @@ func parseScriptMessageJSON(raw []byte) (Message, string, error) {
 // in the top frame so every object message carries the token. Frames have
 // their own prototypes, so embedded frames keep the unwrapped postMessage, and
 // the token lives only in this closure.
+//
+// The script is registered without a WebKit allow list: allow lists passed
+// through the bindings never match (not even "*://*/*"), so the dumb: check
+// happens here, before page code runs. Other pages exit without keeping a
+// reference to the token.
 //nolint:gosec // G101 false positive: a JS template; the token is filled in at runtime.
 const systemviewBridgeTokenScriptTemplate = `(function() {
+  if (window.top !== window || location.protocol !== 'dumb:') { return; }
   var token = '%s';
   var handlers = window.webkit && window.webkit.messageHandlers;
   var handler = handlers && handlers.dumber;
