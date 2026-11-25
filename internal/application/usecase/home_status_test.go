@@ -6,6 +6,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/stretchr/testify/assert"
@@ -121,67 +122,69 @@ func TestCheckHomeStatus_URLChangeBypassesCache(t *testing.T) {
 }
 
 func TestCheckHomeStatus_SharesInflightProbe(t *testing.T) {
-	f := newHomeStatusFixture(t)
-	release := make(chan struct{})
-	var calls atomic.Int32
-	f.prober.EXPECT().Probe(mock.Anything, "https://media.local", homeStatusTimeout).
-		RunAndReturn(func(context.Context, string, time.Duration) (port.HomeProbeResult, error) {
-			calls.Add(1)
-			<-release
-			return port.HomeProbeResult{StatusCode: 204}, nil
-		}).Once()
+	synctest.Test(t, func(t *testing.T) {
+		f := newHomeStatusFixture(t)
+		release := make(chan struct{})
+		var calls atomic.Int32
+		f.prober.EXPECT().Probe(mock.Anything, "https://media.local", homeStatusTimeout).
+			RunAndReturn(func(context.Context, string, time.Duration) (port.HomeProbeResult, error) {
+				calls.Add(1)
+				<-release
+				return port.HomeProbeResult{StatusCode: 204}, nil
+			}).Once()
 
-	const n = 5
-	var wg sync.WaitGroup
-	results := make([]*dto.HomeStatusResponse, n)
-	for i := range n {
-		wg.Go(func() {
-			resp, err := f.uc.CheckHomeStatus(context.Background(), "media")
-			assert.NoError(t, err)
-			results[i] = resp
-		})
-	}
-	require.Eventually(t, func() bool {
+		const n = 5
+		var wg sync.WaitGroup
+		results := make([]*dto.HomeStatusResponse, n)
+		for i := range n {
+			wg.Go(func() {
+				resp, err := f.uc.CheckHomeStatus(context.Background(), "media")
+				assert.NoError(t, err)
+				results[i] = resp
+			})
+		}
+		synctest.Wait()
 		f.uc.statusState.mu.Lock()
-		defer f.uc.statusState.mu.Unlock()
-		return len(f.uc.statusState.inflight) == 1
-	}, time.Second, time.Millisecond)
-	close(release)
-	wg.Wait()
-	assert.Equal(t, int32(1), calls.Load())
-	for _, r := range results {
-		require.NotNil(t, r)
-		assert.Equal(t, 204, r.Code)
-	}
+		require.Len(t, f.uc.statusState.inflight, 1)
+		f.uc.statusState.mu.Unlock()
+		close(release)
+		wg.Wait()
+		assert.Equal(t, int32(1), calls.Load())
+		for _, r := range results {
+			require.NotNil(t, r)
+			assert.Equal(t, 204, r.Code)
+		}
+	})
 }
 
 func TestCheckHomeStatus_CallerCancelDoesNotKillSharedProbe(t *testing.T) {
-	f := newHomeStatusFixture(t)
-	release := make(chan struct{})
-	f.prober.EXPECT().Probe(mock.Anything, "https://media.local", homeStatusTimeout).
-		RunAndReturn(func(ctx context.Context, _ string, _ time.Duration) (port.HomeProbeResult, error) {
-			<-release
-			return port.HomeProbeResult{StatusCode: 200}, ctx.Err()
-		}).Once()
+	synctest.Test(t, func(t *testing.T) {
+		f := newHomeStatusFixture(t)
+		release := make(chan struct{})
+		f.prober.EXPECT().Probe(mock.Anything, "https://media.local", homeStatusTimeout).
+			RunAndReturn(func(ctx context.Context, _ string, _ time.Duration) (port.HomeProbeResult, error) {
+				<-release
+				return port.HomeProbeResult{StatusCode: 200}, ctx.Err()
+			}).Once()
 
-	ctx, cancel := context.WithCancel(context.Background())
-	done := make(chan error)
-	go func() {
-		_, err := f.uc.CheckHomeStatus(ctx, "media")
-		done <- err
-	}()
-	require.Eventually(t, func() bool {
+		ctx, cancel := context.WithCancel(context.Background())
+		done := make(chan error)
+		go func() {
+			_, err := f.uc.CheckHomeStatus(ctx, "media")
+			done <- err
+		}()
+		synctest.Wait()
 		f.uc.statusState.mu.Lock()
-		defer f.uc.statusState.mu.Unlock()
-		return len(f.uc.statusState.inflight) == 1
-	}, time.Second, time.Millisecond)
-	cancel()
-	require.ErrorIs(t, <-done, context.Canceled)
-	close(release)
+		require.Len(t, f.uc.statusState.inflight, 1)
+		f.uc.statusState.mu.Unlock()
+		cancel()
+		require.ErrorIs(t, <-done, context.Canceled)
+		close(release)
 
-	resp, err := f.uc.CheckHomeStatus(context.Background(), "media")
-	require.NoError(t, err)
-	assert.Equal(t, dto.HomeServiceStateUp, resp.State)
+		resp, err := f.uc.CheckHomeStatus(context.Background(), "media")
+		require.NoError(t, err)
+		assert.Equal(t, dto.HomeServiceStateUp, resp.State)
+	})
 }
 
 func TestCheckHomeStatus_PanicReleasesWaiters(t *testing.T) {
@@ -220,34 +223,41 @@ func TestCheckHomeStatus_PrunesRemovedServices(t *testing.T) {
 }
 
 func TestCheckHomeStatus_URLChangeDoesNotJoinOldFlight(t *testing.T) {
-	f := newHomeStatusFixture(t)
-	release := make(chan struct{})
-	f.prober.EXPECT().Probe(mock.Anything, "https://media.local", homeStatusTimeout).
-		RunAndReturn(func(context.Context, string, time.Duration) (port.HomeProbeResult, error) {
-			<-release
-			return port.HomeProbeResult{StatusCode: 200}, nil
-		}).Once()
-	f.prober.EXPECT().Probe(mock.Anything, "https://media2.local", homeStatusTimeout).
-		Return(port.HomeProbeResult{StatusCode: 503}, nil).Once()
+	synctest.Test(t, func(t *testing.T) {
+		f := newHomeStatusFixture(t)
+		release := make(chan struct{})
+		f.prober.EXPECT().Probe(mock.Anything, "https://media.local", homeStatusTimeout).
+			RunAndReturn(func(context.Context, string, time.Duration) (port.HomeProbeResult, error) {
+				<-release
+				return port.HomeProbeResult{StatusCode: 200}, nil
+			}).Once()
+		f.prober.EXPECT().Probe(mock.Anything, "https://media2.local", homeStatusTimeout).
+			Return(port.HomeProbeResult{StatusCode: 503}, nil).Once()
 
-	oldDone := make(chan *dto.HomeStatusResponse)
-	go func() {
-		resp, _ := f.uc.CheckHomeStatus(context.Background(), "media")
-		oldDone <- resp
-	}()
-	require.Eventually(t, func() bool {
+		oldDone := make(chan *dto.HomeStatusResponse)
+		go func() {
+			resp, _ := f.uc.CheckHomeStatus(context.Background(), "media")
+			oldDone <- resp
+		}()
+		synctest.Wait()
 		f.uc.statusState.mu.Lock()
-		defer f.uc.statusState.mu.Unlock()
-		return len(f.uc.statusState.inflight) == 1
-	}, time.Second, time.Millisecond)
+		require.Len(t, f.uc.statusState.inflight, 1)
+		f.uc.statusState.mu.Unlock()
 
-	f.uc.statusState.mu.Lock()
-	f.layout.Groups[0].Services[0].URL = "https://media2.local"
-	f.uc.statusState.mu.Unlock()
-	resp, err := f.uc.CheckHomeStatus(context.Background(), "media")
-	require.NoError(t, err)
-	assert.Equal(t, 503, resp.Code)
+		f.uc.statusState.mu.Lock()
+		f.layout.Groups[0].Services[0].URL = "https://media2.local"
+		f.uc.statusState.mu.Unlock()
+		resp, err := f.uc.CheckHomeStatus(context.Background(), "media")
+		require.NoError(t, err)
+		assert.Equal(t, 503, resp.Code)
 
-	close(release)
-	assert.Equal(t, 200, (<-oldDone).Code)
+		close(release)
+		assert.Equal(t, 200, (<-oldDone).Code)
+	})
+}
+
+func TestCheckHomeStatus_NoProberConfigured(t *testing.T) {
+	source := mocks.NewMockHomeConfigSource(t)
+	_, err := NewHomeUseCase(HomeDeps{Source: source}).CheckHomeStatus(context.Background(), "media")
+	require.EqualError(t, err, "home status not configured")
 }

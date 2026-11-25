@@ -5,9 +5,11 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/stretchr/testify/assert"
@@ -58,23 +60,25 @@ func TestProbe_RedirectNotFollowed(t *testing.T) {
 
 func TestProbe_HeadRejectedRetriesGet(t *testing.T) {
 	for _, code := range []int{http.StatusMethodNotAllowed, http.StatusNotImplemented} {
-		var mu sync.Mutex
-		var methods []string
-		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			mu.Lock()
-			methods = append(methods, r.Method)
-			mu.Unlock()
-			if r.Method == http.MethodHead {
-				w.WriteHeader(code)
-				return
-			}
-			_, _ = w.Write([]byte(strings.Repeat("x", 1<<16)))
-		}))
-		res, err := NewProber().Probe(context.Background(), srv.URL, time.Second)
-		srv.Close()
-		require.NoError(t, err)
-		assert.Equal(t, http.StatusOK, res.StatusCode)
-		assert.Equal(t, []string{http.MethodHead, http.MethodGet}, methods)
+		t.Run(strconv.Itoa(code), func(t *testing.T) {
+			var mu sync.Mutex
+			var methods []string
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				mu.Lock()
+				methods = append(methods, r.Method)
+				mu.Unlock()
+				if r.Method == http.MethodHead {
+					w.WriteHeader(code)
+					return
+				}
+				_, _ = w.Write([]byte(strings.Repeat("x", 1<<16)))
+			}))
+			res, err := NewProber().Probe(context.Background(), srv.URL, time.Second)
+			srv.Close()
+			require.NoError(t, err)
+			assert.Equal(t, http.StatusOK, res.StatusCode)
+			assert.Equal(t, []string{http.MethodHead, http.MethodGet}, methods)
+		})
 	}
 }
 
@@ -119,18 +123,26 @@ func TestProbe_DropsUserinfo(t *testing.T) {
 	assert.Equal(t, http.StatusNoContent, res.StatusCode)
 }
 
+type roundTripFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripFunc) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
+
 func TestProbe_LatencyCoversOnlyGetAfterFallback(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method == http.MethodHead {
-			w.WriteHeader(http.StatusMethodNotAllowed)
-		}
-	}))
-	defer srv.Close()
-	// Each now() call advances a fake clock by one second.
-	clock := time.Unix(0, 0)
-	p := NewProber()
-	p.now = func() time.Time { clock = clock.Add(time.Second); return clock }
-	res, err := p.Probe(context.Background(), srv.URL, time.Second)
-	require.NoError(t, err)
-	assert.Equal(t, time.Second, res.Latency)
+	synctest.Test(t, func(t *testing.T) {
+		p := NewProber()
+		p.http.Transport = roundTripFunc(func(r *http.Request) (*http.Response, error) {
+			code := http.StatusOK
+			if r.Method == http.MethodHead {
+				time.Sleep(10 * time.Second)
+				code = http.StatusMethodNotAllowed
+			} else {
+				time.Sleep(time.Second)
+			}
+			return &http.Response{StatusCode: code, Body: http.NoBody, Header: http.Header{}, Request: r}, nil
+		})
+		res, err := p.Probe(context.Background(), "http://svc.local", MaxTimeout)
+		require.NoError(t, err)
+		assert.Equal(t, http.StatusOK, res.StatusCode)
+		assert.Equal(t, time.Second, res.Latency)
+	})
 }

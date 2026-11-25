@@ -18,7 +18,6 @@ import (
 // and keeps no cookies. TLS verification stays enabled.
 type Prober struct {
 	http *http.Client
-	now  func() time.Time
 }
 
 var _ port.HomeStatusProber = (*Prober)(nil)
@@ -26,15 +25,12 @@ var _ port.HomeStatusProber = (*Prober)(nil)
 // NewProber creates a prober.
 func NewProber() *Prober {
 	transport := http.DefaultTransport.(*http.Transport).Clone()
-	return &Prober{
-		http: &http.Client{
-			Transport: transport,
-			CheckRedirect: func(*http.Request, []*http.Request) error {
-				return http.ErrUseLastResponse
-			},
+	return &Prober{http: &http.Client{
+		Transport: transport,
+		CheckRedirect: func(*http.Request, []*http.Request) error {
+			return http.ErrUseLastResponse
 		},
-		now: time.Now,
-	}
+	}}
 }
 
 // Probe checks rawURL. A certificate that fails verification counts as an
@@ -56,14 +52,14 @@ func (p *Prober) Probe(ctx context.Context, rawURL string, timeout time.Duration
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
-	start := p.now()
+	start := time.Now()
 	code, err := p.send(ctx, http.MethodHead, target)
 	if err == nil && (code == http.StatusMethodNotAllowed || code == http.StatusNotImplemented) {
 		// Time only the GET, not the rejected HEAD round trip.
-		start = p.now()
+		start = time.Now()
 		code, err = p.send(ctx, http.MethodGet, target)
 	}
-	latency := p.now().Sub(start)
+	latency := time.Since(start)
 	if err != nil {
 		if isCertVerificationError(err) {
 			return port.HomeProbeResult{Latency: latency, TLSUnverified: true}, nil
