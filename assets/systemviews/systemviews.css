@@ -3343,3 +3343,20 @@ html[data-sv-enhanced] .sv-savebar:not([data-sv-open]):not(:has(.sv-savebar-erro
   flex: 1 1 100%;
   font-size: 0.8125rem;
 }
+
+.sv-home-service-embed {
+  padding: 0 0.625rem 0.625rem;
+}
+
+.sv-home-embed {
+  display: block;
+  width: 100%;
+  border: 1px solid var(--sv-hairline);
+  border-radius: var(--sv-radius-chip);
+  background: var(--sv-surface);
+}
+
+/* A tall neighbour (an embed) must not spread a tile's rows apart. */
+.sv-home-service {
+  align-content: start;
+}

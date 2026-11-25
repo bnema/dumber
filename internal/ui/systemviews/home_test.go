@@ -413,7 +413,13 @@ func TestHomeServiceStructureChangeRemounts(t *testing.T) {
 			mutate(&home.load.Layout)
 			reloadHome(t, app)
 			assert.Equal(t, mounts+1, dom.mountCount)
-			assert.Empty(t, dom.regions)
+			// After the remount only the service slots are pushed back: the
+			// embed (emptied by the remount), never a tile or the skeleton.
+			for _, update := range dom.regions {
+				for _, region := range update {
+					assert.True(t, strings.HasPrefix(region.Name, homeServiceEmbedRegionPrefix), region.Name)
+				}
+			}
 		})
 	}
 }

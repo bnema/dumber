@@ -1,6 +1,10 @@
 package systemviews
 
-import "bnema.dev/dumber/internal/domain/entity"
+import (
+	"strconv"
+
+	"bnema.dev/dumber/internal/domain/entity"
+)
 
 // homeServiceWidgetSlot is the widget slot of a service tile, then its
 // actions region. Api widget slots are filled by HomeServiceWidget once data
@@ -130,4 +134,22 @@ templ HomeServiceActions(view homeServiceActionsView) {
 			}
 		}
 	</div>
+}
+
+// HomeServiceEmbed is the content of an embed region: the iframe, or a note
+// when the url was rejected.
+templ HomeServiceEmbed(view homeEmbedView, ok bool, rejected bool) {
+	if ok {
+		<iframe
+			class="sv-home-embed"
+			src={ templ.SafeURL(view.URL) }
+			height={ strconv.Itoa(view.Height) }
+			title={ view.Name }
+			sandbox={ homeEmbedSandbox }
+			referrerpolicy="no-referrer"
+			loading="lazy"
+		></iframe>
+	} else if rejected {
+		<p class="sv-home-svc-error" role="status">Embed url must be an http(s) address.</p>
+	}
 }

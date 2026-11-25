@@ -155,8 +155,8 @@ func TestHomeServiceWidgetSlotIsAnEmptyRegion(t *testing.T) {
 	t.Parallel()
 	home := &svcHome{fakeHome: fakeHome{load: homeLayoutWith(apiService("nas", entity.HomeDisplayStats, ""), entity.HomeService{ID: "plain", Name: "Plain"})}}
 	app, _ := newServiceApp(t, home, nil)
-	assert.Contains(t, app.renderedHTML, `data-sv-region="home-svc-nas"`)
-	assert.NotContains(t, app.renderedHTML, `data-sv-region="home-svc-plain"`)
+	assert.Contains(t, app.renderedHTML, `data-sv-region="home-svc:nas"`)
+	assert.NotContains(t, app.renderedHTML, `data-sv-region="home-svc:plain"`)
 	assert.Equal(t, 0, home.callCount("plain"))
 }
 
@@ -233,7 +233,7 @@ func TestHomeServiceWidgetDisplays(t *testing.T) {
 			home := &svcHome{fakeHome: fakeHome{load: homeLayoutWith(tc.service)}}
 			home.set("s", tc.data)
 			_, dom := newServiceApp(t, home, nil)
-			got, count := dom.lastRegion("home-svc-s")
+			got, count := dom.lastRegion("home-svc:s")
 			require.Equal(t, 1, count)
 			for _, want := range tc.want {
 				assert.Contains(t, got, want)
@@ -249,7 +249,7 @@ func TestHomeServiceWidgetBridgeErrorShowsInline(t *testing.T) {
 	t.Parallel()
 	home := &svcHome{fakeHome: fakeHome{load: homeLayoutWith(apiService("s", entity.HomeDisplayStats, ""))}, err: errors.New("bridge down")}
 	_, dom := newServiceApp(t, home, nil)
-	got, _ := dom.lastRegion("home-svc-s")
+	got, _ := dom.lastRegion("home-svc:s")
 	assert.Contains(t, got, `bridge down`)
 }
 
@@ -267,13 +267,13 @@ func TestHomeServiceWidgetRefreshSwapsOnlyOnChange(t *testing.T) {
 	home.set("s", first)
 	ticker.tick(t, 0)
 	waitFor(t, func() bool { return home.callCount("s") == 2 })
-	_, count := dom.lastRegion("home-svc-s")
+	_, count := dom.lastRegion("home-svc:s")
 	assert.Equal(t, 1, count)
 
 	home.set("s", dto.HomeWidgetDataResponse{Fields: []dto.HomeWidgetValue{{Label: "A", Value: "2"}}})
 	ticker.tick(t, 0)
-	waitFor(t, func() bool { _, count := dom.lastRegion("home-svc-s"); return count == 2 })
-	got, _ := dom.lastRegion("home-svc-s")
+	waitFor(t, func() bool { _, count := dom.lastRegion("home-svc:s"); return count == 2 })
+	got, _ := dom.lastRegion("home-svc:s")
 	assert.Contains(t, got, `>2</dd>`)
 }
 
@@ -307,36 +307,25 @@ func TestHomeServiceWidgetTimersStopOnRouteChange(t *testing.T) {
 	waitFor(t, func() bool { _, stopped := ticker.count(); return stopped == 1 })
 }
 
-func TestHomeServiceWidgetRestoredAfterGroupsSwap(t *testing.T) {
+func TestHomeServiceWidgetRestoredAfterRemount(t *testing.T) {
 	t.Parallel()
 	nas := apiService("nas", entity.HomeDisplayStats, "")
 	home := &svcHome{fakeHome: fakeHome{load: homeLayoutWith(nas)}}
 	home.set("nas", dto.HomeWidgetDataResponse{Fields: []dto.HomeWidgetValue{{Label: "Disk", Value: "80%"}}})
 	app, dom := newServiceApp(t, home, nil)
-	_, before := dom.lastRegion("home-svc-nas")
+	_, before := dom.lastRegion("home-svc:nas")
 	require.Equal(t, 1, before)
+	mounts := dom.mountCount
 
-	// A sibling edit swaps home-groups, which renders the slot empty.
+	// Adding a service is a structural change: the page remounts empty slots.
 	home.load = homeLayoutWith(nas, entity.HomeService{ID: "new", Name: "New"})
 	app.lockState()
 	require.NoError(t, app.reloadHomeLocked(context.Background()))
 	app.unlockState()
 	app.homeFillWG.Wait()
 
-	dom.mu.Lock()
-	var groupsSwap, restore int
-	for i, update := range dom.regions {
-		for _, region := range update {
-			if region.Name == homeRegionGroups {
-				groupsSwap = i
-			}
-			if region.Name == "home-svc-nas" {
-				restore = i
-			}
-		}
-	}
-	dom.mu.Unlock()
-	assert.Greater(t, restore, groupsSwap, "slot pushed after the groups swap")
-	got, _ := dom.lastRegion("home-svc-nas")
+	assert.Equal(t, mounts+1, dom.mountCount)
+	got, after := dom.lastRegion("home-svc:nas")
+	assert.Equal(t, 2, after, "slot pushed back after the remount")
 	assert.Contains(t, got, `80%`)
 }

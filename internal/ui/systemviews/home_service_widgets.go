@@ -14,7 +14,7 @@ import (
 // homeServiceRegionPrefix + service id names the widget slot of a service
 // tile. The slot sits inside the home-groups region, which renders it empty;
 // its data is pushed separately so a refresh never swaps the whole grid.
-const homeServiceRegionPrefix = "home-svc-"
+const homeServiceRegionPrefix = "home-svc:"
 
 // homeServiceMinRefresh is the shortest allowed widget refresh interval.
 const homeServiceMinRefresh = 5 * time.Second
@@ -28,6 +28,9 @@ type homeServiceWidgets struct {
 	slots map[string]string
 	// actions is the action UI state of services whose actions are not idle.
 	actions map[string]homeActionState
+	// embeds is the key (url and height) of the iframe pushed into each embed
+	// region; an unchanged key is never pushed again, so the iframe is kept.
+	embeds map[string]string
 	// newTicker returns a tick channel and its stop function. Tests replace it.
 	newTicker func(time.Duration) (<-chan time.Time, func())
 }
@@ -135,7 +138,11 @@ func homeBarStyle(bar homeServiceBar) string {
 // holds App.mu.
 func (a *App) startHomeServiceWidgetsLocked(ctx context.Context) {
 	a.stopHomeServiceWidgetsLocked()
-	if a.closed || ctx == nil || a.deps.Home == nil {
+	if a.closed || ctx == nil {
+		return
+	}
+	a.syncHomeEmbedsLocked(ctx)
+	if a.deps.Home == nil {
 		return
 	}
 	services := homeAPIServices(a.homeData.Load)
@@ -229,18 +236,13 @@ func (a *App) resetHomeServiceWidgetsLocked() {
 	a.stopHomeServiceWidgetsLocked()
 	a.homeSvc.slots = nil
 	a.homeSvc.actions = nil
+	a.homeSvc.embeds = nil
 }
 
-// restoreHomeServiceSlotsLocked pushes the cached widget markup and open
-// action forms back after the home-groups region (which renders them empty
-// and idle) was swapped or the page remounted. Caller holds App.mu.
-func (a *App) restoreHomeServiceSlotsLocked(changed []DOMRegion, remounted bool) error {
-	if len(a.homeSvc.slots) == 0 && len(a.homeSvc.actions) == 0 {
-		return nil
-	}
-	if !remounted && !homeRegionsInclude(changed, homeRegionGroups) {
-		return nil
-	}
+// restoreHomeServiceSlotsLocked pushes the cached widget markup, open action
+// forms and embeds back after a full remount, which renders them empty and
+// idle. Caller holds App.mu.
+func (a *App) restoreHomeServiceSlotsLocked() error {
 	updater, ok := a.deps.DOM.(DOMRegionUpdater)
 	if !ok {
 		return nil
@@ -252,17 +254,11 @@ func (a *App) restoreHomeServiceSlotsLocked(changed []DOMRegion, remounted bool)
 		}
 	}
 	regions = append(regions, a.homeActionRegionsLocked()...)
+	// The remount emptied every embed region: push them all again.
+	a.homeSvc.embeds = nil
+	regions = append(regions, a.changedHomeEmbedRegionsLocked()...)
 	if len(regions) == 0 {
 		return nil
 	}
 	return updater.UpdateRegions(RegionUpdate{Regions: regions})
-}
-
-func homeRegionsInclude(regions []DOMRegion, name string) bool {
-	for _, region := range regions {
-		if region.Name == name {
-			return true
-		}
-	}
-	return false
 }

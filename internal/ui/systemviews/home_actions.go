@@ -367,7 +367,7 @@ func (a *App) applyHomeRegionsLocked(next []DOMRegion) error {
 	if err := a.mountRenderedHTML(); err != nil {
 		return err
 	}
-	return a.restoreHomeServiceSlotsLocked(nil, true)
+	return a.restoreHomeServiceSlotsLocked()
 }
 
 // startHomeClock queues a clock refresh every homeClockInterval until the

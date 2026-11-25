@@ -11,7 +11,7 @@ import (
 
 // homeServiceActionsRegionPrefix + service id names the actions region of a
 // tile. It is separate from the data slot so a refresh never wipes a form.
-const homeServiceActionsRegionPrefix = "home-svc-actions-"
+const homeServiceActionsRegionPrefix = "home-svc-actions:"
 
 // Service action events. Data carries svService and svHomeAction; form
 // inputs arrive as homeActionInputPrefix + input name.

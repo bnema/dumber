@@ -90,7 +90,7 @@ func TestHomeServiceActionsRenderButtons(t *testing.T) {
 		entity.HomeAction{ID: "restart", Label: "Restart"},
 	))}}}
 	app, _ := newActionApp(t, home)
-	assert.Contains(t, app.renderedHTML, `data-sv-region="home-svc-actions-box"`)
+	assert.Contains(t, app.renderedHTML, `data-sv-region="home-svc-actions:box"`)
 	assert.Contains(t, app.renderedHTML, `data-sv-action="home.svc.open" data-sv-service="box" data-sv-home-action="restart"`)
 	assert.Contains(t, app.renderedHTML, `>Restart</button>`)
 }
@@ -106,7 +106,7 @@ func TestHomeServiceActionRunsDirectlyWithBusyState(t *testing.T) {
 	ctx := context.Background()
 
 	require.NoError(t, app.HandleDOMAction(ctx, svcEvent(homeActionSvcOpen, "ping", nil)))
-	busy, _ := dom.lastRegion("home-svc-actions-box")
+	busy, _ := dom.lastRegion("home-svc-actions:box")
 	assert.Contains(t, busy, `aria-busy="true"`)
 	assert.Contains(t, busy, `disabled`)
 	assert.Contains(t, busy, `Running…`)
@@ -120,7 +120,7 @@ func TestHomeServiceActionRunsDirectlyWithBusyState(t *testing.T) {
 	assert.Len(t, home.requests(), 1)
 	assert.Equal(t, dto.HomeActionRequest{ServiceID: "box", ActionID: "ping"}, home.requests()[0])
 	assert.Equal(t, []string{"Ping: pong"}, dom.toastMessages())
-	idle, _ := dom.lastRegion("home-svc-actions-box")
+	idle, _ := dom.lastRegion("home-svc-actions:box")
 	assert.NotContains(t, idle, `aria-busy`)
 	assert.Contains(t, idle, `>Ping</button>`)
 }
@@ -138,14 +138,14 @@ func TestHomeServiceActionInputsThenConfirm(t *testing.T) {
 	ctx := context.Background()
 
 	require.NoError(t, app.HandleDOMAction(ctx, svcEvent(homeActionSvcOpen, "scale", nil)))
-	form, _ := dom.lastRegion("home-svc-actions-box")
+	form, _ := dom.lastRegion("home-svc-actions:box")
 	assert.Contains(t, form, `<form class="sv-home-svc-form" data-sv-action="home.svc.submit" data-sv-service="box" data-sv-home-action="scale"`)
 	assert.Contains(t, form, `name="input.replicas" placeholder="3"`)
 	assert.Contains(t, form, `Replicas`)
 
 	// Input values arrive under the input. prefix, apart from the routing keys.
 	require.NoError(t, app.HandleDOMAction(ctx, svcEvent(homeActionSvcSubmit, "scale", map[string]string{"input.replicas": " 5 "})))
-	confirm, _ := dom.lastRegion("home-svc-actions-box")
+	confirm, _ := dom.lastRegion("home-svc-actions:box")
 	assert.Contains(t, confirm, `Scale the service?`)
 	assert.Contains(t, confirm, `data-sv-action="home.svc.confirm"`)
 	assert.Empty(t, home.requests())
@@ -166,11 +166,11 @@ func TestHomeServiceActionConfirmOnlyAndCancel(t *testing.T) {
 	ctx := context.Background()
 
 	require.NoError(t, app.HandleDOMAction(ctx, svcEvent(homeActionSvcOpen, "wipe", nil)))
-	confirm, _ := dom.lastRegion("home-svc-actions-box")
+	confirm, _ := dom.lastRegion("home-svc-actions:box")
 	assert.Contains(t, confirm, `Really?`)
 
 	require.NoError(t, app.HandleDOMAction(ctx, svcEvent(homeActionSvcCancel, "", nil)))
-	idle, _ := dom.lastRegion("home-svc-actions-box")
+	idle, _ := dom.lastRegion("home-svc-actions:box")
 	assert.Contains(t, idle, `>Wipe</button>`)
 
 	// A stray confirm after cancel runs nothing.
@@ -197,7 +197,7 @@ func TestHomeServiceActionFormSurvivesGroupsSwap(t *testing.T) {
 	home := &actionHome{svcHome: svcHome{fakeHome: fakeHome{load: homeLayoutWith(svc)}}}
 	app, dom := newActionApp(t, home)
 	require.NoError(t, app.HandleDOMAction(context.Background(), svcEvent(homeActionSvcOpen, "scale", nil)))
-	_, before := dom.lastRegion("home-svc-actions-box")
+	_, before := dom.lastRegion("home-svc-actions:box")
 
 	home.load = homeLayoutWith(svc, entity.HomeService{ID: "other", Name: "Other"})
 	app.lockState()
@@ -205,7 +205,7 @@ func TestHomeServiceActionFormSurvivesGroupsSwap(t *testing.T) {
 	app.unlockState()
 	app.homeFillWG.Wait()
 
-	form, after := dom.lastRegion("home-svc-actions-box")
+	form, after := dom.lastRegion("home-svc-actions:box")
 	assert.Equal(t, before+1, after)
 	assert.Contains(t, form, `name="input.n"`)
 }
