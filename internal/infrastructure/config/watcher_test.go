@@ -18,7 +18,7 @@ func newWatchingTestManager(t *testing.T) (*Manager, *atomic.Int32) {
 	mgr := newTestOmniboxPreferencesGatewayManager(t, t.TempDir())
 	mgr.watchDelay = testWatchDelay
 	var calls atomic.Int32
-	mgr.OnConfigChange(func(*Config) { calls.Add(1) })
+	mgr.OnConfigChangeGeneration(func(*Config, uint64) { calls.Add(1) })
 	require.NoError(t, mgr.Watch())
 	t.Cleanup(func() { _ = mgr.StopWatching() })
 	return mgr, &calls

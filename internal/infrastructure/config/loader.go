@@ -28,7 +28,6 @@ type Manager struct {
 	// instance was not created by newConfigViper.
 	envTables    *tableSafeEnvReplacer
 	mu           sync.RWMutex
-	callbacks    []func(*Config)
 	genCallbacks []func(*Config, uint64)
 	generation   uint64
 	watching     bool
@@ -57,7 +56,6 @@ func NewManager() (*Manager, error) {
 	m := &Manager{
 		viper:     v,
 		envTables: envTables,
-		callbacks: make([]func(*Config), 0),
 	}
 
 	// Configure Viper for TOML as default format

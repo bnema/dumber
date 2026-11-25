@@ -87,26 +87,13 @@ func (m *Manager) notifyCallbacksLocked() {
 	config := m.config
 	m.generation++
 	generation := m.generation
-	callbacks := make([]func(*Config), len(m.callbacks))
-	copy(callbacks, m.callbacks)
 	genCallbacks := make([]func(*Config, uint64), len(m.genCallbacks))
 	copy(genCallbacks, m.genCallbacks)
 	m.mu.Unlock()
 
-	for _, callback := range callbacks {
-		callback(config)
-	}
 	for _, callback := range genCallbacks {
 		callback(config, generation)
 	}
-}
-
-// OnConfigChange registers a callback function to be called when config changes.
-func (m *Manager) OnConfigChange(callback func(*Config)) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	m.callbacks = append(m.callbacks, callback)
 }
 
 // OnConfigChangeGeneration registers a callback that also receives the
@@ -165,12 +152,4 @@ func Watch() error {
 		return fmt.Errorf("configuration not initialized")
 	}
 	return globalManager.Watch()
-}
-
-// OnConfigChange registers a callback for global configuration changes.
-func OnConfigChange(callback func(*Config)) {
-	if globalManager == nil {
-		return
-	}
-	globalManager.OnConfigChange(callback)
 }
