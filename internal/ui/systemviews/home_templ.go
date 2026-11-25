@@ -585,7 +585,7 @@ func homeSearchWidget(config homeSearchConfig) templ.Component {
 		}
 		ctx = templ.InitializeContext(ctx)
 		ctx = templ.ClearChildren(ctx)
-		view := buildHomeSearchView(config, "", nil, 0)
+		view := buildHomeSearchView(config, "", nil, nil, -1)
 		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 50, "<form class=\"sv-home-search\" data-sv-action=\"home.search\" role=\"search\" autocomplete=\"off\" data-sv-home-engine-url=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err

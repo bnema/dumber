@@ -84,10 +84,13 @@ type homeSearchView struct {
 	Result homeQueryResult
 	// Filtering hides the items whose key is not in Result.Matches.
 	Filtering bool
-	// Selected is the key of the selected item, or "".
-	Selected     string
-	SelectedName string
-	SelectedURL  string
+	// Selected is the key of the selected item, or "". SelectedIndex is
+	// its index among the SelectableCount matches and suggestions, or -1.
+	Selected        string
+	SelectedIndex   int
+	SelectableCount int
+	SelectedName    string
+	SelectedURL     string
 
 	ChipState string
 	ChipName  string
@@ -101,14 +104,15 @@ type homeSearchView struct {
 	HideSuggestions bool
 }
 
-// buildHomeSearchView resolves query against items. selected is the index
-// of the selected match; it is clamped to the matches.
-func buildHomeSearchView(config homeSearchConfig, query string, items []homeQueryItem, selected int) homeSearchView {
+// buildHomeSearchView resolves query against items. Matching items, then
+// history suggestions, are selectable; selected is the index of the
+// selection among them, or -1 for the default (the first match, if any).
+func buildHomeSearchView(config homeSearchConfig, query string, items, suggestions []homeQueryItem, selected int) homeSearchView {
 	res := resolveHomeQuery(homeQueryInput{
 		Query: query, EngineURL: config.EngineURL, EngineName: config.EngineName,
 		Shortcuts: config.Shortcuts, Items: items,
 	})
-	view := homeSearchView{Result: res, ChipName: res.EngineName, ChipIcon: homeFaviconURL(res.EngineURL)}
+	view := homeSearchView{Result: res, ChipName: res.EngineName, ChipIcon: homeFaviconURL(res.EngineURL), SelectedIndex: -1}
 	switch res.Mode {
 	case homeQueryIdle:
 		view.ChipState = homeChipIdle
@@ -118,7 +122,6 @@ func buildHomeSearchView(config homeSearchConfig, query string, items []homeQuer
 		view.Filtering = true
 		view.ChipState = homeChipIdle
 		view.Hint = homeHintOpen
-		view.selectMatch(items, selected)
 	case homeQueryWeb:
 		view.Filtering = true
 		view.ChipState = homeChipWeb
@@ -130,7 +133,6 @@ func buildHomeSearchView(config homeSearchConfig, query string, items []homeQuer
 		view.ChipName = "Address"
 		view.ChipIcon = ""
 		view.Hint = homeHintOpenAddress
-		view.selectMatch(items, selected)
 	case homeQueryBang:
 		view.ChipState = homeChipBang
 		view.HideSuggestions = true
@@ -153,23 +155,57 @@ func buildHomeSearchView(config homeSearchConfig, query string, items []homeQuer
 		view.Hint = homeHintUnknown
 		view.HintQuery = res.BangQuery
 	}
+	if view.Filtering {
+		view.selectAt(items, suggestions, selected)
+	}
 	return view
 }
 
-// selectMatch selects match index i (clamped).
-func (v *homeSearchView) selectMatch(items []homeQueryItem, i int) {
-	if len(v.Result.Matches) == 0 {
-		return
-	}
-	i = max(0, min(i, len(v.Result.Matches)-1))
-	v.Selected = v.Result.Matches[i]
+// selectAt selects index i among the matches then the suggestions. A
+// negative i selects the first match, or nothing without matches.
+func (v *homeSearchView) selectAt(items, suggestions []homeQueryItem, i int) {
+	byKey := make(map[string]homeQueryItem, len(items))
 	for _, item := range items {
-		if item.Key == v.Selected {
-			v.SelectedName = item.Name
-			v.SelectedURL = homeNavigable(item.URL)
+		byKey[item.Key] = item
+	}
+	selectable := make([]homeQueryItem, 0, len(v.Result.Matches)+len(suggestions))
+	for _, key := range v.Result.Matches {
+		selectable = append(selectable, byKey[key])
+	}
+	selectable = append(selectable, suggestions...)
+	v.SelectableCount = len(selectable)
+	if i < 0 {
+		if len(v.Result.Matches) == 0 {
 			return
 		}
+		i = 0
 	}
+	if len(selectable) == 0 {
+		return
+	}
+	i = min(i, len(selectable)-1)
+	item := selectable[i]
+	v.SelectedIndex = i
+	v.Selected = item.Key
+	v.SelectedName = item.Name
+	v.SelectedURL = homeNavigable(item.URL)
+	if v.Hint == homeHintWeb {
+		// A suggestion picked with the arrows: Enter opens it.
+		v.Hint = homeHintOpen
+	}
+}
+
+// MoveSelection returns the selection index after an arrow key, clamped
+// to the selectable rows; -1 when there is nothing to select.
+func (v homeSearchView) MoveSelection(down bool) int {
+	if v.SelectableCount == 0 {
+		return -1
+	}
+	next := v.SelectedIndex - 1
+	if down {
+		next = v.SelectedIndex + 1
+	}
+	return max(0, min(next, v.SelectableCount-1))
 }
 
 // Enter returns what Enter opens: the selected item, else the resolved
@@ -220,4 +256,49 @@ func homeServiceItemAttrs(service entity.HomeService) templ.Attributes {
 		"data-sv-home-text": homeItemText(service.Name, service.Description, stripURLScheme(service.URL)),
 		"data-sv-home-url":  service.URL,
 	}
+}
+
+// homeKeyAction is what a key does on the Home page.
+type homeKeyAction int
+
+const (
+	homeKeyNone homeKeyAction = iota
+	homeKeyOpen
+	homeKeyOpenWeb
+	homeKeySelectNext
+	homeKeySelectPrev
+	homeKeyClear
+	homeKeyBlur
+	homeKeyFocusSearch
+)
+
+// homeSearchKey maps a key typed in the search field. Focus stays in the
+// field: arrows move the selection, Escape clears then blurs.
+func homeSearchKey(key string, shift bool, query string) homeKeyAction {
+	switch key {
+	case "enter":
+		if shift {
+			return homeKeyOpenWeb
+		}
+		return homeKeyOpen
+	case "arrowdown":
+		return homeKeySelectNext
+	case "arrowup":
+		return homeKeySelectPrev
+	case "escape":
+		if query != "" {
+			return homeKeyClear
+		}
+		return homeKeyBlur
+	}
+	return homeKeyNone
+}
+
+// homePageKey maps a key typed outside the search field: "/" focuses the
+// search unless the user is typing in another field.
+func homePageKey(key string, inTextEntry bool) homeKeyAction {
+	if key == "/" && !inTextEntry {
+		return homeKeyFocusSearch
+	}
+	return homeKeyNone
 }

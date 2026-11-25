@@ -118,7 +118,7 @@ templ HomeWidget(widget homeWidgetData) {
 }
 
 templ homeSearchWidget(config homeSearchConfig) {
-	{{ view := buildHomeSearchView(config, "", nil, 0) }}
+	{{ view := buildHomeSearchView(config, "", nil, nil, -1) }}
 	<form
 		class="sv-home-search"
 		data-sv-action="home.search"

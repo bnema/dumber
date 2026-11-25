@@ -27,9 +27,10 @@ type browserDOM struct {
 	activeConfirmID         uint64
 	liveSearchTimer         *time.Timer
 	homeSuggestTimer        *time.Timer
-	// homeSelected is the index of the selected search match.
-	homeSelected int
-	actionHandler           DOMActionHandler
+	// homeSelected is the selected search row (matches, then
+	// suggestions), or -1 for the default selection.
+	homeSelected  int
+	actionHandler DOMActionHandler
 	// restoreFocusIndex keeps keyboard focus at the same row position after
 	// an undoable delete re-renders the list (-1 when unused).
 	restoreFocusIndex int

@@ -27,6 +27,7 @@ func (d *browserDOM) NavigateTo(rawURL string) error {
 // bindHomeEvents wires the home-only listeners: the native change event,
 // the image fallback, and debounced suggestions.
 func (d *browserDOM) bindHomeEvents(handler DOMActionHandler) {
+	d.homeSelected = -1
 	if d.isHomeRoute() {
 		d.bindHomeChangeEvent(handler)
 	}
@@ -72,7 +73,7 @@ func (d *browserDOM) bindHomeImageAndInputEvents(handler DOMActionHandler) {
 		}
 		// Filtering runs now, on every keystroke; only history
 		// suggestions go through the debounced action queue.
-		d.homeSelected = 0
+		d.homeSelected = -1
 		d.applyHomeSearch(target)
 		d.scheduleHomeSuggest(target.Get("value").String(), handler)
 		return nil
@@ -108,59 +109,66 @@ func (d *browserDOM) isHomeRoute() bool {
 	return d.target.Call("querySelector", `[data-route="home"]`).Truthy()
 }
 
-// handleHomeKeyboard moves focus between suggestions, rows and tiles with
-// the arrow keys. Enter on a focused link opens it natively.
+// handleHomeKeyboard is the Home keyboard model. In the search field,
+// focus stays put and the keys drive the selection; elsewhere "/" focuses
+// the search and the arrows move between rows and group columns.
 func (d *browserDOM) handleHomeKeyboard(event js.Value) {
 	key := strings.ToLower(event.Get("key").String())
 	target := event.Get("target")
 	if hasModifier(event) || !target.Truthy() || target.Get("matches").Type() != js.TypeFunction {
 		return
 	}
-	inSearch := target.Call("matches", homeSearchSelector).Bool()
-	inSuggestion := target.Call("matches", homeSuggestionSelector).Bool()
-	if inSearch {
+	if target.Call("matches", homeSearchSelector).Bool() {
 		d.handleHomeSearchKey(event, target, key)
 		return
 	}
-	switch {
-	case inSuggestion && (key == "arrowdown" || key == "arrowup"):
-		event.Call("preventDefault")
-		if !d.moveHomeFocus(target, homeSuggestionSelector, key == "arrowdown") && key == "arrowup" {
-			if input := d.target.Call("querySelector", homeSearchSelector); input.Truthy() {
-				input.Call("focus")
-			}
-		}
-	case inSuggestion && key == "escape":
+	if homePageKey(key, isTextEntry(target)) == homeKeyFocusSearch {
 		if input := d.target.Call("querySelector", homeSearchSelector); input.Truthy() {
+			event.Call("preventDefault")
 			input.Call("focus")
 		}
-	case target.Call("matches", homeNavSelector).Bool():
+		return
+	}
+	if target.Call("matches", homeNavSelector).Bool() {
 		d.handleHomeNavKey(event, target, key)
 	}
 }
 
 // handleHomeSearchKey handles the keys typed in the search field.
 func (d *browserDOM) handleHomeSearchKey(event, input js.Value, key string) {
-	switch key {
-	case "enter":
-		d.openHomeSearch(event, input)
-	case "arrowdown":
-		if first := d.target.Call("querySelector", homeSuggestionSelector); first.Truthy() {
-			event.Call("preventDefault")
-			first.Call("focus")
+	query := input.Get("value").String()
+	switch action := homeSearchKey(key, event.Get("shiftKey").Bool(), query); action {
+	case homeKeyOpen, homeKeyOpenWeb:
+		// Enter is handled here: the submit event has no shiftKey.
+		event.Call("preventDefault")
+		view := d.applyHomeSearch(input)
+		if url := view.Enter(action == homeKeyOpenWeb); url != "" && d.actionHandler != nil {
+			d.actionHandler(DOMAction{Action: homeActionSearch, Data: map[string]string{"url": url}})
 		}
-	case "escape":
+	case homeKeySelectNext, homeKeySelectPrev:
+		event.Call("preventDefault")
+		view := d.applyHomeSearch(input)
+		d.homeSelected = view.MoveSelection(action == homeKeySelectNext)
+		d.applyHomeSearch(input)
+		d.scrollHomeSelection()
+	case homeKeyClear:
+		event.Call("preventDefault")
+		input.Set("value", "")
+		d.homeSelected = -1
+		d.applyHomeSearch(input)
+		if d.actionHandler != nil {
+			d.scheduleHomeSuggest("", d.actionHandler)
+		}
+	case homeKeyBlur:
+		event.Call("preventDefault")
 		input.Call("blur")
 	}
 }
 
-// openHomeSearch opens what Enter (or Shift+Enter) resolves to. Enter is
-// handled in keydown because the submit event has no shiftKey.
-func (d *browserDOM) openHomeSearch(event, input js.Value) {
-	event.Call("preventDefault")
-	view := d.applyHomeSearch(input)
-	if url := view.Enter(event.Get("shiftKey").Bool()); url != "" && d.actionHandler != nil {
-		d.actionHandler(DOMAction{Action: homeActionSearch, Data: map[string]string{"url": url}})
+// scrollHomeSelection keeps the selected row in view.
+func (d *browserDOM) scrollHomeSelection() {
+	if row := d.target.Call("querySelector", "[data-sv-home-selected]"); row.Truthy() {
+		row.Call("scrollIntoView", map[string]any{"block": "nearest"})
 	}
 }
 
@@ -182,8 +190,8 @@ func (d *browserDOM) handleHomeNavKey(event, target js.Value, key string) {
 }
 
 // moveHomeFocus focuses the next or previous element matching selector
-// after current, in document order. It reports false at either end.
-func (d *browserDOM) moveHomeFocus(current js.Value, selector string, forward bool) bool {
+// after current, in document order. It stays put at either end.
+func (d *browserDOM) moveHomeFocus(current js.Value, selector string, forward bool) {
 	items := d.target.Call("querySelectorAll", selector)
 	count := items.Get("length").Int()
 	for i := 0; i < count; i++ {
@@ -194,13 +202,11 @@ func (d *browserDOM) moveHomeFocus(current js.Value, selector string, forward bo
 		if !forward {
 			next = i - 1
 		}
-		if next < 0 || next >= count {
-			return false
+		if next >= 0 && next < count {
+			items.Index(next).Call("focus")
 		}
-		items.Index(next).Call("focus")
-		return true
+		return
 	}
-	return false
 }
 
 // moveHomeGridFocus moves between service tiles in two dimensions: Left and
@@ -229,11 +235,13 @@ func (d *browserDOM) moveHomeGridFocus(target js.Value, key string) bool {
 	switch key {
 	case "arrowleft":
 		if index%columns == 0 {
+			d.focusSideGrid(grid, index/columns, false)
 			return true
 		}
 		next = index - 1
 	case "arrowright":
 		if index%columns == columns-1 || index+1 >= count {
+			d.focusSideGrid(grid, index/columns, true)
 			return true
 		}
 		next = index + 1
@@ -253,6 +261,36 @@ func (d *browserDOM) moveHomeGridFocus(target js.Value, key string) bool {
 	}
 	tiles.Index(next).Call("focus")
 	return true
+}
+
+// focusSideGrid moves Left or Right into the previous or next group column,
+// at the same row index (clamped). Groups hidden by the search are skipped.
+func (d *browserDOM) focusSideGrid(grid js.Value, row int, right bool) {
+	grids := d.target.Call("querySelectorAll", ".sv-home-grid")
+	count := grids.Get("length").Int()
+	current := -1
+	for i := 0; i < count; i++ {
+		if grids.Index(i).Equal(grid) {
+			current = i
+			break
+		}
+	}
+	if current < 0 {
+		return
+	}
+	step := -1
+	if right {
+		step = 1
+	}
+	for i := current + step; i >= 0 && i < count; i += step {
+		tiles := grids.Index(i).Call("querySelectorAll", ".sv-home-service:not([data-sv-home-hidden]) "+homeNavSelector)
+		total := tiles.Get("length").Int()
+		if total == 0 {
+			continue
+		}
+		tiles.Index(min(row, total-1)).Call("focus")
+		return
+	}
 }
 
 // focusAdjacentGrid moves Up or Down into the next or previous service grid,
@@ -377,6 +415,25 @@ func (d *browserDOM) homeSearchItems() ([]homeQueryItem, []js.Value) {
 	return items, marks
 }
 
+// homeSuggestionItems returns the history suggestions as selectable items,
+// keyed apart from the page items.
+func (d *browserDOM) homeSuggestionItems() ([]homeQueryItem, []js.Value) {
+	nodes := d.target.Call("querySelectorAll", homeSuggestionSelector)
+	count := nodes.Get("length").Int()
+	items := make([]homeQueryItem, 0, count)
+	marks := make([]js.Value, 0, count)
+	for i := 0; i < count; i++ {
+		node := nodes.Index(i)
+		name := ""
+		if title := node.Call("querySelector", ".sv-home-row-title"); title.Truthy() {
+			name = title.Get("textContent").String()
+		}
+		items = append(items, homeQueryItem{Key: "s" + strconv.Itoa(i), Name: name, URL: node.Call("getAttribute", "href").String()})
+		marks = append(marks, node)
+	}
+	return items, marks
+}
+
 // applyHomeSearch resolves the query of input and writes the result to the
 // page: hidden and selected attributes on rows, the engine chip and the
 // hint. No region is re-rendered, so embeds and the input keep their state.
@@ -391,7 +448,8 @@ func (d *browserDOM) applyHomeSearch(input js.Value) homeSearchView {
 		Shortcuts:  parseHomeShortcutsJSON(form.Call("getAttribute", "data-sv-home-shortcuts").String()),
 	}
 	items, marks := d.homeSearchItems()
-	view := buildHomeSearchView(config, input.Get("value").String(), items, d.homeSelected)
+	suggestions, suggestionMarks := d.homeSuggestionItems()
+	view := buildHomeSearchView(config, input.Get("value").String(), items, suggestions, d.homeSelected)
 	matched := make(map[string]bool, len(view.Result.Matches))
 	for _, key := range view.Result.Matches {
 		matched[key] = true
@@ -399,6 +457,9 @@ func (d *browserDOM) applyHomeSearch(input js.Value) homeSearchView {
 	for i, item := range items {
 		setBoolAttribute(marks[i], "data-sv-home-hidden", view.Filtering && !matched[item.Key])
 		setBoolAttribute(marks[i], "data-sv-home-selected", item.Key == view.Selected)
+	}
+	for i, item := range suggestions {
+		setBoolAttribute(suggestionMarks[i], "data-sv-home-selected", item.Key == view.Selected)
 	}
 	if root := d.target.Call("querySelector", ".sv-home"); root.Truthy() {
 		setBoolAttribute(root, "data-sv-home-query", view.Filtering)
