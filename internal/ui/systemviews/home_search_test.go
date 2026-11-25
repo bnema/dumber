@@ -34,14 +34,14 @@ func TestBuildHomeSearchView(t *testing.T) {
 	t.Parallel()
 	config, items := testHomeSearchConfig(), testHomeSearchItems()
 
-	idle := buildHomeSearchView(config, "", items, nil, -1)
+	idle := buildHomeSearchView(config, "", items, nil, "")
 	assert.Equal(t, homeChipIdle, idle.ChipState)
 	assert.Equal(t, homeHintIdle, idle.Hint)
 	assert.False(t, idle.Filtering)
 	assert.Equal(t, []string{"g", "gh", "go"}, idle.Shortcuts)
 	assert.Equal(t, "DuckDuckGo", idle.ChipName)
 
-	filter := buildHomeSearchView(config, "jel", items, nil, -1)
+	filter := buildHomeSearchView(config, "jel", items, nil, "")
 	assert.True(t, filter.Filtering)
 	assert.Equal(t, []string{"0", "1"}, filter.Result.Matches)
 	assert.Equal(t, "0", filter.Selected)
@@ -49,17 +49,19 @@ func TestBuildHomeSearchView(t *testing.T) {
 	assert.Equal(t, "https://jelly.lan", filter.Enter(false))
 	assert.Equal(t, "https://duckduckgo.com/?q=jel", filter.Enter(true))
 
-	second := buildHomeSearchView(config, "jel", items, nil, 7)
-	assert.Equal(t, "1", second.Selected, "selection is clamped to the matches")
+	second := buildHomeSearchView(config, "jel", items, nil, homeItemIdentity(items[1]))
+	assert.Equal(t, "1", second.Selected, "selection found by identity")
 	assert.Equal(t, "https://docs.lan", second.Enter(false))
+	gone := buildHomeSearchView(config, "jel", items, nil, "https://gone.lan\nGone")
+	assert.Equal(t, "0", gone.Selected, "a selection that is gone falls back to the first match")
 
-	web := buildHomeSearchView(config, "nothing here", items, nil, -1)
+	web := buildHomeSearchView(config, "nothing here", items, nil, "")
 	assert.Equal(t, homeChipWeb, web.ChipState)
 	assert.Equal(t, homeHintWeb, web.Hint)
 	assert.Empty(t, web.Selected)
 	assert.Equal(t, "https://duckduckgo.com/?q=nothing+here", web.Enter(false))
 
-	bang := buildHomeSearchView(config, "!gh dumber", items, nil, -1)
+	bang := buildHomeSearchView(config, "!gh dumber", items, nil, "")
 	assert.Equal(t, homeChipBang, bang.ChipState)
 	assert.Equal(t, "GitHub", bang.ChipName)
 	assert.Equal(t, homeHintBangSearch, bang.Hint)
@@ -68,21 +70,21 @@ func TestBuildHomeSearchView(t *testing.T) {
 	assert.False(t, bang.Filtering)
 	assert.Equal(t, "https://github.com/search?q=dumber", bang.Enter(false))
 
-	typing := buildHomeSearchView(config, "!gh", items, nil, -1)
+	typing := buildHomeSearchView(config, "!gh", items, nil, "")
 	assert.Equal(t, homeHintBangType, typing.Hint)
 
 	noG := testHomeSearchConfig()
 	delete(noG.Shortcuts, "g")
-	partial := buildHomeSearchView(noG, "!g", items, nil, -1)
+	partial := buildHomeSearchView(noG, "!g", items, nil, "")
 	assert.Equal(t, homeHintCandidates, partial.Hint)
 	assert.Equal(t, []homeHintCandidate{{Key: "gh", Name: "GitHub"}, {Key: "go", Name: "pkg.go.dev"}}, partial.Candidates)
 	assert.True(t, partial.HideSuggestions)
 
-	unknown := buildHomeSearchView(config, "!zz", items, nil, -1)
+	unknown := buildHomeSearchView(config, "!zz", items, nil, "")
 	assert.Equal(t, homeHintUnknown, unknown.Hint)
 	assert.Equal(t, "zz", unknown.HintQuery)
 
-	address := buildHomeSearchView(config, "pve.lan", items, nil, -1)
+	address := buildHomeSearchView(config, "pve.lan", items, nil, "")
 	assert.Equal(t, homeChipAddress, address.ChipState)
 	assert.Equal(t, "Address", address.ChipName)
 	assert.Equal(t, "Proxmox", address.SelectedName)
@@ -102,7 +104,7 @@ func TestHomeSearchHintText(t *testing.T) {
 		"pve.lan":    "Proxmox",
 		"nothing":    "No service matches",
 	} {
-		html := mustRenderComponent(HomeSearchHint(buildHomeSearchView(config, query, items, nil, -1)))
+		html := mustRenderComponent(HomeSearchHint(buildHomeSearchView(config, query, items, nil, "")))
 		assert.Contains(t, html, want, query)
 	}
 }
@@ -153,29 +155,30 @@ func TestHomeSearchSelectionMovesOverMatchesThenSuggestions(t *testing.T) {
 	config, items := testHomeSearchConfig(), testHomeSearchItems()
 	suggestions := []homeQueryItem{{Key: "s0", Name: "Jelly wiki", URL: "https://wiki.test/jelly"}}
 
-	view := buildHomeSearchView(config, "jel", items, suggestions, -1)
+	wiki := homeItemIdentity(suggestions[0])
+	view := buildHomeSearchView(config, "jel", items, suggestions, "")
 	assert.Equal(t, 0, view.SelectedIndex, "the first match is the default")
-	assert.Equal(t, 3, view.SelectableCount)
-	assert.Equal(t, 1, view.MoveSelection(true))
-	assert.Equal(t, 0, view.MoveSelection(false), "clamped at the top")
+	assert.Len(t, view.Selectable, 3)
+	assert.Equal(t, homeItemIdentity(items[1]), view.MoveSelection(true))
+	assert.Equal(t, homeItemIdentity(items[0]), view.MoveSelection(false), "clamped at the top")
 
-	last := buildHomeSearchView(config, "jel", items, suggestions, 2)
+	last := buildHomeSearchView(config, "jel", items, suggestions, wiki)
 	assert.Equal(t, "s0", last.Selected)
 	assert.Equal(t, "https://wiki.test/jelly", last.Enter(false))
-	assert.Equal(t, 2, last.MoveSelection(true), "clamped at the bottom")
+	assert.Equal(t, wiki, last.MoveSelection(true), "clamped at the bottom")
 
-	web := buildHomeSearchView(config, "nothing", items, suggestions, -1)
+	web := buildHomeSearchView(config, "nothing", items, suggestions, "")
 	assert.Empty(t, web.Selected, "no default selection without matches")
 	assert.Equal(t, "https://duckduckgo.com/?q=nothing", web.Enter(false))
-	assert.Equal(t, 0, web.MoveSelection(true))
-	picked := buildHomeSearchView(config, "nothing", items, suggestions, 0)
+	assert.Equal(t, wiki, web.MoveSelection(true))
+	picked := buildHomeSearchView(config, "nothing", items, suggestions, wiki)
 	assert.Equal(t, "https://wiki.test/jelly", picked.Enter(false))
 	assert.Equal(t, homeHintOpen, picked.Hint)
 	assert.Contains(t, mustRenderComponent(HomeSearchHint(picked)), "Jelly wiki")
 
-	bang := buildHomeSearchView(config, "!gh x", items, suggestions, 0)
+	bang := buildHomeSearchView(config, "!gh x", items, suggestions, wiki)
 	assert.Empty(t, bang.Selected, "bang mode selects nothing")
-	assert.Equal(t, -1, bang.MoveSelection(true))
+	assert.Empty(t, bang.MoveSelection(true))
 }
 
 func TestHomeSearchKey(t *testing.T) {
@@ -224,7 +227,7 @@ func TestHomeReloadReappliesTypedQuery(t *testing.T) {
 
 	// Select the last match, then remove it: the selection stays valid.
 	dom.mu.Lock()
-	dom.selected = 1
+	dom.selected = "https://seerr.lan\nJellyseerr"
 	dom.mu.Unlock()
 	dom.ReapplyHomeSearch()
 	_, _, selected = dom.shellState("seerr")
@@ -236,4 +239,32 @@ func TestHomeReloadReappliesTypedQuery(t *testing.T) {
 	_, hidden, selected = dom.shellState("jelly")
 	assert.False(t, hidden)
 	assert.True(t, selected, "the selection is clamped to the rows left")
+}
+
+func TestHomeSearchEnterFallbacks(t *testing.T) {
+	t.Parallel()
+	config := testHomeSearchConfig()
+	items := []homeQueryItem{
+		{Key: "0", Name: "Router", Text: "router gateway"},
+		{Key: "1", Name: "Router docs", Text: "router docs docs.lan", URL: "https://docs.lan"},
+	}
+
+	// The first match has no url: Enter searches the web, and says so.
+	view := buildHomeSearchView(config, "router", items, nil, "")
+	assert.Equal(t, "0", view.Selected)
+	assert.Equal(t, "https://duckduckgo.com/?q=router", view.Enter(false))
+	assert.Equal(t, homeHintSearchFallback, view.Hint)
+	assert.Contains(t, mustRenderComponent(HomeSearchHint(view)), "on DuckDuckGo")
+
+	// Selecting the row with a url opens it.
+	docs := buildHomeSearchView(config, "router", items, nil, homeItemIdentity(items[1]))
+	assert.Equal(t, "https://docs.lan", docs.Enter(false))
+	assert.Equal(t, homeHintOpen, docs.Hint)
+
+	// In bang modes Shift+Enter does what Enter does.
+	bang := buildHomeSearchView(config, "!gh dumber", items, nil, "")
+	assert.Equal(t, bang.Enter(false), bang.Enter(true))
+	assert.Equal(t, "https://github.com/search?q=dumber", bang.Enter(true))
+	empty := buildHomeSearchView(config, "!gh", items, nil, "")
+	assert.Empty(t, empty.Enter(true), "an empty bang query opens nothing")
 }

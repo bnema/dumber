@@ -27,9 +27,13 @@ type browserDOM struct {
 	activeConfirmID         uint64
 	liveSearchTimer         *time.Timer
 	homeSuggestTimer        *time.Timer
-	// homeSelected is the selected search row (matches, then
-	// suggestions), or -1 for the default selection.
-	homeSelected int
+	// homeSelected is the identity of the selected search row (see
+	// homeItemIdentity), or "" for the default selection.
+	homeSelected string
+	// homeForm and homeConfig cache the engine data parsed from the search
+	// form, per form element.
+	homeForm   js.Value
+	homeConfig homeSearchConfig
 	// homeQuery is the last typed Home search query, restored after a
 	// remount.
 	homeQuery     string

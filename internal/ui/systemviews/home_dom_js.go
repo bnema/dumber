@@ -27,7 +27,7 @@ func (d *browserDOM) NavigateTo(rawURL string) error {
 // bindHomeEvents wires the home-only listeners: the native change event,
 // the image fallback, and debounced suggestions.
 func (d *browserDOM) bindHomeEvents(handler DOMActionHandler) {
-	d.homeSelected = -1
+	d.homeSelected = ""
 	if d.isHomeRoute() {
 		d.bindHomeChangeEvent(handler)
 	}
@@ -73,7 +73,7 @@ func (d *browserDOM) bindHomeImageAndInputEvents(handler DOMActionHandler) {
 		}
 		// Filtering runs now, on every keystroke; only history
 		// suggestions go through the debounced action queue.
-		d.homeSelected = -1
+		d.homeSelected = ""
 		d.homeQuery = target.Get("value").String()
 		d.applyHomeSearch(target)
 		d.scheduleHomeSuggest(target.Get("value").String(), handler)
@@ -137,6 +137,10 @@ func (d *browserDOM) handleHomeKeyboard(event js.Value) {
 
 // handleHomeSearchKey handles the keys typed in the search field.
 func (d *browserDOM) handleHomeSearchKey(event, input js.Value, key string) {
+	// Keys that confirm or cancel an IME composition belong to the IME.
+	if event.Get("isComposing").Bool() || event.Get("keyCode").Int() == imeProcessKeyCode {
+		return
+	}
 	query := input.Get("value").String()
 	switch action := homeSearchKey(key, event.Get("shiftKey").Bool(), query); action {
 	case homeKeyOpen, homeKeyOpenWeb:
@@ -156,7 +160,7 @@ func (d *browserDOM) handleHomeSearchKey(event, input js.Value, key string) {
 		event.Call("preventDefault")
 		input.Set("value", "")
 		d.homeQuery = ""
-		d.homeSelected = -1
+		d.homeSelected = ""
 		d.applyHomeSearch(input)
 		if d.actionHandler != nil {
 			d.scheduleHomeSuggest("", d.actionHandler)
@@ -175,6 +179,7 @@ func (d *browserDOM) scrollHomeSelection() {
 }
 
 // handleHomeNavKey moves between rows and tiles outside the suggestions.
+// Rows the search hid are skipped everywhere.
 func (d *browserDOM) handleHomeNavKey(event, target js.Value, key string) {
 	selector := homeNavSelector + ":not(" + homeSuggestionSelector + ")"
 	if d.moveHomeGridFocus(target, key) {
@@ -191,44 +196,60 @@ func (d *browserDOM) handleHomeNavKey(event, target js.Value, key string) {
 	}
 }
 
-// moveHomeFocus focuses the next or previous element matching selector
-// after current, in document order. It stays put at either end.
-func (d *browserDOM) moveHomeFocus(current js.Value, selector string, forward bool) {
-	items := d.target.Call("querySelectorAll", selector)
-	count := items.Get("length").Int()
+// visibleNodes returns the elements of root matching selector that are
+// rendered: hidden rows, and rows in hidden groups or sections, have no
+// client rects.
+func visibleNodes(root js.Value, selector string) []js.Value {
+	nodes := root.Call("querySelectorAll", selector)
+	count := nodes.Get("length").Int()
+	visible := make([]js.Value, 0, count)
 	for i := 0; i < count; i++ {
-		if !items.Index(i).Equal(current) {
-			continue
+		node := nodes.Index(i)
+		if node.Call("getClientRects").Get("length").Int() > 0 {
+			visible = append(visible, node)
 		}
-		next := i + 1
-		if !forward {
-			next = i - 1
+	}
+	return visible
+}
+
+func indexOfNode(nodes []js.Value, node js.Value) int {
+	for i := range nodes {
+		if nodes[i].Equal(node) {
+			return i
 		}
-		if next >= 0 && next < count {
-			items.Index(next).Call("focus")
-		}
+	}
+	return -1
+}
+
+// moveHomeFocus focuses the next or previous visible element matching
+// selector after current, in document order. It stays put at either end.
+func (d *browserDOM) moveHomeFocus(current js.Value, selector string, forward bool) {
+	items := visibleNodes(d.target, selector)
+	i := indexOfNode(items, current)
+	if i < 0 {
 		return
+	}
+	next := i + 1
+	if !forward {
+		next = i - 1
+	}
+	if next >= 0 && next < len(items) {
+		items[next].Call("focus")
 	}
 }
 
-// moveHomeGridFocus moves between service tiles in two dimensions: Left and
-// Right step by one tile, Up and Down by the rendered column count, so the
-// responsive collapse is respected. It reports false when the move leaves
-// the grid, letting linear navigation take over.
+// moveHomeGridFocus moves between visible service tiles in two
+// dimensions: Left and Right step by one tile, Up and Down by the rendered
+// column count, so the responsive collapse is respected. It reports false
+// when the move leaves the grid, letting linear navigation take over.
 func (d *browserDOM) moveHomeGridFocus(target js.Value, key string) bool {
 	grid := target.Call("closest", ".sv-home-grid")
 	if !grid.Truthy() {
 		return false
 	}
-	tiles := grid.Call("querySelectorAll", homeNavSelector)
-	count := tiles.Get("length").Int()
-	index := -1
-	for i := 0; i < count; i++ {
-		if tiles.Index(i).Equal(target) {
-			index = i
-			break
-		}
-	}
+	tiles := visibleNodes(grid, homeNavSelector)
+	count := len(tiles)
+	index := indexOfNode(tiles, target)
 	if index < 0 {
 		return false
 	}
@@ -261,22 +282,25 @@ func (d *browserDOM) moveHomeGridFocus(target js.Value, key string) bool {
 	if next < 0 || next >= count {
 		return d.focusAdjacentGrid(grid, index%columns, key == "arrowdown")
 	}
-	tiles.Index(next).Call("focus")
+	tiles[next].Call("focus")
 	return true
 }
 
-// focusSideGrid moves Left or Right into the previous or next group column,
-// at the same row index (clamped). Groups hidden by the search are skipped.
-func (d *browserDOM) focusSideGrid(grid js.Value, row int, right bool) {
-	grids := d.target.Call("querySelectorAll", ".sv-home-grid")
-	count := grids.Get("length").Int()
-	current := -1
-	for i := 0; i < count; i++ {
+// homeGridIndex returns the index of grid among the service grids.
+func homeGridIndex(grids, grid js.Value) int {
+	for i := 0; i < grids.Get("length").Int(); i++ {
 		if grids.Index(i).Equal(grid) {
-			current = i
-			break
+			return i
 		}
 	}
+	return -1
+}
+
+// focusSideGrid moves Left or Right into the previous or next group column
+// with visible tiles, at the same visible row index (clamped).
+func (d *browserDOM) focusSideGrid(grid js.Value, row int, right bool) {
+	grids := d.target.Call("querySelectorAll", ".sv-home-grid")
+	current := homeGridIndex(grids, grid)
 	if current < 0 {
 		return
 	}
@@ -284,46 +308,44 @@ func (d *browserDOM) focusSideGrid(grid js.Value, row int, right bool) {
 	if right {
 		step = 1
 	}
-	for i := current + step; i >= 0 && i < count; i += step {
-		tiles := grids.Index(i).Call("querySelectorAll", ".sv-home-service:not([data-sv-home-hidden]) "+homeNavSelector)
-		total := tiles.Get("length").Int()
-		if total == 0 {
+	for i := current + step; i >= 0 && i < grids.Get("length").Int(); i += step {
+		tiles := visibleNodes(grids.Index(i), homeNavSelector)
+		if len(tiles) == 0 {
 			continue
 		}
-		tiles.Index(min(row, total-1)).Call("focus")
+		tiles[min(row, len(tiles)-1)].Call("focus")
 		return
 	}
 }
 
-// focusAdjacentGrid moves Up or Down into the next or previous service grid,
-// keeping the column. It reports false when there is no such grid.
+// focusAdjacentGrid moves Up or Down into the next or previous service grid
+// with visible tiles, keeping the column. It reports false when there is
+// no such grid.
 func (d *browserDOM) focusAdjacentGrid(grid js.Value, column int, down bool) bool {
 	grids := d.target.Call("querySelectorAll", ".sv-home-grid")
-	count := grids.Get("length").Int()
-	for i := 0; i < count; i++ {
-		if !grids.Index(i).Equal(grid) {
+	current := homeGridIndex(grids, grid)
+	if current < 0 {
+		return false
+	}
+	step := -1
+	if down {
+		step = 1
+	}
+	for i := current + step; i >= 0 && i < grids.Get("length").Int(); i += step {
+		next := grids.Index(i)
+		tiles := visibleNodes(next, homeNavSelector)
+		total := len(tiles)
+		if total == 0 {
 			continue
 		}
-		next := i + 1
-		if !down {
-			next = i - 1
-		}
-		if next < 0 || next >= count {
-			return false
-		}
-		tiles := grids.Index(next).Call("querySelectorAll", homeNavSelector)
-		total := tiles.Get("length").Int()
-		if total == 0 {
-			return false
-		}
-		columns := renderedGridColumns(grids.Index(next))
 		target := min(column, total-1)
 		if !down {
 			// Last row of the previous grid, same column when it exists.
+			columns := renderedGridColumns(next)
 			lastRow := (total - 1) / columns * columns
 			target = min(lastRow+column, total-1)
 		}
-		tiles.Index(target).Call("focus")
+		tiles[target].Call("focus")
 		return true
 	}
 	return false
@@ -444,11 +466,7 @@ func (d *browserDOM) applyHomeSearch(input js.Value) homeSearchView {
 	if !form.Truthy() {
 		return homeSearchView{}
 	}
-	config := homeSearchConfig{
-		EngineURL:  form.Call("getAttribute", "data-sv-home-engine-url").String(),
-		EngineName: form.Call("getAttribute", "data-sv-home-engine-name").String(),
-		Shortcuts:  parseHomeShortcutsJSON(form.Call("getAttribute", "data-sv-home-shortcuts").String()),
-	}
+	config := d.homeSearchConfigOf(form)
 	items, marks := d.homeSearchItems()
 	suggestions, suggestionMarks := d.homeSuggestionItems()
 	view := buildHomeSearchView(config, input.Get("value").String(), items, suggestions, d.homeSelected)
@@ -469,12 +487,41 @@ func (d *browserDOM) applyHomeSearch(input js.Value) homeSearchView {
 	setBoolAttribute(form, "data-sv-home-bang", view.HideSuggestions)
 	if chip := form.Call("querySelector", "[data-sv-home-engine]"); chip.Truthy() {
 		chip.Call("setAttribute", "data-state", view.ChipState)
-		chip.Set("innerHTML", mustRenderComponent(HomeSearchChip(view)))
+		setInnerHTMLIfChanged(chip, mustRenderComponent(HomeSearchChip(view)))
 	}
 	if hint := form.Call("querySelector", "[data-sv-home-hint]"); hint.Truthy() {
-		hint.Set("innerHTML", mustRenderComponent(HomeSearchHint(view)))
+		setInnerHTMLIfChanged(hint, mustRenderComponent(HomeSearchHint(view)))
 	}
 	return view
+}
+
+// imeProcessKeyCode is the keyCode of keys handled by an IME.
+const imeProcessKeyCode = 229
+
+// homeSearchConfigOf returns the engine data of the search form, parsed
+// once per form element: a remount brings a new form, and a new config.
+func (d *browserDOM) homeSearchConfigOf(form js.Value) homeSearchConfig {
+	if d.homeForm.Truthy() && d.homeForm.Equal(form) {
+		return d.homeConfig
+	}
+	d.homeForm = form
+	d.homeConfig = homeSearchConfig{
+		EngineURL:  form.Call("getAttribute", "data-sv-home-engine-url").String(),
+		EngineName: form.Call("getAttribute", "data-sv-home-engine-name").String(),
+		Shortcuts:  parseHomeShortcutsJSON(form.Call("getAttribute", "data-sv-home-shortcuts").String()),
+	}
+	return d.homeConfig
+}
+
+// setInnerHTMLIfChanged writes markup into el only when it differs from
+// the last write there, so images do not reload and aria-live regions do
+// not announce the same text again.
+func setInnerHTMLIfChanged(el js.Value, markup string) {
+	if last := el.Get("svHomeMarkup"); last.Type() == js.TypeString && last.String() == markup {
+		return
+	}
+	el.Set("innerHTML", markup)
+	el.Set("svHomeMarkup", markup)
 }
 
 func setBoolAttribute(el js.Value, name string, on bool) {

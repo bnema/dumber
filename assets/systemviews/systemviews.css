@@ -3668,3 +3668,8 @@ html:not([data-sv-enhanced]) .sv-home .sv-palette-trigger {
 .sv-home-status-offline-some {
   color: var(--sv-down);
 }
+
+/* A history suggestion selected with the arrow keys. */
+.sv-home-suggestion[data-sv-home-selected] {
+  background: var(--sv-home-selected);
+}

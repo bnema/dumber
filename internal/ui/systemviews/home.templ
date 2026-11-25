@@ -137,7 +137,7 @@ templ HomeWidget(widget homeWidgetData) {
 }
 
 templ homeSearchWidget(config homeSearchConfig) {
-	{{ view := buildHomeSearchView(config, "", nil, nil, -1) }}
+	{{ view := buildHomeSearchView(config, "", nil, nil, "") }}
 	<form
 		class="sv-home-search"
 		data-sv-action="home.search"
@@ -207,8 +207,11 @@ templ HomeSearchHint(view homeSearchView) {
 			}
 		case homeHintUnknown:
 			<span>Unknown shortcut <b>{ "!" + view.HintQuery }</b></span>
+		case homeHintSearchFallback:
+			<span><kbd>↵</kbd> search <b>{ view.HintQuery }</b> on { view.Result.EngineName }</span>
+			<span><kbd>↑</kbd><kbd>↓</kbd> choose</span>
 		case homeHintOpenAddress:
-			if view.SelectedName != "" {
+			if view.SelectedURL != "" {
 				<span><kbd>↵</kbd> open <b>{ view.SelectedName }</b></span>
 				<span><kbd>⇧</kbd><kbd>↵</kbd> open <span class="sv-home-search-url">{ view.Result.WebTarget }</span></span>
 			} else {

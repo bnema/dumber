@@ -67,6 +67,9 @@ const (
 	homeHintCandidates  homeHintKind = "candidates"
 	homeHintUnknown     homeHintKind = "unknown"
 	homeHintOpenAddress homeHintKind = "open_address"
+	// homeHintSearchFallback: the selected row has no url, so Enter
+	// searches the default engine.
+	homeHintSearchFallback homeHintKind = "search_fallback"
 )
 
 // homeHintCandidate is one shortcut offered for a partial bang.
@@ -85,12 +88,13 @@ type homeSearchView struct {
 	// Filtering hides the items whose key is not in Result.Matches.
 	Filtering bool
 	// Selected is the key of the selected item, or "". SelectedIndex is
-	// its index among the SelectableCount matches and suggestions, or -1.
-	Selected        string
-	SelectedIndex   int
-	SelectableCount int
-	SelectedName    string
-	SelectedURL     string
+	// its index among the selectable matches and suggestions, or -1;
+	// Selectable holds their identities (see homeItemIdentity).
+	Selected      string
+	SelectedIndex int
+	Selectable    []string
+	SelectedName  string
+	SelectedURL   string
 
 	ChipState string
 	ChipName  string
@@ -104,10 +108,17 @@ type homeSearchView struct {
 	HideSuggestions bool
 }
 
+// homeItemIdentity identifies a selectable row across re-renders, where
+// keys (DOM indexes) change: its url and name.
+func homeItemIdentity(item homeQueryItem) string {
+	return item.URL + "\n" + item.Name
+}
+
 // buildHomeSearchView resolves query against items. Matching items, then
-// history suggestions, are selectable; selected is the index of the
-// selection among them, or -1 for the default (the first match, if any).
-func buildHomeSearchView(config homeSearchConfig, query string, items, suggestions []homeQueryItem, selected int) homeSearchView {
+// history suggestions, are selectable; selected is the identity of the
+// selection, or "" for the default (the first match, if any). A selection
+// that is gone falls back to the default.
+func buildHomeSearchView(config homeSearchConfig, query string, items, suggestions []homeQueryItem, selected string) homeSearchView {
 	res := resolveHomeQuery(homeQueryInput{
 		Query: query, EngineURL: config.EngineURL, EngineName: config.EngineName,
 		Shortcuts: config.Shortcuts, Items: items,
@@ -122,6 +133,7 @@ func buildHomeSearchView(config homeSearchConfig, query string, items, suggestio
 		view.Filtering = true
 		view.ChipState = homeChipIdle
 		view.Hint = homeHintOpen
+		view.HintQuery = strings.TrimSpace(query)
 	case homeQueryWeb:
 		view.Filtering = true
 		view.ChipState = homeChipWeb
@@ -161,9 +173,10 @@ func buildHomeSearchView(config homeSearchConfig, query string, items, suggestio
 	return view
 }
 
-// selectAt selects index i among the matches then the suggestions. A
-// negative i selects the first match, or nothing without matches.
-func (v *homeSearchView) selectAt(items, suggestions []homeQueryItem, i int) {
+// selectAt selects the row whose identity is selected among the matches
+// then the suggestions; otherwise the first match, or nothing without
+// matches.
+func (v *homeSearchView) selectAt(items, suggestions []homeQueryItem, selected string) {
 	byKey := make(map[string]homeQueryItem, len(items))
 	for _, item := range items {
 		byKey[item.Key] = item
@@ -173,51 +186,75 @@ func (v *homeSearchView) selectAt(items, suggestions []homeQueryItem, i int) {
 		selectable = append(selectable, byKey[key])
 	}
 	selectable = append(selectable, suggestions...)
-	v.SelectableCount = len(selectable)
+	i := -1
+	for j, item := range selectable {
+		id := homeItemIdentity(item)
+		v.Selectable = append(v.Selectable, id)
+		if selected != "" && id == selected && i < 0 {
+			i = j
+		}
+	}
 	if i < 0 {
 		if len(v.Result.Matches) == 0 {
 			return
 		}
 		i = 0
 	}
-	if len(selectable) == 0 {
-		return
-	}
-	i = min(i, len(selectable)-1)
 	item := selectable[i]
 	v.SelectedIndex = i
 	v.Selected = item.Key
 	v.SelectedName = item.Name
 	v.SelectedURL = homeNavigable(item.URL)
-	if v.Hint == homeHintWeb {
+	switch {
+	case v.SelectedURL == "" && v.Hint != homeHintOpenAddress:
+		// Nothing to open (a service without url): Enter searches.
+		v.Hint = homeHintSearchFallback
+	case v.Hint == homeHintWeb:
 		// A suggestion picked with the arrows: Enter opens it.
 		v.Hint = homeHintOpen
 	}
 }
 
-// MoveSelection returns the selection index after an arrow key, clamped
-// to the selectable rows; -1 when there is nothing to select.
-func (v homeSearchView) MoveSelection(down bool) int {
-	if v.SelectableCount == 0 {
-		return -1
+// MoveSelection returns the identity of the selection after an arrow key,
+// clamped to the selectable rows; "" when there is nothing to select.
+func (v homeSearchView) MoveSelection(down bool) string {
+	if len(v.Selectable) == 0 {
+		return ""
 	}
 	next := v.SelectedIndex - 1
 	if down {
 		next = v.SelectedIndex + 1
 	}
-	return max(0, min(next, v.SelectableCount-1))
+	return v.Selectable[max(0, min(next, len(v.Selectable)-1))]
 }
 
 // Enter returns what Enter opens: the selected item, else the resolved
-// target. With shift, the web search or the typed address.
+// target, else the web search. A selected row without url searches the
+// web. Shift+Enter opens the web search or the typed address, except in
+// bang modes, where it does what Enter does.
 func (v homeSearchView) Enter(shift bool) string {
+	if v.bangMode() {
+		// The bang engine, or nothing while its query is empty.
+		return v.Result.Target
+	}
 	if shift {
 		return v.Result.WebTarget
 	}
 	if v.SelectedURL != "" {
 		return v.SelectedURL
 	}
-	return v.Result.Target
+	if v.Selected == "" && v.Result.Target != "" {
+		return v.Result.Target
+	}
+	return v.Result.WebTarget
+}
+
+func (v homeSearchView) bangMode() bool {
+	switch v.Result.Mode {
+	case homeQueryBang, homeQueryBangPartial, homeQueryBangUnknown:
+		return true
+	}
+	return false
 }
 
 // homeIdleShortcuts returns a few shortcut keys for the idle hint, the

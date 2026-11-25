@@ -13,12 +13,12 @@ import (
 type searchTreeDOM struct {
 	*treeDOM
 	query    string
-	selected int
+	selected string
 	reapply  int
 }
 
 func newSearchTreeDOM(query string) *searchTreeDOM {
-	return &searchTreeDOM{treeDOM: newTreeDOM(), query: query, selected: -1}
+	return &searchTreeDOM{treeDOM: newTreeDOM(), query: query, selected: ""}
 }
 
 func (d *searchTreeDOM) ReapplyHomeSearch() {
@@ -47,7 +47,9 @@ func (d *searchTreeDOM) ReapplyHomeSearch() {
 		})
 	}
 	view := buildHomeSearchView(homeSearchConfig{}, d.query, items, nil, d.selected)
-	d.selected = view.SelectedIndex
+	if view.SelectedIndex >= 0 {
+		d.selected = view.Selectable[view.SelectedIndex]
+	}
 	matched := map[string]bool{}
 	for _, key := range view.Result.Matches {
 		matched[key] = true
