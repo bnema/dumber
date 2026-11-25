@@ -153,7 +153,7 @@ template = """
 - **Sandbox:** `allow-scripts allow-same-origin allow-forms allow-popups`, with `referrerpolicy="no-referrer"`. The embed runs as its own site but cannot navigate the home page.
 - **Isolation:** an embed never reaches Dumber's page bridge or internal API, cannot navigate itself or a popup to a `dumb://` page, and cannot open one in a popup.
 - **Local network:** embeds may reach LAN and private addresses. Dumber grants this to `dumb://` pages only; regular sites must ask (see [Permissions](../reference/permissions.md)).
-- **Reloads:** saving `home.toml` keeps every unchanged embed running with its loaded page. An embed reloads only when its URL or height changes, or when services are reordered.
+- **Reloads:** saving `home.toml` keeps every unchanged embed running with its loaded page, including when actions, widgets or other services change. An embed reloads only when its URL or height changes, when its service moves to another group, or when services are reordered.
 
 ## Actions
 
