@@ -72,9 +72,10 @@ func homeActionInputName(name string) string {
 // findHomeService returns the service with id in load.
 func findHomeService(load dto.HomeLoadResponse, id string) (entity.HomeService, bool) {
 	for _, group := range load.Layout.Groups {
-		for _, service := range group.Services {
+		for i := range group.Services {
+			service := &group.Services[i]
 			if service.ID == id {
-				return service, true
+				return *service, true
 			}
 		}
 	}

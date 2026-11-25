@@ -87,12 +87,13 @@ func (a *App) changedHomeEmbedRegionsLocked() []DOMRegion {
 	var regions []DOMRegion
 	seen := make(map[string]bool)
 	for _, group := range a.homeData.Load.Layout.Groups {
-		for _, service := range group.Services {
+		for i := range group.Services {
+			service := &group.Services[i]
 			if service.ID == "" || seen[service.ID] {
 				continue
 			}
 			seen[service.ID] = true
-			key := homeEmbedKey(service)
+			key := homeEmbedKey(*service)
 			if a.homeSvc.embeds[service.ID] == key {
 				continue // a missing entry is an empty region
 			}
@@ -100,10 +101,10 @@ func (a *App) changedHomeEmbedRegionsLocked() []DOMRegion {
 				a.homeSvc.embeds = make(map[string]string)
 			}
 			a.homeSvc.embeds[service.ID] = key
-			view, ok := homeEmbedFor(service)
+			view, ok := homeEmbedFor(*service)
 			regions = append(regions, DOMRegion{
 				Name: homeServiceEmbedRegion(service.ID),
-				HTML: mustRenderComponent(HomeServiceEmbed(view, ok, homeEmbedRejected(service))),
+				HTML: mustRenderComponent(HomeServiceEmbed(view, ok, homeEmbedRejected(*service))),
 			})
 		}
 	}

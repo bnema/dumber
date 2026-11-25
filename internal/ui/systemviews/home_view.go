@@ -223,10 +223,11 @@ func homeRegions(data homeRenderData) []DOMRegion {
 		DOMRegion{Name: homeRegionGroups, HTML: mustRenderComponent(HomeGroups(data.Load, nil))},
 	)
 	for _, group := range data.Load.Layout.Groups {
-		for _, service := range group.Services {
+		for i := range group.Services {
+			service := &group.Services[i]
 			regions = append(regions, DOMRegion{
 				Name: homeServiceTileRegion(service.ID),
-				HTML: mustRenderComponent(HomeServiceTile(service)),
+				HTML: mustRenderComponent(HomeServiceTile(*service)),
 			})
 		}
 	}

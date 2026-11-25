@@ -62,9 +62,10 @@ func homeServiceHasAPIWidget(service entity.HomeService) bool {
 func homeAPIServices(load dto.HomeLoadResponse) []entity.HomeService {
 	var services []entity.HomeService
 	for _, group := range load.Layout.Groups {
-		for _, service := range group.Services {
-			if homeServiceHasAPIWidget(service) {
-				services = append(services, service)
+		for i := range group.Services {
+			service := &group.Services[i]
+			if homeServiceHasAPIWidget(*service) {
+				services = append(services, *service)
 			}
 		}
 	}
@@ -152,7 +153,8 @@ func (a *App) startHomeServiceWidgetsLocked(ctx context.Context) {
 	loopCtx, cancel := context.WithCancel(ctx)
 	a.homeSvc.cancel = cancel
 	generation := a.homeGeneration
-	for _, service := range services {
+	for i := range services {
+		service := services[i]
 		a.homeFillWG.Add(1)
 		go func(service entity.HomeService) {
 			defer a.homeFillWG.Done()
@@ -248,9 +250,11 @@ func (a *App) restoreHomeServiceSlotsLocked() error {
 		return nil
 	}
 	var regions []DOMRegion
-	for _, service := range homeAPIServices(a.homeData.Load) {
-		if markup := a.homeSvc.slots[service.ID]; markup != "" {
-			regions = append(regions, DOMRegion{Name: homeServiceRegion(service.ID), HTML: markup})
+	services := homeAPIServices(a.homeData.Load)
+	for i := range services {
+		id := services[i].ID
+		if markup := a.homeSvc.slots[id]; markup != "" {
+			regions = append(regions, DOMRegion{Name: homeServiceRegion(id), HTML: markup})
 		}
 	}
 	regions = append(regions, a.homeActionRegionsLocked()...)
