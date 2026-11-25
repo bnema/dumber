@@ -41,7 +41,7 @@ func homeServiceWidgetSlot(service entity.HomeService) templ.Component {
 			var templ_7745c5c3_Var2 string
 			templ_7745c5c3_Var2, templ_7745c5c3_Err = templruntime.NewAttributeExpression(homeServiceRegion(service.ID)).Resolve(ctx)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/systemviews/home_service_widgets.templ`, Line: 14, Col: 84}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `home_service_widgets.templ`, Line: 14, Col: 84}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var2)
 			if templ_7745c5c3_Err != nil {
@@ -65,7 +65,7 @@ func homeServiceWidgetSlot(service entity.HomeService) templ.Component {
 			var templ_7745c5c3_Var3 string
 			templ_7745c5c3_Var3, templ_7745c5c3_Err = templruntime.NewAttributeExpression(homeServiceActionsRegion(service.ID)).Resolve(ctx)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/systemviews/home_service_widgets.templ`, Line: 21, Col: 92}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `home_service_widgets.templ`, Line: 21, Col: 92}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var3)
 			if templ_7745c5c3_Err != nil {
@@ -122,7 +122,7 @@ func HomeServiceWidget(view homeServiceWidgetView) templ.Component {
 			var templ_7745c5c3_Var6 string
 			templ_7745c5c3_Var6, templ_7745c5c3_Err = templruntime.NewAttributeExpression(templ.CSSClasses(templ_7745c5c3_Var5).String()).Resolve(ctx)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/systemviews/home_service_widgets.templ`, Line: 1, Col: 0}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `home_service_widgets.templ`, Line: 1, Col: 0}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var6)
 			if templ_7745c5c3_Err != nil {
@@ -160,7 +160,7 @@ func HomeServiceWidget(view homeServiceWidgetView) templ.Component {
 			var templ_7745c5c3_Var7 string
 			templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(view.Data.Error)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/systemviews/home_service_widgets.templ`, Line: 34, Col: 63}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `home_service_widgets.templ`, Line: 34, Col: 63}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
 			if templ_7745c5c3_Err != nil {
@@ -204,7 +204,7 @@ func HomeServiceWidget(view homeServiceWidgetView) templ.Component {
 					var templ_7745c5c3_Var8 string
 					templ_7745c5c3_Var8, templ_7745c5c3_Err = templruntime.SanitizeStyleAttributeValues(homeBarStyle(bar))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/systemviews/home_service_widgets.templ`, Line: 49, Col: 61}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `home_service_widgets.templ`, Line: 49, Col: 61}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
 					if templ_7745c5c3_Err != nil {
@@ -217,7 +217,7 @@ func HomeServiceWidget(view homeServiceWidgetView) templ.Component {
 					var templ_7745c5c3_Var9 string
 					templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.JoinStringErrs(bar.Label)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/systemviews/home_service_widgets.templ`, Line: 50, Col: 51}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `home_service_widgets.templ`, Line: 50, Col: 51}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var9))
 					if templ_7745c5c3_Err != nil {
@@ -230,7 +230,7 @@ func HomeServiceWidget(view homeServiceWidgetView) templ.Component {
 					var templ_7745c5c3_Var10 string
 					templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.JoinStringErrs(bar.Value)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/systemviews/home_service_widgets.templ`, Line: 51, Col: 51}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `home_service_widgets.templ`, Line: 51, Col: 51}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var10))
 					if templ_7745c5c3_Err != nil {
@@ -258,7 +258,7 @@ func HomeServiceWidget(view homeServiceWidgetView) templ.Component {
 					var templ_7745c5c3_Var11 string
 					templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.JoinStringErrs(field.Label)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/systemviews/home_service_widgets.templ`, Line: 60, Col: 51}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `home_service_widgets.templ`, Line: 60, Col: 51}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var11))
 					if templ_7745c5c3_Err != nil {
@@ -271,7 +271,7 @@ func HomeServiceWidget(view homeServiceWidgetView) templ.Component {
 					var templ_7745c5c3_Var12 string
 					templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.JoinStringErrs(field.Value)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/systemviews/home_service_widgets.templ`, Line: 61, Col: 51}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `home_service_widgets.templ`, Line: 61, Col: 51}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var12))
 					if templ_7745c5c3_Err != nil {
@@ -331,7 +331,7 @@ func homeServiceList(view homeServiceWidgetView) templ.Component {
 					var templ_7745c5c3_Var14 string
 					templ_7745c5c3_Var14, templ_7745c5c3_Err = templruntime.NewAttributeExpression(field.Label).Resolve(ctx)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/systemviews/home_service_widgets.templ`, Line: 76, Col: 56}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `home_service_widgets.templ`, Line: 76, Col: 56}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var14)
 					if templ_7745c5c3_Err != nil {
@@ -344,7 +344,7 @@ func homeServiceList(view homeServiceWidgetView) templ.Component {
 					var templ_7745c5c3_Var15 string
 					templ_7745c5c3_Var15, templ_7745c5c3_Err = templ.JoinStringErrs(field.Value)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/systemviews/home_service_widgets.templ`, Line: 76, Col: 72}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `home_service_widgets.templ`, Line: 76, Col: 72}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var15))
 					if templ_7745c5c3_Err != nil {
@@ -369,7 +369,7 @@ func homeServiceList(view homeServiceWidgetView) templ.Component {
 				var templ_7745c5c3_Var16 string
 				templ_7745c5c3_Var16, templ_7745c5c3_Err = templ.JoinStringErrs(field.Label)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/systemviews/home_service_widgets.templ`, Line: 83, Col: 50}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `home_service_widgets.templ`, Line: 83, Col: 50}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var16))
 				if templ_7745c5c3_Err != nil {
@@ -382,7 +382,7 @@ func homeServiceList(view homeServiceWidgetView) templ.Component {
 				var templ_7745c5c3_Var17 string
 				templ_7745c5c3_Var17, templ_7745c5c3_Err = templ.JoinStringErrs(field.Value)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/systemviews/home_service_widgets.templ`, Line: 84, Col: 50}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `home_service_widgets.templ`, Line: 84, Col: 50}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var17))
 				if templ_7745c5c3_Err != nil {
@@ -434,7 +434,7 @@ func HomeServiceActions(view homeServiceActionsView) templ.Component {
 				var templ_7745c5c3_Var19 string
 				templ_7745c5c3_Var19, templ_7745c5c3_Err = templruntime.NewAttributeExpression(homeActionSvcSubmit).Resolve(ctx)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/systemviews/home_service_widgets.templ`, Line: 97, Col: 71}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `home_service_widgets.templ`, Line: 97, Col: 71}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var19)
 				if templ_7745c5c3_Err != nil {
@@ -447,7 +447,7 @@ func HomeServiceActions(view homeServiceActionsView) templ.Component {
 				var templ_7745c5c3_Var20 string
 				templ_7745c5c3_Var20, templ_7745c5c3_Err = templruntime.NewAttributeExpression(view.Service.ID).Resolve(ctx)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/systemviews/home_service_widgets.templ`, Line: 97, Col: 107}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `home_service_widgets.templ`, Line: 97, Col: 107}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var20)
 				if templ_7745c5c3_Err != nil {
@@ -460,7 +460,7 @@ func HomeServiceActions(view homeServiceActionsView) templ.Component {
 				var templ_7745c5c3_Var21 string
 				templ_7745c5c3_Var21, templ_7745c5c3_Err = templruntime.NewAttributeExpression(action.ID).Resolve(ctx)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/systemviews/home_service_widgets.templ`, Line: 97, Col: 141}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `home_service_widgets.templ`, Line: 97, Col: 141}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var21)
 				if templ_7745c5c3_Err != nil {
@@ -478,7 +478,7 @@ func HomeServiceActions(view homeServiceActionsView) templ.Component {
 					var templ_7745c5c3_Var22 string
 					templ_7745c5c3_Var22, templ_7745c5c3_Err = templ.JoinStringErrs(homeActionInputLabel(input))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/systemviews/home_service_widgets.templ`, Line: 100, Col: 68}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `home_service_widgets.templ`, Line: 100, Col: 68}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var22))
 					if templ_7745c5c3_Err != nil {
@@ -491,7 +491,7 @@ func HomeServiceActions(view homeServiceActionsView) templ.Component {
 					var templ_7745c5c3_Var23 string
 					templ_7745c5c3_Var23, templ_7745c5c3_Err = templruntime.NewAttributeExpression(homeActionInputName(input.Name)).Resolve(ctx)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/systemviews/home_service_widgets.templ`, Line: 101, Col: 81}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `home_service_widgets.templ`, Line: 101, Col: 81}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var23)
 					if templ_7745c5c3_Err != nil {
@@ -504,7 +504,7 @@ func HomeServiceActions(view homeServiceActionsView) templ.Component {
 					var templ_7745c5c3_Var24 string
 					templ_7745c5c3_Var24, templ_7745c5c3_Err = templruntime.NewAttributeExpression(input.Placeholder).Resolve(ctx)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/systemviews/home_service_widgets.templ`, Line: 101, Col: 115}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `home_service_widgets.templ`, Line: 101, Col: 115}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var24)
 					if templ_7745c5c3_Err != nil {
@@ -522,7 +522,7 @@ func HomeServiceActions(view homeServiceActionsView) templ.Component {
 				var templ_7745c5c3_Var25 string
 				templ_7745c5c3_Var25, templ_7745c5c3_Err = templ.JoinStringErrs(homeActionLabel(action))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/systemviews/home_service_widgets.templ`, Line: 105, Col: 71}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `home_service_widgets.templ`, Line: 105, Col: 71}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var25))
 				if templ_7745c5c3_Err != nil {
@@ -535,7 +535,7 @@ func HomeServiceActions(view homeServiceActionsView) templ.Component {
 				var templ_7745c5c3_Var26 string
 				templ_7745c5c3_Var26, templ_7745c5c3_Err = templruntime.NewAttributeExpression(homeActionSvcCancel).Resolve(ctx)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/systemviews/home_service_widgets.templ`, Line: 106, Col: 102}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `home_service_widgets.templ`, Line: 106, Col: 102}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var26)
 				if templ_7745c5c3_Err != nil {
@@ -548,7 +548,7 @@ func HomeServiceActions(view homeServiceActionsView) templ.Component {
 				var templ_7745c5c3_Var27 string
 				templ_7745c5c3_Var27, templ_7745c5c3_Err = templruntime.NewAttributeExpression(view.Service.ID).Resolve(ctx)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/systemviews/home_service_widgets.templ`, Line: 106, Col: 138}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `home_service_widgets.templ`, Line: 106, Col: 138}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var27)
 				if templ_7745c5c3_Err != nil {
@@ -566,7 +566,7 @@ func HomeServiceActions(view homeServiceActionsView) templ.Component {
 				var templ_7745c5c3_Var28 string
 				templ_7745c5c3_Var28, templ_7745c5c3_Err = templruntime.NewAttributeExpression(homeActionLabel(action)).Resolve(ctx)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/systemviews/home_service_widgets.templ`, Line: 110, Col: 86}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `home_service_widgets.templ`, Line: 110, Col: 86}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var28)
 				if templ_7745c5c3_Err != nil {
@@ -579,7 +579,7 @@ func HomeServiceActions(view homeServiceActionsView) templ.Component {
 				var templ_7745c5c3_Var29 string
 				templ_7745c5c3_Var29, templ_7745c5c3_Err = templ.JoinStringErrs(action.Confirm)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/systemviews/home_service_widgets.templ`, Line: 111, Col: 60}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `home_service_widgets.templ`, Line: 111, Col: 60}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var29))
 				if templ_7745c5c3_Err != nil {
@@ -592,7 +592,7 @@ func HomeServiceActions(view homeServiceActionsView) templ.Component {
 				var templ_7745c5c3_Var30 string
 				templ_7745c5c3_Var30, templ_7745c5c3_Err = templruntime.NewAttributeExpression(homeActionSvcConfirm).Resolve(ctx)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/systemviews/home_service_widgets.templ`, Line: 112, Col: 99}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `home_service_widgets.templ`, Line: 112, Col: 99}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var30)
 				if templ_7745c5c3_Err != nil {
@@ -605,7 +605,7 @@ func HomeServiceActions(view homeServiceActionsView) templ.Component {
 				var templ_7745c5c3_Var31 string
 				templ_7745c5c3_Var31, templ_7745c5c3_Err = templruntime.NewAttributeExpression(view.Service.ID).Resolve(ctx)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/systemviews/home_service_widgets.templ`, Line: 112, Col: 135}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `home_service_widgets.templ`, Line: 112, Col: 135}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var31)
 				if templ_7745c5c3_Err != nil {
@@ -618,7 +618,7 @@ func HomeServiceActions(view homeServiceActionsView) templ.Component {
 				var templ_7745c5c3_Var32 string
 				templ_7745c5c3_Var32, templ_7745c5c3_Err = templruntime.NewAttributeExpression(homeActionSvcCancel).Resolve(ctx)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/systemviews/home_service_widgets.templ`, Line: 113, Col: 101}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `home_service_widgets.templ`, Line: 113, Col: 101}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var32)
 				if templ_7745c5c3_Err != nil {
@@ -631,7 +631,7 @@ func HomeServiceActions(view homeServiceActionsView) templ.Component {
 				var templ_7745c5c3_Var33 string
 				templ_7745c5c3_Var33, templ_7745c5c3_Err = templruntime.NewAttributeExpression(view.Service.ID).Resolve(ctx)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/systemviews/home_service_widgets.templ`, Line: 113, Col: 137}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `home_service_widgets.templ`, Line: 113, Col: 137}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var33)
 				if templ_7745c5c3_Err != nil {
@@ -650,7 +650,7 @@ func HomeServiceActions(view homeServiceActionsView) templ.Component {
 				var templ_7745c5c3_Var34 string
 				templ_7745c5c3_Var34, templ_7745c5c3_Err = templruntime.NewAttributeExpression(homeActionSvcOpen).Resolve(ctx)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/systemviews/home_service_widgets.templ`, Line: 120, Col: 39}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `home_service_widgets.templ`, Line: 120, Col: 39}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var34)
 				if templ_7745c5c3_Err != nil {
@@ -663,7 +663,7 @@ func HomeServiceActions(view homeServiceActionsView) templ.Component {
 				var templ_7745c5c3_Var35 string
 				templ_7745c5c3_Var35, templ_7745c5c3_Err = templruntime.NewAttributeExpression(view.Service.ID).Resolve(ctx)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/systemviews/home_service_widgets.templ`, Line: 121, Col: 38}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `home_service_widgets.templ`, Line: 121, Col: 38}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var35)
 				if templ_7745c5c3_Err != nil {
@@ -676,7 +676,7 @@ func HomeServiceActions(view homeServiceActionsView) templ.Component {
 				var templ_7745c5c3_Var36 string
 				templ_7745c5c3_Var36, templ_7745c5c3_Err = templruntime.NewAttributeExpression(action.ID).Resolve(ctx)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/systemviews/home_service_widgets.templ`, Line: 122, Col: 36}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `home_service_widgets.templ`, Line: 122, Col: 36}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var36)
 				if templ_7745c5c3_Err != nil {
@@ -711,7 +711,7 @@ func HomeServiceActions(view homeServiceActionsView) templ.Component {
 					var templ_7745c5c3_Var37 string
 					templ_7745c5c3_Var37, templ_7745c5c3_Err = templ.JoinStringErrs(homeActionLabel(action))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/systemviews/home_service_widgets.templ`, Line: 131, Col: 31}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `home_service_widgets.templ`, Line: 131, Col: 31}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var37))
 					if templ_7745c5c3_Err != nil {
@@ -759,7 +759,7 @@ func HomeServiceEmbed(view homeEmbedView, ok bool, rejected bool) templ.Componen
 			var templ_7745c5c3_Var39 string
 			templ_7745c5c3_Var39, templ_7745c5c3_Err = templruntime.NewAttributeExpression(templ.SafeURL(view.URL)).ResolveURL(ctx)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/systemviews/home_service_widgets.templ`, Line: 145, Col: 32}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `home_service_widgets.templ`, Line: 145, Col: 32}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var39)
 			if templ_7745c5c3_Err != nil {
@@ -772,7 +772,7 @@ func HomeServiceEmbed(view homeEmbedView, ok bool, rejected bool) templ.Componen
 			var templ_7745c5c3_Var40 string
 			templ_7745c5c3_Var40, templ_7745c5c3_Err = templruntime.NewAttributeExpression(strconv.Itoa(view.Height)).Resolve(ctx)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/systemviews/home_service_widgets.templ`, Line: 146, Col: 37}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `home_service_widgets.templ`, Line: 146, Col: 37}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var40)
 			if templ_7745c5c3_Err != nil {
@@ -785,7 +785,7 @@ func HomeServiceEmbed(view homeEmbedView, ok bool, rejected bool) templ.Componen
 			var templ_7745c5c3_Var41 string
 			templ_7745c5c3_Var41, templ_7745c5c3_Err = templruntime.NewAttributeExpression(view.Name).Resolve(ctx)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/systemviews/home_service_widgets.templ`, Line: 147, Col: 20}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `home_service_widgets.templ`, Line: 147, Col: 20}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var41)
 			if templ_7745c5c3_Err != nil {
@@ -798,7 +798,7 @@ func HomeServiceEmbed(view homeEmbedView, ok bool, rejected bool) templ.Componen
 			var templ_7745c5c3_Var42 string
 			templ_7745c5c3_Var42, templ_7745c5c3_Err = templruntime.NewAttributeExpression(homeEmbedSandbox).Resolve(ctx)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/systemviews/home_service_widgets.templ`, Line: 148, Col: 29}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `home_service_widgets.templ`, Line: 148, Col: 29}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var42)
 			if templ_7745c5c3_Err != nil {
