@@ -110,3 +110,20 @@ func TestClientHomeWidgetAndActionRejectMissingIDs(t *testing.T) {
 	require.Error(t, err)
 	assert.False(t, native.called)
 }
+
+func TestClientHomeStatusSendsRequest(t *testing.T) {
+	t.Parallel()
+	native := newTransportRecorder(t, true, []byte(`{"success":true,"data":{"service_id":"media","state":"up","latency_ms":12,"code":401}}`))
+	resp, err := NewClient(native, nil).HomeStatus(context.Background(), "media")
+	require.NoError(t, err)
+	assert.Equal(t, dto.HomeStatusResponse{ServiceID: "media", State: dto.HomeServiceStateUp, LatencyMS: 12, Code: 401}, resp)
+	typ, payload := sentMessage(t, native.last)
+	assert.Equal(t, "home_status", typ)
+	assert.Equal(t, "media", payload["service_id"])
+	assert.NotEmpty(t, payload["requestId"])
+
+	empty := newTransportRecorder(t, true, nil)
+	_, err = NewClient(empty, nil).HomeStatus(context.Background(), "")
+	require.Error(t, err)
+	assert.False(t, empty.called)
+}

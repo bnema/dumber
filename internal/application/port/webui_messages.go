@@ -40,6 +40,7 @@ const (
 	MsgHomeSites      = "home_sites"
 	MsgHomeOpenConfig = "home_open_config"
 	MsgHomeWidgetData = "home_widget_data"
+	MsgHomeStatus     = "home_status"
 	MsgHomeAction     = "home_action"
 )
 
@@ -92,6 +93,7 @@ var WebUIMessageCallbacks = map[string]WebUICallbacks{
 	MsgHomeSites:      homepageCallbacks,
 	MsgHomeOpenConfig: homepageCallbacks,
 	MsgHomeWidgetData: homepageCallbacks,
+	MsgHomeStatus:     homepageCallbacks,
 	MsgHomeAction:     homepageCallbacks,
 }
 

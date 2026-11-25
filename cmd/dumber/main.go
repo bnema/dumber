@@ -1210,6 +1210,7 @@ func buildUIDependencies(
 			History:      homeSitesHistory(uc),
 			Opener:       desktop.FileOpener{},
 			HTTP:         homehttp.New(),
+			Status:       homehttp.NewProber(),
 			Templates:    homehtml.Renderer{},
 			LookupEnv:    os.LookupEnv,
 			IconVersions: homeIcons,

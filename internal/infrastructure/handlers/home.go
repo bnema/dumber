@@ -42,6 +42,16 @@ func RegisterHomeHandlers(_ context.Context, router port.WebUIHandlerRouter, hom
 			}
 			return home.FetchWidgetData(ctx, req.ServiceID)
 		},
+		port.MsgHomeStatus: func(ctx context.Context, _ port.WebViewID, payload json.RawMessage) (any, error) {
+			var req dto.HomeStatusRequest
+			if err := decodeHomePayload(payload, &req); err != nil {
+				return nil, fmt.Errorf("home_status: %w", err)
+			}
+			if req.ServiceID == "" {
+				return nil, errors.New("home_status: missing service_id")
+			}
+			return home.CheckHomeStatus(ctx, req.ServiceID)
+		},
 		port.MsgHomeAction: func(ctx context.Context, _ port.WebViewID, payload json.RawMessage) (any, error) {
 			var req dto.HomeActionRequest
 			if err := decodeHomePayload(payload, &req); err != nil {
@@ -54,7 +64,8 @@ func RegisterHomeHandlers(_ context.Context, router port.WebUIHandlerRouter, hom
 		},
 	}
 	for _, msgType := range []string{
-		port.MsgHomeLoad, port.MsgHomeSites, port.MsgHomeOpenConfig, port.MsgHomeWidgetData, port.MsgHomeAction,
+		port.MsgHomeLoad, port.MsgHomeSites, port.MsgHomeOpenConfig, port.MsgHomeWidgetData, port.MsgHomeStatus,
+		port.MsgHomeAction,
 	} {
 		if err := port.RegisterWebUIMessage(router, msgType, handlers[msgType]); err != nil {
 			return err

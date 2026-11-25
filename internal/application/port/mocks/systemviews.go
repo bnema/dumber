@@ -1469,10 +1469,19 @@ func NewMockSystemviewHomeService(t interface {
 	mock.TestingT
 	Cleanup(func())
 }) *MockSystemviewHomeService {
+	if helper, ok := t.(interface{ Helper() }); ok {
+		helper.Helper()
+	}
+
 	mock := &MockSystemviewHomeService{}
 	mock.Mock.Test(t)
 
-	t.Cleanup(func() { mock.AssertExpectations(t) })
+	t.Cleanup(func() {
+		if helper, ok := t.(interface{ Helper() }); ok {
+			helper.Helper()
+		}
+		mock.AssertExpectations(t)
+	})
 
 	return mock
 }
@@ -1738,6 +1747,72 @@ func (_c *MockSystemviewHomeService_HomeSites_Call) Return(homeSitesResponse dto
 }
 
 func (_c *MockSystemviewHomeService_HomeSites_Call) RunAndReturn(run func(ctx context.Context, req dto.HomeSitesRequest) (dto.HomeSitesResponse, error)) *MockSystemviewHomeService_HomeSites_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// HomeStatus provides a mock function for the type MockSystemviewHomeService
+func (_mock *MockSystemviewHomeService) HomeStatus(ctx context.Context, serviceID string) (dto.HomeStatusResponse, error) {
+	ret := _mock.Called(ctx, serviceID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for HomeStatus")
+	}
+
+	var r0 dto.HomeStatusResponse
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string) (dto.HomeStatusResponse, error)); ok {
+		return returnFunc(ctx, serviceID)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string) dto.HomeStatusResponse); ok {
+		r0 = returnFunc(ctx, serviceID)
+	} else {
+		r0 = ret.Get(0).(dto.HomeStatusResponse)
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, string) error); ok {
+		r1 = returnFunc(ctx, serviceID)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockSystemviewHomeService_HomeStatus_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'HomeStatus'
+type MockSystemviewHomeService_HomeStatus_Call struct {
+	*mock.Call
+}
+
+// HomeStatus is a helper method to define mock.On call
+//   - ctx context.Context
+//   - serviceID string
+func (_e *MockSystemviewHomeService_Expecter) HomeStatus(ctx any, serviceID any) *MockSystemviewHomeService_HomeStatus_Call {
+	return &MockSystemviewHomeService_HomeStatus_Call{Call: _e.mock.On("HomeStatus", ctx, serviceID)}
+}
+
+func (_c *MockSystemviewHomeService_HomeStatus_Call) Run(run func(ctx context.Context, serviceID string)) *MockSystemviewHomeService_HomeStatus_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 string
+		if args[1] != nil {
+			arg1 = args[1].(string)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockSystemviewHomeService_HomeStatus_Call) Return(homeStatusResponse dto.HomeStatusResponse, err error) *MockSystemviewHomeService_HomeStatus_Call {
+	_c.Call.Return(homeStatusResponse, err)
+	return _c
+}
+
+func (_c *MockSystemviewHomeService_HomeStatus_Call) RunAndReturn(run func(ctx context.Context, serviceID string) (dto.HomeStatusResponse, error)) *MockSystemviewHomeService_HomeStatus_Call {
 	_c.Call.Return(run)
 	return _c
 }

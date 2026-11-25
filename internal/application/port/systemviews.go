@@ -43,6 +43,7 @@ type SystemviewHomeService interface {
 	HomeSites(ctx context.Context, req dto.HomeSitesRequest) (dto.HomeSitesResponse, error)
 	HomeOpenConfig(ctx context.Context) (dto.HomeOpenConfigResponse, error)
 	HomeWidgetData(ctx context.Context, serviceID string) (dto.HomeWidgetDataResponse, error)
+	HomeStatus(ctx context.Context, serviceID string) (dto.HomeStatusResponse, error)
 	HomeAction(ctx context.Context, req dto.HomeActionRequest) (dto.HomeActionResponse, error)
 }
 

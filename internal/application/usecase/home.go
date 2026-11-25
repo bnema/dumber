@@ -38,6 +38,8 @@ type HomeDeps struct {
 	IconVersions port.HomeIconVersioner
 	// EmbedOrigins receives the embed origins of each loaded layout. Optional.
 	EmbedOrigins port.HomeEmbedOriginSetter
+	// Status probes services for home_status. Nil disables home_status.
+	Status port.HomeStatusProber
 }
 
 // HomeUseCase serves the dumb://home page.
@@ -52,6 +54,9 @@ type HomeUseCase struct {
 	now       func() time.Time
 	versions  port.HomeIconVersioner
 	origins   port.HomeEmbedOriginSetter
+	status    port.HomeStatusProber
+
+	statusState homeStatusState
 
 	widgetMu       sync.Mutex
 	widgetCache    map[string]homeWidgetCacheEntry
@@ -83,6 +88,7 @@ func NewHomeUseCase(deps HomeDeps) *HomeUseCase {
 		now:              deps.Now,
 		versions:         deps.IconVersions,
 		origins:          deps.EmbedOrigins,
+		status:           deps.Status,
 		widgetCache:      map[string]homeWidgetCacheEntry{},
 		widgetInflight:   map[string]*homeWidgetFlight{},
 		templateFailures: map[string]homeTemplateFailure{},

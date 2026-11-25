@@ -49,6 +49,17 @@ func (c *Client) HomeWidgetData(ctx context.Context, serviceID string) (dto.Home
 	}{RequestID: nextRequestID(), HomeWidgetDataRequest: dto.HomeWidgetDataRequest{ServiceID: serviceID}})
 }
 
+// HomeStatus probes the url of serviceID and reports whether it is up.
+func (c *Client) HomeStatus(ctx context.Context, serviceID string) (dto.HomeStatusResponse, error) {
+	if serviceID == "" {
+		return dto.HomeStatusResponse{}, fmt.Errorf("home status: missing service id")
+	}
+	return request[dto.HomeStatusResponse](c, ctx, port.MsgHomeStatus, struct {
+		RequestID string `json:"requestId"`
+		dto.HomeStatusRequest
+	}{RequestID: nextRequestID(), HomeStatusRequest: dto.HomeStatusRequest{ServiceID: serviceID}})
+}
+
 // HomeAction runs a declared action of a home service.
 func (c *Client) HomeAction(ctx context.Context, req dto.HomeActionRequest) (dto.HomeActionResponse, error) {
 	if req.ServiceID == "" || req.ActionID == "" {

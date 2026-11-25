@@ -102,3 +102,26 @@ func TestRegisterHomeHandlers_WidgetDataAndAction(t *testing.T) {
 		require.Error(t, err, msg)
 	}
 }
+
+func TestRegisterHomeHandlers_Status(t *testing.T) {
+	ctx := context.Background()
+	handlers := map[string]port.WebUIMessageHandler{}
+	router := mocks.NewMockWebUIHandlerRouter(t)
+	router.EXPECT().
+		RegisterHandlerWithCallbacks(mock.Anything, mock.Anything, mock.Anything, "", mock.Anything).
+		Run(func(msgType, _, _, _ string, h port.WebUIMessageHandler) { handlers[msgType] = h }).
+		Return(nil)
+	home := mocks.NewMockHomePage(t)
+	require.NoError(t, RegisterHomeHandlers(ctx, router, home))
+
+	home.EXPECT().CheckHomeStatus(ctx, "media").
+		Return(&dto.HomeStatusResponse{ServiceID: "media", State: dto.HomeServiceStateUp}, nil)
+	got, err := handlers[port.MsgHomeStatus].Handle(ctx, 1, json.RawMessage(`{"service_id":"media"}`))
+	require.NoError(t, err)
+	assert.Equal(t, &dto.HomeStatusResponse{ServiceID: "media", State: dto.HomeServiceStateUp}, got)
+
+	_, err = handlers[port.MsgHomeStatus].Handle(ctx, 1, json.RawMessage(`{}`))
+	require.Error(t, err)
+	_, err = handlers[port.MsgHomeStatus].Handle(ctx, 1, nil)
+	require.Error(t, err)
+}

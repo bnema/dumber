@@ -519,6 +519,74 @@ func (_m *MockHomePage) EXPECT() *MockHomePage_Expecter {
 	return &MockHomePage_Expecter{mock: &_m.Mock}
 }
 
+// CheckHomeStatus provides a mock function for the type MockHomePage
+func (_mock *MockHomePage) CheckHomeStatus(ctx context.Context, serviceID string) (*dto.HomeStatusResponse, error) {
+	ret := _mock.Called(ctx, serviceID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for CheckHomeStatus")
+	}
+
+	var r0 *dto.HomeStatusResponse
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string) (*dto.HomeStatusResponse, error)); ok {
+		return returnFunc(ctx, serviceID)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string) *dto.HomeStatusResponse); ok {
+		r0 = returnFunc(ctx, serviceID)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*dto.HomeStatusResponse)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, string) error); ok {
+		r1 = returnFunc(ctx, serviceID)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockHomePage_CheckHomeStatus_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CheckHomeStatus'
+type MockHomePage_CheckHomeStatus_Call struct {
+	*mock.Call
+}
+
+// CheckHomeStatus is a helper method to define mock.On call
+//   - ctx context.Context
+//   - serviceID string
+func (_e *MockHomePage_Expecter) CheckHomeStatus(ctx any, serviceID any) *MockHomePage_CheckHomeStatus_Call {
+	return &MockHomePage_CheckHomeStatus_Call{Call: _e.mock.On("CheckHomeStatus", ctx, serviceID)}
+}
+
+func (_c *MockHomePage_CheckHomeStatus_Call) Run(run func(ctx context.Context, serviceID string)) *MockHomePage_CheckHomeStatus_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 string
+		if args[1] != nil {
+			arg1 = args[1].(string)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockHomePage_CheckHomeStatus_Call) Return(homeStatusResponse *dto.HomeStatusResponse, err error) *MockHomePage_CheckHomeStatus_Call {
+	_c.Call.Return(homeStatusResponse, err)
+	return _c
+}
+
+func (_c *MockHomePage_CheckHomeStatus_Call) RunAndReturn(run func(ctx context.Context, serviceID string) (*dto.HomeStatusResponse, error)) *MockHomePage_CheckHomeStatus_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // FetchWidgetData provides a mock function for the type MockHomePage
 func (_mock *MockHomePage) FetchWidgetData(ctx context.Context, serviceID string) (*dto.HomeWidgetDataResponse, error) {
 	ret := _mock.Called(ctx, serviceID)
