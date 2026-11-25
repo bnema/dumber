@@ -285,13 +285,15 @@ func sameOrder(a, b []string) bool {
 	return true
 }
 
-// homeGroupLeaves renders the swappable leaves of the groups: group titles
-// and service tiles.
-func homeGroupLeaves(load dto.HomeLoadResponse, shape homeShape) map[string]string {
+// homeGroupLeaves renders the swappable leaves of the groups: group titles,
+// group counts and service tiles.
+func homeGroupLeaves(load dto.HomeLoadResponse, shape homeShape, statuses map[string]dto.HomeStatusResponse) map[string]string {
 	leaves := make(map[string]string)
 	for gi := range load.Layout.Groups {
 		group := &load.Layout.Groups[gi]
 		leaves[homeGroupTitleRegion(shape.Groups[gi].Key)] = mustRenderComponent(HomeGroupTitle(group.Name))
+		count := homeGroupCountText(*group, load.Layout.Settings, statuses)
+		leaves[homeGroupCountRegion(shape.Groups[gi].Key)] = mustRenderComponent(HomeGroupCount(count))
 		for si := range group.Services {
 			service := &group.Services[si]
 			leaves[homeServiceTileRegion(service.ID)] = mustRenderComponent(HomeServiceTile(*service))

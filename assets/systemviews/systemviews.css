@@ -13,6 +13,10 @@
   /* Matches the GTK theme's fixed --destructive (not palette-driven). */
   --sv-danger: #ef4444;
   --sv-success: var(--sv-accent);
+  /* Service status (Home dots); fixed, not palette-driven. */
+  --sv-ok: #4ade80;
+  --sv-warn: #fbbf24;
+  --sv-down: #f87171;
 }
 
 .sv-dark {
@@ -30,6 +34,9 @@
   --sv-accent-text: #ffffff;
   --sv-border: #d7dee8;
   --sv-danger: #dc2626;
+  --sv-ok: #16a34a;
+  --sv-warn: #b45309;
+  --sv-down: #dc2626;
 }
 
 /* Derived tokens, recomputed from the palette variables in every scheme.
@@ -3630,4 +3637,34 @@ html:not([data-sv-enhanced]) .sv-home .sv-palette-trigger {
 .sv-home-svc-confirm-text {
   flex: 1 1 100%;
   font-size: 0.8125rem;
+}
+
+/* Service status: a dot per checked service, offline count in the header. */
+.sv-home-service-status {
+  display: inline-flex;
+  align-items: center;
+}
+
+.sv-home-status-dot {
+  display: block;
+  width: 0.4375rem;
+  height: 0.4375rem;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--sv-muted) 55%, transparent);
+}
+
+.sv-home-status-dot[data-state="up"] {
+  background: var(--sv-ok);
+}
+
+.sv-home-status-dot[data-state="error"] {
+  background: var(--sv-warn);
+}
+
+.sv-home-status-dot[data-state="down"] {
+  background: var(--sv-down);
+}
+
+.sv-home-status-offline-some {
+  color: var(--sv-down);
 }

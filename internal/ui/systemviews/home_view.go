@@ -54,6 +54,8 @@ type homeWidgetData struct {
 type homeRenderData struct {
 	Load    dto.HomeLoadResponse
 	Widgets []homeWidgetData
+	// Statuses are the service status results known when rendering.
+	Statuses map[string]dto.HomeStatusResponse
 }
 
 func homeTitle(load dto.HomeLoadResponse) string {
@@ -234,7 +236,7 @@ func homeRegions(data homeRenderData) []DOMRegion {
 	regions = append(regions,
 		DOMRegion{Name: homeRegionErrors, HTML: mustRenderComponent(HomeErrors(data.Load))},
 		DOMRegion{Name: homeRegionHeader, HTML: mustRenderComponent(HomeHeader(data.Load))},
-		DOMRegion{Name: homeRegionSummary, HTML: mustRenderComponent(HomeStatusSummary(homeServiceCount(data.Load)))},
+		DOMRegion{Name: homeRegionSummary, HTML: mustRenderComponent(HomeStatusSummary(homeSummaryFor(data.Load, data.Statuses)))},
 	)
 	for i := range data.Widgets {
 		regions = append(regions, DOMRegion{Name: homeWidgetRegion(i), HTML: mustRenderComponent(HomeWidget(data.Widgets[i]))})

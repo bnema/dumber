@@ -1,6 +1,8 @@
 package systemviews
 
 import (
+	"strconv"
+
 	"bnema.dev/dumber/internal/application/dto"
 	"bnema.dev/dumber/internal/domain/entity"
 )
@@ -76,11 +78,28 @@ templ HomeHeader(load dto.HomeLoadResponse) {
 }
 
 // HomeStatusSummary is the service count of the header line, empty when
-// there are no services.
-templ HomeStatusSummary(count int) {
-	if count > 0 {
-		<span class="sv-home-status-summary">{ homeServiceCountText(count) }</span>
+// there are no services. With status checks on, it adds the offline count.
+templ HomeStatusSummary(summary homeSummary) {
+	if summary.Services > 0 {
+		<span class="sv-home-status-summary">
+			{ homeServiceCountText(summary.Services) }
+			if summary.Status {
+				{ " · " }
+				<span class={ "sv-home-status-offline", templ.KV("sv-home-status-offline-some", summary.Offline > 0) }>{ strconv.Itoa(summary.Offline) } offline</span>
+			}
+		</span>
 	}
+}
+
+// HomeGroupCount is the content of a group count region.
+templ HomeGroupCount(text string) {
+	{ text }
+}
+
+// HomeServiceStatus is the content of a status region: a dot whose state
+// is in data-state, labelled for assistive tech and tooltips.
+templ HomeServiceStatus(dot homeStatusDot) {
+	<span class="sv-home-status-dot" data-state={ dot.State } role="img" aria-label={ dot.Label } title={ dot.Label }></span>
 }
 
 templ HomeWidget(widget homeWidgetData) {
@@ -268,7 +287,9 @@ templ HomeGroupBlock(group entity.HomeGroup, key string, leaves map[string]strin
 			<h3 class="sv-home-section-title" data-sv-region={ homeGroupTitleRegion(key) }>
 				@templ.Raw(leaves[homeGroupTitleRegion(key)])
 			</h3>
-			<span class="sv-home-group-count" data-sv-region={ homeGroupCountRegion(key) }></span>
+			<span class="sv-home-group-count" data-sv-region={ homeGroupCountRegion(key) }>
+				@templ.Raw(leaves[homeGroupCountRegion(key)])
+			</span>
 		</div>
 		<div class="sv-home-grid" data-sv-anchor={ homeGridAnchor(key) }>
 			for _, service := range group.Services {

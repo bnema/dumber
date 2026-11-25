@@ -60,7 +60,7 @@ func (a *App) loadHomeRoute(ctx context.Context) error {
 // current layout. Caller holds App.mu.
 func (a *App) setHomeGroupsLocked(shape homeShape) {
 	a.homeGroups = shape
-	a.homeLeaves = homeGroupLeaves(a.homeData.Load, shape)
+	a.homeLeaves = homeGroupLeaves(a.homeData.Load, shape, a.homeSvc.statuses)
 	a.homeActionKeys, a.homeWidgetKeys = homeSlotKeys(a.homeData.Load)
 }
 
@@ -309,6 +309,8 @@ func (a *App) reloadHomeLocked(ctx context.Context) error {
 	}
 	a.homeGeneration++
 	previous := a.homeData.Load
+	a.pruneHomeStatusesLocked(data.Load)
+	data.Statuses = a.homeSvc.statuses
 	a.homeData = data
 	err = a.applyHomeReloadLocked(previous, homeRegions(data))
 	// The widget loops follow the new layout even when the page fell back
@@ -455,6 +457,7 @@ func (a *App) applyHomeStructureLocked(editor DOMStructureEditor, plan homeStruc
 	for id := range plan.Fresh {
 		delete(a.homeSvc.slots, id)
 		delete(a.homeSvc.embeds, id)
+		delete(a.homeSvc.dots, id)
 		// A form or confirmation does not survive a new shell; a running
 		// action does, so its completion toast still fires.
 		if a.homeSvc.actions[id].Step != homeActionBusy {
@@ -464,7 +467,7 @@ func (a *App) applyHomeStructureLocked(editor DOMStructureEditor, plan homeStruc
 	return nil
 }
 
-// changedHomeLeavesLocked returns the group title and tile regions whose
+// changedHomeLeavesLocked returns the group title, count and tile regions whose
 // markup changed, skipping the ones just inserted with their content.
 func (a *App) changedHomeLeavesLocked(old map[string]string, plan homeStructurePlan) []DOMRegion {
 	fresh := make(map[string]bool)
@@ -473,9 +476,10 @@ func (a *App) changedHomeLeavesLocked(old map[string]string, plan homeStructureP
 	}
 	var regions []DOMRegion
 	for _, group := range a.homeGroups.Groups {
-		title := homeGroupTitleRegion(group.Key)
-		if markup, ok := old[title]; ok && markup != a.homeLeaves[title] {
-			regions = append(regions, DOMRegion{Name: title, HTML: a.homeLeaves[title]})
+		for _, name := range []string{homeGroupTitleRegion(group.Key), homeGroupCountRegion(group.Key)} {
+			if markup, ok := old[name]; ok && markup != a.homeLeaves[name] {
+				regions = append(regions, DOMRegion{Name: name, HTML: a.homeLeaves[name]})
+			}
 		}
 		for _, service := range group.Services {
 			tile := homeServiceTileRegion(service.ID)

@@ -37,6 +37,9 @@ type homeStore struct {
 	actionReqs []dto.HomeActionRequest
 	// gate, when set, holds each HomeAction call until closed.
 	gate chan struct{}
+
+	statuses    map[string]dto.HomeStatusResponse
+	statusCalls map[string]int
 }
 
 func newHomeStore(t *testing.T, s *homeStore) *homeStore {
@@ -75,6 +78,18 @@ func newHomeStore(t *testing.T, s *homeStore) *homeStore {
 			return resp, nil
 		}
 		return dto.HomeWidgetDataResponse{ServiceID: id, Status: dto.HomeStatusOK}, nil
+	}).Maybe()
+	svc.EXPECT().HomeStatus(mock.Anything, mock.Anything).RunAndReturn(func(_ context.Context, id string) (dto.HomeStatusResponse, error) {
+		s.mu.Lock()
+		defer s.mu.Unlock()
+		if s.statusCalls == nil {
+			s.statusCalls = map[string]int{}
+		}
+		s.statusCalls[id]++
+		if resp, ok := s.statuses[id]; ok {
+			return resp, nil
+		}
+		return dto.HomeStatusResponse{ServiceID: id, State: dto.HomeServiceStateUp, LatencyMS: 4}, nil
 	}).Maybe()
 	svc.EXPECT().HomeAction(mock.Anything, mock.Anything).RunAndReturn(func(_ context.Context, req dto.HomeActionRequest) (dto.HomeActionResponse, error) {
 		s.mu.Lock()

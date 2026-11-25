@@ -31,6 +31,10 @@ type homeServiceWidgets struct {
 	// embeds is the key (url and height) of the iframe pushed into each embed
 	// region; an unchanged key is never pushed again, so the iframe is kept.
 	embeds map[string]string
+	// statuses is the last probe result of each checked service; dots is
+	// the markup pushed into each status region.
+	statuses map[string]dto.HomeStatusResponse
+	dots     map[string]string
 }
 
 // homeServiceWidgetView is what one api widget slot renders.
@@ -142,15 +146,14 @@ func (a *App) startHomeServiceWidgetsLocked(ctx context.Context) {
 	}
 	a.syncHomeEmbedsLocked(ctx)
 	if a.deps.Home == nil {
-		return
-	}
-	services := homeAPIServices(a.homeData.Load)
-	if len(services) == 0 {
+		a.syncHomeDotsLocked()
 		return
 	}
 	loopCtx, cancel := context.WithCancel(ctx)
 	a.homeSvc.cancel = cancel
 	generation := a.homeGeneration
+	a.startHomeStatusLocked(loopCtx, generation)
+	services := homeAPIServices(a.homeData.Load)
 	for i := range services {
 		service := services[i]
 		a.homeFillWG.Add(1)
@@ -234,6 +237,8 @@ func (a *App) resetHomeServiceWidgetsLocked() {
 	a.homeSvc.slots = nil
 	a.homeSvc.actions = nil
 	a.homeSvc.embeds = nil
+	a.homeSvc.statuses = nil
+	a.homeSvc.dots = nil
 }
 
 // restoreHomeServiceSlotsLocked pushes the cached widget markup, open action
@@ -253,6 +258,7 @@ func (a *App) restoreHomeServiceSlotsLocked() error {
 		}
 	}
 	regions = append(regions, a.homeActionRegionsLocked()...)
+	regions = append(regions, a.restoreHomeDotsLocked()...)
 	// The remount emptied every embed region: push them all again.
 	a.homeSvc.embeds = nil
 	regions = append(regions, a.changedHomeEmbedRegionsLocked()...)
