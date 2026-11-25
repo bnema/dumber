@@ -118,6 +118,9 @@ func TestPromptPermissionTypes(t *testing.T) {
 		{"camera pan tilt zoom unsupported", promptPTZ, nil},
 		{"unsupported", promptClip, nil},
 		{"supported plus unsupported denies all", promptGeo | promptClip, nil},
+		{"loopback network", uint32(purecef.PermissionRequestTypesPermissionTypeLoopbackNetwork), []string{"local_network"}},
+		{"local and loopback network", uint32(purecef.PermissionRequestTypesPermissionTypeLocalNetwork | purecef.PermissionRequestTypesPermissionTypeLoopbackNetwork), []string{"local_network"}},
+		{"geolocation and local network", promptGeo | uint32(purecef.PermissionRequestTypesPermissionTypeLocalNetwork), []string{"geolocation", "local_network"}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -471,23 +474,46 @@ func TestOnShowPermissionPromptGrantsLocalNetworkToSystemview(t *testing.T) {
 	}
 }
 
-func TestOnShowPermissionPromptLocalNetworkElsewhereDenied(t *testing.T) {
+func TestOnShowPermissionPromptLocalNetworkOnWebPagesAsksTheUser(t *testing.T) {
+	loopback := uint32(purecef.PermissionRequestTypesPermissionTypeLoopbackNetwork)
+	for name, allow := range map[string]bool{"allow": true, "deny": false} {
+		t.Run(name, func(t *testing.T) {
+			h, capture, browser := newPermissionTestHandler(t, true)
+			cb := &stubPermissionPromptCallback{}
+			require.Equal(t, int32(1), h.OnShowPermissionPrompt(browser, 1, "https://meet.example.com", loopback, cb))
+			require.Equal(t, 1, capture.calls)
+			assert.Equal(t, []string{"local_network"}, capture.types)
+			if allow {
+				capture.allow()
+			} else {
+				capture.deny()
+			}
+			want := promptDeny
+			if allow {
+				want = promptAccept
+			}
+			assert.Equal(t, []purecef.PermissionRequestResult{want}, cb.results)
+		})
+	}
+}
+
+func TestOnShowPermissionPromptLocalNetworkNeverLeftPending(t *testing.T) {
 	loopback := uint32(purecef.PermissionRequestTypesPermissionTypeLoopbackNetwork)
 	for name, tc := range map[string]struct {
 		top, origin string
 		mask        uint32
+		handled     bool
 	}{
-		"regular site":             {top: "https://example.com/", origin: "https://example.com", mask: loopback},
-		"internal origin, web top": {top: "https://example.com/", origin: "https://dumber.invalid", mask: loopback},
-		"web origin, internal top": {top: "https://dumber.invalid/home", origin: "https://example.com", mask: loopback},
-		"mixed with geolocation":   {top: "https://dumber.invalid/home", origin: "https://dumber.invalid", mask: loopback | promptGeo},
+		"internal origin under a web page": {top: testTopURL, origin: "https://dumber.invalid", mask: loopback, handled: true},
+		"mixed with an unsupported type":    {top: "https://dumber.invalid/home", origin: "https://dumber.invalid", mask: loopback | promptClip, handled: true},
+		"no handler takes it":               {top: testTopURL, origin: "https://meet.example.com", mask: loopback, handled: false},
 	} {
 		t.Run(name, func(t *testing.T) {
-			h, _, _ := newPermissionTestHandler(t, true)
+			h, _, _ := newPermissionTestHandler(t, tc.handled)
 			browser := newSystemviewPermissionBrowser(t, tc.top)
 			cb := &stubPermissionPromptCallback{}
 			require.Equal(t, int32(1), h.OnShowPermissionPrompt(browser, 1, tc.origin, tc.mask, cb))
-			assert.Equal(t, []purecef.PermissionRequestResult{promptDeny}, cb.results, "resolved, never left pending")
+			assert.Equal(t, []purecef.PermissionRequestResult{promptDeny}, cb.results)
 		})
 	}
 }

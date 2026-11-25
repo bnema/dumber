@@ -278,3 +278,10 @@ func TestPermissionDialog_ExternalLaunchConfirmHidesQueryAndIsNotPersistable(t *
 	cb(true, false)
 	assert.True(t, allowed)
 }
+
+func TestPermissionDialog_LocalNetworkText(t *testing.T) {
+	d := &PermissionDialog{}
+	types := []entity.PermissionType{entity.PermissionTypeLocalNetwork}
+	assert.Equal(t, "Allow Local Network Access?", d.buildHeading(types))
+	assert.Contains(t, d.buildBody("https://site.example", types, nil), "connect to devices on your local network")
+}

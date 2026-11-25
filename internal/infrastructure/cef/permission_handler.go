@@ -75,7 +75,7 @@ func promptPermissionTypes(requested uint32) []string {
 		mic           = uint32(purecef.PermissionRequestTypesPermissionTypeMicStream)
 		geolocation   = uint32(purecef.PermissionRequestTypesPermissionTypeGeolocation)
 		notifications = uint32(purecef.PermissionRequestTypesPermissionTypeNotifications)
-		supported     = camera | mic | geolocation | notifications
+		supported     = camera | mic | geolocation | notifications | localNetworkPermissionMask
 	)
 	if requested == 0 || requested&^supported != 0 {
 		return nil
@@ -92,6 +92,9 @@ func promptPermissionTypes(requested uint32) []string {
 	}
 	if requested&notifications != 0 {
 		types = append(types, string(entity.PermissionTypeNotification))
+	}
+	if requested&localNetworkPermissionMask != 0 {
+		types = append(types, string(entity.PermissionTypeLocalNetwork))
 	}
 	return types
 }
@@ -234,8 +237,9 @@ func (h *handlerSet) OnRequestMediaAccessPermission(
 }
 
 // OnShowPermissionPrompt handles non-media permission requests
-// (geolocation, notifications). Unsupported requests are left to CEF's default
-// handling by returning 0.
+// (geolocation, notifications, local network). Unsupported requests are left
+// to CEF's default handling by returning 0, except local network prompts:
+// CEF shows nothing for them off-screen, so they are always resolved.
 func (h *handlerSet) OnShowPermissionPrompt(
 	browser purecef.Browser,
 	promptID uint64,
@@ -253,15 +257,13 @@ func (h *handlerSet) OnShowPermissionPrompt(
 		callback.Cont(purecef.PermissionRequestResultPermissionResultAccept)
 		return 1
 	}
-	if requestedPermissions&localNetworkPermissionMask != 0 {
-		// CEF has no visible prompt in off-screen mode: an unanswered local
-		// network prompt would stall the request forever, so deny it.
-		logCEFPermission(h.wv).Debug().Str("origin", requestingOrigin).Msg("cef: denying local network access")
-		callback.Cont(purecef.PermissionRequestResultPermissionResultDeny)
-		return 1
-	}
 	types := promptPermissionTypes(requestedPermissions)
 	if len(types) == 0 {
+		if requestedPermissions&localNetworkPermissionMask != 0 {
+			logCEFPermission(h.wv).Debug().Msg("cef: denying local network prompt mixed with unsupported permissions")
+			callback.Cont(purecef.PermissionRequestResultPermissionResultDeny)
+			return 1
+		}
 		return 0
 	}
 	h.beginPermissionRequest(permissionKey{prompt: true, id: promptID}, browser, requestingOrigin, types, nil, func(allow bool) {

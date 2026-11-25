@@ -191,7 +191,7 @@ func (d *PermissionDialog) showNextQueuedRequest() {
 
 // permFlags holds parsed permission type flags.
 type permFlags struct {
-	mic, cam, display, dataAccess, notification, geolocation bool
+	mic, cam, display, dataAccess, notification, geolocation, localNetwork bool
 }
 
 // parsePermFlags extracts boolean flags from permission types.
@@ -211,6 +211,8 @@ func parsePermFlags(permTypes []entity.PermissionType) permFlags {
 			f.notification = true
 		case entity.PermissionTypeGeolocation:
 			f.geolocation = true
+		case entity.PermissionTypeLocalNetwork:
+			f.localNetwork = true
 		}
 	}
 	return f
@@ -266,6 +268,9 @@ func (d *PermissionDialog) buildHeading(
 	if f.geolocation {
 		labels = append(labels, "Location")
 	}
+	if f.localNetwork {
+		labels = append(labels, "Local Network")
+	}
 	switch {
 	case len(labels) == 0:
 		return "Allow Permission?"
@@ -282,17 +287,15 @@ func (d *PermissionDialog) buildHeading(
 	}
 }
 
-// buildBody creates the dialog body text.
-func (d *PermissionDialog) buildBody(
-	origin string, permTypes []entity.PermissionType, metadata entity.PermissionMetadata,
-) string {
-	f := parsePermFlags(permTypes)
+// captureBodyParts describes the microphone, camera and screen requests.
+func captureBodyParts(f permFlags, metadata entity.PermissionMetadata) []string {
 	var parts []string
-	if f.mic && f.cam {
+	switch {
+	case f.mic && f.cam:
 		parts = append(parts, "access your microphone and camera")
-	} else if f.mic {
+	case f.mic:
 		parts = append(parts, "access your microphone")
-	} else if f.cam {
+	case f.cam:
 		parts = append(parts, "access your camera")
 	}
 	if f.display {
@@ -305,11 +308,23 @@ func (d *PermissionDialog) buildBody(
 			parts = append(parts, "share your screen")
 		}
 	}
+	return parts
+}
+
+// buildBody creates the dialog body text.
+func (d *PermissionDialog) buildBody(
+	origin string, permTypes []entity.PermissionType, metadata entity.PermissionMetadata,
+) string {
+	f := parsePermFlags(permTypes)
+	parts := captureBodyParts(f, metadata)
 	if f.notification {
 		parts = append(parts, "show notifications")
 	}
 	if f.geolocation {
 		parts = append(parts, "access your location")
+	}
+	if f.localNetwork {
+		parts = append(parts, "connect to devices on your local network")
 	}
 	if f.dataAccess {
 		reqDomain := metadata[entity.PermissionMetadataKeyRequestingDomain]
