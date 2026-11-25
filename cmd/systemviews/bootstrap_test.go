@@ -9,8 +9,10 @@ import (
 
 	"bnema.dev/dumber/internal/application/dto"
 	"bnema.dev/dumber/internal/application/port"
+	"bnema.dev/dumber/internal/application/port/mocks"
 	"bnema.dev/dumber/internal/domain/entity"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
@@ -94,11 +96,13 @@ func TestNewBridgeApp_WiresConfigService(t *testing.T) {
 func TestNewBridgeApp_WiresHomeService(t *testing.T) {
 	t.Parallel()
 
-	bridge := &bridgeServiceRecorder{}
+	home := mocks.NewMockSystemviewHomeService(t)
+	home.EXPECT().HomeLoad(mock.Anything).Return(dto.HomeLoadResponse{Layout: entity.DefaultHomeLayout()}, nil).Once()
+	home.EXPECT().HomeSites(mock.Anything, mock.Anything).Return(dto.HomeSitesResponse{}, nil).Maybe()
+	bridge := &bridgeServiceRecorder{MockSystemviewHomeService: home}
 	app := newBridgeApp(&recordingDOM{}, "dumb://home", bridge)
 
 	require.NoError(t, app.LoadInitial(context.Background()))
-	assert.True(t, bridge.calledHome.Load())
 	assert.False(t, bridge.calledKeybindings.Load())
 }
 
@@ -144,11 +148,13 @@ func receiveMountContaining(t *testing.T, mounts <-chan string, values ...string
 // Recording fixture intentionally tracks state across history, favorites, config,
 // and keybindings boundaries for the composite bootstrap assertions.
 type bridgeServiceRecorder struct {
+	// Home is set only by the tests that open dumb://home.
+	*mocks.MockSystemviewHomeService
+
 	calledHistory     atomic.Bool
 	calledFavorites   atomic.Bool
 	calledConfig      atomic.Bool
 	calledKeybindings atomic.Bool
-	calledHome        atomic.Bool
 
 	historyEntries []*entity.HistoryEntry
 	favorites      []*entity.Favorite
@@ -252,24 +258,3 @@ func (*bridgeServiceRecorder) ResetKeybinding(context.Context, port.ResetKeybind
 }
 
 func (*bridgeServiceRecorder) ResetAllKeybindings(context.Context) error { return nil }
-
-func (b *bridgeServiceRecorder) HomeLoad(context.Context) (dto.HomeLoadResponse, error) {
-	b.calledHome.Store(true)
-	return dto.HomeLoadResponse{Layout: entity.DefaultHomeLayout()}, nil
-}
-
-func (*bridgeServiceRecorder) HomeSites(context.Context, dto.HomeSitesRequest) (dto.HomeSitesResponse, error) {
-	return dto.HomeSitesResponse{}, nil
-}
-
-func (*bridgeServiceRecorder) HomeOpenConfig(context.Context) (dto.HomeOpenConfigResponse, error) {
-	return dto.HomeOpenConfigResponse{}, nil
-}
-
-func (*bridgeServiceRecorder) HomeWidgetData(context.Context, string) (dto.HomeWidgetDataResponse, error) {
-	return dto.HomeWidgetDataResponse{}, nil
-}
-
-func (*bridgeServiceRecorder) HomeAction(context.Context, dto.HomeActionRequest) (dto.HomeActionResponse, error) {
-	return dto.HomeActionResponse{}, nil
-}

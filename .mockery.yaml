@@ -86,6 +86,7 @@ packages:
       SystemviewConfigService: {}
       SystemviewFavoritesService: {}
       SystemviewHistoryService: {}
+      SystemviewHomeService: {}
       KeybindingsProvider: {}
       KeybindingsSaver: {}
       OmniboxPreferencesSaver: {}

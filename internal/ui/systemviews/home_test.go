@@ -9,44 +9,106 @@ import (
 	"time"
 
 	"bnema.dev/dumber/internal/application/dto"
+	"bnema.dev/dumber/internal/application/port/mocks"
 	"bnema.dev/dumber/internal/domain/entity"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
-type fakeHome struct {
-	mu        sync.Mutex
+// homeStore backs a SystemviewHomeService mock with canned data and records
+// the calls.
+type homeStore struct {
+	service *mocks.MockSystemviewHomeService
+	mu      sync.Mutex
+
 	load      dto.HomeLoadResponse
+	loadCalls int
 	sites     map[dto.HomeSitesKind][]dto.HomeSite
 	siteReqs  []dto.HomeSitesRequest
 	opened    bool
-	loadCalls int
+
+	data      map[string]dto.HomeWidgetDataResponse
+	dataErr   error
+	dataCalls map[string]int
+
+	actionResp dto.HomeActionResponse
+	actionErr  error
+	actionReqs []dto.HomeActionRequest
+	// gate, when set, holds each HomeAction call until closed.
+	gate chan struct{}
 }
 
-func (f *fakeHome) HomeLoad(context.Context) (dto.HomeLoadResponse, error) {
-	f.loadCalls++
-	return f.load, nil
+func newHomeStore(t *testing.T, s *homeStore) *homeStore {
+	t.Helper()
+	svc := mocks.NewMockSystemviewHomeService(t)
+	s.service = svc
+	svc.EXPECT().HomeLoad(mock.Anything).RunAndReturn(func(context.Context) (dto.HomeLoadResponse, error) {
+		s.mu.Lock()
+		defer s.mu.Unlock()
+		s.loadCalls++
+		return s.load, nil
+	}).Maybe()
+	svc.EXPECT().HomeSites(mock.Anything, mock.Anything).RunAndReturn(func(_ context.Context, req dto.HomeSitesRequest) (dto.HomeSitesResponse, error) {
+		s.mu.Lock()
+		defer s.mu.Unlock()
+		s.siteReqs = append(s.siteReqs, req)
+		return dto.HomeSitesResponse{Sites: s.sites[req.Kind]}, nil
+	}).Maybe()
+	svc.EXPECT().HomeOpenConfig(mock.Anything).RunAndReturn(func(context.Context) (dto.HomeOpenConfigResponse, error) {
+		s.mu.Lock()
+		defer s.mu.Unlock()
+		s.opened = true
+		return dto.HomeOpenConfigResponse{Path: "/cfg/home.toml"}, nil
+	}).Maybe()
+	svc.EXPECT().HomeWidgetData(mock.Anything, mock.Anything).RunAndReturn(func(_ context.Context, id string) (dto.HomeWidgetDataResponse, error) {
+		s.mu.Lock()
+		defer s.mu.Unlock()
+		if s.dataCalls == nil {
+			s.dataCalls = map[string]int{}
+		}
+		s.dataCalls[id]++
+		if s.dataErr != nil {
+			return dto.HomeWidgetDataResponse{}, s.dataErr
+		}
+		if resp, ok := s.data[id]; ok {
+			return resp, nil
+		}
+		return dto.HomeWidgetDataResponse{ServiceID: id, Status: dto.HomeStatusOK}, nil
+	}).Maybe()
+	svc.EXPECT().HomeAction(mock.Anything, mock.Anything).RunAndReturn(func(_ context.Context, req dto.HomeActionRequest) (dto.HomeActionResponse, error) {
+		s.mu.Lock()
+		s.actionReqs = append(s.actionReqs, req)
+		gate, resp, err := s.gate, s.actionResp, s.actionErr
+		s.mu.Unlock()
+		if gate != nil {
+			<-gate
+		}
+		return resp, err
+	}).Maybe()
+	return s
 }
 
-func (f *fakeHome) HomeSites(_ context.Context, req dto.HomeSitesRequest) (dto.HomeSitesResponse, error) {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	f.siteReqs = append(f.siteReqs, req)
-	return dto.HomeSitesResponse{Sites: f.sites[req.Kind]}, nil
+// set makes HomeWidgetData return resp for service id.
+func (s *homeStore) set(id string, resp dto.HomeWidgetDataResponse) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.data == nil {
+		s.data = map[string]dto.HomeWidgetDataResponse{}
+	}
+	s.data[id] = resp
 }
 
-func (f *fakeHome) HomeOpenConfig(context.Context) (dto.HomeOpenConfigResponse, error) {
-	f.opened = true
-	return dto.HomeOpenConfigResponse{Path: "/cfg/home.toml"}, nil
+func (s *homeStore) callCount(id string) int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.dataCalls[id]
 }
 
-func (f *fakeHome) HomeWidgetData(_ context.Context, serviceID string) (dto.HomeWidgetDataResponse, error) {
-	return dto.HomeWidgetDataResponse{ServiceID: serviceID, Status: dto.HomeStatusOK}, nil
-}
-
-func (f *fakeHome) HomeAction(context.Context, dto.HomeActionRequest) (dto.HomeActionResponse, error) {
-	return dto.HomeActionResponse{Status: dto.HomeStatusOK}, nil
+func (s *homeStore) actionRequests() []dto.HomeActionRequest {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return append([]dto.HomeActionRequest(nil), s.actionReqs...)
 }
 
 type navDOM struct {
@@ -61,9 +123,9 @@ func (d *navDOM) NavigateTo(rawURL string) error {
 
 var homeTestNow = time.Date(2026, 11, 25, 14, 5, 0, 0, time.UTC)
 
-func newHomeApp(t *testing.T, dom DOM, home *fakeHome) *App {
+func newHomeApp(t *testing.T, dom DOM, home *homeStore) *App {
 	t.Helper()
-	app := NewApp(Dependencies{DOM: dom, Home: home, LocationURI: "dumb://home"})
+	app := NewApp(Dependencies{DOM: dom, Home: home.service, LocationURI: "dumb://home"})
 	app.now = func() time.Time { return homeTestNow }
 	require.NoError(t, app.LoadInitial(context.Background()))
 	fillHome(app)
@@ -80,18 +142,18 @@ func fillHome(app *App) {
 
 func TestHomeRendersDefaultLayout(t *testing.T) {
 	t.Parallel()
-	home := &fakeHome{
+	home := newHomeStore(t, &homeStore{
 		load: dto.HomeLoadResponse{Layout: entity.DefaultHomeLayout()},
 		sites: map[dto.HomeSitesKind][]dto.HomeSite{
 			dto.HomeSitesTop:    {{URL: "https://top.test/", Title: "Top Site"}},
 			dto.HomeSitesRecent: {{URL: "https://recent.test/page"}},
 		},
-	}
+	})
 	favorites := newFavoritesStore(t, &favoritesStore{favorites: []*entity.Favorite{
 		{URL: "https://fav.test", Title: "Fav"},
 	}})
 	dom := newTreeDOM()
-	mountHomeApp(t, dom, Dependencies{Home: home, Favorites: favorites.service})
+	mountHomeApp(t, dom, Dependencies{Home: home.service, Favorites: favorites.service})
 	html := dom.html()
 
 	assert.Contains(t, html, `data-route="home"`)
@@ -118,13 +180,15 @@ func TestHomeRendersErrorBanner(t *testing.T) {
 	t.Parallel()
 	layout := entity.DefaultHomeLayout()
 	layout.Widgets = nil
-	home := &fakeHome{load: dto.HomeLoadResponse{
-		Layout:     layout,
-		ParseError: &dto.HomeParseError{File: "home.toml", Line: 4, Column: 9, Message: "expected value"},
-		ValidationErrors: []entity.HomeValidationError{
-			{Path: "groups[0].services[1].url", Message: "must be http or https"},
+	home := newHomeStore(t, &homeStore{
+		load: dto.HomeLoadResponse{
+			Layout:     layout,
+			ParseError: &dto.HomeParseError{File: "home.toml", Line: 4, Column: 9, Message: "expected value"},
+			ValidationErrors: []entity.HomeValidationError{
+				{Path: "groups[0].services[1].url", Message: "must be http or https"},
+			},
 		},
-	}}
+	})
 	app := newHomeApp(t, &regionDOM{}, home)
 
 	assert.Contains(t, app.renderedHTML, `data-sv-region="home-errors"`)
@@ -143,7 +207,7 @@ func TestHomeRendersServiceGroups(t *testing.T) {
 			{ID: "nas", Name: "NAS"},
 		}}},
 	}
-	app := newHomeApp(t, &regionDOM{}, &fakeHome{load: dto.HomeLoadResponse{Layout: layout}})
+	app := newHomeApp(t, &regionDOM{}, newHomeStore(t, &homeStore{load: dto.HomeLoadResponse{Layout: layout}}))
 	html := app.renderedHTML
 
 	assert.Contains(t, html, `--sv-home-columns: 4;`)
@@ -190,7 +254,7 @@ func TestHomeSearchURLNeverNavigatesToScriptSchemes(t *testing.T) {
 
 func TestHomeSearchActionNavigates(t *testing.T) {
 	t.Parallel()
-	home := &fakeHome{load: dto.HomeLoadResponse{Layout: entity.DefaultHomeLayout(), SearchEngine: "https://s.test/?q=%s"}}
+	home := newHomeStore(t, &homeStore{load: dto.HomeLoadResponse{Layout: entity.DefaultHomeLayout(), SearchEngine: "https://s.test/?q=%s"}})
 	dom := &navDOM{}
 	app := newHomeApp(t, dom, home)
 
@@ -208,7 +272,7 @@ func (*editRegionDOM) SetAnchorStyleProperty(string, string, string) error { ret
 func TestHomeReloadSwapsOnlyChangedRegions(t *testing.T) {
 	t.Parallel()
 	layout := entity.DefaultHomeLayout()
-	home := &fakeHome{load: dto.HomeLoadResponse{Layout: layout}}
+	home := newHomeStore(t, &homeStore{load: dto.HomeLoadResponse{Layout: layout}})
 	dom := &editRegionDOM{}
 	app := newHomeApp(t, dom, home)
 	dom.regions = nil
@@ -244,7 +308,7 @@ func TestHomeReloadSwapsOnlyChangedRegions(t *testing.T) {
 
 func TestHomeClockTickSwapsOnlyClock(t *testing.T) {
 	t.Parallel()
-	home := &fakeHome{load: dto.HomeLoadResponse{Layout: entity.DefaultHomeLayout()}}
+	home := newHomeStore(t, &homeStore{load: dto.HomeLoadResponse{Layout: entity.DefaultHomeLayout()}})
 	dom := &regionDOM{}
 	app := newHomeApp(t, dom, home)
 	dom.regions = nil
@@ -269,7 +333,7 @@ func TestHomeClock12h(t *testing.T) {
 
 func TestHomeOpenConfig(t *testing.T) {
 	t.Parallel()
-	home := &fakeHome{load: dto.HomeLoadResponse{Layout: entity.DefaultHomeLayout()}}
+	home := newHomeStore(t, &homeStore{load: dto.HomeLoadResponse{Layout: entity.DefaultHomeLayout()}})
 	app := newHomeApp(t, &regionDOM{}, home)
 	require.NoError(t, app.HandleDOMAction(context.Background(), DOMAction{Action: homeActionOpenConfig}))
 	assert.True(t, home.opened)
@@ -284,7 +348,7 @@ func TestHomeFavoritesWidgetFiltersByTagAndLimit(t *testing.T) {
 		{URL: "https://w2.test", Title: "Work Two", Tags: []entity.Tag{{Name: "work"}}},
 	}})
 	dom := newTreeDOM()
-	mountHomeApp(t, dom, Dependencies{Home: &fakeHome{load: dto.HomeLoadResponse{Layout: layout}}, Favorites: favorites.service})
+	mountHomeApp(t, dom, Dependencies{Home: newHomeStore(t, &homeStore{load: dto.HomeLoadResponse{Layout: layout}}).service, Favorites: favorites.service})
 	assert.Contains(t, dom.html(), "Work One")
 	assert.NotContains(t, dom.html(), "Work Two")
 	assert.NotContains(t, dom.html(), "Home One")
@@ -294,7 +358,7 @@ func TestHomeSuggestionsUpdateRegion(t *testing.T) {
 	t.Parallel()
 	history := newHistoryStore(t, &historyStore{searchEntries: []*entity.HistoryEntry{{URL: "https://go.dev", Title: "Go"}}})
 	dom := &regionDOM{}
-	app := NewApp(Dependencies{DOM: dom, Home: &fakeHome{load: dto.HomeLoadResponse{Layout: entity.DefaultHomeLayout()}}, History: history.service, LocationURI: "dumb://home"})
+	app := NewApp(Dependencies{DOM: dom, Home: newHomeStore(t, &homeStore{load: dto.HomeLoadResponse{Layout: entity.DefaultHomeLayout()}}).service, History: history.service, LocationURI: "dumb://home"})
 	require.NoError(t, app.LoadInitial(context.Background()))
 	fillHome(app)
 	dom.regions = nil
@@ -309,12 +373,12 @@ func TestHomeSuggestionsUpdateRegion(t *testing.T) {
 
 func TestHomeMountsBeforeWidgetsLoad(t *testing.T) {
 	t.Parallel()
-	home := &fakeHome{
+	home := newHomeStore(t, &homeStore{
 		load:  dto.HomeLoadResponse{Layout: entity.DefaultHomeLayout()},
 		sites: map[dto.HomeSitesKind][]dto.HomeSite{dto.HomeSitesTop: {{URL: "https://top.test/", Title: "Top Site"}}},
-	}
+	})
 	dom := &regionDOM{}
-	app := NewApp(Dependencies{DOM: dom, Home: home, LocationURI: "dumb://home"})
+	app := NewApp(Dependencies{DOM: dom, Home: home.service, LocationURI: "dumb://home"})
 	require.NoError(t, app.LoadInitial(context.Background()))
 	assert.Contains(t, app.renderedHTML, "sv-home-skeleton")
 	assert.NotContains(t, app.renderedHTML, "Top Site")
@@ -336,7 +400,7 @@ func TestHomeSuggestionDropsStaleResponse(t *testing.T) {
 	t.Parallel()
 	history := newHistoryStore(t, &historyStore{searchEntries: []*entity.HistoryEntry{{URL: "https://go.dev", Title: "Go"}}})
 	dom := &regionDOM{}
-	app := NewApp(Dependencies{DOM: dom, Home: &fakeHome{load: dto.HomeLoadResponse{Layout: entity.DefaultHomeLayout()}}, History: history.service, LocationURI: "dumb://home"})
+	app := NewApp(Dependencies{DOM: dom, Home: newHomeStore(t, &homeStore{load: dto.HomeLoadResponse{Layout: entity.DefaultHomeLayout()}}).service, History: history.service, LocationURI: "dumb://home"})
 	require.NoError(t, app.LoadInitial(context.Background()))
 	fillHome(app)
 	dom.regions = nil
@@ -371,9 +435,9 @@ func reloadHome(t *testing.T, app *App) {
 }
 
 // newMountedHomeApp loads, mounts and fills a home page on dom.
-func newMountedHomeApp(t *testing.T, dom *treeDOM, home *fakeHome) *App {
+func newMountedHomeApp(t *testing.T, dom *treeDOM, home *homeStore) *App {
 	t.Helper()
-	return mountHomeApp(t, dom, Dependencies{Home: home})
+	return mountHomeApp(t, dom, Dependencies{Home: home.service})
 }
 
 // mountHomeApp loads, mounts and fills a home page with deps on dom.
@@ -482,7 +546,7 @@ func TestHomeReloadKeepsEmbedsAndSearch(t *testing.T) {
 	} {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			home := &fakeHome{load: dto.HomeLoadResponse{Layout: homeServiceLayoutWithSearch()}}
+			home := newHomeStore(t, &homeStore{load: dto.HomeLoadResponse{Layout: homeServiceLayoutWithSearch()}})
 			dom := newTreeDOM()
 			app := newMountedHomeApp(t, dom, home)
 			before := captureHomeNodes(dom)
@@ -505,7 +569,7 @@ func TestHomeReloadKeepsEmbedsAndSearch(t *testing.T) {
 
 func TestHomeServiceGroupRemoved(t *testing.T) {
 	t.Parallel()
-	home := &fakeHome{load: dto.HomeLoadResponse{Layout: homeServiceLayoutWithSearch()}}
+	home := newHomeStore(t, &homeStore{load: dto.HomeLoadResponse{Layout: homeServiceLayoutWithSearch()}})
 	dom := newTreeDOM()
 	app := newMountedHomeApp(t, dom, home)
 	cam := dom.node("data-sv-region", "home-svc-embed:cam")
@@ -530,7 +594,7 @@ func TestHomeServiceReorderRemounts(t *testing.T) {
 	} {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			home := &fakeHome{load: dto.HomeLoadResponse{Layout: homeServiceLayoutWithSearch()}}
+			home := newHomeStore(t, &homeStore{load: dto.HomeLoadResponse{Layout: homeServiceLayoutWithSearch()}})
 			dom := newTreeDOM()
 			app := newMountedHomeApp(t, dom, home)
 
@@ -584,7 +648,7 @@ func TestSystemviewChangedIgnoredOutsideHome(t *testing.T) {
 
 func TestHomeActionLabelChangeKeepsOpenForm(t *testing.T) {
 	t.Parallel()
-	home := &fakeHome{load: dto.HomeLoadResponse{Layout: homeServiceLayoutWithSearch()}}
+	home := newHomeStore(t, &homeStore{load: dto.HomeLoadResponse{Layout: homeServiceLayoutWithSearch()}})
 	dom := newTreeDOM()
 	app := newMountedHomeApp(t, dom, home)
 	app.lockState()
@@ -600,7 +664,7 @@ func TestHomeActionLabelChangeKeepsOpenForm(t *testing.T) {
 
 func TestHomeActionErrorShowsToastAndKeepsPage(t *testing.T) {
 	t.Parallel()
-	home := &fakeHome{load: dto.HomeLoadResponse{Layout: homeServiceLayoutWithSearch()}}
+	home := newHomeStore(t, &homeStore{load: dto.HomeLoadResponse{Layout: homeServiceLayoutWithSearch()}})
 	dom := newTreeDOM()
 	dom.toastOK = true
 	app := newMountedHomeApp(t, dom, home)
@@ -614,7 +678,7 @@ func TestHomeActionErrorShowsToastAndKeepsPage(t *testing.T) {
 
 func TestHomeErrorPageRecoversOnReload(t *testing.T) {
 	t.Parallel()
-	home := &fakeHome{load: dto.HomeLoadResponse{Layout: homeServiceLayoutWithSearch()}}
+	home := newHomeStore(t, &homeStore{load: dto.HomeLoadResponse{Layout: homeServiceLayoutWithSearch()}})
 	dom := newTreeDOM()
 	app := newMountedHomeApp(t, dom, home)
 
@@ -632,7 +696,7 @@ func TestHomeErrorPageRecoversOnReload(t *testing.T) {
 
 func TestHomeFailedEditRemounts(t *testing.T) {
 	t.Parallel()
-	home := &fakeHome{load: dto.HomeLoadResponse{Layout: homeServiceLayoutWithSearch()}}
+	home := newHomeStore(t, &homeStore{load: dto.HomeLoadResponse{Layout: homeServiceLayoutWithSearch()}})
 	dom := newTreeDOM()
 	app := newMountedHomeApp(t, dom, home)
 	dom.insertErr = errors.New("insert failed")
@@ -649,7 +713,7 @@ func TestHomeFreshShellResetsActionsButKeepsBusy(t *testing.T) {
 	layout.Groups[1].Services = append(layout.Groups[1].Services, entity.HomeService{
 		ID: "nas2", Name: "NAS 2", Actions: []entity.HomeAction{{ID: "wake", Label: "Wake"}},
 	})
-	home := &fakeHome{load: dto.HomeLoadResponse{Layout: layout}}
+	home := newHomeStore(t, &homeStore{load: dto.HomeLoadResponse{Layout: layout}})
 	dom := newTreeDOM()
 	app := newMountedHomeApp(t, dom, home)
 	app.lockState()
@@ -714,7 +778,7 @@ func TestHomeSlotAndWidgetListChangesKeepEmbeds(t *testing.T) {
 	} {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			home := &fakeHome{load: dto.HomeLoadResponse{Layout: homeServiceLayoutWithSearch()}}
+			home := newHomeStore(t, &homeStore{load: dto.HomeLoadResponse{Layout: homeServiceLayoutWithSearch()}})
 			dom := newTreeDOM()
 			app := newMountedHomeApp(t, dom, home)
 			cam := dom.node("data-sv-region", "home-svc-embed:cam")

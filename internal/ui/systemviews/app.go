@@ -18,7 +18,7 @@ type Dependencies struct {
 	Favorites   port.SystemviewFavoritesService
 	History     port.SystemviewHistoryService
 	Config      port.SystemviewConfigService
-	Home        HomeService
+	Home        port.SystemviewHomeService
 	LocationURI string
 }
 

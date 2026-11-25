@@ -28,7 +28,7 @@ func embedPushes(dom *regionDOM) []string {
 	return pushes
 }
 
-func newEmbedApp(t *testing.T, home *fakeHome) (*App, *regionDOM) {
+func newEmbedApp(t *testing.T, home *homeStore) (*App, *regionDOM) {
 	t.Helper()
 	dom := &editRegionDOM{}
 	app := newHomeApp(t, dom, home)
@@ -66,7 +66,7 @@ func TestHomeEmbedURL(t *testing.T) {
 
 func TestHomeEmbedRendersSandboxedIframe(t *testing.T) {
 	t.Parallel()
-	home := &fakeHome{load: homeLayoutWith(embedService("https://cam.lan/live", 420))}
+	home := newHomeStore(t, &homeStore{load: homeLayoutWith(embedService("https://cam.lan/live", 420))})
 	app, dom := newEmbedApp(t, home)
 	assert.Contains(t, app.renderedHTML, `data-sv-region="home-svc-embed:cam"`)
 	pushes := embedPushes(dom)
@@ -78,7 +78,7 @@ func TestHomeEmbedRendersSandboxedIframe(t *testing.T) {
 
 func TestHomeEmbedRejectedURLShowsNote(t *testing.T) {
 	t.Parallel()
-	home := &fakeHome{load: homeLayoutWith(embedService("https://dumber.invalid/config", 0))}
+	home := newHomeStore(t, &homeStore{load: homeLayoutWith(embedService("https://dumber.invalid/config", 0))})
 	_, dom := newEmbedApp(t, home)
 	pushes := embedPushes(dom)
 	require.Len(t, pushes, 1)
@@ -88,7 +88,7 @@ func TestHomeEmbedRejectedURLShowsNote(t *testing.T) {
 
 func TestHomeEmbedKeptAcrossReloads(t *testing.T) {
 	t.Parallel()
-	home := &fakeHome{load: homeLayoutWith(embedService("https://cam.lan/live", 0), entity.HomeService{ID: "other", Name: "Other"})}
+	home := newHomeStore(t, &homeStore{load: homeLayoutWith(embedService("https://cam.lan/live", 0), entity.HomeService{ID: "other", Name: "Other"})})
 	app, dom := newEmbedApp(t, home)
 	require.Len(t, embedPushes(dom), 1)
 	mounts := dom.mountCount
@@ -119,7 +119,7 @@ func TestHomeEmbedKeptAcrossReloads(t *testing.T) {
 
 func TestHomeEmbedPushedAgainAfterRemount(t *testing.T) {
 	t.Parallel()
-	home := &fakeHome{load: homeLayoutWith(embedService("https://cam.lan/live", 0), entity.HomeService{ID: "nas", Name: "NAS"})}
+	home := newHomeStore(t, &homeStore{load: homeLayoutWith(embedService("https://cam.lan/live", 0), entity.HomeService{ID: "nas", Name: "NAS"})})
 	app, dom := newEmbedApp(t, home)
 	mounts := dom.mountCount
 

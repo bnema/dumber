@@ -13,43 +13,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// svcHome serves widget data per service id.
-type svcHome struct {
-	fakeHome
-	dataMu sync.Mutex
-	data   map[string]dto.HomeWidgetDataResponse
-	err    error
-	calls  map[string]int
-}
-
-func (f *svcHome) HomeWidgetData(_ context.Context, id string) (dto.HomeWidgetDataResponse, error) {
-	f.dataMu.Lock()
-	defer f.dataMu.Unlock()
-	if f.calls == nil {
-		f.calls = map[string]int{}
-	}
-	f.calls[id]++
-	if f.err != nil {
-		return dto.HomeWidgetDataResponse{}, f.err
-	}
-	return f.data[id], nil
-}
-
-func (f *svcHome) set(id string, resp dto.HomeWidgetDataResponse) {
-	f.dataMu.Lock()
-	defer f.dataMu.Unlock()
-	if f.data == nil {
-		f.data = map[string]dto.HomeWidgetDataResponse{}
-	}
-	f.data[id] = resp
-}
-
-func (f *svcHome) callCount(id string) int {
-	f.dataMu.Lock()
-	defer f.dataMu.Unlock()
-	return f.calls[id]
-}
-
 // syncRegionDOM is a regionDOM safe for the widget goroutines.
 type syncRegionDOM struct {
 	mu sync.Mutex
@@ -132,10 +95,10 @@ func homeLayoutWith(services ...entity.HomeService) dto.HomeLoadResponse {
 	return dto.HomeLoadResponse{Layout: layout}
 }
 
-func newServiceApp(t *testing.T, home *svcHome, ticker *manualTicker) (*App, *syncRegionDOM) {
+func newServiceApp(t *testing.T, home *homeStore, ticker *manualTicker) (*App, *syncRegionDOM) {
 	t.Helper()
 	dom := &syncRegionDOM{}
-	app := NewApp(Dependencies{DOM: dom, Home: home, LocationURI: "dumb://home"})
+	app := NewApp(Dependencies{DOM: dom, Home: home.service, LocationURI: "dumb://home"})
 	app.now = func() time.Time { return homeTestNow }
 	if ticker != nil {
 		app.homeSvc.newTicker = ticker.new
@@ -153,7 +116,7 @@ func waitFor(t *testing.T, cond func() bool) {
 
 func TestHomeServiceWidgetSlotIsAnEmptyRegion(t *testing.T) {
 	t.Parallel()
-	home := &svcHome{fakeHome: fakeHome{load: homeLayoutWith(apiService("nas", entity.HomeDisplayStats, ""), entity.HomeService{ID: "plain", Name: "Plain"})}}
+	home := newHomeStore(t, &homeStore{load: homeLayoutWith(apiService("nas", entity.HomeDisplayStats, ""), entity.HomeService{ID: "plain", Name: "Plain"})})
 	app, _ := newServiceApp(t, home, nil)
 	assert.Contains(t, app.renderedHTML, `data-sv-region="home-svc:nas"`)
 	// The slot of a service without an api widget exists, empty, so adding
@@ -232,7 +195,7 @@ func TestHomeServiceWidgetDisplays(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			home := &svcHome{fakeHome: fakeHome{load: homeLayoutWith(tc.service)}}
+			home := newHomeStore(t, &homeStore{load: homeLayoutWith(tc.service)})
 			home.set("s", tc.data)
 			_, dom := newServiceApp(t, home, nil)
 			got, count := dom.lastRegion("home-svc:s")
@@ -249,7 +212,7 @@ func TestHomeServiceWidgetDisplays(t *testing.T) {
 
 func TestHomeServiceWidgetBridgeErrorShowsInline(t *testing.T) {
 	t.Parallel()
-	home := &svcHome{fakeHome: fakeHome{load: homeLayoutWith(apiService("s", entity.HomeDisplayStats, ""))}, err: errors.New("bridge down")}
+	home := newHomeStore(t, &homeStore{load: homeLayoutWith(apiService("s", entity.HomeDisplayStats, "")), dataErr: errors.New("bridge down")})
 	_, dom := newServiceApp(t, home, nil)
 	got, _ := dom.lastRegion("home-svc:s")
 	assert.Contains(t, got, `bridge down`)
@@ -258,7 +221,7 @@ func TestHomeServiceWidgetBridgeErrorShowsInline(t *testing.T) {
 func TestHomeServiceWidgetRefreshSwapsOnlyOnChange(t *testing.T) {
 	t.Parallel()
 	ticker := &manualTicker{}
-	home := &svcHome{fakeHome: fakeHome{load: homeLayoutWith(apiService("s", entity.HomeDisplayStats, "1s"))}}
+	home := newHomeStore(t, &homeStore{load: homeLayoutWith(apiService("s", entity.HomeDisplayStats, "1s"))})
 	first := dto.HomeWidgetDataResponse{Fields: []dto.HomeWidgetValue{{Label: "A", Value: "1"}}, FetchedAt: time.Unix(1, 0)}
 	home.set("s", first)
 	_, dom := newServiceApp(t, home, ticker)
@@ -282,7 +245,7 @@ func TestHomeServiceWidgetRefreshSwapsOnlyOnChange(t *testing.T) {
 func TestHomeServiceWidgetTimersClearedOnReloadAndClose(t *testing.T) {
 	t.Parallel()
 	ticker := &manualTicker{}
-	home := &svcHome{fakeHome: fakeHome{load: homeLayoutWith(apiService("s", entity.HomeDisplayStats, "10s"))}}
+	home := newHomeStore(t, &homeStore{load: homeLayoutWith(apiService("s", entity.HomeDisplayStats, "10s"))})
 	app, _ := newServiceApp(t, home, ticker)
 	waitFor(t, func() bool { started, _ := ticker.count(); return started == 1 })
 
@@ -299,7 +262,7 @@ func TestHomeServiceWidgetTimersClearedOnReloadAndClose(t *testing.T) {
 func TestHomeServiceWidgetTimersStopOnRouteChange(t *testing.T) {
 	t.Parallel()
 	ticker := &manualTicker{}
-	home := &svcHome{fakeHome: fakeHome{load: homeLayoutWith(apiService("s", entity.HomeDisplayStats, "10s"))}}
+	home := newHomeStore(t, &homeStore{load: homeLayoutWith(apiService("s", entity.HomeDisplayStats, "10s"))})
 	app, _ := newServiceApp(t, home, ticker)
 	waitFor(t, func() bool { started, _ := ticker.count(); return started == 1 })
 
@@ -312,7 +275,7 @@ func TestHomeServiceWidgetTimersStopOnRouteChange(t *testing.T) {
 func TestHomeServiceWidgetRestoredAfterRemount(t *testing.T) {
 	t.Parallel()
 	nas := apiService("nas", entity.HomeDisplayStats, "")
-	home := &svcHome{fakeHome: fakeHome{load: homeLayoutWith(nas)}}
+	home := newHomeStore(t, &homeStore{load: homeLayoutWith(nas)})
 	home.set("nas", dto.HomeWidgetDataResponse{Fields: []dto.HomeWidgetValue{{Label: "Disk", Value: "80%"}}})
 	app, dom := newServiceApp(t, home, nil)
 	_, before := dom.lastRegion("home-svc:nas")
@@ -335,7 +298,7 @@ func TestHomeServiceWidgetRestoredAfterRemount(t *testing.T) {
 func TestHomeServiceWidgetCloseWaitsForRefreshLoop(t *testing.T) {
 	t.Parallel()
 	ticker := &manualTicker{}
-	home := &svcHome{fakeHome: fakeHome{load: homeLayoutWith(apiService("s", entity.HomeDisplayStats, "10s"))}}
+	home := newHomeStore(t, &homeStore{load: homeLayoutWith(apiService("s", entity.HomeDisplayStats, "10s"))})
 	app, _ := newServiceApp(t, home, ticker)
 	waitFor(t, func() bool { started, _ := ticker.count(); return started == 1 })
 
