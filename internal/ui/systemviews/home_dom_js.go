@@ -205,10 +205,44 @@ func (d *browserDOM) moveHomeGridFocus(target js.Value, key string) bool {
 		return false
 	}
 	if next < 0 || next >= count {
-		return false
+		return d.focusAdjacentGrid(grid, index%columns, key == "arrowdown")
 	}
 	tiles.Index(next).Call("focus")
 	return true
+}
+
+// focusAdjacentGrid moves Up or Down into the next or previous service grid,
+// keeping the column. It reports false when there is no such grid.
+func (d *browserDOM) focusAdjacentGrid(grid js.Value, column int, down bool) bool {
+	grids := d.target.Call("querySelectorAll", ".sv-home-grid")
+	count := grids.Get("length").Int()
+	for i := 0; i < count; i++ {
+		if !grids.Index(i).Equal(grid) {
+			continue
+		}
+		next := i + 1
+		if !down {
+			next = i - 1
+		}
+		if next < 0 || next >= count {
+			return false
+		}
+		tiles := grids.Index(next).Call("querySelectorAll", homeNavSelector)
+		total := tiles.Get("length").Int()
+		if total == 0 {
+			return false
+		}
+		columns := renderedGridColumns(grids.Index(next))
+		target := min(column, total-1)
+		if !down {
+			// Last row of the previous grid, same column when it exists.
+			lastRow := (total - 1) / columns * columns
+			target = min(lastRow+column, total-1)
+		}
+		tiles.Index(target).Call("focus")
+		return true
+	}
+	return false
 }
 
 // renderedGridColumns counts the tracks of the computed grid-template-columns.
