@@ -5,17 +5,16 @@ import (
 	"bnema.dev/dumber/internal/domain/entity"
 )
 
-// HomePage renders the dumb://home view from its pre-rendered regions. Tile
-// regions are nested in the home-groups skeleton instead of the page.
-templ HomePage(regions []DOMRegion, load dto.HomeLoadResponse) {
-	{{ tiles := homeTileMarkup(regions) }}
+// HomePage renders the dumb://home view from its pre-rendered regions; the
+// home-groups entry is a placeholder for the service groups.
+templ HomePage(regions []DOMRegion, load dto.HomeLoadResponse, shape homeShape, leaves map[string]string) {
 	<div class="sv-home" data-sv-region="home">
 		for _, region := range regions {
 			if region.Name == homeRegionGroups {
-				<div class="sv-home-region" data-sv-region={ region.Name }>
-					@HomeGroups(load, tiles)
+				<div class="sv-home-region sv-home-region-groups">
+					@HomeGroups(load, shape, leaves)
 				</div>
-			} else if !isHomeTileRegion(region.Name) {
+			} else {
 				<div class="sv-home-region" data-sv-region={ region.Name }>
 					@templ.Raw(region.HTML)
 				</div>
@@ -139,30 +138,43 @@ templ HomeBookmarks(groups []entity.HomeBookmarkGroup) {
 	}
 }
 
-// HomeGroups is the service skeleton: group headings and one shell per
-// service. Each shell holds independent regions: the tile (filled from tiles,
-// empty in the diff key), the api widget, the actions and the embed.
-templ HomeGroups(load dto.HomeLoadResponse, tiles map[string]string) {
-	if len(load.Layout.Groups) > 0 {
-		<div class="sv-home-groups" style={ homeGridStyle(load) }>
-			for _, group := range load.Layout.Groups {
-				<section class="sv-home-group">
-					<h3 class="sv-home-section-title">{ group.Name }</h3>
-					<div class="sv-home-grid">
-						for _, service := range group.Services {
-							@homeServiceTile(service, tiles)
-						}
-					</div>
-				</section>
-			}
-		</div>
-	}
+// HomeGroups is the service skeleton: group blocks with a title region and
+// one shell per service. Containers are anchors, never regions, so a swap can
+// not re-create the iframes below them.
+templ HomeGroups(load dto.HomeLoadResponse, shape homeShape, leaves map[string]string) {
+	<div class="sv-home-groups" style={ homeGridStyle(load) } data-sv-anchor={ homeAnchorGroups }>
+		for gi := range load.Layout.Groups {
+			@HomeGroupBlock(load.Layout.Groups[gi], shape.Groups[gi].Key, leaves)
+		}
+	</div>
 }
 
-templ homeServiceTile(service entity.HomeService, tiles map[string]string) {
-	<div class="sv-home-service" data-sv-home-service={ service.ID }>
+// HomeGroupBlock is one group; it is also the markup inserted for a new
+// group.
+templ HomeGroupBlock(group entity.HomeGroup, key string, leaves map[string]string) {
+	<section class="sv-home-group" data-sv-anchor={ homeGroupAnchor(key) }>
+		<h3 class="sv-home-section-title" data-sv-region={ homeGroupTitleRegion(key) }>
+			@templ.Raw(leaves[homeGroupTitleRegion(key)])
+		</h3>
+		<div class="sv-home-grid" data-sv-anchor={ homeGridAnchor(key) }>
+			for _, service := range group.Services {
+				@HomeServiceShell(service, leaves)
+			}
+		</div>
+	</section>
+}
+
+templ HomeGroupTitle(name string) {
+	{ name }
+}
+
+// HomeServiceShell holds the independent regions of a service: the tile,
+// the api widget and actions slots, and the embed. It is also the markup
+// inserted for a new service.
+templ HomeServiceShell(service entity.HomeService, leaves map[string]string) {
+	<div class="sv-home-service" data-sv-home-service={ service.ID } data-sv-anchor={ homeShellAnchor(service.ID) }>
 		<div class="sv-home-service-tile" data-sv-region={ homeServiceTileRegion(service.ID) }>
-			@templ.Raw(tiles[homeServiceTileRegion(service.ID)])
+			@templ.Raw(leaves[homeServiceTileRegion(service.ID)])
 		</div>
 		@homeServiceWidgetSlot(service)
 		<div class="sv-home-service-embed" data-sv-region={ homeServiceEmbedRegion(service.ID) }></div>

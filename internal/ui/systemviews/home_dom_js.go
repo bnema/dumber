@@ -3,6 +3,7 @@
 package systemviews
 
 import (
+	"fmt"
 	"strings"
 	"syscall/js"
 	"time"
@@ -272,4 +273,53 @@ func renderedGridColumns(grid js.Value) int {
 		return 1
 	}
 	return columns
+}
+
+func (d *browserDOM) anchorElement(anchor string) js.Value {
+	return d.target.Call("querySelector", `[data-sv-anchor="`+cssAttrEscape(anchor)+`"]`)
+}
+
+// InsertAnchorMarkup inserts markup into the parent anchor, before the child
+// anchor before (or at the end), without re-creating the siblings.
+func (d *browserDOM) InsertAnchorMarkup(parent, before, markup string) error {
+	if d == nil || !d.target.Truthy() {
+		return fmt.Errorf("DOM mount target #app not found")
+	}
+	container := d.anchorElement(parent)
+	if !container.Truthy() {
+		return fmt.Errorf("systemview anchor %q not found", parent)
+	}
+	template := d.document.Call("createElement", "template")
+	template.Set("innerHTML", markup)
+	fragment := template.Get("content")
+	next := js.Null()
+	if before != "" {
+		if sibling := d.anchorElement(before); sibling.Truthy() {
+			next = sibling
+		}
+	}
+	container.Call("insertBefore", fragment, next)
+	return nil
+}
+
+// RemoveAnchor removes the element of anchor; a missing anchor is already
+// removed.
+func (d *browserDOM) RemoveAnchor(anchor string) error {
+	if d == nil || !d.target.Truthy() {
+		return fmt.Errorf("DOM mount target #app not found")
+	}
+	if element := d.anchorElement(anchor); element.Truthy() {
+		element.Call("remove")
+	}
+	return nil
+}
+
+// SetAnchorStyleProperty sets a CSS custom property on an anchor.
+func (d *browserDOM) SetAnchorStyleProperty(anchor, property, value string) error {
+	element := d.anchorElement(anchor)
+	if !element.Truthy() {
+		return fmt.Errorf("systemview anchor %q not found", anchor)
+	}
+	element.Get("style").Call("setProperty", property, value)
+	return nil
 }

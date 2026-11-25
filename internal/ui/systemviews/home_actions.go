@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -59,8 +60,17 @@ func (a *App) loadHomeRoute(ctx context.Context) error {
 	a.homeGeneration++
 	a.homeData = data
 	a.homeRendered = homeRegions(data)
+	a.setHomeGroupsLocked(buildHomeShape(data.Load.Layout.Groups, homeShape{}, &a.homeGroupSeq))
 	a.renderHomePageLocked()
 	return nil
+}
+
+// setHomeGroupsLocked records shape and the leaves and action keys of the
+// current layout. Caller holds App.mu.
+func (a *App) setHomeGroupsLocked(shape homeShape) {
+	a.homeGroups = shape
+	a.homeLeaves = homeGroupLeaves(a.homeData.Load, shape)
+	a.homeActionKeys = homeActionKeys(a.homeData.Load)
 }
 
 func (a *App) renderHomePageLocked() {
@@ -68,7 +78,7 @@ func (a *App) renderHomePageLocked() {
 		route:    RouteHome,
 		title:    homeTitle(a.homeData.Load),
 		subtitle: "",
-		body:     mustRenderComponent(HomePage(a.homeRendered, a.homeData.Load)),
+		body:     mustRenderComponent(HomePage(a.homeRendered, a.homeData.Load, a.homeGroups, a.homeLeaves)),
 	}, a.shellTheme)
 }
 
@@ -290,12 +300,138 @@ func (a *App) reloadHomeLocked(ctx context.Context) error {
 		return err
 	}
 	a.homeGeneration++
+	previous := a.homeData.Load
 	a.homeData = data
-	if err := a.applyHomeRegionsLocked(homeRegions(data)); err != nil {
+	if err := a.applyHomeReloadLocked(previous, homeRegions(data)); err != nil {
 		return err
 	}
 	a.startHomeFillLocked(ctx)
 	return nil
+}
+
+// applyHomeReloadLocked moves the page to the reloaded layout. Top regions
+// swap as usual; the service groups are edited in place (insert, remove,
+// leaf swaps, column patch) so untouched embeds, inputs and focus survive.
+// Only a reorder, or a DOM without the editing capabilities, remounts.
+// Caller holds App.mu.
+func (a *App) applyHomeReloadLocked(previous dto.HomeLoadResponse, next []DOMRegion) error {
+	shape := buildHomeShape(a.homeData.Load.Layout.Groups, a.homeGroups, &a.homeGroupSeq)
+	changed, sameShape := changedHomeRegions(a.homeRendered, next)
+	plan, planned := planHomeStructure(a.homeGroups, shape)
+	updater, canUpdate := a.deps.DOM.(DOMRegionUpdater)
+	editor, canEdit := a.deps.DOM.(DOMStructureEditor)
+	oldLeaves, oldActionKeys := a.homeLeaves, a.homeActionKeys
+	a.homeRendered = next
+	a.setHomeGroupsLocked(shape)
+	a.renderHomePageLocked()
+	if !sameShape || !planned || !canUpdate || !canEdit {
+		return a.remountHomeLocked()
+	}
+	if err := a.applyHomeStructureLocked(editor, plan); err != nil {
+		return err
+	}
+	if homeColumns(previous) != homeColumns(a.homeData.Load) {
+		if err := editor.SetAnchorStyleProperty(homeAnchorGroups, homeColumnsProperty, strconv.Itoa(homeColumns(a.homeData.Load))); err != nil {
+			return err
+		}
+	}
+	regions := changed
+	regions = append(regions, a.changedHomeLeavesLocked(oldLeaves, plan)...)
+	regions = append(regions, a.changedHomeActionRegionsLocked(oldActionKeys, plan)...)
+	if len(regions) == 0 {
+		return nil
+	}
+	return updater.UpdateRegions(RegionUpdate{Regions: regions})
+}
+
+func (a *App) remountHomeLocked() error {
+	if err := a.mountRenderedHTML(); err != nil {
+		return err
+	}
+	return a.restoreHomeServiceSlotsLocked()
+}
+
+// applyHomeStructureLocked removes, then inserts, the groups and service
+// shells of plan. Fresh services forget their pushed widget and embed, so
+// the widget loops push them into the new shell. Caller holds App.mu.
+func (a *App) applyHomeStructureLocked(editor DOMStructureEditor, plan homeStructurePlan) error {
+	for _, anchor := range plan.Removes {
+		if err := editor.RemoveAnchor(anchor); err != nil {
+			return err
+		}
+	}
+	for _, op := range plan.Inserts {
+		markup := ""
+		if op.ServiceID == "" {
+			group := a.homeData.Load.Layout.Groups[op.GroupIndex]
+			markup = mustRenderComponent(HomeGroupBlock(group, a.homeGroups.Groups[op.GroupIndex].Key, a.homeLeaves))
+		} else {
+			service, ok := findHomeServiceAt(a.homeData.Load, op.GroupIndex, op.ServiceID)
+			if !ok {
+				continue
+			}
+			markup = mustRenderComponent(HomeServiceShell(*service, a.homeLeaves))
+		}
+		if err := editor.InsertAnchorMarkup(op.Parent, op.Before, markup); err != nil {
+			return err
+		}
+	}
+	for id := range plan.Fresh {
+		delete(a.homeSvc.slots, id)
+		delete(a.homeSvc.embeds, id)
+	}
+	return nil
+}
+
+// changedHomeLeavesLocked returns the group title and tile regions whose
+// markup changed, skipping the ones just inserted with their content.
+func (a *App) changedHomeLeavesLocked(old map[string]string, plan homeStructurePlan) []DOMRegion {
+	fresh := make(map[string]bool)
+	for id := range plan.Fresh {
+		fresh[homeServiceTileRegion(id)] = true
+	}
+	var regions []DOMRegion
+	for _, group := range a.homeGroups.Groups {
+		title := homeGroupTitleRegion(group.Key)
+		if markup, ok := old[title]; ok && markup != a.homeLeaves[title] {
+			regions = append(regions, DOMRegion{Name: title, HTML: a.homeLeaves[title]})
+		}
+		for _, service := range group.Services {
+			tile := homeServiceTileRegion(service.ID)
+			if fresh[tile] {
+				continue
+			}
+			if markup, ok := old[tile]; ok && markup != a.homeLeaves[tile] {
+				regions = append(regions, DOMRegion{Name: tile, HTML: a.homeLeaves[tile]})
+			}
+		}
+	}
+	return regions
+}
+
+// changedHomeActionRegionsLocked re-renders the idle actions of kept
+// services whose actions changed.
+func (a *App) changedHomeActionRegionsLocked(old map[string]string, plan homeStructurePlan) []DOMRegion {
+	var regions []DOMRegion
+	for _, group := range a.homeData.Load.Layout.Groups {
+		for i := range group.Services {
+			service := &group.Services[i]
+			key, ok := a.homeActionKeys[service.ID]
+			if !ok || plan.Fresh[service.ID] || old[service.ID] == key {
+				continue
+			}
+			if _, open := a.homeSvc.actions[service.ID]; open {
+				// An open form or confirmation keeps what the user typed;
+				// closing it renders the new actions.
+				continue
+			}
+			regions = append(regions, DOMRegion{
+				Name: homeServiceActionsRegion(service.ID),
+				HTML: mustRenderComponent(HomeServiceActions(homeServiceActionsView{Service: *service})),
+			})
+		}
+	}
+	return regions
 }
 
 // startHomeFillLocked loads every list widget in the background, each one
@@ -364,10 +500,7 @@ func (a *App) applyHomeRegionsLocked(next []DOMRegion) error {
 		// survive swaps untouched and need no restore.
 		return updater.UpdateRegions(RegionUpdate{Regions: changed})
 	}
-	if err := a.mountRenderedHTML(); err != nil {
-		return err
-	}
-	return a.restoreHomeServiceSlotsLocked()
+	return a.remountHomeLocked()
 }
 
 // startHomeClock queues a clock refresh every homeClockInterval until the

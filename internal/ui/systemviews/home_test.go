@@ -200,11 +200,18 @@ func TestHomeSearchActionNavigates(t *testing.T) {
 	assert.Equal(t, []string{"https://s.test/?q=cats"}, dom.navigated)
 }
 
+// editRegionDOM is a regionDOM that also accepts structural edits.
+type editRegionDOM struct{ regionDOM }
+
+func (*editRegionDOM) InsertAnchorMarkup(string, string, string) error     { return nil }
+func (*editRegionDOM) RemoveAnchor(string) error                           { return nil }
+func (*editRegionDOM) SetAnchorStyleProperty(string, string, string) error { return nil }
+
 func TestHomeReloadSwapsOnlyChangedRegions(t *testing.T) {
 	t.Parallel()
 	layout := entity.DefaultHomeLayout()
 	home := &fakeHome{load: dto.HomeLoadResponse{Layout: layout}}
-	dom := &regionDOM{}
+	dom := &editRegionDOM{}
 	app := newHomeApp(t, dom, home, nil)
 	dom.regions = nil
 	mounts := dom.mountCount
@@ -361,65 +368,165 @@ func reloadHome(t *testing.T, app *App) {
 	app.homeFillWG.Wait()
 }
 
-func TestHomeServiceTilesAreIndependentRegions(t *testing.T) {
-	t.Parallel()
-	home := &fakeHome{load: dto.HomeLoadResponse{Layout: homeServiceLayout()}}
-	dom := &regionDOM{}
-	app := newHomeApp(t, dom, home, nil)
-	html := app.renderedHTML
-	assert.Contains(t, html, `data-sv-region="home-svc-tile:jelly"`)
-	assert.Contains(t, html, `data-sv-region="home-svc-embed:cam"`)
-	assert.Contains(t, html, "Movies", "tiles are filled in the full page")
-	dom.regions = nil
-	mounts := dom.mountCount
+// newMountedHomeApp loads, mounts and fills a home page on dom.
+func newMountedHomeApp(t *testing.T, dom *treeDOM, home *fakeHome) *App {
+	t.Helper()
+	app := NewApp(Dependencies{DOM: dom, Home: home, LocationURI: "dumb://home"})
+	app.now = func() time.Time { return homeTestNow }
+	require.NoError(t, app.LoadInitial(context.Background()))
+	require.NoError(t, dom.Mount(app.renderedHTML))
+	fillHome(app)
+	return app
+}
 
-	// A description change swaps only that tile.
-	home.load.Layout.Groups[0].Services[0].Description = "Movies and shows"
-	reloadHome(t, app)
-	require.Len(t, dom.regions, 1)
-	require.Len(t, dom.regions[0], 1)
-	assert.Equal(t, "home-svc-tile:jelly", dom.regions[0][0].Name)
-	assert.Contains(t, dom.regions[0][0].HTML, "Movies and shows")
-	assert.Equal(t, mounts, dom.mountCount, "no remount")
-	for _, update := range dom.regions {
-		for _, region := range update {
-			assert.NotEqual(t, "home-svc-embed:cam", region.Name, "the embed region is never swapped")
-		}
+func homeServiceLayoutWithSearch() entity.HomeLayout {
+	layout := homeServiceLayout()
+	layout.Settings.Columns = 3
+	layout.Widgets = []entity.HomeBuiltinWidget{{Type: entity.HomeWidgetSearch}}
+	layout.Groups[0].Services = append(layout.Groups[0].Services, entity.HomeService{
+		ID: "nas", Name: "NAS", Actions: []entity.HomeAction{{ID: "wake", Label: "Wake"}},
+	})
+	layout.Groups = append(layout.Groups, entity.HomeGroup{Name: "Infra", Services: []entity.HomeService{
+		{ID: "pve", Name: "Proxmox", Widget: &entity.HomeServiceWidget{Type: entity.HomeServiceWidgetEmbed, URL: "https://pve.lan"}},
+	}})
+	return layout
+}
+
+// homeNodes captures the nodes that must survive a reload.
+type homeNodes struct {
+	search, camEmbed, pveEmbed interface{}
+}
+
+func captureHomeNodes(dom *treeDOM) homeNodes {
+	return homeNodes{
+		search:   dom.node("data-sv-home-search", ""),
+		camEmbed: dom.node("data-sv-region", "home-svc-embed:cam"),
+		pveEmbed: dom.node("data-sv-region", "home-svc-embed:pve"),
 	}
 }
 
-func TestHomeServiceStructureChangeRemounts(t *testing.T) {
+func TestHomeReloadKeepsEmbedsAndSearch(t *testing.T) {
+	t.Parallel()
+	for name, tc := range map[string]struct {
+		mutate func(*entity.HomeLayout)
+		check  func(t *testing.T, dom *treeDOM)
+	}{
+		"description": {
+			mutate: func(l *entity.HomeLayout) { l.Groups[0].Services[0].Description = "Movies and shows" },
+			check: func(t *testing.T, dom *treeDOM) {
+				assert.Equal(t, []string{"home-svc-tile:jelly"}, dom.swapped)
+			},
+		},
+		"group renamed": {
+			mutate: func(l *entity.HomeLayout) { l.Groups[0].Name = "Video" },
+			check: func(t *testing.T, dom *treeDOM) {
+				assert.Equal(t, []string{"home-group-title:g1"}, dom.swapped)
+				assert.Equal(t, "Video", dom.text("data-sv-region", "home-group-title:g1"))
+			},
+		},
+		"columns": {
+			mutate: func(l *entity.HomeLayout) { l.Settings.Columns = 5 },
+			check: func(t *testing.T, dom *treeDOM) {
+				assert.Empty(t, dom.swapped)
+				assert.Equal(t, "5", dom.styles["home-groups --sv-home-columns"])
+			},
+		},
+		"action label": {
+			mutate: func(l *entity.HomeLayout) { l.Groups[0].Services[2].Actions[0].Label = "Wake up" },
+			check: func(t *testing.T, dom *treeDOM) {
+				assert.Equal(t, []string{homeServiceActionsRegion("nas")}, dom.swapped)
+				assert.Contains(t, dom.text("data-sv-region", homeServiceActionsRegion("nas")), "Wake up")
+			},
+		},
+		"service added": {
+			mutate: func(l *entity.HomeLayout) {
+				l.Groups[0].Services = append(l.Groups[0].Services[:1], append([]entity.HomeService{{ID: "new", Name: "New"}}, l.Groups[0].Services[1:]...)...)
+			},
+			check: func(t *testing.T, dom *treeDOM) {
+				assert.Equal(t, 1, dom.inserts)
+				assert.Empty(t, dom.swapped)
+				shell := dom.node("data-sv-anchor", "home-svc-shell:new")
+				require.NotNil(t, shell)
+				assert.Equal(t, dom.node("data-sv-anchor", "home-svc-shell:cam"), shell.NextSibling, "inserted in place")
+				assert.Contains(t, dom.text("data-sv-region", "home-svc-tile:new"), "New")
+			},
+		},
+		"service removed": {
+			mutate: func(l *entity.HomeLayout) { l.Groups[0].Services = l.Groups[0].Services[1:] },
+			check: func(t *testing.T, dom *treeDOM) {
+				assert.Equal(t, 1, dom.removes)
+				assert.Nil(t, dom.node("data-sv-anchor", "home-svc-shell:jelly"))
+			},
+		},
+		"group added": {
+			mutate: func(l *entity.HomeLayout) {
+				l.Groups = append(l.Groups[:1], append([]entity.HomeGroup{{Name: "Net", Services: []entity.HomeService{{ID: "router", Name: "Router"}}}}, l.Groups[1:]...)...)
+			},
+			check: func(t *testing.T, dom *treeDOM) {
+				assert.Equal(t, 1, dom.inserts)
+				group := dom.node("data-sv-anchor", "home-group:g3")
+				require.NotNil(t, group)
+				assert.Equal(t, dom.node("data-sv-anchor", "home-group:g2"), group.NextSibling)
+			},
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			home := &fakeHome{load: dto.HomeLoadResponse{Layout: homeServiceLayoutWithSearch()}}
+			dom := newTreeDOM()
+			app := newMountedHomeApp(t, dom, home)
+			before := captureHomeNodes(dom)
+			require.NotNil(t, before.search)
+			require.NotNil(t, before.camEmbed)
+			dom.swapped = nil
+
+			tc.mutate(&home.load.Layout)
+			reloadHome(t, app)
+
+			assert.Equal(t, 1, dom.mounts, "no remount")
+			after := captureHomeNodes(dom)
+			assert.Same(t, before.search, after.search, "search input kept")
+			assert.Same(t, before.camEmbed, after.camEmbed, "embed node kept")
+			assert.Same(t, before.pveEmbed, after.pveEmbed, "other group's embed kept")
+			tc.check(t, dom)
+		})
+	}
+}
+
+func TestHomeServiceGroupRemoved(t *testing.T) {
+	t.Parallel()
+	home := &fakeHome{load: dto.HomeLoadResponse{Layout: homeServiceLayoutWithSearch()}}
+	dom := newTreeDOM()
+	app := newMountedHomeApp(t, dom, home)
+	cam := dom.node("data-sv-region", "home-svc-embed:cam")
+
+	home.load.Layout.Groups = home.load.Layout.Groups[:1]
+	reloadHome(t, app)
+	assert.Equal(t, 1, dom.mounts)
+	assert.Nil(t, dom.node("data-sv-anchor", "home-group:g2"))
+	assert.Same(t, cam, dom.node("data-sv-region", "home-svc-embed:cam"))
+}
+
+func TestHomeServiceReorderRemounts(t *testing.T) {
 	t.Parallel()
 	for name, mutate := range map[string]func(*entity.HomeLayout){
-		"service added": func(l *entity.HomeLayout) {
-			l.Groups[0].Services = append(l.Groups[0].Services, entity.HomeService{ID: "nas", Name: "NAS"})
-		},
-		"service removed": func(l *entity.HomeLayout) { l.Groups[0].Services = l.Groups[0].Services[:1] },
 		"services reordered": func(l *entity.HomeLayout) {
 			s := l.Groups[0].Services
 			s[0], s[1] = s[1], s[0]
 		},
-		"group renamed": func(l *entity.HomeLayout) { l.Groups[0].Name = "Video" },
-		"group added":   func(l *entity.HomeLayout) { l.Groups = append(l.Groups, entity.HomeGroup{Name: "Infra"}) },
+		"groups reordered": func(l *entity.HomeLayout) {
+			l.Groups[0], l.Groups[1] = l.Groups[1], l.Groups[0]
+		},
 	} {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			home := &fakeHome{load: dto.HomeLoadResponse{Layout: homeServiceLayout()}}
-			dom := &regionDOM{}
-			app := newHomeApp(t, dom, home, nil)
-			dom.regions = nil
-			mounts := dom.mountCount
+			home := &fakeHome{load: dto.HomeLoadResponse{Layout: homeServiceLayoutWithSearch()}}
+			dom := newTreeDOM()
+			app := newMountedHomeApp(t, dom, home)
 
 			mutate(&home.load.Layout)
 			reloadHome(t, app)
-			assert.Equal(t, mounts+1, dom.mountCount)
-			// After the remount only the service slots are pushed back: the
-			// embed (emptied by the remount), never a tile or the skeleton.
-			for _, update := range dom.regions {
-				for _, region := range update {
-					assert.True(t, strings.HasPrefix(region.Name, homeServiceEmbedRegionPrefix), region.Name)
-				}
-			}
+			assert.Equal(t, 2, dom.mounts)
 		})
 	}
 }
@@ -463,4 +570,20 @@ func TestSystemviewChangedIgnoredOutsideHome(t *testing.T) {
 			assert.Equal(t, before, app.renderedHTML, "no error banner")
 		})
 	}
+}
+
+func TestHomeActionLabelChangeKeepsOpenForm(t *testing.T) {
+	t.Parallel()
+	home := &fakeHome{load: dto.HomeLoadResponse{Layout: homeServiceLayoutWithSearch()}}
+	dom := newTreeDOM()
+	app := newMountedHomeApp(t, dom, home)
+	app.lockState()
+	app.homeSvc.actions = map[string]homeActionState{"nas": {ActionID: "wake", Step: homeActionForm}}
+	app.unlockState()
+	dom.swapped = nil
+
+	home.load.Layout.Groups[0].Services[2].Actions[0].Label = "Wake up"
+	reloadHome(t, app)
+	assert.Empty(t, dom.swapped, "the open form keeps its inputs")
+	assert.Equal(t, 1, dom.mounts)
 }

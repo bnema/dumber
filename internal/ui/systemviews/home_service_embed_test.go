@@ -30,10 +30,10 @@ func embedPushes(dom *regionDOM) []string {
 
 func newEmbedApp(t *testing.T, home *fakeHome) (*App, *regionDOM) {
 	t.Helper()
-	dom := &regionDOM{}
+	dom := &editRegionDOM{}
 	app := newHomeApp(t, dom, home, nil)
 	t.Cleanup(app.Close)
-	return app, dom
+	return app, &dom.regionDOM
 }
 
 func TestHomeEmbedURL(t *testing.T) {
@@ -119,12 +119,13 @@ func TestHomeEmbedKeptAcrossReloads(t *testing.T) {
 
 func TestHomeEmbedPushedAgainAfterRemount(t *testing.T) {
 	t.Parallel()
-	home := &fakeHome{load: homeLayoutWith(embedService("https://cam.lan/live", 0))}
+	home := &fakeHome{load: homeLayoutWith(embedService("https://cam.lan/live", 0), entity.HomeService{ID: "nas", Name: "NAS"})}
 	app, dom := newEmbedApp(t, home)
 	mounts := dom.mountCount
 
+	// A reorder is the structural change that still remounts.
 	home.load = dto.HomeLoadResponse{Layout: entity.HomeLayout{Groups: []entity.HomeGroup{
-		{Name: "Lab", Services: []entity.HomeService{embedService("https://cam.lan/live", 0), {ID: "nas", Name: "NAS"}}},
+		{Name: "Lab", Services: []entity.HomeService{{ID: "nas", Name: "NAS"}, embedService("https://cam.lan/live", 0)}},
 	}}}
 	reloadHome(t, app)
 	assert.Equal(t, mounts+1, dom.mountCount)

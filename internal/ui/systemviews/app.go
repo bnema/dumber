@@ -70,6 +70,13 @@ type App struct {
 	// only the regions whose markup changed.
 	homeData     homeRenderData
 	homeRendered []DOMRegion
+	// homeGroups is the rendered structure of the service groups, with
+	// homeLeaves (group titles, tiles) and homeActionKeys; reloads edit the
+	// page from them without a remount.
+	homeGroups     homeShape
+	homeLeaves     map[string]string
+	homeActionKeys map[string]string
+	homeGroupSeq   int
 	// homeGeneration invalidates in-flight widget fills after a reload.
 	homeGeneration uint64
 	homeSuggestSeq uint64

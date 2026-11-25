@@ -219,18 +219,9 @@ func homeRegions(data homeRenderData) []DOMRegion {
 	}
 	regions = append(regions,
 		DOMRegion{Name: homeRegionBookmarks, HTML: mustRenderComponent(HomeBookmarks(data.Load.Layout.Bookmarks))},
-		// The skeleton key renders empty tiles: only structure changes it.
-		DOMRegion{Name: homeRegionGroups, HTML: mustRenderComponent(HomeGroups(data.Load, nil))},
+		// Placeholder: the groups have their own structure and leaves.
+		DOMRegion{Name: homeRegionGroups},
 	)
-	for _, group := range data.Load.Layout.Groups {
-		for i := range group.Services {
-			service := &group.Services[i]
-			regions = append(regions, DOMRegion{
-				Name: homeServiceTileRegion(service.ID),
-				HTML: mustRenderComponent(HomeServiceTile(*service)),
-			})
-		}
-	}
 	return regions
 }
 
@@ -244,33 +235,15 @@ const (
 func homeServiceTileRegion(id string) string  { return homeServiceTileRegionPrefix + id }
 func homeServiceEmbedRegion(id string) string { return homeServiceEmbedRegionPrefix + id }
 
-func isHomeTileRegion(name string) bool {
-	return strings.HasPrefix(name, homeServiceTileRegionPrefix)
-}
-
-// homeTileMarkup maps tile region names to their markup.
-func homeTileMarkup(regions []DOMRegion) map[string]string {
-	tiles := make(map[string]string)
-	for _, region := range regions {
-		if isHomeTileRegion(region.Name) {
-			tiles[region.Name] = region.HTML
-		}
-	}
-	return tiles
-}
-
 // changedHomeRegions returns the regions of next whose markup differs from
-// previous. ok is false when the region list or the service skeleton changed,
-// which needs a full remount.
+// previous. ok is false when the region list changed, which needs a full
+// remount.
 func changedHomeRegions(previous, next []DOMRegion) (changed []DOMRegion, ok bool) {
 	if len(previous) != len(next) {
 		return nil, false
 	}
 	for i := range next {
 		if previous[i].Name != next[i].Name {
-			return nil, false
-		}
-		if next[i].Name == homeRegionGroups && previous[i].HTML != next[i].HTML {
 			return nil, false
 		}
 		if previous[i].HTML != next[i].HTML {
