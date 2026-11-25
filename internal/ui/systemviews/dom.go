@@ -3,6 +3,7 @@ package systemviews
 import (
 	"fmt"
 	"html"
+	"strings"
 	"time"
 )
 
@@ -130,6 +131,23 @@ type PaletteRequest struct {
 // palette. Without a palette UI it does nothing.
 type DOMPalette interface {
 	ShowPalette(request PaletteRequest)
+}
+
+// cssQuotedReplacer escapes what can end or break a double-quoted CSS string:
+// the quote, backslash, line breaks (as hex escapes, the space ends them) and
+// NUL, which CSS replaces with U+FFFD anyway.
+var cssQuotedReplacer = strings.NewReplacer(
+	`\`, `\\`,
+	`"`, `\"`,
+	"\n", `\a `,
+	"\r", `\d `,
+	"\f", `\c `,
+	"\x00", "\uFFFD",
+)
+
+// cssQuoted escapes s for a double-quoted CSS attribute selector value.
+func cssQuoted(s string) string {
+	return cssQuotedReplacer.Replace(s)
 }
 
 func placeholderHTML(route Route) string {

@@ -276,7 +276,7 @@ func renderedGridColumns(grid js.Value) int {
 }
 
 func (d *browserDOM) anchorElement(anchor string) js.Value {
-	return d.target.Call("querySelector", `[data-sv-anchor="`+cssAttrEscape(anchor)+`"]`)
+	return d.target.Call("querySelector", `[data-sv-anchor="`+cssQuoted(anchor)+`"]`)
 }
 
 // InsertAnchorMarkup inserts markup into the parent anchor, before the child

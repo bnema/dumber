@@ -246,11 +246,6 @@ func homeActionRegionSelector(serviceID string) string {
 	return `[data-sv-region="` + cssQuoted(homeServiceActionsRegion(serviceID)) + `"]`
 }
 
-// cssQuoted escapes s for a double-quoted CSS attribute value.
-func cssQuoted(s string) string {
-	return strings.NewReplacer(`\`, `\\`, `"`, `\"`, "\n", `\a `).Replace(s)
-}
-
 // setHomeActionStateLocked stores state and swaps the actions region when
 // its markup changed, then focuses focus (a RegionUpdate focus key) when the
 // swap dropped focus. Caller holds App.mu.

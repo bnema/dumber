@@ -131,7 +131,7 @@ func (d *browserDOM) captureFocusKey() string {
 	}
 	if name := active.Call("getAttribute", "name"); name.Truthy() && name.String() != "" {
 		// Radios and checkboxes share a name: the value tells them apart.
-		return `sel:[name="` + cssAttrEscape(name.String()) + `"][value="` + cssAttrEscape(active.Get("value").String()) + `"]`
+		return `sel:[name="` + cssQuoted(name.String()) + `"][value="` + cssQuoted(active.Get("value").String()) + `"]`
 	}
 	return ""
 }
@@ -144,7 +144,7 @@ func activeInsideRow() bool {
 
 func (d *browserDOM) focusKeyPresent(key string) bool {
 	name := strings.TrimPrefix(key, "key:")
-	return d.target.Call("querySelector", `[data-sv-focus-key="`+cssAttrEscape(name)+`"]`).Truthy()
+	return d.target.Call("querySelector", `[data-sv-focus-key="`+cssQuoted(name)+`"]`).Truthy()
 }
 
 // restoreFocusKey focuses the element captureFocusKey named, unless the
@@ -159,12 +159,12 @@ func (d *browserDOM) restoreFocusKey(key string) {
 	}
 	var element js.Value
 	if name, ok := strings.CutPrefix(key, "key:"); ok {
-		element = d.target.Call("querySelector", `[data-sv-focus-key="`+cssAttrEscape(name)+`"]`)
+		element = d.target.Call("querySelector", `[data-sv-focus-key="`+cssQuoted(name)+`"]`)
 		if element.Truthy() && !element.Call("matches", focusableSelector).Bool() {
 			element = element.Call("querySelector", focusableSelector)
 		}
 	} else if id, ok := strings.CutPrefix(key, "id:"); ok {
-		element = d.target.Call("querySelector", `[id="`+cssAttrEscape(id)+`"]`)
+		element = d.target.Call("querySelector", `[id="`+cssQuoted(id)+`"]`)
 	} else if selector, ok := strings.CutPrefix(key, "sel:"); ok {
 		element = d.target.Call("querySelector", selector)
 	}
@@ -580,18 +580,13 @@ func (d *browserDOM) focusErrorField() {
 	if name == "" {
 		return
 	}
-	field := d.target.Call("querySelector", `[name="`+cssAttrEscape(name)+`"]:not([type="hidden"])`)
+	field := d.target.Call("querySelector", `[name="`+cssQuoted(name)+`"]:not([type="hidden"])`)
 	if !field.Truthy() {
 		return
 	}
 	field.Call("setAttribute", "aria-invalid", "true")
 	field.Call("scrollIntoView", map[string]any{"block": "center"})
 	field.Call("focus", map[string]any{"preventScroll": true})
-}
-
-// cssAttrEscape escapes a value for a double-quoted CSS attribute selector.
-func cssAttrEscape(value string) string {
-	return strings.NewReplacer(`\`, `\\`, `"`, `\"`).Replace(value)
 }
 
 // resetKeybindingRow puts a keybinding row's field back to its default keys.

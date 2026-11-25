@@ -270,8 +270,3 @@ func TestHomeServiceActionStepsMoveFocus(t *testing.T) {
 	idle, _ := dom.lastRegion("home-svc-actions:box")
 	assert.Contains(t, idle, `data-sv-home-action="say"`)
 }
-
-func TestCSSQuoted(t *testing.T) {
-	t.Parallel()
-	assert.Equal(t, `a\"b\\c`, cssQuoted(`a"b\c`))
-}

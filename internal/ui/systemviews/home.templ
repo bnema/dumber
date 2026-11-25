@@ -101,7 +101,7 @@ templ HomeSuggestions(rows []homeRow) {
 templ homeRowLink(row homeRow, suggestion bool) {
 	{{ favicon := homeFaviconURL(row.URL) }}
 	<a
-		class="sv-home-row"
+		class={ "sv-home-row", templ.KV("sv-home-suggestion", suggestion) }
 		href={ templ.SafeURL(sanitizeHref(row.URL)) }
 		title={ row.URL }
 		data-sv-home-nav
