@@ -37,44 +37,46 @@ func TestUserStyleRead_CapsSize(t *testing.T) {
 func TestWatcher_DispatchesByPath(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
+	w := NewWatcher(dir)
+	var userCSS, home int
+	paths, onChange, err := w.dispatcher(port.SystemViewFileHandlers{
+		OnUserCSS:    func() { userCSS++ },
+		OnHomeConfig: func() { home++ },
+	})
+	require.NoError(t, err)
+	assert.ElementsMatch(t, []string{filepath.Join(dir, "user.css"), filepath.Join(dir, "home.toml")}, paths)
+
+	onChange(filepath.Join(dir, "home.toml"))
+	assert.Equal(t, 1, home)
+	assert.Zero(t, userCSS)
+
+	onChange(filepath.Join(dir, "user.css"))
+	onChange(filepath.Join(dir, "other.toml"))
+	assert.Equal(t, 1, userCSS)
+	assert.Equal(t, 1, home)
+}
+
+// TestWatcher_SmokeDispatch runs the real fsnotify path once.
+func TestWatcher_SmokeDispatch(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
 	w := &Watcher{configDir: dir, watcher: filewatch.New(20 * time.Millisecond)}
-	userCSS := make(chan struct{}, 4)
 	home := make(chan struct{}, 4)
 	require.NoError(t, w.Start(context.Background(), port.SystemViewFileHandlers{
-		OnUserCSS:    func() { userCSS <- struct{}{} },
 		OnHomeConfig: func() { home <- struct{}{} },
 	}))
 	t.Cleanup(func() { _ = w.Stop() })
 
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "home.toml"), []byte("x"), 0o600))
-	waitFor(t, home, "home.toml")
-	assertQuiet(t, userCSS, "user.css")
-
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "user.css"), []byte("body{}"), 0o600))
-	waitFor(t, userCSS, "user.css")
-	assertQuiet(t, home, "home.toml")
+	select {
+	case <-home:
+	case <-time.After(5 * time.Second):
+		t.Fatal("home.toml change not dispatched")
+	}
 }
 
 func TestWatcher_StartWithoutHandlersFails(t *testing.T) {
 	t.Parallel()
 	w := NewWatcher(t.TempDir())
 	require.Error(t, w.Start(context.Background(), port.SystemViewFileHandlers{}))
-}
-
-func waitFor(t *testing.T, ch <-chan struct{}, name string) {
-	t.Helper()
-	select {
-	case <-ch:
-	case <-time.After(2 * time.Second):
-		t.Fatalf("%s change not dispatched", name)
-	}
-}
-
-func assertQuiet(t *testing.T, ch <-chan struct{}, name string) {
-	t.Helper()
-	select {
-	case <-ch:
-		t.Fatalf("unexpected %s dispatch", name)
-	case <-time.After(150 * time.Millisecond):
-	}
 }

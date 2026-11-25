@@ -6,7 +6,7 @@ import (
 	"errors"
 	"sync"
 	"testing"
-	"time"
+	"testing/synctest"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -41,41 +41,35 @@ func newTestDispatchRouter(t *testing.T) (*MessageRouter, chan func(), *[]record
 }
 
 func TestRunHandlerDoesNotBlockOnSlowHandler(t *testing.T) {
-	r, mainQueue, got, mu := newTestDispatchRouter(t)
-	release := make(chan struct{})
-	entry := handlerEntry{
-		callback:      "__ok",
-		errorCallback: "__err",
-		handler: port.WebUIMessageHandlerFunc(func(context.Context, port.WebViewID, json.RawMessage) (any, error) {
-			<-release
-			return map[string]int{"n": 1}, nil
-		}),
-	}
+	synctest.Test(t, func(t *testing.T) {
+		r, mainQueue, got, mu := newTestDispatchRouter(t)
+		release := make(chan struct{})
+		entry := handlerEntry{
+			callback:      "__ok",
+			errorCallback: "__err",
+			handler: port.WebUIMessageHandlerFunc(func(context.Context, port.WebViewID, json.RawMessage) (any, error) {
+				<-release
+				return map[string]int{"n": 1}, nil
+			}),
+		}
 
-	returned := make(chan struct{})
-	go func() {
+		// A blocking runHandler would deadlock the bubble and fail the test.
 		r.runHandler(context.Background(), entry, Message{Type: "home_widget_data", WebViewID: 7, Payload: json.RawMessage(`{"requestId":"r1"}`)})
-		close(returned)
-	}()
-	select {
-	case <-returned:
-	case <-time.After(2 * time.Second):
-		t.Fatal("runHandler blocked on a slow handler")
-	}
+		synctest.Wait()
+		require.Empty(t, mainQueue, "no response before the handler returns")
 
-	close(release)
-	select {
-	case f := <-mainQueue:
-		f()
-	case <-time.After(2 * time.Second):
-		t.Fatal("response never scheduled on the main thread")
-	}
-	mu.Lock()
-	defer mu.Unlock()
-	require.Len(t, *got, 1)
-	assert.Equal(t, WebViewID(7), (*got)[0].webviewID)
-	assert.Equal(t, "__ok", (*got)[0].callback)
-	assert.JSONEq(t, `{"requestId":"r1","success":true,"data":{"n":1}}`, (*got)[0].payload)
+		close(release)
+		synctest.Wait()
+		require.Len(t, mainQueue, 1, "response scheduled on the main thread")
+		(<-mainQueue)()
+
+		mu.Lock()
+		defer mu.Unlock()
+		require.Len(t, *got, 1)
+		assert.Equal(t, WebViewID(7), (*got)[0].webviewID)
+		assert.Equal(t, "__ok", (*got)[0].callback)
+		assert.JSONEq(t, `{"requestId":"r1","success":true,"data":{"n":1}}`, (*got)[0].payload)
+	})
 }
 
 func TestRunHandlerOutOfOrderResponsesKeepRequestIDs(t *testing.T) {

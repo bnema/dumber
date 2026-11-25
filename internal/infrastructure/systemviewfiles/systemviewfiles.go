@@ -66,6 +66,19 @@ func NewWatcher(configDir string) *Watcher {
 
 // Start watches the files. Handlers run on the watcher goroutine.
 func (w *Watcher) Start(ctx context.Context, h port.SystemViewFileHandlers) error {
+	paths, onChange, err := w.dispatcher(h)
+	if err != nil {
+		return err
+	}
+	if err := w.watcher.Start(ctx, paths, onChange); err != nil {
+		return fmt.Errorf("watch system view files: %w", err)
+	}
+	return nil
+}
+
+// dispatcher returns the watched paths and the callback that routes a
+// changed path to its handler.
+func (w *Watcher) dispatcher(h port.SystemViewFileHandlers) ([]string, func(path string), error) {
 	handlers := make(map[string]func(), 2)
 	if h.OnUserCSS != nil {
 		handlers[absPath(filepath.Join(w.configDir, userCSSFile))] = h.OnUserCSS
@@ -74,20 +87,17 @@ func (w *Watcher) Start(ctx context.Context, h port.SystemViewFileHandlers) erro
 		handlers[absPath(filepath.Join(w.configDir, homeConfigFile))] = h.OnHomeConfig
 	}
 	if len(handlers) == 0 {
-		return errors.New("no system view file handlers")
+		return nil, nil, errors.New("no system view file handlers")
 	}
 	paths := make([]string, 0, len(handlers))
 	for path := range handlers {
 		paths = append(paths, path)
 	}
-	if err := w.watcher.Start(ctx, paths, func(path string) {
+	return paths, func(path string) {
 		if handler, ok := handlers[absPath(path)]; ok {
 			handler()
 		}
-	}); err != nil {
-		return fmt.Errorf("watch system view files: %w", err)
-	}
-	return nil
+	}, nil
 }
 
 // Stop stops the watcher. It is safe to call repeatedly.
