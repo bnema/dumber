@@ -581,3 +581,69 @@ func TestRunHomeAction_EnvSecretIsJSONEscapedInBody(t *testing.T) {
 	})
 	require.NoError(t, err)
 }
+
+// TestRunHomeAction_InputsNeverChangeOriginEndToEnd tries origin changes
+// from typed inputs. Placeholders in the origin are refused; elsewhere the
+// input is URL-encoded, so the request still goes to the configured origin
+// (the sameHomeOrigin check backs this up).
+func TestRunHomeAction_InputsNeverChangeOriginEndToEnd(t *testing.T) {
+	refused := []struct{ name, url, input string }{
+		{"scheme", "{{input.q}}://media.local/x", "http"},
+		{"host", "https://{{input.q}}/x", "evil.example"},
+		{"host suffix", "https://media.local{{input.q}}/x", ".evil.example"},
+		{"port", "https://media.local:{{input.q}}/x", "8443"},
+		{"userinfo", "https://{{input.q}}@media.local/x", "user:pw"},
+		{"at sign", "https://media.local{{input.q}}/x", "@evil.example"},
+	}
+	for _, tc := range refused {
+		t.Run("refused/"+tc.name, func(t *testing.T) {
+			f := newHomeWidgetFixture(t)
+			f.layout.Groups[0].Services[0].Actions[0].URL = tc.url
+			resp, err := f.uc.RunHomeAction(f.ctx, dto.HomeActionRequest{
+				ServiceID: "media", ActionID: "search", Inputs: map[string]string{"q": tc.input},
+			})
+			require.NoError(t, err)
+			assert.Equal(t, dto.HomeStatusError, resp.Status)
+			assert.Contains(t, resp.Message, "scheme, host or port")
+		})
+	}
+
+	encoded := []struct{ name, url, input string }{
+		{"double slash in path", "https://media.local/{{input.q}}", "//evil.example/x"},
+		{"at sign in path", "https://media.local/{{input.q}}", "@evil.example"},
+		{"userinfo in path", "https://media.local/{{input.q}}", "user:pw@evil.example"},
+		{"absolute url in query", "https://media.local/x?u={{input.q}}", "https://evil.example:8443/"},
+		{"backslash", "https://media.local/{{input.q}}", `\\evil.example`},
+	}
+	for _, tc := range encoded {
+		t.Run("encoded/"+tc.name, func(t *testing.T) {
+			f := newHomeWidgetFixture(t)
+			f.layout.Groups[0].Services[0].Actions[0].URL = tc.url
+			f.http.EXPECT().Do(mock.Anything, mock.Anything).RunAndReturn(
+				func(_ context.Context, req port.HomeHTTPRequest) (port.HomeHTTPResponse, error) {
+					u, err := url.Parse(req.URL)
+					require.NoError(t, err)
+					assert.Equal(t, "https", u.Scheme)
+					assert.Equal(t, "media.local", u.Host)
+					assert.Nil(t, u.User)
+					return port.HomeHTTPResponse{StatusCode: 204}, nil
+				}).Once()
+			resp, err := f.uc.RunHomeAction(f.ctx, dto.HomeActionRequest{
+				ServiceID: "media", ActionID: "search", Inputs: map[string]string{"q": tc.input},
+			})
+			require.NoError(t, err)
+			assert.Equal(t, dto.HomeStatusOK, resp.Status)
+		})
+	}
+}
+
+func TestSameHomeOrigin(t *testing.T) {
+	base := "https://media.local/x"
+	assert.True(t, sameHomeOrigin(base, "https://MEDIA.local/y?q=1"))
+	for _, other := range []string{
+		"http://media.local/x", "https://evil.example/x", "https://media.local:8443/x",
+		"https://media.local.evil.example/x", "https://media.local@evil.example/x", "://bad",
+	} {
+		assert.False(t, sameHomeOrigin(base, other), other)
+	}
+}
