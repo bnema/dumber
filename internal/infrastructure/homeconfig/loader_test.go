@@ -169,3 +169,22 @@ func TestLoad_CachedParseErrorKeepsLastValid(t *testing.T) {
 	require.NoError(t, err)
 	assert.False(t, gone.Exists)
 }
+
+func TestLoad_SetsContentHash(t *testing.T) {
+	ctx := context.Background()
+	l := New(t.TempDir())
+	missing, err := l.Load(ctx)
+	require.NoError(t, err)
+	assert.Zero(t, missing.ContentHash)
+	write(t, l, validHome)
+	first, err := l.Load(ctx)
+	require.NoError(t, err)
+	assert.NotZero(t, first.ContentHash)
+	cached, err := l.Load(ctx)
+	require.NoError(t, err)
+	assert.Equal(t, first.ContentHash, cached.ContentHash)
+	write(t, l, validHome+"\n")
+	edited, err := l.Load(ctx)
+	require.NoError(t, err)
+	assert.NotEqual(t, first.ContentHash, edited.ContentHash)
+}

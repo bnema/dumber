@@ -29,10 +29,12 @@ const homeTestSecret = "s3cr3t-token"
 type homeWidgetFixture struct {
 	uc     *HomeUseCase
 	layout *entity.HomeLayout
-	http   *mocks.MockHomeHTTPClient
-	now    *time.Time
-	logs   *bytes.Buffer
-	ctx    context.Context
+	// contentHash is the snapshot ContentHash; tests bump it with edits.
+	contentHash *[32]byte
+	http        *mocks.MockHomeHTTPClient
+	now         *time.Time
+	logs        *bytes.Buffer
+	ctx         context.Context
 }
 
 func newHomeWidgetFixture(t *testing.T) *homeWidgetFixture {
@@ -69,19 +71,21 @@ func newHomeWidgetFixture(t *testing.T) *homeWidgetFixture {
 	layout.Normalize()
 	require.Empty(t, layout.Validate())
 
+	contentHash := new([32]byte)
 	source := mocks.NewMockHomeConfigSource(t)
 	source.EXPECT().Load(mock.Anything).RunAndReturn(func(context.Context) (port.HomeConfigSnapshot, error) {
-		return port.HomeConfigSnapshot{Layout: layout, Exists: true}, nil
+		return port.HomeConfigSnapshot{Layout: layout, Exists: true, ContentHash: *contentHash}, nil
 	}).Maybe()
 	httpClient := mocks.NewMockHomeHTTPClient(t)
 	now := time.Date(2026, 1, 1, 12, 0, 0, 0, time.UTC)
 	logs := &bytes.Buffer{}
 	f := &homeWidgetFixture{
-		layout: &layout,
-		http:   httpClient,
-		now:    &now,
-		logs:   logs,
-		ctx:    logging.WithContext(context.Background(), zerolog.New(logs).Level(zerolog.DebugLevel)),
+		layout:      &layout,
+		contentHash: contentHash,
+		http:        httpClient,
+		now:         &now,
+		logs:        logs,
+		ctx:         logging.WithContext(context.Background(), zerolog.New(logs).Level(zerolog.DebugLevel)),
 	}
 	f.uc = NewHomeUseCase(HomeDeps{
 		Source: source,
@@ -514,14 +518,23 @@ func TestFetchWidgetData_PrunesRemovedServices(t *testing.T) {
 	f.http.EXPECT().Do(mock.Anything, mock.Anything).Return(okJSON(`{"movies":1}`), nil).Once()
 	_, err := f.uc.FetchWidgetData(f.ctx, "media")
 	require.NoError(t, err)
+
+	f.uc.widgetCache["gone"] = homeWidgetCacheEntry{}
 	f.uc.templateFailures["gone"] = homeTemplateFailure{msg: "x"}
+	_, err = f.uc.FetchWidgetData(f.ctx, "media")
+	require.NoError(t, err)
+	f.uc.widgetMu.Lock()
+	assert.Contains(t, f.uc.widgetCache, "gone", "unchanged content hash: no scan")
+	f.uc.widgetMu.Unlock()
 
 	f.layout.Groups[0].Services[1].Name = "Plain 2" // layout changes, media stays
+	f.contentHash[0] = 1
 	_, err = f.uc.FetchWidgetData(f.ctx, "media")
 	require.NoError(t, err)
 	f.uc.widgetMu.Lock()
 	defer f.uc.widgetMu.Unlock()
 	assert.Contains(t, f.uc.widgetCache, "media")
+	assert.NotContains(t, f.uc.widgetCache, "gone")
 	assert.NotContains(t, f.uc.templateFailures, "gone")
 }
 

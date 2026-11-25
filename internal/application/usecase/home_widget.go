@@ -67,7 +67,7 @@ func (uc *HomeUseCase) FetchWidgetData(ctx context.Context, serviceID string) (*
 	hash := hashHomeWidget(widget)
 
 	uc.widgetMu.Lock()
-	uc.pruneWidgetStateLocked(snap.Layout)
+	uc.pruneWidgetStateLocked(snap)
 	if failure, failed := uc.templateFailures[serviceID]; failed {
 		if failure.hash == hash && uc.now().Before(failure.expires) {
 			uc.widgetMu.Unlock()
@@ -151,18 +151,15 @@ func (uc *HomeUseCase) runWidgetFlight(
 }
 
 // pruneWidgetStateLocked drops cached data and template failures of
-// services that left the layout. It only scans when the layout changed.
-// Caller holds uc.widgetMu.
-func (uc *HomeUseCase) pruneWidgetStateLocked(layout entity.HomeLayout) {
-	data, err := json.Marshal(layout.Groups)
-	if err != nil {
+// services that left the layout. It only scans when the home.toml content
+// hash changed. Caller holds uc.widgetMu.
+func (uc *HomeUseCase) pruneWidgetStateLocked(snap port.HomeConfigSnapshot) {
+	if uc.layoutSeen && snap.ContentHash == uc.lastLayoutHash {
 		return
 	}
-	sum := sha256.Sum256(data)
-	if sum == uc.lastLayoutHash {
-		return
-	}
-	uc.lastLayoutHash = sum
+	uc.layoutSeen = true
+	uc.lastLayoutHash = snap.ContentHash
+	layout := snap.Layout
 	for id := range uc.widgetCache {
 		if _, ok := layout.FindService(id); !ok {
 			delete(uc.widgetCache, id)

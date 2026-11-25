@@ -95,6 +95,7 @@ func (l *Loader) Load(_ context.Context) (port.HomeConfigSnapshot, error) {
 	l.mu.Unlock()
 
 	snap = l.decode(data)
+	snap.ContentHash = sum
 	entry := &loaderCache{sum: sum, snap: snap}
 	if info != nil {
 		entry.modTime, entry.size = info.ModTime(), info.Size()

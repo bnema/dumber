@@ -61,6 +61,7 @@ type HomeUseCase struct {
 	// lastLayoutHash is the layout seen last, to prune state of removed
 	// services only when the layout changes.
 	lastLayoutHash [sha256.Size]byte
+	layoutSeen     bool
 
 	actionMu      sync.Mutex
 	actionRunning map[string]bool

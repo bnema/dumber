@@ -17,6 +17,9 @@ type HomeConfigSnapshot struct {
 	Exists           bool
 	ParseError       *dto.HomeParseError
 	ValidationErrors []entity.HomeValidationError
+	// ContentHash is the SHA-256 of the home.toml bytes, or zero when the
+	// file is missing or unreadable. Equal hashes mean an unchanged layout.
+	ContentHash [32]byte
 }
 
 // HomeConfigSource loads the user's home.toml.
