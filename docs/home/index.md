@@ -143,7 +143,7 @@ template = """
 """
 ```
 
-**Secrets:** write `{{env.NAME}}` in `url`, `headers` and action `url`, `headers` and `body`. Dumber replaces it with the environment variable `NAME` of the browser process. A missing variable is an error that names the variable. Keep tokens in the environment, not in `home.toml`.
+**Secrets:** write `{{env.NAME}}` in `url`, `headers` and action `url`, `headers` and `body`. Dumber replaces it with the environment variable `NAME` of the browser process. A missing variable is an error that names the variable. Keep tokens in the environment, not in `home.toml`. In a JSON body (one that starts with `{` or `[`), a `{{env.NAME}}` inside a string is JSON-escaped; outside a string its value must be a single JSON value, such as a number.
 
 ## Embeds
 
@@ -161,7 +161,7 @@ Each action is a button on the service card. With `confirm`, the page asks for c
 
 **Inputs** ask the user for values before sending. Each input is `{ name, label, placeholder }`. `name` matches `[A-Za-z_][A-Za-z0-9_]{0,63}` and is unique per action, `label` is required and `placeholder` is optional. Use `{{input.NAME}}` in two places only:
 
-- `url`, where the value is URL-encoded.
+- `url`, after the host: in the path, query or fragment. The value is URL-encoded. The scheme, host and port must be written literally (or with `{{env.NAME}}`), so a typed value can never send the request elsewhere.
 - A JSON `body`, inside a string literal such as `body = '{"query": "{{input.query}}"}'`, where the value is JSON-escaped. The body must be valid JSON once inputs are filled in.
 
 Inputs in headers, in a non-JSON body, or outside a JSON string are rejected when `home.toml` loads, and so is an input that is not declared. Typed values are inserted as plain text: `{{env.X}}` typed by a user is never expanded.

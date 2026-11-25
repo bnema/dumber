@@ -1,6 +1,9 @@
 package entity
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestIsBlockedEmbedURL(t *testing.T) {
 	tests := []struct {
@@ -38,5 +41,22 @@ func TestHomeValidateEmbedUnicodeHost(t *testing.T) {
 		if len(errs) != 1 || errs[0].Path != "groups[0].services[1].widget.url" {
 			t.Errorf("%s: errors = %v", raw, errs)
 		}
+	}
+}
+
+func TestExpandHomeJSONBodyEnv(t *testing.T) {
+	env := map[string]string{"TOK": `a"b\c`, "N": "42", "BAD": `1, "admin": true`}
+	lookup := func(k string) (string, bool) { v, ok := env[k]; return v, ok }
+
+	out, err := ExpandHomeJSONBodyEnv(`{"t":"{{env.TOK}}","n":{{env.N}},"q":"{{input.q}}"}`, lookup)
+	if err != nil || out != `{"t":"a\"b\\c","n":42,"q":"{{input.q}}"}` {
+		t.Fatalf("out=%s err=%v", out, err)
+	}
+	_, err = ExpandHomeJSONBodyEnv(`{"n":{{env.BAD}}}`, lookup)
+	if err == nil || strings.Contains(err.Error(), "admin") {
+		t.Fatalf("injected raw value: err = %v", err)
+	}
+	if _, err = ExpandHomeJSONBodyEnv(`{"n":{{env.MISSING}}}`, lookup); err == nil {
+		t.Fatal("missing variable accepted")
 	}
 }

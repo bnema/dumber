@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"strings"
 
 	"bnema.dev/dumber/internal/application/dto"
 	"bnema.dev/dumber/internal/application/port"
@@ -99,12 +100,29 @@ func (uc *HomeUseCase) buildHomeActionRequest(a entity.HomeAction, inputs map[st
 		}
 	}
 	declared := a.InputNames()
-	base.URL, err = entity.ExpandHomeInputs(base.URL, inputs, declared, url.QueryEscape)
+	if entity.HomeInputsInURLOrigin(a.URL) {
+		return base, errors.New("url inputs must not be in the scheme, host or port")
+	}
+	envURL := base.URL
+	base.URL, err = entity.ExpandHomeInputs(envURL, inputs, declared, url.QueryEscape)
 	if err != nil {
 		return base, err
 	}
+	// The typed inputs must never change where the request goes, since the
+	// env-expanded secret headers follow it.
+	template, err := entity.ExpandHomeInputs(envURL, nil, declared, func(string) string { return "" })
+	if err != nil {
+		return base, err
+	}
+	if !sameHomeOrigin(template, base.URL) {
+		return base, errors.New("url inputs must not change the scheme, host or port")
+	}
 	if a.Body != "" {
-		body, envErr := entity.ExpandHomeEnv(a.Body, uc.lookupEnv)
+		expandEnv := entity.ExpandHomeEnv
+		if entity.HomeBodyIsJSON(a.Body) {
+			expandEnv = entity.ExpandHomeJSONBodyEnv
+		}
+		body, envErr := expandEnv(a.Body, uc.lookupEnv)
 		if envErr != nil {
 			return base, envErr
 		}
@@ -137,4 +155,14 @@ func containsString(list []string, s string) bool {
 		}
 	}
 	return false
+}
+
+// sameHomeOrigin reports whether two URLs share scheme, host and port.
+func sameHomeOrigin(a, b string) bool {
+	ua, errA := url.Parse(a)
+	ub, errB := url.Parse(b)
+	if errA != nil || errB != nil {
+		return false
+	}
+	return strings.EqualFold(ua.Scheme, ub.Scheme) && strings.EqualFold(ua.Host, ub.Host)
 }

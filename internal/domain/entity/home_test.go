@@ -355,3 +355,37 @@ func TestHomeRedactedClearsTemplate(t *testing.T) {
 		t.Fatalf("template leaked: %s", data)
 	}
 }
+
+func TestHomeValidateInputInURLOrigin(t *testing.T) {
+	for _, raw := range []string{
+		"https://{{input.q}}/x",
+		"https://jelly.local:{{input.q}}/x",
+		"{{input.q}}://jelly.local/x",
+		"https://jelly.{{input.q}}",
+		"https://user:{{input.q}}@jelly.local/",
+	} {
+		l := validHomeLayout()
+		a := &l.Groups[0].Services[0].Actions[0]
+		a.Inputs = []HomeActionInput{{Name: "q", Label: "Q"}}
+		a.URL = raw
+		l.Normalize()
+		found := false
+		for _, e := range l.Validate() {
+			if e.Path == "groups[0].services[0].actions[0].url" && strings.Contains(e.Message, "scheme, host or port") {
+				found = true
+			}
+		}
+		if !found {
+			t.Errorf("%s: origin input not rejected: %v", raw, l.Validate())
+		}
+	}
+	for _, raw := range []string{
+		"https://jelly.local/{{input.q}}",
+		"https://jelly.local?q={{input.q}}",
+		"https://jelly.local#{{input.q}}",
+	} {
+		if HomeInputsInURLOrigin(raw) {
+			t.Errorf("%s: wrongly flagged", raw)
+		}
+	}
+}

@@ -458,3 +458,36 @@ func TestRunHomeAction_RejectsInputOutsideJSONStringAtCall(t *testing.T) {
 	assert.Equal(t, dto.HomeStatusError, resp.Status)
 	assert.Contains(t, resp.Message, "JSON")
 }
+
+func TestRunHomeAction_InputsCannotChangeOrigin(t *testing.T) {
+	f := newHomeWidgetFixture(t)
+	f.layout.Groups[0].Services[0].Actions[0].URL = "https://{{input.q}}/x"
+	resp, err := f.uc.RunHomeAction(f.ctx, dto.HomeActionRequest{
+		ServiceID: "media", ActionID: "search", Inputs: map[string]string{"q": "evil.example"},
+	})
+	require.NoError(t, err)
+	assert.Equal(t, dto.HomeStatusError, resp.Status)
+	assert.Contains(t, resp.Message, "scheme, host or port")
+}
+
+func TestRunHomeAction_EnvSecretIsJSONEscapedInBody(t *testing.T) {
+	f := newHomeWidgetFixture(t)
+	f.uc.lookupEnv = func(name string) (string, bool) {
+		if name == "TOKEN" {
+			return `x", "admin": true, "y": "`, true
+		}
+		return "", false
+	}
+	f.layout.Groups[0].Services[0].Actions[1].Body = `{"token":"{{env.TOKEN}}","text":"{{input.q}}"}`
+	f.http.EXPECT().Do(mock.Anything, mock.Anything).RunAndReturn(
+		func(_ context.Context, req port.HomeHTTPRequest) (port.HomeHTTPResponse, error) {
+			var got map[string]any
+			require.NoError(t, json.Unmarshal(req.Body, &got))
+			assert.Equal(t, map[string]any{"token": `x", "admin": true, "y": "`, "text": "hi"}, got)
+			return port.HomeHTTPResponse{StatusCode: 200}, nil
+		}).Once()
+	_, err := f.uc.RunHomeAction(f.ctx, dto.HomeActionRequest{
+		ServiceID: "media", ActionID: "note", Inputs: map[string]string{"q": "hi"},
+	})
+	require.NoError(t, err)
+}

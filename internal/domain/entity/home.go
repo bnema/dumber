@@ -624,6 +624,9 @@ func validateActionInputs(errs *homeErrs, p string, a *HomeAction) {
 			errs.addf(p+".url", "references undeclared input %q", name)
 		}
 	}
+	if HomeInputsInURLOrigin(a.URL) {
+		errs.addf(p+".url", "inputs are only allowed in the path, query or fragment, not in the scheme, host or port")
+	}
 	for _, name := range HomeInputRefs(a.Body) {
 		if !names[name] {
 			errs.addf(p+".body", "references undeclared input %q", name)
