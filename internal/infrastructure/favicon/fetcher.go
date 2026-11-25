@@ -46,6 +46,25 @@ func defaultLookupIP(ctx context.Context, host string) ([]net.IP, error) {
 // proxyFunc keeps the environment proxy but refuses private targets first.
 // With a proxy, safeDialContext only sees the proxy's address, so the SSRF
 // rule must be checked here against the real target host.
+//
+// Residual risk (accepted, SEC-008): this is a check-then-use race. The host
+// is resolved here, then the proxy resolves it again on its own. A hostile
+// DNS server can answer a public address to us and a private one to the
+// proxy (DNS rebinding), so the proxy may still reach a private address.
+// Closing it would mean connecting by IP, which a proxy does not allow, or
+// dropping proxy support, which breaks users who need one for the internet.
+// It is accepted because the impact is small:
+//   - only GET requests to favicon URLs are made, with no request body and
+//     no user cookies or credentials;
+//   - responses are capped at maxFaviconBytes and kept only when the body
+//     sniffs as a supported image type (bodyMatchesContentType);
+//   - kept bytes are decoded and re-encoded to PNG before use, and the only
+//     consumers are the browser's favicon UI and the systemview
+//     /api/favicon image endpoint. No raw response body, header or status
+//     text reaches web pages.
+//
+// Without a proxy, safeDialContext checks the address it actually dials, so
+// this race does not exist.
 func (f *Fetcher) proxyFunc(req *http.Request) (*url.URL, error) {
 	envProxy := f.envProxy
 	if envProxy == nil {
