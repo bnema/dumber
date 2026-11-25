@@ -123,6 +123,10 @@ func (d *browserDOM) handleHomeKeyboard(event js.Value) {
 // handleHomeNavKey moves between rows and tiles outside the suggestions.
 func (d *browserDOM) handleHomeNavKey(event, target js.Value, key string) {
 	selector := homeNavSelector + ":not(" + homeSuggestionSelector + ")"
+	if d.moveHomeGridFocus(target, key) {
+		event.Call("preventDefault")
+		return
+	}
 	switch key {
 	case "arrowdown", "arrowright":
 		event.Call("preventDefault")
@@ -153,4 +157,69 @@ func (d *browserDOM) moveHomeFocus(current js.Value, selector string, forward bo
 		return true
 	}
 	return false
+}
+
+// moveHomeGridFocus moves between service tiles in two dimensions: Left and
+// Right step by one tile, Up and Down by the rendered column count, so the
+// responsive collapse is respected. It reports false when the move leaves
+// the grid, letting linear navigation take over.
+func (d *browserDOM) moveHomeGridFocus(target js.Value, key string) bool {
+	grid := target.Call("closest", ".sv-home-grid")
+	if !grid.Truthy() {
+		return false
+	}
+	tiles := grid.Call("querySelectorAll", homeNavSelector)
+	count := tiles.Get("length").Int()
+	index := -1
+	for i := 0; i < count; i++ {
+		if tiles.Index(i).Equal(target) {
+			index = i
+			break
+		}
+	}
+	if index < 0 {
+		return false
+	}
+	columns := renderedGridColumns(grid)
+	var next int
+	switch key {
+	case "arrowleft":
+		if index%columns == 0 {
+			return true
+		}
+		next = index - 1
+	case "arrowright":
+		if index%columns == columns-1 || index+1 >= count {
+			return true
+		}
+		next = index + 1
+	case "arrowup":
+		next = index - columns
+	case "arrowdown":
+		next = index + columns
+		if next >= count && index/columns < (count-1)/columns {
+			// Short last row: land on its last tile.
+			next = count - 1
+		}
+	default:
+		return false
+	}
+	if next < 0 || next >= count {
+		return false
+	}
+	tiles.Index(next).Call("focus")
+	return true
+}
+
+// renderedGridColumns counts the tracks of the computed grid-template-columns.
+func renderedGridColumns(grid js.Value) int {
+	style := js.Global().Call("getComputedStyle", grid)
+	if !style.Truthy() {
+		return 1
+	}
+	columns := len(strings.Fields(style.Get("gridTemplateColumns").String()))
+	if columns < 1 {
+		return 1
+	}
+	return columns
 }
