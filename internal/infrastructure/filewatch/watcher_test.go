@@ -35,13 +35,10 @@ func waitFor(t *testing.T, ch <-chan string) string {
 	}
 }
 
-func TestNewDefaultDelay(t *testing.T) {
-	if got := New(0).delay; got != DefaultDebounce {
-		t.Fatalf("delay = %v, want %v", got, DefaultDebounce)
-	}
-}
-
 func TestStartErrors(t *testing.T) {
+	if got := New(0).delay; got != DefaultDebounce {
+		t.Fatalf("New(0) delay = %v, want %v", got, DefaultDebounce)
+	}
 	w := New(testDelay)
 	path := writeFile(t, t.TempDir(), "a")
 	if err := w.Start(context.Background(), []string{path}, nil); err == nil {
