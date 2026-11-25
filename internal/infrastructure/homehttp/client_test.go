@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -145,5 +146,57 @@ func TestDoErrorsDoNotLeakSecrets(t *testing.T) {
 	})
 	if err == nil || strings.Contains(err.Error(), "headersecret") {
 		t.Fatalf("invalid header error = %v", err)
+	}
+}
+
+func TestDoRejectsCrossOriginRedirectWithSecrets(t *testing.T) {
+	var leaked atomic.Bool
+	other := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+		leaked.Store(true)
+	}))
+	defer other.Close()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, other.URL+"/steal", http.StatusTemporaryRedirect)
+	}))
+	defer srv.Close()
+
+	_, err := New().Do(context.Background(), port.HomeHTTPRequest{
+		Method: http.MethodPost, URL: srv.URL, Headers: map[string]string{"X-Api-Key": "SECRET"}, Body: []byte("body"),
+	})
+	if !errors.Is(err, ErrCrossOriginRedirect) {
+		t.Fatalf("err = %v, want ErrCrossOriginRedirect", err)
+	}
+	if leaked.Load() {
+		t.Fatal("second server received the redirected request")
+	}
+}
+
+func TestDoRejectsHTTPSDowngradeRedirect(t *testing.T) {
+	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Same host and port as the TLS server, plain scheme.
+		http.Redirect(w, r, "http://"+r.Host+"/", http.StatusFound)
+	}))
+	defer srv.Close()
+
+	c := New()
+	c.http.Transport = srv.Client().Transport
+	if _, err := c.Do(context.Background(), port.HomeHTTPRequest{URL: srv.URL}); !errors.Is(err, ErrCrossOriginRedirect) {
+		t.Fatalf("err = %v, want ErrCrossOriginRedirect", err)
+	}
+}
+
+func TestDoFollowsSameOriginRedirectWithHeaders(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/final" {
+			_, _ = w.Write([]byte(r.Header.Get("X-Api-Key")))
+			return
+		}
+		http.Redirect(w, r, "/final", http.StatusTemporaryRedirect)
+	}))
+	defer srv.Close()
+
+	resp, err := New().Do(context.Background(), port.HomeHTTPRequest{URL: srv.URL, Headers: map[string]string{"X-Api-Key": "k"}})
+	if err != nil || string(resp.Body) != "k" {
+		t.Fatalf("resp=%q err=%v", resp.Body, err)
 	}
 }

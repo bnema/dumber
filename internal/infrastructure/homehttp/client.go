@@ -34,6 +34,10 @@ var (
 	ErrUnsupportedScheme = errors.New("home http: only http and https URLs are allowed")
 	// ErrTooManyRedirects is returned after MaxRedirects redirects.
 	ErrTooManyRedirects = errors.New("home http: too many redirects")
+	// ErrCrossOriginRedirect is returned for a redirect that changes the
+	// scheme, host or port, so secret headers and bodies never leave the
+	// configured origin.
+	ErrCrossOriginRedirect = errors.New("home http: redirect to another origin is not allowed")
 )
 
 // Client implements port.HomeHTTPClient. Private and LAN addresses are
@@ -55,6 +59,9 @@ func New() *Client {
 			}
 			if !isHTTPScheme(req.URL) {
 				return ErrUnsupportedScheme
+			}
+			if len(via) > 0 && !sameOrigin(via[0].URL, req.URL) {
+				return ErrCrossOriginRedirect
 			}
 			return nil
 		},
@@ -135,4 +142,22 @@ func unwrapURLError(err error) error {
 		return urlErr.Err
 	}
 	return err
+}
+
+// sameOrigin reports whether a and b share scheme, host and port. This also
+// rejects https to http downgrades.
+func sameOrigin(a, b *url.URL) bool {
+	return strings.EqualFold(a.Scheme, b.Scheme) &&
+		strings.EqualFold(a.Hostname(), b.Hostname()) &&
+		effectivePort(a) == effectivePort(b)
+}
+
+func effectivePort(u *url.URL) string {
+	if p := u.Port(); p != "" {
+		return p
+	}
+	if strings.EqualFold(u.Scheme, "https") {
+		return "443"
+	}
+	return "80"
 }

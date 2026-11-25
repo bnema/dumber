@@ -93,7 +93,7 @@ Each field is `{ label, path, format }`. `label` and `path` are required, and `f
 
 ## API widgets
 
-Dumber requests `url` (GET, at most 2 MiB, at most 3 redirects, User-Agent `dumber-home`), parses the JSON and shows each field.
+Dumber requests `url` (GET, at most 2 MiB, User-Agent `dumber-home`). It follows at most 3 redirects, and only within the same scheme, host and port: a redirect to another origin or from https to http is an error, so headers and bodies never leave the configured service. Dumber then parses the JSON and shows each field.
 
 **Field paths** use dot keys and `[n]` indexes, starting from the JSON root:
 
