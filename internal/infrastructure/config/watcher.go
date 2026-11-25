@@ -41,13 +41,14 @@ func (m *Manager) Watch() error {
 // StopWatching stops the config file watcher. It is safe to call repeatedly.
 func (m *Manager) StopWatching() error {
 	m.mu.Lock()
-	defer m.mu.Unlock()
-
 	m.watching = false
-	if m.fileWatcher == nil {
+	fw := m.fileWatcher
+	m.mu.Unlock()
+	if fw == nil {
 		return nil
 	}
-	return m.fileWatcher.Stop()
+	// Stop waits for handleFileChange, which takes m.mu: call it unlocked.
+	return fw.Stop()
 }
 
 // handleFileChange runs on the watcher goroutine for each debounced change.

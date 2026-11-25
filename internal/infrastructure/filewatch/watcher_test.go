@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"testing/synctest"
 	"time"
@@ -275,4 +276,55 @@ func TestLoopExitsOnClosedEvents(t *testing.T) {
 		<-h.done
 		h.cancel()
 	})
+}
+
+func TestStopWaitsForRunningCallback(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "a.toml")
+	if err := os.WriteFile(path, []byte("a"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	w := New(10 * time.Millisecond)
+	entered := make(chan struct{})
+	release := make(chan struct{})
+	var finished atomic.Bool
+	var once sync.Once
+	if err := w.Start(context.Background(), []string{path}, func(string) {
+		once.Do(func() { close(entered) })
+		<-release
+		finished.Store(true)
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte("b"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case <-entered:
+	case <-time.After(5 * time.Second):
+		t.Fatal("callback never ran")
+	}
+
+	stopped := make(chan struct{})
+	go func() {
+		if err := w.Stop(); err != nil {
+			t.Error(err)
+		}
+		close(stopped)
+	}()
+	select {
+	case <-stopped:
+		t.Fatal("Stop returned while onChange was still running")
+	case <-time.After(100 * time.Millisecond):
+	}
+	close(release)
+	select {
+	case <-stopped:
+	case <-time.After(5 * time.Second):
+		t.Fatal("Stop never returned")
+	}
+	if !finished.Load() {
+		t.Fatal("Stop returned before onChange finished")
+	}
 }

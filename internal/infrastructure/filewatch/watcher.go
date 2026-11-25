@@ -100,11 +100,21 @@ func (w *Watcher) Start(ctx context.Context, paths []string, onChange func(path 
 	return nil
 }
 
-// Stop stops the current watcher. It is idempotent and safe for concurrent use.
+// Stop stops the current watcher and waits for its goroutine to exit, so no
+// onChange call runs after Stop returns. It is idempotent and safe for
+// concurrent use.
+//
+// Stop must not be called from inside onChange (it would wait for itself),
+// nor while holding a lock that onChange acquires.
 func (w *Watcher) Stop() error {
 	w.mu.Lock()
-	defer w.mu.Unlock()
-	return w.stopLocked()
+	done := w.done
+	err := w.stopLocked()
+	w.mu.Unlock()
+	if done != nil {
+		<-done
+	}
+	return err
 }
 
 func (w *Watcher) stopLocked() error {
