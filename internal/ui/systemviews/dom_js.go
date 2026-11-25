@@ -357,7 +357,7 @@ func (d *browserDOM) runPaletteAction(action DOMAction) {
 // scheme the page was loaded with (dumb:// or the internal https origin).
 func (d *browserDOM) navigateToRoute(route Route) {
 	switch route {
-	case RouteHistory, RouteFavorites, RouteConfig:
+	case RouteHome, RouteHistory, RouteFavorites, RouteConfig:
 	default:
 		return
 	}

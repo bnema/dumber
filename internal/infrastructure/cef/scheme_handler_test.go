@@ -237,6 +237,7 @@ func TestIsTrustedSystemviewURL(t *testing.T) {
 		"https://dumber.invalid/history",
 		"dumb://history",
 		"dumb:history",
+		"dumb://home",
 	} {
 		require.True(t, isTrustedSystemviewURL(raw), raw)
 	}

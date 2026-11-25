@@ -11,6 +11,7 @@ type Route string
 
 const (
 	RouteUnknown   Route = "unknown"
+	RouteHome      Route = "home"
 	RouteHistory   Route = "history"
 	RouteFavorites Route = "favorites"
 	RouteConfig    Route = "config"
@@ -54,6 +55,8 @@ func routeFromPageHost(host, opaque string) Route {
 		page = canonical
 	}
 	switch strings.ToLower(page) {
+	case string(RouteHome):
+		return RouteHome
 	case string(RouteHistory):
 		return RouteHistory
 	case string(RouteFavorites):

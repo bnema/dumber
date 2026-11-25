@@ -505,6 +505,9 @@ func (a *App) LoadInitial(ctx context.Context) error {
 
 func (a *App) loadCurrentRoute(ctx context.Context) error {
 	switch a.currentRoute {
+	case RouteHome:
+		a.loadHomeRoute()
+		return nil
 	case RouteHistory:
 		return a.loadHistoryRoute(ctx)
 	case RouteFavorites:
@@ -539,6 +542,8 @@ func (a *App) renderRouteError(err error) {
 
 func routeDocumentTitle(route Route) string {
 	switch route {
+	case RouteHome:
+		return "Home"
 	case RouteHistory:
 		return "History"
 	case RouteFavorites:
@@ -552,6 +557,8 @@ func routeDocumentTitle(route Route) string {
 
 func routeSubtitle(route Route) string {
 	switch route {
+	case RouteHome:
+		return "Home"
 	case RouteHistory:
 		return "Recent visits"
 	case RouteFavorites:
@@ -765,6 +772,16 @@ func (a *App) commitHistoryRouteResultLocked(result historyRouteResult) {
 	a.historyCursorID = result.cursorID
 	a.historyHasMore = result.hasMore
 	a.renderedHTML = result.html
+}
+
+func (a *App) loadHomeRoute() {
+	a.resetRouteState()
+	a.renderedHTML = renderAppFrame(renderedPage{
+		route:    RouteHome,
+		title:    routeDocumentTitle(RouteHome),
+		subtitle: routeSubtitle(RouteHome),
+		body:     mustRenderComponent(HomePage()),
+	}, a.shellTheme)
 }
 
 func (a *App) loadFavoritesRoute(ctx context.Context) error {

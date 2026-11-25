@@ -21,6 +21,7 @@ import (
 
 // Scheme path constants
 const (
+	HomePath                = "home"
 	HistoryPath             = "history"
 	FavoritesPath           = "favorites"
 	ConfigPath              = "config"
@@ -258,7 +259,7 @@ func isTrustedSystemviewURL(raw string) bool {
 		return false
 	}
 	switch canonicalSystemviewHost(host) {
-	case HistoryPath, FavoritesPath, ConfigPath, ErrorPath, CrashPath:
+	case HomePath, HistoryPath, FavoritesPath, ConfigPath, ErrorPath, CrashPath:
 		return true
 	default:
 		return false
@@ -461,6 +462,7 @@ func resolveAssetPath(u *url.URL) (assetDir, relPath string, ok bool) {
 		assetDir string
 		file     string
 	}{
+		HomePath:      {assetDir: systemviewsAssetDir, file: IndexHTML},
 		HistoryPath:   {assetDir: systemviewsAssetDir, file: IndexHTML},
 		FavoritesPath: {assetDir: systemviewsAssetDir, file: IndexHTML},
 		ConfigPath:    {assetDir: systemviewsAssetDir, file: IndexHTML},
@@ -477,7 +479,7 @@ func resolveAssetPath(u *url.URL) (assetDir, relPath string, ok bool) {
 	}
 
 	switch canonicalSystemviewHost(u.Opaque) {
-	case HistoryPath, FavoritesPath, ConfigPath, ErrorPath, CrashPath:
+	case HomePath, HistoryPath, FavoritesPath, ConfigPath, ErrorPath, CrashPath:
 		return systemviewsAssetDir, IndexHTML, true
 	default:
 		return "", "", false

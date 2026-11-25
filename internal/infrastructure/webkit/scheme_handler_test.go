@@ -59,6 +59,7 @@ func TestIsTrustedSystemviewURL(t *testing.T) {
 	for _, raw := range []string{
 		"dumb://history",
 		"dumb://favorites",
+		"dumb://home",
 		"dumb:config",
 	} {
 		require.True(t, isTrustedSystemviewURL(raw), raw)
@@ -176,6 +177,8 @@ func TestHandleAsset_SystemviewsRootsServeShell(t *testing.T) {
 	h.SetAssets(assets.WebUIAssets)
 
 	tests := []string{
+		"dumb://home",
+		"dumb:home",
 		"dumb://history",
 		"dumb:history",
 		"dumb://favorites",

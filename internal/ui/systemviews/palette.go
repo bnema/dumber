@@ -56,6 +56,7 @@ func (a *App) paletteItemsLocked() []PaletteItem {
 		label    string
 		keywords string
 	}{
+		{RouteHome, "Home", "start dashboard"},
 		{RouteHistory, "History", "visits timeline"},
 		{RouteFavorites, "Favorites", "bookmarks tags"},
 		{RouteConfig, "Settings", "config preferences appearance keybindings"},

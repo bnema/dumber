@@ -44,12 +44,17 @@ func pageDocumentTitle(page renderedPage) string {
 // omnibox.style. Only the default "command" style exists for system views.
 const shellStyleClass = "sv-style-command"
 
-func appRootClass(theme shellTheme) string {
+// appRootClass returns the app root classes; the sv-route-<route> class lets
+// user.css target a single view.
+func appRootClass(route Route, theme shellTheme) string {
 	themeClass := theme.RootClass
 	if themeClass == "" {
 		themeClass = "sv-dark"
 	}
-	return "sv-app " + shellStyleClass + " " + themeClass
+	if route == "" {
+		route = RouteUnknown
+	}
+	return "sv-app " + shellStyleClass + " " + themeClass + " sv-route-" + string(route)
 }
 
 func alertClass(kind string) string {

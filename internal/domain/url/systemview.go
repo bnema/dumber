@@ -8,6 +8,7 @@ import (
 // systemviewPages maps every dumb:// page host, aliases included, to its
 // canonical page.
 var systemviewPages = map[string]string{
+	"home":      "home",
 	"history":   "history",
 	"favorites": "favorites",
 	"config":    "config",
@@ -17,6 +18,7 @@ var systemviewPages = map[string]string{
 // systemviewTitles are the stable titles of dumb:// pages, used for their
 // history entries (the live page title carries changing counts).
 var systemviewTitles = map[string]string{
+	"home":      "Home",
 	"history":   "History",
 	"favorites": "Favorites",
 	"config":    "Settings",

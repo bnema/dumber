@@ -24,7 +24,7 @@ func TestRenderAppFrame_ReturnsFragment(t *testing.T) {
 	assert.NotContains(t, out, "<body")
 
 	// Root div carries theme class.
-	assert.Contains(t, out, `class="sv-app sv-style-command sv-dark"`)
+	assert.Contains(t, out, `class="sv-app sv-style-command sv-dark sv-route-history"`)
 
 	// Route and document title are on the root element.
 	assert.Contains(t, out, `data-route="history"`)
@@ -51,7 +51,7 @@ func TestRenderAppFrame_DefaultThemeClass(t *testing.T) {
 	// Empty theme — should still get sv-app with sv-dark default.
 	out := renderAppFrame(page, shellTheme{})
 
-	assert.Contains(t, out, `class="sv-app sv-style-command sv-dark"`)
+	assert.Contains(t, out, `class="sv-app sv-style-command sv-dark sv-route-favorites"`)
 	assert.Contains(t, out, `data-route="favorites"`)
 	assert.Contains(t, out, `data-page-title="Favorites"`)
 }
@@ -88,7 +88,7 @@ func TestRenderAppFrame_InlineVarsApplied(t *testing.T) {
 	out := renderAppFrame(page, theme)
 
 	assert.Contains(t, out, `style="--sv-background: #fff;"`)
-	assert.Contains(t, out, `class="sv-app sv-style-command sv-light"`)
+	assert.Contains(t, out, `class="sv-app sv-style-command sv-light sv-route-config"`)
 }
 
 func TestLinkHTMLSanitizesHref(t *testing.T) {

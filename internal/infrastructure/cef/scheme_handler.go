@@ -30,6 +30,7 @@ import (
 
 // Scheme path constants matching WebKit's naming.
 const (
+	homePath                    = "home"
 	historyPath                 = "history"
 	favoritesPath               = "favorites"
 	configPath                  = "config"
@@ -52,6 +53,7 @@ var (
 
 // pageRootFiles maps internal page hosts/paths to their HTML entry points.
 var pageRootFiles = map[string]string{
+	homePath:      indexHTML,
 	historyPath:   indexHTML,
 	favoritesPath: indexHTML,
 	configPath:    indexHTML,
@@ -900,7 +902,7 @@ func resolveActualAssetPath(u *url.URL) (assetDir, relPath string, ok bool) {
 
 func assetDirForPageHost(host string) string {
 	switch host {
-	case historyPath, favoritesPath, configPath, errorPath:
+	case homePath, historyPath, favoritesPath, configPath, errorPath:
 		return systemviewsAssetDir
 	default:
 		return ""
