@@ -322,6 +322,19 @@ func normalizeNativeSuccessResponse(requestID string, payload []byte) ([]byte, e
 
 func normalizeNativeErrorResponse(requestID string, payload []byte) ([]byte, error) {
 	trimmed := bytes.TrimSpace(payload)
+	// Asynchronous native handlers answer {requestId, error} so responses
+	// can be matched by id when they complete out of order.
+	if len(trimmed) > 0 && trimmed[0] == '{' {
+		var resp bridgeResponse
+		if err := json.Unmarshal(trimmed, &resp); err == nil && resp.Error != "" {
+			if resp.RequestID == "" {
+				resp.RequestID = requestID
+			}
+			resp.Success = false
+			resp.Data = nil
+			return json.Marshal(resp)
+		}
+	}
 	var message string
 	if len(trimmed) == 0 {
 		message = "bridge request failed"

@@ -11,7 +11,6 @@ import (
 	"fmt"
 	"html"
 	"io/fs"
-	"maps"
 	"net/http"
 	"net/url"
 	"strings"
@@ -301,11 +300,23 @@ func (h *dumbSchemeHandler) handleMessageAPI(request purecef.Request) purecef.Re
 	if body == nil {
 		return h.newAPIJSONResourceHandler(http.StatusBadRequest, map[string]string{"error": "empty body"})
 	}
-	resp, err := h.messageRouter.HandleMessage(h.ctx, 0, body)
-	if err != nil {
-		return h.newAPIJSONResourceHandler(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	if webutil.IsInlineBridgeMessage(bridgeMessageType(body)) {
+		resp, err := h.messageRouter.HandleMessage(h.ctx, 0, body)
+		if err != nil {
+			return h.newAPIJSONResourceHandler(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		}
+		return h.newAPIRawResourceHandler(http.StatusOK, "application/json", resp)
 	}
-	return h.newAPIRawResourceHandler(http.StatusOK, "application/json", resp)
+	// Dispatch off the IO thread: handlers may block on remote services.
+	router := h.messageRouter
+	return newAsyncResponseResourceHandler(h.ctx, func(ctx context.Context) asyncResponse {
+		resp, err := router.HandleMessage(ctx, 0, body)
+		if err != nil {
+			data, _ := json.Marshal(map[string]string{"error": err.Error()})
+			return apiAsyncResponse(http.StatusInternalServerError, data)
+		}
+		return apiAsyncResponse(http.StatusOK, resp)
+	})
 }
 
 func (h *dumbSchemeHandler) rejectForbiddenAPIOrigin(request purecef.Request) purecef.ResourceHandler {
@@ -994,7 +1005,7 @@ type staticResourceHandler struct {
 	offset      int
 }
 
-func apiResponseHeaders(extra map[string]string) map[string]string {
+func apiResponseHeaders() map[string]string {
 	headers := map[string]string{
 		"Access-Control-Allow-Origin":  "*",
 		"Access-Control-Allow-Methods": "GET, POST, OPTIONS",
@@ -1007,7 +1018,6 @@ func apiResponseHeaders(extra map[string]string) map[string]string {
 		"Access-Control-Max-Age": "86400",
 		"Cache-Control":          "no-store",
 	}
-	maps.Copy(headers, extra)
 	return headers
 }
 
@@ -1025,7 +1035,7 @@ func (h *dumbSchemeHandler) newRawResourceHandler(status int, contentType string
 }
 
 func (h *dumbSchemeHandler) newAPIRawResourceHandler(status int, contentType string, data []byte) purecef.ResourceHandler {
-	return newStaticResourceHandler(status, contentType, data, apiResponseHeaders(nil))
+	return newStaticResourceHandler(status, contentType, data, apiResponseHeaders())
 }
 
 func (h *dumbSchemeHandler) newPrivateAPIRawResourceHandler(status int, contentType string, data []byte) purecef.ResourceHandler {
@@ -1115,6 +1125,7 @@ type faviconResourceHandler struct {
 	cancel      context.CancelFunc
 	cancelOnce  sync.Once
 	resolve     func(context.Context) ([]byte, string, error)
+	produce     func(context.Context) asyncResponse
 	notFound    []byte
 	headers     map[string]string
 	once        sync.Once
@@ -1128,6 +1139,11 @@ type faviconResourceHandler struct {
 func (rh *faviconResourceHandler) load() {
 	defer close(rh.done)
 	defer rh.cancelRequest()
+	if rh.produce != nil {
+		r := safeProduce(rh.ctx, rh.produce)
+		rh.statusCode, rh.contentType, rh.data, rh.headers = r.status, r.contentType, r.data, r.headers
+		return
+	}
 	rh.statusCode = http.StatusNotFound
 	rh.contentType = "application/json"
 	rh.data = rh.notFound

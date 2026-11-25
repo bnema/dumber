@@ -46,6 +46,11 @@ type MessageRouter struct {
 
 	idMu      sync.Mutex
 	syncedIDs map[WebViewID]bool
+
+	// Seams for asynchronous dispatch; tests replace them.
+	goAsync func(func())
+	onMain  func(func())
+	respond func(ctx context.Context, webviewID WebViewID, callback, world string, payload any) error
 }
 
 // NewMessageRouter creates a new message router.
@@ -54,11 +59,15 @@ func NewMessageRouter(ctx context.Context) *MessageRouter {
 		ctx = context.Background()
 	}
 
-	return &MessageRouter{
+	r := &MessageRouter{
 		handlers:  make(map[string]handlerEntry),
 		baseCtx:   ctx,
 		syncedIDs: make(map[WebViewID]bool),
+		goAsync:   func(f func()) { go f() },
+		onMain:    runOnGTKMain,
 	}
+	r.respond = r.dispatchResponse
+	return r
 }
 
 // SetBaseContext updates the base context used for logging and handler execution.
@@ -244,26 +253,7 @@ func (r *MessageRouter) handleScriptMessage(senderUCM webkit.UserContentManager,
 		Str("callback", entry.callback).
 		Msg("received script message, dispatching to handler")
 
-	resp, err := entry.handler.Handle(baseCtx, WebViewID(msg.WebViewID), msg.Payload)
-	log.Debug().Str("type", msg.Type).Err(err).Msg("handler execution completed")
-	if err != nil {
-		log.Error().Err(err).Str("type", msg.Type).Msg("message handler returned error")
-		if entry.errorCallback != "" {
-			if respErr := r.dispatchResponse(baseCtx, WebViewID(msg.WebViewID), entry.errorCallback, entry.world, err.Error()); respErr != nil {
-				log.Warn().Err(respErr).Msg("failed to dispatch error callback")
-			}
-		}
-		return
-	}
-
-	if entry.callback != "" {
-		if err := r.dispatchResponse(baseCtx, WebViewID(msg.WebViewID), entry.callback, entry.world, resp); err != nil {
-			log.Warn().Err(err).
-				Str("callback", entry.callback).
-				Uint64("webview_id", msg.WebViewID).
-				Msg("failed to dispatch callback response")
-		}
-	}
+	r.runHandler(baseCtx, entry, msg)
 }
 
 func decodeScriptMessage(valuePtr uintptr, log zerolog.Logger) (Message, string, bool) {
