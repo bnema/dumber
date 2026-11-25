@@ -24,7 +24,10 @@ type Manager struct {
 	config       *Config
 	viper        *viper.Viper
 	automaticEnv automaticEnvConfig
-	mu           sync.RWMutex
+	// envTables hides table env names from AutomaticEnv; nil when the viper
+	// instance was not created by newConfigViper.
+	envTables *tableSafeEnvReplacer
+	mu        sync.RWMutex
 	callbacks    []func(*Config)
 	watching     bool
 	fileWatcher  *filewatch.Watcher
@@ -48,9 +51,10 @@ type automaticEnvConfig struct {
 
 // NewManager creates a new configuration manager.
 func NewManager() (*Manager, error) {
-	v := viper.New()
+	v, envTables := newConfigViper()
 	m := &Manager{
 		viper:     v,
+		envTables: envTables,
 		callbacks: make([]func(*Config), 0),
 	}
 
@@ -105,6 +109,7 @@ func (m *Manager) Load() error {
 	}
 
 	m.setDefaults()
+	m.refreshEnvTables()
 
 	if err := m.readConfigFile(); err != nil {
 		return err
@@ -118,6 +123,7 @@ func (m *Manager) Load() error {
 	if parseErr := m.viper.ReadConfig(bytes.NewReader(content)); parseErr != nil {
 		return fmt.Errorf("failed to parse config file: %w", parseErr)
 	}
+	m.refreshEnvTables()
 
 	if err := m.checkLegacyFormat(); err != nil {
 		return err
@@ -182,6 +188,7 @@ func (m *Manager) readConfigFile() error {
 // clears, so a later reload would keep returning the values of the first read
 // instead of the file contents.
 func (m *Manager) transformedSettings() (*viper.Viper, error) {
+	m.refreshEnvTables()
 	legacyPopupsInConfig := m.viper.InConfig("workspace.popups")
 
 	rawConfig := m.viper.AllSettings()
@@ -216,7 +223,9 @@ func (m *Manager) configureAutomaticEnv() {
 	}
 	replacer := strings.NewReplacer(".", "_")
 	m.viper.SetEnvPrefix("DUMBER")
-	m.viper.SetEnvKeyReplacer(replacer)
+	if m.envTables == nil {
+		m.viper.SetEnvKeyReplacer(replacer)
+	}
 	m.viper.AutomaticEnv()
 	m.automaticEnv = automaticEnvConfig{
 		enabled:     true,
