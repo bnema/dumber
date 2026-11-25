@@ -36,6 +36,11 @@ type browserDOM struct {
 	homeConfig homeSearchConfig
 	// homeView is the last applied Home search view.
 	homeView homeSearchView
+	// The Home overflow observers (see setupHomeOverflowObserver).
+	homeOverflowResize     js.Value
+	homeOverflowResizeFn   js.Func
+	homeOverflowMutation   js.Value
+	homeOverflowMutationFn js.Func
 	// homeQuery is the last typed Home search query, restored after a
 	// remount.
 	homeQuery     string
@@ -1029,6 +1034,7 @@ func (d *browserDOM) Release() {
 		return
 	}
 	d.disconnectHistoryObserver()
+	d.releaseHomeOverflowObserver()
 	d.cleanupActiveConfirmDialog()
 	d.stopLiveSearch()
 	d.stopHomeSuggest()

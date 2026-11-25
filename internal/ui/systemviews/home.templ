@@ -249,8 +249,10 @@ templ homeRowLink(row homeRow, suggestion bool) {
 				<img src={ templ.SafeURL(favicon) } alt="" width="16" height="16" loading="lazy" decoding="async" referrerpolicy="same-origin" data-sv-img-fallback={ "sv-history-favicon-has-image" }/>
 			}
 		</span>
-		<span class="sv-home-row-title">{ homeRowLabel(row) }</span>
-		<span class="sv-home-row-url">{ stripURLScheme(row.URL) }</span>
+		<span class="sv-home-row-text">
+			<span class="sv-home-row-title">{ homeRowLabel(row) }</span>
+			<span class="sv-home-row-url">{ stripURLScheme(row.URL) }</span>
+		</span>
 	</a>
 }
 

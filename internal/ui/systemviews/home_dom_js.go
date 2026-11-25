@@ -32,6 +32,7 @@ func (d *browserDOM) bindHomeEvents(handler DOMActionHandler) {
 		d.bindHomeChangeEvent(handler)
 	}
 	d.bindHomeImageAndInputEvents(handler)
+	d.setupHomeOverflowObserver()
 }
 
 // bindHomeChangeEvent forwards home.toml change notifications. Only the home
@@ -548,4 +549,80 @@ func (d *browserDOM) ReapplyHomeSearch() {
 		input.Set("value", d.homeQuery)
 	}
 	d.applyHomeSearch(input)
+}
+
+// homeOverflowSelector lists the Home texts that fade out when truncated.
+const homeOverflowSelector = ".sv-home-row-title, .sv-home-row-url, " +
+	".sv-home-service-name, .sv-home-service-description, .sv-home-search-hint b, .sv-home-svc-cell"
+
+// setupHomeOverflowObserver marks truncated Home texts with
+// data-sv-overflow, so CSS fades only those. One ResizeObserver checks a
+// text whenever its box changes (column resize, search filter showing it
+// again); one MutationObserver hands it every matching text added by a
+// mount, region swap or insert, whatever path or timing added it.
+func (d *browserDOM) setupHomeOverflowObserver() {
+	if d.homeOverflowResize.Truthy() || !d.target.Truthy() {
+		return
+	}
+	resizeObserver := js.Global().Get("ResizeObserver")
+	mutationObserver := js.Global().Get("MutationObserver")
+	if !resizeObserver.Truthy() || !mutationObserver.Truthy() {
+		return
+	}
+	d.homeOverflowResizeFn = js.FuncOf(func(_ js.Value, args []js.Value) any {
+		entries := firstJSArg(args)
+		for i := 0; i < entries.Get("length").Int(); i++ {
+			markHomeOverflow(entries.Index(i).Get("target"))
+		}
+		return nil
+	})
+	d.homeOverflowResize = resizeObserver.New(d.homeOverflowResizeFn)
+	d.homeOverflowMutationFn = js.FuncOf(func(_ js.Value, args []js.Value) any {
+		records := firstJSArg(args)
+		for i := 0; i < records.Get("length").Int(); i++ {
+			added := records.Index(i).Get("addedNodes")
+			for j := 0; j < added.Get("length").Int(); j++ {
+				d.observeHomeOverflow(added.Index(j))
+			}
+		}
+		return nil
+	})
+	d.homeOverflowMutation = mutationObserver.New(d.homeOverflowMutationFn)
+	d.homeOverflowMutation.Call("observe", d.target, map[string]any{"childList": true, "subtree": true})
+	d.observeHomeOverflow(d.target)
+}
+
+// observeHomeOverflow observes node and its descendants that match
+// homeOverflowSelector. Observing twice is a no-op.
+func (d *browserDOM) observeHomeOverflow(node js.Value) {
+	if node.Get("nodeType").Int() != 1 {
+		return
+	}
+	if node.Call("matches", homeOverflowSelector).Bool() {
+		d.homeOverflowResize.Call("observe", node)
+	}
+	matches := node.Call("querySelectorAll", homeOverflowSelector)
+	for i := 0; i < matches.Get("length").Int(); i++ {
+		d.homeOverflowResize.Call("observe", matches.Index(i))
+	}
+}
+
+// markHomeOverflow sets data-sv-overflow on el while its text is cut.
+func markHomeOverflow(el js.Value) {
+	setBoolAttribute(el, "data-sv-overflow", el.Get("scrollWidth").Int() > el.Get("clientWidth").Int())
+}
+
+// releaseHomeOverflowObserver disconnects the observers and frees their
+// callbacks.
+func (d *browserDOM) releaseHomeOverflowObserver() {
+	if d.homeOverflowMutation.Truthy() {
+		d.homeOverflowMutation.Call("disconnect")
+		d.homeOverflowMutation = js.Value{}
+		d.homeOverflowMutationFn.Release()
+	}
+	if d.homeOverflowResize.Truthy() {
+		d.homeOverflowResize.Call("disconnect")
+		d.homeOverflowResize = js.Value{}
+		d.homeOverflowResizeFn.Release()
+	}
 }
