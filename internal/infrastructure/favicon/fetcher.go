@@ -34,12 +34,64 @@ type Fetcher struct {
 	client        *http.Client
 	duckDuckGoURL string
 	maxBytes      int64
+	// envProxy and lookupIP are test seams for proxyFunc.
+	envProxy func(*http.Request) (*url.URL, error)
+	lookupIP func(ctx context.Context, host string) ([]net.IP, error)
+}
+
+func defaultLookupIP(ctx context.Context, host string) ([]net.IP, error) {
+	return net.DefaultResolver.LookupIP(ctx, "ip", host)
+}
+
+// proxyFunc keeps the environment proxy but refuses private targets first.
+// With a proxy, safeDialContext only sees the proxy's address, so the SSRF
+// rule must be checked here against the real target host.
+func (f *Fetcher) proxyFunc(req *http.Request) (*url.URL, error) {
+	envProxy := f.envProxy
+	if envProxy == nil {
+		envProxy = http.ProxyFromEnvironment
+	}
+	proxyURL, err := envProxy(req)
+	if err != nil || proxyURL == nil {
+		return proxyURL, err
+	}
+	if !f.proxyTargetAllowed(req.Context(), req.URL) {
+		return nil, fmt.Errorf("favicon target %s resolves to a private address", req.URL.Hostname())
+	}
+	return proxyURL, nil
+}
+
+func (f *Fetcher) proxyTargetAllowed(ctx context.Context, target *url.URL) bool {
+	allowed, _ := ctx.Value(allowedLocalOriginKey).(string)
+	if allowed != "" && strings.EqualFold(allowed, normalizeOriginHostPort(target.Hostname(), target.Port(), target.Scheme)) {
+		return true
+	}
+	host := target.Hostname()
+	if isLocalhost(host) {
+		return false
+	}
+	lookup := f.lookupIP
+	if lookup == nil {
+		lookup = defaultLookupIP
+	}
+	ips, err := lookup(ctx, host)
+	if err != nil || len(ips) == 0 {
+		return false
+	}
+	for _, ip := range ips {
+		addr, ok := netip.AddrFromSlice(ip)
+		if !ok || isPrivateAddr(addr) {
+			return false
+		}
+	}
+	return true
 }
 
 func NewFetcher() *Fetcher {
 	f := &Fetcher{duckDuckGoURL: duckduckgoFaviconURL, maxBytes: maxFaviconBytes}
 	transport := http.DefaultTransport.(*http.Transport).Clone()
 	transport.DialContext = f.safeDialContext
+	transport.Proxy = f.proxyFunc
 	f.client = &http.Client{Timeout: fetchTimeout, Transport: transport, CheckRedirect: f.checkRedirect}
 	return f
 }
@@ -64,6 +116,7 @@ func (f *Fetcher) safeTransport(base http.RoundTripper) http.RoundTripper {
 	}
 	clone := transport.Clone()
 	clone.DialContext = f.safeDialContext
+	clone.Proxy = f.proxyFunc
 	return clone
 }
 
