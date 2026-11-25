@@ -207,6 +207,9 @@ type WebView struct {
 	frontendAttached         atomic.Bool
 	navigationActive         atomic.Bool
 	editableFocusBridgeToken string
+	// systemviewBridgeToken authenticates script messages from the top frame
+	// of trusted dumb:// pages. It is injected only into that frame.
+	systemviewBridgeToken string
 
 	// asyncCallbacks keeps references to async JS callbacks to prevent GC
 	asyncCallbacks []any
@@ -378,6 +381,7 @@ func NewWebView(ctx context.Context, wkCtx *WebKitContext, settings *SettingsMan
 		signalIDs:                make([]uintptr, 0, 4),
 		runJSErrorStats:          make(map[string]runJSErrorStat),
 		editableFocusBridgeToken: newEditableFocusBridgeToken(),
+		systemviewBridgeToken:    newEditableFocusBridgeToken(),
 	}
 
 	// Register in global registry
@@ -430,6 +434,7 @@ func NewWebViewWithRelated(ctx context.Context, parent *WebView, settings *Setti
 		signalIDs:                make([]uintptr, 0, 6),
 		runJSErrorStats:          make(map[string]runJSErrorStat),
 		editableFocusBridgeToken: newEditableFocusBridgeToken(),
+		systemviewBridgeToken:    newEditableFocusBridgeToken(),
 	}
 
 	wv.id = globalRegistry.register(wv)
@@ -2100,6 +2105,7 @@ func (wv *WebView) ResetForPoolReuse() {
 	}
 	wv.generation.Add(1)
 	wv.setEditableFocusBridgeToken(newEditableFocusBridgeToken())
+	wv.setSystemviewBridgeToken(newEditableFocusBridgeToken())
 
 	// Disconnect GLib signals to prevent stale callbacks from firing on reused WebView.
 	// They will be reconnected when the WebView is re-acquired from the pool.

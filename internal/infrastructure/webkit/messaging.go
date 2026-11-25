@@ -188,7 +188,7 @@ func (r *MessageRouter) handleScriptMessage(senderUCM webkit.UserContentManager,
 
 	log.Debug().Uint64("value_ptr", uint64(valuePtr)).Msg("handleScriptMessage entry")
 
-	msg, ok := decodeScriptMessage(valuePtr, log)
+	msg, bridgeToken, ok := decodeScriptMessage(valuePtr, log)
 	if !ok {
 		return
 	}
@@ -207,6 +207,13 @@ func (r *MessageRouter) handleScriptMessage(senderUCM webkit.UserContentManager,
 			Uint64("sender_webview_id", uint64(senderWV.ID())).
 			Str("uri", senderWV.URI()).
 			Msg("rejecting script message from untrusted page")
+		return
+	}
+	if !allowsSystemviewBridgeMessage(senderWV.URI(), senderWV.SystemviewBridgeToken(), bridgeToken) {
+		log.Warn().
+			Str("type", msg.Type).
+			Uint64("sender_webview_id", uint64(senderWV.ID())).
+			Msg("rejecting script message without a valid bridge token (embedded frame?)")
 		return
 	}
 
@@ -259,16 +266,16 @@ func (r *MessageRouter) handleScriptMessage(senderUCM webkit.UserContentManager,
 	}
 }
 
-func decodeScriptMessage(valuePtr uintptr, log zerolog.Logger) (Message, bool) {
+func decodeScriptMessage(valuePtr uintptr, log zerolog.Logger) (Message, string, bool) {
 	if valuePtr == 0 {
 		log.Warn().Msg("received script message with nil value pointer")
-		return Message{}, false
+		return Message{}, "", false
 	}
 
 	jscValue := javascriptcore.ValueNewFromInternalPtr(valuePtr)
 	if jscValue == nil {
 		log.Warn().Msg("failed to wrap script message JSC value")
-		return Message{}, false
+		return Message{}, "", false
 	}
 
 	rawJSON := jscValue.ToJson(0)
@@ -277,15 +284,15 @@ func decodeScriptMessage(valuePtr uintptr, log zerolog.Logger) (Message, bool) {
 		log.Error().
 			Msg("script message JSON serialization failed (ToJson returned empty) - " +
 				"this usually means JS sent non-serializable values like Proxy objects")
-		return Message{}, false
+		return Message{}, "", false
 	}
 
-	var msg Message
-	if err := json.Unmarshal([]byte(rawJSON), &msg); err != nil {
+	msg, token, err := parseScriptMessageJSON([]byte(rawJSON))
+	if err != nil {
 		log.Warn().Err(err).Int("json_len", len(rawJSON)).Msg("failed to unmarshal script message")
-		return Message{}, false
+		return Message{}, "", false
 	}
-	return msg, true
+	return msg, token, true
 }
 
 // handleAllowlistedBridgeMessage handles the one narrow page-origin hint that

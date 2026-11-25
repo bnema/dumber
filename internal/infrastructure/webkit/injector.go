@@ -391,6 +391,25 @@ func (ci *ContentInjector) InjectScripts(ctx context.Context, ucm *webkit.UserCo
 
 	prefersDark := ci.PrefersDark()
 
+	// 0. Authenticate the dumb:// top frame on the message bridge. Added first
+	// so it wraps postMessage before any other script or page code runs.
+	if wv := LookupWebView(webviewID); wv != nil && wv.SystemviewBridgeToken() != "" {
+		addScript(
+			webkit.NewUserScript(
+				buildSystemviewBridgeTokenScript(wv.SystemviewBridgeToken()),
+				webkit.UserContentInjectTopFrameValue,
+				webkit.UserScriptInjectAtDocumentStartValue,
+				internalPageAllowList,
+				nil,
+			),
+			"systemview-bridge-token",
+		)
+	} else {
+		log.Error().
+			Uint64("webview_id", uint64(webviewID)).
+			Msg("skipping system view bridge token script; trusted page messages will be rejected")
+	}
+
 	// 1. Inject WebRTC compatibility aliases for all pages.
 	addScript(
 		webkit.NewUserScript(

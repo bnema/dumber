@@ -151,7 +151,9 @@ func (h *dumbSchemeHandler) setFaviconResolver(resolver port.FaviconSystemviewRe
 
 // Create implements purecef.SchemeHandlerFactory. Called on the CEF IO thread
 // for requests to either dumb:// or the internal https origin.
-func (h *dumbSchemeHandler) Create(browser purecef.Browser, _ purecef.Frame, _ string, request purecef.Request) purecef.ResourceHandler {
+func (h *dumbSchemeHandler) Create(
+	browser purecef.Browser, frame purecef.Frame, _ string, request purecef.Request,
+) purecef.ResourceHandler {
 	reqURL := request.GetURL()
 	method := request.GetMethod()
 
@@ -177,6 +179,9 @@ func (h *dumbSchemeHandler) Create(browser purecef.Browser, _ purecef.Frame, _ s
 	// those requests to https://dumber.invalid makes site connect-src policies
 	// block them.
 	if apiPath, ok := resolveAPIPath(u); ok {
+		if denied := h.rejectSubframeSystemviewAPI(frame, apiPath); denied != nil {
+			return denied
+		}
 		return h.handleAPI(browser, method, apiPath, request)
 	}
 
