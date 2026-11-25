@@ -1,6 +1,6 @@
 # Home page
 
-`dumb://home` is Dumber's start page. It shows built-in widgets (search, clock, favorites, top sites, recent history), bookmark groups and service cards for your own services. Service cards can have a live API widget, an embedded panel and action buttons.
+`dumb://home` is Dumber's start page. It shows built-in widgets (search, clock, favorites, top sites, recent history), bookmark groups and service rows for your own services. Each group is a column of rows. A service row can show a live API widget, an embedded panel and action buttons.
 
 ## Files
 
@@ -28,7 +28,7 @@ Unknown keys are errors. Text values are trimmed.
 | Key | Type | Default | Rules |
 |-----|------|---------|-------|
 | `title` | string | `"Home"` | Empty means the default |
-| `columns` | int | `3` | `1`-`6` |
+| `columns` | int | `3` | `1`-`6`. Maximum number of group columns. A column is at least 19rem wide, so the 64rem page fits at most 3 |
 
 ### `[[widgets]]`
 
@@ -55,7 +55,7 @@ Built-in widgets, shown at the top in file order. Without `home.toml` the defaul
 | `groups.name` | string | Required |
 | `id` | string | Required, `[a-z0-9_-]{1,64}`, unique across all groups |
 | `name` | string | Required |
-| `url` | string | Optional, `http(s)://`; the card links to it |
+| `url` | string | Optional, `http(s)://`; the row links to it |
 | `description` | string | Optional |
 | `icon` | string | Optional path relative to `~/.config/dumber/`, no `..`, extension `.svg`, `.png`, `.ico` or `.webp`. Without it, the icon is discovered from `url`. |
 
@@ -130,7 +130,7 @@ fields = [ { label = "Job", path = "name" }, { label = "Done", path = "progress"
 - Kept: basic text, list, table and layout tags (`div`, `span`, `p`, `strong`, `ul`, `table`, `h1`-`h6`, `progress`, `meter`, ...), `a` and `img` with `http(s)` URLs (and `data:image/*` for images), `class`, `title`, `data-*` attributes and a few inline styles (`color`, `background-color`, `width`, `height`, `display`, ...).
 - Removed: `script`, `style`, `iframe`, forms, `svg`, event handlers, `id`, `name`, `data-sv-*`, and any `javascript:` or `url(...)` value.
 
-A template error shows `template error: ...` on the card. The template is not run again until you edit that widget, or for at least 5 minutes (3 refresh periods for slow widgets). `{{ range }}` over a number (such as `{{ range 10 }}` or `{{ range len .data.x }}`) is rejected; range over arrays from `.data` instead. `{{ define }}`, `{{ block }}` and `{{ template }}` are not allowed. Arrays in `.data` are cut to their first 500 items, objects to their first 500 keys in sorted order, and ranges cannot nest more than 2 deep.
+A template error shows `template error: ...` on the row. The template is not run again until you edit that widget, or for at least 5 minutes (3 refresh periods for slow widgets). `{{ range }}` over a number (such as `{{ range 10 }}` or `{{ range len .data.x }}`) is rejected; range over arrays from `.data` instead. `{{ define }}`, `{{ block }}` and `{{ template }}` are not allowed. Arrays in `.data` are cut to their first 500 items, objects to their first 500 keys in sorted order, and ranges cannot nest more than 2 deep.
 
 ```toml
 [groups.services.widget]
@@ -157,7 +157,7 @@ template = """
 
 ## Actions
 
-Each action is a button on the service card. With `confirm`, the page asks for confirmation first. The browser process sends the request and the page only shows whether it succeeded. Only one request per action runs at a time.
+Each action is a button on the service row, shown on hover, keyboard focus or selection. With `confirm`, the page asks for confirmation first. The browser process sends the request and the page only shows whether it succeeded. Only one request per action runs at a time.
 
 **Inputs** ask the user for values before sending. Each input is `{ name, label, placeholder }`. `name` matches `[A-Za-z_][A-Za-z0-9_]{0,63}` and is unique per action, `label` is required and `placeholder` is optional. Use `{{input.NAME}}` in two places only:
 
@@ -176,11 +176,11 @@ inputs = [ { name = "query", label = "Title", placeholder = "Movie title" } ]
 
 ## Service icons
 
-Each service card shows a 128px icon:
+Each service row shows an icon, fetched at 128px:
 
 1. `icon`, a local file relative to `~/.config/dumber/` (`.svg`, `.png`, `.ico`, `.webp`).
 2. Otherwise Dumber reads the page at `url` and picks the best candidate: SVG icon, then web app manifest icons, then `apple-touch-icon`, then the favicon (`/favicon.ico` last).
-3. When nothing works, the card shows the first letter of the service name.
+3. When nothing works, the row shows the first letter of the service name.
 
 Discovery runs in the browser process. On private and LAN addresses it only follows the service's own host and port, so links, manifests and redirects cannot send it to other machines on your network.
 
@@ -211,21 +211,24 @@ Discovery runs in the browser process. On private and LAN addresses it only foll
 
 | Part | Classes |
 |------|---------|
-| Page | `sv-home`, `sv-home-region` (`sv-home-region-groups` for the service area), `sv-home-header`, `sv-home-title`, `sv-home-open-config`, `sv-home-section-title`, `sv-home-muted` |
-| Widgets | `sv-home-widget`, `sv-home-widget-<type>`, `sv-home-clock`, `sv-home-clock-time`, `sv-home-clock-date`, `sv-home-search`, `sv-home-search-input`, `sv-home-suggestions`, `sv-home-suggestion`, `sv-home-rows`, `sv-home-row`, `sv-home-row-title`, `sv-home-row-url`, `sv-home-loading`, `sv-home-skeleton` |
+| Page | `sv-home`, `sv-home-region` (`sv-home-region-groups` for the service area), `sv-home-header`, `sv-home-title`, `sv-home-ghost`, `sv-home-open-config`, `sv-home-status-summary`, `sv-home-section-title`, `sv-home-muted` |
+| Widgets | `sv-home-widget`, `sv-home-widget-<type>`, `sv-home-clock`, `sv-home-clock-date`, `sv-home-clock-sep`, `sv-home-clock-time`, `sv-home-search`, `sv-home-search-input`, `sv-home-suggestions`, `sv-home-suggestion`, `sv-home-rows`, `sv-home-row`, `sv-home-row-title`, `sv-home-row-url`, `sv-home-loading`, `sv-home-skeleton` |
 | Bookmarks | `sv-home-bookmarks`, `sv-home-bookmark-group` |
-| Services | `sv-home-groups`, `sv-home-group`, `sv-home-grid`, `sv-home-service`, `sv-home-service-tile`, `sv-home-service-link`, `sv-home-service-icon`, `sv-home-service-icon-has-image`, `sv-home-service-glyph`, `sv-home-service-text`, `sv-home-service-name`, `sv-home-service-description`, `sv-home-service-widget`, `sv-home-service-actions`, `sv-home-service-embed`, `sv-home-embed` |
-| API widget | `sv-home-svc`, `sv-home-svc-display-<display>`, `sv-home-svc-loading`, `sv-home-svc-stale`, `sv-home-svc-stale-badge`, `sv-home-svc-error`, `sv-home-svc-stats`, `sv-home-svc-chip`, `sv-home-svc-label`, `sv-home-svc-value`, `sv-home-svc-list`, `sv-home-svc-row`, `sv-home-svc-cell`, `sv-home-svc-bars`, `sv-home-svc-bar`, `sv-home-svc-track`, `sv-home-svc-fill`, `sv-home-svc-html` |
+| Services | `sv-home-groups`, `sv-home-group`, `sv-home-group-head`, `sv-home-group-count`, `sv-home-grid`, `sv-home-service`, `sv-home-service-tile`, `sv-home-service-link`, `sv-home-service-icon`, `sv-home-service-icon-has-image`, `sv-home-service-glyph`, `sv-home-service-text`, `sv-home-service-name`, `sv-home-service-description`, `sv-home-service-widget`, `sv-home-service-actions`, `sv-home-service-status`, `sv-home-service-embed`, `sv-home-embed` |
+| API widget | `sv-home-svc`, `sv-home-svc-display-<display>`, `sv-home-svc-loading`, `sv-home-svc-stale`, `sv-home-svc-stale-badge`, `sv-home-svc-inline`, `sv-home-svc-error`, `sv-home-svc-stats`, `sv-home-svc-field-pair`, `sv-home-svc-label`, `sv-home-svc-value`, `sv-home-svc-list`, `sv-home-svc-row`, `sv-home-svc-cell`, `sv-home-svc-bars`, `sv-home-svc-bar`, `sv-home-svc-track`, `sv-home-svc-fill`, `sv-home-svc-html` |
 | Actions | `sv-home-svc-actions`, `sv-home-svc-action`, `sv-home-svc-field`, `sv-home-svc-confirm`, `sv-home-svc-confirm-text`, `sv-home-svc-form`, `sv-home-svc-form-buttons` |
 | Errors | `sv-home-errors`, `sv-home-errors-title`, `sv-home-error-list`, `sv-home-error`, `sv-home-error-path` |
 
-Layout variables: `--sv-home-columns` (from `settings.columns`) on `sv-home-groups`, and `--sv-home-bar` (fill percent) on each `sv-home-svc-bar`.
+Row states: `[data-sv-home-selected]` tints a `sv-home-service` row and `[data-sv-home-hidden]` hides it; a group whose rows are all hidden hides too.
+
+Layout variables: `--sv-home-columns` (maximum group columns, from `settings.columns`) on `sv-home-groups`, and `--sv-home-bar` (fill percent) on each `sv-home-svc-bar`.
 
 Example:
 
 ```css
 :root { --sv-accent: #8aadf4; }
 .sv-route-home .sv-home-service { border-radius: 4px; }
+.sv-route-home .sv-home-service-description { display: none; }
 ```
 
 ## Examples
