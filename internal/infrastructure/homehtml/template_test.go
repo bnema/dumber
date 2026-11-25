@@ -6,6 +6,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/stretchr/testify/assert"
@@ -40,10 +41,17 @@ func TestRenderTemplate_OutputCap(t *testing.T) {
 
 func TestRenderTemplate_Timeout(t *testing.T) {
 	t.Parallel()
-	// A slow data source stands in for a template that runs too long.
-	slow := slowValue{delay: 200 * time.Millisecond}
-	_, err := renderTemplate(context.Background(), `{{.Value}}`, slow, 20*time.Millisecond)
-	require.ErrorIs(t, err, ErrTemplateTimeout)
+	synctest.Test(t, func(t *testing.T) {
+		// A slow data source stands in for a template that runs too long.
+		// Both the sleep and the timeout run on the bubble's fake clock.
+		slow := slowValue{delay: time.Hour}
+		_, err := renderTemplate(context.Background(), `{{.Value}}`, slow, time.Second)
+		require.ErrorIs(t, err, ErrTemplateTimeout)
+		// The abandoned render goroutine finishes once its sleep ends;
+		// advance the fake clock so the bubble can exit.
+		time.Sleep(slow.delay)
+		synctest.Wait()
+	})
 }
 
 type slowValue struct{ delay time.Duration }
