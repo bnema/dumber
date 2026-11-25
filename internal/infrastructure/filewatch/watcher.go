@@ -68,12 +68,16 @@ func (w *Watcher) Start(ctx context.Context, paths []string, onChange func(path 
 			return nil
 		}
 		done := w.done
-		if err := w.stopLocked(); err != nil {
-			return fmt.Errorf("stop previous file watcher: %w", err)
-		}
+		// stopLocked cancels the run context before closing fsnotify, so
+		// the goroutine exits even when Close fails: wait either way, like
+		// Stop does, then report the error.
+		stopErr := w.stopLocked()
 		w.mu.Unlock()
 		<-done
 		w.mu.Lock()
+		if stopErr != nil {
+			return fmt.Errorf("stop previous file watcher: %w", stopErr)
+		}
 	}
 
 	parents := parentDirs(normalized)
