@@ -36,6 +36,10 @@ type Dependencies struct {
 	ColorResolver        port.ColorSchemeResolver
 	AdwaitaDetector      port.ToolkitAvailabilityNotifier
 
+	// System view user files (user.css, home.toml)
+	SystemViewUserStyle   port.SystemViewUserStyle
+	SystemViewFileWatcher port.SystemViewFileWatcher
+
 	// XDG paths
 	XDG port.XDGPaths
 

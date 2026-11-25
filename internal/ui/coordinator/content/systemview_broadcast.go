@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"maps"
+	"slices"
 	"strings"
 
 	"bnema.dev/dumber/internal/application/port"
@@ -28,7 +29,7 @@ func (c *Coordinator) BroadcastToSystemViews(ctx context.Context, key, script st
 		c.systemViewState = make(map[string]string)
 	}
 	if _, exists := c.systemViewState[key]; !exists {
-		c.systemViewOrder = append(c.systemViewOrder, key)
+		c.systemViewOrder = insertSystemViewKey(c.systemViewOrder, key)
 	}
 	c.systemViewState[key] = script
 	c.appearanceMu.Unlock()
@@ -43,6 +44,7 @@ func (c *Coordinator) BroadcastToSystemViews(ctx context.Context, key, script st
 			log.Debug().Str("pane_id", string(paneID)).Str("key", key).Msg("deferred system view broadcast until load")
 			continue
 		}
+		log.Debug().Str("pane_id", string(paneID)).Str("key", key).Msg("applied system view broadcast")
 		wv.RunJavaScript(ctx, script)
 	}
 }
@@ -86,6 +88,7 @@ func (c *Coordinator) applySystemViewStateOnCommit(ctx context.Context, paneID e
 	if !isLiveSystemView(wv) {
 		return
 	}
+	logging.FromContext(ctx).Debug().Str("pane_id", string(paneID)).Msg("applying system view state on commit")
 	for _, script := range c.systemViewScripts() {
 		wv.RunJavaScript(ctx, script)
 	}
@@ -100,6 +103,28 @@ func (c *Coordinator) applySystemViewStateOnFinish(ctx context.Context, paneID e
 	for _, script := range c.systemViewScripts() {
 		wv.RunJavaScript(ctx, script)
 	}
+}
+
+// systemViewKeyRank orders state keys: the theme first, user CSS last so it
+// overrides everything, other topics in insertion order between them.
+func systemViewKeyRank(key string) int {
+	switch key {
+	case systemViewThemeKey:
+		return 0
+	case systemViewUserCSSKey:
+		return 2
+	default:
+		return 1
+	}
+}
+
+func insertSystemViewKey(order []string, key string) []string {
+	rank := systemViewKeyRank(key)
+	i := len(order)
+	for i > 0 && systemViewKeyRank(order[i-1]) > rank {
+		i--
+	}
+	return slices.Insert(order, i, key)
 }
 
 func (c *Coordinator) systemViewScripts() []string {
