@@ -44,8 +44,9 @@ func needsOnStack(handler uintptr, flags uint64) bool {
 }
 
 // Log reports a repair result. source names the library that installed the
-// handlers (for example "cef" or "webkit"); repairs are logged at level, so
-// expected repairs need not warn.
+// handlers (for example "cef" or "webkit") and prefixes each message, which
+// the stress harness matches; repairs are logged at level, so expected
+// repairs need not warn.
 func Log(logger *zerolog.Logger, source string, res Result, level zerolog.Level, debugWhenClean bool) {
 	if logger == nil {
 		return
@@ -56,12 +57,12 @@ func Log(logger *zerolog.Logger, source string, res Result, level zerolog.Level,
 			Int("signal", r.Signal).
 			Str("signal_name", r.Name).
 			Str("handler", fmt.Sprintf("%#x", r.Handler)).
-			Msg("repaired signal handler missing SA_ONSTACK")
+			Msg(source + ": repaired signal handler missing SA_ONSTACK")
 	}
 	for _, err := range res.Errors {
-		logger.Warn().Str("source", source).Err(err).Msg("signal handler SA_ONSTACK audit failed")
+		logger.Warn().Str("source", source).Err(err).Msg(source + ": signal handler SA_ONSTACK audit failed")
 	}
 	if debugWhenClean && len(res.Repaired) == 0 && len(res.Errors) == 0 {
-		logger.Debug().Str("source", source).Msg("all signal handlers already use SA_ONSTACK")
+		logger.Debug().Str("source", source).Msg(source + ": all signal handlers already use SA_ONSTACK")
 	}
 }
