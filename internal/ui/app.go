@@ -10,6 +10,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"bnema.dev/dumber/internal/application/dto"
@@ -100,6 +101,14 @@ type App struct {
 	nativePopupWindows   map[port.WebViewID]*nativePopupWindow
 	browserWindowFactory func(context.Context, string) (*browserWindow, error)
 	dispatchOnMainThread func(string, func()) syncdispatch.SyncDispatchResult
+	// postOnMainThread queues fn on the GTK main loop and returns at once.
+	postOnMainThread func(label string, fn func())
+
+	// userCSSReadSeq numbers user.css reads; userCSSAppliedSeq (main thread
+	// only) is the newest applied, so an older read never overwrites a
+	// newer one.
+	userCSSReadSeq    atomic.Uint64
+	userCSSAppliedSeq uint64
 
 	// State
 	tabs   *entity.TabList
@@ -209,6 +218,11 @@ func New(deps *Dependencies) (*App, error) {
 				fn()
 			}
 			return syncdispatch.SyncDispatchResult{Label: label, Status: syncdispatch.SyncDispatchInline}
+		},
+		postOnMainThread: func(_ string, fn func()) {
+			if fn != nil {
+				fn()
+			}
 		},
 		engine: deps.Engine,
 		cancel: cancel,
@@ -327,6 +341,7 @@ func (a *App) Run(ctx context.Context, args []string) int {
 	}
 	defer a.gtkApp.Unref()
 	a.dispatchOnMainThread = a.runOnMainThread
+	a.postOnMainThread = postToGTKMainLoop
 
 	// Bounded opt-in residency owns exactly one application hold, taken
 	// only when enabled and released once on every Run exit (including
@@ -4472,7 +4487,7 @@ func (a *App) notifyHomeConfigChanged(ctx context.Context) {
 		logging.FromContext(ctx).Warn().Err(err).Msg("failed to build home changed event")
 		return
 	}
-	a.dispatchOnMainThread("ui.systemview_home_changed", func() {
+	a.postMain("ui.systemview_home_changed", func() {
 		if a.contentCoord != nil {
 			logging.FromContext(ctx).Debug().Msg("notifying system views of home.toml change")
 			a.contentCoord.NotifySystemViews(ctx, script)
@@ -4480,9 +4495,11 @@ func (a *App) notifyHomeConfigChanged(ctx context.Context) {
 	})
 }
 
-// reloadSystemViewUserCSS reads user.css off the main thread, then applies it
-// on the main thread.
+// reloadSystemViewUserCSS reads user.css off the main thread, then posts the
+// apply to the main thread. A read that finishes after a newer one is
+// dropped.
 func (a *App) reloadSystemViewUserCSS(ctx context.Context) {
+	seq := a.userCSSReadSeq.Add(1)
 	css, err := a.deps.SystemViewUserStyle.Read()
 	if err != nil {
 		logging.FromContext(ctx).Warn().Err(err).
@@ -4490,7 +4507,11 @@ func (a *App) reloadSystemViewUserCSS(ctx context.Context) {
 			Msg("failed to read user css")
 		return
 	}
-	a.dispatchOnMainThread("ui.systemview_user_css_reload", func() {
+	a.postMain("ui.systemview_user_css_reload", func() {
+		if seq < a.userCSSAppliedSeq {
+			return
+		}
+		a.userCSSAppliedSeq = seq
 		if a.contentCoord != nil {
 			a.contentCoord.ApplySystemViewUserCSS(ctx, css)
 		}
@@ -4504,7 +4525,7 @@ func (a *App) syncExternalThemeWatcher(ctx context.Context) {
 	log := logging.FromContext(ctx)
 	cfg := a.runtimeConfigSnapshot().UI.Appearance.ExternalTheme
 	if err := a.deps.ExternalThemeWatcher.Start(ctx, cfg, func() {
-		a.dispatchOnMainThread("ui.external_theme_reload", func() {
+		a.postMain("ui.external_theme_reload", func() {
 			a.applyAppearanceConfig(ctx)
 		})
 	}); err != nil {
@@ -4656,4 +4677,25 @@ func (a *App) showFilterStatus(ctx context.Context, status port.FilterStatus) {
 	case port.FilterStateError:
 		a.showToastOnLastFocusedBrowserWindow(ctx, "Filter load failed: "+status.Message, component.ToastError)
 	}
+}
+
+// postToGTKMainLoop queues fn on the GTK main loop without waiting. File
+// watcher callbacks use it: a watcher Stop on the main thread waits for its
+// in-flight callback, which must therefore never wait for the main thread.
+func postToGTKMainLoop(_ string, fn func()) {
+	if fn == nil {
+		return
+	}
+	cb := glib.SourceOnceFunc(func(_ uintptr) { fn() })
+	glib.IdleAddOnce(&cb, 0)
+}
+
+// postMain queues fn on the main thread without waiting. App literals in
+// tests without postOnMainThread run fn inline.
+func (a *App) postMain(label string, fn func()) {
+	if a.postOnMainThread == nil {
+		fn()
+		return
+	}
+	a.postOnMainThread(label, fn)
 }
