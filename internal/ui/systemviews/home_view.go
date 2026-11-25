@@ -46,6 +46,8 @@ type homeWidgetData struct {
 	// Clock fields, computed in the page.
 	Time string
 	Date string
+	// Search is the engine data of the search widget.
+	Search homeSearchConfig
 }
 
 // homeRenderData is everything the home page renders.

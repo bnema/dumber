@@ -2980,28 +2980,38 @@ html:not([data-sv-enhanced]) .sv-home .sv-palette-trigger {
   font-size: 0.8125rem;
 }
 
-/* Search: an omnibox-like field with history suggestions under it. */
+/* Search: an omnibox-like field with the engine chip, a hint line, then
+   history suggestions as rows. */
 .sv-home-search {
-  position: relative;
   display: grid;
+  gap: 0.375rem;
 }
 
-.sv-home .sv-home-search-input {
-  width: 100%;
-  box-sizing: border-box;
-  padding: 0.6875rem 0.875rem;
+.sv-home-search-field {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  padding: 0.4375rem 0.5rem 0.4375rem 0.875rem;
   border: 1px solid var(--sv-border);
   border-radius: 8px;
   background: var(--sv-surface);
-  color: var(--sv-text);
-  font-size: 0.9375rem;
-  box-shadow: none;
   transition: border-color var(--sv-ease);
 }
 
-.sv-home .sv-home-search-input:focus {
+.sv-home-search-field:focus-within {
   border-color: color-mix(in srgb, var(--sv-accent) 55%, var(--sv-border));
+}
+
+.sv-home .sv-home-search-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 0.1875rem 0;
+  border: 0;
   outline: none;
+  background: transparent;
+  color: var(--sv-text);
+  font: inherit;
+  font-size: 0.9375rem;
 }
 
 .sv-home-search-input::placeholder {
@@ -3015,30 +3025,125 @@ html:not([data-sv-enhanced]) .sv-home .sv-palette-trigger {
   display: none;
 }
 
-/* Suggestions float over the page like the omnibox dropdown. */
-.sv-home-suggestions {
-  position: absolute;
-  top: calc(100% + 0.25rem);
-  right: 0;
-  left: 0;
-  z-index: 10;
-  display: grid;
+/* Engine chip: what Enter uses. idle is dimmed, bang is tinted. */
+.sv-home-search-engine {
+  display: inline-flex;
+  flex: 0 0 auto;
+  gap: 0.375rem;
+  align-items: center;
+  padding: 0.1875rem 0.5rem 0.1875rem 0.25rem;
+  border-radius: 999px;
+  color: var(--sv-muted-text);
+  font-size: 0.78125rem;
+  white-space: nowrap;
+  transition: background-color var(--sv-ease), color var(--sv-ease), opacity var(--sv-ease);
+}
+
+.sv-home-search-engine[data-state="idle"] {
+  opacity: 0.55;
+}
+
+.sv-home-search-engine[data-state="bang"] {
+  background: var(--sv-home-selected);
+  color: var(--sv-text);
+}
+
+.sv-home-search-engine-icon {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  width: 1.125rem;
+  height: 1.125rem;
   overflow: hidden;
-  border-radius: 8px;
-  background: var(--sv-surface);
-  box-shadow: var(--sv-float-shadow);
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--sv-accent) 16%, transparent);
+  color: var(--sv-accent);
+  font-size: 0.625rem;
+  font-weight: 700;
 }
 
-.sv-home-suggestions:empty {
+.sv-home-search-engine[data-state="address"] .sv-home-search-engine-icon {
+  background: color-mix(in srgb, var(--sv-text) 10%, transparent);
+  color: var(--sv-text);
+}
+
+.sv-home-search-engine-icon img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.sv-home-search-engine-has-image {
+  background: transparent;
+}
+
+.sv-home-search-engine-has-image .sv-home-search-engine-glyph {
+  visibility: hidden;
+}
+
+.sv-home kbd {
+  padding: 0.0625rem 0.3125rem;
+  border-radius: var(--sv-radius-chip);
+  background: color-mix(in srgb, var(--sv-text) 7%, transparent);
+  color: var(--sv-muted-text);
+  font-family: var(--sv-font-mono, ui-monospace), ui-monospace, monospace;
+  font-size: 0.6875rem;
+}
+
+.sv-home-search-hint {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1rem;
+  min-height: 1.3em;
+  padding: 0 0.875rem;
+  color: var(--sv-muted-text);
+  font-size: 0.78125rem;
+}
+
+.sv-home-search-hint b {
+  color: var(--sv-text);
+  font-weight: 550;
+}
+
+.sv-home-search-url {
+  color: var(--sv-text);
+  font-family: var(--sv-font-mono, ui-monospace), ui-monospace, monospace;
+  word-break: break-all;
+}
+
+/* History suggestions: rows under the hint, hidden in bang modes. */
+.sv-home-suggestions {
+  display: grid;
+  gap: 0.125rem;
+}
+
+.sv-home-suggestions:empty,
+.sv-home-search:not(:focus-within) .sv-home-suggestions,
+.sv-home-search[data-sv-home-bang] .sv-home-suggestions {
   display: none;
 }
 
-.sv-home-search:not(:focus-within) .sv-home-suggestions {
+/* Search results: rows that do not match hide, the selected one is
+   tinted. Embeds and emptied sections hide while filtering. */
+[data-sv-home-item][data-sv-home-hidden],
+.sv-home-rows > li:has(> [data-sv-home-hidden]) {
   display: none;
 }
 
-.sv-home-suggestions .sv-home-row {
-  border-radius: 0;
+[data-sv-home-item="row"][data-sv-home-selected] {
+  background: var(--sv-home-selected);
+}
+
+.sv-home[data-sv-home-query] .sv-home-service-embed {
+  display: none;
+}
+
+.sv-home-region:has(> .sv-home-bookmarks, > .sv-home-widget):has([data-sv-home-hidden]):not(:has([data-sv-home-item]:not([data-sv-home-hidden]))),
+.sv-home-bookmark-group:has([data-sv-home-hidden]):not(:has([data-sv-home-item]:not([data-sv-home-hidden]))),
+.sv-home-widget:has([data-sv-home-hidden]):not(:has([data-sv-home-item]:not([data-sv-home-hidden]))) {
+  display: none;
 }
 
 /* Clock: compact "date · time" text on the header line. */
@@ -3114,7 +3219,8 @@ html:not([data-sv-enhanced]) .sv-home .sv-palette-trigger {
 .sv-home-groups {
   --sv-home-col-gap: 2.5rem;
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, max(19rem, (100% - (var(--sv-home-columns) - 1) * var(--sv-home-col-gap)) / var(--sv-home-columns))), 1fr));
+  /* auto-fill keeps column widths while search hides groups. */
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, max(19rem, (100% - (var(--sv-home-columns) - 1) * var(--sv-home-col-gap)) / var(--sv-home-columns))), 1fr));
   gap: 1.75rem var(--sv-home-col-gap);
   align-items: start;
 }

@@ -87,7 +87,7 @@ templ HomeWidget(widget homeWidgetData) {
 	<div class={ "sv-home-widget", "sv-home-widget-" + string(widget.Widget.Type) }>
 		switch widget.Widget.Type {
 			case entity.HomeWidgetSearch:
-				@homeSearchWidget()
+				@homeSearchWidget(widget.Search)
 			case entity.HomeWidgetClock:
 				<div class="sv-home-clock">
 					<span class="sv-home-clock-date">{ widget.Date }</span>
@@ -117,11 +117,85 @@ templ HomeWidget(widget homeWidgetData) {
 	</div>
 }
 
-templ homeSearchWidget() {
-	<form class="sv-home-search" data-sv-action="home.search" role="search" autocomplete="off">
-		<input class="sv-input sv-home-search-input" type="search" name="query" placeholder="Search or enter address" aria-label="Search or enter address" data-sv-home-search data-sv-autofocus/>
+templ homeSearchWidget(config homeSearchConfig) {
+	{{ view := buildHomeSearchView(config, "", nil, 0) }}
+	<form
+		class="sv-home-search"
+		data-sv-action="home.search"
+		role="search"
+		autocomplete="off"
+		data-sv-home-engine-url={ config.EngineURL }
+		data-sv-home-engine-name={ config.EngineName }
+		data-sv-home-shortcuts={ homeShortcutsJSON(config.Shortcuts) }
+	>
+		<div class="sv-home-search-field">
+			<input class="sv-home-search-input" type="search" name="query" placeholder="A service, an address or a web search" aria-label="Search services or the web" aria-describedby="sv-home-search-hint" spellcheck="false" data-sv-home-search data-sv-autofocus/>
+			<span class="sv-home-search-engine" data-state={ view.ChipState } data-sv-home-engine title="Engine used by Enter">
+				@HomeSearchChip(view)
+			</span>
+			<kbd class="sv-home-search-key" aria-hidden="true">/</kbd>
+		</div>
+		<div class="sv-home-search-hint" id="sv-home-search-hint" aria-live="polite" data-sv-home-hint>
+			@HomeSearchHint(view)
+		</div>
 		<div class="sv-home-suggestions" role="listbox" data-sv-region={ homeRegionSuggestions }></div>
 	</form>
+}
+
+// HomeSearchChip is the content of the engine chip: an icon with a letter
+// fallback, then the engine name.
+templ HomeSearchChip(view homeSearchView) {
+	if view.ChipState == homeChipAddress {
+		<span class="sv-home-search-engine-icon" aria-hidden="true">↗</span>
+	} else {
+		<span class={ "sv-home-search-engine-icon", templ.KV("sv-home-search-engine-has-image", view.ChipIcon != "") } aria-hidden="true">
+			<span class="sv-home-search-engine-glyph">{ homeInitial(view.ChipName) }</span>
+			if view.ChipIcon != "" {
+				<img src={ templ.SafeURL(view.ChipIcon) } alt="" width="16" height="16" decoding="async" referrerpolicy="same-origin" data-sv-img-fallback="sv-home-search-engine-has-image"/>
+			}
+		</span>
+	}
+	<span class="sv-home-search-engine-name">{ view.ChipName }</span>
+}
+
+// HomeSearchHint is the hint line under the search field.
+templ HomeSearchHint(view homeSearchView) {
+	switch view.Hint {
+		case homeHintIdle:
+			<span>Filter services as you type</span>
+			if len(view.Shortcuts) > 0 {
+				<span>
+					for _, key := range view.Shortcuts {
+						<kbd>{ "!" + key }</kbd>{ " " }
+					}
+					… switch engine
+				</span>
+			}
+		case homeHintOpen:
+			<span><kbd>↵</kbd> open <b>{ view.SelectedName }</b></span>
+			<span><kbd>↑</kbd><kbd>↓</kbd> choose</span>
+			<span><kbd>⇧</kbd><kbd>↵</kbd> search { view.Result.EngineName }</span>
+		case homeHintWeb:
+			<span><kbd>↵</kbd> search <b>{ view.HintQuery }</b> on { view.Result.EngineName }</span>
+			<span>No service matches</span>
+		case homeHintBangSearch:
+			<span><kbd>↵</kbd> search <b>{ view.HintQuery }</b> on { view.Result.EngineName }</span>
+		case homeHintBangType:
+			<span>Type your { view.Result.EngineName } search</span>
+		case homeHintCandidates:
+			for _, candidate := range view.Candidates {
+				<span><kbd>{ "!" + candidate.Key }</kbd> { candidate.Name }</span>
+			}
+		case homeHintUnknown:
+			<span>Unknown shortcut <b>{ "!" + view.HintQuery }</b></span>
+		case homeHintOpenAddress:
+			if view.SelectedName != "" {
+				<span><kbd>↵</kbd> open <b>{ view.SelectedName }</b></span>
+				<span><kbd>⇧</kbd><kbd>↵</kbd> open <span class="sv-home-search-url">{ view.Result.WebTarget }</span></span>
+			} else {
+				<span><kbd>↵</kbd> open <span class="sv-home-search-url">{ view.Result.WebTarget }</span></span>
+			}
+	}
 }
 
 templ HomeSuggestions(rows []homeRow) {
@@ -140,6 +214,11 @@ templ homeRowLink(row homeRow, suggestion bool) {
 		if suggestion {
 			data-sv-home-suggestion
 			role="option"
+		} else {
+			data-sv-home-item="row"
+			data-sv-home-name={ homeRowLabel(row) }
+			data-sv-home-text={ homeRowItemText(row) }
+			data-sv-home-url={ row.URL }
 		}
 	>
 		<span class={ historyFaviconClass(favicon) } aria-hidden="true">
@@ -219,14 +298,15 @@ templ HomeServiceShell(service entity.HomeService, leaves map[string]string) {
 }
 
 // HomeServiceTile is the content of a tile region: link, icon, name and
-// description.
+// description. The link carries the search data, so a tile swap keeps it
+// current; search marks the enclosing service row.
 templ HomeServiceTile(service entity.HomeService) {
 	if service.URL != "" {
-		<a class="sv-home-service-link" href={ templ.SafeURL(sanitizeHref(service.URL)) } title={ service.URL } data-sv-home-nav>
+		<a class="sv-home-service-link" href={ templ.SafeURL(sanitizeHref(service.URL)) } title={ service.URL } data-sv-home-nav { homeServiceItemAttrs(service)... }>
 			@homeServiceHead(service)
 		</a>
 	} else {
-		<div class="sv-home-service-link" tabindex="0" data-sv-home-nav>
+		<div class="sv-home-service-link" tabindex="0" data-sv-home-nav { homeServiceItemAttrs(service)... }>
 			@homeServiceHead(service)
 		</div>
 	}

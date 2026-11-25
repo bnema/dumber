@@ -89,6 +89,8 @@ func (a *App) buildHomeData(ctx context.Context, previous []homeWidgetData) (hom
 		switch {
 		case widget.Type == entity.HomeWidgetClock:
 			item.Time, item.Date = homeClockText(widget.Format, a.homeNow())
+		case widget.Type == entity.HomeWidgetSearch:
+			item.Search = homeSearchConfigFrom(load)
 		case !homeListWidget(widget.Type):
 		case i < len(previous) && previous[i].Widget == widget && !previous[i].Loading:
 			item = previous[i]
@@ -180,7 +182,7 @@ func (a *App) applyHomeActionLocked(ctx context.Context, event DOMAction) error 
 	case homeActionOpenConfig:
 		return a.openHomeConfigLocked(ctx)
 	case homeActionSearch:
-		return a.navigateHomeSearchLocked(event.Data["query"])
+		return a.navigateHomeSearchLocked(event.Data["url"], event.Data["query"])
 	case homeActionClockTick:
 		return a.refreshHomeClockLocked()
 	case actionSystemviewChanged:
@@ -209,8 +211,13 @@ func (a *App) openHomeConfigLocked(ctx context.Context) error {
 	return nil
 }
 
-func (a *App) navigateHomeSearchLocked(query string) error {
+// navigateHomeSearchLocked opens url, resolved by the page search, or the
+// plain search of query when the page sent no url (form submit).
+func (a *App) navigateHomeSearchLocked(url, query string) error {
 	target := homeSearchURL(a.homeData.Load.SearchEngine, query)
+	if url != "" {
+		target = homeNavigable(url)
+	}
 	if target == "" {
 		return nil
 	}

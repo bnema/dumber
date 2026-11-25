@@ -4,6 +4,7 @@ package systemviews
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 	"syscall/js"
 	"time"
@@ -69,6 +70,10 @@ func (d *browserDOM) bindHomeImageAndInputEvents(handler DOMActionHandler) {
 		if !ok {
 			return nil
 		}
+		// Filtering runs now, on every keystroke; only history
+		// suggestions go through the debounced action queue.
+		d.homeSelected = 0
+		d.applyHomeSearch(target)
 		d.scheduleHomeSuggest(target.Get("value").String(), handler)
 		return nil
 	}))
@@ -113,14 +118,11 @@ func (d *browserDOM) handleHomeKeyboard(event js.Value) {
 	}
 	inSearch := target.Call("matches", homeSearchSelector).Bool()
 	inSuggestion := target.Call("matches", homeSuggestionSelector).Bool()
+	if inSearch {
+		d.handleHomeSearchKey(event, target, key)
+		return
+	}
 	switch {
-	case inSearch && key == "arrowdown":
-		if first := d.target.Call("querySelector", homeSuggestionSelector); first.Truthy() {
-			event.Call("preventDefault")
-			first.Call("focus")
-		}
-	case inSearch && key == "escape":
-		target.Call("blur")
 	case inSuggestion && (key == "arrowdown" || key == "arrowup"):
 		event.Call("preventDefault")
 		if !d.moveHomeFocus(target, homeSuggestionSelector, key == "arrowdown") && key == "arrowup" {
@@ -134,6 +136,31 @@ func (d *browserDOM) handleHomeKeyboard(event js.Value) {
 		}
 	case target.Call("matches", homeNavSelector).Bool():
 		d.handleHomeNavKey(event, target, key)
+	}
+}
+
+// handleHomeSearchKey handles the keys typed in the search field.
+func (d *browserDOM) handleHomeSearchKey(event, input js.Value, key string) {
+	switch key {
+	case "enter":
+		d.openHomeSearch(event, input)
+	case "arrowdown":
+		if first := d.target.Call("querySelector", homeSuggestionSelector); first.Truthy() {
+			event.Call("preventDefault")
+			first.Call("focus")
+		}
+	case "escape":
+		input.Call("blur")
+	}
+}
+
+// openHomeSearch opens what Enter (or Shift+Enter) resolves to. Enter is
+// handled in keydown because the submit event has no shiftKey.
+func (d *browserDOM) openHomeSearch(event, input js.Value) {
+	event.Call("preventDefault")
+	view := d.applyHomeSearch(input)
+	if url := view.Enter(event.Get("shiftKey").Bool()); url != "" && d.actionHandler != nil {
+		d.actionHandler(DOMAction{Action: homeActionSearch, Data: map[string]string{"url": url}})
 	}
 }
 
@@ -323,4 +350,74 @@ func (d *browserDOM) SetAnchorStyleProperty(anchor, property, value string) erro
 	}
 	element.Get("style").Call("setProperty", property, value)
 	return nil
+}
+
+// homeSearchItems returns the searchable items of the page, services
+// first, with the element each one marks: the service row, or the link row.
+func (d *browserDOM) homeSearchItems() ([]homeQueryItem, []js.Value) {
+	var items []homeQueryItem
+	var marks []js.Value
+	for _, selector := range []string{`[data-sv-home-item="service"]`, `[data-sv-home-item="row"]`} {
+		nodes := d.target.Call("querySelectorAll", selector)
+		for i := 0; i < nodes.Get("length").Int(); i++ {
+			node := nodes.Index(i)
+			mark := node
+			if row := node.Call("closest", ".sv-home-service"); row.Truthy() {
+				mark = row
+			}
+			items = append(items, homeQueryItem{
+				Key:  strconv.Itoa(len(items)),
+				Name: node.Call("getAttribute", "data-sv-home-name").String(),
+				Text: node.Call("getAttribute", "data-sv-home-text").String(),
+				URL:  node.Call("getAttribute", "data-sv-home-url").String(),
+			})
+			marks = append(marks, mark)
+		}
+	}
+	return items, marks
+}
+
+// applyHomeSearch resolves the query of input and writes the result to the
+// page: hidden and selected attributes on rows, the engine chip and the
+// hint. No region is re-rendered, so embeds and the input keep their state.
+func (d *browserDOM) applyHomeSearch(input js.Value) homeSearchView {
+	form := input.Call("closest", "form")
+	if !form.Truthy() {
+		return homeSearchView{}
+	}
+	config := homeSearchConfig{
+		EngineURL:  form.Call("getAttribute", "data-sv-home-engine-url").String(),
+		EngineName: form.Call("getAttribute", "data-sv-home-engine-name").String(),
+		Shortcuts:  parseHomeShortcutsJSON(form.Call("getAttribute", "data-sv-home-shortcuts").String()),
+	}
+	items, marks := d.homeSearchItems()
+	view := buildHomeSearchView(config, input.Get("value").String(), items, d.homeSelected)
+	matched := make(map[string]bool, len(view.Result.Matches))
+	for _, key := range view.Result.Matches {
+		matched[key] = true
+	}
+	for i, item := range items {
+		setBoolAttribute(marks[i], "data-sv-home-hidden", view.Filtering && !matched[item.Key])
+		setBoolAttribute(marks[i], "data-sv-home-selected", item.Key == view.Selected)
+	}
+	if root := d.target.Call("querySelector", ".sv-home"); root.Truthy() {
+		setBoolAttribute(root, "data-sv-home-query", view.Filtering)
+	}
+	setBoolAttribute(form, "data-sv-home-bang", view.HideSuggestions)
+	if chip := form.Call("querySelector", "[data-sv-home-engine]"); chip.Truthy() {
+		chip.Call("setAttribute", "data-state", view.ChipState)
+		chip.Set("innerHTML", mustRenderComponent(HomeSearchChip(view)))
+	}
+	if hint := form.Call("querySelector", "[data-sv-home-hint]"); hint.Truthy() {
+		hint.Set("innerHTML", mustRenderComponent(HomeSearchHint(view)))
+	}
+	return view
+}
+
+func setBoolAttribute(el js.Value, name string, on bool) {
+	if on {
+		el.Call("setAttribute", name, "")
+	} else {
+		el.Call("removeAttribute", name)
+	}
 }
