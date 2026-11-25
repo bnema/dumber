@@ -49,6 +49,8 @@ type SchemeRequest struct {
 	Scheme  string
 	Origin  string
 	Referer string
+	// WebViewURI is the URI shown by the requesting web view, if any.
+	WebViewURI string
 }
 
 // SchemeResponse represents a response to a scheme request.
@@ -247,7 +249,25 @@ func (h *DumbSchemeHandler) handleFaviconAPI(req *SchemeRequest) *SchemeResponse
 }
 
 func isTrustedSystemviewFaviconRequest(req *SchemeRequest) bool {
-	return isTrustedSystemviewAPIRequest(req)
+	return isTrustedSystemviewImageRequest(req)
+}
+
+// isTrustedSystemviewImageRequest is the trust gate for side-effect-free
+// image GETs only (/api/favicon, /api/home-icon). WebKit sends neither Origin
+// nor Referer for <img> loads on the dumb: scheme, so when both are absent
+// the requesting web view itself must be showing a trusted systemview. A
+// present but untrusted Origin or Referer still fails.
+//
+// This is safe only because these endpoints change nothing and return
+// images: a cross-origin frame embedded in a systemview could trigger the
+// load but cannot read the bytes. NEVER use this rule for /api/message,
+// /api/config or any endpoint that has side effects or returns readable
+// data; those must keep isTrustedSystemviewAPIRequest.
+func isTrustedSystemviewImageRequest(req *SchemeRequest) bool {
+	if isTrustedSystemviewAPIRequest(req) {
+		return true
+	}
+	return req != nil && req.Origin == "" && req.Referer == "" && isTrustedSystemviewURL(req.WebViewURI)
 }
 
 func isTrustedSystemviewAPIRequest(req *SchemeRequest) bool {
@@ -341,6 +361,9 @@ func (h *DumbSchemeHandler) HandleRequest(reqPtr uintptr) {
 	if requestHeaders != nil {
 		schemeReq.Origin = strings.TrimSpace(requestHeaders.GetOne("Origin"))
 		schemeReq.Referer = strings.TrimSpace(requestHeaders.GetOne("Referer"))
+	}
+	if view := req.GetWebView(); view != nil {
+		schemeReq.WebViewURI = view.GetUri()
 	}
 
 	h.logger.Debug().
