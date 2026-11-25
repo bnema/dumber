@@ -64,3 +64,10 @@ func TestWebViewSystemviewBridgeTokenAccessors(t *testing.T) {
 	var nilWV *WebView
 	assert.Empty(t, nilWV.SystemviewBridgeToken())
 }
+
+func TestInternalPageOnlyGuardsScript(t *testing.T) {
+	script := internalPageOnly("window.__dumber_webview_id=7;")
+	assert.True(t, strings.HasPrefix(script, "if (window.top === window && location.protocol === 'dumb:') {"))
+	assert.Contains(t, script, "window.__dumber_webview_id=7;")
+	assert.Equal(t, []string{"*://*/*", "file:///*"}, internalPageBlockList)
+}

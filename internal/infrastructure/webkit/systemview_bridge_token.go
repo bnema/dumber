@@ -63,10 +63,10 @@ func parseScriptMessageJSON(raw []byte) (Message, string, error) {
 // their own prototypes, so embedded frames keep the unwrapped postMessage, and
 // the token lives only in this closure.
 //
-// The script is registered without a WebKit allow list: allow lists passed
-// through the bindings never match (not even "*://*/*"), so the dumb: check
-// happens here, before page code runs. Other pages exit without keeping a
-// reference to the token.
+// WebKit allow lists cannot match dumb:// pages (see internalPageBlockList),
+// so the dumb: check happens here, before page code runs; the block list
+// keeps the script off http(s) and file pages natively. Other pages exit
+// without keeping a reference to the token.
 //nolint:gosec // G101 false positive: a JS template; the token is filled in at runtime.
 const systemviewBridgeTokenScriptTemplate = `(function() {
   if (window.top !== window || location.protocol !== 'dumb:') { return; }
