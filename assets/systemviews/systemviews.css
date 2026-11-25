@@ -2870,6 +2870,10 @@ html[data-sv-enhanced] .sv-savebar:not([data-sv-open]):not(:has(.sv-savebar-erro
   flex: 1 1 15rem;
 }
 
+.sv-home-widget {
+  min-width: 0;
+}
+
 .sv-home-region:empty,
 .sv-home-region:has(> :only-child:empty) {
   display: none;
@@ -3110,8 +3114,14 @@ html:not([data-sv-enhanced]) .sv-home .sv-palette-trigger {
 }
 
 .sv-home-search-hint b {
+  display: inline-block;
+  max-width: min(40ch, 60vw);
+  overflow: hidden;
   color: var(--sv-text);
   font-weight: 550;
+  text-overflow: ellipsis;
+  vertical-align: bottom;
+  white-space: nowrap;
 }
 
 .sv-home-search-url {
@@ -3171,6 +3181,9 @@ html:not([data-sv-enhanced]) .sv-home .sv-palette-trigger {
 
 .sv-home-rows {
   display: grid;
+  /* One track that may shrink below its content, so long titles and
+     addresses ellipsize instead of widening the column. */
+  grid-template-columns: minmax(0, 1fr);
   gap: 0.125rem;
   margin: 0;
   padding: 0;
