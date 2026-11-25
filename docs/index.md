@@ -24,6 +24,7 @@ A browser designed for Wayland compositors that works like your favorite termina
 
 - [Configuration Overview](./config/index.md) - All configuration options
 - [Configuration Reference](./reference/configuration.md) - Quick reference table
+- [Home Page](./home/index.md) - `dumb://home` layout, widgets, actions and `user.css`
 
 ### CLI Reference
 

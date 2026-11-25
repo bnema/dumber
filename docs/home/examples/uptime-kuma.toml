@@ -1,0 +1,20 @@
+# Uptime Kuma status page. API paths are examples: check your Uptime Kuma
+# version. "homelab" is the status page slug and 1 a monitor id.
+
+[[groups]]
+name = "Monitoring"
+
+[[groups.services]]
+id = "uptime-kuma"
+name = "Uptime Kuma"
+url = "http://uptime.lan:3001/status/homelab"
+
+[groups.services.widget]
+type = "api"
+url = "http://uptime.lan:3001/api/status-page/heartbeat/homelab"
+refresh = "30s"
+display = "list"
+fields = [
+  { label = "Uptime 24h", path = 'uptimeList."1_24"', format = "percent" },
+  { label = "Last ping", path = 'heartbeatList."1"[0].ping', format = "number" },
+]

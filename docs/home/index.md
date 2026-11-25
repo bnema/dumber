@@ -1,0 +1,177 @@
+# Home page
+
+`dumb://home` is Dumber's start page. It shows built-in widgets (search, clock, favorites, top sites, recent history), bookmark groups and service cards for your own services. Service cards can have a live API widget, an embedded panel and action buttons.
+
+## Files
+
+| File | Purpose |
+|------|---------|
+| `~/.config/dumber/home.toml` | Page layout. Without it, a default layout is used. **Open config** on the page creates a starter file. |
+| `~/.config/dumber/user.css` | Your CSS for every `dumb://` page. |
+
+Both files reload while the browser runs: save the file and open pages update. When `home.toml` has a syntax or validation error, the page keeps the last valid layout and lists the errors with their key path.
+
+Two settings in `config.toml` open the page:
+
+```toml
+[workspace]
+startup_url = "dumb://home"  # first window when no URL is given and no session is restored
+new_pane_url = "dumb://home" # new panes and tabs
+```
+
+## home.toml reference
+
+Unknown keys are errors. Text values are trimmed.
+
+### `[settings]`
+
+| Key | Type | Default | Rules |
+|-----|------|---------|-------|
+| `title` | string | `"Home"` | Empty means the default |
+| `columns` | int | `3` | `1`-`6` |
+
+### `[[widgets]]`
+
+Built-in widgets, shown at the top in file order. Without `home.toml` the default is search, clock (24h), favorites, top sites and recent (limit 8 each).
+
+| Key | Type | Applies to | Default | Rules |
+|-----|------|-----------|---------|-------|
+| `type` | string | all | - | `search`, `clock`, `favorites`, `top_sites`, `recent` |
+| `format` | string | `clock` | `"24h"` | `24h` or `12h` |
+| `limit` | int | `favorites`, `top_sites`, `recent` | `8` | `1`-`50` |
+| `tag` | string | `favorites` | - | Show only favorites with this tag |
+
+### `[[bookmarks]]`
+
+| Key | Type | Rules |
+|-----|------|-------|
+| `group` | string | Required |
+| `links` | array of `{ name, url }` | `name` required, `url` must be `http(s)://` |
+
+### `[[groups]]` and `[[groups.services]]`
+
+| Key | Type | Rules |
+|-----|------|-------|
+| `groups.name` | string | Required |
+| `id` | string | Required, `[a-z0-9_-]{1,64}`, unique across all groups |
+| `name` | string | Required |
+| `url` | string | Optional, `http(s)://`; the card links to it |
+| `description` | string | Optional |
+| `icon` | string | Optional path relative to `~/.config/dumber/`, no `..`, extension `.svg`, `.png`, `.ico` or `.webp`. Without it, the icon is discovered from `url`. |
+
+### `[groups.services.widget]`
+
+| Key | Type | Applies to | Default | Rules |
+|-----|------|-----------|---------|-------|
+| `type` | string | all | - | `api` or `embed` |
+| `url` | string | all | - | `http(s)://` |
+| `headers` | table | `api` | - | Not allowed on `embed` |
+| `refresh` | duration | `api` | `"60s"` | At least `5s` |
+| `timeout` | duration | `api` | `"10s"` | Above `0`, at most `60s` |
+| `display` | string | `api` | `"stats"` | `stats`, `list`, `bar` |
+| `fields` | array | `api` | - | At least one |
+| `height` | int (px) | `embed` | `240` | `80`-`2000` |
+
+Durations use Go syntax: `30s`, `5m`, `1h30m`.
+
+Each field is `{ label, path, format }`. `label` and `path` are required, and `format` defaults to `text`.
+
+### `[[groups.services.actions]]`
+
+| Key | Type | Default | Rules |
+|-----|------|---------|-------|
+| `id` | string | - | Required, `[a-z0-9_-]{1,64}`, unique per service |
+| `label` | string | - | Required |
+| `method` | string | `"POST"` | `GET`, `POST`, `PUT`, `PATCH`, `DELETE` |
+| `url` | string | - | `http(s)://` |
+| `headers` | table | - | |
+| `body` | string | - | Request body |
+| `confirm` | string | - | When set, the page asks this question before sending |
+
+## API widgets
+
+Dumber requests `url` (GET, at most 2 MiB, at most 3 redirects, User-Agent `dumber-home`), parses the JSON and shows each field.
+
+**Field paths** use dot keys and `[n]` indexes, starting from the JSON root:
+
+| Path | Reads |
+|------|-------|
+| `MovieCount` | `{"MovieCount": 42}` |
+| `data.items[0].count` | nested objects and arrays |
+| `[2].name` | a root array |
+| `"a.b".c` | a key that contains dots |
+
+**Formats:**
+
+| Format | Example |
+|--------|---------|
+| `text` | value as-is |
+| `number` | `1,234,567.89` (at most 2 decimals) |
+| `percent` | `0.42` and `42` both show `42%` (values up to 1 are ratios) |
+| `bytes` | `1.5 KiB`, `3.2 GiB` |
+| `duration` | seconds as `1h 2m`, `3d 4h` |
+
+**Secrets:** write `{{env.NAME}}` in `url`, `headers` and action `url`, `headers` and `body`. Dumber replaces it with the environment variable `NAME` of the browser process. A missing variable is an error that names the variable. Keep tokens in the environment, not in `home.toml`.
+
+## Embeds
+
+`embed` shows `url` in a sandboxed iframe, `height` pixels tall. Only `http(s)://` URLs are allowed. The embedded site must allow framing: some services send `X-Frame-Options` or `frame-ancestors` and refuse to be embedded.
+
+## Actions
+
+Each action is a button on the service card. With `confirm`, the page asks for confirmation first. The browser process sends the request and the page only shows whether it succeeded.
+
+## Security model
+
+- `home.toml` and `user.css` cannot run JavaScript.
+- Secrets stay in the browser process. The page never sees headers, action URLs, action bodies or API widget URLs; it only receives formatted field values and action results.
+- Requests may target private and LAN addresses, so you can reach your own services.
+- Requests carry no cookies.
+
+## Styling with user.css
+
+`~/.config/dumber/user.css` is loaded after the built-in styles on every `dumb://` page.
+
+**Theme variables** (set on `:root`, follow the browser theme):
+
+| Group | Variables |
+|-------|-----------|
+| Colors | `--sv-background`, `--sv-surface`, `--sv-surface-variant`, `--sv-text`, `--sv-muted`, `--sv-muted-text`, `--sv-accent`, `--sv-accent-ink`, `--sv-accent-text`, `--sv-success`, `--sv-danger`, `--sv-danger-text`, `--sv-selection`, `--sv-hover`, `--sv-hover-strong`, `--sv-chip` |
+| Borders | `--sv-border`, `--sv-hairline`, `--sv-content-border`, `--sv-panel-border` |
+| Radii | `--sv-radius-panel`, `--sv-radius-control`, `--sv-radius-row`, `--sv-radius-chip` |
+| Type | `--sv-font-sans`, `--sv-font-mono`, `--sv-font-size`, `--sv-header-font` |
+| Effects | `--sv-float-shadow`, `--sv-ease` |
+
+**Page classes:** the page root has `sv-route-<page>` (`sv-route-home`, `sv-route-history`, `sv-route-favorites`, `sv-route-config`), so you can target one page.
+
+**Home classes:**
+
+| Part | Classes |
+|------|---------|
+| Page | `sv-home`, `sv-home-header`, `sv-home-title`, `sv-home-nav`, `sv-home-open-config`, `sv-home-grid`, `sv-home-columns`, `sv-home-region`, `sv-home-section-title`, `sv-home-muted` |
+| Widgets | `sv-home-widget`, `sv-home-widget-<type>`, `sv-home-clock`, `sv-home-clock-time`, `sv-home-clock-date`, `sv-home-search`, `sv-home-search-input`, `sv-home-suggestions`, `sv-home-suggestion`, `sv-home-rows`, `sv-home-row`, `sv-home-row-title`, `sv-home-row-url` |
+| Bookmarks | `sv-home-bookmarks`, `sv-home-bookmark-group` |
+| Services | `sv-home-groups`, `sv-home-group`, `sv-home-service`, `sv-home-service-link`, `sv-home-service-icon`, `sv-home-service-icon-has-image`, `sv-home-service-glyph`, `sv-home-service-text`, `sv-home-service-name`, `sv-home-service-description`, `sv-home-service-widget` |
+| Errors | `sv-home-errors`, `sv-home-errors-title`, `sv-home-error-list`, `sv-home-error`, `sv-home-error-path` |
+
+Example:
+
+```css
+:root { --sv-accent: #8aadf4; }
+.sv-route-home .sv-home-service { border-radius: 4px; }
+```
+
+## Examples
+
+Ready-made snippets are in [`examples/`](./examples/). API paths in them are examples: check them against each service's API docs and version.
+
+- [Jellyfin](./examples/jellyfin.toml): library counts
+- [Uptime Kuma](./examples/uptime-kuma.toml): status page heartbeat
+- [AdGuard Home](./examples/adguard.toml): query stats and a protection toggle
+- [Portainer](./examples/portainer-actions.toml): container restart action
+- [Grafana](./examples/grafana-embed.toml): an embedded panel
+
+## Known limits
+
+- Embedded sites run in a third-party iframe, so their login cookies are usually blocked. For Grafana, only anonymous or public panels work.
+- API widgets read JSON only.
