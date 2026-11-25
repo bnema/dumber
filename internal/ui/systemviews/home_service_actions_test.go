@@ -209,3 +209,69 @@ func TestHomeServiceActionFormSurvivesGroupsSwap(t *testing.T) {
 	assert.Equal(t, before+1, after)
 	assert.Contains(t, form, `name="input.n"`)
 }
+
+// focusRegionDOM records the focus key of each region update.
+type focusRegionDOM struct {
+	toastRegionDOM
+	focuses []string
+}
+
+func (d *focusRegionDOM) UpdateRegions(update RegionUpdate) error {
+	d.mu.Lock()
+	d.focuses = append(d.focuses, update.Focus)
+	d.mu.Unlock()
+	return d.toastRegionDOM.UpdateRegions(update)
+}
+
+func (d *focusRegionDOM) lastFocus() string {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	if len(d.focuses) == 0 {
+		return ""
+	}
+	return d.focuses[len(d.focuses)-1]
+}
+
+func TestHomeServiceActionStepsMoveFocus(t *testing.T) {
+	t.Parallel()
+	home := &actionHome{
+		svcHome: svcHome{fakeHome: fakeHome{load: homeLayoutWith(actionService(entity.HomeAction{
+			ID: "say", Label: "Say", Confirm: "Sure?",
+			Inputs: []entity.HomeActionInput{{Name: "msg", Label: "Message"}},
+		}))}},
+		resp: dto.HomeActionResponse{Status: dto.HomeStatusOK},
+	}
+	dom := &focusRegionDOM{}
+	app := NewApp(Dependencies{DOM: dom, Home: home, LocationURI: "dumb://home"})
+	require.NoError(t, app.LoadInitial(context.Background()))
+	fillHome(app)
+	t.Cleanup(app.Close)
+	ctx := context.Background()
+	region := `[data-sv-region="home-svc-actions:box"]`
+
+	require.NoError(t, app.HandleDOMAction(ctx, svcEvent(homeActionSvcOpen, "say", nil)))
+	assert.Equal(t, "sel:"+region+" form input", dom.lastFocus())
+	form, _ := dom.lastRegion("home-svc-actions:box")
+	assert.Contains(t, form, `<form class="sv-home-svc-form"`)
+	assert.Contains(t, form, `<input class="sv-input"`)
+
+	require.NoError(t, app.HandleDOMAction(ctx, svcEvent(homeActionSvcCancel, "", nil)))
+	assert.Equal(t, "sel:"+region+` [data-sv-home-action="say"]`, dom.lastFocus())
+
+	require.NoError(t, app.HandleDOMAction(ctx, svcEvent(homeActionSvcOpen, "say", nil)))
+	require.NoError(t, app.HandleDOMAction(ctx, svcEvent(homeActionSvcSubmit, "say", map[string]string{"input.msg": "hi"})))
+	assert.Equal(t, "sel:"+region+` [data-sv-action="home.svc.confirm"]`, dom.lastFocus())
+	confirm, _ := dom.lastRegion("home-svc-actions:box")
+	assert.Contains(t, confirm, `data-sv-action="home.svc.confirm"`)
+
+	require.NoError(t, app.HandleDOMAction(ctx, svcEvent(homeActionSvcConfirm, "", nil)))
+	app.homeFillWG.Wait()
+	assert.Equal(t, "sel:"+region+` [data-sv-home-action="say"]`, dom.lastFocus())
+	idle, _ := dom.lastRegion("home-svc-actions:box")
+	assert.Contains(t, idle, `data-sv-home-action="say"`)
+}
+
+func TestCSSQuoted(t *testing.T) {
+	t.Parallel()
+	assert.Equal(t, `a\"b\\c`, cssQuoted(`a"b\c`))
+}

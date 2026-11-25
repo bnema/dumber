@@ -109,7 +109,7 @@ func (a *App) handleHomeServiceAction(ctx context.Context, event DOMAction) erro
 		return nil // one request at a time per service
 	}
 	if event.Action == homeActionSvcCancel {
-		return a.setHomeActionStateLocked(service, homeActionState{})
+		return a.setHomeActionStateLocked(service, homeActionState{}, homeActionButtonFocus(service.ID, state.ActionID))
 	}
 	actionID := event.Data["svHomeAction"]
 	if event.Action == homeActionSvcConfirm {
@@ -144,7 +144,7 @@ func (a *App) handleHomeServiceAction(ctx context.Context, event DOMAction) erro
 		next.Inputs = state.Inputs
 		next.Step = homeActionBusy
 	}
-	if err := a.setHomeActionStateLocked(service, next); err != nil {
+	if err := a.setHomeActionStateLocked(service, next, homeActionStepFocus(service.ID, next)); err != nil {
 		return err
 	}
 	if next.Step == homeActionBusy {
@@ -189,7 +189,9 @@ func (a *App) runHomeActionLocked(ctx context.Context, service entity.HomeServic
 			current, ok := findHomeService(a.homeData.Load, service.ID)
 			if !ok {
 				delete(a.homeSvc.actions, service.ID)
-			} else if err := a.setHomeActionStateLocked(current, homeActionState{}); err != nil {
+			} else if err := a.setHomeActionStateLocked(
+				current, homeActionState{}, homeActionButtonFocus(service.ID, action.ID),
+			); err != nil {
 				logActionMountError(ctx, err, nil)
 			}
 		}
@@ -217,9 +219,42 @@ func homeActionToastMessage(action entity.HomeAction, resp dto.HomeActionRespons
 	return label + ": " + message
 }
 
+// homeActionStepFocus is the element to focus once a step is shown: the
+// first input of a form, or Confirm. A busy step has nothing to focus.
+func homeActionStepFocus(serviceID string, state homeActionState) string {
+	region := homeActionRegionSelector(serviceID)
+	switch state.Step {
+	case homeActionForm:
+		return "sel:" + region + " form input"
+	case homeActionConfirm:
+		return "sel:" + region + ` [data-sv-action="` + homeActionSvcConfirm + `"]`
+	default:
+		return ""
+	}
+}
+
+// homeActionButtonFocus focuses an action's button again after cancel or
+// completion.
+func homeActionButtonFocus(serviceID, actionID string) string {
+	if actionID == "" {
+		return ""
+	}
+	return "sel:" + homeActionRegionSelector(serviceID) + ` [data-sv-home-action="` + cssQuoted(actionID) + `"]`
+}
+
+func homeActionRegionSelector(serviceID string) string {
+	return `[data-sv-region="` + cssQuoted(homeServiceActionsRegion(serviceID)) + `"]`
+}
+
+// cssQuoted escapes s for a double-quoted CSS attribute value.
+func cssQuoted(s string) string {
+	return strings.NewReplacer(`\`, `\\`, `"`, `\"`, "\n", `\a `).Replace(s)
+}
+
 // setHomeActionStateLocked stores state and swaps the actions region when
-// its markup changed. Caller holds App.mu.
-func (a *App) setHomeActionStateLocked(service entity.HomeService, state homeActionState) error {
+// its markup changed, then focuses focus (a RegionUpdate focus key) when the
+// swap dropped focus. Caller holds App.mu.
+func (a *App) setHomeActionStateLocked(service entity.HomeService, state homeActionState, focus string) error {
 	if a.homeSvc.actions == nil {
 		a.homeSvc.actions = make(map[string]homeActionState)
 	}
@@ -235,7 +270,7 @@ func (a *App) setHomeActionStateLocked(service entity.HomeService, state homeAct
 	return updater.UpdateRegions(RegionUpdate{Regions: []DOMRegion{{
 		Name: homeServiceActionsRegion(service.ID),
 		HTML: mustRenderComponent(HomeServiceActions(homeServiceActionsView{Service: service, State: state})),
-	}}})
+	}}, Focus: focus})
 }
 
 // homeActionRegionsLocked returns the actions regions that are not idle, to

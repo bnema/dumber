@@ -56,6 +56,11 @@ type RegionUpdate struct {
 	// Transition asks the visual layer to animate the swap when it can.
 	// Live typing keeps it off so results never lag behind keystrokes.
 	Transition bool
+	// Focus, when set, names the element to focus after the swap, as a
+	// focus key: "sel:<css selector>", "key:<data-sv-focus-key>" or
+	// "id:<id>". It replaces the previously focused element, and like it is
+	// only applied when the swap left focus outside the page content.
+	Focus string
 }
 
 // DOMRegionUpdater is implemented by DOM adapters that can replace named

@@ -510,6 +510,9 @@ func (d *browserDOM) UpdateRegions(update RegionUpdate) error {
 		return fmt.Errorf("DOM mount target #app not found")
 	}
 	focus := d.captureFocusKey()
+	if update.Focus != "" {
+		focus = update.Focus
+	}
 	if d.undoFocusKey != "" && !d.focusKeyPresent(d.undoFocusKey) && (focus == "" || activeInsideRow()) {
 		// An undo brings the removed row back: return focus to it, unless
 		// the user has moved on to something other than the list.
