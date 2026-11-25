@@ -115,8 +115,8 @@ Matching is a case-insensitive substring of the name, description and address of
 |-----|-------|--------|
 | `/` | Page, outside a text field | Focus the search |
 | `↑` `↓` | Search | Move the selection over matching rows, then suggestions |
-| `Enter` | Search | Open the selected row, else what the hint says |
-| `Shift+Enter` | Search | Search the web, or open the typed address |
+| `Enter` | Search | Open the selected row, else what the hint says. A selected row without `url` searches the web |
+| `Shift+Enter` | Search | Search the web, or open the typed address. After `!key`, same as `Enter` |
 | `Escape` | Search | Clear the query; a second `Escape` leaves the field |
 | `←` `→` | Service row | Move to the same row in the previous or next group |
 | `↑` `↓` | Service row | Move to the previous or next row |
@@ -136,7 +136,7 @@ With `status = true` in `[settings]`, or on a service, each checked service row 
 
 The dot's tooltip gives the state, the rounded latency, an unverified certificate or the HTTP code, for example `Up · 40 ms` or `Error · HTTP 503`.
 
-While at least one service is checked, the header reads `N services · M offline` (error and down count as offline) and each group title shows `up/total` over its checked services. Editing `home.toml` starts or stops the checks; with none left, dots and counters disappear.
+While at least one service is checked, the header reads `N services · M offline` (error and down count as offline) and each group title shows `up/total` over its checked services, once every checked service of the group has a result. Editing `home.toml` starts or stops the checks; with none left, dots and counters disappear.
 
 ```toml
 [settings]
