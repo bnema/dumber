@@ -11,7 +11,11 @@ import (
 
 const (
 	// homeEmbedSandbox lets the embedded app run, but never top-navigate the
-	// home page.
+	// home page. It must never get an allow-top-navigation* token: the CEF
+	// local network guard (localNetworkScope.trustedFrame in
+	// internal/infrastructure/cef) trusts an initial about:blank frame under
+	// an embed because only its ancestors can navigate it, which holds only
+	// while embeds stay sandboxed without top navigation.
 	homeEmbedSandbox = "allow-scripts allow-same-origin allow-forms allow-popups"
 )
 

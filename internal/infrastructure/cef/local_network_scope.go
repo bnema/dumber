@@ -186,6 +186,11 @@ func (s *localNetworkScope) decide(req localNetworkRequest) localNetworkVerdict 
 // is the initial about:blank one, which only its ancestors can navigate, or
 // is trusted too. about:srcdoc does not count: a sandboxed srcdoc frame has
 // an opaque origin and runs its own scripts.
+//
+// "Only its ancestors" relies on the home embed sandbox (homeEmbedSandbox in
+// internal/ui/systemviews) never allowing top navigation: a sandboxed frame
+// can only navigate its own descendants. Adding allow-top-navigation* there
+// breaks this check.
 func (s *localNetworkScope) trustedFrame(frameURL, parentURL string) bool {
 	trusted := func(raw string) bool { return isActualInternalURL(raw) || s.allowsOrigin(raw) }
 	if parentURL == "" || !trusted(parentURL) {
