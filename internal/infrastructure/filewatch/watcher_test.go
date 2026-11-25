@@ -1,0 +1,278 @@
+package filewatch
+
+import (
+	"context"
+	"os"
+	"path/filepath"
+	"sync"
+	"testing"
+	"testing/synctest"
+	"time"
+
+	"github.com/fsnotify/fsnotify"
+)
+
+const testDelay = 20 * time.Millisecond
+
+func writeFile(t *testing.T, dir, name string) string {
+	t.Helper()
+	path := filepath.Join(dir, name)
+	if err := os.WriteFile(path, []byte("x"), 0o600); err != nil {
+		t.Fatalf("write %s: %v", path, err)
+	}
+	return path
+}
+
+func waitFor(t *testing.T, ch <-chan string) string {
+	t.Helper()
+	select {
+	case got := <-ch:
+		return got
+	case <-time.After(5 * time.Second):
+		t.Fatal("timed out waiting for change")
+		return ""
+	}
+}
+
+func TestNewDefaultDelay(t *testing.T) {
+	if got := New(0).delay; got != DefaultDebounce {
+		t.Fatalf("delay = %v, want %v", got, DefaultDebounce)
+	}
+}
+
+func TestStartErrors(t *testing.T) {
+	w := New(testDelay)
+	path := writeFile(t, t.TempDir(), "a")
+	if err := w.Start(context.Background(), []string{path}, nil); err == nil {
+		t.Fatal("expected error for nil callback")
+	}
+	missing := filepath.Join(t.TempDir(), "nope", "a")
+	if err := w.Start(context.Background(), []string{missing}, func(string) {}); err == nil {
+		t.Fatal("expected error for missing parent dir")
+	}
+	if w.isRunningForTest() {
+		t.Fatal("watcher running after failed Start")
+	}
+}
+
+func TestStopIdempotentAndContextCancel(t *testing.T) {
+	path := writeFile(t, t.TempDir(), "a")
+	w := New(testDelay)
+	ctx, cancel := context.WithCancel(context.Background())
+	if err := w.Start(ctx, []string{path}, func(string) {}); err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+	var wg sync.WaitGroup
+	for range 4 {
+		wg.Go(func() {
+			if err := w.Stop(); err != nil {
+				t.Errorf("Stop: %v", err)
+			}
+		})
+	}
+	wg.Wait()
+	if w.isRunningForTest() {
+		t.Fatal("running after Stop")
+	}
+
+	if err := w.Start(ctx, []string{path}, func(string) {}); err != nil {
+		t.Fatalf("Start after Stop: %v", err)
+	}
+	done := w.doneForTest()
+	cancel()
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("goroutine did not exit after ctx cancel")
+	}
+	if w.isRunningForTest() {
+		t.Fatal("running after ctx cancel")
+	}
+}
+
+func TestStartSameSetIsNoOpAndNewSetRestarts(t *testing.T) {
+	dir := t.TempDir()
+	a := writeFile(t, dir, "a")
+	b := writeFile(t, dir, "b")
+	w := New(testDelay)
+	t.Cleanup(func() { _ = w.Stop() })
+	changes := make(chan string, 8)
+	cb := func(p string) { changes <- p }
+
+	if err := w.Start(context.Background(), []string{a, b}, cb); err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+	first := w.fsWatcherForTest()
+	if err := w.Start(context.Background(), []string{b, a, a}, cb); err != nil {
+		t.Fatalf("Start same set: %v", err)
+	}
+	if w.fsWatcherForTest() != first {
+		t.Fatal("same set replaced the underlying watcher")
+	}
+
+	if err := w.Start(context.Background(), []string{b}, cb); err != nil {
+		t.Fatalf("Start new set: %v", err)
+	}
+	if w.fsWatcherForTest() == first {
+		t.Fatal("new set did not restart the watcher")
+	}
+	writeFile(t, dir, "b")
+	if got := waitFor(t, changes); got != b {
+		t.Fatalf("change = %q, want %q", got, b)
+	}
+
+	if err := w.Start(context.Background(), nil, cb); err != nil {
+		t.Fatalf("Start empty: %v", err)
+	}
+	if w.isRunningForTest() {
+		t.Fatal("running after empty set")
+	}
+}
+
+func TestAtomicRenameTriggers(t *testing.T) {
+	dir := t.TempDir()
+	path := writeFile(t, dir, "theme.json")
+	w := New(testDelay)
+	t.Cleanup(func() { _ = w.Stop() })
+	changes := make(chan string, 8)
+	if err := w.Start(context.Background(), []string{path}, func(p string) { changes <- p }); err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+	tmp := writeFile(t, dir, ".theme.json.tmp")
+	if err := os.Rename(tmp, path); err != nil {
+		t.Fatalf("rename: %v", err)
+	}
+	if got := waitFor(t, changes); got != path {
+		t.Fatalf("change = %q, want %q", got, path)
+	}
+}
+
+func TestTwoFilesInDifferentDirs(t *testing.T) {
+	dirA, dirB := t.TempDir(), t.TempDir()
+	a := writeFile(t, dirA, "a")
+	b := writeFile(t, dirB, "b")
+	w := New(testDelay)
+	t.Cleanup(func() { _ = w.Stop() })
+	changes := make(chan string, 8)
+	if err := w.Start(context.Background(), []string{a, b}, func(p string) { changes <- p }); err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+	writeFile(t, dirB, "b")
+	if got := waitFor(t, changes); got != b {
+		t.Fatalf("change = %q, want %q", got, b)
+	}
+	writeFile(t, dirA, "a")
+	if got := waitFor(t, changes); got != a {
+		t.Fatalf("change = %q, want %q", got, a)
+	}
+}
+
+// loop tests run in a synctest bubble with fake channels and fake time.
+
+type loopHarness struct {
+	events chan fsnotify.Event
+	cancel context.CancelFunc
+	done   chan struct{}
+	mu     sync.Mutex
+	calls  []string
+}
+
+func startLoop(t *testing.T, paths []string) *loopHarness {
+	t.Helper()
+	ctx, cancel := context.WithCancel(t.Context())
+	h := &loopHarness{events: make(chan fsnotify.Event), cancel: cancel, done: make(chan struct{})}
+	go func() {
+		defer close(h.done)
+		loop(ctx, h.events, make(chan error), paths, testDelay, func(p string) {
+			h.mu.Lock()
+			h.calls = append(h.calls, p)
+			h.mu.Unlock()
+		})
+	}()
+	return h
+}
+
+func (h *loopHarness) send(name string, op fsnotify.Op) {
+	h.events <- fsnotify.Event{Name: name, Op: op}
+}
+
+func (h *loopHarness) snapshot() []string {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	return append([]string(nil), h.calls...)
+}
+
+func (h *loopHarness) close() {
+	h.cancel()
+	<-h.done
+}
+
+func TestLoopBurstOnOneFileCoalesces(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		h := startLoop(t, []string{"/d/a", "/d/b"})
+		defer h.close()
+		for range 5 {
+			h.send("/d/a", fsnotify.Write)
+			time.Sleep(testDelay / 2)
+		}
+		synctest.Wait()
+		if got := h.snapshot(); len(got) != 0 {
+			t.Fatalf("fired during burst: %v", got)
+		}
+		time.Sleep(testDelay)
+		synctest.Wait()
+		if got := h.snapshot(); len(got) != 1 || got[0] != "/d/a" {
+			t.Fatalf("calls = %v, want [/d/a]", got)
+		}
+	})
+}
+
+func TestLoopDebouncesPerFile(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		h := startLoop(t, []string{"/d/a", "/d/b"})
+		defer h.close()
+		h.send("/d/a", fsnotify.Write)
+		time.Sleep(testDelay / 2)
+		h.send("/d/b", fsnotify.Create)
+		// A's deadline passes; B's burst must not delay A.
+		time.Sleep(testDelay/2 + time.Millisecond)
+		synctest.Wait()
+		if got := h.snapshot(); len(got) != 1 || got[0] != "/d/a" {
+			t.Fatalf("calls = %v, want [/d/a]", got)
+		}
+		time.Sleep(testDelay)
+		synctest.Wait()
+		if got := h.snapshot(); len(got) != 2 || got[1] != "/d/b" {
+			t.Fatalf("calls = %v, want [/d/a /d/b]", got)
+		}
+	})
+}
+
+func TestLoopIgnoresUnrelatedAndIrrelevantOps(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		h := startLoop(t, []string{"/d/a"})
+		defer h.close()
+		h.send("/d/other", fsnotify.Write)
+		h.send("/d/a", fsnotify.Chmod)
+		time.Sleep(2 * testDelay)
+		synctest.Wait()
+		if got := h.snapshot(); len(got) != 0 {
+			t.Fatalf("calls = %v, want none", got)
+		}
+		h.send("/d/./a", fsnotify.Remove)
+		time.Sleep(2 * testDelay)
+		synctest.Wait()
+		if got := h.snapshot(); len(got) != 1 {
+			t.Fatalf("calls = %v, want one", got)
+		}
+	})
+}
+
+func TestLoopExitsOnClosedEvents(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		h := startLoop(t, []string{"/d/a"})
+		close(h.events)
+		<-h.done
+		h.cancel()
+	})
+}
