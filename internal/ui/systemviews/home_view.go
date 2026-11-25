@@ -18,6 +18,7 @@ const (
 	homeRegionHeader       = "home-header"
 	homeRegionBookmarks    = "home-bookmarks"
 	homeRegionGroups       = "home-groups"
+	homeRegionWidgets      = "home-widgets"
 	homeRegionSuggestions  = "home-suggestions"
 	homeWidgetRegionPrefix = "home-widget-"
 )
@@ -235,20 +236,58 @@ const (
 func homeServiceTileRegion(id string) string  { return homeServiceTileRegionPrefix + id }
 func homeServiceEmbedRegion(id string) string { return homeServiceEmbedRegionPrefix + id }
 
+func isHomeWidgetRegion(name string) bool {
+	return strings.HasPrefix(name, homeWidgetRegionPrefix)
+}
+
 // changedHomeRegions returns the regions of next whose markup differs from
-// previous. ok is false when the region list changed, which needs a full
-// remount.
+// previous. When the built-in widget list changed, the widgets container is
+// swapped as a whole instead of its regions. ok is false when the other
+// regions differ, which needs a full remount.
 func changedHomeRegions(previous, next []DOMRegion) (changed []DOMRegion, ok bool) {
-	if len(previous) != len(next) {
+	prevFixed, prevWidgets := splitHomeRegions(previous)
+	nextFixed, nextWidgets := splitHomeRegions(next)
+	if len(prevFixed) != len(nextFixed) {
 		return nil, false
 	}
-	for i := range next {
-		if previous[i].Name != next[i].Name {
+	for i := range nextFixed {
+		if prevFixed[i].Name != nextFixed[i].Name {
 			return nil, false
 		}
-		if previous[i].HTML != next[i].HTML {
-			changed = append(changed, next[i])
+		if prevFixed[i].HTML != nextFixed[i].HTML {
+			changed = append(changed, nextFixed[i])
+		}
+	}
+	if !sameRegionNames(prevWidgets, nextWidgets) {
+		return append(changed, DOMRegion{Name: homeRegionWidgets, HTML: mustRenderComponent(HomeWidgetRegions(nextWidgets))}), true
+	}
+	for i := range nextWidgets {
+		if prevWidgets[i].HTML != nextWidgets[i].HTML {
+			changed = append(changed, nextWidgets[i])
 		}
 	}
 	return changed, true
+}
+
+func splitHomeRegions(regions []DOMRegion) (fixed, widgets []DOMRegion) {
+	for _, region := range regions {
+		if isHomeWidgetRegion(region.Name) {
+			widgets = append(widgets, region)
+		} else {
+			fixed = append(fixed, region)
+		}
+	}
+	return fixed, widgets
+}
+
+func sameRegionNames(a, b []DOMRegion) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i].Name != b[i].Name {
+			return false
+		}
+	}
+	return true
 }

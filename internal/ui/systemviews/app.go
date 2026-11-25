@@ -76,6 +76,7 @@ type App struct {
 	homeGroups     homeShape
 	homeLeaves     map[string]string
 	homeActionKeys map[string]string
+	homeWidgetKeys map[string]string
 	homeGroupSeq   int
 	// homeGeneration invalidates in-flight widget fills after a reload.
 	homeGeneration uint64

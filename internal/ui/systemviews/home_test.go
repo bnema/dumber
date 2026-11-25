@@ -236,12 +236,13 @@ func TestHomeReloadSwapsOnlyChangedRegions(t *testing.T) {
 	assert.Equal(t, homeRegionHeader, dom.regions[0][0].Name)
 	assert.Contains(t, dom.regions[0][0].HTML, "Lab")
 
-	// A widget added changes the region list: full remount.
+	// A widget added swaps the widgets container only.
 	home.load.Layout.Widgets = append(home.load.Layout.Widgets, entity.HomeBuiltinWidget{Type: entity.HomeWidgetClock})
 	require.NoError(t, app.HandleDOMAction(context.Background(), DOMAction{Action: actionSystemviewChanged, Data: map[string]string{"topic": "home"}}))
 	app.homeFillWG.Wait()
-	assert.Len(t, dom.regions, 1)
-	assert.Equal(t, mounts+1, dom.mountCount)
+	require.Len(t, dom.regions, 2)
+	assert.Equal(t, homeRegionWidgets, dom.regions[1][0].Name)
+	assert.Equal(t, mounts, dom.mountCount)
 }
 
 func TestHomeClockTickSwapsOnlyClock(t *testing.T) {
@@ -650,13 +651,14 @@ func TestHomeFreshShellResetsActionsButKeepsBusy(t *testing.T) {
 	}
 	app.unlockState()
 
-	// Moving nas to the next group and giving nas2 an api widget gives
-	// both a new shell.
+	// Moving nas to the next group and nas2 to a new group gives both a
+	// new shell.
 	groups := home.load.Layout.Groups
-	nas := groups[0].Services[2]
+	nas, nas2 := groups[0].Services[2], groups[1].Services[1]
 	groups[0].Services = groups[0].Services[:2:2]
-	groups[1].Services = append([]entity.HomeService{nas}, groups[1].Services...)
-	groups[1].Services[2].Widget = &entity.HomeServiceWidget{Type: entity.HomeServiceWidgetAPI, URL: "https://nas2.lan/api"}
+	groups[1].Services = []entity.HomeService{nas, groups[1].Services[0]}
+	groups = append(groups, entity.HomeGroup{Name: "Spare", Services: []entity.HomeService{nas2}})
+	home.load.Layout.Groups = groups
 	reloadHome(t, app)
 
 	assert.Equal(t, 1, dom.mounts)
@@ -667,4 +669,57 @@ func TestHomeFreshShellResetsActionsButKeepsBusy(t *testing.T) {
 	assert.False(t, formKept, "an open form is dropped with its shell")
 	assert.Equal(t, homeActionBusy, busy.Step, "a running action is kept")
 	assert.Contains(t, dom.text(homeServiceActionsRegion("nas")), "Running")
+}
+
+func TestHomeSlotAndWidgetListChangesKeepEmbeds(t *testing.T) {
+	t.Parallel()
+	for name, tc := range map[string]struct {
+		mutate func(*entity.HomeLayout)
+		check  func(t *testing.T, dom *treeDOM)
+	}{
+		"action added to an embed service": {
+			mutate: func(l *entity.HomeLayout) {
+				l.Groups[0].Services[1].Actions = []entity.HomeAction{{ID: "snap", Label: "Snapshot"}}
+			},
+			check: func(t *testing.T, dom *treeDOM) {
+				assert.Equal(t, []string{homeServiceActionsRegion("cam")}, dom.swapped)
+				assert.Contains(t, dom.text(homeServiceActionsRegion("cam")), "Snapshot")
+			},
+		},
+		"api widget added to a service": {
+			mutate: func(l *entity.HomeLayout) {
+				l.Groups[0].Services[0].Widget = &entity.HomeServiceWidget{Type: entity.HomeServiceWidgetAPI, URL: "https://jelly.lan/api"}
+			},
+			check: func(t *testing.T, dom *treeDOM) {
+				assert.Contains(t, dom.swapped, homeServiceRegion("jelly"))
+			},
+		},
+		"clock widget added": {
+			mutate: func(l *entity.HomeLayout) {
+				l.Widgets = append(l.Widgets, entity.HomeBuiltinWidget{Type: entity.HomeWidgetClock})
+			},
+			check: func(t *testing.T, dom *treeDOM) {
+				assert.Equal(t, []string{homeRegionWidgets}, dom.swapped)
+				assert.NotNil(t, dom.node("data-sv-region", homeWidgetRegion(1)))
+			},
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			home := &fakeHome{load: dto.HomeLoadResponse{Layout: homeServiceLayoutWithSearch()}}
+			dom := newTreeDOM()
+			app := newMountedHomeApp(t, dom, home)
+			cam := dom.node("data-sv-region", "home-svc-embed:cam")
+			pve := dom.node("data-sv-region", "home-svc-embed:pve")
+			dom.swapped = nil
+
+			tc.mutate(&home.load.Layout)
+			reloadHome(t, app)
+
+			assert.Equal(t, 1, dom.mounts, "no remount")
+			assert.Same(t, cam, dom.node("data-sv-region", "home-svc-embed:cam"), "embed node kept")
+			assert.Same(t, pve, dom.node("data-sv-region", "home-svc-embed:pve"))
+			tc.check(t, dom)
+		})
+	}
 }

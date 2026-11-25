@@ -38,8 +38,8 @@ func homeShellAnchor(id string) string       { return homeAnchorShellPrefix + id
 func homeGroupTitleRegion(key string) string { return homeGroupTitleRegionPref + key }
 
 // homeShape is the structure of the service groups: which groups and
-// services exist, in which order, and which slots each service has. Names,
-// descriptions, labels and columns are not part of it.
+// services exist, and in which order. Names, descriptions, slots, labels and
+// columns are not part of it: they swap region contents.
 type homeShape struct {
 	Groups []homeGroupShape
 }
@@ -52,21 +52,7 @@ type homeGroupShape struct {
 }
 
 type homeServiceShape struct {
-	ID    string
-	Slots string
-}
-
-// homeServiceSlots names the slots a service shell holds; a change replaces
-// the shell.
-func homeServiceSlots(service *entity.HomeService) string {
-	slots := ""
-	if homeServiceHasAPIWidget(*service) {
-		slots += "api,"
-	}
-	if homeServiceHasActions(*service) {
-		slots += "actions,"
-	}
-	return slots
+	ID string
 }
 
 // homeActionsKey identifies the rendered actions of a service.
@@ -95,7 +81,7 @@ func buildHomeShape(groups []entity.HomeGroup, old homeShape, next *int) homeSha
 		services := make([]homeServiceShape, len(group.Services))
 		for si := range group.Services {
 			service := &group.Services[si]
-			services[si] = homeServiceShape{ID: service.ID, Slots: homeServiceSlots(service)}
+			services[si] = homeServiceShape{ID: service.ID}
 		}
 		shape.Groups[gi] = homeGroupShape{Key: key, Name: group.Name, Services: services}
 	}
@@ -189,21 +175,22 @@ func planHomeStructure(old, next homeShape) (homeStructurePlan, bool) {
 	return plan, true
 }
 
-// keptHomeServices returns the services that stay in place: same group,
-// same slots. Every other service of next is recorded in fresh.
+// keptHomeServices returns the services that stay in their group. Every
+// other service of next is recorded in fresh.
 func keptHomeServices(old, next homeShape, oldGroups, fresh map[string]bool) map[string]bool {
-	oldPlace := make(map[string]homePlace)
+	oldGroup := make(map[string]string)
 	for i := range old.Groups {
 		for _, service := range old.Groups[i].Services {
-			oldPlace[service.ID] = homePlace{Group: old.Groups[i].Key, Slots: service.Slots}
+			oldGroup[service.ID] = old.Groups[i].Key
 		}
 	}
 	kept := make(map[string]bool)
 	for i := range next.Groups {
 		group := &next.Groups[i]
 		for _, service := range group.Services {
-			place, ok := oldPlace[service.ID]
-			if oldGroups[group.Key] && ok && place.Group == group.Key && place.Slots == service.Slots {
+			// A service moved to another group gets a new shell, and its
+			// embed reloads.
+			if key, ok := oldGroup[service.ID]; ok && oldGroups[group.Key] && key == group.Key {
 				kept[service.ID] = true
 				continue
 			}
@@ -264,10 +251,6 @@ func homeInserts(next homeShape, oldGroups, kept map[string]bool) []homeStructur
 	return inserts
 }
 
-type homePlace struct {
-	Group string
-	Slots string
-}
 
 func homeShapeIDs(shape homeShape) ([]string, bool) {
 	var ids []string
@@ -326,19 +309,25 @@ func homeGroupLeaves(load dto.HomeLoadResponse, shape homeShape) map[string]stri
 	return leaves
 }
 
-// homeActionKeys maps service ids to their actions key.
-func homeActionKeys(load dto.HomeLoadResponse) map[string]string {
-	keys := make(map[string]string)
+// homeSlotKeys maps service ids to what their actions and api widget slots
+// show; a change swaps the slot contents.
+func homeSlotKeys(load dto.HomeLoadResponse) (actions, widgets map[string]string) {
+	actions = make(map[string]string)
+	widgets = make(map[string]string)
 	for gi := range load.Layout.Groups {
 		group := &load.Layout.Groups[gi]
 		for si := range group.Services {
 			service := &group.Services[si]
 			if homeServiceHasActions(*service) {
-				keys[service.ID] = homeActionsKey(service)
+				actions[service.ID] = homeActionsKey(service)
+			}
+			if homeServiceHasAPIWidget(*service) {
+				raw, _ := json.Marshal(service.Widget)
+				widgets[service.ID] = string(raw)
 			}
 		}
 	}
-	return keys
+	return actions, widgets
 }
 
 // findHomeServiceAt returns the service id of group gi.

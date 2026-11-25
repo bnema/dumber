@@ -70,7 +70,7 @@ func (a *App) loadHomeRoute(ctx context.Context) error {
 func (a *App) setHomeGroupsLocked(shape homeShape) {
 	a.homeGroups = shape
 	a.homeLeaves = homeGroupLeaves(a.homeData.Load, shape)
-	a.homeActionKeys = homeActionKeys(a.homeData.Load)
+	a.homeActionKeys, a.homeWidgetKeys = homeSlotKeys(a.homeData.Load)
 }
 
 func (a *App) renderHomePageLocked() {
@@ -320,14 +320,14 @@ func (a *App) applyHomeReloadLocked(previous dto.HomeLoadResponse, next []DOMReg
 	plan, planned := planHomeStructure(a.homeGroups, shape)
 	updater, canUpdate := a.deps.DOM.(DOMRegionUpdater)
 	editor, canEdit := a.deps.DOM.(DOMStructureEditor)
-	oldLeaves, oldActionKeys := a.homeLeaves, a.homeActionKeys
+	oldLeaves, oldActionKeys, oldWidgetKeys := a.homeLeaves, a.homeActionKeys, a.homeWidgetKeys
 	a.homeRendered = next
 	a.setHomeGroupsLocked(shape)
 	a.renderHomePageLocked()
 	if !sameShape || !planned || !canUpdate || !canEdit {
 		return a.remountHomeLocked()
 	}
-	base := homeReloadBase{previous: previous, changed: changed, leaves: oldLeaves, actionKeys: oldActionKeys}
+	base := homeReloadBase{previous: previous, changed: changed, leaves: oldLeaves, actionKeys: oldActionKeys, widgetKeys: oldWidgetKeys}
 	if err := a.editHomeLocked(editor, updater, plan, base); err != nil {
 		// A failed edit leaves the page half-edited: start over from the
 		// full page.
@@ -344,6 +344,7 @@ type homeReloadBase struct {
 	changed    []DOMRegion
 	leaves     map[string]string
 	actionKeys map[string]string
+	widgetKeys map[string]string
 }
 
 // editHomeLocked applies the in-place edits of a reload. Caller holds App.mu.
@@ -359,6 +360,7 @@ func (a *App) editHomeLocked(editor DOMStructureEditor, updater DOMRegionUpdater
 	regions := base.changed
 	regions = append(regions, a.changedHomeLeavesLocked(base.leaves, plan)...)
 	regions = append(regions, a.changedHomeActionRegionsLocked(base.actionKeys, plan)...)
+	regions = append(regions, a.changedHomeWidgetSlotsLocked(base.widgetKeys, plan)...)
 	regions = append(regions, a.freshBusyActionRegionsLocked(plan)...)
 	if len(regions) == 0 {
 		return nil
@@ -398,6 +400,7 @@ func (a *App) invalidateHomeRenderLocked() {
 	a.homeGroups = homeShape{}
 	a.homeLeaves = nil
 	a.homeActionKeys = nil
+	a.homeWidgetKeys = nil
 }
 
 func (a *App) remountHomeLocked() error {
@@ -471,28 +474,57 @@ func (a *App) changedHomeLeavesLocked(old map[string]string, plan homeStructureP
 }
 
 // changedHomeActionRegionsLocked re-renders the idle actions of kept
-// services whose actions changed.
+// services whose actions changed, were added or were removed.
 func (a *App) changedHomeActionRegionsLocked(old map[string]string, plan homeStructurePlan) []DOMRegion {
 	var regions []DOMRegion
-	for _, group := range a.homeData.Load.Layout.Groups {
-		for i := range group.Services {
-			service := &group.Services[i]
-			key, ok := a.homeActionKeys[service.ID]
-			if !ok || plan.Fresh[service.ID] || old[service.ID] == key {
-				continue
-			}
-			if _, open := a.homeSvc.actions[service.ID]; open {
-				// An open form or confirmation keeps what the user typed;
-				// closing it renders the new actions.
-				continue
-			}
-			regions = append(regions, DOMRegion{
-				Name: homeServiceActionsRegion(service.ID),
-				HTML: mustRenderComponent(HomeServiceActions(homeServiceActionsView{Service: *service})),
-			})
+	for _, service := range a.keptHomeServicesLocked(plan) {
+		if old[service.ID] == a.homeActionKeys[service.ID] {
+			continue
 		}
+		if _, open := a.homeSvc.actions[service.ID]; open {
+			// An open form or confirmation keeps what the user typed;
+			// closing it renders the new actions.
+			continue
+		}
+		regions = append(regions, DOMRegion{
+			Name: homeServiceActionsRegion(service.ID),
+			HTML: mustRenderComponent(HomeServiceIdleActions(*service)),
+		})
 	}
 	return regions
+}
+
+// changedHomeWidgetSlotsLocked resets the api widget slot of kept services
+// whose widget changed, was added or was removed. The widget loops push the
+// new data. Caller holds App.mu.
+func (a *App) changedHomeWidgetSlotsLocked(old map[string]string, plan homeStructurePlan) []DOMRegion {
+	var regions []DOMRegion
+	for _, service := range a.keptHomeServicesLocked(plan) {
+		if old[service.ID] == a.homeWidgetKeys[service.ID] {
+			continue
+		}
+		delete(a.homeSvc.slots, service.ID)
+		regions = append(regions, DOMRegion{
+			Name: homeServiceRegion(service.ID),
+			HTML: mustRenderComponent(HomeServiceWidgetPlaceholder(*service)),
+		})
+	}
+	return regions
+}
+
+// keptHomeServicesLocked returns the services of the layout that keep their
+// shell in plan.
+func (a *App) keptHomeServicesLocked(plan homeStructurePlan) []*entity.HomeService {
+	var kept []*entity.HomeService
+	for gi := range a.homeData.Load.Layout.Groups {
+		group := &a.homeData.Load.Layout.Groups[gi]
+		for si := range group.Services {
+			if !plan.Fresh[group.Services[si].ID] {
+				kept = append(kept, &group.Services[si])
+			}
+		}
+	}
+	return kept
 }
 
 // startHomeFillLocked loads every list widget in the background, each one

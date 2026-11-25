@@ -2809,6 +2809,12 @@ html[data-sv-enhanced] .sv-savebar:not([data-sv-open]):not(:has(.sv-savebar-erro
   gap: 1rem;
 }
 
+/* The widgets container only groups the widget regions for swaps; they
+   stay flex items of the page. */
+.sv-home-widgets {
+  display: contents;
+}
+
 /* Full-width regions; list widgets share a row and stretch to fill it. */
 .sv-home-region {
   flex: 1 1 100%;
@@ -3126,7 +3132,8 @@ html[data-sv-enhanced] .sv-savebar:not([data-sv-open]):not(:has(.sv-savebar-erro
   font-size: 0.8125rem;
 }
 
-.sv-home-service-widget:empty {
+.sv-home-service-widget:empty,
+.sv-home-service-actions:empty {
   display: none;
 }
 

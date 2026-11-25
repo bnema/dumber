@@ -7,20 +7,29 @@ import (
 )
 
 // homeServiceWidgetSlot is the widget slot of a service tile, then its
-// actions region. Api widget slots are filled by HomeServiceWidget once data
-// arrives.
+// actions region. Both regions always exist, empty when the service has no
+// api widget or no actions, so adding one swaps contents and keeps the
+// embed. Api widget slots are filled by HomeServiceWidget once data arrives.
 templ homeServiceWidgetSlot(service entity.HomeService) {
+	<div class="sv-home-service-widget" data-sv-region={ homeServiceRegion(service.ID) }>
+		@HomeServiceWidgetPlaceholder(service)
+	</div>
+	<div class="sv-home-service-actions" data-sv-region={ homeServiceActionsRegion(service.ID) }>
+		@HomeServiceIdleActions(service)
+	</div>
+}
+
+// HomeServiceWidgetPlaceholder is the widget slot before data arrives.
+templ HomeServiceWidgetPlaceholder(service entity.HomeService) {
 	if homeServiceHasAPIWidget(service) {
-		<div class="sv-home-service-widget" data-sv-region={ homeServiceRegion(service.ID) }>
-			<div class="sv-home-svc sv-home-svc-loading" aria-busy="true"></div>
-		</div>
-	} else {
-		<div class="sv-home-service-widget"></div>
+		<div class="sv-home-svc sv-home-svc-loading" aria-busy="true"></div>
 	}
+}
+
+// HomeServiceIdleActions is the actions region with no action open.
+templ HomeServiceIdleActions(service entity.HomeService) {
 	if homeServiceHasActions(service) {
-		<div class="sv-home-service-actions" data-sv-region={ homeServiceActionsRegion(service.ID) }>
-			@HomeServiceActions(homeServiceActionsView{Service: service})
-		</div>
+		@HomeServiceActions(homeServiceActionsView{Service: service})
 	}
 }
 

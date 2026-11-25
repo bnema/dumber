@@ -156,7 +156,9 @@ func TestHomeServiceWidgetSlotIsAnEmptyRegion(t *testing.T) {
 	home := &svcHome{fakeHome: fakeHome{load: homeLayoutWith(apiService("nas", entity.HomeDisplayStats, ""), entity.HomeService{ID: "plain", Name: "Plain"})}}
 	app, _ := newServiceApp(t, home, nil)
 	assert.Contains(t, app.renderedHTML, `data-sv-region="home-svc:nas"`)
-	assert.NotContains(t, app.renderedHTML, `data-sv-region="home-svc:plain"`)
+	// The slot of a service without an api widget exists, empty, so adding
+	// a widget later swaps its contents.
+	assert.Contains(t, app.renderedHTML, `data-sv-region="home-svc:plain"></div>`)
 	assert.Equal(t, 0, home.callCount("plain"))
 }
 

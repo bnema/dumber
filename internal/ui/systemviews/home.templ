@@ -10,7 +10,16 @@ import (
 templ HomePage(regions []DOMRegion, load dto.HomeLoadResponse, shape homeShape, leaves map[string]string) {
 	<div class="sv-home" data-sv-region="home">
 		for _, region := range regions {
-			if region.Name == homeRegionGroups {
+			if isHomeWidgetRegion(region.Name) {
+				// Rendered in the widgets container below the header.
+			} else if region.Name == homeRegionHeader {
+				<div class="sv-home-region" data-sv-region={ region.Name }>
+					@templ.Raw(region.HTML)
+				</div>
+				<div class="sv-home-widgets" data-sv-region={ homeRegionWidgets }>
+					@HomeWidgetRegions(regions)
+				</div>
+			} else if region.Name == homeRegionGroups {
 				<div class="sv-home-region sv-home-region-groups">
 					@HomeGroups(load, shape, leaves)
 				</div>
@@ -21,6 +30,18 @@ templ HomePage(regions []DOMRegion, load dto.HomeLoadResponse, shape homeShape, 
 			}
 		}
 	</div>
+}
+
+// HomeWidgetRegions renders the built-in widget regions of regions. A change
+// of the widget list swaps this whole list, and nothing else.
+templ HomeWidgetRegions(regions []DOMRegion) {
+	for _, region := range regions {
+		if isHomeWidgetRegion(region.Name) {
+			<div class="sv-home-region" data-sv-region={ region.Name }>
+				@templ.Raw(region.HTML)
+			</div>
+		}
+	}
 }
 
 templ HomeErrors(load dto.HomeLoadResponse) {
