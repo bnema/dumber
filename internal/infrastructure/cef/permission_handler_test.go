@@ -445,3 +445,49 @@ func TestOnRequestMediaAccessPermissionFlagsDesktopVideoAsUnmediated(t *testing.
 		})
 	}
 }
+
+func newSystemviewPermissionBrowser(t *testing.T, topURL string) purecef.Browser {
+	t.Helper()
+	browser := cefmocks.NewMockBrowser(t)
+	frame := cefmocks.NewMockFrame(t)
+	browser.EXPECT().GetMainFrame().Return(frame).Maybe()
+	frame.EXPECT().GetURL().Return(topURL).Maybe()
+	return browser
+}
+
+func TestOnShowPermissionPromptGrantsLocalNetworkToSystemview(t *testing.T) {
+	loopback := uint32(purecef.PermissionRequestTypesPermissionTypeLoopbackNetwork)
+	local := uint32(purecef.PermissionRequestTypesPermissionTypeLocalNetwork)
+	deprecated := uint32(purecef.PermissionRequestTypesPermissionTypeLocalNetworkAccessDeprecated)
+	for name, mask := range map[string]uint32{"loopback": loopback, "local": local, "deprecated": deprecated, "both": loopback | local} {
+		t.Run(name, func(t *testing.T) {
+			h, capture, _ := newPermissionTestHandler(t, true)
+			browser := newSystemviewPermissionBrowser(t, "https://dumber.invalid/home")
+			cb := &stubPermissionPromptCallback{}
+			require.Equal(t, int32(1), h.OnShowPermissionPrompt(browser, 1, "https://dumber.invalid", mask, cb))
+			assert.Equal(t, []purecef.PermissionRequestResult{promptAccept}, cb.results)
+			assert.Zero(t, capture.calls, "no user prompt")
+		})
+	}
+}
+
+func TestOnShowPermissionPromptLocalNetworkElsewhereUnchanged(t *testing.T) {
+	loopback := uint32(purecef.PermissionRequestTypesPermissionTypeLoopbackNetwork)
+	for name, tc := range map[string]struct {
+		top, origin string
+		mask        uint32
+	}{
+		"regular site":             {top: "https://example.com/", origin: "https://example.com", mask: loopback},
+		"internal origin, web top": {top: "https://example.com/", origin: "https://dumber.invalid", mask: loopback},
+		"web origin, internal top": {top: "https://dumber.invalid/home", origin: "https://example.com", mask: loopback},
+		"mixed with geolocation":   {top: "https://dumber.invalid/home", origin: "https://dumber.invalid", mask: loopback | promptGeo},
+	} {
+		t.Run(name, func(t *testing.T) {
+			h, _, _ := newPermissionTestHandler(t, true)
+			browser := newSystemviewPermissionBrowser(t, tc.top)
+			cb := &stubPermissionPromptCallback{}
+			assert.Equal(t, int32(0), h.OnShowPermissionPrompt(browser, 1, tc.origin, tc.mask, cb))
+			assert.Empty(t, cb.results)
+		})
+	}
+}

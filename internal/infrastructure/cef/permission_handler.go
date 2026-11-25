@@ -96,6 +96,27 @@ func promptPermissionTypes(requested uint32) []string {
 	return types
 }
 
+// localNetworkPermissionMask covers Chromium's Local Network Access prompts,
+// raised when a page loads from a private or loopback address.
+const localNetworkPermissionMask = uint32(purecef.PermissionRequestTypesPermissionTypeLocalNetworkAccessDeprecated) |
+	uint32(purecef.PermissionRequestTypesPermissionTypeLocalNetwork) |
+	uint32(purecef.PermissionRequestTypesPermissionTypeLoopbackNetwork)
+
+// systemviewLocalNetworkPrompt reports a prompt that asks only for local
+// network access, from the internal system view origin, in a browser whose
+// top-level page is a system view. Such a prompt comes from a dumb://home
+// embed of a LAN or loopback service.
+func systemviewLocalNetworkPrompt(browser purecef.Browser, requestingOrigin string, requested uint32) bool {
+	if requested == 0 || requested&^localNetworkPermissionMask != 0 || !isActualInternalURL(requestingOrigin) {
+		return false
+	}
+	if browser == nil {
+		return false
+	}
+	frame := browser.GetMainFrame()
+	return frame != nil && isActualInternalURL(frame.GetURL())
+}
+
 // cefPermissionRequest guarantees that a CEF permission callback is resolved
 // exactly once, whichever of allow, deny, dismissal or browser destruction
 // happens first.
@@ -224,6 +245,13 @@ func (h *handlerSet) OnShowPermissionPrompt(
 ) int32 {
 	if h == nil || h.wv == nil || callback == nil {
 		return 0
+	}
+	if systemviewLocalNetworkPrompt(browser, requestingOrigin, requestedPermissions) {
+		// The system view page frames only the embeds the user listed in
+		// home.toml; left unanswered, this prompt stalls them forever.
+		logCEFPermission(h.wv).Debug().Msg("cef: granting local network access to the system view page")
+		callback.Cont(purecef.PermissionRequestResultPermissionResultAccept)
+		return 1
 	}
 	types := promptPermissionTypes(requestedPermissions)
 	if len(types) == 0 {
