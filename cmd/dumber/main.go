@@ -1209,6 +1209,7 @@ func buildUIDependencies(
 			HTTP:      homehttp.New(),
 			LookupEnv: os.LookupEnv,
 		})
+		wireHomeIcons(ctx, engine, configDir)
 	}
 
 	uiDeps := &ui.Dependencies{

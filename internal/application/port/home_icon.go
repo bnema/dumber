@@ -36,3 +36,18 @@ type HomeIconCache interface {
 	Get(ctx context.Context, serviceURL string) (png []byte, storedAt time.Time, ok bool)
 	Put(ctx context.Context, serviceURL string, png []byte) error
 }
+
+// HomeIconResolver is the boundary-safe API used by engine scheme handlers to
+// serve dumb://api/home-icon. The page sends only a service id; the
+// implementation resolves the service from home.toml.
+type HomeIconResolver interface {
+	// ResolveHomeIconByID returns a PNG for the service, or an error wrapping
+	// ErrHomeIconNotFound for unknown ids, invalid ids, or missing icons.
+	ResolveHomeIconByID(ctx context.Context, serviceID string) (png []byte, contentType string, err error)
+}
+
+// HomeIconResolverSetter is an optional engine capability that wires the
+// home icon resolver to internal systemview pages.
+type HomeIconResolverSetter interface {
+	SetHomeIconResolver(resolver HomeIconResolver)
+}

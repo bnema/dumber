@@ -3,12 +3,15 @@ package usecase
 import (
 	"context"
 	"errors"
+	"sync"
 	"testing"
 	"time"
 
 	appport "bnema.dev/dumber/internal/application/port"
 	portmocks "bnema.dev/dumber/internal/application/port/mocks"
+	"bnema.dev/dumber/internal/domain/entity"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 type homeIconFixture struct {
@@ -102,4 +105,122 @@ func TestHomeIconNotFoundSentinel(t *testing.T) {
 	if !errors.Is(err, ErrHomeIconNotFound) || !errors.Is(err, appport.ErrHomeIconNotFound) {
 		t.Fatalf("want sentinel, got %v", err)
 	}
+}
+
+func TestHomeIconNegativeCacheSkipsRetryWithinTTL(t *testing.T) {
+	fx := newHomeIconFixture(t)
+	calls := 0
+	fx.cache.EXPECT().Get(mock.Anything, svc).Return(nil, time.Time{}, false)
+	fx.src.EXPECT().DiscoverIconURLs(mock.Anything, svc).
+		RunAndReturn(func(context.Context, string) ([]string, error) {
+			calls++
+			return nil, errors.New("down")
+		})
+	resolve := func() {
+		_, _, err := fx.uc.ResolveHomeServiceIcon(context.Background(), svc, "")
+		require.ErrorIs(t, err, ErrHomeIconNotFound)
+	}
+	resolve()
+	resolve()
+	fx.now = fx.now.Add(HomeIconNegativeTTL - time.Second)
+	resolve()
+	require.Equal(t, 1, calls, "failures within the negative TTL must not refetch")
+	fx.now = fx.now.Add(2 * time.Second)
+	resolve()
+	require.Equal(t, 2, calls, "expired failure must be retried")
+}
+
+func TestHomeIconConcurrentCallsShareOneResolution(t *testing.T) {
+	fx := newHomeIconFixture(t)
+	release := make(chan struct{})
+	started := make(chan struct{})
+	fx.cache.EXPECT().Get(mock.Anything, svc).Return(nil, time.Time{}, false).Once()
+	fx.src.EXPECT().DiscoverIconURLs(mock.Anything, svc).
+		RunAndReturn(func(context.Context, string) ([]string, error) {
+			close(started)
+			<-release
+			return []string{"u/a.png"}, nil
+		}).Once()
+	fx.src.EXPECT().FetchIcon(mock.Anything, "u/a.png").Return(img("image/png", "a"), nil).Once()
+	fx.conv.EXPECT().Convert(mock.Anything, []byte("a"), "image/png", []int{128}).Return(converted("a128"), nil).Once()
+	fx.cache.EXPECT().Put(mock.Anything, svc, []byte("a128")).Return(nil).Once()
+
+	const callers = 5
+	var wg sync.WaitGroup
+	results := make(chan string, callers)
+	resolve := func() {
+		defer wg.Done()
+		got, _, err := fx.uc.ResolveHomeServiceIcon(context.Background(), svc, "")
+		if err != nil {
+			results <- "err:" + err.Error()
+			return
+		}
+		results <- string(got)
+	}
+	wg.Add(1)
+	go resolve()
+	<-started
+	for range callers - 1 {
+		wg.Add(1)
+		go resolve()
+	}
+	// Let waiters reach the in-flight call before releasing it.
+	require.Eventually(t, func() bool {
+		fx.uc.mu.Lock()
+		defer fx.uc.mu.Unlock()
+		return len(fx.uc.inflight) == 1
+	}, time.Second, time.Millisecond)
+	time.Sleep(20 * time.Millisecond)
+	close(release)
+	wg.Wait()
+	close(results)
+	for r := range results {
+		require.Equal(t, "a128", r)
+	}
+}
+
+type stubHomeConfig struct{ layout entity.HomeLayout }
+
+func (s stubHomeConfig) Load(context.Context) (appport.HomeConfigSnapshot, error) {
+	return appport.HomeConfigSnapshot{Layout: s.layout}, nil
+}
+func (stubHomeConfig) Path() string                { return "" }
+func (stubHomeConfig) EnsureExists() (bool, error) { return false, nil }
+
+func newHomeIconByIDFixture(t *testing.T, services ...entity.HomeService) *homeIconFixture {
+	fx := newHomeIconFixture(t)
+	fx.uc.config = stubHomeConfig{layout: entity.HomeLayout{Groups: []entity.HomeGroup{{Name: "g", Services: services}}}}
+	fx.uc.configDir = "/cfg"
+	return fx
+}
+
+func TestHomeIconByIDUsesOverrideUnderConfigDir(t *testing.T) {
+	fx := newHomeIconByIDFixture(t, entity.HomeService{ID: "jellyfin", URL: svc, Icon: "icons/j.svg"})
+	fx.src.EXPECT().ReadLocalIcon(mock.Anything, "/cfg/icons/j.svg").Return(img("image/svg+xml", "<svg/>"), nil)
+	fx.conv.EXPECT().Convert(mock.Anything, []byte("<svg/>"), "image/svg+xml", []int{128}).Return(converted("j128"), nil)
+	got, ct, err := fx.uc.ResolveHomeIconByID(context.Background(), "jellyfin")
+	require.NoError(t, err)
+	require.Equal(t, "j128", string(got))
+	require.Equal(t, "image/png", ct)
+}
+
+func TestHomeIconByIDRejectsUnknownBadAndEscapingIDs(t *testing.T) {
+	fx := newHomeIconByIDFixture(t,
+		entity.HomeService{ID: "evil", URL: svc, Icon: "../secret.png"},
+		entity.HomeService{ID: "abs", URL: svc, Icon: "/etc/x.png"},
+	)
+	for _, id := range []string{"unknown", "", "../x", "UPPER", "evil", "abs"} {
+		_, _, err := fx.uc.ResolveHomeIconByID(context.Background(), id)
+		require.ErrorIs(t, err, appport.ErrHomeIconNotFound, id)
+	}
+}
+
+func TestResolveUnderDir(t *testing.T) {
+	cases := map[string]bool{"a.png": true, "icons/a.png": true, "../a.png": false, "icons/../../a.png": false, "/abs.png": false, ".": false}
+	for rel, want := range cases {
+		_, ok := resolveUnderDir("/cfg", rel)
+		require.Equal(t, want, ok, rel)
+	}
+	_, ok := resolveUnderDir("", "a.png")
+	require.False(t, ok)
 }

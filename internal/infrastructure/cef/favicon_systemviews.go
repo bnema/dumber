@@ -31,3 +31,14 @@ func (h *dumbSchemeHandler) invalidateFavicon(_ context.Context, _ favicon.Key) 
 	// each request, so this adapter does not own a favicon response cache.
 	return nil
 }
+
+var _ port.HomeIconResolverSetter = (*Engine)(nil)
+
+// SetHomeIconResolver exposes home service icons to the home systemview via
+// /api/home-icon.
+func (e *Engine) SetHomeIconResolver(resolver port.HomeIconResolver) {
+	if e == nil || e.schemeHandler == nil {
+		return
+	}
+	e.schemeHandler.setHomeIconResolver(resolver)
+}
