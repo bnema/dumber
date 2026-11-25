@@ -243,5 +243,6 @@ Ready-made snippets are in [`examples/`](./examples/). API paths in them are exa
 - Embedded sites run in a third-party iframe, so their login cookies are usually blocked. For Grafana, only anonymous or public panels work.
 - API widgets read JSON only.
 - Avoid embedding public websites on `dumb://home`. Local network scoping covers http(s) requests and frames, not WebSockets or service and shared workers.
+- An embed that navigates away from its configured origin cannot reach the local network again in that frame until the home page renders it anew. Edit `home.toml` or reload the page to recover.
 - HTTPS certificates are verified. A service with a self-signed certificate gets the letter icon: set a local `icon` instead.
 - A failed icon lookup is remembered for 10 minutes. Editing the service's `url` or `icon` retries at once.
