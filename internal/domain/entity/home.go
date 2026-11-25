@@ -629,6 +629,11 @@ func validateActionInputs(errs *homeErrs, p string, a *HomeAction) {
 			errs.addf(p+".body", "references undeclared input %q", name)
 		}
 	}
+	if len(HomeInputRefs(a.Body)) > 0 {
+		if msg := CheckHomeInputBody(a.Body); msg != "" {
+			errs.addf(p+".body", "%s", msg)
+		}
+	}
 	for _, k := range sortedKeys(a.Headers) {
 		if len(HomeInputRefs(a.Headers[k])) > 0 {
 			errs.addf(p+".headers."+k, "must not reference inputs")

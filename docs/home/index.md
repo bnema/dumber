@@ -153,7 +153,12 @@ template = """
 
 Each action is a button on the service card. With `confirm`, the page asks for confirmation first. The browser process sends the request and the page only shows whether it succeeded. Only one request per action runs at a time.
 
-**Inputs** ask the user for values before sending. Each input is `{ name, label, placeholder }`. `name` matches `[A-Za-z_][A-Za-z0-9_]*` and is unique per action. Use `{{input.NAME}}` in `url` (URL-encoded) or `body` (JSON-escaped when the body starts with `{` or `[`, raw otherwise). Headers cannot use inputs, and an input that is not declared is an error. Typed values are inserted as plain text: `{{env.X}}` typed by a user is never expanded.
+**Inputs** ask the user for values before sending. Each input is `{ name, label, placeholder }`. `name` matches `[A-Za-z_][A-Za-z0-9_]*` and is unique per action. Use `{{input.NAME}}` in two places only:
+
+- `url`, where the value is URL-encoded.
+- A JSON `body`, inside a string literal such as `body = '{"query": "{{input.query}}"}'`, where the value is JSON-escaped. The body must be valid JSON once inputs are filled in.
+
+Inputs in headers, in a non-JSON body, or outside a JSON string are rejected when `home.toml` loads, and so is an input that is not declared. Typed values are inserted as plain text: `{{env.X}}` typed by a user is never expanded.
 
 ```toml
 [[groups.services.actions]]

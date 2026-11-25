@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
-	"strings"
 
 	"bnema.dev/dumber/internal/application/dto"
 	"bnema.dev/dumber/internal/application/port"
@@ -86,8 +85,9 @@ func (uc *HomeUseCase) RunHomeAction(ctx context.Context, req dto.HomeActionRequ
 }
 
 // buildHomeActionRequest expands env first, then inputs. Inputs are
-// inserted last so that a user-typed `{{env.X}}` is never expanded.
-// Headers only get env expansion.
+// inserted last so that a user-typed `{{env.X}}` is never expanded. Inputs
+// are URL-encoded in the url and JSON-string-escaped in the body. Headers
+// only get env expansion.
 func (uc *HomeUseCase) buildHomeActionRequest(a entity.HomeAction, inputs map[string]string) (port.HomeHTTPRequest, error) {
 	base, err := uc.expandHomeRequest(string(a.Method), a.URL, a.Headers, nil)
 	if err != nil {
@@ -108,22 +108,20 @@ func (uc *HomeUseCase) buildHomeActionRequest(a entity.HomeAction, inputs map[st
 		if envErr != nil {
 			return base, envErr
 		}
-		encode := func(s string) string { return s }
-		if looksLikeJSON(body) {
-			encode = jsonStringEscape
+		// Validation only allows inputs inside JSON string literals; check
+		// again so a body that bypassed it never gets raw user text.
+		if len(entity.HomeInputRefs(a.Body)) > 0 {
+			if msg := entity.CheckHomeInputBody(a.Body); msg != "" {
+				return base, fmt.Errorf("body %s", msg)
+			}
 		}
-		body, err = entity.ExpandHomeInputs(body, inputs, declared, encode)
+		body, err = entity.ExpandHomeInputs(body, inputs, declared, jsonStringEscape)
 		if err != nil {
 			return base, err
 		}
 		base.Body = []byte(body)
 	}
 	return base, nil
-}
-
-func looksLikeJSON(s string) bool {
-	t := strings.TrimSpace(s)
-	return strings.HasPrefix(t, "{") || strings.HasPrefix(t, "[")
 }
 
 // jsonStringEscape escapes s for use inside a JSON string literal.

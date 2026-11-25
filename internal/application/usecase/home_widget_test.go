@@ -58,7 +58,7 @@ func newHomeWidgetFixture(t *testing.T) *homeWidgetFixture {
 				},
 				{
 					ID: "note", Label: "Note", Method: entity.HomeMethodPost, URL: "https://media.local/note",
-					Body:   "text={{input.q}}",
+					Body:   `{"text":"{{input.q}}"}`,
 					Inputs: []entity.HomeActionInput{{Name: "q", Label: "Query"}},
 				},
 			},
@@ -283,11 +283,11 @@ func TestRunHomeAction_EncodesInputs(t *testing.T) {
 	assert.Equal(t, &dto.HomeActionResponse{Status: dto.HomeStatusOK, HTTPStatus: 204, Message: "HTTP 204"}, resp)
 }
 
-func TestRunHomeAction_RawBodyAndNoEnvExpansionOfInputs(t *testing.T) {
+func TestRunHomeAction_NoEnvExpansionOfInputs(t *testing.T) {
 	f := newHomeWidgetFixture(t)
 	f.http.EXPECT().Do(mock.Anything, mock.Anything).RunAndReturn(
 		func(_ context.Context, req port.HomeHTTPRequest) (port.HomeHTTPResponse, error) {
-			assert.Equal(t, "text={{env.TOKEN}}", string(req.Body))
+			assert.JSONEq(t, `{"text":"{{env.TOKEN}}"}`, string(req.Body))
 			return port.HomeHTTPResponse{StatusCode: 200}, nil
 		}).Once()
 
@@ -446,4 +446,15 @@ func TestFetchWidgetData_TemplateFailureNotRetriedUntilWidgetChanges(t *testing.
 	assert.Equal(t, dto.HomeStatusOK, fixed.Status)
 	assert.Equal(t, "<p>T2</p>", fixed.HTML)
 	assert.Equal(t, 2, renderer.calls)
+}
+
+func TestRunHomeAction_RejectsInputOutsideJSONStringAtCall(t *testing.T) {
+	f := newHomeWidgetFixture(t)
+	f.layout.Groups[0].Services[0].Actions[1].Body = "text={{input.q}}"
+	resp, err := f.uc.RunHomeAction(f.ctx, dto.HomeActionRequest{
+		ServiceID: "media", ActionID: "note", Inputs: map[string]string{"q": "x"},
+	})
+	require.NoError(t, err)
+	assert.Equal(t, dto.HomeStatusError, resp.Status)
+	assert.Contains(t, resp.Message, "JSON")
 }

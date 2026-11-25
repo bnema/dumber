@@ -250,7 +250,14 @@ func TestHomeValidateActionInputs(t *testing.T) {
 		}, "groups[0].services[0].actions[0].inputs[1].name"},
 		{"missing label", func(a *HomeAction) { a.Inputs[0].Label = "" }, "groups[0].services[0].actions[0].inputs[0].label"},
 		{"undeclared in url", func(a *HomeAction) { a.URL = "https://jelly.local/{{input.zz}}" }, "groups[0].services[0].actions[0].url"},
-		{"undeclared in body", func(a *HomeAction) { a.Body = "{{input.zz}}" }, "groups[0].services[0].actions[0].body"},
+		{"undeclared in body", func(a *HomeAction) { a.Body = `{"q":"{{input.zz}}"}` }, "groups[0].services[0].actions[0].body"},
+		{"input in raw body", func(a *HomeAction) { a.Body = "text={{input.q}}" }, "groups[0].services[0].actions[0].body"},
+		{"input outside JSON string", func(a *HomeAction) { a.Body = `{"n": {{input.q}}}` }, "groups[0].services[0].actions[0].body"},
+		{"input body not JSON", func(a *HomeAction) { a.Body = `{"q": "{{input.q}}",}` }, "groups[0].services[0].actions[0].body"},
+		{"input in nested JSON string with env", func(a *HomeAction) {
+			a.Body = `[{"q":"pre {{input.q}} \" post","t":{{env.N}}}]`
+		}, ""},
+		{"raw body without inputs", func(a *HomeAction) { a.Body = "plain {{env.X}}" }, ""},
 		{"input in header", func(a *HomeAction) {
 			a.Headers = map[string]string{"X": "{{input.q}}"}
 		}, "groups[0].services[0].actions[0].headers.X"},

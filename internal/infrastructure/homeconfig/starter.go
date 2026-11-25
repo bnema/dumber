@@ -64,5 +64,5 @@ limit = 8
 # method = "POST"
 # url = "https://media.local/api/restart"
 # confirm = "Restart the media server?"
-# inputs = [ { name = "reason", label = "Reason" } ]   # use {{input.reason}} in url or body
+# inputs = [ { name = "reason", label = "Reason" } ]   # {{input.reason}} in url, or in a JSON body string
 `
