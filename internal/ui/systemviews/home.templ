@@ -5,13 +5,21 @@ import (
 	"bnema.dev/dumber/internal/domain/entity"
 )
 
-// HomePage renders the dumb://home view from its pre-rendered regions.
-templ HomePage(regions []DOMRegion) {
+// HomePage renders the dumb://home view from its pre-rendered regions. Tile
+// regions are nested in the home-groups skeleton instead of the page.
+templ HomePage(regions []DOMRegion, load dto.HomeLoadResponse) {
+	{{ tiles := homeTileMarkup(regions) }}
 	<div class="sv-home" data-sv-region="home">
 		for _, region := range regions {
-			<div class="sv-home-region" data-sv-region={ region.Name }>
-				@templ.Raw(region.HTML)
-			</div>
+			if region.Name == homeRegionGroups {
+				<div class="sv-home-region" data-sv-region={ region.Name }>
+					@HomeGroups(load, tiles)
+				</div>
+			} else if !isHomeTileRegion(region.Name) {
+				<div class="sv-home-region" data-sv-region={ region.Name }>
+					@templ.Raw(region.HTML)
+				</div>
+			}
 		}
 	</div>
 }
@@ -131,7 +139,10 @@ templ HomeBookmarks(groups []entity.HomeBookmarkGroup) {
 	}
 }
 
-templ HomeGroups(load dto.HomeLoadResponse) {
+// HomeGroups is the service skeleton: group headings and one shell per
+// service. Each shell holds independent regions: the tile (filled from tiles,
+// empty in the diff key), the api widget, the actions and the embed.
+templ HomeGroups(load dto.HomeLoadResponse, tiles map[string]string) {
 	if len(load.Layout.Groups) > 0 {
 		<div class="sv-home-groups" style={ homeGridStyle(load) }>
 			for _, group := range load.Layout.Groups {
@@ -139,7 +150,7 @@ templ HomeGroups(load dto.HomeLoadResponse) {
 					<h3 class="sv-home-section-title">{ group.Name }</h3>
 					<div class="sv-home-grid">
 						for _, service := range group.Services {
-							@homeServiceTile(service)
+							@homeServiceTile(service, tiles)
 						}
 					</div>
 				</section>
@@ -148,9 +159,20 @@ templ HomeGroups(load dto.HomeLoadResponse) {
 	}
 }
 
-templ homeServiceTile(service entity.HomeService) {
+templ homeServiceTile(service entity.HomeService, tiles map[string]string) {
 	<div class="sv-home-service" data-sv-home-service={ service.ID }>
-		if service.URL != "" {
+		<div class="sv-home-service-tile" data-sv-region={ homeServiceTileRegion(service.ID) }>
+			@templ.Raw(tiles[homeServiceTileRegion(service.ID)])
+		</div>
+		@homeServiceWidgetSlot(service)
+		<div class="sv-home-service-embed" data-sv-region={ homeServiceEmbedRegion(service.ID) }></div>
+	</div>
+}
+
+// HomeServiceTile is the content of a tile region: link, icon, name and
+// description.
+templ HomeServiceTile(service entity.HomeService) {
+	if service.URL != "" {
 			<a class="sv-home-service-link" href={ templ.SafeURL(sanitizeHref(service.URL)) } title={ service.URL } data-sv-home-nav>
 				@homeServiceHead(service)
 			</a>
@@ -159,8 +181,6 @@ templ homeServiceTile(service entity.HomeService) {
 				@homeServiceHead(service)
 			</div>
 		}
-		@homeServiceWidgetSlot(service)
-	</div>
 }
 
 templ homeServiceHead(service entity.HomeService) {

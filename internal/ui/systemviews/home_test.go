@@ -345,3 +345,75 @@ func TestHomeSuggestionDropsStaleResponse(t *testing.T) {
 	require.NoError(t, app.handleHomeSuggest(context.Background(), "go"))
 	assert.Empty(t, dom.regions)
 }
+
+func homeServiceLayout() entity.HomeLayout {
+	return entity.HomeLayout{Groups: []entity.HomeGroup{
+		{Name: "Media", Services: []entity.HomeService{
+			{ID: "jelly", Name: "Jellyfin", URL: "https://jelly.lan", Description: "Movies"},
+			{ID: "cam", Name: "Camera", Widget: &entity.HomeServiceWidget{Type: entity.HomeServiceWidgetEmbed, URL: "https://cam.lan"}},
+		}},
+	}}
+}
+
+func reloadHome(t *testing.T, app *App) {
+	t.Helper()
+	require.NoError(t, app.HandleDOMAction(context.Background(), DOMAction{Action: actionSystemviewChanged, Data: map[string]string{"topic": "home"}}))
+	app.homeFillWG.Wait()
+}
+
+func TestHomeServiceTilesAreIndependentRegions(t *testing.T) {
+	t.Parallel()
+	home := &fakeHome{load: dto.HomeLoadResponse{Layout: homeServiceLayout()}}
+	dom := &regionDOM{}
+	app := newHomeApp(t, dom, home, nil)
+	html := app.renderedHTML
+	assert.Contains(t, html, `data-sv-region="home-svc-tile:jelly"`)
+	assert.Contains(t, html, `data-sv-region="home-svc-embed:cam"`)
+	assert.Contains(t, html, "Movies", "tiles are filled in the full page")
+	dom.regions = nil
+	mounts := dom.mountCount
+
+	// A description change swaps only that tile.
+	home.load.Layout.Groups[0].Services[0].Description = "Movies and shows"
+	reloadHome(t, app)
+	require.Len(t, dom.regions, 1)
+	require.Len(t, dom.regions[0], 1)
+	assert.Equal(t, "home-svc-tile:jelly", dom.regions[0][0].Name)
+	assert.Contains(t, dom.regions[0][0].HTML, "Movies and shows")
+	assert.Equal(t, mounts, dom.mountCount, "no remount")
+	for _, update := range dom.regions {
+		for _, region := range update {
+			assert.NotEqual(t, "home-svc-embed:cam", region.Name, "the embed region is never swapped")
+		}
+	}
+}
+
+func TestHomeServiceStructureChangeRemounts(t *testing.T) {
+	t.Parallel()
+	for name, mutate := range map[string]func(*entity.HomeLayout){
+		"service added": func(l *entity.HomeLayout) {
+			l.Groups[0].Services = append(l.Groups[0].Services, entity.HomeService{ID: "nas", Name: "NAS"})
+		},
+		"service removed": func(l *entity.HomeLayout) { l.Groups[0].Services = l.Groups[0].Services[:1] },
+		"services reordered": func(l *entity.HomeLayout) {
+			s := l.Groups[0].Services
+			s[0], s[1] = s[1], s[0]
+		},
+		"group renamed": func(l *entity.HomeLayout) { l.Groups[0].Name = "Video" },
+		"group added":   func(l *entity.HomeLayout) { l.Groups = append(l.Groups, entity.HomeGroup{Name: "Infra"}) },
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			home := &fakeHome{load: dto.HomeLoadResponse{Layout: homeServiceLayout()}}
+			dom := &regionDOM{}
+			app := newHomeApp(t, dom, home, nil)
+			dom.regions = nil
+			mounts := dom.mountCount
+
+			mutate(&home.load.Layout)
+			reloadHome(t, app)
+			assert.Equal(t, mounts+1, dom.mountCount)
+			assert.Empty(t, dom.regions)
+		})
+	}
+}

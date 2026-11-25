@@ -68,7 +68,7 @@ func (a *App) renderHomePageLocked() {
 		route:    RouteHome,
 		title:    homeTitle(a.homeData.Load),
 		subtitle: "",
-		body:     mustRenderComponent(HomePage(a.homeRendered)),
+		body:     mustRenderComponent(HomePage(a.homeRendered, a.homeData.Load)),
 	}, a.shellTheme)
 }
 
@@ -360,10 +360,9 @@ func (a *App) applyHomeRegionsLocked(next []DOMRegion) error {
 		return nil
 	}
 	if updater, ok := a.deps.DOM.(DOMRegionUpdater); ok && sameShape {
-		if err := updater.UpdateRegions(RegionUpdate{Regions: changed}); err != nil {
-			return err
-		}
-		return a.restoreHomeServiceSlotsLocked(changed, false)
+		// Widget, action and embed regions are never in changed: they
+		// survive swaps untouched and need no restore.
+		return updater.UpdateRegions(RegionUpdate{Regions: changed})
 	}
 	if err := a.mountRenderedHTML(); err != nil {
 		return err

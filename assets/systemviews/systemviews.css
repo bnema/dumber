@@ -3294,3 +3294,7 @@ html[data-sv-enhanced] .sv-savebar:not([data-sv-open]):not(:has(.sv-savebar-erro
 .sv-home-search:not(:focus-within) .sv-home-suggestions {
   display: none;
 }
+
+.sv-home-service-embed:empty {
+  display: none;
+}
