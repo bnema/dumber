@@ -1314,7 +1314,7 @@ func (h *handlerSet) OnOpenUrlfromTab(
 // redirects included. It only returns a handler for a request that a system
 // view page must not let reach the local network (localNetworkScope).
 func (h *handlerSet) GetResourceRequestHandler(
-	browser purecef.Browser, _ purecef.Frame, request purecef.Request,
+	browser purecef.Browser, frame purecef.Frame, request purecef.Request,
 	_, _ int32, requestInitiator string, _ *int32,
 ) purecef.ResourceRequestHandler {
 	if browser == nil || request == nil || h.wv == nil || h.wv.engine == nil || h.wv.engine.localNetwork == nil {
@@ -1325,7 +1325,16 @@ func (h *handlerSet) GetResourceRequestHandler(
 		return nil
 	}
 	engine := h.wv.engine
-	verdict := engine.localNetwork.decide(mainFrame.GetURL(), request.GetURL(), requestInitiator, request.GetResourceType())
+	req := localNetworkRequest{
+		TopURL:       mainFrame.GetURL(),
+		URL:          request.GetURL(),
+		Initiator:    requestInitiator,
+		ResourceType: request.GetResourceType(),
+	}
+	if req.ResourceType == purecef.ResourceTypeRtSubFrame && isActualInternalURL(req.TopURL) {
+		req.FrameURL, req.ParentURL = subframeURLs(frame)
+	}
+	verdict := engine.localNetwork.decide(req)
 	if verdict == localNetworkAllow {
 		return nil
 	}

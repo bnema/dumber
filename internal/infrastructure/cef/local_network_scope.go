@@ -113,13 +113,29 @@ func (s *localNetworkScope) allowsOrigin(raw string) bool {
 	return found
 }
 
-// decide classifies one request. topURL is the browser's main frame URL,
-// initiator the origin of the document or worker that made the request.
-// A subframe navigation is judged by its destination origin, any other
-// request by its initiator.
-func (s *localNetworkScope) decide(
-	topURL, rawURL, initiator string, resourceType purecef.ResourceType,
-) localNetworkVerdict {
+// localNetworkRequest is what decide needs to know about one request.
+type localNetworkRequest struct {
+	// TopURL is the browser's main frame URL.
+	TopURL string
+	URL    string
+	// Initiator is the origin of the document or worker that made a
+	// subresource request. CEF reports "null" for frame navigations.
+	Initiator    string
+	ResourceType purecef.ResourceType
+	// FrameURL and ParentURL describe the frame a subframe navigation
+	// loads into: its current document and its parent's. ParentURL is
+	// empty when CEF could not identify the frame.
+	FrameURL  string
+	ParentURL string
+}
+
+// decide classifies one request. A subframe navigation is judged by its
+// destination origin when the frame sits in a trusted document (the system
+// view or an allowed embed) and is blank or trusted itself: a third-party
+// frame cannot navigate or post a frame to a LAN embed origin (CSRF on
+// local services). Any other request is judged by its initiator.
+func (s *localNetworkScope) decide(req localNetworkRequest) localNetworkVerdict {
+	topURL, rawURL, initiator, resourceType := req.TopURL, req.URL, req.Initiator, req.ResourceType
 	if !isActualInternalURL(topURL) || resourceType == purecef.ResourceTypeRtMainFrame {
 		return localNetworkAllow
 	}
@@ -139,7 +155,10 @@ func (s *localNetworkScope) decide(
 	}
 	requester := initiator
 	if resourceType == purecef.ResourceTypeRtSubFrame {
-		requester = rawURL
+		requester = ""
+		if s.trustedFrame(req.FrameURL, req.ParentURL) {
+			requester = rawURL
+		}
 	} else if isActualInternalURL(initiator) {
 		// The system view document itself.
 		return localNetworkAllow
@@ -160,6 +179,19 @@ func (s *localNetworkScope) decide(
 		return localNetworkBlock
 	}
 	return localNetworkResolve
+}
+
+// trustedFrame reports whether a frame may load any allowed embed origin:
+// its parent is the system view or an allowed embed, and its own document
+// is the initial about:blank one, which only its ancestors can navigate, or
+// is trusted too. about:srcdoc does not count: a sandboxed srcdoc frame has
+// an opaque origin and runs its own scripts.
+func (s *localNetworkScope) trustedFrame(frameURL, parentURL string) bool {
+	trusted := func(raw string) bool { return isActualInternalURL(raw) || s.allowsOrigin(raw) }
+	if parentURL == "" || !trusted(parentURL) {
+		return false
+	}
+	return frameURL == "" || frameURL == "about:blank" || trusted(frameURL)
 }
 
 // hostIsPrivate reports whether host resolves to any non-public address.
@@ -344,4 +376,18 @@ func resetSystemViewLocalNetworkGrants(ctx context.Context) {
 		logging.FromContext(ctx).Debug().Int("setting", int(setting)).
 			Msg("cef: cleared a persisted local network grant of the system view origin")
 	}
+}
+
+// subframeURLs returns the current URL of frame and of its parent. Both are
+// empty when frame is missing or is the main frame, which CEF passes when it
+// cannot find the navigating subframe.
+func subframeURLs(frame purecef.Frame) (frameURL, parentURL string) {
+	if frame == nil || frame.IsMain() {
+		return "", ""
+	}
+	parent := frame.GetParent()
+	if parent == nil {
+		return "", ""
+	}
+	return frame.GetURL(), parent.GetURL()
 }

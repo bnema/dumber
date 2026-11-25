@@ -6,6 +6,7 @@ import (
 	"net/netip"
 	"sync/atomic"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	purecef "bnema.dev/purego-cef/cef"
@@ -35,54 +36,75 @@ func TestLocalNetworkScopeDecide(t *testing.T) {
 		main  = purecef.ResourceTypeRtMainFrame
 		xhr   = purecef.ResourceTypeRtXhr
 	)
+	req := func(url, initiator string, rt purecef.ResourceType) localNetworkRequest {
+		return localNetworkRequest{TopURL: testHomeTop, URL: url, Initiator: initiator, ResourceType: rt}
+	}
+	// nav is a subframe navigation in a frame showing frameURL whose parent
+	// shows parentURL. CEF reports a "null" initiator for navigations.
+	nav := func(url, frameURL, parentURL string) localNetworkRequest {
+		return localNetworkRequest{
+			TopURL: testHomeTop, URL: url, Initiator: "null", ResourceType: frame,
+			FrameURL: frameURL, ParentURL: parentURL,
+		}
+	}
+	regular := req(testLoopbackDest, "https://site.example", sub)
+	regular.TopURL = "https://site.example/"
 	cases := []struct {
-		name      string
-		top       string
-		url       string
-		initiator string
-		rt        purecef.ResourceType
-		want      localNetworkVerdict
+		name string
+		req  localNetworkRequest
+		want localNetworkVerdict
 	}{
-		{"regular page is out of scope", "https://site.example/", testLoopbackDest, "https://site.example", sub, localNetworkAllow},
-		{"top navigation is out of scope", testHomeTop, testLoopbackDest, "", main, localNetworkAllow},
-		{"system view document itself", testHomeTop, "http://10.0.0.9/poster.png", "https://dumber.invalid", sub, localNetworkAllow},
-		{"internal host", testHomeTop, "https://dumber.invalid/api/x", "https://public.example", xhr, localNetworkAllow},
-		{"configured embed loads", testHomeTop, testEmbedLAN + "/d/x", "https://dumber.invalid", frame, localNetworkAllow},
-		{"configured embed subresource", testHomeTop, testEmbedLAN + "/api/ds", testEmbedLAN, xhr, localNetworkAllow},
-		{"configured embed origin canonicalized", testHomeTop, "https://grafana.lan/api", "https://grafana.lan", xhr, localNetworkAllow},
-		{"configured embed to other LAN host", testHomeTop, "http://10.0.0.5/x", testEmbedLAN, xhr, localNetworkAllow},
-		{"public embed to loopback", testHomeTop, testLoopbackDest, testPublicEmbed, xhr, localNetworkBlock},
-		{"public embed to LAN", testHomeTop, "http://192.168.1.10:3000/api", testPublicEmbed, sub, localNetworkBlock},
-		{"public embed to IPv6 loopback", testHomeTop, "http://[::1]:8081/", testPublicEmbed, xhr, localNetworkBlock},
-		{"public embed to localhost", testHomeTop, "http://localhost:8081/", testPublicEmbed, xhr, localNetworkBlock},
-		{"public embed to sub.localhost", testHomeTop, "http://a.localhost/", testPublicEmbed, xhr, localNetworkBlock},
-		{"public embed websocket to LAN", testHomeTop, "ws://10.0.0.2/socket", testPublicEmbed, xhr, localNetworkBlock},
-		{"public embed to public IP", testHomeTop, "https://8.8.8.8/", testPublicEmbed, xhr, localNetworkAllow},
-		{"public embed to hostname", testHomeTop, "https://cdn.example/x.js", testPublicEmbed, sub, localNetworkResolve},
-		{"embed navigates its frame to loopback", testHomeTop, testLoopbackDest, testEmbedLAN, frame, localNetworkBlock},
-		{"embed navigates its frame to unlisted LAN port", testHomeTop, "http://192.168.1.10:3001/", testEmbedLAN, frame, localNetworkBlock},
-		{"opaque initiator", testHomeTop, testLoopbackDest, "null", xhr, localNetworkBlock},
-		{"missing initiator", testHomeTop, testLoopbackDest, "", xhr, localNetworkBlock},
-		{"data URL", testHomeTop, "data:text/plain,x", testPublicEmbed, sub, localNetworkAllow},
-		{"unparsable URL", testHomeTop, "http://[::1", testPublicEmbed, xhr, localNetworkBlock},
+		{"regular page is out of scope", regular, localNetworkAllow},
+		{"top navigation is out of scope", req(testLoopbackDest, "", main), localNetworkAllow},
+		{"system view document itself", req("http://10.0.0.9/poster.png", "https://dumber.invalid", sub), localNetworkAllow},
+		{"internal host", req("https://dumber.invalid/api/x", testPublicEmbed, xhr), localNetworkAllow},
+		{"configured embed subresource", req(testEmbedLAN+"/api/ds", testEmbedLAN, xhr), localNetworkAllow},
+		{"configured embed origin canonicalized", req("https://grafana.lan/api", "https://grafana.lan", xhr), localNetworkAllow},
+		{"configured embed to other LAN host", req("http://10.0.0.5/x", testEmbedLAN, xhr), localNetworkAllow},
+		{"public embed to loopback", req(testLoopbackDest, testPublicEmbed, xhr), localNetworkBlock},
+		{"public embed to LAN", req("http://192.168.1.10:3000/api", testPublicEmbed, sub), localNetworkBlock},
+		{"public embed to IPv6 loopback", req("http://[::1]:8081/", testPublicEmbed, xhr), localNetworkBlock},
+		{"public embed to localhost", req("http://localhost:8081/", testPublicEmbed, xhr), localNetworkBlock},
+		{"public embed to sub.localhost", req("http://a.localhost/", testPublicEmbed, xhr), localNetworkBlock},
+		{"public embed websocket to LAN", req("ws://10.0.0.2/socket", testPublicEmbed, xhr), localNetworkBlock},
+		{"public embed to public IP", req("https://8.8.8.8/", testPublicEmbed, xhr), localNetworkAllow},
+		{"public embed to hostname", req("https://cdn.example/x.js", testPublicEmbed, sub), localNetworkResolve},
+		{"opaque initiator", req(testLoopbackDest, "null", xhr), localNetworkBlock},
+		{"missing initiator", req(testLoopbackDest, "", xhr), localNetworkBlock},
+		{"data URL", req("data:text/plain,x", testPublicEmbed, sub), localNetworkAllow},
+		{"unparsable URL", req("http://[::1", testPublicEmbed, xhr), localNetworkBlock},
+
+		// Subframe navigations.
+		{"home loads its embed", nav(testEmbedLAN+"/d/x", "about:blank", testHomeTop), localNetworkAllow},
+		{"home loads its embed in a fresh frame", nav(testEmbedLAN+"/d/x", "", testHomeTop), localNetworkAllow},
+		{"embed navigates itself", nav(testEmbedLAN+"/d/y", testEmbedLAN+"/d/x", testHomeTop), localNetworkAllow},
+		{"embed loads a child frame", nav(testEmbedLAN+"/child", "about:blank", testEmbedLAN+"/"), localNetworkAllow},
+		{"embed frames another allowed origin", nav("https://grafana.lan/d", "about:blank", testEmbedLAN+"/"), localNetworkAllow},
+		{"embed navigates itself to loopback", nav(testLoopbackDest, testEmbedLAN+"/", testHomeTop), localNetworkBlock},
+		{"embed navigates itself to an unlisted LAN port", nav("http://192.168.1.10:3001/", testEmbedLAN+"/", testHomeTop), localNetworkBlock},
+		{"third party frame loads an allowed LAN origin", nav(testEmbedLAN+"/admin", "about:blank", testPublicEmbed+"/"), localNetworkBlock},
+		{"third party frame navigates itself to an allowed LAN origin", nav(testEmbedLAN+"/admin", testPublicEmbed+"/", testEmbedLAN+"/"), localNetworkBlock},
+		{"sandboxed srcdoc frame posts to an allowed LAN origin", nav(testEmbedLAN+"/api/reboot", "about:srcdoc", testEmbedLAN+"/"), localNetworkBlock},
+		{"unidentified frame loads an allowed LAN origin", nav(testEmbedLAN+"/", "", ""), localNetworkBlock},
+		{"third party frame loads a public site", nav("https://8.8.8.8/", "about:blank", testPublicEmbed+"/"), localNetworkAllow},
 	}
 	scope := testLocalNetworkScope()
 	for _, tc := range cases {
-		assert.Equal(t, tc.want, scope.decide(tc.top, tc.url, tc.initiator, tc.rt), tc.name)
+		assert.Equal(t, tc.want, scope.decide(tc.req), tc.name)
 	}
 }
 
 func TestLocalNetworkScopeWithoutOriginsBlocksLAN(t *testing.T) {
 	t.Parallel()
 	scope := newLocalNetworkScope()
-	assert.Equal(t, localNetworkBlock,
-		scope.decide(testHomeTop, testEmbedLAN+"/x", testEmbedLAN, purecef.ResourceTypeRtXhr))
+	req := localNetworkRequest{
+		TopURL: testHomeTop, URL: testEmbedLAN + "/x", Initiator: testEmbedLAN, ResourceType: purecef.ResourceTypeRtXhr,
+	}
+	assert.Equal(t, localNetworkBlock, scope.decide(req))
 	scope.setOrigins([]string{testEmbedLAN})
-	assert.Equal(t, localNetworkAllow,
-		scope.decide(testHomeTop, testEmbedLAN+"/x", testEmbedLAN, purecef.ResourceTypeRtXhr))
+	assert.Equal(t, localNetworkAllow, scope.decide(req))
 	scope.setOrigins(nil)
-	assert.Equal(t, localNetworkBlock,
-		scope.decide(testHomeTop, testEmbedLAN+"/x", testEmbedLAN, purecef.ResourceTypeRtXhr))
+	assert.Equal(t, localNetworkBlock, scope.decide(req))
 }
 
 func TestLocalNetworkScopeHostIsPrivate(t *testing.T) {
@@ -127,6 +149,10 @@ func (c *recordingCallback) Cancel() { c.done <- false }
 
 func TestLocalNetworkGuard(t *testing.T) {
 	t.Parallel()
+	synctest.Test(t, testLocalNetworkGuard)
+}
+
+func testLocalNetworkGuard(t *testing.T) {
 	scope := newLocalNetworkScope()
 	scope.lookup = func(_ context.Context, host string) ([]netip.Addr, error) {
 		if host == "lan.example" {
@@ -149,10 +175,12 @@ func TestLocalNetworkGuard(t *testing.T) {
 		cb := &recordingCallback{done: make(chan bool, 1)}
 		ret := resolve.OnBeforeResourceLoad(nil, nil, request("https://"+host+"/x"), cb)
 		require.Equal(t, purecef.ReturnValueRvContinueAsync, ret, host)
+		// The lookup goroutine is the only other one in the bubble.
+		synctest.Wait()
 		select {
 		case got := <-cb.done:
 			assert.Equal(t, allowed, got, host)
-		case <-time.After(5 * time.Second):
+		default:
 			t.Fatalf("%s: callback never resolved", host)
 		}
 		// The second request for the host is answered from the cache.
@@ -165,26 +193,60 @@ func TestGetResourceRequestHandlerGatesSystemViewSubframes(t *testing.T) {
 	t.Parallel()
 	engine := &Engine{ctx: context.Background(), localNetwork: testLocalNetworkScope()}
 	h := &handlerSet{wv: &WebView{ctx: context.Background(), engine: engine}}
-	call := func(top, url, initiator string, rt purecef.ResourceType) purecef.ResourceRequestHandler {
-		frame := cefmocks.NewMockFrame(t)
-		frame.EXPECT().GetURL().Return(top)
-		browser := cefmocks.NewMockBrowser(t)
-		browser.EXPECT().GetMainFrame().Return(frame)
-		request := cefmocks.NewMockRequest(t)
-		request.EXPECT().GetURL().Return(url)
-		request.EXPECT().GetResourceType().Return(rt)
-		return h.GetResourceRequestHandler(browser, nil, request, 0, 0, initiator, nil)
-	}
-
-	assert.Nil(t, call("https://site.example/", testLoopbackDest, "https://site.example", purecef.ResourceTypeRtXhr))
-	assert.Nil(t, call(testHomeTop, testEmbedLAN+"/api", testEmbedLAN, purecef.ResourceTypeRtXhr))
-
 	// Plain Go handlers: wrapping them for CEF needs libcef.
-	block := &localNetworkGuard{scope: engine.localNetwork, block: true}
-	resolve := &localNetworkGuard{scope: engine.localNetwork}
+	block := purecef.ResourceRequestHandler(&localNetworkGuard{scope: engine.localNetwork, block: true})
+	resolve := purecef.ResourceRequestHandler(&localNetworkGuard{scope: engine.localNetwork})
 	engine.localNetworkHandlers.once.Do(func() {
 		engine.localNetworkHandlers.block, engine.localNetworkHandlers.resolve = block, resolve
 	})
-	assert.Same(t, purecef.ResourceRequestHandler(block), call(testHomeTop, testLoopbackDest, testPublicEmbed, purecef.ResourceTypeRtXhr))
-	assert.Same(t, purecef.ResourceRequestHandler(resolve), call(testHomeTop, "https://cdn.example/x.js", testPublicEmbed, purecef.ResourceTypeRtXhr))
+
+	browserWithTop := func(top string) purecef.Browser {
+		mainFrame := cefmocks.NewMockFrame(t)
+		mainFrame.EXPECT().GetURL().Return(top)
+		browser := cefmocks.NewMockBrowser(t)
+		browser.EXPECT().GetMainFrame().Return(mainFrame)
+		return browser
+	}
+	request := func(url string, rt purecef.ResourceType) purecef.Request {
+		r := cefmocks.NewMockRequest(t)
+		r.EXPECT().GetURL().Return(url)
+		r.EXPECT().GetResourceType().Return(rt)
+		return r
+	}
+	subframe := func(frameURL, parentURL string) purecef.Frame {
+		parent := cefmocks.NewMockFrame(t)
+		parent.EXPECT().GetURL().Return(parentURL)
+		f := cefmocks.NewMockFrame(t)
+		f.EXPECT().IsMain().Return(false)
+		f.EXPECT().GetParent().Return(parent)
+		f.EXPECT().GetURL().Return(frameURL)
+		return f
+	}
+	call := func(browser purecef.Browser, frame purecef.Frame, req purecef.Request, initiator string) purecef.ResourceRequestHandler {
+		return h.GetResourceRequestHandler(browser, frame, req, 0, 0, initiator, nil)
+	}
+
+	// The main frame URL decides whether the guard applies at all.
+	assert.Nil(t, call(browserWithTop("https://site.example/"), nil,
+		request(testLoopbackDest, purecef.ResourceTypeRtXhr), "https://site.example"))
+
+	// Subresources: the initiator decides.
+	assert.Nil(t, call(browserWithTop(testHomeTop), nil,
+		request(testEmbedLAN+"/api", purecef.ResourceTypeRtXhr), testEmbedLAN))
+	assert.Same(t, block, call(browserWithTop(testHomeTop), nil,
+		request(testLoopbackDest, purecef.ResourceTypeRtXhr), testPublicEmbed))
+	assert.Same(t, resolve, call(browserWithTop(testHomeTop), nil,
+		request("https://cdn.example/x.js", purecef.ResourceTypeRtXhr), testPublicEmbed))
+
+	// Subframe navigations: the navigating frame and its parent decide.
+	assert.Nil(t, call(browserWithTop(testHomeTop), subframe("about:blank", testHomeTop),
+		request(testEmbedLAN+"/d", purecef.ResourceTypeRtSubFrame), "null"))
+	assert.Same(t, block, call(browserWithTop(testHomeTop), subframe("about:blank", testPublicEmbed+"/"),
+		request(testEmbedLAN+"/admin", purecef.ResourceTypeRtSubFrame), "null"))
+
+	// CEF passes the main frame when it cannot find the subframe.
+	mainAsFrame := cefmocks.NewMockFrame(t)
+	mainAsFrame.EXPECT().IsMain().Return(true)
+	assert.Same(t, block, call(browserWithTop(testHomeTop), mainAsFrame,
+		request(testEmbedLAN+"/d", purecef.ResourceTypeRtSubFrame), "null"))
 }
