@@ -18,32 +18,32 @@ func TestIsPrivateAddr(t *testing.T) {
 		"198.17.255.255":       false,
 		"198.20.0.0":           false,
 		// private / non-public
-		"10.0.0.1":            true,
-		"172.16.0.1":          true,
-		"192.168.1.1":         true,
-		"127.0.0.1":           true,
-		"169.254.1.1":         true,
-		"0.0.0.0":             true,
-		"0.1.2.3":             true,
-		"100.64.0.1":          true, // CGNAT
-		"100.100.100.100":     true, // Tailscale
-		"100.127.255.255":     true,
-		"198.18.0.1":          true, // benchmarking
-		"198.19.255.255":      true,
-		"224.0.0.1":           true, // multicast
-		"239.255.255.250":     true,
-		"255.255.255.255":     true,
-		"::1":                 true,
-		"::":                  true,
-		"fc00::1":             true,
-		"fe80::1":             true,
-		"ff02::1":             true, // multicast
-		"ff05::2":             true,
-		"::ffff:10.0.0.1":     true, // IPv4-mapped
-		"::ffff:100.64.0.1":   true,
-		"64:ff9b::a00:1":      true, // NAT64 of 10.0.0.1
-		"64:ff9b::7f00:1":     true, // NAT64 of 127.0.0.1
-		"64:ff9b::6440:1":     true, // NAT64 of 100.64.0.1
+		"10.0.0.1":          true,
+		"172.16.0.1":        true,
+		"192.168.1.1":       true,
+		"127.0.0.1":         true,
+		"169.254.1.1":       true,
+		"0.0.0.0":           true,
+		"0.1.2.3":           true,
+		"100.64.0.1":        true, // CGNAT
+		"100.100.100.100":   true, // Tailscale
+		"100.127.255.255":   true,
+		"198.18.0.1":        true, // benchmarking
+		"198.19.255.255":    true,
+		"224.0.0.1":         true, // multicast
+		"239.255.255.250":   true,
+		"255.255.255.255":   true,
+		"::1":               true,
+		"::":                true,
+		"fc00::1":           true,
+		"fe80::1":           true,
+		"ff02::1":           true, // multicast
+		"ff05::2":           true,
+		"::ffff:10.0.0.1":   true, // IPv4-mapped
+		"::ffff:100.64.0.1": true,
+		"64:ff9b::a00:1":    true, // NAT64 of 10.0.0.1
+		"64:ff9b::7f00:1":   true, // NAT64 of 127.0.0.1
+		"64:ff9b::6440:1":   true, // NAT64 of 100.64.0.1
 	}
 	for raw, want := range cases {
 		if got := isPrivateAddr(netip.MustParseAddr(raw)); got != want {

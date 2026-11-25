@@ -505,8 +505,8 @@ func TestOnShowPermissionPromptLocalNetworkNeverLeftPending(t *testing.T) {
 		handled     bool
 	}{
 		"internal origin under a web page": {top: testTopURL, origin: "https://dumber.invalid", mask: loopback, handled: true},
-		"mixed with an unsupported type":    {top: "https://dumber.invalid/home", origin: "https://dumber.invalid", mask: loopback | promptClip, handled: true},
-		"no handler takes it":               {top: testTopURL, origin: "https://meet.example.com", mask: loopback, handled: false},
+		"mixed with an unsupported type":   {top: "https://dumber.invalid/home", origin: "https://dumber.invalid", mask: loopback | promptClip, handled: true},
+		"no handler takes it":              {top: testTopURL, origin: "https://meet.example.com", mask: loopback, handled: false},
 	} {
 		t.Run(name, func(t *testing.T) {
 			h, _, _ := newPermissionTestHandler(t, tc.handled)

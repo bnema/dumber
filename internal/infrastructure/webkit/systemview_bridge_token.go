@@ -67,6 +67,7 @@ func parseScriptMessageJSON(raw []byte) (Message, string, error) {
 // so the dumb: check happens here, before page code runs; the block list
 // keeps the script off http(s) and file pages natively. Other pages exit
 // without keeping a reference to the token.
+//
 //nolint:gosec // G101 false positive: a JS template; the token is filled in at runtime.
 const systemviewBridgeTokenScriptTemplate = `(function() {
   if (window.top !== window || location.protocol !== 'dumb:') { return; }
