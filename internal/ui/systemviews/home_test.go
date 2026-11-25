@@ -430,3 +430,37 @@ func TestHomeServiceIconURLVersion(t *testing.T) {
 		homeServiceIconURL(entity.HomeService{ID: "jelly", IconVersion: "0123456789ab"}))
 	assert.Equal(t, "/api/home-icon?service=jelly", homeServiceIconURL(entity.HomeService{ID: "jelly"}))
 }
+
+func TestSystemviewChangedIgnoredOutsideHome(t *testing.T) {
+	t.Parallel()
+	newApps := map[string]func(t *testing.T, dom *regionDOM) *App{
+		"history": func(t *testing.T, dom *regionDOM) *App {
+			return loadedHistoryApp(t, dom, newHistoryStore(t, &historyStore{}))
+		},
+		"favorites": func(t *testing.T, dom *regionDOM) *App {
+			favorites := newFavoritesStore(t, &favoritesStore{})
+			app := NewApp(Dependencies{DOM: dom, Favorites: favorites.service, LocationURI: "dumb://favorites"})
+			require.NoError(t, app.LoadInitial(context.Background()))
+			return app
+		},
+		"config": func(t *testing.T, dom *regionDOM) *App {
+			app, _, _ := newConfigApp(t, dom)
+			return app
+		},
+	}
+	for name, newApp := range newApps {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			dom := &regionDOM{}
+			app := newApp(t, dom)
+			before := app.renderedHTML
+			mounts := dom.mountCount
+			for _, topic := range []string{"home", "config"} {
+				require.NoError(t, app.HandleDOMAction(context.Background(), DOMAction{Action: actionSystemviewChanged, Data: map[string]string{"topic": topic}}))
+			}
+			assert.Equal(t, mounts, dom.mountCount, "no remount")
+			assert.Empty(t, dom.regions)
+			assert.Equal(t, before, app.renderedHTML, "no error banner")
+		})
+	}
+}

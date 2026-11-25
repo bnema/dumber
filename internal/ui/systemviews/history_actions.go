@@ -31,8 +31,8 @@ func (a *App) HandleDOMAction(ctx context.Context, event DOMAction) error {
 	if a == nil {
 		return fmt.Errorf("app is nil")
 	}
-	if event.Action == homeActionSuggest {
-		return a.handleHomeSuggest(ctx, a.takeLiveSearchQuery(event.Data["query"]))
+	if handled, err := a.handleHomeEarlyAction(ctx, event); handled {
+		return err
 	}
 	if event.Action == historyActionSearchLive {
 		return a.handleHistoryLiveSearch(ctx, a.takeLiveSearchQuery(event.Data["query"]))
@@ -55,9 +55,6 @@ func (a *App) HandleDOMAction(ctx context.Context, event DOMAction) error {
 	}
 	if event.Action == paletteActionOpen {
 		return a.handlePaletteOpen(ctx)
-	}
-	if homeServiceAction(event) {
-		return a.handleHomeServiceAction(ctx, event)
 	}
 	a.lockState()
 	if a.closed {

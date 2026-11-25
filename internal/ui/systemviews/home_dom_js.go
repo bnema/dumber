@@ -25,6 +25,15 @@ func (d *browserDOM) NavigateTo(rawURL string) error {
 // bindHomeEvents wires the home-only listeners: the native change event,
 // the image fallback, and debounced suggestions.
 func (d *browserDOM) bindHomeEvents(handler DOMActionHandler) {
+	if d.isHomeRoute() {
+		d.bindHomeChangeEvent(handler)
+	}
+	d.bindHomeImageAndInputEvents(handler)
+}
+
+// bindHomeChangeEvent forwards home.toml change notifications. Only the home
+// route listens: native notifies every system view pane.
+func (d *browserDOM) bindHomeChangeEvent(handler DOMActionHandler) {
 	d.addEventBinding(js.Global(), dto.HomeChangedEvent, js.FuncOf(func(_ js.Value, args []js.Value) any {
 		event := firstJSArg(args)
 		if !event.Truthy() {
@@ -37,6 +46,11 @@ func (d *browserDOM) bindHomeEvents(handler DOMActionHandler) {
 		handler(DOMAction{Action: actionSystemviewChanged, Data: map[string]string{"topic": topic}})
 		return nil
 	}))
+}
+
+// bindHomeImageAndInputEvents wires the image fallback and debounced
+// suggestions.
+func (d *browserDOM) bindHomeImageAndInputEvents(handler DOMActionHandler) {
 	// Image errors do not bubble: listen in the capture phase.
 	d.addCaptureBinding(d.target, "error", js.FuncOf(func(_ js.Value, args []js.Value) any {
 		img, ok := eventTargetMatches(args, "img[data-sv-img-fallback]")

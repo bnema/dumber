@@ -397,3 +397,30 @@ func (a *App) startHomeClock() {
 		}
 	}()
 }
+
+// homeChangeApplies reports whether a systemview change event is a home.toml
+// change seen by the home route.
+func (a *App) homeChangeApplies(event DOMAction) bool {
+	if event.Data["topic"] != dto.HomeChangedTopic {
+		return false
+	}
+	a.lockState()
+	defer a.unlockState()
+	return a.currentRoute == RouteHome
+}
+
+// handleHomeEarlyAction runs the home actions that must not take the render
+// lock path of HandleDOMAction. It reports whether event was handled.
+func (a *App) handleHomeEarlyAction(ctx context.Context, event DOMAction) (bool, error) {
+	switch {
+	case event.Action == homeActionSuggest:
+		return true, a.handleHomeSuggest(ctx, a.takeLiveSearchQuery(event.Data["query"]))
+	case event.Action == actionSystemviewChanged && !a.homeChangeApplies(event):
+		// Native notifies every system view pane; only dumb://home reacts.
+		return true, nil
+	case homeServiceAction(event):
+		return true, a.handleHomeServiceAction(ctx, event)
+	default:
+		return false, nil
+	}
+}
