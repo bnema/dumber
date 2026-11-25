@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"fmt"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -63,23 +64,26 @@ func (c *HomeIconCache) Put(_ context.Context, serviceURL string, pngData []byte
 		return nil
 	}
 	if err := os.MkdirAll(c.dir, diskCacheDirPerm); err != nil {
-		return err
+		return fmt.Errorf("home icon cache: create dir: %w", err)
 	}
 	tmp, err := os.CreateTemp(c.dir, ".home-icon-*")
 	if err != nil {
-		return err
+		return fmt.Errorf("home icon cache: create temp file: %w", err)
 	}
 	tmpName := tmp.Name()
 	defer func() { _ = os.Remove(tmpName) }()
 	if _, err := tmp.Write(pngData); err != nil {
 		_ = tmp.Close()
-		return err
+		return fmt.Errorf("home icon cache: write: %w", err)
 	}
 	if err := tmp.Close(); err != nil {
-		return err
+		return fmt.Errorf("home icon cache: close: %w", err)
 	}
 	if err := os.Chmod(tmpName, diskCacheFilePerm); err != nil {
-		return err
+		return fmt.Errorf("home icon cache: chmod: %w", err)
 	}
-	return os.Rename(tmpName, c.path(serviceURL))
+	if err := os.Rename(tmpName, c.path(serviceURL)); err != nil {
+		return fmt.Errorf("home icon cache: rename: %w", err)
+	}
+	return nil
 }
