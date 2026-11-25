@@ -22,9 +22,11 @@ type HomeIconImage struct {
 // from trusted user config. It must never be used for page-supplied URLs.
 type HomeIconSource interface {
 	// DiscoverIconURLs returns candidate icon URLs for serviceURL, best first.
+	// Private network addresses are allowed only on serviceURL's host:port.
 	DiscoverIconURLs(ctx context.Context, serviceURL string) ([]string, error)
-	// FetchIcon downloads one icon URL.
-	FetchIcon(ctx context.Context, iconURL string) (*HomeIconImage, error)
+	// FetchIcon downloads one icon URL found for serviceURL. Private network
+	// addresses are allowed only on serviceURL's own host:port.
+	FetchIcon(ctx context.Context, serviceURL, iconURL string) (*HomeIconImage, error)
 	// ReadLocalIcon reads a local override icon from an absolute path.
 	ReadLocalIcon(ctx context.Context, path string) (*HomeIconImage, error)
 }

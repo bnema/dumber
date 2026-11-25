@@ -2,6 +2,9 @@ package usecase
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"path/filepath"
@@ -110,7 +113,22 @@ func (uc *HomeIconUseCase) ResolveHomeIconByID(ctx context.Context, serviceID st
 			return nil, "", fmt.Errorf("%w: icon path escapes config dir", ErrHomeIconNotFound)
 		}
 	}
-	return uc.ResolveHomeServiceIcon(ctx, service.URL, override)
+	return uc.resolveShared(ctx, homeIconKey(service.URL, override)+"\x00"+serviceConfigHash(service), service.URL, override)
+}
+
+// serviceConfigHash fingerprints a service's own home.toml entry, so any
+// edit to it bypasses remembered failures and in-flight work immediately.
+func serviceConfigHash(service entity.HomeService) string {
+	data, err := json.Marshal(service)
+	if err != nil {
+		return ""
+	}
+	sum := sha256.Sum256(data)
+	return hex.EncodeToString(sum[:8])
+}
+
+func homeIconKey(serviceURL, overridePath string) string {
+	return serviceURL + "\x00" + overridePath
 }
 
 // resolveUnderDir joins rel to dir and reports whether the cleaned result
@@ -137,7 +155,14 @@ func (uc *HomeIconUseCase) ResolveHomeServiceIcon(
 	serviceURL string,
 	localOverridePath string,
 ) (pngBytes []byte, contentType string, err error) {
-	key := serviceURL + "\x00" + localOverridePath
+	return uc.resolveShared(ctx, homeIconKey(serviceURL, localOverridePath), serviceURL, localOverridePath)
+}
+
+// resolveShared applies the negative cache and singleflight for key.
+func (uc *HomeIconUseCase) resolveShared(
+	ctx context.Context,
+	key, serviceURL, localOverridePath string,
+) (pngBytes []byte, contentType string, err error) {
 	uc.mu.Lock()
 	if failedAt, ok := uc.failures[key]; ok {
 		if uc.now().Before(failedAt.Add(HomeIconNegativeTTL)) {
@@ -211,7 +236,7 @@ func (uc *HomeIconUseCase) resolve(
 		if ctx.Err() != nil {
 			return nil, "", ctx.Err()
 		}
-		img, fetchErr := uc.source.FetchIcon(ctx, iconURL)
+		img, fetchErr := uc.source.FetchIcon(ctx, serviceURL, iconURL)
 		if fetchErr != nil {
 			log.Debug().Err(fetchErr).Str("icon", iconURL).Msg("home icon candidate fetch failed")
 			continue

@@ -10,6 +10,7 @@ import (
 	"image/png"
 	"net/http"
 	"net/http/httptest"
+	"net/netip"
 	"os"
 	"path/filepath"
 	"strings"
@@ -122,10 +123,10 @@ func TestHomeIconRedirectCap(t *testing.T) {
 	srv := httptest.NewServer(mux)
 	defer srv.Close()
 	src := NewHomeIconSource()
-	if _, err := src.FetchIcon(context.Background(), srv.URL+"/hop/3"); err != nil {
+	if _, err := src.FetchIcon(context.Background(), srv.URL, srv.URL+"/hop/3"); err != nil {
 		t.Fatalf("3 redirects should pass: %v", err)
 	}
-	if _, err := src.FetchIcon(context.Background(), srv.URL+"/hop/4"); err == nil {
+	if _, err := src.FetchIcon(context.Background(), srv.URL, srv.URL+"/hop/4"); err == nil {
 		t.Fatal("4 redirects should fail")
 	}
 }
@@ -142,14 +143,14 @@ func TestHomeIconFetchSizeCapAndSniff(t *testing.T) {
 	srv := httptest.NewServer(mux)
 	defer srv.Close()
 	src := NewHomeIconSource()
-	if _, err := src.FetchIcon(context.Background(), srv.URL+"/big.png"); !errors.Is(err, appport.ErrHomeIconNotFound) {
+	if _, err := src.FetchIcon(context.Background(), srv.URL, srv.URL+"/big.png"); !errors.Is(err, appport.ErrHomeIconNotFound) {
 		t.Fatalf("oversized: %v", err)
 	}
-	img, err := src.FetchIcon(context.Background(), srv.URL+"/logo.svg")
+	img, err := src.FetchIcon(context.Background(), srv.URL, srv.URL+"/logo.svg")
 	if err != nil || img.ContentType != "image/svg+xml" {
 		t.Fatalf("svg sniff: %v %+v", err, img)
 	}
-	if _, err := src.FetchIcon(context.Background(), srv.URL+"/html"); err == nil {
+	if _, err := src.FetchIcon(context.Background(), srv.URL, srv.URL+"/html"); err == nil {
 		t.Fatal("html must not be an icon")
 	}
 }
@@ -257,5 +258,76 @@ func TestHomeIconCacheRoundTripAndKey(t *testing.T) {
 	}
 	if _, _, ok := c.Get(ctx, "http://10.0.0.2:3000/"); ok {
 		t.Fatal("different port must not collide")
+	}
+}
+
+// Two loopback servers on different ports: the "service" and an "other LAN
+// host". Loopback is private, so only the service's own host:port is allowed.
+func newCrossOriginServers(t *testing.T) (service, other *httptest.Server) {
+	t.Helper()
+	otherMux := http.NewServeMux()
+	otherMux.HandleFunc("/icon.png", func(w http.ResponseWriter, _ *http.Request) { _, _ = w.Write(homeTestPNG(t, 8)) })
+	otherMux.HandleFunc("/manifest.json", func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = fmt.Fprint(w, `{"icons":[{"src":"/icon.png","sizes":"512x512"}]}`)
+	})
+	other = httptest.NewServer(otherMux)
+	t.Cleanup(other.Close)
+	mux := http.NewServeMux()
+	mux.HandleFunc("/", func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = fmt.Fprintf(w, `<head><link rel="manifest" href="%s/manifest.json"><link rel="icon" href="/own.png" sizes="32x32"></head>`, other.URL)
+	})
+	mux.HandleFunc("/own.png", func(w http.ResponseWriter, _ *http.Request) { _, _ = w.Write(homeTestPNG(t, 8)) })
+	mux.HandleFunc("/redirect", func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, other.URL+"/icon.png", http.StatusFound)
+	})
+	service = httptest.NewServer(mux)
+	t.Cleanup(service.Close)
+	return service, other
+}
+
+func TestHomeIconPrivateTargetsLimitedToServiceHost(t *testing.T) {
+	service, other := newCrossOriginServers(t)
+	src := NewHomeIconSource()
+	ctx := context.Background()
+
+	if _, err := src.FetchIcon(ctx, service.URL, service.URL+"/own.png"); err != nil {
+		t.Fatalf("service's own host must be allowed: %v", err)
+	}
+	if _, err := src.FetchIcon(ctx, service.URL, other.URL+"/icon.png"); err == nil {
+		t.Fatal("icon link to another private host:port must be rejected")
+	}
+	if _, err := src.FetchIcon(ctx, service.URL, service.URL+"/redirect"); err == nil {
+		t.Fatal("redirect to another private host:port must be rejected")
+	}
+	got, err := src.DiscoverIconURLs(ctx, service.URL+"/")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, u := range got {
+		if strings.HasPrefix(u, other.URL) {
+			t.Fatalf("manifest on another private host must not be read: %v", got)
+		}
+	}
+}
+
+func TestHomeIconPublicTargetsAllowed(t *testing.T) {
+	service, other := newCrossOriginServers(t)
+	src := NewHomeIconSource()
+	// Treat loopback as public to stand in for internet hosts.
+	src.isPrivate = func(netip.Addr) bool { return false }
+	ctx := context.Background()
+
+	if _, err := src.FetchIcon(ctx, service.URL, other.URL+"/icon.png"); err != nil {
+		t.Fatalf("public icon host must be allowed: %v", err)
+	}
+	if _, err := src.FetchIcon(ctx, service.URL, service.URL+"/redirect"); err != nil {
+		t.Fatalf("redirect to a public host must be allowed: %v", err)
+	}
+	got, err := src.DiscoverIconURLs(ctx, service.URL+"/")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got[0] != other.URL+"/icon.png" {
+		t.Fatalf("public manifest icon should rank first: %v", got)
 	}
 }

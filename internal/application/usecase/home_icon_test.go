@@ -61,7 +61,7 @@ func TestHomeIconBadOverrideFallsBackToDiscovery(t *testing.T) {
 	fx.src.EXPECT().ReadLocalIcon(mock.Anything, "/missing.png").Return(nil, errors.New("no such file"))
 	fx.cache.EXPECT().Get(mock.Anything, svc).Return(nil, time.Time{}, false)
 	fx.src.EXPECT().DiscoverIconURLs(mock.Anything, svc).Return([]string{"http://jelly.local:8096/favicon.ico"}, nil)
-	fx.src.EXPECT().FetchIcon(mock.Anything, "http://jelly.local:8096/favicon.ico").Return(img("image/x-icon", "ico"), nil)
+	fx.src.EXPECT().FetchIcon(mock.Anything, mock.Anything, "http://jelly.local:8096/favicon.ico").Return(img("image/x-icon", "ico"), nil)
 	fx.conv.EXPECT().Convert(mock.Anything, []byte("ico"), "image/x-icon", []int{128}).Return(converted("ico128"), nil)
 	fx.cache.EXPECT().Put(mock.Anything, svc, []byte("ico128")).Return(nil)
 	got, _, err := fx.uc.ResolveHomeServiceIcon(context.Background(), svc, "/missing.png")
@@ -84,10 +84,10 @@ func TestHomeIconFallsThroughFailedCandidates(t *testing.T) {
 	// Stale cache entry triggers a refresh.
 	fx.cache.EXPECT().Get(mock.Anything, svc).Return([]byte("old"), fx.now.Add(-2*time.Hour), true)
 	fx.src.EXPECT().DiscoverIconURLs(mock.Anything, svc).Return([]string{"u/a.svg", "u/b.png", "u/c.png"}, nil)
-	fx.src.EXPECT().FetchIcon(mock.Anything, "u/a.svg").Return(img("image/svg+xml", "bad"), nil)
+	fx.src.EXPECT().FetchIcon(mock.Anything, mock.Anything, "u/a.svg").Return(img("image/svg+xml", "bad"), nil)
 	fx.conv.EXPECT().Convert(mock.Anything, []byte("bad"), "image/svg+xml", []int{128}).Return(nil, ErrFaviconMiss)
-	fx.src.EXPECT().FetchIcon(mock.Anything, "u/b.png").Return(nil, errors.New("404"))
-	fx.src.EXPECT().FetchIcon(mock.Anything, "u/c.png").Return(img("image/png", "c"), nil)
+	fx.src.EXPECT().FetchIcon(mock.Anything, mock.Anything, "u/b.png").Return(nil, errors.New("404"))
+	fx.src.EXPECT().FetchIcon(mock.Anything, mock.Anything, "u/c.png").Return(img("image/png", "c"), nil)
 	fx.conv.EXPECT().Convert(mock.Anything, []byte("c"), "image/png", []int{128}).Return(converted("c128"), nil)
 	fx.cache.EXPECT().Put(mock.Anything, svc, []byte("c128")).Return(nil)
 	got, _, err := fx.uc.ResolveHomeServiceIcon(context.Background(), svc, "")
@@ -100,7 +100,7 @@ func TestHomeIconNotFoundSentinel(t *testing.T) {
 	fx := newHomeIconFixture(t)
 	fx.cache.EXPECT().Get(mock.Anything, svc).Return(nil, time.Time{}, false)
 	fx.src.EXPECT().DiscoverIconURLs(mock.Anything, svc).Return([]string{"u/favicon.ico"}, errors.New("page down"))
-	fx.src.EXPECT().FetchIcon(mock.Anything, "u/favicon.ico").Return(nil, errors.New("404"))
+	fx.src.EXPECT().FetchIcon(mock.Anything, mock.Anything, "u/favicon.ico").Return(nil, errors.New("404"))
 	_, _, err := fx.uc.ResolveHomeServiceIcon(context.Background(), svc, "")
 	if !errors.Is(err, ErrHomeIconNotFound) || !errors.Is(err, appport.ErrHomeIconNotFound) {
 		t.Fatalf("want sentinel, got %v", err)
@@ -141,7 +141,7 @@ func TestHomeIconConcurrentCallsShareOneResolution(t *testing.T) {
 			<-release
 			return []string{"u/a.png"}, nil
 		}).Once()
-	fx.src.EXPECT().FetchIcon(mock.Anything, "u/a.png").Return(img("image/png", "a"), nil).Once()
+	fx.src.EXPECT().FetchIcon(mock.Anything, mock.Anything, "u/a.png").Return(img("image/png", "a"), nil).Once()
 	fx.conv.EXPECT().Convert(mock.Anything, []byte("a"), "image/png", []int{128}).Return(converted("a128"), nil).Once()
 	fx.cache.EXPECT().Put(mock.Anything, svc, []byte("a128")).Return(nil).Once()
 
@@ -231,8 +231,8 @@ func TestHomeIconLeaderCancelDoesNotFailFollowers(t *testing.T) {
 	release := make(chan struct{})
 	fx.cache.EXPECT().Get(mock.Anything, svc).Return(nil, time.Time{}, false).Once()
 	fx.src.EXPECT().DiscoverIconURLs(mock.Anything, svc).Return([]string{"u/favicon.ico"}, nil).Once()
-	fx.src.EXPECT().FetchIcon(mock.Anything, "u/favicon.ico").
-		RunAndReturn(func(ctx context.Context, _ string) (*appport.HomeIconImage, error) {
+	fx.src.EXPECT().FetchIcon(mock.Anything, mock.Anything, "u/favicon.ico").
+		RunAndReturn(func(ctx context.Context, _, _ string) (*appport.HomeIconImage, error) {
 			close(fetching)
 			select {
 			case <-release:
@@ -267,4 +267,27 @@ func TestHomeIconLeaderCancelDoesNotFailFollowers(t *testing.T) {
 	fx.uc.mu.Lock()
 	defer fx.uc.mu.Unlock()
 	require.Empty(t, fx.uc.failures)
+}
+
+func TestHomeIconByIDConfigEditBypassesFailureMemory(t *testing.T) {
+	svcA := entity.HomeService{ID: "jellyfin", Name: "Jellyfin", URL: svc}
+	fx := newHomeIconByIDFixture(t, svcA)
+	calls := 0
+	fx.cache.EXPECT().Get(mock.Anything, svc).Return(nil, time.Time{}, false)
+	fx.src.EXPECT().DiscoverIconURLs(mock.Anything, svc).
+		RunAndReturn(func(context.Context, string) ([]string, error) {
+			calls++
+			return nil, errors.New("down")
+		})
+	resolve := func() {
+		_, _, err := fx.uc.ResolveHomeIconByID(context.Background(), "jellyfin")
+		require.ErrorIs(t, err, ErrHomeIconNotFound)
+	}
+	resolve()
+	resolve()
+	require.Equal(t, 1, calls, "unchanged config must hit the failure memory")
+	svcA.Name = "Jellyfin 2"
+	fx.uc.config = stubHomeConfig{layout: entity.HomeLayout{Groups: []entity.HomeGroup{{Name: "g", Services: []entity.HomeService{svcA}}}}}
+	resolve()
+	require.Equal(t, 2, calls, "an edited service must retry immediately")
 }

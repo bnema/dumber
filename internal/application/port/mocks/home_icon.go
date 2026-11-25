@@ -117,8 +117,8 @@ func (_c *MockHomeIconSource_DiscoverIconURLs_Call) RunAndReturn(run func(ctx co
 }
 
 // FetchIcon provides a mock function for the type MockHomeIconSource
-func (_mock *MockHomeIconSource) FetchIcon(ctx context.Context, iconURL string) (*port.HomeIconImage, error) {
-	ret := _mock.Called(ctx, iconURL)
+func (_mock *MockHomeIconSource) FetchIcon(ctx context.Context, serviceURL string, iconURL string) (*port.HomeIconImage, error) {
+	ret := _mock.Called(ctx, serviceURL, iconURL)
 
 	if len(ret) == 0 {
 		panic("no return value specified for FetchIcon")
@@ -126,18 +126,18 @@ func (_mock *MockHomeIconSource) FetchIcon(ctx context.Context, iconURL string) 
 
 	var r0 *port.HomeIconImage
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, string) (*port.HomeIconImage, error)); ok {
-		return returnFunc(ctx, iconURL)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string) (*port.HomeIconImage, error)); ok {
+		return returnFunc(ctx, serviceURL, iconURL)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, string) *port.HomeIconImage); ok {
-		r0 = returnFunc(ctx, iconURL)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string) *port.HomeIconImage); ok {
+		r0 = returnFunc(ctx, serviceURL, iconURL)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*port.HomeIconImage)
 		}
 	}
-	if returnFunc, ok := ret.Get(1).(func(context.Context, string) error); ok {
-		r1 = returnFunc(ctx, iconURL)
+	if returnFunc, ok := ret.Get(1).(func(context.Context, string, string) error); ok {
+		r1 = returnFunc(ctx, serviceURL, iconURL)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -151,12 +151,13 @@ type MockHomeIconSource_FetchIcon_Call struct {
 
 // FetchIcon is a helper method to define mock.On call
 //   - ctx context.Context
+//   - serviceURL string
 //   - iconURL string
-func (_e *MockHomeIconSource_Expecter) FetchIcon(ctx any, iconURL any) *MockHomeIconSource_FetchIcon_Call {
-	return &MockHomeIconSource_FetchIcon_Call{Call: _e.mock.On("FetchIcon", ctx, iconURL)}
+func (_e *MockHomeIconSource_Expecter) FetchIcon(ctx any, serviceURL any, iconURL any) *MockHomeIconSource_FetchIcon_Call {
+	return &MockHomeIconSource_FetchIcon_Call{Call: _e.mock.On("FetchIcon", ctx, serviceURL, iconURL)}
 }
 
-func (_c *MockHomeIconSource_FetchIcon_Call) Run(run func(ctx context.Context, iconURL string)) *MockHomeIconSource_FetchIcon_Call {
+func (_c *MockHomeIconSource_FetchIcon_Call) Run(run func(ctx context.Context, serviceURL string, iconURL string)) *MockHomeIconSource_FetchIcon_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
@@ -166,9 +167,14 @@ func (_c *MockHomeIconSource_FetchIcon_Call) Run(run func(ctx context.Context, i
 		if args[1] != nil {
 			arg1 = args[1].(string)
 		}
+		var arg2 string
+		if args[2] != nil {
+			arg2 = args[2].(string)
+		}
 		run(
 			arg0,
 			arg1,
+			arg2,
 		)
 	})
 	return _c
@@ -179,7 +185,7 @@ func (_c *MockHomeIconSource_FetchIcon_Call) Return(homeIconImage *port.HomeIcon
 	return _c
 }
 
-func (_c *MockHomeIconSource_FetchIcon_Call) RunAndReturn(run func(ctx context.Context, iconURL string) (*port.HomeIconImage, error)) *MockHomeIconSource_FetchIcon_Call {
+func (_c *MockHomeIconSource_FetchIcon_Call) RunAndReturn(run func(ctx context.Context, serviceURL string, iconURL string) (*port.HomeIconImage, error)) *MockHomeIconSource_FetchIcon_Call {
 	_c.Call.Return(run)
 	return _c
 }

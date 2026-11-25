@@ -6,7 +6,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
+	"net/netip"
 	"net/url"
 	"os"
 	"sort"
@@ -27,23 +29,71 @@ const (
 )
 
 // HomeIconSource discovers and fetches icons for user-configured home
-// services. Unlike Fetcher it allows private network addresses, because
-// service URLs come from the user's own config. It must only be wired into
-// the home service icon use case, never used for page-supplied URLs.
+// services. Public hosts are allowed. Private network addresses are allowed
+// only on the service's own host:port (from the user's home.toml), so a
+// service page cannot point discovery at other LAN hosts through icon links,
+// manifest srcs or redirects. It must only be wired into the home service
+// icon use case, never used for page-supplied URLs.
 type HomeIconSource struct {
 	client *http.Client
+	// isPrivate classifies resolved addresses; a test seam.
+	isPrivate func(netip.Addr) bool
 }
 
 var _ appport.HomeIconSource = (*HomeIconSource)(nil)
 
+type homeIconOriginKey struct{}
+
 // NewHomeIconSource creates a HomeIconSource with its own HTTP client.
 func NewHomeIconSource() *HomeIconSource {
+	s := &HomeIconSource{isPrivate: isPrivateAddr}
 	transport := http.DefaultTransport.(*http.Transport).Clone()
-	return &HomeIconSource{client: &http.Client{
+	transport.DialContext = s.dialContext
+	// Every request must dial so the address check runs: a pooled
+	// connection opened for one service must not serve another.
+	transport.DisableKeepAlives = true
+	s.client = &http.Client{
 		Timeout:       homeIconTimeout,
 		Transport:     transport,
 		CheckRedirect: homeIconCheckRedirect,
-	}}
+	}
+	return s
+}
+
+// withServiceOrigin records the service host:port allowed on private networks.
+func withServiceOrigin(ctx context.Context, serviceURL string) (context.Context, error) {
+	u, err := parseHTTPURL(serviceURL)
+	if err != nil {
+		return ctx, err
+	}
+	return context.WithValue(ctx, homeIconOriginKey{}, normalizeOriginHostPort(u.Hostname(), u.Port(), u.Scheme)), nil
+}
+
+// dialContext resolves the host once and dials a checked address: private
+// addresses only for the service's own host:port.
+func (s *HomeIconSource) dialContext(ctx context.Context, network, address string) (net.Conn, error) {
+	host, port, err := net.SplitHostPort(address)
+	if err != nil {
+		return nil, err
+	}
+	allowed, _ := ctx.Value(homeIconOriginKey{}).(string)
+	privateOK := allowed != "" && allowed == normalizeOriginHostPort(host, port, "")
+	ips, err := net.DefaultResolver.LookupIPAddr(ctx, host)
+	if err != nil {
+		return nil, err
+	}
+	for _, ip := range ips {
+		addr, ok := netip.AddrFromSlice(ip.IP)
+		if !ok {
+			continue
+		}
+		if s.isPrivate(addr.Unmap()) && !privateOK {
+			continue
+		}
+		var d net.Dialer
+		return d.DialContext(ctx, network, net.JoinHostPort(ip.IP.String(), port))
+	}
+	return nil, fmt.Errorf("%w: private address for %s is outside the service host", appport.ErrHomeIconNotFound, host)
 }
 
 func homeIconCheckRedirect(req *http.Request, via []*http.Request) error {
@@ -127,6 +177,9 @@ const (
 func (s *HomeIconSource) DiscoverIconURLs(ctx context.Context, serviceURL string) ([]string, error) {
 	pageURL, err := parseHTTPURL(serviceURL)
 	if err != nil {
+		return nil, err
+	}
+	if ctx, err = withServiceOrigin(ctx, serviceURL); err != nil {
 		return nil, err
 	}
 	var candidates []iconCandidate
@@ -325,9 +378,13 @@ func attr(n *html.Node, key string) string {
 }
 
 // FetchIcon downloads one icon (max 1 MiB) and sniffs its content type.
-func (s *HomeIconSource) FetchIcon(ctx context.Context, iconURL string) (*appport.HomeIconImage, error) {
+// Private addresses are allowed only on serviceURL's host:port.
+func (s *HomeIconSource) FetchIcon(ctx context.Context, serviceURL, iconURL string) (*appport.HomeIconImage, error) {
 	u, err := parseHTTPURL(iconURL)
 	if err != nil {
+		return nil, err
+	}
+	if ctx, err = withServiceOrigin(ctx, serviceURL); err != nil {
 		return nil, err
 	}
 	resp, err := s.get(ctx, u, homeIconMaxBytes, false)
