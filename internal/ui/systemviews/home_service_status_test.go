@@ -1,8 +1,11 @@
 package systemviews
 
 import (
+	"context"
 	"html"
 	"testing"
+	"testing/synctest"
+	"time"
 
 	"bnema.dev/dumber/internal/application/dto"
 	"bnema.dev/dumber/internal/domain/entity"
@@ -165,4 +168,68 @@ func TestHomeStatusReloadStartsAndStopsChecks(t *testing.T) {
 	app.lockState()
 	assert.Empty(t, app.homeSvc.statuses)
 	app.unlockState()
+}
+
+func TestHomeStatusLoopLifetime(t *testing.T) {
+	t.Parallel()
+	for name, stop := range map[string]func(*App){
+		"reload replaces the loop": func(app *App) {
+			app.lockState()
+			require.NoError(t, app.reloadHomeLocked(context.Background()))
+			app.unlockState()
+			app.homeFillWG.Wait()
+		},
+		"route change stops the loop": func(app *App) {
+			app.lockState()
+			app.resetRouteState()
+			app.unlockState()
+		},
+		"close stops the loop": func(app *App) { app.Close() },
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			synctest.Test(t, func(t *testing.T) {
+				load := homeLayoutWith(entity.HomeService{ID: "s", Name: "S", URL: "https://s.lan"})
+				load.Layout.Settings.Status = true
+				home := newHomeStore(t, &homeStore{load: load})
+				app, _ := newServiceApp(t, home)
+				require.Equal(t, 1, home.statusCallCount("s"), "probed right away")
+				reload := name == "reload replaces the loop"
+				stop(app)
+				synctest.Wait()
+				before := home.statusCallCount("s")
+
+				time.Sleep(homeStatusInterval)
+				synctest.Wait()
+				// One loop left after a reload, none otherwise. A leaked
+				// loop also fails the bubble when the test ends.
+				want := before
+				if reload {
+					want++
+				}
+				assert.Equal(t, want, home.statusCallCount("s"))
+			})
+		})
+	}
+}
+
+func TestHomeStatusRemovedServiceForgetsItsDot(t *testing.T) {
+	t.Parallel()
+	home := newHomeStore(t, &homeStore{load: dto.HomeLoadResponse{Layout: homeStatusLayout()}})
+	dom := newTreeDOM()
+	app := newMountedHomeApp(t, dom, home)
+	app.lockState()
+	require.NotEmpty(t, app.homeSvc.dots["cam"])
+	app.unlockState()
+
+	home.mu.Lock()
+	home.load.Layout.Groups[0].Services = home.load.Layout.Groups[0].Services[:1]
+	home.mu.Unlock()
+	reloadHome(t, app)
+
+	app.lockState()
+	defer app.unlockState()
+	assert.NotContains(t, app.homeSvc.dots, "cam")
+	assert.NotContains(t, app.homeSvc.statuses, "cam")
+	assert.Contains(t, app.homeSvc.dots, "jelly")
 }

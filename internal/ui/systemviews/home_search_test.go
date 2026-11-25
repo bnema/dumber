@@ -139,15 +139,25 @@ func TestHomeSearchWidgetRendersEngineData(t *testing.T) {
 	assert.Contains(t, html, `aria-live="polite"`)
 }
 
-func TestHomeSearchActionOpensResolvedURL(t *testing.T) {
+func TestHomeSearchActionNavigates(t *testing.T) {
 	t.Parallel()
-	home := newHomeStore(t, &homeStore{load: dto.HomeLoadResponse{Layout: entity.DefaultHomeLayout(), SearchEngine: "https://s.test/?q=%s"}})
-	dom := &navTreeDOM{treeDOM: newTreeDOM()}
-	app := newHomeApp(t, dom, home)
-
-	require.NoError(t, app.HandleDOMAction(context.Background(), DOMAction{Action: homeActionSearch, Data: map[string]string{"url": "https://jelly.lan"}}))
-	require.NoError(t, app.HandleDOMAction(context.Background(), DOMAction{Action: homeActionSearch, Data: map[string]string{"url": "javascript:alert(1)", "query": "x"}}))
-	assert.Equal(t, []string{"https://jelly.lan"}, dom.navigated, "unsafe urls are dropped")
+	for name, tc := range map[string]struct {
+		data map[string]string
+		want []string
+	}{
+		"query uses the engine":    {data: map[string]string{"query": "cats"}, want: []string{"https://s.test/?q=cats"}},
+		"resolved url opens as is": {data: map[string]string{"url": "https://jelly.lan"}, want: []string{"https://jelly.lan"}},
+		"unsafe url opens nothing": {data: map[string]string{"url": "javascript:alert(1)", "query": "x"}},
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			home := newHomeStore(t, &homeStore{load: dto.HomeLoadResponse{Layout: entity.DefaultHomeLayout(), SearchEngine: "https://s.test/?q=%s"}})
+			dom := &navTreeDOM{treeDOM: newTreeDOM()}
+			app := newHomeApp(t, dom, home)
+			require.NoError(t, app.HandleDOMAction(context.Background(), DOMAction{Action: homeActionSearch, Data: tc.data}))
+			assert.Equal(t, tc.want, dom.navigated)
+		})
+	}
 }
 
 func TestHomeSearchSelectionMovesOverMatchesThenSuggestions(t *testing.T) {
@@ -217,7 +227,10 @@ func TestHomeReloadReappliesTypedQuery(t *testing.T) {
 	// A new matching service appears filtered in, without a remount.
 	before := dom.reapply
 	mounts := dom.mountCount()
-	home.load.Layout.Groups[1].Services = append(home.load.Layout.Groups[1].Services, entity.HomeService{ID: "seerr", Name: "Jellyseerr", URL: "https://seerr.lan"})
+	seerr := entity.HomeService{ID: "seerr", Name: "Jellyseerr", URL: "https://seerr.lan"}
+	home.mu.Lock()
+	home.load.Layout.Groups[1].Services = append(home.load.Layout.Groups[1].Services, seerr)
+	home.mu.Unlock()
 	reloadHome(t, app)
 	assert.Equal(t, mounts, dom.mountCount(), "no remount")
 	assert.Greater(t, dom.reapply, before, "the reload re-applies the query")
@@ -227,12 +240,14 @@ func TestHomeReloadReappliesTypedQuery(t *testing.T) {
 
 	// Select the last match, then remove it: the selection stays valid.
 	dom.mu.Lock()
-	dom.selected = "https://seerr.lan\nJellyseerr"
+	dom.selected = homeItemIdentity(homeQueryItem{Name: seerr.Name, URL: seerr.URL})
 	dom.mu.Unlock()
 	dom.ReapplyHomeSearch()
 	_, _, selected = dom.shellState("seerr")
 	require.True(t, selected)
+	home.mu.Lock()
 	home.load.Layout.Groups[1].Services = home.load.Layout.Groups[1].Services[:1]
+	home.mu.Unlock()
 	reloadHome(t, app)
 	exists, _, _ = dom.shellState("seerr")
 	assert.False(t, exists)

@@ -262,16 +262,6 @@ func TestHomeSearchURLNeverNavigatesToScriptSchemes(t *testing.T) {
 	assert.Equal(t, "file:///tmp/x.html", homeSearchURL(engine, "file:///tmp/x.html"))
 }
 
-func TestHomeSearchActionNavigates(t *testing.T) {
-	t.Parallel()
-	home := newHomeStore(t, &homeStore{load: dto.HomeLoadResponse{Layout: entity.DefaultHomeLayout(), SearchEngine: "https://s.test/?q=%s"}})
-	dom := &navTreeDOM{treeDOM: newTreeDOM()}
-	app := newHomeApp(t, dom, home)
-
-	require.NoError(t, app.HandleDOMAction(context.Background(), DOMAction{Action: homeActionSearch, Data: map[string]string{"query": "cats"}}))
-	assert.Equal(t, []string{"https://s.test/?q=cats"}, dom.navigated)
-}
-
 func TestHomeReloadSwapsOnlyChangedRegions(t *testing.T) {
 	t.Parallel()
 	layout := entity.DefaultHomeLayout()
