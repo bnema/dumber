@@ -4440,11 +4440,28 @@ func (a *App) initSystemViewFileWatcher(ctx context.Context) {
 	if a.deps.SystemViewFileWatcher == nil {
 		return
 	}
-	if err := a.deps.SystemViewFileWatcher.Start(ctx, func() {
-		a.reloadSystemViewUserCSS(ctx)
+	if err := a.deps.SystemViewFileWatcher.Start(ctx, port.SystemViewFileHandlers{
+		OnUserCSS:    func() { a.reloadSystemViewUserCSS(ctx) },
+		OnHomeConfig: func() { a.notifyHomeConfigChanged(ctx) },
 	}); err != nil {
 		logging.FromContext(ctx).Warn().Err(err).Msg("failed to start system view file watcher")
 	}
+}
+
+// notifyHomeConfigChanged tells loaded system view pages that home.toml
+// changed so dumb://home reloads its data.
+func (a *App) notifyHomeConfigChanged(ctx context.Context) {
+	script, err := content.BuildSystemViewEventScript(dto.HomeChangedEvent, map[string]string{"topic": dto.HomeChangedTopic})
+	if err != nil {
+		logging.FromContext(ctx).Warn().Err(err).Msg("failed to build home changed event")
+		return
+	}
+	a.dispatchOnMainThread("ui.systemview_home_changed", func() {
+		if a.contentCoord != nil {
+			logging.FromContext(ctx).Debug().Msg("notifying system views of home.toml change")
+			a.contentCoord.NotifySystemViews(ctx, script)
+		}
+	})
 }
 
 // reloadSystemViewUserCSS reads user.css off the main thread, then applies it

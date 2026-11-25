@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"bnema.dev/dumber/internal/application/port"
 	"bnema.dev/dumber/internal/infrastructure/filewatch"
 )
 
@@ -63,14 +64,17 @@ func NewWatcher(configDir string) *Watcher {
 	return &Watcher{configDir: configDir, watcher: filewatch.New(filewatch.DefaultDebounce)}
 }
 
-// Start watches the files. onUserCSSChange runs on the watcher goroutine.
-func (w *Watcher) Start(ctx context.Context, onUserCSSChange func()) error {
-	if onUserCSSChange == nil {
-		return errors.New("user css change callback is nil")
+// Start watches the files. Handlers run on the watcher goroutine.
+func (w *Watcher) Start(ctx context.Context, h port.SystemViewFileHandlers) error {
+	handlers := make(map[string]func(), 2)
+	if h.OnUserCSS != nil {
+		handlers[absPath(filepath.Join(w.configDir, userCSSFile))] = h.OnUserCSS
 	}
-	handlers := map[string]func(){
-		absPath(filepath.Join(w.configDir, userCSSFile)):    onUserCSSChange,
-		absPath(filepath.Join(w.configDir, homeConfigFile)): func() {},
+	if h.OnHomeConfig != nil {
+		handlers[absPath(filepath.Join(w.configDir, homeConfigFile))] = h.OnHomeConfig
+	}
+	if len(handlers) == 0 {
+		return errors.New("no system view file handlers")
 	}
 	paths := make([]string, 0, len(handlers))
 	for path := range handlers {

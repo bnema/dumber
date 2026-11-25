@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"bnema.dev/dumber/internal/application/port"
 	"bnema.dev/dumber/internal/infrastructure/filewatch"
 )
 
@@ -33,25 +34,47 @@ func TestUserStyleRead_CapsSize(t *testing.T) {
 	assert.Len(t, css, MaxUserCSSBytes)
 }
 
-func TestWatcher_DispatchesUserCSSChangesOnly(t *testing.T) {
+func TestWatcher_DispatchesByPath(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
 	w := &Watcher{configDir: dir, watcher: filewatch.New(20 * time.Millisecond)}
-	calls := make(chan struct{}, 4)
-	require.NoError(t, w.Start(context.Background(), func() { calls <- struct{}{} }))
+	userCSS := make(chan struct{}, 4)
+	home := make(chan struct{}, 4)
+	require.NoError(t, w.Start(context.Background(), port.SystemViewFileHandlers{
+		OnUserCSS:    func() { userCSS <- struct{}{} },
+		OnHomeConfig: func() { home <- struct{}{} },
+	}))
 	t.Cleanup(func() { _ = w.Stop() })
 
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "home.toml"), []byte("x"), 0o600))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "user.css"), []byte("body{}"), 0o600))
+	waitFor(t, home, "home.toml")
+	assertQuiet(t, userCSS, "user.css")
 
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "user.css"), []byte("body{}"), 0o600))
+	waitFor(t, userCSS, "user.css")
+	assertQuiet(t, home, "home.toml")
+}
+
+func TestWatcher_StartWithoutHandlersFails(t *testing.T) {
+	t.Parallel()
+	w := NewWatcher(t.TempDir())
+	require.Error(t, w.Start(context.Background(), port.SystemViewFileHandlers{}))
+}
+
+func waitFor(t *testing.T, ch <-chan struct{}, name string) {
+	t.Helper()
 	select {
-	case <-calls:
+	case <-ch:
 	case <-time.After(2 * time.Second):
-		t.Fatal("user.css change not dispatched")
+		t.Fatalf("%s change not dispatched", name)
 	}
+}
+
+func assertQuiet(t *testing.T, ch <-chan struct{}, name string) {
+	t.Helper()
 	select {
-	case <-calls:
-		t.Fatal("unexpected extra dispatch (home.toml must be a no-op)")
-	case <-time.After(200 * time.Millisecond):
+	case <-ch:
+		t.Fatalf("unexpected %s dispatch", name)
+	case <-time.After(150 * time.Millisecond):
 	}
 }

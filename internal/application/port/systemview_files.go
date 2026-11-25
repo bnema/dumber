@@ -10,9 +10,15 @@ type SystemViewUserStyle interface {
 	Read() (string, error)
 }
 
-// SystemViewFileWatcher watches the user files that customize system views
-// and calls onUserCSSChange from a background goroutine when user.css changes.
+// SystemViewFileHandlers are the callbacks for system view user files. They
+// run on the watcher goroutine. A nil handler ignores that file.
+type SystemViewFileHandlers struct {
+	OnUserCSS    func()
+	OnHomeConfig func()
+}
+
+// SystemViewFileWatcher watches the user files that customize system views.
 type SystemViewFileWatcher interface {
-	Start(ctx context.Context, onUserCSSChange func()) error
+	Start(ctx context.Context, handlers SystemViewFileHandlers) error
 	Stop() error
 }
