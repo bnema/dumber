@@ -29,7 +29,7 @@ func homeIconReq(query string) *SchemeRequest {
 }
 
 func TestWebKitHomeIconServesPNG(t *testing.T) {
-	immediate, resolve := newHomeIconTestHandler().homeIconRequest(homeIconReq("?service=jellyfin"))
+	immediate, resolve := newHomeIconTestHandler().homeIconRequest(homeIconReq("?service=jellyfin"), "")
 	require.Nil(t, immediate)
 	require.NotNil(t, resolve)
 	resp := resolve(context.Background())
@@ -40,14 +40,14 @@ func TestWebKitHomeIconServesPNG(t *testing.T) {
 }
 
 func TestWebKitHomeIconUnknownServiceIs404(t *testing.T) {
-	_, resolve := newHomeIconTestHandler().homeIconRequest(homeIconReq("?service=nope"))
+	_, resolve := newHomeIconTestHandler().homeIconRequest(homeIconReq("?service=nope"), "")
 	require.Equal(t, http.StatusNotFound, resolve(context.Background()).StatusCode)
 }
 
 func TestWebKitHomeIconRejectsBadID(t *testing.T) {
 	h := newHomeIconTestHandler()
 	for _, q := range []string{"", "?service=", "?service=../etc", "?service=UPPER"} {
-		immediate, resolve := h.homeIconRequest(homeIconReq(q))
+		immediate, resolve := h.homeIconRequest(homeIconReq(q), "")
 		require.Nil(t, resolve, q)
 		require.Equal(t, http.StatusBadRequest, immediate.StatusCode, q)
 	}
@@ -56,13 +56,32 @@ func TestWebKitHomeIconRejectsBadID(t *testing.T) {
 func TestWebKitHomeIconAppliesTrustGate(t *testing.T) {
 	req := homeIconReq("?service=jellyfin")
 	req.Origin = "https://evil.example"
-	immediate, resolve := newHomeIconTestHandler().homeIconRequest(req)
+	immediate, resolve := newHomeIconTestHandler().homeIconRequest(req, "dumb://home")
 	require.Nil(t, resolve)
 	require.Equal(t, http.StatusForbidden, immediate.StatusCode)
 }
 
 func TestWebKitHomeIconUnavailableWithoutResolver(t *testing.T) {
-	immediate, resolve := NewDumbSchemeHandler(context.Background()).homeIconRequest(homeIconReq("?service=jellyfin"))
+	immediate, resolve := NewDumbSchemeHandler(context.Background()).homeIconRequest(homeIconReq("?service=jellyfin"), "")
 	require.Nil(t, resolve)
 	require.Equal(t, http.StatusNotFound, immediate.StatusCode)
+}
+
+func TestWebKitHomeIconTrustsSystemviewWebViewWithoutHeaders(t *testing.T) {
+	h := newHomeIconTestHandler()
+	req := homeIconReq("?service=jellyfin")
+	req.Origin = ""
+	_, trusted := h.homeIconRequest(req, "dumb://home")
+	require.NotNil(t, trusted, "img loads from a dumb://home view carry no headers")
+
+	for _, view := range []string{"", "https://evil.example/", "dumb://evil"} {
+		immediate, resolve := h.homeIconRequest(req, view)
+		require.Nil(t, resolve, view)
+		require.Equal(t, http.StatusForbidden, immediate.StatusCode, view)
+	}
+
+	req.Referer = "https://evil.example/"
+	immediate, resolve := h.homeIconRequest(req, "dumb://home")
+	require.Nil(t, resolve, "an untrusted referer must not be overridden by the view")
+	require.Equal(t, http.StatusForbidden, immediate.StatusCode)
 }

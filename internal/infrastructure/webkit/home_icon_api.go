@@ -35,11 +35,15 @@ func (h *DumbSchemeHandler) SetHomeIconResolver(resolver port.HomeIconResolver) 
 
 // homeIconRequest validates a home icon request. It returns either an
 // immediate response (errors) or a resolve function to run off the main loop.
-func (h *DumbSchemeHandler) homeIconRequest(req *SchemeRequest) (*SchemeResponse, func(context.Context) *SchemeResponse) {
+// webViewURI is the URI of the requesting web view.
+func (h *DumbSchemeHandler) homeIconRequest(
+	req *SchemeRequest,
+	webViewURI string,
+) (*SchemeResponse, func(context.Context) *SchemeResponse) {
 	if req != nil && req.Method != "" && req.Method != httpGET {
 		return privateJSONErrorResponse(http.StatusMethodNotAllowed, "method not allowed"), nil
 	}
-	if !isTrustedSystemviewAPIRequest(req) {
+	if !isTrustedHomeIconRequest(req, webViewURI) {
 		return privateJSONErrorResponse(http.StatusForbidden, "forbidden"), nil
 	}
 	h.mu.RLock()
@@ -70,11 +74,26 @@ func (h *DumbSchemeHandler) homeIconRequest(req *SchemeRequest) (*SchemeResponse
 	}
 }
 
+// isTrustedHomeIconRequest applies the systemview API trust gate. WebKit
+// sends neither Origin nor Referer for <img> loads on the dumb: scheme, so
+// when both are absent the requesting web view itself must be showing a
+// trusted systemview. A present but untrusted Origin or Referer still fails.
+func isTrustedHomeIconRequest(req *SchemeRequest, webViewURI string) bool {
+	if isTrustedSystemviewAPIRequest(req) {
+		return true
+	}
+	return req != nil && req.Origin == "" && req.Referer == "" && isTrustedSystemviewURL(webViewURI)
+}
+
 // serveHomeIconAsync resolves the icon on a goroutine and finishes the
 // WebKit request back on the GTK main loop, so slow network discovery never
 // blocks the UI.
 func (h *DumbSchemeHandler) serveHomeIconAsync(req *webkit.URISchemeRequest, schemeReq *SchemeRequest) {
-	immediate, resolve := h.homeIconRequest(schemeReq)
+	webViewURI := ""
+	if view := req.GetWebView(); view != nil {
+		webViewURI = view.GetUri()
+	}
+	immediate, resolve := h.homeIconRequest(schemeReq, webViewURI)
 	if resolve == nil {
 		h.sendResponse(req, immediate)
 		return
