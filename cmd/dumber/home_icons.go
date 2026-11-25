@@ -38,3 +38,12 @@ func wireHomeIcons(
 	}
 	return icons
 }
+
+// homeEmbedOriginSetter returns the engine's embed origin setter, or nil when
+// the engine does not scope local network access to home embeds.
+func homeEmbedOriginSetter(engine port.Engine) port.HomeEmbedOriginSetter {
+	if setter, ok := engine.(port.HomeEmbedOriginSetter); ok {
+		return setter
+	}
+	return nil
+}

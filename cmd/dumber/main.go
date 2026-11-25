@@ -1213,6 +1213,7 @@ func buildUIDependencies(
 			Templates:    homehtml.Renderer{},
 			LookupEnv:    os.LookupEnv,
 			IconVersions: homeIcons,
+			EmbedOrigins: homeEmbedOriginSetter(engine),
 		})
 	}
 

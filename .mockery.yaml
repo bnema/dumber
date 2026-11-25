@@ -136,6 +136,7 @@ packages:
       HomepageFavorites: {}
       HomepageHistory: {}
       HomeConfigSource: {}
+      HomeEmbedOriginSetter: {}
       HomeSitesHistory: {}
       HomePage: {}
       FileOpener: {}

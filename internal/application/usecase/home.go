@@ -34,6 +34,8 @@ type HomeDeps struct {
 	Now func() time.Time
 	// IconVersions sets HomeService.IconVersion for the page. Optional.
 	IconVersions port.HomeIconVersioner
+	// EmbedOrigins receives the embed origins of each loaded layout. Optional.
+	EmbedOrigins port.HomeEmbedOriginSetter
 }
 
 // HomeUseCase serves the dumb://home page.
@@ -47,6 +49,7 @@ type HomeUseCase struct {
 	lookupEnv func(string) (string, bool)
 	now       func() time.Time
 	versions  port.HomeIconVersioner
+	origins   port.HomeEmbedOriginSetter
 
 	widgetMu       sync.Mutex
 	widgetCache    map[string]homeWidgetCacheEntry
@@ -73,6 +76,7 @@ func NewHomeUseCase(deps HomeDeps) *HomeUseCase {
 		lookupEnv:        deps.LookupEnv,
 		now:              deps.Now,
 		versions:         deps.IconVersions,
+		origins:          deps.EmbedOrigins,
 		widgetCache:      map[string]homeWidgetCacheEntry{},
 		widgetInflight:   map[string]*homeWidgetFlight{},
 		templateFailures: map[string]homeTemplateFailure{},
@@ -95,6 +99,11 @@ func (uc *HomeUseCase) LoadHome(ctx context.Context) (*dto.HomeLoadResponse, err
 	snap, err := uc.source.Load(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("load home config: %w", err)
+	}
+	// snap.Layout is what the page renders, the last good layout when
+	// home.toml does not parse.
+	if uc.origins != nil {
+		uc.origins.SetHomeEmbedOrigins(snap.Layout.EmbedOrigins())
 	}
 	resp := &dto.HomeLoadResponse{
 		Layout:           snap.Layout.RedactedForPage(),
