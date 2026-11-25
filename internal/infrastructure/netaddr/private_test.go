@@ -1,4 +1,4 @@
-package favicon
+package netaddr
 
 import (
 	"net"
@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-func TestIsPrivateAddr(t *testing.T) {
+func TestIsPrivate(t *testing.T) {
 	cases := map[string]bool{
 		// public
 		"8.8.8.8":              false,
@@ -46,21 +46,21 @@ func TestIsPrivateAddr(t *testing.T) {
 		"64:ff9b::6440:1":   true, // NAT64 of 100.64.0.1
 	}
 	for raw, want := range cases {
-		if got := isPrivateAddr(netip.MustParseAddr(raw)); got != want {
-			t.Errorf("isPrivateAddr(%s) = %v, want %v", raw, got, want)
+		if got := IsPrivate(netip.MustParseAddr(raw)); got != want {
+			t.Errorf("IsPrivate(%s) = %v, want %v", raw, got, want)
 		}
 	}
-	if !isPrivateAddr(netip.Addr{}) {
+	if !IsPrivate(netip.Addr{}) {
 		t.Error("zero addr must be private")
 	}
 }
 
 // The resolver returns 16-byte IPv4 forms; the SSRF guards convert them with
 // AddrFromSlice, which yields IPv4-mapped IPv6 that must still be private.
-func TestIsPrivateAddrFromResolverSlice(t *testing.T) {
+func TestIsPrivateFromResolverSlice(t *testing.T) {
 	for _, raw := range []string{"10.0.0.1", "100.64.0.1", "198.18.0.1"} {
 		addr, ok := netip.AddrFromSlice(net.ParseIP(raw).To16())
-		if !ok || !isPrivateAddr(addr) {
+		if !ok || !IsPrivate(addr) {
 			t.Errorf("%s via 16-byte slice must be private", raw)
 		}
 	}

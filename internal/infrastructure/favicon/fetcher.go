@@ -16,6 +16,7 @@ import (
 
 	appport "bnema.dev/dumber/internal/application/port"
 	domainfavicon "bnema.dev/dumber/internal/domain/favicon"
+	"bnema.dev/dumber/internal/infrastructure/netaddr"
 )
 
 const (
@@ -99,7 +100,7 @@ func (f *Fetcher) proxyTargetAllowed(ctx context.Context, target *url.URL) bool 
 	}
 	for _, ip := range ips {
 		addr, ok := netip.AddrFromSlice(ip)
-		if !ok || isPrivateAddr(addr) {
+		if !ok || netaddr.IsPrivate(addr) {
 			return false
 		}
 	}
@@ -258,7 +259,7 @@ func (*Fetcher) safeDialContext(ctx context.Context, network, address string) (n
 	var dialIP net.IP
 	for _, ip := range ips {
 		addr, ok := netip.AddrFromSlice(ip.IP)
-		if (!ok || isPrivateAddr(addr)) && !allowed {
+		if (!ok || netaddr.IsPrivate(addr)) && !allowed {
 			continue
 		}
 		dialIP = ip.IP
@@ -357,7 +358,7 @@ func isInternalHost(host string) bool {
 	}
 	for _, ip := range ips {
 		addr, ok := netip.AddrFromSlice(ip)
-		if !ok || isPrivateAddr(addr) {
+		if !ok || netaddr.IsPrivate(addr) {
 			return true
 		}
 	}
@@ -366,40 +367,4 @@ func isInternalHost(host string) bool {
 
 func isLocalhost(host string) bool {
 	return strings.EqualFold(host, "localhost") || host == "127.0.0.1" || host == "::1"
-}
-
-// Non-public ranges that netip.Addr has no predicate for.
-var nonPublicPrefixes = []netip.Prefix{
-	netip.MustParsePrefix("0.0.0.0/8"),     // "this network"
-	netip.MustParsePrefix("100.64.0.0/10"), // CGNAT, Tailscale
-	netip.MustParsePrefix("192.0.0.0/24"),  // IETF protocol assignments
-	netip.MustParsePrefix("198.18.0.0/15"), // benchmarking
-	netip.MustParsePrefix("240.0.0.0/4"),   // reserved, broadcast
-}
-
-// nat64Prefix is the well-known NAT64 prefix; its last 32 bits embed IPv4.
-var nat64Prefix = netip.MustParsePrefix("64:ff9b::/96")
-
-// isPrivateAddr reports whether addr is not a public unicast address. It
-// unmaps IPv4-mapped IPv6 and checks the IPv4 embedded in NAT64 addresses.
-func isPrivateAddr(addr netip.Addr) bool {
-	addr = addr.Unmap()
-	if !addr.IsValid() {
-		return true
-	}
-	if addr.Is6() && nat64Prefix.Contains(addr) {
-		b := addr.As16()
-		return isPrivateAddr(netip.AddrFrom4([4]byte{b[12], b[13], b[14], b[15]}))
-	}
-	if addr.IsPrivate() || addr.IsLoopback() || addr.IsLinkLocalUnicast() ||
-		addr.IsLinkLocalMulticast() || addr.IsInterfaceLocalMulticast() ||
-		addr.IsMulticast() || addr.IsUnspecified() {
-		return true
-	}
-	for _, p := range nonPublicPrefixes {
-		if p.Contains(addr) {
-			return true
-		}
-	}
-	return false
 }

@@ -17,6 +17,7 @@ import (
 	"time"
 
 	appport "bnema.dev/dumber/internal/application/port"
+	"bnema.dev/dumber/internal/infrastructure/netaddr"
 	"golang.org/x/net/html"
 )
 
@@ -46,7 +47,7 @@ type homeIconOriginKey struct{}
 
 // NewHomeIconSource creates a HomeIconSource with its own HTTP client.
 func NewHomeIconSource() *HomeIconSource {
-	s := &HomeIconSource{isPrivate: isPrivateAddr}
+	s := &HomeIconSource{isPrivate: netaddr.IsPrivate}
 	transport := http.DefaultTransport.(*http.Transport).Clone()
 	transport.DialContext = s.dialContext
 	// No proxy: with one, dialContext would check the proxy's address
