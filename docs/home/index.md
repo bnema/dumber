@@ -91,6 +91,36 @@ Each field is `{ label, path, format }`. `label` and `path` are required, and `f
 | `confirm` | string | - | When set, the page asks this question before sending |
 | `inputs` | array | - | Values typed by the user, see [Actions](#actions) |
 
+## Search
+
+The `search` widget filters the page and opens addresses and web searches. Its engine is `default_search_engine` from `config.toml`, and its bangs are the `search_shortcuts` keys (see [configuration](../config/index.md)).
+
+What you type decides what Enter does. The chip on the right of the field shows the engine Enter uses, and the hint line under it says what Enter opens.
+
+| You type | Rows | Chip | Enter |
+|----------|------|------|-------|
+| Words that match services, bookmarks or list rows | Only matching rows show; the first one is selected | default engine, dimmed | Opens the selected row |
+| Words that match nothing | All rows hide | default engine | Searches the default engine |
+| An address (`pve.lan`, `https://…`) | Matching rows show | `Address` | Opens the first matching row, else the address |
+| `!key query` | Unchanged | the shortcut's engine, tinted | Searches that engine |
+| `!` and the start of a key | Unchanged | default engine, dimmed | The hint lists the matching keys |
+
+Matching is a case-insensitive substring of the name, description and address of a service, or of the title and address of a row. History suggestions show under the hint, except after a `!`.
+
+**Keys:**
+
+| Key | Where | Action |
+|-----|-------|--------|
+| `/` | Page, outside a text field | Focus the search |
+| `↑` `↓` | Search | Move the selection over matching rows, then suggestions |
+| `Enter` | Search | Open the selected row, else what the hint says |
+| `Shift+Enter` | Search | Search the web, or open the typed address |
+| `Escape` | Search | Clear the query; a second `Escape` leaves the field |
+| `←` `→` | Service row | Move to the same row in the previous or next group |
+| `↑` `↓` | Service row | Move to the previous or next row |
+
+A typed query survives `home.toml` reloads: new rows are filtered as they appear.
+
 ## API widgets
 
 Dumber requests `url` (GET, at most 2 MiB, User-Agent `dumber-home`). It follows at most 3 redirects, and only within the same scheme, host and port: a redirect to another origin or from https to http is an error, so headers and bodies never leave the configured service. Dumber then parses the JSON and shows each field.
@@ -212,14 +242,25 @@ Discovery runs in the browser process. On private and LAN addresses it only foll
 | Part | Classes |
 |------|---------|
 | Page | `sv-home`, `sv-home-region` (`sv-home-region-groups` for the service area), `sv-home-header`, `sv-home-title`, `sv-home-ghost`, `sv-home-open-config`, `sv-home-status-summary`, `sv-home-section-title`, `sv-home-muted` |
-| Widgets | `sv-home-widget`, `sv-home-widget-<type>`, `sv-home-clock`, `sv-home-clock-date`, `sv-home-clock-sep`, `sv-home-clock-time`, `sv-home-search`, `sv-home-search-input`, `sv-home-suggestions`, `sv-home-suggestion`, `sv-home-rows`, `sv-home-row`, `sv-home-row-title`, `sv-home-row-url`, `sv-home-loading`, `sv-home-skeleton` |
+| Widgets | `sv-home-widget`, `sv-home-widget-<type>`, `sv-home-clock`, `sv-home-clock-date`, `sv-home-clock-sep`, `sv-home-clock-time`, `sv-home-search`, `sv-home-search-field`, `sv-home-search-input`, `sv-home-search-engine`, `sv-home-search-engine-icon`, `sv-home-search-engine-has-image`, `sv-home-search-engine-glyph`, `sv-home-search-engine-name`, `sv-home-search-key`, `sv-home-search-hint`, `sv-home-search-url`, `sv-home-suggestions`, `sv-home-suggestion`, `sv-home-rows`, `sv-home-row`, `sv-home-row-title`, `sv-home-row-url`, `sv-home-loading`, `sv-home-skeleton` |
 | Bookmarks | `sv-home-bookmarks`, `sv-home-bookmark-group` |
 | Services | `sv-home-groups`, `sv-home-group`, `sv-home-group-head`, `sv-home-group-count`, `sv-home-grid`, `sv-home-service`, `sv-home-service-tile`, `sv-home-service-link`, `sv-home-service-icon`, `sv-home-service-icon-has-image`, `sv-home-service-glyph`, `sv-home-service-text`, `sv-home-service-name`, `sv-home-service-description`, `sv-home-service-widget`, `sv-home-service-actions`, `sv-home-service-status`, `sv-home-service-embed`, `sv-home-embed` |
 | API widget | `sv-home-svc`, `sv-home-svc-display-<display>`, `sv-home-svc-loading`, `sv-home-svc-stale`, `sv-home-svc-stale-badge`, `sv-home-svc-inline`, `sv-home-svc-error`, `sv-home-svc-stats`, `sv-home-svc-field-pair`, `sv-home-svc-label`, `sv-home-svc-value`, `sv-home-svc-list`, `sv-home-svc-row`, `sv-home-svc-cell`, `sv-home-svc-bars`, `sv-home-svc-bar`, `sv-home-svc-track`, `sv-home-svc-fill`, `sv-home-svc-html` |
 | Actions | `sv-home-svc-actions`, `sv-home-svc-action`, `sv-home-svc-field`, `sv-home-svc-confirm`, `sv-home-svc-confirm-text`, `sv-home-svc-form`, `sv-home-svc-form-buttons` |
 | Errors | `sv-home-errors`, `sv-home-errors-title`, `sv-home-error-list`, `sv-home-error`, `sv-home-error-path` |
 
-Row states: `[data-sv-home-selected]` tints a `sv-home-service` row and `[data-sv-home-hidden]` hides it; a group whose rows are all hidden hides too.
+The search input is a bare field inside `sv-home-search-field` and does not use the shared `sv-input` class: style the field box through `sv-home-search-field`.
+
+Search state attributes:
+
+| Attribute | On | Meaning |
+|-----------|----|---------|
+| `data-sv-home-item` | service links (`service`), bookmark and list rows (`row`) | Searchable entry, with `data-sv-home-name`, `data-sv-home-text` and `data-sv-home-url` |
+| `data-sv-home-hidden` | `sv-home-service` rows, `sv-home-row` links | Filtered out; a group or section whose rows are all hidden hides too |
+| `data-sv-home-selected` | `sv-home-service` rows, `sv-home-row` links and suggestions | Opened by Enter |
+| `data-sv-home-query` | `sv-home` | A query is filtering the page; embeds hide |
+| `data-sv-home-bang` | `sv-home-search` | A `!` query; suggestions hide |
+| `data-state` | `sv-home-search-engine` | `idle`, `web`, `bang` or `address` |
 
 Layout variables: `--sv-home-columns` (maximum group columns, from `settings.columns`) on `sv-home-groups`, and `--sv-home-bar` (fill percent) on each `sv-home-svc-bar`.
 
