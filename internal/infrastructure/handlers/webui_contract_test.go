@@ -35,6 +35,7 @@ func TestWebUIContract_EveryMessageHasAHandlerAndMatchingCallbacks(t *testing.T)
 	}))
 	require.NoError(t, RegisterConfigHandlers(ctx, router, func(context.Context, dto.WebUIConfig) error { return nil }))
 	require.NoError(t, RegisterKeybindingsHandlers(ctx, router, &KeybindingsHandler{}))
+	require.NoError(t, RegisterHomeHandlers(ctx, router, mocks.NewMockHomePage(t)))
 
 	assert.Equal(t, port.WebUIMessageCallbacks, registered)
 }

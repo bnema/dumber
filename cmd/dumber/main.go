@@ -29,6 +29,7 @@ import (
 	renderenv "bnema.dev/dumber/internal/infrastructure/env"
 	infrafavicon "bnema.dev/dumber/internal/infrastructure/favicon"
 	"bnema.dev/dumber/internal/infrastructure/filesystem"
+	"bnema.dev/dumber/internal/infrastructure/homeconfig"
 	"bnema.dev/dumber/internal/infrastructure/idle"
 	"bnema.dev/dumber/internal/infrastructure/persistence/sqlite"
 	"bnema.dev/dumber/internal/infrastructure/process"
@@ -1150,6 +1151,14 @@ func legacyFaviconService(uc *useCases) port.FaviconService {
 	return uc.favicon
 }
 
+// homeSitesHistory avoids passing a typed nil use case as an interface.
+func homeSitesHistory(uc *useCases) port.HomeSitesHistory {
+	if uc == nil || uc.history == nil {
+		return nil
+	}
+	return uc.history
+}
+
 func buildUIDependencies(
 	ctx context.Context,
 	cfg *config.Config,
@@ -1191,6 +1200,9 @@ func buildUIDependencies(
 	} else {
 		systemViewUserStyle = systemviewfiles.NewUserStyle(configDir)
 		systemViewFileWatcher = systemviewfiles.NewWatcher(configDir)
+		handlerDeps.Home = usecase.NewHomeUseCase(
+			homeconfig.New(configDir), runtimeConfig, homeSitesHistory(uc), desktop.FileOpener{},
+		)
 	}
 
 	uiDeps := &ui.Dependencies{

@@ -35,6 +35,10 @@ const (
 	MsgSetKeybinding       = "set_keybinding"
 	MsgResetKeybinding     = "reset_keybinding"
 	MsgResetAllKeybindings = "reset_all_keybindings"
+
+	MsgHomeLoad       = "home_load"
+	MsgHomeSites      = "home_sites"
+	MsgHomeOpenConfig = "home_open_config"
 )
 
 // WebUICallbacks names the JS functions that receive a message's result.
@@ -81,6 +85,10 @@ var WebUIMessageCallbacks = map[string]WebUICallbacks{
 	MsgSetKeybinding:       {Success: "__dumber_keybinding_set", Failure: "__dumber_keybinding_set_error"},
 	MsgResetKeybinding:     {Success: "__dumber_keybinding_reset", Failure: "__dumber_keybinding_reset_error"},
 	MsgResetAllKeybindings: {Success: "__dumber_keybindings_reset_all", Failure: "__dumber_keybindings_reset_all_error"},
+
+	MsgHomeLoad:       homepageCallbacks,
+	MsgHomeSites:      homepageCallbacks,
+	MsgHomeOpenConfig: homepageCallbacks,
 }
 
 // RegisterWebUIMessage registers handler for msgType using the callbacks

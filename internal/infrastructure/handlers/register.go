@@ -37,6 +37,13 @@ func RegisterAll(ctx context.Context, router port.WebUIHandlerRouter, deps port.
 		}
 	}
 
+	// Home page handlers
+	if deps.Home != nil {
+		if err := RegisterHomeHandlers(ctx, router, deps.Home); err != nil {
+			return err
+		}
+	}
+
 	// Keybindings handlers (always available)
 	if deps.KeybindingsGetter == nil {
 		return fmt.Errorf("KeybindingsGetter is required")
