@@ -438,7 +438,7 @@ func TestSave_WhenWatching_SyncsPopupsAliasBeforeSkipReload(t *testing.T) {
 	cfg.Workspace.Popups.Placement = "left"
 
 	require.NoError(t, m.Save(cfg))
-	assert.True(t, m.skipNextReload)
+	assert.NotZero(t, m.lastContentHash)
 	assert.Equal(t, cfg.Workspace.BrowsingContexts.Behavior, m.config.Workspace.BrowsingContexts.Behavior)
 	assert.Equal(t, cfg.Workspace.BrowsingContexts.Placement, m.config.Workspace.BrowsingContexts.Placement)
 	assert.Equal(t, m.config.Workspace.BrowsingContexts, m.config.Workspace.Popups)
