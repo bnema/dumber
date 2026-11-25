@@ -20,6 +20,12 @@ type homeWidgetCacheEntry struct {
 	resp dto.HomeWidgetDataResponse
 }
 
+// homeTemplateFailure is a template error for one widget configuration.
+type homeTemplateFailure struct {
+	hash [sha256.Size]byte
+	msg  string
+}
+
 // homeWidgetFlight lets concurrent fetches of the same service share one
 // HTTP request.
 type homeWidgetFlight struct {
@@ -50,6 +56,15 @@ func (uc *HomeUseCase) FetchWidgetData(ctx context.Context, serviceID string) (*
 	hash := hashHomeWidget(widget)
 
 	uc.widgetMu.Lock()
+	if failure, failed := uc.templateFailures[serviceID]; failed {
+		if failure.hash == hash {
+			uc.widgetMu.Unlock()
+			return &dto.HomeWidgetDataResponse{
+				ServiceID: serviceID, Status: dto.HomeStatusError, Error: failure.msg, FetchedAt: uc.now(),
+			}, nil
+		}
+		delete(uc.templateFailures, serviceID)
+	}
 	entry, cached := uc.widgetCache[serviceID]
 	if cached && entry.hash != hash {
 		delete(uc.widgetCache, serviceID)
@@ -79,7 +94,10 @@ func (uc *HomeUseCase) FetchWidgetData(ctx context.Context, serviceID string) (*
 	uc.widgetMu.Lock()
 	if resp.Status == dto.HomeStatusOK {
 		uc.widgetCache[serviceID] = homeWidgetCacheEntry{hash: hash, resp: resp}
-	} else if last, ok := uc.widgetCache[serviceID]; ok && allowStale && last.hash == hash {
+	} else if !allowStale {
+		uc.templateFailures[serviceID] = homeTemplateFailure{hash: hash, msg: resp.Error}
+		delete(uc.widgetCache, serviceID)
+	} else if last, ok := uc.widgetCache[serviceID]; ok && last.hash == hash {
 		stale := last.resp
 		stale.Status = dto.HomeStatusError
 		stale.Error = resp.Error

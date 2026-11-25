@@ -50,3 +50,28 @@ func (s slowValue) Value() string {
 	time.Sleep(s.delay)
 	return strings.Repeat("x", 1)
 }
+
+func TestRenderTemplate_RejectsIntegerRange(t *testing.T) {
+	t.Parallel()
+	for _, tmpl := range []string{
+		`{{range 2000000000}}x{{end}}`,
+		`{{range $i := 2000000000}}x{{end}}`,
+		`{{range (2000000000)}}x{{end}}`,
+		`{{range len .data}}x{{end}}`,
+		`{{$n := 2000000000}}{{range $n}}x{{end}}`,
+		`{{if .data}}{{range 5}}x{{end}}{{end}}`,
+		`{{define "t"}}{{range 9}}x{{end}}{{end}}ok`,
+	} {
+		start := time.Now()
+		_, err := RenderTemplate(tmpl, map[string]any{"data": []any{1.0}})
+		require.ErrorIs(t, err, ErrTemplateIntRange, tmpl)
+		assert.Less(t, time.Since(start), 100*time.Millisecond, tmpl)
+	}
+}
+
+func TestRenderTemplate_AllowsRangeOverData(t *testing.T) {
+	t.Parallel()
+	out, err := RenderTemplate(`{{range .items}}<i>{{.}}</i>{{end}}`, map[string]any{"items": []any{"a", "b"}})
+	require.NoError(t, err)
+	assert.Equal(t, "<i>a</i><i>b</i>", out)
+}

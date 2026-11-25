@@ -51,6 +51,9 @@ type HomeUseCase struct {
 	widgetMu       sync.Mutex
 	widgetCache    map[string]homeWidgetCacheEntry
 	widgetInflight map[string]*homeWidgetFlight
+	// templateFailures remembers a failed template per service and widget
+	// hash, so a slow or broken template is not re-rendered on every refresh.
+	templateFailures map[string]homeTemplateFailure
 
 	actionMu      sync.Mutex
 	actionRunning map[string]bool
@@ -61,18 +64,19 @@ var _ port.HomePage = (*HomeUseCase)(nil)
 // NewHomeUseCase creates a HomeUseCase.
 func NewHomeUseCase(deps HomeDeps) *HomeUseCase {
 	uc := &HomeUseCase{
-		source:         deps.Source,
-		runtime:        deps.Runtime,
-		history:        deps.History,
-		opener:         deps.Opener,
-		http:           deps.HTTP,
-		templates:      deps.Templates,
-		lookupEnv:      deps.LookupEnv,
-		now:            deps.Now,
-		versions:       deps.IconVersions,
-		widgetCache:    map[string]homeWidgetCacheEntry{},
-		widgetInflight: map[string]*homeWidgetFlight{},
-		actionRunning:  map[string]bool{},
+		source:           deps.Source,
+		runtime:          deps.Runtime,
+		history:          deps.History,
+		opener:           deps.Opener,
+		http:             deps.HTTP,
+		templates:        deps.Templates,
+		lookupEnv:        deps.LookupEnv,
+		now:              deps.Now,
+		versions:         deps.IconVersions,
+		widgetCache:      map[string]homeWidgetCacheEntry{},
+		widgetInflight:   map[string]*homeWidgetFlight{},
+		templateFailures: map[string]homeTemplateFailure{},
+		actionRunning:    map[string]bool{},
 	}
 	if uc.lookupEnv == nil {
 		uc.lookupEnv = func(string) (string, bool) { return "", false }

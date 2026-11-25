@@ -419,3 +419,31 @@ func TestFetchWidgetData_TemplateWithoutRenderer(t *testing.T) {
 	assert.Equal(t, dto.HomeStatusError, resp.Status)
 	assert.Contains(t, resp.Error, "template error")
 }
+
+func TestFetchWidgetData_TemplateFailureNotRetriedUntilWidgetChanges(t *testing.T) {
+	f := newHomeWidgetFixture(t)
+	renderer := &fakeHomeRenderer{err: errors.New("template execution timed out")}
+	f.uc.templates = renderer
+	w := f.layout.Groups[0].Services[0].Widget
+	w.Template = "T"
+	f.http.EXPECT().Do(mock.Anything, mock.Anything).Return(okJSON(`{}`), nil).Once()
+
+	first, err := f.uc.FetchWidgetData(f.ctx, "media")
+	require.NoError(t, err)
+	assert.Equal(t, "template error: template execution timed out", first.Error)
+
+	*f.now = f.now.Add(time.Hour)
+	again, err := f.uc.FetchWidgetData(f.ctx, "media")
+	require.NoError(t, err)
+	assert.Equal(t, first.Error, again.Error)
+	assert.Equal(t, 1, renderer.calls)
+
+	w.Template = "T2"
+	renderer.err = nil
+	f.http.EXPECT().Do(mock.Anything, mock.Anything).Return(okJSON(`{}`), nil).Once()
+	fixed, err := f.uc.FetchWidgetData(f.ctx, "media")
+	require.NoError(t, err)
+	assert.Equal(t, dto.HomeStatusOK, fixed.Status)
+	assert.Equal(t, "<p>T2</p>", fixed.HTML)
+	assert.Equal(t, 2, renderer.calls)
+}

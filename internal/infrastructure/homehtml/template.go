@@ -23,6 +23,9 @@ var (
 	ErrTemplateOutputTooLarge = errors.New("template output exceeds 64 KiB")
 	// ErrTemplateTimeout is returned when rendering exceeds TemplateTimeout.
 	ErrTemplateTimeout = errors.New("template execution timed out")
+	// ErrTemplateIntRange is returned for {{range N}} over a number, which
+	// could loop for a very long time.
+	ErrTemplateIntRange = errors.New("range over a number is not allowed")
 )
 
 var templateFuncs = template.FuncMap{
@@ -54,6 +57,9 @@ func renderTemplate(ctx context.Context, tmpl string, data any, timeout time.Dur
 	t, err := template.New("widget").Funcs(templateFuncs).Parse(tmpl)
 	if err != nil {
 		return "", fmt.Errorf("parse template: %w", err)
+	}
+	if err := checkRanges(t); err != nil {
+		return "", err
 	}
 
 	ctx, cancel := context.WithTimeout(ctx, timeout)
