@@ -175,5 +175,7 @@ func (c *Coordinator) clearPendingAppearance(paneID entity.PaneID) {
 		delete(c.pendingScriptRefresh, paneID)
 	}
 	delete(c.pendingSystemViewPanes, paneID)
+	delete(c.committedSystemViewPanes, paneID)
+	delete(c.pendingSystemViewNotify, paneID)
 	c.appearanceMu.Unlock()
 }

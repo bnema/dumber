@@ -16,8 +16,9 @@ import (
 const systemViewScheme = "dumb://"
 
 // BroadcastToSystemViews stores script as the current state for key and runs
-// it on every loaded dumb:// pane. Panes still loading get it when the load
-// commits. Pages that navigate to dumb:// later receive all stored state in
+// it on every committed dumb:// pane, again when a still loading one
+// finishes. Panes that have not committed yet get it when the load commits.
+// Pages that navigate to dumb:// later receive all stored state in
 // insertion order. The last script for a key wins.
 func (c *Coordinator) BroadcastToSystemViews(ctx context.Context, key, script string) {
 	if key == "" || script == "" {
@@ -41,24 +42,36 @@ func (c *Coordinator) BroadcastToSystemViews(ctx context.Context, key, script st
 		}
 		if c.shouldDeferAppearance(wv) {
 			c.markSystemViewPending(paneID)
-			log.Debug().Str("pane_id", string(paneID)).Str("key", key).Msg("deferred system view broadcast until load")
-			continue
+			if !c.isSystemViewCommitted(paneID) {
+				log.Debug().Str("pane_id", string(paneID)).Str("key", key).Msg("deferred system view broadcast until load")
+				continue
+			}
+			// A committed page can stay loading for long (a slow embed):
+			// apply now, and again when it finishes.
 		}
 		log.Debug().Str("pane_id", string(paneID)).Str("key", key).Msg("applied system view broadcast")
 		wv.RunJavaScript(ctx, script)
 	}
 }
 
-// NotifySystemViews runs script once on every loaded dumb:// pane. The script
-// is not stored and loading panes are skipped, because they fetch fresh data
-// when their load completes.
+// NotifySystemViews runs script once on every dumb:// pane whose document has
+// committed, even when it is still loading (a slow embed iframe keeps the
+// page loading). A still loading page gets script again when it finishes,
+// in case it was not listening yet. The script is not stored: a page that
+// has not committed yet fetches fresh data when it starts.
 func (c *Coordinator) NotifySystemViews(ctx context.Context, script string) {
 	if script == "" {
 		return
 	}
-	for _, wv := range c.snapshotWebViews() {
-		if !isLiveSystemView(wv) || c.shouldDeferAppearance(wv) {
+	for paneID, wv := range c.snapshotWebViews() {
+		if !isLiveSystemView(wv) {
 			continue
+		}
+		if c.shouldDeferAppearance(wv) {
+			if !c.isSystemViewCommitted(paneID) {
+				continue
+			}
+			c.addSystemViewNotify(paneID, script)
 		}
 		wv.RunJavaScript(ctx, script)
 	}
@@ -85,7 +98,9 @@ func BuildSystemViewEventScript(name string, detail any) (string, error) {
 // whose load just committed, and clears its pending mark.
 func (c *Coordinator) applySystemViewStateOnCommit(ctx context.Context, paneID entity.PaneID, wv port.WebView) {
 	c.takeSystemViewPending(paneID)
-	if !isLiveSystemView(wv) {
+	live := isLiveSystemView(wv)
+	c.setSystemViewCommitted(paneID, live)
+	if !live {
 		return
 	}
 	logging.FromContext(ctx).Debug().Str("pane_id", string(paneID)).Msg("applying system view state on commit")
@@ -96,11 +111,19 @@ func (c *Coordinator) applySystemViewStateOnCommit(ctx context.Context, paneID e
 
 // applySystemViewStateOnFinish re-applies stored state only when a broadcast
 // arrived after the load committed.
+// It also re-runs the notifications sent while the page was loading.
 func (c *Coordinator) applySystemViewStateOnFinish(ctx context.Context, paneID entity.PaneID, wv port.WebView) {
-	if !c.takeSystemViewPending(paneID) || !isLiveSystemView(wv) {
+	pending := c.takeSystemViewPending(paneID)
+	notify := c.takeSystemViewNotify(paneID)
+	if !isLiveSystemView(wv) {
 		return
 	}
-	for _, script := range c.systemViewScripts() {
+	if pending {
+		for _, script := range c.systemViewScripts() {
+			wv.RunJavaScript(ctx, script)
+		}
+	}
+	for _, script := range notify {
 		wv.RunJavaScript(ctx, script)
 	}
 }
@@ -167,4 +190,45 @@ func (c *Coordinator) snapshotWebViews() map[entity.PaneID]port.WebView {
 
 func isLiveSystemView(wv port.WebView) bool {
 	return wv != nil && !wv.IsDestroyed() && strings.HasPrefix(wv.URI(), systemViewScheme)
+}
+
+func (c *Coordinator) setSystemViewCommitted(paneID entity.PaneID, committed bool) {
+	c.appearanceMu.Lock()
+	defer c.appearanceMu.Unlock()
+	// A new document drops the notifications queued for the previous one.
+	delete(c.pendingSystemViewNotify, paneID)
+	if !committed {
+		delete(c.committedSystemViewPanes, paneID)
+		return
+	}
+	if c.committedSystemViewPanes == nil {
+		c.committedSystemViewPanes = make(map[entity.PaneID]bool)
+	}
+	c.committedSystemViewPanes[paneID] = true
+}
+
+func (c *Coordinator) isSystemViewCommitted(paneID entity.PaneID) bool {
+	c.appearanceMu.Lock()
+	defer c.appearanceMu.Unlock()
+	return c.committedSystemViewPanes[paneID]
+}
+
+func (c *Coordinator) addSystemViewNotify(paneID entity.PaneID, script string) {
+	c.appearanceMu.Lock()
+	defer c.appearanceMu.Unlock()
+	if slices.Contains(c.pendingSystemViewNotify[paneID], script) {
+		return
+	}
+	if c.pendingSystemViewNotify == nil {
+		c.pendingSystemViewNotify = make(map[entity.PaneID][]string)
+	}
+	c.pendingSystemViewNotify[paneID] = append(c.pendingSystemViewNotify[paneID], script)
+}
+
+func (c *Coordinator) takeSystemViewNotify(paneID entity.PaneID) []string {
+	c.appearanceMu.Lock()
+	defer c.appearanceMu.Unlock()
+	scripts := c.pendingSystemViewNotify[paneID]
+	delete(c.pendingSystemViewNotify, paneID)
+	return scripts
 }

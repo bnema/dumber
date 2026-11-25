@@ -43,13 +43,13 @@ func TestApplySystemViewUserCSS_AppliesAfterThemeOnLaterCommit(t *testing.T) {
 	c.BroadcastToSystemViews(ctx, "other", "O1")
 	c.ApplyWebUIThemeToAll(ctx, true, "body{}")
 
-	wv := &systemViewWebViewStub{uri: "dumb://history"}
+	wv := newFakeView(t, "dumb://history", false)
 	c.applySystemViewStateOnCommit(ctx, "a", wv)
 
-	require.Len(t, wv.scripts, 3)
+	require.Len(t, wv.ran(), 3)
 	themeScript, err := buildWebUIThemeScript(true, "body{}")
 	require.NoError(t, err)
 	userScript, err := buildUserCSSScript("body{outline:5px solid red}")
 	require.NoError(t, err)
-	assert.Equal(t, []string{themeScript, "O1", userScript}, wv.scripts)
+	assert.Equal(t, []string{themeScript, "O1", userScript}, wv.ran())
 }

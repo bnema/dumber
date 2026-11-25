@@ -102,6 +102,11 @@ type Coordinator struct {
 	systemViewState        map[string]string
 	systemViewOrder        []string
 	pendingSystemViewPanes map[entity.PaneID]bool
+	// committedSystemViewPanes holds panes whose current document is a
+	// committed dumb:// page; pendingSystemViewNotify holds one-shot
+	// notifications to re-run when such a page finishes loading.
+	committedSystemViewPanes map[entity.PaneID]bool
+	pendingSystemViewNotify  map[entity.PaneID][]string
 	prefersDarkWebUI       bool
 
 	// Gesture action handler for mouse button navigation
