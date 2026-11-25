@@ -218,3 +218,22 @@ func TestHomeServiceWidgetRefreshLoopLifetime(t *testing.T) {
 		})
 	}
 }
+
+func TestHomeServiceWidgetInline(t *testing.T) {
+	t.Parallel()
+	field := dto.HomeWidgetValue{Label: "CPU", Value: "12%"}
+	for name, tc := range map[string]struct {
+		view homeServiceWidgetView
+		want bool
+	}{
+		"two stats":   {homeServiceWidgetView{Display: entity.HomeDisplayStats, Data: dto.HomeWidgetDataResponse{Fields: []dto.HomeWidgetValue{field, field}}}, true},
+		"three stats": {homeServiceWidgetView{Display: entity.HomeDisplayStats, Data: dto.HomeWidgetDataResponse{Fields: []dto.HomeWidgetValue{field, field, field}}}, false},
+		"no fields":   {homeServiceWidgetView{Display: entity.HomeDisplayStats}, false},
+		"list":        {homeServiceWidgetView{Display: entity.HomeDisplayList, Data: dto.HomeWidgetDataResponse{Fields: []dto.HomeWidgetValue{field}}}, false},
+		"bar":         {homeServiceWidgetView{Display: entity.HomeDisplayBar, Data: dto.HomeWidgetDataResponse{Fields: []dto.HomeWidgetValue{field}}}, false},
+		"html":        {homeServiceWidgetView{Display: entity.HomeDisplayStats, Data: dto.HomeWidgetDataResponse{HTML: "<b>x</b>", Fields: []dto.HomeWidgetValue{field}}}, false},
+		"error":       {homeServiceWidgetView{Display: entity.HomeDisplayStats, Data: dto.HomeWidgetDataResponse{Error: "down", Fields: []dto.HomeWidgetValue{field}}}, false},
+	} {
+		assert.Equal(t, tc.want, homeServiceWidgetInline(tc.view), name)
+	}
+}

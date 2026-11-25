@@ -2802,11 +2802,25 @@ html[data-sv-enhanced] .sv-savebar:not([data-sv-open]):not(:has(.sv-savebar-erro
 
 /* ===== Home (dumb://home) ===== */
 
+/* No cards: services are rows, groups are columns of rows. Only floating
+   layers (suggestions) get a shadow. */
+.sv-shell:has(.sv-home) {
+  max-width: 64rem;
+}
+
 .sv-home {
   --sv-home-columns: 3;
+  --sv-home-icon: 1.25rem;
+  --sv-home-row-pad: 0.625rem;
+  --sv-home-row-gap: 0.75rem;
+  /* Left edge of the row text column, for content under a row. */
+  --sv-home-indent: calc(var(--sv-home-row-pad) + var(--sv-home-icon) + var(--sv-home-row-gap));
+  --sv-home-tint: color-mix(in srgb, var(--sv-text) 5%, transparent);
+  --sv-home-selected: color-mix(in srgb, var(--sv-accent) 13%, transparent);
   display: flex;
   flex-wrap: wrap;
-  gap: 1rem;
+  gap: 1.75rem 0.5rem;
+  align-items: baseline;
 }
 
 /* The widgets container only groups the widget regions for swaps; they
@@ -2815,10 +2829,34 @@ html[data-sv-enhanced] .sv-savebar:not([data-sv-open]):not(:has(.sv-savebar-erro
   display: contents;
 }
 
-/* Full-width regions; list widgets share a row and stretch to fill it. */
+/* Full-width regions by default; order puts the header line first
+   whatever the widget order in home.toml. */
 .sv-home-region {
   flex: 1 1 100%;
+  order: 3;
   min-width: 0;
+}
+
+.sv-home-region:has(> .sv-home-errors) {
+  order: 0;
+}
+
+/* Header line: title and ghost controls, then clock and service count on
+   the right. They are sibling regions, laid out together here. */
+.sv-home-region:has(> .sv-home-header) {
+  flex: 1 1 18rem;
+  order: 1;
+}
+
+.sv-home-region:has(> .sv-home-widget-clock),
+.sv-home-region:has(> .sv-home-status-summary) {
+  flex: 0 0 auto;
+  order: 2;
+}
+
+.sv-home-region:has(> .sv-home-widget-search) {
+  /* Pulls the search closer to the header line. */
+  margin-top: -0.75rem;
 }
 
 .sv-home-region:has(> .sv-home-widget-favorites, > .sv-home-widget-top_sites, > .sv-home-widget-recent) {
@@ -2834,8 +2872,7 @@ html[data-sv-enhanced] .sv-savebar:not([data-sv-open]):not(:has(.sv-savebar-erro
   display: grid;
   gap: 0.375rem;
   padding: 0.75rem 1rem;
-  border: 1px solid color-mix(in srgb, var(--sv-danger) 40%, transparent);
-  border-radius: var(--sv-radius-panel);
+  border-radius: var(--sv-radius-control);
   background: color-mix(in srgb, var(--sv-danger) 10%, transparent);
   color: var(--sv-danger-text);
   font-size: 0.8125rem;
@@ -2866,58 +2903,79 @@ html[data-sv-enhanced] .sv-savebar:not([data-sv-open]):not(:has(.sv-savebar-erro
 
 .sv-home-header {
   display: flex;
-  gap: 0.5rem;
-  align-items: center;
-}
-
-.sv-home-open-config {
-  padding: 0.3125rem 0.75rem;
-  border: 1px solid var(--sv-border);
-  background: var(--sv-surface);
-  color: var(--sv-muted-text);
-  font-size: 0.8125rem;
-}
-
-.sv-home-open-config:hover {
-  color: var(--sv-text);
+  flex-wrap: wrap;
+  gap: 0.25rem 0.5rem;
+  align-items: baseline;
 }
 
 .sv-home-title {
-  flex: 1 1 auto;
-  margin: 0;
+  margin: 0 0.5rem 0 0;
   color: var(--sv-text);
   font-family: var(--sv-header-font, inherit);
-  font-size: 1.5rem;
-  font-weight: 600;
+  font-size: 1.375rem;
+  font-weight: 650;
+  letter-spacing: -0.01em;
 }
 
-.sv-home-widget {
-  padding: 0.75rem;
-  border: 1px solid var(--sv-panel-border, var(--sv-border));
-  border-radius: var(--sv-radius-panel);
-  background: var(--sv-surface);
-}
-
-.sv-home-widget-search,
-.sv-home-widget-clock {
-  padding: 0;
+/* Ghost controls: text only, tinted on hover. */
+.sv-home .sv-home-ghost {
+  display: inline-flex;
+  gap: 0.25rem;
+  align-items: center;
+  padding: 0.1875rem 0.5rem;
   border: 0;
+  border-radius: var(--sv-radius-control);
   background: transparent;
+  color: var(--sv-muted-text);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.8125rem;
+  transition: background-color var(--sv-ease), color var(--sv-ease);
+}
+
+.sv-home .sv-home-ghost:hover {
+  background: var(--sv-home-tint);
+  color: var(--sv-text);
+}
+
+.sv-home .sv-home-ghost:focus-visible {
+  outline: 2px solid var(--sv-accent);
+  outline-offset: 1px;
+}
+
+.sv-home .sv-palette-trigger.sv-home-ghost span {
+  margin-right: 0.25rem;
+}
+
+html:not([data-sv-enhanced]) .sv-home .sv-palette-trigger {
+  display: none;
+}
+
+.sv-home-status-summary {
+  color: var(--sv-muted-text);
+  font-size: 0.875rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.sv-home:has(.sv-home-widget-clock) .sv-home-status-summary::before {
+  content: "·";
+  margin-right: 0.5rem;
 }
 
 .sv-home-section-title {
-  margin: 0 0 0.5rem;
-  padding: 0 0.625rem;
+  margin: 0 0 0.375rem;
+  padding: 0 var(--sv-home-row-pad);
   color: var(--sv-muted-text);
-  font-size: 0.75rem;
+  font-size: 0.6875rem;
   font-weight: 600;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
 .sv-home-muted {
   margin: 0;
-  padding: 0.25rem 0.625rem;
+  padding: 0.25rem var(--sv-home-row-pad);
   color: var(--sv-muted-text);
   font-size: 0.8125rem;
 }
@@ -2928,12 +2986,26 @@ html[data-sv-enhanced] .sv-savebar:not([data-sv-open]):not(:has(.sv-savebar-erro
   display: grid;
 }
 
-.sv-home-search-input {
+.sv-home .sv-home-search-input {
   width: 100%;
   box-sizing: border-box;
-  padding: 0.875rem 1rem;
-  border-radius: var(--sv-radius-panel);
-  font-size: 1.0625rem;
+  padding: 0.6875rem 0.875rem;
+  border: 1px solid var(--sv-border);
+  border-radius: 8px;
+  background: var(--sv-surface);
+  color: var(--sv-text);
+  font-size: 0.9375rem;
+  box-shadow: none;
+  transition: border-color var(--sv-ease);
+}
+
+.sv-home .sv-home-search-input:focus {
+  border-color: color-mix(in srgb, var(--sv-accent) 55%, var(--sv-border));
+  outline: none;
+}
+
+.sv-home-search-input::placeholder {
+  color: var(--sv-muted-text);
 }
 
 .sv-home-search-input::-webkit-search-cancel-button {
@@ -2952,7 +3024,7 @@ html[data-sv-enhanced] .sv-savebar:not([data-sv-open]):not(:has(.sv-savebar-erro
   z-index: 10;
   display: grid;
   overflow: hidden;
-  border-radius: var(--sv-radius-panel);
+  border-radius: 8px;
   background: var(--sv-surface);
   box-shadow: var(--sv-float-shadow);
 }
@@ -2961,26 +3033,28 @@ html[data-sv-enhanced] .sv-savebar:not([data-sv-open]):not(:has(.sv-savebar-erro
   display: none;
 }
 
+.sv-home-search:not(:focus-within) .sv-home-suggestions {
+  display: none;
+}
+
 .sv-home-suggestions .sv-home-row {
   border-radius: 0;
 }
 
+/* Clock: compact "date · time" text on the header line. */
 .sv-home-clock {
   display: flex;
-  gap: 0.75rem;
+  gap: 0.5rem;
   align-items: baseline;
+  color: var(--sv-muted-text);
+  font-size: 0.875rem;
+  white-space: nowrap;
 }
 
 .sv-home-clock-time {
   color: var(--sv-text);
-  font-size: 2.5rem;
   font-variant-numeric: tabular-nums;
   font-weight: 600;
-  line-height: 1;
-}
-
-.sv-home-clock-date {
-  color: var(--sv-muted-text);
 }
 
 .sv-home-rows {
@@ -2993,22 +3067,22 @@ html[data-sv-enhanced] .sv-savebar:not([data-sv-open]):not(:has(.sv-savebar-erro
 
 .sv-home-row {
   display: flex;
-  gap: 0.625rem;
+  gap: var(--sv-home-row-gap);
   align-items: center;
   min-width: 0;
-  padding: 0.5rem 0.625rem;
-  border-radius: var(--sv-radius-row);
+  padding: 0.5rem var(--sv-home-row-pad);
+  border-radius: 6px;
   color: var(--sv-text);
   text-decoration: none;
   transition: background-color var(--sv-ease);
 }
 
 .sv-home-row:hover {
-  background: var(--sv-hover);
+  background: var(--sv-home-tint);
 }
 
 .sv-home-row:focus-visible {
-  background: var(--sv-selection);
+  background: var(--sv-home-selected);
   outline: 2px solid var(--sv-accent);
   outline-offset: -2px;
 }
@@ -3033,50 +3107,107 @@ html[data-sv-enhanced] .sv-savebar:not([data-sv-open]):not(:has(.sv-savebar-erro
 .sv-home-bookmarks {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
-  gap: 1rem;
+  gap: 1.75rem 2.5rem;
 }
 
+/* Groups: columns of service rows, at most --sv-home-columns per line. */
 .sv-home-groups {
+  --sv-home-col-gap: 2.5rem;
   display: grid;
-  gap: 1.25rem;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, max(19rem, (100% - (var(--sv-home-columns) - 1) * var(--sv-home-col-gap)) / var(--sv-home-columns))), 1fr));
+  gap: 1.75rem var(--sv-home-col-gap);
+  align-items: start;
 }
 
-.sv-home-group > .sv-home-section-title,
-.sv-home-bookmark-group > .sv-home-section-title {
+.sv-home-group {
+  min-width: 0;
+}
+
+.sv-home-group-head {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 0 var(--sv-home-row-pad);
+}
+
+.sv-home-group-head > .sv-home-section-title {
+  min-width: 0;
   padding: 0;
 }
 
-.sv-home-grid {
-  display: grid;
-  grid-template-columns: repeat(var(--sv-home-columns), minmax(0, 1fr));
-  gap: 0.75rem;
+.sv-home-group-count {
+  color: var(--sv-muted-text);
+  font-size: 0.6875rem;
+  font-variant-numeric: tabular-nums;
 }
 
+.sv-home-bookmark-group > .sv-home-section-title {
+  padding: 0 var(--sv-home-row-pad);
+}
+
+/* The rows of one group. Keyboard navigation reads its column count. */
+.sv-home-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.125rem;
+}
+
+/* Hidden rows (search filter); a group whose rows are all hidden hides
+   too. Groups empty in home.toml stay. */
+.sv-home-service[data-sv-home-hidden] {
+  display: none;
+}
+
+.sv-home-group:has([data-sv-home-hidden]):not(:has(.sv-home-service:not([data-sv-home-hidden]))) {
+  display: none;
+}
+
+/* A service row: tile (icon, name, description) | inline widget | actions |
+   status on the first line; block widget, open action form and embed under
+   it, aligned with the text column. Regions stay siblings. */
 .sv-home-service {
   display: grid;
-  border: 1px solid var(--sv-panel-border, var(--sv-border));
-  border-radius: var(--sv-radius-panel);
-  background: var(--sv-surface);
-  transition: border-color var(--sv-ease), background-color var(--sv-ease);
+  grid-template-columns: minmax(0, 1fr) auto auto auto;
+  grid-template-areas:
+    "tile widget actions status"
+    "block block block block"
+    "form form form form"
+    "embed embed embed embed";
+  align-items: center;
+  align-content: start;
+  column-gap: 0.625rem;
+  padding-right: var(--sv-home-row-pad);
+  border-radius: 6px;
+  transition: background-color var(--sv-ease);
 }
 
 .sv-home-service:hover {
-  border-color: var(--sv-accent);
+  background: var(--sv-home-tint);
+}
+
+.sv-home-service[data-sv-home-selected] {
+  background: var(--sv-home-selected);
+}
+
+.sv-home-service-tile {
+  grid-area: tile;
+  min-width: 0;
 }
 
 .sv-home-service-link {
-  display: flex;
-  gap: 0.75rem;
+  display: grid;
+  grid-template-columns: var(--sv-home-icon) minmax(0, 1fr);
+  gap: var(--sv-home-row-gap);
   align-items: center;
   min-width: 0;
-  padding: 0.75rem;
-  border-radius: var(--sv-radius-panel);
+  padding: 0.5rem 0 0.5rem var(--sv-home-row-pad);
+  border-radius: 6px;
   color: var(--sv-text);
   text-decoration: none;
 }
 
 .sv-home-service-link:focus-visible {
-  background: var(--sv-selection);
   outline: 2px solid var(--sv-accent);
   outline-offset: -2px;
 }
@@ -3084,22 +3215,22 @@ html[data-sv-enhanced] .sv-savebar:not([data-sv-open]):not(:has(.sv-savebar-erro
 .sv-home-service-icon {
   position: relative;
   display: inline-grid;
-  flex: 0 0 auto;
   place-items: center;
-  width: 2rem;
-  height: 2rem;
+  width: var(--sv-home-icon);
+  height: var(--sv-home-icon);
   overflow: hidden;
-  border-radius: var(--sv-radius-control);
+  border-radius: var(--sv-radius-chip);
   background: var(--sv-chip);
   color: var(--sv-muted-text);
+  font-size: 0.6875rem;
   font-weight: 600;
 }
 
 .sv-home-service-icon img {
   position: absolute;
   inset: 0;
-  width: 2rem;
-  height: 2rem;
+  width: var(--sv-home-icon);
+  height: var(--sv-home-icon);
   object-fit: contain;
 }
 
@@ -3124,29 +3255,69 @@ html[data-sv-enhanced] .sv-savebar:not([data-sv-open]):not(:has(.sv-savebar-erro
 }
 
 .sv-home-service-name {
-  font-weight: 600;
+  font-weight: 550;
 }
 
 .sv-home-service-description {
   color: var(--sv-muted-text);
-  font-size: 0.8125rem;
+  font-size: 0.78125rem;
 }
 
 .sv-home-service-widget:empty,
-.sv-home-service-actions:empty {
+.sv-home-service-actions:empty,
+.sv-home-service-status:empty,
+.sv-home-service-embed:empty {
   display: none;
 }
 
-@media (max-width: 960px) {
-  .sv-home-grid {
-    grid-template-columns: repeat(min(var(--sv-home-columns), 2), minmax(0, 1fr));
-  }
+/* Under the row by default: lists, bars, many stats, template HTML. */
+.sv-home-service-widget {
+  grid-area: block;
+  min-width: 0;
+  padding: 0 0 0.5rem var(--sv-home-indent);
 }
 
-@media (max-width: 560px) {
-  .sv-home-grid {
-    grid-template-columns: minmax(0, 1fr);
-  }
+/* Inline on the row: up to two stats, or the loading placeholder. */
+.sv-home-service-widget:has(> .sv-home-svc-inline, > .sv-home-svc-loading) {
+  grid-area: widget;
+  padding: 0;
+}
+
+.sv-home-service-status {
+  grid-area: status;
+}
+
+/* Actions show on hover, keyboard focus or selection, and stay while an
+   action runs or its form or confirmation is open. */
+.sv-home-service-actions {
+  display: none;
+  grid-area: actions;
+}
+
+.sv-home-service:hover > .sv-home-service-actions,
+.sv-home-service:focus-within > .sv-home-service-actions,
+.sv-home-service[data-sv-home-selected] > .sv-home-service-actions,
+.sv-home-service-actions:has([aria-busy="true"]) {
+  display: block;
+}
+
+.sv-home-service > .sv-home-service-actions:has(.sv-home-svc-form, .sv-home-svc-confirm) {
+  display: block;
+  grid-area: form;
+  padding: 0.25rem 0 0.625rem var(--sv-home-indent);
+}
+
+.sv-home-service-embed {
+  grid-area: embed;
+  padding: 0.25rem 0 0.625rem var(--sv-home-indent);
+}
+
+.sv-home-embed {
+  display: block;
+  width: 100%;
+  border: 0;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--sv-text) 3%, var(--sv-background));
 }
 
 .sv-home-skeleton {
@@ -3169,37 +3340,39 @@ html[data-sv-enhanced] .sv-savebar:not([data-sv-open]):not(:has(.sv-savebar-erro
   .sv-home-skeleton { animation: none; }
 }
 
-/* home service widgets */
+/* home service widgets: plain text, no boxes */
 
 .sv-home-svc {
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: 0.375rem;
-  padding: 0.5rem 0.625rem 0.625rem;
-  font-size: 0.8125rem;
+  gap: 0.25rem;
   color: var(--sv-text);
+  font-size: 0.78125rem;
 }
 
 .sv-home-svc-loading {
-  min-height: 1.5rem;
-  margin: 0.25rem 0.625rem 0.625rem;
-  padding: 0;
+  width: 3rem;
+  height: 0.5rem;
   border-radius: var(--sv-radius-chip);
   background: var(--sv-chip);
   animation: sv-home-pulse 1.2s ease-in-out infinite alternate;
 }
 
 .sv-home-svc-stale-badge {
-  position: absolute;
-  top: 0.375rem;
-  right: 0.625rem;
-  font-size: 0.6875rem;
   color: var(--sv-muted-text);
+  font-size: 0.6875rem;
 }
 
 .sv-home-svc-stale > :not(.sv-home-svc-stale-badge):not(.sv-home-svc-error) {
   opacity: 0.6;
+}
+
+.sv-home-svc-inline {
+  flex-direction: row;
+  align-items: baseline;
+  gap: 0.5rem;
+  white-space: nowrap;
 }
 
 .sv-home-svc-error {
@@ -3214,27 +3387,21 @@ html[data-sv-enhanced] .sv-savebar:not([data-sv-open]):not(:has(.sv-savebar-erro
 
 .sv-home-svc-value {
   margin: 0;
+  color: var(--sv-text);
   font-variant-numeric: tabular-nums;
-  font-weight: 600;
 }
 
 .sv-home-svc-stats {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.375rem;
+  gap: 0.125rem 1rem;
   margin: 0;
 }
 
-.sv-home-svc-chip {
+.sv-home-svc-field-pair {
   display: flex;
-  flex-direction: column;
-  padding: 0.25rem 0.5rem;
-  border-radius: var(--sv-radius-chip);
-  background: var(--sv-chip);
-}
-
-.sv-home-svc-chip dt {
-  font-size: 0.6875rem;
+  gap: 0.3125rem;
+  align-items: baseline;
 }
 
 .sv-home-svc-list {
@@ -3250,12 +3417,6 @@ html[data-sv-enhanced] .sv-savebar:not([data-sv-open]):not(:has(.sv-savebar-erro
   display: flex;
   gap: 0.75rem;
   justify-content: space-between;
-  padding: 0.125rem 0;
-  border-bottom: 1px solid var(--sv-hairline);
-}
-
-.sv-home-svc-row:last-child {
-  border-bottom: 0;
 }
 
 .sv-home-svc-cell {
@@ -3278,10 +3439,10 @@ html[data-sv-enhanced] .sv-savebar:not([data-sv-open]):not(:has(.sv-savebar-erro
 
 .sv-home-svc-track {
   grid-column: 1 / -1;
-  height: 0.375rem;
+  height: 0.25rem;
   overflow: hidden;
-  border-radius: var(--sv-radius-chip);
-  background: var(--sv-chip);
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--sv-text) 10%, transparent);
 }
 
 .sv-home-svc-fill {
@@ -3301,18 +3462,23 @@ html[data-sv-enhanced] .sv-savebar:not([data-sv-open]):not(:has(.sv-savebar-erro
   .sv-home-svc-fill { transition: none; }
 }
 
-.sv-home-search:not(:focus-within) .sv-home-suggestions {
-  display: none;
-}
-
-.sv-home-service-actions {
-  padding: 0 0.625rem 0.625rem;
-}
-
 .sv-home-svc-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.375rem;
+  gap: 0.25rem;
+}
+
+.sv-home .sv-home-svc-action {
+  padding: 0.125rem 0.5rem;
+  border: 0;
+  border-radius: var(--sv-radius-chip);
+  background: color-mix(in srgb, var(--sv-text) 8%, transparent);
+  color: var(--sv-text);
+  font-size: 0.75rem;
+}
+
+.sv-home .sv-home-svc-action:hover {
+  background: color-mix(in srgb, var(--sv-text) 14%, transparent);
 }
 
 .sv-home-svc-action[aria-busy="true"] {
@@ -3348,25 +3514,4 @@ html[data-sv-enhanced] .sv-savebar:not([data-sv-open]):not(:has(.sv-savebar-erro
 .sv-home-svc-confirm-text {
   flex: 1 1 100%;
   font-size: 0.8125rem;
-}
-
-.sv-home-service-embed:empty {
-  display: none;
-}
-
-.sv-home-service-embed {
-  padding: 0 0.625rem 0.625rem;
-}
-
-.sv-home-embed {
-  display: block;
-  width: 100%;
-  border: 1px solid var(--sv-hairline);
-  border-radius: var(--sv-radius-chip);
-  background: var(--sv-surface);
-}
-
-/* A tall neighbour (an embed) must not spread a tile's rows apart. */
-.sv-home-service {
-  align-content: start;
 }

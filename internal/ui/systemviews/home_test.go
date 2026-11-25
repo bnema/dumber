@@ -206,6 +206,10 @@ func TestHomeRendersServiceGroups(t *testing.T) {
 	assert.Contains(t, html, `/api/home-icon?service=jelly`)
 	assert.Contains(t, html, `Movies`)
 	assert.Contains(t, html, `sv-home-service-widget`)
+	assert.Contains(t, html, `data-sv-region="home-svc-status:jelly"`)
+	assert.Contains(t, html, `data-sv-region="home-group-count:g1"`)
+	assert.Contains(t, html, `data-sv-region="home-status-summary"`)
+	assert.Contains(t, html, `2 services`)
 	assert.Contains(t, html, `data-page-title="Lab"`)
 }
 
@@ -502,7 +506,9 @@ func TestHomeReloadKeepsEmbedsAndSearch(t *testing.T) {
 			},
 			check: func(t *testing.T, dom *treeDOM) {
 				assert.Equal(t, 1, dom.inserts)
-				assert.Empty(t, dom.swapped)
+				// Only the service count of the header line swaps.
+				assert.Equal(t, []string{homeRegionSummary}, dom.swapped)
+				assert.Contains(t, dom.text(homeRegionSummary), "5 services")
 				shell := dom.node("data-sv-anchor", "home-svc-shell:new")
 				require.NotNil(t, shell)
 				assert.Equal(t, dom.node("data-sv-anchor", "home-svc-shell:cam"), shell.NextSibling, "inserted in place")
@@ -514,6 +520,7 @@ func TestHomeReloadKeepsEmbedsAndSearch(t *testing.T) {
 			check: func(t *testing.T, dom *treeDOM) {
 				assert.Equal(t, 1, dom.removes)
 				assert.Nil(t, dom.node("data-sv-anchor", "home-svc-shell:jelly"))
+				assert.Equal(t, []string{homeRegionSummary}, dom.swapped)
 			},
 		},
 		"group added": {

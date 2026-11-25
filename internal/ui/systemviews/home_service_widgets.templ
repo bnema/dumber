@@ -35,7 +35,7 @@ templ HomeServiceIdleActions(service entity.HomeService) {
 
 // HomeServiceWidget renders the fetched data of an api widget.
 templ HomeServiceWidget(view homeServiceWidgetView) {
-	<div class={ "sv-home-svc", "sv-home-svc-display-" + string(view.Display), templ.KV("sv-home-svc-stale", view.Data.Stale) }>
+	<div class={ "sv-home-svc", "sv-home-svc-display-" + string(view.Display), templ.KV("sv-home-svc-inline", homeServiceWidgetInline(view)), templ.KV("sv-home-svc-stale", view.Data.Stale) }>
 		if view.Data.Stale {
 			<span class="sv-home-svc-stale-badge" title="Showing the last good data">stale</span>
 		}
@@ -65,7 +65,7 @@ templ HomeServiceWidget(view homeServiceWidgetView) {
 				default:
 					<dl class="sv-home-svc-stats">
 						for _, field := range view.Data.Fields {
-							<div class="sv-home-svc-chip">
+							<div class="sv-home-svc-field-pair">
 								<dt class="sv-home-svc-label">{ field.Label }</dt>
 								<dd class="sv-home-svc-value">{ field.Value }</dd>
 							</div>

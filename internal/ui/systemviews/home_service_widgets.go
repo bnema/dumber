@@ -261,3 +261,17 @@ func (a *App) restoreHomeServiceSlotsLocked() error {
 	}
 	return updater.UpdateRegions(RegionUpdate{Regions: regions})
 }
+
+// homeServiceWidgetInlineMax is the most stats fields shown inline on a
+// service row; more fields, lists, bars and template HTML go under the row.
+const homeServiceWidgetInlineMax = 2
+
+// homeServiceWidgetInline reports whether view fits on the service row.
+func homeServiceWidgetInline(view homeServiceWidgetView) bool {
+	switch view.Display {
+	case entity.HomeDisplayList, entity.HomeDisplayBar:
+		return false
+	}
+	return view.Data.HTML == "" && view.Data.Error == "" &&
+		len(view.Data.Fields) > 0 && len(view.Data.Fields) <= homeServiceWidgetInlineMax
+}

@@ -166,7 +166,7 @@ func HomeServiceWidget(view homeServiceWidgetView) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			var templ_7745c5c3_Var7 = []any{"sv-home-svc", "sv-home-svc-display-" + string(view.Display), templ.KV("sv-home-svc-stale", view.Data.Stale)}
+			var templ_7745c5c3_Var7 = []any{"sv-home-svc", "sv-home-svc-display-" + string(view.Display), templ.KV("sv-home-svc-inline", homeServiceWidgetInline(view)), templ.KV("sv-home-svc-stale", view.Data.Stale)}
 			templ_7745c5c3_Err = templ.RenderCSSItems(ctx, templ_7745c5c3_ElementWriter, templ_7745c5c3_Var7...)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
@@ -303,7 +303,7 @@ func HomeServiceWidget(view homeServiceWidgetView) templ.Component {
 					return templ_7745c5c3_Err
 				}
 				for _, field := range view.Data.Fields {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 22, "<div class=\"sv-home-svc-chip\"><dt class=\"sv-home-svc-label\">")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 22, "<div class=\"sv-home-svc-field-pair\"><dt class=\"sv-home-svc-label\">")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}

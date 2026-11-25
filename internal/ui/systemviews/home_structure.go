@@ -29,6 +29,7 @@ const (
 	homeAnchorGridPrefix     = "home-grid:"
 	homeAnchorShellPrefix    = "home-svc-shell:"
 	homeGroupTitleRegionPref = "home-group-title:"
+	homeGroupCountRegionPref = "home-group-count:"
 	homeColumnsProperty      = "--sv-home-columns"
 )
 
@@ -36,6 +37,7 @@ func homeGroupAnchor(key string) string      { return homeAnchorGroupPrefix + ke
 func homeGridAnchor(key string) string       { return homeAnchorGridPrefix + key }
 func homeShellAnchor(id string) string       { return homeAnchorShellPrefix + id }
 func homeGroupTitleRegion(key string) string { return homeGroupTitleRegionPref + key }
+func homeGroupCountRegion(key string) string { return homeGroupCountRegionPref + key }
 
 // homeShape is the structure of the service groups: which groups and
 // services exist, and in which order. Names, descriptions, slots, labels and

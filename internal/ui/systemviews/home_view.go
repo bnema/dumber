@@ -16,6 +16,7 @@ import (
 const (
 	homeRegionErrors       = "home-errors"
 	homeRegionHeader       = "home-header"
+	homeRegionSummary      = "home-status-summary"
 	homeRegionBookmarks    = "home-bookmarks"
 	homeRegionGroups       = "home-groups"
 	homeRegionWidgets      = "home-widgets"
@@ -227,10 +228,11 @@ func homeWidgetRegion(index int) string {
 
 // homeRegions renders every home region, in page order.
 func homeRegions(data homeRenderData) []DOMRegion {
-	regions := make([]DOMRegion, 0, len(data.Widgets)+4)
+	regions := make([]DOMRegion, 0, len(data.Widgets)+5)
 	regions = append(regions,
 		DOMRegion{Name: homeRegionErrors, HTML: mustRenderComponent(HomeErrors(data.Load))},
 		DOMRegion{Name: homeRegionHeader, HTML: mustRenderComponent(HomeHeader(data.Load))},
+		DOMRegion{Name: homeRegionSummary, HTML: mustRenderComponent(HomeStatusSummary(homeServiceCount(data.Load)))},
 	)
 	for i := range data.Widgets {
 		regions = append(regions, DOMRegion{Name: homeWidgetRegion(i), HTML: mustRenderComponent(HomeWidget(data.Widgets[i]))})
@@ -246,12 +248,31 @@ func homeRegions(data homeRenderData) []DOMRegion {
 // Service tile regions. The ':' separator cannot appear in a service id, so
 // names never collide across services.
 const (
-	homeServiceTileRegionPrefix  = "home-svc-tile:"
-	homeServiceEmbedRegionPrefix = "home-svc-embed:"
+	homeServiceTileRegionPrefix   = "home-svc-tile:"
+	homeServiceEmbedRegionPrefix  = "home-svc-embed:"
+	homeServiceStatusRegionPrefix = "home-svc-status:"
 )
 
-func homeServiceTileRegion(id string) string  { return homeServiceTileRegionPrefix + id }
-func homeServiceEmbedRegion(id string) string { return homeServiceEmbedRegionPrefix + id }
+func homeServiceTileRegion(id string) string   { return homeServiceTileRegionPrefix + id }
+func homeServiceEmbedRegion(id string) string  { return homeServiceEmbedRegionPrefix + id }
+func homeServiceStatusRegion(id string) string { return homeServiceStatusRegionPrefix + id }
+
+// homeServiceCount returns the number of services of the layout.
+func homeServiceCount(load dto.HomeLoadResponse) int {
+	count := 0
+	for gi := range load.Layout.Groups {
+		count += len(load.Layout.Groups[gi].Services)
+	}
+	return count
+}
+
+// homeServiceCountText is the service count of the header line.
+func homeServiceCountText(count int) string {
+	if count == 1 {
+		return "1 service"
+	}
+	return strconv.Itoa(count) + " services"
+}
 
 func isHomeWidgetRegion(name string) bool {
 	return strings.HasPrefix(name, homeWidgetRegionPrefix)

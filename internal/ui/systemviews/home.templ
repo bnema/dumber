@@ -62,15 +62,25 @@ templ HomeErrors(load dto.HomeLoadResponse) {
 	}
 }
 
+// HomeHeader is the title with ghost controls. The clock and status summary
+// regions are its siblings; CSS puts them on the same line.
 templ HomeHeader(load dto.HomeLoadResponse) {
 	<header class="sv-home-header">
 		<h2 class="sv-home-title">{ homeTitle(load) }</h2>
-		<button type="button" class="sv-button sv-button-secondary sv-home-open-config" data-sv-action="home.openConfig" title={ load.ConfigPath }>Open home.toml</button>
-		<button type="button" class="sv-palette-trigger" data-sv-action="palette.open" aria-keyshortcuts="Control+K">
+		<button type="button" class="sv-home-ghost sv-home-open-config" data-sv-action="home.openConfig" title={ load.ConfigPath }>Open home.toml</button>
+		<button type="button" class="sv-palette-trigger sv-home-ghost" data-sv-action="palette.open" aria-keyshortcuts="Control+K">
 			<span>Actions</span>
 			<kbd>Ctrl</kbd><kbd>K</kbd>
 		</button>
 	</header>
+}
+
+// HomeStatusSummary is the service count of the header line, empty when
+// there are no services.
+templ HomeStatusSummary(count int) {
+	if count > 0 {
+		<span class="sv-home-status-summary">{ homeServiceCountText(count) }</span>
+	}
 }
 
 templ HomeWidget(widget homeWidgetData) {
@@ -80,8 +90,9 @@ templ HomeWidget(widget homeWidgetData) {
 				@homeSearchWidget()
 			case entity.HomeWidgetClock:
 				<div class="sv-home-clock">
-					<time class="sv-home-clock-time">{ widget.Time }</time>
 					<span class="sv-home-clock-date">{ widget.Date }</span>
+					<span class="sv-home-clock-sep" aria-hidden="true">·</span>
+					<time class="sv-home-clock-time">{ widget.Time }</time>
 				</div>
 			default:
 				<h3 class="sv-home-section-title">{ homeWidgetTitle(widget.Widget) }</h3>
@@ -174,9 +185,12 @@ templ HomeGroups(load dto.HomeLoadResponse, shape homeShape, leaves map[string]s
 // group.
 templ HomeGroupBlock(group entity.HomeGroup, key string, leaves map[string]string) {
 	<section class="sv-home-group" data-sv-anchor={ homeGroupAnchor(key) }>
-		<h3 class="sv-home-section-title" data-sv-region={ homeGroupTitleRegion(key) }>
-			@templ.Raw(leaves[homeGroupTitleRegion(key)])
-		</h3>
+		<div class="sv-home-group-head">
+			<h3 class="sv-home-section-title" data-sv-region={ homeGroupTitleRegion(key) }>
+				@templ.Raw(leaves[homeGroupTitleRegion(key)])
+			</h3>
+			<span class="sv-home-group-count" data-sv-region={ homeGroupCountRegion(key) }></span>
+		</div>
 		<div class="sv-home-grid" data-sv-anchor={ homeGridAnchor(key) }>
 			for _, service := range group.Services {
 				@HomeServiceShell(service, leaves)
@@ -189,15 +203,17 @@ templ HomeGroupTitle(name string) {
 	{ name }
 }
 
-// HomeServiceShell holds the independent regions of a service: the tile,
-// the api widget and actions slots, and the embed. It is also the markup
-// inserted for a new service.
+// HomeServiceShell is a service row. It holds the independent regions of a
+// service as siblings: the tile, the api widget and actions slots, the
+// status slot and the embed. It is also the markup inserted for a new
+// service.
 templ HomeServiceShell(service entity.HomeService, leaves map[string]string) {
 	<div class="sv-home-service" data-sv-home-service={ service.ID } data-sv-anchor={ homeShellAnchor(service.ID) }>
 		<div class="sv-home-service-tile" data-sv-region={ homeServiceTileRegion(service.ID) }>
 			@templ.Raw(leaves[homeServiceTileRegion(service.ID)])
 		</div>
 		@homeServiceWidgetSlot(service)
+		<div class="sv-home-service-status" data-sv-region={ homeServiceStatusRegion(service.ID) }></div>
 		<div class="sv-home-service-embed" data-sv-region={ homeServiceEmbedRegion(service.ID) }></div>
 	</div>
 }
@@ -221,7 +237,7 @@ templ homeServiceHead(service entity.HomeService) {
 	<span class={ "sv-home-service-icon", templ.KV("sv-home-service-icon-has-image", icon != "") } aria-hidden="true">
 		<span class="sv-home-service-glyph">{ homeInitial(service.Name) }</span>
 		if icon != "" {
-			<img src={ templ.SafeURL(icon) } alt="" width="32" height="32" loading="lazy" decoding="async" referrerpolicy="same-origin" data-sv-img-fallback={ "sv-home-service-icon-has-image" }/>
+			<img src={ templ.SafeURL(icon) } alt="" width="20" height="20" loading="lazy" decoding="async" referrerpolicy="same-origin" data-sv-img-fallback={ "sv-home-service-icon-has-image" }/>
 		}
 	</span>
 	<span class="sv-home-service-text">
