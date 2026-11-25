@@ -2,10 +2,12 @@ package homehtml
 
 import (
 	"context"
+	"crypto/sha256"
 	"errors"
 	"fmt"
 	"html/template"
 	"strings"
+	"sync"
 	"time"
 
 	"bnema.dev/dumber/internal/domain/entity"
@@ -62,12 +64,53 @@ func RenderTemplate(tmpl string, data any) (string, error) {
 	return renderTemplate(context.Background(), tmpl, data, TemplateTimeout)
 }
 
-func renderTemplate(ctx context.Context, tmpl string, data any, timeout time.Duration) (string, error) {
-	t, err := template.New("widget").Funcs(templateFuncs).Parse(tmpl)
+// maxCachedTemplates bounds the parsed template cache. A home page has far
+// fewer widget templates; old entries go once the cap is reached.
+const maxCachedTemplates = 64
+
+// templateCache keeps parsed and checked templates by source hash, so a
+// widget refresh does not parse its template again. html/template allows
+// concurrent Execute calls on one template.
+var templateCache = struct {
+	sync.Mutex
+	byHash map[[sha256.Size]byte]*template.Template
+	order  [][sha256.Size]byte
+}{byHash: make(map[[sha256.Size]byte]*template.Template)}
+
+// parseTemplate returns the parsed, range-checked template for src.
+func parseTemplate(src string) (*template.Template, error) {
+	key := sha256.Sum256([]byte(src))
+	templateCache.Lock()
+	t, ok := templateCache.byHash[key]
+	templateCache.Unlock()
+	if ok {
+		return t, nil
+	}
+	t, err := template.New("widget").Funcs(templateFuncs).Parse(src)
 	if err != nil {
-		return "", fmt.Errorf("parse template: %w", err)
+		return nil, fmt.Errorf("parse template: %w", err)
 	}
 	if err := checkRanges(t); err != nil {
+		return nil, err
+	}
+	templateCache.Lock()
+	defer templateCache.Unlock()
+	if cached, ok := templateCache.byHash[key]; ok {
+		return cached, nil
+	}
+	if len(templateCache.order) >= maxCachedTemplates {
+		oldest := templateCache.order[0]
+		templateCache.order = templateCache.order[1:]
+		delete(templateCache.byHash, oldest)
+	}
+	templateCache.byHash[key] = t
+	templateCache.order = append(templateCache.order, key)
+	return t, nil
+}
+
+func renderTemplate(ctx context.Context, tmpl string, data any, timeout time.Duration) (string, error) {
+	t, err := parseTemplate(tmpl)
+	if err != nil {
 		return "", err
 	}
 

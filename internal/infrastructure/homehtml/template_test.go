@@ -2,7 +2,9 @@ package homehtml
 
 import (
 	"context"
+	"fmt"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -99,4 +101,45 @@ func TestRenderTemplate_RangeDepth(t *testing.T) {
 	require.ErrorIs(t, err, ErrTemplateRangeDepth)
 	_, err = RenderTemplate(`{{range .a}}{{if .}}{{range .}}{{with .}}{{range .}}x{{end}}{{end}}{{end}}{{end}}{{end}}`, data)
 	require.ErrorIs(t, err, ErrTemplateRangeDepth)
+}
+
+func TestParseTemplateCachesAndBounds(t *testing.T) {
+	first, err := parseTemplate("<p>{{.data.a}}</p>")
+	if err != nil {
+		t.Fatal(err)
+	}
+	again, err := parseTemplate("<p>{{.data.a}}</p>")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if first != again {
+		t.Fatal("same source must reuse the parsed template")
+	}
+	for i := range maxCachedTemplates + 5 {
+		if _, err := parseTemplate(fmt.Sprintf("<i>%d</i>", i)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	templateCache.Lock()
+	n, order := len(templateCache.byHash), len(templateCache.order)
+	templateCache.Unlock()
+	if n != maxCachedTemplates || order != maxCachedTemplates {
+		t.Fatalf("cache size = %d/%d, want %d", n, order, maxCachedTemplates)
+	}
+	if _, err := parseTemplate("{{range 5}}x{{end}}"); err == nil {
+		t.Fatal("rejected templates are never cached as valid")
+	}
+}
+
+func TestCachedTemplateRendersConcurrently(t *testing.T) {
+	var wg sync.WaitGroup
+	for i := range 8 {
+		wg.Go(func() {
+			out, err := RenderTemplate("<b>{{.n}}</b>", map[string]any{"n": i})
+			if err != nil || out != fmt.Sprintf("<b>%d</b>", i) {
+				t.Errorf("render %d = %q, %v", i, out, err)
+			}
+		})
+	}
+	wg.Wait()
 }
