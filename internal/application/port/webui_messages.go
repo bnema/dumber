@@ -39,6 +39,8 @@ const (
 	MsgHomeLoad       = "home_load"
 	MsgHomeSites      = "home_sites"
 	MsgHomeOpenConfig = "home_open_config"
+	MsgHomeWidgetData = "home_widget_data"
+	MsgHomeAction     = "home_action"
 )
 
 // WebUICallbacks names the JS functions that receive a message's result.
@@ -89,6 +91,8 @@ var WebUIMessageCallbacks = map[string]WebUICallbacks{
 	MsgHomeLoad:       homepageCallbacks,
 	MsgHomeSites:      homepageCallbacks,
 	MsgHomeOpenConfig: homepageCallbacks,
+	MsgHomeWidgetData: homepageCallbacks,
+	MsgHomeAction:     homepageCallbacks,
 }
 
 // RegisterWebUIMessage registers handler for msgType using the callbacks

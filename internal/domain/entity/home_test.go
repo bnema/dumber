@@ -232,3 +232,69 @@ func TestHomeLookups(t *testing.T) {
 		t.Error("found missing action")
 	}
 }
+
+func TestHomeValidateActionInputs(t *testing.T) {
+	act := func(l *HomeLayout) *HomeAction { return &l.Groups[0].Services[0].Actions[0] }
+	tests := []struct {
+		name   string
+		mutate func(a *HomeAction)
+		path   string
+	}{
+		{"valid", func(a *HomeAction) {
+			a.URL = "https://jelly.local/q?x={{input.q}}"
+			a.Body = `{"q":"{{ input.q }}"}`
+		}, ""},
+		{"bad name", func(a *HomeAction) { a.Inputs[0].Name = "1q" }, "groups[0].services[0].actions[0].inputs[0].name"},
+		{"duplicate name", func(a *HomeAction) {
+			a.Inputs = append(a.Inputs, HomeActionInput{Name: "q", Label: "Again"})
+		}, "groups[0].services[0].actions[0].inputs[1].name"},
+		{"missing label", func(a *HomeAction) { a.Inputs[0].Label = "" }, "groups[0].services[0].actions[0].inputs[0].label"},
+		{"undeclared in url", func(a *HomeAction) { a.URL = "https://jelly.local/{{input.zz}}" }, "groups[0].services[0].actions[0].url"},
+		{"undeclared in body", func(a *HomeAction) { a.Body = "{{input.zz}}" }, "groups[0].services[0].actions[0].body"},
+		{"input in header", func(a *HomeAction) {
+			a.Headers = map[string]string{"X": "{{input.q}}"}
+		}, "groups[0].services[0].actions[0].headers.X"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			l := validHomeLayout()
+			act(&l).Inputs = []HomeActionInput{{Name: "q", Label: "Query"}}
+			l.Normalize()
+			tt.mutate(act(&l))
+			errs := l.Validate()
+			if tt.path == "" {
+				if len(errs) != 0 {
+					t.Fatalf("unexpected errors: %v", errs)
+				}
+				return
+			}
+			if len(errs) != 1 || errs[0].Path != tt.path {
+				t.Fatalf("errors = %v, want one at %s", errs, tt.path)
+			}
+		})
+	}
+}
+
+func TestHomeValidateItemsOnlyForList(t *testing.T) {
+	l := validHomeLayout()
+	l.Normalize()
+	w := l.Groups[0].Services[0].Widget
+	w.Items = "rows"
+	if errs := l.Validate(); len(errs) != 1 || errs[0].Path != "groups[0].services[0].widget.items" {
+		t.Fatalf("errors = %v", errs)
+	}
+	w.Display = HomeDisplayList
+	if errs := l.Validate(); len(errs) != 0 {
+		t.Fatalf("errors = %v", errs)
+	}
+}
+
+func TestHomeRedactedKeepsInputs(t *testing.T) {
+	l := validHomeLayout()
+	l.Groups[0].Services[0].Actions[0].Inputs = []HomeActionInput{{Name: "q", Label: "Query", Placeholder: "p"}}
+	l.Normalize()
+	r := l.RedactedForPage()
+	if got := r.Groups[0].Services[0].Actions[0].Inputs; len(got) != 1 || got[0].Placeholder != "p" {
+		t.Fatalf("inputs = %+v", got)
+	}
+}

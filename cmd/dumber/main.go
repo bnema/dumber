@@ -30,6 +30,7 @@ import (
 	infrafavicon "bnema.dev/dumber/internal/infrastructure/favicon"
 	"bnema.dev/dumber/internal/infrastructure/filesystem"
 	"bnema.dev/dumber/internal/infrastructure/homeconfig"
+	"bnema.dev/dumber/internal/infrastructure/homehttp"
 	"bnema.dev/dumber/internal/infrastructure/idle"
 	"bnema.dev/dumber/internal/infrastructure/persistence/sqlite"
 	"bnema.dev/dumber/internal/infrastructure/process"
@@ -1200,9 +1201,14 @@ func buildUIDependencies(
 	} else {
 		systemViewUserStyle = systemviewfiles.NewUserStyle(configDir)
 		systemViewFileWatcher = systemviewfiles.NewWatcher(configDir)
-		handlerDeps.Home = usecase.NewHomeUseCase(
-			homeconfig.New(configDir), runtimeConfig, homeSitesHistory(uc), desktop.FileOpener{},
-		)
+		handlerDeps.Home = usecase.NewHomeUseCase(usecase.HomeDeps{
+			Source:    homeconfig.New(configDir),
+			Runtime:   runtimeConfig,
+			History:   homeSitesHistory(uc),
+			Opener:    desktop.FileOpener{},
+			HTTP:      homehttp.New(),
+			LookupEnv: os.LookupEnv,
+		})
 	}
 
 	uiDeps := &ui.Dependencies{

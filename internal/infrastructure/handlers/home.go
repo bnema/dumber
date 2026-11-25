@@ -32,8 +32,30 @@ func RegisterHomeHandlers(_ context.Context, router port.WebUIHandlerRouter, hom
 		port.MsgHomeOpenConfig: func(ctx context.Context, _ port.WebViewID, _ json.RawMessage) (any, error) {
 			return home.OpenHomeConfig(ctx)
 		},
+		port.MsgHomeWidgetData: func(ctx context.Context, _ port.WebViewID, payload json.RawMessage) (any, error) {
+			var req dto.HomeWidgetDataRequest
+			if err := decodeHomePayload(payload, &req); err != nil {
+				return nil, fmt.Errorf("home_widget_data: %w", err)
+			}
+			if req.ServiceID == "" {
+				return nil, errors.New("home_widget_data: missing service_id")
+			}
+			return home.FetchWidgetData(ctx, req.ServiceID)
+		},
+		port.MsgHomeAction: func(ctx context.Context, _ port.WebViewID, payload json.RawMessage) (any, error) {
+			var req dto.HomeActionRequest
+			if err := decodeHomePayload(payload, &req); err != nil {
+				return nil, fmt.Errorf("home_action: %w", err)
+			}
+			if req.ServiceID == "" || req.ActionID == "" {
+				return nil, errors.New("home_action: missing service_id or action_id")
+			}
+			return home.RunHomeAction(ctx, req)
+		},
 	}
-	for _, msgType := range []string{port.MsgHomeLoad, port.MsgHomeSites, port.MsgHomeOpenConfig} {
+	for _, msgType := range []string{
+		port.MsgHomeLoad, port.MsgHomeSites, port.MsgHomeOpenConfig, port.MsgHomeWidgetData, port.MsgHomeAction,
+	} {
 		if err := port.RegisterWebUIMessage(router, msgType, handlers[msgType]); err != nil {
 			return err
 		}
@@ -58,4 +80,14 @@ func decodeHomeSitesRequest(payload json.RawMessage) (dto.HomeSitesRequest, erro
 		return req, fmt.Errorf("home_sites: limit must be between %d and %d", entity.HomeMinLimit, entity.HomeMaxLimit)
 	}
 	return req, nil
+}
+
+func decodeHomePayload(payload json.RawMessage, v any) error {
+	if len(payload) == 0 || string(payload) == "null" {
+		return errors.New("missing payload")
+	}
+	if err := json.Unmarshal(payload, v); err != nil {
+		return fmt.Errorf("invalid payload: %w", err)
+	}
+	return nil
 }

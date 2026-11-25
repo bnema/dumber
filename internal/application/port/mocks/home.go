@@ -519,6 +519,74 @@ func (_m *MockHomePage) EXPECT() *MockHomePage_Expecter {
 	return &MockHomePage_Expecter{mock: &_m.Mock}
 }
 
+// FetchWidgetData provides a mock function for the type MockHomePage
+func (_mock *MockHomePage) FetchWidgetData(ctx context.Context, serviceID string) (*dto.HomeWidgetDataResponse, error) {
+	ret := _mock.Called(ctx, serviceID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for FetchWidgetData")
+	}
+
+	var r0 *dto.HomeWidgetDataResponse
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string) (*dto.HomeWidgetDataResponse, error)); ok {
+		return returnFunc(ctx, serviceID)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string) *dto.HomeWidgetDataResponse); ok {
+		r0 = returnFunc(ctx, serviceID)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*dto.HomeWidgetDataResponse)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, string) error); ok {
+		r1 = returnFunc(ctx, serviceID)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockHomePage_FetchWidgetData_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'FetchWidgetData'
+type MockHomePage_FetchWidgetData_Call struct {
+	*mock.Call
+}
+
+// FetchWidgetData is a helper method to define mock.On call
+//   - ctx context.Context
+//   - serviceID string
+func (_e *MockHomePage_Expecter) FetchWidgetData(ctx any, serviceID any) *MockHomePage_FetchWidgetData_Call {
+	return &MockHomePage_FetchWidgetData_Call{Call: _e.mock.On("FetchWidgetData", ctx, serviceID)}
+}
+
+func (_c *MockHomePage_FetchWidgetData_Call) Run(run func(ctx context.Context, serviceID string)) *MockHomePage_FetchWidgetData_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 string
+		if args[1] != nil {
+			arg1 = args[1].(string)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockHomePage_FetchWidgetData_Call) Return(homeWidgetDataResponse *dto.HomeWidgetDataResponse, err error) *MockHomePage_FetchWidgetData_Call {
+	_c.Call.Return(homeWidgetDataResponse, err)
+	return _c
+}
+
+func (_c *MockHomePage_FetchWidgetData_Call) RunAndReturn(run func(ctx context.Context, serviceID string) (*dto.HomeWidgetDataResponse, error)) *MockHomePage_FetchWidgetData_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // HomeSites provides a mock function for the type MockHomePage
 func (_mock *MockHomePage) HomeSites(ctx context.Context, req dto.HomeSitesRequest) (*dto.HomeSitesResponse, error) {
 	ret := _mock.Called(ctx, req)
@@ -707,6 +775,74 @@ func (_c *MockHomePage_OpenHomeConfig_Call) Return(homeOpenConfigResponse *dto.H
 }
 
 func (_c *MockHomePage_OpenHomeConfig_Call) RunAndReturn(run func(ctx context.Context) (*dto.HomeOpenConfigResponse, error)) *MockHomePage_OpenHomeConfig_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// RunHomeAction provides a mock function for the type MockHomePage
+func (_mock *MockHomePage) RunHomeAction(ctx context.Context, req dto.HomeActionRequest) (*dto.HomeActionResponse, error) {
+	ret := _mock.Called(ctx, req)
+
+	if len(ret) == 0 {
+		panic("no return value specified for RunHomeAction")
+	}
+
+	var r0 *dto.HomeActionResponse
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, dto.HomeActionRequest) (*dto.HomeActionResponse, error)); ok {
+		return returnFunc(ctx, req)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, dto.HomeActionRequest) *dto.HomeActionResponse); ok {
+		r0 = returnFunc(ctx, req)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*dto.HomeActionResponse)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, dto.HomeActionRequest) error); ok {
+		r1 = returnFunc(ctx, req)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockHomePage_RunHomeAction_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'RunHomeAction'
+type MockHomePage_RunHomeAction_Call struct {
+	*mock.Call
+}
+
+// RunHomeAction is a helper method to define mock.On call
+//   - ctx context.Context
+//   - req dto.HomeActionRequest
+func (_e *MockHomePage_Expecter) RunHomeAction(ctx any, req any) *MockHomePage_RunHomeAction_Call {
+	return &MockHomePage_RunHomeAction_Call{Call: _e.mock.On("RunHomeAction", ctx, req)}
+}
+
+func (_c *MockHomePage_RunHomeAction_Call) Run(run func(ctx context.Context, req dto.HomeActionRequest)) *MockHomePage_RunHomeAction_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 dto.HomeActionRequest
+		if args[1] != nil {
+			arg1 = args[1].(dto.HomeActionRequest)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockHomePage_RunHomeAction_Call) Return(homeActionResponse *dto.HomeActionResponse, err error) *MockHomePage_RunHomeAction_Call {
+	_c.Call.Return(homeActionResponse, err)
+	return _c
+}
+
+func (_c *MockHomePage_RunHomeAction_Call) RunAndReturn(run func(ctx context.Context, req dto.HomeActionRequest) (*dto.HomeActionResponse, error)) *MockHomePage_RunHomeAction_Call {
 	_c.Call.Return(run)
 	return _c
 }

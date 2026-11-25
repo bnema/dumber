@@ -37,7 +37,7 @@ func TestHomeUseCase_LoadHome_RedactsAndAddsSearchEngine(t *testing.T) {
 		UI: entity.RuntimeUIConfig{DefaultSearchEngine: "https://s/?q=%s"},
 	})
 
-	resp, err := NewHomeUseCase(source, runtime, nil, nil).LoadHome(ctx)
+	resp, err := NewHomeUseCase(HomeDeps{Source: source, Runtime: runtime}).LoadHome(ctx)
 	require.NoError(t, err)
 	assert.Equal(t, "/c/home.toml", resp.ConfigPath)
 	assert.True(t, resp.ConfigExists)
@@ -53,7 +53,7 @@ func TestHomeUseCase_LoadHome_SourceError(t *testing.T) {
 	ctx := context.Background()
 	source := mocks.NewMockHomeConfigSource(t)
 	source.EXPECT().Load(ctx).Return(port.HomeConfigSnapshot{}, errors.New("io"))
-	_, err := NewHomeUseCase(source, nil, nil, nil).LoadHome(ctx)
+	_, err := NewHomeUseCase(HomeDeps{Source: source}).LoadHome(ctx)
 	require.Error(t, err)
 }
 
@@ -107,7 +107,7 @@ func TestHomeUseCase_HomeSites(t *testing.T) {
 			if tt.setup != nil {
 				tt.setup(history)
 			}
-			resp, err := NewHomeUseCase(nil, nil, history, nil).HomeSites(context.Background(), tt.req)
+			resp, err := NewHomeUseCase(HomeDeps{History: history}).HomeSites(context.Background(), tt.req)
 			if tt.err {
 				require.Error(t, err)
 				return
@@ -130,7 +130,7 @@ func TestHomeUseCase_OpenHomeConfig(t *testing.T) {
 	opener := mocks.NewMockFileOpener(t)
 	opener.EXPECT().OpenFile(ctx, "/c/home.toml").Return(nil)
 
-	resp, err := NewHomeUseCase(source, nil, nil, opener).OpenHomeConfig(ctx)
+	resp, err := NewHomeUseCase(HomeDeps{Source: source, Opener: opener}).OpenHomeConfig(ctx)
 	require.NoError(t, err)
 	assert.Equal(t, &dto.HomeOpenConfigResponse{Path: "/c/home.toml", Created: true}, resp)
 }
@@ -139,6 +139,6 @@ func TestHomeUseCase_OpenHomeConfig_EnsureError(t *testing.T) {
 	source := mocks.NewMockHomeConfigSource(t)
 	source.EXPECT().EnsureExists().Return(false, errors.New("ro"))
 	opener := mocks.NewMockFileOpener(t)
-	_, err := NewHomeUseCase(source, nil, nil, opener).OpenHomeConfig(context.Background())
+	_, err := NewHomeUseCase(HomeDeps{Source: source, Opener: opener}).OpenHomeConfig(context.Background())
 	require.Error(t, err)
 }

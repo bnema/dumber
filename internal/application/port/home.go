@@ -46,4 +46,6 @@ type HomePage interface {
 	LoadHome(ctx context.Context) (*dto.HomeLoadResponse, error)
 	HomeSites(ctx context.Context, req dto.HomeSitesRequest) (*dto.HomeSitesResponse, error)
 	OpenHomeConfig(ctx context.Context) (*dto.HomeOpenConfigResponse, error)
+	FetchWidgetData(ctx context.Context, serviceID string) (*dto.HomeWidgetDataResponse, error)
+	RunHomeAction(ctx context.Context, req dto.HomeActionRequest) (*dto.HomeActionResponse, error)
 }

@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
+	"time"
 
 	"bnema.dev/dumber/internal/application/dto"
 	"bnema.dev/dumber/internal/application/port"
@@ -15,25 +17,61 @@ import (
 // URLs and duplicates still fills the requested limit.
 const homeSitesOverfetch = 2
 
+// HomeDeps are the dependencies of HomeUseCase. Nil History, Opener or HTTP
+// disable home_sites, home_open_config and widgets/actions respectively.
+type HomeDeps struct {
+	Source  port.HomeConfigSource
+	Runtime port.RuntimeConfigProvider
+	History port.HomeSitesHistory
+	Opener  port.FileOpener
+	HTTP    port.HomeHTTPClient
+	// LookupEnv resolves {{env.NAME}}. Defaults to a lookup that finds nothing.
+	LookupEnv func(string) (string, bool)
+	// Now defaults to time.Now.
+	Now func() time.Time
+}
+
 // HomeUseCase serves the dumb://home page.
 type HomeUseCase struct {
-	source  port.HomeConfigSource
-	runtime port.RuntimeConfigProvider
-	history port.HomeSitesHistory
-	opener  port.FileOpener
+	source    port.HomeConfigSource
+	runtime   port.RuntimeConfigProvider
+	history   port.HomeSitesHistory
+	opener    port.FileOpener
+	http      port.HomeHTTPClient
+	lookupEnv func(string) (string, bool)
+	now       func() time.Time
+
+	widgetMu       sync.Mutex
+	widgetCache    map[string]homeWidgetCacheEntry
+	widgetInflight map[string]*homeWidgetFlight
+
+	actionMu      sync.Mutex
+	actionRunning map[string]bool
 }
 
 var _ port.HomePage = (*HomeUseCase)(nil)
 
-// NewHomeUseCase creates a HomeUseCase. history and opener may be nil, which
-// disables home_sites and home_open_config respectively.
-func NewHomeUseCase(
-	source port.HomeConfigSource,
-	runtime port.RuntimeConfigProvider,
-	history port.HomeSitesHistory,
-	opener port.FileOpener,
-) *HomeUseCase {
-	return &HomeUseCase{source: source, runtime: runtime, history: history, opener: opener}
+// NewHomeUseCase creates a HomeUseCase.
+func NewHomeUseCase(deps HomeDeps) *HomeUseCase {
+	uc := &HomeUseCase{
+		source:         deps.Source,
+		runtime:        deps.Runtime,
+		history:        deps.History,
+		opener:         deps.Opener,
+		http:           deps.HTTP,
+		lookupEnv:      deps.LookupEnv,
+		now:            deps.Now,
+		widgetCache:    map[string]homeWidgetCacheEntry{},
+		widgetInflight: map[string]*homeWidgetFlight{},
+		actionRunning:  map[string]bool{},
+	}
+	if uc.lookupEnv == nil {
+		uc.lookupEnv = func(string) (string, bool) { return "", false }
+	}
+	if uc.now == nil {
+		uc.now = time.Now
+	}
+	return uc
 }
 
 // LoadHome returns the redacted home layout and its diagnostics.

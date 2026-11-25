@@ -1,6 +1,10 @@
 package dto
 
-import "bnema.dev/dumber/internal/domain/entity"
+import (
+	"time"
+
+	"bnema.dev/dumber/internal/domain/entity"
+)
 
 // HomeLoadResponse is the payload of the home_load message.
 //
@@ -62,3 +66,60 @@ const HomeChangedEvent = "dumber:systemview-changed"
 
 // HomeChangedTopic is the detail.topic value for home.toml changes.
 const HomeChangedTopic = "home"
+
+// HomeStatus is the outcome of a home widget fetch or action.
+type HomeStatus string
+
+const (
+	HomeStatusOK    HomeStatus = "ok"
+	HomeStatusError HomeStatus = "error"
+)
+
+// HomeWidgetDataRequest is the payload of the home_widget_data message.
+type HomeWidgetDataRequest struct {
+	ServiceID string `json:"service_id"`
+}
+
+// HomeWidgetValue is one extracted and formatted field.
+type HomeWidgetValue struct {
+	Label string `json:"label"`
+	Value string `json:"value"`
+	Raw   any    `json:"raw"`
+}
+
+// HomeWidgetItem is one row of a display = list widget.
+type HomeWidgetItem struct {
+	Fields []HomeWidgetValue `json:"fields"`
+}
+
+// HomeWidgetDataResponse is returned by home_widget_data.
+//
+// Fields is set for stats and bar displays, and for list displays without
+// an items array. Items is set for list displays whose items path (or
+// top-level document) is an array. On error, the last good data is returned
+// with Stale set, or no data when none was ever fetched. Error never
+// contains header values or expanded URLs.
+type HomeWidgetDataResponse struct {
+	ServiceID string            `json:"service_id"`
+	Status    HomeStatus        `json:"status"`
+	Fields    []HomeWidgetValue `json:"fields"`
+	Items     []HomeWidgetItem  `json:"items,omitempty"`
+	Error     string            `json:"error,omitempty"`
+	FetchedAt time.Time         `json:"fetched_at"`
+	Stale     bool              `json:"stale"`
+}
+
+// HomeActionRequest is the payload of the home_action message.
+type HomeActionRequest struct {
+	ServiceID string            `json:"service_id"`
+	ActionID  string            `json:"action_id"`
+	Inputs    map[string]string `json:"inputs,omitempty"`
+}
+
+// HomeActionResponse is returned by home_action. HTTPStatus is 0 when no
+// response was received.
+type HomeActionResponse struct {
+	Status     HomeStatus `json:"status"`
+	HTTPStatus int        `json:"http_status"`
+	Message    string     `json:"message"`
+}

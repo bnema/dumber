@@ -5,6 +5,7 @@ import (
 	"net/url"
 	"path"
 	"regexp"
+	"slices"
 	"strings"
 	"time"
 )
@@ -93,7 +94,10 @@ const (
 	HomeEmbedBlockedHost = "dumber.invalid"
 )
 
-var homeIDPattern = regexp.MustCompile(`^[a-z0-9_-]{1,64}$`)
+var (
+	homeIDPattern        = regexp.MustCompile(`^[a-z0-9_-]{1,64}$`)
+	homeInputNamePattern = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]{0,63}$`)
+)
 
 // HomeLayout is the full dumb://home configuration (home.toml).
 type HomeLayout struct {
@@ -153,9 +157,13 @@ type HomeServiceWidget struct {
 	Headers map[string]string     `toml:"headers,omitempty" json:"headers,omitempty"`
 	Refresh string                `toml:"refresh,omitempty" json:"refresh,omitempty"`
 	Display HomeDisplay           `toml:"display,omitempty" json:"display,omitempty"`
-	Fields  []HomeField           `toml:"fields,omitempty" json:"fields,omitempty"`
-	Height  int                   `toml:"height,omitempty" json:"height,omitempty"`
-	Timeout string                `toml:"timeout,omitempty" json:"timeout,omitempty"`
+	// Items is the path to an array rendered one row per element when
+	// display is list. Field paths are then relative to each element. Empty
+	// with a top-level JSON array uses that array.
+	Items   string      `toml:"items,omitempty" json:"items,omitempty"`
+	Fields  []HomeField `toml:"fields,omitempty" json:"fields,omitempty"`
+	Height  int         `toml:"height,omitempty" json:"height,omitempty"`
+	Timeout string      `toml:"timeout,omitempty" json:"timeout,omitempty"`
 }
 
 // HomeField maps a JSON path of an api response to a displayed value.
@@ -174,6 +182,24 @@ type HomeAction struct {
 	Headers map[string]string `toml:"headers,omitempty" json:"headers,omitempty"`
 	Body    string            `toml:"body,omitempty" json:"body,omitempty"`
 	Confirm string            `toml:"confirm,omitempty" json:"confirm,omitempty"`
+	Inputs  []HomeActionInput `toml:"inputs,omitempty" json:"inputs,omitempty"`
+}
+
+// HomeActionInput is a value the user types before running an action. The
+// action url and body reference it as {{input.NAME}}.
+type HomeActionInput struct {
+	Name        string `toml:"name" json:"name"`
+	Label       string `toml:"label" json:"label"`
+	Placeholder string `toml:"placeholder,omitempty" json:"placeholder,omitempty"`
+}
+
+// InputNames returns the declared input names.
+func (a HomeAction) InputNames() []string {
+	names := make([]string, 0, len(a.Inputs))
+	for _, in := range a.Inputs {
+		names = append(names, in.Name)
+	}
+	return names
 }
 
 // HomeValidationError describes one invalid value in a home layout.
@@ -270,6 +296,7 @@ func normalizeService(s *HomeService) {
 		w.Refresh = strings.TrimSpace(w.Refresh)
 		w.Timeout = strings.TrimSpace(w.Timeout)
 		w.Display = HomeDisplay(strings.TrimSpace(string(w.Display)))
+		w.Items = strings.TrimSpace(w.Items)
 		for k := range w.Fields {
 			f := &w.Fields[k]
 			f.Label = strings.TrimSpace(f.Label)
@@ -302,6 +329,12 @@ func normalizeService(s *HomeService) {
 		a.Label = strings.TrimSpace(a.Label)
 		a.URL = strings.TrimSpace(a.URL)
 		a.Confirm = strings.TrimSpace(a.Confirm)
+		for j := range a.Inputs {
+			in := &a.Inputs[j]
+			in.Name = strings.TrimSpace(in.Name)
+			in.Label = strings.TrimSpace(in.Label)
+			in.Placeholder = strings.TrimSpace(in.Placeholder)
+		}
 		a.Method = HomeMethod(strings.ToUpper(strings.TrimSpace(string(a.Method))))
 		if a.Method == "" {
 			a.Method = HomeMethodPost
@@ -395,7 +428,8 @@ func validateService(errs *homeErrs, p string, s HomeService) {
 		validateServiceWidget(errs, p+".widget", *s.Widget)
 	}
 	actionIDs := map[string]bool{}
-	for i, a := range s.Actions {
+	for i := range s.Actions {
+		a := &s.Actions[i]
 		ap := fmt.Sprintf("%s.actions[%d]", p, i)
 		if !homeIDPattern.MatchString(a.ID) {
 			errs.addf(ap+".id", "must match [a-z0-9_-]{1,64}")
@@ -403,6 +437,7 @@ func validateService(errs *homeErrs, p string, s HomeService) {
 			errs.addf(ap+".id", "duplicate action id %q", a.ID)
 		}
 		actionIDs[a.ID] = true
+		validateActionInputs(errs, ap, a)
 		if a.Label == "" {
 			errs.addf(ap+".label", "is required")
 		}
@@ -438,23 +473,10 @@ func validateServiceWidget(errs *homeErrs, p string, w HomeServiceWidget) {
 		default:
 			errs.addf(p+".display", "must be stats, list or bar")
 		}
-		if len(w.Fields) == 0 {
-			errs.addf(p+".fields", "at least one field is required")
+		if w.Items != "" && w.Display != HomeDisplayList {
+			errs.addf(p+".items", "is only allowed with display = list")
 		}
-		for i, f := range w.Fields {
-			fp := fmt.Sprintf("%s.fields[%d]", p, i)
-			if f.Label == "" {
-				errs.addf(fp+".label", "is required")
-			}
-			if f.Path == "" {
-				errs.addf(fp+".path", "is required")
-			}
-			switch f.Format {
-			case HomeFormatText, HomeFormatNumber, HomeFormatPercent, HomeFormatBytes, HomeFormatDuration:
-			default:
-				errs.addf(fp+".format", "must be text, number, percent, bytes or duration")
-			}
-		}
+		validateHomeFields(errs, p, w.Fields)
 	case HomeServiceWidgetEmbed:
 		if !isHTTPURL(w.URL) {
 			errs.addf(p+".url", "must be an http(s) URL")
@@ -511,9 +533,9 @@ func (l HomeLayout) FindService(id string) (HomeService, bool) {
 
 // FindAction returns the action with the given id.
 func (s HomeService) FindAction(id string) (HomeAction, bool) {
-	for _, a := range s.Actions {
-		if a.ID == id {
-			return a, true
+	for i := range s.Actions {
+		if s.Actions[i].ID == id {
+			return s.Actions[i], true
 		}
 	}
 	return HomeAction{}, false
@@ -547,6 +569,7 @@ func redactService(s HomeService) HomeService {
 		rw := &HomeServiceWidget{
 			Type:    w.Type,
 			Display: w.Display,
+			Items:   w.Items,
 			Fields:  append([]HomeField(nil), w.Fields...),
 			Refresh: w.Refresh,
 			Height:  w.Height,
@@ -556,8 +579,84 @@ func redactService(s HomeService) HomeService {
 		}
 		r.Widget = rw
 	}
-	for _, a := range s.Actions {
-		r.Actions = append(r.Actions, HomeAction{ID: a.ID, Label: a.Label, Confirm: a.Confirm, Method: a.Method})
+	for i := range s.Actions {
+		a := &s.Actions[i]
+		r.Actions = append(r.Actions, HomeAction{
+			ID: a.ID, Label: a.Label, Confirm: a.Confirm, Method: a.Method,
+			Inputs: append([]HomeActionInput(nil), a.Inputs...),
+		})
 	}
 	return r
+}
+
+func validateActionInputs(errs *homeErrs, p string, a *HomeAction) {
+	names := map[string]bool{}
+	for i, in := range a.Inputs {
+		ip := fmt.Sprintf("%s.inputs[%d]", p, i)
+		if !homeInputNamePattern.MatchString(in.Name) {
+			errs.addf(ip+".name", "must match [A-Za-z_][A-Za-z0-9_]{0,63}")
+		} else if names[in.Name] {
+			errs.addf(ip+".name", "duplicate input name %q", in.Name)
+		}
+		names[in.Name] = true
+		if in.Label == "" {
+			errs.addf(ip+".label", "is required")
+		}
+	}
+	for _, name := range HomeInputRefs(a.URL) {
+		if !names[name] {
+			errs.addf(p+".url", "references undeclared input %q", name)
+		}
+	}
+	for _, name := range HomeInputRefs(a.Body) {
+		if !names[name] {
+			errs.addf(p+".body", "references undeclared input %q", name)
+		}
+	}
+	for _, k := range sortedKeys(a.Headers) {
+		if len(HomeInputRefs(a.Headers[k])) > 0 {
+			errs.addf(p+".headers."+k, "must not reference inputs")
+		}
+	}
+}
+
+// HomeInputRefs returns the input names referenced as {{input.NAME}} in s,
+// in order of first appearance.
+func HomeInputRefs(s string) []string {
+	var out []string
+	for _, m := range homeInputPattern.FindAllStringSubmatch(s, -1) {
+		if !slices.Contains(out, m[1]) {
+			out = append(out, m[1])
+		}
+	}
+	return out
+}
+
+func sortedKeys(m map[string]string) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	slices.Sort(keys)
+	return keys
+}
+
+func validateHomeFields(errs *homeErrs, p string, fields []HomeField) {
+	if len(fields) == 0 {
+		errs.addf(p+".fields", "at least one field is required")
+	}
+	for i, f := range fields {
+		fp := fmt.Sprintf("%s.fields[%d]", p, i)
+		if f.Label == "" {
+			errs.addf(fp+".label", "is required")
+		}
+		if f.Path == "" {
+			errs.addf(fp+".path", "is required")
+		}
+		switch f.Format {
+		case HomeFormatText, HomeFormatNumber, HomeFormatPercent, HomeFormatBytes, HomeFormatDuration:
+		default:
+			errs.addf(fp+".format", "must be text, number, percent, bytes or duration")
+		}
+	}
 }

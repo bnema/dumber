@@ -139,6 +139,7 @@ packages:
       HomeSitesHistory: {}
       HomePage: {}
       FileOpener: {}
+      HomeHTTPClient: {}
       HistoryChangeSink: {}
       HistoryMutationCoordinator: {}
       HistorySidebarHistory: {}

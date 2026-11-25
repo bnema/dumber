@@ -70,3 +70,35 @@ func TestRegisterHomeHandlers_Dispatch(t *testing.T) {
 	_, err = handlers[port.MsgHomeLoad].Handle(ctx, 1, nil)
 	require.NoError(t, err)
 }
+
+func TestRegisterHomeHandlers_WidgetDataAndAction(t *testing.T) {
+	ctx := context.Background()
+	handlers := map[string]port.WebUIMessageHandler{}
+	router := mocks.NewMockWebUIHandlerRouter(t)
+	router.EXPECT().
+		RegisterHandlerWithCallbacks(mock.Anything, mock.Anything, mock.Anything, "", mock.Anything).
+		Run(func(msgType, _, _, _ string, h port.WebUIMessageHandler) { handlers[msgType] = h }).
+		Return(nil)
+	home := mocks.NewMockHomePage(t)
+	require.NoError(t, RegisterHomeHandlers(ctx, router, home))
+
+	home.EXPECT().FetchWidgetData(ctx, "media").Return(&dto.HomeWidgetDataResponse{}, nil)
+	_, err := handlers[port.MsgHomeWidgetData].Handle(ctx, 1, json.RawMessage(`{"service_id":"media"}`))
+	require.NoError(t, err)
+
+	req := dto.HomeActionRequest{ServiceID: "media", ActionID: "restart", Inputs: map[string]string{"q": "x"}}
+	home.EXPECT().RunHomeAction(ctx, req).Return(&dto.HomeActionResponse{}, nil)
+	_, err = handlers[port.MsgHomeAction].Handle(ctx, 1,
+		json.RawMessage(`{"service_id":"media","action_id":"restart","inputs":{"q":"x"}}`))
+	require.NoError(t, err)
+
+	for msg, payload := range map[string]string{
+		port.MsgHomeWidgetData: `{}`,
+		port.MsgHomeAction:     `{"service_id":"media"}`,
+	} {
+		_, err = handlers[msg].Handle(ctx, 1, json.RawMessage(payload))
+		require.Error(t, err, msg)
+		_, err = handlers[msg].Handle(ctx, 1, nil)
+		require.Error(t, err, msg)
+	}
+}
