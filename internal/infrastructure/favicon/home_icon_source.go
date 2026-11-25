@@ -49,6 +49,9 @@ func NewHomeIconSource() *HomeIconSource {
 	s := &HomeIconSource{isPrivate: isPrivateAddr}
 	transport := http.DefaultTransport.(*http.Transport).Clone()
 	transport.DialContext = s.dialContext
+	// No proxy: with one, dialContext would check the proxy's address
+	// instead of the target's and the private-address rule would not apply.
+	transport.Proxy = nil
 	// Every request must dial so the address check runs: a pooled
 	// connection opened for one service must not serve another.
 	transport.DisableKeepAlives = true

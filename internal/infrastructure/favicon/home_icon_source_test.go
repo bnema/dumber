@@ -331,3 +331,18 @@ func TestHomeIconPublicTargetsAllowed(t *testing.T) {
 		t.Fatalf("public manifest icon should rank first: %v", got)
 	}
 }
+
+// http.ProxyFromEnvironment caches the environment once per process, so the
+// test inspects the transport instead of setting HTTP_PROXY.
+func TestHomeIconSourceBypassesProxy(t *testing.T) {
+	transport, ok := NewHomeIconSource().client.Transport.(*http.Transport)
+	if !ok {
+		t.Fatalf("unexpected transport %T", NewHomeIconSource().client.Transport)
+	}
+	if transport.Proxy != nil {
+		t.Fatal("home icon client must not use a proxy: the dial check would see the proxy, not the target")
+	}
+	if transport.DialContext == nil || !transport.DisableKeepAlives {
+		t.Fatal("home icon client must dial through the address check for every request")
+	}
+}
