@@ -6,7 +6,6 @@ import (
 
 	"bnema.dev/dumber/internal/application/port"
 	"bnema.dev/dumber/internal/infrastructure/webutil"
-	"bnema.dev/puregotk/v4/glib"
 	"bnema.dev/puregotk/v4/webkit"
 )
 
@@ -86,13 +85,9 @@ func (h *DumbSchemeHandler) serveHomeIconAsync(req *webkit.URISchemeRequest, sch
 	req.Ref()
 	go func() {
 		response := resolve(ctx)
-		// glib copies the callback into its own registry and dispatches it
-		// through one shared trampoline, so no per-call callback slot leaks.
-		cb := glib.SourceFunc(func(_ uintptr) bool {
+		runOnGTKMain(func() {
 			h.sendResponse(req, response)
 			req.Unref()
-			return false
 		})
-		glib.IdleAdd(&cb, 0)
 	}()
 }
