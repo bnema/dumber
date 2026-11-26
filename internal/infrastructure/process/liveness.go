@@ -4,18 +4,17 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
 	"syscall"
 )
 
-type processSignalFunc func(pid int, signal os.Signal) error
+type processSignalFunc func(pid int, signal syscall.Signal) error
 
 // LivenessProbe checks whether a process is alive by sending signal 0.
 type LivenessProbe struct {
 	signal processSignalFunc
 }
 
-// NewLivenessProbe creates a LivenessProbe that uses os.FindProcess and Signal.
+// NewLivenessProbe creates a LivenessProbe that uses kill(2) with signal 0.
 func NewLivenessProbe() *LivenessProbe {
 	return &LivenessProbe{signal: signalProcess}
 }
@@ -25,6 +24,8 @@ func NewLivenessProbe() *LivenessProbe {
 // an error for invalid PIDs. Signal errors are mapped for cleanup safety:
 // ESRCH means the process is not alive, EPERM means the process exists but is
 // not signalable by this user, and unexpected signal errors are propagated.
+// It calls kill(2) directly: os.Process.Signal reports a missing PID as
+// os.ErrProcessDone and, with pidfd, holds an fd until GC.
 func (p *LivenessProbe) IsProcessAlive(ctx context.Context, pid int) (bool, error) {
 	if err := ctx.Err(); err != nil {
 		return false, err
@@ -36,7 +37,7 @@ func (p *LivenessProbe) IsProcessAlive(ctx context.Context, pid int) (bool, erro
 	if signal == nil {
 		signal = signalProcess
 	}
-	if err := signal(pid, syscall.Signal(0)); err != nil {
+	if err := signal(pid, 0); err != nil {
 		if errors.Is(err, syscall.ESRCH) {
 			return false, nil
 		}
@@ -48,10 +49,6 @@ func (p *LivenessProbe) IsProcessAlive(ctx context.Context, pid int) (bool, erro
 	return true, nil
 }
 
-func signalProcess(pid int, signal os.Signal) error {
-	proc, err := os.FindProcess(pid)
-	if err != nil {
-		return err
-	}
-	return proc.Signal(signal)
+func signalProcess(pid int, signal syscall.Signal) error {
+	return syscall.Kill(pid, signal)
 }

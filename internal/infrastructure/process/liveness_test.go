@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"os"
+	"os/exec"
 	"syscall"
 	"testing"
 
@@ -14,7 +15,7 @@ import (
 func TestLivenessProbe_IsProcessAliveRejectsInvalidPID(t *testing.T) {
 	t.Parallel()
 
-	probe := &LivenessProbe{signal: func(_ int, _ os.Signal) error {
+	probe := &LivenessProbe{signal: func(_ int, _ syscall.Signal) error {
 		t.Fatal("signal should not be called for invalid pid")
 		return nil
 	}}
@@ -31,7 +32,7 @@ func TestLivenessProbe_IsProcessAliveReturnsContextErrorBeforeSignaling(t *testi
 
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	probe := &LivenessProbe{signal: func(_ int, _ os.Signal) error {
+	probe := &LivenessProbe{signal: func(_ int, _ syscall.Signal) error {
 		t.Fatal("signal should not be called when context is canceled")
 		return nil
 	}}
@@ -61,7 +62,7 @@ func TestLivenessProbe_IsProcessAliveInterpretsSignalErrors(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			probe := &LivenessProbe{signal: func(pid int, signal os.Signal) error {
+			probe := &LivenessProbe{signal: func(pid int, signal syscall.Signal) error {
 				assert.Equal(t, 1234, pid)
 				assert.Equal(t, syscall.Signal(0), signal)
 				return tt.signalErr
@@ -78,4 +79,25 @@ func TestLivenessProbe_IsProcessAliveInterpretsSignalErrors(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestLivenessProbe_IsProcessAliveReportsExitedProcessAsDead(t *testing.T) {
+	t.Parallel()
+
+	cmd := exec.Command("true")
+	require.NoError(t, cmd.Run())
+
+	alive, err := NewLivenessProbe().IsProcessAlive(context.Background(), cmd.Process.Pid)
+
+	require.NoError(t, err)
+	assert.False(t, alive)
+}
+
+func TestLivenessProbe_IsProcessAliveReportsCurrentProcessAsAlive(t *testing.T) {
+	t.Parallel()
+
+	alive, err := NewLivenessProbe().IsProcessAlive(context.Background(), os.Getpid())
+
+	require.NoError(t, err)
+	assert.True(t, alive)
 }
