@@ -1,6 +1,7 @@
 package bootstrap
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -18,7 +19,13 @@ var fatalFileRegex = regexp.MustCompile(`^pid_(\d+)(?:\.(\d+))?\.fatal\.txt$`)
 // such as a crash before the PID file was written. Files of live processes
 // and the current process's own file are skipped. Empty files are deleted;
 // non-empty ones get a crash report. It returns the report paths.
-func sweepFatalOutputs(logDir string, currentPID int, currentSessionID string, logger *zerolog.Logger) []string {
+func sweepFatalOutputs(
+	logDir string,
+	currentPID int,
+	currentSessionID string,
+	previous previousProcessChecker,
+	logger *zerolog.Logger,
+) []string {
 	matches, err := filepath.Glob(filepath.Join(logDir, crashReportsDirName, "pid_*.fatal.txt"))
 	if err != nil {
 		return nil
@@ -34,7 +41,7 @@ func sweepFatalOutputs(logDir string, currentPID int, currentSessionID string, l
 			continue
 		}
 		rotated := m[2] != ""
-		if !rotated && (pid == currentPID || processAlive(pid)) {
+		if !rotated && (pid == currentPID || previous.alive(context.Background(), pid, "")) {
 			continue
 		}
 		info, statErr := os.Stat(path)
