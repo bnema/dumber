@@ -11,8 +11,8 @@ type SessionProcessStatus struct {
 	Running bool
 	// StartedAt is when the current holder started; set only when Running.
 	StartedAt time.Time
-	// SameExecutable reports that the holder runs the same binary as the caller.
-	// It does not depend on the wall clock, unlike StartedAt.
+	// SameExecutable reports that the holder is a main process of the caller's binary,
+	// not one of its subprocesses. It does not depend on the wall clock, unlike StartedAt.
 	SameExecutable bool
 }
 

@@ -23,17 +23,22 @@ const userHZ = 100
 // statStartTimeIndex is the position of starttime (field 22) counted from the state field (field 3).
 const statStartTimeIndex = 22 - 3
 
+// subprocessFlag marks a Chromium/CEF subprocess (renderer, GPU, zygote...) that re-runs
+// the main binary.
+const subprocessFlag = "--type="
+
 // deletedExeSuffix marks /proc/<pid>/exe when the binary was replaced, e.g. by a package upgrade.
 const deletedExeSuffix = " (deleted)"
 
 // LivenessProbe reads /proc to tell whether a PID is held, by what, and since when.
 type LivenessProbe struct {
 	procRoot string
+	selfPID  int
 }
 
 // NewLivenessProbe creates a LivenessProbe that reads the host /proc.
 func NewLivenessProbe() *LivenessProbe {
-	return &LivenessProbe{procRoot: "/proc"}
+	return &LivenessProbe{procRoot: "/proc", selfPID: os.Getpid()}
 }
 
 // ProcessStatus reports whether a live process holds pid, when it started, and whether
@@ -46,6 +51,9 @@ func (p *LivenessProbe) ProcessStatus(ctx context.Context, pid int) (port.Sessio
 	}
 	if pid <= 0 {
 		return port.SessionProcessStatus{}, fmt.Errorf("invalid pid %d", pid)
+	}
+	if err := p.checkOwnPIDNamespace(); err != nil {
+		return port.SessionProcessStatus{}, err
 	}
 
 	stat, err := os.ReadFile(filepath.Join(p.procRoot, strconv.Itoa(pid), "stat"))
@@ -76,8 +84,36 @@ func (p *LivenessProbe) ProcessStatus(ctx context.Context, pid int) (port.Sessio
 	return port.SessionProcessStatus{
 		Running:        true,
 		StartedAt:      startedAt,
-		SameExecutable: p.sameExecutable(pid),
+		SameExecutable: p.sameExecutable(pid) && !p.isSubprocess(pid),
 	}, nil
+}
+
+// checkOwnPIDNamespace fails when /proc shows another PID namespace than ours, for
+// example after unshare without remounting /proc: our PIDs would name other processes.
+func (p *LivenessProbe) checkOwnPIDNamespace() error {
+	self, err := os.Readlink(filepath.Join(p.procRoot, "self"))
+	if err != nil {
+		return fmt.Errorf("read /proc/self: %w", err)
+	}
+	if self != strconv.Itoa(p.selfPID) {
+		return fmt.Errorf("/proc belongs to another pid namespace (self %s, pid %d)", self, p.selfPID)
+	}
+	return nil
+}
+
+// isSubprocess reports whether pid was started as a Chromium/CEF subprocess.
+// An unreadable command line is not treated as a subprocess.
+func (p *LivenessProbe) isSubprocess(pid int) bool {
+	cmdline, err := os.ReadFile(filepath.Join(p.procRoot, strconv.Itoa(pid), "cmdline"))
+	if err != nil {
+		return false
+	}
+	for arg := range bytes.SplitSeq(cmdline, []byte{0}) {
+		if bytes.HasPrefix(arg, []byte(subprocessFlag)) {
+			return true
+		}
+	}
+	return false
 }
 
 // isThreadGroupLeader reports whether pid names a process rather than one of its threads.

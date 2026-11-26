@@ -16,6 +16,7 @@ import (
 const (
 	testBootTime = 1700000000
 	testPID      = 4321
+	testSelfPID  = 100
 )
 
 // writeProcEntry writes a fake /proc/<pid>; real /proc cannot hold crafted entries.
@@ -41,7 +42,13 @@ func fakeProcRoot(t *testing.T) string {
 	root := t.TempDir()
 	stat := "cpu  1 2 3 4\nbtime " + strconv.Itoa(testBootTime) + "\nprocesses 42\n"
 	require.NoError(t, os.WriteFile(filepath.Join(root, "stat"), []byte(stat), 0o644))
+	require.NoError(t, os.MkdirAll(filepath.Join(root, strconv.Itoa(testSelfPID)), 0o755))
+	require.NoError(t, os.Symlink(strconv.Itoa(testSelfPID), filepath.Join(root, "self")))
 	return root
+}
+
+func fakeProbe(root string) *LivenessProbe {
+	return &LivenessProbe{procRoot: root, selfPID: testSelfPID}
 }
 
 func statLine(comm, state, startTicks string) string {
@@ -58,6 +65,7 @@ func TestLivenessProbe_ProcessStatus(t *testing.T) {
 		tgid        int
 		selfExe     string
 		holderExe   string
+		cmdline     string
 		wantRunning bool
 		wantStart   time.Time
 		wantSameExe bool
@@ -76,6 +84,7 @@ func TestLivenessProbe_ProcessStatus(t *testing.T) {
 			tgid:        testPID,
 			selfExe:     "/usr/bin/dumber",
 			holderExe:   "/usr/bin/dumber (deleted)",
+			cmdline:     "/usr/bin/dumber\x00browse\x00",
 			wantRunning: true,
 			wantStart:   time.Unix(testBootTime+1, 0),
 			wantSameExe: true,
@@ -86,6 +95,16 @@ func TestLivenessProbe_ProcessStatus(t *testing.T) {
 			tgid:        testPID,
 			selfExe:     "/usr/bin/dumber",
 			holderExe:   "/usr/bin/worker",
+			wantRunning: true,
+			wantStart:   time.Unix(testBootTime+1, 0),
+		},
+		{
+			name:        "cef subprocess of same executable",
+			stat:        statLine("dumber", "S", "100"),
+			tgid:        testPID,
+			selfExe:     "/usr/bin/dumber",
+			holderExe:   "/usr/bin/dumber",
+			cmdline:     "/usr/bin/dumber\x00--type=renderer\x00",
 			wantRunning: true,
 			wantStart:   time.Unix(testBootTime+1, 0),
 		},
@@ -106,7 +125,11 @@ func TestLivenessProbe_ProcessStatus(t *testing.T) {
 				linkExe(t, root, "self", tt.selfExe)
 				linkExe(t, root, strconv.Itoa(testPID), tt.holderExe)
 			}
-			probe := &LivenessProbe{procRoot: root}
+			if tt.cmdline != "" {
+				cmdlinePath := filepath.Join(root, strconv.Itoa(testPID), "cmdline")
+				require.NoError(t, os.WriteFile(cmdlinePath, []byte(tt.cmdline), 0o644))
+			}
+			probe := fakeProbe(root)
 
 			status, err := probe.ProcessStatus(context.Background(), testPID)
 
@@ -125,7 +148,7 @@ func TestLivenessProbe_ProcessStatus(t *testing.T) {
 func TestLivenessProbe_ProcessStatusMissingPIDIsNotRunning(t *testing.T) {
 	t.Parallel()
 
-	probe := &LivenessProbe{procRoot: fakeProcRoot(t)}
+	probe := fakeProbe(fakeProcRoot(t))
 
 	status, err := probe.ProcessStatus(context.Background(), 4242)
 
@@ -136,20 +159,20 @@ func TestLivenessProbe_ProcessStatusMissingPIDIsNotRunning(t *testing.T) {
 func TestLivenessProbe_ProcessStatusMissingBootTimeErrors(t *testing.T) {
 	t.Parallel()
 
-	root := t.TempDir()
+	root := fakeProcRoot(t)
 	require.NoError(t, os.WriteFile(filepath.Join(root, "stat"), []byte("cpu 1 2 3\n"), 0o644))
 	writeProcEntry(t, root, testPID, testPID, statLine("dumber", "S", "100"))
-	probe := &LivenessProbe{procRoot: root}
+	probe := fakeProbe(root)
 
 	_, err := probe.ProcessStatus(context.Background(), testPID)
 
-	require.Error(t, err)
+	require.ErrorContains(t, err, "boot time not found")
 }
 
 func TestLivenessProbe_ProcessStatusRejectsInvalidPIDAndCanceledContext(t *testing.T) {
 	t.Parallel()
 
-	probe := &LivenessProbe{procRoot: fakeProcRoot(t)}
+	probe := fakeProbe(fakeProcRoot(t))
 
 	_, err := probe.ProcessStatus(context.Background(), 0)
 	require.ErrorContains(t, err, "invalid pid")
@@ -204,4 +227,16 @@ func TestLivenessProbe_ProcessStatusHostThreadIsNotProcess(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.False(t, status.Running)
+}
+
+func TestLivenessProbe_ProcessStatusRejectsForeignPIDNamespace(t *testing.T) {
+	t.Parallel()
+
+	root := fakeProcRoot(t)
+	writeProcEntry(t, root, testPID, testPID, statLine("dumber", "S", "100"))
+	probe := &LivenessProbe{procRoot: root, selfPID: testSelfPID + 1}
+
+	_, err := probe.ProcessStatus(context.Background(), testPID)
+
+	require.ErrorContains(t, err, "another pid namespace")
 }
