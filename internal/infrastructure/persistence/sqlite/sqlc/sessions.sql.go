@@ -203,17 +203,21 @@ func (q *Queries) MarkSessionEnded(ctx context.Context, arg MarkSessionEndedPara
 	return err
 }
 
-const MarkSessionEndedAtLastActivity = `-- name: MarkSessionEndedAtLastActivity :exec
+const MarkSessionEndedAtLastActivity = `-- name: MarkSessionEndedAtLastActivity :execrows
 UPDATE sessions
 SET ended_at = COALESCE(
     (SELECT updated_at FROM session_states WHERE session_id = sessions.id),
     started_at
 )
-WHERE id = ?
+WHERE id = ? AND ended_at IS NULL
 `
 
-// Ends a session at its last snapshot, or its start when it never saved one.
-func (q *Queries) MarkSessionEndedAtLastActivity(ctx context.Context, id string) error {
-	_, err := q.db.ExecContext(ctx, MarkSessionEndedAtLastActivity, id)
-	return err
+// Ends an active session at its last snapshot, or its start when it never saved one.
+// A session that already ended keeps its real ended_at.
+func (q *Queries) MarkSessionEndedAtLastActivity(ctx context.Context, id string) (int64, error) {
+	result, err := q.db.ExecContext(ctx, MarkSessionEndedAtLastActivity, id)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
 }

@@ -187,8 +187,14 @@ func TestSessionRepository_MarkEndedAtLastActivityRanksBelowRecentCleanExit(t *t
 		SavedAt:   snapshotAt,
 	}))
 
-	require.NoError(t, repo.MarkEndedAtLastActivity(ctx, withSnapshot.ID))
-	require.NoError(t, repo.MarkEndedAtLastActivity(ctx, noSnapshot.ID))
+	for _, id := range []entity.SessionID{withSnapshot.ID, noSnapshot.ID} {
+		ended, markErr := repo.MarkEndedAtLastActivity(ctx, id)
+		require.NoError(t, markErr)
+		assert.True(t, ended, id)
+	}
+	ended, err := repo.MarkEndedAtLastActivity(ctx, cleanExit.ID)
+	require.NoError(t, err)
+	assert.False(t, ended, "an ended session keeps its ended_at")
 
 	got, err := repo.FindByID(ctx, withSnapshot.ID)
 	require.NoError(t, err)
@@ -205,5 +211,6 @@ func TestSessionRepository_MarkEndedAtLastActivityRanksBelowRecentCleanExit(t *t
 	assert.Equal(t, int64(2), deleted)
 	kept, err := repo.FindByID(ctx, cleanExit.ID)
 	require.NoError(t, err)
-	assert.NotNil(t, kept)
+	require.NotNil(t, kept)
+	assert.True(t, cleanEnd.Equal(*kept.EndedAt), "ended at %s", kept.EndedAt)
 }

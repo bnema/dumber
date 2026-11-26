@@ -11,8 +11,8 @@ import (
 type SessionLeaseState int
 
 const (
-	// SessionLeaseMissing means the session never recorded a lease, as sessions
-	// from older versions did; liveness must be inferred another way.
+	// SessionLeaseMissing means no lease file exists: the session predates leases,
+	// its acquire failed, or the file was removed. Liveness must be inferred another way.
 	SessionLeaseMissing SessionLeaseState = iota
 	// SessionLeaseHeld means a live process still owns the session.
 	SessionLeaseHeld

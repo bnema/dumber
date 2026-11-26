@@ -184,16 +184,24 @@ func TestLivenessProbe_ProcessStatusRejectsInvalidPIDAndCanceledContext(t *testi
 }
 
 // The host /proc tests pin the real kernel format and units against known processes.
-func TestLivenessProbe_ProcessStatusHostCurrentProcess(t *testing.T) {
+func TestLivenessProbe_ProcessStatusHostRunningChild(t *testing.T) {
 	t.Parallel()
 
-	status, err := NewLivenessProbe().ProcessStatus(context.Background(), os.Getpid())
+	before := time.Now()
+	cmd := exec.Command("sleep", "30")
+	require.NoError(t, cmd.Start())
+	t.Cleanup(func() {
+		_ = cmd.Process.Kill()
+		_ = cmd.Wait()
+	})
+
+	status, err := NewLivenessProbe().ProcessStatus(context.Background(), cmd.Process.Pid)
 
 	require.NoError(t, err)
 	assert.True(t, status.Running)
-	assert.True(t, status.SameExecutable)
-	assert.False(t, status.StartedAt.After(time.Now()), "started in the future: %s", status.StartedAt)
-	assert.WithinDuration(t, time.Now(), status.StartedAt, time.Hour)
+	assert.False(t, status.SameExecutable)
+	// btime has whole-second precision, so allow one second of rounding.
+	assert.WithinDuration(t, before, status.StartedAt, 2*time.Second)
 }
 
 func TestLivenessProbe_ProcessStatusHostExitedProcess(t *testing.T) {
@@ -224,6 +232,18 @@ func TestLivenessProbe_ProcessStatusHostThreadIsNotProcess(t *testing.T) {
 	require.NotZero(t, tid, "go test process has more than one thread")
 
 	status, err := NewLivenessProbe().ProcessStatus(context.Background(), tid)
+
+	require.NoError(t, err)
+	assert.False(t, status.Running)
+}
+
+func TestLivenessProbe_ProcessStatusOwnPIDIsNotSessionProcess(t *testing.T) {
+	t.Parallel()
+
+	root := fakeProcRoot(t)
+	writeProcEntry(t, root, testSelfPID, testSelfPID, statLine("dumber", "S", "100"))
+
+	status, err := fakeProbe(root).ProcessStatus(context.Background(), testSelfPID)
 
 	require.NoError(t, err)
 	assert.False(t, status.Running)

@@ -613,9 +613,9 @@ func (r *LazySessionRepository) MarkEnded(ctx context.Context, id entity.Session
 	return r.repo.MarkEnded(ctx, id, endedAt)
 }
 
-func (r *LazySessionRepository) MarkEndedAtLastActivity(ctx context.Context, id entity.SessionID) error {
+func (r *LazySessionRepository) MarkEndedAtLastActivity(ctx context.Context, id entity.SessionID) (bool, error) {
 	if err := r.init(ctx); err != nil {
-		return err
+		return false, err
 	}
 	return r.repo.MarkEndedAtLastActivity(ctx, id)
 }

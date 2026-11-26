@@ -53,7 +53,7 @@ func TestCleanupSessionsUseCase_ReconcileActiveBrowserSessions(t *testing.T) {
 				ProcessStatus(ctx, pid).
 				Return(tt.status, tt.probeErr)
 			if tt.wantEnd {
-				sessionRepo.EXPECT().MarkEndedAtLastActivity(ctx, target.ID).Return(nil)
+				sessionRepo.EXPECT().MarkEndedAtLastActivity(ctx, target.ID).Return(true, nil)
 			}
 
 			uc := usecase.NewCleanupSessionsUseCase(sessionRepo, processProbe, nil)
@@ -107,7 +107,7 @@ func TestCleanupSessionsUseCase_ReconcileActiveBrowserSessionsWithLeases(t *test
 				processProbe.EXPECT().ProcessStatus(ctx, pid).Return(*tt.status, nil)
 			}
 			if tt.wantEnd {
-				sessionRepo.EXPECT().MarkEndedAtLastActivity(ctx, target.ID).Return(nil)
+				sessionRepo.EXPECT().MarkEndedAtLastActivity(ctx, target.ID).Return(true, nil)
 				leases.EXPECT().Remove(ctx, target.ID).Return(tt.removeErr)
 			}
 
@@ -124,6 +124,40 @@ func TestCleanupSessionsUseCase_ReconcileActiveBrowserSessionsWithLeases(t *test
 			assert.Equal(t, wantEnded, output.EndedDeadSessions)
 		})
 	}
+}
+
+func TestCleanupSessionsUseCase_ReconcileSkipsSessionEndedSinceListing(t *testing.T) {
+	ctx := testContext()
+	sessionRepo := repomocks.NewMockSessionRepository(t)
+	leases := portmocks.NewMockSessionLeaseStore(t)
+	target := &entity.Session{ID: "target", Type: entity.SessionTypeBrowser, StartedAt: time.Now()}
+
+	sessionRepo.EXPECT().ListActiveBrowser(ctx).Return([]*entity.Session{target}, nil)
+	leases.EXPECT().Probe(ctx, target.ID).Return(port.SessionLeaseFree, nil)
+	sessionRepo.EXPECT().MarkEndedAtLastActivity(ctx, target.ID).Return(false, nil)
+
+	uc := usecase.NewCleanupSessionsUseCase(sessionRepo, nil, leases)
+	output, err := uc.ReconcileActiveBrowserSessions(ctx, usecase.ReconcileActiveBrowserSessionsInput{})
+
+	require.NoError(t, err)
+	assert.Equal(t, int64(0), output.EndedDeadSessions)
+}
+
+func TestCleanupSessionsUseCase_ReconcileMissingLeaseWithoutPIDProbeKeepsSession(t *testing.T) {
+	ctx := testContext()
+	sessionRepo := repomocks.NewMockSessionRepository(t)
+	leases := portmocks.NewMockSessionLeaseStore(t)
+	pid := 444
+	withPID := &entity.Session{ID: "with-pid", Type: entity.SessionTypeBrowser, StartedAt: time.Now(), ProcessID: &pid}
+
+	sessionRepo.EXPECT().ListActiveBrowser(ctx).Return([]*entity.Session{withPID}, nil)
+	leases.EXPECT().Probe(ctx, withPID.ID).Return(port.SessionLeaseMissing, nil)
+
+	uc := usecase.NewCleanupSessionsUseCase(sessionRepo, nil, leases)
+	output, err := uc.ReconcileActiveBrowserSessions(ctx, usecase.ReconcileActiveBrowserSessionsInput{})
+
+	require.NoError(t, err)
+	assert.Equal(t, int64(0), output.EndedDeadSessions)
 }
 
 func TestCleanupSessionsUseCase_Execute_AgeAndCountCleanup(t *testing.T) {

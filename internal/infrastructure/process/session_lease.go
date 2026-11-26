@@ -34,21 +34,16 @@ func NewFileSessionLeases(dir string) *FileSessionLeases {
 
 type sessionLease struct {
 	file *os.File
-	path string
 }
 
-// Close removes the lease file, then releases the lock.
+// Close releases the lock and keeps the file; Remove deletes it once the session has ended.
 func (l *sessionLease) Close() error {
 	if l == nil || l.file == nil {
 		return nil
 	}
-	removeErr := os.Remove(l.path)
-	if errors.Is(removeErr, fs.ErrNotExist) {
-		removeErr = nil
-	}
-	closeErr := l.file.Close()
+	err := l.file.Close()
 	l.file = nil
-	return errors.Join(removeErr, closeErr)
+	return err
 }
 
 // Acquire creates and locks the session's lease file.
@@ -71,7 +66,7 @@ func (s *FileSessionLeases) Acquire(ctx context.Context, id entity.SessionID) (i
 		_ = file.Close()
 		return nil, fmt.Errorf("lock session lease: %w", err)
 	}
-	return &sessionLease{file: file, path: path}, nil
+	return &sessionLease{file: file}, nil
 }
 
 // Probe tries the session's lock without blocking: a held lock means a live owner.
@@ -83,7 +78,7 @@ func (s *FileSessionLeases) Probe(ctx context.Context, id entity.SessionID) (por
 	if err != nil {
 		return port.SessionLeaseMissing, err
 	}
-	file, err := os.OpenFile(path, os.O_RDWR, 0)
+	file, err := os.OpenFile(path, os.O_RDONLY|unix.O_NOFOLLOW, 0)
 	if errors.Is(err, fs.ErrNotExist) {
 		return port.SessionLeaseMissing, nil
 	}

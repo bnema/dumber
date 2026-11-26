@@ -561,20 +561,29 @@ func (_c *MockSessionRepository_MarkEnded_Call) RunAndReturn(run func(ctx contex
 }
 
 // MarkEndedAtLastActivity provides a mock function for the type MockSessionRepository
-func (_mock *MockSessionRepository) MarkEndedAtLastActivity(ctx context.Context, id entity.SessionID) error {
+func (_mock *MockSessionRepository) MarkEndedAtLastActivity(ctx context.Context, id entity.SessionID) (bool, error) {
 	ret := _mock.Called(ctx, id)
 
 	if len(ret) == 0 {
 		panic("no return value specified for MarkEndedAtLastActivity")
 	}
 
-	var r0 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, entity.SessionID) error); ok {
+	var r0 bool
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, entity.SessionID) (bool, error)); ok {
+		return returnFunc(ctx, id)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, entity.SessionID) bool); ok {
 		r0 = returnFunc(ctx, id)
 	} else {
-		r0 = ret.Error(0)
+		r0 = ret.Get(0).(bool)
 	}
-	return r0
+	if returnFunc, ok := ret.Get(1).(func(context.Context, entity.SessionID) error); ok {
+		r1 = returnFunc(ctx, id)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
 }
 
 // MockSessionRepository_MarkEndedAtLastActivity_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'MarkEndedAtLastActivity'
@@ -607,12 +616,12 @@ func (_c *MockSessionRepository_MarkEndedAtLastActivity_Call) Run(run func(ctx c
 	return _c
 }
 
-func (_c *MockSessionRepository_MarkEndedAtLastActivity_Call) Return(err error) *MockSessionRepository_MarkEndedAtLastActivity_Call {
-	_c.Call.Return(err)
+func (_c *MockSessionRepository_MarkEndedAtLastActivity_Call) Return(b bool, err error) *MockSessionRepository_MarkEndedAtLastActivity_Call {
+	_c.Call.Return(b, err)
 	return _c
 }
 
-func (_c *MockSessionRepository_MarkEndedAtLastActivity_Call) RunAndReturn(run func(ctx context.Context, id entity.SessionID) error) *MockSessionRepository_MarkEndedAtLastActivity_Call {
+func (_c *MockSessionRepository_MarkEndedAtLastActivity_Call) RunAndReturn(run func(ctx context.Context, id entity.SessionID) (bool, error)) *MockSessionRepository_MarkEndedAtLastActivity_Call {
 	_c.Call.Return(run)
 	return _c
 }

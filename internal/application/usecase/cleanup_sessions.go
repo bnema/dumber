@@ -103,8 +103,13 @@ func (uc *CleanupSessionsUseCase) ReconcileActiveBrowserSessions(
 		}
 		// Ending at last activity keeps long-dead sessions from outranking recent
 		// clean exits in the exited-session count cleanup.
-		if err := uc.sessionRepo.MarkEndedAtLastActivity(ctx, s.ID); err != nil {
+		ended, err := uc.sessionRepo.MarkEndedAtLastActivity(ctx, s.ID)
+		if err != nil {
 			return output, err
+		}
+		if !ended {
+			// The owner or another instance ended it since it was listed.
+			continue
 		}
 		if uc.leases != nil {
 			if err := uc.leases.Remove(ctx, s.ID); err != nil {
@@ -132,6 +137,9 @@ func (uc *CleanupSessionsUseCase) sessionProcessGone(ctx context.Context, s *ent
 		case port.SessionLeaseFree:
 			return true
 		case port.SessionLeaseMissing:
+			// No lease to answer: fall back to probing the PID below.
+		default:
+			return false
 		}
 	}
 	if uc.processProbe == nil {

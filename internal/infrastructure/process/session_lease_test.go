@@ -18,9 +18,11 @@ const testSessionID entity.SessionID = "20251222_100000_abcd"
 
 // flock conflicts between open file descriptions even in one process, so an
 // in-process lease stands in for another instance holding it.
-func TestFileSessionLeases_HeldThenReleasedOnClose(t *testing.T) {
-	t.Parallel()
-
+//
+// These tests do not run in parallel: a parallel test that forks (exec.Command)
+// briefly inherits open lease fds until exec, which would make a just-released
+// lock look held.
+func TestFileSessionLeases_HeldThenFreeAfterCloseThenMissingAfterRemove(t *testing.T) {
 	ctx := context.Background()
 	leases := NewFileSessionLeases(filepath.Join(t.TempDir(), "leases"))
 
@@ -33,12 +35,15 @@ func TestFileSessionLeases_HeldThenReleasedOnClose(t *testing.T) {
 	require.NoError(t, lease.Close())
 	state, err = leases.Probe(ctx, testSessionID)
 	require.NoError(t, err)
+	assert.Equal(t, port.SessionLeaseFree, state, "close releases the lock and keeps the file")
+
+	require.NoError(t, leases.Remove(ctx, testSessionID))
+	state, err = leases.Probe(ctx, testSessionID)
+	require.NoError(t, err)
 	assert.Equal(t, port.SessionLeaseMissing, state)
 }
 
 func TestFileSessionLeases_CrashedOwnerLeavesFreeLease(t *testing.T) {
-	t.Parallel()
-
 	ctx := context.Background()
 	dir := t.TempDir()
 	leases := NewFileSessionLeases(dir)
@@ -61,27 +66,21 @@ func TestFileSessionLeases_CrashedOwnerLeavesFreeLease(t *testing.T) {
 }
 
 func TestFileSessionLeases_ProbeDoesNotKeepLease(t *testing.T) {
-	t.Parallel()
-
 	ctx := context.Background()
 	dir := t.TempDir()
 	leases := NewFileSessionLeases(dir)
+	// A free, read-only lease file: probing must not need write access nor keep the lock.
+	require.NoError(t, os.WriteFile(filepath.Join(dir, string(testSessionID)+".lock"), nil, 0o400))
+	state, err := leases.Probe(ctx, testSessionID)
+	require.NoError(t, err)
+	assert.Equal(t, port.SessionLeaseFree, state)
+	require.NoError(t, os.Chmod(filepath.Join(dir, string(testSessionID)+".lock"), 0o600))
 	lease, err := leases.Acquire(ctx, testSessionID)
-	require.NoError(t, err)
-	require.NoError(t, lease.Close())
-
-	// Recreate a free lease file, probe it, then a new owner must still lock it.
-	require.NoError(t, os.WriteFile(filepath.Join(dir, string(testSessionID)+".lock"), nil, 0o600))
-	_, err = leases.Probe(ctx, testSessionID)
-	require.NoError(t, err)
-	lease, err = leases.Acquire(ctx, testSessionID)
 	require.NoError(t, err)
 	require.NoError(t, lease.Close())
 }
 
 func TestFileSessionLeases_RejectsPathLikeSessionIDs(t *testing.T) {
-	t.Parallel()
-
 	ctx := context.Background()
 	leases := NewFileSessionLeases(t.TempDir())
 

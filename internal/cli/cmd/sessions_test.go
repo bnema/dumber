@@ -164,8 +164,8 @@ func (r *sessionCommandSessionRepo) GetRecent(_ context.Context, limit int) ([]*
 	return out, nil
 }
 
-func (*sessionCommandSessionRepo) MarkEndedAtLastActivity(context.Context, entity.SessionID) error {
-	return nil
+func (*sessionCommandSessionRepo) MarkEndedAtLastActivity(context.Context, entity.SessionID) (bool, error) {
+	return false, nil
 }
 
 func (*sessionCommandSessionRepo) MarkEnded(context.Context, entity.SessionID, time.Time) error {

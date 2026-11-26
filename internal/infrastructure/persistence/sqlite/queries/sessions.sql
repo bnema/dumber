@@ -26,14 +26,15 @@ UPDATE sessions
 SET ended_at = ?
 WHERE id = ?;
 
--- name: MarkSessionEndedAtLastActivity :exec
--- Ends a session at its last snapshot, or its start when it never saved one.
+-- name: MarkSessionEndedAtLastActivity :execrows
+-- Ends an active session at its last snapshot, or its start when it never saved one.
+-- A session that already ended keeps its real ended_at.
 UPDATE sessions
 SET ended_at = COALESCE(
     (SELECT updated_at FROM session_states WHERE session_id = sessions.id),
     started_at
 )
-WHERE id = ?;
+WHERE id = ? AND ended_at IS NULL;
 
 -- name: DeleteSession :exec
 DELETE FROM sessions WHERE id = ?;

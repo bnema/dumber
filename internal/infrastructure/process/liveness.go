@@ -55,6 +55,11 @@ func (p *LivenessProbe) ProcessStatus(ctx context.Context, pid int) (port.Sessio
 	if err := p.checkOwnPIDNamespace(); err != nil {
 		return port.SessionProcessStatus{}, err
 	}
+	if pid == p.selfPID {
+		// Two live processes cannot share a PID in one namespace, so a session
+		// recorded with ours belongs to a dead process whose PID we reused.
+		return port.SessionProcessStatus{}, nil
+	}
 
 	stat, err := os.ReadFile(filepath.Join(p.procRoot, strconv.Itoa(pid), "stat"))
 	if errors.Is(err, fs.ErrNotExist) || errors.Is(err, syscall.ESRCH) {

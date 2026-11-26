@@ -106,8 +106,9 @@ func (r *sessionRepo) MarkEnded(ctx context.Context, id entity.SessionID, endedA
 	})
 }
 
-func (r *sessionRepo) MarkEndedAtLastActivity(ctx context.Context, id entity.SessionID) error {
-	return r.queries.MarkSessionEndedAtLastActivity(ctx, string(id))
+func (r *sessionRepo) MarkEndedAtLastActivity(ctx context.Context, id entity.SessionID) (bool, error) {
+	rows, err := r.queries.MarkSessionEndedAtLastActivity(ctx, string(id))
+	return rows > 0, err
 }
 
 func (r *sessionRepo) Delete(ctx context.Context, id entity.SessionID) error {
