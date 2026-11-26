@@ -160,6 +160,40 @@ func TestCleanupSessionsUseCase_ReconcileMissingLeaseWithoutPIDProbeKeepsSession
 	assert.Equal(t, int64(0), output.EndedDeadSessions)
 }
 
+func TestCleanupSessionsUseCase_SweepOrphanLeases(t *testing.T) {
+	ctx := testContext()
+	sessionRepo := repomocks.NewMockSessionRepository(t)
+	leases := portmocks.NewMockSessionLeaseStore(t)
+	active := &entity.Session{ID: "active", Type: entity.SessionTypeBrowser, StartedAt: time.Now()}
+
+	leases.EXPECT().List(ctx).Return([]entity.SessionID{"current", "active", "orphan-free", "orphan-held", "probe-error", "remove-error"}, nil)
+	sessionRepo.EXPECT().ListActiveBrowser(ctx).Return([]*entity.Session{active, nil}, nil)
+	leases.EXPECT().Probe(ctx, entity.SessionID("orphan-free")).Return(port.SessionLeaseFree, nil)
+	leases.EXPECT().Probe(ctx, entity.SessionID("orphan-held")).Return(port.SessionLeaseHeld, nil)
+	leases.EXPECT().Probe(ctx, entity.SessionID("probe-error")).Return(port.SessionLeaseMissing, errors.New("io"))
+	leases.EXPECT().Probe(ctx, entity.SessionID("remove-error")).Return(port.SessionLeaseFree, nil)
+	leases.EXPECT().Remove(ctx, entity.SessionID("orphan-free")).Return(nil)
+	leases.EXPECT().Remove(ctx, entity.SessionID("remove-error")).Return(errors.New("busy"))
+
+	uc := usecase.NewCleanupSessionsUseCase(sessionRepo, nil, leases)
+	removed, err := uc.SweepOrphanLeases(ctx, "current")
+
+	require.NoError(t, err)
+	assert.Equal(t, 1, removed)
+}
+
+func TestCleanupSessionsUseCase_SweepOrphanLeasesWithoutLeasesSkipsRepository(t *testing.T) {
+	ctx := testContext()
+	leases := portmocks.NewMockSessionLeaseStore(t)
+	leases.EXPECT().List(ctx).Return(nil, nil)
+
+	removed, err := usecase.NewCleanupSessionsUseCase(repomocks.NewMockSessionRepository(t), nil, leases).
+		SweepOrphanLeases(ctx, "current")
+
+	require.NoError(t, err)
+	assert.Zero(t, removed)
+}
+
 func TestCleanupSessionsUseCase_Execute_AgeAndCountCleanup(t *testing.T) {
 	ctx := testContext()
 

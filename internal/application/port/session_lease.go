@@ -29,4 +29,6 @@ type SessionLeaseStore interface {
 	Probe(ctx context.Context, id entity.SessionID) (SessionLeaseState, error)
 	// Remove deletes the lease of a session that has ended.
 	Remove(ctx context.Context, id entity.SessionID) error
+	// List returns the sessions that have a lease file, held or not.
+	List(ctx context.Context) ([]entity.SessionID, error)
 }

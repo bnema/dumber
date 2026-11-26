@@ -122,6 +122,51 @@ func (uc *CleanupSessionsUseCase) ReconcileActiveBrowserSessions(
 	return output, nil
 }
 
+// SweepOrphanLeases removes free leases that no active session uses, such as one left
+// by a crash between taking the lease and saving its session, or by a failed removal.
+// Held leases are kept: their owner may be about to save its session.
+func (uc *CleanupSessionsUseCase) SweepOrphanLeases(ctx context.Context, current entity.SessionID) (int, error) {
+	if uc.leases == nil {
+		return 0, nil
+	}
+	ids, err := uc.leases.List(ctx)
+	if err != nil || len(ids) == 0 {
+		return 0, err
+	}
+	active, err := uc.sessionRepo.ListActiveBrowser(ctx)
+	if err != nil {
+		return 0, err
+	}
+	activeIDs := make(map[entity.SessionID]struct{}, len(active))
+	for _, s := range active {
+		if s != nil {
+			activeIDs[s.ID] = struct{}{}
+		}
+	}
+
+	log := logging.FromContext(ctx)
+	removed := 0
+	for _, id := range ids {
+		if _, ok := activeIDs[id]; ok || id == current {
+			continue
+		}
+		state, err := uc.leases.Probe(ctx, id)
+		if err != nil {
+			log.Warn().Err(err).Str("session_id", string(id)).Msg("failed to probe orphan session lease")
+			continue
+		}
+		if state != port.SessionLeaseFree {
+			continue
+		}
+		if err := uc.leases.Remove(ctx, id); err != nil {
+			log.Warn().Err(err).Str("session_id", string(id)).Msg("failed to remove orphan session lease")
+			continue
+		}
+		removed++
+	}
+	return removed, nil
+}
+
 // sessionProcessGone reports whether the session's process is proven gone. Any doubt keeps the session.
 func (uc *CleanupSessionsUseCase) sessionProcessGone(ctx context.Context, s *entity.Session) bool {
 	log := logging.FromContext(ctx).With().Str("session_id", string(s.ID)).Logger()

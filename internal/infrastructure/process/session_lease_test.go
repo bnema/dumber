@@ -92,3 +92,25 @@ func TestFileSessionLeases_RejectsPathLikeSessionIDs(t *testing.T) {
 		require.Error(t, leases.Remove(ctx, id), id)
 	}
 }
+
+func TestFileSessionLeases_ListReturnsLeaseFilesOnly(t *testing.T) {
+	ctx := context.Background()
+	dir := filepath.Join(t.TempDir(), "leases")
+	leases := NewFileSessionLeases(dir)
+
+	ids, err := leases.List(ctx)
+	require.NoError(t, err)
+	assert.Empty(t, ids, "a missing directory has no leases")
+
+	held, err := leases.Acquire(ctx, testSessionID)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = held.Close() })
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "20251222_110000_free.lock"), nil, 0o600))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "notes.txt"), nil, 0o600))
+	require.NoError(t, os.Mkdir(filepath.Join(dir, "dir.lock"), 0o700))
+
+	ids, err = leases.List(ctx)
+
+	require.NoError(t, err)
+	assert.ElementsMatch(t, []entity.SessionID{testSessionID, "20251222_110000_free"}, ids)
+}

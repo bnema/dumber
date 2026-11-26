@@ -8,6 +8,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"golang.org/x/sys/unix"
 
@@ -16,8 +17,9 @@ import (
 )
 
 const (
-	leaseDirPerm  = 0o700
-	leaseFilePerm = 0o600
+	leaseDirPerm    = 0o700
+	leaseFilePerm   = 0o600
+	leaseFileSuffix = ".lock"
 )
 
 // FileSessionLeases keeps each session's lease as an flock on <dir>/<session id>.lock.
@@ -112,10 +114,37 @@ func (s *FileSessionLeases) Remove(ctx context.Context, id entity.SessionID) err
 	return nil
 }
 
+// List returns the session IDs of the lease files in the directory.
+func (s *FileSessionLeases) List(ctx context.Context) ([]entity.SessionID, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	entries, err := os.ReadDir(s.dir)
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("list session leases: %w", err)
+	}
+	ids := make([]entity.SessionID, 0, len(entries))
+	for _, entry := range entries {
+		name, ok := strings.CutSuffix(entry.Name(), leaseFileSuffix)
+		if !ok || !entry.Type().IsRegular() {
+			continue
+		}
+		id := entity.SessionID(name)
+		if _, err := s.leasePath(id); err != nil {
+			continue
+		}
+		ids = append(ids, id)
+	}
+	return ids, nil
+}
+
 func (s *FileSessionLeases) leasePath(id entity.SessionID) (string, error) {
 	name := string(id)
 	if name == "" || name == "." || name == ".." || filepath.Base(name) != name {
 		return "", fmt.Errorf("invalid session id %q", name)
 	}
-	return filepath.Join(s.dir, name+".lock"), nil
+	return filepath.Join(s.dir, name+leaseFileSuffix), nil
 }

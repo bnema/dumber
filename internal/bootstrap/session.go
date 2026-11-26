@@ -395,6 +395,15 @@ func runSessionCleanup(
 		log.Info().Int64("ended", staleOutput.EndedDeadSessions).Msg("background: ended dead browser sessions")
 	}
 
+	// Remove free leases left without an active session.
+	if removed, sweepErr := cleanupUC.SweepOrphanLeases(bgCtx, currentSessionID); sweepErr != nil {
+		if log != nil {
+			log.Warn().Err(sweepErr).Msg("background: failed to sweep orphan session leases")
+		}
+	} else if removed > 0 && log != nil {
+		log.Info().Int("removed", removed).Msg("background: removed orphan session leases")
+	}
+
 	// Clean up old exited sessions.
 	output, err := cleanupUC.Execute(bgCtx, usecase.CleanupSessionsInput{
 		MaxExitedSessions:       cfg.Session.MaxExitedSessions,

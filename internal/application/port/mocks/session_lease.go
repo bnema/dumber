@@ -117,6 +117,68 @@ func (_c *MockSessionLeaseStore_Acquire_Call) RunAndReturn(run func(ctx context.
 	return _c
 }
 
+// List provides a mock function for the type MockSessionLeaseStore
+func (_mock *MockSessionLeaseStore) List(ctx context.Context) ([]entity.SessionID, error) {
+	ret := _mock.Called(ctx)
+
+	if len(ret) == 0 {
+		panic("no return value specified for List")
+	}
+
+	var r0 []entity.SessionID
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context) ([]entity.SessionID, error)); ok {
+		return returnFunc(ctx)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context) []entity.SessionID); ok {
+		r0 = returnFunc(ctx)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]entity.SessionID)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context) error); ok {
+		r1 = returnFunc(ctx)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockSessionLeaseStore_List_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'List'
+type MockSessionLeaseStore_List_Call struct {
+	*mock.Call
+}
+
+// List is a helper method to define mock.On call
+//   - ctx context.Context
+func (_e *MockSessionLeaseStore_Expecter) List(ctx any) *MockSessionLeaseStore_List_Call {
+	return &MockSessionLeaseStore_List_Call{Call: _e.mock.On("List", ctx)}
+}
+
+func (_c *MockSessionLeaseStore_List_Call) Run(run func(ctx context.Context)) *MockSessionLeaseStore_List_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		run(
+			arg0,
+		)
+	})
+	return _c
+}
+
+func (_c *MockSessionLeaseStore_List_Call) Return(sessionIDs []entity.SessionID, err error) *MockSessionLeaseStore_List_Call {
+	_c.Call.Return(sessionIDs, err)
+	return _c
+}
+
+func (_c *MockSessionLeaseStore_List_Call) RunAndReturn(run func(ctx context.Context) ([]entity.SessionID, error)) *MockSessionLeaseStore_List_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Probe provides a mock function for the type MockSessionLeaseStore
 func (_mock *MockSessionLeaseStore) Probe(ctx context.Context, id entity.SessionID) (port.SessionLeaseState, error) {
 	ret := _mock.Called(ctx, id)
