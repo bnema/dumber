@@ -25,6 +25,7 @@ type Querier interface {
 	DeleteHistoryOlderThan(ctx context.Context, lastVisited sql.NullTime) error
 	DeleteHistorySince(ctx context.Context, lastVisited sql.NullTime) error
 	// Deletes exited browser sessions beyond the keep limit, keeping the most recent ones.
+	// started_at breaks ties between sessions ended together by startup reconciliation.
 	DeleteOldestExitedSessions(ctx context.Context, offset int64) (int64, error)
 	DeletePermission(ctx context.Context, arg DeletePermissionParams) error
 	DeleteSession(ctx context.Context, id string) error

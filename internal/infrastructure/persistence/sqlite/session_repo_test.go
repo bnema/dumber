@@ -127,3 +127,36 @@ func TestSessionRepository_ListActiveBrowserReturnsOnlyActiveBrowserSessions(t *
 	}
 	assert.Equal(t, []entity.SessionID{"20251222_090100_new1", "20251222_090000_old1"}, ids)
 }
+
+func TestSessionRepository_DeleteOldestExitedKeepsNewestStartedOnEndedAtTie(t *testing.T) {
+	ctx := testCtx()
+	dbPath := filepath.Join(t.TempDir(), "dumber.db")
+
+	db, err := sqlite.NewConnection(ctx, dbPath)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = db.Close() })
+
+	repo := sqlite.NewSessionRepository(db)
+
+	base := time.Date(2025, 12, 22, 10, 0, 0, 0, time.UTC)
+	ended := base.Add(24 * time.Hour)
+	ids := []entity.SessionID{"20251222_100000_aaaa", "20251222_110000_bbbb", "20251222_120000_cccc"}
+	for i, id := range ids {
+		s := &entity.Session{ID: id, Type: entity.SessionTypeBrowser, StartedAt: base.Add(time.Duration(i) * time.Hour)}
+		require.NoError(t, repo.Save(ctx, s))
+		require.NoError(t, repo.MarkEnded(ctx, id, ended))
+	}
+
+	deleted, err := repo.DeleteOldestExited(ctx, 2)
+	require.NoError(t, err)
+	assert.Equal(t, int64(1), deleted)
+
+	oldest, err := repo.FindByID(ctx, ids[0])
+	require.NoError(t, err)
+	assert.Nil(t, oldest)
+	for _, id := range ids[1:] {
+		kept, err := repo.FindByID(ctx, id)
+		require.NoError(t, err)
+		assert.NotNil(t, kept, id)
+	}
+}

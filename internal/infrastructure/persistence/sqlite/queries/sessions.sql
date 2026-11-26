@@ -31,11 +31,12 @@ DELETE FROM sessions WHERE id = ?;
 
 -- name: DeleteOldestExitedSessions :execrows
 -- Deletes exited browser sessions beyond the keep limit, keeping the most recent ones.
+-- started_at breaks ties between sessions ended together by startup reconciliation.
 DELETE FROM sessions
 WHERE id IN (
     SELECT id FROM sessions
     WHERE type = 'browser' AND ended_at IS NOT NULL
-    ORDER BY ended_at DESC
+    ORDER BY ended_at DESC, started_at DESC
     LIMIT -1 OFFSET ?
 );
 
