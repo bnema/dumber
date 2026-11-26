@@ -11,6 +11,11 @@ WHERE type = 'browser' AND ended_at IS NULL
 ORDER BY started_at DESC
 LIMIT 1;
 
+-- name: ListActiveBrowserSessions :many
+SELECT * FROM sessions
+WHERE type = 'browser' AND ended_at IS NULL
+ORDER BY started_at DESC;
+
 -- name: GetRecentSessions :many
 SELECT * FROM sessions
 ORDER BY started_at DESC
@@ -21,16 +26,27 @@ UPDATE sessions
 SET ended_at = ?
 WHERE id = ?;
 
+-- name: MarkSessionEndedAtLastActivity :execrows
+-- Ends an active session at its last snapshot, or its start when it never saved one.
+-- A session that already ended keeps its real ended_at.
+UPDATE sessions
+SET ended_at = COALESCE(
+    (SELECT updated_at FROM session_states WHERE session_id = sessions.id),
+    started_at
+)
+WHERE id = ? AND ended_at IS NULL;
+
 -- name: DeleteSession :exec
 DELETE FROM sessions WHERE id = ?;
 
 -- name: DeleteOldestExitedSessions :execrows
 -- Deletes exited browser sessions beyond the keep limit, keeping the most recent ones.
+-- started_at breaks ties between sessions ended together by startup reconciliation.
 DELETE FROM sessions
 WHERE id IN (
     SELECT id FROM sessions
     WHERE type = 'browser' AND ended_at IS NOT NULL
-    ORDER BY ended_at DESC
+    ORDER BY ended_at DESC, started_at DESC
     LIMIT -1 OFFSET ?
 );
 

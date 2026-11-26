@@ -64,6 +64,7 @@ packages:
       DatabaseProvider: {}
       DiffFormatter: {}
       SessionLogger: {}
+      SessionLeaseStore: {}
       SessionProcessProbe: {}
       SessionRestoreLauncher: {}
       SessionRestoreRelay: {}

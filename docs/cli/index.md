@@ -95,7 +95,9 @@ dumber sessions delete <session-id>
 Restoration opens the saved windows, tabs, and panes as new windows in the
 running profile host. Existing windows stay open, and the restored windows join
 the current live session. The saved session remains in history unchanged.
-Active sessions are not duplicated.
+Active sessions are not duplicated. A session stays active only while its
+Dumber process runs: a session left open by a crash or a kill becomes
+restorable when the next Dumber instance starts.
 
 `--profile <name>` selects an isolated persistent profile host. Logical instances
 selected with `--instance <name>` share their profile's host and browser data.

@@ -18,10 +18,19 @@ func NewMockSessionRepository(t interface {
 	mock.TestingT
 	Cleanup(func())
 }) *MockSessionRepository {
+	if helper, ok := t.(interface{ Helper() }); ok {
+		helper.Helper()
+	}
+
 	mock := &MockSessionRepository{}
 	mock.Mock.Test(t)
 
-	t.Cleanup(func() { mock.AssertExpectations(t) })
+	t.Cleanup(func() {
+		if helper, ok := t.(interface{ Helper() }); ok {
+			helper.Helper()
+		}
+		mock.AssertExpectations(t)
+	})
 
 	return mock
 }
@@ -426,6 +435,68 @@ func (_c *MockSessionRepository_GetRecent_Call) RunAndReturn(run func(ctx contex
 	return _c
 }
 
+// ListActiveBrowser provides a mock function for the type MockSessionRepository
+func (_mock *MockSessionRepository) ListActiveBrowser(ctx context.Context) ([]*entity.Session, error) {
+	ret := _mock.Called(ctx)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ListActiveBrowser")
+	}
+
+	var r0 []*entity.Session
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context) ([]*entity.Session, error)); ok {
+		return returnFunc(ctx)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context) []*entity.Session); ok {
+		r0 = returnFunc(ctx)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]*entity.Session)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context) error); ok {
+		r1 = returnFunc(ctx)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockSessionRepository_ListActiveBrowser_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ListActiveBrowser'
+type MockSessionRepository_ListActiveBrowser_Call struct {
+	*mock.Call
+}
+
+// ListActiveBrowser is a helper method to define mock.On call
+//   - ctx context.Context
+func (_e *MockSessionRepository_Expecter) ListActiveBrowser(ctx any) *MockSessionRepository_ListActiveBrowser_Call {
+	return &MockSessionRepository_ListActiveBrowser_Call{Call: _e.mock.On("ListActiveBrowser", ctx)}
+}
+
+func (_c *MockSessionRepository_ListActiveBrowser_Call) Run(run func(ctx context.Context)) *MockSessionRepository_ListActiveBrowser_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		run(
+			arg0,
+		)
+	})
+	return _c
+}
+
+func (_c *MockSessionRepository_ListActiveBrowser_Call) Return(sessions []*entity.Session, err error) *MockSessionRepository_ListActiveBrowser_Call {
+	_c.Call.Return(sessions, err)
+	return _c
+}
+
+func (_c *MockSessionRepository_ListActiveBrowser_Call) RunAndReturn(run func(ctx context.Context) ([]*entity.Session, error)) *MockSessionRepository_ListActiveBrowser_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // MarkEnded provides a mock function for the type MockSessionRepository
 func (_mock *MockSessionRepository) MarkEnded(ctx context.Context, id entity.SessionID, endedAt time.Time) error {
 	ret := _mock.Called(ctx, id, endedAt)
@@ -485,6 +556,72 @@ func (_c *MockSessionRepository_MarkEnded_Call) Return(err error) *MockSessionRe
 }
 
 func (_c *MockSessionRepository_MarkEnded_Call) RunAndReturn(run func(ctx context.Context, id entity.SessionID, endedAt time.Time) error) *MockSessionRepository_MarkEnded_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// MarkEndedAtLastActivity provides a mock function for the type MockSessionRepository
+func (_mock *MockSessionRepository) MarkEndedAtLastActivity(ctx context.Context, id entity.SessionID) (bool, error) {
+	ret := _mock.Called(ctx, id)
+
+	if len(ret) == 0 {
+		panic("no return value specified for MarkEndedAtLastActivity")
+	}
+
+	var r0 bool
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, entity.SessionID) (bool, error)); ok {
+		return returnFunc(ctx, id)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, entity.SessionID) bool); ok {
+		r0 = returnFunc(ctx, id)
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, entity.SessionID) error); ok {
+		r1 = returnFunc(ctx, id)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockSessionRepository_MarkEndedAtLastActivity_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'MarkEndedAtLastActivity'
+type MockSessionRepository_MarkEndedAtLastActivity_Call struct {
+	*mock.Call
+}
+
+// MarkEndedAtLastActivity is a helper method to define mock.On call
+//   - ctx context.Context
+//   - id entity.SessionID
+func (_e *MockSessionRepository_Expecter) MarkEndedAtLastActivity(ctx any, id any) *MockSessionRepository_MarkEndedAtLastActivity_Call {
+	return &MockSessionRepository_MarkEndedAtLastActivity_Call{Call: _e.mock.On("MarkEndedAtLastActivity", ctx, id)}
+}
+
+func (_c *MockSessionRepository_MarkEndedAtLastActivity_Call) Run(run func(ctx context.Context, id entity.SessionID)) *MockSessionRepository_MarkEndedAtLastActivity_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 entity.SessionID
+		if args[1] != nil {
+			arg1 = args[1].(entity.SessionID)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockSessionRepository_MarkEndedAtLastActivity_Call) Return(b bool, err error) *MockSessionRepository_MarkEndedAtLastActivity_Call {
+	_c.Call.Return(b, err)
+	return _c
+}
+
+func (_c *MockSessionRepository_MarkEndedAtLastActivity_Call) RunAndReturn(run func(ctx context.Context, id entity.SessionID) (bool, error)) *MockSessionRepository_MarkEndedAtLastActivity_Call {
 	_c.Call.Return(run)
 	return _c
 }

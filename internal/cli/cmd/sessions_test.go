@@ -88,7 +88,7 @@ func TestFindSessionByIDOrSuffixSearchesBeyondDefaultLimit(t *testing.T) {
 	withApp(t, &cli.App{
 		Config:         cfg,
 		Theme:          styles.NewTheme(cfg),
-		SessionUC:      usecase.NewManageSessionUseCase(sessionRepo, nil),
+		SessionUC:      usecase.NewManageSessionUseCase(sessionRepo),
 		ListSessionsUC: usecase.NewListSessionsUseCase(sessionRepo, sessionCommandStateRepo{}),
 	})
 
@@ -151,6 +151,10 @@ func (*sessionCommandSessionRepo) GetActive(context.Context) (*entity.Session, e
 	return nil, nil
 }
 
+func (*sessionCommandSessionRepo) ListActiveBrowser(context.Context) ([]*entity.Session, error) {
+	return nil, nil
+}
+
 func (r *sessionCommandSessionRepo) GetRecent(_ context.Context, limit int) ([]*entity.Session, error) {
 	if limit < 0 || limit > len(r.sessions) {
 		limit = len(r.sessions)
@@ -158,6 +162,10 @@ func (r *sessionCommandSessionRepo) GetRecent(_ context.Context, limit int) ([]*
 	out := make([]*entity.Session, limit)
 	copy(out, r.sessions[:limit])
 	return out, nil
+}
+
+func (*sessionCommandSessionRepo) MarkEndedAtLastActivity(context.Context, entity.SessionID) (bool, error) {
+	return false, nil
 }
 
 func (*sessionCommandSessionRepo) MarkEnded(context.Context, entity.SessionID, time.Time) error {
@@ -207,7 +215,7 @@ func TestSessionRestoreDeliveryFailureIsPrintedAndReturned(t *testing.T) {
 	states.EXPECT().GetSnapshot(mock.Anything, entity.SessionID("saved")).Return(&entity.SessionState{Version: entity.SessionStateVersion}, nil)
 	launcher := portmocks.NewMockSessionRestoreLauncher(t)
 	launcher.EXPECT().RestoreSession(mock.Anything, entity.SessionID("saved")).Return(false, fmt.Errorf("relay unavailable"))
-	withApp(t, &cli.App{Config: cfg, Theme: styles.NewTheme(cfg), SessionUC: usecase.NewManageSessionUseCase(sessions, nil), ListSessionsUC: usecase.NewListSessionsUseCase(sessions, states), RestoreUC: usecase.NewRestoreSessionUseCase(states, sessions), SessionRestoreLauncher: launcher})
+	withApp(t, &cli.App{Config: cfg, Theme: styles.NewTheme(cfg), SessionUC: usecase.NewManageSessionUseCase(sessions), ListSessionsUC: usecase.NewListSessionsUseCase(sessions, states), RestoreUC: usecase.NewRestoreSessionUseCase(states, sessions), SessionRestoreLauncher: launcher})
 	old := os.Stderr
 	reader, writer, err := os.Pipe()
 	require.NoError(t, err)
@@ -230,7 +238,7 @@ func TestSessionRestoreRejectsActiveSourceBeforeColdDestination(t *testing.T) {
 	states.EXPECT().GetAllSnapshots(mock.Anything).Return([]*entity.SessionState{}, nil)
 	// The cold-launch-capable service must never be called for an active source.
 	launcher := portmocks.NewMockSessionRestoreLauncher(t)
-	withApp(t, &cli.App{Config: cfg, Theme: styles.NewTheme(cfg), SessionUC: usecase.NewManageSessionUseCase(sessions, nil), ListSessionsUC: usecase.NewListSessionsUseCase(sessions, states), RestoreUC: usecase.NewRestoreSessionUseCase(states, sessions), SessionRestoreLauncher: launcher})
+	withApp(t, &cli.App{Config: cfg, Theme: styles.NewTheme(cfg), SessionUC: usecase.NewManageSessionUseCase(sessions), ListSessionsUC: usecase.NewListSessionsUseCase(sessions, states), RestoreUC: usecase.NewRestoreSessionUseCase(states, sessions), SessionRestoreLauncher: launcher})
 	discardStderr(t)
 	err := runSessionsRestore(nil, []string{"active-source"})
 	require.ErrorIs(t, err, usecase.ErrSessionAlreadyOpen)

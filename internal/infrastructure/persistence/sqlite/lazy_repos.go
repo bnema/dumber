@@ -592,6 +592,13 @@ func (r *LazySessionRepository) GetActive(ctx context.Context) (*entity.Session,
 	return r.repo.GetActive(ctx)
 }
 
+func (r *LazySessionRepository) ListActiveBrowser(ctx context.Context) ([]*entity.Session, error) {
+	if err := r.init(ctx); err != nil {
+		return nil, err
+	}
+	return r.repo.ListActiveBrowser(ctx)
+}
+
 func (r *LazySessionRepository) GetRecent(ctx context.Context, limit int) ([]*entity.Session, error) {
 	if err := r.init(ctx); err != nil {
 		return nil, err
@@ -604,6 +611,13 @@ func (r *LazySessionRepository) MarkEnded(ctx context.Context, id entity.Session
 		return err
 	}
 	return r.repo.MarkEnded(ctx, id, endedAt)
+}
+
+func (r *LazySessionRepository) MarkEndedAtLastActivity(ctx context.Context, id entity.SessionID) (bool, error) {
+	if err := r.init(ctx); err != nil {
+		return false, err
+	}
+	return r.repo.MarkEndedAtLastActivity(ctx, id)
 }
 
 func (r *LazySessionRepository) Delete(ctx context.Context, id entity.SessionID) error {

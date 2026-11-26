@@ -24,10 +24,9 @@ import (
 )
 
 const (
-	recentSessionsLimit = 200
-	dirPerm             = 0o755
-	filePerm            = 0o644
-	pidFileName         = "dumber.pid"
+	dirPerm     = 0o755
+	filePerm    = 0o644
+	pidFileName = "dumber.pid"
 )
 
 // BrowserSession holds the state for a running browser session.
@@ -93,8 +92,14 @@ func StartBrowserSession(
 	logDir := ResolveLogDir(cfg)
 
 	sessionLoggerAdapter := infralogging.NewSessionLoggerAdapter()
-	sessionUC := usecase.NewManageSessionUseCase(sessionRepo, sessionLoggerAdapter)
-	cleanupUC := usecase.NewCleanupSessionsUseCase(sessionRepo, process.NewLivenessProbe())
+	var leases port.SessionLeaseStore
+	if leaseDir, err := config.GetSessionLeaseDir(); err != nil {
+		log.Warn().Err(err).Msg("session leases unavailable; liveness falls back to process probing")
+	} else {
+		leases = process.NewFileSessionLeases(leaseDir)
+	}
+	cleanupUC := usecase.NewCleanupSessionsUseCase(sessionRepo, process.NewLivenessProbe(), leases)
+	lifetimeUC := usecase.NewBrowserSessionLifetimeUseCase(sessionRepo, leases)
 
 	now := time.Now()
 	pid := os.Getpid()
@@ -143,6 +148,8 @@ func StartBrowserSession(
 
 	var persistOnce sync.Once
 	var persistErr error
+	// lease is written once under persistOnce and read by endFn after it.
+	var lease *usecase.BrowserSessionLease
 
 	persistFn := func(persistCtx context.Context) error {
 		persistOnce.Do(func() {
@@ -156,10 +163,12 @@ func StartBrowserSession(
 			}
 
 			saveCtx := corelogging.WithContext(context.Background(), logger)
-			if err := sessionRepo.Save(saveCtx, session); err != nil {
-				persistErr = fmt.Errorf("save session: %w", err)
+			began, err := lifetimeUC.Begin(saveCtx, session)
+			if err != nil {
+				persistErr = err
 				return
 			}
+			lease = began
 
 			logger.Info().
 				Str("session_id", string(session.ID)).
@@ -178,7 +187,8 @@ func StartBrowserSession(
 
 	endFn := func(endCtx context.Context) error {
 		_ = persistFn(endCtx)
-		endErr := sessionUC.EndSession(endCtx, session.ID, time.Now())
+		endErr := lifetimeUC.End(endCtx, session.ID, lease, time.Now())
+		lease = nil
 
 		// Remove PID file on clean shutdown.
 		if logDir != "" {
@@ -373,11 +383,9 @@ func runSessionCleanup(
 ) {
 	bgCtx := context.WithoutCancel(startupCtx)
 
-	// End only active browser sessions whose recorded process is proven dead.
+	// End active browser sessions whose process is gone or whose PID was reused.
 	staleOutput, err := cleanupUC.ReconcileActiveBrowserSessions(bgCtx, usecase.ReconcileActiveBrowserSessionsInput{
 		CurrentSessionID: currentSessionID,
-		RecentLimit:      recentSessionsLimit,
-		EndedAt:          time.Now(),
 	})
 	if err != nil {
 		if log != nil {

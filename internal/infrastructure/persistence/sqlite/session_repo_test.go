@@ -95,3 +95,122 @@ func TestSessionRepository_CRUD(t *testing.T) {
 	require.NotNil(t, recent[0].ProcessID)
 	assert.Equal(t, pid, *recent[0].ProcessID)
 }
+
+func TestSessionRepository_ListActiveBrowserReturnsOnlyActiveBrowserSessions(t *testing.T) {
+	ctx := testCtx()
+	dbPath := filepath.Join(t.TempDir(), "dumber.db")
+
+	db, err := sqlite.NewConnection(ctx, dbPath)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = db.Close() })
+
+	repo := sqlite.NewSessionRepository(db)
+
+	base := time.Date(2025, 12, 22, 9, 0, 0, 0, time.UTC)
+	ended := base.Add(time.Hour)
+	sessions := []*entity.Session{
+		{ID: "20251222_090000_old1", Type: entity.SessionTypeBrowser, StartedAt: base},
+		{ID: "20251222_090100_new1", Type: entity.SessionTypeBrowser, StartedAt: base.Add(time.Minute)},
+		{ID: "20251222_090200_done", Type: entity.SessionTypeBrowser, StartedAt: base.Add(2 * time.Minute), EndedAt: &ended},
+		{ID: "20251222_090300_cli1", Type: entity.SessionTypeCLI, StartedAt: base.Add(3 * time.Minute)},
+	}
+	for _, s := range sessions {
+		require.NoError(t, repo.Save(ctx, s))
+	}
+
+	active, err := repo.ListActiveBrowser(ctx)
+	require.NoError(t, err)
+
+	ids := make([]entity.SessionID, 0, len(active))
+	for _, s := range active {
+		ids = append(ids, s.ID)
+	}
+	assert.Equal(t, []entity.SessionID{"20251222_090100_new1", "20251222_090000_old1"}, ids)
+}
+
+func TestSessionRepository_DeleteOldestExitedKeepsNewestStartedOnEndedAtTie(t *testing.T) {
+	ctx := testCtx()
+	dbPath := filepath.Join(t.TempDir(), "dumber.db")
+
+	db, err := sqlite.NewConnection(ctx, dbPath)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = db.Close() })
+
+	repo := sqlite.NewSessionRepository(db)
+
+	base := time.Date(2025, 12, 22, 10, 0, 0, 0, time.UTC)
+	ended := base.Add(24 * time.Hour)
+	ids := []entity.SessionID{"20251222_100000_aaaa", "20251222_110000_bbbb", "20251222_120000_cccc"}
+	for i, id := range ids {
+		s := &entity.Session{ID: id, Type: entity.SessionTypeBrowser, StartedAt: base.Add(time.Duration(i) * time.Hour)}
+		require.NoError(t, repo.Save(ctx, s))
+		require.NoError(t, repo.MarkEnded(ctx, id, ended))
+	}
+
+	deleted, err := repo.DeleteOldestExited(ctx, 2)
+	require.NoError(t, err)
+	assert.Equal(t, int64(1), deleted)
+
+	oldest, err := repo.FindByID(ctx, ids[0])
+	require.NoError(t, err)
+	assert.Nil(t, oldest)
+	for _, id := range ids[1:] {
+		kept, err := repo.FindByID(ctx, id)
+		require.NoError(t, err)
+		assert.NotNil(t, kept, id)
+	}
+}
+
+func TestSessionRepository_MarkEndedAtLastActivityRanksBelowRecentCleanExit(t *testing.T) {
+	ctx := testCtx()
+	dbPath := filepath.Join(t.TempDir(), "dumber.db")
+
+	db, err := sqlite.NewConnection(ctx, dbPath)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = db.Close() })
+
+	repo := sqlite.NewSessionRepository(db)
+	states := sqlite.NewSessionStateRepository(db)
+
+	base := time.Date(2025, 12, 22, 10, 0, 0, 0, time.UTC)
+	snapshotAt := base.Add(time.Hour)
+	cleanEnd := base.Add(30 * time.Hour)
+	withSnapshot := &entity.Session{ID: "20251222_100000_snap", Type: entity.SessionTypeBrowser, StartedAt: base}
+	noSnapshot := &entity.Session{ID: "20251222_120000_none", Type: entity.SessionTypeBrowser, StartedAt: base.Add(2 * time.Hour)}
+	cleanExit := &entity.Session{ID: "20251222_130000_done", Type: entity.SessionTypeBrowser, StartedAt: base.Add(3 * time.Hour), EndedAt: &cleanEnd}
+	for _, s := range []*entity.Session{withSnapshot, noSnapshot, cleanExit} {
+		require.NoError(t, repo.Save(ctx, s))
+	}
+	require.NoError(t, states.SaveSnapshot(ctx, &entity.SessionState{
+		Version:   entity.SessionStateVersion,
+		SessionID: withSnapshot.ID,
+		SavedAt:   snapshotAt,
+	}))
+
+	for _, id := range []entity.SessionID{withSnapshot.ID, noSnapshot.ID} {
+		ended, markErr := repo.MarkEndedAtLastActivity(ctx, id)
+		require.NoError(t, markErr)
+		assert.True(t, ended, id)
+	}
+	ended, err := repo.MarkEndedAtLastActivity(ctx, cleanExit.ID)
+	require.NoError(t, err)
+	assert.False(t, ended, "an ended session keeps its ended_at")
+
+	got, err := repo.FindByID(ctx, withSnapshot.ID)
+	require.NoError(t, err)
+	require.NotNil(t, got.EndedAt)
+	assert.True(t, snapshotAt.Equal(*got.EndedAt), "ended at %s", got.EndedAt)
+
+	got, err = repo.FindByID(ctx, noSnapshot.ID)
+	require.NoError(t, err)
+	require.NotNil(t, got.EndedAt)
+	assert.True(t, noSnapshot.StartedAt.Equal(*got.EndedAt), "ended at %s", got.EndedAt)
+
+	deleted, err := repo.DeleteOldestExited(ctx, 1)
+	require.NoError(t, err)
+	assert.Equal(t, int64(2), deleted)
+	kept, err := repo.FindByID(ctx, cleanExit.ID)
+	require.NoError(t, err)
+	require.NotNil(t, kept)
+	assert.True(t, cleanEnd.Equal(*kept.EndedAt), "ended at %s", kept.EndedAt)
+}

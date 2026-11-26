@@ -25,6 +25,7 @@ type Querier interface {
 	DeleteHistoryOlderThan(ctx context.Context, lastVisited sql.NullTime) error
 	DeleteHistorySince(ctx context.Context, lastVisited sql.NullTime) error
 	// Deletes exited browser sessions beyond the keep limit, keeping the most recent ones.
+	// started_at breaks ties between sessions ended together by startup reconciliation.
 	DeleteOldestExitedSessions(ctx context.Context, offset int64) (int64, error)
 	DeletePermission(ctx context.Context, arg DeletePermissionParams) error
 	DeleteSession(ctx context.Context, id string) error
@@ -77,10 +78,14 @@ type Querier interface {
 	IncrementVisitCountByDelta(ctx context.Context, arg IncrementVisitCountByDeltaParams) error
 	InsertSession(ctx context.Context, arg InsertSessionParams) error
 	IsWhitelisted(ctx context.Context, domain string) (int64, error)
+	ListActiveBrowserSessions(ctx context.Context) ([]Session, error)
 	ListAllPermissions(ctx context.Context) ([]Permission, error)
 	ListPermissionsByOrigin(ctx context.Context, origin string) ([]Permission, error)
 	ListZoomLevels(ctx context.Context) ([]ZoomLevel, error)
 	MarkSessionEnded(ctx context.Context, arg MarkSessionEndedParams) error
+	// Ends an active session at its last snapshot, or its start when it never saved one.
+	// A session that already ended keeps its real ended_at.
+	MarkSessionEndedAtLastActivity(ctx context.Context, id string) (int64, error)
 	RemoveFromWhitelist(ctx context.Context, domain string) error
 	RemoveTagFromFavorite(ctx context.Context, arg RemoveTagFromFavoriteParams) error
 	SearchHistory(ctx context.Context, arg SearchHistoryParams) ([]History, error)

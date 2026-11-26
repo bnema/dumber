@@ -68,6 +68,14 @@ func (r *sessionRepo) GetActive(ctx context.Context) (*entity.Session, error) {
 	return sessionFromRow(row), nil
 }
 
+func (r *sessionRepo) ListActiveBrowser(ctx context.Context) ([]*entity.Session, error) {
+	rows, err := r.queries.ListActiveBrowserSessions(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return sessionsFromRows(rows), nil
+}
+
 func (r *sessionRepo) GetRecent(ctx context.Context, limit int) ([]*entity.Session, error) {
 	if limit == 0 {
 		limit = 20
@@ -79,12 +87,15 @@ func (r *sessionRepo) GetRecent(ctx context.Context, limit int) ([]*entity.Sessi
 	if err != nil {
 		return nil, err
 	}
+	return sessionsFromRows(rows), nil
+}
 
+func sessionsFromRows(rows []sqlc.Session) []*entity.Session {
 	sessions := make([]*entity.Session, len(rows))
 	for i := range rows {
 		sessions[i] = sessionFromRow(rows[i])
 	}
-	return sessions, nil
+	return sessions
 }
 
 func (r *sessionRepo) MarkEnded(ctx context.Context, id entity.SessionID, endedAt time.Time) error {
@@ -93,6 +104,11 @@ func (r *sessionRepo) MarkEnded(ctx context.Context, id entity.SessionID, endedA
 		EndedAt: sql.NullTime{Time: endedAt, Valid: true},
 		ID:      string(id),
 	})
+}
+
+func (r *sessionRepo) MarkEndedAtLastActivity(ctx context.Context, id entity.SessionID) (bool, error) {
+	rows, err := r.queries.MarkSessionEndedAtLastActivity(ctx, string(id))
+	return rows > 0, err
 }
 
 func (r *sessionRepo) Delete(ctx context.Context, id entity.SessionID) error {

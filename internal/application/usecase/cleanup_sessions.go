@@ -14,16 +14,21 @@ import (
 type CleanupSessionsUseCase struct {
 	sessionRepo  repository.SessionRepository
 	processProbe port.SessionProcessProbe
+	leases       port.SessionLeaseStore
 }
 
 // NewCleanupSessionsUseCase creates a new CleanupSessionsUseCase.
+// leases decides liveness for sessions that hold one; processProbe covers older
+// sessions recorded without a lease. Either may be nil.
 func NewCleanupSessionsUseCase(
 	sessionRepo repository.SessionRepository,
 	processProbe port.SessionProcessProbe,
+	leases port.SessionLeaseStore,
 ) *CleanupSessionsUseCase {
 	return &CleanupSessionsUseCase{
 		sessionRepo:  sessionRepo,
 		processProbe: processProbe,
+		leases:       leases,
 	}
 }
 
@@ -53,59 +58,103 @@ type CleanupSessionsOutput struct {
 
 type ReconcileActiveBrowserSessionsInput struct {
 	CurrentSessionID entity.SessionID
-	RecentLimit      int
-	EndedAt          time.Time
 }
 
 type ReconcileActiveBrowserSessionsOutput struct {
 	EndedDeadSessions int64
 }
 
-// ReconcileActiveBrowserSessions ends only active browser sessions whose recorded process is proven dead.
+// pidReuseMargin absorbs clock and /proc rounding error before a PID holder that
+// started after its session is treated as an unrelated process reusing the PID.
+const pidReuseMargin = time.Minute
+
+// sessionProcessRunning reports whether the session's own process may still hold its PID.
+// A holder running another binary that started well after the session reuses the PID.
+// A Dumber holder is kept whatever its start time, since a wall-clock step forward
+// shifts the computed start time and must never end a live session.
+func sessionProcessRunning(s *entity.Session, status port.SessionProcessStatus) bool {
+	if !status.Running {
+		return false
+	}
+	return status.SameExecutable || !status.StartedAt.After(s.StartedAt.Add(pidReuseMargin))
+}
+
+// ReconcileActiveBrowserSessions ends every active browser session whose process is gone.
+// A session's lease answers exactly; sessions without one fall back to probing their PID.
 func (uc *CleanupSessionsUseCase) ReconcileActiveBrowserSessions(
 	ctx context.Context,
 	input ReconcileActiveBrowserSessionsInput,
 ) (ReconcileActiveBrowserSessionsOutput, error) {
 	log := logging.FromContext(ctx)
 	output := ReconcileActiveBrowserSessionsOutput{}
-	if uc.processProbe == nil {
+	if uc.processProbe == nil && uc.leases == nil {
 		return output, nil
 	}
-	if input.RecentLimit <= 0 {
-		input.RecentLimit = 20
-	}
-	endedAt := input.EndedAt
-	if endedAt.IsZero() {
-		endedAt = time.Now()
-	}
-
-	recent, err := uc.sessionRepo.GetRecent(ctx, input.RecentLimit)
+	active, err := uc.sessionRepo.ListActiveBrowser(ctx)
 	if err != nil {
 		return output, err
 	}
-	for _, s := range recent {
-		if s == nil || s.ID == input.CurrentSessionID || s.Type != entity.SessionTypeBrowser || !s.IsActive() {
+	for _, s := range active {
+		if s == nil || s.ID == input.CurrentSessionID {
 			continue
 		}
-		if s.ProcessID == nil {
-			log.Debug().Str("session_id", string(s.ID)).Msg("skipping active session without process id")
+		if !uc.sessionProcessGone(ctx, s) {
 			continue
 		}
-		alive, probeErr := uc.processProbe.IsProcessAlive(ctx, *s.ProcessID)
-		if probeErr != nil {
-			log.Warn().Err(probeErr).Str("session_id", string(s.ID)).Int("pid", *s.ProcessID).Msg("failed to probe session process")
-			continue
-		}
-		if alive {
-			continue
-		}
-		if err := uc.sessionRepo.MarkEnded(ctx, s.ID, endedAt); err != nil {
+		// Ending at last activity keeps long-dead sessions from outranking recent
+		// clean exits in the exited-session count cleanup.
+		ended, err := uc.sessionRepo.MarkEndedAtLastActivity(ctx, s.ID)
+		if err != nil {
 			return output, err
 		}
-		log.Info().Str("session_id", string(s.ID)).Int("pid", *s.ProcessID).Msg("ended dead browser session")
+		if !ended {
+			// The owner or another instance ended it since it was listed.
+			continue
+		}
+		if uc.leases != nil {
+			if err := uc.leases.Remove(ctx, s.ID); err != nil {
+				log.Warn().Err(err).Str("session_id", string(s.ID)).Msg("failed to remove session lease")
+			}
+		}
+		log.Info().Str("session_id", string(s.ID)).Msg("ended dead browser session")
 		output.EndedDeadSessions++
 	}
 	return output, nil
+}
+
+// sessionProcessGone reports whether the session's process is proven gone. Any doubt keeps the session.
+func (uc *CleanupSessionsUseCase) sessionProcessGone(ctx context.Context, s *entity.Session) bool {
+	log := logging.FromContext(ctx).With().Str("session_id", string(s.ID)).Logger()
+	if uc.leases != nil {
+		state, err := uc.leases.Probe(ctx, s.ID)
+		if err != nil {
+			log.Warn().Err(err).Msg("failed to probe session lease")
+			return false
+		}
+		switch state {
+		case port.SessionLeaseHeld:
+			return false
+		case port.SessionLeaseFree:
+			return true
+		case port.SessionLeaseMissing:
+			// No lease to answer: fall back to probing the PID below.
+		default:
+			return false
+		}
+	}
+	if uc.processProbe == nil {
+		return false
+	}
+	if s.ProcessID == nil {
+		log.Debug().Msg("skipping active session without lease or process id")
+		return false
+	}
+	status, err := uc.processProbe.ProcessStatus(ctx, *s.ProcessID)
+	if err != nil {
+		log.Warn().Err(err).Int("pid", *s.ProcessID).Msg("failed to probe session process")
+		return false
+	}
+	return !sessionProcessRunning(s, status)
 }
 
 // Execute cleans up old exited sessions based on the provided configuration.

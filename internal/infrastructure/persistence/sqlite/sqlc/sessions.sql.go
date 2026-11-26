@@ -32,12 +32,13 @@ DELETE FROM sessions
 WHERE id IN (
     SELECT id FROM sessions
     WHERE type = 'browser' AND ended_at IS NOT NULL
-    ORDER BY ended_at DESC
+    ORDER BY ended_at DESC, started_at DESC
     LIMIT -1 OFFSET ?
 )
 `
 
 // Deletes exited browser sessions beyond the keep limit, keeping the most recent ones.
+// started_at breaks ties between sessions ended together by startup reconciliation.
 func (q *Queries) DeleteOldestExitedSessions(ctx context.Context, offset int64) (int64, error) {
 	result, err := q.db.ExecContext(ctx, DeleteOldestExitedSessions, offset)
 	if err != nil {
@@ -151,6 +152,41 @@ func (q *Queries) InsertSession(ctx context.Context, arg InsertSessionParams) er
 	return err
 }
 
+const ListActiveBrowserSessions = `-- name: ListActiveBrowserSessions :many
+SELECT id, type, started_at, ended_at, process_id FROM sessions
+WHERE type = 'browser' AND ended_at IS NULL
+ORDER BY started_at DESC
+`
+
+func (q *Queries) ListActiveBrowserSessions(ctx context.Context) ([]Session, error) {
+	rows, err := q.db.QueryContext(ctx, ListActiveBrowserSessions)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Session{}
+	for rows.Next() {
+		var i Session
+		if err := rows.Scan(
+			&i.ID,
+			&i.Type,
+			&i.StartedAt,
+			&i.EndedAt,
+			&i.ProcessID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const MarkSessionEnded = `-- name: MarkSessionEnded :exec
 UPDATE sessions
 SET ended_at = ?
@@ -165,4 +201,23 @@ type MarkSessionEndedParams struct {
 func (q *Queries) MarkSessionEnded(ctx context.Context, arg MarkSessionEndedParams) error {
 	_, err := q.db.ExecContext(ctx, MarkSessionEnded, arg.EndedAt, arg.ID)
 	return err
+}
+
+const MarkSessionEndedAtLastActivity = `-- name: MarkSessionEndedAtLastActivity :execrows
+UPDATE sessions
+SET ended_at = COALESCE(
+    (SELECT updated_at FROM session_states WHERE session_id = sessions.id),
+    started_at
+)
+WHERE id = ? AND ended_at IS NULL
+`
+
+// Ends an active session at its last snapshot, or its start when it never saved one.
+// A session that already ended keeps its real ended_at.
+func (q *Queries) MarkSessionEndedAtLastActivity(ctx context.Context, id string) (int64, error) {
+	result, err := q.db.ExecContext(ctx, MarkSessionEndedAtLastActivity, id)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
 }

@@ -7,6 +7,7 @@ package mocks
 import (
 	"context"
 
+	"bnema.dev/dumber/internal/application/port"
 	mock "github.com/stretchr/testify/mock"
 )
 
@@ -16,10 +17,19 @@ func NewMockSessionProcessProbe(t interface {
 	mock.TestingT
 	Cleanup(func())
 }) *MockSessionProcessProbe {
+	if helper, ok := t.(interface{ Helper() }); ok {
+		helper.Helper()
+	}
+
 	mock := &MockSessionProcessProbe{}
 	mock.Mock.Test(t)
 
-	t.Cleanup(func() { mock.AssertExpectations(t) })
+	t.Cleanup(func() {
+		if helper, ok := t.(interface{ Helper() }); ok {
+			helper.Helper()
+		}
+		mock.AssertExpectations(t)
+	})
 
 	return mock
 }
@@ -37,23 +47,23 @@ func (_m *MockSessionProcessProbe) EXPECT() *MockSessionProcessProbe_Expecter {
 	return &MockSessionProcessProbe_Expecter{mock: &_m.Mock}
 }
 
-// IsProcessAlive provides a mock function for the type MockSessionProcessProbe
-func (_mock *MockSessionProcessProbe) IsProcessAlive(ctx context.Context, pid int) (bool, error) {
+// ProcessStatus provides a mock function for the type MockSessionProcessProbe
+func (_mock *MockSessionProcessProbe) ProcessStatus(ctx context.Context, pid int) (port.SessionProcessStatus, error) {
 	ret := _mock.Called(ctx, pid)
 
 	if len(ret) == 0 {
-		panic("no return value specified for IsProcessAlive")
+		panic("no return value specified for ProcessStatus")
 	}
 
-	var r0 bool
+	var r0 port.SessionProcessStatus
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, int) (bool, error)); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, int) (port.SessionProcessStatus, error)); ok {
 		return returnFunc(ctx, pid)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, int) bool); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, int) port.SessionProcessStatus); ok {
 		r0 = returnFunc(ctx, pid)
 	} else {
-		r0 = ret.Get(0).(bool)
+		r0 = ret.Get(0).(port.SessionProcessStatus)
 	}
 	if returnFunc, ok := ret.Get(1).(func(context.Context, int) error); ok {
 		r1 = returnFunc(ctx, pid)
@@ -63,19 +73,19 @@ func (_mock *MockSessionProcessProbe) IsProcessAlive(ctx context.Context, pid in
 	return r0, r1
 }
 
-// MockSessionProcessProbe_IsProcessAlive_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'IsProcessAlive'
-type MockSessionProcessProbe_IsProcessAlive_Call struct {
+// MockSessionProcessProbe_ProcessStatus_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ProcessStatus'
+type MockSessionProcessProbe_ProcessStatus_Call struct {
 	*mock.Call
 }
 
-// IsProcessAlive is a helper method to define mock.On call
+// ProcessStatus is a helper method to define mock.On call
 //   - ctx context.Context
 //   - pid int
-func (_e *MockSessionProcessProbe_Expecter) IsProcessAlive(ctx any, pid any) *MockSessionProcessProbe_IsProcessAlive_Call {
-	return &MockSessionProcessProbe_IsProcessAlive_Call{Call: _e.mock.On("IsProcessAlive", ctx, pid)}
+func (_e *MockSessionProcessProbe_Expecter) ProcessStatus(ctx any, pid any) *MockSessionProcessProbe_ProcessStatus_Call {
+	return &MockSessionProcessProbe_ProcessStatus_Call{Call: _e.mock.On("ProcessStatus", ctx, pid)}
 }
 
-func (_c *MockSessionProcessProbe_IsProcessAlive_Call) Run(run func(ctx context.Context, pid int)) *MockSessionProcessProbe_IsProcessAlive_Call {
+func (_c *MockSessionProcessProbe_ProcessStatus_Call) Run(run func(ctx context.Context, pid int)) *MockSessionProcessProbe_ProcessStatus_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
@@ -93,12 +103,12 @@ func (_c *MockSessionProcessProbe_IsProcessAlive_Call) Run(run func(ctx context.
 	return _c
 }
 
-func (_c *MockSessionProcessProbe_IsProcessAlive_Call) Return(b bool, err error) *MockSessionProcessProbe_IsProcessAlive_Call {
-	_c.Call.Return(b, err)
+func (_c *MockSessionProcessProbe_ProcessStatus_Call) Return(sessionProcessStatus port.SessionProcessStatus, err error) *MockSessionProcessProbe_ProcessStatus_Call {
+	_c.Call.Return(sessionProcessStatus, err)
 	return _c
 }
 
-func (_c *MockSessionProcessProbe_IsProcessAlive_Call) RunAndReturn(run func(ctx context.Context, pid int) (bool, error)) *MockSessionProcessProbe_IsProcessAlive_Call {
+func (_c *MockSessionProcessProbe_ProcessStatus_Call) RunAndReturn(run func(ctx context.Context, pid int) (port.SessionProcessStatus, error)) *MockSessionProcessProbe_ProcessStatus_Call {
 	_c.Call.Return(run)
 	return _c
 }

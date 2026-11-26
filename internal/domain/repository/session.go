@@ -14,8 +14,13 @@ type SessionRepository interface {
 
 	// GetActive returns the most recent active browser session (if any).
 	GetActive(ctx context.Context) (*entity.Session, error)
+	// ListActiveBrowser returns every browser session not marked ended, newest first.
+	ListActiveBrowser(ctx context.Context) ([]*entity.Session, error)
 	GetRecent(ctx context.Context, limit int) ([]*entity.Session, error)
 	MarkEnded(ctx context.Context, id entity.SessionID, endedAt time.Time) error
+	// MarkEndedAtLastActivity ends an active session at its last snapshot time, or its
+	// start time. It reports false when the session was already ended or does not exist.
+	MarkEndedAtLastActivity(ctx context.Context, id entity.SessionID) (bool, error)
 
 	// Delete removes a session record.
 	Delete(ctx context.Context, id entity.SessionID) error
