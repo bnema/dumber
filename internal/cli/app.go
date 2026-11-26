@@ -101,7 +101,7 @@ func NewApp() (*App, error) {
 	// This avoids creating extra tiny session log files for each CLI invocation.
 	sessionRepo := sqlite.NewSessionRepository(db)
 	sessionLoggerAdapter := infralogging.NewSessionLoggerAdapter()
-	sessionUC := usecase.NewManageSessionUseCase(sessionRepo, sessionLoggerAdapter)
+	sessionUC := usecase.NewManageSessionUseCase(sessionRepo)
 	if active, activeErr := sessionUC.GetActiveSession(ctx); activeErr == nil && active != nil {
 		attachedLogger, attachedCleanup, _ := sessionLoggerAdapter.CreateLogger(ctx, active.ID, port.SessionLogConfig{
 			Level:         logLevel,

@@ -88,7 +88,7 @@ func TestFindSessionByIDOrSuffixSearchesBeyondDefaultLimit(t *testing.T) {
 	withApp(t, &cli.App{
 		Config:         cfg,
 		Theme:          styles.NewTheme(cfg),
-		SessionUC:      usecase.NewManageSessionUseCase(sessionRepo, nil),
+		SessionUC:      usecase.NewManageSessionUseCase(sessionRepo),
 		ListSessionsUC: usecase.NewListSessionsUseCase(sessionRepo, sessionCommandStateRepo{}),
 	})
 
@@ -215,7 +215,7 @@ func TestSessionRestoreDeliveryFailureIsPrintedAndReturned(t *testing.T) {
 	states.EXPECT().GetSnapshot(mock.Anything, entity.SessionID("saved")).Return(&entity.SessionState{Version: entity.SessionStateVersion}, nil)
 	launcher := portmocks.NewMockSessionRestoreLauncher(t)
 	launcher.EXPECT().RestoreSession(mock.Anything, entity.SessionID("saved")).Return(false, fmt.Errorf("relay unavailable"))
-	withApp(t, &cli.App{Config: cfg, Theme: styles.NewTheme(cfg), SessionUC: usecase.NewManageSessionUseCase(sessions, nil), ListSessionsUC: usecase.NewListSessionsUseCase(sessions, states), RestoreUC: usecase.NewRestoreSessionUseCase(states, sessions), SessionRestoreLauncher: launcher})
+	withApp(t, &cli.App{Config: cfg, Theme: styles.NewTheme(cfg), SessionUC: usecase.NewManageSessionUseCase(sessions), ListSessionsUC: usecase.NewListSessionsUseCase(sessions, states), RestoreUC: usecase.NewRestoreSessionUseCase(states, sessions), SessionRestoreLauncher: launcher})
 	old := os.Stderr
 	reader, writer, err := os.Pipe()
 	require.NoError(t, err)
@@ -238,7 +238,7 @@ func TestSessionRestoreRejectsActiveSourceBeforeColdDestination(t *testing.T) {
 	states.EXPECT().GetAllSnapshots(mock.Anything).Return([]*entity.SessionState{}, nil)
 	// The cold-launch-capable service must never be called for an active source.
 	launcher := portmocks.NewMockSessionRestoreLauncher(t)
-	withApp(t, &cli.App{Config: cfg, Theme: styles.NewTheme(cfg), SessionUC: usecase.NewManageSessionUseCase(sessions, nil), ListSessionsUC: usecase.NewListSessionsUseCase(sessions, states), RestoreUC: usecase.NewRestoreSessionUseCase(states, sessions), SessionRestoreLauncher: launcher})
+	withApp(t, &cli.App{Config: cfg, Theme: styles.NewTheme(cfg), SessionUC: usecase.NewManageSessionUseCase(sessions), ListSessionsUC: usecase.NewListSessionsUseCase(sessions, states), RestoreUC: usecase.NewRestoreSessionUseCase(states, sessions), SessionRestoreLauncher: launcher})
 	discardStderr(t)
 	err := runSessionsRestore(nil, []string{"active-source"})
 	require.ErrorIs(t, err, usecase.ErrSessionAlreadyOpen)

@@ -1,6 +1,7 @@
 package usecase_test
 
 import (
+	"context"
 	"errors"
 	"testing"
 	"time"
@@ -15,10 +16,16 @@ import (
 )
 
 // countingCloser records Close calls; io.Closer is a stdlib interface with no generated mock.
-type countingCloser struct{ closes int }
+// closedAfterEnd tells whether the lease was released after the row was marked ended.
+type countingCloser struct {
+	closes         int
+	ended          bool
+	closedAfterEnd bool
+}
 
 func (c *countingCloser) Close() error {
 	c.closes++
+	c.closedAfterEnd = c.ended
 	return nil
 }
 
@@ -103,7 +110,9 @@ func TestBrowserSessionLifetime_End(t *testing.T) {
 			lease, err := uc.Begin(ctx, session)
 			require.NoError(t, err)
 
-			mark := repo.EXPECT().MarkEnded(ctx, session.ID, endedAt).Return(tt.markErr).Call
+			mark := repo.EXPECT().MarkEnded(ctx, session.ID, endedAt).
+				Run(func(context.Context, entity.SessionID, time.Time) { closer.ended = true }).
+				Return(tt.markErr).Call
 			if tt.wantRemove {
 				leases.EXPECT().Remove(ctx, session.ID).Return(nil).NotBefore(mark)
 			}
@@ -116,6 +125,7 @@ func TestBrowserSessionLifetime_End(t *testing.T) {
 				require.NoError(t, err)
 			}
 			assert.Equal(t, 1, closer.closes)
+			assert.True(t, closer.closedAfterEnd, "the lock is released only after the row is marked ended")
 		})
 	}
 }
