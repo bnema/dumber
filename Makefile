@@ -127,7 +127,7 @@ generate: ## Generate code (SQLC)
 
 mocks: ## Generate mock implementations with the pinned mockery
 	@echo "Generating mocks with mockery $(MOCKERY_VERSION)..."
-	@$(MOCKERY) version 2>/dev/null | grep -q '$(MOCKERY_VERSION)' || { echo "mockery $(MOCKERY_VERSION) required: run make install-mockery"; exit 1; }
+	@$(MOCKERY) version 2>/dev/null | grep -qxF '$(MOCKERY_VERSION)' || { echo "mockery $(MOCKERY_VERSION) required: run make install-mockery"; exit 1; }
 	$(MOCKERY)
 	@echo "Mock generation complete"
 
