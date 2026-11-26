@@ -20,6 +20,7 @@ var fatalFileRegex = regexp.MustCompile(`^pid_(\d+)(?:\.(\d+))?\.fatal\.txt$`)
 // and the current process's own file are skipped. Empty files are deleted;
 // non-empty ones get a crash report. It returns the report paths.
 func sweepFatalOutputs(
+	ctx context.Context,
 	logDir string,
 	currentPID int,
 	currentSessionID string,
@@ -41,11 +42,11 @@ func sweepFatalOutputs(
 			continue
 		}
 		rotated := m[2] != ""
-		if !rotated && (pid == currentPID || previous.alive(context.Background(), pid, "")) {
-			continue
-		}
 		info, statErr := os.Stat(path)
 		if statErr != nil {
+			continue
+		}
+		if !rotated && (pid == currentPID || previous.alive(ctx, pid, "", info.ModTime())) {
 			continue
 		}
 		if info.Size() == 0 {

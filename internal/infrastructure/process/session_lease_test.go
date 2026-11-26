@@ -114,3 +114,78 @@ func TestFileSessionLeases_ListReturnsLeaseFilesOnly(t *testing.T) {
 	require.NoError(t, err)
 	assert.ElementsMatch(t, []entity.SessionID{testSessionID, "20251222_110000_free"}, ids)
 }
+
+// holdLease locks the lease file through another open file description, as a
+// prober or another instance would.
+func holdLease(t *testing.T, dir string) *os.File {
+	t.Helper()
+	require.NoError(t, os.MkdirAll(dir, 0o700))
+	file, err := os.OpenFile(filepath.Join(dir, string(testSessionID)+".lock"), os.O_CREATE|os.O_RDWR, 0o600)
+	require.NoError(t, err)
+	require.NoError(t, unix.Flock(int(file.Fd()), unix.LOCK_EX|unix.LOCK_NB))
+	return file
+}
+
+func TestFileSessionLeases_AcquireOutlastsABriefProbe(t *testing.T) {
+	ctx := context.Background()
+	dir := t.TempDir()
+	leases := NewFileSessionLeases(dir)
+	prober := holdLease(t, dir)
+	waits := 0
+	leases.waitRetry = func(context.Context) error {
+		waits++
+		return prober.Close() // the prober finishes while Acquire waits
+	}
+
+	lease, err := leases.Acquire(ctx, testSessionID)
+
+	require.NoError(t, err)
+	assert.Equal(t, 1, waits)
+	t.Cleanup(func() { _ = lease.Close() })
+	state, err := leases.Probe(ctx, testSessionID)
+	require.NoError(t, err)
+	assert.Equal(t, port.SessionLeaseHeld, state)
+}
+
+func TestFileSessionLeases_AcquireFailureLeavesNoFreeLease(t *testing.T) {
+	ctx := context.Background()
+	dir := t.TempDir()
+	leases := NewFileSessionLeases(dir)
+	holder := holdLease(t, dir)
+	t.Cleanup(func() { _ = holder.Close() })
+	waits := 0
+	leases.waitRetry = func(context.Context) error {
+		waits++
+		return nil
+	}
+
+	_, err := leases.Acquire(ctx, testSessionID)
+
+	require.Error(t, err)
+	assert.Equal(t, leaseAcquireAttempts-1, waits)
+	assert.NoFileExists(t, filepath.Join(dir, string(testSessionID)+".lock"), "a failed acquire must read as missing, not free")
+}
+
+func TestFileSessionLeases_RemoveIfFree(t *testing.T) {
+	ctx := context.Background()
+	dir := t.TempDir()
+	leases := NewFileSessionLeases(dir)
+	path := filepath.Join(dir, string(testSessionID)+".lock")
+
+	removed, err := leases.RemoveIfFree(ctx, testSessionID)
+	require.NoError(t, err)
+	assert.False(t, removed, "missing lease")
+
+	lease, err := leases.Acquire(ctx, testSessionID)
+	require.NoError(t, err)
+	removed, err = leases.RemoveIfFree(ctx, testSessionID)
+	require.NoError(t, err)
+	assert.False(t, removed, "held lease is kept")
+	assert.FileExists(t, path)
+
+	require.NoError(t, lease.Close())
+	removed, err = leases.RemoveIfFree(ctx, testSessionID)
+	require.NoError(t, err)
+	assert.True(t, removed)
+	assert.NoFileExists(t, path)
+}

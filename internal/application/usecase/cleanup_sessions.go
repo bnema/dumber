@@ -68,15 +68,16 @@ type ReconcileActiveBrowserSessionsOutput struct {
 // started after its session is treated as an unrelated process reusing the PID.
 const pidReuseMargin = time.Minute
 
-// sessionProcessRunning reports whether the session's own process may still hold its PID.
-// A holder running another binary that started well after the session reuses the PID.
-// A Dumber holder is kept whatever its start time, since a wall-clock step forward
-// shifts the computed start time and must never end a live session.
-func sessionProcessRunning(s *entity.Session, status port.SessionProcessStatus) bool {
+// ProcessHoldsRecordedPID reports whether the process that recorded a PID at
+// recordedAt may still hold it. A holder running another binary that started well
+// after recordedAt reuses the PID. A Dumber holder is kept whatever its start time,
+// since a wall-clock step forward shifts the computed start time and must never
+// count a live process as dead.
+func ProcessHoldsRecordedPID(status port.SessionProcessStatus, recordedAt time.Time) bool {
 	if !status.Running {
 		return false
 	}
-	return status.SameExecutable || !status.StartedAt.After(s.StartedAt.Add(pidReuseMargin))
+	return status.SameExecutable || !status.StartedAt.After(recordedAt.Add(pidReuseMargin))
 }
 
 // ReconcileActiveBrowserSessions ends every active browser session whose process is gone.
@@ -150,19 +151,14 @@ func (uc *CleanupSessionsUseCase) SweepOrphanLeases(ctx context.Context, current
 		if _, ok := activeIDs[id]; ok || id == current {
 			continue
 		}
-		state, err := uc.leases.Probe(ctx, id)
+		ok, err := uc.leases.RemoveIfFree(ctx, id)
 		if err != nil {
-			log.Warn().Err(err).Str("session_id", string(id)).Msg("failed to probe orphan session lease")
-			continue
-		}
-		if state != port.SessionLeaseFree {
-			continue
-		}
-		if err := uc.leases.Remove(ctx, id); err != nil {
 			log.Warn().Err(err).Str("session_id", string(id)).Msg("failed to remove orphan session lease")
 			continue
 		}
-		removed++
+		if ok {
+			removed++
+		}
 	}
 	return removed, nil
 }
@@ -199,7 +195,7 @@ func (uc *CleanupSessionsUseCase) sessionProcessGone(ctx context.Context, s *ent
 		log.Warn().Err(err).Int("pid", *s.ProcessID).Msg("failed to probe session process")
 		return false
 	}
-	return !sessionProcessRunning(s, status)
+	return !ProcessHoldsRecordedPID(status, s.StartedAt)
 }
 
 // Execute cleans up old exited sessions based on the provided configuration.

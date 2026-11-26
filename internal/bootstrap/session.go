@@ -156,8 +156,9 @@ func StartBrowserSession(
 		persistOnce.Do(func() {
 			// Check for crash from previous run.
 			if logDir != "" {
-				reports := detectPreviousCrash(logDir, string(session.ID), previous, &logger)
-				reports = append(reports, sweepFatalOutputs(logDir, os.Getpid(), string(session.ID), previous, &logger)...)
+				probeCtx := context.WithoutCancel(persistCtx)
+				reports := detectPreviousCrash(probeCtx, logDir, string(session.ID), previous, &logger)
+				reports = append(reports, sweepFatalOutputs(probeCtx, logDir, os.Getpid(), string(session.ID), previous, &logger)...)
 				if len(reports) > 0 {
 					bs.SetCrashReports(reports)
 				}
@@ -259,11 +260,20 @@ func removePIDFile(logDir string) {
 // detectPreviousCrash checks the PID file from a previous run.
 // If the file exists and the process is dead, the previous session crashed.
 // Returns generated crash report paths (if any).
-func detectPreviousCrash(logDir, currentSessionID string, previous previousProcessChecker, logger *zerolog.Logger) []string {
+func detectPreviousCrash(
+	ctx context.Context,
+	logDir, currentSessionID string,
+	previous previousProcessChecker,
+	logger *zerolog.Logger,
+) []string {
 	p := pidFilePath(logDir)
 	raw, err := os.ReadFile(p)
 	if err != nil {
 		return nil // No PID file → clean previous exit (or first run).
+	}
+	info, err := os.Stat(p)
+	if err != nil {
+		return nil
 	}
 
 	pid, crashedSessionID, parseErr := parsePIDFile(string(raw))
@@ -273,7 +283,7 @@ func detectPreviousCrash(logDir, currentSessionID string, previous previousProce
 		return nil
 	}
 
-	if previous.alive(context.Background(), pid, crashedSessionID) {
+	if previous.alive(ctx, pid, crashedSessionID, info.ModTime()) {
 		// Another instance is running; don't touch the PID file.
 		if logger != nil {
 			logger.Warn().Int("pid", pid).Msg("previous instance still running (PID file exists)")
@@ -325,21 +335,25 @@ type previousProcessChecker struct {
 }
 
 // alive answers from the session's lease when one is known, since it works across
-// PID reuse and PID namespaces. Otherwise the PID must be held by a Dumber main
-// process; our own PID, threads, subprocesses and other programs reuse it. Any doubt
-// counts as alive, so no false crash report is written and the PID file stays.
-func (c previousProcessChecker) alive(ctx context.Context, pid int, sessionID string) bool {
+// PID reuse and PID namespaces. Otherwise it applies the reconciliation rule to the
+// PID recorded at recordedAt (the PID or fatal file's modification time): our own
+// PID, threads, subprocesses and later programs reuse it. Any doubt counts as alive,
+// so no false crash report is written and the PID file stays.
+func (c previousProcessChecker) alive(ctx context.Context, pid int, sessionID string, recordedAt time.Time) bool {
 	if sessionID != "" && c.leases != nil {
 		state, err := c.leases.Probe(ctx, entity.SessionID(sessionID))
-		if err == nil {
-			switch state {
-			case port.SessionLeaseHeld:
-				return true
-			case port.SessionLeaseFree:
-				return false
-			case port.SessionLeaseMissing:
-				// Older session or failed acquire: probe the PID below.
-			}
+		if err != nil {
+			return true
+		}
+		switch state {
+		case port.SessionLeaseHeld:
+			return true
+		case port.SessionLeaseFree:
+			return false
+		case port.SessionLeaseMissing:
+			// No lease file (older session or failed acquire): probe the PID below.
+		default:
+			return true
 		}
 	}
 	if c.probe == nil {
@@ -349,7 +363,7 @@ func (c previousProcessChecker) alive(ctx context.Context, pid int, sessionID st
 	if err != nil {
 		return true
 	}
-	return status.Running && status.SameExecutable
+	return usecase.ProcessHoldsRecordedPID(status, recordedAt)
 }
 
 // findLastSessionLog returns the most recent session_*.log file in logDir,

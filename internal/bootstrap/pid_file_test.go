@@ -72,7 +72,7 @@ func TestDetectPreviousCrash_UsesPIDFileSession(t *testing.T) {
 	writeSessionLog(t, logDir, "current", now)
 	require.NoError(t, os.WriteFile(pidFilePath(logDir), []byte(fmt.Sprintf("%d\ncrashed\n", deadPID)), filePerm))
 
-	reports := detectPreviousCrash(logDir, "current", hostChecker(), nil)
+	reports := detectPreviousCrash(context.Background(), logDir, "current", hostChecker(), nil)
 
 	require.Len(t, reports, 1)
 	assert.Equal(t, "session_crashed.crash.json", filepath.Base(reports[0]))
@@ -86,7 +86,7 @@ func TestDetectPreviousCrash_V1FallbackExcludesCurrentSession(t *testing.T) {
 	writeSessionLog(t, logDir, "current", now)
 	require.NoError(t, os.WriteFile(pidFilePath(logDir), []byte(fmt.Sprintf("%d\n", deadPID)), filePerm))
 
-	reports := detectPreviousCrash(logDir, "current", hostChecker(), nil)
+	reports := detectPreviousCrash(context.Background(), logDir, "current", hostChecker(), nil)
 
 	require.Len(t, reports, 1)
 	assert.Equal(t, "session_previous.crash.json", filepath.Base(reports[0]))
@@ -107,7 +107,7 @@ func TestDetectPreviousCrash_OwnPIDCountsAsDead(t *testing.T) {
 	writeSessionLog(t, logDir, "reused", time.Now().Add(-time.Hour))
 	require.NoError(t, os.WriteFile(pidFilePath(logDir), []byte(fmt.Sprintf("%d\nreused\n", os.Getpid())), filePerm))
 
-	reports := detectPreviousCrash(logDir, "current", hostChecker(), nil)
+	reports := detectPreviousCrash(context.Background(), logDir, "current", hostChecker(), nil)
 
 	require.Len(t, reports, 1)
 	assert.Equal(t, "session_reused.crash.json", filepath.Base(reports[0]))
@@ -129,7 +129,7 @@ func TestSweepFatalOutputs(t *testing.T) {
 	writeFatalFile(t, own, "")
 	writeFatalFile(t, rotated, "panic: reused pid\n")
 
-	reports := sweepFatalOutputs(logDir, self, "current", hostChecker(), nil)
+	reports := sweepFatalOutputs(context.Background(), logDir, self, "current", hostChecker(), nil)
 
 	names := make([]string, 0, len(reports))
 	for _, r := range reports {
@@ -156,6 +156,7 @@ func TestSweepFatalOutputs(t *testing.T) {
 }
 
 func TestPreviousProcessChecker_Alive(t *testing.T) {
+	recordedAt := time.Date(2026, 6, 18, 20, 0, 0, 0, time.UTC)
 	tests := []struct {
 		name      string
 		sessionID string
@@ -171,11 +172,19 @@ func TestPreviousProcessChecker_Alive(t *testing.T) {
 			name: "missing lease probes a dumber main process", sessionID: "s", lease: leaseState(port.SessionLeaseMissing),
 			status: &port.SessionProcessStatus{Running: true, SameExecutable: true}, want: true,
 		},
+		{name: "lease error counts as alive", sessionID: "s", lease: leaseState(port.SessionLeaseMissing), leaseErr: errors.New("io"), want: true},
 		{
-			name: "lease error probes the pid", sessionID: "s", lease: leaseState(port.SessionLeaseMissing), leaseErr: errors.New("io"),
-			status: &port.SessionProcessStatus{}, want: false,
+			name:   "no session id: program started after the file reuses the pid",
+			status: &port.SessionProcessStatus{Running: true, StartedAt: recordedAt.Add(2 * time.Minute)}, want: false,
 		},
-		{name: "no session id: pid held by another program is reused", status: &port.SessionProcessStatus{Running: true}, want: false},
+		{
+			name:   "no session id: dumber from another binary path started before the file",
+			status: &port.SessionProcessStatus{Running: true, StartedAt: recordedAt.Add(-time.Second)}, want: true,
+		},
+		{
+			name:   "no session id: same binary started later is kept",
+			status: &port.SessionProcessStatus{Running: true, SameExecutable: true, StartedAt: recordedAt.Add(time.Hour)}, want: true,
+		},
 		{name: "no session id: free pid is dead", status: &port.SessionProcessStatus{}, want: false},
 		{name: "probe error counts as alive", status: &port.SessionProcessStatus{}, probeErr: errors.New("foreign /proc"), want: true},
 	}
@@ -192,7 +201,7 @@ func TestPreviousProcessChecker_Alive(t *testing.T) {
 			}
 			checker := previousProcessChecker{leases: leases, probe: probe}
 
-			assert.Equal(t, tt.want, checker.alive(context.Background(), 4321, tt.sessionID))
+			assert.Equal(t, tt.want, checker.alive(context.Background(), 4321, tt.sessionID, recordedAt))
 		})
 	}
 }
@@ -206,21 +215,22 @@ func TestDetectPreviousCrash_HeldLeaseKeepsPIDFile(t *testing.T) {
 	leases := portmocks.NewMockSessionLeaseStore(t)
 	leases.EXPECT().Probe(mock.Anything, entity.SessionID("running")).Return(port.SessionLeaseHeld, nil)
 
-	reports := detectPreviousCrash(logDir, "current", previousProcessChecker{leases: leases}, nil)
+	reports := detectPreviousCrash(context.Background(), logDir, "current", previousProcessChecker{leases: leases}, nil)
 
 	assert.Empty(t, reports)
 	assert.FileExists(t, pidFilePath(logDir))
 }
 
-func TestDetectPreviousCrash_FreeLeaseReportsCrashOfLiveLookingPID(t *testing.T) {
+func TestDetectPreviousCrash_FreeLeaseReportsCrashWithoutProbingPID(t *testing.T) {
 	logDir := t.TempDir()
 	writeSessionLog(t, logDir, "crashed", time.Now().Add(-time.Hour))
-	// Our parent holds this PID, as a reused PID would; the free lease decides.
-	require.NoError(t, os.WriteFile(pidFilePath(logDir), []byte(fmt.Sprintf("%d\ncrashed\n", os.Getppid())), filePerm))
+	require.NoError(t, os.WriteFile(pidFilePath(logDir), []byte("4321\ncrashed\n"), filePerm))
 	leases := portmocks.NewMockSessionLeaseStore(t)
 	leases.EXPECT().Probe(mock.Anything, entity.SessionID("crashed")).Return(port.SessionLeaseFree, nil)
+	// No expectations: the free lease must decide without probing the PID.
+	probe := portmocks.NewMockSessionProcessProbe(t)
 
-	reports := detectPreviousCrash(logDir, "current", previousProcessChecker{leases: leases}, nil)
+	reports := detectPreviousCrash(context.Background(), logDir, "current", previousProcessChecker{leases: leases, probe: probe}, nil)
 
 	require.Len(t, reports, 1)
 	assert.Equal(t, "session_crashed.crash.json", filepath.Base(reports[0]))

@@ -166,20 +166,37 @@ func TestCleanupSessionsUseCase_SweepOrphanLeases(t *testing.T) {
 	leases := portmocks.NewMockSessionLeaseStore(t)
 	active := &entity.Session{ID: "active", Type: entity.SessionTypeBrowser, StartedAt: time.Now()}
 
-	leases.EXPECT().List(ctx).Return([]entity.SessionID{"current", "active", "orphan-free", "orphan-held", "probe-error", "remove-error"}, nil)
+	leases.EXPECT().List(ctx).Return([]entity.SessionID{"current", "active", "orphan-free", "orphan-held", "remove-error"}, nil)
 	sessionRepo.EXPECT().ListActiveBrowser(ctx).Return([]*entity.Session{active, nil}, nil)
-	leases.EXPECT().Probe(ctx, entity.SessionID("orphan-free")).Return(port.SessionLeaseFree, nil)
-	leases.EXPECT().Probe(ctx, entity.SessionID("orphan-held")).Return(port.SessionLeaseHeld, nil)
-	leases.EXPECT().Probe(ctx, entity.SessionID("probe-error")).Return(port.SessionLeaseMissing, errors.New("io"))
-	leases.EXPECT().Probe(ctx, entity.SessionID("remove-error")).Return(port.SessionLeaseFree, nil)
-	leases.EXPECT().Remove(ctx, entity.SessionID("orphan-free")).Return(nil)
-	leases.EXPECT().Remove(ctx, entity.SessionID("remove-error")).Return(errors.New("busy"))
+	leases.EXPECT().RemoveIfFree(ctx, entity.SessionID("orphan-free")).Return(true, nil)
+	leases.EXPECT().RemoveIfFree(ctx, entity.SessionID("orphan-held")).Return(false, nil)
+	leases.EXPECT().RemoveIfFree(ctx, entity.SessionID("remove-error")).Return(false, errors.New("busy"))
 
 	uc := usecase.NewCleanupSessionsUseCase(sessionRepo, nil, leases)
 	removed, err := uc.SweepOrphanLeases(ctx, "current")
 
 	require.NoError(t, err)
 	assert.Equal(t, 1, removed)
+}
+
+func TestCleanupSessionsUseCase_SweepOrphanLeasesErrors(t *testing.T) {
+	ctx := testContext()
+
+	leases := portmocks.NewMockSessionLeaseStore(t)
+	leases.EXPECT().List(ctx).Return(nil, errors.New("list failed"))
+	_, err := usecase.NewCleanupSessionsUseCase(repomocks.NewMockSessionRepository(t), nil, leases).SweepOrphanLeases(ctx, "")
+	require.ErrorContains(t, err, "list failed")
+
+	leases = portmocks.NewMockSessionLeaseStore(t)
+	repo := repomocks.NewMockSessionRepository(t)
+	leases.EXPECT().List(ctx).Return([]entity.SessionID{"orphan"}, nil)
+	repo.EXPECT().ListActiveBrowser(ctx).Return(nil, errors.New("db failed"))
+	_, err = usecase.NewCleanupSessionsUseCase(repo, nil, leases).SweepOrphanLeases(ctx, "")
+	require.ErrorContains(t, err, "db failed", "no lease is removed without the active list")
+
+	removed, err := usecase.NewCleanupSessionsUseCase(repomocks.NewMockSessionRepository(t), nil, nil).SweepOrphanLeases(ctx, "")
+	require.NoError(t, err)
+	assert.Zero(t, removed)
 }
 
 func TestCleanupSessionsUseCase_SweepOrphanLeasesWithoutLeasesSkipsRepository(t *testing.T) {

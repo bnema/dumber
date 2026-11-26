@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"golang.org/x/sys/unix"
 
@@ -20,6 +21,9 @@ const (
 	leaseDirPerm    = 0o700
 	leaseFilePerm   = 0o600
 	leaseFileSuffix = ".lock"
+	// A prober holds a free lease for microseconds; retrying outlasts it.
+	leaseAcquireAttempts = 20
+	leaseAcquireRetry    = 5 * time.Millisecond
 )
 
 // FileSessionLeases keeps each session's lease as an flock on <dir>/<session id>.lock.
@@ -27,11 +31,24 @@ const (
 // and they work across PID namespaces that share the directory.
 type FileSessionLeases struct {
 	dir string
+	// waitRetry pauses between lock attempts; tests replace it to stay deterministic.
+	waitRetry func(context.Context) error
 }
 
 // NewFileSessionLeases stores session leases in dir.
 func NewFileSessionLeases(dir string) *FileSessionLeases {
-	return &FileSessionLeases{dir: dir}
+	return &FileSessionLeases{dir: dir, waitRetry: waitLeaseRetry}
+}
+
+func waitLeaseRetry(ctx context.Context) error {
+	timer := time.NewTimer(leaseAcquireRetry)
+	defer timer.Stop()
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-timer.C:
+		return nil
+	}
 }
 
 type sessionLease struct {
@@ -60,15 +77,61 @@ func (s *FileSessionLeases) Acquire(ctx context.Context, id entity.SessionID) (i
 	if err = os.MkdirAll(s.dir, leaseDirPerm); err != nil {
 		return nil, fmt.Errorf("create session lease directory: %w", err)
 	}
-	file, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR, leaseFilePerm)
+	for attempt := 1; ; attempt++ {
+		file, locked, err := lockLeaseFile(path)
+		if err == nil && locked {
+			return &sessionLease{file: file}, nil
+		}
+		// Session IDs are unique, so only a prober holds this lock, briefly. A lease
+		// file left unlocked would read as free while this session runs: remove it
+		// so the session reads as missing and falls back to process probing.
+		if err != nil || attempt == leaseAcquireAttempts {
+			_ = os.Remove(path)
+			if err == nil {
+				err = errors.New("lease held by another process")
+			}
+			return nil, fmt.Errorf("lock session lease: %w", err)
+		}
+		if err := s.waitRetry(ctx); err != nil {
+			_ = os.Remove(path)
+			return nil, err
+		}
+	}
+}
+
+// lockLeaseFile opens or creates path and locks it without blocking. It reports
+// locked=false when another process holds the lock, or when the locked file was
+// unlinked or replaced meanwhile, so the caller retries on the current file.
+func lockLeaseFile(path string) (*os.File, bool, error) {
+	file, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR|unix.O_NOFOLLOW, leaseFilePerm)
 	if err != nil {
-		return nil, fmt.Errorf("open session lease: %w", err)
+		return nil, false, fmt.Errorf("open session lease: %w", err)
 	}
-	if err = unix.Flock(int(file.Fd()), unix.LOCK_EX|unix.LOCK_NB); err != nil {
+	if err := unix.Flock(int(file.Fd()), unix.LOCK_EX|unix.LOCK_NB); err != nil {
 		_ = file.Close()
-		return nil, fmt.Errorf("lock session lease: %w", err)
+		if errors.Is(err, unix.EWOULDBLOCK) {
+			return nil, false, nil
+		}
+		return nil, false, err
 	}
-	return &sessionLease{file: file}, nil
+	if !isCurrentFile(file, path) {
+		_ = file.Close()
+		return nil, false, nil
+	}
+	return file, true, nil
+}
+
+// isCurrentFile reports whether file is still the one at path, not an unlinked inode.
+func isCurrentFile(file *os.File, path string) bool {
+	opened, err := file.Stat()
+	if err != nil {
+		return false
+	}
+	current, err := os.Lstat(path)
+	if err != nil {
+		return false
+	}
+	return os.SameFile(opened, current)
 }
 
 // Probe tries the session's lock without blocking: a held lock means a live owner.
@@ -97,6 +160,41 @@ func (s *FileSessionLeases) Probe(ctx context.Context, id entity.SessionID) (por
 		return port.SessionLeaseMissing, fmt.Errorf("probe session lease: %w", err)
 	}
 	return port.SessionLeaseFree, nil
+}
+
+// RemoveIfFree deletes the session's lease file while holding its lock, so a live
+// owner's lease is never removed. It reports whether the file was removed.
+func (s *FileSessionLeases) RemoveIfFree(ctx context.Context, id entity.SessionID) (bool, error) {
+	if err := ctx.Err(); err != nil {
+		return false, err
+	}
+	path, err := s.leasePath(id)
+	if err != nil {
+		return false, err
+	}
+	file, err := os.OpenFile(path, os.O_RDONLY|unix.O_NOFOLLOW, 0)
+	if errors.Is(err, fs.ErrNotExist) {
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("open session lease: %w", err)
+	}
+	defer func() { _ = file.Close() }()
+
+	err = unix.Flock(int(file.Fd()), unix.LOCK_EX|unix.LOCK_NB)
+	if errors.Is(err, unix.EWOULDBLOCK) {
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("lock session lease: %w", err)
+	}
+	if !isCurrentFile(file, path) {
+		return false, nil
+	}
+	if err := os.Remove(path); err != nil && !errors.Is(err, fs.ErrNotExist) {
+		return false, fmt.Errorf("remove session lease: %w", err)
+	}
+	return true, nil
 }
 
 // Remove deletes the lease file of an ended session.

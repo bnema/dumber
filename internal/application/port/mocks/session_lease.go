@@ -301,3 +301,69 @@ func (_c *MockSessionLeaseStore_Remove_Call) RunAndReturn(run func(ctx context.C
 	_c.Call.Return(run)
 	return _c
 }
+
+// RemoveIfFree provides a mock function for the type MockSessionLeaseStore
+func (_mock *MockSessionLeaseStore) RemoveIfFree(ctx context.Context, id entity.SessionID) (bool, error) {
+	ret := _mock.Called(ctx, id)
+
+	if len(ret) == 0 {
+		panic("no return value specified for RemoveIfFree")
+	}
+
+	var r0 bool
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, entity.SessionID) (bool, error)); ok {
+		return returnFunc(ctx, id)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, entity.SessionID) bool); ok {
+		r0 = returnFunc(ctx, id)
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, entity.SessionID) error); ok {
+		r1 = returnFunc(ctx, id)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockSessionLeaseStore_RemoveIfFree_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'RemoveIfFree'
+type MockSessionLeaseStore_RemoveIfFree_Call struct {
+	*mock.Call
+}
+
+// RemoveIfFree is a helper method to define mock.On call
+//   - ctx context.Context
+//   - id entity.SessionID
+func (_e *MockSessionLeaseStore_Expecter) RemoveIfFree(ctx any, id any) *MockSessionLeaseStore_RemoveIfFree_Call {
+	return &MockSessionLeaseStore_RemoveIfFree_Call{Call: _e.mock.On("RemoveIfFree", ctx, id)}
+}
+
+func (_c *MockSessionLeaseStore_RemoveIfFree_Call) Run(run func(ctx context.Context, id entity.SessionID)) *MockSessionLeaseStore_RemoveIfFree_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 entity.SessionID
+		if args[1] != nil {
+			arg1 = args[1].(entity.SessionID)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockSessionLeaseStore_RemoveIfFree_Call) Return(b bool, err error) *MockSessionLeaseStore_RemoveIfFree_Call {
+	_c.Call.Return(b, err)
+	return _c
+}
+
+func (_c *MockSessionLeaseStore_RemoveIfFree_Call) RunAndReturn(run func(ctx context.Context, id entity.SessionID) (bool, error)) *MockSessionLeaseStore_RemoveIfFree_Call {
+	_c.Call.Return(run)
+	return _c
+}
