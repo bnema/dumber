@@ -1,0 +1,95 @@
+package process
+
+import (
+	"context"
+	"os"
+	"path/filepath"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"golang.org/x/sys/unix"
+
+	"bnema.dev/dumber/internal/application/port"
+	"bnema.dev/dumber/internal/domain/entity"
+)
+
+const testSessionID entity.SessionID = "20251222_100000_abcd"
+
+// flock conflicts between open file descriptions even in one process, so an
+// in-process lease stands in for another instance holding it.
+func TestFileSessionLeases_HeldThenReleasedOnClose(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	leases := NewFileSessionLeases(filepath.Join(t.TempDir(), "leases"))
+
+	lease, err := leases.Acquire(ctx, testSessionID)
+	require.NoError(t, err)
+	state, err := leases.Probe(ctx, testSessionID)
+	require.NoError(t, err)
+	assert.Equal(t, port.SessionLeaseHeld, state)
+
+	require.NoError(t, lease.Close())
+	state, err = leases.Probe(ctx, testSessionID)
+	require.NoError(t, err)
+	assert.Equal(t, port.SessionLeaseMissing, state)
+}
+
+func TestFileSessionLeases_CrashedOwnerLeavesFreeLease(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	dir := t.TempDir()
+	leases := NewFileSessionLeases(dir)
+
+	// A crash drops the lock but leaves the file, like closing the fd without Close.
+	file, err := os.OpenFile(filepath.Join(dir, string(testSessionID)+".lock"), os.O_CREATE|os.O_RDWR, 0o600)
+	require.NoError(t, err)
+	require.NoError(t, unix.Flock(int(file.Fd()), unix.LOCK_EX|unix.LOCK_NB))
+	require.NoError(t, file.Close())
+
+	state, err := leases.Probe(ctx, testSessionID)
+	require.NoError(t, err)
+	assert.Equal(t, port.SessionLeaseFree, state)
+
+	require.NoError(t, leases.Remove(ctx, testSessionID))
+	require.NoError(t, leases.Remove(ctx, testSessionID), "remove is idempotent")
+	state, err = leases.Probe(ctx, testSessionID)
+	require.NoError(t, err)
+	assert.Equal(t, port.SessionLeaseMissing, state)
+}
+
+func TestFileSessionLeases_ProbeDoesNotKeepLease(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	dir := t.TempDir()
+	leases := NewFileSessionLeases(dir)
+	lease, err := leases.Acquire(ctx, testSessionID)
+	require.NoError(t, err)
+	require.NoError(t, lease.Close())
+
+	// Recreate a free lease file, probe it, then a new owner must still lock it.
+	require.NoError(t, os.WriteFile(filepath.Join(dir, string(testSessionID)+".lock"), nil, 0o600))
+	_, err = leases.Probe(ctx, testSessionID)
+	require.NoError(t, err)
+	lease, err = leases.Acquire(ctx, testSessionID)
+	require.NoError(t, err)
+	require.NoError(t, lease.Close())
+}
+
+func TestFileSessionLeases_RejectsPathLikeSessionIDs(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	leases := NewFileSessionLeases(t.TempDir())
+
+	for _, id := range []entity.SessionID{"", ".", "..", "../escape", "a/b"} {
+		_, err := leases.Acquire(ctx, id)
+		require.Error(t, err, id)
+		_, err = leases.Probe(ctx, id)
+		require.Error(t, err, id)
+		require.Error(t, leases.Remove(ctx, id), id)
+	}
+}

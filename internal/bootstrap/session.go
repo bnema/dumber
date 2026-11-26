@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -93,7 +94,13 @@ func StartBrowserSession(
 
 	sessionLoggerAdapter := infralogging.NewSessionLoggerAdapter()
 	sessionUC := usecase.NewManageSessionUseCase(sessionRepo, sessionLoggerAdapter)
-	cleanupUC := usecase.NewCleanupSessionsUseCase(sessionRepo, process.NewLivenessProbe())
+	var leases port.SessionLeaseStore
+	if leaseDir, err := config.GetSessionLeaseDir(); err != nil {
+		log.Warn().Err(err).Msg("session leases unavailable; liveness falls back to process probing")
+	} else {
+		leases = process.NewFileSessionLeases(leaseDir)
+	}
+	cleanupUC := usecase.NewCleanupSessionsUseCase(sessionRepo, process.NewLivenessProbe(), leases)
 
 	now := time.Now()
 	pid := os.Getpid()
@@ -142,6 +149,8 @@ func StartBrowserSession(
 
 	var persistOnce sync.Once
 	var persistErr error
+	// lease is written once under persistOnce and read by endFn after it.
+	var lease io.Closer
 
 	persistFn := func(persistCtx context.Context) error {
 		persistOnce.Do(func() {
@@ -155,8 +164,20 @@ func StartBrowserSession(
 			}
 
 			saveCtx := corelogging.WithContext(context.Background(), logger)
+			// Take the lease before the row exists so a visible active session
+			// always has a held lease while its process runs.
+			if leases != nil {
+				acquired, err := leases.Acquire(saveCtx, session.ID)
+				if err != nil {
+					logger.Warn().Err(err).Msg("failed to acquire session lease; liveness falls back to process probing")
+				} else {
+					lease = acquired
+				}
+			}
 			if err := sessionRepo.Save(saveCtx, session); err != nil {
 				persistErr = fmt.Errorf("save session: %w", err)
+				closeSessionLease(lease, &logger)
+				lease = nil
 				return
 			}
 
@@ -178,6 +199,8 @@ func StartBrowserSession(
 	endFn := func(endCtx context.Context) error {
 		_ = persistFn(endCtx)
 		endErr := sessionUC.EndSession(endCtx, session.ID, time.Now())
+		closeSessionLease(lease, &logger)
+		lease = nil
 
 		// Remove PID file on clean shutdown.
 		if logDir != "" {
@@ -303,6 +326,16 @@ func detectPreviousCrash(logDir, currentSessionID string, logger *zerolog.Logger
 		return nil
 	}
 	return []string{reportPath}
+}
+
+// closeSessionLease releases a session lease and removes its file.
+func closeSessionLease(lease io.Closer, logger *zerolog.Logger) {
+	if lease == nil {
+		return
+	}
+	if err := lease.Close(); err != nil && logger != nil {
+		logger.Warn().Err(err).Msg("failed to release session lease")
+	}
 }
 
 // processAlive reports whether another process with pid is running. Our own

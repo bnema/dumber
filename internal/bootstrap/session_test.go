@@ -21,7 +21,7 @@ func TestRunSessionCleanup_DoesNotEndOtherActiveBrowserSessionsWithoutLivenessPr
 	ctx := context.Background()
 	repo := repomocks.NewMockSessionRepository(t)
 	probe := portmocks.NewMockSessionProcessProbe(t)
-	cleanupUC := usecase.NewCleanupSessionsUseCase(repo, probe)
+	cleanupUC := usecase.NewCleanupSessionsUseCase(repo, probe, nil)
 	cfg := config.DefaultConfig()
 	logDir := t.TempDir()
 
@@ -53,7 +53,7 @@ func TestRunSessionCleanup_NoPanicOnNilSessions(t *testing.T) {
 	ctx := context.Background()
 	repo := repomocks.NewMockSessionRepository(t)
 	probe := portmocks.NewMockSessionProcessProbe(t)
-	cleanupUC := usecase.NewCleanupSessionsUseCase(repo, probe)
+	cleanupUC := usecase.NewCleanupSessionsUseCase(repo, probe, nil)
 	cfg := config.DefaultConfig()
 	logDir := t.TempDir()
 

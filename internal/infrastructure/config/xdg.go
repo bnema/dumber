@@ -158,6 +158,16 @@ func GetDatabaseFile() (string, error) {
 	return filepath.Join(dataDir, databaseName), nil
 }
 
+// GetSessionLeaseDir returns the directory holding the leases of live browser sessions.
+// Every instance that shares the database must share it.
+func GetSessionLeaseDir() (string, error) {
+	stateDir, err := GetStateDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(stateDir, "session-leases"), nil
+}
+
 // GetFilterCacheDir returns the XDG-compliant filter cache directory for dumber.
 // Filter cache is stored in XDG_STATE_HOME as it's transient data that can be regenerated.
 func GetFilterCacheDir() (string, error) {
