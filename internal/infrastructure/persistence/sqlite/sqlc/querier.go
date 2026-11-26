@@ -77,6 +77,7 @@ type Querier interface {
 	IncrementVisitCountByDelta(ctx context.Context, arg IncrementVisitCountByDeltaParams) error
 	InsertSession(ctx context.Context, arg InsertSessionParams) error
 	IsWhitelisted(ctx context.Context, domain string) (int64, error)
+	ListActiveBrowserSessions(ctx context.Context) ([]Session, error)
 	ListAllPermissions(ctx context.Context) ([]Permission, error)
 	ListPermissionsByOrigin(ctx context.Context, origin string) ([]Permission, error)
 	ListZoomLevels(ctx context.Context) ([]ZoomLevel, error)

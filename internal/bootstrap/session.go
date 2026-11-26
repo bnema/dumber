@@ -24,10 +24,9 @@ import (
 )
 
 const (
-	recentSessionsLimit = 200
-	dirPerm             = 0o755
-	filePerm            = 0o644
-	pidFileName         = "dumber.pid"
+	dirPerm     = 0o755
+	filePerm    = 0o644
+	pidFileName = "dumber.pid"
 )
 
 // BrowserSession holds the state for a running browser session.
@@ -376,7 +375,6 @@ func runSessionCleanup(
 	// End only active browser sessions whose recorded process is proven dead.
 	staleOutput, err := cleanupUC.ReconcileActiveBrowserSessions(bgCtx, usecase.ReconcileActiveBrowserSessionsInput{
 		CurrentSessionID: currentSessionID,
-		RecentLimit:      recentSessionsLimit,
 		EndedAt:          time.Now(),
 	})
 	if err != nil {

@@ -592,6 +592,13 @@ func (r *LazySessionRepository) GetActive(ctx context.Context) (*entity.Session,
 	return r.repo.GetActive(ctx)
 }
 
+func (r *LazySessionRepository) ListActiveBrowser(ctx context.Context) ([]*entity.Session, error) {
+	if err := r.init(ctx); err != nil {
+		return nil, err
+	}
+	return r.repo.ListActiveBrowser(ctx)
+}
+
 func (r *LazySessionRepository) GetRecent(ctx context.Context, limit int) ([]*entity.Session, error) {
 	if err := r.init(ctx); err != nil {
 		return nil, err

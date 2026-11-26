@@ -53,7 +53,6 @@ type CleanupSessionsOutput struct {
 
 type ReconcileActiveBrowserSessionsInput struct {
 	CurrentSessionID entity.SessionID
-	RecentLimit      int
 	EndedAt          time.Time
 }
 
@@ -61,7 +60,7 @@ type ReconcileActiveBrowserSessionsOutput struct {
 	EndedDeadSessions int64
 }
 
-// ReconcileActiveBrowserSessions ends only active browser sessions whose recorded process is proven dead.
+// ReconcileActiveBrowserSessions ends every active browser session whose recorded process is proven dead.
 func (uc *CleanupSessionsUseCase) ReconcileActiveBrowserSessions(
 	ctx context.Context,
 	input ReconcileActiveBrowserSessionsInput,
@@ -71,20 +70,17 @@ func (uc *CleanupSessionsUseCase) ReconcileActiveBrowserSessions(
 	if uc.processProbe == nil {
 		return output, nil
 	}
-	if input.RecentLimit <= 0 {
-		input.RecentLimit = 20
-	}
 	endedAt := input.EndedAt
 	if endedAt.IsZero() {
 		endedAt = time.Now()
 	}
 
-	recent, err := uc.sessionRepo.GetRecent(ctx, input.RecentLimit)
+	active, err := uc.sessionRepo.ListActiveBrowser(ctx)
 	if err != nil {
 		return output, err
 	}
-	for _, s := range recent {
-		if s == nil || s.ID == input.CurrentSessionID || s.Type != entity.SessionTypeBrowser || !s.IsActive() {
+	for _, s := range active {
+		if s == nil || s.ID == input.CurrentSessionID {
 			continue
 		}
 		if s.ProcessID == nil {

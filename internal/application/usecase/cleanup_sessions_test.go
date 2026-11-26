@@ -29,7 +29,7 @@ func TestCleanupSessionsUseCase_ReconcileActiveBrowserSessions_EndsOnlyProvenDea
 	unknown := &entity.Session{ID: "unknown", Type: entity.SessionTypeBrowser, StartedAt: now.Add(-3 * time.Minute)}
 
 	sessionRepo.EXPECT().
-		GetRecent(ctx, 25).
+		ListActiveBrowser(ctx).
 		Return([]*entity.Session{current, live, dead, unknown}, nil)
 	processProbe.EXPECT().
 		IsProcessAlive(ctx, livePID).
@@ -45,7 +45,6 @@ func TestCleanupSessionsUseCase_ReconcileActiveBrowserSessions_EndsOnlyProvenDea
 
 	output, err := uc.ReconcileActiveBrowserSessions(ctx, usecase.ReconcileActiveBrowserSessionsInput{
 		CurrentSessionID: current.ID,
-		RecentLimit:      25,
 		EndedAt:          now,
 	})
 
@@ -64,7 +63,7 @@ func TestCleanupSessionsUseCase_ReconcileActiveBrowserSessions_SkipsWhenProbeErr
 	active := &entity.Session{ID: "active", Type: entity.SessionTypeBrowser, StartedAt: now.Add(-time.Minute), ProcessID: &pid}
 
 	sessionRepo.EXPECT().
-		GetRecent(ctx, 20).
+		ListActiveBrowser(ctx).
 		Return([]*entity.Session{active}, nil)
 	processProbe.EXPECT().
 		IsProcessAlive(ctx, pid).
@@ -73,7 +72,6 @@ func TestCleanupSessionsUseCase_ReconcileActiveBrowserSessions_SkipsWhenProbeErr
 	uc := usecase.NewCleanupSessionsUseCase(sessionRepo, processProbe)
 
 	output, err := uc.ReconcileActiveBrowserSessions(ctx, usecase.ReconcileActiveBrowserSessionsInput{
-		RecentLimit: 20,
 		EndedAt:     now,
 	})
 

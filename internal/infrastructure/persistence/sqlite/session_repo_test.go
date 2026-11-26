@@ -95,3 +95,35 @@ func TestSessionRepository_CRUD(t *testing.T) {
 	require.NotNil(t, recent[0].ProcessID)
 	assert.Equal(t, pid, *recent[0].ProcessID)
 }
+
+func TestSessionRepository_ListActiveBrowserReturnsOnlyActiveBrowserSessions(t *testing.T) {
+	ctx := testCtx()
+	dbPath := filepath.Join(t.TempDir(), "dumber.db")
+
+	db, err := sqlite.NewConnection(ctx, dbPath)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = db.Close() })
+
+	repo := sqlite.NewSessionRepository(db)
+
+	base := time.Date(2025, 12, 22, 9, 0, 0, 0, time.UTC)
+	ended := base.Add(time.Hour)
+	sessions := []*entity.Session{
+		{ID: "20251222_090000_old1", Type: entity.SessionTypeBrowser, StartedAt: base},
+		{ID: "20251222_090100_new1", Type: entity.SessionTypeBrowser, StartedAt: base.Add(time.Minute)},
+		{ID: "20251222_090200_done", Type: entity.SessionTypeBrowser, StartedAt: base.Add(2 * time.Minute), EndedAt: &ended},
+		{ID: "20251222_090300_cli1", Type: entity.SessionTypeCLI, StartedAt: base.Add(3 * time.Minute)},
+	}
+	for _, s := range sessions {
+		require.NoError(t, repo.Save(ctx, s))
+	}
+
+	active, err := repo.ListActiveBrowser(ctx)
+	require.NoError(t, err)
+
+	ids := make([]entity.SessionID, 0, len(active))
+	for _, s := range active {
+		ids = append(ids, s.ID)
+	}
+	assert.Equal(t, []entity.SessionID{"20251222_090100_new1", "20251222_090000_old1"}, ids)
+}

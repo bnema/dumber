@@ -11,6 +11,11 @@ WHERE type = 'browser' AND ended_at IS NULL
 ORDER BY started_at DESC
 LIMIT 1;
 
+-- name: ListActiveBrowserSessions :many
+SELECT * FROM sessions
+WHERE type = 'browser' AND ended_at IS NULL
+ORDER BY started_at DESC;
+
 -- name: GetRecentSessions :many
 SELECT * FROM sessions
 ORDER BY started_at DESC

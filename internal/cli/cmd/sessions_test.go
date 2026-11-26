@@ -151,6 +151,10 @@ func (*sessionCommandSessionRepo) GetActive(context.Context) (*entity.Session, e
 	return nil, nil
 }
 
+func (*sessionCommandSessionRepo) ListActiveBrowser(context.Context) ([]*entity.Session, error) {
+	return nil, nil
+}
+
 func (r *sessionCommandSessionRepo) GetRecent(_ context.Context, limit int) ([]*entity.Session, error) {
 	if limit < 0 || limit > len(r.sessions) {
 		limit = len(r.sessions)

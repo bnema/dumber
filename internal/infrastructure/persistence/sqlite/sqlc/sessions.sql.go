@@ -151,6 +151,41 @@ func (q *Queries) InsertSession(ctx context.Context, arg InsertSessionParams) er
 	return err
 }
 
+const ListActiveBrowserSessions = `-- name: ListActiveBrowserSessions :many
+SELECT id, type, started_at, ended_at, process_id FROM sessions
+WHERE type = 'browser' AND ended_at IS NULL
+ORDER BY started_at DESC
+`
+
+func (q *Queries) ListActiveBrowserSessions(ctx context.Context) ([]Session, error) {
+	rows, err := q.db.QueryContext(ctx, ListActiveBrowserSessions)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Session{}
+	for rows.Next() {
+		var i Session
+		if err := rows.Scan(
+			&i.ID,
+			&i.Type,
+			&i.StartedAt,
+			&i.EndedAt,
+			&i.ProcessID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const MarkSessionEnded = `-- name: MarkSessionEnded :exec
 UPDATE sessions
 SET ended_at = ?
