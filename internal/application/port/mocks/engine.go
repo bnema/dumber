@@ -19,10 +19,19 @@ func NewMockMemoryPressureApplier(t interface {
 	mock.TestingT
 	Cleanup(func())
 }) *MockMemoryPressureApplier {
+	if helper, ok := t.(interface{ Helper() }); ok {
+		helper.Helper()
+	}
+
 	mock := &MockMemoryPressureApplier{}
 	mock.Mock.Test(t)
 
-	t.Cleanup(func() { mock.AssertExpectations(t) })
+	t.Cleanup(func() {
+		if helper, ok := t.(interface{ Helper() }); ok {
+			helper.Helper()
+		}
+		mock.AssertExpectations(t)
+	})
 
 	return mock
 }
@@ -155,8 +164,8 @@ func (_c *MockMemoryPressureApplier_ApplyWebProcessSettings_Call) Run(run func(c
 	return _c
 }
 
-func (_c *MockMemoryPressureApplier_ApplyWebProcessSettings_Call) Return(v any, err error) *MockMemoryPressureApplier_ApplyWebProcessSettings_Call {
-	_c.Call.Return(v, err)
+func (_c *MockMemoryPressureApplier_ApplyWebProcessSettings_Call) Return(anyMoqParam any, err error) *MockMemoryPressureApplier_ApplyWebProcessSettings_Call {
+	_c.Call.Return(anyMoqParam, err)
 	return _c
 }
 
@@ -171,10 +180,19 @@ func NewMockEngine(t interface {
 	mock.TestingT
 	Cleanup(func())
 }) *MockEngine {
+	if helper, ok := t.(interface{ Helper() }); ok {
+		helper.Helper()
+	}
+
 	mock := &MockEngine{}
 	mock.Mock.Test(t)
 
-	t.Cleanup(func() { mock.AssertExpectations(t) })
+	t.Cleanup(func() {
+		if helper, ok := t.(interface{ Helper() }); ok {
+			helper.Helper()
+		}
+		mock.AssertExpectations(t)
+	})
 
 	return mock
 }
@@ -968,10 +986,19 @@ func NewMockWebUIMessageHandler(t interface {
 	mock.TestingT
 	Cleanup(func())
 }) *MockWebUIMessageHandler {
+	if helper, ok := t.(interface{ Helper() }); ok {
+		helper.Helper()
+	}
+
 	mock := &MockWebUIMessageHandler{}
 	mock.Mock.Test(t)
 
-	t.Cleanup(func() { mock.AssertExpectations(t) })
+	t.Cleanup(func() {
+		if helper, ok := t.(interface{ Helper() }); ok {
+			helper.Helper()
+		}
+		mock.AssertExpectations(t)
+	})
 
 	return mock
 }
@@ -1053,8 +1080,8 @@ func (_c *MockWebUIMessageHandler_Handle_Call) Run(run func(ctx context.Context,
 	return _c
 }
 
-func (_c *MockWebUIMessageHandler_Handle_Call) Return(v any, err error) *MockWebUIMessageHandler_Handle_Call {
-	_c.Call.Return(v, err)
+func (_c *MockWebUIMessageHandler_Handle_Call) Return(anyMoqParam any, err error) *MockWebUIMessageHandler_Handle_Call {
+	_c.Call.Return(anyMoqParam, err)
 	return _c
 }
 
@@ -1069,10 +1096,19 @@ func NewMockWebUIHandlerRouter(t interface {
 	mock.TestingT
 	Cleanup(func())
 }) *MockWebUIHandlerRouter {
+	if helper, ok := t.(interface{ Helper() }); ok {
+		helper.Helper()
+	}
+
 	mock := &MockWebUIHandlerRouter{}
 	mock.Mock.Test(t)
 
-	t.Cleanup(func() { mock.AssertExpectations(t) })
+	t.Cleanup(func() {
+		if helper, ok := t.(interface{ Helper() }); ok {
+			helper.Helper()
+		}
+		mock.AssertExpectations(t)
+	})
 
 	return mock
 }
@@ -1228,10 +1264,19 @@ func NewMockSchemeHandler(t interface {
 	mock.TestingT
 	Cleanup(func())
 }) *MockSchemeHandler {
+	if helper, ok := t.(interface{ Helper() }); ok {
+		helper.Helper()
+	}
+
 	mock := &MockSchemeHandler{}
 	mock.Mock.Test(t)
 
-	t.Cleanup(func() { mock.AssertExpectations(t) })
+	t.Cleanup(func() {
+		if helper, ok := t.(interface{ Helper() }); ok {
+			helper.Helper()
+		}
+		mock.AssertExpectations(t)
+	})
 
 	return mock
 }
@@ -1301,10 +1346,19 @@ func NewMockSettingsApplier(t interface {
 	mock.TestingT
 	Cleanup(func())
 }) *MockSettingsApplier {
+	if helper, ok := t.(interface{ Helper() }); ok {
+		helper.Helper()
+	}
+
 	mock := &MockSettingsApplier{}
 	mock.Mock.Test(t)
 
-	t.Cleanup(func() { mock.AssertExpectations(t) })
+	t.Cleanup(func() {
+		if helper, ok := t.(interface{ Helper() }); ok {
+			helper.Helper()
+		}
+		mock.AssertExpectations(t)
+	})
 
 	return mock
 }
@@ -1374,10 +1428,19 @@ func NewMockFilterApplier(t interface {
 	mock.TestingT
 	Cleanup(func())
 }) *MockFilterApplier {
+	if helper, ok := t.(interface{ Helper() }); ok {
+		helper.Helper()
+	}
+
 	mock := &MockFilterApplier{}
 	mock.Mock.Test(t)
 
-	t.Cleanup(func() { mock.AssertExpectations(t) })
+	t.Cleanup(func() {
+		if helper, ok := t.(interface{ Helper() }); ok {
+			helper.Helper()
+		}
+		mock.AssertExpectations(t)
+	})
 
 	return mock
 }
@@ -1447,10 +1510,19 @@ func NewMockFaviconDatabase(t interface {
 	mock.TestingT
 	Cleanup(func())
 }) *MockFaviconDatabase {
+	if helper, ok := t.(interface{ Helper() }); ok {
+		helper.Helper()
+	}
+
 	mock := &MockFaviconDatabase{}
 	mock.Mock.Test(t)
 
-	t.Cleanup(func() { mock.AssertExpectations(t) })
+	t.Cleanup(func() {
+		if helper, ok := t.(interface{ Helper() }); ok {
+			helper.Helper()
+		}
+		mock.AssertExpectations(t)
+	})
 
 	return mock
 }
@@ -1520,10 +1592,19 @@ func NewMockScriptRefresher(t interface {
 	mock.TestingT
 	Cleanup(func())
 }) *MockScriptRefresher {
+	if helper, ok := t.(interface{ Helper() }); ok {
+		helper.Helper()
+	}
+
 	mock := &MockScriptRefresher{}
 	mock.Mock.Test(t)
 
-	t.Cleanup(func() { mock.AssertExpectations(t) })
+	t.Cleanup(func() {
+		if helper, ok := t.(interface{ Helper() }); ok {
+			helper.Helper()
+		}
+		mock.AssertExpectations(t)
+	})
 
 	return mock
 }
@@ -1593,10 +1674,19 @@ func NewMockNativeWidgetProvider(t interface {
 	mock.TestingT
 	Cleanup(func())
 }) *MockNativeWidgetProvider {
+	if helper, ok := t.(interface{ Helper() }); ok {
+		helper.Helper()
+	}
+
 	mock := &MockNativeWidgetProvider{}
 	mock.Mock.Test(t)
 
-	t.Cleanup(func() { mock.AssertExpectations(t) })
+	t.Cleanup(func() {
+		if helper, ok := t.(interface{ Helper() }); ok {
+			helper.Helper()
+		}
+		mock.AssertExpectations(t)
+	})
 
 	return mock
 }

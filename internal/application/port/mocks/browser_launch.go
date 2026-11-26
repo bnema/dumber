@@ -18,10 +18,19 @@ func NewMockBrowserWindowOpener(t interface {
 	mock.TestingT
 	Cleanup(func())
 }) *MockBrowserWindowOpener {
+	if helper, ok := t.(interface{ Helper() }); ok {
+		helper.Helper()
+	}
+
 	mock := &MockBrowserWindowOpener{}
 	mock.Mock.Test(t)
 
-	t.Cleanup(func() { mock.AssertExpectations(t) })
+	t.Cleanup(func() {
+		if helper, ok := t.(interface{ Helper() }); ok {
+			helper.Helper()
+		}
+		mock.AssertExpectations(t)
+	})
 
 	return mock
 }
@@ -159,10 +168,19 @@ func NewMockBrowserLaunchRelay(t interface {
 	mock.TestingT
 	Cleanup(func())
 }) *MockBrowserLaunchRelay {
+	if helper, ok := t.(interface{ Helper() }); ok {
+		helper.Helper()
+	}
+
 	mock := &MockBrowserLaunchRelay{}
 	mock.Mock.Test(t)
 
-	t.Cleanup(func() { mock.AssertExpectations(t) })
+	t.Cleanup(func() {
+		if helper, ok := t.(interface{ Helper() }); ok {
+			helper.Helper()
+		}
+		mock.AssertExpectations(t)
+	})
 
 	return mock
 }

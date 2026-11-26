@@ -1,6 +1,6 @@
 # Makefile for dumber (Clean Architecture - puregotk)
 
-.PHONY: build build-systemviews generate-systemviews build-quick install-local test lint staticcheck clean install-tools install-golangci-lint install-staticcheck dev generate help init man flatpak-deps flatpak-build flatpak-install flatpak-run flatpak-clean stress stress-omnibox-callbacks verify-purego verify-generated verify-systemviews-assets check
+.PHONY: build build-systemviews generate-systemviews build-quick install-local test lint staticcheck clean install-tools install-golangci-lint install-staticcheck install-mockery mocks dev generate help init man flatpak-deps flatpak-build flatpak-install flatpak-run flatpak-clean stress stress-omnibox-callbacks verify-purego verify-generated verify-systemviews-assets check
 
 # Load local overrides from .env.local if present (Makefile syntax)
 ifneq (,$(wildcard .env.local))
@@ -18,6 +18,8 @@ STRESS_TIMEOUT?=40m
 TOOL_BIN_DIR?=$(shell go env GOPATH)/bin
 GOLANGCI_LINT_VERSION?=v2.14.0
 STATICCHECK_VERSION?=2026.2.2
+MOCKERY_VERSION?=v3.9.1
+MOCKERY?=$(TOOL_BIN_DIR)/mockery
 
 # Detect number of CPU cores for parallel compilation
 NPROCS?=$(shell nproc 2>/dev/null || echo 1)
@@ -123,9 +125,10 @@ generate: ## Generate code (SQLC)
 	sqlc generate
 	@echo "Code generation complete"
 
-mocks: ## Generate mock implementations with mockery
-	@echo "Generating mocks with mockery..."
-	mockery
+mocks: ## Generate mock implementations with the pinned mockery
+	@echo "Generating mocks with mockery $(MOCKERY_VERSION)..."
+	@$(MOCKERY) version 2>/dev/null | grep -q '$(MOCKERY_VERSION)' || { echo "mockery $(MOCKERY_VERSION) required: run make install-mockery"; exit 1; }
+	$(MOCKERY)
 	@echo "Mock generation complete"
 
 # Testing
@@ -197,7 +200,12 @@ install-staticcheck: ## Install pinned Staticcheck with the active Go toolchain
 	@echo "Installing staticcheck $(STATICCHECK_VERSION)..."
 	go install honnef.co/go/tools/cmd/staticcheck@$(STATICCHECK_VERSION)
 
-install-tools: install-golangci-lint install-staticcheck ## Install development tools
+install-mockery: ## Install pinned mockery
+	@echo "Installing mockery $(MOCKERY_VERSION) to $(TOOL_BIN_DIR)..."
+	@mkdir -p $(TOOL_BIN_DIR)
+	cd "$${TMPDIR:-/tmp}" && GOBIN=$(TOOL_BIN_DIR) go install github.com/vektra/mockery/v3@$(MOCKERY_VERSION)
+
+install-tools: install-golangci-lint install-staticcheck install-mockery ## Install development tools
 	@echo "Installing development tools..."
 	go install github.com/sqlc-dev/sqlc/cmd/sqlc@latest
 	@echo "Tools installed successfully"

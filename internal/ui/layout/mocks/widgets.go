@@ -16,10 +16,19 @@ func NewMockWidget(t interface {
 	mock.TestingT
 	Cleanup(func())
 }) *MockWidget {
+	if helper, ok := t.(interface{ Helper() }); ok {
+		helper.Helper()
+	}
+
 	mock := &MockWidget{}
 	mock.Mock.Test(t)
 
-	t.Cleanup(func() { mock.AssertExpectations(t) })
+	t.Cleanup(func() {
+		if helper, ok := t.(interface{ Helper() }); ok {
+			helper.Helper()
+		}
+		mock.AssertExpectations(t)
+	})
 
 	return mock
 }
@@ -1225,10 +1234,19 @@ func NewMockPanedWidget(t interface {
 	mock.TestingT
 	Cleanup(func())
 }) *MockPanedWidget {
+	if helper, ok := t.(interface{ Helper() }); ok {
+		helper.Helper()
+	}
+
 	mock := &MockPanedWidget{}
 	mock.Mock.Test(t)
 
-	t.Cleanup(func() { mock.AssertExpectations(t) })
+	t.Cleanup(func() {
+		if helper, ok := t.(interface{ Helper() }); ok {
+			helper.Helper()
+		}
+		mock.AssertExpectations(t)
+	})
 
 	return mock
 }
@@ -3303,10 +3321,19 @@ func NewMockBoxWidget(t interface {
 	mock.TestingT
 	Cleanup(func())
 }) *MockBoxWidget {
+	if helper, ok := t.(interface{ Helper() }); ok {
+		helper.Helper()
+	}
+
 	mock := &MockBoxWidget{}
 	mock.Mock.Test(t)
 
-	t.Cleanup(func() { mock.AssertExpectations(t) })
+	t.Cleanup(func() {
+		if helper, ok := t.(interface{ Helper() }); ok {
+			helper.Helper()
+		}
+		mock.AssertExpectations(t)
+	})
 
 	return mock
 }
@@ -3720,8 +3747,8 @@ func (_c *MockBoxWidget_GetOrientation_Call) Run(run func()) *MockBoxWidget_GetO
 	return _c
 }
 
-func (_c *MockBoxWidget_GetOrientation_Call) Return(v layout.Orientation) *MockBoxWidget_GetOrientation_Call {
-	_c.Call.Return(v)
+func (_c *MockBoxWidget_GetOrientation_Call) Return(orientation layout.Orientation) *MockBoxWidget_GetOrientation_Call {
+	_c.Call.Return(orientation)
 	return _c
 }
 
@@ -4976,10 +5003,19 @@ func NewMockOverlayWidget(t interface {
 	mock.TestingT
 	Cleanup(func())
 }) *MockOverlayWidget {
+	if helper, ok := t.(interface{ Helper() }); ok {
+		helper.Helper()
+	}
+
 	mock := &MockOverlayWidget{}
 	mock.Mock.Test(t)
 
-	t.Cleanup(func() { mock.AssertExpectations(t) })
+	t.Cleanup(func() {
+		if helper, ok := t.(interface{ Helper() }); ok {
+			helper.Helper()
+		}
+		mock.AssertExpectations(t)
+	})
 
 	return mock
 }
@@ -6545,10 +6581,19 @@ func NewMockLabelWidget(t interface {
 	mock.TestingT
 	Cleanup(func())
 }) *MockLabelWidget {
+	if helper, ok := t.(interface{ Helper() }); ok {
+		helper.Helper()
+	}
+
 	mock := &MockLabelWidget{}
 	mock.Mock.Test(t)
 
-	t.Cleanup(func() { mock.AssertExpectations(t) })
+	t.Cleanup(func() {
+		if helper, ok := t.(interface{ Helper() }); ok {
+			helper.Helper()
+		}
+		mock.AssertExpectations(t)
+	})
 
 	return mock
 }
@@ -7998,10 +8043,19 @@ func NewMockButtonWidget(t interface {
 	mock.TestingT
 	Cleanup(func())
 }) *MockButtonWidget {
+	if helper, ok := t.(interface{ Helper() }); ok {
+		helper.Helper()
+	}
+
 	mock := &MockButtonWidget{}
 	mock.Mock.Test(t)
 
-	t.Cleanup(func() { mock.AssertExpectations(t) })
+	t.Cleanup(func() {
+		if helper, ok := t.(interface{ Helper() }); ok {
+			helper.Helper()
+		}
+		mock.AssertExpectations(t)
+	})
 
 	return mock
 }
@@ -9468,10 +9522,19 @@ func NewMockImageWidget(t interface {
 	mock.TestingT
 	Cleanup(func())
 }) *MockImageWidget {
+	if helper, ok := t.(interface{ Helper() }); ok {
+		helper.Helper()
+	}
+
 	mock := &MockImageWidget{}
 	mock.Mock.Test(t)
 
-	t.Cleanup(func() { mock.AssertExpectations(t) })
+	t.Cleanup(func() {
+		if helper, ok := t.(interface{ Helper() }); ok {
+			helper.Helper()
+		}
+		mock.AssertExpectations(t)
+	})
 
 	return mock
 }
@@ -10870,10 +10933,19 @@ func NewMockProgressBarWidget(t interface {
 	mock.TestingT
 	Cleanup(func())
 }) *MockProgressBarWidget {
+	if helper, ok := t.(interface{ Helper() }); ok {
+		helper.Helper()
+	}
+
 	mock := &MockProgressBarWidget{}
 	mock.Mock.Test(t)
 
-	t.Cleanup(func() { mock.AssertExpectations(t) })
+	t.Cleanup(func() {
+		if helper, ok := t.(interface{ Helper() }); ok {
+			helper.Helper()
+		}
+		mock.AssertExpectations(t)
+	})
 
 	return mock
 }
@@ -12163,10 +12235,19 @@ func NewMockSpinnerWidget(t interface {
 	mock.TestingT
 	Cleanup(func())
 }) *MockSpinnerWidget {
+	if helper, ok := t.(interface{ Helper() }); ok {
+		helper.Helper()
+	}
+
 	mock := &MockSpinnerWidget{}
 	mock.Mock.Test(t)
 
-	t.Cleanup(func() { mock.AssertExpectations(t) })
+	t.Cleanup(func() {
+		if helper, ok := t.(interface{ Helper() }); ok {
+			helper.Helper()
+		}
+		mock.AssertExpectations(t)
+	})
 
 	return mock
 }
@@ -13522,10 +13603,19 @@ func NewMockWidgetFactory(t interface {
 	mock.TestingT
 	Cleanup(func())
 }) *MockWidgetFactory {
+	if helper, ok := t.(interface{ Helper() }); ok {
+		helper.Helper()
+	}
+
 	mock := &MockWidgetFactory{}
 	mock.Mock.Test(t)
 
-	t.Cleanup(func() { mock.AssertExpectations(t) })
+	t.Cleanup(func() {
+		if helper, ok := t.(interface{ Helper() }); ok {
+			helper.Helper()
+		}
+		mock.AssertExpectations(t)
+	})
 
 	return mock
 }
@@ -14050,10 +14140,19 @@ func NewMockPaneRenderer(t interface {
 	mock.TestingT
 	Cleanup(func())
 }) *MockPaneRenderer {
+	if helper, ok := t.(interface{ Helper() }); ok {
+		helper.Helper()
+	}
+
 	mock := &MockPaneRenderer{}
 	mock.Mock.Test(t)
 
-	t.Cleanup(func() { mock.AssertExpectations(t) })
+	t.Cleanup(func() {
+		if helper, ok := t.(interface{ Helper() }); ok {
+			helper.Helper()
+		}
+		mock.AssertExpectations(t)
+	})
 
 	return mock
 }

@@ -15,10 +15,19 @@ func NewMockConfigChangeManager(t interface {
 	mock.TestingT
 	Cleanup(func())
 }) *MockConfigChangeManager {
+	if helper, ok := t.(interface{ Helper() }); ok {
+		helper.Helper()
+	}
+
 	mock := &MockConfigChangeManager{}
 	mock.Mock.Test(t)
 
-	t.Cleanup(func() { mock.AssertExpectations(t) })
+	t.Cleanup(func() {
+		if helper, ok := t.(interface{ Helper() }); ok {
+			helper.Helper()
+		}
+		mock.AssertExpectations(t)
+	})
 
 	return mock
 }
@@ -88,18 +97,18 @@ func (_mock *MockConfigChangeManager) OnConfigChangeGeneration(fn func(*config.C
 	return
 }
 
-// MockConfigChangeManager_OnConfigChange_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'OnConfigChangeGeneration'
-type MockConfigChangeManager_OnConfigChange_Call struct {
+// MockConfigChangeManager_OnConfigChangeGeneration_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'OnConfigChangeGeneration'
+type MockConfigChangeManager_OnConfigChangeGeneration_Call struct {
 	*mock.Call
 }
 
 // OnConfigChangeGeneration is a helper method to define mock.On call
 //   - fn func(*config.Config, uint64)
-func (_e *MockConfigChangeManager_Expecter) OnConfigChangeGeneration(fn any) *MockConfigChangeManager_OnConfigChange_Call {
-	return &MockConfigChangeManager_OnConfigChange_Call{Call: _e.mock.On("OnConfigChangeGeneration", fn)}
+func (_e *MockConfigChangeManager_Expecter) OnConfigChangeGeneration(fn any) *MockConfigChangeManager_OnConfigChangeGeneration_Call {
+	return &MockConfigChangeManager_OnConfigChangeGeneration_Call{Call: _e.mock.On("OnConfigChangeGeneration", fn)}
 }
 
-func (_c *MockConfigChangeManager_OnConfigChange_Call) Run(run func(fn func(*config.Config, uint64))) *MockConfigChangeManager_OnConfigChange_Call {
+func (_c *MockConfigChangeManager_OnConfigChangeGeneration_Call) Run(run func(fn func(*config.Config, uint64))) *MockConfigChangeManager_OnConfigChangeGeneration_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 func(*config.Config, uint64)
 		if args[0] != nil {
@@ -112,12 +121,12 @@ func (_c *MockConfigChangeManager_OnConfigChange_Call) Run(run func(fn func(*con
 	return _c
 }
 
-func (_c *MockConfigChangeManager_OnConfigChange_Call) Return() *MockConfigChangeManager_OnConfigChange_Call {
+func (_c *MockConfigChangeManager_OnConfigChangeGeneration_Call) Return() *MockConfigChangeManager_OnConfigChangeGeneration_Call {
 	_c.Call.Return()
 	return _c
 }
 
-func (_c *MockConfigChangeManager_OnConfigChange_Call) RunAndReturn(run func(fn func(*config.Config, uint64))) *MockConfigChangeManager_OnConfigChange_Call {
+func (_c *MockConfigChangeManager_OnConfigChangeGeneration_Call) RunAndReturn(run func(fn func(*config.Config, uint64))) *MockConfigChangeManager_OnConfigChangeGeneration_Call {
 	_c.Run(run)
 	return _c
 }
