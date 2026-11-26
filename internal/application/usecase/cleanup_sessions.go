@@ -53,7 +53,6 @@ type CleanupSessionsOutput struct {
 
 type ReconcileActiveBrowserSessionsInput struct {
 	CurrentSessionID entity.SessionID
-	EndedAt          time.Time
 }
 
 type ReconcileActiveBrowserSessionsOutput struct {
@@ -64,10 +63,15 @@ type ReconcileActiveBrowserSessionsOutput struct {
 // started after its session is treated as an unrelated process reusing the PID.
 const pidReuseMargin = time.Minute
 
-// sessionProcessRunning reports whether the session's own process still holds its PID.
-// A holder that started well after the session is a reused PID or thread ID.
+// sessionProcessRunning reports whether the session's own process may still hold its PID.
+// A holder running another binary that started well after the session reuses the PID.
+// A Dumber holder is kept whatever its start time, since a wall-clock step forward
+// shifts the computed start time and must never end a live session.
 func sessionProcessRunning(s *entity.Session, status port.SessionProcessStatus) bool {
-	return status.Running && !status.StartedAt.After(s.StartedAt.Add(pidReuseMargin))
+	if !status.Running {
+		return false
+	}
+	return status.SameExecutable || !status.StartedAt.After(s.StartedAt.Add(pidReuseMargin))
 }
 
 // ReconcileActiveBrowserSessions ends every active browser session whose recorded process is gone or whose PID was reused.
@@ -80,11 +84,6 @@ func (uc *CleanupSessionsUseCase) ReconcileActiveBrowserSessions(
 	if uc.processProbe == nil {
 		return output, nil
 	}
-	endedAt := input.EndedAt
-	if endedAt.IsZero() {
-		endedAt = time.Now()
-	}
-
 	active, err := uc.sessionRepo.ListActiveBrowser(ctx)
 	if err != nil {
 		return output, err
@@ -105,7 +104,9 @@ func (uc *CleanupSessionsUseCase) ReconcileActiveBrowserSessions(
 		if sessionProcessRunning(s, status) {
 			continue
 		}
-		if err := uc.sessionRepo.MarkEnded(ctx, s.ID, endedAt); err != nil {
+		// Ending at last activity keeps long-dead sessions from outranking recent
+		// clean exits in the exited-session count cleanup.
+		if err := uc.sessionRepo.MarkEndedAtLastActivity(ctx, s.ID); err != nil {
 			return output, err
 		}
 		log.Info().Str("session_id", string(s.ID)).Int("pid", *s.ProcessID).Msg("ended dead browser session")

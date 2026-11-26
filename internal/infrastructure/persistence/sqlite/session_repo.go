@@ -106,6 +106,10 @@ func (r *sessionRepo) MarkEnded(ctx context.Context, id entity.SessionID, endedA
 	})
 }
 
+func (r *sessionRepo) MarkEndedAtLastActivity(ctx context.Context, id entity.SessionID) error {
+	return r.queries.MarkSessionEndedAtLastActivity(ctx, string(id))
+}
+
 func (r *sessionRepo) Delete(ctx context.Context, id entity.SessionID) error {
 	log := logging.FromContext(ctx)
 	log.Debug().Str("session_id", string(id)).Msg("deleting session")

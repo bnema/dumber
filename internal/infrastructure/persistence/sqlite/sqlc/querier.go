@@ -83,6 +83,8 @@ type Querier interface {
 	ListPermissionsByOrigin(ctx context.Context, origin string) ([]Permission, error)
 	ListZoomLevels(ctx context.Context) ([]ZoomLevel, error)
 	MarkSessionEnded(ctx context.Context, arg MarkSessionEndedParams) error
+	// Ends a session at its last snapshot, or its start when it never saved one.
+	MarkSessionEndedAtLastActivity(ctx context.Context, id string) error
 	RemoveFromWhitelist(ctx context.Context, domain string) error
 	RemoveTagFromFavorite(ctx context.Context, arg RemoveTagFromFavoriteParams) error
 	SearchHistory(ctx context.Context, arg SearchHistoryParams) ([]History, error)

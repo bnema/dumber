@@ -372,10 +372,9 @@ func runSessionCleanup(
 ) {
 	bgCtx := context.WithoutCancel(startupCtx)
 
-	// End only active browser sessions whose recorded process is proven dead.
+	// End active browser sessions whose process is gone or whose PID was reused.
 	staleOutput, err := cleanupUC.ReconcileActiveBrowserSessions(bgCtx, usecase.ReconcileActiveBrowserSessionsInput{
 		CurrentSessionID: currentSessionID,
-		EndedAt:          time.Now(),
 	})
 	if err != nil {
 		if log != nil {

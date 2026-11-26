@@ -160,3 +160,50 @@ func TestSessionRepository_DeleteOldestExitedKeepsNewestStartedOnEndedAtTie(t *t
 		assert.NotNil(t, kept, id)
 	}
 }
+
+func TestSessionRepository_MarkEndedAtLastActivityRanksBelowRecentCleanExit(t *testing.T) {
+	ctx := testCtx()
+	dbPath := filepath.Join(t.TempDir(), "dumber.db")
+
+	db, err := sqlite.NewConnection(ctx, dbPath)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = db.Close() })
+
+	repo := sqlite.NewSessionRepository(db)
+	states := sqlite.NewSessionStateRepository(db)
+
+	base := time.Date(2025, 12, 22, 10, 0, 0, 0, time.UTC)
+	snapshotAt := base.Add(time.Hour)
+	cleanEnd := base.Add(30 * time.Hour)
+	withSnapshot := &entity.Session{ID: "20251222_100000_snap", Type: entity.SessionTypeBrowser, StartedAt: base}
+	noSnapshot := &entity.Session{ID: "20251222_120000_none", Type: entity.SessionTypeBrowser, StartedAt: base.Add(2 * time.Hour)}
+	cleanExit := &entity.Session{ID: "20251222_130000_done", Type: entity.SessionTypeBrowser, StartedAt: base.Add(3 * time.Hour), EndedAt: &cleanEnd}
+	for _, s := range []*entity.Session{withSnapshot, noSnapshot, cleanExit} {
+		require.NoError(t, repo.Save(ctx, s))
+	}
+	require.NoError(t, states.SaveSnapshot(ctx, &entity.SessionState{
+		Version:   entity.SessionStateVersion,
+		SessionID: withSnapshot.ID,
+		SavedAt:   snapshotAt,
+	}))
+
+	require.NoError(t, repo.MarkEndedAtLastActivity(ctx, withSnapshot.ID))
+	require.NoError(t, repo.MarkEndedAtLastActivity(ctx, noSnapshot.ID))
+
+	got, err := repo.FindByID(ctx, withSnapshot.ID)
+	require.NoError(t, err)
+	require.NotNil(t, got.EndedAt)
+	assert.True(t, snapshotAt.Equal(*got.EndedAt), "ended at %s", got.EndedAt)
+
+	got, err = repo.FindByID(ctx, noSnapshot.ID)
+	require.NoError(t, err)
+	require.NotNil(t, got.EndedAt)
+	assert.True(t, noSnapshot.StartedAt.Equal(*got.EndedAt), "ended at %s", got.EndedAt)
+
+	deleted, err := repo.DeleteOldestExited(ctx, 1)
+	require.NoError(t, err)
+	assert.Equal(t, int64(2), deleted)
+	kept, err := repo.FindByID(ctx, cleanExit.ID)
+	require.NoError(t, err)
+	assert.NotNil(t, kept)
+}

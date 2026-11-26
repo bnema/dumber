@@ -613,6 +613,13 @@ func (r *LazySessionRepository) MarkEnded(ctx context.Context, id entity.Session
 	return r.repo.MarkEnded(ctx, id, endedAt)
 }
 
+func (r *LazySessionRepository) MarkEndedAtLastActivity(ctx context.Context, id entity.SessionID) error {
+	if err := r.init(ctx); err != nil {
+		return err
+	}
+	return r.repo.MarkEndedAtLastActivity(ctx, id)
+}
+
 func (r *LazySessionRepository) Delete(ctx context.Context, id entity.SessionID) error {
 	if err := r.init(ctx); err != nil {
 		return err

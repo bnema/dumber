@@ -18,6 +18,8 @@ type SessionRepository interface {
 	ListActiveBrowser(ctx context.Context) ([]*entity.Session, error)
 	GetRecent(ctx context.Context, limit int) ([]*entity.Session, error)
 	MarkEnded(ctx context.Context, id entity.SessionID, endedAt time.Time) error
+	// MarkEndedAtLastActivity ends a session at its last snapshot time, or its start time.
+	MarkEndedAtLastActivity(ctx context.Context, id entity.SessionID) error
 
 	// Delete removes a session record.
 	Delete(ctx context.Context, id entity.SessionID) error

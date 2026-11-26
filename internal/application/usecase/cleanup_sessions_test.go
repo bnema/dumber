@@ -29,7 +29,10 @@ func TestCleanupSessionsUseCase_ReconcileActiveBrowserSessions(t *testing.T) {
 		{name: "pid not held", status: port.SessionProcessStatus{}, wantEnd: true},
 		{name: "holder started before session", status: port.SessionProcessStatus{Running: true, StartedAt: sessionStart.Add(-time.Second)}, wantEnd: false},
 		{name: "holder started within reuse margin", status: port.SessionProcessStatus{Running: true, StartedAt: sessionStart.Add(30 * time.Second)}, wantEnd: false},
+		{name: "holder started exactly at reuse margin", status: port.SessionProcessStatus{Running: true, StartedAt: sessionStart.Add(time.Minute)}, wantEnd: false},
+		{name: "holder started just past reuse margin", status: port.SessionProcessStatus{Running: true, StartedAt: sessionStart.Add(time.Minute + time.Nanosecond)}, wantEnd: true},
 		{name: "holder started after session reuses pid", status: port.SessionProcessStatus{Running: true, StartedAt: sessionStart.Add(2 * time.Minute)}, wantEnd: true},
+		{name: "same executable survives clock step", status: port.SessionProcessStatus{Running: true, StartedAt: sessionStart.Add(time.Hour), SameExecutable: true}, wantEnd: false},
 		{name: "probe error keeps session", probeErr: errors.New("probe failed"), wantEnd: false},
 	}
 
@@ -50,13 +53,12 @@ func TestCleanupSessionsUseCase_ReconcileActiveBrowserSessions(t *testing.T) {
 				ProcessStatus(ctx, pid).
 				Return(tt.status, tt.probeErr)
 			if tt.wantEnd {
-				sessionRepo.EXPECT().MarkEnded(ctx, target.ID, now).Return(nil)
+				sessionRepo.EXPECT().MarkEndedAtLastActivity(ctx, target.ID).Return(nil)
 			}
 
 			uc := usecase.NewCleanupSessionsUseCase(sessionRepo, processProbe)
 			output, err := uc.ReconcileActiveBrowserSessions(ctx, usecase.ReconcileActiveBrowserSessionsInput{
 				CurrentSessionID: current.ID,
-				EndedAt:          now,
 			})
 
 			require.NoError(t, err)

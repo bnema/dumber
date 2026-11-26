@@ -7,10 +7,13 @@ import (
 
 // SessionProcessStatus describes the process or thread currently holding a PID.
 type SessionProcessStatus struct {
-	// Running is false when no live process or thread holds the PID.
+	// Running is false when no live process holds the PID; a thread ID is not a process.
 	Running bool
 	// StartedAt is when the current holder started; set only when Running.
 	StartedAt time.Time
+	// SameExecutable reports that the holder runs the same binary as the caller.
+	// It does not depend on the wall clock, unlike StartedAt.
+	SameExecutable bool
 }
 
 // SessionProcessProbe inspects the PID recorded for a browser session.

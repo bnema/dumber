@@ -9,19 +9,24 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
 	"bnema.dev/dumber/internal/application/port"
 )
 
-// userHZ is the fixed unit of /proc time fields on Linux (USER_HZ), independent of the kernel HZ.
+// userHZ is the unit of /proc time fields (USER_HZ). It is 100 on x86 and arm64,
+// independent of the kernel HZ.
 const userHZ = 100
 
 // statStartTimeIndex is the position of starttime (field 22) counted from the state field (field 3).
 const statStartTimeIndex = 22 - 3
 
-// LivenessProbe reads /proc to tell whether a PID is held and since when.
+// deletedExeSuffix marks /proc/<pid>/exe when the binary was replaced, e.g. by a package upgrade.
+const deletedExeSuffix = " (deleted)"
+
+// LivenessProbe reads /proc to tell whether a PID is held, by what, and since when.
 type LivenessProbe struct {
 	procRoot string
 }
@@ -31,9 +36,10 @@ func NewLivenessProbe() *LivenessProbe {
 	return &LivenessProbe{procRoot: "/proc"}
 }
 
-// ProcessStatus reports whether a live process or thread holds pid and when it started.
-// A missing PID or a zombie is not running. Unreadable or malformed /proc data is an
-// error so callers can keep the session rather than end it on doubt.
+// ProcessStatus reports whether a live process holds pid, when it started, and whether
+// it runs the same binary as the caller. A missing PID, a thread ID or a zombie is not
+// running. Unreadable or malformed /proc data is an error so callers can keep the
+// session rather than end it on doubt.
 func (p *LivenessProbe) ProcessStatus(ctx context.Context, pid int) (port.SessionProcessStatus, error) {
 	if err := ctx.Err(); err != nil {
 		return port.SessionProcessStatus{}, err
@@ -57,13 +63,59 @@ func (p *LivenessProbe) ProcessStatus(ctx context.Context, pid int) (port.Sessio
 	if state == 'Z' || state == 'X' {
 		return port.SessionProcessStatus{}, nil
 	}
+	leader, err := p.isThreadGroupLeader(pid)
+	if err != nil || !leader {
+		return port.SessionProcessStatus{}, err
+	}
 
 	bootTime, err := readBootTime(p.procRoot)
 	if err != nil {
 		return port.SessionProcessStatus{}, err
 	}
 	startedAt := bootTime.Add(time.Duration(startTicks) * (time.Second / userHZ))
-	return port.SessionProcessStatus{Running: true, StartedAt: startedAt}, nil
+	return port.SessionProcessStatus{
+		Running:        true,
+		StartedAt:      startedAt,
+		SameExecutable: p.sameExecutable(pid),
+	}, nil
+}
+
+// isThreadGroupLeader reports whether pid names a process rather than one of its threads.
+// /proc/<tid> resolves thread IDs too, and a session PID is always a process.
+func (p *LivenessProbe) isThreadGroupLeader(pid int) (bool, error) {
+	status, err := os.ReadFile(filepath.Join(p.procRoot, strconv.Itoa(pid), "status"))
+	if errors.Is(err, fs.ErrNotExist) || errors.Is(err, syscall.ESRCH) {
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("read process status: %w", err)
+	}
+	for line := range bytes.SplitSeq(status, []byte{'\n'}) {
+		value, ok := bytes.CutPrefix(line, []byte("Tgid:"))
+		if !ok {
+			continue
+		}
+		tgid, err := strconv.Atoi(string(bytes.TrimSpace(value)))
+		if err != nil {
+			return false, fmt.Errorf("malformed process tgid: %w", err)
+		}
+		return tgid == pid, nil
+	}
+	return false, errors.New("tgid not found in process status")
+}
+
+// sameExecutable reports whether pid runs the same binary as this process.
+// An unreadable link (another user's process, or one that exited) is not the same binary.
+func (p *LivenessProbe) sameExecutable(pid int) bool {
+	own, err := os.Readlink(filepath.Join(p.procRoot, "self", "exe"))
+	if err != nil {
+		return false
+	}
+	other, err := os.Readlink(filepath.Join(p.procRoot, strconv.Itoa(pid), "exe"))
+	if err != nil {
+		return false
+	}
+	return strings.TrimSuffix(own, deletedExeSuffix) == strings.TrimSuffix(other, deletedExeSuffix)
 }
 
 // parseProcessStat extracts the state and starttime from /proc/<pid>/stat.
