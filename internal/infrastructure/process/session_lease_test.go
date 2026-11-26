@@ -147,7 +147,7 @@ func TestFileSessionLeases_AcquireOutlastsABriefProbe(t *testing.T) {
 	assert.Equal(t, port.SessionLeaseHeld, state)
 }
 
-func TestFileSessionLeases_AcquireFailureLeavesNoFreeLease(t *testing.T) {
+func TestFileSessionLeases_AcquireLeavesAnotherOwnersLease(t *testing.T) {
 	ctx := context.Background()
 	dir := t.TempDir()
 	leases := NewFileSessionLeases(dir)
@@ -163,7 +163,24 @@ func TestFileSessionLeases_AcquireFailureLeavesNoFreeLease(t *testing.T) {
 
 	require.Error(t, err)
 	assert.Equal(t, leaseAcquireAttempts-1, waits)
-	assert.NoFileExists(t, filepath.Join(dir, string(testSessionID)+".lock"), "a failed acquire must read as missing, not free")
+	state, err := leases.Probe(ctx, testSessionID)
+	require.NoError(t, err)
+	assert.Equal(t, port.SessionLeaseHeld, state, "the live owner's lease stays")
+}
+
+func TestFileSessionLeases_AcquireErrorLeavesNoFreeLease(t *testing.T) {
+	ctx := context.Background()
+	dir := t.TempDir()
+	leases := NewFileSessionLeases(dir)
+	path := filepath.Join(dir, string(testSessionID)+".lock")
+	// A symlink at the lease path makes the O_NOFOLLOW open fail.
+	require.NoError(t, os.Symlink(filepath.Join(dir, "elsewhere"), path))
+
+	_, err := leases.Acquire(ctx, testSessionID)
+
+	require.Error(t, err)
+	_, statErr := os.Lstat(path)
+	assert.ErrorIs(t, statErr, os.ErrNotExist, "a lease we could not lock must read as missing, not free")
 }
 
 func TestFileSessionLeases_RemoveIfFree(t *testing.T) {

@@ -82,18 +82,19 @@ func (s *FileSessionLeases) Acquire(ctx context.Context, id entity.SessionID) (i
 		if err == nil && locked {
 			return &sessionLease{file: file}, nil
 		}
-		// Session IDs are unique, so only a prober holds this lock, briefly. A lease
-		// file left unlocked would read as free while this session runs: remove it
-		// so the session reads as missing and falls back to process probing.
-		if err != nil || attempt == leaseAcquireAttempts {
+		// A file we could not lock would read as free while this session runs:
+		// remove it so the session reads as missing and falls back to process probing.
+		if err != nil {
 			_ = os.Remove(path)
-			if err == nil {
-				err = errors.New("lease held by another process")
-			}
 			return nil, fmt.Errorf("lock session lease: %w", err)
 		}
+		// A prober holds a new session's lease for microseconds. A lock still held
+		// after every attempt belongs to a live owner of a colliding session ID:
+		// leave its file alone.
+		if attempt == leaseAcquireAttempts {
+			return nil, errors.New("lock session lease: held by another process")
+		}
 		if err := s.waitRetry(ctx); err != nil {
-			_ = os.Remove(path)
 			return nil, err
 		}
 	}
