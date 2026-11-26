@@ -18,7 +18,7 @@
 - **app**: Parse input, call usecase, format output. No business logic.
 - **usecase**: All business logic. Use boundaries for I/O.
 - **domain**: Pure functions only. No I/O.
-- **boundaries**: Interfaces only. Mock with `mockery generate`.
+- **boundaries**: Interfaces only. Mock with `make mocks` (pinned mockery, see `make install-mockery`).
 
 ## Anti-patterns strictly forbidden
 
