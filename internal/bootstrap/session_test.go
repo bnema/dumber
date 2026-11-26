@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"bnema.dev/dumber/internal/application/port"
 	portmocks "bnema.dev/dumber/internal/application/port/mocks"
 	"bnema.dev/dumber/internal/application/usecase"
 	"bnema.dev/dumber/internal/domain/entity"
@@ -39,7 +40,7 @@ func TestRunSessionCleanup_DoesNotEndOtherActiveBrowserSessionsWithoutLivenessPr
 	}
 
 	repo.EXPECT().ListActiveBrowser(mock.Anything).Return([]*entity.Session{current, live}, nil).Once()
-	probe.EXPECT().IsProcessAlive(mock.Anything, livePID).Return(true, nil).Once()
+	probe.EXPECT().ProcessStatus(mock.Anything, livePID).Return(port.SessionProcessStatus{Running: true, StartedAt: live.StartedAt}, nil).Once()
 	repo.EXPECT().DeleteExitedBefore(mock.Anything, mock.MatchedBy(func(time.Time) bool { return true })).Return(int64(0), nil).Once()
 	repo.EXPECT().DeleteOldestExited(mock.Anything, cfg.Session.MaxExitedSessions).Return(int64(0), nil).Once()
 

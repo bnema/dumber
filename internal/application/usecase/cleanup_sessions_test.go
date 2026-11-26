@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"bnema.dev/dumber/internal/application/port"
 	portmocks "bnema.dev/dumber/internal/application/port/mocks"
 	"bnema.dev/dumber/internal/application/usecase"
 	"bnema.dev/dumber/internal/domain/entity"
@@ -14,69 +15,58 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestCleanupSessionsUseCase_ReconcileActiveBrowserSessions_EndsOnlyProvenDeadSessions(t *testing.T) {
-	ctx := testContext()
-
-	sessionRepo := repomocks.NewMockSessionRepository(t)
-	processProbe := portmocks.NewMockSessionProcessProbe(t)
-
+func TestCleanupSessionsUseCase_ReconcileActiveBrowserSessions(t *testing.T) {
 	now := time.Date(2026, 6, 18, 20, 0, 0, 0, time.UTC)
-	livePID := 111
-	deadPID := 222
-	current := &entity.Session{ID: "current", Type: entity.SessionTypeBrowser, StartedAt: now}
-	live := &entity.Session{ID: "live", Type: entity.SessionTypeBrowser, StartedAt: now.Add(-time.Minute), ProcessID: &livePID}
-	dead := &entity.Session{ID: "dead", Type: entity.SessionTypeBrowser, StartedAt: now.Add(-2 * time.Minute), ProcessID: &deadPID}
-	unknown := &entity.Session{ID: "unknown", Type: entity.SessionTypeBrowser, StartedAt: now.Add(-3 * time.Minute)}
+	sessionStart := now.Add(-time.Hour)
+	pid := 222
 
-	sessionRepo.EXPECT().
-		ListActiveBrowser(ctx).
-		Return([]*entity.Session{current, live, dead, unknown}, nil)
-	processProbe.EXPECT().
-		IsProcessAlive(ctx, livePID).
-		Return(true, nil)
-	processProbe.EXPECT().
-		IsProcessAlive(ctx, deadPID).
-		Return(false, nil)
-	sessionRepo.EXPECT().
-		MarkEnded(ctx, dead.ID, now).
-		Return(nil)
+	tests := []struct {
+		name     string
+		status   port.SessionProcessStatus
+		probeErr error
+		wantEnd  bool
+	}{
+		{name: "pid not held", status: port.SessionProcessStatus{}, wantEnd: true},
+		{name: "holder started before session", status: port.SessionProcessStatus{Running: true, StartedAt: sessionStart.Add(-time.Second)}, wantEnd: false},
+		{name: "holder started within reuse margin", status: port.SessionProcessStatus{Running: true, StartedAt: sessionStart.Add(30 * time.Second)}, wantEnd: false},
+		{name: "holder started after session reuses pid", status: port.SessionProcessStatus{Running: true, StartedAt: sessionStart.Add(2 * time.Minute)}, wantEnd: true},
+		{name: "probe error keeps session", probeErr: errors.New("probe failed"), wantEnd: false},
+	}
 
-	uc := usecase.NewCleanupSessionsUseCase(sessionRepo, processProbe)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := testContext()
+			sessionRepo := repomocks.NewMockSessionRepository(t)
+			processProbe := portmocks.NewMockSessionProcessProbe(t)
 
-	output, err := uc.ReconcileActiveBrowserSessions(ctx, usecase.ReconcileActiveBrowserSessionsInput{
-		CurrentSessionID: current.ID,
-		EndedAt:          now,
-	})
+			current := &entity.Session{ID: "current", Type: entity.SessionTypeBrowser, StartedAt: now}
+			unknown := &entity.Session{ID: "unknown", Type: entity.SessionTypeBrowser, StartedAt: sessionStart}
+			target := &entity.Session{ID: "target", Type: entity.SessionTypeBrowser, StartedAt: sessionStart, ProcessID: &pid}
 
-	require.NoError(t, err)
-	assert.Equal(t, int64(1), output.EndedDeadSessions)
-}
+			sessionRepo.EXPECT().
+				ListActiveBrowser(ctx).
+				Return([]*entity.Session{current, unknown, nil, target}, nil)
+			processProbe.EXPECT().
+				ProcessStatus(ctx, pid).
+				Return(tt.status, tt.probeErr)
+			if tt.wantEnd {
+				sessionRepo.EXPECT().MarkEnded(ctx, target.ID, now).Return(nil)
+			}
 
-func TestCleanupSessionsUseCase_ReconcileActiveBrowserSessions_SkipsWhenProbeErrors(t *testing.T) {
-	ctx := testContext()
+			uc := usecase.NewCleanupSessionsUseCase(sessionRepo, processProbe)
+			output, err := uc.ReconcileActiveBrowserSessions(ctx, usecase.ReconcileActiveBrowserSessionsInput{
+				CurrentSessionID: current.ID,
+				EndedAt:          now,
+			})
 
-	sessionRepo := repomocks.NewMockSessionRepository(t)
-	processProbe := portmocks.NewMockSessionProcessProbe(t)
-
-	now := time.Date(2026, 6, 18, 20, 30, 0, 0, time.UTC)
-	pid := 333
-	active := &entity.Session{ID: "active", Type: entity.SessionTypeBrowser, StartedAt: now.Add(-time.Minute), ProcessID: &pid}
-
-	sessionRepo.EXPECT().
-		ListActiveBrowser(ctx).
-		Return([]*entity.Session{active}, nil)
-	processProbe.EXPECT().
-		IsProcessAlive(ctx, pid).
-		Return(false, errors.New("probe failed"))
-
-	uc := usecase.NewCleanupSessionsUseCase(sessionRepo, processProbe)
-
-	output, err := uc.ReconcileActiveBrowserSessions(ctx, usecase.ReconcileActiveBrowserSessionsInput{
-		EndedAt:     now,
-	})
-
-	require.NoError(t, err)
-	assert.Equal(t, int64(0), output.EndedDeadSessions)
+			require.NoError(t, err)
+			wantEnded := int64(0)
+			if tt.wantEnd {
+				wantEnded = 1
+			}
+			assert.Equal(t, wantEnded, output.EndedDeadSessions)
+		})
+	}
 }
 
 func TestCleanupSessionsUseCase_Execute_AgeAndCountCleanup(t *testing.T) {

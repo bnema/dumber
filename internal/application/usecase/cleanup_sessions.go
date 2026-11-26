@@ -60,7 +60,17 @@ type ReconcileActiveBrowserSessionsOutput struct {
 	EndedDeadSessions int64
 }
 
-// ReconcileActiveBrowserSessions ends every active browser session whose recorded process is proven dead.
+// pidReuseMargin absorbs clock and /proc rounding error before a PID holder that
+// started after its session is treated as an unrelated process reusing the PID.
+const pidReuseMargin = time.Minute
+
+// sessionProcessRunning reports whether the session's own process still holds its PID.
+// A holder that started well after the session is a reused PID or thread ID.
+func sessionProcessRunning(s *entity.Session, status port.SessionProcessStatus) bool {
+	return status.Running && !status.StartedAt.After(s.StartedAt.Add(pidReuseMargin))
+}
+
+// ReconcileActiveBrowserSessions ends every active browser session whose recorded process is gone or whose PID was reused.
 func (uc *CleanupSessionsUseCase) ReconcileActiveBrowserSessions(
 	ctx context.Context,
 	input ReconcileActiveBrowserSessionsInput,
@@ -87,12 +97,12 @@ func (uc *CleanupSessionsUseCase) ReconcileActiveBrowserSessions(
 			log.Debug().Str("session_id", string(s.ID)).Msg("skipping active session without process id")
 			continue
 		}
-		alive, probeErr := uc.processProbe.IsProcessAlive(ctx, *s.ProcessID)
+		status, probeErr := uc.processProbe.ProcessStatus(ctx, *s.ProcessID)
 		if probeErr != nil {
 			log.Warn().Err(probeErr).Str("session_id", string(s.ID)).Int("pid", *s.ProcessID).Msg("failed to probe session process")
 			continue
 		}
-		if alive {
+		if sessionProcessRunning(s, status) {
 			continue
 		}
 		if err := uc.sessionRepo.MarkEnded(ctx, s.ID, endedAt); err != nil {
