@@ -15,6 +15,7 @@ import (
 	"bnema.dev/dumber/internal/ui/component"
 	"bnema.dev/dumber/internal/ui/layout"
 	layoutmocks "bnema.dev/dumber/internal/ui/layout/mocks"
+	"bnema.dev/puregotk/v4/gtk"
 )
 
 // newMinimalCoordinator returns a Coordinator with the maps required by
@@ -78,6 +79,8 @@ func TestLifecycle_EnsureWebView_AcquiresFromPoolWhenExistingIsDestroyed(t *test
 
 	oldWV := mocks.NewMockWebView(t)
 	oldWV.EXPECT().IsDestroyed().Return(true)
+	// Replacing the mapping drops the old web view's gesture handler by ID.
+	oldWV.EXPECT().ID().Return(port.WebViewID(102)).Maybe()
 
 	newWV := mocks.NewMockWebView(t)
 	newWV.EXPECT().SetCallbacks(mock.Anything).Maybe()
@@ -416,6 +419,32 @@ func TestLifecycle_WrapWidget_RequestsGtkWidgetForGestureSetup(t *testing.T) {
 	c.widgetFactory = factory
 
 	assert.Same(t, widget, c.WrapWidget(context.Background(), wv))
+}
+
+func TestLifecycle_WrapWidget_RewrapSameWebViewAttachesOnce(t *testing.T) {
+	t.Parallel()
+
+	base := mocks.NewMockWebView(t)
+	base.EXPECT().ID().Return(port.WebViewID(42)).Maybe()
+	wv := &nativeWebViewStub{WebView: base, ptr: 789}
+	factory := layoutmocks.NewMockWidgetFactory(t)
+	widget := layoutmocks.NewMockWidget(t)
+	factory.EXPECT().WrapNativeWidget(uintptr(789)).Return(widget).Twice()
+	// Each wrap returns a fresh wrapper around the same native widget.
+	widget.EXPECT().GtkWidget().RunAndReturn(func() *gtk.Widget { return widgetAt(789) }).Twice()
+
+	c := newMinimalCoordinator()
+	c.widgetFactory = factory
+	stubDestroySignals(&c.gestures)
+	var created []*fakeGestureHandle
+	newHandle := newFakeHandleFactory(&created)
+	c.newGestureHandler = func(context.Context) gestureHandle { return newHandle() }
+
+	assert.Same(t, widget, c.WrapWidget(context.Background(), wv))
+	assert.Same(t, widget, c.WrapWidget(context.Background(), wv))
+
+	require.Len(t, created, 1, "rewrapping must reuse the web view's gesture handler")
+	assert.Equal(t, 1, created[0].attaches)
 }
 
 type syncViewportContextKey struct{}

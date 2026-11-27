@@ -114,6 +114,18 @@ func (h *GestureHandler) AttachTo(widget *gtk.Widget) {
 	log.Debug().Msg("gesture handler attached to widget")
 }
 
+// AttachedTo reports whether the handler's controller is currently attached
+// to the native widget behind widget. Wrappers are compared by pointer, since
+// each wrap of the same native widget yields a new *gtk.Widget.
+func (h *GestureHandler) AttachedTo(widget *gtk.Widget) bool {
+	if h == nil || widget == nil || widget.Ptr == 0 {
+		return false
+	}
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	return h.widget != nil && h.widget.Ptr == widget.Ptr
+}
+
 // handlePressed processes a mouse button press event.
 func (h *GestureHandler) handlePressed(nPress int) {
 	// Only handle single clicks for navigation

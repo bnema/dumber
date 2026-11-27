@@ -69,3 +69,17 @@ func TestGestureHandlerDetachForDestroyClearsRetainedCallbacksAndState(t *testin
 	assert.Nil(t, h.onAction)
 	assert.Nil(t, h.navigator)
 }
+
+func TestGestureHandlerAttachedToComparesNativeWidget(t *testing.T) {
+	h := NewGestureHandler(context.Background())
+	assert.False(t, h.AttachedTo(gtk.WidgetNewFromInternalPtr(0x100)))
+
+	h.widget = gtk.WidgetNewFromInternalPtr(0x100)
+
+	assert.True(t, h.AttachedTo(gtk.WidgetNewFromInternalPtr(0x100)), "a new wrapper of the same native widget matches")
+	assert.False(t, h.AttachedTo(gtk.WidgetNewFromInternalPtr(0x200)))
+	assert.False(t, h.AttachedTo(nil))
+
+	h.DetachForDestroy()
+	assert.False(t, h.AttachedTo(gtk.WidgetNewFromInternalPtr(0x100)))
+}

@@ -111,6 +111,11 @@ type Coordinator struct {
 
 	// Gesture action handler for mouse button navigation
 	gestureActionHandler input.ActionHandler
+	// One mouse gesture handler per web view; see WrapWidget.
+	gestures gestureRegistry
+	// newGestureHandler creates a web view's gesture handler; nil uses
+	// input.NewGestureHandler. Tests inject fakes here.
+	newGestureHandler func(ctx context.Context) gestureHandle
 
 	// Popup handling stays in a dedicated UI-layer manager so popup-specific
 	// pane state does not bloat the main coordinator.
@@ -409,6 +414,12 @@ func (c *Coordinator) ensureRevealMapsLocked() {
 // setWebViewLocked replaces the pane mapping and resets all reveal state in
 // one critical section. It is used by normal acquisition and popup paths.
 func (c *Coordinator) setWebViewLocked(paneID entity.PaneID, wv port.WebView) {
+	replacedID, replaced := port.WebViewID(0), false
+	defer func() {
+		if replaced {
+			c.detachGestureHandler(replacedID)
+		}
+	}()
 	c.revealMutationMu.Lock()
 	defer c.revealMutationMu.Unlock()
 	c.webViewsMu.Lock()
@@ -418,8 +429,13 @@ func (c *Coordinator) setWebViewLocked(paneID entity.PaneID, wv port.WebView) {
 	if c.webViews == nil {
 		c.webViews = make(map[entity.PaneID]port.WebView)
 	}
-	if existing := c.webViews[paneID]; existing != nil && c.webViewPaneIDs != nil {
-		delete(c.webViewPaneIDs, existing.ID())
+	if existing := c.webViews[paneID]; existing != nil {
+		existingID := existing.ID()
+		if c.webViewPaneIDs != nil {
+			delete(c.webViewPaneIDs, existingID)
+		}
+		// Re-registering the same web view keeps its gesture handler.
+		replacedID, replaced = existingID, existing != wv
 	}
 	c.webViews[paneID] = wv
 	if wv != nil && c.webViewPaneIDs != nil {
@@ -433,6 +449,12 @@ func (c *Coordinator) setWebViewLocked(paneID entity.PaneID, wv port.WebView) {
 // deleteWebViewLocked removes both the mapping and any presentation state,
 // including callers which release after another path already removed the map.
 func (c *Coordinator) deleteWebViewLocked(paneID entity.PaneID) port.WebView {
+	deletedID, deleted := port.WebViewID(0), false
+	defer func() {
+		if deleted {
+			c.detachGestureHandler(deletedID)
+		}
+	}()
 	c.revealMutationMu.Lock()
 	defer c.revealMutationMu.Unlock()
 	c.webViewsMu.Lock()
@@ -441,13 +463,24 @@ func (c *Coordinator) deleteWebViewLocked(paneID entity.PaneID) port.WebView {
 	defer c.webViewsMu.Unlock()
 	wv := c.webViews[paneID]
 	delete(c.webViews, paneID)
-	if wv != nil && c.webViewPaneIDs != nil {
-		delete(c.webViewPaneIDs, wv.ID())
+	if wv != nil {
+		deletedID, deleted = wv.ID(), true
+		if c.webViewPaneIDs != nil {
+			delete(c.webViewPaneIDs, deletedID)
+		}
 	}
 	c.ensureRevealMapsLocked()
 	delete(c.pendingReveal, paneID)
 	delete(c.revealedWebViews, paneID)
 	return wv
+}
+
+// detachGestureHandler removes the mouse gesture controller of a web view
+// that left the coordinator. It runs after the mapping locks are released.
+func (c *Coordinator) detachGestureHandler(id port.WebViewID) {
+	if h := c.gestures.remove(id); h != nil {
+		h.Detach()
+	}
 }
 
 func (c *Coordinator) paneIDByWebViewIDLocked(webViewID port.WebViewID) (entity.PaneID, bool) {

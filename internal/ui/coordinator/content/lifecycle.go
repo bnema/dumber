@@ -167,22 +167,37 @@ func (c *Coordinator) WrapWidget(ctx context.Context, wv port.WebView) layout.Wi
 
 	widget := c.widgetFactory.WrapNativeWidget(ptr)
 
-	// Attach gesture handler for mouse button 8/9 navigation
+	// Attach the web view's gesture handler for mouse button 8/9 navigation.
+	// WrapWidget runs again for the same web view (pane moves, session
+	// restore), so the handler is reused instead of stacking controllers.
 	if widget != nil {
-		gestureHandler := input.NewGestureHandler(ctx)
+		gtkWidget := widget.GtkWidget()
+		if gtkWidget == nil {
+			return widget
+		}
 		// Pass WebView directly to preserve user gesture context (like Epiphany)
-		if nav, ok := wv.(input.DirectNavigator); ok {
-			gestureHandler.SetNavigator(nav)
+		var nav input.DirectNavigator
+		if n, ok := wv.(input.DirectNavigator); ok {
+			nav = n
 		}
-		// Keep callback as fallback
-		if c.gestureActionHandler != nil {
-			gestureHandler.SetOnAction(c.gestureActionHandler)
+		// The action callback stays as fallback when there is no navigator.
+		// A reused handler keeps the context of the first wrap; callers pass
+		// the app-level context, so this does not drop request scope.
+		attached := c.gestures.bind(wv.ID(), gtkWidget, nav, c.gestureActionHandler,
+			func() gestureHandle { return c.createGestureHandler(ctx) })
+		if attached {
+			log.Debug().Uint64("webview_id", uint64(wv.ID())).Msg("gesture handler attached to webview")
 		}
-		gestureHandler.AttachTo(widget.GtkWidget())
-		log.Debug().Msg("gesture handler attached to webview with direct navigator")
 	}
 
 	return widget
+}
+
+func (c *Coordinator) createGestureHandler(ctx context.Context) gestureHandle {
+	if c.newGestureHandler != nil {
+		return c.newGestureHandler(ctx)
+	}
+	return input.NewGestureHandler(ctx)
 }
 
 // ActiveWebView returns the WebView for the active pane.
