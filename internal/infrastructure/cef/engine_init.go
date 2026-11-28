@@ -99,7 +99,6 @@ func NewEngine(
 		Str("render_backend", renderStackPlan.Backend.String()).
 		Str("angle_backend", renderStackPlan.ANGLEBackend).
 		Str("gsk_renderer", renderStackPlan.GSKRenderer).
-		Bool("external_begin_frame", externalBeginFrameEnabled()).
 		Bool("trace_handlers", cfg.TraceHandlers).
 		Bool("enable_audio_handler", cfg.EnableAudioHandler).
 		Float64("application_scale", eng.currentApplicationScale()).

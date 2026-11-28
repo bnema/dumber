@@ -90,9 +90,6 @@ func (f *WebViewFactory) Create(ctx context.Context) (port.WebView, error) {
 	// Delegate windowless/shared-texture setup to the GTK bridge.
 	windowInfo := purecef.NewWindowInfo()
 	cef2gtk.ConfigureWindowInfo(&windowInfo, cef2gtk.WindowInfoOptions{})
-	if externalBeginFrameEnabled() {
-		windowInfo.ExternalBeginFrameEnabled = 1
-	}
 
 	// Configure BrowserSettings.
 	settings := purecef.NewBrowserSettings()
@@ -311,7 +308,6 @@ func (f *WebViewFactory) postPendingBrowserCreate(ctx context.Context, wv *WebVi
 			Int32("windowless", pc.windowInfo.WindowlessRenderingEnabled).
 			Int32("windowless_frame_rate", pc.settings.WindowlessFrameRate).
 			Int32("shared_texture", pc.windowInfo.SharedTextureEnabled).
-			Int32("external_begin_frame", pc.windowInfo.ExternalBeginFrameEnabled).
 			Bool("client_nil", pc.client == nil).
 			Msg("cef: BrowserHostCreateBrowser call completed on CEF UI thread")
 	}))
@@ -387,9 +383,6 @@ func (f *WebViewFactory) CreateRelated(ctx context.Context, parentID port.WebVie
 
 	windowInfo := purecef.NewWindowInfo()
 	cef2gtk.ConfigureWindowInfo(&windowInfo, cef2gtk.WindowInfoOptions{})
-	if externalBeginFrameEnabled() {
-		windowInfo.ExternalBeginFrameEnabled = 1
-	}
 
 	settings := purecef.NewBrowserSettings()
 	cef2gtk.ConfigureBrowserSettings(&settings, cef2gtk.BrowserSettingsOptions{WindowlessFrameRate: f.windowlessFrameRate})

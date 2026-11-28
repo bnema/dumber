@@ -7,7 +7,6 @@ import (
 )
 
 const (
-	cefExternalBeginFrameEnvVar   = "DUMBER_CEF_EXTERNAL_BEGIN_FRAME"
 	cefWindowlessFrameRateEnvVar  = "DUMBER_CEF_WINDOWLESS_FRAME_RATE"
 	cefEnableWebAuthnUnsafeEnvVar = "DUMBER_CEF_ENABLE_WEBAUTHN_UNSAFE"
 	cefChromiumFlagsEnvVar        = "DUMBER_CEF_CHROMIUM_FLAGS"
@@ -27,24 +26,6 @@ func envBoolEnabled(envVar string) bool {
 		return true
 	default:
 		return false
-	}
-}
-
-// externalBeginFrameEnabled reports whether CEF produces frames on BeginFrame
-// ticks driven by the GTK frame clock instead of its own timer. It is enabled by
-// default: the embedder's frame clock is the cadence the compositor samples, so
-// asking CEF for a frame on each tick aligns production with presentation. A
-// falsy value restores CEF's internal cadence.
-//
-// This is an experimental default under observation: the tick loop requests a
-// frame on every tick regardless of the configured capture rate, and no
-// frame-timing measurement yet shows an improvement over CEF's own timer.
-func externalBeginFrameEnabled() bool {
-	switch strings.ToLower(strings.TrimSpace(os.Getenv(cefExternalBeginFrameEnvVar))) {
-	case "0", "false", "no", "off":
-		return false
-	default:
-		return true
 	}
 }
 

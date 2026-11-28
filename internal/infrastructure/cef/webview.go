@@ -15,7 +15,6 @@ import (
 
 	purecef "bnema.dev/purego-cef/cef"
 	cef2gtk "bnema.dev/purego-cef2gtk"
-	"bnema.dev/puregotk/v4/gdk"
 	"bnema.dev/puregotk/v4/glib"
 	"bnema.dev/puregotk/v4/gtk"
 
@@ -43,10 +42,6 @@ var (
 
 // errDestroyed is returned when an operation is attempted on a destroyed WebView.
 var errDestroyed = errors.New("cef: webview is destroyed")
-
-// unrefTickCallback is the canonical puregotk/purego callback-slot release.
-// It remains injectable so lifecycle tests can prove exactly-once ownership.
-var unrefTickCallback = glib.UnrefCallback
 
 // errNoBrowser is returned when the browser has not been created yet.
 var errNoBrowser = errors.New("cef: browser not yet created")
@@ -184,15 +179,6 @@ type WebView struct {
 	// a11yRequested records EnableAccessibility before the browser host exists.
 	a11yRequested atomic.Bool
 	a11yEnabled   atomic.Bool
-
-	// beginFrameTick drives CEF external BeginFrame requests while the GTK
-	// widget is visible. Access is guarded by mu.
-	beginFrameTick         *gtk.TickCallback
-	beginFrameTickID       uint
-	beginFrameKick         navigationFrameKick
-	beginFrameClock        *gdk.FrameClock
-	beginFrameFallbackID   uint
-	lastExternalBeginFrame time.Time
 
 	// pendingCreate holds browser creation params until the GL area is realized.
 	pendingCreate *pendingBrowserCreate
@@ -1214,9 +1200,6 @@ func configureNativePopupWindow(
 	frameRate int32,
 ) {
 	cef2gtk.ConfigureWindowInfo(windowInfo, cef2gtk.WindowInfoOptions{})
-	if externalBeginFrameEnabled() {
-		windowInfo.ExternalBeginFrameEnabled = 1
-	}
 	if settings == nil {
 		return
 	}
@@ -1426,7 +1409,6 @@ func (wv *WebView) Destroy() {
 	wv.cancelSelectionDebounce()
 	wv.closeAudioStream()
 	wv.scheduleStopAdaptiveFrameRatePolling()
-	wv.scheduleStopBeginFrameLoop()
 	wv.mu.RLock()
 	host := wv.host
 	wv.mu.RUnlock()
@@ -2578,105 +2560,6 @@ func (wv *WebView) reapplyCurrentZoomForBackingScale(reason string) {
 		Float64("cef_level", cefZoomFromPageZoom(pageZoom, compensation)).
 		Float64("page_zoom_compensation", compensation).
 		Msg("cef: reapplied zoom after OSR page-zoom compensation change")
-}
-
-func (wv *WebView) scheduleStartBeginFrameLoop() {
-	if !externalBeginFrameEnabled() {
-		return
-	}
-	wv.runOnGTK(func() {
-		wv.startBeginFrameLoop()
-	})
-}
-
-func (wv *WebView) scheduleStopBeginFrameLoop() {
-	wv.runOnGTK(func() {
-		wv.stopBeginFrameLoop()
-	})
-}
-
-func (wv *WebView) startBeginFrameLoop() {
-	if wv.destroyed.Load() {
-		return
-	}
-	wv.mu.RLock()
-	bridge := wv.viewBridge
-	wv.mu.RUnlock()
-	if bridge == nil {
-		return
-	}
-	widget := bridge.Widget()
-	if widget == nil {
-		return
-	}
-
-	wv.mu.Lock()
-	if wv.beginFrameTickID != 0 || wv.host == nil {
-		wv.mu.Unlock()
-		return
-	}
-
-	cb := new(gtk.TickCallback)
-	*cb = func(_, _, _ uintptr) bool {
-		if wv.destroyed.Load() {
-			wv.stopNavigationFrameKick()
-			wv.releaseBeginFrameTickCallback()
-			return false
-		}
-		wv.mu.Lock()
-		wv.beginFrameKick.lastTick = time.Now()
-		host := wv.host
-		wv.mu.Unlock()
-		if host == nil {
-			wv.stopNavigationFrameKick()
-			wv.releaseBeginFrameTickCallback()
-			return false
-		}
-		wv.refreshNavigationFrameKick()
-		wv.sendExternalBeginFrame()
-
-		return true
-	}
-	wv.beginFrameTick = cb
-	wv.mu.Unlock()
-	id := widget.AddTickCallback(cb, 0, nil)
-	wv.mu.Lock()
-	wv.beginFrameTickID = id
-	wv.mu.Unlock()
-	wv.sendExternalBeginFrame()
-}
-
-func (wv *WebView) stopBeginFrameLoop() {
-	wv.stopNavigationFrameKick()
-	wv.mu.Lock()
-	tickID := wv.beginFrameTickID
-	callback := wv.beginFrameTick
-	wv.beginFrameTickID = 0
-	wv.beginFrameTick = nil
-	bridge := wv.viewBridge
-	wv.mu.Unlock()
-
-	if tickID != 0 && bridge != nil {
-		if widget := bridge.Widget(); widget != nil {
-			widget.RemoveTickCallback(tickID)
-		}
-	}
-	if callback != nil {
-		_ = unrefTickCallback(callback)
-	}
-}
-
-// releaseBeginFrameTickCallback releases the purego callback slot after GTK
-// removes a source because its callback returned false.
-func (wv *WebView) releaseBeginFrameTickCallback() {
-	wv.mu.Lock()
-	callback := wv.beginFrameTick
-	wv.beginFrameTickID = 0
-	wv.beginFrameTick = nil
-	wv.mu.Unlock()
-	if callback != nil {
-		_ = unrefTickCallback(callback)
-	}
 }
 
 // postToGTK queues fn on the GTK main loop. It is a seam for tests.
